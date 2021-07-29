@@ -7,7 +7,7 @@ PROFILE=release
 XAPI_VERSION ?= $(shell git describe --always --dirty || echo "NO_GIT")
 MANDIR ?= $(OPTDIR)/man/man1/
 
-.PHONY: build clean test doc python format list-hd install uninstall
+.PHONY: build clean test doc python format install uninstall
 
 build:
 	XAPI_VERSION=$(XAPI_VERSION) dune build @install -j $(JOBS) --profile=$(PROFILE)
@@ -64,24 +64,16 @@ python:
 
 doc-json:
 	dune build --profile=$(PROFILE) ocaml/idl/json_backend/gen_json.exe
-	dune exec --profile=$(PROFILE) -- ocaml/idl/json_backend/gen_json.exe -destdir _build/install/default/jekyll
+	dune exec --profile=$(PROFILE) -- ocaml/idl/json_backend/gen_json.exe -destdir $(XAPIDOC)/jekyll
 
 format:
 	dune build @fmt --auto-promote
 
-list-hd:
-	LIST_HD=$$(git grep -r --count 'List.hd' -- **/*.ml | cut -d ':' -f 2 | paste -sd+ - | bc) ;\
-	echo counted $$LIST_HD usages ;\
-	test $$LIST_HD -eq 296
+.PHONY: quality-gate
+quality-gate:
+	./quality-gate.sh
 
-verify-cert:
-	@NONE=$$( git grep -r --count 'verify_cert:None' -- **/*.ml | cut -d ':' -f 2 | paste -sd+ - | bc) ;\
-	echo "counted $$NONE usages of verify_cert:None" ;\
-	test $$NONE -eq 6
-
-quality-gate: list-hd verify-cert ;
-
-install: build doc sdk
+install: build doc sdk doc-json
 	mkdir -p $(DESTDIR)$(SBINDIR)
 	mkdir -p $(DESTDIR)$(OPTDIR)/bin
 	mkdir -p $(DESTDIR)$(MANDIR)
@@ -126,9 +118,11 @@ install: build doc sdk
 	scripts/install.sh 644 ocaml/rrd2csv/man/rrd2csv.1.man $(DESTDIR)$(MANDIR)/rrd2csv.1
 # Libraries
 	dune install --profile=$(PROFILE) \
-		xapi-client xapi-database xapi-consts xapi-cli-protocol xapi-datamodel xapi-types
+		xapi-client xapi-database xapi-consts xapi-cli-protocol xapi-datamodel xapi-types \
+		xen-api-client xen-api-client-lwt xen-api-client-async
 # docs
 	mkdir -p $(DESTDIR)$(DOCDIR)
+	cp -r $(XAPIDOC)/jekyll $(DESTDIR)$(DOCDIR)
 	cp -r $(XAPIDOC)/html $(DESTDIR)$(DOCDIR)
 	cp -r $(XAPIDOC)/markdown $(DESTDIR)$(DOCDIR)
 	cp $(XAPIDOC)/*.dot $(XAPIDOC)/doc-convert.sh $(DESTDIR)$(DOCDIR)

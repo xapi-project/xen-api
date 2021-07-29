@@ -64,7 +64,7 @@ let strings_of_attributes parent atts =
   if List.length atts > 0 then
     let prefix = sprintf "<!ATTLIST %s " parent in
     let body = List.map string_of_attribute atts in
-    (prefix :: body) @ [">"]
+    prefix :: body @ [">"]
   else
     []
 
@@ -91,20 +91,24 @@ let rec strings_of_dtd_element known_els = function
                   (List.filter
                      (fun x -> x <> "" && x <> empty)
                      (name_of_dtd_element (List.hd els)
-                     :: List.map
-                          (fun x -> empty ^ name_of_dtd_element x)
-                          (List.tl els)
-                     ))
+                      ::
+                      List.map
+                        (fun x -> empty ^ name_of_dtd_element x)
+                        (List.tl els)
+                     )
+                  )
               ^ ")"
           in
           Hashtbl.remove known_els name ;
           sprintf "%s%s>" prefix body
-          :: (strings_of_attributes name attributes
-             @ List.concat
-                 (List.map
-                    (strings_of_dtd_element known_els)
-                    (List.filter is_element els))
-             )
+          ::
+          (strings_of_attributes name attributes
+          @ List.concat
+              (List.map
+                 (strings_of_dtd_element known_els)
+                 (List.filter is_element els)
+              )
+          )
       ) else
         []
 
@@ -124,7 +128,8 @@ let element known_els name children atts =
     Element
       ( name
       , List.setify children @ fst existing_children
-      , List.setify atts @ snd existing_children )
+      , List.setify atts @ snd existing_children
+      )
   in
   Hashtbl.replace known_els name el ;
   el

@@ -46,7 +46,8 @@ let create_host_metrics ~__context =
           ~live:false ~memory_total:0L ~memory_free:0L
           ~last_updated:Xapi_stdext_date.Date.never ~other_config:[] ;
         Db.Host.set_metrics ~__context ~self ~value:r
-      ))
+      )
+      )
     (Db.Host.get_all ~__context)
 
 let update_env () =
@@ -71,7 +72,8 @@ let update_env () =
          	  been set on the pool record before we run it [otherwise we
          	  try and sync config files from the old master if someone's
          	  done a pool.designate_new_master!] *)
-      if not (Pool_role.is_master ()) then resync_dom0_config_files ())
+      if not (Pool_role.is_master ()) then resync_dom0_config_files ()
+  )
 
 let setup () =
   try update_env ()

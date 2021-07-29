@@ -165,7 +165,8 @@ let handle req bio method_name tag (method_name, request_func) =
       | exn ->
           warn "WLB %s request failed: %s" method_name
             (ExnHelper.string_of_exn exn) ;
-          raise (Api_errors.Server_error (Api_errors.internal_error, [])))
+          raise (Api_errors.Server_error (Api_errors.internal_error, []))
+  )
 
 (* GET /wlb_report?session_id=<session>&task_id=<task>&
                    report=<report name>&<param1>=<value1>&...

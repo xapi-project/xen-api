@@ -27,7 +27,8 @@ let check_for_unplugged_pbds ~__context ~alert =
   let unplugged =
     my_pbds
     |> List.filter (fun (_, pbd_record) ->
-           not pbd_record.API.pBD_currently_attached)
+           not pbd_record.API.pBD_currently_attached
+       )
     |> List.map fst
   in
   if unplugged = [] then
@@ -59,7 +60,8 @@ let plug_unplugged_pbds __context =
             (Printexc.to_string e)
       | e ->
           error "Could not plug in pbd '%s': %s" pbd_record.API.pBD_uuid
-            (Printexc.to_string e))
+            (Printexc.to_string e)
+      )
     my_pbds ;
   Xapi_host_helpers.consider_enabling_host ~__context
 
@@ -79,9 +81,7 @@ let maybe_create_pbd rpc session_id sr device_config me =
   let pbds =
     if List.length pbds > 1 then (
       (* shouldn't happen... delete all but first pbd to make db consistent again *)
-      List.iter
-        (fun pbd -> Client.PBD.destroy rpc session_id pbd)
-        (List.tl pbds) ;
+      List.iter (fun pbd -> Client.PBD.destroy rpc session_id pbd) (List.tl pbds) ;
       [List.hd pbds]
     ) else
       pbds
@@ -106,7 +106,8 @@ let maybe_remove_tools_sr rpc session_id __context =
         Db.SR.get_is_tools_sr ~__context ~self = false
         && (List.mem_assoc Xapi_globs.tools_sr_tag other_config
            || List.mem_assoc Xapi_globs.xensource_internal other_config
-           ))
+           )
+        )
       srs
   in
   let unplug_and_maybe_destroy sr =
@@ -139,7 +140,8 @@ let initialise_storage (me : API.ref_host) rpc session_id __context : unit =
       List.filter
         (fun (_, sr_rec) ->
           sr_rec.API.sR_shared
-          && (!Xapi_globs.create_tools_sr || not sr_rec.API.sR_is_tools_sr))
+          && (!Xapi_globs.create_tools_sr || not sr_rec.API.sR_is_tools_sr)
+          )
         srs
     in
     let shared_sr_refs = List.map fst shared_srs in
@@ -187,4 +189,5 @@ let initialise_storage (me : API.ref_host) rpc session_id __context : unit =
 let initialise_storage_localhost rpc session_id : unit =
   Server_helpers.exec_with_new_task "initialising storage" (fun context ->
       let me = Helpers.get_localhost ~__context:context in
-      initialise_storage me rpc session_id context)
+      initialise_storage me rpc session_id context
+  )

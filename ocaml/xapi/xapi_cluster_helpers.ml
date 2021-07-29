@@ -34,7 +34,8 @@ let report_concurrent_operations_error ~current_ops ~ref_str =
   in
   Some
     ( Api_errors.other_operation_in_progress
-    , ["Cluster." ^ current_ops_str; ref_str] )
+    , ["Cluster." ^ current_ops_str; ref_str]
+    )
 
 (** Take an internal Cluster record and a proposed operation. Return None iff the operation
     would be acceptable; otherwise Some (Api_errors.<something>, [list of strings])
@@ -59,7 +60,8 @@ let get_operation_error ~__context ~self ~op =
         | _ :: _ when not (is_allowed_concurrently ~op ~current_ops) ->
             report_concurrent_operations_error ~current_ops ~ref_str
         | _ ->
-            check (assert_allowed_during_rpu __context op) (fun () -> None))
+            check (assert_allowed_during_rpu __context op) (fun () -> None)
+    )
   in
   current_error
 
@@ -90,7 +92,8 @@ let with_cluster_operation ~__context ~(self : [`Cluster] API.Ref.t) ~doc ~op
       assert_operation_valid ~__context ~self ~op ;
       Db.Cluster.add_to_current_operations ~__context ~self ~key:task_id
         ~value:op ;
-      update_allowed_operations ~__context ~self) ;
+      update_allowed_operations ~__context ~self
+  ) ;
   (* Then do the action with the lock released *)
   finally f (* Make sure to clean up at the end *) (fun () ->
       try
@@ -98,4 +101,123 @@ let with_cluster_operation ~__context ~(self : [`Cluster] API.Ref.t) ~doc ~op
         update_allowed_operations ~__context ~self ;
         Helpers.Early_wakeup.broadcast
           (Datamodel_common._cluster, Ref.string_of self)
-      with _ -> ())
+      with _ -> ()
+  )
+
+module Pem = struct
+  open Helpers
+  open Cluster_interface
+  module Client = Client.Client
+
+  let init' cn = {cn; blobs= [Gencertlib.Selfcert.xapi_cluster ~cn]}
+
+  let init ~__context ~cn =
+    if unit_test ~__context then
+      None
+    else
+      Some (init' cn)
+
+  let get_existing' ~__context self =
+    let cc_of_cluster_host h =
+      call_api_functions ~__context @@ fun rpc session_id ->
+      Client.Cluster_host.get_cluster_config rpc session_id h
+      |> SecretString.json_rpc_of_t
+      |> Rpcmarshal.unmarshal cluster_config.Rpc.Types.ty
+      |> function
+      | Ok x ->
+          x
+      | Error e ->
+          raise
+            Api_errors.(
+              Server_error (internal_error, ["bad response from cluster host"])
+            )
+    in
+    if unit_test ~__context then
+      `unittest
+    else
+      let hs = Db.Cluster.get_cluster_hosts ~__context ~self in
+      let enabled_hs =
+        List.filter
+          (fun self -> Db.Cluster_host.get_enabled ~__context ~self)
+          hs
+      in
+      match (hs, enabled_hs) with
+      | [], _ ->
+          `no_cluster_hosts
+      | _, [] ->
+          `all_disabled
+      | _, h :: _ ->
+          if enabled_hs = hs then
+            `all_enabled (h, cc_of_cluster_host h)
+          else
+            `not_all_enabled (h, cc_of_cluster_host h)
+
+  let get_existing ~__context self =
+    (* try to get existing pem, though this might not be possible for example if
+     * every cluster host has been disabled
+     *
+     * create a new pem if we are the first cluster host *)
+    let gen () =
+      D.debug "Pem.get_existing: generating new" ;
+      let cn = Db.Cluster.get_uuid ~__context ~self in
+      Some (init' cn)
+    in
+    match get_existing' ~__context self with
+    | `unittest ->
+        None
+    | `all_disabled ->
+        D.debug "Pem.get_existing: all existing cluster hosts disabled" ;
+        gen ()
+    | `no_cluster_hosts ->
+        D.debug "Pem.get_existing: there are no existing cluster hosts" ;
+        gen ()
+    | `all_enabled (_, cc) | `not_all_enabled (_, cc) -> (
+      match cc.pems with
+      | None ->
+          (* this is not a problem unless tls verification is enabled! *)
+          D.debug "Pem.get_existing: existing cluster does not have a pem" ;
+          None
+      | Some p ->
+          D.debug "Pem.get_existing: found existing pem!" ;
+          Some p
+    )
+
+  let maybe_write_new ~__context self =
+    let write h =
+      let cn = Db.Cluster.get_uuid ~__context ~self in
+      let p = init' cn in
+      let p_encoded =
+        Rpcmarshal.marshal pems.Rpc.Types.ty p
+        |> Jsonrpc.to_string
+        |> SecretString.of_string
+      in
+      call_api_functions ~__context @@ fun rpc session_id ->
+      Client.Cluster_host.write_pems rpc session_id h p_encoded
+    in
+    match get_existing' ~__context self with
+    | `unittest ->
+        ()
+    | `all_disabled | `not_all_enabled _ ->
+        D.error "Pem.maybe_write_new: all cluster hosts must be enabled" ;
+        raise
+          Api_errors.(
+            Server_error (internal_error, ["all cluster hosts must be enabled"])
+          )
+    | `no_cluster_hosts ->
+        D.info
+          "Pem.maybe_write_new: nothing to do because there are no cluster \
+           hosts"
+    | `all_enabled (h, cc) -> (
+      match cc.pems with
+      | Some _ ->
+          D.info "Pem.maybe_write_new: pem already exists, so not overwriting"
+      | None ->
+          D.info
+            "Pem.maybe_write_new: cluster '%s' has no existing pem, attempting \
+             to write a new one"
+            (Ref.short_string_of self) ;
+          write h ;
+          D.info "Pem.maybe_write_new: successfully written on cluster '%s'"
+            (Ref.short_string_of self)
+    )
+end

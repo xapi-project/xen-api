@@ -33,7 +33,8 @@ let k100 =
           ; vdev_id= 0x0fe7
           ; vsubdev_id= 0x101e
           ; sriov= false
-          })
+          }
+      )
   ; experimental= false
   ; compatible_model_names_in_vm= []
   ; compatible_model_names_on_pgpu= ["GRID K100"]
@@ -58,7 +59,8 @@ let k140q =
           ; vdev_id= 0x0ff7
           ; vsubdev_id= 0x1037
           ; sriov= false
-          })
+          }
+      )
   ; experimental= false
   ; compatible_model_names_in_vm= []
   ; compatible_model_names_on_pgpu= ["GRID K140Q"]
@@ -83,7 +85,8 @@ let k200 =
           ; vdev_id= 0x118d
           ; vsubdev_id= 0x101d
           ; sriov= false
-          })
+          }
+      )
   ; experimental= false
   ; compatible_model_names_in_vm= []
   ; compatible_model_names_on_pgpu= ["GRID K200"]
@@ -108,7 +111,8 @@ let k240q =
           ; vdev_id= 0x11b0
           ; vsubdev_id= 0x101a
           ; sriov= false
-          })
+          }
+      )
   ; experimental= false
   ; compatible_model_names_in_vm= []
   ; compatible_model_names_on_pgpu= ["GRID K240Q"]
@@ -133,7 +137,8 @@ let k260q =
           ; vdev_id= 0x11b0
           ; vsubdev_id= 0x101b
           ; sriov= false
-          })
+          }
+      )
   ; experimental= false
   ; compatible_model_names_in_vm= []
   ; compatible_model_names_on_pgpu= ["GRID K260Q"]
@@ -160,7 +165,8 @@ let gvt_g_041a =
       ]
   ; identifier=
       Identifier.(
-        GVT_g {pdev_id= 0x041a; low_gm_sz= 128L; high_gm_sz= 384L; fence_sz= 4L})
+        GVT_g {pdev_id= 0x041a; low_gm_sz= 128L; high_gm_sz= 384L; fence_sz= 4L}
+      )
   ; experimental= false
   ; compatible_model_names_in_vm= []
   ; compatible_model_names_on_pgpu= []
@@ -254,13 +260,15 @@ let make_pgpu ~__context ?address ?(host = Ref.null) ?(gPU_group = Ref.null)
       let (_ : API.ref_VGPU) =
         make_vgpu ~__context ~resident_on:pgpu_ref vgpu_type
       in
-      ())
+      ()
+      )
     pgpu.resident_VGPU_types ;
   List.iter
     (fun vgpu_type ->
       let (_ : API.ref_VGPU) =
         make_vgpu ~__context ~scheduled_to_be_resident_on:pgpu_ref vgpu_type
       in
-      ())
+      ()
+      )
     pgpu.scheduled_VGPU_types ;
   pgpu_ref

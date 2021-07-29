@@ -27,7 +27,8 @@ let sync_host ~__context host =
         and host_has_storage =
           not
             (List.mem_assoc Xapi_globs.host_no_local_storage
-               (Db.Host.get_other_config ~__context ~self:host))
+               (Db.Host.get_other_config ~__context ~self:host)
+            )
         in
         if (not localhost) && host_has_storage then (
           let address = Db.Host.get_address ~__context ~self:host in
@@ -82,9 +83,11 @@ let sync_host ~__context host =
           error
             "Unexpected failure synchronising blobs to host %s; log='%s'; \
              output='%s'"
-            (Ref.string_of host) log output)
+            (Ref.string_of host) log output
+  )
 
 let do_sync () =
   Server_helpers.exec_with_new_task "blob sync" (fun __context ->
       let hosts = Db.Host.get_all ~__context in
-      List.iter (sync_host ~__context) hosts)
+      List.iter (sync_host ~__context) hosts
+  )

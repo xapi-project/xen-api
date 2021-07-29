@@ -48,7 +48,9 @@ let ensure_no_vms ~__context ~rpc ~session_id ~evacuate_timeout =
            let name = Db.VM.get_name_label ~__context ~self in
            debug "Canceling operation on VM %s" name ;
            log_and_ignore_exn (fun () ->
-               Client.Task.cancel ~rpc ~session_id ~task))
+               Client.Task.cancel ~rpc ~session_id ~task
+           )
+       )
   in
   let evacuate () =
     TaskHelper.exn_if_cancelling ~__context ;
@@ -60,7 +62,9 @@ let ensure_no_vms ~__context ~rpc ~session_id ~evacuate_timeout =
       else
         estimate_evacuate_timeout ~__context ~host
     in
-    let tasks = [Client.Async.Host.evacuate ~rpc ~session_id ~host] in
+    let tasks =
+      [Client.Async.Host.evacuate ~rpc ~session_id ~host ~network:Ref.null]
+    in
     if not (Tasks.with_tasks_destroy ~rpc ~session_id ~timeout ~tasks) then
       get_running_domains () |> List.iter cancel_vm_tasks
   in
@@ -71,13 +75,15 @@ let ensure_no_vms ~__context ~rpc ~session_id ~evacuate_timeout =
       vms
       |> List.filter (fun vm ->
              List.mem `clean_shutdown
-               (Client.VM.get_allowed_operations ~rpc ~session_id ~self:vm))
+               (Client.VM.get_allowed_operations ~rpc ~session_id ~self:vm)
+         )
       |> List.map (fun vm ->
              let name_label =
                Client.VM.get_name_label ~rpc ~session_id ~self:vm
              in
              debug "Requesting clean shutdown of VM: %s" name_label ;
-             Client.Async.VM.clean_shutdown ~rpc ~session_id ~vm)
+             Client.Async.VM.clean_shutdown ~rpc ~session_id ~vm
+         )
     in
     Tasks.with_tasks_destroy ~rpc ~session_id ~timeout:60. ~tasks |> ignore
   in
@@ -91,7 +97,8 @@ let ensure_no_vms ~__context ~rpc ~session_id ~evacuate_timeout =
                Client.VM.get_name_label ~rpc ~session_id ~self:vm
              in
              debug "Requesting hard shutdown of VM: %s" name_label ;
-             Client.Async.VM.hard_shutdown ~rpc ~session_id ~vm)
+             Client.Async.VM.hard_shutdown ~rpc ~session_id ~vm
+         )
     in
     (* no timeout: we need the VMs to be off *)
     Tasks.wait_for_all ~rpc ~session_id ~tasks ;
@@ -101,7 +108,8 @@ let ensure_no_vms ~__context ~rpc ~session_id ~evacuate_timeout =
            let name_label =
              Client.VM.get_name_label ~rpc ~session_id ~self:vm
            in
-           info "Failure performing hard shutdown of VM: %s" name_label)
+           info "Failure performing hard shutdown of VM: %s" name_label
+       )
   in
   let shutdown vms =
     log_and_ignore_exn (fun () -> clean_shutdown vms) ;
@@ -109,7 +117,8 @@ let ensure_no_vms ~__context ~rpc ~session_id ~evacuate_timeout =
        * it is running or paused, i.e. "live" *)
     vms
     |> List.filter (fun self ->
-           Xapi_vm_lifecycle_helpers.is_live ~__context ~self)
+           Xapi_vm_lifecycle_helpers.is_live ~__context ~self
+       )
     |> hard_shutdown
   in
   log_and_ignore_exn (fun () ->
@@ -118,9 +127,11 @@ let ensure_no_vms ~__context ~rpc ~session_id ~evacuate_timeout =
              if self_managed_poweroff vm then
                None
              else
-               Some vm)
+               Some vm
+         )
       |> shutdown ;
-      evacuate ()) ;
+      evacuate ()
+  ) ;
   log_and_ignore_exn (fun () -> get_running_domains () |> shutdown) ;
   (* The driver domains shouldn't be in use at this point, so we should be able to
    * shut them down *)
@@ -132,7 +143,8 @@ let ensure_no_vms ~__context ~rpc ~session_id ~evacuate_timeout =
          | None ->
              None (* Dom0 and unused driver domains would end up here *)
          | Some pbd ->
-             Some (pbd, vm))
+             Some (pbd, vm)
+     )
   |> List.split
   |> fun (pbds, vms) ->
   List.iter (fun pbd -> Xapi_pbd.unplug ~__context ~self:pbd) pbds ;
@@ -140,4 +152,5 @@ let ensure_no_vms ~__context ~rpc ~session_id ~evacuate_timeout =
 
 let ensure_no_vms ~__context ~evacuate_timeout =
   Helpers.call_api_functions ~__context (fun rpc session_id ->
-      ensure_no_vms ~__context ~rpc ~session_id ~evacuate_timeout)
+      ensure_no_vms ~__context ~rpc ~session_id ~evacuate_timeout
+  )

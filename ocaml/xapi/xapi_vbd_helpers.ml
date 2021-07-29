@@ -62,7 +62,8 @@ let valid_operations ~expensive_sharing_checks ~__context record _ref' : table =
     List.iter
       (fun op ->
         if Hashtbl.find table op = None then
-          Hashtbl.replace table op (Some (code, params)))
+          Hashtbl.replace table op (Some (code, params))
+        )
       ops
   in
   let vm = Db.VBD.get_VM ~__context ~self:_ref' in
@@ -144,7 +145,8 @@ let valid_operations ~expensive_sharing_checks ~__context record _ref' : table =
           ^ Record_util.vm_operation_to_string op
         in
         set_errors Api_errors.operation_not_allowed [current_op_str]
-          [`plug; `unplug])
+          [`plug; `unplug]
+      )
     vm_current_ops ;
   (* HVM guests MAY support plug/unplug IF they have PV drivers. Assume
    * all drivers have such support unless they specify that they do not. *)
@@ -240,8 +242,10 @@ let valid_operations ~expensive_sharing_checks ~__context record _ref' : table =
         List.concat
           (List.map
              (fun self ->
-               try [Db.VBD.get_record_internal ~__context ~self] with _ -> [])
-             vbds)
+               try [Db.VBD.get_record_internal ~__context ~self] with _ -> []
+               )
+             vbds
+          )
       in
       let pointing_to_a_suspended_VM vbd =
         Db.VM.get_power_state ~__context ~self:vbd.Db_actions.vBD_VM
@@ -261,7 +265,8 @@ let valid_operations ~expensive_sharing_checks ~__context record _ref' : table =
             && (self.Db_actions.vBD_currently_attached
                || self.Db_actions.vBD_reserved
                || self.Db_actions.vBD_current_operations <> []
-               ))
+               )
+            )
           vbd_records
       in
       let someones_got_rw_access =
@@ -298,7 +303,9 @@ let throw_error (table : table) op =
              Printf.sprintf
                "xapi_vbd_helpers.assert_operation_valid unknown operation: %s"
                (vbd_operation_to_string op)
-           ] )) ;
+           ]
+         )
+      ) ;
   match Hashtbl.find table op with
   | Some (code, params) ->
       raise (Api_errors.Server_error (code, params))
@@ -336,7 +343,8 @@ let assert_doesnt_make_vm_non_agile ~__context ~vm ~vdi =
       (Ref.string_of vm) ;
     raise
       (Api_errors.Server_error
-         (Api_errors.ha_operation_would_break_failover_plan, []))
+         (Api_errors.ha_operation_would_break_failover_plan, [])
+      )
   )
 
 let update_allowed_operations ~__context ~self : unit =
@@ -414,7 +422,9 @@ let destroy ~__context ~self =
              Printf.sprintf "VBD '%s' still attached to '%s'"
                r.Db_actions.vBD_uuid
                (Db.VM.get_uuid __context vm)
-           ] )) ;
+           ]
+         )
+      ) ;
   let metrics = Db.VBD.get_metrics ~__context ~self in
   (* Don't let a failure to destroy the metrics stop us *)
   Helpers.log_exn_continue "VBD_metrics.destroy"

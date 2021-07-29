@@ -16,6 +16,7 @@ open Xapi_clustering
 
 module D = Debug.Make (struct let name = "xapi_cluster" end)
 
+module Gencert = Gencertlib.Selfcert
 open D
 
 (* TODO: update allowed_operations on boot/toolstack-restart *)
@@ -53,12 +54,14 @@ let create ~__context ~pIF ~cluster_stack ~pool_auto_join ~token_timeout
       let token_timeout_coefficient_ms =
         Int64.of_float (token_timeout_coefficient *. 1000.0)
       in
+      let pems = Xapi_cluster_helpers.Pem.init ~__context ~cn:cluster_uuid in
       let init_config =
         {
           Cluster_interface.local_ip= ip
         ; token_timeout_ms= Some token_timeout_ms
         ; token_coefficient_ms= Some token_timeout_coefficient_ms
         ; name= None
+        ; pems
         }
       in
       Xapi_clustering.Daemon.enable ~__context ;
@@ -84,8 +87,11 @@ let create ~__context ~pIF ~cluster_stack ~pool_auto_join ~token_timeout
           set_ha_cluster_stack ~__context ;
           cluster_ref
       | Error error ->
-          D.warn "Error occurred during Cluster.create" ;
-          handle_error error)
+          D.warn
+            "Error occurred during Cluster.create. Shutting down cluster daemon" ;
+          Xapi_clustering.Daemon.disable ~__context ;
+          handle_error error
+  )
 
 let destroy ~__context ~self =
   let cluster_hosts = Db.Cluster.get_cluster_hosts ~__context ~self in
@@ -100,13 +106,15 @@ let destroy ~__context ~self =
         let n = List.length cluster_hosts in
         raise
           Api_errors.(
-            Server_error (cluster_does_not_have_one_node, [string_of_int n]))
+            Server_error (cluster_does_not_have_one_node, [string_of_int n])
+          )
   in
   Option.iter
     (fun ch ->
       assert_cluster_host_has_no_attached_sr_which_requires_cluster_stack
         ~__context ~self:ch ;
-      Xapi_cluster_host.force_destroy ~__context ~self:ch)
+      Xapi_cluster_host.force_destroy ~__context ~self:ch
+      )
     cluster_host ;
   Db.Cluster.destroy ~__context ~self ;
   D.debug "Cluster destroyed successfully" ;
@@ -119,40 +127,19 @@ let get_network ~__context ~self = get_network_internal ~__context ~self
 (** Cluster.pool* functions are convenience wrappers for iterating low-level APIs over a pool.
     Concurrency checks are done in the implementation of these calls *)
 
-let pool_create ~__context ~network ~cluster_stack ~token_timeout
-    ~token_timeout_coefficient =
-  validate_params ~token_timeout ~token_timeout_coefficient ;
-  let master = Helpers.get_master ~__context in
-  let slave_hosts = Xapi_pool_helpers.get_slaves_list ~__context in
-  let pIF, _ = pif_of_host ~__context network master in
-  let cluster =
-    Helpers.call_api_functions ~__context (fun rpc session_id ->
-        Client.Client.Cluster.create ~rpc ~session_id ~pIF ~cluster_stack
-          ~pool_auto_join:true ~token_timeout ~token_timeout_coefficient)
-  in
-  List.iter
-    (fun host ->
-      (* Cluster.create already created cluster_host on master, so we only iterate through slaves *)
-      Helpers.call_api_functions ~__context (fun rpc session_id ->
-          let pif, _ = pif_of_host ~__context network host in
-          let cluster_host_ref =
-            Client.Client.Cluster_host.create ~rpc ~session_id ~cluster ~host
-              ~pif
-          in
-          D.debug "Created Cluster_host: %s" (Ref.string_of cluster_host_ref)))
-    slave_hosts ;
-  cluster
-
 let foreach_cluster_host ~__context ~self
     ~(fn :
           rpc:(Rpc.call -> Rpc.response)
        -> session_id:API.ref_session
        -> self:API.ref_Cluster_host
-       -> unit) ~log =
+       -> unit
+       ) ~log =
   let wrapper = if log then log_and_ignore_exn else fun f -> f () in
   List.iter (fun self ->
       Helpers.call_api_functions ~__context (fun rpc session_id ->
-          wrapper (fun () -> fn rpc session_id self)))
+          wrapper (fun () -> fn rpc session_id self)
+      )
+  )
 
 let pool_destroy_common ~__context ~self ~force =
   (* Prevent new hosts from joining if destroy fails *)
@@ -198,19 +185,61 @@ let pool_force_destroy ~__context ~self =
          cluster %s"
         (Ref.string_of self) ;
       Helpers.call_api_functions ~__context (fun rpc session_id ->
-          Client.Client.Cluster.destroy ~rpc ~session_id ~self) ;
+          Client.Client.Cluster.destroy ~rpc ~session_id ~self
+      ) ;
       debug "Cluster.pool_force_destroy was successful"
   | _ ->
       raise
         Api_errors.(
-          Server_error (cluster_force_destroy_failed, [Ref.string_of self]))
+          Server_error (cluster_force_destroy_failed, [Ref.string_of self])
+        )
 
 let pool_destroy ~__context ~self =
   (* Set pool_autojoin:false and try to destroy slave cluster_hosts *)
   pool_destroy_common ~__context ~self ~force:false ;
   (* Then destroy the Cluster_host of the pool master and the Cluster itself *)
   Helpers.call_api_functions ~__context (fun rpc session_id ->
-      Client.Client.Cluster.destroy ~rpc ~session_id ~self)
+      Client.Client.Cluster.destroy ~rpc ~session_id ~self
+  )
+
+let pool_create ~__context ~network ~cluster_stack ~token_timeout
+    ~token_timeout_coefficient =
+  validate_params ~token_timeout ~token_timeout_coefficient ;
+  let master = Helpers.get_master ~__context in
+  let slave_hosts = Xapi_pool_helpers.get_slaves_list ~__context in
+  let pIF, _ = pif_of_host ~__context network master in
+  let cluster =
+    Helpers.call_api_functions ~__context (fun rpc session_id ->
+        Client.Client.Cluster.create ~rpc ~session_id ~pIF ~cluster_stack
+          ~pool_auto_join:true ~token_timeout ~token_timeout_coefficient
+    )
+  in
+  try
+    List.iter
+      (fun host ->
+        (* Cluster.create already created cluster_host on master, so we only iterate through slaves *)
+        Helpers.call_api_functions ~__context (fun rpc session_id ->
+            let pif, _ = pif_of_host ~__context network host in
+            let cluster_host_ref =
+              Client.Client.Cluster_host.create ~rpc ~session_id ~cluster ~host
+                ~pif
+            in
+            D.debug "Created Cluster_host: %s" (Ref.string_of cluster_host_ref)
+        )
+        )
+      slave_hosts ;
+    cluster
+  with e ->
+    error "pool_create failed. exception='%s'" (Printexc.to_string e) ;
+    info "pool_create attempting cleanup of cluster=%s"
+      (Ref.short_string_of cluster) ;
+    ( try pool_force_destroy ~__context ~self:cluster
+      with e ->
+        error "pool_create attempt to clean up cluster=%s failed. ex='%s'"
+          (Ref.short_string_of cluster)
+          (Printexc.to_string e)
+    ) ;
+    raise e
 
 let pool_resync ~__context ~(self : API.ref_Cluster) =
   List.iter
@@ -221,7 +250,10 @@ let pool_resync ~__context ~(self : API.ref_Cluster) =
           if is_clustering_disabled_on_host ~__context host then
             raise
               Api_errors.(
-                Server_error (no_compatible_cluster_host, [Ref.string_of host]))
+                Server_error (no_compatible_cluster_host, [Ref.string_of host])
+              )
           (* If host.clustering_enabled then resync_host should successfully
-             find or create a matching cluster_host which is also enabled *)))
+             find or create a matching cluster_host which is also enabled *)
+      )
+      )
     (Xapi_pool_helpers.get_master_slaves_list ~__context)

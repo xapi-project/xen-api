@@ -69,7 +69,8 @@ let make_xen_livepatch_list () =
         | [key; "APPLIED"] ->
             key :: acc
         | _ ->
-            acc)
+            acc
+        )
       [] lines
   in
   if List.length patches > 0 then Some (String.concat ", " patches) else None
@@ -267,7 +268,8 @@ and ensure_domain_zero_metrics_record ~__context ~domain_zero_ref
   if
     not
       (Db.is_valid_ref __context
-         (Db.VM.get_metrics ~__context ~self:domain_zero_ref))
+         (Db.VM.get_metrics ~__context ~self:domain_zero_ref)
+      )
   then (
     debug
       "Domain 0 record does not have associated metrics record. Creating now" ;
@@ -282,8 +284,8 @@ and ensure_domain_zero_metrics_record ~__context ~domain_zero_ref
     update_domain_zero_metrics_record ~__context ~domain_zero_ref
   )
 
-and create_domain_zero_record ~__context ~domain_zero_ref
-    (host_info : host_info) : unit =
+and create_domain_zero_record ~__context ~domain_zero_ref (host_info : host_info)
+    : unit =
   (* Determine domain 0 memory constraints. *)
   let memory = create_domain_zero_memory_constraints host_info in
   (* Determine information about the host machine. *)
@@ -326,7 +328,8 @@ and create_domain_zero_record ~__context ~domain_zero_ref
     ~start_delay:0L ~shutdown_delay:0L ~order:0L ~suspend_SR:Ref.null
     ~version:0L ~generation_id:"" ~hardware_platform_version:0L
     ~has_vendor_device:false ~requires_reboot:false ~reference_label:""
-    ~domain_type:Xapi_globs.domain_zero_domain_type ~nVRAM:[] ;
+    ~domain_type:Xapi_globs.domain_zero_domain_type ~nVRAM:[]
+    ~pending_guidances:[] ;
   ensure_domain_zero_metrics_record ~__context ~domain_zero_ref host_info ;
   Db.Host.set_control_domain ~__context ~self:localhost ~value:domain_zero_ref ;
   Xapi_vm_helpers.update_memory_overhead ~__context ~vm:domain_zero_ref
@@ -382,8 +385,8 @@ and create_domain_zero_metrics_record ~__context ~domain_zero_metrics_ref
     ~last_updated:Date.never ~other_config:[] ~hvm:false ~nomigrate:false
     ~nested_virt:false ~current_domain_type:Xapi_globs.domain_zero_domain_type
 
-and update_domain_zero_record ~__context ~domain_zero_ref
-    (host_info : host_info) : unit =
+and update_domain_zero_record ~__context ~domain_zero_ref (host_info : host_info)
+    : unit =
   (* Write the updated memory constraints to the database, if the VM is not
      	   marked as requiring reboot. *)
   let constraints_in_db =
@@ -571,10 +574,12 @@ let make_software_version ~__context host_info =
     ; ("xencenter_min", Xapi_globs.xencenter_min_verstring)
     ; ("xencenter_max", Xapi_globs.xencenter_max_verstring)
     ; ( "network_backend"
-      , Network_interface.string_of_kind (Net.Bridge.get_kind dbg ()) )
+      , Network_interface.string_of_kind (Net.Bridge.get_kind dbg ())
+      )
     ; ( Xapi_globs._db_schema
       , Printf.sprintf "%d.%d" Datamodel_common.schema_major_vsn
-          Datamodel_common.schema_minor_vsn )
+          Datamodel_common.schema_minor_vsn
+      )
     ]
   @ option_to_list "oem_manufacturer" host_info.oem_manufacturer
   @ option_to_list "oem_model" host_info.oem_model
@@ -612,15 +617,20 @@ let create_host_cpu ~__context host_info =
         ; (* To support VMs migrated from hosts which do not support CPU levelling v2,
              		   set the "features" key to what it would be on such hosts. *)
           ( "features"
-          , Cpuid_helpers.string_of_features cpu_info.features_oldstyle )
+          , Cpuid_helpers.string_of_features cpu_info.features_oldstyle
+          )
         ; ( Xapi_globs.cpu_info_features_pv_key
-          , Cpuid_helpers.string_of_features cpu_info.features_pv )
+          , Cpuid_helpers.string_of_features cpu_info.features_pv
+          )
         ; ( Xapi_globs.cpu_info_features_hvm_key
-          , Cpuid_helpers.string_of_features cpu_info.features_hvm )
+          , Cpuid_helpers.string_of_features cpu_info.features_hvm
+          )
         ; ( Xapi_globs.cpu_info_features_hvm_host_key
-          , Cpuid_helpers.string_of_features cpu_info.features_hvm_host )
+          , Cpuid_helpers.string_of_features cpu_info.features_hvm_host
+          )
         ; ( Xapi_globs.cpu_info_features_pv_host_key
-          , Cpuid_helpers.string_of_features cpu_info.features_pv_host )
+          , Cpuid_helpers.string_of_features cpu_info.features_pv_host
+          )
         ]
       in
       let host = Helpers.get_localhost ~__context in
@@ -659,7 +669,9 @@ let create_host_cpu ~__context host_info =
           Helpers.call_api_functions ~__context (fun rpc session_id ->
               ignore
                 (XenAPI.Message.create rpc session_id name priority `Host
-                   obj_uuid body))
+                   obj_uuid body
+                )
+          )
       ) ;
 
       (* Recreate all Host_cpu objects *)
@@ -685,7 +697,8 @@ let create_host_cpu ~__context host_info =
              ~number:(Int64.of_int i) ~vendor:cpu_info.vendor ~speed
              ~modelname:cpu_info.modelname ~utilisation:0. ~flags:cpu_info.flags
              ~stepping:cpu_info.stepping ~model ~family ~features:""
-             ~other_config:[])
+             ~other_config:[]
+          )
       done
 
 let create_pool_cpuinfo ~__context =
@@ -708,27 +721,30 @@ let create_pool_cpuinfo ~__context =
       |> setf socket_count (getf socket_count host + getf socket_count pool)
       |> setf features_pv
            (Cpuid_helpers.intersect (getf features_pv host)
-              (getf features_pv pool))
+              (getf features_pv pool)
+           )
       |> setf features_pv_host
            (Cpuid_helpers.intersect
               (getfdefault ~defaultf:features_pv features_pv_host host)
-              (getfdefault ~defaultf:features_pv features_pv_host pool))
+              (getfdefault ~defaultf:features_pv features_pv_host pool)
+           )
       |> fun pool' ->
       if Helpers.host_supports_hvm ~__context hostref then
         pool'
         |> setf features_hvm
              (Cpuid_helpers.intersect (getf features_hvm host)
-                (getf features_hvm pool))
+                (getf features_hvm pool)
+             )
         |> setf features_hvm_host
              (Cpuid_helpers.intersect
                 (getfdefault ~defaultf:features_hvm features_hvm_host host)
-                (getfdefault ~defaultf:features_hvm features_hvm_host pool))
+                (getfdefault ~defaultf:features_hvm features_hvm_host pool)
+             )
       else
         pool'
     with Not_found ->
       (* pre-Dundee? *)
-      warn "Host %s is missing required `features*` keys"
-        (Ref.string_of hostref) ;
+      warn "Host %s is missing required `features*` keys" (Ref.string_of hostref) ;
       pool
   in
   let zero =
@@ -783,7 +799,9 @@ let create_pool_cpuinfo ~__context =
       Helpers.call_api_functions ~__context (fun rpc session_id ->
           ignore
             (XenAPI.Message.create rpc session_id name priority `Pool obj_uuid
-               body))
+               body
+            )
+      )
   )
 
 let create_chipset_info ~__context host_info =
@@ -808,7 +826,8 @@ let create_updates_requiring_reboot_info ~__context ~host =
         try Db.Pool_update.get_by_uuid ~__context ~uuid :: acc
         with _ ->
           warn "Invalid Pool_update UUID [%s]" uuid ;
-          acc)
+          acc
+        )
       [] update_uuids
   in
   Db.Host.set_updates_requiring_reboot ~__context ~self:host ~value:updates

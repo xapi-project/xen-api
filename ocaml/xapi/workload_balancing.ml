@@ -40,7 +40,8 @@ let raise_url_invalid url =
 let raise_malformed_response' meth reason response =
   raise
     (Api_errors.Server_error
-       (Api_errors.wlb_malformed_response, [meth; reason; response]))
+       (Api_errors.wlb_malformed_response, [meth; reason; response])
+    )
 
 let raise_malformed_response meth reason response =
   raise_malformed_response' meth reason (Xml.to_string response)
@@ -164,7 +165,8 @@ let rec descend_and_match tag_names xml =
            "Method descend_and_match failed. Found leaf node with tag%s, but \
             expected path to continue with: %s->%s"
            hd_tag hd_tag
-           (String.concat "->" tag_names))
+           (String.concat "->" tag_names)
+        )
         xml
   | hd_tag :: tail, Xml.Element (_, _, xml_elements) -> (
     try
@@ -174,7 +176,8 @@ let rec descend_and_match tag_names xml =
     with Not_found ->
       raise
         (Xml_parse_failure
-           (sprintf "Descend_and_match failed. Node %s not found." hd_tag))
+           (sprintf "Descend_and_match failed. Node %s not found." hd_tag)
+        )
   )
   | _, Xml.PCData _ ->
       (* This should never happen as a leaf node is detected in an earlier match and returned *)
@@ -217,7 +220,8 @@ let wlb_request host meth body encoded_auth =
   let headers =
     [
       ( "SOAPAction"
-      , sprintf "\"http://schemas.citrix.com/DWM/IWorkloadBalance/%s\"" meth )
+      , sprintf "\"http://schemas.citrix.com/DWM/IWorkloadBalance/%s\"" meth
+      )
     ; ("Content-Type", "text/xml; charset=utf-8")
     ; ("Authorization", "Basic " ^ encoded_auth)
     ; ("Host", host)
@@ -232,7 +236,8 @@ let filtered_headers headers =
       if String.startswith "Authorization:" s then
         "Authorization: Basic <password>"
       else
-        s)
+        s
+      )
     headers
 
 let encoded_auth un pw = Base64.encode_string (Printf.sprintf "%s:%s" un pw)
@@ -257,7 +262,8 @@ let parse_result_code meth xml_data response initial_error enable_log =
            "After failing to retrieve valid response, an error codecould not \
             be found. Some data is missing or corrupt.\n\
             Attempt retrieve valid response: (%s)\n\
-            Attempt to retrieve error code: (%s)" initial_error error)
+            Attempt to retrieve error code: (%s)" initial_error error
+        )
         ( if enable_log then
             response
         else
@@ -314,7 +320,8 @@ let wlb_request ~__context ~host ~port ~auth ~meth ~params ~handler ~enable_log
   if enable_log then
     debug "%s\n%s"
       (String.concat "\n"
-         (filtered_headers (Http.Request.to_header_list request)))
+         (filtered_headers (Http.Request.to_header_list request))
+      )
       body ;
   try
     Remote_requests.perform_request ~__context ~timeout ~verify_cert ~host ~port
@@ -385,7 +392,8 @@ let perform_wlb_request ?auth ?url ?enable_log ~meth ~params ~handle_response
            try handle_response inner_xml
            with Xml_parse_failure error ->
              parse_result_code meth inner_xml (Xml.to_string response) error
-               enable_log)
+               enable_log
+        )
   in
   wlb_request ~__context ~host ~port ~auth:auth' ~meth ~params
     ~timeout_key:Xapi_globs.wlb_timeout
@@ -434,7 +442,8 @@ let retrieve_vm_recommendations ~__context ~vm =
                 (Printf.sprintf
                    "Recommendation has both a non-zero score (%f) and a reason \
                     for zero (%s)"
-                   score reason)
+                   score reason
+                )
                 place_recommendation
         in
         (host, recommendation)
@@ -451,8 +460,7 @@ let retrieve_vm_recommendations ~__context ~vm =
     match recs with
     | Xml.Element (_, _, (_ :: _ as children)) ->
         if
-          List.length children
-          <> List.length (Helpers.get_live_hosts ~__context)
+          List.length children <> List.length (Helpers.get_live_hosts ~__context)
         then
           raise_malformed_response meth
             "List of returned reccomendations is not equal to the number of \
@@ -480,14 +488,17 @@ let init_wlb ~__context ~wlb_url ~wlb_username ~wlb_password ~xenserver_username
          (let address_type =
             Record_util.primary_address_type_of_string
               (Xapi_inventory.lookup Xapi_inventory._management_address_type
-                 ~default:"ipv4")
+                 ~default:"ipv4"
+              )
           in
           let master_address = Db.Host.get_address ~__context ~self:master in
           if address_type = `IPv4 then
             sprintf "http://%s:80/" master_address
           else
             (*This is an ipv6 address, put [] around the address so that WLB can properly parse the url*)
-            sprintf "http://[%s]:80/" master_address))
+            sprintf "http://[%s]:80/" master_address
+         )
+      )
   in
   let handle_response inner_xml =
     (*A succesful result has an ID inside the addxenserverresult *)
@@ -502,12 +513,14 @@ let init_wlb ~__context ~wlb_url ~wlb_username ~wlb_password ~xenserver_username
         Db.Pool.set_wlb_password ~__context ~self:pool ~value:wlb_secret_ref ;
         Db.Pool.set_wlb_url ~__context ~self:pool ~value:wlb_url ;
         Xapi_stdext_pervasives.Pervasiveext.ignore_exn (fun _ ->
-            Db.Secret.destroy ~__context ~self:old_secret_ref)
+            Db.Secret.destroy ~__context ~self:old_secret_ref
+        )
   in
   Locking_helpers.Named_mutex.execute request_mutex
     (perform_wlb_request ~enable_log:false ~meth:"AddXenServer" ~params
        ~auth:(encoded_auth wlb_username wlb_password)
-       ~url:wlb_url ~handle_response ~__context)
+       ~url:wlb_url ~handle_response ~__context
+    )
 
 let decon_wlb ~__context =
   let clear_wlb_config ~__context ~pool =
@@ -534,7 +547,8 @@ let decon_wlb ~__context =
     try
       Locking_helpers.Named_mutex.execute request_mutex
         (perform_wlb_request ~meth:"RemoveXenServer" ~params ~handle_response
-           ~__context)
+           ~__context
+        )
     with
     (*Based on CA-60147,CA-93312 and CA-137044 - XAPI is designed to handle the error *)
     | _ ->
@@ -585,7 +599,8 @@ let retrieve_wlb_config ~__context =
       match key_value_parents with
       | (Xml.Element (_, _, _) as key_value_parent) :: tl ->
           ( data_from_leaf (descend_and_match ["Key"] key_value_parent)
-          , data_from_leaf (descend_and_match ["Value"] key_value_parent) )
+          , data_from_leaf (descend_and_match ["Value"] key_value_parent)
+          )
           :: gen_map tl
       | Xml.PCData _ :: tl ->
           unexpected_data "GetXenPoolConfiguration" "Configuration" inner_xml
@@ -620,7 +635,8 @@ let get_opt_recommendations ~__context =
                   (key, data_from_leaf leaf)
               | Xml.PCData _ ->
                   unexpected_data "GetOptimizationRecommendations"
-                    "PoolOptimizationRecommendation" inner_xml)
+                    "PoolOptimizationRecommendation" inner_xml
+              )
             kvalues
           :: gen_map tl
       | Xml.PCData _ :: tl ->
@@ -635,7 +651,8 @@ let get_opt_recommendations ~__context =
       match descend_and_match ["Recommendations"] inner_xml with
       | Xml.Element (_, _, children) ->
           ( gen_map children
-          , data_from_leaf (descend_and_match ["OptimizationId"] inner_xml) )
+          , data_from_leaf (descend_and_match ["OptimizationId"] inner_xml)
+          )
       | _ ->
           debug "IS CHILDLESS" ;
           assert false
@@ -672,7 +689,8 @@ let get_opt_recommendations ~__context =
             ; float_or_raise opt_id'
             ; float_or_raise rec_id'
             ; reason'
-            ] )
+            ]
+          )
       | None, Some hostfrom', _, Some reason', Some rec_id', opt_id' ->
           ( get_dom0_vm ~__context hostfrom'
           , [
@@ -681,7 +699,8 @@ let get_opt_recommendations ~__context =
             ; float_or_raise opt_id'
             ; float_or_raise rec_id'
             ; reason'
-            ] )
+            ]
+          )
       | _ ->
           raise_malformed_response' "GetOptimizationRecommendations"
             "Missing VmToMoveUuid, RecID, MoveToHostUuid, or Reason" "unknown"
@@ -713,7 +732,8 @@ let get_evacuation_recoms ~__context ~uuid =
                   (key, data_from_leaf leaf)
               | Xml.PCData _ ->
                   unexpected_data "HostGetRecommendations"
-                    "HostEvacuationRecommendation" inner_xml)
+                    "HostEvacuationRecommendation" inner_xml
+              )
             kvalues
           :: gen_map tl
       | Xml.PCData _ :: tl ->
@@ -775,7 +795,8 @@ let make_param = function
         , [
             Xml.Element ("ParameterName", [], [Xml.PCData n])
           ; Xml.Element ("ParameterValue", [], [Xml.PCData v])
-          ] )
+          ]
+        )
 
 let wlb_context_request meth params ~__context ~handler =
   assert_wlb_licensed ~__context ;
@@ -790,8 +811,7 @@ let wlb_report_request report params =
   let meth = "ExecuteReport" in
   let p =
     Xml.to_string (Xml.Element ("ReportName", [], [Xml.PCData report]))
-    ^ Xml.to_string
-        (Xml.Element ("ReportParms", [], List.map make_param params))
+    ^ Xml.to_string (Xml.Element ("ReportParms", [], List.map make_param params))
   in
   debug "%s" p ;
   (meth, wlb_context_request meth p)

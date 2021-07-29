@@ -200,7 +200,7 @@ let make_host2 ~__context ?(ref = Ref.make ()) ?(uuid = make_uuid ())
     ~power_on_config:[] ~local_cache_sr ~ssl_legacy ~guest_VCPUs_params:[]
     ~display:`enabled ~virtual_hardware_platform_versions:[]
     ~control_domain:Ref.null ~updates_requiring_reboot:[] ~iscsi_iqn:""
-    ~multipathing:false ~uefi_certificates:"" ~editions:[] ;
+    ~multipathing:false ~uefi_certificates:"" ~editions:[] ~pending_guidances:[] ;
   ref
 
 let make_pif ~__context ~network ~host ?(device = "eth0")
@@ -276,7 +276,7 @@ let make_pool ~__context ~master ?(name_label = "") ?(name_description = "")
     ?(ha_cluster_stack = !Xapi_globs.cluster_stack_default)
     ?(guest_agent_config = []) ?(cpu_info = [])
     ?(policy_no_vendor_device = false) ?(live_patching_disabled = false)
-    ?(uefi_certificates = "") () =
+    ?(uefi_certificates = "") ?(repositories = []) () =
   let pool_ref = Ref.make () in
   Db.Pool.create ~__context ~ref:pool_ref ~uuid:(make_uuid ()) ~name_label
     ~name_description ~master ~default_SR ~suspend_image_SR ~crash_dump_SR
@@ -288,7 +288,7 @@ let make_pool ~__context ~master ?(name_label = "") ?(name_description = "")
     ~allowed_operations ~restrictions ~other_config ~ha_cluster_stack
     ~guest_agent_config ~cpu_info ~policy_no_vendor_device
     ~live_patching_disabled ~uefi_certificates ~is_psr_pending:false
-    ~tls_verification_enabled:false ;
+    ~tls_verification_enabled:false ~repositories ;
   pool_ref
 
 let default_sm_features =
@@ -480,7 +480,9 @@ let make_pool_update ~__context ?(ref = Ref.make ()) ?(uuid = make_uuid ())
       ; after_apply_guidance
       ; enforce_homogeneity
       }
+    
   in
+
   Xapi_pool_update.create_update_record ~__context ~update:ref ~update_info ~vdi ;
   ref
 

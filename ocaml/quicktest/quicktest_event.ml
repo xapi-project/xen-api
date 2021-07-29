@@ -18,9 +18,11 @@ let event_next_unblocking_test rpc session_id () =
             print_endline
               (Printf.sprintf
                  "background thread caught: %s (an exception is expected)"
-                 (Printexc.to_string e))
+                 (Printexc.to_string e)
+              )
         ) ;
-        Mutex.execute m (fun () -> unblocked := true))
+        Mutex.execute m (fun () -> unblocked := true)
+        )
       ()
   in
   (* Background thread is started but it cannot simultaneously block and signal us to
@@ -53,8 +55,10 @@ let event_next_test rpc session_id () =
           if List.mem_assoc key oc && List.assoc key oc = "1" then
             Mutex.execute m (fun () ->
                 print_endline "got expected event" ;
-                finished := true)
-        done)
+                finished := true
+            )
+        done
+        )
       ()
   in
   Thread.delay 1. ;
@@ -90,7 +94,8 @@ let event_from_test rpc session_id () =
     Thread.create
       (fun () ->
         wait_for_pool_key rpc session_id key ;
-        Mutex.execute m (fun () -> finished := true))
+        Mutex.execute m (fun () -> finished := true)
+        )
       ()
   in
   Thread.delay 1. ;
@@ -116,7 +121,8 @@ let event_from_parallel_test rpc session_id () =
           (* good *)
         with e ->
           print_endline (Printexc.to_string e) ;
-          ok := false)
+          ok := false
+        )
       ()
   in
   let (interfering_thread : Thread.t) =
@@ -163,14 +169,18 @@ let object_level_event_test rpc session_id () =
               if event.Event_types.reference <> Ref.string_of vm_a then (
                 print_endline
                   (Printf.sprintf "event on %s which we aren't watching"
-                     event.reference) ;
+                     event.reference
+                  ) ;
                 Mutex.execute m (fun () ->
                     reported_failure := true ;
                     finished := true ;
                     Alcotest.fail
                       (Printf.sprintf "got unexpected event (new token = %s)"
-                         !token))
-              ))
+                         !token
+                      )
+                )
+              )
+              )
             events.events ;
           token := events.token ;
           let oc = Client.Client.VM.get_other_config rpc session_id vm_a in
@@ -178,8 +188,10 @@ let object_level_event_test rpc session_id () =
             Mutex.execute m (fun () ->
                 print_endline
                   (Printf.sprintf "got expected event (new token = %s)" !token) ;
-                finished := true)
-        done)
+                finished := true
+            )
+        done
+        )
       ()
   in
   Thread.delay 1. ;
@@ -193,7 +205,8 @@ let object_level_event_test rpc session_id () =
         Alcotest.(check bool)
           "failed to see object-level event change" true !finished
       else
-        Alcotest.fail "test failed")
+        Alcotest.fail "test failed"
+  )
 
 let event_message_test rpc session_id () =
   print_endline "Message creation event test" ;
@@ -219,13 +232,17 @@ let event_message_test rpc session_id () =
     (Printf.sprintf "Got some events: %d %s"
        (List.length events.events)
        (String.concat ","
-          (List.map (fun ev -> ev.Event_types.reference) events.events))) ;
+          (List.map (fun ev -> ev.Event_types.reference) events.events)
+       )
+    ) ;
   Alcotest.(check bool)
     "Failed to receive an event with the message" true
     (List.exists
        (fun ev ->
-         ev.Event_types.reference = Ref.string_of message && ev.op = `add)
-       events.events) ;
+         ev.Event_types.reference = Ref.string_of message && ev.op = `add
+         )
+       events.events
+    ) ;
   print_endline "Message deletion event test" ;
   print_endline "Destroying message" ;
   Client.Client.Message.destroy rpc session_id message ;
@@ -238,8 +255,10 @@ let event_message_test rpc session_id () =
     "Failed to receive a delete event" true
     (List.exists
        (fun ev ->
-         ev.Event_types.reference = Ref.string_of message && ev.op = `del)
-       events.events) ;
+         ev.Event_types.reference = Ref.string_of message && ev.op = `del
+         )
+       events.events
+    ) ;
   print_endline "Message deletion from cache test" ;
   let events =
     Client.Client.Event.from rpc session_id ["message"] "" 1.0
@@ -250,8 +269,10 @@ let event_message_test rpc session_id () =
     "Got told about a deleted message" false
     (List.exists
        (fun ev ->
-         ev.Event_types.reference = Ref.string_of message && ev.op <> `del)
-       events.events) ;
+         ev.Event_types.reference = Ref.string_of message && ev.op <> `del
+         )
+       events.events
+    ) ;
   print_endline "Multi message test" ;
   let message1 =
     Client.Client.Message.create ~rpc ~session_id ~name:"test" ~priority:1L ~cls
@@ -280,40 +301,50 @@ let event_message_test rpc session_id () =
   List.iter
     (fun ev ->
       print_endline
-        (Printf.sprintf "events1: ev.ref=%s" ev.Event_types.reference))
+        (Printf.sprintf "events1: ev.ref=%s" ev.Event_types.reference)
+      )
     events.events ;
   List.iter
     (fun ev ->
       print_endline
-        (Printf.sprintf "events2: ev.ref=%s" ev.Event_types.reference))
+        (Printf.sprintf "events2: ev.ref=%s" ev.Event_types.reference)
+      )
     events2.events ;
   let ok1 =
     List.exists
       (fun ev ->
-        ev.Event_types.reference = Ref.string_of message1 && ev.op = `add)
+        ev.Event_types.reference = Ref.string_of message1 && ev.op = `add
+        )
       events.events
     && List.exists
          (fun ev ->
-           ev.Event_types.reference = Ref.string_of message2 && ev.op = `add)
+           ev.Event_types.reference = Ref.string_of message2 && ev.op = `add
+           )
          events.events
   in
   let ok2 =
     List.exists
       (fun ev ->
-        ev.Event_types.reference = Ref.string_of message3 && ev.op = `add)
+        ev.Event_types.reference = Ref.string_of message3 && ev.op = `add
+        )
       events2.events
   in
   let ok3 =
     (not
        (List.exists
           (fun ev ->
-            ev.Event_types.reference = Ref.string_of message1 && ev.op = `add)
-          events2.events))
+            ev.Event_types.reference = Ref.string_of message1 && ev.op = `add
+            )
+          events2.events
+       )
+    )
     && not
          (List.exists
             (fun ev ->
-              ev.Event_types.reference = Ref.string_of message2 && ev.op = `add)
-            events2.events)
+              ev.Event_types.reference = Ref.string_of message2 && ev.op = `add
+              )
+            events2.events
+         )
   in
   Alcotest.(check bool)
     (Printf.sprintf "Multi message test: ok1=%b ok2=%b ok3=%b" ok1 ok2 ok3)
@@ -321,7 +352,8 @@ let event_message_test rpc session_id () =
     (ok1 && ok2 && ok3) ;
   print_endline
     (Printf.sprintf "Finding messages for object: %s"
-       (Client.Client.Pool.get_uuid rpc session_id pool)) ;
+       (Client.Client.Pool.get_uuid rpc session_id pool)
+    ) ;
   let messages =
     Client.Client.Message.get ~rpc ~session_id ~cls ~obj_uuid
       ~since:Xapi_stdext_date.Date.never
@@ -343,12 +375,14 @@ let event_inject_test rpc session_id () =
     Thread.create
       (fun () ->
         let _ = Client.Client.Event.from rpc session_id ["pool"] token 5.0 in
-        ())
+        ()
+        )
       ()
   in
   ignore
     (Client.Client.Event.inject ~rpc ~session_id ~_class:"pool"
-       ~_ref:(Ref.string_of pool)) ;
+       ~_ref:(Ref.string_of pool)
+    ) ;
   Thread.join x ;
   let endtime = Unix.gettimeofday () in
   Alcotest.(check bool)
@@ -369,7 +403,8 @@ let event_from_number_test rpc session_id () =
         if StringSet.mem reference set then
           (set, true)
         else
-          (StringSet.add reference set, failed))
+          (StringSet.add reference set, failed)
+        )
       (StringSet.empty, false) events.events
   in
   Alcotest.(check bool) "Object seen twice in events" false f

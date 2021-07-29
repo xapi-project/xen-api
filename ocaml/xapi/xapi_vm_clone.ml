@@ -29,7 +29,8 @@ let delete_disks rpc session_id disks =
       if on_error_delete then
         try Client.VDI.destroy rpc session_id vdi with _ -> ()
       else
-        debug "Not destroying CD VDI: %s" (Ref.string_of vdi))
+        debug "Not destroying CD VDI: %s" (Ref.string_of vdi)
+      )
     disks
 
 let wait_for_subtask ?progress_minmax ~__context task =
@@ -50,13 +51,15 @@ let wait_for_subtask ?progress_minmax ~__context task =
         let myprogress =
           Option.map
             (fun (min, max) ->
-              min +. ((max -. min) *. task_rec.API.task_progress))
+              min +. ((max -. min) *. task_rec.API.task_progress)
+              )
             progress_minmax
         in
         Option.iter
           (fun value ->
             Db_actions.DB_Action.Task.set_progress ~__context ~self:main_task
-              ~value)
+              ~value
+            )
           myprogress ;
         (* See if it has finished *)
         match task_rec.API.task_status with
@@ -68,7 +71,8 @@ let wait_for_subtask ?progress_minmax ~__context task =
             in
             raise
               Api_errors.(
-                Server_error (task_cancelled, [Ref.string_of task_id]))
+                Server_error (task_cancelled, [Ref.string_of task_id])
+              )
         | `failure -> (
           match task_rec.API.task_error_info with
           | code :: params ->
@@ -118,7 +122,8 @@ let wait_for_subtask ?progress_minmax ~__context task =
       done ;
       debug "Finished listening for events relating to tasks %s and %s"
         (Ref.string_of task) (Ref.string_of main_task) ;
-      Db_actions.DB_Action.Task.get_result ~__context ~self:task)
+      Db_actions.DB_Action.Task.get_result ~__context ~self:task
+  )
 
 let wait_for_clone ?progress_minmax ~__context task =
   let result = wait_for_subtask ?progress_minmax ~__context task in
@@ -126,7 +131,8 @@ let wait_for_clone ?progress_minmax ~__context task =
   with parse_error ->
     raise
       Api_errors.(
-        Server_error (field_type_error, [Printexc.to_string parse_error]))
+        Server_error (field_type_error, [Printexc.to_string parse_error])
+      )
 
 (* Clone code is parameterised over this so it can be shared with copy *)
 type disk_op_t =
@@ -157,7 +163,8 @@ let clone_single_vdi ?progress rpc session_id disk_op ~__context vdi
         let endprogress =
           Int64.to_float (Int64.add done_so_far size) /. total
         in
-        (startprogress, endprogress))
+        (startprogress, endprogress)
+        )
       progress
   in
   let vdi_ref = wait_for_clone ?progress_minmax ~__context task in
@@ -175,8 +182,10 @@ let safe_clone_disks rpc session_id disk_op ~__context vbds driver_params =
         try
           ( vbd
           , Db.VDI.get_virtual_size ~__context
-              ~self:(Db.VBD.get_VDI ~__context ~self:vbd) )
-        with _ -> (vbd, 0L))
+              ~self:(Db.VBD.get_VDI ~__context ~self:vbd)
+          )
+        with _ -> (vbd, 0L)
+        )
       vbds
   in
   let total =
@@ -198,7 +207,8 @@ let safe_clone_disks rpc session_id disk_op ~__context vbds driver_params =
         else
           ( clone_single_vdi ~progress:(done_so_far, size, total) rpc session_id
               disk_op ~__context vbd_r.API.vBD_VDI driver_params
-          , true )
+          , true
+          )
         (* do delete newly created VDI *)
       in
       ((vbd, newvdi, on_error_delete) :: acc, Int64.add done_so_far size)
@@ -284,7 +294,8 @@ let copy_vm_record ?snapshot_info_record ~__context ~vm ~disk_op ~new_name
     List.filter
       (fun (k, v) ->
         k <> Xapi_globs.default_template_key
-        && k <> Xapi_globs.xensource_internal)
+        && k <> Xapi_globs.xensource_internal
+        )
       other_config
   in
   (* Preserve the name_label of the base template in other_config. *)
@@ -380,7 +391,8 @@ let copy_vm_record ?snapshot_info_record ~__context ~vm ~disk_op ~new_name
     ~hardware_platform_version:all.Db_actions.vM_hardware_platform_version
     ~has_vendor_device:all.Db_actions.vM_has_vendor_device
     ~requires_reboot:false ~reference_label:all.Db_actions.vM_reference_label
-    ~domain_type:all.Db_actions.vM_domain_type ~nVRAM:all.Db_actions.vM_NVRAM ;
+    ~domain_type:all.Db_actions.vM_domain_type ~nVRAM:all.Db_actions.vM_NVRAM
+    ~pending_guidances:[] ;
   (* update the VM's parent field in case of snapshot. Note this must be done after "ref"
      	   has been created, so that its "children" field can be updated by the database layer *)
   ( match disk_op with
@@ -454,14 +466,16 @@ let clone ?snapshot_info_record disk_op ~__context ~vm ~new_name =
                 in
                 if not (List.mem_assoc Constants.owner_key other_config) then
                   Db.VBD.add_to_other_config ~__context ~self:vbd
-                    ~key:Constants.owner_key ~value:"")
+                    ~key:Constants.owner_key ~value:""
+              )
             cloned_disks ;
           (* copy VIFs *)
           let (_ : [`VIF] Ref.t list) =
             List.map
               (fun vif ->
                 Xapi_vif_helpers.copy ~__context ~vm:ref
-                  ~preserve_mac_address:is_a_snapshot vif)
+                  ~preserve_mac_address:is_a_snapshot vif
+                )
               vifs
           in
           (* copy VGPUs *)
@@ -479,7 +493,8 @@ let clone ?snapshot_info_record disk_op ~__context ~vm ~new_name =
                   original
                 else
                   clone_single_vdi rpc session_id disk_op ~__context original
-                    driver_params)
+                    driver_params
+            )
           in
           Db.VM.set_suspend_VDI ~__context ~self:ref ~value:suspend_VDI ;
           if not is_a_snapshot then
@@ -493,4 +508,5 @@ let clone ?snapshot_info_record disk_op ~__context ~vm ~new_name =
           raise e
       with e ->
         delete_disks rpc session_id cloned_disks ;
-        raise e)
+        raise e
+  )

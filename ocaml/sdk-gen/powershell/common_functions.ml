@@ -167,6 +167,9 @@ and exposed_type = function
       "long[]"
   | Set String ->
       "string[]"
+  | Set (Set String) ->
+      (* TODO: implement this new type correctly *)
+      "string[]"
   | Enum (name, _) ->
       name
   | Map (u, v) ->

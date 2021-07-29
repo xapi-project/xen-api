@@ -40,7 +40,8 @@ let format_good datestring = (("host", date_of datestring), ("host", None))
 let _format (datestring, ppf, alert) =
   let fmt = Scanf.format_from_string ppf "%s" in
   ( ("host", date_of datestring)
-  , ("host", Some (Printf.sprintf fmt datestring, alert)) )
+  , ("host", Some (Printf.sprintf fmt datestring, alert))
+  )
 
 let format_expiring (datestring, days, alert) =
   let ppf =
@@ -57,12 +58,25 @@ let format_expired datestring =
   _format (datestring, ppf, Api_messages.host_server_certificate_expired)
 
 let certificate_samples =
-  List.map format_good good_samples
-  @ List.map format_expiring expiring_samples
-  @ List.map format_expired expired_samples
+  List.concat
+    [
+      List.map format_good good_samples
+    ; List.map format_expiring expiring_samples
+    ; List.map format_expired expired_samples
+    ]
+
+let gen check_time (host, datetime) =
+  let cert = Host (Ref.null, datetime) in
+  match generate_alert check_time cert with
+  | CA _, x ->
+      ("pool", x)
+  | Host _, x ->
+      ("host", x)
+  | Internal _, x ->
+      ("internal", x)
 
 let test_alerts (server_certificates, expected) () =
-  let result = generate_alert check_time server_certificates in
+  let result = gen check_time server_certificates in
   Alcotest.(check @@ pair string @@ option @@ pair string @@ pair string int64)
     "certificate_expiry" expected result
 
@@ -71,5 +85,7 @@ let test =
     (fun i spec ->
       ( Printf.sprintf "Test certificate checks as run daily #%d" i
       , `Quick
-      , test_alerts spec ))
+      , test_alerts spec
+      )
+      )
     certificate_samples

@@ -16,6 +16,8 @@ type t = string [@@deriving rpc]
 
 let of_string s = s
 
+let json_rpc_of_t s = Jsonrpc.of_string ~strict:true s
+
 let _pool_secret = "pool_secret"
 
 let with_cookie t request =

@@ -47,7 +47,8 @@ let set_is_system_domain ~__context ~self ~value =
     (Printf.sprintf "set_is_system_domain self = %s" (Ref.string_of self))
     (fun () ->
       Db.VM.remove_from_other_config ~__context ~self ~key:system_domain_key ;
-      Db.VM.add_to_other_config ~__context ~self ~key:system_domain_key ~value)
+      Db.VM.add_to_other_config ~__context ~self ~key:system_domain_key ~value
+      )
     ()
 
 let set_is_control_domain ~__context ~self ~value =
@@ -65,23 +66,26 @@ let storage_driver_domain_key = "storage_driver_domain"
 let pbd_set_storage_driver_domain ~__context ~self ~value =
   Helpers.log_exn_continue
     (Printf.sprintf "pbd_set_storage_driver_domain self = %s"
-       (Ref.string_of self))
+       (Ref.string_of self)
+    )
     (fun () ->
       Db.PBD.remove_from_other_config ~__context ~self
         ~key:storage_driver_domain_key ;
       Db.PBD.add_to_other_config ~__context ~self ~key:storage_driver_domain_key
-        ~value)
+        ~value
+      )
     ()
 
 let vm_set_storage_driver_domain ~__context ~self ~value =
   Helpers.log_exn_continue
-    (Printf.sprintf "vm_set_storage_driver_domain self = %s"
-       (Ref.string_of self))
+    (Printf.sprintf "vm_set_storage_driver_domain self = %s" (Ref.string_of self)
+    )
     (fun () ->
       Db.VM.remove_from_other_config ~__context ~self
         ~key:storage_driver_domain_key ;
       Db.VM.add_to_other_config ~__context ~self ~key:storage_driver_domain_key
-        ~value)
+        ~value
+      )
     ()
 
 let pbd_of_vm ~__context ~vm =
@@ -115,8 +119,7 @@ let storage_driver_domain_of_pbd ~__context ~pbd =
   set_is_control_domain ~__context ~self:domain ~value:true ;
   pbd_set_storage_driver_domain ~__context ~self:pbd
     ~value:(Ref.string_of domain) ;
-  vm_set_storage_driver_domain ~__context ~self:domain
-    ~value:(Ref.string_of pbd) ;
+  vm_set_storage_driver_domain ~__context ~self:domain ~value:(Ref.string_of pbd) ;
   domain
 
 let storage_driver_domain_of_vbd ~__context ~vbd =
@@ -209,7 +212,8 @@ let ip_of ~__context driver =
         failwith
           (Printf.sprintf
              "driver domain %s has no VIF on host internal management network"
-             (Ref.string_of driver))
+             (Ref.string_of driver)
+          )
     in
     match Xapi_udhcpd.get_ip ~__context vif with
     | Some (a, b, c, d) ->
@@ -219,17 +223,20 @@ let ip_of ~__context driver =
           (Printf.sprintf
              "driver domain %s has no IP on the host internal management \
               network"
-             (Ref.string_of driver))
+             (Ref.string_of driver)
+          )
   in
   info "driver domain uuid:%s ip:%s" (Db.VM.get_uuid ~__context ~self:driver) ip ;
   if not (wait_for (pingable ip)) then
     failwith
       (Printf.sprintf "driver domain %s is not responding to IP ping"
-         (Ref.string_of driver)) ;
+         (Ref.string_of driver)
+      ) ;
   if not (wait_for (queryable ~__context (Xmlrpc_client.TCP (ip, 80)))) then
     failwith
       (Printf.sprintf "driver domain %s is not responding to XMLRPC query"
-         (Ref.string_of driver)) ;
+         (Ref.string_of driver)
+      ) ;
   ip
 
 type service = {uuid: string; ty: string; instance: string; url: string}
@@ -243,16 +250,20 @@ let service_to_queue_m = Mutex.create ()
 
 let register_service service queue =
   Mutex.execute service_to_queue_m (fun () ->
-      Hashtbl.replace service_to_queue service queue)
+      Hashtbl.replace service_to_queue service queue
+  )
 
 let unregister_service service =
   Mutex.execute service_to_queue_m (fun () ->
-      Hashtbl.remove service_to_queue service)
+      Hashtbl.remove service_to_queue service
+  )
 
 let get_service service =
   Mutex.execute service_to_queue_m (fun () ->
-      try Some (Hashtbl.find service_to_queue service) with Not_found -> None)
+      try Some (Hashtbl.find service_to_queue service) with Not_found -> None
+  )
 
 let list_services () =
   Mutex.execute service_to_queue_m (fun () ->
-      Hashtbl.fold (fun service _ acc -> service :: acc) service_to_queue [])
+      Hashtbl.fold (fun service _ acc -> service :: acc) service_to_queue []
+  )

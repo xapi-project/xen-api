@@ -80,11 +80,13 @@ let vdi_data_destroy_test rpc session_id sr_info () =
       Alcotest.(check string)
         (Printf.sprintf
            "VDI.data_destroy failed to update VDI.content_id to \"%s\""
-           content_id_str)
+           content_id_str
+        )
         (VDI.get_other_config ~session_id ~rpc ~self:snapshot
         |> List.assoc "content_id"
         )
-        content_id_str)
+        content_id_str
+  )
 
 (* Check VDI.{copy, clone} all properly update cbt_enabled
  * Debug output included as VDI operations are expensive and take longer than other calls *)
@@ -115,19 +117,25 @@ let vdi_clone_copy_test rpc session_id sr_info () =
             ( true
             , vDI
             , "VDI.copy erroneously reset the original VDI's cbt_enabled to \
-               false" )
+               false"
+            )
           ; ( false
             , into_vdi
-            , "VDI.copy failed to initialise cbt_enabled to false" )
+            , "VDI.copy failed to initialise cbt_enabled to false"
+            )
           ; ( false
             , vdi_copy_fresh
             , "VDI.copy erroneously reset the copied VDI's cbt_enabled field \
-               to true" )
+               to true"
+            )
           ; (false, vdi_clone, "VDI.clone failed to set cbt_enabled to false")
           ]
           |> List.iter (fun (boolean, vDI, msg) ->
                  assert_cbt_status boolean ~rpc ~session_id ~vDI ~msg ;
-                 Qt.VDI.test_update rpc session_id vDI)))
+                 Qt.VDI.test_update rpc session_id vDI
+             )
+      )
+  )
 
 (* ---------------- *
     Test execution
@@ -148,13 +156,15 @@ let tests () =
                 ; `vdi_disable_cbt
                 ; `vdi_data_destroy
                 ; `vdi_snapshot
-                ])
+                ]
+         )
   ; [("vdi_clone_copy_test", `Slow, vdi_clone_copy_test)]
     |> conn
     |> sr
          SR.(
            all
            |> allowed_operations
-                [`vdi_create; `vdi_destroy; `vdi_enable_cbt; `vdi_clone])
+                [`vdi_create; `vdi_destroy; `vdi_enable_cbt; `vdi_clone]
+         )
   ]
   |> List.concat

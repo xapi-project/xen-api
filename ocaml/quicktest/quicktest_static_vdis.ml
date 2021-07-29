@@ -18,7 +18,8 @@ let test_static_vdis rpc session_id sr_info () =
       let vbds = Client.Client.VDI.get_VBDs ~rpc ~session_id ~self in
       Alcotest.(check int)
         "There must be no VBDs after static-vdis detach" 0 (List.length vbds) ;
-      static_vdis ["del"; uuid])
+      static_vdis ["del"; uuid]
+  )
 
 let tests () =
   let open Qt_filter in
@@ -31,7 +32,8 @@ let tests () =
            all
            |> smapiv1
            |> allowed_operations [`vdi_create; `vdi_destroy]
-           |> has_capabilities Sr_capabilities.[vdi_generate_config])
+           |> has_capabilities Sr_capabilities.[vdi_generate_config]
+         )
   ; [("test_static_vdis for SMAPIv3", `Slow, test_static_vdis)]
     |> conn
     |> sr SR.(all |> smapiv3 |> allowed_operations [`vdi_create; `vdi_destroy])

@@ -22,14 +22,16 @@ let generate_master_stats ~__context =
     ( Rrd.Host
     , Ds.ds_make ~name:"pool_session_count" ~description:"Number of sessions"
         ~value:(Rrd.VT_Int64 session_count) ~ty:Rrd.Gauge ~default:true ~min:0.0
-        ~units:"sessions" () )
+        ~units:"sessions" ()
+    )
   in
   let task_count = Db.Task.get_all ~__context |> List.length |> Int64.of_int in
   let task_count_ds =
     ( Rrd.Host
     , Ds.ds_make ~name:"pool_task_count" ~description:"Number of tasks"
         ~value:(Rrd.VT_Int64 task_count) ~ty:Rrd.Gauge ~default:true ~min:0.0
-        ~units:"tasks" () )
+        ~units:"tasks" ()
+    )
   in
   [session_count_ds; task_count_ds]
 
@@ -73,22 +75,26 @@ let generate_gc_stats () =
     , Ds.ds_make ~name:"xapi_memory_usage_kib" ~units:"KiB"
         ~description:"Total memory allocated used by xapi daemon"
         ~value:(Rrd.VT_Int64 xapitotal_kib) ~ty:Rrd.Gauge ~min:0.0 ~default:true
-        () )
+        ()
+    )
   ; ( Rrd.Host
     , Ds.ds_make ~name:"xapi_free_memory_kib" ~units:"KiB"
         ~description:"Free memory available to the xapi daemon"
         ~value:(Rrd.VT_Int64 xapiactualfree_kib) ~ty:Rrd.Gauge ~min:0.0
-        ~default:true () )
+        ~default:true ()
+    )
   ; ( Rrd.Host
     , Ds.ds_make ~name:"xapi_live_memory_kib" ~units:"KiB"
         ~description:"Live memory used by xapi daemon"
         ~value:(Rrd.VT_Int64 xapiactuallive_kib) ~ty:Rrd.Gauge ~min:0.0
-        ~default:true () )
+        ~default:true ()
+    )
   ; ( Rrd.Host
     , Ds.ds_make ~name:"xapi_allocation_kib" ~units:"KiB"
         ~description:"Memory allocation done by the xapi daemon"
         ~value:(Rrd.VT_Float xapigrad_kib) ~ty:Rrd.Derive ~min:0.0 ~default:true
-        () )
+        ()
+    )
   ]
 
 let generate_other_stats () =
@@ -102,7 +108,8 @@ let generate_other_stats () =
     , Ds.ds_make ~name:"xapi_open_fds"
         ~description:"Number of open file descriptors held by xapi"
         ~value:(Rrd.VT_Int64 open_fds) ~ty:Rrd.Gauge ~default:true ~min:0.0
-        ~units:"file descriptors" () )
+        ~units:"file descriptors" ()
+    )
   in
   [open_fds_ds]
 
@@ -145,12 +152,14 @@ let start () =
                     (module D : Debug.DEBUG)
                     ~reporter:(Some reporter) ~uid:"xapi-stats" ~neg_shift:0.5
                     ~page_count:shared_page_count ~protocol:Rrd_interface.V2
-                    ~dss_f:(fun () -> generate_stats ~__context ~master))
+                    ~dss_f:(fun () -> generate_stats ~__context ~master)
+                  )
                 ()
             in
             reporter
           in
-          reporter_cache := Some reporter)
+          reporter_cache := Some reporter
+  )
 
 let stop () =
   Xapi_stdext_threads.Threadext.Mutex.execute reporter_m (fun () ->
@@ -159,4 +168,5 @@ let stop () =
           ()
       | Some reporter ->
           Reporter.cancel reporter ;
-          reporter_cache := None)
+          reporter_cache := None
+  )

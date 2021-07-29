@@ -44,8 +44,10 @@ module Stdout = struct
                 (time_of_float (Unix.gettimeofday ()))
                 (Thread.id (Thread.self ()))
                 s ;
-              flush stdout)
-            fmt)
+              flush stdout
+              )
+            fmt
+      )
     else
       Printf.kprintf (fun _ -> ()) fmt
 
@@ -90,7 +92,8 @@ module XAPI = struct
       logout_unsafe session ;
       Stdout.warn
         (Printf.sprintf "Got '%s', trying with a new session ..."
-           (Printexc.to_string e)) ;
+           (Printexc.to_string e)
+        ) ;
       Thread.delay !delay ;
       retry_with_session f x
 
@@ -126,7 +129,8 @@ let get_host_name_label host_uuid =
     let name_label, _session_id =
       XAPI.retry_with_session
         (fun session_id () ->
-          XAPI.get_host_name_label ~session_id ~uuid:host_uuid)
+          XAPI.get_host_name_label ~session_id ~uuid:host_uuid
+          )
         ()
     in
     Hashtbl.replace host_uuid_to_name_label_map host_uuid name_label ;
@@ -193,7 +197,9 @@ module Ds_selector = struct
           | '\"' ->
               Some "\"\""
           | _ ->
-              None))
+              None
+          )
+          )
     else if String.contains s ',' || String.contains s '\n' then
       quote s
     else
@@ -387,7 +393,8 @@ module Xport = struct
     let kvs (elts : xml_tree list) =
       List.filter_map
         (function
-          | El (key, [D value]) -> Some (key, value) | El _ | D _ -> None)
+          | El (key, [D value]) -> Some (key, value) | El _ | D _ -> None
+          )
         elts
     in
     let find_elt (key : string) (elts : xml_tree list) =
@@ -399,7 +406,8 @@ module Xport = struct
       | D _ ->
           raise
             (Parse_error
-               "find_elt: the element found doesn't contain any elements")
+               "find_elt: the element found doesn't contain any elements"
+            )
     in
     let process_legend (elts : xml_tree list) =
       List.fold_left
@@ -410,7 +418,8 @@ module Xport = struct
                   Ds_selector.of_string value :: acc
               | El _ | D _ ->
                   raise (Parse_error "process_legend")
-            ))
+            )
+          )
         [] (List.rev elts)
     in
     let process_meta (elts : xml_tree list) =
@@ -441,7 +450,8 @@ module Xport = struct
                     acc
                 | El _ | D _ ->
                     raise (Parse_error "process_row/values")
-              ))
+              )
+            )
           [] (List.rev elts)
       in
       {timestamp= ts; values= Array.of_list values}
@@ -455,7 +465,8 @@ module Xport = struct
                   process_row elts :: acc
               | El _ | D _ ->
                   raise (Parse_error "process_data")
-            ))
+            )
+          )
         [] (List.rev elts)
     in
     let process_xport (elts : xml_tree list) =
@@ -494,8 +505,10 @@ module Xport = struct
       (Array.fold_left
          (fun acc v ->
            let strv = Stdout.string_of_float v in
-           acc ^ ", " ^ strv)
-         "" last_update.values)
+           acc ^ ", " ^ strv
+           )
+         "" last_update.values
+      )
       2
 
   (* Association list operations *)
@@ -590,7 +603,8 @@ let print_header data_sources show_name show_uuid =
         else
           Ds_selector.to_string_name_label ~escaped:true ds
       else
-        Ds_selector.to_string_uuid ~escaped:true ds)
+        Ds_selector.to_string_uuid ~escaped:true ds
+      )
     data_sources
   |> String.concat ", "
   |> Printf.sprintf "timestamp, %s"
@@ -610,8 +624,10 @@ let print_last session_id data_sources =
   Stdout.print
     (Printf.sprintf "%s, %s"
        (Stdout.time_of_float
-          (Int64.to_float (Xport.get_last_timestamp last_update)))
-       csv_of_assoc_list)
+          (Int64.to_float (Xport.get_last_timestamp last_update))
+       )
+       csv_of_assoc_list
+    )
 
 let filter_ds_that_starts_with_name dss name =
   List.fold_left
@@ -619,7 +635,8 @@ let filter_ds_that_starts_with_name dss name =
       if Xstringext.String.startswith name ds.Ds_selector.metric then
         ds :: acc
       else
-        acc)
+        acc
+      )
     [] dss
 
 open Xport
@@ -636,7 +653,9 @@ let main session_id user_filters sampling_period show_name show_uuid =
           (Printf.sprintf
              "Requested sampling period (%ds) is lower than the period of \
               datasources (%ds)"
-             sp time_step))
+             sp time_step
+          )
+      )
     sampling_period ;
   (* R2.1.2. Warn user if he specifies inactive metrics *)
   List.iter
@@ -648,7 +667,9 @@ let main session_id user_filters sampling_period show_name show_uuid =
       then
         Stdout.warn
           (Printf.sprintf "Requested metric %s is disabled or non-existant"
-             (Ds_selector.to_string ds)))
+             (Ds_selector.to_string ds)
+          )
+      )
     user_filters ;
   print_header filtered_dss show_name show_uuid ;
   while true do
@@ -677,33 +698,42 @@ let _ =
         [
           ( "-s"
           , Arg.Int (fun i -> s := Some i)
-          , " period of sampling on the command-line (in seconds)" )
+          , " period of sampling on the command-line (in seconds)"
+          )
         ; ( "-v"
           , Arg.Unit
               (fun () ->
                 Printf.printf "rrd2csv version %s\n(C) Citrix 2012\n" version ;
-                exit 0)
-          , " output version information and exit" )
+                exit 0
+                )
+          , " output version information and exit"
+          )
         ; ("-n", Arg.Unit (fun () -> n := true), " show name labels")
         ; ("-u", Arg.Unit (fun () -> u := true), " show uuids with name labels")
         ; ( "--version"
           , Arg.Unit
               (fun () ->
                 Printf.printf "rrd2csv version %s\n(C) Citrix 2012\n" version ;
-                exit 0)
-          , " output version information and exit" )
+                exit 0
+                )
+          , " output version information and exit"
+          )
         ; ( "-help"
           , Arg.Unit
               (fun () ->
                 ignore_int (Sys.command "man -M /opt/xensource/man rrd2csv") ;
-                exit 0)
-          , " display help" )
+                exit 0
+                )
+          , " display help"
+          )
         ; ( "--help"
           , Arg.Unit
               (fun () ->
                 ignore_int (Sys.command "man -M /opt/xensource/man rrd2csv") ;
-                exit 0)
-          , " display help" )
+                exit 0
+                )
+          , " display help"
+          )
         ]
     in
     let ano d = ds := Ds_selector.of_string d :: !ds in
@@ -714,5 +744,6 @@ let _ =
      disable them if name labels are shown, unless explicitly requested *)
   XAPI.retry_with_session
     (fun session_id () ->
-      main session_id user_filters sampling_period show_name show_uuid)
+      main session_id user_filters sampling_period show_name show_uuid
+      )
     ()

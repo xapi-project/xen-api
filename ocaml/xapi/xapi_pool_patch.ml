@@ -36,7 +36,8 @@ let pool_patch_of_update ~__context update_ref =
     Db.Pool_patch.get_refs_where ~__context
       ~expr:
         Db_filter_types.(
-          Eq (Field "pool_update", Literal (Ref.string_of update_ref)))
+          Eq (Field "pool_update", Literal (Ref.string_of update_ref))
+        )
   with
   | [patch] ->
       patch
@@ -44,8 +45,7 @@ let pool_patch_of_update ~__context update_ref =
       error
         "Invalid state: Expected invariant - 1 pool_patch per pool_update. \
          Found: [%s]"
-        (String.concat ";"
-           (List.map (fun patch -> Ref.string_of patch) patches)) ;
+        (String.concat ";" (List.map (fun patch -> Ref.string_of patch) patches)) ;
       raise Api_errors.(Server_error (internal_error, ["Invalid state"]))
 
 let pool_patch_upload_handler (req : Http.Request.t) s _ =
@@ -77,7 +77,9 @@ let pool_patch_upload_handler (req : Http.Request.t) s _ =
                       ("task_id", Ref.string_of subtask) :: strip req.query
                       |> add_sr
                   }
+                
               in
+
               let vdi_opt =
                 Import_raw_vdi.localhost_handler rpc session_id
                   (Importexport.vdi_of_req ~__context req)
@@ -105,10 +107,14 @@ let pool_patch_upload_handler (req : Http.Request.t) s _ =
                   in
                   TaskHelper.failed ~__context
                     Api_errors.(
-                      Server_error (List.hd error_info, List.tl error_info)) ;
+                      Server_error (List.hd error_info, List.tl error_info)
+                    ) ;
                   (* If we've got a None here, we'll already have replied with the error. Fail the task now too. *)
-                  ())
-            (fun () -> Client.Task.destroy rpc session_id subtask)))
+                  ()
+              )
+            (fun () -> Client.Task.destroy rpc session_id subtask)
+      )
+  )
 
 (* The [get_patch_applied_to] gives the patching status of a pool patch on the given host. It
    returns [None] if the patch is not on the host, i.e. no corresponding host_patch;
@@ -119,7 +125,9 @@ let get_patch_applied_to ~__context ~patch ~host =
     Db_filter_types.(
       And
         ( Eq (Field "pool_patch", Literal (Ref.string_of patch))
-        , Eq (Field "host", Literal (Ref.string_of host)) ))
+        , Eq (Field "host", Literal (Ref.string_of host))
+        )
+    )
   in
   let result = Db.Host_patch.get_records_where ~__context ~expr in
   match result with
@@ -153,7 +161,8 @@ let write_patch_applied_db ~__context ?date ?(applied = true) ~self ~host () =
 let forward ~__context ~self f =
   let self = Db.Pool_patch.get_pool_update ~__context ~self in
   Helpers.call_api_functions ~__context (fun rpc session_id ->
-      f ~rpc ~session_id ~self)
+      f ~rpc ~session_id ~self
+  )
 
 (* precheck API call entrypoint *)
 let precheck ~__context ~self ~host =
@@ -170,7 +179,9 @@ let pool_apply ~__context ~self =
     List.map
       (fun host ->
         Helpers.call_api_functions ~__context (fun rpc session_id ->
-            Client.Pool_patch.apply ~rpc ~session_id ~self ~host))
+            Client.Pool_patch.apply ~rpc ~session_id ~self ~host
+        )
+        )
       hosts
   in
   let _ = Db.Pool_patch.set_pool_applied ~__context ~self ~value:true in

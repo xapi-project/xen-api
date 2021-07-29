@@ -34,7 +34,8 @@ let dns_names () =
          then
            None
          else
-           Some x)
+           Some x
+     )
   |> Astring.String.uniquify
 
 let ip_addr_of_string ip =
@@ -44,7 +45,8 @@ let ip_addr_of_string ip =
        | Ipaddr.V4 addr ->
            Cstruct.of_string (Ipaddr.V4.to_octets addr)
        | Ipaddr.V6 addr ->
-           Cstruct.of_string (Ipaddr.V6.to_octets addr))
+           Cstruct.of_string (Ipaddr.V6.to_octets addr)
+       )
 
 let get_management_ip_addr ~dbg =
   let iface = Inventory.lookup Inventory._management_interface in
@@ -55,8 +57,7 @@ let get_management_ip_addr ~dbg =
       let addrs =
         match
           String.lowercase_ascii
-            (Inventory.lookup Inventory._management_address_type
-               ~default:"ipv4")
+            (Inventory.lookup Inventory._management_address_type ~default:"ipv4")
         with
         | "ipv4" ->
             Net.Interface.get_ipv4_addr dbg iface
@@ -65,7 +66,8 @@ let get_management_ip_addr ~dbg =
         | s ->
             raise
               (Unexpected_address_type
-                 (Printf.sprintf "Expected 'ipv4' or 'ipv6', got %s" s))
+                 (Printf.sprintf "Expected 'ipv4' or 'ipv6', got %s" s)
+              )
       in
       let addrs =
         addrs
@@ -73,7 +75,8 @@ let get_management_ip_addr ~dbg =
         |> (* Filter out link-local addresses *)
         List.filter (fun addr -> String.sub addr 0 4 <> "fe80")
         |> List.map (fun str ->
-               Option.map (fun bytes -> (str, bytes)) (ip_addr_of_string str))
+               Option.map (fun bytes -> (str, bytes)) (ip_addr_of_string str)
+           )
       in
       Option.join (List.nth_opt addrs 0)
   with _ -> None

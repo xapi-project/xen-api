@@ -29,7 +29,9 @@ let validate_private_key pkcs8_private_key =
           Error
             (`Msg
               ( server_certificate_key_rsa_length_not_supported
-              , [Int.to_string length] ))
+              , [Int.to_string length]
+              )
+              )
         else
           Ok (`RSA priv)
   in
@@ -46,12 +48,42 @@ let validate_private_key pkcs8_private_key =
                  Astring.String.with_range
                    ~first:(String.length unknown_algorithm)
                    err_msg
-               ] )
+               ]
+             )
          else (
            D.info {|Failed to validate private key because "%s"|} err_msg ;
            `Msg (server_certificate_key_invalid, [])
-         ))
+         )
+     )
   >>= ensure_key_length
+
+let pem_of_string x ~error_invalid =
+  let raw_pem = Cstruct.of_string x in
+  X509.Certificate.decode_pem raw_pem
+  |> R.reword_error (fun (`Msg err_msg) ->
+         D.info {|Failed to validate certificate because "%s"|} err_msg ;
+         `Msg (error_invalid, [])
+     )
+
+let assert_not_expired ~now certificate ~error_not_yet ~error_expired =
+  let to_string = Ptime.to_rfc3339 ~tz_offset_s:0 in
+  let not_before, not_after = X509.Certificate.validity certificate in
+  if Ptime.is_earlier ~than:not_before now then
+    Error (`Msg (error_not_yet, [to_string now; to_string not_before]))
+  else if Ptime.is_later ~than:not_after now then
+    Error (`Msg (error_expired, [to_string now; to_string not_after]))
+  else
+    Ok certificate
+
+let _validate_not_expired ~now (blob : string) ~error_invalid ~error_not_yet
+    ~error_expired =
+  pem_of_string blob ~error_invalid >>= fun cert ->
+  assert_not_expired ~now cert ~error_not_yet ~error_expired
+
+let validate_not_expired x ~error_not_yet ~error_expired ~error_invalid =
+  let now = Ptime_clock.now () in
+  _validate_not_expired ~now x ~error_not_yet ~error_expired ~error_invalid
+  |> Rresult.R.reword_error @@ fun (`Msg (e, msgs)) -> Server_error (e, msgs)
 
 let validate_certificate kind pem now private_key =
   let ensure_keys_match private_key certificate =
@@ -62,21 +94,6 @@ let validate_certificate kind pem now private_key =
     | _ ->
         Error (`Msg (server_certificate_key_mismatch, []))
   in
-  let ensure_validity ~time certificate =
-    let to_string = Ptime.to_rfc3339 ~tz_offset_s:0 in
-    let not_before, not_after = X509.Certificate.validity certificate in
-    if Ptime.is_earlier ~than:not_before time then
-      Error
-        (`Msg
-          ( server_certificate_not_valid_yet
-          , [to_string time; to_string not_before] ))
-    else if Ptime.is_later ~than:not_after time then
-      Error
-        (`Msg
-          (server_certificate_expired, [to_string time; to_string not_after]))
-    else
-      Ok certificate
-  in
   let ensure_sha256_signature_algorithm certificate =
     match X509.Certificate.signature_algorithm certificate with
     | Some (_, `SHA256) ->
@@ -84,17 +101,15 @@ let validate_certificate kind pem now private_key =
     | _ ->
         Error (`Msg (server_certificate_signature_not_supported, []))
   in
-  let raw_pem = Cstruct.of_string pem in
   match kind with
   | Leaf ->
-      X509.Certificate.decode_pem raw_pem
-      |> R.reword_error (fun (`Msg err_msg) ->
-             D.info {|Failed to validate certificate because "%s"|} err_msg ;
-             `Msg (server_certificate_invalid, []))
+      _validate_not_expired ~now pem ~error_invalid:server_certificate_invalid
+        ~error_not_yet:server_certificate_not_valid_yet
+        ~error_expired:server_certificate_expired
       >>= ensure_keys_match private_key
-      >>= ensure_validity ~time:now
       >>= ensure_sha256_signature_algorithm
   | Chain -> (
+      let raw_pem = Cstruct.of_string pem in
       X509.Certificate.decode_pem_multiple raw_pem |> function
       | Ok (cert :: _) ->
           Ok cert
@@ -115,7 +130,8 @@ let install_server_certificate ?(pem_chain = None) ~pem_leaf ~pkcs8_private_key
     ~none:(Ok [pkcs8_private_key; pem_leaf])
     ~some:(fun pem_chain ->
       validate_certificate Chain pem_chain now priv >>= fun _ignored ->
-      Ok [pkcs8_private_key; pem_leaf; pem_chain])
+      Ok [pkcs8_private_key; pem_leaf; pem_chain]
+      )
     pem_chain
   >>= fun server_cert_components ->
   server_cert_components

@@ -173,7 +173,8 @@ let record_host_memory_properties ~__context info =
           Db.Host.set_boot_free_mem ~__context ~self ~value:boot_memory_bytes ;
           Db.Host.set_memory_overhead ~__context ~self
             ~value:
-              (obvious_overhead_memory_bytes ++ nonobvious_overhead_memory_bytes))
+              (obvious_overhead_memory_bytes ++ nonobvious_overhead_memory_bytes)
+          )
         boot_memory_bytes
 
 (* -- used this for testing uniqueness constraints executed on slave do not kill connection.
@@ -208,7 +209,8 @@ let resynchronise_pif_params ~__context =
   Helpers.call_api_functions ~__context (fun rpc session_id ->
       let dbg = Context.string_of_task __context in
       let bridges = Net.Bridge.get_all dbg () in
-      Client.Host.sync_pif_currently_attached rpc session_id localhost bridges) ;
+      Client.Host.sync_pif_currently_attached rpc session_id localhost bridges
+  ) ;
   (* sync management *)
   Xapi_pif.update_management_flags ~__context ~host:localhost ;
   (* sync MACs and MTUs *)
@@ -243,7 +245,8 @@ let update_env __context sync_keys =
   (* create localhost record if doesn't already exist *)
   switched_sync Xapi_globs.sync_create_localhost (fun () ->
       debug "creating localhost" ;
-      create_localhost ~__context info) ;
+      create_localhost ~__context info
+  ) ;
   (* record who we are in xapi_globs *)
   let localhost = Helpers.get_localhost_uncached ~__context in
   Xapi_globs.localhost_ref := localhost ;
@@ -261,36 +264,45 @@ let update_env __context sync_keys =
         let cache_sr_uuid = Db.SR.get_uuid ~__context ~self:cache_sr in
         Db.SR.set_local_cache_enabled ~__context ~self:cache_sr ~value:true ;
         log_and_ignore_exn (fun () -> Rrdd.set_cache_sr cache_sr_uuid)
-      with _ -> log_and_ignore_exn Rrdd.unset_cache_sr) ;
+      with _ -> log_and_ignore_exn Rrdd.unset_cache_sr
+  ) ;
   switched_sync Xapi_globs.sync_load_rrd (fun () ->
       (* Load the host rrd *)
       Rrdd_proxy.Deprecated.load_rrd ~__context
-        ~uuid:(Helpers.get_localhost_uuid ())) ;
+        ~uuid:(Helpers.get_localhost_uuid ())
+  ) ;
   (* maybe record host memory properties in database *)
   switched_sync Xapi_globs.sync_record_host_memory_properties (fun () ->
-      record_host_memory_properties ~__context info) ;
+      record_host_memory_properties ~__context info
+  ) ;
   switched_sync Xapi_globs.sync_create_host_cpu (fun () ->
       debug "creating cpu" ;
-      Create_misc.create_host_cpu ~__context info) ;
+      Create_misc.create_host_cpu ~__context info
+  ) ;
   switched_sync Xapi_globs.sync_create_domain_zero (fun () ->
       debug "creating domain 0" ;
-      Create_misc.ensure_domain_zero_records ~__context ~host:localhost info) ;
+      Create_misc.ensure_domain_zero_records ~__context ~host:localhost info
+  ) ;
   switched_sync Xapi_globs.sync_crashdump_resynchronise (fun () ->
       debug "resynchronising host crashdumps" ;
-      Xapi_host_crashdump.resynchronise ~__context ~host:localhost) ;
+      Xapi_host_crashdump.resynchronise ~__context ~host:localhost
+  ) ;
   switched_sync Xapi_globs.sync_pbds (fun () ->
       debug "resynchronising host PBDs" ;
       Storage_access.resynchronise_pbds ~__context
-        ~pbds:(Db.Host.get_PBDs ~__context ~self:localhost)) ;
+        ~pbds:(Db.Host.get_PBDs ~__context ~self:localhost)
+  ) ;
   (*
   debug "resynchronising db with host physical interfaces";
   update_physical_networks ~__context;
 *)
   switched_sync Xapi_globs.sync_pci_devices (fun () ->
-      Xapi_pci.update_pcis ~__context) ;
+      Xapi_pci.update_pcis ~__context
+  ) ;
   switched_sync Xapi_globs.sync_pif_params (fun () ->
       debug "resynchronising PIF params" ;
-      resynchronise_pif_params ~__context) ;
+      resynchronise_pif_params ~__context
+  ) ;
   switched_sync Xapi_globs.sync_bios_strings (fun () ->
       debug "get BIOS strings on startup" ;
       let current_bios_strings =
@@ -305,7 +317,8 @@ let update_env __context sync_keys =
            different. Updating BIOS strings in xapi-db." ;
         Db.Host.set_bios_strings ~__context ~self:localhost
           ~value:current_bios_strings
-      )) ;
+      )
+  ) ;
 
   (* CA-35549: In a pool rolling upgrade, the master will detect the end of upgrade when the software versions
      	 of all the hosts are the same. It will then assume that (for example) per-host patch records have
@@ -313,12 +326,15 @@ let update_env __context sync_keys =
 
   (* refresh host info fields *)
   switched_sync Xapi_globs.sync_host_display (fun () ->
-      Xapi_host.sync_display ~__context ~host:localhost) ;
+      Xapi_host.sync_display ~__context ~host:localhost
+  ) ;
   switched_sync Xapi_globs.sync_refresh_localhost_info (fun () ->
-      refresh_localhost_info ~__context info) ;
+      refresh_localhost_info ~__context info
+  ) ;
   switched_sync Xapi_globs.sync_local_vdi_activations (fun () ->
-      Storage_access.refresh_local_vdi_activations ~__context) ;
+      Storage_access.refresh_local_vdi_activations ~__context
+  ) ;
   switched_sync Xapi_globs.sync_chipset_info (fun () ->
-      Create_misc.create_chipset_info ~__context info) ;
-  switched_sync Xapi_globs.sync_gpus (fun () ->
-      Xapi_pgpu.update_gpus ~__context)
+      Create_misc.create_chipset_info ~__context info
+  ) ;
+  switched_sync Xapi_globs.sync_gpus (fun () -> Xapi_pgpu.update_gpus ~__context)

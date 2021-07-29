@@ -86,7 +86,8 @@ module Thread_state = struct
           if ts = empty then
             IntMap.remove id !thread_states
           else
-            IntMap.add id ts !thread_states)
+            IntMap.add id ts !thread_states
+    )
 
   let with_named_thread name task f =
     update (fun ts -> {ts with name; task}) ;
@@ -103,7 +104,8 @@ module Thread_state = struct
           ts with
           waiting_for= None
         ; acquired_resources= (resource, now ()) :: ts.acquired_resources
-        })
+        }
+    )
 
   let released resource =
     update (fun ts ->
@@ -111,7 +113,8 @@ module Thread_state = struct
           ts with
           acquired_resources=
             List.filter (fun (r, _) -> r <> resource) ts.acquired_resources
-        })
+        }
+    )
 
   let to_graphviz () =
     let t' = now () in
@@ -121,11 +124,15 @@ module Thread_state = struct
       IntMap.map
         (fun ts ->
           [ts.name]
-          :: [Ref.really_pretty_and_small ts.task]
-          :: List.map
-               (fun (r, t) ->
-                 [string_of_resource r; Printf.sprintf "%.0f" (t' -. t)])
-               ts.acquired_resources)
+          ::
+          [Ref.really_pretty_and_small ts.task]
+          ::
+          List.map
+            (fun (r, t) ->
+              [string_of_resource r; Printf.sprintf "%.0f" (t' -. t)]
+              )
+            ts.acquired_resources
+          )
         snapshot
     in
     let resources_of_ts ts =
@@ -145,7 +152,8 @@ module Thread_state = struct
           | Lock x as y ->
               (y, [["lock"]; [x]])
           | Process (name, pid) as y ->
-              (y, [["process"]; [name]; [string_of_int pid]]))
+              (y, [["process"]; [name]; [string_of_int pid]])
+          )
         all_resources
     in
     let resources_to_threads =
@@ -154,7 +162,8 @@ module Thread_state = struct
           List.map
             (fun (r, _) -> (id, List.assoc r resources_to_ids))
             ts.acquired_resources
-          @ acc)
+          @ acc
+          )
         snapshot []
     in
     let threads_to_resources =
@@ -164,7 +173,8 @@ module Thread_state = struct
           | None ->
               acc
           | Some (r, _) ->
-              (id, List.assoc r resources_to_ids) :: acc)
+              (id, List.assoc r resources_to_ids) :: acc
+          )
         snapshot []
     in
     let label_of_sll sll =
@@ -175,13 +185,15 @@ module Thread_state = struct
       ["digraph Resources {"; "node [shape=Mrecord];"]
       @ IntMap.fold
           (fun id sll acc ->
-            Printf.sprintf "t%d [label=\"%s\"];" id (label_of_sll sll) :: acc)
+            Printf.sprintf "t%d [label=\"%s\"];" id (label_of_sll sll) :: acc
+            )
           threads []
       @ ["node [shape=record];"]
       @ List.map
           (fun (resource, id) ->
             Printf.sprintf "r%d [style=filled label=\"%s\"];" id
-              (label_of_sll (List.assoc resource resources_to_sll)))
+              (label_of_sll (List.assoc resource resources_to_sll))
+            )
           resources_to_ids
       @ List.map
           (fun (t, r) -> Printf.sprintf "t%d -> r%d" t r)
@@ -210,7 +222,8 @@ module Named_mutex = struct
     Thread_state.waiting_for r ;
     Mutex.execute x.m (fun () ->
         Thread_state.acquired r ;
-        finally f (fun () -> Thread_state.released r))
+        finally f (fun () -> Thread_state.released r)
+    )
 end
 
 (* We store the locks in a hashtable whose keys are VM references and values are abstract
@@ -237,9 +250,9 @@ let assert_locked (target : API.ref_VM) (token : token) =
   let held =
     Mutex.execute mutex (fun () ->
         Hashtbl.fold
-          (fun target' token' acc ->
-            acc || (target = target' && token = token'))
-          locks false)
+          (fun target' token' acc -> acc || (target = target' && token = token'))
+          locks false
+    )
   in
   if not held then (
     error "VM lock not held for VM %s" (Ref.string_of target) ;
@@ -261,7 +274,8 @@ let acquire_lock (target : API.ref_VM) =
         let token = !next_token in
         next_token := Int64.add !next_token 1L ;
         Hashtbl.replace locks target token ;
-        token)
+        token
+    )
   in
   debug "Acquired lock on VM %s with token %Ld" (Ref.string_of target) token ;
   Thread_state.acquired (lock_of_vm target) ;
@@ -286,6 +300,7 @@ let release_lock (target : API.ref_VM) (token : token) =
         raise Internal_error_token_mismatch
       ) ;
       Hashtbl.remove locks target ;
-      Condition.broadcast cvar) ;
+      Condition.broadcast cvar
+  ) ;
   Thread_state.released (lock_of_vm target) ;
   debug "Released lock on VM %s with token %Ld" (Ref.string_of target) token

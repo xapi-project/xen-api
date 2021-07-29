@@ -68,19 +68,23 @@ let api =
              ; "get_all_records"
              ; "get_all_records_where"
              ; "get_record"
-             ]))
+             ]
+          )
+       )
     && msg.msg_tag <> FromObject GetAllRecords
     && List.mem "closed" msg.msg_release.internal
   in
   filter obj_filter field_filter message_filter
     (Datamodel_utils.add_implicit_messages ~document_order:false
-       (filter obj_filter field_filter message_filter Datamodel.all_api))
+       (filter obj_filter field_filter message_filter Datamodel.all_api)
+    )
 
 let classes_with_records =
   Datamodel_utils.add_implicit_messages ~document_order:false Datamodel.all_api
   |> objects_of_api
   |> List.filter (fun x ->
-         List.exists (fun y -> y.msg_name = "get_all_records") x.messages)
+         List.exists (fun y -> y.msg_name = "get_all_records") x.messages
+     )
   |> List.map (fun x -> x.name)
 
 let classes = objects_of_api api
@@ -109,7 +113,8 @@ let rec main () =
     `O
       [
         ( "cmdlets"
-        , `A (List.map (fun x -> `O [("cmdlet", `String x)]) sorted_members) )
+        , `A (List.map (fun x -> `O [("cmdlet", `String x)]) sorted_members)
+        )
       ]
   in
   render_file
@@ -832,7 +837,8 @@ and gen_destructor obj classname messages =
         (print_cmdlet_methods_remover classname x)
         (print_parse_xenobject_private_method obj classname true)
         (print_process_record_private_methods classname messages "Remove"
-           "asyncpassthru")
+           "asyncpassthru"
+        )
   | _ ->
       assert false
 
@@ -1103,7 +1109,8 @@ and gen_invoker obj classname messages =
         (print_cmdlet_methods_dynamic classname messages "Action" "Invoke")
         (print_parse_xenobject_private_method obj classname true)
         (print_process_record_private_methods classname messages "Invoke"
-           "passthru")
+           "passthru"
+        )
         (ocaml_class_to_csharp_class classname)
         (print_messages_as_enum "Invoke" messages)
         (print_dynamic_params classname "Action" "Invoke" messagesWithParams)
@@ -1196,7 +1203,8 @@ and print_async_param_getter classname asyncMessages =
       (fun x ->
         sprintf "                    case Xen%sProperty.%s:"
           (ocaml_class_to_csharp_class classname)
-          x)
+          x
+        )
       asyncMessages
   in
   match asyncMessages with
@@ -1280,8 +1288,7 @@ and print_dynamic_generator classname enum commonVerb messagesWithParams =
         \            }\n\
         \        }\n"
         enum
-        (print_messages_with_params classname enum commonVerb
-           messagesWithParams)
+        (print_messages_with_params classname enum commonVerb messagesWithParams)
 
 and print_messages_with_params classname enum commonVerb x =
   match x with

@@ -92,14 +92,16 @@ module PoolExpiryDate = Generic.MakeStateful (struct
           Test_common.make_host ~__context ~edition:"edition1" ~license_params
             ()
         in
-        ())
+        ()
+        )
       expiry_dates
 
   let extract_output __context _ =
     let hosts = Db.Host.get_all ~__context in
     snd
       (Xapi_pool_license.get_lowest_edition_with_expiry ~__context ~hosts
-         ~edition_to_int)
+         ~edition_to_int
+      )
 
   (* Tuples of ((host expiry date) list, expected pool expiry date) *)
   let tests =
@@ -109,7 +111,8 @@ module PoolExpiryDate = Generic.MakeStateful (struct
       ; ([None; None; None; None], None)
       ; ([Some (f2d 100.0)], Some (f2d 100.0))
       ; ( [Some (f2d 300.0); Some (f2d 150.0); Some (f2d 450.0)]
-        , Some (f2d 150.0) )
+        , Some (f2d 150.0)
+        )
       ; ([None; Some (f2d 650.0); None; Some (f2d 350.0)], Some (f2d 350.0))
       ]
 end)
@@ -132,14 +135,16 @@ module PoolEdition = Generic.MakeStateful (struct
     List.iter
       (fun edition ->
         let (_ : API.ref_host) = Test_common.make_host ~__context ~edition () in
-        ())
+        ()
+        )
       editions
 
   let extract_output __context _ =
     let hosts = Db.Host.get_all ~__context in
     fst
       (Xapi_pool_license.get_lowest_edition_with_expiry ~__context ~hosts
-         ~edition_to_int)
+         ~edition_to_int
+      )
 
   (* Tuples of ((host edition) list, expected pool edition) *)
   let tests =
@@ -175,7 +180,8 @@ module PoolLicenseState = Generic.MakeStateful (struct
           Test_common.make_host ~__context ~edition:host.edition
             ~license_params:host.license_params ()
         in
-        ())
+        ()
+        )
       hosts ;
     let (_ : API.ref_pool) =
       Test_common.make_pool ~__context
@@ -212,28 +218,32 @@ module PoolLicenseState = Generic.MakeStateful (struct
           ; {license_params= []; edition= "edition1"}
           ; {license_params= []; edition= "edition1"}
           ]
-        , ("edition1", "never") )
+        , ("edition1", "never")
+        )
       ; (* A pool of edition2 hosts, of which two have expiry dates. *)
         ( [
             {license_params= []; edition= "edition2"}
           ; {license_params= [("expiry", f2d2s 500.0)]; edition= "edition2"}
           ; {license_params= [("expiry", f2d2s 350.0)]; edition= "edition2"}
           ]
-        , ("edition2", f2d2s 350.0) )
+        , ("edition2", f2d2s 350.0)
+        )
       ; (* A pool of edition2 hosts, of which none have expiry dates. *)
         ( [
             {license_params= []; edition= "edition2"}
           ; {license_params= []; edition= "edition2"}
           ; {license_params= []; edition= "edition2"}
           ]
-        , ("edition2", "never") )
+        , ("edition2", "never")
+        )
       ; (* A pool of hosts, some edition2 (with different expiry dates) and some edition1 (no expiry). *)
         ( [
             {license_params= [("expiry", f2d2s 5000.0)]; edition= "edition2"}
           ; {license_params= []; edition= "edition1"}
           ; {license_params= [("expiry", f2d2s 6000.0)]; edition= "edition2"}
           ]
-        , ("edition1", "never") )
+        , ("edition1", "never")
+        )
       ]
 end)
 

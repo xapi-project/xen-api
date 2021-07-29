@@ -25,7 +25,7 @@ jobs:
     name: Ocaml tests
     runs-on: ubuntu-20.04
     env:
-      package: "xapi-cli-protocol xapi-client xapi-consts xapi-database xapi-datamodel xapi-types xapi xe xen-api-sdk"
+      package: "xapi-cli-protocol xapi-client xapi-consts xapi-database xapi-datamodel xapi-types xapi xe xen-api-sdk xen-api-client xen-api-client-lwt xen-api-client-async"
 
     steps:
       - name: Checkout code
@@ -76,6 +76,12 @@ jobs:
       - name: Run tests
         run: opam exec -- make test
 
+      - name: Build SDK
+        run: |
+          mkdir -p /opt/xensource/sm
+          wget -O /opt/xensource/sm/XE_SR_ERRORCODES.xml https://raw.githubusercontent.com/xapi-project/sm/master/drivers/XE_SR_ERRORCODES.xml
+          opam exec -- make sdk
+
       - name: Uninstall unversioned packages and remove pins
         # This should purge them from the cache, unversioned package have
         # 'master' as its version
@@ -94,8 +100,5 @@ jobs:
       - name: Generate empty configuration for make to be happy
         run: touch config.mk
 
-      - name: Number of List.hd usages has not changed
-        run: make list-hd
-
-      - name: Number of verify_cert:None usages has not changed
-        run: make verify-cert
+      - name: quality-gate
+        run: make quality-gate

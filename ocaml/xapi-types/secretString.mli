@@ -25,6 +25,8 @@ val of_string : string -> t
 
 val equal : t -> t -> bool
 
+val json_rpc_of_t : t -> Rpc.t
+
 val t_of_rpc : Rpc.t -> t
 
 val rpc_of_t : t -> Rpc.t

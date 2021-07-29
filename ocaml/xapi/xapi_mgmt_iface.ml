@@ -52,7 +52,8 @@ end = struct
       Thread.create
         (fun () ->
           Helpers.Stunnel.restart ~__context ~accept ;
-          update_certificates ~__context ())
+          update_certificates ~__context ()
+          )
         ()
     in
     ()
@@ -72,7 +73,8 @@ end = struct
                 D.warn
                   "reconfigure: accept is not set, so not restarting stunnel"
           | Some accept ->
-              fun () -> _restart_no_cache ~__context ~accept)
+              fun () -> _restart_no_cache ~__context ~accept
+      )
     in
     f ()
 end
@@ -106,12 +108,14 @@ end = struct
             (* Is it IPv6 ? *)
             let addr = Unix.inet6_addr_any in
             ( Xapi_http.bind (Unix.ADDR_INET (addr, Constants.http_port))
-            , ":::" ^ string_of_int !Constants.https_port )
+            , ":::" ^ string_of_int !Constants.https_port
+            )
           with _ ->
             (* No. *)
             let addr = Unix.inet_addr_any in
             ( Xapi_http.bind (Unix.ADDR_INET (addr, Constants.http_port))
-            , string_of_int !Constants.https_port )
+            , string_of_int !Constants.https_port
+            )
         )
       | Some ip -> (
           info "Starting new server (listening on %s)" ip ;
@@ -122,7 +126,8 @@ end = struct
             | Unix.PF_INET6 ->
                 "::1:" ^ string_of_int !Constants.https_port
             | _ ->
-                "127.0.0.1:" ^ string_of_int !Constants.https_port )
+                "127.0.0.1:" ^ string_of_int !Constants.https_port
+          )
         )
     in
     Http_svr.start Xapi_http.server socket ;
@@ -133,7 +138,8 @@ end = struct
          database this can fail... this is ok because the database will be synchronised later *)
       Server_helpers.exec_with_new_task "refreshing consoles" (fun __context ->
           Dbsync_master.set_master_ip ~__context ;
-          Dbsync_master.refresh_console_urls ~__context)
+          Dbsync_master.refresh_console_urls ~__context
+      )
 
   type listening_mode = Off | Any | Local of Addresses.t
 
@@ -192,13 +198,15 @@ let mgmt_is_enabled () = Server.current_mode () = Any
 
 let run ~__context ~mgmt_enabled =
   Mutex.execute management_m (fun () ->
-      next_server_mode ~mgmt_enabled |> Server.update ~__context)
+      next_server_mode ~mgmt_enabled |> Server.update ~__context
+  )
 
 let reconfigure_himn ~__context ~addr =
   Mutex.execute management_m (fun () ->
       himn := addr ;
       next_server_mode ~mgmt_enabled:(mgmt_is_enabled ())
-      |> Server.update ~__context)
+      |> Server.update ~__context
+  )
 
 let himn_addr () = !himn
 

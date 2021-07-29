@@ -22,6 +22,7 @@ let test_clusterd_rpc ~__context call =
   | "create", _ ->
       Rpc.
         {success= true; contents= Rpc.String test_token; is_notification= false}
+      
   | ("enable" | "disable" | "destroy" | "leave"), _ ->
       Rpc.{success= true; contents= Rpc.Null; is_notification= false}
   | "diagnostics", _ ->
@@ -36,6 +37,7 @@ let test_clusterd_rpc ~__context call =
         ; config_version= 1L
         ; cluster_token_timeout_ms= 20000L
         ; cluster_token_coefficient_ms= 1000L
+        ; pems= None
         }
       in
       let diag =
@@ -71,6 +73,8 @@ let test_rpc ~__context call =
   | "Cluster.destroy", [_session; self] ->
       let open API in
       Xapi_cluster.destroy ~__context ~self:(ref_Cluster_of_rpc self) ;
+      Rpc.{success= true; contents= Rpc.String ""; is_notification= false}
+  | "Cluster_host.get_cluster_config", _ ->
       Rpc.{success= true; contents= Rpc.String ""; is_notification= false}
   | name, params ->
       Alcotest.failf "Unexpected RPC: %s(%s)" name
@@ -123,9 +127,11 @@ let test_invalid_parameters () =
     (fun () -> create_cluster ~__context ~token_timeout:0.5 () |> ignore) ;
   Alcotest.check_raises "token_timeout_coefficient < minimum threshold"
     Api_errors.(
-      Server_error (invalid_value, ["token_timeout_coefficient"; "0.6"]))
+      Server_error (invalid_value, ["token_timeout_coefficient"; "0.6"])
+    )
     (fun () ->
-      create_cluster ~__context ~token_timeout_coefficient:0.6 () |> ignore)
+      create_cluster ~__context ~token_timeout_coefficient:0.6 () |> ignore
+      )
 
 let test_create_cleanup () =
   let __context = Test_common.make_test_database () in
@@ -140,6 +146,7 @@ let test_create_cleanup () =
                 Cluster_interface.(InternalError "Cluster.create failed")
           ; is_notification= false
           }
+        
     | _, _ ->
         Rpc.{success= true; contents= Rpc.Null; is_notification= false}
   in
@@ -190,8 +197,7 @@ let test_get_network_fails () =
   | Some self ->
       Db.Cluster_host.destroy ~__context ~self
   | None ->
-      Alcotest.failf "No cluster_host found on localhost %s"
-        (Ref.string_of host)
+      Alcotest.failf "No cluster_host found on localhost %s" (Ref.string_of host)
   ) ;
   Alcotest.check_raises "No cluster_host exists, only cluster"
     (Failure ("No cluster_hosts found for cluster " ^ Ref.string_of cluster))
@@ -202,7 +208,8 @@ let test_get_network_fails () =
   done ;
   Alcotest.check_raises "Cluster_hosts on different networks"
     internal_network_error (fun () ->
-      Xapi_cluster.get_network ~__context ~self:cluster |> ignore)
+      Xapi_cluster.get_network ~__context ~self:cluster |> ignore
+  )
 
 let test =
   [

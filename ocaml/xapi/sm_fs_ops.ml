@@ -26,7 +26,8 @@ let with_block_attached_device __context rpc session_id vdi mode f =
   let dom0 = Helpers.get_domain_zero ~__context in
   Attach_helpers.with_vbds rpc session_id __context dom0 [vdi] mode (fun vbds ->
       let vbd = List.hd vbds in
-      f ("/dev/" ^ Db.VBD.get_device ~__context ~self:vbd))
+      f ("/dev/" ^ Db.VBD.get_device ~__context ~self:vbd)
+  )
 
 (** Block-attach a VDI to dom0, open the device and pass the file descriptor to [f] *)
 let with_open_block_attached_device __context rpc session_id vdi mode f =
@@ -35,7 +36,8 @@ let with_open_block_attached_device __context rpc session_id vdi mode f =
         match mode with `RO -> [Unix.O_RDONLY] | `RW -> [Unix.O_RDWR]
       in
       let fd = Unix.openfile path mode' 0 in
-      finally (fun () -> f fd) (fun () -> Unix.close fd))
+      finally (fun () -> f fd) (fun () -> Unix.close fd)
+  )
 
 (** Return a URL suitable for passing to the sparse_dd process *)
 let import_vdi_url ~__context ?(prefer_slaves = false) rpc session_id task_id
@@ -77,7 +79,8 @@ let must_write_zeroes_into_new_vdi ~__context vdi =
     List.mem ("allocation", "thick")
       (List.map
          (fun (x, y) -> (String.lowercase_ascii x, String.lowercase_ascii y))
-         sr_r.API.sR_sm_config)
+         sr_r.API.sR_sm_config
+      )
   in
   (* We presume that storagelink arrays don't zero disks either *)
   let using_csl sr_r = String.lowercase_ascii sr_r.API.sR_type = "cslg" in
@@ -105,7 +108,8 @@ let copy_vdi ~__context ?base vdi_src vdi_dst =
            to make it." ;
         raise
           (Api_errors.Server_error
-             (Api_errors.vdi_not_sparse, [Ref.string_of vdi_dst]))
+             (Api_errors.vdi_not_sparse, [Ref.string_of vdi_dst])
+          )
       ) ;
       (* Copy locally unless this host can't see the destination SR *)
       let can_local_copy =
@@ -129,7 +133,8 @@ let copy_vdi ~__context ?base vdi_src vdi_dst =
       let progress_cb progress =
         TaskHelper.exn_if_cancelling ~__context ;
         TaskHelper.operate_on_db_task ~__context (fun self ->
-            Db.Task.set_progress ~__context ~self ~value:progress)
+            Db.Task.set_progress ~__context ~self ~value:progress
+        )
       in
       let copy base =
         try
@@ -139,7 +144,8 @@ let copy_vdi ~__context ?base vdi_src vdi_dst =
                 with_block_attached_device __context rpc session_id vdi_dst `RW
                   (fun device_dst ->
                     Sparse_dd_wrapper.dd ~progress_cb ?base sparse device_src
-                      device_dst size)
+                      device_dst size
+                )
               else
                 (* Create a new subtask for the inter-host sparse_dd. Without
                    							 * this there was a race in VM.copy, as both VDI.copy and VM.copy
@@ -185,7 +191,9 @@ let copy_vdi ~__context ?base vdi_src vdi_dst =
                     with e ->
                       Tasks.wait_for_all ~rpc ~session_id
                         ~tasks:[import_task_id] ;
-                      raise e))
+                      raise e
+                )
+          )
         with
         | Unix.Unix_error (Unix.EIO, _, _) as e ->
             let e' =
@@ -201,4 +209,6 @@ let copy_vdi ~__context ?base vdi_src vdi_dst =
           copy None
       | Some base_vdi ->
           with_block_attached_device __context rpc session_id base_vdi `RO
-            (fun device_base -> copy (Some device_base)))
+            (fun device_base -> copy (Some device_base)
+          )
+  )

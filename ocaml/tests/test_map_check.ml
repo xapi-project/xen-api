@@ -38,7 +38,8 @@ module AddDefaults = Generic.MakeStateless (struct
 
     let string_of_input_t =
       Test_printers.(
-        assoc_pair (list string_of_requirement) (assoc_list string string))
+        assoc_pair (list string_of_requirement) (assoc_list string string)
+      )
 
     let string_of_output_t = Test_printers.(assoc_list string string)
   end
@@ -52,16 +53,22 @@ module AddDefaults = Generic.MakeStateless (struct
         (([{key= "abc"; default_value= None; is_valid_value= true_fun}], []), [])
       ; (* If default value is Some _, the default should be added. *)
         ( ( [{key= "abc"; default_value= Some "def"; is_valid_value= true_fun}]
-          , [] )
-        , [("abc", "def")] )
+          , []
+          )
+        , [("abc", "def")]
+        )
       ; (* If default value is None, an existing value should not be overwritten. *)
         ( ( [{key= "abc"; default_value= None; is_valid_value= true_fun}]
-          , [("abc", "ghi")] )
-        , [("abc", "ghi")] )
+          , [("abc", "ghi")]
+          )
+        , [("abc", "ghi")]
+        )
       ; (* If default value is Some _, an existing value should not be overwritten. *)
         ( ( [{key= "abc"; default_value= Some "def"; is_valid_value= true_fun}]
-          , [("abc", "ghi")] )
-        , [("abc", "ghi")] )
+          , [("abc", "ghi")]
+          )
+        , [("abc", "ghi")]
+        )
       ]
 end)
 
@@ -89,15 +96,20 @@ module ValidateKVPair = Generic.MakeStateless (struct
         (* If all values are valid, the exception should not be thrown. *)
         ( ( [{key= "abc"; default_value= None; is_valid_value= true_fun}]
           , "abc"
-          , "def" )
-        , Ok () )
+          , "def"
+          )
+        , Ok ()
+        )
       ; (* If there is no valid value, the exception should always be thrown. *)
         ( ( [{key= "abc"; default_value= None; is_valid_value= false_fun}]
           , "abc"
-          , "def" )
+          , "def"
+          )
         , Error
             Api_errors.(
-              Server_error (invalid_value, ["test_field"; "abc = def"])) )
+              Server_error (invalid_value, ["test_field"; "abc = def"])
+            )
+        )
       ]
 end)
 
@@ -128,11 +140,13 @@ let string_of_ks ks =
         List.map
           (fun (c, d) ->
             let e, f = d in
-            c ^ "," ^ string_of_ty e ^ f)
+            c ^ "," ^ string_of_ty e ^ f
+            )
           b
         |> String.concat ";"
       in
-      "[" ^ a ^ "," ^ "[" ^ inner_string ^ "]]")
+      "[" ^ a ^ "," ^ "[" ^ inner_string ^ "]]"
+      )
     kss
   |> String.concat ";"
 
@@ -164,24 +178,32 @@ module AssertAllKeys = Generic.MakeStateless (struct
         ( ( "hourly"
           , ("", [("hourly", [("min", (String, ""))])])
           , [("min", "30")]
-          , [("min", "0")] )
-        , [("min", "30")] )
+          , [("min", "0")]
+          )
+        , [("min", "30")]
+        )
       ; ( ( "hourly"
           , ("", [("hourly", [("min", (String, ""))])])
           , [("hour", "1"); ("min", "0")]
-          , [("min", "0")] )
-        , [("min", "0")] )
+          , [("min", "0")]
+          )
+        , [("min", "0")]
+        )
       ; ( ( "hourly"
           , ("", [("hourly", [("min", (String, ""))])])
           , [("day", "Monday"); ("hour", "1"); ("min", "0")]
-          , [("min", "0")] )
-        , [("min", "0")] )
+          , [("min", "0")]
+          )
+        , [("min", "0")]
+        )
       ; (* Change hourly snapshots to daily and weekly *)
         ( ( "daily"
           , ("", [("daily", [("hour", (String, "")); ("min", (String, ""))])])
           , [("hour", "10"); ("min", "30")]
-          , [("min", "0")] )
-        , [("hour", "10"); ("min", "30")] )
+          , [("min", "0")]
+          )
+        , [("hour", "10"); ("min", "30")]
+        )
       ; ( ( "weekly"
           , ( ""
             , [
@@ -190,38 +212,52 @@ module AssertAllKeys = Generic.MakeStateless (struct
                     ("day", (String, ""))
                   ; ("hour", (String, ""))
                   ; ("min", (String, ""))
-                  ] )
-              ] )
+                  ]
+                )
+              ]
+            )
           , [("day", "Monday"); ("hour", "10"); ("min", "30")]
-          , [("min", "0")] )
-        , [("day", "Monday"); ("hour", "10"); ("min", "30")] )
+          , [("min", "0")]
+          )
+        , [("day", "Monday"); ("hour", "10"); ("min", "30")]
+        )
       ; (* Tests for daily snapshots *)
         ( ( "daily"
           , ("", [("daily", [("hour", (String, "")); ("min", (String, ""))])])
           , [("hour", "10"); ("min", "30")]
-          , [("hour", "0"); ("min", "0")] )
-        , [("hour", "10"); ("min", "30")] )
+          , [("hour", "0"); ("min", "0")]
+          )
+        , [("hour", "10"); ("min", "30")]
+        )
       ; ( ( "daily"
           , ("", [("daily", [("hour", (String, "")); ("min", (String, ""))])])
           , [("day", "Monday"); ("hour", "0"); ("min", "0")]
-          , [("hour", "0"); ("min", "0")] )
-        , [("hour", "0"); ("min", "0")] )
+          , [("hour", "0"); ("min", "0")]
+          )
+        , [("hour", "0"); ("min", "0")]
+        )
       ; ( ( "daily"
           , ("", [("daily", [("hour", (String, "")); ("min", (String, ""))])])
           , [("min", "30")]
-          , [("hour", "0"); ("min", "0")] )
-        , [("hour", "0"); ("min", "30")] )
+          , [("hour", "0"); ("min", "0")]
+          )
+        , [("hour", "0"); ("min", "30")]
+        )
       ; ( ( "daily"
           , ("", [("daily", [("hour", (String, "")); ("min", (String, ""))])])
           , [("hour", "10")]
-          , [("hour", "0"); ("min", "0")] )
-        , [("hour", "10"); ("min", "0")] )
+          , [("hour", "0"); ("min", "0")]
+          )
+        , [("hour", "10"); ("min", "0")]
+        )
       ; (* Change daily snapshots to hourly and weekly *)
         ( ( "hourly"
           , ("", [("hourly", [("min", (String, ""))])])
           , [("min", "30")]
-          , [("hour", "0"); ("min", "0")] )
-        , [("min", "30")] )
+          , [("hour", "0"); ("min", "0")]
+          )
+        , [("min", "30")]
+        )
       ; ( ( "weekly"
           , ( ""
             , [
@@ -230,11 +266,15 @@ module AssertAllKeys = Generic.MakeStateless (struct
                     ("day", (String, ""))
                   ; ("hour", (String, ""))
                   ; ("min", (String, ""))
-                  ] )
-              ] )
+                  ]
+                )
+              ]
+            )
           , [("day", "Monday"); ("hour", "10"); ("min", "30")]
-          , [("hour", "0"); ("min", "0")] )
-        , [("day", "Monday"); ("hour", "10"); ("min", "30")] )
+          , [("hour", "0"); ("min", "0")]
+          )
+        , [("day", "Monday"); ("hour", "10"); ("min", "30")]
+        )
       ; (* Tests for weekly snapshots *)
         ( ( "weekly"
           , ( ""
@@ -244,11 +284,15 @@ module AssertAllKeys = Generic.MakeStateless (struct
                     ("day", (String, ""))
                   ; ("hour", (String, ""))
                   ; ("min", (String, ""))
-                  ] )
-              ] )
+                  ]
+                )
+              ]
+            )
           , [("day", "Monday"); ("hour", "10"); ("min", "30")]
-          , [("day", "Wednesday"); ("hour", "0"); ("min", "0")] )
-        , [("day", "Monday"); ("hour", "10"); ("min", "30")] )
+          , [("day", "Wednesday"); ("hour", "0"); ("min", "0")]
+          )
+        , [("day", "Monday"); ("hour", "10"); ("min", "30")]
+        )
       ; ( ( "weekly"
           , ( ""
             , [
@@ -257,11 +301,15 @@ module AssertAllKeys = Generic.MakeStateless (struct
                     ("day", (String, ""))
                   ; ("hour", (String, ""))
                   ; ("min", (String, ""))
-                  ] )
-              ] )
+                  ]
+                )
+              ]
+            )
           , [("day", "Wednesday")]
-          , [("day", "Monday"); ("hour", "0"); ("min", "0")] )
-        , [("day", "Wednesday"); ("hour", "0"); ("min", "0")] )
+          , [("day", "Monday"); ("hour", "0"); ("min", "0")]
+          )
+        , [("day", "Wednesday"); ("hour", "0"); ("min", "0")]
+        )
       ; ( ( "weekly"
           , ( ""
             , [
@@ -270,11 +318,15 @@ module AssertAllKeys = Generic.MakeStateless (struct
                     ("day", (String, ""))
                   ; ("hour", (String, ""))
                   ; ("min", (String, ""))
-                  ] )
-              ] )
+                  ]
+                )
+              ]
+            )
           , [("hour", "10")]
-          , [("day", "Monday"); ("hour", "0"); ("min", "0")] )
-        , [("day", "Monday"); ("hour", "10"); ("min", "0")] )
+          , [("day", "Monday"); ("hour", "0"); ("min", "0")]
+          )
+        , [("day", "Monday"); ("hour", "10"); ("min", "0")]
+        )
       ; ( ( "weekly"
           , ( ""
             , [
@@ -283,22 +335,30 @@ module AssertAllKeys = Generic.MakeStateless (struct
                     ("day", (String, ""))
                   ; ("hour", (String, ""))
                   ; ("min", (String, ""))
-                  ] )
-              ] )
+                  ]
+                )
+              ]
+            )
           , [("min", "30")]
-          , [("day", "Monday"); ("hour", "0"); ("min", "0")] )
-        , [("day", "Monday"); ("hour", "0"); ("min", "30")] )
+          , [("day", "Monday"); ("hour", "0"); ("min", "0")]
+          )
+        , [("day", "Monday"); ("hour", "0"); ("min", "30")]
+        )
       ; (* Change weekly snapshots to hourly and daily *)
         ( ( "hourly"
           , ("", [("hourly", [("min", (String, ""))])])
           , [("min", "30")]
-          , [("day", "Monday"); ("hour", "0"); ("min", "0")] )
-        , [("min", "30")] )
+          , [("day", "Monday"); ("hour", "0"); ("min", "0")]
+          )
+        , [("min", "30")]
+        )
       ; ( ( "daily"
           , ("", [("daily", [("hour", (String, "")); ("min", (String, ""))])])
           , [("hour", "10"); ("min", "30")]
-          , [("day", "Monday"); ("hour", "0"); ("min", "0")] )
-        , [("hour", "10"); ("min", "30")] )
+          , [("day", "Monday"); ("hour", "0"); ("min", "0")]
+          )
+        , [("hour", "10"); ("min", "30")]
+        )
       ]
 end)
 
@@ -331,39 +391,53 @@ module AssertKeys = Generic.MakeStateless (struct
         ( ( ""
           , ("", [("", [("min", (String, ""))])])
           , [("min", "30")]
-          , [("min", "0")] )
-        , Ok [("min", "30")] )
+          , [("min", "0")]
+          )
+        , Ok [("min", "30")]
+        )
       ; ( ( ""
           , ("", [("", [("min", (String, ""))])])
           , [("hour", "0")]
-          , [("min", "0")] )
-        , Error Api_errors.(Server_error (invalid_value, [":hour"; "0"])) )
+          , [("min", "0")]
+          )
+        , Error Api_errors.(Server_error (invalid_value, [":hour"; "0"]))
+        )
       ; ( ( ""
           , ("", [("", [("min", (String, ""))])])
           , [("day", "Monday")]
-          , [("min", "0")] )
-        , Error Api_errors.(Server_error (invalid_value, [":day"; "Monday"])) )
+          , [("min", "0")]
+          )
+        , Error Api_errors.(Server_error (invalid_value, [":day"; "Monday"]))
+        )
       ; (* Tests daily keys *)
         ( ( ""
           , ("", [("", [("hour", (String, "")); ("min", (String, ""))])])
           , [("hour", "10"); ("min", "30")]
-          , [("hour", "0"); ("min", "0")] )
-        , Ok [("hour", "10"); ("min", "30")] )
+          , [("hour", "0"); ("min", "0")]
+          )
+        , Ok [("hour", "10"); ("min", "30")]
+        )
       ; ( ( ""
           , ("", [("", [("hour", (String, "")); ("min", (String, ""))])])
           , [("hour", "10")]
-          , [("hour", "0"); ("min", "0")] )
-        , Ok [("hour", "10"); ("min", "0")] )
+          , [("hour", "0"); ("min", "0")]
+          )
+        , Ok [("hour", "10"); ("min", "0")]
+        )
       ; ( ( ""
           , ("", [("", [("hour", (String, "")); ("min", (String, ""))])])
           , [("min", "30")]
-          , [("hour", "0"); ("min", "0")] )
-        , Ok [("hour", "0"); ("min", "30")] )
+          , [("hour", "0"); ("min", "0")]
+          )
+        , Ok [("hour", "0"); ("min", "30")]
+        )
       ; ( ( ""
           , ("", [("", [("hour", (String, "")); ("min", (String, ""))])])
           , [("day", "Monday")]
-          , [("hour", "0"); ("min", "0")] )
-        , Error Api_errors.(Server_error (invalid_value, [":day"; "Monday"])) )
+          , [("hour", "0"); ("min", "0")]
+          )
+        , Error Api_errors.(Server_error (invalid_value, [":day"; "Monday"]))
+        )
       ; (* Tests weekly keys *)
         ( ( ""
           , ( ""
@@ -373,11 +447,15 @@ module AssertKeys = Generic.MakeStateless (struct
                     ("day", (String, ""))
                   ; ("hour", (String, ""))
                   ; ("min", (String, ""))
-                  ] )
-              ] )
+                  ]
+                )
+              ]
+            )
           , [("day", "Wednesday"); ("hour", "10"); ("min", "30")]
-          , [("day", "Monday"); ("hour", "0"); ("min", "0")] )
-        , Ok [("day", "Wednesday"); ("hour", "10"); ("min", "30")] )
+          , [("day", "Monday"); ("hour", "0"); ("min", "0")]
+          )
+        , Ok [("day", "Wednesday"); ("hour", "10"); ("min", "30")]
+        )
       ; ( ( ""
           , ( ""
             , [
@@ -386,11 +464,15 @@ module AssertKeys = Generic.MakeStateless (struct
                     ("day", (String, ""))
                   ; ("hour", (String, ""))
                   ; ("min", (String, ""))
-                  ] )
-              ] )
+                  ]
+                )
+              ]
+            )
           , [("day", "Wednesday")]
-          , [("day", "Monday"); ("hour", "0"); ("min", "0")] )
-        , Ok [("day", "Wednesday"); ("hour", "0"); ("min", "0")] )
+          , [("day", "Monday"); ("hour", "0"); ("min", "0")]
+          )
+        , Ok [("day", "Wednesday"); ("hour", "0"); ("min", "0")]
+        )
       ; ( ( ""
           , ( ""
             , [
@@ -399,11 +481,15 @@ module AssertKeys = Generic.MakeStateless (struct
                     ("day", (String, ""))
                   ; ("hour", (String, ""))
                   ; ("min", (String, ""))
-                  ] )
-              ] )
+                  ]
+                )
+              ]
+            )
           , [("hour", "10")]
-          , [("day", "Monday"); ("hour", "0"); ("min", "0")] )
-        , Ok [("day", "Monday"); ("hour", "10"); ("min", "0")] )
+          , [("day", "Monday"); ("hour", "0"); ("min", "0")]
+          )
+        , Ok [("day", "Monday"); ("hour", "10"); ("min", "0")]
+        )
       ; ( ( ""
           , ( ""
             , [
@@ -412,11 +498,15 @@ module AssertKeys = Generic.MakeStateless (struct
                     ("day", (String, ""))
                   ; ("hour", (String, ""))
                   ; ("min", (String, ""))
-                  ] )
-              ] )
+                  ]
+                )
+              ]
+            )
           , [("min", "30")]
-          , [("day", "Monday"); ("hour", "0"); ("min", "0")] )
-        , Ok [("day", "Monday"); ("hour", "0"); ("min", "30")] )
+          , [("day", "Monday"); ("hour", "0"); ("min", "0")]
+          )
+        , Ok [("day", "Monday"); ("hour", "0"); ("min", "30")]
+        )
       ]
 end)
 

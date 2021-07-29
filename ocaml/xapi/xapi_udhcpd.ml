@@ -111,12 +111,14 @@ let update_db_nolock ~__context =
           List.find (fun x -> x.vif = Ref.string_of new_lease_vif) loc_assigned
         in
         Db.Network.add_to_assigned_ips ~__context ~self:(Ref.of_string net)
-          ~key:new_lease_vif ~value:(Ip.string_of lease.ip))
+          ~key:new_lease_vif ~value:(Ip.string_of lease.ip)
+        )
       new_lease_vifs ;
     List.iter
       (fun released_lease_vif ->
         Db.Network.remove_from_assigned_ips ~__context ~self:(Ref.of_string net)
-          ~key:released_lease_vif)
+          ~key:released_lease_vif
+        )
       released_lease_vifs
   in
   List.iter update_network networks
@@ -158,8 +160,7 @@ module Udhcpd_conf = struct
     let subnet = Printf.sprintf "option\tsubnet\t%s" t.subnet in
     let router = Printf.sprintf "option\trouter\t%s" (Ip.string_of t.router) in
     let pxe =
-      Printf.sprintf "siaddr\t%s\nboot_file\t/pxelinux.0"
-        (Ip.string_of t.router)
+      Printf.sprintf "siaddr\t%s\nboot_file\t/pxelinux.0" (Ip.string_of t.router)
     in
     let string_of_lease l =
       Printf.sprintf "static_lease\t%s\t%s # %s\n" l.mac (Ip.string_of l.ip)
@@ -177,7 +178,7 @@ module Udhcpd_conf = struct
       with Not_found -> false
     in
     let config_list =
-      (skel :: interface :: subnet :: (if include_gw then [router] else []))
+      skel :: interface :: subnet :: (if include_gw then [router] else [])
       @ (if include_pxe then [pxe] else [])
       @ leases
     in
@@ -228,7 +229,8 @@ let gc_leases_nolock ~__context =
   List.iter
     (fun l ->
       info "Host internal management network removing lease for VIF %s -> %s"
-        l.vif (Ip.string_of l.ip))
+        l.vif (Ip.string_of l.ip)
+      )
     bad ;
   assigned := good
 
@@ -244,7 +246,8 @@ let maybe_add_lease_nolock ~__context vif =
         (Printf.sprintf
            "Host internal management network %s other_config has no \
             ip_begin/ip_end keys"
-           (Ref.string_of network)) ;
+           (Ref.string_of network)
+        ) ;
     let ip_begin = Ip.of_string (List.assoc ip_begin_key other_config)
     and ip_end = Ip.of_string (List.assoc ip_end_key other_config) in
     match find_lease_nolock (Ref.string_of vif) with
@@ -258,7 +261,8 @@ let maybe_add_lease_nolock ~__context vif =
         (* NB ip_begin is the address on the bridge itself *)
         match
           Ip.first (Ip.succ ip_begin) ip_end (fun ip ->
-              List.filter (fun l -> l.ip = ip) !assigned = [])
+              List.filter (fun l -> l.ip = ip) !assigned = []
+          )
         with
         | Some ip ->
             assigned :=
@@ -280,13 +284,15 @@ let maybe_add_lease ~__context vif =
   Helpers.log_exn_continue
     (Printf.sprintf "maybe_add_lease VIF:%s" (Ref.string_of vif))
     (fun () ->
-      Mutex.execute mutex (fun () -> maybe_add_lease_nolock ~__context vif))
+      Mutex.execute mutex (fun () -> maybe_add_lease_nolock ~__context vif)
+      )
     ()
 
 let get_ip ~__context vif =
   let vif = Ref.string_of vif in
   Mutex.execute mutex (fun () ->
-      Option.map (fun l -> l.ip) (find_lease_nolock vif))
+      Option.map (fun l -> l.ip) (find_lease_nolock vif)
+  )
 
 let init () =
   Mutex.execute mutex (fun () ->
@@ -296,4 +302,5 @@ let init () =
           "Caught exception %s loading %s: creating new empty leases database"
           (Printexc.to_string e)
           !Xapi_globs.udhcpd_leases_db ;
-        assigned := [])
+        assigned := []
+  )

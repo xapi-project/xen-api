@@ -212,7 +212,9 @@ let assert_vm_is_compatible ~__context ~vm ~host ?remote () =
     raise
       (Api_errors.Server_error
          ( Api_errors.vm_incompatible_with_this_host
-         , [Ref.string_of vm; Ref.string_of host; msg] ))
+         , [Ref.string_of vm; Ref.string_of host; msg]
+         )
+      )
   in
   if Db.VM.get_power_state ~__context ~self:vm <> `Halted then
     try

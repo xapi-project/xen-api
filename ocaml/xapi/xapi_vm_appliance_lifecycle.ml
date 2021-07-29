@@ -33,15 +33,18 @@ let check_operation_error ~__context record self op =
         (* Can start if any are halted. *)
         | `start ->
             ( (fun power_state -> power_state = `Halted)
-            , "There are no halted VMs in this appliance." )
+            , "There are no halted VMs in this appliance."
+            )
         (* Can clean_shutdown if any are running. *)
         | `clean_shutdown ->
             ( (fun power_state -> power_state = `Running)
-            , "There are no running VMs in this appliance." )
+            , "There are no running VMs in this appliance."
+            )
         (* Can hard_shutdown/shutdown if any are not halted. *)
         | `hard_shutdown | `shutdown ->
             ( (fun power_state -> power_state <> `Halted)
-            , "All VMs in this appliance are halted." )
+            , "All VMs in this appliance are halted."
+            )
       in
       if List.exists predicate power_states then
         None

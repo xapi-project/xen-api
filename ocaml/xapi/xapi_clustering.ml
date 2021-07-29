@@ -34,12 +34,15 @@ let with_clustering_lock where f =
         (fun () ->
           debug "Grabbed host-local clustering lock; executing function... (%s)"
             where ;
-          f ())
+          f ()
+          )
         (fun () ->
           debug
             "Function execution finished; returned host-local clustering lock. \
              (%s)"
-            where))
+            where
+          )
+  )
 
 (* Note we have to add type annotations to network/host here because they're only used in the context of
    Db.PIF.get_records_where, and they're just strings there *)
@@ -51,7 +54,9 @@ let pif_of_host ~__context (network : API.ref_network) (host : API.ref_host) =
         Db_filter_types.(
           And
             ( Eq (Literal (Ref.string_of host), Field "host")
-            , Eq (Literal (Ref.string_of network), Field "network") ))
+            , Eq (Literal (Ref.string_of network), Field "network")
+            )
+        )
   in
   match pifs with
   | [(ref, record)] ->
@@ -69,7 +74,8 @@ let ip_of_pif (ref, record) =
   if ip = "" then
     raise
       Api_errors.(
-        Server_error (pif_has_no_network_configuration, [Ref.string_of ref])) ;
+        Server_error (pif_has_no_network_configuration, [Ref.string_of ref])
+      ) ;
   Cluster_interface.IPv4 ip
 
 (** [assert_pif_prerequisites (pif_ref,pif_rec)] raises an exception if any of
@@ -89,7 +95,8 @@ let assert_pif_prerequisites pif =
     if not record.pIF_currently_attached then
       raise
         Api_errors.(
-          Server_error (required_pif_is_unplugged, [Ref.string_of pif_ref]))
+          Server_error (required_pif_is_unplugged, [Ref.string_of pif_ref])
+        )
   in
   assert_pif_permaplugged pif ;
   ignore (ip_of_pif pif) ;
@@ -100,7 +107,8 @@ let assert_pif_attached_to ~__context ~host ~pIF =
     raise
       Api_errors.(
         Server_error
-          (pif_not_attached_to_host, [Ref.string_of pIF; Ref.string_of host]))
+          (pif_not_attached_to_host, [Ref.string_of pIF; Ref.string_of host])
+      )
 
 let handle_error = function
   | InternalError message ->
@@ -120,7 +128,9 @@ let assert_cluster_host_can_be_created ~__context ~host =
         Api_errors.(
           Server_error
             ( internal_error
-            , ["Cluster host cannot be created because it already exists"] ))
+            , ["Cluster host cannot be created because it already exists"]
+            )
+        )
 
 (** One of the cluster stacks returned by
     [get_required_cluster_stacks context sr_sm_type]
@@ -207,7 +217,9 @@ let assert_operation_host_target_is_localhost ~__context ~host =
       Api_errors.(
         Server_error
           ( internal_error
-          , ["A clustering operation was attempted from the wrong host"] ))
+          , ["A clustering operation was attempted from the wrong host"]
+          )
+      )
 
 let assert_cluster_host_has_no_attached_sr_which_requires_cluster_stack
     ~__context ~self =
@@ -227,7 +239,8 @@ let assert_cluster_host_has_no_attached_sr_which_requires_cluster_stack
            only one of these cluster stacks to be configured and running. *)
         let sr_sm_type = Db.SR.get_type ~__context ~self:sr in
         List.mem cluster_stack
-          (get_required_cluster_stacks ~__context ~sr_sm_type))
+          (get_required_cluster_stacks ~__context ~sr_sm_type)
+        )
       srs
   then
     raise Api_errors.(Server_error (cluster_stack_in_use, [cluster_stack]))
@@ -238,8 +251,7 @@ module Daemon = struct
   let maybe_call_script ~__context script params =
     match Context.get_test_clusterd_rpc __context with
     | Some _ ->
-        debug "in unit test, not calling %s %s" script
-          (String.concat " " params)
+        debug "in unit test, not calling %s %s" script (String.concat " " params)
     | None ->
         ignore (Helpers.call_script script params)
 
@@ -264,7 +276,8 @@ module Daemon = struct
         raise
           Api_errors.(
             Server_error
-              (internal_error, [Printf.sprintf "could not start %s" service]))
+              (internal_error, [Printf.sprintf "could not start %s" service])
+          )
     ) ;
     enabled := true ;
     debug "Cluster daemon: enabled & started"
@@ -279,6 +292,11 @@ module Daemon = struct
       !Xapi_globs.firewall_port_config_script
       ["close"; port] ;
     debug "Cluster daemon: disabled & stopped"
+
+  let restart ~__context =
+    debug "Attempting to restart the clustering daemon" ;
+    maybe_call_script ~__context !Xapi_globs.systemctl ["restart"; service] ;
+    debug "Cluster daemon: restarted"
 end
 
 (* xapi-clusterd only listens on message-switch,
@@ -292,14 +310,17 @@ let rpc ~__context =
       Api_errors.(
         Server_error
           ( Api_errors.operation_not_allowed
-          , ["clustering daemon has not been started yet"] )) ;
+          , ["clustering daemon has not been started yet"]
+          )
+      ) ;
   match Context.get_test_clusterd_rpc __context with
   | Some rpc ->
       fun req -> rpc req |> Idl.IdM.return
   | None ->
       Cluster_client.rpc (fun () ->
           failwith
-            "Can only communicate with xapi-clusterd through message-switch")
+            "Can only communicate with xapi-clusterd through message-switch"
+      )
 
 let assert_cluster_host_quorate ~__context ~self =
   (* With the latest kernel GFS2 would hang on mount if clustering is not working yet,
@@ -320,7 +341,8 @@ let assert_cluster_host_quorate ~__context ~self =
       if not diag.Cluster_interface.is_quorate then
         raise
           Api_errors.(
-            Server_error (cluster_host_not_joined, [Ref.string_of self]))
+            Server_error (cluster_host_not_joined, [Ref.string_of self])
+          )
   | Error error ->
       warn "Cannot query cluster host quorate status" ;
       handle_error error
@@ -342,7 +364,8 @@ let assert_cluster_host_is_enabled_for_matching_sms ~__context ~host ~sr_sm_type
         debug "No_cluster_host found %s" condition ;
         raise
           Api_errors.(
-            Server_error (no_compatible_cluster_host, [Ref.string_of host]))
+            Server_error (no_compatible_cluster_host, [Ref.string_of host])
+          )
       in
       match find_cluster_host ~__context ~host with
       | Some cluster_host
@@ -372,7 +395,8 @@ let compute_corosync_max_host_failures ~__context =
     List.length
       (List.filter
          (fun host -> is_clustering_disabled_on_host ~__context host)
-         all_hosts)
+         all_hosts
+      )
   in
   let corosync_ha_max_hosts =
     ((nhosts - disabled_hosts - 1) / 2) + disabled_hosts

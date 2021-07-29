@@ -215,7 +215,8 @@ let symlinks _ref gen message basefilename =
   List.map
     (fun (dir, fnameopt) ->
       let newfname = match fnameopt with None -> basefilename | Some f -> f in
-      (dir, dir ^ "/" ^ newfname))
+      (dir, dir ^ "/" ^ newfname)
+      )
     symlinks
 
 (** Check to see if the UUID is valid. This should not use get_by_uuid as
@@ -275,7 +276,8 @@ let handle_message ~__context message =
 let start_message_hook_thread ~__context () =
   queue_push :=
     (Thread_queue.make ~name:"email message queue" ~max_q_length:100
-       (handle_message ~__context))
+       (handle_message ~__context)
+    )
       .Thread_queue.push_fn
 
 (********************************************************************)
@@ -291,7 +293,8 @@ let cache_insert _ref message gen =
         debug "Pruning in-memory cache of messages: Length=%d (%d)"
           !in_memory_cache_length
           (List.length !in_memory_cache)
-      ))
+      )
+  )
 
 let cache_remove _ref =
   Mutex.execute in_memory_cache_mutex (fun () ->
@@ -301,7 +304,8 @@ let cache_remove _ref =
       if List.length to_delete > 1 then
         error "Internal error: Repeated reference in messages in_memory_cache" ;
       in_memory_cache := to_keep ;
-      in_memory_cache_length := List.length to_keep)
+      in_memory_cache_length := List.length to_keep
+  )
 
 (** Write: write message to disk. Returns boolean indicating whether
     	message was written *)
@@ -330,7 +334,9 @@ let write ~__context ~_ref ~message =
           gen :=
             Db_cache_types.Manifest.generation
               (Db_cache_types.Database.manifest db) ;
-          Db_cache_types.Database.increment db)) ;
+          Db_cache_types.Database.increment db
+      )
+  ) ;
   Unixext.mkdir_rec message_dir 0o700 ;
   let timestamp = ref (Date.to_float message.API.message_timestamp) in
   if message_exists () then
@@ -377,7 +383,8 @@ let write ~__context ~_ref ~message =
           List.iter
             (fun (dir, newpath) ->
               Unixext.mkdir_rec dir 0o700 ;
-              Unix.symlink filename newpath)
+              Unix.symlink filename newpath
+              )
             symlinks ;
           (* Insert a written message into in_memory_cache *)
           cache_insert _ref message !gen ;
@@ -386,14 +393,14 @@ let write ~__context ~_ref ~message =
              		   consistency (since the reference for the message will never be
              		   valid again. *)
           let rpc = API.rpc_of_message_t message in
-          Xapi_event.event_add ~snapshot:rpc "message" "add"
-            (Ref.string_of _ref) ;
+          Xapi_event.event_add ~snapshot:rpc "message" "add" (Ref.string_of _ref) ;
           let (_ : bool) =
             !queue_push message.API.message_name
               (message_to_string (_ref, message))
           in
           (*Xapi_event.event_add ~snapshot:xml "message" "del" (Ref.string_of _ref);*)
-          Some !gen)
+          Some !gen
+      )
     with _ -> None
 
 (** create: Create a new message, and write to disk. Returns null ref
@@ -403,12 +410,12 @@ let create ~__context ~name ~priority ~cls ~obj_uuid ~body =
     (Record_util.class_to_string cls)
     obj_uuid ;
   if not (Encodings.UTF8_XML.is_valid body) then
-    raise
-      (Api_errors.Server_error (Api_errors.invalid_value, ["UTF8 expected"])) ;
+    raise (Api_errors.Server_error (Api_errors.invalid_value, ["UTF8 expected"])) ;
   if not (check_uuid ~__context ~cls ~uuid:obj_uuid) then
     raise
       (Api_errors.Server_error
-         (Api_errors.uuid_invalid, [Record_util.class_to_string cls; obj_uuid])) ;
+         (Api_errors.uuid_invalid, [Record_util.class_to_string cls; obj_uuid])
+      ) ;
   let _ref = Ref.make () in
   let uuid = Uuid.to_string (Uuid.make_uuid ()) in
   let timestamp = Mutex.execute event_mutex (fun () -> Unix.gettimeofday ()) in
@@ -465,14 +472,17 @@ let destroy_real __context basefilename =
           gen :=
             Db_cache_types.Manifest.generation
               (Db_cache_types.Database.manifest db) ;
-          Db_cache_types.Database.increment db)) ;
+          Db_cache_types.Database.increment db
+      )
+  ) ;
   Mutex.execute event_mutex (fun () ->
       deleted := (!gen, _ref) :: !deleted ;
       ndeleted := !ndeleted + 1 ;
       if !ndeleted > 1024 then (
         deleted := Listext.List.take 512 !deleted ;
         ndeleted := 512
-      )) ;
+      )
+  ) ;
   cache_remove _ref ;
   Xapi_event.event_add ~snapshot:rpc "message" "del" (Ref.string_of _ref)
 
@@ -501,13 +511,16 @@ let destroy ~__context ~self =
                   (fun () -> close_in ic)
               in
               if _ref = self then true else false
-            with _ -> false)
+            with _ -> false
+            )
           allmsgs
       with _ ->
         raise
           (Api_errors.Server_error
              ( Api_errors.handle_invalid
-             , [Datamodel_common._message; Ref.string_of self] ))
+             , [Datamodel_common._message; Ref.string_of self]
+             )
+          )
     )
   in
   let basefilename = List.hd (List.rev (String.split_on_char '/' fullpath)) in
@@ -562,7 +575,8 @@ let get_real_inner dir filter name_filter =
                 (fun () -> close_in ic)
             in
             if filter msg then Some (gen, _ref, msg) else None
-          with _ -> None)
+          with _ -> None
+          )
         messages
     in
     List.sort
@@ -573,7 +587,8 @@ let get_real_inner dir filter name_filter =
         else
           compare
             (Date.to_float m2.API.message_timestamp)
-            (Date.to_float m1.API.message_timestamp))
+            (Date.to_float m1.API.message_timestamp)
+        )
       messages
   with _ -> []
 
@@ -594,7 +609,8 @@ let get_from_generation gen =
         try
           ignore (float_of_string n) ;
           true
-        with _ -> false)
+        with _ -> false
+        )
 
 let get_real dir filter since =
   List.map
@@ -627,8 +643,10 @@ let get_since_for_events ~__context since =
                    if gen > since then
                      Some (gen, Xapi_event.Message.Create (_ref, msg))
                    else
-                     None)
-                 !in_memory_cache)
+                     None
+                   )
+                 !in_memory_cache
+              )
         | (last_in_memory, _, _) :: _ ->
             debug
               "get_since_for_events: last_in_memory (%Ld) >= since (%Ld): \
@@ -637,7 +655,8 @@ let get_since_for_events ~__context since =
             None
         | _ ->
             warn "get_since_for_events: no in_memory_cache!" ;
-            None)
+            None
+    )
   in
   let result =
     match cached_result with
@@ -653,7 +672,8 @@ let get_since_for_events ~__context since =
         let deleted =
           List.filter (fun (deltime, _ref) -> deltime > since) !deleted
         in
-        List.map (fun (ts, _ref) -> (ts, Xapi_event.Message.Del _ref)) deleted)
+        List.map (fun (ts, _ref) -> (ts, Xapi_event.Message.Del _ref)) deleted
+    )
   in
   let all_results = result @ delete_results in
   let newsince =
@@ -694,7 +714,8 @@ let get_record ~__context ~self =
   with _ ->
     raise
       (Api_errors.Server_error
-         (Api_errors.handle_invalid, ["message"; Ref.string_of self]))
+         (Api_errors.handle_invalid, ["message"; Ref.string_of self])
+      )
 
 let get_all_records ~__context = get_real message_dir (fun _ -> true) 0.0
 
@@ -710,22 +731,23 @@ let repopulate_cache () =
             try
               ignore (float_of_string n) ;
               true
-            with _ -> false)
+            with _ -> false
+            )
       in
       let last_256 = Listext.List.take 256 messages in
       in_memory_cache := last_256 ;
       let get_ts (ts, _, m) =
         Printf.sprintf "%Ld (%s)" ts (Date.to_string m.API.message_timestamp)
       in
-      debug "Constructing in-memory-cache: most length=%d"
-        (List.length last_256) ;
+      debug "Constructing in-memory-cache: most length=%d" (List.length last_256) ;
       ( try
           debug "newest=%s oldest=%s"
             (get_ts (List.hd last_256))
             (get_ts (List.hd (List.rev last_256)))
         with _ -> ()
       ) ;
-      in_memory_cache_length := List.length !in_memory_cache)
+      in_memory_cache_length := List.length !in_memory_cache
+  )
 
 let register_event_hook () =
   repopulate_cache () ;
@@ -757,7 +779,8 @@ let handler (req : Http.Request.t) fd _ =
           let url =
             Printf.sprintf "https://%s%s?%s"
               (Http.Url.maybe_wrap_IPv6_literal
-                 (Pool_role.get_master_address ()))
+                 (Pool_role.get_master_address ())
+              )
               req.Http.Request.uri
               (String.concat "&" (List.map (fun (a, b) -> a ^ "=" ^ b) query))
           in
@@ -784,7 +807,8 @@ let handler (req : Http.Request.t) fd _ =
           repopulate_cache ()
       with e ->
         error "Xapi_message.handler: caught exception '%s'"
-          (ExnHelper.string_of_exn e))
+          (ExnHelper.string_of_exn e)
+  )
 
 (* Export messages and send to another host/pool over http. *)
 let send_messages ~__context ~cls ~obj_uuid ~session_id ~remote_address =
@@ -805,9 +829,12 @@ let send_messages ~__context ~cls ~obj_uuid ~session_id ~remote_address =
     SSL
       ( SSL.make ~verify_cert:(Stunnel_client.pool ()) ()
       , remote_address
-      , !Constants.https_port )
+      , !Constants.https_port
+      )
   in
   with_transport transport
     (with_http request (fun (rsp, fd) ->
          if rsp.Http.Response.code <> "200" then
-           error "Error transferring messages"))
+           error "Error transferring messages"
+     )
+    )

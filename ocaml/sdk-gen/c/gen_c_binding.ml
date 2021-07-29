@@ -62,7 +62,8 @@ let api =
   in
   filter obj_filter field_filter message_filter
     (Datamodel_utils.add_implicit_messages ~document_order:false
-       (filter obj_filter field_filter message_filter Datamodel.all_api))
+       (filter obj_filter field_filter message_filter Datamodel.all_api)
+    )
 
 let classes = objects_of_api api
 
@@ -102,7 +103,8 @@ let rec main () =
         gen_class write_decl decl_filename x include_dir ;
         gen_class write_impl impl_filename x
       )
-        src_dir)
+        src_dir
+      )
     filtered_classes ;
 
   all_headers := List.map (fun x -> x.name) filtered_classes ;
@@ -136,7 +138,9 @@ let rec main () =
         , `A
             (List.map
                (fun x -> `O [("api_class_record", `String x)])
-               class_records) )
+               class_records
+            )
+        )
       ]
   in
   render_file
@@ -218,7 +222,8 @@ and write_decl {name= classname; contents; description; messages; _} out_chan =
     decl_messages needed classname
       (List.filter
          (fun x -> not (classname = "event" && x.msg_name = "from"))
-         messages)
+         messages
+      )
   in
   let full_stop =
     if Astring.String.is_suffix ~affix:"." description then "" else "."
@@ -238,7 +243,8 @@ and write_decl {name= classname; contents; description; messages; _} out_chan =
 
   print "\n\n%s\n\n\n"
     (Helper.comment false
-       (sprintf "The %s class.\n\n%s%s" classname description full_stop)) ;
+       (sprintf "The %s class.\n\n%s%s" classname description full_stop)
+    ) ;
 
   if classname <> "event" then (
     print "%s\n\n"
@@ -285,7 +291,8 @@ and decl_free tn cn referenced thing =
           library."
          tn
          (if referenced then ", and all referenced values" else "")
-         thing)
+         thing
+      )
   in
 
   sprintf "%s\nextern void\n%s_free(%s %s);" com tn tn cn
@@ -389,7 +396,8 @@ and impl_message needed classname message =
           \            %s\n\
           \        };\n"
           param_pieces
-      , "param_values" )
+      , "param_values"
+      )
   in
 
   let result_bits =
@@ -425,7 +433,8 @@ and impl_message_async needed classname message =
             \            %s\n\
             \        };\n"
             param_pieces
-        , "param_values" )
+        , "param_values"
+        )
     in
 
     let result_bits =
@@ -543,7 +552,8 @@ and abstract_record_field classname prefix prefix_caps content =
       joined ",\n        "
         (abstract_record_field classname
            (prefix ^ fieldname p ^ "_")
-           (prefix_caps ^ p ^ "_"))
+           (prefix_caps ^ p ^ "_")
+        )
         c
 
 and abstract_result_type typ =
@@ -666,7 +676,9 @@ and hash_includes needed =
     (List.sort String.compare
        (List.filter
           (function s -> s <> "")
-          (List.map hash_include ("common" :: StringSet.elements needed))))
+          (List.map hash_include ("common" :: StringSet.elements needed))
+       )
+    )
 
 and hash_include n =
   if Astring.String.is_suffix ~affix:"internal" n then
@@ -711,20 +723,22 @@ and write_enum_decl x out_chan =
         (joined ",\n\n" (enum_entry name)
            (contents
            @ [("undefined", "Unknown to this version of the bindings.")]
-           ))
+           )
+        )
         tn tn tn
-        (Helper.comment true
-           (sprintf "Allocate a %s_set of the given size." tn))
+        (Helper.comment true (sprintf "Allocate a %s_set of the given size." tn))
         tn tn
         (decl_free (sprintf "%s_set" tn) "*set" false "set")
         (Helper.comment true
            "Return the name corresponding to the given code.  This string must \
-            not be modified or freed.")
+            not be modified or freed."
+        )
         tn tn
         (Helper.comment true
            "Return the correct code for the given string, or set the session \
             object to failure and return an undefined value if the given \
-            string does not match a known code.")
+            string does not match a known code."
+        )
         tn tn ;
 
       print_h_footer out_chan
@@ -738,7 +752,8 @@ and enum_entry enum_name = function
         (String.uppercase_ascii enum_name)
         (Astring.String.map
            (fun x -> match x with '-' -> '_' | _ -> x)
-           (String.uppercase_ascii n))
+           (String.uppercase_ascii n)
+        )
 
 and write_enum_impl x out_chan =
   match x with
@@ -837,7 +852,9 @@ and write_enum_internal_decl x out_chan =
            (sprintf
               "Declarations of the abstract types used during demarshalling of \
                enum %s.  Internal to this library -- do not use from outside."
-              tn))
+              tn
+           )
+        )
         protect protect (hash_include "internal") tn set_abstract_type
   | _ ->
       ()
@@ -981,7 +998,8 @@ and gen_failure_h () =
       print_h_header out_chan protect ;
       gen_failure_enum out_chan ;
       gen_failure_funcs out_chan ;
-      print_h_footer out_chan)
+      print_h_footer out_chan
+      )
     ~always:(fun () -> close_out out_chan)
 
 and gen_failure_enum out_chan =
@@ -1007,7 +1025,8 @@ and failure_enum_entry name err acc =
   ( name
   , sprintf "%s\n    %s"
       (Helper.comment true ~indent:4 err.Datamodel_types.err_doc)
-      (failure_enum name) )
+      (failure_enum name)
+  )
   :: acc
 
 and gen_failure_funcs out_chan =
@@ -1021,10 +1040,12 @@ and gen_failure_funcs out_chan =
      xen_api_failure_from_string(const char *str);\n\n"
     (Helper.comment true
        "Return the name corresponding to the given code.  This string must not \
-        be modified or freed.")
+        be modified or freed."
+    )
     (Helper.comment true
        "Return the correct code for the given string, or UNDEFINED if the \
-        given string does not match a known code.")
+        given string does not match a known code."
+    )
 
 and gen_failure_c () =
   let out_chan = open_out (Filename.concat destdir "src/xen_api_failure.c") in
@@ -1053,7 +1074,8 @@ and gen_failure_c () =
         \    return ENUM_LOOKUP(str, lookup_table);\n\
          }\n\n\n"
         Licence.bsd_two_clause
-        (String.concat ",\n    " (failure_lookup_entries ())))
+        (String.concat ",\n    " (failure_lookup_entries ()))
+      )
     ~always:(fun () -> close_out out_chan)
 
 and failure_lookup_entries () =
@@ -1075,7 +1097,8 @@ and write_impl {name= classname; contents; messages; _} out_chan =
     impl_messages needed classname
       (List.filter
          (fun x -> not (classname = "event" && x.msg_name = "from"))
-         messages)
+         messages
+      )
   in
   let record_free_handle =
     if classname = "event" then "" else "    free(record->handle);\n"
@@ -1314,6 +1337,10 @@ and c_type_of_ty needed record = function
       enums := TypeSet.add x !enums ;
       sprintf "struct %s_set *" enum_typename
   | Set String ->
+      needed := StringSet.add "string_set" !needed ;
+      "struct xen_string_set *"
+  | Set (Set String) ->
+      (* TODO: implement this new type correctly *)
       needed := StringSet.add "string_set" !needed ;
       "struct xen_string_set *"
   | Set (Record n) ->

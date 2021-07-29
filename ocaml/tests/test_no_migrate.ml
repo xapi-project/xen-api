@@ -62,13 +62,15 @@ let run_test (nv, nm, force, permitted) op =
   | None ->
       Alcotest.fail
         (Printf.sprintf "nv=%b nm=%b force=%b permitted=%b op=%s" nv nm force
-           permitted (op_string op))
+           permitted (op_string op)
+        )
   | Some (x, xs) when not permitted ->
       ()
   | Some (x, xs) ->
       Alcotest.fail
         (Printf.sprintf "nv=%b nm=%b force=%b permitted=%b op=%s error was=%s"
-           nv nm force permitted (op_string op) x)
+           nv nm force permitted (op_string op) x
+        )
 
 let test' op = List.iter (fun t -> run_test t op) testcases
 

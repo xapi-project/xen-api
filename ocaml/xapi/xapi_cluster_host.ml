@@ -31,7 +31,8 @@ let fix_pif_prerequisites ~__context (self : API.ref_PIF) =
   ip_of_pif (self, pif_rec self) |> ignore ;
   if not (pif_rec self).API.pIF_currently_attached then
     Helpers.call_api_functions ~__context (fun rpc session_id ->
-        Client.Client.PIF.plug ~rpc ~session_id ~self) ;
+        Client.Client.PIF.plug ~rpc ~session_id ~self
+    ) ;
   if not (pif_rec self).API.pIF_disallow_unplug then (
     debug "Setting disallow_unplug on cluster PIF %s" (Ref.string_of self) ;
     Db.PIF.set_disallow_unplug ~__context ~self ~value:true
@@ -49,7 +50,8 @@ let call_api_function_with_alert ~__context ~msg ~cls ~obj_uuid ~body
             body
         in
         Xapi_alert.add ~msg ~cls ~obj_uuid ~body ;
-        raise err)
+        raise err
+  )
 
 (* Create xapi db object for cluster_host, resync_host calls clusterd *)
 let create_internal ~__context ~cluster ~host ~pIF : API.ref_Cluster_host =
@@ -62,7 +64,8 @@ let create_internal ~__context ~cluster ~host ~pIF : API.ref_Cluster_host =
       Db.Cluster_host.create ~__context ~ref ~uuid ~cluster ~host ~pIF
         ~enabled:false ~current_operations:[] ~allowed_operations:[]
         ~other_config:[] ~joined:false ;
-      ref)
+      ref
+  )
 
 (* Helper function atomically enables clusterd and joins the cluster_host *)
 let join_internal ~__context ~self =
@@ -87,18 +90,21 @@ let join_internal ~__context ~self =
                 Some other_ip
               else
                 None
-            with _ -> None)
+            with _ -> None
+            )
           (Db.Cluster.get_cluster_hosts ~__context ~self:cluster)
       in
       if ip_list = [] then
         raise
           Api_errors.(
-            Server_error (no_cluster_hosts_reachable, [Ref.string_of cluster])) ;
+            Server_error (no_cluster_hosts_reachable, [Ref.string_of cluster])
+          ) ;
       debug "Enabling clusterd and joining cluster_host %s" (Ref.string_of self) ;
       Xapi_clustering.Daemon.enable ~__context ;
+      let pems = Xapi_cluster_helpers.Pem.get_existing ~__context cluster in
       let result =
         Cluster_client.LocalClient.join (rpc ~__context) dbg cluster_token ip
-          ip_list
+          ip_list pems
       in
       match Idl.IdM.run @@ Cluster_client.IDL.T.get result with
       | Ok () ->
@@ -108,9 +114,9 @@ let join_internal ~__context ~self =
           Db.Cluster_host.set_enabled ~__context ~self ~value:true ;
           debug "Cluster_host %s joined and enabled" (Ref.string_of self)
       | Error error ->
-          warn "Error occurred when joining cluster_host %s"
-            (Ref.string_of self) ;
-          handle_error error)
+          warn "Error occurred when joining cluster_host %s" (Ref.string_of self) ;
+          handle_error error
+  )
 
 (* Enable cluster_host in client layer via clusterd *)
 let resync_host ~__context ~host =
@@ -138,7 +144,8 @@ let resync_host ~__context ~host =
             Xapi_clustering.Daemon.enable ~__context ;
             (* Note that join_internal and enable both use the clustering lock *)
             Client.Client.Cluster_host.enable rpc session_id self
-          ))
+          )
+      )
 
 (* API call split into separate functions to create in db and enable in client layer *)
 let create ~__context ~cluster ~host ~pif =
@@ -174,7 +181,8 @@ let destroy_op ~__context ~self ~force =
             Db.Cluster_host.destroy ~__context ~self ;
             debug "Cluster_host %s force destroyed." ref_str
           ) else
-            handle_error error)
+            handle_error error
+  )
 
 let force_destroy ~__context ~self = destroy_op ~__context ~self ~force:true
 
@@ -223,23 +231,27 @@ let forget ~__context ~self =
             "Error encountered when declaring dead cluster_host %s (did you \
              declare all dead hosts yet?)"
             (Ref.string_of self) ;
-          handle_error error)
+          handle_error error
+  )
 
 let enable ~__context ~self =
   with_clustering_lock __LOC__ (fun () ->
       let dbg = Context.string_of_task __context in
       let host = Db.Cluster_host.get_host ~__context ~self in
+      let cluster = Db.Cluster_host.get_cluster ~__context ~self in
       assert_operation_host_target_is_localhost ~__context ~host ;
       let pifref = Db.Cluster_host.get_PIF ~__context ~self in
       let pifrec = Db.PIF.get_record ~__context ~self:pifref in
       assert_pif_prerequisites (pifref, pifrec) ;
       let ip = ip_of_pif (pifref, pifrec) in
+      let pems = Xapi_cluster_helpers.Pem.get_existing ~__context cluster in
       let init_config =
         {
           Cluster_interface.local_ip= ip
         ; token_timeout_ms= None
         ; token_coefficient_ms= None
         ; name= None
+        ; pems
         }
       in
       (* TODO: Pass these through from CLI *)
@@ -259,7 +271,8 @@ let enable ~__context ~self =
       | Error error ->
           warn "Error encountered when enabling cluster_host %s"
             (Ref.string_of self) ;
-          handle_error error)
+          handle_error error
+  )
 
 let disable ~__context ~self =
   with_clustering_lock __LOC__ (fun () ->
@@ -277,7 +290,8 @@ let disable ~__context ~self =
       | Error error ->
           warn "Error encountered when disabling cluster_host %s"
             (Ref.string_of self) ;
-          handle_error error)
+          handle_error error
+  )
 
 let disable_clustering ~__context =
   let host = Helpers.get_localhost ~__context in
@@ -298,7 +312,9 @@ let sync_required ~__context ~host =
         Db_filter_types.(
           And
             ( Eq (Field "host", Literal (Ref.string_of host))
-            , Eq (Field "cluster", Literal (Ref.string_of cluster_ref)) ))
+            , Eq (Field "cluster", Literal (Ref.string_of cluster_ref))
+            )
+        )
       in
       let my_cluster_hosts =
         Db.Cluster_host.get_internal_records_where ~__context ~expr
@@ -319,14 +335,18 @@ let sync_required ~__context ~host =
                 , [
                     "Host cannot be associated with more than one cluster_host"
                   ; Ref.string_of host
-                  ] ))
+                  ]
+                )
+            )
     )
   | _ ->
       raise
         Api_errors.(
           Server_error
             ( internal_error
-            , ["Cannot have more than one Cluster object per pool currently"] ))
+            , ["Cannot have more than one Cluster object per pool currently"]
+            )
+        )
 
 (* If cluster found without local cluster_host, create one in db *)
 let create_as_necessary ~__context ~host =
@@ -338,3 +358,70 @@ let create_as_necessary ~__context ~host =
       create_internal ~__context ~cluster ~host ~pIF |> ignore
   | None ->
       ()
+
+let get_local_cluster_config ~__context =
+  let dbg = Context.string_of_task __context in
+  let result = Cluster_client.LocalClient.get_config (rpc ~__context) dbg in
+  match Idl.IdM.run @@ Cluster_client.IDL.T.get result with
+  | Ok cc ->
+      cc
+  | Error e ->
+      D.error "failed to get cluster config from my local cluster daemon!" ;
+      handle_error e
+
+let get_cluster_config ~__context ~self =
+  (* don't take the clustering lock as this is a nested call *)
+  get_local_cluster_config ~__context
+  |> Cluster_interface.encode_cluster_config
+  |> SecretString.of_string
+
+let write_pems ~__context ~self ~pems =
+  with_clustering_lock __LOC__ @@ fun () ->
+  let dbg = Context.string_of_task __context in
+  let pems =
+    match
+      SecretString.json_rpc_of_t pems
+      |> Rpcmarshal.unmarshal Cluster_interface.pems.Rpc.Types.ty
+    with
+    | Error _ ->
+        D.error "failed to decode pems!" ;
+        raise Api_errors.(Server_error (internal_error, ["bad encoding"]))
+    | Ok x ->
+        x
+  in
+  let result =
+    Cluster_client.LocalClient.write_pems (rpc ~__context) dbg pems
+  in
+  match Idl.IdM.run @@ Cluster_client.IDL.T.get result with
+  | Ok () ->
+      D.debug "successfully wrote pems to cluster via cluster host = %s"
+        (Ref.short_string_of self)
+  | Error e ->
+      D.error "failed to write pems via cluster host = %s"
+        (Ref.short_string_of self) ;
+      handle_error e
+
+let is_local_cluster_host_using_xapis_pem ~__context =
+  (* a cluster daemon is using xapi's pem iff it does not have a pem in its config *)
+  if not !Xapi_clustering.Daemon.enabled then (
+    D.error
+      "Pem.is_local_cluster_host_using_xapis_pem? no, the daemon is not enabled" ;
+    false
+  ) else
+    match get_local_cluster_config ~__context with
+    | exception e ->
+        D.error
+          "Pem.is_local_cluster_host_using_xapis_pem? encountered exception, \
+           assuming not" ;
+        Debug.log_backtrace e (Backtrace.get e) ;
+        false
+    | cc -> (
+      match cc.Cluster_interface.pems with
+      | None ->
+          D.info "Pem.is_local_cluster_host_using_xapis_pem? yes!" ;
+          true
+      | Some _ ->
+          D.debug
+            "Pem.is_local_cluster_host_using_xapis_cert? no, it has its own pem" ;
+          false
+    )
