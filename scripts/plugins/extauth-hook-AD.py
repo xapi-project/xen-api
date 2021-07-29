@@ -13,6 +13,7 @@ import abc
 import XenAPIPlugin
 import XenAPI
 import sys
+import subprocess
 import os
 import tempfile
 import logging
@@ -41,6 +42,17 @@ def setup_logger():
 
 setup_logger()
 logger = logging.getLogger(__name__)
+
+
+def run_cmd(cmd, log_cmd=True):
+    try:
+        result = subprocess.check_output(cmd)
+        if log_cmd:
+            logger.debug("{} -> {}".format(cmd, result))
+        return result.strip()
+    except Exception:
+        logger.exception("Failed to run command %s", cmd)
+        return None
 
 
 class ADBackend(Enum):
@@ -246,6 +258,10 @@ class SshdConfig(KeyValueConfig):
         self._update_key_value("ChallengeResponseAuthentication", value)
         self._update_key_value("GSSAPIAuthentication", value)
         self._update_key_value("GSSAPICleanupCredentials", value)
+
+    def apply(self):
+        super(SshdConfig, self).apply()
+        run_cmd(["/usr/bin/systemctl", "reload-or-restart", "sshd"])
 
 
 class ConfigManager:
