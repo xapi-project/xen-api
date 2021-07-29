@@ -147,10 +147,10 @@ let xapi_pool ~uuid pemfile =
       ]
     in
     let extensions = X509.Extension.empty in
-    let* (_ : X509.Certificate.t) =
+    let* (c : X509.Certificate.t) =
       selfsign issuer extensions key_length expiration pemfile
     in
-    Ok ()
+    Ok c
   in
   R.failwith_error_msg res
 
