@@ -1406,6 +1406,9 @@ let bind ~__context ~pbd =
       error "Caught VM_BAD_POWER_STATE [ %s ]" (String.concat "; " params)
     (* ignore for now *)
   ) ;
+  if not (Helpers.is_domain_zero ~__context driver) then
+    (* Return the IP of the driver domain, and wait until it responds on this IP *)
+    info "Storage driver domain is up on IP %s" (System_domains.ip_of ~__context driver);
   let uuid = Db.VM.get_uuid ~__context ~self:driver in
   let sr = Db.PBD.get_SR ~__context ~self:pbd in
   let ty = Db.SR.get_type ~__context ~self:sr in
