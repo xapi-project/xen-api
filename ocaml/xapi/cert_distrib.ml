@@ -354,7 +354,17 @@ let collect_pool_certs ~__context ~rpc ~session_id ~map ~from_hosts =
          map cert
      )
 
-let exchange_certificates_among_all_members ~__context =
+let take_and_append n x xs =
+  (* take_and_append 3 10 [1;2;3;4] = [1;2;3;10] *)
+  let rec loop i acc = function
+    | x :: xs when i < n ->
+        loop (i + 1) (x :: acc) xs
+    | _ ->
+        x :: acc |> List.rev
+  in
+  loop 0 [] xs
+
+let exchange_certificates_in_pool ~__context =
   (* here we coordinate the certificate distribution. from a high level
      we do the following:
      a) collect certs from all the members, aggregating them on the master.
@@ -372,21 +382,64 @@ let exchange_certificates_among_all_members ~__context =
          we do not guarantee 'atomicity', so if regenerating the bundle on one host
          fails, then state across the pool will most likely become inconsistent, and
          manual intervention may be required *)
+  let maybe_insert_fist =
+    (* if there is a fist point:
+     *   - throw an error at a random point
+     *   - print out what is going to execute for debugging purposes
+     *)
+    match Xapi_fist.exchange_certificates_in_pool () with
+    | None ->
+        Fun.id
+    | Some seed ->
+        fun ops ->
+          Random.init seed ;
+          let rand_i = Random.int (List.length ops) in
+          let throw_op =
+            ( "FIST"
+            , fun () ->
+                raise
+                  Api_errors.(
+                    Server_error
+                      ( internal_error
+                      , ["/tmp/fist_exchange_certificates_in_pool FIST!"]
+                      )
+                  )
+            )
+          in
+          let ops' = take_and_append rand_i throw_op ops in
+          D.debug "exchange_certificates_in_pool: we are about to..." ;
+          List.iteri (fun i (desc, _) -> D.debug "%d. %s" i desc) ops' ;
+          ops'
+  in
   let all_hosts = Xapi_pool_helpers.get_master_slaves_list ~__context in
   Helpers.call_api_functions ~__context @@ fun rpc session_id ->
   let certs =
     collect_pool_certs ~__context ~rpc ~session_id ~from_hosts:all_hosts
       ~map:Fun.id
   in
-  List.iter
-    (fun host ->
-      Worker.remote_write_certs_fs HostPoolCertificate Erase_old certs host rpc
-        session_id
-      )
-    all_hosts ;
-  List.iter
-    (fun host -> Worker.remote_regen_bundle host rpc session_id)
-    all_hosts
+  let operations =
+    List.concat
+      [
+        List.map
+          (fun host ->
+            ( Printf.sprintf "send certs to %s" (Ref.short_string_of host)
+            , fun () ->
+                Worker.remote_write_certs_fs HostPoolCertificate Erase_old certs
+                  host rpc session_id
+            )
+            )
+          all_hosts
+      ; List.map
+          (fun host ->
+            ( Printf.sprintf "instruct %s to regen bundle"
+                (Ref.short_string_of host)
+            , fun () -> Worker.remote_regen_bundle host rpc session_id
+            )
+            )
+          all_hosts
+      ]
+  in
+  operations |> maybe_insert_fist |> List.iter @@ fun (_, f) -> f ()
 
 let ( (get_local_ca_certs : unit -> WireProtocol.certificate_file list)
     , (get_local_pool_certs : unit -> WireProtocol.certificate_file list) ) =
