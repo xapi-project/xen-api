@@ -97,8 +97,11 @@ let host ~__context ~type' =
         Certificates.Db_util.add_cert ~__context ~type':(`host_internal host)
           cert
   in
-  (* start using new cert *)
-  Helpers.Stunnel.reload () ; ref
+  (* We might have a slow client that connects using the old cert and
+     has not picked up the new cert. To avoid that the connection fails,
+     continue using the old cert for a small time before serving the new
+     cert *)
+  Thread.delay 5.0 ; Helpers.Stunnel.reload () ; ref
 
 (* The stunnel clients trust the old and the new [host] server cert.  On
 the local host, rename the old cert and re-create the cert bundle
