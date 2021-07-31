@@ -154,22 +154,25 @@ class TestNssConfig(TestCase):
         nss.apply()
         self.assertTrue(line_exists_in_config(nss._lines, expected_config))
 
+@patch("extauth_hook_ad.run_cmd")
 @patch("os.chmod")
 @patch("os.rename")
 @patch("extauth_hook_ad.open")
 class TestSshdConfig(TestCase):
-    def test_ad_not_enabled(self, mock_open, mock_rename, mock_chmod):
+    def test_ad_not_enabled(self, mock_open, mock_rename, mock_chmod, mock_run_cmd):
         expected_config = "ChallengeResponseAuthentication no"
         # mock empty file exists
         mock_open.return_value.__enter__.return_value.readlines.return_value = []
         sshd = SshdConfig(mock_session, args_bd_wibind, False)
         sshd.apply()
         self.assertTrue(line_exists_in_config(sshd._lines, expected_config))
+        mock_run_cmd.assert_called()
 
-    def test_ad_enabled(self, mock_open, mock_rename, mock_chmod):
+    def test_ad_enabled(self, mock_open, mock_rename, mock_chmod, mock_run_cmd):
         expected_config = "ChallengeResponseAuthentication yes"
         # mock empty file exists
         mock_open.return_value.__enter__.return_value.readlines.return_value = []
         sshd = SshdConfig(mock_session, args_bd_wibind, True)
         sshd.apply()
         self.assertTrue(line_exists_in_config(sshd._lines, expected_config))
+        mock_run_cmd.assert_called()
