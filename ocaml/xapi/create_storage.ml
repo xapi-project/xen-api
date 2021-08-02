@@ -43,7 +43,7 @@ let check_for_unplugged_pbds ~__context ~alert =
   ) ;
   unplugged
 
-let plug_unplugged_pbds __context =
+let plug_unplugged_pbds ?(skip_driver_domains=false) __context =
   (* If the plug is to succeed for SM's requiring a cluster stack
    * we have to enable the cluster stack too if we have one *)
   let my_pbds = Helpers.get_my_pbds __context in
@@ -53,7 +53,11 @@ let plug_unplugged_pbds __context =
         if pbd_record.API.pBD_currently_attached then
           debug "Not replugging PBD %s: already plugged in" (Ref.string_of self)
         else
-          Xapi_pbd.plug ~__context ~self
+          let driver = System_domains.storage_driver_domain_of_pbd ~__context ~pbd:self in
+          if skip_driver_domains && not (Helpers.is_domain_zero ~__context driver) then
+            debug "Skipping PBD plug on %s: has driver domain" (Ref.string_of self)
+          else
+            Xapi_pbd.plug ~__context ~self
       with
       | Db_exn.DBCache_NotFound (_, "PBD", _) as e ->
           debug "Ignoring PBD/SR that got deleted before we plugged it: %s"
@@ -65,11 +69,11 @@ let plug_unplugged_pbds __context =
     my_pbds ;
   Xapi_host_helpers.consider_enabling_host ~__context
 
-let plug_all_pbds __context =
+let plug_all_pbds ~skip_driver_domains __context =
   (* Explicitly resynchronise local PBD state *)
   let my_pbds = Helpers.get_my_pbds __context in
   Storage_access.resynchronise_pbds ~__context ~pbds:(List.map fst my_pbds) ;
-  plug_unplugged_pbds __context
+  plug_unplugged_pbds ~skip_driver_domains __context
 
 (* Create a PBD which connects this host to the SR, if one doesn't already exist *)
 let maybe_create_pbd rpc session_id sr device_config me =
@@ -180,7 +184,7 @@ let initialise_storage (me : API.ref_host) rpc session_id __context : unit =
     debug "Skipping creation of PBDs for shared SRs" ;
   if not !Xapi_globs.create_tools_sr then
     maybe_remove_tools_sr rpc session_id __context ;
-  plug_all_pbds __context ;
+  plug_all_pbds ~skip_driver_domains:true __context ;
   let unplugged = check_for_unplugged_pbds ~__context ~alert:false in
   if unplugged <> [] then
     debug "%d PBDs remain unplugged, further attempts may be made later"
