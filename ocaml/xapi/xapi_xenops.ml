@@ -3041,6 +3041,16 @@ let resync_resident_on ~__context =
           ()
       )
     xenopsd_vms_in_xapi ;
+  let dom0 = Helpers.get_domain_zero ~__context in
+  (* Reset Dom0 plugged virtual devices *)
+  if !Xapi_globs.on_system_boot then begin
+    (* Dom0 went through Halted->Running state: reflect this and
+       trigger appropiate actions to reset state of VBDs, etc. *)
+    debug "Dom0 just got rebooted: doing Halted->Running transition";
+    Xapi_vm_lifecycle.force_state_reset ~__context ~self:dom0 ~value:`Halted ;
+  end;
+  (* Ensure Dom0 will be in running state even if XAPI startup is interrupted *)
+  Xapi_vm_lifecycle.force_state_reset ~__context ~self:dom0 ~value:`Running ;
   (* Sync VM state in Xapi for VMs not running on this host *)
   List.iter
     (fun (id, vm) ->
