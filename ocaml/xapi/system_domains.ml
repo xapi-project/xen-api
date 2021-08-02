@@ -187,14 +187,19 @@ let pingable ip () =
 
 let queryable ~__context transport () =
   let open Xmlrpc_client in
-  let rpc =
-    XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"remote_smapiv2" ~transport
-      ~http:(xmlrpc ~version:"1.0" "/")
+  let host = match transport with
+  | Unix _ -> None
+  | TCP (host, _) | SSL(_, host, _) -> Some host
   in
-  let listMethods = Rpc.call "system.listMethods" [] in
+  let rpc path =
+    let req = Http.Request.make ?host ~user_agent:Constants.xapi_user_agent Http.Get path in
+    Xmlrpc_client.with_transport transport @@ fun fd ->
+    Http_client.rpc fd req @@ fun resp _resp_fd ->
+    debug "%s/%s replied: %s" (string_of_transport transport) path (Http.Response.to_string resp)
+  in
   try
-    let _ = rpc listMethods in
-    info "XMLRPC service found at %s" (string_of_transport transport) ;
+    let () = rpc "/HEALTHCHECK" in
+    info "Storage service healthcheck succeeded on %s" (string_of_transport transport);
     true
   with e ->
     debug "Temporary failure querying storage service on %s: %s"
