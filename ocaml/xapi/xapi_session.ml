@@ -686,7 +686,7 @@ let slave_local_login ~__context ~psecret =
 let slave_local_login_with_password ~__context ~uname ~pwd =
   let pwd = Bytes.of_string pwd in
   wipe_params_after_fn [pwd] (fun () ->
-      if not (Context.preauth ~__context) then (
+      if Context.preauth ~__context <> Some `root then (
         try
           (* CP696 - only tries to authenticate against LOCAL superuser account *)
           do_local_auth uname pwd
@@ -711,7 +711,8 @@ let login_with_password ~__context ~uname ~pwd ~version ~originator =
   let pwd = Bytes.of_string pwd in
   wipe_params_after_fn [pwd] (fun () ->
       (* !!! Do something with the version number *)
-      if Context.preauth ~__context then
+      match Context.preauth ~__context with
+      | Some `root ->
         (* in this case, the context origin of this login request is a unix socket bound locally to a filename *)
         (* we trust requests from local unix filename sockets, so no need to authenticate them before login *)
         login_no_password_common ~__context ~uname:(Some uname) ~originator
@@ -719,7 +720,26 @@ let login_with_password ~__context ~uname ~pwd ~version ~originator =
           ~pool:false ~is_local_superuser:true ~subject:Ref.null
           ~auth_user_sid:"" ~auth_user_name:uname ~rbac_permissions:[]
           ~db_ref:None
-      else
+      | Some `client_cert ->
+        (* The session was authenticated by stunnel's verification of the client certificate,
+           so we do not need to verify the username/password. Grant access to functions
+           based on the special "client_cert" RBAC role. *)
+        let role =
+          match Xapi_role.get_by_name_label ~__context ~label:Datamodel_roles.role_client_cert with
+          | role :: _ -> role
+          | [] ->
+            raise
+              (Api_errors.Server_error
+                 (Api_errors.internal_error, [Datamodel_roles.role_client_cert ^ " role not found"])
+              )
+        in
+        let rbac_permissions = Xapi_role.get_permissions_name_label ~__context ~self:role in
+        login_no_password_common ~__context ~uname:(Some uname) ~originator
+          ~host:(Helpers.get_localhost ~__context)
+          ~pool:false ~is_local_superuser:false ~subject:Ref.null
+          ~auth_user_sid:"" ~auth_user_name:uname ~rbac_permissions
+          ~db_ref:None
+      | None ->
         let () =
           if Pool_role.is_slave () then
             raise
