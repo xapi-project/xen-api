@@ -712,7 +712,7 @@ open Datamodel_types
         Ref _pool, "self", "The pool";
         Set (Ref _repository), "value", "The set of repositories to be enabled"
       ]
-      ~allowed_roles:_R_POOL_ADMIN
+      ~allowed_roles:_R_POOL_OP
       ()
 
   let add_repository = call
@@ -723,7 +723,7 @@ open Datamodel_types
         Ref _pool, "self", "The pool";
         Ref _repository, "value", "The repository to be added to the enabled set"
       ]
-      ~allowed_roles:_R_POOL_ADMIN
+      ~allowed_roles:_R_POOL_OP
       ()
 
   let remove_repository = call
@@ -734,7 +734,7 @@ open Datamodel_types
         Ref _pool, "self", "The pool";
         Ref _repository, "value", "The repository to be removed"
       ]
-      ~allowed_roles:_R_POOL_ADMIN
+      ~allowed_roles:_R_POOL_OP
       ()
 
   let sync_updates = call
