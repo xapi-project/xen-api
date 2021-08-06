@@ -997,7 +997,7 @@ functor
           ~doc:"Pool.enable_tls_verification" ~self ~op:`tls_verification_enable
           (fun () ->
             debug "Pool.enable_tls_verification start ... (1/2)" ;
-            Cert_distrib.exchange_certificates_among_all_members ~__context ;
+            Cert_distrib.exchange_certificates_in_pool ~__context ;
             while Xapi_fist.pause_after_cert_exchange () do
               debug "Pool.enable_tls_verification sleeping on fistpoint" ;
               Thread.delay 5.0
@@ -3505,7 +3505,7 @@ functor
           (host_uuid ~__context host)
           service_name auth_type ;
         (* First assert that the AD feature is enabled if AD is requested *)
-        if auth_type = Xapi_globs.auth_type_AD_Likewise then
+        if auth_type = Xapi_globs.auth_type_AD then
           Pool_features.assert_enabled ~__context ~f:Features.AD ;
         let local_fn =
           Local.Host.enable_external_auth ~host ~config ~service_name ~auth_type
@@ -3678,7 +3678,10 @@ functor
 
       let copy_primary_host_certs ~__context ~host =
         info "Host.copy_primary_host_certs host = '%s'" (Ref.string_of host) ;
-        Local.Host.copy_primary_host_certs ~__context ~host
+        Xapi_pool_helpers.with_pool_operation ~__context
+          ~op:`copy_primary_host_certs ~doc:"Host.copy_primary_host_certs"
+          ~self:(Helpers.get_pool ~__context)
+        @@ fun () -> Local.Host.copy_primary_host_certs ~__context ~host
 
       let attach_static_vdis ~__context ~host ~vdi_reason_map =
         info "Host.attach_static_vdis: host = '%s'; vdi/reason pairs = [ %s ]"

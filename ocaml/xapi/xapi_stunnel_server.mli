@@ -19,5 +19,5 @@
 val restart : __context:Context.t -> bool -> unit
 (** restart stunnel, possibly changing the config file *)
 
-val reload : unit -> unit
+val reload : ?wait:float -> unit -> unit
 (** reload (potentially updated) configuration *)

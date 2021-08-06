@@ -11,7 +11,7 @@ val host :
 (** [host name dns_names ip path] creates (atomically) a PEM file at
     [path] with [name] as CN, and the following SANs: [dns_names] + [ip] *)
 
-val xapi_pool : uuid:string -> string -> unit
+val xapi_pool : uuid:string -> string -> X509.Certificate.t
 (** [xapi_pool uuid path] creates (atomically) a PEM file at [path] with
     [uuid] as CN *)
 

@@ -142,7 +142,10 @@ let systemctl cmd =
 
 let systemctl_ cmd = systemctl cmd |> ignore
 
-let reload () = systemctl_ "reload-or-restart"
+let reload ?(wait = 5.0) () =
+  systemctl_ "reload-or-restart" ;
+  (* We can't be sure that the reload is finished, so wait a moment *)
+  Thread.delay wait
 
 let is_enabled () =
   let is_enabled_stdout =

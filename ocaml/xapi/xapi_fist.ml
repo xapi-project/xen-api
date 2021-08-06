@@ -122,3 +122,32 @@ let hang_psr psr_checkpoint =
       "psr_cleanup"
   )
   |> hang_while
+
+(* extract integer seed from fist file, if it exists.
+ * raises if fist file exists but does not contain an integer *)
+let int_seed name : int option =
+  let ex msg = Api_errors.(Server_error (internal_error, [msg])) in
+  match fistpoint name with
+  | false ->
+      D.debug "fistpoint=%s is not being used" name ;
+      None
+  | true -> (
+    match fistpoint_read name with
+    | None ->
+        Printf.sprintf "fistpoint=%s exists but has no seed" name |> ex |> raise
+    | Some seed -> (
+      try
+        let seed = seed |> String.trim |> int_of_string in
+        D.debug "fistpoint=%s using seed=%i" name seed ;
+        Some seed
+      with _ ->
+        Printf.sprintf "fistpoint=%s exists but seed='%s' is not an integer"
+          name seed
+        |> ex
+        |> raise
+    )
+  )
+
+let exchange_certificates_in_pool () : int option =
+  let name = "exchange_certificates_in_pool" in
+  int_seed name

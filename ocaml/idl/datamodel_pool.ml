@@ -8,12 +8,17 @@ open Datamodel_types
             "ha_disable", "Indicates this pool is in the process of disabling HA";
             "cluster_create", "Indicates this pool is in the process of creating a cluster";
             "designate_new_master", "Indicates this pool is in the process of changing master";
-            "tls_verification_enable", "Indicates this pool is in the process of enabling TLS verification";
             "configure_repositories", "Indicates this pool is in the process of configuring repositories";
             "sync_updates", "Indicates this pool is in the process of syncing updates";
             "get_updates", "Indicates this pool is in the process of getting updates";
             "apply_updates", "Indicates this pool is in the process of applying updates";
+            (* ops involving cert distribution; these do not necessarily correspond to 'Pool.x' commands,
+             * but they do require a pool-wide lock *)
+            "tls_verification_enable", "Indicates this pool is in the process of enabling TLS verification";
             "cert_refresh", "A certificate refresh and distribution is in progress";
+            "exchange_certificates_on_join", "Indicates this pool is exchanging internal certificates with a new joiner";
+            "exchange_ca_certificates_on_join", "Indicates this pool is exchanging ca certificates with a new joiner";
+            "copy_primary_host_certs", "Indicates the primary host is sending its certificates to another host";
           ])
 
   let enable_ha = call

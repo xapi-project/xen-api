@@ -22,28 +22,50 @@ open Api_errors
 
 let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
-(* psr is not included in this list because it can be considered in progress
+(* psr is not included as a pool op because it can be considered in progress
    in between api calls (i.e. wrapping it inside with_pool_operation won't work) *)
-let all_operations =
+
+(* these ops will:
+ * a) throw an error if any other blocked op is in progress
+ * b) wait if only a wait op is in progress
+ *)
+let blocking_ops =
   [
-    `ha_enable
-  ; `ha_disable
-  ; `cluster_create
-  ; `designate_new_master
-  ; `tls_verification_enable
-  ; `configure_repositories
-  ; `sync_updates
-  ; `get_updates
-  ; `apply_updates
-  ; `cert_refresh
+    (`ha_enable, Api_errors.ha_enable_in_progress)
+  ; (`ha_disable, Api_errors.ha_disable_in_progress)
+  ; (`cluster_create, Api_errors.cluster_create_in_progress)
+  ; (`designate_new_master, Api_errors.designate_new_master_in_progress)
+  ; (`tls_verification_enable, Api_errors.tls_verification_enable_in_progress)
+  ; (`configure_repositories, Api_errors.configure_repositories_in_progress)
+  ; (`sync_updates, Api_errors.sync_updates_in_progress)
+  ; (`get_updates, Api_errors.get_updates_in_progress)
+  ; (`apply_updates, Api_errors.apply_updates_in_progress)
   ]
 
+(* generally these ops will happen internally. example: rather than blocking
+ * `ha_enable if a `copy_primary_host_certs is in progress, we should wait.
+ *
+ * waiting is symmetric: if `ha_enable is in progress, and we want to perform
+ * `copy_primary_host_certs, then we wait in this case too *)
+let wait_ops =
+  [
+    `cert_refresh
+  ; `exchange_certificates_on_join
+  ; `exchange_ca_certificates_on_join
+  ; `copy_primary_host_certs
+  ]
+
+let all_operations = blocking_ops |> List.map fst |> List.append wait_ops
+
+(* see [Helpers.retry]. this error code causes a 'wait' *)
+let wait_error = Api_errors.other_operation_in_progress
+
 (** Returns a table of operations -> API error options (None if the operation would be ok) *)
-let valid_operations ~__context record _ref' =
-  let _ref = Ref.string_of _ref' in
+let valid_operations ~__context record (pool : API.ref_pool) =
+  let ref = Ref.string_of pool in
   let current_ops = List.map snd record.Db_actions.pool_current_operations in
   let table = Hashtbl.create 10 in
-  List.iter (fun x -> Hashtbl.replace table x None) all_operations ;
+  all_operations |> List.iter (fun x -> Hashtbl.replace table x None) ;
   let set_errors (code : string) (params : string list)
       (ops : API.pool_allowed_operations_set) =
     List.iter
@@ -53,33 +75,24 @@ let valid_operations ~__context record _ref' =
         )
       ops
   in
-  (* new pool operations cannot run if one is already in progress *)
-  let in_progress_errors =
-    [
-      (`ha_enable, Api_errors.ha_enable_in_progress, [])
-    ; (`ha_disable, Api_errors.ha_disable_in_progress, [])
-    ; (`cluster_create, Api_errors.cluster_create_in_progress, [])
-    ; (`designate_new_master, Api_errors.designate_new_master_in_progress, [])
-    ; ( `tls_verification_enable
-      , Api_errors.tls_verification_enable_in_progress
-      , []
-      )
-    ; ( `configure_repositories
-      , Api_errors.configure_repositories_in_progress
-      , []
-      )
-    ; (`sync_updates, Api_errors.sync_updates_in_progress, [])
-    ; (`get_updates, Api_errors.get_updates_in_progress, [])
-    ; (`apply_updates, Api_errors.apply_updates_in_progress, [])
-    ; (`cert_refresh, Api_errors.cert_refresh_in_progress, [])
-    ]
-  in
-  List.iter
-    (fun (op, err, params) ->
-      if List.mem op current_ops then
-        set_errors err params all_operations
-      )
-    in_progress_errors ;
+  if current_ops <> [] then (
+    List.iter
+      (fun (blocking_op, err) ->
+        if List.mem blocking_op current_ops then (
+          set_errors err [] (blocking_ops |> List.map fst) ;
+          set_errors Api_errors.other_operation_in_progress
+            [Datamodel_common._pool; ref]
+            wait_ops
+        )
+        )
+      blocking_ops ;
+    List.iter
+      (fun wait_op ->
+        if List.mem wait_op current_ops then
+          set_errors wait_error [Datamodel_common._pool; ref] all_operations
+        )
+      wait_ops
+  ) ;
   (* HA disable cannot run if HA is already disabled on a pool *)
   (* HA enable cannot run if HA is already enabled on a pool *)
   let ha_enabled =

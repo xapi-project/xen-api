@@ -40,22 +40,6 @@ let new_cert_path type' = replace_extension (cert_path type') ~ext:"new"
 
 let backup_cert_path type' = replace_extension (cert_path type') ~ext:"bak"
 
-(* Create a new host cert in the file system and return its contents
-also as a data structure *)
-let new_host_cert ~dbg ~path : X509.Certificate.t =
-  let name, ip =
-    match Networking_info.get_management_ip_addr ~dbg with
-    | None ->
-        let msg = Printf.sprintf "%s: failed to get management IP" __LOC__ in
-        D.error "%s" msg ;
-        raise Api_errors.(Server_error (internal_error, [msg]))
-    | Some ip ->
-        ip
-  in
-  let dns_names = Networking_info.dns_names () in
-  let ips = [ip] in
-  Gencertlib.Selfcert.host ~name ~dns_names ~ips path
-
 module HostSet = Set.Make (struct
   type t = API.ref_host
 
@@ -82,10 +66,10 @@ let maybe_restart_cluster_daemon ~__context =
 distribute it in the pool *)
 let host ~__context ~type' =
   let host = Helpers.get_localhost ~__context in
-  let dbg = Context.string_of_task __context in
   let pem = cert_path type' in
   let path = new_cert_path type' in
-  let cert = new_host_cert ~dbg ~path in
+  let uuid = Inventory.lookup Inventory._installation_uuid in
+  let cert = Gencertlib.Selfcert.xapi_pool ~uuid path in
   let bak = backup_cert_path type' in
   let unreachable = unreachable_hosts ~__context in
   if not @@ HostSet.is_empty unreachable then
@@ -113,9 +97,11 @@ let host ~__context ~type' =
         Certificates.Db_util.add_cert ~__context ~type':(`host_internal host)
           cert
   in
-  (* start using new cert *)
-  Xapi_stunnel_server.reload () ;
-  ref
+  (* We might have a slow client that connects using the old cert and
+     has not picked up the new cert. To avoid that the connection fails,
+     continue using the old cert for a small time before serving the new
+     cert *)
+  Thread.delay 5.0 ; Xapi_stunnel_server.reload () ; ref
 
 (* The stunnel clients trust the old and the new [host] server cert.  On
 the local host, rename the old cert and re-create the cert bundle

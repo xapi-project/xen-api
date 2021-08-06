@@ -1,8 +1,22 @@
+(*
+ * Copyright (C) Citrix Systems Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published
+ * by the Free Software Foundation; version 2.1 only. with the special
+ * exception on linking described in file LICENSE.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *)
+
 val local_exec : __context:Context.t -> command:string -> string
 (** execute a string encoded job, returning a string encoded result *)
 
-val exchange_certificates_among_all_members : __context:Context.t -> unit
-(** [exchange_certificates_among_all_members ~__context] collects internal
+val exchange_certificates_in_pool : __context:Context.t -> unit
+(** [exchange_certificates_in_pool ~__context] collects internal
     certificates from all members in a pool and installed on all of them. On
     success, new bundles will have been generated on the members. *)
 
