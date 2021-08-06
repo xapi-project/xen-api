@@ -6,9 +6,12 @@ let role_vm_power_admin = "vm-power-admin"
 let role_vm_admin = "vm-admin"
 let role_vm_operator = "vm-operator"
 let role_read_only = "read-only"
+let role_client_cert = "client-cert"
+
 let roles_all =
   [ (* in decreasing total linear order of privileges *)
     role_pool_admin;
+    role_client_cert;
     role_pool_operator;
     role_vm_power_admin;
     role_vm_admin;
@@ -22,6 +25,7 @@ let role_description = [
   role_vm_admin,"The VM Administrator role can manage VMs and templates";
   role_vm_operator,"The VM Operator role can use VMs and interact with VM consoles";
   role_read_only,"The Read-Only role can log in with basic read-only access";
+  role_client_cert,"The Client Certificate role has access to funtionality granted to those who authenticate using a client certificate"
 ]
 (* obtain all roles with at least the specified role privileges *)
 let roles_gte role =

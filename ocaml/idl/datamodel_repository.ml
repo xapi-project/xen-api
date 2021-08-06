@@ -51,7 +51,7 @@ let apply = call
     ~params:[Ref _host, "host", "The host to be updated"]
     ~pool_internal:true
     ~hide_from_docs:true
-    ~allowed_roles:_R_POOL_ADMIN
+    ~allowed_roles:_R_POOL_OP
     ()
 
 let t =
