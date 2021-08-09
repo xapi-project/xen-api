@@ -245,6 +245,7 @@ let wait_for_clustering_ip ~__context ~(self : API.ref_Cluster_host) =
   wait_for_ip get_ip is_connected
 
 let on_dom0_networking_change ~__context =
+  Mutex.execute ip_mutex @@ fun () ->
   debug "Checking to see if hostname or management IP has changed" ;
   Helpers.update_pif_addresses ~__context ;
   (* Need to update:
@@ -285,4 +286,4 @@ let on_dom0_networking_change ~__context =
   ) ;
   Helpers.update_domain_zero_name ~__context localhost new_hostname ;
   debug "Signalling anyone waiting for the management IP address to change" ;
-  Mutex.execute ip_mutex (fun () -> Condition.broadcast ip_cond)
+  Condition.broadcast ip_cond
