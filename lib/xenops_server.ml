@@ -56,6 +56,10 @@ let get_backend () =
   | None ->
       failwith "No backend implementation set"
 
+let dom0_uuid = ref ""
+
+let set_dom0_uuid uuid = dom0_uuid := uuid
+
 let ignore_exception msg f x =
   try f x
   with Xenopsd_error e ->
@@ -353,7 +357,7 @@ module VBD_DB = struct
       (Jsonrpc.to_string (rpc_of Vbd.t x)) ;
     (* Only if the corresponding VM actually exists *)
     let vm = vm_of x.id in
-    if not (VM_DB.exists vm) then (
+    if not (VM_DB.exists vm || vm = !dom0_uuid) then (
       debug "VM %s not managed by me" vm ;
       raise (Xenopsd_error (Does_not_exist ("VM", vm)))
     ) ;
@@ -2200,7 +2204,7 @@ and trigger_cleanup_after_failure op t =
   | VM_receive_memory (id, final_id, _, _) ->
       immediate_operation dbg id (VM_check_state id) ;
       immediate_operation dbg final_id (VM_check_state final_id)
-  | VM_migrate {vmm_id; vmm_tmp_src_id} ->
+  | VM_migrate {vmm_id; vmm_tmp_src_id; _} ->
       immediate_operation dbg vmm_id (VM_check_state vmm_id) ;
       immediate_operation dbg vmm_tmp_src_id (VM_check_state vmm_tmp_src_id)
   | VBD_hotplug id | VBD_hotunplug (id, _) ->
@@ -2917,7 +2921,6 @@ module PCI = struct
 end
 
 module VGPU = struct
-  open Vgpu
   module DB = VGPU_DB
 
   let string_of_id (a, b) = a ^ "." ^ b
@@ -2943,7 +2946,6 @@ module VGPU = struct
 end
 
 module VUSB = struct
-  open Vusb
   module DB = VUSB_DB
 
   let string_of_id (a, b) = a ^ "." ^ b
@@ -2974,7 +2976,6 @@ module VUSB = struct
 end
 
 module VBD = struct
-  open Vbd
   module DB = VBD_DB
 
   let string_of_id (a, b) = a ^ "." ^ b
@@ -3010,7 +3011,6 @@ module VBD = struct
 end
 
 module VIF = struct
-  open Vif
   module DB = VIF_DB
 
   let string_of_id (a, b) = a ^ "." ^ b
@@ -3128,7 +3128,6 @@ module HOST = struct
 end
 
 module VM = struct
-  open Vm
   module DB = VM_DB
 
   let add _ dbg x = Debug.with_thread_associated dbg (fun () -> DB.add' x) ()

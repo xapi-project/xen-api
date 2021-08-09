@@ -1,9 +1,9 @@
-name: Build and test (0.150-lcm, scheduled)
+name: Build and test (0.150.5-lcm, scheduled)
 
 on:
   schedule:
     # run every Monday, this refreshes the cache
-    - cron: '13 2 * * 1'
+    - cron: '5 2 * * 1'
 
 jobs:
   python-test:
@@ -15,7 +15,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
         with:
-          ref: '0.150-lcm'
+          ref: '0.150.5-lcm'
 
       - name: Run python tests
         run: bash .github/python-nosetests.sh
@@ -30,11 +30,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
         with:
-          ref: '0.150-lcm'
+          ref: '0.150.5-lcm'
 
       - name: Pull configuration from xs-opam
         run: |
-          curl --fail --silent https://raw.githubusercontent.com/xapi-project/xs-opam/release/yangtze/lcm/tools/xs-opam-ci.env | cut -f2 -d " " > .env
+          curl --fail --silent https://raw.githubusercontent.com/xapi-project/xs-opam/release/stockholm/lcm/tools/xs-opam-ci.env | cut -f2 -d " " > .env
 
       - name: Load environment file
         id: dotenv
@@ -51,7 +51,7 @@ jobs:
         with:
           path: "~/.opam"
           # invalidate cache daily, gets built daily using a scheduled job
-          key: ${{ steps.cache-key.outputs.date }}-0.150
+          key: ${{ steps.cache-key.outputs.date }}-0.150.5
 
       - name: Use ocaml
         uses: avsm/setup-ocaml@v1
