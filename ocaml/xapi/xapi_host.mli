@@ -514,12 +514,12 @@ val set_sched_gran :
 val get_sched_gran :
   __context:Context.t -> self:API.ref_host -> API.host_sched_gran
 
-val emergency_disable_tls_verification : __context:'a -> unit
+val emergency_disable_tls_verification : __context:Context.t -> unit
 
 val alert_if_tls_verification_was_emergency_disabled :
   __context:Context.t -> unit
 
-val emergency_reenable_tls_verification : __context:'a -> unit
+val emergency_reenable_tls_verification : __context:Context.t -> unit
 
 val cert_distrib_atom :
   __context:Context.t -> host:API.ref_host -> command:string -> string
