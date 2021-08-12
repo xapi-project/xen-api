@@ -1400,7 +1400,10 @@ let certificate_uninstall ~__context ~name =
 
 let uninstall_ca_certificate = certificate_uninstall
 
-let certificate_list ~__context = Certificates.(local_list CA_Certificate)
+let certificate_list ~__context =
+  let open Certificates in
+  Db_util.get_ca_certs ~__context
+  |> List.map @@ fun self -> Db.Certificate.get_name ~__context ~self
 
 let crl_install = Certificates.(pool_install CRL)
 
