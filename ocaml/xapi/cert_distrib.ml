@@ -565,10 +565,32 @@ let collect_ca_certs ~__context ~names =
 
 (* This function is called on the pool that is incorporating a new host *)
 let exchange_ca_certificates_with_joiner ~__context ~import ~export =
+  let module C = Certificates in
   let appliance_certs = List.map WireProtocol.certificate_file_of_pair import in
+  (* perform parsing straight away, so we avoid write invalid certs to disk *)
+  let parsed =
+    List.map
+      (fun WireProtocol.{filename; content} ->
+        let () =
+          if C.(is_unsafe CA_Certificate filename) then
+            C.(raise_name_invalid CA_Certificate filename)
+        in
+        let cert = C.pem_of_string content in
+        (filename, cert)
+        )
+      appliance_certs
+  in
   Worker.local_write_cert_fs ~__context ApplianceCertificate Merge
     appliance_certs ;
   Worker.local_regen_bundle ~__context ;
+  List.iter
+    (fun (name, cert) ->
+      let (_ : API.ref_Certificate) =
+        C.Db_util.add_cert ~__context ~type':(`ca name) cert
+      in
+      ()
+      )
+    parsed ;
   collect_ca_certs ~__context ~names:export
 
 (* This function is called on the host that is joining a pool *)
