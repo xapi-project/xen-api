@@ -901,7 +901,7 @@ let repository_gpgcheck = ref true
 
 type xapi_globs_spec_ty = Float of float ref | Int of int ref
 
-let extauth_ad_backend = ref "winbind"
+let extauth_ad_backend = ref "pbis"
 
 let net_cmd = ref "/usr/bin/net"
 
