@@ -6,6 +6,7 @@
 # reboot.
 
 export FIRSTBOOT_DATA_DIR=/etc/firstboot.d/data
+export XENSOURCE_INVENTORY=/etc/xensource-inventory
 
 grep -sv '^UPGRADE=' ${FIRSTBOOT_DATA_DIR}/host.conf >/tmp/host.conf.$$
 rm -f ${FIRSTBOOT_DATA_DIR}/host.conf
@@ -38,5 +39,12 @@ rm -f  /etc/stunnel/xapi-stunnel-ca-bundle.pem
 rm -fr /etc/stunnel/certs
 
 # do not remove /etc/xensource/xapi-ssl.pem
+
+# ensure TLS verification is disabled when we come back
+rm -f /var/xapi/verify-certificates
+tmp="$(mktemp /tmp/xensource-inventory.XXXXXX)"
+grep -v FIRSTBOOT_ENABLE_TLS_VERIFICATION "$XENSOURCE_INVENTORY" > "$tmp"
+echo "FIRSTBOOT_ENABLE_TLS_VERIFICATION='false'" >> "$tmp"
+mv "$tmp" "$XENSOURCE_INVENTORY"
 
 /sbin/reboot
