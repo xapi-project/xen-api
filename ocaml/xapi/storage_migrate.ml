@@ -887,7 +887,7 @@ let wrap ~dbg f =
       | e ->
         raise (Internal_error(Printexc.to_string e))) in
   let _ = Thread.create
-      (Debug.with_thread_associated dbg (fun () ->
+      (Debug.with_thread_associated ?client:None dbg (fun () ->
            Storage_task.run task;
            signal task.Storage_task.id
          )) () in

@@ -125,3 +125,4 @@ val __make_task :
    ?subtask_of:API.ref_task -> string -> API.ref_task * API.ref_task Uuid.t)
     ref
 
+val get_client : t -> string option

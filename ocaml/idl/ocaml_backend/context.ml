@@ -300,3 +300,8 @@ let of_http_req ?session_id ~generate_task_for ~supports_async ~label ~http_req 
     else
       make ?session_id ~http_other_config ~origin:(Http(http_req,fd)) label
 
+let get_client context =
+  match context.client with
+  | None -> None
+  | Some (http, ip) ->
+    Some (Printf.sprintf "%s %s" (string_of_http_t http) (Ipaddr.to_string ip))
