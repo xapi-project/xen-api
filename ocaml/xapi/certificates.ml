@@ -174,6 +174,8 @@ module Db_util : sig
     -> API.ref_Certificate list
   (** [get_host_certs ~__context ~type' ~host] gets all the host certs in the database
     * of type [type'] belonging to [host] (the term 'host' is overloaded here) *)
+
+  val get_ca_certs : __context:Context.t -> API.ref_Certificate list
 end = struct
   module Date = Xapi_stdext_date.Date
 
@@ -255,6 +257,13 @@ end = struct
             )
     in
     remove_cert_by_ref ~__context self
+
+  let get_ca_certs ~__context =
+    let expr =
+      let open Db_filter_types in
+      Eq (Field "type", Literal "ca")
+    in
+    Db.Certificate.get_refs_where ~__context ~expr
 end
 
 let local_list kind =
