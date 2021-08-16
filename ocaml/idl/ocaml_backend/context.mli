@@ -55,6 +55,8 @@ val from_forwarded_task :
   ?session_id:API.ref_session ->
   ?origin:origin -> API.ref_task -> t
 
+val make_subcontext : __context:t -> ?task_in_database:bool -> string -> t
+
 (** {6 Accessors} *)
 
 (** [session_of_t __context] returns the session id stored in [__context]. In case there is no session id in this

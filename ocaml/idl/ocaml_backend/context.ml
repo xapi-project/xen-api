@@ -48,6 +48,7 @@ type t = { session_id: API.ref_session option;
            task_name: string; (* Name for dummy task FIXME: used only for dummy task, as real task as their name in the database *)
            database: Db_ref.t;
            dbg: string;
+           client: (http_t * Ipaddr.t) option;
          }
 
 let get_session_id x =
@@ -118,6 +119,7 @@ let get_initial () =
     task_name = "initial_task";
     database = default_database ();
     dbg = "initial_task";
+    client= None;
   }
 
 (* ref fn used to break the cyclic dependency between context, db_actions and taskhelper *)
@@ -221,6 +223,7 @@ let from_forwarded_task ?(__context=get_initial ()) ?(http_other_config=[]) ?ses
     then Ref.name_of_dummy task_id
     else !__get_task_name ~__context task_id
   in
+  let client = _client_of_origin origin in
   let info = if not (Ref.is_dummy task_id) then Real.info else Dummy.debug in
   (* CP-982: promote tracking debug line to info status *)
   let dbg = make_dbg http_other_config task_name task_id in
@@ -233,9 +236,11 @@ let from_forwarded_task ?(__context=get_initial ()) ?(http_other_config=[]) ?ses
     task_name = task_name;
     database = default_database ();
     dbg = dbg;
+    client;
   }
 
 let make ?(__context=get_initial ()) ?(http_other_config=[]) ?(quiet=false) ?subtask_of ?session_id ?(database=default_database ()) ?(task_in_database=false) ?task_description ?(origin=Internal) task_name =
+  let client = _client_of_origin origin in
   let task_id, task_uuid =
     if task_in_database
     then !__make_task ~__context ~http_other_config ?description:task_description ?session_id ?subtask_of task_name
@@ -266,7 +271,14 @@ let make ?(__context=get_initial ()) ?(http_other_config=[]) ?(quiet=false) ?sub
     forwarded_task = false;
     task_name = task_name;
     dbg = dbg;
+    client;
   }
+
+let make_subcontext ~__context ?task_in_database task_name =
+  let session_id = __context.session_id in
+  let subtask_of = __context.task_id in
+  let subcontext = make ~subtask_of ?session_id ?task_in_database task_name in
+  {subcontext with client= __context.client}
 
 let get_http_other_config http_req =
   let http_other_config_hdr = "x-http-other-config-" in
