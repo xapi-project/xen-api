@@ -691,7 +691,10 @@ let config_winbind_damon ~domain ~workgroup ~netbios_name =
       ; Printf.sprintf "winbind cache time = %d" !Xapi_globs.winbind_cache_time
       ; Printf.sprintf "machine password timeout = %d"
           !Xapi_globs.winbind_machine_pwd_timeout
-      ; "kerberos encryption types = strong"
+      ; Printf.sprintf "kerberos encryption types = %s"
+          (Kerberos_encryption_types.Winbind.to_string
+             !Xapi_globs.winbind_kerberos_encryption_type
+          )
       ; Printf.sprintf "workgroup = %s" workgroup
       ; Printf.sprintf "netbios name = %s" netbios_name
       ; "idmap config * : range = 3000000-3999999"
