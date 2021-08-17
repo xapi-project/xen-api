@@ -868,6 +868,9 @@ let winbind_machine_pwd_timeout = ref (7 * 24 * 3600)
 
 let winbind_update_closest_kdc_interval = ref (3600. *. 24.) (* every day *)
 
+let winbind_kerberos_encryption_type =
+  ref Kerberos_encryption_types.Winbind.Strong
+
 let tdb_tool = ref "/usr/bin/tdbtool"
 
 let sqlite3 = ref "/usr/bin/sqlite3"
@@ -1151,6 +1154,20 @@ let other_options =
     , Arg.Set create_tools_sr
     , (fun () -> string_of_bool !create_tools_sr)
     , "Indicates whether to create an SR for Tools ISOs" )
+  ; ( "winbind_kerberos_encryption_type"
+    , Arg.String
+        (fun s ->
+          Option.iter
+            (fun k -> winbind_kerberos_encryption_type := k)
+            (Kerberos_encryption_types.Winbind.of_string s)
+          )
+    , (fun () ->
+        Kerberos_encryption_types.Winbind.to_string
+          !winbind_kerberos_encryption_type
+        )
+    , "Encryption types to use when operating as Kerberos client \
+       [strong|legacy|all]"
+    )
   ; ( "website-https-only"
     , Arg.Set website_https_only
     , (fun () -> string_of_bool !website_https_only)
