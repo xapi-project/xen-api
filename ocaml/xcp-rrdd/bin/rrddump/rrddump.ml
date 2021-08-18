@@ -21,7 +21,8 @@ let text_export rrd =
       -. Int64.to_float
            (Int64.mul
               (Int64.of_int (rra.rra_pdp_cnt * rra.rra_row_cnt))
-              rrd.timestep)
+              rrd.timestep
+           )
     in
     Printf.printf "start=%f\n" start ;
     let rra_timestep = Int64.mul rrd.timestep (Int64.of_int rra.rra_pdp_cnt) in
@@ -38,7 +39,9 @@ let text_export rrd =
              (cf_type_to_string rra.rra_cf)
              (Int64.mul
                 (Int64.of_int (rra.rra_pdp_cnt * rra.rra_row_cnt))
-                rrd.timestep))
+                rrd.timestep
+             )
+          )
       in
       let rec do_data i accum =
         if time i < Int64.of_float start || i >= rra.rra_row_cnt then
@@ -49,7 +52,8 @@ let text_export rrd =
       let data = do_data 0 [] in
       List.iter
         (fun (t, d) ->
-          if not (Utils.isnan d) then Printf.fprintf oc "%Ld %f\n" t d)
+          if not (Utils.isnan d) then Printf.fprintf oc "%Ld %f\n" t d
+          )
         data ;
       close_out oc
     done

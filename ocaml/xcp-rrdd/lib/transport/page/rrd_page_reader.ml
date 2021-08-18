@@ -41,7 +41,8 @@ module Page = struct
               interface_ref := Some interface ;
               interface
         in
-        f interface)
+        f interface
+    )
 
   (** Remote domid * list of grant references. *)
   type id_t = interdomain_id

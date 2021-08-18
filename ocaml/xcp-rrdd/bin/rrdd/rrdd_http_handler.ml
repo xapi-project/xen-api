@@ -27,7 +27,8 @@ let get_vm_rrd_handler (req : Http.Request.t) (s : Unix.file_descr) _ =
   let vm_uuid = List.assoc "uuid" query in
   let rrd =
     Mutex.execute mutex (fun () ->
-        Rrd.copy_rrd (Hashtbl.find vm_rrds vm_uuid).rrd)
+        Rrd.copy_rrd (Hashtbl.find vm_rrds vm_uuid).rrd
+    )
   in
   Http_svr.headers s (Http.http_200_ok ~version:"1.0" ~keep_alive:false ()) ;
   Rrd_unix.to_fd rrd s
@@ -45,7 +46,8 @@ let get_host_rrd_handler (req : Http.Request.t) (s : Unix.file_descr) _ =
               rrdi.rrd
           | None ->
               failwith "No host RRD available!"
-          ))
+          )
+    )
   in
   Http_svr.headers s
     (Http.http_200_ok ~version:"1.0" ~keep_alive:false ()
@@ -64,7 +66,8 @@ let get_sr_rrd_handler (req : Http.Request.t) (s : Unix.file_descr) _ =
           try Hashtbl.find sr_rrds sr_uuid
           with Not_found -> failwith "No SR RRD available!"
         in
-        Rrd.copy_rrd rrdi.rrd)
+        Rrd.copy_rrd rrdi.rrd
+    )
   in
   Http_svr.headers s (Http.http_200_ok ~version:"1.0" ~keep_alive:false ()) ;
   Rrd_unix.to_fd rrd s
@@ -86,7 +89,8 @@ let get_host_stats ?(json = false) ~(start : int64) ~(interval : int64)
             | Some rrdi ->
                 [
                   ( "host:" ^ Inventory.lookup Inventory._installation_uuid ^ ":"
-                  , rrdi.rrd )
+                  , rrdi.rrd
+                  )
                 ]
           else
             []
@@ -114,9 +118,11 @@ let get_host_stats ?(json = false) ~(start : int64) ~(interval : int64)
           Seq.map (fun (k, v) -> ("sr:" ^ k ^ ":", v.rrd)) srsandrrds
         in
         List.(
-          concat [host_rrds; of_seq vm_rrds_altered; of_seq sr_rrds_altered])
+          concat [host_rrds; of_seq vm_rrds_altered; of_seq sr_rrds_altered]
+        )
       in
-      Rrd_updates.export ~json prefixandrrds start interval cfopt)
+      Rrd_updates.export ~json prefixandrrds start interval cfopt
+  )
 
 (* Writes XML/JSON representing the updates since the specified start time to
    the file descriptor that corresponds to the client HTTP connection. *)
@@ -192,5 +198,6 @@ let put_rrd_handler (req : Http.Request.t) (s : Unix.file_descr) _ =
     debug "Receiving RRD for resident VM uuid=%s. Replacing in hashtable." uuid ;
     let domid = int_of_string (List.assoc "domid" query) in
     Mutex.execute mutex (fun _ ->
-        Hashtbl.replace vm_rrds uuid {rrd; dss= []; domid})
+        Hashtbl.replace vm_rrds uuid {rrd; dss= []; domid}
+    )
   )

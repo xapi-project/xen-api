@@ -230,7 +230,8 @@ let make_payload_reader () =
     let data_crc_calculated =
       Crc32.cstruct
         (Cstruct.sub cs timestamp_start
-           (timestamp_bytes + (datasource_count * datasource_value_bytes)))
+           (timestamp_bytes + (datasource_count * datasource_value_bytes))
+        )
     in
     if not (data_crc = data_crc_calculated) then
       raise Invalid_checksum
@@ -292,7 +293,8 @@ let write_payload alloc_cstruct payload =
   let data_crc =
     Crc32.cstruct
       (Cstruct.sub cs timestamp_start
-         (timestamp_bytes + (datasource_count * datasource_value_bytes)))
+         (timestamp_bytes + (datasource_count * datasource_value_bytes))
+      )
   in
   Write.data_crc cs data_crc
 

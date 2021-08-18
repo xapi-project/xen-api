@@ -9,17 +9,21 @@ let test_payload =
           ( Rrd.Host
           , Ds.ds_make ~name:"test_int1" ~description:"A test integer"
               ~value:(Rrd.VT_Int64 1234L) ~ty:Rrd.Gauge ~default:false
-              ~units:"things" () )
+              ~units:"things" ()
+          )
         ; ( Rrd.SR "test_sr"
           , Ds.ds_make ~name:"test_int2" ~description:"A test integer"
               ~value:(Rrd.VT_Int64 5678L) ~ty:Rrd.Gauge ~default:true
-              ~units:"things" () )
+              ~units:"things" ()
+          )
         ; ( Rrd.VM "test_vm"
           , Ds.ds_make ~name:"test_float1" ~description:"A test float"
               ~value:(Rrd.VT_Float 987.654) ~ty:Rrd.Gauge ~default:false
-              ~units:"things" () )
+              ~units:"things" ()
+          )
         ]
     }
+  
 
 let make_list make_one count =
   let rec make_list make_one acc = function
@@ -57,7 +61,8 @@ let make_random_datasource () =
   let default = Random.bool () in
   ( owner
   , Ds.ds_make ~name:"test_ds" ~description:"A datasource" ~value ~ty ~default
-      ~units:"things" () )
+      ~units:"things" ()
+  )
 
 let make_random_payload timestamp datasource_count =
   let datasources = make_list make_random_datasource datasource_count in
@@ -122,7 +127,8 @@ let assert_payloads_equal payload1 payload2 =
       ~printer:string_of_int
       (List.length payload1.datasources)
       (List.length payload2.datasources) ;
-    List.iter2 assert_ds_equal payload1.datasources payload2.datasources)
+    List.iter2 assert_ds_equal payload1.datasources payload2.datasources
+  )
 
 let make_shared_file () =
   Filename.temp_file ~temp_dir:"/dev/shm" "test-metrics" ".tmp"

@@ -62,10 +62,14 @@ let accept_forever sock f =
                 (fun _ ->
                   finally
                     (fun _ -> f this_connection)
-                    (fun _ -> Unix.close this_connection))
-                ())
-         done)
-       ())
+                    (fun _ -> Unix.close this_connection)
+                  )
+                ()
+             )
+         done
+         )
+       ()
+    )
 
 (* Bind server to the file descriptor. *)
 let start (xmlrpc_path, http_fwd_path) process =
@@ -109,8 +113,10 @@ let start (xmlrpc_path, http_fwd_path) process =
             |> Http.Request.t_of_rpc
           in
           req.Http.Request.close <- true ;
-          ignore_bool (Http_svr.handle_one server received_fd () req))
-        (fun _ -> Unix.close received_fd)) ;
+          ignore_bool (Http_svr.handle_one server received_fd () req)
+          )
+        (fun _ -> Unix.close received_fd)
+  ) ;
   ()
 
 (* Monitoring code --- START. *)
@@ -216,7 +222,8 @@ let dss_vcpus xc doms =
              mask of its complement ~(1 << 63) *)
           let cpu_time =
             Int64.(
-              to_float @@ logand vcpuinfo.Xenctrl.cputime xen_flag_complement)
+              to_float @@ logand vcpuinfo.Xenctrl.cputime xen_flag_complement
+            )
           in
           (* Convert from nanoseconds to seconds *)
           let cpu_time = cpu_time /. 1.0e9 in
@@ -225,7 +232,8 @@ let dss_vcpus xc doms =
             , Ds.ds_make ~name:(Printf.sprintf "cpu%d" i) ~units:"(fraction)"
                 ~description:(Printf.sprintf "CPU%d usage" i)
                 ~value:(Rrd.VT_Float cpu_time) ~ty:Rrd.Derive ~default:true
-                ~min:0.0 ~max:1.0 () )
+                ~min:0.0 ~max:1.0 ()
+            )
           in
           cpus (i + 1) (cputime_rrd :: dss)
       in
@@ -237,52 +245,57 @@ let dss_vcpus xc doms =
           , Ds.ds_make ~name:"runstate_fullrun" ~units:"(fraction)"
               ~value:(Rrd.VT_Float (Int64.to_float ri.Xenctrl.time0 /. 1.0e9))
               ~description:"Fraction of time that all VCPUs are running"
-              ~ty:Rrd.Derive ~default:false ~min:0.0 () )
-          :: ( Rrd.VM uuid
-             , Ds.ds_make ~name:"runstate_full_contention" ~units:"(fraction)"
-                 ~value:
-                   (Rrd.VT_Float (Int64.to_float ri.Xenctrl.time1 /. 1.0e9))
-                 ~description:
-                   "Fraction of time that all VCPUs are runnable (i.e., \
-                    waiting for CPU)"
-                 ~ty:Rrd.Derive ~default:false ~min:0.0 () )
-          :: ( Rrd.VM uuid
-             , Ds.ds_make ~name:"runstate_concurrency_hazard"
-                 ~units:"(fraction)"
-                 ~value:
-                   (Rrd.VT_Float (Int64.to_float ri.Xenctrl.time2 /. 1.0e9))
-                 ~description:
-                   "Fraction of time that some VCPUs are running and some are \
-                    runnable"
-                 ~ty:Rrd.Derive ~default:false ~min:0.0 () )
-          :: ( Rrd.VM uuid
-             , Ds.ds_make ~name:"runstate_blocked" ~units:"(fraction)"
-                 ~value:
-                   (Rrd.VT_Float (Int64.to_float ri.Xenctrl.time3 /. 1.0e9))
-                 ~description:
-                   "Fraction of time that all VCPUs are blocked or offline"
-                 ~ty:Rrd.Derive ~default:false ~min:0.0 () )
-          :: ( Rrd.VM uuid
-             , Ds.ds_make ~name:"runstate_partial_run" ~units:"(fraction)"
-                 ~value:
-                   (Rrd.VT_Float (Int64.to_float ri.Xenctrl.time4 /. 1.0e9))
-                 ~description:
-                   "Fraction of time that some VCPUs are running, and some are \
-                    blocked"
-                 ~ty:Rrd.Derive ~default:false ~min:0.0 () )
-          :: ( Rrd.VM uuid
-             , Ds.ds_make ~name:"runstate_partial_contention"
-                 ~units:"(fraction)"
-                 ~value:
-                   (Rrd.VT_Float (Int64.to_float ri.Xenctrl.time5 /. 1.0e9))
-                 ~description:
-                   "Fraction of time that some VCPUs are runnable and some are \
-                    blocked"
-                 ~ty:Rrd.Derive ~default:false ~min:0.0 () )
+              ~ty:Rrd.Derive ~default:false ~min:0.0 ()
+          )
+          ::
+          ( Rrd.VM uuid
+          , Ds.ds_make ~name:"runstate_full_contention" ~units:"(fraction)"
+              ~value:(Rrd.VT_Float (Int64.to_float ri.Xenctrl.time1 /. 1.0e9))
+              ~description:
+                "Fraction of time that all VCPUs are runnable (i.e., waiting \
+                 for CPU)"
+              ~ty:Rrd.Derive ~default:false ~min:0.0 ()
+          )
+          ::
+          ( Rrd.VM uuid
+          , Ds.ds_make ~name:"runstate_concurrency_hazard" ~units:"(fraction)"
+              ~value:(Rrd.VT_Float (Int64.to_float ri.Xenctrl.time2 /. 1.0e9))
+              ~description:
+                "Fraction of time that some VCPUs are running and some are \
+                 runnable"
+              ~ty:Rrd.Derive ~default:false ~min:0.0 ()
+          )
+          ::
+          ( Rrd.VM uuid
+          , Ds.ds_make ~name:"runstate_blocked" ~units:"(fraction)"
+              ~value:(Rrd.VT_Float (Int64.to_float ri.Xenctrl.time3 /. 1.0e9))
+              ~description:
+                "Fraction of time that all VCPUs are blocked or offline"
+              ~ty:Rrd.Derive ~default:false ~min:0.0 ()
+          )
+          ::
+          ( Rrd.VM uuid
+          , Ds.ds_make ~name:"runstate_partial_run" ~units:"(fraction)"
+              ~value:(Rrd.VT_Float (Int64.to_float ri.Xenctrl.time4 /. 1.0e9))
+              ~description:
+                "Fraction of time that some VCPUs are running, and some are \
+                 blocked"
+              ~ty:Rrd.Derive ~default:false ~min:0.0 ()
+          )
+          ::
+          ( Rrd.VM uuid
+          , Ds.ds_make ~name:"runstate_partial_contention" ~units:"(fraction)"
+              ~value:(Rrd.VT_Float (Int64.to_float ri.Xenctrl.time5 /. 1.0e9))
+              ~description:
+                "Fraction of time that some VCPUs are runnable and some are \
+                 blocked"
+              ~ty:Rrd.Derive ~default:false ~min:0.0 ()
+          )
           :: dss
         with _ -> dss
       in
-      try cpus 0 dss with _ -> dss)
+      try cpus 0 dss with _ -> dss
+      )
     [] doms
 
 let physcpus = ref [||]
@@ -307,9 +320,12 @@ let dss_pcpus xc =
               ~value:(Rrd.VT_Float (Int64.to_float v /. 1.0e9))
               ~min:0.0 ~max:1.0 ~ty:Rrd.Derive ~default:true
               ~transform:(fun x -> 1.0 -. x)
-              () )
+              ()
+          )
           :: acc
-        , i + 1 ))
+        , i + 1
+        )
+        )
       ([], 0) newinfos
   in
   let sum_array = Array.fold_left (fun acc v -> Int64.add acc v) 0L newinfos in
@@ -321,7 +337,8 @@ let dss_pcpus xc =
         ~value:(Rrd.VT_Float (avg_array /. 1.0e9))
         ~min:0.0 ~max:1.0 ~ty:Rrd.Derive ~default:true
         ~transform:(fun x -> 1.0 -. x)
-        () )
+        ()
+    )
   in
   avgcpu_ds :: dss
 
@@ -331,7 +348,8 @@ let dss_loadavg () =
     , Ds.ds_make ~name:"loadavg" ~units:"(fraction)"
         ~description:"Domain0 loadavg"
         ~value:(Rrd.VT_Float (Rrdd_common.loadavg ()))
-        ~ty:Rrd.Gauge ~default:true () )
+        ~ty:Rrd.Gauge ~default:true ()
+    )
   ]
 
 (*****************************************************)
@@ -344,8 +362,7 @@ let dss_netdev doms =
       try List.find (fun (_, _, domid') -> domid = domid') domains
       with Not_found ->
         failwith
-          (Printf.sprintf "Failed to find uuid corresponding to domid: %d"
-             domid)
+          (Printf.sprintf "Failed to find uuid corresponding to domid: %d" domid)
     in
     uuid
   in
@@ -361,28 +378,36 @@ let dss_netdev doms =
                 ~description:
                   ("Bytes per second received on physical interface " ^ dev)
                 ~units:"B/s" ~value:(Rrd.VT_Int64 stat.rx_bytes) ~ty:Rrd.Derive
-                ~min:0.0 ~default:true () )
-            :: ( Rrd.Host
-               , Ds.ds_make ~name:(pif_name ^ "_tx")
-                   ~description:
-                     ("Bytes per second sent on physical interface " ^ dev)
-                   ~units:"B/s" ~value:(Rrd.VT_Int64 stat.tx_bytes)
-                   ~ty:Rrd.Derive ~min:0.0 ~default:true () )
-            :: ( Rrd.Host
-               , Ds.ds_make ~name:(pif_name ^ "_rx_errors")
-                   ~description:
-                     ("Receive errors per second on physical interface " ^ dev)
-                   ~units:"err/s" ~value:(Rrd.VT_Int64 stat.rx_errors)
-                   ~ty:Rrd.Derive ~min:0.0 ~default:false () )
-            :: ( Rrd.Host
-               , Ds.ds_make ~name:(pif_name ^ "_tx_errors")
-                   ~description:
-                     ("Transmit errors per second on physical interface " ^ dev)
-                   ~units:"err/s" ~value:(Rrd.VT_Int64 stat.tx_errors)
-                   ~ty:Rrd.Derive ~min:0.0 ~default:false () )
+                ~min:0.0 ~default:true ()
+            )
+            ::
+            ( Rrd.Host
+            , Ds.ds_make ~name:(pif_name ^ "_tx")
+                ~description:
+                  ("Bytes per second sent on physical interface " ^ dev)
+                ~units:"B/s" ~value:(Rrd.VT_Int64 stat.tx_bytes) ~ty:Rrd.Derive
+                ~min:0.0 ~default:true ()
+            )
+            ::
+            ( Rrd.Host
+            , Ds.ds_make ~name:(pif_name ^ "_rx_errors")
+                ~description:
+                  ("Receive errors per second on physical interface " ^ dev)
+                ~units:"err/s" ~value:(Rrd.VT_Int64 stat.rx_errors)
+                ~ty:Rrd.Derive ~min:0.0 ~default:false ()
+            )
+            ::
+            ( Rrd.Host
+            , Ds.ds_make ~name:(pif_name ^ "_tx_errors")
+                ~description:
+                  ("Transmit errors per second on physical interface " ^ dev)
+                ~units:"err/s" ~value:(Rrd.VT_Int64 stat.tx_errors)
+                ~ty:Rrd.Derive ~min:0.0 ~default:false ()
+            )
             :: dss
           , Int64.add stat.rx_bytes sum_rx
-          , Int64.add stat.tx_bytes sum_tx )
+          , Int64.add stat.tx_bytes sum_tx
+          )
         else
           ( ( try
                 let d1, d2 =
@@ -401,42 +426,49 @@ let dss_netdev doms =
                       ^ "'"
                       )
                     ~value:(Rrd.VT_Int64 stat.rx_bytes) ~ty:Rrd.Derive ~min:0.0
-                    ~default:true () )
-                :: ( Rrd.VM uuid
-                   , Ds.ds_make ~name:(vif_name ^ "_rx") ~units:"B/s"
-                       ~description:
-                         ("Bytes per second received on virtual interface \
-                           number '"
-                         ^ string_of_int d2
-                         ^ "'"
-                         )
-                       ~value:(Rrd.VT_Int64 stat.tx_bytes) ~ty:Rrd.Derive
-                       ~min:0.0 ~default:true () )
-                :: ( Rrd.VM uuid
-                   , Ds.ds_make ~name:(vif_name ^ "_rx_errors") ~units:"err/s"
-                       ~description:
-                         ("Receive errors per second on virtual interface \
-                           number '"
-                         ^ string_of_int d2
-                         ^ "'"
-                         )
-                       ~value:(Rrd.VT_Int64 stat.tx_errors) ~ty:Rrd.Derive
-                       ~min:0.0 ~default:false () )
-                :: ( Rrd.VM uuid
-                   , Ds.ds_make ~name:(vif_name ^ "_tx_errors") ~units:"err/s"
-                       ~description:
-                         ("Transmit errors per second on virtual interface \
-                           number '"
-                         ^ string_of_int d2
-                         ^ "'"
-                         )
-                       ~value:(Rrd.VT_Int64 stat.rx_errors) ~ty:Rrd.Derive
-                       ~min:0.0 ~default:false () )
+                    ~default:true ()
+                )
+                ::
+                ( Rrd.VM uuid
+                , Ds.ds_make ~name:(vif_name ^ "_rx") ~units:"B/s"
+                    ~description:
+                      ("Bytes per second received on virtual interface number '"
+                      ^ string_of_int d2
+                      ^ "'"
+                      )
+                    ~value:(Rrd.VT_Int64 stat.tx_bytes) ~ty:Rrd.Derive ~min:0.0
+                    ~default:true ()
+                )
+                ::
+                ( Rrd.VM uuid
+                , Ds.ds_make ~name:(vif_name ^ "_rx_errors") ~units:"err/s"
+                    ~description:
+                      ("Receive errors per second on virtual interface number '"
+                      ^ string_of_int d2
+                      ^ "'"
+                      )
+                    ~value:(Rrd.VT_Int64 stat.tx_errors) ~ty:Rrd.Derive ~min:0.0
+                    ~default:false ()
+                )
+                ::
+                ( Rrd.VM uuid
+                , Ds.ds_make ~name:(vif_name ^ "_tx_errors") ~units:"err/s"
+                    ~description:
+                      ("Transmit errors per second on virtual interface number \
+                        '"
+                      ^ string_of_int d2
+                      ^ "'"
+                      )
+                    ~value:(Rrd.VT_Int64 stat.rx_errors) ~ty:Rrd.Derive ~min:0.0
+                    ~default:false ()
+                )
                 :: dss
               with _ -> dss
             )
           , sum_rx
-          , sum_tx ))
+          , sum_tx
+          )
+        )
       ([], 0L, 0L) stats
   in
   [
@@ -444,12 +476,14 @@ let dss_netdev doms =
     , Ds.ds_make ~name:"pif_aggr_rx"
         ~description:"Bytes per second received on all physical interfaces"
         ~units:"B/s" ~value:(Rrd.VT_Int64 sum_rx) ~ty:Rrd.Derive ~min:0.0
-        ~default:true () )
+        ~default:true ()
+    )
   ; ( Rrd.Host
     , Ds.ds_make ~name:"pif_aggr_tx"
         ~description:"Bytes per second sent on all physical interfaces"
         ~units:"B/s" ~value:(Rrd.VT_Int64 sum_tx) ~ty:Rrd.Derive ~min:0.0
-        ~default:true () )
+        ~default:true ()
+    )
   ]
   @ dss
 
@@ -468,12 +502,14 @@ let dss_mem_host xc =
     , Ds.ds_make ~name:"memory_total_kib"
         ~description:"Total amount of memory in the host"
         ~value:(Rrd.VT_Int64 total_kib) ~ty:Rrd.Gauge ~min:0.0 ~default:true
-        ~units:"KiB" () )
+        ~units:"KiB" ()
+    )
   ; ( Rrd.Host
     , Ds.ds_make ~name:"memory_free_kib"
         ~description:"Total amount of free memory"
         ~value:(Rrd.VT_Int64 free_kib) ~ty:Rrd.Gauge ~min:0.0 ~default:true
-        ~units:"KiB" () )
+        ~units:"KiB" ()
+    )
   ]
 
 (** estimate the space needed to serialize all the dss_mem_vms in a host. the
@@ -502,7 +538,8 @@ let dss_mem_vms doms =
       let memory_target_opt =
         try
           Mutex.execute Rrdd_shared.memory_targets_m (fun _ ->
-              Some (Hashtbl.find Rrdd_shared.memory_targets domid))
+              Some (Hashtbl.find Rrdd_shared.memory_targets domid)
+          )
         with Not_found -> None
       in
       let mem_target_ds =
@@ -512,7 +549,9 @@ let dss_mem_vms doms =
             , Ds.ds_make ~name:"memory_target"
                 ~description:"Target of VM balloon driver" ~units:"B"
                 ~value:(Rrd.VT_Int64 memory_target) ~ty:Rrd.Gauge ~min:0.0
-                ~default:true () ))
+                ~default:true ()
+            )
+            )
           memory_target_opt
       in
       let other_ds =
@@ -528,7 +567,8 @@ let dss_mem_vms doms =
               , Ds.ds_make ~name:"memory_internal_free" ~units:"KiB"
                   ~description:"Memory used as reported by the guest agent"
                   ~value:(Rrd.VT_Int64 mem_free) ~ty:Rrd.Gauge ~min:0.0
-                  ~default:true () )
+                  ~default:true ()
+              )
           with Not_found -> None
       in
       List.concat
@@ -536,7 +576,8 @@ let dss_mem_vms doms =
           main_mem_ds :: Option.to_list other_ds
         ; Option.to_list mem_target_ds
         ; acc
-        ])
+        ]
+      )
     [] doms
 
 (**** Local cache SR stuff *)
@@ -557,8 +598,7 @@ let tapdisk_cache_stats : string =
 
 let dss_cache timestamp =
   let cache_sr_opt =
-    Mutex.execute Rrdd_shared.cache_sr_lock (fun _ ->
-        !Rrdd_shared.cache_sr_uuid)
+    Mutex.execute Rrdd_shared.cache_sr_lock (fun _ -> !Rrdd_shared.cache_sr_uuid)
   in
   let do_read cache_sr =
     debug "do_read: %s %s" tapdisk_cache_stats cache_sr ;
@@ -586,7 +626,8 @@ let dss_cache timestamp =
           ~name:(Printf.sprintf "sr_%s_cache_size" cache_sr)
           ~description:"Size in bytes of the cache SR" ~units:"B"
           ~value:(Rrd.VT_Int64 newvals.cache_size_raw) ~ty:Rrd.Gauge ~min:0.0
-          ~default:true () )
+          ~default:true ()
+      )
     ; ( Rrd.Host
       , Ds.ds_make
           ~name:(Printf.sprintf "sr_%s_cache_hits" cache_sr)
@@ -595,8 +636,11 @@ let dss_cache timestamp =
             (Rrd.VT_Int64
                (Int64.div
                   (Int64.sub newvals.cache_hits_raw oldvals.cache_hits_raw)
-                  (Int64.of_float (newvals.time -. oldvals.time))))
-          ~ty:Rrd.Gauge ~min:0.0 ~default:true () )
+                  (Int64.of_float (newvals.time -. oldvals.time))
+               )
+            )
+          ~ty:Rrd.Gauge ~min:0.0 ~default:true ()
+      )
     ; ( Rrd.Host
       , Ds.ds_make
           ~name:(Printf.sprintf "sr_%s_cache_misses" cache_sr)
@@ -605,8 +649,11 @@ let dss_cache timestamp =
             (Rrd.VT_Int64
                (Int64.div
                   (Int64.sub newvals.cache_misses_raw oldvals.cache_misses_raw)
-                  (Int64.of_float (newvals.time -. oldvals.time))))
-          ~ty:Rrd.Gauge ~min:0.0 ~default:true () )
+                  (Int64.of_float (newvals.time -. oldvals.time))
+               )
+            )
+          ~ty:Rrd.Gauge ~min:0.0 ~default:true ()
+      )
     ]
   in
   match (!last_cache_stats, cache_sr_opt) with
@@ -722,7 +769,8 @@ let do_monitor_write xc writers =
       let stats = List.rev_append plugins_stats dom0_stats in
       Rrdd_stats.print_snapshot () ;
       let uuid_domids = List.map (fun (_, u, i) -> (u, i)) domains in
-      Rrdd_monitor.update_rrds timestamp stats uuid_domids my_paused_vms)
+      Rrdd_monitor.update_rrds timestamp stats uuid_domids my_paused_vms
+  )
 
 let monitor_write_loop writers =
   Debug.with_thread_named "monitor_write"
@@ -732,7 +780,8 @@ let monitor_write_loop writers =
             try
               do_monitor_write xc writers ;
               Mutex.execute Rrdd_shared.last_loop_end_time_m (fun _ ->
-                  Rrdd_shared.last_loop_end_time := Unix.gettimeofday ()) ;
+                  Rrdd_shared.last_loop_end_time := Unix.gettimeofday ()
+              ) ;
               Thread.delay !Rrdd_shared.timeslice
             with _ ->
               debug
@@ -740,7 +789,9 @@ let monitor_write_loop writers =
                  then restarting." ;
               log_backtrace () ;
               Thread.delay 10.
-          done))
+          done
+      )
+      )
     ()
 
 (* Monitoring code --- END. *)
@@ -762,7 +813,8 @@ module GCLog : GCLOG = struct
             info "GC free_words = %d" stat.Gc.free_words ;
             Thread.delay 180.0
           with e -> error "RRD GC logging: %s" (Printexc.to_string e)
-        done)
+        done
+        )
       ()
 end
 
@@ -874,7 +926,8 @@ module Discover : DISCOVER = struct
           with e ->
             error "RRD plugin discovery error: %s" (Printexc.to_string e) ;
             Thread.delay 10.0
-        done)
+        done
+        )
       directory
 end
 
@@ -883,7 +936,8 @@ let options =
     ( "plugin-default"
     , Arg.Set Rrdd_shared.enable_all_dss
     , (fun () -> string_of_bool !Rrdd_shared.enable_all_dss)
-    , "True if datasources provided by plugins should be exported by default" )
+    , "True if datasources provided by plugins should be exported by default"
+    )
   ]
 
 let doc =
@@ -911,9 +965,11 @@ let configure_writers () =
         snd
           (Rrd_writer.FileWriter.create
              {path; shared_page_count= n_pages}
-             Rrd_protocol_v2.protocol)
+             Rrd_protocol_v2.protocol
+          )
       in
-      (name, writer))
+      (name, writer)
+      )
     stats_to_write
 
 (** we need to make sure we call exit on fatal signals to make sure profiling
@@ -964,11 +1020,13 @@ let _ =
               ~rpc_fn:(Idl.Exn.server Rrdd_bindings.Server.implementation)
               ()
           in
-          Debug.with_thread_associated "main" Xcp_service.serve_forever server)
+          Debug.with_thread_associated "main" Xcp_service.serve_forever server
+        )
       ()
   in
   start (!Rrd_interface.default_path, !Rrd_interface.forwarded_path) (fun () ->
-      Idl.Exn.server Rrdd_bindings.Server.implementation) ;
+      Idl.Exn.server Rrdd_bindings.Server.implementation
+  ) ;
   ignore
   @@ Discover.start
        (List.map (fun (name, _) -> writer_basename name) stats_to_write) ;

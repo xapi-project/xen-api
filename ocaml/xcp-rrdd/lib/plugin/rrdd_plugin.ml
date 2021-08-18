@@ -91,7 +91,8 @@ module Reporter = struct
               start_interdomain
                 (module D)
                 ~reporter:(Some reporter) ~uid ~backend_domid ~page_count
-                ~protocol ~dss_f)
+                ~protocol ~dss_f
+          )
         ()
     in
     reporter
@@ -126,8 +127,10 @@ functor
              ("-daemon", Arg.Set daemonize, "Create a daemon")
            ; ( "-pidfile"
              , Arg.Set_string pidfile
-             , Printf.sprintf "Set the pid file (default \"%s\")" !pidfile )
-           ])
+             , Printf.sprintf "Set the pid file (default \"%s\")" !pidfile
+             )
+           ]
+        )
         (fun _ -> failwith "Invalid argument")
         (Printf.sprintf "Usage: %s [-daemon] [-pidfile filename]" N.name) ;
       if !daemonize then (

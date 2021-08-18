@@ -29,7 +29,8 @@ let read_payloads deliveries protocol sock =
           let received_payload = reader.read_payload () in
           assert_payloads_equal payload received_payload ;
           Printf.printf "\r%d%!" (index + 1) ;
-          reader)
+          reader
+          )
         deliveries
     in
     print_newline () ;
@@ -44,7 +45,8 @@ let read_payloads deliveries protocol sock =
     List.iter
       (fun delivery ->
         try Unix.unlink delivery.shared_file
-        with Unix.Unix_error (Unix.ENOENT, _, _) -> ())
+        with Unix.Unix_error (Unix.ENOENT, _, _) -> ()
+        )
       deliveries ;
     raise e
 
@@ -59,7 +61,8 @@ let write_payloads deliveries protocol sock =
         let _, writer = FileWriter.create id protocol in
         writer.write_payload payload ;
         Printf.printf "\r%d%!" (index + 1) ;
-        writer)
+        writer
+        )
       deliveries
   in
   print_newline () ;
@@ -81,7 +84,8 @@ let run_tests shared_file_count protocol =
         {
           shared_file= make_shared_file ()
         ; payload= make_random_payload timestamp (Random.int 4)
-        })
+        }
+        )
       shared_file_count
   in
   let reader_sock, writer_sock = Unix.(socketpair PF_UNIX SOCK_STREAM 0) in
@@ -110,8 +114,10 @@ let () =
           | 2 ->
               protocol := V2
           | _ ->
-              failwith "Unrecognised protocol")
-      , "Protocol to use" )
+              failwith "Unrecognised protocol"
+          )
+      , "Protocol to use"
+      )
     ]
     (fun _ -> ())
     (Filename.basename Sys.executable_name ^ " [-n <shared-file-count>]") ;

@@ -30,7 +30,8 @@ let ds_type x =
     | Rrd.Absolute ->
         string "absolute"
     | Rrd.Derive ->
-        string "derive" )
+        string "derive"
+  )
 
 let ds_owner x =
   ( "owner"
@@ -40,7 +41,8 @@ let ds_owner x =
     | Rrd.Host ->
         string "host"
     | Rrd.SR sr ->
-        string "sr %s" sr )
+        string "sr %s" sr
+  )
 
 let bool b = string "%b" b (* Should use `Bool b *)
 
@@ -69,7 +71,8 @@ let ds_to_json (owner, ds) =
            ; ("min", float ds.Ds.ds_min)
            ; ("max", float ds.Ds.ds_max)
            ]
-         ] )
+         ]
+  )
 
 let dss_to_json ~header timestamp dss =
   let payload =

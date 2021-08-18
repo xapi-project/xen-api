@@ -63,8 +63,7 @@ let ds_of_rpc ((name, rpc) : string * Rpc.t) : Rrd.ds_owner * Ds.ds =
         (Rrd_rpc.assoc_opt ~key:"type" ~default:"absolute" kvs)
     in
     let val_ty =
-      val_ty_of_string
-        (Rrd_rpc.assoc_opt ~key:"value_type" ~default:"float" kvs)
+      val_ty_of_string (Rrd_rpc.assoc_opt ~key:"value_type" ~default:"float" kvs)
     in
     let value =
       let value_rpc = List.assoc "value" kvs in

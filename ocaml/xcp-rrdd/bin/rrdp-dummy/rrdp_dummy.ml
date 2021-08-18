@@ -26,7 +26,8 @@ let generate_dummy_dss () =
     ( Rrd.Host
     , Ds.ds_make ~name:"dummy-metric" ~description:"Dummy data"
         ~value:(Rrd.VT_Int64 (cnt ()))
-        ~ty:Rrd.Gauge ~default:true ~units:"Pixies" () )
+        ~ty:Rrd.Gauge ~default:true ~units:"Pixies" ()
+    )
   ]
 
 let _ =
@@ -41,8 +42,10 @@ let _ =
           | "interdomain" ->
               mode := Rrdd_plugin.Reporter.Interdomain (0, 1)
           | x ->
-              invalid_arg x)
-      , "Switch between local and interdomain mode" )
+              invalid_arg x
+          )
+      , "Switch between local and interdomain mode"
+      )
     ]
     (fun _ -> ())
     (Printf.sprintf "Usage: %s -mode [local|interdomain]" Sys.executable_name) ;

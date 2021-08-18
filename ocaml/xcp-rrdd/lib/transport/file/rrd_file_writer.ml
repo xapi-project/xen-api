@@ -31,7 +31,8 @@ module File = struct
     let fd = Unix.openfile path [Unix.O_RDWR; Unix.O_CREAT] 0o600 in
     let mapping =
       Bigarray.(
-        array1_of_genarray @@ Unix.map_file fd char c_layout true [|size|])
+        array1_of_genarray @@ Unix.map_file fd char c_layout true [|size|]
+      )
     in
     Unix.close fd ;
     let cstruct = Cstruct.of_bigarray mapping in

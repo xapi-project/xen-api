@@ -45,7 +45,8 @@ let start_local (module D : Debug.DEBUG) ~reporter ~uid ~neg_shift ~page_count
     match reporter with
     | Some reporter ->
         Mutex.execute reporter.lock (fun () ->
-            reporter.state <- Stopped (`Failed exn))
+            reporter.state <- Stopped (`Failed exn)
+        )
     | None ->
         raise exn
   )

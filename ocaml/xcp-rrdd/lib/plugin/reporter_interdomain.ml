@@ -31,7 +31,8 @@ let start_interdomain (module D : Debug.DEBUG) ~reporter ~uid ~backend_domid
         (Rrd_interface.string_of_protocol protocol) ;
       Xs.write xs
         (Printf.sprintf "%s/%s/ready" xs_state.Xs.root_path uid)
-        "true") ;
+        "true"
+  ) ;
   let report () =
     let payload =
       Rrd_protocol.{timestamp= Utils.now (); datasources= dss_f ()}
@@ -43,7 +44,8 @@ let start_interdomain (module D : Debug.DEBUG) ~reporter ~uid ~backend_domid
     Xs.immediate xs_state.Xs.client (fun xs ->
         Xs.write xs
           (Printf.sprintf "%s/%s/shutdown" xs_state.Xs.root_path uid)
-          "true") ;
+          "true"
+    ) ;
     writer.Rrd_writer_functor.cleanup ()
   in
   loop (module D) ~reporter ~report ~cleanup

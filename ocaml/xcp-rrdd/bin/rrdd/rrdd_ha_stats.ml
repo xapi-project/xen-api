@@ -69,4 +69,5 @@ let all () =
         in
         List.map (fun x -> (Rrd.Host, x)) all
       else
-        [])
+        []
+  )

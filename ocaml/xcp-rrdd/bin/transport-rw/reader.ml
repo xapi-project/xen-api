@@ -25,7 +25,8 @@ let default_cmd =
   let doc = "RRD protocol reader" in
   let man = help_secs in
   ( Term.(ret (pure (fun _ -> `Help (`Pager, None)) $ pure ()))
-  , Term.info "reader" ~version:"0.1" ~doc ~man )
+  , Term.info "reader" ~version:"0.1" ~doc ~man
+  )
 
 let read_file_cmd =
   let path =
@@ -49,7 +50,8 @@ let read_file_cmd =
     @ help_secs
   in
   ( Term.(pure Reader_commands.read_file $ once $ path $ protocol)
-  , Term.info "file" ~doc ~man )
+  , Term.info "file" ~doc ~man
+  )
 
 let read_page_cmd =
   let domid =
@@ -77,7 +79,8 @@ let read_page_cmd =
     @ help_secs
   in
   ( Term.(pure Reader_commands.read_page $ domid $ grantref $ protocol)
-  , Term.info "page" ~doc ~man )
+  , Term.info "page" ~doc ~man
+  )
 
 let cmds = [read_file_cmd; read_page_cmd]
 

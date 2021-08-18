@@ -24,7 +24,8 @@ module File = struct
       failwith "lseek" ;
     let mapping =
       Bigarray.(
-        array1_of_genarray @@ Unix.map_file fd char c_layout false [|-1|])
+        array1_of_genarray @@ Unix.map_file fd char c_layout false [|-1|]
+      )
     in
     Unix.close fd ;
     Cstruct.of_bigarray mapping

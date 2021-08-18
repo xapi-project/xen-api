@@ -19,8 +19,11 @@ let create_rras use_min_max =
               ; Rrd.rra_create Rrd.CF_Max n ns 1.0
               ]
             else
-              [Rrd.rra_create Rrd.CF_Average n ns 0.5])
-          timescales))
+              [Rrd.rra_create Rrd.CF_Average n ns 0.5]
+            )
+          timescales
+       )
+    )
 
 let step = 5L
 
@@ -34,10 +37,13 @@ let create_fresh_rrd use_min_max dss =
            if ds.ds_default then
              Some
                (Rrd.ds_create ds.ds_name ds.ds_type ~mrhb:300.0 ~max:ds.ds_max
-                  ~min:ds.ds_min Rrd.VT_Unknown)
+                  ~min:ds.ds_min Rrd.VT_Unknown
+               )
            else
-             None)
-         dss)
+             None
+           )
+         dss
+      )
   in
   Rrd.rrd_create dss rras step (Unix.gettimeofday ())
 
@@ -52,7 +58,8 @@ let merge_new_dss rrd dss =
   List.fold_left
     (fun rrd ds ->
       rrd_add_ds rrd now
-        (Rrd.ds_create ds.ds_name ds.Ds.ds_type ~mrhb:300.0 Rrd.VT_Unknown))
+        (Rrd.ds_create ds.ds_name ds.Ds.ds_type ~mrhb:300.0 Rrd.VT_Unknown)
+      )
     rrd new_dss
 
 (** Updates all of the hosts rrds. We are passed a list of uuids that is used as
@@ -74,7 +81,8 @@ let update_rrds timestamp dss (uuid_domids : (string * int) list) paused_vms =
             (false, 0.)
         | Some rrdi ->
             ( rrdi.rrd.Rrd.last_updated > timestamp
-            , abs_float (timestamp -. rrdi.rrd.Rrd.last_updated) )
+            , abs_float (timestamp -. rrdi.rrd.Rrd.last_updated)
+            )
       in
       if out_of_date then
         error
@@ -90,7 +98,8 @@ let update_rrds timestamp dss (uuid_domids : (string * int) list) paused_vms =
                 | VM x ->
                     if x = vm_uuid then Some ds else None
                 | _ ->
-                    None)
+                    None
+                )
               dss
           in
           (* First, potentially update the rrd with any new default dss *)
@@ -106,8 +115,10 @@ let update_rrds timestamp dss (uuid_domids : (string * int) list) paused_vms =
               Rrd.ds_update_named rrd timestamp ~new_domid:(domid <> rrdi.domid)
                 (List.map
                    (fun ds ->
-                     (ds.ds_name, (ds.ds_value, ds.ds_pdp_transform_function)))
-                   dss) ;
+                     (ds.ds_name, (ds.ds_value, ds.ds_pdp_transform_function))
+                     )
+                   dss
+                ) ;
               rrdi.dss <- dss ;
               rrdi.domid <- domid
             )
@@ -130,7 +141,8 @@ let update_rrds timestamp dss (uuid_domids : (string * int) list) paused_vms =
                 | SR x ->
                     if x = sr_uuid then Some ds else None
                 | _ ->
-                    None)
+                    None
+                )
               dss
           in
           (* First, potentially update the rrd with any new default dss *)
@@ -141,8 +153,10 @@ let update_rrds timestamp dss (uuid_domids : (string * int) list) paused_vms =
             Rrd.ds_update_named rrd timestamp ~new_domid:false
               (List.map
                  (fun ds ->
-                   (ds.ds_name, (ds.ds_value, ds.ds_pdp_transform_function)))
-                 dss) ;
+                   (ds.ds_name, (ds.ds_value, ds.ds_pdp_transform_function))
+                   )
+                 dss
+              ) ;
             rrdi.dss <- dss ;
             rrdi.domid <- 0
           with
@@ -156,7 +170,8 @@ let update_rrds timestamp dss (uuid_domids : (string * int) list) paused_vms =
       in
       List.to_seq dss
       |> Seq.filter_map (fun (ty, _ds) ->
-             match ty with SR x -> Some x | _ -> None)
+             match ty with SR x -> Some x | _ -> None
+         )
       |> StringSet.of_seq
       |> StringSet.iter do_sr ;
       let host_dss =
@@ -177,5 +192,8 @@ let update_rrds timestamp dss (uuid_domids : (string * int) list) paused_vms =
           Rrd.ds_update_named rrd timestamp ~new_domid:false
             (List.map
                (fun ds ->
-                 (ds.ds_name, (ds.ds_value, ds.ds_pdp_transform_function)))
-               host_dss))
+                 (ds.ds_name, (ds.ds_value, ds.ds_pdp_transform_function))
+                 )
+               host_dss
+            )
+  )

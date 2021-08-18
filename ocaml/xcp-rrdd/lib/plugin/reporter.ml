@@ -45,7 +45,8 @@ module Xs = struct
             let root_path = Printf.sprintf "/local/domain/%ld/rrd" my_domid in
             let state = {my_domid; root_path; client} in
             cached_xs_state := Some state ;
-            state)
+            state
+    )
 end
 
 (* Establish a XMLPRC interface with RRDD *)
@@ -115,7 +116,8 @@ let loop (module D : Debug.DEBUG) ~reporter ~report ~cleanup =
                   reporter.state <- Stopped `Cancelled ;
                   cleanup () ;
                   Condition.broadcast reporter.condition ;
-                  running := false)
+                  running := false
+          )
       | None ->
           ()
     with
@@ -143,8 +145,10 @@ let cancel ~reporter =
       | Cancelled ->
           Condition.wait reporter.condition reporter.lock
       | Stopped _ ->
-          ())
+          ()
+  )
 
 let wait_until_stopped ~reporter =
   Mutex.execute reporter.lock (fun () ->
-      Condition.wait reporter.condition reporter.lock)
+      Condition.wait reporter.condition reporter.lock
+  )

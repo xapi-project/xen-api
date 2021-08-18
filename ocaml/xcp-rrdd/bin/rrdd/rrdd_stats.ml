@@ -107,7 +107,8 @@ let meminfo () =
       | ["SwapFree:"; x; "kB"] ->
           swap_free := int_of_string x
       | _ ->
-          ())
+          ()
+      )
     Astring.String.(cuts ~sep:"\n" all) ;
   {
     total= !total
@@ -160,7 +161,8 @@ let process_memory_info_of_pid (pid : int) : process_memory_info =
       | ["VmLib:"; x; "kB"] ->
           lib := int_of_string x
       | _ ->
-          ())
+          ()
+      )
     Astring.String.(cuts ~sep:"\n" all) ;
   {
     peak= !peak

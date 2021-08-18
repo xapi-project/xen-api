@@ -29,7 +29,8 @@ module Page = struct
   let init {backend_domid; shared_page_count} =
     let share =
       with_gntshr (fun gntshr ->
-          Gntshr.share_pages_exn gntshr backend_domid shared_page_count false)
+          Gntshr.share_pages_exn gntshr backend_domid shared_page_count false
+      )
     in
     (share.Gntshr.refs, share)
 
