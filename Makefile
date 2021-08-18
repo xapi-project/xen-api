@@ -116,10 +116,24 @@ install: build doc sdk doc-json
 # ocaml/rrd2csv
 	scripts/install.sh 755 _build/install/default/bin/rrd2csv $(DESTDIR)$(OPTDIR)/bin/rrd2csv
 	scripts/install.sh 644 ocaml/rrd2csv/man/rrd2csv.1.man $(DESTDIR)$(MANDIR)/rrd2csv.1
+# xcp-rrdd
+	install -D _build/install/default/bin/xcp-rrdd $(DESTDIR)$(SBINDIR)/xcp-rrdd
+	install -D _build/install/default/bin/rrddump $(DESTDIR)$(BINDIR)/rrddump
+# rrd-transport
+	install -D _build/install/default/bin/rrdreader $(DESTDIR)$(BINDIR)/rrdreader
+	install -D _build/install/default/bin/rrdwriter $(DESTDIR)$(BINDIR)/rrdwriter
+# rrdd-plugins
+	install -D -m 755 _build/install/default/bin/xcp-rrdd-iostat $(DESTDIR)$(LIBEXECDIR)/xcp-rrdd-plugins/xcp-rrdd-iostat
+	install -D -m 755 _build/install/default/bin/xcp-rrdd-squeezed $(DESTDIR)$(LIBEXECDIR)/xcp-rrdd-plugins/xcp-rrdd-squeezed
+	install -D -m 755 _build/install/default/bin/xcp-rrdd-xenpm $(DESTDIR)$(LIBEXECDIR)/xcp-rrdd-plugins/xcp-rrdd-xenpm
+	install -D -m 644 ocaml/xcp-rrdd/bugtool-plugin/rrdd-plugins.xml $(DESTDIR)$(ETCDIR)/bugtool/xcp-rrdd-plugins.xml
+	install -D -m 644 ocaml/xcp-rrdd/bugtool-plugin/rrdd-plugins/stuff.xml $(DESTDIR)$(ETCDIR)/bugtool/xcp-rrdd-plugins/stuff.xml
+	install -D -m 755 ocaml/xcp-rrdd/bin/rrdp-scripts/sysconfig-rrdd-plugins $(DESTDIR)/etc/sysconfig/xcp-rrdd-plugins
+	install -D -m 644 ocaml/xcp-rrdd/bin/rrdp-scripts/logrotate-rrdd-plugins $(DESTDIR)/etc/logrotate.d/xcp-rrdd-plugins
 # Libraries
 	dune install --profile=$(PROFILE) \
 		xapi-client xapi-database xapi-consts xapi-cli-protocol xapi-datamodel xapi-types \
-		xen-api-client xen-api-client-lwt xen-api-client-async
+		xen-api-client xen-api-client-lwt xen-api-client-async rrdd-plugin rrd-transport
 # docs
 	mkdir -p $(DESTDIR)$(DOCDIR)
 	cp -r $(XAPIDOC)/jekyll $(DESTDIR)$(DOCDIR)
