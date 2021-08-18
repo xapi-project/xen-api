@@ -868,6 +868,11 @@ let init_tls_verification () =
       info "TLS verification is enabled: %s" file ;
       Stunnel_client.set_verify_by_default true
 
+let report_tls_verification ~__context =
+  let self = Helpers.get_localhost ~__context in
+  let value = Stunnel_client.get_verify_by_default () in
+  Db.Host.set_tls_verification_enabled ~__context ~self ~value
+
 let server_init () =
   let print_server_starting_message () =
     debug "(Re)starting xapi" ;
@@ -1085,6 +1090,10 @@ let server_init () =
             , [Startup.OnlyMaster]
             , fun () ->
                 Xapi_host_helpers.Configuration.start_watcher_thread ~__context
+            )
+          ; ( "Update database state of TLS verification"
+            , []
+            , fun () -> report_tls_verification ~__context
             )
           ; ( "Remote requests"
             , [Startup.OnThread]

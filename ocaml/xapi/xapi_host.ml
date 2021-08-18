@@ -916,6 +916,16 @@ let create ~__context ~uuid ~name_label ~name_description ~hostname ~address
   let metrics = Ref.make () in
   make_new_metrics_object metrics ;
   let host_is_us = uuid = Helpers.get_localhost_uuid () in
+  let tls_verification_enabled =
+    match (host_is_us, Db.Pool.get_all ~__context) with
+    | true, _ ->
+        Stunnel_client.get_verify_by_default ()
+    | false, [pool] ->
+        Db.Pool.get_tls_verification_enabled ~__context ~self:pool
+    | _ ->
+        false
+    (* no or multiple pools *)
+  in
   Db.Host.create ~__context ~ref:host ~current_operations:[]
     ~allowed_operations:[]
     ~software_version:(Xapi_globs.software_version ())
@@ -941,7 +951,8 @@ let create ~__context ~uuid ~name_label ~name_description ~hostname ~address
         [0L]
       )
     ~control_domain:Ref.null ~updates_requiring_reboot:[] ~iscsi_iqn:""
-    ~multipathing:false ~uefi_certificates:"" ~editions:[] ~pending_guidances:[] ;
+    ~multipathing:false ~uefi_certificates:"" ~editions:[] ~pending_guidances:[]
+    ~tls_verification_enabled ;
   (* If the host we're creating is us, make sure its set to live *)
   Db.Host_metrics.set_last_updated ~__context ~self:metrics
     ~value:(Date.of_float (Unix.gettimeofday ())) ;
@@ -2629,14 +2640,34 @@ let get_sched_gran ~__context ~self =
 let emergency_disable_tls_verification ~__context =
   (* NB: the tls-verification state on this host will no longer agree with state.db *)
   Stunnel_client.set_verify_by_default false ;
-  Unixext.unlink_safe Xapi_globs.verify_certificates_path
+  Unixext.unlink_safe Xapi_globs.verify_certificates_path ;
+  try
+    (* we update the database on a best-effort basis because we
+       might not have a connection *)
+    let self = Helpers.get_localhost ~__context in
+    Db.Host.set_tls_verification_enabled ~__context ~self ~value:false
+  with e ->
+    info "Failed to update database after TLS verication was disabled: %s"
+      (Printexc.to_string e) ;
+    raise
+      Api_errors.(
+        Server_error
+          ( internal_error
+          , [
+              "TLS verification disabled successfully. Failed to contact the \
+               coordinator to update the database."
+            ]
+          )
+      )
 
 let emergency_reenable_tls_verification ~__context =
   (* NB: Should only be used after running emergency_disable_tls_verification.
      Xapi_pool.enable_tls_verification is not used because it introduces a
      dependency cycle. *)
+  let self = Helpers.get_localhost ~__context in
   Stunnel_client.set_verify_by_default true ;
-  Helpers.touch_file Xapi_globs.verify_certificates_path
+  Helpers.touch_file Xapi_globs.verify_certificates_path ;
+  Db.Host.set_tls_verification_enabled ~__context ~self ~value:true
 
 let alert_if_tls_verification_was_emergency_disabled ~__context =
   let tls_verification_enabled_locally =
