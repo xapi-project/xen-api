@@ -117,11 +117,11 @@ install: build doc sdk doc-json
 	scripts/install.sh 755 _build/install/default/bin/rrd2csv $(DESTDIR)$(OPTDIR)/bin/rrd2csv
 	scripts/install.sh 644 ocaml/rrd2csv/man/rrd2csv.1.man $(DESTDIR)$(MANDIR)/rrd2csv.1
 # xcp-rrdd
-	install -D _build/install/default/bin/xcp-rrdd $(DESTDIR)$(SBINDIR)/xcp-rrdd
-	install -D _build/install/default/bin/rrddump $(DESTDIR)$(BINDIR)/rrddump
+	install -D _build/install/default/bin/xcp-rrdd $(DESTDIR)/usr/sbin/xcp-rrdd
+	install -D _build/install/default/bin/rrddump $(DESTDIR)/usr/bin/rrddump
 # rrd-transport
-	install -D _build/install/default/bin/rrdreader $(DESTDIR)$(BINDIR)/rrdreader
-	install -D _build/install/default/bin/rrdwriter $(DESTDIR)$(BINDIR)/rrdwriter
+	install -D _build/install/default/bin/rrdreader $(DESTDIR)/usr/bin/rrdreader
+	install -D _build/install/default/bin/rrdwriter $(DESTDIR)/usr/bin/rrdwriter
 # rrdd-plugins
 	install -D -m 755 _build/install/default/bin/xcp-rrdd-iostat $(DESTDIR)$(LIBEXECDIR)/xcp-rrdd-plugins/xcp-rrdd-iostat
 	install -D -m 755 _build/install/default/bin/xcp-rrdd-squeezed $(DESTDIR)$(LIBEXECDIR)/xcp-rrdd-plugins/xcp-rrdd-squeezed
