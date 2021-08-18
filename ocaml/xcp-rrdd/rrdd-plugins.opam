@@ -3,9 +3,9 @@ name: "rrdd-plugins"
 maintainer: "xs-devel@lists.xenserver.org"
 authors: [ "xs-devel@lists.xenserver.org" ]
 license: "LGPL-2.1 with OCaml linking exception"
-homepage: "https://github.com/xapi-project/xcp-rrdd"
-bug-reports: "https://github.com/xapi-project/xcp-rrdd/issues"
-dev-repo: "git://github.com/xapi-project/xcp-rrdd"
+homepage: "https://github.com/xapi-project/xen-api"
+bug-reports: "https://github.com/xapi-project/xen-api/issues"
+dev-repo: "git://github.com/xapi-project/xen-api"
 build: [[ "dune" "build" "-p" name "-j" jobs ]]
 synopsis: "Plugins registering to the RRD daemon and exposing various metrics"
 depends: [

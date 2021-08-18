@@ -12,4 +12,4 @@ periodically the number of datasources writtern will change. In page mode,
 filename and protocol argument, and in page mode it requires the domid of the
 domain sharing the page, a grant reference and a protocol argument. It can used
 both to verify the output of `writer`, and also to read and print the output of
-[rrdd](https://github.com/xapi-project/xcp-rrdd) plugins for debugging.
+[rrdd](https://github.com/xapi-project/xen-api) plugins for debugging.
