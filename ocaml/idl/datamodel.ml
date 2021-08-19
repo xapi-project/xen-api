@@ -4205,6 +4205,7 @@ module Message = struct
                    "VMSS", "VMSS";
                    "PVS_proxy","PVS_proxy";
                    "VDI","VDI";
+                   "Certificate","Certificate";
                  ])
 
   let create = call
@@ -4301,7 +4302,7 @@ module Message = struct
       [ uid _message;
         field ~qualifier:DynamicRO ~ty:String "name" "The name of the message";
         field ~qualifier:DynamicRO ~ty:Int "priority" "The message priority, 0 being low priority";
-        field ~qualifier:DynamicRO ~ty:cls "cls" "The class of the object this message is associated with";
+        field ~qualifier:DynamicRO ~ty:cls ~lifecycle:[(Extended, rel_next, "Added Certificate class")] "cls" "The class of the object this message is associated with";
         field ~qualifier:DynamicRO ~ty:String "obj_uuid" "The uuid of the object this message is associated with";
         field ~qualifier:DynamicRO ~ty:DateTime "timestamp" "The time at which the message was created";
         field ~qualifier:DynamicRO ~ty:String "body" "The body of the message"; ]

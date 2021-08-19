@@ -240,6 +240,8 @@ let check_uuid ~__context ~cls ~uuid =
         ignore (Db.PVS_proxy.get_by_uuid ~__context ~uuid)
     | `VDI ->
         ignore (Db.VDI.get_by_uuid ~__context ~uuid)
+    | `Certificate ->
+        ignore (Db.Certificate.get_by_uuid ~__context ~uuid)
     ) ;
     true
   with _ -> false
