@@ -841,9 +841,10 @@ let force_state_reset_keep_current_operations ~__context ~self ~value:state =
     (* Blank the requires_reboot flag *)
     Db.VM.set_requires_reboot ~__context ~self ~value:false
   ) ;
+  let is_dom0 = Helpers.is_domain_zero ~__context self in
   (* Do not clear resident_on for VM and VGPU in a checkpoint operation *)
   if
-    state = `Halted
+    (not is_dom0 && state = `Halted)
     || (state = `Suspended && not (checkpoint_in_progress ~__context ~vm:self))
   then (
     Db.VM.set_resident_on ~__context ~self ~value:Ref.null ;
@@ -883,7 +884,7 @@ let force_state_reset_keep_current_operations ~__context ~self ~value:state =
       (Db.PCI.get_all ~__context)
   ) ;
   update_allowed_operations ~__context ~self ;
-  if state = `Halted then (* archive the rrd for this vm *)
+  if not is_dom0 && state = `Halted then (* archive the rrd for this vm *)
     let vm_uuid = Db.VM.get_uuid ~__context ~self in
     let master_address = Pool_role.get_master_address_opt () in
     log_and_ignore_exn (fun () -> Rrdd.archive_rrd vm_uuid master_address)

@@ -151,13 +151,17 @@ let is_in_use ~__context ~self =
   else
     false
 
-(* [wait_for ?timeout f] returns true if [f()] (called at 1Hz) returns true within
-   the [timeout] period and false otherwise *)
-let wait_for ?(timeout = 120.) f =
+(* [wait_for ~__context ?timeout taskname f] returns true if [f()] (called at 1Hz) returns true within
+   the [timeout] period and false otherwise.
+   Creates a [taskname] subtask in [__context].
+   *)
+let wait_for ~__context ?(timeout = 600.) taskname f =
   let start = Unix.gettimeofday () in
   let finished = ref false in
   let success = ref false in
+  Server_helpers.exec_with_subtask ~__context taskname ~task_in_database:true @@ fun ~__context ->
   while not !finished do
+    TaskHelper.exn_if_cancelling ~__context;
     let remaining = timeout -. (Unix.gettimeofday () -. start) in
     if remaining < 0. then
       finished := true
@@ -183,14 +187,19 @@ let pingable ip () =
 
 let queryable ~__context transport () =
   let open Xmlrpc_client in
-  let rpc =
-    XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"remote_smapiv2" ~transport
-      ~http:(xmlrpc ~version:"1.0" "/")
+  let host = match transport with
+  | Unix _ -> None
+  | TCP (host, _) | SSL(_, host, _) -> Some host
   in
-  let listMethods = Rpc.call "system.listMethods" [] in
+  let rpc path =
+    let req = Http.Request.make ?host ~user_agent:Constants.xapi_user_agent Http.Get path in
+    Xmlrpc_client.with_transport transport @@ fun fd ->
+    Http_client.rpc fd req @@ fun resp _resp_fd ->
+    debug "%s/%s replied: %s" (string_of_transport transport) path (Http.Response.to_string resp)
+  in
   try
-    let _ = rpc listMethods in
-    info "XMLRPC service found at %s" (string_of_transport transport) ;
+    let () = rpc "/HEALTHCHECK" in
+    info "Storage service healthcheck succeeded on %s" (string_of_transport transport);
     true
   with e ->
     debug "Temporary failure querying storage service on %s: %s"
@@ -227,12 +236,12 @@ let ip_of ~__context driver =
           )
   in
   info "driver domain uuid:%s ip:%s" (Db.VM.get_uuid ~__context ~self:driver) ip ;
-  if not (wait_for (pingable ip)) then
+  if not (wait_for ~__context "ping driver domain" (pingable ip)) then
     failwith
       (Printf.sprintf "driver domain %s is not responding to IP ping"
          (Ref.string_of driver)
       ) ;
-  if not (wait_for (queryable ~__context (Xmlrpc_client.TCP (ip, 80)))) then
+  if not (wait_for ~__context "query driver domain" (queryable ~__context (Xmlrpc_client.TCP (ip, 80)))) then
     failwith
       (Printf.sprintf "driver domain %s is not responding to XMLRPC query"
          (Ref.string_of driver)
