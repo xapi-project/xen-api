@@ -60,6 +60,7 @@ let base_suite =
     Test_pvs_cache_storage.test;
     Test_extauth_plugin_ADpbis.test;
     Test_guest_agent.test;
+    Test_context.test;
   ]
 
 let handlers = [

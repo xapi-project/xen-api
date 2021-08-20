@@ -33,6 +33,8 @@ depends: [
   "xapi-rrdd-plugin"
   "pci" {>= "0.2.0"}
   "sha"
+  "ipaddr"
+  "astring"
 ]
 depexts: [
   [["centos"] ["pam-devel"]]

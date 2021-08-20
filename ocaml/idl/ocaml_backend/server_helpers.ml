@@ -100,7 +100,8 @@ let exec_with_context ~__context ?marshaller ?f_forward ?(called_async=false) ?(
   in
   Locking_helpers.Thread_state.with_named_thread (Context.get_task_name __context) (Context.get_task_id __context)
     (fun () ->
-       Debug.with_thread_associated (Context.string_of_task __context)
+       let client = Context.get_client __context in
+       Debug.with_thread_associated ?client (Context.string_of_task __context)
          (fun () ->
             (* CP-982: promote tracking debug line to info status *)
             if called_async then info "spawning a new thread to handle the current task%s" (Context.trackid ~with_brackets:true ~prefix:" " __context);
@@ -150,11 +151,9 @@ let exec_with_forwarded_task ?http_other_config ?session_id ?origin task_id f =
     ~has_task:true
     (fun ~__context -> f __context)
 
-let exec_with_subtask ~__context ?task_in_database ?task_description task_name f =
-  let subtask_of = Context.get_task_id __context in
-  let session_id = try Some (Context.get_session_id __context) with _ -> None in
-  let new_context = Context.make ~subtask_of ?session_id ?task_in_database ?task_description task_name in
-  exec_with_context ~__context:new_context f
+let exec_with_subtask ~__context ?task_in_database task_name f =
+  let subcontext = Context.make_subcontext ~__context ?task_in_database task_name in
+  exec_with_context ~__context:subcontext f
 
 let forward_extension ~__context rbac call =
   rbac __context (fun () -> Xapi_extensions.call_extension call)

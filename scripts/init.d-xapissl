@@ -93,6 +93,7 @@ socket = a:TCP_NODELAY=1
 socket = l:TCP_NODELAY=1
 socket = r:SO_KEEPALIVE=1
 socket = a:SO_KEEPALIVE=1
+protocol = proxy
 ${TIMEOUTSTR}
 
 [xapi]

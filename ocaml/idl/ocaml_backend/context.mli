@@ -55,6 +55,8 @@ val from_forwarded_task :
   ?session_id:API.ref_session ->
   ?origin:origin -> API.ref_task -> t
 
+val make_subcontext : __context:t -> ?task_in_database:bool -> string -> t
+
 (** {6 Accessors} *)
 
 (** [session_of_t __context] returns the session id stored in [__context]. In case there is no session id in this
@@ -94,6 +96,8 @@ val destroy : t -> unit
 
 (** {6 Auxiliary functions } *)
 
+val _client_of_rq : Http.Request.t -> Ipaddr.t option
+
 (** [is_unix_socket fd] *)
 val is_unix_socket : Unix.file_descr -> bool
 
@@ -121,3 +125,4 @@ val __make_task :
    ?subtask_of:API.ref_task -> string -> API.ref_task * API.ref_task Uuid.t)
     ref
 
+val get_client : t -> string option
