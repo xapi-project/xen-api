@@ -373,7 +373,9 @@ let get_repository_handler (req : Http.Request.t) s _ =
   let open Xapi_stdext_std.Xstringext in
   debug "Repository.get_repository_handler URL %s" req.Request.uri ;
   req.Request.close <- true ;
-  if is_local_pool_repo_enabled () then (
+  if Fileserver.access_forbidden req s then
+    Http_svr.response_forbidden ~req s
+  else if is_local_pool_repo_enabled () then (
     try
       let len = String.length Constants.get_repository_uri in
       match String.sub_to_end req.Request.uri len with
