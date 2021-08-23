@@ -2,7 +2,7 @@ module XenAPI = Client.Client
 module Date = Xapi_stdext_date.Date
 
 type cert =
-  | CA of API.ref_pool * API.datetime
+  | CA of API.ref_Certificate * API.datetime
   | Host of API.ref_host * API.datetime
   | Internal of API.ref_host * API.datetime
 
@@ -23,7 +23,7 @@ let days_until_expiry epoch expiry =
 
 let get_certificate_attributes rpc session =
   XenAPI.Certificate.get_all_records rpc session
-  |> List.map @@ fun (_, certificate) ->
+  |> List.map @@ fun (cert_ref, certificate) ->
      match certificate.API.certificate_type with
      | `host ->
          Host
@@ -36,14 +36,7 @@ let get_certificate_attributes rpc session =
            , certificate.API.certificate_not_after
            )
      | `ca ->
-         let pool =
-           match XenAPI.Pool.get_all rpc session with
-           | p :: _ ->
-               p
-           | [] ->
-               internal_error "can't indentify pool at %s" __LOC__
-         in
-         CA (pool, certificate.API.certificate_not_after)
+         CA (cert_ref, certificate.API.certificate_not_after)
 
 let expired_message = function
   | Host _ ->
@@ -127,8 +120,8 @@ let execute rpc session existing_messages (cert, alert) =
         match cert with
         | Host (host, _) | Internal (host, _) ->
             (`Host, XenAPI.Host.get_uuid rpc session host)
-        | CA (pool, _) ->
-            (`Pool, XenAPI.Pool.get_uuid rpc session pool)
+        | CA (cert, _) ->
+            (`Certificate, XenAPI.Certificate.get_uuid rpc session cert)
       in
       let messages_in_host =
         List.filter
