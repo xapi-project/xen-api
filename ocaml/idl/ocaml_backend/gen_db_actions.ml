@@ -446,7 +446,16 @@ let db_action api : O.Module.t =
       | FromField ((Add | Remove), _) ->
           failwith "Cannot generate db add/remove for non sets and maps"
       | FromObject Delete ->
-          Printf.sprintf "DB.delete_row __t \"%s\" %s"
+          let log_prefix =
+            match obj.db_logging with
+            | None ->
+                ""
+            | Some Log_destroy ->
+                Printf.sprintf
+                  {|D.debug "deleting row from %s table: ref=%s" self ; |}
+                  obj.name "%s"
+          in
+          Printf.sprintf "%sDB.delete_row __t \"%s\" %s" log_prefix
             (Escaping.escape_obj obj.DT.name)
             Client._self
       | FromObject Make ->
