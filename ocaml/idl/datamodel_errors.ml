@@ -212,11 +212,11 @@ let _ =
   error Api_errors.pif_sriov_still_exists [ "PIF" ]
     ~doc:"The PIF is still related with a network SR-IOV" ();
   error Api_errors.cannot_plug_bond_slave ["PIF"]
-    ~doc:"This PIF is a bond slave and cannot be plugged." ();
+    ~doc:"This PIF is a bond member and cannot be plugged." ();
   error Api_errors.cannot_add_vlan_to_bond_slave ["PIF"]
-    ~doc:"This PIF is a bond slave and cannot have a VLAN on it." ();
+    ~doc:"This PIF is a bond member and cannot have a VLAN on it." ();
   error Api_errors.cannot_add_tunnel_to_bond_slave ["PIF"]
-    ~doc:"This PIF is a bond slave and cannot have a tunnel on it." ();
+    ~doc:"This PIF is a bond member and cannot have a tunnel on it." ();
   error Api_errors.cannot_add_tunnel_to_sriov_logical ["PIF"]
     ~doc:"This is a network SR-IOV logical PIF and cannot have a tunnel on it." ();
   error Api_errors.cannot_add_tunnel_to_vlan_on_sriov_logical ["PIF"]
