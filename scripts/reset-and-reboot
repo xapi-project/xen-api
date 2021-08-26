@@ -40,11 +40,11 @@ rm -fr /etc/stunnel/certs
 
 # do not remove /etc/xensource/xapi-ssl.pem
 
-# ensure TLS verification is disabled when we come back
+# ensure TLS verification is enabled when we come back
 rm -f /var/xapi/verify-certificates
 tmp="$(mktemp /tmp/xensource-inventory.XXXXXX)"
 grep -v FIRSTBOOT_ENABLE_TLS_VERIFICATION "$XENSOURCE_INVENTORY" > "$tmp"
-echo "FIRSTBOOT_ENABLE_TLS_VERIFICATION='false'" >> "$tmp"
+echo "FIRSTBOOT_ENABLE_TLS_VERIFICATION='true'" >> "$tmp"
 mv "$tmp" "$XENSOURCE_INVENTORY"
 
 /sbin/reboot
