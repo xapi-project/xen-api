@@ -224,7 +224,7 @@ let _ =
   error Api_errors.cannot_add_tunnel_to_vlan_on_sriov_logical ["PIF"]
     ~doc:"This is a vlan PIF on network SR-IOV and cannot have a tunnel on it." ();
   error Api_errors.cannot_change_pif_properties ["PIF"]
-    ~doc:"This properties of this PIF cannot be changed. Only the properties of non-bonded physical PIFs, or bond interfaces can be changed." ();
+    ~doc:"The properties of this PIF cannot be changed. Only the properties of non-bonded physical PIFs, or bond interfaces can be changed." ();
   error Api_errors.cannot_forget_sriov_logical [ "PIF" ]
     ~doc:"This is a network SR-IOV logical PIF and cannot do forget on it" ();
   error Api_errors.incompatible_pif_properties []
@@ -568,7 +568,7 @@ let _ =
   error Api_errors.pool_joining_host_must_have_same_db_schema ["host_db_schema";"master_db_schema"]
     ~doc:"The host joining the pool must have the same database schema as the pool coordinator." ();
   error Api_errors.pool_joining_host_ca_certificates_conflict []
-    ~doc:"The host joining the pool has different ca certificates from the pool coordinator while using the same name, uninstall them and try again." ();
+    ~doc:"The host joining the pool has different CA certificates from the pool coordinator while using the same name, uninstall them and try again." ();
 
   (* External directory service *)
   error Api_errors.subject_cannot_be_resolved []
