@@ -354,7 +354,12 @@ val remove_repository :
   -> unit
 
 val sync_updates :
-  __context:Context.t -> self:API.ref_pool -> force:bool -> string
+     __context:Context.t
+  -> self:API.ref_pool
+  -> force:bool
+  -> token:string
+  -> token_id:string
+  -> string
 
 val check_update_readiness :
      __context:Context.t

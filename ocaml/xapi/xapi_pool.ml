@@ -3348,7 +3348,7 @@ let remove_repository ~__context ~self ~value =
     (Db.Pool.get_repositories ~__context ~self) ;
   Db.Pool.remove_repositories ~__context ~self ~value
 
-let sync_updates ~__context ~self ~force =
+let sync_updates ~__context ~self ~force ~token ~token_id =
   Pool_features.assert_enabled ~__context ~f:Features.Updates ;
   let open Repository in
   (* Two locks are used here:
@@ -3374,13 +3374,13 @@ let sync_updates ~__context ~self ~force =
       enabled
       |> List.iter (fun x ->
              cleanup_pool_repo ~__context ~self:x ;
-             sync ~__context ~self:x ;
+             sync ~__context ~self:x ~token ~token_id ;
              create_pool_repository ~__context ~self:x
          ) ;
       set_available_updates ~__context
   | false ->
       with_reposync_lock @@ fun () ->
-      enabled |> List.iter (fun x -> sync ~__context ~self:x) ;
+      enabled |> List.iter (fun x -> sync ~__context ~self:x ~token ~token_id) ;
       Xapi_pool_helpers.with_pool_operation ~__context ~self
         ~doc:"pool.sync_updates" ~op:`sync_updates
       @@ fun () ->

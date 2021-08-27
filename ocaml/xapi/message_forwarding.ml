@@ -1036,11 +1036,15 @@ functor
           (repository_uuid ~__context value) ;
         Local.Pool.remove_repository ~__context ~self ~value
 
-      let sync_updates ~__context ~self ~force =
-        info "Pool.sync_updates: pool = '%s'; force = %s"
+      let sync_updates ~__context ~self ~force ~token ~token_id =
+        info
+          "Pool.sync_updates: pool = '%s'; force = %s; token = %s; token_id = \
+           %s"
           (pool_uuid ~__context self)
-          (string_of_bool force) ;
-        Local.Pool.sync_updates ~__context ~self ~force
+          (string_of_bool force)
+          (if token = "" then "" else "(token filtered)")
+          token_id ;
+        Local.Pool.sync_updates ~__context ~self ~force ~token ~token_id
 
       let check_update_readiness ~__context ~self ~requires_reboot =
         info "Pool.check_update_readiness: pool = '%s'; requires_reboot = %s"
