@@ -102,9 +102,6 @@
   <data name="HA_OPERATION_WOULD_BREAK_FAILOVER_PLAN" xml:space="preserve">
     <value>This operation cannot be performed because HA would no longer be guaranteed for this pool.  To perform this operation anyway, you must disable or reconfigure HA.</value>
   </data>
-  <data name="HA_SHOULD_BE_FENCED" xml:space="preserve">
-    <value>Server cannot rejoin pool because it should have fenced (it is not in the coordinator's partition)</value>
-  </data>
   <data name="HOSTS_NOT_HOMOGENEOUS" xml:space="preserve">
     <value>The servers in this pool are not homogeneous. {0}</value>
   </data>
