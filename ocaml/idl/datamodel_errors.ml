@@ -212,11 +212,11 @@ let _ =
   error Api_errors.pif_sriov_still_exists [ "PIF" ]
     ~doc:"The PIF is still related with a network SR-IOV" ();
   error Api_errors.cannot_plug_bond_slave ["PIF"]
-    ~doc:"This PIF is a bond slave and cannot be plugged." ();
+    ~doc:"This PIF is a bond member and cannot be plugged." ();
   error Api_errors.cannot_add_vlan_to_bond_slave ["PIF"]
-    ~doc:"This PIF is a bond slave and cannot have a VLAN on it." ();
+    ~doc:"This PIF is a bond member and cannot have a VLAN on it." ();
   error Api_errors.cannot_add_tunnel_to_bond_slave ["PIF"]
-    ~doc:"This PIF is a bond slave and cannot have a tunnel on it." ();
+    ~doc:"This PIF is a bond member and cannot have a tunnel on it." ();
   error Api_errors.cannot_add_tunnel_to_sriov_logical ["PIF"]
     ~doc:"This is a network SR-IOV logical PIF and cannot have a tunnel on it." ();
   error Api_errors.cannot_add_tunnel_to_vlan_on_sriov_logical ["PIF"]
@@ -228,7 +228,7 @@ let _ =
   error Api_errors.incompatible_pif_properties []
     ~doc:"These PIFs cannot be bonded, because their properties are different." ();
   error Api_errors.slave_requires_management_iface []
-    ~doc:"The management interface on a slave cannot be disabled because the slave would enter emergency mode." ();
+    ~doc:"The management interface on a pool member cannot be disabled because the pool member would enter emergency mode." ();
   error Api_errors.vif_in_use [ "network"; "VIF" ]
     ~doc:"Network has active VIFs" ();
   error Api_errors.cannot_plug_vif [ "VIF" ]
@@ -445,7 +445,7 @@ let _ =
     ~doc:"This operation cannot be completed because the server power on mode is disabled." ();
 
   error Api_errors.host_its_own_slave []
-    ~doc:"The host is its own slave. Please use pool-emergency-transition-to-master or pool-emergency-reset-master." ();
+    ~doc:"The host is its own pool member. Please use pool-emergency-transition-to-master or pool-emergency-reset-master." ();
   error Api_errors.host_still_booting []
     ~doc:"The host toolstack is still initialising. Please wait." ();
   error Api_errors.host_has_no_management_ip []
@@ -453,7 +453,7 @@ let _ =
   error Api_errors.host_name_invalid [ "reason" ]
     ~doc:"The server name is invalid." ();
   error Api_errors.host_master_cannot_talk_back [ "ip" ]
-    ~doc:"The master reports that it cannot talk back to the slave on the supplied management IP address." ();
+    ~doc:"The master reports that it cannot talk back to the pool member on the supplied management IP address." ();
   error Api_errors.host_unknown_to_master [ "host" ]
     ~doc:"The master says the server is not known to it. Is the server in the master's database and pointing to the correct master? Are all servers using the same pool secret?" ();
   error Api_errors.host_broken []
@@ -931,7 +931,7 @@ let _ =
   (* Pool errors *)
 
   error Api_errors.host_is_slave ["Master IP address"]
-    ~doc:"You cannot make regular API calls directly on a slave. Please pass API calls via the master host." ();
+    ~doc:"You cannot make regular API calls directly on a pool member. Please pass API calls via the master host." ();
 
 
   (* HA errors *)
