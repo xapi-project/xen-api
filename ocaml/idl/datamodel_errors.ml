@@ -214,23 +214,23 @@ let _ =
   error Api_errors.pif_sriov_still_exists [ "PIF" ]
     ~doc:"The PIF is still related with a network SR-IOV" ();
   error Api_errors.cannot_plug_bond_slave ["PIF"]
-    ~doc:"This PIF is a bond slave and cannot be plugged." ();
+    ~doc:"This PIF is a bond member and cannot be plugged." ();
   error Api_errors.cannot_add_vlan_to_bond_slave ["PIF"]
-    ~doc:"This PIF is a bond slave and cannot have a VLAN on it." ();
+    ~doc:"This PIF is a bond member and cannot have a VLAN on it." ();
   error Api_errors.cannot_add_tunnel_to_bond_slave ["PIF"]
-    ~doc:"This PIF is a bond slave and cannot have a tunnel on it." ();
+    ~doc:"This PIF is a bond member and cannot have a tunnel on it." ();
   error Api_errors.cannot_add_tunnel_to_sriov_logical ["PIF"]
     ~doc:"This is a network SR-IOV logical PIF and cannot have a tunnel on it." ();
   error Api_errors.cannot_add_tunnel_to_vlan_on_sriov_logical ["PIF"]
     ~doc:"This is a vlan PIF on network SR-IOV and cannot have a tunnel on it." ();
   error Api_errors.cannot_change_pif_properties ["PIF"]
-    ~doc:"This properties of this PIF cannot be changed. Only the properties of non-bonded physical PIFs, or bond masters can be changed." ();
+    ~doc:"The properties of this PIF cannot be changed. Only the properties of non-bonded physical PIFs, or bond interfaces can be changed." ();
   error Api_errors.cannot_forget_sriov_logical [ "PIF" ]
     ~doc:"This is a network SR-IOV logical PIF and cannot do forget on it" ();
   error Api_errors.incompatible_pif_properties []
     ~doc:"These PIFs cannot be bonded, because their properties are different." ();
   error Api_errors.slave_requires_management_iface []
-    ~doc:"The management interface on a slave cannot be disabled because the slave would enter emergency mode." ();
+    ~doc:"The management interface on a supporter cannot be disabled because the supporter would enter emergency mode." ();
   error Api_errors.vif_in_use [ "network"; "VIF" ]
     ~doc:"Network has active VIFs" ();
   error Api_errors.cannot_plug_vif [ "VIF" ]
@@ -434,7 +434,7 @@ let _ =
   error Api_errors.host_in_emergency_mode []
     ~doc:"Cannot perform operation as the host is running in emergency mode." ();
   error Api_errors.host_cannot_destroy_self [ "host" ]
-    ~doc:"The pool master host cannot be removed." ();
+    ~doc:"The pool coordinator host cannot be removed." ();
   error Api_errors.host_cannot_read_metrics []
     ~doc:"The metrics of this server could not be read." ();
   error Api_errors.host_in_use [ "host"; "type"; "ref" ]
@@ -449,17 +449,17 @@ let _ =
     ~doc:"This operation cannot be completed because the server power on mode is disabled." ();
 
   error Api_errors.host_its_own_slave []
-    ~doc:"The host is its own slave. Please use pool-emergency-transition-to-master or pool-emergency-reset-master." ();
+    ~doc:"The host is its own supporter. Please use pool-emergency-transition-to-master or pool-emergency-reset-master." ();
   error Api_errors.host_still_booting []
     ~doc:"The host toolstack is still initialising. Please wait." ();
   error Api_errors.host_has_no_management_ip []
-    ~doc:"The server failed to acquire an IP address on its management interface and therefore cannot contact the master." ();
+    ~doc:"The server failed to acquire an IP address on its management interface and therefore cannot contact the coordinator." ();
   error Api_errors.host_name_invalid [ "reason" ]
     ~doc:"The server name is invalid." ();
   error Api_errors.host_master_cannot_talk_back [ "ip" ]
-    ~doc:"The master reports that it cannot talk back to the slave on the supplied management IP address." ();
+    ~doc:"The coordinator reports that it cannot talk back to the supporter on the supplied management IP address." ();
   error Api_errors.host_unknown_to_master [ "host" ]
-    ~doc:"The master says the server is not known to it. Is the server in the master's database and pointing to the correct master? Are all servers using the same pool secret?" ();
+    ~doc:"The coordinator says the server is not known to it. Is the server in the coordinator's database and pointing to the correct coordinator? Are all servers using the same pool secret?" ();
   error Api_errors.host_broken []
     ~doc:"This server failed in the middle of an automatic failover operation and needs to retry the failover action." ();
   error Api_errors.host_has_resident_vms [ "host" ]
@@ -510,7 +510,7 @@ let _ =
   error Api_errors.pool_joining_host_cannot_have_vms_with_current_operations []
     ~doc:"The host joining the pool cannot have any VMs with active tasks." ();
   error Api_errors.pool_joining_host_cannot_be_master_of_other_hosts []
-    ~doc:"The server joining the pool cannot already be a master of another pool." ();
+    ~doc:"The server joining the pool cannot already be a coordinator of another pool." ();
   error Api_errors.pool_joining_host_connection_failed []
     ~doc:"There was an error connecting to the host while joining it in the pool." ();
   error Api_errors.pool_joining_host_service_failed []
@@ -520,7 +520,7 @@ let _ =
   error Api_errors.pool_joining_external_auth_mismatch []
     ~doc:"Cannot join pool whose external authentication configuration is different." ();
   error Api_errors.pool_joining_host_must_have_same_product_version []
-    ~doc:"The server joining the pool must have the same product version as the pool master." ();
+    ~doc:"The server joining the pool must have the same product version as the pool coordinator." ();
   error Api_errors.pool_joining_host_must_only_have_physical_pifs []
     ~doc:"The host joining the pool must not have any bonds, VLANs or tunnels." ();
   error Api_errors.pool_joining_host_management_vlan_does_not_match ["local"; "remote"]
@@ -564,11 +564,11 @@ let _ =
   error Api_errors.pool_auth_disable_failed_invalid_account ["host";"message"]
     ~doc:"External authentication has been disabled with errors: Some AD machine accounts were not disabled on the AD server due to invalid account." ();
   error Api_errors.pool_joining_host_must_have_same_api_version ["host_api_version";"master_api_version"]
-    ~doc:"The host joining the pool must have the same API version as the pool master." ();
+    ~doc:"The host joining the pool must have the same API version as the pool coordinator." ();
   error Api_errors.pool_joining_host_must_have_same_db_schema ["host_db_schema";"master_db_schema"]
-    ~doc:"The host joining the pool must have the same database schema as the pool master." ();
+    ~doc:"The host joining the pool must have the same database schema as the pool coordinator." ();
   error Api_errors.pool_joining_host_ca_certificates_conflict []
-    ~doc:"The host joining the pool has different ca certificates from the pool master while using the same name, uninstall them and try again." ();
+    ~doc:"The host joining the pool has different CA certificates from the pool coordinator while using the same name, uninstall them and try again." ();
 
   (* External directory service *)
   error Api_errors.subject_cannot_be_resolved []
@@ -867,9 +867,9 @@ let _ =
   error Api_errors.invalid_patch_with_log [ "log" ]
     ~doc:"The uploaded patch file is invalid. See attached log for more details." ();
   error Api_errors.cannot_find_patch []
-    ~doc:"The requested update could not be found. This can occur when you designate a new master or xe patch-clean. Please upload the update again." ();
+    ~doc:"The requested update could not be found. This can occur when you designate a new coordinator or xe patch-clean. Please upload the update again." ();
   error Api_errors.cannot_fetch_patch ["uuid"]
-    ~doc:"The requested update could not be obtained from the master." ();
+    ~doc:"The requested update could not be obtained from the coordinator." ();
   error Api_errors.patch_already_exists [ "uuid" ]
     ~doc:"The uploaded patch file already exists" ();
   error Api_errors.update_already_exists [ "uuid" ]
@@ -937,7 +937,7 @@ let _ =
   (* Pool errors *)
 
   error Api_errors.host_is_slave ["Master IP address"]
-    ~doc:"You cannot make regular API calls directly on a slave. Please pass API calls via the master host." ();
+    ~doc:"You cannot make regular API calls directly on a supporter. Please pass API calls via the coordinator host." ();
 
 
   (* HA errors *)
@@ -966,10 +966,10 @@ let _ =
     ~doc:"HA can only be enabled for 2 servers or more. Note that 2 servers requires a pre-configured quorum tiebreak script."
     ();
   error Api_errors.ha_should_be_fenced [ "host" ]
-    ~doc:"Server cannot rejoin pool because it should have fenced (it is not in the master's partition)."
+    ~doc:"Server cannot rejoin pool because it should have fenced (it is not in the coordinator's partition)."
     ();
   error Api_errors.ha_abort_new_master [ "reason" ]
-    ~doc:"This server cannot accept the proposed new master setting at this time."
+    ~doc:"This server cannot accept the proposed new coordinator setting at this time."
     ();
 
   error Api_errors.ha_no_plan [ ]
@@ -1217,7 +1217,7 @@ let _ =
   error Api_errors.reposync_in_progress []
     ~doc:"The pool is syncing with the enabled remote YUM repository." ();
   error Api_errors.repository_cleanup_failed []
-    ~doc:"Failed to clean up local repository on master." ();
+    ~doc:"Failed to clean up local repository on coordinator." ();
   error Api_errors.no_repository_enabled []
     ~doc:"There is no repository being enabled." ();
   error Api_errors.multiple_update_repositories_enabled []
@@ -1260,7 +1260,7 @@ let _ =
   message (fst Api_messages.vif_qos_failed) ~doc:"Applying QoS to VIF failed." ();
   message (fst Api_messages.vbd_qos_failed) ~doc:"Applying QoS to VBD failed." ();
   message (fst Api_messages.vcpu_qos_failed) ~doc:"Applying QoS to VCPU failed." ();
-  message (fst Api_messages.pool_master_transition) ~doc:"Host has become the new Pool master." ();
+  message (fst Api_messages.pool_master_transition) ~doc:"Host has become the new Pool coordinator." ();
   message (fst Api_messages.pbd_plug_failed_on_server_start) ~doc:"Host failed to attach one or more Storage Repositories." ();
   ()
 
