@@ -1,0 +1,9 @@
+(executable
+  (public_name rrdp_dummy)
+  (package xapi-rrdd-plugin)
+  (libraries
+    rrdd-plugin
+    xenstore.unix
+    xenstore_transport.unix
+  )
+)

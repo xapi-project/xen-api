@@ -1,0 +1,10 @@
+(library
+  (name rrd_transport_page)
+  (public_name rrd-transport.page)
+  (wrapped false)
+  (libraries
+    rrd_transport_lib
+    xen-gnt
+    xen-gnt-unix
+  )
+)
