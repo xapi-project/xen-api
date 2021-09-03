@@ -2736,6 +2736,7 @@ let get_host_updates_handler (req : Http.Request.t) s _ =
 
 let apply_updates ~__context ~self ~hash =
   (* This function runs on master host *)
+  Pool_features.assert_enabled ~__context ~f:Features.Updates ;
   let guidances =
     Xapi_pool_helpers.with_pool_operation ~__context
       ~self:(Helpers.get_pool ~__context)
