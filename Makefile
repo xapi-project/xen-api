@@ -44,6 +44,7 @@ install:
 	install -D ./scripts/common.py $(DESTDIR)/$(LIBEXECDIR)/common.py
 	install -D ./scripts/igmp_query_injector.py $(DESTDIR)/$(LIBEXECDIR)/igmp_query_injector.py
 	install -D ./scripts/qemu-wrapper $(DESTDIR)/$(QEMU_WRAPPER_DIR)/qemu-wrapper
+	install -D _build/install/default/bin/squeezed $(DESTDIR)/$(SBINDIR)/squeezed
 	DESTDIR=$(DESTDIR) SBINDIR=$(SBINDIR) QEMU_WRAPPER_DIR=$(QEMU_WRAPPER_DIR) LIBEXECDIR=$(LIBEXECDIR) ETCDIR=$(ETCDIR) ./scripts/make-custom-xenopsd.conf
 
 uninstall:
