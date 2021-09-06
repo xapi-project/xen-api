@@ -22,6 +22,7 @@ end)
 open D
 open Xapi_stdext_std.Xstringext
 open Auth_signature
+module Result = Stdlib.Result
 
 let krbtgt = "KRBTGT"
 
@@ -166,6 +167,7 @@ module Ldap = struct
     let module Map = Map.Make (String) in
     let module P = struct
       open Angstrom
+      let ( let* ) = Angstrom.( >>= )
 
       let space = char ' '
 
@@ -207,7 +209,7 @@ module Ldap = struct
         return (l |> List.to_seq |> Map.of_seq)
 
       let parse_kvp_map (x : string) : (string Map.t, string) result =
-        parse_string ~consume:All kvp_map x
+        parse_string  kvp_map x
     end in
     let ldap fmt = fmt |> Printf.ksprintf @@ Printf.sprintf "ldap %s" in
     let* kvps = P.parse_kvp_map stdout <!> ldap "parsing failed '%s'" in
