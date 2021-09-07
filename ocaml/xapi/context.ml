@@ -113,13 +113,14 @@ let __get_task_name : (__context:t -> API.ref_task -> string) ref =
 
 let __make_task =
   ref
-    (fun ~__context
-         ~(http_other_config : (string * string) list)
-         ?(description : string option)
-         ?(session_id : API.ref_session option)
-         ?(subtask_of : API.ref_task option)
-         (task_name : string)
-         -> (Ref.null, Uuid.null))
+    (fun
+      ~__context
+      ~(http_other_config : (string * string) list)
+      ?(description : string option)
+      ?(session_id : API.ref_session option)
+      ?(subtask_of : API.ref_task option)
+      (task_name : string)
+    -> (Ref.null, Uuid.null))
 
 let __destroy_task : (__context:t -> API.ref_task -> unit) ref =
   ref (fun ~__context:_ _ -> ())

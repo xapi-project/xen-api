@@ -84,4 +84,3 @@ let () =
        ; Test_xapi_cmd_result.tests
        ; Test_extauth_plugin_ADwinbind.tests
        ])
-    

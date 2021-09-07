@@ -31,8 +31,7 @@ module XapiCmdResult = Generic.MakeStateless (struct
     `QuickAndAutoDocumented
       [
         ( (':', "Pre-Win2k Domain", "Pre-Win2k Domain: CONNAPP\nsome:other")
-        , Some "CONNAPP"
-        )
+        , Some "CONNAPP" )
       ; ((':', "Pre-Win2k Domain", "Not import msg"), None)
       ]
 end)

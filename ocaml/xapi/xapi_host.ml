@@ -1526,7 +1526,6 @@ let enable_external_auth ~__context ~host ~config ~service_name ~auth_type =
         try
           Db.Host.set_external_auth_service_name ~__context ~self:host
             ~value:service_name ;
-
           (* the ext_auth.on_enable dispatcher called below will store the configuration params, and also *)
           (* filter out any one-time credentials such as the administrator password, so we *)
           (* should not call here 'host.set_external_auth_configuration ~config' *)

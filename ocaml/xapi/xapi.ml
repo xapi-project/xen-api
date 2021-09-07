@@ -1246,12 +1246,10 @@ let server_init () =
             ( "Calling extauth_hook_script_before_xapi_initialize"
             , [Startup.NoExnRaising]
             , fun () ->
-                call_extauth_hook_script_before_xapi_initialize ~__context
-            )
+                call_extauth_hook_script_before_xapi_initialize ~__context )
           ; ( "Initializing AD external auth service"
             , [Startup.NoExnRaising]
-            , fun () -> Extauth_ad.init_service ~__context
-            )
+            , fun () -> Extauth_ad.init_service ~__context )
           ; ( "Calling on_xapi_initialize event hook in the external \
                authentication plugin"
             , [Startup.NoExnRaising; Startup.OnThread]

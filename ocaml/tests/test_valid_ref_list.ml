@@ -24,8 +24,7 @@ let test_exists =
       Alcotest.(check bool) "false" false (Valid_ref_list.exists f l))
 
 let test_valid_ref_filter =
-  with_vm_list (fun __context ->
-    function
+  with_vm_list (fun __context -> function
     | [vm1; vm2; vm3; vm4] as l ->
         let assert_equal l1 l2 =
           let as_strings = List.map Ref.string_of in
@@ -72,8 +71,7 @@ let test_flat_map =
       assert_equal ["a"; "d_a"; "d"; "d_d"] (Valid_ref_list.flat_map f l))
 
 let test_filter_map =
-  with_vm_list (fun __context ->
-    function
+  with_vm_list (fun __context -> function
     | [vm1; vm2; vm3; vm4] as l ->
         let f vm =
           let n = Db.VM.get_name_label ~__context ~self:vm in

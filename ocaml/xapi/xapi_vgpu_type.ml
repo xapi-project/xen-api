@@ -767,17 +767,18 @@ module Vendor_intel = struct
         (Scanf.sscanf line
            "%04x experimental=%c name='%s@' low_gm_sz=%Ld high_gm_sz=%Ld \
             fence_sz=%Ld framebuffer_sz=%Ld max_heads=%Ld resolution=%Ldx%Ld"
-           (fun pdev_id
-                experimental
-                model_name
-                low_gm_sz
-                high_gm_sz
-                fence_sz
-                framebuffer_sz
-                num_heads
-                max_x
-                max_y
-                ->
+           (fun
+             pdev_id
+             experimental
+             model_name
+             low_gm_sz
+             high_gm_sz
+             fence_sz
+             framebuffer_sz
+             num_heads
+             max_x
+             max_y
+           ->
              {
                identifier= Identifier.{pdev_id; low_gm_sz; high_gm_sz; fence_sz}
              ; experimental= experimental <> '0'
@@ -859,12 +860,13 @@ module Vendor_amd = struct
         (Scanf.sscanf line
            "%04x experimental=%c name='%s@' framebuffer_sz=%Ld \
             vgpus_per_pgpu=%Ld"
-           (fun pdev_id (* e.g. "FirePro S7150" has 6929 (PF), 692f (VF) *)
-                experimental
-                model_name (* e.g. PF "FirePro S7150" or VF "FirePro S7150V" *)
-                framebuffer_sz
-                vgpus_per_pgpu
-                ->
+           (fun
+             pdev_id (* e.g. "FirePro S7150" has 6929 (PF), 692f (VF) *)
+             experimental
+             model_name (* e.g. PF "FirePro S7150" or VF "FirePro S7150V" *)
+             framebuffer_sz
+             vgpus_per_pgpu
+           ->
              {
                identifier=
                  Identifier.{pdev_id; framebufferbytes= mib framebuffer_sz}
