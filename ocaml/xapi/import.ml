@@ -197,6 +197,7 @@ let assert_can_restore_backup ~__context rpc session_id (x : header) =
         None
     with _ -> None
   in
+
   (* This function should be called when a VM/snapshot to import has the same
      	   mac seed as an existing VM. They are considered compatible only in the
      	   following cases:

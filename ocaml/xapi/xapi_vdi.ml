@@ -1083,6 +1083,7 @@ let copy ~__context ~vdi ~sr ~base_vdi ~into_vdi =
   Xapi_vdi_helpers.assert_managed ~__context ~vdi ;
   let task_id = Ref.string_of (Context.get_task_id __context) in
   let src = Db.VDI.get_record ~__context ~self:vdi in
+
   (* If 'into' is a valid VDI then we will write into that.
      	   Otherwise we'll create a fresh VDI in 'sr'. *)
 

@@ -3578,6 +3578,7 @@ let vm_install_real printer rpc session_id template name description params =
         Cli_printer.PStderr (msg ^ "\n") |> printer
     ) ;
     Client.VM.provision rpc session_id new_vm ;
+
     (* Client.VM.start rpc session_id new_vm false true; *)
     (* stop install starting VMs *)
 

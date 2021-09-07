@@ -669,6 +669,7 @@ let action_read block_dev_fd client datasock target_response_time =
       | _ ->
           raise InvalidBlockDevice
     in
+
     (* the log is empty *)
 
     (* Seek to the start of the chosen half *)

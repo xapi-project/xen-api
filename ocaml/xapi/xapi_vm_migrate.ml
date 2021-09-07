@@ -1008,6 +1008,7 @@ let migrate_send' ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~vgpu_map
   (* Copy mode means we don't destroy the VM on the source host. We also don't
      	   copy over the RRDs/messages *)
   let copy = try bool_of_string (List.assoc "copy" options) with _ -> false in
+
   (* The first thing to do is to create mirrors of all the disks on the remote.
      We look through the VM's VBDs and all of those of the snapshots. We then
      compile a list of all of the associated VDIs, whether we mirror them or not

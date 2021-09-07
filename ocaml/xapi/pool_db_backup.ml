@@ -98,6 +98,7 @@ let prepare_database_for_restore ~old_context ~new_context =
   in
   let dom0 = Db.Host.get_control_domain ~__context:new_context ~self:master in
   Db.VM.set_uuid ~__context:new_context ~self:dom0 ~value:my_control_uuid ;
+
   (* Rewrite this host's PIFs' MAC addresses based on device name. *)
 
   (* First inspect the current machine's configuration and build up a table of
@@ -131,6 +132,7 @@ let prepare_database_for_restore ~old_context ~new_context =
         None
     (* no management interface configured *)
   in
+
   (* The PIFs of the master host in the backup need their MAC addresses adjusting
         to match the current machine. For safety the new machine needs to have at least
         the same number and same device names as the backup being restored. (Note that
