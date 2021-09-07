@@ -1,7 +1,7 @@
 #!/bin/sh
 
 echo Querying all xenopsd queues:
-for queue in $(message-cli list | grep org.xen.xcp.xenops); do
+for queue in $(message-cli list | grep org.xen.xapi.xenops); do
   echo xenops-cli list --queue $queue
   xenops-cli list --queue $queue
   echo xenops-cli list --verbose --queue $queue
