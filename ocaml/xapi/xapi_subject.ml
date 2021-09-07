@@ -29,10 +29,7 @@ let run_hook_script_after_subject_add () =
         (Server_helpers.exec_with_new_task "run_hook_script_after_subject_add"
            (fun __context ->
              Extauth.call_extauth_hook_script_in_pool ~__context
-               Extauth.event_name_after_subject_add
-         )
-        )
-  )
+               Extauth.event_name_after_subject_add)))
 
 let asynchronously_run_hook_script_after_subject_add =
   At_least_once_more.make "running after-subject-add hook script"
@@ -54,8 +51,7 @@ let create ~__context ~subject_identifier ~other_config =
         (* visits each subject in the table o(n) *)
         let subject_id_in_db = record.API.subject_subject_identifier in
         subject_identifier = subject_id_in_db
-        (* is it the subject we are looking for? *)
-        )
+        (* is it the subject we are looking for? *))
       subjects
   then (
     (* we found an already existing user with the same subject identifier. *)
@@ -108,10 +104,7 @@ let run_hook_script_after_subject_remove () =
         (Server_helpers.exec_with_new_task
            "run_hook_script_after_subject_remove" (fun __context ->
              Extauth.call_extauth_hook_script_in_pool ~__context
-               Extauth.event_name_after_subject_remove
-         )
-        )
-  )
+               Extauth.event_name_after_subject_remove)))
 
 let asynchronously_run_hook_script_after_subject_remove =
   At_least_once_more.make "running after-subject-remove hook script"
@@ -155,8 +148,7 @@ let update_all_subjects ~__context =
           debug "Error trying to update subject %s: %s"
             (Db.Subject.get_subject_identifier ~__context ~self:subj)
             (ExnHelper.string_of_exn e)
-        (* ignore this exception e, do not raise it again *)
-        )
+        (* ignore this exception e, do not raise it again *))
       subjects
 
 (* This function returns all permissions associated with a subject *)
@@ -170,11 +162,9 @@ let get_permissions_name_label ~__context ~self =
        (fun accu role ->
          List.rev_append
            (Xapi_role.get_permissions_name_label ~__context ~self:role)
-           accu
-         )
+           accu)
        []
-       (Db.Subject.get_roles ~__context ~self)
-    )
+       (Db.Subject.get_roles ~__context ~self))
 
 let run_hook_script_after_subject_roles_update () =
   (* CP-825: Serialize execution of pool-enable-extauth and pool-disable-extauth *)
@@ -186,10 +176,7 @@ let run_hook_script_after_subject_roles_update () =
         (Server_helpers.exec_with_new_task
            "run_hook_script_after_subject_roles_update" (fun __context ->
              Extauth.call_extauth_hook_script_in_pool ~__context
-               Extauth.event_name_after_roles_update
-         )
-        )
-  )
+               Extauth.event_name_after_roles_update)))
 
 let asynchronously_run_hook_script_after_subject_roles_update =
   At_least_once_more.make "running after-subject-roles-update hook script"
@@ -238,9 +225,7 @@ let query_subject_information_from_db ~__context identifier =
       ~expr:
         (Db_filter_types.Eq
            ( Db_filter_types.Field "subject_identifier"
-           , Db_filter_types.Literal identifier
-           )
-        )
+           , Db_filter_types.Literal identifier ))
   with
   | [] ->
       raise Auth_signature.Subject_cannot_be_resolved

@@ -139,8 +139,7 @@ module Ldap = struct
         (fun acc element ->
           let reg = fst element in
           let value = snd element in
-          Re.replace_string reg ~by:value acc
-          )
+          Re.replace_string reg ~by:value acc)
         str escape_map
   end
 
@@ -167,6 +166,7 @@ module Ldap = struct
     let module Map = Map.Make (String) in
     let module P = struct
       open Angstrom
+
       let ( let* ) = Angstrom.( >>= )
 
       let space = char ' '
@@ -209,7 +209,7 @@ module Ldap = struct
         return (l |> List.to_seq |> Map.of_seq)
 
       let parse_kvp_map (x : string) : (string Map.t, string) result =
-        parse_string  kvp_map x
+        parse_string kvp_map x
     end in
     let ldap fmt = fmt |> Printf.ksprintf @@ Printf.sprintf "ldap %s" in
     let* kvps = P.parse_kvp_map stdout <!> ldap "parsing failed '%s'" in
@@ -339,8 +339,7 @@ module Wbinfo = struct
     let regex = Re.Perl.(compile (re {|.*(WBC_ERR_[A-Z_]*).*|})) in
     let get_regex_match x =
       Option.bind (Re.exec_opt regex x) (fun g ->
-          match Re.Group.all g with [|_; code|] -> Some code | _ -> None
-      )
+          match Re.Group.all g with [|_; code|] -> Some code | _ -> None)
     in
     fun stderr ->
       get_regex_match stderr
@@ -365,8 +364,7 @@ module Wbinfo = struct
                  Not_found
              | _ ->
                  Auth_service_error
-                   (E_GENERIC, Printf.sprintf "unknown error code: %s" code)
-         )
+                   (E_GENERIC, Printf.sprintf "unknown error code: %s" code))
 
   let call_wbinfo (args : string list) : (string, exn) result =
     let generic_err () =
@@ -506,8 +504,7 @@ module Wbinfo = struct
           | [|_; name; _|] ->
               Some (Other name)
           | _ ->
-              None
-      )
+              None)
     in
     fun sid ->
       let args = ["--sid-to-name"; sid] in
@@ -650,8 +647,7 @@ let kdcs_of_domain domain =
     |> String.split_on_char '\n'
     |> List.filter (fun x -> String.trim x <> "") (* Remove empty lines *)
     |> List.map (fun r ->
-           String.split_on_char ':' r |> hd (Printf.sprintf "Invalid kdc %s" r)
-       )
+           String.split_on_char ':' r |> hd (Printf.sprintf "Invalid kdc %s" r))
   with _ -> raise (generic_ex "Failed to lookup kdcs of domain %s" domain)
 
 let kdc_of_domain domain =
@@ -695,8 +691,7 @@ let config_winbind_damon ~domain ~workgroup ~netbios_name =
           !Xapi_globs.winbind_machine_pwd_timeout
       ; Printf.sprintf "kerberos encryption types = %s"
           (Kerberos_encryption_types.Winbind.to_string
-             !Xapi_globs.winbind_kerberos_encryption_type
-          )
+             !Xapi_globs.winbind_kerberos_encryption_type)
       ; Printf.sprintf "workgroup = %s" workgroup
       ; Printf.sprintf "netbios name = %s" netbios_name
       ; "idmap config * : range = 3000000-3999999"
@@ -710,8 +705,7 @@ let config_winbind_damon ~domain ~workgroup ~netbios_name =
   let len = String.length conf_contents in
   Unixext.atomic_write_to_file smb_config 0o0644 (fun fd ->
       let (_ : int) = Unix.single_write_substring fd conf_contents 0 len in
-      Unix.fsync fd
-  )
+      Unix.fsync fd)
 
 let from_config ~name ~err_msg ~config_params =
   match List.assoc_opt name config_params with
@@ -823,8 +817,7 @@ module Winbind = struct
 
   let is_ad_enabled ~__context =
     ( Helpers.get_localhost ~__context |> fun self ->
-      Db.Host.get_external_auth_type ~__context ~self
-    )
+      Db.Host.get_external_auth_type ~__context ~self )
     |> fun x -> x = Xapi_globs.auth_type_AD
 
   let update_workgroup ~__context ~workgroup =
@@ -950,17 +943,13 @@ module ClosestKdc = struct
       let* domain_netbios_name =
         Wbinfo.domain_name_of ~target_name_type:NetbiosName ~from_name:domain
       in
-
       kdcs_of_domain domain
       |> List.map (fun kdc ->
              debug "Got domain '%s' kdc '%s'" domain kdc ;
-             kdc
-         )
+             kdc)
       |> List.map (fun kdc ->
              mtime_this ~name:kdc ~f:(fun () ->
-                 Ldap.query_user krbtgt_sid domain_netbios_name kdc
-             )
-         )
+                 Ldap.query_user krbtgt_sid domain_netbios_name kdc))
       |> List.filter_map Result.to_option
       |> List.sort (fun (_, s1) (_, s2) -> Mtime.Span.compare s1 s2)
       |> hd (Printf.sprintf "domain %s does not has valid kdc" domain)
@@ -974,8 +963,7 @@ module ClosestKdc = struct
       Wbinfo.all_domain_netbios ()
       |> maybe_raise
       |> List.map (fun netbios ->
-             Wbinfo.domain_name_of ~target_name_type:Name ~from_name:netbios
-         )
+             Wbinfo.domain_name_of ~target_name_type:Name ~from_name:netbios)
       |> List.filter_map Result.to_option
       |> List.map (fun domain -> lookup domain)
       |> List.filter_map Result.to_option
@@ -986,8 +974,7 @@ module ClosestKdc = struct
     if Pool_role.is_master () then
       Xapi_periodic_scheduler.add_to_queue periodic_update_task_name
         (Xapi_periodic_scheduler.Periodic
-           !Xapi_globs.winbind_update_closest_kdc_interval
-        )
+           !Xapi_globs.winbind_update_closest_kdc_interval)
         start update
 
   let stop_update () =
@@ -1000,7 +987,8 @@ let build_netbios_name ~config_params =
   match List.assoc_opt key config_params with
   | Some name ->
       if String.length name > max_netbios_name_length then
-        raise (generic_ex "%s exceeds %d characters" key max_netbios_name_length)
+        raise
+          (generic_ex "%s exceeds %d characters" key max_netbios_name_length)
       else
         name
   | None ->
@@ -1079,7 +1067,8 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
        | Auth_service_error (E_GENERIC, msg) ->
            Auth_failure msg
        | e ->
-           D.error "authenticate_username_password:ex: %s" (Printexc.to_string e) ;
+           D.error "authenticate_username_password:ex: %s"
+             (Printexc.to_string e) ;
            Auth_failure
              (Printf.sprintf "couldn't get SID from username='%s'" uname)
      in
@@ -1139,13 +1128,11 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
           else if gecos <> "" && gecos <> "<null>" then
             gecos
           else
-            user_name
-        )
+            user_name )
       ; ("subject-uid", string_of_int uid)
       ; ("subject-gid", string_of_int gid)
       ; ( "subject-upn"
-        , if upn <> "" then upn else Printf.sprintf "%s@%s" name domain
-        )
+        , if upn <> "" then upn else Printf.sprintf "%s@%s" name domain )
       ; ("subject-account-disabled", string_of_bool account_disabled)
       ; ("subject-account-locked", string_of_bool account_locked)
       ; ("subject-account-expired", string_of_bool account_expired)
@@ -1210,22 +1197,16 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
       from_config ~name:"pass" ~err_msg:"enable requires pass" ~config_params
     in
     let netbios_name = build_netbios_name ~config_params in
-
     let dns_hostname_option = build_dns_hostname_option ~config_params in
-
     assert_hostname_valid ~hostname:netbios_name ;
-
     let {service_name; _} = get_domain_info_from_db () in
     assert_domain_equal_service_name ~service_name ~config_params ;
-
     let workgroup =
       (* Query new domain workgroup during join domain *)
       query_domain_workgroup ~domain:service_name
     in
     config_winbind_damon ~domain:service_name ~workgroup ~netbios_name ;
-
     let ou_conf, ou_param = extract_ou_config ~config_params in
-
     let args =
       [
         [
