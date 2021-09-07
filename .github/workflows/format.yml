@@ -18,11 +18,11 @@ jobs:
 
       - name: Pull configuration from xs-opam
         run: |
-          curl --fail --silent https://raw.githubusercontent.com/xapi-project/xs-opam/release/stockholm/lcm/tools/xs-opam-ci.env | cut -f2 -d " " > .env
+          curl --fail --silent https://raw.githubusercontent.com/xapi-project/xs-opam/release/yangtze/lcm/tools/xs-opam-ci.env | cut -f2 -d " " > .env
 
       - name: Load environment file
         id: dotenv
-        uses: falti/dotenv-action@v0.2.4
+        uses: falti/dotenv-action@v0.2.7
 
       - name: Use ocaml
         uses: avsm/setup-ocaml@v1
