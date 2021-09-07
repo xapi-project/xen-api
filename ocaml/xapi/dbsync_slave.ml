@@ -306,6 +306,7 @@ let update_env __context sync_keys =
         Db.Host.set_bios_strings ~__context ~self:localhost
           ~value:current_bios_strings
       )) ;
+
   (* CA-35549: In a pool rolling upgrade, the master will detect the end of upgrade when the software versions
      	 of all the hosts are the same. It will then assume that (for example) per-host patch records have
      	 been tidied up and attempt to delete orphaned pool-wide patch records. *)

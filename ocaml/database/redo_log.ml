@@ -631,6 +631,7 @@ let startup log =
               R.info "Using block device at %s" device ;
               (* Check that the block device exists *)
               Unix.access device [Unix.F_OK; Unix.R_OK] ;
+
               (* will throw Unix.Unix_error if not readable *)
 
               (* Start the I/O process *)
