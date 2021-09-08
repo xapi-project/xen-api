@@ -68,6 +68,7 @@ type feature =
   | Zstd_export  (** Enable the use of VM export with zstd compression. *)
   | Pool_secret_rotation  (** Enable Pool Secret Rotation *)
   | Certificate_verification  (** Used by XenCenter *)
+  | Updates  (** Enable host updates from a repository *)
 
 val feature_of_rpc : Rpc.t -> feature
 (** Convert RPC into {!feature}s *)

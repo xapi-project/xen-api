@@ -3349,6 +3349,7 @@ let remove_repository ~__context ~self ~value =
   Db.Pool.remove_repositories ~__context ~self ~value
 
 let sync_updates ~__context ~self ~force =
+  Pool_features.assert_enabled ~__context ~f:Features.Updates ;
   let open Repository in
   (* Two locks are used here:
    * 1. with_pool_operation: this is used by following repository operations:
@@ -3387,6 +3388,8 @@ let sync_updates ~__context ~self ~force =
       set_available_updates ~__context
 
 let check_update_readiness ~__context ~self ~requires_reboot =
+  (* Pool license check *)
+  Pool_features.assert_enabled ~__context ~f:Features.Updates ;
   (* Pool checks *)
   let pool_errors =
     let pool = Helpers.get_pool ~__context in
