@@ -44,10 +44,10 @@ module Ext_auth = struct
     | "PAM" ->
         (*pam/nss unix services*)
         Authx.AuthX.methods
-    (* the PBIS authentication plugin *)
+    (* the external authentication plugin *)
     | "AD" ->
         (*windows active directory*)
-        Extauth_plugin_ADpbis.AuthADlw.methods
+        Extauth_ad.methods ()
     (* if no other auth_type fits, then we don't know what to do *)
     | _ as uat ->
         (*error*)
@@ -86,7 +86,11 @@ let get_event_params ~__context host =
   let service_name =
     Db.Host.get_external_auth_service_name ~__context ~self:host
   in
-  [("auth_type", auth_type); ("service_name", service_name)]
+  [
+    ("auth_type", auth_type)
+  ; ("service_name", service_name)
+  ; ("ad_backend", !Xapi_globs.extauth_ad_backend)
+  ]
 
 (* allows extauth hook script to be called only under specific conditions *)
 let can_execute_extauth_hook_script ~__context host event_name =

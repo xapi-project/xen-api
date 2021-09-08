@@ -386,6 +386,9 @@ let rolling_upgrade_script_hook = ref "xapi-rolling-upgrade"
  * or the host is joining or leaving AD *)
 let domain_join_cli_cmd = ref "/opt/pbis/bin/domainjoin-cli"
 
+(* sqlite3 database PBIS used to store domain information *)
+let pbis_db_path = "/var/lib/pbis/db/registry.db"
+
 (* When set to true indicates that the host has still booted so we're initialising everything
    from scratch e.g. shared storage, sampling boot free mem etc *)
 let on_system_boot = ref false
@@ -575,7 +578,7 @@ let serialize_pool_enable_disable_extauth = Mutex.create ()
 (* Auth types *)
 let auth_type_NONE = ""
 
-let auth_type_AD_Likewise = "AD"
+let auth_type_AD = "AD"
 
 let auth_type_PAM = "PAM"
 
@@ -849,6 +852,31 @@ let gen_pool_secret_script = ref "/usr/bin/pool_secret_wrapper"
 
 type xapi_globs_spec_ty = Float of float ref | Int of int ref
 
+let extauth_ad_backend = ref "winbind"
+
+let net_cmd = ref "/usr/bin/net"
+
+let wb_cmd = ref "/usr/bin/wbinfo"
+
+let ntlm_auth_cmd = ref "/usr/bin/ntlm_auth"
+
+let winbind_debug_level = ref 2
+
+let winbind_cache_time = ref 60
+
+let winbind_machine_pwd_timeout = ref (7 * 24 * 3600)
+
+let winbind_update_closest_kdc_interval = ref (3600. *. 24.) (* every day *)
+
+let winbind_kerberos_encryption_type =
+  ref Kerberos_encryption_types.Winbind.Strong
+
+let tdb_tool = ref "/usr/bin/tdbtool"
+
+let sqlite3 = ref "/usr/bin/sqlite3"
+
+let samba_dir = "/var/lib/samba"
+
 let xapi_globs_spec =
   [
     ( "master_connection_reset_timeout"
@@ -907,6 +935,11 @@ let xapi_globs_spec =
   ; ("vm_call_plugin_interval", Float vm_call_plugin_interval)
   ; ("xapi_clusterd_port", Int xapi_clusterd_port)
   ; ("max_active_sr_scans", Int max_active_sr_scans)
+  ; ("winbind_debug_level", Int winbind_debug_level)
+  ; ("winbind_cache_time", Int winbind_cache_time)
+  ; ("winbind_machine_pwd_timeout", Int winbind_machine_pwd_timeout)
+  ; ( "winbind_update_closest_kdc_interval"
+    , Float winbind_update_closest_kdc_interval )
   ]
 
 let options_of_xapi_globs_spec =
@@ -1120,10 +1153,25 @@ let other_options =
     , Arg.Set create_tools_sr
     , (fun () -> string_of_bool !create_tools_sr)
     , "Indicates whether to create an SR for Tools ISOs" )
+  ; ( "winbind_kerberos_encryption_type"
+    , Arg.String
+        (fun s ->
+          Option.iter
+            (fun k -> winbind_kerberos_encryption_type := k)
+            (Kerberos_encryption_types.Winbind.of_string s))
+    , (fun () ->
+        Kerberos_encryption_types.Winbind.to_string
+          !winbind_kerberos_encryption_type)
+    , "Encryption types to use when operating as Kerberos client \
+       [strong|legacy|all]" )
   ; ( "website-https-only"
     , Arg.Set website_https_only
     , (fun () -> string_of_bool !website_https_only)
     , "Allow access to the internal website using HTTPS only (no HTTP)" )
+  ; ( "extauth_ad_backend"
+    , Arg.Set_string extauth_ad_backend
+    , (fun () -> !extauth_ad_backend)
+    , "Which AD backend used to talk to DC" )
   ]
 
 let all_options = options_of_xapi_globs_spec @ other_options
@@ -1246,6 +1294,17 @@ module Resources = struct
     ; ( "gen_pool_secret_script"
       , gen_pool_secret_script
       , "Generates new pool secrets" )
+    ; ( "samba administration tool"
+      , net_cmd
+      , "Executed to manage external auth with AD like join and leave domain" )
+    ; ( "Samba TDB (Trivial Database) management tool"
+      , tdb_tool
+      , "Executed to manage Samba Database" )
+    ; ("winbind query tool", wb_cmd, "Query information from winbind daemon")
+    ; ("ntlm auth utility", ntlm_auth_cmd, "Used to authenticate AD users")
+    ; ( "SQLite database  management tool"
+      , sqlite3
+      , "Executed to manage SQlite Database, like PBIS database" )
     ]
 
   let essential_files =

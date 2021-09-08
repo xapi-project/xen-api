@@ -31,15 +31,11 @@ module Gpumon = Daemon_manager.Make (struct
 
   let start () =
     debug "Starting %s" gpumon ;
-    ignore
-      (Forkhelpers.execute_command_get_output !Xapi_globs.systemctl
-         ["start"; gpumon])
+    Xapi_systemctl.start ~wait_until_success:false gpumon
 
   let stop () =
     debug "Stopping %s" gpumon ;
-    ignore
-      (Forkhelpers.execute_command_get_output !Xapi_globs.systemctl
-         ["stop"; gpumon])
+    Xapi_systemctl.stop ~wait_until_success:false gpumon
 end)
 
 let with_gpumon_stopped = Gpumon.with_daemon_stopped

@@ -41,7 +41,7 @@ let log_exn_continue msg f x =
 
 type log_output = Always | Never | On_failure
 
-let call_script ?(log_output = Always) ?env script args =
+let call_script ?(log_output = Always) ?env ?stdin script args =
   let should_log_output_on_success, should_log_output_on_failure =
     match log_output with
     | Always ->
@@ -58,7 +58,14 @@ let call_script ?(log_output = Always) ?env script args =
     let env =
       match env with None -> [|"PATH=" ^ Sys.getenv "PATH"|] | Some env -> env
     in
-    let output, _ = Forkhelpers.execute_command_get_output ~env script args in
+    let output, _ =
+      match stdin with
+      | None ->
+          Forkhelpers.execute_command_get_output ~env script args
+      | Some stdin ->
+          Forkhelpers.execute_command_get_output_send_stdin ~env script args
+            stdin
+    in
     if should_log_output_on_success then
       debug "%s %s succeeded [ output = '%s' ]" script (String.concat " " args)
         output ;
@@ -1880,4 +1887,59 @@ end = struct
       ps |> SecretString.rpc_of_t |> Db_secret_string.t_of_rpc ;
     SecretString.write_to_file !Xapi_globs.pool_secret_path ps ;
     Xapi_psr_util.load_psr_pool_secrets ()
+end
+
+module FileSys : sig
+  (* bash-like interface for manipulating files *)
+  type path = string
+
+  val rmrf : ?rm_top:bool -> path -> unit
+
+  val mv : src:path -> dest:path -> unit
+
+  val cpr : src:path -> dest:path -> unit
+
+  val redirect : string -> fname:path -> unit
+end = struct
+  type path = string
+
+  let rmrf ?(rm_top = true) path =
+    let ( // ) = Filename.concat in
+    let rec rm rm_top path =
+      let st = Unix.lstat path in
+      match st.Unix.st_kind with
+      | Unix.S_DIR ->
+          Sys.readdir path |> Array.iter (fun file -> rm true (path // file)) ;
+          if rm_top then Unix.rmdir path
+      | _ ->
+          Unix.unlink path
+    in
+    try rm rm_top path
+    with e ->
+      error "failed to remove %s" path ;
+      raise e
+
+  let mv ~src ~dest =
+    try Sys.rename src dest
+    with e ->
+      error "mv: failed to mv %s to %s" src dest ;
+      raise e
+
+  let cpr ~src ~dest =
+    (* todo: implement in ocaml *)
+    try
+      let (_ : string) =
+        get_process_output (Printf.sprintf {|/bin/cp -r "%s" "%s"|} src dest)
+      in
+      ()
+    with e ->
+      error "cpr: failed to copy %s to %s" src dest ;
+      raise e
+
+  let redirect blob ~fname =
+    (try Sys.remove fname with _ -> ()) ;
+    try Unixext.write_string_to_file fname blob
+    with e ->
+      error "redirect: failed to write to %s" fname ;
+      raise e
 end
