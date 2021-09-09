@@ -226,12 +226,19 @@ module Ldap = struct
       try Ok (of_string str)
       with _ -> Error (ldap "invalid value for key '%s'" k)
     in
+    let get_int_with_default of_string ~k ~default =
+      match get_int of_string k with Ok x -> Ok x | Error _ -> Ok default
+    in
     let default = "" in
     let* name = get_string_with_default ~k:"name" ~default in
     let* upn = get_string_with_default ~k:"userPrincipalName" ~default in
     let* display_name = get_string_with_default ~k:"displayName" ~default in
     let* user_account_control = get_int Int32.of_string "userAccountControl" in
     let* account_expires = get_int Int64.of_string "accountExpires" in
+    (* see https://docs.microsoft.com/en-us/windows/win32/adschema/a-lockouttime *)
+    let* lockout_time =
+      get_int_with_default Int64.of_string ~k:"lockoutTime" ~default:0L
+    in
     let account_expired =
       (* see https://docs.microsoft.com/en-us/windows/win32/adschema/a-accountexpires *)
       let windows_nt_time_to_unix_time x =
@@ -250,7 +257,6 @@ module Ldap = struct
     (* see https://docs.microsoft.com/en-us/windows/win32/adschema/a-useraccountcontrol#remarks
      * for bit flag docs *)
     let disabled_bit = of_string "0x2" in
-    let lockout_bit = of_string "0x10" in
     let passw_expire_bit = of_string "0x800000" in
     Ok
       {
@@ -259,7 +265,7 @@ module Ldap = struct
       ; upn
       ; account_expired
       ; account_disabled= logand user_account_control disabled_bit <> 0l
-      ; account_locked= logand user_account_control lockout_bit <> 0l
+      ; account_locked= lockout_time <> 0L
       ; password_expired= logand user_account_control passw_expire_bit <> 0l
       }
 
