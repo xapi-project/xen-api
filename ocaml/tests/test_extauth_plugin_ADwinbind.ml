@@ -288,7 +288,7 @@ uSNCreated: 101671
 uSNChanged: 101737
 name: locked
 objectGUID: 26f8c3e3-e4cd-4bd1-b0fb-4e4f84c65a49
-userAccountControl: 532
+userAccountControl: 512
 badPwdCount: 0
 codePage: 0
 countryCode: 0
@@ -303,7 +303,7 @@ logonCount: 3
 sAMAccountName: locked
 sAMAccountType: 805306368
 userPrincipalName: locked@conappada.local
-lockoutTime: 0
+lockoutTime: 132756473173422789
 objectCategory: CN=Person,CN=Schema,CN=Configuration,DC=conappada,DC=local
 dSCorePropagationData: 16010101000000.0Z
 lastLogonTimestamp: 132592177310358648
