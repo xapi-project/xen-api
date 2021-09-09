@@ -407,107 +407,120 @@ let request_of_bio_exn_slow ic =
         []
   in
   let headers = read_rest_of_headers 242 in
-  {
-    req with
-    Request.cookie= Http.parse_keyvalpairs !cookie
-  ; content_length=
-      (if !content_length = -1L then None else Some !content_length)
-  ; auth= !auth
-  ; task= !task
-  ; subtask_of= !subtask_of
-  ; content_type= !content_type
-  ; host= !host
-  ; user_agent= !user_agent
-  ; additional_headers= headers
-  ; accept= !accept
-  }
+  let request =
+    {
+      req with
+      Request.cookie= Http.parse_keyvalpairs !cookie
+    ; content_length=
+        (if !content_length = -1L then None else Some !content_length)
+    ; auth= !auth
+    ; task= !task
+    ; subtask_of= !subtask_of
+    ; content_type= !content_type
+    ; host= !host
+    ; user_agent= !user_agent
+    ; additional_headers= headers
+    ; accept= !accept
+    }
+  in
+  (request, None)
 
 (** [request_of_bio_exn ic] reads a single Http.req from [ic] and returns it. On error
     	it simply throws an exception and doesn't touch the output stream. *)
 
-let request_of_bio_exn bio =
+let request_of_bio_exn ~proxy_seen bio =
   let fd = Buf_io.fd_of bio in
-  let frame, headers, proxy = Http.read_http_request_header fd in
+  let frame, headers, proxy' = Http.read_http_request_header fd in
+  let proxy = match proxy' with None -> proxy_seen | x -> x in
   let additional_headers =
     proxy |> Option.fold ~none:[] ~some:(fun p -> [("STUNNEL_PROXY", p)])
   in
   let open Http.Request in
-  Astring.String.cuts ~sep:"\n" headers
-  |> List.fold_left
-       (fun (status, req) header ->
-         if not status then
-           match Astring.String.fields ~empty:false header with
-           | [meth; uri; version] ->
-               (* Request-Line   = Method SP Request-URI SP HTTP-Version CRLF *)
-               let uri, query = Http.parse_uri uri in
-               let m = Http.method_t_of_string meth in
-               let version =
-                 let x = String.trim version in
-                 let prefix = "HTTP/" in
-                 String.sub x (String.length prefix)
-                   (String.length x - String.length prefix)
-               in
-               let close = version = "1.0" in
-               (true, {req with m; uri; query; version; close})
-           | _ ->
-               raise Http_parse_failure
-         else
-           match Astring.String.cut ~sep:":" header with
-           | Some (k, v) -> (
-               let k = lowercase k in
-               let v = String.trim v in
-               ( true
-               , match k with
-                 | k when k = Http.Hdr.content_length ->
-                     {req with content_length= Some (Int64.of_string v)}
-                 | k when k = Http.Hdr.cookie ->
-                     {req with cookie= Http.parse_keyvalpairs v}
-                 | k when k = Http.Hdr.transfer_encoding ->
-                     {req with transfer_encoding= Some v}
-                 | k when k = Http.Hdr.accept ->
-                     {req with accept= Some v}
-                 | k when k = Http.Hdr.authorization ->
-                     {req with auth= Some (authorization_of_string v)}
-                 | k when k = Http.Hdr.task_id ->
-                     {req with task= Some v}
-                 | k when k = Http.Hdr.subtask_of ->
-                     {req with subtask_of= Some v}
-                 | k when k = Http.Hdr.content_type ->
-                     {req with content_type= Some v}
-                 | k when k = Http.Hdr.host ->
-                     {req with host= Some v}
-                 | k when k = Http.Hdr.user_agent ->
-                     {req with user_agent= Some v}
-                 | k when k = Http.Hdr.connection && lowercase v = "close" ->
-                     {req with close= true}
-                 | k when k = Http.Hdr.connection && lowercase v = "keep-alive"
-                   ->
-                     {req with close= false}
-                 | _ ->
-                     {
-                       req with
-                       additional_headers= (k, v) :: req.additional_headers
-                     }
+  let request =
+    Astring.String.cuts ~sep:"\n" headers
+    |> List.fold_left
+         (fun (status, req) header ->
+           if not status then
+             match Astring.String.fields ~empty:false header with
+             | [meth; uri; version] ->
+                 (* Request-Line   = Method SP Request-URI SP HTTP-Version CRLF *)
+                 let uri, query = Http.parse_uri uri in
+                 let m = Http.method_t_of_string meth in
+                 let version =
+                   let x = String.trim version in
+                   let prefix = "HTTP/" in
+                   String.sub x (String.length prefix)
+                     (String.length x - String.length prefix)
+                 in
+                 let close = version = "1.0" in
+                 (true, {req with m; uri; query; version; close})
+             | _ ->
+                 raise Http_parse_failure
+           else
+             match Astring.String.cut ~sep:":" header with
+             | Some (k, v) -> (
+                 let k = lowercase k in
+                 let v = String.trim v in
+                 ( true
+                 , match k with
+                   | k when k = Http.Hdr.content_length ->
+                       {req with content_length= Some (Int64.of_string v)}
+                   | k when k = Http.Hdr.cookie ->
+                       {req with cookie= Http.parse_keyvalpairs v}
+                   | k when k = Http.Hdr.transfer_encoding ->
+                       {req with transfer_encoding= Some v}
+                   | k when k = Http.Hdr.accept ->
+                       {req with accept= Some v}
+                   | k when k = Http.Hdr.authorization ->
+                       {req with auth= Some (authorization_of_string v)}
+                   | k when k = Http.Hdr.task_id ->
+                       {req with task= Some v}
+                   | k when k = Http.Hdr.subtask_of ->
+                       {req with subtask_of= Some v}
+                   | k when k = Http.Hdr.content_type ->
+                       {req with content_type= Some v}
+                   | k when k = Http.Hdr.host ->
+                       {req with host= Some v}
+                   | k when k = Http.Hdr.user_agent ->
+                       {req with user_agent= Some v}
+                   | k when k = Http.Hdr.connection && lowercase v = "close" ->
+                       {req with close= true}
+                   | k
+                     when k = Http.Hdr.connection && lowercase v = "keep-alive"
+                     ->
+                       {req with close= false}
+                   | _ ->
+                       {
+                         req with
+                         additional_headers= (k, v) :: req.additional_headers
+                       }
+                 )
                )
-             )
-           | None ->
-               (true, req) (* end of headers *)
-         )
-       (false, {empty with Http.Request.frame; additional_headers})
-  |> snd
+             | None ->
+                 (true, req) (* end of headers *)
+           )
+         (false, {empty with Http.Request.frame; additional_headers})
+    |> snd
+  in
+  (request, proxy)
 
 (** [request_of_bio ic] returns [Some req] read from [ic], or [None]. If [None] it will have
     	already sent back a suitable error code and response to the client. *)
-let request_of_bio ?(use_fastpath = false) ic =
+let request_of_bio ?(use_fastpath = false) ?proxy_seen ic =
   try
-    let r =
-      (if use_fastpath then request_of_bio_exn else request_of_bio_exn_slow) ic
+    let r, proxy =
+      ( if use_fastpath then
+          request_of_bio_exn ~proxy_seen
+      else
+        request_of_bio_exn_slow
+      )
+        ic
     in
     (*
 		Printf.fprintf stderr "Parsed [%s]\n" (Http.Request.to_wire_string r);
 		flush stderr;
 *)
-    Some r
+    (Some r, proxy)
   with e ->
     D.warn "%s (%s)" (Printexc.to_string e) __LOC__ ;
     best_effort (fun () ->
@@ -545,7 +558,7 @@ let request_of_bio ?(use_fastpath = false) ic =
             response_internal_error ss ~extra:(escape (Printexc.to_string exc)) ;
             log_backtrace ()
     ) ;
-    None
+    (None, None)
 
 let handle_one (x : 'a Server.t) ss context req =
   let ic = Buf_io.of_fd ss in
@@ -604,17 +617,27 @@ let handle_one (x : 'a Server.t) ss context req =
 
 let handle_connection (x : 'a Server.t) _ ss =
   let ic = Buf_io.of_fd ss in
-  let finished = ref false in
-  while not !finished do
+  (* For HTTPS requests, a PROXY header is sent by stunnel right at the beginning of
+     of its connection to the server, before HTTP requests are transferred, and
+     just once per connection. To allow for the PROXY metadata (including e.g. the
+     client IP) to be added to all request records on a connection, it must be passed
+     along in the loop below. *)
+  let rec loop proxy_seen =
     (* 1. we must successfully parse a request *)
-    let req = request_of_bio ~use_fastpath:x.Server.use_fastpath ic in
+    let req, proxy =
+      request_of_bio ~use_fastpath:x.Server.use_fastpath ?proxy_seen ic
+    in
     (* 2. now we attempt to process the request *)
-    finished :=
+    let finished =
       Option.fold ~none:true
         ~some:(handle_one x ss x.Server.default_context)
         req
-  done ;
-  Unix.close ss
+    in
+    (* 3. do it again if the connection is kept open *)
+    if not finished then
+      loop proxy
+  in
+  loop None ; Unix.close ss
 
 let bind ?(listen_backlog = 128) sockaddr name =
   let domain =
