@@ -708,7 +708,7 @@ let master_only_http_handlers =
     , Http_svr.BufIO remote_database_access_handler_v2 )
   ]
 
-let common_http_handlers =
+let common_http_handlers () =
   [
     ("get_services_xenops", Http_svr.FdIO Xapi_services.get_handler)
   ; ("put_services_xenops", Http_svr.FdIO Xapi_services.put_handler)
@@ -944,7 +944,8 @@ let server_init () =
           ; ("Killing stray sparse_dd processes", [], Sparse_dd_wrapper.killall)
           ; ( "Registering http handlers"
             , []
-            , fun () -> List.iter Xapi_http.add_handler common_http_handlers )
+            , fun () ->
+                List.iter Xapi_http.add_handler (common_http_handlers ()) )
           ; ( "Registering master-only http handlers"
             , [Startup.OnlyMaster]
             , fun () ->
