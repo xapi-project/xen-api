@@ -351,6 +351,7 @@ sAMAccountName: experied
 sAMAccountType: 805306368
 userPrincipalName: experied@conappada.local
 lockoutTime: 0
+msDS-UserPasswordExpiryTimeComputed: 132756434082908291
 objectCategory: CN=Person,CN=Schema,CN=Configuration,DC=conappada,DC=local
 dSCorePropagationData: 16010101000000.0Z
 msDS-SupportedEncryptionTypes: 0|}
@@ -390,7 +391,7 @@ msDS-SupportedEncryptionTypes: 0|}
           ; account_disabled= false
           ; account_expired= true
           ; account_locked= false
-          ; password_expired= false
+          ; password_expired= true
           }
       )
     ; ( stdout_krbtgt
