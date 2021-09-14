@@ -43,6 +43,8 @@ let class_to_string cls =
       "PVS_proxy"
   | `VDI ->
       "VDI"
+  | `Certificate ->
+      "Certificate"
   | _ ->
       "unknown"
 
@@ -64,6 +66,8 @@ let string_to_class str =
       `PVS_proxy
   | "VDI" ->
       `VDI
+  | "Certificate" ->
+      `Certificate
   | _ ->
       failwith "Bad type"
 

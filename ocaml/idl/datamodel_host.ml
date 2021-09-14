@@ -1670,6 +1670,8 @@ let host_query_ha = call ~flags:[`Session]
            field ~qualifier:StaticRO ~lifecycle:[Published, rel_quebec, ""] ~default_value:(Some (VString "")) ~ty:String "uefi_certificates" "The UEFI certificates allowing Secure Boot";
            field ~qualifier:DynamicRO ~lifecycle:[Published, rel_stockholm, ""] ~ty:(Set (Ref _certificate)) "certificates" "List of certificates installed in the host";
            field ~qualifier:DynamicRO ~lifecycle:[Published, rel_stockholm, ""] ~default_value:(Some (VSet [])) ~ty:(Set String) "editions" "List of all available product editions";
-           field ~qualifier:DynamicRO ~in_product_since:rel_next ~ty:(Set update_guidances) "pending_guidances" ~default_value:(Some (VSet [])) "The set of pending guidances after applying updates"
+           field ~qualifier:DynamicRO ~in_product_since:rel_next ~ty:(Set update_guidances) "pending_guidances" ~default_value:(Some (VSet [])) "The set of pending guidances after applying updates";
+           field ~qualifier:DynamicRO ~in_product_since:rel_next ~ty:Bool "tls_verification_enabled" ~default_value:(Some (VBool false)) "True if this host has TLS verifcation enabled"
+
          ])
       ()

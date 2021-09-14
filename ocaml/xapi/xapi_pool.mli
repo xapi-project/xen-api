@@ -250,7 +250,7 @@ val certificate_uninstall : __context:Context.t -> name:string -> unit
 
 val uninstall_ca_certificate : __context:Context.t -> name:string -> unit
 
-val certificate_list : __context:'a -> string list
+val certificate_list : __context:Context.t -> string list
 
 val crl_install : __context:Context.t -> name:string -> cert:string -> unit
 

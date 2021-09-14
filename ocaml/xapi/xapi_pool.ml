@@ -1400,7 +1400,10 @@ let certificate_uninstall ~__context ~name =
 
 let uninstall_ca_certificate = certificate_uninstall
 
-let certificate_list ~__context = Certificates.(local_list CA_Certificate)
+let certificate_list ~__context =
+  let open Certificates in
+  Db_util.get_ca_certs ~__context
+  |> List.map @@ fun self -> Db.Certificate.get_name ~__context ~self
 
 let crl_install = Certificates.(pool_install CRL)
 
@@ -1854,12 +1857,7 @@ let eject_self ~__context ~host =
     write_first_boot_management_interface_configuration_file () ;
     Net.reset_state () ;
     Xapi_inventory.update Xapi_inventory._current_interfaces "" ;
-    debug "Pool.eject: deleting Host record (the point of no return)" ;
-    Create_misc.create_pool_cpuinfo ~__context ;
-    (* Update pool features, in case this host had a different license to the
-       		 * rest of the pool. *)
-    Pool_features.update_pool_features ~__context ;
-    (* and destroy my control domains, since you can't do this from the API [operation not allowed] *)
+    (* Destroy my control domains, since you can't do this from the API [operation not allowed] *)
     ( try
         List.iter
           (fun x -> Db.VM.destroy ~__context ~self:(fst x))
@@ -1946,8 +1944,14 @@ let eject ~__context ~host =
         (Ref.string_of host) ;
       Certificates_sync.eject_certs_from_fs_for ~__context host ;
       Certificates_sync.eject_certs_from_db ~__context certs ;
+      debug "Pool.eject: deleting Host record" ;
       Db.Host.destroy ~__context ~self:host ;
-      info "ejected certs of host %s on the master (2/2)" (Ref.string_of host)
+      info "ejected certs of host %s on the master (2/2)" (Ref.string_of host) ;
+      (* Update pool_cpuinfo, in case this host had unique or lacked common CPU features *)
+      Create_misc.create_pool_cpuinfo ~__context ;
+      (* Update pool features, in case this host had a different license to the
+       * rest of the pool. *)
+      Pool_features.update_pool_features ~__context
   | true, true ->
       raise Cannot_eject_master
 
@@ -3278,6 +3282,7 @@ let ping_with_tls_verification ~__context host =
   |> ignore
 
 let enable_tls_verification ~__context =
+  let self = Helpers.get_localhost ~__context in
   let hosts = Db.Host.get_all ~__context in
   List.iter (ping_with_tls_verification ~__context) hosts ;
   Xapi_clustering.(
@@ -3285,6 +3290,7 @@ let enable_tls_verification ~__context =
       Daemon.restart ~__context
   ) ;
   Stunnel_client.set_verify_by_default true ;
+  Db.Host.set_tls_verification_enabled ~__context ~self ~value:true ;
   Helpers.touch_file Xapi_globs.verify_certificates_path
 
 let set_repositories ~__context ~self ~value =
@@ -3343,6 +3349,7 @@ let remove_repository ~__context ~self ~value =
   Db.Pool.remove_repositories ~__context ~self ~value
 
 let sync_updates ~__context ~self ~force =
+  Pool_features.assert_enabled ~__context ~f:Features.Updates ;
   let open Repository in
   (* Two locks are used here:
    * 1. with_pool_operation: this is used by following repository operations:
@@ -3381,6 +3388,8 @@ let sync_updates ~__context ~self ~force =
       set_available_updates ~__context
 
 let check_update_readiness ~__context ~self ~requires_reboot =
+  (* Pool license check *)
+  Pool_features.assert_enabled ~__context ~f:Features.Updates ;
   (* Pool checks *)
   let pool_errors =
     let pool = Helpers.get_pool ~__context in

@@ -37,7 +37,7 @@
     <value>The backup partition to stream the update to cannot be found</value>
   </data>
   <data name="CANNOT_FIND_PATCH" xml:space="preserve">
-    <value>The requested update could not be found.  This can occur when you designate a new master.  Please upload it again</value>
+    <value>The requested update could not be found.  This can occur when you designate a new coordinator.  Please upload it again</value>
   </data>
   <data name="CANNOT_FIND_STATE_PARTITION" xml:space="preserve">
     <value>The restore could not be performed because the state partition could not be found</value>
@@ -73,7 +73,7 @@
     <value>A timeout happened while attempting to detach a device {1} of type {0} from a VM</value>
   </data>
   <data name="EVACUATE_NO_OTHER_HOSTS_FOR_MASTER" xml:space="preserve">
-    <value>No other server available to nominate as master.  Please add or enable some other servers.</value>
+    <value>No other server available to nominate as coordinator.  Please add or enable some other servers.</value>
   </data>
   <data name="FIELD_TYPE_ERROR" xml:space="preserve">
     <value>One of the fields you supplied was of the wrong type.</value>
@@ -101,9 +101,6 @@
   </data>
   <data name="HA_OPERATION_WOULD_BREAK_FAILOVER_PLAN" xml:space="preserve">
     <value>This operation cannot be performed because HA would no longer be guaranteed for this pool.  To perform this operation anyway, you must disable or reconfigure HA.</value>
-  </data>
-  <data name="HA_SHOULD_BE_FENCED" xml:space="preserve">
-    <value>Server cannot rejoin pool because it should have fenced (it is not in the master's partition)</value>
   </data>
   <data name="HOSTS_NOT_HOMOGENEOUS" xml:space="preserve">
     <value>The servers in this pool are not homogeneous. {0}</value>
@@ -139,7 +136,7 @@
     <value>This operation cannot be completed because the server is in use.</value>
   </data>
   <data name="HOST_IS_SLAVE" xml:space="preserve">
-    <value>The server that you are talking to is a slave</value>
+    <value>The server that you are talking to is a supporter</value>
   </data>
   <data name="HOST_NOT_DISABLED" xml:space="preserve">
     <value>This server cannot be enabled as it is not disabled.</value>
@@ -585,7 +582,7 @@ Authorized Roles: {1}</value>
     <value>There was an error while attempting to create the filesystem on the specified logical volume</value>
   </data>
   <data name="SR_BACKEND_FAILURE_58" xml:space="preserve">
-    <value>There was an error while attempting to make a request from the logical volume. The request must come from the master.</value>
+    <value>There was an error while attempting to make a request from the logical volume. The request must come from the coordinator.</value>
   </data>
   <data name="SR_BACKEND_FAILURE_59" xml:space="preserve">
     <value>The attempt to resize the logical volume failed</value>

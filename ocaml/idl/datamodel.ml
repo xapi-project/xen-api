@@ -4155,6 +4155,7 @@ module Event = struct
       obj_allowed_roles=_R_POOL_ADMIN;
       obj_implicit_msg_allowed_roles=_R_ALL;
       obj_doc_tags=[];
+      db_logging=None;
     }
 end
 
@@ -4205,6 +4206,7 @@ module Message = struct
                    "VMSS", "VMSS";
                    "PVS_proxy","PVS_proxy";
                    "VDI","VDI";
+                   "Certificate","Certificate";
                  ])
 
   let create = call
@@ -4301,7 +4303,7 @@ module Message = struct
       [ uid _message;
         field ~qualifier:DynamicRO ~ty:String "name" "The name of the message";
         field ~qualifier:DynamicRO ~ty:Int "priority" "The message priority, 0 being low priority";
-        field ~qualifier:DynamicRO ~ty:cls "cls" "The class of the object this message is associated with";
+        field ~qualifier:DynamicRO ~ty:cls ~lifecycle:[(Extended, rel_next, "Added Certificate class")] "cls" "The class of the object this message is associated with";
         field ~qualifier:DynamicRO ~ty:String "obj_uuid" "The uuid of the object this message is associated with";
         field ~qualifier:DynamicRO ~ty:DateTime "timestamp" "The time at which the message was created";
         field ~qualifier:DynamicRO ~ty:String "body" "The body of the message"; ]
@@ -4447,6 +4449,7 @@ module PCI = struct
       ~messages_default_allowed_roles:_R_POOL_OP
       ~persist:PersistEverything
       ~in_oss_since:None
+      ~db_logging:Log_destroy
       ~contents:[
         uid _pci ~lifecycle:[Published, rel_boston, ""];
         field ~qualifier:StaticRO ~ty:String ~lifecycle:[] "class_id" "PCI class ID" ~default_value:(Some (VString "")) ~internal_only:true;

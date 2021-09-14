@@ -61,6 +61,7 @@ type feature =
   | Zstd_export
   | Pool_secret_rotation
   | Certificate_verification
+  | Updates
 [@@deriving rpc]
 
 type orientation = Positive | Negative
@@ -124,6 +125,7 @@ let keys_of_features =
   ; ( Certificate_verification
     , ("restrict_certificate_verification", Negative, "Certificate_verification")
     )
+  ; (Updates, ("restrict_updates", Negative, "Upd"))
   ]
 
 (* A list of features that must be considered "enabled" by `of_assoc_list`

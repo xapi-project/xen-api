@@ -1013,6 +1013,8 @@ functor
                      (Ref.string_of host)
                ) ;
             Db.Pool.set_tls_verification_enabled ~__context ~self ~value:true ;
+            debug "Enabling TLS verification for Work Load Balancing (WLB)" ;
+            Db.Pool.set_wlb_verify_cert ~__context ~self ~value:true ;
             debug "Pool.enable_tls_verification completed (2/2)"
         )
 

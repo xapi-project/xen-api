@@ -183,6 +183,10 @@ let make_host2 ~__context ?(ref = Ref.make ()) ?(uuid = make_uuid ())
     ?(external_auth_configuration = []) ?(license_params = [])
     ?(edition = "free") ?(license_server = []) ?(local_cache_sr = Ref.null)
     ?(chipset_info = []) ?(ssl_legacy = false) () =
+  let pool = Helpers.get_pool ~__context in
+  let tls_verification_enabled =
+    Db.Pool.get_tls_verification_enabled ~__context ~self:pool
+  in
   Db.Host.create ~__context ~ref ~current_operations:[] ~allowed_operations:[]
     ~software_version:(Xapi_globs.software_version ())
     ~enabled:false ~aPI_version_major:Datamodel_common.api_version_major
@@ -200,7 +204,8 @@ let make_host2 ~__context ?(ref = Ref.make ()) ?(uuid = make_uuid ())
     ~power_on_config:[] ~local_cache_sr ~ssl_legacy ~guest_VCPUs_params:[]
     ~display:`enabled ~virtual_hardware_platform_versions:[]
     ~control_domain:Ref.null ~updates_requiring_reboot:[] ~iscsi_iqn:""
-    ~multipathing:false ~uefi_certificates:"" ~editions:[] ~pending_guidances:[] ;
+    ~multipathing:false ~uefi_certificates:"" ~editions:[] ~pending_guidances:[]
+    ~tls_verification_enabled ;
   ref
 
 let make_pif ~__context ~network ~host ?(device = "eth0")

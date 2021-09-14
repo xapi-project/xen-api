@@ -3025,6 +3025,11 @@ let host_record rpc session_id host =
               (x ()).API.host_pending_guidances
             )
           ()
+      ; make_field ~name:"tls-verification-enabled"
+          ~get:(fun () ->
+            (x ()).API.host_tls_verification_enabled |> string_of_bool
+            )
+          ()
       ]
   }
 

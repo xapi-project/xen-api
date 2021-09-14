@@ -778,7 +778,7 @@ let master_only_http_handlers =
   ; ("get_updates", Http_svr.FdIO Xapi_pool.get_updates_handler)
   ]
 
-let common_http_handlers =
+let common_http_handlers () =
   [
     ("get_services_xenops", Http_svr.FdIO Xapi_services.get_handler)
   ; ("put_services_xenops", Http_svr.FdIO Xapi_services.put_handler)
@@ -867,6 +867,11 @@ let init_tls_verification () =
   | true ->
       info "TLS verification is enabled: %s" file ;
       Stunnel_client.set_verify_by_default true
+
+let report_tls_verification ~__context =
+  let self = Helpers.get_localhost ~__context in
+  let value = Stunnel_client.get_verify_by_default () in
+  Db.Host.set_tls_verification_enabled ~__context ~self ~value
 
 let server_init () =
   let print_server_starting_message () =
@@ -1035,7 +1040,7 @@ let server_init () =
           ; ("Killing stray sparse_dd processes", [], Sparse_dd_wrapper.killall)
           ; ( "Registering http handlers"
             , []
-            , fun () -> List.iter Xapi_http.add_handler common_http_handlers
+            , fun () -> List.iter Xapi_http.add_handler (common_http_handlers ())
             )
           ; ( "Registering master-only http handlers"
             , [Startup.OnlyMaster]
@@ -1085,6 +1090,10 @@ let server_init () =
             , [Startup.OnlyMaster]
             , fun () ->
                 Xapi_host_helpers.Configuration.start_watcher_thread ~__context
+            )
+          ; ( "Update database state of TLS verification"
+            , []
+            , fun () -> report_tls_verification ~__context
             )
           ; ( "Remote requests"
             , [Startup.OnThread]
