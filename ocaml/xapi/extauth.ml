@@ -74,6 +74,8 @@ let event_name_after_subject_add = "after-subject-add"
 
 let event_name_after_subject_remove = "after-subject-remove"
 
+let event_name_after_subject_update = "after-subject-update"
+
 let event_name_after_xapi_initialize = "after-xapi-initialize"
 
 let event_name_before_extauth_disable = "before-extauth-disable"

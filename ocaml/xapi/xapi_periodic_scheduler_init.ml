@@ -73,8 +73,8 @@ let register () =
       (fun __context -> Xapi_subject.update_all_subjects ~__context
     )
   in
-  let update_all_subjects_delay = 60.0 *. 15.0 in
-  (* initial delay = 15 minutes *)
+  let update_all_subjects_delay = 10.0 in
+  (* initial delay = 10 seconds *)
   if master then
     Xapi_periodic_scheduler.add_to_queue "Synchronising RRDs/messages"
       (Xapi_periodic_scheduler.Periodic sync_timer) sync_delay sync_func ;
