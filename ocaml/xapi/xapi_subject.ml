@@ -126,8 +126,12 @@ let update ~__context ~self =
     Xapi_auth.get_subject_information_from_identifier ~__context
       ~subject_identifier
   in
-  (* update locally the fresh information received from external directory service *)
-  Db.Subject.set_other_config ~__context ~self ~value:subject_info
+  if Db.Subject.get_other_config ~__context ~self <> subject_info then (
+    (* update locally the fresh information received from external directory service *)
+    Db.Subject.set_other_config ~__context ~self ~value:subject_info ;
+    true
+  ) else
+    false
 
 let update_all_subjects ~__context =
   (* checks if external authentication is enabled, otherwise it's useless to try to do the update *)
@@ -139,17 +143,28 @@ let update_all_subjects ~__context =
   else (* external authentication is enabled *)
     let subjects = Db.Subject.get_all ~__context in
     (* visits each subject in the table o(n) *)
-    List.iter
-      (fun subj ->
-        (* uses a best-effort attempt to update the subject information *)
-        (* therefore, if an exception was raised, just ignore it *)
-        try update ~__context ~self:subj
-        with e ->
-          debug "Error trying to update subject %s: %s"
-            (Db.Subject.get_subject_identifier ~__context ~self:subj)
-            (ExnHelper.string_of_exn e)
-        (* ignore this exception e, do not raise it again *))
-      subjects
+    let need_update_config =
+      List.fold_left
+        (fun updated subj ->
+          (* uses a best-effort attempt to update the subject information *)
+          (* therefore, if an exception was raised, just ignore it *)
+          try update ~__context ~self:subj || updated
+          with e ->
+            debug "Error trying to update subject %s: %s"
+              (Db.Subject.get_subject_identifier ~__context ~self:subj)
+              (ExnHelper.string_of_exn e) ;
+            (* ignore this exception e, do not raise it again *)
+            updated
+          )
+        false subjects
+    in
+    if need_update_config then
+      Xapi_stdext_threads.Threadext.Mutex.execute
+        Xapi_globs.serialize_pool_enable_disable_extauth (fun () ->
+          Extauth.call_extauth_hook_script_in_pool ~__context
+            Extauth.event_name_after_subject_update
+          |> ignore
+      )
 
 (* This function returns all permissions associated with a subject *)
 let get_permissions_name_label ~__context ~self =
