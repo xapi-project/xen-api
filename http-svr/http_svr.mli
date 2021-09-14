@@ -126,4 +126,8 @@ val headers : Unix.file_descr -> string list -> unit
 
 val read_body : ?limit:int -> Http.Request.t -> Buf_io.t -> string
 
-val request_of_bio : ?use_fastpath:bool -> Buf_io.t -> Http.Request.t option
+val request_of_bio :
+     ?use_fastpath:bool
+  -> ?proxy_seen:string
+  -> Buf_io.t
+  -> Http.Request.t option * string option
