@@ -154,8 +154,7 @@ let update_all_subjects ~__context =
               (Db.Subject.get_subject_identifier ~__context ~self:subj)
               (ExnHelper.string_of_exn e) ;
             (* ignore this exception e, do not raise it again *)
-            updated
-          )
+            updated)
         false subjects
     in
     if need_update_config then
@@ -163,8 +162,7 @@ let update_all_subjects ~__context =
         Xapi_globs.serialize_pool_enable_disable_extauth (fun () ->
           Extauth.call_extauth_hook_script_in_pool ~__context
             Extauth.event_name_after_subject_update
-          |> ignore
-      )
+          |> ignore)
 
 (* This function returns all permissions associated with a subject *)
 let get_permissions_name_label ~__context ~self =

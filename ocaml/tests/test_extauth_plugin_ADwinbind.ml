@@ -385,8 +385,7 @@ msDS-SupportedEncryptionTypes: 0|}
           ; account_expired= true
           ; account_locked= false
           ; password_expired= true
-          }
-      )
+          } )
     ; ( stdout_krbtgt
       , Ok
           {
