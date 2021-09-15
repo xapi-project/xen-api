@@ -323,6 +323,10 @@ def after_subject_remove(session, args):
     return refresh_dynamic_pam(session, args, "after_subject_remove")
 
 
+def after_subject_update(session, args):
+    return refresh_dynamic_pam(session, args, "after_subject_update")
+
+
 def after_roles_update(session, args):
     return refresh_dynamic_pam(session, args, "after_roles_update")
 
@@ -337,6 +341,7 @@ if __name__ == "__main__":
         "after-extauth-enable":  after_extauth_enable,
         "after-xapi-initialize": after_xapi_initialize,
         "after-subject-add":     after_subject_add,
+        "after-subject-update":  after_subject_update,
         "after-subject-remove":  after_subject_remove,
         "after-roles-update":    after_roles_update,
         "before-extauth-disable":before_extauth_disable,

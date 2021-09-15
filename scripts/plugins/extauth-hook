@@ -37,6 +37,12 @@ def after_subject_remove(session, args):
         return hdlr.after_subject_remove(session, args)
     return str(True)
 
+def after_subject_update(session, args):
+    hdlr = get_extauth_handler(args)
+    if hdlr:
+        return hdlr.after_subject_update(session, args)
+    return str(True)
+
 def after_roles_update(session, args):
     hdlr = get_extauth_handler(args)
     if hdlr:
@@ -54,10 +60,11 @@ def before_extauth_disable(session, args):
 if __name__ == "__main__":
     dispatch_tbl = {
         "after-extauth-enable":  after_extauth_enable,
-        "after-xapi-initialize": after_xapi_initialize, 
-        "after-subject-add":     after_subject_add, 
-        "after-subject-remove":  after_subject_remove, 
-        "after-roles-update":    after_roles_update, 
+        "after-xapi-initialize": after_xapi_initialize,
+        "after-subject-add":     after_subject_add,
+        "after-subject-remove":  after_subject_remove,
+        "after-subject-update":  after_subject_update,
+        "after-roles-update":    after_roles_update,
         "before-extauth-disable":before_extauth_disable,
     }
     XenAPIPlugin.dispatch(dispatch_tbl)

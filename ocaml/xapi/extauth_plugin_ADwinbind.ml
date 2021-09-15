@@ -213,56 +213,69 @@ module Ldap = struct
     end in
     let ldap fmt = fmt |> Printf.ksprintf @@ Printf.sprintf "ldap %s" in
     let* kvps = P.parse_kvp_map stdout <!> ldap "parsing failed '%s'" in
-    let get_string k =
-      match Map.find_opt k kvps with
+    let get_string key =
+      match Map.find_opt key kvps with
       | None ->
-          Error (ldap "missing key '%s'" k)
+          Error (ldap "missing key '%s'" key)
       | Some x ->
           Ok x
     in
-    let get_string_with_default ~k ~default =
-      match get_string k with Ok x -> Ok x | Error _ -> Ok default
+    let get_string_with_default ~key ~default =
+      match get_string key with Ok x -> Ok x | Error _ -> Ok default
     in
-    let get_int of_string k =
-      let* str = get_string k in
+    let get of_string key =
+      let* str = get_string key in
       try Ok (of_string str)
-      with _ -> Error (ldap "invalid value for key '%s'" k)
+      with _ -> Error (ldap "invalid value for key '%s'" key)
+    in
+    let get_with_default of_string ~key ~default =
+      match get of_string key with Ok x -> Ok x | Error _ -> Ok default
+    in
+    let windows_nt_time_to_unix_time x =
+      Int64.sub (Int64.div x 10000000L) 11644473600L
     in
     let default = "" in
-    let* name = get_string_with_default ~k:"name" ~default in
-    let* upn = get_string_with_default ~k:"userPrincipalName" ~default in
-    let* display_name = get_string_with_default ~k:"displayName" ~default in
-    let* user_account_control = get_int Int32.of_string "userAccountControl" in
-    let* account_expires = get_int Int64.of_string "accountExpires" in
-    let account_expired =
-      (* see https://docs.microsoft.com/en-us/windows/win32/adschema/a-accountexpires *)
-      let windows_nt_time_to_unix_time x =
-        Int64.sub (Int64.div x 10000000L) 11644473600L
-      in
-      match account_expires with
-      | x when x = 0L || x = Int64.max_int ->
+    let* name = get_string_with_default ~key:"name" ~default in
+    let* upn = get_string_with_default ~key:"userPrincipalName" ~default in
+    let* display_name = get_string_with_default ~key:"displayName" ~default in
+    let* user_account_control = get Int32.of_string "userAccountControl" in
+    let* account_expires = get Int64.of_string "accountExpires" in
+    let* password_expires_computed =
+      get_with_default Int64.of_string
+        ~key:"msDS-UserPasswordExpiryTimeComputed" ~default:Int64.max_int
+    in
+    (* see https://docs.microsoft.com/en-us/windows/win32/adschema/a-lockouttime *)
+    let* lockout_time =
+      get_with_default Int64.of_string ~key:"lockoutTime" ~default:0L
+    in
+    let is_expired zero_expired = function
+      | 0L ->
+          zero_expired
+      | i when i = Int64.max_int ->
           false
-      | i ->
+      | _ as t ->
           let expire_unix_time =
-            windows_nt_time_to_unix_time i |> Int64.to_float
+            windows_nt_time_to_unix_time t |> Int64.to_float
           in
           expire_unix_time < Unix.time ()
     in
+
     let open Int32 in
     (* see https://docs.microsoft.com/en-us/windows/win32/adschema/a-useraccountcontrol#remarks
      * for bit flag docs *)
     let disabled_bit = of_string "0x2" in
-    let lockout_bit = of_string "0x10" in
-    let passw_expire_bit = of_string "0x800000" in
     Ok
       {
         name
       ; display_name
       ; upn
-      ; account_expired
+        (* see https://docs.microsoft.com/en-us/windows/win32/adschema/a-accountexpires *)
+      ; account_expired= is_expired false account_expires
       ; account_disabled= logand user_account_control disabled_bit <> 0l
-      ; account_locked= logand user_account_control lockout_bit <> 0l
-      ; password_expired= logand user_account_control passw_expire_bit <> 0l
+      ; account_locked=
+          lockout_time <> 0L
+          (* see https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-adts/f9e9b7e2-c7ac-4db6-ba38-71d9696981e9 *)
+      ; password_expired= is_expired true password_expires_computed
       }
 
   let env_of_krb5 domain_netbios =
@@ -274,6 +287,18 @@ module Ldap = struct
 
   let query_user sid domain_netbios kdc =
     let env = env_of_krb5 domain_netbios in
+    (* msDS-UserPasswordExpiryTimeComputed not in the default attrs list, define it explictly here *)
+    let attrs =
+      [
+        "name"
+      ; "userPrincipalName"
+      ; "displayName"
+      ; "userAccountControl"
+      ; "accountExpires"
+      ; "msDS-UserPasswordExpiryTimeComputed"
+      ; "lockoutTime"
+      ]
+    in
     let* stdout =
       try
         (* Query KDC instead of use domain here
@@ -289,6 +314,7 @@ module Ldap = struct
           ; kdc
           ; "--machine-pass"
           ]
+          @ attrs
         in
         let stdout =
           Helpers.call_script ~env ~log_output:On_failure !Xapi_globs.net_cmd
