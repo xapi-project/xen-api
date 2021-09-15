@@ -70,12 +70,14 @@ let get_origin ctx = string_of_origin ctx.origin
 
 let database_of x = x.database
 
-(** Calls coming in from the unix socket are pre-authenticated *)
+(** Calls coming in from the main unix socket are pre-authenticated.
+    This excludes calls coming in on the unix socket that is used for
+    client-certificate auth. *)
 let is_unix_socket s =
-  match Unix.getpeername s with
-  | Unix.ADDR_UNIX _ ->
+  match Unix.getsockname s with
+  | Unix.ADDR_UNIX path when path = Xapi_globs.unix_domain_socket ->
       true
-  | Unix.ADDR_INET _ ->
+  | Unix.ADDR_INET _ | Unix.ADDR_UNIX _ ->
       false
 
 let default_database () =
@@ -87,9 +89,17 @@ let default_database () =
 let preauth ~__context =
   match __context.origin with
   | Internal ->
-      false
-  | Http (req, s) ->
-      is_unix_socket s
+      None
+  | Http (req, s) -> (
+    match Unix.getsockname s with
+    | Unix.ADDR_UNIX path when path = Xapi_globs.unix_domain_socket ->
+        Some `root
+    | Unix.ADDR_UNIX path when path = Xapi_globs.unix_domain_socket_clientcert
+      ->
+        Some `client_cert
+    | Unix.ADDR_UNIX _ | Unix.ADDR_INET _ ->
+        None
+  )
 
 let get_initial () =
   {
@@ -189,7 +199,7 @@ let _client_of_origin = function
   | Http (rq, fd) -> (
     match _client_of_rq rq with
     | Some client ->
-        (* this relies on 'protocol = proxy' in Helpers.Stunnel *)
+        (* this relies on 'protocol = proxy' in Xapi_stunnel_server *)
         Some (Https, client)
     | None -> (
       match Unix.getpeername fd with

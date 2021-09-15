@@ -717,7 +717,7 @@ open Datamodel_types
         Ref _pool, "self", "The pool";
         Set (Ref _repository), "value", "The set of repositories to be enabled"
       ]
-      ~allowed_roles:_R_POOL_ADMIN
+      ~allowed_roles:_R_POOL_OP
       ()
 
   let add_repository = call
@@ -728,7 +728,7 @@ open Datamodel_types
         Ref _pool, "self", "The pool";
         Ref _repository, "value", "The repository to be added to the enabled set"
       ]
-      ~allowed_roles:_R_POOL_ADMIN
+      ~allowed_roles:_R_POOL_OP
       ()
 
   let remove_repository = call
@@ -739,7 +739,7 @@ open Datamodel_types
         Ref _pool, "self", "The pool";
         Ref _repository, "value", "The repository to be removed"
       ]
-      ~allowed_roles:_R_POOL_ADMIN
+      ~allowed_roles:_R_POOL_OP
       ()
 
   let sync_updates = call
@@ -766,6 +766,27 @@ open Datamodel_types
         not ready to update. An empty list means the pool can be updated.")
       ~allowed_roles:_R_READ_ONLY
       ()
+
+  let enable_client_certificate_auth = call
+    ~name:"enable_client_certificate_auth"
+    ~lifecycle:[Published, rel_next, ""]
+    ~doc:"Enable client certificate authentication on the pool"
+    ~params:[
+      Ref _pool, "self", "The pool";
+      String, "name", "The name (CN/SAN) that an incoming client certificate must have to allow authentication"
+    ]
+    ~allowed_roles:_R_POOL_OP
+    ()
+
+  let disable_client_certificate_auth = call
+    ~name:"disable_client_certificate_auth"
+    ~lifecycle:[Published, rel_next, ""]
+    ~doc:"Disable client certificate authentication on the pool"
+    ~params:[
+      Ref _pool, "self", "The pool"
+    ]
+    ~allowed_roles:_R_POOL_OP
+    ()
 
   (** A pool class *)
   let t =
@@ -850,6 +871,8 @@ open Datamodel_types
         ; remove_repository
         ; sync_updates
         ; check_update_readiness
+        ; enable_client_certificate_auth
+        ; disable_client_certificate_auth
         ]
       ~contents:
         ([uid ~in_oss_since:None _pool] @
@@ -898,5 +921,7 @@ open Datamodel_types
          ; field ~in_product_since:rel_stockholm_psr ~qualifier:RW ~ty:Bool ~default_value:(Some (VBool false)) "is_psr_pending" "True if either a PSR is running or we are waiting for a PSR to be re-run"
          ; field ~qualifier:DynamicRO ~in_product_since:rel_next ~lifecycle:[Published, rel_next, ""] ~ty:Bool ~default_value:(Some (VBool false)) "tls_verification_enabled" "True iff TLS certificate verification is enabled"
          ; field ~in_product_since:rel_next ~qualifier:DynamicRO ~ty:(Set (Ref _repository)) ~ignore_foreign_key:true "repositories" ~default_value:(Some (VSet [])) "The set of currently enabled repositories"
+         ; field ~qualifier:DynamicRO ~in_product_since:rel_next ~lifecycle:[Published, rel_next, ""] ~ty:Bool ~default_value:(Some (VBool false)) "client_certificate_auth_enabled" "True if authentication by TLS client certificates is enabled"
+         ; field ~qualifier:DynamicRO ~in_product_since:rel_next ~lifecycle:[Published, rel_next, ""] ~ty:String ~default_value:(Some (VString "")) "client_certificate_auth_name" "The name (CN/SAN) that an incoming client certificate must have to allow authentication"
          ])
       ()

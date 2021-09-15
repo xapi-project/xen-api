@@ -373,10 +373,10 @@ let bring_up_management_if ~__context () =
     in
     if management_if = "" then (
       debug "No management interface defined (management is disabled)" ;
-      Xapi_mgmt_iface.run ~__context ~mgmt_enabled:false
+      Xapi_mgmt_iface.run ~__context ~mgmt_enabled:false ()
     ) else (
       Xapi_mgmt_iface.change management_if management_address_type ;
-      Xapi_mgmt_iface.run ~__context ~mgmt_enabled:true ;
+      Xapi_mgmt_iface.run ~__context ~mgmt_enabled:true () ;
       match Helpers.get_management_ip_addr ~__context with
       | Some "127.0.0.1" ->
           debug "Received 127.0.0.1 as a management IP address; ignoring"

@@ -14,6 +14,7 @@
 open Db_filter_types
 open Xapi_stdext_pervasives.Pervasiveext
 open Xapi_stdext_threads.Threadext
+module Unixext = Xapi_stdext_unix.Unixext
 
 module D = Debug.Make (struct let name = "xapi_mgmt_iface" end)
 
@@ -28,68 +29,21 @@ let update_mh_info interface =
   in
   ()
 
-let update_certificates ~__context () =
-  info "syncing certificates on xapi start" ;
-  match Certificates_sync.update ~__context with
-  | Ok () ->
-      info "successfully synced certificates"
-  | Error (`Msg (msg, _)) ->
-      error "Failed to update host certificates: %s" msg
-  | exception e ->
-      error "Failed to update host certificates: %s" (Printexc.to_string e)
-
-module Stunnel : sig
-  val restart : __context:Context.t -> accept:string -> unit
-
-  val reconfigure : __context:Context.t -> unit
-end = struct
-  let accept_cached_m = Mutex.create ()
-
-  let accept_cached = ref None
-
-  let _restart_no_cache ~__context ~accept =
-    let (_ : Thread.t) =
-      Thread.create
-        (fun () ->
-          Helpers.Stunnel.restart ~__context ~accept ;
-          update_certificates ~__context ()
-          )
-        ()
-    in
-    ()
-
-  let restart ~__context ~accept =
-    info "Restarting stunnel (accepting connections on %s)" accept ;
-    (* cache `accept` so client can call `reconfigure` easily *)
-    Mutex.execute accept_cached_m (fun () -> accept_cached := Some accept) ;
-    _restart_no_cache ~__context ~accept
-
-  let reconfigure ~__context =
-    let f =
-      Mutex.execute accept_cached_m (fun () ->
-          match !accept_cached with
-          | None ->
-              fun () ->
-                D.warn
-                  "reconfigure: accept is not set, so not restarting stunnel"
-          | Some accept ->
-              fun () -> _restart_no_cache ~__context ~accept
-      )
-    in
-    f ()
-end
-
 module Server : sig
   type listening_mode = Off | Any | Local of Addresses.t
 
   val update : __context:Context.t -> listening_mode -> unit
 
   val current_mode : unit -> listening_mode
+
+  val is_ipv6_enabled : unit -> bool
 end = struct
   (* Keep track of the management interface server thread.
      Stores a key into the table in Http_srv which identifies the server thread bound
      to the management IP. *)
   let management_servers = ref []
+
+  let ipv6_enabled = ref false
 
   let stop () =
     debug "Shutting down the old management interface (if any)" ;
@@ -100,39 +54,35 @@ end = struct
      _the_ management interface. Hosts in a pool use the IP addresses of this interface
      to communicate with each other. *)
   let start ~__context ?addr () =
-    let socket, stunnel_accept =
+    let socket =
       match addr with
       | None -> (
           info "Starting new server (listening on all IP addresses)" ;
           try
             (* Is it IPv6 ? *)
             let addr = Unix.inet6_addr_any in
-            ( Xapi_http.bind (Unix.ADDR_INET (addr, Constants.http_port))
-            , ":::" ^ string_of_int !Constants.https_port
-            )
+            let socket =
+              Xapi_http.bind (Unix.ADDR_INET (addr, Constants.http_port))
+            in
+            ipv6_enabled := true ;
+            socket
           with _ ->
             (* No. *)
             let addr = Unix.inet_addr_any in
-            ( Xapi_http.bind (Unix.ADDR_INET (addr, Constants.http_port))
-            , string_of_int !Constants.https_port
-            )
+            let socket =
+              Xapi_http.bind (Unix.ADDR_INET (addr, Constants.http_port))
+            in
+            ipv6_enabled := false ;
+            socket
         )
-      | Some ip -> (
+      | Some ip ->
           info "Starting new server (listening on %s)" ip ;
           let addr = Unix.inet_addr_of_string ip in
           let sockaddr = Unix.ADDR_INET (addr, Constants.http_port) in
-          ( Xapi_http.bind sockaddr
-          , match Unix.domain_of_sockaddr sockaddr with
-            | Unix.PF_INET6 ->
-                "::1:" ^ string_of_int !Constants.https_port
-            | _ ->
-                "127.0.0.1:" ^ string_of_int !Constants.https_port
-          )
-        )
+          Xapi_http.bind sockaddr
     in
     Http_svr.start Xapi_http.server socket ;
     management_servers := socket :: !management_servers ;
-    Stunnel.restart ~__context ~accept:stunnel_accept ;
     if Pool_role.is_master () && addr = None then
       (* NB if we synchronously bring up the management interface on a master with a blank
          database this can fail... this is ok because the database will be synchronised later *)
@@ -168,11 +118,52 @@ end = struct
     mode := next_mode
 
   let current_mode () = !mode
+
+  let is_ipv6_enabled () = !ipv6_enabled
+end
+
+module Client_certificate_auth_server = struct
+  let management_server = ref None
+
+  let must_be_running ~__context ~mgmt_enabled =
+    let pool = Helpers.get_pool ~__context in
+    mgmt_enabled
+    && Pool_role.is_master ()
+    && Db.Pool.get_client_certificate_auth_enabled ~__context ~self:pool
+
+  let configure_port cmd =
+    let cmd' = if cmd then "open" else "close" in
+    let _ =
+      Helpers.call_script
+        !Xapi_globs.firewall_port_config_script
+        [cmd'; string_of_int Constants.https_port_clientcert]
+    in
+    ()
+
+  let start () =
+    if !management_server = None then (
+      let sock_path = Xapi_globs.unix_domain_socket_clientcert in
+      Unixext.mkdir_safe (Filename.dirname sock_path) 0o700 ;
+      Unixext.unlink_safe sock_path ;
+      let domain_sock = Xapi_http.bind (Unix.ADDR_UNIX sock_path) in
+      Http_svr.start Xapi_http.server domain_sock ;
+      configure_port true ;
+      management_server := Some domain_sock
+    )
+
+  let stop () =
+    Option.iter Http_svr.stop !management_server ;
+    configure_port false ;
+    management_server := None
+
+  let update ~__context ~mgmt_enabled =
+    if must_be_running ~__context ~mgmt_enabled then
+      start ()
+    else
+      stop ()
 end
 
 (* High-level interface *)
-
-let reconfigure_stunnel = Stunnel.reconfigure
 
 let change interface primary_address_type =
   Xapi_inventory.update Xapi_inventory._management_interface interface ;
@@ -196,9 +187,12 @@ let next_server_mode ~mgmt_enabled =
 
 let mgmt_is_enabled () = Server.current_mode () = Any
 
-let run ~__context ~mgmt_enabled =
+let run ~__context ?mgmt_enabled () =
+  let mgmt_enabled = Option.value ~default:(mgmt_is_enabled ()) mgmt_enabled in
   Mutex.execute management_m (fun () ->
-      next_server_mode ~mgmt_enabled |> Server.update ~__context
+      Client_certificate_auth_server.update ~__context ~mgmt_enabled ;
+      next_server_mode ~mgmt_enabled |> Server.update ~__context ;
+      Xapi_stunnel_server.restart ~__context (Server.is_ipv6_enabled ())
   )
 
 let reconfigure_himn ~__context ~addr =

@@ -81,6 +81,9 @@ let packs_dir = ref (Filename.concat "/etc/xensource" "installed-repos")
 
 let unix_domain_socket = Filename.concat "/var/lib/xcp" "xapi"
 
+let unix_domain_socket_clientcert =
+  Filename.concat "/var/lib/xcp" "xapi-clientcert"
+
 let storage_unix_domain_socket = Filename.concat "/var/lib/xcp" "storage"
 
 let local_database = Filename.concat "/var/lib/xcp" "local.db"

@@ -1749,6 +1749,15 @@ let pool_rotate_secret printer rpc session_id _params =
 let pool_enable_tls_verification printer rpc session_id _params =
   Client.Pool.enable_tls_verification rpc session_id
 
+let pool_enable_client_certificate_auth printer rpc session_id params =
+  let pool = get_pool_with_default rpc session_id params "uuid" in
+  let name = List.assoc "name" params in
+  Client.Pool.enable_client_certificate_auth rpc session_id pool name
+
+let pool_disable_client_certificate_auth printer rpc session_id params =
+  let pool = get_pool_with_default rpc session_id params "uuid" in
+  Client.Pool.disable_client_certificate_auth rpc session_id pool
+
 let pool_sync_updates printer rpc session_id params =
   let pool = get_pool_with_default rpc session_id params "uuid" in
   let force = get_bool_param params "force" in
