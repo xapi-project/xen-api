@@ -131,15 +131,6 @@ module Client_certificate_auth_server = struct
     && Pool_role.is_master ()
     && Db.Pool.get_client_certificate_auth_enabled ~__context ~self:pool
 
-  let configure_port cmd =
-    let cmd' = if cmd then "open" else "close" in
-    let _ =
-      Helpers.call_script
-        !Xapi_globs.firewall_port_config_script
-        [cmd'; string_of_int Constants.https_port_clientcert]
-    in
-    ()
-
   let start () =
     if !management_server = None then (
       let sock_path = Xapi_globs.unix_domain_socket_clientcert in
@@ -147,13 +138,11 @@ module Client_certificate_auth_server = struct
       Unixext.unlink_safe sock_path ;
       let domain_sock = Xapi_http.bind (Unix.ADDR_UNIX sock_path) in
       Http_svr.start Xapi_http.server domain_sock ;
-      configure_port true ;
       management_server := Some domain_sock
     )
 
   let stop () =
     Option.iter Http_svr.stop !management_server ;
-    configure_port false ;
     management_server := None
 
   let update ~__context ~mgmt_enabled =
