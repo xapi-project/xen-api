@@ -79,6 +79,7 @@ end = struct
           info "Starting new server (listening on %s)" ip ;
           let addr = Unix.inet_addr_of_string ip in
           let sockaddr = Unix.ADDR_INET (addr, Constants.http_port) in
+          ipv6_enabled := Unix.domain_of_sockaddr sockaddr = Unix.PF_INET6 ;
           Xapi_http.bind sockaddr
     in
     Http_svr.start Xapi_http.server socket ;
