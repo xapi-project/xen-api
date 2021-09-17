@@ -65,7 +65,7 @@ let get_ip_from_url url =
   | _, _ ->
       failwith (Printf.sprintf "Cannot extract foreign IP address from: %s" url)
 
-let remote_of_dest dest =
+let remote_of_dest ~__context dest =
   let master_url = List.assoc _master dest in
   let xenops_url = List.assoc _xenops dest in
   let session_id = Ref.of_string (List.assoc _session_id dest) in
@@ -73,7 +73,14 @@ let remote_of_dest dest =
   let remote_master_ip = get_ip_from_url master_url in
   let dest_host_string = List.assoc _host dest in
   let dest_host = Ref.of_string dest_host_string in
-  let rpc = Helpers.make_remote_rpc remote_master_ip in
+  let rpc =
+    match Db.Host.get_uuid ~__context ~self:dest_host with
+    | _ ->
+        Helpers.make_remote_rpc remote_master_ip
+    | exception _ ->
+        (* host unknown - this is a cross-pool migration *)
+        Helpers.make_remote_rpc ~verify_cert:None remote_master_ip
+  in
   let sm_url = List.assoc _sm dest in
   {
     rpc
@@ -1061,7 +1068,7 @@ let migrate_send' ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~vgpu_map
     (Db.VM.get_uuid ~__context ~self:vm) ;
   let open Xapi_xenops in
   let localhost = Helpers.get_localhost ~__context in
-  let remote = remote_of_dest dest in
+  let remote = remote_of_dest ~__context dest in
   (* Copy mode means we don't destroy the VM on the source host. We also don't
      	   copy over the RRDs/messages *)
   let copy = try bool_of_string (List.assoc "copy" options) with _ -> false in
@@ -1571,7 +1578,7 @@ let migration_type ~__context ~remote =
 let assert_can_migrate ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options
     ~vgpu_map =
   assert_licensed_storage_motion ~__context ;
-  let remote = remote_of_dest dest in
+  let remote = remote_of_dest ~__context dest in
   let force =
     try bool_of_string (List.assoc "force" options) with _ -> false
   in
@@ -1743,7 +1750,7 @@ let assert_can_migrate ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options
 let assert_can_migrate_sender ~__context ~vm ~dest ~live ~vdi_map ~vif_map
     ~vgpu_map ~options =
   (* Check that the destination host has compatible pGPUs -- if needed *)
-  let remote = remote_of_dest dest in
+  let remote = remote_of_dest ~__context dest in
   let remote_for_migration_type =
     match migration_type ~__context ~remote with
     | `intra_pool ->
