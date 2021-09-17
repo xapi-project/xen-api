@@ -3,6 +3,8 @@
 # Make an iSCSI IQN for localhost
 
 set -e
+# To debug upgrade failures
+set -x
 
 export FIRSTBOOT_DATA_DIR=/etc/firstboot.d/data
 export XENSOURCE_INVENTORY=/etc/xensource-inventory
