@@ -828,11 +828,7 @@ let send_messages ~__context ~cls ~obj_uuid ~session_id ~remote_address =
   in
   let open Xmlrpc_client in
   let transport =
-    SSL
-      ( SSL.make ~verify_cert:(Stunnel_client.pool ()) ()
-      , remote_address
-      , !Constants.https_port
-      )
+    SSL (SSL.make ~verify_cert:None (), remote_address, !Constants.https_port)
   in
   with_transport transport
     (with_http request (fun (rsp, fd) ->
