@@ -152,7 +152,7 @@ let unlocked_gc () =
   Hashtbl.iter
     (fun ep ids ->
       let kept_ids = List.filter (fun id -> not (List.mem id !to_gc)) ids in
-      if kept_ids != [] then
+      if kept_ids <> [] then
         Hashtbl.add index' ep kept_ids
       else
         ()
