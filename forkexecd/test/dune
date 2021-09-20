@@ -1,15 +1,11 @@
 (executable
-  (name fe_test)
-  (libraries
-    forkexec
-    uuidm
-    xapi-stdext-unix
-  )
-)
+ (modes byte exe)
+ (name fe_test)
+ (libraries forkexec uuidm xapi-stdext-unix))
 
-(alias
-  (name runtest)
-  (package xapi-forkexecd)
-  (deps fe_test.sh fe_test.exe ../src/fe_main.exe)
-  (action (run ./fe_test.sh))
-)
+(rule
+ (alias runtest)
+ (package xapi-forkexecd)
+ (deps fe_test.sh fe_test.exe ../src/fe_main.exe)
+ (action
+  (run ./fe_test.sh)))
