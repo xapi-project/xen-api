@@ -1,5 +1,9 @@
 (library
- (name rrd_transport_file)
- (public_name rrd-transport.file)
- (wrapped false)
- (libraries rrd_transport_lib))
+  (name rrd_transport_file)
+  (public_name rrd-transport.file)
+  (wrapped false)
+  (libraries
+    rrd_transport_lib
+  )
+)
+

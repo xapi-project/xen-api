@@ -1,9 +1,24 @@
 (executable
- (modes byte exe)
- (name perftest)
- (public_name perftest)
- (package xapi)
- (libraries http-svr rpclib.core threads.posix xapi-consts xapi-cli-protocol
-   xapi-client xapi-datamodel xapi-idl xapi-inventory xapi-types
-   xapi-stdext-pervasives xapi-stdext-std xapi-stdext-threads
-   xapi-stdext-unix xml-light2))
+  (modes byte exe)
+  (name perftest)
+  (public_name perftest)
+  (package xapi)
+  (libraries
+    http-svr
+    rpclib.core
+    threads.posix
+    xapi-consts
+    xapi-cli-protocol
+    xapi-client
+    xapi-datamodel
+    xapi-idl
+    xapi-inventory
+    xapi-types
+    xapi-stdext-pervasives
+    xapi-stdext-std
+    xapi-stdext-threads
+    xapi-stdext-unix
+    xml-light2
+  )
+)
+

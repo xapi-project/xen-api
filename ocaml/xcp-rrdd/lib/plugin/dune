@@ -1,37 +1,58 @@
 (library
- (name rrdd_plugin_base)
- (public_name rrdd-plugin.base)
- (flags
-  (:standard -bin-annot))
- (wrapped false)
- (modules utils reporter)
- (libraries astring forkexec xapi-stdext-pervasives xapi-stdext-std
-   xapi-stdext-threads xapi-stdext-unix threads xapi-rrd rrd-transport.file
-   xapi-idl.rrd xenstore_transport.unix xenstore.unix))
+  (name rrdd_plugin_base)
+  (public_name rrdd-plugin.base)
+  (flags (:standard -bin-annot))
+  (wrapped false)
+  (modules utils reporter)
+  (libraries
+    astring
+    forkexec
+    xapi-stdext-pervasives
+    xapi-stdext-std
+    xapi-stdext-threads
+    xapi-stdext-unix
+    threads
+    xapi-rrd
+    rrd-transport.file
+    xapi-idl.rrd
+    xenstore_transport.unix
+    xenstore.unix
+  )
+)
 
 (library
- (name rrdd_plugin_local)
- (public_name rrdd-plugin.local)
- (flags
-  (:standard -bin-annot))
- (wrapped false)
- (modules reporter_local)
- (libraries rrdd_plugin_base))
+  (name rrdd_plugin_local)
+  (public_name rrdd-plugin.local)
+  (flags (:standard -bin-annot))
+  (wrapped false)
+  (modules reporter_local)
+  (libraries
+    rrdd_plugin_base
+  )
+)
 
 (library
- (name rrdd_plugin_interdomain)
- (public_name rrdd-plugin.interdomain)
- (flags
-  (:standard -bin-annot))
- (wrapped false)
- (modules reporter_interdomain)
- (libraries rrdd_plugin_base rrd-transport.page))
+  (name rrdd_plugin_interdomain)
+  (public_name rrdd-plugin.interdomain)
+  (flags (:standard -bin-annot))
+  (wrapped false)
+  (modules reporter_interdomain)
+  (libraries
+    rrdd_plugin_base
+    rrd-transport.page
+  )
+)
 
 (library
- (name rrdd_plugin)
- (public_name rrdd-plugin)
- (flags
-  (:standard -bin-annot))
- (wrapped false)
- (modules rrdd_plugin)
- (libraries rrdd_plugin_local rrdd_plugin_interdomain rrd-transport))
+  (name rrdd_plugin)
+  (public_name rrdd-plugin)
+  (flags (:standard -bin-annot))
+  (wrapped false)
+  (modules rrdd_plugin)
+  (libraries
+    rrdd_plugin_local
+    rrdd_plugin_interdomain
+    rrd-transport
+  )
+)
+

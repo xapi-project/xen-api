@@ -1,10 +1,20 @@
 (library
- (name xen_api_client)
- (public_name xen-api-client)
- (flags
-  (:standard -w -39))
- (wrapped false)
- (preprocess
-  (pps ppx_deriving_rpc))
- (libraries astring cohttp re.str rpclib xapi-rrd uri uuidm xmlm xapi-client
-   xapi-types))
+  (name xen_api_client)
+  (public_name xen-api-client)
+  (flags (:standard -w -39))
+  (wrapped false)
+  (preprocess (pps ppx_deriving_rpc))
+  (libraries
+    astring
+    cohttp
+    re.str
+    rpclib
+    xapi-rrd
+    uri
+    uuidm
+    xmlm
+    xapi-client
+    xapi-types
+  )
+)
+

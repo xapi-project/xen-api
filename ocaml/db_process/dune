@@ -1,11 +1,13 @@
 (executable
- (modes byte exe)
- (name xapi_db_process)
- (public_name xapi-db-process)
- (package xapi)
- (libraries
-  unix
-  xapi-inventory
-  xapi-database
-  xapi-idl ;for the Debug module
-  ))
+  (modes byte exe)
+  (name xapi_db_process)
+  (public_name xapi-db-process)
+  (package xapi)
+  (libraries
+    unix
+    xapi-inventory
+    xapi-database
+    xapi-idl
+  )
+)
+

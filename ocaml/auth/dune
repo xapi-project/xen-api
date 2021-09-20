@@ -1,7 +1,10 @@
 (library
- (foreign_stubs
-  (language c)
-  (names xa_auth xa_auth_stubs))
- (name pam)
- (c_library_flags -lpam)
- (wrapped false))
+  (foreign_stubs
+    (language c)
+    (names xa_auth xa_auth_stubs)
+  )
+  (name pam)
+  (c_library_flags -lpam)
+  (wrapped false)
+)
+

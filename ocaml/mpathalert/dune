@@ -1,7 +1,18 @@
 (executable
- (modes byte exe)
- (name mpathalert)
- (public_name mpathalert)
- (package xapi)
- (libraries http-svr threads.posix uuid xapi-client xapi-consts xapi-types
-   xapi-stdext-std xapi-stdext-threads xapi-stdext-unix))
+  (modes byte exe)
+  (name mpathalert)
+  (public_name mpathalert)
+  (package xapi)
+  (libraries
+    http-svr
+    threads.posix
+    uuid
+    xapi-client
+    xapi-consts
+    xapi-types
+    xapi-stdext-std
+    xapi-stdext-threads
+    xapi-stdext-unix
+  )
+)
+

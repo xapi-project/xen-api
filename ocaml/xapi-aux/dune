@@ -1,6 +1,19 @@
 (library
- (name xapi_aux)
- (libraries astring cstruct forkexec ipaddr tar xapi-consts xapi-idl
-   xapi-idl.network xapi-stdext-threads xapi-stdext-unix xapi-types
-   xml-light2)
- (wrapped false))
+  (name xapi_aux)
+  (libraries
+    astring
+    cstruct
+    forkexec
+    ipaddr
+    tar
+    xapi-consts
+    xapi-idl
+    xapi-idl.network
+    xapi-stdext-threads
+    xapi-stdext-unix
+    xapi-types
+    xml-light2
+  )
+  (wrapped false)
+)
+

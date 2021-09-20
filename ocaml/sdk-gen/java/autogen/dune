@@ -1,4 +1,7 @@
 (alias
- (name generate)
- (deps
-  (source_tree .)))
+  (name generate)
+  (deps
+    (source_tree .)
+  )
+)
+

@@ -1,28 +1,44 @@
 (library
- (name xapi_datamodel)
- (public_name xapi-datamodel)
- (modules datamodel datamodel_common datamodel_utils datamodel_types
-   datamodel_errors datamodel_roles datamodel_vm datamodel_host
-   datamodel_pool datamodel_cluster datamodel_cluster_host dm_api escaping
-   datamodel_values datamodel_schema datamodel_certificate
-   datamodel_diagnostics datamodel_repository)
- (flags
-  (:standard -warn-error +a-3-4-6-9-27-28-29))
- (libraries ppx_sexp_conv.runtime-lib rpclib.core sexplib0 sexpr threads
-   xapi-backtrace xapi-consts xapi-database xapi-stdext-date xapi-stdext-std
-   xapi-stdext-unix)
- (wrapped false)
- (preprocess
-  (pps ppx_deriving_rpc)))
+  (name xapi_datamodel)
+  (public_name xapi-datamodel)
+  (modules datamodel datamodel_common datamodel_utils datamodel_types
+    datamodel_errors datamodel_roles datamodel_vm datamodel_host
+    datamodel_pool datamodel_cluster datamodel_cluster_host dm_api escaping
+    datamodel_values datamodel_schema datamodel_certificate
+    datamodel_diagnostics datamodel_repository)
+  (flags (:standard -warn-error +a-3-4-6-9-27-28-29))
+  (libraries
+    ppx_sexp_conv.runtime-lib
+    rpclib.core
+    sexplib0
+    sexpr
+    threads
+    xapi-backtrace
+    xapi-consts
+    xapi-database
+    xapi-stdext-date
+    xapi-stdext-std
+    xapi-stdext-unix
+  )
+  (wrapped false)
+  (preprocess (pps ppx_deriving_rpc))
+)
 
 (executable
- (modes byte exe)
- (name datamodel_main)
- (modules datamodel_main dot_backend dtd_backend markdown_backend)
- (libraries xapi-datamodel))
+  (modes byte exe)
+  (name datamodel_main)
+  (modules datamodel_main dot_backend dtd_backend markdown_backend)
+  (libraries
+    xapi-datamodel
+  )
+)
 
 (test
- (name schematest)
- (modules schematest)
- (libraries xapi_datamodel)
- (package xapi-datamodel))
+  (name schematest)
+  (modules schematest)
+  (libraries
+    xapi_datamodel
+  )
+  (package xapi-datamodel)
+)
+

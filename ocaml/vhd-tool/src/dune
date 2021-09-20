@@ -1,28 +1,30 @@
 (library
- (foreign_stubs
-  (language c)
-  (names direct_copy_stubs))
- (name local_lib)
- (wrapped false)
- (flags
-  (:standard -w -34-32-39))
- (libraries
-  cohttp-lwt
-  cstruct
-  io-page.unix
-  lwt
-  nbd-unix
-  re.str
-  rpclib
-  rpclib.json
-  sha
-  tar
-  vhd-format
-  vhd-format-lwt
-  tapctl
-  xenstore.client
-  xenstore.unix
-  xenstore_transport
-  xenstore_transport.unix)
- (preprocess
-  (pps ppx_deriving_rpc ppx_cstruct)))
+  (foreign_stubs
+    (language c)
+    (names direct_copy_stubs)
+  )
+  (name local_lib)
+  (wrapped false)
+  (flags (:standard -w -34-32-39))
+  (libraries
+    cohttp-lwt
+    cstruct
+    io-page.unix
+    lwt
+    nbd-unix
+    re.str
+    rpclib
+    rpclib.json
+    sha
+    tar
+    vhd-format
+    vhd-format-lwt
+    tapctl
+    xenstore.client
+    xenstore.unix
+    xenstore_transport
+    xenstore_transport.unix
+  )
+  (preprocess (pps ppx_deriving_rpc ppx_cstruct))
+)
+

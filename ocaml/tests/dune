@@ -1,42 +1,54 @@
 (test
- (name suite_alcotest)
- (package xapi)
- (flags
-  (:standard -warn-error +a-3-4-6-9-27-28-29-52))
- (modules
-  (:standard \ test_daemon_manager test_vdi_cbt test_event test_clustering
-    test_cluster_host test_cluster test_pusb test_network_sriov
-    test_vm_placement test_vm_helpers test_repository))
- (libraries alcotest astring fmt rresult xapi_internal xapi-stdext-date
-   xapi-stdext-std xapi-stdext-threads xapi-stdext-unix xapi-test-utils
-   tests_common)
- (preprocess
-  (pps ppx_deriving_rpc ppx_sexp_conv))
- (deps
-  (source_tree test_data)))
+  (name suite_alcotest)
+  (package xapi)
+  (flags (:standard -warn-error +a-3-4-6-9-27-28-29-52))
+  (modules
+    (:standard \ test_daemon_manager test_vdi_cbt test_event test_clustering
+      test_cluster_host test_cluster test_pusb test_network_sriov
+      test_vm_placement test_vm_helpers test_repository))
+  (libraries
+    alcotest
+    astring
+    fmt
+    rresult
+    xapi_internal
+    xapi-stdext-date
+    xapi-stdext-std
+    xapi-stdext-threads
+    xapi-stdext-unix
+    xapi-test-utils
+    tests_common
+  )
+  (preprocess (pps ppx_deriving_rpc ppx_sexp_conv))
+  (deps
+    (source_tree test_data)
+  )
+)
 
 (tests
- (names test_vm_helpers test_vm_placement test_network_sriov test_vdi_cbt
-   test_clustering test_pusb test_daemon_manager test_repository)
- (package xapi)
- (flags
-  (:standard -warn-error +a-3-4-6-9-27-28-29-52))
- (modules test_vm_helpers test_vm_placement test_network_sriov test_vdi_cbt
-   test_event test_clustering test_cluster_host test_cluster test_pusb
-   test_daemon_manager test_repository)
- (libraries alcotest xapi_internal tests_common)
- (preprocess
-  (pps ppx_deriving_rpc ppx_sexp_conv)))
+  (names test_vm_helpers test_vm_placement test_network_sriov test_vdi_cbt
+    test_clustering test_pusb test_daemon_manager test_repository)
+  (package xapi)
+  (flags (:standard -warn-error +a-3-4-6-9-27-28-29-52))
+  (modules test_vm_helpers test_vm_placement test_network_sriov test_vdi_cbt
+    test_event test_clustering test_cluster_host test_cluster test_pusb
+    test_daemon_manager test_repository)
+  (libraries
+    alcotest
+    xapi_internal
+    tests_common
+  )
+  (preprocess (pps ppx_deriving_rpc ppx_sexp_conv))
+)
 
 (rule
- (alias runtest)
- (package xapi)
- (deps
-  (:x ../xapi/xapi_main.exe))
- (action
-  (run ./check-no-xenctrl %{x})))
+  (alias runtest)
+  (package xapi)
+  (deps
+    (:x ../xapi/xapi_main.exe)
+  )
+  (action (run ./check-no-xenctrl %{x}))
+)
 
-(env
- (_
-  (env-vars
-   (XAPI_TEST 1))))
+(env (_ (env-vars (XAPI_TEST 1))))
+

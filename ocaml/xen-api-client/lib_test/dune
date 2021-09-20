@@ -1,12 +1,18 @@
 (executable
- (modes byte exe)
- (name xen_api_test)
- (libraries oUnit xen-api-client))
+  (modes byte exe)
+  (name xen_api_test)
+  (libraries
+    oUnit
+    xen-api-client
+  )
+)
 
 (rule
- (alias runtest)
- (deps
-  (:x xen_api_test.exe))
- (package xen-api-client)
- (action
-  (run %{x})))
+  (alias runtest)
+  (deps
+    (:x xen_api_test.exe)
+  )
+  (package xen-api-client)
+  (action (run %{x}))
+)
+

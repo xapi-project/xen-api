@@ -1,6 +1,9 @@
 (library
- (foreign_stubs
-  (language c)
-  (names unixpwd unixpwd_stubs))
- (name unixpwd_stubs)
- (wrapped false))
+  (foreign_stubs
+    (language c)
+    (names unixpwd unixpwd_stubs)
+  )
+  (name unixpwd_stubs)
+  (wrapped false)
+)
+

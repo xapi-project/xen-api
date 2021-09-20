@@ -1,14 +1,18 @@
 (rule
- (targets build_info.ml)
- (deps gen_build_info_ml.sh)
- (action
-  (with-stdout-to
-   %{targets}
-   (bash "./gen_build_info_ml.sh"))))
+  (targets build_info.ml)
+  (deps
+    gen_build_info_ml.sh
+  )
+  (action (with-stdout-to %{targets} (bash ./gen_build_info_ml.sh)))
+)
 
 (library
- (name xapi_version)
- (public_name xapi-consts.xapi_version)
- (modules xapi_version build_info)
- (libraries xapi-inventory)
- (wrapped false))
+  (name xapi_version)
+  (public_name xapi-consts.xapi_version)
+  (modules xapi_version build_info)
+  (libraries
+    xapi-inventory
+  )
+  (wrapped false)
+)
+

@@ -1,13 +1,28 @@
 (library
- (name daily_license_check)
- (modules daily_license_check)
- (libraries http-svr xapi-consts xapi-client xapi-types xapi-stdext-date))
+  (name daily_license_check)
+  (modules daily_license_check)
+  (libraries
+    http-svr
+    xapi-consts
+    xapi-client
+    xapi-types
+    xapi-stdext-date
+  )
+)
 
 (executable
- (modes byte exe)
- (name daily_license_check_main)
- (public_name daily-license-check)
- (package xapi)
- (modules daily_license_check_main)
- (libraries daily_license_check http-svr xapi-client xapi-types
-   xapi-stdext-date xapi-stdext-pervasives))
+  (modes byte exe)
+  (name daily_license_check_main)
+  (public_name daily-license-check)
+  (package xapi)
+  (modules daily_license_check_main)
+  (libraries
+    daily_license_check
+    http-svr
+    xapi-client
+    xapi-types
+    xapi-stdext-date
+    xapi-stdext-pervasives
+  )
+)
+

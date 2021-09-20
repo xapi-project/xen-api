@@ -1,76 +1,170 @@
 (rule
- (targets server.ml)
- (deps ../idl/ocaml_backend/gen_api_main.exe)
- (action
-  (run %{deps} -filterinternal true -gendebug -filter closed -mode server
-    -output %{targets})))
+  (targets server.ml)
+  (deps
+    ../idl/ocaml_backend/gen_api_main.exe
+  )
+  (action
+    (run %{deps} -filterinternal true -gendebug -filter closed -mode server
+      -output %{targets}))
+)
 
 (rule
- (targets db_actions.ml)
- (deps ../idl/ocaml_backend/gen_api_main.exe)
- (action
-  (run %{deps} -filterinternal false -filter nothing -mode db -output
-    %{targets})))
+  (targets db_actions.ml)
+  (deps
+    ../idl/ocaml_backend/gen_api_main.exe
+  )
+  (action
+    (run %{deps} -filterinternal false -filter nothing -mode db -output
+      %{targets}))
+)
 
 (rule
- (targets custom_actions.ml)
- (deps ../idl/ocaml_backend/gen_api_main.exe)
- (action
-  (run %{deps} -filterinternal true -filter closed -mode actions -output
-    %{targets})))
+  (targets custom_actions.ml)
+  (deps
+    ../idl/ocaml_backend/gen_api_main.exe
+  )
+  (action
+    (run %{deps} -filterinternal true -filter closed -mode actions -output
+      %{targets}))
+)
 
 (rule
- (targets rbac_static.ml)
- (deps ../idl/ocaml_backend/gen_api_main.exe)
- (action
-  (run %{deps} -filterinternal true -filter closed -mode rbac -output
-    %{targets})))
+  (targets rbac_static.ml)
+  (deps
+    ../idl/ocaml_backend/gen_api_main.exe
+  )
+  (action
+    (run %{deps} -filterinternal true -filter closed -mode rbac -output
+      %{targets}))
+)
 
 (rule
- (targets rbac_static.csv)
- (deps ../idl/ocaml_backend/gen_api_main.exe)
- (action
-  (run %{deps} -filterinternal true -gendebug -filter closed -mode rbac
-    -output %{targets})))
+  (targets rbac_static.csv)
+  (deps
+    ../idl/ocaml_backend/gen_api_main.exe
+  )
+  (action
+    (run %{deps} -filterinternal true -gendebug -filter closed -mode rbac
+      -output %{targets}))
+)
 
 (install
- (section share)
- (files rbac_static.csv)
- (package xapi))
+  (section share)
+  (files rbac_static.csv)
+  (package xapi)
+)
 
 (library
- (name xapi_internal)
- (wrapped false)
- (flags
-  (:standard -warn-error +a-3-4-6-9-27-28-29-52))
- (modules
-  (:standard \ xapi_main))
- (libraries angstrom astring cstruct base64 cohttp domain-name
-   ezxenstore.core fmt forkexec gencertlib gzip hex http-svr ipaddr
-   message-switch-core message-switch-unix mirage-crypto
-   mirage-crypto-rng.unix mtime mtime.clock.os pam pciutil pci ptime
-   rpclib.core rpclib.json rpclib.xml re result rresult rrd-transport.lib
-   rrd-transport.file rrdd-plugin.base rrdd-plugin.local sexplib sexplib0
-   sexpr sha stunnel tapctl tar tar-unix threads.posix unixpwd uri uuid uuidm
-   x509 xapi_aux xapi-backtrace xapi-consts xapi-consts.xapi_version
-   xapi-client xapi-cli-protocol xapi_cli_server xapi-database xapi-datamodel
-   xapi-idl xapi-idl.cluster xapi-idl.rrd xapi-idl.rrd.interface
-   xapi-idl.rrd.interface.types xapi-idl.storage xapi-idl.storage.interface
-   xapi-idl.storage.interface.types xapi-idl.xen xapi-idl.xen.interface
-   xapi-idl.xen.interface.types xapi-idl.network xapi-idl.v6 xapi-idl.memory
-   xapi-idl.gpumon xapi-idl.updates xapi-inventory xapi-rrd xapi-types
-   xapi-stdext-date xapi-stdext-encodings xapi-stdext-pervasives
-   xapi-stdext-std xapi-stdext-threads xapi-stdext-unix xapi-stdext-zerocheck
-   xapi-xenopsd xenstore_transport.unix xml-light2 xmlm xxhash yojson zstd)
- (preprocess
-  (pps ppx_deriving_rpc ppx_sexp_conv)))
+  (name xapi_internal)
+  (wrapped false)
+  (flags (:standard -warn-error +a-3-4-6-9-27-28-29-52))
+  (modules (:standard \ xapi_main))
+  (libraries
+    angstrom
+    astring
+    cstruct
+    base64
+    cohttp
+    domain-name
+    ezxenstore.core
+    fmt
+    forkexec
+    gencertlib
+    gzip
+    hex
+    http-svr
+    ipaddr
+    message-switch-core
+    message-switch-unix
+    mirage-crypto
+    mirage-crypto-rng.unix
+    mtime
+    mtime.clock.os
+    pam
+    pciutil
+    pci
+    ptime
+    rpclib.core
+    rpclib.json
+    rpclib.xml
+    re
+    result
+    rresult
+    rrd-transport.lib
+    rrd-transport.file
+    rrdd-plugin.base
+    rrdd-plugin.local
+    sexplib
+    sexplib0
+    sexpr
+    sha
+    stunnel
+    tapctl
+    tar
+    tar-unix
+    threads.posix
+    unixpwd
+    uri
+    uuid
+    uuidm
+    x509
+    xapi_aux
+    xapi-backtrace
+    xapi-consts
+    xapi-consts.xapi_version
+    xapi-client
+    xapi-cli-protocol
+    xapi_cli_server
+    xapi-database
+    xapi-datamodel
+    xapi-idl
+    xapi-idl.cluster
+    xapi-idl.rrd
+    xapi-idl.rrd.interface
+    xapi-idl.rrd.interface.types
+    xapi-idl.storage
+    xapi-idl.storage.interface
+    xapi-idl.storage.interface.types
+    xapi-idl.xen
+    xapi-idl.xen.interface
+    xapi-idl.xen.interface.types
+    xapi-idl.network
+    xapi-idl.v6
+    xapi-idl.memory
+    xapi-idl.gpumon
+    xapi-idl.updates
+    xapi-inventory
+    xapi-rrd
+    xapi-types
+    xapi-stdext-date
+    xapi-stdext-encodings
+    xapi-stdext-pervasives
+    xapi-stdext-std
+    xapi-stdext-threads
+    xapi-stdext-unix
+    xapi-stdext-zerocheck
+    xapi-xenopsd
+    xenstore_transport.unix
+    xml-light2
+    xmlm
+    xxhash
+    yojson
+    zstd
+  )
+  (preprocess (pps ppx_deriving_rpc ppx_sexp_conv))
+)
 
 (executable
- (modes byte exe)
- (name xapi_main)
- (public_name xapi)
- (package xapi)
- (modules xapi_main)
- (flags
-  (:standard -warn-error +a-3-4-6-9-27-28-29-52))
- (libraries xapi_internal xapi-idl xapi-stdext-unix))
+  (modes byte exe)
+  (name xapi_main)
+  (public_name xapi)
+  (package xapi)
+  (modules xapi_main)
+  (flags (:standard -warn-error +a-3-4-6-9-27-28-29-52))
+  (libraries
+    xapi_internal
+    xapi-idl
+    xapi-stdext-unix
+  )
+)
+

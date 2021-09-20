@@ -1,7 +1,19 @@
 (executable
- (modes byte exe)
- (name newcli)
- (public_name xe)
- (package xe)
- (libraries astring fpath safe-resources stunnel threads xapi-backtrace
-   xapi-cli-protocol xapi-stdext-pervasives xapi-stdext-std xapi-stdext-unix))
+  (modes byte exe)
+  (name newcli)
+  (public_name xe)
+  (package xe)
+  (libraries
+    astring
+    fpath
+    safe-resources
+    stunnel
+    threads
+    xapi-backtrace
+    xapi-cli-protocol
+    xapi-stdext-pervasives
+    xapi-stdext-std
+    xapi-stdext-unix
+  )
+)
+

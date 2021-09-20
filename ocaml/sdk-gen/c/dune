@@ -1,12 +1,19 @@
 (executable
- (modes byte exe)
- (name gen_c_binding)
- (libraries xapi-datamodel CommonFunctions astring))
+  (modes byte exe)
+  (name gen_c_binding)
+  (libraries
+    xapi-datamodel
+    CommonFunctions
+    astring
+  )
+)
 
 (rule
- (alias generate)
- (deps
-  (:x gen_c_binding.exe)
-  (source_tree templates))
- (action
-  (run %{x})))
+  (alias generate)
+  (deps
+    (:x gen_c_binding.exe)
+    (source_tree templates)
+  )
+  (action (run %{x}))
+)
+

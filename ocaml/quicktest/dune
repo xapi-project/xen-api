@@ -1,14 +1,37 @@
 (executable
- (modes byte exe)
- (name quicktest)
- (public_name quicktestbin)
- (package xapi)
- (flags
-  (:standard -warn-error +a-3-4-6-9-27-28-29-52))
- (libraries alcotest astring fmt forkexec http-svr mtime mtime.clock.os
-   result rresult rpclib.core threads.posix unix uuid xapi-client xapi-consts
-   xapi-datamodel xapi-idl xapi_internal xapi-types xapi-stdext-date
-   xapi-stdext-pervasives xapi-stdext-std xapi-stdext-threads
-   xapi-stdext-unix xenctrl xml-light2)
- (preprocess
-  (pps ppx_deriving_rpc ppx_sexp_conv)))
+  (modes byte exe)
+  (name quicktest)
+  (public_name quicktestbin)
+  (package xapi)
+  (flags (:standard -warn-error +a-3-4-6-9-27-28-29-52))
+  (libraries
+    alcotest
+    astring
+    fmt
+    forkexec
+    http-svr
+    mtime
+    mtime.clock.os
+    result
+    rresult
+    rpclib.core
+    threads.posix
+    unix
+    uuid
+    xapi-client
+    xapi-consts
+    xapi-datamodel
+    xapi-idl
+    xapi_internal
+    xapi-types
+    xapi-stdext-date
+    xapi-stdext-pervasives
+    xapi-stdext-std
+    xapi-stdext-threads
+    xapi-stdext-unix
+    xenctrl
+    xml-light2
+  )
+  (preprocess (pps ppx_deriving_rpc ppx_sexp_conv))
+)
+

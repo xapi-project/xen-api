@@ -1,4 +1,9 @@
 (tests
- (names test_unit test_scale)
- (package rrd-transport)
- (libraries oUnit rrd-transport))
+  (names test_unit test_scale)
+  (package rrd-transport)
+  (libraries
+    oUnit
+    rrd-transport
+  )
+)
+
