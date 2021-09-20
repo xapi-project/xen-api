@@ -1,0 +1,20 @@
+This software depends on:
+
+  * OCaml
+  * OASIS
+  * findlib
+  * syslog
+  * threads
+  * uuidm
+  * rpc
+  * fd-send-recv
+  * stdext
+
+To build:
+
+    oasis setup
+    make
+
+To install:
+
+    make install
