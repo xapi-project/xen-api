@@ -79,6 +79,7 @@
    sexpr
    sha
    stunnel
+   tapctl
    tar
    tar-unix
    threads.posix
@@ -114,7 +115,6 @@
    xapi-idl.updates
    xapi-inventory
    xapi-rrd
-   xapi-tapctl
    xapi-types
    xapi-stdext-date
    xapi-stdext-encodings

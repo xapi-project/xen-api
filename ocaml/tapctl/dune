@@ -1,6 +1,5 @@
 (library
   (name tapctl)
-  (public_name xapi-tapctl)
   (wrapped false)
   (flags (:standard -warn-error -A))
   (preprocess (pps ppx_deriving_rpc))
