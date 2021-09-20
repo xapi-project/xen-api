@@ -1,19 +1,7 @@
 (executable
-  (name rrdp_iostat)
-  (package rrdd-plugins)
-  (public_name xcp-rrdd-iostat)
-  (libraries
-    rrdd-plugin
-    rrdd-plugins.libs
-    xapi-stdext-std
-    xapi-stdext-unix
-    str
-    threads
-    uuid
-    ezxenstore
-    xenctrl
-    xenstore.unix
-    inotify
-    mtime.clock.os
-  )
-)
+ (modes byte exe)
+ (name rrdp_iostat)
+ (package rrdd-plugins)
+ (public_name xcp-rrdd-iostat)
+ (libraries rrdd-plugin rrdd-plugins.libs xapi-stdext-std xapi-stdext-unix
+   str threads uuid ezxenstore xenctrl xenstore.unix inotify mtime.clock.os))

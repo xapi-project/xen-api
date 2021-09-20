@@ -1,97 +1,56 @@
 (ocamllex db_filter_lex)
+
 (ocamlyacc db_filter_parse)
 
 (library
-  (name xapi_database)
-  (public_name xapi-database)
-  (flags (:standard -w -39))
-  (modules (:standard \
-    database_server_main
-    db_cache_test
-    block_device_io
-    unit_test_marshall
-    unit_test_sql)
-  )
-  (libraries
-    forkexec
-    gzip
-    ppx_sexp_conv.runtime-lib
-    rpclib.core
-    rpclib.json
-    safe-resources
-    sexplib0
-    sexpr
-    stunnel
-    threads.posix
-    http-svr
-    uuid
-    xapi-backtrace
-    xapi-stdext-encodings
-    xapi-stdext-pervasives
-    xapi-stdext-std
-    xapi-stdext-threads
-    xapi-stdext-unix
-    xapi-idl
-    xml-light2
-    xmlm
-  )
-  (wrapped false)
-  (preprocess (pps ppx_deriving_rpc ppx_sexp_conv))
-)
+ (name xapi_database)
+ (public_name xapi-database)
+ (flags
+  (:standard -w -39))
+ (modules
+  (:standard \ database_server_main db_cache_test block_device_io
+    unit_test_marshall unit_test_sql))
+ (libraries forkexec gzip ppx_sexp_conv.runtime-lib rpclib.core rpclib.json
+   safe-resources sexplib0 sexpr stunnel threads.posix http-svr uuid
+   xapi-backtrace xapi-stdext-encodings xapi-stdext-pervasives
+   xapi-stdext-std xapi-stdext-threads xapi-stdext-unix xapi-idl xml-light2
+   xmlm)
+ (wrapped false)
+ (preprocess
+  (pps ppx_deriving_rpc ppx_sexp_conv)))
 
 (executable
-  (name block_device_io)
-  (public_name block_device_io)
-  (package xapi)
-  (modules
-   block_device_io
-  )
-  (libraries
-    xapi-database
-    xapi-idl
-    xapi-stdext-pervasives
-    xapi-stdext-unix
-    uuid
-  )
-)
+ (modes byte exe)
+ (name block_device_io)
+ (public_name block_device_io)
+ (package xapi)
+ (modules block_device_io)
+ (libraries xapi-database xapi-idl xapi-stdext-pervasives xapi-stdext-unix
+   uuid))
 
 (executable
-  (name database_server_main)
-  (modules
-    database_server_main
-  )
-  (libraries
-    xapi-database
-    threads
-    xapi-stdext-threads
-    http-svr
-  )
-)
+ (modes byte exe)
+ (name database_server_main)
+ (modules database_server_main)
+ (libraries xapi-database threads xapi-stdext-threads http-svr))
 
 (tests
-  (names unit_test_marshall db_cache_test)
-  (package xapi-database)
-  (modules db_cache_test unit_test_marshall)
-  (libraries
-    alcotest
-    xapi-database
-  )
-)
+ (names unit_test_marshall db_cache_test)
+ (package xapi-database)
+ (modules db_cache_test unit_test_marshall)
+ (libraries alcotest xapi-database))
 
 (test
-  (name unit_test_sql)
-  (package xapi-database)
-  (modules unit_test_sql)
-  (deps sql_msg_example.txt)
-  (libraries
-    alcotest
-    xapi-database
-  )
-)
+ (name unit_test_sql)
+ (package xapi-database)
+ (modules unit_test_sql)
+ (deps sql_msg_example.txt)
+ (libraries alcotest xapi-database))
 
-(alias
-  (name runtest)
-  (deps (:x database_server_main.exe))
-  (package xapi-database)
-  (action (run %{x} --master db.xml --test))
-)
+(rule
+ (alias runtest)
+ (deps
+  (:x database_server_main.exe))
+ (package xapi-database)
+ (action
+  (run %{x} --master db.xml --test)))

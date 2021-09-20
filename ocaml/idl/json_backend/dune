@@ -1,16 +1,12 @@
 (executable
-  (name gen_json)
-  (libraries
-   xapi-datamodel
-   xapi-consts
-   xapi-stdext-unix
-   xapi-stdext-std
-  )
-)
+ (modes byte exe)
+ (name gen_json)
+ (libraries xapi-datamodel xapi-consts xapi-stdext-unix xapi-stdext-std))
 
-(alias
-  (name runtest)
-  (deps (:x gen_json.exe))
-  (package xapi-datamodel)
-  (action (run %{x}))
-)
+(rule
+ (alias runtest)
+ (deps
+  (:x gen_json.exe))
+ (package xapi-datamodel)
+ (action
+  (run %{x})))

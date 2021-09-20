@@ -1,9 +1,5 @@
-
-(library 
-  (name tests_common)
-  (modules :standard)
-  (wrapped false)
-  (libraries
-    xapi_internal
-    xapi-test-utils
-  ))
+(library
+ (name tests_common)
+ (modules :standard)
+ (wrapped false)
+ (libraries xapi_internal xapi-test-utils))

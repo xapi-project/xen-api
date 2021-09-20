@@ -1,25 +1,19 @@
 (executable
-  (name main)
-  (libraries
-    xapi-datamodel
-    str
-    CommonFunctions
-    astring
-  )
-)
+ (modes byte exe)
+ (name main)
+ (libraries xapi-datamodel str CommonFunctions astring))
 
 (rule
-  (targets LICENSE)
-  (deps ../LICENSE)
-  (action (copy %{deps} %{targets}))
-)
+ (targets LICENSE)
+ (deps ../LICENSE)
+ (action
+  (copy %{deps} %{targets})))
 
-(alias
-  (name generate)
-  (deps
-    LICENSE
-    (:x main.exe)
-    (source_tree templates)
-  )
-  (action (run %{x}))
-)
+(rule
+ (alias generate)
+ (deps
+  LICENSE
+  (:x main.exe)
+  (source_tree templates))
+ (action
+  (run %{x})))

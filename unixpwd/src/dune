@@ -1,4 +1,3 @@
 (library
-  (name unixpwd)
-  (libraries unixpwd_stubs)
-)
+ (name unixpwd)
+ (libraries unixpwd_stubs))

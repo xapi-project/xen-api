@@ -1,16 +1,6 @@
 (library
-  (name xen_api_client_async)
-  (public_name xen-api-client-async)
-  (libraries
-    async
-    async_unix
-    cohttp
-    core
-    rpclib
-    rpclib.json
-    threads
-    uri
-    xen-api-client
-    xmlm)
-  (wrapped false)
-)
+ (name xen_api_client_async)
+ (public_name xen-api-client-async)
+ (libraries async async_unix cohttp core rpclib rpclib.json threads uri
+   xen-api-client xmlm)
+ (wrapped false))

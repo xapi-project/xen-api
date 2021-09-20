@@ -1,40 +1,21 @@
 (library
-  (name rrdd_libs_internal)
-  (wrapped false)
-  (modules (:standard \ xcp_rrdd))
-  (flags (:standard -w -39))
-  (libraries
-    astring
-    dune-build-info
-    gzip
-    http-svr
-    inotify
-    mtime
-    mtime.clock.os
-    systemd
-    xapi-backtrace
-    xapi-rrd
-    xapi-rrd.unix
-    rrd-transport
-    xapi-rrdd
-    xapi-stdext-threads
-    xapi-stdext-unix
-    ezxenstore
-    xapi-idl.network
-    uuid
-    )
-   (preprocess (pps ppx_deriving_rpc))
-)
+ (name rrdd_libs_internal)
+ (wrapped false)
+ (modules
+  (:standard \ xcp_rrdd))
+ (flags
+  (:standard -w -39))
+ (libraries astring dune-build-info gzip http-svr inotify mtime
+   mtime.clock.os systemd xapi-backtrace xapi-rrd xapi-rrd.unix rrd-transport
+   xapi-rrdd xapi-stdext-threads xapi-stdext-unix ezxenstore xapi-idl.network
+   uuid)
+ (preprocess
+  (pps ppx_deriving_rpc)))
 
 (executable
-  (name xcp_rrdd)
-  (public_name xcp-rrdd)
-  (package xapi-rrdd)
-  (modules xcp_rrdd)
-  (libraries
-    http-svr
-    rrdd_libs_internal
-    xapi-backtrace
-    xapi-idl
-  )
-)
+ (modes byte exe)
+ (name xcp_rrdd)
+ (public_name xcp-rrdd)
+ (package xapi-rrdd)
+ (modules xcp_rrdd)
+ (libraries http-svr rrdd_libs_internal xapi-backtrace xapi-idl))

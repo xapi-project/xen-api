@@ -1,25 +1,13 @@
 (library
-  (name certificate_check)
-  (modules certificate_check)
-  (libraries
-    astring
-    xapi-client
-    xapi-consts
-    xapi-types
-    xapi-stdext-date
-  )
-)
+ (name certificate_check)
+ (modules certificate_check)
+ (libraries astring xapi-client xapi-consts xapi-types xapi-stdext-date))
 
 (executable
-  (name certificate_check_main)
-  (public_name alert-certificate-check)
-  (package xapi)
-  (modules certificate_check_main)
-  (libraries
-    certificate_check
-    http-svr
-    xapi-client
-    xapi-types
-    xapi-stdext-pervasives
-  )
-)
+ (modes byte exe)
+ (name certificate_check_main)
+ (public_name alert-certificate-check)
+ (package xapi)
+ (modules certificate_check_main)
+ (libraries certificate_check http-svr xapi-client xapi-types
+   xapi-stdext-pervasives))

@@ -1,10 +1,6 @@
 (executable
-  (name xsh)
-  (public_name xsh)
-  (package xapi)
-  (libraries
-   stunnel
-   safe-resources
-   threads
-  )
-)
+ (modes byte exe)
+ (name xsh)
+ (public_name xsh)
+ (package xapi)
+ (libraries stunnel safe-resources threads))

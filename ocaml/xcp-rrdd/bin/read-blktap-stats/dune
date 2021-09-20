@@ -1,9 +1,6 @@
 (executable
-  (name read_blktap_stats)
-  (package rrdd-plugins)
-  (public_name xcp-rrdd-read-blktap-stats)
-  (libraries
-    rrdd-plugins.libs
-    unix
-  )
-)
+ (modes byte exe)
+ (name read_blktap_stats)
+ (package rrdd-plugins)
+ (public_name xcp-rrdd-read-blktap-stats)
+ (libraries rrdd-plugins.libs unix))
