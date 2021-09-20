@@ -1,6 +1,7 @@
 (executables
  (modes byte exe)
  (names main sparse_dd get_vhd_vsize)
+ (package vhd-tool)
  (public_names vhd-tool sparse_dd get_vhd_vsize)
  (libraries local_lib cstruct))
 
@@ -23,5 +24,6 @@
    (run %{x} --help))))
 
 (install
+ (package vhd-tool)
  (section man)
  (files vhd-tool.1 sparse_dd.1))

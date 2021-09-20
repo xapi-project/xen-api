@@ -1,9 +1,9 @@
 opam-version: "2.0"
 maintainer: "xen-api@lists.xen.org"
 authors: [ "xen-api@lists.xen.org" ]
-homepage: "https://github.com/xapi-project/vhd-tool"
-bug-reports: "https://github.com/xapi-project/vhd-tool/issues"
-dev-repo: "git+https://github.com/xapi-project/vhd-tool.git"
+homepage: "https://github.com/xapi-project/xen-api"
+bug-reports: "https://github.com/xapi-project/xen-api/issues"
+dev-repo: "git+https://github.com/xapi-project/xen-api.git"
 tags: [
   "org:mirage"
   "org:xapi-project"
@@ -28,7 +28,6 @@ depends: [
   "tar"
   "vhd-format"
   "vhd-format-lwt"
-  "xapi-tapctl"
   "xenstore"
   "xenstore_transport"
 ]

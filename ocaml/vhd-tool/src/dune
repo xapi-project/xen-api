@@ -19,7 +19,7 @@
   tar
   vhd-format
   vhd-format-lwt
-  xapi-tapctl
+  tapctl
   xenstore.client
   xenstore.unix
   xenstore_transport
