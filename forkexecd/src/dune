@@ -1,6 +1,9 @@
 (executable
  (modes byte exe)
  (name fe_main)
- (public_name forkexecd)
- (package xapi-forkexecd)
  (libraries astring forkexec systemd uuidm xapi-stdext-unix))
+
+(install
+ (package xapi-forkexecd)
+ (section sbin)
+ (files (fe_main.exe as forkexecd)))
