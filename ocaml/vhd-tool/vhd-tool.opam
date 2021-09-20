@@ -1,0 +1,38 @@
+opam-version: "2.0"
+maintainer: "xen-api@lists.xen.org"
+authors: [ "xen-api@lists.xen.org" ]
+homepage: "https://github.com/xapi-project/vhd-tool"
+bug-reports: "https://github.com/xapi-project/vhd-tool/issues"
+dev-repo: "git+https://github.com/xapi-project/vhd-tool.git"
+tags: [
+  "org:mirage"
+  "org:xapi-project"
+]
+build: [[ "dune" "build" "-p" name "-j" jobs ]
+]
+depends: [
+  "ocaml"
+  "dune" {build}
+  "cohttp-lwt"
+  "conf-libssl"
+  "cstruct" {>= "3.0.0"}
+  "io-page"
+  "lwt"
+  "nbd-unix"
+  "ocaml-migrate-parsetree"
+  "ppx_cstruct"
+  "ppx_deriving_rpc"
+  "re"
+  "rpclib"
+  "sha"
+  "tar"
+  "vhd-format"
+  "vhd-format-lwt"
+  "xapi-tapctl"
+  "xenstore"
+  "xenstore_transport"
+]
+synopsis: ".vhd file manipulation"
+url {
+  src: "https://github.com/xapi-project/vhd-tool/archive/master.tar.gz"
+}
