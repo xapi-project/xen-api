@@ -127,10 +127,11 @@ module Client_certificate_auth_server = struct
   let management_server = ref None
 
   let must_be_running ~__context ~mgmt_enabled =
-    let pool = Helpers.get_pool ~__context in
+    (* Note: no DB calls can be made here, except on the coordinator *)
     mgmt_enabled
     && Pool_role.is_master ()
-    && Db.Pool.get_client_certificate_auth_enabled ~__context ~self:pool
+    && Db.Pool.get_client_certificate_auth_enabled ~__context
+         ~self:(Helpers.get_pool ~__context)
 
   let start () =
     if !management_server = None then (
