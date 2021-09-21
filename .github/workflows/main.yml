@@ -25,7 +25,7 @@ jobs:
     name: Ocaml tests
     runs-on: ubuntu-20.04
     env:
-      package: "xapi-cli-protocol xapi-client xapi-consts xapi-database xapi-datamodel xapi-types xapi xe xen-api-sdk xen-api-client xen-api-client-lwt xen-api-client-async xapi-rrdd xapi-rrdd-plugin xapi-rrd-transport xapi-rrd-transport-utils rrd-transport rrdd-plugin rrdd-plugins rrddump"
+      package: "xapi-cli-protocol xapi-client xapi-consts xapi-database xapi-datamodel xapi-types xapi xe xen-api-sdk xen-api-client xen-api-client-lwt xen-api-client-async xapi-rrdd xapi-rrdd-plugin xapi-rrd-transport xapi-rrd-transport-utils rrd-transport rrdd-plugin rrdd-plugins rrddump vhd-tool"
 
     steps:
       - name: Checkout code
