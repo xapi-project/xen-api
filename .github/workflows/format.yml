@@ -22,7 +22,7 @@ jobs:
 
       - name: Load environment file
         id: dotenv
-        uses: falti/dotenv-action@v0.2.4
+        uses: falti/dotenv-action@v0.2.7
 
       - name: Use ocaml
         uses: avsm/setup-ocaml@v1

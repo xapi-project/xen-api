@@ -1,0 +1,6 @@
+(tests
+ (package safe-resources)
+ (names test)
+ (action
+  (run %{test} -e))
+ (libraries safe-resources logs.fmt alcotest))

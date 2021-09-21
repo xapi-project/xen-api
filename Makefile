@@ -142,7 +142,8 @@ install: build doc sdk doc-json
 # Libraries
 	dune install --profile=$(PROFILE) \
 		xapi-client xapi-database xapi-consts xapi-cli-protocol xapi-datamodel xapi-types \
-		xen-api-client xen-api-client-lwt xen-api-client-async rrdd-plugin rrd-transport
+		xen-api-client xen-api-client-lwt xen-api-client-async rrdd-plugin rrd-transport \
+		gzip http-svr pciutil sexpr stunnel uuid xml-light2 zstd xapi-compression safe-resources
 # docs
 	mkdir -p $(DESTDIR)$(DOCDIR)
 	cp -r $(XAPIDOC)/jekyll $(DESTDIR)$(DOCDIR)
