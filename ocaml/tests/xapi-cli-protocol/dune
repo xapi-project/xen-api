@@ -1,4 +1,9 @@
 (test
   (name test_cli_protocol)
   (package xapi-cli-protocol)
-  (libraries alcotest xapi_cli_protocol))
+  (libraries
+    alcotest
+    xapi_cli_protocol
+  )
+)
+

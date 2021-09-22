@@ -1,0 +1,15 @@
+(library
+  (name tapctl)
+  (wrapped false)
+  (flags (:standard -warn-error -A))
+  (preprocess (pps ppx_deriving_rpc))
+  (libraries
+    re
+    rpclib
+    threads
+    forkexec
+    xapi-stdext-unix
+    xapi-stdext-threads
+  )
+)
+

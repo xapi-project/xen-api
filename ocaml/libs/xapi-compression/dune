@@ -1,10 +1,13 @@
 (library
   (name xapi_compression)
   (public_name xapi-compression)
-  (libraries forkexec
-             threads
-             safe-resources
-             xapi-idl
-             xapi-stdext-pervasives
-             xapi-stdext-unix)
+  (libraries
+    forkexec
+    threads
+    safe-resources
+    xapi-idl
+    xapi-stdext-pervasives
+    xapi-stdext-unix
+  )
 )
+

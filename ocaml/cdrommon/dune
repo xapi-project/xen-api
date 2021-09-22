@@ -1,4 +1,5 @@
 (executable
+  (modes byte exe)
   (name cdrommon)
   (public_name cdrommon)
   (package xapi)
@@ -9,3 +10,4 @@
     xapi-stdext-unix
   )
 )
+

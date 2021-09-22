@@ -11,6 +11,8 @@
     threads
     uri
     xen-api-client
-    xmlm)
+    xmlm
+  )
   (wrapped false)
 )
+

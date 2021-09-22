@@ -3,12 +3,18 @@
   (public_name xml-light2)
   (modules xml)
   (wrapped false)
-  (libraries threads
-             xmlm)
+  (libraries
+    threads
+    xmlm
+  )
 )
 
 (executable
+  (modes byte exe)
   (name xmlpp)
   (modules xmlpp)
-  (libraries xml-light2)
+  (libraries
+    xml-light2
+  )
 )
+

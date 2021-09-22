@@ -1,17 +1,19 @@
-(executable 
-	(name xxhash_stubgen)
-	(libraries 
-		ctypes.stubs
-		xxhash_bindings
-	)
-	(modules xxhash_stubgen)
+(executable
+  (modes byte exe)
+  (name xxhash_stubgen)
+  (libraries
+    ctypes.stubs
+    xxhash_bindings
+  )
+  (modules xxhash_stubgen)
 )
 
 (library
-	(name xxhash_bindings)
-	(libraries
-		ctypes
-        integers
-	)
-	(modules xxhash_bindings)
+  (name xxhash_bindings)
+  (libraries
+    ctypes
+    integers
+  )
+  (modules xxhash_bindings)
 )
+

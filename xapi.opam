@@ -57,7 +57,6 @@ depends: [
   "xapi-stdext-threads"
   "xapi-stdext-unix"
   "xapi-stdext-zerocheck"
-  "xapi-tapctl"
   "xapi-test-utils" {with-test}
   "xapi-types"
   "xapi-xenopsd"

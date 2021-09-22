@@ -1,17 +1,14 @@
 (ocamllex db_filter_lex)
+
 (ocamlyacc db_filter_parse)
 
 (library
   (name xapi_database)
   (public_name xapi-database)
   (flags (:standard -w -39))
-  (modules (:standard \
-    database_server_main
-    db_cache_test
-    block_device_io
-    unit_test_marshall
-    unit_test_sql)
-  )
+  (modules
+    (:standard \ database_server_main db_cache_test block_device_io
+      unit_test_marshall unit_test_sql))
   (libraries
     forkexec
     gzip
@@ -40,12 +37,11 @@
 )
 
 (executable
+  (modes byte exe)
   (name block_device_io)
   (public_name block_device_io)
   (package xapi)
-  (modules
-   block_device_io
-  )
+  (modules block_device_io)
   (libraries
     xapi-database
     xapi-idl
@@ -56,10 +52,9 @@
 )
 
 (executable
+  (modes byte exe)
   (name database_server_main)
-  (modules
-    database_server_main
-  )
+  (modules database_server_main)
   (libraries
     xapi-database
     threads
@@ -82,16 +77,21 @@
   (name unit_test_sql)
   (package xapi-database)
   (modules unit_test_sql)
-  (deps sql_msg_example.txt)
+  (deps
+    sql_msg_example.txt
+  )
   (libraries
     alcotest
     xapi-database
   )
 )
 
-(alias
-  (name runtest)
-  (deps (:x database_server_main.exe))
+(rule
+  (alias runtest)
+  (deps
+    (:x database_server_main.exe)
+  )
   (package xapi-database)
   (action (run %{x} --master db.xml --test))
 )
+

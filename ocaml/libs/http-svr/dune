@@ -5,72 +5,92 @@
   (flags (:standard -w -37-39))
   (modules (:standard \ http_test radix_tree_test test_client test_server))
   (preprocess (pps ppx_deriving_rpc))
-  (libraries  astring
-              base64
-              rpclib
-              sha
-              stunnel
-              threads.posix
-              xapi-idl
-              xapi-idl.updates
-              xapi-stdext-date
-              xapi-stdext-pervasives
-              xapi-stdext-threads
-              xapi-stdext-unix
-              xml-light2)
+  (libraries
+    astring
+    base64
+    rpclib
+    sha
+    stunnel
+    threads.posix
+    xapi-idl
+    xapi-idl.updates
+    xapi-stdext-date
+    xapi-stdext-pervasives
+    xapi-stdext-threads
+    xapi-stdext-unix
+    xml-light2
+  )
 )
 
 (executable
+  (modes byte exe)
   (name http_test)
   (modules http_test)
-  (libraries  http-svr
-              oUnit
-              )
+  (libraries
+    http-svr
+    oUnit
+  )
 )
 
 (executable
+  (modes byte exe)
   (name radix_tree_test)
   (modules radix_tree_test)
-  (libraries http-svr)
+  (libraries
+    http-svr
+  )
 )
 
 (executable
+  (modes byte exe)
   (name test_client)
   (modules test_client)
-  (libraries  http-svr
-              oUnit
-              xapi-stdext-pervasives
-              xapi-stdext-unix)
+  (libraries
+    http-svr
+    oUnit
+    xapi-stdext-pervasives
+    xapi-stdext-unix
+  )
 )
 
 (executable
+  (modes byte exe)
   (name test_server)
   (modules test_server)
-  (libraries  http-svr
-              oUnit
-              xapi-stdext-threads
-              xapi-stdext-unix)
+  (libraries
+    http-svr
+    oUnit
+    xapi-stdext-threads
+    xapi-stdext-unix
+  )
 )
 
-(alias
-  (name runtest)
+(rule
+  (alias runtest)
   (package http-svr)
-  (deps (:x http_test.exe))
+  (deps
+    (:x http_test.exe)
+  )
   (action (run %{x} -runner sequential -verbose true))
 )
 
-(alias
-  (name runtest)
+(rule
+  (alias runtest)
   (package http-svr)
-  (deps (:x radix_tree_test.exe))
+  (deps
+    (:x radix_tree_test.exe)
+  )
   (action (run %{x}))
 )
 
-
-(alias
-  (name runtest)
+(rule
+  (alias runtest)
   (package http-svr)
-  (deps test_client.exe test_server.exe client_server_test.sh)
+  (deps
+    test_client.exe
+    test_server.exe
+    client_server_test.sh
+  )
   (action (run bash client_server_test.sh))
 )
 

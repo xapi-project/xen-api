@@ -11,6 +11,7 @@
 )
 
 (executable
+  (modes byte exe)
   (name certificate_check_main)
   (public_name alert-certificate-check)
   (package xapi)
@@ -23,3 +24,4 @@
     xapi-stdext-pervasives
   )
 )
+

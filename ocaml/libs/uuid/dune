@@ -1,5 +1,8 @@
 (library
   (name uuid)
   (public_name uuid)
-  (libraries unix)
+  (libraries
+    unix
+  )
 )
+

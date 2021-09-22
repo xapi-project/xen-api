@@ -3,5 +3,9 @@
   (public_name xapi-rrdd)
   (modules constants stats)
   (flags (:standard -bin-annot))
-  (libraries xapi-idl threads)
+  (libraries
+    xapi-idl
+    threads
+  )
 )
+

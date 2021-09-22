@@ -22,11 +22,12 @@
     ezxenstore
     xapi-idl.network
     uuid
-    )
-   (preprocess (pps ppx_deriving_rpc))
+  )
+  (preprocess (pps ppx_deriving_rpc))
 )
 
 (executable
+  (modes byte exe)
   (name xcp_rrdd)
   (public_name xcp-rrdd)
   (package xapi-rrdd)
@@ -38,3 +39,4 @@
     xapi-idl
   )
 )
+

@@ -1,7 +1,12 @@
 (executables
+  (modes byte exe)
   (names reader writer)
   (public_names rrdreader rrdwriter)
   (package xapi-rrd-transport-utils)
-  (libraries cmdliner threads rrd-transport)
+  (libraries
+    cmdliner
+    threads
+    rrd-transport
+  )
 )
 

@@ -20,9 +20,12 @@
     xapi-consts
     xapi-idl
     xapi-inventory
-    xapi-stdext-unix)
+    xapi-stdext-unix
+  )
 )
+
 (executable
+  (modes byte exe)
   (name gencert)
   (public_name gencert)
   (package xapi)
@@ -32,8 +35,10 @@
     astring
     gencertlib
     xapi-inventory
-    xapi-idl)
+    xapi-idl
+  )
 )
+
 (test
   (name test_lib)
   (package xapi)
@@ -51,7 +56,9 @@
     xapi-consts
     xapi-stdext-unix
   )
-  (deps (source_tree test_data))
+  (deps
+    (source_tree test_data)
+  )
   (action (run %{test} --color=always))
 )
 

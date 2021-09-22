@@ -1,4 +1,5 @@
 (executable
+  (modes byte exe)
   (name main)
   (libraries
     xapi-datamodel
@@ -10,12 +11,14 @@
 
 (rule
   (targets LICENSE)
-  (deps ../LICENSE)
+  (deps
+    ../LICENSE
+  )
   (action (copy %{deps} %{targets}))
 )
 
-(alias
-  (name generate)
+(rule
+  (alias generate)
   (deps
     LICENSE
     (:x main.exe)
@@ -23,3 +26,4 @@
   )
   (action (run %{x}))
 )
+

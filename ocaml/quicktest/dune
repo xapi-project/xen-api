@@ -1,4 +1,5 @@
 (executable
+  (modes byte exe)
   (name quicktest)
   (public_name quicktestbin)
   (package xapi)
@@ -33,3 +34,4 @@
   )
   (preprocess (pps ppx_deriving_rpc ppx_sexp_conv))
 )
+

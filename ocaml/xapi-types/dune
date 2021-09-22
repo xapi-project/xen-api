@@ -1,7 +1,11 @@
 (rule
   (targets aPI.ml)
-  (deps ../idl/ocaml_backend/gen_api_main.exe)
-  (action (run %{deps} -filterinternal true -filter closed -mode api -output %{targets}))
+  (deps
+    ../idl/ocaml_backend/gen_api_main.exe
+  )
+  (action
+    (run %{deps} -filterinternal true -filter closed -mode api -output
+      %{targets}))
 )
 
 (library
@@ -9,17 +13,18 @@
   (public_name xapi-types)
   (flags (:standard))
   (libraries
-   astring
-   http-svr
-   rpclib.core
-   rpclib.xml
-   threads
-   uuidm
-   xapi-consts
-   xapi-stdext-date
-   xapi-stdext-unix
-   xapi-idl
+    astring
+    http-svr
+    rpclib.core
+    rpclib.xml
+    threads
+    uuidm
+    xapi-consts
+    xapi-stdext-date
+    xapi-stdext-unix
+    xapi-idl
   )
   (wrapped false)
   (preprocess (pps ppx_deriving_rpc))
 )
+

@@ -1,4 +1,5 @@
 (executable
+  (modes byte exe)
   (name list_vms)
   (modules list_vms)
   (libraries
@@ -7,10 +8,12 @@
     async_unix
     threads
     xen-api-client
-    xen-api-client-async)
+    xen-api-client-async
+  )
 )
 
 (executable
+  (modes byte exe)
   (name event_test)
   (modules event_test)
   (libraries
@@ -19,11 +22,16 @@
     async_unix
     threads
     xen-api-client
-    xen-api-client-async)
+    xen-api-client-async
+  )
 )
 
 (alias
   (name examples)
-  (deps list_vms.exe event_test.exe)
+  (deps
+    list_vms.exe
+    event_test.exe
+  )
   (package xen-api-client-async)
 )
+

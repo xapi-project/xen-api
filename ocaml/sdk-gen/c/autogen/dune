@@ -1,12 +1,16 @@
 (rule
   (targets COPYING)
-  (deps ../../LICENSE)
+  (deps
+    ../../LICENSE
+  )
   (action (copy %{deps} %{targets}))
 )
 
 (rule
   (targets README)
-  (deps ../README.dist)
+  (deps
+    ../README.dist
+  )
   (action (copy %{deps} %{targets}))
 )
 
@@ -18,3 +22,4 @@
     (source_tree .)
   )
 )
+

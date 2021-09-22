@@ -7,13 +7,19 @@
   (public_name sexpr)
   (wrapped false)
   (modules (:standard \ sexprpp))
-  (libraries astring
-             threads.posix
-             xapi-stdext-threads)
+  (libraries
+    astring
+    threads.posix
+    xapi-stdext-threads
+  )
 )
 
 (executable
+  (modes byte exe)
   (name sexprpp)
   (modules sexprpp)
-  (libraries sexpr)
+  (libraries
+    sexpr
+  )
 )
+

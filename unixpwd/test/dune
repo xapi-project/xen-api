@@ -1,4 +1,9 @@
 (executable
+  (modes byte exe)
   (name main)
-  (libraries unixpwd_stubs unixpwd)
+  (libraries
+    unixpwd_stubs
+    unixpwd
+  )
 )
+

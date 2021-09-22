@@ -11,6 +11,7 @@
 )
 
 (executable
+  (modes byte exe)
   (name daily_license_check_main)
   (public_name daily-license-check)
   (package xapi)
@@ -24,3 +25,4 @@
     xapi-stdext-pervasives
   )
 )
+

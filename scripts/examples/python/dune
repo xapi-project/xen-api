@@ -1,6 +1,9 @@
 (executable
+  (modes byte exe)
   (name setuppy_gen)
   (libraries
-   xapi-stdext-unix
-   xapi-datamodel)
+    xapi-stdext-unix
+    xapi-datamodel
+  )
 )
+

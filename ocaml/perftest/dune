@@ -1,4 +1,5 @@
 (executable
+  (modes byte exe)
   (name perftest)
   (public_name perftest)
   (package xapi)
@@ -20,3 +21,4 @@
     xml-light2
   )
 )
+

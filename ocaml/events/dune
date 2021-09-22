@@ -1,10 +1,12 @@
 (executable
+  (modes byte exe)
   (name event_listen)
   (public_name event_listen)
   (package xapi)
   (libraries
-   http-svr
-   xapi-client
-   xapi-types
+    http-svr
+    xapi-client
+    xapi-types
   )
 )
+

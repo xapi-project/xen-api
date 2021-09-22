@@ -9,3 +9,4 @@
   )
   (action (run %{test} --color=always))
 )
+

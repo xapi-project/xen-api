@@ -1,24 +1,18 @@
-(* -*- tuareg -*- *)
-
-let coverage_rewriter =
-  match Sys.getenv "BISECT_ENABLE" with
-  | "YES" -> "(preprocess (pps bisect_ppx))"
-  | _ -> ""
-  | exception Not_found -> ""
-
-let () = Printf.ksprintf Jbuild_plugin.V1.send {|
 (executable
+  (modes byte exe)
   (name xen_api_test)
-  %s
   (libraries
     oUnit
-    xen-api-client)
+    xen-api-client
+  )
 )
 
-(alias
-  (name runtest)
-  (deps (:x xen_api_test.exe))
+(rule
+  (alias runtest)
+  (deps
+    (:x xen_api_test.exe)
+  )
   (package xen-api-client)
-  (action (run %%{x}))
+  (action (run %{x}))
 )
-|} coverage_rewriter
+
