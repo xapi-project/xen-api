@@ -244,6 +244,14 @@ let enable ~__context ~self =
       let pifrec = Db.PIF.get_record ~__context ~self:pifref in
       assert_pif_prerequisites (pifref, pifrec) ;
       let ip = ip_of_pif (pifref, pifrec) in
+
+      (* TODO: Pass these through from CLI *)
+      if not !Xapi_clustering.Daemon.enabled then (
+        D.debug
+          "Cluster_host.enable: xapi-clusterd not running - attempting to start" ;
+        Xapi_clustering.Daemon.enable ~__context
+      ) ;
+
       let pems = Xapi_cluster_helpers.Pem.get_existing ~__context cluster in
       let init_config =
         {
@@ -254,12 +262,6 @@ let enable ~__context ~self =
         ; pems
         }
       in
-      (* TODO: Pass these through from CLI *)
-      if not !Xapi_clustering.Daemon.enabled then (
-        D.debug
-          "Cluster_host.enable: xapi-clusterd not running - attempting to start" ;
-        Xapi_clustering.Daemon.enable ~__context
-      ) ;
       let result =
         Cluster_client.LocalClient.enable (rpc ~__context) dbg init_config
       in
