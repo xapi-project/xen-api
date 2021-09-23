@@ -316,8 +316,7 @@ let remote_metadata_export_import ~__context ~rpc ~session_id ~remote_address
                         unlikely to happen in practice because the cache size is large enough.*)
                      with_transport
                        (SSL
-                          ( SSL.make ~verify_cert:(Stunnel_client.pool ())
-                              ~use_stunnel_cache:true ()
+                          ( SSL.make ~verify_cert:None ~use_stunnel_cache:true ()
                           , remote_address
                           , !Constants.https_port
                           )
