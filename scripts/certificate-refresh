@@ -6,6 +6,10 @@ set -e
 
 source /etc/xensource-inventory
 host="$INSTALLATION_UUID"
+prio="local5.error"
+tag="$0"
+xe=/opt/xensource/bin/xe
+
 /usr/bin/sleep $((RANDOM % 600))
-/opt/xensource/bin/xe host-refresh-server-certificate host="$host"
+$xe host-refresh-server-certificate host="$host" 2>&1 | logger -p "$prio" -t "$tag"
 exit 0
