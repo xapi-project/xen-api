@@ -98,8 +98,7 @@ module Dummy = struct
   let get_dummy_tapdisk_list ctx =
     let filename = get_dummy_tapdisk_list_filename ctx in
     try
-      dummy_tap_list_of_rpc
-        (Jsonrpc.of_string (Unixext.string_of_file filename))
+      dummy_tap_list_of_rpc (Jsonrpc.of_string (Unixext.string_of_file filename))
     with _ -> []
 
   let write_dummy_tapdisk_list ctx list =
@@ -112,8 +111,7 @@ module Dummy = struct
     let numbers = IntSet.of_list list in
     let next n = n + 1 in
     let next_unused n = not (IntSet.mem (next n) numbers) in
-    IntSet.find_first_opt next_unused numbers
-    |> Option.fold ~none:0 ~some:next
+    IntSet.find_first_opt next_unused numbers |> Option.fold ~none:0 ~some:next
 
   let find_next_unused_minor list =
     let minors = List.filter_map (fun t -> t.d_minor) list in
@@ -143,7 +141,8 @@ module Dummy = struct
         Unixext.unlink_safe dummy_device ;
         Unixext.touch_file dummy_device ;
         write_dummy_tapdisk_list ctx (entry :: list) ;
-        minor)
+        minor
+    )
 
   let spawn ctx =
     Mutex.execute d_lock (fun () ->
@@ -153,15 +152,16 @@ module Dummy = struct
           {d_minor= None; d_pid= Some pid; d_state= None; d_args= None}
         in
         write_dummy_tapdisk_list ctx (entry :: list) ;
-        pid)
+        pid
+    )
 
   let attach ctx pid minor =
     Mutex.execute d_lock (fun () ->
         let list = get_dummy_tapdisk_list ctx in
-        ( (* sanity check *)
-        match
-          (get_entry_from_pid pid list, get_entry_from_minor minor list)
-        with
+        (* sanity check *)
+        ( match
+            (get_entry_from_pid pid list, get_entry_from_minor minor list)
+          with
         | Some e1, Some e2 ->
             if e1.d_minor <> None then failwith "pid already attached!" ;
             if e2.d_pid <> None then failwith "minor already in use!"
@@ -186,7 +186,8 @@ module Dummy = struct
             list
         in
         write_dummy_tapdisk_list ctx (new_entry :: list) ;
-        {tapdisk_pid= pid; minor})
+        {tapdisk_pid= pid; minor}
+    )
 
   let _open ctx t leaf_path driver =
     let args = Printf.sprintf "%s:%s" (string_of_driver driver) leaf_path in
@@ -198,10 +199,12 @@ module Dummy = struct
               if e.d_pid = Some t.tapdisk_pid && e.d_minor = Some t.minor then
                 {e with d_state= Some "0"; d_args= Some args}
               else
-                e)
+                e
+              )
             list
         in
-        write_dummy_tapdisk_list ctx list)
+        write_dummy_tapdisk_list ctx list
+    )
 
   let close ctx t =
     Mutex.execute d_lock (fun () ->
@@ -212,10 +215,12 @@ module Dummy = struct
               if e.d_pid = Some t.tapdisk_pid && e.d_minor = Some t.minor then
                 {e with d_state= Some "0x2"; d_args= None}
               else
-                e)
+                e
+              )
             list
         in
-        write_dummy_tapdisk_list ctx list)
+        write_dummy_tapdisk_list ctx list
+    )
 
   let pause ctx t =
     Mutex.execute d_lock (fun () ->
@@ -226,10 +231,12 @@ module Dummy = struct
               if e.d_pid = Some t.tapdisk_pid && e.d_minor = Some t.minor then
                 {e with d_state= Some "0x2a"}
               else
-                e)
+                e
+              )
             list
         in
-        write_dummy_tapdisk_list ctx list)
+        write_dummy_tapdisk_list ctx list
+    )
 
   let unpause ctx t leaf_path driver =
     let args = Printf.sprintf "%s:%s" (string_of_driver driver) leaf_path in
@@ -241,17 +248,20 @@ module Dummy = struct
               if e.d_pid = Some t.tapdisk_pid && e.d_minor = Some t.minor then
                 {e with d_state= Some "0"; d_args= Some args}
               else
-                e)
+                e
+              )
             list
         in
-        write_dummy_tapdisk_list ctx list)
+        write_dummy_tapdisk_list ctx list
+    )
 
   let detach ctx t =
     Mutex.execute d_lock (fun () ->
         let list = get_dummy_tapdisk_list ctx in
         let a, b =
           ( get_entry_from_pid t.tapdisk_pid list
-          , get_entry_from_minor t.minor list )
+          , get_entry_from_minor t.minor list
+          )
         in
         if a <> None && a <> b then failwith "Not attached" ;
         let list =
@@ -261,21 +271,23 @@ module Dummy = struct
           {d_minor= Some t.minor; d_pid= None; d_state= None; d_args= None}
           :: list
         in
-        write_dummy_tapdisk_list ctx list)
+        write_dummy_tapdisk_list ctx list
+    )
 
   let free ctx minor =
     Mutex.execute d_lock (fun () ->
         let list = get_dummy_tapdisk_list ctx in
         let entry = get_entry_from_minor minor list in
-        ( (* sanity check *)
-        match entry with
+        (* sanity check *)
+        ( match entry with
         | Some e ->
             if e.d_pid <> None then failwith "Can't free an attached minor"
         | None ->
             failwith "Unknown minor"
         ) ;
         let list = List.filter (fun e -> e.d_minor <> Some minor) list in
-        write_dummy_tapdisk_list ctx list)
+        write_dummy_tapdisk_list ctx list
+    )
 
   let list ?t ctx =
     Mutex.execute d_lock (fun () ->
@@ -298,8 +310,10 @@ module Dummy = struct
                 else
                   None
             | _ ->
-                None)
-          list)
+                None
+            )
+          list
+    )
 
   let stats t =
     let open Stats in
@@ -336,7 +350,8 @@ let canonicalise x =
               else
                 None
           | _ ->
-              found)
+              found
+          )
         None (xen_paths @ paths)
     in
     match first_hit with None -> x | Some hit -> hit
@@ -394,7 +409,8 @@ let _open ctx t leaf_path driver =
       (invoke_tap_ctl ctx "open"
          (args t
          @ ["-a"; Printf.sprintf "%s:%s" (string_of_driver driver) leaf_path]
-         ))
+         )
+      )
 
 let close ctx t =
   if ctx.dummy then
@@ -416,7 +432,8 @@ let unpause ctx t leaf_path driver =
       (invoke_tap_ctl ctx "unpause"
          (args t
          @ ["-a"; Printf.sprintf "%s:%s" (string_of_driver driver) leaf_path]
-         ))
+         )
+      )
 
 let detach ctx t =
   if ctx.dummy then
@@ -458,7 +475,8 @@ let list ?t ctx =
             let args = Astring.String.cut ~sep:":" args in
             Some ({tapdisk_pid; minor}, state, args)
         | _ ->
-            None)
+            None
+        )
       lines
 
 let is_paused ctx t =
@@ -493,7 +511,9 @@ let read_proc_devices () : (int * string) list =
     (List.map Option.to_list
        (Unixext.file_lines_fold
           (fun acc x -> parse_line x :: acc)
-          [] "/proc/devices"))
+          [] "/proc/devices"
+       )
+    )
 
 let driver_of_major major = List.assoc major (read_proc_devices ())
 

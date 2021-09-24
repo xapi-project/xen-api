@@ -76,7 +76,8 @@ let get _common filename key =
       `Error
         ( true
         , Printf.sprintf "Unknown key. Known keys are: %s"
-            (String.concat ", " Vhd_format.F.Vhd.Field.list) )
+            (String.concat ", " Vhd_format.F.Vhd.Field.list)
+        )
 
 let info _common filename =
   try
@@ -90,7 +91,8 @@ let info _common filename =
             | Some v ->
                 [f; v]
             | None ->
-                [f; "<missing field>"])
+                [f; "<missing field>"]
+            )
           Vhd_format.F.Vhd.Field.list
       in
       print_table ["field"; "value"] all ;
@@ -154,7 +156,8 @@ let create common filename size parent =
          Lwt_main.run t
      | Some _parent, Some _size ->
          failwith
-           "Overriding the size in a child node not currently implemented") ;
+           "Overriding the size in a child node not currently implemented"
+    ) ;
     `Ok ()
   with Failure x -> `Error (true, x)
 
@@ -211,7 +214,8 @@ let[@warning "-27"] stream_human _common _ s _ _ ?(progress = no_progress_bar)
       Printf.printf "%s: %s\n"
         (padto ' ' decimal_digits (Int64.to_string sector))
         (Vhd_format.Element.to_string x) ;
-      return (Int64.add sector (Vhd_format.Element.len x)))
+      return (Int64.add sector (Vhd_format.Element.len x))
+      )
     0L s.elements
   >>= fun _ ->
   Printf.printf "# end of stream\n" ;
@@ -236,7 +240,8 @@ let stream_nbd _common c s prezeroed _ ?(progress = no_progress_bar) () =
     Int64.(
       add
         (add s.size.metadata s.size.copy)
-        (if prezeroed then 0L else s.size.empty))
+        (if prezeroed then 0L else s.size.empty)
+    )
   in
   let p = progress total_work in
 
@@ -260,13 +265,16 @@ let stream_nbd _common c s prezeroed _ ?(progress = no_progress_bar) () =
           fail
             (Failure
                (Printf.sprintf "unexpected stream element: %s"
-                  (Vhd_format.Element.to_string x)))
+                  (Vhd_format.Element.to_string x)
+               )
+            )
       )
       >>= fun work ->
       let sector = Int64.add sector (Vhd_format.Element.len x) in
       let work_done = Int64.add work_done work in
       p work_done ;
-      return (sector, work_done))
+      return (sector, work_done)
+      )
     (0L, 0L) s.elements
   >>= fun _ ->
   p total_work ;
@@ -281,7 +289,8 @@ let stream_chunked _common c s prezeroed _ ?(progress = no_progress_bar) () =
     Int64.(
       add
         (add s.size.metadata s.size.copy)
-        (if prezeroed then 0L else s.size.empty))
+        (if prezeroed then 0L else s.size.empty)
+    )
   in
   let p = progress total_work in
 
@@ -305,13 +314,16 @@ let stream_chunked _common c s prezeroed _ ?(progress = no_progress_bar) () =
           fail
             (Failure
                (Printf.sprintf "unexpected stream element: %s"
-                  (Vhd_format.Element.to_string x)))
+                  (Vhd_format.Element.to_string x)
+               )
+            )
       )
       >>= fun work ->
       let sector = Int64.add sector (Vhd_format.Element.len x) in
       let work_done = Int64.add work_done work in
       p work_done ;
-      return (sector, work_done))
+      return (sector, work_done)
+      )
     (0L, 0L) s.elements
   >>= fun _ ->
   p total_work ;
@@ -328,7 +340,8 @@ let stream_raw _common c s prezeroed _ ?(progress = no_progress_bar) () =
     Int64.(
       add
         (add s.size.metadata s.size.copy)
-        (if prezeroed then 0L else s.size.empty))
+        (if prezeroed then 0L else s.size.empty)
+    )
   in
   let p = progress total_work in
 
@@ -354,7 +367,8 @@ let stream_raw _common c s prezeroed _ ?(progress = no_progress_bar) () =
       )
       >>= fun work ->
       let work_done = Int64.add work_done work in
-      p work_done ; return work_done)
+      p work_done ; return work_done
+      )
     0L s.elements
   >>= fun _ ->
   p total_work ;
@@ -526,13 +540,16 @@ let stream_tar _common c s _ prefix ?(progress = no_progress_bar) () =
           fail
             (Failure
                (Printf.sprintf "unexpected stream element: %s"
-                  (Vhd_format.Element.to_string x)))
+                  (Vhd_format.Element.to_string x)
+               )
+            )
       )
       >>= fun state ->
       let work = Int64.mul (E.len x) 512L in
       let work_done = Int64.add state.work_done work in
       p work_done ;
-      return {state with work_done})
+      return {state with work_done}
+      )
     (initial s.size.Vhd_format.F.total)
     s.elements
   >>= fun _ ->
@@ -632,7 +649,9 @@ let serve_tar_to_raw total_size c dest prezeroed progress expected_prefix
                 fail
                   (Failure
                      (Printf.sprintf "expected filename prefix %s, got %s" p
-                        hdr.Tar.Header.file_name))
+                        hdr.Tar.Header.file_name
+                     )
+                  )
               else
                 let p_len = String.length p in
                 let file_name_len = String.length hdr.Tar.Header.file_name in
@@ -665,7 +684,9 @@ let serve_tar_to_raw total_size c dest prezeroed progress expected_prefix
                 fail
                   (Failure
                      (Printf.sprintf "Unexpected checksum in block %s"
-                        hdr.Tar.Header.file_name))
+                        hdr.Tar.Header.file_name
+                     )
+                  )
               ) else
                 loop {t with ctx= Sha1.init ()}
           else
@@ -680,8 +701,8 @@ let serve_tar_to_raw total_size c dest prezeroed progress expected_prefix
               with _ ->
                 fail
                   (Failure
-                     (Printf.sprintf "Expected sequence number, got %s"
-                        filename))
+                     (Printf.sprintf "Expected sequence number, got %s" filename)
+                  )
             )
             >>= fun sequence_number ->
             let skipped_blocks = sequence_number - t.last_sequence_number - 1 in
@@ -741,7 +762,8 @@ let endpoint_of_string = function
                |> int_of_string
                |> file_descr_of_int
                |> Lwt_unix.of_unix_file_descr
-               ))
+               )
+            )
       | Some "tcp", _ ->
           let host =
             match Uri.host uri' with
@@ -798,7 +820,8 @@ let retry common retries f =
               "warning: caught %s; will retry %d more time%s...\n%!"
               (Printexc.to_string exn) n
               (if n = 1 then "" else "s") ;
-          Lwt_unix.sleep 1. >>= fun () -> aux (n - 1))
+          Lwt_unix.sleep 1. >>= fun () -> aux (n - 1)
+      )
   in
   aux retries
 
@@ -821,7 +844,9 @@ let make_stream common source relative_to source_format destination_format =
              (Printf.sprintf
                 "Failed to parse nbdhybrid source: %s (expecting \
                  <raw_disk>:<nbd_server>:<export_name>:<size>"
-                source))
+                source
+             )
+          )
   )
   | "hybrid", "raw" -> (
     (* expect source to be block_device:vhd *)
@@ -844,7 +869,9 @@ let make_stream common source relative_to source_format destination_format =
           (Failure
              (Printf.sprintf
                 "Failed to parse hybrid source: %s (expected raw_disk|vhd_disk)"
-                source))
+                source
+             )
+          )
   )
   | "hybrid", "vhd" -> (
     (* expect source to be block_device:vhd *)
@@ -867,7 +894,9 @@ let make_stream common source relative_to source_format destination_format =
           (Failure
              (Printf.sprintf
                 "Failed to parse hybrid source: %s (expected raw_disk|vhd_disk)"
-                source))
+                source
+             )
+          )
   )
   | "vhd", "vhd" ->
       let path = common.path @ [Filename.dirname source] in
@@ -1010,7 +1039,8 @@ let write_stream common s destination _source_protocol destination_protocol
               let headers =
                 List.map
                   (fun (x, y) ->
-                    (String.lowercase_ascii x, String.lowercase_ascii y))
+                    (String.lowercase_ascii x, String.lowercase_ascii y)
+                    )
                   headers
               in
               let te = "transfer-encoding" in
@@ -1038,8 +1068,9 @@ let write_stream common s destination _source_protocol destination_protocol
     fail
       (Failure
          (Printf.sprintf "this destination only supports protocols: [ %s ]"
-            (String.concat "; "
-               (List.map string_of_protocol possible_protocols))))
+            (String.concat "; " (List.map string_of_protocol possible_protocols))
+         )
+      )
   else
     let start = Unix.gettimeofday () in
     ( match destination_protocol with
@@ -1153,7 +1184,8 @@ let serve_nbd_to_raw common size c dest _ _ _ _ =
             inblocks
               (fun offset subblock ->
                 c.Channels.really_read subblock >>= fun () ->
-                Vhd_format_lwt.IO.really_write dest offset subblock)
+                Vhd_format_lwt.IO.really_write dest offset subblock
+                )
               request
             >>= fun () ->
             Reply.marshal rep
@@ -1166,7 +1198,8 @@ let serve_nbd_to_raw common size c dest _ _ _ _ =
             inblocks
               (fun offset subblock ->
                 Vhd_format_lwt.IO.really_read dest offset subblock >>= fun () ->
-                c.Channels.really_write subblock)
+                c.Channels.really_write subblock
+                )
               request
         | _ ->
             Reply.marshal rep
@@ -1258,13 +1291,13 @@ let serve common_options source source_fd source_format source_protocol
       failwith (Printf.sprintf "%s is not a supported format" source_format) ;
     let supported_formats = ["raw"] in
     if not (List.mem destination_format supported_formats) then
-      failwith
-        (Printf.sprintf "%s is not a supported format" destination_format) ;
+      failwith (Printf.sprintf "%s is not a supported format" destination_format) ;
     let supported_protocols = [NoProtocol; Chunked; Nbd; Tar] in
     if not (List.mem source_protocol supported_protocols) then
       failwith
         (Printf.sprintf "%s is not a supported source protocol"
-           (string_of_protocol source_protocol)) ;
+           (string_of_protocol source_protocol)
+        ) ;
 
     let destination =
       match destination_fd with
@@ -1334,13 +1367,15 @@ let serve common_options source source_fd source_format source_protocol
               (Failure
                  "Non-zero size required (either a pre-existing destination \
                   file or specified via --destination-size on the command \
-                  line)")
+                  line)"
+              )
           else
             return (fd, size)
       | _ ->
           failwith
             (Printf.sprintf "Not implemented: writing to destination %s"
-               destination)
+               destination
+            )
       )
       >>= fun (destination_fd, size) ->
       let fn =
@@ -1360,14 +1395,14 @@ let serve common_options source source_fd source_format source_protocol
               (Printf.sprintf
                  "Not implemented: receiving format %s via protocol %s"
                  source_format
-                 (StreamCommon.string_of_protocol source_protocol))
+                 (StreamCommon.string_of_protocol source_protocol)
+              )
       in
       fn source_sock destination_fd prezeroed progress_bar expected_prefix
         ignore_checksums
       >>= fun () ->
       let fd =
-        Lwt_unix.unix_file_descr
-          (Vhd_format_lwt.IO.to_file_descr destination_fd)
+        Lwt_unix.unix_file_descr (Vhd_format_lwt.IO.to_file_descr destination_fd)
       in
       try
         Vhd_format_lwt.File.fsync fd ;

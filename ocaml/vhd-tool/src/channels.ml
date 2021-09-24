@@ -30,9 +30,7 @@ let with_handle from_fd to_fd f =
   let unix_from_fd = Lwt_unix.unix_file_descr from_fd in
   let unix_to_fd = Lwt_unix.unix_file_descr to_fd in
   let handle = _init unix_from_fd unix_to_fd in
-  Lwt.finalize
-    (fun () -> f handle)
-    (fun () -> _cleanup handle ; Lwt.return_unit)
+  Lwt.finalize (fun () -> f handle) (fun () -> _cleanup handle ; Lwt.return_unit)
 
 let _direct_copy handle _from_fd _to_fd len =
   (* Atlhough the FD is set to blocking mode (by [with_blocking_fd]),
@@ -68,10 +66,12 @@ let direct_copy from_fd to_fd len =
               (fun () ->
                 f fd >>= fun r ->
                 Lwt_unix.set_blocking fd false ;
-                return r)
+                return r
+                )
               (fun e ->
                 Lwt_unix.set_blocking fd false ;
-                fail e)
+                fail e
+                )
       )
   in
 
@@ -103,7 +103,10 @@ let direct_copy from_fd to_fd len =
                 else
                   return ()
               in
-              loop len)))
+              loop len
+          )
+      )
+  )
 
 type t = {
     really_read: Cstruct.t -> unit Lwt.t

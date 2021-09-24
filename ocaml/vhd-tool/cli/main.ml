@@ -71,7 +71,8 @@ let get_cmd =
     Arg.(value & pos 1 (some string) None & info [] ~doc)
   in
   ( Term.(ret (pure Impl.get $ common_options_t $ filename $ key))
-  , Term.info "get" ~sdocs:_common_options ~doc ~man )
+  , Term.info "get" ~sdocs:_common_options ~doc ~man
+  )
 
 let filename =
   let doc = Printf.sprintf "Path to the vhd file." in
@@ -90,7 +91,8 @@ let info_cmd =
     @ help
   in
   ( Term.(ret (pure Impl.info $ common_options_t $ filename))
-  , Term.info "info" ~sdocs:_common_options ~doc ~man )
+  , Term.info "info" ~sdocs:_common_options ~doc ~man
+  )
 
 let contents_cmd =
   let doc = "display the contents of the vhd" in
@@ -105,7 +107,8 @@ let contents_cmd =
     @ help
   in
   ( Term.(ret (pure Impl.contents $ common_options_t $ filename))
-  , Term.info "contents" ~sdocs:_common_options ~doc ~man )
+  , Term.info "contents" ~sdocs:_common_options ~doc ~man
+  )
 
 let create_cmd =
   let doc = "create a dynamic vhd" in
@@ -131,7 +134,8 @@ let create_cmd =
     Arg.(value & opt (some file) None & info ["parent"] ~doc)
   in
   ( Term.(ret (pure Impl.create $ common_options_t $ filename $ size $ parent))
-  , Term.info "create" ~sdocs:_common_options ~doc ~man )
+  , Term.info "create" ~sdocs:_common_options ~doc ~man
+  )
 
 let check_cmd =
   let doc = "check the structure of a vhd file" in
@@ -149,7 +153,8 @@ let check_cmd =
     Arg.(value & pos 0 (some file) None & info [] ~doc)
   in
   ( Term.(ret (pure Impl.check $ common_options_t $ filename))
-  , Term.info "check" ~sdocs:_common_options ~doc ~man )
+  , Term.info "check" ~sdocs:_common_options ~doc ~man
+  )
 
 let source =
   let doc = Printf.sprintf "The source disk" in
@@ -247,8 +252,10 @@ let serve_cmd =
         $ machine
         $ tar_filename_prefix
         $ ignore_checksums
-        ))
-  , Term.info "serve" ~sdocs:_common_options ~doc ~man )
+        )
+    )
+  , Term.info "serve" ~sdocs:_common_options ~doc ~man
+  )
 
 let stream_cmd =
   let doc = "stream the contents of a vhd disk" in
@@ -356,16 +363,19 @@ let stream_cmd =
       $ progress
       $ machine
       $ tar_filename_prefix
-      $ good_ciphersuites)
+      $ good_ciphersuites
+    )
   in
   ( Term.(ret (pure Impl.stream $ common_options_t $ stream_args_t))
-  , Term.info "stream" ~sdocs:_common_options ~doc ~man )
+  , Term.info "stream" ~sdocs:_common_options ~doc ~man
+  )
 
 let default_cmd =
   let doc = "manipulate virtual disks stored in vhd files" in
   let man = help in
   ( Term.(ret (pure (fun _ -> `Help (`Pager, None)) $ common_options_t))
-  , Term.info "vhd-tool" ~version:"1.0.0" ~sdocs:_common_options ~doc ~man )
+  , Term.info "vhd-tool" ~version:"1.0.0" ~sdocs:_common_options ~doc ~man
+  )
 
 let cmds =
   [
