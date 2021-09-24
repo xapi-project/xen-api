@@ -122,8 +122,7 @@ let read_exactly ic len =
 
 let read ic n =
   let buf = Bytes.make n '\000' in
-  really_read_into ic.c buf 0 n >>= fun () ->
-  return (Bytes.unsafe_to_string buf)
+  really_read_into ic.c buf 0 n >>= fun () -> return (Bytes.unsafe_to_string buf)
 
 let write oc x =
   let buf = Cstruct.create (String.length x) in

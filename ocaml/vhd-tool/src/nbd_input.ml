@@ -34,7 +34,8 @@ let get_extents_json ~extent_reader ~server ~export_name ~offset ~length =
        ; Int64.to_string offset
        ; "--length"
        ; Int64.to_string length
-      |] )
+      |]
+    )
 
 let raw ?(extent_reader = "/opt/xensource/libexec/get_nbd_extents.py") raw
     server export_name size =
@@ -71,7 +72,8 @@ let raw ?(extent_reader = "/opt/xensource/libexec/get_nbd_extents.py") raw
           (Printf.sprintf
              "Nbd_input.raw: extents returned for offset=%Ld & length=%Ld \
               finished at incorrect offset %Ld,"
-             offset length final_offset)
+             offset length final_offset
+          )
     else
       Lwt.return_unit
     )
@@ -85,7 +87,8 @@ let raw ?(extent_reader = "/opt/xensource/libexec/get_nbd_extents.py") raw
             Lwt.fail_with
               (Printf.sprintf
                  "Nbd_input.raw finished with offset=%Ld <> size=%Ld" offset
-                 size)
+                 size
+              )
         else
           Lwt.return_unit
         )

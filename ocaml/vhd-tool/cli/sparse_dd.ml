@@ -33,7 +33,8 @@ let encryption_mode_of_string = function
   | x ->
       failwith
         (Printf.sprintf "Unknown encryption mode %s. Use always, never or user."
-           x)
+           x
+        )
 
 let encryption_mode = ref User
 
@@ -75,17 +76,20 @@ let options =
     ( name
     , Arg.String (fun x -> var_ref := Some x)
     , (fun () -> string_opt !var_ref)
-    , description )
+    , description
+    )
   in
   [
     ( "unbuffered"
     , Arg.Bool (fun b -> Vhd_format_lwt.File.use_unbuffered := b)
     , (fun () -> string_of_bool !Vhd_format_lwt.File.use_unbuffered)
-    , "use unbuffered I/O via O_DIRECT" )
+    , "use unbuffered I/O via O_DIRECT"
+    )
   ; ( "encryption-mode"
     , Arg.String (fun x -> encryption_mode := encryption_mode_of_string x)
     , (fun () -> string_of_encryption_mode !encryption_mode)
-    , "how to use encryption" )
+    , "how to use encryption"
+    )
   ; (* Want to ignore bad values for "nice" etc. so not using Arg.Int *)
     str_option "nice" nice
       "If supplied, the scheduling priority will be set using this value as \
@@ -99,47 +103,58 @@ let options =
   ; ( "experimental-reads-bypass-tapdisk"
     , Arg.Set experimental_reads_bypass_tapdisk
     , (fun () -> string_of_bool !experimental_reads_bypass_tapdisk)
-    , "bypass tapdisk and read directly from the underlying vhd file" )
+    , "bypass tapdisk and read directly from the underlying vhd file"
+    )
   ; ( "experimental-writes-bypass-tapdisk"
     , Arg.Set experimental_writes_bypass_tapdisk
     , (fun () -> string_of_bool !experimental_writes_bypass_tapdisk)
-    , "bypass tapdisk and write directly to the underlying vhd file" )
+    , "bypass tapdisk and write directly to the underlying vhd file"
+    )
   ; ( "base"
     , Arg.String (fun x -> base := Some x)
     , (fun () -> string_opt !base)
-    , "base disk to search for differences from" )
+    , "base disk to search for differences from"
+    )
   ; ( "src"
     , Arg.String (fun x -> src := Some x)
     , (fun () -> string_opt !src)
-    , "source disk" )
+    , "source disk"
+    )
   ; ( "dest"
     , Arg.String (fun x -> dest := Some x)
     , (fun () -> string_opt !dest)
-    , "destination disk" )
+    , "destination disk"
+    )
   ; ( "size"
     , Arg.String (fun x -> size := Int64.of_string x)
     , (fun () -> Int64.to_string !size)
-    , "number of bytes to copy" )
+    , "number of bytes to copy"
+    )
   ; ( "prezeroed"
     , Arg.Set prezeroed
     , (fun () -> string_of_bool !prezeroed)
-    , "assume the destination disk has been prezeroed" )
+    , "assume the destination disk has been prezeroed"
+    )
   ; ( "machine"
     , Arg.Set machine_readable_progress
     , (fun () -> string_of_bool !machine_readable_progress)
-    , "emit machine-readable output" )
+    , "emit machine-readable output"
+    )
   ; ( "ssl-legacy"
     , Arg.Set ssl_legacy
     , (fun () -> string_of_bool !ssl_legacy)
-    , " for TLS, allow all protocol versions instead of just TLSv1.2" )
+    , " for TLS, allow all protocol versions instead of just TLSv1.2"
+    )
   ; ( "good-ciphersuites"
     , Arg.String (fun x -> good_ciphersuites := Some x)
     , (fun () -> string_opt !good_ciphersuites)
-    , " the list of ciphersuites to allow for TLS" )
+    , " the list of ciphersuites to allow for TLS"
+    )
   ; ( "legacy-ciphersuites"
     , Arg.String (fun x -> legacy_ciphersuites := Some x)
     , (fun () -> string_opt !legacy_ciphersuites)
-    , " additional TLS ciphersuites allowed only if ssl-legacy is set" )
+    , " additional TLS ciphersuites allowed only if ssl-legacy is set"
+    )
   ]
 
 let ( +* ) = Int64.add
@@ -223,7 +238,8 @@ let find_backend_device path =
                 assert (self = bedomid) ;
                 Some params
             | _ ->
-                raise Not_found)
+                raise Not_found
+        )
     | _ ->
         raise Not_found
   with _ -> None
@@ -237,7 +253,8 @@ let with_paused_tapdisk path f =
       Tapctl.pause context tapdev ;
       after f (fun () ->
           debug "unpausing tapdisk for %s" path ;
-          Tapctl.unpause context tapdev path Tapctl.Vhd)
+          Tapctl.unpause context tapdev path Tapctl.Vhd
+      )
   | _, _, _ ->
       failwith (Printf.sprintf "Failed to pause tapdisk for %s" path)
 
@@ -358,7 +375,8 @@ let _ =
        )
        | _ ->
            error "Cannot use ionice due to invalid class value: %d" c
-     )) ;
+     )
+  ) ;
   debug "src = %s; dest = %s; base = %s; size = %Ld" src dest
     (Opt.default "None" base) size ;
   let src_image = Image.of_device src in
@@ -427,7 +445,8 @@ let _ =
       , src_image
       , !experimental_writes_bypass_tapdisk
       , dest
-      , dest_image )
+      , dest_image
+      )
     with
     | true, _, Some (`Vhd vhd), true, _, Some (`Vhd vhd') ->
         prezeroed := false ;

@@ -127,7 +127,8 @@ module Progress_bar (T : Floatable) = struct
       T.(
         to_float value
         /. to_float t.max_value
-        *. float_of_int (t.width - prefix - suffix))
+        *. float_of_int (t.width - prefix - suffix)
+      )
 
   let eta t =
     let time_so_far = Unix.gettimeofday () -. t.start_time in
@@ -191,7 +192,9 @@ let print_table header rows =
       (snd
          (List.fold_left
             (fun (i, acc) _ -> (i + 1, width_of_column i :: acc))
-            (0, []) header))
+            (0, []) header
+         )
+      )
   in
   let print_row row =
     List.iter
