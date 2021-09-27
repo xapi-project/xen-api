@@ -36,13 +36,15 @@ let write_certs path pkcs12 =
   R.trap_exn f () |> R.error_exn_trap_to_msg
 
 let expire_in_days days =
-  let seconds = days * 24 * 60 * 60 in
-  let start = Ptime_clock.now () in
-  match Ptime.(add_span start @@ Span.of_int_s seconds) with
-  | Some expire ->
-      R.ok (start, expire)
-  | None ->
-      R.error_msgf "can't represent %d as time span" days
+  let seconds days = days * 24 * 60 * 60 in
+  let now = Ptime_clock.now () in
+  let start = Ptime.of_date (2007, 8, 1) (* Miami Release *) in
+  let expire = Ptime.(add_span now @@ Span.of_int_s @@ seconds days) in
+  match (start, expire) with
+  | None, _ | _, None ->
+      R.error_msgf "can't represent %d as time span (%s)" days __LOC__
+  | Some s, Some e ->
+      R.ok (s, e)
 
 let expire_never () = (Ptime_clock.now (), Ptime.max)
 
