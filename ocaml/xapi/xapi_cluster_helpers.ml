@@ -109,7 +109,7 @@ module Pem = struct
   open Cluster_interface
   module Client = Client.Client
 
-  let init' cn = {cn; blobs= [Gencertlib.Selfcert.xapi_cluster ~cn]}
+  let init' cn = {cn; blobs= [Gencertlib.Selfcert.xapi_cluster ~cn ()]}
 
   let init ~__context ~cn =
     if unit_test ~__context then
