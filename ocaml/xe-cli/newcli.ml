@@ -414,8 +414,6 @@ let handle_unmarshal_failure ex ifd =
 
 let assert_filename_permitted ?(permit_cwd = false) permitted_filenames filename
     =
-  (* Prefix match instead of exact match is used here to workaround the old xva format that request files
-   * are not in the command line *)
   let permitted_filenames =
     match permit_cwd with
     | true ->
@@ -425,11 +423,7 @@ let assert_filename_permitted ?(permit_cwd = false) permitted_filenames filename
         permitted_filenames
   in
   let requested_file = canonicalize filename in
-  match
-    List.exists
-      (fun file -> Fpath.is_prefix file requested_file)
-      permitted_filenames
-  with
+  match List.mem requested_file permitted_filenames with
   | false ->
       let error_message =
         Printf.sprintf
