@@ -2177,17 +2177,14 @@ let stream_import __context rpc session_id s content_length refresh_session
         if config.full_restore then
           assert_can_restore_backup ~__context rpc session_id header ;
         (* objects created here: *)
-        let state =
-          handle_all __context config rpc session_id header.objects
-        in
+        let state = handle_all __context config rpc session_id header.objects in
         let table, on_cleanup_stack = (state.table, state.cleanup) in
         (* signal to GUI that object have been created and they can now go off and remapp networks *)
         TaskHelper.add_to_other_config ~__context "object_creation" "complete" ;
         try
           List.iter
             (fun (cls, id, r) ->
-              debug
-                "Imported object type %s: external ref: %s internal ref: %s"
+              debug "Imported object type %s: external ref: %s internal ref: %s"
                 cls id r
               )
             table ;
@@ -2234,8 +2231,7 @@ let stream_import __context rpc session_id s content_length refresh_session
               let expected_checksums =
                 xml |> Xmlrpc.of_string |> checksum_table_of_rpc
               in
-              if not (compare_checksums checksum_table expected_checksums)
-              then (
+              if not (compare_checksums checksum_table expected_checksums) then (
                 error "Some data checksums were incorrect: VM may be corrupt" ;
                 if not config.force then
                   raise (IFailure Some_checksums_failed)
@@ -2250,12 +2246,10 @@ let stream_import __context rpc session_id s content_length refresh_session
             (List.map (fun (cls, id, r) -> Ref.of_string r) state.created_vms)
         with e ->
           Backtrace.is_important e ;
-          error "Caught exception during import: %s"
-            (ExnHelper.string_of_exn e) ;
+          error "Caught exception during import: %s" (ExnHelper.string_of_exn e) ;
           if config.force then
             warn
-              "Not cleaning up after import failure since --force provided: \
-               %s"
+              "Not cleaning up after import failure since --force provided: %s"
               (ExnHelper.string_of_exn e)
           else (
             debug "Cleaning up after import failure: %s"

@@ -5374,8 +5374,8 @@ let vm_import fd printer rpc session_id params =
           else
             Constants.import_uri
           )
-          (Ref.string_of session_id) (Ref.string_of task_id) full_restore
-          force dry_run
+          (Ref.string_of session_id) (Ref.string_of task_id) full_restore force
+          dry_run
           (if sr <> Ref.null then "&sr_id=" ^ Ref.string_of sr else "")
           (String.concat ""
              (List.map (fun (a, b) -> "&vdi:" ^ a ^ "=" ^ b) vdi_map)
