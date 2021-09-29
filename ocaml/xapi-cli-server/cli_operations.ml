@@ -5363,291 +5363,52 @@ let vm_import fd printer rpc session_id params =
       else
         filename
     in
-    marshal fd (Command (Load (filename ^ "/ova.xml"))) ;
-    match unmarshal fd with
-    | Response OK ->
-        debug "Looking like a Zurich/Geneva XVA" ;
-        (* Zurich/Geneva style XVA import *)
-        (* If a task was passed in, use that - else create a new one. UI uses "task_id" to pass reference [UI uses ThinCLI for Geneva import];
-           						xe now allows task-uuid on cmd-line *)
-        let using_existing_task =
-          List.mem_assoc "task_id" params || List.mem_assoc "task-uuid" params
-        in
-        let importtask =
-          if List.mem_assoc "task_id" params then
-            Ref.of_string (List.assoc "task_id" params)
-          else if List.mem_assoc "task-uuid" params then
-            Client.Task.get_by_uuid rpc session_id
-              (List.assoc "task-uuid" params)
+    let make_command task_id =
+      let prefix = uri_of_someone rpc session_id Master in
+      let uri =
+        Printf.sprintf
+          "%s%s?session_id=%s&task_id=%s&restore=%b&force=%b&dry_run=%b%s%s"
+          prefix
+          ( if vm_metadata_only then
+              Constants.import_metadata_uri
           else
-            Client.Task.create rpc session_id
-              "Import of Zurich/Geneva style XVA" ""
-        in
-        (* Initially mark the task progress as -1.0. The first thing the import handler does it to mark it as zero *)
-        (* This is used as a flag to show that the 'ownership' of the task has been passed to the handler, and it's *)
-        (* not our responsibility any more to mark the task as completed/failed/etc. *)
-        Client.Task.set_progress rpc session_id importtask (-1.0) ;
-        finally
-          (fun () ->
-            let buffer = get_chunks fd in
-            try
-              let vm, vdis = Xva.of_xml (Xml.parse_string buffer) in
-              (* Only import the first VM *)
-              let vm = List.hd vm in
-              let disks =
-                List.sort compare (List.map (fun x -> x.Xva.device) vm.Xva.vbds)
-              in
-              let address =
-                match sr <> Ref.null with
-                | true ->
-                    ( ( Client.SR.get_live_hosts rpc session_id sr
-                      |> fun hosts ->
-                        if hosts <> [] then
-                          hosts
-                        else
-                          raise
-                            (Api_errors.Server_error
-                               (Api_errors.host_not_live, [])
-                            )
-                      )
-                    |> fun hosts ->
-                      List.nth hosts (List.length hosts |> Random.int)
-                    )
-                    |> fun host -> Client.Host.get_address rpc session_id host
-                | false ->
-                    "127.0.0.1"
-              in
-              (* Although it's inefficient use a loopback HTTP connection *)
-              debug "address is: %s" address ;
-              let request =
-                Http.Request.make ~user_agent:Constants.xapi_user_agent
-                  ~cookie:
-                    ([
-                       ("session_id", Ref.string_of session_id)
-                     ; ("task_id", Ref.string_of importtask)
-                     ]
-                    @
-                    if sr <> Ref.null then [("sr_id", Ref.string_of sr)] else []
-                    )
-                  Http.Put Constants.import_uri
-              in
-              (* Stream the disk data from the client *)
-              let writer (response, sock) =
-                try
-                  (* First add the metadata file *)
-                  let hdr =
-                    Tar.Header.make Xva.xml_filename
-                      (Int64.of_int (String.length buffer))
-                  in
-                  Tar_helpers.write_block hdr
-                    (fun ofd -> Unixext.really_write_string ofd buffer)
-                    sock ;
-                  List.iter
-                    (fun vdi ->
-                      let counter = ref 0 in
-                      let finished = ref false in
-                      while not !finished do
-                        (* Nb.
-                           The check for task cancelling is done here in the cli server. This is due to the fact that we've got
-                           3 parties talking to one another here: the thin cli, the cli server and the import handler. If the
-                           import handler was checking, it would close its socket on task cancelling. This only happens after
-                           each chunk is sent. Unfortunately the cli server wouldn't notice until it had already requested the
-                           data from the thin cli, and would have to wait for it to finish sending its chunk before it could
-                           alert it to the failure. *)
-                        (let l =
-                           Client.Task.get_current_operations rpc session_id
-                             importtask
-                         in
-                         if List.exists (fun (_, x) -> x = `cancel) l then
-                           raise
-                             Api_errors.(
-                               Server_error
-                                 (task_cancelled, [Ref.string_of importtask])
-                             )
-                        ) ;
-                        (* Cancelling will close the connection, which will be interpreted by the import handler as failure *)
-                        let chunk =
-                          Printf.sprintf "%s/chunk-%09d.gz" vdi !counter
-                        in
-                        marshal fd (Command (Load (filename ^ "/" ^ chunk))) ;
-                        match unmarshal fd with
-                        | Response OK ->
-                            (* A single chunk always follows the OK *)
-                            let length =
-                              match unmarshal fd with
-                              | Blob (Chunk x) ->
-                                  x
-                              | _ ->
-                                  failwith "Thin CLI protocol error"
-                            in
-                            let hdr =
-                              Tar.Header.make chunk (Int64.of_int32 length)
-                            in
-                            Tar_helpers.write_block hdr
-                              (fun ofd ->
-                                let limit = Int64.of_int32 length in
-                                let total_bytes =
-                                  Unixext.copy_file ~limit fd ofd
-                                in
-                                debug "File %s has size %Ld; we received %Ld%s"
-                                  chunk limit total_bytes
-                                  ( if limit = total_bytes then
-                                      ""
-                                  else
-                                    " ** truncated **"
-                                  )
-                                )
-                              sock ;
-                            ( match unmarshal fd with
-                            | Blob End ->
-                                ()
-                            | _ ->
-                                failwith "Thin CLI protocol error"
-                            ) ;
-                            incr counter
-                        | Response Failed ->
-                            finished := true
-                        | m ->
-                            debug "Protocol failure: unexpected: %s"
-                              (string_of_message m)
-                      done
-                      )
-                    disks ;
-                  Tar_helpers.write_end sock ;
-                  true
-                with e ->
-                  debug "vm_import caught %s while writing data"
-                    (Printexc.to_string e) ;
-                  false
-              in
-              let open Xmlrpc_client in
-              let transport =
-                SSL
-                  ( SSL.make ~use_stunnel_cache:true ~verify_cert:None
-                      ~task_id:(Ref.string_of importtask) ()
-                  , address
-                  , !Constants.https_port
-                  )
-              in
-              let stream_ok =
-                with_transport transport (with_http request writer)
-              in
-              if not stream_ok then
-                if
-                  (* If the progress is negative, we never got to talk to the import handler, and must complete *)
-                  (* the task ourselves *)
-                  Client.Task.get_progress rpc session_id importtask < 0.0
-                then
-                  Client.Task.set_status rpc session_id importtask `failure ;
-              wait_for_task_complete rpc session_id importtask ;
-              match Client.Task.get_status rpc session_id importtask with
-              | `success ->
-                  if stream_ok then
-                    let result =
-                      Client.Task.get_result rpc session_id importtask
-                    in
-                    let vmrefs =
-                      result |> Xmlrpc.of_string |> API.ref_VM_set_of_rpc
-                    in
-                    let uuids =
-                      List.map
-                        (fun vm -> Client.VM.get_uuid rpc session_id vm)
-                        vmrefs
-                    in
-                    marshal fd (Command (Print (String.concat "," uuids)))
-                  else (
-                    marshal fd
-                      (Command
-                         (PrintStderr
-                            "Warning: Streaming failed, but task succeeded. \
-                             Manual check required.\n"
-                         )
-                      ) ;
-                    raise (ExitWithError 1)
-                  )
-              | `failure ->
-                  let result =
-                    Client.Task.get_error_info rpc session_id importtask
-                  in
-                  if result = [] then (
-                    marshal fd
-                      (Command (PrintStderr "Import failed, unknown error\n")) ;
-                    raise (ExitWithError 1)
-                  ) else
-                    Cli_util.server_error (List.hd result) (List.tl result) fd
-              | `cancelled ->
-                  marshal fd (Command (PrintStderr "Import cancelled\n")) ;
-                  raise (ExitWithError 1)
-              | _ ->
-                  marshal fd (Command (PrintStderr "Internal error\n")) ;
-                  (* should never happen *)
-                  raise (ExitWithError 1)
-            with e ->
-              marshal fd
-                (Command (Debug ("Caught exception: " ^ Printexc.to_string e))) ;
-              marshal fd
-                (Command (PrintStderr "Failed to import directory-format XVA\n")) ;
-              debug "Import failed with exception: %s" (Printexc.to_string e) ;
-              if Client.Task.get_progress rpc session_id importtask = -1.0 then
-                Client.Task.set_status rpc session_id importtask `failure ;
-              raise (ExitWithError 2)
-            )
-          (fun () ->
-            if using_existing_task then
-              ()
-            else
-              Client.Task.destroy rpc session_id importtask
-            )
-    | Response Failed ->
-        (* possibly a Rio import *)
-        let make_command task_id =
-          let prefix = uri_of_someone rpc session_id Master in
-          let uri =
-            Printf.sprintf
-              "%s%s?session_id=%s&task_id=%s&restore=%b&force=%b&dry_run=%b%s%s"
-              prefix
-              ( if vm_metadata_only then
-                  Constants.import_metadata_uri
-              else
-                Constants.import_uri
-              )
-              (Ref.string_of session_id) (Ref.string_of task_id) full_restore
-              force dry_run
-              (if sr <> Ref.null then "&sr_id=" ^ Ref.string_of sr else "")
-              (String.concat ""
-                 (List.map (fun (a, b) -> "&vdi:" ^ a ^ "=" ^ b) vdi_map)
-              )
-          in
-          debug "requesting HttpPut('%s','%s')" filename uri ;
-          HttpPut (filename, uri)
-        in
-        let importtask =
-          if List.mem_assoc "task-uuid" params then
-            Some
-              (Client.Task.get_by_uuid rpc session_id
-                 (List.assoc "task-uuid" params)
-              )
-          else
-            None
-          (* track_http_operation will create one for us *)
-        in
-        let result =
-          track_http_operation ?use_existing_task:importtask fd rpc session_id
-            make_command "VM import"
-        in
-        let vmrefs = result |> Xmlrpc.of_string |> API.ref_VM_set_of_rpc in
-        let uuids =
-          List.map (fun vm -> Client.VM.get_uuid rpc session_id vm) vmrefs
-        in
-        let uuids =
-          if uuids = [] && dry_run then
-            ["xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"]
-          else
-            uuids
-        in
-        marshal fd (Command (Print (String.concat "," uuids)))
-    | _ ->
-        failwith "Thin CLI protocol error"
+            Constants.import_uri
+          )
+          (Ref.string_of session_id) (Ref.string_of task_id) full_restore
+          force dry_run
+          (if sr <> Ref.null then "&sr_id=" ^ Ref.string_of sr else "")
+          (String.concat ""
+             (List.map (fun (a, b) -> "&vdi:" ^ a ^ "=" ^ b) vdi_map)
+          )
+      in
+      debug "requesting HttpPut('%s','%s')" filename uri ;
+      HttpPut (filename, uri)
+    in
+    let importtask =
+      if List.mem_assoc "task-uuid" params then
+        Some
+          (Client.Task.get_by_uuid rpc session_id
+             (List.assoc "task-uuid" params)
+          )
+      else
+        None
+      (* track_http_operation will create one for us *)
+    in
+    let result =
+      track_http_operation ?use_existing_task:importtask fd rpc session_id
+        make_command "VM import"
+    in
+    let vmrefs = result |> Xmlrpc.of_string |> API.ref_VM_set_of_rpc in
+    let uuids =
+      List.map (fun vm -> Client.VM.get_uuid rpc session_id vm) vmrefs
+    in
+    let uuids =
+      if uuids = [] && dry_run then
+        ["xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"]
+      else
+        uuids
+    in
+    marshal fd (Command (Print (String.concat "," uuids)))
 
 let blob_get fd printer rpc session_id params =
   let blob_uuid = List.assoc "uuid" params in

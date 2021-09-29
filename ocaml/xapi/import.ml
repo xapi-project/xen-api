@@ -1897,7 +1897,7 @@ let read_xml hdr fd =
   Unixext.really_read_string fd (Int64.to_int hdr.Tar_unix.Header.file_size)
 
 let assert_filename_is hdr =
-  let expected = Xva.xml_filename in
+  let expected = Xapi_globs.ova_xml_filename in
   let actual = hdr.Tar_unix.Header.file_name in
   if expected <> actual then (
     let hex = Tar_unix.Header.to_hex in
@@ -2169,121 +2169,100 @@ let metadata_handler (req : Request.t) s _ =
 
 let stream_import __context rpc session_id s content_length refresh_session
     config =
-  let sr =
-    match config.import_type with
-    | Full_import sr ->
-        sr
-    | _ ->
-        failwith
-          "Internal error: stream_import called without correct import_type"
-  in
   with_open_archive s ?length:content_length (fun metadata s ->
       debug "Got XML" ;
-      let metadata' = Xml.parse_string metadata in
-      let old_zurich_or_geneva =
-        try
-          ignore (Xva.of_xml metadata') ;
-          true
-        with _ -> false
-      in
       let vmrefs =
-        if old_zurich_or_geneva then
-          Import_xva.from_xml refresh_session s __context rpc session_id sr
-            metadata'
-        else (
-          debug "importing new style VM" ;
-          let header = metadata |> Xmlrpc.of_string |> header_of_rpc in
-          assert_compatible ~__context header.version ;
-          if config.full_restore then
-            assert_can_restore_backup ~__context rpc session_id header ;
-          (* objects created here: *)
-          let state =
-            handle_all __context config rpc session_id header.objects
+        let header = metadata |> Xmlrpc.of_string |> header_of_rpc in
+        assert_compatible ~__context header.version ;
+        if config.full_restore then
+          assert_can_restore_backup ~__context rpc session_id header ;
+        (* objects created here: *)
+        let state =
+          handle_all __context config rpc session_id header.objects
+        in
+        let table, on_cleanup_stack = (state.table, state.cleanup) in
+        (* signal to GUI that object have been created and they can now go off and remapp networks *)
+        TaskHelper.add_to_other_config ~__context "object_creation" "complete" ;
+        try
+          List.iter
+            (fun (cls, id, r) ->
+              debug
+                "Imported object type %s: external ref: %s internal ref: %s"
+                cls id r
+              )
+            table ;
+          (* now stream the disks. We expect not to stream CDROMs *)
+          let all_vdis = non_cdrom_vdis header in
+          (* some CDROMs might be in as disks, don't stream them either *)
+          let all_vdis =
+            List.filter (fun x -> exists (Ref.of_string x.id) table) all_vdis
           in
-          let table, on_cleanup_stack = (state.table, state.cleanup) in
-          (* signal to GUI that object have been created and they can now go off and remapp networks *)
-          TaskHelper.add_to_other_config ~__context "object_creation" "complete" ;
-          try
-            List.iter
-              (fun (cls, id, r) ->
-                debug
-                  "Imported object type %s: external ref: %s internal ref: %s"
-                  cls id r
-                )
-              table ;
-            (* now stream the disks. We expect not to stream CDROMs *)
-            let all_vdis = non_cdrom_vdis header in
-            (* some CDROMs might be in as disks, don't stream them either *)
-            let all_vdis =
-              List.filter (fun x -> exists (Ref.of_string x.id) table) all_vdis
-            in
-            let vdis =
-              List.map
-                (fun x ->
-                  let vdir =
-                    API.vDI_t_of_rpc (find_in_export x.id state.export)
-                  in
-                  ( x.id
-                  , lookup (Ref.of_string x.id) table
-                  , vdir.API.vDI_virtual_size
-                  )
-                  )
-                all_vdis
-            in
-            List.iter
-              (fun (extid, intid, size) ->
-                debug "Expecting to import VDI %s into %s (size=%Ld)" extid
-                  (Ref.string_of intid) size
-                )
-              vdis ;
-            let checksum_table =
-              Stream_vdi.recv_all refresh_session s __context rpc session_id
-                header.version config.force vdis
-            in
-            (* CA-48768: Stream_vdi.recv_all only checks for task cancellation
-               						   every ten seconds, so we need to check again now. After this
-               						   point, we disable cancellation for this task. *)
-            TaskHelper.exn_if_cancelling ~__context ;
-            TaskHelper.set_not_cancellable ~__context ;
-            (* Pre-miami GA exports have a checksum table at the end of the export. Check the calculated checksums *)
-            (* against the table here. Nb. Rio GA-Miami B2 exports get their checksums checked twice! *)
-            ( if header.version.export_vsn < 2 then
-                let xml =
-                  Tar_unix.Archive.with_next_file s (fun s hdr -> read_xml hdr s)
+          let vdis =
+            List.map
+              (fun x ->
+                let vdir =
+                  API.vDI_t_of_rpc (find_in_export x.id state.export)
                 in
-                let expected_checksums =
-                  xml |> Xmlrpc.of_string |> checksum_table_of_rpc
-                in
-                if not (compare_checksums checksum_table expected_checksums)
-                then (
-                  error "Some data checksums were incorrect: VM may be corrupt" ;
-                  if not config.force then
-                    raise (IFailure Some_checksums_failed)
-                  else
-                    error
-                      "Ignoring incorrect checksums since 'force' flag was \
-                       supplied"
+                ( x.id
+                , lookup (Ref.of_string x.id) table
+                , vdir.API.vDI_virtual_size
                 )
-            ) ;
-            (* return vmrefs *)
-            Listext.List.setify
-              (List.map (fun (cls, id, r) -> Ref.of_string r) state.created_vms)
-          with e ->
-            Backtrace.is_important e ;
-            error "Caught exception during import: %s"
+                )
+              all_vdis
+          in
+          List.iter
+            (fun (extid, intid, size) ->
+              debug "Expecting to import VDI %s into %s (size=%Ld)" extid
+                (Ref.string_of intid) size
+              )
+            vdis ;
+          let checksum_table =
+            Stream_vdi.recv_all refresh_session s __context rpc session_id
+              header.version config.force vdis
+          in
+          (* CA-48768: Stream_vdi.recv_all only checks for task cancellation
+             						   every ten seconds, so we need to check again now. After this
+             						   point, we disable cancellation for this task. *)
+          TaskHelper.exn_if_cancelling ~__context ;
+          TaskHelper.set_not_cancellable ~__context ;
+          (* Pre-miami GA exports have a checksum table at the end of the export. Check the calculated checksums *)
+          (* against the table here. Nb. Rio GA-Miami B2 exports get their checksums checked twice! *)
+          ( if header.version.export_vsn < 2 then
+              let xml =
+                Tar_unix.Archive.with_next_file s (fun s hdr -> read_xml hdr s)
+              in
+              let expected_checksums =
+                xml |> Xmlrpc.of_string |> checksum_table_of_rpc
+              in
+              if not (compare_checksums checksum_table expected_checksums)
+              then (
+                error "Some data checksums were incorrect: VM may be corrupt" ;
+                if not config.force then
+                  raise (IFailure Some_checksums_failed)
+                else
+                  error
+                    "Ignoring incorrect checksums since 'force' flag was \
+                     supplied"
+              )
+          ) ;
+          (* return vmrefs *)
+          Listext.List.setify
+            (List.map (fun (cls, id, r) -> Ref.of_string r) state.created_vms)
+        with e ->
+          Backtrace.is_important e ;
+          error "Caught exception during import: %s"
+            (ExnHelper.string_of_exn e) ;
+          if config.force then
+            warn
+              "Not cleaning up after import failure since --force provided: \
+               %s"
+              (ExnHelper.string_of_exn e)
+          else (
+            debug "Cleaning up after import failure: %s"
               (ExnHelper.string_of_exn e) ;
-            if config.force then
-              warn
-                "Not cleaning up after import failure since --force provided: \
-                 %s"
-                (ExnHelper.string_of_exn e)
-            else (
-              debug "Cleaning up after import failure: %s"
-                (ExnHelper.string_of_exn e) ;
-              cleanup on_cleanup_stack
-            ) ;
-            raise e
-        )
+            cleanup on_cleanup_stack
+          ) ;
+          raise e
       in
       complete_import ~__context vmrefs ;
       debug "import successful" ;
