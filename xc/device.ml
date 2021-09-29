@@ -872,6 +872,13 @@ module Vif = struct
       else
         []
     in
+    let front_mtu =
+      match mtu with
+      | Some mtu when mtu > 0 ->
+          [("mtu", string_of_int mtu)]
+      | _ ->
+          []
+    in
     let front =
       [
         ("backend-id", string_of_int backend_domid)
@@ -881,6 +888,7 @@ module Vif = struct
       ; ("disconnect", if carrier then "0" else "1")
       ]
       @ front_options
+      @ front_mtu
     in
     let extra_private_keys =
       List.map (fun (k, v) -> ("other-config/" ^ k, v)) other_config
