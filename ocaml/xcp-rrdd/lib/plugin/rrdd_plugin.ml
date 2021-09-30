@@ -138,7 +138,6 @@ functor
       ) else (
         D.info "Not daemonizing .." ;
         Sys.catch_break true ;
-        Debug.log_to_stdout ()
       ) ;
       if !pidfile <> "" then (
         D.debug "Storing process id into specified file .." ;
