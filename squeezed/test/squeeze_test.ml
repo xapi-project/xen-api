@@ -13,7 +13,10 @@
  *)
 (** Simulation environment and set of unit tests for the domain memory balancer. *)
 
-open Squeeze
+module D = Debug.Make (struct let name = "squeeze_test" end)
+
+open D
+open! Squeeze
 
 (** Computes the memory_actual delta for a VM assuming the balloon driver
     responds at a given speed. Warning: make sure the balloon_rate * time_passed
@@ -433,7 +436,6 @@ let simulate scenario =
   let out_filename = Printf.sprintf "%s.out" scenario.name in
   let dat_oc = open_out dat_filename in
   let out_oc = open_out out_filename in
-  debug_oc := out_oc ;
   let cols = [Gnuplot.Memory_actual; Gnuplot.Target] in
   Gnuplot.write_header dat_oc cols ;
   let i = ref 0 in
@@ -487,7 +489,6 @@ let simulate scenario =
     (fun () ->
       close_out dat_oc ;
       close_out out_oc ;
-      debug_oc := stderr ;
       Gnuplot.write_gp scenario.name (make_host ()) cols
       )
 
@@ -519,11 +520,13 @@ let run_test scenario =
       List.iter Xapi_stdext_unix.Unixext.unlink_safe
         (files_created_by_scenario scenario)
 
+let prepare_tests scenarios =
+  let prepare_test scenario =
+    (scenario.description, `Quick, fun () -> run_test scenario)
+  in
+  List.map prepare_test scenarios
+
 let go () =
-  List.iter run_test all_scenarios ;
-  debug "%d tests executed; %d unexpected results"
-    (List.length all_scenarios)
-    (List.length !failed_scenarios) ;
-  List.iter
-    (fun (scenario, error) -> debug "%s: %s" scenario.name error)
-    !scenario_error_table
+  let suite = [("squeeze test", prepare_tests all_scenarios)] in
+  Debug.log_to_stdout () ;
+  Alcotest.run "squeeze suite" suite
