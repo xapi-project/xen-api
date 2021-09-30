@@ -25,27 +25,9 @@
    commandline *)
 let start = Unix.gettimeofday ()
 
-module D = Debug.Make (struct let name = "xenops" end)
+module D = Debug.Make (struct let name = "squeeze" end)
 
-let debug_oc = ref stdout
-
-let debug fmt =
-  Printf.kprintf
-    (fun x ->
-      Printf.fprintf !debug_oc "[%.2f] %s\n" (Unix.gettimeofday () -. start) x ;
-      flush !debug_oc ;
-      D.debug "%s" x
-      )
-    fmt
-
-let error fmt =
-  Printf.kprintf
-    (fun x ->
-      Printf.fprintf !debug_oc "[%.2f] %s\n" (Unix.gettimeofday () -. start) x ;
-      flush !debug_oc ;
-      D.error "%s" x
-      )
-    fmt
+open D
 
 let manage_domain_zero = ref false
 

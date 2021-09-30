@@ -106,6 +106,7 @@ let bind () =
   S.get_domain_zero_policy get_domain_zero_policy
 
 let _ =
+  Debug.set_facility Syslog.Local5 ;
   debug "squeezed version %d.%d starting" major_version minor_version ;
   configure ~options () ;
   bind () ;
