@@ -119,31 +119,7 @@ functor
       Debug.set_facility Syslog.Local0 ;
       D.info "installing signal handler for SIGTERM in %s" __LOC__ ;
       Sys.set_signal Sys.sigterm (Sys.Signal_handle on_sigterm) ;
-      let pidfile = ref "" in
-      let daemonize = ref false in
-      Arg.parse
-        (Arg.align
-           [
-             ("-daemon", Arg.Set daemonize, "Create a daemon")
-           ; ( "-pidfile"
-             , Arg.Set_string pidfile
-             , Printf.sprintf "Set the pid file (default \"%s\")" !pidfile
-             )
-           ]
-        )
-        (fun _ -> failwith "Invalid argument")
-        (Printf.sprintf "Usage: %s [-daemon] [-pidfile filename]" N.name) ;
-      if !daemonize then (
-        D.info "Daemonizing .." ; Unixext.daemonize ()
-      ) else (
-        D.info "Not daemonizing .." ;
-        Sys.catch_break true ;
-      ) ;
-      if !pidfile <> "" then (
-        D.debug "Storing process id into specified file .." ;
-        Unixext.mkdir_rec (Filename.dirname !pidfile) 0o755 ;
-        Unixext.pidfile_write !pidfile
-      )
+      Sys.catch_break true
 
     let main_loop ~neg_shift ~target ~protocol ~dss_f =
       Reporter.start (module D) ~uid:N.name ~neg_shift ~target ~protocol ~dss_f
