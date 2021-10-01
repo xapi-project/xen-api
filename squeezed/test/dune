@@ -1,11 +1,14 @@
 (test
  (name squeeze_test_main)
+ (package xapi-squeezed)
   (flags (:standard -bin-annot))
   (libraries
+    alcotest
     xapi-stdext-pervasives
     xapi-stdext-unix
     xenctrl
     unix
     squeeze
+    xapi-idl
   )
 )

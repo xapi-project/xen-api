@@ -23,11 +23,9 @@ open Squeezed_xenstore
 
 open Xapi_stdext_threads.Threadext
 
-module M = Debug.Make (struct let name = "memory" end)
+module D = Debug.Make (struct let name = "squeeze_xen" end)
 
-let debug = Squeeze.debug
-
-let error = Squeeze.error
+open D
 
 let _domain_type = "/domain-type" (* immutable *)
 
