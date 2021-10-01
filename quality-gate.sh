@@ -3,7 +3,7 @@
 set -e
 
 list-hd () {
-  N=311
+  N=309
   LIST_HD=$(git grep -r --count 'List.hd' -- **/*.ml | cut -d ':' -f 2 | paste -sd+ - | bc)
   if [ "$LIST_HD" -eq "$N" ]; then
     echo "OK counted $LIST_HD usages"
@@ -14,7 +14,7 @@ list-hd () {
 }
 
 verify-cert () {
-  N=14
+  N=13
   NONE=$(git grep -r --count 'verify_cert:None' -- **/*.ml | cut -d ':' -f 2 | paste -sd+ - | bc)
   if [ "$NONE" -eq "$N" ]; then
     echo "OK counted $NONE usages of verify_cert:None"
@@ -25,7 +25,7 @@ verify-cert () {
 }
 
 mli-files () {
-  N=339
+  N=337
   # do not count ml files from the tests in ocaml/{tests/perftest/quicktest}
   MLIS=$(git ls-files -- '**/*.mli' | grep -vE "ocaml/tests|ocaml/perftest|ocaml/quicktest" | xargs -I {} sh -c "echo {} | cut -f 1 -d '.'" \;)
   MLS=$(git  ls-files -- '**/*.ml'  | grep -vE "ocaml/tests|ocaml/perftest|ocaml/quicktest" | xargs -I {} sh -c "echo {} | cut -f 1 -d '.'" \;)

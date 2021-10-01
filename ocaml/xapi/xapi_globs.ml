@@ -161,6 +161,10 @@ let default_platform_version = "0.0.0"
    and Miami GA (2) [inline checksums, no end-of-tar checksum table] *)
 let export_vsn = 2
 
+(* Name of the XML metadata file for VM exports *)
+(* This used to be in Xva.xml_filename *)
+let ova_xml_filename = "ova.xml"
+
 (** When exporting a VDI in TAR format, the VDI's data will be stored under
     this directory in the archive. *)
 let vdi_tar_export_dir = "vdi"

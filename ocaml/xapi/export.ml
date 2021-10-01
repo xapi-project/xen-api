@@ -596,7 +596,8 @@ let export_metadata ~__context ~with_snapshot_metadata ~preserve_power_state
       ~include_vhd_parents ~__context ~vms
   in
   let hdr =
-    Tar.Header.make Xva.xml_filename (Int64.of_int @@ String.length ova_xml)
+    Tar.Header.make Xapi_globs.ova_xml_filename
+      (Int64.of_int @@ String.length ova_xml)
   in
   Tar_helpers.write_block hdr (fun s -> Unixext.really_write_string s ova_xml) s ;
   Tar_helpers.write_end s
@@ -612,7 +613,8 @@ let export refresh_session __context rpc session_id s vm_ref
   in
   debug "Outputting ova.xml" ;
   let hdr =
-    Tar.Header.make Xva.xml_filename (Int64.of_int @@ String.length ova_xml)
+    Tar.Header.make Xapi_globs.ova_xml_filename
+      (Int64.of_int @@ String.length ova_xml)
   in
   Tar_helpers.write_block hdr (fun s -> Unixext.really_write_string s ova_xml) s ;
   (* Only stream the disks that are in the table AND which are not CDROMs (ie whose VBD.type <> CD
