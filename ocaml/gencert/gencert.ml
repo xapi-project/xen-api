@@ -41,7 +41,7 @@ let generate_cert_or_fail ~generator ~path =
     exit 1
   )
 
-let main ~dbg ~path ~sni =
+let main ~dbg ~path ~sni () =
   let init_inventory () = Inventory.inventory_filename := inventory in
   init_inventory () ;
   let generator path =
@@ -82,7 +82,7 @@ let () =
   | [|_; path; sni|] -> (
     match SNI.of_string sni with
     | Some sni ->
-        main ~dbg ~path ~sni
+        main ~dbg ~path ~sni ()
     | None ->
         D.error "SNI must be default or xapi:pool, but got '%s'" sni ;
         exit 1

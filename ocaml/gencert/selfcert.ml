@@ -20,6 +20,27 @@ module D = Debug.Make (struct let name = "gencert_selfcert" end)
 
 let ( let* ) = Result.bind
 
+let fist_path = "/tmp/fist_gencert_backdate"
+
+let rio_release =
+  match Ptime.of_date (2008, 8, 1) with
+  | None ->
+      assert false
+  | Some date ->
+      date
+
+(** A new cert is valid from: now by default, or the given date. A fist
+file forces the date to [rio_release] for testing *)
+let valid_from' date =
+  match (date, Sys.file_exists fist_path) with
+  | _, true ->
+      D.debug "backdating cert to 2007-08-01 (%s)" fist_path ;
+      rio_release
+  | Some date, false ->
+      date
+  | None, false ->
+      Ptime_clock.now ()
+
 (** initialize the random number generator at program startup when this
 module is loaded. *)
 let () = Mirage_crypto_rng_unix.initialize ()
@@ -35,16 +56,17 @@ let write_certs path pkcs12 =
   in
   R.trap_exn f () |> R.error_exn_trap_to_msg
 
-let expire_in_days days =
-  let seconds = days * 24 * 60 * 60 in
-  let start = Ptime_clock.now () in
-  match Ptime.(add_span start @@ Span.of_int_s seconds) with
-  | Some expire ->
-      R.ok (start, expire)
+let expire_in_days ~valid_from days =
+  let seconds days = days * 24 * 60 * 60 in
+  let now = Ptime_clock.now () in
+  let expire = Ptime.(add_span now @@ Span.of_int_s @@ seconds days) in
+  match expire with
   | None ->
-      R.error_msgf "can't represent %d as time span" days
+      R.error_msgf "can't represent %d as time span (%s)" days __LOC__
+  | Some e ->
+      R.ok (valid_from, e)
 
-let expire_never () = (Ptime_clock.now (), Ptime.max)
+let expire_never ~valid_from () = (valid_from, Ptime.max)
 
 let sans dns_names ips =
   let sans = X509.General_name.(singleton DNS dns_names |> add IP ips) in
@@ -121,9 +143,10 @@ let selfsign issuer extensions key_length expiration certfile =
   let* () = write_certs certfile pkcs12 in
   Ok cert
 
-let host ~name ~dns_names ~ips pemfile =
+let host ~name ~dns_names ~ips ?valid_from pemfile =
+  let valid_from = valid_from' valid_from in
   let res =
-    let* expiration = expire_in_days (365 * 10) in
+    let* expiration = expire_in_days ~valid_from (365 * 10) in
     let key_length = 2048 in
     let issuer =
       [
@@ -139,9 +162,10 @@ let host ~name ~dns_names ~ips pemfile =
 
 let serial_stamp () = Unix.gettimeofday () |> string_of_float
 
-let xapi_pool ~uuid pemfile =
+let xapi_pool ?valid_from ~uuid pemfile =
+  let valid_from = valid_from' valid_from in
   let res =
-    let* expiration = expire_in_days (365 * 10) in
+    let* expiration = expire_in_days ~valid_from (365 * 10) in
     let key_length = 2048 in
     let issuer =
       [
@@ -159,8 +183,9 @@ let xapi_pool ~uuid pemfile =
   in
   R.failwith_error_msg res
 
-let xapi_cluster ~cn =
-  let expiration = expire_never () in
+let xapi_cluster ?valid_from ~cn () =
+  let date = valid_from' valid_from in
+  let expiration = expire_never ~valid_from:date () in
   let key_length = 2048 in
   let issuer =
     [X509.Distinguished_name.(Relative_distinguished_name.singleton (CN cn))]
