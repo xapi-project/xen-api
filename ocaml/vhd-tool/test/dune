@@ -1,5 +1,4 @@
 (executable
-  (modes byte exe)
   (name stress)
   (libraries
     alcotest
@@ -18,4 +17,3 @@
   )
   (action (run %{x}))
 )
-

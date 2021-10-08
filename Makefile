@@ -22,6 +22,9 @@ clean:
 test:
 	XAPI_VERSION=$(XAPI_VERSION) dune runtest --profile=$(PROFILE) --no-buffer -j $(JOBS)
 
+stresstest:
+	XAPI_VERSION=$(XAPI_VERSION) dune build @stresstest --profile=$(PROFILE) --no-buffer -j $(JOBS)
+
 doc:
 	XAPI_VERSION=$(XAPI_VERSION) dune build --profile=$(PROFILE) ocaml/idl/datamodel_main.exe
 	dune build --profile=$(PROFILE) -f @ocaml/doc/jsapigen

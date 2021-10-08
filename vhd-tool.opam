@@ -12,7 +12,8 @@ build: [[ "dune" "build" "-p" name "-j" jobs ]
 ]
 depends: [
   "ocaml"
-  "dune" {build}
+  "dune"
+  "alcotest-lwt" {with-test}
   "cohttp-lwt"
   "conf-libssl"
   "cstruct" {>= "3.0.0"}

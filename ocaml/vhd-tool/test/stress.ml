@@ -17,7 +17,7 @@ let rec process_stream total = function
   | F.End ->
       Lwt.return total
 
-let test_huge_input switch () =
+let test_huge_input _switch () =
   let raw = `anything in
   let server = "" in
   let export_name = "" in
@@ -30,6 +30,7 @@ let test_huge_input switch () =
 
 let test_set =
   let t = Alcotest_lwt.test_case in
-  [t "VDI with a large allocated extent list" `Quick test_huge_input]
+  [t "VDI with a large allocated extent list" `Slow test_huge_input]
 
-let () = Alcotest.run "stress test" [("Nbd_input", test_set)]
+let () =
+  Lwt_main.run @@ Alcotest_lwt.run "stress test" [("Nbd_input", test_set)]
