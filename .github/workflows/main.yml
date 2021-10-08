@@ -76,6 +76,13 @@ jobs:
       - name: Run tests
         run: opam exec -- make test
 
+      - name: Check all code
+        run: opam exec -- make check
+
+      - name: Run stress tests
+        run: opam exec -- make stresstest
+        if: ${{ github.event_name == 'schedule' }}
+
       - name: Build SDK
         run: |
           mkdir -p /opt/xensource/sm
