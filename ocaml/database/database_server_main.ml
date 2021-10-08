@@ -1,4 +1,3 @@
-open Xapi_stdext_threads
 open Xapi_stdext_unix
 open Xapi_stdext_threads.Threadext
 
