@@ -12,8 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Xapi_stdext_unix
-
 let signal_name signum =
   let signals =
     let t = Hashtbl.create 30 in
