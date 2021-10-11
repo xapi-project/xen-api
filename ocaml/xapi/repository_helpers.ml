@@ -688,13 +688,8 @@ module UpdateInfo = struct
     }
 
   let assert_valid_updateinfo = function
-    | {id= ""; _}
-    | {summary= ""; _}
-    | {description= ""; _}
-    | {update_type= ""; _} ->
-        error
-          "One or more of 'id', 'summary', 'description' and 'update_type' \
-           is/are missing" ;
+    | {id= ""; _} | {summary= ""; _} | {update_type= ""; _} ->
+        error "One or more of 'id', 'summary', and 'type' is/are missing" ;
         raise Api_errors.(Server_error (invalid_updateinfo_xml, []))
     | ui ->
         ui
