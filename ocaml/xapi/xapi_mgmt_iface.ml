@@ -183,7 +183,7 @@ let run ~__context ?mgmt_enabled () =
   Mutex.execute management_m (fun () ->
       Client_certificate_auth_server.update ~__context ~mgmt_enabled ;
       next_server_mode ~mgmt_enabled |> Server.update ~__context ;
-      Xapi_stunnel_server.restart ~__context (Server.is_ipv6_enabled ())
+      Xapi_stunnel_server.sync ~__context (Server.is_ipv6_enabled ())
   )
 
 let reconfigure_himn ~__context ~addr =
