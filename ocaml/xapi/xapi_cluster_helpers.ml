@@ -181,6 +181,8 @@ module Pem = struct
           D.debug "Pem.get_existing: found existing pem!" ;
           Some p
     )
+    | exception Api_errors.(Server_error (message_method_unknown, _)) ->
+        None
 
   let maybe_write_new ~__context self =
     let write h =
@@ -220,4 +222,6 @@ module Pem = struct
           D.info "Pem.maybe_write_new: successfully written on cluster '%s'"
             (Ref.short_string_of self)
     )
+    | exception Api_errors.(Server_error (message_method_unknown, _)) ->
+        ()
 end
