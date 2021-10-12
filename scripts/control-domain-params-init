@@ -2,6 +2,10 @@
 
 set -eu
 
+FIRSTBOOT_DATA_DIR=/etc/firstboot.d/data
+UPGRADE="false"
+[ -r ${FIRSTBOOT_DATA_DIR}/host.conf ] && . ${FIRSTBOOT_DATA_DIR}/host.conf
+
 . /etc/xensource-inventory
 
 if [ -z "$CONTROL_DOMAIN_UUID" ]; then
@@ -9,23 +13,25 @@ if [ -z "$CONTROL_DOMAIN_UUID" ]; then
     exit 1
 fi
 
-VAL="$(xe vm-param-get uuid=${CONTROL_DOMAIN_UUID} param-name=other-config param-key=perfmon 2> /dev/null || true)"
-if [ -z "$VAL" ]; then
-    # create a perfmon config which generates alarms on dom0 fs usage level and memory pressure
-    FS_USAGE_TRIGGER_LEVEL=0.9
-    FS_USAGE_TRIGGER_PERIOD=60
-    FS_USAGE_AUTO_INHIBIT_PERIOD=3600
-    MEM_USAGE_TRIGGER_LEVEL=0.95
-    MEM_USAGE_TRIGGER_PERIOD=60
-    MEM_USAGE_AUTO_INHIBIT_PERIOD=3600
-    LOG_FS_USAGE_TRIGGER_LEVEL=0.9
-    LOG_FS_USAGE_TRIGGER_PERIOD=60
-    LOG_FS_USAGE_AUTO_INHIBIT_PERIOD=3600
-    PERFMON_CONFIG="<config><variable><name value=\"fs_usage\"/><alarm_trigger_level value=\"$FS_USAGE_TRIGGER_LEVEL\"/><alarm_trigger_period value=\"$FS_USAGE_TRIGGER_PERIOD\"/><alarm_auto_inhibit_period value=\"$FS_USAGE_AUTO_INHIBIT_PERIOD\"/></variable><variable><name value=\"mem_usage\"/><alarm_trigger_level value=\"$MEM_USAGE_TRIGGER_LEVEL\"/><alarm_trigger_period value=\"$MEM_USAGE_TRIGGER_PERIOD\"/><alarm_auto_inhibit_period value=\"$MEM_USAGE_AUTO_INHIBIT_PERIOD\"/></variable><variable><name value=\"log_fs_usage\"/><alarm_trigger_level value=\"$LOG_FS_USAGE_TRIGGER_LEVEL\"/><alarm_trigger_period value=\"$LOG_FS_USAGE_TRIGGER_PERIOD\"/><alarm_auto_inhibit_period value=\"$LOG_FS_USAGE_AUTO_INHIBIT_PERIOD\"/></variable></config>"
-    xe vm-param-set uuid="$CONTROL_DOMAIN_UUID" other-config:perfmon="$PERFMON_CONFIG"
+if [ "$UPGRADE" != "true" ]; then
+    VAL="$(xe vm-param-get uuid=${CONTROL_DOMAIN_UUID} param-name=other-config param-key=perfmon 2> /dev/null || true)"
+    if [ -z "$VAL" ]; then
+        # create a perfmon config which generates alarms on dom0 fs usage level and memory pressure
+        FS_USAGE_TRIGGER_LEVEL=0.9
+        FS_USAGE_TRIGGER_PERIOD=60
+        FS_USAGE_AUTO_INHIBIT_PERIOD=3600
+        MEM_USAGE_TRIGGER_LEVEL=0.95
+        MEM_USAGE_TRIGGER_PERIOD=60
+        MEM_USAGE_AUTO_INHIBIT_PERIOD=3600
+        LOG_FS_USAGE_TRIGGER_LEVEL=0.9
+        LOG_FS_USAGE_TRIGGER_PERIOD=60
+        LOG_FS_USAGE_AUTO_INHIBIT_PERIOD=3600
+        PERFMON_CONFIG="<config><variable><name value=\"fs_usage\"/><alarm_trigger_level value=\"$FS_USAGE_TRIGGER_LEVEL\"/><alarm_trigger_period value=\"$FS_USAGE_TRIGGER_PERIOD\"/><alarm_auto_inhibit_period value=\"$FS_USAGE_AUTO_INHIBIT_PERIOD\"/></variable><variable><name value=\"mem_usage\"/><alarm_trigger_level value=\"$MEM_USAGE_TRIGGER_LEVEL\"/><alarm_trigger_period value=\"$MEM_USAGE_TRIGGER_PERIOD\"/><alarm_auto_inhibit_period value=\"$MEM_USAGE_AUTO_INHIBIT_PERIOD\"/></variable><variable><name value=\"log_fs_usage\"/><alarm_trigger_level value=\"$LOG_FS_USAGE_TRIGGER_LEVEL\"/><alarm_trigger_period value=\"$LOG_FS_USAGE_TRIGGER_PERIOD\"/><alarm_auto_inhibit_period value=\"$LOG_FS_USAGE_AUTO_INHIBIT_PERIOD\"/></variable></config>"
+        xe vm-param-set uuid="$CONTROL_DOMAIN_UUID" other-config:perfmon="$PERFMON_CONFIG"
 
-    # Ensure changes are synced to disk
-    xe pool-sync-database
+        # Ensure changes are synced to disk
+        xe pool-sync-database
+    fi
 fi
 
 touch /var/lib/misc/ran-control-domain-params-init
