@@ -1,6 +1,6 @@
 [Unit]
 Description=Generate TLS certificates for xapi
-Requires=forkexecd.service
+Wants=forkexecd.service
 After=forkexecd.service
 
 [Service]
