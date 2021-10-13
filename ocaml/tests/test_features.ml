@@ -36,21 +36,30 @@ module OfAssocList = Generic.MakeStateless (struct
   let tests =
     `QuickAndAutoDocumented
       [
-        ([], [Xen_motion; AD])
-      ; ([("restrict_xen_motion", "true"); ("restrict_ad", "true")], [])
-      ; ([("restrict_xen_motion", "true")], [AD])
-      ; ([("restrict_xen_motion", "false")], [Xen_motion; AD])
+        ([], [Xen_motion; AD; Updates])
+      ; ( [
+            ("restrict_xen_motion", "true")
+          ; ("restrict_ad", "true")
+          ; ("restrict_updates", "true")
+          ]
+        , []
+        )
+      ; ([("restrict_xen_motion", "true")], [AD; Updates])
+      ; ([("restrict_xen_motion", "false")], [Xen_motion; AD; Updates])
       ; ( [("restrict_xen_motion", "false"); ("restrict_dmc", "false")]
-        , [DMC; Xen_motion; AD]
+        , [DMC; Xen_motion; AD; Updates]
         )
       ; ( [
             ("restrict_xen_motion", "false")
           ; ("restrict_ad", "true")
           ; ("restrict_dmc", "false")
           ]
-        , [DMC; Xen_motion]
+        , [DMC; Xen_motion; Updates]
         )
-      ; ([("enable_xha", "true"); ("restrict_xen_motion", "true")], [HA; AD])
+      ; ( [("enable_xha", "true"); ("restrict_xen_motion", "true")]
+        , [HA; AD; Updates]
+        )
+      ; ([("restrict_updates", "true")], [Xen_motion; AD])
       ]
 end)
 

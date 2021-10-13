@@ -132,7 +132,7 @@ let keys_of_features =
    if the feature string is missing from the list. These are existing features
    that have been recently restricted, and which we want to remain enabled during
    a rolling pool upgrade. *)
-let enabled_when_unknown = [Xen_motion; AD]
+let enabled_when_unknown = [Xen_motion; AD; Updates]
 
 let name_of_feature f = rpc_of_feature f |> Rpc.string_of_rpc
 

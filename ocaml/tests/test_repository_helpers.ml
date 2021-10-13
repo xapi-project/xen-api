@@ -940,6 +940,7 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
               <update type="security">
                 <id>UPDATE-0000</id>
                 <title>title</title>
+                <description/>
                 <summary>summary</summary>
                 <special_info>special information</special_info>
                 <url>https://update.details.info</url>
@@ -947,7 +948,24 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
               </update>
             </updates>
           |}
-        , Error Api_errors.(Server_error (invalid_updateinfo_xml, []))
+        , Ok
+            [
+              ( "UPDATE-0000"
+              , UpdateInfo.
+                  {
+                    id= "UPDATE-0000"
+                  ; summary= "summary"
+                  ; description= ""
+                  ; rec_guidance= None
+                  ; abs_guidance= None
+                  ; guidance_applicabilities= []
+                  ; spec_info= "special information"
+                  ; url= "https://update.details.info"
+                  ; update_type= "security"
+                  }
+                
+              )
+            ]
         )
       ; (* Duplicate update ID *)
         ( {|
