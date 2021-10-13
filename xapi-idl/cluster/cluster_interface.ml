@@ -40,6 +40,10 @@ type pems = {cn: string; blobs: string list} [@@deriving rpcty]
 
 type pems_opt = pems option [@@deriving rpcty]
 
+type tls_config = {pems: pems option; verify_tls_certs: bool} [@@deriving rpcty]
+
+let tls_config_empty = {pems= None; verify_tls_certs= false}
+
 (** This type contains all of the information required to initialise the
     cluster. All optional params will have the recommended defaults if None. *)
 type init_config = {
@@ -47,7 +51,7 @@ type init_config = {
   ; token_timeout_ms: int64 option
   ; token_coefficient_ms: int64 option
   ; name: string option
-  ; pems: pems option
+  ; tls_config: tls_config [@default tls_config_empty]
 }
 [@@deriving rpcty]
 
@@ -62,7 +66,7 @@ type cluster_config = {
   ; config_version: int64
   ; cluster_token_timeout_ms: int64
   ; cluster_token_coefficient_ms: int64
-  ; pems: pems option
+  ; tls_config: tls_config [@default tls_config_empty]
 }
 [@@deriving rpcty]
 
@@ -196,14 +200,14 @@ module LocalAPI (R : RPC) = struct
     declare "enable"
       [
         "Rejoins the cluster following a call to `disable`. The parameter"
-      ; "passed is the cluster config to use (optional fields set to None"
-      ; "unless updated) in case it changed while the host was disabled."
-      ; "(Note that changing optional fields isn't yet supported, TODO)"
+      ; "passed is the local IP to use"
+      ; "in case it changed while the host was disabled."
       ]
-      (debug_info_p @-> init_config_p @-> returning unit_p err)
+      (debug_info_p @-> address_p @-> returning unit_p err)
 
   let join =
     let new_p = Param.mk ~name:"new_member" address in
+    let tls_config_p = Param.mk ~name:"tls_config" tls_config in
     let existing_p = Param.mk ~name:"existing_members" addresslist in
     declare "join"
       [
@@ -215,7 +219,7 @@ module LocalAPI (R : RPC) = struct
       @-> token_p
       @-> new_p
       @-> existing_p
-      @-> pems_opt_p
+      @-> tls_config_p
       @-> returning unit_p err
       )
 
