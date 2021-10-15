@@ -132,9 +132,10 @@ let test_valid_key key_name () =
       ()
   | Error (`Msg (_, msg)) ->
       Alcotest.fail
-      @@ Format.asprintf "Valid key could not be validated: %a"
+        (Format.asprintf "Valid key could not be validated: %a"
            Fmt.(Dump.list string)
            msg
+        )
 
 let test_invalid_key key_name error reason () =
   match validate_private_key (load_test_data key_name) with
@@ -170,9 +171,10 @@ let test_valid_cert ~kind cert time pkey =
       ()
   | Error (`Msg (_, msg)) ->
       Alcotest.fail
-      @@ Format.asprintf "Valid certificate could not be validated: %a"
+        (Format.asprintf "Valid certificate could not be validated: %a"
            Fmt.(Dump.list string)
            msg
+        )
 
 let test_invalid_cert ~kind cert time pkey error reason =
   match validate_certificate kind cert time pkey with
