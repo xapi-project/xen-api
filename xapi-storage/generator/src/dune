@@ -1,0 +1,9 @@
+(executable
+  (name main)
+  (libraries
+    xapi-storage
+    unix
+    cmdliner
+    rpclib.markdown
+  )
+)
