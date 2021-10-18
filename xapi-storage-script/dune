@@ -15,8 +15,6 @@
 
 (executable
   (name main)
-  (public_name xapi-storage-script)
-  (package xapi-storage-script)
   (flags (:standard -w -39))
   (libraries
     async_inotify
@@ -34,6 +32,11 @@
   )
   (preprocess (pps ppx_deriving_rpc ppx_sexp_conv))
 )
+
+(install
+ (package xapi-storage-script)
+ (section sbin)
+ (files (main.exe as xapi-storage-script)))
 
 (rule
   (targets xapi-storage-script.8)
