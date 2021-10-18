@@ -1,9 +1,9 @@
 opam-version: "2.0"
 maintainer: "xen-api@lists.xen.org"
 authors: "jonathan.ludlam@eu.citrix.com"
-homepage: "https://github.com/xapi-project/xcp-networkd"
-dev-repo: "git+https://github.com/xapi-project/xcp-networkd.git"
-bug-reports: "https://github.com/xapi-project/xcp-networkd/issues"
+homepage: "https://github.com/xapi-project/xen-api"
+dev-repo: "git+https://github.com/xapi-project/xen-api.git"
+bug-reports: "https://github.com/xapi-project/xen-api/issues"
 build: [
   ["dune" "build" "-p" name "-j" jobs]
   ["dune" "runtest" "-p" name "-j" jobs] {with-test}
@@ -30,5 +30,5 @@ depends: [
 synopsis: "The XCP networking daemon"
 url {
   src:
-    "https://github.com/xapi-project/xcp-networkd/archive/master/master.tar.gz"
+    "https://github.com/xapi-project/xen-api/archive/master/master.tar.gz"
 }

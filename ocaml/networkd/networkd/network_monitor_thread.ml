@@ -44,7 +44,7 @@ let send_bond_change_alert _dev interfaces message =
   let session_id =
     XenAPI.Session.login_with_password ~rpc:xapi_rpc ~uname:"" ~pwd:""
       ~version:"1.4"
-      ~originator:("xcp-networkd v" ^ Version.version)
+      ~originator:("xcp-networkd v" ^ Build_info.version)
   in
   Pervasiveext.finally
     (fun _ ->

@@ -32,6 +32,8 @@ doc:
 	dune exec --profile=$(PROFILE) -- ocaml/idl/datamodel_main.exe -closed -markdown $(XAPIDOC)/markdown
 	cp ocaml/doc/*.dot ocaml/doc/doc-convert.sh $(XAPIDOC)
 	find ocaml/doc -name "*.md" -not -name "README.md" -exec cp {} $(XAPIDOC)/markdown/ \;
+# Build manpages, networkd generated these
+	XAPI_VERSION=$(XAPI_VERSION) dune build --profile=$(PROFILE) -f @man
 
 sdk:
 	cp $(SHAREDIR)/sm/XE_SR_ERRORCODES.xml ocaml/sdk-gen/csharp/XE_SR_ERRORCODES.xml
@@ -81,6 +83,7 @@ install: build doc sdk doc-json
 	mkdir -p $(DESTDIR)$(OPTDIR)/debug
 	mkdir -p $(DESTDIR)/usr/bin
 	mkdir -p $(DESTDIR)/usr/libexec/xapi
+	mkdir -p $(DESTDIR)/usr/share/man/man1
 	mkdir -p $(DESTDIR)/etc
 	mkdir -p $(DESTDIR)/etc/bash_completion.d
 # ocaml/xapi
@@ -139,6 +142,10 @@ install: build doc sdk doc-json
 	install -m 755 _build/install/default/bin/get_vhd_vsize    $(DESTDIR)/usr/libexec/xapi/get_vhd_vsize
 	install -m 755 ocaml/vhd-tool/scripts/get_nbd_extents.py   $(DESTDIR)$(LIBEXECDIR)/get_nbd_extents.py
 	install -m 644 ocaml/vhd-tool/scripts/python_nbd_client.py $(DESTDIR)$(LIBEXECDIR)/python_nbd_client.py
+# xcp-networkd
+	install -m 755 _build/install/default/bin/xapi-networkd              $(DESTDIR)/usr/sbin/xcp-networkd
+	install -m 755 _build/install/default/bin/networkd_db                $(DESTDIR)/usr/bin/networkd_db
+	install -m 644 _build/default/ocaml/networkd/networkd/xcp-networkd.1 $(DESTDIR)/usr/share/man/man1/xcp-networkd.1
 # Libraries
 	dune install --profile=$(PROFILE) \
 		xapi-client xapi-database xapi-consts xapi-cli-protocol xapi-datamodel xapi-types \
@@ -157,4 +164,4 @@ install: build doc sdk doc-json
 
 uninstall:
 	# only removes the libraries, which were installed with `dune install`
-	dune uninstall xapi-client xapi-database xapi-consts xapi-cli-protocol xapi-datamodel xapi-types
+	dune uninstall xapi-client xapi-database xapi-consts xapi-cli-protocol xapi-datamodel xapi-types networklibs

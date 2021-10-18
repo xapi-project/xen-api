@@ -1,15 +1,4 @@
 (rule
- (targets version.ml)
- (deps ../VERSION)
- (action
-  (with-stdout-to
-   %{targets}
-   (bash "cat %{deps} | sed s/^/\"let version = \"\\\"/ | sed s/$/\\\"/")
-  )
- )
-)
-
-(rule
  (targets xcp-networkd.1)
  (deps networkd.exe)
  (action
@@ -33,6 +22,7 @@
   rpclib
   systemd
   threads
+  xapi_version
   xapi-stdext-pervasives
   xapi-stdext-threads
   xapi-stdext-unix

@@ -196,7 +196,7 @@ let bind () =
 let _ =
   Coverage.init "networkd" ;
   ( match
-      Xcp_service.configure2 ~name:Sys.argv.(0) ~version:Version.version ~doc
+      Xcp_service.configure2 ~name:Sys.argv.(0) ~version:Build_info.version ~doc
         ~options ~resources ()
     with
   | `Ok () ->

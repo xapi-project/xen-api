@@ -64,6 +64,8 @@ install:
 	$(IDATA) mpathalert.service $(DESTDIR)/usr/lib/systemd/system/mpathalert.service
 	$(IDATA) xapi-init-complete.target $(DESTDIR)/usr/lib/systemd/system/xapi-init-complete.target
 	$(IDATA) xapi-wait-init-complete.service $(DESTDIR)/usr/lib/systemd/system/xapi-wait-init-complete.service
+	$(IDATA) xcp-networkd.service $(DESTDIR)/usr/lib/systemd/system/xcp-networkd.service
+	$(IDATA) xcp-networkd.conf $(DESTDIR)/etc/xcp-networkd.conf
 	$(IDATA) wsproxy.service $(DESTDIR)/usr/lib/systemd/system/wsproxy.service
 	$(IDATA) wsproxy.socket $(DESTDIR)/usr/lib/systemd/system/wsproxy.socket
 	$(IDATA) network-init.service $(DESTDIR)/usr/lib/systemd/system/network-init.service
