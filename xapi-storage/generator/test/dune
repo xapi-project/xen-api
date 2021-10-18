@@ -10,6 +10,7 @@
 
 (rule
   (alias runtest)
+  (package xapi-storage)
   (deps
     (:x storage_test.exe)
     (source_tree ../../rpc-light)

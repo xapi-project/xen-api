@@ -1,5 +1,6 @@
 (rule
   (alias python)
+  (package xapi-storage)
   (deps
     (:x ../generator/src/main.exe)
     (source_tree .)
