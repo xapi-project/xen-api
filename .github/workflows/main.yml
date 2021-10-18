@@ -9,7 +9,7 @@ jobs:
     name: Ocaml tests
     runs-on: ubuntu-20.04
     env:
-      package: "message-switch message-switch-async message-switch-cli message-switch-core message-switch-lwt message-switch-unix xapi-idl forkexec xapi-forkexecd"
+      package: "message-switch message-switch-async message-switch-cli message-switch-core message-switch-lwt message-switch-unix xapi-idl forkexec xapi-forkexecd xapi-storage"
 
     steps:
       - name: Checkout code
