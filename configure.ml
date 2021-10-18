@@ -21,7 +21,7 @@ let disable_warn_error =
 
 let varpatchdir = dir "varpatchdir" "/var/patch" "VARPATCHDIR" "hotfixes"
 
-let etcdir = dir "etcdir" "/etc/xensource" "ETCDIR" "configuration files"
+let etcxendir = dir "etcxendir" "/etc/xensource" "ETCXENDIR" "configuration files"
 
 let optdir = dir "optdir" "/opt/xensource" "OPTDIR" "system files"
 
@@ -52,10 +52,6 @@ let cluster_stack_root =
   dir "cluster-stack-root" "/usr/libexec/xapi/cluster-stack"
     "CLUSTER_STACK_ROOT" "cluster stacks"
 
-let bindir = dir "bindir" "/opt/xensource/bin" "BINDIR" "binaries"
-
-let sbindir = dir "sbindir" "/opt/xensource/bin" "BINDIR" "system binaries"
-
 let udevdir = dir "udevdir" "/etc/udev" "UDEVDIR" "udev scripts"
 
 let docdir = dir "docdir" "/usr/share/xapi/doc" "DOCDIR" "XenAPI documentation"
@@ -74,16 +70,16 @@ let output_file filename lines =
 
 let yesno_of_bool = function true -> "YES" | false -> "NO"
 
-let configure coverage disable_warn_error varpatchdir etcdir optdir plugindir
+let configure coverage disable_warn_error varpatchdir etcxendir optdir plugindir
     extensiondir hooksdir inventory xapiconf libexecdir scriptsdir sharedir
-    webdir cluster_stack_root bindir sbindir udevdir docdir sdkdir =
+    webdir cluster_stack_root udevdir docdir sdkdir =
   (* Write config.mk *)
   let vars =
     [
       ("BISECT_ENABLE", yesno_of_bool coverage)
     ; ("DISABLE_WARN_ERROR", string_of_bool disable_warn_error)
     ; ("VARPATCHDIR", varpatchdir)
-    ; ("ETCDIR", etcdir)
+    ; ("ETCXENDIR", etcxendir)
     ; ("OPTDIR", optdir)
     ; ("PLUGINDIR", plugindir)
     ; ("EXTENSIONDIR", extensiondir)
@@ -95,8 +91,6 @@ let configure coverage disable_warn_error varpatchdir etcdir optdir plugindir
     ; ("SHAREDIR", sharedir)
     ; ("WEBDIR", webdir)
     ; ("CLUSTER_STACK_ROOT", cluster_stack_root)
-    ; ("BINDIR", bindir)
-    ; ("SBINDIR", sbindir)
     ; ("UDEVDIR", udevdir)
     ; ("DOCDIR", docdir)
     ; ("SDKDIR", sdkdir)
@@ -125,7 +119,7 @@ let configure_t =
     $ coverage
     $ disable_warn_error
     $ varpatchdir
-    $ etcdir
+    $ etcxendir
     $ optdir
     $ plugindir
     $ extensiondir
@@ -137,8 +131,6 @@ let configure_t =
     $ sharedir
     $ webdir
     $ cluster_stack_root
-    $ bindir
-    $ sbindir
     $ udevdir
     $ docdir
     $ sdkdir

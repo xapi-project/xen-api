@@ -5,7 +5,7 @@ XAPISDK=_build/install/default/xapi/sdk
 JOBS = $(shell getconf _NPROCESSORS_ONLN)
 PROFILE=release
 XAPI_VERSION ?= $(shell git describe --always --dirty || echo "NO_GIT")
-MANDIR ?= $(OPTDIR)/man/man1/
+OPTMANDIR ?= $(OPTDIR)/man/man1/
 
 .PHONY: build clean test doc python format install uninstall
 
@@ -74,9 +74,8 @@ quality-gate:
 	./quality-gate.sh
 
 install: build doc sdk doc-json
-	mkdir -p $(DESTDIR)$(SBINDIR)
 	mkdir -p $(DESTDIR)$(OPTDIR)/bin
-	mkdir -p $(DESTDIR)$(MANDIR)
+	mkdir -p $(DESTDIR)$(OPTMANDIR)
 	mkdir -p $(DESTDIR)$(LIBEXECDIR)
 	mkdir -p $(DESTDIR)$(OPTDIR)/debug
 	mkdir -p $(DESTDIR)/usr/bin
@@ -85,7 +84,7 @@ install: build doc sdk doc-json
 	mkdir -p $(DESTDIR)/etc/bash_completion.d
 # ocaml/xapi
 	make -C scripts install
-	cp -f _build/install/default/bin/xapi $(DESTDIR)$(SBINDIR)/xapi
+	cp -f _build/install/default/bin/xapi $(DESTDIR)$(OPTDIR)/bin/xapi
 	scripts/install.sh 755 ocaml/quicktest/quicktest $(DESTDIR)$(OPTDIR)/debug
 	cp -f _build/install/default/bin/quicktestbin $(DESTDIR)$(OPTDIR)/debug/quicktestbin
 	scripts/install.sh 644 _build/install/default/share/xapi/rbac_static.csv $(DESTDIR)$(OPTDIR)/debug
@@ -117,7 +116,7 @@ install: build doc sdk doc-json
 	scripts/install.sh 755 _build/install/default/bin/gencert $(DESTDIR)$(LIBEXECDIR)/gencert
 # ocaml/rrd2csv
 	scripts/install.sh 755 _build/install/default/bin/rrd2csv $(DESTDIR)$(OPTDIR)/bin/rrd2csv
-	scripts/install.sh 644 ocaml/rrd2csv/man/rrd2csv.1.man $(DESTDIR)$(MANDIR)/rrd2csv.1
+	scripts/install.sh 644 ocaml/rrd2csv/man/rrd2csv.1.man $(DESTDIR)$(OPTMANDIR)/rrd2csv.1
 # xcp-rrdd
 	install -D _build/install/default/bin/xcp-rrdd $(DESTDIR)/usr/sbin/xcp-rrdd
 	install -D _build/install/default/bin/rrddump $(DESTDIR)/usr/bin/rrddump
@@ -128,8 +127,8 @@ install: build doc sdk doc-json
 	install -D -m 755 _build/install/default/bin/xcp-rrdd-iostat $(DESTDIR)$(LIBEXECDIR)/xcp-rrdd-plugins/xcp-rrdd-iostat
 	install -D -m 755 _build/install/default/bin/xcp-rrdd-squeezed $(DESTDIR)$(LIBEXECDIR)/xcp-rrdd-plugins/xcp-rrdd-squeezed
 	install -D -m 755 _build/install/default/bin/xcp-rrdd-xenpm $(DESTDIR)$(LIBEXECDIR)/xcp-rrdd-plugins/xcp-rrdd-xenpm
-	install -D -m 644 ocaml/xcp-rrdd/bugtool-plugin/rrdd-plugins.xml $(DESTDIR)$(ETCDIR)/bugtool/xcp-rrdd-plugins.xml
-	install -D -m 644 ocaml/xcp-rrdd/bugtool-plugin/rrdd-plugins/stuff.xml $(DESTDIR)$(ETCDIR)/bugtool/xcp-rrdd-plugins/stuff.xml
+	install -D -m 644 ocaml/xcp-rrdd/bugtool-plugin/rrdd-plugins.xml $(DESTDIR)$(ETCXENDIR)/bugtool/xcp-rrdd-plugins.xml
+	install -D -m 644 ocaml/xcp-rrdd/bugtool-plugin/rrdd-plugins/stuff.xml $(DESTDIR)$(ETCXENDIR)/bugtool/xcp-rrdd-plugins/stuff.xml
 	install -D -m 755 ocaml/xcp-rrdd/bin/rrdp-scripts/sysconfig-rrdd-plugins $(DESTDIR)/etc/sysconfig/xcp-rrdd-plugins
 	install -D -m 644 ocaml/xcp-rrdd/bin/rrdp-scripts/logrotate-rrdd-plugins $(DESTDIR)/etc/logrotate.d/xcp-rrdd-plugins
 # vhd-tool
