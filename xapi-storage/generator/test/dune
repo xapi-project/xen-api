@@ -8,11 +8,12 @@
   )
 )
 
-(alias
-  (name runtest)
+(rule
+  (alias runtest)
   (deps
     (:x storage_test.exe)
     (source_tree ../../rpc-light)
   )
   (action (run %{x}))
 )
+
