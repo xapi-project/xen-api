@@ -1,23 +1,22 @@
-(* -*- tuareg -*- *)
-let version =
-  let ic = open_in "./VERSION" in
-  let version = input_line ic in
-  close_in ic;
-  version
-
-let () = Printf.ksprintf Jbuild_plugin.V1.send {|
+(rule
+  (targets VERSION)
+  (mode fallback)
+  (action (with-stdout-to %{targets} (bash "git describe --always --dirty")))
+)
 
 (rule
   (targets version.ml)
-  (deps)
-  (action
-    (with-stdout-to %%{targets} (echo "let version = \"%s\"\n"))
+  (deps
+    (:v VERSION)
+    (:sh version.sh)
   )
+  (action (with-stdout-to %{targets} (bash ./%{sh})))
 )
 
 (executable
   (name main)
   (public_name xapi-storage-script)
+  (package xapi-storage-script)
   (flags (:standard -w -39))
   (libraries
     async_inotify
@@ -38,20 +37,26 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
 
 (rule
   (targets xapi-storage-script.8)
-  (deps (:x main.exe))
-  (action
-    (with-stdout-to %%{targets} (run %%{x} --help=groff))
+  (package xapi-storage-script)
+  (deps
+    (:x main.exe)
   )
+  (action (with-stdout-to %{targets} (run %{x} --help=groff)))
 )
 
 (install
   (section man)
+  (package xapi-storage-script)
   (files (xapi-storage-script.8 as man8/xapi-storage-script.8))
 )
 
-(alias
-  (name runtest)
-  (deps (:x main.exe) (source_tree test/volume))
-  (action (bash "./%%{x} --root=$PWD/test --self-test-only=true"))
+(rule
+  (alias runtest)
+  (package xapi-storage-script)
+  (deps
+    (:x main.exe)
+    (source_tree test/volume)
+  )
+  (action (bash "./%{x} --root=$PWD/test --self-test-only=true"))
 )
-|} version
+
