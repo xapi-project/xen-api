@@ -8,8 +8,8 @@
   xapi-test-utils)
 )
 
-(alias
- (name runtest)
+(rule
+ (alias runtest)
  (deps
   (:x network_test.exe)
   (source_tree jsonrpc_files)

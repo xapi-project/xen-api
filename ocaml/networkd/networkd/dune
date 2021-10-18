@@ -24,6 +24,7 @@
  (name networkd)
  (public_name xapi-networkd)
  (package xapi-networkd)
+ (modes byte exe)
  (libraries
   forkexec
   netlink
