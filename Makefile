@@ -1,5 +1,6 @@
 include config.mk
 DESTDIR?=`opam config var prefix 2>/dev/null`
+MANDIR?=/usr/share/man
 
 .PHONY: release build install uninstall clean test doc format
 
@@ -12,7 +13,7 @@ build:
 	dune build @python
 
 install:
-	dune install --destdir=$(DESTDIR) --prefix=$(PREFIX) --libdir=$(LIBDIR)
+	dune install --destdir=$(DESTDIR) --prefix=$(PREFIX) --libdir=$(LIBDIR) --mandir=$(MANDIR)
 	make -C _build/default/xapi-storage/python
 	make -C _build/default/xapi-storage/python install DESTDIR=$(DESTDIR)
 
