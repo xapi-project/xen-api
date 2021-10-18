@@ -11,7 +11,7 @@ fi
 
 . @INVENTORY@
 
-XE="@BINDIR@/xe"
+XE="@OPTDIR@/bin/xe"
 
 device_number=
 grub_conf=

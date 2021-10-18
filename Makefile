@@ -138,6 +138,31 @@ install: build doc sdk doc-json
 	install -m 755 _build/install/default/bin/get_vhd_vsize    $(DESTDIR)/usr/libexec/xapi/get_vhd_vsize
 	install -m 755 ocaml/vhd-tool/scripts/get_nbd_extents.py   $(DESTDIR)$(LIBEXECDIR)/get_nbd_extents.py
 	install -m 644 ocaml/vhd-tool/scripts/python_nbd_client.py $(DESTDIR)$(LIBEXECDIR)/python_nbd_client.py
+# xenopsd
+	install -D _build/install/default/bin/xenopsd-simulator $(DESTDIR)/$(SBINDIR)/xenopsd-simulator
+	install -D _build/install/default/man/man1/xenopsd-simulator.1.gz $(DESTDIR)/$(MANDIR)/man1/xenopsd-simulator.1.gz
+	install -D _build/install/default/bin/xenopsd-xc $(DESTDIR)/$(SBINDIR)/xenopsd-xc
+	install -D _build/install/default/bin/fence.bin $(DESTDIR)/$(LIBEXECDIR)/fence.bin
+	install -D _build/install/default/man/man1/xenopsd-xc.1.gz $(DESTDIR)/$(MANDIR)/man1/xenopsd-xc.1.gz
+	install -D _build/install/default/bin/set-domain-uuid $(DESTDIR)/$(XENOPSD_LIBEXECDIR)/set-domain-uuid
+	install -D _build/install/default/bin/xenops-cli $(DESTDIR)/$(SBINDIR)/xenops-cli
+	install -D _build/install/default/man/man1/xenops-cli.1.gz $(DESTDIR)/$(MANDIR)/man1/xenops-cli.1.gz
+	install -D _build/install/default/bin/list_domains $(DESTDIR)/$(BINDIR)/list_domains
+	install -D ./ocaml/xenopsd/scripts/vif $(DESTDIR)/$(XENOPSD_LIBEXECDIR)/vif
+	install -D ./ocaml/xenopsd/scripts/vif-real $(DESTDIR)/$(XENOPSD_LIBEXECDIR)/vif-real
+	install -D ./ocaml/xenopsd/scripts/block $(DESTDIR)/$(XENOPSD_LIBEXECDIR)/block
+	install -D ./ocaml/xenopsd/scripts/xen-backend.rules $(DESTDIR)/$(ETCDIR)/udev/rules.d/xen-backend.rules
+	install -D ./ocaml/xenopsd/scripts/tap $(DESTDIR)/$(XENOPSD_LIBEXECDIR)/tap
+	install -D ./ocaml/xenopsd/scripts/qemu-dm-wrapper $(DESTDIR)/$(XENOPSD_LIBEXECDIR)/qemu-dm-wrapper
+	install -D ./ocaml/xenopsd/scripts/qemu-vif-script $(DESTDIR)/$(XENOPSD_LIBEXECDIR)/qemu-vif-script
+	install -D ./ocaml/xenopsd/scripts/setup-vif-rules $(DESTDIR)/$(XENOPSD_LIBEXECDIR)/setup-vif-rules
+	install -D ./ocaml/xenopsd/scripts/setup-pvs-proxy-rules $(DESTDIR)/$(XENOPSD_LIBEXECDIR)/setup-pvs-proxy-rules
+	install -D ./ocaml/xenopsd/scripts/common.py $(DESTDIR)/$(XENOPSD_LIBEXECDIR)/common.py
+	install -D ./ocaml/xenopsd/scripts/igmp_query_injector.py $(DESTDIR)/$(XENOPSD_LIBEXECDIR)/igmp_query_injector.py
+	install -D ./ocaml/xenopsd/scripts/qemu-wrapper $(DESTDIR)/$(QEMU_WRAPPER_DIR)/qemu-wrapper
+	DESTDIR=$(DESTDIR) SBINDIR=$(SBINDIR) QEMU_WRAPPER_DIR=$(QEMU_WRAPPER_DIR) XENOPSD_LIBEXECDIR=$(XENOPSD_LIBEXECDIR) ETCDIR=$(ETCDIR) ./ocaml/xenopsd/scripts/make-custom-xenopsd.conf
+# squeezed
+	install -D _build/install/default/bin/squeezed $(DESTDIR)/$(SBINDIR)/squeezed
 # Libraries
 	dune install --profile=$(PROFILE) \
 		xapi-client xapi-database xapi-consts xapi-cli-protocol xapi-datamodel xapi-types \

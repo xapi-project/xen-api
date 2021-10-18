@@ -8,13 +8,13 @@ IDATA=./install.sh 644
 .PHONY: noarch-install install
 
 install:
-	mkdir -p $(DESTDIR)$(BINDIR)
+	mkdir -p $(DESTDIR)$(OPTDIR)/bin
 	mkdir -p $(DESTDIR)$(VARPATCHDIR)
 	mkdir -p $(DESTDIR)$(VARPATCHDIR)/applied
 	mkdir -p $(DESTDIR)$(HOOKSDIR)
-	mkdir -p $(DESTDIR)$(ETCDIR)
+	mkdir -p $(DESTDIR)$(ETCXENDIR)
 	mkdir -p $(DESTDIR)/etc/logrotate.d
-	mkdir -p $(DESTDIR)$(ETCDIR)/master.d
+	mkdir -p $(DESTDIR)$(ETCXENDIR)/master.d
 	mkdir -p $(DESTDIR)$(LIBEXECDIR)
 	mkdir -p $(DESTDIR)/var/lib/xcp
 	mkdir -p $(DESTDIR)/usr/lib/systemd/system
@@ -27,25 +27,25 @@ install:
 	$(IPROG) thread_diagnostics $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) list_plugins $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) nbd_client_manager.py $(DESTDIR)$(LIBEXECDIR)
-	mkdir -p $(DESTDIR)$(ETCDIR)/bugtool/xapi
-	mkdir -p $(DESTDIR)$(ETCDIR)/bugtool/xenopsd
-	$(IDATA) bugtool-plugin/xapi.xml $(DESTDIR)$(ETCDIR)/bugtool
-	$(IDATA) bugtool-plugin/xapi/stuff.xml $(DESTDIR)$(ETCDIR)/bugtool/xapi
-	$(IDATA) bugtool-plugin/xenopsd.xml $(DESTDIR)$(ETCDIR)/bugtool
-	$(IDATA) bugtool-plugin/xenopsd/stuff.xml $(DESTDIR)$(ETCDIR)/bugtool/xenopsd
+	mkdir -p $(DESTDIR)$(ETCXENDIR)/bugtool/xapi
+	mkdir -p $(DESTDIR)$(ETCXENDIR)/bugtool/xenopsd
+	$(IDATA) bugtool-plugin/xapi.xml $(DESTDIR)$(ETCXENDIR)/bugtool
+	$(IDATA) bugtool-plugin/xapi/stuff.xml $(DESTDIR)$(ETCXENDIR)/bugtool/xapi
+	$(IDATA) bugtool-plugin/xenopsd.xml $(DESTDIR)$(ETCXENDIR)/bugtool
+	$(IDATA) bugtool-plugin/xenopsd/stuff.xml $(DESTDIR)$(ETCXENDIR)/bugtool/xenopsd
 	$(IPROG) fence $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) xha-lc $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) xapi-health-check $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) mail-alarm $(DESTDIR)$(LIBEXECDIR)
 	$(IDATA) audit-logrotate $(DESTDIR)/etc/logrotate.d/audit
-	$(IDATA) xapi-logrotate.conf $(DESTDIR)$(ETCDIR)
+	$(IDATA) xapi-logrotate.conf $(DESTDIR)$(ETCXENDIR)
 	$(IPROG) xapi-logrotate.sh $(DESTDIR)$(LIBEXECDIR)
-	$(IPROG) xapi-wait-init-complete $(DESTDIR)$(BINDIR)
-	$(IPROG) xapi-autostart-vms $(DESTDIR)$(BINDIR)
-	$(IPROG) udhcpd.skel $(DESTDIR)$(ETCDIR)/udhcpd.skel
+	$(IPROG) xapi-wait-init-complete $(DESTDIR)$(OPTDIR)/bin
+	$(IPROG) xapi-autostart-vms $(DESTDIR)$(OPTDIR)/bin
+	$(IPROG) udhcpd.skel $(DESTDIR)$(ETCXENDIR)/udhcpd.skel
 	$(IDATA) xapi.conf $(DESTDIR)$(XAPICONF)
-	$(IPROG) db.conf.skel $(DESTDIR)$(ETCDIR)/db.conf
-	$(IPROG) rio.db.conf.skel $(DESTDIR)$(ETCDIR)/db.conf.rio
+	$(IPROG) db.conf.skel $(DESTDIR)$(ETCXENDIR)/db.conf
+	$(IPROG) rio.db.conf.skel $(DESTDIR)$(ETCXENDIR)/db.conf.rio
 	$(IPROG) init.d-xapi $(DESTDIR)$(LIBEXECDIR)/xapi-init
 	$(IPROG) init.d-save-boot-info $(DESTDIR)$(LIBEXECDIR)/save-boot-info
 	$(IPROG) init.d-attach-static-vdis $(DESTDIR)$(LIBEXECDIR)/attach-static-vdis
@@ -70,32 +70,32 @@ install:
 	$(IDATA) control-domain-params-init.service $(DESTDIR)/usr/lib/systemd/system/control-domain-params-init.service
 	$(IDATA) 10-stunnel-increase-number-of-file-descriptors.conf $(DESTDIR)/etc/systemd/system/stunnel@xapi.service.d/10-stunnel-increase-number-of-file-descriptors.conf
 	$(IDATA) 11-stunnel-gencert.conf $(DESTDIR)/etc/systemd/system/stunnel@xapi.service.d/11-stunnel-gencert.conf
-	mkdir -p $(DESTDIR)$(ETCDIR)/master.d
-	$(IPROG) on-master-start $(DESTDIR)$(ETCDIR)/master.d/01-example
-	$(IPROG) mpathalert-daemon $(DESTDIR)$(ETCDIR)/master.d/03-mpathalert-daemon
+	mkdir -p $(DESTDIR)$(ETCXENDIR)/master.d
+	$(IPROG) on-master-start $(DESTDIR)$(ETCXENDIR)/master.d/01-example
+	$(IPROG) mpathalert-daemon $(DESTDIR)$(ETCXENDIR)/master.d/03-mpathalert-daemon
 	mkdir -p $(DESTDIR)/etc/sysconfig
 	$(IPROG) sysconfig-xapi $(DESTDIR)/etc/sysconfig/xapi
 	$(IPROG) nbd-firewall-config.sh $(DESTDIR)$(LIBEXECDIR)
-	$(IPROG) fix_firewall.sh $(DESTDIR)$(BINDIR)
-	$(IPROG) update-ca-bundle.sh $(DESTDIR)$(BINDIR)
+	$(IPROG) fix_firewall.sh $(DESTDIR)$(OPTDIR)/bin
+	$(IPROG) update-ca-bundle.sh $(DESTDIR)$(OPTDIR)/bin
 	mkdir -p $(DESTDIR)$(OPTDIR)/debug
 	$(IPROG) debug_ha_query_liveset $(DESTDIR)$(OPTDIR)/debug
-	$(IPROG) xe-scsi-dev-map $(DESTDIR)$(BINDIR)
-	$(IPROG) xe-mount-iso-sr $(DESTDIR)$(BINDIR)
-	$(IPROG) xe-reset-networking $(DESTDIR)$(BINDIR)
-	$(IPROG) xe-toolstack-restart $(DESTDIR)$(BINDIR)
-	$(IPROG) xe-xentrace $(DESTDIR)$(BINDIR)
-	$(IPROG) xe-edit-bootloader $(DESTDIR)$(BINDIR)
-	$(IPROG) xe-get-network-backend $(DESTDIR)$(BINDIR)
-	$(IPROG) xe-enable-all-plugin-metrics $(DESTDIR)$(BINDIR)
-	$(IPROG) static-vdis $(DESTDIR)$(BINDIR)
+	$(IPROG) xe-scsi-dev-map $(DESTDIR)$(OPTDIR)/bin
+	$(IPROG) xe-mount-iso-sr $(DESTDIR)$(OPTDIR)/bin
+	$(IPROG) xe-reset-networking $(DESTDIR)$(OPTDIR)/bin
+	$(IPROG) xe-toolstack-restart $(DESTDIR)$(OPTDIR)/bin
+	$(IPROG) xe-xentrace $(DESTDIR)$(OPTDIR)/bin
+	$(IPROG) xe-edit-bootloader $(DESTDIR)$(OPTDIR)/bin
+	$(IPROG) xe-get-network-backend $(DESTDIR)$(OPTDIR)/bin
+	$(IPROG) xe-enable-all-plugin-metrics $(DESTDIR)$(OPTDIR)/bin
+	$(IPROG) static-vdis $(DESTDIR)$(OPTDIR)/bin
 	$(IPROG) with-vdi $(DESTDIR)$(OPTDIR)/debug
 	$(IPROG) import-update-key $(DESTDIR)$(OPTDIR)/debug
-	$(IPROG) pool.conf $(DESTDIR)$(ETCDIR)
+	$(IPROG) pool.conf $(DESTDIR)$(ETCXENDIR)
 	mkdir -p $(DESTDIR)/etc/pam.d
 	$(IPROG) pam.d-xapi $(DESTDIR)/etc/pam.d/xapi
 	$(IPROG) upload-wrapper logs-download $(DESTDIR)$(LIBEXECDIR)
-	$(IDATA) usb-policy.conf $(DESTDIR)$(ETCDIR)
+	$(IDATA) usb-policy.conf $(DESTDIR)$(ETCXENDIR)
 	$(IPROG) usb_reset.py $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) usb_scan.py $(DESTDIR)$(LIBEXECDIR)
 	mkdir -p $(DESTDIR)$(OPTDIR)/packages/iso #omg XXX
@@ -104,8 +104,8 @@ install:
 	$(IPROG) update-mh-info $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) host-bugreport-upload $(DESTDIR)$(LIBEXECDIR)/host-bugreport-upload
 	$(IPROG) host-display $(DESTDIR)$(LIBEXECDIR)
-	$(IPROG) xe-backup-metadata $(DESTDIR)$(BINDIR)
-	$(IPROG) xe-restore-metadata $(DESTDIR)$(BINDIR)
+	$(IPROG) xe-backup-metadata $(DESTDIR)$(OPTDIR)/bin
+	$(IPROG) xe-restore-metadata $(DESTDIR)$(OPTDIR)/bin
 	$(IPROG) link-vms-by-sr.py $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) print-custom-templates $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) backup-sr-metadata.py $(DESTDIR)$(LIBEXECDIR)
@@ -115,7 +115,7 @@ install:
 	$(IPROG) pbis-force-domain-leave $(DESTDIR)$(LIBEXECDIR)
 	mkdir -p $(DESTDIR)/etc/sysconfig
 	$(IPROG) sysconfig-perfmon $(DESTDIR)/etc/sysconfig/perfmon
-	$(IPROG) perfmon $(DESTDIR)$(BINDIR)
+	$(IPROG) perfmon $(DESTDIR)$(OPTDIR)/bin
 	mkdir -p $(DESTDIR)$(EXTENSIONDIR)
 	$(IPROG) extensions/Test.test $(DESTDIR)$(EXTENSIONDIR)
 	$(IPROG) extensions/pool_update.precheck $(DESTDIR)$(EXTENSIONDIR)
@@ -133,12 +133,12 @@ install:
 	$(IPROG) 10resetvdis $(DESTDIR)$(HOOKSDIR)/host-post-declare-dead
 	mkdir -p $(DESTDIR)/etc/bash_completion.d
 	$(IPROG) xe-switch-network-backend-bash-completion $(DESTDIR)/etc/bash_completion.d/xe-switch-network-backend
-	$(IPROG) xe-switch-network-backend $(DESTDIR)$(BINDIR)
+	$(IPROG) xe-switch-network-backend $(DESTDIR)$(OPTDIR)/bin
 	$(IPROG) xe-syslog-reconfigure $(DESTDIR)$(LIBEXECDIR)
-	$(IPROG) xe-install-supplemental-pack $(DESTDIR)$(BINDIR)
-	$(IPROG) xe-enable-ipv6 $(DESTDIR)$(BINDIR)
-	$(IPROG) hfx_filename $(DESTDIR)$(BINDIR)
-	$(IPROG) pv2hvm $(DESTDIR)$(BINDIR)
+	$(IPROG) xe-install-supplemental-pack $(DESTDIR)$(OPTDIR)/bin
+	$(IPROG) xe-enable-ipv6 $(DESTDIR)$(OPTDIR)/bin
+	$(IPROG) hfx_filename $(DESTDIR)$(OPTDIR)/bin
+	$(IPROG) pv2hvm $(DESTDIR)$(OPTDIR)/bin
 	mkdir -p $(DESTDIR)/etc/cron.daily
 	mkdir -p $(DESTDIR)/etc/cron.hourly
 	$(IPROG) license-check $(DESTDIR)/etc/cron.daily/
@@ -160,7 +160,7 @@ install:
 	$(IPROG) examples/python/echo.py $(DESTDIR)$(PLUGINDIR)/echo
 	$(IPROG) examples/python/wake-on-lan.py $(DESTDIR)$(PLUGINDIR)/wake-on-lan
 	$(IPROG) examples/python/shell.py $(DESTDIR)$(LIBEXECDIR)/shell.py
-	$(IPROG) examples/python/xva.py $(DESTDIR)$(BINDIR)/xva-rewrite-scsiid
+	$(IPROG) examples/python/xva.py $(DESTDIR)$(OPTDIR)/bin/xva-rewrite-scsiid
 # poweron
 	$(IPROG) poweron/wlan.py $(DESTDIR)$(PLUGINDIR)/wlan.py
 	$(IPROG) poweron/DRAC.py $(DESTDIR)$(PLUGINDIR)/DRAC.py

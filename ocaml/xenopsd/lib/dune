@@ -1,10 +1,3 @@
-(rule
- (with-stdout-to
-  version.ml
-  (bash "echo \"let version = \\\"$(cat ../VERSION)\\\"\"")
- )
-)
-
 (library
  (name xenopsd)
  (public_name xapi-xenopsd)
@@ -29,6 +22,7 @@
    uutf
    threads.posix
    xapi-backtrace
+   xapi_version
    xapi-idl
    xapi-idl.storage
    xapi-idl.storage.interface
