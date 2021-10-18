@@ -1,0 +1,32 @@
+(executable
+ (name xenops_simulator_main)
+ (public_name xenopsd-simulator)
+ (package xapi-xenopsd-simulator)
+ (flags
+  (:standard -warn-error +a-3)
+ )
+ (libraries
+   profiling
+   xapi-idl.xen.interface
+   xapi-xenopsd
+ )
+)
+
+(rule
+ (with-stdout-to
+  xenopsd-simulator.1
+  (run %{dep:xenops_simulator_main.exe} --help=groff)
+ )
+)
+
+(rule
+ (targets xenopsd-simulator.1.gz)
+ (action
+  (run gzip %{dep:xenopsd-simulator.1}))
+)
+
+(install
+ (section man)
+ (files xenopsd-simulator.1.gz)
+ (package xapi-xenopsd-simulator)
+)

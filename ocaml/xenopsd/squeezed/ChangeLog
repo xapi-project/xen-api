@@ -1,0 +1,34 @@
+0.12.1 (22-Jul-2016):
+* Bugfixes
+* Update to stdext-2.0.0
+
+0.12.0 (14-Aug-2015):
+* Remove dependency on Re_str
+* Fix FD leak while reading /sysfs
+
+0.11.0 (7-Apr-2015):
+* CA-155888: do not clean memory reservation in transfer
+* Add lots of documentation
+
+0.10.7 (9-Oct-2014):
+* Create a fast-path when there is plenty of memory
+* Use a more robust method for discovering domain 0 memory
+
+0.10.6 (30-May-2014):
+* Update to stdext 0.11.0
+
+0.10.4 (24-Sep-2013):
+* Use new xcp-idl Syslog interface
+
+0.10.2 (10-Sep-2013):
+* Update to use the xenstore 1.2.3 interface
+
+0.10.0 (2-Sep-2013):
+* Allow managing of domain 0 (enabled via the config file
+  option 'manage-domain-zero=true'). This is useful if you
+  want domain 0 to own all memory by default, and only
+  give it up for starting VMs -- a common developer configuration.
+
+0.9.0 (3-Jun-2013):
+* first public release
+

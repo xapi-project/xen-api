@@ -1,0 +1,13 @@
+_build
+*.install
+.merlin
+
+*.orig
+*.rej
+
+scripts/vif
+scripts/xen-backend.rules
+scripts/xen-backend-xl.rules
+config.mk
+config.ml
+xentoollog_flags

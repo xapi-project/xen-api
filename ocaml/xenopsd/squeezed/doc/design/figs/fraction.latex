@@ -1,0 +1,5 @@
+$$\frac{
+\texttt{memory/target}-\texttt{memory/dynamic-min}
+}{
+\texttt{memory/dynamic-max}-\texttt{memory/dynamic-min}
+}$$
