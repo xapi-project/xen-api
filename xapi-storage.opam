@@ -3,8 +3,8 @@ name: "xapi-storage"
 maintainer: "xen-api@lists.xen.org"
 authors: "xen-api@lists.xen.org"
 homepage: "https://xapi-project.github.io/"
-bug-reports: "https://github.com/xapi-project/xapi-storage/issues"
-dev-repo: "git://github.com/xapi-project/xapi-storage.git"
+bug-reports: "https://github.com/xapi-project/message-switch/issues"
+dev-repo: "git://github.com/xapi-project/message-switch.git"
 build: [
   ["dune" "build" "-p" name "-j" jobs]
 ]

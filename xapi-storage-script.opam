@@ -3,9 +3,9 @@ name: "xapi-storage-script"
 maintainer: "xen-api@lists.xen.org"
 authors: [ "xen-api@lists.xen.org" ]
 license: "LGPL-2.1 with OCaml linking exception"
-homepage: "https://github.com/xapi-project/xapi-storage-script"
-bug-reports: "https://github.com/xapi-project/xapi-storage-script/issues"
-dev-repo: "git://github.com/xapi-project/xapi-storage-script"
+homepage: "https://github.com/xapi-project/message-switch"
+bug-reports: "https://github.com/xapi-project/message-switch/issues"
+dev-repo: "git://github.com/xapi-project/message-switch"
 tags: [ "org:xapi-project" ]
 build: [[ "dune" "build" "-p" name "-j" jobs ]]
 depends: [
@@ -31,5 +31,5 @@ This daemon watches a directory for subdirectories, and when a subdir
 is created a storage service is registered."""
 url {
   src:
-    "https://github.com/xapi-project/xapi-storage-script/archive/master/master.tar.gz"
+    "https://github.com/xapi-project/message-switch/archive/master/master.tar.gz"
 }
