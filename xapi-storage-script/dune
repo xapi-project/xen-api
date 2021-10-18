@@ -56,7 +56,12 @@
   (deps
     (:x main.exe)
     (source_tree test/volume)
-    (:y ../xapi-storage/python/.generated)
+    (:p
+     ../xapi-storage/python/xapi/storage/api/v5/datapath.py
+     ../xapi-storage/python/xapi/storage/api/v5/plugin.py
+     ../xapi-storage/python/xapi/storage/api/v5/task.py
+     ../xapi-storage/python/xapi/storage/api/v5/volume.py
+     )
   )
   (action (bash "export PYTHONPATH=../xapi-storage/python/; echo $PYTHONPATH; ./%{x} --root=$PWD/test --self-test-only=true"))
 )
