@@ -1,18 +1,19 @@
 PREFIX?=/usr
+PYTHON?=python
 
 .PHONY: build release clean install uninstall
 
 build:
-	python setup.py build
+	$(PYTHON) setup.py build
 
 release: build
 
 clean:
-	python setup.py clean
+	$(PYTHON) setup.py clean
 	rm -rf build
 
 install: build
-	python setup.py install --prefix $(PREFIX)
+	$(PYTHON) setup.py install --prefix $(PREFIX) --root $(DESTDIR)
 
 uninstall:
 	@ echo "I don't know how to uninstall python code"
