@@ -1,0 +1,14 @@
+(env
+ (gprof
+  (ocamlopt_flags
+   (:standard -g -p)
+  )
+  (flags (:standard))
+ )
+ (dev
+  (flags (:standard))
+ )
+ (release
+  (flags (:standard))
+ )
+)
