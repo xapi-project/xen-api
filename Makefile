@@ -143,9 +143,9 @@ install: build doc sdk doc-json
 	install -m 755 ocaml/vhd-tool/scripts/get_nbd_extents.py   $(DESTDIR)$(LIBEXECDIR)/get_nbd_extents.py
 	install -m 644 ocaml/vhd-tool/scripts/python_nbd_client.py $(DESTDIR)$(LIBEXECDIR)/python_nbd_client.py
 # xcp-networkd
-	install -m 755 _build/install/default/bin/xapi-networkd              $(DESTDIR)/usr/sbin/xcp-networkd
-	install -m 755 _build/install/default/bin/networkd_db                $(DESTDIR)/usr/bin/networkd_db
-	install -m 644 _build/default/ocaml/networkd/networkd/xcp-networkd.1 $(DESTDIR)/usr/share/man/man1/xcp-networkd.1
+	install -m 755 _build/install/default/bin/xapi-networkd         $(DESTDIR)/usr/sbin/xcp-networkd
+	install -m 755 _build/install/default/bin/networkd_db           $(DESTDIR)/usr/bin/networkd_db
+	install -m 644 _build/default/ocaml/networkd/bin/xcp-networkd.1 $(DESTDIR)/usr/share/man/man1/xcp-networkd.1
 # Libraries
 	dune install --profile=$(PROFILE) \
 		xapi-client xapi-database xapi-consts xapi-cli-protocol xapi-datamodel xapi-types \

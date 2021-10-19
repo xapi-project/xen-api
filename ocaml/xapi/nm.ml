@@ -299,10 +299,10 @@ let destroy_vlan ~__context vlan =
   [(bridge, false)]
 
 let linux_pif_config pif_type pif_rc properties mtu persistent =
-  (* If we are using linux bridge rather than OVS, then we need to
-     	 * configure the "pif" that represents the vlan or bond.
-     	 * In OVS there is no such device, so the config entry will be ignored
-     	 * by Interface.make_config in xcp-networkd/networkd/network_server.ml *)
+  (* If we are using linux bridge rather than OVS, then we need to configure
+     the "pif" that represents the vlan or bond. In OVS there is no such
+     device, so the config entry will be ignored by Interface.make_config in
+     ocaml/networkd/bin/network_server.ml *)
   let ethtool_settings, ethtool_offload =
     determine_ethtool_settings properties pif_rc.API.pIF_other_config
   in
