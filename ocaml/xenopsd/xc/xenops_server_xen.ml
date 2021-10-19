@@ -1004,7 +1004,8 @@ module HOST = struct
         let features_oldstyle = oldstyle_featuremask xc in
         (* this is Max policy in Xen's terminology, used for migration checks *)
         let features_hvm =
-          get_max_featureset xc "HVM" features_hvm_host Xenctrl.Featureset_hvm_max
+          get_max_featureset xc "HVM" features_hvm_host
+            Xenctrl.Featureset_hvm_max
         in
         let features_pv =
           get_max_featureset xc "PV" features_pv_host Xenctrl.Featureset_pv_max

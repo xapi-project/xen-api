@@ -2565,7 +2565,7 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
                   t ;
                 Handshake.send s Handshake.Success
               with e ->
-                Backtrace.is_important e;
+                Backtrace.is_important e ;
                 let msg =
                   match e with
                   | Xenopsd_error error ->
