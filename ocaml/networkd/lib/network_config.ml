@@ -50,7 +50,8 @@ let read_management_conf () =
           | [k; v] ->
               (k, Astring.String.trim ~drop:(( = ) '\'') v)
           | _ ->
-              ("", ""))
+              ("", "")
+          )
         args
     in
     debug "Firstboot file management.conf has: %s"
@@ -98,7 +99,8 @@ let read_management_conf () =
             if List.mem_assoc "DNS" args && List.assoc "DNS" args <> "" then
               List.map Unix.inet_addr_of_string
                 (Astring.String.cuts ~empty:false ~sep:","
-                   (List.assoc "DNS" args))
+                   (List.assoc "DNS" args)
+                )
             else
               []
           in
@@ -131,7 +133,8 @@ let read_management_conf () =
       match vlan with
       | None ->
           ( [(device, phy_interface); (bridge_name, bridge_interface)]
-          , [(bridge_name, primary_bridge_conf)] )
+          , [(bridge_name, primary_bridge_conf)]
+          )
       | Some vlan ->
           let parent = bridge_naming_convention device in
           let secondary_bridge_conf =
@@ -152,7 +155,8 @@ let read_management_conf () =
             ]
           , [
               (parent, primary_bridge_conf); (bridge_name, secondary_bridge_conf)
-            ] )
+            ]
+          )
     in
     {
       interface_config
@@ -209,8 +213,10 @@ let convert_configuration cfg =
           (List.map
              (fun (k, v) ->
                let v = if k = "ipv4_routes" then convert_ipv4_routes v else v in
-               (k, v))
-             l)
+               (k, v)
+               )
+             l
+          )
     | other ->
         other
   in
@@ -233,8 +239,10 @@ let convert_configuration cfg =
                  else
                    v
                in
-               (k, v))
-             l)
+               (k, v)
+               )
+             l
+          )
     | other ->
         other
   in

@@ -74,9 +74,8 @@ let test_lacp_aggregation_key_vsctl arg () =
   (* todo: pass -> replace with bool *)
   Alcotest.(
     check pass "lacp_aggregation_key is passed to ovs-vsctl command" true
-      (List.exists
-         (fun s -> String.trim s == answer)
-         !OVS_Cli_test.vsctl_output))
+      (List.exists (fun s -> String.trim s == answer) !OVS_Cli_test.vsctl_output)
+  )
 
 (* Test case for bond_create with default lacp-{time,aggregation-key} settings.
    This should not call ovs-vsctl with unfinished key=value arguments. So we
@@ -102,7 +101,10 @@ let test_lacp_defaults_bond_create () =
       Alcotest.(
         check bool "key=value argument pairs can't have missing values" true
           (let open Astring.String in
-          arg |> trim |> is_suffix ~affix:"=" |> not)))
+          arg |> trim |> is_suffix ~affix:"=" |> not
+          )
+      )
+      )
     !OVS_Cli_test.vsctl_output
 
 let suite =
@@ -114,5 +116,6 @@ let suite =
       ; ("aggregation_key(42)", `Quick, test_lacp_aggregation_key "42")
       ; ("aggregation_key_vsctl", `Quick, test_lacp_aggregation_key_vsctl "42")
       ; ("defaults_bond_create", `Quick, test_lacp_defaults_bond_create)
-      ] )
+      ]
+    )
   ]

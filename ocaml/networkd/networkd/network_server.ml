@@ -52,7 +52,8 @@ let on_shutdown signal =
   Debug.with_thread_associated dbg
     (fun () ->
       debug "xcp-networkd caught signal %d; performing cleanup actions." signal ;
-      write_config ())
+      write_config ()
+      )
     ()
 
 let on_timer () = write_config ()
@@ -180,7 +181,8 @@ module Sriov = struct
             (Ok t : enable_result)
         | Result.Error (_, msg) ->
             warn "Failed to enable SR-IOV on %s with error: %s" name msg ;
-            Error msg)
+            Error msg
+        )
       ()
 
   let disable dbg name =
@@ -192,7 +194,8 @@ module Sriov = struct
             (Ok : disable_result)
         | Result.Error (_, msg) ->
             warn "Failed to disable SR-IOV on %s with error: %s" name msg ;
-            Error msg)
+            Error msg
+        )
       ()
 
   let make_vf_conf_internal pcibuspath mac vlan rate =
@@ -235,7 +238,8 @@ module Sriov = struct
         | Result.Error (Fail_to_set_vf_rate, msg) ->
             debug "%s" msg ; Error Config_vf_rate_not_supported
         | Result.Error (_, msg) ->
-            debug "%s" msg ; Error (Unknown msg))
+            debug "%s" msg ; Error (Unknown msg)
+        )
       ()
 end
 
@@ -265,7 +269,8 @@ module Interface = struct
         | Some master ->
             Proc.get_bond_slave_mac master name
         | None ->
-            Ip.get_mac name)
+            Ip.get_mac name
+        )
       ()
 
   let get_pci_bus_path dbg name =
@@ -277,7 +282,8 @@ module Interface = struct
         if List.mem name (Sysfs.list ()) then
           Ip.is_up name
         else
-          false)
+          false
+        )
       ()
 
   let get_ipv4_addr dbg name =
@@ -324,7 +330,8 @@ module Interface = struct
               Xapi_stdext_std.Listext.List.set_difference addrs cur_addrs
             in
             List.iter (Ip.del_ip_addr name) rm_addrs ;
-            List.iter (Ip.set_ip_addr name) add_addrs)
+            List.iter (Ip.set_ip_addr name) add_addrs
+        )
       ()
 
   let get_ipv4_gateway dbg name =
@@ -341,7 +348,8 @@ module Interface = struct
             List.nth (Astring.String.cuts ~empty:false ~sep:" " line) 2
           in
           Some (Unix.inet_addr_of_string addr)
-        with Not_found -> None)
+        with Not_found -> None
+        )
       ()
 
   let set_ipv4_gateway _ dbg ~name ~address =
@@ -357,7 +365,8 @@ module Interface = struct
           debug "%s is the default gateway interface" name ;
           Ip.set_gateway name address
         ) else
-          debug "%s is NOT the default gateway interface" name)
+          debug "%s is NOT the default gateway interface" name
+        )
       ()
 
   let get_ipv6_addr dbg name =
@@ -427,7 +436,8 @@ module Interface = struct
               in
               List.iter (Ip.del_ip_addr name) rm_addrs ;
               List.iter (Ip.set_ip_addr name) add_addrs
-        ))
+        )
+        )
       ()
 
   let set_ipv6_gateway _ dbg ~name ~address =
@@ -447,7 +457,8 @@ module Interface = struct
             Ip.set_gateway name address
           ) else
             debug "%s is NOT the default gateway interface" name
-        ))
+        )
+        )
       ()
 
   let set_ipv4_routes _ dbg ~name ~routes =
@@ -460,12 +471,16 @@ module Interface = struct
                   Printf.sprintf "%s/%d/%s"
                     (Unix.string_of_inet_addr r.subnet)
                     r.netmask
-                    (Unix.string_of_inet_addr r.gateway))
-                routes)) ;
+                    (Unix.string_of_inet_addr r.gateway)
+                  )
+                routes
+             )
+          ) ;
         update_config name {(get_config name) with ipv4_routes= routes} ;
         List.iter
           (fun r -> Ip.set_route ~network:(r.subnet, r.netmask) name r.gateway)
-          routes)
+          routes
+        )
       ()
 
   let get_dns dbg _name =
@@ -485,10 +500,12 @@ module Interface = struct
                 in
                 (nameservers, domains)
               else
-                (nameservers, domains))
+                (nameservers, domains)
+              )
             ([], []) resolv_conf
         in
-        (List.rev nameservers, domains))
+        (List.rev nameservers, domains)
+        )
       ()
 
   let set_dns _ dbg ~name ~nameservers ~domains =
@@ -516,7 +533,8 @@ module Interface = struct
           Xapi_stdext_unix.Unixext.write_string_to_file resolv_conf
             (String.concat "\n" lines ^ "\n")
         ) else
-          debug "%s is NOT the DNS interface" name)
+          debug "%s is NOT the DNS interface" name
+        )
       ()
 
   let get_mtu dbg name =
@@ -532,7 +550,8 @@ module Interface = struct
           try ignore (Ovs.set_mtu name mtu) with _ -> Ip.link_set_mtu name mtu
         )
         | Bridge ->
-            Ip.link_set_mtu name mtu)
+            Ip.link_set_mtu name mtu
+        )
       ()
 
   let set_ethtool_settings _ dbg ~name ~params =
@@ -547,7 +566,8 @@ module Interface = struct
         in
         let params = params @ add_defaults in
         update_config name {(get_config name) with ethtool_settings= params} ;
-        Ethtool.set_options name params)
+        Ethtool.set_options name params
+        )
       ()
 
   let set_ethtool_offload _ dbg ~name ~params =
@@ -562,7 +582,8 @@ module Interface = struct
         in
         let params = params @ add_defaults in
         update_config name {(get_config name) with ethtool_offload= params} ;
-        Ethtool.set_offload name params)
+        Ethtool.set_offload name params
+        )
       ()
 
   let get_capabilities dbg name =
@@ -585,22 +606,26 @@ module Interface = struct
         in
         List.exists
           (fun (d, v, p) ->
-            v = vlan && p = name && not (List.mem d temp_interfaces))
-          (Proc.get_vlans ()))
+            v = vlan && p = name && not (List.mem d temp_interfaces)
+            )
+          (Proc.get_vlans ())
+        )
       ()
 
   let bring_up _ dbg ~name =
     Debug.with_thread_associated dbg
       (fun () ->
         debug "Bringing up interface %s" name ;
-        Ip.link_set_up name)
+        Ip.link_set_up name
+        )
       ()
 
   let bring_down dbg name =
     Debug.with_thread_associated dbg
       (fun () ->
         debug "Bringing down interface %s" name ;
-        Ip.link_set_down name)
+        Ip.link_set_down name
+        )
       ()
 
   let set_persistent dbg name value =
@@ -608,7 +633,8 @@ module Interface = struct
       (fun () ->
         debug "Making interface %s %spersistent" name
           (if value then "" else "non-") ;
-        update_config name {(get_config name) with persistent_i= value})
+        update_config name {(get_config name) with persistent_i= value}
+        )
       ()
 
   let make_config dbg conservative config =
@@ -639,7 +665,8 @@ module Interface = struct
                 then
                   (name, interface) :: (Ip.vlan_name name 0, interface) :: accu
                 else
-                  (name, interface) :: accu)
+                  (name, interface) :: accu
+                )
               [] config
           else
             config
@@ -675,14 +702,16 @@ module Interface = struct
                     | Static4 _, _ | _, Static6 _ | _, Autoconf6 ->
                         set_dns () dbg ~name ~nameservers ~domains
                     | _ ->
-                        ()) ;
+                        ()
+                ) ;
                 exec (fun () -> set_ipv4_conf dbg name ipv4_conf) ;
                 exec (fun () ->
                     match ipv4_gateway with
                     | None ->
                         ()
                     | Some gateway ->
-                        set_ipv4_gateway () dbg ~name ~address:gateway) ;
+                        set_ipv4_gateway () dbg ~name ~address:gateway
+                ) ;
                 (try set_ipv6_conf () dbg ~name ~conf:ipv6_conf with _ -> ()) ;
                 ( try
                     match ipv6_gateway with
@@ -692,15 +721,18 @@ module Interface = struct
                         set_ipv6_gateway () dbg ~name ~address:gateway
                   with _ -> ()
                 ) ;
-                exec (fun () ->
-                    set_ipv4_routes () dbg ~name ~routes:ipv4_routes) ;
+                exec (fun () -> set_ipv4_routes () dbg ~name ~routes:ipv4_routes) ;
                 exec (fun () -> set_mtu () dbg ~name ~mtu) ;
                 exec (fun () -> bring_up () dbg ~name) ;
                 exec (fun () ->
-                    set_ethtool_settings () dbg ~name ~params:ethtool_settings) ;
+                    set_ethtool_settings () dbg ~name ~params:ethtool_settings
+                ) ;
                 exec (fun () ->
-                    set_ethtool_offload () dbg ~name ~params:ethtool_offload))
-          config)
+                    set_ethtool_offload () dbg ~name ~params:ethtool_offload
+                )
+            )
+          config
+        )
       ()
 end
 
@@ -745,7 +777,8 @@ module Bridge = struct
         | Openvswitch ->
             Ovs.list_bridges ()
         | Bridge ->
-            Sysfs.get_all_bridges ())
+            Sysfs.get_all_bridges ()
+        )
       ()
 
   (* Destroy any existing OVS bridge that isn't the "wanted bridge" and has the
@@ -778,7 +811,8 @@ module Bridge = struct
           | Some (p, v) ->
               p = parent && v = vlan
           | None ->
-              false)
+              false
+          )
         vlan_bridges
     in
     List.iter
@@ -788,7 +822,8 @@ module Bridge = struct
           remove_config bridge ;
           Interface.set_ipv4_conf dbg bridge None4 ;
           ignore (Ovs.destroy_bridge bridge)
-        ))
+        )
+        )
       existing_bridges
 
   (* Destroy any existing Linux bridge that isn't the "wanted bridge" and has the
@@ -807,7 +842,8 @@ module Bridge = struct
               (fun dev -> Brctl.destroy_port bridge dev)
               ifaces_on_bridge ;
             ignore (Brctl.destroy_bridge bridge)
-          ))
+          )
+        )
       (Sysfs.get_all_bridges ())
 
   let create dbg vlan mac igmp_snooping other_config name =
@@ -832,8 +868,7 @@ module Bridge = struct
         ( match !backend_kind with
         | Openvswitch ->
             let fail_mode =
-              if
-                not (List.mem_assoc "vswitch-controller-fail-mode" other_config)
+              if not (List.mem_assoc "vswitch-controller-fail-mode" other_config)
               then
                 "standalone"
               else
@@ -890,7 +925,8 @@ module Bridge = struct
             Option.iter (destroy_existing_vlan_ovs_bridge dbg name) vlan ;
             ignore
               (Ovs.create_bridge ?mac ~fail_mode ?external_id ?disable_in_band
-                 ?igmp_snooping vlan vlan_bug_workaround name) ;
+                 ?igmp_snooping vlan vlan_bug_workaround name
+              ) ;
             if igmp_snooping = Some true && not old_igmp_snooping then
               Ovs.inject_igmp_query ~name
         | Bridge -> (
@@ -907,7 +943,8 @@ module Bridge = struct
                   List.filter
                     (fun n ->
                       Astring.String.is_prefix ~affix:"eth" n
-                      || Astring.String.is_prefix ~affix:"bond" n)
+                      || Astring.String.is_prefix ~affix:"bond" n
+                      )
                     (Sysfs.bridge_to_interfaces parent)
                 in
                 let parent_bridge_interface =
@@ -951,7 +988,8 @@ module Bridge = struct
                          || not (List.mem device bridge_interfaces)
                          )
                     then
-                      raise (Network_error (Vlan_in_use (parent, vlan))))
+                      raise (Network_error (Vlan_in_use (parent, vlan)))
+                    )
                   (Proc.get_vlans ()) ;
                 (* Robustness enhancement: ensure there are no other VLANs in
                    the bridge *)
@@ -959,7 +997,8 @@ module Bridge = struct
                   List.filter
                     (fun n ->
                       Astring.String.is_prefix ~affix:"eth" n
-                      || Astring.String.is_prefix ~affix:"bond" n)
+                      || Astring.String.is_prefix ~affix:"bond" n
+                      )
                     bridge_interfaces
                 in
                 debug
@@ -968,7 +1007,8 @@ module Bridge = struct
                 List.iter
                   (fun interface ->
                     Brctl.destroy_port name interface ;
-                    Interface.bring_down dbg interface)
+                    Interface.bring_down dbg interface
+                    )
                   current_interfaces ;
                 (* Now create the new VLAN device and add it to the bridge *)
                 Ip.create_vlan parent_interface vlan ;
@@ -976,7 +1016,8 @@ module Bridge = struct
                 Brctl.create_port name vlan_name
           )
         ) ;
-        Interface.bring_up () dbg ~name)
+        Interface.bring_up () dbg ~name
+        )
       ()
 
   let destroy dbg force name =
@@ -995,7 +1036,8 @@ module Bridge = struct
               List.iter
                 (fun dev ->
                   Interface.set_ipv4_conf dbg dev None4 ;
-                  Interface.bring_down dbg dev)
+                  Interface.bring_down dbg dev
+                  )
                 interfaces ;
               Interface.set_ipv4_conf dbg name None4 ;
               ignore (Ovs.destroy_bridge name)
@@ -1008,7 +1050,8 @@ module Bridge = struct
                 List.filter
                   (fun n ->
                     Astring.String.is_prefix ~affix:"eth" n
-                    || Astring.String.is_prefix ~affix:"bond" n)
+                    || Astring.String.is_prefix ~affix:"bond" n
+                    )
                   ifs
               in
               match interfaces with
@@ -1044,12 +1087,14 @@ module Bridge = struct
                       if Linux_bonding.is_bond_device vlan_base then
                         Linux_bonding.remove_bond_master
                           (String.sub dev 0 (n - 2))
-                  ))
+                  )
+                  )
                 ifs ;
               Interface.set_ipv4_conf dbg name None4 ;
               ignore (Brctl.destroy_bridge name)
             ) else
-              debug "Not destroying bridge %s, because it has VLANs on top" name)
+              debug "Not destroying bridge %s, because it has VLANs on top" name
+        )
       ()
 
   let get_kind dbg () =
@@ -1069,7 +1114,8 @@ module Bridge = struct
           | Openvswitch ->
               List.concat (List.map Ovs.bridge_to_ports (Ovs.list_bridges ()))
           | Bridge ->
-              raise (Network_error Not_implemented))
+              raise (Network_error Not_implemented)
+        )
       ()
 
   let get_all_bonds dbg from_cache =
@@ -1089,7 +1135,8 @@ module Bridge = struct
           | Openvswitch ->
               List.concat (List.map Ovs.bridge_to_ports (Ovs.list_bridges ()))
           | Bridge ->
-              raise (Network_error Not_implemented))
+              raise (Network_error Not_implemented)
+        )
       ()
 
   type bond_link_info = {slave: iface; up: bool; active: bool}
@@ -1107,7 +1154,8 @@ module Bridge = struct
                   let ab = mode = Some "active-backup" in
                   (ab && active_slave = Some slave) || ((not ab) && up)
                 in
-                {slave; up; active})
+                {slave; up; active}
+                )
               slaves
         | Bridge ->
             let active_slave = Linux_bonding.get_bond_active_slave name in
@@ -1124,8 +1172,10 @@ module Bridge = struct
                   in
                   (ab && active_slave = Some slave) || ((not ab) && up)
                 in
-                {slave; up; active})
-              slaves)
+                {slave; up; active}
+                )
+              slaves
+        )
       ()
 
   let add_default_flows _ dbg bridge mac interfaces =
@@ -1135,7 +1185,8 @@ module Bridge = struct
         | Openvswitch ->
             Ovs.add_default_flows bridge mac interfaces
         | Bridge ->
-            ())
+            ()
+        )
       ()
 
   let add_basic_port dbg bridge name {interfaces; bond_mac; bond_properties; _}
@@ -1151,7 +1202,8 @@ module Bridge = struct
               warn "No MAC address specified for the bond" ;
             ignore
               (Ovs.create_bond ?mac:bond_mac name interfaces bridge
-                 bond_properties) ;
+                 bond_properties
+              ) ;
             List.iter (fun name -> Interface.bring_up () dbg ~name) interfaces
         ) ;
         if List.mem bridge !add_default then
@@ -1241,7 +1293,8 @@ module Bridge = struct
         | Basic_port ->
             add_basic_port dbg bridge name port
         | PVS_proxy ->
-            add_pvs_proxy_port dbg bridge name port)
+            add_pvs_proxy_port dbg bridge name port
+        )
       ()
 
   let remove_port dbg bridge name =
@@ -1257,7 +1310,8 @@ module Bridge = struct
         | Openvswitch ->
             ignore (Ovs.destroy_port name)
         | Bridge ->
-            ignore (Brctl.destroy_port bridge name))
+            ignore (Brctl.destroy_port bridge name)
+        )
       ()
 
   let get_interfaces dbg name =
@@ -1267,7 +1321,8 @@ module Bridge = struct
         | Openvswitch ->
             Ovs.bridge_to_interfaces name
         | Bridge ->
-            Sysfs.bridge_to_interfaces name)
+            Sysfs.bridge_to_interfaces name
+        )
       ()
 
   let get_physical_interfaces dbg name =
@@ -1296,14 +1351,16 @@ module Bridge = struct
                 Linux_bonding.get_bond_slaves bond_iface
             | [], [] ->
                 physical_ifaces
-          ))
+          )
+        )
       ()
 
   let set_persistent dbg name value =
     Debug.with_thread_associated dbg
       (fun () ->
         debug "Making bridge %s %spersistent" name (if value then "" else "non-") ;
-        update_config name {(get_config name) with persistent_b= value})
+        update_config name {(get_config name) with persistent_b= value}
+        )
       ()
 
   let make_config dbg conservative config =
@@ -1326,7 +1383,8 @@ module Bridge = struct
             in
             debug "Ensuring the following persistent bridges are up: %s"
               (String.concat ", "
-                 (List.map (fun (name, _) -> name) persistent_config)) ;
+                 (List.map (fun (name, _) -> name) persistent_config)
+              ) ;
             let vlan_parents =
               List.filter_map
                 (function
@@ -1336,14 +1394,16 @@ module Bridge = struct
                       else
                         None
                   | _ ->
-                      None)
+                      None
+                  )
                 persistent_config
             in
             debug
               "Additionally ensuring the following VLAN parent bridges are up: \
                %s"
               (String.concat ", "
-                 (List.map (fun (name, _) -> name) vlan_parents)) ;
+                 (List.map (fun (name, _) -> name) vlan_parents)
+              ) ;
             let config = vlan_parents @ persistent_config in
             (* Do not try to recreate bridges that already exist *)
             let current = get_all dbg () in
@@ -1369,11 +1429,16 @@ module Bridge = struct
                       bridge_name ;
                     List.iter
                       (fun ( port_name
-                           , {interfaces; bond_properties; bond_mac; kind} ) ->
+                           , {interfaces; bond_properties; bond_mac; kind}
+                           ) ->
                         add_port dbg bond_mac bridge_name port_name interfaces
-                          (Some bond_properties) (Some kind))
-                      ports))
-          config)
+                          (Some bond_properties) (Some kind)
+                        )
+                      ports
+                )
+            )
+          config
+        )
       ()
 end
 
@@ -1410,7 +1475,9 @@ module PVS_proxy = struct
             [Dict [("site_uuid", Rpcmarshal.marshal Rpc.Types.string.ty uuid)]]
         ; is_notification= false
         }
+      
     in
+
     let _ = do_call call in
     ()
 end
@@ -1436,7 +1503,8 @@ let on_startup () =
                 | [k; v] ->
                     (k, v)
                 | _ ->
-                    ("", ""))
+                    ("", "")
+                )
               args
           in
           let args =
@@ -1473,5 +1541,6 @@ let on_startup () =
       with e ->
         debug "Error while configuring networks on startup: %s\n%s"
           (Printexc.to_string e)
-          (Printexc.get_backtrace ()))
+          (Printexc.get_backtrace ())
+      )
     ()

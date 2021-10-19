@@ -57,7 +57,8 @@ let send_bond_change_alert _dev interfaces message =
             ~cls:`Host ~obj_uuid ~body
         in
         ()
-      with _ -> warn "Exception sending a bond-status-change alert.")
+      with _ -> warn "Exception sending a bond-status-change alert."
+      )
     (fun _ -> XenAPI.Session.logout ~rpc:xapi_rpc ~session_id)
 
 let check_for_changes ~(dev : string) ~(stat : Network_monitor.iface_stats) =
@@ -146,7 +147,8 @@ let get_link_stats () =
           ; tx_errors= Link.get_stat link Link.TX_ERRORS |> convert
           }
         in
-        (name, eth_stat))
+        (name, eth_stat)
+        )
       links
   in
   Cache.free cache ; Socket.close s ; Socket.free s ; devs
@@ -209,10 +211,12 @@ let rec monitor dbg () =
                   ; tx_bytes= Int64.add acc.tx_bytes b.tx_bytes
                   ; tx_pkts= Int64.add acc.tx_pkts b.tx_pkts
                   ; tx_errors= Int64.add acc.tx_errors b.tx_errors
-                  })
+                  }
+                  )
                 default_stats devs'
             in
-            (name, tot))
+            (name, tot)
+            )
           newdevnames
       in
       let add_other_stats bonds devs =
@@ -271,7 +275,8 @@ let rec monitor dbg () =
                             (speed + speed', combine_duplex (duplex, duplex'))
                           else
                             (speed, duplex)
-                        with _ -> (speed, duplex))
+                        with _ -> (speed, duplex)
+                        )
                       (0, Duplex_unknown) bond_slaves
                   in
                   let pci_bus_path = "" in
@@ -299,7 +304,8 @@ let rec monitor dbg () =
               check_for_changes ~dev ~stat ;
               (dev, stat)
             ) else
-              (dev, stat))
+              (dev, stat)
+            )
           devs
       in
       let from_cache = true in
@@ -321,7 +327,8 @@ let rec monitor dbg () =
           List.iter
             (fun b ->
               info "Removing bond %s" b ;
-              Hashtbl.remove bonds_status b)
+              Hashtbl.remove bonds_status b
+              )
             dead_bonds
       ) ;
       write_stats devs ;
@@ -349,7 +356,8 @@ let signal_networking_change () =
   in
   Pervasiveext.finally
     (fun () ->
-      XenAPI.Host.signal_networking_change ~rpc:xapi_rpc ~session_id:session)
+      XenAPI.Host.signal_networking_change ~rpc:xapi_rpc ~session_id:session
+      )
     (fun () -> XenAPI.Session.local_logout ~rpc:xapi_rpc ~session_id:session)
 
 (* Remove all outstanding reads on a file descriptor *)
@@ -371,7 +379,9 @@ let rec ip_watcher () =
       watcher_pid :=
         Some
           (Forkhelpers.safe_close_and_exec ~env:(Unix.environment ()) None
-             (Some writeme) None [] cmd args)) ;
+             (Some writeme) None [] cmd args
+          )
+  ) ;
   Unix.close writeme ;
   let in_channel = Unix.in_channel_of_descr readme in
   let rec loop () =
@@ -418,7 +428,8 @@ let start () =
       debug "Starting network monitor" ;
       let (_ : Thread.t) = Thread.create (monitor dbg) () in
       let (_ : Thread.t) = Thread.create ip_watcher () in
-      ())
+      ()
+      )
     ()
 
 let stop () =
@@ -427,4 +438,5 @@ let stop () =
       | None ->
           ()
       | Some pid ->
-          Unix.kill (Forkhelpers.getpid pid) Sys.sigterm)
+          Unix.kill (Forkhelpers.getpid pid) Sys.sigterm
+  )

@@ -103,7 +103,9 @@ let default_error_handler script args stdout stderr status =
           ; ("code", message)
           ; ("stdout", stdout)
           ; ("stderr", stderr)
-          ]))
+          ]
+       )
+    )
 
 let check_n_run ?(on_error = default_error_handler) ?(log = true) run_func
     script args =
@@ -141,7 +143,6 @@ let fork_script ?on_error ?log script args =
   check_n_run ?on_error ?log fork_script_internal script args
 
 module Sysfs = struct
-
   let list_drivers () =
     try Array.to_list (Sys.readdir "/sys/bus/pci/drivers")
     with _ ->
@@ -182,7 +183,8 @@ module Sysfs = struct
          /../../../devices/xen-backend/vif- *)
       not
         (List.mem "xen-backend"
-           (Astring.String.cuts ~empty:false ~sep:"/" driver_link))
+           (Astring.String.cuts ~empty:false ~sep:"/" driver_link)
+        )
     with _ -> false
 
   (* device types are defined in linux/if_arp.h *)
@@ -207,7 +209,6 @@ module Sysfs = struct
     if not @@ exists dev then
       raise (Network_error (Interface_does_not_exist dev))
 
-
   let get_carrier name =
     try
       let i = int_of_string (read_one_line (getpath name "carrier")) in
@@ -229,7 +230,8 @@ module Sysfs = struct
       with _ -> ""
     in
     ( read_id_from (getpath name "device/vendor")
-    , read_id_from (getpath name "device/device") )
+    , read_id_from (getpath name "device/device")
+    )
 
   (** Returns the name of the driver for network device [dev] *)
   let get_driver_name dev =
@@ -323,7 +325,8 @@ module Sysfs = struct
     with _ ->
       Result.Error
         ( Parent_device_of_vf_not_found
-        , "Can not get parent device for " ^ pcibuspath )
+        , "Can not get parent device for " ^ pcibuspath
+        )
 
   let get_child_vfs_sysfs_paths dev =
     try
@@ -384,7 +387,8 @@ module Sysfs = struct
           Result.Error
             ( Fail_to_unbind_from_driver
             , Printf.sprintf "%s: VF Fail to be unbound from driver %s" vf_path
-                driver_name )
+                driver_name
+            )
       )
     in
     get_child_vfs_sysfs_paths dev >>= fun paths ->
@@ -409,7 +413,8 @@ module Sysfs = struct
     with _ ->
       Error
         ( Fail_to_get_maxvfs
-        , "Failed to get maxvfs from sysfs interface for device: " ^ dev )
+        , "Failed to get maxvfs from sysfs interface for device: " ^ dev
+        )
 
   let set_sriov_numvfs dev num_vfs =
     let interface = getpath dev "device/sriov_numvfs" in
@@ -423,13 +428,15 @@ module Sysfs = struct
     | Sys_error s when Astring.String.is_infix ~affix:"out of range of" s ->
         Result.Error
           ( Bus_out_of_range
-          , "Error: bus out of range when setting SR-IOV numvfs on " ^ dev )
+          , "Error: bus out of range when setting SR-IOV numvfs on " ^ dev
+          )
     | Sys_error s
       when Astring.String.is_infix ~affix:"not enough MMIO resources" s ->
         Result.Error
           ( Not_enough_mmio_resources
           , "Error: not enough mmio resources when setting SR-IOV numvfs on "
-            ^ dev )
+            ^ dev
+          )
     | e ->
         let msg =
           Printf.sprintf
@@ -624,7 +631,8 @@ module Ip = struct
                ; Unix.string_of_inet_addr gateway
                ; "dev"
                ; dev
-               ])
+               ]
+            )
       | Some (ip, prefixlen) ->
           let addr =
             Printf.sprintf "%s/%d" (Unix.string_of_inet_addr ip) prefixlen
@@ -639,7 +647,8 @@ module Ip = struct
                ; Unix.string_of_inet_addr gateway
                ; "dev"
                ; dev
-               ])
+               ]
+            )
     with _ -> ()
 
   let set_gateway dev gateway = set_route dev gateway
@@ -661,7 +670,8 @@ module Ip = struct
            ; "vlan"
            ; "id"
            ; string_of_int vlan
-           ])
+           ]
+        )
 
   let destroy_vlan name =
     if Sysfs.exists name then
@@ -718,7 +728,8 @@ module Linux_bonding = struct
     try
       List.exists (( = ) name)
         (Astring.String.cuts ~empty:false ~sep:" "
-           (Sysfs.read_one_line bonding_masters))
+           (Sysfs.read_one_line bonding_masters)
+        )
     with _ -> false
 
   (** Ensures that a bond master device exists in the kernel. *)
@@ -766,7 +777,8 @@ module Linux_bonding = struct
           Sysfs.write_one_line
             (Sysfs.getpath master "bonding/slaves")
             ("+" ^ slave)
-        with _ -> error "Failed to add slave %s to bond %s" slave master)
+        with _ -> error "Failed to add slave %s to bond %s" slave master
+        )
       slaves
 
   let remove_bond_slaves master slaves =
@@ -777,7 +789,8 @@ module Linux_bonding = struct
           Sysfs.write_one_line
             (Sysfs.getpath master "bonding/slaves")
             ("-" ^ slave)
-        with _ -> error "Failed to remove slave %s from bond %s" slave master)
+        with _ -> error "Failed to remove slave %s from bond %s" slave master
+        )
       slaves
 
   let set_bond_slaves master slaves =
@@ -791,7 +804,8 @@ module Linux_bonding = struct
       in
       Ip.with_links_down (slaves_to_add @ slaves_to_remove) (fun () ->
           remove_bond_slaves master slaves_to_remove ;
-          add_bond_slaves master slaves_to_add)
+          add_bond_slaves master slaves_to_add
+      )
     else
       error "Bond %s does not exist; cannot set slaves" master
 
@@ -801,7 +815,8 @@ module Linux_bonding = struct
         let slaves = get_bond_slaves master in
         Ip.with_links_down slaves (fun () ->
             remove_bond_slaves master slaves ;
-            Pervasiveext.finally f (fun () -> add_bond_slaves master slaves))
+            Pervasiveext.finally f (fun () -> add_bond_slaves master slaves)
+        )
       with _ -> error "Failed to remove or re-add slaves from bond %s" master
     else
       error "Bond %s does not exist; cannot remove/add slaves" master
@@ -834,7 +849,8 @@ module Linux_bonding = struct
             let get_mode line =
               let a_space char = char = ' ' in
               Astring.String.(
-                line |> drop ~sat:a_space |> take ~sat:(Fun.negate a_space))
+                line |> drop ~sat:a_space |> take ~sat:(Fun.negate a_space)
+              )
             in
             Some (prop, get_mode bond_prop)
           else
@@ -853,20 +869,21 @@ module Linux_bonding = struct
     if is_bond_device master then (
       let current_props = get_bond_properties master in
       debug "Current bond properties: %s"
-        (String.concat ", "
-           (List.map (fun (k, v) -> k ^ "=" ^ v) current_props)) ;
+        (String.concat ", " (List.map (fun (k, v) -> k ^ "=" ^ v) current_props)) ;
       (* Find out which properties are known, but different from the current
          state, and only continue if there is at least one of those. *)
       let props_to_update =
         List.filter
           (fun (prop, value) ->
             (not (List.mem (prop, value) current_props))
-            && List.mem prop known_props)
+            && List.mem prop known_props
+            )
           properties
       in
       debug "Bond properties to update: %s"
         (String.concat ", "
-           (List.map (fun (k, v) -> k ^ "=" ^ v) props_to_update)) ;
+           (List.map (fun (k, v) -> k ^ "=" ^ v) props_to_update)
+        ) ;
       if props_to_update <> [] then
         let set_prop (prop, value) =
           try
@@ -879,7 +896,9 @@ module Linux_bonding = struct
         in
         Ip.with_links_down [master] (fun () ->
             with_slaves_removed master (fun () ->
-                List.iter set_prop props_to_update))
+                List.iter set_prop props_to_update
+            )
+        )
     ) else
       error "Bond %s does not exist; cannot set properties" master
 end
@@ -976,7 +995,8 @@ end = struct
     let gw_opt =
       List.fold_left
         (fun l x ->
-          match x with `gateway y -> ["-e"; "GATEWAYDEV=" ^ y] | _ -> l)
+          match x with `gateway y -> ["-e"; "GATEWAYDEV=" ^ y] | _ -> l
+          )
         [] options
     in
     let dns_opt =
@@ -1011,7 +1031,8 @@ end = struct
            ; "-lf"
            ; lease_file ~ipv6 interface
            ; interface
-           ]) ;
+           ]
+        ) ;
       Unix.unlink (pid_file ~ipv6 interface)
     with _ -> ()
 
@@ -1091,7 +1112,8 @@ module Proc = struct
                     | None ->
                         loop current acc tail
                   else
-                    loop current acc tail)
+                    loop current acc tail
+              )
             with _ -> loop current acc tail
           )
         in
@@ -1116,10 +1138,12 @@ module Proc = struct
           try
             let x =
               Scanf.sscanf line "%s | %d | %s" (fun device vlan parent ->
-                  (device, vlan, parent))
+                  (device, vlan, parent)
+              )
             in
             x :: vlans
-          with _ -> vlans)
+          with _ -> vlans
+          )
         [] "/proc/net/vlan/config"
     with _ ->
       error "Error: could not read /proc/net/vlan/config" ;
@@ -1174,7 +1198,8 @@ module Ovs = struct
     let vsctl ?log args =
       Semaphore.execute s (fun () ->
           call_script ~on_error:error_handler ?log ovs_vsctl
-            ("--timeout=20" :: args))
+            ("--timeout=20" :: args)
+      )
 
     let ofctl ?log args =
       call_script ~on_error:error_handler ?log ovs_ofctl args
@@ -1201,10 +1226,10 @@ module Ovs = struct
           List.map
             (fun uuid ->
               let raw =
-                String.trim
-                  (vsctl ~log:false ["get"; "interface"; uuid; "name"])
+                String.trim (vsctl ~log:false ["get"; "interface"; uuid; "name"])
               in
-              String.sub raw 1 (String.length raw - 2))
+              String.sub raw 1 (String.length raw - 2)
+              )
             uuids
         else
           []
@@ -1258,16 +1283,19 @@ module Ovs = struct
             let slaves =
               try
                 Scanf.sscanf line "slave %s@: %s" (fun slave state ->
-                    (slave, state = "enabled") :: slaves)
+                    (slave, state = "enabled") :: slaves
+                )
               with _ -> slaves
             in
             let active_slave =
               try
                 Scanf.sscanf line "active slave %s@(%s@)" (fun _ slave ->
-                    Some slave)
+                    Some slave
+                )
               with _ -> active_slave
             in
-            (slaves, active_slave))
+            (slaves, active_slave)
+            )
           ([], None) lines
       with _ -> ([], None)
 
@@ -1288,7 +1316,8 @@ module Ovs = struct
              ; "Open_vSwitch"
              ; "."
              ; Printf.sprintf "other_config:max-idle=%d" t
-             ])
+             ]
+          )
       with _ -> warn "Failed to set max-idle=%d on OVS" t
 
     let handle_vlan_bug_workaround override bridge =
@@ -1325,7 +1354,8 @@ module Ovs = struct
           in
           let setting = if do_workaround then "on" else "off" in
           try ignore (call_script ovs_vlan_bug_workaround [interface; setting])
-          with _ -> ())
+          with _ -> ()
+          )
         phy_interfaces
 
     let get_vlans name =
@@ -1378,7 +1408,8 @@ module Ovs = struct
         List.fold_left
           (fun vifs br ->
             let vifs' = bridge_to_interfaces br in
-            vifs' @ vifs)
+            vifs' @ vifs
+            )
           [] vlan_fake_bridges
       with _ -> []
 
@@ -1530,8 +1561,10 @@ module Ovs = struct
              (fun vif ->
                create_port_arg
                  ?ty:(List.assoc_opt vif ifaces_with_type)
-                 vif name)
-             existing_vifs)
+                 vif name
+               )
+             existing_vifs
+          )
       in
       let del_old_arg =
         let real_bridge_exists () =
@@ -1711,21 +1744,24 @@ module Ovs = struct
              ; ("miimon", "other-config:bond-miimon-interval")
              ; ("use_carrier", "other-config:bond-detect-mode")
              ; ("rebalance-interval", "other-config:bond-rebalance-interval")
-             ])
+             ]
+          )
       and extra_args =
         List.flatten
           (List.map get_prop
              [
                ("lacp-time", "other-config:lacp-time")
              ; ("lacp-fallback-ab", "other-config:lacp-fallback-ab")
-             ])
+             ]
+          )
       and per_iface_args =
         List.flatten
           (List.map get_prop
              [
                ("lacp-aggregation-key", "other-config:lacp-aggregation-key")
              ; ("lacp-actor-key", "other-config:lacp-actor-key")
-             ])
+             ]
+          )
       and other_args =
         List.filter_map
           (fun (k, v) ->
@@ -1735,7 +1771,9 @@ module Ovs = struct
               Some
                 (Printf.sprintf "other-config:\"%s\"=\"%s\""
                    (String.escaped ("bond-" ^ k))
-                   (String.escaped v)))
+                   (String.escaped v)
+                )
+            )
           properties
       in
       (mode_args @ extra_args_legacy @ extra_args @ other_args, per_iface_args)
@@ -1756,7 +1794,8 @@ module Ovs = struct
           List.flatten
             (List.map
                (fun iface -> ["--"; "set"; "interface"; iface] @ per_iface_args)
-               interfaces)
+               interfaces
+            )
       in
       vsctl
         (["--"; "--may-exist"; "add-bond"; bridge; name]
@@ -1808,8 +1847,10 @@ module Ovs = struct
                    ; Printf.sprintf
                        "idle_timeout=0,priority=0,in_port=%s,dl_dst=%s,actions=local"
                        port mac
-                   ])
-                 ports)
+                   ]
+                   )
+                 ports
+              )
       in
       List.iter (fun flow -> ignore (ofctl ["add-flow"; bridge; flow])) flows
 
@@ -1853,19 +1894,17 @@ module Ethtool = struct
     if options <> [] then
       ignore
         (call
-           ("-s"
-           :: name
-           :: List.concat (List.map (fun (k, v) -> [k; v]) options)
-           ))
+           ("-s" :: name :: List.concat (List.map (fun (k, v) -> [k; v]) options)
+           )
+        )
 
   let set_offload name options =
     if options <> [] then
       ignore
         (call
-           ("-K"
-           :: name
-           :: List.concat (List.map (fun (k, v) -> [k; v]) options)
-           ))
+           ("-K" :: name :: List.concat (List.map (fun (k, v) -> [k; v]) options)
+           )
+        )
 end
 
 module Dracut = struct
@@ -1905,8 +1944,10 @@ module Modinfo = struct
              | None ->
                  false
              | Some (param, description) ->
-                 String.trim param = param_name && has_array_of description)
-           out)
+                 String.trim param = param_name && has_array_of description
+             )
+           out
+        )
     with _ ->
       Error
         ( Other
@@ -1925,7 +1966,8 @@ module Modprobe = struct
     with _ ->
       Result.Error
         ( Fail_to_write_modprobe_cfg
-        , "Failed to write modprobe configuration file for: " ^ driver )
+        , "Failed to write modprobe configuration file for: " ^ driver
+        )
 
   (* For a igb driver, the module config file will be at path
      `/etc/modprobe.d/igb.conf`
@@ -1958,7 +2000,8 @@ module Modprobe = struct
                | Some (k, v) when String.trim k = "" || String.trim v = "" ->
                    None
                | Some (k, v) ->
-                   Some (String.trim k, String.trim v))
+                   Some (String.trim k, String.trim v)
+         )
     with _ -> []
 
   (* this function not returning None means that the driver doesn't suppport

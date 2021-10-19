@@ -25,7 +25,8 @@ let _ =
        [
          ("-bridge", Arg.Set_string bridge, "Bridge name")
        ; ("-iface", Arg.Set_string iface, "Interface name")
-       ])
+       ]
+    )
     (fun _ -> failwith "Invalid argument")
     (Printf.sprintf "Usage: %s [-bridge <bridge> | -iface <interface>]" name) ;
   try
@@ -64,8 +65,10 @@ let _ =
                        [
                          ("ipaddr", Unix.string_of_inet_addr ip)
                        ; ("netmask", prefixlen_to_netmask plen)
-                       ])
-                     conf)
+                       ]
+                       )
+                     conf
+                  )
               in
               let gateway =
                 match interface_config.ipv4_gateway with
@@ -110,9 +113,12 @@ let _ =
                          ( "ipv6addr"
                          , Unix.string_of_inet_addr ip
                            ^ "/"
-                           ^ string_of_int plen )
-                       ])
-                     conf)
+                           ^ string_of_int plen
+                         )
+                       ]
+                       )
+                     conf
+                  )
               in
               let gateway =
                 match interface_config.ipv6_gateway with
