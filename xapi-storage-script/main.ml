@@ -35,16 +35,16 @@ exception Fork_exec_error of Storage_interface.Errors.error
 
 let backend_error name args =
   let open Storage_interface in
-  Storage_interface.Errors.Backend_error (name, args)
+  Errors.Backend_error (name, args)
 
 let backend_backtrace_error name args backtrace =
   let open Storage_interface in
   match args with
   | ["Activated_on_another_host"; uuid] ->
-      Storage_interface.Errors.Activated_on_another_host uuid
+      Errors.Activated_on_another_host uuid
   | _ ->
       let backtrace = rpc_of_backtrace backtrace |> Jsonrpc.to_string in
-      Storage_interface.Errors.Backend_error_with_backtrace
+      Errors.Backend_error_with_backtrace
         (name, backtrace :: args)
 
 let missing_uri () =
@@ -166,17 +166,6 @@ end) : sig
       [uri -> sr (=string)] *)
 end = struct
   type device_config = (Core.String.t, string) Core.List.Assoc.t
-
-  type compat_in = R.t -> R.t
-
-  type compat_out = R.t -> R.t
-
-  let remove field rpc =
-    match (!V.version, rpc) with
-    | Some v, R.Dict d when String.(v = pvs_version) ->
-        R.Dict (List.filter ~f:(fun (k, _) -> String.(k <> field)) d)
-    | _ ->
-        rpc
 
   let with_pvs_version f rpc =
     match !V.version with
@@ -716,7 +705,7 @@ let choose_datapath ?(persistent = true) domain response =
   match preference_order with
   | [] ->
       return (Error (missing_uri ()))
-  | (script_dir, scheme, u) :: us ->
+  | (script_dir, scheme, u) :: _us ->
       return (Ok (fork_exec_rpc ~script_dir, scheme, u, domain))
 
 (* Bind the implementations *)
@@ -745,7 +734,7 @@ let bind ~volume_script_dir =
      * Volume.set and Volume.unset *)
     (* TODO handle this properly? *)
     let missing =
-      Option.bind !version (fun v ->
+      Option.bind !version ~f:(fun v ->
           if String.(v = pvs_version) then Some (R.rpc_of_unit ()) else None)
     in
     return_volume_rpc (fun () ->
@@ -753,7 +742,7 @@ let bind ~volume_script_dir =
   in
   let unset ~dbg ~sr ~vdi ~key =
     let missing =
-      Option.bind !version (fun v ->
+      Option.bind !version ~f:(fun v ->
           if String.(v = pvs_version) then Some (R.rpc_of_unit ()) else None)
     in
     return_volume_rpc (fun () ->
@@ -786,7 +775,7 @@ let bind ~volume_script_dir =
         stat ~dbg ~sr ~vdi:temporary
     )
     >>= fun response ->
-    choose_datapath domain response >>= fun (rpc, datapath, uri, domain) ->
+    choose_datapath domain response >>= fun (rpc, _datapath, uri, domain) ->
     return_data_rpc (fun () -> Datapath_client.attach rpc dbg uri domain)
   in
   let wrap th = Rpc_async.T.put th in
@@ -973,7 +962,7 @@ let bind ~volume_script_dir =
     wrap th
   in
   S.SR.detach sr_detach_impl ;
-  let sr_probe_impl dbg queue device_config sm_config =
+  let sr_probe_impl dbg _queue device_config _sm_config =
     let th =
       return_volume_rpc (fun () -> Sr_client.probe volume_rpc dbg device_config)
       >>>= fun response ->
@@ -1040,7 +1029,7 @@ let bind ~volume_script_dir =
     wrap th
   in
   S.SR.probe sr_probe_impl ;
-  let sr_create_impl dbg sr_uuid name_label description device_config size =
+  let sr_create_impl dbg sr_uuid name_label description device_config _size =
     let th =
       let uuid = Storage_interface.Sr.string_of sr_uuid in
       Compat.sr_create device_config
@@ -1135,7 +1124,7 @@ let bind ~volume_script_dir =
        with
      | None ->
          return (Ok ())
-     | Some temporary ->
+     | Some _temporary ->
          (* Destroy the temporary disk we made earlier *)
          destroy ~dbg ~sr ~vdi
      )
@@ -1223,7 +1212,7 @@ let bind ~volume_script_dir =
     |> wrap
   in
   S.VDI.stat vdi_stat_impl ;
-  let vdi_introduce_impl dbg sr uuid sm_config location =
+  let vdi_introduce_impl dbg sr _uuid _sm_config location =
     Attached_SRs.find sr
     >>>= (fun sr ->
            let vdi = location in
@@ -1272,7 +1261,7 @@ let bind ~volume_script_dir =
          stat ~dbg ~sr ~vdi:temporary
      )
      >>>= fun response ->
-     choose_datapath domain response >>>= fun (rpc, datapath, uri, domain) ->
+     choose_datapath domain response >>>= fun (rpc, _datapath, uri, domain) ->
      return_data_rpc (fun () -> Datapath_client.activate rpc dbg uri domain))
     |> wrap
   in
@@ -1293,7 +1282,7 @@ let bind ~volume_script_dir =
          stat ~dbg ~sr ~vdi:temporary
      )
      >>>= fun response ->
-     choose_datapath domain response >>>= fun (rpc, datapath, uri, domain) ->
+     choose_datapath domain response >>>= fun (rpc, _datapath, uri, domain) ->
      return_data_rpc (fun () -> Datapath_client.deactivate rpc dbg uri domain))
     |> wrap
   in
@@ -1314,7 +1303,7 @@ let bind ~volume_script_dir =
          stat ~dbg ~sr ~vdi:temporary
      )
      >>>= fun response ->
-     choose_datapath domain response >>>= fun (rpc, datapath, uri, domain) ->
+     choose_datapath domain response >>>= fun (rpc, _datapath, uri, domain) ->
      return_data_rpc (fun () -> Datapath_client.detach rpc dbg uri domain))
     |> wrap
   in
@@ -1350,7 +1339,7 @@ let bind ~volume_script_dir =
      (* Discover the URIs using Volume.stat *)
      stat ~dbg ~sr ~vdi >>>= fun response ->
      choose_datapath ~persistent domain response
-     >>>= fun (rpc, datapath, uri, domain) ->
+     >>>= fun (rpc, datapath, uri, _domain) ->
      (* If non-persistent and the datapath plugin supports NONPERSISTENT
         then we delegate this to the datapath plugin. Otherwise we will
         make a temporary clone now and attach/detach etc this file. *)
@@ -1385,7 +1374,7 @@ let bind ~volume_script_dir =
      Attached_SRs.find sr >>>= fun sr ->
      (* Discover the URIs using Volume.stat *)
      stat ~dbg ~sr ~vdi >>>= fun response ->
-     choose_datapath domain response >>>= fun (rpc, datapath, uri, domain) ->
+     choose_datapath domain response >>>= fun (rpc, datapath, uri, _domain) ->
      if Datapath_plugins.supports_feature datapath _nonpersistent then
        return_data_rpc (fun () -> Datapath_client.close rpc dbg uri)
      else
@@ -1403,7 +1392,7 @@ let bind ~volume_script_dir =
     |> wrap
   in
   S.VDI.epoch_end vdi_epoch_end_impl ;
-  let vdi_set_persistent_impl dbg sr vdi persistent =
+  let vdi_set_persistent_impl _dbg _sr _vdi _persistent =
     Deferred.Result.return () |> wrap
   in
   S.VDI.set_persistent vdi_set_persistent_impl ;
@@ -1622,7 +1611,7 @@ let self_test_plugin ~root_dir plugin =
             Test.SR.scan rpc dbg sr >>= fun _sr_list ->
             if List.mem query_result.features "SR_PROBE" ~equal:String.equal
             then
-              Test.SR.probe rpc dbg plugin device_config [] >>= fun result ->
+              Test.SR.probe rpc dbg plugin device_config [] >>= fun _result ->
               return ()
             else
               return ())
@@ -1630,7 +1619,7 @@ let self_test_plugin ~root_dir plugin =
   >>= function
   | Ok x ->
       Async.Deferred.return x
-  | Error y ->
+  | Error _y ->
       failwith "self test failed"
 
 let self_test ~root_dir =
