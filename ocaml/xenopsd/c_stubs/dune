@@ -1,0 +1,32 @@
+(library
+ (name c_stubs)
+ (public_name xapi-xenopsd.c_stubs)
+ (wrapped false)
+ (foreign_stubs
+  (language c)
+  (names sockopt_stubs)
+ )
+)
+
+(library
+ (name xc_stubs)
+ (public_name xapi-xenopsd-xc.c_stubs)
+ (wrapped false)
+ (libraries xenctrl)
+ (foreign_stubs
+  (language c)
+  (names tuntap_stubs xenctrlext_stubs)
+  (flags (:include xentoollog_flags.sexp))
+ )
+)
+
+(rule
+ (targets xentoollog_flags.sexp)
+ (deps ../xentoollog_flags)
+ (action
+  (with-stdout-to
+   %{targets}
+   (bash "echo \"($(< %{deps}))\"")
+  )
+ )
+)

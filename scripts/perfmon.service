@@ -5,7 +5,7 @@ Wants=xapi.service
 
 [Service]
 EnvironmentFile=-/etc/sysconfig/perfmon
-ExecStart=@BINDIR@/perfmon $PERFMON_FLAGS
+ExecStart=@OPTDIR@/bin/perfmon $PERFMON_FLAGS
 StandardError=null
 SuccessExitStatus=0 1
 # restart but fail if more than 5 failures in 30s

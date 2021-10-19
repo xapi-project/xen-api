@@ -37,7 +37,7 @@ fi
 
 . @INVENTORY@
 
-XE="@BINDIR@/xe"
+XE="@OPTDIR@/bin/xe"
 
 crashdump_sr=$(${XE} host-list params=crash-dump-sr-uuid --minimal uuid=${INSTALLATION_UUID})
 

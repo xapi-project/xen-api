@@ -1,0 +1,43 @@
+(library
+ (name xenopsd)
+ (public_name xapi-xenopsd)
+ (wrapped false)
+ (flags :standard -warn-error +a-3)
+ (libraries
+   astring
+   c_stubs
+   cohttp
+   fd-send-recv
+   fmt
+   forkexec
+   re
+   result
+   rpclib.core
+   rpclib.json
+   rresult
+   sexplib
+   sexplib0
+   uri
+   uuidm
+   uutf
+   threads.posix
+   xapi-backtrace
+   xapi_version
+   xapi-idl
+   xapi-idl.storage
+   xapi-idl.storage.interface
+   xapi-idl.updates
+   xapi-idl.varstore.privileged
+   xapi-idl.xen
+   xapi-idl.xen.interface
+   xapi-idl.xen.interface.types
+   xapi-stdext-date
+   xapi-stdext-pervasives
+   xapi-stdext-threads
+   xapi-stdext-unix
+   xmlm
+ )
+ (preprocess
+  (pps ppx_deriving_rpc ppx_sexp_conv)
+ )
+)

@@ -11,7 +11,7 @@ fi
 
 . @INVENTORY@
 
-XE="@BINDIR@/xe"
+XE="@OPTDIR@/bin/xe"
 
 master_uuid=$(${XE} pool-list params=master --minimal)
 if [ $? -gt 0 ]; then
