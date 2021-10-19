@@ -54,7 +54,7 @@
 )
 
 (rule
-  (alias runtest)
+  (alias runtest-python)
   (package xapi-storage-script)
   (deps
     (:x main.exe)

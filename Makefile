@@ -26,6 +26,7 @@ clean:
 
 test:
 	dune runtest --no-buffer --profile=release
+	dune build @runtest-python --profile=release
 
 lint:
 	dune build @python
