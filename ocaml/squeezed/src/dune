@@ -1,0 +1,25 @@
+(executable
+ (modes byte exe)
+ (name squeezed)
+ (public_name squeezed)
+ (package xapi-squeezed)
+  (flags (:standard -bin-annot))
+  (libraries
+    xapi-stdext-threads
+    xapi-stdext-pervasives
+    xapi-stdext-unix
+    astring
+    squeeze
+    xenctrl
+    xenstore
+    xenstore.unix
+    xenstore_transport
+    xenstore_transport.unix
+    rpclib
+    xapi-idl
+    xapi-idl.memory
+    uuidm
+    re
+    re.str
+  )
+)

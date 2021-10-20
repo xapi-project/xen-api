@@ -1,0 +1,1 @@
+$$\mathit{host\ free\ memory} >= s + \sum_i{\mathit{reservation}_i}$$

@@ -1,0 +1,42 @@
+(ocamlyacc xn_cfg_parser)
+(ocamllex xn_cfg_lexer)
+
+(executable
+  (name main)
+  (public_name xenops-cli)
+  (package xapi-xenopsd-cli)
+  (libraries
+      cmdliner
+      re
+      result
+      rpclib.core
+      rpclib.json
+      rresult
+      threads
+      uuidm
+      xapi-idl
+      xapi-idl.xen
+      xapi-idl.xen.interface
+      xapi-idl.xen.interface.types
+  )
+  (preprocess (pps ppx_deriving_rpc))
+)
+
+(rule
+ (with-stdout-to
+  xenops-cli.1
+  (run %{dep:main.exe} --help=groff)
+ )
+)
+
+(rule
+ (targets xenops-cli.1.gz)
+ (action
+  (run gzip %{dep:xenops-cli.1}))
+)
+
+(install
+ (section man)
+ (files xenops-cli.1.gz)
+ (package xapi-xenopsd-cli)
+)

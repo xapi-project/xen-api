@@ -5,7 +5,7 @@ XAPISDK=_build/install/default/xapi/sdk
 JOBS = $(shell getconf _NPROCESSORS_ONLN)
 PROFILE=release
 XAPI_VERSION ?= $(shell git describe --always --dirty || echo "NO_GIT")
-MANDIR ?= $(OPTDIR)/man/man1/
+OPTMANDIR ?= $(OPTDIR)/man/man1/
 
 .PHONY: build clean test doc python format install uninstall
 
@@ -76,19 +76,18 @@ quality-gate:
 	./quality-gate.sh
 
 install: build doc sdk doc-json
-	mkdir -p $(DESTDIR)$(SBINDIR)
 	mkdir -p $(DESTDIR)$(OPTDIR)/bin
-	mkdir -p $(DESTDIR)$(MANDIR)
+	mkdir -p $(DESTDIR)$(OPTMANDIR)
 	mkdir -p $(DESTDIR)$(LIBEXECDIR)
 	mkdir -p $(DESTDIR)$(OPTDIR)/debug
 	mkdir -p $(DESTDIR)/usr/bin
 	mkdir -p $(DESTDIR)/usr/libexec/xapi
-	mkdir -p $(DESTDIR)/usr/share/man/man1
+	mkdir -p $(DESTDIR)$(MANDIR)/man1
 	mkdir -p $(DESTDIR)/etc
 	mkdir -p $(DESTDIR)/etc/bash_completion.d
 # ocaml/xapi
 	make -C scripts install
-	cp -f _build/install/default/bin/xapi $(DESTDIR)$(SBINDIR)/xapi
+	cp -f _build/install/default/bin/xapi $(DESTDIR)$(OPTDIR)/bin/xapi
 	scripts/install.sh 755 ocaml/quicktest/quicktest $(DESTDIR)$(OPTDIR)/debug
 	cp -f _build/install/default/bin/quicktestbin $(DESTDIR)$(OPTDIR)/debug/quicktestbin
 	scripts/install.sh 644 _build/install/default/share/xapi/rbac_static.csv $(DESTDIR)$(OPTDIR)/debug
@@ -120,7 +119,7 @@ install: build doc sdk doc-json
 	scripts/install.sh 755 _build/install/default/bin/gencert $(DESTDIR)$(LIBEXECDIR)/gencert
 # ocaml/rrd2csv
 	scripts/install.sh 755 _build/install/default/bin/rrd2csv $(DESTDIR)$(OPTDIR)/bin/rrd2csv
-	scripts/install.sh 644 ocaml/rrd2csv/man/rrd2csv.1.man $(DESTDIR)$(MANDIR)/rrd2csv.1
+	scripts/install.sh 644 ocaml/rrd2csv/man/rrd2csv.1.man $(DESTDIR)$(OPTMANDIR)/rrd2csv.1
 # xcp-rrdd
 	install -D _build/install/default/bin/xcp-rrdd $(DESTDIR)/usr/sbin/xcp-rrdd
 	install -D _build/install/default/bin/rrddump $(DESTDIR)/usr/bin/rrddump
@@ -131,8 +130,8 @@ install: build doc sdk doc-json
 	install -D -m 755 _build/install/default/bin/xcp-rrdd-iostat $(DESTDIR)$(LIBEXECDIR)/xcp-rrdd-plugins/xcp-rrdd-iostat
 	install -D -m 755 _build/install/default/bin/xcp-rrdd-squeezed $(DESTDIR)$(LIBEXECDIR)/xcp-rrdd-plugins/xcp-rrdd-squeezed
 	install -D -m 755 _build/install/default/bin/xcp-rrdd-xenpm $(DESTDIR)$(LIBEXECDIR)/xcp-rrdd-plugins/xcp-rrdd-xenpm
-	install -D -m 644 ocaml/xcp-rrdd/bugtool-plugin/rrdd-plugins.xml $(DESTDIR)$(ETCDIR)/bugtool/xcp-rrdd-plugins.xml
-	install -D -m 644 ocaml/xcp-rrdd/bugtool-plugin/rrdd-plugins/stuff.xml $(DESTDIR)$(ETCDIR)/bugtool/xcp-rrdd-plugins/stuff.xml
+	install -D -m 644 ocaml/xcp-rrdd/bugtool-plugin/rrdd-plugins.xml $(DESTDIR)$(ETCXENDIR)/bugtool/xcp-rrdd-plugins.xml
+	install -D -m 644 ocaml/xcp-rrdd/bugtool-plugin/rrdd-plugins/stuff.xml $(DESTDIR)$(ETCXENDIR)/bugtool/xcp-rrdd-plugins/stuff.xml
 	install -D -m 755 ocaml/xcp-rrdd/bin/rrdp-scripts/sysconfig-rrdd-plugins $(DESTDIR)/etc/sysconfig/xcp-rrdd-plugins
 	install -D -m 644 ocaml/xcp-rrdd/bin/rrdp-scripts/logrotate-rrdd-plugins $(DESTDIR)/etc/logrotate.d/xcp-rrdd-plugins
 # vhd-tool
@@ -142,6 +141,31 @@ install: build doc sdk doc-json
 	install -m 755 _build/install/default/bin/get_vhd_vsize    $(DESTDIR)/usr/libexec/xapi/get_vhd_vsize
 	install -m 755 ocaml/vhd-tool/scripts/get_nbd_extents.py   $(DESTDIR)$(LIBEXECDIR)/get_nbd_extents.py
 	install -m 644 ocaml/vhd-tool/scripts/python_nbd_client.py $(DESTDIR)$(LIBEXECDIR)/python_nbd_client.py
+# xenopsd
+	install -D _build/install/default/bin/xenopsd-simulator $(DESTDIR)/$(SBINDIR)/xenopsd-simulator
+	install -D _build/install/default/man/man1/xenopsd-simulator.1.gz $(DESTDIR)/$(MANDIR)/man1/xenopsd-simulator.1.gz
+	install -D _build/install/default/bin/xenopsd-xc $(DESTDIR)/$(SBINDIR)/xenopsd-xc
+	install -D _build/install/default/bin/fence.bin $(DESTDIR)/$(LIBEXECDIR)/fence.bin
+	install -D _build/install/default/man/man1/xenopsd-xc.1.gz $(DESTDIR)/$(MANDIR)/man1/xenopsd-xc.1.gz
+	install -D _build/install/default/bin/set-domain-uuid $(DESTDIR)/$(XENOPSD_LIBEXECDIR)/set-domain-uuid
+	install -D _build/install/default/bin/xenops-cli $(DESTDIR)/$(SBINDIR)/xenops-cli
+	install -D _build/install/default/man/man1/xenops-cli.1.gz $(DESTDIR)/$(MANDIR)/man1/xenops-cli.1.gz
+	install -D _build/install/default/bin/list_domains $(DESTDIR)/$(BINDIR)/list_domains
+	install -D ./ocaml/xenopsd/scripts/vif $(DESTDIR)/$(XENOPSD_LIBEXECDIR)/vif
+	install -D ./ocaml/xenopsd/scripts/vif-real $(DESTDIR)/$(XENOPSD_LIBEXECDIR)/vif-real
+	install -D ./ocaml/xenopsd/scripts/block $(DESTDIR)/$(XENOPSD_LIBEXECDIR)/block
+	install -D ./ocaml/xenopsd/scripts/xen-backend.rules $(DESTDIR)/$(ETCDIR)/udev/rules.d/xen-backend.rules
+	install -D ./ocaml/xenopsd/scripts/tap $(DESTDIR)/$(XENOPSD_LIBEXECDIR)/tap
+	install -D ./ocaml/xenopsd/scripts/qemu-dm-wrapper $(DESTDIR)/$(XENOPSD_LIBEXECDIR)/qemu-dm-wrapper
+	install -D ./ocaml/xenopsd/scripts/qemu-vif-script $(DESTDIR)/$(XENOPSD_LIBEXECDIR)/qemu-vif-script
+	install -D ./ocaml/xenopsd/scripts/setup-vif-rules $(DESTDIR)/$(XENOPSD_LIBEXECDIR)/setup-vif-rules
+	install -D ./ocaml/xenopsd/scripts/setup-pvs-proxy-rules $(DESTDIR)/$(XENOPSD_LIBEXECDIR)/setup-pvs-proxy-rules
+	install -D ./ocaml/xenopsd/scripts/common.py $(DESTDIR)/$(XENOPSD_LIBEXECDIR)/common.py
+	install -D ./ocaml/xenopsd/scripts/igmp_query_injector.py $(DESTDIR)/$(XENOPSD_LIBEXECDIR)/igmp_query_injector.py
+	install -D ./ocaml/xenopsd/scripts/qemu-wrapper $(DESTDIR)/$(QEMU_WRAPPER_DIR)/qemu-wrapper
+	DESTDIR=$(DESTDIR) SBINDIR=$(SBINDIR) QEMU_WRAPPER_DIR=$(QEMU_WRAPPER_DIR) XENOPSD_LIBEXECDIR=$(XENOPSD_LIBEXECDIR) ETCDIR=$(ETCDIR) ./ocaml/xenopsd/scripts/make-custom-xenopsd.conf
+# squeezed
+	install -D _build/install/default/bin/squeezed $(DESTDIR)/$(SBINDIR)/squeezed
 # xcp-networkd
 	install -m 755 _build/install/default/bin/xapi-networkd         $(DESTDIR)/usr/sbin/xcp-networkd
 	install -m 755 _build/install/default/bin/networkd_db           $(DESTDIR)/usr/bin/networkd_db

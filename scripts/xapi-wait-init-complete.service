@@ -6,7 +6,7 @@ Before=xapi-init-complete.target
 
 [Service]
 Type=oneshot
-ExecStart=@BINDIR@/xapi-wait-init-complete 240
+ExecStart=@OPTDIR@/bin/xapi-wait-init-complete 240
 RemainAfterExit=yes
 
 [Install]
