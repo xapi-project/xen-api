@@ -4,7 +4,6 @@
   alcotest
   astring
   networklibs
-  profiling
   xapi-test-utils)
 )
 

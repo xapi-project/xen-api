@@ -5,7 +5,6 @@
  (modes byte exe)
  (libraries
   networklibs
-  profiling
   threads
   xapi-idl.network)
 )

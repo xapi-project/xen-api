@@ -18,7 +18,6 @@
   forkexec
   netlink
   networklibs
-  profiling
   rpclib
   systemd
   threads
