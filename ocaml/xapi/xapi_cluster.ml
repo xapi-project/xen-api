@@ -54,14 +54,16 @@ let create ~__context ~pIF ~cluster_stack ~pool_auto_join ~token_timeout
       let token_timeout_coefficient_ms =
         Int64.of_float (token_timeout_coefficient *. 1000.0)
       in
-      let pems = Xapi_cluster_helpers.Pem.init ~__context ~cn:cluster_uuid in
+      let tls_config =
+        Xapi_cluster_helpers.Pem.init ~__context ~cn:cluster_uuid
+      in
       let init_config =
         {
           Cluster_interface.local_ip= ip
         ; token_timeout_ms= Some token_timeout_ms
         ; token_coefficient_ms= Some token_timeout_coefficient_ms
         ; name= None
-        ; pems
+        ; tls_config
         }
       in
       Xapi_clustering.Daemon.enable ~__context ;

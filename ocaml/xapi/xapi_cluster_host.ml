@@ -252,18 +252,21 @@ let enable ~__context ~self =
         Xapi_clustering.Daemon.enable ~__context
       ) ;
 
-      let pems = Xapi_cluster_helpers.Pem.get_existing ~__context cluster in
+      let tls_config =
+        Xapi_cluster_helpers.Pem.get_existing ~__context cluster
+      in
       let init_config =
         {
           Cluster_interface.local_ip= ip
         ; token_timeout_ms= None
         ; token_coefficient_ms= None
         ; name= None
-        ; pems
+        ; tls_config
         }
       in
       let result =
-        Cluster_client.LocalClient.enable (rpc ~__context) dbg init_config
+        Cluster_client.LocalClient.enable (rpc ~__context) dbg
+          init_config.local_ip
       in
       match Idl.IdM.run @@ Cluster_client.IDL.T.get result with
       | Ok () ->
@@ -418,7 +421,7 @@ let is_local_cluster_host_using_xapis_pem ~__context =
         Debug.log_backtrace e (Backtrace.get e) ;
         false
     | cc -> (
-      match cc.Cluster_interface.pems with
+      match cc.Cluster_interface.tls_config.pems with
       | None ->
           D.info "Pem.is_local_cluster_host_using_xapis_pem? yes!" ;
           true

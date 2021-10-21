@@ -37,7 +37,7 @@ let test_clusterd_rpc ~__context call =
         ; config_version= 1L
         ; cluster_token_timeout_ms= 20000L
         ; cluster_token_coefficient_ms= 1000L
-        ; pems= None
+        ; tls_config= tls_config_empty
         }
       in
       let diag =

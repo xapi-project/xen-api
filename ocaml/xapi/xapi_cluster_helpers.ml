@@ -113,9 +113,9 @@ module Pem = struct
 
   let init ~__context ~cn =
     if unit_test ~__context then
-      None
+      tls_config_empty
     else
-      Some (init' cn)
+      {tls_config_empty with pems= Some (init' cn)}
 
   let get_existing' ~__context self =
     let cc_of_cluster_host h =
@@ -160,11 +160,11 @@ module Pem = struct
     let gen () =
       D.debug "Pem.get_existing: generating new" ;
       let cn = Db.Cluster.get_uuid ~__context ~self in
-      Some (init' cn)
+      init ~__context ~cn
     in
     match get_existing' ~__context self with
     | `unittest ->
-        None
+        tls_config_empty
     | `all_disabled ->
         D.debug "Pem.get_existing: all existing cluster hosts disabled" ;
         gen ()
@@ -172,17 +172,20 @@ module Pem = struct
         D.debug "Pem.get_existing: there are no existing cluster hosts" ;
         gen ()
     | `all_enabled (_, cc) | `not_all_enabled (_, cc) -> (
-      match cc.pems with
+      match cc.tls_config.pems with
+      | None when cc.tls_config.verify_tls_certs ->
+          D.error "Pem.get_existing: existing cluster does not have a pem" ;
+          cc.tls_config
       | None ->
           (* this is not a problem unless tls verification is enabled! *)
           D.debug "Pem.get_existing: existing cluster does not have a pem" ;
-          None
+          cc.tls_config
       | Some p ->
           D.debug "Pem.get_existing: found existing pem!" ;
-          Some p
+          cc.tls_config
     )
     | exception Api_errors.(Server_error (message_method_unknown, _)) ->
-        None
+        tls_config_empty
 
   let maybe_write_new ~__context self =
     let write h =
@@ -210,7 +213,7 @@ module Pem = struct
           "Pem.maybe_write_new: nothing to do because there are no cluster \
            hosts"
     | `all_enabled (h, cc) -> (
-      match cc.pems with
+      match cc.tls_config.pems with
       | Some _ ->
           D.info "Pem.maybe_write_new: pem already exists, so not overwriting"
       | None ->
