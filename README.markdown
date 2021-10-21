@@ -18,7 +18,11 @@ Xapi is the main component produced by the Linux Foundation's
 Build and Install
 -----------------
 
+<<<<<<< HEAD
 To build xen-api from source, we recommend using [opam](https://opam.ocaml.org/doc/Manual.html) with the [xs-opam](https://github.com/xapi-project/xs-opam) repository (farther explanation in its [readme](https://github.com/xapi-project/xs-opam/blob/master/README.md)).
+=======
+To build xen-api from source, we recommend using [opam](https://opam.ocaml.org/doc/Manual.html) with the [xs-opam](https://github.com/xapi-project/xs-opam) remote (farther explanation in it's [readme](https://github.com/xapi-project/xs-opam/blob/master/README.md)).
+>>>>>>> d544afeed... Updating README with step-by-step build instructions
 
 1) Install `opam` and `git` with your package manager.
 
@@ -41,9 +45,15 @@ To build xen-api from source, we recommend using [opam](https://opam.ocaml.org/d
 
     ```bash
     opam init
+<<<<<<< HEAD
     opam switch create xen-api ocaml-base-compiler.$OCAML_VERSION_FULL
     # This basically "jumps you into" the enviornment you just created:
     eval $(opam env --switch=xen-api --set-switch)
+=======
+    opam switch create ocaml-base-compiler.$OCAML_VERSION_FULL
+    # This basically "jumps you into" the enviornment you just created:
+    eval $(opam env --switch=ocaml-base-compiler.$OCAML_VERSION_FULL --set-switch)
+>>>>>>> d544afeed... Updating README with step-by-step build instructions
     ```
 
 5) Get the Recommended Packages.
@@ -73,9 +83,14 @@ To build xen-api from source, we recommend using [opam](https://opam.ocaml.org/d
 7) Build `xen-api`.
 
     ```bash
+<<<<<<< HEAD
     ./configure
     make
     make test
+=======
+    opam exec -- ./configure
+    opam exec -- make
+>>>>>>> d544afeed... Updating README with step-by-step build instructions
     ```
 
 The binaries should now be in `./_build/install/default/bin`!
