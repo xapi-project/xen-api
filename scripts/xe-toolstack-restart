@@ -25,7 +25,7 @@ fi
 
 echo "Executing $FILENAME"
 
-POOLCONF=`cat @ETCDIR@/pool.conf`
+POOLCONF=`cat @ETCXENDIR@/pool.conf`
 if [ $POOLCONF == "master" ]; then MPATHALERT="mpathalert"; else MPATHALERT=""; fi
 SERVICES="perfmon xapi v6d xenopsd xenopsd-xc xenopsd-xenlight
   xenopsd-simulator xenopsd-libvirt xcp-rrdd-iostat xcp-rrdd-squeezed

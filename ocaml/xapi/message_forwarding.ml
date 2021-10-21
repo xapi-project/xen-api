@@ -2392,6 +2392,7 @@ functor
       let migrate_send ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options
           ~vgpu_map =
         info "VM.migrate_send: VM = '%s'" (vm_uuid ~__context vm) ;
+        let source_host = Db.VM.get_resident_on ~__context ~self:vm in
         let local_fn =
           Local.VM.migrate_send ~vm ~dest ~live ~vdi_map ~vif_map ~vgpu_map
             ~options
@@ -2464,7 +2465,6 @@ functor
         in
         ( match migration_type with
         | `Live_intrapool host ->
-            let source_host = Db.VM.get_resident_on ~__context ~self:vm in
             let message_body =
               Printf.sprintf
                 "VM '%s' (uuid: %s) migrated from host '%s' (uuid: %s) to host \

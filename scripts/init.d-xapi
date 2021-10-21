@@ -9,8 +9,8 @@ fi
 
 XAPI_STARTUP_COOKIE=/var/run/xapi_startup.cookie
 XAPI_INIT_COMPLETE_COOKIE=/var/run/xapi_init_complete.cookie
-XAPI_BLOCK_STARTUP_COOKIE=@ETCDIR@/xapi_block_startup
-XAPI_BOOT_TIME_INFO_UPDATED=@ETCDIR@/boot_time_info_updated
+XAPI_BLOCK_STARTUP_COOKIE=@ETCXENDIR@/xapi_block_startup
+XAPI_BOOT_TIME_INFO_UPDATED=@ETCXENDIR@/boot_time_info_updated
 
 # Enable core dumping for xapi
 ulimit -c unlimited
