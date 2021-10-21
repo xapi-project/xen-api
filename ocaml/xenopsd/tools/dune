@@ -3,5 +3,5 @@
  (public_name set-domain-uuid)
  (package xapi-xenopsd-xc)
  (flags :standard -warn-error +a-3)
- (libraries xenctrl uuidm cmdliner profiling)
+ (libraries xenctrl uuidm cmdliner)
 )

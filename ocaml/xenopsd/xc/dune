@@ -64,7 +64,6 @@
 
  (libraries
   ezxenstore.core
-  profiling
   uuidm
   xapi-idl.varstore.privileged
   xapi-idl.xen.interface

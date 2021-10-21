@@ -1,0 +1,20 @@
+(executable
+ (name network_test)
+ (libraries
+  alcotest
+  astring
+  networklibs
+  xapi-test-utils)
+)
+
+(rule
+ (alias runtest)
+ (deps
+  (:x network_test.exe)
+  (source_tree jsonrpc_files)
+ )
+ (action
+  (chdir ../ (run %{x})
+  )
+ )
+)

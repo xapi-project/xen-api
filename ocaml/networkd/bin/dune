@@ -1,0 +1,36 @@
+(rule
+ (targets xcp-networkd.1)
+ (deps networkd.exe)
+ (action
+  (with-stdout-to
+   %{targets}
+   (run %{deps} "--help=groff")
+  )
+ )
+)
+
+(executable
+ (name networkd)
+ (public_name xapi-networkd)
+ (package xapi-networkd)
+ (modes byte exe)
+ (libraries
+  forkexec
+  netlink
+  networklibs
+  rpclib
+  systemd
+  threads
+  xapi_version
+  xapi-stdext-pervasives
+  xapi-stdext-threads
+  xapi-stdext-unix
+  xapi-inventory
+  xapi-idl
+  xapi-idl.network
+  xen-api-client))
+
+(alias
+ (name man)
+ (deps xcp-networkd.1)
+)

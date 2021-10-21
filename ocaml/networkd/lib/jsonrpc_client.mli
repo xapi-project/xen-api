@@ -12,9 +12,23 @@
  * GNU Lesser General Public License for more details.
  *)
 
-(* Start the program with the simulator backend *)
-let _ =
-  Xenops_interface.queue_name := !Xenops_interface.queue_name ^ ".simulator" ;
-  Xenops_utils.set_root "xenopsd/simulator" ;
-  Xenopsd.configure () ;
-  Xenopsd.main (module Xenops_server_simulator : Xenops_server_plugin.S)
+exception Timeout
+
+exception Read_error
+
+val json_rpc_max_len : int ref
+
+val json_rpc_read_timeout : int64 ref
+
+val json_rpc_write_timeout : int64 ref
+
+val timeout_read : Unix.file_descr -> int64 -> string
+
+val with_rpc :
+     ?version:Jsonrpc.version
+  -> path:string
+  -> call:Rpc.call
+  -> unit
+  -> Rpc.response
+(** Do an JSON-RPC call to a server that is listening on a Unix domain socket at
+    the given path. *)

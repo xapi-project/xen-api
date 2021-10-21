@@ -1,5 +1,5 @@
 (*
- * Copyright (C) Citrix Systems Inc.
+ * Copyright (C) 2006-2013 Citrix Systems Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published
@@ -12,9 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-(* Start the program with the simulator backend *)
-let _ =
-  Xenops_interface.queue_name := !Xenops_interface.queue_name ^ ".simulator" ;
-  Xenops_utils.set_root "xenopsd/simulator" ;
-  Xenopsd.configure () ;
-  Xenopsd.main (module Xenops_server_simulator : Xenops_server_plugin.S)
+let () =
+  Debug.log_to_stdout () ;
+  Alcotest.run "base_suite"
+    (Network_test_lacp_properties.suite @ Test_jsonrpc_client.tests)

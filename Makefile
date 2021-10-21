@@ -32,6 +32,8 @@ doc:
 	dune exec --profile=$(PROFILE) -- ocaml/idl/datamodel_main.exe -closed -markdown $(XAPIDOC)/markdown
 	cp ocaml/doc/*.dot ocaml/doc/doc-convert.sh $(XAPIDOC)
 	find ocaml/doc -name "*.md" -not -name "README.md" -exec cp {} $(XAPIDOC)/markdown/ \;
+# Build manpages, networkd generated these
+	XAPI_VERSION=$(XAPI_VERSION) dune build --profile=$(PROFILE) -f @man
 
 sdk:
 	cp $(SHAREDIR)/sm/XE_SR_ERRORCODES.xml ocaml/sdk-gen/csharp/XE_SR_ERRORCODES.xml
@@ -80,6 +82,7 @@ install: build doc sdk doc-json
 	mkdir -p $(DESTDIR)$(OPTDIR)/debug
 	mkdir -p $(DESTDIR)/usr/bin
 	mkdir -p $(DESTDIR)/usr/libexec/xapi
+	mkdir -p $(DESTDIR)$(MANDIR)/man1
 	mkdir -p $(DESTDIR)/etc
 	mkdir -p $(DESTDIR)/etc/bash_completion.d
 # ocaml/xapi
@@ -163,6 +166,10 @@ install: build doc sdk doc-json
 	DESTDIR=$(DESTDIR) SBINDIR=$(SBINDIR) QEMU_WRAPPER_DIR=$(QEMU_WRAPPER_DIR) XENOPSD_LIBEXECDIR=$(XENOPSD_LIBEXECDIR) ETCDIR=$(ETCDIR) ./ocaml/xenopsd/scripts/make-custom-xenopsd.conf
 # squeezed
 	install -D _build/install/default/bin/squeezed $(DESTDIR)/$(SBINDIR)/squeezed
+# xcp-networkd
+	install -m 755 _build/install/default/bin/xapi-networkd         $(DESTDIR)/usr/sbin/xcp-networkd
+	install -m 755 _build/install/default/bin/networkd_db           $(DESTDIR)/usr/bin/networkd_db
+	install -m 644 _build/default/ocaml/networkd/bin/xcp-networkd.1 $(DESTDIR)/usr/share/man/man1/xcp-networkd.1
 # Libraries
 	dune install --profile=$(PROFILE) \
 		xapi-client xapi-database xapi-consts xapi-cli-protocol xapi-datamodel xapi-types \
@@ -181,4 +188,4 @@ install: build doc sdk doc-json
 
 uninstall:
 	# only removes the libraries, which were installed with `dune install`
-	dune uninstall xapi-client xapi-database xapi-consts xapi-cli-protocol xapi-datamodel xapi-types
+	dune uninstall xapi-client xapi-database xapi-consts xapi-cli-protocol xapi-datamodel xapi-types networklibs

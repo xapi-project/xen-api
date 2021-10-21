@@ -1,5 +1,5 @@
-(*
- * Copyright (C) Citrix Systems Inc.
+/*
+ * Copyright (C) 2006-2009 Citrix Systems Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published
@@ -10,11 +10,24 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
- *)
+ */
+/*
+ */
 
-(* Start the program with the simulator backend *)
-let _ =
-  Xenops_interface.queue_name := !Xenops_interface.queue_name ^ ".simulator" ;
-  Xenops_utils.set_root "xenopsd/simulator" ;
-  Xenopsd.configure () ;
-  Xenopsd.main (module Xenops_server_simulator : Xenops_server_plugin.S)
+#include <string.h>
+#include <stdio.h>
+#include <unistd.h>
+#include <sys/ioctl.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <net/if.h>
+#include <linux/sockios.h>
+
+#ifndef SIOCBRADDBR
+#include "sockios_compat.h"
+#endif
+
+#define CHECK_IOCTL(err, S)	\
+	if (err < 0) {		\
+		caml_failwith(S ": ioctl failed");	\
+	}
