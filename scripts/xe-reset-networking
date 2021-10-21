@@ -22,7 +22,7 @@ import re
 from optparse import OptionParser
 #import XenAPI
 
-pool_conf = '@ETCDIR@/pool.conf'
+pool_conf = '@ETCXENDIR@/pool.conf'
 inventory_file = '@INVENTORY@'
 management_conf = '/etc/firstboot.d/data/management.conf'
 network_reset = '/tmp/network-reset'

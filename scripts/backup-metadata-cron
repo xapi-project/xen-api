@@ -1,7 +1,7 @@
 #!/bin/bash
 
-if [ -e @ETCDIR@/pool.conf ]; then
-    if [ "$(cat @ETCDIR@/pool.conf)" = "master" ]; then
+if [ -e @ETCXENDIR@/pool.conf ]; then
+    if [ "$(cat @ETCXENDIR@/pool.conf)" = "master" ]; then
         "@OPTDIR@/bin/xe-backup-metadata" -c >/dev/null 2>&1
         EXITVALUE=$?
         if [ $EXITVALUE != 0 ]; then
