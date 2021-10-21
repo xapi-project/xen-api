@@ -7,9 +7,9 @@
 # Replaces the following strings:
 #
 # @OPTDIR@ -> ${OPTDIR}
-# @ETCDIR@ -> ${ETCDIR}
+# @ETCXENDIR@ -> ${ETCXENDIR}
 # @VARPATCHDIR@
-# @ETCDIR@
+# @ETCXENDIR@
 # @OPTDIR@
 # @PLUGINDIR@
 # @HOOKSDIR@
@@ -41,7 +41,7 @@ for FILE in ${FILES}; do
   fi
   if file ${NEWFILE} | grep -q "text"; then
     sed -i -e "s!@OPTDIR@!${OPTDIR}!g" \
-	-e "s!@ETCDIR@!${ETCDIR}!g" \
+	-e "s!@ETCXENDIR@!${ETCXENDIR}!g" \
         -e "s!@VARPATCHDIR@!${VARPATCHDIR}!g" \
         -e "s!@PLUGINDIR@!${PLUGINDIR}!g" \
         -e "s!@HOOKSDIR@!${HOOKSDIR}!g" \
