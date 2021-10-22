@@ -17,6 +17,7 @@ depends: [
   "cohttp-lwt"
   "conf-libssl"
   "cstruct" {>= "3.0.0"}
+  "forkexec"
   "io-page"
   "lwt"
   "nbd-unix"
