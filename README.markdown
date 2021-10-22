@@ -18,7 +18,7 @@ Xapi is the main component produced by the Linux Foundation's
 Build and Install
 -----------------
 
-To build xen-api from source, we recommend using [opam](https://opam.ocaml.org/doc/Manual.html) with the [xs-opam](https://github.com/xapi-project/xs-opam) remote (farther explanation in it's [readme](https://github.com/xapi-project/xs-opam/blob/master/README.md)).
+To build xen-api from source, we recommend using [opam](https://opam.ocaml.org/doc/Manual.html) with the [xs-opam](https://github.com/xapi-project/xs-opam) repository (farther explanation in its [readme](https://github.com/xapi-project/xs-opam/blob/master/README.md)).
 
 1) Install `opam` and `git` with your package manager.
 
