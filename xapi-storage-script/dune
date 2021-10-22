@@ -1,0 +1,71 @@
+(rule
+  (targets VERSION)
+  (mode fallback)
+  (action (with-stdout-to %{targets} (bash "git describe --always --dirty")))
+)
+
+(rule
+  (targets version.ml)
+  (deps
+    (:v VERSION)
+    (:sh version.sh)
+  )
+  (action (with-stdout-to %{targets} (bash ./%{sh})))
+)
+
+(executable
+  (name main)
+  (flags (:standard -w -39))
+  (libraries
+    async_inotify
+    message-switch-async
+    message-switch-unix
+    rpclib
+    rpclib-async
+    sexplib
+    threads
+    xapi-stdext-date
+    xapi-storage
+    xapi-idl
+    xapi-idl.rrd
+    xapi-idl.storage
+  )
+  (preprocess (pps ppx_deriving_rpc ppx_sexp_conv))
+)
+
+(install
+ (package xapi-storage-script)
+ (section sbin)
+ (files (main.exe as xapi-storage-script)))
+
+(rule
+  (targets xapi-storage-script.8)
+  (package xapi-storage-script)
+  (deps
+    (:x main.exe)
+  )
+  (action (with-stdout-to %{targets} (run %{x} --help=groff)))
+)
+
+(install
+  (section man)
+  (package xapi-storage-script)
+  (files (xapi-storage-script.8 as man8/xapi-storage-script.8))
+)
+
+(rule
+  (alias runtest-python)
+  (package xapi-storage-script)
+  (deps
+    (:x main.exe)
+    (source_tree test/volume)
+    (:p
+     ../xapi-storage/python/xapi/storage/api/v5/datapath.py
+     ../xapi-storage/python/xapi/storage/api/v5/plugin.py
+     ../xapi-storage/python/xapi/storage/api/v5/task.py
+     ../xapi-storage/python/xapi/storage/api/v5/volume.py
+     )
+  )
+  (action (bash "export PYTHONPATH=../xapi-storage/python/; echo $PYTHONPATH; ./%{x} --root=$PWD/test --self-test-only=true"))
+)
+
