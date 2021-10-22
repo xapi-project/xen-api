@@ -41,9 +41,9 @@ To build xen-api from source, we recommend using [opam](https://opam.ocaml.org/d
 
     ```bash
     opam init
-    opam switch create ocaml-base-compiler.$OCAML_VERSION_FULL
+    opam switch create xen-api ocaml-base-compiler.$OCAML_VERSION_FULL
     # This basically "jumps you into" the enviornment you just created:
-    eval $(opam env --switch=ocaml-base-compiler.$OCAML_VERSION_FULL --set-switch)
+    eval $(opam env --switch=xen-api --set-switch)
     ```
 
 5) Get the Recommended Packages.
