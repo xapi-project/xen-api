@@ -13,7 +13,6 @@
  *)
 open Db_rpc_common_v1
 open Db_cache_types
-open Db_filter
 open Db_filter_types
 
 (* Check, for randomly chosen x's, that (unmarshall (marshall x)) = x *)

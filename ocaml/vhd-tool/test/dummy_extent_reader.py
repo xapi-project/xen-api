@@ -4,6 +4,7 @@
 Dummy extent reader that returns a huge extent list
 """
 
+from __future__ import print_function
 import json
 import sys
 
@@ -23,9 +24,9 @@ def _main():
             length, offset, DUMMY_DISK_SIZE))
     extents = [
         {'flags': 0, 'length': BLOCK_SIZE}
-        for _offset in xrange(0, length, BLOCK_SIZE)
+        for _offset in range(0, length, BLOCK_SIZE)
     ]
-    print json.dumps(extents)
+    print(json.dumps(extents))
 
 if __name__ == '__main__':
     _main()
