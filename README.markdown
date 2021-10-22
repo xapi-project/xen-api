@@ -73,8 +73,9 @@ To build xen-api from source, we recommend using [opam](https://opam.ocaml.org/d
 7) Build `xen-api`.
 
     ```bash
-    opam exec -- ./configure
-    opam exec -- make
+    ./configure
+    make
+    make test
     ```
 
 The binaries should now be in `./_build/install/default/bin`!
