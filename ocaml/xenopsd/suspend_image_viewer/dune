@@ -4,7 +4,6 @@
  (libraries
   cmdliner
   forkexec
-  profiling
   uuidm
   xapi-idl
   xapi-stdext-unix
