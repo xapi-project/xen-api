@@ -50,5 +50,4 @@
   (action (run ./check-no-xenctrl %{x}))
 )
 
-(env (_ (env-vars (XAPI_TEST 1))))
-
+(env (_ (env-vars (XAPI_TEST 1) (ALCOTEST_COMPACT 1))))
