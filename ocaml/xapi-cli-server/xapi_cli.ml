@@ -211,6 +211,7 @@ let exec_command req cmd s session args =
     ; (ends "auth", [is "config:pass"])
     ; (is "host-call-plugin", [starts "args"])
     ; (always, [has "password"; is "url"])
+    ; (is "pool-sync-updates", [is "token"])
     ]
   in
   let rpc = get_rpc () req s in

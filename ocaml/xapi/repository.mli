@@ -30,7 +30,12 @@ val cleanup_pool_repo :
 
 val with_reposync_lock : (unit -> 'a) -> 'a
 
-val sync : __context:Context.t -> self:[`Repository] API.Ref.t -> unit
+val sync :
+     __context:Context.t
+  -> self:[`Repository] API.Ref.t
+  -> token:string
+  -> token_id:string
+  -> unit
 
 val create_pool_repository :
   __context:Context.t -> self:[`Repository] API.Ref.t -> unit

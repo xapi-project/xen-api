@@ -135,6 +135,12 @@ let find_xentoollog verbose =
   found
 
 (* general *)
+let yumplugindir =
+  dir "yumplugindir" "/usr/lib/yum-plugins" "YUMPLUGINDIR" "YUM plugins"
+
+let yumpluginconfdir =
+  dir "yumpluginconfdir" "/etc/yum/pluginconf.d" "YUMPLUGINCONFDIR"
+    "YUM plugins conf dir"
 
 let info =
   let doc = "Configures a package" in
@@ -153,7 +159,8 @@ let able_of_bool = function true -> "enable" | false -> "disable"
 let configure coverage disable_warn_error varpatchdir etcxendir optdir plugindir
     extensiondir hooksdir inventory xapiconf libexecdir scriptsdir sharedir
     webdir cluster_stack_root udevdir docdir sdkdir bindir sbindir
-    xenopsd_libexecdir qemu_wrapper_dir etcdir mandir =
+    xenopsd_libexecdir qemu_wrapper_dir etcdir mandir yumplugindir
+    yumpluginconfdir =
   let xenctrl = find_ocamlfind false "xenctrl" in
   let xentoollog = find_xentoollog false in
   (* Write config.mk *)
@@ -187,6 +194,8 @@ let configure coverage disable_warn_error varpatchdir etcxendir optdir plugindir
     ; ( "ENABLE_XENTOOLLOG"
       , Printf.sprintf "--%s-xentoollog" (able_of_bool xentoollog)
       )
+    ; ("YUMPLUGINDIR", yumplugindir)
+    ; ("YUMPLUGINCONFDIR", yumpluginconfdir)
     ]
   in
   let lines = List.map (fun (k, v) -> Printf.sprintf "%s=%s" k v) vars in
@@ -239,6 +248,8 @@ let configure_t =
     $ qemu_wrapper_dir
     $ etcdir
     $ mandir
+    $ yumplugindir
+    $ yumpluginconfdir
   )
 
 let () =

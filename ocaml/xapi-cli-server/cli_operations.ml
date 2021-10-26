@@ -1761,7 +1761,11 @@ let pool_disable_client_certificate_auth printer rpc session_id params =
 let pool_sync_updates printer rpc session_id params =
   let pool = get_pool_with_default rpc session_id params "uuid" in
   let force = get_bool_param params "force" in
-  let hash = Client.Pool.sync_updates rpc session_id pool force in
+  let token = get_param params "token" ~default:"" in
+  let token_id = get_param params "token-id" ~default:"" in
+  let hash =
+    Client.Pool.sync_updates rpc session_id pool force token token_id
+  in
   printer (Cli_printer.PList [hash])
 
 let vdi_type_of_string = function

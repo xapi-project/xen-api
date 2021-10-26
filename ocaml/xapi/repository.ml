@@ -91,13 +91,21 @@ let cleanup_pool_repo ~__context ~self =
       (ExnHelper.string_of_exn e) ;
     raise Api_errors.(Server_error (repository_cleanup_failed, []))
 
-let sync ~__context ~self =
+let sync ~__context ~self ~token ~token_id =
   try
     let repo_name = get_remote_repository_name ~__context ~self in
     remove_repo_conf_file repo_name ;
     let binary_url = Db.Repository.get_binary_url ~__context ~self in
     let source_url = Db.Repository.get_source_url ~__context ~self in
     write_yum_config ~source_url:(Some source_url) binary_url repo_name ;
+    with_access_token ~token ~token_id @@ fun token_path ->
+    let token_param =
+      match token_path with
+      | Some p ->
+          Printf.sprintf "--setopt=%s.accesstoken=file://%s" repo_name p
+      | None ->
+          ""
+    in
     let config_params =
       [
         "--save"
@@ -106,6 +114,7 @@ let sync ~__context ~self =
         else
           "--setopt=repo_gpgcheck=0"
         )
+      ; token_param
       ; repo_name
       ]
     in
@@ -119,6 +128,7 @@ let sync ~__context ~self =
       ; "--download-metadata"
       ; (if !Xapi_globs.repository_gpgcheck then "--gpgcheck" else "")
       ; "--delete"
+      ; "--plugins"
       ; Printf.sprintf "--repoid=%s" repo_name
       ]
     in

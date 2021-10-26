@@ -746,9 +746,11 @@ open Datamodel_types
       ~name:"sync_updates"
       ~in_product_since:rel_next
       ~doc:"Sync with the enabled repository"
-      ~params:[
-        Ref _pool, "self", "The pool";
-        Bool, "force", "If true local mirroring repo will be removed before syncing"
+      ~versioned_params:[
+        {param_type=Ref _pool; param_name="self"; param_doc="The pool"; param_release=next_release; param_default=None};
+        {param_type=Bool; param_name="force"; param_doc="If true local mirroring repo will be removed before syncing"; param_release=next_release; param_default=None};
+        {param_type=String; param_name="token"; param_doc="The token for repository client authentication"; param_release=next_release; param_default=Some (VString "")};
+        {param_type=String; param_name="token_id"; param_doc="The ID of the token"; param_release=next_release; param_default=Some (VString "")}
       ]
       ~result:(String, "The SHA256 hash of updateinfo.xml.gz")
       ~allowed_roles:_R_POOL_OP

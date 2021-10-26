@@ -509,7 +509,7 @@ let rec cmdtable_data : (string * cmd_spec) list =
   ; ( "pool-sync-updates"
     , {
         reqd= []
-      ; optn= ["force"]
+      ; optn= ["force"; "token"; "token-id"]
       ; help= "Sync updates from remote YUM repository, pool-wide."
       ; implementation= No_fd Cli_operations.pool_sync_updates
       ; flags= []

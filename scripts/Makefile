@@ -14,10 +14,12 @@ install:
 	mkdir -p $(DESTDIR)$(HOOKSDIR)
 	mkdir -p $(DESTDIR)$(ETCXENDIR)
 	mkdir -p $(DESTDIR)/etc/logrotate.d
+	mkdir -p $(DESTDIR)/etc/yum/pluginconf.d
 	mkdir -p $(DESTDIR)$(ETCXENDIR)/master.d
 	mkdir -p $(DESTDIR)$(LIBEXECDIR)
 	mkdir -p $(DESTDIR)/var/lib/xcp
 	mkdir -p $(DESTDIR)/usr/lib/systemd/system
+	mkdir -p $(DESTDIR)/usr/lib/yum-plugins
 	mkdir -p $(DESTDIR)$(OPTDIR)/packages/post-install-scripts
 	mkdir -p $(DESTDIR)$(SITE_DIR)
 	mkdir -p $(DESTDIR)/etc/systemd/system/stunnel@xapi.service.d/
@@ -167,6 +169,9 @@ install:
 	$(IPROG) poweron/wlan.py $(DESTDIR)$(PLUGINDIR)/wlan.py
 	$(IPROG) poweron/DRAC.py $(DESTDIR)$(PLUGINDIR)/DRAC.py
 	$(IPROG) poweron/power-on.py $(DESTDIR)$(PLUGINDIR)/power-on-host
+# YUM plugins
+	$(IPROG) yum-plugins/accesstoken.py $(DESTDIR)$(YUMPLUGINDIR)
+	$(IDATA) yum-plugins/accesstoken.conf $(DESTDIR)$(YUMPLUGINCONFDIR)
 # maillanguages
 	mkdir -p $(DESTDIR)/etc/xapi.d/mail-languages
 	$(IDATA) mail-languages/en-US.json $(DESTDIR)/etc/xapi.d/mail-languages

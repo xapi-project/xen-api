@@ -1426,3 +1426,24 @@ let get_single_enabled_update_repository ~__context =
       (get_enabled_repositories ~__context)
   in
   get_singleton enabled_update_repositories
+
+let with_access_token ~token ~token_id f =
+  match (token, token_id) with
+  | t, tid when t <> "" && tid <> "" ->
+      info "sync updates with token_id: %s" tid ;
+      let json = `Assoc [("token", `String t); ("token_id", `String tid)] in
+      let tmpfile, tmpch =
+        Filename.open_temp_file ~mode:[Open_text] "accesstoken" ".json"
+      in
+      Xapi_stdext_pervasives.Pervasiveext.finally
+        (fun () ->
+          output_string tmpch (Yojson.Basic.to_string json) ;
+          close_out tmpch ;
+          f (Some tmpfile)
+          )
+        (fun () -> Unixext.unlink_safe tmpfile)
+  | t, tid when t = "" && tid = "" ->
+      f None
+  | _ ->
+      let msg = Printf.sprintf "%s: The token or token_id is empty" __LOC__ in
+      raise Api_errors.(Server_error (internal_error, [msg]))
