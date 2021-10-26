@@ -1,7 +1,7 @@
 (rule
   (targets VERSION)
   (mode fallback)
-  (action (with-stdout-to %{targets} (bash "git describe --always --dirty")))
+  (action (with-stdout-to %{targets} (bash "git describe --always --dirty || echo 0.0.0")))
 )
 
 (rule
