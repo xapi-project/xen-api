@@ -89,6 +89,7 @@ end = struct
          database this can fail... this is ok because the database will be synchronised later *)
       Server_helpers.exec_with_new_task "refreshing consoles" (fun __context ->
           Dbsync_master.set_master_ip ~__context ;
+          Helpers.update_getty () ;
           Dbsync_master.refresh_console_urls ~__context
       )
 
