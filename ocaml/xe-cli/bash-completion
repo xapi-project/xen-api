@@ -373,6 +373,13 @@ _xe()
                 return 0
                 ;;
 
+            ignore-vdi-uuids) # for vm-snapshot
+                val=$(final_comma_separated_param "$value")
+                vdis=$(${xe} vdi-list --minimal 2>/dev/null)
+                IFS=$'\n'
+                set_completions "$vdis" "$val"
+                return 0
+                ;;
             *)
                 snd=`echo ${param} | gawk -F- '{print $NF}'`
                 fst=`echo ${param} | gawk -F- '{printf "%s", $1; for (i=2; i<NF; i++) printf "-%s", $i}'`

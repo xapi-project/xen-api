@@ -57,6 +57,7 @@ val clone_single_vdi :
 (* NB this function may be called when the VM is suspended for copy/clone operations. Snapshot can be done in live.*)
 val clone :
      ?snapshot_info_record:(string * string) list
+  -> ?ignore_vdis:[`VDI] API.Ref.t list
   -> disk_op_t
   -> __context:Context.t
   -> vm:[`VM] API.Ref.t

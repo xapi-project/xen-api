@@ -25,12 +25,13 @@ open D
 (*************************************************************************************************)
 (* Crash-consistant snapshot                                                                     *)
 (*************************************************************************************************)
-let snapshot ~__context ~vm ~new_name =
+let snapshot ~__context ~vm ~new_name ~ignore_vdis =
   debug "Snapshot: begin" ;
   TaskHelper.set_cancellable ~__context ;
   Xapi_vmss.show_task_in_xencenter ~__context ~vm ;
   let res =
     Xapi_vm_clone.clone Xapi_vm_clone.Disk_op_snapshot ~__context ~vm ~new_name
+      ~ignore_vdis
   in
   debug "Snapshot: end" ; res
 

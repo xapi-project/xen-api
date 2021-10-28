@@ -4079,7 +4079,7 @@ let vm_clone_aux clone_op cloned_string printer include_template_vms rpc
     do_vm_op printer ~include_template_vms rpc session_id
       (fun vm -> clone_op ~rpc ~session_id ~vm:(vm.getref ()) ~new_name)
       params
-      ["new-name-label"; "new-name-description"]
+      ["new-name-label"; "new-name-description"; "ignore-vdi-uuids"]
   in
   Option.iter
     (fun desc ->
@@ -4093,8 +4093,22 @@ let vm_clone_aux clone_op cloned_string printer include_template_vms rpc
 
 let vm_clone printer = vm_clone_aux Client.VM.clone "Cloned " printer true
 
-let vm_snapshot printer =
-  vm_clone_aux Client.VM.snapshot "Snapshotted " printer false
+let vm_snapshot printer rpc session_id params =
+  let ignore_vdis_uuids =
+    match List.assoc_opt "ignore-vdi-uuids" params with
+    | None ->
+        []
+    | Some x ->
+        String.split_on_char ',' x
+  in
+  let ignore_vdis =
+    List.map
+      (fun vdi_uuid -> Client.VDI.get_by_uuid rpc session_id vdi_uuid)
+      ignore_vdis_uuids
+  in
+  vm_clone_aux
+    (Client.VM.snapshot ~ignore_vdis)
+    "Snapshotted " printer false rpc session_id params
 
 let vm_snapshot_with_quiesce printer =
   vm_clone_aux Client.VM.snapshot_with_quiesce "Snapshotted" printer false

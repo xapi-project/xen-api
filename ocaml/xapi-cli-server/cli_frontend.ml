@@ -1310,7 +1310,7 @@ let rec cmdtable_data : (string * cmd_spec) list =
   ; ( "vm-snapshot"
     , {
         reqd= ["new-name-label"]
-      ; optn= ["new-name-description"]
+      ; optn= ["new-name-description"; "ignore-vdi-uuids"]
       ; help=
           "Snapshot an existing VM, using storage-level fast disk snapshot \
            operation where available."

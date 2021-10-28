@@ -1577,10 +1577,10 @@ functor
           ~value:transportable_snapshot_id
 
       (* almost a copy of the clone function *)
-      let snapshot ~__context ~vm ~new_name =
+      let snapshot ~__context ~vm ~new_name ~ignore_vdis =
         info "VM.snapshot: VM = '%s'; new_name = '%s'" (vm_uuid ~__context vm)
           new_name ;
-        let local_fn = Local.VM.snapshot ~vm ~new_name in
+        let local_fn = Local.VM.snapshot ~vm ~new_name ~ignore_vdis in
         (* We mark the VM as snapshoting. We don't mark the disks; the implementation of the snapshot uses the API   *)
         (* to snapshot and lock the individual VDIs. We don't give any atomicity guarantees here but we do prevent   *)
         (* disk corruption.                                                                                          *)
@@ -1589,7 +1589,7 @@ functor
             (fun () ->
               forward_to_access_srs ~local_fn ~__context ~vm
                 (fun session_id rpc ->
-                  Client.VM.snapshot rpc session_id vm new_name
+                  Client.VM.snapshot rpc session_id vm new_name ignore_vdis
               )
           )
         in

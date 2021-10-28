@@ -247,9 +247,10 @@ let power_behaviour =
       ~in_product_since: rel_orlando
       ~doc:"Snapshots the specified VM, making a new VM. Snapshot automatically exploits the capabilities of the underlying storage repository in which the VM's disk images are stored (e.g. Copy on Write)."
       ~result: (Ref _vm, "The reference of the newly created VM.")
-      ~params:[
-        Ref _vm, "vm", "The VM to be snapshotted";
-        String, "new_name", "The name of the snapshotted VM"
+      ~versioned_params:
+      [{param_type=Ref _vm; param_name="vm"; param_doc="The VM to be snapshotted"; param_release=orlando_release; param_default=None};
+       {param_type=String; param_name="new_name"; param_doc="The name of the snapshotted VM"; param_release=orlando_release; param_default=None};
+       {param_type=Set(Ref _vdi); param_name="ignore_vdis"; param_doc="A list of VDIs to ignore for the snapshot"; param_release=next_release; param_default=Some (VSet [])};
       ]
       ~errs:[Api_errors.vm_bad_power_state; Api_errors.sr_full; Api_errors.operation_not_allowed]
       ~allowed_roles:_R_VM_POWER_ADMIN

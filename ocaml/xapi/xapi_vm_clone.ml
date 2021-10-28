@@ -408,7 +408,8 @@ let make_driver_params () =
   [(Constants._sm_epoch_hint, Uuid.to_string (Uuid.make_uuid ()))]
 
 (* NB this function may be called when the VM is suspended for copy/clone operations. Snapshot can be done in live.*)
-let clone ?snapshot_info_record disk_op ~__context ~vm ~new_name =
+let clone ?snapshot_info_record ?(ignore_vdis = []) disk_op ~__context ~vm
+    ~new_name =
   Helpers.call_api_functions ~__context (fun rpc session_id ->
       let task_id = Ref.string_of (Context.get_task_id __context) in
       let vbds = Db.VM.get_VBDs ~__context ~self:vm in
@@ -429,6 +430,18 @@ let clone ?snapshot_info_record disk_op ~__context ~vm ~new_name =
       let is_a_snapshot =
         disk_op = Disk_op_snapshot || disk_op = Disk_op_checkpoint
       in
+
+      let vbds =
+        if is_a_snapshot then
+          List.filter
+            (fun x ->
+              not (List.mem (Db.VBD.get_VDI ~__context ~self:x) ignore_vdis)
+              )
+            vbds
+        else
+          vbds
+      in
+
       (* Check licence permission before copying disks, since the copy can take a long time.
          		 * We always allow snapshotting a VM, but check before clone/copy of an existing snapshot or template. *)
       if Db.VM.get_has_vendor_device ~__context ~self:vm && not is_a_snapshot
