@@ -265,9 +265,13 @@ module Generic = struct
       (backend_path_of_device ~xs x ^ "/state")
       (Xenbus_utils.string_of Xenbus_utils.Closed)
 
-  let is_qdisk x =
-    Hotplug.path_written_by_hotplug_scripts x
-    |> Astring.String.is_infix ~affix:"backend/qdisk/"
+  let is_backend backend_type path =
+    let affix = Printf.sprintf "backend/%s/" backend_type in
+    Astring.String.is_infix affix path
+
+  let is_qdisk_or_9pfs x =
+    let path = Hotplug.path_written_by_hotplug_scripts x in
+    is_backend "qdisk" path || is_backend "9pfs" path
 
   let on_backend_closed_unplug ~xs x =
     debug "Device.on_backend_closed_unplug for %s" (string_of_device x) ;
@@ -296,10 +300,10 @@ module Generic = struct
     let cancel = Device x in
     let frontend_closed = Watch.map (fun _ -> ()) (frontend_closed ~xs x) in
     let unplug =
-      let qdisk = is_qdisk x in
-      debug "Device.unplug_watch %s, qdisk=%b" (string_of_device x) qdisk ;
+      let qdisk_or_9pfs = is_qdisk_or_9pfs x in
+      debug "Device.unplug_watch %s, disk=%b" (string_of_device x) qdisk_or_9pfs ;
       let backend_watch =
-        if qdisk then [((), on_backend_closed_unplug ~xs x)] else []
+        if qdisk_or_9pfs then [((), on_backend_closed_unplug ~xs x)] else []
       in
       let frontend_gone =
         ( ()
@@ -349,7 +353,7 @@ module Generic = struct
     !Xenopsd.run_hotplug_scripts || x.backend.domid > 0
 
   let hard_shutdown_complete ~xs (x : device) =
-    if is_qdisk x then
+    if is_qdisk_or_9pfs x then
       safe_rm ~xs (Hotplug.path_written_by_hotplug_scripts x) ;
     if run_hotplug_scripts x then
       backend_closed ~xs x
@@ -713,6 +717,12 @@ module Vbd_Common = struct
             ("physical-device", physical_device)
           ; ("physical-device-path", physical_device_path)
           ]
+    | [vdi; tag; security_model; path] ->
+        List.iter
+          (fun (k, v) -> Hashtbl.replace back_tbl k v)
+          [("security_model", security_model); ("path", path)] ;
+
+        List.iter (fun (k, v) -> Hashtbl.replace front_tbl k v) [("tag", tag)]
     | _ ->
         ()
     ) ;
