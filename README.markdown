@@ -66,7 +66,7 @@ To build xen-api from source, we recommend using [opam](https://opam.ocaml.org/d
     opam --yes depext --yes -u $PACKAGES # The first '--yes' is to install depext itself
     # Install the Packages finally:
     opam install $PACKAGES --yes --deps-only --with-test -v
-    # update the current switch. (You're already on the correct one, just refresh it).
+    # Update the current switch. (You're already on the correct one, just refresh it).
     eval $(opam env)
     ```
 
