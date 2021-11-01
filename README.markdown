@@ -18,10 +18,67 @@ Xapi is the main component produced by the Linux Foundation's
 Build and Install
 -----------------
 
-The build install instructions are currently being written. The Xapi
-Project contains a large list of dependencies and sub-projects, which
-are actually quite difficult to build independently. To build xen-api
-from source, we recommend using [opam](https://opam.ocaml.org/doc/Manual.html) with the [xs-opam](https://github.com/xapi-project/xs-opam) remote (detailed explanation in [readme](https://github.com/xapi-project/xs-opam/blob/master/README.md)).
+To build xen-api from source, we recommend using [opam](https://opam.ocaml.org/doc/Manual.html) with the [xs-opam](https://github.com/xapi-project/xs-opam) repository (farther explanation in its [readme](https://github.com/xapi-project/xs-opam/blob/master/README.md)).
+
+1) Install `opam` and `git` with your package manager.
+
+2) Clone this repo, and work from it's root.
+
+    ```bash
+    git clone https://github.com/xapi-project/xen-api && cd xen-api
+    ```
+
+3) Figure out what version of ocaml-base-compiler to use.
+
+    - Go to [this xs-opam file](https://raw.githubusercontent.com/xapi-project/xs-opam/master/tools/xs-opam-ci.env), and look for "OCAML_VERSION_FULL"
+    - Run that line, i.e:
+
+        ```bash
+        export OCAML_VERSION_FULL="4.10.1"
+        ```
+
+4) Setup opam, with your Enviornment (i.e switch).
+
+    ```bash
+    opam init
+    opam switch create xen-api ocaml-base-compiler.$OCAML_VERSION_FULL
+    # This basically "jumps you into" the enviornment you just created:
+    eval $(opam env --switch=xen-api --set-switch)
+    ```
+
+5) Get the Recommended Packages.
+
+    ```bash
+    # Add the xs-opam library as the main repo to check for versions at:
+    opam repo add xs-opam https://github.com/xapi-project/xs-opam.git
+    # Remove the default, because how it handles version conflicts is different:
+    opam repo remove default
+    # (NOT needed with opam>=2.1.0) Have opam now figure out what versions of each package to use:
+    opam pin --yes add . --no-action
+    ```
+
+6) Install all the Packages.
+
+    ```bash
+    PACKAGES="xapi-cli-protocol xapi-client xapi-consts xapi-database xapi-datamodel xapi-types xapi xe xen-api-sdk xen-api-client xen-api-client-lwt xen-api-client-async xapi-rrdd xapi-rrdd-plugin xapi-rrd-transport xapi-rrd-transport-utils rrd-transport rrdd-plugin rrdd-plugins rrddump gzip http-svr pciutil safe-resources sexpr stunnel uuid xapi-compression xml-light2 zstd vhd-tool xs-toolstack"
+
+    # NOT needed with opam>=2.1.0) Install all the dependances (Including OS):
+    opam --yes depext --yes -u $PACKAGES # The first '--yes' is to install depext itself
+    # Install the Packages finally:
+    opam install $PACKAGES --yes --deps-only --with-test -v
+    # Update the current switch. (You're already on the correct one, just refresh it).
+    eval $(opam env)
+    ```
+
+7) Build `xen-api`.
+
+    ```bash
+    ./configure
+    make
+    make test
+    ```
+
+The binaries should now be in `./_build/install/default/bin`!
 
 Contributions
 -------------
