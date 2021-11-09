@@ -198,7 +198,9 @@ module Sysfs = struct
         false
 
   let list () =
-    let is_dir name = Sys.is_directory ("/sys/class/net/" ^ name) in
+    let is_dir name =
+      try Sys.is_directory ("/sys/class/net/" ^ name) with _ -> false
+    in
     Sys.readdir "/sys/class/net"
     |> Array.to_list
     |> List.filter (fun name -> is_dir name && is_ether_device name)
