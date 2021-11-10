@@ -85,6 +85,12 @@ let rbac_audit_params_of (req : Request.t) =
     (fun (n, v) (acc_n, acc_v) -> (n :: acc_n, Rpc.String v :: acc_v))
     all ([], [])
 
+let create_session_for_client_cert req s =
+  let __context = Context.make ~origin:(Http (req, s)) "client_cert" in
+  Xapi_session.login_with_password ~__context ~uname:"" ~pwd:""
+    ~version:Datamodel_common.api_version_string
+    ~originator:Constants.xapi_user_agent
+
 let assert_credentials_ok realm ?(http_action = realm) ?(fn = Rbac.nofn)
     (req : Request.t) ic =
   let http_permission = Datamodel.rbac_http_permission_prefix ^ http_action in
@@ -155,7 +161,15 @@ let assert_credentials_ok realm ?(http_action = realm) ?(fn = Rbac.nofn)
         raise (Failure (Printf.sprintf "Unknown authorization header: %s" x))
     | None, None, None ->
         debug "No header credentials during http connection to %s" realm ;
-        raise (Http.Unauthorised realm)
+        let session_id =
+          try create_session_for_client_cert req ic
+          with _ -> raise (Http.Unauthorised realm)
+        in
+        Xapi_stdext_pervasives.Pervasiveext.finally
+          (fun () -> rbac_check session_id)
+          (fun () ->
+            try Client.Session.logout inet_rpc session_id with _ -> ()
+            )
 
 let with_context ?(dummy = false) label (req : Request.t) (s : Unix.file_descr)
     f =
@@ -199,7 +213,11 @@ let with_context ?(dummy = false) label (req : Request.t) (s : Unix.file_descr)
         | None, None, Some (Http.UnknownAuth x) ->
             raise (Failure (Printf.sprintf "Unknown authorization header: %s" x))
         | None, None, None ->
-            raise (Http.Unauthorised label)
+            let session_id =
+              try create_session_for_client_cert req s
+              with _ -> raise (Http.Unauthorised label)
+            in
+            (session_id, false)
     in
     Xapi_stdext_pervasives.Pervasiveext.finally
       (fun () ->
