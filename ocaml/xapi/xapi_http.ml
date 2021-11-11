@@ -161,10 +161,14 @@ let assert_credentials_ok realm ?(http_action = realm) ?(fn = Rbac.nofn)
         raise (Failure (Printf.sprintf "Unknown authorization header: %s" x))
     | None, None, None ->
         debug "No header credentials during http connection to %s" realm ;
+        (* The connection may have been authenticated using a client cert.
+         * If so, then following call confirms this. *)
         let session_id =
           try create_session_for_client_cert req ic
           with _ -> raise (Http.Unauthorised realm)
         in
+        debug "Created a session %s for a HTTP(s) request"
+          (Context.trackid_of_session (Some session_id)) ;
         Xapi_stdext_pervasives.Pervasiveext.finally
           (fun () -> rbac_check session_id)
           (fun () ->
@@ -213,11 +217,15 @@ let with_context ?(dummy = false) label (req : Request.t) (s : Unix.file_descr)
         | None, None, Some (Http.UnknownAuth x) ->
             raise (Failure (Printf.sprintf "Unknown authorization header: %s" x))
         | None, None, None ->
+            (* The connection may have been authenticated using a client cert.
+             * If so, then following call confirms this. *)
             let session_id =
               try create_session_for_client_cert req s
               with _ -> raise (Http.Unauthorised label)
             in
-            (session_id, false)
+            debug "Created a session %s for a HTTP(s) request"
+              (Context.trackid_of_session (Some session_id)) ;
+            (session_id, true)
     in
     Xapi_stdext_pervasives.Pervasiveext.finally
       (fun () ->
