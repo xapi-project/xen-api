@@ -93,10 +93,8 @@ let create_session_for_client_cert req s =
 
 let assert_credentials_ok realm ?(http_action = realm) ?(fn = Rbac.nofn)
     (req : Request.t) ic =
-  let http_permission = Datamodel.rbac_http_permission_prefix ^ http_action in
-  let subtask_of = ref_param_of_req req "subtask_of" in
-  let task_id = ref_param_of_req req "task_id" in
   let rbac_raise permission msg exc =
+    let task_id = ref_param_of_req req "task_id" in
     ( match task_id with
     | None ->
         ()
@@ -109,8 +107,9 @@ let assert_credentials_ok realm ?(http_action = realm) ?(fn = Rbac.nofn)
     ) ;
     raise exc
   in
-  let rbac_task_desc = "handler" in
   let rbac_check session_id =
+    let rbac_task_desc = "handler" in
+    let http_permission = Datamodel.rbac_http_permission_prefix ^ http_action in
     try
       Rbac.check_with_new_task session_id http_permission ~fn
         ~args:(rbac_audit_params_of req) ~task_desc:rbac_task_desc
@@ -120,6 +119,16 @@ let assert_credentials_ok realm ?(http_action = realm) ?(fn = Rbac.nofn)
         rbac_raise perm msg Http.Forbidden
     | e ->
         rbac_raise http_permission (ExnHelper.string_of_exn e) e
+  in
+  let rbac_check_with_tmp_session sess_creator =
+    let session_id =
+      try sess_creator () with _ -> raise (Http.Unauthorised realm)
+    in
+    debug "Created a session %s for a HTTP(s) request"
+      (Context.trackid_of_session (Some session_id)) ;
+    Xapi_stdext_pervasives.Pervasiveext.finally
+      (fun () -> rbac_check session_id)
+      (fun () -> try Client.Session.logout inet_rpc session_id with _ -> ())
   in
   if Context.is_unix_socket ic then
     ()
@@ -132,6 +141,7 @@ let assert_credentials_ok realm ?(http_action = realm) ?(fn = Rbac.nofn)
       )
     with
     | Some session_id, _, _ ->
+        let subtask_of = ref_param_of_req req "subtask_of" in
         (* Session ref has been passed in - check that it's OK *)
         Server_helpers.exec_with_new_task ?subtask_of "xapi_http_session_check"
           (fun __context ->
@@ -146,34 +156,20 @@ let assert_credentials_ok realm ?(http_action = realm) ?(fn = Rbac.nofn)
         else
           raise (Http.Unauthorised realm)
     | None, None, Some (Http.Basic (username, password)) ->
-        let session_id =
-          try
-            Client.Session.login_with_password inet_rpc username password
-              Datamodel_common.api_version_string Constants.xapi_user_agent
-          with _ -> raise (Http.Unauthorised realm)
+        let sess_creator () =
+          Client.Session.login_with_password inet_rpc username password
+            Datamodel_common.api_version_string Constants.xapi_user_agent
         in
-        Xapi_stdext_pervasives.Pervasiveext.finally
-          (fun () -> rbac_check session_id)
-          (fun () ->
-            try Client.Session.logout inet_rpc session_id with _ -> ()
-            )
+        rbac_check_with_tmp_session sess_creator
     | None, None, Some (Http.UnknownAuth x) ->
         raise (Failure (Printf.sprintf "Unknown authorization header: %s" x))
     | None, None, None ->
         debug "No header credentials during http connection to %s" realm ;
         (* The connection may have been authenticated using a client cert.
          * If so, then following call confirms this. *)
-        let session_id =
-          try create_session_for_client_cert req ic
-          with _ -> raise (Http.Unauthorised realm)
-        in
-        debug "Created a session %s for a HTTP(s) request"
-          (Context.trackid_of_session (Some session_id)) ;
-        Xapi_stdext_pervasives.Pervasiveext.finally
-          (fun () -> rbac_check session_id)
-          (fun () ->
-            try Client.Session.logout inet_rpc session_id with _ -> ()
-            )
+        rbac_check_with_tmp_session (fun () ->
+            create_session_for_client_cert req ic
+        )
 
 let with_context ?(dummy = false) label (req : Request.t) (s : Unix.file_descr)
     f =
