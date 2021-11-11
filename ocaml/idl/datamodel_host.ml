@@ -1464,7 +1464,7 @@ let host_query_ha = call ~flags:[`Session]
       Ref _host, "self", "The host where updates will be applied";
       String, "hash", "The hash of updateinfo to be applied which is returned by previous pool.sync_udpates";
     ]
-    ~allowed_roles:_R_POOL_ADMIN
+    ~allowed_roles:_R_POOL_OP
     ()
 
   let copy_primary_host_certs = call
