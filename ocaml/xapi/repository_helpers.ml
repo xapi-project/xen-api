@@ -972,6 +972,11 @@ let with_local_repositories ~__context f =
     with Pool_role.This_host_is_a_master ->
       Option.get (Helpers.get_management_ip_addr ~__context)
   in
+  Stunnel.with_client_proxy ~verify_cert:(Stunnel_client.pool ())
+    ~remote_host:master_addr ~remote_port:Constants.default_ssl_port
+    ~local_host:"127.0.0.1"
+    ~local_port:!Xapi_globs.local_yum_repo_port
+  @@ fun () ->
   let enabled = get_enabled_repositories ~__context in
   Xapi_stdext_pervasives.Pervasiveext.finally
     (fun () ->
@@ -982,7 +987,8 @@ let with_local_repositories ~__context f =
               get_local_repository_name ~__context ~self:repository
             in
             let url =
-              Printf.sprintf "https://%s/repository/%s/" master_addr
+              Printf.sprintf "http://127.0.0.1:%s/repository/%s/"
+                (string_of_int !Xapi_globs.local_yum_repo_port)
                 (get_remote_repository_name ~__context ~self:repository)
             in
             remove_repo_conf_file repo_name ;

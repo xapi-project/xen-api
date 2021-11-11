@@ -422,6 +422,11 @@ let xha_udp_port = 694 (* same as linux-ha *)
 (* Port which xapi-clusterd uses to communicate *)
 let xapi_clusterd_port = ref 8896
 
+(* Local YUM repo port listened by a stunnel local client.
+ * This stunnel client will proxy the access to the internal YUM repo on pool master.
+ *)
+let local_yum_repo_port = ref 8000
+
 (* When a host is known to be shutting down or rebooting, we add it's reference in here.
    This can be used to force the Host_metrics.live flag to false. *)
 let hosts_which_are_shutting_down : API.ref_host list ref = ref []
