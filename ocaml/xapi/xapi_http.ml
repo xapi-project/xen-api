@@ -124,8 +124,6 @@ let assert_credentials_ok realm ?(http_action = realm) ?(fn = Rbac.nofn)
     let session_id =
       try sess_creator () with _ -> raise (Http.Unauthorised realm)
     in
-    debug "Created a session %s for a HTTP(s) request"
-      (Context.trackid_of_session (Some session_id)) ;
     Xapi_stdext_pervasives.Pervasiveext.finally
       (fun () -> rbac_check session_id)
       (fun () -> try Client.Session.logout inet_rpc session_id with _ -> ())
@@ -167,6 +165,7 @@ let assert_credentials_ok realm ?(http_action = realm) ?(fn = Rbac.nofn)
         debug "No header credentials during http connection to %s" realm ;
         (* The connection may have been authenticated using a client cert.
          * If so, then following call confirms this. *)
+        debug "Confirming this connection has been authenticated by client cert" ;
         rbac_check_with_tmp_session (fun () ->
             create_session_for_client_cert req ic
         )
@@ -215,6 +214,8 @@ let with_context ?(dummy = false) label (req : Request.t) (s : Unix.file_descr)
         | None, None, None ->
             (* The connection may have been authenticated using a client cert.
              * If so, then following call confirms this. *)
+            debug
+              "Confirming this connection has been authenticated by client cert" ;
             let session_id =
               try create_session_for_client_cert req s
               with _ -> raise (Http.Unauthorised label)
