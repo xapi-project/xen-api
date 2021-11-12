@@ -106,16 +106,19 @@ module Sriov = struct
       Sysfs.get_driver_name_err dev >>= fun driver ->
       Modprobe.get_config_from_comments driver |> Modprobe.get_maxvfs driver
     and maxvfs_sysfs = Sysfs.get_sriov_maxvfs dev in
-    let is_support =
+    let supported =
+      (* Always require sysfs to declare SR-IOV support for a NIC.
+         If the VF-maxvfs modprobe parameters exist, these must also declare a
+         non-zero maxvfs number (the user may override it). *)
       match (maxvfs_modprobe, maxvfs_sysfs) with
-      | Ok v, _ ->
-          v > 0
+      | Ok v, Ok w ->
+          v > 0 && w > 0
       | Error _, Ok v ->
           v > 0
       | _ ->
           false
     in
-    if is_support then ["sriov"] else []
+    if supported then ["sriov"] else []
 
   let config_sriov ~enable dev =
     let op = if enable then "enable" else "disable" in
