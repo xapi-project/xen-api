@@ -232,6 +232,7 @@ if __name__ == '__main__':
     txt = sys.stdin.read()
     params, method = xmlrpclib.loads(txt)
 
+    update_vdi_valid = False
     session = None
     try:
         session = XenAPI.xapi_local()
@@ -244,7 +245,6 @@ if __name__ == '__main__':
         host_uuid = session.xenapi.host.get_uuid(host)
         host_name_label = session.xenapi.host.get_name_label(host)
 
-        update_vdi_valid = False
         update_vdi = session.xenapi.pool_update.get_vdi(update)
         try:
             update_vdi_uuid = session.xenapi.VDI.get_uuid(update_vdi)
