@@ -1,0 +1,12 @@
+(executables
+  (modes byte exe)
+  (names
+    client_async_main
+    server_async_main
+  )
+  (libraries
+    cohttp-async
+    message-switch-async
+  )
+)
+

@@ -1,0 +1,8 @@
+_build/
+.merlin
+*.install
+
+config.mk
+
+*.rej
+*.orig

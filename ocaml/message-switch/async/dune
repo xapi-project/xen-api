@@ -1,0 +1,10 @@
+(library
+  (name message_switch_async)
+  (public_name message-switch-async)
+  (libraries
+    async
+    cohttp-async
+    message-switch-core
+  )
+)
+

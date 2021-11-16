@@ -1,0 +1,1 @@
+<?xml version="1.0"?><methodCall><methodName>TASK.destroy</methodName><params><param><value><struct><member><name>task</name><value>task</value></member><member><name>dbg</name><value>dbg</value></member></struct></value></param></params></methodCall>

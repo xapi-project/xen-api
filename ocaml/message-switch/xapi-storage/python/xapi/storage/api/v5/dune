@@ -1,0 +1,10 @@
+(rule
+  (targets datapath.py plugin.py task.py volume.py)
+  (alias python)
+  (deps
+    (:x ../../../../../generator/src/main.exe)
+    (source_tree ../../../../)
+  )
+  (action (run %{x} gen_python -p .))
+)
+

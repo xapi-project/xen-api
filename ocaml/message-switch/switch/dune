@@ -1,0 +1,25 @@
+(executable
+  (modes byte exe)
+  (name switch_main)
+  (flags (:standard -w -39-37-32))
+  (libraries
+    cmdliner
+    cohttp-lwt-unix
+    io-page-unix
+    lwt_log
+    message-switch-lwt
+    message-switch-unix
+    mtime
+    mtime.clock.os
+    mirage-block-unix
+    shared-block-ring
+    sexplib
+  )
+  (preprocess (pps ppx_sexp_conv))
+)
+
+(install
+  (package message-switch)
+  (section sbin)
+  (files (switch_main.exe as message-switch))
+)

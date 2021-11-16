@@ -1,0 +1,1 @@
+{"method":"Network.Interface.get_ipv4_gateway","params":[{"name":"name"},"string"],"id":96}

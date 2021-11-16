@@ -1,0 +1,15 @@
+(library
+  (name message_switch_unix)
+  (public_name message-switch-unix)
+  (modules
+    protocol_unix
+    protocol_unix_scheduler
+  )
+  (flags (:standard -w -39-27))
+  (libraries
+    message-switch-core
+    threads
+  )
+  (preprocess (pps ppx_deriving_rpc))
+)
+

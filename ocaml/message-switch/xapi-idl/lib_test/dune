@@ -1,0 +1,24 @@
+(test
+ (name test)
+ (package xapi-idl)
+ (deps (source_tree test_data))
+ (flags (:standard -w -39))
+ (libraries
+   alcotest
+   rpclib.core
+   rpclib.markdown
+   threads
+   xapi-idl
+   xapi-idl.cluster
+   xapi-idl.rrd
+   xapi-idl.memory
+   xapi-idl.updates
+   xapi-idl.network
+   xapi-idl.gpumon
+   xapi-idl.storage
+   xapi-idl.varstore.privileged
+   xapi-idl.varstore.deprivileged
+   xapi-idl.v6
+   xapi-idl.xen
+ )
+ (preprocess (pps ppx_deriving_rpc)))
