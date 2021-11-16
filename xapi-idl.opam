@@ -47,5 +47,5 @@ The xapi toolstack is a set of communicating services including
   - rrdd: manages datasources and records history
 plus storage 'plugins'"""
 url {
-  src: "https://github.com/xapi-project/message-switch/archive/master.tar.gz"
+  src: "https://github.com/xapi-project/xen-api/archive/master.tar.gz"
 }
