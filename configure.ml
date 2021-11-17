@@ -79,23 +79,6 @@ let etcdir = dir "etcdir" "/etc" "ETCDIR" "configuration files"
 
 let mandir = dir "mandir" "/usr/share/man" "MANDIR" "manpages"
 
-let find_ocamlfind verbose name =
-  let found =
-    try
-      let (_ : string) = Findlib.package_property [] name "requires" in
-      true
-    with
-    | Not_found ->
-        (* property within the package could not be found *)
-        true
-    | Findlib.No_such_package (_, _) ->
-        false
-  in
-  if verbose then
-    Printf.fprintf stderr "querying for ocamlfind package %s: %s" name
-      (if found then "ok" else "missing") ;
-  found
-
 let expand start finish input output =
   let command =
     Printf.sprintf "cat %s | sed -r 's=%s=%s=g' > %s" input start finish output
@@ -106,33 +89,6 @@ let expand start finish input output =
     Printf.fprintf stderr "Command-line was:\n%s\n%!" command ;
     exit 1
   )
-
-let output_file filename lines =
-  let oc = open_out filename in
-  List.iter (fun line -> Printf.fprintf oc "%s\n" line) lines ;
-  close_out oc
-
-let find_xentoollog verbose =
-  let c_program =
-    ["int main(int argc, const char *argv){"; "  return 0;"; "}"]
-  in
-  let c_file = Filename.temp_file "configure" ".c" in
-  let exe_file = c_file ^ ".exe" in
-  output_file c_file c_program ;
-  let found =
-    Sys.command
-      (Printf.sprintf "cc -Werror %s -lxentoollog -o %s %s" c_file exe_file
-         (if verbose then "" else "2>/dev/null")
-      )
-    = 0
-  in
-  if Sys.file_exists c_file then Sys.remove c_file ;
-  if Sys.file_exists exe_file then Sys.remove exe_file ;
-  Printf.printf "Looking for xentoollog: %s\n"
-    (if found then "found" else "missing") ;
-  output_file "ocaml/xenopsd/xentoollog_flags"
-    (if found then ["-L/lib64"; "-lxentoollog"] else []) ;
-  found
 
 (* general *)
 let yumplugindir =
@@ -154,15 +110,11 @@ let output_file filename lines =
 
 let yesno_of_bool = function true -> "YES" | false -> "NO"
 
-let able_of_bool = function true -> "enable" | false -> "disable"
-
 let configure coverage disable_warn_error varpatchdir etcxendir optdir plugindir
     extensiondir hooksdir inventory xapiconf libexecdir scriptsdir sharedir
     webdir cluster_stack_root udevdir docdir sdkdir bindir sbindir
     xenopsd_libexecdir qemu_wrapper_dir etcdir mandir yumplugindir
     yumpluginconfdir =
-  let xenctrl = find_ocamlfind false "xenctrl" in
-  let xentoollog = find_xentoollog false in
   (* Write config.mk *)
   let vars =
     [
@@ -190,10 +142,6 @@ let configure coverage disable_warn_error varpatchdir etcxendir optdir plugindir
     ; ("QEMU_WRAPPER_DIR", qemu_wrapper_dir)
     ; ("ETCDIR", etcdir)
     ; ("MANDIR", mandir)
-    ; ("ENABLE_XEN", Printf.sprintf "--%s-xen" (able_of_bool xenctrl))
-    ; ( "ENABLE_XENTOOLLOG"
-      , Printf.sprintf "--%s-xentoollog" (able_of_bool xentoollog)
-      )
     ; ("YUMPLUGINDIR", yumplugindir)
     ; ("YUMPLUGINCONFDIR", yumpluginconfdir)
     ]
