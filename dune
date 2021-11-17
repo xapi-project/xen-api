@@ -7,3 +7,6 @@
   (release (flags (:standard -w -39)))
 )
 
+(executable
+  (name configure)
+  (libraries dune-configurator findlib cmdliner unix))

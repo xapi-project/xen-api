@@ -11,6 +11,7 @@ OPTMANDIR ?= $(OPTDIR)/man/man1/
 
 build:
 	XAPI_VERSION=$(XAPI_VERSION) dune build @install -j $(JOBS) --profile=$(PROFILE)
+	dune build @python --profile=$(PROFILE)
 
 # Quickly verify that the code compiles, without actually building it
 check:
@@ -19,8 +20,14 @@ check:
 clean:
 	dune clean
 
+lint:
+	dune build @python
+	pylint --disable=line-too-long,too-few-public-methods,unused-argument,no-self-use,invalid-name,broad-except,protected-access,redefined-builtin,too-many-lines,wildcard-import,too-many-branches,too-many-arguments,unused-wildcard-import,raising-format-tuple,too-many-statements,duplicate-code _build/default/xapi-storage/python/xapi/storage/api/v5/*.py
+	pycodestyle --ignore=E501 _build/default/xapi-storage/python/xapi/storage/api/v5/*.py
+
 test:
 	XAPI_VERSION=$(XAPI_VERSION) dune runtest --profile=$(PROFILE) --no-buffer -j $(JOBS)
+	dune build @runtest-python --profile=$(PROFILE)
 
 stresstest:
 	XAPI_VERSION=$(XAPI_VERSION) dune build @stresstest --profile=$(PROFILE) --no-buffer -j $(JOBS)
@@ -173,11 +180,15 @@ install: build doc sdk doc-json
 	install -m 755 _build/install/default/bin/xapi-networkd         $(DESTDIR)/usr/sbin/xcp-networkd
 	install -m 755 _build/install/default/bin/networkd_db           $(DESTDIR)/usr/bin/networkd_db
 	install -m 644 _build/default/ocaml/networkd/bin/xcp-networkd.1 $(DESTDIR)/usr/share/man/man1/xcp-networkd.1
-# Libraries
-	dune install --profile=$(PROFILE) \
+# dune can install libraries and several other files into the right locations
+	dune install --destdir=$(DESTDIR) --prefix=$(PREFIX) --libdir=$(LIBDIR) --mandir=$(MANDIR) \
 		xapi-client xapi-database xapi-consts xapi-cli-protocol xapi-datamodel xapi-types \
 		xen-api-client xen-api-client-lwt xen-api-client-async rrdd-plugin rrd-transport \
-		gzip http-svr pciutil sexpr stunnel uuid xml-light2 zstd xapi-compression safe-resources
+		gzip http-svr pciutil sexpr stunnel uuid xml-light2 zstd xapi-compression safe-resources \
+		message-switch message-switch-async message-switch-cli message-switch-core message-switch-lwt \
+		message-switch-unix xapi-idl forkexec xapi-forkexecd xapi-storage xapi-storage-script
+	make -C _build/default/ocaml/xapi-storage/python
+	make -C _build/default/ocaml/xapi-storage/python install DESTDIR=$(DESTDIR)
 # docs
 	mkdir -p $(DESTDIR)$(DOCDIR)
 	cp -r $(XAPIDOC)/jekyll $(DESTDIR)$(DOCDIR)
@@ -190,5 +201,10 @@ install: build doc sdk doc-json
 	find $(DESTDIR)$(SDKDIR) -type f -exec chmod 644 {} \;
 
 uninstall:
-	# only removes the libraries, which were installed with `dune install`
-	dune uninstall xapi-client xapi-database xapi-consts xapi-cli-protocol xapi-datamodel xapi-types networklibs
+	# only removes what was installed with `dune install`
+	dune uninstall --destdir=$(DESTDIR) --prefix=$(PREFIX) --libdir=$(LIBDIR) --mandir=$(MANDIR) \
+		xapi-client xapi-database xapi-consts xapi-cli-protocol xapi-datamodel xapi-types \
+		xen-api-client xen-api-client-lwt xen-api-client-async rrdd-plugin rrd-transport \
+		gzip http-svr pciutil sexpr stunnel uuid xml-light2 zstd xapi-compression safe-resources \
+		message-switch message-switch-async message-switch-cli message-switch-core message-switch-lwt \
+		message-switch-unix xapi-idl forkexec xapi-forkexecd xapi-storage xapi-storage-script
