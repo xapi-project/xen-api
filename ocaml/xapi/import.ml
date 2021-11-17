@@ -247,10 +247,7 @@ let assert_can_restore_backup ~__context rpc session_id (x : header) =
       List.iter
         (fun (mac', vm') ->
           if mac = mac' && not (is_compatible vm vm') then
-            raise
-              (Api_errors.Server_error
-                 (Api_errors.duplicate_vm, [vm'.API.vM_uuid])
-              )
+            raise Api_errors.(Server_error (duplicate_mac_seed, [mac']))
           )
         existing_vms
       )
