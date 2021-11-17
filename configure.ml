@@ -108,9 +108,7 @@ let output_file filename lines =
   List.iter (output_string oc) lines ;
   close_out oc
 
-let yesno_of_bool = function true -> "YES" | false -> "NO"
-
-let configure coverage disable_warn_error varpatchdir etcxendir optdir plugindir
+let configure varpatchdir etcxendir optdir plugindir
     extensiondir hooksdir inventory xapiconf libexecdir scriptsdir sharedir
     webdir cluster_stack_root udevdir docdir sdkdir bindir sbindir
     xenopsd_libexecdir qemu_wrapper_dir etcdir mandir yumplugindir
@@ -118,9 +116,7 @@ let configure coverage disable_warn_error varpatchdir etcxendir optdir plugindir
   (* Write config.mk *)
   let vars =
     [
-      ("BISECT_ENABLE", yesno_of_bool coverage)
-    ; ("DISABLE_WARN_ERROR", string_of_bool disable_warn_error)
-    ; ("VARPATCHDIR", varpatchdir)
+      ("VARPATCHDIR", varpatchdir)
     ; ("ETCXENDIR", etcxendir)
     ; ("OPTDIR", optdir)
     ; ("PLUGINDIR", plugindir)
@@ -172,8 +168,6 @@ let configure coverage disable_warn_error varpatchdir etcxendir optdir plugindir
 let configure_t =
   Term.(
     pure configure
-    $ coverage
-    $ disable_warn_error
     $ varpatchdir
     $ etcxendir
     $ optdir
