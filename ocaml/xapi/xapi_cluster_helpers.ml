@@ -187,44 +187,19 @@ module Pem = struct
     | exception Api_errors.(Server_error (message_method_unknown, _)) ->
         tls_config_empty
 
-  let maybe_write_new ~__context self =
-    let write h =
-      let cn = Db.Cluster.get_uuid ~__context ~self in
-      let p = init' cn in
-      let p_encoded =
-        Rpcmarshal.marshal pems.Rpc.Types.ty p
-        |> Jsonrpc.to_string
-        |> SecretString.of_string
-      in
-      call_api_functions ~__context @@ fun rpc session_id ->
-      Client.Cluster_host.write_pems rpc session_id h p_encoded
+  let update_tls_config ~__context ~verify self =
+    let dbg = Context.string_of_task __context in
+    let tls_config = get_existing ~__context self in
+    let tls_config = {tls_config with verify_tls_certs= verify} in
+    let result =
+      Cluster_client.LocalClient.upd_config
+        (Xapi_clustering.rpc ~__context)
+        dbg tls_config
     in
-    match get_existing' ~__context self with
-    | `unittest ->
-        ()
-    | `all_disabled | `not_all_enabled _ ->
-        D.error "Pem.maybe_write_new: all cluster hosts must be enabled" ;
-        raise
-          Api_errors.(
-            Server_error (internal_error, ["all cluster hosts must be enabled"])
-          )
-    | `no_cluster_hosts ->
-        D.info
-          "Pem.maybe_write_new: nothing to do because there are no cluster \
-           hosts"
-    | `all_enabled (h, cc) -> (
-      match cc.tls_config.pems with
-      | Some _ ->
-          D.info "Pem.maybe_write_new: pem already exists, so not overwriting"
-      | None ->
-          D.info
-            "Pem.maybe_write_new: cluster '%s' has no existing pem, attempting \
-             to write a new one"
-            (Ref.short_string_of self) ;
-          write h ;
-          D.info "Pem.maybe_write_new: successfully written on cluster '%s'"
-            (Ref.short_string_of self)
-    )
-    | exception Api_errors.(Server_error (message_method_unknown, _)) ->
-        ()
+    match Idl.IdM.run @@ Cluster_client.IDL.T.get result with
+    | Ok () ->
+        D.debug "cluster TLS configuration updated"
+    | Error error ->
+        D.warn "Error occured when updating cluster TLS configuration" ;
+        Xapi_clustering.handle_error error
 end
