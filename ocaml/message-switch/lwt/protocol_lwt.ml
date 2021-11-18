@@ -43,7 +43,8 @@ module M = struct
               ((Unix.ECONNREFUSED | Unix.ECONNABORTED | Unix.ENOENT), _, _) ->
               Lwt_unix.sleep 5. >>= fun () -> connect' ()
           | e ->
-              Lwt_unix.close fd >>= fun () -> fail e)
+              Lwt_unix.close fd >>= fun () -> fail e
+          )
     in
     connect' () >>= fun () ->
     let ic =

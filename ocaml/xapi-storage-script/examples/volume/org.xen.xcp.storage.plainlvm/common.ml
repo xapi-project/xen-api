@@ -61,7 +61,8 @@ let file_of_string filename string =
   finally
     (fun () ->
       debug "write >%s" filename ;
-      output oc string 0 (String.length string))
+      output oc string 0 (String.length string)
+      )
     (fun () -> close_out oc)
 
 let startswith prefix x =
@@ -140,7 +141,8 @@ let canonicalise x =
               if Sys.file_exists possibility then
                 Some possibility
               else
-                None)
+                None
+          )
         None (paths @ xen_paths)
     in
     match first_hit with
@@ -187,7 +189,8 @@ let run ?(env = [||]) ?stdin cmd args =
         if n <> String.length txt then
           failwith
             (Printf.sprintf "short write to process stdin: only wrote %d bytes"
-               n)
+               n
+            )
     ) ;
     close stdin_writable ;
     let finished = ref false in
@@ -204,7 +207,8 @@ let run ?(env = [||]) ?stdin cmd args =
     | Unix.WEXITED n ->
         failwith
           (Printf.sprintf "%s %s: %d (%s)" cmd (String.concat " " args) n
-             (Buffer.contents b))
+             (Buffer.contents b)
+          )
     | _ ->
         failwith (Printf.sprintf "%s %s failed" cmd (String.concat " " args))
   with e -> close_all () ; raise e
@@ -315,7 +319,8 @@ module Make (C : Command) (T : Test) = struct
     let doc = C.CommandLine.doc in
     let man = help in
     ( Term.(ret (pure wrap $ common_options_t $ C.CommandLine.t))
-    , Term.info Sys.argv.(0) ~version ~sdocs:_common_options ~doc ~man )
+    , Term.info Sys.argv.(0) ~version ~sdocs:_common_options ~doc ~man
+    )
 
   let main () = match Term.eval cmd with `Error _ -> exit 1 | _ -> exit 0
 end

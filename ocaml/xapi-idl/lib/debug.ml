@@ -227,7 +227,8 @@ let with_thread_associated ?client desc f x =
   ThreadLocalTable.add tasks {desc; client} ;
   let result =
     Backtrace.with_backtraces (fun () ->
-        try f x with e -> Backtrace.is_important e ; raise e)
+        try f x with e -> Backtrace.is_important e ; raise e
+    )
   in
   ThreadLocalTable.remove tasks ;
   match result with
@@ -238,7 +239,8 @@ let with_thread_associated ?client desc f x =
          threads. This is the last chance to do something with the backtrace *)
       output_log "backtrace" Syslog.Err "error"
         (Printf.sprintf "%s failed with exception %s" desc
-           (Printexc.to_string exn)) ;
+           (Printexc.to_string exn)
+        ) ;
       log_backtrace_exn exn bt ;
       raise exn
 
@@ -297,7 +299,8 @@ functor
       Printf.kprintf
         (fun s ->
           if not (is_disabled Brand.name level) then
-            output_log Brand.name level priority s)
+            output_log Brand.name level priority s
+          )
         fmt
 
     let debug fmt = output Syslog.Debug "debug" fmt
@@ -315,7 +318,8 @@ functor
         (fun s ->
           let msg = if raw then s else format true Brand.name "audit" s in
           Syslog.log Syslog.Local6 Syslog.Info (escape msg) ;
-          msg)
+          msg
+          )
         fmt
 
     let log_backtrace () =

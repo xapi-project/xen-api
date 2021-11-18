@@ -49,8 +49,10 @@ let all_combinations fds =
     List.concat
       (List.map
          (fun x ->
-           List.map (fun n -> {x with extra= n}) (max_fds :: mkints x.max_extra))
-         x)
+           List.map (fun n -> {x with extra= n}) (max_fds :: mkints x.max_extra)
+           )
+         x
+      )
   in
   x
 
@@ -86,7 +88,8 @@ let one fds x =
   in
   let args =
     "slave"
-    :: string_of_int (fds - (x.max_extra - number_of_extra))
+    ::
+    string_of_int (fds - (x.max_extra - number_of_extra))
     :: shuffle cmdline_names
   in
   (* Printf.fprintf stderr "stdin = %s\n" (if x.stdin then "Some" else "None");
@@ -100,7 +103,8 @@ let one fds x =
        (if x.stdin then Some fd else None)
        (if x.stdout then Some fd else None)
        (if x.stderr then Some fd else None)
-       table exe args)
+       table exe args
+    )
 
 let test_delay () =
   let start = Unix.gettimeofday () in
@@ -117,7 +121,8 @@ let test_delay () =
   | e ->
       failwith
         (Printf.sprintf "Failed with unexpected exception: %s"
-           (Printexc.to_string e))
+           (Printexc.to_string e)
+        )
 
 let test_notimeout () =
   let exe = Printf.sprintf "/proc/%d/exe" (Unix.getpid ()) in
@@ -128,7 +133,8 @@ let test_notimeout () =
   with e ->
     failwith
       (Printf.sprintf "Failed with unexpected exception: %s"
-         (Printexc.to_string e))
+         (Printexc.to_string e)
+      )
 
 let fail x =
   Xapi_stdext_unix.Unixext.write_string_to_file "/tmp/fe-test.log" x ;
@@ -188,7 +194,8 @@ let slave = function
             try
               ignore (Unix.readlink (Filename.concat path x)) ;
               true
-            with _ -> false)
+            with _ -> false
+            )
           (Array.to_list (Sys.readdir path))
       in
       let pairs =
@@ -200,7 +207,9 @@ let slave = function
           (fun x ->
             not
               (List.mem x
-                 [("0", "/dev/null"); ("1", "/dev/null"); ("2", "/dev/null")]))
+                 [("0", "/dev/null"); ("1", "/dev/null"); ("2", "/dev/null")]
+              )
+            )
           pairs
       in
 
@@ -212,7 +221,8 @@ let slave = function
       List.iter
         (fun fd ->
           if not (List.mem fd (List.map fst filtered)) then
-            fail (Printf.sprintf "fd %s not in /proc/%d/fd [ %s ]" fd pid ls))
+            fail (Printf.sprintf "fd %s not in /proc/%d/fd [ %s ]" fd pid ls)
+          )
         fds ;
       (* Check that we have the expected number *)
       (*
@@ -221,7 +231,8 @@ let slave = function
       if total_fds <> List.length filtered then
         fail
           (Printf.sprintf "Expected %d fds; /proc/%d/fd has %d: %s" total_fds
-             pid (List.length filtered) ls)
+             pid (List.length filtered) ls
+          )
 
 let sleep () = Unix.sleep 5 ; Printf.printf "Ok\n"
 

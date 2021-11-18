@@ -96,8 +96,10 @@ module Dump = struct
     Threadext.Mutex.execute s.m (fun () ->
         HandleMap.fold
           (fun (time, _) i acc ->
-            {time= mtime_sub time now; thing= i.name} :: acc)
-          s.schedule [])
+            {time= mtime_sub time now; thing= i.name} :: acc
+            )
+          s.schedule []
+    )
 end
 
 let mtime_add x t =
@@ -113,13 +115,15 @@ let one_shot_f s dt (name : string) f =
       let handle = (time, id) in
       s.schedule <- HandleMap.add handle item s.schedule ;
       PipeDelay.signal s.delay ;
-      handle)
+      handle
+  )
 
 let one_shot s (Delta x) name f = one_shot_f s (float x) name f
 
 let cancel s handle =
   Threadext.Mutex.execute s.m (fun () ->
-      s.schedule <- HandleMap.remove handle s.schedule)
+      s.schedule <- HandleMap.remove handle s.schedule
+  )
 
 let process_expired s =
   let t = now () in
@@ -128,14 +132,16 @@ let process_expired s =
         let expired, eq, unexpired = HandleMap.split (t, max_int) s.schedule in
         assert (eq = None) ;
         s.schedule <- unexpired ;
-        expired |> HandleMap.to_seq |> Seq.map snd)
+        expired |> HandleMap.to_seq |> Seq.map snd
+    )
   in
   (* This might take a while *)
   Seq.iter
     (fun i ->
       try i.fn ()
       with e ->
-        debug "Scheduler ignoring exception: %s\n%!" (Printexc.to_string e))
+        debug "Scheduler ignoring exception: %s\n%!" (Printexc.to_string e)
+      )
     expired ;
   expired () <> Seq.Nil
 
@@ -148,7 +154,8 @@ let rec main_loop s =
   let sleep_until =
     Threadext.Mutex.execute s.m (fun () ->
         try HandleMap.min_binding s.schedule |> fst |> fst
-        with Not_found -> mtime_add 3600. (now ()))
+        with Not_found -> mtime_add 3600. (now ())
+    )
   in
   let this = now () in
   let seconds =
@@ -191,7 +198,8 @@ module Delay = struct
           one_shot_f s seconds "Delay.wait" (fun () ->
               if t.state = None then
                 t.state <- Some Timedout ;
-              Condition.broadcast t.c)
+              Condition.broadcast t.c
+          )
         in
         let rec loop () =
           match t.state with
@@ -208,10 +216,12 @@ module Delay = struct
         let result = loop () in
         cancel s handle ;
         t.state <- None ;
-        result)
+        result
+    )
 
   let signal t =
     Threadext.Mutex.execute t.m (fun () ->
         t.state <- Some Signalled ;
-        Condition.broadcast t.c)
+        Condition.broadcast t.c
+    )
 end

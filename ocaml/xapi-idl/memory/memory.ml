@@ -109,7 +109,6 @@ let mib_of_pages_used value =
   divide_rounding_up value pages_per_mib
   (* === Domain memory breakdown
      ======================================================= *)
-
   (*
              ╤  ╔══════════╗                                              ╤
              │  ║ shadow   ║                                              │

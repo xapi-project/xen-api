@@ -22,7 +22,8 @@ module Connection (IO : Cohttp.S.IO) : sig
        , [ `Message_switch of
            [ `Failed_to_read_response
            | `Unsuccessful_response
-           | `Communication of exn ] ] )
+           | `Communication of exn ] ]
+       )
        result
        IO.t
 end

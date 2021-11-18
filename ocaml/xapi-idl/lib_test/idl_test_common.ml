@@ -145,14 +145,19 @@ module GenTestData (C : CONFIG) (M : MARSHALLER) = struct
                         | Rpc.Enum [x], Rpc.Types.Option _ ->
                             List.map
                               (fun (named, unnamed) ->
-                                ((n, x) :: named, unnamed))
+                                ((n, x) :: named, unnamed)
+                                )
                               params
                         | _, _ ->
                             List.map
                               (fun (named, unnamed) ->
-                                ((n, marshalled) :: named, unnamed))
-                              params)
-                      marshalled))
+                                ((n, marshalled) :: named, unnamed)
+                                )
+                              params
+                        )
+                      marshalled
+                   )
+                )
                 f
           | None ->
               inner
@@ -161,9 +166,13 @@ module GenTestData (C : CONFIG) (M : MARSHALLER) = struct
                       (fun marshalled ->
                         List.map
                           (fun (named, unnamed) ->
-                            (named, marshalled :: unnamed))
-                          params)
-                      marshalled))
+                            (named, marshalled :: unnamed)
+                            )
+                          params
+                        )
+                      marshalled
+                   )
+                )
                 f
         )
       | Returning (t, e) ->
@@ -181,7 +190,8 @@ module GenTestData (C : CONFIG) (M : MARSHALLER) = struct
                 let rpccall =
                   if response_needed then Rpc.notification else Rpc.call
                 in
-                rpccall wire_name args)
+                rpccall wire_name args
+                )
               params
           in
           List.iteri
@@ -189,8 +199,10 @@ module GenTestData (C : CONFIG) (M : MARSHALLER) = struct
               let request_str = string_of_call call in
               write_str
                 (Printf.sprintf "%s/requests/%s.request.%d" C.test_data_path
-                   wire_name i)
-                request_str)
+                   wire_name i
+                )
+                request_str
+              )
             calls ;
           let vs =
             Rpc_genfake.genall 2
@@ -205,14 +217,16 @@ module GenTestData (C : CONFIG) (M : MARSHALLER) = struct
           let marshalled_vs =
             List.map
               (fun v ->
-                Rpc.success (Rpcmarshal.marshal t.Param.typedef.Rpc.Types.ty v))
+                Rpc.success (Rpcmarshal.marshal t.Param.typedef.Rpc.Types.ty v)
+                )
               vs
           in
           let errs = Rpc_genfake.genall 2 "error" e.Error.def.Rpc.Types.ty in
           let marshalled_errs =
             List.map
               (fun err ->
-                Rpc.failure (Rpcmarshal.marshal e.Error.def.Rpc.Types.ty err))
+                Rpc.failure (Rpcmarshal.marshal e.Error.def.Rpc.Types.ty err)
+                )
               errs
           in
           List.iteri
@@ -220,8 +234,10 @@ module GenTestData (C : CONFIG) (M : MARSHALLER) = struct
               let response_str = string_of_response response in
               write_str
                 (Printf.sprintf "%s/responses/%s.response.%d" C.test_data_path
-                   wire_name i)
-                response_str)
+                   wire_name i
+                )
+                response_str
+              )
             (marshalled_vs @ marshalled_errs)
     in
     let test_fn () =
@@ -237,7 +253,8 @@ module GenTestData (C : CONFIG) (M : MARSHALLER) = struct
       ( Printf.sprintf "Generate test data for '%s'"
           (Idl.get_wire_name !description name)
       , `Quick
-      , test_fn )
+      , test_fn
+      )
       :: !tests
 
   let declare name desc_list ty = declare_ false name desc_list ty
@@ -252,7 +269,8 @@ let get_arg call has_named name is_opt =
     | (_, arg) :: dups, others when is_opt ->
         Result.Ok
           ( Rpc.Enum [arg]
-          , {call with Rpc.params= Rpc.Dict (dups @ others) :: unnamed} )
+          , {call with Rpc.params= Rpc.Dict (dups @ others) :: unnamed}
+          )
     | [], _others when is_opt ->
         Result.Ok (Rpc.Enum [], call)
     | (_, arg) :: dups, others ->
@@ -272,7 +290,8 @@ let get_arg call has_named name is_opt =
       Result.Error
         (`Msg
           "Marshalling error: Expecting dict as first argument when named \
-           parameters exist")
+           parameters exist"
+          )
   | false, None, head :: tail ->
       Result.Ok (head, {call with Rpc.params= tail})
   | false, None, [] ->
@@ -331,21 +350,17 @@ module TestOldRpcs (C : CONFIG) (M : MARSHALLER) = struct
 
   let declare_ : bool -> string -> string list -> 'a fn -> _ res =
    fun _notification name _ ty ->
-    ( (* Sanity check: ensure the description has been set before we declare any
-         RPCs *)
-    match !description with
-    | Some _ ->
-        ()
-    | None ->
-        raise NoDescription
-    ) ;
+    (* Sanity check: ensure the description has been set before we declare any
+       RPCs *)
+    (match !description with Some _ -> () | None -> raise NoDescription) ;
     let wire_name = Idl.get_wire_name !description name in
     let rec read_all path extension i =
       try
         let call =
           read_str
             (Printf.sprintf "%s/%s/%s.%s.%d" C.test_data_path path wire_name
-               extension i)
+               extension i
+            )
         in
         call :: read_all path extension (i + 1)
       with _ -> []
@@ -429,7 +444,8 @@ module TestOldRpcs (C : CONFIG) (M : MARSHALLER) = struct
           let name =
             Printf.sprintf "Check old request for '%s': %d" wire_name i
           in
-          (name, `Quick, fun () -> testfn call response))
+          (name, `Quick, fun () -> testfn call response)
+          )
         calls
     in
     (* Now check all responses *)
@@ -440,7 +456,8 @@ module TestOldRpcs (C : CONFIG) (M : MARSHALLER) = struct
           let name =
             Printf.sprintf "Check old response for '%s': %d" wire_name i
           in
-          (name, `Quick, fun () -> testfn call response))
+          (name, `Quick, fun () -> testfn call response)
+          )
         responses
     in
     tests := !tests @ request_tests @ response_tests

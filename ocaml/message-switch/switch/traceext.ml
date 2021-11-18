@@ -194,7 +194,8 @@ let get buffer from timeout :
         | Some (id, _) when id < from ->
             acc
         | Some (id, x) ->
-            (id, CompactEvent.to_event x) :: acc)
+            (id, CompactEvent.to_event x) :: acc
+        )
       []
   in
   return (List.rev reversed_results)

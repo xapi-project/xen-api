@@ -30,7 +30,8 @@ let rpc call =
       else
         Xcp_client.xml_http_rpc
           ~srcstr:(Xcp_client.get_user_agent ())
-          ~dststr:"network" Network_interface.uri call)
+          ~dststr:"network" Network_interface.uri call
+  )
 
 module Client = Network_interface.Interface_API (Idl.Exn.GenClient (struct
   let rpc = rpc

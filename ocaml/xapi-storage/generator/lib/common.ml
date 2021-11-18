@@ -3,18 +3,26 @@
 open Idl
 open Rpc
 
-type exnt =
-  | Unimplemented of string
-[@@deriving rpcty]
-exception DataExn of exnt
-let error = Error.{
-    def = exnt;
-    raiser = (function e -> DataExn e);
-    matcher = (function | DataExn e -> Some e | _ -> None)
-  }
+type exnt = Unimplemented of string [@@deriving rpcty]
 
-let dbg = Param.mk ~name:"dbg" ~description:["Debug context from the caller"] Types.string
+exception DataExn of exnt
+
+let error =
+  Error.
+    {
+      def= exnt
+    ; raiser= (function e -> DataExn e)
+    ; matcher= (function DataExn e -> Some e | _ -> None)
+    }
+  
+
+let dbg =
+  Param.mk ~name:"dbg"
+    ~description:["Debug context from the caller"]
+    Types.string
+
 let unit = Param.mk Types.unit
+
 let task_id = Param.mk ~name:"task_id" Types.string
 
 (** A URI representing the means for accessing the volume data. The
@@ -24,8 +32,9 @@ type uri = string [@@deriving rpcty]
 
 (** List of blocks for copying. *)
 type blocklist = {
-  blocksize : int ; (** Size of the individual blocks. *)
-  ranges : (int64 * int64) list ;
-      (** List of block ranges, where a range is a (start,length) pair,
+    blocksize: int  (** Size of the individual blocks. *)
+  ; ranges: (int64 * int64) list
+        (** List of block ranges, where a range is a (start,length) pair,
           measured in units of [blocksize] *)
-} [@@deriving rpcty]
+}
+[@@deriving rpcty]

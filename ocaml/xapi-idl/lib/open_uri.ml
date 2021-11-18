@@ -18,6 +18,7 @@
 open Xapi_stdext_pervasives.Pervasiveext
 
 module D = Debug.Make (struct let name = "open_uri" end)
+
 open D
 
 let handle_socket f s = try f s with e -> Backtrace.is_important e ; raise e
@@ -27,9 +28,10 @@ let open_tcp f host port =
   let sockaddr =
     match Unix.getaddrinfo host (string_of_int port) [] with
     | [] ->
-      error "No addrinfo found for host: %s on port: %d" host port ;
-      raise Not_found
-    | addrinfo::_ -> addrinfo.Unix.ai_addr
+        error "No addrinfo found for host: %s on port: %d" host port ;
+        raise Not_found
+    | addrinfo :: _ ->
+        addrinfo.Unix.ai_addr
   in
   let family = Unix.domain_of_sockaddr sockaddr in
   let s = Unix.socket family Unix.SOCK_STREAM 0 in
@@ -48,7 +50,8 @@ let with_open_uri uri f =
     | _, _ ->
         failwith
           (Printf.sprintf "Failed to parse host and port from URI: %s"
-             (Uri.to_string uri))
+             (Uri.to_string uri)
+          )
   )
   | Some "file" ->
       let filename = Uri.path_and_query uri in

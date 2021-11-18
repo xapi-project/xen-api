@@ -37,11 +37,13 @@ let make (x : spec) : t =
     if disk < 0 || disk > disk_limit then
       failwith
         (Printf.sprintf "%s disk number out of range 0 <= %d <= %d" description
-           disk disk_limit) ;
+           disk disk_limit
+        ) ;
     if partition < 0 || partition > partition_limit then
       failwith
         (Printf.sprintf "%s partition number out of range 0 <= %d <= %d"
-           description partition partition_limit)
+           description partition partition_limit
+        )
   in
   ( match x with
   | Xen, disk, partition ->
@@ -95,7 +97,8 @@ let of_xenstore_int x =
           snd
             (List.fold_left
                (fun (i, res) e -> (i + 1, if e = n then i else res))
-               (0, -1) deprecated_ide_table)
+               (0, -1) deprecated_ide_table
+            )
         in
         if idx < 0 then failwith (Printf.sprintf "Unknown device number: %d" x) ;
         (Ide, (x >| 6 && ((1 <| 2) - 1)) + (idx * 2), x && ((1 <| 6) - 1))

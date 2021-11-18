@@ -183,7 +183,8 @@ module Internal = struct
           if startswith prefix name then
             name :: acc
           else
-            acc)
+            acc
+          )
         queues.queues []
   end
 
@@ -284,8 +285,10 @@ let transfer queues from names =
         let _, _, not_seen = Int64Map.split from q.q in
         Int64Map.fold
           (fun id e acc ->
-            ((name, id), e.Message_switch_core.Protocol.Entry.message) :: acc)
-          not_seen [])
+            ((name, id), e.Message_switch_core.Protocol.Entry.message) :: acc
+            )
+          not_seen []
+        )
       names
   in
   List.concat messages

@@ -27,7 +27,8 @@ let default_path = ["/sbin"; "/usr/sbin"; "/bin"; "/usr/bin"]
    case. Avoid changing the directory unless the code is being tested. *)
 let test_path =
   Option.bind (Sys.getenv_opt "FE_TEST") (fun _ ->
-      Sys.getenv_opt "XDG_RUNTIME_DIR")
+      Sys.getenv_opt "XDG_RUNTIME_DIR"
+  )
 
 let runtime_path = Option.value ~default:"/var" test_path
 
@@ -195,7 +196,8 @@ let safe_close_and_exec ?env stdin stdout stderr
            ; id_to_fd_map
            ; syslog_stdout
            ; redirect_stderr_to_stdout
-           }) ;
+           }
+        ) ;
 
       let response = Fecomms.read_raw_rpc sock in
 
@@ -218,7 +220,8 @@ let safe_close_and_exec ?env stdin stdout stderr
           | Some srcfd ->
               send_named_fd uuid srcfd
           | None ->
-              ())
+              ()
+          )
         predefined_fds ;
       List.iter (fun (uuid, srcfd) -> send_named_fd uuid srcfd) fds ;
       Fecomms.write_raw_rpc sock Fe.Exec ;
@@ -229,7 +232,8 @@ let safe_close_and_exec ?env stdin stdout stderr
           failwith
             ("This should never happen: Forkhelpers.safe_close_and_exec "
             ^ __LOC__
-            ))
+            )
+      )
     close_fds
 
 let execute_command_get_output_inner ?env ?stdin ?(syslog_stdout = NoSyslogging)
@@ -246,7 +250,8 @@ let execute_command_get_output_inner ?env ?stdin ?(syslog_stdout = NoSyslogging)
       (fun str ->
         let x, y = Unix.pipe () in
         to_close := x :: y :: !to_close ;
-        (str, x, y))
+        (str, x, y)
+        )
       stdin
   in
   finally
@@ -262,7 +267,8 @@ let execute_command_get_output_inner ?env ?stdin ?(syslog_stdout = NoSyslogging)
                 Option.iter
                   (fun (str, _, wr) ->
                     Xapi_stdext_unix.Unixext.really_write_string wr str ;
-                    close wr)
+                    close wr
+                    )
                   stdinandpipes ;
                 if timeout > 0. then
                   Unix.setsockopt_float sock Unix.SO_RCVTIMEO timeout ;
@@ -270,7 +276,9 @@ let execute_command_get_output_inner ?env ?stdin ?(syslog_stdout = NoSyslogging)
                 with Unix.(Unix_error ((EAGAIN | EWOULDBLOCK), _, _)) ->
                   Unix.kill pid Sys.sigkill ;
                   ignore (waitpid (sock, pid)) ;
-                  raise Subprocess_timeout))
+                  raise Subprocess_timeout
+            )
+        )
       with
       | Success (out, Success (err, (_pid, status))) -> (
         match status with
@@ -280,7 +288,8 @@ let execute_command_get_output_inner ?env ?stdin ?(syslog_stdout = NoSyslogging)
             raise (Spawn_internal_error (err, out, e))
       )
       | Success (_, Failure (_, exn)) | Failure (_, exn) ->
-          raise exn)
+          raise exn
+      )
     (fun () -> List.iter Unix.close !to_close)
 
 let execute_command_get_output ?env ?(syslog_stdout = NoSyslogging) ?timeout cmd

@@ -59,7 +59,8 @@ let common_options_t =
     Arg.(
       value
       & opt string "/var/run/message-switch/sock"
-      & info ["path"] ~docs ~doc)
+      & info ["path"] ~docs ~doc
+    )
   in
   Term.(pure Common.make $ debug $ verb $ path)
 
@@ -116,7 +117,9 @@ let diagnostics common_opts =
             else if i = length - 1 then
               (x ^ " ") :: acc
             else
-              (x ^ ", ") :: acc ))
+              (x ^ ", ") :: acc
+          )
+          )
         (0, []) bits
     in
     String.concat "" (List.rev rev_bits) ^ "ago"
@@ -142,7 +145,8 @@ let diagnostics common_opts =
       List.iter
         (fun param ->
           let txt = Jsonrpc.to_string param in
-          Printf.printf "        - %s\n" (trim txt))
+          Printf.printf "        - %s\n" (trim txt)
+          )
         call.Rpc.params
     with _ ->
       (* parse failure, fall back to basic printing *)
@@ -190,7 +194,8 @@ let diagnostics common_opts =
               | `Ok ->
                   Printf.printf "      - %s is waiting for a response\n" name
             else
-              Printf.printf "       - %s appears to have crashed\n" name)
+              Printf.printf "       - %s appears to have crashed\n" name
+        )
       (snd q).Diagnostics.queue_contents
   in
   let expected_transient_queues (_name, q) =
@@ -200,11 +205,11 @@ let diagnostics common_opts =
         | Message.Response _ ->
             acc
         | Message.Request name ->
-            name :: acc)
+            name :: acc
+        )
       [] q.Diagnostics.queue_contents
   in
-  Printf.printf "Switch started %s\n"
-    (time in_the_past d.Diagnostics.start_time) ;
+  Printf.printf "Switch started %s\n" (time in_the_past d.Diagnostics.start_time) ;
   ( if d.Diagnostics.permanent_queues = [] then
       print_endline "There are no known services (yet)."
   else
@@ -216,7 +221,8 @@ let diagnostics common_opts =
     let crashed =
       List.filter
         (fun q ->
-          match classify q with `Crashed_or_deadlocked _ -> true | _ -> false)
+          match classify q with `Crashed_or_deadlocked _ -> true | _ -> false
+          )
         d.Diagnostics.permanent_queues
     in
     let ok =
@@ -246,7 +252,8 @@ let diagnostics common_opts =
   let to_show =
     List.filter
       (fun (name, queue) ->
-        (not (List.mem name expected)) || queue.Diagnostics.queue_contents <> [])
+        (not (List.mem name expected)) || queue.Diagnostics.queue_contents <> []
+        )
       d.Diagnostics.transient_queues
   in
   if to_show <> [] then (
@@ -327,7 +334,8 @@ let mscgen common_opts =
         | None ->
             acc
         | Some x ->
-            StringSet.add x acc)
+            StringSet.add x acc
+        )
       StringSet.empty trace.Out.events
   in
   let outputs =
@@ -337,7 +345,8 @@ let mscgen common_opts =
         | None ->
             acc
         | Some x ->
-            StringSet.add x acc)
+            StringSet.add x acc
+        )
       StringSet.empty trace.Out.events
   in
   let print_event (_, e) =
@@ -364,7 +373,9 @@ let mscgen common_opts =
   Printf.printf "%s;\n"
     (String.concat ","
        (List.map quote
-          StringSet.(elements (union (union inputs outputs) queues)))) ;
+          StringSet.(elements (union (union inputs outputs) queues))
+       )
+    ) ;
   List.iter print_event trace.Out.events ;
   Printf.printf "}\n" ;
   `Ok ()
@@ -391,7 +402,8 @@ let tail common_opts follow =
               else
                 txt ^ String.make (size - txt') ' '
         in
-        print_string txt ; print_string " ")
+        print_string txt ; print_string " "
+        )
       (List.combine row widths) ;
     print_endline ""
   in
@@ -445,7 +457,8 @@ let tail common_opts follow =
                       endpoint event.Event.input; "->"; event.Event.queue; ""; ""
                     ]
                 )
-              @ [secs event.Event.processing_time; message m])
+              @ [secs event.Event.processing_time; message m]
+              )
             trace.Out.events
         in
         List.iter print_row rows ;
@@ -471,7 +484,8 @@ let diagnostics_cmd =
     @ help
   in
   ( Term.(ret (pure diagnostics $ common_options_t))
-  , Term.info "diagnostics" ~sdocs:_common_options ~doc ~man )
+  , Term.info "diagnostics" ~sdocs:_common_options ~doc ~man
+  )
 
 let list_cmd =
   let doc = "list the currently-known queues" in
@@ -494,7 +508,8 @@ let list_cmd =
     Arg.(value & flag & info ["all"] ~docv:"ALL" ~doc)
   in
   ( Term.(ret (pure list $ common_options_t $ prefix $ all))
-  , Term.info "list" ~sdocs:_common_options ~doc ~man )
+  , Term.info "list" ~sdocs:_common_options ~doc ~man
+  )
 
 let tail_cmd =
   let doc = "display the most recent trace events" in
@@ -512,7 +527,8 @@ let tail_cmd =
     Arg.(value & flag & info ["follow"] ~docv:"FOLLOW" ~doc)
   in
   ( Term.(ret (pure tail $ common_options_t $ follow))
-  , Term.info "tail" ~sdocs:_common_options ~doc ~man )
+  , Term.info "tail" ~sdocs:_common_options ~doc ~man
+  )
 
 let mscgen_cmd =
   let doc = "display the most recent trace events in mscgen input format" in
@@ -526,7 +542,8 @@ let mscgen_cmd =
     @ help
   in
   ( Term.(ret (pure mscgen $ common_options_t))
-  , Term.info "mscgen" ~sdocs:_common_options ~doc ~man )
+  , Term.info "mscgen" ~sdocs:_common_options ~doc ~man
+  )
 
 let ack_cmd =
   let doc = "acknowledge processing of a specific message" in
@@ -548,7 +565,8 @@ let ack_cmd =
     Arg.(value & pos 1 (some int64) None & info [] ~docv:"ACK" ~doc)
   in
   ( Term.(ret (pure ack $ common_options_t $ qname $ id))
-  , Term.info "ack" ~sdocs:_common_options ~doc ~man )
+  , Term.info "ack" ~sdocs:_common_options ~doc ~man
+  )
 
 let destroy_cmd =
   let doc = "destroy a named queue" in
@@ -565,7 +583,8 @@ let destroy_cmd =
     Arg.(value & pos 0 (some string) None & info [] ~docv:"QUEUE" ~doc)
   in
   ( Term.(ret (pure destroy $ common_options_t $ n))
-  , Term.info "destroy" ~sdocs:_common_options ~doc ~man )
+  , Term.info "destroy" ~sdocs:_common_options ~doc ~man
+  )
 
 let string_of_ic ?end_marker ic =
   let lines = ref [] in
@@ -632,7 +651,8 @@ let call_cmd =
     Arg.(value & opt (some int) None & info ["timeout"] ~docv:"TIMEOUT" ~doc)
   in
   ( Term.(ret (pure call $ common_options_t $ qname $ body $ path $ timeout))
-  , Term.info "call" ~sdocs:_common_options ~doc ~man )
+  , Term.info "call" ~sdocs:_common_options ~doc ~man
+  )
 
 let serve common_options_t name program =
   match name with
@@ -658,7 +678,8 @@ let serve common_options_t name program =
                 let (_ : Unix.process_status) =
                   Unix.close_process_full (stdout, stdin, stderr)
                 in
-                res)
+                res
+            )
           ~switch:common_options_t.Common.path ~queue:name ()
       in
       let rec forever () = Thread.delay 3600. ; forever () in
@@ -684,7 +705,8 @@ let serve_cmd =
     Arg.(value & opt (some file) None & info ["program"] ~doc)
   in
   ( Term.(ret (pure serve $ common_options_t $ qname $ program))
-  , Term.info "serve" ~sdocs:_common_options ~doc ~man )
+  , Term.info "serve" ~sdocs:_common_options ~doc ~man
+  )
 
 let shutdown common_options_t =
   Client.connect ~switch:common_options_t.Common.path () >>|= fun t ->
@@ -700,13 +722,15 @@ let shutdown_cmd =
     @ help
   in
   ( Term.(ret (pure shutdown $ common_options_t))
-  , Term.info "shutdown" ~sdocs:_common_options ~doc ~man )
+  , Term.info "shutdown" ~sdocs:_common_options ~doc ~man
+  )
 
 let default_cmd =
   let doc = "interact with an XCP message switch" in
   let man = help in
   ( Term.(ret (pure (fun _ -> `Help (`Pager, None)) $ common_options_t))
-  , Term.info "m-cli" ~version:"1.0.0" ~sdocs:_common_options ~doc ~man )
+  , Term.info "m-cli" ~version:"1.0.0" ~sdocs:_common_options ~doc ~man
+  )
 
 let cmds =
   [

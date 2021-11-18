@@ -17,7 +17,8 @@ let default_cmd =
       ]
   in
   ( Cmdliner.Term.(ret (const (fun _ -> `Help (`Pager, None)) $ const ()))
-  , Cmdliner.Term.info "rrd_cli" ~version:(version_str Cmds.description) ~doc )
+  , Cmdliner.Term.info "rrd_cli" ~version:(version_str Cmds.description) ~doc
+  )
 
 let cli () =
   let rpc = Rrd_client.rpc in

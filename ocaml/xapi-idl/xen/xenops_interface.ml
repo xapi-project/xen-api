@@ -158,7 +158,8 @@ let err =
       (fun e ->
         let exn = Xenopsd_error e in
         error "%s (%s)" (Printexc.to_string exn) __LOC__ ;
-        raise exn)
+        raise exn
+        )
   ; matcher=
       (function
       | Xenopsd_error e as exn ->
@@ -166,7 +167,8 @@ let err =
           Some e
       | exn ->
           error "%s (%s)" (Printexc.to_string exn) __LOC__ ;
-          Some (Internal_error (Printexc.to_string exn)))
+          Some (Internal_error (Printexc.to_string exn))
+      )
   }
 
 type debug_info = string [@@deriving rpcty]

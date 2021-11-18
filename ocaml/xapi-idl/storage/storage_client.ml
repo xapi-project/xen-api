@@ -32,5 +32,6 @@ module Client = Storage_interface.StorageAPI (Idl.Exn.GenClient (struct
           json_switch_rpc !queue_name call
         else
           xml_http_rpc ~srcstr:(get_user_agent ()) ~dststr:"storage"
-            Storage_interface.uri call)
+            Storage_interface.uri call
+    )
 end))

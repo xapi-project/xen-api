@@ -71,19 +71,23 @@ module Delay = struct
                 x.pipe_out <- Some pipe_out ;
                 x.pipe_in <- Some pipe_in ;
                 x.signalled <- false ;
-                pipe_out)
+                pipe_out
+            )
           in
           let r, _, _ = Unix.select [pipe_out] [] [] seconds in
           (* flush the single byte from the pipe *)
           if r <> [] then ignore (Unix.read pipe_out (Bytes.create 1) 0 1) ;
           (* return true if we waited the full length of time, false if we were woken *)
           r = []
-        with Pre_signalled -> false)
+        with Pre_signalled -> false
+        )
       (fun () ->
         Mutex.execute x.m (fun () ->
             x.pipe_out <- None ;
             x.pipe_in <- None ;
-            List.iter close' !to_close))
+            List.iter close' !to_close
+        )
+        )
 
   let signal (x : t) =
     Mutex.execute x.m (fun () ->
@@ -92,7 +96,8 @@ module Delay = struct
             ignore (Unix.write fd (Bytes.of_string "X") 0 1)
         | None ->
             x.signalled <- true
-        (* If the wait hasn't happened yet then store up the signal *))
+        (* If the wait hasn't happened yet then store up the signal *)
+    )
 end
 
 type item = {id: int; name: string; fn: unit -> unit}
@@ -122,8 +127,10 @@ module Dump = struct
         Int64Map.fold
           (fun time xs acc ->
             List.map (fun i -> {time= Int64.sub time now; thing= i.name}) xs
-            @ acc)
-          !schedule [])
+            @ acc
+            )
+          !schedule []
+    )
 end
 
 let one_shot time (name : string) f =
@@ -147,7 +154,8 @@ let one_shot time (name : string) f =
         let item = {id; name; fn= f} in
         schedule := Int64Map.add time (item :: existing) !schedule ;
         Delay.signal delay ;
-        id)
+        id
+    )
   in
   (time, id)
 
@@ -160,7 +168,8 @@ let cancel (time, id) =
           []
       in
       schedule :=
-        Int64Map.add time (List.filter (fun i -> i.id <> id) existing) !schedule)
+        Int64Map.add time (List.filter (fun i -> i.id <> id) existing) !schedule
+  )
 
 let process_expired () =
   let t = now () in
@@ -170,7 +179,8 @@ let process_expired () =
           Int64Map.partition (fun t' _ -> t' <= t) !schedule
         in
         schedule := unexpired ;
-        Int64Map.fold (fun _ stuff acc -> acc @ stuff) expired [] |> List.rev)
+        Int64Map.fold (fun _ stuff acc -> acc @ stuff) expired [] |> List.rev
+    )
   in
   (* This might take a while *)
   List.iter (fun i -> try i.fn () with _e -> ()) expired ;
@@ -185,7 +195,8 @@ let rec main_loop () =
   let sleep_until =
     Mutex.execute m (fun () ->
         try Int64Map.min_binding !schedule |> fst
-        with Not_found -> Int64.add 3600L (now ()))
+        with Not_found -> Int64.add 3600L (now ())
+    )
   in
   let seconds = Int64.sub sleep_until (now ()) in
   let (_ : bool) = Delay.wait delay (Int64.to_float seconds) in

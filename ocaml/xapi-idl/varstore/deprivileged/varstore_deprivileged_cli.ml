@@ -23,7 +23,8 @@ let default_cmd =
   ( Cmdliner.Term.(ret (const (fun _ -> `Help (`Pager, None)) $ const ()))
   , Cmdliner.Term.info "varstored_cli"
       ~version:(version_str Cmds.description)
-      ~doc )
+      ~doc
+  )
 
 let cli =
   let uri = ref "" in
@@ -41,13 +42,16 @@ let cli =
   let doc = "Path to deprivileged socket in /var/run/xen" in
   let path =
     Cmdliner.Arg.(
-      required & opt (some file) None & info ["socket"] ~doc ~docv:"SOCKET")
+      required & opt (some file) None & info ["socket"] ~doc ~docv:"SOCKET"
+    )
   in
   Cmdliner.Term.eval_choice default_cmd
     (List.map
        (fun t ->
          let term, info = t rpc in
-         (Cmdliner.Term.(const wrapper $ path $ term $ const ()), info))
-       (Cmds.implementation ()))
+         (Cmdliner.Term.(const wrapper $ path $ term $ const ()), info)
+         )
+       (Cmds.implementation ())
+    )
 
 let () = Cmdliner.Term.exit cli

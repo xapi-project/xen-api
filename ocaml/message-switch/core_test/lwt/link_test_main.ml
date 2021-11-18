@@ -41,7 +41,8 @@ let out_frames =
     ("create.reply", Create "service")
   ; ( "transfer.reply"
     , Transfer
-        {messages= [(("q", 1L), rpc_req); (("q2", 2L), rpc_res)]; next= "0"} )
+        {messages= [(("q", 1L), rpc_req); (("q2", 2L), rpc_res)]; next= "0"}
+    )
   ]
 
 let make_file name f =
@@ -54,7 +55,8 @@ let make_file name f =
   Lwt.catch
     (fun () ->
       f oc >>= fun () ->
-      Lwt_io.flush oc >>= fun () -> Lwt_unix.close fd)
+      Lwt_io.flush oc >>= fun () -> Lwt_unix.close fd
+      )
     (fun _ -> Lwt_unix.close fd)
 
 let main () =
@@ -73,7 +75,9 @@ let main () =
             ; body
             ]
           in
-          Lwt_io.write oc (String.concat "\r\n" lines)))
+          Lwt_io.write oc (String.concat "\r\n" lines)
+      )
+      )
     in_frames
   >>= fun () ->
   Lwt_list.iter_s
@@ -88,7 +92,9 @@ let main () =
             ; body
             ]
           in
-          Lwt_io.write oc (String.concat "\r\n" lines)))
+          Lwt_io.write oc (String.concat "\r\n" lines)
+      )
+      )
     out_frames
 
 let _ =

@@ -22,7 +22,8 @@ let debug (fmt : ('a, unit, string, unit) format4) =
     (fun s ->
       debug_log :=
         Printf.sprintf "%s|%d|%s\n" (gettimestring ()) (Unix.getpid ()) s
-        :: !debug_log)
+        :: !debug_log
+      )
     fmt
 
 let write_log () =

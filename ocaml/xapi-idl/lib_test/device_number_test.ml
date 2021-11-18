@@ -59,7 +59,9 @@ let test_examples =
             Alcotest.check device_number "examples must be equal" of_spec
               of_linux ;
             Alcotest.check device_number "examples must be equal" of_spec
-              of_xenstore ))
+              of_xenstore
+        )
+        )
       examples_to_test
   in
   tests
@@ -75,7 +77,9 @@ let test_deprecated =
         , fun () ->
             let of_linux = of_linux_device linux in
             let of_xenstore = of_xenstore_key xenstore in
-            Alcotest.check device_number "must be equal" of_linux of_xenstore ))
+            Alcotest.check device_number "must be equal" of_linux of_xenstore
+        )
+        )
       deprecated
   in
   tests
@@ -90,7 +94,9 @@ let test_equivalent =
         , fun () ->
             let x' = of_string false x in
             let y' = of_string false y in
-            Alcotest.check device_number "must be equal" x' y' ))
+            Alcotest.check device_number "must be equal" x' y'
+        )
+        )
       equivalent
   in
   tests
@@ -124,9 +130,11 @@ let test_2_way_convert =
               Alcotest.check device_number_equal_linux
                 "of_linux must be equal to original" original of_linux ;
               Alcotest.check device_number
-                "of_xenstore must be equal to original" original of_xenstore)
+                "of_xenstore must be equal to original" original of_xenstore
+              )
             [true; false]
-        done )
+        done
+    )
   ]
 
 let tests =

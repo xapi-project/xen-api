@@ -48,14 +48,16 @@ let timed_wait_callback ~msg ?(time_min = 0.) ?(eps = 0.1) ?(time_max = 60.) f =
           let actual_minimum = min (t -. before) time_min in
           Alcotest.(check (float eps))
             (Printf.sprintf "%s: callback invoked earlier than expected" msg)
-            time_min actual_minimum)
+            time_min actual_minimum
+  )
 
 (* Test the injection of a one-shot function at a time in the future *)
 let test_one_shot () =
   timed_wait_callback ~msg:"one_shot_success" ~time_min:1.0 (fun callback ->
       ignore
       @@ Scheduler.one_shot global_scheduler (Scheduler.Delta 1) "test_one_shot"
-           callback)
+           callback
+  )
 
 (* Tests that the scheduler still works even after a failure occurs in the
    injected function *)
@@ -63,18 +65,21 @@ let test_one_shot_failure () =
   timed_wait_callback ~msg:"one_show_failure" ~time_min:1.0 (fun callback ->
       let _ =
         Scheduler.one_shot global_scheduler (Scheduler.Delta 0) "test_one_shot"
-          (fun () -> failwith "Error")
+          (fun () -> failwith "Error"
+        )
       in
       ignore
       @@ Scheduler.one_shot global_scheduler (Scheduler.Delta 1) "test_one_shot"
-           callback)
+           callback
+  )
 
 (* Checks that one-shot functions can cancelled and are then not executed *)
 let test_one_shot_cancel () =
   let after = ref None in
   let x =
     Scheduler.one_shot global_scheduler (Scheduler.Delta 1)
-      "test_one_shot_cancel" (fun () -> after := Some (Unix.gettimeofday ()))
+      "test_one_shot_cancel" (fun () -> after := Some (Unix.gettimeofday ())
+    )
   in
   Scheduler.cancel global_scheduler x ;
   Thread.delay 2.0 ;
@@ -88,7 +93,8 @@ let test_dump () =
   let _before = Unix.gettimeofday () in
   let _ =
     Scheduler.one_shot global_scheduler (Scheduler.Delta 1) "test_dump"
-      (fun () -> after := Some (Unix.gettimeofday ()))
+      (fun () -> after := Some (Unix.gettimeofday ())
+    )
   in
   let dump = Scheduler.Dump.make global_scheduler in
   assert_bool "dump_contains_item"

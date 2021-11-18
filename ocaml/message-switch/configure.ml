@@ -15,14 +15,17 @@ let libdir_default =
   (* This is the same that [dune install] does by default when invoked without --prefix.
      This ensures that files end up in the right place regardless of whether [opam] is used or not.
      We unconditionally use `--prefix` on the command-line so we need to use this too.
-     *)
+  *)
   Findlib.default_location ()
 
 let args =
   [
-    flag "prefix" ~doc:"DIR Final install destination" ~default:"/usr" (* ensures bin and sbin end up in right places *)
-  ; flag "libdir" ~doc:"DIR Directory where library files are copied" ~default:libdir_default
-  ] |> Arg.align
+    flag "prefix" ~doc:"DIR Final install destination" ~default:"/usr"
+    (* ensures bin and sbin end up in right places *)
+  ; flag "libdir" ~doc:"DIR Directory where library files are copied"
+      ~default:libdir_default
+  ]
+  |> Arg.align
 
 let () =
   C.main ~args ~name:"message-switch" @@ fun _c ->

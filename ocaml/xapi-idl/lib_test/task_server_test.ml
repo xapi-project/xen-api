@@ -157,7 +157,8 @@ let test_with_cancel () =
     T.add t "dbg" (fun task ->
         T.with_cancel task
           (fun () -> cancel_fn_run := true)
-          (fun () -> Some "foo"))
+          (fun () -> Some "foo")
+    )
   in
   let id = T.id_of_handle task in
   T.cancel task ;
@@ -181,7 +182,8 @@ let test_with_cancel_failure () =
   let t = T.empty () in
   let task =
     T.add t "dbg" (fun task ->
-        T.with_cancel task (fun () -> failwith "moo") (fun () -> Some "foo"))
+        T.with_cancel task (fun () -> failwith "moo") (fun () -> Some "foo")
+    )
   in
   let id = T.id_of_handle task in
   T.cancel task ;
@@ -211,7 +213,9 @@ let test_with_cancel2 () =
           (fun () ->
             ignore (Scheduler.Delay.wait delay 1.0) ;
             T.check_cancelling task ;
-            Some "foo"))
+            Some "foo"
+            )
+    )
   in
   let id = T.id_of_handle task in
   let th = Thread.create (fun () -> T.run task) () in
@@ -244,7 +248,9 @@ let test_with_cancel_failure2 () =
           (fun () ->
             ignore (Scheduler.Delay.wait delay 1.0) ;
             T.check_cancelling task ;
-            Some "foo"))
+            Some "foo"
+            )
+    )
   in
   let id = T.id_of_handle task in
   let th = Thread.create (fun () -> T.run task) () in
@@ -270,7 +276,8 @@ let test_subtasks () =
   let task =
     T.add t "dbg" (fun task ->
         let (_ : int) = T.with_subtask task "subtask1" (fun () -> 0) in
-        Some "done")
+        Some "done"
+    )
   in
   let _id = T.id_of_handle task in
   T.run task ;
@@ -297,9 +304,11 @@ let test_subtasks_failure () =
     T.add t "dbg" (fun task ->
         let (_ : int) =
           T.with_subtask task "subtask1" (fun () ->
-              raise (TestInterface.Internal_error "foo"))
+              raise (TestInterface.Internal_error "foo")
+          )
         in
-        Some "done")
+        Some "done"
+    )
   in
   T.run task ;
   let subtask =

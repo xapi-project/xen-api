@@ -42,7 +42,9 @@ let switch_rpc ?timeout queue_name string_of_call response_of_string =
     response_of_string
       (get_ok
          (Message_switch_unix.Protocol_unix.Client.rpc ~t ?timeout
-            ~queue:queue_name ~body:(string_of_call call) ()))
+            ~queue:queue_name ~body:(string_of_call call) ()
+         )
+      )
 
 let split_colon str =
   try
@@ -94,7 +96,8 @@ let http_rpc string_of_call response_of_string ?(srcstr = "unset")
       | `Invalid x ->
           failwith
             (Printf.sprintf "Failed to read HTTP response from: %s (got '%s')"
-               (url ()) x)
+               (url ()) x
+            )
       | `Ok response -> (
           let body = Buffer.create 16 in
           let reader = Response.make_body_reader response ic in
@@ -115,8 +118,10 @@ let http_rpc string_of_call response_of_string ?(srcstr = "unset")
           | bad ->
               failwith
                 (Printf.sprintf "Unexpected HTTP response code: %s"
-                   (Cohttp.Code.string_of_status bad))
-        ))
+                   (Cohttp.Code.string_of_status bad)
+                )
+        )
+  )
 
 let xml_http_rpc = http_rpc Xmlrpc.string_of_call Xmlrpc.response_of_string
 
@@ -129,9 +134,11 @@ let () =
     | Xmlm.Error ((line, col), error) ->
         Some
           (Printf.sprintf "Xmlm.Error(%d:%d, \"%s\")" line col
-             (Xmlm.error_message error))
+             (Xmlm.error_message error)
+          )
     | _ ->
-        None)
+        None
+    )
 
 (* Use a binary 16-byte length to frame RPC messages *)
 let binary_rpc string_of_call response_of_string ?(srcstr = "unset")
@@ -153,7 +160,8 @@ let binary_rpc string_of_call response_of_string ?(srcstr = "unset")
       let (response : Rpc.response) =
         response_of_string (Bytes.unsafe_to_string msg_buf)
       in
-      response)
+      response
+  )
 
 let json_binary_rpc =
   binary_rpc Jsonrpc.string_of_call Jsonrpc.response_of_string

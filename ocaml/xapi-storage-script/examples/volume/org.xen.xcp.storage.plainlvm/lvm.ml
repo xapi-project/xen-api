@@ -18,7 +18,8 @@ let make_temp_volume () =
   let path = Filename.temp_file Sys.argv.(0) "volume" in
   ignore_string
     (Common.run "dd"
-       ["if=/dev/zero"; "of=" ^ path; "seek=1024"; "bs=1M"; "count=1"]) ;
+       ["if=/dev/zero"; "of=" ^ path; "seek=1024"; "bs=1M"; "count=1"]
+    ) ;
   finally
     (fun () ->
       ignore_string (Common.run "losetup" ["-f"; path]) ;
@@ -31,7 +32,8 @@ let make_temp_volume () =
         error "Failed to parse output of losetup -j: [%s]" line ;
         ignore_string (Common.run "losetup" ["-d"; path]) ;
         failwith
-          (Printf.sprintf "Failed to parse output of losetup -j: [%s]" line))
+          (Printf.sprintf "Failed to parse output of losetup -j: [%s]" line)
+      )
     (fun () -> rm_f path)
 
 let remove_temp_volume volume =
@@ -46,7 +48,8 @@ let vgcreate vg_name = function
           (* First destroy anything already on the device *)
           ignore_string
             (run "dd" ["if=/dev/zero"; "of=" ^ dev; "bs=512"; "count=4"]) ;
-          ignore_string (run "pvcreate" ["--metadatasize"; "10M"; dev]))
+          ignore_string (run "pvcreate" ["--metadatasize"; "10M"; dev])
+          )
         devices ;
       (* Create the VG on the first device *)
       ignore_string (run "vgcreate" [vg_name; d]) ;
@@ -91,7 +94,8 @@ let lvs vg_name =
          | _ ->
              debug "Couldn't parse the LV name/ size: [%s]" line ;
              failwith
-               (Printf.sprintf "Couldn't parse the LV name/ size: [%s]" line))
+               (Printf.sprintf "Couldn't parse the LV name/ size: [%s]" line)
+     )
 
 let device vg_name lv_name = Printf.sprintf "/dev/%s/%s" vg_name lv_name
 
@@ -132,7 +136,8 @@ let lvresize vg_name lv_name size =
       cur_mb size_mb_rounded size_mb ;
     ignore_string
       (Common.run ~stdin:"y\n" "lvresize"
-         [vg_name ^ "/" ^ lv_name; "-L"; Int64.to_string size_mb])
+         [vg_name ^ "/" ^ lv_name; "-L"; Int64.to_string size_mb]
+      )
   )
 
 let vgs () =
@@ -140,7 +145,8 @@ let vgs () =
   |> to_lines
   |> List.map (fun line ->
          List.hd
-           (List.filter (fun x -> x <> "") (Re_str.split_delim whitespace line)))
+           (List.filter (fun x -> x <> "") (Re_str.split_delim whitespace line))
+     )
 
 let dash = Re_str.regexp_string "-"
 

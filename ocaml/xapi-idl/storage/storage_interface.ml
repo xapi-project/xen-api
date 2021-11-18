@@ -230,7 +230,8 @@ let implementations_of_backend backend =
       | File file ->
           (xendisks, blockdevices, file :: files, nbds)
       | Nbd nbd ->
-          (xendisks, blockdevices, files, nbd :: nbds))
+          (xendisks, blockdevices, files, nbd :: nbds)
+      )
     ([], [], [], []) backend.implementations
 
 (** Uniquely identifies the contents of a VDI *)
@@ -429,7 +430,8 @@ let err =
       (fun e ->
         let exn = Storage_error e in
         error "%s (%s)" (Printexc.to_string exn) __LOC__ ;
-        raise exn)
+        raise exn
+        )
   ; matcher=
       (function
       | Storage_error e as exn ->
@@ -437,7 +439,8 @@ let err =
           Some e
       | exn ->
           error "%s (%s)" (Printexc.to_string exn) __LOC__ ;
-          Some (Internal_error (Printexc.to_string exn)))
+          Some (Internal_error (Printexc.to_string exn))
+      )
   }
 
 type query_result = {
@@ -1401,23 +1404,30 @@ module Server (Impl : Server_impl) () = struct
     S.Query.diagnostics (fun dbg -> Impl.Query.diagnostics () ~dbg) ;
     S.DP.create (fun dbg id -> Impl.DP.create () ~dbg ~id) ;
     S.DP.destroy (fun dbg dp allow_leak ->
-        Impl.DP.destroy () ~dbg ~dp ~allow_leak) ;
+        Impl.DP.destroy () ~dbg ~dp ~allow_leak
+    ) ;
     S.DP.attach_info (fun dbg sr vdi dp ->
-        Impl.DP.attach_info () ~dbg ~sr ~vdi ~dp) ;
+        Impl.DP.attach_info () ~dbg ~sr ~vdi ~dp
+    ) ;
     S.DP.diagnostics (fun () -> Impl.DP.diagnostics () ()) ;
     S.DP.stat_vdi (fun dbg sr vdi () -> Impl.DP.stat_vdi () ~dbg ~sr ~vdi ()) ;
     S.SR.create
       (fun dbg sr name_label name_description device_config physical_size ->
         Impl.SR.create () ~dbg ~sr ~name_label ~name_description ~device_config
-          ~physical_size) ;
+          ~physical_size
+    ) ;
     S.SR.set_name_label (fun dbg sr new_name_label ->
-        Impl.SR.set_name_label () ~dbg ~sr ~new_name_label) ;
+        Impl.SR.set_name_label () ~dbg ~sr ~new_name_label
+    ) ;
     S.SR.set_name_description (fun dbg sr new_name_description ->
-        Impl.SR.set_name_description () ~dbg ~sr ~new_name_description) ;
+        Impl.SR.set_name_description () ~dbg ~sr ~new_name_description
+    ) ;
     S.SR.probe (fun dbg queue device_config sm_config ->
-        Impl.SR.probe () ~dbg ~queue ~device_config ~sm_config) ;
+        Impl.SR.probe () ~dbg ~queue ~device_config ~sm_config
+    ) ;
     S.SR.attach (fun dbg sr device_config ->
-        Impl.SR.attach () ~dbg ~sr ~device_config) ;
+        Impl.SR.attach () ~dbg ~sr ~device_config
+    ) ;
     S.SR.detach (fun dbg sr -> Impl.SR.detach () ~dbg ~sr) ;
     S.SR.reset (fun dbg sr -> Impl.SR.reset () ~dbg ~sr) ;
     S.SR.destroy (fun dbg sr -> Impl.SR.destroy () ~dbg ~sr) ;
@@ -1425,88 +1435,116 @@ module Server (Impl : Server_impl) () = struct
     S.SR.update_snapshot_info_src
       (fun dbg sr vdi url dest dest_vdi snapshot_pairs ->
         Impl.SR.update_snapshot_info_src () ~dbg ~sr ~vdi ~url ~dest ~dest_vdi
-          ~snapshot_pairs) ;
+          ~snapshot_pairs
+    ) ;
     S.SR.update_snapshot_info_dest (fun dbg sr vdi src_vdi snapshot_pairs ->
         Impl.SR.update_snapshot_info_dest () ~dbg ~sr ~vdi ~src_vdi
-          ~snapshot_pairs) ;
+          ~snapshot_pairs
+    ) ;
     S.SR.stat (fun dbg sr -> Impl.SR.stat () ~dbg ~sr) ;
     S.SR.list (fun dbg -> Impl.SR.list () ~dbg) ;
     S.VDI.create (fun dbg sr vdi_info -> Impl.VDI.create () ~dbg ~sr ~vdi_info) ;
     S.VDI.set_name_label (fun dbg sr vdi new_name_label ->
-        Impl.VDI.set_name_label () ~dbg ~sr ~vdi ~new_name_label) ;
+        Impl.VDI.set_name_label () ~dbg ~sr ~vdi ~new_name_label
+    ) ;
     S.VDI.set_name_description (fun dbg sr vdi new_name_description ->
-        Impl.VDI.set_name_description () ~dbg ~sr ~vdi ~new_name_description) ;
+        Impl.VDI.set_name_description () ~dbg ~sr ~vdi ~new_name_description
+    ) ;
     S.VDI.snapshot (fun dbg sr vdi_info ->
-        Impl.VDI.snapshot () ~dbg ~sr ~vdi_info) ;
+        Impl.VDI.snapshot () ~dbg ~sr ~vdi_info
+    ) ;
     S.VDI.clone (fun dbg sr vdi_info -> Impl.VDI.clone () ~dbg ~sr ~vdi_info) ;
     S.VDI.resize (fun dbg sr vdi new_size ->
-        Impl.VDI.resize () ~dbg ~sr ~vdi ~new_size) ;
+        Impl.VDI.resize () ~dbg ~sr ~vdi ~new_size
+    ) ;
     S.VDI.destroy (fun dbg sr vdi -> Impl.VDI.destroy () ~dbg ~sr ~vdi) ;
     S.VDI.stat (fun dbg sr vdi -> Impl.VDI.stat () ~dbg ~sr ~vdi) ;
     S.VDI.introduce (fun dbg sr uuid sm_config location ->
-        Impl.VDI.introduce () ~dbg ~sr ~uuid ~sm_config ~location) ;
+        Impl.VDI.introduce () ~dbg ~sr ~uuid ~sm_config ~location
+    ) ;
     S.VDI.set_persistent (fun dbg sr vdi persistent ->
-        Impl.VDI.set_persistent () ~dbg ~sr ~vdi ~persistent) ;
+        Impl.VDI.set_persistent () ~dbg ~sr ~vdi ~persistent
+    ) ;
     S.VDI.epoch_begin (fun dbg sr vdi vm persistent ->
-        Impl.VDI.epoch_begin () ~dbg ~sr ~vdi ~vm ~persistent) ;
+        Impl.VDI.epoch_begin () ~dbg ~sr ~vdi ~vm ~persistent
+    ) ;
     S.VDI.attach (fun dbg dp sr vdi read_write ->
-        Impl.VDI.attach () ~dbg ~dp ~sr ~vdi ~read_write) ;
+        Impl.VDI.attach () ~dbg ~dp ~sr ~vdi ~read_write
+    ) ;
     S.VDI.attach2 (fun dbg dp sr vdi read_write ->
-        Impl.VDI.attach2 () ~dbg ~dp ~sr ~vdi ~read_write) ;
+        Impl.VDI.attach2 () ~dbg ~dp ~sr ~vdi ~read_write
+    ) ;
     S.VDI.attach3 (fun dbg dp sr vdi vm read_write ->
-        Impl.VDI.attach3 () ~dbg ~dp ~sr ~vdi ~vm ~read_write) ;
+        Impl.VDI.attach3 () ~dbg ~dp ~sr ~vdi ~vm ~read_write
+    ) ;
     S.VDI.activate (fun dbg dp sr vdi -> Impl.VDI.activate () ~dbg ~dp ~sr ~vdi) ;
     S.VDI.activate3 (fun dbg dp sr vdi vm ->
-        Impl.VDI.activate3 () ~dbg ~dp ~sr ~vdi ~vm) ;
+        Impl.VDI.activate3 () ~dbg ~dp ~sr ~vdi ~vm
+    ) ;
     S.VDI.deactivate (fun dbg dp sr vdi vm ->
-        Impl.VDI.deactivate () ~dbg ~dp ~sr ~vdi ~vm) ;
+        Impl.VDI.deactivate () ~dbg ~dp ~sr ~vdi ~vm
+    ) ;
     S.VDI.detach (fun dbg dp sr vdi vm ->
-        Impl.VDI.detach () ~dbg ~dp ~sr ~vdi ~vm) ;
+        Impl.VDI.detach () ~dbg ~dp ~sr ~vdi ~vm
+    ) ;
     S.VDI.epoch_end (fun dbg sr vdi vm ->
-        Impl.VDI.epoch_end () ~dbg ~sr ~vdi ~vm) ;
+        Impl.VDI.epoch_end () ~dbg ~sr ~vdi ~vm
+    ) ;
     S.VDI.get_url (fun dbg sr vdi -> Impl.VDI.get_url () ~dbg ~sr ~vdi) ;
     S.VDI.similar_content (fun dbg sr vdi ->
-        Impl.VDI.similar_content () ~dbg ~sr ~vdi) ;
-    S.VDI.get_by_name (fun dbg sr name ->
-        Impl.VDI.get_by_name () ~dbg ~sr ~name) ;
+        Impl.VDI.similar_content () ~dbg ~sr ~vdi
+    ) ;
+    S.VDI.get_by_name (fun dbg sr name -> Impl.VDI.get_by_name () ~dbg ~sr ~name) ;
     S.VDI.set_content_id (fun dbg sr vdi content_id ->
-        Impl.VDI.set_content_id () ~dbg ~sr ~vdi ~content_id) ;
+        Impl.VDI.set_content_id () ~dbg ~sr ~vdi ~content_id
+    ) ;
     S.VDI.compose (fun dbg sr vdi1 vdi2 ->
-        Impl.VDI.compose () ~dbg ~sr ~vdi1 ~vdi2) ;
+        Impl.VDI.compose () ~dbg ~sr ~vdi1 ~vdi2
+    ) ;
     S.VDI.add_to_sm_config (fun dbg sr vdi key value ->
-        Impl.VDI.add_to_sm_config () ~dbg ~sr ~vdi ~key ~value) ;
+        Impl.VDI.add_to_sm_config () ~dbg ~sr ~vdi ~key ~value
+    ) ;
     S.VDI.remove_from_sm_config (fun dbg sr vdi key ->
-        Impl.VDI.remove_from_sm_config () ~dbg ~sr ~vdi ~key) ;
+        Impl.VDI.remove_from_sm_config () ~dbg ~sr ~vdi ~key
+    ) ;
     S.VDI.enable_cbt (fun dbg sr vdi -> Impl.VDI.enable_cbt () ~dbg ~sr ~vdi) ;
     S.VDI.disable_cbt (fun dbg sr vdi -> Impl.VDI.disable_cbt () ~dbg ~sr ~vdi) ;
-    S.VDI.data_destroy (fun dbg sr vdi ->
-        Impl.VDI.data_destroy () ~dbg ~sr ~vdi) ;
+    S.VDI.data_destroy (fun dbg sr vdi -> Impl.VDI.data_destroy () ~dbg ~sr ~vdi) ;
     S.VDI.list_changed_blocks (fun dbg sr vdi_from vdi_to ->
-        Impl.VDI.list_changed_blocks () ~dbg ~sr ~vdi_from ~vdi_to) ;
+        Impl.VDI.list_changed_blocks () ~dbg ~sr ~vdi_from ~vdi_to
+    ) ;
     S.get_by_name (fun dbg name -> Impl.get_by_name () ~dbg ~name) ;
     S.DATA.copy_into (fun dbg sr vdi url dest dest_vdi ->
-        Impl.DATA.copy_into () ~dbg ~sr ~vdi ~url ~dest ~dest_vdi) ;
+        Impl.DATA.copy_into () ~dbg ~sr ~vdi ~url ~dest ~dest_vdi
+    ) ;
     S.DATA.copy (fun dbg sr vdi dp url dest ->
-        Impl.DATA.copy () ~dbg ~sr ~vdi ~dp ~url ~dest) ;
+        Impl.DATA.copy () ~dbg ~sr ~vdi ~dp ~url ~dest
+    ) ;
     S.DATA.MIRROR.start (fun dbg sr vdi dp url dest ->
-        Impl.DATA.MIRROR.start () ~dbg ~sr ~vdi ~dp ~url ~dest) ;
+        Impl.DATA.MIRROR.start () ~dbg ~sr ~vdi ~dp ~url ~dest
+    ) ;
     S.DATA.MIRROR.stop (fun dbg id -> Impl.DATA.MIRROR.stop () ~dbg ~id) ;
     S.DATA.MIRROR.stat (fun dbg id -> Impl.DATA.MIRROR.stat () ~dbg ~id) ;
     S.DATA.MIRROR.receive_start (fun dbg sr vdi_info id similar ->
-        Impl.DATA.MIRROR.receive_start () ~dbg ~sr ~vdi_info ~id ~similar) ;
+        Impl.DATA.MIRROR.receive_start () ~dbg ~sr ~vdi_info ~id ~similar
+    ) ;
     S.DATA.MIRROR.receive_cancel (fun dbg id ->
-        Impl.DATA.MIRROR.receive_cancel () ~dbg ~id) ;
+        Impl.DATA.MIRROR.receive_cancel () ~dbg ~id
+    ) ;
     S.DATA.MIRROR.receive_finalize (fun dbg id ->
-        Impl.DATA.MIRROR.receive_finalize () ~dbg ~id) ;
+        Impl.DATA.MIRROR.receive_finalize () ~dbg ~id
+    ) ;
     S.DATA.MIRROR.list (fun dbg -> Impl.DATA.MIRROR.list () ~dbg) ;
     S.Policy.get_backend_vm (fun dbg vm sr vdi ->
-        Impl.Policy.get_backend_vm () ~dbg ~vm ~sr ~vdi) ;
+        Impl.Policy.get_backend_vm () ~dbg ~vm ~sr ~vdi
+    ) ;
     S.TASK.stat (fun dbg task -> Impl.TASK.stat () ~dbg ~task) ;
     S.TASK.cancel (fun dbg task -> Impl.TASK.cancel () ~dbg ~task) ;
     S.TASK.destroy (fun dbg task -> Impl.TASK.destroy () ~dbg ~task) ;
     S.TASK.list (fun dbg -> Impl.TASK.list () ~dbg) ;
     S.UPDATES.get (fun dbg from timeout ->
-        Impl.UPDATES.get () ~dbg ~from ~timeout)
+        Impl.UPDATES.get () ~dbg ~from ~timeout
+    )
 
   (* Bind all *)
   let process call = Idl.Exn.server S.implementation call

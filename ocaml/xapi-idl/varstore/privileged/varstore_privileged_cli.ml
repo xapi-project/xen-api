@@ -33,14 +33,16 @@ let default_cmd =
   ( Cmdliner.Term.(ret (const (fun _ -> `Help (`Pager, None)) $ const ()))
   , Cmdliner.Term.info "varstore_cli"
       ~version:(version_str Cmds.description)
-      ~doc )
+      ~doc
+  )
 
 let cli () =
   match
     Cmdliner.Term.eval_choice default_cmd
       (List.map
          (fun t -> t Varstore_privileged_client.rpc)
-         (Cmds.implementation ()))
+         (Cmds.implementation ())
+      )
   with
   | `Ok f ->
       f ()

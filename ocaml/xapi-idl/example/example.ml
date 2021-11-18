@@ -55,19 +55,23 @@ let options =
     ( "socket-path"
     , Arg.Set_string socket_path
     , (fun () -> !socket_path)
-    , "Path of listening socket" )
+    , "Path of listening socket"
+    )
   ; ( "queue-name"
     , Arg.String (fun x -> queues := csv x)
     , (fun () -> String.concat "," !queues)
-    , "Comma-separated list of queue names to listen on" )
+    , "Comma-separated list of queue names to listen on"
+    )
   ; ( "default-format"
     , Arg.String set_default_format
     , get_default_format
-    , "Default format for disk files" )
+    , "Default format for disk files"
+    )
   ; ( "sr-mount-path"
     , Arg.Set_string mount_path
     , (fun () -> !mount_path)
-    , "Default mountpoint for mounting remote filesystems" )
+    , "Default mountpoint for mounting remote filesystems"
+    )
   ]
 
 let _ =

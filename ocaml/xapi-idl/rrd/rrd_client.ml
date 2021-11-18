@@ -32,6 +32,7 @@ let rpc call =
         json_switch_rpc !queue_name call
       else
         xml_http_rpc ~srcstr:(get_user_agent ()) ~dststr:"rrd" Rrd_interface.uri
-          call)
+          call
+  )
 
 module Client = RPC_API (Idl.Exn.GenClient (struct let rpc = rpc end))

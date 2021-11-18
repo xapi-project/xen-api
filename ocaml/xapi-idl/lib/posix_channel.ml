@@ -90,7 +90,8 @@ let proxy (a : Unix.file_descr) (b : Unix.file_descr) =
       List.iter
         (fun (buf, fd) ->
           if CBuf.end_of_reads buf then Unix.shutdown fd Unix.SHUTDOWN_SEND ;
-          if CBuf.end_of_writes buf then Unix.shutdown fd Unix.SHUTDOWN_RECEIVE)
+          if CBuf.end_of_writes buf then Unix.shutdown fd Unix.SHUTDOWN_RECEIVE
+          )
         [(a', b); (b', a)]
     done
   with _ -> (
@@ -172,19 +173,24 @@ let send proxy_socket =
                   proxy fd proxy_socket
                 ) else
                   assert false
-                (* can never happen *))
+                (* can never happen *)
+                )
               (fun () ->
                 List.iter close !to_close ;
-                List.iter Unix.unlink !to_unlink))
+                List.iter Unix.unlink !to_unlink
+                )
+            )
           (!to_close, !to_unlink)
       in
       (* Handover of listening sockets successful *)
       to_close := [] ;
       to_unlink := [] ;
-      protocols)
+      protocols
+      )
     (fun () ->
       List.iter Unix.close !to_close ;
-      List.iter Unix.unlink !to_unlink)
+      List.iter Unix.unlink !to_unlink
+      )
 
 let receive protocols =
   let open Xcp_channel_protocol in
@@ -211,10 +217,7 @@ let receive protocols =
       let addr = Unix.ADDR_INET (Unix.inet_addr_of_string unwrapped_ip, port) in
       let family = Unix.domain_of_sockaddr addr in
       let s = Unix.socket family Unix.SOCK_STREAM 0 in
-      try
-        Unix.connect s addr ;
-        s
-      with e -> Unix.close s ; raise e
+      try Unix.connect s addr ; s with e -> Unix.close s ; raise e
     )
   | Unix_sendmsg (_, path, token) ->
       let s = Unix.socket Unix.PF_UNIX Unix.SOCK_STREAM 0 in
@@ -226,5 +229,6 @@ let receive protocols =
           in
           let buf = Bytes.create (String.length token) in
           let _, _, fd = Fd_send_recv.recv_fd s buf 0 (Bytes.length buf) [] in
-          fd)
+          fd
+          )
         (fun () -> Unix.close s)

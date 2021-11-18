@@ -58,7 +58,8 @@ let success_task dbg id =
     | Error _ ->
         raise
           (Xenops_interface.Xenopsd_error
-             (Errors.Internal_error (Jsonrpc.to_string x)))
+             (Errors.Internal_error (Jsonrpc.to_string x))
+          )
   )
   | Task.Pending _ ->
       failwith "task pending"

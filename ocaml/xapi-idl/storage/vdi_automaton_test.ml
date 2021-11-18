@@ -29,8 +29,10 @@ let run () =
             Vdi_automaton.(
               Printf.sprintf "s = %s; op = %s; s + op = %s; s - (s + op) = %s"
                 (string_of_state s) (string_of_op op) (string_of_state s')
-                (String.concat ", " (List.map string_of_op op')))
-      with Vdi_automaton.Bad_transition (_, _) -> ())
+                (String.concat ", " (List.map string_of_op op'))
+            )
+      with Vdi_automaton.Bad_transition (_, _) -> ()
+      )
     (all_pairs Vdi_automaton.every_state Vdi_automaton.every_op) ;
   Printf.printf "Passed."
 

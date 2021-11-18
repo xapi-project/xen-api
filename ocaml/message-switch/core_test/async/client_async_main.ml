@@ -71,18 +71,22 @@ let _ =
     [
       ( "-path"
       , Arg.Set_string path
-      , Printf.sprintf "path broker listens on (default %s)" !path )
+      , Printf.sprintf "path broker listens on (default %s)" !path
+      )
     ; ( "-name"
       , Arg.Set_string name
-      , Printf.sprintf "name to send message to (default %s)" !name )
+      , Printf.sprintf "name to send message to (default %s)" !name
+      )
     ; ( "-payload"
       , Arg.Set_string payload
-      , Printf.sprintf "payload of message to send (default %s)" !payload )
+      , Printf.sprintf "payload of message to send (default %s)" !payload
+      )
     ; ( "-secs"
       , Arg.String (fun x -> timeout := Some (Float.of_string x))
       , Printf.sprintf
           "number of seconds to repeat the same message for (default %s)"
-          (match !timeout with None -> "None" | Some x -> Float.to_string x) )
+          (match !timeout with None -> "None" | Some x -> Float.to_string x)
+      )
     ]
     (fun x -> P.fprintf stderr "Ignoring unexpected argument: %s" x)
     "Send a message to a name, optionally waiting for a response" ;

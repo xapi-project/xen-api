@@ -88,7 +88,8 @@ let make_server config trace_config =
     Lwt.catch
       (fun () ->
         f fd >>= fun result ->
-        Lwt_unix.close fd >>= fun () -> return result)
+        Lwt_unix.close fd >>= fun () -> return result
+        )
       (fun e -> Lwt_unix.close fd >>= fun () -> fail e)
   in
   let save statedir qs =
@@ -100,7 +101,8 @@ let make_server config trace_config =
         let oc = Lwt_io.of_fd ~mode:Lwt_io.output fd in
         let n = String.length txt in
         Lwt_io.write_from_exactly oc (Bytes.unsafe_of_string txt) 0 n
-        >>= fun () -> Lwt_io.flush oc)
+        >>= fun () -> Lwt_io.flush oc
+    )
     >>= fun () -> Lwt_unix.rename temp_path final_path
   in
   let load statedir =
@@ -109,7 +111,8 @@ let make_server config trace_config =
     let txt = Bytes.make stats.Unix.st_size '\000' in
     with_file final_path [Unix.O_RDONLY] 0o600 (fun fd ->
         let ic = Lwt_io.of_fd ~mode:Lwt_io.input fd in
-        Lwt_io.read_into_exactly ic txt 0 stats.Unix.st_size)
+        Lwt_io.read_into_exactly ic txt 0 stats.Unix.st_size
+    )
     >>= fun () ->
     Bytes.unsafe_to_string txt
     |> Sexplib.Sexp.of_string
@@ -197,7 +200,8 @@ let make_server config trace_config =
                    fail (Failure "Failed to push to redo-log")
              )
          in
-         loop ops)
+         loop ops
+    )
     >>= fun () ->
     queues := queues' ;
     Lwt_condition.broadcast queues_c () ;
@@ -253,7 +257,8 @@ let make_server config trace_config =
             process_request conn_id_s !queues session request trace
             >>= fun (op_opt, response) ->
             let op = match op_opt with None -> [] | Some x -> [x] in
-            perform op >>= fun () -> return response)
+            perform op >>= fun () -> return response
+        )
         >>= fun response ->
         let status, body = Out.to_response response in
         debug "-> %s [%s]" (Cohttp.Code.string_of_status status) body ;
@@ -332,7 +337,8 @@ let main (Config.{pidfile; _} as config) trace_config =
           Lwt_io.with_file ~flags:[Unix.O_WRONLY; Unix.O_CREAT]
             ~perm:0o0644 ~mode:Lwt_io.output x (fun oc ->
               Lwt_io.write oc (Printf.sprintf "%d" (Unix.getpid ()))
-              >>= fun () -> Lwt_io.flush oc)
+              >>= fun () -> Lwt_io.flush oc
+          )
     in
     Lwt_main.run (make_server config trace_config) ;
     `Ok ()
@@ -356,6 +362,7 @@ let cmd =
     ]
   in
   ( Term.(ret (pure main $ Config.term $ Traceext.term))
-  , Term.info "main" ~doc ~man )
+  , Term.info "main" ~doc ~man
+  )
 
 let _ = match Term.eval cmd with `Error _ -> exit 1 | _ -> exit 0

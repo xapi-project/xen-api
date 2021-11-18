@@ -91,7 +91,8 @@ let gpu_err =
           log_backtrace () ;
           let exn = Gpumon_error e in
           error "%s (%s)" (Printexc.to_string exn) __LOC__ ;
-          raise exn)
+          raise exn
+          )
     ; matcher=
         (function
         | Gpumon_error e as exn ->
@@ -99,8 +100,10 @@ let gpu_err =
             Some e
         | exn ->
             error "%s (%s)" (Printexc.to_string exn) __LOC__ ;
-            Some (Internal_error (Printexc.to_string exn)))
+            Some (Internal_error (Printexc.to_string exn))
+        )
     }
+  
 
 (** Functor to autogenerate API calls *)
 module RPC_API (R : RPC) = struct
@@ -120,6 +123,7 @@ module RPC_API (R : RPC) = struct
           ]
       ; version= (1, 0, 0)
       }
+    
 
   let implementation = implement description
 

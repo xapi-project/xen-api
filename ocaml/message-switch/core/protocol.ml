@@ -106,7 +106,9 @@ module In = struct
              , {
                  Message.kind= Message.Request (Uri.pct_decode reply_to)
                ; payload= body
-               } ))
+               }
+             )
+          )
     | body, `POST, [""; "response"; name; from_q; from_n] ->
         Some
           (Send
@@ -114,7 +116,9 @@ module In = struct
              , {
                  Message.kind= Message.Response (from_q, Int64.of_string from_n)
                ; payload= body
-               } ))
+               }
+             )
+          )
     | "", `POST, [""; "shutdown"] ->
         Some Shutdown
     | _, _, _ ->
@@ -154,11 +158,13 @@ module In = struct
     | Send (name, {Message.kind= Message.Request r; payload= p}) ->
         ( Some p
         , `POST
-        , Uri.make ~path:(Printf.sprintf "/request/%s/%s" name r) () )
+        , Uri.make ~path:(Printf.sprintf "/request/%s/%s" name r) ()
+        )
     | Send (name, {Message.kind= Message.Response (q, i); payload= p}) ->
         ( Some p
         , `POST
-        , Uri.make ~path:(Printf.sprintf "/response/%s/%s/%Ld" name q i) () )
+        , Uri.make ~path:(Printf.sprintf "/response/%s/%s/%Ld" name q i) ()
+        )
     | Diagnostics ->
         (None, `GET, Uri.make ~path:"/" ())
     | Shutdown ->
@@ -166,7 +172,8 @@ module In = struct
     | Get path ->
         ( None
         , `GET
-        , Uri.make ~path:(String.concat "/" ("" :: "admin" :: path)) () )
+        , Uri.make ~path:(String.concat "/" ("" :: "admin" :: path)) ()
+        )
 end
 
 (** identifies where a message came from *)

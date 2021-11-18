@@ -90,7 +90,8 @@ let err =
           log_backtrace () ;
           let exn = MemoryError e in
           error "%s (%s)" (Printexc.to_string exn) __LOC__ ;
-          raise exn)
+          raise exn
+          )
     ; matcher=
         (function
         | MemoryError e as exn ->
@@ -98,8 +99,10 @@ let err =
             Some e
         | exn ->
             error "%s (%s)" (Printexc.to_string exn) __LOC__ ;
-            Some (Internal_error (Printexc.to_string exn)))
+            Some (Internal_error (Printexc.to_string exn))
+        )
     }
+  
 
 (** An uninterpreted string associated with the operation. *)
 type debug_info = string [@@deriving rpcty]
@@ -125,6 +128,7 @@ module API (R : RPC) = struct
           ]
       ; version= (1, 0, 0)
       }
+    
 
   let implementation = implement description
 

@@ -18,7 +18,8 @@ let default_cmd =
   ( Cmdliner.Term.(ret (const (fun _ -> `Help (`Pager, None)) $ const ()))
   , Cmdliner.Term.info "licensing_cli"
       ~version:(version_str Cmds.description)
-      ~doc )
+      ~doc
+  )
 
 let cli () =
   let rpc = V6_client.rpc in

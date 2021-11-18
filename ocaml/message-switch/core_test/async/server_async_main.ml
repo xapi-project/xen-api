@@ -43,10 +43,12 @@ let _ =
     [
       ( "-path"
       , Arg.Set_string path
-      , Printf.sprintf "path broker listens on (default %s)" !path )
+      , Printf.sprintf "path broker listens on (default %s)" !path
+      )
     ; ( "-name"
       , Arg.Set_string name
-      , Printf.sprintf "name to send message to (default %s)" !name )
+      , Printf.sprintf "name to send message to (default %s)" !name
+      )
     ]
     (fun x -> P.fprintf stderr "Ignoring unexpected argument: %s" x)
     "Respond to RPCs on a name" ;

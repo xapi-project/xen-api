@@ -19,7 +19,8 @@ let default_cmd =
   ( Cmdliner.Term.(ret (const (fun _ -> `Help (`Pager, None)) $ const ()))
   , Cmdliner.Term.info "cluster_cli"
       ~version:(version_str Cmds.description)
-      ~doc )
+      ~doc
+  )
 
 let cli () =
   let rpc = Cluster_client.rpc_internal Cluster_client.json_url in

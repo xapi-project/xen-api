@@ -116,7 +116,8 @@ functor
 
     let set_cancel_trigger tasks dbg n =
       Mutex.execute tasks.m (fun () ->
-          tasks.test_cancel_trigger <- Some (dbg, n))
+          tasks.test_cancel_trigger <- Some (dbg, n)
+      )
 
     let clear_cancel_trigger tasks =
       Mutex.execute tasks.m (fun () -> tasks.test_cancel_trigger <- None)
@@ -151,7 +152,8 @@ functor
         }
       in
       Mutex.execute tasks.m (fun () ->
-          tasks.task_map := SMap.add t.id t !(tasks.task_map)) ;
+          tasks.task_map := SMap.add t.id t !(tasks.task_map)
+      ) ;
       t
 
     (* [run t] executes the task body, updating the fields of [t] *)
@@ -216,14 +218,16 @@ functor
 
     let list tasks =
       Mutex.execute tasks.m (fun () ->
-          SMap.bindings !(tasks.task_map) |> List.map snd)
+          SMap.bindings !(tasks.task_map) |> List.map snd
+      )
 
     (* Remove the task from the id -> task mapping. NB any active thread will
        still continue. *)
     let destroy task =
       let tasks = task.tasks in
       Mutex.execute tasks.m (fun () ->
-          tasks.task_map := SMap.remove task.id !(tasks.task_map))
+          tasks.task_map := SMap.remove task.id !(tasks.task_map)
+      )
 
     let cancel task =
       let callbacks =
@@ -234,14 +238,16 @@ functor
             ) else (
               task.cancelling <- true ;
               task.cancel
-            ))
+            )
+        )
       in
       List.iter
         (fun f ->
           try f ()
           with e ->
             debug "Task.cancel %s: ignore exception %s" task.id
-              (Printexc.to_string e))
+              (Printexc.to_string e)
+          )
         callbacks
 
     let raise_cancelled task =
@@ -258,7 +264,8 @@ functor
               "Task %s has been triggered by the test-case (cancel_point = %d)"
               task.id task.cancel_points_seen ;
             raise_cancelled task
-          ))
+          )
+          )
         task.test_cancel_at
 
     let check_cancelling t =
@@ -275,7 +282,8 @@ functor
                 debug "Task.cancel %s: ignore exception %s" t.id
                   (Printexc.to_string e)
             ) ;
-            raise e) ;
+            raise e
+      ) ;
       finally
         (fun () -> check_cancelling t ; f ())
         (fun () -> Mutex.execute t.tm (fun () -> t.cancel <- List.tl t.cancel))
@@ -285,5 +293,6 @@ functor
           (* If task is cancelling, just cancel it before setting it to not
              cancellable *)
           check_cancelling_locked task ;
-          task.cancellable <- false)
+          task.cancellable <- false
+      )
   end

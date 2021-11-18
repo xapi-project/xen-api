@@ -79,7 +79,8 @@ let snapshot queues =
       (fun acc (n, q) ->
         let queue_contents = Q.contents q in
         let next_transfer_expected = get_next_transfer_expected n in
-        (n, {queue_contents; next_transfer_expected}) :: acc)
+        (n, {queue_contents; next_transfer_expected}) :: acc
+        )
       []
   in
   let all_queues =
@@ -128,7 +129,8 @@ let process_request conn_id queues session request trace =
         , Out.List
             (Q.Directory.list queues prefix
             |> List.filter (fun n -> get_next_transfer_expected n <> None)
-            ) )
+            )
+        )
   | Some _session, In.CreatePersistent name ->
       return (Some (Q.Directory.add queues name), Out.Create name)
   | Some session, In.CreateTransient name ->
@@ -145,7 +147,8 @@ let process_request conn_id queues session request trace =
           ; output= None
           ; message= Ack (name, id)
           ; processing_time= None
-          } ;
+          }
+         ;
       return (Some (Q.ack queues (name, id)), Out.Ack)
   | Some session, In.Transfer {In.from; timeout; queues= names} ->
       let time = Int64.add (ns ()) (Int64.of_float (timeout *. 1e9)) in
@@ -157,9 +160,7 @@ let process_request conn_id queues session request trace =
         | [] ->
             from
         | x :: xs ->
-            List.fold_left max
-              (snd (fst x))
-              (List.map (fun x -> snd (fst x)) xs)
+            List.fold_left max (snd (fst x)) (List.map (fun x -> snd (fst x)) xs)
       in
       let transfer = {Out.messages; next= Int64.to_string next} in
       List.iter
@@ -186,7 +187,9 @@ let process_request conn_id queues session request trace =
               ; output= Some session
               ; message= Message (id, m)
               ; processing_time
-              })
+              }
+            
+          )
         transfer.Out.messages ;
       return (None, Out.Transfer transfer)
   | Some session, In.Send (name, data) -> (
@@ -204,7 +207,8 @@ let process_request conn_id queues session request trace =
               ; output= None
               ; message= Message (id, data)
               ; processing_time= None
-              } ;
+              }
+             ;
           return (Some op, Out.Send (Some id))
     )
   | Some _session, In.Shutdown ->

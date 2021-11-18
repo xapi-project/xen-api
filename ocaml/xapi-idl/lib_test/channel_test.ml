@@ -23,7 +23,8 @@ let dup_sendmsg x =
   let proto =
     List.find
       (function
-        | Xcp_channel_protocol.Unix_sendmsg (_, _, _) -> true | _ -> false)
+        | Xcp_channel_protocol.Unix_sendmsg (_, _, _) -> true | _ -> false
+        )
       protos
   in
   Posix_channel.receive [proto]
@@ -45,7 +46,8 @@ let dup_proxy x =
   let proto =
     List.find
       (function
-        | Xcp_channel_protocol.TCP_proxy (_ip, _port) -> true | _ -> false)
+        | Xcp_channel_protocol.TCP_proxy (_ip, _port) -> true | _ -> false
+        )
       protos
   in
   Posix_channel.receive [proto]
@@ -68,7 +70,8 @@ let tests =
   [
     ( "check_for_leak with automatic selection"
     , `Quick
-    , check_for_leak dup_automatic )
+    , check_for_leak dup_automatic
+    )
   ; ("check_for_leak with sendmsg", `Quick, check_for_leak dup_sendmsg)
   ; ("check_for_leak_proxy", `Quick, check_for_leak_proxy)
   ]

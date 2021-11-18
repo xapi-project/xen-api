@@ -58,7 +58,8 @@ module Bisect = struct
     let (_ : Thread.t) =
       Thread.create
         (Message_switch_unix.Protocol_unix.Server.listen ~process
-           ~switch:!Xcp_client.switch_path ~queue:queue_name)
+           ~switch:!Xcp_client.switch_path ~queue:queue_name
+        )
         ()
     in
     D.debug "Started coverage API thread on %s" queue_name ;
@@ -104,7 +105,8 @@ module Dispatcher = struct
                   org.xen.xapi.coverage.dispatch --timeout 60 --body 'dump
                   {jobid}') /tmp/coverage/ *)
             String.concat " "
-            |> ok)
+            |> ok
+            )
       |> Client.error_to_msg
       |> string_of_result
     in
@@ -116,7 +118,8 @@ module Dispatcher = struct
     let (_ : Thread.t) =
       Thread.create
         (Message_switch_unix.Protocol_unix.Server.listen ~process
-           ~switch:!Xcp_client.switch_path ~queue:self)
+           ~switch:!Xcp_client.switch_path ~queue:self
+        )
         ()
     in
     D.debug "Started coverage API dispatcher on %s" self ;

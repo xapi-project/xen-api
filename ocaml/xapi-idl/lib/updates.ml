@@ -52,15 +52,18 @@ functor
 
         let add x t =
           ( {map= M.add x t.next t.map; barriers= t.barriers; next= t.next + 1}
-          , t.next + 1 )
+          , t.next + 1
+          )
 
         let remove x t =
           ( {map= M.remove x t.map; barriers= t.barriers; next= t.next + 1}
-          , t.next + 1 )
+          , t.next + 1
+          )
 
         let filter f t =
           ( {map= M.filter f t.map; barriers= t.barriers; next= t.next + 1}
-          , t.next + 1 )
+          , t.next + 1
+          )
 
         let inject_barrier id filterfn t =
           ( {
@@ -70,7 +73,8 @@ functor
                 :: t.barriers
             ; next= t.next + 1
             }
-          , t.next + 1 )
+          , t.next + 1
+          )
 
         let remove_barrier id t =
           ( {
@@ -78,7 +82,8 @@ functor
             ; barriers= List.filter (fun br -> br.bar_id <> id) t.barriers
             ; next= t.next + 1
             }
-          , t.next + 1 )
+          , t.next + 1
+          )
 
         let get from t =
           (* [from] is the id of the most recent event already seen *)
@@ -150,12 +155,14 @@ functor
       let cancel_fn () =
         Mutex.execute t.m (fun () ->
             cancel := true ;
-            Condition.broadcast t.c)
+            Condition.broadcast t.c
+        )
       in
       let id =
         Option.map
           (fun timeout ->
-            Scheduler.one_shot t.s (Scheduler.Delta timeout) dbg cancel_fn)
+            Scheduler.one_shot t.s (Scheduler.Delta timeout) dbg cancel_fn
+            )
           timeout
       in
       with_cancel cancel_fn (fun () ->
@@ -170,8 +177,11 @@ functor
                     ) else
                       result
                   in
-                  wait ()))
-            (fun () -> Option.iter (Scheduler.cancel t.s) id))
+                  wait ()
+              )
+              )
+            (fun () -> Option.iter (Scheduler.cancel t.s) id)
+      )
 
     let last_id _dbg t = Mutex.execute t.m (fun () -> U.last_id t.u)
 
@@ -179,31 +189,36 @@ functor
       Mutex.execute t.m (fun () ->
           let result, _id = U.add x t.u in
           t.u <- result ;
-          Condition.broadcast t.c)
+          Condition.broadcast t.c
+      )
 
     let remove x t =
       Mutex.execute t.m (fun () ->
           let result, _id = U.remove x t.u in
           t.u <- result ;
-          Condition.broadcast t.c)
+          Condition.broadcast t.c
+      )
 
     let filter f t =
       Mutex.execute t.m (fun () ->
           let result, _id = U.filter (fun x _y -> f x) t.u in
           t.u <- result ;
-          Condition.broadcast t.c)
+          Condition.broadcast t.c
+      )
 
     let inject_barrier id filter t =
       Mutex.execute t.m (fun () ->
           let result, _id = U.inject_barrier id filter t.u in
           t.u <- result ;
-          Condition.broadcast t.c)
+          Condition.broadcast t.c
+      )
 
     let remove_barrier id t =
       Mutex.execute t.m (fun () ->
           let result, _id = U.remove_barrier id t.u in
           t.u <- result ;
-          Condition.broadcast t.c)
+          Condition.broadcast t.c
+      )
 
     module Dump = struct
       type u = {id: int; v: string} [@@deriving rpc]
@@ -220,7 +235,8 @@ functor
         U.M.fold
           (fun key v acc ->
             {id= v; v= key |> Interface.Dynamic.rpc_of_id |> Jsonrpc.to_string}
-            :: acc)
+            :: acc
+            )
           updates []
 
       let make_raw u =

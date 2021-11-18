@@ -116,7 +116,8 @@ let test_clone sr n () =
       let x = Client.VDI.clone dbg sr vdi in
       Client.VDI.destroy dbg sr x.vdi ;
       assert (List.mem_assoc "type" x.sm_config) ;
-      assert (List.assoc "type" x.sm_config <> "raw"))
+      assert (List.assoc "type" x.sm_config <> "raw")
+      )
     [true; false] ;
   destroy sr vdi
 
@@ -129,7 +130,8 @@ let test_clone_attach sr n () =
       let vdis' = Client.SR.scan dbg sr in
       attach_activate_deactivate_detach sr x read_write ;
       Client.VDI.destroy dbg sr x.vdi ;
-      assert (List.length vdis + 1 = List.length vdis'))
+      assert (List.length vdis + 1 = List.length vdis')
+      )
     [true; false] ;
   destroy sr vdi
 
@@ -142,28 +144,33 @@ let test_resize sr n () =
 
 let vdi_create_destroy sr =
   ( "vdi_create_destroy"
-  , List.map (fun n -> ("name " ^ n, `Quick, test_create_destroy sr n)) names )
+  , List.map (fun n -> ("name " ^ n, `Quick, test_create_destroy sr n)) names
+  )
 
 let vdi_attach_detach sr =
   ( "vdi_attach_detach"
-  , List.map (fun n -> ("name " ^ n, `Quick, test_attach_detach sr n)) names )
+  , List.map (fun n -> ("name " ^ n, `Quick, test_attach_detach sr n)) names
+  )
 
 let vdi_activate_deactivate sr =
   ( "vdi_activate_deactivate"
   , List.map
       (fun n -> ("name " ^ n, `Quick, test_activate_deactivate sr n))
-      names )
+      names
+  )
 
 let vdi_clone sr =
   ("vdi_clone", List.map (fun n -> ("name " ^ n, `Quick, test_clone sr n)) names)
 
 let vdi_clone_attach sr =
   ( "vdi_clone_attach"
-  , List.map (fun n -> ("name " ^ n, `Quick, test_clone_attach sr n)) names )
+  , List.map (fun n -> ("name " ^ n, `Quick, test_clone_attach sr n)) names
+  )
 
 let vdi_resize sr =
   ( "vdi_resize"
-  , List.map (fun n -> ("name " ^ n, `Quick, test_resize sr n)) names )
+  , List.map (fun n -> ("name " ^ n, `Quick, test_resize sr n)) names
+  )
 
 open Cmdliner
 
@@ -181,8 +188,10 @@ let start _verbose queue sr =
               Some
                 ( String.sub s 0 i
                 , Int64.of_string
-                    (String.sub s (i + 1) (String.length s - i - 1)) )
-            with _ -> Some (s, 1L))
+                    (String.sub s (i + 1) (String.length s - i - 1))
+                )
+            with _ -> Some (s, 1L)
+            )
           q.features
       in
       let features =

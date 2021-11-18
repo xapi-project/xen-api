@@ -36,7 +36,8 @@ functor
           | Some body ->
               Request.write_body writer body
           | None ->
-              return ())
+              return ()
+          )
         req oc
       >>= fun () ->
       Response.read ic >>= function
@@ -124,8 +125,7 @@ functor
       ; reply_queue_name: string
     }
 
-    let ( >>|= ) m f =
-      m >>= function Ok x -> f x | Error y -> return (Error y)
+    let ( >>|= ) m f = m >>= function Ok x -> f x | Error y -> return (Error y)
 
     let rec iter_s f = function
       | [] ->
@@ -172,7 +172,8 @@ functor
                   reconnect () >>|= fun (requests_conn, events_conn) ->
                   t.requests_conn <- requests_conn ;
                   t.events_conn <- events_conn ;
-                  return (Ok ()))
+                  return (Ok ())
+              )
               >>|= fun () -> loop from
           | Ok raw -> (
               let transfer = Out.transfer_of_rpc (Jsonrpc.of_string raw) in
@@ -190,8 +191,7 @@ functor
                                   Connection.rpc events_conn (In.Ack i)
                                   >>= function
                                   | Ok (_ : string) ->
-                                      M.Ivar.fill (Hashtbl.find wakener j)
-                                        (Ok m) ;
+                                      M.Ivar.fill (Hashtbl.find wakener j) (Ok m) ;
                                       return (Ok ())
                                   | Error _ ->
                                       reconnect ()
@@ -208,12 +208,15 @@ functor
                                   (fun k _v ->
                                     Printf.printf
                                       "  have wakener id %s, %Ld\n%!" (fst k)
-                                      (snd k))
+                                      (snd k)
+                                    )
                                   wakener ;
                                 return (Ok ())
                               )
                           | Message.Request _ ->
-                              return (Ok ())))
+                              return (Ok ())
+                      )
+                      )
                     transfer.Out.messages
                   >>|= fun () -> loop (Some transfer.Out.next)
             )
@@ -228,7 +231,9 @@ functor
         Option.map
           (fun timeout ->
             M.Clock.run_after timeout (fun () ->
-                M.Ivar.fill ivar (Error (`Message_switch `Timeout))))
+                M.Ivar.fill ivar (Error (`Message_switch `Timeout))
+            )
+            )
           timeout
       in
       let msg =
@@ -249,7 +254,8 @@ functor
               | Some mid ->
                   Hashtbl.add t.wakener mid ivar ;
                   return (Ok mid)
-            ))
+            )
+        )
         >>= function
         | Ok mid ->
             return (Ok mid)
@@ -342,8 +348,7 @@ functor
       M.Ivar.fill t.request_shutdown () ;
       M.Ivar.read t.on_shutdown
 
-    let ( >>|= ) m f =
-      m >>= function Ok x -> f x | Error y -> return (Error y)
+    let ( >>|= ) m f = m >>= function Ok x -> f x | Error y -> return (Error y)
 
     let listen ~process ~switch:port ~queue:name () =
       let token = Printf.sprintf "%d" (Unix.getpid ()) in
@@ -386,13 +391,15 @@ functor
                               , {
                                   Message.kind= Message.Response i
                                 ; payload= response
-                                } )
+                                }
+                              )
                           in
                           Connection.rpc c request >>= fun _ -> return ()
                       )
                       >>= fun () ->
                       let request = In.Ack i in
-                      Connection.rpc c request >>= fun _ -> return ())
+                      Connection.rpc c request >>= fun _ -> return ()
+                      )
                     transfer.Out.messages
                   >>= fun () -> loop c (Some transfer.Out.next)
             )

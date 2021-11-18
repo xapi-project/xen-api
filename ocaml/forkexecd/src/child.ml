@@ -117,8 +117,7 @@ let report_child_exit comms_sock args child_pid status =
         Fe.WSIGNALED n
     | Unix.WSTOPPED n ->
         log_failure args child_pid
-          (Printf.sprintf "stopped with signal: %s"
-             (Unixext.string_of_signal n)) ;
+          (Printf.sprintf "stopped with signal: %s" (Unixext.string_of_signal n)) ;
         Fe.WSTOPPED n
   in
   let result = Fe.Finished pr in
@@ -174,14 +173,16 @@ let run state comms_sock fd_sock fd_sock_path =
             let id_received, fd =
               List.find
                 (fun (id_received, _fd) ->
-                  Astring.String.is_suffix ~affix:id_received arg)
+                  Astring.String.is_suffix ~affix:id_received arg
+                  )
                 state.ids_received
             in
             let stem =
               String.sub arg 0 (String.length arg - String.length id_received)
             in
             stem ^ string_of_int (Fd_send_recv.int_of_fd fd)
-          with _ -> arg)
+          with _ -> arg
+          )
         state.cmdargs
     in
 
@@ -192,7 +193,8 @@ let run state comms_sock fd_sock fd_sock_path =
 
     debug "I've received the following fds: [%s]\n"
       (String.concat ";"
-         (List.map (fun fd -> string_of_int (Fd_send_recv.int_of_fd fd)) fds)) ;
+         (List.map (fun fd -> string_of_int (Fd_send_recv.int_of_fd fd)) fds)
+      ) ;
 
     let in_childlogging = ref None in
     let out_childlogging = ref None in
@@ -259,7 +261,8 @@ let run state comms_sock fd_sock fd_sock_path =
           (* Read from the child's stdout and write each one to syslog *)
           Xapi_stdext_unix.Unixext.lines_iter
             (fun line -> Fe_debug.info "%s[%d]: %s" key result line)
-            (Unix.in_channel_of_descr in_fd))
+            (Unix.in_channel_of_descr in_fd)
+          )
         !in_childlogging ;
 
       (* At this point either:
@@ -284,7 +287,8 @@ let run state comms_sock fd_sock fd_sock_path =
              			 * handler to catch it exiting. *)
           Sys.set_signal Sys.sigchld
             (Sys.Signal_handle
-               (fun signum -> handle_sigchld comms_sock args result signum)) ;
+               (fun signum -> handle_sigchld comms_sock args result signum)
+            ) ;
 
           (* Unblock SIGCHLD so that the handler comes into effect. *)
           let (_ : int list) =

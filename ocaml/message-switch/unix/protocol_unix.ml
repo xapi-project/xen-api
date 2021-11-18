@@ -121,14 +121,16 @@ module IO = struct
     let fill r x =
       with_lock r.m (fun () ->
           r.v <- Some x ;
-          Condition.signal r.c)
+          Condition.signal r.c
+      )
 
     let read r =
       with_lock r.m (fun () ->
           while r.v = None do
             Condition.wait r.c r.m
           done ;
-          match r.v with Some x -> x | None -> assert false)
+          match r.v with Some x -> x | None -> assert false
+      )
   end
 
   module Mutex = struct
@@ -151,7 +153,8 @@ module IO = struct
           if not !started then (
             Protocol_unix_scheduler.start () ;
             started := true
-          )) ;
+          )
+      ) ;
       Protocol_unix_scheduler.(one_shot (Delta timeout) "rpc" f)
 
     let cancel = Protocol_unix_scheduler.cancel
@@ -239,7 +242,8 @@ module Client = struct
     ; requests_m: IO.Mutex.t
     ; wakener:
         ( Message_switch_core.Protocol.message_id
-        , Message_switch_core.Protocol.Message.t result IO.Ivar.t )
+        , Message_switch_core.Protocol.Message.t result IO.Ivar.t
+        )
         Hashtbl.t
     ; reply_queue_name: string
   }
@@ -302,7 +306,9 @@ module Client = struct
                                 Ok ()
                               )
                           | Message.Request _ ->
-                              Ok ()))
+                              Ok ()
+                      )
+                  )
                 (Ok ()) transfer.Out.messages
             with
             | Ok () ->
@@ -335,7 +341,8 @@ module Client = struct
           | None ->
               connect switch >>|= fun c' ->
               c := Some c' ;
-              Ok c')
+              Ok c'
+      )
 
   let rpc ~t:c ~queue:dest_queue_name ?timeout ~body:x () =
     let t = IO.Ivar.create () in
@@ -343,7 +350,9 @@ module Client = struct
       Option.map
         (fun timeout ->
           IO.Clock.run_after timeout (fun () ->
-              IO.Ivar.fill t (Error (`Message_switch `Timeout))))
+              IO.Ivar.fill t (Error (`Message_switch `Timeout))
+          )
+          )
         timeout
     in
     let rec loop () =
@@ -363,7 +372,8 @@ module Client = struct
                 Error (`Message_switch (`Queue_deleted dest_queue_name))
             | Some mid ->
                 Hashtbl.add c.wakener mid t ;
-                Ok mid)
+                Ok mid
+        )
       with
       | Ok x ->
           Ok x
@@ -386,33 +396,39 @@ module Client = struct
   let list ~t:c ~prefix ?(filter = `All) () =
     IO.Mutex.with_lock c.requests_m (fun () ->
         do_rpc c.requests_conn (In.List (prefix, filter)) >>|= fun result ->
-        Ok (Out.string_list_of_rpc (Jsonrpc.of_string result)))
+        Ok (Out.string_list_of_rpc (Jsonrpc.of_string result))
+    )
 
   let ack ~t:c ~message:(name, id) () =
     IO.Mutex.with_lock c.requests_m (fun () ->
         do_rpc c.requests_conn (In.Ack (name, id)) >>|= fun (_ : string) ->
-        Ok ())
+        Ok ()
+    )
 
   let diagnostics ~t:c () =
     IO.Mutex.with_lock c.requests_m (fun () ->
         do_rpc c.requests_conn In.Diagnostics >>|= fun (result : string) ->
-        Ok (Diagnostics.t_of_rpc (Jsonrpc.of_string result)))
+        Ok (Diagnostics.t_of_rpc (Jsonrpc.of_string result))
+    )
 
   let trace ~t:c ?(from = 0L) ?(timeout = 0.) () =
     IO.Mutex.with_lock c.requests_m (fun () ->
         do_rpc c.requests_conn (In.Trace (from, timeout))
         >>|= fun (result : string) ->
-        Ok (Out.trace_of_rpc (Jsonrpc.of_string result)))
+        Ok (Out.trace_of_rpc (Jsonrpc.of_string result))
+    )
 
   let shutdown ~t:c () =
     IO.Mutex.with_lock c.requests_m (fun () ->
         do_rpc c.requests_conn In.Shutdown >>|= fun (_ : string) ->
-        IO.IO.return (Ok ()))
+        IO.IO.return (Ok ())
+    )
 
   let destroy ~t ~queue:queue_name () =
     IO.Mutex.with_lock t.requests_m (fun () ->
         do_rpc t.requests_conn (In.Destroy queue_name) >>|= fun (_ : string) ->
-        IO.IO.return (Ok ()))
+        IO.IO.return (Ok ())
+    )
 end
 
 module Server = struct
@@ -474,7 +490,8 @@ module Server = struct
           IO.Mutex.with_lock mutex (fun () ->
               IO.disconnect request_conn ;
               IO.disconnect reply_conn ;
-              reconnect ())
+              reconnect ()
+          )
           >>|= fun connections -> loop connections from
       | Ok raw -> (
           let transfer = Out.transfer_of_rpc (Jsonrpc.of_string raw) in
@@ -503,20 +520,25 @@ module Server = struct
                                 , {
                                     Message.kind= Message.Response i
                                   ; payload= response
-                                  } )
+                                  }
+                                )
                             in
                             IO.Mutex.with_lock mutex (fun () ->
-                                do_rpc reply_conn request)
+                                do_rpc reply_conn request
+                            )
                             >>= fun _ -> return ()
                         )
                         >>= fun () ->
                         let request = In.Ack i in
                         IO.Mutex.with_lock mutex (fun () ->
-                            do_rpc reply_conn request)
-                        >>= fun _ -> ())
+                            do_rpc reply_conn request
+                        )
+                        >>= fun _ -> ()
+                        )
                       ()
                   in
-                  ())
+                  ()
+                  )
                 transfer.Out.messages ;
               loop connections (Some transfer.Out.next)
         )

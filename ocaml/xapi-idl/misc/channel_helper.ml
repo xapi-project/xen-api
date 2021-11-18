@@ -29,7 +29,8 @@ let proxy a b =
       (fun _e ->
         (try Lwt_unix.shutdown src Lwt_unix.SHUTDOWN_RECEIVE with _ -> ()) ;
         (try Lwt_unix.shutdown dst Lwt_unix.SHUTDOWN_SEND with _ -> ()) ;
-        return ())
+        return ()
+        )
   in
   let ts = [copy "ab" a b; copy "ba" b a] in
   Lwt.join ts
@@ -91,8 +92,7 @@ let advertise_t _common_options_t proxy_socket =
   let family = Unix.domain_of_sockaddr addr in
   let s_ip = Lwt_unix.socket family Lwt_unix.SOCK_STREAM 0 in
   (* INET socket, can't block *)
-  Lwt_unix.bind s_ip addr
-  >>= fun () ->
+  Lwt_unix.bind s_ip addr >>= fun () ->
   Lwt_unix.listen s_ip 5 ;
   let port =
     match Lwt_unix.getsockname s_ip with
@@ -112,7 +112,8 @@ let advertise_t _common_options_t proxy_socket =
   Lwt_unix.bind s_unix (Lwt_unix.ADDR_UNIX path) >>= fun () ->
   List.iter
     (fun signal ->
-      ignore (Lwt_unix.on_signal signal (fun _ -> Unix.unlink path ; exit 1)))
+      ignore (Lwt_unix.on_signal signal (fun _ -> Unix.unlink path ; exit 1))
+      )
     [Sys.sigterm; Sys.sigint] ;
   Lwt_unix.listen s_unix 5 ;
   let token = "token" in
@@ -169,14 +170,16 @@ let advertise_cmd =
     Arg.(value & pos 0 (some int) None & info [] ~docv:"FD" ~doc)
   in
   ( Term.(ret (pure advertise $ common_options_t $ fd))
-  , Term.info "advertise" ~sdocs:_common_options ~doc ~man )
+  , Term.info "advertise" ~sdocs:_common_options ~doc ~man
+  )
 
 let connect_t _common_options_t =
   (Lwt_io.read_line_opt Lwt_io.stdin >>= function
    | None ->
        return ""
    | Some x ->
-       return x)
+       return x
+  )
   >>= fun advertisement ->
   let open Xcp_channel in
   let fd =
@@ -204,13 +207,15 @@ let connect_cmd =
     @ help
   in
   ( Term.(ret (pure connect $ common_options_t))
-  , Term.info "connect" ~sdocs:_common_options ~doc ~man )
+  , Term.info "connect" ~sdocs:_common_options ~doc ~man
+  )
 
 let default_cmd =
   let doc = "channel (file-descriptor) passing helper program" in
   let man = help in
   ( Term.(ret (pure (fun _ -> `Help (`Pager, None)) $ common_options_t))
-  , Term.info "proxy" ~version:"1.0.0" ~sdocs:_common_options ~doc ~man )
+  , Term.info "proxy" ~version:"1.0.0" ~sdocs:_common_options ~doc ~man
+  )
 
 let cmds = [advertise_cmd; connect_cmd]
 

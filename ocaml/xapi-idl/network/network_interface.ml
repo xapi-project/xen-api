@@ -37,7 +37,8 @@ let netmask_to_prefixlen netmask =
   Scanf.sscanf netmask "%d.%d.%d.%d" (fun a b c d ->
       let rec length l x = if x > 0 then length (succ l) (x lsr 1) else l in
       let masks = List.map (( - ) 255) [a; b; c; d] in
-      32 - List.fold_left length 0 masks)
+      32 - List.fold_left length 0 masks
+  )
 
 let prefixlen_to_netmask len =
   let mask l =
@@ -65,7 +66,10 @@ module Unix = struct
                 (`Msg
                   (Printf.sprintf
                      "typ_of_inet_addr: expectd rpc string but got %s"
-                     (Rpc.to_string r))))
+                     (Rpc.to_string r)
+                  )
+                  )
+          )
       }
 end
 
@@ -285,7 +289,8 @@ let err =
           log_backtrace () ;
           let exn = Network_error e in
           error "%s (%s)" (Printexc.to_string exn) __LOC__ ;
-          raise exn)
+          raise exn
+          )
     ; matcher=
         (function
         | Network_error e as exn ->
@@ -293,8 +298,10 @@ let err =
             Some e
         | exn ->
             error "%s (%s)" (Printexc.to_string exn) __LOC__ ;
-            Some (Internal_error (Printexc.to_string exn)))
+            Some (Internal_error (Printexc.to_string exn))
+        )
     }
+  
 
 (** {2 API functions} *)
 
@@ -316,6 +323,7 @@ module Interface_API (R : RPC) = struct
           ]
       ; version= (1, 0, 0)
       }
+    
 
   let implementation = implement description
 

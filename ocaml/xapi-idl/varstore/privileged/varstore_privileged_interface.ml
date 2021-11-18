@@ -53,14 +53,18 @@ module Uuidm = struct
             | None ->
                 Error
                   (`Msg
-                    (Printf.sprintf "typ_of_vm_uuid: not a valid UUID: %s" s))
+                    (Printf.sprintf "typ_of_vm_uuid: not a valid UUID: %s" s)
+                    )
           )
           | r ->
               Error
                 (`Msg
                   (Printf.sprintf
                      "typ_of_vm_uuid: expected rpc string but got %s"
-                     (Rpc.to_string r))))
+                     (Rpc.to_string r)
+                  )
+                  )
+          )
       }
 end
 
@@ -81,6 +85,7 @@ module RPC_API (R : RPC) = struct
           ]
       ; version= (1, 0, 0)
       }
+    
 
   let implementation = implement description
 

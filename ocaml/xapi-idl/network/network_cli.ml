@@ -21,7 +21,8 @@ let default_cmd =
   ( Cmdliner.Term.(ret (const (fun _ -> `Help (`Pager, None)) $ const ()))
   , Cmdliner.Term.info "network_cli"
       ~version:(version_str Cmds.description)
-      ~doc )
+      ~doc
+  )
 
 let cli () =
   let rpc = Network_client.rpc in

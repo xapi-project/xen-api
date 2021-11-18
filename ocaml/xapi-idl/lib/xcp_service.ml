@@ -139,13 +139,15 @@ module Config_file = struct
             let line = input_line ic in
             process_line line spec
           done
-        with End_of_file -> ())
+        with End_of_file -> ()
+        )
       (fun () -> close_in ic)
 
   let dump spec =
     List.iter
       (fun (name, _, printer, description) ->
-        debug "%s = %s (%s)" name (printer ()) description)
+        debug "%s = %s (%s)" name (printer ()) description
+        )
       spec
 end
 
@@ -170,29 +172,35 @@ let common_options =
     ( "use-switch"
     , Arg.Bool (fun b -> Xcp_client.use_switch := b)
     , (fun () -> string_of_bool !Xcp_client.use_switch)
-    , "true if the message switch is to be enabled" )
+    , "true if the message switch is to be enabled"
+    )
   ; ( "switch-path"
     , Arg.Set_string Xcp_client.switch_path
     , (fun () -> !Xcp_client.switch_path)
     , "Unix domain socket path on localhost where the message switch is \
-       listening" )
+       listening"
+    )
   ; ( "search-path"
     , Arg.String
         (fun s -> extra_search_path := split_c ':' s @ !extra_search_path)
     , (fun () -> String.concat ":" !extra_search_path)
-    , "Search path for resources" )
+    , "Search path for resources"
+    )
   ; ( "pidfile"
     , Arg.Set_string pidfile
     , (fun () -> !pidfile)
-    , "Filename to write process PID" )
+    , "Filename to write process PID"
+    )
   ; ( "log"
     , Arg.Set_string log_destination
     , (fun () -> !log_destination)
-    , "Where to write log messages" )
+    , "Where to write log messages"
+    )
   ; ( "daemon"
     , Arg.Bool (fun x -> daemon := x)
     , (fun () -> string_of_bool !daemon)
-    , "True if we are to daemonise" )
+    , "True if we are to daemonise"
+    )
   ; ( "disable-logging-for"
     , Arg.String
         (fun x ->
@@ -202,10 +210,13 @@ let common_options =
             List.iter Debug.disable modules
           with e ->
             error "Processing disabled-logging-for = %s: %s" x
-              (Printexc.to_string e))
+              (Printexc.to_string e)
+          )
     , (fun () ->
-        String.concat " " (setify (List.map fst (Debug.disabled_modules ()))))
-    , "A space-separated list of debug modules to suppress logging from" )
+        String.concat " " (setify (List.map fst (Debug.disabled_modules ())))
+        )
+    , "A space-separated list of debug modules to suppress logging from"
+    )
   ; ( "loglevel"
     , Arg.String
         (fun x ->
@@ -214,21 +225,26 @@ let common_options =
             log_level := Syslog.level_of_string x ;
             Debug.set_level !log_level
           with e ->
-            error "Processing loglevel = %s: %s" x (Printexc.to_string e))
+            error "Processing loglevel = %s: %s" x (Printexc.to_string e)
+          )
     , (fun () -> Syslog.string_of_level !log_level)
-    , "Log level" )
+    , "Log level"
+    )
   ; ( "inventory"
     , Arg.Set_string Inventory.inventory_filename
     , (fun () -> !Inventory.inventory_filename)
-    , "Location of the inventory file" )
+    , "Location of the inventory file"
+    )
   ; ( "config"
     , Arg.Set_string config_file
     , (fun () -> !config_file)
-    , "Location of configuration file" )
+    , "Location of configuration file"
+    )
   ; ( "config-dir"
     , Arg.Set_string config_dir
     , (fun () -> !config_dir)
-    , "Location of directory containing configuration file fragments" )
+    , "Location of directory containing configuration file fragments"
+    )
   ]
 
 let loglevel () = !log_level
@@ -253,20 +269,23 @@ let command_of ?(name = Sys.argv.(0)) ?(version = "unknown")
     | Arg.Bool f ->
         let t =
           Cmdliner.Arg.(
-            value & opt bool (bool_of_string default) & info [key] ~doc)
+            value & opt bool (bool_of_string default) & info [key] ~doc
+          )
         in
         Term.(pure f $ t)
     | Arg.Set b ->
         let t =
           Cmdliner.Arg.(
-            value & opt bool (bool_of_string default) & info [key] ~doc)
+            value & opt bool (bool_of_string default) & info [key] ~doc
+          )
         in
         let make v = b := v in
         Term.(pure make $ t)
     | Arg.Clear b ->
         let t =
           Cmdliner.Arg.(
-            value & opt bool (bool_of_string default) & info [key] ~doc)
+            value & opt bool (bool_of_string default) & info [key] ~doc
+          )
         in
         let make v = b := not v in
         Term.(pure make $ t)
@@ -280,26 +299,30 @@ let command_of ?(name = Sys.argv.(0)) ?(version = "unknown")
     | Arg.Int f ->
         let t =
           Cmdliner.Arg.(
-            value & opt int (int_of_string default) & info [key] ~doc)
+            value & opt int (int_of_string default) & info [key] ~doc
+          )
         in
         Term.(pure f $ t)
     | Arg.Set_int s ->
         let t =
           Cmdliner.Arg.(
-            value & opt int (int_of_string default) & info [key] ~doc)
+            value & opt int (int_of_string default) & info [key] ~doc
+          )
         in
         let make v = s := v in
         Term.(pure make $ t)
     | Arg.Float f ->
         let t =
           Cmdliner.Arg.(
-            value & opt float (float_of_string default) & info [key] ~doc)
+            value & opt float (float_of_string default) & info [key] ~doc
+          )
         in
         Term.(pure f $ t)
     | Arg.Set_float s ->
         let t =
           Cmdliner.Arg.(
-            value & opt float (float_of_string default) & info [key] ~doc)
+            value & opt float (float_of_string default) & info [key] ~doc
+          )
         in
         let make v = s := v in
         Term.(pure make $ t)
@@ -321,7 +344,8 @@ let command_of ?(name = Sys.argv.(0)) ?(version = "unknown")
     ]
   in
   ( Term.(ret (pure (fun (_ : unit list) -> `Ok ()) $ list terms))
-  , Term.info name ~version ~sdocs:_common_options ~man )
+  , Term.info name ~version ~sdocs:_common_options ~man
+  )
 
 let arg_spec = List.map (fun (a, b, _, c) -> ("-" ^ a, b, c))
 
@@ -348,7 +372,8 @@ let canonicalise x =
               found
           | None ->
               let possibility = Filename.concat path x in
-              if Sys.file_exists possibility then Some possibility else None)
+              if Sys.file_exists possibility then Some possibility else None
+          )
         None
         (paths @ !extra_search_path)
     in
@@ -367,7 +392,9 @@ let to_opt =
       ( f.name
       , Arg.String (fun x -> f.path := canonicalise x)
       , (fun () -> !(f.path))
-      , f.description ))
+      , f.description
+      )
+  )
 
 let read_config_file x =
   if Sys.file_exists !config_file then
@@ -379,7 +406,8 @@ let read_config_file x =
   |> List.stable_sort compare
   |> List.iter (fun fragment ->
          let path = Filename.concat !config_dir fragment in
-         Config_file.parse path x)
+         Config_file.parse path x
+     )
 
 let startswith prefix x =
   let prefix' = String.length prefix and x' = String.length x in
@@ -430,7 +458,8 @@ let configure_common ~options ~resources arg_parse_fn =
           ]
         in
         List.iter (fun x -> error "%s" x) lines ;
-        failwith (String.concat "\n" lines))
+        failwith (String.concat "\n" lines)
+      )
     resources ;
   Sys.set_signal Sys.sigpipe Sys.Signal_ignore
 
@@ -440,7 +469,8 @@ let configure ?(options = []) ?(resources = []) () =
         Arg.parse
           (Arg.align (arg_spec config_spec))
           (fun _ -> failwith "Invalid argument")
-          (Printf.sprintf "Usage: %s [-config filename]" Sys.argv.(0)))
+          (Printf.sprintf "Usage: %s [-config filename]" Sys.argv.(0))
+    )
   with Failure _ -> exit 1
 
 type ('a, 'b) error = [`Ok of 'a | `Error of 'b]
@@ -455,7 +485,8 @@ let configure2 ~name ~version ~doc ?(options = []) ?(resources = []) () =
             failwith "Failed to parse command-line arguments"
         | _ ->
             exit 0
-        (* --help *)) ;
+        (* --help *)
+    ) ;
     `Ok ()
   with Failure m -> `Error m
 
@@ -587,7 +618,8 @@ let serve_forever = function
             (fun () ->
               finally
                 (fun () -> fn this_connection)
-                (fun () -> Unix.close this_connection))
+                (fun () -> Unix.close this_connection)
+              )
             ()
         in
         ()
@@ -613,7 +645,8 @@ let pidfile_write filename =
       let buf = string_of_int pid ^ "\n" |> Bytes.of_string in
       let len = Bytes.length buf in
       if Unix.write fd buf 0 len <> len then
-        failwith "pidfile_write failed")
+        failwith "pidfile_write failed"
+      )
     (fun () -> Unix.close fd)
 
 (* Cf Stevens et al, Advanced Programming in the UNIX Environment,

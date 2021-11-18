@@ -44,8 +44,7 @@ let backend_backtrace_error name args backtrace =
       Errors.Activated_on_another_host uuid
   | _ ->
       let backtrace = rpc_of_backtrace backtrace |> Jsonrpc.to_string in
-      Errors.Backend_error_with_backtrace
-        (name, backtrace :: args)
+      Errors.Backend_error_with_backtrace (name, backtrace :: args)
 
 let missing_uri () =
   backend_error "MISSING_URI" ["Please include a URI in the device-config"]
@@ -71,9 +70,11 @@ let return_rpc typ result =
       let result =
         Result.map_error result ~f:(fun err ->
             backend_error "SCRIPT_RETURNED_RPC_ERROR"
-              [Rpcmarshal.marshal typ err |> R.to_string])
+              [Rpcmarshal.marshal typ err |> R.to_string]
+        )
       in
-      return result)
+      return result
+  )
   >>= function
   | Ok result ->
       return result
@@ -84,7 +85,9 @@ let return_rpc typ result =
       return
         (Error
            (backend_error "SCRIPT_FAILED"
-              ["Unexpected exception:" ^ Exn.to_string e]))
+              ["Unexpected exception:" ^ Exn.to_string e]
+           )
+        )
 
 let return_volume_rpc result =
   return_rpc Xapi_storage.Control.typ_of_exns result
@@ -105,7 +108,8 @@ let log level fmt =
         Syslog.log Syslog.Daemon level s
       else
         let w = Lazy.force Writer.stderr in
-        Writer.write w s ; Writer.newline w)
+        Writer.write w s ; Writer.newline w
+      )
     fmt
 
 let debug fmt = log Syslog.Debug fmt
@@ -154,7 +158,8 @@ end) : sig
   val sr_create :
        device_config
     -> ( device_config * compat_in * compat_out
-       , Storage_interface.Errors.error )
+       , Storage_interface.Errors.error
+       )
        Deferred.Result.t
   (** Compatiblity for the old PVS version of SR.create, which had signature
       [uri -> name -> desc -> config -> unit] *)
@@ -181,7 +186,8 @@ end = struct
       | R.Dict d ->
           R.Dict (List.rev_append params d)
       | rpc ->
-          rpc)
+          rpc
+      )
 
   let add_fields_to_dict fields = function
     | R.Dict d ->
@@ -194,14 +200,16 @@ end = struct
       | R.Dict _ as d ->
           add_fields_to_dict fields d
       | rpc ->
-          rpc)
+          rpc
+      )
 
   let add_fields_to_record_list_output fields =
     with_pvs_version (function
       | R.Enum l ->
           R.Enum (List.map ~f:(add_fields_to_dict fields) l)
       | rpc ->
-          rpc)
+          rpc
+      )
 
   let compat_out_volume =
     add_fields_to_record_output [("sharable", R.Bool false)]
@@ -373,8 +381,8 @@ let fork_exec_rpc :
         error "%s failed: %s" script_name (Error.to_string_hum e) ;
         return
           (Error
-             (backend_error "SCRIPT_FAILED"
-                [script_name; Error.to_string_hum e]))
+             (backend_error "SCRIPT_FAILED" [script_name; Error.to_string_hum e])
+          )
     | Ok p -> (
         (* Send the request as json on stdin *)
         let w = Process.stdin p in
@@ -394,7 +402,9 @@ let fork_exec_rpc :
                       script_name
                     ; "All the call parameters should be named and should be \
                        in a RPC Dict"
-                    ]))
+                    ]
+                 )
+              )
         )
         >>>= fun args ->
         let args = compat_in args in
@@ -406,7 +416,8 @@ let fork_exec_rpc :
           (* Expect an exception and backtrace on stdout *)
           match
             Or_error.try_with (fun () ->
-                Jsonrpc.of_string output.Process.Output.stdout)
+                Jsonrpc.of_string output.Process.Output.stdout
+            )
           with
           | Error _ ->
               error "%s failed and printed bad error json: %s" script_name
@@ -422,7 +433,9 @@ let fork_exec_rpc :
                       ; string_of_int code
                       ; output.Process.Output.stdout
                       ; output.Process.Output.stdout
-                      ]))
+                      ]
+                   )
+                )
           | Ok response -> (
             match Or_error.try_with (fun () -> error_of_rpc response) with
             | Error _ ->
@@ -439,7 +452,9 @@ let fork_exec_rpc :
                         ; string_of_int code
                         ; output.Process.Output.stdout
                         ; output.Process.Output.stdout
-                        ]))
+                        ]
+                     )
+                  )
             | Ok x ->
                 return
                   (Error (backend_backtrace_error x.code x.params x.backtrace))
@@ -456,13 +471,16 @@ let fork_exec_rpc :
                     ; Signal.to_string signal
                     ; output.Process.Output.stdout
                     ; output.Process.Output.stdout
-                    ]))
+                    ]
+                 )
+              )
         | Ok () -> (
           (* Parse the json on stdout. We get back a JSON-RPC
              value from the scripts, not a complete JSON-RPC response *)
           match
             Or_error.try_with (fun () ->
-                Jsonrpc.of_string output.Process.Output.stdout)
+                Jsonrpc.of_string output.Process.Output.stdout
+            )
           with
           | Error _ ->
               error "%s succeeded but printed bad json: %s" script_name
@@ -474,7 +492,9 @@ let fork_exec_rpc :
                         script_name
                       ; "bad json on stdout"
                       ; output.Process.Output.stdout
-                      ]))
+                      ]
+                   )
+                )
           | Ok response ->
               info "%s succeeded: %s" script_name output.Process.Output.stdout ;
               let response = compat_out response in
@@ -498,7 +518,9 @@ let fork_exec_rpc :
                       path
                     ; "Check whether the file exists and has correct \
                        permissions"
-                    ]))
+                    ]
+                 )
+              )
         | Some m ->
             warn
               "Deprecated: script '%s' is missing, treating as no-op. Update \
@@ -510,7 +532,8 @@ let fork_exec_rpc :
         error "%s is not executable" path ;
         return
           (Error
-             (backend_error "SCRIPT_NOT_EXECUTABLE" [path; Exn.to_string exn]))
+             (backend_error "SCRIPT_NOT_EXECUTABLE" [path; Exn.to_string exn])
+          )
     | Ok path ->
         invoke_script call path
   in
@@ -597,7 +620,8 @@ module Datapath_plugins = struct
     let result =
       let script_dir = Filename.concat datapath_root datapath_plugin_name in
       return_plugin_rpc (fun () ->
-          Plugin_client.query (fork_exec_rpc ~script_dir) "register")
+          Plugin_client.query (fork_exec_rpc ~script_dir) "register"
+      )
       >>>= fun response ->
       check_plugin_version_compatible response >>= function
       | Ok () ->
@@ -675,7 +699,8 @@ let choose_datapath ?(persistent = true) domain response =
         | None ->
             None
         | Some scheme ->
-            Some (scheme, x))
+            Some (scheme, x)
+        )
       response.Xapi_storage.Control.uri
   in
   (* We can only use URIs whose schemes correspond to registered plugins *)
@@ -686,7 +711,8 @@ let choose_datapath ?(persistent = true) domain response =
         | Some (script_dir, _query_result) ->
             Some (script_dir, scheme, uri)
         | None ->
-            None)
+            None
+        )
       possible
   in
   (* If we want to be non-persistent, we prefer if the datapath plugin supports it natively *)
@@ -697,7 +723,8 @@ let choose_datapath ?(persistent = true) domain response =
       let supports_nonpersistent, others =
         List.partition_tf
           ~f:(fun (_script_dir, scheme, _uri) ->
-            Datapath_plugins.supports_feature scheme _nonpersistent)
+            Datapath_plugins.supports_feature scheme _nonpersistent
+            )
           possible
       in
       supports_nonpersistent @ others
@@ -721,7 +748,8 @@ let bind ~volume_script_dir =
     return_volume_rpc (fun () ->
         Volume_client.stat
           (volume_rpc ~compat_out:Compat.compat_out_volume)
-          dbg sr vdi)
+          dbg sr vdi
+    )
   in
   let clone ~dbg ~sr ~vdi =
     return_volume_rpc (fun () -> Volume_client.clone volume_rpc dbg sr vdi)
@@ -735,18 +763,22 @@ let bind ~volume_script_dir =
     (* TODO handle this properly? *)
     let missing =
       Option.bind !version ~f:(fun v ->
-          if String.(v = pvs_version) then Some (R.rpc_of_unit ()) else None)
+          if String.(v = pvs_version) then Some (R.rpc_of_unit ()) else None
+      )
     in
     return_volume_rpc (fun () ->
-        Volume_client.set (volume_rpc ?missing) dbg sr vdi key value)
+        Volume_client.set (volume_rpc ?missing) dbg sr vdi key value
+    )
   in
   let unset ~dbg ~sr ~vdi ~key =
     let missing =
       Option.bind !version ~f:(fun v ->
-          if String.(v = pvs_version) then Some (R.rpc_of_unit ()) else None)
+          if String.(v = pvs_version) then Some (R.rpc_of_unit ()) else None
+      )
     in
     return_volume_rpc (fun () ->
-        Volume_client.unset (volume_rpc ?missing) dbg sr vdi key)
+        Volume_client.unset (volume_rpc ?missing) dbg sr vdi key
+    )
   in
   let update_keys ~dbg ~sr ~key ~value response =
     let open Deferred.Result.Monad_infix in
@@ -877,12 +909,12 @@ let bind ~volume_script_dir =
     let th =
       Compat.sr_attach device_config >>>= fun compat_in ->
       return_volume_rpc (fun () ->
-          Sr_client.attach (volume_rpc ~compat_in) dbg device_config)
+          Sr_client.attach (volume_rpc ~compat_in) dbg device_config
+      )
       >>>= fun attach_response ->
       (* Stat the SR to look for datasources *)
       (* SR.stat should take the attached URI *)
-      return_volume_rpc (fun () ->
-          Sr_client.stat volume_rpc dbg attach_response)
+      return_volume_rpc (fun () -> Sr_client.stat volume_rpc dbg attach_response)
       >>>= fun stat ->
       let rec loop acc = function
         | [] ->
@@ -988,7 +1020,8 @@ let bind ~volume_script_dir =
              match
                ( probe_result.Xapi_storage.Control.sr
                , probe_result.Xapi_storage.Control.complete
-               , uuid )
+               , uuid
+               )
              with
              | _, false, Some _uuid ->
                  errorf "A configuration with a uuid cannot be incomplete: %a"
@@ -1019,10 +1052,12 @@ let bind ~volume_script_dir =
              | None, false, None ->
                  return (smapiv2_probe ())
              | None, true, _ ->
-                 return (smapiv2_probe ()))
+                 return (smapiv2_probe ())
+         )
       |> Deferred.Or_error.combine_errors
       |> Deferred.Result.map_error ~f:(fun err ->
-             backend_error "SCRIPT_FAILED" ["SR.probe"; Error.to_string_hum err])
+             backend_error "SCRIPT_FAILED" ["SR.probe"; Error.to_string_hum err]
+         )
       >>>= fun results ->
       Deferred.Result.return (Storage_interface.Probe results)
     in
@@ -1037,7 +1072,8 @@ let bind ~volume_script_dir =
       return_volume_rpc (fun () ->
           Sr_client.create
             (volume_rpc ~compat_in ~compat_out)
-            dbg uuid device_config name_label description)
+            dbg uuid device_config name_label description
+      )
       >>>= fun new_device_config -> Deferred.Result.return new_device_config
     in
     wrap th
@@ -1047,7 +1083,9 @@ let bind ~volume_script_dir =
     Attached_SRs.find sr
     >>>= (fun sr ->
            return_volume_rpc (fun () ->
-               Sr_client.set_name volume_rpc dbg sr new_name_label))
+               Sr_client.set_name volume_rpc dbg sr new_name_label
+           )
+           )
     |> wrap
   in
   S.SR.set_name_label sr_set_name_label_impl ;
@@ -1055,14 +1093,17 @@ let bind ~volume_script_dir =
     Attached_SRs.find sr
     >>>= (fun sr ->
            return_volume_rpc (fun () ->
-               Sr_client.set_description volume_rpc dbg sr new_name_description))
+               Sr_client.set_description volume_rpc dbg sr new_name_description
+           )
+           )
     |> wrap
   in
   S.SR.set_name_description sr_set_name_description_impl ;
   let sr_destroy_impl dbg sr =
     Attached_SRs.find sr
     >>>= (fun sr ->
-           return_volume_rpc (fun () -> Sr_client.destroy volume_rpc dbg sr))
+           return_volume_rpc (fun () -> Sr_client.destroy volume_rpc dbg sr)
+           )
     |> wrap
   in
   S.SR.destroy sr_destroy_impl ;
@@ -1072,7 +1113,8 @@ let bind ~volume_script_dir =
            return_volume_rpc (fun () ->
                Sr_client.ls
                  (volume_rpc ~compat_out:Compat.compat_out_volumes)
-                 dbg sr)
+                 dbg sr
+           )
            >>>= fun response ->
            let response = Array.to_list response in
            (* Filter out volumes which are clone-on-boot transients *)
@@ -1086,7 +1128,8 @@ let bind ~volume_script_dir =
                  | None ->
                      set
                  | Some transient ->
-                     Set.add set transient)
+                     Set.add set transient
+                 )
                ~init:Core.String.Set.empty response
            in
            let response =
@@ -1094,7 +1137,8 @@ let bind ~volume_script_dir =
                ~f:(fun x -> not (Set.mem transients x.Xapi_storage.Control.key))
                response
            in
-           Deferred.Result.return (List.map ~f:vdi_of_volume response))
+           Deferred.Result.return (List.map ~f:vdi_of_volume response)
+           )
     |> wrap
   in
   S.SR.scan sr_scan_impl ;
@@ -1106,10 +1150,12 @@ let bind ~volume_script_dir =
                  (volume_rpc ~compat_out:Compat.compat_out_volume)
                  dbg sr vdi_info.Storage_interface.name_label
                  vdi_info.name_description vdi_info.virtual_size
-                 vdi_info.sharable)
+                 vdi_info.sharable
+           )
            >>>= update_keys ~dbg ~sr ~key:_vdi_type_key
                   ~value:(match vdi_info.ty with "" -> None | s -> Some s)
-           >>>= fun response -> Deferred.Result.return (vdi_of_volume response))
+           >>>= fun response -> Deferred.Result.return (vdi_of_volume response)
+           )
     |> wrap
   in
   S.VDI.create vdi_create_impl ;
@@ -1128,7 +1174,8 @@ let bind ~volume_script_dir =
          (* Destroy the temporary disk we made earlier *)
          destroy ~dbg ~sr ~vdi
      )
-     >>>= fun () -> destroy ~dbg ~sr ~vdi)
+     >>>= fun () -> destroy ~dbg ~sr ~vdi
+    )
     |> wrap
   in
   S.VDI.destroy vdi_destroy_impl ;
@@ -1139,7 +1186,8 @@ let bind ~volume_script_dir =
              Storage_interface.Vdi.string_of vdi_info.Storage_interface.vdi
            in
            return_volume_rpc (fun () ->
-               Volume_client.snapshot volume_rpc dbg sr vdi)
+               Volume_client.snapshot volume_rpc dbg sr vdi
+           )
            >>>= fun response ->
            let now =
              Xapi_stdext_date.Date.(to_string (of_float (Unix.gettimeofday ())))
@@ -1161,7 +1209,8 @@ let bind ~volume_script_dir =
              ; snapshot_of= Storage_interface.Vdi.of_string vdi
              }
            in
-           Deferred.Result.return response)
+           Deferred.Result.return response
+           )
     |> wrap
   in
   S.VDI.snapshot vdi_snapshot_impl ;
@@ -1171,7 +1220,8 @@ let bind ~volume_script_dir =
            clone ~dbg ~sr
              ~vdi:
                (Storage_interface.Vdi.string_of vdi_info.Storage_interface.vdi)
-           >>>= fun response -> Deferred.Result.return (vdi_of_volume response))
+           >>>= fun response -> Deferred.Result.return (vdi_of_volume response)
+           )
     |> wrap
   in
   S.VDI.clone vdi_clone_impl ;
@@ -1179,7 +1229,9 @@ let bind ~volume_script_dir =
     (let vdi = Storage_interface.Vdi.string_of vdi' in
      Attached_SRs.find sr >>>= fun sr ->
      return_volume_rpc (fun () ->
-         Volume_client.set_name volume_rpc dbg sr vdi new_name_label))
+         Volume_client.set_name volume_rpc dbg sr vdi new_name_label
+     )
+    )
     |> wrap
   in
   S.VDI.set_name_label vdi_set_name_label_impl ;
@@ -1188,7 +1240,9 @@ let bind ~volume_script_dir =
      Attached_SRs.find sr >>>= fun sr ->
      return_volume_rpc (fun () ->
          Volume_client.set_description volume_rpc dbg sr vdi
-           new_name_description))
+           new_name_description
+     )
+    )
     |> wrap
   in
   S.VDI.set_name_description vdi_set_name_description_impl ;
@@ -1196,11 +1250,13 @@ let bind ~volume_script_dir =
     (let vdi = Storage_interface.Vdi.string_of vdi' in
      Attached_SRs.find sr >>>= fun sr ->
      return_volume_rpc (fun () ->
-         Volume_client.resize volume_rpc dbg sr vdi new_size)
+         Volume_client.resize volume_rpc dbg sr vdi new_size
+     )
      >>>= fun () ->
      (* Now call Volume.stat to discover the size *)
      stat ~dbg ~sr ~vdi >>>= fun response ->
-     Deferred.Result.return response.Xapi_storage.Control.virtual_size)
+     Deferred.Result.return response.Xapi_storage.Control.virtual_size
+    )
     |> wrap
   in
   S.VDI.resize vdi_resize_impl ;
@@ -1208,7 +1264,8 @@ let bind ~volume_script_dir =
     (let vdi = Storage_interface.Vdi.string_of vdi' in
      Attached_SRs.find sr >>>= fun sr ->
      stat ~dbg ~sr ~vdi >>>= fun response ->
-     Deferred.Result.return (vdi_of_volume response))
+     Deferred.Result.return (vdi_of_volume response)
+    )
     |> wrap
   in
   S.VDI.stat vdi_stat_impl ;
@@ -1217,7 +1274,8 @@ let bind ~volume_script_dir =
     >>>= (fun sr ->
            let vdi = location in
            stat ~dbg ~sr ~vdi >>>= fun response ->
-           Deferred.Result.return (vdi_of_volume response))
+           Deferred.Result.return (vdi_of_volume response)
+           )
     |> wrap
   in
   S.VDI.introduce vdi_introduce_impl ;
@@ -1240,7 +1298,8 @@ let bind ~volume_script_dir =
          Storage_interface.implementations=
            List.map ~f:convert_implementation
              response.Xapi_storage.Data.implementations
-       })
+       }
+    )
     |> wrap
   in
   S.VDI.attach3 vdi_attach3_impl ;
@@ -1262,7 +1321,8 @@ let bind ~volume_script_dir =
      )
      >>>= fun response ->
      choose_datapath domain response >>>= fun (rpc, _datapath, uri, domain) ->
-     return_data_rpc (fun () -> Datapath_client.activate rpc dbg uri domain))
+     return_data_rpc (fun () -> Datapath_client.activate rpc dbg uri domain)
+    )
     |> wrap
   in
   S.VDI.activate3 vdi_activate3_impl ;
@@ -1283,7 +1343,8 @@ let bind ~volume_script_dir =
      )
      >>>= fun response ->
      choose_datapath domain response >>>= fun (rpc, _datapath, uri, domain) ->
-     return_data_rpc (fun () -> Datapath_client.deactivate rpc dbg uri domain))
+     return_data_rpc (fun () -> Datapath_client.deactivate rpc dbg uri domain)
+    )
     |> wrap
   in
   S.VDI.deactivate vdi_deactivate_impl ;
@@ -1304,7 +1365,8 @@ let bind ~volume_script_dir =
      )
      >>>= fun response ->
      choose_datapath domain response >>>= fun (rpc, _datapath, uri, domain) ->
-     return_data_rpc (fun () -> Datapath_client.detach rpc dbg uri domain))
+     return_data_rpc (fun () -> Datapath_client.detach rpc dbg uri domain)
+    )
     |> wrap
   in
   S.VDI.detach vdi_detach_impl ;
@@ -1328,7 +1390,8 @@ let bind ~volume_script_dir =
                  | Xapi_storage.Control.Recovering _ ->
                      Recovering
                  )
-             })
+             }
+           )
     |> wrap
   in
   S.SR.stat sr_stat_impl ;
@@ -1364,7 +1427,8 @@ let bind ~volume_script_dir =
        set ~dbg ~sr ~vdi ~key:_clone_on_boot_key
          ~value:vdi'.Xapi_storage.Control.key
      else
-       Deferred.Result.return ())
+       Deferred.Result.return ()
+    )
     |> wrap
   in
   S.VDI.epoch_begin vdi_epoch_begin_impl ;
@@ -1388,7 +1452,8 @@ let bind ~volume_script_dir =
            (* Destroy the temporary disk we made earlier *)
            destroy ~dbg ~sr ~vdi:temporary >>>= fun () ->
            unset ~dbg ~sr ~vdi ~key:_clone_on_boot_key >>>= fun () ->
-           Deferred.Result.return ())
+           Deferred.Result.return ()
+    )
     |> wrap
   in
   S.VDI.epoch_end vdi_epoch_end_impl ;
@@ -1517,7 +1582,8 @@ let watch_volume_plugins ~volume_root ~switch_path ~pipe =
          destroy (Filename.basename path_a) >>= fun () ->
          create (Filename.basename path_b)
      | `Ok Queue_overflow ->
-         sync ())
+         sync ()
+    )
     >>= fun () -> loop ()
   in
   loop ()
@@ -1530,7 +1596,8 @@ let watch_datapath_plugins ~datapath_root ~pipe =
     Deferred.all_unit
       (List.map
          ~f:(Datapath_plugins.register ~datapath_root)
-         (diff needed got_already))
+         (diff needed got_already)
+      )
     >>= fun () ->
     Deferred.all_unit
       (List.map ~f:Datapath_plugins.unregister (diff got_already needed))
@@ -1552,7 +1619,8 @@ let watch_datapath_plugins ~datapath_root ~pipe =
          Datapath_plugins.unregister (Filename.basename path_a) >>= fun () ->
          Datapath_plugins.register ~datapath_root (Filename.basename path_b)
      | `Ok Queue_overflow ->
-         sync ())
+         sync ()
+    )
     >>= fun () -> loop ()
   in
   loop ()
@@ -1614,8 +1682,10 @@ let self_test_plugin ~root_dir plugin =
               Test.SR.probe rpc dbg plugin device_config [] >>= fun _result ->
               return ()
             else
-              return ())
-      |> Rpc_async.T.get)
+              return ()
+            )
+      |> Rpc_async.T.get
+  )
   >>= function
   | Ok x ->
       Async.Deferred.return x
@@ -1624,7 +1694,8 @@ let self_test_plugin ~root_dir plugin =
 
 let self_test ~root_dir =
   ( self_test_plugin ~root_dir "org.xen.xapi.storage.dummy" >>>= fun () ->
-    self_test_plugin ~root_dir "org.xen.xapi.storage.dummyv5" )
+    self_test_plugin ~root_dir "org.xen.xapi.storage.dummyv5"
+  )
   >>= function
   | Ok () ->
       info "test thread shutdown cleanly" ;
@@ -1650,7 +1721,8 @@ let main ~root_dir ~state_path ~switch_path =
           [
             watch_volume_plugins ~volume_root ~switch_path ~pipe:volume
           ; watch_datapath_plugins ~datapath_root ~pipe:datapath
-          ])
+          ]
+    )
     >>= function
     | Ok () ->
         info "main thread shutdown cleanly" ;
@@ -1686,7 +1758,8 @@ let register_exn_pretty_printers () =
     | Storage_interface.Storage_error (Backend_error_with_backtrace e) ->
         sexp_of_backend_error e
     | _ ->
-        assert false)
+        assert false
+    )
 
 let _ =
   register_exn_pretty_printers () ;
@@ -1720,7 +1793,8 @@ let _ =
       ( "self-test-only"
       , Arg.Set self_test_only
       , (fun () -> string_of_bool !self_test_only)
-      , "Do only a self-test and exit" )
+      , "Do only a self-test and exit"
+      )
     ]
   in
   ( match
@@ -1744,7 +1818,8 @@ let _ =
             self_test ~root_dir:!root_dir
           else
             main ~root_dir:!root_dir ~state_path:!state_path
-              ~switch_path:!Xcp_client.switch_path)
+              ~switch_path:!Xcp_client.switch_path
+      )
       >>= function
       | Ok () ->
           info "main thread shutdown cleanly" ;
