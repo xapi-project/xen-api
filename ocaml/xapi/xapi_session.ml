@@ -586,12 +586,13 @@ let revalidate_all_sessions ~__context =
     debug "revalidating all external sessions in the local host" ;
     (* obtain all sessions in the pool *)
     let sessions = Db.Session.get_all ~__context in
-    (* filter out those sessions where is_local_superuser bit is true *)
+    (* filter out those sessions where is_local_superuser or client_certificate is true *)
     (* we only want to revalidate the sessions created using the external authentication service *)
     let external_sessions =
       List.filter
         (fun session ->
-          not (Db.Session.get_is_local_superuser ~__context ~self:session)
+          (not (Db.Session.get_is_local_superuser ~__context ~self:session))
+          && not (Db.Session.get_client_certificate ~__context ~self:session)
           )
         sessions
     in
