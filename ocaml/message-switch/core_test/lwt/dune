@@ -1,0 +1,13 @@
+(executables
+  (modes byte exe)
+  (names
+    link_test_main
+    client_main
+    server_main
+  )
+  (libraries
+    cohttp-lwt-unix
+    message-switch-lwt
+  )
+)
+

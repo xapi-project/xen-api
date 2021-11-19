@@ -1,0 +1,28 @@
+(executables
+  (modes byte exe)
+  (names
+    client_unix_main
+    server_unix_main
+  )
+  (libraries
+    message-switch-unix
+  )
+)
+
+(rule
+  (alias runtest)
+  (deps
+    client_unix_main.exe
+    server_unix_main.exe
+    async/client_async_main.exe
+    async/server_async_main.exe
+    lwt/client_main.exe
+    lwt/server_main.exe
+    lwt/link_test_main.exe
+    ../switch/switch_main.exe
+    ../cli/main.exe
+  )
+  (action (run ./basic-rpc-test.sh))
+  (package message-switch)
+)
+

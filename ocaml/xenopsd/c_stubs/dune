@@ -16,17 +16,7 @@
  (foreign_stubs
   (language c)
   (names tuntap_stubs xenctrlext_stubs)
-  (flags (:include xentoollog_flags.sexp))
+  (flags (-L/lib64 -lxentoollog))
  )
 )
 
-(rule
- (targets xentoollog_flags.sexp)
- (deps ../xentoollog_flags)
- (action
-  (with-stdout-to
-   %{targets}
-   (bash "echo \"($(< %{deps}))\"")
-  )
- )
-)

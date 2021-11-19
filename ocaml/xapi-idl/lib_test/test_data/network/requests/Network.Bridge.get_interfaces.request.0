@@ -1,0 +1,1 @@
+{"method":"Network.Bridge.get_interfaces","params":[{"name":"name"},"string"],"id":22}
