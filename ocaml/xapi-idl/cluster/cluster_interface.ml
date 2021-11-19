@@ -261,9 +261,9 @@ module LocalAPI (R : RPC) = struct
       ["Returns local cluster config"]
       (debug_info_p @-> returning cluster_config_p err)
 
-  let write_pems =
-    let pems_p = Param.mk ~name:"pems" pems in
-    declare "write-pems"
-      ["Distribute pems to existing cluster"]
-      (debug_info_p @-> pems_p @-> returning unit_p err)
+  let upd_config =
+    let tls_config_p = Param.mk ~name:"tls_config" tls_config in
+    declare "upd-config"
+      ["Distribute new TLS configuration to existing cluster"]
+      (debug_info_p @-> tls_config_p @-> returning unit_p err)
 end
