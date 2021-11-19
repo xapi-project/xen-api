@@ -100,7 +100,7 @@ let vm_resumed = addMessage "VM_RESUMED" 5L
 
 let vm_paused = addMessage "VM_PAUSED" 5L
 
-let vm_unpaused = addMessage "VM_UNPAUSE" 5L
+let vm_unpaused = addMessage "VM_UNPAUSED" 5L
 
 let vm_crashed = addMessage "VM_CRASHED" 2L
 
