@@ -606,7 +606,7 @@ let revalidate_all_sessions ~__context =
 
 let login_no_password_common ~__context ~uname ~originator ~host ~pool
     ~is_local_superuser ~subject ~auth_user_sid ~auth_user_name
-    ~rbac_permissions ~db_ref =
+    ~rbac_permissions ~db_ref ~client_certificate =
   let create_session () =
     let session_id = Ref.make () in
     let uuid = Uuid.to_string (Uuid.make_uuid ()) in
@@ -633,7 +633,7 @@ let login_no_password_common ~__context ~uname ~originator ~host ~pool
       ~last_active:(Date.of_float (Unix.time ()))
       ~other_config:[] ~subject ~is_local_superuser ~auth_user_sid
       ~validation_time:(Date.of_float (Unix.time ()))
-      ~auth_user_name ~rbac_permissions ~parent ~originator ;
+      ~auth_user_name ~rbac_permissions ~parent ~originator ~client_certificate ;
     Ref.string_of session_id
   in
   let session_id =
@@ -659,6 +659,7 @@ let login_no_password ~__context ~uname ~host ~pool ~is_local_superuser ~subject
   login_no_password_common ~__context ~uname
     ~originator:xapi_internal_originator ~host ~pool ~is_local_superuser
     ~subject ~auth_user_sid ~auth_user_name ~rbac_permissions ~db_ref:None
+    ~client_certificate:false
 
 (** Cause the master to update the session last_active every 30s or so *)
 let consider_touching_session rpc session_id =
@@ -731,7 +732,7 @@ let login_with_password ~__context ~uname ~pwd ~version ~originator =
             ~host:(Helpers.get_localhost ~__context)
             ~pool:false ~is_local_superuser:true ~subject:Ref.null
             ~auth_user_sid:"" ~auth_user_name:uname ~rbac_permissions:[]
-            ~db_ref:None
+            ~db_ref:None ~client_certificate:false
       | Some `client_cert ->
           (* The session was authenticated by stunnel's verification of the client certificate,
              so we do not need to verify the username/password. Grant access to functions
@@ -758,7 +759,7 @@ let login_with_password ~__context ~uname ~pwd ~version ~originator =
             ~host:(Helpers.get_localhost ~__context)
             ~pool:false ~is_local_superuser:false ~subject:Ref.null
             ~auth_user_sid:"" ~auth_user_name:uname ~rbac_permissions
-            ~db_ref:None
+            ~db_ref:None ~client_certificate:true
       | None -> (
           let () =
             if Pool_role.is_slave () then
@@ -780,7 +781,7 @@ let login_with_password ~__context ~uname ~pwd ~version ~originator =
                 ~host:(Helpers.get_localhost ~__context)
                 ~pool:false ~is_local_superuser:true ~subject:Ref.null
                 ~auth_user_sid:"" ~auth_user_name:uname ~rbac_permissions:[]
-                ~db_ref:None
+                ~db_ref:None ~client_certificate:false
             )
           in
           let thread_delay_and_raise_error ~error uname msg =
@@ -1067,7 +1068,7 @@ let login_with_password ~__context ~uname ~pwd ~version ~originator =
                           ~pool:false ~is_local_superuser:false ~subject
                           ~auth_user_sid:subject_identifier
                           ~auth_user_name:subject_name ~rbac_permissions
-                          ~db_ref:None
+                          ~db_ref:None ~client_certificate:false
                   (* we only reach this point if for some reason a function above forgot to catch a possible exception in the Auth_signature module*)
                 with
                 | Not_found | Auth_signature.Subject_cannot_be_resolved ->
@@ -1313,7 +1314,7 @@ let create_readonly_session ~__context ~uname ~db_ref =
   login_no_password_common ~__context ~uname:(Some uname)
     ~originator:xapi_internal_originator ~host:master ~pool:false
     ~is_local_superuser:false ~subject:Ref.null ~auth_user_sid:"readonly-sid"
-    ~auth_user_name:uname ~rbac_permissions ~db_ref
+    ~auth_user_name:uname ~rbac_permissions ~db_ref ~client_certificate:false
 
 (* Create a database reference from a DB dump, and register it with a new readonly session. *)
 let create_from_db_file ~__context ~filename =
