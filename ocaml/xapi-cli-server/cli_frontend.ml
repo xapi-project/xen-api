@@ -624,6 +624,15 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; flags= []
       }
     )
+  ; ( "pool-configure-repository-proxy"
+    , {
+        reqd= ["proxy-url"]
+      ; optn= ["proxy-username"; "proxy-password"]
+      ; help= "Configure proxy for RPM package repositories"
+      ; implementation= No_fd Cli_operations.pool_configure_repository_proxy
+      ; flags= []
+      }
+    )
   ; ( "host-shutdown"
     , {
         reqd= []

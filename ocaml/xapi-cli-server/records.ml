@@ -1372,6 +1372,12 @@ let pool_record rpc session_id pool =
               (Client.Repository.get_by_uuid rpc session_id uuid)
             )
           ()
+      ; make_field ~name:"repository-proxy-url"
+          ~get:(fun () -> (x ()).API.pool_repository_proxy_url)
+          ()
+      ; make_field ~name:"repository-proxy-username"
+          ~get:(fun () -> (x ()).API.pool_repository_proxy_username)
+          ()
       ]
   }
 

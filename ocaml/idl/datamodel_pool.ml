@@ -790,6 +790,19 @@ open Datamodel_types
     ~allowed_roles:_R_POOL_OP
     ()
 
+  let configure_repository_proxy = call
+      ~name:"configure_repository_proxy"
+      ~in_product_since:rel_next
+      ~doc:"Configure the proxy used in syncing with the enabled repositories"
+      ~params:[
+        Ref _pool, "self", "The pool";
+        String, "url", "The URL of the proxy server";
+        String, "username", "The username used to authenticate with the proxy server";
+        String, "password", "The password used to authenticate with the proxy server"
+      ]
+      ~allowed_roles:_R_POOL_OP
+      ()
+
   (** A pool class *)
   let t =
     create_obj
@@ -875,6 +888,7 @@ open Datamodel_types
         ; check_update_readiness
         ; enable_client_certificate_auth
         ; disable_client_certificate_auth
+        ; configure_repository_proxy
         ]
       ~contents:
         ([uid ~in_oss_since:None _pool] @
@@ -925,5 +939,8 @@ open Datamodel_types
          ; field ~in_product_since:rel_next ~qualifier:DynamicRO ~ty:(Set (Ref _repository)) ~ignore_foreign_key:true "repositories" ~default_value:(Some (VSet [])) "The set of currently enabled repositories"
          ; field ~qualifier:DynamicRO ~in_product_since:rel_next ~lifecycle:[Published, rel_next, ""] ~ty:Bool ~default_value:(Some (VBool false)) "client_certificate_auth_enabled" "True if authentication by TLS client certificates is enabled"
          ; field ~qualifier:DynamicRO ~in_product_since:rel_next ~lifecycle:[Published, rel_next, ""] ~ty:String ~default_value:(Some (VString "")) "client_certificate_auth_name" "The name (CN/SAN) that an incoming client certificate must have to allow authentication"
+         ; field ~in_product_since:rel_next ~qualifier:DynamicRO ~ty:String ~default_value:(Some (VString "")) "repository_proxy_url" "Url of the proxy used in syncing with the enabled repositories"
+         ; field ~in_product_since:rel_next ~qualifier:DynamicRO ~ty:String ~default_value:(Some (VString "")) "repository_proxy_username" "Username for the authentication of the proxy used in syncing with the enabled repositories"
+         ; field ~in_product_since:rel_next ~internal_only:true ~qualifier:DynamicRO ~ty:(Ref _secret) ~default_value:(Some (VRef null_ref)) "repository_proxy_password" "Password for the authentication of the proxy used in syncing with the enabled repositories"
          ])
       ()

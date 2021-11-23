@@ -1267,3 +1267,7 @@ let updateinfo_hash_mismatch = "UPDATEINFO_HASH_MISMATCH"
 let updates_require_sync = "UPDATES_REQUIRE_SYNC"
 
 let cannot_restart_device_model = "CANNOT_RESTART_DEVICE_MODEL"
+
+let invalid_repository_proxy_url = "INVALID_REPOSITORY_PROXY_URL"
+
+let invalid_repository_proxy_credential = "INVALID_REPOSITORY_PROXY_CREDENTIAL"
