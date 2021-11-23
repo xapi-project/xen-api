@@ -179,6 +179,7 @@ module Session = struct
       field ~in_product_since:rel_midnight_ride ~qualifier:DynamicRO ~ty:(Set(Ref _task)) "tasks" "list of tasks created using the current session";
       field ~in_product_since:rel_midnight_ride ~qualifier:StaticRO ~default_value:(Some (VRef null_ref)) ~ty:(Ref _session) "parent" "references the parent session that created this session";
       field ~in_product_since:rel_clearwater ~qualifier:DynamicRO ~default_value:(Some(VString(""))) ~ty:String  "originator" "a key string provided by a API user to distinguish itself from other users sharing the same login name";
+      field ~in_product_since:rel_next ~qualifier:DynamicRO ~default_value:(Some (VBool false)) ~ty:Bool "client_certificate" "indicates whether this session was authenticated using a client certificate";
     ]
       ()
 end
