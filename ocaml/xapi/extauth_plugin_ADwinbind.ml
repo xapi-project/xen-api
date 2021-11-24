@@ -676,24 +676,33 @@ let kdcs_of_domain domain =
            String.split_on_char ':' r |> hd (Printf.sprintf "Invalid kdc %s" r))
   with _ -> raise (generic_ex "Failed to lookup kdcs of domain %s" domain)
 
+let workgroup_from_server kdc =
+  let err_msg =
+    Printf.sprintf "Failed to lookup workgroup from server %s" kdc
+  in
+  let key = "Pre-Win2k Domain" in
+  try
+    Helpers.call_script ~log_output:On_failure net_cmd
+      ["ads"; "lookup"; "-S"; kdc; "-d"; debug_level ()]
+    |> Xapi_cmd_result.of_output ~sep:':' ~key
+    |> Result.ok
+  with _ ->
+    debug "Unable to query info from kdc %s, probably is broken down" kdc ;
+    Error (Auth_service_error (E_LOOKUP, err_msg))
+
 let kdc_of_domain domain =
-  let msg = Printf.sprintf "Failed to lookup kdc of domain %s" domain in
-  kdcs_of_domain domain |> hd msg
+  try
+    kdcs_of_domain domain
+    (* Does not trust DNS as it may cache some invalid kdcs, CA-360951 *)
+    |> List.find (fun kdc -> workgroup_from_server kdc |> Result.is_ok)
+  with Not_found ->
+    raise (generic_ex "No valid kdc found for domain %s" domain)
 
 let query_domain_workgroup ~domain =
-  let key = "Pre-Win2k Domain" in
   let err_msg = Printf.sprintf "Failed to look up domain %s workgroup" domain in
   try
     let kdc = kdc_of_domain domain in
-    let lines =
-      Helpers.call_script ~log_output:On_failure net_cmd
-        ["ads"; "lookup"; "-S"; kdc; "-d"; debug_level ()]
-    in
-    match Xapi_cmd_result.of_output_opt ~sep:':' ~key ~lines with
-    | Some v ->
-        v
-    | None ->
-        raise (Auth_service_error (E_LOOKUP, err_msg))
+    workgroup_from_server kdc |> Result.get_ok
   with _ -> raise (Auth_service_error (E_LOOKUP, err_msg))
 
 let config_winbind_damon ~domain ~workgroup ~netbios_name =
@@ -1033,7 +1042,7 @@ let closest_kdc_of_domain domain =
   | Some kdc ->
       kdc
   | None ->
-      (* Just pick the first KDC in the list *)
+      (* Just pick the first valid KDC in the list *)
       kdc_of_domain domain
 
 module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
