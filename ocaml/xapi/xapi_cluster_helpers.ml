@@ -111,11 +111,21 @@ module Pem = struct
 
   let init' cn = {cn; blobs= [Gencertlib.Selfcert.xapi_cluster ~cn ()]}
 
+  let tls_verification_is_enabled ~__context =
+    match Db.Pool.get_all ~__context with
+    | [pool] ->
+        Db.Pool.get_tls_verification_enabled ~__context ~self:pool
+    | _ ->
+        D.warn "Pool is undefined %s" __LOC__ ;
+        false
+
   let init ~__context ~cn =
     if unit_test ~__context then
       tls_config_empty
     else
-      {tls_config_empty with pems= Some (init' cn)}
+      let verify_tls_certs = tls_verification_is_enabled ~__context in
+      D.debug "Cluster configuration: verify_tls_certs = %b" verify_tls_certs ;
+      {pems= Some (init' cn); verify_tls_certs}
 
   let get_existing' ~__context self =
     let cc_of_cluster_host h =
