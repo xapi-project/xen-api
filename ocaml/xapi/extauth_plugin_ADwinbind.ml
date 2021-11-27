@@ -977,22 +977,13 @@ module ClosestKdc = struct
 
   let lookup domain =
     try
-      let* krbtgt_sid =
-        Wbinfo.sid_of_name (Printf.sprintf "%s@%s" krbtgt domain)
-      in
-      let* domain_netbios_name =
-        Wbinfo.domain_name_of ~target_name_type:NetbiosName ~from_name:domain
-      in
-
       kdcs_of_domain domain
       |> List.map (fun kdc ->
              debug "Got domain '%s' kdc '%s'" domain kdc ;
              kdc
          )
       |> List.map (fun kdc ->
-             mtime_this ~name:kdc ~f:(fun () ->
-                 Ldap.query_user krbtgt_sid domain_netbios_name kdc
-             )
+             mtime_this ~name:kdc ~f:(fun () -> workgroup_from_server kdc)
          )
       |> List.filter_map Result.to_option
       |> List.sort (fun (_, s1) (_, s2) -> Mtime.Span.compare s1 s2)
@@ -1151,6 +1142,7 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
     let* {user_name; gecos; gid} = Wbinfo.uid_info_of_uid uid in
     let* domain_netbios, domain = Wbinfo.domain_of_uname user_name in
     let closest_kdc = closest_kdc_of_domain domain in
+    let {service_name; _} = get_domain_info_from_db () in
     let* {
            name
          ; upn
@@ -1160,7 +1152,24 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
          ; account_locked
          ; password_expired
          } =
-      Ldap.query_user sid domain_netbios closest_kdc
+      if service_name = domain then
+        Ldap.query_user sid domain_netbios closest_kdc
+      else (
+        (* Cross domain may fail in case of 1 way trust, just return the default value *)
+        debug
+          "Return default account values for locked, disabled, etc for not \
+           joined domain" ;
+        Ok
+          {
+            name= user_name
+          ; upn= ""
+          ; display_name= user_name
+          ; account_disabled= false
+          ; account_locked= false
+          ; account_expired= false
+          ; password_expired= false
+          }
+      )
     in
     Ok
       [
