@@ -266,6 +266,16 @@ module Task = struct
       ~allowed_roles:_R_READ_ONLY (* POOL_OP can set error_info for any tasks, others can set error_info only for owned tasks *)
       ()
 
+  let set_resident_on = call ~flags:[`Session]
+      ~in_oss_since:None
+      ~in_product_since:rel_next
+      ~name:"set_resident_on"
+      ~doc:"Set the resident on field"
+      ~params:[Ref _task, "self", "Reference to the task object";
+               Ref _host, "value", "Resident on to be set"]
+      ~allowed_roles:_R_READ_ONLY (* POOL_OP can set resident_on for any tasks, others can set error_info only for owned tasks *)
+      ()
+
   (* this permission allows to destroy any task, instead of only the owned ones *)
   let extra_permission_task_destroy_any = "task.destroy/any"
 
