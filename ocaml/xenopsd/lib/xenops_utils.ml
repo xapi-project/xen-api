@@ -122,7 +122,15 @@ let utf8_add_if_valid buf _ next =
   Uutf.Buffer.add_utf_8 buf uchar;
   buf
 
+let is_valid prev _ = function
+  | `Malformed _ -> false
+  | `Uchar _ -> prev
+
 let utf8_recode str =
+  (* optimistic assumption that the string contains only valid utf8,
+     avoids allocations *)
+  if Uutf.String.fold_utf_8 is_valid true str then str
+  else
   let b = Buffer.create (String.length str) in
   Uutf.String.fold_utf_8 utf8_add_if_valid b str
   |> Buffer.contents
