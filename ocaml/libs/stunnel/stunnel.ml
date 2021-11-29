@@ -347,7 +347,7 @@ let attempt_one_connect ?(use_fork_exec_helper = true)
         in
         Unixfd.safe_close config_out ;
         (* The sock_of_stunnel has been passed to stunnel process. Close it in XAPI *)
-        ignore (Option.map (fun s -> Unixfd.safe_close s) sock_of_stunnel) ;
+        Option.iter (fun s -> Unixfd.safe_close s) sock_of_stunnel ;
         (* Catch the occasional initialisation failure of stunnel: *)
         try
           let len = String.length config in
