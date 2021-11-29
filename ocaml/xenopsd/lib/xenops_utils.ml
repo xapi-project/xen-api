@@ -115,27 +115,17 @@ let ignore_bool (_ : bool) = ()
 let ignore_int (_ : int) = ()
 
 (* Recode an incoming string as valid UTF-8 *)
+let utf8_add_if_valid buf _ next =
+  let uchar = match next with
+  | `Malformed _ -> Uutf.u_rep
+  | `Uchar u -> u in
+  Uutf.Buffer.add_utf_8 buf uchar;
+  buf
+
 let utf8_recode str =
-  let out_encoding = `UTF_8 in
-  let b = Buffer.create 1024 in
-  let dst = `Buffer b in
-  let src = `String str in
-  let rec loop d e =
-    match Uutf.decode d with
-    | `Uchar _ as u ->
-        ignore (Uutf.encode e u) ;
-        loop d e
-    | `End ->
-        ignore (Uutf.encode e `End)
-    | `Malformed _ ->
-        ignore (Uutf.encode e (`Uchar Uutf.u_rep)) ;
-        loop d e
-    | `Await ->
-        assert false
-  in
-  let d = Uutf.decoder src in
-  let e = Uutf.encoder out_encoding dst in
-  loop d e ; Buffer.contents b
+  let b = Buffer.create (String.length str) in
+  Uutf.String.fold_utf_8 utf8_add_if_valid b str
+  |> Buffer.contents
 
 let dropnone x = List.filter_map (Option.map Fun.id) x
 
