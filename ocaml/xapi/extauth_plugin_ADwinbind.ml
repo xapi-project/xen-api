@@ -719,7 +719,6 @@ let config_winbind_damon ~domain ~workgroup ~netbios_name =
       ; Printf.sprintf "realm = %s" domain
       ; "security = ADS"
       ; "template shell = /bin/bash"
-      ; "winbind offline logon = Yes"
       ; "winbind refresh tickets = Yes"
       ; "winbind enum groups = no"
       ; "winbind enum users = no"
