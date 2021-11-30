@@ -553,6 +553,11 @@ module XenopsAPI (R : RPC) = struct
       declare "Task.list"
         ["List all the current tasks"]
         (debug_info_p @-> returning task_list_p err)
+
+    let destroy_on_finish =
+      declare "Task.destroy_on_finish"
+        ["Ensures the task will be destroyed when it finishes"]
+        (debug_info_p @-> task_id_p @-> returning unit_p err)
   end
 
   module HOST = struct
