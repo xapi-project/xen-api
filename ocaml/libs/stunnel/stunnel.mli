@@ -87,3 +87,12 @@ val move_out_exn : t -> t
 val with_moved_exn : t -> (t -> 'd) -> 'd
 
 val safe_release : t -> unit
+
+val with_client_proxy :
+     verify_cert:verification_config option
+  -> remote_host:string
+  -> remote_port:int
+  -> local_host:string
+  -> local_port:int
+  -> (unit -> 'a)
+  -> 'a
