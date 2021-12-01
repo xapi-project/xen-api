@@ -76,3 +76,7 @@ let set_result ~__context ~self ~value =
 let set_error_info ~__context ~self ~value =
   TaskHelper.assert_op_valid ~__context self ;
   Db.Task.set_error_info ~__context ~self ~value
+
+let set_resident_on ~__context ~self ~value =
+  TaskHelper.assert_op_valid ~__context self ;
+  Db.Task.set_resident_on ~__context ~self ~value
