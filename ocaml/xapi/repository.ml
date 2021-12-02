@@ -91,6 +91,26 @@ let cleanup_pool_repo ~__context ~self =
       (ExnHelper.string_of_exn e) ;
     raise Api_errors.(Server_error (repository_cleanup_failed, []))
 
+let get_proxy_params ~__context repo_name =
+  let pool = Helpers.get_pool ~__context in
+  let url = Db.Pool.get_repository_proxy_url ~__context ~self:pool in
+  let username = Db.Pool.get_repository_proxy_username ~__context ~self:pool in
+  let password_ref =
+    Db.Pool.get_repository_proxy_password ~__context ~self:pool
+  in
+  match (url, username, password_ref) with
+  | url', username', password_ref'
+    when url' <> "" && username' <> "" && password_ref' <> Ref.null ->
+      ( Printf.sprintf "--setopt=%s.proxy=%s" repo_name url'
+      , Printf.sprintf "--setopt=%s.proxy_username=%s" repo_name username'
+      , Printf.sprintf "--setopt=%s.proxy_password=%s" repo_name
+          (Db.Secret.get_value ~__context ~self:password_ref')
+      )
+  | url', "", _ when url' <> "" ->
+      (Printf.sprintf "--setopt=%s.proxy=%s" repo_name url', "", "")
+  | _ ->
+      ("", "", "")
+
 let sync ~__context ~self ~token ~token_id =
   try
     let repo_name = get_remote_repository_name ~__context ~self in
@@ -106,6 +126,9 @@ let sync ~__context ~self ~token ~token_id =
       | None ->
           ""
     in
+    let proxy_url_param, proxy_username_param, proxy_password_param =
+      get_proxy_params ~__context repo_name
+    in
     let config_params =
       [
         "--save"
@@ -114,6 +137,9 @@ let sync ~__context ~self ~token ~token_id =
         else
           "--setopt=repo_gpgcheck=0"
         )
+      ; proxy_url_param
+      ; proxy_username_param
+      ; proxy_password_param
       ; token_param
       ; repo_name
       ]

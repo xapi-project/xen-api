@@ -1768,6 +1768,14 @@ let pool_sync_updates printer rpc session_id params =
   in
   printer (Cli_printer.PList [hash])
 
+let pool_configure_repository_proxy printer rpc session_id params =
+  let pool = get_pool_with_default rpc session_id params "uuid" in
+  let url = List.assoc "proxy-url" params in
+  let username = get_param params "proxy-username" ~default:"" in
+  let password = get_param params "proxy-password" ~default:"" in
+  Client.Pool.configure_repository_proxy rpc session_id pool url username
+    password
+
 let vdi_type_of_string = function
   | "system" ->
       `system

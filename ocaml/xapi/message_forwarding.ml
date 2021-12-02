@@ -1062,6 +1062,17 @@ functor
         info "Pool.disable_client_certificate_auth: pool = '%s'"
           (pool_uuid ~__context self) ;
         Local.Pool.disable_client_certificate_auth ~__context ~self
+
+      let configure_repository_proxy ~__context ~self ~url ~username ~password =
+        info
+          "Pool.configure_repository_proxy: pool = '%s'; url = %s; username = \
+           %s; password = %s"
+          (pool_uuid ~__context self)
+          url
+          (if username = "" then "" else "(username filtered)")
+          (if password = "" then "" else "(password filtered)") ;
+        Local.Pool.configure_repository_proxy ~__context ~self ~url ~username
+          ~password
     end
 
     module VM = struct

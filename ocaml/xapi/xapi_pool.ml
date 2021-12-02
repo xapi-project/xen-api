@@ -3505,3 +3505,41 @@ let get_updates_handler (req : Http.Request.t) s _ =
           error "400: Invalid 'host_refs' in query" ;
           Http_svr.headers s (Http.http_400_badrequest ())
   )
+
+let configure_repository_proxy ~__context ~self ~url ~username ~password =
+  ( match Uri.scheme (Uri.of_string url) with
+  | Some "http" | Some "https" ->
+      ()
+  | _ ->
+      raise Api_errors.(Server_error (invalid_repository_proxy_url, [url]))
+  ) ;
+  ( match (username, password) with
+  | "", p when p <> "" ->
+      error "missing username of the repository proxy with a password specified" ;
+      raise Api_errors.(Server_error (invalid_repository_proxy_credential, []))
+  | u, "" when u <> "" ->
+      error "missing password of the repository proxy with a username specified" ;
+      raise Api_errors.(Server_error (invalid_repository_proxy_credential, []))
+  | u, p when u <> "" && p <> "" ->
+      if String.contains u '\n' || String.contains p '\n' then (
+        error "getting invalid username/password of the repository proxy" ;
+        raise
+          Api_errors.(Server_error (invalid_repository_proxy_credential, []))
+      )
+  | _ ->
+      ()
+  ) ;
+  let old_secret_ref = Db.Pool.get_repository_proxy_password ~__context ~self in
+  let secret_ref =
+    if password = "" then
+      Ref.null
+    else
+      Xapi_secret.create ~__context ~value:password ~other_config:[]
+  in
+  Db.Pool.set_repository_proxy_url ~__context ~self ~value:url ;
+  Db.Pool.set_repository_proxy_username ~__context ~self ~value:username ;
+  Db.Pool.set_repository_proxy_password ~__context ~self ~value:secret_ref ;
+  if old_secret_ref <> Ref.null then
+    Xapi_stdext_pervasives.Pervasiveext.ignore_exn (fun _ ->
+        Db.Secret.destroy ~__context ~self:old_secret_ref
+    )
