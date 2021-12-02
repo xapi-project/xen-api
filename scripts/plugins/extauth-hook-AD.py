@@ -76,7 +76,7 @@ class ADConfig(object):
                 self._lines = [l.strip() for l in lines]
 
     def _get_ad_backend(self, args):
-        if  args.get("ad_backend", "winbind") == "pbis":
+        if  args.get("ad_backend", "pbis") == "pbis":
             logger.debug("pbis is used as AD backend")
             return ADBackend.bd_pbis
 
