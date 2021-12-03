@@ -113,4 +113,9 @@ module Task : functor (Interface : INTERFACE) -> sig
 
   (* Set a task not cancellable *)
   val prohibit_cancellation : task_handle -> unit
+
+  (* When the task finishes automatically destroy it to avoid resource leaks.
+     Useful for asynchronous tasks that we don't wait for.
+  *)
+  val destroy_on_finish : task_handle -> unit
 end

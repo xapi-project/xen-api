@@ -202,6 +202,9 @@ module TASK = struct
   let destroy _ _dbg id = destroy' id
 
   let list _ _dbg = list tasks |> List.map Xenops_task.to_interface_task
+
+  let destroy_on_finish () _dbg id =
+    id |> handle_of_id tasks |> destroy_on_finish
 end
 
 module VM_DB = struct
@@ -3620,6 +3623,7 @@ let _ =
   Server.TASK.stat (TASK.stat ()) ;
   Server.TASK.list (TASK.list ()) ;
   Server.TASK.destroy (TASK.destroy ()) ;
+  Server.TASK.destroy_on_finish (TASK.destroy_on_finish ()) ;
   Server.HOST.stat (HOST.stat ()) ;
   Server.HOST.get_console_data (HOST.get_console_data ()) ;
   Server.HOST.get_total_memory_mib (HOST.get_total_memory_mib ()) ;
