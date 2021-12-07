@@ -757,9 +757,9 @@ let clone ~__context ~vm ~new_name =
 
 (* We do call wait_in_line for snapshot and snapshot_with_quiesce because the locks are taken at *)
 (* the VBD level (with pause/unpause mechanism                                                   *)
-let snapshot ~__context ~vm ~new_name =
+let snapshot ~__context ~vm ~new_name ~ignore_vdis =
   TaskHelper.set_cancellable ~__context ;
-  Xapi_vm_snapshot.snapshot ~__context ~vm ~new_name
+  Xapi_vm_snapshot.snapshot ~__context ~vm ~new_name ~ignore_vdis
 
 (* As we will destroy the domain ourself, we grab the vm_lock here in order to tell the event thread to *)
 (* do not look at this domain. The message forwarding layer already checked that the VM reference we    *)
