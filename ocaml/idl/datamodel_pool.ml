@@ -793,7 +793,7 @@ open Datamodel_types
   let configure_repository_proxy = call
       ~name:"configure_repository_proxy"
       ~in_product_since:rel_next
-      ~doc:"Configure the proxy used in syncing with the enabled repositories"
+      ~doc:"Configure proxy for RPM package repositories."
       ~params:[
         Ref _pool, "self", "The pool";
         String, "url", "The URL of the proxy server";
