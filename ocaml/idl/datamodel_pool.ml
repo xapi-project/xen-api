@@ -803,6 +803,14 @@ open Datamodel_types
       ~allowed_roles:_R_POOL_OP
       ()
 
+  let disable_repository_proxy = call
+      ~name:"disable_repository_proxy"
+      ~in_product_since:rel_next
+      ~doc:"Disable the proxy for RPM package repositories."
+      ~params:[Ref _pool, "self", "The pool"]
+      ~allowed_roles:_R_POOL_OP
+      ()
+
   (** A pool class *)
   let t =
     create_obj
@@ -889,6 +897,7 @@ open Datamodel_types
         ; enable_client_certificate_auth
         ; disable_client_certificate_auth
         ; configure_repository_proxy
+        ; disable_repository_proxy
         ]
       ~contents:
         ([uid ~in_oss_since:None _pool] @

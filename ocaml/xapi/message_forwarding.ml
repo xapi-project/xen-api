@@ -1073,6 +1073,11 @@ functor
           (if password = "" then "" else "(password filtered)") ;
         Local.Pool.configure_repository_proxy ~__context ~self ~url ~username
           ~password
+
+      let disable_repository_proxy ~__context ~self =
+        info "Pool.disable_repository_proxy: pool = '%s'"
+          (pool_uuid ~__context self) ;
+        Local.Pool.disable_repository_proxy ~__context ~self
     end
 
     module VM = struct

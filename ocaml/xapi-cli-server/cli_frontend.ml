@@ -633,6 +633,15 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; flags= []
       }
     )
+  ; ( "pool-disable-repository-proxy"
+    , {
+        reqd= []
+      ; optn= []
+      ; help= "Disable the proxy for RPM package repositories"
+      ; implementation= No_fd Cli_operations.pool_disable_repository_proxy
+      ; flags= []
+      }
+    )
   ; ( "host-shutdown"
     , {
         reqd= []
