@@ -79,16 +79,6 @@ let hd msg = function
 
 let max_netbios_name_length = 15
 
-let ntlm_auth uname passwd : (unit, exn) result =
-  try
-    let args = ["--username"; uname] in
-    let _stdout =
-      Helpers.call_script ~log_output:Never ~stdin:passwd
-        !Xapi_globs.ntlm_auth_cmd args
-    in
-    Ok ()
-  with _ -> Error (auth_ex uname)
-
 let get_domain_info_from_db () =
   Server_helpers.exec_with_new_task "retrieving external auth domain workgroup"
   @@ fun __context ->
@@ -311,6 +301,7 @@ module Ldap = struct
           ; "--server"
           ; kdc
           ; "--machine-pass"
+          ; "--kerberos"
           ]
           @ attrs
         in
@@ -338,6 +329,7 @@ module Ldap = struct
       ; "--server"
       ; kdc
       ; "--machine-pass"
+      ; "--kerberos"
       ; query
       ; key
       ]
@@ -416,6 +408,15 @@ module Wbinfo = struct
 
   let can_resolve_krbtgt () =
     match call_wbinfo ["-n"; krbtgt] with Ok _ -> true | Error _ -> false
+
+  let kerberos_auth uname passwd : (unit, exn) result =
+    try
+      let args = ["--krb5auth"; uname; "--krb5ccname"; "/dev/null"] in
+      let _stdout =
+        Helpers.call_script ~log_output:Never ~stdin:passwd wb_cmd args
+      in
+      Ok ()
+    with _ -> Error (auth_ex uname)
 
   let sid_of_name name =
     (* example:
@@ -669,7 +670,7 @@ end
 let kdcs_of_domain domain =
   try
     Helpers.call_script ~log_output:On_failure net_cmd
-      ["lookup"; "kdc"; domain; "-d"; debug_level ()]
+      ["lookup"; "kdc"; domain; "-d"; debug_level (); "--kerberos"]
     (* Result like 10.71.212.25:88\n10.62.1.25:88\n*)
     |> String.split_on_char '\n'
     |> List.filter (fun x -> String.trim x <> "") (* Remove empty lines *)
@@ -685,7 +686,7 @@ let workgroup_from_server kdc =
   let key = "Pre-Win2k Domain" in
   try
     Helpers.call_script ~log_output:On_failure net_cmd
-      ["ads"; "lookup"; "-S"; kdc; "-d"; debug_level ()]
+      ["ads"; "lookup"; "-S"; kdc; "-d"; debug_level (); "--kerberos"]
     |> Xapi_cmd_result.of_output ~sep:':' ~key
     |> Result.ok
   with _ ->
@@ -805,7 +806,16 @@ let disable_machine_account ~service_name = function
       (* Disable machine account in DC *)
       let env = [|Printf.sprintf "PASSWD=%s" p|] in
       let args =
-        ["ads"; "leave"; "-U"; u; "--keep-account"; "-d"; debug_level ()]
+        [
+          "ads"
+        ; "leave"
+        ; "-U"
+        ; u
+        ; "--keep-account"
+        ; "-d"
+        ; debug_level ()
+        ; "--kerberos"
+        ]
       in
       try
         Helpers.call_script ~env net_cmd args |> ignore ;
@@ -1087,7 +1097,7 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
   *)
 
   let authenticate_username_password uname password =
-    (* the ntlm_auth binary expects the username to be in either SAM or UPN format.
+    (* the `wbinfo --krb5auth` expects the username to be in either SAM or UPN format.
      * we use wbinfo to try to convert the provided [uname] into said format.
      * as a last ditch attempt, we try to auth with the provided [uname]
      *
@@ -1112,9 +1122,9 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
            D.warn
              "authenticate_username_password: trying original uname. ex: %s"
              (Printexc.to_string e) ;
-           ntlm_auth orig_uname password
+           Wbinfo.kerberos_auth orig_uname password
        | Ok uname ->
-           ntlm_auth uname password
+           Wbinfo.kerberos_auth uname password
      in
      Ok sid
     )
@@ -1281,6 +1291,7 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
         ; "-d"
         ; debug_level ()
         ; "--no-dns-updates"
+        ; "--kerberos"
         ]
       ; ou_param
       ; dns_hostname_option

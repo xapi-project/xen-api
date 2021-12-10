@@ -923,8 +923,6 @@ let net_cmd = ref "/usr/bin/net"
 
 let wb_cmd = ref "/usr/bin/wbinfo"
 
-let ntlm_auth_cmd = ref "/usr/bin/ntlm_auth"
-
 let winbind_debug_level = ref 2
 
 let winbind_cache_time = ref 60
@@ -1495,7 +1493,6 @@ module Resources = struct
       , "Executed to manage Samba Database"
       )
     ; ("winbind query tool", wb_cmd, "Query information from winbind daemon")
-    ; ("ntlm auth utility", ntlm_auth_cmd, "Used to authenticate AD users")
     ; ( "SQLite database  management tool"
       , sqlite3
       , "Executed to manage SQlite Database, like PBIS database"
