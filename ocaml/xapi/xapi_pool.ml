@@ -3543,3 +3543,13 @@ let configure_repository_proxy ~__context ~self ~url ~username ~password =
     Xapi_stdext_pervasives.Pervasiveext.ignore_exn (fun _ ->
         Db.Secret.destroy ~__context ~self:old_secret_ref
     )
+
+let disable_repository_proxy ~__context ~self =
+  Db.Pool.set_repository_proxy_url ~__context ~self ~value:"" ;
+  Db.Pool.set_repository_proxy_username ~__context ~self ~value:"" ;
+  let old_secret_ref = Db.Pool.get_repository_proxy_password ~__context ~self in
+  Db.Pool.set_repository_proxy_password ~__context ~self ~value:Ref.null ;
+  if old_secret_ref <> Ref.null then
+    Xapi_stdext_pervasives.Pervasiveext.ignore_exn (fun _ ->
+        Db.Secret.destroy ~__context ~self:old_secret_ref
+    )

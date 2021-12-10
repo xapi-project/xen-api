@@ -382,3 +382,5 @@ val configure_repository_proxy :
   -> username:string
   -> password:string
   -> unit
+
+val disable_repository_proxy : __context:Context.t -> self:API.ref_pool -> unit

@@ -1776,6 +1776,10 @@ let pool_configure_repository_proxy printer rpc session_id params =
   Client.Pool.configure_repository_proxy rpc session_id pool url username
     password
 
+let pool_disable_repository_proxy printer rpc session_id params =
+  let pool = get_pool_with_default rpc session_id params "uuid" in
+  Client.Pool.disable_repository_proxy rpc session_id pool
+
 let vdi_type_of_string = function
   | "system" ->
       `system

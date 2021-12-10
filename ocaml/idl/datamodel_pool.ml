@@ -793,13 +793,21 @@ open Datamodel_types
   let configure_repository_proxy = call
       ~name:"configure_repository_proxy"
       ~in_product_since:rel_next
-      ~doc:"Configure the proxy used in syncing with the enabled repositories"
+      ~doc:"Configure proxy for RPM package repositories."
       ~params:[
         Ref _pool, "self", "The pool";
         String, "url", "The URL of the proxy server";
         String, "username", "The username used to authenticate with the proxy server";
         String, "password", "The password used to authenticate with the proxy server"
       ]
+      ~allowed_roles:_R_POOL_OP
+      ()
+
+  let disable_repository_proxy = call
+      ~name:"disable_repository_proxy"
+      ~in_product_since:rel_next
+      ~doc:"Disable the proxy for RPM package repositories."
+      ~params:[Ref _pool, "self", "The pool"]
       ~allowed_roles:_R_POOL_OP
       ()
 
@@ -889,6 +897,7 @@ open Datamodel_types
         ; enable_client_certificate_auth
         ; disable_client_certificate_auth
         ; configure_repository_proxy
+        ; disable_repository_proxy
         ]
       ~contents:
         ([uid ~in_oss_since:None _pool] @
