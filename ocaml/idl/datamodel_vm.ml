@@ -776,7 +776,7 @@ let power_behaviour =
       (*	    Bool, "live", "If set to true, perform a live hibernate; otherwise suspend the VM before commencing hibernate" *)
       ~errs:[Api_errors.vm_bad_power_state; Api_errors.other_operation_in_progress; Api_errors.operation_not_allowed;
              Api_errors.vm_is_template]
-      ~allowed_roles:_R_VM_OP
+      ~allowed_roles:(_R_VM_OP ++ _R_CLIENT_CERT)
       ()
 
   (* VM.clsp -- clone suspended, undocumented API for VMLogix *)
@@ -817,7 +817,7 @@ let power_behaviour =
                Bool, "force", "Attempt to force the VM to resume. If this flag is false then the VM may fail pre-resume safety checks (e.g. if the CPU the VM was running on looks substantially different to the current one)";
               ]
       ~errs:[Api_errors.vm_bad_power_state; Api_errors.operation_not_allowed; Api_errors.vm_is_template]
-      ~allowed_roles:_R_VM_POWER_ADMIN
+      ~allowed_roles:(_R_VM_POWER_ADMIN ++ _R_CLIENT_CERT)
       ()
 
   let pool_migrate = call
@@ -829,7 +829,7 @@ let power_behaviour =
                Ref _host, "host", "The target host";
                Map(String, String), "options", "Extra configuration operations" ]
       ~errs:[Api_errors.vm_bad_power_state; Api_errors.other_operation_in_progress; Api_errors.vm_is_template; Api_errors.operation_not_allowed; Api_errors.vm_migrate_failed]
-      ~allowed_roles:_R_VM_POWER_ADMIN
+      ~allowed_roles:(_R_VM_POWER_ADMIN ++ _R_CLIENT_CERT)
       ()
 
   let pool_migrate_complete = call
@@ -841,7 +841,7 @@ let power_behaviour =
                Ref _host, "host", "The target host" ]
       ~hide_from_docs:true
       ~pool_internal:false (* needed for cross-pool migrate too *)
-      ~allowed_roles:_R_VM_POWER_ADMIN
+      ~allowed_roles:(_R_VM_POWER_ADMIN ++ _R_CLIENT_CERT)
       ()
 
 

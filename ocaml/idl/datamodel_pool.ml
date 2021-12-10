@@ -30,7 +30,7 @@ open Datamodel_types
          {param_type=Map(String, String); param_name="configuration"; param_doc="Detailed HA configuration to apply"; param_release=miami_release; param_default=None };
         ]
       ~doc:"Turn on High Availability mode"
-      ~allowed_roles:_R_POOL_OP
+      ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
       ()
 
   let disable_ha = call
@@ -39,7 +39,7 @@ open Datamodel_types
       ~in_oss_since:None
       ~params:[]
       ~doc:"Turn off High Availability mode"
-      ~allowed_roles:_R_POOL_OP
+      ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
       ()
 
   let sync_database = call
@@ -447,7 +447,7 @@ open Datamodel_types
       ~doc:"Install a TLS CA certificate, pool-wide."
       ~params:[String, "name", "A name to give the certificate";
                String, "cert", "The certificate in PEM format"]
-      ~allowed_roles:_R_POOL_OP
+      ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
       ~lifecycle:
         [Published, rel_next, "Install TLS CA certificate"
         ]
@@ -469,7 +469,7 @@ open Datamodel_types
       ~name:"uninstall_ca_certificate"
       ~doc:"Remove a pool-wide TLS CA certificate."
       ~params:[String, "name", "The certificate name"]
-      ~allowed_roles:_R_POOL_OP
+      ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
       ~lifecycle:
         [Published, rel_next, "Uninstall TLS CA certificate"
         ]
@@ -717,7 +717,7 @@ open Datamodel_types
         Ref _pool, "self", "The pool";
         Set (Ref _repository), "value", "The set of repositories to be enabled"
       ]
-      ~allowed_roles:_R_POOL_OP
+      ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
       ()
 
   let add_repository = call
@@ -728,7 +728,7 @@ open Datamodel_types
         Ref _pool, "self", "The pool";
         Ref _repository, "value", "The repository to be added to the enabled set"
       ]
-      ~allowed_roles:_R_POOL_OP
+      ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
       ()
 
   let remove_repository = call
@@ -739,7 +739,7 @@ open Datamodel_types
         Ref _pool, "self", "The pool";
         Ref _repository, "value", "The repository to be removed"
       ]
-      ~allowed_roles:_R_POOL_OP
+      ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
       ()
 
   let sync_updates = call
@@ -753,7 +753,7 @@ open Datamodel_types
         {param_type=String; param_name="token_id"; param_doc="The ID of the token"; param_release=next_release; param_default=Some (VString "")}
       ]
       ~result:(String, "The SHA256 hash of updateinfo.xml.gz")
-      ~allowed_roles:_R_POOL_OP
+      ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
       ()
 
   let check_update_readiness = call
@@ -766,7 +766,7 @@ open Datamodel_types
       ]
       ~result:(Set(Set (String)), "A set of error codes with arguments, if the pool is
         not ready to update. An empty list means the pool can be updated.")
-      ~allowed_roles:_R_READ_ONLY
+      ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
       ()
 
   let enable_client_certificate_auth = call
@@ -777,7 +777,7 @@ open Datamodel_types
       Ref _pool, "self", "The pool";
       String, "name", "The name (CN/SAN) that an incoming client certificate must have to allow authentication"
     ]
-    ~allowed_roles:_R_POOL_OP
+    ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
     ()
 
   let disable_client_certificate_auth = call
@@ -787,7 +787,7 @@ open Datamodel_types
     ~params:[
       Ref _pool, "self", "The pool"
     ]
-    ~allowed_roles:_R_POOL_OP
+    ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
     ()
 
   let configure_repository_proxy = call
@@ -800,7 +800,7 @@ open Datamodel_types
         String, "username", "The username used to authenticate with the proxy server";
         String, "password", "The password used to authenticate with the proxy server"
       ]
-      ~allowed_roles:_R_POOL_OP
+      ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
       ()
 
   let disable_repository_proxy = call
@@ -808,7 +808,7 @@ open Datamodel_types
       ~in_product_since:rel_next
       ~doc:"Disable the proxy for RPM package repositories."
       ~params:[Ref _pool, "self", "The pool"]
-      ~allowed_roles:_R_POOL_OP
+      ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
       ()
 
   (** A pool class *)

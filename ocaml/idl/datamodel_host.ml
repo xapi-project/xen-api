@@ -344,7 +344,7 @@ let host_query_ha = call ~flags:[`Session]
         {param_type=Ref _host; param_name="host"; param_doc="The host to evacuate"; param_release=miami_release; param_default=None};
         {param_type=Ref _network; param_name="network"; param_doc="Optional preferred network for migration"; param_release=next_release; param_default=(Some (VRef null_ref))}
       ]
-      ~allowed_roles:_R_POOL_OP
+      ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
       ()
 
   let get_uncooperative_resident_VMs = call
@@ -385,7 +385,7 @@ let host_query_ha = call ~flags:[`Session]
       ~name:"disable"
       ~doc:"Puts the host into a state in which no new VMs can be started. Currently active VMs on the host continue to execute."
       ~params:[Ref _host, "host", "The Host to disable"]
-      ~allowed_roles:_R_POOL_OP
+      ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
       ()
 
   (* Host.Enable *)
@@ -395,7 +395,7 @@ let host_query_ha = call ~flags:[`Session]
       ~in_product_since:rel_rio
       ~doc:"Puts the host into a state in which new VMs can be started."
       ~params:[Ref _host, "host", "The Host to enable"]
-      ~allowed_roles:_R_POOL_OP
+      ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
       ()
 
   (* Host.Shutdown *)
@@ -1464,7 +1464,7 @@ let host_query_ha = call ~flags:[`Session]
       Ref _host, "self", "The host where updates will be applied";
       String, "hash", "The hash of updateinfo to be applied which is returned by previous pool.sync_udpates";
     ]
-    ~allowed_roles:_R_POOL_OP
+    ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
     ()
 
   let copy_primary_host_certs = call

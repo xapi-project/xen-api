@@ -31,7 +31,7 @@ let introduce = call
       Bool, "update", "True if the repository is an update repository. This means that updateinfo.xml will be parsed";
     ]
     ~result:(Ref _repository, "The ref of the created repository record.")
-    ~allowed_roles:_R_POOL_OP
+    ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
     ()
 
 let forget = call
@@ -40,7 +40,7 @@ let forget = call
     ~lifecycle
     ~doc:"Remove the repository record from the database"
     ~params:[Ref _repository, "self", "The repository to be removed from the database"]
-    ~allowed_roles:_R_POOL_OP
+    ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
     ()
 
 let apply = call
@@ -51,7 +51,7 @@ let apply = call
     ~params:[Ref _host, "host", "The host to be updated"]
     ~pool_internal:true
     ~hide_from_docs:true
-    ~allowed_roles:_R_POOL_OP
+    ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
     ()
 
 let t =
@@ -65,12 +65,12 @@ let t =
     ~lifecycle
     ~persist:PersistEverything
     ~in_oss_since:None
-    ~messages_default_allowed_roles:_R_POOL_OP
+    ~messages_default_allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
     ~messages: [introduce; forget; apply]
 
     ~contents:
       [ uid       _repository ~lifecycle;
-        namespace ~name:"name" ~contents:(names ~writer_roles:_R_POOL_OP None RW) ();
+        namespace ~name:"name" ~contents:(names ~writer_roles:(_R_POOL_OP ++ _R_CLIENT_CERT) None RW) ();
         field     ~qualifier:StaticRO ~lifecycle
           ~ty:String
           ~default_value:(Some (VString ""))
