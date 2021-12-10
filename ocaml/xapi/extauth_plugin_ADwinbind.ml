@@ -723,6 +723,8 @@ let config_winbind_damon ~domain ~workgroup ~netbios_name =
       ; "winbind refresh tickets = Yes"
       ; "winbind enum groups = no"
       ; "winbind enum users = no"
+      ; "winbind scan trusted domains = yes"
+      ; "winbind use krb5 enterprise principals = yes"
       ; Printf.sprintf "winbind cache time = %d" !Xapi_globs.winbind_cache_time
       ; Printf.sprintf "machine password timeout = %d"
           !Xapi_globs.winbind_machine_pwd_timeout
