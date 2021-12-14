@@ -268,6 +268,13 @@ class SshdConfig(KeyValueConfig):
         run_cmd(["/usr/bin/systemctl", "reload-or-restart", "sshd"])
 
 
+class PamWinbindConfig(KeyValueConfig):
+    def __init__(self, session, args, ad_enabled=True):
+        super(PamWinbindConfig, self).__init__("/etc/security/pam_winbind.conf", session, args,
+                                               ad_enabled, sep=" = ")
+        self._update_key_value("krb5_auth", "yes")
+
+
 class ConfigManager:
     def __init__(self, session, args, ad_enabled=True):
         self._build_config(session, args, ad_enabled)
@@ -277,12 +284,14 @@ class ConfigManager:
         self._sshd = SshdConfig(session, args, ad_enabled)
         self._static_pam = StaticPam(session, args, ad_enabled)
         self._dynamic_pam = DynamicPam(session, args, ad_enabled)
+        self._pam_winbind = PamWinbindConfig(session, args, ad_enabled)
 
     def refresh_all(self):
         self._nss.apply()
         self._sshd.apply()
         self._dynamic_pam.apply()
         self._static_pam.apply()
+        self._pam_winbind.apply()
 
     def refresh_dynamic_pam(self):
         self._dynamic_pam.apply()
