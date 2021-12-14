@@ -5822,8 +5822,8 @@ let http_actions = [
   ("post_jsonrpc_options", (Options, Constants.jsonrpc_uri, false, [], _R_READ_ONLY, []));
   ("get_pool_update_download", (Get, Constants.get_pool_update_download_uri, false, [], _R_READ_ONLY, []));
   ("get_repository", (Get, Constants.get_repository_uri, false, [], _R_READ_ONLY, []));
-  ("get_host_updates", (Get, Constants.get_host_updates_uri, false, [], _R_POOL_OP, []));
-  ("get_updates", (Get, Constants.get_updates_uri, true, [], _R_POOL_OP, []));
+  ("get_host_updates", (Get, Constants.get_host_updates_uri, false, [], (_R_POOL_OP ++ _R_CLIENT_CERT), []));
+  ("get_updates", (Get, Constants.get_updates_uri, true, [], (_R_POOL_OP ++ _R_CLIENT_CERT), []));
 ]
 
 (* these public http actions will NOT be checked by RBAC *)

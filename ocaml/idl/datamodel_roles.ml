@@ -11,11 +11,11 @@ let role_client_cert = "client-cert"
 let roles_all =
   [ (* in decreasing total linear order of privileges *)
     role_pool_admin;
-    role_client_cert;
     role_pool_operator;
     role_vm_power_admin;
     role_vm_admin;
     role_vm_operator;
+    role_client_cert;
     role_read_only
   ]
 let role_description = [
@@ -41,3 +41,15 @@ let _R_VM_ADMIN = Some(roles_gte role_vm_admin)
 let _R_VM_OP = Some(roles_gte role_vm_operator)
 let _R_READ_ONLY = Some(roles_gte role_read_only) (* = all *)
 let _R_ALL = _R_READ_ONLY
+
+(* Only client-cert; added to one of the above where required in the datamodel *)
+let _R_CLIENT_CERT = Some([role_client_cert])
+
+let union a b =
+  match a, b with
+  | Some x, Some y -> Some (x @ y)
+  | Some x, None -> Some x
+  | None, Some y -> Some y
+  | None, None -> None
+
+let (++) = union
