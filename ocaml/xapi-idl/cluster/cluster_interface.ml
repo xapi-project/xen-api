@@ -27,6 +27,8 @@ type nodeid = int32 [@@deriving rpcty]
 
 type start = bool [@@deriving rpcty]
 
+type enabled = bool [@@deriving rpcty]
+
 let string_of_nodeid = Int32.to_string
 
 (** This type describes an individual node in the cluster. It must have a unique
@@ -266,4 +268,10 @@ module LocalAPI (R : RPC) = struct
     declare "upd-config"
       ["Distribute new TLS configuration to existing cluster"]
       (debug_info_p @-> tls_config_p @-> returning unit_p err)
+
+  let set_tls_verification =
+    let enabled_p = Param.mk ~name:"enable" enabled in
+    declare "set-tls-verification"
+      ["Enable or disable TLS verification for xapi/clusterd communication"]
+      (debug_info_p @-> enabled_p @-> returning unit_p err)
 end
