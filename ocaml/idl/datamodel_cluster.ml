@@ -153,6 +153,14 @@ let pool_resync = call
     ~errs:Api_errors.([])
     ()
 
+let pool_refresh_certificate = call
+    ~lifecycle:[Published, rel_next, ""]
+    ~name:"pool_refresh_certificate"
+    ~doc:"Replace the self-signed certficate used by clusterd."
+    ~params:[Ref _cluster, "self", "The cluster using the certificate"]
+    ~allowed_roles:_R_POOL_ADMIN
+    ()
+
 let t =
   create_obj
     ~name: _cluster
@@ -216,5 +224,6 @@ let t =
       ; pool_force_destroy
       ; pool_destroy
       ; pool_resync
+      ; pool_refresh_certificate
       ]
     ()

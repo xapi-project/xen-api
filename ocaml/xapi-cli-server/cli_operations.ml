@@ -7479,6 +7479,11 @@ module Cluster = struct
     let cluster_ref = Client.Cluster.get_by_uuid rpc session_id cluster_uuid in
     Client.Cluster.pool_resync rpc session_id cluster_ref
 
+  let pool_refresh_certificate _printer rpc session_id params =
+    let cluster_uuid = List.assoc "cluster-uuid" params in
+    let cluster_ref = Client.Cluster.get_by_uuid rpc session_id cluster_uuid in
+    Client.Cluster.pool_refresh_certificate rpc session_id cluster_ref
+
   let create printer rpc session_id params =
     let pif_uuid = List.assoc "pif-uuid" params in
     let pIF = Client.PIF.get_by_uuid rpc session_id pif_uuid in

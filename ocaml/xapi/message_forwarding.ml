@@ -6236,6 +6236,12 @@ functor
                ) ;
                debug "Cluster.pool_resync for host %s" (Ref.string_of host)
            )
+
+      let pool_refresh_certificate ~__context ~self =
+        info "Cluster.pool_refresh_certificate: %s" (Ref.string_of self) ;
+        (* call implementation on this (master) host because it does not
+           matter on which host we execute this *)
+        Local.Cluster.pool_refresh_certificate ~__context ~self
     end
 
     module Cluster_host = struct

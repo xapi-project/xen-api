@@ -74,3 +74,8 @@ val pool_resync : __context:Context.t -> self:API.ref_Cluster -> unit
     Cluster_host objects (ie., one for each host in the pool if the Cluster
     has [pool_auto_join] set. If there is a failure, this function must return
     an error that enables the administrator to fix the problem. *)
+
+val pool_refresh_certificate :
+  __context:Context.t -> self:API.ref_Cluster -> unit
+(** [pool_refresh_certificate] replaces the self-signed certificate used
+    for communication between xapi and xapi-clusterd with a new one. *)

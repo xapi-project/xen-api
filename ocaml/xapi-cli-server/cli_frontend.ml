@@ -3472,6 +3472,15 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; flags= []
       }
     )
+  ; ( "cluster-refresh-certificate"
+    , {
+        reqd= ["cluster-uuid"]
+      ; optn= []
+      ; help= "Refresh TLS certificate used by the cluster"
+      ; implementation= No_fd Cli_operations.Cluster.pool_refresh_certificate
+      ; flags= []
+      }
+    )
   ; ( "cluster-create"
     , {
         reqd= ["pif-uuid"]

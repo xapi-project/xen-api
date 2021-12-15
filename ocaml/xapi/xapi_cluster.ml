@@ -257,3 +257,5 @@ let pool_resync ~__context ~(self : API.ref_Cluster) =
       )
 (* If host.clustering_enabled then resync_host should successfully
    find or create a matching cluster_host which is also enabled *)
+
+let pool_refresh_certificate ~__context ~self = ()
