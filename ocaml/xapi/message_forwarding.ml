@@ -6224,7 +6224,15 @@ functor
       let pool_resync ~__context ~self =
         (* iterates Cluster_host.enable and Cluster_host where necessary*)
         info "Cluster.pool_resync cluster: %s" (Ref.string_of self) ;
-        Local.Cluster.pool_resync ~__context ~self
+        let hosts = Xapi_pool_helpers.get_master_slaves_list ~__context in
+        let local_fn = Local.Cluster.pool_resync ~self in
+        hosts
+        |> List.iter (fun host ->
+               do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
+                   Client.Cluster.pool_resync ~rpc ~session_id ~self
+               ) ;
+               debug "Cluster.pool_resync for host %s" (Ref.string_of host)
+           )
     end
 
     module Cluster_host = struct
