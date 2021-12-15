@@ -243,19 +243,17 @@ let pool_create ~__context ~network ~cluster_stack ~token_timeout
     ) ;
     raise e
 
+(* Work is split between message_forwarding and this code. This code is
+executed on each host locally *)
 let pool_resync ~__context ~(self : API.ref_Cluster) =
-  List.iter
-    (fun host ->
-      log_and_ignore_exn (fun () ->
-          Xapi_cluster_host.create_as_necessary ~__context ~host ;
-          Xapi_cluster_host.resync_host ~__context ~host ;
-          if is_clustering_disabled_on_host ~__context host then
-            raise
-              Api_errors.(
-                Server_error (no_compatible_cluster_host, [Ref.string_of host])
-              )
-          (* If host.clustering_enabled then resync_host should successfully
-             find or create a matching cluster_host which is also enabled *)
+  let host = Helpers.get_localhost ~__context in
+  log_and_ignore_exn @@ fun () ->
+  Xapi_cluster_host.create_as_necessary ~__context ~host ;
+  Xapi_cluster_host.resync_host ~__context ~host ;
+  if is_clustering_disabled_on_host ~__context host then
+    raise
+      Api_errors.(
+        Server_error (no_compatible_cluster_host, [Ref.string_of host])
       )
-      )
-    (Xapi_pool_helpers.get_master_slaves_list ~__context)
+(* If host.clustering_enabled then resync_host should successfully
+   find or create a matching cluster_host which is also enabled *)
