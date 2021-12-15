@@ -258,4 +258,39 @@ let pool_resync ~__context ~(self : API.ref_Cluster) =
 (* If host.clustering_enabled then resync_host should successfully
    find or create a matching cluster_host which is also enabled *)
 
-let pool_refresh_certificate ~__context ~self = ()
+let pool_refresh_certificate ~__context ~self =
+  let open Cluster_interface in
+  let module Client = Client.Client in
+  let dbg = Context.string_of_task __context in
+  let tls_config = Xapi_cluster_helpers.Pem.get_existing ~__context self in
+  let tls_config' =
+    match tls_config with
+    | {pems= None; _} ->
+        raise
+          Api_errors.(
+            Server_error (cluster_has_no_certificate, [Ref.string_of self])
+          )
+    | {pems= Some {cn; blobs}; _} ->
+        if List.length blobs > 1 then
+          warn
+            "pool_refresh_certificate: existing cluster TLS configuration has \
+             more than one certificate" ;
+        (* generate configuration with new cert *)
+        {
+          tls_config with
+          pems= Some {cn; blobs= [Gencertlib.Selfcert.xapi_cluster ~cn ()]}
+        }
+  in
+  let result =
+    Cluster_client.LocalClient.upd_config
+      (Xapi_clustering.rpc ~__context)
+      dbg tls_config'
+  in
+  match Idl.IdM.run @@ Cluster_client.IDL.T.get result with
+  | Ok () ->
+      D.debug "pool_refresh_certificate: cluster TLS configuration updated"
+  | Error error ->
+      D.warn
+        "pool_refresh_certificate: Error occured when updating cluster TLS \
+         configuration" ;
+      Xapi_clustering.handle_error error
