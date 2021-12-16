@@ -121,6 +121,18 @@ let join_internal ~__context ~self =
 (* Enable cluster_host in client layer via clusterd *)
 let resync_host ~__context ~host =
   match find_cluster_host ~__context ~host with
+  | _ when host <> Helpers.get_localhost ~__context ->
+      raise
+        Api_errors.(
+          Server_error
+            ( internal_error
+            , [
+                "resync_host called with remote host"
+              ; Ref.string_of host
+              ; __LOC__
+              ]
+            )
+        )
   | None ->
       () (* no clusters exist *)
   | Some self ->
