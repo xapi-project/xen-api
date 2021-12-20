@@ -1063,8 +1063,13 @@ let build_dns_hostname_option ~config_params =
 
 let closest_kdc_of_domain domain =
   match ClosestKdc.from_db domain with
-  | Some kdc ->
-      kdc
+  | Some kdc -> (
+    match workgroup_from_server kdc with
+    | Error _ ->
+        kdc_of_domain domain
+    | Ok _ ->
+        kdc
+  )
   | None ->
       (* Just pick the first valid KDC in the list *)
       kdc_of_domain domain
