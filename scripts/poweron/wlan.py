@@ -42,8 +42,14 @@ def find_host_mgmt_pif(session, host_uuid):
         raise "Failed to find a management interface (PIF) for host uuid %s" % host_uuid
     return mgmt
 
+def get_physical_pif(session, pif_ref):
+    """Return the PIF object underlying an interface"""
+    # When the management interface is on a VLAN, the actual PIF needs to be found
+    vlan = session.xenapi.PIF.get_VLAN_master_of(pif_ref)
+    if vlan != "OpaqueRef:NULL":
+        pif_ref = session.xenapi.VLAN.get_tagged_PIF(vlan)
 
-
+    return pif_ref
 
 def wake_on_lan(session, host, remote_host_uuid):
     # Find this Host's management interface:
@@ -55,7 +61,9 @@ def wake_on_lan(session, host, remote_host_uuid):
     broadcast_addr = find_interface_broadcast_ip(this_bridge)
 
     # Find the remote Host's management interface:
-    remote_pif = find_host_mgmt_pif(session, remote_host_uuid)
+    mgmt_pif = find_host_mgmt_pif(session, remote_host_uuid)
+    # Find the actual physical pif
+    remote_pif = get_physical_pif(mgmt_pif)
     # Find the MAC address of the management interface:
     mac = session.xenapi.PIF.get_MAC(remote_pif)
     """Attempt to wake up a machine by sending Wake-On-Lan packets encapsulated within UDP datagrams
