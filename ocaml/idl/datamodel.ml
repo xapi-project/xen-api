@@ -1833,7 +1833,7 @@ module PIF = struct
             "Indicates this PIF represents the results of a bond"
         ; field ~in_oss_since:None ~ty:(Ref _vlan) ~in_product_since:rel_miami
             ~qualifier:DynamicRO "VLAN_master_of"
-            "Indicates wich VLAN this interface receives untagged traffic from"
+            "Indicates which VLAN this interface receives untagged traffic from"
             ~default_value:(Some (VRef ""))
         ; field ~in_oss_since:None ~ty:(Set (Ref _vlan))
             ~in_product_since:rel_miami ~qualifier:DynamicRO "VLAN_slave_of"
