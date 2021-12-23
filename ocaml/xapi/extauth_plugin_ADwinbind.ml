@@ -273,7 +273,7 @@ module Ldap = struct
     in
     [|Printf.sprintf "KRB5_CONFIG=%s" domain_krb5_cfg|]
 
-  let query_user sid domain_netbios kdc =
+  let query_user ?(log_output = Helpers.On_failure) sid domain_netbios kdc =
     let env = env_of_krb5 domain_netbios in
     (* msDS-UserPasswordExpiryTimeComputed not in the default attrs list, define it explictly here *)
     let attrs =
@@ -306,8 +306,7 @@ module Ldap = struct
           @ attrs
         in
         let stdout =
-          Helpers.call_script ~env ~log_output:On_failure !Xapi_globs.net_cmd
-            args
+          Helpers.call_script ~env ~log_output !Xapi_globs.net_cmd args
         in
         Ok stdout
       with _ -> Error (generic_ex "ldap query user info from sid failed")
@@ -1000,13 +999,29 @@ module ClosestKdc = struct
 
   let lookup domain =
     try
+      let open Helpers in
+      let* krbtgt_sid =
+        Wbinfo.sid_of_name (Printf.sprintf "%s@%s" krbtgt domain)
+      in
+      let* domain_netbios_name =
+        Wbinfo.domain_name_of ~target_name_type:NetbiosName ~from_name:domain
+      in
+      let debug_level_threshold = 10 in
+      let log_output =
+        if !Xapi_globs.winbind_debug_level >= debug_level_threshold then
+          On_failure
+        else
+          Never
+      in
       kdcs_of_domain domain
       |> List.map (fun kdc ->
              debug "Got domain '%s' kdc '%s'" domain kdc ;
              kdc
          )
       |> List.map (fun kdc ->
-             mtime_this ~name:kdc ~f:(fun () -> workgroup_from_server kdc)
+             mtime_this ~name:kdc ~f:(fun () ->
+                 Ldap.query_user ~log_output krbtgt_sid domain_netbios_name kdc
+             )
          )
       |> List.filter_map Result.to_option
       |> List.sort (fun (_, s1) (_, s2) -> Mtime.Span.compare s1 s2)
@@ -1170,8 +1185,13 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
   let query_subject_information_user (uid : int) (sid : string) =
     let* {user_name; gecos; gid} = Wbinfo.uid_info_of_uid uid in
     let* domain_netbios, domain = Wbinfo.domain_of_uname user_name in
-    let closest_kdc = closest_kdc_of_domain domain in
-    let {service_name; _} = get_domain_info_from_db () in
+    let upn = "" in
+    let display_name = "" in
+    let account_disabled = false in
+    let account_locked = false in
+    let account_expired = false in
+    let password_expired = false in
+
     let* {
            name
          ; upn
@@ -1181,32 +1201,52 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
          ; account_locked
          ; password_expired
          } =
-      if service_name = domain then
-        Ldap.query_user sid domain_netbios closest_kdc
-      else (
-        (* Cross domain may fail in case of 1 way trust, just return the default value *)
-        debug
-          "Return default account values for locked, disabled, etc for not \
-           joined domain" ;
-        Ok
-          {
-            name= user_name
-          ; upn= ""
-          ; display_name= user_name
-          ; account_disabled= false
-          ; account_locked= false
-          ; account_expired= false
-          ; password_expired= false
-          }
-      )
+      match ClosestKdc.from_db domain with
+      | Some _ -> (
+          let closest_kdc = closest_kdc_of_domain domain in
+          match Ldap.query_user sid domain_netbios closest_kdc with
+          | Ok user ->
+              Ok user
+          | _ ->
+              debug "Ldap query user failed, fallback to default value" ;
+              Ok
+                {
+                  name= user_name
+                ; upn
+                ; display_name
+                ; account_disabled
+                ; account_expired
+                ; account_locked
+                ; password_expired
+                }
+        )
+      | None ->
+          (* Xapi database does not have any DC information about this domain
+           * This is very likely caused by this domain does not trust
+           * the joined domain (with 1 way turst) , just return the default value
+           * This is NOT a regression issue of PBIS
+           * PBIS cannot handle such case neither
+           * *)
+          debug "Fallback to default value as no DC info in xapi database" ;
+          Ok
+            {
+              name= user_name
+            ; upn
+            ; display_name
+            ; account_disabled
+            ; account_expired
+            ; account_locked
+            ; password_expired
+            }
     in
+
     Ok
       [
         ("subject-name", user_name)
       ; ("subject-gecos", gecos)
       ; ( "subject-displayname"
         , if display_name <> "" then
-            display_name
+            Printf.sprintf "%s\\%s" domain_netbios display_name
           else if gecos <> "" && gecos <> "<null>" then
             gecos
           else
