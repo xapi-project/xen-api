@@ -211,11 +211,10 @@ type authorization = Basic of string * string | UnknownAuth of string
 let authorization_of_string x =
   let basic = "Basic " in
   if Astring.String.is_prefix ~affix:basic x then
-    let end_of_string s from = String.sub s from (String.length s - from) in
-    match Base64.decode (end_of_string x (String.length basic)) with
+    match Base64.decode ~off:(String.length basic) x with
     | Result.Ok userpass -> (
-      match Astring.String.cuts ~sep:":" userpass with
-      | [username; password] ->
+      match Astring.String.cut ~sep:":" userpass with
+      | Some (username, password) ->
           Basic (username, password)
       | _ ->
           UnknownAuth x
