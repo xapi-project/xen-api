@@ -214,8 +214,8 @@ let authorization_of_string x =
     let end_of_string s from = String.sub s from (String.length s - from) in
     match Base64.decode (end_of_string x (String.length basic)) with
     | Result.Ok userpass -> (
-      match Astring.String.cuts ~sep:":" userpass with
-      | [username; password] ->
+      match Astring.String.cut ~sep:":" userpass with
+      | Some (username, password) ->
           Basic (username, password)
       | _ ->
           UnknownAuth x
