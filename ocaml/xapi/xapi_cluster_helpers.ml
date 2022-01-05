@@ -123,7 +123,7 @@ module Pem = struct
     if unit_test ~__context then
       tls_config_empty
     else
-      let verify_tls_certs = tls_verification_is_enabled ~__context in
+      let verify_tls_certs = false in
       D.debug "Cluster configuration: verify_tls_certs = %b" verify_tls_certs ;
       {pems= Some (init' cn); verify_tls_certs}
 
