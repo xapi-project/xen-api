@@ -31,6 +31,8 @@ let ( <!> ) x f = Rresult.R.reword_error f x
 
 let ( >>| ) = Rresult.( >>| )
 
+let max_debug_level = 10
+
 let maybe_raise (x : ('a, exn) result) : 'a =
   match x with Ok x -> x | Error e -> raise e
 
@@ -756,6 +758,13 @@ let config_winbind_damon ?(workgroup = "") ?(netbios_name = "") domain =
       Unix.fsync fd
   )
 
+let clear_winbind_config () =
+  (* Only clear winbind configure when the debug level less than max *)
+  if !Xapi_globs.winbind_debug_level < max_debug_level then
+    config_winbind_damon None
+  else
+    ()
+
 let from_config ~name ~err_msg ~config_params =
   match List.assoc_opt name config_params with
   | Some v ->
@@ -829,7 +838,7 @@ let disable_machine_account ~service_name = function
       in
       try
         Helpers.call_script ~env net_cmd args |> ignore ;
-        config_winbind_damon None ;
+        clear_winbind_config () ;
         debug "Succeed to disable the machine account for domain %s"
           service_name
       with _ ->
@@ -838,11 +847,11 @@ let disable_machine_account ~service_name = function
             service_name
         in
         debug "%s" msg ;
-        config_winbind_damon None ;
+        clear_winbind_config () ;
         raise (Auth_service_error (E_GENERIC, msg))
     )
   | _ ->
-      config_winbind_damon None ;
+      clear_winbind_config () ;
       debug
         "username or password not provided, skip cleaning the machine account"
 
@@ -1006,9 +1015,8 @@ module ClosestKdc = struct
       let* domain_netbios_name =
         Wbinfo.domain_name_of ~target_name_type:NetbiosName ~from_name:domain
       in
-      let debug_level_threshold = 10 in
       let log_output =
-        if !Xapi_globs.winbind_debug_level >= debug_level_threshold then
+        if !Xapi_globs.winbind_debug_level >= max_debug_level then
           On_failure
         else
           Never
@@ -1183,8 +1191,11 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
     ]
 
   let query_subject_information_user (uid : int) (sid : string) =
+    (* user_name like DOMAIN\user_1 *)
     let* {user_name; gecos; gid} = Wbinfo.uid_info_of_uid uid in
     let* domain_netbios, domain = Wbinfo.domain_of_uname user_name in
+    (* user like user_1 *)
+    let* _, user = Wbinfo.domain_and_user_of_uname user_name in
     let upn = "" in
     let display_name = "" in
     let account_disabled = false in
@@ -1248,14 +1259,14 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
         , if display_name <> "" then
             Printf.sprintf "%s\\%s" domain_netbios display_name
           else if gecos <> "" && gecos <> "<null>" then
-            gecos
+            Printf.sprintf "%s\\%s" domain_netbios gecos
           else
             user_name
         )
       ; ("subject-uid", string_of_int uid)
       ; ("subject-gid", string_of_int gid)
       ; ( "subject-upn"
-        , if upn <> "" then upn else Printf.sprintf "%s@%s" name domain
+        , if upn <> "" then upn else Printf.sprintf "%s@%s" user domain
         )
       ; ("subject-account-disabled", string_of_bool account_disabled)
       ; ("subject-account-locked", string_of_bool account_locked)
@@ -1376,7 +1387,8 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
           Printf.sprintf "Failed to join domain %s: %s" service_name stdout
         in
         error "Join domain error: %s" msg ;
-        config_winbind_damon None ;
+        clear_winbind_config () ;
+        (* The configure is kept for debug purpose with max level *)
         raise (Auth_service_error (E_GENERIC, msg))
     | Xapi_systemctl.Systemctl_fail _ ->
         let msg = Printf.sprintf "Failed to start %s" Winbind.name in
@@ -1391,7 +1403,7 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
             (ExnHelper.string_of_exn e)
         in
         error "Enable extauth error: %s" msg ;
-        config_winbind_damon None ;
+        clear_winbind_config () ;
         raise (Auth_service_error (E_GENERIC, msg))
 
   (* unit on_disable()
