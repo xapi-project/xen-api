@@ -194,6 +194,7 @@ module Vm = struct
     ; nomigrate: bool  (** true means VM must not migrate *)
     ; nested_virt: bool  (** true means VM uses nested virtualisation *)
     ; domain_type: domain_type
+    ; featureset: string
   }
   [@@deriving rpcty, sexp]
 end
