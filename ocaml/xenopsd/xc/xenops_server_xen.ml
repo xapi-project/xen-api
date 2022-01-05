@@ -166,6 +166,7 @@ module VmExtra = struct
     ; pci_power_mgmt: bool [@default false]
     ; pv_drivers_detected: bool [@default false]
     ; xen_platform: (int * int) option (* (device_id, revision) for QEMU *)
+    ; platformdata: (string * string) list [@default []]
   }
   [@@deriving rpcty]
 
@@ -1315,7 +1316,9 @@ module VM = struct
     in
     let default k v p = if List.mem_assoc k p then p else (k, v) :: p in
     let platformdata =
-      vm.platformdata |> default "acpi_s3" "0" |> default "acpi_s4" "0"
+      persistent.VmExtra.platformdata
+      |> default "acpi_s3" "0"
+      |> default "acpi_s4" "0"
     in
     let is_uefi =
       match ty with HVM {firmware= Uefi _; _} -> true | _ -> false
@@ -1404,6 +1407,7 @@ module VM = struct
                     ; original_profile= profile
                     ; pci_msitranslate= vm.Vm.pci_msitranslate
                     ; pci_power_mgmt= vm.Vm.pci_power_mgmt
+                    ; platformdata= vm.Vm.platformdata
                     }
                   
                 in
@@ -3202,8 +3206,17 @@ module VM = struct
          present, then make it equal to the profile derived above. *)
       match persistent.VmExtra.original_profile with None -> profile | p -> p
     in
+    let platformdata =
+      (* If platformdata is missing from state, take the one from vm *)
+      match persistent.VmExtra.platformdata with
+      | [] ->
+          vm.platformdata
+      | p ->
+          p
+    in
     let persistent =
-      VmExtra.{persistent with profile; original_profile} |> DB.revision_of k
+      VmExtra.{persistent with profile; original_profile; platformdata}
+      |> DB.revision_of k
       (* This may update the profile, but not the original_profile *)
     in
     persistent |> rpc_of VmExtra.persistent_t |> Jsonrpc.to_string
