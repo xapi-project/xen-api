@@ -114,7 +114,8 @@ let make_localhost ~__context ?(features = Features.all_features) () =
   Dbsync_master.create_pool_record ~__context ;
   let pool = Helpers.get_pool ~__context in
   Db.Pool.set_restrictions ~__context ~self:pool
-    ~value:(Features.to_assoc_list features)
+    ~value:(Features.to_assoc_list features) ;
+  Db.Pool.set_cpu_info ~__context ~self:pool ~value:default_cpu_info
 
 (** Make a simple in-memory database containing a single host and dom0 VM record. *)
 let make_test_database ?(conn = Mock.Database.conn) ?(reuse = false) ?features

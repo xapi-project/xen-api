@@ -1187,14 +1187,7 @@ module MD = struct
     let platformdata =
       if not (List.mem_assoc Vm_platform.featureset platformdata) then
         let featureset =
-          if
-            List.mem_assoc Xapi_globs.cpu_info_features_key
-              vm.API.vM_last_boot_CPU_flags
-          then
-            List.assoc Xapi_globs.cpu_info_features_key
-              vm.API.vM_last_boot_CPU_flags
-          else
-            failwith "VM's CPU featureset not initialised"
+          Cpuid_helpers.next_boot_cpu_features ~__context ~vm:vmref
         in
         (Vm_platform.featureset, featureset) :: platformdata
       else

@@ -20,6 +20,8 @@ val features_of_string : string -> int64 array
 
 val reset_cpu_flags : __context:Context.t -> vm:[`VM] API.Ref.t -> unit
 
+val next_boot_cpu_features : __context:Context.t -> vm:[`VM] API.Ref.t -> string
+
 val update_cpu_flags :
   __context:Context.t -> vm:[`VM] API.Ref.t -> host:[`host] API.Ref.t -> unit
 

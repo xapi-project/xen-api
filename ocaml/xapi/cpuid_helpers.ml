@@ -171,6 +171,31 @@ let reset_cpu_flags ~__context ~vm =
   in
   set_flags ~__context vm pool_vendor pool_features
 
+(* Return the featureset to be used for the next boot of the given VM. *)
+let next_boot_cpu_features ~__context ~vm =
+  (* On VM.start, the feature set is inherited from the pool level (PV or HVM) *)
+  let pool = Helpers.get_pool ~__context in
+  let pool_cpu_info = Db.Pool.get_cpu_info ~__context ~self:pool in
+  let features_field, features_field_boot =
+    (* Always use VM.domain_type, even if the VM is running, because we
+       need the features for when the VM starts next. *)
+    let domain_type =
+      Db.VM.get_domain_type ~__context ~self:vm |> Helpers.check_domain_type
+    in
+    match domain_type with
+    | `hvm | `pv_in_pvh ->
+        (features_hvm, features_hvm_host)
+    | `pv ->
+        (features_pv, features_pv_host)
+  in
+  (* The default is for backwards compatibility with versions that do not
+     yet have a features_field_boot (e.g. during RPU). *)
+  let default = Map_check.getf features_field pool_cpu_info in
+  let pool_features =
+    Map_check.getf ~default features_field_boot pool_cpu_info
+  in
+  snd features_t pool_features
+
 (* Update last_boot_CPU_flags with the vendor and feature set.
  * On VM.resume or migrate, the field is kept intact, and upgraded if needed. *)
 let update_cpu_flags ~__context ~vm ~host =
