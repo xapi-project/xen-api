@@ -2257,6 +2257,31 @@ let update_vm ~__context id =
                 error "Caught %s: while updating VM %s HVM_shadow_multiplier"
                   (Printexc.to_string e) id
           ) ;
+          (* Preserve last_boot_CPU_flags when suspending (see current_domain_type) *)
+          if different (fun x -> x.Vm.featureset) && power_state <> `Suspended
+          then
+            Option.iter
+              (fun (_, state) ->
+                try
+                  debug
+                    "xenopsd event: Updating VM %s last_boot_CPU_flags <- %s" id
+                    state.Vm.featureset ;
+                  let vendor =
+                    Db.Host.get_cpu_info ~__context ~self:localhost
+                    |> List.assoc Xapi_globs.cpu_info_vendor_key
+                  in
+                  let value =
+                    [
+                      (Xapi_globs.cpu_info_vendor_key, vendor)
+                    ; (Xapi_globs.cpu_info_features_key, state.Vm.featureset)
+                    ]
+                  in
+                  Db.VM.set_last_boot_CPU_flags ~__context ~self ~value
+                with e ->
+                  error "Caught %s: while updating VM %s last_boot_CPU_flags"
+                    (Printexc.to_string e) id
+                )
+              info ;
           Xenops_cache.update_vm id (Option.map snd info) ;
           if !should_update_allowed_operations then
             Helpers.call_api_functions ~__context (fun rpc session_id ->
