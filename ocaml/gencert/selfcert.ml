@@ -187,9 +187,14 @@ let xapi_cluster ?valid_from ~cn () =
   let date = valid_from' valid_from in
   let expiration = expire_never ~valid_from:date () in
   let key_length = 2048 in
-  let issuer =
-    [X509.Distinguished_name.(Relative_distinguished_name.singleton (CN cn))]
-  in
+    let issuer =
+      [
+        X509.Distinguished_name.(
+          Relative_distinguished_name.of_list
+            [CN cn; Serialnumber (serial_stamp ())]
+        )
+      ]
+    in
   let extensions = X509.Extension.empty in
   let _, pkcs12 =
     selfsign' issuer extensions key_length expiration |> R.failwith_error_msg
