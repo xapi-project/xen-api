@@ -2058,8 +2058,7 @@ functor
                 forward_vm_op ~local_fn ~__context ~vm (fun session_id rpc ->
                     Client.VM.pool_migrate rpc session_id vm host options))) ;
         update_vbd_operations ~__context ~vm ;
-        update_vif_operations ~__context ~vm ;
-        Cpuid_helpers.update_cpu_flags ~__context ~vm ~host
+        update_vif_operations ~__context ~vm
 
       let assert_can_migrate_sender ~__context ~vm ~dest ~live ~vdi_map ~vif_map
           ~vgpu_map ~options =

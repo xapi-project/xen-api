@@ -142,24 +142,6 @@ let upgrade_features ~__context ~vm ~host host_features vm_features =
       (string_of_features upgraded_features) ;
   upgraded_features
 
-let set_flags ~__context self vendor features =
-  let features = features |> snd features_t in
-  let value =
-    [(cpu_info_vendor_key, vendor); (cpu_info_features_key, features)]
-  in
-  debug "VM's CPU features set to: %s" features ;
-  Db.VM.set_last_boot_CPU_flags ~__context ~self ~value
-
-(* Reset last_boot_CPU_flags with the vendor and feature set.
- * On VM.start, the feature set is inherited from the pool level (PV or HVM) *)
-let reset_cpu_flags ~__context ~vm =
-  let pool_vendor, _, pool_features =
-    let pool = Helpers.get_pool ~__context in
-    let pool_cpu_info = Db.Pool.get_cpu_info ~__context ~self:pool in
-    get_flags_for_vm ~__context vm pool_cpu_info
-  in
-  set_flags ~__context vm pool_vendor pool_features
-
 (* Return the featureset to be used for the next boot of the given VM. *)
 let next_boot_cpu_features ~__context ~vm =
   (* On VM.start, the feature set is inherited from the pool level (PV or HVM) *)
@@ -184,28 +166,6 @@ let next_boot_cpu_features ~__context ~vm =
     Map_check.getf ~default features_field_boot pool_cpu_info
   in
   snd features_t pool_features
-
-(* Update last_boot_CPU_flags with the vendor and feature set.
- * On VM.resume or migrate, the field is kept intact, and upgraded if needed. *)
-let update_cpu_flags ~__context ~vm ~host =
-  let current_features =
-    let flags = Db.VM.get_last_boot_CPU_flags ~__context ~self:vm in
-    Map_check.getf ~default:[||] features flags
-  in
-  debug "VM last boot CPU features: %s" (string_of_features current_features) ;
-  try
-    let host_vendor, host_features, _ =
-      let host_cpu_info = Db.Host.get_cpu_info ~__context ~self:host in
-      get_flags_for_vm ~__context vm host_cpu_info
-    in
-    let new_features =
-      upgrade_features ~__context ~vm host_features current_features
-    in
-    if new_features <> current_features then
-      set_flags ~__context vm host_vendor new_features
-  with Not_found ->
-    (* pre-Dundee? *)
-    failwith "Host does not have new leveling feature keys"
 
 let get_host_cpu_info ~__context ~vm ~host ?remote () =
   match remote with
