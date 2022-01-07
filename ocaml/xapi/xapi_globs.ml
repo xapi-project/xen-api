@@ -559,6 +559,8 @@ let default_wlb_timeout = 30.0
 
 let default_wlb_reports_timeout = 600.0
 
+let cert_expiration_days = ref (365 * 10)
+
 (** {2 Settings relating to dynamic memory control} *)
 
 (** A pool-wide configuration key that specifies for HVM guests a lower bound
@@ -1310,6 +1312,12 @@ let other_options =
     , (fun () -> string_of_int !failed_login_alert_freq)
     , "Frequency at which we alert any failed logins (in seconds; \
        default=3600s)"
+    )
+  ; ( "cert-expiration-days"
+    , Arg.Set_int cert_expiration_days
+    , (fun () -> string_of_int !cert_expiration_days)
+    , "Number of days a refreshed certificate will be valid; it defaults to 10 \
+       years."
     )
   ]
 

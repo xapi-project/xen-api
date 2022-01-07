@@ -25,6 +25,7 @@ val host :
   -> dns_names:string list
   -> ips:Cstruct.t list
   -> ?valid_from:Ptime.t (* default: now *)
+  -> valid_for_days:int
   -> string
   -> X509.Certificate.t
 (** [host name dns_names ip path] creates (atomically) a PEM file at
@@ -32,6 +33,7 @@ val host :
 
 val xapi_pool :
      ?valid_from:Ptime.t (* default: now *)
+  -> valid_for_days:int
   -> uuid:string
   -> string
   -> X509.Certificate.t

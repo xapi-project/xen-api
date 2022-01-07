@@ -68,8 +68,9 @@ let host ~__context ~type' =
   let host = Helpers.get_localhost ~__context in
   let pem = cert_path type' in
   let path = new_cert_path type' in
+  let valid_for_days = !Xapi_globs.cert_expiration_days in
   let uuid = Inventory.lookup Inventory._installation_uuid in
-  let cert = Gencertlib.Selfcert.xapi_pool ~uuid path in
+  let cert = Gencertlib.Selfcert.xapi_pool ~uuid ~valid_for_days path in
   let bak = backup_cert_path type' in
   let unreachable = unreachable_hosts ~__context in
   if not @@ HostSet.is_empty unreachable then

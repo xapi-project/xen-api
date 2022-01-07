@@ -42,6 +42,7 @@ let generate_cert_or_fail ~generator ~path =
   )
 
 let main ~dbg ~path ~sni () =
+  let valid_for_days = 365 * 10 in
   let init_inventory () = Inventory.inventory_filename := inventory in
   init_inventory () ;
   let generator path =
@@ -58,13 +59,13 @@ let main ~dbg ~path ~sni () =
         let dns_names = Networking_info.dns_names () in
         let ips = [ip] in
         let (_ : X509.Certificate.t) =
-          Gencertlib.Selfcert.host ~name ~dns_names ~ips path
+          Gencertlib.Selfcert.host ~name ~dns_names ~ips ~valid_for_days path
         in
         ()
     | SNI.Xapi_pool ->
         let uuid = Inventory.lookup Inventory._installation_uuid in
         let (_ : X509.Certificate.t) =
-          Gencertlib.Selfcert.xapi_pool ~uuid path
+          Gencertlib.Selfcert.xapi_pool ~valid_for_days ~uuid path
         in
         ()
   in

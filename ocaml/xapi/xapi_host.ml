@@ -1514,7 +1514,8 @@ let _new_host_cert ~dbg ~path : X509.Certificate.t =
   let dns_names = Networking_info.dns_names () in
   let cn = match dns_names with [] -> ip_as_string | dns :: _ -> dns in
   let ips = [ip] in
-  Gencertlib.Selfcert.host ~name:cn ~dns_names ~ips path
+  let valid_for_days = !Xapi_globs.cert_expiration_days in
+  Gencertlib.Selfcert.host ~name:cn ~dns_names ~ips ~valid_for_days path
 
 let reset_server_certificate ~__context ~host =
   let dbg = Context.string_of_task __context in
