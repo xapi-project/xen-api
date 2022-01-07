@@ -2376,8 +2376,7 @@ functor
         create_vm_message ~__context ~vm ~message_body
           ~message:Api_messages.vm_migrated ;
         update_vbd_operations ~__context ~vm ;
-        update_vif_operations ~__context ~vm ;
-        Cpuid_helpers.update_cpu_flags ~__context ~vm ~host
+        update_vif_operations ~__context ~vm
 
       let assert_can_migrate_sender ~__context ~vm ~dest ~live ~vdi_map ~vif_map
           ~vgpu_map ~options =
