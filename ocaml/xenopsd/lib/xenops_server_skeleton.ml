@@ -36,7 +36,6 @@ module HOST = struct
         ; features= [||]
         ; features_pv= [||]
         ; features_hvm= [||]
-        ; features_oldstyle= [||]
         ; features_pv_host= [||]
         ; features_hvm_host= [||]
         }
@@ -51,8 +50,6 @@ module HOST = struct
   let send_debug_keys _ = ()
 
   let update_guest_agent_features _ = ()
-
-  let upgrade_cpu_features _ _ = [||]
 end
 
 module VM = struct

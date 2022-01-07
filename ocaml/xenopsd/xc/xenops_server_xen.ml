@@ -1004,7 +1004,6 @@ module HOST = struct
         (* this is Default policy in Xen's terminology, used on boot for new VMs *)
         let features_pv_host = get_cpu_featureset xc Featureset_pv in
         let features_hvm_host = get_cpu_featureset xc Featureset_hvm in
-        let features_oldstyle = oldstyle_featuremask xc in
         (* this is Max policy in Xen's terminology, used for migration checks *)
         let features_hvm =
           get_max_featureset xc "HVM" features_hvm_host
@@ -1035,7 +1034,6 @@ module HOST = struct
             ; features
             ; features_pv
             ; features_hvm
-            ; features_oldstyle
             ; features_hvm_host
             ; features_pv_host
             }
@@ -1098,11 +1096,6 @@ module HOST = struct
                 )
               features
         )
-    )
-
-  let upgrade_cpu_features features is_hvm =
-    with_xc_and_xs (fun xc _ ->
-        Xenctrl.upgrade_oldstyle_featuremask xc features is_hvm
     )
 end
 

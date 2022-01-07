@@ -121,33 +121,22 @@ let get_flags_for_vm ~__context vm cpu_info =
   let onboot = Map_check.getf ~default:migration features_field_boot cpu_info in
   (vendor, migration, onboot)
 
-(** Upgrade a VM's feature set based on the host's one, if needed.
- *  The output will be a feature set that is the same length as the host's
- *  set, with a prefix equal to the VM's set, and extended where needed.
- *  If the current VM set has 4 words, then we assume it was last running on
- *  a host that did not support "feature levelling v2". In that case, we cannot
- *  be certain about which host features it was using, so we'll extend the set
- *  with all current host features. Otherwise we'll zero-extend. *)
-let upgrade_features ~__context ~vm host_features vm_features =
-  let len = Array.length vm_features in
+(** Upgrade a VM's feature set based on the host's one by zero-extending, if needed. *)
+let upgrade_features ~__context ~vm ~host host_features vm_features =
+  ( if Array.length vm_features <= 4 then
+      let msg =
+        "VM featureset too old to be upgraded; VM needs to be shut down before \
+         it can run here"
+      in
+      raise
+        (Api_errors.Server_error
+           ( Api_errors.vm_incompatible_with_this_host
+           , [Ref.string_of vm; Ref.string_of host; msg]
+           )
+        )
+  ) ;
   let upgraded_features =
-    if len <= 4 then
-      let open Xapi_xenops_queue in
-      let dbg = Context.string_of_task __context in
-      let module Client = (val make_client (default_xenopsd ()) : XENOPS) in
-      let uses_hvm_features =
-        match Helpers.domain_type ~__context ~self:vm with
-        | `hvm | `pv_in_pvh ->
-            true
-        | `pv ->
-            false
-      in
-      let vm_features' =
-        Client.HOST.upgrade_cpu_features dbg vm_features uses_hvm_features
-      in
-      extend vm_features' host_features
-    else
-      zero_extend vm_features (Array.length host_features)
+    zero_extend vm_features (Array.length host_features)
   in
   if vm_features <> upgraded_features then
     debug "VM featureset upgraded from %s to %s"
@@ -265,7 +254,8 @@ let assert_vm_is_compatible ~__context ~vm ~host ?remote () =
           (string_of_features vm_cpu_features)
           (string_of_features host_cpu_features') ;
         let vm_cpu_features' =
-          vm_cpu_features |> upgrade_features ~__context ~vm host_cpu_features'
+          vm_cpu_features
+          |> upgrade_features ~__context ~vm ~host host_cpu_features'
         in
         if not (is_subset vm_cpu_features' host_cpu_features') then (
           debug
