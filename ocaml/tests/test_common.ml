@@ -52,9 +52,10 @@ let default_cpu_info =
   ; ("model", "")
   ; ("stepping", "")
   ; ("flags", "")
-  ; ("features", "")
   ; ("features_pv", "")
   ; ("features_hvm", "")
+  ; ("features_pv_host", "")
+  ; ("features_hvm_host", "")
   ]
 
 let make_localhost ~__context ?(features = Features.all_features) () =
@@ -88,7 +89,6 @@ let make_localhost ~__context ?(features = Features.all_features) () =
           ; features= [||]
           ; features_pv= [||]
           ; features_hvm= [||]
-          ; features_oldstyle= [||]
           ; features_pv_host= [||]
           ; features_hvm_host= [||]
           }

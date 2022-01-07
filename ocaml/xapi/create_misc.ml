@@ -607,10 +607,6 @@ let create_host_cpu ~__context host_info =
         ; ("model", cpu_info.model)
         ; ("stepping", cpu_info.stepping)
         ; ("flags", cpu_info.flags)
-        ; (* To support VMs migrated from hosts which do not support CPU levelling v2,
-             		   set the "features" key to what it would be on such hosts. *)
-          ( "features"
-          , Cpuid_helpers.string_of_features cpu_info.features_oldstyle )
         ; ( Xapi_globs.cpu_info_features_pv_key
           , Cpuid_helpers.string_of_features cpu_info.features_pv )
         ; ( Xapi_globs.cpu_info_features_hvm_key
