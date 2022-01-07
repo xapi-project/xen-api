@@ -899,13 +899,27 @@ module Featureset = struct
 
   let logor a b = map2 BitSet.logor a b
 
-  (** [pp () featureset] is a suitable converter to be used in %a for featureset. *)
-  let pp () fs =
-    (* concat with `:` for easy pasting into `xen-cpuid` to decode *)
+  exception InvalidFeatureString of string
+
+  let of_string str =
+    let scanf fmt s = Scanf.sscanf s fmt (fun x -> x) in
+    try
+      String.split_on_char '-' str
+      |> (fun lst -> if lst = [""] then [] else lst)
+      |> Array.of_list
+      |> Array.map (scanf "%08Lx%!")
+    with _ -> raise (InvalidFeatureString str)
+
+  let to_string ?(sep = "-") fs =
     fs
     |> Array.map (Printf.sprintf "%08Lx")
     |> Array.to_list
-    |> String.concat ":"
+    |> String.concat sep
+
+  (** [pp () featureset] is a suitable converter to be used in %a for featureset. *)
+  let pp () =
+    (* concat with `:` for easy pasting into `xen-cpuid` to decode *)
+    to_string ~sep:":"
 end
 
 let debug_featuresets xc name featureset featureset_max index_max =
@@ -942,7 +956,9 @@ let get_max_featureset xc name featureset index_max =
 module HOST = struct
   include Xenops_server_skeleton.HOST
 
-  let stat () =
+  let stat_cache = ref None
+
+  let stat' () =
     (* The boot-time CPU info is copied into a file in @ETCDIR@/ in the
        xenservices init script; we use that to generate CPU records from. This
        ensures that if xapi is started after someone has modified dom0's VCPUs
@@ -1042,6 +1058,15 @@ module HOST = struct
         ; chipset_info= {iommu; hvm}
         }
     )
+
+  let stat () =
+    match !stat_cache with
+    | None ->
+        let s = stat' () in
+        stat_cache := Some s ;
+        s
+    | Some s ->
+        s
 
   let get_console_data () =
     with_xc_and_xs (fun xc xs ->
@@ -3159,6 +3184,31 @@ module VM = struct
     let state = DB.read_exn vm.Vm.id in
     state.VmExtra.persistent |> rpc_of VmExtra.persistent_t |> Jsonrpc.to_string
 
+  let upgrade_featureset vm platformdata =
+    let key = "featureset" in
+    match List.assoc_opt key platformdata with
+    | None ->
+        platformdata
+    | Some fs ->
+        (* Ensure that the featureset has the same length as the host's
+           by zero-extending, if needed. *)
+        let host_featureset =
+          let s = HOST.stat () in
+          match vm.ty with
+          | PV _ ->
+              s.Host.cpu_info.features_pv
+          | _ ->
+              s.Host.cpu_info.features_hvm
+        in
+        let fs' =
+          fs
+          |> Featureset.of_string
+          |> Featureset.zero_pad host_featureset
+          |> snd
+          |> Featureset.to_string
+        in
+        (key, fs') :: List.remove_assoc key platformdata
+
   let set_internal_state vm state =
     let k = vm.Vm.id in
     let persistent =
@@ -3208,11 +3258,13 @@ module VM = struct
     in
     let platformdata =
       (* If platformdata is missing from state, take the one from vm *)
-      match persistent.VmExtra.platformdata with
+      ( match persistent.VmExtra.platformdata with
       | [] ->
           vm.platformdata
       | p ->
           p
+      )
+      |> upgrade_featureset vm
     in
     let persistent =
       VmExtra.{persistent with profile; original_profile; platformdata}
