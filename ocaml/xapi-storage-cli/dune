@@ -1,0 +1,19 @@
+(executable
+  (name main)
+  (flags (:standard -w -39))
+  (libraries
+    xapi-idl
+    xapi-idl.storage
+    re
+    re.str
+    rpclib
+    rpclib.json
+    cmdliner
+    threads
+  )
+  (preprocess (pps ppx_deriving_rpc))
+)
+(install
+ (package xapi-storage-cli)
+ (section sbin)
+ (files (main.exe as sm-cli)))
