@@ -99,7 +99,8 @@ module Iteratee (IO : Monad) = struct
           else
             IO.return
               ( IE_done (Some s.[0])
-              , Chunk (String.sub s 1 (String.length s - 1)) )
+              , Chunk (String.sub s 1 (String.length s - 1))
+              )
       | _ ->
           IO.return (IE_cont (Some "Eof", step), st)
     in
@@ -110,7 +111,8 @@ module Iteratee (IO : Monad) = struct
       match st with
       | Chunk s ->
           IO.bind (really_write s) (fun () ->
-              IO.return (IE_cont (None, step), Chunk ""))
+              IO.return (IE_cont (None, step), Chunk "")
+          )
       | Eof _ ->
           IO.return (IE_done (), st)
     in
@@ -256,7 +258,8 @@ module Iteratee (IO : Monad) = struct
       | IE_cont (Some _, _) ->
           result
       | _ ->
-          failwith "Divergent Iteratee")
+          failwith "Divergent Iteratee"
+      )
 
   let enum_1chunk str = function
     | IE_cont (None, f) ->
@@ -295,7 +298,8 @@ module Iteratee (IO : Monad) = struct
           else
             let str1, str2 = split str n in
             IO.bind (k (Chunk str1)) (fun (i, _) ->
-                IO.return (IE_done i, Chunk str2))
+                IO.return (IE_done i, Chunk str2)
+            )
       | Eof _ ->
           IO.bind (k s) (fun (i, _) -> IO.return (IE_done i, s))
     in
@@ -321,7 +325,8 @@ module Iteratee (IO : Monad) = struct
           | IE_cont (err, f), s ->
               IO.return (IE_cont (err, step f), s)
           | i, s ->
-              IO.return (IE_done i, s))
+              IO.return (IE_done i, s)
+      )
     in
     fun s ->
       match s with
@@ -347,7 +352,8 @@ module Iteratee (IO : Monad) = struct
               | IE_cont (err, f), s ->
                   IO.return (IE_cont (err, step f), s)
               | i, s ->
-                  IO.return (IE_done i, s))
+                  IO.return (IE_done i, s)
+          )
       | Eof _ ->
           IO.bind (k s) (fun (i, _) -> IO.return (IE_done i, s))
     in

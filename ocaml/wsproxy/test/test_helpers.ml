@@ -40,8 +40,7 @@ let test_marshal_unmarshal_int () =
   let generator = QCheck.Gen.ui64 in
   let nums = gen_nums 10 generator in
   List.iter
-    (fun i ->
-      assert_equal i (Helpers.unmarshal_int 8 (Helpers.marshal_int 8 i)))
+    (fun i -> assert_equal i (Helpers.unmarshal_int 8 (Helpers.marshal_int 8 i)))
     nums
 
 let test_marshal_unmarshal_int8 () =
@@ -55,24 +54,21 @@ let test_marshal_unmarshal_int16 () =
   let generator = QCheck.Gen.int_bound 65535 in
   let nums = gen_nums 10 generator in
   List.iter
-    (fun i ->
-      assert_equal i (Helpers.unmarshal_int16 (Helpers.marshal_int16 i)))
+    (fun i -> assert_equal i (Helpers.unmarshal_int16 (Helpers.marshal_int16 i)))
     nums
 
 let test_marshal_unmarshal_int32 () =
   let generator = QCheck.Gen.ui32 in
   let nums = gen_nums 10 generator in
   List.iter
-    (fun i ->
-      assert_equal i (Helpers.unmarshal_int32 (Helpers.marshal_int32 i)))
+    (fun i -> assert_equal i (Helpers.unmarshal_int32 (Helpers.marshal_int32 i)))
     nums
 
 let test_marshal_unmarshal_int64 () =
   let generator = QCheck.Gen.ui64 in
   let nums = gen_nums 10 generator in
   List.iter
-    (fun i ->
-      assert_equal i (Helpers.unmarshal_int64 (Helpers.marshal_int64 i)))
+    (fun i -> assert_equal i (Helpers.unmarshal_int64 (Helpers.marshal_int64 i)))
     nums
 
 let test_unmask () =

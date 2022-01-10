@@ -58,7 +58,8 @@ let test_wsframe () =
                i unframe
            in
            assert_equal str (Test.StringMonad.getstr z)
-         done)
+         done
+     )
 
 let test_wsframe_old () =
   let frame = wsframe_old (writer Test.StringMonad.strwr "foo") in
@@ -78,7 +79,8 @@ let test_wsframe_old () =
                i unframe
            in
            assert_equal str (Test.StringMonad.getstr z)
-         done)
+         done
+     )
 
 let test_wsunframe () =
   let unframe = wsunframe (writer Test.StringMonad.strwr "foo") in

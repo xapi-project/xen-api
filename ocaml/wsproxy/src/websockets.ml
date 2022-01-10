@@ -56,7 +56,8 @@ module Wsprotocol (IO : Iteratees.Monad) = struct
         else
           Printf.sprintf "%c%c%s%s" (char_of_int 0x82) (char_of_int 127)
             (Helpers.marshal_int32 (Int32.of_int l))
-            s)
+            s
+        )
       s
 
   let wsframe_old s = modify (fun s -> Printf.sprintf "\x00%s\xff" s) s
@@ -94,7 +95,8 @@ module Wsprotocol (IO : Iteratees.Monad) = struct
             liftI
               (IO.bind
                  (k (Iteratees.Chunk (acc ^ real_str)))
-                 (fun (i, _) -> IO.return (wsunframe i)))
+                 (fun (i, _) -> IO.return (wsunframe i))
+              )
       | _ ->
           return s
     in
@@ -108,7 +110,9 @@ module Wsprotocol (IO : Iteratees.Monad) = struct
         drop 1 >>= fun () ->
         liftI
           (IO.bind (k (Iteratees.Chunk str)) (fun (i, _) ->
-               IO.return (wsunframe_old i)))
+               IO.return (wsunframe_old i)
+           )
+          )
     | _ ->
         return s
 end

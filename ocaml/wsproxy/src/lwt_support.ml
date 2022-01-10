@@ -59,10 +59,12 @@ let with_fd fd ~callback =
     (fun () -> callback fd)
     (* The Lwt.catch below prevents errors on double close of the fd. *)
       (fun () ->
-      Lwt.catch (fun () -> Lwt_unix.close fd) (fun _ -> Lwt.return_unit))
+      Lwt.catch (fun () -> Lwt_unix.close fd) (fun _ -> Lwt.return_unit)
+      )
 
 let with_open_connection_fd addr ~callback =
   let s = Lwt_unix.(socket (Unix.domain_of_sockaddr addr) SOCK_STREAM 0) in
   with_fd s ~callback:(fun fd ->
       Lwt_unix.setsockopt fd Lwt_unix.SO_KEEPALIVE true ;
-      Lwt_unix.connect fd addr >>= fun () -> callback fd)
+      Lwt_unix.connect fd addr >>= fun () -> callback fd
+  )

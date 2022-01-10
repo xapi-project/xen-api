@@ -41,12 +41,14 @@ let start handler =
           with_fd fd_sock' ~callback:(fun fd ->
               let io_vectors = Lwt_unix.IO_vectors.create () in
               Lwt_unix.IO_vectors.append_bytes io_vectors buffer 0 16384 ;
-              Lwt_unix.recv_msg ~socket:fd ~io_vectors)
+              Lwt_unix.recv_msg ~socket:fd ~io_vectors
+          )
           >>= fun (len, newfds) ->
           match newfds with
           | [] ->
               Logs_lwt.warn (fun m ->
-                  m "No fd to start a connection: not proxying")
+                  m "No fd to start a connection: not proxying"
+              )
           | ufd :: ufds ->
               ensure_close ufds >>= fun () ->
               with_fd (Lwt_unix.of_unix_file_descr ufd) ~callback:(fun fd ->
@@ -54,12 +56,15 @@ let start handler =
                   >>= fun () ->
                   Lwt_unix.setsockopt fd Lwt_unix.SO_KEEPALIVE true ;
                   let msg = Bytes.(to_string @@ sub buffer 0 len) in
-                  handler fd msg)
+                  handler fd msg
+              )
         in
-        loop ())
+        loop ()
+        )
       (fun e ->
         Logs_lwt.err (fun m -> m "Caught exception: %s" (Printexc.to_string e))
-        >>= fun () -> Lwt.return_unit)
+        >>= fun () -> Lwt.return_unit
+        )
     >>= fun () -> loop ()
   in
 
@@ -95,7 +100,8 @@ let proxy (fd : Lwt_unix.file_descr) addr protocol =
       (* closing the connection in one of the threads above in general leaves the other pending forever,
        * by using choose here, we make sure that as soon as one of the threads completes, both are closed *)
       Lwt.choose [thread1; thread2] >>= fun () ->
-      Logs_lwt.debug (fun m -> m "Closing proxy session %s" session_id))
+      Logs_lwt.debug (fun m -> m "Closing proxy session %s" session_id)
+  )
 
 module RX = struct
   let socket = Re.Str.regexp "^/var/run/xen/vnc-[0-9]+$"
@@ -117,7 +123,8 @@ let handler sock msg =
       proxy sock addr protocol
   | _ ->
       Logs_lwt.warn (fun m ->
-          m "The message '%s' is malformed: not proxying" msg)
+          m "The message '%s' is malformed: not proxying" msg
+      )
 
 (* Reporter taken from
  * https://erratique.ch/software/logs/doc/Logs_lwt/index.html#report_ex
@@ -128,7 +135,8 @@ let lwt_reporter () =
     ( Fmt.with_buffer ~like b
     , fun () ->
         let m = Buffer.contents b in
-        Buffer.reset b ; m )
+        Buffer.reset b ; m
+    )
   in
   let app, app_flush = buf_fmt ~like:Fmt.stdout in
   let dst, dst_flush = buf_fmt ~like:Fmt.stderr in

@@ -86,8 +86,7 @@ let unmarshal_int ?(bigendian = true) n s =
       acc
     else
       let newacc =
-        Int64.logor (Int64.shift_left acc 8)
-          (Int64.of_int (int_of_char s.[f i]))
+        Int64.logor (Int64.shift_left acc 8) (Int64.of_int (int_of_char s.[f i]))
       in
       inner newacc (i + 1)
   in
