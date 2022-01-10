@@ -1,6 +1,0 @@
-# jbuilder working directory
-_build/
-
-# jbuilder generated files
-.merlin
-*.install

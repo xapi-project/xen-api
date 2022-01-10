@@ -1,9 +1,0 @@
-profile=ocamlformat
-indicate-multiline-delimiters=closing-on-separate-line
-if-then-else=fit-or-vertical
-dock-collection-brackets=true
-break-struct=natural
-break-separators=before
-break-infix=fit-or-vertical
-break-infix-before-func=false
-sequence-blank-line=preserve-one
