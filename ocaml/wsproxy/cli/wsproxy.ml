@@ -41,7 +41,7 @@ let start handler =
           with_fd fd_sock' ~callback:(fun fd ->
               let io_vectors = Lwt_unix.IO_vectors.create () in
               Lwt_unix.IO_vectors.append_bytes io_vectors buffer 0 16384 ;
-              Lwt_unix.Versioned.recv_msg_2 ~socket:fd ~io_vectors)
+              Lwt_unix.recv_msg ~socket:fd ~io_vectors)
           >>= fun (len, newfds) ->
           match newfds with
           | [] ->
