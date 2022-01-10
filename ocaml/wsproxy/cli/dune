@@ -1,0 +1,15 @@
+(executable
+  (name wsproxy)
+  (public_name wsproxy)
+  (libraries
+   fmt
+   logs
+   logs.fmt
+   logs.lwt
+   lwt
+   lwt.unix
+   re.str
+   uuidm
+   wslib
+  )
+)
