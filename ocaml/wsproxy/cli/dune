@@ -1,6 +1,7 @@
 (executable
   (name wsproxy)
   (public_name wsproxy)
+  (package wsproxy)
   (libraries
    fmt
    logs

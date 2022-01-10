@@ -1,10 +1,5 @@
-(executable
+(test
   (name wsproxy_tests)
+  (package wsproxy)
   (libraries oUnit qcheck wslib)
-)
-
-(alias
-  (name runtest)
-  (deps (:x wsproxy_tests.exe))
-  (action (run %{x}))
 )
