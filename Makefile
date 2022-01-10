@@ -180,6 +180,8 @@ install: build doc sdk doc-json
 	install -m 755 _build/install/default/bin/xapi-networkd         $(DESTDIR)/usr/sbin/xcp-networkd
 	install -m 755 _build/install/default/bin/networkd_db           $(DESTDIR)/usr/bin/networkd_db
 	install -m 644 _build/default/ocaml/networkd/bin/xcp-networkd.1 $(DESTDIR)/usr/share/man/man1/xcp-networkd.1
+# wsproxy
+	install -m 755 _build/install/default/bin/wsproxy $(DESTDIR)$(LIBEXECDIR)/wsproxy
 # dune can install libraries and several other files into the right locations
 	dune install --destdir=$(DESTDIR) --prefix=$(PREFIX) --libdir=$(LIBDIR) --mandir=$(MANDIR) \
 		xapi-client xapi-database xapi-consts xapi-cli-protocol xapi-datamodel xapi-types \
