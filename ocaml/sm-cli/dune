@@ -1,0 +1,16 @@
+(executable
+  (name main)
+  (public_name sm-cli)
+  (flags (:standard -w -39))
+  (libraries
+    xapi-idl
+    xapi-idl.storage
+    re
+    re.str
+    rpclib
+    rpclib.json
+    cmdliner
+    threads
+  )
+  (preprocess (pps ppx_deriving_rpc))
+)
