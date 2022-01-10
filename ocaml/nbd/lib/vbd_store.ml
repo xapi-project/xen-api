@@ -30,7 +30,8 @@ struct
             (* In any other case we let the client fail. In this case the user/admin should go and fix the root cause of the issue *)
             log_and_reraise_error
               ("Failed to create directory " ^ vbd_list_dir)
-              e)
+              e
+        )
 
   let transform_vbd_list f =
     Lwt_mutex.with_lock m (fun () ->
@@ -48,12 +49,14 @@ struct
                 Lwt.return []
             | e ->
                 (* In any other case we let the client fail. In this case the user/admin should go and fix the root cause of the issue *)
-                log_and_reraise_error ("Failed to read file " ^ vbd_list_file) e)
+                log_and_reraise_error ("Failed to read file " ^ vbd_list_file) e
+            )
         >>= fun l ->
         let l = f l in
         Lwt.catch
           (fun () -> Lwt_stream.of_list l |> Lwt_io.lines_to_file vbd_list_file)
-          (log_and_reraise_error ("Failed to write to " ^ vbd_list_file)))
+          (log_and_reraise_error ("Failed to write to " ^ vbd_list_file))
+    )
 
   let add vbd_uuid = transform_vbd_list (List.append [vbd_uuid])
 
@@ -70,7 +73,8 @@ struct
       Lwt_mutex.with_lock m (fun () ->
           Lwt.catch
             (fun () -> Lwt_io.lines_of_file vbd_list_file |> Lwt_stream.to_list)
-            (log_and_reraise_error ("Failed to read " ^ vbd_list_file)))
+            (log_and_reraise_error ("Failed to read " ^ vbd_list_file))
+      )
     else
       Lwt.return []
 end

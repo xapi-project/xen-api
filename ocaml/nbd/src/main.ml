@@ -42,7 +42,8 @@ let with_attached_vdi vDI rpc session_id f =
   Cleanup.VBD.with_vbd ~vDI ~vM:control_domain ~mode:`RO ~rpc ~session_id
     (fun vbd ->
       Xen_api.VBD.get_device ~rpc ~session_id ~self:vbd >>= fun device ->
-      f ("/dev/" ^ device))
+      f ("/dev/" ^ device)
+  )
 
 let handle_connection fd tls_role =
   let with_session rpc uri f =
@@ -66,13 +67,16 @@ let handle_connection fd tls_role =
     Xen_api.VDI.get_by_uuid ~rpc ~session_id ~uuid:vdi_uuid >>= fun vdi_ref ->
     with_attached_vdi vdi_ref rpc session_id (fun filename ->
         Cleanup.Block.with_block filename
-          (Nbd_unix.Server.serve t ~read_only:true (module Block)))
+          (Nbd_unix.Server.serve t ~read_only:true (module Block))
+    )
   in
   Nbd_unix.with_channel fd tls_role (fun channel ->
       Nbd_unix.Server.with_connection channel (fun export_name svr ->
           let rpc = Xen_api.make Consts.xapi_unix_domain_socket_uri in
           let uri = Uri.of_string export_name in
-          with_session rpc uri (serve svr)))
+          with_session rpc uri (serve svr)
+      )
+  )
 
 (* TODO use the version from nbd repository *)
 let init_tls_get_server_ctx ~certfile =
@@ -80,7 +84,9 @@ let init_tls_get_server_ctx ~certfile =
   Some
     (Nbd_unix.TlsServer
        (Nbd_unix.init_tls_get_ctx ~curve:"secp384r1" ~certfile
-          ~ciphersuites:Xcp_const.good_ciphersuites))
+          ~ciphersuites:Xcp_const.good_ciphersuites
+       )
+    )
 
 let xapi_says_use_tls () =
   let refuse log msg = log msg >>= fun () -> Lwt.fail_with msg in
@@ -139,7 +145,8 @@ let main port certfile _ =
                   ^ " connections."
                   )
               else
-                Lwt.return ())
+                Lwt.return ()
+          )
         in
         let dec_conn () = inc_conn ~i:(-1) () in
         let rec loop () =
@@ -153,15 +160,19 @@ let main port certfile _ =
                   (fun () ->
                     inc_conn () >>= xapi_says_use_tls >>= fun tls ->
                     let tls_role = if tls then tls_server_role else None in
-                    handle_connection fd tls_role)
+                    handle_connection fd tls_role
+                    )
                   (* ignore the exception resulting from double-closing the socket *)
                     (fun () ->
                     ignore_exn_delayed (fun () -> Lwt_unix.close fd) ()
-                    >>= dec_conn))
+                    >>= dec_conn
+                    )
+            )
           in
           loop ()
         in
-        loop ())
+        loop ()
+        )
       (ignore_exn_delayed (fun () -> Lwt_unix.close sock))
   in
   (* Log unexpected exceptions *)
@@ -170,7 +181,9 @@ let main port certfile _ =
       (Lwt.catch t (fun e ->
            Lwt_log.fatal_f "Caught unexpected exception: %s"
              (Printexc.to_string e)
-           >>= fun () -> Lwt.fail e))
+           >>= fun () -> Lwt.fail e
+       )
+      )
   in
   `Ok ()
 
@@ -205,7 +218,8 @@ let ciphersuites =
     & opt
         ((fun _ -> `Ok "unused_cipher_string"), Format.pp_print_string)
         "unused_cipher_string"
-    & info ["ciphersuites"] ~doc)
+    & info ["ciphersuites"] ~doc
+  )
 
 let cmd =
   let doc = "Expose VDIs over authenticated NBD connections" in
@@ -225,7 +239,8 @@ let cmd =
     Arg.(value & opt int Consts.standard_nbd_port & info ["port"] ~doc)
   in
   ( Term.(ret (pure main $ port $ certfile $ ciphersuites))
-  , Term.info "xapi-nbd" ~version:"1.0.0" ~doc ~man ~sdocs:_common_options )
+  , Term.info "xapi-nbd" ~version:"1.0.0" ~doc ~man ~sdocs:_common_options
+  )
 
 let setup_logging () =
   Lwt_log.default := Lwt_log.syslog ~facility:`Daemon () ;

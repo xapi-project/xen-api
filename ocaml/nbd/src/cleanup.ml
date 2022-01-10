@@ -35,13 +35,16 @@ module VBD = struct
       Lwt_mutex.with_lock vbds_to_clean_up_mutex (fun () ->
           Lwt.wrap (fun () ->
               vbds_to_clean_up :=
-                StringSet.add (API.Ref.string_of vbd) !vbds_to_clean_up))
+                StringSet.add (API.Ref.string_of vbd) !vbds_to_clean_up
+          )
+      )
       >>= fun () ->
       f () >>= fun () ->
       Lwt_mutex.with_lock vbds_to_clean_up_mutex (fun () ->
           vbds_to_clean_up :=
             StringSet.remove (API.Ref.string_of vbd) !vbds_to_clean_up ;
-          Lwt.return_unit)
+          Lwt.return_unit
+      )
 
     (* Currently when the program is interrupted with a SIGNAL, we don't
        remove the VBDs that we clean up from the persistent VBD list. However,
@@ -55,10 +58,12 @@ module VBD = struct
       |> Lwt_list.iter_s (fun vbd ->
              ignore_exn_log_error
                (Printf.sprintf
-                  "Caught exception while cleaning up VBD with ref %s" vbd)
-               (fun () ->
+                  "Caught exception while cleaning up VBD with ref %s" vbd
+               ) (fun () ->
                  Lwt_log.warning_f "Cleaning up VBD with ref %s" vbd
-                 >>= fun () -> cleanup_vbd (API.Ref.of_string vbd)))
+                 >>= fun () -> cleanup_vbd (API.Ref.of_string vbd)
+             )
+         )
   end
 
   module Persistent = struct
@@ -79,7 +84,8 @@ module VBD = struct
           (fun e ->
             Local_xapi_session.with_session @@ fun rpc session_id ->
             Xen_api.VBD.destroy ~rpc ~session_id ~self:vbd >>= fun () ->
-            Lwt.fail e)
+            Lwt.fail e
+            )
       in
       Xen_api.VBD.get_uuid ~rpc ~session_id ~self:vbd >>*= fun vbd_uuid ->
       Vbd_store.add vbd_uuid >>*= fun () ->
@@ -96,22 +102,26 @@ module VBD = struct
         (fun uuid ->
           ignore_exn_log_error
             (Printf.sprintf
-               "Caught exception while cleaning up VBD with UUID %s" uuid)
-            (fun () ->
+               "Caught exception while cleaning up VBD with UUID %s" uuid
+            ) (fun () ->
               Lwt_log.warning_f "Cleaning up VBD with UUID %s" uuid
               >>= fun () ->
               Lwt.catch
                 (fun () ->
                   Xen_api.VBD.get_by_uuid ~rpc ~session_id ~uuid >>= fun vbd ->
-                  cleanup_vbd vbd)
+                  cleanup_vbd vbd
+                  )
                 (function
                   | Api_errors.Server_error (e, _)
                     when e = Api_errors.uuid_invalid ->
                       (* This VBD has already been cleaned up, maybe by the signal handler *)
                       Lwt.return_unit
                   | e ->
-                      Lwt.fail e)
-              >>= fun () -> Vbd_store.remove uuid))
+                      Lwt.fail e
+                  )
+              >>= fun () -> Vbd_store.remove uuid
+          )
+          )
         vbd_uuids
   end
 
@@ -134,12 +144,17 @@ module VBD = struct
                     Lwt_log.notice_f "Unplugging VBD %s" (API.Ref.string_of vbd)
                     >>= fun () ->
                     Local_xapi_session.with_session @@ fun rpc session_id ->
-                    Xen_api.VBD.unplug ~rpc ~session_id ~self:vbd))
+                    Xen_api.VBD.unplug ~rpc ~session_id ~self:vbd
+                    )
+                )
               (fun () ->
                 Lwt_log.notice_f "Destroying VBD %s" (API.Ref.string_of vbd)
                 >>= fun () ->
                 Local_xapi_session.with_session @@ fun rpc session_id ->
-                Xen_api.VBD.destroy ~rpc ~session_id ~self:vbd)))
+                Xen_api.VBD.destroy ~rpc ~session_id ~self:vbd
+                )
+        )
+    )
 end
 
 module Block = struct
@@ -152,19 +167,23 @@ module Block = struct
       let block_uuid = Uuidm.v `V4 |> Uuidm.to_string in
       Lwt_mutex.with_lock blocks_to_close_mutex (fun () ->
           Hashtbl.add blocks_to_close block_uuid b ;
-          Lwt.return_unit)
+          Lwt.return_unit
+      )
       >>= fun () ->
       Lwt.finalize f (fun () ->
           Lwt_mutex.with_lock blocks_to_close_mutex (fun () ->
               Hashtbl.remove blocks_to_close block_uuid ;
-              Lwt.return_unit))
+              Lwt.return_unit
+          )
+      )
 
     let cleanup () =
       let cleanup b =
         ignore_exn_log_error "Caught exception while closing open block device"
           (fun () ->
             Lwt_log.warning_f "Disconnecting from block device" >>= fun () ->
-            Block.disconnect b)
+            Block.disconnect b
+        )
       in
       let blocks_to_close =
         Hashtbl.fold (fun _ b l -> b :: l) blocks_to_close []
@@ -175,7 +194,8 @@ module Block = struct
   let with_block filename f =
     Block.connect filename >>= fun b ->
     Runtime.with_tracking b (fun () ->
-        Lwt.finalize (fun () -> f b) (fun () -> Block.disconnect b))
+        Lwt.finalize (fun () -> f b) (fun () -> Block.disconnect b)
+    )
 end
 
 module Runtime = struct
@@ -210,10 +230,12 @@ module Runtime = struct
       (* First we have to close the open file descriptors corresponding to the
          VDIs we plugged to dom0. Otherwise the VDI.unplug call would hang. *)
       ignore_exn_log_error "Caught exception while closing open block devices"
-        (fun () -> Block.Runtime.cleanup ())
+        (fun () -> Block.Runtime.cleanup ()
+      )
       >>= fun () ->
       ignore_exn_log_error "Caught exception while cleaning up VBDs" (fun () ->
-          VBD.Runtime.cleanup ())
+          VBD.Runtime.cleanup ()
+      )
       >>= fun () -> Lwt.fail (Signal signal)
     in
     Lwt.async cleanup

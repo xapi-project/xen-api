@@ -29,7 +29,8 @@ let test () =
 
 let test switch () =
   Lwt_switch.add_hook (Some switch) (fun () ->
-      Lwt_unix.unlink (dir ^ "/vbd_list_file") >>= fun () -> Lwt_unix.rmdir dir) ;
+      Lwt_unix.unlink (dir ^ "/vbd_list_file") >>= fun () -> Lwt_unix.rmdir dir
+  ) ;
   test ()
 
 let test_set =
