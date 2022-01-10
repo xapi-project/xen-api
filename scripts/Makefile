@@ -72,6 +72,8 @@ install:
 	$(IDATA) wsproxy.socket $(DESTDIR)/usr/lib/systemd/system/wsproxy.socket
 	$(IDATA) network-init.service $(DESTDIR)/usr/lib/systemd/system/network-init.service
 	$(IDATA) control-domain-params-init.service $(DESTDIR)/usr/lib/systemd/system/control-domain-params-init.service
+	$(IDATA) xapi-nbd.service $(DESTDIR)/usr/lib/systemd/system/xapi-nbd.service
+	$(IDATA) xapi-nbd.path $(DESTDIR)/usr/lib/systemd/system/xapi-nbd.path
 	$(IDATA) 10-stunnel-increase-number-of-file-descriptors.conf $(DESTDIR)/etc/systemd/system/stunnel@xapi.service.d/10-stunnel-increase-number-of-file-descriptors.conf
 	$(IDATA) 11-stunnel-gencert.conf $(DESTDIR)/etc/systemd/system/stunnel@xapi.service.d/11-stunnel-gencert.conf
 	mkdir -p $(DESTDIR)$(ETCXENDIR)/master.d

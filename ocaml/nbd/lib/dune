@@ -1,0 +1,26 @@
+(library
+ (name consts)
+ (modules consts)
+)
+
+(library
+ (name local_xapi_session)
+ (modules local_xapi_session)
+ (libraries
+  consts
+  lwt
+  lwt_log
+  lwt.unix
+  xen-api-client-lwt
+ )
+)
+
+(library
+ (name vbd_store)
+ (libraries
+  lwt
+  lwt_log
+  lwt.unix
+ )
+ (modules vbd_store)
+)
