@@ -1,6 +1,5 @@
 (executable
   (name main)
-  (public_name sm-cli)
   (flags (:standard -w -39))
   (libraries
     xapi-idl
@@ -14,3 +13,7 @@
   )
   (preprocess (pps ppx_deriving_rpc))
 )
+(install
+ (package xapi-storage-cli)
+ (section sbin)
+ (files (main.exe as sm-cli)))
