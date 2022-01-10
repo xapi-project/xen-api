@@ -101,7 +101,8 @@ end = struct
             (with_session [@tailcall]) t f
         | e ->
             debug "XAPI call failed: %s" (Printexc.to_string e) ;
-            Lwt.fail e)
+            Lwt.fail e
+        )
 end
 
 open Xen_api_lwt_unix
@@ -118,7 +119,8 @@ let logout session_id =
           (* ignore, already logged out or expired *)
           Lwt.return_unit
       | e ->
-          Lwt.fail e)
+          Lwt.fail e
+      )
 
 let cache = SessionCache.create ~login ~logout
 
@@ -127,7 +129,8 @@ let shutdown = Lwt_switch.create ()
 let () =
   Lwt_switch.add_hook (Some shutdown) (fun () ->
       debug "Cleaning up cache at exit" ;
-      SessionCache.destroy cache)
+      SessionCache.destroy cache
+  )
 
 let () =
   let cleanup n =
@@ -135,7 +138,8 @@ let () =
     Lwt.async (fun () ->
         Lwt_switch.turn_off shutdown >>= fun () ->
         info "Cleanup complete, exiting" ;
-        exit 0)
+        exit 0
+    )
   in
   Lwt_unix.on_signal Sys.sigterm cleanup |> ignore ;
   Lwt_unix.on_signal Sys.sigint cleanup |> ignore ;
@@ -156,14 +160,17 @@ let rec wait_for_file_to_appear path =
   Lwt.try_bind
     (fun () ->
       Conduit_lwt_unix.connect ~ctx:Conduit_lwt_unix.default_ctx
-        (`Unix_domain_socket (`File path)))
+        (`Unix_domain_socket (`File path))
+      )
     (fun (_, ic, _oc) ->
       D.debug "Socket at %s works" path ;
       (* do not close both channels, or we get an EBADF *)
-      Lwt_io.close ic)
+      Lwt_io.close ic
+      )
     (fun e ->
       D.debug "Waiting for file %s to appear (%s)" path (Printexc.to_string e) ;
-      Lwt_unix.sleep 0.1 >>= fun () -> wait_for_file_to_appear path)
+      Lwt_unix.sleep 0.1 >>= fun () -> wait_for_file_to_appear path
+      )
 
 let serve_forever_lwt rpc_fn path =
   let conn_closed _ = () in
@@ -180,7 +187,8 @@ let serve_forever_lwt rpc_fn path =
             let call = Xmlrpc.call_of_string body in
             (* Do not log the request, it will contain NVRAM *)
             D.debug "Received request on %s, method %s" path call.Rpc.name ;
-            rpc_fn call)
+            rpc_fn call
+        )
         >>= fun response ->
         let body = response |> Xmlrpc.string_of_response in
         Cohttp_lwt_unix.Server.respond_string ~status:`OK ~body ()
@@ -233,7 +241,8 @@ let make_server_rpcfn path vm_uuid =
       ( with_xapi
       @@ Message.create ~name:"VM_SECURE_BOOT_FAILED" ~priority ~cls:`VM
            ~obj_uuid:vm_uuid ~body
-      >>= fun _ -> Lwt.return_unit )
+      >>= fun _ -> Lwt.return_unit
+      )
   in
   let get_by_uuid _ _ = ret @@ Lwt.return "DUMMYVM" in
   let dummy_login _ _ _ _ = ret @@ Lwt.return "DUMMYSESSION" in

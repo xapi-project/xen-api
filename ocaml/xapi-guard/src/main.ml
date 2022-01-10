@@ -63,7 +63,8 @@ let safe_unlink path =
   Lwt.catch
     (fun () -> Lwt_unix.unlink path)
     (function
-      | Unix.Unix_error (Unix.ENOENT, _, _) -> Lwt.return_unit | e -> Lwt.fail e)
+      | Unix.Unix_error (Unix.ENOENT, _, _) -> Lwt.return_unit | e -> Lwt.fail e
+      )
 
 let listen_for_vm {Persistent.vm_uuid; path; gid} =
   let vm_uuid_str = Uuidm.to_string vm_uuid in
@@ -82,7 +83,8 @@ let depriv_create dbg vm_uuid gid path =
   if Hashtbl.mem sockets path then
     Lwt.return_error
       (Varstore_privileged_interface.InternalError
-         (Printf.sprintf "Path %s is already in use" path))
+         (Printf.sprintf "Path %s is already in use" path)
+      )
     |> Rpc_lwt.T.put
   else
     ret
@@ -121,7 +123,8 @@ let process body =
   Dorpc.wrap_rpc Varstore_privileged_interface.E.error (fun () ->
       let call = Jsonrpc.call_of_string body in
       D.debug "Received request from message-switch, method %s" call.Rpc.name ;
-      rpc_fn call)
+      rpc_fn call
+  )
   >|= Jsonrpc.string_of_response
 
 let make_message_switch_server () =
@@ -134,12 +137,14 @@ let make_message_switch_server () =
   | Ok t ->
       Lwt_switch.add_hook (Some shutdown) (fun () ->
           D.debug "Stopping message-switch queue server" ;
-          Server.shutdown ~t () >|= Lwt.wakeup server_stopped) ;
+          Server.shutdown ~t () >|= Lwt.wakeup server_stopped
+      ) ;
       (* best effort resume *)
       Lwt.catch resume (fun e ->
           D.log_backtrace () ;
           D.warn "Resume failed: %s" (Printexc.to_string e) ;
-          Lwt.return_unit)
+          Lwt.return_unit
+      )
       >>= fun () -> wait_server
   | Error (`Msg m) ->
       Lwt.fail_with
@@ -154,7 +159,8 @@ let main log_level =
      fun exn ->
        D.log_backtrace () ;
        D.error "Lwt caught async exception: %s" (Printexc.to_string exn) ;
-       old_hook exn) ;
+       old_hook exn
+  ) ;
   let () = Lwt_main.run @@ make_message_switch_server () in
   D.debug "Exiting varstored-guard"
 
@@ -176,10 +182,12 @@ let cmd =
       Arg.(
         value
         & opt level_conv Syslog.Info
-        & info ["log-level"] ~docv:"LEVEL" ~doc)
+        & info ["log-level"] ~docv:"LEVEL" ~doc
+      )
     in
 
     let program = Term.(const main $ log_level) in
-    (program, info))
+    (program, info)
+  )
 
 let () = Cmdliner.Term.(exit @@ eval cmd)
