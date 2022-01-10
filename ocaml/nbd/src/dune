@@ -1,6 +1,6 @@
 (executable
  (name main)
- (public_name xapi-nbd)
+ (modes byte exe)
  (libraries
   cmdliner
   consts
@@ -16,3 +16,7 @@
   xen-api-client-lwt
   xapi-idl)
 )
+(install
+ (package xapi-nbd)
+ (section sbin)
+ (files (main.exe as xapi-nbd)))

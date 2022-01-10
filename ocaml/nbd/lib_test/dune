@@ -1,5 +1,4 @@
-
-(executable
+(test
  (name suite)
  (libraries
   alcotest
@@ -7,10 +6,4 @@
   lwt
   uuidm
   vbd_store)
-)
-
-(alias
- (name   runtest)
- (deps   (:suite suite.exe))
- (action (run %{suite}))
 )

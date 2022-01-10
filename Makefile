@@ -186,7 +186,7 @@ install: build doc sdk doc-json
 		xen-api-client xen-api-client-lwt xen-api-client-async rrdd-plugin rrd-transport \
 		gzip http-svr pciutil sexpr stunnel uuid xml-light2 zstd xapi-compression safe-resources \
 		message-switch message-switch-async message-switch-cli message-switch-core message-switch-lwt \
-		message-switch-unix xapi-idl forkexec xapi-forkexecd xapi-storage xapi-storage-script
+		message-switch-unix xapi-idl forkexec xapi-forkexecd xapi-storage xapi-storage-script xapi-nbd
 	make -C _build/default/ocaml/xapi-storage/python
 	make -C _build/default/ocaml/xapi-storage/python install DESTDIR=$(DESTDIR)
 # docs
