@@ -303,7 +303,9 @@ let upgrade_bios_strings =
         let oem_manufacturer =
           let test_path =
             Option.map
-              (fun _ -> "/tmp/previousInventory")
+              (fun _ ->
+                Filename.(concat (get_temp_dir_name ()) "previousInventory")
+                )
               (Sys.getenv_opt "XAPI_TEST")
           in
           let inventory_path =
