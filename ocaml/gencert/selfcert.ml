@@ -143,10 +143,10 @@ let selfsign issuer extensions key_length expiration certfile =
   let* () = write_certs certfile pkcs12 in
   Ok cert
 
-let host ~name ~dns_names ~ips ?valid_from pemfile =
+let host ~name ~dns_names ~ips ?valid_from ~valid_for_days pemfile =
   let valid_from = valid_from' valid_from in
   let res =
-    let* expiration = expire_in_days ~valid_from (365 * 10) in
+    let* expiration = expire_in_days ~valid_from valid_for_days in
     let key_length = 2048 in
     let issuer =
       [
@@ -162,10 +162,10 @@ let host ~name ~dns_names ~ips ?valid_from pemfile =
 
 let serial_stamp () = Unix.gettimeofday () |> string_of_float
 
-let xapi_pool ?valid_from ~uuid pemfile =
+let xapi_pool ?valid_from ~valid_for_days ~uuid pemfile =
   let valid_from = valid_from' valid_from in
   let res =
-    let* expiration = expire_in_days ~valid_from (365 * 10) in
+    let* expiration = expire_in_days ~valid_from valid_for_days in
     let key_length = 2048 in
     let issuer =
       [
