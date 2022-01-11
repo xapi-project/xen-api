@@ -70,6 +70,7 @@ install:
 	$(IDATA) xcp-networkd.conf $(DESTDIR)/etc/xcp-networkd.conf
 	$(IDATA) wsproxy.service $(DESTDIR)/usr/lib/systemd/system/wsproxy.service
 	$(IDATA) wsproxy.socket $(DESTDIR)/usr/lib/systemd/system/wsproxy.socket
+	$(IDATA) varstored-guard.service $(DESTDIR)/usr/lib/systemd/system/varstored-guard.service
 	$(IDATA) network-init.service $(DESTDIR)/usr/lib/systemd/system/network-init.service
 	$(IDATA) control-domain-params-init.service $(DESTDIR)/usr/lib/systemd/system/control-domain-params-init.service
 	$(IDATA) xapi-nbd.service $(DESTDIR)/usr/lib/systemd/system/xapi-nbd.service

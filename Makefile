@@ -189,7 +189,7 @@ install: build doc sdk doc-json
 		gzip http-svr pciutil sexpr stunnel uuid xml-light2 zstd xapi-compression safe-resources \
 		message-switch message-switch-async message-switch-cli message-switch-core message-switch-lwt \
 		message-switch-unix xapi-idl forkexec xapi-forkexecd xapi-storage xapi-storage-script xapi-storage-cli \
-		xapi-nbd
+		xapi-nbd varstored-guard
 	make -C _build/default/ocaml/xapi-storage/python
 	make -C _build/default/ocaml/xapi-storage/python install DESTDIR=$(DESTDIR)
 # docs
