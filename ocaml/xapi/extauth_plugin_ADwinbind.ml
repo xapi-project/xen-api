@@ -820,30 +820,20 @@ let persist_extauth_config ~domain ~user ~ou_conf ~workgroup ~netbios_name =
   Db.Host.get_name_label ~__context ~self
   |> debug "update external_auth_configuration for host %s"
 
-let disable_machine_account ~service_name = function
+let clean_machine_account ~service_name = function
   | Some u, Some p -> (
       (* Disable machine account in DC *)
       let env = [|Printf.sprintf "PASSWD=%s" p|] in
       let args =
-        [
-          "ads"
-        ; "leave"
-        ; "-U"
-        ; u
-        ; "--keep-account"
-        ; "-d"
-        ; debug_level ()
-        ; "--kerberos"
-        ]
+        ["ads"; "leave"; "-U"; u; "-d"; debug_level (); "--kerberos"]
       in
       try
         Helpers.call_script ~env net_cmd args |> ignore ;
         clear_winbind_config () ;
-        debug "Succeed to disable the machine account for domain %s"
-          service_name
+        debug "Succeed to clean the machine account for domain %s" service_name
       with _ ->
         let msg =
-          Printf.sprintf "Failed to disable the machine account for domain %s"
+          Printf.sprintf "Failed to clean the machine account for domain %s"
             service_name
         in
         debug "%s" msg ;
@@ -1422,8 +1412,8 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
       ~netbios_name:"" ;
     ClosestKdc.stop_update () ;
     (* The caller disable external auth even disable machine account failed,
-     * We run disable_machine_account after some necessary resources get cleaned *)
-    disable_machine_account ~service_name (user, pass) ;
+     * We run clean_machine_account  after some necessary resources get cleaned *)
+    clean_machine_account ~service_name (user, pass) ;
     (* Clean local resources *)
     clean_local_resources () ;
 
