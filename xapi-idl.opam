@@ -9,7 +9,7 @@ build: [["dune" "build" "-p" name "-j" jobs]]
 run-test: [[ "dune" "runtest" "-p" name "-j" jobs ]]
 depends: [
   "ocaml"
-  "dune" {build}
+  "dune"
   "alcotest" {with-test}
   "fmt" {with-test}
   "astring"

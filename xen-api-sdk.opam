@@ -4,16 +4,16 @@ synopsis: "Xen API SDK generation code."
 maintainer: "xen-api@lists.xen.org"
 authors: [ "xen-api@lists.xen.org" ]
 license: "BSD 2-Clause"
-homepage: "https://github.com/xapi-project/xen-api-sdk"
-bug-reports: "https://github.com/xapi-project/xen-api-sdk/issues"
-dev-repo: "git+https://github.com/xapi-project/xen-api-sdk.git"
+homepage: "https://github.com/xapi-project/xen-api"
+bug-reports: "https://github.com/xapi-project/xen-api/issues"
+dev-repo: "git+https://github.com/xapi-project/xen-api.git"
 url {
-  src: "https://github.com/xapi-project/xen-api-sdk/archive/master.tar.gz"
+  src: "https://github.com/xapi-project/xen-api/archive/master.tar.gz"
 }
 tags: [ "org:xapi-project" ]
 build: [[ "dune" "build" "-p" name "-j" jobs]]
 depends: [
-  "dune" {build}
+  "dune"
   "xapi-datamodel"
   "mustache"
   "astring"

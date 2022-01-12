@@ -10,7 +10,8 @@ build: [
 ]
 depends: [
   "ocaml"
-  "dune" {build}
+  "dune"
+  "conf-python-2-7"
   "ounit" {with-test}
   "alcotest" {with-test}
   "lwt" {with-test}
@@ -20,9 +21,11 @@ depends: [
   "xmlm"
   "cmdliner"
 ]
+# python 2.7 is not enough to ensure the availability of 'python' in these
 depexts: [
-  ["python"] {os-distribution = "centos"}
-  ["python"] {os-distribution = "debian"}
-  ["python"] {os-distribution = "ubuntu"}
+  ["python"] {os-family = "debian"}
 ]
 synopsis: "Code and documentation generator for the Xapi storage interface"
+url {
+  src: "https://github.com/xapi-project/xen-api/archive/master.tar.gz"
+}

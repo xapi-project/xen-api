@@ -28,5 +28,5 @@ description: """
 This daemon exposes the XenAPI and is used by clients such as 'xe'
 and 'XenCenter' to manage clusters of Xen-enabled hosts."""
 url {
-  src: "https://github.com/xapi-project/xen-api/archive/master/master.tar.gz"
+  src: "https://github.com/xapi-project/xen-api/archive/master.tar.gz"
 }

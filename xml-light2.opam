@@ -9,10 +9,10 @@ build: [[ "dune" "build" "-p" name "-j" jobs ]]
 available: [ os = "linux" ]
 depends: [
   "ocaml"
-  "dune" {build}
+  "dune"
   "xmlm"
 ]
-synopsis: "Further transitional libraries required by xapi"
+synopsis: "Library required by xapi"
 description: """
 These libraries are provided for backwards compatibility only.
 No new code should use these libraries."""

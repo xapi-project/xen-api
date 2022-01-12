@@ -2,9 +2,9 @@ opam-version: "2.0"
 name: "xapi-xenopsd-xc"
 maintainer: "xen-api@lists.xen.org"
 authors: "xen-api@lists.xen.org"
-homepage: "https://github.com/xapi-project/xenopsd"
-dev-repo: "git+https://github.com/xapi-project/xenopsd.git"
-bug-reports: "https://github.com/xapi-project/xenopsd/issues"
+homepage: "https://github.com/xapi-project/xen-api"
+dev-repo: "git+https://github.com/xapi-project/xen-api.git"
+bug-reports: "https://github.com/xapi-project/xen-api/issues"
 build: [
   ["./configure"]
   [ "dune" "build" "-p" name "-j" jobs ]
@@ -12,11 +12,12 @@ build: [
 ]
 depends: [
   "ocaml"
-  "dune" {build}
+  "dune"
   "ounit2" {with-test}
   "astring"
   "base-threads"
   "base-unix"
+  "conf-xen"
   "ezxenstore"
   "fd-send-recv"
   "fmt"
@@ -50,5 +51,5 @@ synopsis:
   "A xenops plugin which knows how to use xenstore, xenctrl and xenguest to manage"
 description: "VMs on a xen host."
 url {
-  src: "https://github.com/xapi-project/xenopsd/archive/master/master.tar.gz"
+  src: "https://github.com/xapi-project/xen-api/archive/master.tar.gz"
 }
