@@ -1,8 +1,8 @@
 #!/bin/bash
 set -e
 
-SPATH=/tmp/sock
-SWITCHPATH=/tmp/switch
+SPATH=${TMPDIR:-/tmp}/sock
+SWITCHPATH=${TMPDIR:-/tmp}/switch
 
 
 rm -rf ${SWITCHPATH} && mkdir -p ${SWITCHPATH}

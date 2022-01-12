@@ -1,7 +1,7 @@
 #!/bin/sh
 set -ex
 
-LINKPATH=/tmp/link_test
+LINKPATH="${TMPDIR:-/tmp}/link_test"
 
 rm -rf ${LINKPATH} && mkdir -p ${LINKPATH}
 
