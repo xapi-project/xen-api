@@ -1214,11 +1214,27 @@ module MD = struct
       in
       (Vm_platform.generation_id, genid) :: platformdata
     in
-    (* Add the CPUID feature set for the VM to the platform data. *)
+    (* Add the CPUID feature set for the VM's next boot to the platform data. *)
     let platformdata =
       if not (List.mem_assoc Vm_platform.featureset platformdata) then
         let featureset =
-          Cpuid_helpers.next_boot_cpu_features ~__context ~vm:vmref
+          match
+            List.assoc_opt Xapi_globs.cpu_info_features_key
+              vm.API.vM_last_boot_CPU_flags
+          with
+          | _ when vm.API.vM_power_state <> `Suspended ->
+              Cpuid_helpers.next_boot_cpu_features ~__context ~vm:vmref
+          | Some fs ->
+              (* The VM's current featureset is now part of xenopsd's
+                 persistent metadata, and taken from there on resume
+                 and migrate-receive. However, VMs suspended before this
+                 change don't have the featureset there yet, and xenopsd
+                 falls back to the platformdata. We can't detect this case
+                 here, so we'll therefore fall back to the original source
+                 (VM.last_boot_CPU_flags) regardless. *)
+              fs
+          | None ->
+              failwith "VM's CPU featureset not initialised"
         in
         (Vm_platform.featureset, featureset) :: platformdata
       else
