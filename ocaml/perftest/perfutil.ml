@@ -50,13 +50,14 @@ let rewrite_provisioning_xml rpc session_id new_vm sr_uuid =
     | x ->
         x
   in
-  let other_config = Client.VM.get_other_config rpc session_id new_vm in
+  let other_config = Client.VM.get_other_config ~rpc ~session_id ~self:new_vm in
   if List.mem_assoc "disks" other_config then (
     let xml = Xml.parse_string (List.assoc "disks" other_config) in
-    Client.VM.remove_from_other_config rpc session_id new_vm "disks" ;
+    Client.VM.remove_from_other_config ~rpc ~session_id ~self:new_vm
+      ~key:"disks" ;
     let newdisks = rewrite_xml xml sr_uuid in
-    Client.VM.add_to_other_config rpc session_id new_vm "disks"
-      (Xml.to_string newdisks)
+    Client.VM.add_to_other_config ~rpc ~session_id ~self:new_vm ~key:"disks"
+      ~value:(Xml.to_string newdisks)
   )
 
 let parse_sr_probe_for_iqn (xml : string) : string list =

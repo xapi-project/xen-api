@@ -312,7 +312,7 @@ let on_vdi' f common_opts sr vdi =
     (fun sr vdi ->
       let () = f sr vdi in
       `Ok ()
-      )
+    )
     common_opts sr vdi
 
 let mirror_start common_opts sr vdi dp url dest =

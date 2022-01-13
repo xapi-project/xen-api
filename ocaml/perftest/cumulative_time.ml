@@ -12,7 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Perfdebug
 open Graphutil
 
 let _ =
@@ -83,7 +82,7 @@ let _ =
       let ls =
         List.flatten
           (List.mapi
-             (fun i ((info, floats), output) ->
+             (fun i ((info, _floats), output) ->
                let graph_one_label =
                  Printf.sprintf "Cumulative time, SR %d (left axis)" (i + 1)
                in

@@ -173,7 +173,7 @@ let _ =
         all ;
       let ls =
         List.map
-          (fun ((info, floats), output) ->
+          (fun ((info, _floats), output) ->
             {
               Gnuplot.filename= output
             ; title= short_info_to_title info

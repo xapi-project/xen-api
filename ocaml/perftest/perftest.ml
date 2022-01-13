@@ -54,9 +54,9 @@ let marshall pool metadata results =
 let string_of_set l = Printf.sprintf "{%s}" (String.concat ", " l)
 
 let get_metadata rpc session_id =
-  let pool = List.hd (Client.Pool.get_all rpc session_id) in
-  let master = Client.Pool.get_master rpc session_id pool in
-  let sv = Client.Host.get_software_version rpc session_id master in
+  let pool = List.hd (Client.Pool.get_all ~rpc ~session_id) in
+  let master = Client.Pool.get_master ~rpc ~session_id ~self:pool in
+  let sv = Client.Host.get_software_version ~rpc ~session_id ~self:master in
   sv
 
 let _ =
@@ -143,8 +143,8 @@ let _ =
         List.iter (fun x -> debug "* %s" x) lines
     | _ ->
         let session =
-          Client.Session.login_with_password rpc "root" "xenroot" "1.2"
-            "perftest"
+          Client.Session.login_with_password ~rpc ~uname:"root" ~pwd:"xenroot"
+            ~version:"1.2" ~originator:"perftest"
         in
         let (_ : API.string_to_string_map) = get_metadata rpc session in
         let open Xapi_stdext_pervasives in
@@ -171,8 +171,8 @@ let _ =
                 in
                 let session =
                   if pool.Scenario.sdk then
-                    Client.Session.login_with_password newrpc "root" "xensource"
-                      "1.2" "perftest"
+                    Client.Session.login_with_password ~rpc:newrpc ~uname:"root"
+                      ~pwd:"xensource" ~version:"1.2" ~originator:"perftest"
                   else
                     session
                 in
@@ -184,12 +184,12 @@ let _ =
                   )
                   (fun () ->
                     if pool.Scenario.sdk then
-                      Client.Session.logout newrpc session
+                      Client.Session.logout ~rpc:newrpc ~session_id:session
                   )
             | _ ->
                 failwith (Printf.sprintf "unknown mode: %s" !mode)
           )
-          (fun () -> Client.Session.logout rpc session)
+          (fun () -> Client.Session.logout ~rpc ~session_id:session)
   with Api_errors.Server_error (code, params) ->
     debug ~out:stderr "Caught API error: %s [ %s ]" code
       (String.concat "; " params)

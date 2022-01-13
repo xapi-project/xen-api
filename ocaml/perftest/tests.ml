@@ -40,18 +40,18 @@ let subtest_string key tag =
     Printf.sprintf "%s (%s)" key tag
 
 let startall rpc session_id test =
-  let vms = Client.VM.get_all_records rpc session_id in
-  let tags = List.map (fun (vm, vmr) -> vmr.API.vM_tags) vms in
+  let vms = Client.VM.get_all_records ~rpc ~session_id in
+  let tags = List.map (fun (_, vmr) -> vmr.API.vM_tags) vms in
   let tags = Listext.List.setify (List.flatten tags) in
   List.map
     (fun tag ->
       debug "Starting VMs with tag: %s" tag ;
       let vms =
-        List.filter (fun (vm, vmr) -> List.mem tag vmr.API.vM_tags) vms
+        List.filter (fun (_, vmr) -> List.mem tag vmr.API.vM_tags) vms
       in
       let vms =
         List.sort
-          (fun (vm1, vmr1) (vm2, vmr2) ->
+          (fun (_, vmr1) (_, vmr2) ->
             compare vmr1.API.vM_affinity vmr2.API.vM_affinity
           )
           vms
@@ -66,7 +66,10 @@ let startall rpc session_id test =
           (fun (vm, name_label, uuid) ->
             debug "Starting VM uuid '%s' (%s)" uuid name_label ;
             let result =
-              time (fun () -> Client.VM.start rpc session_id vm false false)
+              time (fun () ->
+                  Client.VM.start ~rpc ~session_id ~vm ~start_paused:false
+                    ~force:false
+              )
             in
             debug "Elapsed time: %f" result ;
             result
@@ -195,13 +198,15 @@ let parallel_with_vms async_op opname n vms rpc session_id test subtest_name =
       (fun () -> Client.Event.unregister ~rpc ~session_id ~classes)
   in
   let control_task =
-    Client.Task.create rpc session_id ("Parallel VM " ^ opname ^ " test") ""
+    Client.Task.create ~rpc ~session_id
+      ~label:("Parallel VM " ^ opname ^ " test")
+      ~description:""
   in
   active_tasks := [control_task] ;
   let thread = Thread.create check_active_tasks () in
   while !vms_to_start <> [] do
     let start_one () =
-      let vm, name, uuid = List.hd !vms_to_start in
+      let vm, _, uuid = List.hd !vms_to_start in
       vms_to_start := List.tl !vms_to_start ;
       Mutex.execute m (fun () ->
           let task = async_op ~rpc ~session_id ~vm in
@@ -231,14 +236,14 @@ let parallel_with_vms async_op opname n vms rpc session_id test subtest_name =
 
 (** @param n the maximum number of concurrent invocations of async_op *)
 let parallel async_op opname n rpc session_id test =
-  let vms = Client.VM.get_all_records rpc session_id in
-  let tags = List.map (fun (vm, vmr) -> vmr.API.vM_tags) vms in
+  let vms = Client.VM.get_all_records ~rpc ~session_id in
+  let tags = List.map (fun (_, vmr) -> vmr.API.vM_tags) vms in
   let tags = Listext.List.setify (List.flatten tags) in
   Printf.printf "Tags are [%s]\n%!" (String.concat "; " tags) ;
   List.map
     (fun tag ->
       let vms =
-        List.filter (fun (vm, vmr) -> List.mem tag vmr.API.vM_tags) vms
+        List.filter (fun (_, vmr) -> List.mem tag vmr.API.vM_tags) vms
       in
       Printf.printf "%sing %d VMs with tag: %s\n%!" opname (List.length vms) tag ;
       parallel_with_vms async_op opname n vms rpc session_id test
@@ -252,18 +257,18 @@ let parallel_startall =
 let parallel_stopall = parallel Client.Async.VM.hard_shutdown "stop"
 
 let stopall rpc session_id test =
-  let vms = Client.VM.get_all_records rpc session_id in
-  let tags = List.map (fun (vm, vmr) -> vmr.API.vM_tags) vms in
+  let vms = Client.VM.get_all_records ~rpc ~session_id in
+  let tags = List.map (fun (_, vmr) -> vmr.API.vM_tags) vms in
   let tags = Listext.List.setify (List.flatten tags) in
   List.map
     (fun tag ->
       debug "Starting VMs with tag: %s" tag ;
       let vms =
-        List.filter (fun (vm, vmr) -> List.mem tag vmr.API.vM_tags) vms
+        List.filter (fun (_, vmr) -> List.mem tag vmr.API.vM_tags) vms
       in
       let vms =
         List.sort
-          (fun (vm1, vmr1) (vm2, vmr2) ->
+          (fun (_, vmr1) (_, vmr2) ->
             compare vmr1.API.vM_affinity vmr2.API.vM_affinity
           )
           vms
@@ -278,7 +283,7 @@ let stopall rpc session_id test =
           (fun (vm, name_label, uuid) ->
             debug "Stopping VM uuid '%s' (%s)" uuid name_label ;
             let result =
-              time (fun () -> Client.VM.hard_shutdown rpc session_id vm)
+              time (fun () -> Client.VM.hard_shutdown ~rpc ~session_id ~vm)
             in
             debug "Elapsed time: %f" result ;
             result
@@ -296,15 +301,15 @@ let stopall rpc session_id test =
 
 let clone num_clones rpc session_id test =
   Printf.printf "Doing clone test\n%!" ;
-  let vms = Client.VM.get_all_records rpc session_id in
-  let tags = List.map (fun (vm, vmr) -> vmr.API.vM_tags) vms in
+  let vms = Client.VM.get_all_records ~rpc ~session_id in
+  let tags = List.map (fun (_, vmr) -> vmr.API.vM_tags) vms in
   let tags = Listext.List.setify (List.flatten tags) in
   Printf.printf "Tags are [%s]\n%!" (String.concat "; " tags) ;
   List.flatten
     (List.map
        (fun tag ->
          let vms =
-           List.filter (fun (vm, vmr) -> List.mem tag vmr.API.vM_tags) vms
+           List.filter (fun (_, vmr) -> List.mem tag vmr.API.vM_tags) vms
          in
          Printf.printf "We've got %d VMs\n%!" (List.length vms) ;
          (* Start a thread to clone each one n times *)
@@ -386,7 +391,9 @@ let clone num_clones rpc session_id test =
                            in
                            let vdis =
                              List.map
-                               (fun vbd -> Client.VBD.get_VDI rpc session_id vbd)
+                               (fun vbd ->
+                                 Client.VBD.get_VDI ~rpc ~session_id ~self:vbd
+                               )
                                vbds
                            in
                            List.iter
@@ -425,17 +432,21 @@ let recordssize rpc session_id test =
   in
   List.map doxmlrpctest
     [
-      ("VM records", fun () -> ignore (Client.VM.get_all_records rpc session_id))
+      ( "VM records"
+      , fun () -> ignore (Client.VM.get_all_records ~rpc ~session_id)
+      )
     ; ( "VBD records"
-      , fun () -> ignore (Client.VBD.get_all_records rpc session_id)
+      , fun () -> ignore (Client.VBD.get_all_records ~rpc ~session_id)
       )
     ; ( "VIF records"
-      , fun () -> ignore (Client.VIF.get_all_records rpc session_id)
+      , fun () -> ignore (Client.VIF.get_all_records ~rpc ~session_id)
       )
     ; ( "VDI records"
-      , fun () -> ignore (Client.VDI.get_all_records rpc session_id)
+      , fun () -> ignore (Client.VDI.get_all_records ~rpc ~session_id)
       )
-    ; ("SR records", fun () -> ignore (Client.SR.get_all_records rpc session_id))
+    ; ( "SR records"
+      , fun () -> ignore (Client.SR.get_all_records ~rpc ~session_id)
+      )
     ]
 
 let tests key =
