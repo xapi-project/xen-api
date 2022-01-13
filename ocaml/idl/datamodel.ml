@@ -3296,6 +3296,7 @@ module Role = struct
                       field ~in_product_since:rel_midnight_ride ~default_value:(Some (VString "")) ~qualifier:StaticRO ~ty:String "description" "what this role is for";
                     ]) ();
                   field ~in_product_since:rel_midnight_ride ~default_value:(Some (VSet [])) ~ignore_foreign_key:true ~qualifier:StaticRO ~ty:(Set(Ref _role)) "subroles" "a list of pointers to other roles or permissions";
+                  field ~in_product_since:rel_next ~default_value:(Some (VBool false)) ~qualifier:DynamicRO ~ty:Bool "internal" "Indicates whether the role is only to be assigned internally by xapi, or can be used by clients"
                   (*RBAC2: field ~in_product_since:rel_midnight_ride ~default_value:(Some (VBool false)) ~qualifier:StaticRO ~ty:Bool "is_complete" "if this is a complete role, meant to be used by the end-user";*)
                  ]
       ()

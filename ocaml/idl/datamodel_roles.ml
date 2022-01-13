@@ -8,25 +8,25 @@ let role_vm_operator = "vm-operator"
 let role_read_only = "read-only"
 let role_client_cert = "client-cert"
 
-let roles_all =
+let role_name (name, _, _) = name
+let role_name_with_description (name, description, _) = name, description
+let role_name_with_internal (name, _, internal) = name, internal
+
+let ordered =
   [ (* in decreasing total linear order of privileges *)
-    role_pool_admin;
-    role_pool_operator;
-    role_vm_power_admin;
-    role_vm_admin;
-    role_vm_operator;
-    role_client_cert;
-    role_read_only
+    role_pool_admin, "The Pool Administrator role has full access to all features and settings, including accessing Dom0 and managing subjects, roles and external authentication", false;
+    role_pool_operator, "The Pool Operator role manages host- and pool-wide resources, including setting up storage, creating resource pools and managing patches, high availability (HA) and workload balancing (WLB)", false;
+    role_vm_power_admin, "The VM Power Administrator role has full access to VM and template management and can choose where to start VMs and use the dynamic memory control and VM snapshot features", false;
+    role_vm_admin, "The VM Administrator role can manage VMs and templates", false;
+    role_vm_operator, "The VM Operator role can use VMs and interact with VM consoles", false;
+    role_client_cert, "The Client Certificate role has access to functionality granted to those who authenticate using a client certificate", true;
+    role_read_only, "The Read-Only role can log in with basic read-only access", false;
   ]
-let role_description = [
-  role_pool_admin,"The Pool Administrator role has full access to all features and settings, including accessing Dom0 and managing subjects, roles and external authentication";
-  role_pool_operator,"The Pool Operator role manages host- and pool-wide resources, including setting up storage, creating resource pools and managing patches, high availability (HA) and workload balancing (WLB)";
-  role_vm_power_admin,"The VM Power Administrator role has full access to VM and template management and can choose where to start VMs and use the dynamic memory control and VM snapshot features";
-  role_vm_admin,"The VM Administrator role can manage VMs and templates";
-  role_vm_operator,"The VM Operator role can use VMs and interact with VM consoles";
-  role_read_only,"The Read-Only role can log in with basic read-only access";
-  role_client_cert,"The Client Certificate role has access to funtionality granted to those who authenticate using a client certificate"
-]
+
+let roles_all = List.map role_name ordered
+let role_description = List.map role_name_with_description ordered
+let role_internal = List.map role_name_with_internal ordered
+
 (* obtain all roles with at least the specified role privileges *)
 let roles_gte role =
   let rec gte = function []->failwith "invalid role"
