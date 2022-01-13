@@ -32,10 +32,12 @@ let check_license now pool_license_state all_license_params =
   else
     Good
 
-let get_info_from_db rpc session =
-  let pool = List.hd (XenAPI.Pool.get_all rpc session) in
-  let pool_license_state = XenAPI.Pool.get_license_state rpc session pool in
-  let hosts = XenAPI.Host.get_all_records rpc session in
+let get_info_from_db rpc session_id =
+  let pool = List.hd (XenAPI.Pool.get_all ~rpc ~session_id) in
+  let pool_license_state =
+    XenAPI.Pool.get_license_state ~rpc ~session_id ~self:pool
+  in
+  let hosts = XenAPI.Host.get_all_records ~rpc ~session_id in
   let all_license_params =
     List.map
       (fun (_, host) -> (host.API.host_name_label, host.API.host_license_params))
@@ -43,11 +45,14 @@ let get_info_from_db rpc session =
   in
   (pool, pool_license_state, all_license_params)
 
-let execute rpc session pool result =
-  let send_alert session pool msg body =
+let execute rpc session_id pool result =
+  let send_alert session_id pool msg body =
     let name, priority = msg in
-    let pool_uuid = XenAPI.Pool.get_uuid rpc session pool in
-    ignore (XenAPI.Message.create rpc session name priority `Pool pool_uuid body)
+    let obj_uuid = XenAPI.Pool.get_uuid ~rpc ~session_id ~self:pool in
+    ignore
+      (XenAPI.Message.create ~rpc ~session_id ~name ~priority ~cls:`Pool
+         ~obj_uuid ~body
+      )
   in
   match result with
   | Good ->
@@ -58,10 +63,10 @@ let execute rpc session pool result =
           "The licenses of the following hosts are about to expire: %s"
           (String.concat ", " hosts)
       in
-      send_alert session pool Api_messages.license_expires_soon body
+      send_alert session_id pool Api_messages.license_expires_soon body
   | Expired hosts ->
       let body =
         Printf.sprintf "The licenses of the following hosts have expired: %s"
           (String.concat ", " hosts)
       in
-      send_alert session pool Api_messages.license_expired body
+      send_alert session_id pool Api_messages.license_expired body
