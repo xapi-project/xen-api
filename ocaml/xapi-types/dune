@@ -11,7 +11,7 @@
 (library
   (name xapi_types)
   (public_name xapi-types)
-  (flags (:standard))
+  (flags (:standard -w -33))
   (libraries
     astring
     http-svr
