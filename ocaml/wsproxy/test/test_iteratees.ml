@@ -16,7 +16,6 @@ open OUnit
 open Wslib
 module I = Iteratees.Iteratee (Test.StringMonad)
 module TestWsIteratee = Websockets.Wsprotocol (Test.StringMonad)
-open TestWsIteratee
 open I
 
 let get_data = function IE_done x -> Some x | IE_cont _ -> None

@@ -15,7 +15,7 @@
 open OUnit
 open Wslib
 
-let gen_nums n generator = QCheck.Gen.generate n generator
+let gen_nums n generator = QCheck.Gen.generate ~n generator
 
 let test_split () =
   let a, b = Helpers.split "helper" 2 in
