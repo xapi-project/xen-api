@@ -47,7 +47,7 @@ let debug (fmt : ('a, unit, string, unit) format4) =
           fmt
     )
   else
-    Printf.kprintf (fun s -> ()) fmt
+    Printf.kprintf (Fun.const ()) fmt
 
 type t = {
     host: [`host] Uuid.t
@@ -76,7 +76,7 @@ let to_string alert =
 
 (* execute f within an active session *)
 let rec retry_with_session f rpc x =
-  let session =
+  let session_id =
     let rec aux () =
       try
         Client.Session.login_with_password ~rpc ~uname:"" ~pwd:"" ~version:"1.4"
@@ -85,28 +85,29 @@ let rec retry_with_session f rpc x =
     in
     aux ()
   in
-  try f rpc session x
+  try f rpc session_id x
   with e ->
-    (try Client.Session.logout ~rpc ~session_id:session with _ -> ()) ;
+    (try Client.Session.logout ~rpc ~session_id with _ -> ()) ;
     debug "Got '%s', trying with a new session ..." (Printexc.to_string e) ;
     Thread.delay !delay ;
     retry_with_session f rpc x
 
 let keep_mpath =
-  List.filter (fun (key, value) -> Xstringext.String.startswith "mpath-" key)
+  List.filter (fun (key, _) -> Xstringext.String.startswith "mpath-" key)
 
 (* create a list of alerts from a PBD event *)
-let create_pbd_alerts rpc session snapshot (pbd_ref, pbd_rec, timestamp) =
+let create_pbd_alerts rpc session_id snapshot (_pbd_ref, pbd_rec, timestamp) =
   let aux (key, value) =
     let scsi_id = Xstringext.String.sub_to_end key 6 in
     let current, max =
       Scanf.sscanf value "[%d, %d]" (fun current max -> (current, max))
     in
     let host =
-      Uuid.of_string (Client.Host.get_uuid rpc session pbd_rec.API.pBD_host)
+      Uuid.of_string
+        (Client.Host.get_uuid ~rpc ~session_id ~self:pbd_rec.API.pBD_host)
     in
     let host_name =
-      Client.Host.get_name_label rpc session pbd_rec.API.pBD_host
+      Client.Host.get_name_label ~rpc ~session_id ~self:pbd_rec.API.pBD_host
     in
     let pbd = Uuid.of_string pbd_rec.API.pBD_uuid in
     let alert = {host; host_name; pbd; timestamp; scsi_id; current; max} in
@@ -121,7 +122,7 @@ let create_pbd_alerts rpc session snapshot (pbd_ref, pbd_rec, timestamp) =
   List.map aux diff
 
 (* create a list of alerts from a host event *)
-let create_host_alerts rpc session snapshot (host_ref, host_rec, timestamp) =
+let create_host_alerts _rpc _session snapshot (_, host_rec, timestamp) =
   let aux (key, value) =
     let scsi_id = "n/a" in
     let current, max =
@@ -141,7 +142,7 @@ let create_host_alerts rpc session snapshot (host_ref, host_rec, timestamp) =
   in
   List.map aux diff
 
-let listener rpc session queue =
+let listener rpc session_id queue =
   let snapshot = Hashtbl.create 48 in
   let update_snapshot r other_config =
     let r = Ref.string_of r in
@@ -157,15 +158,15 @@ let listener rpc session queue =
     Hashtbl.remove snapshot r
   in
   let get_snapshot r = Hashtbl.find snapshot (Ref.string_of r) in
-  Client.Event.register rpc session ["pbd"; "host"] ;
+  Client.Event.register ~rpc ~session_id ~classes:["pbd"; "host"] ;
   (* populate the snapshot cache *)
-  let pbds = Client.PBD.get_all_records rpc session in
+  let pbds = Client.PBD.get_all_records ~rpc ~session_id in
   List.iter
     (fun (pbd_ref, pbd_rec) ->
       update_snapshot pbd_ref (keep_mpath pbd_rec.API.pBD_other_config)
     )
     pbds ;
-  let hosts = Client.Host.get_all_records rpc session in
+  let hosts = Client.Host.get_all_records ~rpc ~session_id in
   List.iter
     (fun (host_ref, host_rec) ->
       update_snapshot host_ref (keep_mpath host_rec.API.host_other_config)
@@ -184,7 +185,7 @@ let listener rpc session queue =
           remove_from_snapshot pbd_ref
       | `_mod, Some pbd_rec ->
           let alerts =
-            create_pbd_alerts rpc session (get_snapshot pbd_ref)
+            create_pbd_alerts rpc session_id (get_snapshot pbd_ref)
               (pbd_ref, pbd_rec, float_of_string event.ts)
           in
           debug "Processing a MOD event" ;
@@ -206,7 +207,7 @@ let listener rpc session queue =
       | `_mod, Some host_rec ->
           debug "Processing a MOD event" ;
           let alerts =
-            create_host_alerts rpc session (get_snapshot host_ref)
+            create_host_alerts rpc session_id (get_snapshot host_ref)
               (host_ref, host_rec, float_of_string event.ts)
           in
           List.iter
@@ -222,29 +223,31 @@ let listener rpc session queue =
   in
   (* infinite loop *)
   while true do
-    let events = Event_types.events_of_rpc (Client.Event.next rpc session) in
+    let events =
+      Event_types.events_of_rpc (Client.Event.next ~rpc ~session_id)
+    in
     List.iter proceed events
   done
 
-let state_of_the_world rpc session =
+let state_of_the_world rpc session_id =
   debug "Generating the current state of the world" ;
-  let pbds = Client.PBD.get_all_records rpc session in
+  let pbds = Client.PBD.get_all_records ~rpc ~session_id in
   let pbd_alerts =
     List.flatten
       (List.map
          (fun (pbd_ref, pbd_rec) ->
-           create_pbd_alerts rpc session []
+           create_pbd_alerts rpc session_id []
              (pbd_ref, pbd_rec, Unix.gettimeofday ())
          )
          pbds
       )
   in
-  let hosts = Client.Host.get_all_records rpc session in
+  let hosts = Client.Host.get_all_records ~rpc ~session_id in
   let host_alerts =
     List.flatten
       (List.map
          (fun (host_ref, host_rec) ->
-           create_host_alerts rpc session []
+           create_host_alerts rpc session_id []
              (host_ref, host_rec, Unix.gettimeofday ())
          )
          hosts
@@ -258,10 +261,10 @@ let state_of_the_world rpc session =
   debug "State of the world generated" ;
   alerts
 
-let sender rpc session (delay, msg, queue) =
+let sender rpc session_id (delay, msg, queue) =
   debug "Start sender with delay=%.0f seconds" delay ;
   let pool_uuid =
-    let _, pool_rec = List.hd (Client.Pool.get_all_records rpc session) in
+    let _, pool_rec = List.hd (Client.Pool.get_all_records ~rpc ~session_id) in
     pool_rec.API.pool_uuid
   in
   let tmp = Buffer.create 1024 in
@@ -300,7 +303,7 @@ let sender rpc session (delay, msg, queue) =
   in
   while true do
     debug "Wake up" ;
-    let state_of_the_world = state_of_the_world rpc session in
+    let state_of_the_world = state_of_the_world rpc session_id in
     with_global_lock (fun () ->
         if not (Queue.is_empty queue) then (
           (* write everything on a tempary buffer *)
@@ -330,8 +333,8 @@ let sender rpc session (delay, msg, queue) =
     if Buffer.length msg <> 0 then (
       let name, priority = Api_messages.multipath_periodic_alert in
       let (_ : API.ref_message) =
-        Client.Message.create rpc session name priority `Pool pool_uuid
-          (Buffer.contents msg)
+        Client.Message.create ~rpc ~session_id ~name ~priority ~cls:`Pool
+          ~obj_uuid:pool_uuid ~body:(Buffer.contents msg)
       in
       remember_broken_history state_of_the_world ;
       Buffer.clear msg
