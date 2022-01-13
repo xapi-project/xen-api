@@ -28,11 +28,7 @@ let is_whitespace = function
   | _ ->
       false
 
-let is_newline = function '\n' -> true | '\r' -> true | _ -> false
-
 let is_data = function '-' -> false | _ -> true
-
-let newline = take_while1 is_newline
 
 let ws = take_while is_whitespace
 
