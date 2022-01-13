@@ -30,7 +30,6 @@ let rpc xml =
     ~http xml
 
 open Client
-open Printf
 open Event_types
 
 let _ =
