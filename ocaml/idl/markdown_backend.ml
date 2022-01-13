@@ -13,7 +13,6 @@
  *)
 open Printf
 open Datamodel_types
-open Datamodel
 open Datamodel_utils
 open Dm_api
 open Xapi_stdext_pervasives.Pervasiveext
@@ -98,7 +97,7 @@ let rec of_ty_verbatim = function
       "bool"
   | DateTime ->
       "datetime"
-  | Enum (name, things) ->
+  | Enum (name, _) ->
       name
   | Set x ->
       sprintf "%s set" (of_ty_verbatim x)
@@ -122,7 +121,7 @@ let rec of_ty = function
       "bool"
   | DateTime ->
       "datetime"
-  | Enum (name, things) ->
+  | Enum (name, _) ->
       escape name
   | Set x ->
       of_ty x ^ " set"
@@ -263,7 +262,7 @@ let print_field_table_of_obj printer ~is_class_deprecated ~is_class_removed x =
     printer
       "|:-------------------|:-------------------|:--------------|:---------------------------------------|" ;
     let print_field_content printer
-        ({release; qualifier; ty; field_description= description} as y) =
+        ({qualifier; ty; field_description= description; _} as y) =
       let wired_name = Datamodel_utils.wire_name_of_field y in
       let descr =
         ( if List.exists is_removal_marker y.lifecycle || is_class_removed then

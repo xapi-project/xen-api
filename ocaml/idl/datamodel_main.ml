@@ -75,7 +75,7 @@ let _ =
   (* Add all implicit messages to the API directly *)
   let api = DU.add_implicit_messages ~document_order:!markdown_mode api in
   (* Only show those visible to the client *)
-  let api = filter (fun _ -> true) (fun field -> true) DU.on_client_side api in
+  let api = filter (fun _ -> true) (Fun.const true) DU.on_client_side api in
   (* And only messages marked as not hidden from the docs, and non-internal fields *)
   let api =
     filter
