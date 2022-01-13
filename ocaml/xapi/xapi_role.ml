@@ -81,9 +81,9 @@ let get_api_record ~static_record =
     API.role_uuid= static_record.Db_actions.role_uuid
   ; API.role_name_label= static_record.Db_actions.role_name_label
   ; API.role_name_description= static_record.Db_actions.role_name_description
-  ; API.role_subroles=
-      static_record.Db_actions.role_subroles
-  ; API.role_internal= static_record.Db_actions.role_internal
+  ; API.role_subroles= static_record.Db_actions.role_subroles
+  ; API.role_internal=
+      static_record.Db_actions.role_internal
       (*API.role_is_basic=static_record.Db_actions.role_is_basic;*)
       (*API.role_is_complete=static_record.Db_actions.role_is_complete;*)
       (*API.role_subjects=static_record.Db_actions.role_subjects;*)
