@@ -8,10 +8,10 @@ let rpc xml =
     xml
 
 let _ =
-  let session =
+  let session_id =
     XenAPI.Session.login_with_password ~rpc ~uname:"" ~pwd:"" ~version:"1.0"
       ~originator:"certificate-check"
   in
   Xapi_stdext_pervasives.Pervasiveext.finally
-    (fun () -> Certificate_check.alert rpc session)
-    (fun () -> XenAPI.Session.logout rpc session)
+    (fun () -> Certificate_check.alert rpc session_id)
+    (fun () -> XenAPI.Session.logout ~rpc ~session_id)

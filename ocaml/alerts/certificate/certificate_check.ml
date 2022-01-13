@@ -21,8 +21,8 @@ let days_until_expiry epoch expiry =
   | false ->
       Float.(to_int (ceil days))
 
-let get_certificate_attributes rpc session =
-  XenAPI.Certificate.get_all_records rpc session
+let get_certificate_attributes rpc session_id =
+  XenAPI.Certificate.get_all_records ~rpc ~session_id
   |> List.map @@ fun (cert_ref, certificate) ->
      match certificate.API.certificate_type with
      | `host ->
@@ -105,7 +105,7 @@ let generate_alert epoch cert =
       , Some (body expiring, Api_messages.host_internal_certificate_expiring_30)
       )
 
-let execute rpc session existing_messages (cert, alert) =
+let execute rpc session_id existing_messages (cert, alert) =
   (* CA-342551: messages need to be deleted if the pending alert regard the
      same host and has newer, updated information.
      If the pending alert has the same metadata as the existing host message
@@ -114,50 +114,53 @@ let execute rpc session existing_messages (cert, alert) =
      In the case there are alerts regarding the host but no alert is pending
      they are not destroyed since no alert is automatically dismissed. *)
   match alert with
-  | Some (message, (alert, priority)) -> (
+  | Some (body, (alert, priority)) -> (
     try
-      let cls, uuid =
+      let cls, obj_uuid =
         match cert with
         | Host (host, _) | Internal (host, _) ->
-            (`Host, XenAPI.Host.get_uuid rpc session host)
+            (`Host, XenAPI.Host.get_uuid ~rpc ~session_id ~self:host)
         | CA (cert, _) ->
-            (`Certificate, XenAPI.Certificate.get_uuid rpc session cert)
+            ( `Certificate
+            , XenAPI.Certificate.get_uuid ~rpc ~session_id ~self:cert
+            )
       in
       let messages_in_host =
         List.filter
-          (fun (_, record) -> record.API.message_obj_uuid = uuid)
+          (fun (_, record) -> record.API.message_obj_uuid = obj_uuid)
           existing_messages
       in
-      let is_outdated (ref, record) =
-        record.API.message_body <> message
+      let is_outdated (_ref, record) =
+        record.API.message_body <> body
         || record.API.message_name <> alert
         || record.API.message_priority <> priority
       in
       let outdated, current = List.partition is_outdated messages_in_host in
 
       List.iter
-        (fun (self, _) -> XenAPI.Message.destroy rpc session self)
+        (fun (self, _) -> XenAPI.Message.destroy ~rpc ~session_id ~self)
         outdated ;
       if current = [] then
         let (_ : [> `message] API.Ref.t) =
-          XenAPI.Message.create rpc session alert priority cls uuid message
+          XenAPI.Message.create ~rpc ~session_id ~name:alert ~priority ~cls
+            ~obj_uuid ~body
         in
         ()
-    with Api_errors.(Server_error (handle_invalid, _)) ->
+    with Api_errors.(Server_error (_handle_invalid, _)) ->
       (* this happens when the host reference is invalid *)
       ()
   )
   | None ->
       ()
 
-let alert rpc session =
+let alert rpc session_id =
   let now = Unix.time () in
   (* Message starting with
      [\{host_server_certificate,pool_ca_certificate\}_\{expiring,expired\}]
      may need to be refreshed, gather them just once *)
   let previous_messages =
-    XenAPI.Message.get_all_records rpc session
-    |> List.filter (fun (ref, record) ->
+    XenAPI.Message.get_all_records ~rpc ~session_id
+    |> List.filter (fun (_ref, record) ->
            let expiring_or_expired name =
              let matching affix = Astring.String.is_prefix ~affix name in
              matching Api_messages.host_server_certificate_expiring
@@ -171,6 +174,6 @@ let alert rpc session =
        )
   in
   let send_alert_maybe attributes =
-    attributes |> generate_alert now |> execute rpc session previous_messages
+    attributes |> generate_alert now |> execute rpc session_id previous_messages
   in
-  get_certificate_attributes rpc session |> List.iter send_alert_maybe
+  get_certificate_attributes rpc session_id |> List.iter send_alert_maybe
