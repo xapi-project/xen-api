@@ -16,6 +16,9 @@ build:
 
 # Quickly verify that the code compiles, without actually building it
 check:
+	XAPI_VERSION=$(XAPI_VERSION) dune build @check -j $(JOBS)
+
+check-release:
 	XAPI_VERSION=$(XAPI_VERSION) dune build @check -j $(JOBS) --profile=$(PROFILE)
 
 clean:

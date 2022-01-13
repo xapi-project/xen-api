@@ -75,7 +75,12 @@ jobs:
       - name: Run tests
         run: opam exec -- make test
 
+      - name: Check all code in release mode
+        # This should be removed when the following pass succeeds
+        run: opam exec -- make check-release
+
       - name: Check all code
+        continue-on-error: true
         run: opam exec -- make check
 
       - name: Run stress tests
