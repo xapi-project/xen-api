@@ -59,7 +59,7 @@ let generate_files api_dir =
         List.filter
           (fun (_transition, release, _doc) ->
             release = code_name_of_release rel
-            )
+          )
           obj.obj_lifecycle
       in
       let obj_changes : changes_t =

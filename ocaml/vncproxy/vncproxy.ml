@@ -86,17 +86,20 @@ let _ =
           ~http xml
   in
   let find_vm rpc session_id vm =
-    try Client.VM.get_by_uuid rpc session_id vm
-    with _ -> List.hd (Client.VM.get_by_name_label rpc session_id vm)
+    try Client.VM.get_by_uuid ~rpc ~session_id ~uuid:vm
+    with _ -> List.hd (Client.VM.get_by_name_label ~rpc ~session_id ~label:vm)
   in
   let session_id =
-    Client.Session.login_with_password rpc !username !password "1.1" "vncproxy"
+    Client.Session.login_with_password ~rpc ~uname:!username ~pwd:!password
+      ~version:"1.1" ~originator:"vncproxy"
   in
   finally
     (fun () ->
       let vm = find_vm rpc session_id !vm in
-      let resident_on = Client.VM.get_resident_on rpc session_id vm in
-      let address = Client.Host.get_address rpc session_id resident_on in
+      let resident_on = Client.VM.get_resident_on ~rpc ~session_id ~self:vm in
+      let address =
+        Client.Host.get_address ~rpc ~session_id ~self:resident_on
+      in
       let open Xmlrpc_client in
       let http =
         connect ~session_id:(Ref.string_of session_id)
@@ -111,10 +114,10 @@ let _ =
           )
       in
       with_transport transport
-        (with_http http (fun (response, fd) ->
+        (with_http http (fun (_response, fd) ->
              (* NB this will double-close [fd] *)
              Xapi_stdext_unix.Unixext.proxy s fd
          )
         )
     )
-    (fun () -> Client.Session.logout rpc session_id)
+    (fun () -> Client.Session.logout ~rpc ~session_id)
