@@ -22,3 +22,6 @@
    xapi-idl.xen
  )
  (preprocess (pps ppx_deriving_rpc)))
+
+(env (_ (env-vars (ALCOTEST_COMPACT 1))))
+

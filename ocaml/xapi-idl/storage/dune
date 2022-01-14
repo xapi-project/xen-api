@@ -67,3 +67,6 @@
  )
  (package xapi-idl)
  (deps storage_test.exe))
+
+(env (_ (env-vars (ALCOTEST_COMPACT 1))))
+
