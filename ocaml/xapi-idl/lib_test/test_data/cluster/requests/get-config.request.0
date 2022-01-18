@@ -1,1 +1,0 @@
-<?xml version="1.0"?><methodCall><methodName>get-config</methodName><params><param><value><struct><member><name>dbg</name><value>dbg</value></member></struct></value></param></params></methodCall>
