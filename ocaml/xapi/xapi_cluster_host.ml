@@ -67,6 +67,41 @@ let create_internal ~__context ~cluster ~host ~pIF : API.ref_Cluster_host =
       ref
   )
 
+let build_tls_config ~__context ~verify =
+  let open Cluster_interface in
+  let cn = "xapi-cluster" in
+  if verify then
+    {
+      server_pem_path= !Xapi_globs.server_cert_internal_path
+    ; cn
+    ; trusted_bundle_path= Some !Xapi_globs.pool_bundle_path
+    }
+  else
+    {
+      server_pem_path= !Xapi_globs.server_cert_path
+    ; cn
+    ; trusted_bundle_path= None
+    }
+
+let set_tls_config ~__context ~self ~verify =
+  let host = Db.Cluster_host.get_host ~__context ~self in
+  assert_operation_host_target_is_localhost ~__context ~host ;
+  let dbg = Context.string_of_task __context in
+  let tls_config = build_tls_config ~__context ~verify in
+  let result =
+    Cluster_client.LocalClient.set_tls_verification
+      (Xapi_clustering.rpc ~__context)
+      dbg tls_config.server_pem_path
+      (Option.value ~default:"/dev/null" tls_config.trusted_bundle_path)
+      tls_config.cn verify
+  in
+  match Idl.IdM.run @@ Cluster_client.IDL.T.get result with
+  | Ok () ->
+      D.debug "local cluster host TLS configuration updated"
+  | Error error ->
+      D.warn "Error occured when updating local cluster host TLS configuration" ;
+      Xapi_clustering.handle_error error
+
 (* Helper function atomically enables clusterd and joins the cluster_host *)
 let join_internal ~__context ~self =
   with_clustering_lock __LOC__ (fun () ->
@@ -101,10 +136,11 @@ let join_internal ~__context ~self =
           ) ;
       debug "Enabling clusterd and joining cluster_host %s" (Ref.string_of self) ;
       Xapi_clustering.Daemon.enable ~__context ;
-      let pems = Xapi_cluster_helpers.Pem.get_existing ~__context cluster in
+      let verify = Stunnel_client.get_verify_by_default () in
+      let tls_config = build_tls_config ~__context ~verify in
       let result =
         Cluster_client.LocalClient.join (rpc ~__context) dbg cluster_token ip
-          ip_list pems
+          tls_config ip_list
       in
       match Idl.IdM.run @@ Cluster_client.IDL.T.get result with
       | Ok () ->
@@ -156,7 +192,9 @@ let resync_host ~__context ~host =
             Xapi_clustering.Daemon.enable ~__context ;
             (* Note that join_internal and enable both use the clustering lock *)
             Client.Client.Cluster_host.enable rpc session_id self
-          )
+          ) ;
+          let verify = Stunnel_client.get_verify_by_default () in
+          set_tls_config ~__context ~self ~verify
       )
 
 (* API call split into separate functions to create in db and enable in client layer *)
@@ -250,7 +288,6 @@ let enable ~__context ~self =
   with_clustering_lock __LOC__ (fun () ->
       let dbg = Context.string_of_task __context in
       let host = Db.Cluster_host.get_host ~__context ~self in
-      let cluster = Db.Cluster_host.get_cluster ~__context ~self in
       assert_operation_host_target_is_localhost ~__context ~host ;
       let pifref = Db.Cluster_host.get_PIF ~__context ~self in
       let pifrec = Db.PIF.get_record ~__context ~self:pifref in
@@ -263,22 +300,18 @@ let enable ~__context ~self =
           "Cluster_host.enable: xapi-clusterd not running - attempting to start" ;
         Xapi_clustering.Daemon.enable ~__context
       ) ;
-
-      let tls_config =
-        Xapi_cluster_helpers.Pem.get_existing ~__context cluster
-      in
+      let verify = Stunnel_client.get_verify_by_default () in
+      set_tls_config ~__context ~self ~verify ;
       let init_config =
         {
           Cluster_interface.local_ip= ip
         ; token_timeout_ms= None
         ; token_coefficient_ms= None
         ; name= None
-        ; tls_config
         }
       in
       let result =
-        Cluster_client.LocalClient.enable (rpc ~__context) dbg
-          init_config.local_ip
+        Cluster_client.LocalClient.enable (rpc ~__context) dbg init_config
       in
       match Idl.IdM.run @@ Cluster_client.IDL.T.get result with
       | Ok () ->
@@ -375,70 +408,3 @@ let create_as_necessary ~__context ~host =
       create_internal ~__context ~cluster ~host ~pIF |> ignore
   | None ->
       ()
-
-let get_local_cluster_config ~__context =
-  let dbg = Context.string_of_task __context in
-  let result = Cluster_client.LocalClient.get_config (rpc ~__context) dbg in
-  match Idl.IdM.run @@ Cluster_client.IDL.T.get result with
-  | Ok cc ->
-      cc
-  | Error e ->
-      D.error "failed to get cluster config from my local cluster daemon!" ;
-      handle_error e
-
-let get_cluster_config ~__context ~self =
-  (* don't take the clustering lock as this is a nested call *)
-  get_local_cluster_config ~__context
-  |> Cluster_interface.encode_cluster_config
-  |> SecretString.of_string
-
-let write_pems ~__context ~self ~pems =
-  with_clustering_lock __LOC__ @@ fun () ->
-  let dbg = Context.string_of_task __context in
-  let pems =
-    match
-      SecretString.json_rpc_of_t pems
-      |> Rpcmarshal.unmarshal Cluster_interface.pems.Rpc.Types.ty
-    with
-    | Error _ ->
-        D.error "failed to decode pems!" ;
-        raise Api_errors.(Server_error (internal_error, ["bad encoding"]))
-    | Ok x ->
-        x
-  in
-  let result =
-    Cluster_client.LocalClient.write_pems (rpc ~__context) dbg pems
-  in
-  match Idl.IdM.run @@ Cluster_client.IDL.T.get result with
-  | Ok () ->
-      D.debug "successfully wrote pems to cluster via cluster host = %s"
-        (Ref.short_string_of self)
-  | Error e ->
-      D.error "failed to write pems via cluster host = %s"
-        (Ref.short_string_of self) ;
-      handle_error e
-
-let is_local_cluster_host_using_xapis_pem ~__context =
-  (* a cluster daemon is using xapi's pem iff it does not have a pem in its config *)
-  if not !Xapi_clustering.Daemon.enabled then (
-    D.error
-      "Pem.is_local_cluster_host_using_xapis_pem? no, the daemon is not enabled" ;
-    false
-  ) else
-    match get_local_cluster_config ~__context with
-    | exception e ->
-        D.error
-          "Pem.is_local_cluster_host_using_xapis_pem? encountered exception, \
-           assuming not" ;
-        Debug.log_backtrace e (Backtrace.get e) ;
-        false
-    | cc -> (
-      match cc.Cluster_interface.tls_config.pems with
-      | None ->
-          D.info "Pem.is_local_cluster_host_using_xapis_pem? yes!" ;
-          true
-      | Some _ ->
-          D.debug
-            "Pem.is_local_cluster_host_using_xapis_cert? no, it has its own pem" ;
-          false
-    )

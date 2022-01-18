@@ -36,14 +36,6 @@ type node = {addr: address; id: nodeid} [@@deriving rpcty]
 
 type all_members = node list [@@deriving rpcty]
 
-type pems = {cn: string; blobs: string list} [@@deriving rpcty]
-
-type pems_opt = pems option [@@deriving rpcty]
-
-type tls_config = {pems: pems option; verify_tls_certs: bool} [@@deriving rpcty]
-
-let tls_config_empty = {pems= None; verify_tls_certs= false}
-
 (** This type contains all of the information required to initialise the
     cluster. All optional params will have the recommended defaults if None. *)
 type init_config = {
@@ -51,7 +43,6 @@ type init_config = {
   ; token_timeout_ms: int64 option
   ; token_coefficient_ms: int64 option
   ; name: string option
-  ; tls_config: tls_config [@default tls_config_empty]
 }
 [@@deriving rpcty]
 
@@ -66,7 +57,6 @@ type cluster_config = {
   ; config_version: int64
   ; cluster_token_timeout_ms: int64
   ; cluster_token_coefficient_ms: int64
-  ; tls_config: tls_config [@default tls_config_empty]
 }
 [@@deriving rpcty]
 
@@ -78,6 +68,18 @@ let decode_cluster_config x =
 
 type cluster_config_and_all_members = cluster_config * all_members
 [@@deriving rpcty]
+
+type tls_config = {
+    server_pem_path: string  (** Path containing private and public keys *)
+  ; cn: string
+        (** CN used for verification, currently "xapi-cluster" *)
+  ; trusted_bundle_path: string option
+        (** Path to CA bundle containing used for verification.
+            Can contain multiple (public) certificates. None = no verification *)
+}
+[@@deriving rpcty]
+
+type optional_path = string option [@@deriving rpcty]
 
 (** This type contains diagnostic information about the current state of the
     cluster daemon. All state required for test purposes should be in this type. *)
@@ -120,6 +122,8 @@ let unit_p = Param.mk ~name:"unit" ~description:["unit"] named_unit
 
 let string_p = Param.mk ~name:"string" ~description:["string"] my_string
 
+type enabled = bool [@@deriving rpcty]
+
 let address_p =
   Param.mk ~name:"address"
     ~description:["IPv4 address of a cluster member"]
@@ -134,11 +138,6 @@ let debug_info_p =
   Param.mk ~name:"dbg"
     ~description:["An uninterpreted string to associate with the operation."]
     debug_info
-
-let pems_opt_p =
-  Param.mk ~name:"pems"
-    ~description:["keys and certs cluster node should use"]
-    pems_opt
 
 type remove = bool [@@deriving rpcty]
 
@@ -201,15 +200,16 @@ module LocalAPI (R : RPC) = struct
     declare "enable"
       [
         "Rejoins the cluster following a call to `disable`. The parameter"
-      ; "passed is the local IP to use"
-      ; "in case it changed while the host was disabled."
+      ; "passed is the cluster config to use (optional fields set to None"
+      ; "unless updated) in case it changed while the host was disabled."
+      ; "(Note that changing optional fields isn't yet supported, TODO)"
       ]
-      (debug_info_p @-> address_p @-> returning unit_p err)
+      (debug_info_p @-> init_config_p @-> returning unit_p err)
 
   let join =
     let new_p = Param.mk ~name:"new_member" address in
-    let tls_config_p = Param.mk ~name:"tls_config" tls_config in
     let existing_p = Param.mk ~name:"existing_members" addresslist in
+    let tls_config_p = Param.mk ~name:"tls_config" tls_config in
     declare "join"
       [
         "Adds a node to an initialised cluster. Takes the IPv4 address of"
@@ -219,8 +219,8 @@ module LocalAPI (R : RPC) = struct
       (debug_info_p
       @-> token_p
       @-> new_p
-      @-> existing_p
       @-> tls_config_p
+      @-> existing_p
       @-> returning unit_p err
       )
 
@@ -255,15 +255,22 @@ module LocalAPI (R : RPC) = struct
       ["Returns diagnostic information about the cluster"]
       (debug_info_p @-> returning diagnostics_p err)
 
-  let get_config =
-    let cluster_config_p = Param.mk ~name:"cluster_config" cluster_config in
-    declare "get-config"
-      ["Returns local cluster config"]
-      (debug_info_p @-> returning cluster_config_p err)
-
-  let write_pems =
-    let pems_p = Param.mk ~name:"pems" pems in
-    declare "write-pems"
-      ["Distribute pems to existing cluster"]
-      (debug_info_p @-> pems_p @-> returning unit_p err)
+  let set_tls_verification =
+    let server_pem_p = Param.mk ~name:"server_pem_path" my_string in
+    let trusted_bundle_p = Param.mk ~name:"trusted_bundle_path" my_string in
+    let cn_p = Param.mk ~name:"cn" my_string in
+    let enabled_p = Param.mk ~name:"enabled" enabled in
+    declare "set-tls-verification"
+      [
+        "Enable or disable TLS verification for xapi/clusterd communication."
+      ; "The trusted_bundle_path is ignored when verification is disabled and \
+         can be empty"
+      ]
+      (debug_info_p
+      @-> server_pem_p
+      @-> trusted_bundle_p
+      @-> cn_p
+      @-> enabled_p
+      @-> returning unit_p err
+      )
 end
