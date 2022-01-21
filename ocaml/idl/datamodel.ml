@@ -6114,7 +6114,6 @@ module Event = struct
     ; description= "Asynchronous event registration and handling"
     ; gen_constructor_destructor= false
     ; doccomments= []
-    ; msg_lifecycles= []
     ; messages= [register; unregister; next; from; get_current_id; inject]
     ; obj_release=
         {

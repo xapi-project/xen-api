@@ -766,8 +766,6 @@ let create_obj ?lifecycle ~in_oss_since ?in_product_since
     force_custom_actions = None)
     ~(* None,Some(RW),Some(StaticRO) *)
     messages_default_allowed_roles ?(doc_tags = [])
-    ?((* used in constructor, destructor and explicit obj msgs *)
-    msg_lifecycles = [])
     ?(* To specify lifecycle for automatic messages (e.g. constructor) when different to object lifecycle. *)
     db_logging () =
   let contents_default_writer_roles =
@@ -864,7 +862,6 @@ let create_obj ?lifecycle ~in_oss_since ?in_product_since
   ; messages= msgs
   ; contents
   ; doccomments
-  ; msg_lifecycles
   ; gen_constructor_destructor
   ; force_custom_actions
   ; persist

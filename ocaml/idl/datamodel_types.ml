@@ -585,7 +585,6 @@ type obj = {
   ; contents: content list
   ; messages: message list
   ; doccomments: (string * string) list
-  ; msg_lifecycles: (string * lifecycle_transition list) list
   ; gen_constructor_destructor: bool
   ; force_custom_actions: qualifier option
   ; (* None,Some(RW),Some(StaticRO) *)
