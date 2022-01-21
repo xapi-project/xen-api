@@ -2,9 +2,9 @@ opam-version: "2.0"
 name: "xapi-xenopsd"
 maintainer: "xen-api@lists.xen.org"
 authors: "xen-api@lists.xen.org"
-homepage: "https://github.com/xapi-project/xenopsd"
-dev-repo: "git+https://github.com/xapi-project/xenopsd.git"
-bug-reports: "https://github.com/xapi-project/xenopsd/issues"
+homepage: "https://github.com/xapi-project/xen-api"
+dev-repo: "git+https://github.com/xapi-project/xen-api.git"
+bug-reports: "https://github.com/xapi-project/xen-api/issues"
 build: [
   ["./configure"]
   ["dune" "build" "-p" name "-j" jobs]
@@ -12,7 +12,7 @@ build: [
 ]
 depends: [
   "ocaml"
-  "dune" {build}
+  "dune"
   "base-threads"
   "alcotest" {with-test}
   "astring"
@@ -48,5 +48,5 @@ via a simple API. The API has been tailored to suit the needs of xapi,
 which manages clusters of hosts running Xen, but it can also be used
 standalone."""
 url {
-  src: "https://github.com/xapi-project/xenopsd/archive/master/master.tar.gz"
+  src: "https://github.com/xapi-project/xen-api/archive/master.tar.gz"
 }

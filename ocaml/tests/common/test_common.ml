@@ -15,10 +15,7 @@
 open API
 
 (* A directory to use for temporary files. *)
-let working_area = "/tmp/xapi-test"
-
-(** Utility functions *)
-let id (x : 'a) : 'a = x
+let working_area = Filename.(concat (get_temp_dir_name ()) "xapi-test")
 
 let make_uuid () = Uuid.string_of_uuid (Uuid.make_uuid ())
 

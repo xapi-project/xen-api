@@ -14,14 +14,19 @@
 # ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 # OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
+import unittest, os
 from message_switch import *
 
-basedir = "/tmp/link_test"
+try:
+    tmpdir = os.environ["TMPDIR"]
+except KeyError:
+    tmpdir = "/tmp"
+
+basedir = os.path.join(tmpdir, "link_test")
 
 rpc_req = Message("hello", 1L, "reply_to")
 rpc_res = Message("hello", 1L)
 
-import unittest, os
 class Internal_invariants(unittest.TestCase):
     def test_Message_save_load(self):
         for m in [rpc_req, rpc_res]:

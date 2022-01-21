@@ -10,7 +10,7 @@ homepage: "https://github.com/xapi-project/xen-api"
 bug-reports: "https://github.com/xapi-project/xen-api/issues"
 depends: [
   "ocaml" {>= "4.02.0"}
-  "dune" {build}
+  "dune"
   "dune-build-info"
   "astring"
   "gzip"

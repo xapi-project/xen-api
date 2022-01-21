@@ -35,5 +35,5 @@ depends: [
 ]
 synopsis: ".vhd file manipulation"
 url {
-  src: "https://github.com/xapi-project/vhd-tool/archive/master.tar.gz"
+  src: "https://github.com/xapi-project/xen-api/archive/master.tar.gz"
 }

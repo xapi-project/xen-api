@@ -58,7 +58,9 @@ let upgrade_vm_memory_for_dmc () =
     (r.API.vM_memory_static_min <= r.API.vM_memory_static_max)
 
 let upgrade_bios () =
-  let tmp_filename = "/tmp/previousInventory" in
+  let tmp_filename =
+    Filename.(concat (get_temp_dir_name ()) "previousInventory")
+  in
   let check inventory bios_strings =
     Xapi_stdext_unix.Unixext.write_string_to_file tmp_filename inventory ;
     let __context = T.make_test_database () in

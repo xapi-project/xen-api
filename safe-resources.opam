@@ -11,7 +11,7 @@ build: [
 available: [ os = "linux" ]
 depends: [
   "ocaml"
-  "dune" {build}
+  "dune"
   "fmt"
   "logs"
   "xapi-backtrace"

@@ -1,16 +1,16 @@
 opam-version: "2.0"
 maintainer: "xen-api@lists.xen.org"
 authors: [ "xen-api@lists.xen.org" ]
-homepage: "https://github.com/xapi-project/xenopsd"
-bug-reports: "https://github.com/xapi-project/xenopsd/issues"
-dev-repo: "git+https://github.com/xapi-project/xenopsd.git"
+homepage: "https://github.com/xapi-project/xen-api"
+bug-reports: "https://github.com/xapi-project/xen-api/issues"
+dev-repo: "git+https://github.com/xapi-project/xen-api.git"
 build: [
   ["dune" "build" "-p" name "-j" jobs]
   ["dune" "runtest" "-p" name "-j" jobs] {with-test}
 ]
 depends: [
   "ocaml"
-  "dune" {build}
+  "dune"
   "base-threads"
   "cmdliner"
   "re"
@@ -25,5 +25,5 @@ description: """
 A simple command-line tool for interacting with xenopsd
 """
 url {
-  src: "https://github.com/xapi-project/xenopsd/archive/master.tar.gz"
+  src: "https://github.com/xapi-project/xen-api/archive/master.tar.gz"
 }

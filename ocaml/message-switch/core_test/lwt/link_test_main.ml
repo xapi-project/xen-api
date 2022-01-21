@@ -17,7 +17,7 @@
 open Lwt
 open Message_switch_core.Protocol
 
-let basedir = ref "/tmp/link_test"
+let basedir = ref Filename.(concat (get_temp_dir_name ()) "link_test")
 
 let rpc_req = {Message.payload= "hello"; kind= Message.Request "reply to"}
 
