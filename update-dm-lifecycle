@@ -1,0 +1,4 @@
+#!/bin/sh
+
+XAPI_VERSION=${XAPI_VERSION:-0.0.0} dune exec --profile=${PROFILE:-release} ocaml/idl/gen_lifecycle.exe -- $* > datamodel_lifecycle.ml
+[ -s datamodel_lifecycle.ml ] && mv datamodel_lifecycle.ml ocaml/idl/datamodel_lifecycle.ml

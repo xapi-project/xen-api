@@ -7849,8 +7849,50 @@ let all_relations =
   ; ((_certificate, "host"), (_host, "certificates"))
   ]
 
+let update_lifecycles =
+  let replace_prototyped p ls =
+    (Prototyped, p, "") :: List.filter (function Prototyped, _, _ -> false | x -> true) ls
+  in
+  let replace_obj_lifecycle obj =
+    let obj_lifecycle =
+      match Datamodel_lifecycle.prototyped_of_class obj.name with
+      | Some p ->
+          replace_prototyped p obj.obj_lifecycle
+      | None ->
+          obj.obj_lifecycle
+    in
+    {obj with obj_lifecycle}
+  in
+  let replace_field_lifecycle obj_name fld =
+    let lifecycle =
+      match
+        Datamodel_lifecycle.prototyped_of_field
+          (obj_name, Escaping.escape_id fld.full_name)
+      with
+      | Some p ->
+          replace_prototyped p fld.lifecycle
+      | None ->
+          fld.lifecycle
+    in
+    {fld with lifecycle}
+  in
+  let replace_message_lifecycle msg =
+    let msg_lifecycle =
+      match
+        Datamodel_lifecycle.prototyped_of_message (msg.msg_obj_name, msg.msg_name)
+      with
+      | Some p ->
+          replace_prototyped p msg.msg_lifecycle
+      | None ->
+          msg.msg_lifecycle
+    in
+    {msg with msg_lifecycle}
+  in
+  Dm_api.map replace_obj_lifecycle replace_field_lifecycle
+    replace_message_lifecycle
+
 (** the full api specified here *)
-let all_api = Dm_api.make (all_system, all_relations)
+let all_api = Dm_api.make (all_system, all_relations) |> update_lifecycles
 
 (** These are the "emergency" calls that can be performed when a host is in "emergency mode" *)
 let emergency_calls =

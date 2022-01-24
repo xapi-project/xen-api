@@ -11,6 +11,7 @@ OPTMANDIR ?= $(OPTDIR)/man/man1/
 
 build:
 	XAPI_VERSION=$(XAPI_VERSION) dune build @install -j $(JOBS) --profile=$(PROFILE)
+	XAPI_VERSION=$(XAPI_VERSION) PROFILE=$(PROFILE) ./update-dm-lifecycle
 	dune build @python --profile=$(PROFILE)
 
 # Quickly verify that the code compiles, without actually building it

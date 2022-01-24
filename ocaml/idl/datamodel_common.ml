@@ -516,6 +516,14 @@ let rio_release =
   ; internal_deprecated_since= None
   }
 
+let get_prototyped lifecycle =
+  try
+    let _, prototyped, _ =
+      List.find (fun (t, _, _) -> t = Prototyped) lifecycle
+    in
+    Some prototyped
+  with Not_found -> None
+
 let get_published lifecycle =
   try
     let _, published, _ =

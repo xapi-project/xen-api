@@ -117,14 +117,16 @@ let filter_messages (pred : message -> bool) (system : obj list) =
   List.map obj system
 
 (** Transforms all the fields in an API *)
-let map_field (f : field -> field) (system : obj list) =
-  let rec content = function
+let map_field (f : string -> field -> field) (system : obj list) =
+  let rec content obj_name = function
     | Field x ->
-        Field (f x)
+        Field (f obj_name x)
     | Namespace (name, contents) ->
-        Namespace (name, List.map content contents)
+        Namespace (name, List.map (content obj_name) contents)
   in
-  List.map (fun x -> {x with contents= List.map content x.contents}) system
+  List.map
+    (fun x -> {x with contents= List.map (content x.name) x.contents})
+    system
 
 (** Removes all those relations which refer to non-existent objects or fields *)
 let filter_relations ((system, relations) as api) =
@@ -155,18 +157,18 @@ let filter (obj : obj -> bool) (field : field -> bool)
   in
   rebuild system relations
 
-let map (field : field -> field) (message : message -> message)
-    ((system, relations) : api) : api =
-  let system = map_field field system in
+let map (obj : obj -> obj) (field : string -> field -> field)
+    (message : message -> message) ((system, relations) : api) : api =
   let system =
-    List.map
-      (fun obj -> {obj with messages= List.map message obj.messages})
-      system
+    system
+    |> List.map obj
+    |> map_field field
+    |> List.map (fun obj -> {obj with messages= List.map message obj.messages})
   in
   rebuild system relations
 
 (*
-let map_api_fields (f: field -> field) ((system, relations) : api) : api =
+let map_api_fields (f: string -> field -> field) ((system, relations) : api) : api =
   (map_field f system, relations)
 *)
 let make api : api = api
@@ -200,12 +202,15 @@ let check api emergency_calls =
   let (_ : obj list) =
     map_field
       (function
-        | {ty= Ref _; field_has_effect= true} ->
-            failwith
-              "Can't have a Ref field with a side-effect: it makes the \
-               destructors too complicated"
-        | x ->
-            x
+        | _ -> (
+            function
+            | {ty= Ref _; field_has_effect= true} ->
+                failwith
+                  "Can't have a Ref field with a side-effect: it makes the \
+                   destructors too complicated"
+            | x ->
+                x
+          )
         )
       system
   in
@@ -287,18 +292,22 @@ let check api emergency_calls =
   let (_ : obj list) =
     map_field
       (function
-        | {qualifier= q; release= {internal= ir}; default_value= None} as x ->
-            if (not (List.mem rel_rio ir)) && not (q = DynamicRO) then
-              failwith
-                (Printf.sprintf
-                   "Field %s not in release Rio, is not DynamicRO and does not \
-                    have default value specified"
-                   (String.concat "/" x.full_name)
-                )
-            else
-              x
-        | x ->
-            x
+        | _ -> (
+            function
+            | {qualifier= q; release= {internal= ir}; default_value= None} as x
+              ->
+                if (not (List.mem rel_rio ir)) && not (q = DynamicRO) then
+                  failwith
+                    (Printf.sprintf
+                       "Field %s not in release Rio, is not DynamicRO and does \
+                        not have default value specified"
+                       (String.concat "/" x.full_name)
+                    )
+                else
+                  x
+            | x ->
+                x
+          )
         )
       system
   in
@@ -306,26 +315,29 @@ let check api emergency_calls =
   let (_ : obj list) =
     map_field
       (function
-        | {
-            qualifier= q
-          ; release= {internal= ir}
-          ; default_value= Some _
-          ; ty
-          ; field_ignore_foreign_key= false
-          } as x -> (
-          match ty with
-          | Set (Ref _) ->
-              failwith
-                (Printf.sprintf
-                   "Field %s is a (Set (Ref _)) and has a default value \
-                    specified. Please remove default value."
-                   (String.concat "/" x.full_name)
-                )
-          | _ ->
-              x
-        )
-        | x ->
-            x
+        | _ -> (
+            function
+            | {
+                qualifier= q
+              ; release= {internal= ir}
+              ; default_value= Some _
+              ; ty
+              ; field_ignore_foreign_key= false
+              } as x -> (
+              match ty with
+              | Set (Ref _) ->
+                  failwith
+                    (Printf.sprintf
+                       "Field %s is a (Set (Ref _)) and has a default value \
+                        specified. Please remove default value."
+                       (String.concat "/" x.full_name)
+                    )
+              | _ ->
+                  x
+            )
+            | x ->
+                x
+          )
         )
       system
   in
@@ -333,15 +345,19 @@ let check api emergency_calls =
   let (_ : obj list) =
     map_field
       (function
-        | {default_value= Some v; ty} as x ->
-            if not (type_checks v ty) then
-              failwith
-                (Printf.sprintf "Field %s has default value with wrong type."
-                   (String.concat "/" x.full_name)
-                ) ;
-            x
-        | x ->
-            x
+        | _ -> (
+            function
+            | {default_value= Some v; ty} as x ->
+                if not (type_checks v ty) then
+                  failwith
+                    (Printf.sprintf
+                       "Field %s has default value with wrong type."
+                       (String.concat "/" x.full_name)
+                    ) ;
+                x
+            | x ->
+                x
+          )
         )
       system
   in
