@@ -414,7 +414,7 @@ module Wbinfo = struct
     try
       let args = ["--krb5auth"; uname; "--krb5ccname"; "/dev/null"] in
       let _stdout =
-        Helpers.call_script ~log_output:Never ~stdin:passwd wb_cmd args
+        Helpers.call_script ~log_output:On_failure ~stdin:passwd wb_cmd args
       in
       Ok ()
     with _ -> Error (auth_ex uname)
