@@ -1,0 +1,12 @@
+[Unit]
+Description=Stunnel Socket for Per-Connection XAPI Service
+Requires=gencert.service
+After=gencert.service
+
+[Socket]
+ListenStream=443
+Accept=yes
+MaxConnections=1024
+
+[Install]
+WantedBy=sockets.target
