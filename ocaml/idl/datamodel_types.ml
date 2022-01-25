@@ -339,7 +339,7 @@ let release_order_full =
   ; {
       code_name= Some rel_next
     ; version_major= 2
-    ; version_minor= 16
+    ; version_minor= 20
     ; branding= "Unreleased"
     ; release_date= Some "" (* unknown date *)
     }
