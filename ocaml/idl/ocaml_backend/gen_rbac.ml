@@ -106,7 +106,7 @@ let writer_permission name nperms =
   ^ Printf.sprintf "  role_name_description = permission_description;\n"
   ^ Printf.sprintf
       "  role_subroles = []; (* permission cannot have any subroles *)\n"
-  ^ Printf.sprintf "  role_internal = true;\n"
+  ^ Printf.sprintf "  role_is_internal = true;\n"
   ^ Printf.sprintf "  }\n"
 
 let role_label role = replace_char (Printf.sprintf "role_%s" role) '-' '_'
@@ -144,14 +144,15 @@ let writer_role name nroles =
            role_name_label
         )
   in
-  let role_internal =
+  let role_is_internal =
     try
-      List.assoc role_name_label Datamodel_roles.role_internal |> string_of_bool
+      List.assoc role_name_label Datamodel_roles.role_is_internal
+      |> string_of_bool
     with Not_found ->
       failwith
         (Printf.sprintf
-           "Check Datamodel_roles.role_internal: there's no internal field set \
-            for role %s"
+           "Check Datamodel_roles.role_is_internal: there's no is_internal \
+            field set for role %s"
            role_name_label
         )
   in
@@ -161,7 +162,7 @@ let writer_role name nroles =
   ^ Printf.sprintf "  role_name_label = \"%s\";\n" role_name_label
   ^ Printf.sprintf "  role_name_description = \"%s\";\n" role_description
   ^ Printf.sprintf "  role_subroles = get_refs %s;\n" (permissions_label name)
-  ^ Printf.sprintf "  role_internal = %s;\n" role_internal
+  ^ Printf.sprintf "  role_is_internal = %s;\n" role_is_internal
   ^ Printf.sprintf "  }\n"
 
 (* the output of this function generates ocaml/autogen/rbac-static.ml *)

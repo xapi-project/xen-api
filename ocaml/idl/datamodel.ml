@@ -4974,7 +4974,7 @@ module Role = struct
             ~qualifier:StaticRO ~ty:(Set (Ref _role)) "subroles"
             "a list of pointers to other roles or permissions"
         ; field ~in_product_since:rel_next ~default_value:(Some (VBool false))
-            ~qualifier:DynamicRO ~ty:Bool "internal"
+            ~qualifier:DynamicRO ~ty:Bool "is_internal"
             "Indicates whether the role is only to be assigned internally by \
              xapi, or can be used by clients"
           (*RBAC2: field ~in_product_since:rel_midnight_ride ~default_value:(Some (VBool false)) ~qualifier:StaticRO ~ty:Bool "is_complete" "if this is a complete role, meant to be used by the end-user";*)
