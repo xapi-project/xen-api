@@ -64,7 +64,7 @@ let roles_all = List.map role_name ordered
 
 let role_description = List.map role_name_with_description ordered
 
-let role_internal = List.map role_name_with_internal ordered
+let role_is_internal = List.map role_name_with_internal ordered
 
 (* obtain all roles with at least the specified role privileges *)
 let roles_gte role =

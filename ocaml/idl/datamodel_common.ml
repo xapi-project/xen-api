@@ -9,7 +9,7 @@ open Datamodel_roles
               to leave a gap for potential hotfixes needing to increment the schema version.*)
 let schema_major_vsn = 5
 
-let schema_minor_vsn = 710
+let schema_minor_vsn = 711
 
 (* Historical schema versions just in case this is useful later *)
 let rio_schema_major_vsn = 5
@@ -129,6 +129,10 @@ let stockholm_release_schema_major_vsn = 5
 
 let stockholm_release_schema_minor_vsn = 601
 
+let yangtze_release_schema_major_vsn = 5
+
+let yangtze_release_schema_minor_vsn = 602
+
 (* List of tech-preview releases. Fields in these releases are not guaranteed to be retained when
  * upgrading to a full release. *)
 let tech_preview_releases =
@@ -146,7 +150,7 @@ let tech_preview_releases =
  * but there are exceptions: please consult the XenCenter maintainers if in doubt. *)
 let api_version_major = 2L
 
-let api_version_minor = 16L
+let api_version_minor = 20L
 
 let api_version_string =
   Printf.sprintf "%Ld.%Ld" api_version_major api_version_minor
