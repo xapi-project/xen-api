@@ -18,12 +18,13 @@ let cluster_operation =
       ]
     )
 
-let lifecycle = [(Prototyped, rel_kolkata, "")]
+let lifecycle = [(Prototyped, rel_kolkata, ""); (Published, rel_lima, "")]
 
 let lifecycle_timeout =
   [
     (Prototyped, rel_kolkata, "the unit is milliseconds")
   ; (Changed, rel_lima, "the unit is now seconds")
+  ; (Published, rel_lima, "")
   ]
 
 let timeout_params =
@@ -183,7 +184,7 @@ let t =
            "cluster_hosts"
            "A list of the cluster_host objects associated with the Cluster"
        ; field ~qualifier:DynamicRO
-           ~lifecycle:[(Prototyped, rel_lima, "")]
+           ~lifecycle:[(Published, rel_lima, "")]
            ~ty:(Set String) "pending_forget" ~default_value:(Some (VSet []))
            "Internal field used by Host.destroy to store the IP of cluster \
             members marked as permanently dead but not yet removed"

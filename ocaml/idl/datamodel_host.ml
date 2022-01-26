@@ -318,7 +318,7 @@ let management_disable =
 
 let get_management_interface =
   call
-    ~lifecycle:[(Prototyped, rel_tampa, "")]
+    ~lifecycle:[(Published, rel_tampa, "")]
     ~name:"get_management_interface"
     ~doc:"Returns the management interface for the specified host"
     ~params:
@@ -1422,7 +1422,8 @@ let reset_cpu_features =
     ()
 
 let reset_networking =
-  call ~name:"reset_networking" ~lifecycle:[]
+  call ~name:"reset_networking"
+    ~lifecycle:[(Published, rel_boston, "")]
     ~doc:"Purge all network-related metadata associated with the given host."
     ~params:[(Ref _host, "host", "The Host to modify")]
     ~allowed_roles:_R_POOL_OP ~hide_from_docs:true ()
@@ -1475,19 +1476,22 @@ let sm_dp_destroy =
     ~allowed_roles:_R_POOL_OP ~hide_from_docs:true ()
 
 let sync_vlans =
-  call ~flags:[`Session] ~name:"sync_vlans" ~lifecycle:[]
+  call ~flags:[`Session] ~name:"sync_vlans"
+    ~lifecycle:[(Published, rel_boston, "")]
     ~doc:"Synchronise VLANs on given host with the master's VLANs"
     ~params:[(Ref _host, "host", "The host")]
     ~hide_from_docs:true ~pool_internal:true ~allowed_roles:_R_POOL_OP ()
 
 let sync_tunnels =
-  call ~flags:[`Session] ~name:"sync_tunnels" ~lifecycle:[]
+  call ~flags:[`Session] ~name:"sync_tunnels"
+    ~lifecycle:[(Published, rel_boston, "")]
     ~doc:"Synchronise tunnels on given host with the master's tunnels"
     ~params:[(Ref _host, "host", "The host")]
     ~hide_from_docs:true ~pool_internal:true ~allowed_roles:_R_POOL_OP ()
 
 let sync_pif_currently_attached =
-  call ~flags:[`Session] ~name:"sync_pif_currently_attached" ~lifecycle:[]
+  call ~flags:[`Session] ~name:"sync_pif_currently_attached"
+    ~lifecycle:[(Published, rel_boston, "")]
     ~doc:"Synchronise tunnels on given host with the master's tunnels"
     ~params:
       [

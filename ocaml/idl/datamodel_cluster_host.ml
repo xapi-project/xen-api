@@ -14,7 +14,7 @@ let cluster_host_operation =
       ]
     )
 
-let lifecycle = [(Prototyped, rel_kolkata, "")]
+let lifecycle = [(Prototyped, rel_kolkata, ""); (Published, rel_lima, "")]
 
 let create =
   call ~name:"create" ~doc:"Add a new host to an existing cluster."
@@ -87,7 +87,7 @@ let forget =
         , "the cluster_host to declare permanently dead and forget"
         )
       ]
-    ~lifecycle:[(Prototyped, rel_lima, "")]
+    ~lifecycle:[(Published, rel_lima, "")]
     ~allowed_roles:_R_LOCAL_ROOT_ONLY ~hide_from_docs:true ()
 
 let get_cluster_config =
