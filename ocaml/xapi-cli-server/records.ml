@@ -436,6 +436,12 @@ let pif_record rpc session_id pif =
       ; make_field ~name:"VLAN"
           ~get:(fun () -> Int64.to_string (x ()).API.pIF_VLAN)
           ()
+      ; make_field ~name:"vlan-master-of"
+          ~get:(fun () -> get_uuid_from_ref (x ()).API.pIF_VLAN_master_of)
+          ()
+      ; make_field ~name:"vlan-slave-of"
+          ~get:(fun () -> get_uuids_from_refs (x ()).API.pIF_VLAN_slave_of)
+          ()
       ; make_field ~name:"bond-master-of"
           ~get:(fun () ->
             String.concat "; "
