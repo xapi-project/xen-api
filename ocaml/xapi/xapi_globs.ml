@@ -929,7 +929,7 @@ let winbind_cache_time = ref 60
 
 let winbind_machine_pwd_timeout = ref (7 * 24 * 3600)
 
-let winbind_update_closest_kdc_interval = ref (3600. *. 24.) (* every day *)
+let winbind_update_closest_kdc_interval = ref (3600. *. 22.) (* every 22 hours *)
 
 let winbind_kerberos_encryption_type = ref Kerberos_encryption_types.Winbind.All
 
