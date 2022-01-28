@@ -1,3 +1,8 @@
+#!/usr/bin/env python
+
+# Script which shows how to use the XenAPI to find a particular Host's management interface
+# and send it a wake-on-LAN packet. Used for the power-on fucntionality as well.
+
 import subprocess, sys, socket, struct, time, syslog
 
 import XenAPI, inventory
@@ -15,7 +20,7 @@ def doexec(args, inputtext=None):
 def find_interface_broadcast_ip(interface):
     """Return the broadcast IP address of the supplied local interface"""
     (rc, stdout, stderr) = doexec( [ "ip", "address", "show", "dev", interface ] )
-    if rc <> 0:
+    if rc != 0:
         raise "Failed to find IP address of local network interface %s: %s" % (interface, stderr)
     words = stdout.split()
     try:
@@ -58,6 +63,7 @@ def wake_on_lan(session, host, remote_host_uuid):
     remote_pif = find_host_mgmt_pif(session, remote_host_uuid)
     # Find the MAC address of the management interface:
     mac = session.xenapi.PIF.get_MAC(remote_pif)
+
     """Attempt to wake up a machine by sending Wake-On-Lan packets encapsulated within UDP datagrams
     sent to the broadcast_addr."""
     # A Wake-On-LAN packet contains FF:FF:FF:FF:FF:FF followed by 16 repetitions of the target MAC address
@@ -86,3 +92,13 @@ def wake_on_lan(session, host, remote_host_uuid):
             pass
     return str(finished)
 
+def main(session, args):
+    remote_host_uuid = args['remote_host_uuid']
+
+    # Find the remote Host
+    remote_host = session.xenapi.host.get_by_uuid(remote_host_uuid)
+
+    return wake_on_lan(session, remote_host, remote_host_uuid)
+
+if __name__ == "__main__":
+    XenAPIPlugin.dispatch({"main": main})
