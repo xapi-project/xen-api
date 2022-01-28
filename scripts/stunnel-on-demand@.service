@@ -1,0 +1,13 @@
+[Unit]
+Description=Stunnel Per-Connection Server
+After=syslog.target network.target
+
+[Service]
+ExecStart=/usr/bin/stunnel /etc/stunnel/xapi.conf
+Type=simple
+StandardInput=socket
+StandardOutput=socket
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

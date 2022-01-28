@@ -68,6 +68,8 @@ install:
 	$(IDATA) control-domain-params-init.service $(DESTDIR)/usr/lib/systemd/system/control-domain-params-init.service
 	$(IDATA) 10-stunnel-increase-number-of-file-descriptors.conf $(DESTDIR)/etc/systemd/system/stunnel@xapi.service.d/10-stunnel-increase-number-of-file-descriptors.conf
 	$(IDATA) 11-stunnel-gencert.conf $(DESTDIR)/etc/systemd/system/stunnel@xapi.service.d/11-stunnel-gencert.conf
+	$(IDATA) stunnel-on-demand.socket $(DESTDIR)/etc/systemd/system/stunnel-on-demand.socket
+	$(IDATA) stunnel-on-demand@.service $(DESTDIR)/etc/systemd/system/stunnel-on-demand@.service
 	mkdir -p $(DESTDIR)$(ETCDIR)/master.d
 	$(IPROG) on-master-start $(DESTDIR)$(ETCDIR)/master.d/01-example
 	$(IPROG) mpathalert-daemon $(DESTDIR)$(ETCDIR)/master.d/03-mpathalert-daemon
