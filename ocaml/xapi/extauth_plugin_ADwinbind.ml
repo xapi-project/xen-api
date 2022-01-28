@@ -712,6 +712,9 @@ let query_domain_workgroup ~domain =
 let config_winbind_damon ?(workgroup = "") ?(netbios_name = "") domain =
   let open Xapi_stdext_unix in
   let smb_config = "/etc/samba/smb.conf" in
+  let allow_fallback =
+    if !Xapi_globs.winbind_allow_kerberos_auth_fallback then "yes" else "no"
+  in
   let conf_contents =
     match domain with
     | Some dom ->
@@ -742,6 +745,7 @@ let config_winbind_damon ?(workgroup = "") ?(netbios_name = "") domain =
           ; Printf.sprintf "idmap config %s: backend = rid" dom
           ; Printf.sprintf "idmap config %s: range = 2000000-2999999" dom
           ; Printf.sprintf "log level = %s" (debug_level ())
+          ; Printf.sprintf "allow kerberos auth fallback = %s" allow_fallback
           ; "idmap config * : backend = tdb"
           ; "" (* Empty line at the end *)
           ]

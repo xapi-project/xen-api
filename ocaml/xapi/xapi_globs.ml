@@ -929,9 +929,12 @@ let winbind_cache_time = ref 60
 
 let winbind_machine_pwd_timeout = ref (7 * 24 * 3600)
 
-let winbind_update_closest_kdc_interval = ref (3600. *. 22.) (* every 22 hours *)
+let winbind_update_closest_kdc_interval = ref (3600. *. 22.)
+(* every 22 hours *)
 
 let winbind_kerberos_encryption_type = ref Kerberos_encryption_types.Winbind.All
+
+let winbind_allow_kerberos_auth_fallback = ref false
 
 let tdb_tool = ref "/usr/bin/tdbtool"
 
@@ -1284,6 +1287,11 @@ let other_options =
       )
     , "Encryption types to use when operating as Kerberos client \
        [strong|legacy|all]"
+    )
+  ; ( "winbind_allow_kerberos_auth_fallback"
+    , Arg.Set winbind_allow_kerberos_auth_fallback
+    , (fun () -> string_of_bool !winbind_allow_kerberos_auth_fallback)
+    , "Whether allow fallback to other auth on kerberos failure"
     )
   ; ( "website-https-only"
     , Arg.Set website_https_only
