@@ -66,7 +66,7 @@ def parse_arg():
                         help="specify the domid of the VM")
     attach.add_argument("-p", dest="pid", type=int, required=True,
                         help="the process id of QEMU")
-    attach.add_argument("-r", dest="reset_only", type=int,
+    attach.add_argument("-r", dest="reset_only", action="store_true",
                         help="reset device only, for privileged mode")
 
     detach = subparsers.add_parser("detach", help="detach a USB device")
