@@ -23,6 +23,8 @@ open D
 open Xapi_stdext_std.Xstringext
 open Auth_signature
 
+let finally = Xapi_stdext_pervasives.Pervasiveext.finally
+
 let krbtgt = "KRBTGT"
 
 let ( let* ) = Result.bind
@@ -833,7 +835,6 @@ let clean_machine_account ~service_name = function
       in
       try
         Helpers.call_script ~env net_cmd args |> ignore ;
-        clear_winbind_config () ;
         debug "Succeed to clean the machine account for domain %s" service_name
       with _ ->
         let msg =
@@ -841,11 +842,9 @@ let clean_machine_account ~service_name = function
             service_name
         in
         debug "%s" msg ;
-        clear_winbind_config () ;
         raise (Auth_service_error (E_GENERIC, msg))
     )
   | _ ->
-      clear_winbind_config () ;
       debug
         "username or password not provided, skip cleaning the machine account"
 
@@ -1416,10 +1415,10 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
       ~netbios_name:"" ;
     ClosestKdc.stop_update () ;
     (* The caller disable external auth even disable machine account failed,
-     * We run clean_machine_account  after some necessary resources get cleaned *)
-    clean_machine_account ~service_name (user, pass) ;
-    (* Clean local resources *)
-    clean_local_resources () ;
+     * We run clean_machine_account after some necessary resources get cleaned *)
+    finally
+      (fun () -> clean_machine_account ~service_name (user, pass))
+      (fun () -> clear_winbind_config () ; clean_local_resources ()) ;
 
     debug "Succeed to disable external auth for %s" service_name
 
