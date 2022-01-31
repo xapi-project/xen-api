@@ -50,6 +50,7 @@ val of_http_req :
   -> label:string
   -> http_req:Http.Request.t
   -> fd:Unix.file_descr
+  -> unit
   -> t
 
 val from_forwarded_task :
