@@ -1,3 +1,8 @@
+#!/usr/bin/env python
+
+# Script which shows how to use the XenAPI to find a particular Host's management interface
+# and send it a wake-on-LAN packet. Used for the power-on fucntionality as well.
+
 import subprocess, sys, socket, struct, time, syslog
 
 import XenAPI, inventory
@@ -15,7 +20,7 @@ def doexec(args, inputtext=None):
 def find_interface_broadcast_ip(interface):
     """Return the broadcast IP address of the supplied local interface"""
     (rc, stdout, stderr) = doexec( [ "ip", "address", "show", "dev", interface ] )
-    if rc <> 0:
+    if rc != 0:
         raise "Failed to find IP address of local network interface %s: %s" % (interface, stderr)
     words = stdout.split()
     try:
@@ -42,8 +47,14 @@ def find_host_mgmt_pif(session, host_uuid):
         raise "Failed to find a management interface (PIF) for host uuid %s" % host_uuid
     return mgmt
 
+def get_physical_pif(session, pif_ref):
+    """Return the PIF object underlying an interface"""
+    # When the management interface is on a VLAN, the actual PIF needs to be found
+    vlan = session.xenapi.PIF.get_VLAN_master_of(pif_ref)
+    if vlan != "OpaqueRef:NULL":
+        pif_ref = session.xenapi.VLAN.get_tagged_PIF(vlan)
 
-
+    return pif_ref
 
 def wake_on_lan(session, host, remote_host_uuid):
     # Find this Host's management interface:
@@ -55,9 +66,12 @@ def wake_on_lan(session, host, remote_host_uuid):
     broadcast_addr = find_interface_broadcast_ip(this_bridge)
 
     # Find the remote Host's management interface:
-    remote_pif = find_host_mgmt_pif(session, remote_host_uuid)
+    mgmt_pif = find_host_mgmt_pif(session, remote_host_uuid)
+    # Find the actual physical pif
+    remote_pif = get_physical_pif(mgmt_pif)
     # Find the MAC address of the management interface:
     mac = session.xenapi.PIF.get_MAC(remote_pif)
+
     """Attempt to wake up a machine by sending Wake-On-Lan packets encapsulated within UDP datagrams
     sent to the broadcast_addr."""
     # A Wake-On-LAN packet contains FF:FF:FF:FF:FF:FF followed by 16 repetitions of the target MAC address
@@ -86,3 +100,13 @@ def wake_on_lan(session, host, remote_host_uuid):
             pass
     return str(finished)
 
+def main(session, args):
+    remote_host_uuid = args['remote_host_uuid']
+
+    # Find the remote Host
+    remote_host = session.xenapi.host.get_by_uuid(remote_host_uuid)
+
+    return wake_on_lan(session, remote_host, remote_host_uuid)
+
+if __name__ == "__main__":
+    XenAPIPlugin.dispatch({"main": main})
