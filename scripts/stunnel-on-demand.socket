@@ -2,6 +2,7 @@
 Description=Stunnel Socket for Per-Connection XAPI Service
 Requires=gencert.service
 After=gencert.service
+Before=xapi.service
 
 [Socket]
 ListenStream=443
