@@ -72,7 +72,7 @@ let get_changes rrd_files =
 let set_changes ?except () =
   Mtxext.execute Mcache.pvs_proxy_cached_m (fun _ ->
       Mcache.transfer_map ?except ~source:Mcache.pvs_proxy_tmp
-        ~target:Mcache.pvs_proxy_cached
+        ~target:Mcache.pvs_proxy_cached ()
   )
 
 let pvs_proxy_status_of_int = function

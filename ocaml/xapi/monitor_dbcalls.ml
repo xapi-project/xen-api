@@ -56,13 +56,13 @@ let get_pif_and_bond_changes () =
 
 let set_pif_changes ?except () =
   Mutex.execute pifs_cached_m (fun _ ->
-      transfer_map ?except ~source:pifs_tmp ~target:pifs_cached
+      transfer_map ?except ~source:pifs_tmp ~target:pifs_cached ()
   )
 
 let set_bond_changes ?except () =
   Mutex.execute bonds_links_up_cached_m (fun _ ->
       transfer_map ?except ~source:bonds_links_up_tmp
-        ~target:bonds_links_up_cached
+        ~target:bonds_links_up_cached ()
   )
 
 (* This function updates the database for all the slowly changing properties
