@@ -433,7 +433,9 @@ module Storage = struct
   (* We need to deal with driver domains here: *)
   let attach_and_activate ~xc ~xs task vm dp sr vdi read_write =
     let vmdomid = vm_of_domid (domid_of_uuid ~xc ~xs (uuid_of_string vm)) in
-    let result = attach_and_activate task vm vmdomid dp sr vdi read_write in
+    let result =
+      attach_and_activate ~task ~_vm:vm ~vmdomid ~dp ~sr ~vdi ~read_write
+    in
     let backend =
       Xenops_task.with_subtask task
         (Printf.sprintf "Policy.get_backend_vm %s %s %s" vm (Sr.string_of sr)
@@ -1130,7 +1132,7 @@ module VM = struct
     else
       None
 
-  let dm_of ~vm = dm_of vm.Vm.id
+  let dm_of ~vm = dm_of ~vm:vm.Vm.id
 
   let compute_overhead persistent vcpu_max memory_static_max shadow_multiplier =
     let open VmExtra in
@@ -1623,7 +1625,7 @@ module VM = struct
           safe_rm xs final_uuid_path
       ) ;
       debug "Moving xenstore tree" ;
-      Domain.move_xstree xs di.Xenctrl.domid old_name new_name ;
+      Domain.move_xstree ~xs di.Xenctrl.domid old_name new_name ;
       DB.rename old_name new_name
     in
     Option.iter rename_domain (di_of_uuid ~xc ~xs (uuid_of_string old_name))
@@ -1773,7 +1775,7 @@ module VM = struct
           vm.Vm.id domid curshadow needed_mib ;
         if
           not
-            (Domain.wait_xen_free_mem xc
+            (Domain.wait_xen_free_mem ~xc
                (Int64.mul (Int64.of_int needed_mib) 1024L)
             )
         then (
@@ -2623,7 +2625,7 @@ module VM = struct
                           None
                     in
                     let manager_path = choose_emu_manager vm.Vm.platformdata in
-                    Domain.restore task ~xc ~xs ~dm:(dm_of vm) ~store_domid
+                    Domain.restore task ~xc ~xs ~dm:(dm_of ~vm) ~store_domid
                       ~console_domid
                       ~no_incr_generationid (* XXX progress_callback *)
                       ~timeoffset ~extras build_info ~manager_path domid fd
@@ -3285,7 +3287,8 @@ module PCI = struct
         Device.PCI.bind [pci.address] Device.PCI.Pciback ;
         let index = get_next_pci_index ~xs frontend_domid in
         let guest_pci =
-          Device.Dm.pci_assign_guest ~xs ~dm:(dm_of vm) ~host:pci.address ~index
+          Device.Dm.pci_assign_guest ~xs ~dm:(dm_of ~vm) ~host:pci.address
+            ~index
         in
         let device =
           Device.PCI.

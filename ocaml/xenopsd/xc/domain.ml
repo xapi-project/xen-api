@@ -677,7 +677,7 @@ let destroy (task : Xenops_task.task_handle) ~xc ~xs ~qemu_domid ~dm domid =
     (List.map (fun x -> string_of_int x.Xenctrl.domid) other_domains) ;
   (* reset PCI devices before xc.domain_destroy otherwise we lot all IOMMU
      mapping *)
-  let _, all_pci_devices = List.split (Device.PCI.list xs domid) in
+  let _, all_pci_devices = List.split (Device.PCI.list ~xs domid) in
   List.iter
     (fun pcidev ->
       let open Xenops_interface.Pci in
@@ -869,7 +869,7 @@ let numa_placement domid ~vcpus ~memory =
               Array.map2 NUMAResource.min_memory (Array.of_list nodes) a
         in
         numa_resources := Some nodea ;
-        Softaffinity.plan host nodea vm
+        Softaffinity.plan ~vm host nodea
     )
   in
   match hint with

@@ -291,7 +291,7 @@ let release (task : Xenops_task.task_handle) ~xc ~xs (x : device) =
     else
       None
   in
-  let extra_xenserver_path = extra_xenserver_path_of_device xs x in
+  let extra_xenserver_path = extra_xenserver_path_of_device ~xs x in
   Xs.transaction xs (fun t ->
       t.Xst.rm hotplug_path ;
       Option.iter t.Xst.rm private_data_path ;
