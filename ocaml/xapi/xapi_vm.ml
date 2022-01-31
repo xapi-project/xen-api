@@ -1277,10 +1277,10 @@ let maximise_memory ~__context ~self ~total ~approximate =
     in
     Int64.add normal shadow <= total
   in
-  let max = Helpers.bisect will_fit 0L total in
+  let the_max = Helpers.bisect will_fit 0L total in
   (* Round down to the nearest MiB boundary... there's a slight mismatch between the
-     	   boot_free_mem - sum(static_max) value and the results of querying the free pages in Xen.*)
-  Int64.(mul (mul (div (div max 1024L) 1024L) 1024L) 1024L)
+     boot_free_mem - sum(static_max) value and the results of querying the free pages in Xen.*)
+  Int64.(mul (mul (div (div the_max 1024L) 1024L) 1024L) 1024L)
 
 (* In the master's forwarding layer with the global forwarding lock *)
 let atomic_set_resident_on ~__context ~vm ~host = assert false
