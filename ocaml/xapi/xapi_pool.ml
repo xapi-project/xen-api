@@ -1763,7 +1763,7 @@ let eject_self ~__context ~host =
     (* disable the external authentication of this slave being ejected *)
     (* this call will return an exception if something goes wrong *)
     Xapi_host.disable_external_auth_common ~during_pool_eject:true ~__context
-      ~host ~config:[] ;
+      ~host ~config:[] () ;
 
     (* FIXME: in the future, we should send the windows AD admin/pass here *)
     (* in order to remove the slave from the AD database during pool-eject *)

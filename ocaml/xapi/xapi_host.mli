@@ -331,6 +331,7 @@ val disable_external_auth_common :
   -> host:API.ref_host
   -> config:(string * string) list
   -> unit
+  -> unit
 
 val disable_external_auth :
      __context:Context.t
