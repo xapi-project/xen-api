@@ -146,7 +146,7 @@ let is_valid_device_model ~key ~platformdata =
   with Not_found -> false
 
 let sanity_check ~platformdata ?firmware ~vcpu_max ~vcpu_at_startup ~domain_type
-    ~filter_out_unknowns =
+    ~filter_out_unknowns () =
   (* Filter out unknown flags, if applicable *)
   let platformdata =
     if filter_out_unknowns then

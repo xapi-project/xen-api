@@ -1195,6 +1195,7 @@ module MD = struct
         ~domain_type:(Helpers.check_domain_type vm.API.vM_domain_type)
         ~filter_out_unknowns:
           (not (Pool_features.is_enabled ~__context Features.No_platform_filter))
+        ()
     in
     (* Replace the timeoffset in the platform data too, to avoid confusion *)
     let timeoffset = rtc_timeoffset_of_vm ~__context (vmref, vm) vbds in

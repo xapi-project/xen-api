@@ -64,7 +64,7 @@ module SanityCheck = Generic.MakeStateless (struct
     try
       Ok
         (Vm_platform.sanity_check ~platformdata ?firmware ~vcpu_max
-           ~vcpu_at_startup ~domain_type ~filter_out_unknowns
+           ~vcpu_at_startup ~domain_type ~filter_out_unknowns ()
         )
     with e -> Error e
 
