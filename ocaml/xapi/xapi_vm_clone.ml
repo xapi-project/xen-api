@@ -248,7 +248,7 @@ let snapshot_metadata ~__context ~vm ~is_a_snapshot =
  * as is done before the single existing call to this function.
  * If ever we need to expose this function in the .mli file then we should do the check in the function. *)
 let copy_vm_record ?snapshot_info_record ~__context ~vm ~disk_op ~new_name
-    ~new_power_state =
+    ~new_power_state () =
   let all = Db.VM.get_record_internal ~__context ~self:vm in
   let is_a_snapshot =
     disk_op = Disk_op_snapshot || disk_op = Disk_op_checkpoint
@@ -458,7 +458,7 @@ let clone ?snapshot_info_record ?(ignore_vdis = []) disk_op ~__context ~vm
         (* create the VM record *)
         let ref, uuid =
           copy_vm_record ?snapshot_info_record ~__context ~vm ~disk_op ~new_name
-            ~new_power_state
+            ~new_power_state ()
         in
         (* copy every VBD using the new VDI as backend                                *)
         (* if this fails halfway through, delete the VM and the VDIs, but don't worry *)
