@@ -4459,10 +4459,10 @@ module Dm = struct
     debug "Called Dm.restore_vgpu" ;
     start_vgpu ~xc ~xs task ~restore:true domid vgpus vcpus profile
 
-  let suspend_varstored (task : Xenops_task.task_handle) ~xs domid =
+  let suspend_varstored (task : Xenops_task.task_handle) ~xs domid ~vm_uuid =
     debug "Called Dm.suspend_varstored (domid=%d)" domid ;
     Varstored.stop ~xs domid ;
-    Xenops_sandbox.Varstore_guard.read ~domid efivars_save_path
+    Xenops_sandbox.Varstore_guard.read ~domid efivars_save_path ~vm_uuid
 
   let restore_varstored (task : Xenops_task.task_handle) ~xs ~efivars domid =
     debug "Called Dm.restore_varstored (domid=%d)" domid ;

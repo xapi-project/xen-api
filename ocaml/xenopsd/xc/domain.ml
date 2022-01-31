@@ -1694,11 +1694,14 @@ let suspend_emu_manager ~(task : Xenops_task.task_handle) ~xc ~xs ~domain_type
         | Suspend ->
             do_suspend_callback () ;
             if domain_type = `hvm then (
-              debug "VM = %s; domid = %d; suspending qemu-dm"
-                (Uuid.to_string uuid) domid ;
+              let vm_uuid = Uuid.to_string uuid in
+              debug "VM = %s; domid = %d; suspending qemu-dm" vm_uuid domid ;
               Device.Dm.suspend task ~xs ~qemu_domid ~dm domid ;
               if is_uefi then
-                Device.Dm.suspend_varstored task ~xs domid |> ignore
+                let (_ : string) =
+                  Device.Dm.suspend_varstored task ~xs domid ~vm_uuid
+                in
+                ()
             ) ;
             send_done cnx ;
             wait_for_message ()
