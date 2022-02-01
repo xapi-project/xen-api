@@ -10,6 +10,8 @@ prio="local5.error"
 tag="$0"
 xe=/opt/xensource/bin/xe
 
-/usr/bin/sleep $((RANDOM % 600))
-$xe host-refresh-server-certificate host="$host" 2>&1 | logger -p "$prio" -t "$tag"
+if test -f /tmp/fist_certificate_refresh; then
+  /usr/bin/sleep $((RANDOM % 600))
+  $xe host-refresh-server-certificate host="$host" 2>&1 | logger -p "$prio" -t "$tag"
+fi
 exit 0
