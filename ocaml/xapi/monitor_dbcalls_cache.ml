@@ -92,7 +92,7 @@ let clear_cache () =
   )
 
 (* Helper map functions. *)
-let transfer_map ?(except = []) ~source ~target =
+let transfer_map ?(except = []) ~source ~target () =
   List.iter
     (fun ex ->
       try Hashtbl.replace source ex (Hashtbl.find target ex)

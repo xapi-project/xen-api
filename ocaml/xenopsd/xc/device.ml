@@ -342,8 +342,8 @@ module Generic = struct
     debug "xenstore-write %s = 0" online_path ;
     xs.Xs.write online_path "0" ;
     debug "Device.Generic.hard_shutdown about to blow away frontend" ;
-    safe_rm xs (frontend_rw_path_of_device ~xs x) ;
-    safe_rm xs (frontend_ro_path_of_device ~xs x)
+    safe_rm ~xs (frontend_rw_path_of_device ~xs x) ;
+    safe_rm ~xs (frontend_ro_path_of_device ~xs x)
 
   let run_hotplug_scripts (x : device) =
     !Xenopsd.run_hotplug_scripts || x.backend.domid > 0
@@ -1198,8 +1198,8 @@ module SystemdDaemonMgmt (D : DAEMONPIDPATH) = struct
   let pid_path = Compat.pid_path
 
   let of_domid domid =
-    let key = Compat.syslog_key domid in
-    if Fe_systemctl.exists key then
+    let key = Compat.syslog_key ~domid in
+    if Fe_systemctl.exists ~service:key then
       Some key
     else
       None
@@ -1209,7 +1209,7 @@ module SystemdDaemonMgmt (D : DAEMONPIDPATH) = struct
     | None ->
         Compat.is_running ~xs domid
     | Some key ->
-        Fe_systemctl.is_active key
+        Fe_systemctl.is_active ~service:key
 
   let alive service _ =
     if Fe_systemctl.is_active ~service then
@@ -1235,7 +1235,7 @@ module SystemdDaemonMgmt (D : DAEMONPIDPATH) = struct
 
   let start_daemon ~path ~args ~domid () =
     debug "Starting daemon: %s with args [%s]" path (String.concat "; " args) ;
-    let service = Compat.syslog_key domid in
+    let service = Compat.syslog_key ~domid in
     let pidpath = D.pid_path domid in
     let properties =
       ("ExecStopPost", "-/usr/bin/xenstore-rm " ^ pidpath)
@@ -2334,7 +2334,7 @@ end = struct
 
   let is_serial0 device =
     device.Qmp.label = "serial0"
-    && Astring.String.is_prefix tty_prefix device.Qmp.filename
+    && Astring.String.is_prefix ~affix:tty_prefix device.Qmp.filename
 
   let find_serial0 domid =
     match qmp_send_cmd domid Qmp.Query_chardev with

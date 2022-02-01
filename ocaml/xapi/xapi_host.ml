@@ -1749,7 +1749,7 @@ let enable_external_auth ~__context ~host ~config ~service_name ~auth_type =
 
 (* CP-718: Disables external auth/directory service for host *)
 let disable_external_auth_common ?(during_pool_eject = false) ~__context ~host
-    ~config =
+    ~config () =
   (* CP-825: Serialize execution of host-enable-extauth and host-disable-extauth *)
   (* we need to protect against concurrent access to the host.external_auth_type variable *)
   Mutex.execute serialize_host_enable_disable_extauth (fun () ->
@@ -1845,6 +1845,7 @@ let disable_external_auth_common ?(during_pool_eject = false) ~__context ~host
 
 let disable_external_auth ~__context ~host ~config =
   disable_external_auth_common ~during_pool_eject:false ~__context ~host ~config
+    ()
 
 let attach_static_vdis ~__context ~host ~vdi_reason_map =
   (* We throw an exception immediately if any of the VDIs in vdi_reason_map is

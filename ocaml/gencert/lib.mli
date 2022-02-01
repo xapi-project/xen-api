@@ -13,7 +13,7 @@
  *)
 
 val install_server_certificate :
-     ?pem_chain:string option
+     pem_chain:string option
   -> pem_leaf:string
   -> pkcs8_private_key:string
   -> server_cert_path:string

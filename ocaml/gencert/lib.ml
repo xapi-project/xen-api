@@ -121,7 +121,7 @@ let validate_certificate kind pem now private_key =
           Error (`Msg (server_certificate_chain_invalid, []))
     )
 
-let install_server_certificate ?(pem_chain = None) ~pem_leaf ~pkcs8_private_key
+let install_server_certificate ~pem_chain ~pem_leaf ~pkcs8_private_key
     ~server_cert_path =
   let now = Ptime_clock.now () in
   validate_private_key pkcs8_private_key >>= fun priv ->

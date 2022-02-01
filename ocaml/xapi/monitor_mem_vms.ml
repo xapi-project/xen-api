@@ -59,7 +59,7 @@ let get_changes rrd_files =
 let set_changes ?except () =
   Mtxext.execute Mcache.vm_memory_cached_m (fun _ ->
       Mcache.transfer_map ?except ~source:Mcache.vm_memory_tmp
-        ~target:Mcache.vm_memory_cached
+        ~target:Mcache.vm_memory_cached ()
   )
 
 let update rrd_files =

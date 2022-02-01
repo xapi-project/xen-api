@@ -442,8 +442,7 @@ let hostnames_of_pem_cert pem =
   |> X509.Certificate.decode_pem
   >>| X509.Certificate.hostnames
 
-let install_server_certificate ?(pem_chain = None) ~pem_leaf ~pkcs8_private_key
-    ~path =
+let install_server_certificate ~pem_chain ~pem_leaf ~pkcs8_private_key ~path =
   let installation =
     Gencertlib.Lib.install_server_certificate ~pem_chain ~pem_leaf
       ~pkcs8_private_key ~server_cert_path:path

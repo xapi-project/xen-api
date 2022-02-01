@@ -152,7 +152,7 @@ let do_dispatch ?session_id ?forward_op ?self supports_async called_fn_name
     let internal_async_subtask = sync_ty = `InternalAsync in
     let __context =
       Context.of_http_req ?session_id ~internal_async_subtask ~generate_task_for
-        ~supports_async ~label ~http_req ~fd
+        ~supports_async ~label ~http_req ~fd ()
     in
     let sync () =
       let need_complete = not (Context.forwarded_task __context) in
