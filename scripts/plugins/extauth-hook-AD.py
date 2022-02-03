@@ -165,6 +165,9 @@ class DynamicPam(ADConfig):
         try:
             sid = subject_rec['subject_identifier']
             name = subject_rec["other_config"]["subject-name"]
+            # CA-363207: Pam cannot handle space, put it inside []
+            if " " in name:
+                name = "[{}]".format(name)
             is_group = subject_rec["other_config"]["subject-is-group"] == "true"
             logger.debug("Permit %s with sid %s is_group as %s", name, sid, is_group)
             condition = "ingroup" if is_group else "="
