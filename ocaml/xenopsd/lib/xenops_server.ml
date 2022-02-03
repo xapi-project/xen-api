@@ -2582,37 +2582,46 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
             ) ;
             debug "VM.receive_memory: Synchronisation point 1" ;
             debug "VM.receive_memory restoring VM" ;
-            (* Check if there is a separate vGPU data channel *)
-            let vgpu_info = Hashtbl.find_opt vgpu_receiver_sync id in
-            let pcis = PCI_DB.pcis id |> pci_plug_order in
-            let vgpu_start_operations =
-              match VGPU_DB.ids id with
-              | [] ->
-                  []
-              | vgpus ->
-                  let vgpus' = VGPU_DB.vgpus id in
-                  let pcis_sriov = List.filter (is_nvidia_sriov vgpus') pcis in
-                  List.concat
-                    [
-                      dequarantine_ops vgpus'
-                    ; List.map
-                        (fun pci -> PCI_plug (pci.Pci.id, false))
-                        pcis_sriov
-                    ; [VGPU_start (vgpus, true)]
-                    ]
-            in
-            perform_atomics
-              (List.concat
-                 [
-                   vgpu_start_operations
-                 ; [
-                     VM_restore
-                       (id, FD s, Option.map (fun x -> FD x.vgpu_fd) vgpu_info)
+            try
+              (* Check if there is a separate vGPU data channel *)
+              let vgpu_info = Hashtbl.find_opt vgpu_receiver_sync id in
+              let pcis = PCI_DB.pcis id |> pci_plug_order in
+              let vgpu_start_operations =
+                match VGPU_DB.ids id with
+                | [] ->
+                    []
+                | vgpus ->
+                    let vgpus' = VGPU_DB.vgpus id in
+                    let pcis_sriov =
+                      List.filter (is_nvidia_sriov vgpus') pcis
+                    in
+                    List.concat
+                      [
+                        dequarantine_ops vgpus'
+                      ; List.map
+                          (fun pci -> PCI_plug (pci.Pci.id, false))
+                          pcis_sriov
+                      ; [VGPU_start (vgpus, true)]
+                      ]
+              in
+              perform_atomics
+                (List.concat
+                   [
+                     vgpu_start_operations
+                   ; [
+                       VM_restore
+                         (id, FD s, Option.map (fun x -> FD x.vgpu_fd) vgpu_info)
+                     ]
                    ]
-                 ]
-              )
-              t ;
-            debug "VM.receive_memory restore complete"
+                )
+                t ;
+              debug "VM.receive_memory restore complete"
+            with e ->
+              Backtrace.is_important e ;
+              Debug.log_backtrace e (Backtrace.get e) ;
+              debug "Caught %s during VM_restore: cleaning up VM state"
+                (Printexc.to_string e) ;
+              perform_atomics [VM_destroy id; VM_remove id] t
             )
           (fun () ->
             (* Tell the vGPU receive thread that we're done, so that it can
