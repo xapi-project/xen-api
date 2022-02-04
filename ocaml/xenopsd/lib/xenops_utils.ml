@@ -512,6 +512,7 @@ let halted_vm =
   ; nomigrate= false
   ; nested_virt= false
   ; domain_type= Vm.Domain_undefined
+  ; featureset= ""
   }
 
 let unplugged_pci = {Pci.plugged= false}

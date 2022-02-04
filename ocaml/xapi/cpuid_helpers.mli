@@ -18,10 +18,7 @@ val string_of_features : int64 array -> string
 
 val features_of_string : string -> int64 array
 
-val reset_cpu_flags : __context:Context.t -> vm:[`VM] API.Ref.t -> unit
-
-val update_cpu_flags :
-  __context:Context.t -> vm:[`VM] API.Ref.t -> host:[`host] API.Ref.t -> unit
+val next_boot_cpu_features : __context:Context.t -> vm:[`VM] API.Ref.t -> string
 
 val assert_vm_is_compatible :
      __context:Context.t

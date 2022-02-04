@@ -3128,15 +3128,6 @@ module HOST = struct
         B.HOST.update_guest_agent_features features
         )
       ()
-
-  let upgrade_cpu_features _ dbg features is_hvm =
-    Debug.with_thread_associated dbg
-      (fun () ->
-        debug "HOST.upgrade_cpu_features" ;
-        let module B = (val get_backend () : S) in
-        B.HOST.upgrade_cpu_features features is_hvm
-        )
-      ()
 end
 
 module VM = struct
@@ -3639,7 +3630,6 @@ let _ =
   Server.HOST.send_debug_keys (HOST.send_debug_keys ()) ;
   Server.HOST.set_worker_pool_size (HOST.set_worker_pool_size ()) ;
   Server.HOST.update_guest_agent_features (HOST.update_guest_agent_features ()) ;
-  Server.HOST.upgrade_cpu_features (HOST.upgrade_cpu_features ()) ;
   Server.VM.add (VM.add ()) ;
   Server.VM.remove (VM.remove ()) ;
   Server.VM.migrate (VM.migrate ()) ;
