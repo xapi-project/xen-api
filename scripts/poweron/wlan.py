@@ -63,7 +63,7 @@ def wake_on_lan(session, host, remote_host_uuid):
     # Find the remote Host's management interface:
     mgmt_pif = find_host_mgmt_pif(session, remote_host_uuid)
     # Find the actual physical pif
-    remote_pif = get_physical_pif(mgmt_pif)
+    remote_pif = get_physical_pif(session, mgmt_pif)
     # Find the MAC address of the management interface:
     mac = session.xenapi.PIF.get_MAC(remote_pif)
     """Attempt to wake up a machine by sending Wake-On-Lan packets encapsulated within UDP datagrams
