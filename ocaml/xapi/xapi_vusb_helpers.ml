@@ -44,7 +44,7 @@ let valid_operations ~__context record _ref' : table =
       (fun op ->
         if Hashtbl.find table op = None then
           Hashtbl.replace table op (Some (code, params))
-        )
+      )
       ops
   in
   (* Any current_operations preclude everything else *)
@@ -87,7 +87,7 @@ let valid_operations ~__context record _ref' : table =
         in
         set_errors Api_errors.operation_not_allowed [current_op_str]
           [`plug; `unplug]
-      )
+    )
     vm_current_ops ;
   table
 

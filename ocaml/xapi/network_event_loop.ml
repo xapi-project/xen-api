@@ -53,7 +53,7 @@ let _watch_networks_for_nbd_changes __context ~update_firewall
                 Some network
               else
                 None
-              )
+            )
             pifs
         in
         let interfaces =

@@ -145,7 +145,7 @@ let with_path ~xs key f =
         (* This means a cancel happened just as we succeeded; it was too late
            and we ignore it. *)
         ()
-      )
+    )
 
 let cancellable_watch key good_watches error_watches
     (task : Xenops_task.task_handle) ~xs ~timeout () =
@@ -188,5 +188,5 @@ let cancellable_watch key good_watches error_watches
                 loop ()
           in
           loop ()
-          )
+        )
   )

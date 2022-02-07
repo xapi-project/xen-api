@@ -104,7 +104,7 @@ let test_lacp_defaults_bond_create () =
           arg |> trim |> is_suffix ~affix:"=" |> not
           )
       )
-      )
+    )
     !OVS_Cli_test.vsctl_output
 
 let suite =

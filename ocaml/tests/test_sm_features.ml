@@ -35,7 +35,7 @@ let string_of_sm_object sm =
        (List.map
           (fun (capability, version) ->
             Printf.sprintf "%s/%Ld" capability version
-            )
+          )
           sm.features
        )
     )

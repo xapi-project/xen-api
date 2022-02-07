@@ -261,7 +261,7 @@ let make_pgpu ~__context ?address ?(host = Ref.null) ?(gPU_group = Ref.null)
         make_vgpu ~__context ~resident_on:pgpu_ref vgpu_type
       in
       ()
-      )
+    )
     pgpu.resident_VGPU_types ;
   List.iter
     (fun vgpu_type ->
@@ -269,6 +269,6 @@ let make_pgpu ~__context ?address ?(host = Ref.null) ?(gPU_group = Ref.null)
         make_vgpu ~__context ~scheduled_to_be_resident_on:pgpu_ref vgpu_type
       in
       ()
-      )
+    )
     pgpu.scheduled_VGPU_types ;
   pgpu_ref

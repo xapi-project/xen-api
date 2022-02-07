@@ -43,7 +43,7 @@ let debug (fmt : ('a, unit, string, unit) format4) =
               (Thread.id (Thread.self ()))
               s ;
             flush stdout
-            )
+          )
           fmt
     )
   else
@@ -163,13 +163,13 @@ let listener rpc session queue =
   List.iter
     (fun (pbd_ref, pbd_rec) ->
       update_snapshot pbd_ref (keep_mpath pbd_rec.API.pBD_other_config)
-      )
+    )
     pbds ;
   let hosts = Client.Host.get_all_records rpc session in
   List.iter
     (fun (host_ref, host_rec) ->
       update_snapshot host_ref (keep_mpath host_rec.API.host_other_config)
-      )
+    )
     hosts ;
   (* proceed events *)
   let proceed event =
@@ -235,7 +235,7 @@ let state_of_the_world rpc session =
          (fun (pbd_ref, pbd_rec) ->
            create_pbd_alerts rpc session []
              (pbd_ref, pbd_rec, Unix.gettimeofday ())
-           )
+         )
          pbds
       )
   in
@@ -246,7 +246,7 @@ let state_of_the_world rpc session =
          (fun (host_ref, host_rec) ->
            create_host_alerts rpc session []
              (host_ref, host_rec, Unix.gettimeofday ())
-           )
+         )
          hosts
       )
   in

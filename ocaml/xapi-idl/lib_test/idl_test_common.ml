@@ -146,15 +146,15 @@ module GenTestData (C : CONFIG) (M : MARSHALLER) = struct
                             List.map
                               (fun (named, unnamed) ->
                                 ((n, x) :: named, unnamed)
-                                )
+                              )
                               params
                         | _, _ ->
                             List.map
                               (fun (named, unnamed) ->
                                 ((n, marshalled) :: named, unnamed)
-                                )
+                              )
                               params
-                        )
+                      )
                       marshalled
                    )
                 )
@@ -167,9 +167,9 @@ module GenTestData (C : CONFIG) (M : MARSHALLER) = struct
                         List.map
                           (fun (named, unnamed) ->
                             (named, marshalled :: unnamed)
-                            )
+                          )
                           params
-                        )
+                      )
                       marshalled
                    )
                 )
@@ -191,7 +191,7 @@ module GenTestData (C : CONFIG) (M : MARSHALLER) = struct
                   if response_needed then Rpc.notification else Rpc.call
                 in
                 rpccall wire_name args
-                )
+              )
               params
           in
           List.iteri
@@ -202,7 +202,7 @@ module GenTestData (C : CONFIG) (M : MARSHALLER) = struct
                    wire_name i
                 )
                 request_str
-              )
+            )
             calls ;
           let vs =
             Rpc_genfake.genall 2
@@ -218,7 +218,7 @@ module GenTestData (C : CONFIG) (M : MARSHALLER) = struct
             List.map
               (fun v ->
                 Rpc.success (Rpcmarshal.marshal t.Param.typedef.Rpc.Types.ty v)
-                )
+              )
               vs
           in
           let errs = Rpc_genfake.genall 2 "error" e.Error.def.Rpc.Types.ty in
@@ -226,7 +226,7 @@ module GenTestData (C : CONFIG) (M : MARSHALLER) = struct
             List.map
               (fun err ->
                 Rpc.failure (Rpcmarshal.marshal e.Error.def.Rpc.Types.ty err)
-                )
+              )
               errs
           in
           List.iteri
@@ -237,7 +237,7 @@ module GenTestData (C : CONFIG) (M : MARSHALLER) = struct
                    wire_name i
                 )
                 response_str
-              )
+            )
             (marshalled_vs @ marshalled_errs)
     in
     let test_fn () =
@@ -445,7 +445,7 @@ module TestOldRpcs (C : CONFIG) (M : MARSHALLER) = struct
             Printf.sprintf "Check old request for '%s': %d" wire_name i
           in
           (name, `Quick, fun () -> testfn call response)
-          )
+        )
         calls
     in
     (* Now check all responses *)
@@ -457,7 +457,7 @@ module TestOldRpcs (C : CONFIG) (M : MARSHALLER) = struct
             Printf.sprintf "Check old response for '%s': %d" wire_name i
           in
           (name, `Quick, fun () -> testfn call response)
-          )
+        )
         responses
     in
     tests := !tests @ request_tests @ response_tests

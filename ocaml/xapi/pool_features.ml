@@ -59,7 +59,7 @@ let find_additional_flags params =
       (fun (k, v) ->
         try String.sub k 0 9 = "restrict_" && not (List.mem k all_flags)
         with Invalid_argument _ -> false
-        )
+      )
       params
   in
   List.map fst kvs

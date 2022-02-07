@@ -94,7 +94,7 @@ let _ =
           debug ~out:stderr "%s has lognormal mean %f +/- %f"
             (short_info_to_string info)
             (LogNormal.mean points) (LogNormal.sigma points)
-          )
+        )
         inputs ;
       let min_point = get_min inputs in
       let max_point = get_max inputs in
@@ -127,14 +127,14 @@ let _ =
           List.iter
             (fun y ->
               Hist.convolve x (fun z -> gaussian y sigma z /. num_points)
-              )
+            )
             points ;
           (* Sanity-check: area under histogram should be almost 1.0 *)
           let total_area =
             Hist.fold x
               (fun bin_start bin_end height acc ->
                 ((bin_end -. bin_start) *. height) +. acc
-                )
+              )
               0.
           in
           if abs_float (1. -. total_area) > 0.01 then
@@ -169,7 +169,7 @@ let _ =
           Xapi_stdext_unix.Unixext.with_file output_file
             [Unix.O_WRONLY; Unix.O_TRUNC; Unix.O_CREAT]
             0o644 (Hist.to_gnuplot x)
-          )
+        )
         all ;
       let ls =
         List.map
@@ -183,7 +183,7 @@ let _ =
             ; scale= 1.
             ; style= "linespoints"
             }
-            )
+          )
           all
       in
       let ylabel =
@@ -224,7 +224,7 @@ let _ =
                 Gnuplot.X11
           in
           ignore (Gnuplot.render g output)
-          )
+        )
         (get_result_types inputs)
-      )
+    )
     (fun () -> List.iter Xapi_stdext_unix.Unixext.unlink_safe output_files)

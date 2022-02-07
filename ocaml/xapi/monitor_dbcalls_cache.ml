@@ -97,7 +97,7 @@ let transfer_map ?(except = []) ~source ~target () =
     (fun ex ->
       try Hashtbl.replace source ex (Hashtbl.find target ex)
       with Not_found -> Hashtbl.remove source ex
-      )
+    )
     except ;
   Hashtbl.clear target ;
   Hashtbl.iter (fun k v -> Hashtbl.add target k v) source ;
@@ -110,7 +110,7 @@ let get_updates ~before ~after ~f =
         f k v acc
       else
         acc
-      )
+    )
     after []
 
 let get_updates_map = get_updates ~f:(fun k v acc -> (k, v) :: acc)

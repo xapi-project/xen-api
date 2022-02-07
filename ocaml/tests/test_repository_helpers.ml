@@ -843,7 +843,7 @@ let fields_of_updateinfo =
     ; field "guidance_applicabilities"
         (fun (r : UpdateInfo.t) ->
           List.map Applicability.to_string r.guidance_applicabilities
-          )
+        )
         (list string)
     ; field "spec_info" (fun (r : UpdateInfo.t) -> r.spec_info) string
     ; field "url" (fun (r : UpdateInfo.t) -> r.url) string
@@ -1239,7 +1239,7 @@ module WriteYumConfig = Generic.MakeStateless (struct
       (fun n ->
         Xapi_globs.repository_gpgkey_name := n ;
         if n <> "" then close_out (open_out (Filename.concat tmp_dir n))
-        )
+      )
       name ;
     let rec read_from_in_channel acc ic =
       match input_line ic with
@@ -3165,7 +3165,7 @@ module PruneAccumulativeUpdates = Generic.MakeStateless (struct
           ^ Fmt.(str "%a" Dump.(option string)) uid
           ^ ", "
           ^ repo
-          )
+        )
         "" l
   end
 

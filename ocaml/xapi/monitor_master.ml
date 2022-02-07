@@ -159,7 +159,7 @@ let update_pifs ~__context host pifs =
                         Db.VLAN.get_untagged_PIF ~__context ~self:vlan
                       in
                       Db.PIF.get_network ~__context ~self:vlan_master
-                      )
+                    )
                     pifrec.API.pIF_VLAN_slave_of
                 in
                 let tunnel_networks =
@@ -169,10 +169,10 @@ let update_pifs ~__context host pifs =
                         Db.Tunnel.get_access_PIF ~__context ~self:tunnel
                       in
                       Db.PIF.get_network ~__context ~self:access_pif
-                      )
+                    )
                     pifrec.API.pIF_tunnel_transport_PIF_of
                 in
-                pifrec.API.pIF_network :: vlan_networks @ tunnel_networks
+                (pifrec.API.pIF_network :: vlan_networks) @ tunnel_networks
                 |> List.map vifs_on_local_bridge
                 |> List.flatten
                 |> List.iter set_carrier
@@ -201,5 +201,5 @@ let update_pifs ~__context host pifs =
             set_pif_metrics ~__context ~self:metrics ~vendor ~device ~carrier
               ~speed ~duplex ~pcibuspath pmr
           with Not_found -> ()
-          )
+        )
         db_pifs

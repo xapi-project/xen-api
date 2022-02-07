@@ -58,7 +58,7 @@ let send_bond_change_alert _dev interfaces message =
         in
         ()
       with _ -> warn "Exception sending a bond-status-change alert."
-      )
+    )
     (fun _ -> XenAPI.Session.logout ~rpc:xapi_rpc ~session_id)
 
 let check_for_changes ~(dev : string) ~(stat : Network_monitor.iface_stats) =
@@ -148,7 +148,7 @@ let get_link_stats () =
           }
         in
         (name, eth_stat)
-        )
+      )
       links
   in
   Cache.free cache ; Socket.close s ; Socket.free s ; devs
@@ -212,11 +212,11 @@ let rec monitor dbg () =
                   ; tx_pkts= Int64.add acc.tx_pkts b.tx_pkts
                   ; tx_errors= Int64.add acc.tx_errors b.tx_errors
                   }
-                  )
+                )
                 default_stats devs'
             in
             (name, tot)
-            )
+          )
           newdevnames
       in
       let add_other_stats bonds devs =
@@ -276,7 +276,7 @@ let rec monitor dbg () =
                           else
                             (speed, duplex)
                         with _ -> (speed, duplex)
-                        )
+                      )
                       (0, Duplex_unknown) bond_slaves
                   in
                   let pci_bus_path = "" in
@@ -305,7 +305,7 @@ let rec monitor dbg () =
               (dev, stat)
             ) else
               (dev, stat)
-            )
+          )
           devs
       in
       let from_cache = true in
@@ -328,7 +328,7 @@ let rec monitor dbg () =
             (fun b ->
               info "Removing bond %s" b ;
               Hashtbl.remove bonds_status b
-              )
+            )
             dead_bonds
       ) ;
       write_stats devs ;
@@ -357,7 +357,7 @@ let signal_networking_change () =
   Pervasiveext.finally
     (fun () ->
       XenAPI.Host.signal_networking_change ~rpc:xapi_rpc ~session_id:session
-      )
+    )
     (fun () -> XenAPI.Session.local_logout ~rpc:xapi_rpc ~session_id:session)
 
 (* Remove all outstanding reads on a file descriptor *)
@@ -429,7 +429,7 @@ let start () =
       let (_ : Thread.t) = Thread.create (monitor dbg) () in
       let (_ : Thread.t) = Thread.create ip_watcher () in
       ()
-      )
+    )
     ()
 
 let stop () =

@@ -77,7 +77,7 @@ let of_objs api =
                    @ get_arrow "arrowtail" a b_field.ty
                  in
                  sprintf "%s -> %s [ %s ]" a b (String.concat ", " labels)
-                 )
+               )
                relational
            in
            (* list of pairs of (field name, type) *)
@@ -92,10 +92,10 @@ let of_objs api =
                    (fun ((a, a_name), (b, b_name)) ->
                      (a = obj.name && a_name = name)
                      || (b = obj.name && b_name = name)
-                     )
+                   )
                    relations
                  = []
-                 )
+               )
                name_types
            in
            (* decompose each ty into a list of references *)
@@ -104,7 +104,7 @@ let of_objs api =
                (List.map
                   (fun (name, ty) ->
                     List.map (fun x -> (name, x, ty)) (all_refs ty)
-                    )
+                  )
                   name_types
                )
            in
@@ -121,19 +121,19 @@ let of_objs api =
                        "(*)"
                  in
                  (name ^ count, obj)
-                 )
+               )
                name_refs
            in
            let edges =
              List.map
                (fun (field, target) ->
                  sprintf "%s -> %s [ label=\"%s\" ]" obj.name target field
-                 )
+               )
                name_names
              @ edges
            in
            edges
-           )
+         )
          xs
       )
   in

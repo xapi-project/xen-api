@@ -308,7 +308,7 @@ module Client = struct
                           | Message.Request _ ->
                               Ok ()
                       )
-                  )
+                )
                 (Ok ()) transfer.Out.messages
             with
             | Ok () ->
@@ -352,7 +352,7 @@ module Client = struct
           IO.Clock.run_after timeout (fun () ->
               IO.Ivar.fill t (Error (`Message_switch `Timeout))
           )
-          )
+        )
         timeout
     in
     let rec loop () =
@@ -534,11 +534,11 @@ module Server = struct
                             do_rpc reply_conn request
                         )
                         >>= fun _ -> ()
-                        )
+                      )
                       ()
                   in
                   ()
-                  )
+                )
                 transfer.Out.messages ;
               loop connections (Some transfer.Out.next)
         )

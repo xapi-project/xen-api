@@ -115,7 +115,7 @@ let esc_pcdata data =
             ""
       in
       Buffer.add_string buf s
-      )
+    )
     data ;
   Buffer.contents buf
 

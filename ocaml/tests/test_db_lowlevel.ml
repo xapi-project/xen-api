@@ -50,14 +50,14 @@ let test_idempotent_map () =
     (fun () ->
       Db.VM.add_to_other_config ~__context ~self:vm_ref ~key:"test"
         ~value:"value"
-      ) ;
+    ) ;
   Alcotest.check_raises
     "add existing key with different value to non-idempotent map"
     (Db_exn.Duplicate_key ("VM", "other_config", Ref.string_of vm_ref, "test"))
     (fun () ->
       Db.VM.add_to_other_config ~__context ~self:vm_ref ~key:"test"
         ~value:"value2"
-      ) ;
+    ) ;
   Db_globs.idempotent_map := true ;
   let __context = make_test_database () in
   let (vm_ref : API.ref_VM) = make_vm ~__context () in
@@ -73,7 +73,7 @@ let test_idempotent_map () =
     (fun () ->
       Db.VM.add_to_other_config ~__context ~self:vm_ref ~key:"test"
         ~value:"value2"
-      ) ;
+    ) ;
   Db_globs.idempotent_map := false
 
 let test_slave_uses_nonlegacy_addmap () =

@@ -141,12 +141,12 @@ let string_of_ks ks =
           (fun (c, d) ->
             let e, f = d in
             c ^ "," ^ string_of_ty e ^ f
-            )
+          )
           b
         |> String.concat ";"
       in
       "[" ^ a ^ "," ^ "[" ^ inner_string ^ "]]"
-      )
+    )
     kss
   |> String.concat ";"
 

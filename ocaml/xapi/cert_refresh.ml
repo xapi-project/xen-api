@@ -17,7 +17,7 @@ module D = Debug.Make (struct let name = "cert_refresh" end)
 open D
 
 (* given a [filename], replace its extension with [ext]. Does not change
-the file system *)
+   the file system *)
 let replace_extension filename ~ext =
   let base =
     match Filename.extension filename with
@@ -63,7 +63,7 @@ let maybe_restart_cluster_daemon ~__context =
   )
 
 (* On this host and for this host, create a new server certificate and
-distribute it in the pool *)
+   distribute it in the pool *)
 let host ~__context ~type' =
   let host = Helpers.get_localhost ~__context in
   let pem = cert_path type' in
@@ -107,8 +107,8 @@ let host ~__context ~type' =
   ref
 
 (* The stunnel clients trust the old and the new [host] server cert.  On
-the local host, rename the old cert and re-create the cert bundle
-without it *)
+   the local host, rename the old cert and re-create the cert bundle
+   without it *)
 let remove_stale_cert ~__context ~host ~type' =
   let uuid = Db.Host.get_uuid ~__context ~self:host in
   let directory =

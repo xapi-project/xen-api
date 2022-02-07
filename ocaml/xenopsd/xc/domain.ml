@@ -310,7 +310,7 @@ let make ~xc ~xs vm_info vcpus domain_config uuid final_uuid no_sharept =
     (if hvm then CAP_HVM else CAP_PV)
     ~on_error:(fun () ->
       sprintf "Guest type %s unavailable" (if hvm then "HVM" else "PV")
-      ) ;
+    ) ;
 
   (* HVM guests must select a paging mode of either HAP "Hardware Assisted
      Paging" or Shadow. *)
@@ -342,7 +342,7 @@ let make ~xc ~xs vm_info vcpus domain_config uuid final_uuid no_sharept =
         ~on_error:(fun () ->
           sprintf "Guest paging mode %s unavailable"
             (if hap then "HAP" else "Shadow")
-          ) ;
+        ) ;
 
       hap
   in
@@ -441,14 +441,14 @@ let make ~xc ~xs vm_info vcpus domain_config uuid final_uuid no_sharept =
           (fun dir ->
             let ent = sprintf "%s/%s" dom_path dir in
             t.Xst.mkdirperms ent roperm
-            )
+          )
           ["cpu"; "memory"] ;
         let mksubdirs base dirs perms =
           List.iter
             (fun dir ->
               let ent = base ^ "/" ^ dir in
               t.Xst.mkdirperms ent perms
-              )
+            )
             dirs
         in
         let device_dirs = ["device"; "device/vbd"; "device/vif"] in
@@ -685,7 +685,7 @@ let destroy (task : Xenops_task.task_handle) ~xc ~xs ~qemu_domid ~dm domid =
         ("Reset PCI device " ^ string_of_address pcidev)
         (fun () -> Device.PCI.reset ~xs pcidev)
         ()
-      )
+    )
     all_pci_devices ;
   (* PCI specification document says that the Function must complete the FLR
      within 100 ms
@@ -700,9 +700,9 @@ let destroy (task : Xenops_task.task_handle) ~xc ~xs ~qemu_domid ~dm domid =
         (fun () ->
           Xenctrl.domain_deassign_device xc domid
             (pcidev.domain, pcidev.bus, pcidev.dev, pcidev.fn)
-          )
+        )
         ()
-      )
+    )
     all_pci_devices ;
   (* Now we should kill the domain itself *)
   debug "VM = %s; domid = %d; Domain.destroy calling Xenctrl.domain_destroy"
@@ -726,7 +726,7 @@ let destroy (task : Xenops_task.task_handle) ~xc ~xs ~qemu_domid ~dm domid =
           (Uuid.to_string uuid) domid (Printexc.to_string e)
           (string_of_device device)
       (* Keep going on a best-effort basis *)
-      )
+    )
     all_devices ;
   (* For each device which has a hotplug entry, perform the cleanup. Even if one
      fails, try to cleanup the rest anyway.*)
@@ -738,9 +738,9 @@ let destroy (task : Xenops_task.task_handle) ~xc ~xs ~qemu_domid ~dm domid =
         (fun () ->
           Hotplug.release task ~xc ~xs x ;
           released := x :: !released
-          )
+        )
         ()
-      )
+    )
     all_devices ;
   (* If we fail to release a device we leak resources. If we are to tolerate
      this then we need an async cleanup thread. *)
@@ -751,7 +751,7 @@ let destroy (task : Xenops_task.task_handle) ~xc ~xs ~qemu_domid ~dm domid =
     (fun dev ->
       error "VM = %s; domid = %d; Domain.destroy failed to release device: %s"
         (Uuid.to_string uuid) domid (string_of_device dev)
-      )
+    )
     failed_devices ;
   (* Remove our reference to the /vm/<uuid> directory *)
   let vm_path = try Some (xs.Xs.read (dom_path ^ "/vm")) with _ -> None in
@@ -773,9 +773,9 @@ let destroy (task : Xenops_task.task_handle) ~xc ~xs ~qemu_domid ~dm domid =
       List.iter
         (fun ty ->
           log_exn_rm ~xs (Printf.sprintf "%s/%s/%d" backend_path ty domid)
-          )
+        )
         all_backend_types
-      )
+    )
     ["/backend"; "/xenserver/backend"] ;
   (* If all devices were properly un-hotplugged, then zap the private tree in
      xenstore. If there was some error leave the tree for debugging / async
@@ -841,7 +841,7 @@ let numa_init () =
       (fun i m ->
         let open Xenctrlext in
         D.debug "NUMA node %d: %Ld/%Ld memory free" i m.memfree m.memsize
-        )
+      )
       mem
   )
 
@@ -920,7 +920,7 @@ let build_pre ~xc ~xs ~vcpus ~memory ~has_hard_affinity domid =
       log_reraise (Printf.sprintf "domain_set_timer_mode %d" mode) (fun () ->
           Xenctrlext.domain_set_timer_mode xc domid mode
       )
-      )
+    )
     timer_mode ;
   log_reraise (Printf.sprintf "domain_max_vcpus %d" vcpus) (fun () ->
       Xenctrl.domain_max_vcpus xc domid vcpus
@@ -1017,7 +1017,7 @@ let xenguest_args_pvh ~domid ~store_port ~store_domid ~console_port
     List.map
       (fun (m, c) ->
         "-module" :: m :: (match c with Some x -> ["-cmdline"; x] | None -> [])
-        )
+      )
       modules
     |> List.flatten
   in
@@ -1298,7 +1298,7 @@ let consume_qemu_record fd limit domid uuid =
           (Uuid.to_string uuid) domid ;
         raise Domain_restore_truncated_hvmstate
       )
-      )
+    )
     (fun () -> Unix.close fd2)
 
 let restore_common (task : Xenops_task.task_handle) ~xc ~xs
@@ -1506,9 +1506,9 @@ let restore_common (task : Xenops_task.task_handle) ~xc ~xs
                       |> cancel_on_error
                       |> Event.send ch
                       |> Event.sync
-                      )
+                    )
                     ()
-                  )
+                )
                 ()
             in
             (th, ch)
@@ -1521,7 +1521,7 @@ let restore_common (task : Xenops_task.task_handle) ~xc ~xs
               (fun (th, ch) _ ->
                 let status = Event.receive ch |> Event.sync in
                 Thread.join th ; status
-                )
+              )
               threads_and_channels
             |> fun statuses ->
             fold (fun x -> x) statuses () >>= fun () ->
@@ -1760,7 +1760,7 @@ let write_qemu_record domid uuid fd =
       if Unixext.copy_file ~limit:size fd2 fd <> size then
         failwith "Failed to write whole qemu-dm state file" ;
       return ()
-      )
+    )
     (fun () -> Unix.unlink file ; Unix.close fd2)
 
 let write_varstored_record task ~xs domid main_fd =

@@ -87,7 +87,7 @@ let test_radix_tree1 _ =
     (fun x ->
       if longest_prefix x t <> Some x then
         failwith (Printf.sprintf "x = %s" x)
-      )
+    )
     test_strings
 
 let test_radix_tree2 _ =
@@ -166,9 +166,9 @@ let cross xs ys zs =
          |> List.fold_left
               (fun acc y ->
                 zs |> List.fold_left (fun acc z -> (x, y, z) :: acc) acc
-                )
+              )
               acc
-         )
+       )
        []
 
 let test_read_http_request_header _ =

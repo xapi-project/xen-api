@@ -93,7 +93,7 @@ let checkpoint ~__context ~vm ~new_name =
           List.filter_map
             (fun vdi ->
               try Some (Db.VDI.get_SR ~__context ~self:vdi) with _ -> None
-              )
+            )
             vdis
         in
         let vdi_sr = Listext.setify vdi_sr in
@@ -122,7 +122,7 @@ let checkpoint ~__context ~vm ~new_name =
                 (Api_errors.Server_error
                    (Api_errors.sr_operation_not_supported, [Ref.string_of vm])
                 )
-            )
+          )
           sr_records ;
         (* suspend the VM *)
         Xapi_gpumon.update_vgpu_metadata ~__context ~vm ;
@@ -190,7 +190,7 @@ let copy_vm_fields ~__context ~metadata ~dst ~do_not_copy ~overrides =
       in
       if not (List.mem key do_not_copy) then
         DB.write_field db Db_names.vm (Ref.string_of dst) key value
-      )
+    )
     metadata
 
 let safe_destroy_vbd ~__context ~rpc ~session_id vbd =
@@ -290,9 +290,9 @@ let update_vifs_vbds_vgpus_and_vusbs ~__context ~snapshot ~vm =
             (fun snapshot ->
               Db.VDI.set_snapshot_of ~__context ~self:snapshot
                 ~value:cloned_disk
-              )
+            )
             all_snaps_in_tree
-          )
+        )
         snap_disks cloned_disks ;
       debug "Cloning the suspend VDI if needed" ;
       let cloned_suspend_VDI =
@@ -322,7 +322,7 @@ let update_vifs_vbds_vgpus_and_vusbs ~__context ~snapshot ~vm =
             (fun vif ->
               Xapi_vif_helpers.copy ~__context ~vm ~preserve_mac_address:true
                 vif
-              )
+            )
             snap_VIFs
         in
         TaskHelper.set_progress ~__context 0.8 ;
@@ -342,12 +342,11 @@ let update_vifs_vbds_vgpus_and_vusbs ~__context ~snapshot ~vm =
            Cleaning up the cloned VDIs." ;
         let vdis =
           cloned_suspend_VDI
-          ::
-          List.fold_left
-            (fun acc (_, vdi, on_error_delete) ->
-              if on_error_delete then vdi :: acc else acc
-              )
-            [] cloned_disks
+          :: List.fold_left
+               (fun acc (_, vdi, on_error_delete) ->
+                 if on_error_delete then vdi :: acc else acc
+               )
+               [] cloned_disks
         in
         List.iter (safe_destroy_vdi ~__context ~rpc ~session_id) vdis ;
         raise e
@@ -547,7 +546,7 @@ let create_vm_from_snapshot ~__context ~snapshot =
           List.iter
             (fun (snap, _) ->
               Db.VM.set_snapshot_of ~__context ~self:snap ~value:new_vm
-              )
+            )
             snapshots ;
           new_vm
         with e ->

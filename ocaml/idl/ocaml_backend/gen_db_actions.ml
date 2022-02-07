@@ -46,7 +46,7 @@ let make_db_api =
           false (* rely on the Private(GetDBAll) function for now *)
       | FromObject _ ->
           true
-      )
+    )
 
 (* Only these types are actually marshalled into the database: *)
 let type_marshalled_in_db = function
@@ -467,7 +467,7 @@ let db_action api : O.Module.t =
                 ( Escaping.escape_id fld.full_name
                 , OU.ocaml_of_record_field fld.full_name
                 )
-                )
+              )
               fields
           in
           let kvs' =

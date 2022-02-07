@@ -104,11 +104,11 @@ let host_restore_handler (req : Request.t) s _ =
                     in
                     debug "Host restore: read %s bytes of backup..."
                       (Int64.to_string copied_bytes)
-                    )
+                  )
                   (fun () ->
                     close in_pipe ;
                     waitpid_fail_if_bad_exit pid
-                    )
+                  )
             )
           in
           match result with
@@ -120,6 +120,6 @@ let host_restore_handler (req : Request.t) s _ =
                 (Api_errors.Server_error
                    (Api_errors.restore_script_failed, [log])
                 )
-          )
+        )
         (fun () -> List.iter close !to_close)
   )

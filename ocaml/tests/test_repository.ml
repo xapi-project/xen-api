@@ -34,7 +34,7 @@ let test_introduce_duplicate_name () =
         ~name_description:name_description_1 ~binary_url:binary_url_1
         ~source_url:source_url_1 ~update:true
       |> ignore
-      )
+    )
 
 let test_introduce_duplicate_binary_url () =
   let __context = T.make_test_database () in
@@ -56,7 +56,7 @@ let test_introduce_duplicate_binary_url () =
         ~name_description:name_description_1 ~source_url:source_url_1
         ~update:false
       |> ignore
-      )
+    )
 
 let test =
   [

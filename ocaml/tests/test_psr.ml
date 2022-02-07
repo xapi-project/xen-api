@@ -222,7 +222,7 @@ let check_psr_succeeded r exp_pool_secret master members =
         check string "new pool secret should be correct" exp_pool_secret
           h.current_pool_secret
       )
-      )
+    )
     hosts ;
   List.iter
     (fun h ->
@@ -230,7 +230,7 @@ let check_psr_succeeded r exp_pool_secret master members =
         check (option string) "staged_pool_secret is null" None
           h.staged_pool_secret
       )
-      )
+    )
     hosts ;
   let psr_state = master.psr_state in
   Alcotest.(
@@ -245,7 +245,7 @@ let check_psr_succeeded r exp_pool_secret master members =
 (* we test almost all combinations of hosts and fistpoints. the only
    case we don't test is one case of master cleanup failure,
    since it is slightly different - it has its own unit test (see below).
- *)
+*)
 let almost_all_possible_fists ~num_hosts =
   let multiply fp_times fp_actions host_ids =
     List.map
@@ -255,9 +255,9 @@ let almost_all_possible_fists ~num_hosts =
             List.map
               (fun host_id -> ((time, action), host_id, mk_expected_err host_id))
               host_ids
-            )
+          )
           fp_actions
-        )
+      )
       fp_times
     |> List.concat
     |> List.concat

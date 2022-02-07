@@ -74,7 +74,7 @@ let test_null_vdi () =
             (Xapi_vm_lifecycle.check_operation_error ~__context ~ref:vm_ref ~op
                ~strict:true
             )
-          )
+        )
         all_vm_operations
   )
 
@@ -92,7 +92,7 @@ let test_vm_set_nvram_running () =
         (fun () ->
           Api_server.Forwarder.VM.set_NVRAM ~__context ~self:vm_ref
             ~value:[("EFI-variables", "BBBB")]
-          ) ;
+        ) ;
       let read_nvram = Db.VM.get_NVRAM ~__context ~self:vm_ref in
       Alcotest.(check (list (pair string string)))
         "NVRAM not updated" old_nvram read_nvram ;

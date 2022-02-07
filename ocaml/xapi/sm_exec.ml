@@ -105,7 +105,7 @@ let make_call ?driver_params ?sr_sm_config ?vdi_sm_config ?vdi_type
                       )
                    )
                 )
-          )
+        )
         sr_ref ;
       let vdi_location =
         if vdi_location <> None then
@@ -124,14 +124,14 @@ let make_call ?driver_params ?sr_sm_config ?vdi_sm_config ?vdi_type
                 "persist"
             | `reset ->
                 "reset"
-            )
+          )
           vdi_ref
       in
       let vdi_allow_caching =
         Option.map
           (fun self ->
             string_of_bool (Db.VDI.get_allow_caching ~__context ~self)
-            )
+          )
           vdi_ref
       in
       let local_cache_sr =
@@ -309,7 +309,7 @@ let with_session sr f =
           (fun sr ->
             Db.Session.add_to_other_config ~__context ~self:session
               ~key:Xapi_globs._sm_session ~value:(Ref.string_of sr)
-            )
+          )
           sr ;
         session
       in
@@ -529,7 +529,7 @@ let parse_sr_get_driver_info driver (xml : Xml.xml) =
         ( XMLRPC.From.string (safe_assoc "key" kvpairs)
         , XMLRPC.From.string (safe_assoc "description" kvpairs)
         )
-        )
+      )
       (XMLRPC.From.array XMLRPC.From.structure (safe_assoc "configuration" info))
   in
   {
@@ -580,7 +580,7 @@ let get_supported add_fn =
             (ExnHelper.string_of_exn e)
       ) else
         error "Not scanning %s for SM backends: directory does not exist" dir
-      )
+    )
     [(check_driver, !Xapi_globs.sm_dir)]
 
 (*********************************************************************)

@@ -76,7 +76,7 @@ let light_fuse_and_run ?(fuse_length = !Constants.fuse_time) () =
               initialised yet): %s; restarting immediately"
              (ExnHelper.string_of_exn e) ;
            exit Xapi_globs.restart_return_code
-         )
+       )
        ()
     )
 
@@ -92,7 +92,7 @@ let light_fuse_and_reboot_after_eject () =
               "/opt/xensource/libexec/reset-and-reboot" []
            ) ;
          ()
-         )
+       )
        ()
     )
 
@@ -103,7 +103,7 @@ let light_fuse_and_reboot ?(fuse_length = !Constants.fuse_time) () =
        (fun () ->
          Thread.delay fuse_length ;
          ignore (Sys.command "shutdown -r now")
-         )
+       )
        ()
     )
 
@@ -126,7 +126,7 @@ let light_fuse_and_dont_restart ?(fuse_length = !Constants.fuse_time) () =
                (Db_connections.preferred_write_db ())
                0
          )
-         )
+       )
        ()
     ) ;
   (* This is a best-effort attempt to use the database. We must not block the flush_and_exit above, hence
@@ -143,5 +143,5 @@ let light_fuse_and_dont_restart ?(fuse_length = !Constants.fuse_time) () =
                 session_id
           )
       )
-      )
+    )
     ()

@@ -122,7 +122,7 @@ let check_operation_error ~__context ?(sr_records = []) ?(pbd_records = [])
               (fun (_, pbd_record) ->
                 pbd_record.API.pBD_SR = sr
                 && pbd_record.API.pBD_currently_attached
-                )
+              )
               pbd_records
       in
       if List.length pbds_attached = 0 && List.mem op [`resize] then
@@ -154,7 +154,7 @@ let check_operation_error ~__context ?(sr_records = []) ?(pbd_records = [])
                      && (vbd_record.Db_actions.vBD_currently_attached
                         || vbd_record.Db_actions.vBD_reserved
                         )
-                     )
+                   )
                    records
                 )
         in
@@ -182,7 +182,7 @@ let check_operation_error ~__context ?(sr_records = []) ?(pbd_records = [])
                    (fun (_, vbd_record) ->
                      vbd_record.Db_actions.vBD_VDI = _ref'
                      && vbd_record.Db_actions.vBD_current_operations <> []
-                     )
+                   )
                    records
                 )
         in
@@ -530,11 +530,11 @@ let cancel_tasks ~__context ~self ~all_tasks_in_db ~task_ids =
 
 (**************************************************************************************)
 
-(*  Helper function to create a new VDI record with all fields copied from
-    an original, except ref and *_operations, UUID and others supplied as optional arguments.
-    If a new UUID is not supplied, a fresh one is generated.
-    storage_lock defaults to false.
-    Parent defaults to Ref.null.
+(* Helper function to create a new VDI record with all fields copied from
+   an original, except ref and *_operations, UUID and others supplied as optional arguments.
+   If a new UUID is not supplied, a fresh one is generated.
+   storage_lock defaults to false.
+   Parent defaults to Ref.null.
 *)
 (*let clone_record ~uuid ?name_label ?name_description ?sR ?virtual_size ?location
     ?physical_utilisation ?_type ?sharable ?read_only ?storage_lock ?other_config ?parent
@@ -686,7 +686,7 @@ let introduce_dbonly ~__context ~uuid ~name_label ~name_description ~sR ~_type
           (Api_errors.Server_error
              (Api_errors.location_not_unique, [Ref.string_of sR; location])
           )
-      )
+    )
     (Db.SR.get_VDIs ~__context ~self:sR) ;
   (* Verify the UUID field looks like a UUID *)
   ( try
@@ -749,7 +749,7 @@ let introduce ~__context ~uuid ~name_label ~name_description ~sR ~_type
           (Api_errors.Server_error
              (Api_errors.location_not_unique, [Ref.string_of sR; location])
           )
-      )
+    )
     (Db.SR.get_VDIs ~__context ~self:sR) ;
   let task = Context.get_task_id __context in
   let sr' =
@@ -897,7 +897,7 @@ let wait_for_vbds_to_be_unplugged_and_destroyed ~__context ~self ~timeout =
         (fun snapshot ->
           let vdi = API.vDI_t_of_rpc snapshot in
           vdi.API.vDI_VBDs
-          )
+        )
         most_recent_snapshot
     in
     let from =
@@ -910,7 +910,7 @@ let wait_for_vbds_to_be_unplugged_and_destroyed ~__context ~self ~timeout =
       (fun event ->
         debug "wait_for_vbds_to_be_unplugged_and_destroyed: got event %s"
           (Event_types.string_of_event event)
-        )
+      )
       from.Event_types.events ;
     (from.Event_types.token, most_recent_vbds_field from.Event_types.events)
   in
@@ -987,7 +987,7 @@ let destroy_and_data_destroy_common ~__context ~self
       (fun vbd ->
         let r = Db.VBD.get_record_internal ~__context ~self:vbd in
         r.Db_actions.vBD_currently_attached || r.Db_actions.vBD_reserved
-        )
+      )
       vbds
   in
   if attached_vbds <> [] then
@@ -1031,7 +1031,7 @@ let destroy_and_data_destroy_common ~__context ~self
           (Printf.sprintf "destroying VBD: %s" (Ref.string_of vbd))
           (fun vbd -> Db.VBD.destroy ~__context ~self:vbd)
           vbd
-        )
+      )
       vbds ;
     (* If VDI destroyed is suspend VDI of VM then set the suspend_VDI field as null ref *)
     let open Db_filter_types in

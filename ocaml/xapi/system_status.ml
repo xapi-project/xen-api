@@ -95,11 +95,11 @@ let send_via_cp __context s entries output =
       (fun () ->
         debug "bugball path: %s" filename ;
         Http_svr.response_file ~mime_content_type:content_type s filename
-        )
+      )
       (fun () ->
         Helpers.log_exn_continue "deleting xen-bugtool output" Unix.unlink
           filename
-        )
+      )
   with e ->
     let msg = "xen-bugtool failed: " ^ ExnHelper.string_of_exn e in
     error "%s" msg ;

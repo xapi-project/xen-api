@@ -30,7 +30,7 @@ let proxy a b =
         (try Lwt_unix.shutdown src Lwt_unix.SHUTDOWN_RECEIVE with _ -> ()) ;
         (try Lwt_unix.shutdown dst Lwt_unix.SHUTDOWN_SEND with _ -> ()) ;
         return ()
-        )
+      )
   in
   let ts = [copy "ab" a b; copy "ba" b a] in
   Lwt.join ts
@@ -113,7 +113,7 @@ let advertise_t _common_options_t proxy_socket =
   List.iter
     (fun signal ->
       ignore (Lwt_unix.on_signal signal (fun _ -> Unix.unlink path ; exit 1))
-      )
+    )
     [Sys.sigterm; Sys.sigint] ;
   Lwt_unix.listen s_unix 5 ;
   let token = "token" in

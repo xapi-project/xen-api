@@ -35,13 +35,13 @@ let with_clustering_lock where f =
           debug "Grabbed host-local clustering lock; executing function... (%s)"
             where ;
           f ()
-          )
+        )
         (fun () ->
           debug
             "Function execution finished; returned host-local clustering lock. \
              (%s)"
             where
-          )
+        )
   )
 
 (* Note we have to add type annotations to network/host here because they're only used in the context of
@@ -240,7 +240,7 @@ let assert_cluster_host_has_no_attached_sr_which_requires_cluster_stack
         let sr_sm_type = Db.SR.get_type ~__context ~self:sr in
         List.mem cluster_stack
           (get_required_cluster_stacks ~__context ~sr_sm_type)
-        )
+      )
       srs
   then
     raise Api_errors.(Server_error (cluster_stack_in_use, [cluster_stack]))

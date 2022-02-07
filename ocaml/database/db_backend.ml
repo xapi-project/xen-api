@@ -53,7 +53,7 @@ let blow_away_non_persistent_fields (schema : Schema.t) db =
         with Not_found ->
           Printf.printf "Skipping unknown column: %s\n%!" name ;
           (acc, max max_upd modified)
-        )
+      )
       row (Row.empty, 0L)
   in
   (* Generate a new table *)
@@ -65,7 +65,7 @@ let blow_away_non_persistent_fields (schema : Schema.t) db =
         Table.update modified objref Row.empty
           (fun _ -> r)
           (Table.add created objref r acc)
-        )
+      )
       tbl Table.empty
   in
   Database.update
@@ -74,9 +74,9 @@ let blow_away_non_persistent_fields (schema : Schema.t) db =
         (fun tblname {Stat.modified; _} tbl acc ->
           let tbl' = table tblname tbl in
           TableSet.add modified tblname tbl' acc
-          )
+        )
         ts TableSet.empty
-      )
+    )
     db
 
 let db_registration_mutex = Mutex.create ()

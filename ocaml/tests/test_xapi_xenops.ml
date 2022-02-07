@@ -21,13 +21,13 @@ let test_enabled_in_xenguest () =
     (fun x ->
       let e = val_fn (p x) in
       if not e then err x
-      )
+    )
     should_be_true ;
   List.iter
     (fun x ->
       let e = val_fn (p x) in
       if e then err x
-      )
+    )
     should_be_false
 
 let simulator_setup = ref false
@@ -71,7 +71,7 @@ let test_xapi_restart_inner () =
               ()
           | e ->
               raise e
-          )
+        )
         ()
     in
     (cancel, th)
@@ -185,7 +185,7 @@ let test_xapi_restart_inner () =
                 ()
             | e ->
                 raise e
-            )
+          )
           ()
       in
       (cancel, th)
@@ -223,7 +223,7 @@ let test_xapi_restart () =
           x
       | `Error (e, _b) ->
           raise e
-      )
+    )
     unsetup_simulator
 
 let test_nested_virt_licensing () =

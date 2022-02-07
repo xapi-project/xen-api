@@ -21,7 +21,7 @@ let add_defaults requirements kvpairs =
             acc
         | Some default_value ->
             (requirement.key, default_value) :: acc
-      )
+    )
     kvpairs requirements
 
 (* Validate a key-value pair against a list of requirements. *)
@@ -117,7 +117,7 @@ let assert_value ~field ~key ~attr ~value =
                 err value
               else
                 v ^ "," ^ acc
-          )
+        )
         vs ""
   | IntRange (min, max) ->
       let v = try int_of_string value with _ -> err value in
@@ -143,14 +143,14 @@ let assert_req_values ~field ~ks ~vs =
     List.fold_right
       (fun (k, attr) acc ->
         match attr with ReqValue rv, _ -> (k, rv) :: acc | _ -> acc
-        )
+      )
       ks []
   in
   if vs <> [] then
     List.iter
       (fun (k, rv) ->
         if List.mem_assoc k vs then if rv <> List.assoc k vs then err field k rv
-        )
+      )
       req_values
 
 (* uses xs elements to overwrite ys elements *)
@@ -159,7 +159,7 @@ let merge xs ys =
     List.map
       (fun (ky, vy) ->
         if List.mem_assoc ky xs then (ky, List.assoc ky xs) else (ky, vy)
-        )
+      )
       ys
   in
   let nxs = List.filter (fun (kx, _) -> not (List.mem_assoc kx nys)) xs in
@@ -201,7 +201,7 @@ let assert_all_keys ~ty ~ks ~value ~db =
                     (k, List.assoc k value)
                   else
                     (k, default)
-                  )
+                )
                 ks
             in
             (* remove extra unexpected keys *)
@@ -209,7 +209,7 @@ let assert_all_keys ~ty ~ks ~value ~db =
               List.fold_right
                 (fun (k, v) acc ->
                   if List.mem_assoc k ks then (k, v) :: acc else acc
-                  )
+                )
                 value []
             in
             (* for this ks, each key value must be valid *)

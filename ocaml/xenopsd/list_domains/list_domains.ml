@@ -88,7 +88,7 @@ let select table keys =
       if not (Hashtbl.mem table key) then
         failwith (Printf.sprintf "Failed to find key: %s" key) ;
       Hashtbl.find table key
-      )
+    )
     keys
 
 let columns () =
@@ -144,7 +144,7 @@ let _ =
              (fun () ->
                memory := true ;
                all_the_rest := true
-               )
+             )
          , " show all available stats (needs a wide window!)"
          )
        ; ("-bytes", Arg.Set bytes, " use bytes for memory values")

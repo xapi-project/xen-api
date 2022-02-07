@@ -215,7 +215,7 @@ let auto_scan_interval = "auto-scan-interval"
    specified on the vncterm command line:
      -T, --text            provide telnet access too
      -v, --vnclisten       listen for VNC connection at a given address:port
-   The init scripts in dom0 spawn vncterm with -T -v 127.0.0.1:0  *)
+   The init scripts in dom0 spawn vncterm with -T -v 127.0.0.1:0 *)
 let host_console_vncport = 5900L
 
 let host_console_textport = 9500L
@@ -1026,10 +1026,10 @@ let options_of_xapi_globs_spec =
               string_of_float !x
           | Int x ->
               string_of_int !x
-          )
+        )
       , Printf.sprintf "Set the value of '%s'" name
       )
-      )
+    )
     xapi_globs_spec
 
 let xenopsd_queues =
@@ -1172,7 +1172,7 @@ let other_options =
       (fun s ->
         D.debug "Whitelisting PCI vendor %s for passthrough" s ;
         Scanf.sscanf s "%4Lx" (fun _ -> s)
-        ) (* Scanf verifies format *)
+      ) (* Scanf verifies format *)
       (fun s -> s)
       igd_passthru_vendor_whitelist
   ; ( "gvt-g-whitelist"
@@ -1230,7 +1230,7 @@ let other_options =
     , Arg.String
         (fun x ->
           nvidia_multi_vgpu_enabled_driver_versions := String.split ',' x
-          )
+        )
     , (fun () -> String.concat "," !nvidia_multi_vgpu_enabled_driver_versions)
     , "list of nvidia host driver versions with multiple vGPU supported.\n\
       \  if a version end with +, it means any driver version greater or equal \
@@ -1254,7 +1254,7 @@ let other_options =
             "false - Use legacy mode for NVidia GPU addressing"
         | Nvidia_T4_SRIOV ->
             "true - Use SR-IOV for NVidia T4 GPUs, legacy otherwise"
-        )
+      )
     , "Use of SR-IOV for Nvidia GPUs; 'true', 'false', 'default'."
     )
   ; ( "create-tools-sr"
@@ -1278,11 +1278,11 @@ let other_options =
           Option.iter
             (fun k -> winbind_kerberos_encryption_type := k)
             (Kerberos_encryption_types.Winbind.of_string s)
-          )
+        )
     , (fun () ->
         Kerberos_encryption_types.Winbind.to_string
           !winbind_kerberos_encryption_type
-        )
+      )
     , "Encryption types to use when operating as Kerberos client \
        [strong|legacy|all]"
     )

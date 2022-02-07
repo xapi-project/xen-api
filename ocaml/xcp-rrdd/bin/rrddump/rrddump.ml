@@ -53,7 +53,7 @@ let text_export rrd =
       List.iter
         (fun (t, d) ->
           if not (Utils.isnan d) then Printf.fprintf oc "%Ld %f\n" t d
-          )
+        )
         data ;
       close_out oc
     done

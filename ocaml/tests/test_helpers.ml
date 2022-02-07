@@ -55,7 +55,7 @@ module DetermineGateway = Generic.MakeStateful (struct
             ~management:pif.management ~other_config:pif.other_config ()
         in
         ()
-        )
+      )
       pifs
 
   let extract_output __context (_, mgmt) =
@@ -68,7 +68,7 @@ module DetermineGateway = Generic.MakeStateful (struct
               ~expr:(Eq (Field "device", Literal device))
           in
           List.hd pifs
-          )
+        )
         mgmt
     in
     let gateway, dns =

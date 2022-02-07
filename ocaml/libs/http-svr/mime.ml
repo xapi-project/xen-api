@@ -31,7 +31,7 @@ let mime_of_file file =
             ()
         | mime :: exts ->
             List.iter (fun e -> Hashtbl.add h (lowercase e) mime) exts
-      )
+    )
     file ;
   h
 

@@ -200,7 +200,7 @@ module Dummy = struct
                 {e with d_state= Some "0"; d_args= Some args}
               else
                 e
-              )
+            )
             list
         in
         write_dummy_tapdisk_list ctx list
@@ -216,7 +216,7 @@ module Dummy = struct
                 {e with d_state= Some "0x2"; d_args= None}
               else
                 e
-              )
+            )
             list
         in
         write_dummy_tapdisk_list ctx list
@@ -232,7 +232,7 @@ module Dummy = struct
                 {e with d_state= Some "0x2a"}
               else
                 e
-              )
+            )
             list
         in
         write_dummy_tapdisk_list ctx list
@@ -249,7 +249,7 @@ module Dummy = struct
                 {e with d_state= Some "0"; d_args= Some args}
               else
                 e
-              )
+            )
             list
         in
         write_dummy_tapdisk_list ctx list
@@ -311,7 +311,7 @@ module Dummy = struct
                   None
             | _ ->
                 None
-            )
+          )
           list
     )
 
@@ -351,7 +351,7 @@ let canonicalise x =
                 None
           | _ ->
               found
-          )
+        )
         None (xen_paths @ paths)
     in
     match first_hit with None -> x | Some hit -> hit
@@ -476,7 +476,7 @@ let list ?t ctx =
             Some ({tapdisk_pid; minor}, state, args)
         | _ ->
             None
-        )
+      )
       lines
 
 let is_paused ctx t =

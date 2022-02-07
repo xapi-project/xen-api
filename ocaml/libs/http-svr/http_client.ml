@@ -172,7 +172,7 @@ let response_of_fd_exn fd =
              )
            | _ ->
                (true, res) (* end of headers? *)
-         )
+       )
        (false, empty)
        (Astring.String.cuts ~sep:"\n" buf)
     )

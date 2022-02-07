@@ -89,7 +89,7 @@ let tests =
     (fun (loc, f) ->
       let t = SafeCounting.create () in
       (loc, `Quick, fun () -> f t)
-      )
+    )
     [
       (__LOC__, test_can_borrow)
     ; (__LOC__, test_can_release)

@@ -51,7 +51,7 @@ module Mock_daemon = struct
             (fun () ->
               Thread.delay time_until_stopped ;
               running := false
-              )
+            )
             ()
         in
         raise error

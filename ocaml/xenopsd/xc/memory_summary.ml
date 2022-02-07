@@ -50,7 +50,7 @@ let _ =
       List.map
         (fun di ->
           (di.Xenctrl.domid, Int64.of_nativeint di.Xenctrl.total_memory_pages)
-          )
+        )
         domains
     in
     if not !hash then (
@@ -85,7 +85,7 @@ let _ =
         (fun (domid, total) ->
           Printf.printf "%10s %s (%Ld MiB)\n" (string_of_int domid)
             (hashes total) (total /* 256L)
-          )
+        )
         domains
     )
   done

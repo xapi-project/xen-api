@@ -94,7 +94,7 @@ let test_indicator_function fn fn_name output output_name inputs =
             (Alcotest_comparators.only_compare ())
             "return value" output
             (fn ~constraints:(create i))
-          )
+        )
         inputs
   )
 
@@ -132,7 +132,7 @@ let test_reset_to_safe_defaults () =
         "same constraints"
         (reset (create input))
         (create output)
-      )
+    )
     [
       ((256, 512, 1024, 2048, 4096), (256, 4096, 4096, 4096, 4096))
     ; ((4096, 2048, 1024, 512, 256), (256, 256, 256, 256, 256))

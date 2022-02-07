@@ -48,7 +48,7 @@ let string_of_file filename =
         try read_lines (input_line in_channel :: acc) with End_of_file -> acc
       in
       read_lines [] |> List.rev |> String.concat "\n"
-      )
+    )
     ~always:(fun () -> close_in in_channel)
 
 let with_output filename f =

@@ -224,7 +224,7 @@ let parse_sysfs_balloon () =
     (fun key ->
       let s = Unixext.string_of_file (sysfs_stem ^ key) in
       (key, Int64.of_string (String.trim s))
-      )
+    )
     keys
 
 let get_total_memory_from_balloon_driver () =
@@ -252,7 +252,7 @@ let get_total_memory_from_proc_meminfo () =
       with End_of_file ->
         error "Failed to read MemTotal from /proc/meminfo" ;
         None
-      )
+    )
     (fun () -> close_in ic)
 
 (* The total amount of memory addressable by this OS. If we cannot get it from

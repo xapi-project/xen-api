@@ -37,7 +37,7 @@ functor
               Request.write_body writer body
           | None ->
               return ()
-          )
+        )
         req oc
       >>= fun () ->
       Response.read ic >>= function
@@ -209,14 +209,14 @@ functor
                                     Printf.printf
                                       "  have wakener id %s, %Ld\n%!" (fst k)
                                       (snd k)
-                                    )
+                                  )
                                   wakener ;
                                 return (Ok ())
                               )
                           | Message.Request _ ->
                               return (Ok ())
                       )
-                      )
+                    )
                     transfer.Out.messages
                   >>|= fun () -> loop (Some transfer.Out.next)
             )
@@ -233,7 +233,7 @@ functor
             M.Clock.run_after timeout (fun () ->
                 M.Ivar.fill ivar (Error (`Message_switch `Timeout))
             )
-            )
+          )
           timeout
       in
       let msg =
@@ -399,7 +399,7 @@ functor
                       >>= fun () ->
                       let request = In.Ack i in
                       Connection.rpc c request >>= fun _ -> return ()
-                      )
+                    )
                     transfer.Out.messages
                   >>= fun () -> loop c (Some transfer.Out.next)
             )

@@ -100,7 +100,7 @@ let _ =
               with Unix.Unix_error (Unix.EEXIST, _, _) -> ()
             ) ;
             Gen_api.oc := open_out s
-            )
+          )
       , "Output to the specified file"
       )
     ]

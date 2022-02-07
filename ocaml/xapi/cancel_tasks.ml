@@ -129,7 +129,7 @@ let update_all_allowed_operations ~__context =
       safe_wrapper "allowed_ops - pool"
         (fun pool ->
           Xapi_pool_helpers.update_allowed_operations ~__context ~self:pool
-          )
+        )
         pool ;
       debug "Finished updating allowed operations: pool"
   )
@@ -193,7 +193,7 @@ let cancel_tasks_on_host ~__context ~host_opt =
           (fun t ->
             let s = Db.Task.get_status ~__context ~self:t in
             t <> mytask && (s = `pending || s = `cancelling)
-            )
+          )
           this_host_tasks
       in
       (* Need to remove any current_operations associated with these tasks *)

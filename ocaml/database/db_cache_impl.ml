@@ -130,7 +130,7 @@ let read_record_internal db tblname objref =
         in
         let accum_fvlist = (k, map_fvlist d) :: accum_fvlist in
         (accum_fvlist, accum_setref)
-        )
+      )
       row ([], [])
   with Not_found -> raise (DBCache_NotFound ("missing row", tblname, objref))
 
@@ -164,7 +164,7 @@ let create_row_locked t tblname kvs' new_objref =
         let value = ensure_utf8_xml value in
         let column = Schema.Table.find key schema in
         (key, Schema.Value.unmarshal column.Schema.Column.ty value)
-        )
+      )
       kvs'
   in
   (* we add the reference to the row itself so callers can use read_field_where to
@@ -220,7 +220,7 @@ let read_field_where t rcd =
         Schema.Value.marshal (Row.find rcd.return row) :: acc
       else
         acc
-      )
+    )
     tbl []
 
 let db_get_by_uuid t tbl uuid_val =
@@ -271,7 +271,7 @@ let find_refs_with_filter_internal db (tblname : string)
         Schema.Value.Unsafe_cast.string (Row.find Db_names.ref row) :: acc
       else
         acc
-      )
+    )
     tbl []
 
 let find_refs_with_filter t = find_refs_with_filter_internal (get_database t)
@@ -334,7 +334,8 @@ let load connections default_schema =
   (* We also consider populating from the HA metadata LUN and the general metadata LUN *)
   let connections =
     Parse_db_conf.make Db_globs.ha_metadata_db
-    :: Parse_db_conf.make Db_globs.gen_metadata_db :: connections
+    :: Parse_db_conf.make Db_globs.gen_metadata_db
+    :: connections
   in
   (* If we have a temporary_restore_path (backup uploaded in previous run of xapi process) then restore from that *)
   let populate db =
@@ -456,12 +457,12 @@ let spawn_db_flush_threads () =
                      debug "Exception in DB flushing thread: %s"
                        (Printexc.to_string e)
                  done
-                 )
+               )
                ()
-             )
+           )
            ()
         )
-      )
+    )
     (Db_conn_store.read_db_connections ())
 
 (* Called by server at start-of-day to initialiase cache. Populates cache and starts flushing threads *)
@@ -477,6 +478,6 @@ let stats t =
     (fun name _ tbl acc ->
       let size = Table.fold (fun _ _ _ acc -> acc + 1) tbl 0 in
       (name, size) :: acc
-      )
+    )
     (Database.tableset (get_database t))
     []

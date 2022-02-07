@@ -51,7 +51,7 @@ let parse_from file vendor device =
         if !current_xvendor = vendor then
           vendor_str := Some (String.sub line 6 (String.length line - 6))
       )
-      )
+    )
     file ;
   (!vendor_str, !device_str)
 

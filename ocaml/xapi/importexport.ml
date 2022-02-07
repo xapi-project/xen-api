@@ -161,7 +161,7 @@ let compare_checksums a b =
         error "Missing checksum for file %s (expected %s)" filename csum ;
         success := false
       )
-      )
+    )
     a ;
   !success
 
@@ -223,7 +223,7 @@ let cleanup (x : cleanup_stack) =
             (fun action ->
               Helpers.log_exn_continue "executing cleanup action"
                 (action __context rpc) session_id
-              )
+            )
             x
       )
   )
@@ -373,7 +373,7 @@ let remote_metadata_export_import ~__context ~rpc ~session_id ~remote_address
                       (field_type_error, [Printexc.to_string parse_error])
                   )
             )
-          )
+        )
         (fun () -> Client.Task.destroy rpc session_id remote_task)
   )
 

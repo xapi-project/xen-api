@@ -353,7 +353,7 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
              )
           )
           && vmrec.API.vM_power_state = `Running
-          )
+        )
         my_vms
     in
     if List.length my_running_vms > 0 then (
@@ -441,7 +441,7 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
                (Api_errors.pool_joining_host_has_non_management_vlans, [])
             )
         )
-        )
+      )
       (Db.VLAN.get_all ~__context)
   in
   (* Allow pool-join if the host and the pool are on the same management vlan *)
@@ -883,14 +883,14 @@ let rec create_or_get_host_on_master __context rpc session_id (host_ref, host) :
         (fun () ->
           Client.Host.set_other_config ~rpc ~session_id ~self:ref
             ~value:host.API.host_other_config
-          )
+        )
         () ;
       (* Copy the uefi-certificates into the newly created host record *)
       no_exn
         (fun () ->
           Client.Host.set_uefi_certificates ~rpc ~session_id ~host:ref
             ~value:host.API.host_uefi_certificates
-          )
+        )
         () ;
       (* Copy the crashdump SR *)
       let my_crashdump_sr =
@@ -910,7 +910,7 @@ let rec create_or_get_host_on_master __context rpc session_id (host_ref, host) :
           (fun () ->
             Client.Host.set_crash_dump_sr ~rpc ~session_id ~self:ref
               ~value:crashdump_sr
-            )
+          )
           ()
       ) ;
       (* Copy the suspend image SR *)
@@ -931,7 +931,7 @@ let rec create_or_get_host_on_master __context rpc session_id (host_ref, host) :
           (fun () ->
             Client.Host.set_suspend_image_sr ~rpc ~session_id ~self:ref
               ~value:suspend_image_sr
-            )
+          )
           ()
       ) ;
       ref
@@ -966,7 +966,7 @@ and create_or_get_sr_on_master __context rpc session_id (sr_ref, sr) :
         (fun () ->
           Client.SR.set_other_config ~rpc ~session_id ~self:ref
             ~value:sr.API.sR_other_config
-          )
+        )
         () ;
       ref
     )
@@ -1212,7 +1212,7 @@ let create_or_get_pvs_site_on_master __context rpc session_id
                 ~first_port:pvs_record.API.pVS_server_first_port
                 ~last_port:pvs_record.API.pVS_server_last_port
                 ~site:new_pvs_site
-              )
+            )
             (Db.PVS_site.get_servers ~__context ~self:pvs_site_ref)
         in
         new_pvs_site
@@ -1449,7 +1449,7 @@ let join_common ~__context ~master_address ~master_username ~master_password
           ~session_id ~uuid:my_uuid ~certificate:my_certificate
       in
       Cert_distrib.import_joining_pool_certs ~__context ~pool_certs
-      )
+    )
     (fun () -> Client.Session.logout unverified_rpc session_id) ;
 
   (* Certificate exchange done, we must switch to verified pool connections as
@@ -1556,7 +1556,7 @@ let join_common ~__context ~master_address ~master_username ~master_password
           "Error whilst importing db objects to master. The pool-join \
            operation will continue, but some of the slave's VMs may not be \
            available on the master."
-      )
+    )
     (fun () -> Client.Session.logout rpc session_id) ;
 
   (* Attempt to unplug all our local storage. This is needed because
@@ -1569,7 +1569,7 @@ let join_common ~__context ~master_address ~master_username ~master_password
             (Printf.sprintf "Unplugging PBD %s" (Ref.string_of self))
             (fun () -> Client.PBD.unplug rpc session_id self)
             ()
-          )
+        )
         (Db.Host.get_PBDs ~__context ~self:me)
   ) ;
   (* If management is on a VLAN, then we might need to create a vlan bridge with the same name as the Pool master is using *)
@@ -1594,7 +1594,7 @@ let join_common ~__context ~master_address ~master_username ~master_password
           Client.Host.update_pool_secret my_rpc my_session_id host
             !new_pool_secret ;
           Client.Host.update_master my_rpc my_session_id host master_address
-          )
+        )
         (Db.Host.get_all_records ~__context)
   ) ;
   Xapi_hooks.pool_join_hook ~__context
@@ -1717,7 +1717,7 @@ let eject_self ~__context ~host =
                (Api_errors.operation_not_allowed, ["VM resident on host"])
             )
         )
-        )
+      )
       my_vms_with_records ;
     (* all control domains resident on me should be destroyed once I leave the
        		pool, therefore pick them out as follows: if they have a valid resident_on,
@@ -1913,7 +1913,7 @@ let eject_self ~__context ~host =
             Unix.rename
               !Xapi_globs.remote_db_conf_fragment_path
               (!Xapi_globs.remote_db_conf_fragment_path ^ ".bak")
-            )
+          )
           () ;
         (* Reset the domain 0 network interface naming configuration
            			 * back to a fresh-install state for the currently-installed
@@ -1924,7 +1924,7 @@ let eject_self ~__context ~host =
              "/etc/sysconfig/network-scripts/interface-rename.py"
              ["--reset-to-install"]
           )
-        )
+      )
       (fun () -> Xapi_fuse.light_fuse_and_reboot_after_eject ()) ;
     Xapi_hooks.pool_eject_hook ~__context
 
@@ -1987,7 +1987,7 @@ let sync_database ~__context =
             Helpers.call_api_functions ~__context (fun rpc session_id ->
                 Client.Host.request_backup rpc session_id host generation true
             )
-            )
+          )
           (Db.Host.get_all ~__context)
       )
   )
@@ -2028,7 +2028,7 @@ let management_reconfigure ~__context ~network =
     (fun self ->
       let host = Db.PIF.get_host ~__context ~self in
       Hashtbl.add hosts_with_pifs host self
-      )
+    )
     pifs_on_network ;
   (* All Hosts must have associated PIF on the network *)
   let all_hosts = Db.Host.get_all ~__context in
@@ -2041,7 +2041,7 @@ let management_reconfigure ~__context ~network =
              , [Ref.string_of host; Ref.string_of network]
              )
           )
-      )
+    )
     all_hosts ;
   let address_type =
     Db.PIF.get_primary_address_type ~__context ~self:(List.hd pifs_on_network)
@@ -2060,7 +2060,7 @@ let management_reconfigure ~__context ~network =
           ) ;
       Xapi_pif.assert_usable_for_management ~__context ~primary_address_type
         ~self
-      )
+    )
     pifs_on_network ;
   (* Perform Host.management_reconfigure on slaves first and last on master *)
   let f ~rpc ~session_id ~host =
@@ -2077,7 +2077,7 @@ let management_reconfigure ~__context ~network =
   List.iter
     (fun host ->
       debug "Host recovered=%s" (Db.Host.get_uuid ~__context ~self:host)
-      )
+    )
     hosts_recovered
 
 let initial_auth ~__context = Xapi_globs.pool_secret ()
@@ -2200,7 +2200,7 @@ let create_VLAN ~__context ~device ~network ~vLAN =
                   ()
             | _ ->
                 ()
-            )
+          )
           pifs
     )
   in
@@ -2220,7 +2220,7 @@ let create_VLAN ~__context ~device ~network ~vLAN =
               (* Any error and we'll clean up and exit *)
               safe_destroy_PIFs ~__context !created ;
               raise e
-            )
+          )
           hosts
       in
       (* CA-22381: best-effort plug of the newly-created VLAN PIFs. Note if any of these calls fail
@@ -2232,7 +2232,7 @@ let create_VLAN ~__context ~device ~network ~vLAN =
             (Printf.sprintf "Plugging VLAN PIF %s" (Ref.string_of pif))
             (fun () -> Client.PIF.plug rpc session_id pif)
             ()
-          )
+        )
         pifs ;
       pifs
   )
@@ -2247,7 +2247,7 @@ let create_VLAN_from_PIF ~__context ~pif ~network ~vLAN =
         List.iter
           (fun vlan ->
             try Client.VLAN.destroy rpc session_id vlan with _ -> ()
-            )
+          )
           vlans
     )
   in
@@ -2279,7 +2279,7 @@ let create_VLAN_from_PIF ~__context ~pif ~network ~vLAN =
               (* Any error and we'll clean up and exit *)
               safe_destroy_VLANs ~__context !created ;
               raise e
-            )
+          )
           pifs_on_live_hosts
       in
       let vlan_pifs =
@@ -2296,7 +2296,7 @@ let create_VLAN_from_PIF ~__context ~pif ~network ~vLAN =
             (Printf.sprintf "Plugging VLAN PIF %s" (Ref.string_of pif))
             (fun () -> Client.PIF.plug rpc session_id pif)
             ()
-          )
+        )
         vlan_pifs ;
       vlan_pifs
   )
@@ -2379,7 +2379,7 @@ let ha_compute_hypothetical_max_host_failures_to_tolerate ~__context
           (Api_errors.Server_error
              (Api_errors.invalid_value, ["ha_restart_priority"; pri])
           )
-      )
+    )
     configuration ;
   let protected_vms =
     List.map fst
@@ -2408,7 +2408,7 @@ let ha_compute_vm_failover_plan ~__context ~failed_hosts ~failed_vms =
           Db.Host_metrics.get_live ~__context
             ~self:(Db.Host.get_metrics ~__context ~self:h)
         with _ -> false
-        )
+      )
       all_hosts
   in
   let live_hosts =
@@ -2429,7 +2429,7 @@ let ha_compute_vm_failover_plan ~__context ~failed_hosts ~failed_vms =
              (* default *)
            with Api_errors.Server_error (code, params) ->
              [(self, [("error_code", code)])]
-           )
+         )
          failed_vms
       )
   in
@@ -2623,7 +2623,7 @@ let enable_external_auth ~__context ~pool ~config ~service_name ~auth_type =
                       (* [that's because it might be in an inconsistent external_auth state] *)
                       _rollback_list := h :: !_rollback_list ;
                       false
-                  )
+                )
                 hosts
             then
               (* if List.for_all returned true, then we have successfully enabled all hosts in the pool *)
@@ -2659,7 +2659,7 @@ let enable_external_auth ~__context ~pool ~config ~service_name ~auth_type =
                          authentication for host %s: %s"
                         (Db.Host.get_name_label ~__context ~self:host)
                         (ExnHelper.string_of_exn e)
-                    )
+                  )
                   (List.rev rollback_list) ;
                 (* we bubble up the exception returned by the failed host *)
                 match err_of_e with
@@ -2750,7 +2750,7 @@ let disable_external_auth ~__context ~pool ~config =
                   msg ;
                 (* no exception should be raised here, we want to visit every host in hosts *)
                 (host, "err", msg)
-            )
+          )
           hosts
       in
       let failedhosts_list =
@@ -2791,7 +2791,7 @@ let detect_nonhomogeneous_external_auth_in_pool ~__context =
           (* (also, checking the master inside this function would create an infinite recursion loop) *)
           Xapi_host.detect_nonhomogeneous_external_auth_in_host ~__context
             ~host:slave
-          )
+        )
         slaves
   )
 
@@ -2837,7 +2837,7 @@ let find_or_create_redo_log_vdi ~__context ~sr =
         true
         && Db.VDI.get_type ~__context ~self = `redo_log
         && Db.VDI.get_virtual_size ~__context ~self >= Redo_log.minimum_vdi_size
-        )
+      )
       (Db.SR.get_VDIs ~__context ~self:sr)
   with
   | x :: _ ->
@@ -2987,7 +2987,7 @@ let enable_local_storage_caching ~__context ~self =
             , List.assoc pbdrec.API.pBD_SR srs
             )
         with _ -> None
-        )
+      )
       pbds
   in
   let acceptable =
@@ -2997,7 +2997,7 @@ let enable_local_storage_caching ~__context ~self =
         && List.length srrec.API.sR_PBDs = 1
         && List.mem_assoc Smint.Sr_supports_local_caching
              (Sm.features_of_driver srrec.API.sR_type)
-        )
+      )
       hosts_and_srs
   in
   let failed_hosts =
@@ -3016,10 +3016,10 @@ let enable_local_storage_caching ~__context ~self =
                       ref ;
                     result := None
                   with _ -> ()
-                  )
+                )
                 acceptable_srs ;
               !result
-              )
+            )
             hosts
         in
         failed
@@ -3045,7 +3045,7 @@ let disable_local_storage_caching ~__context ~self =
               Client.Host.disable_local_storage_caching ~rpc ~session_id ~host ;
               None
             with _ -> Some host
-            )
+          )
           hosts
     )
   in
@@ -3109,7 +3109,7 @@ let assert_mac_seeds_available ~__context ~self ~seeds =
           in
           StringSet.add mac_seed acc
         with Not_found -> acc
-        )
+      )
       StringSet.empty all_guests
   in
   (* Create a set of the MAC seeds we want to test. *)
@@ -3167,9 +3167,9 @@ let set_igmp_snooping_enabled ~__context ~self ~value =
                     (Db.Host.get_uuid ~__context ~self:host)
                     (Db.Network.get_uuid ~__context ~self:network) ;
                   true
-                )
+              )
               fail networks
-            )
+          )
           false hosts
       in
       if failure then
@@ -3186,7 +3186,7 @@ let has_extension ~__context ~self ~name =
       Helpers.call_api_functions ~__context (fun rpc session_id ->
           Client.Host.has_extension rpc session_id host name
       )
-      )
+    )
     hosts
 
 let guest_agent_config_requirements =
@@ -3201,7 +3201,7 @@ let guest_agent_config_requirements =
             let (_ : bool) = bool_of_string x in
             true
           with Invalid_argument _ -> false
-          )
+        )
     }
   ; {
       key= Xapi_xenops.Guest_agent_features.Xapi.auto_update_url
@@ -3213,7 +3213,7 @@ let guest_agent_config_requirements =
               true
           | _ ->
               false
-          )
+        )
     }
   ]
 
@@ -3306,7 +3306,7 @@ let set_repositories ~__context ~self ~value =
         Repository.cleanup_pool_repo ~__context ~self:x ;
         Repository.reset_updates_in_cache ()
       )
-      )
+    )
     existings ;
   (* To be added *)
   List.iter
@@ -3316,7 +3316,7 @@ let set_repositories ~__context ~self ~value =
         Db.Repository.set_up_to_date ~__context ~self:x ~value:false ;
         Repository.reset_updates_in_cache ()
       )
-      )
+    )
     value ;
   Db.Pool.set_repositories ~__context ~self ~value
 
@@ -3344,7 +3344,7 @@ let remove_repository ~__context ~self ~value =
         Repository.cleanup_pool_repo ~__context ~self:x ;
         Repository.reset_updates_in_cache ()
       )
-      )
+    )
     (Db.Pool.get_repositories ~__context ~self) ;
   Db.Pool.remove_repositories ~__context ~self ~value
 

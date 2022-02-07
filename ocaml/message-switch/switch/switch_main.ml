@@ -89,7 +89,7 @@ let make_server config trace_config =
       (fun () ->
         f fd >>= fun result ->
         Lwt_unix.close fd >>= fun () -> return result
-        )
+      )
       (fun e -> Lwt_unix.close fd >>= fun () -> fail e)
   in
   let save statedir qs =

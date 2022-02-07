@@ -27,8 +27,8 @@ let create_vdi ~__context ~sR ~size =
   )
 
 (* Before simply returning the VDI from the DB, check if it actually
-  still exists on disk. The VDI may have gone away if it was on a
-  non-persistent SR (e.g. on a RAM disk). *)
+   still exists on disk. The VDI may have gone away if it was on a
+   non-persistent SR (e.g. on a RAM disk). *)
 let get_vdi ~__context ~self =
   let vdi = Db.PVS_cache_storage.get_VDI ~__context ~self in
   (* If there is already an attached VBD for the VDI, then we assume that all is well. *)

@@ -1204,7 +1204,7 @@ and print_async_param_getter classname asyncMessages =
         sprintf "                    case Xen%sProperty.%s:"
           (ocaml_class_to_csharp_class classname)
           x
-        )
+      )
       asyncMessages
   in
   match asyncMessages with

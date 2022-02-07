@@ -139,7 +139,7 @@ module Ldap = struct
           let reg = fst element in
           let value = snd element in
           Re.replace_string reg ~by:value acc
-          )
+        )
         str escape_map
   end
 
@@ -1116,7 +1116,8 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
        | Ok uname ->
            ntlm_auth uname password
      in
-     Ok sid)
+     Ok sid
+    )
     |> maybe_raise
 
   (* subject_id Authenticate_ticket(string ticket)

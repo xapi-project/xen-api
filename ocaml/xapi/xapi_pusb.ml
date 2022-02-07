@@ -56,7 +56,7 @@ let scan_start ~__context usbs =
       in
       let group = Xapi_pusb_helpers.find_or_create ~__context self in
       Db.PUSB.set_USB_group ~__context ~self ~value:group
-      )
+    )
     (USBSet.diff local_usb_set known_usb_set) ;
   let refresh_speed (self, rec') =
     (* anything with a negative speed is considered unset.
@@ -81,7 +81,7 @@ let scan_start ~__context usbs =
       USBSet.mem
         (extract_known_usb_info rc)
         (USBSet.diff known_usb_set local_usb_set)
-      )
+    )
     known_pusbs_in_db
   |> List.iter (fun (self, _) ->
          try Xapi_pusb_helpers.destroy_pusb ~__context self
@@ -114,7 +114,7 @@ let start_thread f =
                (Printexc.to_string e) ;
              ()
          done
-         )
+       )
        ()
     )
 
@@ -171,7 +171,7 @@ let set_passthrough_enabled ~__context ~self ~value =
                        debug "Caught failure during remove vdi records." ;
                        raise e
                  )
-              )
+            )
             udev_srs ;
           debug "set passthrough_enabled %b" value ;
           Db.PUSB.set_passthrough_enabled ~__context ~self ~value

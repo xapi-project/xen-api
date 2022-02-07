@@ -184,7 +184,7 @@ module Internal = struct
             name :: acc
           else
             acc
-          )
+        )
         queues.queues []
   end
 
@@ -286,9 +286,9 @@ let transfer queues from names =
         Int64Map.fold
           (fun id e acc ->
             ((name, id), e.Message_switch_core.Protocol.Entry.message) :: acc
-            )
+          )
           not_seen []
-        )
+      )
       names
   in
   List.concat messages

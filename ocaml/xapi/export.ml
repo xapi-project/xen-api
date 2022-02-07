@@ -84,7 +84,7 @@ let rec update_table ~__context ~include_snapshots ~preserve_power_state
           let vif = Db.VIF.get_record ~__context ~self:vif in
           add vif.API.vIF_network
         )
-        )
+      )
       vm.API.vM_VIFs ;
     List.iter
       (fun vbd ->
@@ -94,7 +94,7 @@ let rec update_table ~__context ~include_snapshots ~preserve_power_state
           if not vbd.API.vBD_empty then
             add_vdi vbd.API.vBD_VDI
         )
-        )
+      )
       vm.API.vM_VBDs ;
     List.iter
       (fun vgpu ->
@@ -104,7 +104,7 @@ let rec update_table ~__context ~include_snapshots ~preserve_power_state
           add vgpu.API.vGPU_type ;
           add vgpu.API.vGPU_GPU_group
         )
-        )
+      )
       vm.API.vM_VGPUs ;
     (* add all PVS proxies that have a VIF belonging to this VM, add their
        		 * PVS sites as well
@@ -123,7 +123,7 @@ let rec update_table ~__context ~include_snapshots ~preserve_power_state
         (fun snap ->
           update_table ~__context ~include_snapshots:false ~preserve_power_state
             ~include_vhd_parents ~table snap
-          )
+        )
         vm.API.vM_snapshots ;
     (* If VM is suspended then add the suspend_VDI *)
     let vdi = vm.API.vM_suspend_VDI in
@@ -637,7 +637,7 @@ let export refresh_session __context rpc session_id s vm_ref
       (fun self ->
         Db.SR.get_content_type ~__context ~self:(Db.VDI.get_SR ~__context ~self)
         <> "iso"
-        )
+      )
       vdis
   in
   let vdis =
@@ -650,7 +650,7 @@ let export refresh_session __context rpc session_id s vm_ref
         , vdi
         , Db.VDI.get_virtual_size ~__context ~self:vdi
         )
-        )
+      )
       vdis
   in
   Stream_vdi.send_all refresh_session s __context rpc session_id vdis ;
@@ -733,7 +733,7 @@ let metadata_handler (req : Request.t) s _ =
               (fun (vm, vmr) ->
                 (not (is_default_template vmr))
                 && ((not (Helpers.is_domain_zero ~__context vm)) || include_dom0)
-                )
+              )
               all_vms
           in
           List.map fst interesting_vms
@@ -765,18 +765,18 @@ let metadata_handler (req : Request.t) s _ =
                        (fun vm ->
                          lock_vm ~__context ~vm ~task_id `metadata_export ;
                          locked_vms := vm :: !locked_vms
-                         )
+                       )
                        vm_refs ;
                      export_metadata ~with_snapshot_metadata:export_snapshots
                        ~preserve_power_state:true ~include_vhd_parents
                        ~__context ~vms:vm_refs write_fd
-                     )
+                   )
                    (fun () ->
                      Unix.close write_fd ;
                      List.iter
                        (fun vm -> unlock_vm ~__context ~vm ~task_id)
                        !locked_vms
-                     )
+                   )
                with e ->
                  Backtrace.is_important e ;
                  export_error := Some e ;

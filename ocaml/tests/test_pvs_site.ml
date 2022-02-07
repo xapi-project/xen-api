@@ -31,7 +31,7 @@ let test_unlicensed () =
         (Xapi_pvs_site.introduce ~__context ~name_label ~name_description
            ~pVS_uuid
         )
-      )
+    )
 
 let test_introduce () =
   let __context = T.make_test_database () in
@@ -85,7 +85,7 @@ let test_forget_running_proxy () =
     )
     (fun () ->
       Xapi_pvs_site.forget_internal ~__context ~self:pvs_site ~cleanup_storage
-      )
+    )
 
 let test_forget_server () =
   let __context = T.make_test_database () in
@@ -100,7 +100,7 @@ let test_forget_server () =
     )
     (fun () ->
       Xapi_pvs_site.forget_internal ~__context ~self:pvs_site ~cleanup_storage
-      )
+    )
 
 let test_forget_running_proxy_and_server () =
   let __context = T.make_test_database () in
@@ -121,7 +121,7 @@ let test_forget_running_proxy_and_server () =
     )
     (fun () ->
       Xapi_pvs_site.forget_internal ~__context ~self:pvs_site ~cleanup_storage
-      )
+    )
 
 let test =
   [

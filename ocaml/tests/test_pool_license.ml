@@ -93,7 +93,7 @@ module PoolExpiryDate = Generic.MakeStateful (struct
             ()
         in
         ()
-        )
+      )
       expiry_dates
 
   let extract_output __context _ =
@@ -136,7 +136,7 @@ module PoolEdition = Generic.MakeStateful (struct
       (fun edition ->
         let (_ : API.ref_host) = Test_common.make_host ~__context ~edition () in
         ()
-        )
+      )
       editions
 
   let extract_output __context _ =
@@ -181,7 +181,7 @@ module PoolLicenseState = Generic.MakeStateful (struct
             ~license_params:host.license_params ()
         in
         ()
-        )
+      )
       hosts ;
     let (_ : API.ref_pool) =
       Test_common.make_pool ~__context

@@ -40,7 +40,7 @@ let main () =
         (fun (_vm, vm_rec) -> Printf.printf "VM %s\n" vm_rec.API.vM_name_label)
         vms ;
       return ()
-      )
+    )
     (fun () -> Session.logout ~rpc ~session_id)
 
 let _ =

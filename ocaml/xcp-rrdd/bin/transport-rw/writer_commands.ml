@@ -63,7 +63,7 @@ let main_loop writer interval =
        (fun _ ->
          writer.Rrd_writer.cleanup () ;
          exit 0
-         )
+       )
     ) ;
   try
     while true do

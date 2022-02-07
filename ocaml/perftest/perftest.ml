@@ -33,7 +33,7 @@ let marshall_xenrt pool metadata results =
     (fun r ->
       Printf.fprintf oc "  <test name=\"%s\" subtest=\"%s\">%f</test>\n"
         r.resultname r.subtest r.xenrtresult
-      )
+    )
     results ;
   Printf.fprintf oc " </tests>\n</testrun>" ;
   close_out oc
@@ -115,7 +115,7 @@ let _ =
         mode := x
       else
         debug ~out:stderr "Ignoring unexpected argument: %s" x
-      )
+    )
     (Printf.sprintf
        "Configure and run a simulated test\nUsage: %s -key <pool_name> %s"
        Sys.argv.(0)
@@ -181,14 +181,14 @@ let _ =
                     marshall pool
                       (get_metadata newrpc session)
                       (Tests.run newrpc session !key !run_all !iter)
-                    )
+                  )
                   (fun () ->
                     if pool.Scenario.sdk then
                       Client.Session.logout newrpc session
-                    )
+                  )
             | _ ->
                 failwith (Printf.sprintf "unknown mode: %s" !mode)
-            )
+          )
           (fun () -> Client.Session.logout rpc session)
   with Api_errors.Server_error (code, params) ->
     debug ~out:stderr "Caught API error: %s [ %s ]" code

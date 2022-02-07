@@ -3735,7 +3735,7 @@ let rio_help printer minimal cmd =
           (List.mem x
              ["server"; "username"; "password"; "port"; "minimal"; "all"]
           )
-        )
+      )
       cmd.params
   in
   if List.length cmds > 0 then

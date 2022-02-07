@@ -27,7 +27,7 @@ module Utility = struct
       (fun (n, xs, xs') ->
         Alcotest.(check (list int))
           "drop function with valid arguments" (Vm_placement.drop n xs) xs'
-        )
+      )
       [
         (0, [], [])
       ; (0, [0], [0])
@@ -46,7 +46,7 @@ module Utility = struct
     List.iter
       (fun (n, xs) ->
         assert_invalid_argument (fun () -> ignore (Vm_placement.drop n xs))
-        )
+      )
       [
         (-1, [])
       ; (-1, [0])
@@ -63,7 +63,7 @@ module Utility = struct
     List.iter
       (fun (n, xs, xs') ->
         Alcotest.(check (list int)) "same lists" (Vm_placement.take n xs) xs'
-        )
+      )
       [
         (0, [], [])
       ; (0, [0], [])
@@ -82,7 +82,7 @@ module Utility = struct
     List.iter
       (fun (n, xs) ->
         assert_invalid_argument (fun () -> ignore (Vm_placement.take n xs))
-        )
+      )
       [
         (-1, [])
       ; (-1, [0])
@@ -102,7 +102,7 @@ module Utility = struct
           "same lists"
           (Vm_placement.take_nth n xs)
           (x, xs')
-        )
+      )
       [
         (0, [0], 0, [])
       ; (0, [0; 1], 0, [1])
@@ -117,7 +117,7 @@ module Utility = struct
     List.iter
       (fun (n, xs) ->
         assert_invalid_argument (fun () -> ignore (Vm_placement.take_nth n xs))
-        )
+      )
       [
         (-1, [])
       ; (-1, [0])
@@ -137,7 +137,7 @@ module Utility = struct
           "same index"
           (Vm_placement.generate_list_index (fun () -> v) xs)
           i
-        )
+      )
       [
         (0.00, [0], 0)
       ; (0.00, [0; 1], 0)
@@ -161,7 +161,7 @@ module Utility = struct
         assert_invalid_argument (fun () ->
             ignore (Vm_placement.generate_list_index (fun () -> v) xs)
         )
-        )
+      )
       [(0.50, []); (-0.01, [0; 1; 2; 3]); (1.00, [0; 1; 2; 3])]
 
   (** Tests the take_random_element_from_list function with valid arguments. *)
@@ -171,7 +171,7 @@ module Utility = struct
         Alcotest.(check (pair int (list int)))
           "correct element taken" (x, xs')
           (Vm_placement.take_random_element_from_list (fun () -> v) xs)
-        )
+      )
       [
         (0.00, [0], 0, [])
       ; (0.00, [0; 1], 0, [1])
@@ -195,7 +195,7 @@ module Utility = struct
         assert_invalid_argument (fun () ->
             ignore (Vm_placement.take_random_element_from_list (fun () -> v) xs)
         )
-        )
+      )
       [(0.50, []); (-0.01, [0; 1; 2; 3]); (1.00, [0; 1; 2; 3])]
 
   type dummy = N2 | N1 | Z | P1 | P2
@@ -233,7 +233,7 @@ module Utility = struct
              input
           )
           (out_selected, out_unselected)
-        )
+      )
       [
         ([], forward, positive, [], [])
       ; ([Z], forward, positive, [], [Z])
@@ -410,7 +410,7 @@ module Summarisation = struct
           "same host snapshot summary"
           (Vm_placement.summarise_host_snapshot extra_guests host_snapshot)
           host_snapshot_summary
-        )
+      )
       summarise_host_snapshot_input_output_list
 
   (** Tests relating to pool, host and guest snapshot summarisation. *)
@@ -438,7 +438,7 @@ module Categorisation = struct
           (Vm_placement.definite_host_category
              (mock_slave a s_min d_min d_max s_max)
           )
-        )
+      )
       [
         (* Varying these parameters SHOULD vary the result: *)
         (* Σ available, Σ static_max                        *)
@@ -469,7 +469,7 @@ module Categorisation = struct
           (Vm_placement.definite_host_category
              (mock_master a s_min d_min d_max s_max)
           )
-        )
+      )
       [
         (* Varying these parameters SHOULD vary the result: *)
         (* Σ available, Σ static_max                        *)
@@ -500,7 +500,7 @@ module Categorisation = struct
           (Vm_placement.probable_host_category
              (mock_slave a s_min d_min d_max s_max)
           )
-        )
+      )
       [
         (* Varying these parameters SHOULD vary the result: *)
         (* Σ available, Σ dynamic_max                       *)
@@ -531,7 +531,7 @@ module Categorisation = struct
           (Vm_placement.probable_host_category
              (mock_master a s_min d_min d_max s_max)
           )
-        )
+      )
       [
         (* Varying these parameters SHOULD vary the result: *)
         (* Σ available, Σ dynamic_max                       *)
@@ -561,7 +561,7 @@ module Categorisation = struct
         Alcotest.(check int64)
           "same ints" expected_result
           (category_fn (mock_host a s_min d_min d_max s_max))
-        )
+      )
       [
         (* Varying these parameters SHOULD vary the result: *)
         (* Σ available, Σ dynamic_mix, Σ dynamic_max        *)

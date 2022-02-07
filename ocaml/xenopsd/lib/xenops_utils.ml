@@ -103,7 +103,7 @@ let prefixes_of k =
     List.fold_left
       (fun (acc, prefix) element ->
         ((element :: prefix) :: acc, element :: prefix)
-        )
+      )
       ([], []) k
   in
   List.map List.rev prefixes
@@ -176,7 +176,7 @@ module FileFS = struct
             (* Anything else probably is an error, but we just log and continue *)
             error "Failed to DB.delete %s : %s" path (Printexc.to_string e) ;
             ()
-        )
+      )
       (paths_of path)
 
   (** [rmtree path] removes a file or directory recursively without following
@@ -252,7 +252,7 @@ module MemFS = struct
         let dir = dir_locked (dirname p) in
         if not (StringMap.mem (filename p) !dir) then
           dir := StringMap.add (filename p) (Dir (ref StringMap.empty)) !dir
-        )
+      )
       (List.rev (prefixes_of path))
 
   let mkdir path = Mutex.execute m (fun () -> mkdir_locked path)
@@ -304,7 +304,7 @@ module MemFS = struct
                 false
             in
             if deletable then dir := StringMap.remove (filename p) !dir
-            )
+          )
           (prefixes_of path)
     )
 
@@ -386,7 +386,7 @@ functor
           | Error (`Msg m) ->
               failwith
                 (Printf.sprintf "Failed to unmarshal '%s': %s" I.namespace m)
-          )
+        )
         (FS.read path)
 
     let read_exn (k : I.key) =
@@ -627,7 +627,7 @@ let chunks size lst =
             (op :: xs) :: xss
           else
             [op] :: xs :: xss
-      )
+    )
     [] lst
   |> List.map (fun xs -> List.rev xs)
   |> List.rev

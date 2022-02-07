@@ -22,14 +22,14 @@ open D
 let () = Mirage_crypto_rng_unix.initialize ()
 
 (* Certificate locations:
-  * a) stunnel external             = /etc/xensource/xapi-ssl.pem
-  * b) stunnel SNI (internal)       = /etc/xensource/xapi-pool-tls.pem
-  * c) user trusted cert folder     = /etc/stunnel/certs/
-  * d) internal trusted cert folder = /etc/stunnel/certs-pool/
-  * e) appliance trusted bundle     = /etc/stunnel/xapi-stunnel-ca-bundle.pem
-  * f) host-in-pool trusted bundle  = /etc/stunnel/xapi-pool-ca-bundle.pem
-  *
-  * Note that the bundles (e) and (f) are generated automatically using the contents of (c) and (d) respectively *)
+   * a) stunnel external             = /etc/xensource/xapi-ssl.pem
+   * b) stunnel SNI (internal)       = /etc/xensource/xapi-pool-tls.pem
+   * c) user trusted cert folder     = /etc/stunnel/certs/
+   * d) internal trusted cert folder = /etc/stunnel/certs-pool/
+   * e) appliance trusted bundle     = /etc/stunnel/xapi-stunnel-ca-bundle.pem
+   * f) host-in-pool trusted bundle  = /etc/stunnel/xapi-pool-ca-bundle.pem
+   *
+   * Note that the bundles (e) and (f) are generated automatically using the contents of (c) and (d) respectively *)
 
 type t_trusted = CA_Certificate | CRL
 
@@ -272,7 +272,7 @@ let local_list kind =
     (fun n ->
       let stat = Unix.lstat (library_filename kind n) in
       stat.Unix.st_kind = Unix.S_REG
-      )
+    )
     (Array.to_list (Sys.readdir (library_path kind)))
 
 let local_sync () =
@@ -335,7 +335,7 @@ let sync_all_hosts ~__context hosts =
         (fun host ->
           try Client.Host.certificate_sync rpc session_id host
           with e -> exn := Some e
-          )
+        )
         hosts
   ) ;
   match !exn with Some e -> raise e | None -> ()
@@ -348,13 +348,13 @@ let sync_certs_crls kind list_func install_func uninstall_func ~__context
         (fun c ->
           if not (List.mem c master_certs) then
             uninstall_func rpc session_id host c
-          )
+        )
         host_certs ;
       List.iter
         (fun c ->
           if not (List.mem c host_certs) then
             install_func rpc session_id host c (get_cert kind c)
-          )
+        )
         master_certs
   )
 
@@ -364,23 +364,23 @@ let sync_certs kind ~__context master_certs host =
       sync_certs_crls CA_Certificate
         (fun rpc session_id host ->
           Client.Host.certificate_list rpc session_id host
-          )
+        )
         (fun rpc session_id host c cert ->
           Client.Host.install_ca_certificate rpc session_id host c cert
-          )
+        )
         (fun rpc session_id host c ->
           Client.Host.uninstall_ca_certificate rpc session_id host c
-          )
+        )
         ~__context master_certs host
   | CRL ->
       sync_certs_crls CRL
         (fun rpc session_id host -> Client.Host.crl_list rpc session_id host)
         (fun rpc session_id host c cert ->
           Client.Host.crl_install rpc session_id host c cert
-          )
+        )
         (fun rpc session_id host c ->
           Client.Host.crl_uninstall rpc session_id host c
-          )
+        )
         ~__context master_certs host
 
 let sync_certs_all_hosts kind ~__context master_certs hosts_but_master =
@@ -388,7 +388,7 @@ let sync_certs_all_hosts kind ~__context master_certs hosts_but_master =
   List.iter
     (fun host ->
       try sync_certs kind ~__context master_certs host with e -> exn := Some e
-      )
+    )
     hosts_but_master ;
   match !exn with Some e -> raise e | None -> ()
 

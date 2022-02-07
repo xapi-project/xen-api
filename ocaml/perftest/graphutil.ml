@@ -34,7 +34,7 @@ let merge_infos (infos : info list) =
         (List.map
            (fun ((f, r, s), fl) ->
              if file = f && result = r && subtest = s then fl else []
-             )
+           )
            infos
         )
     )
@@ -44,7 +44,7 @@ let merge_infos (infos : info list) =
   List.iter
     (fun ((f, r, s), fl) ->
       debug "\t* in file: %s \t%s \t%s \t-- %i points" f r s (List.length fl)
-      )
+    )
     merge_infos ;
   merge_infos
 

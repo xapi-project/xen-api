@@ -195,7 +195,7 @@ let get buffer from timeout :
             acc
         | Some (id, x) ->
             (id, CompactEvent.to_event x) :: acc
-        )
+      )
       []
   in
   return (List.rev reversed_results)

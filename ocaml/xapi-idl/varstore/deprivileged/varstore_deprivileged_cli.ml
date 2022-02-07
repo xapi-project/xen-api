@@ -50,7 +50,7 @@ let cli =
        (fun t ->
          let term, info = t rpc in
          (Cmdliner.Term.(const wrapper $ path $ term $ const ()), info)
-         )
+       )
        (Cmds.implementation ())
     )
 

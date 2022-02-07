@@ -97,7 +97,7 @@ module Dump = struct
         HandleMap.fold
           (fun (time, _) i acc ->
             {time= mtime_sub time now; thing= i.name} :: acc
-            )
+          )
           s.schedule []
     )
 end
@@ -141,7 +141,7 @@ let process_expired s =
       try i.fn ()
       with e ->
         debug "Scheduler ignoring exception: %s\n%!" (Printexc.to_string e)
-      )
+    )
     expired ;
   expired () <> Seq.Nil
 

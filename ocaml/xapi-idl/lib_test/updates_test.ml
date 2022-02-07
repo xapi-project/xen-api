@@ -68,7 +68,7 @@ let test_add_after_get () =
         let _, updates, _ = M.get "dbg" None (Some 0) u in
         ok :=
           List.length updates = 1 && List.exists (fun x -> x = update_a) updates
-        )
+      )
       ()
   in
   M.add update_a u ;

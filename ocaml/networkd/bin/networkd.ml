@@ -60,7 +60,7 @@ let options =
         (fun x ->
           Network_monitor_thread.monitor_whitelist :=
             Astring.String.cuts ~empty:false ~sep:"," x
-          )
+        )
     , (fun () -> String.concat "," !Network_monitor_thread.monitor_whitelist)
     , "List of prefixes of interface names that are to be monitored"
     )
@@ -90,7 +90,7 @@ let options =
         (fun x -> Network_utils.mcast_snooping_disable_flood_unregistered := x)
     , (fun () ->
         string_of_bool !Network_utils.mcast_snooping_disable_flood_unregistered
-        )
+      )
     , "Set OVS bridge configuration mcast-snooping-disable-flood-unregistered \
        as 'true' or 'false'"
     )
@@ -124,10 +124,10 @@ let options =
         (fun x ->
           Jsonrpc_client.json_rpc_read_timeout :=
             Int64.(mul 1000000L (of_int x))
-          )
+        )
     , (fun () ->
         Int64.(to_string (div !Jsonrpc_client.json_rpc_read_timeout 1000000L))
-        )
+      )
     , "JSON RPC response read timeout value in ms"
     )
   ; ( "json-rpc-write-timeout"
@@ -135,10 +135,10 @@ let options =
         (fun x ->
           Jsonrpc_client.json_rpc_write_timeout :=
             Int64.(mul 1000000L (of_int x))
-          )
+        )
     , (fun () ->
         Int64.(to_string (div !Jsonrpc_client.json_rpc_write_timeout 1000000L))
-        )
+      )
     , "JSON RPC write timeout value in ms"
     )
   ]
@@ -238,7 +238,7 @@ let _ =
       Debug.disable "http" ;
       handle_shutdown () ;
       Debug.with_thread_associated "main" start server
-      )
+    )
     () ;
   ignore (Daemon.notify Daemon.State.Ready) ;
   while true do

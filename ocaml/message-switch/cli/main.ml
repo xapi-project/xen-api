@@ -119,7 +119,7 @@ let diagnostics common_opts =
             else
               (x ^ ", ") :: acc
           )
-          )
+        )
         (0, []) bits
     in
     String.concat "" (List.rev rev_bits) ^ "ago"
@@ -146,7 +146,7 @@ let diagnostics common_opts =
         (fun param ->
           let txt = Jsonrpc.to_string param in
           Printf.printf "        - %s\n" (trim txt)
-          )
+        )
         call.Rpc.params
     with _ ->
       (* parse failure, fall back to basic printing *)
@@ -195,7 +195,7 @@ let diagnostics common_opts =
                   Printf.printf "      - %s is waiting for a response\n" name
             else
               Printf.printf "       - %s appears to have crashed\n" name
-        )
+      )
       (snd q).Diagnostics.queue_contents
   in
   let expected_transient_queues (_name, q) =
@@ -206,7 +206,7 @@ let diagnostics common_opts =
             acc
         | Message.Request name ->
             name :: acc
-        )
+      )
       [] q.Diagnostics.queue_contents
   in
   Printf.printf "Switch started %s\n" (time in_the_past d.Diagnostics.start_time) ;
@@ -222,7 +222,7 @@ let diagnostics common_opts =
       List.filter
         (fun q ->
           match classify q with `Crashed_or_deadlocked _ -> true | _ -> false
-          )
+        )
         d.Diagnostics.permanent_queues
     in
     let ok =
@@ -253,7 +253,7 @@ let diagnostics common_opts =
     List.filter
       (fun (name, queue) ->
         (not (List.mem name expected)) || queue.Diagnostics.queue_contents <> []
-        )
+      )
       d.Diagnostics.transient_queues
   in
   if to_show <> [] then (
@@ -335,7 +335,7 @@ let mscgen common_opts =
             acc
         | Some x ->
             StringSet.add x acc
-        )
+      )
       StringSet.empty trace.Out.events
   in
   let outputs =
@@ -346,7 +346,7 @@ let mscgen common_opts =
             acc
         | Some x ->
             StringSet.add x acc
-        )
+      )
       StringSet.empty trace.Out.events
   in
   let print_event (_, e) =
@@ -403,7 +403,7 @@ let tail common_opts follow =
                 txt ^ String.make (size - txt') ' '
         in
         print_string txt ; print_string " "
-        )
+      )
       (List.combine row widths) ;
     print_endline ""
   in
@@ -458,7 +458,7 @@ let tail common_opts follow =
                     ]
                 )
               @ [secs event.Event.processing_time; message m]
-              )
+            )
             trace.Out.events
         in
         List.iter print_row rows ;
@@ -679,7 +679,7 @@ let serve common_options_t name program =
                   Unix.close_process_full (stdout, stdin, stderr)
                 in
                 res
-            )
+          )
           ~switch:common_options_t.Common.path ~queue:name ()
       in
       let rec forever () = Thread.delay 3600. ; forever () in

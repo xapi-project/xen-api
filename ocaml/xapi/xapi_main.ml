@@ -29,7 +29,7 @@ let _ =
     (fun m ->
       D.debug "Disabling logging for: %s" m ;
       Debug.disable m
-      )
+    )
     !Xapi_globs.disable_logging_for ;
   Unixext.pidfile_write "/var/run/xapi.pid" ;
   (* chdir to /var/lib/xcp/debug so that's where xapi coredumps go

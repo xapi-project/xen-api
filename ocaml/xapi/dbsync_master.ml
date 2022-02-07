@@ -93,9 +93,9 @@ let refresh_console_urls ~__context =
                   Constants.console_uri (Ref.string_of console)
           in
           Db.Console.set_location ~__context ~self:console ~value:url_should_be
-          )
+        )
         ()
-      )
+    )
     (Db.Console.get_all ~__context)
 
 (** CA-15449: after a pool restore database VMs which were running on slaves now have dangling resident_on fields.
@@ -119,10 +119,10 @@ let reset_vms_running_on_missing_hosts ~__context =
           (fun () ->
             Xapi_vm_lifecycle.force_state_reset ~__context ~self:vm
               ~value:`Halted
-            )
+          )
           ()
       )
-      )
+    )
     (Db.VM.get_all ~__context)
 
 (** Release 'locks' on VMs in the Halted state: ie {VBD,VIF}.{currently_attached,reserved}
@@ -141,19 +141,19 @@ let release_locks ~__context =
       List.iter
         (fun self -> Xapi_vbd_helpers.clear_current_operations ~__context ~self)
         (Db.VM.get_VBDs ~__context ~self:vm)
-      )
+    )
     vms ;
   (* Resets the current operations of all Halted VMs *)
   List.iter
     (fun self ->
       Xapi_vm_lifecycle.force_state_reset ~__context ~self ~value:`Halted
-      )
+    )
     vms ;
   (* All VMs should have their scheduled_to_be_resident_on field cleared *)
   List.iter
     (fun self ->
       Db.VM.set_scheduled_to_be_resident_on ~__context ~self ~value:Ref.null
-      )
+    )
     (Db.VM.get_all ~__context)
 
 let create_tools_sr __context name_label name_description sr_introduce
@@ -175,7 +175,7 @@ let create_tools_sr __context name_label name_description sr_introduce
     List.iter
       (fun host ->
         ignore (maybe_create_pbd sr Xapi_globs.tools_sr_pbd_device_config host)
-        )
+      )
       hosts ;
     sr
   in
@@ -209,7 +209,7 @@ let create_tools_sr __context name_label name_description sr_introduce
           && (List.mem_assoc Xapi_globs.tools_sr_tag other_config
              || List.mem_assoc Xapi_globs.xensource_internal other_config
              )
-          )
+        )
         srs
     in
     match tools_srs with
@@ -244,7 +244,7 @@ let create_tools_sr __context name_label name_description sr_introduce
     (fun self ->
       Db.PBD.set_device_config ~__context ~self
         ~value:Xapi_globs.tools_sr_pbd_device_config
-      )
+    )
     (Db.SR.get_PBDs ~__context ~self:sr)
 
 let create_tools_sr_noexn __context =
@@ -257,7 +257,7 @@ let create_tools_sr_noexn __context =
         (fun () ->
           create_tools_sr __context name_label name_description sr_introduce
             maybe_create_pbd
-          )
+        )
         ()
   )
 
@@ -279,7 +279,7 @@ let ensure_vm_metrics_records_exist __context =
           ~current_domain_type:`unspecified ;
         Db.VM.set_metrics ~__context ~self:vm ~value:m
       )
-      )
+    )
     (Db.VM.get_all __context)
 
 let ensure_vm_metrics_records_exist_noexn __context =

@@ -48,7 +48,7 @@ let set_is_system_domain ~__context ~self ~value =
     (fun () ->
       Db.VM.remove_from_other_config ~__context ~self ~key:system_domain_key ;
       Db.VM.add_to_other_config ~__context ~self ~key:system_domain_key ~value
-      )
+    )
     ()
 
 (** If a VM is a driver domain then it hosts backends for either disk or network
@@ -67,7 +67,7 @@ let pbd_set_storage_driver_domain ~__context ~self ~value =
         ~key:storage_driver_domain_key ;
       Db.PBD.add_to_other_config ~__context ~self ~key:storage_driver_domain_key
         ~value
-      )
+    )
     ()
 
 let vm_set_storage_driver_domain ~__context ~self ~value =
@@ -79,7 +79,7 @@ let vm_set_storage_driver_domain ~__context ~self ~value =
         ~key:storage_driver_domain_key ;
       Db.VM.add_to_other_config ~__context ~self ~key:storage_driver_domain_key
         ~value
-      )
+    )
     ()
 
 let record_pbd_storage_driver_domain ~__context ~pbd ~domain =

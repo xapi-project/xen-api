@@ -233,7 +233,7 @@ let with_conversion_script task name hvm fd f =
                 status := Thread_failure e ;
                 Condition.signal c
             )
-          )
+        )
         ()
     in
     (thread, status)

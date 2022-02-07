@@ -20,7 +20,7 @@ let create_rras use_min_max =
               ]
             else
               [Rrd.rra_create Rrd.CF_Average n ns 0.5]
-            )
+          )
           timescales
        )
     )
@@ -41,7 +41,7 @@ let create_fresh_rrd use_min_max dss =
                )
            else
              None
-           )
+         )
          dss
       )
   in
@@ -59,7 +59,7 @@ let merge_new_dss rrd dss =
     (fun rrd ds ->
       rrd_add_ds rrd now
         (Rrd.ds_create ds.ds_name ds.Ds.ds_type ~mrhb:300.0 Rrd.VT_Unknown)
-      )
+    )
     rrd new_dss
 
 (** Updates all of the hosts rrds. We are passed a list of uuids that is used as
@@ -99,7 +99,7 @@ let update_rrds timestamp dss (uuid_domids : (string * int) list) paused_vms =
                     if x = vm_uuid then Some ds else None
                 | _ ->
                     None
-                )
+              )
               dss
           in
           (* First, potentially update the rrd with any new default dss *)
@@ -116,7 +116,7 @@ let update_rrds timestamp dss (uuid_domids : (string * int) list) paused_vms =
                 (List.map
                    (fun ds ->
                      (ds.ds_name, (ds.ds_value, ds.ds_pdp_transform_function))
-                     )
+                   )
                    dss
                 ) ;
               rrdi.dss <- dss ;
@@ -142,7 +142,7 @@ let update_rrds timestamp dss (uuid_domids : (string * int) list) paused_vms =
                     if x = sr_uuid then Some ds else None
                 | _ ->
                     None
-                )
+              )
               dss
           in
           (* First, potentially update the rrd with any new default dss *)
@@ -154,7 +154,7 @@ let update_rrds timestamp dss (uuid_domids : (string * int) list) paused_vms =
               (List.map
                  (fun ds ->
                    (ds.ds_name, (ds.ds_value, ds.ds_pdp_transform_function))
-                   )
+                 )
                  dss
               ) ;
             rrdi.dss <- dss ;
@@ -193,7 +193,7 @@ let update_rrds timestamp dss (uuid_domids : (string * int) list) paused_vms =
             (List.map
                (fun ds ->
                  (ds.ds_name, (ds.ds_value, ds.ds_pdp_transform_function))
-                 )
+               )
                host_dss
             )
   )

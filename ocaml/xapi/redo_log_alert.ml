@@ -42,7 +42,7 @@ let raise_system_alert (name, priority) body =
          ) else
            debug "Not raising alert because Pool.other_config:%s <> true"
              Xapi_globs.redo_log_alert_key
-         )
+       )
        ()
     )
 
@@ -64,5 +64,5 @@ let loop () =
           raise_system_alert Api_messages.redo_log_broken alert_body
         )
       done
-      )
+    )
     ()

@@ -266,7 +266,7 @@ let options =
           if s <> "N/A" then
             vm_guest_agent_xenstore_quota_bytes :=
               max_bytes_of_xenstore_entries (int_of_string s)
-          )
+        )
     , (fun () -> "N/A")
     , "(Deprecated, use vm-xenstore-data-quota-bytes instead)"
     )
@@ -373,7 +373,7 @@ let handle_received_fd this_connection =
         in
         Response.write (fun _ -> ()) response this_connection
       )
-      )
+    )
     (fun () -> Unix.close received_fd)
 
 let doc =
@@ -449,7 +449,7 @@ let main backend =
         Thread.create (fun () -> Xcp_service.serve_forever xml_server) ()
       in
       ()
-      )
+    )
     () ;
   Xenops_server.WorkerPool.start !worker_pool_size ;
   while true do

@@ -30,7 +30,7 @@ let delete_disks rpc session_id disks =
         try Client.VDI.destroy rpc session_id vdi with _ -> ()
       else
         debug "Not destroying CD VDI: %s" (Ref.string_of vdi)
-      )
+    )
     disks
 
 let wait_for_subtask ?progress_minmax ~__context task =
@@ -52,14 +52,14 @@ let wait_for_subtask ?progress_minmax ~__context task =
           Option.map
             (fun (min, max) ->
               min +. ((max -. min) *. task_rec.API.task_progress)
-              )
+            )
             progress_minmax
         in
         Option.iter
           (fun value ->
             Db_actions.DB_Action.Task.set_progress ~__context ~self:main_task
               ~value
-            )
+          )
           myprogress ;
         (* See if it has finished *)
         match task_rec.API.task_status with
@@ -164,7 +164,7 @@ let clone_single_vdi ?progress rpc session_id disk_op ~__context vdi
           Int64.to_float (Int64.add done_so_far size) /. total
         in
         (startprogress, endprogress)
-        )
+      )
       progress
   in
   let vdi_ref = wait_for_clone ?progress_minmax ~__context task in
@@ -185,7 +185,7 @@ let safe_clone_disks rpc session_id disk_op ~__context vbds driver_params =
               ~self:(Db.VBD.get_VDI ~__context ~self:vbd)
           )
         with _ -> (vbd, 0L)
-        )
+      )
       vbds
   in
   let total =
@@ -295,7 +295,7 @@ let copy_vm_record ?snapshot_info_record ~__context ~vm ~disk_op ~new_name
       (fun (k, v) ->
         k <> Xapi_globs.default_template_key
         && k <> Xapi_globs.xensource_internal
-        )
+      )
       other_config
   in
   (* Preserve the name_label of the base template in other_config. *)
@@ -436,7 +436,7 @@ let clone ?snapshot_info_record ?(ignore_vdis = []) disk_op ~__context ~vm
           List.filter
             (fun x ->
               not (List.mem (Db.VBD.get_VDI ~__context ~self:x) ignore_vdis)
-              )
+            )
             vbds
         else
           vbds
@@ -480,7 +480,7 @@ let clone ?snapshot_info_record ?(ignore_vdis = []) disk_op ~__context ~vm
                 if not (List.mem_assoc Constants.owner_key other_config) then
                   Db.VBD.add_to_other_config ~__context ~self:vbd
                     ~key:Constants.owner_key ~value:""
-              )
+            )
             cloned_disks ;
           (* copy VIFs *)
           let (_ : [`VIF] Ref.t list) =
@@ -488,7 +488,7 @@ let clone ?snapshot_info_record ?(ignore_vdis = []) disk_op ~__context ~vm
               (fun vif ->
                 Xapi_vif_helpers.copy ~__context ~vm:ref
                   ~preserve_mac_address:is_a_snapshot vif
-                )
+              )
               vifs
           in
           (* copy VGPUs *)

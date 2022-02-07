@@ -94,7 +94,7 @@ let log_to_stdout prefix (fmt : ('a, unit, string, unit) format4) =
     (fun s ->
       Printf.printf "%s %s %s\n" (time_of_float (Unix.gettimeofday ())) prefix s ;
       flush stdout
-      )
+    )
     fmt
 
 module D = Debug.Make (struct let name = "storage_impl" end)
@@ -134,7 +134,7 @@ let rpc_fns keyty valty =
           in
           let valuerpc = Rpcmarshal.marshal valty.Rpc.Types.ty v in
           (keystr, valuerpc) :: acc
-          )
+        )
         hashtbl []
     in
     Rpc.Dict v
@@ -152,7 +152,7 @@ let rpc_fns keyty valty =
               unm valty v >>= fun value ->
               Hashtbl.replace h key value ;
               Ok h
-              )
+            )
             (Ok (Hashtbl.create (List.length kvs)))
             kvs
         in
@@ -222,7 +222,7 @@ module Vdi = struct
         (Option.fold ~none:"None"
            ~some:(fun x ->
              "Some " ^ Jsonrpc.to_string (Storage_interface.(rpc_of backend) x)
-             )
+           )
            x.attach_info
         )
     in
@@ -271,7 +271,7 @@ module Sr = struct
         Printf.sprintf "VDI %s" (s_of_vdi vdi)
         :: List.map indent (Vdi.to_string_list vdi_t)
         @ acc
-        )
+      )
       x.vdis []
 end
 
@@ -530,7 +530,7 @@ functor
                     (List.fold_left
                        (fun _ op ->
                          perform_nolock context ~dbg ~dp ~sr ~vdi ~vm op
-                         )
+                       )
                        vdi_t ops
                     )
                 with e ->
@@ -551,7 +551,7 @@ functor
                       Sr.replace vdi vdi_t sr_t ;
                     Everything.to_file !host_state_path (Everything.make ())
                   )
-                )
+              )
               (Sr.find vdi sr_t)
 
       (* Attempt to clear leaked datapaths associed with this vdi *)
@@ -578,7 +578,7 @@ functor
                   ~allow_leak:false ;
                 acc
               with e -> e :: acc
-              )
+            )
             [] dps
         in
         match failures with [] -> next () | f :: fs -> raise f
@@ -926,7 +926,7 @@ functor
         List.iter
           (fun (vdi, vdi_t) ->
             debug "[destroy_sr] VDI found with the dp is %s" (s_of_vdi vdi)
-            )
+          )
           vdis_with_dp ;
         let locker vdi =
           if vdi_already_locked then
@@ -1012,7 +1012,7 @@ functor
               @ List.map
                   (fun (vdi, vdi_t) ->
                     Printf.sprintf "VDI found with the dp is %s" (s_of_vdi vdi)
-                    )
+                  )
                   vdis_with_dp
             in
             raise
@@ -1168,7 +1168,7 @@ functor
                      List.exists
                        (fun censored ->
                          Astring.String.is_infix ~affix:censored k
-                         )
+                       )
                        censor_key
                    then
                      "(omitted)"
@@ -1176,7 +1176,7 @@ functor
                      v
                  in
                  k ^ ":" ^ v'
-                 )
+               )
                device_config
             )
         in
@@ -1215,7 +1215,7 @@ functor
                             ~allow_leak:false true
                         in
                         ()
-                        )
+                      )
                       dps ;
                     let dps = active_dps sr_t in
                     if dps <> [] then
@@ -1254,7 +1254,7 @@ functor
              (fun (local_snapshot, dest_snapshot) ->
                Printf.sprintf "local:%s, dest:%s" (s_of_vdi local_snapshot)
                  (s_of_vdi dest_snapshot)
-               )
+             )
              snapshot_pairs
           |> String.concat "; "
           |> Printf.sprintf "[%s]"
@@ -1272,7 +1272,7 @@ functor
              (fun (local_snapshot, src_snapshot_info) ->
                Printf.sprintf "local:%s, src:%s" (s_of_vdi local_snapshot)
                  (s_of_vdi src_snapshot_info.vdi)
-               )
+             )
              snapshot_pairs
           |> String.concat "; "
           |> Printf.sprintf "[%s]"

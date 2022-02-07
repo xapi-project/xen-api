@@ -63,11 +63,11 @@ let accept_forever sock f =
                   finally
                     (fun _ -> f this_connection)
                     (fun _ -> Unix.close this_connection)
-                  )
+                )
                 ()
              )
          done
-         )
+       )
        ()
     )
 
@@ -114,7 +114,7 @@ let start (xmlrpc_path, http_fwd_path) process =
           in
           req.Http.Request.close <- true ;
           ignore_bool (Http_svr.handle_one server received_fd () req)
-          )
+        )
         (fun _ -> Unix.close received_fd)
   ) ;
   ()
@@ -247,55 +247,52 @@ let dss_vcpus xc doms =
               ~description:"Fraction of time that all VCPUs are running"
               ~ty:Rrd.Derive ~default:false ~min:0.0 ()
           )
-          ::
-          ( Rrd.VM uuid
-          , Ds.ds_make ~name:"runstate_full_contention" ~units:"(fraction)"
-              ~value:(Rrd.VT_Float (Int64.to_float ri.Xenctrl.time1 /. 1.0e9))
-              ~description:
-                "Fraction of time that all VCPUs are runnable (i.e., waiting \
-                 for CPU)"
-              ~ty:Rrd.Derive ~default:false ~min:0.0 ()
-          )
-          ::
-          ( Rrd.VM uuid
-          , Ds.ds_make ~name:"runstate_concurrency_hazard" ~units:"(fraction)"
-              ~value:(Rrd.VT_Float (Int64.to_float ri.Xenctrl.time2 /. 1.0e9))
-              ~description:
-                "Fraction of time that some VCPUs are running and some are \
-                 runnable"
-              ~ty:Rrd.Derive ~default:false ~min:0.0 ()
-          )
-          ::
-          ( Rrd.VM uuid
-          , Ds.ds_make ~name:"runstate_blocked" ~units:"(fraction)"
-              ~value:(Rrd.VT_Float (Int64.to_float ri.Xenctrl.time3 /. 1.0e9))
-              ~description:
-                "Fraction of time that all VCPUs are blocked or offline"
-              ~ty:Rrd.Derive ~default:false ~min:0.0 ()
-          )
-          ::
-          ( Rrd.VM uuid
-          , Ds.ds_make ~name:"runstate_partial_run" ~units:"(fraction)"
-              ~value:(Rrd.VT_Float (Int64.to_float ri.Xenctrl.time4 /. 1.0e9))
-              ~description:
-                "Fraction of time that some VCPUs are running, and some are \
-                 blocked"
-              ~ty:Rrd.Derive ~default:false ~min:0.0 ()
-          )
-          ::
-          ( Rrd.VM uuid
-          , Ds.ds_make ~name:"runstate_partial_contention" ~units:"(fraction)"
-              ~value:(Rrd.VT_Float (Int64.to_float ri.Xenctrl.time5 /. 1.0e9))
-              ~description:
-                "Fraction of time that some VCPUs are runnable and some are \
-                 blocked"
-              ~ty:Rrd.Derive ~default:false ~min:0.0 ()
-          )
+          :: ( Rrd.VM uuid
+             , Ds.ds_make ~name:"runstate_full_contention" ~units:"(fraction)"
+                 ~value:(Rrd.VT_Float (Int64.to_float ri.Xenctrl.time1 /. 1.0e9))
+                 ~description:
+                   "Fraction of time that all VCPUs are runnable (i.e., \
+                    waiting for CPU)"
+                 ~ty:Rrd.Derive ~default:false ~min:0.0 ()
+             )
+          :: ( Rrd.VM uuid
+             , Ds.ds_make ~name:"runstate_concurrency_hazard"
+                 ~units:"(fraction)"
+                 ~value:(Rrd.VT_Float (Int64.to_float ri.Xenctrl.time2 /. 1.0e9))
+                 ~description:
+                   "Fraction of time that some VCPUs are running and some are \
+                    runnable"
+                 ~ty:Rrd.Derive ~default:false ~min:0.0 ()
+             )
+          :: ( Rrd.VM uuid
+             , Ds.ds_make ~name:"runstate_blocked" ~units:"(fraction)"
+                 ~value:(Rrd.VT_Float (Int64.to_float ri.Xenctrl.time3 /. 1.0e9))
+                 ~description:
+                   "Fraction of time that all VCPUs are blocked or offline"
+                 ~ty:Rrd.Derive ~default:false ~min:0.0 ()
+             )
+          :: ( Rrd.VM uuid
+             , Ds.ds_make ~name:"runstate_partial_run" ~units:"(fraction)"
+                 ~value:(Rrd.VT_Float (Int64.to_float ri.Xenctrl.time4 /. 1.0e9))
+                 ~description:
+                   "Fraction of time that some VCPUs are running, and some are \
+                    blocked"
+                 ~ty:Rrd.Derive ~default:false ~min:0.0 ()
+             )
+          :: ( Rrd.VM uuid
+             , Ds.ds_make ~name:"runstate_partial_contention"
+                 ~units:"(fraction)"
+                 ~value:(Rrd.VT_Float (Int64.to_float ri.Xenctrl.time5 /. 1.0e9))
+                 ~description:
+                   "Fraction of time that some VCPUs are runnable and some are \
+                    blocked"
+                 ~ty:Rrd.Derive ~default:false ~min:0.0 ()
+             )
           :: dss
         with _ -> dss
       in
       try cpus 0 dss with _ -> dss
-      )
+    )
     [] doms
 
 let physcpus = ref [||]
@@ -325,7 +322,7 @@ let dss_pcpus xc =
           :: acc
         , i + 1
         )
-        )
+      )
       ([], 0) newinfos
   in
   let sum_array = Array.fold_left (fun acc v -> Int64.add acc v) 0L newinfos in
@@ -380,30 +377,27 @@ let dss_netdev doms =
                 ~units:"B/s" ~value:(Rrd.VT_Int64 stat.rx_bytes) ~ty:Rrd.Derive
                 ~min:0.0 ~default:true ()
             )
-            ::
-            ( Rrd.Host
-            , Ds.ds_make ~name:(pif_name ^ "_tx")
-                ~description:
-                  ("Bytes per second sent on physical interface " ^ dev)
-                ~units:"B/s" ~value:(Rrd.VT_Int64 stat.tx_bytes) ~ty:Rrd.Derive
-                ~min:0.0 ~default:true ()
-            )
-            ::
-            ( Rrd.Host
-            , Ds.ds_make ~name:(pif_name ^ "_rx_errors")
-                ~description:
-                  ("Receive errors per second on physical interface " ^ dev)
-                ~units:"err/s" ~value:(Rrd.VT_Int64 stat.rx_errors)
-                ~ty:Rrd.Derive ~min:0.0 ~default:false ()
-            )
-            ::
-            ( Rrd.Host
-            , Ds.ds_make ~name:(pif_name ^ "_tx_errors")
-                ~description:
-                  ("Transmit errors per second on physical interface " ^ dev)
-                ~units:"err/s" ~value:(Rrd.VT_Int64 stat.tx_errors)
-                ~ty:Rrd.Derive ~min:0.0 ~default:false ()
-            )
+            :: ( Rrd.Host
+               , Ds.ds_make ~name:(pif_name ^ "_tx")
+                   ~description:
+                     ("Bytes per second sent on physical interface " ^ dev)
+                   ~units:"B/s" ~value:(Rrd.VT_Int64 stat.tx_bytes)
+                   ~ty:Rrd.Derive ~min:0.0 ~default:true ()
+               )
+            :: ( Rrd.Host
+               , Ds.ds_make ~name:(pif_name ^ "_rx_errors")
+                   ~description:
+                     ("Receive errors per second on physical interface " ^ dev)
+                   ~units:"err/s" ~value:(Rrd.VT_Int64 stat.rx_errors)
+                   ~ty:Rrd.Derive ~min:0.0 ~default:false ()
+               )
+            :: ( Rrd.Host
+               , Ds.ds_make ~name:(pif_name ^ "_tx_errors")
+                   ~description:
+                     ("Transmit errors per second on physical interface " ^ dev)
+                   ~units:"err/s" ~value:(Rrd.VT_Int64 stat.tx_errors)
+                   ~ty:Rrd.Derive ~min:0.0 ~default:false ()
+               )
             :: dss
           , Int64.add stat.rx_bytes sum_rx
           , Int64.add stat.tx_bytes sum_tx
@@ -428,47 +422,46 @@ let dss_netdev doms =
                     ~value:(Rrd.VT_Int64 stat.rx_bytes) ~ty:Rrd.Derive ~min:0.0
                     ~default:true ()
                 )
-                ::
-                ( Rrd.VM uuid
-                , Ds.ds_make ~name:(vif_name ^ "_rx") ~units:"B/s"
-                    ~description:
-                      ("Bytes per second received on virtual interface number '"
-                      ^ string_of_int d2
-                      ^ "'"
-                      )
-                    ~value:(Rrd.VT_Int64 stat.tx_bytes) ~ty:Rrd.Derive ~min:0.0
-                    ~default:true ()
-                )
-                ::
-                ( Rrd.VM uuid
-                , Ds.ds_make ~name:(vif_name ^ "_rx_errors") ~units:"err/s"
-                    ~description:
-                      ("Receive errors per second on virtual interface number '"
-                      ^ string_of_int d2
-                      ^ "'"
-                      )
-                    ~value:(Rrd.VT_Int64 stat.tx_errors) ~ty:Rrd.Derive ~min:0.0
-                    ~default:false ()
-                )
-                ::
-                ( Rrd.VM uuid
-                , Ds.ds_make ~name:(vif_name ^ "_tx_errors") ~units:"err/s"
-                    ~description:
-                      ("Transmit errors per second on virtual interface number \
-                        '"
-                      ^ string_of_int d2
-                      ^ "'"
-                      )
-                    ~value:(Rrd.VT_Int64 stat.rx_errors) ~ty:Rrd.Derive ~min:0.0
-                    ~default:false ()
-                )
+                :: ( Rrd.VM uuid
+                   , Ds.ds_make ~name:(vif_name ^ "_rx") ~units:"B/s"
+                       ~description:
+                         ("Bytes per second received on virtual interface \
+                           number '"
+                         ^ string_of_int d2
+                         ^ "'"
+                         )
+                       ~value:(Rrd.VT_Int64 stat.tx_bytes) ~ty:Rrd.Derive
+                       ~min:0.0 ~default:true ()
+                   )
+                :: ( Rrd.VM uuid
+                   , Ds.ds_make ~name:(vif_name ^ "_rx_errors") ~units:"err/s"
+                       ~description:
+                         ("Receive errors per second on virtual interface \
+                           number '"
+                         ^ string_of_int d2
+                         ^ "'"
+                         )
+                       ~value:(Rrd.VT_Int64 stat.tx_errors) ~ty:Rrd.Derive
+                       ~min:0.0 ~default:false ()
+                   )
+                :: ( Rrd.VM uuid
+                   , Ds.ds_make ~name:(vif_name ^ "_tx_errors") ~units:"err/s"
+                       ~description:
+                         ("Transmit errors per second on virtual interface \
+                           number '"
+                         ^ string_of_int d2
+                         ^ "'"
+                         )
+                       ~value:(Rrd.VT_Int64 stat.rx_errors) ~ty:Rrd.Derive
+                       ~min:0.0 ~default:false ()
+                   )
                 :: dss
               with _ -> dss
             )
           , sum_rx
           , sum_tx
           )
-        )
+      )
       ([], 0L, 0L) stats
   in
   [
@@ -551,7 +544,7 @@ let dss_mem_vms doms =
                 ~value:(Rrd.VT_Int64 memory_target) ~ty:Rrd.Gauge ~min:0.0
                 ~default:true ()
             )
-            )
+          )
           memory_target_opt
       in
       let other_ds =
@@ -577,7 +570,7 @@ let dss_mem_vms doms =
         ; Option.to_list mem_target_ds
         ; acc
         ]
-      )
+    )
     [] doms
 
 (**** Local cache SR stuff *)
@@ -791,7 +784,7 @@ let monitor_write_loop writers =
               Thread.delay 10.
           done
       )
-      )
+    )
     ()
 
 (* Monitoring code --- END. *)
@@ -814,7 +807,7 @@ module GCLog : GCLOG = struct
             Thread.delay 180.0
           with e -> error "RRD GC logging: %s" (Printexc.to_string e)
         done
-        )
+      )
       ()
 end
 
@@ -927,7 +920,7 @@ module Discover : DISCOVER = struct
             error "RRD plugin discovery error: %s" (Printexc.to_string e) ;
             Thread.delay 10.0
         done
-        )
+      )
       directory
 end
 
@@ -969,7 +962,7 @@ let configure_writers () =
           )
       in
       (name, writer)
-      )
+    )
     stats_to_write
 
 (** we need to make sure we call exit on fatal signals to make sure profiling
@@ -1021,7 +1014,7 @@ let _ =
               ()
           in
           Debug.with_thread_associated "main" Xcp_service.serve_forever server
-        )
+      )
       ()
   in
   start (!Rrd_interface.default_path, !Rrd_interface.forwarded_path) (fun () ->

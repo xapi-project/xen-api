@@ -46,7 +46,7 @@ let assert_network_has_no_vifs_in_use_on_me ~__context ~host ~network =
               )
           | _ ->
               ()
-          )
+        )
         ops ;
       if Db.VIF.get_currently_attached ~__context ~self then
         let vm = Db.VIF.get_VM ~__context ~self in
@@ -59,7 +59,7 @@ let assert_network_has_no_vifs_in_use_on_me ~__context ~host ~network =
                  , [Ref.string_of network; Ref.string_of self]
                  )
               )
-      )
+    )
     vifs
 
 (* nice triple negative ;) *)
@@ -168,7 +168,7 @@ let assert_can_see_named_networks ~__context ~vm ~host reqd_nets =
              Db.Network.get_name_label ~__context ~self:net
          )
         )
-      )
+    )
     not_available ;
   if not_available <> [] then
     raise
@@ -196,5 +196,5 @@ let assert_can_see_named_networks ~__context ~vm ~host reqd_nets =
              , [Ref.string_of host; Ref.string_of network]
              )
           )
-      )
+    )
     avail_nets

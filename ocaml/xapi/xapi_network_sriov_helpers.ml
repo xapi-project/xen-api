@@ -185,7 +185,7 @@ let get_underlying_pif ~__context ~pif =
 
 (* 3 type pif of sr-iov can be quickly up without a reboot:
    1. sysfs mode
-   2. & 3. modprobe/manually-configured with currently_attached or unattached but has remaining-capacity(it means unplug sr-iov pif but before reboot host) 
+   2. & 3. modprobe/manually-configured with currently_attached or unattached but has remaining-capacity(it means unplug sr-iov pif but before reboot host)
    Used in
    * Group host by best sriov
    * Check the network is properly shared *)
@@ -200,8 +200,8 @@ let can_be_up_without_reboot ~__context sriov =
       Db.PIF.get_currently_attached ~__context ~self:pif
       || get_remaining_capacity_on_sriov ~__context ~self:sriov > 0L
 
-(* Just take one pif from the network and check if it has an underlying_pif, if so it's a SR-IOV network. 
-Note, get_underlying_pif only matches a (VLAN on) SR-IOV type of PIF. *)
+(* Just take one pif from the network and check if it has an underlying_pif, if so it's a SR-IOV network.
+   Note, get_underlying_pif only matches a (VLAN on) SR-IOV type of PIF. *)
 let is_sriov_network ~__context ~self =
   match Db.Network.get_PIFs ~__context ~self with
   | [] ->
@@ -253,12 +253,12 @@ let get_remaining_capacity_on_host ~__context ~host ~network =
   )
 
 (* Partition hosts by attached and unattached pifs, the network input is a SR-IOV type.
-  1.For attached pifs, check the free capacity > 0   
-  2.For unattached pifs,check the sriov on pif can be attached without reboot when vm start
-  3.Group host by free capacity,finally returns the host list list like [ [(host0,num0);(host1,num0)];[(host2;num1);(host3,num1)]... ] 
-  4.Since before plug the unattached_pif, vf capacity on pif is unknown,so used vf_num = 0L
-  5.If unattached_hosts not empty then add at the end of host lists.
- *)
+   1.For attached pifs, check the free capacity > 0
+   2.For unattached pifs,check the sriov on pif can be attached without reboot when vm start
+   3.Group host by free capacity,finally returns the host list list like [ [(host0,num0);(host1,num0)];[(host2;num1);(host3,num1)]... ]
+   4.Since before plug the unattached_pif, vf capacity on pif is unknown,so used vf_num = 0L
+   5.If unattached_hosts not empty then add at the end of host lists.
+*)
 let group_hosts_by_best_sriov ~__context ~network =
   let pifs = Db.Network.get_PIFs ~__context ~self:network in
   let attached_hosts, unattached_hosts =
@@ -291,7 +291,7 @@ let group_hosts_by_best_sriov ~__context ~network =
             (l1, (host, 0L) :: l2)
           else
             (l1, l2)
-        )
+      )
       ([], []) pifs
   in
   let host_lists =
@@ -326,5 +326,5 @@ let reserve_sriov_vfs ~__context ~host ~vm =
                     (internal_error, ["No free virtual function found"])
                 )
         )
-      )
+    )
     vifs

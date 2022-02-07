@@ -73,12 +73,12 @@ let main () =
                 ()
             | `Error (`Msg x) ->
                 Printf.fprintf stderr "Failed to parse legend: %s\n" x
-            )
+          )
           update.Rrd_updates.legend ;
         Lwt_unix.sleep 5. >>= fun () -> loop update.Rrd_updates.end_time
       in
       loop (Int64.of_int !start)
-      )
+    )
     (fun () -> Session.logout ~rpc ~session_id)
 
 let _ =

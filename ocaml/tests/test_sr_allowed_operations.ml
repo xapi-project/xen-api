@@ -56,7 +56,7 @@ let test_operations_restricted_during_rpu =
       (fun () ->
         Xapi_sr_operations.assert_operation_valid ~__context ~self:sr_ref
           ~op:`vdi_enable_cbt
-        )
+      )
       (Some (Api_errors.not_supported_during_upgrade, [])) ;
     (* Take us out of RPU mode*)
     Db.Pool.remove_from_other_config ~__context ~self:pool
@@ -66,7 +66,7 @@ let test_operations_restricted_during_rpu =
       (fun () ->
         Xapi_sr_operations.assert_operation_valid ~__context ~self:sr_ref
           ~op:`vdi_enable_cbt
-        )
+      )
       None
   in
   [("test_check_operation_error", `Quick, test_check_operation_error)]

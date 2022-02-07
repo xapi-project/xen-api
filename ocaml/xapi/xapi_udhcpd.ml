@@ -112,13 +112,13 @@ let update_db_nolock ~__context =
         in
         Db.Network.add_to_assigned_ips ~__context ~self:(Ref.of_string net)
           ~key:new_lease_vif ~value:(Ip.string_of lease.ip)
-        )
+      )
       new_lease_vifs ;
     List.iter
       (fun released_lease_vif ->
         Db.Network.remove_from_assigned_ips ~__context ~self:(Ref.of_string net)
           ~key:released_lease_vif
-        )
+      )
       released_lease_vifs
   in
   List.iter update_network networks
@@ -178,7 +178,7 @@ module Udhcpd_conf = struct
       with Not_found -> false
     in
     let config_list =
-      skel :: interface :: subnet :: (if include_gw then [router] else [])
+      (skel :: interface :: subnet :: (if include_gw then [router] else []))
       @ (if include_pxe then [pxe] else [])
       @ leases
     in
@@ -230,7 +230,7 @@ let gc_leases_nolock ~__context =
     (fun l ->
       info "Host internal management network removing lease for VIF %s -> %s"
         l.vif (Ip.string_of l.ip)
-      )
+    )
     bad ;
   assigned := good
 
@@ -285,7 +285,7 @@ let maybe_add_lease ~__context vif =
     (Printf.sprintf "maybe_add_lease VIF:%s" (Ref.string_of vif))
     (fun () ->
       Mutex.execute mutex (fun () -> maybe_add_lease_nolock ~__context vif)
-      )
+    )
     ()
 
 let get_ip ~__context vif =

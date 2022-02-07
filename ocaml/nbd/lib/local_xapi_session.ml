@@ -22,7 +22,7 @@ let wait_for_xapi_and_login () =
       (fun () ->
         Xen_api.Session.login_with_password ~rpc ~uname:"" ~pwd:""
           ~version:"1.0" ~originator:"xapi-nbd"
-        )
+      )
       (fun e ->
         Lwt_log.warning_f
           "Failed to log in via xapi's Unix domain socket: %s; retrying in %f \
@@ -31,7 +31,7 @@ let wait_for_xapi_and_login () =
         >>= fun () ->
         Lwt_unix.sleep Consts.wait_for_xapi_retry_delay_seconds >>= fun () ->
         loop ()
-        )
+      )
   in
   let timeout () =
     let timeout_s = Consts.wait_for_xapi_timeout_seconds in

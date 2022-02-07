@@ -58,7 +58,7 @@ let test_create_on_unmanaged_pif () =
     Api_errors.(Server_error (pif_unmanaged, [Ref.string_of physical_PIF]))
     (fun () ->
       Xapi_network_sriov.create ~__context ~pif:physical_PIF ~network |> ignore
-      )
+    )
 
 let test_create_network_already_connected () =
   let __context = T.make_test_database () in
@@ -75,7 +75,7 @@ let test_create_network_already_connected () =
     )
     (fun () ->
       Xapi_network_sriov.create ~__context ~pif:physical_PIF ~network |> ignore
-      )
+    )
 
 let test_create_on_bond_master () =
   let __context = T.make_test_database () in

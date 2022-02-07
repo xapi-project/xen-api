@@ -53,7 +53,7 @@ let run ~__context tasks =
             exnraise := false
         | OnThread ->
             onthread := true
-        )
+      )
       flags ;
     (!only_master, !only_slave, !exnraise, !onthread)
   in
@@ -88,7 +88,7 @@ let run ~__context tasks =
                      ~subtask_of:(Context.get_task_id __context) tsk_name
                      (fun __context -> thread_exn_wrapper tsk_name tsk_fct
                    )
-                   )
+                 )
                  tsk_fct
               )
           ) else (
@@ -103,7 +103,7 @@ let run ~__context tasks =
         warn "task [%s] exception: %s" tsk_name (Printexc.to_string exn) ;
         if exnraise then
           raise exn
-      )
+    )
     tasks
 
 let run ~__context tasks =

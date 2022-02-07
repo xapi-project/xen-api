@@ -231,7 +231,7 @@ let exec_command req cmd s session args =
       List.fold_left
         (fun accu (cmd_test, params) ->
           if cmd_test cmd_name then accu @ params else accu
-          )
+        )
         [] commands_and_params_to_hide
     in
     let must_censor param_name =
@@ -243,7 +243,7 @@ let exec_command req cmd s session args =
             (fun (k, v) ->
               let v' = if must_censor k then "(omitted)" else v in
               k ^ "=" ^ v'
-              )
+            )
             params
          )
       ) ;
@@ -271,7 +271,7 @@ let multiple_error errs sock =
     (fun (erruuid, errmsg) ->
       let msg = Printf.sprintf "operation failed on %s: %s" erruuid errmsg in
       marshal sock (Command (Print msg))
-      )
+    )
     errs
 
 (* This never raises exceptions: *)

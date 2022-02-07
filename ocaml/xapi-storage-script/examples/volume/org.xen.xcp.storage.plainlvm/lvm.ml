@@ -33,7 +33,7 @@ let make_temp_volume () =
         ignore_string (Common.run "losetup" ["-d"; path]) ;
         failwith
           (Printf.sprintf "Failed to parse output of losetup -j: [%s]" line)
-      )
+    )
     (fun () -> rm_f path)
 
 let remove_temp_volume volume =
@@ -49,7 +49,7 @@ let vgcreate vg_name = function
           ignore_string
             (run "dd" ["if=/dev/zero"; "of=" ^ dev; "bs=512"; "count=4"]) ;
           ignore_string (run "pvcreate" ["--metadatasize"; "10M"; dev])
-          )
+        )
         devices ;
       (* Create the VG on the first device *)
       ignore_string (run "vgcreate" [vg_name; d]) ;

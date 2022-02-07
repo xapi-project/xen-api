@@ -37,9 +37,9 @@ let generic_database_upgrade db =
           (fun ts tblname ->
             debug "Adding new database table: '%s'" tblname ;
             TableSet.add g tblname Table.empty ts
-            )
+          )
           ts created_table_names
-        )
+      )
       db
   in
   (* for each table, go through and fill in missing default values *)
@@ -59,5 +59,5 @@ let generic_database_upgrade db =
         |> Database.update
       in
       perform_update db
-      )
+    )
     db schema_table_names

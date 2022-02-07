@@ -134,7 +134,7 @@ let update_pcis ~__context =
           Some (pref, prec)
         else
           None
-        )
+      )
       (Db.PCI.get_all ~__context)
   in
   let open Xapi_pci_helpers in
@@ -166,7 +166,7 @@ let update_pcis ~__context =
                   && rc.Db_actions.pCI_device_id = id_of_int pci.device.id
                   && rc.Db_actions.pCI_subsystem_vendor_id = subsystem_vendor_id
                   && rc.Db_actions.pCI_subsystem_device_id = subsystem_device_id
-                  )
+                )
                 existing
             in
             (* sync the vendor name. *)
@@ -235,7 +235,7 @@ let update_pcis ~__context =
         List.exists
           (fun k -> is_class_of_kind k pci.pci_class.id)
           managed_classes
-        )
+      )
       host_pcis
   in
   let deps = List.flatten (List.map (fun pci -> pci.related) class_pcis) in
@@ -266,7 +266,7 @@ let update_pcis ~__context =
                        List.find
                          (fun (_, rc, _, _) ->
                            rc.Db_actions.pCI_pci_id = address
-                           )
+                         )
                          pfs
                      in
                      r
@@ -316,6 +316,6 @@ let get_system_display_device () =
           Some (Scanf.sscanf item "PCI:%s" (fun id -> id))
         else
           acc
-        )
+      )
       None items
   with _ -> None

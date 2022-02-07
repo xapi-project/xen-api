@@ -46,13 +46,13 @@ let writer_csv static_roles_permissions static_permissions_roles =
                 "X," ^ acc
               else
                 "," ^ acc
-              )
+            )
             ""
             (List.rev Datamodel_roles.roles_all)
         (* Xs are ordered by roles in roles_all *)
         ^ "\n"
         ^ acc
-        )
+      )
       "" static_permissions_roles
 
 let hash2uuid str =
@@ -205,7 +205,7 @@ let writer_stdout static_roles_permissions static_permissions_roles =
            )
            ^Printf.sprintf "]\n\n"
         *)
-        )
+      )
       "" static_roles_permissions
   (* 3. all static permissions *)
   ^ "let all_static_permissions = permissions_of_role_pool_admin\n"
@@ -263,7 +263,7 @@ let add_permission_to_roles roles_permissions (obj : obj) (x : message) =
               failwith (Printf.sprintf "No roles for key %s" wire_name_key)
           | Some allowed_roles ->
               concat (wire_name_key, rsps, allowed_roles)
-          )
+        )
         with_msg_roles_permissions msg_map_keys_roles
 
 let get_http_permissions_roles =
@@ -273,19 +273,18 @@ let get_http_permissions_roles =
       @
       let roles = Option.value ~default:[] some_roles in
       (Datamodel.rbac_http_permission_prefix ^ http_permission, roles)
-      ::
-      List.map (* sub_actions for this http_permission *)
-        (fun (sub_action, some_roles) ->
-          let roles = Option.value ~default:[] some_roles in
-          ( Datamodel.rbac_http_permission_prefix
-            ^ http_permission
-            ^ "/"
-            ^ sub_action
-          , roles
-          )
-          )
-        sub_actions
-      )
+      :: List.map (* sub_actions for this http_permission *)
+           (fun (sub_action, some_roles) ->
+             let roles = Option.value ~default:[] some_roles in
+             ( Datamodel.rbac_http_permission_prefix
+               ^ http_permission
+               ^ "/"
+               ^ sub_action
+             , roles
+             )
+           )
+           sub_actions
+    )
     [] Datamodel.http_actions
 
 let get_extra_permissions_roles =

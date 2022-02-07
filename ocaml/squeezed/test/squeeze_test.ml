@@ -429,7 +429,7 @@ let simulate scenario =
       (fun d ->
         let delta = d#update !host_free_mem_kib time in
         host_free_mem_kib := !host_free_mem_kib -* delta
-        )
+      )
       !all_domains
   in
   let dat_filename = Printf.sprintf "%s.dat" scenario.name in
@@ -485,12 +485,12 @@ let simulate scenario =
       debug "%s: After rebalancing only %Ld KiB of memory is used" scenario.name
         !host_free_mem_kib ;
       verify_memory_is_guaranteed_free (make_host ()) 0L
-      )
+    )
     (fun () ->
       close_out dat_oc ;
       close_out out_oc ;
       Gnuplot.write_gp scenario.name (make_host ()) cols
-      )
+    )
 
 let failed_scenarios = ref []
 

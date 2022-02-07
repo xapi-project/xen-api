@@ -26,18 +26,18 @@ let test_file_io protocol =
       in
       let reader = Rrd_reader.FileReader.create shared_file protocol in
       (writer, reader)
-      )
+    )
     (fun (writer, reader) ->
       (* Check that writing then reading the shared file gives the expected
          			 * timestamp and datasources. *)
       writer.Rrd_writer.write_payload test_payload ;
       let received_payload = reader.Rrd_reader.read_payload () in
       assert_payloads_equal test_payload received_payload
-      )
+    )
     (fun (writer, reader) ->
       reader.Rrd_reader.cleanup () ;
       writer.Rrd_writer.cleanup ()
-      )
+    )
     ()
 
 let test_writer_cleanup protocol =
@@ -71,7 +71,7 @@ let test_reader_cleanup protocol =
       in
       writer.Rrd_writer.write_payload test_payload ;
       (shared_file, writer)
-      )
+    )
     (fun (shared_file, _writer) ->
       let reader = Rrd_reader.FileReader.create shared_file protocol in
       let (_ : Rrd_protocol.payload) = reader.Rrd_reader.read_payload () in
@@ -82,7 +82,7 @@ let test_reader_cleanup protocol =
       assert_raises ~msg:"cleanup should fail after cleanup"
         Rrd_io.Resource_closed (fun () -> reader.Rrd_reader.cleanup ()
       )
-      )
+    )
     (fun (_, writer) -> writer.Rrd_writer.cleanup ())
     ()
 
@@ -97,7 +97,7 @@ let test_reader_state protocol =
       in
       let reader = Rrd_reader.FileReader.create shared_file protocol in
       (writer, reader)
-      )
+    )
     (fun (writer, reader) ->
       writer.Rrd_writer.write_payload test_payload ;
       let (_ : Rrd_protocol.payload) = reader.Rrd_reader.read_payload () in
@@ -112,11 +112,11 @@ let test_reader_state protocol =
         {test_payload with timestamp= Int64.add test_payload.timestamp 5L} ;
       let (_ : Rrd_protocol.payload) = reader.Rrd_reader.read_payload () in
       ()
-      )
+    )
     (fun (writer, reader) ->
       reader.Rrd_reader.cleanup () ;
       writer.Rrd_writer.cleanup ()
-      )
+    )
     ()
 
 let with_each_protocol prefix_string test_fn =

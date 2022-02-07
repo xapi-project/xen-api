@@ -63,7 +63,7 @@ let get_changes rrd_files =
             (Printexc.to_string e) ;
           Mcache.ignore_errors_from filename
         )
-      )
+    )
     rrd_files ;
   (* Check if anything has changed since our last reading. *)
   Mcache.get_updates_map ~before:Mcache.pvs_proxy_cached
@@ -116,7 +116,7 @@ let update rrd_files =
             keeps := vm_uuid :: !keeps ;
             error "Unable to update PVS-proxy status for %s: %s" vm_uuid
               (Printexc.to_string e)
-          )
+        )
         (get_changes rrd_files) ;
       set_changes ~except:!keeps ()
   )

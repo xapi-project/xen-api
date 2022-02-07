@@ -90,7 +90,7 @@ let gen_non_record_type highapi tys =
         aux
           (sprintf "type %s = %s list [@@deriving rpc]" (OU.alias_of_ty ty)
              (OU.alias_of_ty e)
-           :: accu
+          :: accu
           )
           t
     | ty :: t ->
@@ -99,14 +99,14 @@ let gen_non_record_type highapi tys =
           aux
             (sprintf "type %s = %s\n%s\n" alias (OU.ocaml_of_ty ty)
                (List.assoc alias overrides)
-             :: accu
+            :: accu
             )
             t
         else
           aux
             (sprintf "type %s = %s [@@deriving rpc]" (OU.alias_of_ty ty)
                (OU.ocaml_of_ty ty)
-             :: accu
+            :: accu
             )
             t
   in
@@ -225,7 +225,7 @@ let gen_record_type ~with_module highapi tys =
             ; ""
             ]
         in
-        aux (type_t :: others @ accu) t
+        aux ((type_t :: others) @ accu) t
     | _ :: t ->
         aux accu t
   in
@@ -267,7 +267,7 @@ let add_set_enums types =
                [DT.Set ty; ty]
          | _ ->
              [ty]
-         )
+       )
        types
     )
 
@@ -311,7 +311,7 @@ let toposort_types highapi types =
               List.length referencing > 1
           | _ ->
               false
-          )
+        )
         remaining
     in
     match ty_ref with

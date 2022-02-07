@@ -187,14 +187,14 @@ let check api emergency_calls =
     (fun ((a_obj, _), (b_obj, _)) ->
       ignore (get_obj_by_name api ~objname:a_obj) ;
       ignore (get_obj_by_name api ~objname:b_obj)
-      )
+    )
     relations ;
   (* Sanity check 2: all fields mentioned in the relations should exist *)
   List.iter
     (fun ((a_obj, a_name), (b_obj, b_name)) ->
       ignore (get_field_by_name api ~objname:a_obj ~fieldname:a_name) ;
       ignore (get_field_by_name api ~objname:b_obj ~fieldname:b_name)
-      )
+    )
     relations ;
   (* Sanity check 3: no side-effects for Ref fields *)
   let (_ : obj list) =
@@ -400,9 +400,9 @@ let check api emergency_calls =
                    "Msg %s.%s does not have parameters in version order"
                    obj.name msg.msg_name
                 )
-            )
+          )
           obj.messages
-        )
+      )
       system
   in
   (* Sanity check 8: any "emergency calls" must not support async mode of operation -- if they do then our
@@ -422,9 +422,9 @@ let check api emergency_calls =
                     emergency_call list. These are mutually exclusive choices."
                    obj.name msg.msg_name
                 )
-            )
+          )
           obj.messages
-        )
+      )
       system
   in
   ()

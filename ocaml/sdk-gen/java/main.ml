@@ -325,7 +325,7 @@ let gen_method file cls message params async_version =
       fprintf file "     * @param %s %s%s\n" (camel_case x.param_name)
         (if x.param_doc = "" then "No description" else escape_xml x.param_doc)
         (if paramPublishInfo = "" then "" else " " ^ paramPublishInfo)
-      )
+    )
     params ;
 
   ( if async_version then
@@ -349,7 +349,7 @@ let gen_method file cls message params async_version =
       fprintf file "     * @throws Types.%s %s\n"
         (exception_class_case x.err_name)
         x.err_doc
-      )
+    )
     message.msg_errors ;
 
   fprintf file "     */\n" ;
@@ -392,7 +392,7 @@ let gen_method file cls message params async_version =
       let name = camel_case s in
       fprintf file "        Map<String, Object> %s_map = %s.toMap();\n" name
         name
-      )
+    )
     record_params ;
 
   fprintf file "        Object[] method_params = {" ;
@@ -691,7 +691,7 @@ let generate_snapshot_hack file =
       fprintf file "                case %17s: b = %25s(a); break;\n"
         (String.uppercase_ascii x)
         (get_marshall_function (Record x))
-      )
+    )
     (List.map
        (fun x -> x.name)
        (List.filter (fun x -> not (class_is_empty x)) classes)
@@ -864,7 +864,7 @@ let gen_enum file name ls =
     (fun (enum, _) ->
       fprintf file "            if (this == %s) return \"%s\";\n"
         (enum_of_wire enum) enum
-      )
+    )
     ls ;
   fprintf file "        /* This can never be reached */\n" ;
   fprintf file "        return \"illegal enum\";\n" ;
@@ -926,7 +926,7 @@ let gen_method_error_throw file name error =
         "                String p%i = ErrorDescription.length > %i ? \
          ErrorDescription[%i] : \"\";\n"
         i i i
-      )
+    )
     (range (List.length error.err_params)) ;
 
   fprintf file "                throw new Types.%s(%s);\n" class_name paramsStr ;

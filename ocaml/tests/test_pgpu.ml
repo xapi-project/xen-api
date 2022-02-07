@@ -68,7 +68,7 @@ let test_can_run_VGPU_fails_unsupported_types () =
                Api_errors.vgpu_type_not_supported (fun () ->
                  Xapi_pgpu.assert_can_run_VGPU ~__context ~self:p ~vgpu
              )
-             )
+           )
            vgpus
         )
   )
@@ -148,7 +148,7 @@ let test_remaining_capacity_decreases () =
            (fun (vgpu_type, capacity) ->
              let p = VGPU_T.(make_pgpu ~__context default_k2) in
              check_remaining_capacity_and_fill p capacity vgpu_type
-             )
+           )
            expected_capacities
         )
   )

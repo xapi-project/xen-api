@@ -53,7 +53,7 @@ let interpret_payload payload =
     (fun (owner, ds) ->
       print_endline (string_of_data_source owner ds) ;
       print_endline "----------"
-      )
+    )
     payload.datasources
 
 let main_loop reader interval =
@@ -62,7 +62,7 @@ let main_loop reader interval =
        (fun _ ->
          reader.Rrd_reader.cleanup () ;
          exit 0
-         )
+       )
     ) ;
   try
     while true do

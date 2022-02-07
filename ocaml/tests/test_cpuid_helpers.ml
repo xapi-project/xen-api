@@ -489,7 +489,7 @@ module NextBootCPUFeatures = Generic.MakeStateful (struct
     List.iter
       (fun (name_label, domain_type) ->
         ignore (Test_common.make_vm ~__context ~name_label ~domain_type ())
-        )
+      )
       cases
 
   let extract_output __context vms =

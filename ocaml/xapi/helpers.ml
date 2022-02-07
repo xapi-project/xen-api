@@ -162,7 +162,7 @@ let determine_gateway_and_dns_ifs ~__context
           (fun (_, r) ->
             List.mem_assoc "defaultroute" r.API.pIF_other_config
             && List.assoc "defaultroute" r.API.pIF_other_config = "true"
-            )
+          )
           ip_pifs
       in
       match oc with
@@ -197,7 +197,7 @@ let determine_gateway_and_dns_ifs ~__context
           (fun (_, r) ->
             List.mem_assoc "peerdns" r.API.pIF_other_config
             && List.assoc "peerdns" r.API.pIF_other_config = "true"
-            )
+          )
           ip_pifs
       in
       match oc with
@@ -261,7 +261,7 @@ let update_pif_address ~__context ~self =
         List.map
           (fun (addr, plen) ->
             Printf.sprintf "%s/%d" (Unix.string_of_inet_addr addr) plen
-            )
+          )
           ipv6_addr
       in
       if ipv6_addr' <> Db.PIF.get_IPv6 ~__context ~self then (
@@ -475,7 +475,7 @@ let call_api_functions_internal ~__context f =
         with e ->
           debug "Helpers.call_api_functions failed to logout: %s (ignoring)"
             (Printexc.to_string e)
-      )
+    )
 
 let call_api_functions ~__context f =
   match Context.get_test_rpc __context with
@@ -967,7 +967,7 @@ let cancel_tasks ~__context ~ops ~all_tasks_in_db
           c := true
         else
           su1 := s1 :: !su1
-        )
+      )
       set1 ;
     (!su1, !c)
   in
@@ -1057,7 +1057,7 @@ let is_valid_MAC mac =
   && List.fold_left
        (fun acc s ->
          acc && String.length s = 2 && validchar s.[0] && validchar s.[1]
-         )
+       )
        true l
 
 (** Returns true if the supplied IP address looks like one of mine *)
@@ -1084,7 +1084,7 @@ let get_live_hosts ~__context =
     (fun self ->
       let metrics = Db.Host.get_metrics ~__context ~self in
       try Db.Host_metrics.get_live ~__context ~self:metrics with _ -> false
-      )
+    )
     hosts
 
 let gethostbyname_family host family =
@@ -1482,7 +1482,7 @@ module Early_wakeup = struct
       (fun () ->
         let (_ : bool) = Delay.wait d time in
         ()
-        )
+      )
       (fun () -> Mutex.execute table_m (fun () -> Hashtbl.remove table key))
 
   let broadcast (a, b) =
@@ -1492,7 +1492,7 @@ module Early_wakeup = struct
           (fun (a, b) d ->
             (*debug "Signalling thread blocked on (%s, %s)" a b;*)
             Delay.signal d
-            )
+          )
           table
     )
 
@@ -1690,7 +1690,7 @@ end = struct
         List.filter_map
           (fun task ->
             try Some (Db.Task.get_status ~__context ~self:task) with _ -> None
-            )
+          )
           tasks
       in
       let unfinished = List.exists (fun state -> state = `pending) statuses in
@@ -1813,11 +1813,11 @@ let try_internal_async ~__context (marshaller : Rpc.t -> 'b)
           info "try_internal_async: waiting for task to complete: t = ( %s )"
             ref ;
           Task.to_result ~__context ~of_rpc:marshaller ~t
-          )
+        )
         (fun () ->
           info "try_internal_async: destroying task: t = ( %s )" ref ;
           TaskHelper.destroy ~__context t
-          )
+        )
 
 module PoolSecret : sig
   val make : unit -> SecretString.t

@@ -61,7 +61,7 @@ let plug_unplugged_pbds __context =
       | e ->
           error "Could not plug in pbd '%s': %s" pbd_record.API.pBD_uuid
             (Printexc.to_string e)
-      )
+    )
     my_pbds ;
   Xapi_host_helpers.consider_enabling_host ~__context
 
@@ -107,7 +107,7 @@ let maybe_remove_tools_sr rpc session_id __context =
         && (List.mem_assoc Xapi_globs.tools_sr_tag other_config
            || List.mem_assoc Xapi_globs.xensource_internal other_config
            )
-        )
+      )
       srs
   in
   let unplug_and_maybe_destroy sr =
@@ -141,7 +141,7 @@ let initialise_storage (me : API.ref_host) rpc session_id __context : unit =
         (fun (_, sr_rec) ->
           sr_rec.API.sR_shared
           && (!Xapi_globs.create_tools_sr || not sr_rec.API.sR_is_tools_sr)
-          )
+        )
         srs
     in
     let shared_sr_refs = List.map fst shared_srs in

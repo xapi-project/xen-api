@@ -43,7 +43,7 @@ let parse_proc_xen_balloon () =
       let s = Unixext.string_of_file (sysfs_stem ^ key) in
       let stripped = Xstringext.String.strip Xstringext.String.isspace s in
       (key, Some (Int64.of_string stripped))
-      )
+    )
     keys
 
 let _proc_meminfo = "/proc/meminfo"
@@ -65,7 +65,7 @@ let parse_meminfo () =
         with End_of_file -> ()
       ) ;
       !table
-      )
+    )
     (fun () -> close_in ic)
 
 let _memtotal = "MemTotal:"

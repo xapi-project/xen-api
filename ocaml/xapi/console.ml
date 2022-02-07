@@ -127,7 +127,7 @@ let ws_proxy __context req protocol address s =
               let result = (sock, Some (Ws_helpers.upgrade req s)) in
               result
             with _ -> (sock, None)
-            )
+          )
           sock
       in
       Option.iter
@@ -149,7 +149,7 @@ let ws_proxy __context req protocol address s =
               Http_svr.headers s (Http.http_501_method_not_implemented ())
           )
         upgrade_successful
-      )
+    )
     (fun () -> Option.iter (fun sock -> Unix.close sock) sock)
 
 let default_console_of_vm ~__context ~self =

@@ -45,19 +45,19 @@ let update_allowed_operations ~__context ~self =
               Xapi_vdi.update_allowed_operations ~__context
                 ~self:(Db.VBD.get_VDI ~__context ~self:vbd)
           with _ -> ()
-          )
+        )
         (Db.VM.get_VBDs ~__context ~self) ;
       List.iter
         (fun vif ->
           Xapi_vif_helpers.update_allowed_operations ~__context ~self:vif
-          )
+        )
         (Db.VM.get_VIFs ~__context ~self) ;
       List.iter
         (fun vusb ->
           Xapi_vusb_helpers.update_allowed_operations ~__context ~self:vusb
-          )
+        )
         (Db.VM.get_VUSBs ~__context ~self)
-      )
+    )
     () ;
   Xapi_vm_lifecycle.update_allowed_operations ~__context ~self
 
@@ -311,7 +311,7 @@ let with_temp_file_contents ~contents f =
         (fun () -> output_string out contents)
         (fun () -> close_out out) ;
       Unixext.with_file filename [Unix.O_RDONLY] 0 f
-      )
+    )
     (fun () -> Sys.remove filename)
 
 let save_uefi_certificates_to_dir ~__context ~pool ~vm =
@@ -725,7 +725,7 @@ let destroy ~__context ~self =
   List.iter
     (fun child ->
       try Db.VM.set_parent ~__context ~self:child ~value:parent with _ -> ()
-      )
+    )
     (Db.VM.get_children ~__context ~self) ;
   let uuid = Db.VM.get_uuid ~__context ~self in
   log_and_ignore_exn (fun () -> Rrdd.remove_rrd uuid) ;
@@ -782,7 +782,7 @@ let checkpoint ~__context ~vm ~new_name =
     (fun () ->
       TaskHelper.set_cancellable ~__context ;
       Xapi_vm_snapshot.checkpoint ~__context ~vm ~new_name
-      )
+    )
 
 let copy ~__context ~vm ~new_name ~sr =
   (* See if the supplied SR is suitable: it must exist and be a non-ISO SR *)
@@ -796,7 +796,7 @@ let copy ~__context ~vm ~new_name ~sr =
   Option.iter
     (fun sr ->
       debug "Copying disks to SR: %s" (Db.SR.get_uuid ~__context ~self:sr)
-      )
+    )
     sr ;
   (* Second the non-iso check. It is an error to be an iso SR *)
   Option.iter
@@ -808,7 +808,7 @@ let copy ~__context ~vm ~new_name ~sr =
              , ["Cannot copy a VM's disks to an ISO SR"]
              )
           )
-      )
+    )
     sr ;
   let new_vm =
     Xapi_vm_clone.clone (Xapi_vm_clone.Disk_op_copy sr) ~__context ~vm ~new_name
@@ -1094,7 +1094,7 @@ let run_script ~__context ~vm ~args =
                ]
              )
           )
-      )
+    )
     required ;
   (* Ensure the caller has the VM memory-access level permission i.e. vm-power-admin or higher.
      	   As all the plugin calls share the same role/perms setting, we must do ad-hoc checking here by ourselves. *)
@@ -1149,7 +1149,7 @@ let record_call_plugin_latest vm =
         (fun v t ->
           if Int64.sub now t > interval then
             to_gc := v :: !to_gc
-          )
+        )
         call_plugin_latest ;
       List.iter (Hashtbl.remove call_plugin_latest) !to_gc ;
       (* Then calculate the schedule *)
@@ -1304,7 +1304,7 @@ let set_bios_strings ~__context ~self ~value =
     List.map
       (fun (k, v) ->
         if List.mem_assoc k value then (k, List.assoc k value) else (k, v)
-        )
+      )
       Constants.generic_bios_strings
   in
   Db.VM.set_bios_strings ~__context ~self ~value:bios_strings

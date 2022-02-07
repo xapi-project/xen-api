@@ -80,7 +80,7 @@ let snapshot queues =
         let queue_contents = Q.contents q in
         let next_transfer_expected = get_next_transfer_expected n in
         (n, {queue_contents; next_transfer_expected}) :: acc
-        )
+      )
       []
   in
   let all_queues =
@@ -189,7 +189,7 @@ let process_request conn_id queues session request trace =
               ; processing_time
               }
             
-          )
+        )
         transfer.Out.messages ;
       return (None, Out.Transfer transfer)
   | Some session, In.Send (name, data) -> (

@@ -80,7 +80,7 @@ let post_install_script rpc session_id __context install_vm vm (script, vbds) =
                 ( Device_number.to_linux_device device
                 , "/dev/" ^ Client.VBD.get_device rpc session_id install_vm_vbd
                 )
-                )
+              )
               (List.combine install_vm_vbds vbds)
           in
           let env = ("vm", Ref.string_of vm) :: devices in

@@ -296,7 +296,7 @@ let cleanup_internal ~additional_files_to_remove ~old_ps ~new_ps =
           with e ->
             D.error "cleanup_internal: failed to remove %s. error: %s" path
               (Printexc.to_string e)
-          )
+        )
         files_to_remove ;
       (* psr done, so stop accepting old pool secret *)
       Xapi_globs.pool_secrets := [priority_1_ps]

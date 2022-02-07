@@ -784,9 +784,9 @@ and gen_save_changes out_chan exposed_class_name messages contents =
         && List.exists
              (fun msg ->
                msg.msg_name = String.concat "" ["set_"; full_name field]
-               )
+             )
              messages
-        )
+      )
       fields
   in
   let length = List.length fields2 + List.length readonlyFieldsWithSetters in
@@ -1678,7 +1678,7 @@ and get_default_value_opt field =
             sprintf "{%s, %s}"
               (String.concat ", " (get_default_value a))
               (String.concat ", " (get_default_value b))
-            )
+          )
           y
     | VSet y ->
         List.map (fun x -> String.concat ", " (get_default_value x)) y
@@ -1718,7 +1718,7 @@ and get_default_value_per_type ty thing =
             (List.map
                (fun x ->
                  sprintf "new XenRef<%s>(%s)" (exposed_class_name name) x
-                 )
+               )
                thing
             )
         )

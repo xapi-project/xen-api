@@ -210,7 +210,7 @@ let test_assert_cluster_host_is_enabled_when_it_is_disabled () =
     (fun () ->
       Xapi_clustering.assert_cluster_host_enabled ~__context ~self
         ~expected:true
-      )
+    )
 
 let test_assert_cluster_host_is_disabled_when_it_is_enabled () =
   let __context = T.make_test_database () in
@@ -221,7 +221,7 @@ let test_assert_cluster_host_is_disabled_when_it_is_enabled () =
     (fun () ->
       Xapi_clustering.assert_cluster_host_enabled ~__context ~self
         ~expected:false
-      )
+    )
 
 let test_assert_cluster_host_is_disabled_when_it_is_disabled () =
   let __context = T.make_test_database () in
@@ -316,7 +316,7 @@ let test_assert_cluster_host_is_enabled_for_matching_sms_fails_if_cluster_host_i
     (fun () ->
       Xapi_clustering.assert_cluster_host_is_enabled_for_matching_sms ~__context
         ~host ~sr_sm_type:"gfs2"
-      )
+    )
 
 let test_assert_cluster_host_is_enabled_for_matching_sms_fails_if_no_cluster_host_exists
     () =
@@ -329,7 +329,7 @@ let test_assert_cluster_host_is_enabled_for_matching_sms_fails_if_no_cluster_hos
     (fun () ->
       Xapi_clustering.assert_cluster_host_is_enabled_for_matching_sms ~__context
         ~host ~sr_sm_type:"gfs2"
-      )
+    )
 
 let test_assert_cluster_host_is_enabled_for_matching_sms_succeeds_if_cluster_host_is_disabled_and_clustering_is_not_needed
     () =
@@ -400,7 +400,7 @@ let nest_with_clustering_lock_if_needed ~__context ~timeout ~type1 ~type2
                 on_no_deadlock ()
             )
         )
-        )
+      )
       ()
   in
   Thread.delay timeout ;
@@ -421,7 +421,7 @@ let test_clustering_lock_only_taken_if_needed_nested_calls () =
       Alcotest.fail
         "Unexpected deadlock when making nested calls to \
          with_clustering_lock_if_needed"
-      )
+    )
     ~on_no_deadlock:(fun () -> ())
 
 let test_clustering_lock_taken_when_needed_nested_calls () =
@@ -442,7 +442,7 @@ let test_clustering_lock_taken_when_needed_nested_calls () =
         "Nesting calls to with_clustering_lock_if_needed should deadlock if \
          both require a cluster stack, lock not taken or not working as \
          expected."
-      )
+    )
 
 let test_clustering_lock_only_taken_if_needed =
   [
@@ -627,7 +627,7 @@ let test_disallow_unplug_during_cluster_host_create () =
     (fun self ->
       check_successful_disallow_unplug false self
         "No current clustering operations or enabled cluster hosts on PIF"
-      )
+    )
     (Db.PIF.get_all ~__context)
 
 let test_networking_with_clustering =

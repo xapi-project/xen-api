@@ -114,7 +114,7 @@ let parse_string_int64_features strings =
         let p = List.mem s (List.map fst string_to_capability_table) in
         if not p then debug "SM.feature: unknown feature %s" s ;
         p
-        )
+      )
       strings
   in
   List.map
@@ -132,7 +132,7 @@ let parse_string_int64_features strings =
           debug "SM.feature %s has bad version %s, defaulting to 1" cs vs ;
           (cs, 1L)
       )
-      )
+    )
     text_features
 
 let parse_capability_int64_features strings =

@@ -45,7 +45,7 @@ module Stdout = struct
                 (Thread.id (Thread.self ()))
                 s ;
               flush stdout
-              )
+            )
             fmt
       )
     else
@@ -130,7 +130,7 @@ let get_host_name_label host_uuid =
       XAPI.retry_with_session
         (fun session_id () ->
           XAPI.get_host_name_label ~session_id ~uuid:host_uuid
-          )
+        )
         ()
     in
     Hashtbl.replace host_uuid_to_name_label_map host_uuid name_label ;
@@ -506,7 +506,7 @@ module Xport = struct
          (fun acc v ->
            let strv = Stdout.string_of_float v in
            acc ^ ", " ^ strv
-           )
+         )
          "" last_update.values
       )
       2
@@ -604,14 +604,14 @@ let print_header data_sources show_name show_uuid =
           Ds_selector.to_string_name_label ~escaped:true ds
       else
         Ds_selector.to_string_uuid ~escaped:true ds
-      )
+    )
     data_sources
   |> String.concat ", "
   |> Printf.sprintf "timestamp, %s"
   |> Stdout.print
 
 (* R2.6. Output the latest known value for each available metric on stdout in
-	 comma-separated row on stdout *)
+   comma-separated row on stdout *)
 
 let print_last session_id data_sources =
   let last_update = Xport.get_update session_id in
@@ -636,7 +636,7 @@ let filter_ds_that_starts_with_name dss name =
         ds :: acc
       else
         acc
-      )
+    )
     [] dss
 
 open Xport
@@ -655,7 +655,7 @@ let main session_id user_filters sampling_period show_name show_uuid =
               datasources (%ds)"
              sp time_step
           )
-      )
+    )
     sampling_period ;
   (* R2.1.2. Warn user if he specifies inactive metrics *)
   List.iter
@@ -669,7 +669,7 @@ let main session_id user_filters sampling_period show_name show_uuid =
           (Printf.sprintf "Requested metric %s is disabled or non-existant"
              (Ds_selector.to_string ds)
           )
-      )
+    )
     user_filters ;
   print_header filtered_dss show_name show_uuid ;
   while true do
@@ -705,7 +705,7 @@ let _ =
               (fun () ->
                 Printf.printf "rrd2csv version %s\n(C) Citrix 2012\n" version ;
                 exit 0
-                )
+              )
           , " output version information and exit"
           )
         ; ("-n", Arg.Unit (fun () -> n := true), " show name labels")
@@ -715,7 +715,7 @@ let _ =
               (fun () ->
                 Printf.printf "rrd2csv version %s\n(C) Citrix 2012\n" version ;
                 exit 0
-                )
+              )
           , " output version information and exit"
           )
         ; ( "-help"
@@ -723,7 +723,7 @@ let _ =
               (fun () ->
                 ignore_int (Sys.command "man -M /opt/xensource/man rrd2csv") ;
                 exit 0
-                )
+              )
           , " display help"
           )
         ; ( "--help"
@@ -731,7 +731,7 @@ let _ =
               (fun () ->
                 ignore_int (Sys.command "man -M /opt/xensource/man rrd2csv") ;
                 exit 0
-                )
+              )
           , " display help"
           )
         ]
@@ -745,5 +745,5 @@ let _ =
   XAPI.retry_with_session
     (fun session_id () ->
       main session_id user_filters sampling_period show_name show_uuid
-      )
+    )
     ()

@@ -161,16 +161,16 @@ let rec wait_for_file_to_appear path =
     (fun () ->
       Conduit_lwt_unix.connect ~ctx:Conduit_lwt_unix.default_ctx
         (`Unix_domain_socket (`File path))
-      )
+    )
     (fun (_, ic, _oc) ->
       D.debug "Socket at %s works" path ;
       (* do not close both channels, or we get an EBADF *)
       Lwt_io.close ic
-      )
+    )
     (fun e ->
       D.debug "Waiting for file %s to appear (%s)" path (Printexc.to_string e) ;
       Lwt_unix.sleep 0.1 >>= fun () -> wait_for_file_to_appear path
-      )
+    )
 
 let serve_forever_lwt rpc_fn path =
   let conn_closed _ = () in

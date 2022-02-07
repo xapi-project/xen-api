@@ -39,7 +39,7 @@ let fix_bonds ~__context () =
     (fun (rf, rc) ->
       if not (Db.is_valid_ref __context rc.API.pIF_bond_slave_of) then
         Db.PIF.set_bond_slave_of ~__context ~self:rf ~value:Ref.null
-      )
+    )
     my_slave_pifs ;
   let my_bond_pifs =
     Db.PIF.get_records_where ~__context
@@ -73,7 +73,7 @@ let copy_bonds_from_master ~__context () =
     List.map
       (fun (_, pif) ->
         Db.Bond.get_record ~__context ~self:(List.hd pif.API.pIF_bond_master_of)
-        )
+      )
       master_bond_pifs
   in
   let my_bond_pifs =
@@ -105,7 +105,7 @@ let copy_bonds_from_master ~__context () =
           , Db.PIF.get_MAC ~__context ~self
           , Db.PIF.get_device ~__context ~self
           )
-          )
+        )
         bond.API.bond_slaves
     in
     (* Take the MAC addr of the bond and figure out whether this is the MAC address of any of the

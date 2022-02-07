@@ -346,7 +346,7 @@ functor
                     && device.Pci_dev.bus = address.bus
                     && device.Pci_dev.dev = address.dev
                     && device.Pci_dev.func = address.fn
-                    )
+                  )
                   (get_devices access)
               in
               (vendor_name, device)
@@ -567,12 +567,12 @@ module Vendor_nvidia = struct
                    Int64.of_string (get_data (find_one_by_name "maxVgpus" vgpu))
                  in
                  (id, {max; psubdev_id; sriov})
-                 )
+               )
                vgpus
             )
         else
           None
-        )
+      )
       pgpus
     |> List.concat
 
@@ -694,7 +694,7 @@ module Vendor_nvidia = struct
             }
         ) else
           None
-        )
+      )
       vgpu_types
 
   let read_whitelist ~whitelist ~device_id =
@@ -706,7 +706,7 @@ module Vendor_nvidia = struct
             let i = Xmlm.make_input ~strip:true (`Channel ch) in
             let _, t = Xmlm.input_doc_tree ~el ~data i in
             t
-            )
+          )
           (fun () -> close_in ch)
       in
       let pgpus = find_by_name "pgpu" t in
@@ -956,7 +956,7 @@ module Nvidia_compat = struct
                 (k, v)
             | _ ->
                 ("", "")
-            )
+          )
           args
       in
       (* plugin0.pdev_id will either be just the physical device id, or of the

@@ -70,7 +70,7 @@ let test_all_cluster_ops_allowed_when_no_cluster_ops_in_progress () =
           (Record_util.cluster_operation_to_string op)
       in
       assert_true msg (List.mem `add allowed_ops)
-      )
+    )
     Xapi_cluster_helpers.all_cluster_operations
 
 (** if the cluster_host is enabled and there are no cluster_host operations in progress
@@ -130,7 +130,7 @@ let test_clustering_ops_disallowed_during_rolling_upgrade () =
         Alcotest.(check unit)
           "Clustering operations should be allowed" ()
           (with_cluster_fn ~__context self op)
-        )
+      )
       ops
   in
   let cluster, cluster_host =
@@ -158,7 +158,7 @@ let test_clustering_ops_disallowed_during_rolling_upgrade () =
          should be allowed during RPU"
         Api_errors.(Server_error (not_supported_during_upgrade, []))
         (fun () -> with_cluster_op ~__context cluster op)
-      )
+    )
     [`add; `remove; `destroy] ;
   test_clustering_ops_should_pass with_cluster_op cluster [`enable; `disable] ;
   test_cluster_host_operations_valid ()
@@ -180,7 +180,7 @@ let test_cluster_host_ops_without_join () =
           Server_error (cluster_host_not_joined, [Ref.string_of cluster_host])
         )
         (fun () -> with_cluster_host_op ~__context cluster_host op)
-      )
+    )
     Xapi_cluster_host_helpers.all_cluster_host_operations
 
 let test =

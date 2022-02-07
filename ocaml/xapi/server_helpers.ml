@@ -131,7 +131,7 @@ let exec_with_context ~__context ~need_complete ?marshaller ?f_forward
               if not called_async then Context.destroy __context
               (* else debug "nothing more to process for this thread" *)
           )
-          )
+        )
         ()
   )
 
@@ -168,7 +168,7 @@ let do_dispatch ?session_id ?forward_op ?self supports_async called_fn_name
            (fun () ->
              exec_with_context ~__context ~need_complete ~called_async
                ?f_forward:forward_op ~marshaller op_fn
-             )
+           )
            ()
         ) ;
       (* Return task id immediately *)

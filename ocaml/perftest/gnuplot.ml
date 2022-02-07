@@ -161,5 +161,5 @@ let render (x : t) output =
            (if output = X11 then "-persist" else "")
            f
         )
-      )
+    )
     (fun () -> Unixext.unlink_safe f)

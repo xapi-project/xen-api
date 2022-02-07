@@ -116,7 +116,7 @@ let destroy ~__context ~self =
       assert_cluster_host_has_no_attached_sr_which_requires_cluster_stack
         ~__context ~self:ch ;
       Xapi_cluster_host.force_destroy ~__context ~self:ch
-      )
+    )
     cluster_host ;
   Db.Cluster.destroy ~__context ~self ;
   D.debug "Cluster destroyed successfully" ;
@@ -228,7 +228,7 @@ let pool_create ~__context ~network ~cluster_stack ~token_timeout
             in
             D.debug "Created Cluster_host: %s" (Ref.string_of cluster_host_ref)
         )
-        )
+      )
       slave_hosts ;
     cluster
   with e ->
@@ -244,7 +244,7 @@ let pool_create ~__context ~network ~cluster_stack ~token_timeout
     raise e
 
 (* Work is split between message_forwarding and this code. This code is
-executed on each host locally *)
+   executed on each host locally *)
 let pool_resync ~__context ~(self : API.ref_Cluster) =
   let host = Helpers.get_localhost ~__context in
   log_and_ignore_exn @@ fun () ->

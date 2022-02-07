@@ -136,7 +136,7 @@ let unlocked_gc () =
           "Expiring stunnel id %s since we have too many cached tunnels (limit \
            is %d)"
           (id_of_stunnel stunnel) max_stunnel
-        )
+      )
       oldest_ids ;
     to_gc := !to_gc @ oldest_ids
   ) ;
@@ -145,7 +145,7 @@ let unlocked_gc () =
     (fun id ->
       let s = Tbl.find !stunnels id in
       Stunnel.disconnect s
-      )
+    )
     !to_gc ;
   (* Remove all reference to them from our cache hashtables *)
   let index' = Hashtbl.create capacity in
@@ -156,7 +156,7 @@ let unlocked_gc () =
         Hashtbl.add index' ep kept_ids
       else
         ()
-      )
+    )
     !index ;
   let times' = Hashtbl.copy !times in
   List.iter (fun idx -> Hashtbl.remove times' idx) !to_gc ;

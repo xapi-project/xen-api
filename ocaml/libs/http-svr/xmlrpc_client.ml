@@ -106,7 +106,7 @@ let check_reusable_inner (x : Unixfd.t) =
               "check_reusable: no content-length from known-invalid URI: \
                connection not reusable" ;
             false
-        )
+      )
   with exn ->
     StunnelDebug.debug
       "check_reusable: caught exception %s; assuming not reusable"
@@ -144,7 +144,7 @@ let watchdog timeout pid f =
     (fun () ->
       StunnelDebug.warn "Watchdog fired: killing pid: %d" pid ;
       Unix.kill pid Sys.sigterm
-      )
+    )
     (fun cancel_watchdog get_fired ->
       let result = try Some (f ()) with _ -> None in
       cancel_watchdog () ;
@@ -161,7 +161,7 @@ let watchdog timeout pid f =
       | None, _ ->
           (* fire_fn raised an exception (!) - Not reusable *)
           false
-      )
+    )
 
 let check_reusable x pid = watchdog 30 pid (fun () -> check_reusable_inner x)
 
@@ -315,7 +315,7 @@ let with_transport transport f =
         (fun () ->
           Unixext.set_tcp_nodelay fd true ;
           f fd
-          )
+        )
         (fun () -> Unix.close fd)
   | SSL
       ( {SSL.use_fork_exec_helper; use_stunnel_cache; verify_cert; task_id}
@@ -365,7 +365,7 @@ let with_transport transport f =
                   if Sys.file_exists st_proc.Stunnel.logfile then
                     Stunnel.diagnose_failure st_proc ;
                 raise e
-              )
+            )
             (fun () ->
               if use_stunnel_cache then (
                 Stunnel_cache.add st_proc ;
@@ -375,7 +375,7 @@ let with_transport transport f =
                 Unix.unlink st_proc.Stunnel.logfile ;
                 Stunnel.disconnect st_proc
               )
-              )
+            )
       )
 
 let with_http request f s =

@@ -124,15 +124,13 @@ module Thread_state = struct
       IntMap.map
         (fun ts ->
           [ts.name]
-          ::
-          [Ref.really_pretty_and_small ts.task]
-          ::
-          List.map
-            (fun (r, t) ->
-              [string_of_resource r; Printf.sprintf "%.0f" (t' -. t)]
-              )
-            ts.acquired_resources
-          )
+          :: [Ref.really_pretty_and_small ts.task]
+          :: List.map
+               (fun (r, t) ->
+                 [string_of_resource r; Printf.sprintf "%.0f" (t' -. t)]
+               )
+               ts.acquired_resources
+        )
         snapshot
     in
     let resources_of_ts ts =
@@ -163,7 +161,7 @@ module Thread_state = struct
             (fun (r, _) -> (id, List.assoc r resources_to_ids))
             ts.acquired_resources
           @ acc
-          )
+        )
         snapshot []
     in
     let threads_to_resources =
@@ -174,7 +172,7 @@ module Thread_state = struct
               acc
           | Some (r, _) ->
               (id, List.assoc r resources_to_ids) :: acc
-          )
+        )
         snapshot []
     in
     let label_of_sll sll =
@@ -186,14 +184,14 @@ module Thread_state = struct
       @ IntMap.fold
           (fun id sll acc ->
             Printf.sprintf "t%d [label=\"%s\"];" id (label_of_sll sll) :: acc
-            )
+          )
           threads []
       @ ["node [shape=record];"]
       @ List.map
           (fun (resource, id) ->
             Printf.sprintf "r%d [style=filled label=\"%s\"];" id
               (label_of_sll (List.assoc resource resources_to_sll))
-            )
+          )
           resources_to_ids
       @ List.map
           (fun (t, r) -> Printf.sprintf "t%d -> r%d" t r)

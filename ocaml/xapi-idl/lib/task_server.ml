@@ -258,7 +258,7 @@ functor
           with e ->
             debug "Task.cancel %s: ignore exception %s" task.id
               (Printexc.to_string e)
-          )
+        )
         callbacks
 
     let raise_cancelled task =
@@ -276,7 +276,7 @@ functor
               task.id task.cancel_points_seen ;
             raise_cancelled task
           )
-          )
+        )
         task.test_cancel_at
 
     let check_cancelling t =

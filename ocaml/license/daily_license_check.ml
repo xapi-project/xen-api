@@ -18,7 +18,7 @@ let get_hosts all_license_params threshold =
         name_label :: acc
       else
         acc
-      )
+    )
     [] all_license_params
 
 let check_license now pool_license_state all_license_params =

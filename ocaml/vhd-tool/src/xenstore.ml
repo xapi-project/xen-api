@@ -90,7 +90,7 @@ module Xs = struct
     ; writev=
         (fun base_path ->
           List.iter (fun (k, v) -> Client.write h (base_path ^ "/" ^ k) v)
-          )
+        )
     ; mkdir= Client.mkdir h
     ; rm= (fun path -> try Client.rm h path with Xs_protocol.Enoent _ -> ())
     ; setperms= Client.setperms h

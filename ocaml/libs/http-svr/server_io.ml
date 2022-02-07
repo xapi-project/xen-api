@@ -119,9 +119,9 @@ let server handler sock =
                 (handler_by_thread handler)
                 (Server_fd sock)
             with PleaseClose -> debug "Server thread exiting"
-            )
+          )
           ()
-        )
+      )
       ()
   in
   let shutdown () =
@@ -130,7 +130,7 @@ let server handler sock =
         let len = Unix.write status_in (Bytes.of_string "!") 0 1 in
         if len <> 1 then failwith "Failed to signal to server to shutdown" ;
         Thread.join thread
-        )
+      )
       (fun () -> List.iter close' !toclose)
   in
   {shutdown}

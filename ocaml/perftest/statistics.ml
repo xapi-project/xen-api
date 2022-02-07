@@ -116,7 +116,7 @@ module Hist = struct
                 Some ((bin_start +. bin_end) /. 2.) (* no interpolation *)
               else
                 None
-          )
+        )
         None
     with
     | Some x ->

@@ -22,7 +22,7 @@ let event_next_unblocking_test rpc session_id () =
               )
         ) ;
         Mutex.execute m (fun () -> unblocked := true)
-        )
+      )
       ()
   in
   (* Background thread is started but it cannot simultaneously block and signal us to
@@ -58,7 +58,7 @@ let event_next_test rpc session_id () =
                 finished := true
             )
         done
-        )
+      )
       ()
   in
   Thread.delay 1. ;
@@ -95,7 +95,7 @@ let event_from_test rpc session_id () =
       (fun () ->
         wait_for_pool_key rpc session_id key ;
         Mutex.execute m (fun () -> finished := true)
-        )
+      )
       ()
   in
   Thread.delay 1. ;
@@ -122,7 +122,7 @@ let event_from_parallel_test rpc session_id () =
         with e ->
           print_endline (Printexc.to_string e) ;
           ok := false
-        )
+      )
       ()
   in
   let (interfering_thread : Thread.t) =
@@ -180,7 +180,7 @@ let object_level_event_test rpc session_id () =
                       )
                 )
               )
-              )
+            )
             events.events ;
           token := events.token ;
           let oc = Client.Client.VM.get_other_config rpc session_id vm_a in
@@ -191,7 +191,7 @@ let object_level_event_test rpc session_id () =
                 finished := true
             )
         done
-        )
+      )
       ()
   in
   Thread.delay 1. ;
@@ -240,7 +240,7 @@ let event_message_test rpc session_id () =
     (List.exists
        (fun ev ->
          ev.Event_types.reference = Ref.string_of message && ev.op = `add
-         )
+       )
        events.events
     ) ;
   print_endline "Message deletion event test" ;
@@ -256,7 +256,7 @@ let event_message_test rpc session_id () =
     (List.exists
        (fun ev ->
          ev.Event_types.reference = Ref.string_of message && ev.op = `del
-         )
+       )
        events.events
     ) ;
   print_endline "Message deletion from cache test" ;
@@ -270,7 +270,7 @@ let event_message_test rpc session_id () =
     (List.exists
        (fun ev ->
          ev.Event_types.reference = Ref.string_of message && ev.op <> `del
-         )
+       )
        events.events
     ) ;
   print_endline "Multi message test" ;
@@ -302,31 +302,31 @@ let event_message_test rpc session_id () =
     (fun ev ->
       print_endline
         (Printf.sprintf "events1: ev.ref=%s" ev.Event_types.reference)
-      )
+    )
     events.events ;
   List.iter
     (fun ev ->
       print_endline
         (Printf.sprintf "events2: ev.ref=%s" ev.Event_types.reference)
-      )
+    )
     events2.events ;
   let ok1 =
     List.exists
       (fun ev ->
         ev.Event_types.reference = Ref.string_of message1 && ev.op = `add
-        )
+      )
       events.events
     && List.exists
          (fun ev ->
            ev.Event_types.reference = Ref.string_of message2 && ev.op = `add
-           )
+         )
          events.events
   in
   let ok2 =
     List.exists
       (fun ev ->
         ev.Event_types.reference = Ref.string_of message3 && ev.op = `add
-        )
+      )
       events2.events
   in
   let ok3 =
@@ -334,7 +334,7 @@ let event_message_test rpc session_id () =
        (List.exists
           (fun ev ->
             ev.Event_types.reference = Ref.string_of message1 && ev.op = `add
-            )
+          )
           events2.events
        )
     )
@@ -342,7 +342,7 @@ let event_message_test rpc session_id () =
          (List.exists
             (fun ev ->
               ev.Event_types.reference = Ref.string_of message2 && ev.op = `add
-              )
+            )
             events2.events
          )
   in
@@ -376,7 +376,7 @@ let event_inject_test rpc session_id () =
       (fun () ->
         let _ = Client.Client.Event.from rpc session_id ["pool"] token 5.0 in
         ()
-        )
+      )
       ()
   in
   ignore
@@ -404,7 +404,7 @@ let event_from_number_test rpc session_id () =
           (set, true)
         else
           (StringSet.add reference set, failed)
-        )
+      )
       (StringSet.empty, false) events.events
   in
   Alcotest.(check bool) "Object seen twice in events" false f

@@ -85,7 +85,7 @@ module VBD = struct
             Local_xapi_session.with_session @@ fun rpc session_id ->
             Xen_api.VBD.destroy ~rpc ~session_id ~self:vbd >>= fun () ->
             Lwt.fail e
-            )
+          )
       in
       Xen_api.VBD.get_uuid ~rpc ~session_id ~self:vbd >>*= fun vbd_uuid ->
       Vbd_store.add vbd_uuid >>*= fun () ->
@@ -110,7 +110,7 @@ module VBD = struct
                 (fun () ->
                   Xen_api.VBD.get_by_uuid ~rpc ~session_id ~uuid >>= fun vbd ->
                   cleanup_vbd vbd
-                  )
+                )
                 (function
                   | Api_errors.Server_error (e, _)
                     when e = Api_errors.uuid_invalid ->
@@ -121,7 +121,7 @@ module VBD = struct
                   )
               >>= fun () -> Vbd_store.remove uuid
           )
-          )
+        )
         vbd_uuids
   end
 
@@ -145,14 +145,14 @@ module VBD = struct
                     >>= fun () ->
                     Local_xapi_session.with_session @@ fun rpc session_id ->
                     Xen_api.VBD.unplug ~rpc ~session_id ~self:vbd
-                    )
-                )
+                  )
+              )
               (fun () ->
                 Lwt_log.notice_f "Destroying VBD %s" (API.Ref.string_of vbd)
                 >>= fun () ->
                 Local_xapi_session.with_session @@ fun rpc session_id ->
                 Xen_api.VBD.destroy ~rpc ~session_id ~self:vbd
-                )
+              )
         )
     )
 end

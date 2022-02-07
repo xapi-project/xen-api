@@ -52,7 +52,7 @@ let register () =
                  (fun delay member ->
                    Client.Client.Host.backup_rrds rpc session_id member delay ;
                    delay +. 60.0
-                   )
+                 )
                  0.0 hosts
               )
         )

@@ -66,7 +66,7 @@ let test_ca253933_invalid_operations () =
       ~vdi_fun:(fun sr_ref ->
         T.make_vdi ~sR:sr_ref ~__context ~managed:true
           ~current_operations:[("x", op)] ()
-        )
+      )
       `attach (Some Api_errors.other_operation_in_progress)
   in
   List.iter operation_is_invalid invalid_operations
@@ -80,7 +80,7 @@ let test_ca253933_valid_operations () =
       ~vdi_fun:(fun sr_ref ->
         T.make_vdi ~sR:sr_ref ~__context ~managed:true
           ~current_operations:[("x", op)] ()
-        )
+      )
       `attach None
   in
   List.iter operation_is_valid valid_operations

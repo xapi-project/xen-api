@@ -52,7 +52,7 @@ let test_infer_vif_map () =
         (Xapi_vm_migrate.infer_vif_map ~__context [vm_vif1; vm_vif2]
            [(vm_vif1, network1)]
         )
-      ) ;
+    ) ;
   let inferred_map =
     Xapi_vm_migrate.infer_vif_map ~__context [vm_vif1; snap_vif1]
       [(vm_vif1, network1)]
@@ -70,7 +70,7 @@ let test_infer_vif_map () =
            [vm_vif1; snap_vif1; snap_vif2]
            [(vm_vif1, network1)]
         )
-      )
+    )
 
 let test =
   [

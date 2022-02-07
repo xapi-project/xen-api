@@ -38,7 +38,7 @@ module PoolCpuinfo = Generic.MakeStateful (struct
         Db.Host.set_cpu_info ~__context ~self:host ~value:cpu_info ;
         if hvm_capable then
           Db.Host.set_capabilities ~__context ~self:host ~value:["hvm"]
-        )
+      )
       inputs ;
     ignore
       (Test_common.make_pool ~__context

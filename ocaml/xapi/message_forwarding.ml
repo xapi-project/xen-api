@@ -110,7 +110,7 @@ let call_slave_with_local_session remote_rpc_fn __context host
       Client.Session.local_logout
         ~rpc:(remote_rpc_fn __context hostname None)
         ~session_id
-      )
+    )
 
 (* set the fields on the task record to indicate that forwarding has taken place and
    creates a task id for the slave to use *)
@@ -283,7 +283,7 @@ let loadbalance_host_operation ~__context ~hosts ~doc ~op
                 Xapi_host_helpers.assert_operation_valid ~__context ~self ~op ;
                 true
               with _ -> false
-              )
+            )
             hosts
         in
         if possibilities = [] then
@@ -315,7 +315,7 @@ let loadbalance_host_operation ~__context ~hosts ~doc ~op
         Helpers.Early_wakeup.broadcast
           (Datamodel_common._host, Ref.string_of choice)
       with _ -> ()
-      )
+    )
 
 module Forward =
 functor
@@ -1122,7 +1122,7 @@ functor
                 Some (Ref.of_string task)
               ) else
                 None
-              )
+            )
             (Db.VM.get_current_operations ~__context ~self:vm)
         in
         wait_for_tasks ~__context ~tasks:cancelled
@@ -1139,7 +1139,7 @@ functor
               Helpers.Early_wakeup.broadcast
                 (Datamodel_common._vbd, Ref.string_of self)
             )
-            )
+          )
           vbds
 
       let mark_vbds ~__context ~vm ~doc ~op : API.ref_VBD list =
@@ -1156,7 +1156,7 @@ functor
                 ~value:op ;
               Xapi_vbd_helpers.update_allowed_operations ~__context ~self:vbd ;
               marked := vbd :: !marked
-              )
+            )
             vbds ;
           vbds
         with e ->
@@ -1180,7 +1180,7 @@ functor
             Helpers.with_global_lock (fun () ->
                 unmark_vbds ~__context ~vbds ~doc ~op
             )
-            )
+          )
 
       let unmark_vifs ~__context ~vifs ~doc ~op =
         let task_id = Ref.string_of (Context.get_task_id __context) in
@@ -1194,7 +1194,7 @@ functor
               Helpers.Early_wakeup.broadcast
                 (Datamodel_common._vif, Ref.string_of self)
             )
-            )
+          )
           vifs
 
       let mark_vifs ~__context ~vm ~doc ~op : API.ref_VIF list =
@@ -1209,7 +1209,7 @@ functor
                 ~value:op ;
               Xapi_vif_helpers.update_allowed_operations ~__context ~self:vif ;
               vif
-              )
+            )
             vifs
         in
         (* Did we mark them all? *)
@@ -1234,7 +1234,7 @@ functor
             Helpers.with_global_lock (fun () ->
                 unmark_vifs ~__context ~vifs ~doc ~op
             )
-            )
+          )
 
       (* Some VM operations have side-effects on VBD allowed_operations but don't actually
          lock the VBDs themselves (eg suspend) *)
@@ -1247,7 +1247,7 @@ functor
                   let vdi = Db.VBD.get_VDI ~__context ~self in
                   Xapi_vdi.update_allowed_operations ~__context ~self:vdi
                 with _ -> ()
-                )
+              )
               (Db.VM.get_VBDs ~__context ~self:vm)
         )
 
@@ -1256,7 +1256,7 @@ functor
             List.iter
               (fun self ->
                 Xapi_vif_helpers.update_allowed_operations ~__context ~self
-                )
+              )
               (Db.VM.get_VIFs ~__context ~self:vm)
         )
 
@@ -1280,7 +1280,7 @@ functor
           (fun vgpu ->
             Db.VGPU.set_scheduled_to_be_resident_on ~__context ~self:vgpu
               ~value:Ref.null
-            )
+          )
           (Db.VM.get_VGPUs ~__context ~self:vm)
 
       let clear_reserved_netsriov_vfs_on ~__context ~vm =
@@ -1387,7 +1387,7 @@ functor
         finally
           (fun () ->
             (do_op_on ~local_fn ~__context ~host:suitable_host op, suitable_host)
-            )
+          )
           (fun () ->
             Helpers.with_global_lock (fun () ->
                 finally_clear_host_operation ~__context ~host:suitable_host
@@ -1396,7 +1396,7 @@ functor
                 if Db.is_valid_ref __context vm then
                   clear_scheduled_to_be_resident_on ~__context ~vm
             )
-            )
+          )
 
       (* Used by VM.start_on, VM.resume_on, VM.migrate to verify a host has enough resource and to
          'allocate_vm_to_host' (ie set the 'scheduled_to_be_resident_on' field) *)
@@ -1707,7 +1707,7 @@ functor
                               | _ ->
                                   raise Ambigious_provision_spec
                             )
-                            )
+                          )
                           srs
                       in
                       srs
@@ -1805,7 +1805,7 @@ functor
                   )
             | _ ->
                 ()
-            )
+          )
           (Db.Host.get_current_operations ~__context ~self:host) ;
         info "VM.start_on: VM = '%s'; host '%s'" (vm_uuid ~__context vm)
           (host_uuid ~__context host) ;
@@ -2439,7 +2439,7 @@ functor
                   (fun () ->
                     Client.InternalAsync.VM.migrate_send rpc session_id vm dest
                       live vdi_map vif_map options vgpu_map
-                    )
+                  )
                   (fun () -> op session_id rpc)
             )
           in
@@ -2468,7 +2468,7 @@ functor
                   allocate_vm_to_host ~__context ~vm ~host ~snapshot
                     ~host_op:`vm_migrate () ;
                   forward_internal_async ()
-                  )
+                )
                 clear_migrate_op
         in
         let result =
@@ -4120,7 +4120,7 @@ functor
               Helpers.Early_wakeup.broadcast
                 (Datamodel_common._vif, Ref.string_of self)
             )
-            )
+          )
           vif
 
       let mark_vif ~__context ~vif ~doc ~op =
@@ -4131,7 +4131,7 @@ functor
             Db.VIF.add_to_current_operations ~__context ~self ~key:task_id
               ~value:op ;
             Xapi_vif_helpers.update_allowed_operations ~__context ~self
-            )
+          )
           vif
 
       let with_vif_marked ~__context ~vif ~doc ~op f =
@@ -4144,7 +4144,7 @@ functor
             Helpers.with_global_lock (fun () ->
                 unmark_vif ~__context ~vif ~doc ~op
             )
-            )
+          )
 
       (* -------- Forwarding helper functions: ------------------------------------ *)
 
@@ -4613,7 +4613,7 @@ functor
               Helpers.Early_wakeup.broadcast
                 (Datamodel_common._sr, Ref.string_of self)
             )
-            )
+          )
           sr
 
       let mark_sr ~__context ~sr ~doc ~op =
@@ -4625,7 +4625,7 @@ functor
             Db.SR.add_to_current_operations ~__context ~self ~key:task_id
               ~value:op ;
             Xapi_sr_operations.update_allowed_operations ~__context ~self
-            )
+          )
           sr
 
       let with_sr_marked ~__context ~sr ~doc ~op f =
@@ -4638,7 +4638,7 @@ functor
             Helpers.with_global_lock (fun () ->
                 unmark_sr ~__context ~sr ~doc ~op
             )
-            )
+          )
 
       (* -------- Forwarding helper functions: ------------------------------------ *)
 
@@ -4922,7 +4922,7 @@ functor
               Helpers.Early_wakeup.broadcast
                 (Datamodel_common._vdi, Ref.string_of self)
             )
-            )
+          )
           vdi
 
       let mark_vdi ~__context ~vdi ~doc ~op =
@@ -4933,7 +4933,7 @@ functor
             Db.VDI.add_to_current_operations ~__context ~self ~key:task_id
               ~value:op ;
             Xapi_vdi.update_allowed_operations ~__context ~self
-            )
+          )
           vdi
 
       (** Use this function to mark the SR and/or the individual VDI *)
@@ -4962,7 +4962,7 @@ functor
                   (fun (vdi, op) -> unmark_vdi ~__context ~vdi ~doc ~op)
                   vdi
             )
-            )
+          )
 
       (* -------- Forwarding helper functions: ------------------------------------ *)
 
@@ -5046,7 +5046,7 @@ functor
             let vm = Db.VBD.get_VM ~__context ~self:vbd in
             Xapi_vm_lifecycle.assert_initial_power_state_is ~__context ~self:vm
               ~expected:`Halted
-            )
+          )
           vbds
 
       let set_on_boot ~__context ~self ~value =
@@ -5061,7 +5061,7 @@ functor
             forward_vdi_op ~local_fn ~__context ~self (fun session_id rpc ->
                 Client.VDI.set_on_boot rpc session_id self value
             )
-            )
+          )
 
       let set_allow_caching ~__context ~self ~value =
         ensure_vdi_not_on_running_vm ~__context ~self ;
@@ -5094,7 +5094,7 @@ functor
                   ~sR ~virtual_size ~_type ~sharable ~read_only ~other_config
                   ~xenstore_data ~sm_config ~tags
             )
-            )
+          )
 
       (* Hidden call used in pool join only *)
       let pool_introduce = Local.VDI.pool_introduce
@@ -5141,7 +5141,7 @@ functor
                   ~virtual_size ~physical_utilisation ~metadata_of_pool
                   ~is_a_snapshot ~snapshot_time ~snapshot_of
             )
-            )
+          )
 
       let update ~__context ~vdi =
         let local_fn = Local.VDI.update ~vdi in
@@ -5153,7 +5153,7 @@ functor
             SR.forward_sr_op ~local_fn ~__context ~self:sr
               (fun session_id rpc -> Client.VDI.update ~rpc ~session_id ~vdi
             )
-            )
+          )
 
       let forget ~__context ~vdi =
         info "VDI.forget: VDI = '%s'" (vdi_uuid ~__context vdi) ;
@@ -5174,7 +5174,7 @@ functor
             forward_vdi_op ~local_fn ~__context ~self (fun session_id rpc ->
                 Client.VDI.destroy rpc session_id self
             )
-            )
+          )
 
       (* !! FIXME - Depends on what we're doing here... *)
       let snapshot ~__context ~vdi ~driver_params =
@@ -5189,7 +5189,7 @@ functor
             forward_vdi_op ~local_fn ~__context ~self:vdi (fun session_id rpc ->
                 Client.VDI.snapshot rpc session_id vdi driver_params
             )
-            )
+          )
 
       let clone ~__context ~vdi ~driver_params =
         info "VDI.clone: VDI = '%s'" (vdi_uuid ~__context vdi) ;
@@ -5203,7 +5203,7 @@ functor
             forward_vdi_op ~local_fn ~__context ~self:vdi (fun session_id rpc ->
                 Client.VDI.clone rpc session_id vdi driver_params
             )
-            )
+          )
 
       let copy ~__context ~vdi ~sr ~base_vdi ~into_vdi =
         info "VDI.copy: VDI = '%s'; SR = '%s'; base_vdi = '%s'; into_vdi = '%s'"
@@ -5236,7 +5236,7 @@ functor
             with Not_found ->
               SR.forward_sr_multiple_op ~local_fn ~__context ~srs:[src_sr]
                 ~prefer_slaves:true op
-            )
+          )
 
       let pool_migrate ~__context ~vdi ~sr ~options =
         let vbds =
@@ -5302,7 +5302,7 @@ functor
                         Client.VDI.pool_migrate ~rpc ~session_id ~vdi ~sr
                           ~options
                     )
-                    )
+                  )
             )
         )
 
@@ -5318,7 +5318,7 @@ functor
             forward_vdi_op ~local_fn ~__context ~self:vdi (fun session_id rpc ->
                 Client.VDI.resize rpc session_id vdi size
             )
-            )
+          )
 
       let generate_config ~__context ~host ~vdi =
         info "VDI.generate_config: VDI = '%s'; host = '%s'"
@@ -5332,7 +5332,7 @@ functor
             do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
                 Client.VDI.generate_config rpc session_id host vdi
             )
-            )
+          )
 
       let force_unlock ~__context ~vdi =
         info "VDI.force_unlock: VDI = '%s'" (vdi_uuid ~__context vdi) ;
@@ -5344,7 +5344,7 @@ functor
             forward_vdi_op ~local_fn ~__context ~self:vdi (fun session_id rpc ->
                 Client.VDI.force_unlock rpc session_id vdi
             )
-            )
+          )
 
       let checksum ~__context ~self =
         VM.forward_to_access_srs_and ~local_fn:(Local.VDI.checksum ~self)
@@ -5364,7 +5364,7 @@ functor
             forward_vdi_op ~local_fn ~__context ~self (fun session_id rpc ->
                 Client.VDI.enable_cbt rpc session_id self
             )
-            )
+          )
 
       let disable_cbt ~__context ~self =
         info "VDI.disable_cbt: VDI = '%s'" (vdi_uuid ~__context self) ;
@@ -5378,7 +5378,7 @@ functor
             forward_vdi_op ~local_fn ~__context ~self (fun session_id rpc ->
                 Client.VDI.disable_cbt rpc session_id self
             )
-            )
+          )
 
       let set_cbt_enabled ~__context ~self ~value =
         info "VDI.set_cbt_enabled: VDI = '%s'; value = '%b'"
@@ -5399,7 +5399,7 @@ functor
             forward_vdi_op ~local_fn ~__context ~self (fun session_id rpc ->
                 Client.VDI.data_destroy rpc session_id self
             )
-            )
+          )
 
       let list_changed_blocks ~__context ~vdi_from ~vdi_to =
         info "VDI.list_changed_blocks: vdi_from  = '%s'; vdi_to = '%s'"
@@ -5417,7 +5417,7 @@ functor
                 Client.VDI.list_changed_blocks ~rpc ~session_id ~vdi_from
                   ~vdi_to
             )
-            )
+          )
 
       let get_nbd_info ~__context ~self =
         info "VDI.get_nbd_info: vdi  = '%s'" (vdi_uuid ~__context self) ;
@@ -5447,7 +5447,7 @@ functor
               Helpers.Early_wakeup.broadcast
                 (Datamodel_common._vbd, Ref.string_of vbd)
             )
-            )
+          )
           vbd
 
       let mark_vbd ~__context ~vbd ~doc ~op =
@@ -5458,7 +5458,7 @@ functor
             Db.VBD.add_to_current_operations ~__context ~self ~key:task_id
               ~value:op ;
             Xapi_vbd_helpers.update_allowed_operations ~__context ~self
-            )
+          )
           vbd
 
       let with_vbd_marked ~__context ~vbd ~doc ~op f =
@@ -5471,7 +5471,7 @@ functor
             Helpers.with_global_lock (fun () ->
                 unmark_vbd ~__context ~vbd ~doc ~op
             )
-            )
+          )
 
       (* -------- Forwarding helper functions: ------------------------------------ *)
 
@@ -5675,7 +5675,7 @@ functor
                          , [Datamodel_common._vdi; Ref.string_of vdi]
                          )
                       )
-                  )
+                )
                 (Db.SR.get_VDIs ~__context ~self:sr) ;
             SR.mark_sr ~__context ~sr ~doc ~op
         ) ;
@@ -5685,7 +5685,7 @@ functor
             Helpers.with_global_lock (fun () ->
                 SR.unmark_sr ~__context ~sr ~doc ~op
             )
-            )
+          )
 
       (* plug and unplug need to be executed on the host that the pbd is related to *)
       let plug ~__context ~self =
@@ -6066,7 +6066,7 @@ functor
               Helpers.Early_wakeup.broadcast
                 (Datamodel_common._vusb, Ref.string_of vusb)
             )
-            )
+          )
           vusb
 
       let mark_vusb ~__context ~vusb ~doc ~op =
@@ -6078,7 +6078,7 @@ functor
             Db.VUSB.add_to_current_operations ~__context ~self ~key:task_id
               ~value:op ;
             Xapi_vusb_helpers.update_allowed_operations ~__context ~self
-            )
+          )
           vusb
 
       let with_vusb_marked ~__context ~vusb ~doc ~op f =
@@ -6091,7 +6091,7 @@ functor
             Helpers.with_global_lock (fun () ->
                 unmark_vusb ~__context ~vusb ~doc ~op
             )
-            )
+          )
 
       (* -------- Forwarding helper functions: ------------------------------------ *)
 

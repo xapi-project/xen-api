@@ -101,7 +101,7 @@ let list_package (l : 'a list) (n : int) : 'a list list =
           (nbelt + 1, elt :: accsmall, accbig)
         else
           (1, [elt], List.rev accsmall :: accbig)
-        )
+      )
       (0, [], []) l
   in
   List.rev (List.rev accsmall :: accbig)

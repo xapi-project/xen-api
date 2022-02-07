@@ -97,7 +97,7 @@ module VMSetBiosStrings = Generic.MakeStateful (struct
     List.map
       (fun (k, v) ->
         if List.mem_assoc k nl then (k, List.assoc k nl) else (k, v)
-        )
+      )
       dl
 
   let rec combination (l : ('a * 'b) list list) =
@@ -108,7 +108,7 @@ module VMSetBiosStrings = Generic.MakeStateful (struct
         [hd]
     | hd :: tl ->
         let r = combination tl in
-        hd :: List.map (fun v -> hd @ v) r @ r
+        (hd :: List.map (fun v -> hd @ v) r) @ r
 
   let tests =
     (* Correct value *)
@@ -121,7 +121,7 @@ module VMSetBiosStrings = Generic.MakeStateful (struct
           List.map
             (fun settings ->
               (settings, Ok (update_list default_settings settings))
-              )
+            )
             valid_settings
         ; [
             (* Invalid BIOS string key *)

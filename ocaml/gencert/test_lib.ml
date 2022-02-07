@@ -152,7 +152,7 @@ let valid_keys_tests =
       , `Quick
       , Ok (test_valid_key name)
       )
-      )
+    )
     valid_private_keys
 
 let invalid_keys_tests =
@@ -162,7 +162,7 @@ let invalid_keys_tests =
       , `Quick
       , Ok (test_invalid_key name error reason)
       )
-      )
+    )
     invalid_private_keys
 
 let test_valid_cert ~kind cert time pkey =
@@ -217,7 +217,7 @@ let valid_leaf_cert_tests =
         test_valid_leaf_cert cert (time_of_rfc3339 time) pkey_leaf
       in
       ("Validation of a supported certificate: " ^ name, `Quick, cert_test)
-      )
+    )
     valid_leaf_certificates
 
 let test_corrupt_leaf_cert (cert_name, pkey_name, time, error, reason) =
@@ -267,7 +267,7 @@ let valid_chain_cert_tests =
             cert :: chain
           in
           (pkey, Rresult.R.join result)
-          )
+        )
         (pkey_root, Ok []) key_chain
     in
     chain >>| X509.Certificate.encode_pem_multiple >>| Cstruct.to_string
@@ -284,7 +284,7 @@ let invalid_chain_cert_tests =
         test_invalid_cert_chain chain (time_of_rfc3339 time) pkey error reason
       in
       ("Validation of an unsupported certificate chain", `Quick, test_cert)
-      )
+    )
     corrupt_chain_certificates
 
 let load_test = function

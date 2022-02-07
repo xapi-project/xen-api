@@ -2964,9 +2964,9 @@ module SR = struct
     call ~name:"create" ~in_oss_since:None ~in_product_since:rel_rio
       ~versioned_params:
         (host_param
-         ::
-         dev_config_param
-         :: physical_size_param :: (create_common @ [shared_param; sm_config])
+        :: dev_config_param
+        :: physical_size_param
+        :: (create_common @ [shared_param; sm_config])
         )
       ~doc:
         "Create a new Storage Repository and introduce it into the managed \
@@ -3005,7 +3005,7 @@ module SR = struct
          ; param_release= rio_release
          ; param_default= None
          }
-         :: (create_common @ [shared_param; sm_config])
+        :: (create_common @ [shared_param; sm_config])
         )
       ~doc:"Introduce a new Storage Repository into the managed system"
       ~result:
@@ -3080,8 +3080,9 @@ module SR = struct
         ]
       ~versioned_params:
         (host_param
-         ::
-         dev_config_param :: physical_size_param :: (create_common @ [sm_config])
+        :: dev_config_param
+        :: physical_size_param
+        :: (create_common @ [sm_config])
         )
       ~doc:
         "Create a new Storage Repository on disk. This call is deprecated: use \

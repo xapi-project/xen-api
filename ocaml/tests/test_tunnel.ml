@@ -61,7 +61,7 @@ let test_create_on_unmanaged_pif () =
     (fun () ->
       Xapi_tunnel.create ~__context ~transport_PIF ~network ~protocol:`gre
       |> ignore
-      )
+    )
 
 let test_create_network_already_connected () =
   let __context = T.make_test_database () in
@@ -80,7 +80,7 @@ let test_create_network_already_connected () =
     (fun () ->
       Xapi_tunnel.create ~__context ~transport_PIF ~network ~protocol:`gre
       |> ignore
-      )
+    )
 
 let test_create_on_bond_slave () =
   let __context = T.make_test_database () in
@@ -99,7 +99,7 @@ let test_create_on_bond_slave () =
     (fun () ->
       Xapi_tunnel.create ~__context ~transport_PIF ~network ~protocol:`gre
       |> ignore
-      )
+    )
 
 let test_create_on_tunnel_access () =
   let __context = T.make_test_database () in
@@ -113,7 +113,7 @@ let test_create_on_tunnel_access () =
       Xapi_tunnel.create ~__context ~transport_PIF:access_PIF ~network
         ~protocol:`gre
       |> ignore
-      )
+    )
 
 let test_create_on_sriov_logical () =
   let __context = T.make_test_database () in
@@ -130,7 +130,7 @@ let test_create_on_sriov_logical () =
       Xapi_tunnel.create ~__context ~transport_PIF:sriov_logical_PIF ~network
         ~protocol:`gre
       |> ignore
-      )
+    )
 
 let test_create_on_vlan_on_sriov_logical () =
   let __context = T.make_test_database () in
@@ -151,7 +151,7 @@ let test_create_on_vlan_on_sriov_logical () =
     (fun () ->
       Xapi_tunnel.create ~__context ~transport_PIF ~network ~protocol:`gre
       |> ignore
-      )
+    )
 
 let test_create_tunnel_into_sriov_network () =
   let __context = T.make_test_database () in
@@ -176,7 +176,7 @@ let test_create_tunnel_into_sriov_network () =
       Xapi_tunnel.create ~__context ~transport_PIF:pif ~network:sriov_network
         ~protocol:`gre
       |> ignore
-      )
+    )
 
 let test_create_tunnel_into_sriov_vlan_network () =
   let __context = T.make_test_database () in
@@ -204,7 +204,7 @@ let test_create_tunnel_into_sriov_vlan_network () =
       Xapi_tunnel.create ~__context ~transport_PIF:pif
         ~network:sriov_vlan_network ~protocol:`gre
       |> ignore
-      )
+    )
 
 let test =
   [

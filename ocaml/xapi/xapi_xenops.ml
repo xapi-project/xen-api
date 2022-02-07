@@ -327,11 +327,10 @@ let rtc_timeoffset_of_vm ~__context (vm, vm_t) vbds =
            ( Api_errors
              .vm_attached_to_more_than_one_vdi_with_timeoffset_marked_as_reset_on_boot
            , Ref.string_of vm
-             ::
-             (reference_timeoffset_pairs
-             |> List.map fst
-             |> List.map Ref.string_of
-             )
+             :: (reference_timeoffset_pairs
+                |> List.map fst
+                |> List.map Ref.string_of
+                )
            )
         )
 
@@ -456,7 +455,7 @@ let builder_of_vm ~__context (vmref, vm) timeoffset pci_passthrough vgpu =
             debug "initrd %s is not in the whitelist: ignoring" k ;
             ""
           )
-          )
+        )
         initrd
     in
     {
@@ -632,7 +631,7 @@ module MD = struct
                 value
               )
           )
-          )
+        )
         values
     in
     let backend_kind_keys = other_config_keys Xapi_globs.vbd_backend_key in
@@ -703,7 +702,7 @@ module MD = struct
           ; first_port= Int64.to_int rc.API.pVS_server_first_port
           ; last_port= Int64.to_int rc.API.pVS_server_last_port
           }
-          )
+        )
         servers
     in
     let interface = Pvs_proxy_control.proxy_port_name vif in
@@ -881,7 +880,7 @@ module MD = struct
         ; msitranslate= None
         ; power_mgmt= None
         }
-        )
+      )
       devs
 
   let get_target_pci_address ~__context vgpu =
@@ -1061,7 +1060,7 @@ module MD = struct
             of_gvt_g_vgpu ~__context vm vgpu_record :: acc
         | `mxgpu ->
             of_mxgpu_vgpu ~__context vm vgpu_record :: acc
-        )
+      )
       [] vm.API.vM_VGPUs
 
   let of_vusb ~__context ~vm ~pusb =
@@ -1151,7 +1150,7 @@ module MD = struct
             List.map
               (fun vcpu_affinity ->
                 List.filter (fun x -> List.mem x mask) vcpu_affinity
-                )
+              )
               affinity
       in
       let priority =
@@ -1201,8 +1200,9 @@ module MD = struct
     let timeoffset = rtc_timeoffset_of_vm ~__context (vmref, vm) vbds in
     let platformdata =
       (Vm_platform.timeoffset, timeoffset)
-      ::
-      List.filter (fun (key, _) -> key <> Vm_platform.timeoffset) platformdata
+      :: List.filter
+           (fun (key, _) -> key <> Vm_platform.timeoffset)
+           platformdata
     in
     let platformdata =
       let genid =
@@ -1793,7 +1793,7 @@ module Events_from_xenopsd = struct
             t.finished <- true ;
             Condition.signal t.c
         )
-        )
+      )
       t
 
   let events_suppressed_on = Hashtbl.create 10
@@ -1889,7 +1889,7 @@ let update_vm ~__context id =
                         None
                   else
                     None
-                  )
+                )
                 state.Vm.guest_agent
               |> Listext.setify
             in
@@ -1915,9 +1915,9 @@ let update_vm ~__context id =
                       with e ->
                         error "Caught %s: while creating VM %s guest metrics"
                           (Printexc.to_string e) id
-                      )
+                    )
                     state.domids
-                  )
+                )
                 info
           in
           let check_guest_agent () =
@@ -1947,7 +1947,7 @@ let update_vm ~__context id =
                       debug
                         "Supressing VM.allowed_operations update because \
                          guest_agent data is largely the same"
-                    )
+                  )
                   previous ;
                 List.iter
                   (fun domid ->
@@ -1960,9 +1960,9 @@ let update_vm ~__context id =
                     with e ->
                       error "Caught %s: while updating VM %s guest_agent"
                         (Printexc.to_string e) id
-                    )
+                  )
                   state.domids
-                )
+              )
               info
           in
           (* Notes on error handling: if something fails we log and continue, to
@@ -2007,7 +2007,7 @@ let update_vm ~__context id =
                         id
                     else
                       update `unspecified
-                )
+              )
               info ;
           ( if different (fun x -> x.power_state) then
               try
@@ -2060,7 +2060,7 @@ let update_vm ~__context id =
                     | [] ->
                         ()
                     (* happens when the VM is shutdown *)
-                    )
+                  )
                   info ;
                 (* If this is a storage domain, attempt to plug the PBD *)
                 Option.iter
@@ -2070,11 +2070,11 @@ let update_vm ~__context id =
                         (fun () ->
                           (* Don't block the database update thread *)
                           Xapi_pbd.plug ~__context ~self:pbd
-                          )
+                        )
                         ()
                     in
                     ()
-                    )
+                  )
                   (System_domains.pbd_of_vm ~__context ~vm:self)
               with e ->
                 error "Caught %s: while updating VM %s domids"
@@ -2111,7 +2111,7 @@ let update_vm ~__context id =
                             )
                           , self
                           )
-                          )
+                        )
                         (Db.VM.get_consoles ~__context ~self)
                     in
                     let new_protocols =
@@ -2124,7 +2124,7 @@ let update_vm ~__context id =
                       (fun protocol ->
                         let self = List.assoc protocol current_protocols in
                         Db.Console.destroy ~__context ~self
-                        )
+                      )
                       (Listext.set_difference
                          (List.map fst current_protocols)
                          (List.map fst new_protocols)
@@ -2148,12 +2148,12 @@ let update_vm ~__context id =
                         Db.Console.create ~__context ~ref ~uuid
                           ~protocol:(to_xenapi_console_protocol protocol)
                           ~location ~vM:self ~other_config:[] ~port
-                        )
+                      )
                       (Listext.set_difference
                          (List.map fst new_protocols)
                          (List.map fst current_protocols)
                       )
-                    )
+                  )
                   info
               with e ->
                 error "Caught %s: while updating VM %s consoles"
@@ -2167,7 +2167,7 @@ let update_vm ~__context id =
                       id state.Vm.memory_target ;
                     Db.VM.set_memory_target ~__context ~self
                       ~value:state.memory_target
-                    )
+                  )
                   info
               with e ->
                 error "Caught %s: while updating VM %s consoles"
@@ -2190,7 +2190,7 @@ let update_vm ~__context id =
                       Db.VM.add_to_platform ~__context ~self
                         ~key:Vm_platform.timeoffset ~value:state.rtc_timeoffset
                     )
-                    )
+                  )
                   info
               with e ->
                 error "Caught %s: while updating VM %s rtc/timeoffset"
@@ -2204,7 +2204,7 @@ let update_vm ~__context id =
                   (string_of_bool state.Vm.hvm) ;
                 Db.VM_metrics.set_hvm ~__context ~self:metrics
                   ~value:state.Vm.hvm
-                )
+              )
               info ;
           if different (fun x -> x.nomigrate) then
             Option.iter
@@ -2214,7 +2214,7 @@ let update_vm ~__context id =
                   (string_of_bool state.Vm.nomigrate) ;
                 Db.VM_metrics.set_nomigrate ~__context ~self:metrics
                   ~value:state.Vm.nomigrate
-                )
+              )
               info ;
           if different (fun x -> x.nested_virt) then
             Option.iter
@@ -2224,7 +2224,7 @@ let update_vm ~__context id =
                   (string_of_bool state.Vm.nested_virt) ;
                 Db.VM_metrics.set_nested_virt ~__context ~self:metrics
                   ~value:state.Vm.nested_virt
-                )
+              )
               info ;
           let update_pv_drivers_detected () =
             Option.iter
@@ -2240,7 +2240,7 @@ let update_vm ~__context id =
                 with e ->
                   debug "Caught %s: while updating VM %s PV drivers"
                     (Printexc.to_string e) id
-                )
+              )
               info
           in
           (* Chack last_start_time before updating anything in the guest metrics *)
@@ -2270,7 +2270,7 @@ let update_vm ~__context id =
                       Xapi_vm_helpers.delete_guest_metrics ~__context ~self ;
                       check_guest_agent ()
                     )
-                    )
+                  )
                   info
               with e ->
                 error "Caught %s: while updating VM %s last_start_time"
@@ -2311,9 +2311,9 @@ let update_vm ~__context id =
                     with e ->
                       error "Caught %s: while updating VM %s memory_target"
                         (Printexc.to_string e) id
-                  )
+                )
                 state.Vm.domids
-              )
+            )
             info ;
           if different (fun x -> x.Vm.vcpu_target) then
             Option.iter
@@ -2327,7 +2327,7 @@ let update_vm ~__context id =
                 with e ->
                   error "Caught %s: while updating VM %s VCPUs_number"
                     (Printexc.to_string e) id
-                )
+              )
               info ;
           ( if different (fun x -> x.shadow_multiplier_target) then
               try
@@ -2342,7 +2342,7 @@ let update_vm ~__context id =
                     then
                       Db.VM.set_HVM_shadow_multiplier ~__context ~self
                         ~value:state.Vm.shadow_multiplier_target
-                    )
+                  )
                   info
               with e ->
                 error "Caught %s: while updating VM %s HVM_shadow_multiplier"
@@ -2371,7 +2371,7 @@ let update_vm ~__context id =
                 with e ->
                   error "Caught %s: while updating VM %s last_boot_CPU_flags"
                     (Printexc.to_string e) id
-                )
+              )
               info ;
           Xenops_cache.update_vm id (Option.map snd info) ;
           if !should_update_allowed_operations then
@@ -2440,7 +2440,7 @@ let update_vbd ~__context (id : string * string) =
                 vbdr.API.vBD_userdevice = linux_device
                 || Option.is_some disk_number
                    && vbdr.API.vBD_userdevice = Option.get disk_number
-                )
+              )
               vbdrs
           in
           debug "VBD %s.%s matched device %s" (fst id) (snd id)
@@ -2466,7 +2466,7 @@ let update_vbd ~__context (id : string * string) =
                           Db.VBD.set_empty ~__context ~self:vbd ~value:false ;
                           Xapi_vdi.update_allowed_operations ~__context
                             ~self:vdi
-                          )
+                        )
                         (vdi_of_disk ~__context x)
                   | Some d ->
                       error "VBD %s.%s backend_present has unknown disk = %s"
@@ -2487,7 +2487,7 @@ let update_vbd ~__context (id : string * string) =
                 try Client.VBD.remove dbg id
                 with e -> debug "VBD.remove failed: %s" (Printexc.to_string e)
               )
-              )
+            )
             info ;
           Xenops_cache.update_vbd id (Option.map snd info) ;
           Xapi_vbd_helpers.update_allowed_operations ~__context ~self:vbd ;
@@ -2578,7 +2578,7 @@ let update_vif ~__context id =
                             Db.PIF.get_device ~__context ~self:pif
                           in
                           Monitor_dbcalls_cache.clear_cache_for_pif ~pif_name
-                          )
+                        )
                         pifs
                   )
               ) ;
@@ -2603,7 +2603,7 @@ let update_vif ~__context id =
                 (state.plugged || state.active) ;
               Db.VIF.set_currently_attached ~__context ~self:vif
                 ~value:(state.plugged || state.active)
-              )
+            )
             info ;
           Xenops_cache.update_vif id (Option.map snd info) ;
           Xapi_vif_helpers.update_allowed_operations ~__context ~self:vif
@@ -2678,9 +2678,9 @@ let update_pci ~__context id =
                     (fst id) (snd id) state.plugged ;
                   Db.VGPU.set_currently_attached ~__context ~self:vgpu
                     ~value:state.Pci.plugged
-                  )
+                )
                 vgpu_opt
-              )
+            )
             info ;
           Xenops_cache.update_pci id (Option.map snd info)
   with e ->
@@ -2752,7 +2752,7 @@ let update_vgpu ~__context id =
                   with e ->
                     debug "VGPU.remove failed: %s" (Printexc.to_string e)
                 )
-                )
+              )
               info ;
           Xenops_cache.update_vgpu id (Option.map snd info)
   with e ->
@@ -2803,7 +2803,7 @@ let update_vusb ~__context (id : string * string) =
               let currently_attached = state.Vusb.plugged in
               Db.VUSB.set_currently_attached ~__context ~self:vusb
                 ~value:currently_attached
-              )
+            )
             info ;
           Xenops_cache.update_vusb id (Option.map snd info) ;
           Xapi_vusb_helpers.update_allowed_operations ~__context ~self:vusb
@@ -2905,7 +2905,7 @@ let rec events_watch ~__context cancel queue_name from =
               debug "xenops event on Task %s" id ;
               update_task ~__context queue_name id
         )
-        )
+      )
       l
   in
   List.iter
@@ -2913,7 +2913,7 @@ let rec events_watch ~__context cancel queue_name from =
       debug "Processing barrier %d" id ;
       do_updates b_events ;
       Events_from_xenopsd.wakeup queue_name dbg id
-      )
+    )
     barriers ;
   do_updates events ;
   events_watch ~__context cancel queue_name (Some next)
@@ -2957,7 +2957,7 @@ let resync_resident_on ~__context =
         let module Client = (val make_client queue_name : XENOPS) in
         let vms = Client.VM.list dbg () in
         List.map (fun (vm, state) -> ((vm.Vm.id, state), queue_name)) vms
-        )
+      )
       (all_known_xenopsds ())
     |> List.flatten
   in
@@ -2970,7 +2970,7 @@ let resync_resident_on ~__context =
           vm_of_id ~__context id |> ignore ;
           true
         with _ -> false
-        )
+      )
       vms_in_xenopsds
   in
   (* Of the VMs xapi knows about, partition that set into VMs xapi believes
@@ -2979,7 +2979,7 @@ let resync_resident_on ~__context =
     List.partition
       (fun ((id, _), _) ->
         List.exists (fun (id', _) -> id = id') resident_vms_in_db
-        )
+      )
       xenopsd_vms_in_xapi
   in
   (* Of those xapi thinks aren't here, are any running on another host? If
@@ -2990,7 +2990,7 @@ let resync_resident_on ~__context =
       (fun ((id, _), _) ->
         let vm_ref = vm_of_id ~__context id in
         Db.is_valid_ref __context (Db.VM.get_resident_on ~__context ~self:vm_ref)
-        )
+      )
       xapi_thinks_are_not_here
   in
   (* This is the list of VMs xapi thought were running here, but actually
@@ -2999,7 +2999,7 @@ let resync_resident_on ~__context =
     List.filter
       (fun (id, _) ->
         not (List.exists (fun ((id', _), _) -> id' = id) vms_in_xenopsds)
-        )
+      )
       resident_vms_in_db
   in
   (* Log the state before we do anything *)
@@ -3044,7 +3044,7 @@ let resync_resident_on ~__context =
         Client.VM.shutdown dbg id None |> wait_for_task queue_name dbg |> ignore
       ) ;
       Client.VM.remove dbg id
-      )
+    )
     (xenopsd_vms_not_in_xapi @ xapi_thinks_are_elsewhere) ;
   (* Sync resident_on state in Xapi for VMs running by local Xenopsds that
      xapi didn't think were anywhere. We set resident_on to be this host so that
@@ -3058,7 +3058,7 @@ let resync_resident_on ~__context =
          it"
         id ;
       Db.VM.set_resident_on ~__context ~self:vm ~value:localhost
-      )
+    )
     xapi_thinks_are_nowhere ;
   List.iter
     (fun ((id, state), _queue_name) ->
@@ -3067,7 +3067,7 @@ let resync_resident_on ~__context =
           add_caches id
       | _ ->
           ()
-      )
+    )
     xenopsd_vms_in_xapi ;
   (* Sync VM state in Xapi for VMs not running on this host *)
   List.iter
@@ -3078,7 +3078,7 @@ let resync_resident_on ~__context =
         id ;
       Xapi_vm_lifecycle.force_state_reset ~__context ~self:vm ~value:`Halted ;
       Db.VM.set_resident_on ~__context ~self:vm ~value:Ref.null
-      )
+    )
     xapi_vms_not_in_xenopsd
 
 let resync_all_vms ~__context =
@@ -3099,7 +3099,7 @@ let on_xapi_restart ~__context =
     (fun queue_name ->
       let (_ : Thread.t) = Thread.create events_from_xenopsd queue_name in
       ()
-      )
+    )
     (all_known_xenopsds ()) ;
   resync_all_vms ~__context ;
   info "applying guest agent configuration during restart" ;
@@ -3307,7 +3307,7 @@ let success_task queue_name f dbg id =
           Backtrace.add exn bt ; raise exn
       | Task.Pending _ ->
           failwith "task pending"
-      )
+    )
     (fun () -> Client.TASK.destroy dbg id)
 
 (* Catch any uncaught xenops exceptions and transform into the most relevant XenAPI error.
@@ -3461,7 +3461,7 @@ let update_debug_info __context t =
       with e ->
         debug "Failed to add %s = %s to task %s: %s" k v (Ref.string_of task)
           (Printexc.to_string e)
-      )
+    )
     debug_info
 
 let sync_with_task_result __context ?cancellable queue_name x =
@@ -3728,7 +3728,7 @@ let reboot ~__context ~self timeout =
           (fun () ->
             Client.VM.reboot dbg id timeout
             |> sync_with_task __context queue_name
-            )
+          )
           (fun () -> Events_from_xenopsd.wait queue_name dbg id ())
       in
       check_power_state_is ~__context ~self ~expected:`Running
@@ -3747,7 +3747,7 @@ let shutdown ~__context ~self timeout =
           (fun () ->
             Client.VM.shutdown dbg id timeout
             |> sync_with_task __context queue_name
-            )
+          )
           (fun () -> Events_from_xenopsd.wait queue_name dbg id ())
       in
       Xapi_vm_lifecycle.assert_final_power_state_is ~__context ~self
@@ -3779,7 +3779,7 @@ let shutdown ~__context ~self timeout =
                     ]
                   )
               )
-          )
+        )
         (Db.VM.get_VBDs ~__context ~self)
   )
 

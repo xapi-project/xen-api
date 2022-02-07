@@ -173,7 +173,7 @@ let get_permit_filenames args =
       )
       | _ ->
           None
-      )
+    )
     args
 
 (* Extract the arguments we're interested in. Return a list of the argumets we know *)
@@ -684,7 +684,7 @@ let main_loop ifd ofd permitted_filenames =
                   (fun () ->
                     copy_with_heartbeat file_ch oc heartbeat_fun ;
                     marshal ofd (Response OK)
-                    )
+                  )
                   (fun () -> try close_in file_ch with _ -> ())
             | 302 ->
                 let newloc = List.assoc "location" headers in
@@ -742,7 +742,7 @@ let main_loop ifd ofd permitted_filenames =
                 (fun () ->
                   copy_with_heartbeat ic file_ch heartbeat_fun ;
                   marshal ofd (Response OK)
-                  )
+                )
                 (fun () -> try close_out file_ch with _ -> ())
           | 302 ->
               let headers = read_rest_of_headers ic in
@@ -872,7 +872,7 @@ let main () =
         try Unix.unlink x.Stunnel.logfile with _ -> ()
       ) ;
       Stunnel.disconnect ~wait:false ~force:true x
-      )
+    )
     !stunnel_processes ;
   ( match (!debug_file, !debug_channel) with
   | Some f, Some ch -> (

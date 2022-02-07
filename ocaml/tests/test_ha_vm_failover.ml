@@ -84,7 +84,7 @@ let load_vm ~__context ~(vm : vm) ~local_sr ~shared_sr ~local_net ~shared_net =
         make_vif ~__context ~device:(string_of_int index) ~vM:vm_ref
           ~network:(if vif.agile then shared_net else local_net)
           ()
-        )
+      )
       vm.vifs
   in
   let (_ : API.ref_VBD list) =
@@ -95,7 +95,7 @@ let load_vm ~__context ~(vm : vm) ~local_sr ~shared_sr ~local_net ~shared_net =
         in
         make_vbd ~__context ~device:(string_of_int index) ~vM:vm_ref
           ~vDI:vdi_ref ()
-        )
+      )
       vm.vbds
   in
   vm_ref
@@ -111,7 +111,7 @@ let load_host ~__context ~host ~local_sr ~shared_sr ~local_net ~shared_net =
     List.map
       (fun vm ->
         load_vm ~__context ~vm ~local_sr ~shared_sr ~local_net ~shared_net
-        )
+      )
       host.vms
   in
   host_ref

@@ -80,7 +80,7 @@ let archive_rrd vm_uuid (remote_address : string option) : unit =
             , !https_port
             )
         )
-        )
+      )
       remote_address
   in
   Mutex.execute mutex (fun () ->
@@ -105,7 +105,7 @@ let backup_rrds (remote_address : string option) () : unit =
             , !https_port
             )
         )
-        )
+      )
       remote_address
   in
   let destination =
@@ -131,7 +131,7 @@ let backup_rrds (remote_address : string option) () : unit =
           debug "Backup: saving RRD for VM uuid=%s %s" uuid destination ;
           let rrd = Mutex.execute mutex (fun () -> Rrd.copy_rrd rrd) in
           archive_rrd_internal ~transport ~uuid ~rrd ()
-          )
+        )
         vrrds ;
       Mutex.lock mutex ;
       let srrds =
@@ -144,7 +144,7 @@ let backup_rrds (remote_address : string option) () : unit =
           debug "Backup: saving RRD for SR uuid=%s %s" uuid destination ;
           let rrd = Mutex.execute mutex (fun () -> Rrd.copy_rrd rrd) in
           archive_rrd_internal ~transport ~uuid ~rrd ()
-          )
+        )
         srrds ;
       match !host_rrd with
       | Some rrdi ->

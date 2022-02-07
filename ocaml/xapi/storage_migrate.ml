@@ -374,7 +374,7 @@ let with_activated_disk ~dbg ~sr ~vdi ~dp f =
       (fun vdi ->
         let backend = Local.VDI.attach3 dbg dp sr vdi (vm_of_s "0") false in
         (vdi, backend)
-        )
+      )
       vdi
   in
   finally
@@ -404,7 +404,7 @@ let with_activated_disk ~dbg ~sr ~vdi ~dp f =
                         )
                      )
                   )
-            )
+          )
           attached_vdi
       in
       finally
@@ -413,13 +413,13 @@ let with_activated_disk ~dbg ~sr ~vdi ~dp f =
           Option.iter
             (fun vdi -> Local.VDI.deactivate dbg dp sr vdi (vm_of_s "0"))
             vdi
-          )
-      )
+        )
+    )
     (fun () ->
       Option.iter
         (fun (vdi, _) -> Local.VDI.detach dbg dp sr vdi (vm_of_s "0"))
         attached_vdi
-      )
+    )
 
 let perform_cleanup_actions =
   List.iter (fun f ->
@@ -545,14 +545,14 @@ let copy' ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi =
                     try Sparse_dd_wrapper.wait dd
                     with Sparse_dd_wrapper.Cancelled ->
                       Storage_task.raise_cancelled task
-                    )
+                  )
             )
         )
-        )
+      )
       (fun () ->
         Remote.DP.destroy dbg remote_dp false ;
         State.remove_copy id
-        ) ;
+      ) ;
     SMPERF.debug "mirror.copy: copy complete" ;
     debug "setting remote content_id <- %s" local_vdi.content_id ;
     Remote.VDI.set_content_id dbg dest dest_vdi local_vdi.content_id ;
@@ -608,7 +608,7 @@ let stop ~dbg ~id =
                    (fun x ->
                      List.mem_assoc "base_mirror" x.sm_config
                      && List.assoc "base_mirror" x.sm_config = id
-                     )
+                   )
                    vdis
                 )
             with _ -> None
@@ -692,7 +692,7 @@ let start' ~task ~dbg ~sr ~vdi ~dp ~url ~dest =
               Printf.sprintf "(vdi=%s,content_id=%s)"
                 (Storage_interface.Vdi.string_of x.vdi)
                 x.content_id
-              )
+            )
             similar_vdis
          )
       ) ;
@@ -738,7 +738,7 @@ let start' ~task ~dbg ~sr ~vdi ~dp ~url ~dest =
                        error "Failed to transfer fd to %s" path ;
                        failwith "Internal error transferring fd to tapdisk"
                      )
-                     )
+                   )
                    (fun () -> Unix.close control_fd)
              )
             ) ;
@@ -921,9 +921,9 @@ let killall ~dbg =
           (fun () -> stop dbg id)
         ; (fun () ->
             Local.DP.destroy dbg send_state.State.Send_state.local_dp true
-            )
+          )
         ]
-      )
+    )
     send_ops ;
   List.iter
     (fun (id, copy_state) ->
@@ -932,10 +932,10 @@ let killall ~dbg =
         [
           (fun () ->
             Local.DP.destroy dbg copy_state.State.Copy_state.leaf_dp true
-            )
+          )
         ; (fun () ->
             Local.DP.destroy dbg copy_state.State.Copy_state.base_dp true
-            )
+          )
         ] ;
       let remote_url =
         Http.Url.of_string copy_state.State.Copy_state.remote_url |> storage_url
@@ -947,19 +947,19 @@ let killall ~dbg =
         [
           (fun () ->
             Remote.DP.destroy dbg copy_state.State.Copy_state.remote_dp true
-            )
+          )
         ; (fun () ->
             Remote.VDI.destroy dbg copy_state.State.Copy_state.dest_sr
               copy_state.State.Copy_state.copy_vdi
-            )
+          )
         ]
-      )
+    )
     copy_ops ;
   List.iter
     (fun (id, recv_state) ->
       debug "Receive in progress: %s" id ;
       log_and_ignore_exn (fun () -> Local.DATA.MIRROR.receive_cancel dbg id)
-      )
+    )
     recv_ops ;
   State.clear ()
 
@@ -993,12 +993,12 @@ let receive_start ~dbg ~sr ~vdi_info ~id ~similar =
                    (fun vdi ->
                      vdi.content_id = content_id
                      && vdi.virtual_size <= vdi_info.virtual_size
-                     )
+                   )
                    vdis
                 )
             with Not_found -> None
           )
-          )
+        )
         None similar
     in
     debug "Nearest VDI: content_id=%s vdi=%s"
@@ -1056,7 +1056,7 @@ let receive_start ~dbg ~sr ~vdi_info ~id ~similar =
         try op ()
         with e ->
           debug "Caught exception in on_fail: %s" (Printexc.to_string e)
-        )
+      )
       !on_fail ;
     raise e
 
@@ -1075,7 +1075,7 @@ let receive_cancel ~dbg ~id =
       List.iter
         (fun v -> log_and_ignore_exn (fun () -> Local.VDI.destroy dbg r.sr v))
         [r.dummy_vdi; r.leaf_vdi; r.parent_vdi]
-      )
+    )
     receive_state ;
   State.remove_receive_mirror id
 
@@ -1148,7 +1148,7 @@ let post_detach_hook ~sr ~vdi ~dp =
                debug "Finished calling receive_finalize" ;
                State.remove_local_mirror id ;
                debug "Removed active local mirror: %s" id
-               )
+             )
              ()
          in
          Option.iter (fun id -> Scheduler.cancel scheduler id) r.watchdog ;
@@ -1181,7 +1181,7 @@ let nbd_handler req s sr vdi dp =
             Http_svr.headers s (Http.http_404_missing ~version:"1.0" ()) ;
             req.Http.Request.close <- true
           )
-          )
+        )
         (fun () -> Unix.close control_fd)
   | None ->
       ()
@@ -1213,7 +1213,7 @@ let copy ~task ~dbg ~sr ~vdi ~dp ~url ~dest =
                 Printf.sprintf "(vdi=%s,content_id=%s)"
                   (Storage_interface.Vdi.string_of x.vdi)
                   x.content_id
-                )
+              )
               similar_vdis
            )
         ) ;
@@ -1235,12 +1235,12 @@ let copy ~task ~dbg ~sr ~vdi ~dp ~url ~dest =
                      (fun vdi ->
                        vdi.content_id = content_id
                        && vdi.virtual_size <= local_vdi.virtual_size
-                       )
+                     )
                      remote_vdis
                   )
               with Not_found -> None
             )
-            )
+          )
           None similars
       in
       debug "Nearest VDI: content_id=%s vdi=%s"
@@ -1338,7 +1338,7 @@ let update_snapshot_info_src ~dbg ~sr ~vdi ~url ~dest ~dest_vdi ~snapshot_pairs
     List.map
       (fun (local_snapshot, remote_snapshot) ->
         (remote_snapshot, find_vdi ~vdi:local_snapshot ~vdi_info_list:local_vdis)
-        )
+      )
       snapshot_pairs
   in
   Remote.SR.update_snapshot_info_dest dbg dest dest_vdi

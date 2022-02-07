@@ -141,7 +141,7 @@ let non_cdrom_vdis (x : header) =
             (find_in_export (Ref.string_of vdir.API.vDI_SR) x.objects)
         in
         sr.API.sR_content_type <> "iso"
-        )
+      )
       all_disk_vdis
   in
   let all_vdis =
@@ -152,7 +152,7 @@ let non_cdrom_vdis (x : header) =
       false
       || List.mem x.id all_disk_vdis
       || (API.vDI_t_of_rpc x.snapshot).API.vDI_type = `suspend
-      )
+    )
     all_vdis
 
 let get_vm_record snapshot =
@@ -234,7 +234,7 @@ let assert_can_restore_backup ~__context rpc session_id (x : header) =
         else
           let x = get_vm_record x.snapshot in
           get_mac_seed x
-        )
+      )
       x.objects
   in
   let existing_vms =
@@ -248,9 +248,9 @@ let assert_can_restore_backup ~__context rpc session_id (x : header) =
         (fun (mac', vm') ->
           if mac = mac' && not (is_compatible vm vm') then
             raise Api_errors.(Server_error (duplicate_mac_seed, [mac']))
-          )
+        )
         existing_vms
-      )
+    )
     import_vms
 
 let assert_can_live_import __context rpc session_id vm_record =
@@ -306,7 +306,7 @@ let assert_can_live_import_vgpu ~__context vgpu_record =
             ~self:pgpu ~vgpu_type:vgpu_record.API.vGPU_type ;
           true
         with _ -> false
-        )
+      )
       local_pgpus
   in
   if not capacity_exists then
@@ -626,7 +626,7 @@ module VM : HandlerTools = struct
             if config.full_restore then
               Db.VM.set_uuid ~__context ~self:vm ~value:value.API.vM_uuid ;
             vm
-            )
+          )
           vm_record
       in
       state.cleanup <-
@@ -640,11 +640,11 @@ module VM : HandlerTools = struct
             (fun () ->
               Db.VM.remove_from_current_operations ~__context ~self:vm
                 ~key:task_id
-              )
+            )
             () ;
           Db.VM.set_power_state ~__context ~self:vm ~value:`Halted ;
           Client.VM.destroy rpc session_id vm
-          )
+        )
         :: state.cleanup ;
       (* Restore the last_booted_record too (critical if suspended but might as well do it all the time) *)
       Db.VM.set_last_booted_record ~__context ~self:vm
@@ -861,7 +861,7 @@ module VDI : HandlerTools = struct
           (fun self ->
             Client.SR.get_content_type rpc session_id self = "iso"
             && Client.SR.get_type rpc session_id self <> "udev"
-            )
+          )
           (Client.SR.get_all rpc session_id)
       in
       match
@@ -869,7 +869,7 @@ module VDI : HandlerTools = struct
           (fun (_, vdir) ->
             vdir.API.vDI_location = vdi_record.API.vDI_location
             && List.mem vdir.API.vDI_SR iso_srs
-            )
+          )
           (Client.VDI.get_all_records rpc session_id)
         |> choose_one
       with
@@ -1064,7 +1064,7 @@ module VDI : HandlerTools = struct
               Db.VDI.add_to_other_config ~__context ~self:vdi ~key
                 ~value:(List.assoc key other_config_record)
             with Not_found -> ()
-            )
+          )
           Xapi_globs.vdi_other_config_sync_keys
     | Found_no_disk e ->
         raise e
@@ -1152,7 +1152,7 @@ module Net : HandlerTools = struct
         state.cleanup <-
           (fun __context rpc session_id ->
             Client.Network.destroy rpc session_id net
-            )
+          )
           :: state.cleanup ;
         state.table <- (x.cls, x.id, Ref.string_of net) :: state.table
 end
@@ -1175,7 +1175,7 @@ module GPUGroup : HandlerTools = struct
           (fun (_, groupr) ->
             groupr.API.gPU_group_GPU_types
             = gpu_group_record.API.gPU_group_GPU_types
-            )
+          )
           groups
       in
       Found_GPU_group group
@@ -1225,7 +1225,7 @@ module GPUGroup : HandlerTools = struct
               Db.GPU_group.set_GPU_types ~__context ~self:group
                 ~value:value.API.gPU_group_GPU_types ;
               group
-              )
+            )
             gpu_group_record
         in
         (* Only add task flag to GPU groups which get created in this import *)
@@ -1241,7 +1241,7 @@ module GPUGroup : HandlerTools = struct
         state.cleanup <-
           (fun __context rpc session_id ->
             Client.GPU_group.destroy rpc session_id group
-            )
+          )
           :: state.cleanup ;
         state.table <- (x.cls, x.id, Ref.string_of group) :: state.table
 end
@@ -1367,7 +1367,7 @@ module VBD : HandlerTools = struct
               if config.full_restore then
                 Db.VBD.set_uuid ~__context ~self:vbd ~value:value.API.vBD_uuid ;
               vbd
-              )
+            )
             vbd_record
         in
         state.cleanup <-
@@ -1493,7 +1493,7 @@ module VIF : HandlerTools = struct
               if config.full_restore then
                 Db.VIF.set_uuid ~__context ~self:vif ~value:value.API.vIF_uuid ;
               vif
-              )
+            )
             vif_record
         in
         state.cleanup <-
@@ -1582,13 +1582,13 @@ module VGPUType : HandlerTools = struct
                 ~compatible_model_names_in_vm:
                   value.API.vGPU_type_compatible_types_in_vm
                 ~compatible_model_names_on_pgpu:[]
-              )
+            )
             vgpu_type_record
         in
         state.cleanup <-
           (fun __context rpc session_id ->
             Db.VGPU_type.destroy __context vgpu_type
-            )
+          )
           :: state.cleanup ;
         state.table <- (x.cls, x.id, Ref.string_of vgpu_type) :: state.table
 end
@@ -1696,13 +1696,13 @@ module VGPU : HandlerTools = struct
                 Db.VGPU.set_uuid ~__context ~self:vgpu
                   ~value:value.API.vGPU_uuid ;
               vgpu
-              )
+            )
             vgpu_record
         in
         state.cleanup <-
           (fun __context rpc session_id ->
             Client.VGPU.destroy rpc session_id vgpu
-            )
+          )
           :: state.cleanup ;
         (* Now that we can import/export suspended VMs we need to preserve the currently_attached flag *)
         if
@@ -1772,7 +1772,7 @@ module PVS_Proxy : HandlerTools = struct
         state.cleanup <-
           (fun __context rpc session_id ->
             Client.PVS_proxy.destroy rpc session_id proxy
-            )
+          )
           :: state.cleanup ;
         state.table <- (obj.cls, obj.id, Ref.string_of proxy) :: state.table
 end
@@ -1841,7 +1841,7 @@ let update_snapshot_and_parent_links ~__context state =
             (fun table ->
               let snapshot_of = (lookup snapshot_of) table in
               Db.VM.set_snapshot_of ~__context ~self:ref ~value:snapshot_of
-              )
+            )
             state.table
         )
     ) ;
@@ -1955,7 +1955,7 @@ let with_open_archive fd ?length f =
               let n = Unixext.copy_file ?limit fd compressed_in in
               debug "Written a total of %d + %Ld bytes" Tar_unix.Header.length n
           )
-          )
+        )
         (fun () -> ignore_exn (fun () -> Unix.close pipe_in))
     in
     let consumer pipe_out feeder_t =
@@ -1967,11 +1967,11 @@ let with_open_archive fd ?length f =
           Tar_helpers.skip pipe_out
             (Tar_unix.Header.compute_zero_padding_length hdr) ;
           f xml pipe_out
-          )
+        )
         (fun () ->
           ignore_exn (fun () -> Unix.close pipe_out) ;
           Thread.join feeder_t
-          )
+        )
     in
     let pipe_out, pipe_in = Unix.pipe () in
     let feeder_t = Thread.create feeder pipe_in in
@@ -1989,7 +1989,7 @@ let complete_import ~__context vmrefs =
       (fun vm ->
         Db.VM.remove_from_current_operations ~__context ~self:vm ~key:task_id ;
         Xapi_vm_lifecycle.update_allowed_operations ~__context ~self:vm
-        )
+      )
       vmrefs ;
     (* We only keep VMs which are not snapshot *)
     let vmrefs =
@@ -2014,7 +2014,7 @@ let read_map_params name params =
     List.filter
       (fun (p, _) ->
         Xstringext.String.startswith name p && String.length p > len
-        )
+      )
       params
   in
   List.map
@@ -2134,7 +2134,7 @@ let metadata_handler (req : Request.t) s _ =
                           "Imported object type %s: external ref: %s internal \
                            ref: %s"
                           cls id r
-                        )
+                      )
                       table ;
                     let vmrefs =
                       List.map
@@ -2183,7 +2183,7 @@ let stream_import __context rpc session_id s content_length refresh_session
             (fun (cls, id, r) ->
               debug "Imported object type %s: external ref: %s internal ref: %s"
                 cls id r
-              )
+            )
             table ;
           (* now stream the disks. We expect not to stream CDROMs *)
           let all_vdis = non_cdrom_vdis header in
@@ -2201,14 +2201,14 @@ let stream_import __context rpc session_id s content_length refresh_session
                 , lookup (Ref.of_string x.id) table
                 , vdir.API.vDI_virtual_size
                 )
-                )
+              )
               all_vdis
           in
           List.iter
             (fun (extid, intid, size) ->
               debug "Expecting to import VDI %s into %s (size=%Ld)" extid
                 (Ref.string_of intid) size
-              )
+            )
             vdis ;
           let checksum_table =
             Stream_vdi.recv_all refresh_session s __context rpc session_id
@@ -2287,7 +2287,7 @@ let handler (req : Request.t) s _ =
                    provided"
                   (fun () ->
                     Helpers.call_api_functions ~__context get_default_sr
-                    )
+                  )
                   ()
           in
           info "VM.import: SR = '%s%s'; force = %b; full_restore = %b"

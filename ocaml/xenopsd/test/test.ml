@@ -314,19 +314,19 @@ let vm_assert_equal vm vm' =
     ~printer:(fun x ->
       String.concat ", "
         (List.map (fun x -> x |> rpc_of_action |> Jsonrpc.to_string) x)
-      )
+    )
     vm.on_crash vm'.on_crash ;
   assert_equal ~msg:"on_shutdown"
     ~printer:(fun x ->
       String.concat ", "
         (List.map (fun x -> x |> rpc_of_action |> Jsonrpc.to_string) x)
-      )
+    )
     vm.on_shutdown vm'.on_shutdown ;
   assert_equal ~msg:"on_reboot"
     ~printer:(fun x ->
       String.concat ", "
         (List.map (fun x -> x |> rpc_of_action |> Jsonrpc.to_string) x)
-      )
+    )
     vm.on_reboot vm'.on_reboot ;
   assert_equal ~msg:"has_vendor_device" ~printer:string_of_bool
     vm.has_vendor_device vm'.has_vendor_device ;
@@ -426,7 +426,7 @@ let with_vm id f =
         Printf.fprintf stderr "Caught failure during with_vm cleanup: %s"
           (Printexc.to_string e) ;
         raise e
-      )
+    )
 
 let vm_test_add_remove _ = with_vm example_uuid (fun _ -> ())
 
@@ -516,7 +516,7 @@ let vm_test_parallel_start_shutdown _ =
       (fun x ->
         let vm = create_vm x in
         Client.VM.add dbg vm
-        )
+      )
       ints
   in
   if !verbose_timings then (
@@ -529,7 +529,7 @@ let vm_test_parallel_start_shutdown _ =
       (fun id ->
         let id = Client.VM.start dbg id false in
         (* Printf.fprintf stderr "%s\n" id; flush stderr; *) id
-        )
+      )
       ids
   in
   wait_for_tasks tasks ;
@@ -705,14 +705,14 @@ functor
                 let id = add dev in
                 plug id |> wait_for_task |> success_task ;
                 id
-                )
+              )
               (List.combine ids positions)
           in
           List.iter
             (fun id ->
               unplug id |> wait_for_task |> success_task ;
               remove id
-              )
+            )
             ids
       )
 
@@ -803,7 +803,7 @@ module VbdDeviceTests = DeviceTests (struct
       ~printer:(fun x ->
         Option.value ~default:"None"
           (Option.map (fun x -> x |> rpc_of_disk |> Jsonrpc.to_string) x)
-        )
+      )
       vbd.backend vbd'.backend ;
     assert_equal ~msg:"unpluggable" ~printer:string_of_bool vbd.unpluggable
       vbd'.unpluggable ;
@@ -907,13 +907,13 @@ let vbd_plug_ordering_good _ =
             (fun vbd ->
               let (_ : Vbd.id) = Client.VBD.add dbg (vbd id) in
               ()
-              )
+            )
             vbds ;
           Client.VM.start dbg id false |> wait_for_task |> success_task ;
           Client.DEBUG.trigger dbg "check-vbd-plug-ordering" [id] ;
           Client.VM.shutdown dbg id None |> wait_for_task |> success_task
       )
-      )
+    )
     vbds
 
 let ionice_qos_scheduler _ =
@@ -921,7 +921,7 @@ let ionice_qos_scheduler _ =
   (* Check that we can parse and print the qos_scheduler values *)
   let prios = [Highest; High; Normal; Low; Lowest; Other 499] in
   let xs =
-    Idle :: List.map (fun x -> RealTime x) prios
+    (Idle :: List.map (fun x -> RealTime x) prios)
     @ List.map (fun x -> BestEffort x) prios
   in
   List.iter
@@ -933,7 +933,7 @@ let ionice_qos_scheduler _ =
       assert_equal ~msg:"qos"
         ~printer:(fun x -> x |> rpc_of_qos_scheduler |> Jsonrpc.to_string)
         x y
-      )
+    )
     xs
 
 let ionice_output _ =
@@ -957,7 +957,7 @@ let ionice_output _ =
               x |> rpc_of_qos_scheduler |> Jsonrpc.to_string
           )
         x' y
-      )
+    )
     equals
 
 let barrier_ordering () =

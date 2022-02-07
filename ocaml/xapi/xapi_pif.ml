@@ -69,7 +69,7 @@ let refresh_internal ~__context ~self =
             (print_value value) ;
           set_field ~__context ~self ~value
         )
-        )
+      )
       (try Some (get_value ()) with _ -> None)
   in
   if pif.API.pIF_physical then
@@ -80,7 +80,7 @@ let refresh_internal ~__context ~self =
     (fun () ->
       get_device_pci ~__context ~host:pif.API.pIF_host
         ~device:pif.API.pIF_device
-      )
+    )
     Ref.string_of ;
   maybe_update_database "MTU" pif.API.pIF_MTU Db.PIF.set_MTU
     (fun () -> Int64.of_int (Net.Interface.get_mtu dbg bridge))
@@ -301,7 +301,7 @@ let abort_if_network_attached_to_protected_vms ~__context ~self =
                (Api_errors.ha_operation_would_break_failover_plan, [])
             )
         )
-        )
+      )
       vms
 
 let assert_no_other_local_pifs ~__context ~host ~network =
@@ -692,7 +692,7 @@ let scan ~__context ~host =
               ~vLAN_master_of:Ref.null ~device ~managed ~disallow_unplug ()
           in
           ()
-          )
+        )
         devices_not_yet_represented_by_pifs
   ) ;
   (* Make sure the right PIF(s) are marked as management PIFs *)
@@ -707,7 +707,7 @@ let create_VLAN ~__context ~device ~network ~host ~vLAN =
       (fun self ->
         Db.PIF.get_device ~__context ~self = device
         && Db.PIF.get_VLAN ~__context ~self = -1L
-        )
+      )
       other_pifs
   in
   if List.length base_pifs = 0 then
@@ -785,7 +785,7 @@ let reconfigure_ip ~__context ~self ~mode ~iP ~netmask ~gateway ~dNS =
   List.iter
     (fun (param, value) ->
       if value <> "" then Helpers.assert_is_valid_ip `ipv4 param value
-      )
+    )
     [("IP", iP); ("netmask", netmask); ("gateway", gateway)] ;
   if dNS <> "" then
     List.iter
@@ -873,7 +873,7 @@ let set_property ~__context ~self ~name ~value =
       List.iter
         (fun self -> Db.PIF.set_properties ~__context ~self ~value:properties)
         (Db.Bond.get_slaves ~__context ~self:bond)
-      )
+    )
     bond ;
   (* Make it happen, also for VLANs that may be on top of the PIF *)
   let vlans = Db.PIF.get_VLAN_slave_of ~__context ~self in
@@ -884,7 +884,7 @@ let set_property ~__context ~self ~name ~value =
     (fun pif ->
       if Db.PIF.get_currently_attached ~__context ~self then
         Nm.bring_pif_up ~__context pif
-      )
+    )
     (self :: vlan_pifs)
 
 let assert_cluster_host_operation_not_in_progress ~__context =
@@ -904,9 +904,9 @@ let assert_cluster_host_operation_not_in_progress ~__context =
           )
 
 (* Block allowing unplug if
-  - a cluster host is enabled on this PIF
-  - a cluster host is being created in this pool
-  - a Cluster_host.enable is in progress on any PIF *)
+   - a cluster host is enabled on this PIF
+   - a cluster host is being created in this pool
+   - a Cluster_host.enable is in progress on any PIF *)
 let set_disallow_unplug ~__context ~self ~value =
   if Db.PIF.get_disallow_unplug ~__context ~self <> value then (
     if not value then (
@@ -943,7 +943,7 @@ let rec unplug ~__context ~self =
       debug "PIF is tunnel transport PIF... also bringing down access PIF" ;
       let access_PIF = Db.Tunnel.get_access_PIF ~__context ~self:tunnel in
       unplug ~__context ~self:access_PIF
-      )
+    )
     pif_rec.API.pIF_tunnel_transport_PIF_of ;
   (* Only exclusive PIF types can be put into following pattern match *)
   ( match Xapi_pif_helpers.get_pif_topo ~__context ~pif_rec with
@@ -957,7 +957,7 @@ let rec unplug ~__context ~self =
                physical PIF" ;
             unplug ~__context ~self:slave
           )
-          )
+        )
         (Db.Bond.get_slaves ~__context ~self:bond)
   | Network_sriov_logical _ :: _ ->
       debug
@@ -973,7 +973,7 @@ let rec unplug ~__context ~self =
              logical PIF" ;
           let pif = Db.Network_sriov.get_logical_PIF ~__context ~self:sriov in
           unplug ~__context ~self:pif
-          )
+        )
         pif_rec.API.pIF_sriov_physical_PIF_of
   | _ ->
       ()
@@ -1097,8 +1097,8 @@ let start_of_day_best_effort_bring_up () =
             (fun pif ->
               debug "Best effort attempt to bring up PIF: %s" pifr.API.pIF_uuid ;
               plug ~__context ~self:pif
-              )
+            )
             pif
-          )
+        )
         (calculate_pifs_required_at_start_of_day ~__context)
   )

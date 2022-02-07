@@ -65,7 +65,7 @@ let _ =
                          ("ipaddr", Unix.string_of_inet_addr ip)
                        ; ("netmask", prefixlen_to_netmask plen)
                        ]
-                       )
+                     )
                      conf
                   )
               in
@@ -115,7 +115,7 @@ let _ =
                            ^ string_of_int plen
                          )
                        ]
-                       )
+                     )
                      conf
                   )
               in

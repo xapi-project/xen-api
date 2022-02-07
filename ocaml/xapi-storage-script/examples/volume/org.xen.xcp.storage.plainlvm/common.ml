@@ -62,7 +62,7 @@ let file_of_string filename string =
     (fun () ->
       debug "write >%s" filename ;
       output oc string 0 (String.length string)
-      )
+    )
     (fun () -> close_out oc)
 
 let startswith prefix x =
@@ -142,7 +142,7 @@ let canonicalise x =
                 Some possibility
               else
                 None
-          )
+        )
         None (paths @ xen_paths)
     in
     match first_hit with

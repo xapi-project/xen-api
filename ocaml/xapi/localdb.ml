@@ -41,7 +41,7 @@ let assert_loaded () =
         (fun () ->
           of_db (Xmlm.make_input (`Channel ic)) ;
           loaded := true
-          )
+        )
         (fun () -> close_in ic) ;
       Hashtbl.iter (fun k v -> debug "%s = %s" k v) db
     with

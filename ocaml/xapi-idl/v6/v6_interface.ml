@@ -115,7 +115,7 @@ let err =
           let exn = V6_error e in
           error "%s (%s)" (Printexc.to_string exn) __LOC__ ;
           raise exn
-          )
+        )
     ; matcher=
         (function
         | V6_error e as exn ->

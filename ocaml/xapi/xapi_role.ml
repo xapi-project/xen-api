@@ -156,7 +156,7 @@ let get_name_description ~__context ~self =
     ~static_fn:(fun static_record -> static_record.role_name_description)
     ~db_fn:(fun ~__context ~self ->
       Db.Role.get_name_description ~__context ~self
-      )
+    )
 
 (*    val get_permissions : __context:Context.t -> self:ref_role -> string_set*)
 let get_subroles ~__context ~self =
@@ -202,7 +202,7 @@ let get_permissions_common ~__context ~role ~ret_value_fn =
       List.fold_left
         (fun accu role ->
           List.rev_append (rec_get_permissions_of_role ~__context ~role) accu
-          )
+        )
         [] subroles
   in
   Xapi_stdext_std.Listext.List.setify

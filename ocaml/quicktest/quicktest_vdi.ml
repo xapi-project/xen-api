@@ -45,7 +45,7 @@ let vdi_create_destroy rpc session_id sr_info () =
             "VDI was not destroyed (or marked as unmanaged) properly after one \
              SR.scan"
       with _ -> ()
-      )
+    )
     sizes_to_try
 
 (** For an SR which may be shared, return one plugged in PBD *)
@@ -300,11 +300,11 @@ let vdi_create_destroy_plug_checksize rpc session_id sr_info () =
               (Printf.sprintf "Size should have been: %Ld" size_should_be)
         with Not_this_host ->
           print_endline "Skipping size check: disk is plugged into another host"
-        )
+      )
       (fun () ->
         Client.Client.VBD.unplug rpc session_id vbd ;
         Client.Client.VBD.destroy rpc session_id vbd
-        )
+      )
   in
   let small_size = Sizes.(4L ** mib) and large_size = Sizes.(1L ** gib) in
   (* Make sure we zap any attached volume state *)
@@ -359,7 +359,7 @@ let vdi_general_test rpc session_id sr_info () =
               print_endline (Printf.sprintf "Time to copy: %f%!" copytime) ;
               print_endline (Printf.sprintf "Destroying copied VDI%!")
           )
-          )
+        )
         (fun () -> Client.Client.VBD.destroy rpc session_id vbd)
   )
 

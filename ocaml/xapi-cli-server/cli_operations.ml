@@ -105,7 +105,7 @@ let waiter printer rpc session_id params task =
         wait
       )
         printer rpc session_id task
-      )
+    )
     (fun () -> Client.Task.destroy rpc session_id task)
 
 (* Return the list of k=v pairs for maps.
@@ -118,7 +118,7 @@ let read_map_params name params =
     List.filter
       (fun (p, _) ->
         Astring.String.is_prefix ~affix:name p && String.length p > len
-        )
+      )
       params
   in
   List.map
@@ -193,7 +193,7 @@ let get_hosts_by_name_or_id rpc session_id name =
         let r = host_record rpc session_id host in
         r.setrefrec (host, host_r) ;
         r
-        )
+      )
       hosts
   in
   let hosts =
@@ -201,7 +201,7 @@ let get_hosts_by_name_or_id rpc session_id name =
       (fun x ->
         safe_get_field (field_lookup x.fields "name-label") = name
         || safe_get_field (field_lookup x.fields "uuid") = name
-        )
+      )
       allrecs
   in
   hosts
@@ -303,7 +303,7 @@ let get_field_type fieldname record =
         List.find
           (fun field ->
             Astring.String.is_prefix ~affix:(field.name ^ "-") fieldname
-            )
+          )
           mapfields
       in
       Map field.name
@@ -319,7 +319,7 @@ let get_field_type fieldname record =
           List.find
             (fun field ->
               Astring.String.is_prefix ~affix:(field.name ^ "-") fieldname
-              )
+            )
             setfields
         in
         Set field.name
@@ -445,7 +445,7 @@ let select_fields params records default_params =
     List.map
       (fun record ->
         List.filter (fun field -> List.mem field.name params) record.fields
-        )
+      )
       records
 
 let print_field x =
@@ -501,7 +501,7 @@ let with_specified_database rpc session_id params f =
     (fun () -> f session_id)
     (fun () ->
       if use_db_vdi || use_db_file then Client.Session.logout ~rpc ~session_id
-      )
+    )
 
 let make_param_funs getall getallrecs getbyuuid record class_name def_filters
     def_list_params rpc session_id =
@@ -521,7 +521,7 @@ let make_param_funs getall getallrecs getbyuuid record class_name def_filters
               let record = record rpc session_id r in
               record.setrefrec (r, x) ;
               record
-              )
+            )
             all
         in
         (* Filter on everything on the cmd line except params=... *)
@@ -559,9 +559,9 @@ let make_param_funs getall getallrecs getbyuuid record class_name def_filters
               List.map
                 (fun field ->
                   if field.expensive then makeexpensivefield field else field
-                  )
+                )
                 fields
-              )
+            )
             print_params
         in
         printer
@@ -691,7 +691,7 @@ let make_param_funs getall getallrecs getbyuuid record class_name def_filters
       List.filter
         (fun (p, _) ->
           not (List.mem p ("uuid" :: "param-name" :: "param-key" :: stdparams))
-          )
+        )
         params
     in
     match field_lookup record param_name with
@@ -781,7 +781,7 @@ let make_param_funs getall getallrecs getbyuuid record class_name def_filters
                  r.add_to_map <> None
                  || r.set_in_map <> None
                  || r.set_map <> None
-                 )
+               )
                all
             )
       in
@@ -814,7 +814,7 @@ let make_param_funs getall getallrecs getbyuuid record class_name def_filters
         [
           ( cli_name "list"
           , []
-          , "params" :: "database:" :: all_optn @ sm_param_names
+          , ("params" :: "database:" :: all_optn) @ sm_param_names
           , "Lists all the "
             ^ plural
             ^ ", filtering on the optional arguments. To filter on map \
@@ -1083,7 +1083,7 @@ let gen_cmds rpc session_id =
         mk get_all
           (fun ~rpc ~session_id ~expr ->
             get_all_records_where ~rpc ~session_id ~expr:"subroles<>[]"
-            )
+          )
           get_by_uuid role_record "role" []
           ["uuid"; "name"; "description"; "subroles"]
           rpc session_id
@@ -1422,7 +1422,7 @@ let pool_ha_compute_vm_failover_plan printer rpc session_id params =
           else
             "UNKNOWN"
         )
-        )
+      )
       plan
   in
   printer (Cli_printer.PTable [("VM", "Destination Host or Error") :: table])
@@ -1540,7 +1540,7 @@ let pool_eject fd printer rpc session_id params =
                    else
                      []
                  with _ -> []
-                 )
+               )
                pbds
             )
         in
@@ -1559,10 +1559,10 @@ let pool_eject fd printer rpc session_id params =
                     warnings :=
                       Printf.sprintf "VDI: %s (%s)" uuid name_label :: !warnings
                   with _ -> ()
-                  )
+                )
                 vdis
             with _ -> ()
-            )
+          )
           srs ;
         !warnings
       with _ -> []
@@ -1645,7 +1645,7 @@ let pool_send_wlb_configuration printer rpc session_id params =
     List.filter
       (fun (p, _) ->
         Astring.String.is_prefix ~affix:"config" p && String.length p > len
-        )
+      )
       params
   in
   let config =
@@ -1670,7 +1670,7 @@ let pool_retrieve_wlb_recommendations printer rpc session_id params =
             (Client.VM.get_name_label rpc session_id vm)
         , String.concat " " recom
         )
-        )
+      )
       t
   in
   printer
@@ -1997,7 +1997,7 @@ let diagnostic_vdi_status printer rpc session_id params =
           ; "sharable"
           ; "storage-lock"
           ]
-        )
+      )
       vdi_r.fields
   in
   printer (Cli_printer.PTable [List.map print_field vdi_fields]) ;
@@ -2027,11 +2027,11 @@ let diagnostic_vdi_status printer rpc session_id params =
                 ; "type"
                 ; "storage-lock"
                 ]
-              )
+            )
             vbd_record.fields
         in
         printer (Cli_printer.PTable [List.map print_field fields])
-        )
+      )
       records
   in
   if active_records = [] then
@@ -2113,7 +2113,7 @@ let print_vm_host_report printer rpc session_id vm_ref =
             "OK"
           with e -> "Cannot start here [" ^ print_assert_exception e ^ "]"
         )
-        )
+      )
       hosts
   in
   printer (Cli_printer.PTable [table])
@@ -2125,7 +2125,7 @@ let diagnostic_vm_status printer rpc session_id params =
     List.filter
       (fun x ->
         List.mem x.name ["uuid"; "name-label"; "power-state"; "possible-hosts"]
-        )
+      )
       vm_r.fields
   in
   printer (Cli_printer.PTable [List.map print_field vm_fields]) ;
@@ -2148,11 +2148,11 @@ let diagnostic_vm_status printer rpc session_id params =
                 ; "storage-lock"
                 ; "attachable"
                 ]
-              )
+            )
             vbd_record.fields
         in
         printer (Cli_printer.PTable [List.map print_field fields])
-        )
+      )
       records
   in
   let all_vbds = Client.VM.get_VBDs rpc session_id vm in
@@ -2350,7 +2350,7 @@ let sr_create fd printer rpc session_id params =
               failwith "File not found"
         ) else
           (k, v)
-        )
+      )
       device_config
   in
   let sm_config = read_map_params "sm-config" params in
@@ -2416,7 +2416,7 @@ let sr_probe_ext printer rpc session_id params =
               (srs, x :: complete_configs, incomplete_configs)
             else
               (srs, complete_configs, x :: incomplete_configs)
-        )
+      )
       ([], [], []) results
   in
   let print_sr x =
@@ -2447,7 +2447,7 @@ let sr_probe_ext printer rpc session_id params =
           (Cli_printer.PTable [probe_result.API.probe_result_configuration]) ;
         printer (Cli_printer.PMsg (Printf.sprintf "SR %d extra information:" i)) ;
         printer (Cli_printer.PTable [probe_result.API.probe_result_extra_info])
-        )
+      )
       srs
   ) ;
   let print_config i probe_result =
@@ -2508,7 +2508,7 @@ let pbd_create printer rpc session_id params =
       (fun (p, _) ->
         Astring.String.is_prefix ~affix:"device-config" p
         && String.length p > len
-        )
+      )
       params
   in
   let device_config =
@@ -2895,7 +2895,7 @@ let event_wait_gen rpc session_id classname record_matches =
               if poll () then raise Finished
           done
         with Finished -> ()
-      )
+    )
     (fun () -> Client.Event.unregister ~rpc ~session_id ~classes)
 
 (* We're done. Unregister and finish *)
@@ -2918,7 +2918,7 @@ let event_wait printer rpc session_id params =
           (`NotEquals, key', value')
         else
           (`Equals, key, value)
-        )
+      )
       filter_params
   in
   (* This returns true if the record matches the cmd line constraints *)
@@ -2930,7 +2930,7 @@ let event_wait printer rpc session_id params =
             failwith (Printf.sprintf "key missing: %s" p) ;
           let v' = List.assoc p record () in
           match operator with `NotEquals -> v <> v' | `Equals -> v = v'
-          )
+        )
         filter_params
     in
     alltrue matches
@@ -2982,7 +2982,7 @@ let select_vms ?(include_control_vms = false) ?(include_template_vms = false)
         let r = vm_record rpc session_id vm in
         r.setrefrec (vm, vm_r) ;
         r
-        )
+      )
       vms
   in
   (* Filter on everything on the cmd line except params=... *)
@@ -2996,7 +2996,7 @@ let select_vms ?(include_control_vms = false) ?(include_template_vms = false)
           with Not_found -> p
         in
         not (List.mem p' (stdparams @ ignore_params))
-        )
+      )
       params
   in
   (* Filter all the records *)
@@ -3026,7 +3026,7 @@ let select_hosts rpc session_id params ignore_params =
         let r = host_record rpc session_id host in
         r.setrefrec (host, host_r) ;
         r
-        )
+      )
       hosts
   in
   let filter_params =
@@ -3034,7 +3034,7 @@ let select_hosts rpc session_id params ignore_params =
       (fun (p, _) ->
         let stem = List.hd (String.split_on_char ':' p) in
         not (List.mem stem (stdparams @ ignore_params))
-        )
+      )
       params
   in
   (* Filter all the records *)
@@ -3062,7 +3062,7 @@ let select_srs rpc session_id params ignore_params =
         let r = sr_record rpc session_id sr in
         r.setrefrec (sr, sr_r) ;
         r
-        )
+      )
       srs
   in
   let filter_params =
@@ -3070,7 +3070,7 @@ let select_srs rpc session_id params ignore_params =
       (fun (p, _) ->
         let stem = List.hd (String.split_on_char ':' p) in
         not (List.mem stem (stdparams @ ignore_params))
-        )
+      )
       params
   in
   (* Filter all the records *)
@@ -3097,7 +3097,7 @@ let wrap_op printer pri rpc session_id op e =
     (fun (ref, msg) ->
       if msg.API.message_priority < pri then
         printer (Cli_printer.PStderr (format_message msg ^ "\n"))
-      )
+    )
     msgs ;
   result
 
@@ -3123,7 +3123,7 @@ let do_multiple op set =
         | exn ->
             append_fail e (Cli_util.string_of_exn exn) ;
             None
-        )
+      )
       set
   in
   let success =
@@ -3235,7 +3235,7 @@ let vm_compute_memory_overhead printer rpc session_id params =
            Client.VM.compute_memory_overhead rpc session_id (vm.getref ())
          in
          printer (Cli_printer.PMsg (Int64.to_string memory_overhead))
-         )
+       )
        params []
     )
 
@@ -3248,7 +3248,7 @@ let vm_memory_dynamic_range_set printer rpc session_id params =
        (fun vm ->
          Client.VM.set_memory_dynamic_range rpc session_id (vm.getref ()) min
            max
-         )
+       )
        params ["min"; "max"]
     )
 
@@ -3260,7 +3260,7 @@ let vm_memory_static_range_set printer rpc session_id params =
        session_id
        (fun vm ->
          Client.VM.set_memory_static_range rpc session_id (vm.getref ()) min max
-         )
+       )
        params ["min"; "max"]
     )
 
@@ -3276,7 +3276,7 @@ let vm_memory_limits_set printer rpc session_id params =
        (fun vm ->
          Client.VM.set_memory_limits rpc session_id (vm.getref ()) static_min
            static_max dynamic_min dynamic_max
-         )
+       )
        params
        ["static-min"; "static-max"; "dynamic-min"; "dynamic-max"]
     )
@@ -3301,7 +3301,7 @@ let vm_memory_target_set printer rpc session_id params =
        (fun vm ->
          Client.VM.set_memory_dynamic_range rpc session_id (vm.getref ()) target
            target
-         )
+       )
        params ["target"]
     )
 
@@ -3311,7 +3311,7 @@ let vm_memory_target_wait printer rpc session_id params =
        (fun vm ->
          let vm = vm.getref () in
          Client.VM.wait_memory_target_live rpc session_id vm
-         )
+       )
        params []
     )
 
@@ -3359,7 +3359,7 @@ let vm_data_source_list printer rpc session_id params =
          let dss = Client.VM.get_data_sources rpc session_id vm in
          let output = List.map data_source_to_kvs dss in
          printer (Cli_printer.PTable output)
-         )
+       )
        params []
     )
 
@@ -3370,7 +3370,7 @@ let vm_data_source_record printer rpc session_id params =
          let vm = vm.getref () in
          let ds = List.assoc "data-source" params in
          Client.VM.record_data_source rpc session_id vm ds
-         )
+       )
        params ["data-source"]
     )
 
@@ -3382,7 +3382,7 @@ let vm_data_source_query printer rpc session_id params =
          let ds = List.assoc "data-source" params in
          let value = Client.VM.query_data_source rpc session_id vm ds in
          printer (Cli_printer.PList [Printf.sprintf "%f" value])
-         )
+       )
        params ["data-source"]
     )
 
@@ -3393,7 +3393,7 @@ let vm_data_source_forget printer rpc session_id params =
          let vm = vm.getref () in
          let ds = List.assoc "data-source" params in
          Client.VM.forget_data_source_archives rpc session_id vm ds
-         )
+       )
        params ["data-source"]
     )
 
@@ -3406,7 +3406,7 @@ let sr_data_source_list printer rpc session_id params =
          let dss = Client.SR.get_data_sources rpc session_id sr in
          let output = List.map data_source_to_kvs dss in
          printer (Cli_printer.PTable output)
-         )
+       )
        params []
     )
 
@@ -3417,7 +3417,7 @@ let sr_data_source_record printer rpc session_id params =
          let sr = sr.getref () in
          let ds = List.assoc "data-source" params in
          Client.SR.record_data_source rpc session_id sr ds
-         )
+       )
        params ["data-source"]
     )
 
@@ -3429,7 +3429,7 @@ let sr_data_source_query printer rpc session_id params =
          let ds = List.assoc "data-source" params in
          let value = Client.SR.query_data_source rpc session_id sr ds in
          printer (Cli_printer.PList [Printf.sprintf "%f" value])
-         )
+       )
        params ["data-source"]
     )
 
@@ -3440,7 +3440,7 @@ let sr_data_source_forget printer rpc session_id params =
          let sr = sr.getref () in
          let ds = List.assoc "data-source" params in
          Client.SR.forget_data_source_archives rpc session_id sr ds
-         )
+       )
        params ["data-source"]
     )
 
@@ -3452,7 +3452,7 @@ let host_data_source_list printer rpc session_id params =
          let dss = Client.Host.get_data_sources rpc session_id host in
          let output = List.map data_source_to_kvs dss in
          printer (Cli_printer.PTable output)
-         )
+       )
        params []
     )
 
@@ -3463,7 +3463,7 @@ let host_data_source_record printer rpc session_id params =
          let host = host.getref () in
          let ds = List.assoc "data-source" params in
          Client.Host.record_data_source rpc session_id host ds
-         )
+       )
        params ["data-source"]
     )
 
@@ -3475,7 +3475,7 @@ let host_data_source_query printer rpc session_id params =
          let ds = List.assoc "data-source" params in
          let value = Client.Host.query_data_source rpc session_id host ds in
          printer (Cli_printer.PList [Printf.sprintf "%f" value])
-         )
+       )
        params ["data-source"]
     )
 
@@ -3486,7 +3486,7 @@ let host_data_source_forget printer rpc session_id params =
          let host = host.getref () in
          let ds = List.assoc "data-source" params in
          Client.Host.forget_data_source_archives rpc session_id host ds
-         )
+       )
        params ["data-source"]
     )
 
@@ -3499,7 +3499,7 @@ let host_compute_free_memory printer rpc session_id params =
            Client.Host.compute_free_memory rpc session_id host
          in
          printer (Cli_printer.PMsg (Int64.to_string free_memory))
-         )
+       )
        params []
     )
 
@@ -3512,7 +3512,7 @@ let host_compute_memory_overhead printer rpc session_id params =
            Client.Host.compute_memory_overhead rpc session_id host
          in
          printer (Cli_printer.PMsg (Int64.to_string memory_overhead))
-         )
+       )
        params []
     )
 
@@ -3525,7 +3525,7 @@ let host_get_server_certificate printer rpc session_id params =
            (Cli_printer.PMsg
               (Client.Host.get_server_certificate rpc session_id host)
            )
-         )
+       )
        params []
     )
 
@@ -3535,7 +3535,7 @@ let host_refresh_server_certificate printer rpc session_id params =
        (fun _ host ->
          let host = host.getref () in
          Client.Host.refresh_server_certificate rpc session_id host
-         )
+       )
        params []
     )
 
@@ -3556,7 +3556,7 @@ let host_install_server_certificate fd printer rpc session_id params =
          let host = host.getref () in
          Client.Host.install_server_certificate ~rpc ~session_id ~host
            ~certificate ~private_key ~certificate_chain
-         )
+       )
        params
        ["certificate"; "private-key"; "certificate-chain"]
     )
@@ -3569,7 +3569,7 @@ let host_get_sm_diagnostics printer rpc session_id params =
          printer
            (Cli_printer.PMsg (Client.Host.get_sm_diagnostics rpc session_id host)
            )
-         )
+       )
        params []
     )
 
@@ -3582,7 +3582,7 @@ let host_get_thread_diagnostics printer rpc session_id params =
            (Cli_printer.PMsg
               (Client.Host.get_thread_diagnostics rpc session_id host)
            )
-         )
+       )
        params []
     )
 
@@ -3594,7 +3594,7 @@ let host_sm_dp_destroy printer rpc session_id params =
        (fun _ host ->
          let host = host.getref () in
          Client.Host.sm_dp_destroy rpc session_id host dp allow_leak
-         )
+       )
        params ["dp"; "allow-leak"]
     )
 
@@ -3609,7 +3609,7 @@ let vm_memory_shadow_multiplier_set printer rpc session_id params =
       (fun vm ->
         let vm = vm.getref () in
         Client.VM.set_shadow_multiplier_live rpc session_id vm multiplier
-        )
+      )
       params ["multiplier"]
   in
   ()
@@ -3621,7 +3621,7 @@ let vm_query_services printer rpc session_id params =
          let vm = vm.getref () in
          let record = Client.VM.query_services rpc session_id vm in
          printer (Cli_printer.PTable [("Type", "Name") :: record])
-         )
+       )
        params []
     )
 
@@ -3645,7 +3645,7 @@ let vm_start printer rpc session_id params =
          hook_no_hosts_available printer rpc session_id vm (fun () ->
              waiter printer rpc session_id params task
          )
-         )
+       )
        params
        ["on"; "paused"; "progress"]
     )
@@ -3656,7 +3656,7 @@ let vm_suspend printer rpc session_id params =
        (fun vm ->
          let task = Client.Async.VM.suspend rpc session_id (vm.getref ()) in
          waiter printer rpc session_id params task
-         )
+       )
        params ["progress"]
     )
 
@@ -3682,7 +3682,7 @@ let vm_resume printer rpc session_id params =
                in
                waiter printer rpc session_id params task
            )
-         )
+       )
        params ["on"; "progress"]
     )
 
@@ -3891,7 +3891,7 @@ let vm_install printer rpc session_id params =
             let r = vm_record rpc session_id vm in
             r.setrefrec (vm, vm_r) ;
             r
-            )
+          )
           vms
       in
       let find_by_name name =
@@ -4018,7 +4018,7 @@ let vm_uninstall_common fd printer rpc session_id params vms =
                else
                  []
              with _ -> []
-             )
+           )
            vbds
         )
     in
@@ -4030,7 +4030,7 @@ let vm_uninstall_common fd printer rpc session_id params vms =
       with _ -> Ref.null
     in
     let output =
-      string_of_vm vm :: List.map string_of_vdi vdis
+      (string_of_vm vm :: List.map string_of_vdi vdis)
       @ if suspend_VDI = Ref.null then [] else [string_of_vdi suspend_VDI]
     in
     toprint := !toprint @ output ;
@@ -4096,7 +4096,7 @@ let vm_clone_aux clone_op cloned_string printer include_template_vms rpc
   Option.iter
     (fun desc ->
       Client.VM.set_name_description rpc session_id (List.hd new_vms) desc
-      )
+    )
     desc ;
   printer
     (Cli_printer.PList
@@ -4213,7 +4213,7 @@ let vm_copy printer rpc session_id params =
   Option.iter
     (fun desc ->
       Client.VM.set_name_description rpc session_id (List.hd new_vms) desc
-      )
+    )
     desc ;
   printer
     (Cli_printer.PList
@@ -4248,14 +4248,14 @@ let vm_shutdown printer rpc session_id params =
           (fun vm ->
             Client.Async.VM.hard_shutdown rpc session_id (vm.getref ())
             |> waiter printer rpc session_id params
-            )
+          )
           params ["progress"]
     else
       do_vm_op printer rpc session_id
         (fun vm ->
           Client.Async.VM.clean_shutdown rpc session_id (vm.getref ())
           |> waiter printer rpc session_id params
-          )
+        )
         params ["progress"]
     )
 
@@ -4283,7 +4283,7 @@ let vm_compute_maximum_memory printer rpc session_id params =
              approximate
          in
          printer (Cli_printer.PList [Printf.sprintf "%Ld" max])
-         )
+       )
        params ["total"; "approximate"]
     )
 
@@ -4297,7 +4297,7 @@ let vm_retrieve_wlb_recommendations printer rpc session_id params =
           ^ ")"
         , String.concat " " recom
         )
-        )
+      )
       (Client.VM.retrieve_wlb_recommendations rpc session_id (vm.getref ()))
   in
   try
@@ -4342,7 +4342,7 @@ let vm_migrate printer rpc session_id params =
     List.map
       (fun (k, v) ->
         if k = "host-uuid" || k = "host-name" then ("host", v) else (k, v)
-        )
+      )
       params
   in
   let options =
@@ -4408,7 +4408,7 @@ let vm_migrate printer rpc session_id params =
                   h.API.host_hostname = x
                   || h.API.host_name_label = x
                   || h.API.host_uuid = x
-                  )
+                )
                 all
             with Not_found ->
               failwith (Printf.sprintf "Failed to find host: %s" x)
@@ -4425,7 +4425,7 @@ let vm_migrate printer rpc session_id params =
                   net.API.network_bridge = x
                   || net.API.network_name_label = x
                   || net.API.network_uuid = x
-                  )
+                )
                 all
             with Not_found ->
               failwith (Printf.sprintf "Failed to find network: %s" x)
@@ -4435,7 +4435,7 @@ let vm_migrate printer rpc session_id params =
               List.filter
                 (fun pif ->
                   Client.PIF.get_management remote_rpc remote_session pif
-                  )
+                )
                 pifs
             in
             if List.length management_pifs = 0 then
@@ -4455,7 +4455,7 @@ let vm_migrate printer rpc session_id params =
                 Client.Network.get_by_uuid remote_rpc remote_session net_uuid
               in
               (vif, net)
-              )
+            )
             (read_map_params "vif" params)
         in
         let vdi_map =
@@ -4466,7 +4466,7 @@ let vm_migrate printer rpc session_id params =
                 Client.SR.get_by_uuid remote_rpc remote_session sr_uuid
               in
               (vdi, sr)
-              )
+            )
             (read_map_params "vdi" params)
         in
         let vgpu_map =
@@ -4478,7 +4478,7 @@ let vm_migrate printer rpc session_id params =
                   gpu_group_uuid
               in
               (vgpu, gpu_group)
-              )
+            )
             (read_map_params "vgpu" params)
         in
         let preferred_sr =
@@ -4501,7 +4501,7 @@ let vm_migrate printer rpc session_id params =
                   , Client.SR.get_record remote_rpc remote_session
                       pbd_rec.API.pBD_SR
                   )
-                  )
+                )
                 host_pbds
             in
             (* In the following loop, the current SR:sr' will be compared with previous checked ones,
@@ -4533,7 +4533,7 @@ let vm_migrate printer rpc session_id params =
                           else
                             (Some sr, free_space)
                     )
-                  )
+                )
                 (None, Int64.zero) srs
             in
             match sr with Some (sr_ref, _) -> Some sr_ref | _ -> None
@@ -4547,11 +4547,12 @@ let vm_migrate printer rpc session_id params =
               let vms =
                 select_vms ~include_template_vms:true rpc session_id params
                   ("host"
-                   ::
-                   "host-uuid"
-                   ::
-                   "host-name"
-                   :: "live" :: "force" :: "copy" :: vm_migrate_sxm_params
+                  :: "host-uuid"
+                  :: "host-name"
+                  :: "live"
+                  :: "force"
+                  :: "copy"
+                  :: vm_migrate_sxm_params
                   )
               in
               if vms = [] then failwith "No matching VMs found" ;
@@ -4573,7 +4574,7 @@ let vm_migrate printer rpc session_id params =
                       (vdi, List.assoc vdi vdi_map)
                     else
                       (vdi, preferred_sr)
-                    )
+                  )
                   vdis
               in
               let filtered_orig_list =
@@ -4591,7 +4592,7 @@ let vm_migrate printer rpc session_id params =
               else
                 let start = String.sub s 0 4 in
                 start <> "vif:" && start <> "vdi:"
-              )
+            )
             params
         in
         printer
@@ -4612,7 +4613,7 @@ let vm_migrate printer rpc session_id params =
                     (Client.SR.get_uuid remote_rpc remote_session sr)
                  )
               )
-            )
+          )
           vdi_map ;
         let token =
           Client.Host.migrate_receive remote_rpc remote_session host network
@@ -4624,7 +4625,7 @@ let vm_migrate printer rpc session_id params =
             (fun vm ->
               Client.VM.migrate_send rpc session_id (vm.getref ()) token true
                 vdi_map vif_map options vgpu_map
-              )
+            )
             params
             (["host"; "host-uuid"; "host-name"; "live"; "force"; "copy"]
             @ vm_migrate_sxm_params
@@ -4636,7 +4637,7 @@ let vm_migrate printer rpc session_id params =
             (Cli_printer.PList
                [Client.VM.get_uuid remote_rpc remote_session new_vm]
             )
-        )
+      )
       (fun () -> Client.Session.logout remote_rpc remote_session)
   ) else (
     if not (List.mem_assoc "host" params) then
@@ -4649,7 +4650,7 @@ let vm_migrate printer rpc session_id params =
       (do_vm_op ~include_control_vms:true printer rpc session_id
          (fun vm ->
            Client.VM.pool_migrate rpc session_id (vm.getref ()) host options
-           )
+         )
          params
          ["host"; "host-uuid"; "host-name"; "live"]
       )
@@ -4661,7 +4662,7 @@ let vm_disk_list_aux vm is_cd_list printer rpc session_id params =
       (fun vbd ->
         Client.VBD.get_type rpc session_id vbd
         = if is_cd_list then `CD else `Disk
-        )
+      )
       (vm.record ()).API.vM_VBDs
   in
   let vbdrecords = List.map (fun vbd -> vbd_record rpc session_id vbd) vbds in
@@ -4673,7 +4674,7 @@ let vm_disk_list_aux vm is_cd_list printer rpc session_id params =
             (vdi_record rpc session_id (Client.VBD.get_VDI rpc session_id vbd))
         else
           None
-        )
+      )
       vbds
   in
   (* Hack - convert 'vbd-params' to 'params' *)
@@ -4827,7 +4828,7 @@ let vm_cd_remove printer rpc session_id params =
             "iso" = Client.SR.get_content_type rpc session_id sr
             && disk_name = Client.VDI.get_name_label rpc session_id vdi
           with _ (* VDI handle invalid *) -> disk_name = "<EMPTY>"
-          )
+        )
         vm_record.API.vM_VBDs
     in
     if List.length vbd_to_remove < 1 then
@@ -4846,7 +4847,7 @@ let vm_cd_add printer rpc session_id params =
       (fun vdi ->
         let sr = Client.VDI.get_SR rpc session_id vdi in
         "iso" = Client.SR.get_content_type rpc session_id sr
-        )
+      )
       vdis
   in
   if List.length vdis = 0 then failwith ("CD " ^ cd_name ^ " not found!") ;
@@ -4886,7 +4887,7 @@ let vm_cd_insert printer rpc session_id params =
       (fun vdi ->
         let sr = Client.VDI.get_SR rpc session_id vdi in
         "iso" = Client.SR.get_content_type rpc session_id sr
-        )
+      )
       vdis
   in
   if List.length vdis = 0 then failwith ("CD " ^ cd_name ^ " not found") ;
@@ -4904,7 +4905,7 @@ let vm_cd_insert printer rpc session_id params =
         (fun vbd ->
           Client.VBD.get_type rpc session_id vbd = `CD
           && Client.VBD.get_empty rpc session_id vbd
-          )
+        )
         vbds
     in
     if List.length cdvbds = 0 then
@@ -4962,7 +4963,7 @@ let host_declare_dead x =
   host_careful_op
     (fun ~rpc ~session_id ~self ->
       Client.Host.declare_dead ~rpc ~session_id ~host:self
-      )
+    )
     warnings x
 
 let host_license_add fd printer rpc session_id params =
@@ -5025,7 +5026,7 @@ let with_license_server_changes printer rpc session_id params hosts f =
           Client.Host.remove_from_license_server rpc session_id host "address" ;
           Client.Host.add_to_license_server rpc session_id host "address"
             address
-          )
+        )
         hosts
   ) ;
   (* Set any new license server port across the pool. *)
@@ -5043,7 +5044,7 @@ let with_license_server_changes printer rpc session_id params hosts f =
           (fun host ->
             Client.Host.remove_from_license_server rpc session_id host "port" ;
             Client.Host.add_to_license_server rpc session_id host "port" port
-            )
+          )
           hosts
   ) ;
   let now = Unix.gettimeofday () in
@@ -5054,7 +5055,7 @@ let with_license_server_changes printer rpc session_id params hosts f =
       List.iter
         (fun (host, license_server) ->
           Client.Host.set_license_server rpc session_id host license_server
-          )
+        )
         current_license_servers ;
       let alerts =
         Client.Message.get_since rpc session_id (Date.of_float (now -. 1.))
@@ -5117,7 +5118,7 @@ let host_evacuate printer rpc session_id params =
     (do_host_op rpc session_id ~multiple:false
        (fun _ host ->
          Client.Host.evacuate rpc session_id (host.getref ()) network
-         )
+       )
        params ["network-uuid"]
     )
 
@@ -5152,7 +5153,7 @@ let host_retrieve_wlb_evacuate_recommendations printer rpc session_id params =
             (Client.VM.get_name_label rpc session_id vm)
         , String.concat " " result
         )
-        )
+      )
       vms
   in
   printer (Cli_printer.PTable [("VM", "[Host, RecID] / Error") :: table])
@@ -5296,7 +5297,7 @@ let download_file_with_task fd rpc session_id filename uri query label task_name
            query
         )
         label
-      )
+    )
     (fun () -> Client.Task.destroy rpc session_id task)
 
 let pool_retrieve_wlb_report fd printer rpc session_id params =
@@ -5314,7 +5315,7 @@ let pool_retrieve_wlb_report fd printer rpc session_id params =
           (List.map
              (fun (k, v) ->
                Printf.sprintf "%s=%s" (Http.urlencode k) (Http.urlencode v)
-               )
+             )
              other_params
           )
        )
@@ -5497,7 +5498,7 @@ let blob_get fd printer rpc session_id params =
           marshal fd (Command (PrintStderr "Internal error\n")) ;
           (* should never happen *)
           raise (ExitWithError 1)
-      )
+    )
     (fun () -> Client.Task.destroy rpc session_id blobtask)
 
 let blob_put fd printer rpc session_id params =
@@ -5557,7 +5558,7 @@ let blob_put fd printer rpc session_id params =
           marshal fd (Command (PrintStderr "Internal error\n")) ;
           (* should never happen *)
           raise (ExitWithError 1)
-      )
+    )
     (fun () -> Client.Task.destroy rpc session_id blobtask)
 
 let blob_create printer rpc session_id params =
@@ -5661,7 +5662,7 @@ let export_common fd printer rpc session_id params filename num ?task_uuid
         )
         "Export" ;
       num := !num + 1
-      )
+    )
     (fun () -> task_destroy_fn ())
 
 let get_compression_algorithm params =
@@ -5937,7 +5938,7 @@ let diagnostic_compact printer rpc session_id params =
        (fun _ host ->
          let host = host.getref () in
          Client.Diagnostics.gc_compact rpc session_id host
-         )
+       )
        params []
     )
 
@@ -5950,7 +5951,7 @@ let diagnostic_gc_stats printer rpc session_id params =
            ( Client.Diagnostics.gc_stats rpc session_id host |> fun x ->
              Cli_printer.PTable [x]
            )
-         )
+       )
        params []
     )
 
@@ -5985,7 +5986,7 @@ let diagnostic_net_stats printer rpc session_id params =
          List.iter
            (fun line -> printer (Cli_printer.PMsg (String.concat " | " line)))
            sll
-         )
+       )
        params []
     )
 
@@ -6023,7 +6024,7 @@ let diagnostic_license_status printer rpc session_id params =
           ignore (license_of_host rpc session_id host) ;
           true
         with _ -> false
-        )
+      )
       hosts
   in
   let host_licenses =
@@ -6043,7 +6044,7 @@ let diagnostic_license_status printer rpc session_id params =
         ; Date.to_string (Date.of_float h.expiry)
         ; Printf.sprintf "%.1f" ((h.expiry -. now) /. (24. *. 60. *. 60.))
         ]
-        )
+      )
       host_licenses
   in
   let invalid_hosts =
@@ -6057,7 +6058,7 @@ let diagnostic_license_status printer rpc session_id params =
         ; "-"
         ; "-"
         ]
-        )
+      )
       invalid
   in
   let pool_features =
@@ -6070,7 +6071,7 @@ let diagnostic_license_status printer rpc session_id params =
   let pool =
     ["-"; "-"; Features.to_compact_string pool_features; "-"; "-"; "-"]
   in
-  let table = heading :: divider :: hosts @ invalid_hosts @ [divider; pool] in
+  let table = (heading :: divider :: hosts) @ invalid_hosts @ [divider; pool] in
   (* Compute the required column widths *)
   let rec transpose x =
     if List.filter (fun x -> x <> []) x = [] then
@@ -6093,7 +6094,7 @@ let diagnostic_license_status printer rpc session_id params =
       |> String.concat " "
       |> (fun x -> Cli_printer.PMsg x)
       |> printer
-      )
+    )
     table
 
 module Network_sriov = struct
@@ -6269,7 +6270,7 @@ let host_enable printer rpc session_id params =
          Client.Host.remove_from_other_config rpc session_id (host.getref ())
            "MAINTENANCE_MODE" ;
          Client.Host.enable rpc session_id (host.getref ())
-         )
+       )
        params []
     )
 
@@ -6314,7 +6315,7 @@ let host_enable_local_storage_caching printer rpc session_id params =
          let sr = Client.SR.get_by_uuid rpc session_id sr_uuid in
          Client.Host.enable_local_storage_caching rpc session_id
            (host.getref ()) sr
-         )
+       )
        params ["sr-uuid"]
     )
 
@@ -6324,7 +6325,7 @@ let host_disable_local_storage_caching printer rpc session_id params =
        (fun _ host ->
          Client.Host.disable_local_storage_caching rpc session_id
            (host.getref ())
-         )
+       )
        params []
     )
 
@@ -6352,7 +6353,7 @@ let host_set_power_on_mode printer rpc session_id params =
        (fun _ host ->
          Client.Host.set_power_on_mode ~rpc ~session_id ~self:(host.getref ())
            ~power_on_mode ~power_on_config
-         )
+       )
        params
        ["power-on-mode"; "power-on-config"]
     )
@@ -6503,7 +6504,7 @@ let host_get_system_status_capabilities printer rpc session_id params =
           (fun _ host ->
             Client.Host.get_system_status_capabilities ~rpc ~session_id
               ~host:(host.getref ())
-            )
+          )
           params []
        )
     )
@@ -6795,7 +6796,7 @@ let host_reset_server_certificate printer rpc session_id params =
        (fun _ host ->
          let host = host.getref () in
          Client.Host.reset_server_certificate ~rpc ~session_id ~host
-         )
+       )
        params []
     )
 
@@ -6999,7 +7000,7 @@ let session_subject_identifier_logout_all printer rpc session_id params =
     (fun subject_identifier ->
       Client.Session.logout_subject_identifier ~rpc ~session_id
         ~subject_identifier
-      )
+    )
     subject_identifiers
 
 let secret_create printer rpc session_id params =
@@ -7208,7 +7209,7 @@ let lvhd_enable_thin_provisioning printer rpc session_id params =
          let sr_ref = Client.SR.get_by_uuid rpc session_id sr_uuid in
          Client.LVHD.enable_thin_provisioning rpc session_id host_ref sr_ref
            initial_allocation allocation_quantum
-         )
+       )
        params
        ["sr-uuid"; "initial-allocation"; "allocation-quantum"]
     )
@@ -7289,7 +7290,7 @@ module PVS_cache_storage = struct
            in
            let uuid = Client.PVS_cache_storage.get_uuid rpc session_id ref in
            printer (Cli_printer.PList [uuid])
-           )
+         )
          params
          ["sr-uuid"; "pvs-site-uuid"; "size"]
       )
@@ -7324,7 +7325,7 @@ let update_precheck printer rpc session_id params =
         let host_ref = host.getref () in
         let ref = Client.Pool_update.get_by_uuid rpc session_id uuid in
         Client.Pool_update.precheck rpc session_id ref host_ref
-        )
+      )
       params ["uuid"]
   in
   let result_msg = List.map livepatch_status_to_string result in
@@ -7338,7 +7339,7 @@ let update_apply printer rpc session_id params =
          let host_ref = host.getref () in
          let ref = Client.Pool_update.get_by_uuid rpc session_id uuid in
          Client.Pool_update.apply rpc session_id ref host_ref
-         )
+       )
        params ["uuid"]
     )
 
@@ -7369,7 +7370,7 @@ let host_apply_updates printer rpc session_id params =
        (fun _ host ->
          let host = host.getref () in
          Client.Host.apply_updates rpc session_id host hash
-         )
+       )
        params ["hash"]
     )
 

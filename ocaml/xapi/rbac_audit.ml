@@ -75,7 +75,7 @@ let get_subject_identifier __context session_id =
     ~fn_if_local_superuser:(fun () -> str_local_superuser)
     ~fn_if_subject:(fun () ->
       DB_Action.Session.get_auth_user_sid ~__context ~self:session_id
-      )
+    )
 
 let get_subject_name __context session_id =
   get_subject_common ~__context ~session_id ~fnname:"get_subject_name"
@@ -86,13 +86,13 @@ let get_subject_name __context session_id =
          			 - DB_Action will block forever trying to access an inaccessible master
       *)
       ""
-      )
+    )
     ~fn_if_local_superuser:(fun () ->
       DB_Action.Session.get_auth_user_name ~__context ~self:session_id
-      )
+    )
     ~fn_if_subject:(fun () ->
       DB_Action.Session.get_auth_user_name ~__context ~self:session_id
-      )
+    )
 
 (*given a ref-value, return a human-friendly value associated with that ref*)
 let get_obj_of_ref_common obj_ref fn =
@@ -154,7 +154,7 @@ let get_obj_names_of_refs (obj_ref_list : SExpr.t list) : SExpr.t list =
       | _ ->
           obj_ref
       (* do nothing if not a triplet *)
-      )
+    )
     obj_ref_list
 
 (* unwrap the audit record and add names to the arg refs *)
@@ -428,7 +428,7 @@ and
                   params
               | Some p ->
                   p :: params
-            )
+          )
           str_names rpc_values []
 
 let has_to_audit action =

@@ -29,7 +29,7 @@ let debug fmt =
     (fun txt ->
       if !enable_debug then
         eprintf "%s\n%!" txt
-      )
+    )
     fmt
 
 let error fmt = Printf.ksprintf (fun txt -> eprintf "Error: %s\n%!" txt) fmt
@@ -91,7 +91,7 @@ let watch_events rpc session_id =
             error "Replica has missing table: %s" key
         | _, `Unequal (_, _) ->
             ()
-        )
+      )
       (StringMap.symmetric_diff !root current ~data_equal:(fun _ _ -> true)) ;
     List.iter
       ~f:(fun key ->
@@ -112,12 +112,12 @@ let watch_events rpc session_id =
                 | r, `Unequal (rpc1, rpc2) ->
                     error "Replica has out-of-sync object: %s: %s <> %s" r
                       (Jsonrpc.to_string rpc1) (Jsonrpc.to_string rpc2)
-                )
+              )
               (StringMap.symmetric_diff root_table current_table
                  ~data_equal:(fun a b -> Base.Poly.equal a b
                )
               )
-        )
+      )
       (StringMap.keys current) ;
     return ()
   in
@@ -135,7 +135,7 @@ let watch_events rpc session_id =
             ~f:(fun key ->
               Printf.sprintf "%s (%d)" key
                 (StringMap.length (StringMap.find_exn !root key))
-              )
+            )
             (StringMap.keys !root)
          )
       ) ;

@@ -74,7 +74,7 @@ let track callback rpc (session_id : API.ref_session) task =
           debug "Caught EVENTS_LOST; reregistering" ;
           Client.Event.unregister ~rpc ~session_id ~classes
       done
-      )
+    )
     (fun () -> Client.Event.unregister ~rpc ~session_id ~classes)
 
 let result_from_task rpc session_id remote_task =
@@ -146,7 +146,7 @@ let track_http_operation ?use_existing_task ?(progress_bar = false) fd rpc
             while !response = Response Wait do
               response := unmarshal fd
             done
-            )
+          )
           ()
       in
       (* Wait for the task to complete *)
@@ -182,7 +182,7 @@ let track_http_operation ?use_existing_task ?(progress_bar = false) fd rpc
         else
           raise (Api_errors.Server_error (List.hd params, List.tl params))
       )
-      )
+    )
     (fun () ->
       (* if we created our own task then destroy it again; if the task was supplied to us then don't destroy it --
          	  if clients pass a task in on the command-line then they are responsible for destroying *)
@@ -193,7 +193,7 @@ let track_http_operation ?use_existing_task ?(progress_bar = false) fd rpc
             task_id
       | Some _ ->
           ()
-      )
+    )
 
 (* Rewrite the provisioning XML fragment to create all disks on a new, specified SR *)
 let rewrite_provisioning_xml rpc session_id new_vm sr_uuid =

@@ -29,7 +29,7 @@ module Gpumon = Daemon_manager.Make (struct
             ) ;
           true
         with _ -> false
-        )
+      )
 
   let start () =
     debug "Starting %s" gpumon ;

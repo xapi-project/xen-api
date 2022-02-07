@@ -117,7 +117,7 @@ let test_clone sr n () =
       Client.VDI.destroy dbg sr x.vdi ;
       assert (List.mem_assoc "type" x.sm_config) ;
       assert (List.assoc "type" x.sm_config <> "raw")
-      )
+    )
     [true; false] ;
   destroy sr vdi
 
@@ -131,7 +131,7 @@ let test_clone_attach sr n () =
       attach_activate_deactivate_detach sr x read_write ;
       Client.VDI.destroy dbg sr x.vdi ;
       assert (List.length vdis + 1 = List.length vdis')
-      )
+    )
     [true; false] ;
   destroy sr vdi
 
@@ -191,7 +191,7 @@ let start _verbose queue sr =
                     (String.sub s (i + 1) (String.length s - i - 1))
                 )
             with _ -> Some (s, 1L)
-            )
+          )
           q.features
       in
       let features =

@@ -29,7 +29,7 @@ let get_static_device reason =
       (fun x ->
         x.Static_vdis_list.reason = reason
         && x.Static_vdis_list.currently_attached
-        )
+      )
       (Static_vdis_list.list ())
   in
   (* Return the path to the first attached VDI which matches the reason *)
@@ -148,7 +148,7 @@ let redo_log_entry_to_string r =
               (fun (k, v) ->
                 Printf.sprintf "%08d%s%08d%s" (String.length k) k
                   (String.length v) v
-                )
+              )
               kvs
            )
         )
@@ -299,12 +299,12 @@ let read_database f gen_count sock latest_response_time datasockpath =
     (fun () ->
       (* Pass the gen_count and the socket's fd to f. f may raise Unixext.Timeout if it cannot complete before latest_response_time. *)
       f gen_count datasock expected_length latest_response_time
-      )
+    )
     (fun () ->
       (* Close the data socket *)
       R.debug "Closing the data socket" ;
       Unix.close datasock
-      )
+    )
 
 let read_delta f gen_count sock latest_response_time =
   R.debug "Reading delta with generation count %s"
@@ -446,12 +446,12 @@ let action_write_db marker generation_count write_fn sock datasockpath =
              data socket: %s. Re-raising."
             (Printexc.to_string e) ;
           raise e
-      )
+    )
     (fun () ->
       (* Ensure the data socket is closed even if exception is thrown from write_fn *)
       R.info "Closing data socket" ;
       Unix.close datasock
-      ) ;
+    ) ;
   (* Read response *)
   let response_length = 12 in
   R.debug "Reading response..." ;
@@ -592,7 +592,7 @@ let shutdown log =
                  Mutex.execute log.dying_processes_mutex (fun () ->
                      log.num_dying_processes := !(log.num_dying_processes) - 1
                  )
-                 )
+               )
                ()
             ) ;
           (* Forget about that process *)
@@ -602,7 +602,7 @@ let shutdown log =
             (fun sockpath ->
               R.debug "Removing socket %s" sockpath ;
               Unixext.unlink_safe sockpath
-              )
+            )
             [ctrlsockpath; datasockpath]
     with e ->
       R.error "Caught %s: while shutting down connection to I/O process"
@@ -702,7 +702,7 @@ let startup log =
                 with Unixext.Timeout ->
                   R.warn "Timed out waiting to connect" ;
                   broken log
-                )
+              )
               (fun () ->
                 (* If the socket s has been opened, but sock hasn't been set then close it here. *)
                 match !(log.sock) with
@@ -710,7 +710,7 @@ let startup log =
                     ()
                 | None ->
                     ignore_exn (fun () -> Unix.close s)
-                )
+              )
       )
       | None ->
           ()
@@ -865,7 +865,7 @@ let apply fn_db fn_delta log =
         connect_and_perform_action
           (action_read fn_db fn_delta)
           "read from redo log" log
-        )
+      )
       (fun () -> ready_to_write := true)
   )
 
@@ -944,8 +944,8 @@ let database_callback event db =
             (fun () ->
               (* the function which will be invoked if a database write is required instead of a delta *)
               ignore (flush_db_to_redo_log db log)
-              )
+            )
             log
       )
-      )
+    )
     to_write

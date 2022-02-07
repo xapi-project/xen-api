@@ -209,7 +209,7 @@ let destroy ~__context ~self =
         with _ -> ()
       ) ;
       try Db.VBD.destroy ~__context ~self:vbd with _ -> ()
-      )
+    )
     vbds ;
   let vifs = Db.VM.get_VIFs ~__context ~self in
   List.iter
@@ -220,7 +220,7 @@ let destroy ~__context ~self =
         with _ -> ()
       ) ;
       try Db.VIF.destroy ~__context ~self:vif with _ -> ()
-      )
+    )
     vifs ;
   let vgpus = Db.VM.get_VGPUs ~__context ~self in
   List.iter
@@ -231,7 +231,7 @@ let destroy ~__context ~self =
     (fun pci ->
       try Db.PCI.remove_attached_VMs ~__context ~self:pci ~value:self
       with _ -> ()
-      )
+    )
     pcis ;
   let vm_metrics = Db.VM.get_metrics ~__context ~self in
   (try Db.VM_metrics.destroy ~__context ~self:vm_metrics with _ -> ()) ;
@@ -324,7 +324,7 @@ let assert_vm_supports_quiesce_snapshot ~__context ~self =
           let sm_config = Db.VDI.get_sm_config ~__context ~self:vdi in
           List.assoc_opt "on_boot" sm_config = Some "reset"
         with _ -> false
-        )
+      )
       vmr.Db_actions.vM_VBDs
   then
     raise
@@ -433,7 +433,7 @@ let which_specified_SRs_not_available_on_host ~__context ~reqd_srs ~host =
         )
         (Helpers.checknull (fun () -> Db.SR.get_uuid ~__context ~self:sr))
         (Helpers.checknull (fun () -> Db.SR.get_name_label ~__context ~self:sr))
-      )
+    )
     not_available ;
   not_available
 
@@ -526,7 +526,7 @@ let assert_gpus_available ~__context ~self ~host =
        (fun pre_allocate_list vgpu ->
          Vgpuops.allocate_vgpu_to_gpu ~dry_run:true ~pre_allocate_list
            ~__context self host vgpu
-         )
+       )
        [] vGPU_structs
     )
 
@@ -577,7 +577,7 @@ let assert_netsriov_available ~__context ~self ~host =
             | None ->
                 acc
           )
-        )
+      )
       []
       (Db.VM.get_VIFs ~__context ~self)
   in
@@ -592,7 +592,7 @@ let assert_netsriov_available ~__context ~self ~host =
              , [Ref.string_of network]
              )
           )
-      )
+    )
     sriov_networks
 
 let assert_host_supports_hvm ~__context ~self ~host =
@@ -806,7 +806,7 @@ let possible_hosts ~__context ?vm ~choose_fn () =
           assert_host_is_live ~__context ~host ;
           true
         with _ -> false
-        )
+      )
       all_hosts
   in
   ( match vm with
@@ -819,7 +819,7 @@ let possible_hosts ~__context ?vm ~choose_fn () =
                 Helpers.checknull (fun () ->
                     Db.Host.get_name_label ~__context ~self
                 )
-                )
+              )
               choices
            )
         )
@@ -860,7 +860,7 @@ let compute_required_SRs_for_shutting_down_suspended_domains ~__context ~vm =
           None
         else
           Some (Db.VBD.get_VDI ~__context ~self:vbd)
-        )
+      )
       (Db.VM.get_VBDs ~__context ~self:vm)
   in
   List.map (fun vdi -> Db.VDI.get_SR ~self:vdi ~__context) all_vm_vdis
@@ -981,9 +981,9 @@ let rank_hosts_by_best_vgpu ~__context vgpu visible_hosts =
                    (Xapi_pgpu_helpers.get_remaining_capacity ~__context ~self
                       ~vgpu_type ~pre_allocate_list:[]
                    )
-                 )
+               )
                0L
-          )
+        )
         hosts
       |> List.map (fun g -> List.map (fun (h, _) -> h) g)
 
@@ -1063,7 +1063,7 @@ let choose_host_uses_wlb ~__context =
        (List.exists
           (fun (k, v) ->
             k = "wlb_choose_host_disable" && String.lowercase_ascii v = "true"
-            )
+          )
           (Db.Pool.get_other_config ~__context
              ~self:(Helpers.get_pool ~__context)
           )
@@ -1413,7 +1413,7 @@ let assert_can_be_recovered ~__context ~self ~session_to =
                 (fun pbd ->
                   Db.PBD.get_currently_attached ~__context:__context_to
                     ~self:pbd
-                  )
+                )
                 pbds
             in
             if attached_pbds = [] then
@@ -1423,7 +1423,7 @@ let assert_can_be_recovered ~__context ~self ~session_to =
                    , [Ref.string_of self; Ref.string_of sr]
                    )
                 )
-            )
+          )
           required_SR_uuids
     )
   with Db_exn.Read_missing_uuid (_, _, sr_uuid) ->
@@ -1449,12 +1449,12 @@ let get_SRs_required_for_recovery ~__context ~self ~session_to =
                 (fun pbd ->
                   Db.PBD.get_currently_attached ~__context:__context_to
                     ~self:pbd
-                  )
+                )
                 pbds
             in
             if attached_pbds = [] then true else false
           with Db_exn.Read_missing_uuid (_, _, sr_uuid) -> true
-          )
+        )
         required_SR_list
   )
 
@@ -1492,7 +1492,7 @@ let assert_valid_bios_strings ~__context ~value =
                         , [k; v ^ " has non-printable ASCII characters"]
                         )
                      )
-                 )
+               )
                v
      )
 

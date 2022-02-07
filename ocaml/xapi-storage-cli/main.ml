@@ -198,7 +198,7 @@ let sr_attach common_opts sr device_config =
                    (got '%s')\n"
                   x ;
                 exit 1
-            )
+          )
           device_config
       in
       wrap common_opts (fun () -> Client.SR.attach dbg sr device_config)
@@ -237,7 +237,7 @@ let sr_scan common_opts sr =
             (fun vdi ->
               Printf.fprintf stdout "%s: %s\n" (s_of_vdi vdi.vdi)
                 (Jsonrpc.to_string (rpc_of vdi_info vdi))
-              )
+            )
             vdis
       )
 
@@ -314,7 +314,7 @@ let mirror_start common_opts sr vdi dp url dest =
           (Storage_interface.Sr.of_string dest)
       in
       Printf.printf "Task id: %s\n" task
-      )
+    )
     common_opts sr vdi
 
 let mirror_stop common_opts id =
@@ -348,7 +348,7 @@ let vdi_clone common_opts sr vdi name descr =
           let vdi_info = Client.VDI.clone dbg sr vdi_info in
           Printf.printf "%s\n" (s_of_vdi vdi_info.vdi)
       )
-      )
+    )
     common_opts sr vdi
 
 let vdi_resize common_opts sr vdi new_size =
@@ -363,7 +363,7 @@ let vdi_resize common_opts sr vdi new_size =
               let new_size = Client.VDI.resize dbg sr vdi new_size in
               Printf.printf "%Ld\n" new_size
           )
-      )
+    )
     common_opts sr vdi
 
 let vdi_destroy common_opts sr vdi =
@@ -374,7 +374,7 @@ let vdi_attach common_opts sr vdi =
     (fun sr vdi ->
       let info = Client.VDI.attach dbg dbg sr vdi true in
       Printf.printf "%s\n" (Jsonrpc.to_string (rpc_of attach_info info))
-      )
+    )
     common_opts sr vdi
 
 let vdi_detach common_opts sr vdi =
@@ -394,9 +394,9 @@ let vdi_similar_content common_opts sr vdi =
         (fun vdi ->
           Printf.fprintf stdout "%s: %s\n" (s_of_vdi vdi.vdi)
             (Jsonrpc.to_string (rpc_of vdi_info vdi))
-          )
+        )
         vdis
-      )
+    )
     common_opts sr vdi
 
 let vdi_compose common_opts sr vdi1 vdi2 =
@@ -408,7 +408,7 @@ let vdi_compose common_opts sr vdi1 vdi2 =
       | Some vdi2 ->
           let vdi2 = Storage_interface.Vdi.of_string vdi2 in
           Client.VDI.compose dbg sr vdi1 vdi2
-      )
+    )
     common_opts sr vdi1
 
 let vdi_enable_cbt common_opts sr vdi =
@@ -432,7 +432,7 @@ let vdi_list_changed_blocks common_opts sr vdi_from vdi_to =
             Client.VDI.list_changed_blocks dbg sr vdi_from vdi_to
           in
           print_string cbt_bitmap
-      )
+    )
     common_opts sr vdi_from
 
 let query_cmd =
