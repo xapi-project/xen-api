@@ -32,7 +32,9 @@ module Epoch = struct
         None
     | s -> (
       match int_of_string s with
-      | i when i >= 0 ->
+      | i when i = 0 ->
+          None
+      | i when i > 0 ->
           Some i
       | _ ->
           raise Invalid_epoch
@@ -1143,6 +1145,22 @@ let eval_guidances ~updates_info ~updates ~kind =
   |> GuidanceSet.resort_guidances ~kind
   |> GuidanceSet.elements
 
+let parse_line_of_repoquery acc line =
+  match Astring.String.cuts ~sep:":" line with
+  | [name; epoch'; version; release; arch; repo] -> (
+    try
+      let epoch = Epoch.of_string epoch' in
+      let pkg = Pkg.{name; epoch; version; release; arch} in
+      (pkg, repo) :: acc
+    with e ->
+      warn "epoch %s from repoquery: %s" epoch' (ExnHelper.string_of_exn e) ;
+      (* The error should not block update. Ingore it. *)
+      acc
+  )
+  | _ ->
+      warn "Can't parse line of repoquery '%s'" line ;
+      acc
+
 let parse_line_of_list_updates (buff, acc) line =
   let get_pkg name_arch epoch_ver_rel repo =
     let name, arch = Pkg.parse_name_arch name_arch in
@@ -1188,6 +1206,24 @@ let parse_line_of_list_updates (buff, acc) line =
   | _ ->
       warn "Can't parse '%s'" line ;
       (empty_buff, acc)
+
+let get_updates_from_repoquery repositories =
+  let params =
+    [
+      "-a"
+    ; "--disablerepo=*"
+    ; Printf.sprintf "--enablerepo=%s" (String.concat "," repositories)
+    ; "--pkgnarrow=updates"
+    ; "--qf"
+    ; "%{name}:%{epoch}:%{version}:%{release}:%{arch}:%{repoid}"
+    ]
+  in
+  List.iter (fun r -> clean_yum_cache r) repositories ;
+  let lines =
+    Helpers.call_script !Xapi_globs.repoquery_cmd params
+    |> Astring.String.cuts ~sep:"\n"
+  in
+  List.fold_left parse_line_of_repoquery [] lines
 
 let get_updates_from_list_updates repositories =
   let params_of_list =

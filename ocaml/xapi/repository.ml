@@ -373,7 +373,7 @@ let get_host_updates_in_json ~__context ~installed =
           match installed with true -> get_installed_pkgs () | false -> []
         in
         (* (pkg, repo) list *)
-        let latest_updates = get_updates_from_list_updates repositories in
+        let latest_updates = get_updates_from_repoquery repositories in
         List.iter (fun r -> clean_yum_cache r) repositories ;
         let latest_updates_in_json =
           validate_latest_updates ~latest_updates ~accumulative_updates

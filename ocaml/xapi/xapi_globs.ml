@@ -905,6 +905,8 @@ let createrepo_cmd = ref "/usr/bin/createrepo_c"
 
 let modifyrepo_cmd = ref "/usr/bin/modifyrepo_c"
 
+let repoquery_cmd = ref "/usr/bin/repoquery"
+
 let rpm_cmd = ref "/usr/bin/rpm"
 
 let rpm_gpgkey_dir = ref "/etc/pki/rpm-gpg"
