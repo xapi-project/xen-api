@@ -1900,7 +1900,7 @@ let _ =
        progress."
     () ;
   error Api_errors.reposync_failed []
-    ~doc:"Syning with remote YUM repository failed." () ;
+    ~doc:"Syncing with remote YUM repository failed." () ;
   error Api_errors.invalid_repomd_xml [] ~doc:"The repomd.xml is invalid." () ;
   error Api_errors.invalid_updateinfo_xml []
     ~doc:"The updateinfo.xml is invalid." () ;
