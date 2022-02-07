@@ -530,6 +530,7 @@ let destroy ~__context ~self =
 
 (* Gc the messages - leave only the number of messages defined in 'Xapi_globs.message_limit' *)
 let gc ~__context =
+  let message_limit = !Xapi_globs.message_limit in
   if
     try
       Unix.access message_dir [Unix.F_OK] ;
@@ -541,11 +542,11 @@ let gc ~__context =
         (fun msg -> try Some (float_of_string msg, msg) with _ -> None)
         (Array.to_list (Sys.readdir message_dir))
     in
-    if List.length allmsg > Xapi_globs.message_limit then (
-      warn "Messages have reached over the limit %d" Xapi_globs.message_limit ;
+    if List.length allmsg > message_limit then (
+      warn "Messages have reached over the limit %d" message_limit ;
       let sorted = List.sort (fun (t1, _) (t2, _) -> compare t1 t2) allmsg in
       let n = List.length sorted in
-      let to_reap = n - Xapi_globs.message_limit in
+      let to_reap = n - message_limit in
       let rec reap_one i msgs =
         if i = to_reap then
           ()
