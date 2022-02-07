@@ -79,13 +79,7 @@ module PkgOfFullnameTest = Generic.MakeStateless (struct
     `QuickAndAutoDocumented
       [
         (Io.Line "libpath-utils-0.2.1-29.el7.x86", Ok None)
-      ; ( Io.Line "libpath-utils.x86_64"
-        , Error
-            Api_errors.(
-              Server_error
-                (internal_error, [Pkg.error_msg "libpath-utils.x86_64"])
-            )
-        )
+      ; (Io.Line "libpath-utils.x86_64", Ok None)
       ; ( Io.Line "libpath-utils-0.2.1-29.el7.noarch"
         , Ok
             (Some
@@ -142,15 +136,7 @@ module PkgOfFullnameTest = Generic.MakeStateless (struct
                
             )
         )
-      ; ( Io.Line "libpath-utils-:0.2.1-29.el7.x86_64"
-        , Error
-            Api_errors.(
-              Server_error
-                ( internal_error
-                , [Pkg.error_msg "libpath-utils-:0.2.1-29.el7.x86_64"]
-                )
-            )
-        )
+      ; (Io.Line "libpath-utils-:0.2.1-29.el7.x86_64", Ok None)
       ; (* all RPM packages installed by default *)
         (Io.FilePath "test_data/repository_pkg_of_fullname_all", Ok None)
       ]

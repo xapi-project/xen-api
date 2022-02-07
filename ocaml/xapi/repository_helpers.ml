@@ -124,8 +124,9 @@ module Pkg = struct
         Some {name; epoch; version; release; arch}
       with e ->
         let msg = error_msg s in
-        error "%s: %s" msg (ExnHelper.string_of_exn e) ;
-        raise Api_errors.(Server_error (internal_error, [msg]))
+        warn "%s: %s" msg (ExnHelper.string_of_exn e) ;
+        (* The error should not block update. Ingore it. *)
+        None
     )
     | false ->
         None
@@ -492,10 +493,11 @@ module Applicability = struct
     | {inequality= None; _}
     | {version= ""; _}
     | {release= ""; _} ->
-        error "Invalid applicability" ;
-        raise Api_errors.(Server_error (invalid_updateinfo_xml, []))
+        (* The error should not block update. Ingore it. *)
+        warn "Invalid applicability" ;
+        None
     | a ->
-        a
+        Some a
 
   let of_xml = function
     | Xml.Element ("applicability", _, children) ->
@@ -516,8 +518,8 @@ module Applicability = struct
                 let msg =
                   Printf.sprintf "%s: %s" (ExnHelper.string_of_exn e) v
                 in
-                error "%s" msg ;
-                raise Api_errors.(Server_error (internal_error, [msg]))
+                (* The error should not block update. Ingore it. *)
+                warn "%s" msg ; a
             )
             | Xml.Element ("version", _, [Xml.PCData v]) ->
                 {a with version= v}
@@ -528,14 +530,16 @@ module Applicability = struct
             | Xml.Element ("arch", _, [Xml.PCData v]) ->
                 {a with arch= v}
             | _ ->
-                error "Unknown node in <applicability>" ;
-                raise Api_errors.(Server_error (invalid_updateinfo_xml, []))
-          )
+                (* The error should not block update. Ingore it. *)
+                warn "Unknown node in <applicability>" ;
+                a
+            )
           default children
         |> assert_valid
     | _ ->
-        error "Unknown node in <guidance_applicabilities>" ;
-        raise Api_errors.(Server_error (invalid_updateinfo_xml, []))
+        (* The error should not block update. Ingore it. *)
+        warn "Unknown node in <guidance_applicabilities>" ;
+        None
 
   let to_string a =
     Printf.sprintf "%s %s %s:%s-%s" a.name
@@ -724,15 +728,26 @@ module UpdateInfo = struct
                       | Xml.Element ("description", _, [Xml.PCData v]) ->
                           {acc with description= v}
                       | Xml.Element ("recommended_guidance", _, [Xml.PCData v])
-                        ->
-                          {acc with rec_guidance= Some (Guidance.of_string v)}
-                      | Xml.Element ("absolute_guidance", _, [Xml.PCData v]) ->
-                          {acc with abs_guidance= Some (Guidance.of_string v)}
+                        -> (
+                        try {acc with rec_guidance= Some (Guidance.of_string v)}
+                        with e ->
+                          (* The error should not block update. Ingore it. *)
+                          warn "%s" (ExnHelper.string_of_exn e) ;
+                          acc
+                      )
+                      | Xml.Element ("absolute_guidance", _, [Xml.PCData v])
+                        -> (
+                        try {acc with abs_guidance= Some (Guidance.of_string v)}
+                        with e ->
+                          (* The error should not block update. Ingore it. *)
+                          warn "%s" (ExnHelper.string_of_exn e) ;
+                          acc
+                      )
                       | Xml.Element ("guidance_applicabilities", _, apps) ->
                           {
                             acc with
                             guidance_applicabilities=
-                              List.map Applicability.of_xml apps
+                              List.filter_map Applicability.of_xml apps
                           }
                       | _ ->
                           acc
