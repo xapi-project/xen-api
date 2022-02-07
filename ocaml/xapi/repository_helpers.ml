@@ -140,15 +140,6 @@ module Pkg = struct
 
   let to_name_arch_string pkg = pkg.name ^ "." ^ pkg.arch
 
-  let parse_name_arch name_arch =
-    match Astring.String.cuts ~sep:"." name_arch with
-    | [name; arch] when arch = "x86_64" || arch = "noarch" ->
-        (name, arch)
-    | _ ->
-        let msg = error_msg name_arch in
-        error "%s" msg ;
-        raise Api_errors.(Server_error (internal_error, [msg]))
-
   let to_fullname pkg =
     match pkg.epoch with
     | Some i ->
@@ -1161,52 +1152,6 @@ let parse_line_of_repoquery acc line =
       warn "Can't parse line of repoquery '%s'" line ;
       acc
 
-let parse_line_of_list_updates (buff, acc) line =
-  let get_pkg name_arch epoch_ver_rel repo =
-    let name, arch = Pkg.parse_name_arch name_arch in
-    let epoch, version, release =
-      Pkg.parse_epoch_version_release epoch_ver_rel
-    in
-    let pkg = Pkg.{name; epoch; version; release; arch} in
-    (pkg, repo)
-  in
-  let empty_buff = (None, None, None) in
-  let sep = Re.Str.regexp " +" in
-  match (buff, Re.Str.split sep line) with
-  | _, ["Updated"; "Packages"] ->
-      (empty_buff, acc)
-  | (None, None, None), [name_arch] ->
-      Pkg.parse_name_arch name_arch |> ignore ;
-      ((Some name_arch, None, None), acc)
-  | (None, None, None), [name_arch; epoch_ver_rel] ->
-      Pkg.parse_name_arch name_arch |> ignore ;
-      ((Some name_arch, Some epoch_ver_rel, None), acc)
-  | (None, None, None), [name_arch; epoch_ver_rel; repo] ->
-      Pkg.parse_name_arch name_arch |> ignore ;
-      let pkg = get_pkg name_arch epoch_ver_rel repo in
-      (empty_buff, pkg :: acc)
-  | (None, None, None), _ ->
-      warn "Can't parse '%s'. Not data in buff." line ;
-      (empty_buff, acc)
-  | (Some name_arch, None, None), [epoch_ver_rel] ->
-      ((Some name_arch, Some epoch_ver_rel, None), acc)
-  | (Some name_arch, None, None), [epoch_ver_rel; repo] ->
-      let pkg = get_pkg name_arch epoch_ver_rel repo in
-      (empty_buff, pkg :: acc)
-  | (Some name_arch, None, None), _ ->
-      warn "Can't parse '%s'. name_arch %s is in buff." line name_arch ;
-      (empty_buff, acc)
-  | (Some name_arch, Some epoch_ver_rel, None), [repo] ->
-      let pkg = get_pkg name_arch epoch_ver_rel repo in
-      (empty_buff, pkg :: acc)
-  | (Some name_arch, Some epoch_ver_rel, None), _ ->
-      warn "Can't parse '%s'. name_arch %s and epoch_ver_rel %s are in buff."
-        line name_arch epoch_ver_rel ;
-      (empty_buff, acc)
-  | _ ->
-      warn "Can't parse '%s'" line ;
-      (empty_buff, acc)
-
 let get_updates_from_repoquery repositories =
   let params =
     [
@@ -1224,26 +1169,6 @@ let get_updates_from_repoquery repositories =
     |> Astring.String.cuts ~sep:"\n"
   in
   List.fold_left parse_line_of_repoquery [] lines
-
-let get_updates_from_list_updates repositories =
-  let params_of_list =
-    [
-      "-q"
-    ; "--disablerepo=*"
-    ; Printf.sprintf "--enablerepo=%s" (String.concat "," repositories)
-    ; "list"
-    ; "updates"
-    ]
-  in
-  List.iter (fun r -> clean_yum_cache r) repositories ;
-  let lines =
-    Helpers.call_script !Xapi_globs.yum_cmd params_of_list
-    |> Astring.String.cuts ~sep:"\n"
-  in
-  let _, updates =
-    List.fold_left parse_line_of_list_updates ((None, None, None), []) lines
-  in
-  updates
 
 let validate_latest_updates ~latest_updates ~accumulative_updates =
   List.map
