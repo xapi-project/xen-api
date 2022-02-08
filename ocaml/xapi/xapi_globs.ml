@@ -936,6 +936,8 @@ let winbind_kerberos_encryption_type = ref Kerberos_encryption_types.Winbind.All
 
 let winbind_allow_kerberos_auth_fallback = ref false
 
+let winbind_keep_configuration = ref false
+
 let tdb_tool = ref "/usr/bin/tdbtool"
 
 let sqlite3 = ref "/usr/bin/sqlite3"
@@ -1291,7 +1293,13 @@ let other_options =
   ; ( "winbind_allow_kerberos_auth_fallback"
     , Arg.Set winbind_allow_kerberos_auth_fallback
     , (fun () -> string_of_bool !winbind_allow_kerberos_auth_fallback)
-    , "Whether allow fallback to other auth on kerberos failure"
+    , "Whether to allow fallback to other auth on kerberos failure"
+    )
+  ; ( "winbind_keep_configuration"
+    , Arg.Set winbind_keep_configuration
+    , (fun () -> string_of_bool !winbind_keep_configuration)
+    , "Whether to clear winbind configuration when join domain failed or leave \
+       domain"
     )
   ; ( "website-https-only"
     , Arg.Set website_https_only
