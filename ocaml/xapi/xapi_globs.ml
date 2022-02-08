@@ -435,7 +435,7 @@ let hosts_which_are_shutting_down_m = Mutex.create ()
 
 let xha_timeout = "timeout"
 
-let message_limit = 10000
+let message_limit = ref 10000
 
 let xapi_message_script = ref "mail-alarm"
 
@@ -1318,6 +1318,11 @@ let other_options =
     , (fun () -> string_of_int !cert_expiration_days)
     , "Number of days a refreshed certificate will be valid; it defaults to 10 \
        years."
+    )
+  ; ( "messages-limit"
+    , Arg.Set_int message_limit
+    , (fun () -> string_of_int !message_limit)
+    , "Maximum number of messages kept before deleting oldest ones."
     )
   ]
 
