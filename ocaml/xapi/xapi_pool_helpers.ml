@@ -72,7 +72,7 @@ let valid_operations ~__context record (pool : API.ref_pool) =
       (fun op ->
         if Hashtbl.find table op = None then
           Hashtbl.replace table op (Some (code, params))
-        )
+      )
       ops
   in
   if current_ops <> [] then (
@@ -84,13 +84,13 @@ let valid_operations ~__context record (pool : API.ref_pool) =
             [Datamodel_common._pool; ref]
             wait_ops
         )
-        )
+      )
       blocking_ops ;
     List.iter
       (fun wait_op ->
         if List.mem wait_op current_ops then
           set_errors wait_error [Datamodel_common._pool; ref] all_operations
-        )
+      )
       wait_ops
   ) ;
   (* HA disable cannot run if HA is already disabled on a pool *)
@@ -236,7 +236,7 @@ let call_fn_on_hosts ~__context hosts f =
         List.filter_map
           (fun host ->
             try f ~rpc ~session_id ~host ; None with x -> Some (host, x)
-            )
+          )
           hosts
       in
       List.iter
@@ -244,7 +244,7 @@ let call_fn_on_hosts ~__context hosts f =
           warn {|Exception raised while performing operation on host "%s": %s|}
             (Ref.string_of host)
             (ExnHelper.string_of_exn exn)
-          )
+        )
         errs ;
       match errs with [] -> () | (_, first_exn) :: _ -> raise first_exn
   )

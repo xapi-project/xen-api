@@ -231,7 +231,7 @@ let implementations_of_backend backend =
           (xendisks, blockdevices, file :: files, nbds)
       | Nbd nbd ->
           (xendisks, blockdevices, files, nbd :: nbds)
-      )
+    )
     ([], [], [], []) backend.implementations
 
 (** Uniquely identifies the contents of a VDI *)
@@ -431,7 +431,7 @@ let err =
         let exn = Storage_error e in
         error "%s (%s)" (Printexc.to_string exn) __LOC__ ;
         raise exn
-        )
+      )
   ; matcher=
       (function
       | Storage_error e as exn ->

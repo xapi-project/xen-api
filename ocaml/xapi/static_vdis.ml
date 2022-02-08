@@ -106,7 +106,7 @@ let gc () =
             ignore
               (Helpers.call_script !Xapi_globs.static_vdis ["del"; vdi.uuid])
           )
-          )
+        )
         (list ())
   )
 

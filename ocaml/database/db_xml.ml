@@ -71,7 +71,7 @@ module To = struct
              (Row.fold
                 (fun k _ v acc ->
                   (k, Xml_spaces.protect (Schema.Value.marshal v)) :: acc
-                  )
+                )
                 row preamble
              )
           )
@@ -196,7 +196,7 @@ module From = struct
                           )
                       in
                       raise exc
-                    )
+                  )
                   Row.empty rest
               in
               f

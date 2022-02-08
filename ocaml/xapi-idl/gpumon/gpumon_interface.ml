@@ -92,7 +92,7 @@ let gpu_err =
           let exn = Gpumon_error e in
           error "%s (%s)" (Printexc.to_string exn) __LOC__ ;
           raise exn
-          )
+        )
     ; matcher=
         (function
         | Gpumon_error e as exn ->

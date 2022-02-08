@@ -66,7 +66,7 @@ let assert_sr_can_host_statefile ~__context ~sr ~cluster_stack =
         raise
           (Api_errors.Server_error (Api_errors.sr_no_pbds, [Ref.string_of sr]))
       )
-      )
+    )
     pbds ;
   (* Check cluster stack constraints *)
   Cluster_stack_constraints.assert_sr_compatible ~__context ~cluster_stack ~sr ;
@@ -106,7 +106,7 @@ let list_srs_which_can_host_statefile ~__context ~cluster_stack =
         assert_sr_can_host_statefile ~__context ~sr ~cluster_stack ;
         true
       with _ -> false
-      )
+    )
     (Db.SR.get_all ~__context)
 
 let create ~__context ~sr ~cluster_stack =
@@ -134,7 +134,7 @@ let find_or_create ~__context ~sr ~cluster_stack =
         true
         && Db.VDI.get_type ~__context ~self = `ha_statefile
         && Db.VDI.get_virtual_size ~__context ~self >= size
-        )
+      )
       (Db.SR.get_VDIs ~__context ~self:sr)
   with
   | x :: _ ->

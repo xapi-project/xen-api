@@ -87,7 +87,7 @@ module Lwt_unix_IO = struct
           let ic = Lwt_ssl.in_channel_of_descr sock in
           let oc = Lwt_ssl.out_channel_of_descr sock in
           return (Ok ((return, ic), ((fun () -> Lwt_ssl.close sock), oc)))
-          )
+        )
         (fun e -> return (Error e))
     else
       let fd = Lwt_unix.socket domain Unix.SOCK_STREAM 0 in
@@ -109,7 +109,7 @@ module Lwt_unix_IO = struct
                , ((fun () -> Lwt_io.close oc), oc)
                )
             )
-          )
+        )
         (fun e -> return (Error e))
 
   let sleep = Lwt_unix.sleep
@@ -137,7 +137,7 @@ let do_it uri string =
       | Error e ->
           Printf.fprintf stderr "Caught: %s\n%!" (exn_to_string e) ;
           fail e
-      )
+    )
     (fun () -> M.disconnect connection)
 
 (* TODO: modify do_it to accept the timeout and remove the warnings *)

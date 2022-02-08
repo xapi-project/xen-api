@@ -109,7 +109,7 @@ let log level fmt =
       else
         let w = Lazy.force Writer.stderr in
         Writer.write w s ; Writer.newline w
-      )
+    )
     fmt
 
 let debug fmt = log Syslog.Debug fmt
@@ -700,7 +700,7 @@ let choose_datapath ?(persistent = true) domain response =
             None
         | Some scheme ->
             Some (scheme, x)
-        )
+      )
       response.Xapi_storage.Control.uri
   in
   (* We can only use URIs whose schemes correspond to registered plugins *)
@@ -712,7 +712,7 @@ let choose_datapath ?(persistent = true) domain response =
             Some (script_dir, scheme, uri)
         | None ->
             None
-        )
+      )
       possible
   in
   (* If we want to be non-persistent, we prefer if the datapath plugin supports it natively *)
@@ -724,7 +724,7 @@ let choose_datapath ?(persistent = true) domain response =
         List.partition_tf
           ~f:(fun (_script_dir, scheme, _uri) ->
             Datapath_plugins.supports_feature scheme _nonpersistent
-            )
+          )
           possible
       in
       supports_nonpersistent @ others
@@ -1085,7 +1085,7 @@ let bind ~volume_script_dir =
            return_volume_rpc (fun () ->
                Sr_client.set_name volume_rpc dbg sr new_name_label
            )
-           )
+         )
     |> wrap
   in
   S.SR.set_name_label sr_set_name_label_impl ;
@@ -1095,7 +1095,7 @@ let bind ~volume_script_dir =
            return_volume_rpc (fun () ->
                Sr_client.set_description volume_rpc dbg sr new_name_description
            )
-           )
+         )
     |> wrap
   in
   S.SR.set_name_description sr_set_name_description_impl ;
@@ -1103,7 +1103,7 @@ let bind ~volume_script_dir =
     Attached_SRs.find sr
     >>>= (fun sr ->
            return_volume_rpc (fun () -> Sr_client.destroy volume_rpc dbg sr)
-           )
+         )
     |> wrap
   in
   S.SR.destroy sr_destroy_impl ;
@@ -1129,7 +1129,7 @@ let bind ~volume_script_dir =
                      set
                  | Some transient ->
                      Set.add set transient
-                 )
+               )
                ~init:Core.String.Set.empty response
            in
            let response =
@@ -1138,7 +1138,7 @@ let bind ~volume_script_dir =
                response
            in
            Deferred.Result.return (List.map ~f:vdi_of_volume response)
-           )
+         )
     |> wrap
   in
   S.SR.scan sr_scan_impl ;
@@ -1155,7 +1155,7 @@ let bind ~volume_script_dir =
            >>>= update_keys ~dbg ~sr ~key:_vdi_type_key
                   ~value:(match vdi_info.ty with "" -> None | s -> Some s)
            >>>= fun response -> Deferred.Result.return (vdi_of_volume response)
-           )
+         )
     |> wrap
   in
   S.VDI.create vdi_create_impl ;
@@ -1210,7 +1210,7 @@ let bind ~volume_script_dir =
              }
            in
            Deferred.Result.return response
-           )
+         )
     |> wrap
   in
   S.VDI.snapshot vdi_snapshot_impl ;
@@ -1221,7 +1221,7 @@ let bind ~volume_script_dir =
              ~vdi:
                (Storage_interface.Vdi.string_of vdi_info.Storage_interface.vdi)
            >>>= fun response -> Deferred.Result.return (vdi_of_volume response)
-           )
+         )
     |> wrap
   in
   S.VDI.clone vdi_clone_impl ;
@@ -1275,7 +1275,7 @@ let bind ~volume_script_dir =
            let vdi = location in
            stat ~dbg ~sr ~vdi >>>= fun response ->
            Deferred.Result.return (vdi_of_volume response)
-           )
+         )
     |> wrap
   in
   S.VDI.introduce vdi_introduce_impl ;
@@ -1391,7 +1391,7 @@ let bind ~volume_script_dir =
                      Recovering
                  )
              }
-           )
+         )
     |> wrap
   in
   S.SR.stat sr_stat_impl ;
@@ -1683,7 +1683,7 @@ let self_test_plugin ~root_dir plugin =
               return ()
             else
               return ()
-            )
+          )
       |> Rpc_async.T.get
   )
   >>= function

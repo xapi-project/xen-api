@@ -108,10 +108,10 @@ let make_resources ~essentials ~nonessentials =
   List.map
     (fun (perm, name, path, description) ->
       {essential= true; name; description; path; perms= [perm]}
-      )
+    )
     essentials
   @ List.map
       (fun (perm, name, path, description) ->
         {essential= false; name; description; path; perms= [perm]}
-        )
+      )
       nonessentials

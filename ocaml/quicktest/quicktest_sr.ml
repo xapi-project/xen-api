@@ -61,10 +61,10 @@ let sr_probe_test rpc session_id sr_info () =
             Client.Client.SR.probe ~rpc ~session_id ~host:pbdr.API.pBD_host
               ~device_config:pbdr.API.pBD_device_config
               ~sm_config:srr.API.sR_sm_config ~_type:srr.API.sR_type
-            )
+          )
           (* Restore the original state even if the above code fails *)
             (fun () -> Client.Client.PBD.plug rpc session_id pbd
-            )
+          )
       in
       let srs = parse_sr_probe_xml xml in
       List.iter
@@ -106,12 +106,12 @@ let sr_set_name_test rpc session_id sr_info () =
         "SR.name_description" "test_name_description"
         (Client.Client.SR.get_name_description ~rpc ~session_id ~self:sr) ;
       Qt.SR.test_update rpc session_id sr
-      )
+    )
     (fun () ->
       Client.Client.SR.set_name_label ~rpc ~session_id ~sr ~value:old_name_label ;
       Client.Client.SR.set_name_description ~rpc ~session_id ~sr
         ~value:old_name_description
-      )
+    )
 
 let tests () =
   let open Qt_filter in

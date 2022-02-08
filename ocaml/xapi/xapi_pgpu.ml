@@ -31,7 +31,7 @@ let calculate_max_capacities ~__context ~pCI ~size ~supported_VGPU_types =
           Int64.div size (Db.VGPU_type.get_size ~__context ~self:vgpu_type)
       in
       (vgpu_type, max_capacity)
-      )
+    )
     supported_VGPU_types
 
 let fetch_compatibility_metadata ~__context ~pgpu_pci =
@@ -243,7 +243,7 @@ let update_gpus ~__context =
             ~self:gpu_group ;
           Client.GPU_group.update_supported_VGPU_types ~rpc ~session_id
             ~self:gpu_group
-          )
+        )
         groups_to_update
   )
 
@@ -279,13 +279,13 @@ let set_enabled_VGPU_types ~__context ~self ~value =
         (fun vgpu_type ->
           Xapi_pgpu_helpers.assert_VGPU_type_supported ~__context ~self
             ~vgpu_type
-          )
+        )
         to_enable ;
       List.iter
         (fun vgpu_type ->
           Xapi_pgpu_helpers.assert_no_resident_VGPUs_of_type ~__context ~self
             ~vgpu_type
-          )
+        )
         to_disable ;
       Db.PGPU.set_enabled_VGPU_types ~__context ~self ~value ;
       update_group_enabled_VGPU_types ~__context ~self

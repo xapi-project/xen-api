@@ -77,7 +77,7 @@ let _ =
                   )
               done
           )
-          )
+        )
         all ;
       (* Plot a line for (a) elapsed time and (b) this particular duration *)
       let ls =
@@ -110,7 +110,7 @@ let _ =
                  ; style= "lines"
                  }
                ]
-               )
+             )
              all
           )
       in
@@ -138,9 +138,9 @@ let _ =
                 Gnuplot.X11
           in
           ignore (Gnuplot.render g output)
-          )
+        )
         (get_result_types inputs)
-      )
+    )
     (fun () ->
       List.iter (fun f -> Xapi_stdext_unix.Unixext.unlink_safe f) output_files
-      )
+    )

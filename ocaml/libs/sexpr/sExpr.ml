@@ -51,7 +51,7 @@ let escape s =
             Astring.String.of_char c
       in
       Buffer.add_string escaped c'
-      )
+    )
     s ;
   Buffer.contents escaped
 

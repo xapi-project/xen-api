@@ -61,7 +61,6 @@ let trackid session_id = Context.trackid_of_session (Some session_id)
    1. a session (i.e. a user) has multiple subject IDs;
    2. a subject ID has multiple roles;
    3. a role has multiple permissions.
-
 *)
 
 (* efficient look-up structures *)
@@ -157,7 +156,7 @@ let permission_of_action ?args ~keys _action =
                                 key_name_in_args
                             else (* no wildcards to resolve *)
                               key_name = key_name_in_args
-                            )
+                          )
                           keys
                       in
                       get_key_permission_name action
@@ -243,7 +242,7 @@ let check ?(extra_dmsg = "") ?(extra_msg = "") ?args ?(keys = []) ~__context ~fn
             acc
             ^ (if acc = "" then "" else ", ")
             ^ Xapi_role.get_name_label ~__context ~self:allowed_role
-            )
+          )
           "" allowed_roles
       with e ->
         debug "Could not obtain allowed roles for %s (%s)" permission

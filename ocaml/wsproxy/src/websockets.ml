@@ -57,7 +57,7 @@ module Wsprotocol (IO : Iteratees.Monad) = struct
           Printf.sprintf "%c%c%s%s" (char_of_int 0x82) (char_of_int 127)
             (Helpers.marshal_int32 (Int32.of_int l))
             s
-        )
+      )
       s
 
   let wsframe_old s = modify (fun s -> Printf.sprintf "\x00%s\xff" s) s

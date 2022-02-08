@@ -108,7 +108,7 @@ module Make (Algorithm : ALGORITHM) = struct
               (Printf.sprintf "stopped by signal: %s"
                  (Unixext.string_of_signal i)
               )
-        )
+      )
 
   let compress fd f = go Compress Active fd f
 

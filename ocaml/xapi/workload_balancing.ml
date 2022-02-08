@@ -237,7 +237,7 @@ let filtered_headers headers =
         "Authorization: Basic <password>"
       else
         s
-      )
+    )
     headers
 
 let encoded_auth un pw = Base64.encode_string (Printf.sprintf "%s:%s" un pw)
@@ -636,7 +636,7 @@ let get_opt_recommendations ~__context =
               | Xml.PCData _ ->
                   unexpected_data "GetOptimizationRecommendations"
                     "PoolOptimizationRecommendation" inner_xml
-              )
+            )
             kvalues
           :: gen_map tl
       | Xml.PCData _ :: tl ->
@@ -733,7 +733,7 @@ let get_evacuation_recoms ~__context ~uuid =
               | Xml.PCData _ ->
                   unexpected_data "HostGetRecommendations"
                     "HostEvacuationRecommendation" inner_xml
-              )
+            )
             kvalues
           :: gen_map tl
       | Xml.PCData _ :: tl ->

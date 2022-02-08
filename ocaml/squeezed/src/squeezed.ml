@@ -47,14 +47,14 @@ let options =
         (fun x ->
           Squeeze.domain_zero_dynamic_max :=
             if x = "auto" then None else Some (Int64.of_string x)
-          )
+        )
     , (fun () ->
         match !Squeeze.domain_zero_dynamic_max with
         | None ->
             "using the static-max value"
         | Some x ->
             Int64.to_string x
-        )
+      )
     , "Maximum memory to allow domain 0"
     )
   ; ( "boot-time-host-free-memory-minimal-constant-count"
@@ -62,11 +62,11 @@ let options =
         (fun x ->
           Squeeze.boot_time_host_free_memory_constant_count_min :=
             int_of_string x
-          )
+        )
     , (fun () ->
         Printf.sprintf "%d"
           !Squeeze.boot_time_host_free_memory_constant_count_min
-        )
+      )
     , "Boot time host memory is constant until geting this count of same \
        result of free memory"
     )
@@ -74,10 +74,10 @@ let options =
     , Arg.String
         (fun x ->
           Squeeze.boot_time_host_free_memory_check_interval := float_of_string x
-          )
+        )
     , (fun () ->
         Printf.sprintf "%.2f" !Squeeze.boot_time_host_free_memory_check_interval
-        )
+      )
     , "Seconds between boot time host free memory check"
     )
   ]

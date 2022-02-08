@@ -147,7 +147,7 @@ let start_master_connection_watchdog () =
                        Thread.delay 10.
                      with _ -> ()
                    done
-                   )
+                 )
                  ()
               )
       | Some _ ->
@@ -252,7 +252,7 @@ let do_db_xml_rpc_persistent_with_reopen ~host:_ ~path (req : string) :
                   write_ok := true ;
                   result := res
                   (* yippeee! return and exit from while loop *)
-                  )
+                )
                 Unixfd.(!fd)
           )
     with

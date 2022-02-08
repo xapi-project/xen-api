@@ -91,7 +91,7 @@ let join_internal ~__context ~self =
               else
                 None
             with _ -> None
-            )
+          )
           (Db.Cluster.get_cluster_hosts ~__context ~self:cluster)
       in
       if ip_list = [] then

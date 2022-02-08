@@ -91,7 +91,7 @@ let err =
           let exn = MemoryError e in
           error "%s (%s)" (Printexc.to_string exn) __LOC__ ;
           raise exn
-          )
+        )
     ; matcher=
         (function
         | MemoryError e as exn ->

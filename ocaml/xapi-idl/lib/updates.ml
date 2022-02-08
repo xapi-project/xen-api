@@ -162,7 +162,7 @@ functor
         Option.map
           (fun timeout ->
             Scheduler.one_shot t.s (Scheduler.Delta timeout) dbg cancel_fn
-            )
+          )
           timeout
       in
       with_cancel cancel_fn (fun () ->
@@ -179,7 +179,7 @@ functor
                   in
                   wait ()
               )
-              )
+            )
             (fun () -> Option.iter (Scheduler.cancel t.s) id)
       )
 
@@ -236,7 +236,7 @@ functor
           (fun key v acc ->
             {id= v; v= key |> Interface.Dynamic.rpc_of_id |> Jsonrpc.to_string}
             :: acc
-            )
+          )
           updates []
 
       let make_raw u =

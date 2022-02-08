@@ -153,7 +153,7 @@ let start () =
                     ~reporter:(Some reporter) ~uid:"xapi-stats" ~neg_shift:0.5
                     ~page_count:shared_page_count ~protocol:Rrd_interface.V2
                     ~dss_f:(fun () -> generate_stats ~__context ~master)
-                  )
+                )
                 ()
             in
             reporter

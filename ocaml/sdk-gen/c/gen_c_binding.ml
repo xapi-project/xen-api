@@ -104,7 +104,7 @@ let rec main () =
         gen_class write_impl impl_filename x
       )
         src_dir
-      )
+    )
     filtered_classes ;
 
   all_headers := List.map (fun x -> x.name) filtered_classes ;
@@ -999,7 +999,7 @@ and gen_failure_h () =
       gen_failure_enum out_chan ;
       gen_failure_funcs out_chan ;
       print_h_footer out_chan
-      )
+    )
     ~always:(fun () -> close_out out_chan)
 
 and gen_failure_enum out_chan =
@@ -1075,7 +1075,7 @@ and gen_failure_c () =
          }\n\n\n"
         Licence.bsd_two_clause
         (String.concat ",\n    " (failure_lookup_entries ()))
-      )
+    )
     ~always:(fun () -> close_out out_chan)
 
 and failure_lookup_entries () =

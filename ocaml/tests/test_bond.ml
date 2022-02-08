@@ -28,7 +28,7 @@ let test_create_on_unmanaged_pif () =
       Xapi_bond.create ~__context ~network ~members ~mAC:"ff:ff:ff:ff:ff:ff"
         ~mode:`activebackup ~properties:[]
       |> ignore
-      )
+    )
 
 let test_create_network_already_connected () =
   let __context = T.make_test_database () in
@@ -48,7 +48,7 @@ let test_create_network_already_connected () =
       Xapi_bond.create ~__context ~network ~members ~mAC:"ff:ff:ff:ff:ff:ff"
         ~mode:`activebackup ~properties:[]
       |> ignore
-      )
+    )
 
 let test_create_member_is_bond_slave () =
   let __context = T.make_test_database () in
@@ -68,7 +68,7 @@ let test_create_member_is_bond_slave () =
       Xapi_bond.create ~__context ~network ~members ~mAC:"ff:ff:ff:ff:ff:ff"
         ~mode:`activebackup ~properties:[]
       |> ignore
-      )
+    )
 
 let test_create_member_is_vlan_master_on_physical () =
   let __context = T.make_test_database () in
@@ -90,7 +90,7 @@ let test_create_member_is_vlan_master_on_physical () =
       Xapi_bond.create ~__context ~network ~members ~mAC:"ff:ff:ff:ff:ff:ff"
         ~mode:`activebackup ~properties:[]
       |> ignore
-      )
+    )
 
 let test_create_member_is_vlan_master_on_sriov () =
   let __context = T.make_test_database () in
@@ -115,7 +115,7 @@ let test_create_member_is_vlan_master_on_sriov () =
       Xapi_bond.create ~__context ~network ~members ~mAC:"ff:ff:ff:ff:ff:ff"
         ~mode:`activebackup ~properties:[]
       |> ignore
-      )
+    )
 
 let test_create_member_is_sriov_logical () =
   let __context = T.make_test_database () in
@@ -134,7 +134,7 @@ let test_create_member_is_sriov_logical () =
       Xapi_bond.create ~__context ~network ~members ~mAC:"ff:ff:ff:ff:ff:ff"
         ~mode:`activebackup ~properties:[]
       |> ignore
-      )
+    )
 
 let test_create_member_is_tunnel_access () =
   let __context = T.make_test_database () in
@@ -153,7 +153,7 @@ let test_create_member_is_tunnel_access () =
       Xapi_bond.create ~__context ~network ~members ~mAC:"ff:ff:ff:ff:ff:ff"
         ~mode:`activebackup ~properties:[]
       |> ignore
-      )
+    )
 
 let test_create_bond_into_sriov_network () =
   let __context = T.make_test_database () in
@@ -179,7 +179,7 @@ let test_create_bond_into_sriov_network () =
       Xapi_bond.create ~__context ~network:sriov_network ~members
         ~mAC:"ff:ff:ff:ff:ff:ff" ~mode:`activebackup ~properties:[]
       |> ignore
-      )
+    )
 
 let test_create_bond_into_sriov_vlan_network () =
   let __context = T.make_test_database () in
@@ -208,7 +208,7 @@ let test_create_bond_into_sriov_vlan_network () =
       Xapi_bond.create ~__context ~network:sriov_vlan_network ~members
         ~mAC:"ff:ff:ff:ff:ff:ff" ~mode:`activebackup ~properties:[]
       |> ignore
-      )
+    )
 
 let test =
   [

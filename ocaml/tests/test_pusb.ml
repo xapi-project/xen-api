@@ -49,7 +49,7 @@ let test_scan_with_usb_add_and_remove () =
       let usb_group = Db.PUSB.get_USB_group ~__context ~self in
       Db.PUSB.destroy ~__context ~self ;
       Db.USB_group.destroy ~__context ~self:usb_group
-      )
+    )
     (Db.PUSB.get_all_records ~__context) ;
   Xapi_pusb.scan ~__context ~host ;
   Thread.delay 1.0 ;

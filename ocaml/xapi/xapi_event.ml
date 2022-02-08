@@ -167,7 +167,7 @@ module Next = struct
                 true
               else
                 acc
-              )
+            )
             subscriptions false
         in
         if matches then (
@@ -193,7 +193,7 @@ module Next = struct
               List.sort
                 (fun (_, a) (_, b) ->
                   compare (Int64.of_string b.id) (Int64.of_string a.id)
-                  )
+                )
                 !queue
             in
             let total_size_after, rev_to_keep, rev_to_drop =
@@ -203,7 +203,7 @@ module Next = struct
                     (tot_size + size, (size, elt) :: keep, drop)
                   else
                     (tot_size + size, keep, (size, elt) :: drop)
-                  )
+                )
                 (0, [], []) sorted
             in
             let to_keep = List.rev rev_to_keep in
@@ -371,9 +371,9 @@ module From = struct
                     true
                   ) else
                     acc
-                  )
+                )
                 acc s
-              )
+            )
             calls false
         in
         if matches_per_thread then Condition.broadcast c
@@ -416,7 +416,7 @@ module From = struct
               else
                 Hashtbl.replace calls session remaining
         )
-        )
+      )
 
   (* Is called by the session timeout code *)
   let on_session_deleted session_id =
@@ -583,7 +583,7 @@ let from_inner __context session subs from from_t deadline =
                   )
                 else
                   (creates, mods, deletes, last)
-                )
+              )
               (Db_cache_types.TableSet.find table tableset)
               acc
           in
@@ -606,10 +606,10 @@ let from_inner __context session subs from from_t deadline =
               (* It might have been modified, but we can't tell now *)
               else
                 (creates, mods, deletes, last)
-              )
+            )
             (Db_cache_types.TableSet.find table tableset)
             acc
-          )
+        )
         ([], [], [], !last_generation)
         tables
     )
@@ -660,7 +660,7 @@ let from_inner __context session subs from from_t deadline =
       (fun acc x ->
         let ev = event_of `del x in
         if Subscription.event_matches subs ev then ev :: acc else acc
-        )
+      )
       [] deletes
   in
   let events =
@@ -672,7 +672,7 @@ let from_inner __context session subs from from_t deadline =
           let ev = event_of `_mod ?snapshot:xml (table, objref, mtime) in
           if Subscription.event_matches subs ev then ev :: acc else acc
         with _ -> acc
-        )
+      )
       events mods
   in
   let events =
@@ -684,7 +684,7 @@ let from_inner __context session subs from from_t deadline =
           let ev = event_of `add ?snapshot:xml (table, objref, ctime) in
           if Subscription.event_matches subs ev then ev :: acc else acc
         with _ -> acc
-        )
+      )
       events creates
   in
   let events =
@@ -700,7 +700,7 @@ let from_inner __context session subs from from_t deadline =
               event_of `del ("message", Ref.string_of _ref, 0L)
         in
         event :: acc
-        )
+      )
       events messages
   in
   let valid_ref_counts =
@@ -710,7 +710,7 @@ let from_inner __context session subs from from_t deadline =
         , Db_cache_types.Table.fold (fun r _ _ acc -> Int32.add 1l acc) table 0l
         )
         :: acc
-        )
+      )
       tableset []
   in
   {events; valid_ref_counts; token= Token.to_string (last, msg_gen)}

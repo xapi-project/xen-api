@@ -216,7 +216,7 @@ let symlinks _ref gen message basefilename =
     (fun (dir, fnameopt) ->
       let newfname = match fnameopt with None -> basefilename | Some f -> f in
       (dir, dir ^ "/" ^ newfname)
-      )
+    )
     symlinks
 
 (** Check to see if the UUID is valid. This should not use get_by_uuid as
@@ -386,7 +386,7 @@ let write ~__context ~_ref ~message =
             (fun (dir, newpath) ->
               Unixext.mkdir_rec dir 0o700 ;
               Unix.symlink filename newpath
-              )
+            )
             symlinks ;
           (* Insert a written message into in_memory_cache *)
           cache_insert _ref message !gen ;
@@ -514,7 +514,7 @@ let destroy ~__context ~self =
               in
               if _ref = self then true else false
             with _ -> false
-            )
+          )
           allmsgs
       with _ ->
         raise
@@ -578,7 +578,7 @@ let get_real_inner dir filter name_filter =
             in
             if filter msg then Some (gen, _ref, msg) else None
           with _ -> None
-          )
+        )
         messages
     in
     List.sort
@@ -590,7 +590,7 @@ let get_real_inner dir filter name_filter =
           compare
             (Date.to_float m2.API.message_timestamp)
             (Date.to_float m1.API.message_timestamp)
-        )
+      )
       messages
   with _ -> []
 
@@ -612,7 +612,7 @@ let get_from_generation gen =
           ignore (float_of_string n) ;
           true
         with _ -> false
-        )
+      )
 
 let get_real dir filter since =
   List.map
@@ -646,7 +646,7 @@ let get_since_for_events ~__context since =
                      Some (gen, Xapi_event.Message.Create (_ref, msg))
                    else
                      None
-                   )
+                 )
                  !in_memory_cache
               )
         | (last_in_memory, _, _) :: _ ->
@@ -734,7 +734,7 @@ let repopulate_cache () =
               ignore (float_of_string n) ;
               true
             with _ -> false
-            )
+          )
       in
       let last_256 = Listext.List.take 256 messages in
       in_memory_cache := last_256 ;

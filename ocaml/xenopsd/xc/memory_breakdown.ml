@@ -223,7 +223,7 @@ let print_memory_field_values xc xs =
     List.sort
       (fun g1 g2 ->
         compare_guests control_domain_id g1.Xenctrl.handle g2.Xenctrl.handle
-        )
+      )
       (Xenctrl.domain_getinfolist xc 0)
   in
   let print_host_info field =
@@ -369,7 +369,7 @@ let print_padded_header_line guest_count =
                  (Printf.sprintf "%s_%i" name)
                  (range 0 (guest_count - 1))
               )
-            )
+          )
           (List.tl guest_field_names)
        )
     )

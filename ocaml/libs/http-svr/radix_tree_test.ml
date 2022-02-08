@@ -48,7 +48,7 @@ let check1 () =
     (fun x ->
       if longest_prefix x t <> Some x then
         failwith (Printf.sprintf "x = %s" x)
-      )
+    )
     test_strings
 
 let check2 () =

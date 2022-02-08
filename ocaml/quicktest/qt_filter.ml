@@ -109,7 +109,7 @@ module SR = struct
           List.filter
             (fun cap ->
               not (List.mem cap Sr_capabilities.[vdi_create; vdi_delete])
-              )
+            )
             caps
         else
           caps

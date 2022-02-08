@@ -51,7 +51,7 @@ let read_management_conf () =
               (k, Astring.String.trim ~drop:(( = ) '\'') v)
           | _ ->
               ("", "")
-          )
+        )
         args
     in
     debug "Firstboot file management.conf has: %s"
@@ -214,7 +214,7 @@ let convert_configuration cfg =
              (fun (k, v) ->
                let v = if k = "ipv4_routes" then convert_ipv4_routes v else v in
                (k, v)
-               )
+             )
              l
           )
     | other ->
@@ -240,7 +240,7 @@ let convert_configuration cfg =
                    v
                in
                (k, v)
-               )
+             )
              l
           )
     | other ->

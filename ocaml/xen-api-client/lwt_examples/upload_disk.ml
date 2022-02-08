@@ -66,16 +66,16 @@ let main filename =
           in
           copy virtual_size >>= fun () ->
           oc.Data_channel.close () >>= fun () -> ic.Data_channel.close ()
-          )
+        )
         (fun e ->
           Printf.fprintf stderr "Caught: %s, cleaning up\n%!"
             (Printexc.to_string e) ;
           VDI.destroy ~rpc ~session_id ~self:vdi >>= fun () -> fail e
-          )
+        )
       >>= fun () ->
       VDI.get_uuid ~rpc ~session_id ~self:vdi >>= fun uuid ->
       Printf.printf "%s\n" uuid ; return ()
-      )
+    )
     (fun () -> Session.logout ~rpc ~session_id)
 
 let _ =
@@ -101,7 +101,7 @@ let _ =
           filename := x
       | _ ->
           Printf.fprintf stderr "Ignoring argument: %s\n" x
-      )
+    )
     "Simple example which uploads a disk image" ;
 
   Lwt_main.run (main !filename)

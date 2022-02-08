@@ -174,7 +174,7 @@ let run state comms_sock fd_sock fd_sock_path =
               List.find
                 (fun (id_received, _fd) ->
                   Astring.String.is_suffix ~affix:id_received arg
-                  )
+                )
                 state.ids_received
             in
             let stem =
@@ -182,7 +182,7 @@ let run state comms_sock fd_sock fd_sock_path =
             in
             stem ^ string_of_int (Fd_send_recv.int_of_fd fd)
           with _ -> arg
-          )
+        )
         state.cmdargs
     in
 
@@ -262,7 +262,7 @@ let run state comms_sock fd_sock fd_sock_path =
           Xapi_stdext_unix.Unixext.lines_iter
             (fun line -> Fe_debug.info "%s[%d]: %s" key result line)
             (Unix.in_channel_of_descr in_fd)
-          )
+        )
         !in_childlogging ;
 
       (* At this point either:

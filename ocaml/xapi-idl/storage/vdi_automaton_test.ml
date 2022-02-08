@@ -32,7 +32,7 @@ let run () =
                 (String.concat ", " (List.map string_of_op op'))
             )
       with Vdi_automaton.Bad_transition (_, _) -> ()
-      )
+    )
     (all_pairs Vdi_automaton.every_state Vdi_automaton.every_op) ;
   Printf.printf "Passed."
 

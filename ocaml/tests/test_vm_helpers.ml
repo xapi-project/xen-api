@@ -101,7 +101,7 @@ let test_gpus_available_fails_no_capacity () =
             VGPU_T.(
               make_vgpu ~__context ~resident_on:p Xapi_vgpu_type.passthrough_gpu
             )
-          )
+        )
         pgpus ;
       let vm = make_vm_with_vgpu_in_group ~__context VGPU_T.k100 group in
       assert_raises_api_error Api_errors.vm_requires_vgpu (fun () ->
@@ -340,7 +340,7 @@ let test_netsriov_available_succeeds () =
         List.find_all
           (fun network ->
             Xapi_network_sriov_helpers.is_sriov_network ~__context ~self:network
-            )
+          )
           (Db.Network.get_all ~__context)
       in
       let network_on_h =
@@ -350,7 +350,7 @@ let test_netsriov_available_succeeds () =
             List.exists
               (fun pif -> h' = Db.PIF.get_host ~__context ~self:pif)
               pifs
-            )
+          )
           sriov_networks
       in
       let vm = make_vm_with_vif ~__context ~network:network_on_h in
@@ -364,7 +364,7 @@ let test_netsriov_available_fails_no_netsriov () =
         List.find
           (fun network ->
             Xapi_network_sriov_helpers.is_sriov_network ~__context ~self:network
-            )
+          )
           (Db.Network.get_all ~__context)
       in
       let vm = make_vm_with_vif ~__context ~network:sriov_network in
@@ -379,7 +379,7 @@ let test_netsriov_available_fails_no_capacity () =
         List.find_all
           (fun network ->
             Xapi_network_sriov_helpers.is_sriov_network ~__context ~self:network
-            )
+          )
           (Db.Network.get_all ~__context)
       in
       let network_on_h =
@@ -389,7 +389,7 @@ let test_netsriov_available_fails_no_capacity () =
             List.exists
               (fun pif -> h' = Db.PIF.get_host ~__context ~self:pif)
               pifs
-            )
+          )
           sriov_networks
       in
       let vm = make_vm_with_vif ~__context ~network:network_on_h in
@@ -419,7 +419,7 @@ let test_group_hosts_netsriov () =
         List.find_all
           (fun network ->
             Xapi_network_sriov_helpers.is_sriov_network ~__context ~self:network
-            )
+          )
           (Db.Network.get_all ~__context)
         |> List.sort (fun a b ->
                compare
@@ -447,7 +447,7 @@ let test_group_hosts_netsriov_unattached () =
         List.find_all
           (fun network ->
             Xapi_network_sriov_helpers.is_sriov_network ~__context ~self:network
-            )
+          )
           (Db.Network.get_all ~__context)
         |> List.sort (fun a b ->
                compare
@@ -481,7 +481,7 @@ let test_group_hosts_netsriov_with_allocated () =
         List.find_all
           (fun network ->
             Xapi_network_sriov_helpers.is_sriov_network ~__context ~self:network
-            )
+          )
           (Db.Network.get_all ~__context)
         |> List.sort (fun a b ->
                compare
@@ -500,7 +500,7 @@ let test_group_hosts_netsriov_with_allocated () =
                 List.exists
                   (fun pif -> h' = Db.PIF.get_host ~__context ~self:pif)
                   pifs
-                )
+              )
               sriov_networks
           in
           let vm = make_vm_with_vif ~__context ~network:network_on_h in
@@ -539,7 +539,7 @@ let test_get_group_key_netsriov () =
         List.find
           (fun network ->
             Xapi_network_sriov_helpers.is_sriov_network ~__context ~self:network
-            )
+          )
           (Db.Network.get_all ~__context)
       in
       let vm = make_vm_with_vif ~__context ~network:sriov_network in
@@ -558,7 +558,7 @@ let test_get_group_key_vgpu_and_netsriov () =
         List.find
           (fun network ->
             Xapi_network_sriov_helpers.is_sriov_network ~__context ~self:network
-            )
+          )
           (Db.Network.get_all ~__context)
       in
       let (_ : API.ref_VIF) =

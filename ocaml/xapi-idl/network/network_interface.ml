@@ -290,7 +290,7 @@ let err =
           let exn = Network_error e in
           error "%s (%s)" (Printexc.to_string exn) __LOC__ ;
           raise exn
-          )
+        )
     ; matcher=
         (function
         | Network_error e as exn ->

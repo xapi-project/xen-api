@@ -72,7 +72,7 @@ let wait_for_all_inner ~rpc ~session_id ?all_timeout ~tasks =
                       task_set'
                 | _ ->
                     task_set'
-                )
+              )
               task_set records
           in
           wait ~token:event_from.Event_types.token ~task_set:pending_task_set
@@ -98,7 +98,7 @@ let with_tasks_destroy ~rpc ~session_id ~timeout ~tasks =
         (fun task ->
           if Client.Task.get_status ~rpc ~session_id ~self:task = `pending then
             Client.Task.cancel ~rpc ~session_id ~task
-          )
+        )
         tasks ;
       (* cancel is not immediate, give it a reasonable chance to take effect *)
       wait_for_all_inner ~rpc ~session_id ~all_timeout:60. ~tasks |> ignore ;
@@ -113,7 +113,7 @@ let with_tasks_destroy ~rpc ~session_id ~timeout ~tasks =
         D.log_and_ignore_exn (fun () ->
             Client.Task.destroy ~rpc ~session_id ~self:task
         )
-        )
+      )
       tasks
   in
   Xapi_stdext_pervasives.Pervasiveext.finally wait_or_cancel destroy_all

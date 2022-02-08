@@ -130,10 +130,10 @@ let import_export_test rpc session_id sr_info vm_template () =
                     (Printf.sprintf "Unhandled device number: %s"
                        all.API.vBD_userdevice
                     )
-              )
+            )
             vbds ;
           vm_uninstall rpc session_id vm'
-          )
+        )
         all_srs ;
       Unix.unlink export_filename
   )

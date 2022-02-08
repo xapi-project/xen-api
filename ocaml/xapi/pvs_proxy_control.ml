@@ -138,7 +138,7 @@ let metadata_of_site ~__context ~site ~vdi ~proxies =
           ; last_port= Int64.to_int rc.API.pVS_server_last_port
           }
         
-        )
+      )
       site_rc.API.pVS_site_servers
   in
   let clients =
@@ -154,7 +154,7 @@ let metadata_of_site ~__context ~site ~vdi ~proxies =
           ; prepopulate= false
           }
         
-        )
+      )
       proxies
   in
   let vdi = Db.VDI.get_uuid ~__context ~self:vdi in

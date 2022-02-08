@@ -440,7 +440,7 @@ let check_operation_error ~__context ~ref =
     List.filter_map
       (fun vbd ->
         try Some (Db.VBD.get_VDI ~__context ~self:vbd) with _ -> None
-        )
+      )
       vmr.Db_actions.vM_VBDs
     |> List.filter (Db.is_valid_ref __context)
   in
@@ -601,7 +601,7 @@ let check_operation_error ~__context ~ref =
                     , bool_of_assoc "caching" sm_config
                     )
                 with _ -> None
-                )
+              )
               vdis
           in
           if
@@ -804,7 +804,7 @@ let force_state_reset_keep_current_operations ~__context ~self ~value:state =
         Db.VBD.set_currently_attached ~__context ~self:vbd ~value:false ;
         Db.VBD.set_reserved ~__context ~self:vbd ~value:false ;
         Xapi_vbd_helpers.clear_current_operations ~__context ~self:vbd
-        )
+      )
       (Db.VM.get_VBDs ~__context ~self) ;
     List.iter
       (fun vif ->
@@ -815,7 +815,7 @@ let force_state_reset_keep_current_operations ~__context ~self ~value:state =
         Option.iter
           (fun p -> Pvs_proxy_control.clear_proxy_state ~__context vif p)
           (Pvs_proxy_control.find_proxy_for_vif ~__context ~vif)
-        )
+      )
       (Db.VM.get_VIFs ~__context ~self) ;
     List.iter
       (fun vgpu ->
@@ -830,13 +830,13 @@ let force_state_reset_keep_current_operations ~__context ~self ~value:state =
           Db.VGPU.set_compatibility_metadata ~__context ~self:vgpu ~value:v ;
           debug "Clearing Nvidia vGPU %s compat metadata" (Ref.string_of vgpu)
         )
-        )
+      )
       (Db.VM.get_VGPUs ~__context ~self) ;
     List.iter
       (fun vusb ->
         Db.VUSB.set_currently_attached ~__context ~self:vusb ~value:false ;
         Xapi_vusb_helpers.clear_current_operations ~__context ~self:vusb
-        )
+      )
       (Db.VM.get_VUSBs ~__context ~self) ;
     (* Blank the requires_reboot flag *)
     Db.VM.set_requires_reboot ~__context ~self ~value:false
@@ -879,7 +879,7 @@ let force_state_reset_keep_current_operations ~__context ~self ~value:state =
         then
           Db.PCI.set_scheduled_to_be_attached_to ~__context ~self:pci
             ~value:Ref.null
-        )
+      )
       (Db.PCI.get_all ~__context)
   ) ;
   update_allowed_operations ~__context ~self ;

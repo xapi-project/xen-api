@@ -242,13 +242,13 @@ let with_context ?(dummy = false) label (req : Request.t) (s : Unix.file_descr)
             Server_helpers.exec_with_forwarded_task ~session_id
               ~origin:(Context.Http (req, s))
               task_id login_perform_logout
-        )
+      )
       (fun () ->
         if must_logout then
           Helpers.log_exn_continue "Logging out"
             (fun session_id -> Client.Session.logout inet_rpc session_id)
             session_id
-        )
+      )
   with Http.Unauthorised s as e ->
     let fail __context =
       TaskHelper.failed ~__context
@@ -344,7 +344,7 @@ let add_handler (name, handler) =
               error "Unhandled Api_errors.Server_error(%s, [ %s ])" name
                 (String.concat "; " params) ;
               raise (Http_svr.Generic_error (ExnHelper.string_of_exn e))
-            )
+          )
     | Http_svr.FdIO callback ->
         Http_svr.FdIO
           (fun req ic context ->
@@ -356,7 +356,7 @@ let add_handler (name, handler) =
               error "Unhandled Api_errors.Server_error(%s, [ %s ])" name
                 (String.concat "; " params) ;
               raise (Http_svr.Generic_error (ExnHelper.string_of_exn e))
-            )
+          )
   in
   match action with
   | meth, uri, sdk, sdkargs, roles, sub_actions ->

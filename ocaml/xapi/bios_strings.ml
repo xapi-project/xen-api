@@ -196,7 +196,7 @@ let get_hp_rombios () =
         (fun () ->
           ignore (Unix.lseek mem 0xfffea Unix.SEEK_SET) ;
           ignore (Unix.read mem hp_rombios 0 6)
-          )
+        )
         (fun () -> Unix.close mem)
     with _ -> ()
   ) ;

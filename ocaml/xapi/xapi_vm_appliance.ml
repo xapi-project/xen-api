@@ -59,7 +59,7 @@ let group_vms_by_order ~__context vms =
         if Int64Map.mem order map then Int64Map.find order map else []
       in
       Int64Map.add order (vm :: existing) map
-      )
+    )
     Int64Map.empty vms
 
 (* Return a list of lists of VMs where each list contains *)
@@ -80,7 +80,7 @@ let run_operation_on_vms ~__context operation vms =
               let task = operation vm rpc session_id in
               (task :: tasks, failed_vms)
             with e -> (tasks, vm :: failed_vms)
-            )
+          )
           ([], []) vms
       in
       Tasks.wait_for_all ~rpc ~session_id ~tasks
@@ -94,7 +94,7 @@ let perform_operation ~__context ~self ~operation ~ascending_priority =
     List.filter
       (fun vm ->
         Db.VM.get_power_state ~__context ~self:vm <> operation.required_state
-        )
+      )
       contained_vms
   in
   let action_list =
@@ -104,14 +104,14 @@ let perform_operation ~__context ~self ~operation ~ascending_priority =
   List.iter
     (fun vm_list ->
       run_operation_on_vms ~__context operation.vm_operation vm_list
-      )
+    )
     action_list ;
   (* Check whether all the VMs have transitioned to the required power state. *)
   let failed_vms =
     List.filter
       (fun vm ->
         Db.VM.get_power_state ~__context ~self:vm <> operation.required_state
-        )
+      )
       target_vms
   in
   match failed_vms with
@@ -136,7 +136,7 @@ let start ~__context ~self ~paused =
         (fun vm rpc session_id ->
           Client.Async.VM.start ~rpc ~session_id ~vm ~start_paused:paused
             ~force:false
-          )
+        )
     ; required_state= (if paused then `Paused else `Running)
     }
   in
@@ -149,7 +149,7 @@ let clean_shutdown ~__context ~self =
     ; vm_operation=
         (fun vm rpc session_id ->
           Client.Async.VM.clean_shutdown ~rpc ~session_id ~vm
-          )
+        )
     ; required_state= `Halted
     }
   in
@@ -162,7 +162,7 @@ let hard_shutdown ~__context ~self =
     ; vm_operation=
         (fun vm rpc session_id ->
           Client.Async.VM.hard_shutdown ~rpc ~session_id ~vm
-          )
+        )
     ; required_state= `Halted
     }
   in
@@ -185,7 +185,7 @@ let assert_can_be_recovered ~__context ~self ~session_to =
   List.iter
     (fun vm ->
       Xapi_vm_helpers.assert_can_be_recovered ~__context ~self:vm ~session_to
-      )
+    )
     vms
 
 let get_SRs_required_for_recovery ~__context ~self ~session_to =
@@ -226,7 +226,7 @@ let recover ~__context ~self ~session_to ~force =
             (fun vm ->
               Db.VM.set_appliance ~__context:__context_to ~self:vm
                 ~value:Ref.null
-              )
+            )
             vms ;
           Db.VM_appliance.set_name_label ~__context:__context_to
             ~self:existing_appliance
@@ -254,7 +254,7 @@ let recover ~__context ~self ~session_to ~force =
           if not (Db.VM.get_is_a_template ~__context:__context_to ~self:vm) then
             Db.VM.set_appliance ~__context:__context_to ~self:vm
               ~value:recovered_appliance
-          )
+        )
         recovered_vms ;
       update_allowed_operations ~__context:__context_to
         ~self:recovered_appliance

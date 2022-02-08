@@ -124,7 +124,7 @@ let with_connection (task : Xenops_task.task_handle) path domid
             else
               raise e
       )
-      )
+    )
     (fun () -> disconnect t)
 
 (** immediately write a command to the control channel *)

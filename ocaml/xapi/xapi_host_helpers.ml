@@ -52,7 +52,7 @@ let valid_operations ~__context record _ref' =
       (fun op ->
         if Hashtbl.find table op = None then
           Hashtbl.replace table op (Some (code, params))
-        )
+      )
       ops
   in
   (* Operations are divided into two groups:
@@ -73,7 +73,7 @@ let valid_operations ~__context record _ref' =
         set_errors Api_errors.other_operation_in_progress
           ["host"; _ref; host_operation_to_string (List.hd current_ops)]
           [op]
-      )
+    )
     (List.filter (fun x -> x <> `power_on) all_operations) ;
   (* reboot, shutdown and apply_updates cannot run concurrently *)
   if List.mem `reboot current_ops then
@@ -543,7 +543,7 @@ module Configuration = struct
                     in_rpu
                 | _ ->
                     in_rpu
-                )
+              )
               was_in_rpu event_recs
           in
           List.iter
@@ -573,7 +573,7 @@ module Configuration = struct
               (Printexc.to_string e) ;
             Thread.delay 5.0
         done
-        )
+      )
       ()
     |> ignore
 end

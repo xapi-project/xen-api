@@ -359,9 +359,9 @@ let transfer_data_from_sock_to_fd sock dest_fd available_space
               (* Otherwise write it *)
               Unixext.time_limited_write dest_fd len chunk target_response_time ;
               total_length := !total_length + len
-              )
+            )
             ~block_size:65536 data_client
-          )
+        )
         (fun () ->
           (* Close the connection *)
           (* CA-42914: If there was an exception, note that we are forcibly closing the connection when possibly the client (xapi) is still trying to write data. This will cause it to see a 'connection reset by peer' error. *)
@@ -371,7 +371,7 @@ let transfer_data_from_sock_to_fd sock dest_fd available_space
             Unix.close data_client
           with e ->
             R.warn "Exception %s while closing socket" (Printexc.to_string e)
-          )
+        )
     in
     R.debug "Finished reading from data socket" ;
     bytes_read
@@ -393,11 +393,11 @@ let transfer_database_to_sock sock db_fn target_response_time =
           Unixext.time_limited_write_substring data_client len chunk
             target_response_time
       )
-      )
+    )
     (fun () ->
       (* Close the socket *)
       Unix.close data_client
-      )
+    )
 
 (* --------------------------------------------------- *)
 (* Functions to read and write from the client process *)
@@ -823,7 +823,7 @@ let _ =
                  [%s], got [%s]\n\
                  %!"
                 (half_to_string half) a b
-          )
+        )
         halves ;
       Printf.printf "*** End.\n"
     with
@@ -895,7 +895,7 @@ let _ =
                       ( (fun _ _ _ _ ->
                           send_failure client (str ^ "|nack")
                             ("Unknown command " ^ str)
-                          )
+                        )
                       , 0.
                       )
                 in
@@ -916,12 +916,12 @@ let _ =
             done ;
             R.debug "Stopping." ;
             ignore_exn (fun () -> Unix.close client)
-            )
+          )
           (fun () ->
             (* Ensure that the block device FD is always closed *)
             R.info "Closing block device '%s'" !block_dev ;
             ignore_exn (fun () -> Unix.close block_dev_fd)
-            )
+          )
       with
       (* problems opening block device *)
       | Unix.Unix_error (a, b, c) ->

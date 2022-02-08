@@ -105,8 +105,7 @@ let mib_of_bytes_used value = divide_rounding_up value bytes_per_mib
 
 let mib_of_kib_used value = divide_rounding_up value kib_per_mib
 
-let mib_of_pages_used value =
-  divide_rounding_up value pages_per_mib
+let mib_of_pages_used value = divide_rounding_up value pages_per_mib
   (* === Domain memory breakdown
      ======================================================= *)
   (*

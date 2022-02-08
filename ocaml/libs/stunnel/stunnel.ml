@@ -109,9 +109,9 @@ type pid =
   | Nopid
 
 (* let string_of_pid = function
-  | StdFork x -> Printf.sprintf "(StdFork %d)" x
-  | FEFork x -> Forkhelpers.string_of_pidty x
-  | Nopid -> "None" *)
+   | StdFork x -> Printf.sprintf "(StdFork %d)" x
+   | FEFork x -> Forkhelpers.string_of_pidty x
+   | Nopid -> "None" *)
 
 let getpid ty =
   match ty with
@@ -269,7 +269,7 @@ let disconnect_with_pid ?(wait = true) ?(force = false) pid =
             Forkhelpers.waitpid_nohang
           )
             fpid
-          )
+        )
         pid_int
   | StdFork pid ->
       do_disc
@@ -280,7 +280,7 @@ let disconnect_with_pid ?(wait = true) ?(force = false) pid =
             Unix.waitpid [Unix.WNOHANG]
           )
             pid
-          )
+        )
         pid
   | Nopid ->
       ()
@@ -341,7 +341,7 @@ let attempt_one_connect ?(use_fork_exec_helper = true)
                  ~pre_exec:(fun _ ->
                    List.iter Unsafe.do_fd_operation fdops ;
                    Unixext.close_all_fds_except fds_needed
-                   )
+                 )
                  (path :: args)
               )
         in
@@ -442,7 +442,7 @@ let with_connect ?unique_id ?use_fork_exec_helper ?write_to_log ~verify_cert
         }
       in
       f t
-      )
+    )
     5
 
 let with_client_proxy ~verify_cert ~remote_host ~remote_port ~local_host
@@ -461,7 +461,7 @@ let with_client_proxy ~verify_cert ~remote_host ~remote_port ~local_host
       Xapi_stdext_pervasives.Pervasiveext.finally
         (fun () -> f ())
         (fun () -> disconnect_with_pid ~wait:false ~force:true pid)
-      )
+    )
     5
 
 let check_verify_error line =

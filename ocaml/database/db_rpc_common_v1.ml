@@ -334,7 +334,7 @@ let marshall_read_record_response (ssl, ssll) =
                  XMLRPC.To.string s
                ; XMLRPC.To.array (List.map XMLRPC.To.string sl)
                ]
-             )
+           )
            ssll
         )
     ]
@@ -350,7 +350,7 @@ let unmarshall_read_record_response xml =
                 (XMLRPC.From.string s_xml, unmarshall_stringlist sl_xml)
             | _ ->
                 raise DB_remote_marshall_error
-            )
+          )
           (XMLRPC.From.array (fun x -> x) ssll_xml)
       )
   | _ ->
@@ -373,7 +373,7 @@ let marshall_read_records_where_response refs_and_recs_list =
        (fun (ref, record) ->
          XMLRPC.To.array
            [XMLRPC.To.string ref; marshall_read_record_response record]
-         )
+       )
        refs_and_recs_list
     )
 
@@ -389,5 +389,5 @@ let unmarshall_read_records_where_response xml =
               )
           | _ ->
               raise DB_remote_marshall_error
-          )
+        )
         xml_refs_and_recs_list

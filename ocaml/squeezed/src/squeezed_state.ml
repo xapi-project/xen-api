@@ -85,7 +85,7 @@ let total_reservations service domain_infolist =
              0L
            else
              Int64.of_string (xs_read (path [""; service; "state"; sid; rid]))
-           )
+         )
          rids
       )
   in

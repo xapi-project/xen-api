@@ -47,7 +47,7 @@ let destroy ~__context ~self =
         (Printf.sprintf "destroying VGPU: %s" (Ref.string_of vgpu))
         (fun vgpu -> Db.VGPU.destroy ~__context ~self:vgpu)
         vgpu
-      )
+    )
     vgpus ;
   Db.GPU_group.destroy ~__context ~self
 
@@ -60,7 +60,7 @@ let find_or_create ~__context pgpu =
       (fun rf ->
         let rc = Db.GPU_group.get_record_internal ~__context ~self:rf in
         rc.Db_actions.gPU_group_GPU_types = [gpu_type]
-        )
+      )
       (Db.GPU_group.get_all ~__context)
   with Not_found ->
     let name_label =
@@ -90,7 +90,7 @@ let union_type_lists ~type_lists =
         List.fold_left
           (fun acc vgpu_type -> VGPU_type_set.add vgpu_type acc)
           acc type_list
-        )
+      )
       VGPU_type_set.empty type_lists
   in
   VGPU_type_set.elements union_set
@@ -166,7 +166,7 @@ let get_remaining_capacity_internal ~__context ~self ~vgpu_type =
             (capacity, e :: exceptions)
         | Ok n ->
             (Int64.add n capacity, exceptions)
-        )
+      )
       (0L, []) pgpus
   in
   if capacity > 0L then

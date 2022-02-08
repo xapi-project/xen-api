@@ -170,7 +170,7 @@ let success_task f id =
         )
       | Task.Pending _ ->
           failwith "task pending"
-      )
+    )
     (fun () -> Client.TASK.destroy dbg id)
 
 let parse_source x =
@@ -260,7 +260,7 @@ let parse_pci vm_id (x, idx) =
                 Printf.fprintf stderr
                   "Failed to parse PCI option: %s. It should be key=value.\n" x ;
                 exit 2
-            )
+          )
           options
       in
       let bool_opt k opts =
@@ -394,7 +394,7 @@ let parse_vif vm_id (x, idx) =
                'mac=xx:xx:xx:xx:xx:xx,bridge=xenbrX'.\n"
               x ;
             exit 2
-        )
+      )
       xs
   in
   {
@@ -531,7 +531,7 @@ let add' _copts x () =
               (List.fold_left
                  (fun acc x ->
                    match x.disk with None -> acc | Some x -> x :: acc
-                   )
+                 )
                  [] disks
               )
           in
@@ -687,7 +687,7 @@ let add' _copts x () =
           let (_ : Pci.id list) = List.map one pcis in
           Printf.fprintf stdout "%s\n" id ;
           `Ok id
-          )
+        )
         (fun () -> close_in ic)
 
 let add copts x () =
@@ -720,7 +720,7 @@ let list_verbose () =
         (state.Vm.power_state |> string_of_power_state) ;
       Printf.printf "  %s\n" (vm |> rpc_of Vm.t |> Jsonrpc.to_string) ;
       Printf.printf "  %s\n" (state |> rpc_of Vm.state |> Jsonrpc.to_string)
-      )
+    )
     vms
 
 let list_compact () =
@@ -919,7 +919,7 @@ let import_metadata _copts filename =
               Buffer.add_bytes buf (Bytes.sub line 0 n)
         done
       with End_of_file -> ()
-      )
+    )
     (fun () -> close_in ic) ;
   let txt = Buffer.contents buf in
   let id = Client.VM.import_metadata dbg txt in
@@ -1071,7 +1071,7 @@ let vbd_list x =
               path |> trim 32
         in
         line id position mode ty plugged disk disk2
-        )
+      )
       vbds
   in
   List.iter print_endline (header :: lines)
@@ -1088,7 +1088,7 @@ let console_list _copts x =
           match c.Vm.protocol with Vm.Rfb -> "RFB" | Vm.Vt100 -> "VT100"
         in
         line protocol (string_of_int c.Vm.port)
-        )
+      )
       s.Vm.consoles
   in
   List.iter print_endline (header :: lines)
@@ -1196,7 +1196,7 @@ let raw_console_proxy sockaddr =
           Unix.connect s sockaddr ;
           delay := 0.1 ;
           proxy s
-          )
+        )
         (fun () -> Unix.close s)
     with
     | Unix.Unix_error (_, _, _) when !delay <= long_connection_retry_timeout ->
@@ -1232,7 +1232,7 @@ let vncviewer_binary =
             Some path
           else
             None
-      )
+    )
     None dirs
 
 let unix_proxy path =
@@ -1302,7 +1302,7 @@ let console_connect' _copts x =
     (fun exe ->
       if Sys.file_exists exe then
         Unix.execv exe [|exe; string_of_int (List.hd s.Vm.domids)|]
-      )
+    )
     xenconsoles ;
   Printf.fprintf stderr "Failed to find a text console.\n%!" ;
   exit 1
@@ -1370,7 +1370,7 @@ let pci_list x =
             pci.address.bus pci.address.dev pci.address.fn
         in
         line id (string_of_int pci.position) bdf
-        )
+      )
       pcis
   in
   List.iter print_endline (header :: lines)
@@ -1459,9 +1459,9 @@ let task_list _ =
         (fun (name, state) ->
           Printf.printf "  |_ %-30s %s\n" name
             (state |> rpc_of Task.state |> Jsonrpc.to_string)
-          )
+        )
         t.Task.subtasks
-      )
+    )
     all ;
   `Ok ()
 
@@ -1509,7 +1509,7 @@ let old_main () =
             (acc, true)
           else
             (x :: acc, false)
-          )
+        )
         ([], false) args
       |> fst
       |> List.rev

@@ -165,7 +165,7 @@ let get_host_pcis () =
           ; related= List.map address_of_dev related_devs
           ; driver_name
           }
-          )
+        )
         devs
   )
 

@@ -116,5 +116,5 @@ let _ =
              Xapi_stdext_unix.Unixext.proxy s fd
          )
         )
-      )
+    )
     (fun () -> Client.Session.logout rpc session_id)

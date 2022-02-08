@@ -45,7 +45,7 @@ let test_basic_operation () =
            (Ref.string_of host)
         )
         "per-socket" new_edition
-      )
+    )
     hosts
 
 (* Check that if a host is offline, apply_edition_with_rollback rolls all hosts
@@ -66,7 +66,7 @@ let test_rollback_logic () =
     (fun () ->
       Xapi_pool_license.apply_edition_with_rollback ~__context ~hosts
         ~edition:"per-socket" ~apply_fn
-      ) ;
+    ) ;
   List.iter
     (fun host ->
       let new_edition = Db.Host.get_edition ~__context ~self:host in
@@ -76,7 +76,7 @@ let test_rollback_logic () =
            (Ref.string_of host)
         )
         "free" new_edition
-      )
+    )
     hosts
 
 let test =

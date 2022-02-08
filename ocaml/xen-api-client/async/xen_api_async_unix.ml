@@ -108,7 +108,7 @@ let do_it uri string =
       | Error e ->
           eprintf "Caught: %s\n%!" (exn_to_string e) ;
           Exn.reraise e "connection error"
-      )
+    )
     ~finally:(fun () -> M.disconnect connection)
 
 (* TODO: modify do_it to accept the timeout and remove the warnings *)

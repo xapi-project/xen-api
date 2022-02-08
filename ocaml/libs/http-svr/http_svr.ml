@@ -74,10 +74,10 @@ let headers s headers =
   output_http s [""]
 
 (* let response s hdrs length f =
-  output_http s hdrs;
-  output_http s [ Printf.sprintf "Content-Length: %Ld" length ];
-  output_http s [ "" ];
-  f s *)
+   output_http s hdrs;
+   output_http s [ Printf.sprintf "Content-Length: %Ld" length ];
+   output_http s [ "" ];
+   f s *)
 
 (* If http/1.0 was requested, return that, else return http/1.1 *)
 let get_return_version req =
@@ -184,7 +184,7 @@ let response_method_not_implemented ?req s =
       ~some:(fun req ->
         Printf.sprintf "<p>%s not supported.<br /></p>"
           (Http.string_of_method_t req.Http.Request.m)
-        )
+      )
       req
   in
   let body =
@@ -498,7 +498,7 @@ let request_of_bio_exn ~proxy_seen bio =
                )
              | None ->
                  (true, req) (* end of headers *)
-           )
+         )
          (false, {empty with Http.Request.frame; additional_headers})
     |> snd
   in
@@ -731,7 +731,7 @@ let read_body ?limit req bio =
       Option.fold ~none:()
         ~some:(fun l ->
           if length > l then raise Client_requested_size_over_limit
-          )
+        )
         limit ;
       if Buf_io.is_buffer_empty bio then
         Unixext.really_read_string (Buf_io.fd_of bio) length

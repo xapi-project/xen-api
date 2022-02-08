@@ -161,18 +161,18 @@ let main port certfile _ =
                     inc_conn () >>= xapi_says_use_tls >>= fun tls ->
                     let tls_role = if tls then tls_server_role else None in
                     handle_connection fd tls_role
-                    )
+                  )
                   (* ignore the exception resulting from double-closing the socket *)
                     (fun () ->
                     ignore_exn_delayed (fun () -> Lwt_unix.close fd) ()
                     >>= dec_conn
-                    )
+                  )
             )
           in
           loop ()
         in
         loop ()
-        )
+      )
       (ignore_exn_delayed (fun () -> Lwt_unix.close sock))
   in
   (* Log unexpected exceptions *)

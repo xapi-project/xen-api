@@ -427,7 +427,7 @@ let exchange_certificates_in_pool ~__context =
                 Worker.remote_write_certs_fs HostPoolCertificate Erase_old certs
                   host rpc session_id
             )
-            )
+          )
           all_hosts
       ; List.map
           (fun host ->
@@ -435,7 +435,7 @@ let exchange_certificates_in_pool ~__context =
                 (Ref.short_string_of host)
             , fun () -> Worker.remote_regen_bundle host rpc session_id
             )
-            )
+          )
           all_hosts
       ]
   in
@@ -481,7 +481,7 @@ let am_i_missing_certs ~__context : bool =
         Db.Host.get_all ~__context
         |> List.map (fun self -> Db.Host.get_uuid ~__context ~self)
         |> List.map HostPoolProvider.cert_fname_of_host_uuid
-        )
+      )
       HostPoolProvider.store_path
   in
   let missing_ca_certs =
@@ -495,7 +495,7 @@ let am_i_missing_certs ~__context : bool =
                | _ ->
                    None
            )
-        )
+      )
       ApplianceProvider.store_path
   in
   missing_pool_certs () || missing_ca_certs ()
@@ -577,7 +577,7 @@ let exchange_ca_certificates_with_joiner ~__context ~import ~export =
         in
         let cert = C.pem_of_string content in
         (filename, cert)
-        )
+      )
       appliance_certs
   in
   Worker.local_write_cert_fs ~__context ApplianceCertificate Merge
@@ -589,7 +589,7 @@ let exchange_ca_certificates_with_joiner ~__context ~import ~export =
         C.Db_util.add_cert ~__context ~type':(`ca name) cert
       in
       ()
-      )
+    )
     parsed ;
   collect_ca_certs ~__context ~names:export
 

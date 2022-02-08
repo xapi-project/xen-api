@@ -84,7 +84,7 @@ let multicast f =
   Hashtbl.fold
     (fun sr plugin acc ->
       (sr, try SMSuccess (f sr plugin.processor) with e -> SMFailure e) :: acc
-      )
+    )
     plugins []
 
 let success = function SMSuccess _ -> true | _ -> false
@@ -116,8 +116,9 @@ module Mux = struct
         List.fold_left
           (fun acc (sr, result) ->
             Printf.sprintf "For SR: %s" (s_of_sr sr)
-            :: string_of_sm_result (fun s -> s) result :: acc
-            )
+            :: string_of_sm_result (fun s -> s) result
+            :: acc
+          )
           [] results
       in
       SMSuccess (String.concat "\n" all)
@@ -211,7 +212,7 @@ module Mux = struct
       List.fold_left
         (fun acc (sr, list) ->
           match list with SMSuccess l -> l @ acc | x -> acc
-          )
+        )
         []
         (multicast (fun sr rpc ->
              let module C = StorageAPI (Idl.Exn.GenClient (struct

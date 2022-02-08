@@ -92,7 +92,7 @@ let info _common filename =
                 [f; v]
             | None ->
                 [f; "<missing field>"]
-            )
+          )
           Vhd_format.F.Vhd.Field.list
       in
       print_table ["field"; "value"] all ;
@@ -215,7 +215,7 @@ let[@warning "-27"] stream_human _common _ s _ _ ?(progress = no_progress_bar)
         (padto ' ' decimal_digits (Int64.to_string sector))
         (Vhd_format.Element.to_string x) ;
       return (Int64.add sector (Vhd_format.Element.len x))
-      )
+    )
     0L s.elements
   >>= fun _ ->
   Printf.printf "# end of stream\n" ;
@@ -274,7 +274,7 @@ let stream_nbd _common c s prezeroed _ ?(progress = no_progress_bar) () =
       let work_done = Int64.add work_done work in
       p work_done ;
       return (sector, work_done)
-      )
+    )
     (0L, 0L) s.elements
   >>= fun _ ->
   p total_work ;
@@ -323,7 +323,7 @@ let stream_chunked _common c s prezeroed _ ?(progress = no_progress_bar) () =
       let work_done = Int64.add work_done work in
       p work_done ;
       return (sector, work_done)
-      )
+    )
     (0L, 0L) s.elements
   >>= fun _ ->
   p total_work ;
@@ -368,7 +368,7 @@ let stream_raw _common c s prezeroed _ ?(progress = no_progress_bar) () =
       >>= fun work ->
       let work_done = Int64.add work_done work in
       p work_done ; return work_done
-      )
+    )
     0L s.elements
   >>= fun _ ->
   p total_work ;
@@ -549,7 +549,7 @@ let stream_tar _common c s _ prefix ?(progress = no_progress_bar) () =
       let work_done = Int64.add state.work_done work in
       p work_done ;
       return {state with work_done}
-      )
+    )
     (initial s.size.Vhd_format.F.total)
     s.elements
   >>= fun _ ->
@@ -1040,7 +1040,7 @@ let write_stream common s destination _source_protocol destination_protocol
                 List.map
                   (fun (x, y) ->
                     (String.lowercase_ascii x, String.lowercase_ascii y)
-                    )
+                  )
                   headers
               in
               let te = "transfer-encoding" in
@@ -1185,7 +1185,7 @@ let serve_nbd_to_raw common size c dest _ _ _ _ =
               (fun offset subblock ->
                 c.Channels.really_read subblock >>= fun () ->
                 Vhd_format_lwt.IO.really_write dest offset subblock
-                )
+              )
               request
             >>= fun () ->
             Reply.marshal rep
@@ -1199,7 +1199,7 @@ let serve_nbd_to_raw common size c dest _ _ _ _ =
               (fun offset subblock ->
                 Vhd_format_lwt.IO.really_read dest offset subblock >>= fun () ->
                 c.Channels.really_write subblock
-                )
+              )
               request
         | _ ->
             Reply.marshal rep
@@ -1238,7 +1238,7 @@ let serve_chunked_to_raw _ c dest _ _ _ _ =
   loop ()
 
 (* If we're using unbuffered IO, we write in whole sectors. We therefore might
-  need to extend the cstruct to the next sector boundary *)
+   need to extend the cstruct to the next sector boundary *)
 let round_up_to_sector unbuffered len =
   if unbuffered then
     let sector_size = 512 in

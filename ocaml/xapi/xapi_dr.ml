@@ -39,7 +39,7 @@ let update_metadata_latest ~__context =
     (fun vdi ->
       if not (Db.is_valid_ref __context vdi) then
         Hashtbl.remove db_vdi_cache vdi
-      )
+    )
     cached_vdis ;
   debug "Updating metadata_latest on all foreign pool metadata VDIs" ;
   let module PoolMap = Map.Make (struct
@@ -60,7 +60,7 @@ let update_metadata_latest ~__context =
           with Not_found -> [(vdi, generation)]
         in
         PoolMap.add pool new_list map
-        )
+      )
       db_vdi_cache PoolMap.empty
   in
   (* For each pool who has metadata VDIs in the database, find the VDIs with the highest database generation count. *)
@@ -79,7 +79,7 @@ let update_metadata_latest ~__context =
               generation
             else
               acc
-            )
+          )
           vdi_list 0L
       in
       debug "Largest known database generation for pool %s is %Ld."
@@ -94,9 +94,9 @@ let update_metadata_latest ~__context =
             (Db.VDI.get_uuid ~__context ~self:vdi)
             generation metadata_latest ;
           Db.VDI.set_metadata_latest ~__context ~self:vdi ~value:metadata_latest
-          )
+        )
         vdi_list
-      )
+    )
     vdis_grouped_by_pool
 
 let read_database_generation ~db_ref =
@@ -129,7 +129,7 @@ let add_vdis_to_cache ~__context ~vdis =
             debug "Could not open database from VDI %s - caught %s"
               (Db.VDI.get_uuid ~__context ~self:vdi)
               (Printexc.to_string e)
-          )
+        )
         vdis ;
       update_metadata_latest ~__context
   )
@@ -142,7 +142,7 @@ let remove_vdis_from_cache ~__context ~vdis =
           debug "Removing VDI %s from metadata VDI cache."
             (Db.VDI.get_uuid ~__context ~self:vdi) ;
           Hashtbl.remove db_vdi_cache vdi
-          )
+        )
         vdis ;
       update_metadata_latest ~__context
   )

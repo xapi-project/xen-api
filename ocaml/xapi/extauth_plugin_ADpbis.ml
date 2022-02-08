@@ -111,7 +111,7 @@ let extract_sid_from_group_list group_list =
       let sid = String.trim (List.nth vs 1) in
       debug "extract_sid_from_group_list get sid=[%s]" sid ;
       sid
-      )
+    )
     (List.filter (fun (n, v) -> n = "") group_list)
 
 let start_damon () =
@@ -297,7 +297,7 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
                     (Auth_signature.Auth_service_error
                        (Auth_signature.E_GENERIC, ExnHelper.string_of_exn e)
                     )
-                )
+              )
               (fun () ->
                 match Forkhelpers.waitpid pid with
                 | _, Unix.WEXITED n ->
@@ -311,7 +311,7 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
                       (Auth_signature.Auth_service_error
                          (Auth_signature.E_GENERIC, user_friendly_error_msg)
                       )
-                )
+              )
           with e ->
             error "execute %s exited: %s" debug_cmd (ExnHelper.string_of_exn e) ;
             raise
@@ -658,7 +658,7 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
             Bytes.set defensive_copy i ' '
           else
             ()
-          )
+        )
         lwname ;
       Bytes.unsafe_to_string defensive_copy
     in

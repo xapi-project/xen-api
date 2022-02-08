@@ -214,7 +214,7 @@ let test_with_cancel2 () =
             ignore (Scheduler.Delay.wait delay 1.0) ;
             T.check_cancelling task ;
             Some "foo"
-            )
+          )
     )
   in
   let id = T.id_of_handle task in
@@ -249,7 +249,7 @@ let test_with_cancel_failure2 () =
             ignore (Scheduler.Delay.wait delay 1.0) ;
             T.check_cancelling task ;
             Some "foo"
-            )
+          )
     )
   in
   let id = T.id_of_handle task in

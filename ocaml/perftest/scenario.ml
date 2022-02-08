@@ -138,7 +138,7 @@ let xml_of_scenario s =
             "  <vm vbds=\"%d\" vifs=\"%d\" tag=\"%s\" num=\"%d\" \
              has_affinity=\"%b\" />"
             vm.vbds vm.vifs vm.tag vm.num vm.has_affinity
-          )
+        )
         s.vms
     @ [
         " </vms>"

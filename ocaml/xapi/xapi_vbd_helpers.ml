@@ -63,7 +63,7 @@ let valid_operations ~expensive_sharing_checks ~__context record _ref' : table =
       (fun op ->
         if Hashtbl.find table op = None then
           Hashtbl.replace table op (Some (code, params))
-        )
+      )
       ops
   in
   let vm = Db.VBD.get_VM ~__context ~self:_ref' in
@@ -146,7 +146,7 @@ let valid_operations ~expensive_sharing_checks ~__context record _ref' : table =
         in
         set_errors Api_errors.operation_not_allowed [current_op_str]
           [`plug; `unplug]
-      )
+    )
     vm_current_ops ;
   (* HVM guests MAY support plug/unplug IF they have PV drivers. Assume
    * all drivers have such support unless they specify that they do not. *)
@@ -243,7 +243,7 @@ let valid_operations ~expensive_sharing_checks ~__context record _ref' : table =
           (List.map
              (fun self ->
                try [Db.VBD.get_record_internal ~__context ~self] with _ -> []
-               )
+             )
              vbds
           )
       in
@@ -266,7 +266,7 @@ let valid_operations ~expensive_sharing_checks ~__context record _ref' : table =
                || self.Db_actions.vBD_reserved
                || self.Db_actions.vBD_current_operations <> []
                )
-            )
+          )
           vbd_records
       in
       let someones_got_rw_access =

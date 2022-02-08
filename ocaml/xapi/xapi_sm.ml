@@ -119,7 +119,7 @@ let unregister_plugin ~__context q_result =
               with e ->
                 warn "Ignore unregistering SM plugin failure: %s"
                   (Printexc.to_string e)
-            )
+          )
           (Db.SM.get_all_records ~__context)
   )
 

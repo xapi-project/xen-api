@@ -43,7 +43,7 @@ let test_sdn_controller_pssl_invalid_address () =
     (fun () ->
       Xapi_sdn_controller.db_introduce ~__context ~protocol ~address ~port
       |> ignore
-      )
+    )
 
 let test_sdn_controller_pssl_invalid_port () =
   let protocol = `pssl in
@@ -55,7 +55,7 @@ let test_sdn_controller_pssl_invalid_port () =
     (fun () ->
       Xapi_sdn_controller.db_introduce ~__context ~protocol ~address ~port
       |> ignore
-      )
+    )
 
 let test_sdn_controller_ssl_default_port () =
   let protocol = `ssl in
@@ -86,7 +86,7 @@ let test_sdn_controller_ssl_invalid_ip_address () =
     (fun () ->
       Xapi_sdn_controller.db_introduce ~__context ~protocol ~address ~port
       |> ignore
-      )
+    )
 
 let test_sdn_controller_ssl_invalid_address_value () =
   let protocol = `ssl in
@@ -98,7 +98,7 @@ let test_sdn_controller_ssl_invalid_address_value () =
     (fun () ->
       Xapi_sdn_controller.db_introduce ~__context ~protocol ~address ~port
       |> ignore
-      )
+    )
 
 let test_sdn_controller_ssl_low_port () =
   let protocol = `ssl in
@@ -112,7 +112,7 @@ let test_sdn_controller_ssl_low_port () =
     (fun () ->
       Xapi_sdn_controller.db_introduce ~__context ~protocol ~address ~port
       |> ignore
-      )
+    )
 
 let test_sdn_controller_ssl_high_port () =
   let protocol = `ssl in
@@ -126,7 +126,7 @@ let test_sdn_controller_ssl_high_port () =
     (fun () ->
       Xapi_sdn_controller.db_introduce ~__context ~protocol ~address ~port
       |> ignore
-      )
+    )
 
 let test_sdn_controller_introduce_twice () =
   let protocol = `ssl in
@@ -144,7 +144,7 @@ let test_sdn_controller_introduce_twice () =
     (fun () ->
       Xapi_sdn_controller.db_introduce ~__context ~protocol ~address ~port
       |> ignore
-      )
+    )
 
 let test_sdn_controller_forget_ok () =
   let protocol = `ssl in

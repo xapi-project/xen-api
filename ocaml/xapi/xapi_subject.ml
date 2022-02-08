@@ -55,7 +55,7 @@ let create ~__context ~subject_identifier ~other_config =
         let subject_id_in_db = record.API.subject_subject_identifier in
         subject_identifier = subject_id_in_db
         (* is it the subject we are looking for? *)
-        )
+      )
       subjects
   then (
     (* we found an already existing user with the same subject identifier. *)
@@ -162,7 +162,7 @@ let update_all_subjects ~__context =
               (ExnHelper.string_of_exn e) ;
             (* ignore this exception e, do not raise it again *)
             updated
-          )
+        )
         false subjects
     in
     if need_update_config then
@@ -185,7 +185,7 @@ let get_permissions_name_label ~__context ~self =
          List.rev_append
            (Xapi_role.get_permissions_name_label ~__context ~self:role)
            accu
-         )
+       )
        []
        (Db.Subject.get_roles ~__context ~self)
     )

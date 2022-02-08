@@ -25,7 +25,7 @@ module HasBeenRemoved = Generic.MakeStateless (struct
         (fun (lifecycle_change, _, _) ->
           Datamodel_types.rpc_of_lifecycle_change lifecycle_change
           |> Rpc.to_string
-          )
+        )
         input
       |> String.concat "; "
 

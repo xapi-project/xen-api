@@ -26,7 +26,7 @@ let test_unlicensed () =
       Xapi_pvs_server.introduce ~__context ~addresses ~first_port ~last_port
         ~site:valid_site
       |> ignore
-      )
+    )
 
 let test_introduce_ok () =
   let addresses = ["10.80.12.34"] in
@@ -93,7 +93,7 @@ let test_introduce_invalid_address () =
       Xapi_pvs_server.introduce ~__context ~addresses ~first_port ~last_port
         ~site:valid_site
       |> ignore
-      )
+    )
 
 let test_introduce_invalid_site () =
   let addresses = ["10.80.12.34"] in
@@ -109,7 +109,7 @@ let test_introduce_invalid_site () =
       Xapi_pvs_server.introduce ~__context ~addresses ~first_port ~last_port
         ~site:invalid_site
       |> ignore
-      )
+    )
 
 let test_introduce_invalid_low_port () =
   let addresses = ["10.80.12.34"] in
@@ -126,7 +126,7 @@ let test_introduce_invalid_low_port () =
       Xapi_pvs_server.introduce ~__context ~addresses ~first_port ~last_port
         ~site:valid_site
       |> ignore
-      )
+    )
 
 let test_introduce_invalid_high_port () =
   let addresses = ["10.80.12.34"] in
@@ -143,7 +143,7 @@ let test_introduce_invalid_high_port () =
       Xapi_pvs_server.introduce ~__context ~addresses ~first_port ~last_port
         ~site:valid_site
       |> ignore
-      )
+    )
 
 let test_introduce_invalid_ports () =
   let addresses = ["10.80.12.34"] in
@@ -162,7 +162,7 @@ let test_introduce_invalid_ports () =
       Xapi_pvs_server.introduce ~__context ~addresses ~first_port ~last_port
         ~site:valid_site
       |> ignore
-      )
+    )
 
 let test_forget () =
   let addresses = ["10.80.12.34"] in

@@ -162,7 +162,7 @@ let operation (obj : obj) (x : message) =
     String.concat "\n"
       ("let __structure = match __structure_rpc with Dict d -> d | _ -> \
         failwith \"bad __structure\" in"
-       :: List.map of_field fields
+      :: List.map of_field fields
       )
   in
   (* impl_fn = something like "VM.make ~__context" *)
@@ -274,7 +274,7 @@ let operation (obj : obj) (x : message) =
           in
           Printf.sprintf "let %s = %s_of_rpc (try %s with _ -> %s) in"
             param_name param_type try_and_get_default default_value
-          )
+        )
         (add_counts 1 msg_params_with_default_values)
   in
   let may_be_side_effecting msg =
@@ -504,7 +504,7 @@ let gen_module api : O.Module.t =
                       (fun msg ->
                         Printf.sprintf "\"%s\";"
                           (DU.wire_name ~sync:true obj msg)
-                        )
+                      )
                       obj.messages
                   in
                   let allmsg =

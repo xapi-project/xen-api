@@ -34,7 +34,7 @@ let unmarshall schema dbconn =
                 )
         ) ;
         match !result with None -> failwith "unmarshal failure" | Some x -> x
-        )
+      )
       (fun () -> Unix.close compressed)
 
 (* Given table name, read all rows from db and store in cache *)

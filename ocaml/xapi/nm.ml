@@ -131,7 +131,7 @@ let create_bond ~__context bond mtu persistent =
           }
         in
         (device, bridge, config)
-        )
+      )
       slaves
   in
   let master_net_rc =
@@ -203,7 +203,7 @@ let create_bond ~__context bond mtu persistent =
               Some (String.sub_to_end k 5, v)
             else
               None
-            )
+          )
           master_rc.API.pIF_other_config
       in
       (* add defaults for properties that are not overridden *)
@@ -474,7 +474,7 @@ let determine_static_routes net_rc =
               ; gateway= Unix.inet_addr_of_string c
               }
           )
-          )
+        )
         routes
     with _ -> []
   else
@@ -530,7 +530,7 @@ let bring_pif_up ~__context ?(management_interface = false) (pif : API.ref_PIF)
                 List.iter
                   (fun self ->
                     Db.PIF.set_currently_attached ~__context ~self ~value:false
-                    )
+                  )
                   bond_record.API.bond_slaves ;
                 maybe_update_master_pif_mac ~__context bond_record rc pif
           in
@@ -630,7 +630,7 @@ let bring_pif_up ~__context ?(management_interface = false) (pif : API.ref_PIF)
                             in
                             Some (addr, prefixlen)
                           with _ -> None
-                          )
+                        )
                         rc.API.pIF_IPv6
                     in
                     let conf = Static6 addresses in

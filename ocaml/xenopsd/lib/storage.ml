@@ -40,7 +40,7 @@ let epoch_begin task sr vdi domid persistent =
   transform_exception
     (fun () ->
       Client.VDI.epoch_begin (Xenops_task.get_dbg task) sr vdi domid persistent
-      )
+    )
     ()
 
 let epoch_end task sr vdi domid =

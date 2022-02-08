@@ -152,7 +152,7 @@ let destroy_pusb ~__context pusb =
             Client.Client.VUSB.unplug rpc session_id vusb
         ) ;
       Db.VUSB.destroy ~__context ~self:vusb
-      )
+    )
     vusbs ;
   Db.PUSB.destroy ~__context ~self:pusb ;
   Db.USB_group.destroy ~__context ~self:usb_group

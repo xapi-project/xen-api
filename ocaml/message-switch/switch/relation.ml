@@ -77,7 +77,7 @@ functor
                 B_Map.remove b acc
               else
                 B_Map.add b as' acc
-              )
+            )
             bs t.b_to_a
       }
 
@@ -98,7 +98,7 @@ functor
                 A_Map.remove a acc
               else
                 A_Map.add a bs acc
-              )
+            )
             as' t.a_to_b
       ; b_to_a= B_Map.remove b t.b_to_a
       }

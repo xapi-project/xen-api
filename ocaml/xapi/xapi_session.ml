@@ -193,7 +193,7 @@ end = struct
                   , up_to_3 worst_so_far
                       {client; num_failed_attempts; last_failed_attempt}
                   )
-                  )
+                )
                 table (0, [])
             in
             reset () ;
@@ -309,7 +309,7 @@ let get_subject_in_intersection ~__context subjects_in_db intersection =
       (* is this the subject ref that returned the non-empty intersection?*)
       List.hd intersection
       = Db.Subject.get_subject_identifier ~__context ~self:subj
-      )
+    )
     subjects_in_db
 
 let get_permissions ~__context ~subject_membership =
@@ -334,7 +334,7 @@ let get_permissions ~__context ~subject_membership =
           :: Xapi_role.get_permissions_name_label ~__context ~self:role
         with _ -> []
         (* if the role disappeared, ignore it *)
-        )
+      )
       ~set:role_membership
   in
   permission_membership
@@ -496,7 +496,7 @@ let revalidate_external_session ~__context ~session =
                 List.map
                   (fun subj ->
                     Db.Subject.get_subject_identifier ~__context ~self:subj
-                    )
+                  )
                   subjects_in_db
               in
               let intersection =
@@ -593,7 +593,7 @@ let revalidate_all_sessions ~__context =
         (fun session ->
           (not (Db.Session.get_is_local_superuser ~__context ~self:session))
           && not (Db.Session.get_client_certificate ~__context ~self:session)
-          )
+        )
         sessions
     in
     (* revalidate each external session *)
@@ -961,7 +961,7 @@ let login_with_password ~__context ~uname ~pwd ~version ~originator =
                           , Db.Subject.get_subject_identifier ~__context
                               ~self:subj
                           )
-                          )
+                        )
                         subjects_in_db
                     in
                     let reflexive_membership_closure =
@@ -1013,7 +1013,7 @@ let login_with_password ~__context ~uname ~pwd ~version ~originator =
                                subj_ref ^ " (" ^ sid ^ ")"
                              else
                                i ^ "," ^ subj_ref ^ " (" ^ sid ^ ")"
-                             )
+                           )
                            "" intersection
                         ) ;
                       let rbac_permissions =
@@ -1044,7 +1044,7 @@ let login_with_password ~__context ~uname ~pwd ~version ~originator =
                                   , Db.Subject.get_subject_identifier ~__context
                                       ~self:subj
                                   )
-                                )
+                              )
                               subjects_in_db
                             (* goes through exactly the same subject list that we went when computing the intersection, *)
                             (* so that no one is able to undetectably remove/add another subject with the same subject_identifier *)
@@ -1164,7 +1164,7 @@ let change_password ~__context ~old_pwd ~new_pwd =
                     error "Failed to sync password to host %s: %s"
                       (Db.Host.get_name_label ~__context ~self:host)
                       (Printexc.to_string e)
-                  )
+                )
                 hosts
           ) ;
           info "Finished syncing password across pool"
@@ -1213,7 +1213,7 @@ let get_all_subject_identifiers ~__context =
       (fun session ->
         (* an externally-authenticated session is one which is not a local_superuser session *)
         not (Db.Session.get_is_local_superuser ~__context ~self:session)
-        )
+      )
       all_sessions
   in
   (* we only want to return sids of externally-authenticated sessions *)
@@ -1229,7 +1229,7 @@ let get_all_subject_identifiers ~__context =
          (fun session ->
            (* TODO: better to look up the membership closure *)
            get_group_subject_identifier_from_session ~__context ~session
-           )
+         )
          all_extauth_sessions
       )
   in
@@ -1257,7 +1257,7 @@ let logout_subject_identifier ~__context ~subject_identifier =
         get_group_subject_identifier_from_session ~__context ~session:s
         = subject_identifier
         )
-        )
+      )
       all_sessions
   in
   debug

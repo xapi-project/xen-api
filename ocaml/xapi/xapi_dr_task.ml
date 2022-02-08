@@ -157,7 +157,7 @@ let create ~__context ~_type ~device_config ~whitelist =
       with Db_exn.Read_missing_uuid (_, _, _) ->
         try_create_sr_from_record ~__context ~_type ~device_config ~dr_task
           ~sr_record
-      )
+    )
     sr_records ;
   dr_task
 
@@ -175,7 +175,7 @@ let destroy ~__context ~self =
           Helpers.call_api_functions ~__context (fun rpc session_id ->
               Client.PBD.unplug ~rpc ~session_id ~self:pbd
           )
-          )
+        )
         pbds ;
       (* Forget the SR. *)
       debug "Forgetting SR %s (%s)"
@@ -184,6 +184,6 @@ let destroy ~__context ~self =
       Helpers.call_api_functions ~__context (fun rpc session_id ->
           Client.SR.forget ~rpc ~session_id ~sr
       )
-      )
+    )
     introduced_SRs ;
   Db.DR_task.destroy ~__context ~self

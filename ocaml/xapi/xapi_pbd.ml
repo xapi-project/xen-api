@@ -88,7 +88,7 @@ let get_active_vdis_by_pbd ~__context ~self =
       (fun r ->
         (r.Db_actions.vBD_currently_attached || r.Db_actions.vBD_reserved)
         && not r.Db_actions.vBD_empty
-        )
+      )
       vbds_r
   in
   let vdis = List.map (fun r -> r.Db_actions.vBD_VDI) active_vbds in
@@ -126,9 +126,9 @@ let abort_if_storage_attached_to_protected_vms ~__context ~self =
                    (Api_errors.ha_operation_would_break_failover_plan, [])
                 )
             )
-            )
+          )
           vbds
-        )
+      )
       protected_vms
 
 (* Split all metadata VDIs in an SR into two lists - metadata VDIs of this pool, and metadata VDIs of a foreign pool. *)
@@ -153,7 +153,7 @@ let check_sharing_constraint ~__context ~sr =
         (fun self ->
           Db.PBD.get_currently_attached ~__context ~self
           && Db.PBD.get_host ~__context ~self <> me
-          )
+        )
         pbds
     in
     if others <> [] then
@@ -254,7 +254,7 @@ let unplug ~__context ~self =
           List.iter
             (fun vdi ->
               Db.VDI.set_metadata_latest ~__context ~self:vdi ~value:false
-              )
+            )
             metadata_vdis_of_foreign_pool ;
           (* Disable metadata replication to VDIs in the SR. *)
           List.iter
@@ -262,7 +262,7 @@ let unplug ~__context ~self =
               debug "Automatically disabling database replication to VDI %s"
                 (Ref.string_of vdi) ;
               Xapi_vdi_helpers.disable_database_replication ~__context ~vdi
-              )
+            )
             metadata_vdis_of_this_pool
         ) ;
         let dbg = Ref.string_of (Context.get_task_id __context) in

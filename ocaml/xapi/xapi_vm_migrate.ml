@@ -192,7 +192,7 @@ let assert_can_migrate_vdis ~__context ~vdi_map =
       if target_sr <> Db.VDI.get_SR ~__context ~self:vdi then (
         assert_cbt_not_enabled vdi ; assert_not_encrypted vdi
       )
-      )
+    )
     vdi_map
 
 let assert_licensed_storage_motion ~__context =
@@ -476,11 +476,11 @@ let intra_pool_vdi_remap ~__context vm vdi_map =
                 Db.VDI.add_to_other_config ~__context ~self:mapto ~key
                   ~value:(List.assoc key other_config_record)
               with Not_found -> ()
-              )
+            )
             Xapi_globs.vdi_other_config_sync_keys
         in
         (vdi, callback)
-        )
+      )
       vbds
   in
   let suspend_vdi = Db.VM.get_suspend_VDI ~__context ~self:vm in
@@ -499,7 +499,7 @@ let intra_pool_vdi_remap ~__context vm vdi_map =
         in
         callback mirror_record.mr_remote_vdi_reference
       with Not_found -> ()
-      )
+    )
     vdis_and_callbacks
 
 let inter_pool_metadata_transfer ~__context ~remote ~vm ~vdi_map ~vif_map
@@ -514,9 +514,9 @@ let inter_pool_metadata_transfer ~__context ~remote ~vm ~vdi_map ~vif_map
           Db.VDI.add_to_other_config ~__context ~self:vdi
             ~key:Constants.storage_migrate_vdi_map_key
             ~value:(Ref.string_of remote_vdi_reference)
-          )
+        )
         vdi_record.remote_vdi_reference
-      )
+    )
     vdi_map ;
   List.iter
     (fun vif_record ->
@@ -526,7 +526,7 @@ let inter_pool_metadata_transfer ~__context ~remote ~vm ~vdi_map ~vif_map
       Db.VIF.add_to_other_config ~__context ~self:vif
         ~key:Constants.storage_migrate_vif_map_key
         ~value:(Ref.string_of vif_record.remote_network_reference)
-      )
+    )
     vif_map ;
   List.iter
     (fun vgpu_record ->
@@ -536,7 +536,7 @@ let inter_pool_metadata_transfer ~__context ~remote ~vm ~vdi_map ~vif_map
       Db.VGPU.add_to_other_config ~__context ~self:vgpu
         ~key:Constants.storage_migrate_vgpu_map_key
         ~value:(Ref.string_of vgpu_record.remote_gpu_group_reference)
-      )
+    )
     vgpu_map ;
   let vm_export_import =
     {Importexport.vm; dry_run; live; send_snapshots= not copy}
@@ -546,7 +546,7 @@ let inter_pool_metadata_transfer ~__context ~remote ~vm ~vdi_map ~vif_map
       Importexport.remote_metadata_export_import ~__context ~rpc:remote.rpc
         ~session_id:remote.session ~remote_address:remote.remote_ip
         ~restore:(not copy) (`Only vm_export_import)
-      )
+    )
     (fun () ->
       (* Make sure we clean up the remote VDI and VIF mapping keys. *)
       List.iter
@@ -554,23 +554,23 @@ let inter_pool_metadata_transfer ~__context ~remote ~vm ~vdi_map ~vif_map
           Db.VDI.remove_from_other_config ~__context
             ~self:vdi_record.local_vdi_reference
             ~key:Constants.storage_migrate_vdi_map_key
-          )
+        )
         vdi_map ;
       List.iter
         (fun vif_record ->
           Db.VIF.remove_from_other_config ~__context
             ~self:vif_record.local_vif_reference
             ~key:Constants.storage_migrate_vif_map_key
-          )
+        )
         vif_map ;
       List.iter
         (fun vgpu_record ->
           Db.VGPU.remove_from_other_config ~__context
             ~self:vgpu_record.local_vgpu_reference
             ~key:Constants.storage_migrate_vgpu_map_key
-          )
+        )
         vgpu_map
-      )
+    )
 
 module VDIMap = Map.Make (struct
   type t = API.ref_VDI
@@ -589,7 +589,7 @@ let update_snapshot_info ~__context ~dbg ~url ~vdi_map ~snapshots_map =
     List.fold_left
       (fun acc mirror ->
         VDIMap.add mirror.mr_local_vdi_reference (mirror, []) acc
-        )
+      )
       VDIMap.empty vdi_map
   in
   let vdi_to_snapshots_map =
@@ -612,7 +612,7 @@ let update_snapshot_info ~__context ~dbg ~url ~vdi_map ~snapshots_map =
             (Ref.string_of snapshot_ref)
             (Ref.string_of snapshot_of) ;
           acc
-        )
+      )
       empty_vdi_map snapshots_map
   in
   (* Build the snapshot chain for each leaf VDI.
@@ -631,12 +631,12 @@ let update_snapshot_info ~__context ~dbg ~url ~vdi_map ~snapshots_map =
                   (Db.VDI.get_uuid ~__context ~self:local_snapshot_ref)
               , snapshot_mirror.mr_remote_vdi
               )
-              )
+            )
             snapshots
         in
         SMAPI.SR.update_snapshot_info_src dbg sr vdi url dest dest_vdi
           snapshot_pairs
-        )
+      )
       vdi_to_snapshots_map
   with Storage_interface.Storage_error Unknown_error ->
     debug "Remote SMAPI doesn't implement update_snapshot_info_src - ignoring"
@@ -675,7 +675,7 @@ let find_cds_to_eject __context vdi_map vbds =
       (fun vbd ->
         let vm = Db.VBD.get_VM ~__context ~self:vbd in
         not (Db.VM.get_is_a_snapshot ~__context ~self:vm)
-        )
+      )
       cd_vbds
   in
   (* Only consider moving CDs - no need to eject if they're staying in the same SR *)
@@ -690,7 +690,7 @@ let find_cds_to_eject __context vdi_map vbds =
         with Db_exn.DBCache_NotFound _ ->
           (* Catch the case where the VDI reference is invalid (e.g. empty CD) *)
           false
-        )
+      )
       vm_cds
   in
   (* Only consider VMs that aren't suspended - we can't eject a suspended VM's CDs at the API level *)
@@ -699,7 +699,7 @@ let find_cds_to_eject __context vdi_map vbds =
       (fun vbd ->
         let vm = Db.VBD.get_VM ~__context ~self:vbd in
         Db.VM.get_power_state ~__context ~self:vm <> `Suspended
-        )
+      )
       moving_cds
   in
   ejectable_cds
@@ -765,7 +765,7 @@ let vdi_copy_fun __context dbg vdi_map remote is_intra_pool remote_vdis so_far
       (fun (_, host) ->
         List.mem host hosts_to_be_attached
         && XenAPI.Host.get_enabled remote.rpc remote.session host
-        )
+      )
       pbd_host_pair
   in
   List.iter
@@ -773,7 +773,7 @@ let vdi_copy_fun __context dbg vdi_map remote is_intra_pool remote_vdis so_far
       if not (XenAPI.PBD.get_currently_attached remote.rpc remote.session pbd)
       then
         XenAPI.PBD.plug remote.rpc remote.session pbd
-      )
+    )
     pbds_to_be_plugged ;
   let rec dest_vdi_exists_on_sr vdi_uuid sr_ref retry =
     try
@@ -1041,7 +1041,7 @@ let infer_vif_map ~__context vifs vif_map =
                    (Api_errors.vif_not_in_map, [Ref.string_of vif])
                 )
         )
-      )
+    )
     [] vifs
 
 (* Assert that every VDI is specified in the VDI map *)
@@ -1057,7 +1057,7 @@ let check_vdi_map ~__context vms_vdis vdi_map =
                (Api_errors.vdi_not_in_map, [Ref.string_of vconf.vdi])
             )
         )
-        )
+      )
       vms_vdis
   )
 
@@ -1130,7 +1130,7 @@ let migrate_send' ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~vgpu_map
                , [Ref.string_of vdi]
                )
             )
-        )
+      )
       vms_vdis
   ) ;
   let snapshots_vdis =
@@ -1151,7 +1151,7 @@ let migrate_send' ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~vgpu_map
             get_vdi_mirror __context vm vdi false :: acc
         else
           acc
-        )
+      )
       [] vm_and_snapshots
   in
   (* Double check that all of the suspend VDIs are all visible on the source *)
@@ -1165,7 +1165,7 @@ let migrate_send' ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~vgpu_map
              , [Ref.string_of vdi_mirror.vdi]
              )
           )
-      )
+    )
     suspends_vdis ;
   let dest_pool = List.hd (XenAPI.Pool.get_all remote.rpc remote.session) in
   let default_sr_ref =
@@ -1226,7 +1226,7 @@ let migrate_send' ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~vgpu_map
           )
         in
         (vconf.vdi, dest_sr_ref)
-        )
+      )
       extra_vdis
   in
   let vdi_map = vdi_map @ extra_vdi_map in
@@ -1286,7 +1286,7 @@ let migrate_send' ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~vgpu_map
               (suspends, vmap :: snapshots, vdis)
             else
               (suspends, snapshots, vmap :: vdis)
-            )
+          )
           ([], [], []) all_map
       in
       let all_map = List.concat [suspends_map; snapshots_map; vdi_map] in
@@ -1301,7 +1301,7 @@ let migrate_send' ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~vgpu_map
             ( mirror_record.mr_local_xenops_locator
             , mirror_record.mr_remote_xenops_locator
             )
-            )
+          )
           all_map
       in
       (* Wait for delay fist to disappear *)
@@ -1329,14 +1329,14 @@ let migrate_send' ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~vgpu_map
                   ; remote_vdi_reference=
                       Some mirror_record.mr_remote_vdi_reference
                   }
-                  )
+                )
                 all_map
             in
             let vif_map =
               List.map
                 (fun (vif, network) ->
                   {local_vif_reference= vif; remote_network_reference= network}
-                  )
+                )
                 vif_map
             in
             let vgpu_map =
@@ -1346,7 +1346,7 @@ let migrate_send' ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~vgpu_map
                     local_vgpu_reference= vgpu
                   ; remote_gpu_group_reference= gpu_group
                   }
-                  )
+                )
                 vgpu_map
             in
             inter_pool_metadata_transfer ~__context ~remote ~vm ~vdi_map
@@ -1389,7 +1389,7 @@ let migrate_send' ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~vgpu_map
                 )
             in
             (vifr.API.vIF_device, bridge)
-            )
+          )
           vifs
       in
       (* Destroy the local datapaths - this allows the VDIs to properly detach, invoking the migrate_finalize calls *)
@@ -1401,7 +1401,7 @@ let migrate_send' ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~vgpu_map
                 SMAPI.DP.destroy dbg dp false
             | None ->
                 ()
-          )
+        )
         all_map ;
       SMPERF.debug "vm.migrate_send: migration initiated vm:%s" vm_uuid ;
       (* In case when we do SXM on the same host (mostly likely a VDI
@@ -1468,7 +1468,7 @@ let migrate_send' ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~vgpu_map
           (fun vm' ->
             intra_pool_vdi_remap ~__context vm' all_map ;
             intra_pool_fix_suspend_sr ~__context remote.dest_host vm'
-            )
+          )
           vm_and_snapshots ;
       (* If it's an inter-pool migrate, the VBDs will still be 'currently-attached=true'
          because we supressed the events coming from xenopsd. Destroy them, so that the
@@ -1602,7 +1602,7 @@ let assert_can_migrate ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options
       let vdi = vconf.vdi in
       if Db.VDI.get_cbt_enabled ~__context ~self:vdi then
         raise Api_errors.(Server_error (vdi_cbt_enabled, [Ref.string_of vdi]))
-      )
+    )
     vms_vdis ;
   (* operations required for migration *)
   let required_sr_operations = [Smint.Vdi_mirror; Smint.Vdi_snapshot] in
@@ -1699,14 +1699,14 @@ let assert_can_migrate ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options
           List.map
             (fun (vdi, sr) ->
               {local_vdi_reference= vdi; remote_vdi_reference= None}
-              )
+            )
             vdi_map
         in
         let vif_map =
           List.map
             (fun (vif, network) ->
               {local_vif_reference= vif; remote_network_reference= network}
-              )
+            )
             vif_map
         in
         let vgpu_map =
@@ -1716,7 +1716,7 @@ let assert_can_migrate ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options
                 local_vgpu_reference= vgpu
               ; remote_gpu_group_reference= gpu_group
               }
-              )
+            )
             vgpu_map
         in
         if
@@ -1814,7 +1814,7 @@ let vdi_pool_migrate ~__context ~vdi ~sr ~options =
       (fun vdi ->
         let sr = Db.VDI.get_SR ~__context ~self:vdi in
         (vdi, sr)
-        )
+      )
       vdis
   in
   let vdi_map = (vdi, sr) :: vdi_map in

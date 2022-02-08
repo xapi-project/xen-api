@@ -53,7 +53,7 @@ let sum_costs l =
       ; nodes= cost.nodes @ accum.nodes
       ; best= min accum.best cost.best
       }
-      )
+    )
     {worst= min_int; average= 0.; nodes= []; best= max_int}
     l
 
@@ -181,7 +181,7 @@ let test_allocate ?(mem = default_mem) (expected_cores, h) ~vms () =
              , costs_numa_aware :: costs_new
              , ((vm_cores, List.of_seq usednodes), plan) :: plans
              )
-         )
+       )
        ([], [], [])
   |> check_aggregate_costs_not_worse ~cores ~vms
 

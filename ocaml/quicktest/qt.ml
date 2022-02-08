@@ -121,7 +121,7 @@ module VM = struct
             Xapi_stdext_std.Xstringext.String.startswith startswith
               (Client.Client.VM.get_name_label rpc session_id self)
             && Client.Client.VM.get_is_a_template rpc session_id self
-            )
+          )
           vms
       with
       | [] ->
@@ -216,9 +216,9 @@ module VDI = struct
         Xapi_stdext_pervasives.Pervasiveext.finally
           (fun () ->
             f ("/dev/" ^ Client.Client.VBD.get_device ~rpc ~session_id ~self:vbd)
-            )
+          )
           (fun () -> Client.Client.VBD.unplug ~rpc ~session_id ~self:vbd)
-        )
+      )
       (fun () -> Client.Client.VBD.destroy ~rpc ~session_id ~self:vbd)
 
   let with_open rpc session_id vdi mode f =

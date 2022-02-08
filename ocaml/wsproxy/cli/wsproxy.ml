@@ -60,11 +60,11 @@ let start handler =
               )
         in
         loop ()
-        )
+      )
       (fun e ->
         Logs_lwt.err (fun m -> m "Caught exception: %s" (Printexc.to_string e))
         >>= fun () -> Lwt.return_unit
-        )
+      )
     >>= fun () -> loop ()
   in
 

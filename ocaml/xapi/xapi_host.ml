@@ -73,7 +73,7 @@ let assert_safe_to_reenable ~__context ~self =
     List.iter
       (fun self ->
         Xapi_pbd.abort_if_storage_attached_to_protected_vms ~__context ~self
-        )
+      )
       unplugged_pbds ;
     let pifs = Db.Host.get_PIFs ~__context ~self in
     let unplugged_pifs =
@@ -85,7 +85,7 @@ let assert_safe_to_reenable ~__context ~self =
     List.iter
       (fun self ->
         Xapi_pif.abort_if_network_attached_to_protected_vms ~__context ~self
-        )
+      )
       unplugged_pifs
   )
 
@@ -181,7 +181,7 @@ let assert_bacon_mode ~__context ~host =
       (fun vm ->
         Db.VM.get_resident_on ~__context ~self:vm = host
         && Db.VM.get_is_control_domain ~__context ~self:vm
-        )
+      )
       (Db.VM.get_all ~__context)
     |> List.map (fun self -> Db.VM.get_VBDs ~__context ~self)
     |> List.flatten
@@ -207,7 +207,7 @@ let signal_cdrom_event ~__context params =
     List.iter
       (fun vdi ->
         if Db.VDI.get_location ~__context ~self:vdi = name then ret := Some vdi
-        )
+      )
       vdis ;
     !ret
   in
@@ -217,7 +217,7 @@ let signal_cdrom_event ~__context params =
         (fun sr ->
           let ty = Db.SR.get_type ~__context ~self:sr in
           ty = "local" || ty = "udev"
-          )
+        )
         (Db.SR.get_all ~__context)
     in
     List.fold_left
@@ -286,7 +286,7 @@ let compute_evacuation_plan_no_wlb ~__context ~host =
         Helpers.host_versions_not_decreasing ~__context
           ~host_from:(Helpers.LocalObject host)
           ~host_to:(Helpers.LocalObject target)
-        )
+      )
       target_hosts
   in
   debug "evacuation target hosts are [%s]"
@@ -306,7 +306,7 @@ let compute_evacuation_plan_no_wlb ~__context ~host =
       (fun (vm, _) ->
         Hashtbl.replace plans vm
           (Error (Api_errors.no_hosts_available, [Ref.string_of vm]))
-        )
+      )
       all_user_vms ;
     plans
   ) else
@@ -320,7 +320,7 @@ let compute_evacuation_plan_no_wlb ~__context ~host =
           (fun (vm, record) ->
             Helpers.vm_should_always_run record.API.vM_ha_always_run
               record.API.vM_ha_restart_priority
-            )
+          )
           all_user_vms
       else
         (all_user_vms, [])
@@ -329,7 +329,7 @@ let compute_evacuation_plan_no_wlb ~__context ~host =
       (fun (vm, _) ->
         Hashtbl.replace plans vm
           (Error (Api_errors.host_not_enough_free_memory, [Ref.string_of vm]))
-        )
+      )
       unprotected_vms ;
     let migratable_vms, unmigratable_vms =
       List.partition
@@ -340,13 +340,13 @@ let compute_evacuation_plan_no_wlb ~__context ~host =
                 Xapi_vm_helpers.assert_can_boot_here ~__context ~self:vm ~host
                   ~snapshot:record ~do_memory_check:false ~do_cpuid_check:true
                   ()
-                )
+              )
               target_hosts ;
             true
           with Api_errors.Server_error (code, params) ->
             Hashtbl.replace plans vm (Error (code, params)) ;
             false
-          )
+        )
         protected_vms
     in
     (* Check for impediments before attempting to perform pool_migrate *)
@@ -360,7 +360,7 @@ let compute_evacuation_plan_no_wlb ~__context ~host =
             ()
         | Some (a, b) ->
             Hashtbl.replace plans vm (Error (a, b))
-        )
+      )
       all_user_vms ;
     (* Compute the binpack which takes only memory size into account. We will check afterwards for storage
        			   and network availability. *)
@@ -379,7 +379,7 @@ let compute_evacuation_plan_no_wlb ~__context ~host =
       (fun vm ->
         Hashtbl.replace plans vm
           (Error (Api_errors.host_not_enough_free_memory, [Ref.string_of vm]))
-        )
+      )
       vms_missing ;
     (* Now for each VM we did place, verify storage and network visibility. *)
     List.iter
@@ -393,7 +393,7 @@ let compute_evacuation_plan_no_wlb ~__context ~host =
         ) ;
         if not (Hashtbl.mem plans vm) then
           Hashtbl.replace plans vm (Migrate host)
-        )
+      )
       plan ;
     plans
 
@@ -409,7 +409,7 @@ let assert_can_evacuate ~__context ~host =
             String.concat "," (code :: params) :: acc
         | _ ->
             acc
-        )
+      )
       plans []
   in
   if errors <> [] then
@@ -428,7 +428,7 @@ let get_vms_which_prevent_evacuation ~__context ~self =
           (vm, code :: params) :: acc
       | _ ->
           acc
-      )
+    )
     plans []
 
 let compute_evacuation_plan_wlb ~__context ~self =
@@ -487,7 +487,7 @@ let compute_evacuation_plan_wlb ~__context ~self =
                , ["WLB gave malformed details for VM evacuation."]
                )
             )
-      )
+    )
     vm_recoms ;
   Hashtbl.iter
     (fun v detail ->
@@ -503,14 +503,14 @@ let compute_evacuation_plan_wlb ~__context ~self =
             (Db.VM.get_name_label ~__context ~self:v)
             (string_of_per_vm_plan p) ;
           Hashtbl.replace recs v detail
-      )
+    )
     error_vms ;
   let resident_vms =
     List.filter
       (fun v ->
         (not (Db.VM.get_is_control_domain ~__context ~self:v))
         && not (Db.VM.get_is_a_template ~__context ~self:v)
-        )
+      )
       (Db.Host.get_resident_VMs ~__context ~self)
   in
   List.iter
@@ -519,14 +519,14 @@ let compute_evacuation_plan_wlb ~__context ~self =
         (* Anything for which we don't have a recommendation from WLB, but which is agile, we treat as "not enough memory" *)
         Hashtbl.replace recs vm
           (Error (Api_errors.host_not_enough_free_memory, [Ref.string_of vm]))
-      )
+    )
     resident_vms ;
   Hashtbl.iter
     (fun vm detail ->
       debug "compute_evacuation_plan_wlb: Key: %s Value %s"
         (Db.VM.get_name_label ~__context ~self:vm)
         (string_of_per_vm_plan detail)
-      )
+    )
     recs ;
   recs
 
@@ -538,7 +538,7 @@ let compute_evacuation_plan ~__context ~host =
     List.exists
       (fun (k, v) ->
         k = "wlb_choose_host_disable" && String.lowercase_ascii v = "true"
-        )
+      )
       oc
     || not (Workload_balancing.check_wlb_enabled ~__context)
   then (
@@ -590,7 +590,7 @@ let evacuate ~__context ~host ~network =
           raise (Api_errors.Server_error (code, params))
       | _ ->
           ()
-      )
+    )
     plans ;
   (* Do it *)
   let individual_progress = 1.0 /. float (Hashtbl.length plans) in
@@ -606,7 +606,7 @@ let evacuate ~__context ~host ~network =
                     @@ Xapi_network_attach_helpers
                        .assert_valid_ip_configuration_on_network_for_host
                          ~__context ~self:network ~host
-                    )
+                  )
                   hosts
             ) ;
             let with_network_option =
@@ -666,7 +666,7 @@ let retrieve_wlb_evacuate_recommendations ~__context ~self =
             ["WLB"; Db.Host.get_uuid ~__context ~self:h]
       in
       (vm, plan) :: acc
-      )
+    )
     plans []
 
 let restart_agent ~__context ~host =
@@ -778,7 +778,7 @@ let shutdown_and_reboot_common ~__context ~host label description operation cmd
            (fun () ->
              Thread.delay 10. ;
              ignore (Sys.command cmd)
-             )
+           )
            ()
         )
   )
@@ -1933,7 +1933,7 @@ let apply_edition_internal ~__context ~host ~edition ~additional =
   in
   (* Construct the RPC params to be sent to v6d *)
   let params =
-    ("current_edition", current_edition) :: license_server
+    (("current_edition", current_edition) :: license_server)
     @ current_license_params
     @ additional
   in
@@ -2023,12 +2023,12 @@ let license_add ~__context ~host ~contents =
       ) ;
       apply_edition_internal ~__context ~host ~edition:""
         ~additional:[("license_file", tmp)]
-      )
+    )
     (fun () ->
       (* The license will have been moved to a standard location if it was valid, and
          			 * should be removed otherwise -> always remove the file at the tmp path, if any. *)
       Unixext.unlink_safe tmp
-      )
+    )
 
 let license_remove ~__context ~host =
   apply_edition_internal ~__context ~host ~edition:""
@@ -2070,21 +2070,21 @@ let reset_networking ~__context ~host =
     (fun bond ->
       debug "destroying bond %s" (Db.Bond.get_uuid ~__context ~self:bond) ;
       Db.Bond.destroy ~__context ~self:bond
-      )
+    )
     bonds ;
   let vlans = List.filter vlan_is_local (Db.VLAN.get_all ~__context) in
   List.iter
     (fun vlan ->
       debug "destroying VLAN %s" (Db.VLAN.get_uuid ~__context ~self:vlan) ;
       Db.VLAN.destroy ~__context ~self:vlan
-      )
+    )
     vlans ;
   let tunnels = List.filter tunnel_is_local (Db.Tunnel.get_all ~__context) in
   List.iter
     (fun tunnel ->
       debug "destroying tunnel %s" (Db.Tunnel.get_uuid ~__context ~self:tunnel) ;
       Db.Tunnel.destroy ~__context ~self:tunnel
-      )
+    )
     tunnels ;
   List.iter
     (fun self ->
@@ -2097,7 +2097,7 @@ let reset_networking ~__context ~host =
           Db.PIF_metrics.destroy ~__context ~self:metrics
       ) ;
       Db.PIF.destroy ~__context ~self
-      )
+    )
     local_pifs ;
   let netw_sriov_is_local self =
     List.mem (Db.Network_sriov.get_physical_PIF ~__context ~self) local_pifs
@@ -2110,7 +2110,7 @@ let reset_networking ~__context ~host =
       let uuid = Db.Network_sriov.get_uuid ~__context ~self in
       debug "destroying network_sriov %s" uuid ;
       Db.Network_sriov.destroy ~__context ~self
-      )
+    )
     netw_sriovs
 
 (* Local storage caching *)
@@ -2219,7 +2219,7 @@ let sync_vlans ~__context ~host =
           && slave_pif_record.API.pIF_VLAN = master_pif_rec.API.pIF_VLAN
           && get_network_of_pif_underneath_vlan slave_pif_record
              = network_of_pif_underneath_vlan_on_master
-          )
+        )
         slave_vlan_pifs
     in
     (* if I don't have any such pif(s) then make one: *)
@@ -2306,7 +2306,7 @@ let sync_tunnels ~__context ~host =
           (* Is the slave's tunnel access PIF that we're considering (slave_pif_ref)
            * the one that corresponds to the master's tunnel access PIF we're considering (master_pif_ref)? *)
           slave_pif_record.API.pIF_network = master_pif_rec.API.pIF_network
-          )
+        )
         slave_tunnel_pifs
     in
     (* If the slave doesn't have any such PIF then make one: *)
@@ -2377,7 +2377,7 @@ let sync_pif_currently_attached ~__context ~host ~bridges =
             None
         in
         (pif, bridge)
-        )
+      )
       pifs
   in
   (* Perform the database resynchronisation *)
@@ -2393,7 +2393,7 @@ let sync_pif_currently_attached ~__context ~host ~bridges =
         debug "PIF %s currently_attached <- %b" (Ref.string_of pif)
           currently_attached
       )
-      )
+    )
     pifs
 
 let migrate_receive ~__context ~host ~network ~options =

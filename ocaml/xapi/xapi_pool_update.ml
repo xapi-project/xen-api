@@ -168,7 +168,7 @@ let detach_helper ~__context ~uuid ~vdi =
             (fun self ->
               Client.VBD.unplug ~rpc ~session_id ~self ;
               Client.VBD.destroy ~rpc ~session_id ~self
-              )
+            )
             vbds
       ) ;
       if try Sys.is_directory mount_point_parent_dir with _ -> false then (
@@ -181,7 +181,7 @@ let detach_helper ~__context ~uuid ~vdi =
             in
             debug "pool_update.detach_helper Mountpoint removed (output=%s)"
               output
-            )
+          )
           () ;
         Helpers.log_exn_continue
           ("pool_update.detach_helper: rmdir " ^ mount_point_parent_dir)
@@ -194,7 +194,7 @@ let detach_helper ~__context ~uuid ~vdi =
               "pool_update.detach_helper Mountpoint parent dir removed \
                (output=%s)"
               output
-            )
+          )
           ()
       )
   )
@@ -448,7 +448,7 @@ let extract_update_info ~__context ~vdi ~verify =
       let update_info = parse_update_info xml in
       ignore (verify update_info update_path) ;
       update_info
-      )
+    )
     (fun () -> detach_helper ~__context ~uuid:vdi_uuid ~vdi)
 
 let get_free_bytes path =
@@ -498,7 +498,7 @@ let verify update_info update_path =
           (Api_errors.Server_error
              (Api_errors.invalid_update, ["Invalid signature"])
           )
-      )
+    )
     [update_xml_path; repomd_xml_path] ;
   debug "Verify signature OK for pool update uuid: %s by key: %s"
     update_info.uuid
@@ -605,7 +605,7 @@ let pool_apply ~__context ~self =
             debug "Caught exception while pool_apply %s: %s" host_str
               (ExnHelper.string_of_exn e) ;
             host_str :: acc
-          )
+        )
         unapplied_hosts []
     in
     if List.length failed_hosts > 0 then
@@ -690,13 +690,13 @@ let resync_host ~__context ~host =
               "pool_update.resync_host: update %s not in database - creating it"
               update_uuid ;
             create_update_record ~__context ~update ~update_info ~vdi:Ref.null
-        )
+      )
       update_uuids ;
     let update_refs =
       List.map
         (fun update_uuid ->
           Db.Pool_update.get_by_uuid ~__context ~uuid:update_uuid
-          )
+        )
         update_uuids
     in
     Db.Host.set_updates ~__context ~self:host ~value:update_refs ;
@@ -716,7 +716,7 @@ let resync_host ~__context ~host =
          * delete it there. CA-260352 *)
         Db.Pool_patch.remove_from_other_config ~__context ~self:pool_patch_ref
           ~key:"enforce_homogeneity"
-        )
+      )
       update_refs ;
     Create_misc.create_updates_requiring_reboot_info ~__context ~host ;
     Create_misc.create_software_version ~__context ()

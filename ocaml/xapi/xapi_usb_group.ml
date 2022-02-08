@@ -47,6 +47,6 @@ let destroy ~__context ~self =
         (Printf.sprintf "destroying VUSB: %s" (Ref.string_of vusb))
         (fun vusb -> Db.VUSB.destroy ~__context ~self:vusb)
         vusb
-      )
+    )
     vusbs ;
   Db.USB_group.destroy ~__context ~self

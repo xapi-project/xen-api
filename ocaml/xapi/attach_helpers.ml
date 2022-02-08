@@ -109,11 +109,11 @@ let with_vbds rpc session_id __context vm vdis mode f =
             vbd_uuid uuid ;
           vbds := vbd :: !vbds ;
           Client.VBD.plug rpc session_id vbd
-          )
+        )
         vdis ;
       vbds := List.rev !vbds ;
       f !vbds
-      )
+    )
     (fun () ->
       (* Use a new session here to cover the case where the session has become invalid *)
       Helpers.call_api_functions ~__context (fun rpc session_id ->
@@ -130,4 +130,4 @@ let with_vbds rpc session_id __context vm vdis mode f =
             )
             !vbds
       )
-      )
+    )

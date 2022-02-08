@@ -184,7 +184,7 @@ let call_extauth_hook_script_in_pool ~__context event_name =
             (* we should not re-raise the exception here, since we want to go through as many hosts as possible *)
             let msg = ExnHelper.string_of_exn e in
             (host, Hook_Script_Failure msg)
-          )
+        )
         hosts
     in
     host_msgs

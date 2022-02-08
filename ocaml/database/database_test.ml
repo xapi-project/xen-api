@@ -279,7 +279,7 @@ functor
                         (fun k _ v acc ->
                           Printf.sprintf "%s %s=%s" acc k
                             (Schema.Value.marshal v)
-                          )
+                        )
                         row ""
                     in
                     s
@@ -288,9 +288,9 @@ functor
                 Printf.printf "%s(%s): (%Ld %Ld %Ld) %s\n" name r created
                   modified deleted s ;
                 ()
-                )
+              )
               table ()
-            )
+          )
           tables ()
       in
       let get_created db g =
@@ -300,9 +300,9 @@ functor
             Db_cache_types.Table.fold_over_recent g
               (fun r {Db_cache_types.Stat.created; _} _ acc ->
                 if created >= g then (name, r) :: acc else acc
-                )
+              )
               table acc
-            )
+          )
           tables []
       in
       let get_updated db g =
@@ -315,9 +315,9 @@ functor
                 Db_cache_types.Row.fold_over_recent g
                   (fun k _ v acc -> (r, (k, v)) :: acc)
                   row acc
-                )
+              )
               table acc
-            )
+          )
           tables []
       in
       let get_deleted db g =
@@ -327,9 +327,9 @@ functor
             Db_cache_types.Table.fold_over_deleted g
               (fun r {Db_cache_types.Stat.deleted; _} acc ->
                 if deleted > g then r :: acc else acc
-                )
+              )
               table acc
-            )
+          )
           tables []
       in
       let get_max db =
@@ -337,7 +337,7 @@ functor
         Db_cache_types.TableSet.fold_over_recent (-1L)
           (fun _ {Db_cache_types.Stat.created; modified; deleted} _ largest ->
             max created (max modified (max deleted largest))
-            )
+          )
           tables (-1L)
       in
       let db = Db_ref.get_database t in

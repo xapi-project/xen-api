@@ -77,7 +77,7 @@ let read_array dev n =
         raise End_of_file
       else
         Array.init n (fun i -> Char.code (Bytes.get buf i))
-      )
+    )
     (fun () -> Unix.close fd)
 
 let uuid_of_int_array uuid =

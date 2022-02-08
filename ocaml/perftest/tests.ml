@@ -53,7 +53,7 @@ let startall rpc session_id test =
         List.sort
           (fun (vm1, vmr1) (vm2, vmr2) ->
             compare vmr1.API.vM_affinity vmr2.API.vM_affinity
-            )
+          )
           vms
       in
       let vms_names_uuids =
@@ -70,7 +70,7 @@ let startall rpc session_id test =
             in
             debug "Elapsed time: %f" result ;
             result
-            )
+          )
           vms_names_uuids
       in
       {
@@ -79,7 +79,7 @@ let startall rpc session_id test =
       ; xenrtresult= List.fold_left ( +. ) 0.0 times
       ; rawresult= StartTest times
       }
-      )
+    )
     tags
 
 let parallel_with_vms async_op opname n vms rpc session_id test subtest_name =
@@ -127,7 +127,7 @@ let parallel_with_vms async_op opname n vms rpc session_id test subtest_name =
                 Condition.signal c ;
                 to_delete := task :: !to_delete
               )
-              )
+            )
             finished ;
           !active_tasks = [] (* true if no active tasks left *)
       )
@@ -152,7 +152,7 @@ let parallel_with_vms async_op opname n vms rpc session_id test subtest_name =
               List.filter
                 (fun task ->
                   Client.Task.get_status ~rpc ~session_id ~self:task <> `pending
-                  )
+                )
                 (Mutex.execute m (fun () -> !active_tasks))
             in
             finished := process_finished_tasks finished_tasks ;
@@ -191,7 +191,7 @@ let parallel_with_vms async_op opname n vms rpc session_id test subtest_name =
             debug ~out:stderr "Caught EVENTS_LOST; reregistering" ;
             Client.Event.unregister ~rpc ~session_id ~classes
         done
-        )
+      )
       (fun () -> Client.Event.unregister ~rpc ~session_id ~classes)
   in
   let control_task =
@@ -243,7 +243,7 @@ let parallel async_op opname n rpc session_id test =
       Printf.printf "%sing %d VMs with tag: %s\n%!" opname (List.length vms) tag ;
       parallel_with_vms async_op opname n vms rpc session_id test
         (subtest_string test.key tag)
-      )
+    )
     tags
 
 let parallel_startall =
@@ -265,7 +265,7 @@ let stopall rpc session_id test =
         List.sort
           (fun (vm1, vmr1) (vm2, vmr2) ->
             compare vmr1.API.vM_affinity vmr2.API.vM_affinity
-            )
+          )
           vms
       in
       let vms_names_uuids =
@@ -282,7 +282,7 @@ let stopall rpc session_id test =
             in
             debug "Elapsed time: %f" result ;
             result
-            )
+          )
           vms_names_uuids
       in
       {
@@ -291,7 +291,7 @@ let stopall rpc session_id test =
       ; xenrtresult= List.fold_left ( +. ) 0.0 times
       ; rawresult= ShutdownTest times
       }
-      )
+    )
     tags
 
 let clone num_clones rpc session_id test =
@@ -333,7 +333,7 @@ let clone num_clones rpc session_id test =
                let clones : API.ref_VM list ref = ref [] in
                let t = Thread.create body (vm, vmr, res, clones) in
                (t, (res, clones))
-               )
+             )
              vms
          in
          let threads, times_and_clones = List.split threads_and_results in
@@ -351,7 +351,7 @@ let clone num_clones rpc session_id test =
                      (String.concat ", "
                         (List.map (fun x -> Printf.sprintf "%f" x) x)
                      )
-                   )
+                 )
                  times
               )
            ) ;
@@ -366,7 +366,7 @@ let clone num_clones rpc session_id test =
                ; xenrtresult= List.fold_left ( +. ) 0.0 (List.flatten times)
                ; rawresult= CloneTest x
                }
-               )
+             )
              times
          in
          (* Best-effort clean-up *)
@@ -392,14 +392,14 @@ let clone num_clones rpc session_id test =
                            List.iter
                              (fun vdi ->
                                Client.VDI.destroy ~rpc ~session_id ~self:vdi
-                               )
+                             )
                              vdis ;
                            Client.VM.destroy ~rpc ~session_id ~self:clone
-                           )
+                         )
                          clones
-                       )
+                     )
                      clones
-                   )
+                 )
                  clones
              in
              Printf.printf "Waiting for clean-up threads to finish...\n%!" ;
@@ -408,7 +408,7 @@ let clone num_clones rpc session_id test =
          ) ;
          (* Finally, return the results *)
          results
-         )
+       )
        tags
     )
 
@@ -461,7 +461,7 @@ let runone rpc session_id test =
        (List.map
           (fun result ->
             Printf.sprintf "subtest '%s': %f" result.subtest result.xenrtresult
-            )
+          )
           results
        )
     ) ;

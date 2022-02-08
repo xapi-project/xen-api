@@ -69,7 +69,7 @@ let http_proxy src_ip src_port transport =
         Option.iter
           (fun request -> with_transport transport (one request fromfd))
           request
-        )
+      )
       (fun () -> Unix.close fromfd)
   in
   try

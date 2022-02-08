@@ -159,7 +159,7 @@ let err =
         let exn = Xenopsd_error e in
         error "%s (%s)" (Printexc.to_string exn) __LOC__ ;
         raise exn
-        )
+      )
   ; matcher=
       (function
       | Xenopsd_error e as exn ->

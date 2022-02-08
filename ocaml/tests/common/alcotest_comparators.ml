@@ -59,4 +59,4 @@ let vdi_operations_set : API.vdi_operations_set Alcotest.testable =
       List.length (intersect o1 o2) = List.length o1
       && List.length (set_difference o1 o2) = 0
       && List.length (set_difference o2 o1) = 0
-      )
+    )

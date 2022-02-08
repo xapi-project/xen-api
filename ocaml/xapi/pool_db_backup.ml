@@ -86,7 +86,7 @@ let prepare_database_for_restore ~old_context ~new_context =
           (Db.Host.get_PIFs ~__context:new_context ~self) ;
         Db.Host.destroy ~__context:new_context ~self
       )
-      )
+    )
     (Db.Host.get_all ~__context:new_context) ;
   (* Set the master's uuid to ours *)
   let my_installation_uuid =
@@ -174,7 +174,7 @@ let prepare_database_for_restore ~old_context ~new_context =
       debug "Rewriting PIF uuid %s device %s management %b MAC %s" uuid device
         is_mgmt
         (Db.PIF.get_MAC ~__context:new_context ~self)
-      )
+    )
     (Db.Host.get_PIFs ~__context:new_context ~self:master) ;
   (* Check that management interface was synced up *)
   if (not !found_mgmt_if) && mgmt_dev <> None then
@@ -304,7 +304,7 @@ let fetch_database_backup ~master_address ~pool_secret ~force =
             Slave_backup.notify_write dbconn
             (* update writes_this_period for this connection *)
         )
-        )
+      )
       connections
   else
     debug
@@ -356,5 +356,5 @@ let pool_db_backup_thread () =
                 (ExnHelper.string_of_exn e)
           done
       )
-      )
+    )
     ()

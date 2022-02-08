@@ -30,7 +30,7 @@ let read_payloads deliveries protocol sock =
           assert_payloads_equal payload received_payload ;
           Printf.printf "\r%d%!" (index + 1) ;
           reader
-          )
+        )
         deliveries
     in
     print_newline () ;
@@ -46,7 +46,7 @@ let read_payloads deliveries protocol sock =
       (fun delivery ->
         try Unix.unlink delivery.shared_file
         with Unix.Unix_error (Unix.ENOENT, _, _) -> ()
-        )
+      )
       deliveries ;
     raise e
 
@@ -62,7 +62,7 @@ let write_payloads deliveries protocol sock =
         writer.write_payload payload ;
         Printf.printf "\r%d%!" (index + 1) ;
         writer
-        )
+      )
       deliveries
   in
   print_newline () ;
@@ -85,7 +85,7 @@ let run_tests shared_file_count protocol =
           shared_file= make_shared_file ()
         ; payload= make_random_payload timestamp (Random.int 4)
         }
-        )
+      )
       shared_file_count
   in
   let reader_sock, writer_sock = Unix.(socketpair PF_UNIX SOCK_STREAM 0) in

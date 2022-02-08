@@ -138,7 +138,7 @@ let attach_internal ?(management_interface = false) ?(force_bringup = false)
             "PIF %s is needed by a VM, but not managed by xapi. The bridge \
              must be configured through other means."
             uuid
-        )
+      )
       local_pifs
   )
 
@@ -154,7 +154,7 @@ let detach ~__context net =
           bridge_name ;
         Net.Interface.bring_down dbg iface ;
         Net.Bridge.remove_port dbg bridge_name iface
-        )
+      )
       (Net.Bridge.get_interfaces dbg bridge_name) ;
     Net.Bridge.destroy dbg false bridge_name
   )
@@ -281,7 +281,7 @@ let destroy ~__context ~self =
       (fun self ->
         Db.VIF.get_currently_attached ~__context ~self
         || Db.VIF.get_reserved ~__context ~self
-        )
+      )
       vifs
   in
   if connected <> [] then
@@ -316,7 +316,7 @@ let destroy ~__context ~self =
         (Printf.sprintf "destroying VIF: %s" (Ref.string_of vif))
         (fun vif -> Db.VIF.destroy ~__context ~self:vif)
         vif
-      )
+    )
     vifs ;
   Db.Network.destroy ~__context ~self
 

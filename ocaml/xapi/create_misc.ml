@@ -70,7 +70,7 @@ let make_xen_livepatch_list () =
             key :: acc
         | _ ->
             acc
-        )
+      )
       [] lines
   in
   if List.length patches > 0 then Some (String.concat ", " patches) else None
@@ -822,7 +822,7 @@ let create_updates_requiring_reboot_info ~__context ~host =
         with _ ->
           warn "Invalid Pool_update UUID [%s]" uuid ;
           acc
-        )
+      )
       [] update_uuids
   in
   Db.Host.set_updates_requiring_reboot ~__context ~self:host ~value:updates

@@ -300,7 +300,7 @@ functor
         (fun s ->
           if not (is_disabled Brand.name level) then
             output_log Brand.name level priority s
-          )
+        )
         fmt
 
     let debug fmt = output Syslog.Debug "debug" fmt
@@ -319,7 +319,7 @@ functor
           let msg = if raw then s else format true Brand.name "audit" s in
           Syslog.log Syslog.Local6 Syslog.Info (escape msg) ;
           msg
-          )
+        )
         fmt
 
     let log_backtrace () =

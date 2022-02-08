@@ -76,7 +76,7 @@ let update_vdi_to_vm_map () =
            (List.map
               (fun (domid, uuid) ->
                 Printf.sprintf "%d (%s)" domid (String.sub uuid 0 8)
-                )
+              )
               domUs
            )
         ) ;
@@ -100,14 +100,14 @@ let update_vdi_to_vm_map () =
                             D.warn "Got non-integer vbd %s in domain %d" vbd
                               domid ;
                             None
-                          )
+                        )
                         (xs.Xs.directory path)
                     with Xs_protocol.Enoent _ ->
                       D.debug "Got ENOENT when listing VBDs in %s for domain %d"
                         base_path domid ;
                       incr enoents ;
                       []
-                    )
+                  )
                   base_paths
                 |> List.flatten
               in
@@ -133,9 +133,9 @@ let update_vdi_to_vm_map () =
                        (might be empty)"
                       vbd domid ;
                     None
-                  )
+                )
                 vbds
-              )
+            )
             domUs
           |> List.flatten
       )
@@ -196,7 +196,7 @@ module Iostat = struct
         else
           let values = Hashtbl.find dev_values_map dev in
           Some (dev, values)
-        )
+      )
       devs
 end
 
@@ -274,7 +274,7 @@ module Stat = struct
       (fun dev ->
         let values = get_unsafe_dev dev in
         (dev, values)
-        )
+      )
       devs
 end
 
@@ -396,7 +396,7 @@ let exec_tap_ctl () =
            List.for_all
              (fun (_, (_, (_, prev_vdi))) -> new_vdi <> prev_vdi)
              !previous_map
-           )
+         )
          unmapped_vdi_pids
      in
 
@@ -432,7 +432,7 @@ let exec_tap_ctl () =
            pid vdi ;
          remove_vdi_from_map vdi
        with Not_found -> D.debug "no knowledge about pid %d; ignoring" pid
-       )
+     )
      disappeared_pids ;
 
    match reason_for_updating_vdi_to_vm_map with
@@ -458,7 +458,7 @@ let get_tdXs vdi_info_list =
     List.fold_left
       (fun acc entry ->
         if entry.[0] = 't' && entry.[1] = 'd' then entry :: acc else acc
-        )
+      )
       []
       (Utils.list_directory_unsafe "/sys/block")
   in
@@ -466,7 +466,7 @@ let get_tdXs vdi_info_list =
     (fun tdx ->
       let minor = minor_of_tdX_unsafe tdx in
       List.mem_assoc minor vdi_info_list
-      )
+    )
     tdXs
 
 let get_sr_vdi_to_stats_fun ~f () =
@@ -477,7 +477,7 @@ let get_sr_vdi_to_stats_fun ~f () =
     (fun (tdX, data) ->
       let minor = minor_of_tdX_unsafe tdX in
       (List.assoc minor minor_to_sr_and_vdi, data)
-      )
+    )
     tdX_to_iostat_data
 
 let get_sr_vdi_to_stats = get_sr_vdi_to_stats_fun ~f:Stat.get_unsafe
@@ -542,7 +542,7 @@ module Blktap3_stats_wrapper = struct
               | None ->
                   acc
             )
-            )
+          )
           cache []
     )
 
@@ -592,7 +592,7 @@ module Blktap3_stats_wrapper = struct
                   add_file p
               | _, _, _ ->
                   ()
-              )
+            )
             evs ;
           Ok ()
         with e ->
@@ -766,7 +766,7 @@ module Stats_value = struct
         ; iowait= acc.iowait +. v.iowait
         ; inflight= acc.inflight ++ v.inflight
         }
-        )
+      )
       empty values
 
   let make_ds ~owner ~name ~key_format (value : t) =
@@ -1003,7 +1003,7 @@ let gen_metrics () =
         , Iostats_value.make iostats last_iostats stats_blktap3
             last_stats_blktap3
         )
-        )
+      )
       sr_vdi_to_iostats
   in
   let sr_vdi_to_stats_values =
@@ -1023,7 +1023,7 @@ let gen_metrics () =
         ( sr_vdi
         , Stats_value.make stats last_stats stats_blktap3 last_stats_blktap3
         )
-        )
+      )
       sr_vdi_to_stats
   in
 
@@ -1051,7 +1051,7 @@ let gen_metrics () =
         let key_format key = Printf.sprintf "%s_%s" key (String.sub sr 0 8) in
         Iostats_value.make_ds ~owner:Rrd.Host ~name:"SR" ~key_format
           iostats_value
-        )
+      )
       sr_to_iostats_values
   in
   let data_sources_stats =
@@ -1059,7 +1059,7 @@ let gen_metrics () =
       (fun (sr, stats_value) ->
         let key_format key = Printf.sprintf "%s_%s" key (String.sub sr 0 8) in
         Stats_value.make_ds ~owner:Rrd.Host ~name:"SR" ~key_format stats_value
-        )
+      )
       sr_to_stats_values
   in
 
@@ -1077,7 +1077,7 @@ let gen_metrics () =
             acc ++ 1L
           else
             acc
-          )
+        )
         0L domid_devid_to_stats_blktap3
     in
     let ds_make = Ds.ds_make ~default:true in
@@ -1104,7 +1104,7 @@ let gen_metrics () =
            in
            let vms = list_all_assocs vdi vdi_to_vm in
            List.map create_metrics vms
-           )
+         )
          sr_vdi_to_iostats_values
       )
   in
@@ -1119,7 +1119,7 @@ let gen_metrics () =
            in
            let vms = list_all_assocs vdi vdi_to_vm in
            List.map create_metrics vms
-           )
+         )
          sr_vdi_to_stats_values
       )
   in

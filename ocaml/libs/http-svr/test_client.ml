@@ -9,7 +9,6 @@ let user_agent = "test_client"
    2. test with n parallel threads
    3. make sure xapi still works
    4. make xapi able to read stats
-
 *)
 
 let with_connection ip port f =

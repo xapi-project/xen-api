@@ -82,7 +82,7 @@ let create ~__context ~transport_PIF ~network ~protocol =
           )
       then
         raise (Api_errors.Server_error (Api_errors.openvswitch_not_active, []))
-      )
+    )
     hosts ;
   let tunnel, access_PIF =
     create_internal ~__context ~transport_PIF ~network ~host ~protocol

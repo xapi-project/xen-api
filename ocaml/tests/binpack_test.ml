@@ -82,12 +82,12 @@ let prove_plan_is_possible_via_counterexample_search
                   else
                     let host = choose_one remaining in
                     (List.filter (fun x -> x <> host) remaining, host :: sofar)
-                  )
+                )
                 (List.map fst config.hosts, [])
                 (mkints num_failures)
             in
             dead
-            )
+          )
           (mkints (Int64.to_int limit))
       , false
       )
@@ -115,7 +115,7 @@ let prove_plan_is_possible_via_counterexample_search
        Printf.printf "  Plan = [ %s ]\n" (String.concat "; " (List.map (fun (a, b) -> Printf.sprintf "%d -> %d" a b) plan));
 *)
       check_plan config dead_hosts plan
-      )
+    )
     combinations_to_try ;
   (* If search was exhaustive then we are sure. Otherwise it's "maybe" *)
   exhaustive
@@ -169,7 +169,7 @@ let try_impossible_cases () =
              or not\n"
       with BadPlan ->
         Printf.printf "Found a counterexample: no plan is possible\n"
-      )
+    )
     all_heuristics
 
 (* Positive test -- make sure the planner succeeds in easy cases *)

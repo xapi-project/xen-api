@@ -128,7 +128,7 @@ let dd_internal progress_cb base prezeroed infile outfile size =
                   with e ->
                     Unix.kill (Forkhelpers.getpid pid) Sys.sigterm ;
                     raise e
-                  )
+                )
                 () pipe_read ;
               let r = Forkhelpers.waitpid pid in
               State.remove intpid ;
@@ -158,7 +158,7 @@ let dd_internal progress_cb base prezeroed infile outfile size =
       with e ->
         progress_cb (Finished (Some e)) ;
         raise e
-      )
+    )
     (fun () -> close pipe_read ; close pipe_write)
 
 let dd ?(progress_cb = fun _ -> ()) ?base prezeroed =
@@ -188,7 +188,7 @@ let start ?(progress_cb = fun _ -> ()) ?base prezeroed infile outfile size =
     Thread.create
       (fun () ->
         dd_internal thread_progress_cb base prezeroed infile outfile size
-        )
+      )
       ()
   in
   Mutex.execute m (fun () ->
@@ -235,8 +235,8 @@ let killall () =
               Unix.kill pid Sys.sigkill
             else
               ()
-            )
+          )
           (fun () -> State.remove pid)
       with _ -> ()
-      )
+    )
     pids

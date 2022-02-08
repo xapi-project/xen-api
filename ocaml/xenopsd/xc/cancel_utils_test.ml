@@ -27,7 +27,7 @@ let xenstore_test xs _ =
       (fun () ->
         Thread.delay 1. ;
         Xenops_task.with_cancel task (fun () -> ()) (fun () -> ())
-        )
+      )
       ()
   in
   try

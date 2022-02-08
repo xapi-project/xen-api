@@ -61,7 +61,7 @@ module CreateToolsSR = Generic.MakeStateful (struct
           (Test_common.make_sr ~__context ~name_label ~name_description
              ~other_config ~is_tools_sr ()
           )
-        )
+      )
       srs ;
     Dbsync_master.create_tools_sr __context name description sr_introduce
       maybe_create_pbd
@@ -77,7 +77,7 @@ module CreateToolsSR = Generic.MakeStateful (struct
           :: acc
         else
           acc
-        )
+      )
       [] (Db.SR.get_all ~__context)
 
   (* And other_config key/value pair we use to prove that and existing

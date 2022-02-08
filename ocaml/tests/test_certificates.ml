@@ -23,7 +23,7 @@ let pp_hash_test =
       , `Quick
       , test_hash
       )
-      )
+    )
     hashables
 
 let test = pp_hash_test

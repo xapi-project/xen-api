@@ -43,7 +43,7 @@ let get_pif_and_bond_changes () =
         in
         Hashtbl.add pifs_tmp pif.pif_name pif
       )
-      )
+    )
     stats ;
   (* Check if any of the PIFs have changed since our last reading. *)
   let pif_changes = get_updates_values ~before:pifs_cached ~after:pifs_tmp in
@@ -102,7 +102,7 @@ let pifs_update_fn () =
           with e ->
             issues := e :: !issues ;
             keeps := bond :: !keeps
-          )
+        )
         bond_changes ;
       set_bond_changes ~except:!keeps () ;
       ( try

@@ -108,7 +108,7 @@ let features_of_sr_internal ~__context ~_type =
         (fun (name, v) ->
           try Some (List.assoc name Smint.string_to_capability_table, v)
           with Not_found -> None
-          )
+        )
         sm.Db_actions.sM_features
 
 let features_of_sr ~__context record =
@@ -127,7 +127,7 @@ let valid_operations ~__context ?op record _ref' : table =
       (fun op ->
         if Hashtbl.find table op = None then
           Hashtbl.replace table op (Some (code, params))
-        )
+      )
       ops
   in
   if Helpers.rolling_upgrade_in_progress ~__context then
@@ -149,7 +149,7 @@ let valid_operations ~__context ?op record _ref' : table =
               Smint.(
                 List.mem (capability_of_feature f) [Vdi_create; Vdi_delete]
               )
-            )
+          )
           sm_features
       else
         sm_features
@@ -159,7 +159,7 @@ let valid_operations ~__context ?op record _ref' : table =
         (fun op ->
           List.mem_assoc op sm_cap_table
           && not (Smint.has_capability (List.assoc op sm_cap_table) sm_features)
-          )
+        )
         all_ops
     in
     set_errors Api_errors.sr_operation_not_supported [_ref] forbidden_by_backend
@@ -194,7 +194,7 @@ let valid_operations ~__context ?op record _ref' : table =
         (fun vdi_ref ->
           let vdi = Db.VDI.get_record ~__context ~self:vdi_ref in
           vdi.API.vDI_managed = true && vdi.API.vDI_type <> `rrd
-          )
+        )
         vdis
     then
       set_errors Api_errors.sr_not_empty [] [`destroy]
@@ -334,7 +334,7 @@ let sr_health_check ~__context ~self =
                   )
                 in
                 loop ()
-                )
+              )
               ()
           in
           ()

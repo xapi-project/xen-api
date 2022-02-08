@@ -21,6 +21,6 @@ let debug ?(out = stdout) (fmt : ('a, unit, string, unit) format4) =
         (fun s ->
           Printf.fprintf out "%s\n" s ;
           flush stdout
-          )
+        )
         fmt
   )

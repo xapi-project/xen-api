@@ -47,7 +47,7 @@ let create_host_metrics ~__context =
           ~last_updated:Xapi_stdext_date.Date.never ~other_config:[] ;
         Db.Host.set_metrics ~__context ~self ~value:r
       )
-      )
+    )
     (Db.Host.get_all ~__context)
 
 let update_env () =

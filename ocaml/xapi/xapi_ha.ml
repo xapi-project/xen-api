@@ -167,7 +167,7 @@ let on_master_failure () =
               uuid :: acc
             else
               acc
-            )
+          )
           liveset.Xha_interface.LiveSetInformation.hosts []
       with
       | [] ->
@@ -407,14 +407,14 @@ module Monitor = struct
                       (fun vdi ->
                         let open Rrd.Statefile_latency in
                         {id= vdi.Static_vdis.uuid; latency= Some statefile}
-                        )
+                      )
                       statefiles
                   in
                   log_and_ignore_exn (fun () ->
                       Rrdd.HA.enable_and_update statefile_latencies
                         heartbeat_latency xapi_latency
                   )
-                  )
+                )
                 liveset
                   .Xha_interface.LiveSetInformation.raw_status_on_local_host ;
               (* All hosts: create alerts from per-host warnings (if available) *)
@@ -440,7 +440,7 @@ module Monitor = struct
                     warning
                       .Xha_interface.LiveSetInformation.Warning
                        .network_bonding_error
-                  )
+                )
                 liveset.Xha_interface.LiveSetInformation.warning_on_local_host ;
               debug "Done with warnings" ;
               liveset
@@ -478,7 +478,7 @@ module Monitor = struct
                     uuid :: acc
                   else
                     acc
-                  )
+                )
                 liveset.Xha_interface.LiveSetInformation.hosts []
             in
             (* Master performs VM restart and keeps track of the recovery plan *)
@@ -511,7 +511,7 @@ module Monitor = struct
                   (fun uuid ->
                     Db.Host.get_by_uuid ~__context
                       ~uuid:(Uuid.string_of_uuid uuid)
-                    )
+                  )
                   liveset_uuids
               in
               if local_failover_decisions_are_ok () then (
@@ -570,9 +570,9 @@ module Monitor = struct
                           Xapi_host_helpers.update_allowed_operations ~__context
                             ~self:host
                         )
-                      )
+                    )
                     ()
-                  )
+                )
                 livemap ;
               (* Next update the Host.ha_statefiles and Host.ha_network_peers fields. For the network
                * peers we use whichever view is more recent: network or statefile *)
@@ -589,7 +589,7 @@ module Monitor = struct
                            (Db.Host.get_uuid ~__context ~self:host)
                         )
                     )
-                    )
+                  )
                   all_hosts
               in
               List.iter
@@ -605,7 +605,7 @@ module Monitor = struct
                   if current <> newval then
                     Db.Host.set_ha_statefiles ~__context ~self:host
                       ~value:(if newval then statefiles else [])
-                  )
+                )
                 host_host_table ;
               (* If all live hosts have lost statefile then we are running thanks to Survival Rule 2:
                * this should be flagged to the user, who should fix their storage. Note that if some
@@ -654,7 +654,7 @@ module Monitor = struct
                                (Db.Host.get_uuid ~__context ~self:host)
                             )
                         )
-                        )
+                      )
                       all_hosts
                   in
                   List.iter
@@ -686,7 +686,7 @@ module Monitor = struct
                       if not (set_equals peer_strings existing_strings) then
                         Db.Host.set_ha_network_peers ~__context ~self:host
                           ~value:peer_strings
-                      )
+                    )
                     host_raw_table
               ) ;
               let now = Unix.gettimeofday () in
@@ -740,7 +740,7 @@ module Monitor = struct
                         (fun uuid ->
                           Db.Host.get_enabled ~__context
                             ~self:(Db.Host.get_by_uuid ~__context ~uuid)
-                          )
+                        )
                         uuids
                     in
                     let enabled, disabled =
@@ -812,7 +812,7 @@ module Monitor = struct
                             (until -. now)
                         else
                           process_liveset_on_master liveset
-                        )
+                      )
                       (fun () ->
                         (* Safe to unblock callers of 'delay' now *)
                         Mutex.execute m (fun () ->
@@ -821,7 +821,7 @@ module Monitor = struct
                             block_delay_calls := false ;
                             Condition.broadcast block_delay_calls_c
                         )
-                        )
+                      )
                 )
               with e ->
                 log_backtrace () ;
@@ -837,7 +837,7 @@ module Monitor = struct
             log_and_ignore_exn Rrdd.HA.disable ;
             debug "HA background thread told to stop"
         )
-        )
+      )
       ()
 
   let prevent_restarts_for seconds =
@@ -1084,7 +1084,7 @@ let on_database_engine_ready () =
              disabled"
             uuid hostname ;
           Db.Host.set_enabled ~__context ~self ~value:false
-          )
+        )
         (Db.Host.get_all ~__context)
   ) ;
   Monitor.signal_database_state_valid ()
@@ -1171,7 +1171,7 @@ let ha_release_resources __context localhost =
       (fun () ->
         Static_vdis.permanent_vdi_deactivate_by_uuid ~__context ~uuid ;
         Static_vdis.permanent_vdi_detach_by_uuid ~__context ~uuid
-        )
+      )
       ()
   in
   List.iter deactivate_and_detach_vdi statefile_vdis ;
@@ -1224,7 +1224,7 @@ let attach_statefiles ~__context statevdis =
            Static_vdis.permanent_vdi_attach ~__context ~vdi
              ~reason:Xha_statefile.reason
            :: !paths
-         )
+       )
        statevdis
    with e ->
      error "Caught exception attaching statefile: %s" (ExnHelper.string_of_exn e) ;
@@ -1234,7 +1234,7 @@ let attach_statefiles ~__context statevdis =
            (Printf.sprintf "detaching statefile: %s" (Ref.string_of vdi))
            (fun () -> Static_vdis.permanent_vdi_detach ~__context ~vdi)
            ()
-         )
+       )
        statevdis ;
      raise
        (Api_errors.Server_error (Api_errors.vdi_not_available, [!cur_vdi_str]))
@@ -1327,7 +1327,7 @@ let preconfigure_host __context localhost statevdis metadata_vdi generation =
              )
           )
       )
-      )
+    )
     (metadata_vdi :: statevdis) ;
   (* Write name of cluster stack to the local DB. This determines which HA scripts we use. *)
   let pool = Helpers.get_pool ~__context in
@@ -1579,7 +1579,7 @@ let disable_internal __context =
                 (Db.Host.get_name_label ~__context ~self:host)
                 (Ref.string_of host) ;
               Client.Host.ha_wait_for_shutdown_via_statefile rpc session_id host
-              )
+            )
             hosts
         in
         (* Print all the errors that happened *)
@@ -1591,7 +1591,7 @@ let disable_internal __context =
               (Db.Host.get_name_label ~__context ~self:host)
               (Ref.string_of host)
               (ExnHelper.string_of_exn e)
-            )
+          )
           errors
     )
   in
@@ -1613,7 +1613,7 @@ let disable_internal __context =
                 (Db.Host.get_name_label ~__context ~self:host)
                 (Ref.string_of host) ;
               Client.Host.ha_disable_failover_decisions rpc session_id host
-              )
+            )
             hosts
         in
         List.iter
@@ -1622,7 +1622,7 @@ let disable_internal __context =
               (Db.Host.get_name_label ~__context ~self:host)
               (Ref.string_of host)
               (ExnHelper.string_of_exn e)
-            )
+          )
           errors ;
         if errors <> [] then raise (snd (List.hd errors)) ;
         (* From this point no host will attempt to become the new master so no split-brain.
@@ -1644,7 +1644,7 @@ let disable_internal __context =
                 (Db.Host.get_name_label ~__context ~self:host)
                 (Ref.string_of host) ;
               Client.Host.ha_disarm_fencing rpc session_id host
-              )
+            )
             hosts
         in
         List.iter
@@ -1656,7 +1656,7 @@ let disable_internal __context =
               (Db.Host.get_name_label ~__context ~self:host)
               (Ref.string_of host)
               (ExnHelper.string_of_exn e)
-            )
+          )
           errors ;
         let errors =
           thread_iter_all_exns
@@ -1665,7 +1665,7 @@ let disable_internal __context =
                 (Db.Host.get_name_label ~__context ~self:host)
                 (Ref.string_of host) ;
               Client.Host.ha_stop_daemon rpc session_id host
-              )
+            )
             hosts
         in
         List.iter
@@ -1676,7 +1676,7 @@ let disable_internal __context =
               (Db.Host.get_name_label ~__context ~self:host)
               (Ref.string_of host)
               (ExnHelper.string_of_exn e)
-            )
+          )
           errors
     )
   in
@@ -1713,7 +1713,7 @@ let disable_internal __context =
                 (Db.Host.get_name_label ~__context ~self:host)
                 (Ref.string_of host) ;
               Client.Host.ha_release_resources rpc session_id host
-              )
+            )
             hosts
         in
         List.iter
@@ -1722,7 +1722,7 @@ let disable_internal __context =
               (Db.Host.get_name_label ~__context ~self:host)
               (Ref.string_of host)
               (ExnHelper.string_of_exn e)
-            )
+          )
           errors
     ) ;
     (* Update the allowed operations on the statefile VDIs for tidiness *)
@@ -1776,14 +1776,14 @@ let enable __context heartbeat_srs configuration =
     List.filter
       (fun (_, pifr) ->
         not (Db.is_valid_ref __context pifr.API.pIF_bond_slave_of)
-        )
+      )
       pifs_with_ip_config
   in
   let without_disallow_unplug =
     List.filter
       (fun (_, pifr) ->
         not (pifr.API.pIF_disallow_unplug || pifr.API.pIF_management)
-        )
+      )
       not_bond_slaves
   in
   if List.length without_disallow_unplug > 0 then (
@@ -1791,7 +1791,7 @@ let enable __context heartbeat_srs configuration =
       List.map
         (fun (pif, pifr) ->
           (Db.Host.get_name_label ~__context ~self:pifr.API.pIF_host, pif, pifr)
-          )
+        )
         without_disallow_unplug
     in
     let bodylines =
@@ -1803,7 +1803,7 @@ let enable __context heartbeat_srs configuration =
           (fun (hostname, pif, pifr) ->
             Printf.sprintf "%s: %s (uuid: %s)" hostname pifr.API.pIF_device
               pifr.API.pIF_uuid
-            )
+          )
           pifinfo
     in
     warn
@@ -1832,7 +1832,7 @@ let enable __context heartbeat_srs configuration =
           (Api_errors.Server_error
              (Api_errors.host_offline, [Ref.string_of host])
           )
-      )
+    )
     (Db.Host.get_all ~__context) ;
   let pool = Helpers.get_pool ~__context in
   let cluster_stack =
@@ -1864,7 +1864,7 @@ let enable __context heartbeat_srs configuration =
       (fun sr ->
         let vdi = Xha_statefile.find_or_create ~__context ~sr ~cluster_stack in
         statefile_vdis := vdi :: !statefile_vdis
-        )
+      )
       srs ;
     (* For storing the database, assume there is only one SR *)
     let database_vdi =
@@ -1926,7 +1926,7 @@ let enable __context heartbeat_srs configuration =
                 "Disabling HA after a failure during the configuration stage"
                 disable_internal __context ;
               raise e
-            )
+          )
           hosts ;
         let errors =
           thread_iter_all_exns
@@ -1936,7 +1936,7 @@ let enable __context heartbeat_srs configuration =
                 (Ref.string_of host) ;
               Client.Host.ha_join_liveset rpc session_id host ;
               count_call ()
-              )
+            )
             hosts
         in
         List.iter
@@ -1947,7 +1947,7 @@ let enable __context heartbeat_srs configuration =
               (Db.Host.get_name_label ~__context ~self:host)
               (Ref.string_of host)
               (ExnHelper.string_of_exn e)
-            )
+          )
           errors ;
         if errors <> [] then (
           (* Perform a disable since the pool HA state isn't consistent *)
@@ -1978,7 +1978,7 @@ let enable __context heartbeat_srs configuration =
                 (Ref.string_of host) ;
               Client.Host.request_backup rpc session_id host generation true ;
               count_call ()
-              )
+            )
             hosts
         in
         List.iter
@@ -1989,7 +1989,7 @@ let enable __context heartbeat_srs configuration =
               (Db.Host.get_name_label ~__context ~self:host)
               (Ref.string_of host)
               (ExnHelper.string_of_exn e)
-            )
+          )
           errors ;
         if errors <> [] then (
           (* Perform a disable since the pool HA state isn't consistent *)

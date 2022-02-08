@@ -140,14 +140,14 @@ module Config_file = struct
             process_line line spec
           done
         with End_of_file -> ()
-        )
+      )
       (fun () -> close_in ic)
 
   let dump spec =
     List.iter
       (fun (name, _, printer, description) ->
         debug "%s = %s (%s)" name (printer ()) description
-        )
+      )
       spec
 end
 
@@ -211,10 +211,10 @@ let common_options =
           with e ->
             error "Processing disabled-logging-for = %s: %s" x
               (Printexc.to_string e)
-          )
+        )
     , (fun () ->
         String.concat " " (setify (List.map fst (Debug.disabled_modules ())))
-        )
+      )
     , "A space-separated list of debug modules to suppress logging from"
     )
   ; ( "loglevel"
@@ -226,7 +226,7 @@ let common_options =
             Debug.set_level !log_level
           with e ->
             error "Processing loglevel = %s: %s" x (Printexc.to_string e)
-          )
+        )
     , (fun () -> Syslog.string_of_level !log_level)
     , "Log level"
     )
@@ -373,7 +373,7 @@ let canonicalise x =
           | None ->
               let possibility = Filename.concat path x in
               if Sys.file_exists possibility then Some possibility else None
-          )
+        )
         None
         (paths @ !extra_search_path)
     in
@@ -459,7 +459,7 @@ let configure_common ~options ~resources arg_parse_fn =
         in
         List.iter (fun x -> error "%s" x) lines ;
         failwith (String.concat "\n" lines)
-      )
+    )
     resources ;
   Sys.set_signal Sys.sigpipe Sys.Signal_ignore
 
@@ -619,7 +619,7 @@ let serve_forever = function
               finally
                 (fun () -> fn this_connection)
                 (fun () -> Unix.close this_connection)
-              )
+            )
             ()
         in
         ()
@@ -646,11 +646,11 @@ let pidfile_write filename =
       let len = Bytes.length buf in
       if Unix.write fd buf 0 len <> len then
         failwith "pidfile_write failed"
-      )
+    )
     (fun () -> Unix.close fd)
 
 (* Cf Stevens et al, Advanced Programming in the UNIX Environment,
-	 Section 13.3 *)
+   Section 13.3 *)
 let daemonize ?start_fn () =
   if not (have_daemonized ()) then
     ign_int (Unix.umask 0) ;

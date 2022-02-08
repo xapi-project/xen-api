@@ -386,7 +386,7 @@ let print_classes api io =
       (fun _ -> true)
       (fun msg ->
         match msg.msg_tag with FromObject (Private _) -> false | _ -> true
-        )
+      )
       api
   in
   let system =
@@ -417,7 +417,7 @@ let print_classes api io =
            (pad_right obj.name (col_width_20 - 2))
            (pad_right (get_descr obj) col_width_70)
         )
-      )
+    )
     system ;
   printer
     "\n\

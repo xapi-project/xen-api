@@ -131,7 +131,7 @@ let install_server_certificate ~pem_chain ~pem_leaf ~pkcs8_private_key
     ~some:(fun pem_chain ->
       validate_certificate Chain pem_chain now priv >>= fun _ignored ->
       Ok [pkcs8_private_key; pem_leaf; pem_chain]
-      )
+    )
     pem_chain
   >>= fun server_cert_components ->
   server_cert_components

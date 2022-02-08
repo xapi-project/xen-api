@@ -90,7 +90,7 @@ let execute_hook ~__context ~script_name ~args ~reason =
                , [script_name ^ "/" ^ script; reason; stdout; string_of_int i]
                )
             )
-      )
+    )
     scripts
 
 let execute_vm_hook ~__context ~reason ~vm =
@@ -138,7 +138,7 @@ let internal_host_dead_hook __context host =
         Locking_helpers.Thread_state.get_acquired_resources_by_task task
       in
       List.iter Locking_helpers.kill_resource resources
-      )
+    )
     forwarded_tasks
 
 let host_post_declare_dead ~__context ~host ~reason =

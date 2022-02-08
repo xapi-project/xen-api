@@ -199,9 +199,9 @@ module NUMA = struct
           (fun _ d ->
             if d < 10 then
               invalid_arg (Printf.sprintf "NUMA distance must be >= 10: %d" d)
-            )
+          )
           row
-        )
+      )
       distances ;
     let all = Array.fold_left CPUSet.union CPUSet.empty node_cpus in
     let candidates = gen_candidates distances in

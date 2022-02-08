@@ -71,7 +71,7 @@ let generate_files api_dir =
               else
                 doc
             )
-            )
+          )
           changes
       in
       let changes_for_msg m =
@@ -79,7 +79,7 @@ let generate_files api_dir =
           List.filter
             (fun (transition, release, doc) ->
               release = code_name_of_release rel
-              )
+            )
             m.msg_lifecycle
         in
         List.map
@@ -88,7 +88,7 @@ let generate_files api_dir =
             , m.msg_name
             , if doc = "" && transition = Published then m.msg_doc else doc
             )
-            )
+          )
           changes
       in
       let msgs = List.filter (fun m -> not m.msg_hide_from_docs) obj.messages in
@@ -100,7 +100,7 @@ let generate_files api_dir =
           List.filter
             (fun (transition, release, doc) ->
               release = code_name_of_release rel
-              )
+            )
             f.lifecycle
         in
         let field_name = String.concat "_" f.full_name in
@@ -113,7 +113,7 @@ let generate_files api_dir =
               else
                 doc
             )
-            )
+          )
           changes
       in
       let rec flatten_contents contents =
@@ -123,7 +123,7 @@ let generate_files api_dir =
                 f :: l
             | Namespace (name, contents) ->
                 flatten_contents contents @ l
-            )
+          )
           [] contents
       in
       let fields = flatten_contents obj.contents in

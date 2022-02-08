@@ -37,9 +37,9 @@ let destroy ~__context ~self =
       List.iter
         (fun (r, b) ->
           if b = self then Db.VM.remove_from_blobs ~__context ~self:vm ~key:r
-          )
+        )
         blobs
-      )
+    )
     vms ;
   let uuid = Db.Blob.get_uuid ~__context ~self in
   let path = Xapi_globs.xapi_blob_location ^ "/" ^ uuid in
@@ -111,7 +111,7 @@ let migrate_push ~__context ~rpc ~remote_address ~session_id ~old_vm ~new_vm =
         Client.Client.Blob.set_name_label ~rpc ~session_id ~self:new_ref
           ~value:name ;
         (new_ref, old_uuid)
-        )
+      )
       vm_blobs
   in
   send_blobs ~__context ~remote_address ~session_id uuid_map ;
@@ -119,7 +119,7 @@ let migrate_push ~__context ~rpc ~remote_address ~session_id ~old_vm ~new_vm =
   List.iter
     (fun (_, self) ->
       destroy ~__context ~self:(Db.Blob.get_by_uuid ~__context ~uuid:self)
-      )
+    )
     uuid_map
 
 exception Unknown_blob
@@ -207,7 +207,7 @@ let handler (req : Http.Request.t) s _ =
                   Http_svr.headers s
                     (Http.http_200_ok () @ ["Access-Control-Allow-Origin: *"]) ;
                   Xapi_stdext_unix.Unixext.copy_file ~limit s ofd
-                  )
+                )
                 (fun () -> Unix.close ofd)
             in
             Db.Blob.set_size ~__context ~self ~value:size ;

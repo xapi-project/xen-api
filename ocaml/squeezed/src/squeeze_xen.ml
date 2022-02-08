@@ -153,7 +153,7 @@ module Domain = struct
           (fun d ->
             debug "Remove domid %d in cache" d ;
             Hashtbl.remove cache d
-            )
+          )
           gone_domids
     )
 
@@ -181,7 +181,7 @@ module Domain = struct
           List.map
             (fun p ->
               Printf.sprintf "/local/domain/%d/%s" domid (String.concat "/" p)
-              )
+            )
             interesting_paths
         in
         let module IntSet = Set.Make (struct
@@ -200,7 +200,7 @@ module Domain = struct
                   IntSet.add x.Xenctrl.domid set
                 else
                   set
-                )
+              )
               IntSet.empty dis
           in
           let existing = list_domains xc in
@@ -217,9 +217,9 @@ module Domain = struct
                   with e ->
                     error "watch path=%s token=%s: %s" x (watch_token domid)
                       (Printexc.to_string e)
-                  )
+                )
                 (watches domid)
-              )
+            )
             arrived ;
           let gone = IntSet.diff !watching_domids existing in
           IntSet.iter
@@ -234,9 +234,9 @@ module Domain = struct
                   with e ->
                     error "unwatch path=%s token=%s: %s" x (watch_token domid)
                       (Printexc.to_string e)
-                  )
+                )
                 (watches domid)
-              )
+            )
             gone ;
           watching_domids := existing ;
           Mutex.execute m (fun () ->
@@ -244,7 +244,7 @@ module Domain = struct
               IntSet.iter
                 (fun domid ->
                   try ignore (get_per_domain xc domid) with _ -> ()
-                  )
+                )
                 arrived
           )
         in
@@ -326,7 +326,7 @@ module Domain = struct
             (fun () ->
               debug "(re)starting xenstore watch thread" ;
               Xenctrl.with_intf register_for_watches
-              )
+            )
             (fun () -> Thread.delay 5.)
         done
     )
@@ -341,7 +341,7 @@ module Domain = struct
               error "watch_xenstore: %s" (Printexc.to_string e) ;
               Thread.delay 1.
           done
-          )
+        )
         ()
     in
     ()
@@ -546,7 +546,7 @@ let update_cooperative_table host =
              d.Squeeze.memory_actual_kib d.Squeeze.target_kib
       then
         Hashtbl.replace when_domain_was_last_cooperative d.Squeeze.domid now
-      )
+    )
     host.Squeeze.domains
 
 (** Update all the flags in xenstore *)
@@ -558,7 +558,7 @@ let update_cooperative_flags cnx =
       let new_value = now -. last_time > 20. in
       if old_value <> new_value then
         Domain.set_uncooperative_noexn cnx domid new_value
-      )
+    )
     when_domain_was_last_cooperative
 
 (** Best-effort creation of a 'host' structure and a simple debug line showing
@@ -750,7 +750,7 @@ let make_host ~verbose ~xc =
                  debug "Skipping domid %d: %s" di.Xenctrl.domid
                    (Printexc.to_string e) ;
                []
-           )
+         )
          domain_infolist
       )
   in
@@ -791,7 +791,7 @@ let make_host ~verbose ~xc =
           Squeeze.IntMap.add domid domain.Squeeze.target_kib updates
         else
           updates
-        )
+      )
       host.Squeeze.domid_to_domain Squeeze.IntMap.empty
   in
   Squeeze.IntMap.iter (Domain.set_maxmem_noexn xc) updates ;
@@ -856,7 +856,7 @@ let io ~xc ~verbose =
   ; domain_setmaxmem=
       (fun domid kib ->
         execute_action ~xc {Squeeze.action_domid= domid; new_target_kib= kib}
-        )
+      )
   ; wait= (fun delay -> ignore (Unix.select [] [] [] delay))
   ; execute_action= (fun action -> execute_action ~xc action)
   ; target_host_free_mem_kib

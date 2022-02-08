@@ -23,7 +23,7 @@ let test_config_file () =
     (fun (x, y) ->
       Alcotest.(check (option (pair string string)))
         ("parse output for " ^ x) (parse_line x) y
-      )
+    )
     tests
 
 let tests = [("check config file parsing", `Quick, test_config_file)]

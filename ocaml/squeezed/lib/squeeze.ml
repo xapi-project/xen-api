@@ -251,7 +251,7 @@ module Stuckness_monitor = struct
              > assume_balloon_driver_stuck_after
         then
           state.stuck <- true
-        )
+      )
       host.domains ;
     (* Clear out dead domains just in case someone keeps *)
     (* one of these things around for a long time.       *)
@@ -260,7 +260,7 @@ module Stuckness_monitor = struct
       Hashtbl.fold
         (fun domid _ acc ->
           if List.mem domid live_domids then acc else domid :: acc
-          )
+        )
         x.per_domain []
     in
     List.iter (Hashtbl.remove x.per_domain) to_delete
@@ -390,7 +390,7 @@ module Squeezer = struct
         (fun domain ->
           domain.can_balloon
           && Stuckness_monitor.domid_is_active x.stuckness domain.domid now
-          )
+        )
         host.domains
     in
     let non_active_domids =
@@ -490,7 +490,7 @@ module Squeezer = struct
         (List.map
            (fun d ->
              try [IntMap.find d host.domid_to_domain] with Not_found -> []
-             )
+           )
            non_active_domids
         )
     in
@@ -545,7 +545,7 @@ module Gnuplot = struct
           Printf.fprintf oc " %Ld " domain.memory_actual_kib ;
         if List.mem Target cols then
           Printf.fprintf oc " %Ld " domain.target_kib
-        )
+      )
       host.domains ;
     Printf.fprintf oc "\n"
 
@@ -585,7 +585,7 @@ module Gnuplot = struct
             !col domain.domid ;
           incr col
         )
-        )
+      )
       host.domains ;
     close_out oc
 end
@@ -686,12 +686,11 @@ let change_host_free_memory ?fistpoints io required_mem_kib success_condition =
     let debug_string =
       String.concat "; "
         (host_debug_string
-         ::
-         List.map
-           (fun domain ->
-             short_string_of_domain domain ^ new_target_direction domain
+        :: List.map
+             (fun domain ->
+               short_string_of_domain domain ^ new_target_direction domain
              )
-           host.domains
+             host.domains
         )
     in
     debug "%s" debug_string ;
@@ -710,7 +709,7 @@ let change_host_free_memory ?fistpoints io required_mem_kib success_condition =
             List.assoc domid new_targets
           else
             domain.target_kib
-          )
+        )
         host.domid_to_domain
     in
     IntMap.iter io.domain_setmaxmem maxmems ;

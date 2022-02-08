@@ -89,7 +89,7 @@ let find_content ~__context ?sr name =
           , Literal
               (Ref.string_of (Db.SR.get_by_uuid ~__context ~uuid:(s_of_sr sr)))
           )
-        )
+      )
       sr
   in
   let all = Db.VDI.get_records_where ~__context ~expr in
@@ -495,7 +495,7 @@ module SMAPIv1 = struct
                 ~snapshot_of:vdi ;
               set_is_a_snapshot __context ~dbg ~sr ~vdi:local_snapshot
                 ~is_a_snapshot:true
-              )
+            )
             snapshot_pairs
       )
   end
@@ -758,7 +758,7 @@ module SMAPIv1 = struct
                   Db.VDI.remove_from_sm_config ~__context ~self ~key ;
                   Db.VDI.add_to_sm_config ~__context ~self ~key ~value
                 )
-                )
+              )
               vdi_info.sm_config ;
             for_vdi ~dbg ~sr
               ~vdi:(Storage_interface.Vdi.of_string vi.Smint.vdi_info_location)
@@ -949,7 +949,7 @@ module SMAPIv1 = struct
             List.fold_left
               (fun acc (_, vdi_rec) ->
                 StringMap.add vdi_rec.API.vDI_location vdi_rec acc
-                )
+              )
               StringMap.empty all
           in
           (* Compute a map of parent location -> children locations *)
@@ -972,7 +972,7 @@ module SMAPIv1 = struct
                   )
                 else
                   (children, parents)
-                )
+              )
               (StringMap.empty, StringMap.empty)
               all
           in
@@ -998,7 +998,7 @@ module SMAPIv1 = struct
                   explore (current_distance + 1) acc vdi
                 else
                   acc
-                )
+              )
               acc (parent @ children)
           in
           let module IntMap = Map.Make (struct
@@ -1013,7 +1013,7 @@ module SMAPIv1 = struct
                   if IntMap.mem n acc then IntMap.find n acc else []
                 in
                 IntMap.add n (vdi :: current) acc
-                )
+              )
               map IntMap.empty
           in
           let _, vdi_rec = find_vdi ~__context sr vdi in
@@ -1203,7 +1203,7 @@ let start_smapiv1_servers () =
         Thread.create (fun () -> Xcp_service.serve_forever s) ()
       in
       ()
-      )
+    )
     drivers
 
 let make_service uuid ty =
@@ -1332,7 +1332,7 @@ let on_xapi_start ~__context =
         ty ;
       let self, _ = List.assoc ty existing in
       try Db.SM.destroy ~__context ~self with _ -> ()
-      )
+    )
     (Listext.List.set_difference (List.map fst existing) to_keep) ;
 
   (* Synchronize SMAPIv1 plugins *)
@@ -1344,7 +1344,7 @@ let on_xapi_start ~__context =
         Sm.info_of_driver ty |> Smint.query_result_of_sr_driver_info
       in
       Xapi_sm.create_from_query_result ~__context query_result
-      )
+    )
     (Listext.List.set_difference smapiv1_drivers (List.map fst existing)) ;
   (* Update all existing SMAPIv1 plugins *)
   List.iter
@@ -1354,7 +1354,7 @@ let on_xapi_start ~__context =
       in
       Xapi_sm.update_from_query_result ~__context (List.assoc ty existing)
         query_result
-      )
+    )
     (Listext.List.intersect smapiv1_drivers (List.map fst existing)) ;
 
   (* Synchronize SMAPIv2 plugins *)
@@ -1379,14 +1379,14 @@ let on_xapi_start ~__context =
   List.iter
     (fun ty ->
       with_query_result ty (Xapi_sm.create_from_query_result ~__context)
-      )
+    )
     (Listext.List.set_difference running_smapiv2_drivers (List.map fst existing)) ;
   (* Update all existing SMAPIv2 plugins *)
   List.iter
     (fun ty ->
       with_query_result ty
         (Xapi_sm.update_from_query_result ~__context (List.assoc ty existing))
-      )
+    )
     (Listext.List.intersect running_smapiv2_drivers (List.map fst existing))
 
 let bind ~__context ~pbd =
@@ -1638,7 +1638,7 @@ let events_from_sm () =
                  Thread.delay 10.
              done
          )
-         )
+       )
        ()
     )
 
@@ -1732,7 +1732,7 @@ let reset ~__context ~vm =
           info "Resetting all state associated with SR: %s" sr_uuid ;
           Client.SR.reset (Ref.string_of dbg) sr ;
           Db.PBD.set_currently_attached ~__context ~self:pbd ~value:false
-          )
+        )
         (System_domains.pbd_of_vm ~__context ~vm)
   )
 
@@ -1817,7 +1817,7 @@ let resynchronise_pbds ~__context ~pbds =
       with Db_exn.DBCache_NotFound (_, ("PBD" | "SR"), _) as e ->
         debug "Ignoring PBD/SR that got deleted before we resynchronised: %s"
           (Printexc.to_string e)
-      )
+    )
     pbds
 
 (* -------------------------------------------------------------------------------- *)
@@ -1846,7 +1846,7 @@ let refresh_local_vdi_activations ~__context =
         (fun k ->
           String.sub k (String.length prefix)
             (String.length k - String.length prefix)
-          )
+        )
         ks
     in
     List.map Ref.of_string ks
@@ -1873,7 +1873,7 @@ let refresh_local_vdi_activations ~__context =
         List.iter
           (fun h ->
             Db.VDI.remove_from_sm_config ~__context ~self:vdi_ref ~key:(key h)
-            )
+          )
           hosts
       with e ->
         error "Failed to unlock VDI %s: %s" (Ref.string_of vdi_ref)
@@ -1904,7 +1904,7 @@ let refresh_local_vdi_activations ~__context =
     List.map
       (fun sr ->
         (sr, Storage_interface.Sr.of_string (Db.SR.get_uuid ~__context ~self:sr))
-        )
+      )
       (Db.SR.get_all ~__context)
   in
   List.iter
@@ -1934,7 +1934,7 @@ let refresh_local_vdi_activations ~__context =
             (Printexc.to_string e)
       else
         unlock_vdi (vdi_ref, vdi_rec)
-      )
+    )
     all_vdi_recs
 
 (* This is a symptom of the ordering-sensitivity of the SM backend: it is not possible
@@ -1988,18 +1988,18 @@ let destroy_sr ~__context ~sr ~and_vdis =
                 Client.VDI.destroy dbg
                   (Storage_interface.Sr.of_string sr_uuid)
                   (Storage_interface.Vdi.of_string location)
-                )
+              )
               and_vdis ;
             Client.SR.destroy dbg (Storage_interface.Sr.of_string sr_uuid)
           with exn ->
             (* Clean up: SR is left attached if destroy fails *)
             Client.SR.detach dbg (Storage_interface.Sr.of_string sr_uuid) ;
             raise exn
-          )
+        )
         (fun () ->
           (* All PBDs are clearly currently_attached = false now *)
           Db.PBD.set_currently_attached ~__context ~self:pbd ~value:false
-          ) ;
+        ) ;
       unbind ~__context ~pbd
   )
 

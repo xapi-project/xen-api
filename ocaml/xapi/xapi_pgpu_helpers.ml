@@ -151,7 +151,7 @@ let get_remaining_capacity_internal ~__context ~self ~vgpu_type
             let _type = Db.VGPU.get_type ~__context ~self:vgpu in
             let vgpu_size = Db.VGPU_type.get_size ~__context ~self:_type in
             Int64.add acc vgpu_size
-            )
+          )
           0L
           (get_allocated_VGPUs ~__context ~self @ pgpu_pre_allocated_vGPUs)
       in
@@ -305,7 +305,7 @@ let assert_destination_has_pgpu_compatible_with_vm ~__context ~vm ~vgpu_map
               assert_destination_pgpu_is_compatible_with_vm ~__context ~vm ~vgpu
                 ~pgpu ~host ?remote ()
         )
-      )
+    )
     vgpu_map ;
   (* Check that there is a potential pgpu candidate for each of the other vgpus *)
   let pgpus = get_pgpus_of_host host in

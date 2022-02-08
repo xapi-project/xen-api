@@ -59,7 +59,7 @@ let tick_backup_write_table () =
                   }
           | _ ->
               ()
-          )
+        )
         backup_write_table
   )
 

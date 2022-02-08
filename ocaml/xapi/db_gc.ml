@@ -183,7 +183,7 @@ let detect_rolling_upgrade ~__context =
             List.map
               (fun host ->
                 Helpers.version_string_of ~__context (Helpers.LocalObject host)
-                )
+              )
               (Db.Host.get_all ~__context)
           in
           debug "xapi platform version = %s; host platform versions = [ %s ]"
@@ -202,7 +202,7 @@ let detect_rolling_upgrade ~__context =
             List.iter
               (fun vm ->
                 Xapi_vm_lifecycle.update_allowed_operations ~__context ~self:vm
-                )
+              )
               (Db.VM.get_all ~__context)
           ) ;
           (* Call out to an external script to allow external actions to be performed *)
@@ -298,9 +298,9 @@ let start_db_gc_thread () =
             with e ->
               debug "Exception in DB GC thread: %s" (ExnHelper.string_of_exn e)
           done
-          )
+        )
         ()
-      )
+    )
     ()
 
 let send_one_heartbeat ~__context ?(shutting_down = false) rpc session_id =
@@ -365,5 +365,5 @@ let start_heartbeat_thread () =
                   Thread.delay !Xapi_globs.host_heartbeat_interval
             done
       )
-      )
+    )
     ()

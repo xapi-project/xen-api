@@ -49,7 +49,7 @@ let test_assert_space_available () =
       Xapi_pool_update.assert_space_available
         ~get_free_bytes:(fun _ -> free_bytes)
         "./" (Int64.div free_bytes 2L)
-      )
+    )
 
 let test_download_restriction () =
   Xapi_globs.host_update_dir := "." ;

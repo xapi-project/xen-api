@@ -114,7 +114,7 @@ let hand_over_connection req s path =
               res.Http.Response.task
           | None ->
               None
-        )
+      )
       (fun () -> Unix.close control_fd)
   with e ->
     error "Failed to transfer fd to %s: %s" path (Printexc.to_string e) ;
@@ -140,7 +140,7 @@ let http_proxy_to req from addr =
           raise e
       in
       Http_proxy.one req from s
-      )
+    )
     (fun () -> Unix.close s)
 
 let http_proxy_to_plugin req from name =

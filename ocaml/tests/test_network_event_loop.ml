@@ -40,7 +40,7 @@ let test_network_event_loop ~no_nbd_networks_at_start () =
             ) ;
             received_params := Some pifs ;
             Threadext.Delay.signal wait_hdl
-            )
+          )
           ~wait_after_event_seconds:0.0
           ~wait_after_failure_seconds:
             network_event_loop_wait_after_failure_seconds

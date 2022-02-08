@@ -70,7 +70,7 @@ let _ =
       let obj_name = obj.Datamodel_types.name in
       Hashtbl.replace obj_references_table obj_name
         (compute_object_references_to_follow obj_name)
-      )
+    )
     (Dm_api.objects_of_api Datamodel.all_api)
 
 let follow_references (obj_name : string) =
@@ -87,7 +87,7 @@ let events_of_other_tbl_refs other_tbl_refs =
            (* Probably means the reference was dangling *)
            warn "skipping event for dangling reference %s: %s" tbl fld ;
            []
-         )
+       )
        other_tbl_refs
     )
 
@@ -133,7 +133,7 @@ let database_callback event db =
                  , oldval
                  , find_get_record tbl ~__context:context ~self:oldval
                  )
-                 )
+               )
                (other_tbl_refs_for_this_field tblname fldname)
             )
         else
@@ -149,7 +149,7 @@ let database_callback event db =
                  , newval
                  , find_get_record tbl ~__context:context ~self:newval
                  )
-                 )
+               )
                (other_tbl_refs_for_this_field tblname fldname)
             )
         else
@@ -206,7 +206,7 @@ let database_callback event db =
               :: accu
             else
               accu
-            )
+          )
           [] other_tbl_refs
       in
       let other_tbl_ref_events = events_of_other_tbl_refs other_tbl_refs in
@@ -237,7 +237,7 @@ let database_callback event db =
               :: accu
             else
               accu
-            )
+          )
           [] other_tbl_refs
       in
       let other_tbl_events = events_of_other_tbl_refs other_tbl_refs in

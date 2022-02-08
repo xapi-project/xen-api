@@ -116,7 +116,7 @@ let remove_restricted_pbd_keys () =
         )
         false
         (List.mem_assoc k device_config')
-      )
+    )
     restricted_keys ;
   List.iter
     (fun k ->
@@ -126,7 +126,7 @@ let remove_restricted_pbd_keys () =
         )
         true
         (List.mem_assoc k device_config')
-      )
+    )
     other_keys
 
 let test =

@@ -206,7 +206,7 @@ let http_get_host_updates_in_json ~__context ~host ~installed =
         error "Failed to get updates from host ref='%s': %s" host'
           (ExnHelper.string_of_exn e) ;
         raise Api_errors.(Server_error (get_host_updates_failed, [host']))
-      )
+    )
     (fun () -> Xapi_session.destroy_db_session ~__context ~self:host_session_id)
 
 let group_host_updates_by_repository ~__context enabled host updates_of_host =
@@ -238,7 +238,7 @@ let group_host_updates_by_repository ~__context enabled host updates_of_host =
                   (Update.to_string upd)
               in
               raise Api_errors.(Server_error (internal_error, [msg]))
-          )
+        )
         [] updates
   | _ ->
       let host' = Ref.string_of host in
@@ -257,7 +257,7 @@ let set_available_updates ~__context =
     List.map
       (fun host () ->
         (host, http_get_host_updates_in_json ~__context ~host ~installed:true)
-        )
+      )
       hosts
   in
   let rets =
@@ -271,7 +271,7 @@ let set_available_updates ~__context =
     List.map
       (fun (h, updates_of_host) ->
         group_host_updates_by_repository ~__context enabled h updates_of_host
-        )
+      )
       rets
   in
   (* Group updates by repository for all hosts *)
@@ -279,7 +279,7 @@ let set_available_updates ~__context =
     List.fold_left
       (fun acc l ->
         List.fold_left (fun acc' (x, y) -> append_by_key acc' x y) acc l
-        )
+      )
       [] updates_of_hosts
   in
   let checksums =
@@ -309,7 +309,7 @@ let set_available_updates ~__context =
           Some md.UpdateInfoMetaData.checksum
         ) else
           None
-        )
+      )
       enabled
   in
   Hashtbl.clear updates_in_cache ;
@@ -477,7 +477,7 @@ let get_pool_updates_in_json ~__context ~hosts =
               (json_of_host :: acc1, UpdateIdSet.union uids acc2)
             else
               (acc1, acc2)
-            )
+          )
           updates_in_cache ([], UpdateIdSet.empty)
       in
       `Assoc

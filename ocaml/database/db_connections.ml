@@ -39,14 +39,14 @@ let choose connections =
         (fun c ->
           debug "Dbconf contains: %s (generation %Ld)" c.Parse_db_conf.path
             (Parse_db_conf.generation_read c)
-          )
+        )
         connections ;
       let gen, most_recent =
         List.fold_left
           (fun (g, c) c' ->
             let g' = Parse_db_conf.generation_read c' in
             if g' > g then (g', c') else (g, c)
-            )
+          )
           (Parse_db_conf.generation_read c, c)
           cs
       in

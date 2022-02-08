@@ -111,7 +111,8 @@ let networks path vif_type (list : string -> string list) =
     let ipv4_with_idx = (extend path "ip", extend prefix "ipv4/0") in
     if List.mem "ipv6" (list path) then
       ipv4
-      :: ipv4_with_idx :: find_ipv6 (extend path "ipv6") (extend prefix "ipv6")
+      :: ipv4_with_idx
+      :: find_ipv6 (extend path "ipv6") (extend prefix "ipv6")
     else
       [ipv4; ipv4_with_idx]
   in
@@ -147,7 +148,7 @@ let networks path vif_type (list : string -> string list) =
             acc
         | Some pair ->
             pair :: acc
-        )
+      )
       [] (list path)
   in
   let find_vifs vif_path =
@@ -251,7 +252,7 @@ let get_initial_guest_metrics (lookup : string -> string option)
                [(mapkey, xsval)]
            | None, _, _ ->
                []
-           )
+         )
          kvpairs
       )
   in

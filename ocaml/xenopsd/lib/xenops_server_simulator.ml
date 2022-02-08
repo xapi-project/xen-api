@@ -398,7 +398,7 @@ let set_carrier vm vif carrier () =
           vif with
           Vif.carrier= (if this_one vif then carrier else vif.Vif.carrier)
         }
-        )
+      )
       d.Domain.vifs
   in
   DB.write vm {d with Domain.vifs}
@@ -413,7 +413,7 @@ let set_locking_mode vm vif mode () =
           vif with
           Vif.locking_mode= (if this_one vif then mode else vif.Vif.locking_mode)
         }
-        )
+      )
       d.Domain.vifs
   in
   DB.write vm {d with Domain.vifs}
@@ -433,7 +433,7 @@ let set_ipv4_configuration vm vif ipv4_configuration () =
               vif.Vif.ipv4_configuration
             )
         }
-        )
+      )
       d.Domain.vifs
   in
   DB.write vm {d with Domain.vifs}
@@ -453,7 +453,7 @@ let set_ipv6_configuration vm vif ipv6_configuration () =
               vif.Vif.ipv6_configuration
             )
         }
-        )
+      )
       d.Domain.vifs
   in
   DB.write vm {d with Domain.vifs}
@@ -468,7 +468,7 @@ let set_pvs_proxy vm vif proxy () =
           vif with
           Vif.pvs_proxy= (if this_one vif then proxy else vif.Vif.pvs_proxy)
         }
-        )
+      )
       d.Domain.vifs
   in
   DB.write vm {d with Domain.vifs}
@@ -605,7 +605,7 @@ module VM = struct
       List.map
         (fun vbd ->
           {vbd with Vbd.backend= Option.map (remap_vdi vdi_map) vbd.Vbd.backend}
-          )
+        )
         state.Domain.vbds
     in
     let vifs = List.map (fun vif -> remap_vif vif_map vif) state.Domain.vifs in

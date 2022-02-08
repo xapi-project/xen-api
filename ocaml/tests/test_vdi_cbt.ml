@@ -116,7 +116,7 @@ let test_cbt_enable_disable () =
     ~vdi_enable_cbt:(fun _ ~dbg ~sr ~vdi -> enable_cbt_params := Some (sr, vdi))
     ~vdi_disable_cbt:(fun _ ~dbg ~sr ~vdi ->
       disable_cbt_params := Some (sr, vdi)
-      )
+    )
     sr ;
   Xapi_vdi.enable_cbt ~__context ~self:vdi_ref ;
   check_params
@@ -173,7 +173,7 @@ let test_vbd_create () =
         ~other_config:[] ~qos_algorithm_type:"" ~qos_algorithm_params:[]
         ~device:"" ~currently_attached:false
       |> ignore
-      )
+    )
 
 let test_get_nbd_info =
   let assert_same_infos =
@@ -724,7 +724,7 @@ let test_vdi_list_changed_blocks () =
     ~vdi_list_changed_blocks:(fun _ ~dbg ~sr ~vdi_from ~vdi_to ->
       list_changed_blocks_params := Some (sr, (vdi_from, vdi_to)) ;
       list_changed_blocks_string
-      )
+    )
     (Db.SR.get_uuid ~__context ~self:sR |> Storage_interface.Sr.of_string) ;
   Alcotest.(check string)
     "VDI.list_changed_blocks"

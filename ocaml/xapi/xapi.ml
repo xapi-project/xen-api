@@ -274,7 +274,7 @@ let on_master_restart ~__context =
       Helpers.call_emergency_mode_functions
         (Pool_role.get_master_address ())
         (Db_gc.send_one_heartbeat ~__context)
-      )
+    )
     () ;
   debug
     "attempting to set Host_metrics.live to true immediately (unless I'm in \
@@ -357,7 +357,7 @@ let server_run_in_emergency_mode () =
       (fun () ->
         Thread.delay emergency_reboot_delay ;
         exit Xapi_globs.restart_return_code
-        )
+      )
       ()
   in
   wait_to_die () ; exit 0
@@ -390,7 +390,7 @@ let bring_up_management_if ~__context () =
                    ~subtask_of:(Context.get_task_id __context) (fun __context ->
                      Xapi_mgmt_iface.on_dom0_networking_change ~__context
                  )
-                 )
+               )
                ()
             )
       | None ->
@@ -511,7 +511,7 @@ let start_dr_redo_logs () =
           (fun vdi ->
             Db.VDI.get_type ~__context ~self:vdi = `metadata
             && Db.VDI.get_metadata_of_pool ~__context ~self:vdi = pool
-            )
+          )
           (Db.VDI.get_all ~__context)
       in
       let metadata_srs =
@@ -533,7 +533,7 @@ let start_dr_redo_logs () =
             debug
               "Could not re-enable database replication to SR %s - caught %s"
               sr_uuid (Printexc.to_string e)
-          )
+        )
         metadata_srs
   )
 
@@ -546,7 +546,7 @@ let cache_metadata_vdis () =
           (fun vdi ->
             Db.VDI.get_type ~__context ~self:vdi = `metadata
             && Db.VDI.get_metadata_of_pool ~__context ~self:vdi <> pool
-            )
+          )
           (Db.VDI.get_all ~__context)
       in
       Xapi_dr.add_vdis_to_cache ~__context ~vdis:metadata_vdis
@@ -621,7 +621,7 @@ let check_network_reset () =
                   (k, v)
               | _ ->
                   ("", "")
-              )
+            )
             args
         in
         let device = List.assoc "DEVICE" args in
@@ -732,13 +732,13 @@ let check_network_reset () =
               (fun mode ->
                 Xapi_pif.reconfigure_ip ~__context ~self:pif ~mode ~iP ~netmask
                   ~gateway ~dNS
-                )
+              )
               mode ;
             Option.iter
               (fun mode ->
                 Xapi_pif.reconfigure_ipv6 ~__context ~self:pif ~mode ~iPv6
                   ~gateway:gateway_v6 ~dNS
-                )
+              )
               mode_v6 ;
             Xapi_host.management_reconfigure ~__context ~pif
     ) ;
@@ -970,7 +970,7 @@ let server_init () =
                          )
                  )
                 )
-            )
+          )
           ()
       in
       () ;

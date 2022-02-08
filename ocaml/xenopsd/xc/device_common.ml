@@ -343,7 +343,7 @@ let list_frontends ~xs ?for_devids domid =
                      ignore (xs.Xs.read (sprintf "%s/%d" dir devid)) ;
                      true
                    with _ -> false
-                   )
+                 )
                  devids
          in
          to_list
@@ -359,10 +359,10 @@ let list_frontends ~xs ?for_devids domid =
                   | None ->
                       None
                 with _ -> None
-                )
+              )
               devids
            )
-         )
+       )
        kinds
     )
 
@@ -400,13 +400,13 @@ let list_backends ~xs domid =
                          | None ->
                              None
                        with _ -> None
-                       )
+                     )
                      devids
                   )
-                )
+              )
               domids
            )
-         )
+       )
        kinds
     )
 

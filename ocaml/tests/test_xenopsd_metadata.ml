@@ -248,7 +248,7 @@ module GenerateVGPUMetadata = Generic.MakeStateful (struct
             ~uuid:(uuid_with_index 0) vgpu_type
         in
         ()
-        )
+      )
       pgpus_and_vgpu_types
 
   let extract_output __context _ =
@@ -340,7 +340,7 @@ module GenerateMultiVGPUMetadata = Generic.MakeStateful (struct
             ~uuid:test_uuid ~device:(string_of_int index) vgpu_type
         in
         ()
-        )
+      )
       pgpus_and_vgpu_types
 
   let extract_output __context _ =

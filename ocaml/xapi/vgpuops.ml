@@ -201,7 +201,7 @@ let add_vgpus_to_vm ~__context host vm vgpus =
           Pool_features.assert_enabled ~__context ~f:Features.VGPU ;
           debug "Creating virtual VGPUs" ;
           ignore (allocate_vgpu_to_gpu ~__context vm host vgpu)
-      )
+    )
     vgpus
 
 (* The two functions below are the main entry points of this module *)

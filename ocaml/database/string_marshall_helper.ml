@@ -49,7 +49,7 @@ let map f g kv =
                 SExpr.String (ensure_nonempty (ensure_utf8_xml (f k)))
               ; SExpr.String (ensure_utf8_xml (g v))
               ]
-            )
+          )
           kv
        )
     )

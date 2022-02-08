@@ -780,7 +780,7 @@ module Linux_bonding = struct
             (Sysfs.getpath master "bonding/slaves")
             ("+" ^ slave)
         with _ -> error "Failed to add slave %s to bond %s" slave master
-        )
+      )
       slaves
 
   let remove_bond_slaves master slaves =
@@ -792,7 +792,7 @@ module Linux_bonding = struct
             (Sysfs.getpath master "bonding/slaves")
             ("-" ^ slave)
         with _ -> error "Failed to remove slave %s from bond %s" slave master
-        )
+      )
       slaves
 
   let set_bond_slaves master slaves =
@@ -879,7 +879,7 @@ module Linux_bonding = struct
           (fun (prop, value) ->
             (not (List.mem (prop, value) current_props))
             && List.mem prop known_props
-            )
+          )
           properties
       in
       debug "Bond properties to update: %s"
@@ -998,7 +998,7 @@ end = struct
       List.fold_left
         (fun l x ->
           match x with `gateway y -> ["-e"; "GATEWAYDEV=" ^ y] | _ -> l
-          )
+        )
         [] options
     in
     let dns_opt =
@@ -1145,7 +1145,7 @@ module Proc = struct
             in
             x :: vlans
           with _ -> vlans
-          )
+        )
         [] "/proc/net/vlan/config"
     with _ ->
       error "Error: could not read /proc/net/vlan/config" ;
@@ -1231,7 +1231,7 @@ module Ovs = struct
                 String.trim (vsctl ~log:false ["get"; "interface"; uuid; "name"])
               in
               String.sub raw 1 (String.length raw - 2)
-              )
+            )
             uuids
         else
           []
@@ -1297,7 +1297,7 @@ module Ovs = struct
               with _ -> active_slave
             in
             (slaves, active_slave)
-            )
+          )
           ([], None) lines
       with _ -> ([], None)
 
@@ -1357,7 +1357,7 @@ module Ovs = struct
           let setting = if do_workaround then "on" else "off" in
           try ignore (call_script ovs_vlan_bug_workaround [interface; setting])
           with _ -> ()
-          )
+        )
         phy_interfaces
 
     let get_vlans name =
@@ -1411,7 +1411,7 @@ module Ovs = struct
           (fun vifs br ->
             let vifs' = bridge_to_interfaces br in
             vifs' @ vifs
-            )
+          )
           [] vlan_fake_bridges
       with _ -> []
 
@@ -1564,7 +1564,7 @@ module Ovs = struct
                create_port_arg
                  ?ty:(List.assoc_opt vif ifaces_with_type)
                  vif name
-               )
+             )
              existing_vifs
           )
       in
@@ -1775,7 +1775,7 @@ module Ovs = struct
                    (String.escaped ("bond-" ^ k))
                    (String.escaped v)
                 )
-            )
+          )
           properties
       in
       (mode_args @ extra_args_legacy @ extra_args @ other_args, per_iface_args)
@@ -1850,7 +1850,7 @@ module Ovs = struct
                        "idle_timeout=0,priority=0,in_port=%s,dl_dst=%s,actions=local"
                        port mac
                    ]
-                   )
+                 )
                  ports
               )
       in
@@ -1896,7 +1896,9 @@ module Ethtool = struct
     if options <> [] then
       ignore
         (call
-           ("-s" :: name :: List.concat (List.map (fun (k, v) -> [k; v]) options)
+           ("-s"
+           :: name
+           :: List.concat (List.map (fun (k, v) -> [k; v]) options)
            )
         )
 
@@ -1904,7 +1906,9 @@ module Ethtool = struct
     if options <> [] then
       ignore
         (call
-           ("-K" :: name :: List.concat (List.map (fun (k, v) -> [k; v]) options)
+           ("-K"
+           :: name
+           :: List.concat (List.map (fun (k, v) -> [k; v]) options)
            )
         )
 end
@@ -1947,7 +1951,7 @@ module Modinfo = struct
                  false
              | Some (param, description) ->
                  String.trim param = param_name && has_array_of description
-             )
+           )
            out
         )
     with _ ->

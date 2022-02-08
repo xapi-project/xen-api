@@ -154,7 +154,7 @@ let rec string_of_default = function
               (fun (a, b) ->
                 Printf.sprintf "%s -> %s" (string_of_default a)
                   (string_of_default b)
-                )
+              )
               x
            )
         )
@@ -175,7 +175,7 @@ let jarray_of_lifecycle lc =
            ; ("release", JString r)
            ; ("description", JString d)
            ]
-         )
+       )
        lc
     )
 
@@ -187,7 +187,7 @@ let fields_of_obj_with_enums obj =
             f :: l
         | Namespace (name, contents) ->
             flatten_contents contents @ l
-        )
+      )
       [] contents
   in
   let fields = flatten_contents obj.contents in
@@ -196,36 +196,31 @@ let fields_of_obj_with_enums obj =
       let ty, e = string_of_ty_with_enums field.ty in
       ( JObject
           (("name", JString (String.concat "_" field.full_name))
-           ::
-           ("description", JString field.field_description)
-           ::
-           ("type", JString ty)
-           ::
-           ("qualifier", JString (string_of_qualifier field.qualifier))
-           ::
-           ( "tag"
-           , JString
-               ( match field.field_doc_tags with
-               | [] ->
-                   ""
-               | t :: _ ->
-                   string_of_doc_tag t
-               )
-           )
-           ::
-           ("lifecycle", jarray_of_lifecycle field.lifecycle)
-           ::
-           ( match field.default_value with
-           | Some d ->
-               [("default", JString (string_of_default d))]
-           | None ->
-               []
-           )
+          :: ("description", JString field.field_description)
+          :: ("type", JString ty)
+          :: ("qualifier", JString (string_of_qualifier field.qualifier))
+          :: ( "tag"
+             , JString
+                 ( match field.field_doc_tags with
+                 | [] ->
+                     ""
+                 | t :: _ ->
+                     string_of_doc_tag t
+                 )
+             )
+          :: ("lifecycle", jarray_of_lifecycle field.lifecycle)
+          ::
+          ( match field.default_value with
+          | Some d ->
+              [("default", JString (string_of_default d))]
+          | None ->
+              []
+          )
           )
         :: fields
       , enums @ e
       )
-      )
+    )
     ([], []) fields
 
 let jarray_of_result_with_enums obj msg =
@@ -253,7 +248,7 @@ let jarray_of_params_with_enums ps =
           :: params
         , enums @ e
         )
-        )
+      )
       ([], []) ps
   in
   (JArray (List.rev params), enums)
@@ -263,7 +258,7 @@ let jarray_of_errors es =
     (List.map
        (fun e ->
          JObject [("name", JString e.err_name); ("doc", JString e.err_doc)]
-         )
+       )
        es
     )
 
@@ -332,7 +327,7 @@ let messages_of_obj_with_enums obj =
         :: msgs
       , enums @ enums1 @ enums2
       )
-      )
+    )
     ([], []) obj.messages
 
 let jarray_of_enums enums =
@@ -347,12 +342,12 @@ let jarray_of_enums enums =
                  (List.map
                     (fun (v, d) ->
                       JObject [("name", JString v); ("doc", JString d)]
-                      )
+                    )
                     vs
                  )
              )
            ]
-         )
+       )
        enums
     )
 
@@ -403,7 +398,7 @@ let json_of_objs objs =
                  )
              )
            ]
-         )
+       )
        objs
     )
 
@@ -470,7 +465,7 @@ let releases objs =
               )
             , "class"
             )
-            )
+          )
           changes
       in
       let changes_for_msg m =
@@ -478,7 +473,7 @@ let releases objs =
           List.filter
             (fun (transition, release, doc) ->
               release = code_name_of_release rel
-              )
+            )
             m.msg_lifecycle
         in
         List.map
@@ -488,7 +483,7 @@ let releases objs =
             , (if doc = "" && transition = Published then m.msg_doc else doc)
             , "message"
             )
-            )
+          )
           changes
       in
       (* Don't include implicit messages *)
@@ -501,7 +496,7 @@ let releases objs =
           List.filter
             (fun (transition, release, doc) ->
               release = code_name_of_release rel
-              )
+            )
             f.lifecycle
         in
         let field_name = String.concat "_" f.full_name in
@@ -516,7 +511,7 @@ let releases objs =
               )
             , "field"
             )
-            )
+          )
           changes
       in
       let rec flatten_contents contents =
@@ -526,7 +521,7 @@ let releases objs =
                 f :: l
             | Namespace (name, contents) ->
                 flatten_contents contents @ l
-            )
+          )
           [] contents
       in
       let fields = flatten_contents obj.contents in

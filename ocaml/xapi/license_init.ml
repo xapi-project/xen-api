@@ -32,7 +32,7 @@ let find_min_edition allowed_editions =
         a
       else
         b
-      )
+    )
     ("", "", "", max_int) allowed_editions
   |> fst4
 

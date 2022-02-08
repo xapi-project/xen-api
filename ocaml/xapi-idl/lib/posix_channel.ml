@@ -91,7 +91,7 @@ let proxy (a : Unix.file_descr) (b : Unix.file_descr) =
         (fun (buf, fd) ->
           if CBuf.end_of_reads buf then Unix.shutdown fd Unix.SHUTDOWN_SEND ;
           if CBuf.end_of_writes buf then Unix.shutdown fd Unix.SHUTDOWN_RECEIVE
-          )
+        )
         [(a', b); (b', a)]
     done
   with _ -> (
@@ -174,23 +174,23 @@ let send proxy_socket =
                 ) else
                   assert false
                 (* can never happen *)
-                )
+              )
               (fun () ->
                 List.iter close !to_close ;
                 List.iter Unix.unlink !to_unlink
-                )
-            )
+              )
+          )
           (!to_close, !to_unlink)
       in
       (* Handover of listening sockets successful *)
       to_close := [] ;
       to_unlink := [] ;
       protocols
-      )
+    )
     (fun () ->
       List.iter Unix.close !to_close ;
       List.iter Unix.unlink !to_unlink
-      )
+    )
 
 let receive protocols =
   let open Xcp_channel_protocol in
@@ -230,5 +230,5 @@ let receive protocols =
           let buf = Bytes.create (String.length token) in
           let _, _, fd = Fd_send_recv.recv_fd s buf 0 (Bytes.length buf) [] in
           fd
-          )
+        )
         (fun () -> Unix.close s)

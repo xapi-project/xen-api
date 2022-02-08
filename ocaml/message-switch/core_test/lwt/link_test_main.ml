@@ -56,7 +56,7 @@ let make_file name f =
     (fun () ->
       f oc >>= fun () ->
       Lwt_io.flush oc >>= fun () -> Lwt_unix.close fd
-      )
+    )
     (fun _ -> Lwt_unix.close fd)
 
 let main () =
@@ -77,7 +77,7 @@ let main () =
           in
           Lwt_io.write oc (String.concat "\r\n" lines)
       )
-      )
+    )
     in_frames
   >>= fun () ->
   Lwt_list.iter_s
@@ -94,7 +94,7 @@ let main () =
           in
           Lwt_io.write oc (String.concat "\r\n" lines)
       )
-      )
+    )
     out_frames
 
 let _ =

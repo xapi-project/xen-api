@@ -80,14 +80,14 @@ module Delay = struct
           (* return true if we waited the full length of time, false if we were woken *)
           r = []
         with Pre_signalled -> false
-        )
+      )
       (fun () ->
         Mutex.execute x.m (fun () ->
             x.pipe_out <- None ;
             x.pipe_in <- None ;
             List.iter close' !to_close
         )
-        )
+      )
 
   let signal (x : t) =
     Mutex.execute x.m (fun () ->
@@ -128,7 +128,7 @@ module Dump = struct
           (fun time xs acc ->
             List.map (fun i -> {time= Int64.sub time now; thing= i.name}) xs
             @ acc
-            )
+          )
           !schedule []
     )
 end

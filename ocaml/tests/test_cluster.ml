@@ -131,7 +131,7 @@ let test_invalid_parameters () =
     )
     (fun () ->
       create_cluster ~__context ~token_timeout_coefficient:0.6 () |> ignore
-      )
+    )
 
 let test_create_cleanup () =
   let __context = Test_common.make_test_database () in

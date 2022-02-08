@@ -46,7 +46,7 @@ let required_cluster_stack ~__context =
         | l ->
             Some l
         (* Any one of these will do *)
-        )
+      )
       pbds
   in
   let failwith_cluster_stack_conflict () =

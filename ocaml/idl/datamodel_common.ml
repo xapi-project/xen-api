@@ -592,7 +592,7 @@ let call ~name ?(doc = "") ?(in_oss_since = Some "3.0.3") ?in_product_since
               ; param_release= call_release
               ; param_default= None
               }
-              )
+            )
             params
       | Some ps ->
           ps
@@ -854,7 +854,7 @@ let create_obj ?lifecycle ~in_oss_since ?in_product_since
           msg_obj_name= name
         ; msg_allowed_roles= get_msg_allowed_roles m.msg_allowed_roles
         }
-        )
+      )
       messages
   in
   {

@@ -90,7 +90,7 @@ module Reporter = struct
                 (module D)
                 ~reporter:(Some reporter) ~uid ~backend_domid ~page_count
                 ~protocol ~dss_f
-          )
+        )
         ()
     in
     reporter

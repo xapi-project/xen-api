@@ -167,9 +167,8 @@ module Generic = struct
             t.Xst.mkdirperms private_data_path (Xenbus_utils.hotplug device) ;
             t.Xst.writev private_data_path
               (("backend-kind", string_of_kind device.backend.kind)
-               ::
-               ("backend-id", string_of_int device.backend.domid)
-               :: private_list
+              :: ("backend-id", string_of_int device.backend.domid)
+              :: private_list
               ) ;
             t.Xst.mkdirperms extra_xenserver_path
               (Xenbus_utils.rwperm_for_guest device.frontend.domid) ;
@@ -615,7 +614,7 @@ module Vbd_Common = struct
           |> function
           | _, disk, _ ->
               disk
-          )
+        )
         (Device_common.list_frontends ~xs domid)
     in
     let next = List.fold_left max 0 disks + 1 in
@@ -719,7 +718,7 @@ module Vbd_Common = struct
     Option.iter
       (fun protocol ->
         Hashtbl.add front_tbl "protocol" (string_of_protocol protocol)
-        )
+      )
       x.protocol ;
     let back = Hashtbl.fold (fun k v acc -> (k, v) :: acc) back_tbl [] in
     let front = Hashtbl.fold (fun k v acc -> (k, v) :: acc) front_tbl [] in
@@ -1470,7 +1469,7 @@ module PCI = struct
         with e ->
           debug "xl %s: %s" cmd (Printexc.to_string e) ;
           raise e
-        )
+      )
       pcidevs
 
   let add_xl = xl_pci "pci-attach"
@@ -1505,7 +1504,7 @@ module PCI = struct
           ( device_number_of_string x
           , Xenops_interface.Pci.address_of_string (xs.Xs.read (path ^ "/" ^ x))
           )
-          )
+        )
         all
     in
     (* Sort into the order the devices were plugged *)
@@ -1629,7 +1628,7 @@ module PCI = struct
                dev
             )
             (Pci.string_of_address pcidev)
-          )
+        )
         pcidevs
     with exn ->
       Backtrace.is_important exn ;
@@ -1739,7 +1738,7 @@ module PCI = struct
               true
           | _ ->
               false
-          )
+        )
         false "/proc/modules"
     in
     if not is_loaded then
@@ -1931,7 +1930,7 @@ module PCI = struct
             | Some old_driver, new_driver ->
                 unbind_from devstr old_driver ;
                 bind_to devstr new_driver
-            )
+          )
           devices
     )
 
@@ -2319,7 +2318,7 @@ module Vusb = struct
           try qmp_send_cmd domid Qmp.(Device_del id) |> ignore
           with QMP_connection_error _ ->
             raise (Xenopsd_error Device_not_connected)
-        )
+      )
       (fun () -> usb_reset_detach ~hostbus ~hostport ~domid ~privileged)
 end
 
@@ -3386,7 +3385,7 @@ module Backend = struct
             Lookup.remove c domid ;
             Monitor.remove m (Qmp_protocol.to_fd c) ;
             debug "Removed QMP Event fd for domain %d" domid
-            )
+          )
           (fun () -> Qmp_protocol.close c)
       with e ->
         debug_exn
@@ -3622,12 +3621,12 @@ module Backend = struct
 
                     let cmd = Qmp.(Blockdev_change_medium medium) in
                     qmp_send_cmd domid cmd |> ignore
-                    )
+                  )
                   (fun () ->
                     let cmd = Qmp.(Remove_fd fd_info.fdset_id) in
                     qmp_send_cmd domid cmd |> ignore
-                    )
-                )
+                  )
+              )
               (fun () -> Unix.close fd_cd)
         with
         | Unix.Unix_error (Unix.ECONNREFUSED, "connect", p) ->
@@ -3773,11 +3772,11 @@ module Backend = struct
                 let path = sprintf "/dev/fdset/%d" fd.Qmp.fdset_id in
                 qmp_send_cmd domid Qmp.Stop |> ignore ;
                 qmp_send_cmd domid Qmp.(Xen_save_devices_state path) |> ignore
-                )
+              )
               (fun () ->
                 qmp_send_cmd domid Qmp.(Remove_fd fd.fdset_id) |> ignore
-                )
-            )
+              )
+          )
           (fun () -> Unix.close save_fd)
 
       (* Wait for QEMU's event socket to appear. Connect to it to make sure it
@@ -3814,7 +3813,7 @@ module Backend = struct
               ) else
                 Thread.delay 0.05
             done
-            )
+          )
           (fun () -> Unix.close socket) ;
         if not !finished then
           raise (Ioemu_failed (name, "Timeout reached while starting daemon"))
@@ -4378,7 +4377,7 @@ module Dm = struct
         (fun () ->
           init_daemon ~task ~path:(Profile.wrapper_of dm) ~args:argv ~domid ~xs
             ~ready_path ~timeout ~cancel ~fds:args.fd_map dm
-          )
+        )
         (fun () -> List.iter close args.fd_map)
     in
     match !Xenopsd.action_after_qemu_crash with
@@ -4399,7 +4398,7 @@ module Dm = struct
                        None
                      with e -> Some e
                    )
-                 )
+               )
                x
             )
         in

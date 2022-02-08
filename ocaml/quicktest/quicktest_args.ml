@@ -61,7 +61,7 @@ let parse () =
           password := x
       | _, _, _ ->
           Printf.fprintf stderr "Skipping unrecognised argument: %s" x
-      )
+    )
     "Perform some quick functional tests. The default is to test localhost \
      over a Unix socket. For remote server supply <hostname> <username> and \
      <password> arguments." ;

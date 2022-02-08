@@ -22,7 +22,7 @@ let gen_markdown path =
              ---\n" ;
           output_string oc p
       )
-      )
+    )
     Apis.apis ;
   `Ok ()
 
@@ -39,7 +39,7 @@ let gen_python path =
           in
           output_string oc p
       )
-      )
+    )
     Apis.apis ;
   `Ok ()
 

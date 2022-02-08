@@ -437,7 +437,7 @@ module GuidanceSet = struct
             diff acc lowers
           else
             acc
-          )
+        )
         gs precedences
     in
     match kind with Recommended -> gs' | Absolute -> remove EvacuateHost gs'
@@ -537,7 +537,7 @@ module Applicability = struct
             | _ ->
                 error "Unknown node in <applicability>" ;
                 raise Api_errors.(Server_error (invalid_updateinfo_xml, []))
-            )
+          )
           default children
         |> assert_valid
     | _ ->
@@ -609,7 +609,7 @@ module UpdateInfoMetaData = struct
                 )
                 | _ ->
                     md
-                )
+              )
               {checksum= ""; location= ""}
               l
             |> assert_valid_repomd
@@ -743,7 +743,7 @@ module UpdateInfo = struct
                           }
                       | _ ->
                           acc
-                      )
+                    )
                     {default with update_type= ty}
                     update_nodes
                   |> assert_valid_updateinfo
@@ -752,7 +752,7 @@ module UpdateInfo = struct
                 Some ui
             | _ ->
                 None
-            )
+          )
           children
         |> assert_no_dup_update_id
         |> List.map (fun updateinfo -> (updateinfo.id, updateinfo))
@@ -814,7 +814,7 @@ let with_pool_repositories f =
     (fun () ->
       Mutex.lock exposing_pool_repo_mutex ;
       f ()
-      )
+    )
     (fun () -> Mutex.unlock exposing_pool_repo_mutex)
 
 let is_local_pool_repo_enabled () =
@@ -846,10 +846,10 @@ let with_updateinfo_xml gz_path f =
             error "Failed to decompress updateinfo.xml.gz: %s"
               (ExnHelper.string_of_exn e) ;
             raise Api_errors.(Server_error (invalid_updateinfo_xml, []))
-          )
+        )
         (fun () -> close_out tmpch) ;
       f tmpfile
-      )
+    )
     (fun () -> Unixext.unlink_safe tmpfile)
 
 let clean_yum_cache name =
@@ -1007,11 +1007,11 @@ let with_local_repositories ~__context f =
                  config_params
               ) ;
             repo_name
-            )
+          )
           enabled
       in
       f repositories
-      )
+    )
     (fun () ->
       enabled
       |> List.iter (fun repository ->
@@ -1021,7 +1021,7 @@ let with_local_repositories ~__context f =
              clean_yum_cache repo_name ;
              remove_repo_conf_file repo_name
          )
-      )
+    )
 
 let assert_yum_error output =
   let errors = ["Updateinfo file is not valid XML"] in
@@ -1032,7 +1032,7 @@ let assert_yum_error output =
         raise Api_errors.(Server_error (invalid_updateinfo_xml, []))
       ) else
         ()
-      )
+    )
     errors ;
   output
 
@@ -1138,7 +1138,7 @@ let eval_guidances ~updates_info ~updates ~kind =
           GuidanceSet.add g acc
       | None ->
           acc
-      )
+    )
     GuidanceSet.empty updates
   |> GuidanceSet.resort_guidances ~kind
   |> GuidanceSet.elements
@@ -1218,7 +1218,7 @@ let validate_latest_updates ~latest_updates ~accumulative_updates =
       | None ->
           warn "Not found update ID for update %s" (Pkg.to_fullname pkg) ;
           (pkg, None, repo)
-      )
+    )
     latest_updates
 
 let prune_by_latest_updates latest_updates pkg uid =
@@ -1289,7 +1289,7 @@ let prune_accumulative_updates ~accumulative_updates ~latest_updates
           warn "%s" msg ; None
       | Error None ->
           None
-      )
+    )
     accumulative_updates
 
 let get_update_in_json ~installed_pkgs (new_pkg, update_id, repo) =
@@ -1355,7 +1355,7 @@ let consolidate_updates_of_host ~repository_name ~updates_info host
             ; release= u.Update.new_release
             }
         )
-        )
+      )
       latest_updates
   in
   let open Update in
@@ -1368,7 +1368,7 @@ let consolidate_updates_of_host ~repository_name ~updates_info host
             (UpdateIdSet.add id acc_uids', u :: acc_updates')
         | _ ->
             (acc_uids', acc_updates')
-        )
+      )
       (UpdateIdSet.empty, []) accumulative_updates
   in
   let rec_guidances =
@@ -1411,7 +1411,7 @@ let append_by_key l k v =
           (List.rev_append y acc_vals_of_k, acc_others)
         else
           (acc_vals_of_k, (x, y) :: acc_others)
-        )
+      )
       ([v], [])
       l
   in
@@ -1446,7 +1446,7 @@ let with_access_token ~token ~token_id f =
           output_string tmpch (Yojson.Basic.to_string json) ;
           close_out tmpch ;
           f (Some tmpfile)
-          )
+        )
         (fun () -> Unixext.unlink_safe tmpfile)
   | t, tid when t = "" && tid = "" ->
       f None

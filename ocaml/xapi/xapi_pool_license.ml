@@ -36,7 +36,7 @@ let get_lowest_edition_with_expiry ~__context ~hosts ~edition_to_int =
         ( Db.Host.get_edition ~__context ~self:host
         , License_check.get_expiry_date ~__context ~host
         )
-        )
+      )
       hosts
   in
   let pool_edition, _ =
@@ -46,7 +46,7 @@ let get_lowest_edition_with_expiry ~__context ~hosts ~edition_to_int =
           Some (edition, List.assoc edition edition_to_int)
         else
           None
-        )
+      )
       all_editions_with_expiry
     |> List.sort (fun a b -> compare (snd a) (snd b))
     |> List.hd
@@ -57,7 +57,7 @@ let get_lowest_edition_with_expiry ~__context ~hosts ~edition_to_int =
     List.filter_map
       (fun (edition, expiry) ->
         if edition = pool_edition then Some expiry else None
-        )
+      )
       all_editions_with_expiry
     |> List.sort compare_dates
     |> List.hd
@@ -80,7 +80,7 @@ let apply_edition_with_rollback ~__context ~hosts ~edition ~apply_fn =
       (fun (host, old_edition) ->
         apply_fn ~__context ~host ~edition ;
         to_rollback := (host, old_edition) :: !to_rollback
-        )
+      )
       pool_license_state
   with e ->
     error
@@ -91,7 +91,7 @@ let apply_edition_with_rollback ~__context ~hosts ~edition ~apply_fn =
     List.iter
       (fun (host, old_edition) ->
         try apply_fn ~__context ~host ~edition:old_edition with _ -> ()
-        )
+      )
       !to_rollback ;
     (* Raise the original exception. *)
     raise e

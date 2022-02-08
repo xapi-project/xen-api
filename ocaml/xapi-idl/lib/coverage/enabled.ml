@@ -106,7 +106,7 @@ module Dispatcher = struct
                   {jobid}') /tmp/coverage/ *)
             String.concat " "
             |> ok
-            )
+          )
       |> Client.error_to_msg
       |> string_of_result
     in

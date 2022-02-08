@@ -87,5 +87,5 @@ let test =
       , `Quick
       , test_alerts spec
       )
-      )
+    )
     certificate_samples

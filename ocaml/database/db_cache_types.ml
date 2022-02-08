@@ -136,7 +136,7 @@ functor
       StringMap.fold
         (fun x y z ->
           if y.stat.Stat.modified > since then f x y.stat y.v z else z
-          )
+        )
         t initial
   end
 
@@ -174,7 +174,7 @@ module Row = struct
                 (DBCache_NotFound ("missing field", c.Schema.Column.name, ""))
         else
           t
-        )
+      )
       t schema.Schema.Table.columns
 end
 
@@ -213,8 +213,8 @@ module Table = struct
       else
         ( lower_length_deleted_queue + 1
         , new_element
-          ::
-          Xapi_stdext_std.Listext.List.take lower_length_deleted_queue t.deleted
+          :: Xapi_stdext_std.Listext.List.take lower_length_deleted_queue
+               t.deleted
         )
     in
     {
@@ -365,7 +365,7 @@ module Database = struct
           Printf.printf "Caught %s from database callback '%s'\n%!"
             (Printexc.to_string e) name ;
           ()
-        )
+      )
       db.callbacks
 
   let reindex x =
@@ -390,9 +390,9 @@ module Database = struct
                   (tblname, rf) acc
               else
                 acc
-              )
+            )
             tbl acc
-          )
+        )
         x.tables KeyMap.empty
     in
     (* For each of the one-to-many relationships, recompute the many end *)
@@ -414,7 +414,7 @@ module Database = struct
                       Row.add g many_fldname (Schema.Value.Set []) row
                     in
                     Table.add g vm row' acc
-                    )
+                  )
                   many_tbl Table.empty
               in
               (* Build up a table of VM -> VBDs *)
@@ -431,7 +431,7 @@ module Database = struct
                         []
                     in
                     Schema.ForeignMap.add vm (vbd :: existing) acc
-                    )
+                  )
                   one_tbl Schema.ForeignMap.empty
               in
               let many_tbl'' =
@@ -445,13 +445,13 @@ module Database = struct
                         Row.add g many_fldname (Schema.Value.Set vbds) row
                       in
                       Table.add g vm row' acc
-                    )
+                  )
                   vm_to_vbds many_tbl'
               in
               TableSet.add g many_tblname many_tbl'' tables
-              )
+            )
             tables rels
-          )
+        )
         x.schema.Schema.one_to_many x.tables
     in
     {x with keymap; tables}
@@ -535,7 +535,7 @@ let update_one_to_many g tblname objref f db =
             db
         else
           db
-        )
+      )
       db
       (Schema.one_to_many tblname (Database.schema db))
 
@@ -563,9 +563,9 @@ let update_many_to_many g tblname objref f db =
                 (f objref other_field) db
             else
               db
-            )
+          )
           db this_fld_refs
-        )
+      )
       db
       (Schema.many_to_many tblname (Database.schema db))
 

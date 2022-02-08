@@ -45,7 +45,7 @@ let valid_operations ~__context record _ref' : table =
       (fun op ->
         if Hashtbl.find table op = None then
           Hashtbl.replace table op (Some (code, params))
-        )
+      )
       ops
   in
   let vm = Db.VIF.get_VM ~__context ~self:_ref' in
@@ -100,7 +100,7 @@ let valid_operations ~__context record _ref' : table =
         in
         set_errors Api_errors.operation_not_allowed [current_op_str]
           [`plug; `unplug]
-      )
+    )
     vm_current_ops ;
   (* HVM guests MAY support plug/unplug IF they have PV drivers. Assume
    * all drivers have such support unless they specify that they do not. *)
@@ -344,7 +344,7 @@ let destroy ~__context ~self =
     (fun self ->
       if Db.is_valid_ref __context self then
         Db.VIF_metrics.destroy ~__context ~self
-      )
+    )
     metrics ;
   Db.VIF.destroy ~__context ~self
 
@@ -391,6 +391,6 @@ let copy ~__context ~vm ~preserve_mac_address vif =
           "Ignoring exception raised while creating PVS_proxy when copying a \
            VIF: %s"
           (Printexc.to_string e)
-      )
+    )
     proxies ;
   result

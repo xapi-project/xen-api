@@ -46,7 +46,7 @@ module Types = struct
     | Set x as y ->
         y :: decompose x
     | Map (a, b) as y ->
-        y :: decompose a @ decompose b
+        (y :: decompose a) @ decompose b
     | Option x as y ->
         y :: decompose x
     | ( SecretString
@@ -791,7 +791,7 @@ let add_implicit_messages ?(document_order = false) (api : api) =
         let messages = messages_of_obj obj document_order in
         let obj' = {obj with messages} in
         obj'
-        )
+      )
       objs
   in
   Dm_api.make (objs, rels)

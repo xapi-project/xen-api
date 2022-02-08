@@ -40,5 +40,5 @@ let sockaddr_of_uri uri =
           raise Not_found
       | addrinfo :: _ ->
           (addrinfo.Unix.ai_addr, use_ssl)
-      )
+    )
     (fun _ -> fail (Failed_to_resolve_hostname host))

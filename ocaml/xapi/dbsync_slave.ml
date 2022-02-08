@@ -174,7 +174,7 @@ let record_host_memory_properties ~__context info =
           Db.Host.set_memory_overhead ~__context ~self
             ~value:
               (obvious_overhead_memory_bytes ++ nonobvious_overhead_memory_bytes)
-          )
+        )
         boot_memory_bytes
 
 (* -- used this for testing uniqueness constraints executed on slave do not kill connection.

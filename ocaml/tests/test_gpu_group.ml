@@ -30,7 +30,7 @@ let test_supported_enabled_types () =
     List.map
       (fun vgpu_type ->
         (vgpu_type, Xapi_vgpu_type.find_or_create ~__context vgpu_type)
-        )
+      )
       k2_vgpu_types
   in
   let group_supported_types =
@@ -51,7 +51,7 @@ let test_supported_enabled_types () =
       in
       assert_true msg_supported (List.mem vgpu_type_ref group_supported_types) ;
       assert_true msg_enabled (List.mem vgpu_type_ref group_enabled_types)
-      )
+    )
     vgpu_types_and_refs ;
   (* Invalidate the PGPU's host ref, and run a GC pass; this should destroy the
      	 * pgpu, and clear the group's supported and enabled types. *)

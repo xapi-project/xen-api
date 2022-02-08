@@ -69,7 +69,7 @@ let is_network_properly_shared ~__context ~self =
             Xapi_network_sriov_helpers.can_be_up_without_reboot ~__context sriov
         | _ ->
             true
-        )
+      )
       pifs_rc
   in
   let hosts_with_pif =

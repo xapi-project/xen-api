@@ -110,7 +110,7 @@ let execute_vm_hook ~script_name ~id ~reason ~extra_args =
                   (script_name ^ "/" ^ script, reason, stdout, string_of_int i)
                )
             )
-      )
+    )
     scripts
 
 type script =

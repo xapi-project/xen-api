@@ -9,7 +9,7 @@ let random_bytes length =
     (fun () ->
       really_input f buf 0 length ;
       buf
-      )
+    )
     (fun () -> close_in f)
 
 let write_random_data rpc session_id vdi =
@@ -111,7 +111,7 @@ let export_import_vdi rpc session_id ~exportformat sR vdi =
         ]
       |> ignore ;
       new_vdi
-      )
+    )
     (fun () -> Sys.remove file)
 
 let export_import_raw = export_import_vdi ~exportformat:"raw"

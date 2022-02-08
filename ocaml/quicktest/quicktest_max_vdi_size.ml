@@ -56,7 +56,7 @@ let test_export_import rpc session_id sr_info () =
                 ]
               |> ignore
           )
-          )
+        )
         (fun () -> Sys.remove file)
   )
 

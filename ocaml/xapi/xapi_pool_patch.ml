@@ -111,7 +111,7 @@ let pool_patch_upload_handler (req : Http.Request.t) s _ =
                     ) ;
                   (* If we've got a None here, we'll already have replied with the error. Fail the task now too. *)
                   ()
-              )
+            )
             (fun () -> Client.Task.destroy rpc session_id subtask)
       )
   )
@@ -181,7 +181,7 @@ let pool_apply ~__context ~self =
         Helpers.call_api_functions ~__context (fun rpc session_id ->
             Client.Pool_patch.apply ~rpc ~session_id ~self ~host
         )
-        )
+      )
       hosts
   in
   let _ = Db.Pool_patch.set_pool_applied ~__context ~self ~value:true in

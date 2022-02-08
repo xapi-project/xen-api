@@ -85,7 +85,7 @@ let destroy_all_vbds ~__context ~vdi =
           (* Meanwhile, HA should mark the previous master as dead and set the VBD as detached. *)
           (* If the VBD is not detached by now, VBD.destroy will fail and we will give up. *)
           Client.VBD.destroy ~rpc ~session_id ~self:vbd
-          )
+        )
         existing_vbds
   )
 
@@ -131,10 +131,10 @@ let enable_database_replication ~__context ~get_vdi_callback =
                    (fun () ->
                      Db.VDI.set_metadata_latest ~__context ~self:vdi
                        ~value:new_state
-                     )
+                   )
                    ()
                 )
-              )
+            )
         in
         (* Enable redo_log and point it at the new device *)
         let log_name = Printf.sprintf "DR redo log for VDI %s" vdi_uuid in

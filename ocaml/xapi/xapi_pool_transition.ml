@@ -58,7 +58,7 @@ let run_external_scripts becoming_master =
           ignore (Forkhelpers.execute_command_get_output filename [arg])
         with Forkhelpers.Spawn_internal_error (_, _, Unix.WEXITED n) ->
           debug "%s %s exited with code %d" filename arg n
-        )
+      )
       order
   in
   let already_run =
@@ -105,9 +105,9 @@ let attempt_two_phase_commit_of_new_master ~__context (manual : bool)
             Helpers.call_emergency_mode_functions address (fun rpc session_id ->
                 Client.Host.abort_new_master rpc session_id my_address
             )
-            )
+          )
           ()
-        )
+      )
       !done_so_far
   in
   debug "Phase 1: proposing myself as new master" ;
@@ -119,7 +119,7 @@ let attempt_two_phase_commit_of_new_master ~__context (manual : bool)
               Client.Host.propose_new_master rpc session_id my_address manual
           ) ;
           done_so_far := address :: !done_so_far
-          )
+        )
         all_addresses
     with e ->
       debug "Phase 1 aborting, caught exception: %s" (ExnHelper.string_of_exn e) ;
@@ -201,7 +201,7 @@ let attempt_two_phase_commit_of_new_master ~__context (manual : bool)
           with _ ->
             debug
               "The old master has restarted as slave; I am the only master now."
-          )
+        )
         ()
     in
     ()

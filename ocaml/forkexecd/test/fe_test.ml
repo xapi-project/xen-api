@@ -50,7 +50,7 @@ let all_combinations fds =
       (List.map
          (fun x ->
            List.map (fun n -> {x with extra= n}) (max_fds :: mkints x.max_extra)
-           )
+         )
          x
       )
   in
@@ -88,8 +88,7 @@ let one fds x =
   in
   let args =
     "slave"
-    ::
-    string_of_int (fds - (x.max_extra - number_of_extra))
+    :: string_of_int (fds - (x.max_extra - number_of_extra))
     :: shuffle cmdline_names
   in
   (* Printf.fprintf stderr "stdin = %s\n" (if x.stdin then "Some" else "None");
@@ -195,7 +194,7 @@ let slave = function
               ignore (Unix.readlink (Filename.concat path x)) ;
               true
             with _ -> false
-            )
+          )
           (Array.to_list (Sys.readdir path))
       in
       let pairs =
@@ -209,7 +208,7 @@ let slave = function
               (List.mem x
                  [("0", "/dev/null"); ("1", "/dev/null"); ("2", "/dev/null")]
               )
-            )
+          )
           pairs
       in
 
@@ -222,7 +221,7 @@ let slave = function
         (fun fd ->
           if not (List.mem fd (List.map fst filtered)) then
             fail (Printf.sprintf "fd %s not in /proc/%d/fd [ %s ]" fd pid ls)
-          )
+        )
         fds ;
       (* Check that we have the expected number *)
       (*

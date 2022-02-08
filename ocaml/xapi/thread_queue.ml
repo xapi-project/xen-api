@@ -62,9 +62,9 @@ let make ?max_q_length ?(name = "unknown") (process_fn : 'a process_fn) : 'a t =
                 (fun (description, x) ->
                   debug "pop(%s) = %s" name description ;
                   try process_fn x with _ -> ()
-                  )
+                )
                 local_q
-              )
+            )
             (fun () -> Mutex.lock m) ;
           debug "%s: completed processing %d items: queue = %s" name
             (Queue.length local_q) (string_of_queue q)
