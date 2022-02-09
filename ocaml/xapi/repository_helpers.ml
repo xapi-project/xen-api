@@ -32,7 +32,9 @@ module Epoch = struct
         None
     | s -> (
       match int_of_string s with
-      | i when i >= 0 ->
+      | i when i = 0 ->
+          None
+      | i when i > 0 ->
           Some i
       | _ ->
           raise Invalid_epoch
@@ -122,8 +124,9 @@ module Pkg = struct
         Some {name; epoch; version; release; arch}
       with e ->
         let msg = error_msg s in
-        error "%s: %s" msg (ExnHelper.string_of_exn e) ;
-        raise Api_errors.(Server_error (internal_error, [msg]))
+        warn "%s: %s" msg (ExnHelper.string_of_exn e) ;
+        (* The error should not block update. Ingore it. *)
+        None
     )
     | false ->
         None
@@ -137,15 +140,6 @@ module Pkg = struct
       ]
 
   let to_name_arch_string pkg = pkg.name ^ "." ^ pkg.arch
-
-  let parse_name_arch name_arch =
-    match Astring.String.cuts ~sep:"." name_arch with
-    | [name; arch] when arch = "x86_64" || arch = "noarch" ->
-        (name, arch)
-    | _ ->
-        let msg = error_msg name_arch in
-        error "%s" msg ;
-        raise Api_errors.(Server_error (internal_error, [msg]))
 
   let to_fullname pkg =
     match pkg.epoch with
@@ -499,10 +493,11 @@ module Applicability = struct
     | {inequality= None; _}
     | {version= ""; _}
     | {release= ""; _} ->
-        error "Invalid applicability" ;
-        raise Api_errors.(Server_error (invalid_updateinfo_xml, []))
+        (* The error should not block update. Ingore it. *)
+        warn "Invalid applicability" ;
+        None
     | a ->
-        a
+        Some a
 
   let of_xml = function
     | Xml.Element ("applicability", _, children) ->
@@ -523,8 +518,8 @@ module Applicability = struct
                 let msg =
                   Printf.sprintf "%s: %s" (ExnHelper.string_of_exn e) v
                 in
-                error "%s" msg ;
-                raise Api_errors.(Server_error (internal_error, [msg]))
+                (* The error should not block update. Ingore it. *)
+                warn "%s" msg ; a
             )
             | Xml.Element ("version", _, [Xml.PCData v]) ->
                 {a with version= v}
@@ -535,14 +530,16 @@ module Applicability = struct
             | Xml.Element ("arch", _, [Xml.PCData v]) ->
                 {a with arch= v}
             | _ ->
-                error "Unknown node in <applicability>" ;
-                raise Api_errors.(Server_error (invalid_updateinfo_xml, []))
-          )
+                (* The error should not block update. Ingore it. *)
+                warn "Unknown node in <applicability>" ;
+                a
+            )
           default children
         |> assert_valid
     | _ ->
-        error "Unknown node in <guidance_applicabilities>" ;
-        raise Api_errors.(Server_error (invalid_updateinfo_xml, []))
+        (* The error should not block update. Ingore it. *)
+        warn "Unknown node in <guidance_applicabilities>" ;
+        None
 
   let to_string a =
     Printf.sprintf "%s %s %s:%s-%s" a.name
@@ -731,15 +728,26 @@ module UpdateInfo = struct
                       | Xml.Element ("description", _, [Xml.PCData v]) ->
                           {acc with description= v}
                       | Xml.Element ("recommended_guidance", _, [Xml.PCData v])
-                        ->
-                          {acc with rec_guidance= Some (Guidance.of_string v)}
-                      | Xml.Element ("absolute_guidance", _, [Xml.PCData v]) ->
-                          {acc with abs_guidance= Some (Guidance.of_string v)}
+                        -> (
+                        try {acc with rec_guidance= Some (Guidance.of_string v)}
+                        with e ->
+                          (* The error should not block update. Ingore it. *)
+                          warn "%s" (ExnHelper.string_of_exn e) ;
+                          acc
+                      )
+                      | Xml.Element ("absolute_guidance", _, [Xml.PCData v])
+                        -> (
+                        try {acc with abs_guidance= Some (Guidance.of_string v)}
+                        with e ->
+                          (* The error should not block update. Ingore it. *)
+                          warn "%s" (ExnHelper.string_of_exn e) ;
+                          acc
+                      )
                       | Xml.Element ("guidance_applicabilities", _, apps) ->
                           {
                             acc with
                             guidance_applicabilities=
-                              List.map Applicability.of_xml apps
+                              List.filter_map Applicability.of_xml apps
                           }
                       | _ ->
                           acc
@@ -1036,13 +1044,6 @@ let assert_yum_error output =
     errors ;
   output
 
-let get_installed_pkgs () =
-  Helpers.call_script !Xapi_globs.rpm_cmd
-    ["-qa"; "'%{NAME}-%{EPOCH}:%{VERSION}-%{RELEASE}.%{ARCH}\n'"]
-  |> Astring.String.cuts ~sep:"\n"
-  |> List.filter_map Pkg.of_fullname
-  |> List.map (fun pkg -> (Pkg.to_name_arch_string pkg, pkg))
-
 let parse_updateinfo_list acc line =
   let sep = Re.Str.regexp " +" in
   match Re.Str.split sep line with
@@ -1143,71 +1144,53 @@ let eval_guidances ~updates_info ~updates ~kind =
   |> GuidanceSet.resort_guidances ~kind
   |> GuidanceSet.elements
 
-let parse_line_of_list_updates (buff, acc) line =
-  let get_pkg name_arch epoch_ver_rel repo =
-    let name, arch = Pkg.parse_name_arch name_arch in
-    let epoch, version, release =
-      Pkg.parse_epoch_version_release epoch_ver_rel
-    in
-    let pkg = Pkg.{name; epoch; version; release; arch} in
-    (pkg, repo)
-  in
-  let empty_buff = (None, None, None) in
-  let sep = Re.Str.regexp " +" in
-  match (buff, Re.Str.split sep line) with
-  | _, ["Updated"; "Packages"] ->
-      (empty_buff, acc)
-  | (None, None, None), [name_arch] ->
-      Pkg.parse_name_arch name_arch |> ignore ;
-      ((Some name_arch, None, None), acc)
-  | (None, None, None), [name_arch; epoch_ver_rel] ->
-      Pkg.parse_name_arch name_arch |> ignore ;
-      ((Some name_arch, Some epoch_ver_rel, None), acc)
-  | (None, None, None), [name_arch; epoch_ver_rel; repo] ->
-      Pkg.parse_name_arch name_arch |> ignore ;
-      let pkg = get_pkg name_arch epoch_ver_rel repo in
-      (empty_buff, pkg :: acc)
-  | (None, None, None), _ ->
-      warn "Can't parse '%s'. Not data in buff." line ;
-      (empty_buff, acc)
-  | (Some name_arch, None, None), [epoch_ver_rel] ->
-      ((Some name_arch, Some epoch_ver_rel, None), acc)
-  | (Some name_arch, None, None), [epoch_ver_rel; repo] ->
-      let pkg = get_pkg name_arch epoch_ver_rel repo in
-      (empty_buff, pkg :: acc)
-  | (Some name_arch, None, None), _ ->
-      warn "Can't parse '%s'. name_arch %s is in buff." line name_arch ;
-      (empty_buff, acc)
-  | (Some name_arch, Some epoch_ver_rel, None), [repo] ->
-      let pkg = get_pkg name_arch epoch_ver_rel repo in
-      (empty_buff, pkg :: acc)
-  | (Some name_arch, Some epoch_ver_rel, None), _ ->
-      warn "Can't parse '%s'. name_arch %s and epoch_ver_rel %s are in buff."
-        line name_arch epoch_ver_rel ;
-      (empty_buff, acc)
-  | _ ->
-      warn "Can't parse '%s'" line ;
-      (empty_buff, acc)
+let repoquery_sep = ":|"
 
-let get_updates_from_list_updates repositories =
-  let params_of_list =
+let get_repoquery_fmt () =
+  ["name"; "epoch"; "version"; "release"; "arch"; "repoid"]
+  |> List.map (fun field -> "%{" ^ field ^ "}")
+  |> String.concat repoquery_sep
+
+let parse_line_of_repoquery acc line =
+  match Astring.String.cuts ~sep:repoquery_sep line with
+  | [name; epoch'; version; release; arch; repo] -> (
+    try
+      let epoch = Epoch.of_string epoch' in
+      let pkg = Pkg.{name; epoch; version; release; arch} in
+      (pkg, repo) :: acc
+    with e ->
+      warn "epoch %s from repoquery: %s" epoch' (ExnHelper.string_of_exn e) ;
+      (* The error should not block update. Ingore it. *)
+      acc
+  )
+  | _ ->
+      warn "Can't parse line of repoquery '%s'" line ;
+      acc
+
+let get_installed_pkgs () =
+  let fmt = get_repoquery_fmt () in
+  let params = ["-a"; "--pkgnarrow=installed"; "--qf"; fmt] in
+  Helpers.call_script !Xapi_globs.repoquery_cmd params
+  |> Astring.String.cuts ~sep:"\n"
+  |> List.fold_left parse_line_of_repoquery []
+  |> List.map (fun (pkg, _) -> (Pkg.to_name_arch_string pkg, pkg))
+
+let get_updates_from_repoquery repositories =
+  let fmt = get_repoquery_fmt () in
+  let params =
     [
-      "-q"
+      "-a"
     ; "--disablerepo=*"
     ; Printf.sprintf "--enablerepo=%s" (String.concat "," repositories)
-    ; "list"
-    ; "updates"
+    ; "--pkgnarrow=updates"
+    ; "--qf"
+    ; fmt
     ]
   in
   List.iter (fun r -> clean_yum_cache r) repositories ;
-  let lines =
-    Helpers.call_script !Xapi_globs.yum_cmd params_of_list
-    |> Astring.String.cuts ~sep:"\n"
-  in
-  let _, updates =
-    List.fold_left parse_line_of_list_updates ((None, None, None), []) lines
-  in
-  updates
+  Helpers.call_script !Xapi_globs.repoquery_cmd params
+  |> Astring.String.cuts ~sep:"\n"
+  |> List.fold_left parse_line_of_repoquery []
 
 let validate_latest_updates ~latest_updates ~accumulative_updates =
   List.map
