@@ -1044,13 +1044,6 @@ let assert_yum_error output =
     errors ;
   output
 
-let get_installed_pkgs () =
-  Helpers.call_script !Xapi_globs.rpm_cmd
-    ["-qa"; "'%{NAME}-%{EPOCH}:%{VERSION}-%{RELEASE}.%{ARCH}\n'"]
-  |> Astring.String.cuts ~sep:"\n"
-  |> List.filter_map Pkg.of_fullname
-  |> List.map (fun pkg -> (Pkg.to_name_arch_string pkg, pkg))
-
 let parse_updateinfo_list acc line =
   let sep = Re.Str.regexp " +" in
   match Re.Str.split sep line with
@@ -1151,8 +1144,15 @@ let eval_guidances ~updates_info ~updates ~kind =
   |> GuidanceSet.resort_guidances ~kind
   |> GuidanceSet.elements
 
+let repoquery_sep = ":|"
+
+let get_repoquery_fmt () =
+  ["name"; "epoch"; "version"; "release"; "arch"; "repoid"]
+  |> List.map (fun field -> "%{" ^ field ^ "}")
+  |> String.concat repoquery_sep
+
 let parse_line_of_repoquery acc line =
-  match Astring.String.cuts ~sep:":" line with
+  match Astring.String.cuts ~sep:repoquery_sep line with
   | [name; epoch'; version; release; arch; repo] -> (
     try
       let epoch = Epoch.of_string epoch' in
@@ -1167,7 +1167,16 @@ let parse_line_of_repoquery acc line =
       warn "Can't parse line of repoquery '%s'" line ;
       acc
 
+let get_installed_pkgs () =
+  let fmt = get_repoquery_fmt () in
+  let params = ["-a"; "--pkgnarrow=installed"; "--qf"; fmt] in
+  Helpers.call_script !Xapi_globs.repoquery_cmd params
+  |> Astring.String.cuts ~sep:"\n"
+  |> List.fold_left parse_line_of_repoquery []
+  |> List.map (fun (pkg, _) -> (Pkg.to_name_arch_string pkg, pkg))
+
 let get_updates_from_repoquery repositories =
+  let fmt = get_repoquery_fmt () in
   let params =
     [
       "-a"
@@ -1175,15 +1184,13 @@ let get_updates_from_repoquery repositories =
     ; Printf.sprintf "--enablerepo=%s" (String.concat "," repositories)
     ; "--pkgnarrow=updates"
     ; "--qf"
-    ; "%{name}:%{epoch}:%{version}:%{release}:%{arch}:%{repoid}"
+    ; fmt
     ]
   in
   List.iter (fun r -> clean_yum_cache r) repositories ;
-  let lines =
-    Helpers.call_script !Xapi_globs.repoquery_cmd params
-    |> Astring.String.cuts ~sep:"\n"
-  in
-  List.fold_left parse_line_of_repoquery [] lines
+  Helpers.call_script !Xapi_globs.repoquery_cmd params
+  |> Astring.String.cuts ~sep:"\n"
+  |> List.fold_left parse_line_of_repoquery []
 
 let validate_latest_updates ~latest_updates ~accumulative_updates =
   List.map
