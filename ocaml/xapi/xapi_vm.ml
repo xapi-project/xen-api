@@ -315,7 +315,7 @@ let with_temp_file_contents ~contents f =
     (fun () -> Sys.remove filename)
 
 let save_uefi_certificates_to_dir ~__context ~pool ~vm =
-  let uefi_key = !Xapi_globs.varstore_dir ^ "KEK.auth" in
+  let uefi_key = Filename.concat !Xapi_globs.varstore_dir "KEK.auth" in
   if not (Sys.file_exists uefi_key) then
     if
       Sys.file_exists !Xapi_globs.varstore_dir
