@@ -333,7 +333,8 @@ let get_product_releases in_product_since =
   let rec go_through_release_order rs =
     match rs with
     | [] ->
-        raise UnspecifiedRelease
+        (* numbered release *)
+        ["closed"; in_product_since]
     | x :: xs when code_name_of_release x = in_product_since ->
         "closed" :: in_product_since :: List.map code_name_of_release xs
     | x :: xs ->
