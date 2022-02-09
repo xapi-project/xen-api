@@ -243,7 +243,7 @@ module Session = struct
             ~default_value:(Some (VString "")) ~ty:String "originator"
             "a key string provided by a API user to distinguish itself from \
              other users sharing the same login name"
-        ; field ~in_product_since:rel_next ~qualifier:DynamicRO
+        ; field ~in_product_since:"21.2.0" ~qualifier:DynamicRO
             ~default_value:(Some (VBool false)) ~ty:Bool "client_certificate"
             "indicates whether this session was authenticated using a client \
              certificate"
@@ -322,7 +322,7 @@ module Task = struct
       ()
 
   let set_result =
-    call ~flags:[`Session] ~in_oss_since:None ~in_product_since:rel_next
+    call ~flags:[`Session] ~in_oss_since:None ~in_product_since:"21.3.0"
       ~name:"set_result" ~doc:"Set the task result"
       ~params:
         [
@@ -334,7 +334,7 @@ module Task = struct
       ()
 
   let set_error_info =
-    call ~flags:[`Session] ~in_oss_since:None ~in_product_since:rel_next
+    call ~flags:[`Session] ~in_oss_since:None ~in_product_since:"21.3.0"
       ~name:"set_error_info" ~doc:"Set the task error info"
       ~params:
         [
@@ -346,7 +346,7 @@ module Task = struct
       ()
 
   let set_resident_on =
-    call ~flags:[`Session] ~in_oss_since:None ~in_product_since:rel_next
+    call ~flags:[`Session] ~in_oss_since:None ~in_product_since:"21.3.0"
       ~name:"set_resident_on" ~doc:"Set the resident on field"
       ~params:
         [
@@ -2269,7 +2269,7 @@ module Tunnel = struct
             ~ty:(Map (String, String))
             "other_config" "Additional configuration"
         ; field ~ty:tunnel_protocol ~default_value:(Some (VEnum "gre"))
-            ~lifecycle:[(Published, rel_next, "Add protocol field to tunnel")]
+            ~lifecycle:[(Published, "1.250.0", "Add protocol field to tunnel")]
             "protocol" "The protocol used for tunneling (either GRE or VxLAN)"
         ]
       ()
@@ -2343,7 +2343,7 @@ let device_status_fields =
         [
           (Published, rel_rio, "")
         ; ( Changed
-          , rel_next
+          , "1.257.0"
           , "Made StaticRO to allow plugged VIF and VBD creation for Suspended \
              VM"
           )
@@ -4668,7 +4668,7 @@ module VBD = struct
                 [
                   (Published, rel_rio, "")
                 ; ( Changed
-                  , rel_next
+                  , "1.257.0"
                   , "Become static to allow plugged VBD creation for Suspended \
                      VM"
                   )
@@ -5003,7 +5003,7 @@ module Role = struct
             ~default_value:(Some (VSet [])) ~ignore_foreign_key:true
             ~qualifier:StaticRO ~ty:(Set (Ref _role)) "subroles"
             "a list of pointers to other roles or permissions"
-        ; field ~in_product_since:rel_next ~default_value:(Some (VBool false))
+        ; field ~in_product_since:"22.5.0" ~default_value:(Some (VBool false))
             ~qualifier:DynamicRO ~ty:Bool "is_internal"
             "Indicates whether the role is only to be assigned internally by \
              xapi, or can be used by clients"
@@ -6361,7 +6361,7 @@ module Message = struct
             ~lifecycle:
               [
                 (Published, rel_orlando, "")
-              ; (Extended, rel_next, "Added Certificate class")
+              ; (Extended, "1.313.0", "Added Certificate class")
               ]
             "cls" "The class of the object this message is associated with"
         ; field ~qualifier:DynamicRO ~ty:String "obj_uuid"

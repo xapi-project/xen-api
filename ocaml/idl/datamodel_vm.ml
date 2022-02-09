@@ -1680,7 +1680,7 @@ let t =
       [
         (Published, rel_rio, "")
       ; ( Changed
-        , rel_next
+        , "1.257.0"
         , "possibility to create a VM in suspended mode with a suspend_VDI set"
         )
       ]
@@ -1794,7 +1794,7 @@ let t =
               [
                 (Published, rel_rio, "")
               ; ( Changed
-                , rel_next
+                , "1.257.0"
                 , "Made StaticRO to allow Suspended VM creation"
                 )
               ]
@@ -1816,7 +1816,7 @@ let t =
               [
                 (Published, rel_rio, "")
               ; ( Changed
-                , rel_next
+                , "1.257.0"
                 , "Become static to allow Suspended VM creation"
                 )
               ]
@@ -1900,7 +1900,7 @@ let t =
                    domain"
                 )
               ; ( Changed
-                , rel_next
+                , "1.257.0"
                 , "Become static to allow Suspended VM creation"
                 )
               ]
@@ -2109,7 +2109,7 @@ let t =
             "NVRAM" ~default_value:(Some (VMap []))
             "initial value for guest NVRAM (containing UEFI variables, etc). \
              Cannot be changed while the VM is running"
-        ; field ~qualifier:DynamicRO ~in_product_since:rel_next
+        ; field ~qualifier:DynamicRO ~in_product_since:"1.303.0"
             ~ty:(Set update_guidances) "pending_guidances"
             ~default_value:(Some (VSet []))
             "The set of pending guidances after applying updates"

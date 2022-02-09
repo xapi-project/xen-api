@@ -95,7 +95,7 @@ let get_cluster_config =
     ~doc:"Get the cluster config from a cluster host"
     ~params:[(Ref _cluster_host, "self", "the cluster_host to contact")]
     ~result:(SecretString, "")
-    ~lifecycle:[(Published, rel_next, "")]
+    ~lifecycle:[(Published, "1.309.0", "")]
     ~allowed_roles:_R_POOL_OP
     ~errs:Api_errors.[cluster_stack_in_use]
     ~hide_from_docs:true ()
@@ -107,7 +107,7 @@ let write_pems =
         (Ref _cluster_host, "self", "the cluster_host to contact")
       ; (SecretString, "pems", "encoded pem")
       ]
-    ~lifecycle:[(Published, rel_next, "")]
+    ~lifecycle:[(Published, "1.309.0", "")]
     ~allowed_roles:_R_POOL_OP
     ~errs:Api_errors.[cluster_stack_in_use]
     ~hide_from_docs:true ()

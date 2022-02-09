@@ -355,7 +355,7 @@ let evacuate =
     ~lifecycle:
       [
         (Published, rel_miami, "")
-      ; (Extended, rel_next, "Enable migration network selection.")
+      ; (Extended, "1.297.0", "Enable migration network selection.")
       ]
     ~versioned_params:
       [
@@ -1052,7 +1052,7 @@ let install_ca_certificate =
       ; (String, "cert", "The certificate")
       ]
     ~allowed_roles:_R_LOCAL_ROOT_ONLY
-    ~lifecycle:[(Published, rel_next, "Install TLS CA certificate")]
+    ~lifecycle:[(Published, "1.290.0", "Install TLS CA certificate")]
     ()
 
 let uninstall_ca_certificate =
@@ -1063,7 +1063,7 @@ let uninstall_ca_certificate =
         (Ref _host, "host", "The host"); (String, "name", "The certificate name")
       ]
     ~allowed_roles:_R_LOCAL_ROOT_ONLY
-    ~lifecycle:[(Published, rel_next, "Uninstall TLS CA certificate")]
+    ~lifecycle:[(Published, "1.290.0", "Uninstall TLS CA certificate")]
     ()
 
 let certificate_list =
@@ -1075,7 +1075,7 @@ let certificate_list =
     ~lifecycle:
       [
         (Published, rel_george, "List installed TLS CA certificate")
-      ; (Deprecated, rel_next, "Use openssl to inspect certificate?")
+      ; (Deprecated, "1.290.0", "Use openssl to inspect certificate?")
       ]
     ()
 
@@ -1159,7 +1159,7 @@ let install_server_certificate =
 
 let reset_server_certificate =
   call
-    ~lifecycle:[(Published, rel_next, "")]
+    ~lifecycle:[(Published, "1.290.0", "")]
     ~name:"reset_server_certificate"
     ~doc:
       "Delete the current TLS server certificate and replace by a new, \
@@ -1179,7 +1179,7 @@ let emergency_reset_server_certificate =
 (* this internal call is used to process values of type [Cert_distrib.Wire.command] *)
 let cert_distrib_atom =
   call ~pool_internal:true ~hide_from_docs:true
-    ~lifecycle:[(Published, rel_next, "")]
+    ~lifecycle:[(Published, "1.295.0", "")]
     ~name:"cert_distrib_atom" ~doc:""
     ~params:
       [
@@ -1204,7 +1204,7 @@ let get_server_certificate =
 
 let refresh_server_certificate =
   call
-    ~lifecycle:[(Published, rel_next, "")]
+    ~lifecycle:[(Published, "1.307.0", "")]
     ~name:"refresh_server_certificate"
     ~doc:"Replace the internal self-signed host certficate with a new one."
     ~params:[(Ref _host, "host", "The host")]
@@ -1651,7 +1651,7 @@ let host_sched_gran =
 
 let set_sched_gran =
   call ~name:"set_sched_gran"
-    ~lifecycle:[(Prototyped, rel_next, "")]
+    ~lifecycle:[(Published, "1.271.0", "")]
     ~doc:
       "Sets xen's sched-gran on a host. See: \
        https://xenbits.xen.org/docs/unstable/misc/xen-command-line.html#sched-gran-x86"
@@ -1664,7 +1664,7 @@ let set_sched_gran =
 
 let get_sched_gran =
   call ~name:"get_sched_gran"
-    ~lifecycle:[(Prototyped, rel_next, "")]
+    ~lifecycle:[(Published, "1.271.0", "")]
     ~doc:"Gets xen's sched-gran on a host"
     ~params:[(Ref _host, "self", "The host")]
     ~allowed_roles:_R_LOCAL_ROOT_ONLY
@@ -1673,20 +1673,20 @@ let get_sched_gran =
 
 let emergency_disable_tls_verification =
   call ~flags:[`Session] ~name:"emergency_disable_tls_verification"
-    ~lifecycle:[(Published, rel_next, "")]
-    ~in_oss_since:None ~in_product_since:rel_next ~params:[]
+    ~lifecycle:[(Published, "1.290.0", "")]
+    ~in_oss_since:None ~params:[]
     ~doc:"Disable TLS verification for this host only"
     ~allowed_roles:_R_LOCAL_ROOT_ONLY ()
 
 let emergency_reenable_tls_verification =
   call ~flags:[`Session] ~name:"emergency_reenable_tls_verification"
-    ~lifecycle:[(Published, rel_next, "")]
-    ~in_oss_since:None ~in_product_since:rel_next ~params:[]
+    ~lifecycle:[(Published, "1.298.0", "")]
+    ~in_oss_since:None ~params:[]
     ~doc:"Reenable TLS verification for this host only"
     ~allowed_roles:_R_LOCAL_ROOT_ONLY ()
 
 let apply_updates =
-  call ~name:"apply_updates" ~in_oss_since:None ~in_product_since:rel_next
+  call ~name:"apply_updates" ~in_oss_since:None ~in_product_since:"1.301.0"
     ~doc:"apply updates from current enabled repository on a host"
     ~params:
       [
@@ -1702,7 +1702,7 @@ let apply_updates =
 
 let copy_primary_host_certs =
   call ~name:"copy_primary_host_certs" ~in_oss_since:None
-    ~in_product_since:rel_next
+    ~in_product_since:"1.307.0"
     ~doc:"useful for secondary hosts that are missing some certs"
     ~params:
       [
@@ -2047,11 +2047,11 @@ let t =
             ~lifecycle:[(Published, rel_stockholm, "")]
             ~default_value:(Some (VSet [])) ~ty:(Set String) "editions"
             "List of all available product editions"
-        ; field ~qualifier:DynamicRO ~in_product_since:rel_next
+        ; field ~qualifier:DynamicRO ~in_product_since:"1.303.0"
             ~ty:(Set update_guidances) "pending_guidances"
             ~default_value:(Some (VSet []))
             "The set of pending guidances after applying updates"
-        ; field ~qualifier:DynamicRO ~in_product_since:rel_next ~ty:Bool
+        ; field ~qualifier:DynamicRO ~in_product_since:"1.313.0" ~ty:Bool
             "tls_verification_enabled" ~default_value:(Some (VBool false))
             "True if this host has TLS verifcation enabled"
         ]
