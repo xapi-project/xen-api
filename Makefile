@@ -28,19 +28,19 @@ lint:
 
 test:
 	XAPI_VERSION=$(XAPI_VERSION) dune runtest --profile=$(PROFILE) --no-buffer -j $(JOBS)
-	dune build @runtest-python --profile=$(PROFILE)
+	XAPI_VERSION=$(XAPI_VERSION) dune build @runtest-python --profile=$(PROFILE)
 
 stresstest:
 	XAPI_VERSION=$(XAPI_VERSION) dune build @stresstest --profile=$(PROFILE) --no-buffer -j $(JOBS)
 
 doc:
 	XAPI_VERSION=$(XAPI_VERSION) dune build --profile=$(PROFILE) ocaml/idl/datamodel_main.exe
-	dune build --profile=$(PROFILE) -f @ocaml/doc/jsapigen
+	XAPI_VERSION=$(XAPI_VERSION) dune build --profile=$(PROFILE) -f @ocaml/doc/jsapigen
 	mkdir -p $(XAPIDOC)/html
 	cp -r _build/default/ocaml/doc/api $(XAPIDOC)/html
 	cp _build/default/ocaml/doc/branding.js $(XAPIDOC)/html
 	cp ocaml/doc/*.js ocaml/doc/*.html ocaml/doc/*.css $(XAPIDOC)/html
-	dune exec --profile=$(PROFILE) -- ocaml/idl/datamodel_main.exe -closed -markdown $(XAPIDOC)/markdown
+	XAPI_VERSION=$(XAPI_VERSION) dune exec --profile=$(PROFILE) -- ocaml/idl/datamodel_main.exe -closed -markdown $(XAPIDOC)/markdown
 	cp ocaml/doc/*.dot ocaml/doc/doc-convert.sh $(XAPIDOC)
 	find ocaml/doc -name "*.md" -not -name "README.md" -exec cp {} $(XAPIDOC)/markdown/ \;
 # Build manpages, networkd generated these
@@ -48,12 +48,12 @@ doc:
 
 sdk:
 	cp $(SHAREDIR)/sm/XE_SR_ERRORCODES.xml ocaml/sdk-gen/csharp/XE_SR_ERRORCODES.xml
-	dune build --profile=$(PROFILE) \
+	XAPI_VERSION=$(XAPI_VERSION) dune build --profile=$(PROFILE) \
 		ocaml/sdk-gen/c/gen_c_binding.exe \
 		ocaml/sdk-gen/csharp/gen_csharp_binding.exe \
 		ocaml/sdk-gen/java/main.exe \
 		ocaml/sdk-gen/powershell/gen_powershell_binding.exe
-	dune build --profile=$(PROFILE) -f\
+	XAPI_VERSION=$(XAPI_VERSION) dune build --profile=$(PROFILE) -f\
 		@ocaml/sdk-gen/c/generate \
 		@ocaml/sdk-gen/csharp/generate \
 		@ocaml/sdk-gen/java/generate \
@@ -76,8 +76,8 @@ python:
 	$(MAKE) -C scripts/examples/python build
 
 doc-json:
-	dune build --profile=$(PROFILE) ocaml/idl/json_backend/gen_json.exe
-	dune exec --profile=$(PROFILE) -- ocaml/idl/json_backend/gen_json.exe -destdir $(XAPIDOC)/jekyll
+	XAPI_VERSION=$(XAPI_VERSION) dune build --profile=$(PROFILE) ocaml/idl/json_backend/gen_json.exe
+	XAPI_VERSION=$(XAPI_VERSION) dune exec --profile=$(PROFILE) -- ocaml/idl/json_backend/gen_json.exe -destdir $(XAPIDOC)/jekyll
 
 format:
 	dune build @fmt --auto-promote

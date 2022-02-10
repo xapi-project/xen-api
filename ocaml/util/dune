@@ -2,6 +2,7 @@
   (targets build_info.ml)
   (deps
     gen_build_info_ml.sh
+    (env_var XAPI_VERSION)
   )
   (action (with-stdout-to %{targets} (bash ./gen_build_info_ml.sh)))
 )
