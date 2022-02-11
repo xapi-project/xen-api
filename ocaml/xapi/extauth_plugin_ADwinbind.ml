@@ -66,6 +66,13 @@ let domain_krb5_dir = Filename.concat Xapi_globs.samba_dir "lock/smb_krb5"
 
 let debug_level () = !Xapi_globs.winbind_debug_level |> string_of_int
 
+let err_msg_to_tag_map =
+  [
+    ("not a properly formed account name", Auth_signature.E_INVALID_ACCOUNT)
+  ; ("bad username or authentication", Auth_signature.E_CREDENTIALS)
+    (* Some other errors *)
+  ]
+
 type domain_info = {
     service_name: string
   ; workgroup: string option
@@ -82,6 +89,17 @@ let hd msg = function
       h
 
 let max_netbios_name_length = 15
+
+let tag_from_err_msg msg =
+  match
+    List.find_opt
+      (fun (k, _) -> Astring.String.is_infix ~affix:k msg)
+      err_msg_to_tag_map
+  with
+  | Some (_, v) ->
+      v
+  | None ->
+      Auth_signature.E_GENERIC
 
 let get_domain_info_from_db () =
   Server_helpers.exec_with_new_task "retrieving external auth domain workgroup"
@@ -1388,13 +1406,10 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
       debug "Succeed to join domain %s" service_name
     with
     | Forkhelpers.Spawn_internal_error (_, stdout, _) ->
-        let msg =
-          Printf.sprintf "Failed to join domain %s: %s" service_name stdout
-        in
-        error "Join domain error: %s" msg ;
+        error "Join domain: %s error: %s" service_name stdout ;
         clear_winbind_config () ;
         (* The configure is kept for debug purpose with max level *)
-        raise (Auth_service_error (E_GENERIC, msg))
+        raise (Auth_service_error (stdout |> tag_from_err_msg, stdout))
     | Xapi_systemctl.Systemctl_fail _ ->
         let msg = Printf.sprintf "Failed to start %s" Winbind.name in
         error "Start daemon error: %s" msg ;
