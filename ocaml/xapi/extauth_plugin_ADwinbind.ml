@@ -1304,6 +1304,14 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
   let query_group_membership subject_identifier =
     maybe_raise (Wbinfo.user_domgroups subject_identifier)
 
+  let assert_join_domain_user_format uname =
+    if Astring.String.is_infix ~affix:{|\|} uname then
+      raise
+        (generic_ex
+           "SAM format %s is not supported to join domain, retry UPN format"
+           uname
+        )
+
   (* unit on_enable(((string*string) list) config_params)
 
       Called internally by xapi _on each host_ when a client enables an external auth service for the
@@ -1325,6 +1333,9 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
     let pass =
       from_config ~name:"pass" ~err_msg:"enable requires pass" ~config_params
     in
+
+    assert_join_domain_user_format user ;
+
     let netbios_name = build_netbios_name ~config_params in
 
     let dns_hostname_option = build_dns_hostname_option ~config_params in
