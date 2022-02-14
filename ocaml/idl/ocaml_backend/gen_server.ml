@@ -293,9 +293,8 @@ let operation (obj : obj) (x : message) =
   let session_check_exp =
     if x.msg_session then
       [
-        "Session_check.check "
-        ^ string_of_bool x.msg_pool_internal
-        ^ " session_id;"
+        Printf.sprintf "Session_check.check ~intra_pool_only:%b ~session_id;"
+          x.msg_pool_internal
       ]
     else
       []
@@ -528,7 +527,8 @@ let gen_module api : O.Module.t =
                  ; "    begin match __params with"
                  ; "    | session_id_rpc::_->"
                  ; "      let session_id = ref_session_of_rpc session_id_rpc in"
-                 ; "      Session_check.check false session_id;"
+                 ; "      Session_check.check ~intra_pool_only:false \
+                    ~session_id;"
                  ; "      (* based on the Host.call_extension call *)"
                  ; "      let arg_names = \"session_id\"::__call::[] in"
                  ; "      let key_names = [] in"
