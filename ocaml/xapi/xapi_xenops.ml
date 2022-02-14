@@ -1204,15 +1204,12 @@ module MD = struct
            (fun (key, _) -> key <> Vm_platform.timeoffset)
            platformdata
     in
-    let platformdata =
-      let genid =
-        match vm.API.vM_generation_id with
-        | "0:0" ->
-            Xapi_vm_helpers.vm_fresh_genid ~__context ~self:vmref
-        | _ ->
-            vm.API.vM_generation_id
-      in
-      (Vm_platform.generation_id, genid) :: platformdata
+    let generation_id =
+      match vm.API.vM_generation_id with
+      | "0:0" ->
+          Some (Xapi_vm_helpers.vm_fresh_genid ~__context ~self:vmref)
+      | _ ->
+          Some vm.API.vM_generation_id
     in
     (* Add the CPUID feature set for the VM's next boot to the platform data. *)
     let platformdata =
@@ -1289,6 +1286,7 @@ module MD = struct
     ; pci_msitranslate
     ; pci_power_mgmt= false
     ; has_vendor_device= vm.API.vM_has_vendor_device
+    ; generation_id
     }
 end
 

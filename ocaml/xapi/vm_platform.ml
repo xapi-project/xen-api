@@ -109,8 +109,6 @@ let filtered_flags =
 (* Other keys we might want to write to the platform map. *)
 let timeoffset = "timeoffset"
 
-let generation_id = "generation-id"
-
 (* Helper functions. *)
 (* [is_valid key platformdata] returns true if:
    1. The key is _not_ in platformdata (absence of key is valid) or

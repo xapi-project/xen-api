@@ -533,7 +533,7 @@ module Applicability = struct
                 (* The error should not block update. Ingore it. *)
                 warn "Unknown node in <applicability>" ;
                 a
-            )
+          )
           default children
         |> assert_valid
     | _ ->

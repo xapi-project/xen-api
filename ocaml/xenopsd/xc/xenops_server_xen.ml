@@ -1332,11 +1332,20 @@ module VM = struct
       @ affinity
       @ weight
     in
+    let set_generation_id platformdata =
+      let key = "generation-id" in
+      match vm.generation_id with
+      | Some genid ->
+          (key, genid) :: List.remove_assoc key platformdata
+      | None ->
+          platformdata
+    in
     let default k v p = if List.mem_assoc k p then p else (k, v) :: p in
     let platformdata =
-      persistent.VmExtra.platformdata
+      persistent.VmExtra.platformdata @ vcpus
       |> default "acpi_s3" "0"
       |> default "acpi_s4" "0"
+      |> set_generation_id
     in
     let is_uefi =
       match ty with HVM {firmware= Uefi _; _} -> true | _ -> false
@@ -1356,7 +1365,7 @@ module VM = struct
     ; hap= hvm
     ; name= vm.name
     ; xsdata= vm.xsdata
-    ; platformdata= platformdata @ vcpus
+    ; platformdata
     ; bios_strings= vm.bios_strings
     ; has_vendor_device= vm.has_vendor_device
     ; is_uefi

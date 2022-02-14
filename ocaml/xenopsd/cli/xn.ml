@@ -669,6 +669,7 @@ let add' _copts x () =
             ; pci_msitranslate
             ; pci_power_mgmt
             ; has_vendor_device
+            ; generation_id= None
             }
           in
           let (id : Vm.id) = Client.VM.add dbg vm in
