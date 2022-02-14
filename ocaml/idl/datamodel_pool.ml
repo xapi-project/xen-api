@@ -134,7 +134,7 @@ let certs = Map (String, String)
 
 let exchange_certificates_on_join =
   call ~name:"exchange_certificates_on_join" ~in_oss_since:None
-    ~in_product_since:rel_next
+    ~in_product_since:"1.298.0"
     ~params:
       [
         (String, "uuid", "The uuid of the joining host")
@@ -148,7 +148,7 @@ let exchange_certificates_on_join =
 
 let exchange_ca_certificates_on_join =
   call ~name:"exchange_ca_certificates_on_join" ~in_oss_since:None
-    ~in_product_since:rel_next
+    ~in_product_since:"1.320.0"
     ~params:
       [
         (certs, "import", "The CA certificates that are to be installed")
@@ -593,7 +593,7 @@ let certificate_install =
     ~lifecycle:
       [
         (Published, rel_george, "Install TLS CA certificate")
-      ; (Deprecated, rel_next, "Use Pool.install_ca_certificate instead")
+      ; (Deprecated, "1.290.0", "Use Pool.install_ca_certificate instead")
       ]
     ()
 
@@ -606,7 +606,7 @@ let install_ca_certificate =
       ; (String, "cert", "The certificate in PEM format")
       ]
     ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
-    ~lifecycle:[(Published, rel_next, "Install TLS CA certificate")]
+    ~lifecycle:[(Published, "1.290.0", "Install TLS CA certificate")]
     ()
 
 let certificate_uninstall =
@@ -617,7 +617,7 @@ let certificate_uninstall =
     ~lifecycle:
       [
         (Published, rel_george, "Install TLS CA certificate")
-      ; (Deprecated, rel_next, "Use Pool.uninstall_ca_certificate instead")
+      ; (Deprecated, "1.290.0", "Use Pool.uninstall_ca_certificate instead")
       ]
     ()
 
@@ -626,7 +626,7 @@ let uninstall_ca_certificate =
     ~doc:"Remove a pool-wide TLS CA certificate."
     ~params:[(String, "name", "The certificate name")]
     ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
-    ~lifecycle:[(Published, rel_next, "Uninstall TLS CA certificate")]
+    ~lifecycle:[(Published, "1.290.0", "Uninstall TLS CA certificate")]
     ()
 
 let certificate_list =
@@ -637,7 +637,7 @@ let certificate_list =
     ~lifecycle:
       [
         (Published, rel_george, "List installed TLS CA certificate")
-      ; (Deprecated, rel_next, "Use openssl to inspect certificate")
+      ; (Deprecated, "1.290.0", "Use openssl to inspect certificate")
       ]
     ()
 
@@ -669,7 +669,7 @@ let certificate_sync =
 
 let enable_tls_verification =
   call ~flags:[`Session]
-    ~lifecycle:[(Published, rel_next, "")]
+    ~lifecycle:[(Published, "1.290.0", "")]
     ~name:"enable_tls_verification"
     ~doc:"Enable TLS server certificate verification"
     ~allowed_roles:_R_POOL_ADMIN ()
@@ -850,7 +850,7 @@ let rotate_secret =
     ~allowed_roles:_R_POOL_ADMIN ()
 
 let set_repositories =
-  call ~name:"set_repositories" ~in_product_since:rel_next
+  call ~name:"set_repositories" ~in_product_since:"1.301.0"
     ~doc:"Set enabled set of repositories"
     ~params:
       [
@@ -861,7 +861,7 @@ let set_repositories =
     ()
 
 let add_repository =
-  call ~name:"add_repository" ~in_product_since:rel_next
+  call ~name:"add_repository" ~in_product_since:"1.301.0"
     ~doc:"Add a repository to the enabled set"
     ~params:
       [
@@ -875,7 +875,7 @@ let add_repository =
     ()
 
 let remove_repository =
-  call ~name:"remove_repository" ~in_product_since:rel_next
+  call ~name:"remove_repository" ~in_product_since:"1.301.0"
     ~doc:"Remove a repository from the enabled set"
     ~params:
       [
@@ -886,7 +886,7 @@ let remove_repository =
     ()
 
 let sync_updates =
-  call ~name:"sync_updates" ~in_product_since:rel_next
+  call ~name:"sync_updates" ~in_product_since:"1.329.0"
     ~doc:"Sync with the enabled repository"
     ~versioned_params:
       [
@@ -926,7 +926,7 @@ let sync_updates =
 
 let check_update_readiness =
   call ~name:"check_update_readiness"
-    ~lifecycle:[(Published, rel_next, "")]
+    ~lifecycle:[(Published, "1.304.0", "")]
     ~doc:"Check if the pool is ready to be updated. If not, report the reasons."
     ~params:
       [
@@ -947,7 +947,7 @@ let check_update_readiness =
 
 let enable_client_certificate_auth =
   call ~name:"enable_client_certificate_auth"
-    ~lifecycle:[(Published, rel_next, "")]
+    ~lifecycle:[(Published, "1.318.0", "")]
     ~doc:"Enable client certificate authentication on the pool"
     ~params:
       [
@@ -963,14 +963,14 @@ let enable_client_certificate_auth =
 
 let disable_client_certificate_auth =
   call ~name:"disable_client_certificate_auth"
-    ~lifecycle:[(Published, rel_next, "")]
+    ~lifecycle:[(Published, "1.318.0", "")]
     ~doc:"Disable client certificate authentication on the pool"
     ~params:[(Ref _pool, "self", "The pool")]
     ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
     ()
 
 let configure_repository_proxy =
-  call ~name:"configure_repository_proxy" ~in_product_since:rel_next
+  call ~name:"configure_repository_proxy" ~in_product_since:"21.3.0"
     ~doc:"Configure proxy for RPM package repositories."
     ~params:
       [
@@ -989,7 +989,7 @@ let configure_repository_proxy =
     ()
 
 let disable_repository_proxy =
-  call ~name:"disable_repository_proxy" ~in_product_since:rel_next
+  call ~name:"disable_repository_proxy" ~in_product_since:"21.4.0"
     ~doc:"Disable the proxy for RPM package repositories."
     ~params:[(Ref _pool, "self", "The pool")]
     ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
@@ -1170,7 +1170,7 @@ let t =
               [
                 (Published, rel_george, "")
               ; ( Deprecated
-                , rel_next
+                , "1.290.0"
                 , "Deprecated: to enable TLS verification use \
                    Pool.enable_tls_verification instead"
                 )
@@ -1247,34 +1247,34 @@ let t =
             ~default_value:(Some (VBool false)) "is_psr_pending"
             "True if either a PSR is running or we are waiting for a PSR to be \
              re-run"
-        ; field ~qualifier:DynamicRO ~in_product_since:rel_next
-            ~lifecycle:[(Published, rel_next, "")]
+        ; field ~qualifier:DynamicRO
+            ~lifecycle:[(Published, "1.290.0", "")]
             ~ty:Bool ~default_value:(Some (VBool false))
             "tls_verification_enabled"
             "True iff TLS certificate verification is enabled"
-        ; field ~in_product_since:rel_next ~qualifier:DynamicRO
+        ; field ~in_product_since:"1.301.0" ~qualifier:DynamicRO
             ~ty:(Set (Ref _repository)) ~ignore_foreign_key:true "repositories"
             ~default_value:(Some (VSet []))
             "The set of currently enabled repositories"
-        ; field ~qualifier:DynamicRO ~in_product_since:rel_next
-            ~lifecycle:[(Published, rel_next, "")]
+        ; field ~qualifier:DynamicRO
+            ~lifecycle:[(Published, "1.318.0", "")]
             ~ty:Bool ~default_value:(Some (VBool false))
             "client_certificate_auth_enabled"
             "True if authentication by TLS client certificates is enabled"
-        ; field ~qualifier:DynamicRO ~in_product_since:rel_next
-            ~lifecycle:[(Published, rel_next, "")]
+        ; field ~qualifier:DynamicRO
+            ~lifecycle:[(Published, "1.318.0", "")]
             ~ty:String ~default_value:(Some (VString ""))
             "client_certificate_auth_name"
             "The name (CN/SAN) that an incoming client certificate must have \
              to allow authentication"
-        ; field ~in_product_since:rel_next ~qualifier:DynamicRO ~ty:String
+        ; field ~in_product_since:"21.3.0" ~qualifier:DynamicRO ~ty:String
             ~default_value:(Some (VString "")) "repository_proxy_url"
             "Url of the proxy used in syncing with the enabled repositories"
-        ; field ~in_product_since:rel_next ~qualifier:DynamicRO ~ty:String
+        ; field ~in_product_since:"21.3.0" ~qualifier:DynamicRO ~ty:String
             ~default_value:(Some (VString "")) "repository_proxy_username"
             "Username for the authentication of the proxy used in syncing with \
              the enabled repositories"
-        ; field ~in_product_since:rel_next ~internal_only:true
+        ; field ~in_product_since:"21.3.0" ~internal_only:true
             ~qualifier:DynamicRO ~ty:(Ref _secret)
             ~default_value:(Some (VRef null_ref)) "repository_proxy_password"
             "Password for the authentication of the proxy used in syncing with \

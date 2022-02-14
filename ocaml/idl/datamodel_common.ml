@@ -333,7 +333,8 @@ let get_product_releases in_product_since =
   let rec go_through_release_order rs =
     match rs with
     | [] ->
-        raise UnspecifiedRelease
+        (* numbered release *)
+        ["closed"; in_product_since]
     | x :: xs when code_name_of_release x = in_product_since ->
         "closed" :: in_product_since :: List.map code_name_of_release xs
     | x :: xs ->
@@ -515,6 +516,14 @@ let rio_release =
   ; opensource= get_oss_releases (Some "3.0.3")
   ; internal_deprecated_since= None
   }
+
+let get_prototyped lifecycle =
+  try
+    let _, prototyped, _ =
+      List.find (fun (t, _, _) -> t = Prototyped) lifecycle
+    in
+    Some prototyped
+  with Not_found -> None
 
 let get_published lifecycle =
   try
@@ -766,8 +775,6 @@ let create_obj ?lifecycle ~in_oss_since ?in_product_since
     force_custom_actions = None)
     ~(* None,Some(RW),Some(StaticRO) *)
     messages_default_allowed_roles ?(doc_tags = [])
-    ?((* used in constructor, destructor and explicit obj msgs *)
-    msg_lifecycles = [])
     ?(* To specify lifecycle for automatic messages (e.g. constructor) when different to object lifecycle. *)
     db_logging () =
   let contents_default_writer_roles =
@@ -864,7 +871,6 @@ let create_obj ?lifecycle ~in_oss_since ?in_product_since
   ; messages= msgs
   ; contents
   ; doccomments
-  ; msg_lifecycles
   ; gen_constructor_destructor
   ; force_custom_actions
   ; persist

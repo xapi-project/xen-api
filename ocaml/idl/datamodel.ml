@@ -243,7 +243,7 @@ module Session = struct
             ~default_value:(Some (VString "")) ~ty:String "originator"
             "a key string provided by a API user to distinguish itself from \
              other users sharing the same login name"
-        ; field ~in_product_since:rel_next ~qualifier:DynamicRO
+        ; field ~in_product_since:"21.2.0" ~qualifier:DynamicRO
             ~default_value:(Some (VBool false)) ~ty:Bool "client_certificate"
             "indicates whether this session was authenticated using a client \
              certificate"
@@ -322,7 +322,7 @@ module Task = struct
       ()
 
   let set_result =
-    call ~flags:[`Session] ~in_oss_since:None ~in_product_since:rel_next
+    call ~flags:[`Session] ~in_oss_since:None ~in_product_since:"21.3.0"
       ~name:"set_result" ~doc:"Set the task result"
       ~params:
         [
@@ -334,7 +334,7 @@ module Task = struct
       ()
 
   let set_error_info =
-    call ~flags:[`Session] ~in_oss_since:None ~in_product_since:rel_next
+    call ~flags:[`Session] ~in_oss_since:None ~in_product_since:"21.3.0"
       ~name:"set_error_info" ~doc:"Set the task error info"
       ~params:
         [
@@ -346,7 +346,7 @@ module Task = struct
       ()
 
   let set_resident_on =
-    call ~flags:[`Session] ~in_oss_since:None ~in_product_since:rel_next
+    call ~flags:[`Session] ~in_oss_since:None ~in_product_since:"21.3.0"
       ~name:"set_resident_on" ~doc:"Set the resident on field"
       ~params:
         [
@@ -462,10 +462,10 @@ let iobandwidth =
   [
     field ~persist:false ~qualifier:DynamicRO ~ty:Float "read_kbs"
       "Read bandwidth (KiB/s)"
-      ~lifecycle:[(Removed, rel_tampa, msg)]
+      ~lifecycle:[(Published, rel_rio, ""); (Removed, rel_tampa, msg)]
   ; field ~persist:false ~qualifier:DynamicRO ~ty:Float "write_kbs"
       "Write bandwidth (KiB/s)"
-      ~lifecycle:[(Removed, rel_tampa, msg)]
+      ~lifecycle:[(Published, rel_rio, ""); (Removed, rel_tampa, msg)]
   ]
 
 (** Human users *)
@@ -917,7 +917,8 @@ module Host_metrics = struct
     ; field "free" "Free host memory (bytes)"
         ~lifecycle:
           [
-            (Deprecated, rel_midnight_ride, "Will be disabled in favour of RRD")
+            (Published, rel_rio, "")
+          ; (Deprecated, rel_midnight_ride, "Will be disabled in favour of RRD")
           ; (Removed, rel_tampa, "Disabled in favour of RRD")
           ]
         ~qualifier:DynamicRO ~doc_tags:[Memory]
@@ -1445,7 +1446,7 @@ module PIF = struct
         ; (String, "gateway", "the new gateway")
         ; (String, "DNS", "the new DNS settings")
         ]
-      ~lifecycle:[(Prototyped, rel_tampa, "")]
+      ~lifecycle:[(Published, rel_tampa, "")]
       ~allowed_roles:_R_POOL_OP
       ~errs:Api_errors.[clustering_enabled]
       ()
@@ -1470,7 +1471,7 @@ module PIF = struct
           , "Whether to prefer IPv4 or IPv6 connections"
           )
         ]
-      ~lifecycle:[(Prototyped, rel_tampa, "")]
+      ~lifecycle:[(Published, rel_tampa, "")]
       ~allowed_roles:_R_POOL_OP ()
 
   let scan =
@@ -1873,20 +1874,20 @@ module PIF = struct
             ~qualifier:DynamicRO "tunnel_transport_PIF_of"
             "Indicates to which tunnel this PIF provides transport"
         ; field ~in_oss_since:None ~ty:ipv6_configuration_mode
-            ~lifecycle:[(Prototyped, rel_tampa, "")]
+            ~lifecycle:[(Published, rel_tampa, "")]
             ~qualifier:DynamicRO "ipv6_configuration_mode"
             "Sets if and how this interface gets an IPv6 address"
             ~default_value:(Some (VEnum "None"))
         ; field ~in_oss_since:None ~ty:(Set String)
-            ~lifecycle:[(Prototyped, rel_tampa, "")]
+            ~lifecycle:[(Published, rel_tampa, "")]
             ~qualifier:DynamicRO "IPv6" "IPv6 address"
             ~default_value:(Some (VSet []))
         ; field ~in_oss_since:None ~ty:String
-            ~lifecycle:[(Prototyped, rel_tampa, "")]
+            ~lifecycle:[(Published, rel_tampa, "")]
             ~qualifier:DynamicRO "ipv6_gateway" "IPv6 gateway"
             ~default_value:(Some (VString ""))
         ; field ~in_oss_since:None ~ty:primary_address_type
-            ~lifecycle:[(Prototyped, rel_tampa, "")]
+            ~lifecycle:[(Published, rel_tampa, "")]
             ~qualifier:DynamicRO "primary_address_type"
             "Which protocol should define the primary address of this interface"
             ~default_value:(Some (VEnum "IPv4"))
@@ -2268,7 +2269,7 @@ module Tunnel = struct
             ~ty:(Map (String, String))
             "other_config" "Additional configuration"
         ; field ~ty:tunnel_protocol ~default_value:(Some (VEnum "gre"))
-            ~lifecycle:[(Published, rel_next, "Add protocol field to tunnel")]
+            ~lifecycle:[(Published, "1.250.0", "Add protocol field to tunnel")]
             "protocol" "The protocol used for tunneling (either GRE or VxLAN)"
         ]
       ()
@@ -2340,9 +2341,10 @@ let device_status_fields =
     field ~ty:Bool ~qualifier:StaticRO ~default_value:(Some (VBool false))
       ~lifecycle:
         [
-          ( Changed
-          , rel_next
-          , "Become static to allow plugged VIF and VBD creation for Suspended \
+          (Published, rel_rio, "")
+        ; ( Changed
+          , "1.257.0"
+          , "Made StaticRO to allow plugged VIF and VBD creation for Suspended \
              VM"
           )
         ]
@@ -2667,7 +2669,11 @@ module VIF = struct
         @ [namespace ~name:"qos" ~contents:(qos "VIF") ()]
         @ [
             field ~qualifier:DynamicRO ~ty:(Ref _vif_metrics)
-              ~lifecycle:[(Removed, rel_tampa, "Disabled in favour of RRDs")]
+              ~lifecycle:
+                [
+                  (Published, rel_rio, "")
+                ; (Removed, rel_tampa, "Disabled in favour of RRDs")
+                ]
               "metrics" "metrics associated with this VIF"
           ; field ~qualifier:DynamicRO ~in_product_since:rel_george
               ~default_value:(Some (VBool false)) ~ty:Bool "MAC_autogenerated"
@@ -2782,7 +2788,9 @@ module Sr_stat = struct
       )
 
   let t =
-    let lifecycle = [(Prototyped, rel_kolkata, "")] in
+    let lifecycle =
+      [(Prototyped, rel_kolkata, ""); (Published, rel_lima, "")]
+    in
     create_obj ~in_db:false ~persist:PersistNothing
       ~gen_constructor_destructor:false ~lifecycle ~in_oss_since:None
       ~name:_sr_stat
@@ -2814,7 +2822,9 @@ end
 
 module Probe_result = struct
   let t =
-    let lifecycle = [(Prototyped, rel_kolkata, "")] in
+    let lifecycle =
+      [(Prototyped, rel_kolkata, ""); (Published, rel_lima, "")]
+    in
     create_obj ~in_db:false ~persist:PersistNothing
       ~gen_constructor_destructor:false ~lifecycle ~in_oss_since:None
       ~name:_probe_result
@@ -3043,7 +3053,7 @@ module SR = struct
 
   let probe_ext =
     call ~name:"probe_ext" ~in_oss_since:None
-      ~lifecycle:[(Prototyped, rel_kolkata, "")]
+      ~lifecycle:[(Prototyped, rel_kolkata, ""); (Published, rel_lima, "")]
       ~versioned_params:
         [
           {host_param with param_release= kolkata_release}
@@ -3431,8 +3441,11 @@ module SM = struct
             ~ty:(Map (String, String))
             "configuration" "names and descriptions of device config keys"
         ; field ~in_oss_since:None ~qualifier:DynamicRO
-            ~in_product_since:rel_miami
-            ~lifecycle:[(Deprecated, rel_clearwater, "Use SM.features instead")]
+            ~lifecycle:
+              [
+                (Published, rel_miami, "")
+              ; (Deprecated, rel_clearwater, "Use SM.features instead")
+              ]
             ~ty:(Set String) "capabilities" "capabilities of the SM plugin"
             ~default_value:(Some (VSet []))
         ; field ~in_oss_since:None ~qualifier:DynamicRO
@@ -4653,8 +4666,9 @@ module VBD = struct
               ~default_value:(Some (VString ""))
               ~lifecycle:
                 [
-                  ( Changed
-                  , rel_next
+                  (Published, rel_rio, "")
+                ; ( Changed
+                  , "1.257.0"
                   , "Become static to allow plugged VBD creation for Suspended \
                      VM"
                   )
@@ -4684,7 +4698,11 @@ module VBD = struct
         @ [namespace ~name:"qos" ~contents:(qos "VBD") ()]
         @ [
             field ~qualifier:DynamicRO ~ty:(Ref _vbd_metrics)
-              ~lifecycle:[(Removed, rel_tampa, "Disabled in favour of RRDs")]
+              ~lifecycle:
+                [
+                  (Published, rel_rio, "")
+                ; (Removed, rel_tampa, "Disabled in favour of RRDs")
+                ]
               "metrics" "metrics associated with this VBD"
           ]
         )
@@ -4711,9 +4729,20 @@ module VBD_metrics = struct
         [
           uid _vbd_metrics
         ; namespace ~name:"io" ~contents:iobandwidth ()
-        ; field ~qualifier:DynamicRO ~ty:DateTime "last_updated"
-            "Time at which this information was last updated"
-        ; field ~in_product_since:rel_orlando ~default_value:(Some (VMap []))
+        ; field ~qualifier:DynamicRO ~ty:DateTime
+            ~lifecycle:
+              [
+                (Published, rel_rio, "")
+              ; (Removed, rel_tampa, "Disabled in favour of RRD")
+              ]
+            "last_updated" "Time at which this information was last updated"
+        ; field ~in_product_since:rel_orlando
+            ~lifecycle:
+              [
+                (Published, rel_orlando, "")
+              ; (Removed, rel_tampa, "Disabled in favour of RRD")
+              ]
+            ~default_value:(Some (VMap []))
             ~ty:(Map (String, String))
             "other_config" "additional configuration"
         ]
@@ -4974,7 +5003,7 @@ module Role = struct
             ~default_value:(Some (VSet [])) ~ignore_foreign_key:true
             ~qualifier:StaticRO ~ty:(Set (Ref _role)) "subroles"
             "a list of pointers to other roles or permissions"
-        ; field ~in_product_since:rel_next ~default_value:(Some (VBool false))
+        ; field ~in_product_since:"22.5.0" ~default_value:(Some (VBool false))
             ~qualifier:DynamicRO ~ty:Bool "is_internal"
             "Indicates whether the role is only to be assigned internally by \
              xapi, or can be used by clients"
@@ -5052,7 +5081,11 @@ module VM_metrics = struct
         ~ty:(Map (Int, Float))
         ~persist:false "utilisation"
         "Utilisation for all of guest's current VCPUs"
-        ~lifecycle:[(Removed, rel_tampa, "Disabled in favour of RRDs")]
+        ~lifecycle:
+          [
+            (Published, rel_rio, "")
+          ; (Removed, rel_tampa, "Disabled in favour of RRDs")
+          ]
     ; field ~qualifier:DynamicRO
         ~ty:(Map (Int, Int))
         "CPU" "VCPU to PCPU map" ~persist:false
@@ -6108,13 +6141,12 @@ module Event = struct
 
   let t =
     {
-      obj_lifecycle= []
+      obj_lifecycle= [(Published, rel_rio, "")]
     ; name= _event
     ; gen_events= false
     ; description= "Asynchronous event registration and handling"
     ; gen_constructor_destructor= false
     ; doccomments= []
-    ; msg_lifecycles= []
     ; messages= [register; unregister; next; from; get_current_id; inject]
     ; obj_release=
         {
@@ -6326,7 +6358,11 @@ module Message = struct
         ; field ~qualifier:DynamicRO ~ty:Int "priority"
             "The message priority, 0 being low priority"
         ; field ~qualifier:DynamicRO ~ty:cls
-            ~lifecycle:[(Extended, rel_next, "Added Certificate class")]
+            ~lifecycle:
+              [
+                (Published, rel_orlando, "")
+              ; (Extended, "1.313.0", "Added Certificate class")
+              ]
             "cls" "The class of the object this message is associated with"
         ; field ~qualifier:DynamicRO ~ty:String "obj_uuid"
             "The uuid of the object this message is associated with"
@@ -6495,19 +6531,24 @@ module PCI = struct
       ~contents:
         [
           uid _pci ~lifecycle:[(Published, rel_boston, "")]
-        ; field ~qualifier:StaticRO ~ty:String ~lifecycle:[] "class_id"
-            "PCI class ID" ~default_value:(Some (VString ""))
+        ; field ~qualifier:StaticRO ~ty:String
+            ~lifecycle:[(Published, rel_boston, "")]
+            "class_id" "PCI class ID" ~default_value:(Some (VString ""))
             ~internal_only:true
         ; field ~qualifier:StaticRO ~ty:String
             ~lifecycle:[(Published, rel_boston, "")]
             "class_name" "PCI class name" ~default_value:(Some (VString ""))
-        ; field ~qualifier:StaticRO ~ty:String ~lifecycle:[] "vendor_id"
-            "Vendor ID" ~default_value:(Some (VString "")) ~internal_only:true
+        ; field ~qualifier:StaticRO ~ty:String
+            ~lifecycle:[(Published, rel_boston, "")]
+            "vendor_id" "Vendor ID" ~default_value:(Some (VString ""))
+            ~internal_only:true
         ; field ~qualifier:StaticRO ~ty:String
             ~lifecycle:[(Published, rel_boston, "")]
             "vendor_name" "Vendor name" ~default_value:(Some (VString ""))
-        ; field ~qualifier:StaticRO ~ty:String ~lifecycle:[] "device_id"
-            "Device ID" ~default_value:(Some (VString "")) ~internal_only:true
+        ; field ~qualifier:StaticRO ~ty:String
+            ~lifecycle:[(Published, rel_boston, "")]
+            "device_id" "Device ID" ~default_value:(Some (VString ""))
+            ~internal_only:true
         ; field ~qualifier:StaticRO ~ty:String
             ~lifecycle:[(Published, rel_boston, "")]
             "device_name" "Device name" ~default_value:(Some (VString ""))
@@ -6519,7 +6560,8 @@ module PCI = struct
             ~lifecycle:[(Published, rel_boston, "")]
             "pci_id" "PCI ID of the physical device"
             ~default_value:(Some (VString ""))
-        ; field ~qualifier:DynamicRO ~ty:Int ~lifecycle:[]
+        ; field ~qualifier:DynamicRO ~ty:Int
+            ~lifecycle:[(Published, rel_boston, "")]
             ~default_value:(Some (VInt 1L)) "functions"
             "Number of physical + virtual PCI functions" ~internal_only:true
         ; field ~qualifier:DynamicRO ~ty:(Set (Ref _pci))
@@ -6532,7 +6574,8 @@ module PCI = struct
             "physical_function"
             "The PF (physical PCI device) that provides this VF"
             ~default_value:(Some (VRef null_ref)) ~internal_only:true
-        ; field ~qualifier:DynamicRO ~ty:(Set (Ref _vm)) ~lifecycle:[]
+        ; field ~qualifier:DynamicRO ~ty:(Set (Ref _vm))
+            ~lifecycle:[(Published, rel_boston, "")]
             "attached_VMs"
             "VMs that currently have a function of this PCI device \
              passed-through to them"
@@ -6546,14 +6589,16 @@ module PCI = struct
             ~lifecycle:[(Published, rel_boston, "")]
             "other_config" "Additional configuration"
             ~default_value:(Some (VMap []))
-        ; field ~qualifier:StaticRO ~ty:String ~lifecycle:[]
+        ; field ~qualifier:StaticRO ~ty:String
+            ~lifecycle:[(Published, rel_clearwater_whetstone, "")]
             "subsystem_vendor_id" "Subsystem vendor ID"
             ~default_value:(Some (VString "")) ~internal_only:true
         ; field ~qualifier:StaticRO ~ty:String
             ~lifecycle:[(Published, rel_clearwater_whetstone, "")]
             "subsystem_vendor_name" "Subsystem vendor name"
             ~default_value:(Some (VString ""))
-        ; field ~qualifier:StaticRO ~ty:String ~lifecycle:[]
+        ; field ~qualifier:StaticRO ~ty:String
+            ~lifecycle:[(Published, rel_clearwater_whetstone, "")]
             "subsystem_device_id" "Subsystem device ID"
             ~default_value:(Some (VString "")) ~internal_only:true
         ; field ~qualifier:StaticRO ~ty:String
@@ -7850,8 +7895,52 @@ let all_relations =
   ; ((_certificate, "host"), (_host, "certificates"))
   ]
 
+let update_lifecycles =
+  let replace_prototyped p ls =
+    (Prototyped, p, "")
+    :: List.filter (function Prototyped, _, _ -> false | x -> true) ls
+  in
+  let replace_obj_lifecycle obj =
+    let obj_lifecycle =
+      match Datamodel_lifecycle.prototyped_of_class obj.name with
+      | Some p ->
+          replace_prototyped p obj.obj_lifecycle
+      | None ->
+          obj.obj_lifecycle
+    in
+    {obj with obj_lifecycle}
+  in
+  let replace_field_lifecycle obj_name fld =
+    let lifecycle =
+      match
+        Datamodel_lifecycle.prototyped_of_field
+          (obj_name, Escaping.escape_id fld.full_name)
+      with
+      | Some p ->
+          replace_prototyped p fld.lifecycle
+      | None ->
+          fld.lifecycle
+    in
+    {fld with lifecycle}
+  in
+  let replace_message_lifecycle msg =
+    let msg_lifecycle =
+      match
+        Datamodel_lifecycle.prototyped_of_message
+          (msg.msg_obj_name, msg.msg_name)
+      with
+      | Some p ->
+          replace_prototyped p msg.msg_lifecycle
+      | None ->
+          msg.msg_lifecycle
+    in
+    {msg with msg_lifecycle}
+  in
+  Dm_api.map replace_obj_lifecycle replace_field_lifecycle
+    replace_message_lifecycle
+
 (** the full api specified here *)
-let all_api = Dm_api.make (all_system, all_relations)
+let all_api = Dm_api.make (all_system, all_relations) |> update_lifecycles
 
 (** These are the "emergency" calls that can be performed when a host is in "emergency mode" *)
 let emergency_calls =

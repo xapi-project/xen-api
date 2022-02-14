@@ -1090,13 +1090,13 @@ let add_to_VCPUs_params_live =
 
 let remove_from_NVRAM =
   call ~flags:[`Session] ~name:"remove_from_NVRAM"
-    ~lifecycle:[(Prototyped, rel_naples, "")]
+    ~lifecycle:[(Published, rel_naples, "")]
     ~params:[(Ref _vm, "self", "The VM"); (String, "key", "The key")]
     ~allowed_roles:_R_VM_ADMIN ()
 
 let add_to_NVRAM =
   call ~flags:[`Session] ~name:"add_to_NVRAM"
-    ~lifecycle:[(Prototyped, rel_naples, "")]
+    ~lifecycle:[(Published, rel_naples, "")]
     ~params:
       [
         (Ref _vm, "self", "The VM")
@@ -1107,7 +1107,7 @@ let add_to_NVRAM =
 
 let set_NVRAM =
   call ~flags:[`Session] ~name:"set_NVRAM"
-    ~lifecycle:[(Prototyped, rel_naples, "")]
+    ~lifecycle:[(Published, rel_naples, "")]
     ~params:
       [
         (Ref _vm, "self", "The VM"); (Map (String, String), "value", "The value")
@@ -1256,7 +1256,8 @@ let assert_can_migrate =
     ()
 
 let assert_can_migrate_sender =
-  call ~name:"assert_can_migrate_sender" ~lifecycle:[]
+  call ~name:"assert_can_migrate_sender"
+    ~lifecycle:[(Published, rel_inverness, "")]
     ~doc:
       "Assertions for VM.assert_can_migrate that must be done on the sending \
        host."
@@ -1643,7 +1644,7 @@ let set_HVM_boot_policy =
 
 let set_NVRAM_EFI_variables =
   call ~flags:[`Session] ~name:"set_NVRAM_EFI_variables"
-    ~lifecycle:[(Prototyped, rel_naples, "")]
+    ~lifecycle:[(Published, rel_naples, "")]
     ~params:[(Ref _vm, "self", "The VM"); (String, "value", "The value")]
     ~hide_from_docs:true ~allowed_roles:_R_LOCAL_ROOT_ONLY ()
 
@@ -1679,7 +1680,7 @@ let t =
       [
         (Published, rel_rio, "")
       ; ( Changed
-        , rel_next
+        , "1.257.0"
         , "possibility to create a VM in suspended mode with a suspend_VDI set"
         )
       ]
@@ -1791,9 +1792,10 @@ let t =
             ~default_value:(Some (VEnum "Halted"))
             ~lifecycle:
               [
-                ( Changed
-                , rel_next
-                , "Become static to allow Suspended VM creation"
+                (Published, rel_rio, "")
+              ; ( Changed
+                , "1.257.0"
+                , "Made StaticRO to allow Suspended VM creation"
                 )
               ]
             ~ty:power_state "power_state" "Current power state of the machine"
@@ -1812,8 +1814,9 @@ let t =
         ; field ~qualifier:StaticRO ~default_value:(Some (VRef null_ref))
             ~lifecycle:
               [
-                ( Changed
-                , rel_next
+                (Published, rel_rio, "")
+              ; ( Changed
+                , "1.257.0"
                 , "Become static to allow Suspended VM creation"
                 )
               ]
@@ -1897,7 +1900,7 @@ let t =
                    domain"
                 )
               ; ( Changed
-                , rel_next
+                , "1.257.0"
                 , "Become static to allow Suspended VM creation"
                 )
               ]
@@ -2100,13 +2103,13 @@ let t =
             ~default_value:(Some (VEnum "unspecified")) "domain_type"
             "The type of domain that will be created when the VM is started"
         ; field
-            ~lifecycle:[(Prototyped, rel_naples, "")]
+            ~lifecycle:[(Published, rel_naples, "")]
             ~qualifier:StaticRO
             ~ty:(Map (String, String))
             "NVRAM" ~default_value:(Some (VMap []))
             "initial value for guest NVRAM (containing UEFI variables, etc). \
              Cannot be changed while the VM is running"
-        ; field ~qualifier:DynamicRO ~in_product_since:rel_next
+        ; field ~qualifier:DynamicRO ~in_product_since:"1.303.0"
             ~ty:(Set update_guidances) "pending_guidances"
             ~default_value:(Some (VSet []))
             "The set of pending guidances after applying updates"

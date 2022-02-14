@@ -357,18 +357,34 @@ exception UnspecifiedRelease
 let code_name_of_release x =
   match x.code_name with Some r -> r | None -> raise UnspecifiedRelease
 
+let version_leq x y =
+  let to_list v = v |> String.split_on_char '.' |> List.map int_of_string in
+  to_list x <= to_list y
+
 (* ordering function on releases *)
 let release_leq x y =
   let rec posn_in_list i x l =
     match l with
     | [] ->
-        raise (Unknown_release x)
+        None
     | r :: _ when code_name_of_release r = x ->
-        i
+        Some i
     | _ :: rs ->
         posn_in_list (i + 1) x rs
   in
-  posn_in_list 0 x release_order <= posn_in_list 0 y release_order
+  match (posn_in_list 0 x release_order, posn_in_list 0 y release_order) with
+  | Some a, Some b ->
+      (* x and y are both named releases *)
+      a <= b
+  | Some _, None ->
+      (* x is a named release, y is numbered and thus newer *)
+      true
+  | None, Some _ ->
+      (* x is a number release, y is named and thus older *)
+      false
+  | None, None ->
+      (* x and y are both numbered releases *)
+      version_leq x y
 
 (** Types of object fields. Accessor functions are generated for each field automatically according to its type and qualifiers. *)
 type ty =
@@ -585,7 +601,6 @@ type obj = {
   ; contents: content list
   ; messages: message list
   ; doccomments: (string * string) list
-  ; msg_lifecycles: (string * lifecycle_transition list) list
   ; gen_constructor_destructor: bool
   ; force_custom_actions: qualifier option
   ; (* None,Some(RW),Some(StaticRO) *)

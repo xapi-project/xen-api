@@ -248,12 +248,6 @@ let doccomment (x : obj) (meth : string) : string =
   else
     (List.assoc meth default_doccomments) x
 
-let get_lifecycle (x : obj) (meth : string) : lifecycle_transition list =
-  if List.mem_assoc meth x.msg_lifecycles then
-    List.assoc meth x.msg_lifecycles
-  else
-    x.obj_lifecycle
-
 (**
  * The C bindings set this to get the self variable named after the class,
  * as opposed to being called "self".  It also means that constructor argument
@@ -540,7 +534,6 @@ let messages_of_obj (x : obj) document_order : message list =
         ]
     ; msg_result= Some (Ref x.name, "reference to the newly created object")
     ; msg_doc= doccomment x name
-    ; msg_lifecycle= get_lifecycle x name
     ; msg_async= true
     ; msg_session= true
     ; msg_has_effect= true
@@ -557,7 +550,6 @@ let messages_of_obj (x : obj) document_order : message list =
     ; msg_params= [self]
     ; msg_result= None
     ; msg_doc= doccomment x name
-    ; msg_lifecycle= get_lifecycle x name
     ; msg_async= true
     ; msg_session= true
     ; msg_has_effect= true
@@ -583,7 +575,6 @@ let messages_of_obj (x : obj) document_order : message list =
         ]
     ; msg_result= Some (Ref x.name, "reference to the object")
     ; msg_doc= doccomment x name
-    ; msg_lifecycle= get_lifecycle x name
     ; msg_async= false
     ; msg_session= true
     ; msg_has_effect= false
@@ -610,7 +601,6 @@ let messages_of_obj (x : obj) document_order : message list =
     ; msg_result=
         Some (Set (Ref x.name), "references to objects with matching names")
     ; msg_doc= doccomment x name
-    ; msg_lifecycle= get_lifecycle x name
     ; msg_async= false
     ; msg_session= true
     ; msg_has_effect= false
@@ -627,7 +617,6 @@ let messages_of_obj (x : obj) document_order : message list =
     ; msg_params= [self]
     ; msg_result= Some (Record x.name, "all fields from the object")
     ; msg_doc= doccomment x name
-    ; msg_lifecycle= get_lifecycle x name
     ; msg_async= false
     ; msg_session= true
     ; msg_has_effect= false
@@ -649,7 +638,6 @@ let messages_of_obj (x : obj) document_order : message list =
           , "all fields from the object, including implementation-only ones"
           )
     ; msg_doc= doccomment x name
-    ; msg_lifecycle= get_lifecycle x name
     ; msg_async= false
     ; msg_session= true
     ; msg_db_only= true
@@ -671,7 +659,6 @@ let messages_of_obj (x : obj) document_order : message list =
     ; msg_params= []
     ; msg_result= Some (Set (Ref x.name), "references to all objects")
     ; msg_doc= doccomment x name
-    ; msg_lifecycle= get_lifecycle x name
     ; msg_async= false
     ; msg_session= true
     ; (* but irrelevant because currently not exposed *)
@@ -743,7 +730,6 @@ let messages_of_obj (x : obj) document_order : message list =
         }
     ; msg_allowed_roles= x.obj_implicit_msg_allowed_roles
     ; msg_doc= doccomment x name
-    ; msg_lifecycle= get_lifecycle x name
     }
   in
 
