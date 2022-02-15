@@ -569,6 +569,7 @@ let make_software_version ~__context host_info =
   @ v6_version
   @ [
       ("xapi", get_xapi_verstring ())
+    ; ("xapi_build", Build_info.version)
     ; ("xen", Option.value ~default:"(unknown)" host_info.xen_verstring)
     ; ("linux", host_info.linux_verstring)
     ; ("xencenter_min", Xapi_globs.xencenter_min_verstring)
