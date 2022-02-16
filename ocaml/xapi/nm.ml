@@ -86,7 +86,24 @@ let determine_ethtool_settings properties oc =
       []
   in
   let autoneg = proc "autoneg" in
-  let settings = speed @ duplex @ autoneg in
+  let advertise =
+    let is_hex x =
+      try Scanf.sscanf x "0x%x%!" (fun _ -> true)
+      with Stdlib.Scanf.Scan_failure _ -> false
+    in
+    match List.assoc_opt "ethtool-advertise" oc with
+    | Some value when is_hex value ->
+        [("advertise", value)]
+    | Some value ->
+        debug
+          "Invalid value for ethtool-advertise = %s. Must be a hexadecimal \
+           value starting with 0x."
+          value ;
+        []
+    | None ->
+        []
+  in
+  let settings = speed @ duplex @ autoneg @ advertise in
   let offload =
     List.flatten
       (List.map proc ["rx"; "tx"; "sg"; "tso"; "ufo"; "gso"; "gro"; "lro"])
