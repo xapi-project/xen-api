@@ -13,7 +13,6 @@
  *)
 open Printf
 open Datamodel_types
-open Datamodel
 open Datamodel_utils
 open Dm_api
 
@@ -46,7 +45,7 @@ let of_objs api =
          (fun (obj : obj) ->
            (* First consider the edges defined as relational *)
            let relational =
-             List.filter (fun ((a, _), (b, _)) -> a = obj.name) relations
+             List.filter (fun ((a, _), _) -> a = obj.name) relations
            in
            let edges =
              List.map

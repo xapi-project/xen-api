@@ -11,6 +11,7 @@
 (library
   (name xapi_client)
   (public_name xapi-client)
+  (flags (:standard -w -50))
   (libraries
     mtime
     mtime.clock.os

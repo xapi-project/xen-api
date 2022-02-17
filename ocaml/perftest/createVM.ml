@@ -25,11 +25,13 @@ let innertemplate = "Windows XP SP3"
 let make_iscsi_ip pool = Printf.sprintf "192.168.%d.200" (pool.ipbase + 2)
 
 let find_iscsi_iso session_id =
-  let vdis = Client.VDI.get_all rpc session_id in
+  let vdis = Client.VDI.get_all ~rpc ~session_id in
   try
     Some
       (List.find
-         (fun vdi -> Client.VDI.get_name_label rpc session_id vdi = iscsi_vm_iso)
+         (fun vdi ->
+           Client.VDI.get_name_label ~rpc ~session_id ~self:vdi = iscsi_vm_iso
+         )
          vdis
       )
   with _ -> None
@@ -45,47 +47,65 @@ let make_iscsi session_id pool network =
           failwith "iSCSI VM iso not found"
     in
     let template =
-      List.hd (Client.VM.get_by_name_label rpc session_id iscsi_vm_template)
+      List.hd
+        (Client.VM.get_by_name_label ~rpc ~session_id ~label:iscsi_vm_template)
     in
-    let newvm = Client.VM.clone rpc session_id template "ISCSI target server" in
-    Client.VM.provision rpc session_id newvm ;
+    let newvm =
+      Client.VM.clone ~rpc ~session_id ~vm:template
+        ~new_name:"ISCSI target server"
+    in
+    Client.VM.provision ~rpc ~session_id ~vm:newvm ;
     let _ (* isovbd *) =
-      Client.VBD.create rpc session_id newvm iscsi_iso "" "0" true `RO `CD false
-        false [] false "" []
+      Client.VBD.create ~rpc ~session_id ~vM:newvm ~vDI:iscsi_iso ~device:""
+        ~userdevice:"0" ~bootable:true ~mode:`RO ~_type:`CD ~unpluggable:false
+        ~empty:false ~other_config:[] ~currently_attached:false
+        ~qos_algorithm_type:"" ~qos_algorithm_params:[]
     in
-    let realpool = List.hd (Client.Pool.get_all rpc session_id) in
-    let defaultsr = Client.Pool.get_default_SR rpc session_id realpool in
+    let realpool = List.hd (Client.Pool.get_all ~rpc ~session_id) in
+    let defaultsr =
+      Client.Pool.get_default_SR ~rpc ~session_id ~self:realpool
+    in
     for i = 0 to pool.iscsi_luns - 1 do
       let storage_vdi_label = Printf.sprintf "SCSI VDI %d" i in
       let storage_vdi =
-        Client.VDI.create rpc session_id storage_vdi_label "" defaultsr
-          sr_disk_size `user false false [(oc_key, pool.key)] [] [] []
+        Client.VDI.create ~rpc ~session_id ~name_label:storage_vdi_label
+          ~name_description:"" ~sR:defaultsr ~virtual_size:sr_disk_size
+          ~_type:`user ~sharable:false ~read_only:false
+          ~other_config:[(oc_key, pool.key)] ~xenstore_data:[] ~sm_config:[]
+          ~tags:[]
       in
       let userdevice = Printf.sprintf "%d" (i + 1) in
       ignore
-        (Client.VBD.create rpc session_id newvm storage_vdi "" userdevice false
-           `RW `Disk false false [] false "" []
+        (Client.VBD.create ~rpc ~session_id ~vM:newvm ~vDI:storage_vdi
+           ~device:"" ~userdevice ~bootable:false ~mode:`RW ~_type:`Disk
+           ~unpluggable:false ~empty:false ~other_config:[]
+           ~currently_attached:false ~qos_algorithm_type:""
+           ~qos_algorithm_params:[]
         )
     done ;
-    Client.VM.set_PV_bootloader rpc session_id newvm "pygrub" ;
-    Client.VM.set_PV_args rpc session_id newvm
-      (Printf.sprintf "net_ip=%s net_mask=255.255.255.0" (make_iscsi_ip pool)) ;
-    Client.VM.set_HVM_boot_policy rpc session_id newvm "" ;
+    Client.VM.set_PV_bootloader ~rpc ~session_id ~self:newvm ~value:"pygrub" ;
+    Client.VM.set_PV_args ~rpc ~session_id ~self:newvm
+      ~value:
+        (Printf.sprintf "net_ip=%s net_mask=255.255.255.0" (make_iscsi_ip pool)) ;
+    Client.VM.set_HVM_boot_policy ~rpc ~session_id ~self:newvm ~value:"" ;
     let (_ : API.ref_VIF) =
-      Client.VIF.create rpc session_id "0" network newvm "" 1500L
-        [(oc_key, pool.key)] false "" [] `network_default [] []
+      Client.VIF.create ~rpc ~session_id ~device:"0" ~network ~vM:newvm ~mAC:""
+        ~mTU:1500L ~other_config:[(oc_key, pool.key)] ~currently_attached:false
+        ~qos_algorithm_type:"" ~qos_algorithm_params:[]
+        ~locking_mode:`network_default ~ipv4_allowed:[] ~ipv6_allowed:[]
     in
-    Client.VM.add_to_other_config rpc session_id newvm oc_key pool.key ;
-    let localhost_uuid = Inventory.lookup "INSTALLATION_UUID" in
-    Client.VM.start_on rpc session_id newvm
-      (Client.Host.get_by_uuid rpc session_id localhost_uuid)
-      false false ;
+    Client.VM.add_to_other_config ~rpc ~session_id ~self:newvm ~key:oc_key
+      ~value:pool.key ;
+    let uuid = Inventory.lookup "INSTALLATION_UUID" in
+    let host = Client.Host.get_by_uuid ~rpc ~session_id ~uuid in
+    Client.VM.start_on ~rpc ~session_id ~vm:newvm ~host ~start_paused:false
+      ~force:false ;
     Some newvm
   with e ->
     debug "Caught exception with iscsi VM: %s" (Printexc.to_string e) ;
     None
 
-let make ~rpc ~session_id ~pool ~vm ~networks ~storages =
+let make ~rpc ~session_id ~pool:_ ~vm ~networks ~storages =
   let wintemplate =
     List.hd (Client.VM.get_by_name_label ~rpc ~session_id ~label:innertemplate)
   in

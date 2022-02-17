@@ -109,7 +109,7 @@ module Hist = struct
       fold x
         (fun bin_start bin_end height acc ->
           match acc with
-          | Some x ->
+          | Some _ ->
               acc (* got it already *)
           | None ->
               if height > y then

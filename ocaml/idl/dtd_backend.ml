@@ -13,8 +13,6 @@
  *)
 
 open Printf
-open Datamodel
-open Datamodel_utils
 open Datamodel_types
 open Dm_api
 
@@ -141,14 +139,14 @@ let rec dtd_element_of_contents known_els parent_name accu = function
         (List.fold_left (dtd_element_of_contents known_els name) [] xs)
         []
       :: accu
-  | Field {field_name= name; ty} -> (
+  | Field {field_name= name; ty; _} -> (
     match ty with
     | Set (Int | Ref _) | Int | Float | DateTime | Bool ->
         add_attribute known_els parent_name name [] None ;
         accu
     | Set _ ->
         element known_els name [] [] :: accu
-    | Ref n ->
+    | Ref _ ->
         add_attribute known_els parent_name name [] (Some "") ;
         accu
     | Enum (_, vals) ->

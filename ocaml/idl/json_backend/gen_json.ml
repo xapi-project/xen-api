@@ -185,7 +185,7 @@ let fields_of_obj_with_enums obj =
       (fun l -> function
         | Field f ->
             f :: l
-        | Namespace (name, contents) ->
+        | Namespace (_name, contents) ->
             flatten_contents contents @ l
       )
       [] contents
@@ -290,7 +290,7 @@ let messages_of_obj_with_enums obj =
         if msg.msg_tag = FromObject Make then
           let ctor_fields =
             List.filter
-              (function {qualifier= StaticRO | RW} -> true | _ -> false)
+              (function {qualifier= StaticRO | RW; _} -> true | _ -> false)
               (fields_of_obj obj)
             |> List.map (fun f ->
                    String.concat "_" f.full_name
@@ -450,12 +450,14 @@ let releases objs =
     let search_obj obj =
       let changes =
         List.filter
-          (fun (transition, release, doc) -> release = code_name_of_release rel)
+          (fun (_transition, release, _doc) ->
+            release = code_name_of_release rel
+          )
           obj.obj_lifecycle
       in
       let obj_changes =
         List.map
-          (fun (transition, release, doc) ->
+          (fun (transition, _release, doc) ->
             ( transition
             , obj.name
             , ( if doc = "" && transition = Published then
@@ -471,13 +473,13 @@ let releases objs =
       let changes_for_msg m =
         let changes =
           List.filter
-            (fun (transition, release, doc) ->
+            (fun (_transition, release, _doc) ->
               release = code_name_of_release rel
             )
             m.msg_lifecycle
         in
         List.map
-          (fun (transition, release, doc) ->
+          (fun (transition, _release, doc) ->
             ( transition
             , obj.name ^ "." ^ m.msg_name
             , (if doc = "" && transition = Published then m.msg_doc else doc)
@@ -494,14 +496,14 @@ let releases objs =
       let changes_for_field f =
         let changes =
           List.filter
-            (fun (transition, release, doc) ->
+            (fun (_transition, release, _doc) ->
               release = code_name_of_release rel
             )
             f.lifecycle
         in
         let field_name = String.concat "_" f.full_name in
         List.map
-          (fun (transition, release, doc) ->
+          (fun (transition, _release, doc) ->
             ( transition
             , obj.name ^ "." ^ field_name
             , ( if doc = "" && transition = Published then
@@ -519,7 +521,7 @@ let releases objs =
           (fun l -> function
             | Field f ->
                 f :: l
-            | Namespace (name, contents) ->
+            | Namespace (_name, contents) ->
                 flatten_contents contents @ l
           )
           [] contents
@@ -584,9 +586,9 @@ let _ =
     (Filename.concat data_dir "release_info.json")
     (string_of_json 0 release_info) ;
   let release_yaml = function
-    | {release_date= None} ->
+    | {release_date= None; _} ->
         ""
-    | {code_name= Some x; version_major; version_minor; branding= y} ->
+    | {code_name= Some x; branding= y; _} ->
         Printf.sprintf "%s: %s\n" x y
     | _ ->
         ""
@@ -599,15 +601,9 @@ let _ =
   let class_md_dir = Filename.concat destdir "xen-api/classes" in
   Xapi_stdext_unix.Unixext.mkdir_rec class_md_dir 0o755 ;
   let release_md = function
-    | {release_date= None} ->
+    | {release_date= None; _} ->
         ()
-    | {
-        code_name= Some x
-      ; version_major
-      ; version_minor
-      ; branding
-      ; release_date= y
-      } ->
+    | {code_name= Some x; release_date= y; _} ->
         [
           "---"
         ; "layout: xenapi-release"

@@ -168,9 +168,7 @@ let pool_resync =
       "Resynchronise the cluster_host objects across the pool. Creates them \
        where they need creating and then plugs them"
     ~params:[(Ref _cluster, "self", "The cluster to resync")]
-    ~lifecycle ~allowed_roles:_R_POOL_OP
-    ~errs:Api_errors.[]
-    ()
+    ~lifecycle ~allowed_roles:_R_POOL_OP ~errs:[] ()
 
 let t =
   create_obj ~name:_cluster ~descr:"Cluster-wide Cluster metadata"

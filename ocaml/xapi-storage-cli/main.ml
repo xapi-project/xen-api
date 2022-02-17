@@ -30,9 +30,9 @@ let string_of_mirror id {Mirror.source_vdi; dest_vdi; state; failed} =
           (function
             | Storage_interface.Mirror.Receiving ->
                 "Receiving"
-            | Sending ->
+            | Storage_interface.Mirror.Sending ->
                 "Sending"
-            | Copying ->
+            | Storage_interface.Mirror.Copying ->
                 "Copying"
             )
           state
@@ -102,9 +102,9 @@ let help =
 
 (* Commands *)
 
-let wrap common_opts f =
+let wrap_exn common_opts f =
   Storage_interface.default_path := common_opts.Common.socket ;
-  try f () ; `Ok () with
+  try f () with
   | Unix.Unix_error ((Unix.ECONNREFUSED | Unix.ENOENT), "connect", _) as e ->
       Printf.fprintf stderr "Failed to connect to %s: %s\n%!"
         common_opts.Common.socket (Printexc.to_string e) ;
@@ -121,6 +121,11 @@ let wrap common_opts f =
       Printf.fprintf stderr "Error from storage backend:\n" ;
       Printf.fprintf stderr "%s: [ %s ]\n" code (String.concat "; " params) ;
       exit 1
+
+let wrap common_opts f =
+  wrap_exn common_opts @@ fun () ->
+  let () = f () in
+  `Ok ()
 
 let query common_opts =
   wrap common_opts (fun () ->
@@ -300,10 +305,18 @@ let on_vdi f common_opts sr vdi =
       `Error (true, "must supply VDI")
   | Some sr, Some vdi ->
       let sr, vdi = Storage_interface.(Sr.of_string sr, Vdi.of_string vdi) in
-      wrap common_opts (fun () -> f sr vdi)
+      wrap_exn common_opts (fun () -> f sr vdi)
+
+let on_vdi' f common_opts sr vdi =
+  on_vdi
+    (fun sr vdi ->
+      let () = f sr vdi in
+      `Ok ()
+    )
+    common_opts sr vdi
 
 let mirror_start common_opts sr vdi dp url dest =
-  on_vdi
+  on_vdi'
     (fun sr vdi ->
       let get_opt x err = match x with Some y -> y | None -> failwith err in
       let dp = get_opt dp "Need a local data path" in
@@ -367,27 +380,31 @@ let vdi_resize common_opts sr vdi new_size =
     common_opts sr vdi
 
 let vdi_destroy common_opts sr vdi =
-  on_vdi (fun sr vdi -> Client.VDI.destroy dbg sr vdi) common_opts sr vdi
+  on_vdi' (fun sr vdi -> Client.VDI.destroy dbg sr vdi) common_opts sr vdi
 
 let vdi_attach common_opts sr vdi =
-  on_vdi
+  on_vdi'
     (fun sr vdi ->
       let info = Client.VDI.attach dbg dbg sr vdi true in
       Printf.printf "%s\n" (Jsonrpc.to_string (rpc_of attach_info info))
     )
     common_opts sr vdi
 
-let vdi_detach common_opts sr vdi =
-  on_vdi (fun sr vdi -> Client.VDI.detach dbg dbg sr vdi) common_opts sr vdi
+let vdi_detach common_opts sr vdi vm =
+  let vm = Vm.of_string vm in
+  on_vdi' (fun sr vdi -> Client.VDI.detach dbg dbg sr vdi vm) common_opts sr vdi
 
 let vdi_activate common_opts sr vdi =
-  on_vdi (fun sr vdi -> Client.VDI.activate dbg dbg sr vdi) common_opts sr vdi
+  on_vdi' (fun sr vdi -> Client.VDI.activate dbg dbg sr vdi) common_opts sr vdi
 
-let vdi_deactivate common_opts sr vdi =
-  on_vdi (fun sr vdi -> Client.VDI.deactivate dbg dbg sr vdi) common_opts sr vdi
+let vdi_deactivate common_opts sr vdi vm =
+  let vm = Vm.of_string vm in
+  on_vdi'
+    (fun sr vdi -> Client.VDI.deactivate dbg dbg sr vdi vm)
+    common_opts sr vdi
 
 let vdi_similar_content common_opts sr vdi =
-  on_vdi
+  on_vdi'
     (fun sr vdi ->
       let vdis = Client.VDI.similar_content dbg sr vdi in
       List.iter
@@ -400,7 +417,7 @@ let vdi_similar_content common_opts sr vdi =
     common_opts sr vdi
 
 let vdi_compose common_opts sr vdi1 vdi2 =
-  on_vdi
+  on_vdi'
     (fun sr vdi1 ->
       match vdi2 with
       | None ->
@@ -412,16 +429,16 @@ let vdi_compose common_opts sr vdi1 vdi2 =
     common_opts sr vdi1
 
 let vdi_enable_cbt common_opts sr vdi =
-  on_vdi (fun sr vdi -> Client.VDI.enable_cbt dbg sr vdi) common_opts sr vdi
+  on_vdi' (fun sr vdi -> Client.VDI.enable_cbt dbg sr vdi) common_opts sr vdi
 
 let vdi_disable_cbt common_opts sr vdi =
-  on_vdi (fun sr vdi -> Client.VDI.disable_cbt dbg sr vdi) common_opts sr vdi
+  on_vdi' (fun sr vdi -> Client.VDI.disable_cbt dbg sr vdi) common_opts sr vdi
 
 let vdi_data_destroy common_opts sr vdi =
-  on_vdi (fun sr vdi -> Client.VDI.data_destroy dbg sr vdi) common_opts sr vdi
+  on_vdi' (fun sr vdi -> Client.VDI.data_destroy dbg sr vdi) common_opts sr vdi
 
 let vdi_list_changed_blocks common_opts sr vdi_from vdi_to =
-  on_vdi
+  on_vdi'
     (fun sr vdi_from ->
       match vdi_to with
       | None ->
@@ -459,6 +476,10 @@ let sr_arg =
 let vdi_arg =
   let doc = "unique identifier for this VDI within this storage repository" in
   Arg.(value & pos 1 (some string) None & info [] ~docv:"VDI" ~doc)
+
+let vm_arg =
+  let doc = "unique identifier for a VM" in
+  Arg.(required & pos 2 (some string) None & info [] ~docv:"VM" ~doc)
 
 let vdi2_arg ~docv ~doc =
   Arg.(value & pos 2 (some string) None & info [] ~docv ~doc)
@@ -775,7 +796,7 @@ let vdi_detach_cmd =
     ]
     @ help
   in
-  ( Term.(ret (pure vdi_detach $ common_options_t $ sr_arg $ vdi_arg))
+  ( Term.(ret (pure vdi_detach $ common_options_t $ sr_arg $ vdi_arg $ vm_arg))
   , Term.info "vdi-detach" ~sdocs:_common_options ~doc ~man
   )
 
@@ -806,7 +827,9 @@ let vdi_deactivate_cmd =
     ]
     @ help
   in
-  ( Term.(ret (pure vdi_deactivate $ common_options_t $ sr_arg $ vdi_arg))
+  ( Term.(
+      ret (pure vdi_deactivate $ common_options_t $ sr_arg $ vdi_arg $ vm_arg)
+    )
   , Term.info "vdi-deactivate" ~sdocs:_common_options ~doc ~man
   )
 
