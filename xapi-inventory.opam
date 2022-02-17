@@ -5,6 +5,7 @@ authors: "xen-api@lists.xen.org"
 homepage: "https://github.com/xapi-project/xcp-inventory"
 bug-reports: "https://github.com/xapi-project/xcp-inventory/issues"
 dev-repo: "git+http://github.com/xapi-project/xcp-inventory.git"
+license: "LGPL-2.1-only WITH OCaml-LGPL-linking-exception"
 tags: [ "org:xapi-project" ]
 build: [
   ["dune" "build" "-p" name "-j" jobs]
