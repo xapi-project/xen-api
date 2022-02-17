@@ -62,11 +62,17 @@ let determine_ethtool_settings properties oc =
         []
   in
   let speed =
+    let is_positive_int x =
+      try Scanf.sscanf x "%d%!" (fun i -> i > 0)
+      with Stdlib.Scanf.Scan_failure _ -> false
+    in
     match List.assoc_opt "ethtool-speed" oc with
-    | Some value when value = "10" || value = "100" || value = "1000" ->
+    | Some value when is_positive_int value ->
         [("speed", value)]
     | Some value ->
-        debug "Invalid value for ethtool-speed = %s. Must be 10|100|1000." value ;
+        debug
+          "Invalid value for ethtool-speed = %s. Must be a positive integer."
+          value ;
         []
     | None ->
         []
