@@ -38,55 +38,73 @@ let determine_mtu pif_rc net_rc =
     let value = List.assoc "mtu" pif_rc.API.pIF_other_config in
     try int_of_string value
     with _ ->
-      debug "Invalid value for mtu = %s" value ;
+      warn "Invalid value for other-config:mtu = %s" value ;
       mtu
   ) else
     mtu
 
 let determine_ethtool_settings properties oc =
   let proc key =
-    if List.mem_assoc ("ethtool-" ^ key) oc then
-      let value = List.assoc ("ethtool-" ^ key) oc in
-      if value = "true" || value = "on" then
+    match
+      (List.assoc_opt ("ethtool-" ^ key) oc, List.assoc_opt key properties)
+    with
+    | Some ("true" | "on"), _ ->
         [(key, "on")]
-      else if value = "false" || value = "off" then
+    | Some ("false" | "off"), _ ->
         [(key, "off")]
-      else (
-        debug "Invalid value for ethtool-%s = %s. Must be on|true|off|false."
-          key value ;
+    | Some value, _ ->
+        warn "Invalid value for ethtool-%s = %s. Must be on|true|off|false." key
+          value ;
         []
-      )
-    else if List.mem_assoc key properties then
-      [(key, List.assoc key properties)]
-    else
-      []
+    | None, Some value ->
+        [(key, value)]
+    | None, None ->
+        []
   in
   let speed =
-    if List.mem_assoc "ethtool-speed" oc then
-      let value = List.assoc "ethtool-speed" oc in
-      if value = "10" || value = "100" || value = "1000" then
+    let is_positive_int x =
+      try Scanf.sscanf x "%d%!" (fun i -> i > 0)
+      with Stdlib.Scanf.Scan_failure _ -> false
+    in
+    match List.assoc_opt "ethtool-speed" oc with
+    | Some value when is_positive_int value ->
         [("speed", value)]
-      else (
-        debug "Invalid value for ethtool-speed = %s. Must be 10|100|1000." value ;
+    | Some value ->
+        warn "Invalid value for ethtool-speed = %s. Must be a positive integer."
+          value ;
         []
-      )
-    else
-      []
+    | None ->
+        []
   in
   let duplex =
-    if List.mem_assoc "ethtool-duplex" oc then
-      let value = List.assoc "ethtool-duplex" oc in
-      if value = "half" || value = "full" then
+    match List.assoc_opt "ethtool-duplex" oc with
+    | Some (("half" | "full") as value) ->
         [("duplex", value)]
-      else (
-        debug "Invalid value for ethtool-duplex = %s. Must be half|full." value ;
+    | Some value ->
+        warn "Invalid value for ethtool-duplex = %s. Must be half|full." value ;
         []
-      )
-    else
-      []
+    | None ->
+        []
   in
   let autoneg = proc "autoneg" in
-  let settings = speed @ duplex @ autoneg in
+  let advertise =
+    let is_hex x =
+      try Scanf.sscanf x "0x%x%!" (fun _ -> true)
+      with Stdlib.Scanf.Scan_failure _ -> false
+    in
+    match List.assoc_opt "ethtool-advertise" oc with
+    | Some value when is_hex value ->
+        [("advertise", value)]
+    | Some value ->
+        warn
+          "Invalid value for ethtool-advertise = %s. Must be a hexadecimal \
+           value starting with 0x."
+          value ;
+        []
+    | None ->
+        []
+  in
+  let settings = speed @ duplex @ autoneg @ advertise in
   let offload =
     List.flatten
       (List.map proc ["rx"; "tx"; "sg"; "tso"; "ufo"; "gso"; "gro"; "lro"])
