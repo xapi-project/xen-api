@@ -45,45 +45,41 @@ let determine_mtu pif_rc net_rc =
 
 let determine_ethtool_settings properties oc =
   let proc key =
-    if List.mem_assoc ("ethtool-" ^ key) oc then
-      let value = List.assoc ("ethtool-" ^ key) oc in
-      if value = "true" || value = "on" then
+    match
+      (List.assoc_opt ("ethtool-" ^ key) oc, List.assoc_opt key properties)
+    with
+    | Some ("true" | "on"), _ ->
         [(key, "on")]
-      else if value = "false" || value = "off" then
+    | Some ("false" | "off"), _ ->
         [(key, "off")]
-      else (
+    | Some value, _ ->
         debug "Invalid value for ethtool-%s = %s. Must be on|true|off|false."
           key value ;
         []
-      )
-    else if List.mem_assoc key properties then
-      [(key, List.assoc key properties)]
-    else
-      []
+    | None, Some value ->
+        [(key, value)]
+    | None, None ->
+        []
   in
   let speed =
-    if List.mem_assoc "ethtool-speed" oc then
-      let value = List.assoc "ethtool-speed" oc in
-      if value = "10" || value = "100" || value = "1000" then
+    match List.assoc_opt "ethtool-speed" oc with
+    | Some value when value = "10" || value = "100" || value = "1000" ->
         [("speed", value)]
-      else (
+    | Some value ->
         debug "Invalid value for ethtool-speed = %s. Must be 10|100|1000." value ;
         []
-      )
-    else
-      []
+    | None ->
+        []
   in
   let duplex =
-    if List.mem_assoc "ethtool-duplex" oc then
-      let value = List.assoc "ethtool-duplex" oc in
-      if value = "half" || value = "full" then
+    match List.assoc_opt "ethtool-duplex" oc with
+    | Some (("half" | "full") as value) ->
         [("duplex", value)]
-      else (
+    | Some value ->
         debug "Invalid value for ethtool-duplex = %s. Must be half|full." value ;
         []
-      )
-    else
-      []
+    | None ->
+        []
   in
   let autoneg = proc "autoneg" in
   let advertise =
