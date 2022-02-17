@@ -66,11 +66,11 @@ let has_async = function
 
 (* true if msg is constructor or desctructor and the msg's object specifies not to make constructor/destructor *)
 let objfilter msg api =
-  let obj_name = msg.DT.msg_obj_name in
-  if obj_name = "" then
+  let objname = msg.DT.msg_obj_name in
+  if objname = "" then
     failwith (Printf.sprintf "message %s has no obj_name" msg.DT.msg_name)
   else
-    let obj = Dm_api.get_obj_by_name api obj_name in
+    let obj = Dm_api.get_obj_by_name api ~objname in
     let obj_gen_con_and_des = obj.DT.gen_constructor_destructor in
     let msg_is_con_or_des =
       msg.DT.msg_tag = DT.FromObject DT.Make

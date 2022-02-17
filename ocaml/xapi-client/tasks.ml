@@ -23,7 +23,7 @@ module TaskSet = Set.Make (struct
 end)
 
 (* Return once none of the tasks have a `pending status. *)
-let wait_for_all_inner ~rpc ~session_id ?all_timeout ~tasks =
+let wait_for_all_inner ~rpc ~session_id ~all_timeout ~tasks =
   let classes =
     List.map (fun task -> Printf.sprintf "task/%s" (Ref.string_of task)) tasks
   in
@@ -86,12 +86,14 @@ let wait_for_all_inner ~rpc ~session_id ?all_timeout ~tasks =
   wait ~token ~task_set
 
 let wait_for_all ~rpc ~session_id ~tasks =
-  wait_for_all_inner ~rpc ~session_id ?all_timeout:None ~tasks |> ignore
+  wait_for_all_inner ~rpc ~session_id ~all_timeout:None ~tasks |> ignore
 
 let with_tasks_destroy ~rpc ~session_id ~timeout ~tasks =
   let wait_or_cancel () =
     D.info "Waiting for %d tasks, timeout: %.3fs" (List.length tasks) timeout ;
-    if not (wait_for_all_inner ~rpc ~session_id ~all_timeout:timeout ~tasks)
+    if
+      not
+        (wait_for_all_inner ~rpc ~session_id ~all_timeout:(Some timeout) ~tasks)
     then (
       D.info "Canceling tasks" ;
       List.iter
@@ -101,7 +103,8 @@ let with_tasks_destroy ~rpc ~session_id ~timeout ~tasks =
         )
         tasks ;
       (* cancel is not immediate, give it a reasonable chance to take effect *)
-      wait_for_all_inner ~rpc ~session_id ~all_timeout:60. ~tasks |> ignore ;
+      wait_for_all_inner ~rpc ~session_id ~all_timeout:(Some 60.) ~tasks
+      |> ignore ;
       false
     ) else
       true
