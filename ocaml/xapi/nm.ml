@@ -38,7 +38,7 @@ let determine_mtu pif_rc net_rc =
     let value = List.assoc "mtu" pif_rc.API.pIF_other_config in
     try int_of_string value
     with _ ->
-      debug "Invalid value for mtu = %s" value ;
+      warn "Invalid value for other-config:mtu = %s" value ;
       mtu
   ) else
     mtu
@@ -53,8 +53,8 @@ let determine_ethtool_settings properties oc =
     | Some ("false" | "off"), _ ->
         [(key, "off")]
     | Some value, _ ->
-        debug "Invalid value for ethtool-%s = %s. Must be on|true|off|false."
-          key value ;
+        warn "Invalid value for ethtool-%s = %s. Must be on|true|off|false." key
+          value ;
         []
     | None, Some value ->
         [(key, value)]
@@ -70,8 +70,7 @@ let determine_ethtool_settings properties oc =
     | Some value when is_positive_int value ->
         [("speed", value)]
     | Some value ->
-        debug
-          "Invalid value for ethtool-speed = %s. Must be a positive integer."
+        warn "Invalid value for ethtool-speed = %s. Must be a positive integer."
           value ;
         []
     | None ->
@@ -82,7 +81,7 @@ let determine_ethtool_settings properties oc =
     | Some (("half" | "full") as value) ->
         [("duplex", value)]
     | Some value ->
-        debug "Invalid value for ethtool-duplex = %s. Must be half|full." value ;
+        warn "Invalid value for ethtool-duplex = %s. Must be half|full." value ;
         []
     | None ->
         []
@@ -97,7 +96,7 @@ let determine_ethtool_settings properties oc =
     | Some value when is_hex value ->
         [("advertise", value)]
     | Some value ->
-        debug
+        warn
           "Invalid value for ethtool-advertise = %s. Must be a hexadecimal \
            value starting with 0x."
           value ;
