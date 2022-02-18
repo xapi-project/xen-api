@@ -37,6 +37,8 @@ val extract_ou_config :
 
 val domainify_uname : domain:string -> string -> string
 
+val tag_from_err_msg : string -> Auth_signature.auth_service_error_tag
+
 module Wbinfo : sig
   type uid_info = {user_name: string; uid: int; gid: int; gecos: string}
 

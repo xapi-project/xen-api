@@ -923,18 +923,20 @@ let net_cmd = ref "/usr/bin/net"
 
 let wb_cmd = ref "/usr/bin/wbinfo"
 
-let ntlm_auth_cmd = ref "/usr/bin/ntlm_auth"
-
 let winbind_debug_level = ref 2
 
 let winbind_cache_time = ref 60
 
 let winbind_machine_pwd_timeout = ref (7 * 24 * 3600)
 
-let winbind_update_closest_kdc_interval = ref (3600. *. 24.) (* every day *)
+let winbind_update_closest_kdc_interval = ref (3600. *. 22.)
+(* every 22 hours *)
 
-let winbind_kerberos_encryption_type =
-  ref Kerberos_encryption_types.Winbind.Strong
+let winbind_kerberos_encryption_type = ref Kerberos_encryption_types.Winbind.All
+
+let winbind_allow_kerberos_auth_fallback = ref false
+
+let winbind_keep_configuration = ref false
 
 let tdb_tool = ref "/usr/bin/tdbtool"
 
@@ -1288,6 +1290,17 @@ let other_options =
     , "Encryption types to use when operating as Kerberos client \
        [strong|legacy|all]"
     )
+  ; ( "winbind_allow_kerberos_auth_fallback"
+    , Arg.Set winbind_allow_kerberos_auth_fallback
+    , (fun () -> string_of_bool !winbind_allow_kerberos_auth_fallback)
+    , "Whether to allow fallback to other auth on kerberos failure"
+    )
+  ; ( "winbind_keep_configuration"
+    , Arg.Set winbind_keep_configuration
+    , (fun () -> string_of_bool !winbind_keep_configuration)
+    , "Whether to clear winbind configuration when join domain failed or leave \
+       domain"
+    )
   ; ( "website-https-only"
     , Arg.Set website_https_only
     , (fun () -> string_of_bool !website_https_only)
@@ -1495,7 +1508,6 @@ module Resources = struct
       , "Executed to manage Samba Database"
       )
     ; ("winbind query tool", wb_cmd, "Query information from winbind daemon")
-    ; ("ntlm auth utility", ntlm_auth_cmd, "Used to authenticate AD users")
     ; ( "SQLite database  management tool"
       , sqlite3
       , "Executed to manage SQlite Database, like PBIS database"

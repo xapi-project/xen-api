@@ -66,6 +66,50 @@ module Range = Generic.MakeStateless (struct
       ]
 end)
 
+module Errtag = Generic.MakeStateless (struct
+  open Auth_signature
+
+  module Io = struct
+    type input_t = string
+
+    type output_t = Auth_signature.auth_service_error_tag
+
+    let string_of_input_t = Test_printers.(string)
+
+    let string_of_output_t = function
+      | E_GENERIC ->
+          "E_GENERIC"
+      | E_LOOKUP ->
+          "E_LOOKUP"
+      | E_DENIED ->
+          "E_DENIED"
+      | E_CREDENTIALS ->
+          "E_CREDENTIALS"
+      | E_UNAVAILABLE ->
+          "E_UNAVAILABLE"
+      | E_INVALID_OU ->
+          "E_INVALID_OU"
+      | E_INVALID_ACCOUNT ->
+          "E_INVALID_ACCOUNT"
+  end
+
+  let transform = Extauth_plugin_ADwinbind.tag_from_err_msg
+
+  let tests =
+    `QuickAndAutoDocumented
+      [
+        ( "Failed to join domain: failed to lookup DC info for domain \
+           'testdomain.local' over rpc: The name provided is not a properly \
+           formed account name."
+        , E_CREDENTIALS
+        )
+      ; ( "The attempted logon is invalid. This is either due to a bad \
+           username or authentication information"
+        , E_CREDENTIALS
+        )
+      ]
+end)
+
 module ParseValueFromPbis = Generic.MakeStateless (struct
   module Io = struct
     type input_t = string
