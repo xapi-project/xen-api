@@ -9,7 +9,7 @@ jobs:
     name: Ocaml tests
     runs-on: ubuntu-20.04
     env:
-      package: "xapi-rrd rrd"
+      package: "xapi-rrd"
 
     steps:
       - name: Checkout code

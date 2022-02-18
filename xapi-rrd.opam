@@ -4,6 +4,7 @@ authors: ["Dave Scott" "Jon Ludlam" "John Else"]
 homepage: "https://github.com/xapi-project/xcp-rrd"
 bug-reports: "https://github.com/xapi-project/xcp-rrd/issues"
 dev-repo: "git+https://github.com/xapi-project/xcp-rrd.git"
+license: "LGPL-2.1-only WITH OCaml-LGPL-linking-exception"
 tags: [
   "org:xapi-project"
 ]
