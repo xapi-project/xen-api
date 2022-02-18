@@ -106,6 +106,11 @@ let jura =
   , Datamodel_common.jura_release_schema_minor_vsn
   )
 
+let yangtze =
+  ( Datamodel_common.yangtze_release_schema_major_vsn
+  , Datamodel_common.yangtze_release_schema_minor_vsn
+  )
+
 (* This is to support upgrade from Dundee tech-preview versions *)
 let vsn_with_meaningful_has_vendor_device =
   ( Datamodel_common.meaningful_vm_has_vendor_device_schema_major_vsn
@@ -230,64 +235,23 @@ let upgrade_wlb_configuration =
       )
   }
 
-(** On upgrade to the first ballooning-enabled XenServer, we reset memory
-    properties to safe defaults to avoid triggering something bad.
-    {ul
-    	{- For guest domains, we replace the current set of possibly-invalid memory
-    	constraints {i s} with a new set of valid and unballooned constraints {i t}
-    	such that:
-    	{ol
-    		{- t.dynamic_max := s.static_max}
-    		{- t.target      := s.static_max}
-    		{- t.dynamic_min := s.static_max}
-    		{- t.static_min  := minimum (s.static_min, s.static_max)}}}
-    	{- For control domains, we respect the administrator's choice of target:
-    	{ol
-    		{- t.dynamic_max := s.target}
-    		{- t.dynamic_min := s.target}}}
-    }
-*)
 let upgrade_vm_memory_for_dmc =
   {
-    description= "Upgrading VM memory fields for DMC"
-  ; version= (fun x -> x <= george)
+    description= "Upgrading VM memory fields to disable DMC"
+  ; version= (fun x -> x <= yangtze)
   ; fn=
       (fun ~__context ->
         debug
           "Upgrading VM.memory_dynamic_{min,max} in guest and control domains." ;
         let module VMC = Vm_memory_constraints.Vm_memory_constraints in
-        let update_vm (vm_ref, vm_rec) =
-          if vm_rec.API.vM_is_control_domain then (
-            let target = vm_rec.API.vM_memory_target in
-            debug "VM %s (%s) dynamic_{min,max} <- %Ld" vm_rec.API.vM_uuid
-              vm_rec.API.vM_name_label target ;
-            Db.VM.set_memory_dynamic_min ~__context ~self:vm_ref ~value:target ;
-            Db.VM.set_memory_dynamic_max ~__context ~self:vm_ref ~value:target
-          ) else (* Note this will also transform templates *)
-            let safe_constraints =
-              VMC.reset_to_safe_defaults
-                ~constraints:
-                  {
-                    VMC.static_min= vm_rec.API.vM_memory_static_min
-                  ; dynamic_min= vm_rec.API.vM_memory_dynamic_min
-                  ; target= vm_rec.API.vM_memory_target
-                  ; dynamic_max= vm_rec.API.vM_memory_dynamic_max
-                  ; static_max= vm_rec.API.vM_memory_static_max
-                  }
-            in
-            debug "VM %s (%s) dynamic_{min,max},target <- %Ld"
-              vm_rec.API.vM_uuid vm_rec.API.vM_name_label
-              safe_constraints.VMC.static_max ;
-            Db.VM.set_memory_static_min ~__context ~self:vm_ref
-              ~value:safe_constraints.VMC.static_min ;
-            Db.VM.set_memory_dynamic_min ~__context ~self:vm_ref
-              ~value:safe_constraints.VMC.dynamic_min ;
-            Db.VM.set_memory_target ~__context ~self:vm_ref
-              ~value:safe_constraints.VMC.target ;
-            Db.VM.set_memory_dynamic_max ~__context ~self:vm_ref
-              ~value:safe_constraints.VMC.dynamic_max ;
-            Db.VM.set_memory_static_max ~__context ~self:vm_ref
-              ~value:safe_constraints.VMC.static_max
+        let update_vm (vm, vm_rec) =
+          if vm_rec.API.vM_is_control_domain then
+            Xapi_vm_helpers.enforce_memory_constraints_always ~__context ~vm
+          else if vm_rec.API.vM_power_state = `Halted then
+            (* Note this will also transform templates *)
+            Xapi_vm_helpers.enforce_memory_constraints_for_dmc ~__context ~vm
+          else
+            ()
         in
         List.iter update_vm (Db.VM.get_all_records ~__context)
       )
