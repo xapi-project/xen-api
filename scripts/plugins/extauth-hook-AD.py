@@ -161,17 +161,26 @@ class DynamicPam(ADConfig):
             if admin_role in subject_rec['roles']:
                 self._add_subject(subject_rec)
 
+    def _format_item(self, item):
+        # CA-363207: Pam cannot handle space, put it inside []
+        if " " in item:
+            return "[{}]".format(item)
+        return item
+
     def _add_subject(self, subject_rec):
         try:
             sid = subject_rec['subject_identifier']
-            name = subject_rec["other_config"]["subject-name"]
-            # CA-363207: Pam cannot handle space, put it inside []
-            if " " in name:
-                name = "[{}]".format(name)
+            name = self._format_item(subject_rec["other_config"]["subject-name"])
             is_group = subject_rec["other_config"]["subject-is-group"] == "true"
             logger.debug("Permit %s with sid %s is_group as %s", name, sid, is_group)
             condition = "ingroup" if is_group else "="
             self._lines.append("account sufficient pam_succeed_if.so user {} {}".format(condition, name))
+            sid = subject_rec['subject_identifier']
+            # If ssh key is permittd in authorized_keys,
+            # UPN cannot match by SAM, put UPN format explictly
+            if not is_group:
+                subject_upn = self._format_item(subject_rec["other_config"]["subject-upn"])
+                self._lines.append("account sufficient pam_succeed_if.so user {} {}".format(condition, subject_upn))
         except Exception:
             logger.warning("Failed to check subject %s for dynamic pam", subject_rec)
 
