@@ -1,7 +1,6 @@
 [Unit]
 Description=Stunnel Per-Connection Server
 After=syslog.target network.target
-Before=xapi.service
 
 [Service]
 ExecStart=/usr/bin/stunnel /etc/stunnel/xapi.conf
