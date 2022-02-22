@@ -67,21 +67,31 @@ jobs:
           opam upgrade
           opam install ${{ env.package }} --deps-only --with-test -v
 
+      - name: Configure
+        run: opam exec -- ./configure
+
       - name: Build
-        run: |
-          opam exec -- ./configure
-          opam exec -- make
+        run: opam exec -- make
 
       - name: Run tests
         run: opam exec -- make test
 
-      - name: Check all code in release mode
-        # This should be removed when the following pass succeeds
-        run: opam exec -- make check-release
-
       - name: Check all code
         continue-on-error: true
-        run: opam exec -- make check
+        run: opam exec -- make check |& tee make-check.log
+
+      - name: Do not allow more warnings to get in the ocaml code
+        # Adding this check to quality gate makes it dependent on opam
+        # On top of this it's difficult to make it just run once on CI
+        # without adding changes to more than a single file
+        run: |
+          ERR=$(egrep 'Error |Warning ' -c make-check.log)
+          echo ERR=$ERR
+          test 309 -eq  "$ERR"
+
+      - name: Check all code in release mode
+        # This should be removed when the preceding passes succeed
+        run: opam exec -- make check-release
 
       - name: Run stress tests
         run: opam exec -- make stresstest
