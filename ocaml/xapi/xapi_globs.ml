@@ -927,7 +927,7 @@ let winbind_debug_level = ref 2
 
 let winbind_cache_time = ref 60
 
-let winbind_machine_pwd_timeout = ref (7. *. 24. *. 3600.)
+let winbind_machine_pwd_timeout = ref (2. *. 7. *. 24. *. 3600.)
 
 let winbind_update_closest_kdc_interval = ref (3600. *. 22.)
 (* every 22 hours *)
