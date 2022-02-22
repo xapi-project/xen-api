@@ -180,14 +180,9 @@ let _client_of_rq rq =
       try
         Scanf.sscanf proxy "TCP6 %s %s %d %d" (fun client _ _ _ -> client)
         |> _clean_addr_of_string
-      with _ -> (
-        try
-          Scanf.sscanf proxy "TCP4 %s %s %d %d" (fun client _ _ _ -> client)
-          |> _clean_addr_of_string
-        with _ ->
-          R.error "Failed to parse STUNNEL_PROXY='%s'" proxy ;
-          None
-      ))
+      with _ ->
+        R.error "Failed to parse STUNNEL_PROXY='%s'" proxy ;
+        None)
 
 let _client_of_origin = function
   | Internal ->
