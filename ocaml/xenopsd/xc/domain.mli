@@ -13,8 +13,6 @@
  *)
 (** High-level domain management functions *)
 
-open Device_common
-
 type domid = Xenctrl.domid
 
 exception Suspend_image_failure

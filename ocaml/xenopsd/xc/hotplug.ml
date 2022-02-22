@@ -88,7 +88,7 @@ let error_path_written_by_hotplug_scripts (x : device) =
 
 (** Only useful for a VIF device, this is where the "setup-pvs-proxy-rules"
     script indicates whether the OVS rules are set up. *)
-let vif_pvs_rules_active_path_of_device ~xs (x : device) =
+let vif_pvs_rules_active_path_of_device (x : device) =
   sprintf "%s/pvs-rules-active" (get_hotplug_path x)
 
 let vif_disconnect_path (x : device) =

@@ -177,7 +177,7 @@ let find_self_parameter (msg : message) =
   match
     List.filter (fun p -> p.param_type = Ref msg.msg_obj_name) msg.msg_params
   with
-  | {param_name= x} :: _ ->
+  | {param_name= x; _} :: _ ->
       x
   | _ ->
       failwith
@@ -235,7 +235,7 @@ let default_doccomments =
           x.name x.name (plural x.name)
     )
   ; ( "copy"
-    , fun x ->
+    , fun _ ->
         sprintf
           "returns a reference to an object which is a shallow-copy of the \
            original. NB all Set(Ref _) fields will be empty in the duplicate."
@@ -471,7 +471,7 @@ let new_messages_of_field x order fld =
           ; msg_tag= FromField (Remove, fld)
           }
         ]
-  | t, _, _ ->
+  | _, _, _ ->
       [(if order = 0 then getter else setter)]
 
 let all_new_messages_of_field obj fld =
@@ -786,20 +786,20 @@ let add_implicit_messages ?(document_order = false) (api : api) =
 let on_client_side (x : message) : bool =
   match x with
   (* Anything that's msg_db_only is not on client-side *)
-  | {msg_db_only= true} ->
+  | {msg_db_only= true; _} ->
       false
   (* Client cannot modify (set/add/remove) a non-RW field *)
-  | {msg_tag= FromField ((Setter | Add | Remove), {qualifier= RW})} ->
+  | {msg_tag= FromField ((Setter | Add | Remove), {qualifier= RW; _}); _} ->
       true
-  | {msg_tag= FromField ((Setter | Add | Remove), _)} ->
+  | {msg_tag= FromField ((Setter | Add | Remove), _); _} ->
       false
   (* If an object is tagged with custom ctor/dtor, omit the default one *)
-  | {msg_tag= FromObject (Make | Delete)} ->
+  | {msg_tag= FromObject (Make | Delete); _} ->
       let obj =
         Dm_api.get_obj_by_name Datamodel.all_api ~objname:x.msg_obj_name
       in
       obj.gen_constructor_destructor
-  | {msg_obj_name= "event"} ->
+  | {msg_obj_name= "event"; _} ->
       x.msg_name <> "get_record"
   | _ ->
       true

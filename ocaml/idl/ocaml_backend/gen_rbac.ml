@@ -30,7 +30,7 @@ let rec role_idx = function
 let internal_role_local_root = "_local_root_"
 
 (* the output of this function is used as input by the automatic tests *)
-let writer_csv static_roles_permissions static_permissions_roles =
+let writer_csv static_permissions_roles =
   Printf.sprintf "%s,PERMISSION/ROLE,%s\n"
     (let t = Debug.gettimestring () in
      String.sub t 0 (String.length t - 1)
@@ -359,7 +359,7 @@ let gen_permissions_of_static_roles highapi =
       _permissions_roles
   in
   if !Gen_server.enable_debugging then (* for rbac_static.csv *)
-    writer_csv roles_permissions permissions_roles
+    writer_csv permissions_roles
   else (* for rbac_static.ml *)
     let _, roles_permissions =
       (* ignore the _local_root_ internal role *)

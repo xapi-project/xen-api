@@ -52,7 +52,7 @@ let fields fs obj =
       | None ->
           fs'
     )
-    | Namespace (name, contents) ->
+    | Namespace (_name, contents) ->
         List.fold_left content fs' contents
   in
   List.fold_left content fs obj.contents

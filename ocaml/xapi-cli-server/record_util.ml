@@ -1085,4 +1085,4 @@ let mac_from_int_array macs =
 
 (* generate a random mac that is locally administered *)
 let random_mac_local () =
-  mac_from_int_array (Array.init 6 (fun i -> Random.int 0x100))
+  mac_from_int_array (Array.init 6 (fun _ -> Random.int 0x100))

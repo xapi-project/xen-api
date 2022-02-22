@@ -7898,7 +7898,7 @@ let all_relations =
 let update_lifecycles =
   let replace_prototyped p ls =
     (Prototyped, p, "")
-    :: List.filter (function Prototyped, _, _ -> false | x -> true) ls
+    :: List.filter (function Prototyped, _, _ -> false | _ -> true) ls
   in
   let replace_obj_lifecycle obj =
     let obj_lifecycle =

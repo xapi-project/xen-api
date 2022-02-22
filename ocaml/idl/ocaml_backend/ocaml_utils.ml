@@ -66,7 +66,7 @@ let ocaml_of_enum list =
 
 (** Convert an IDL type to a function name; we need to generate functions to
     marshal/unmarshal from XML for each unique IDL type *)
-let rec alias_of_ty ?(prefix = "") = function
+let rec alias_of_ty = function
   | SecretString ->
       "secretstring"
   | String ->
@@ -111,7 +111,7 @@ let rec ocaml_of_ty = function
       alias_of_ty (Record x) ^ " list"
   | Set x ->
       ocaml_of_ty x ^ " list"
-  | Enum (name, cs) ->
+  | Enum (_name, cs) ->
       ocaml_of_enum (List.map fst cs)
   | Map (l, r) ->
       "(" ^ alias_of_ty l ^ " * " ^ alias_of_ty r ^ ") list"
@@ -120,7 +120,7 @@ let rec ocaml_of_ty = function
       "[`" ^ ty ^ "] Ref.t"
   | Option x ->
       ocaml_of_ty x ^ " option"
-  | Record x ->
+  | Record _ ->
       failwith "ocaml_of_ty got a record"
 
 (** Take an object name and return the corresponding ocaml name *)

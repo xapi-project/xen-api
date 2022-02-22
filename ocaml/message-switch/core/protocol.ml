@@ -192,6 +192,8 @@ module Entry = struct
 end
 
 module Diagnostics = struct
+  [@@@warning "-33"]
+
   type queue_contents = (message_id * Entry.t) list [@@deriving rpc]
 
   type queue = {
