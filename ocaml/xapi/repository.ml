@@ -144,7 +144,11 @@ let sync ~__context ~self ~token ~token_id =
       ; repo_name
       ]
     in
-    ignore (Helpers.call_script !Xapi_globs.yum_config_manager_cmd config_params) ;
+    ignore
+      (Helpers.call_script ~log_output:Helpers.On_failure
+         !Xapi_globs.yum_config_manager_cmd
+         config_params
+      ) ;
     (* sync with remote repository *)
     let sync_params =
       [
