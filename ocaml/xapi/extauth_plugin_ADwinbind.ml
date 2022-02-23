@@ -79,6 +79,7 @@ type domain_info = {
         (* For upgrade case, the legacy db does not contain workgroup *)
   ; netbios_name: string option
         (* Persist netbios_name to support hostname change *)
+  ; machine_pwd_last_change_time: float option
 }
 
 let hd msg = function
@@ -108,12 +109,22 @@ let get_domain_info_from_db () =
   let service_name =
     Db.Host.get_external_auth_service_name ~__context ~self:host
   in
-  let workgroup, netbios_name =
+  let workgroup, netbios_name, machine_pwd_last_change_time =
     Db.Host.get_external_auth_configuration ~__context ~self:host
     |> fun config ->
-    (List.assoc_opt "workgroup" config, List.assoc_opt "netbios_name" config)
+    ( List.assoc_opt "workgroup" config
+    , List.assoc_opt "netbios_name" config
+    , List.assoc_opt "machine_pwd_last_change_time" config
+      |> Option.map (fun s -> float_of_string s)
+    )
   in
-  {service_name; workgroup; netbios_name}
+  {service_name; workgroup; netbios_name; machine_pwd_last_change_time}
+
+let update_extauth_configuration ~__context ~k ~v =
+  let self = Helpers.get_localhost ~__context in
+  Db.Host.get_external_auth_configuration ~__context ~self |> fun value ->
+  (k, v) :: List.remove_assoc k value |> fun value ->
+  Db.Host.set_external_auth_configuration ~__context ~self ~value
 
 module Ldap = struct
   module Escape = struct
@@ -288,11 +299,12 @@ module Ldap = struct
       ; password_expired= is_expired true password_expires_computed
       }
 
+  let krb5_conf_path ~domain_netbios =
+    Filename.concat domain_krb5_dir
+      (Printf.sprintf "krb5.conf.%s" domain_netbios)
+
   let env_of_krb5 domain_netbios =
-    let domain_krb5_cfg =
-      Filename.concat domain_krb5_dir
-        (Printf.sprintf "krb5.conf.%s" domain_netbios)
-    in
+    let domain_krb5_cfg = krb5_conf_path domain_netbios in
     [|Printf.sprintf "KRB5_CONFIG=%s" domain_krb5_cfg|]
 
   let query_user ?(log_output = Helpers.On_failure) sid domain_netbios kdc =
@@ -677,13 +689,7 @@ module Migrate_from_pbis = struct
     in
     let netbios_name = from_key ~key:"SamAccountName" ~default in
     (* Persist migrated netbios_name *)
-    let key = "netbios_name" in
-    let value =
-      Db.Host.get_external_auth_configuration ~__context ~self
-      |> List.remove_assoc key
-      |> fun v -> v @ [(key, netbios_name)]
-    in
-    Db.Host.set_external_auth_configuration ~__context ~self ~value ;
+    update_extauth_configuration ~__context ~k:"netbios_name" ~v:netbios_name ;
     debug "Migrated netbios_name %s from PBIS" netbios_name ;
     netbios_name
 end
@@ -758,8 +764,7 @@ let config_winbind_daemon ~workgroup ~netbios_name ~domain =
           ; "winbind use krb5 enterprise principals = yes"
           ; Printf.sprintf "winbind cache time = %d"
               !Xapi_globs.winbind_cache_time
-          ; Printf.sprintf "machine password timeout = %d"
-              !Xapi_globs.winbind_machine_pwd_timeout
+          ; Printf.sprintf "machine password timeout = 0"
           ; Printf.sprintf "kerberos encryption types = %s"
               (Kerberos_encryption_types.Winbind.to_string
                  !Xapi_globs.winbind_kerberos_encryption_type
@@ -829,19 +834,23 @@ let extract_ou_config ~config_params =
     ([("ou", ou)], [Printf.sprintf "createcomputer=%s" ou])
   with Auth_service_error _ -> ([], [])
 
-let persist_extauth_config ~domain ~user ~ou_conf ~workgroup ~netbios_name =
+let persist_extauth_config ~domain ~user ~ou_conf ~workgroup ~netbios_name
+    ~machine_pwd_last_change_time =
   let value =
-    match (domain, user) with
-    | "", "" ->
-        []
-    | _ ->
+    match
+      (domain, user, workgroup, netbios_name, machine_pwd_last_change_time)
+    with
+    | Some dom, Some u, Some wkg, Some netbios, Some pwd_time ->
         [
-          ("domain", domain)
-        ; ("user", user)
-        ; ("workgroup", workgroup)
-        ; ("netbios_name", netbios_name)
+          ("domain", dom)
+        ; ("user", u)
+        ; ("workgroup", wkg)
+        ; ("netbios_name", netbios)
+        ; ("machine_pwd_last_change_time", pwd_time)
         ]
         @ ou_conf
+    | _ ->
+        []
   in
   Server_helpers.exec_with_new_task "update external_auth_configuration"
   @@ fun __context ->
@@ -909,10 +918,7 @@ module Winbind = struct
     |> fun x -> x = Xapi_globs.auth_type_AD
 
   let update_workgroup ~__context ~workgroup =
-    let self = Helpers.get_localhost ~__context in
-    Db.Host.get_external_auth_configuration ~__context ~self |> fun x ->
-    ("workgroup", workgroup) :: List.remove_assoc "workgroup" x |> fun value ->
-    Db.Host.set_external_auth_configuration ~__context ~self ~value
+    update_extauth_configuration ~__context ~k:"workgroup" ~v:workgroup
 
   let start ~timeout ~wait_until_success =
     Xapi_systemctl.start ~timeout ~wait_until_success name
@@ -930,7 +936,7 @@ module Winbind = struct
     let netbios_name =
       match netbios_name with
       | None ->
-          Migrate_from_pbis.migrate_netbios_name __context
+          Migrate_from_pbis.migrate_netbios_name ~__context
       | Some name ->
           name
     in
@@ -1011,11 +1017,7 @@ module ClosestKdc = struct
 
   let update_db ~domain ~kdc =
     Server_helpers.exec_with_new_task "update domain closest kdc"
-    @@ fun __context ->
-    let self = Helpers.get_localhost ~__context in
-    Db.Host.get_external_auth_configuration ~__context ~self |> fun value ->
-    (domain, kdc) :: List.remove_assoc domain value |> fun value ->
-    Db.Host.set_external_auth_configuration ~__context ~self ~value
+    @@ fun __context -> update_extauth_configuration ~__context ~k:domain ~v:kdc
 
   let from_db domain =
     Server_helpers.exec_with_new_task "query domain closest kdc"
@@ -1071,16 +1073,136 @@ module ClosestKdc = struct
     with e -> error "Failed to update domain kdc %s" (Printexc.to_string e)
 
   let trigger_update ~start =
-    if Pool_role.is_master () then
+    if Pool_role.is_master () then (
+      debug "Trigger task: %s" periodic_update_task_name ;
       Xapi_periodic_scheduler.add_to_queue periodic_update_task_name
         (Xapi_periodic_scheduler.Periodic
            !Xapi_globs.winbind_update_closest_kdc_interval
         )
         start update
+    )
 
   let stop_update () =
     if Pool_role.is_master () then
       Xapi_periodic_scheduler.remove_from_queue periodic_update_task_name
+end
+
+module RotateMachinePassword = struct
+  let task_name = "Rotating machine password"
+
+  let tmp_krb5_conf =
+    Printf.sprintf "%s/pwrotate.krb5" (Filename.get_temp_dir_name ())
+
+  let kdc_fqdn_of_ip kdc =
+    let args =
+      ["ads"; "lookup"; "--server"; kdc; "--kerberos"; "-d"; debug_level ()]
+    in
+    Helpers.call_script !Xapi_globs.net_cmd args ~log_output:On_failure
+    |> Xapi_cmd_result.of_output ~sep:':' ~key:"Domain Controller"
+
+  let generate_krb5_tmp_config ~domain ~kdc_fqdn =
+    (* Configure which server to change the password
+     * https://web.mit.edu/kerberos/krb5-devel/doc/admin/conf_files/krb5_conf.html *)
+    let open Xapi_stdext_unix in
+    let realm = String.uppercase_ascii domain in
+    let domain_netbios =
+      Wbinfo.domain_name_of ~target_name_type:NetbiosName ~from_name:domain
+      |> Result.get_ok
+    in
+    let winbind_krb5 = Ldap.krb5_conf_path ~domain_netbios in
+    let include_item =
+      if Sys.file_exists winbind_krb5 then
+        [Printf.sprintf "include %s" winbind_krb5]
+      else
+        []
+    in
+
+    let conf_contents =
+      String.concat "\n"
+        ([
+           "# auto-generated by xapi"
+         ; "[libdefaults]"
+         ; Printf.sprintf "default_realm = %s" realm
+         ; "[realms]"
+         ; Printf.sprintf "%s={" realm
+         ; Printf.sprintf "kpasswd_server=%s" kdc_fqdn
+         ; Printf.sprintf "kdc=%s" kdc_fqdn
+         ; "}"
+           (* include winbind generated configure if exists *)
+         ]
+        @ include_item
+        @ [""] (* Empty line at the end *)
+        )
+    in
+
+    let len = String.length conf_contents in
+    Unixext.atomic_write_to_file tmp_krb5_conf 0o0644 (fun fd ->
+        let (_ : int) = Unix.single_write_substring fd conf_contents 0 len in
+        Unix.fsync fd
+    )
+
+  let clear_tmp_krb5_conf () =
+    if !Xapi_globs.winbind_keep_configuration then
+      ()
+    else
+      try Sys.remove tmp_krb5_conf
+      with e ->
+        debug "Failed to remove tmp keytab file  %s" (ExnHelper.string_of_exn e)
+
+  let rotate () =
+    let now = Unix.time () in
+    let now_str = string_of_float now in
+    try
+      let {service_name; machine_pwd_last_change_time} =
+        get_domain_info_from_db ()
+      in
+      match machine_pwd_last_change_time with
+      | Some time when now < time +. !Xapi_globs.winbind_machine_pwd_timeout ->
+          ()
+      | _ -> (
+        match ClosestKdc.from_db service_name with
+        | Some kdc ->
+            debug "%s started at %s" task_name now_str ;
+            (* Samba expect fqdn instead of IP *)
+            let kdc_fqdn = kdc_fqdn_of_ip kdc in
+            generate_krb5_tmp_config ~domain:service_name ~kdc_fqdn ;
+            let env = [|Printf.sprintf "KRB5_CONFIG=%s" tmp_krb5_conf|] in
+            let args =
+              [
+                "ads"
+              ; "changetrustpw"
+              ; "--kerberos"
+              ; "--server"
+              ; kdc_fqdn
+              ; "-d"
+              ; debug_level ()
+              ]
+            in
+            finally
+              (fun () ->
+                Helpers.call_script ~env net_cmd args ~log_output:Always
+                |> ignore
+              )
+              (fun () -> clear_tmp_krb5_conf ()) ;
+
+            Server_helpers.exec_with_new_task
+              "update machine password last change time"
+            @@ fun __context ->
+            update_extauth_configuration ~__context
+              ~k:"machine_pwd_last_change_time" ~v:now_str
+        | _ ->
+            debug "Xapi database does not has closest KDC, skip this rotation"
+      )
+    with e ->
+      debug "Failed to rotate machine password %s " (ExnHelper.string_of_exn e)
+
+  let trigger_rotate ~start =
+    debug "Trigger task: %s" task_name ;
+    Xapi_periodic_scheduler.add_to_queue task_name
+      (Xapi_periodic_scheduler.Periodic !Xapi_globs.winbind_machine_pwd_timeout)
+      start rotate
+
+  let stop_rotate () = Xapi_periodic_scheduler.remove_from_queue task_name
 end
 
 let build_netbios_name ~config_params =
@@ -1392,9 +1514,13 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
       (* Need to restart to refresh cache *)
       Winbind.restart ~timeout:5. ~wait_until_success:true ;
       Winbind.check_ready_to_serve ~timeout:300. ;
-      persist_extauth_config ~domain:service_name ~user ~ou_conf ~workgroup
-        ~netbios_name ;
+      let machine_pwd_last_change_time = Unix.time () |> string_of_float in
+      persist_extauth_config ~domain:(Some service_name) ~user:(Some user)
+        ~ou_conf ~workgroup:(Some workgroup)
+        ~machine_pwd_last_change_time:(Some machine_pwd_last_change_time)
+        ~netbios_name:(Some netbios_name) ;
       ClosestKdc.trigger_update ~start:0. ;
+      RotateMachinePassword.trigger_rotate ~start:0. ;
       (* Trigger right now *)
       debug "Succeed to join domain %s" service_name
     with
@@ -1431,9 +1557,10 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
     let pass = List.assoc_opt "pass" config_params in
     let {service_name; _} = get_domain_info_from_db () in
     (* Clean extauth config *)
-    persist_extauth_config ~domain:"" ~user:"" ~ou_conf:[] ~workgroup:""
-      ~netbios_name:"" ;
+    persist_extauth_config ~domain:None ~user:None ~ou_conf:[] ~workgroup:None
+      ~machine_pwd_last_change_time:None ~netbios_name:None ;
     ClosestKdc.stop_update () ;
+    RotateMachinePassword.stop_rotate () ;
     (* The caller disable external auth even disable machine account failed,
      * We run clear_machine_account after some necessary resources get cleared *)
     finally
@@ -1450,6 +1577,7 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
   let on_xapi_initialize _system_boot =
     Winbind.start ~timeout:5. ~wait_until_success:true ;
     ClosestKdc.trigger_update ~start:ClosestKdc.startup_delay ;
+    RotateMachinePassword.trigger_rotate ~start:5. ;
     Winbind.check_ready_to_serve ~timeout:300.
 
   (* unit on_xapi_exit()
