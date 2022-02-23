@@ -118,53 +118,62 @@ let sync ~__context ~self ~token ~token_id =
     let binary_url = Db.Repository.get_binary_url ~__context ~self in
     let source_url = Db.Repository.get_source_url ~__context ~self in
     write_yum_config ~source_url:(Some source_url) binary_url repo_name ;
-    with_access_token ~token ~token_id @@ fun token_path ->
-    let token_param =
-      match token_path with
-      | Some p ->
-          Printf.sprintf "--setopt=%s.accesstoken=file://%s" repo_name p
-      | None ->
-          ""
-    in
-    let proxy_url_param, proxy_username_param, proxy_password_param =
-      get_proxy_params ~__context repo_name
-    in
-    let config_params =
-      [
-        "--save"
-      ; ( if !Xapi_globs.repository_gpgcheck then
-            "--setopt=repo_gpgcheck=1"
-        else
-          "--setopt=repo_gpgcheck=0"
-        )
-      ; proxy_url_param
-      ; proxy_username_param
-      ; proxy_password_param
-      ; token_param
-      ; repo_name
-      ]
-    in
-    ignore
-      (Helpers.call_script ~log_output:Helpers.On_failure
-         !Xapi_globs.yum_config_manager_cmd
-         config_params
-      ) ;
-    (* sync with remote repository *)
-    let sync_params =
-      [
-        "-p"
-      ; !Xapi_globs.local_pool_repo_dir
-      ; "--downloadcomps"
-      ; "--download-metadata"
-      ; (if !Xapi_globs.repository_gpgcheck then "--gpgcheck" else "")
-      ; "--delete"
-      ; "--plugins"
-      ; Printf.sprintf "--repoid=%s" repo_name
-      ]
-    in
-    Unixext.mkdir_rec !Xapi_globs.local_pool_repo_dir 0o700 ;
-    clean_yum_cache repo_name ;
-    ignore (Helpers.call_script !Xapi_globs.reposync_cmd sync_params)
+    Xapi_stdext_pervasives.Pervasiveext.finally
+      (fun () ->
+        with_access_token ~token ~token_id @@ fun token_path ->
+        let token_param =
+          match token_path with
+          | Some p ->
+              Printf.sprintf "--setopt=%s.accesstoken=file://%s" repo_name p
+          | None ->
+              ""
+        in
+        let proxy_url_param, proxy_username_param, proxy_password_param =
+          get_proxy_params ~__context repo_name
+        in
+        let config_params =
+          [
+            "--save"
+          ; ( if !Xapi_globs.repository_gpgcheck then
+                "--setopt=repo_gpgcheck=1"
+            else
+              "--setopt=repo_gpgcheck=0"
+            )
+          ; proxy_url_param
+          ; proxy_username_param
+          ; proxy_password_param
+          ; token_param
+          ; repo_name
+          ]
+        in
+        ignore
+          (Helpers.call_script ~log_output:Helpers.On_failure
+             !Xapi_globs.yum_config_manager_cmd
+             config_params
+          ) ;
+        (* sync with remote repository *)
+        let sync_params =
+          [
+            "-p"
+          ; !Xapi_globs.local_pool_repo_dir
+          ; "--downloadcomps"
+          ; "--download-metadata"
+          ; (if !Xapi_globs.repository_gpgcheck then "--gpgcheck" else "")
+          ; "--delete"
+          ; "--plugins"
+          ; Printf.sprintf "--repoid=%s" repo_name
+          ]
+        in
+        Unixext.mkdir_rec !Xapi_globs.local_pool_repo_dir 0o700 ;
+        clean_yum_cache repo_name ;
+        ignore (Helpers.call_script !Xapi_globs.reposync_cmd sync_params)
+      )
+      (fun () ->
+        (* Rewrite repo conf file as initial content to remove credential related info,
+         * I.E. proxy username/password and temporary token file path.
+         *)
+        write_yum_config ~source_url:(Some source_url) binary_url repo_name
+      )
   with e ->
     error "Failed to sync with remote YUM repository: %s"
       (ExnHelper.string_of_exn e) ;
