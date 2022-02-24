@@ -92,15 +92,9 @@ module Unsafe = struct
 
   (* File descriptor operations to be performed after a fork.
    * These are all safe in the presence of threads *)
-  type fd_operation =
-    | Dup2 of Unix.file_descr * Unix.file_descr
-    | Close of Unix.file_descr
+  type fd_operation = Dup2 of Unix.file_descr * Unix.file_descr
 
-  let do_fd_operation = function
-    | Dup2 (a, b) ->
-        Unix.dup2 a b
-    | Close a ->
-        Unix.close a
+  let do_fd_operation = function Dup2 (a, b) -> Unix.dup2 a b
 end
 
 type pid =
