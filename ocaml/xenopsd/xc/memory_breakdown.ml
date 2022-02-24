@@ -66,7 +66,7 @@ let merge xs ys =
         merge xs (y :: ys) (x :: zs)
     | x :: xs, y :: ys when x > y ->
         merge (x :: xs) ys (y :: zs)
-    | x :: xs, y :: ys ->
+    | x :: xs, _ :: ys ->
         merge xs ys (x :: zs)
   in
   List.rev (merge xs ys [])
@@ -113,7 +113,7 @@ let xs_read_bytes_from_kib_key xs path =
 
 (** {2 Host fields} *)
 
-let host_time h = Date.to_string (Date.of_float (Unix.gettimeofday ()))
+let host_time _ = Date.to_string (Date.of_float (Unix.gettimeofday ()))
 
 let host_total_bytes h =
   Int64.to_string
@@ -141,15 +141,15 @@ let host_field_extractors = List.map snd host_fields
 
 (** {2 Guest fields} *)
 
-let guest_id xc xs g = Uuid.to_string (Uuid.uuid_of_int_array g.Xenctrl.handle)
+let guest_id _ _ g = Uuid.to_string (Uuid.uuid_of_int_array g.Xenctrl.handle)
 
-let guest_domain_id xc xs g = string_of_int g.Xenctrl.domid
+let guest_domain_id _ _ g = string_of_int g.Xenctrl.domid
 
-let guest_total_bytes xc xs g =
+let guest_total_bytes _ _ g =
   Int64.to_string
     (Memory.bytes_of_pages (Int64.of_nativeint g.Xenctrl.total_memory_pages))
 
-let guest_maximum_bytes xc xs g =
+let guest_maximum_bytes _ _ g =
   Int64.to_string
     (Memory.bytes_of_pages (Int64.of_nativeint g.Xenctrl.max_memory_pages))
 
@@ -166,7 +166,7 @@ let guest_balloonable xc xs g =
 let guest_uncooperative xc xs g =
   string_of_bool (xs_exists xs (is_uncooperative_path (guest_domain_id xc xs g)))
 
-let guest_shadow_bytes xc xs g =
+let guest_shadow_bytes xc _ g =
   Int64.to_string
     ( try
         Memory.bytes_of_mib
@@ -269,7 +269,7 @@ let guest_ids_of_string guest_ids_string =
 
 let guest_ids_of_line line =
   match sections_of_line line with
-  | host_info_string :: guest_ids_string :: rest ->
+  | _ :: guest_ids_string :: _ ->
       guest_ids_of_string guest_ids_string
   | _ ->
       []
@@ -311,7 +311,7 @@ let pad_value_list guest_ids_all guest_ids values default_value =
         pad ids_all ids vs (v :: vs_padded)
     | id :: ids_all, id' :: ids, v :: vs when id < id' ->
         pad ids_all (id' :: ids) (v :: vs) (default_value :: vs_padded)
-    | id :: ids_all, [], [] ->
+    | _ :: ids_all, [], [] ->
         pad ids_all [] [] (default_value :: vs_padded)
     | [], [], [] ->
         vs_padded
