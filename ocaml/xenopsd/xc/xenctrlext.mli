@@ -78,3 +78,30 @@ external vcpu_setaffinity_soft : handle -> domid -> int -> bool array -> unit
 external numainfo : handle -> numainfo = "stub_xenctrlext_numainfo"
 
 external cputopoinfo : handle -> cputopo array = "stub_xenctrlext_cputopoinfo"
+
+module Xenforeignmemory : sig
+  type handle
+
+  type mapping =
+    (char, Bigarray.int8_unsigned_elt, Bigarray.c_layout) Bigarray.Array1.t
+
+  type prot = {read: bool; write: bool; exec: bool}
+
+  val acquire : Xentoollog.handle option -> handle
+
+  val release : handle -> unit
+
+  val with_mapping :
+       handle
+    -> domid
+    -> prot
+    -> Int64.t list
+    -> ?on_unmap_failure:(string -> unit)
+    -> (mapping -> unit)
+    -> unit
+  (** [with_mapping handle domid prot pages ~on_unmap_failure f] maps the
+      [pages] in the domain [domid] to the current domain with the flags
+      [prot] and allows to use this memory as a bigarray inside the scope of
+      [f]. [on_memory_failure] may be defined to capture an unmap failure
+      after [f] goes out of scope. This is useful for logging, for example. *)
+end
