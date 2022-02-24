@@ -3,7 +3,6 @@
  (name xcp_cluster)
  (public_name xapi-idl.cluster)
  (modules (:standard \ cluster_cli))
- (flags (:standard -w -39))
  (libraries
    xapi-idl
    threads

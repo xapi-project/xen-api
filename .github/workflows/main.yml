@@ -87,7 +87,7 @@ jobs:
         run: |
           ERR=$(egrep 'Error |Warning ' -c make-check.log)
           echo ERR=$ERR
-          test 309 -eq  "$ERR"
+          test 251 -eq  "$ERR"
 
       - name: Check all code in release mode
         # This should be removed when the preceding passes succeed

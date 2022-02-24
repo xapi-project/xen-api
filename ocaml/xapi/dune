@@ -57,7 +57,6 @@
 (library
   (name xapi_internal)
   (wrapped false)
-  (flags (:standard -warn-error +a-3-4-6-9-27-28-29-52))
   (modules (:standard \ xapi_main))
   (libraries
     angstrom
@@ -160,7 +159,6 @@
   (public_name xapi)
   (package xapi)
   (modules xapi_main)
-  (flags (:standard -warn-error +a-3-4-6-9-27-28-29-52))
   (libraries
     xapi_internal
     xapi-idl

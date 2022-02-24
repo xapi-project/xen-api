@@ -1,6 +1,5 @@
 (executable
  (name example)
- (flags (:standard -w -39))
  (libraries
    rpclib.core
    xapi-idl

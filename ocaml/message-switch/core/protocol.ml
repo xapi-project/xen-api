@@ -212,6 +212,8 @@ module Diagnostics = struct
 end
 
 module Out = struct
+  [@@@warning "-33"]
+
   type transfer = {messages: (message_id * Message.t) list; next: string}
   [@@deriving rpc]
 

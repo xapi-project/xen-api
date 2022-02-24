@@ -1,7 +1,6 @@
 (library
   (name message_switch_core)
   (public_name message-switch-core)
-  (flags (:standard -w -39-33-27))
   (libraries
     astring
     cohttp

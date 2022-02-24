@@ -2,7 +2,6 @@
   (name rrdd_libs_internal)
   (wrapped false)
   (modules (:standard \ xcp_rrdd))
-  (flags (:standard -w -39))
   (libraries
     astring
     dune-build-info

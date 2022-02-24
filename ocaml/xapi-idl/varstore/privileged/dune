@@ -2,7 +2,6 @@
  (name xapi_idl_varstore_privileged)
  (public_name xapi-idl.varstore.privileged)
  (modules (:standard \ varstore_privileged_cli))
- (flags (:standard -w -39))
  (libraries
    rpclib.core
    threads

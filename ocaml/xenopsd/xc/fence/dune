@@ -2,6 +2,5 @@
  (name fence)
  (public_name fence.bin)
  (package xapi-xenopsd-xc)
- (flags -warn-error +a-3)
  (libraries xenctrl)
 )
