@@ -117,7 +117,11 @@ let sync ~__context ~self ~token ~token_id =
     remove_repo_conf_file repo_name ;
     let binary_url = Db.Repository.get_binary_url ~__context ~self in
     let source_url = Db.Repository.get_source_url ~__context ~self in
-    write_yum_config ~source_url:(Some source_url) binary_url repo_name ;
+    let write_initial_yum_config () =
+      write_yum_config ~source_url:(Some source_url) ~binary_url
+        ~repo_gpgcheck:true ~gpgkey_path:!Xapi_globs.repository_gpgkey_name ~repo_name
+    in
+    write_initial_yum_config () ;
     Xapi_stdext_pervasives.Pervasiveext.finally
       (fun () ->
         with_access_token ~token ~token_id @@ fun token_path ->
@@ -134,11 +138,6 @@ let sync ~__context ~self ~token ~token_id =
         let config_params =
           [
             "--save"
-          ; ( if !Xapi_globs.repository_gpgcheck then
-                "--setopt=repo_gpgcheck=1"
-            else
-              "--setopt=repo_gpgcheck=0"
-            )
           ; proxy_url_param
           ; proxy_username_param
           ; proxy_password_param
@@ -172,7 +171,7 @@ let sync ~__context ~self ~token ~token_id =
         (* Rewrite repo conf file as initial content to remove credential related info,
          * I.E. proxy username/password and temporary token file path.
          *)
-        write_yum_config ~source_url:(Some source_url) binary_url repo_name
+        write_initial_yum_config ()
       )
   with e ->
     error "Failed to sync with remote YUM repository: %s"
