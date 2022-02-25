@@ -778,11 +778,11 @@ module UpdateInfo = struct
 end
 
 let create_repository_record ~__context ~name_label ~name_description
-    ~binary_url ~source_url ~update =
+    ~binary_url ~source_url ~update ~gpgkey_path =
   let ref = Ref.make () in
   let uuid = Uuidm.to_string (Uuidm.create `V4) in
   Db.Repository.create ~__context ~ref ~uuid ~name_label ~name_description
-    ~binary_url ~source_url ~update ~hash:"" ~up_to_date:false ;
+    ~binary_url ~source_url ~update ~hash:"" ~up_to_date:false ~gpgkey_path ;
   ref
 
 let assert_url_is_valid ~url =
@@ -816,6 +816,26 @@ let assert_url_is_valid ~url =
   with e ->
     error "Invalid url %s: %s" url (ExnHelper.string_of_exn e) ;
     raise Api_errors.(Server_error (invalid_base_url, [url]))
+
+let is_gpgkey_path_valid = function
+  | 'A' .. 'Z' | 'a' .. 'z' | '0' .. '9' | '_' | '-' ->
+      true
+  | _ ->
+      false
+
+let assert_gpgkey_path_is_valid path =
+  (* When Xapi_globs.repository_gpgcheck is:
+   * true, an empty gpgkey path will
+   *   1) reuslt to use default one which is configured in repository-gpgkey-path, or,
+   *   2) raise an error to user if no default one configured;
+   * false, an empty gpgkey path will be ignored.
+   * The existence and validity of the GPG public key file will be verified before using *)
+  if path = "" || Astring.String.for_all is_gpgkey_path_valid path then
+    ()
+  else (
+    error "Invalid gpgkey path %s" path ;
+    raise Api_errors.(Server_error (invalid_gpgkey_path, [path]))
+  )
 
 let with_pool_repositories f =
   Xapi_stdext_pervasives.Pervasiveext.finally

@@ -1227,6 +1227,8 @@ let configure_repositories_in_progress = "CONFIGURE_REPOSITORIES_IN_PROGRESS"
 
 let invalid_base_url = "INVALID_BASE_URL"
 
+let invalid_gpgkey_path = "INVALID_GPGKEY_PATH"
+
 let repository_already_exists = "REPOSITORY_ALREADY_EXISTS"
 
 let repository_is_in_use = "REPOSITORY_IS_IN_USE"

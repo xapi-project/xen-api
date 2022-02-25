@@ -29,9 +29,10 @@ let updates_in_cache : (API.ref_host, Yojson.Basic.t) Hashtbl.t =
   Hashtbl.create 64
 
 let introduce ~__context ~name_label ~name_description ~binary_url ~source_url
-    ~update =
+    ~update ~gpgkey_path =
   assert_url_is_valid ~url:binary_url ;
   assert_url_is_valid ~url:source_url ;
+  assert_gpgkey_path_is_valid gpgkey_path ;
   Db.Repository.get_all ~__context
   |> List.iter (fun ref ->
          if
@@ -44,7 +45,7 @@ let introduce ~__context ~name_label ~name_description ~binary_url ~source_url
              )
      ) ;
   create_repository_record ~__context ~name_label ~name_description ~binary_url
-    ~source_url ~update
+    ~source_url ~update ~gpgkey_path
 
 let forget ~__context ~self =
   let pool = Helpers.get_pool ~__context in
@@ -53,6 +54,10 @@ let forget ~__context ~self =
     raise Api_errors.(Server_error (repository_is_in_use, []))
   else
     Db.Repository.destroy ~__context ~self
+
+let set_gpgkey_path ~__context ~self ~value =
+  assert_gpgkey_path_is_valid value ;
+  Db.Repository.set_gpgkey_path ~__context ~self ~value
 
 let with_reposync_lock f =
   if Mutex.try_lock reposync_mutex then

@@ -4974,5 +4974,11 @@ let repository_record rpc session_id repository =
       ; make_field ~name:"up-to-date"
           ~get:(fun () -> string_of_bool (x ()).API.repository_up_to_date)
           ()
+      ; make_field ~name:"gpgkey-path"
+          ~get:(fun () -> (x ()).API.repository_gpgkey_path)
+          ~set:(fun x ->
+            Client.Repository.set_gpgkey_path rpc session_id repository x
+          )
+          ()
       ]
   }
