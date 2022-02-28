@@ -808,7 +808,8 @@ let socket sockaddr =
   in
   Lwt_unix.socket family Unix.SOCK_STREAM 0
 
-let colon = Re.Str.regexp_string ":"
+let split ~limit ~sep str =
+  Xapi_stdext_std.Xstringext.String.split ~limit sep str
 
 let retry common retries f =
   let rec aux n =
@@ -834,7 +835,7 @@ let retry common retries f =
 let make_stream common source relative_to source_format destination_format =
   match (source_format, destination_format) with
   | "nbdhybrid", "raw" -> (
-    match Re.Str.bounded_split colon source 4 with
+    match split ~limit:4 ~sep:':' source with
     | [raw; nbd_server; export_name; size] ->
         let size = Int64.of_string size in
         Vhd_format_lwt.IO.openfile raw false >>= fun raw ->
@@ -851,7 +852,7 @@ let make_stream common source relative_to source_format destination_format =
   )
   | "hybrid", "raw" -> (
     (* expect source to be block_device:vhd *)
-    match Re.Str.bounded_split colon source 2 with
+    match split ~limit:2 ~sep:':' source with
     | [raw; vhd] ->
         let path = common.path @ [Filename.dirname vhd] in
         retry common 3 (fun () -> Vhd_IO.openchain ~path vhd false) >>= fun t ->
@@ -876,7 +877,7 @@ let make_stream common source relative_to source_format destination_format =
   )
   | "hybrid", "vhd" -> (
     (* expect source to be block_device:vhd *)
-    match Re.Str.bounded_split colon source 2 with
+    match split ~limit:2 ~sep:':' source with
     | [raw; vhd] ->
         let path = common.path @ [Filename.dirname vhd] in
         retry common 3 (fun () -> Vhd_IO.openchain ~path vhd false) >>= fun t ->
@@ -1011,7 +1012,7 @@ let write_stream common s destination _source_protocol destination_protocol
         | None ->
             headers
         | Some x -> (
-          match Re.Str.bounded_split_delim (Re.Str.regexp_string ":") x 2 with
+          match split ~limit:2 ~sep:':' x with
           | [user; pass] ->
               let b = Cohttp.Auth.string_of_credential (`Basic (user, pass)) in
               Header.add headers "authorization" b

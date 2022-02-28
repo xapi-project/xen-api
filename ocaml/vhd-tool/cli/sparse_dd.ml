@@ -224,7 +224,7 @@ let find_backend_device path =
     let link =
       Unix.readlink (Printf.sprintf "/sys/dev/block/%d:%d/device" major minor)
     in
-    match List.rev (Re.Str.split (Re.Str.regexp_string "/") link) with
+    match List.rev (Astring.String.cuts ~sep:"/" ~empty:false link) with
     | id :: "xen" :: "devices" :: _ when startswith "vbd-" id ->
         let id = int_of_string (String.sub id 4 (String.length id - 4)) in
         with_xs (fun xs ->
@@ -233,7 +233,7 @@ let find_backend_device path =
               xs.Xs.read (Printf.sprintf "device/vbd/%d/backend" id)
             in
             let params = xs.Xs.read (Printf.sprintf "%s/params" backend) in
-            match Re.Str.split (Re.Str.regexp_string "/") backend with
+            match Astring.String.cuts ~sep:"/" ~empty:false backend with
             | "local" :: "domain" :: bedomid :: _ ->
                 assert (self = bedomid) ;
                 Some params

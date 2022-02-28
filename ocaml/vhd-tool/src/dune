@@ -19,6 +19,7 @@
     vhd-format
     vhd-format-lwt
     tapctl
+    xapi-stdext-std
     xenstore.client
     xenstore.unix
     xenstore_transport
