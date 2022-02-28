@@ -122,14 +122,25 @@ let sync ~__context ~self ~token ~token_id =
     remove_repo_conf_file repo_name ;
     let binary_url = Db.Repository.get_binary_url ~__context ~self in
     let source_url = Db.Repository.get_source_url ~__context ~self in
+    let gpgkey_path =
+      match Db.Repository.get_gpgkey_path ~__context ~self with
+      | "" ->
+          !Xapi_globs.repository_gpgkey_name
+      | s ->
+          s
+    in
     let write_initial_yum_config () =
       write_yum_config ~source_url:(Some source_url) ~binary_url
-        ~repo_gpgcheck:true ~gpgkey_path:!Xapi_globs.repository_gpgkey_name ~repo_name
+        ~repo_gpgcheck:true ~gpgkey_path ~repo_name
     in
     write_initial_yum_config () ;
+    clean_yum_cache repo_name ;
+    (* Remove imported YUM repository GPG key *)
+    Helpers.rmtree (get_repo_config repo_name "gpgdir") ;
     Xapi_stdext_pervasives.Pervasiveext.finally
       (fun () ->
         with_access_token ~token ~token_id @@ fun token_path ->
+        (* Configure proxy and token *)
         let token_param =
           match token_path with
           | Some p ->
@@ -155,7 +166,19 @@ let sync ~__context ~self ~token ~token_id =
              !Xapi_globs.yum_config_manager_cmd
              config_params
           ) ;
-        (* sync with remote repository *)
+
+        (* Import YUM repository GPG key to check metadata in reposync *)
+        let makecache_params =
+          [
+            "--disablerepo=*"
+          ; Printf.sprintf "--enablerepo=%s" repo_name
+          ; "-y"
+          ; "makecache"
+          ]
+        in
+        ignore (Helpers.call_script !Xapi_globs.yum_cmd makecache_params) ;
+
+        (* Sync with remote repository *)
         let sync_params =
           [
             "-p"
@@ -341,7 +364,7 @@ let create_pool_repository ~__context ~self =
     try
       ignore (Helpers.call_script !Xapi_globs.createrepo_cmd [repo_dir]) ;
       if Db.Repository.get_update ~__context ~self then
-        let cachedir = get_cachedir repo_name in
+        let cachedir = get_repo_config repo_name "cachedir" in
         let md =
           UpdateInfoMetaData.of_xml_file (Filename.concat cachedir "repomd.xml")
         in

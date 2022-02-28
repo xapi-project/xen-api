@@ -957,15 +957,16 @@ let write_yum_config ~source_url ~binary_url ~repo_gpgcheck ~gpgkey_path
       Unixext.really_write_string fd content |> ignore
   )
 
-let get_cachedir repo_name =
+let get_repo_config repo_name config_name =
   let config_params = [repo_name] in
   Helpers.call_script !Xapi_globs.yum_config_manager_cmd config_params
   |> Astring.String.cuts ~sep:"\n"
   |> List.filter_map (fun kv ->
-         match Astring.String.is_prefix ~affix:"cachedir =" kv with
-         | true ->
-             Some (Scanf.sscanf kv "cachedir = %s" (fun x -> x))
-         | false ->
+         let prefix = Printf.sprintf "%s = " config_name in
+         match Astring.String.cuts ~sep:prefix kv with
+         | [""; v] ->
+             Some v
+         | _ ->
              None
      )
   |> function
@@ -973,7 +974,7 @@ let get_cachedir repo_name =
       x
   | _ ->
       let msg =
-        Printf.sprintf "Not found cachedir for repository %s" repo_name
+        Printf.sprintf "Not found %s for repository %s" config_name repo_name
       in
       raise Api_errors.(Server_error (internal_error, [msg]))
 
@@ -1019,9 +1020,18 @@ let with_local_repositories ~__context f =
                 (string_of_int !Xapi_globs.local_yum_repo_port)
                 (get_remote_repository_name ~__context ~self:repository)
             in
+            let gpgkey_path =
+              match
+                Db.Repository.get_gpgkey_path ~__context ~self:repository
+              with
+              | "" ->
+                  !Xapi_globs.repository_gpgkey_name
+              | s ->
+                  s
+            in
             remove_repo_conf_file repo_name ;
             write_yum_config ~source_url:None ~binary_url ~repo_gpgcheck:false
-              ~gpgkey_path:!Xapi_globs.repository_gpgkey_name ~repo_name ;
+              ~gpgkey_path ~repo_name ;
             clean_yum_cache repo_name ;
             let config_params =
               [
