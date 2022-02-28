@@ -71,8 +71,7 @@ type cluster_config_and_all_members = cluster_config * all_members
 
 type tls_config = {
     server_pem_path: string  (** Path containing private and public keys *)
-  ; cn: string
-        (** CN used for verification, currently "xapi-cluster" *)
+  ; cn: string  (** CN used for verification, currently "xapi-cluster" *)
   ; trusted_bundle_path: string option
         (** Path to CA bundle containing used for verification.
             Can contain multiple (public) certificates. None = no verification *)
