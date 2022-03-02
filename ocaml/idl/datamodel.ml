@@ -8081,10 +8081,22 @@ let http_actions =
     , (Get, Constants.xenops_uri, false, [], _R_VM_POWER_ADMIN, [])
     )
   ; ( "post_services_xenops"
-    , (Post, Constants.xenops_uri, false, [], _R_VM_POWER_ADMIN, [])
+    , ( Post
+      , Constants.xenops_uri
+      , false
+      , []
+      , _R_VM_POWER_ADMIN ++ _R_CLIENT_CERT
+      , []
+      )
     )
   ; ( "put_services_xenops"
-    , (Put, Constants.xenops_uri, false, [], _R_VM_POWER_ADMIN, [])
+    , ( Put
+      , Constants.xenops_uri
+      , false
+      , []
+      , _R_VM_POWER_ADMIN ++ _R_CLIENT_CERT
+      , []
+      )
     )
   ; ( "get_services_sm"
     , (Get, Constants.sm_uri, false, [], _R_VM_POWER_ADMIN, [])
