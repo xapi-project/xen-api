@@ -91,13 +91,7 @@ val forget : __context:Context.t -> self:API.ref_Cluster_host -> unit
     so in the case of failure the cluster's pending_forget list will be updated.
     If you declare all your dead hosts as dead one by one the last one should succeed *)
 
-val get_cluster_config :
-  __context:Context.t -> self:API.ref_Cluster_host -> SecretString.t
-
-val write_pems :
-     __context:Context.t
-  -> self:API.ref_Cluster_host
-  -> pems:SecretString.t
-  -> unit
-
-val is_local_cluster_host_using_xapis_pem : __context:Context.t -> bool
+val set_tls_config :
+  __context:Context.t -> self:API.ref_Cluster_host -> verify:bool -> unit
+(** [set_tls_config ~__context ~self ~verify] sets the server PEM and trusted certificates to use
+ when [verify] is on, or disables certificate verification in clusterd when verify is off. *)

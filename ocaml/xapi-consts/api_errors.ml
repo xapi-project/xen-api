@@ -1184,6 +1184,8 @@ let pusb_vdi_conflict = "PUSB_VDI_CONFLICT"
 
 let vm_has_vusbs = "VM_HAS_VUSBS"
 
+let cluster_has_no_certificate = "CLUSTER_HAS_NO_CERTIFICATE"
+
 let cluster_create_in_progress = "CLUSTER_CREATE_IN_PROGRESS"
 
 let cluster_already_exists = "CLUSTER_ALREADY_EXISTS"
