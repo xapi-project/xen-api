@@ -364,15 +364,32 @@ let collect_pool_certs ~__context ~rpc ~session_id ~map ~from_hosts =
          map cert
      )
 
-let take_and_append n x xs =
-  (* take_and_append 3 10 [1;2;3;4] = [1;2;3;10] *)
-  let rec loop i acc = function
-    | x :: xs when i < n ->
-        loop (i + 1) (x :: acc) xs
-    | _ ->
-        x :: acc |> List.rev
+(* insert an element randomly *between* existing elements of a list.
+   We are enumerating the gaps between elements in a list:
+
+   List:     a b c d
+   Gaps:    0 1 2 3 4
+
+   A list of length n has gaps 0, 1, ...,n. We are selecting a gap
+   between 1 and n-1 to insert an element - so never at the beginning or
+   end if n >= 2. Otherwise we insert at the front.
+
+   This function is not tail recursive, so only apply to short lists *)
+
+let randomly_insert x ys =
+  let gap = Random.int (List.length ys) + 1 in
+  let rec loop n xs =
+    match (n, xs) with
+    | _, [] ->
+        [x]
+    | _, [y] ->
+        [x; y] (* never insert at the end *)
+    | 0, ys ->
+        x :: ys
+    | n, y :: ys ->
+        y :: loop (n - 1) ys
   in
-  loop 0 [] xs
+  loop gap ys
 
 let exchange_certificates_in_pool ~__context =
   (* here we coordinate the certificate distribution. from a high level
@@ -403,7 +420,6 @@ let exchange_certificates_in_pool ~__context =
     | Some seed ->
         fun ops ->
           Random.init seed ;
-          let rand_i = Random.int (List.length ops) in
           let throw_op =
             ( "FIST"
             , fun () ->
@@ -416,7 +432,7 @@ let exchange_certificates_in_pool ~__context =
                   )
             )
           in
-          let ops' = take_and_append rand_i throw_op ops in
+          let ops' = randomly_insert throw_op ops in
           D.debug "exchange_certificates_in_pool: we are about to..." ;
           List.iteri (fun i (desc, _) -> D.debug "%d. %s" i desc) ops' ;
           ops'
