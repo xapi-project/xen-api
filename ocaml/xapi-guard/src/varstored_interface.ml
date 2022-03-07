@@ -156,7 +156,7 @@ let with_xapi f =
  * Try actually connecting: the file could be present but nobody listening on the other side.
  * *)
 let rec wait_for_file_to_appear path =
-  Lwt_unix.yield () >>= fun () ->
+  Lwt.pause () >>= fun () ->
   Lwt.try_bind
     (fun () ->
       Conduit_lwt_unix.connect ~ctx:Conduit_lwt_unix.default_ctx
