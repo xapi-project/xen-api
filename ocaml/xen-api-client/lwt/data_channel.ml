@@ -54,7 +54,7 @@ let of_unseekable_fd fd =
     complete "write" (Some !really_write_offset) Lwt_bytes.write fd buf
     >>= fun () ->
     (really_write_offset :=
-       Int64.(add !really_write_offset (of_int (Cstruct.len buf)))
+       Int64.(add !really_write_offset (of_int (Cstruct.length buf)))
     ) ;
     return ()
   in
@@ -86,7 +86,7 @@ let of_ssl_fd fd =
     complete "write" (Some !really_write_offset) Lwt_ssl.write_bytes sock buf
     >>= fun () ->
     (really_write_offset :=
-       Int64.(add !really_write_offset (of_int (Cstruct.len buf)))
+       Int64.(add !really_write_offset (of_int (Cstruct.length buf)))
     ) ;
     return ()
   in
