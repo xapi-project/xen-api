@@ -35,9 +35,9 @@ let rec _really_input fd buf off = function
 let really_input = with_restart _really_input
 
 let really_read ifd buffer =
-  let s = Bytes.create (Cstruct.len buffer) in
-  really_input ifd s 0 (Cstruct.len buffer) ;
-  Cstruct.blit_from_bytes s 0 buffer 0 (Cstruct.len buffer)
+  let s = Bytes.create (Cstruct.length buffer) in
+  really_input ifd s 0 (Cstruct.length buffer) ;
+  Cstruct.blit_from_bytes s 0 buffer 0 (Cstruct.length buffer)
 
 let skip ifd n =
   let buffer = Cstruct.create 4096 in
@@ -45,7 +45,7 @@ let skip ifd n =
     if n <= 0 then
       ()
     else
-      let amount = min n (Cstruct.len buffer) in
+      let amount = min n (Cstruct.length buffer) in
       really_read ifd (Cstruct.sub buffer 0 amount) ;
       loop (n - amount)
   in

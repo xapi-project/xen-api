@@ -21,7 +21,7 @@ let complete name offset op fd buffer =
   if !debug_io then
     Printf.fprintf stderr "%s offset=%s length=%d\n%!" name
       (match offset with Some x -> Int64.to_string x | None -> "None")
-      (Cstruct.len buffer) ;
+      (Cstruct.length buffer) ;
   let open Lwt in
   let ofs = buffer.Cstruct.off in
   let len = buffer.Cstruct.len in
