@@ -4,6 +4,7 @@ authors: "xen-api@list.xen.org"
 bug-reports: "https://github.com/xapi-project/stdext/issues"
 dev-repo: "git://github.com/xapi-project/stdext.git"
 homepage: "https://xapi-project.github.io/"
+license: "LGPL-2.1-only WITH OCaml-LGPL-linking-exception"
 tags: [ "org:xapi-project" ]
 
 build: [
