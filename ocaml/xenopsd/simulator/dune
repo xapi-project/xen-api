@@ -2,9 +2,6 @@
  (name xenops_simulator_main)
  (public_name xenopsd-simulator)
  (package xapi-xenopsd-simulator)
- (flags
-  (:standard -warn-error +a-3)
- )
  (libraries
    xapi-idl.xen.interface
    xapi-xenopsd

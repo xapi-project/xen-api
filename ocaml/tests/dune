@@ -1,7 +1,6 @@
 (test
   (name suite_alcotest)
   (package xapi)
-  (flags (:standard -warn-error +a-3-4-6-9-27-28-29-52))
   (modules
     (:standard \ test_daemon_manager test_vdi_cbt test_event test_clustering
       test_cluster_host test_cluster test_pusb test_network_sriov
@@ -29,7 +28,6 @@
   (names test_vm_helpers test_vm_placement test_network_sriov test_vdi_cbt
     test_clustering test_pusb test_daemon_manager test_repository)
   (package xapi)
-  (flags (:standard -warn-error +a-3-4-6-9-27-28-29-52))
   (modules test_vm_helpers test_vm_placement test_network_sriov test_vdi_cbt
     test_event test_clustering test_cluster_host test_cluster test_pusb
     test_daemon_manager test_repository)

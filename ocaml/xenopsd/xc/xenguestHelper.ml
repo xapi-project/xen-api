@@ -49,8 +49,8 @@ type t =
 
 (** Fork and run a xenguest helper with particular args, leaving 'fds' open (in
     addition to internal control I/O fds) *)
-let connect path domid (args : string list)
-    (fds : (string * Unix.file_descr) list) : t =
+let connect path (args : string list) (fds : (string * Unix.file_descr) list) :
+    t =
   debug "connect: args = [ %s ]" (String.concat " " args) ;
   (* Need to send commands and receive responses from the slave process *)
   let slave_to_server_w_uuid = Uuidm.to_string (Uuidm.create `V4) in
@@ -101,9 +101,9 @@ let supports_feature path feat =
     = "true"
   with Spawn_internal_error _ -> false
 
-let with_connection (task : Xenops_task.task_handle) path domid
-    (args : string list) (fds : (string * Unix.file_descr) list) f =
-  let t = connect path domid args fds in
+let with_connection (task : Xenops_task.task_handle) path (args : string list)
+    (fds : (string * Unix.file_descr) list) f =
+  let t = connect path args fds in
   let cancelled = ref false in
   let cancel_cb () =
     let _, _, _, _, pid = t in

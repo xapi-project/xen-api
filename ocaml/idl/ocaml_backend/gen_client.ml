@@ -55,13 +55,13 @@ let param_of_field fld = custom (OU.ocaml_of_record_field fld.full_name) fld.ty
 
 (** True if a message has an asynchronous counterpart *)
 let has_async = function
-  | {msg_tag= FromField _} ->
+  | {msg_tag= FromField _; _} ->
       false
-  | {msg_tag= Custom; msg_async= async} ->
+  | {msg_tag= Custom; msg_async= async; _} ->
       async
-  | {msg_tag= FromObject (Make | Delete)} ->
+  | {msg_tag= FromObject (Make | Delete); _} ->
       true
-  | {msg_tag= FromObject _} ->
+  | {msg_tag= FromObject _; _} ->
       false
 
 (* true if msg is constructor or desctructor and the msg's object specifies not to make constructor/destructor *)
@@ -88,14 +88,14 @@ let client_api ~sync api =
 (* Client constructor takes all object fields which are StaticRO or RW *)
 let ctor_fields (obj : obj) =
   List.filter
-    (function {DT.qualifier= DT.StaticRO | DT.RW} -> true | _ -> false)
+    (function {DT.qualifier= DT.StaticRO | DT.RW; _} -> true | _ -> false)
     (DU.fields_of_obj obj)
 
 (* Compute a message parameter list from a message suitable for the client (only!) *)
-let args_of_message ?(expand_record = true) (obj : obj) ({msg_tag= tag} as msg)
-    =
+let args_of_message ?(expand_record = true) (obj : obj)
+    ({msg_tag= tag; _} as msg) =
   let arg_of_param = function
-    | {param_type= Record x; param_name= name; param_doc= doc} -> (
+    | {param_type= Record x; _} -> (
       match tag with
       | FromObject Make ->
           if x <> obj.DT.name then failwith "args_of_message" ;

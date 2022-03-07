@@ -819,12 +819,12 @@ let vif_record rpc session_id vif =
       ; make_field ~name:"current-operations"
           ~get:(fun () ->
             map_and_concat
-              (fun (a, b) -> Record_util.vif_operation_to_string b)
+              (fun (_, b) -> Record_util.vif_operation_to_string b)
               (x ()).API.vIF_current_operations
           )
           ~get_set:(fun () ->
             List.map
-              (fun (a, b) -> Record_util.vif_operation_to_string b)
+              (fun (_, b) -> Record_util.vif_operation_to_string b)
               (x ()).API.vIF_current_operations
           )
           ()
@@ -1181,12 +1181,12 @@ let pool_record rpc session_id pool =
       ; make_field ~name:"current-operations"
           ~get:(fun () ->
             map_and_concat
-              (fun (a, b) -> Record_util.pool_operation_to_string b)
+              (fun (_, b) -> Record_util.pool_operation_to_string b)
               (x ()).API.pool_current_operations
           )
           ~get_set:(fun () ->
             List.map
-              (fun (a, b) -> Record_util.pool_operation_to_string b)
+              (fun (_, b) -> Record_util.pool_operation_to_string b)
               (x ()).API.pool_current_operations
           )
           ()
@@ -1945,7 +1945,7 @@ let vm_record rpc session_id vm =
           )
           ~get_set:(fun () ->
             List.map
-              (fun (a, b) -> Record_util.vm_operation_to_string b)
+              (fun (_, b) -> Record_util.vm_operation_to_string b)
               (x ()).API.vM_current_operations
           )
           ()
@@ -2409,7 +2409,7 @@ let vm_record rpc session_id vm =
           ~get_map:(fun () -> (x ()).API.vM_bios_strings)
           ~set_map:(fun x ->
             List.iter
-              (fun (k, v) ->
+              (fun (k, _) ->
                 if not (List.mem k Constants.settable_vm_bios_string_keys) then
                   raise
                     (Record_util.Record_failure
@@ -2769,7 +2769,7 @@ let host_record rpc session_id host =
           )
           ~get_set:(fun () ->
             List.map
-              (fun (a, b) -> Record_util.host_operation_to_string b)
+              (fun (_, b) -> Record_util.host_operation_to_string b)
               (x ()).API.host_current_operations
           )
           ()
@@ -3108,7 +3108,7 @@ let vdi_record rpc session_id vdi =
           )
           ~get_set:(fun () ->
             List.map
-              (fun (a, b) -> Record_util.vdi_operation_to_string b)
+              (fun (_, b) -> Record_util.vdi_operation_to_string b)
               (x ()).API.vDI_current_operations
           )
           ()
@@ -3290,7 +3290,7 @@ let vbd_record rpc session_id vbd =
           )
           ~get_set:(fun () ->
             List.map
-              (fun (a, b) -> Record_util.vbd_operation_to_string b)
+              (fun (_, b) -> Record_util.vbd_operation_to_string b)
               (x ()).API.vBD_current_operations
           )
           ()
@@ -3577,7 +3577,7 @@ let sr_record rpc session_id sr =
           )
           ~get_set:(fun () ->
             List.map
-              (fun (a, b) -> Record_util.sr_operation_to_string b)
+              (fun (_, b) -> Record_util.sr_operation_to_string b)
               (x ()).API.sR_current_operations
           )
           ()
@@ -3809,7 +3809,7 @@ let vm_appliance_record rpc session_id vm_appliance =
           )
           ~get_set:(fun () ->
             List.map
-              (fun (a, b) -> Record_util.vm_appliance_operation_to_string b)
+              (fun (_, b) -> Record_util.vm_appliance_operation_to_string b)
               (x ()).API.vM_appliance_current_operations
           )
           ()
@@ -4712,7 +4712,7 @@ let vusb_record rpc session_id vusb =
           )
           ~get_set:(fun () ->
             List.map
-              (fun (a, b) -> Record_util.vusb_operation_to_string b)
+              (fun (_, b) -> Record_util.vusb_operation_to_string b)
               (x ()).API.vUSB_current_operations
           )
           ()
@@ -4784,7 +4784,7 @@ let cluster_record rpc session_id cluster =
           )
           ~get_set:(fun () ->
             List.map
-              (fun (task, op) -> Record_util.cluster_operation_to_string op)
+              (fun (_, op) -> Record_util.cluster_operation_to_string op)
               (x ()).API.cluster_current_operations
           )
           ()
@@ -4868,7 +4868,7 @@ let cluster_host_record rpc session_id cluster_host =
           )
           ~get_set:(fun () ->
             List.map
-              (fun (task, op) -> Record_util.cluster_host_operation_to_string op)
+              (fun (_, op) -> Record_util.cluster_host_operation_to_string op)
               (x ()).API.cluster_host_current_operations
           )
           ()

@@ -2511,11 +2511,6 @@ module Dm_Common = struct
     | None ->
         ()
 
-  let get_state ~xs ~qemu_domid domid =
-    let cmdpath = device_model_path ~qemu_domid domid in
-    let statepath = cmdpath ^ "/state" in
-    try Some (xs.Xs.read statepath) with _ -> None
-
   let cmdline_of_disp ?domid info =
     let vga_type_opts x =
       let open Xenops_interface.Vgpu in

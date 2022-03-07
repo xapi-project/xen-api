@@ -11,9 +11,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-open Printf
 open Xenstore
-open Xenops_utils
 
 type kind = Vif | Tap | Pci | Vfs | Vfb | Vkbd | Vbd of string | NetSriovVf
 [@@deriving rpcty]
@@ -140,7 +138,7 @@ let frontend_rw_path_of_device ~xs (x : device) =
 
 (** Location of the frontend read-only path (owned by dom0 not guest) in
     xenstore *)
-let frontend_ro_path_of_device ~xs (x : device) =
+let frontend_ro_path_of_device ~xs:_ (x : device) =
   sprintf "/xenops/domain/%d/device/%s/%d" x.frontend.domid
     (string_of_kind x.frontend.kind)
     x.frontend.devid
@@ -158,11 +156,6 @@ let disconnect_path_of_device ~xs (x : device) =
     (xs.Xs.getdomainpath x.frontend.domid)
     (string_of_kind x.frontend.kind)
     x.frontend.devid
-
-(** Where linux blkback writes its thread id. NB this won't work in a driver
-    domain *)
-let kthread_pid_path_of_device ~xs (x : device) =
-  sprintf "%s/kthread-pid" (backend_path_of_device ~xs x)
 
 let backend_queue_regexp = Re.Pcre.regexp "^queue-\\d+$"
 
@@ -416,9 +409,6 @@ let list_devices_between ~xs driver_domid user_domid =
   List.filter
     (fun d -> d.frontend.domid = user_domid)
     (list_backends ~xs driver_domid)
-
-let print_device domid kind devid =
-  sprintf "(domid=%d | kind=%s | devid=%s)" domid kind devid
 
 type protocol = Protocol_Native | Protocol_X86_32 | Protocol_X86_64
 

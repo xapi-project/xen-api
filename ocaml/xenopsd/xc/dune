@@ -1,6 +1,5 @@
 (library
  (name xenopsd_xc)
- (flags -warn-error +a-3)
  (modules :standard \
           xenops_xc_main
           memory_breakdown
@@ -59,7 +58,6 @@
  (name xenops_xc_main)
  (public_name xenopsd-xc)
  (package xapi-xenopsd-xc)
- (flags -warn-error +a-3)
  (modules xenops_xc_main)
 
  (libraries
@@ -78,7 +76,6 @@
 
 (executable
  (name memory_breakdown)
- (flags -warn-error +a-3)
  (modules memory_breakdown)
  (libraries
   astring
@@ -96,7 +93,6 @@
 
 (executable
  (name memory_summary)
- (flags -warn-error +a-3)
  (modules memory_summary)
  (libraries
   xapi-stdext-date
@@ -108,7 +104,6 @@
 
 (executable
  (name domain_sethandle)
- (flags -warn-error +a-3)
  (modules domain_sethandle)
  (libraries
   cmdliner

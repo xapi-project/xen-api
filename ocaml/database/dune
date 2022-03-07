@@ -5,7 +5,6 @@
 (library
   (name xapi_database)
   (public_name xapi-database)
-  (flags (:standard -w -39))
   (modules
     (:standard \ database_server_main db_cache_test block_device_io
       unit_test_marshall unit_test_sql))

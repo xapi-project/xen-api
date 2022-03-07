@@ -38,7 +38,7 @@ let _task_id = "task_id"
    2. get_field returns unit (values always come from the database)
 *)
 
-let operation_requires_side_effect ({msg_tag= tag} as msg) =
+let operation_requires_side_effect ({msg_tag= tag; _} as msg) =
   ( match
       msg.DT.msg_force_custom
       (* this flag always forces msg into custom_actions.ml *)
@@ -50,9 +50,9 @@ let operation_requires_side_effect ({msg_tag= tag} as msg) =
         true (*RW=force both setters and getters into custom_actions *)
       else (*{Static/Dynamic}RO=force only getters into custom_actions *)
         match msg with
-        | {msg_tag= FromField ((Setter | Add | Remove), _)} ->
+        | {msg_tag= FromField ((Setter | Add | Remove), _); _} ->
             false
-        | {msg_tag= FromObject (Make | Delete)} ->
+        | {msg_tag= FromObject (Make | Delete); _} ->
             false
         | _ ->
             true

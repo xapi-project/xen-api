@@ -1,7 +1,6 @@
 (library
  (name xapi_gpumon)
  (public_name xapi-idl.gpumon)
- (flags (:standard -w -39-33))
  (modules (:standard \ gpumon_cli))
  (libraries
    rpclib.core

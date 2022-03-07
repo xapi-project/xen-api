@@ -5,7 +5,6 @@
   )
   (name local_lib)
   (wrapped false)
-  (flags (:standard -w -34-32-39))
   (libraries
     cohttp-lwt
     cstruct

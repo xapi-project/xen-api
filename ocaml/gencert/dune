@@ -1,7 +1,6 @@
 (library
   (name gencertlib)
   (wrapped true)
-  (flags (:standard -warn-error +a-3-4-6-9-27-28-29-52))
   (modules lib selfcert pem)
   (libraries
     angstrom
@@ -29,7 +28,6 @@
   (name gencert)
   (public_name gencert)
   (package xapi)
-  (flags (:standard -warn-error +a-3-4-6-9-27-28-29-52))
   (modules gencert)
   (libraries
     astring

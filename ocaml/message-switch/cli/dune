@@ -1,7 +1,6 @@
 (executable
   (modes byte exe)
   (name main)
-  (flags (:standard -w -39))
   (libraries
     cmdliner
     message-switch-unix

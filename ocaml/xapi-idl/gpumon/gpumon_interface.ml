@@ -12,7 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Rpc
 open Idl
 
 module D = Debug.Make (struct let name = "gpumon_interface" end)

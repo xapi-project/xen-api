@@ -11,10 +11,4 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-open Xenops_utils
-
-module D = Debug.Make (struct let name = "netdev" end)
-
-open D
-
 type network = Bridge of string | VSwitch of string

@@ -2,7 +2,6 @@
  (name xcp_xen_interface_types)
  (public_name xapi-idl.xen.interface.types)
  (modules xenops_types device_number)
- (flags (:standard -w -39-32))
  (libraries
    rpclib.core
    threads
@@ -15,7 +14,6 @@
  (name xcp_xen_interface)
  (public_name xapi-idl.xen.interface)
  (modules xenops_interface)
- (flags (:standard -w -39))
  (libraries
    rpclib.core
    threads
@@ -29,7 +27,6 @@
  (name xcp_xen)
  (public_name xapi-idl.xen)
  (modules (:standard \ device_number xenops_interface xenops_types))
- (flags (:standard -w -39))
  (libraries
    rpclib.core
    threads

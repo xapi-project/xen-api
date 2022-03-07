@@ -36,7 +36,7 @@ let make_db_api =
   Dm_api.filter
     (fun _ -> true)
     (fun _ -> true)
-    (fun {msg_tag= tag} ->
+    (fun {msg_tag= tag; _} ->
       match tag with
       | FromField (_, _) ->
           true
@@ -70,11 +70,10 @@ let dm_to_string tys : O.Module.t =
           "string_of_bool"
       | DT.DateTime ->
           "Date.to_string"
-      | DT.Enum (name, cs) ->
+      | DT.Enum (_name, cs) ->
           let aux (c, _) = OU.constructor_of c ^ " -> \"" ^ c ^ "\"" in
           "fun v -> match v with\n      "
           ^ String.concat "\n    | " (List.map aux cs)
-      (* ^"\n    | _ -> raise (StringEnumTypeError \""^name^"\")" *)
       | DT.Float ->
           "Printf.sprintf \"%0.18g\""
       | DT.Int ->
@@ -82,12 +81,8 @@ let dm_to_string tys : O.Module.t =
       | DT.Map (key, value) ->
           let kf = OU.alias_of_ty key and vf = OU.alias_of_ty value in
           "fun m -> map " ^ kf ^ " " ^ vf ^ " m"
-      | DT.Ref s ->
+      | DT.Ref _ ->
           "(Ref.string_of : " ^ OU.ocaml_of_ty ty ^ " -> string)"
-      (*
-      | DT.Ref "session" -> "(Uuid.string_of_cookie : "^OU.ocaml_of_ty ty^" -> string)"
-      | DT.Ref s -> "(Uuid.string_of_uuid : "^OU.ocaml_of_ty ty^" -> string)"
-*)
       | DT.Set ty ->
           "fun s -> set " ^ OU.alias_of_ty ty ^ " s"
       | DT.String ->
@@ -138,12 +133,7 @@ let string_to_dm tys : O.Module.t =
       | DT.Map (key, value) ->
           let kf = OU.alias_of_ty key and vf = OU.alias_of_ty value in
           "fun m -> map " ^ kf ^ " " ^ vf ^ " m"
-      (*
-      | DT.Ref "session" ->
-          "fun x -> (Uuid.cookie_of_string x : "^OU.ocaml_of_ty ty^")"
-      | DT.Ref s -> "fun x -> (Uuid.uuid_of_string x : "^OU.ocaml_of_ty ty^")"
-*)
-      | DT.Ref s ->
+      | DT.Ref _ ->
           "fun x -> (Ref.of_string x : " ^ OU.ocaml_of_ty ty ^ ")"
       | DT.Set ty ->
           "fun s -> set " ^ OU.alias_of_ty ty ^ " s"
@@ -172,15 +162,15 @@ let string_to_dm tys : O.Module.t =
 (** True if a field is actually in this table, false if stored elsewhere
     (ie Set(Ref _) are stored in foreign tables *)
 let field_in_this_table = function
-  | {DT.ty= DT.Set (DT.Ref _); DT.field_ignore_foreign_key= false} ->
+  | {DT.ty= DT.Set (DT.Ref _); DT.field_ignore_foreign_key= false; _} ->
       false
   | _ ->
       true
 
 (* the function arguments are similar to the client, except the Make *)
-let args_of_message (obj : obj) ({msg_tag= tag} as msg) =
+let args_of_message (obj : obj) ({msg_tag= tag; _} as msg) =
   let arg_of_param = function
-    | {param_type= DT.Record x; param_name= name; param_doc= doc} -> (
+    | {param_type= DT.Record x; _} -> (
       match tag with
       | FromObject Make ->
           if x <> obj.DT.name then failwith "args_of_message" ;
@@ -207,7 +197,7 @@ let args_of_message (obj : obj) ({msg_tag= tag} as msg) =
 (** True if a field is in the client side record (ie not an implementation field) *)
 let client_side_field f = not f.DT.internal_only
 
-let look_up_related_table_and_field obj other full_name =
+let look_up_related_table_and_field obj _other full_name =
   (* Set(Ref t) is actually stored in the table t *)
   let this_end = (obj.DT.name, List.hd full_name) in
   (* XXX: relationships should store full names *)
@@ -313,6 +303,7 @@ let db_action api : O.Module.t =
           DT.ty= DT.Set (DT.Ref other)
         ; full_name
         ; DT.field_ignore_foreign_key= false
+        ; _
         } ->
           Printf.sprintf "List.map %s.%s (List.assoc \"%s\" __set_refs)"
             _string_to_dm
@@ -391,7 +382,7 @@ let db_action api : O.Module.t =
         ]
       ()
   in
-  let operation (obj : obj) ({msg_tag= tag} as x) =
+  let operation (obj : obj) ({msg_tag= tag; _} as x) =
     let args = args_of_message obj x in
     let to_string arg =
       let binding = O.string_of_param arg in
@@ -406,13 +397,13 @@ let db_action api : O.Module.t =
             (Escaping.escape_obj obj.DT.name)
             Client._self
             (Escaping.escape_id fld.DT.full_name)
-      | FromField (Getter, {DT.ty; full_name}) ->
+      | FromField (Getter, {DT.ty; full_name; _}) ->
           Printf.sprintf "%s.%s (DB.read_field __t \"%s\" \"%s\" %s)"
             _string_to_dm (OU.alias_of_ty ty)
             (Escaping.escape_obj obj.DT.name)
             (Escaping.escape_id full_name)
             Client._self
-      | FromField (Add, {DT.ty= DT.Map (_, _); full_name}) ->
+      | FromField (Add, {DT.ty= DT.Map (_, _); full_name; _}) ->
           Printf.sprintf
             "DB.process_structured_field __t (%s,%s) \"%s\" \"%s\" %s \
              AddMapLegacy"
@@ -420,14 +411,14 @@ let db_action api : O.Module.t =
             (Escaping.escape_obj obj.DT.name)
             (Escaping.escape_id full_name)
             Client._self
-      | FromField (Add, {DT.ty= DT.Set _; full_name}) ->
+      | FromField (Add, {DT.ty= DT.Set _; full_name; _}) ->
           Printf.sprintf
             "DB.process_structured_field __t (%s,\"\") \"%s\" \"%s\" %s AddSet"
             Client._value
             (Escaping.escape_obj obj.DT.name)
             (Escaping.escape_id full_name)
             Client._self
-      | FromField (Remove, {DT.ty= DT.Map (_, _); full_name}) ->
+      | FromField (Remove, {DT.ty= DT.Map (_, _); full_name; _}) ->
           Printf.sprintf
             "DB.process_structured_field __t (%s,\"\") \"%s\" \"%s\" %s \
              RemoveMap"
@@ -435,7 +426,7 @@ let db_action api : O.Module.t =
             (Escaping.escape_obj obj.DT.name)
             (Escaping.escape_id full_name)
             Client._self
-      | FromField (Remove, {DT.ty= DT.Set _; full_name}) ->
+      | FromField (Remove, {DT.ty= DT.Set _; full_name; _}) ->
           Printf.sprintf
             "DB.process_structured_field __t (%s,\"\") \"%s\" \"%s\" %s \
              RemoveSet"
@@ -478,7 +469,7 @@ let db_action api : O.Module.t =
             (String.concat "; " kvs')
       | FromObject GetByUuid -> (
         match (x.msg_params, x.msg_result) with
-        | [{param_type= ty; param_name= name}], Some (result_ty, _) ->
+        | [{param_name= name; _}], Some (result_ty, _) ->
             let query =
               Printf.sprintf "DB.db_get_by_uuid __t \"%s\" %s"
                 (Escaping.escape_obj obj.DT.name)
@@ -491,7 +482,7 @@ let db_action api : O.Module.t =
       )
       | FromObject GetByLabel -> (
         match (x.msg_params, x.msg_result) with
-        | [{param_type= ty; param_name= name}], Some (Set result_ty, _) ->
+        | [{param_name= name; _}], Some (Set result_ty, _) ->
             let query =
               Printf.sprintf "DB.db_get_by_name_label __t \"%s\" %s"
                 (Escaping.escape_obj obj.DT.name)
@@ -547,13 +538,6 @@ let db_action api : O.Module.t =
               "let expr' = Db_filter.expr_of_string expr in"
             ; "get_records_where ~" ^ Gen_common.context ^ " ~expr:expr'"
             ]
-      (*
-      | FromObject(Private(Copy)) ->
-	  begin match x.msg_params with
-	  | [ _, src_name, _; _, dst_name, _ ] -> make_shallow_copy api obj (OU.escape src_name) (OU.escape dst_name) (DU.fields_of_obj obj)
-	  | _ -> failwith "Copy needs a single parameter"
-	  end
-	    *)
       | _ ->
           assert false
     in

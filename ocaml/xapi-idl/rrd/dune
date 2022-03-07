@@ -2,7 +2,6 @@
  (name xcp_rrd_interface_types)
  (public_name xapi-idl.rrd.interface.types)
  (modules data_source)
- (flags (:standard -w -39))
  (libraries
    rpclib.core
    threads
@@ -16,7 +15,6 @@
  (name xcp_rrd_interface)
  (public_name xapi-idl.rrd.interface)
  (modules rrd_interface)
- (flags (:standard -w -39))
  (libraries
    rpclib.core
    threads
@@ -31,7 +29,6 @@
  (name xcp_rrd)
  (public_name xapi-idl.rrd)
  (modules (:standard \ data_source rrd_interface rrd_cli))
- (flags (:standard -w -39))
  (libraries
    rpclib.core
    threads

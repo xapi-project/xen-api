@@ -4,8 +4,6 @@ type result = Ok of string list | Error of string | EOF
 
 let input = Hashtbl.create 100 (* holds unconsumed input per fd *)
 
-let lookup tbl k = try Hashtbl.find tbl k with Not_found -> []
-
 let free fd = Hashtbl.remove input fd
 
 let read fd =

@@ -192,6 +192,8 @@ module Entry = struct
 end
 
 module Diagnostics = struct
+  [@@@warning "-33"]
+
   type queue_contents = (message_id * Entry.t) list [@@deriving rpc]
 
   type queue = {
@@ -210,6 +212,8 @@ module Diagnostics = struct
 end
 
 module Out = struct
+  [@@@warning "-33"]
+
   type transfer = {messages: (message_id * Message.t) list; next: string}
   [@@deriving rpc]
 
