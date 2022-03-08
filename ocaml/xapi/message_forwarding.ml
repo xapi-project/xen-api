@@ -1882,6 +1882,7 @@ functor
 
       let unpause ~__context ~vm =
         info "VM.unpause: VM = '%s'" (vm_uuid ~__context vm) ;
+        Xapi_vm_helpers.assert_dmc_compatible ~__context ~vm ;
         let local_fn = Local.VM.unpause ~vm in
         with_vm_operation ~__context ~self:vm ~doc:"VM.unpause" ~op:`unpause
           (fun () ->
@@ -2256,6 +2257,7 @@ functor
       (* Like start.. resume on any suitable host *)
       let resume ~__context ~vm ~start_paused ~force =
         info "VM.resume: VM = '%s'" (vm_uuid ~__context vm) ;
+        Xapi_vm_helpers.assert_dmc_compatible ~__context ~vm ;
         let local_fn = Local.VM.resume ~vm ~start_paused ~force in
         let host =
           with_vm_operation ~__context ~self:vm ~doc:"VM.resume" ~op:`resume
@@ -2295,6 +2297,7 @@ functor
           Helpers.assert_host_has_highest_version_in_pool ~__context ~host ;
         info "VM.resume_on: VM = '%s'; host = '%s'" (vm_uuid ~__context vm)
           (host_uuid ~__context host) ;
+        Xapi_vm_helpers.assert_dmc_compatible ~__context ~vm ;
         let local_fn = Local.VM.resume_on ~vm ~host ~start_paused ~force in
         with_vm_operation ~__context ~self:vm ~doc:"VM.resume_on" ~op:`resume_on
           (fun () ->
