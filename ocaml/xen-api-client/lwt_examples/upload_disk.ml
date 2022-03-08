@@ -62,7 +62,7 @@ let main filename =
               in
               ic.Data_channel.really_read block >>= fun () ->
               oc.Data_channel.really_write block >>= fun () ->
-              copy Int64.(sub remaining (of_int (Cstruct.len block)))
+              copy Int64.(sub remaining (of_int (Cstruct.length block)))
           in
           copy virtual_size >>= fun () ->
           oc.Data_channel.close () >>= fun () -> ic.Data_channel.close ()

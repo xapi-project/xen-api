@@ -123,12 +123,12 @@ let of_raw_fd fd =
   let offset = ref 0L in
   let really_read buf =
     IO.complete "read" (Some !offset) Lwt_bytes.read fd buf >>= fun () ->
-    (offset := Int64.(add !offset (of_int (Cstruct.len buf)))) ;
+    (offset := Int64.(add !offset (of_int (Cstruct.length buf)))) ;
     return ()
   in
   let really_write buf =
     IO.complete "write" (Some !offset) Lwt_bytes.write fd buf >>= fun () ->
-    (offset := Int64.(add !offset (of_int (Cstruct.len buf)))) ;
+    (offset := Int64.(add !offset (of_int (Cstruct.length buf)))) ;
     return ()
   in
   let skip _ = fail Impossible_to_seek in
@@ -169,13 +169,13 @@ let of_ssl_fd fd good_ciphersuites =
   let offset = ref 0L in
   let really_read buf =
     IO.complete "read" (Some !offset) Lwt_ssl.read_bytes sock buf >>= fun () ->
-    (offset := Int64.(add !offset (of_int (Cstruct.len buf)))) ;
+    (offset := Int64.(add !offset (of_int (Cstruct.length buf)))) ;
     return ()
   in
   let really_write buf =
     IO.complete "write" (Some !offset) Lwt_ssl.write_bytes sock buf
     >>= fun () ->
-    (offset := Int64.(add !offset (of_int (Cstruct.len buf)))) ;
+    (offset := Int64.(add !offset (of_int (Cstruct.length buf)))) ;
     return ()
   in
   let skip _ = fail Impossible_to_seek in

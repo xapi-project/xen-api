@@ -364,13 +364,13 @@ let collect_pool_certs ~__context ~rpc ~session_id ~map ~from_hosts =
          map cert
      )
 
-let take_and_append n x xs =
-  (* take_and_append 3 10 [1;2;3;4] = [1;2;3;10] *)
+let insert_at n x xs =
+  (* insert_at 3 10 [1;2;3;4] = [1;2;3;10;4] *)
   let rec loop i acc = function
     | x :: xs when i < n ->
         loop (i + 1) (x :: acc) xs
-    | _ ->
-        x :: acc |> List.rev
+    | xs ->
+        List.rev (x :: acc) @ xs
   in
   loop 0 [] xs
 
@@ -416,7 +416,7 @@ let exchange_certificates_in_pool ~__context =
                   )
             )
           in
-          let ops' = take_and_append rand_i throw_op ops in
+          let ops' = insert_at rand_i throw_op ops in
           D.debug "exchange_certificates_in_pool: we are about to..." ;
           List.iteri (fun i (desc, _) -> D.debug "%d. %s" i desc) ops' ;
           ops'
