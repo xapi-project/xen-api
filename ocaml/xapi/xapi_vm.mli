@@ -203,6 +203,7 @@ val create :
   -> reference_label:string
   -> domain_type:API.domain_type
   -> nVRAM:(string * string) list
+  -> default_vtpm_profile:(string * string) list
   -> API.ref_VM
 
 val destroy : __context:Context.t -> self:[`VM] Ref.t -> unit
