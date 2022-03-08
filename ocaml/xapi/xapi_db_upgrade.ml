@@ -238,7 +238,7 @@ let upgrade_wlb_configuration =
 let upgrade_vm_memory_for_dmc =
   {
     description= "Upgrading VM memory fields to disable DMC"
-  ; version= (fun x -> x <= yangtze)
+  ; version= (fun x -> true)
   ; fn=
       (fun ~__context ->
         debug
