@@ -2837,10 +2837,11 @@ module Dm_Common = struct
     in
     let stop_vgpu () = Vgpu.stop ~xs domid in
     let stop_varstored () =
+      let vm_uuid = Xenops_helpers.uuid_of_domid ~xs domid |> Uuidm.to_string in
+      debug "About to stop varstored for domain %d (%s)" domid vm_uuid ;
       Varstored.stop ~xs domid ;
       let dbg = Printf.sprintf "stop domid %d" domid in
-      Xenops_sandbox.Varstore_guard.stop dbg ~domid
-        ~vm_uuid:(Uuidm.to_string (Xenops_helpers.uuid_of_domid ~xs domid))
+      Xenops_sandbox.Varstore_guard.stop dbg ~domid ~vm_uuid
     in
     stop_vgpu () ; stop_varstored () ; stop_qemu ()
 
