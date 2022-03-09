@@ -3546,7 +3546,7 @@ let rec cmdtable_data : (string * cmd_spec) list =
   ; ( "repository-introduce"
     , {
         reqd= ["name-label"; "binary-url"; "source-url"; "update"]
-      ; optn= ["name-description"]
+      ; optn= ["name-description"; "gpgkey-path"]
       ; help= "Add the configuration for a new repository."
       ; implementation= No_fd Cli_operations.Repository.introduce
       ; flags= []
@@ -3558,6 +3558,15 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; optn= []
       ; help= "Remove the repository record from the database."
       ; implementation= No_fd Cli_operations.Repository.forget
+      ; flags= []
+      }
+    )
+  ; ( "repository-set-gpgkey-path"
+    , {
+        reqd= ["uuid"; "gpgkey-path"]
+      ; optn= []
+      ; help= "Set the file name of the GPG public key."
+      ; implementation= No_fd Cli_operations.Repository.set_gpgkey_path
       ; flags= []
       }
     )

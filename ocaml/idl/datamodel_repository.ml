@@ -22,17 +22,52 @@ let introduce =
   call ~name:"introduce" ~in_oss_since:None
     ~lifecycle:[(Published, "1.301.0", "")]
     ~doc:"Add the configuration for a new repository"
-    ~params:
+    ~versioned_params:
       [
-        (String, "name_label", "The name of the repository")
-      ; (String, "name_description", "The description of the repository")
-      ; (String, "binary_url", "Base URL of binary packages in this repository")
-      ; (String, "source_url", "Base URL of source packages in this repository")
-      ; ( Bool
-        , "update"
-        , "True if the repository is an update repository. This means that \
-           updateinfo.xml will be parsed"
-        )
+        {
+          param_type= String
+        ; param_name= "name_label"
+        ; param_doc= "The name of the repository"
+        ; param_release= next_release
+        ; param_default= None
+        }
+      ; {
+          param_type= String
+        ; param_name= "name_description"
+        ; param_doc= "The description of the repository"
+        ; param_release= next_release
+        ; param_default= None
+        }
+      ; {
+          param_type= String
+        ; param_name= "binary_url"
+        ; param_doc= "Base URL of binary packages in this repository"
+        ; param_release= next_release
+        ; param_default= None
+        }
+      ; {
+          param_type= String
+        ; param_name= "source_url"
+        ; param_doc= "Base URL of source packages in this repository"
+        ; param_release= next_release
+        ; param_default= None
+        }
+      ; {
+          param_type= Bool
+        ; param_name= "update"
+        ; param_doc=
+            "True if the repository is an update repository. This means that \
+             updateinfo.xml will be parsed"
+        ; param_release= next_release
+        ; param_default= None
+        }
+      ; {
+          param_type= String
+        ; param_name= "gpgkey_path"
+        ; param_doc= "The GPG public key file name"
+        ; param_release= next_release
+        ; param_default= Some (VString "")
+        }
       ]
     ~result:(Ref _repository, "The ref of the created repository record.")
     ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
@@ -61,13 +96,27 @@ let apply =
     ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
     ()
 
+let set_gpgkey_path =
+  call ~name:"set_gpgkey_path" ~in_oss_since:None ~lifecycle:[]
+    ~doc:"Set the file name of the GPG public key of the repository"
+    ~params:
+      [
+        (Ref _repository, "self", "The repository")
+      ; ( String
+        , "value"
+        , "The file name of the GPG public key of the repository"
+        )
+      ]
+    ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
+    ()
+
 let t =
   create_obj ~name:_repository ~descr:"Repository for updates" ~doccomments:[]
     ~gen_constructor_destructor:false ~gen_events:true ~in_db:true
     ~lifecycle:[(Published, "1.301.0", "")]
     ~persist:PersistEverything ~in_oss_since:None
     ~messages_default_allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
-    ~messages:[introduce; forget; apply]
+    ~messages:[introduce; forget; apply; set_gpgkey_path]
     ~contents:
       [
         uid _repository ~lifecycle:[(Published, "1.301.0", "")]
@@ -95,5 +144,8 @@ let t =
           ~lifecycle:[(Published, "1.301.0", "")]
           ~ty:Bool ~default_value:(Some (VBool false)) "up_to_date"
           "True if all hosts in pool is up to date with this repository"
+      ; field ~qualifier:StaticRO ~lifecycle:[] ~ty:String
+          ~default_value:(Some (VString "")) "gpgkey_path"
+          "The file name of the GPG public key of this repository"
       ]
     ()

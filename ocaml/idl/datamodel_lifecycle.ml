@@ -3,9 +3,13 @@ let prototyped_of_class = function
       None
 
 let prototyped_of_field = function
+  | "Repository", "gpgkey_path" ->
+      Some "22.10.0-next"
   | _ ->
       None
 
 let prototyped_of_message = function
+  | "Repository", "set_gpgkey_path" ->
+      Some "22.10.0-next"
   | _ ->
       None

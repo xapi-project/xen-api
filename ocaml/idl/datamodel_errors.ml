@@ -1883,6 +1883,8 @@ let _ =
     () ;
   error Api_errors.invalid_base_url ["url"]
     ~doc:"The base url in the repository is invalid." () ;
+  error Api_errors.invalid_gpgkey_path ["gpgkey_path"]
+    ~doc:"The GPG public key file name in the repository is invalid." () ;
   error Api_errors.repository_already_exists ["ref"]
     ~doc:"The repository already exists." () ;
   error Api_errors.repository_is_in_use [] ~doc:"The repository is in use." () ;
