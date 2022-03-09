@@ -8025,6 +8025,7 @@ let expose_get_all_messages_for =
   ; _cluster_host
   ; _certificate
   ; _repository
+  ; _vtpm
   ]
 
 let no_task_id_for = [_task; (* _alert; *) _event]

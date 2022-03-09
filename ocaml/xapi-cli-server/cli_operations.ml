@@ -1297,6 +1297,10 @@ let gen_cmds rpc session_id =
           ]
           rpc session_id
       )
+    ; Client.VTPM.(
+        mk () get_all_records_where get_by_uuid vtpm_record "vtpm" []
+          ["uuid"; "vm"; "profile"] rpc session_id
+      )
     ]
 
 let message_create printer rpc session_id params =
