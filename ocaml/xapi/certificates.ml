@@ -33,14 +33,6 @@ let () = Mirage_crypto_rng_unix.initialize ()
 
 type t_trusted = CA_Certificate | CRL
 
-let c_rehash = "/usr/bin/c_rehash"
-
-let pem_certificate_header = "-----BEGIN CERTIFICATE-----"
-
-let pem_certificate_footer = "-----END CERTIFICATE-----"
-
-let ca_certificates_path = "/etc/stunnel/certs"
-
 let pem_of_string x =
   match Cstruct.of_string x |> X509.Certificate.decode_pem with
   | Error _ ->
@@ -52,7 +44,7 @@ let pem_of_string x =
 
 let library_path = function
   | CA_Certificate ->
-      ca_certificates_path
+      !Xapi_globs.trusted_certs_dir
   | CRL ->
       Stunnel.crl_path
 
@@ -61,7 +53,7 @@ let library_filename kind name = Filename.concat (library_path kind) name
 let mkdir_cert_path kind = Unixext.mkdir_rec (library_path kind) 0o700
 
 let rehash' path =
-  ignore (Forkhelpers.execute_command_get_output c_rehash [path])
+  ignore (Forkhelpers.execute_command_get_output !Xapi_globs.c_rehash [path])
 
 let rehash () =
   mkdir_cert_path CA_Certificate ;
