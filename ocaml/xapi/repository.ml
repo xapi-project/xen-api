@@ -290,6 +290,35 @@ let group_host_updates_by_repository ~__context enabled host updates_of_host =
         (ExnHelper.string_of_exn e) ;
       raise Api_errors.(Server_error (get_host_updates_failed, [host']))
 
+let parse_updateinfo ~__context ~self ~check =
+  let repo_name = get_remote_repository_name ~__context ~self in
+  let repo_dir = Filename.concat !Xapi_globs.local_pool_repo_dir repo_name in
+  let repodata_dir = Filename.concat repo_dir "repodata" in
+  let repomd_xml_path = Filename.concat repodata_dir "repomd.xml" in
+  let md = RepoMetaData.(of_xml_file repomd_xml_path UpdateInfo) in
+  ( if check then
+      let hash = Db.Repository.get_hash ~__context ~self in
+      if hash <> md.RepoMetaData.checksum then (
+        let msg =
+          Printf.sprintf
+            "Unexpected mismatch between XAPI DB (%s) and YUM DB (%s). Need to \
+             do pool.sync-updates again."
+            hash md.RepoMetaData.checksum
+        in
+        error "%s: %s" repo_name msg ;
+        raise Api_errors.(Server_error (internal_error, [msg]))
+      )
+  ) ;
+  let updateinfo_xml_gz_path =
+    Filename.concat repo_dir md.RepoMetaData.location
+  in
+  match Sys.file_exists updateinfo_xml_gz_path with
+  | false ->
+      error "File %s doesn't exist" updateinfo_xml_gz_path ;
+      raise Api_errors.(Server_error (invalid_updateinfo_xml, []))
+  | true ->
+      with_updateinfo_xml updateinfo_xml_gz_path UpdateInfo.of_xml_file
+
 let set_available_updates ~__context =
   ignore (get_single_enabled_update_repository ~__context) ;
   let hosts = Db.Host.get_all ~__context in
@@ -304,6 +333,17 @@ let set_available_updates ~__context =
     with_pool_repositories (fun () ->
         Helpers.run_in_parallel ~funs ~capacity:capacity_in_parallel
     )
+  in
+  let applied_livepatches_of_hosts =
+    List.map
+      (fun (h, updates_of_host) ->
+        let applied_livepatches =
+          get_list_from_updates_of_host "applied_livepatches" updates_of_host
+          |> List.map Livepatch.of_json
+        in
+        (h, applied_livepatches)
+      )
+      rets
   in
   let enabled = get_enabled_repositories ~__context in
   (* Group updates by repository for each host *)
@@ -325,16 +365,50 @@ let set_available_updates ~__context =
   let checksums =
     List.filter_map
       (fun repository ->
-        let up_to_date =
+        let pkg_updates_available =
           match List.assoc_opt repository updates_by_repository with
           | Some (_ :: _) ->
               false
           | _ ->
               true
         in
+        let is_update_repo =
+          Db.Repository.get_update ~__context ~self:repository
+        in
+        let up_to_date =
+          match (pkg_updates_available, is_update_repo) with
+          | true, _ ->
+              false
+          | false, false ->
+              true
+          | false, true ->
+              (* No RPM packages to be updated.
+               * Find out if there are available livepatches from a update repo
+               *)
+              let updates_info =
+                parse_updateinfo ~__context ~self:repository ~check:false
+              in
+              let livepatches_available =
+                List.exists
+                  (fun (_, applied_livepatches) ->
+                    List.exists
+                      (fun lp ->
+                        get_accumulative_livepatches ~since:lp ~updates_info
+                        |> function
+                        | [] ->
+                            false
+                        | _ ->
+                            true
+                      )
+                      applied_livepatches
+                  )
+                  applied_livepatches_of_hosts
+              in
+              not livepatches_available
+        in
         Db.Repository.set_up_to_date ~__context ~self:repository
           ~value:up_to_date ;
-        if Db.Repository.get_update ~__context ~self:repository then (
+        if is_update_repo then (
           let repo_name =
             get_remote_repository_name ~__context ~self:repository
           in
@@ -512,39 +586,14 @@ let get_repository_handler (req : Http.Request.t) s _ =
     Http_svr.response_forbidden ~req s
   )
 
-let parse_updateinfo ~__context ~self =
-  let hash = Db.Repository.get_hash ~__context ~self in
-  let repo_name = get_remote_repository_name ~__context ~self in
-  let repo_dir = Filename.concat !Xapi_globs.local_pool_repo_dir repo_name in
-  let repodata_dir = Filename.concat repo_dir "repodata" in
-  let repomd_xml_path = Filename.concat repodata_dir "repomd.xml" in
-  let md = RepoMetaData.(of_xml_file repomd_xml_path UpdateInfo) in
-  if hash <> md.RepoMetaData.checksum then (
-    let msg =
-      Printf.sprintf
-        "Unexpected mismatch between XAPI DB (%s) and YUM DB (%s). Need to do \
-         pool.sync-updates again."
-        hash md.RepoMetaData.checksum
-    in
-    error "%s: %s" repo_name msg ;
-    raise Api_errors.(Server_error (internal_error, [msg]))
-  ) ;
-  let updateinfo_xml_gz_path =
-    Filename.concat repo_dir md.RepoMetaData.location
-  in
-  match Sys.file_exists updateinfo_xml_gz_path with
-  | false ->
-      error "File %s doesn't exist" updateinfo_xml_gz_path ;
-      raise Api_errors.(Server_error (invalid_updateinfo_xml, []))
-  | true ->
-      with_updateinfo_xml updateinfo_xml_gz_path UpdateInfo.of_xml_file
-
 let get_pool_updates_in_json ~__context ~hosts =
   try
     let repository = get_single_enabled_update_repository ~__context in
     if Hashtbl.length updates_in_cache > 0 then
       let repository_name = get_repository_name ~__context ~self:repository in
-      let updates_info = parse_updateinfo ~__context ~self:repository in
+      let updates_info =
+        parse_updateinfo ~__context ~self:repository ~check:true
+      in
       let updates_of_hosts, ids_of_updates =
         Hashtbl.fold
           (fun host updates_of_host (acc1, acc2) ->
@@ -747,14 +796,16 @@ let apply_updates ~__context ~host ~hash =
                 (fun u -> u.Update.repository = repository_name)
                 accumulative_updates
             in
-            let updates_info = parse_updateinfo ~__context ~self:repository in
+            let updates_info =
+              parse_updateinfo ~__context ~self:repository ~check:true
+            in
             let immediate_guidances =
-              eval_guidances ~updates_info ~updates ~kind:Recommended
+              eval_guidances ~updates_info ~updates ~kind:Recommended ~uids_of_livepatches:UpdateIdSet.empty
             in
             let pending_guidances =
               List.filter
                 (fun g -> not (List.mem g immediate_guidances))
-                (eval_guidances ~updates_info ~updates ~kind:Absolute)
+                (eval_guidances ~updates_info ~updates ~kind:Absolute ~uids_of_livepatches:UpdateIdSet.empty)
             in
             GuidanceSet.assert_valid_guidances immediate_guidances ;
             Helpers.call_api_functions ~__context (fun rpc session_id ->
