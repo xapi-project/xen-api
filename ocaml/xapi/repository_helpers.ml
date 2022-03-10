@@ -776,6 +776,13 @@ let merge_updates ~repository_name ~updates =
     )
     (UpdateIdSet.empty, []) accumulative_updates
 
+let get_list_from_updates_of_host key updates_of_host =
+  match Yojson.Basic.Util.member key updates_of_host with
+  | `Null ->
+      []
+  | l ->
+      Yojson.Basic.Util.to_list l
+
 let consolidate_updates_of_host ~repository_name ~updates_info host
     updates_of_host =
   let latest_updates =
