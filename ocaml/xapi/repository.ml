@@ -427,6 +427,9 @@ let get_host_updates_in_json ~__context ~installed =
         let installed_pkgs =
           match installed with true -> get_installed_pkgs () | false -> []
         in
+        let applied_livepatches_in_json =
+          Livepatch.get_applied_livepatches () |> List.map Livepatch.to_json
+        in
         (* (pkg, repo) list *)
         let latest_updates = get_updates_from_repoquery repositories in
         List.iter (fun r -> clean_yum_cache r) repositories ;
@@ -443,6 +446,7 @@ let get_host_updates_in_json ~__context ~installed =
           [
             ("updates", `List latest_updates_in_json)
           ; ("accumulative_updates", `List accumulative_updates_in_json)
+          ; ("applied_livepatches", `List applied_livepatches_in_json)
           ]
     )
   with
