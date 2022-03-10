@@ -1345,14 +1345,27 @@ let get_update_in_json ~installed_pkgs (new_pkg, update_id, repo) =
       error "%s: %s" msg repo ;
       raise Api_errors.(Server_error (internal_error, [msg]))
 
-let consolidate_updates_of_host ~repository_name ~updates_info host
-    updates_of_host =
+let merge_updates ~repository_name ~updates =
   let accumulative_updates =
-    updates_of_host
+    updates
     |> Yojson.Basic.Util.member "accumulative_updates"
     |> Yojson.Basic.Util.to_list
     |> List.map Update.of_json
   in
+  let open Update in
+  (* The update IDs and guidances come from accumulative updates *)
+  List.fold_left
+    (fun (acc_uids', acc_updates') u ->
+      match (u.update_id, u.repository = repository_name) with
+      | Some id, true ->
+          (UpdateIdSet.add id acc_uids', u :: acc_updates')
+      | _ ->
+          (acc_uids', acc_updates')
+    )
+    (UpdateIdSet.empty, []) accumulative_updates
+
+let consolidate_updates_of_host ~repository_name ~updates_info host
+    updates_of_host =
   let latest_updates =
     updates_of_host
     |> Yojson.Basic.Util.member "updates"
@@ -1376,19 +1389,7 @@ let consolidate_updates_of_host ~repository_name ~updates_info host
       )
       latest_updates
   in
-  let open Update in
-  (* The update IDs and guidances come from accumulative updates *)
-  let acc_uids, acc_updates =
-    List.fold_left
-      (fun (acc_uids', acc_updates') u ->
-        match (u.update_id, u.repository = repository_name) with
-        | Some id, true ->
-            (UpdateIdSet.add id acc_uids', u :: acc_updates')
-        | _ ->
-            (acc_uids', acc_updates')
-      )
-      (UpdateIdSet.empty, []) accumulative_updates
-  in
+  let acc_uids, acc_updates = merge_updates ~repository_name ~updates:updates_of_host in
   let rec_guidances =
     eval_guidances ~updates_info ~updates:acc_updates ~kind:Recommended
   in
