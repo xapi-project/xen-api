@@ -20,9 +20,7 @@ val pem_of_string : string -> X509.Certificate.t
 
 val pp_hash : Cstruct.t -> string
 
-val is_unsafe : 'a -> string -> bool
-
-val raise_name_invalid : t_trusted -> string -> 'a
+val validate_name : t_trusted -> string -> unit
 
 val hostnames_of_pem_cert :
   string -> (X509.Host.Set.t, [> Rresult.R.msg]) result

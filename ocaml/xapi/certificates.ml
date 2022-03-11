@@ -99,7 +99,7 @@ let not_safe_chars name =
   in
   f 0
 
-let is_unsafe kind name =
+let is_unsafe name =
   name.[0] = '.'
   || (not (Astring.String.is_suffix ~affix:".pem" name))
   || not_safe_chars name
@@ -115,6 +115,10 @@ let raise_name_invalid kind n =
         crl_name_invalid
   in
   raise_server_error [n] err
+
+let validate_name kind name =
+  if is_unsafe name then
+    raise_name_invalid kind name
 
 let raise_already_exists kind n =
   let err =
@@ -281,8 +285,7 @@ let cert_perms kind =
   perm
 
 let host_install kind ~name ~cert =
-  if is_unsafe kind name then
-    raise_name_invalid kind name ;
+  validate_name kind name ;
   let filename = library_filename kind name in
   if Sys.file_exists filename then
     raise_already_exists kind name ;
@@ -298,8 +301,7 @@ let host_install kind ~name ~cert =
     raise_library_corrupt ()
 
 let host_uninstall kind ~name =
-  if is_unsafe kind name then
-    raise_name_invalid kind name ;
+  validate_name kind name ;
   let filename = library_filename kind name in
   if not (Sys.file_exists filename) then
     raise_does_not_exist kind name ;
@@ -311,8 +313,7 @@ let host_uninstall kind ~name =
     raise_corrupt kind name
 
 let get_cert kind name =
-  if is_unsafe kind name then
-    raise_name_invalid kind name ;
+  validate_name kind name ;
   let filename = library_filename kind name in
   try Unixext.string_of_file filename
   with e ->
