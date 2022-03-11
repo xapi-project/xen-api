@@ -169,12 +169,12 @@ let next_boot_cpu_features ~__context ~vm =
   in
   snd features_t pool_features
 
-let get_host_cpu_info ~__context ~vm ~host ?remote () =
+let get_host_cpu_info ~__context ~vm:_ ~host ?remote () =
   match remote with
   | None ->
       Db.Host.get_cpu_info ~__context ~self:host
   | Some (rpc, session_id) ->
-      Client.Client.Host.get_cpu_info rpc session_id host
+      Client.Client.Host.get_cpu_info ~rpc ~session_id ~self:host
 
 let get_host_compatibility_info ~__context ~vm ~host ?remote () =
   get_host_cpu_info ~__context ~vm ~host ?remote ()

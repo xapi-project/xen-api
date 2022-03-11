@@ -18,7 +18,7 @@ module Listext = Xapi_stdext_std.Listext
 module Mutex = Xapi_stdext_threads.Threadext.Mutex
 module Unixext = Xapi_stdext_unix.Unixext
 
-let calculate_max_capacities ~__context ~pCI ~size ~supported_VGPU_types =
+let calculate_max_capacities ~__context ~pCI:_ ~size ~supported_VGPU_types =
   List.map
     (fun vgpu_type ->
       let max_capacity =
@@ -107,7 +107,7 @@ let sync_pci_hidden ~__context ~pgpu ~pci =
     | `enabled | `disable_on_reboot ->
         false
 
-let is_local_pgpu ~__context (pci_ref, pci_rec) =
+let is_local_pgpu ~__context (_, pci_rec) =
   let localhost = Helpers.get_localhost ~__context in
   pci_rec.Db_actions.pCI_host = localhost
   && Xapi_pci.(
@@ -122,7 +122,7 @@ let update_gpus ~__context =
   let system_display_device = Xapi_pci.get_system_display_device () in
   let existing_pgpus =
     List.filter
-      (fun (rf, rc) -> rc.API.pGPU_host = host)
+      (fun (_, rc) -> rc.API.pGPU_host = host)
       (Db.PGPU.get_all_records ~__context)
   in
   let pcis =
@@ -215,7 +215,8 @@ let update_gpus ~__context =
             in
             let group = Xapi_gpu_group.find_or_create ~__context self in
             Helpers.call_api_functions ~__context (fun rpc session_id ->
-                Client.Client.PGPU.set_GPU_group rpc session_id self group
+                Client.Client.PGPU.set_GPU_group ~rpc ~session_id ~self
+                  ~value:group
             ) ;
             (self, Db.PGPU.get_record ~__context ~self)
         in

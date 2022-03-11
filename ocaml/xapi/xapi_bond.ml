@@ -62,7 +62,7 @@ let move_configuration ~__context from_pif to_pif =
   Db.PIF.set_gateway ~__context ~self:from_pif ~value:"" ;
   Db.PIF.set_DNS ~__context ~self:from_pif ~value:""
 
-let move_management ~__context from_pif to_pif =
+let move_management ~__context _from_pif to_pif =
   Nm.bring_pif_up ~__context ~management_interface:true to_pif ;
   let network = Db.PIF.get_network ~__context ~self:to_pif in
   let bridge = Db.Network.get_bridge ~__context ~self:network in
@@ -129,7 +129,7 @@ let move_vlan ~__context host new_slave old_vlan =
     Nm.bring_pif_down ~__context old_master
   ) ;
   (* Only create new objects if the tag does not yet exist *)
-  let new_vlan, new_master =
+  let _, new_master =
     let existing_vlans = Db.PIF.get_VLAN_slave_of ~__context ~self:new_slave in
     let same_tag =
       List.filter

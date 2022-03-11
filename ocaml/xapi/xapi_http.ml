@@ -126,7 +126,9 @@ let assert_credentials_ok realm ?(http_action = realm) ?(fn = Rbac.nofn)
     in
     Xapi_stdext_pervasives.Pervasiveext.finally
       (fun () -> rbac_check session_id)
-      (fun () -> try Client.Session.logout inet_rpc session_id with _ -> ())
+      (fun () ->
+        try Client.Session.logout ~rpc:inet_rpc ~session_id with _ -> ()
+      )
   in
   if Context.is_unix_socket ic then
     ()
@@ -153,10 +155,11 @@ let assert_credentials_ok realm ?(http_action = realm) ?(fn = Rbac.nofn)
           fn ()
         else
           raise (Http.Unauthorised realm)
-    | None, None, Some (Http.Basic (username, password)) ->
+    | None, None, Some (Http.Basic (uname, pwd)) ->
         let sess_creator () =
-          Client.Session.login_with_password inet_rpc username password
-            Datamodel_common.api_version_string Constants.xapi_user_agent
+          Client.Session.login_with_password ~rpc:inet_rpc ~uname ~pwd
+            ~version:Datamodel_common.api_version_string
+            ~originator:Constants.xapi_user_agent
         in
         rbac_check_with_tmp_session sess_creator
     | None, None, Some (Http.UnknownAuth x) ->
@@ -182,8 +185,8 @@ let with_context ?(dummy = false) label (req : Request.t) (s : Unix.file_descr)
   try
     let session_id, must_logout =
       if Context.is_unix_socket s then
-        ( Client.Session.slave_login inet_rpc localhost
-            (Xapi_globs.pool_secret ())
+        ( Client.Session.slave_login ~rpc:inet_rpc ~host:localhost
+            ~psecret:(Xapi_globs.pool_secret ())
         , true
         )
       else
@@ -195,16 +198,19 @@ let with_context ?(dummy = false) label (req : Request.t) (s : Unix.file_descr)
         with
         | Some session_id, _, _ ->
             (session_id, false)
-        | None, Some pool_secret, _ ->
-            (Client.Session.slave_login inet_rpc localhost pool_secret, true)
-        | None, None, Some (Http.Basic (username, password)) -> (
+        | None, Some psecret, _ ->
+            ( Client.Session.slave_login ~rpc:inet_rpc ~host:localhost ~psecret
+            , true
+            )
+        | None, None, Some (Http.Basic (uname, pwd)) -> (
           try
-            ( Client.Session.login_with_password inet_rpc username password
-                Datamodel_common.api_version_string Constants.xapi_user_agent
+            ( Client.Session.login_with_password ~rpc:inet_rpc ~uname ~pwd
+                ~version:Datamodel_common.api_version_string
+                ~originator:Constants.xapi_user_agent
             , true
             )
           with
-          | Api_errors.Server_error (code, params)
+          | Api_errors.Server_error (code, _)
           when code = Api_errors.session_authentication_failed
           ->
             raise (Http.Unauthorised label)
@@ -246,10 +252,10 @@ let with_context ?(dummy = false) label (req : Request.t) (s : Unix.file_descr)
       (fun () ->
         if must_logout then
           Helpers.log_exn_continue "Logging out"
-            (fun session_id -> Client.Session.logout inet_rpc session_id)
+            (fun session_id -> Client.Session.logout ~rpc:inet_rpc ~session_id)
             session_id
       )
-  with Http.Unauthorised s as e ->
+  with Http.Unauthorised _ as e ->
     let fail __context =
       TaskHelper.failed ~__context
         (Api_errors.Server_error (Api_errors.session_authentication_failed, []))
@@ -359,7 +365,7 @@ let add_handler (name, handler) =
           )
   in
   match action with
-  | meth, uri, sdk, sdkargs, roles, sub_actions ->
+  | meth, uri, _sdk, _sdkargs, _roles, _sub_actions ->
       let ty =
         match meth with
         | Datamodel.Get ->

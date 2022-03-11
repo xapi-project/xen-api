@@ -47,7 +47,7 @@ let print_fork_error f =
 
 let run_command cmd args =
   debug "running %s %s" cmd (String.concat " " args) ;
-  let stdout, stderr =
+  let stdout, _ =
     print_fork_error (fun () -> Forkhelpers.execute_command_get_output cmd args)
   in
   stdout
@@ -84,7 +84,7 @@ let plug ~__context ~self =
     debug "VBD.plug of loopback VBD '%s'" (Ref.string_of self) ;
     Storage_access.attach_and_activate ~__context ~vbd:self ~domid
       (fun attach_info ->
-        let xendisks, blockdevs, files, nbds =
+        let _xendisks, blockdevs, files, nbds =
           Storage_interface.implementations_of_backend attach_info
         in
         let device_path =

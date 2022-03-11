@@ -543,8 +543,6 @@ let make_all ~with_snapshot_metadata ~preserve_power_state table __context =
     ; pvs_sites
     ]
 
-open Xapi_globs
-
 (* on normal export, do not include snapshot metadata;
    on metadata-export, include snapshots fields of the exported VM as well as the VM records of VMs
    which are snapshots of the exported VM. *)
@@ -653,7 +651,7 @@ let export refresh_session __context rpc session_id s vm_ref
       )
       vdis
   in
-  Stream_vdi.send_all refresh_session s __context rpc session_id vdis ;
+  Stream_vdi.send_all refresh_session s ~__context rpc session_id vdis ;
   (* We no longer write the end-of-tar checksum table, preferring the inline ones instead *)
   Tar_helpers.write_end s ;
   debug "export VM = %s completed successfully" (Ref.string_of vm_ref)
@@ -682,7 +680,7 @@ let vm_from_request ~__context (req : Request.t) =
   else
     let uuid = List.assoc "uuid" req.Request.query in
     Helpers.call_api_functions ~__context (fun rpc session_id ->
-        Client.VM.get_by_uuid rpc session_id uuid
+        Client.VM.get_by_uuid ~rpc ~session_id ~uuid
     )
 
 let bool_from_request ~__context (req : Request.t) default k =
@@ -864,7 +862,7 @@ let handler (req : Request.t) s _ =
           let headers = Http.http_302_redirect url in
           Http_svr.headers s headers
         with
-        | Api_errors.Server_error (a, b) as e -> (
+        | Api_errors.Server_error _ as e -> (
             error "Caught exception in export handler: %s"
               (ExnHelper.string_of_exn e) ;
             (* If there's no host that can see the SRs, then it's actually our responsibility *)

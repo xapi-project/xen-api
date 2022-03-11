@@ -90,7 +90,7 @@ let valid_operations ~__context record _ref' : table =
    * like [clean_shutdown; hard_shutdown; suspend; pause] on VM *)
   let vm_current_ops = Db.VM.get_current_operations ~__context ~self:vm in
   List.iter
-    (fun (task, op) ->
+    (fun (_, op) ->
       if List.mem op [`clean_shutdown; `hard_shutdown; `suspend; `pause] then
         let current_op_str =
           "Current operation on VM:"
@@ -172,11 +172,6 @@ let assert_operation_valid ~__context ~self ~(op : API.vif_operations) =
   let table = valid_operations ~__context all self in
   throw_error table op
 
-let assert_attachable ~__context ~self =
-  let all = Db.VIF.get_record_internal ~__context ~self in
-  let table = valid_operations ~__context all self in
-  throw_error table `attach
-
 let update_allowed_operations ~__context ~self : unit =
   let all = Db.VIF.get_record_internal ~__context ~self in
   let valid = valid_operations ~__context all self in
@@ -186,13 +181,6 @@ let update_allowed_operations ~__context ~self : unit =
   Db.VIF.set_allowed_operations ~__context ~self ~value:keys
 
 (** Someone is cancelling a task so remove it from the current_operations *)
-let cancel_task ~__context ~self ~task_id =
-  let all = List.map fst (Db.VIF.get_current_operations ~__context ~self) in
-  if List.mem task_id all then (
-    Db.VIF.remove_from_current_operations ~__context ~self ~key:task_id ;
-    update_allowed_operations ~__context ~self
-  )
-
 let cancel_tasks ~__context ~self ~all_tasks_in_db ~task_ids =
   let ops = Db.VIF.get_current_operations ~__context ~self in
   let set value = Db.VIF.set_current_operations ~__context ~self ~value in

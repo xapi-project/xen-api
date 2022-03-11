@@ -52,7 +52,8 @@ module Actions = struct
 
   module Host_metrics = struct end
 
-  module Host_cpu = Xapi_host_cpu
+  module Host_cpu = struct end
+
   module Network = Xapi_network
   module VIF = Xapi_vif
 
@@ -84,15 +85,15 @@ module Actions = struct
     raise (Api_errors.Server_error (Api_errors.not_implemented, [x]))
 
   module VTPM = struct
-    let create ~__context ~vM ~backend = not_implemented "VTPM.create"
+    let create ~__context ~vM:_ ~backend:_ = not_implemented "VTPM.create"
 
-    let destroy ~__context ~self = not_implemented "VTPM.destroy"
+    let destroy ~__context ~self:_ = not_implemented "VTPM.destroy"
   end
 
   module Console = struct
-    let create ~__context ~other_config = not_implemented "Console.create"
+    let create ~__context ~other_config:_ = not_implemented "Console.create"
 
-    let destroy ~__context ~self = not_implemented "Console.destroy"
+    let destroy ~__context ~self:_ = not_implemented "Console.destroy"
   end
 
   module Bond = Xapi_bond
@@ -142,8 +143,6 @@ module Server = Server.Make (Actions) (Forwarder)
 module D = Debug.Make (struct
   let name = "api_server"
 end)
-
-open D
 
 (** Forward a call to the master *)
 let forward req call is_json =

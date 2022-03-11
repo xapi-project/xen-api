@@ -20,7 +20,7 @@ let uninstall ~__context cert =
 
 (** add a certificate to the database. The certificate is already in the
   file system. This creates a new entry in the database. *)
-let install ~__context ~host ~type' cert =
+let install ~__context ~host:_ ~type' cert =
   try
     let ref = Certificates.Db_util.add_cert ~__context ~type' cert in
     info "Adding host certificicate %s to database" (Ref.string_of ref) ;
@@ -34,8 +34,7 @@ let install ~__context ~host ~type' cert =
 let is_unchanged ~__context cert_ref cert =
   let ref_hash = Db.Certificate.get_fingerprint ~__context ~self:cert_ref in
   let cert_hash =
-    X509.Certificate.fingerprint Mirage_crypto.Hash.(`SHA256) cert
-    |> Certificates.pp_hash
+    X509.Certificate.fingerprint `SHA256 cert |> Certificates.pp_hash
   in
   cert_hash = ref_hash
 

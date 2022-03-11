@@ -15,7 +15,6 @@
  * @group Storage
 *)
 
-open Xapi_stdext_threads.Threadext
 open Xapi_stdext_std.Xstringext
 module Listext = Xapi_stdext_std.Listext
 module Date = Xapi_stdext_date.Date
@@ -136,7 +135,7 @@ let valid_operations ~expensive_sharing_checks ~__context record _ref' : table =
    * like [clean_shutdown; hard_shutdown; suspend; pause] on VM *)
   let vm_current_ops = Db.VM.get_current_operations ~__context ~self:vm in
   List.iter
-    (fun (task, op) ->
+    (fun (_, op) ->
       if List.mem op [`clean_shutdown; `hard_shutdown; `suspend; `pause] then
         let current_op_str =
           "Current operation on VM:"
@@ -421,7 +420,7 @@ let destroy ~__context ~self =
          , [
              Printf.sprintf "VBD '%s' still attached to '%s'"
                r.Db_actions.vBD_uuid
-               (Db.VM.get_uuid __context vm)
+               (Db.VM.get_uuid ~__context ~self:vm)
            ]
          )
       ) ;

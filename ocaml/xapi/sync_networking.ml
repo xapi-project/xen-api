@@ -120,7 +120,7 @@ let copy_bonds_from_master ~__context () =
     let master_slaves_with_same_mac_as_bond
         (* expecting a list of at most 1 here *) =
       List.filter
-        (fun (pifref, mac, device) -> mac = master_bond_mac)
+        (fun (_, mac, _) -> mac = master_bond_mac)
         slaves_to_mac_and_device_map
     in
     (* This tells us the device that the master used to inherit the bond's MAC address
@@ -201,7 +201,7 @@ let copy_bonds_from_master ~__context () =
             ~mAC:"" ~mode:bond_mode ~properties:bond_properties
         in
         ()
-    | [(_, {API.pIF_bond_master_of= [slave_bond]})], _ ->
+    | [(_, {API.pIF_bond_master_of= [slave_bond]; _})], _ ->
         (* Some bond exists, check whether the existing set of slaves is the same as the potential set *)
         let current_slave_pifs =
           Db.Bond.get_slaves ~__context ~self:slave_bond
@@ -223,7 +223,7 @@ let copy_bonds_from_master ~__context () =
           in
           ()
         )
-    | [(_, {API.pIF_uuid= uuid})], _ ->
+    | [(_, {API.pIF_uuid= uuid; _})], _ ->
         warn
           "Couldn't create bond on slave because PIF %s already on network %s"
           uuid
@@ -295,7 +295,7 @@ let copy_network_sriovs_from_master ~__context () =
         )
   in
   debug "Resynchronising network-sriovs" ;
-  let maybe_create_sriov_for_me (master_pif_ref, master_pif_rec) =
+  let maybe_create_sriov_for_me (_, master_pif_rec) =
     let sriov_network = master_pif_rec.API.pIF_network in
     let existing_pif =
       List.filter

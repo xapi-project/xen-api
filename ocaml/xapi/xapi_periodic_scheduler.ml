@@ -54,7 +54,7 @@ let add_to_queue ?(signal = true) name ty start newfunc =
   if signal then Delay.signal delay
 
 let remove_from_queue name =
-  let index = Ipq.find_p queue (fun {name= n} -> name = n) in
+  let index = Ipq.find_p queue (fun {name= n; _} -> name = n) in
   if index > -1 then
     Ipq.remove queue index
 

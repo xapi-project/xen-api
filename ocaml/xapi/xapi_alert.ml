@@ -31,8 +31,9 @@ module Alert = struct
         Helpers.call_api_functions ~__context (fun rpc session_id ->
             try
               let (_ : 'a Ref.t) =
-                Client.Message.create rpc session_id x.name x.priority x.cls
-                  x.obj_uuid x.body
+                Client.Message.create ~rpc ~session_id ~name:x.name
+                  ~priority:x.priority ~cls:x.cls ~obj_uuid:x.obj_uuid
+                  ~body:x.body
               in
               ()
             with e ->

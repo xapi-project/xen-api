@@ -123,7 +123,7 @@ let upgrade_alert_priority =
   ; version= (fun _ -> true)
   ; fn=
       (fun ~__context ->
-        let alert_refs = Xapi_message.get_all () in
+        let alert_refs = Xapi_message.get_all ~__context in
         List.iter
           (fun r ->
             try
@@ -238,7 +238,7 @@ let upgrade_wlb_configuration =
 let upgrade_vm_memory_for_dmc =
   {
     description= "Upgrading VM memory fields to disable DMC"
-  ; version= (fun x -> true)
+  ; version= (fun _ -> true)
   ; fn=
       (fun ~__context ->
         debug

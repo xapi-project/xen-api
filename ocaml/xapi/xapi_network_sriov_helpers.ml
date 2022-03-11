@@ -295,7 +295,7 @@ let group_hosts_by_best_sriov ~__context ~network =
       ([], []) pifs
   in
   let host_lists =
-    Helpers.group_by `descending
+    Helpers.group_by ~ordering:`descending
       (fun (_, num) -> num)
       (Listext.List.setify attached_hosts)
     |> List.map (fun hl -> List.map (fun ((h, num), _) -> (h, num)) hl)

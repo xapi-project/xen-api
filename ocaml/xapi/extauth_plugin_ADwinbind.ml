@@ -304,7 +304,7 @@ module Ldap = struct
       (Printf.sprintf "krb5.conf.%s" domain_netbios)
 
   let env_of_krb5 domain_netbios =
-    let domain_krb5_cfg = krb5_conf_path domain_netbios in
+    let domain_krb5_cfg = krb5_conf_path ~domain_netbios in
     [|Printf.sprintf "KRB5_CONFIG=%s" domain_krb5_cfg|]
 
   let query_user ?(log_output = Helpers.On_failure) sid domain_netbios kdc =
@@ -625,7 +625,7 @@ module Migrate_from_pbis = struct
   (* upgrade-pbis-to-winbind handles most of the migration from PBIS database
    * to winbind database
    * This module just migrate necessary information to set to winbind configuration *)
-  let range s e step =
+  let range _ e step =
     let rec aux n acc = if n >= e then acc else aux (n + step) (n :: acc) in
     aux 0 [] |> List.rev
 
@@ -932,7 +932,9 @@ module Winbind = struct
   let configure ~__context =
     (* Refresh winbind configuration to handle upgrade from PBIS
      * The winbind configuration needs to be refreshed before start winbind daemon *)
-    let {service_name; workgroup; netbios_name} = get_domain_info_from_db () in
+    let {service_name; workgroup; netbios_name; _} =
+      get_domain_info_from_db ()
+    in
     let netbios_name =
       match netbios_name with
       | None ->
@@ -1153,7 +1155,7 @@ module RotateMachinePassword = struct
     let now = Unix.time () in
     let now_str = string_of_float now in
     try
-      let {service_name; machine_pwd_last_change_time} =
+      let {service_name; machine_pwd_last_change_time; _} =
         get_domain_info_from_db ()
       in
       match machine_pwd_last_change_time with
@@ -1313,7 +1315,7 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
   *)
   (* not implemented now, not needed for our tests, only for a *)
   (* future single sign-on feature *)
-  let authenticate_ticket tgt =
+  let authenticate_ticket _tgt =
     failwith "extauth_plugin authenticate_ticket not implemented"
 
   let query_subject_information_group (name : string) (gid : int) (sid : string)
@@ -1327,7 +1329,7 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
 
   let query_subject_information_user (uid : int) (sid : string) =
     (* user_name like DOMAIN\user_1 *)
-    let* {user_name; gecos; gid} = Wbinfo.uid_info_of_uid uid in
+    let* {user_name; gecos; gid; _} = Wbinfo.uid_info_of_uid uid in
     let sam_uname = user_name in
     let* domain_netbios, domain = Wbinfo.domain_of_uname user_name in
     (* uname like user_1 *)
@@ -1347,13 +1349,13 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
     in
 
     let* {
-           name
-         ; upn
+           upn
          ; display_name
          ; account_disabled
          ; account_expired
          ; account_locked
          ; password_expired
+         ; _
          } =
       match ClosestKdc.from_db domain with
       | Some _ -> (

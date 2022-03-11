@@ -74,7 +74,7 @@ let send_blobs ~__context ~remote_address ~session_id uuid_map =
             )
         in
         with_transport transport
-          (with_http request (fun (response, put_fd) ->
+          (with_http request (fun (_, put_fd) ->
                let blob_fd = Unix.openfile path [Unix.O_RDONLY] 0o600 in
                ignore
                  (Xapi_stdext_pervasives.Pervasiveext.finally

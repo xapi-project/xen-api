@@ -19,7 +19,6 @@ module D = Debug.Make (struct let name = "xapi_host_helpers" end)
 
 open D
 module Unixext = Xapi_stdext_unix.Unixext
-open Db_filter
 open Db_filter_types
 open Record_util (* for host_operation_to_string *)
 
@@ -250,14 +249,6 @@ let cancel_tasks ~__context ~self ~all_tasks_in_db ~task_ids =
   let set value = Db.Host.set_current_operations ~__context ~self ~value in
   Helpers.cancel_tasks ~__context ~ops ~all_tasks_in_db ~task_ids ~set
 
-let disable ~__context ~host = ()
-
-let enable ~__context ~host = ()
-
-let shutdown ~__context ~host = ()
-
-let reboot ~__context ~host = ()
-
 (* When the Host.shutdown and Host.reboot calls return to the master, the slave is
    shutting down asycnronously. We immediately set the Host_metrics.live to false
    and add the host to the global list of known-dying hosts. *)
@@ -415,7 +406,7 @@ let consider_enabling_host_nolock ~__context =
       && Db.Pool.get_ha_enabled ~__context ~self:pool
     then
       Helpers.call_api_functions ~__context (fun rpc session_id ->
-          Client.Client.Pool.ha_schedule_plan_recomputation rpc session_id
+          Client.Client.Pool.ha_schedule_plan_recomputation ~rpc ~session_id
       )
   ) ;
   signal_startup_complete ()
@@ -424,7 +415,7 @@ let consider_enabling_host_nolock ~__context =
 let consider_enabling_host =
   At_least_once_more.make "consider_enabling_host" (fun () ->
       Server_helpers.exec_with_new_task "consider_enabling_host"
-        (fun __context -> consider_enabling_host_nolock __context
+        (fun __context -> consider_enabling_host_nolock ~__context
       )
   )
 
@@ -492,7 +483,8 @@ module Configuration = struct
     let loop (token, was_in_rpu) =
       Helpers.call_api_functions ~__context (fun rpc session_id ->
           let events =
-            Client.Client.Event.from rpc session_id ["host"; "pool"] token delay
+            Client.Client.Event.from ~rpc ~session_id ~classes:["host"; "pool"]
+              ~token ~timeout:delay
             |> Event_types.event_from_of_rpc
           in
           let check_host (host_ref, host_rec) =
@@ -506,7 +498,8 @@ module Configuration = struct
             | Some "" ->
                 ()
             | Some iqn when iqn <> host_rec.API.host_iscsi_iqn ->
-                Client.Client.Host.set_iscsi_iqn rpc session_id host_ref iqn
+                Client.Client.Host.set_iscsi_iqn ~rpc ~session_id ~host:host_ref
+                  ~value:iqn
             | _ ->
                 ()
             ) ;
@@ -521,8 +514,8 @@ module Configuration = struct
                 ()
             | Some multipathing
               when multipathing <> host_rec.API.host_multipathing ->
-                Client.Client.Host.set_multipathing rpc session_id host_ref
-                  multipathing
+                Client.Client.Host.set_multipathing ~rpc ~session_id
+                  ~host:host_ref ~value:multipathing
             | _ ->
                 ()
           in

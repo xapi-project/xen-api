@@ -225,10 +225,8 @@ let detect_rolling_upgrade ~__context =
           ) ;
           if not actually_in_progress then (
             debug "Resync to remove the old patches or updates." ;
-            Helpers.call_api_functions ~__context (fun rpc session_id ->
-                Xapi_pool_update.resync_host __context
-                  (Helpers.get_localhost ~__context)
-            )
+            Xapi_pool_update.resync_host ~__context
+              ~host:(Helpers.get_localhost ~__context)
           ) ;
           (* Call in to internal xapi upgrade code *)
           if actually_in_progress then
@@ -318,7 +316,7 @@ let send_one_heartbeat ~__context ?(shutting_down = false) rpc session_id =
     @ if shutting_down then [(_shutting_down, "true")] else []
   in
   let (_ : (string * string) list) =
-    Client.Client.Host.tickle_heartbeat rpc session_id localhost stuff
+    Client.Client.Host.tickle_heartbeat ~rpc ~session_id ~host:localhost ~stuff
   in
   ()
 
@@ -328,7 +326,7 @@ let start_heartbeat_thread () =
   Debug.with_thread_named "heartbeat"
     (fun () ->
       Server_helpers.exec_with_new_task "Heartbeat" (fun __context ->
-          let localhost = Helpers.get_localhost __context in
+          let localhost = Helpers.get_localhost ~__context in
           let master = Helpers.get_master ~__context in
           let address = Db.Host.get_address ~__context ~self:master in
           if localhost = master then
@@ -343,7 +341,7 @@ let start_heartbeat_thread () =
                         send_one_heartbeat ~__context rpc session_id ;
                         Thread.delay !Xapi_globs.host_heartbeat_interval
                       with
-                      | Api_errors.Server_error (x, y) as e
+                      | Api_errors.Server_error (x, _) as e
                         when x = Api_errors.session_invalid ->
                           raise e
                       | e ->
@@ -353,7 +351,7 @@ let start_heartbeat_thread () =
                     done
                 )
               with
-              | Api_errors.Server_error (code, params)
+              | Api_errors.Server_error (code, _)
                 when code = Api_errors.session_authentication_failed ->
                   debug
                     "Master did not recognise our pool secret: we must be \

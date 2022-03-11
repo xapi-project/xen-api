@@ -195,25 +195,25 @@ let copy_vm_fields ~__context ~metadata ~dst ~do_not_copy ~overrides =
 
 let safe_destroy_vbd ~__context ~rpc ~session_id vbd =
   if Db.is_valid_ref __context vbd then
-    Client.VBD.destroy rpc session_id vbd
+    Client.VBD.destroy ~rpc ~session_id ~self:vbd
 
 let safe_destroy_vif ~__context ~rpc ~session_id vif =
   if Db.is_valid_ref __context vif then
-    Client.VIF.destroy rpc session_id vif
+    Client.VIF.destroy ~rpc ~session_id ~self:vif
 
 let safe_destroy_vgpu ~__context ~rpc ~session_id vgpu =
   if Db.is_valid_ref __context vgpu then
-    Client.VGPU.destroy rpc session_id vgpu
+    Client.VGPU.destroy ~rpc ~session_id ~self:vgpu
 
 let safe_destroy_vdi ~__context ~rpc ~session_id vdi =
   if Db.is_valid_ref __context vdi then
     let sr = Db.VDI.get_SR ~__context ~self:vdi in
     if not (Db.SR.get_content_type ~__context ~self:sr = "iso") then
-      Client.VDI.destroy rpc session_id vdi
+      Client.VDI.destroy ~rpc ~session_id ~self:vdi
 
 let safe_destroy_vusb ~__context ~rpc ~session_id vusb =
   if Db.is_valid_ref __context vusb then
-    Client.VUSB.destroy rpc session_id vusb
+    Client.VUSB.destroy ~rpc ~session_id ~self:vusb
 
 (* Copy the VBDs and VIFs from a source VM to a dest VM and then delete the old disks. *)
 (* This operation destroys the data of the dest VM.                                    *)
@@ -447,7 +447,8 @@ let ensure_domain_type_is_consistent ~__context ~snap_metadata =
   | Some "unspecified" | None ->
       let policy = hvm_boot_policy () in
       ( "domain_type"
-      , domain_type_to_string (Xapi_vm_helpers.derive_domain_type policy)
+      , domain_type_to_string
+          (Xapi_vm_helpers.derive_domain_type ~hVM_boot_policy:policy)
       )
       :: List.remove_assoc "domain_type" snap_metadata
   | _ ->
@@ -519,12 +520,13 @@ let create_vm_from_snapshot ~__context ~snapshot =
   let old_vm = Db.VM.get_snapshot_of ~__context ~self:snapshot in
   try
     let snapshots =
-      Db.VM.get_records_where __context
-        (Db_filter_types.Eq
-           ( Db_filter_types.Field "snapshot_of"
-           , Db_filter_types.Literal (Ref.string_of old_vm)
-           )
-        )
+      Db.VM.get_records_where ~__context
+        ~expr:
+          (Db_filter_types.Eq
+             ( Db_filter_types.Field "snapshot_of"
+             , Db_filter_types.Literal (Ref.string_of old_vm)
+             )
+          )
     in
     let snap_metadata = Db.VM.get_snapshot_metadata ~__context ~self:snapshot in
     let snap_metadata = Helpers.vm_string_to_assoc snap_metadata in
@@ -551,7 +553,7 @@ let create_vm_from_snapshot ~__context ~snapshot =
           new_vm
         with e ->
           debug "cleaning-up by deleting the VM %s" (Ref.string_of new_vm) ;
-          Client.VM.destroy rpc session_id new_vm ;
+          Client.VM.destroy ~rpc ~session_id ~self:new_vm ;
           raise e
     )
   with e ->

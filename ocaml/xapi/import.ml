@@ -23,7 +23,6 @@ module Xstringext = Xapi_stdext_std.Xstringext
 module Unixext = Xapi_stdext_unix.Unixext
 open Http
 open Importexport
-open Xapi_stdext_unix.Unixext
 open Xapi_stdext_pervasives.Pervasiveext
 open Client
 
@@ -74,7 +73,7 @@ type config = {
 }
 
 let is_live config =
-  match config.import_type with Metadata_import {live} -> live | _ -> false
+  match config.import_type with Metadata_import {live; _} -> live | _ -> false
 
 (** List of (datamodel classname * Reference in export * Reference in database) *)
 type table = (string * string * string) list
@@ -240,7 +239,7 @@ let assert_can_restore_backup ~__context rpc session_id (x : header) =
   let existing_vms =
     List.filter_map
       (fun (_, v) -> get_mac_seed v)
-      (Client.VM.get_all_records rpc session_id)
+      (Client.VM.get_all_records ~rpc ~session_id)
   in
   List.iter
     (fun (mac, vm) ->
@@ -253,7 +252,7 @@ let assert_can_restore_backup ~__context rpc session_id (x : header) =
     )
     import_vms
 
-let assert_can_live_import __context rpc session_id vm_record =
+let assert_can_live_import __context vm_record =
   let assert_memory_available () =
     let host = Helpers.get_localhost ~__context in
     let host_mem_available =
@@ -389,12 +388,14 @@ functor
 module Host : HandlerTools = struct
   type precheck_t = Found_host of API.ref_host | Found_no_host
 
-  let precheck __context config rpc session_id state x =
+  let precheck __context _config _rpc _session_id _state x =
     let host_record = API.host_t_of_rpc x.snapshot in
-    try Found_host (Db.Host.get_by_uuid __context host_record.API.host_uuid)
+    try
+      Found_host (Db.Host.get_by_uuid ~__context ~uuid:host_record.API.host_uuid)
     with _ -> Found_no_host
 
-  let handle_dry_run __context config rpc session_id state x precheck_result =
+  let handle_dry_run __context _config _rpc _session_id state x precheck_result
+      =
     let host =
       match precheck_result with
       | Found_host host' ->
@@ -415,7 +416,7 @@ module VM : HandlerTools = struct
     | Skip
     | Clean_import of API.vM_t
 
-  let precheck __context config rpc session_id state x =
+  let precheck __context config _rpc _session_id _state x =
     let vm_record = get_vm_record x.snapshot in
 
     (* we can't import a VM if it is not in a resting state and requires
@@ -451,7 +452,10 @@ module VM : HandlerTools = struct
       (* If the VM is a default template, then pick up the one with the same name. *)
       let template =
         try
-          List.hd (Db.VM.get_by_name_label __context vm_record.API.vM_name_label)
+          List.hd
+            (Db.VM.get_by_name_label ~__context
+               ~label:vm_record.API.vM_name_label
+            )
         with _ -> Ref.null
       in
       Default_template template
@@ -460,7 +464,7 @@ module VM : HandlerTools = struct
         (* Check for an existing VM with the same UUID - if one exists, what we do next *)
         (* will depend on the state of the VM and whether the import is forced. *)
         let get_vm_by_uuid () =
-          Db.VM.get_by_uuid __context vm_record.API.vM_uuid
+          Db.VM.get_by_uuid ~__context ~uuid:vm_record.API.vM_uuid
         in
         let vm_uuid_exists () =
           try
@@ -516,12 +520,13 @@ module VM : HandlerTools = struct
       match import_action with
       | Replace (_, vm_record) | Clean_import vm_record ->
           if is_live config then
-            assert_can_live_import __context rpc session_id vm_record ;
+            assert_can_live_import __context vm_record ;
           import_action
       | _ ->
           import_action
 
-  let handle_dry_run __context config rpc session_id state x precheck_result =
+  let handle_dry_run __context _config _rpc _session_id state x precheck_result
+      =
     match precheck_result with
     | Skip ->
         ()
@@ -669,7 +674,7 @@ module VM : HandlerTools = struct
             )
             () ;
           Db.VM.set_power_state ~__context ~self:vm ~value:`Halted ;
-          Client.VM.destroy rpc session_id vm
+          Client.VM.destroy ~rpc ~session_id ~self:vm
         )
         :: state.cleanup ;
       (* Restore the last_booted_record too (critical if suspended but might as well do it all the time) *)
@@ -784,13 +789,14 @@ end
 module GuestMetrics : HandlerTools = struct
   type precheck_t = OK
 
-  let precheck __context config rpc session_id state x = OK
+  let precheck __context _config _rpc _session_id _state _x = OK
 
-  let handle_dry_run __context config rpc session_id state x precheck_result =
+  let handle_dry_run __context _config _rpc _session_id state x _precheck_result
+      =
     let dummy_gm = Ref.make () in
     state.table <- (x.cls, x.id, Ref.string_of dummy_gm) :: state.table
 
-  let handle __context config rpc session_id state x precheck_result =
+  let handle __context _config _rpc _session_id state x _precheck_result =
     let gm_record = API.vM_guest_metrics_t_of_rpc x.snapshot in
     let gm = Ref.make () in
     Db.VM_guest_metrics.create ~__context ~ref:gm
@@ -821,15 +827,17 @@ module SR : HandlerTools = struct
     | Will_use_SR of API.ref_SR
     | SR_not_needed
 
-  let precheck __context config rpc session_id state x =
+  let precheck __context config rpc session_id _state x =
     let sr_record = API.sR_t_of_rpc x.snapshot in
     match config.import_type with
     | Metadata_import _ -> (
       try
         (* Look up the existing SR record *)
-        let sr = Client.SR.get_by_uuid rpc session_id sr_record.API.sR_uuid in
+        let sr =
+          Client.SR.get_by_uuid ~rpc ~session_id ~uuid:sr_record.API.sR_uuid
+        in
         Found_SR sr
-      with e ->
+      with _ ->
         let msg =
           match sr_record.API.sR_content_type with
           | "iso" ->
@@ -847,7 +855,8 @@ module SR : HandlerTools = struct
         else
           Will_use_SR sr
 
-  let handle_dry_run __context config rpc session_id state x precheck_result =
+  let handle_dry_run __context _config _rpc _session_id state x precheck_result
+      =
     match precheck_result with
     | Found_SR sr | Will_use_SR sr ->
         state.table <- (x.cls, x.id, Ref.string_of sr) :: state.table
@@ -885,10 +894,10 @@ module VDI : HandlerTools = struct
       let iso_srs =
         List.filter
           (fun self ->
-            Client.SR.get_content_type rpc session_id self = "iso"
-            && Client.SR.get_type rpc session_id self <> "udev"
+            Client.SR.get_content_type ~rpc ~session_id ~self = "iso"
+            && Client.SR.get_type ~rpc ~session_id ~self <> "udev"
           )
-          (Client.SR.get_all rpc session_id)
+          (Client.SR.get_all ~rpc ~session_id)
       in
       match
         List.filter
@@ -896,7 +905,7 @@ module VDI : HandlerTools = struct
             vdir.API.vDI_location = vdi_record.API.vDI_location
             && List.mem vdir.API.vDI_SR iso_srs
           )
-          (Client.VDI.get_all_records rpc session_id)
+          (Client.VDI.get_all_records ~rpc ~session_id)
         |> choose_one
       with
       | Some (vdi, _) ->
@@ -907,7 +916,7 @@ module VDI : HandlerTools = struct
           Found_no_iso
     ) else
       match config.import_type with
-      | Metadata_import {vdi_map} -> (
+      | Metadata_import {vdi_map; _} -> (
           let mapto =
             if
               List.mem_assoc Constants.storage_migrate_vdi_map_key
@@ -922,7 +931,7 @@ module VDI : HandlerTools = struct
             else
               None
           in
-          let vdi_records = Client.VDI.get_all_records rpc session_id in
+          let vdi_records = Client.VDI.get_all_records ~rpc ~session_id in
           let find_by_sr_and_location sr location =
             vdi_records
             |> List.filter (fun (_, vdir) ->
@@ -1048,7 +1057,7 @@ module VDI : HandlerTools = struct
       | Full_import _ ->
           Create vdi_record
 
-  let handle_dry_run __context config rpc session_id state x precheck_result =
+  let handle_dry_run __context config _rpc _session_id state x precheck_result =
     match precheck_result with
     | Found_iso vdi | Found_disk vdi ->
         state.table <- (x.cls, x.id, Ref.string_of vdi) :: state.table
@@ -1056,7 +1065,7 @@ module VDI : HandlerTools = struct
         () (* VDI will be ejected. *)
     | Found_no_disk e -> (
       match config.import_type with
-      | Metadata_import {live= true} ->
+      | Metadata_import {live= true; _} ->
           (* We expect the disk to be missing during a live migration dry run. *)
           debug
             "Ignoring missing disk %s - this will be mirrored during a real \
@@ -1105,11 +1114,14 @@ module VDI : HandlerTools = struct
         in
         let sm_config = (Xapi_globs.import_task, task_id) :: sm_config in
         let vdi =
-          Client.VDI.create_from_record rpc session_id
-            {vdi_record with API.vDI_SR= sr; API.vDI_sm_config= sm_config}
+          Client.VDI.create_from_record ~rpc ~session_id
+            ~value:
+              {vdi_record with API.vDI_SR= sr; API.vDI_sm_config= sm_config}
         in
         state.cleanup <-
-          (fun __context rpc session_id -> Client.VDI.destroy rpc session_id vdi)
+          (fun __context rpc session_id ->
+            Client.VDI.destroy ~rpc ~session_id ~self:vdi
+          )
           :: state.cleanup ;
         state.table <- (x.cls, x.id, Ref.string_of vdi) :: state.table
 end
@@ -1122,11 +1134,11 @@ end
 module Net : HandlerTools = struct
   type precheck_t = Found_net of API.ref_network | Create of API.network_t
 
-  let precheck __context config rpc session_id state x =
+  let precheck __context _config rpc session_id _state x =
     let net_record = API.network_t_of_rpc x.snapshot in
     let possibilities =
-      Client.Network.get_by_name_label rpc session_id
-        net_record.API.network_name_label
+      Client.Network.get_by_name_label ~rpc ~session_id
+        ~label:net_record.API.network_name_label
     in
     match possibilities with
     | [] -> (
@@ -1134,17 +1146,20 @@ module Net : HandlerTools = struct
         let expr =
           "field \"bridge\"=\"" ^ net_record.API.network_bridge ^ "\""
         in
-        let nets = Client.Network.get_all_records_where rpc session_id expr in
+        let nets =
+          Client.Network.get_all_records_where ~rpc ~session_id ~expr
+        in
         match nets with
         | [] ->
             Create net_record
         | (net, _) :: _ ->
             Found_net net
       )
-    | n :: ns ->
+    | n :: _ ->
         Found_net n
 
-  let handle_dry_run __context config rpc session_id state x precheck_result =
+  let handle_dry_run __context _config _rpc _session_id state x precheck_result
+      =
     match precheck_result with
     | Found_net net ->
         state.table <- (x.cls, x.id, Ref.string_of net) :: state.table
@@ -1162,7 +1177,9 @@ module Net : HandlerTools = struct
             ("failed to create Network with name_label "
             ^ net_record.API.network_name_label
             )
-            (fun value -> Client.Network.create_from_record rpc session_id value)
+            (fun value ->
+              Client.Network.create_from_record ~rpc ~session_id ~value
+            )
             net_record
         in
         (* Only add task flag to networks which get created in this import *)
@@ -1177,7 +1194,7 @@ module Net : HandlerTools = struct
         ) ;
         state.cleanup <-
           (fun __context rpc session_id ->
-            Client.Network.destroy rpc session_id net
+            Client.Network.destroy ~rpc ~session_id ~self:net
           )
           :: state.cleanup ;
         state.table <- (x.cls, x.id, Ref.string_of net) :: state.table
@@ -1192,9 +1209,9 @@ module GPUGroup : HandlerTools = struct
     | Found_no_GPU_group of exn
     | Create of API.gPU_group_t
 
-  let precheck __context config rpc session_id state x =
+  let precheck __context config rpc session_id _state x =
     let gpu_group_record = API.gPU_group_t_of_rpc x.snapshot in
-    let groups = Client.GPU_group.get_all_records rpc session_id in
+    let groups = Client.GPU_group.get_all_records ~rpc ~session_id in
     try
       let group, _ =
         List.find
@@ -1220,7 +1237,8 @@ module GPUGroup : HandlerTools = struct
           Create gpu_group_record
     )
 
-  let handle_dry_run __context config rpc session_id state x precheck_result =
+  let handle_dry_run __context _config _rpc _session_id state x precheck_result
+      =
     match precheck_result with
     | Found_GPU_group group ->
         state.table <- (x.cls, x.id, Ref.string_of group) :: state.table
@@ -1266,7 +1284,7 @@ module GPUGroup : HandlerTools = struct
         ) ;
         state.cleanup <-
           (fun __context rpc session_id ->
-            Client.GPU_group.destroy rpc session_id group
+            Client.GPU_group.destroy ~rpc ~session_id ~self:group
           )
           :: state.cleanup ;
         state.table <- (x.cls, x.id, Ref.string_of group) :: state.table
@@ -1279,16 +1297,12 @@ end
     CDROM in which case we eject it anyway.
 *)
 module VBD : HandlerTools = struct
-  type precheck_t =
-    | Found_VBD of API.ref_VBD
-    | Fail of exn
-    | Skip
-    | Create of API.vBD_t
+  type precheck_t = Found_VBD of API.ref_VBD | Skip | Create of API.vBD_t
 
   let precheck __context config rpc session_id state x =
     let vbd_record = API.vBD_t_of_rpc x.snapshot in
     let get_vbd () =
-      Client.VBD.get_by_uuid rpc session_id vbd_record.API.vBD_uuid
+      Client.VBD.get_by_uuid ~rpc ~session_id ~uuid:vbd_record.API.vBD_uuid
     in
     let vbd_exists () =
       try
@@ -1320,7 +1334,7 @@ module VBD : HandlerTools = struct
          				 missing disks as CDs will be ejected before the real migration. *)
       let dry_run, live =
         match config.import_type with
-        | Metadata_import {dry_run; live} ->
+        | Metadata_import {dry_run; live; _} ->
             (dry_run, live)
         | _ ->
             (false, false)
@@ -1360,14 +1374,13 @@ module VBD : HandlerTools = struct
               API.vBD_VDI= lookup vbd_record.API.vBD_VDI state.table
             }
 
-  let handle_dry_run __context config rpc session_id state x precheck_result =
+  let handle_dry_run __context _config _rpc _session_id state x precheck_result
+      =
     match precheck_result with
     | Found_VBD vbd ->
         state.table <- (x.cls, x.id, Ref.string_of vbd) :: state.table ;
         state.table <-
           (x.cls, Ref.string_of vbd, Ref.string_of vbd) :: state.table
-    | Fail e ->
-        raise e
     | Skip ->
         ()
     | Create _ ->
@@ -1376,19 +1389,20 @@ module VBD : HandlerTools = struct
 
   let handle __context config rpc session_id state x precheck_result =
     match precheck_result with
-    | Found_VBD _ | Fail _ | Skip ->
+    | Found_VBD _ | Skip ->
         handle_dry_run __context config rpc session_id state x precheck_result
     | Create vbd_record ->
         let vbd =
           log_reraise "failed to create VBD"
             (fun value ->
               let vbd =
-                Client.VBD.create_from_record rpc session_id
-                  {
-                    value with
-                    API.vBD_device= ""
-                  ; API.vBD_currently_attached= false
-                  }
+                Client.VBD.create_from_record ~rpc ~session_id
+                  ~value:
+                    {
+                      value with
+                      API.vBD_device= ""
+                    ; API.vBD_currently_attached= false
+                    }
               in
               if config.full_restore then
                 Db.VBD.set_uuid ~__context ~self:vbd ~value:value.API.vBD_uuid ;
@@ -1397,7 +1411,9 @@ module VBD : HandlerTools = struct
             vbd_record
         in
         state.cleanup <-
-          (fun __context rpc session_id -> Client.VBD.destroy rpc session_id vbd)
+          (fun __context rpc session_id ->
+            Client.VBD.destroy ~rpc ~session_id ~self:vbd
+          )
           :: state.cleanup ;
         (* Now that we can import/export suspended VMs we need to preserve the
            			   currently_attached flag *)
@@ -1414,7 +1430,7 @@ module VIF : HandlerTools = struct
   let precheck __context config rpc session_id state x =
     let vif_record = API.vIF_t_of_rpc x.snapshot in
     let get_vif () =
-      Client.VIF.get_by_uuid rpc session_id vif_record.API.vIF_uuid
+      Client.VIF.get_by_uuid ~rpc ~session_id ~uuid:vif_record.API.vIF_uuid
     in
     let vif_exists () =
       try
@@ -1494,7 +1510,8 @@ module VIF : HandlerTools = struct
       in
       Create vif_record
 
-  let handle_dry_run __context config rpc session_id state x precheck_result =
+  let handle_dry_run __context _config _rpc _session_id state x precheck_result
+      =
     match precheck_result with
     | Found_VIF vif ->
         state.table <- (x.cls, x.id, Ref.string_of vif) :: state.table ;
@@ -1506,15 +1523,15 @@ module VIF : HandlerTools = struct
 
   let handle __context config rpc session_id state x precheck_result =
     match precheck_result with
-    | Found_VIF vif ->
+    | Found_VIF _ ->
         handle_dry_run __context config rpc session_id state x precheck_result
     | Create vif_record ->
         let vif =
           log_reraise "failed to create VIF"
             (fun value ->
               let vif =
-                Client.VIF.create_from_record rpc session_id
-                  {value with API.vIF_currently_attached= false}
+                Client.VIF.create_from_record ~rpc ~session_id
+                  ~value:{value with API.vIF_currently_attached= false}
               in
               if config.full_restore then
                 Db.VIF.set_uuid ~__context ~self:vif ~value:value.API.vIF_uuid ;
@@ -1523,7 +1540,9 @@ module VIF : HandlerTools = struct
             vif_record
         in
         state.cleanup <-
-          (fun __context rpc session_id -> Client.VIF.destroy rpc session_id vif)
+          (fun __context rpc session_id ->
+            Client.VIF.destroy ~rpc ~session_id ~self:vif
+          )
           :: state.cleanup ;
         (* Now that we can import/export suspended VMs we need to preserve the
            				 currently_attached flag *)
@@ -1541,24 +1560,26 @@ module VGPUType : HandlerTools = struct
     | Found_VGPU_type of API.ref_VGPU_type
     | Create of API.vGPU_type_t
 
-  let precheck __context config rpc session_id state x =
+  let precheck __context _config rpc session_id _state x =
     let vgpu_type_record = API.vGPU_type_t_of_rpc x.snapshot in
     (* First look up VGPU types using the identifier string. *)
     let compatible_types =
       match
-        Client.VGPU_type.get_all_records_where rpc session_id
-          (Printf.sprintf "field \"identifier\"=\"%s\""
-             vgpu_type_record.API.vGPU_type_identifier
-          )
+        Client.VGPU_type.get_all_records_where ~rpc ~session_id
+          ~expr:
+            (Printf.sprintf "field \"identifier\"=\"%s\""
+               vgpu_type_record.API.vGPU_type_identifier
+            )
       with
       | [] ->
           (* If that fails, look up using the vendor name and model name. *)
-          Client.VGPU_type.get_all_records_where rpc session_id
-            (Printf.sprintf
-               "field \"vendor_name\"=\"%s\" and field \"model_name\"=\"%s\""
-               vgpu_type_record.API.vGPU_type_vendor_name
-               vgpu_type_record.API.vGPU_type_model_name
-            )
+          Client.VGPU_type.get_all_records_where ~rpc ~session_id
+            ~expr:
+              (Printf.sprintf
+                 "field \"vendor_name\"=\"%s\" and field \"model_name\"=\"%s\""
+                 vgpu_type_record.API.vGPU_type_vendor_name
+                 vgpu_type_record.API.vGPU_type_model_name
+              )
       | types ->
           types
     in
@@ -1572,7 +1593,8 @@ module VGPUType : HandlerTools = struct
           vgpu_type_record.API.vGPU_type_model_name ;
         Create vgpu_type_record
 
-  let handle_dry_run __context config rpc session_id state x precheck_result =
+  let handle_dry_run __context _config _rpc _session_id state x precheck_result
+      =
     match precheck_result with
     | Found_VGPU_type vgpu_type ->
         state.table <- (x.cls, x.id, Ref.string_of vgpu_type) :: state.table ;
@@ -1586,7 +1608,7 @@ module VGPUType : HandlerTools = struct
 
   let handle __context config rpc session_id state x precheck_result =
     match precheck_result with
-    | Found_VGPU_type vgpu_type ->
+    | Found_VGPU_type _ ->
         handle_dry_run __context config rpc session_id state x precheck_result
     | Create vgpu_type_record ->
         let vgpu_type =
@@ -1612,9 +1634,7 @@ module VGPUType : HandlerTools = struct
             vgpu_type_record
         in
         state.cleanup <-
-          (fun __context rpc session_id ->
-            Db.VGPU_type.destroy __context vgpu_type
-          )
+          (fun __context _ _ -> Db.VGPU_type.destroy ~__context ~self:vgpu_type)
           :: state.cleanup ;
         state.table <- (x.cls, x.id, Ref.string_of vgpu_type) :: state.table
 end
@@ -1627,7 +1647,7 @@ module VGPU : HandlerTools = struct
   let precheck __context config rpc session_id state x =
     let vgpu_record = API.vGPU_t_of_rpc x.snapshot in
     let get_vgpu () =
-      Client.VGPU.get_by_uuid rpc session_id vgpu_record.API.vGPU_uuid
+      Client.VGPU.get_by_uuid ~rpc ~session_id ~uuid:vgpu_record.API.vGPU_uuid
     in
     let vgpu_exists () =
       try
@@ -1693,7 +1713,8 @@ module VGPU : HandlerTools = struct
         assert_can_live_import_vgpu ~__context vgpu_record ;
       Create vgpu_record
 
-  let handle_dry_run __context config rpc session_id state x precheck_result =
+  let handle_dry_run __context _config _rpc _session_id state x precheck_result
+      =
     match precheck_result with
     | Found_VGPU vgpu ->
         state.table <- (x.cls, x.id, Ref.string_of vgpu) :: state.table ;
@@ -1727,7 +1748,7 @@ module VGPU : HandlerTools = struct
         in
         state.cleanup <-
           (fun __context rpc session_id ->
-            Client.VGPU.destroy rpc session_id vgpu
+            Client.VGPU.destroy ~rpc ~session_id ~self:vgpu
           )
           :: state.cleanup ;
         (* Now that we can import/export suspended VMs we need to preserve the currently_attached flag *)
@@ -1747,7 +1768,7 @@ module PVS_Proxy : HandlerTools = struct
 
   (* find a PVS site of a given [uuid] and [name] with [uuid] taking
      	 * precedence *)
-  let find_pvs_site __context config rpc session_id pvs_uuid =
+  let find_pvs_site __context _config _rpc _session_id pvs_uuid =
     let sites = Db.PVS_site.get_all_records ~__context in
     let has_uuid (_, site) = site.API.pVS_site_PVS_uuid = pvs_uuid in
     let candidates = List.filter has_uuid sites in
@@ -1776,14 +1797,14 @@ module PVS_Proxy : HandlerTools = struct
           ; API.pVS_proxy_VIF= lookup proxy.API.pVS_proxy_VIF state.table
           }
 
-  let handle_dry_run __context config rpc session_id state obj = function
+  let handle_dry_run __context _config _rpc _session_id state obj = function
     | Drop ->
         debug "no matching PVS Site found for PVS Proxy %s" obj.id
     | Create _ ->
         let dummy = Ref.make () in
         state.table <- (obj.cls, obj.id, Ref.string_of dummy) :: state.table
 
-  let handle __context config rpc session_id state obj = function
+  let handle __context _config rpc session_id state obj = function
     | Drop ->
         debug "no matching PVS Site found for PVS Proxy %s" obj.id
     | Create p ->
@@ -1797,7 +1818,7 @@ module PVS_Proxy : HandlerTools = struct
           (Ref.string_of p.API.pVS_proxy_VIF) ;
         state.cleanup <-
           (fun __context rpc session_id ->
-            Client.PVS_proxy.destroy rpc session_id proxy
+            Client.PVS_proxy.destroy ~rpc ~session_id ~self:proxy
           )
           :: state.cleanup ;
         state.table <- (obj.cls, obj.id, Ref.string_of proxy) :: state.table
@@ -1810,11 +1831,11 @@ module PVS_Site : HandlerTools = struct
 
   type precheck_t = unit
 
-  let precheck __context config rpc session_id state obj = ()
+  let precheck __context _ _ _ _ _ = ()
 
-  let handle_dry_run __context config rpc session_id state obj () = ()
+  let handle_dry_run __context _ _ _ _ _ () = ()
 
-  let handle __context config rpc session_id state obj () = ()
+  let handle __context _ _ _ _ _ () = ()
 end
 
 (** Create a handler for each object type. *)
@@ -1852,7 +1873,7 @@ let handlers =
   ]
 
 let update_snapshot_and_parent_links ~__context state =
-  let aux (cls, id, ref) =
+  let aux (cls, _, ref) =
     let ref = Ref.of_string ref in
     ( if
       cls = Datamodel_common._vm && Db.VM.get_is_a_snapshot ~__context ~self:ref
@@ -1896,7 +1917,7 @@ let handle_all __context config rpc session_id (xs : obj list) =
     List.iter one_type handlers ;
     let dry_run =
       match config.import_type with
-      | Metadata_import {dry_run= true} ->
+      | Metadata_import {dry_run= true; _} ->
           true
       | _ ->
           false
@@ -2094,7 +2115,7 @@ let with_error_handling f =
                  (Api_errors.import_error_unexpected_file, [expected; actual])
               )
       )
-      | Api_errors.Server_error (code, params) as e ->
+      | Api_errors.Server_error _ as e ->
           Backtrace.is_important e ; raise e
       | End_of_file ->
           error "Prematurely reached end-of-file during import" ;
@@ -2164,7 +2185,7 @@ let metadata_handler (req : Request.t) s _ =
                       table ;
                     let vmrefs =
                       List.map
-                        (fun (cls, id, r) -> Ref.of_string r)
+                        (fun (_, _, r) -> Ref.of_string r)
                         state.created_vms
                     in
                     let vmrefs = Listext.List.setify vmrefs in
@@ -2266,7 +2287,7 @@ let stream_import __context rpc session_id s content_length refresh_session
           ) ;
           (* return vmrefs *)
           Listext.List.setify
-            (List.map (fun (cls, id, r) -> Ref.of_string r) state.created_vms)
+            (List.map (fun (_, _, r) -> Ref.of_string r) state.created_vms)
         with e ->
           Backtrace.is_important e ;
           error "Caught exception during import: %s" (ExnHelper.string_of_exn e) ;

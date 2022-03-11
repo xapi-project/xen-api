@@ -367,22 +367,21 @@ functor
 
     let retrieve = read_backups
 
-    let tell_accept_new_pool_secret (old_pool_secret, new_pool_secret) host =
+    let tell_accept_new_pool_secret (old_ps, new_ps) host =
       Helpers.call_api_functions ~__context (fun rpc session_id ->
-          Client.Host.notify_accept_new_pool_secret rpc session_id host
-            old_pool_secret new_pool_secret
+          Client.Host.notify_accept_new_pool_secret ~rpc ~session_id ~host
+            ~old_ps ~new_ps
       )
 
-    let tell_send_new_pool_secret (old_pool_secret, new_pool_secret) host =
+    let tell_send_new_pool_secret (old_ps, new_ps) host =
       Helpers.call_api_functions ~__context (fun rpc session_id ->
-          Client.Host.notify_send_new_pool_secret rpc session_id host
-            old_pool_secret new_pool_secret
+          Client.Host.notify_send_new_pool_secret ~rpc ~session_id ~host ~old_ps
+            ~new_ps
       )
 
-    let tell_cleanup_old_pool_secret (old_pool_secret, new_pool_secret) host =
+    let tell_cleanup_old_pool_secret (old_ps, new_ps) host =
       Helpers.call_api_functions ~__context (fun rpc session_id ->
-          Client.Host.cleanup_pool_secret rpc session_id host old_pool_secret
-            new_pool_secret
+          Client.Host.cleanup_pool_secret ~rpc ~session_id ~host ~old_ps ~new_ps
       )
 
     let cleanup_master (old_ps, new_ps) =

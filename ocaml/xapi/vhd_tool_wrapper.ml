@@ -26,7 +26,7 @@ let vhd_search_path = "/dev/mapper:."
 let update_task_progress __context x =
   TaskHelper.set_progress ~__context (float_of_int x /. 100.)
 
-let run_vhd_tool progress_cb args s s' path =
+let run_vhd_tool progress_cb args s s' _path =
   let vhd_tool = !Xapi_globs.vhd_tool in
   info "Executing %s %s" vhd_tool (String.concat " " args) ;
   let open Forkhelpers in

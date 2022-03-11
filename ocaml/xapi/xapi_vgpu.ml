@@ -129,7 +129,7 @@ let destroy ~__context ~self =
       ) ;
   Db.VGPU.destroy ~__context ~self
 
-let atomic_set_resident_on ~__context ~self ~value = assert false
+let atomic_set_resident_on ~__context ~self:_ ~value:_ = assert false
 
 let copy ~__context ~vm vgpu =
   let all = Db.VGPU.get_record ~__context ~self:vgpu in

@@ -107,7 +107,7 @@ let localhost_handler rpc session_id vdi (req : Http.Request.t)
                 let size =
                   Client.Client.VDI.get_virtual_size ~rpc ~session_id ~self:vdi
                 in
-                Stream_vdi.send_all refresh_session s __context rpc session_id
+                Stream_vdi.send_all refresh_session s ~__context rpc session_id
                   [(Xapi_globs.vdi_tar_export_dir, vdi, size)] ;
                 Tar_helpers.write_end s
           with e ->

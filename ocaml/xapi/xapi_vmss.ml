@@ -108,7 +108,7 @@ let schedule_frequency_weekly_keys =
 let schedule_keys =
   ( schedule_field
   , List.map
-      (function f, [k] -> k | _ -> assert false)
+      (function _, [k] -> k | _ -> assert false)
       [
         schedule_frequency_hourly_keys
       ; schedule_frequency_daily_keys
@@ -122,9 +122,9 @@ let schedule_all_keys =
   , [
       ( ""
       , List.fold_left
-          (fun acc (sf, ks) -> acc @ ks)
+          (fun acc (_, ks) -> acc @ ks)
           []
-          (let f, kss = schedule_keys in
+          (let _, kss = schedule_keys in
            kss
           )
       )

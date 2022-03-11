@@ -270,7 +270,7 @@ let http_fetch_db ~master_address ~pool_secret =
       )
   in
   with_transport transport
-    (with_http request (fun (response, fd) ->
+    (with_http request (fun (_, fd) ->
          (* no content length since it's streaming *)
          let inchan = Unix.in_channel_of_descr fd in
          (* never read from fd again! *)
@@ -338,8 +338,8 @@ let pool_db_backup_thread () =
                   debug "Starting DB synchronise with host %s"
                     (Ref.string_of host) ;
                   Helpers.call_api_functions ~__context (fun rpc session_id ->
-                      Client.Host.request_backup rpc session_id host generation
-                        false
+                      Client.Host.request_backup ~rpc ~session_id ~host
+                        ~generation ~force:false
                   ) ;
                   debug "Finished DB synchronise"
                 with e ->

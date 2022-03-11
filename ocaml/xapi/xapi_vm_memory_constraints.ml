@@ -91,7 +91,7 @@ module Vm_memory_constraints : T = struct
 
   let get ~__context ~vm_ref =
     let vm_record = Db.VM.get_record ~__context ~self:vm_ref in
-    extract vm_record
+    extract ~vm_record
 
   let get_live ~__context ~vm_ref =
     let vm_record = Db.VM.get_record ~__context ~self:vm_ref in

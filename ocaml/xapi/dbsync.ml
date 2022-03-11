@@ -15,8 +15,6 @@
  * @group Main Loop and Start-up
 *)
 
-open Printf
-
 module D = Debug.Make (struct let name = "dbsync" end)
 
 open D

@@ -44,8 +44,9 @@ let compute_object_references_to_follow (obj_name : string) =
     (List.map
        (function
          | {
-             Datamodel_types.ty= Datamodel_types.Ref x
+             Datamodel_types.ty= Datamodel_types.Ref _
            ; Datamodel_types.field_name
+           ; _
            } ->
              let this_end = (obj.Datamodel_types.name, field_name) in
              if List.mem_assoc this_end set then
@@ -128,7 +129,7 @@ let database_callback event db =
           let oldval = Schema.Value.Unsafe_cast.string oldval in
           events_of_other_tbl_refs
             (List.map
-               (fun (tbl, fld) ->
+               (fun (tbl, _) ->
                  ( tbl
                  , oldval
                  , find_get_record tbl ~__context:context ~self:oldval
@@ -144,7 +145,7 @@ let database_callback event db =
           let newval = Schema.Value.Unsafe_cast.string newval in
           events_of_other_tbl_refs
             (List.map
-               (fun (tbl, fld) ->
+               (fun (tbl, _) ->
                  ( tbl
                  , newval
                  , find_get_record tbl ~__context:context ~self:newval
@@ -191,7 +192,7 @@ let database_callback event db =
     | Some snapshot ->
         events_notify ~snapshot tblname "del" objref
   )
-  | Delete (tblname, objref, kv) ->
+  | Delete (tblname, _objref, kv) ->
       let other_tbl_refs = follow_references tblname in
       let other_tbl_refs =
         List.fold_left

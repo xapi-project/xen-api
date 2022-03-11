@@ -55,7 +55,7 @@ let pool_patch_upload_handler (req : Http.Request.t) s _ =
           (* Strip out the task info here, we'll use a new subtask. This
              is to avoid our task being prematurely marked as completed by
              the import_raw_vdi handler. *)
-          let strip = List.filter (fun (k, v) -> k <> "task_id") in
+          let strip = List.filter (fun (k, _) -> k <> "task_id") in
           let add_sr query =
             match Importexport.sr_of_req ~__context req with
             | Some _ ->
@@ -65,7 +65,10 @@ let pool_patch_upload_handler (req : Http.Request.t) s _ =
                 let default_SR = Db.Pool.get_default_SR ~__context ~self:pool in
                 ("sr_id", Ref.string_of default_SR) :: query
           in
-          let subtask = Client.Task.create rpc session_id "VDI upload" "" in
+          let subtask =
+            Client.Task.create ~rpc ~session_id ~label:"VDI upload"
+              ~description:""
+          in
           Xapi_stdext_pervasives.Pervasiveext.finally
             (fun () ->
               let req =
@@ -89,7 +92,7 @@ let pool_patch_upload_handler (req : Http.Request.t) s _ =
               | Some vdi -> (
                 try
                   let update =
-                    Client.Pool_update.introduce rpc session_id vdi
+                    Client.Pool_update.introduce ~rpc ~session_id ~vdi
                   in
                   let patch = pool_patch_of_update ~__context update in
                   Db.Task.set_result ~__context
@@ -97,7 +100,7 @@ let pool_patch_upload_handler (req : Http.Request.t) s _ =
                     ~value:(Ref.string_of patch) ;
                   TaskHelper.complete ~__context None
                 with e ->
-                  Client.VDI.destroy rpc session_id vdi ;
+                  Client.VDI.destroy ~rpc ~session_id ~self:vdi ;
                   TaskHelper.failed ~__context e
               )
               | None ->
@@ -112,7 +115,7 @@ let pool_patch_upload_handler (req : Http.Request.t) s _ =
                   (* If we've got a None here, we'll already have replied with the error. Fail the task now too. *)
                   ()
             )
-            (fun () -> Client.Task.destroy rpc session_id subtask)
+            (fun () -> Client.Task.destroy ~rpc ~session_id ~self:subtask)
       )
   )
 
@@ -187,9 +190,9 @@ let pool_apply ~__context ~self =
   let _ = Db.Pool_patch.set_pool_applied ~__context ~self ~value:true in
   ()
 
-let clean ~__context ~self = ()
+let clean ~__context ~self:_ = ()
 
-let clean_on_host ~__context ~self ~host = ()
+let clean_on_host ~__context ~self:_ ~host:_ = ()
 
 let pool_clean ~__context ~self =
   forward ~__context ~self Client.Pool_update.pool_clean

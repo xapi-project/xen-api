@@ -19,7 +19,6 @@ module L = Debug.Make (struct let name = "license" end)
 
 open Db_filter_types
 module Listext = Xapi_stdext_std.Listext.List
-open Xapi_stdext_pervasives.Pervasiveext
 open Xapi_stdext_std.Xstringext
 open Xapi_stdext_threads.Threadext
 module Date = Xapi_stdext_date.Date
@@ -332,7 +331,7 @@ let assert_fcoe_not_in_use ~__context ~self =
   debug "Scsi ids on %s are: %s" interface output ;
   let fcoe_scsids = Str.split (Str.regexp " ") output in
   Helpers.get_my_pbds __context
-  |> List.iter (fun (pbd, pbd_rec) ->
+  |> List.iter (fun (_, pbd_rec) ->
          let sr = pbd_rec.API.pBD_SR in
          match Db.SR.get_type ~__context ~self:sr with
          | "lvmofcoe" -> (
@@ -435,7 +434,7 @@ let set_default_properties ~__context ~self =
     Db.PIF.set_properties ~__context ~self ~value:[]
 
 let pool_introduce ~__context ~device ~network ~host ~mAC ~mTU ~vLAN ~physical
-    ~ip_configuration_mode ~iP ~netmask ~gateway ~dNS ~bond_slave_of
+    ~ip_configuration_mode ~iP ~netmask ~gateway ~dNS ~bond_slave_of:_
     ~vLAN_master_of ~management ~other_config ~disallow_unplug
     ~ipv6_configuration_mode ~iPv6 ~ipv6_gateway ~primary_address_type ~managed
     ~properties =
@@ -458,9 +457,9 @@ let db_introduce = pool_introduce
 let db_forget ~__context ~self = Db.PIF.destroy ~__context ~self
 
 (* Internal [introduce] is passed a pre-built table [t] *)
-let introduce_internal ?network ?(physical = true) ~t ~__context ~host ~mAC ~mTU
-    ~device ~vLAN ~vLAN_master_of ?metrics ~managed ?(disallow_unplug = false)
-    () =
+let introduce_internal ?network ?(physical = true) ~t:_ ~__context ~host ~mAC
+    ~mTU ~device ~vLAN ~vLAN_master_of ?metrics ~managed
+    ?(disallow_unplug = false) () =
   let bridge = bridge_naming_convention device in
   (* If we are not told which network to use,
      	 * apply the default convention *)
@@ -529,7 +528,7 @@ let assert_no_clustering_enabled_on ~__context ~self =
           Api_errors.(
             Server_error (clustering_enabled, [Ref.string_of cluster_host])
           )
-  | lst ->
+  | _ ->
       failwith
         "Should never happen: there can only be one cluster host associated \
          with a PIF"
@@ -716,7 +715,8 @@ let create_VLAN ~__context ~device ~network ~host ~vLAN =
   let tagged_PIF = List.hd base_pifs in
   let vlan =
     Helpers.call_api_functions ~__context (fun rpc session_id ->
-        Client.Client.VLAN.create rpc session_id tagged_PIF vLAN network
+        Client.Client.VLAN.create ~rpc ~session_id ~tagged_PIF ~tag:vLAN
+          ~network
     )
   in
   Db.VLAN.get_untagged_PIF ~__context ~self:vlan
@@ -727,7 +727,7 @@ let destroy ~__context ~self =
     raise (Api_errors.Server_error (Api_errors.pif_is_physical, [])) ;
   let vlan = Db.PIF.get_VLAN_master_of ~__context ~self in
   Helpers.call_api_functions ~__context (fun rpc session_id ->
-      Client.Client.VLAN.destroy rpc session_id vlan
+      Client.Client.VLAN.destroy ~rpc ~session_id ~self:vlan
   )
 
 let reconfigure_ipv6 ~__context ~self ~mode ~iPv6 ~gateway ~dNS =

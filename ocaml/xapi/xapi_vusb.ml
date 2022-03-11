@@ -79,7 +79,7 @@ let destroy ~__context ~self =
          , [
              Printf.sprintf "VUSB '%s' still attached to '%s'"
                r.Db_actions.vUSB_uuid
-               (Db.VM.get_uuid __context vm)
+               (Db.VM.get_uuid ~__context ~self:vm)
            ]
          )
       ) ;

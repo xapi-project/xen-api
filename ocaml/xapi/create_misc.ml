@@ -20,7 +20,6 @@ module Unixext = Xapi_stdext_unix.Unixext
 module Date = Xapi_stdext_date.Date
 open Xapi_vm_memory_constraints
 open Vm_memory_constraints
-open Db_filter
 open Db_filter_types
 open Network
 module XenAPI = Client.Client
@@ -184,14 +183,6 @@ let read_localhost_info ~__context =
   ; chipset_info= Option.map (fun s -> s.chipset_info) stat
   ; hypervisor= Option.map (fun s -> s.hypervisor) stat
   }
-
-(** Returns the maximum of two values. *)
-let maximum x y = if x > y then x else y
-
-(** Returns the minimum of two values. *)
-let minimum x y = if x < y then x else y
-
-let ( +++ ) = Int64.add
 
 (** [mkints n] creates a list [1; 2; .. ; n] *)
 let rec mkints = function 0 -> [] | n -> mkints (n - 1) @ [n]
@@ -422,7 +413,7 @@ and update_domain_zero_metrics_record ~__context ~domain_zero_ref =
   Db.VM_metrics.set_VCPUs_utilisation ~__context ~self:metrics
     ~value:(List.map (fun x -> (Int64.of_int x, 0.)) (mkints cpus))
 
-and create_domain_zero_memory_constraints (host_info : host_info) :
+and create_domain_zero_memory_constraints (_ : host_info) :
     Vm_memory_constraints.t =
   try
     match Memory_client.Client.get_domain_zero_policy "create_misc" with
@@ -453,8 +444,6 @@ and create_domain_zero_memory_constraints (host_info : host_info) :
       }
     else
       raise e
-
-open Db_filter
 
 (** Create a record for the "root" user if it doesn't exist already *)
 let create_root_user ~__context =
@@ -491,7 +480,7 @@ let make_packs_info () =
           Xml.parse_file (!Xapi_globs.packs_dir ^ "/" ^ fname ^ "/XS-REPOSITORY")
         in
         match xml with
-        | Xml.Element (name, attr, children) ->
+        | Xml.Element (_, attr, children) ->
             let originator = List.assoc "originator" attr in
             let name = List.assoc "name" attr in
             let version = List.assoc "version" attr in
@@ -664,8 +653,8 @@ let create_host_cpu ~__context host_info =
           in
           Helpers.call_api_functions ~__context (fun rpc session_id ->
               ignore
-                (XenAPI.Message.create rpc session_id name priority `Host
-                   obj_uuid body
+                (XenAPI.Message.create ~rpc ~session_id ~name ~priority
+                   ~cls:`Host ~obj_uuid ~body
                 )
           )
       ) ;
@@ -794,8 +783,8 @@ let create_pool_cpuinfo ~__context =
       in
       Helpers.call_api_functions ~__context (fun rpc session_id ->
           ignore
-            (XenAPI.Message.create rpc session_id name priority `Pool obj_uuid
-               body
+            (XenAPI.Message.create ~rpc ~session_id ~name ~priority ~cls:`Pool
+               ~obj_uuid ~body
             )
       )
   )
@@ -804,7 +793,7 @@ let create_chipset_info ~__context host_info =
   match host_info.chipset_info with
   | None ->
       warn "Failed to get host chipset info; not updating database"
-  | Some {iommu} ->
+  | Some {iommu; _} ->
       let host = Helpers.get_localhost ~__context in
       let info = [("iommu", string_of_bool iommu)] in
       Db.Host.set_chipset_info ~__context ~self:host ~value:info
@@ -813,7 +802,7 @@ let create_updates_requiring_reboot_info ~__context ~host =
   let update_uuids =
     try
       Xapi_stdext_std.Listext.List.setify
-        (Unixext.read_lines !Xapi_globs.reboot_required_hfxs)
+        (Unixext.read_lines ~path:!Xapi_globs.reboot_required_hfxs)
     with _ -> []
   in
   let updates =

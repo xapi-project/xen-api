@@ -21,9 +21,6 @@ module D = Debug.Make (struct let name = "gpg" end)
 
 open D
 
-(* Set from config file: *)
-let filename = ref ""
-
 let gpg_binary_path = "/usr/bin/gpg"
 
 exception InvalidSignature
@@ -138,7 +135,7 @@ let common ty filename signature size f =
       | Forkhelpers.Success (_, x) ->
           debug "gpg subprocess succeeded" ;
           x
-      | Forkhelpers.Failure (log, Forkhelpers.Subprocess_failed 2) ->
+      | Forkhelpers.Failure (_, Forkhelpers.Subprocess_failed 2) ->
           (* Happens when gpg cannot find a readable signature *)
           raise InvalidSignature
       | Forkhelpers.Failure (log, exn) ->
