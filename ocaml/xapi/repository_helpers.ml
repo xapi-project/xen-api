@@ -583,10 +583,10 @@ let eval_guidance_for_one_update ~updates_info ~update ~kind
         update.name update.arch ;
       None
 
-(* In case that the RPM in an update has been installed (including live patch file),
- * but the live patch has not been applied.
+(* In case that the RPM in an update has been installed (including livepatch file),
+ * but the livepatch has not been applied.
  * In other words, this RPM update will not appear in parameter [updates] of
- * function [eval_guidances], but the live patch in it is still applicable.
+ * function [eval_guidances], but the livepatch in it is still applicable.
  *)
 let append_livepatch_guidances ~updates_info ~upd_ids_of_livepatches guidances =
   UpdateIdSet.fold
@@ -913,14 +913,15 @@ let retrieve_livepatches_from_updateinfo ~updates_info ~updates =
      )
 
 let merge_livepatches ~livepatches =
+  let get_accumulative_upd_ids acc_lps =
+    List.fold_left
+      (fun acc (_, u) -> UpdateIdSet.add u.UpdateInfo.id acc)
+      UpdateIdSet.empty acc_lps
+  in
   livepatches
   |> List.fold_left
        (fun (acc_upd_ids, acc_latest_lps) (latest_lp, acc_lps) ->
-         let upd_ids =
-           List.fold_left
-             (fun acc (_, u) -> UpdateIdSet.add u.UpdateInfo.id acc)
-             UpdateIdSet.empty acc_lps
-         in
+         let upd_ids = get_accumulative_upd_ids acc_lps in
          (UpdateIdSet.union upd_ids acc_upd_ids, latest_lp :: acc_latest_lps)
        )
        (UpdateIdSet.empty, [])

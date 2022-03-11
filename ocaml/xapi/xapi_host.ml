@@ -2802,7 +2802,7 @@ let get_host_updates_handler (req : Http.Request.t) s _ =
 let apply_updates ~__context ~self ~hash =
   (* This function runs on master host *)
   Pool_features.assert_enabled ~__context ~f:Features.Updates ;
-  let guidances =
+  let guidances, warnings =
     Xapi_pool_helpers.with_pool_operation ~__context
       ~self:(Helpers.get_pool ~__context)
       ~doc:"Host.apply_updates" ~op:`apply_updates
@@ -2816,4 +2816,8 @@ let apply_updates ~__context ~self ~hash =
   in
   Db.Host.set_last_software_update ~__context ~self
     ~value:(get_servertime ~__context ~host:self) ;
-  Repository.apply_immediate_guidances ~__context ~host:self ~guidances
+  Repository.apply_immediate_guidances ~__context ~host:self ~guidances ;
+  (* The warnings may not be returned to async caller if this happens
+   * on the coordinator host and the 'restartToolstack' is required.
+   *)
+  warnings

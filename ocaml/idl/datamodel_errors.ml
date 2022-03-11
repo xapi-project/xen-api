@@ -1940,7 +1940,9 @@ let _ =
   error Api_errors.invalid_repository_proxy_url ["url"]
     ~doc:"The repository proxy URL is invalid." () ;
   error Api_errors.invalid_repository_proxy_credential []
-    ~doc:"The repository proxy username/password is invalid." ()
+    ~doc:"The repository proxy username/password is invalid." () ;
+  error Api_errors.apply_livepatch_failed ["livepatch"]
+    ~doc:"Failed to apply a livepatch." ()
 
 let _ =
   message

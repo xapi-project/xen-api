@@ -380,6 +380,8 @@ let consider_enabling_host_nolock ~__context =
       Db.Host.set_enabled ~__context ~self:localhost ~value:true ;
       Db.Host.remove_pending_guidances ~__context ~self:localhost
         ~value:`reboot_host ;
+      Db.Host.remove_pending_guidances ~__context ~self:localhost
+        ~value:`reboot_host_on_livepatch_failure ;
       update_allowed_operations ~__context ~self:localhost ;
       Localdb.put Constants.host_disabled_until_reboot "false" ;
       (* Start processing pending VM powercycle events *)

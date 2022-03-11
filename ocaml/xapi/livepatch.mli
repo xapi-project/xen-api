@@ -53,3 +53,22 @@ module KernelLivePatch : sig
   val get_running_livepatch' :
     string -> (string * string * string * string) option
 end
+
+val get_livepatch_file_path :
+     component:component
+  -> base_build_id:string
+  -> base_version:string
+  -> base_release:string
+  -> to_version:string
+  -> to_release:string
+  -> string option
+
+val apply :
+     component:component
+  -> livepatch_file:string
+  -> base_build_id:string
+  -> base_version:string
+  -> base_release:string
+  -> to_version:string
+  -> to_release:string
+  -> unit

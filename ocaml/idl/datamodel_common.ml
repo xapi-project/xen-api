@@ -309,6 +309,10 @@ let update_guidances =
         ( "reboot_host"
         , "Indicates the updated host should reboot as soon as possible"
         )
+      ; ( "reboot_host_on_livepatch_failure"
+        , "Indicates the updated host should reboot as soon as possible since \
+           one or more livepatch(es) failed to be applied."
+        )
       ; ( "restart_toolstack"
         , "Indicates the Toolstack running on the updated host should restart \
            as soon as possible"
