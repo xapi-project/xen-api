@@ -35,14 +35,14 @@ let rec gen_test_type highapi ty =
         "(Date.of_string \"20120101T00:00:00Z\")"
     | DT.Enum (_, (x, _) :: _) ->
         Printf.sprintf "(%s)" (OU.constructor_of x)
-    | DT.Set (DT.Enum (x, y)) ->
+    | DT.Set (DT.Enum (_, y)) ->
         Printf.sprintf "[ %s ]"
-          (String.concat ";" (List.map (fun (x, y) -> OU.constructor_of x) y))
+          (String.concat ";" (List.map (fun (x, _) -> OU.constructor_of x) y))
     | DT.Set x ->
         Printf.sprintf "[ %s ]" (aux x)
     | DT.Map (x, y) ->
         Printf.sprintf "[ (%s,%s) ]" (aux x) (aux y)
-    | DT.Ref x ->
+    | DT.Ref _ ->
         Printf.sprintf "(Ref.of_string \"OpaqueRef:foo\")"
     | DT.Record x ->
         gen_record_type highapi x

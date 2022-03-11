@@ -68,7 +68,7 @@ let db_check api : O.Module.t =
        this table *)
     let fields = List.filter field_in_this_table (DU.fields_of_obj obj) in
     let fields =
-      List.filter (function {DT.ty= Ref _} -> true | _ -> false) fields
+      List.filter (function {DT.ty= Ref _; _} -> true | _ -> false) fields
     in
     let getrecord =
       Printf.sprintf "let _r = %s.%s.get_record_internal ~%s ~%s in"
@@ -77,7 +77,7 @@ let db_check api : O.Module.t =
         Gen_common.context Client._self
     in
     let check = function
-      | {ty= Ref x; full_name} ->
+      | {ty= Ref x; full_name; _} ->
           Printf.sprintf "(fun () -> %s._%s ~%s ~%s:_r.%s)" _db_exists
             (OU.ocaml_of_obj_name x) Gen_common.context Client._self
             (OU.ocaml_of_record_field (obj.DT.name :: full_name))

@@ -1,7 +1,6 @@
 (executable
   (modes byte exe)
   (name jsapi)
-  (flags (:standard))
   (libraries
     xapi-datamodel
     xapi-consts

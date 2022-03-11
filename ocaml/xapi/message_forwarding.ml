@@ -1008,8 +1008,6 @@ functor
               debug "Pool.enable_tls_verification sleeping on fistpoint" ;
               Thread.delay 5.0
             done ;
-            Db.Cluster.get_all ~__context
-            |> List.iter (Xapi_cluster_helpers.Pem.maybe_write_new ~__context) ;
             all_hosts
             |> List.iter (fun host ->
                    do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
@@ -6371,36 +6369,21 @@ functor
           )
         in
         find_first_live other_hosts
-
-      let get_cluster_config ~__context ~self =
-        info "Cluster_host.get_cluster_config:%s" (Ref.string_of self) ;
-        let host = Db.Cluster_host.get_host ~__context ~self in
-        let local_fn = Local.Cluster_host.get_cluster_config ~self in
-        do_op_on ~__context ~local_fn ~host (fun session_id rpc ->
-            Client.Cluster_host.get_cluster_config ~rpc ~session_id ~self
-        )
-
-      let write_pems ~__context ~self ~pems =
-        info "Cluster_host.write_pems:%s" (Ref.string_of self) ;
-        let host = Db.Cluster_host.get_host ~__context ~self in
-        let local_fn = Local.Cluster_host.write_pems ~self ~pems in
-        do_op_on ~__context ~local_fn ~host (fun session_id rpc ->
-            Client.Cluster_host.write_pems ~rpc ~session_id ~self ~pems
-        )
     end
 
     module Certificate = struct end
 
     module Repository = struct
       let introduce ~__context ~name_label ~name_description ~binary_url
-          ~source_url ~update =
+          ~source_url ~update ~gpgkey_path =
         info
           "Repository.introduce: name = '%s'; name_description = '%s'; \
-           binary_url = '%s'; source_url = '%s'; update = '%s'"
+           binary_url = '%s'; source_url = '%s'; update = '%s'; gpgkey_path = \
+           '%s'"
           name_label name_description binary_url source_url
-          (string_of_bool update) ;
+          (string_of_bool update) gpgkey_path ;
         Local.Repository.introduce ~__context ~name_label ~name_description
-          ~binary_url ~source_url ~update
+          ~binary_url ~source_url ~update ~gpgkey_path
 
       let forget ~__context ~self =
         info "Repository.forget: self = '%s'" (repository_uuid ~__context self) ;
@@ -6412,5 +6395,11 @@ functor
         do_op_on ~__context ~local_fn ~host (fun session_id rpc ->
             Client.Repository.apply ~rpc ~session_id ~host
         )
+
+      let set_gpgkey_path ~__context ~self ~value =
+        info "Repository.set_gpgkey_path : repository='%s' value='%s'"
+          (repository_uuid ~__context self)
+          value ;
+        Local.Repository.set_gpgkey_path ~__context ~self ~value
     end
   end

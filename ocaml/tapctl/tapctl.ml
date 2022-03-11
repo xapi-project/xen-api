@@ -329,15 +329,14 @@ end
 
 (* END OF DUMMY STUFF *)
 
-let colon = Re.Str.regexp_string ":"
-
 let canonicalise x =
   if not (Filename.is_relative x) then
     x
   else (* Search the PATH and XCP_PATH for the executable *)
-    let paths = Re.Str.split colon (Sys.getenv "PATH") in
+    let paths = Astring.String.cuts ~sep:":" ~empty:false (Sys.getenv "PATH") in
     let xen_paths =
-      try Re.Str.split colon (Sys.getenv "XCP_PATH") with _ -> []
+      try Astring.String.cuts ~sep:":" ~empty:false (Sys.getenv "XCP_PATH")
+      with _ -> []
     in
     let first_hit =
       List.fold_left

@@ -1184,6 +1184,8 @@ let pusb_vdi_conflict = "PUSB_VDI_CONFLICT"
 
 let vm_has_vusbs = "VM_HAS_VUSBS"
 
+let cluster_has_no_certificate = "CLUSTER_HAS_NO_CERTIFICATE"
+
 let cluster_create_in_progress = "CLUSTER_CREATE_IN_PROGRESS"
 
 let cluster_already_exists = "CLUSTER_ALREADY_EXISTS"
@@ -1226,6 +1228,8 @@ let cert_refresh_in_progress = "CERT_REFRESH_IN_PROGRESS"
 let configure_repositories_in_progress = "CONFIGURE_REPOSITORIES_IN_PROGRESS"
 
 let invalid_base_url = "INVALID_BASE_URL"
+
+let invalid_gpgkey_path = "INVALID_GPGKEY_PATH"
 
 let repository_already_exists = "REPOSITORY_ALREADY_EXISTS"
 

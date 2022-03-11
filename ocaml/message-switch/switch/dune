@@ -1,7 +1,6 @@
 (executable
   (modes byte exe)
   (name switch_main)
-  (flags (:standard -w -39-37-32))
   (libraries
     cmdliner
     cohttp-lwt-unix

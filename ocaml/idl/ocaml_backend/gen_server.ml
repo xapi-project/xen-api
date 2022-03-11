@@ -21,8 +21,6 @@ open DT
 
 let module_name = "Make"
 
-let async_module_name = "Async"
-
 let _custom = "Custom"
 
 let _forward = "Forward"
@@ -44,8 +42,6 @@ let from_rpc ?(ignore = false) arg =
   Printf.sprintf "let %s%s = %s_of_rpc %s_rpc in"
     (if ignore then "_" else "")
     binding converter binding
-
-let read_msg_parameter msg_parameter = from_rpc
 
 let debug msg args =
   if !enable_debugging then
@@ -73,7 +69,7 @@ let count_mandatory_message_parameters (msg : message) =
     | [] ->
         0
     | head :: tail ->
-        (match head.param_default with None -> 1 | Some x -> 0)
+        (match head.param_default with None -> 1 | Some _ -> 0)
         + count_mandatory_parameters tail
   in
   count_mandatory_parameters msg.msg_params
@@ -301,9 +297,9 @@ let operation (obj : obj) (x : message) =
   in
   let gen_body () =
     match x.DT.msg_forward_to with
-    | Some (Extension name) ->
+    | Some (Extension _name) ->
         ["Server_helpers.forward_extension ~__context rbac call"]
-    | Some (HostExtension name) ->
+    | Some (HostExtension _name) ->
         [
           "let host = ref_host_of_rpc host_rpc in"
         ; "let call_string = Jsonrpc.string_of_call {call with name=__call} in"
@@ -486,11 +482,7 @@ let gen_module api : O.Module.t =
                    (\"dispatch:\"^__call^\"\") ~http_other_config \
                    ?subtask_of:(may Ref.of_string subtask_of) (fun __context \
                    ->"
-                ; (*
-	      "if not (Hashtbl.mem supress_printing_for_these_messages __call) then ";
-	      debug "%s %s" [ "__call"; "(if __async then \"(async)\" else \"\")" ];
-*)
-                  "Server_helpers.dispatch_exn_wrapper (fun () -> (match \
+                ; "Server_helpers.dispatch_exn_wrapper (fun () -> (match \
                    __call with "
                 ]
                @ List.flatten (List.map obj all_objs)

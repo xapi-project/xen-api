@@ -1,6 +1,5 @@
 (executable
   (name main)
-  (flags (:standard -w -39))
   (libraries
     xapi-idl
     xapi-idl.storage

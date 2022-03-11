@@ -2,7 +2,6 @@
  (name xenopsd)
  (public_name xapi-xenopsd)
  (wrapped false)
- (flags :standard -warn-error +a-3)
  (libraries
    astring
    c_stubs

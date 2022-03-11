@@ -19,20 +19,21 @@ let test_introduce_duplicate_name () =
   let name_label = "name" in
   let name_description = "description" in
   let name_description_1 = "description1" in
-  let binary_url = "https://binary-url.com" in
-  let binary_url_1 = "https://binary-url1.com" in
-  let source_url = "https://source-url.com" in
-  let source_url_1 = "https://source-url1.com" in
+  let binary_url = "https://repo.example.com" in
+  let binary_url_1 = "https://repo1.example.com" in
+  let source_url = "https://repo-src.example.com" in
+  let source_url_1 = "https://repo-src1.example.com" in
+  let gpgkey_path = "" in
   let ref =
     Repository.introduce ~__context ~name_label ~name_description ~binary_url
-      ~source_url ~update:true
+      ~source_url ~update:true ~gpgkey_path
   in
   Alcotest.check_raises "test_introduce_duplicate_name"
     Api_errors.(Server_error (repository_already_exists, [Ref.string_of ref]))
     (fun () ->
       Repository.introduce ~__context ~name_label
         ~name_description:name_description_1 ~binary_url:binary_url_1
-        ~source_url:source_url_1 ~update:true
+        ~source_url:source_url_1 ~update:true ~gpgkey_path
       |> ignore
     )
 
@@ -42,19 +43,43 @@ let test_introduce_duplicate_binary_url () =
   let name_label_1 = "name1" in
   let name_description = "description" in
   let name_description_1 = "description1" in
-  let binary_url = "https://binary-url.com" in
-  let source_url = "https://source-url.com" in
-  let source_url_1 = "https://source-url1.com" in
+  let binary_url = "https://repo.example.com" in
+  let source_url = "https://repo-src.example.com" in
+  let source_url_1 = "https://repo-src1.example.com" in
+  let gpgkey_path = "" in
   let ref =
     Repository.introduce ~__context ~name_label ~name_description ~binary_url
-      ~source_url ~update:true
+      ~source_url ~update:true ~gpgkey_path
   in
   Alcotest.check_raises "test_introduce_duplicate_name"
     Api_errors.(Server_error (repository_already_exists, [Ref.string_of ref]))
     (fun () ->
       Repository.introduce ~__context ~binary_url ~name_label:name_label_1
         ~name_description:name_description_1 ~source_url:source_url_1
-        ~update:false
+        ~update:false ~gpgkey_path
+      |> ignore
+    )
+
+let test_introduce_invalid_gpgkey_path () =
+  let __context = T.make_test_database () in
+  let name_label = "name" in
+  let name_description = "description" in
+  let binary_url = "https://repo.example.com" in
+  let source_url = "https://repo-src.example.com" in
+  let gpgkey_path_1 = "../some-file" in
+  Alcotest.check_raises "test_introduce_invalid_gpgkey_path_1"
+    Api_errors.(Server_error (Api_errors.invalid_gpgkey_path, [gpgkey_path_1]))
+    (fun () ->
+      Repository.introduce ~__context ~binary_url ~name_label ~name_description
+        ~source_url ~update:false ~gpgkey_path:gpgkey_path_1
+      |> ignore
+    ) ;
+  let gpgkey_path_2 = "some.file" in
+  Alcotest.check_raises "test_introduce_invalid_gpgkey_path_2"
+    Api_errors.(Server_error (Api_errors.invalid_gpgkey_path, [gpgkey_path_2]))
+    (fun () ->
+      Repository.introduce ~__context ~binary_url ~name_label ~name_description
+        ~source_url ~update:false ~gpgkey_path:gpgkey_path_2
       |> ignore
     )
 
@@ -64,6 +89,10 @@ let test =
   ; ( "test_introduce_duplicate_binary_url"
     , `Quick
     , test_introduce_duplicate_binary_url
+    )
+  ; ( "test_introduce_invalid_gpgkey_path"
+    , `Quick
+    , test_introduce_invalid_gpgkey_path
     )
   ]
 

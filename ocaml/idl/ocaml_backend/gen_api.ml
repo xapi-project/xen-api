@@ -73,7 +73,7 @@ let overrides =
   ]
 
 (** Generate a single type declaration for simple types (eg not containing references to record objects) *)
-let gen_non_record_type highapi tys =
+let gen_non_record_type tys =
   let rec aux accu = function
     | [] ->
         accu
@@ -86,7 +86,7 @@ let gen_non_record_type highapi tys =
     | DT.Option (DT.Record _) :: t
     | DT.Set (DT.Record _) :: t ->
         aux accu t
-    | (DT.Set (DT.Enum (n, _) as e) as ty) :: t ->
+    | (DT.Set (DT.Enum _ as e) as ty) :: t ->
         aux
           (sprintf "type %s = %s list [@@deriving rpc]" (OU.alias_of_ty ty)
              (OU.alias_of_ty e)
@@ -379,7 +379,7 @@ let gen_client_types highapi =
          ; "    | None -> failwith (Printf.sprintf \"Field %s not present in \
             rpc\" key)"
          ]
-       ; gen_non_record_type highapi all_types
+       ; gen_non_record_type all_types
        ; gen_record_type ~with_module:true highapi
            (toposort_types highapi all_types)
        ; O.Signature.strings_of (Gen_client.gen_signature highapi)

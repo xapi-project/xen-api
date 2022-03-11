@@ -98,7 +98,7 @@ end = struct
                 Xapi_globs.unix_domain_socket_clientcert
             ; "redirect = 80"
             ; "verifyChain = yes"
-            ; Printf.sprintf "CApath = %s" !Xapi_globs.trusted_certs_dir
+            ; Printf.sprintf "CAfile = %s" !Xapi_globs.stunnel_bundle_path
             ; Printf.sprintf "checkHost = %s" name
             ]
         )

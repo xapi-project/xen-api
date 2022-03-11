@@ -13,7 +13,6 @@
  *)
 
 open Xenops_interface
-open Xenops_utils
 open Xenops_server_plugin
 open Xenops_helpers
 open Xenstore
@@ -4726,9 +4725,7 @@ module VIF = struct
                 | [] ->
                     0
               in
-              let pra_path =
-                Hotplug.vif_pvs_rules_active_path_of_device ~xs d
-              in
+              let pra_path = Hotplug.vif_pvs_rules_active_path_of_device d in
               let pvs_rules_active =
                 try
                   ignore (xs.Xs.read pra_path) ;
@@ -4921,15 +4918,15 @@ module Actions = struct
 
   let unmanaged_domain domid id = domid > 0 && not (DB.exists id)
 
-  let found_running_domain domid id =
+  let found_running_domain _domid id =
     Updates.add (Dynamic.Vm id) internal_updates
 
   let device_watches = ref IntMap.empty
 
-  let domain_appeared xc xs domid =
+  let domain_appeared _xc _xs domid =
     device_watches := IntMap.add domid [] !device_watches
 
-  let domain_disappeared xc xs domid =
+  let domain_disappeared _xc xs domid =
     let token = watch_token domid in
     List.iter
       (fun d ->
@@ -5011,7 +5008,6 @@ module Actions = struct
         debug "Ignoring watch on shutdown domain %d" d
       else
         let di = IntMap.find d domains in
-        let open Xenctrl in
         let id = Uuidm.to_string (uuid_of_di di) in
         Updates.add (Dynamic.Vm id) internal_updates
     in
@@ -5022,7 +5018,6 @@ module Actions = struct
         debug "Ignoring watch on shutdown domain %d" d
       else
         let di = IntMap.find d domains in
-        let open Xenctrl in
         let id = Uuidm.to_string (uuid_of_di di) in
         let update =
           match kind with

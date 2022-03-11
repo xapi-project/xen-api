@@ -43,7 +43,7 @@ module Page = struct
   let get_allocator share =
     let alloc_cstruct size =
       let c = Io_page.to_cstruct share.Gntshr.mapping in
-      if size > Cstruct.len c then
+      if size > Cstruct.length c then
         failwith "not enough memory" ;
       c
     in

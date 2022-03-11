@@ -1,7 +1,6 @@
 (library
  (name xcp_storage_interface_types)
  (public_name xapi-idl.storage.interface.types)
- (flags (:standard -w -39))
  (modules vdi_automaton)
  (libraries
    rpclib.core
@@ -14,7 +13,6 @@
 (library
  (name xcp_storage_interface)
  (public_name xapi-idl.storage.interface)
- (flags (:standard -w -39))
  (modules storage_interface)
  (libraries
    astring
@@ -30,7 +28,6 @@
 (library
  (name xcp_storage)
  (public_name xapi-idl.storage)
- (flags (:standard -w -39))
  (modules
   (:standard \ storage_interface storage_test vdi_automaton suite
     vdi_automaton_test))
@@ -46,7 +43,6 @@
 
 (executable
  (name storage_test)
- (flags (:standard -w -39))
  (modules storage_test)
  (libraries
    alcotest
@@ -58,7 +54,6 @@
 
 (test
  (name suite)
- (flags (:standard -w -39))
  (modules suite vdi_automaton_test)
  (libraries
    alcotest

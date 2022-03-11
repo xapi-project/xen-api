@@ -1294,6 +1294,7 @@ let gen_cmds rpc session_id =
           ; "update"
           ; "hash"
           ; "up-to-date"
+          ; "gpgkey-path"
           ]
           rpc session_id
       )
@@ -7559,9 +7560,10 @@ module Repository = struct
     let binary_url = List.assoc "binary-url" params in
     let source_url = List.assoc "source-url" params in
     let update = get_bool_param params "update" in
+    let gpgkey_path = get_param params "gpgkey-path" ~default:"" in
     let ref =
       Client.Repository.introduce ~rpc ~session_id ~name_label ~name_description
-        ~binary_url ~source_url ~update
+        ~binary_url ~source_url ~update ~gpgkey_path
     in
     let uuid = Client.Repository.get_uuid ~rpc ~session_id ~self:ref in
     printer (Cli_printer.PList [uuid])
@@ -7571,4 +7573,12 @@ module Repository = struct
       Client.Repository.get_by_uuid rpc session_id (List.assoc "uuid" params)
     in
     Client.Repository.forget ~rpc ~session_id ~self:ref
+
+  let set_gpgkey_path printer rpc session_id params =
+    let ref =
+      Client.Repository.get_by_uuid rpc session_id (List.assoc "uuid" params)
+    in
+    let gpgkey_path = List.assoc "gpgkey-path" params in
+    Client.Repository.set_gpgkey_path ~rpc ~session_id ~self:ref
+      ~value:gpgkey_path
 end

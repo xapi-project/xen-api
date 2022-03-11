@@ -2,7 +2,6 @@
   (name httpsvr)
   (public_name http-svr)
   (wrapped false)
-  (flags (:standard -w -37-39))
   (modules (:standard \ http_test radix_tree_test test_client test_server))
   (preprocess (pps ppx_deriving_rpc))
   (libraries

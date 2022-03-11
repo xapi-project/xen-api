@@ -1319,8 +1319,8 @@ let other_options =
   ; ( "repository-gpgkey-name"
     , Arg.Set_string repository_gpgkey_name
     , (fun () -> !repository_gpgkey_name)
-    , "The name of gpg key used by RPM to verify metadata and packages in \
-       repository"
+    , "The default name of gpg key file used by YUM and RPM to verify metadata \
+       and packages in repository"
     )
   ; ( "failed-login-alert-freq"
     , Arg.Set_int failed_login_alert_freq

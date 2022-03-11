@@ -21,8 +21,6 @@ end)
 
 open D
 module Unixext = Xapi_stdext_unix.Unixext
-open Event_types
-open Event_helper
 open Cli_protocol
 open Client
 

@@ -11,10 +11,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-open Printf
-open Xenops_utils
 open Xenstore
-open Xenops_helpers
 open Xenops_task
 open Device_common
 
@@ -48,7 +45,7 @@ let root = "/xenops/tasks"
 
 let path_of domid = Printf.sprintf "%s/%d" root domid
 
-let cancel_path_of ~xs = function
+let cancel_path_of = function
   | Device x ->
       (* Device operations can be cancelled separately *)
       Printf.sprintf "%s/%s/%d/cancel" (path_of x.frontend.domid)
@@ -56,7 +53,7 @@ let cancel_path_of ~xs = function
         x.backend.devid
   | Domain domid ->
       Printf.sprintf "%s/cancel" (path_of domid)
-  | Qemu (backend, frontend) ->
+  | Qemu (_backend, frontend) ->
       (* Domain and qemu watches are considered to be domain-local *)
       Printf.sprintf "%s/device-model/cancel" (path_of frontend)
   | Vgpu domid ->
@@ -66,7 +63,7 @@ let cancel_path_of ~xs = function
   | TestPath x ->
       x
 
-let shutdown_path_of ~xs = function
+let shutdown_path_of = function
   | Device x ->
       Printf.sprintf "%s/%s/%d/shutdown" (path_of x.frontend.domid)
         (string_of_kind x.backend.kind)
@@ -89,14 +86,14 @@ let cleanup_for_domain ~xs domid =
   with _ ->
     warn "Failed to clean up xenstore cancellation paths for domain %d" domid
 
-let watches_of ~xs key =
+let watches_of key =
   [
-    Watch.key_to_disappear (cancel_path_of ~xs key)
-  ; Watch.value_to_become (shutdown_path_of ~xs key) ""
+    Watch.key_to_disappear (cancel_path_of key)
+  ; Watch.value_to_become (shutdown_path_of key) ""
   ]
 
 let cancel ~xs key =
-  let path = cancel_path_of ~xs key in
+  let path = cancel_path_of key in
   if
     try
       ignore (xs.Xs.read path) ;
@@ -108,7 +105,7 @@ let cancel ~xs key =
   )
 
 let on_shutdown ~xs domid =
-  let path = shutdown_path_of ~xs (Domain domid) in
+  let path = shutdown_path_of (Domain domid) in
   let domainpath = xs.Xs.getdomainpath domid in
   (* Only write if the guest domain still exists *)
   Xs.transaction xs (fun t ->
@@ -135,7 +132,7 @@ let on_shutdown ~xs domid =
   )
 
 let with_path ~xs key f =
-  let path = cancel_path_of ~xs key in
+  let path = cancel_path_of key in
   Xapi_stdext_pervasives.Pervasiveext.finally
     (fun () -> xs.Xs.write path "" ; f ())
     (fun () ->
@@ -153,7 +150,7 @@ let cancellable_watch key good_watches error_watches
       Xenops_task.with_cancel task
         (fun () -> with_xs (fun xs -> cancel ~xs key))
         (fun () ->
-          let cancel_watches = watches_of ~xs key in
+          let cancel_watches = watches_of key in
           let rec loop () =
             let _, _ =
               Watch.wait_for ~xs ~timeout

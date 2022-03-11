@@ -29,9 +29,10 @@ let updates_in_cache : (API.ref_host, Yojson.Basic.t) Hashtbl.t =
   Hashtbl.create 64
 
 let introduce ~__context ~name_label ~name_description ~binary_url ~source_url
-    ~update =
+    ~update ~gpgkey_path =
   assert_url_is_valid ~url:binary_url ;
   assert_url_is_valid ~url:source_url ;
+  assert_gpgkey_path_is_valid gpgkey_path ;
   Db.Repository.get_all ~__context
   |> List.iter (fun ref ->
          if
@@ -44,7 +45,7 @@ let introduce ~__context ~name_label ~name_description ~binary_url ~source_url
              )
      ) ;
   create_repository_record ~__context ~name_label ~name_description ~binary_url
-    ~source_url ~update
+    ~source_url ~update ~gpgkey_path
 
 let forget ~__context ~self =
   let pool = Helpers.get_pool ~__context in
@@ -53,6 +54,10 @@ let forget ~__context ~self =
     raise Api_errors.(Server_error (repository_is_in_use, []))
   else
     Db.Repository.destroy ~__context ~self
+
+let set_gpgkey_path ~__context ~self ~value =
+  assert_gpgkey_path_is_valid value ;
+  Db.Repository.set_gpgkey_path ~__context ~self ~value
 
 let with_reposync_lock f =
   if Mutex.try_lock reposync_mutex then
@@ -117,50 +122,85 @@ let sync ~__context ~self ~token ~token_id =
     remove_repo_conf_file repo_name ;
     let binary_url = Db.Repository.get_binary_url ~__context ~self in
     let source_url = Db.Repository.get_source_url ~__context ~self in
-    write_yum_config ~source_url:(Some source_url) binary_url repo_name ;
-    with_access_token ~token ~token_id @@ fun token_path ->
-    let token_param =
-      match token_path with
-      | Some p ->
-          Printf.sprintf "--setopt=%s.accesstoken=file://%s" repo_name p
-      | None ->
-          ""
+    let gpgkey_path =
+      match Db.Repository.get_gpgkey_path ~__context ~self with
+      | "" ->
+          !Xapi_globs.repository_gpgkey_name
+      | s ->
+          s
     in
-    let proxy_url_param, proxy_username_param, proxy_password_param =
-      get_proxy_params ~__context repo_name
+    let write_initial_yum_config () =
+      write_yum_config ~source_url:(Some source_url) ~binary_url
+        ~repo_gpgcheck:true ~gpgkey_path ~repo_name
     in
-    let config_params =
-      [
-        "--save"
-      ; ( if !Xapi_globs.repository_gpgcheck then
-            "--setopt=repo_gpgcheck=1"
-        else
-          "--setopt=repo_gpgcheck=0"
-        )
-      ; proxy_url_param
-      ; proxy_username_param
-      ; proxy_password_param
-      ; token_param
-      ; repo_name
-      ]
-    in
-    ignore (Helpers.call_script !Xapi_globs.yum_config_manager_cmd config_params) ;
-    (* sync with remote repository *)
-    let sync_params =
-      [
-        "-p"
-      ; !Xapi_globs.local_pool_repo_dir
-      ; "--downloadcomps"
-      ; "--download-metadata"
-      ; (if !Xapi_globs.repository_gpgcheck then "--gpgcheck" else "")
-      ; "--delete"
-      ; "--plugins"
-      ; Printf.sprintf "--repoid=%s" repo_name
-      ]
-    in
-    Unixext.mkdir_rec !Xapi_globs.local_pool_repo_dir 0o700 ;
+    write_initial_yum_config () ;
     clean_yum_cache repo_name ;
-    ignore (Helpers.call_script !Xapi_globs.reposync_cmd sync_params)
+    (* Remove imported YUM repository GPG key *)
+    Helpers.rmtree (get_repo_config repo_name "gpgdir") ;
+    Xapi_stdext_pervasives.Pervasiveext.finally
+      (fun () ->
+        with_access_token ~token ~token_id @@ fun token_path ->
+        (* Configure proxy and token *)
+        let token_param =
+          match token_path with
+          | Some p ->
+              Printf.sprintf "--setopt=%s.accesstoken=file://%s" repo_name p
+          | None ->
+              ""
+        in
+        let proxy_url_param, proxy_username_param, proxy_password_param =
+          get_proxy_params ~__context repo_name
+        in
+        let config_params =
+          [
+            "--save"
+          ; proxy_url_param
+          ; proxy_username_param
+          ; proxy_password_param
+          ; token_param
+          ; repo_name
+          ]
+        in
+        ignore
+          (Helpers.call_script ~log_output:Helpers.On_failure
+             !Xapi_globs.yum_config_manager_cmd
+             config_params
+          ) ;
+
+        (* Import YUM repository GPG key to check metadata in reposync *)
+        let makecache_params =
+          [
+            "--disablerepo=*"
+          ; Printf.sprintf "--enablerepo=%s" repo_name
+          ; "-y"
+          ; "makecache"
+          ]
+        in
+        ignore (Helpers.call_script !Xapi_globs.yum_cmd makecache_params) ;
+
+        (* Sync with remote repository *)
+        let sync_params =
+          [
+            "-p"
+          ; !Xapi_globs.local_pool_repo_dir
+          ; "--downloadcomps"
+          ; "--download-metadata"
+          ; (if !Xapi_globs.repository_gpgcheck then "--gpgcheck" else "")
+          ; "--delete"
+          ; "--plugins"
+          ; Printf.sprintf "--repoid=%s" repo_name
+          ]
+        in
+        Unixext.mkdir_rec !Xapi_globs.local_pool_repo_dir 0o700 ;
+        clean_yum_cache repo_name ;
+        ignore (Helpers.call_script !Xapi_globs.reposync_cmd sync_params)
+      )
+      (fun () ->
+        (* Rewrite repo conf file as initial content to remove credential related info,
+         * I.E. proxy username/password and temporary token file path.
+         *)
+        write_initial_yum_config ()
+      )
   with e ->
     error "Failed to sync with remote YUM repository: %s"
       (ExnHelper.string_of_exn e) ;
@@ -322,9 +362,13 @@ let create_pool_repository ~__context ~self =
   match Sys.file_exists repo_dir with
   | true -> (
     try
-      ignore (Helpers.call_script !Xapi_globs.createrepo_cmd [repo_dir]) ;
+      let comps_file = Filename.concat repo_dir "comps.xml" in
+      ignore
+        (Helpers.call_script !Xapi_globs.createrepo_cmd
+           ["-g"; comps_file; repo_dir]
+        ) ;
       if Db.Repository.get_update ~__context ~self then
-        let cachedir = get_cachedir repo_name in
+        let cachedir = get_repo_config repo_name "cachedir" in
         let md =
           UpdateInfoMetaData.of_xml_file (Filename.concat cachedir "repomd.xml")
         in

@@ -9,5 +9,4 @@
    lwt.unix
    xapi-idl
  )
- (flags (:standard -w -39))
  (preprocess (pps ppx_deriving_rpc)))

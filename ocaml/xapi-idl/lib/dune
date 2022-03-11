@@ -1,7 +1,6 @@
 (library
  (name xcp)
  (public_name xapi-idl)
- (flags (:standard -w -39 -warn-error -3))
  (modules (:standard \ scheduler task_server updates))
  (foreign_stubs
    (language c)
@@ -37,7 +36,6 @@
 (library
  (name xcp_updates)
  (public_name xapi-idl.updates)
- (flags (:standard -w -39))
  (modules updates task_server scheduler)
  (libraries xapi-idl)
  (wrapped false)

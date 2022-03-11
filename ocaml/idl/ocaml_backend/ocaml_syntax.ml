@@ -76,7 +76,7 @@ module Let = struct
           "(_:" ^ ty ^ ")"
       | Anon (Some x, ty) ->
           "(" ^ x ^ ": " ^ ty ^ ")"
-      | Named (name, ty) ->
+      | Named (name, _) ->
           "~" ^ name
     in
     [

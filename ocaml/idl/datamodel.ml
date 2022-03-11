@@ -7881,7 +7881,7 @@ let all_relations =
 let update_lifecycles =
   let replace_prototyped p ls =
     (Prototyped, p, "")
-    :: List.filter (function Prototyped, _, _ -> false | x -> true) ls
+    :: List.filter (function Prototyped, _, _ -> false | _ -> true) ls
   in
   let replace_obj_lifecycle obj =
     let obj_lifecycle =
@@ -8065,10 +8065,22 @@ let http_actions =
     , (Get, Constants.xenops_uri, false, [], _R_VM_POWER_ADMIN, [])
     )
   ; ( "post_services_xenops"
-    , (Post, Constants.xenops_uri, false, [], _R_VM_POWER_ADMIN, [])
+    , ( Post
+      , Constants.xenops_uri
+      , false
+      , []
+      , _R_VM_POWER_ADMIN ++ _R_CLIENT_CERT
+      , []
+      )
     )
   ; ( "put_services_xenops"
-    , (Put, Constants.xenops_uri, false, [], _R_VM_POWER_ADMIN, [])
+    , ( Put
+      , Constants.xenops_uri
+      , false
+      , []
+      , _R_VM_POWER_ADMIN ++ _R_CLIENT_CERT
+      , []
+      )
     )
   ; ( "get_services_sm"
     , (Get, Constants.sm_uri, false, [], _R_VM_POWER_ADMIN, [])

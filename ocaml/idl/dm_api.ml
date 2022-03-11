@@ -29,7 +29,7 @@ let print_api_stats (system, relations) =
   Printf.printf "objects = [ %s ]\n"
     (String.concat "; " (List.map (fun x -> x.name) system))
 
-let get_obj_by_name (system, relations) ~objname:name =
+let get_obj_by_name (system, _) ~objname:name =
   match List.filter (fun obj -> obj.name = name) system with
   | [obj] ->
       obj
@@ -43,13 +43,13 @@ let obj_exists api name =
   try
     let (_ : obj) = get_obj_by_name api ~objname:name in
     true
-  with e -> false
+  with _ -> false
 
 (** Retrieves the field of an obj given its name *)
 let get_field_by_name api ~objname ~fieldname:name =
   let obj = get_obj_by_name api ~objname in
   let rec contents = function
-    | Field field :: rest when field.field_name = name ->
+    | Field field :: _ when field.field_name = name ->
         Some field
     | Namespace (_, sub) :: rest ->
         let result = contents sub in
@@ -70,7 +70,7 @@ let field_exists api ~objname ~fieldname =
   try
     let (_ : field) = get_field_by_name api ~objname ~fieldname in
     true
-  with e -> false
+  with _ -> false
 
 (** Takes a predicate and a list of objects, returning the objects with all the fields
     removed for which the field applied to the predicate returned false.
@@ -129,7 +129,7 @@ let map_field (f : string -> field -> field) (system : obj list) =
     system
 
 (** Removes all those relations which refer to non-existent objects or fields *)
-let filter_relations ((system, relations) as api) =
+let filter_relations ((_system, relations) as api) =
   List.filter
     (function
       | (a_obj, a_name), (b_obj, b_name) ->
@@ -204,7 +204,7 @@ let check api emergency_calls =
       (function
         | _ -> (
             function
-            | {ty= Ref _; field_has_effect= true} ->
+            | {ty= Ref _; field_has_effect= true; _} ->
                 failwith
                   "Can't have a Ref field with a side-effect: it makes the \
                    destructors too complicated"
@@ -230,7 +230,7 @@ let check api emergency_calls =
   in
   let _ =
     let field objname = function
-      | {ty= Set (Ref y); qualifier= q; field_ignore_foreign_key= false} as x
+      | {ty= Set (Ref _); qualifier= q; field_ignore_foreign_key= false; _} as x
         -> (
           let relations =
             relations @ List.map (fun (x, y) -> (y, x)) relations
@@ -274,7 +274,7 @@ let check api emergency_calls =
                      "many-to-many Set(Ref _) is not DynamicRO: %s.%s" objname
                      x.field_name
                   )
-          | ty ->
+          | _ ->
               failwith
                 (Printf.sprintf
                    "field in relationship has bad type (Ref or Set(Ref) only): \
@@ -294,8 +294,8 @@ let check api emergency_calls =
       (function
         | _ -> (
             function
-            | {qualifier= q; release= {internal= ir}; default_value= None} as x
-              ->
+            | {qualifier= q; release= {internal= ir; _}; default_value= None; _}
+              as x ->
                 if (not (List.mem rel_rio ir)) && not (q = DynamicRO) then
                   failwith
                     (Printf.sprintf
@@ -318,11 +318,12 @@ let check api emergency_calls =
         | _ -> (
             function
             | {
-                qualifier= q
-              ; release= {internal= ir}
+                qualifier= _
+              ; release= _
               ; default_value= Some _
               ; ty
               ; field_ignore_foreign_key= false
+              ; _
               } as x -> (
               match ty with
               | Set (Ref _) ->
@@ -347,7 +348,7 @@ let check api emergency_calls =
       (function
         | _ -> (
             function
-            | {default_value= Some v; ty} as x ->
+            | {default_value= Some v; ty; _} as x ->
                 if not (type_checks v ty) then
                   failwith
                     (Printf.sprintf

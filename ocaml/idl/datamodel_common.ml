@@ -337,7 +337,7 @@ let get_product_releases in_product_since =
         ["closed"; in_product_since]
     | x :: xs when code_name_of_release x = in_product_since ->
         "closed" :: in_product_since :: List.map code_name_of_release xs
-    | x :: xs ->
+    | _ :: xs ->
         go_through_release_order xs
   in
   go_through_release_order release_order
@@ -705,8 +705,8 @@ let field ?(in_oss_since = Some "3.0.3") ?in_product_since
     ; field_doc_tags= doc_tags
     }
 
-let uid ?(in_oss_since = Some "3.0.3") ?(reader_roles = None) ?lifecycle refname
-    =
+let uid ?(in_oss_since = Some "3.0.3") ?(reader_roles = None) ?lifecycle
+    _refname =
   field ~in_oss_since ?lifecycle ~qualifier:DynamicRO ~ty:String
     ~writer_roles:
       _R_POOL_ADMIN (* only the system should be able to create/modify uuids *)
