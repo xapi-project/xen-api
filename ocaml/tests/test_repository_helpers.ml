@@ -137,6 +137,7 @@ module PkgOfFullnameTest = Generic.MakeStateless (struct
             )
         )
       ; (Io.Line "libpath-utils-:0.2.1-29.el7.x86_64", Ok None)
+      ; (Io.Line "libpath-utils-2:0.2.1-29.el7x86_64", Ok None)
       ; (* all RPM packages installed by default *)
         (Io.FilePath "test_data/repository_pkg_of_fullname_all", Ok None)
       ]
@@ -423,7 +424,7 @@ end)
 
 module ApplicabilityEval = Generic.MakeStateless (struct
   module Io = struct
-    (*  ( (installed_epoch, installed_version, installed_release) * 
+    (*  ( (installed_epoch, installed_version, installed_release) *
      *    (inequality * (epoch, version * release)) ) *)
     type input_t =
       (int option * string * string) * (string * (int option * string * string))
@@ -455,7 +456,7 @@ module ApplicabilityEval = Generic.MakeStateless (struct
         
       in
 
-      Ok (Applicability.eval e1 v1 r1 applicability)
+      Ok (Applicability.eval ~epoch:e1 ~version:v1 ~release:r1 ~applicability)
     with e -> Error e
 
   let tests =
@@ -3314,3 +3315,5 @@ let tests =
     ; ("resort_guidances", GuidanceSetResortGuidancesTest.tests)
     ; ("prune_accumulative_updates", PruneAccumulativeUpdates.tests)
     ]
+
+let () = Alcotest.run "Repository Helpers" tests

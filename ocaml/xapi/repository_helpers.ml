@@ -104,14 +104,9 @@ module Pkg = struct
      *   "qemu-dp-2:2.12.0-2.0.11.x86_64", or
      *   "time-(none):1.7-45.el7.x86_64".
      * These may come from "yum updateinfo list updates" and "rpm -qa" *)
-    let r = Re.Str.regexp "^\\(.+\\)\\.\\(noarch\\|x86_64\\)$" in
-    match Re.Str.string_match r s 0 with
-    | true -> (
+    match Astring.String.cut ~rev:true ~sep:"." s with
+    | Some (pkg, (("noarch" | "x86_64") as arch)) -> (
       try
-        let pkg = Re.Str.replace_first r "\\1" s in
-        (* pkg is, e.g. "libpath-utils-0.2.1-29.el7" *)
-        let arch = Re.Str.replace_first r "\\2" s in
-        (* arch is "<noarch|x86_64>" *)
         let pos1 = String.rindex pkg '-' in
         let pos2 = String.rindex_from pkg (pos1 - 1) '-' in
         let epoch_ver_rel =
@@ -128,7 +123,7 @@ module Pkg = struct
         (* The error should not block update. Ingore it. *)
         None
     )
-    | false ->
+    | Some _ | None ->
         None
 
   let to_epoch_ver_rel_json pkg =
@@ -191,20 +186,20 @@ module Pkg = struct
      *)
     let normalize v =
       let split_letters_and_numbers s =
-        let r = Re.Str.regexp "^\\([^0-9]+\\)\\([0-9]+\\)$" in
-        if Re.Str.string_match r s 0 then
-          [Re.Str.replace_first r "\\1" s; Re.Str.replace_first r "\\2" s]
-        else
-          [s]
+        let r = Re.Posix.compile_pat {|^([^0-9]+)([0-9]+)$|} in
+        match Re.exec_opt r s with
+        | Some groups ->
+            [Re.Group.get groups 1; Re.Group.get groups 2]
+        | None ->
+            [s]
       in
-      let concat_map f l = List.concat (List.map f l) in
+      let number = Re.Posix.compile_pat "^[0-9]+$" in
       v
       |> Astring.String.cuts ~sep:"."
-      |> concat_map (fun s -> Astring.String.cuts ~sep:"_" s)
-      |> concat_map (fun s -> split_letters_and_numbers s)
+      |> List.concat_map (fun s -> Astring.String.cuts ~sep:"_" s)
+      |> List.concat_map (fun s -> split_letters_and_numbers s)
       |> List.map (fun s ->
-             let r = Re.Str.regexp "^[0-9]+$" in
-             if Re.Str.string_match r s 0 then
+             if Re.execp number s then
                match int_of_string s with i -> Int i | exception _ -> Str s
              else
                Str s
@@ -1076,8 +1071,7 @@ let assert_yum_error output =
   output
 
 let parse_updateinfo_list acc line =
-  let sep = Re.Str.regexp " +" in
-  match Re.Str.split sep line with
+  match Astring.String.fields ~empty:false line with
   | [update_id; _; full_name] -> (
     match Pkg.of_fullname full_name with
     | Some pkg ->
