@@ -2311,6 +2311,7 @@ module ConsolidateUpdatesOfHost = Generic.MakeStateless (struct
               ; ("absolute-guidance", `List [])
               ; ("RPMS", `List [])
               ; ("updates", `List [])
+              ; ("livepatches", `List [])
               ]
           , UpdateIdSet.empty
           )
@@ -2396,6 +2397,7 @@ module ConsolidateUpdatesOfHost = Generic.MakeStateless (struct
                     ]
                 )
               ; ("updates", `List [`String "UPDATE-0000"; `String "UPDATE-0001"])
+              ; ("livepatches", `List [])
               ]
           , UpdateIdSet.of_list ["UPDATE-0000"; "UPDATE-0001"]
           )
@@ -2446,6 +2448,7 @@ module ConsolidateUpdatesOfHost = Generic.MakeStateless (struct
               ; ("absolute-guidance", `List [])
               ; ("RPMS", `List [`String "libpath-utils-0.2.2-9.el7.noarch.rpm"])
               ; ("updates", `List [`String "UPDATE-0001"])
+              ; ("livepatches", `List [])
               ]
           , UpdateIdSet.of_list ["UPDATE-0001"]
           )
@@ -2496,6 +2499,7 @@ module ConsolidateUpdatesOfHost = Generic.MakeStateless (struct
               ; ("absolute-guidance", `List [])
               ; ("RPMS", `List [`String "libpath-utils-0.2.2-9.el7.noarch.rpm"])
               ; ("updates", `List [`String "UPDATE-0003"])
+              ; ("livepatches", `List [])
               ]
           , UpdateIdSet.of_list ["UPDATE-0003"]
           )
@@ -2579,6 +2583,7 @@ module ConsolidateUpdatesOfHost = Generic.MakeStateless (struct
                     ]
                 )
               ; ("updates", `List [`String "UPDATE-0001"])
+              ; ("livepatches", `List [])
               ]
           , UpdateIdSet.of_list ["UPDATE-0001"]
           )
@@ -2662,6 +2667,7 @@ module ConsolidateUpdatesOfHost = Generic.MakeStateless (struct
                     ]
                 )
               ; ("updates", `List [`String "UPDATE-0000"; `String "UPDATE-0001"])
+              ; ("livepatches", `List [])
               ]
           , UpdateIdSet.of_list ["UPDATE-0000"; "UPDATE-0001"]
           )
@@ -2784,6 +2790,7 @@ module ConsolidateUpdatesOfHost = Generic.MakeStateless (struct
                     ; `String "UPDATE-0003"
                     ]
                 )
+              ; ("livepatches", `List [])
               ]
           , UpdateIdSet.of_list ["UPDATE-0001"; "UPDATE-0002"; "UPDATE-0003"]
           )
