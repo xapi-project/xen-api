@@ -780,12 +780,15 @@ let apply_updates ~__context ~host ~hash =
               parse_updateinfo ~__context ~self:repository ~check:true
             in
             let immediate_guidances =
-              eval_guidances ~updates_info ~updates ~kind:Recommended ~uids_of_livepatches:UpdateIdSet.empty
+              eval_guidances ~updates_info ~updates ~kind:Recommended
+                ~uids_of_livepatches:UpdateIdSet.empty
             in
             let pending_guidances =
               List.filter
                 (fun g -> not (List.mem g immediate_guidances))
-                (eval_guidances ~updates_info ~updates ~kind:Absolute ~uids_of_livepatches:UpdateIdSet.empty)
+                (eval_guidances ~updates_info ~updates ~kind:Absolute
+                   ~uids_of_livepatches:UpdateIdSet.empty
+                )
             in
             GuidanceSet.assert_valid_guidances immediate_guidances ;
             Helpers.call_api_functions ~__context (fun rpc session_id ->
