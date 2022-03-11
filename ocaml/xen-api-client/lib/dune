@@ -1,7 +1,6 @@
 (library
   (name xen_api_client)
   (public_name xen-api-client)
-  (flags (:standard -w -39))
   (wrapped false)
   (preprocess (pps ppx_deriving_rpc))
   (libraries

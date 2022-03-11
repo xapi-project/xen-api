@@ -104,20 +104,18 @@ let proxy (fd : Lwt_unix.file_descr) addr protocol =
   )
 
 module RX = struct
-  let socket = Re.Str.regexp "^/var/run/xen/vnc-[0-9]+$"
+  let socket = Re.Posix.compile_pat "^/var/run/xen/vnc-[0-9]+$"
 
-  let port = Re.Str.regexp "^[0-9]+$"
+  let port = Re.Posix.compile_pat "^[0-9]+$"
 end
 
 let handler sock msg =
   Logs_lwt.debug (fun m -> m "Got msg: '%s'" msg) >>= fun () ->
-  match Re.Str.(split @@ regexp "[:]") msg with
-  | ([protocol; _; path] | [protocol; path])
-    when Re.Str.string_match RX.socket path 0 ->
+  match String.split_on_char ':' msg with
+  | ([protocol; _; path] | [protocol; path]) when Re.execp RX.socket path ->
       let addr = Unix.ADDR_UNIX path in
       proxy sock addr protocol
-  | ([protocol; _; sport] | [protocol; sport])
-    when Re.Str.string_match RX.port sport 0 ->
+  | ([protocol; _; sport] | [protocol; sport]) when Re.execp RX.port sport ->
       let localhost = Unix.inet_addr_loopback in
       let addr = Unix.ADDR_INET (localhost, int_of_string sport) in
       proxy sock addr protocol

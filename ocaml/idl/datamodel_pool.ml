@@ -1159,7 +1159,9 @@ let t =
         ; field ~in_product_since:rel_george ~internal_only:true
             ~qualifier:DynamicRO ~ty:(Ref _secret) "wlb_password"
             "Password for accessing the workload balancing host"
-        ; field ~in_product_since:rel_george ~qualifier:RW ~ty:Bool
+        ; field
+            ~writer_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
+            ~in_product_since:rel_george ~qualifier:RW ~ty:Bool
             ~default_value:(Some (VBool false)) "wlb_enabled"
             "true if workload balancing is enabled on the pool, false otherwise"
         ; field ~in_product_since:rel_george ~qualifier:RW ~ty:Bool

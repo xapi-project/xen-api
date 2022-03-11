@@ -116,7 +116,7 @@ let rec to_db v =
       Set (List.map to_string vl)
   | VRef r ->
       String r
-  | VCustom (x, y) ->
+  | VCustom (_, y) ->
       to_db y
 
 (* Generate suitable "empty" database value of specified type *)

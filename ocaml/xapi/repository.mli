@@ -19,6 +19,7 @@ val introduce :
   -> binary_url:string
   -> source_url:string
   -> update:bool
+  -> gpgkey_path:string
   -> [`Repository] API.Ref.t
 
 val forget : __context:Context.t -> self:[`Repository] API.Ref.t -> unit
@@ -65,3 +66,6 @@ val apply_immediate_guidances :
 val set_available_updates : __context:Context.t -> string
 
 val reset_updates_in_cache : unit -> unit
+
+val set_gpgkey_path :
+  __context:Context.t -> self:[`Repository] API.Ref.t -> value:string -> unit

@@ -190,10 +190,6 @@ exception Could_not_read_file of string (* eg linux kernel/ initrd *)
 
 exception Domain_stuck_in_dying_state of Xenctrl.domid
 
-let releaseDomain = "@releaseDomain"
-
-let introduceDomain = "@introduceDomain"
-
 module Uuid = Uuidm
 
 let log_exn_continue msg f x =
@@ -202,8 +198,6 @@ let log_exn_continue msg f x =
     debug "Safely ignoring exception: %s while %s" (Printexc.to_string e) msg
 
 let log_exn_rm ~xs x = log_exn_continue ("xenstore-rm " ^ x) xs.Xs.rm x
-
-let set_difference a b = List.filter (fun x -> not (List.mem x b)) a
 
 let assert_file_is_readable filename =
   try Unix.access filename [Unix.F_OK; Unix.R_OK]
@@ -224,24 +218,6 @@ let rec xenstore_iter t fn path =
       List.iter
         (fun n -> if n <> "" then xenstore_iter t fn (path ^ "/" ^ n))
         names
-
-let xenstore_read_dir t path =
-  let rec inner acc nodes =
-    match nodes with
-    | [] ->
-        acc
-    | n :: ns ->
-        let v = try t.Xst.read n with _ -> "" in
-        let children =
-          match t.Xst.directory n with
-          | [] | [""] ->
-              []
-          | x ->
-              List.map (Printf.sprintf "%s/%s" n) x
-        in
-        inner ((n, v) :: acc) (children @ ns)
-  in
-  inner [] [path] |> List.fast_sort compare
 
 let get_uuid ~xc domid =
   Ez_xenctrl_uuid.uuid_of_handle
@@ -950,15 +926,6 @@ let build_pre ~xc ~xs ~vcpus ~memory ~has_hard_affinity domid =
     ) ;
   create_channels ~xc uuid domid
 
-let resume_post ~xc ~xs domid =
-  let uuid = get_uuid ~xc domid in
-  let dom_path = xs.Xs.getdomainpath domid in
-  let store_mfn_s = xs.Xs.read (dom_path ^ "/store/ring-ref") in
-  let store_mfn = Nativeint.of_string store_mfn_s in
-  let store_port = int_of_string (xs.Xs.read (dom_path ^ "/store/port")) in
-  debug "VM = %s; domid = %d; @introduceDomain" (Uuid.to_string uuid) domid ;
-  xs.Xs.introduce domid store_mfn store_port
-
 let xenguest_args_base ~domid ~store_port ~store_domid ~console_port
     ~console_domid ~memory =
   [
@@ -1039,9 +1006,7 @@ let xenguest_args_pvh ~domid ~store_port ~store_domid ~console_port
 
 let xenguest task xenguest_path domid uuid args =
   let line =
-    XenguestHelper.(
-      with_connection task xenguest_path domid args [] receive_success
-    )
+    XenguestHelper.(with_connection task xenguest_path args [] receive_success)
   in
   match Astring.String.cuts ~sep:" " line with
   | store_mfn :: console_mfn :: _ ->
@@ -1252,7 +1217,7 @@ let with_emu_manager_restore (task : Xenops_task.task_handle) ~domain_type
     @ extras
     @ vgpu_cmdline
   in
-  Emu_manager.with_connection task manager_path domid args fds f
+  Emu_manager.with_connection task manager_path args fds f
 
 let restore_libxc_record cnx domid uuid =
   let open Emu_manager in
@@ -1648,7 +1613,7 @@ let suspend_emu_manager ~(task : Xenops_task.task_handle) ~xc ~xs ~domain_type
   in
   let fds = [(fd_uuid, main_fd)] @ vgpu_args in
   (* Start the emu-manager process and connect to the control socket *)
-  with_connection task manager_path domid args fds (fun cnx ->
+  with_connection task manager_path args fds (fun cnx ->
       (* Callback to monitor the debug (stderr) output of the process and spot
          the progress indicator *)
       let callback txt =

@@ -32,7 +32,7 @@ module Channel_In = Vhd_format.F.From_input (struct
         return ()
       else
         let this =
-          Int64.(to_int (min (of_int (Cstruct.len scratch)) remaining))
+          Int64.(to_int (min (of_int (Cstruct.length scratch)) remaining))
         in
         let frag = Cstruct.sub scratch 0 this in
         read c frag >>= fun () -> drop Int64.(sub remaining (of_int this))
@@ -122,7 +122,8 @@ let contents _common filename =
             | Fragment.Batmap _x ->
                 Printf.printf "batmap\n"
             | Fragment.Block (offset, buffer) ->
-                Printf.printf "Block %Ld (len %d)\n" offset (Cstruct.len buffer)
+                Printf.printf "Block %Ld (len %d)\n" offset
+                  (Cstruct.length buffer)
             ) ;
             tl () >>= fun x -> loop x
       in
@@ -253,7 +254,7 @@ let stream_nbd _common c s prezeroed _ ?(progress = no_progress_bar) () =
       | `Sectors data -> (
           Client.write server (Int64.mul sector 512L) [data] >>= function
           | Ok () ->
-              return Int64.(of_int (Cstruct.len data))
+              return Int64.(of_int (Cstruct.length data))
           | Error _e ->
               fail (Failure "Got error from NBD library")
         )
@@ -305,7 +306,7 @@ let stream_chunked _common c s prezeroed _ ?(progress = no_progress_bar) () =
           Chunked.marshal header t ;
           c.Channels.really_write header >>= fun () ->
           c.Channels.really_write data >>= fun () ->
-          return Int64.(of_int (Cstruct.len data))
+          return Int64.(of_int (Cstruct.length data))
       | `Empty _n ->
           (* must be prezeroed *)
           assert prezeroed ;
@@ -358,7 +359,7 @@ let stream_raw _common c s prezeroed _ ?(progress = no_progress_bar) () =
           c.Channels.copy_from fd (Int64.mul 512L sector_len)
       | `Sectors data ->
           c.Channels.really_write data >>= fun () ->
-          return Int64.(of_int (Cstruct.len data))
+          return Int64.(of_int (Cstruct.length data))
       | `Empty n ->
           (* must be prezeroed *)
           c.Channels.skip Int64.(mul n 512L) >>= fun () ->
@@ -429,7 +430,7 @@ let stream_tar _common c s _ prefix ?(progress = no_progress_bar) () =
   let block_size = 1024 * 1024 in
   let header = IO.alloc Tar.Header.length in
   let zeroes = IO.alloc block_size in
-  for i = 0 to Cstruct.len zeroes - 1 do
+  for i = 0 to Cstruct.length zeroes - 1 do
     Cstruct.set_uint8 zeroes i 0
   done ;
   (* This undercounts by missing the tar headers and occasional empty sector *)
@@ -443,7 +444,7 @@ let stream_tar _common c s _ prefix ?(progress = no_progress_bar) () =
   (* Write [data] to the tar-format stream currnetly in [state] *)
   let rec input state data =
     (* Write as much as we can into the current file *)
-    let len = Cstruct.len data in
+    let len = Cstruct.length data in
     let this_block_len = min len state.nr_bytes_remaining in
     let this_block = Cstruct.sub data 0 this_block_len in
     sha1_update_cstruct state.ctx this_block ;
@@ -479,7 +480,7 @@ let stream_tar _common c s _ prefix ?(progress = no_progress_bar) () =
     )
     >>= fun state ->
     (* If we have unwritten data then output the next header *)
-    ( if nr_bytes_remaining = 0 && Cstruct.len rest > 0 then (
+    ( if nr_bytes_remaining = 0 && Cstruct.length rest > 0 then (
         (* XXX the last block might be smaller than block_size *)
         let hdr = make_tar_header prefix state.next_counter "" block_size in
         Tar.Header.marshal header hdr ;
@@ -495,7 +496,7 @@ let stream_tar _common c s _ prefix ?(progress = no_progress_bar) () =
         return {state with nr_bytes_remaining}
     )
     >>= fun state ->
-    if Cstruct.len rest > 0 then
+    if Cstruct.length rest > 0 then
       input state rest
     else
       return state
@@ -503,7 +504,7 @@ let stream_tar _common c s _ prefix ?(progress = no_progress_bar) () =
 
   let rec empty state bytes =
     let write state bytes =
-      let this = Int64.(to_int (min bytes (of_int (Cstruct.len zeroes)))) in
+      let this = Int64.(to_int (min bytes (of_int (Cstruct.length zeroes)))) in
       input state (Cstruct.sub zeroes 0 this) >>= fun state ->
       empty state Int64.(sub bytes (of_int this))
     in
@@ -711,7 +712,7 @@ let serve_tar_to_raw total_size c dest prezeroed progress expected_prefix
             (* XXX: prezeroed? *)
             let rec copy offset remaining =
               let this =
-                Int64.(to_int (min remaining (of_int (Cstruct.len buffer))))
+                Int64.(to_int (min remaining (of_int (Cstruct.length buffer))))
               in
               let block = Cstruct.sub buffer 0 this in
               c.Channels.really_read block >>= fun () ->
@@ -807,7 +808,8 @@ let socket sockaddr =
   in
   Lwt_unix.socket family Unix.SOCK_STREAM 0
 
-let colon = Re.Str.regexp_string ":"
+let split ~limit ~sep str =
+  Xapi_stdext_std.Xstringext.String.split ~limit sep str
 
 let retry common retries f =
   let rec aux n =
@@ -833,7 +835,7 @@ let retry common retries f =
 let make_stream common source relative_to source_format destination_format =
   match (source_format, destination_format) with
   | "nbdhybrid", "raw" -> (
-    match Re.Str.bounded_split colon source 4 with
+    match split ~limit:4 ~sep:':' source with
     | [raw; nbd_server; export_name; size] ->
         let size = Int64.of_string size in
         Vhd_format_lwt.IO.openfile raw false >>= fun raw ->
@@ -850,7 +852,7 @@ let make_stream common source relative_to source_format destination_format =
   )
   | "hybrid", "raw" -> (
     (* expect source to be block_device:vhd *)
-    match Re.Str.bounded_split colon source 2 with
+    match split ~limit:2 ~sep:':' source with
     | [raw; vhd] ->
         let path = common.path @ [Filename.dirname vhd] in
         retry common 3 (fun () -> Vhd_IO.openchain ~path vhd false) >>= fun t ->
@@ -875,7 +877,7 @@ let make_stream common source relative_to source_format destination_format =
   )
   | "hybrid", "vhd" -> (
     (* expect source to be block_device:vhd *)
-    match Re.Str.bounded_split colon source 2 with
+    match split ~limit:2 ~sep:':' source with
     | [raw; vhd] ->
         let path = common.path @ [Filename.dirname vhd] in
         retry common 3 (fun () -> Vhd_IO.openchain ~path vhd false) >>= fun t ->
@@ -1010,7 +1012,7 @@ let write_stream common s destination _source_protocol destination_protocol
         | None ->
             headers
         | Some x -> (
-          match Re.Str.bounded_split_delim (Re.Str.regexp_string ":") x 2 with
+          match split ~limit:2 ~sep:':' x with
           | [user; pass] ->
               let b = Cohttp.Auth.string_of_credential (`Basic (user, pass)) in
               Header.add headers "authorization" b
@@ -1251,7 +1253,7 @@ let serve_raw_to_raw common size c dest _ progress _ _ =
   let buffer = IO.alloc twomib in
   let p = progress size in
   let rec loop offset remaining =
-    let n = Int64.(to_int (min remaining (of_int (Cstruct.len buffer)))) in
+    let n = Int64.(to_int (min remaining (of_int (Cstruct.length buffer)))) in
     let rounded_n = round_up_to_sector common.unbuffered n in
     (* Create a buffer of the rounded-up size *)
     let block = Cstruct.sub buffer 0 rounded_n in

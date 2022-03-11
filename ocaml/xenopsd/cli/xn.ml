@@ -135,11 +135,7 @@ let usage () =
 
 let dbg = "xn"
 
-let finally f g =
-  try
-    let result = f () in
-    g () ; result
-  with e -> g () ; raise e
+let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
 (* Grabs the result from a task and destroys it *)
 let success_task f id =
@@ -175,7 +171,7 @@ let success_task f id =
 
 let parse_source x =
   match
-    List.filter (fun x -> x <> "") (Re.Str.split_delim (Re.Str.regexp "[:]") x)
+    List.filter (fun x -> x <> "") (Astring.String.cuts ~sep:":" ~empty:false x)
   with
   | ["phy"; path] ->
       Some (Local path)

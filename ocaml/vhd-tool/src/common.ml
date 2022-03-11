@@ -14,16 +14,12 @@
 
 type t = {debug: bool; verb: bool; unbuffered: bool; path: string list}
 
-let colon = Re.Str.regexp_string ":"
-
 let make debug verb unbuffered path =
-  let path = Re.Str.split colon path in
+  let path = Astring.String.cuts ~sep:":" ~empty:false path in
   {debug; verb; unbuffered; path}
 
 (* Keep this in sync with OCaml's Unix.file_descr *)
 let file_descr_of_int (x : int) : Unix.file_descr = Obj.magic x
-
-let ( |> ) a b = b a
 
 let parse_size x =
   let kib = 1024L in

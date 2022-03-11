@@ -43,6 +43,27 @@ let log_exn_continue msg f x =
 
 type log_output = Always | Never | On_failure
 
+let filter_patterns =
+  [
+    ( Re.Str.regexp "^\\(.*proxy_\\(username\\|password\\)=\\)\\(.*\\)$"
+    , "\\1(filtered)"
+    )
+  ]
+
+let filter_args args =
+  List.map
+    (fun arg ->
+      List.fold_left
+        (fun acc (r, t) ->
+          if Re.Str.string_match r acc 0 then
+            Re.Str.replace_matched t acc
+          else
+            acc
+        )
+        arg filter_patterns
+    )
+    args
+
 let call_script ?(log_output = Always) ?env ?stdin script args =
   let should_log_output_on_success, should_log_output_on_failure =
     match log_output with
@@ -53,7 +74,8 @@ let call_script ?(log_output = Always) ?env ?stdin script args =
     | On_failure ->
         (false, true)
   in
-  debug "about to call script: %s" script ;
+  debug "about to call script: %s %s" script
+    (String.concat " " (filter_args args)) ;
   try
     Unix.access script [Unix.X_OK] ;
     (* Use the same $PATH as xapi *)
@@ -69,7 +91,8 @@ let call_script ?(log_output = Always) ?env ?stdin script args =
             stdin
     in
     if should_log_output_on_success then
-      debug "%s %s succeeded [ output = '%s' ]" script (String.concat " " args)
+      debug "%s %s succeeded [ output = '%s' ]" script
+        (String.concat " " (filter_args args))
         output ;
     output
   with
@@ -89,7 +112,8 @@ let call_script ?(log_output = Always) ?env ?stdin script args =
       in
       if should_log_output_on_failure then
         debug "%s %s %s [stdout = '%s'; stderr = '%s']" script
-          (String.concat " " args) message stdout stderr ;
+          (String.concat " " (filter_args args))
+          message stdout stderr ;
       raise e
 
 (** Construct a descriptive network name (used as name_label) for a give network interface. *)

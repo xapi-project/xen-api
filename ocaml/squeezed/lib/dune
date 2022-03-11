@@ -1,6 +1,6 @@
 (library
   (name squeeze)
-  (flags (:standard :standard -bin-annot))
+  (flags (:standard -bin-annot))
   (libraries
     re
     re.str

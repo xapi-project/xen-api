@@ -236,7 +236,17 @@ end = struct
       D.debug "write_certs_fs: ignoring failed to remove %s. exception: %s"
         pool_certs_bk (Printexc.to_string e)
 
-  let regen_bundle () = Helpers.update_ca_bundle ()
+  let regen_bundle ~__context =
+    Helpers.update_ca_bundle () ;
+    let host = Helpers.get_localhost ~__context in
+    match Xapi_clustering.find_cluster_host ~__context ~host with
+    | None ->
+        D.debug "This host has no cluster host - skipping pool resync"
+    | Some _ ->
+        let clusters = Db.Cluster.get_all_records ~__context in
+        List.iter
+          (fun (self, _) -> Xapi_cluster.pool_resync ~__context ~self)
+          clusters
 
   let with_log prefix f =
     D.debug "%s: start" prefix ;
@@ -265,7 +275,7 @@ end = struct
           write_certs_fs typ strategy certs ;
           WriteResult
       | GenBundle ->
-          regen_bundle () ; GenBundleResult
+          regen_bundle ~__context ; GenBundleResult
     in
     string_of_result r
 
@@ -354,13 +364,13 @@ let collect_pool_certs ~__context ~rpc ~session_id ~map ~from_hosts =
          map cert
      )
 
-let take_and_append n x xs =
-  (* take_and_append 3 10 [1;2;3;4] = [1;2;3;10] *)
+let insert_at n x xs =
+  (* insert_at 3 10 [1;2;3;4] = [1;2;3;10;4] *)
   let rec loop i acc = function
     | x :: xs when i < n ->
         loop (i + 1) (x :: acc) xs
-    | _ ->
-        x :: acc |> List.rev
+    | xs ->
+        List.rev (x :: acc) @ xs
   in
   loop 0 [] xs
 
@@ -406,7 +416,7 @@ let exchange_certificates_in_pool ~__context =
                   )
             )
           in
-          let ops' = take_and_append rand_i throw_op ops in
+          let ops' = insert_at rand_i throw_op ops in
           D.debug "exchange_certificates_in_pool: we are about to..." ;
           List.iteri (fun i (desc, _) -> D.debug "%d. %s" i desc) ops' ;
           ops'

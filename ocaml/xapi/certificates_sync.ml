@@ -141,5 +141,5 @@ let eject_certs_from_fs_for ~__context host =
     | false ->
         info "host %s has no certificate %s to remove" host_uuid file
   with e ->
-    internal_error "failed to remove cert %s on pool eject" file
+    internal_error "failed to remove cert %s on pool eject: %s" file
       (Printexc.to_string e)

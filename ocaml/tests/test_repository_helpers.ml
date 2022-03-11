@@ -137,6 +137,7 @@ module PkgOfFullnameTest = Generic.MakeStateless (struct
             )
         )
       ; (Io.Line "libpath-utils-:0.2.1-29.el7.x86_64", Ok None)
+      ; (Io.Line "libpath-utils-2:0.2.1-29.el7x86_64", Ok None)
       ; (* all RPM packages installed by default *)
         (Io.FilePath "test_data/repository_pkg_of_fullname_all", Ok None)
       ]
@@ -423,7 +424,7 @@ end)
 
 module ApplicabilityEval = Generic.MakeStateless (struct
   module Io = struct
-    (*  ( (installed_epoch, installed_version, installed_release) * 
+    (*  ( (installed_epoch, installed_version, installed_release) *
      *    (inequality * (epoch, version * release)) ) *)
     type input_t =
       (int option * string * string) * (string * (int option * string * string))
@@ -455,7 +456,7 @@ module ApplicabilityEval = Generic.MakeStateless (struct
         
       in
 
-      Ok (Applicability.eval e1 v1 r1 applicability)
+      Ok (Applicability.eval ~epoch:e1 ~version:v1 ~release:r1 ~applicability)
     with e -> Error e
 
   let tests =
@@ -1193,7 +1194,7 @@ end)
 
 module WriteYumConfig = Generic.MakeStateless (struct
   module Io = struct
-    (*           ( (source_url, binary_url),  (need_gpg_check, gpgkey_name) ) *)
+    (*           ( (source_url, binary_url),  (need_gpg_check, gpgkey_path) ) *)
     type input_t = (string option * string) * (bool * string option)
 
     type output_t = (string, exn) result
@@ -1211,20 +1212,18 @@ module WriteYumConfig = Generic.MakeStateless (struct
 
   let repo_suffix = ".repo"
 
-  let gpgkey_name = "unittest.gpgkey"
-
   let tmp_dir = Filename.get_temp_dir_name ()
 
-  let transform ((src_url, bin_url), (gpg_check, name)) =
+  let gpgkey_path = "unittest-gpgkey"
+
+  let transform ((source_url, binary_url), (gpg_check, name)) =
     Xapi_globs.yum_repos_config_dir := tmp_dir ;
     Xapi_globs.repository_gpgcheck := gpg_check ;
     Xapi_globs.rpm_gpgkey_dir := tmp_dir ;
-    Xapi_globs.repository_gpgkey_name := gpgkey_name ;
     (* Create empty gpgkey file if it is needed *)
     Option.iter
       (fun n ->
-        Xapi_globs.repository_gpgkey_name := n ;
-        if n <> "" then close_out (open_out (Filename.concat tmp_dir n))
+        if n = gpgkey_path then close_out (open_out (Filename.concat tmp_dir n))
       )
       name ;
     let rec read_from_in_channel acc ic =
@@ -1243,9 +1242,11 @@ module WriteYumConfig = Generic.MakeStateless (struct
           name
       with _ -> ()
     in
+    let gpgkey_path' = Option.value ~default:"" name in
     try
       (* The path of file which will be written by write_yum_config *)
-      write_yum_config ~source_url:src_url bin_url repo_name ;
+      write_yum_config ~source_url ~binary_url ~repo_gpgcheck:true
+        ~gpgkey_path:gpgkey_path' ~repo_name ;
       let in_ch = open_in repo_file_path in
       let content = read_from_in_channel "" in_ch in
       close_in in_ch ; finally () ; Ok content
@@ -1259,20 +1260,23 @@ module WriteYumConfig = Generic.MakeStateless (struct
 name=%s
 baseurl=%s
 enabled=0
+repo_gpgcheck=1
 gpgcheck=1
 gpgkey=file://%s
 |}
       repo_name repo_name url
-      (Filename.concat tmp_dir gpgkey_name)
+      (Filename.concat tmp_dir gpgkey_path)
 
   let content2 =
-    Printf.sprintf {|[%s]
+    Printf.sprintf
+      {|[%s]
 name=%s
 baseurl=%s
 enabled=0
+repo_gpgcheck=0
 gpgcheck=0
-|} repo_name
-      repo_name url
+|}
+      repo_name repo_name url
 
   let src_content1 =
     Printf.sprintf
@@ -1281,11 +1285,12 @@ gpgcheck=0
 name=%s-source
 baseurl=%s
 enabled=0
+repo_gpgcheck=1
 gpgcheck=1
 gpgkey=file://%s
 |}
       repo_name repo_name url
-      (Filename.concat tmp_dir gpgkey_name)
+      (Filename.concat tmp_dir gpgkey_path)
 
   let src_content2 =
     Printf.sprintf
@@ -1295,6 +1300,7 @@ gpgkey=file://%s
 name=%s-source
 baseurl=%s
 enabled=0
+repo_gpgcheck=0
 gpgcheck=0
 |}
       repo_name repo_name url
@@ -1302,10 +1308,17 @@ gpgcheck=0
   let tests =
     `QuickAndAutoDocumented
       [
-        ( ((None, url), (true, None))
+        ( ((None, url), (true, Some "non-exists"))
         , Error
             Api_errors.(
               Server_error (internal_error, ["gpg key file does not exist"])
+            )
+        )
+      ; ( ((None, url), (true, None))
+        , Error
+            Api_errors.(
+              Server_error
+                (internal_error, ["gpg key file is not a regular file"])
             )
         )
       ; ( ((None, url), (true, Some ""))
@@ -1315,14 +1328,14 @@ gpgcheck=0
                 (internal_error, ["gpg key file is not a regular file"])
             )
         )
-      ; (((None, url), (true, Some gpgkey_name)), Ok content1)
+      ; (((None, url), (true, Some gpgkey_path)), Ok content1)
       ; (((None, url), (false, None)), Ok content2)
-      ; (((None, url), (false, Some gpgkey_name)), Ok content2)
-      ; ( ((Some url, url), (true, Some gpgkey_name))
+      ; (((None, url), (false, Some gpgkey_path)), Ok content2)
+      ; ( ((Some url, url), (true, Some gpgkey_path))
         , Ok (content1 ^ src_content1)
         )
       ; (((Some url, url), (false, None)), Ok (content2 ^ src_content2))
-      ; ( ((Some url, url), (false, Some gpgkey_name))
+      ; ( ((Some url, url), (false, Some gpgkey_path))
         , Ok (content2 ^ src_content2)
         )
       ]
@@ -3302,3 +3315,5 @@ let tests =
     ; ("resort_guidances", GuidanceSetResortGuidancesTest.tests)
     ; ("prune_accumulative_updates", PruneAccumulativeUpdates.tests)
     ]
+
+let () = Alcotest.run "Repository Helpers" tests

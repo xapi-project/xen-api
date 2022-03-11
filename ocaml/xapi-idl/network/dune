@@ -1,7 +1,6 @@
 (library
  (name xcp_network)
  (public_name xapi-idl.network)
- (flags (:standard -w -39-33))
  (modules (:standard \ network_cli))
  (libraries
    rpclib.core
