@@ -80,14 +80,10 @@ module Actions = struct
 
   module Data_source = struct end
 
+  module VTPM = Xapi_vtpm
+
   let not_implemented x =
     raise (Api_errors.Server_error (Api_errors.not_implemented, [x]))
-
-  module VTPM = struct
-    let create ~__context ~vM ~backend = not_implemented "VTPM.create"
-
-    let destroy ~__context ~self = not_implemented "VTPM.destroy"
-  end
 
   module Console = struct
     let create ~__context ~other_config = not_implemented "Console.create"

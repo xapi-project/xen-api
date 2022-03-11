@@ -1297,6 +1297,10 @@ let gen_cmds rpc session_id =
           ]
           rpc session_id
       )
+    ; Client.VTPM.(
+        mk () get_all_records_where get_by_uuid vtpm_record "vtpm" []
+          ["uuid"; "vm"; "profile"] rpc session_id
+      )
     ]
 
 let message_create printer rpc session_id params =
@@ -2660,7 +2664,7 @@ let vm_create printer rpc session_id params =
       ~suspend_VDI:Ref.null ~version:0L ~generation_id:""
       ~hardware_platform_version:0L ~has_vendor_device:false ~reference_label:""
       ~domain_type:`unspecified ~nVRAM:[] ~last_booted_record:""
-      ~last_boot_CPU_flags:[] ~power_state:`Halted
+      ~last_boot_CPU_flags:[] ~default_vtpm_profile:[] ~power_state:`Halted
   in
   let uuid = Client.VM.get_uuid rpc session_id vm in
   printer (Cli_printer.PList [uuid])

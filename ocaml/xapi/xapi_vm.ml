@@ -632,7 +632,7 @@ let create ~__context ~name_label ~name_description ~power_state ~user_version
     ~is_snapshot_from_vmpp ~snapshot_schedule ~is_vmss_snapshot ~appliance
     ~start_delay ~shutdown_delay ~order ~suspend_SR ~version ~generation_id
     ~hardware_platform_version ~has_vendor_device ~reference_label ~domain_type
-    ~nVRAM : API.ref_VM =
+    ~nVRAM ~default_vtpm_profile : API.ref_VM =
   if has_vendor_device then
     Pool_features.assert_enabled ~__context
       ~f:Features.PCI_device_for_auto_update ;
@@ -713,7 +713,7 @@ let create ~__context ~name_label ~name_description ~power_state ~user_version
     ~snapshot_schedule:Ref.null ~is_vmss_snapshot:false ~appliance ~start_delay
     ~shutdown_delay ~order ~suspend_SR ~version ~generation_id
     ~hardware_platform_version ~has_vendor_device ~requires_reboot:false
-    ~reference_label ~domain_type ~pending_guidances:[] ;
+    ~reference_label ~domain_type ~pending_guidances:[] ~default_vtpm_profile ;
   Xapi_vm_lifecycle.update_allowed_operations ~__context ~self:vm_ref ;
   update_memory_overhead ~__context ~vm:vm_ref ;
   update_vm_virtual_hardware_platform_version ~__context ~vm:vm_ref ;

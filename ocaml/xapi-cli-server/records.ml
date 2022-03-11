@@ -2431,6 +2431,14 @@ let vm_record rpc session_id vm =
               (x ()).API.vM_pending_guidances
           )
           ()
+      ; make_field ~name:"vtpm"
+          ~get:(fun () -> get_uuids_from_refs (x ()).API.vM_VTPMs)
+          ()
+      ; make_field ~name:"default_vtpm_profile"
+          ~get:(fun () ->
+            Record_util.s2sm_to_string "; " (x ()).API.vM_default_vtpm_profile
+          )
+          ()
       ]
   }
 
@@ -4973,6 +4981,40 @@ let repository_record rpc session_id repository =
       ; make_field ~name:"hash" ~get:(fun () -> (x ()).API.repository_hash) ()
       ; make_field ~name:"up-to-date"
           ~get:(fun () -> string_of_bool (x ()).API.repository_up_to_date)
+          ()
+      ]
+  }
+
+let vtpm_record rpc session_id vtpm =
+  let _ref = ref vtpm in
+  let empty_record =
+    ToGet (fun () -> Client.VTPM.get_record rpc session_id !_ref)
+  in
+  let record = ref empty_record in
+  let x () = lzy_get record in
+  {
+    setref=
+      (fun r ->
+        _ref := r ;
+        record := empty_record
+      )
+  ; setrefrec=
+      (fun (a, b) ->
+        _ref := a ;
+        record := Got b
+      )
+  ; record= x
+  ; getref= (fun () -> !_ref)
+  ; fields=
+      [
+        make_field ~name:"uuid" ~get:(fun () -> (x ()).API.vTPM_uuid) ()
+      ; make_field ~name:"vm"
+          ~get:(fun () -> get_uuid_from_ref (x ()).API.vTPM_VM)
+          ()
+      ; make_field ~name:"profile"
+          ~get:(fun () ->
+            Record_util.s2sm_to_string "; " (x ()).API.vTPM_profile
+          )
           ()
       ]
   }
