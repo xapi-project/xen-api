@@ -1,19 +1,30 @@
+"""
+Test module for extauth_hook_ad
+"""
+#pylint: disable=invalid-name
+import sys
 from unittest import TestCase
 from mock import MagicMock, patch
-import sys
 # mock modules to avoid dependencies
 sys.modules["XenAPIPlugin"] = MagicMock()
 sys.modules["XenAPI"] = MagicMock()
-
+# pylint: disable=wrong-import-position
+# Import must after mock modules
 from extauth_hook_ad import StaticPam, DynamicPam, NssConfig, SshdConfig
 
 
 def line_exists_in_config(lines, line):
+    """
+    Helper function to detect whether configration match expectation
+    """
     return any(line.split() == l.split() for l in lines)
 
+
 domain = "conappada.local"
-args_bd_winbind = {'auth_type': 'AD', 'service_name': domain, 'ad_backend': 'winbind'}
-args_bd_pbis = {'auth_type': 'AD', 'service_name': domain, 'ad_backend': 'pbis'}
+args_bd_winbind = {'auth_type': 'AD',
+                   'service_name': domain, 'ad_backend': 'winbind'}
+args_bd_pbis = {'auth_type': 'AD',
+                'service_name': domain, 'ad_backend': 'pbis'}
 mock_session = MagicMock()
 
 subjects = ['OpaqueRef:96ae4be5-8815-4de8-a40f-d5e5c531dda9']
@@ -22,8 +33,9 @@ admin_role = 'OpaqueRef:0165f154-ba3e-034e-6b27-5d271af109ba'
 admin_roles = [admin_role]
 mock_session.xenapi.role.get_by_name_label.return_value = admin_roles
 
-#pylint: disable=unused-argument, protected-access, redefined-outer-name, missing-function-docstring
-#pylint: disable=too-many-arguments, missing-class-docstring, no-self-use
+# pylint: disable=unused-argument, protected-access, redefined-outer-name, missing-function-docstring
+# pylint: disable=too-many-arguments, missing-class-docstring, no-self-use
+
 
 def build_user(domain, name, is_admin=True):
     return {
@@ -44,11 +56,11 @@ def build_user(domain, name, is_admin=True):
         },
         'uuid': '684c868e-cf6a-2311-570d-b6d082443e40',
         'roles': [admin_role] if is_admin else []
-}
+    }
 
 
 def build_group(domain, name, is_admin):
-    return  {
+    return {
         'subject_identifier': 'S-1-5-21-3143668282-2591278241-912959342-1174',
         'other_config': {
             'subject-name': '{}\\{}'.format(domain, name),
@@ -66,7 +78,7 @@ def build_group(domain, name, is_admin):
 class TestStaicPamConfig(TestCase):
     def test_ad_not_enabled(self, mock_rename, mock_chmod):
         # No hcp_users file should be included
-        static = StaticPam(mock_session, args_bd_winbind, ad_enabled = False)
+        static = StaticPam(mock_session, args_bd_winbind, ad_enabled=False)
         static.apply()
         enabled_keyward = "account     include       hcp_users"
         self.assertFalse(line_exists_in_config(static._lines, enabled_keyward))
@@ -95,7 +107,7 @@ class TestDynamicPam(TestCase):
     def test_ad_not_enabled(self, mock_remove, mock_exists, mock_open, mock_rename, mock_chmod):
         # dynamic pam file should be removed
         mock_exists.return_value = True
-        dynamic = DynamicPam(mock_session, args_bd_winbind, ad_enabled = False)
+        dynamic = DynamicPam(mock_session, args_bd_winbind, ad_enabled=False)
         dynamic.apply()
         mock_remove.assert_called()
         mock_rename.assert_not_called()
@@ -178,12 +190,13 @@ class TestDynamicPam(TestCase):
         bad_user = build_user("CONNAPP", "bad+in", True)
         good_user = build_user("CONNAPP", "good", True)
 
-        mock_session_with_multi_users  = MagicMock()
+        mock_session_with_multi_users = MagicMock()
 
         subjects = ['OpaqueRef:96ae4be5-8815-4de8-a40f-d5e5c531dda9',
                     'OpaqueRef:96ae4be5-8815-4de8-a40f-d5e5c531dda1']
         mock_session_with_multi_users.xenapi.subject.get_all.return_value = subjects
-        mock_session_with_multi_users.xenapi.subject.get_record.side_effect= [bad_user, good_user]
+        mock_session_with_multi_users.xenapi.subject.get_record.side_effect = [
+            bad_user, good_user]
         mock_session_with_multi_users.xenapi.role.get_by_name_label.return_value = admin_roles
 
         bad_condition = r"account sufficient pam_succeed_if.so user = CONNAPP\bad+in"
@@ -208,6 +221,7 @@ class TestNssConfig(TestCase):
         nss = NssConfig(mock_session, args_bd_winbind, True)
         nss.apply()
         self.assertTrue(line_exists_in_config(nss._lines, expected_config))
+
 
 @patch("extauth_hook_ad.run_cmd")
 @patch("os.chmod")
