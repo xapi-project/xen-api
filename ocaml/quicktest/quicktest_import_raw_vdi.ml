@@ -13,7 +13,6 @@
  *)
 
 open Client
-open Http
 
 let import_raw_vdi ~session_id ~task_id f =
   let req =
@@ -34,9 +33,9 @@ let start rpc session_id () =
       ~description:""
   in
   try
-    import_raw_vdi ~session_id ~task_id (fun fd -> ()) |> ignore ;
+    import_raw_vdi ~session_id ~task_id (fun _ -> ()) |> ignore ;
     Alcotest.fail "No exception was raised by import_raw_vdi"
-  with e ->
+  with _ ->
     let a = Client.Task.get_record ~rpc ~session_id ~self:task_id in
     Client.Task.destroy ~rpc ~session_id ~self:task_id ;
     if a.API.task_status <> `failure then

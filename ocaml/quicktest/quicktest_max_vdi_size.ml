@@ -27,7 +27,7 @@ let test_export_import rpc session_id sr_info () =
   (* We only want to export to a sparse VHD, not to a fully-inflated raw file *)
   let format = "vhd" in
   let sR = sr_info.Qt.sr in
-  with_max_vdi rpc session_id sR (fun rpc session_id sr vdi ->
+  with_max_vdi rpc session_id sR (fun rpc session_id _ vdi ->
       let virtual_size =
         Client.Client.VDI.get_virtual_size ~rpc ~session_id ~self:vdi
       in
