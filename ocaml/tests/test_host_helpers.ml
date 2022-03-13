@@ -57,9 +57,7 @@ let setup_test_oc_watcher () =
 
 let test_host1 () =
   (* Test1: update other_config:iscsi_iqn,multipathing on host1, check they appear in the calls list *)
-  let __context, calls, host1, host2, watcher, token =
-    setup_test_oc_watcher ()
-  in
+  let __context, calls, host1, _, watcher, token = setup_test_oc_watcher () in
   Db.Host.set_multipathing ~__context ~self:host1 ~value:false ;
   Db.Host.add_to_other_config ~__context ~self:host1 ~key:"iscsi_iqn"
     ~value:"test1" ;
@@ -73,9 +71,7 @@ let test_host1 () =
 
 let test_host2 () =
   (* Test2: update other_config:iscsi_iqn,multipathing on host2, check they appear in the calls list *)
-  let __context, calls, host1, host2, watcher, token =
-    setup_test_oc_watcher ()
-  in
+  let __context, calls, _, host2, watcher, token = setup_test_oc_watcher () in
   Db.Host.set_multipathing ~__context ~self:host2 ~value:true ;
   Db.Host.add_to_other_config ~__context ~self:host2 ~key:"iscsi_iqn"
     ~value:"test2" ;
@@ -89,9 +85,7 @@ let test_host2 () =
 
 let test_different_keys () =
   (* Test3: verify that setting other other-config keys causes no set *)
-  let __context, calls, host1, host2, watcher, token =
-    setup_test_oc_watcher ()
-  in
+  let __context, calls, host1, _, watcher, token = setup_test_oc_watcher () in
   Db.Host.add_to_other_config ~__context ~self:host1 ~key:"other_key"
     ~value:"test1" ;
   let _token = watcher token in
@@ -100,9 +94,7 @@ let test_different_keys () =
 let test_host_set_iscsi_iqn () =
   (* Test3: verify that sequence of DB calls in Host.set_iscsi_iqn don't cause the
      watcher to invoke further calls *)
-  let __context, calls, host1, host2, watcher, token =
-    setup_test_oc_watcher ()
-  in
+  let __context, calls, host1, _, watcher, token = setup_test_oc_watcher () in
   Db.Host.add_to_other_config ~__context ~self:host1 ~key:"iscsi_iqn"
     ~value:"test1" ;
   let token = watcher token in

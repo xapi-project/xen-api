@@ -117,7 +117,7 @@ let values_from_string str =
       r.values
   | Ok [] ->
       []
-  | Error msg ->
+  | Error _ ->
       []
 
 let test_parser () =

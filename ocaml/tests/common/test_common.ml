@@ -141,7 +141,7 @@ let make_vm ~__context ?(name_label = "name_label")
     ?(snapshot_schedule = Ref.null) ?(is_vmss_snapshot = false)
     ?(shutdown_delay = 0L) ?(order = 0L) ?(suspend_SR = Ref.null)
     ?(suspend_VDI = Ref.null) ?(version = 0L) ?(generation_id = "0:0")
-    ?(hardware_platform_version = 0L) ?(has_vendor_device = false)
+    ?(hardware_platform_version = 0L) ?has_vendor_device:_
     ?(has_vendor_device = false) ?(reference_label = "") ?(domain_type = `hvm)
     ?(nVRAM = []) ?(last_booted_record = "") ?(last_boot_CPU_flags = [])
     ?(power_state = `Halted) () =
@@ -476,7 +476,7 @@ let make_pvs_cache_storage ~__context ?(ref = Ref.make ())
 let make_pool_update ~__context ?(ref = Ref.make ()) ?(uuid = make_uuid ())
     ?(name_label = "") ?(name_description = "") ?(version = "")
     ?(installation_size = 0L) ?(key = "") ?(after_apply_guidance = [])
-    ?(enforce_homogeneity = false) ?(other_config = []) ?(vdi = Ref.null) () =
+    ?(enforce_homogeneity = false) ?other_config:_ ?(vdi = Ref.null) () =
   let update_info =
     Xapi_pool_update.
       {
@@ -552,7 +552,7 @@ let create_vlan_pif ~__context ~host ~vlan ~pif ?(bridge = "xapi0") () =
 
 let create_tunnel_pif ~__context ~host ~pif ?(bridge = "xapi0") () =
   let network = make_network ~__context ~bridge () in
-  let tunnel, access_pif =
+  let _, access_pif =
     make_tunnel ~__context ~transport_PIF:pif ~network ~host
   in
   access_pif

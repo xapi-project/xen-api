@@ -166,7 +166,7 @@ let test_clustering_ops_disallowed_during_rolling_upgrade () =
 let test_cluster_host_ops_without_join () =
   (* Note that joined:true by default so no need to check *)
   let __context = make_test_database () in
-  let cluster, cluster_host =
+  let _, cluster_host =
     make_cluster_and_cluster_host ~__context
       ~host:Helpers.(get_localhost ~__context)
       ()

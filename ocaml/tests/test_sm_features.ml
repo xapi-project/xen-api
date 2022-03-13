@@ -12,7 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Test_common
 open Test_highlevel
 
 type sm_object = {capabilities: string list; features: (string * int64) list}

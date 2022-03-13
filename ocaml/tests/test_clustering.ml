@@ -280,12 +280,12 @@ let make_scenario ?(cluster_host = Some true) () =
   let _sm_2 : _ API.Ref.t =
     T.make_sm ~__context ~_type:"lvm" ~required_cluster_stack:[] ()
   in
-  Xapi_clustering.Daemon.enable __context ;
+  Xapi_clustering.Daemon.enable ~__context ;
   (__context, host, cluster, cluster_host)
 
 let test_assert_cluster_host_is_enabled_for_matching_sms_succeeds_if_cluster_host_is_enabled
     () =
-  let __context, host, cluster, cluster_host = make_scenario () in
+  let __context, host, _, _ = make_scenario () in
   Alcotest.(check unit)
     "test_assert_cluster_host_is_enabled_for_matching_sms_succeeds_if_cluster_host_is_enabled"
     ()
@@ -295,7 +295,7 @@ let test_assert_cluster_host_is_enabled_for_matching_sms_succeeds_if_cluster_hos
 
 let test_assert_cluster_host_is_enabled_for_matching_sms_succeeds_if_no_matching_sms_exist
     () =
-  let __context, host, cluster, cluster_host = make_scenario () in
+  let __context, host, _, _ = make_scenario () in
   Alcotest.(check unit)
     "test_assert_cluster_host_is_enabled_for_matching_sms_succeeds_if_no_matching_sms_exist"
     ()
@@ -305,7 +305,7 @@ let test_assert_cluster_host_is_enabled_for_matching_sms_succeeds_if_no_matching
 
 let test_assert_cluster_host_is_enabled_for_matching_sms_fails_if_cluster_host_is_disabled
     () =
-  let __context, host, cluster, cluster_host =
+  let __context, host, _, cluster_host =
     make_scenario ~cluster_host:(Some false) ()
   in
   Alcotest.check_raises
@@ -320,9 +320,7 @@ let test_assert_cluster_host_is_enabled_for_matching_sms_fails_if_cluster_host_i
 
 let test_assert_cluster_host_is_enabled_for_matching_sms_fails_if_no_cluster_host_exists
     () =
-  let __context, host, cluster, cluster_host =
-    make_scenario ~cluster_host:None ()
-  in
+  let __context, host, _, _ = make_scenario ~cluster_host:None () in
   Alcotest.check_raises
     "test_assert_cluster_host_is_enabled_for_matching_sms_fails_if_no_cluster_host_exists"
     Api_errors.(Server_error (no_compatible_cluster_host, [Ref.string_of host]))
@@ -333,9 +331,7 @@ let test_assert_cluster_host_is_enabled_for_matching_sms_fails_if_no_cluster_hos
 
 let test_assert_cluster_host_is_enabled_for_matching_sms_succeeds_if_cluster_host_is_disabled_and_clustering_is_not_needed
     () =
-  let __context, host, cluster, cluster_host =
-    make_scenario ~cluster_host:(Some false) ()
-  in
+  let __context, host, _, _ = make_scenario ~cluster_host:(Some false) () in
   Alcotest.(check unit)
     "test_assert_cluster_host_is_enabled_for_matching_sms_succeeds_if_cluster_host_is_disabled_and_clustering_is_not_needed"
     ()
@@ -345,9 +341,7 @@ let test_assert_cluster_host_is_enabled_for_matching_sms_succeeds_if_cluster_hos
 
 let test_assert_cluster_host_is_enabled_for_matching_sms_succeeds_if_no_cluster_host_exists_and_clustering_is_not_needed
     () =
-  let __context, host, cluster, cluster_host =
-    make_scenario ~cluster_host:None ()
-  in
+  let __context, host, _, _ = make_scenario ~cluster_host:None () in
   Alcotest.(check unit)
     "test_assert_cluster_host_is_enabled_for_matching_sms_succeeds_if_no_cluster_host_exists_and_clustering_is_not_needed \
      should pass"
@@ -538,7 +532,7 @@ let test_disallow_unplug_no_clustering () =
 
 let test_disallow_unplug_with_clustering () =
   let __context = T.make_test_database () in
-  let host, network, pif = make_host_network_pif ~__context in
+  let host, _, pif = make_host_network_pif ~__context in
   check_disallow_unplug false __context pif
     "check_disallow_unplug called by test_disallow_unplug_with_clustering to \
      check default config" ;
@@ -570,7 +564,7 @@ let test_assert_no_clustering_on_pif () =
   in
   assert_no_clustering_on self "assert_no_clustering_on_pif without clustering" ;
   (* Add an enabled cluster_host *)
-  let cluster, cluster_host =
+  let _, cluster_host =
     T.make_cluster_and_cluster_host ~__context ~host ~pIF:self ()
   in
   Alcotest.check_raises "Live cluster_host on PIF"
@@ -677,7 +671,7 @@ let test_choose_cluster_stack_clusters_no_sms () =
   let __context = T.make_test_database () in
   choose_cluster_stack_should_select default ~__context ;
   (* Add two clusters, test choose_cluster_stack's filtering *)
-  for i = 0 to 1 do
+  for _ = 0 to 1 do
     let _ = T.make_cluster_and_cluster_host ~__context () in
     choose_cluster_stack_should_select default_smapiv3 ~__context
   done

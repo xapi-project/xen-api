@@ -25,7 +25,8 @@ module XapiCmdResult = Generic.MakeStateless (struct
     let string_of_output_t = Test_printers.(option string)
   end
 
-  let transform (sep, key, lines) = Xapi_cmd_result.of_output_opt sep key lines
+  let transform (sep, key, lines) =
+    Xapi_cmd_result.of_output_opt ~sep ~key ~lines
 
   let tests =
     `QuickAndAutoDocumented
