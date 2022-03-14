@@ -185,7 +185,6 @@ let sync ~__context ~self ~token ~token_id =
           ; !Xapi_globs.local_pool_repo_dir
           ; "--downloadcomps"
           ; "--download-metadata"
-          ; (if !Xapi_globs.repository_gpgcheck then "--gpgcheck" else "")
           ; "--delete"
           ; "--plugins"
           ; Printf.sprintf "--repoid=%s" repo_name
