@@ -172,20 +172,21 @@ class DynamicPam(ADConfig):
                 self._add_subject(subject_rec)
 
     def _format_item(self, item):
-        # CA-363207: Pam cannot handle space, put it inside []
         space_replacement = "+"
         if space_replacement in item:
             raise ValueError(
                 "{} is not permitted in subject name".format(space_replacement))
 
-        if " " in item:
-            if self._backend == ADBackend.bd_pbis:
-                # PBIS relace space with "+", eg "ab  cd" -> "ab++cd"
-                # PBIS pam module will reverse it back
-                return item.replace(" ", space_replacement)
-            # winbind put name with space within "[]"
-            return "[{}]".format(item)
-        return item
+        if " " not in item:
+            return item
+
+        if self._backend == ADBackend.bd_pbis:
+            # PBIS relace space with "+", eg "ab  cd" -> "ab++cd"
+            # PBIS pam module will reverse it back
+            return item.replace(" ", space_replacement)
+
+        # winbind put name with space within "[]"
+        return "[{}]".format(item)
 
     def _add_subject(self, subject_rec):
         try:
