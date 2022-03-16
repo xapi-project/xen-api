@@ -27,15 +27,20 @@ from enum import Enum
 # - /etc/pam.d/hcp_users
 # - /etc/ssh/ssh_config
 
+# pylint: disable=super-with-arguments
+
 
 def setup_logger():
     logger = logging.getLogger()
-    logging.basicConfig(format='%(asctime)s %(levelname)s %(name)s %(funcName)s %(message)s', level=logging.DEBUG)
+    logging.basicConfig(
+        format='%(asctime)s %(levelname)s %(name)s %(funcName)s %(message)s', level=logging.DEBUG)
     # Send to syslog local5, which will be redirected to xapi log /var/log/xensource.log
-    handler = logging.handlers.SysLogHandler(facility='local5', address='/dev/log')
+    handler = logging.handlers.SysLogHandler(
+        facility='local5', address='/dev/log')
     std_err = logging.StreamHandler(sys.stderr)
     # Send to authpriv, which will be redirected to /var/log/secure
-    auth_log = logging.handlers.SysLogHandler(facility="authpriv", address='/dev/log')
+    auth_log = logging.handlers.SysLogHandler(
+        facility="authpriv", address='/dev/log')
     logger.addHandler(handler)
     logger.addHandler(std_err)
     logger.addHandler(auth_log)
@@ -76,7 +81,7 @@ class ADConfig(object):
                 self._lines = [l.strip() for l in lines]
 
     def _get_ad_backend(self, args):
-        if  args.get("ad_backend", "pbis") == "pbis":
+        if args.get("ad_backend", "pbis") == "pbis":
             logger.debug("pbis is used as AD backend")
             return ADBackend.bd_pbis
 
@@ -142,7 +147,11 @@ session    required     pam_loginuid.so"""
             content = self.no_ad_pam
         self._lines = content.split("\n")
 
+
 class DynamicPam(ADConfig):
+    #pylint: disable=too-few-public-methods
+    """Class manage /etc/pam.d/hcp_users which permit pool admin ssh"""
+
     def __init__(self, session, arg, ad_enabled=True):
         super(DynamicPam, self).__init__("/etc/pam.d/hcp_users", session, arg, ad_enabled,
                                          load_existing=False)
@@ -154,26 +163,53 @@ class DynamicPam(ADConfig):
         # Rewrite the PAM SSH config using the latest info from Active Directory
         # and the list of subjects from xapi
         subjects = self._session.xenapi.subject.get_all()
-        admin_role = self._session.xenapi.role.get_by_name_label('pool-admin')[0]
+        admin_role = self._session.xenapi.role.get_by_name_label(
+            'pool-admin')[0]
         # Add each subject which contains the admin role
         for opaque_ref in subjects:
             subject_rec = self._session.xenapi.subject.get_record(opaque_ref)
             if admin_role in subject_rec['roles']:
                 self._add_subject(subject_rec)
 
+    def _format_item(self, item):
+        space_replacement = "+"
+        if space_replacement in item:
+            raise ValueError(
+                "{} is not permitted in subject name".format(space_replacement))
+
+        if " " not in item:
+            return item
+
+        if self._backend == ADBackend.bd_pbis:
+            # PBIS relace space with "+", eg "ab  cd" -> "ab++cd"
+            # PBIS pam module will reverse it back
+            return item.replace(" ", space_replacement)
+
+        # winbind put name with space within "[]"
+        return "[{}]".format(item)
+
     def _add_subject(self, subject_rec):
         try:
             sid = subject_rec['subject_identifier']
-            name = subject_rec["other_config"]["subject-name"]
-            # CA-363207: Pam cannot handle space, put it inside []
-            if " " in name:
-                name = "[{}]".format(name)
+            name = self._format_item(
+                subject_rec["other_config"]["subject-name"])
             is_group = subject_rec["other_config"]["subject-is-group"] == "true"
-            logger.debug("Permit %s with sid %s is_group as %s", name, sid, is_group)
+            logger.debug("Permit %s with sid %s is_group as %s",
+                         name, sid, is_group)
             condition = "ingroup" if is_group else "="
-            self._lines.append("account sufficient pam_succeed_if.so user {} {}".format(condition, name))
-        except Exception:
-            logger.warning("Failed to check subject %s for dynamic pam", subject_rec)
+            self._lines.append("account sufficient pam_succeed_if.so user {} {}".format(
+                condition, name))
+            # If ssh key is permittd in authorized_keys,
+            # UPN cannot match by SAM, put UPN format explictly
+            if not is_group:
+                subject_upn = self._format_item(
+                    subject_rec["other_config"]["subject-upn"])
+                self._lines.append("account sufficient pam_succeed_if.so user {} {}".format(
+                    condition, subject_upn))
+        # pylint: disable=broad-except
+        except Exception as exp:
+            logger.warning(
+                "Failed to add subject %s for dynamic pam: %s", subject_rec, str(exp))
 
     def _install(self):
         if self._ad_enabled:
@@ -184,14 +220,17 @@ class DynamicPam(ADConfig):
 
 
 class KeyValueConfig(ADConfig):
-    # Only support configure files with key value in each line, seperated by sep
-    # Otherwise, it will be just copied and un-configurable
-    # If multiple lines with the same key exists, only the first line will be configured
-    _special_line_prefix = "__key_value_config_sp_line_prefix_" # Presume normal config does not have such keys
+    """
+     Only support configure files with key value in each line, seperated by sep
+     Otherwise, it will be just copied and un-configurable
+     If multiple lines with the same key exists, only the first line will be configured
+    """
+    _special_line_prefix = "__key_value_config_sp_line_prefix_"  # Presume normal config does not have such keys
     _empty_value = ""
 
     def __init__(self, path, session, args, ad_enabled=True, load_existing=True, file_mode=0o644, sep=": ", comment="#"):
-        super(KeyValueConfig, self).__init__(path, session, args, ad_enabled, load_existing, file_mode)
+        super(KeyValueConfig, self).__init__(path, session,
+                                             args, ad_enabled, load_existing, file_mode)
         self._sep = None if sep.isspace() else sep  # Ignore number/type of spaces
         self._comment = comment
         self._values = OrderedDict()
@@ -205,18 +244,19 @@ class KeyValueConfig(ADConfig):
 
     def _load_values(self):
         for idx, line in enumerate(self._lines):
-            sp_key = "{}{}".format(self._special_line_prefix, str(idx)) # Generate a unique key to store multiple special lines
-            if line == "": # Empty line
+            # Generate a unique key to store multiple special lines
+            sp_key = "{}{}".format(self._special_line_prefix, str(idx))
+            if line == "":  # Empty line
                 self._values[sp_key] = self._empty_value
             elif self._is_comment_line(line):
                 self._values[sp_key] = line
-            else: # Parse the key, value pair
+            else:  # Parse the key, value pair
                 kv = line.split(self._sep)
                 if len(kv) != 2:
                     # Taken as raw line
                     self._values[sp_key] = line
                 else:
-                    k , v = kv[0].strip(), kv[1].strip()
+                    k, v = kv[0].strip(), kv[1].strip()
                     if k not in self._values:
                         self._values[k] = v
                     else:
@@ -229,8 +269,8 @@ class KeyValueConfig(ADConfig):
     def _apply_value(self, key, value):
         if self.is_special_line(key):
             line = value
-        else: # normal line, construct the key value pair
-            sep = self._sep if self._sep else  " "
+        else:  # normal line, construct the key value pair
+            sep = self._sep if self._sep else " "
             line = "{}{}{}".format(key, sep, value)
         self._lines.append(line)
 
@@ -242,7 +282,8 @@ class KeyValueConfig(ADConfig):
 
 class NssConfig(KeyValueConfig):
     def __init__(self, session, args, ad_enabled=True):
-        super(NssConfig, self).__init__("/etc/nsswitch.conf", session, args, ad_enabled)
+        super(NssConfig, self).__init__(
+            "/etc/nsswitch.conf", session, args, ad_enabled)
         modules = "files sss"
         if ad_enabled:
             if self._backend == ADBackend.bd_pbis:
@@ -341,12 +382,12 @@ def before_extauth_disable(session, args):
 # The dispatcher
 if __name__ == "__main__":
     dispatch_tbl = {
-        "after-extauth-enable":  after_extauth_enable,
-        "after-xapi-initialize": after_xapi_initialize,
-        "after-subject-add":     after_subject_add,
-        "after-subject-update":  after_subject_update,
-        "after-subject-remove":  after_subject_remove,
-        "after-roles-update":    after_roles_update,
-        "before-extauth-disable":before_extauth_disable,
+        "after-extauth-enable":   after_extauth_enable,
+        "after-xapi-initialize":  after_xapi_initialize,
+        "after-subject-add":      after_subject_add,
+        "after-subject-update":   after_subject_update,
+        "after-subject-remove":   after_subject_remove,
+        "after-roles-update":     after_roles_update,
+        "before-extauth-disable": before_extauth_disable,
     }
     XenAPIPlugin.dispatch(dispatch_tbl)
