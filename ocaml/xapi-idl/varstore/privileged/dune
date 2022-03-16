@@ -5,6 +5,7 @@
  (libraries
    rpclib.core
    threads
+   uuidm
    xcp
  )
  (wrapped false)

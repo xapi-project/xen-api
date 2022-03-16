@@ -34,7 +34,7 @@ type context = {
 
 let make_context () = {transferred_fd= None}
 
-let instance_id = Uuidm.to_string (Uuidm.create `V4)
+let instance_id = Uuid.(to_string (make ()))
 
 let query _ _ _ =
   {

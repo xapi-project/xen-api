@@ -2,11 +2,8 @@
 
 (* Intended use case is to set dom0's uuid *)
 
-let is_uuid_valid uuid =
-  match Uuidm.of_string uuid with None -> false | Some _ -> true
-
 let set domain uuid =
-  if not (is_uuid_valid uuid) then
+  if not (Uuid.is_uuid uuid) then
     `Error (false, "Invalid uuid")
   else
     let xc = Xenctrl.interface_open () in

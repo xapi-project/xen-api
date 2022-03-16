@@ -359,8 +359,7 @@ let find_or_create_network (bridge : string) (device : string) ~__context =
   | [net] ->
       net
   | _ ->
-      let net_ref = Ref.make ()
-      and net_uuid = Uuid.to_string (Uuid.make ()) in
+      let net_ref = Ref.make () and net_uuid = Uuid.to_string (Uuid.make ()) in
       let () =
         Db.Network.create ~__context ~ref:net_ref ~uuid:net_uuid
           ~current_operations:[] ~allowed_operations:[]
@@ -408,8 +407,7 @@ let is_my_management_pif ~__context ~self =
   Db.Network.get_bridge ~__context ~self:net = management_if
 
 let make_pif_metrics ~__context =
-  let metrics = Ref.make ()
-  and metrics_uuid = Uuid.to_string (Uuid.make ()) in
+  let metrics = Ref.make () and metrics_uuid = Uuid.to_string (Uuid.make ()) in
   let () =
     Db.PIF_metrics.create ~__context ~ref:metrics ~uuid:metrics_uuid
       ~carrier:false ~device_name:"" ~vendor_name:"" ~device_id:"" ~vendor_id:""

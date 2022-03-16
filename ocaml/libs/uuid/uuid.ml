@@ -62,7 +62,6 @@ let make_uuid_urnd () = of_bytes (read_bytes dev_urandom 16) |> Option.get
 (* Use the CSPRNG-backed urandom *)
 let make = make_uuid_urnd
 
-
 type cookie = string
 
 let make_cookie () =

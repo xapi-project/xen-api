@@ -3,7 +3,6 @@
  (libraries
   cmdliner
   forkexec
-  uuidm
   xapi-idl
   xapi-stdext-unix
   xapi-xenopsd

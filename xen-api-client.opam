@@ -22,7 +22,7 @@ depends: [
   "rpclib"
   "xapi-rrd"
   "uri"
-  "uuidm"
+  "uuid"
   "xapi-client"
   "xapi-types"
   "xmlm"

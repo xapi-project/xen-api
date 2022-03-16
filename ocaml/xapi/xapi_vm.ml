@@ -614,8 +614,7 @@ let create ~__context ~name_label ~name_description ~power_state ~user_version
      - power_state = `Suspended and suspend_VDI = Ref.null || last_booted_record = "" || last_boot_CPU_flags = []
      - power_state not in [`Halted, `Suspended]
   *)
-  let metrics = Ref.make ()
-  and metrics_uuid = Uuid.to_string (Uuid.make ()) in
+  let metrics = Ref.make () and metrics_uuid = Uuid.to_string (Uuid.make ()) in
   let vCPUs_utilisation = [(0L, 0.)] in
   let suspended = power_state = `Suspended in
   let current_domain_type = if suspended then domain_type else `unspecified in

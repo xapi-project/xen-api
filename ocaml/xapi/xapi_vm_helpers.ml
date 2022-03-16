@@ -1303,8 +1303,7 @@ let copy_metrics ~__context ~vm =
     else
       None
   in
-  let metrics = Ref.make ()
-  and metrics_uuid = Uuid.to_string (Uuid.make ()) in
+  let metrics = Ref.make () and metrics_uuid = Uuid.to_string (Uuid.make ()) in
   Db.VM_metrics.create ~__context ~ref:metrics ~uuid:metrics_uuid
     ~memory_actual:
       (Option.fold ~none:0L

@@ -226,7 +226,7 @@ let this_domid ~xs =
   try int_of_string (xs.Xs.read "domid") with _ -> 0
 
 let uuid_of_string x =
-  match Uuidm.of_string x with
+  match Uuid.of_string x with
   | Some x ->
       x
   | None ->
@@ -235,22 +235,18 @@ let uuid_of_string x =
 
 let uuid_of_vm vm = uuid_of_string vm.Vm.id
 
-let uuid_of_di di = Ez_xenctrl_uuid.uuid_of_handle di.Xenctrl.handle
-
 let di_of_uuid ~xc uuid =
   let open Xenctrl in
-  let uuid' = Uuidm.to_string uuid in
-  let all = domain_getinfolist xc 0 in
-  let possible = List.filter (fun x -> uuid_of_di x = uuid) all in
-  match possible with
+  match Xenops_helpers.domains_of_uuid ~xc uuid with
   | [] ->
       None
   | [x] ->
       Some x
-  | xs ->
+  | possible ->
       let domid_list =
-        String.concat ", " (List.map (fun x -> string_of_int x.domid) xs)
+        String.concat ", " (List.map (fun x -> string_of_int x.domid) possible)
       in
+      let uuid' = Uuid.to_string uuid in
       error
         "VM %s: there are %d domains (%s) with the same uuid: one or more have \
          leaked"
@@ -263,12 +259,14 @@ let di_of_uuid ~xc uuid =
               )
            )
         )
+  | exception Failure r ->
+      raise (Xenopsd_error (Internal_error r))
 
 let domid_of_uuid ~xs uuid =
   (* We don't fully control the domain lifecycle because libxenguest will
      actually destroy a domain on suspend. Therefore we only rely on state in
      xenstore *)
-  let dir = Printf.sprintf "/vm/%s/domains" (Uuidm.to_string uuid) in
+  let dir = Printf.sprintf "/vm/%s/domains" (Uuid.to_string uuid) in
   try
     match
       xs.Xs.directory dir |> List.map int_of_string |> List.sort compare
@@ -284,7 +282,7 @@ let domid_of_uuid ~xs uuid =
           (Xenopsd_error
              (Internal_error
                 (Printf.sprintf "More than one domain with uuid (%s): %s"
-                   (Uuidm.to_string uuid) domid_list
+                   (Uuid.to_string uuid) domid_list
                 )
              )
           )
@@ -292,7 +290,7 @@ let domid_of_uuid ~xs uuid =
     error "Failed to read %s: has this domain already been cleaned up?" dir ;
     None
 
-let get_uuid ~xc domid = uuid_of_di (Xenctrl.domain_getinfo xc domid)
+let get_uuid ~xc domid = Domain.get_uuid ~xc domid
 
 let device_kind_of_backend_keys backend_keys =
   try Device_common.vbd_kind_of_string (List.assoc "backend-kind" backend_keys)
@@ -346,8 +344,8 @@ let params_of_backend backend =
   (params, xenstore_data, extra_keys)
 
 let create_vbd_frontend ~xc ~xs task frontend_domid vdi =
-  let frontend_vm_id = get_uuid ~xc frontend_domid |> Uuidm.to_string in
-  let backend_vm_id = get_uuid ~xc vdi.domid |> Uuidm.to_string in
+  let frontend_vm_id = get_uuid ~xc frontend_domid |> Uuid.to_string in
+  let backend_vm_id = get_uuid ~xc vdi.domid |> Uuid.to_string in
   match domid_of_uuid ~xs (uuid_of_string backend_vm_id) with
   | None ->
       error
@@ -527,7 +525,7 @@ let with_disk ~xc ~xs task disk write f =
       finally
         (fun () ->
           let frontend_domid = this_domid ~xs in
-          let frontend_vm = get_uuid ~xc frontend_domid |> Uuidm.to_string in
+          let frontend_vm = get_uuid ~xc frontend_domid |> Uuid.to_string in
           let vdi =
             attach_and_activate ~xc ~xs task frontend_vm dp sr vdi write
           in
@@ -565,7 +563,7 @@ module Mem = struct
           "Got error_domains_refused_to_cooperate_code from ballooning daemon" ;
         Xenctrl.with_intf (fun xc ->
             let vms =
-              List.map (get_uuid ~xc) domids |> List.map Uuidm.to_string
+              List.map (get_uuid ~xc) domids |> List.map Uuid.to_string
             in
             raise (Xenopsd_error (Vms_failed_to_cooperate vms))
         )
@@ -2448,7 +2446,7 @@ module VM = struct
         let uuid = uuid_of_vm vm in
         match domid_of_uuid ~xs uuid with
         | None ->
-            failwith (Printf.sprintf "VM %s disappeared" (Uuidm.to_string uuid))
+            failwith (Printf.sprintf "VM %s disappeared" (Uuid.to_string uuid))
         | Some domid ->
             Device.Dm.assert_can_suspend ~xs ~dm:(dm_of ~vm) domid
     )
@@ -2784,7 +2782,7 @@ module VM = struct
             let rtc =
               try
                 xs.Xs.read
-                  (Printf.sprintf "/vm/%s/rtc/timeoffset" (Uuidm.to_string uuid))
+                  (Printf.sprintf "/vm/%s/rtc/timeoffset" (Uuid.to_string uuid))
               with Xs_protocol.Enoent _ -> ""
             in
             let ls_l ~depth root dir =
@@ -4796,7 +4794,7 @@ module Actions = struct
   let xenbus_connected = Xenbus_utils.(int_of Connected) |> string_of_int
 
   let maybe_update_pv_drivers_detected ~xc ~xs domid path =
-    let vm = get_uuid ~xc domid |> Uuidm.to_string in
+    let vm = get_uuid ~xc domid |> Uuid.to_string in
     Option.iter
       (function
         | {VmExtra.persistent} -> (
@@ -4990,6 +4988,21 @@ module Actions = struct
         List.iter (add_device_watch xs) new_devices ;
         List.iter (remove_device_watch xs) old_devices
     in
+    let uuid_of_domain di =
+      let string_of_domain_handle handle =
+        Array.to_list handle |> List.map string_of_int |> String.concat "; "
+      in
+      match Uuid.of_int_array di.Xenctrl.handle with
+      | Some x ->
+          x
+      | None ->
+          failwith
+            (Printf.sprintf "VM handle for domain %i is an invalid uuid: %a"
+               di.Xenctrl.domid
+               (fun () -> string_of_domain_handle)
+               di.Xenctrl.handle
+            )
+    in
     let fire_event_on_vm domid =
       let d = int_of_string domid in
       let open Xenstore_watch in
@@ -4997,7 +5010,7 @@ module Actions = struct
         debug "Ignoring watch on shutdown domain %d" d
       else
         let di = IntMap.find d domains in
-        let id = Uuidm.to_string (uuid_of_di di) in
+        let id = Uuid.to_string (uuid_of_domain di) in
         Updates.add (Dynamic.Vm id) internal_updates
     in
     let fire_event_on_device domid kind devid =
@@ -5007,7 +5020,7 @@ module Actions = struct
         debug "Ignoring watch on shutdown domain %d" d
       else
         let di = IntMap.find d domains in
-        let id = Uuidm.to_string (uuid_of_di di) in
+        let id = Uuid.to_string (uuid_of_domain di) in
         let update =
           match kind with
           | "vbd" | "vbd3" | "qdisk" | "9pfs" ->
@@ -5041,7 +5054,7 @@ module Actions = struct
         | Some signal ->
             debug "Received unexpected qemu-pid-signal %s for domid %d" signal d ;
             let di = IntMap.find d domains in
-            let id = Uuidm.to_string (uuid_of_di di) in
+            let id = Uuid.to_string (uuid_of_domain di) in
             qemu_disappeared di xc xs ;
             Updates.add (Dynamic.Vm id) internal_updates
     in

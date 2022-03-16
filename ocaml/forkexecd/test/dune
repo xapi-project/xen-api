@@ -1,7 +1,7 @@
 (executable
  (modes byte exe)
  (name fe_test)
- (libraries forkexec uuidm xapi-stdext-unix))
+ (libraries forkexec xapi-stdext-unix))
 
 (rule
  (alias runtest)

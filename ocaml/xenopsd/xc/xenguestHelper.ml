@@ -53,8 +53,8 @@ let connect path (args : string list) (fds : (string * Unix.file_descr) list) :
     t =
   debug "connect: args = [ %s ]" (String.concat " " args) ;
   (* Need to send commands and receive responses from the slave process *)
-  let slave_to_server_w_uuid = Uuidm.to_string (Uuidm.create `V4) in
-  let server_to_slave_r_uuid = Uuidm.to_string (Uuidm.create `V4) in
+  let slave_to_server_w_uuid = Uuid.(to_string (make ())) in
+  let server_to_slave_r_uuid = Uuid.(to_string (make ())) in
   let slave_to_server_r, slave_to_server_w = Unix.pipe () in
   let server_to_slave_r, server_to_slave_w = Unix.pipe () in
   let args =

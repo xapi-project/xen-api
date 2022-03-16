@@ -35,6 +35,21 @@ let hashtbl_of_domaininfo x : (string, string) Hashtbl.t =
     Int64.to_string (Memory.mib_of_pages_used (Int64.of_nativeint x))
   in
   let pages_to_string_pages x = Int64.to_string (Int64.of_nativeint x) in
+  let uuid_of_di di =
+    let string_of_domain_handle handle =
+      Array.to_list handle |> List.map string_of_int |> String.concat "; "
+    in
+    match Uuid.of_int_array di.Xenctrl.handle with
+    | Some x ->
+        x
+    | None ->
+        failwith
+          (Printf.sprintf "VM handle for domain %i is an invalid uuid, %a"
+             di.Xenctrl.domid
+             (fun () -> string_of_domain_handle)
+             di.Xenctrl.handle
+          )
+  in
   let int = string_of_int
   and int64 = Int64.to_string
   and int32 = Int32.to_string in
@@ -65,8 +80,7 @@ let hashtbl_of_domaininfo x : (string, string) Hashtbl.t =
   Hashtbl.add table "vcpus online" (int x.nr_online_vcpus) ;
   Hashtbl.add table "max vcpu id" (int x.max_vcpu_id) ;
   Hashtbl.add table "ssidref" (int32 x.ssidref) ;
-  Hashtbl.add table "uuid"
-    (Uuidm.to_string (Ez_xenctrl_uuid.uuid_of_handle x.handle)) ;
+  Hashtbl.add table "uuid" (Uuid.to_string (uuid_of_di x)) ;
   (* Ask for shadow allocation separately *)
   let shadow_mib =
     try Some (Int64.of_int (Xenctrl.shadow_allocation_get xc_handle x.domid))

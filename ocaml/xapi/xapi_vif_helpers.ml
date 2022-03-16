@@ -371,7 +371,7 @@ let copy ~__context ~vm ~preserve_mac_address vif =
         let site = proxy.API.pVS_proxy_site in
         let vIF = result in
         let pvs_proxy = Ref.make () in
-        let uuid = Uuidm.to_string (Uuidm.create `V4) in
+        let uuid = Uuid.(to_string (make ())) in
         Db.PVS_proxy.create ~__context ~ref:pvs_proxy ~uuid ~site ~vIF
           ~currently_attached:false ~status:`stopped
       with e ->

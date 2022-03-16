@@ -186,8 +186,6 @@ exception Timeout_backend
 
 exception Could_not_read_file of string (* eg linux kernel/ initrd *)
 
-module Uuid = Uuidm
-
 let log_exn_continue msg f x =
   try f x
   with e ->
@@ -216,8 +214,19 @@ let rec xenstore_iter t fn path =
         names
 
 let get_uuid ~xc domid =
-  Ez_xenctrl_uuid.uuid_of_handle
-    (Xenctrl.domain_getinfo xc domid).Xenctrl.handle
+  let string_of_domain_handle handle =
+    Array.to_list handle |> List.map string_of_int |> String.concat "; "
+  in
+  let raw_uuid = (Xenctrl.domain_getinfo xc domid).Xenctrl.handle in
+  match Uuid.of_int_array raw_uuid with
+  | Some x ->
+      x
+  | None ->
+      failwith
+        (Printf.sprintf "VM handle for domain %i is an invalid uuid: %a" domid
+           (fun () -> string_of_domain_handle)
+           raw_uuid
+        )
 
 let wait_xen_free_mem ~xc ?(maximum_wait_time_seconds = 64) required_memory_kib
     : bool =
@@ -473,9 +482,7 @@ let make ~xc ~xs vm_info vcpus domain_config uuid final_uuid no_sharept =
       (if vm_info.has_vendor_device then "1" else "0") ;
     (* CA-30811: let the linux guest agent easily determine if this is a fresh
        domain even if the domid hasn't changed (consider cross-host migrate) *)
-    xs.Xs.write
-      (dom_path ^ "/unique-domain-id")
-      (Uuid.to_string (Uuid.create `V4)) ;
+    xs.Xs.write (dom_path ^ "/unique-domain-id") Uuid.(to_string (make ())) ;
     info "VM = %s; domid = %d" (Uuid.to_string uuid) domid ;
     domid
   with e ->
@@ -1181,13 +1188,13 @@ let with_emu_manager_restore (task : Xenops_task.task_handle) ~domain_type
   let mode =
     match domain_type with `hvm | `pvh -> "hvm_restore" | `pv -> "restore"
   in
-  let fd_uuid = Uuid.(to_string (create `V4)) in
+  let fd_uuid = Uuid.(to_string (make ())) in
   let vgpu_args, vgpu_cmdline =
     match vgpu_fd with
     | Some fd when fd = main_fd ->
         ([(fd_uuid, main_fd)], ["-dm"; "vgpu:" ^ fd_uuid])
     | Some fd ->
-        let vgpu_fd_uuid = Uuid.(to_string (create `V4)) in
+        let vgpu_fd_uuid = Uuid.(to_string (make ())) in
         ([(vgpu_fd_uuid, fd)], ["-dm"; "vgpu:" ^ vgpu_fd_uuid])
     | None ->
         ([], [])
@@ -1580,7 +1587,7 @@ let suspend_emu_manager ~(task : Xenops_task.task_handle) ~xc:_ ~xs ~domain_type
   let open Suspend_image in
   let open Suspend_image.M in
   let open Emu_manager in
-  let fd_uuid = Uuid.(to_string (create `V4)) in
+  let fd_uuid = Uuid.(to_string (make ())) in
   let mode =
     match domain_type with `hvm | `pvh -> "hvm_save" | `pv -> "save"
   in
@@ -1589,7 +1596,7 @@ let suspend_emu_manager ~(task : Xenops_task.task_handle) ~xc:_ ~xs ~domain_type
     | Some fd when fd = main_fd ->
         ([(fd_uuid, main_fd)], ["-dm"; "vgpu:" ^ fd_uuid])
     | Some fd ->
-        let vgpu_fd_uuid = Uuid.(to_string (create `V4)) in
+        let vgpu_fd_uuid = Uuid.(to_string (make ())) in
         ([(vgpu_fd_uuid, fd)], ["-dm"; "vgpu:" ^ vgpu_fd_uuid])
     | None ->
         ([], [])
@@ -1731,7 +1738,7 @@ let write_varstored_record task ~xs domid main_fd =
   let open Suspend_image.M in
   let varstored_record =
     Device.Dm.suspend_varstored task ~xs domid
-      ~vm_uuid:(Uuidm.to_string (Xenops_helpers.uuid_of_domid ~xs domid))
+      ~vm_uuid:(Uuid.to_string (Xenops_helpers.uuid_of_domid ~xs domid))
   in
   let varstored_rec_len = String.length varstored_record in
   debug "Writing varstored record (domid=%d length=%d)" domid varstored_rec_len ;
