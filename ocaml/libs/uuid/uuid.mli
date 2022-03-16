@@ -33,11 +33,7 @@ val null : 'a t
 val make_uuid : unit -> 'a t
 (** Create a fresh UUID *)
 
-val make_uuid_prng : unit -> 'a t
-
 val make_uuid_urnd : unit -> 'a t
-
-val make_uuid_rnd : unit -> 'a t
 
 val pp : Format.formatter -> 'a t -> unit
 

@@ -36,34 +36,7 @@ let to_string = Uuidm.to_string ~upper:false
 
 let is_uuid str = match of_string str with None -> false | Some _ -> true
 
-let dev_random = "/dev/random"
-
 let dev_urandom = "/dev/urandom"
-
-let rnd_bytes n =
-  let fstbyte i = 0xff land i in
-  let sndbyte i = fstbyte (i lsr 8) in
-  let thdbyte i = sndbyte (i lsr 8) in
-  let rec rnd_list n acc =
-    match n with
-    | 0 ->
-        acc
-    | 1 ->
-        let b = fstbyte (Random.bits ()) in
-        b :: acc
-    | 2 ->
-        let r = Random.bits () in
-        let b1 = fstbyte r in
-        let b2 = sndbyte r in
-        b1 :: b2 :: acc
-    | n ->
-        let r = Random.bits () in
-        let b1 = fstbyte r in
-        let b2 = sndbyte r in
-        let b3 = thdbyte r in
-        rnd_list (n - 3) (b1 :: b2 :: b3 :: acc)
-  in
-  rnd_list n [] |> List.to_seq |> Seq.map char_of_int |> String.of_seq
 
 let read_bytes dev n =
   let fd = Unix.openfile dev [Unix.O_RDONLY] 0o640 in
@@ -84,12 +57,9 @@ let read_bytes dev n =
     )
     (fun () -> Unix.close fd)
 
-let make_uuid_prng () = of_bytes (rnd_bytes 16) |> Option.get
-
 let make_uuid_urnd () = of_bytes (read_bytes dev_urandom 16) |> Option.get
 
-let make_uuid_rnd () = of_bytes (read_bytes dev_random 16) |> Option.get
-
+(* Use the CSPRNG-backed urandom *)
 let make_uuid = make_uuid_urnd
 
 type cookie = string
