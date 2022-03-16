@@ -151,7 +151,7 @@ let write_patch_applied_db ~__context ?date ?(applied = true) ~self ~host () =
         Db.Host_patch.set_applied ~__context ~self:r ~value:applied
       )
   | None ->
-      let uuid = Uuid.make_uuid () in
+      let uuid = Uuid.make () in
       let r = Ref.make () in
       Db.Host_patch.create ~__context ~ref:r ~uuid:(Uuid.to_string uuid) ~host
         ~pool_patch:self ~timestamp_applied:date ~name_label:""

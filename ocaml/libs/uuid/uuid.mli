@@ -30,7 +30,7 @@ val null : 'a t
 (** A null UUID, as if such a thing actually existed. It turns out to be
     useful though. *)
 
-val make_uuid : unit -> 'a t
+val make : unit -> 'a t
 (** Create a fresh UUID *)
 
 val make_uuid_urnd : unit -> 'a t

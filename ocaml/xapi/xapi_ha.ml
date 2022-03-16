@@ -1886,7 +1886,7 @@ let enable __context heartbeat_srs configuration =
     (* Start by assuming there is no ha_plan_for: this can be revised upwards later *)
     Db.Pool.set_ha_plan_exists_for ~__context ~self:pool ~value:0L ;
     let (_ : bool) = Xapi_ha_vm_failover.update_pool_status ~__context () in
-    let generation = Uuid.to_string (Uuid.make_uuid ()) in
+    let generation = Uuid.to_string (Uuid.make ()) in
     let hosts = Db.Host.get_all ~__context in
     (* This code always runs on the master *)
     let statefiles = attach_statefiles ~__context !statefile_vdis in

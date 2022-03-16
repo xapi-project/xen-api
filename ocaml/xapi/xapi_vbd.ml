@@ -272,7 +272,7 @@ let create ~__context ~vM ~vDI ~device ~userdevice ~bootable ~mode ~_type
             else
               userdevice
           in
-          let uuid = Uuid.make_uuid () in
+          let uuid = Uuid.make () in
           let ref = Ref.make () in
           debug "VBD.create (device = %s; uuid = %s; ref = %s)" userdevice
             (Uuid.to_string uuid) (Ref.string_of ref) ;
@@ -297,7 +297,7 @@ let create ~__context ~vM ~vDI ~device ~userdevice ~bootable ~mode ~_type
           if not empty then
             assert_doesnt_make_vm_non_agile ~__context ~vm:vM ~vdi:vDI ;
           let metrics = Ref.make ()
-          and metrics_uuid = Uuid.to_string (Uuid.make_uuid ()) in
+          and metrics_uuid = Uuid.to_string (Uuid.make ()) in
           Db.VBD_metrics.create ~__context ~ref:metrics ~uuid:metrics_uuid
             ~io_read_kbs:0. ~io_write_kbs:0. ~last_updated:(Date.of_float 0.)
             ~other_config:[] ;

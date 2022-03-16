@@ -156,7 +156,7 @@ let vdi_bad_introduce rpc session_id sr_info () =
           ) ;
         let (_ : API.ref_VDI) =
           Client.Client.VDI.introduce ~rpc ~session_id
-            ~uuid:(Uuid.to_string (Uuid.make_uuid ()))
+            ~uuid:(Uuid.to_string (Uuid.make ()))
             ~name_label:"bad location" ~name_description:"" ~sR:vdir.API.vDI_SR
             ~_type:vdir.API.vDI_type ~sharable:false ~read_only:false
             ~other_config:[] ~location:vdir.API.vDI_location ~xenstore_data:[]

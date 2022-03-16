@@ -42,13 +42,13 @@ let create_internal ~__context ~transport_PIF ~network ~host ~protocol =
   let access_PIF = Ref.make () in
   let device = choose_tunnel_device_name ~__context ~host in
   let device_name = device in
-  let mAC = Xapi_vif_helpers.gen_mac (0, Uuid.to_string (Uuid.make_uuid ())) in
+  let mAC = Xapi_vif_helpers.gen_mac (0, Uuid.to_string (Uuid.make ())) in
   let metrics = Db.PIF.get_metrics ~__context ~self:transport_PIF in
   let primary_address_type =
     Db.PIF.get_primary_address_type ~__context ~self:transport_PIF
   in
   Db.PIF.create ~__context ~ref:access_PIF
-    ~uuid:(Uuid.to_string (Uuid.make_uuid ()))
+    ~uuid:(Uuid.to_string (Uuid.make ()))
     ~device ~device_name ~network ~host ~mAC ~mTU:(-1L) ~vLAN:(-1L) ~metrics
     ~physical:false ~currently_attached:false ~igmp_snooping_status:`unknown
     ~ip_configuration_mode:`None ~iP:"" ~netmask:"" ~gateway:"" ~dNS:""
@@ -57,7 +57,7 @@ let create_internal ~__context ~transport_PIF ~network ~host ~protocol =
     ~iPv6:[""] ~ipv6_gateway:"" ~primary_address_type ~managed:true
     ~properties:[] ~capabilities:[] ~pCI:Ref.null ;
   Db.Tunnel.create ~__context ~ref:tunnel
-    ~uuid:(Uuid.to_string (Uuid.make_uuid ()))
+    ~uuid:(Uuid.to_string (Uuid.make ()))
     ~access_PIF ~transport_PIF ~status:[("active", "false")] ~other_config:[]
     ~protocol ;
   (tunnel, access_PIF)

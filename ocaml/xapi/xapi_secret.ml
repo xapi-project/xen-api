@@ -27,7 +27,7 @@ let introduce ~__context ~uuid ~value ~other_config =
   ref
 
 let create ~__context ~value ~other_config =
-  let uuid = Uuid.to_string (Uuid.make_uuid ()) in
+  let uuid = Uuid.to_string (Uuid.make ()) in
   let ref = introduce ~__context ~uuid ~value ~other_config in
   ref
 

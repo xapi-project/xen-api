@@ -214,7 +214,7 @@ let stem = "xapi"
 
 let pool_introduce ~__context ~name_label ~name_description ~mTU ~other_config
     ~bridge ~managed ~purpose =
-  let r = Ref.make () and uuid = Uuid.make_uuid () in
+  let r = Ref.make () and uuid = Uuid.make () in
   Db.Network.create ~__context ~ref:r ~uuid:(Uuid.to_string uuid)
     ~current_operations:[] ~allowed_operations:[] ~purpose ~name_label
     ~name_description ~mTU ~bridge ~managed ~other_config ~blobs:[] ~tags:[]
@@ -265,7 +265,7 @@ let create ~__context ~name_label ~name_description ~mTU ~other_config ~bridge
           bridge
         )
       in
-      let r = Ref.make () and uuid = Uuid.make_uuid () in
+      let r = Ref.make () and uuid = Uuid.make () in
       Db.Network.create ~__context ~ref:r ~uuid:(Uuid.to_string uuid)
         ~current_operations:[] ~allowed_operations:[] ~name_label
         ~name_description ~mTU ~bridge ~managed ~other_config ~blobs:[] ~tags

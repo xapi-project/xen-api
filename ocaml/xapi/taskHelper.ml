@@ -22,7 +22,7 @@ type t = API.ref_task
 (* creates a new task *)
 let make ~__context ~http_other_config ?(description = "") ?session_id
     ?subtask_of label : t * t Uuid.t =
-  let uuid = Uuid.make_uuid () in
+  let uuid = Uuid.make () in
   let uuid_str = Uuid.to_string uuid in
   let ref = Ref.make () in
   (* we store in database only parent/child relationship between real tasks *)

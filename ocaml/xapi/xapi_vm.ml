@@ -598,14 +598,14 @@ let create ~__context ~name_label ~name_description ~power_state ~user_version
       ~f:Features.PCI_device_for_auto_update ;
   (* Add random mac_seed if there isn't one specified already *)
   let other_config =
-    let gen_mac_seed () = Uuid.to_string (Uuid.make_uuid ()) in
+    let gen_mac_seed () = Uuid.to_string (Uuid.make ()) in
     if not (List.mem_assoc Xapi_globs.mac_seed other_config) then
       (Xapi_globs.mac_seed, gen_mac_seed ()) :: other_config
     else
       other_config
   in
   (* NB apart from the above, parameter validation is delayed until VM.start *)
-  let uuid = Uuid.make_uuid () in
+  let uuid = Uuid.make () in
   let vm_ref = Ref.make () in
   let resident_on = Ref.null in
   let scheduled_to_be_resident_on = Ref.null in
@@ -615,7 +615,7 @@ let create ~__context ~name_label ~name_description ~power_state ~user_version
      - power_state not in [`Halted, `Suspended]
   *)
   let metrics = Ref.make ()
-  and metrics_uuid = Uuid.to_string (Uuid.make_uuid ()) in
+  and metrics_uuid = Uuid.to_string (Uuid.make ()) in
   let vCPUs_utilisation = [(0L, 0.)] in
   let suspended = power_state = `Suspended in
   let current_domain_type = if suspended then domain_type else `unspecified in

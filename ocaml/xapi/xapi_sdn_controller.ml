@@ -43,7 +43,7 @@ let db_introduce ~__context ~protocol ~address ~port =
   if port <> 0L then
     Helpers.assert_is_valid_tcp_udp_port ~port:(Int64.to_int port) ~name:"port" ;
   let tcpport = if protocol = `ssl && port = 0L then 6632L else port in
-  let r = Ref.make () and uuid = Uuid.make_uuid () in
+  let r = Ref.make () and uuid = Uuid.make () in
   Db.SDN_controller.create ~__context ~ref:r ~uuid:(Uuid.to_string uuid)
     ~protocol ~address ~port:tcpport ;
   r

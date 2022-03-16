@@ -635,7 +635,7 @@ module SMAPIv1 = struct
                 let other_config = Db.VDI.get_other_config ~__context ~self in
                 if not (List.mem_assoc "content_id" other_config) then
                   Db.VDI.add_to_other_config ~__context ~self ~key:"content_id"
-                    ~value:Uuid.(to_string (make_uuid ()))
+                    ~value:Uuid.(to_string (make ()))
             ) ;
             (* If the backend doesn't advertise the capability then do nothing *)
             if List.mem_assoc Smint.Vdi_deactivate (Sm.features_of_driver _type)
@@ -737,7 +737,7 @@ module SMAPIv1 = struct
               try
                 List.assoc "content_id"
                   (Db.VDI.get_other_config ~__context ~self:clonee)
-              with _ -> Uuid.(to_string (make_uuid ()))
+              with _ -> Uuid.(to_string (make ()))
             in
             let snapshot_time = Date.of_float (Unix.gettimeofday ()) in
             Db.VDI.set_name_label ~__context ~self ~value:vdi_info.name_label ;

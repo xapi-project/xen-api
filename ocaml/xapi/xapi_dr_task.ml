@@ -20,7 +20,7 @@ module D = Debug.Make (struct let name = "xapi_dr_task" end)
 open D
 
 let make_task ~__context =
-  let uuid = Uuid.make_uuid () in
+  let uuid = Uuid.make () in
   let ref = Ref.make () in
   Db.DR_task.create ~__context ~ref ~uuid:(Uuid.to_string uuid) ;
   ref

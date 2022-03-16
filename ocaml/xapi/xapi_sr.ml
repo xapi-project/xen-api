@@ -199,7 +199,7 @@ let scanning_thread () =
 let introduce ~__context ~uuid ~name_label ~name_description ~_type
     ~content_type ~shared ~sm_config =
   let _type = String.lowercase_ascii _type in
-  let uuid = if uuid = "" then Uuid.to_string (Uuid.make_uuid ()) else uuid in
+  let uuid = if uuid = "" then Uuid.to_string (Uuid.make ()) else uuid in
   (* fill in uuid if none specified *)
   let sr_ref = Ref.make () in
   (* Create SR record in DB *)
@@ -390,7 +390,7 @@ let create ~__context ~host ~device_config ~(physical_size : int64) ~name_label
 		  | _ -> ()
 	end;
 *)
-        let sr_uuid = Uuid.make_uuid () in
+        let sr_uuid = Uuid.make () in
         let sr_uuid_str = Uuid.to_string sr_uuid in
         (* Create the SR in the database before creating on disk, so the backends can read the sm_config field. If an error happens here
            	we have to clean up the record.*)
@@ -682,7 +682,7 @@ let update_vdis ~__context ~sr db_vdis vdi_infos =
           | Some x ->
               x
           | None ->
-              Uuid.make_uuid ()
+              Uuid.make ()
         in
         debug "Creating VDI: %s (ref=%s)" (string_of_vdi_info vdi)
           (Ref.string_of ref) ;
