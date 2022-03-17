@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-val compress : Unix.file_descr -> (Unix.file_descr -> unit) -> unit
+val compress : Unix.file_descr -> (Unix.file_descr -> 'a) -> 'a
 (** Runs a compression process which is fed from a pipe whose entrance is passed to 'f'
     and whose output is 'ofd' *)
 
