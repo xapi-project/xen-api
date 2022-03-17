@@ -21,31 +21,38 @@ module Chroot : sig
   module Path : sig
     type t
 
+    val root : t
+
     val of_string : relative:string -> t
+
+    val concat : t -> string -> t
   end
 
   val absolute_path_outside : t -> Path.t -> string
-  (** [absolute_path_outside chroot path] returns the absolute path outside the
-      chroot *)
 
   val chroot_path_inside : Path.t -> string
-  (** [chroot_path_inside path] returns the path when inside the chroot *)
 
-  val of_domid : daemon:string -> domid:int -> vm_uuid:string -> t
-  (** [of_domid daemon domid] describes a chroot for specified daemon and domain *)
+  val create_dir : within:t -> int -> Path.t -> unit
 
-  val create : daemon:string -> domid:int -> vm_uuid:string -> Path.t list -> t
-  (** [create daemon domid paths] Creates the specified chroot with appropriate
-      permissions, and ensures that all [paths] are owned by the chrooted daemon
-      and rw- *)
+  val of_domid :
+    base:string -> daemon:string -> domid:int -> vm_uuid:string -> t
+
+  val create :
+       base:string
+    -> daemon:string
+    -> domid:int
+    -> vm_uuid:string
+    -> Path.t list
+    -> t
 
   val destroy : t -> unit
-  (** [destroy chroot] Deletes the chroot *)
 end = struct
   type t = {root: string; uid: int; gid: int}
 
   module Path = struct
     type t = string
+
+    let root = "/"
 
     let of_string ~relative =
       if not (Filename.is_implicit relative) then
@@ -54,30 +61,41 @@ end = struct
              relative __LOC__
           ) ;
       relative
+
+    let concat = Filename.concat
   end
 
   let absolute_path_outside chroot path = Filename.concat chroot.root path
 
-  let chroot_path_inside path = Filename.concat "/" path
+  let chroot_path_inside path = Path.(concat root path)
+
+  let create_dir ~within perm path =
+    let fullpath = absolute_path_outside within path in
+    Xenops_utils.Unixext.with_file fullpath [Unix.O_CREAT; Unix.O_EXCL] perm
+      (fun fd -> Unix.fchown fd within.uid within.gid
+    )
 
   let qemu_base_uid () = (Unix.getpwnam "qemu_base").Unix.pw_uid
 
   let qemu_base_gid () = (Unix.getpwnam "qemu_base").Unix.pw_gid
 
-  let of_domid ~daemon ~domid ~vm_uuid =
+  let of_domid ~base ~daemon ~domid ~vm_uuid =
     let root =
-      if domid = 0 then
-        Printf.sprintf "/var/run/xen/%s-root-%d-%s" daemon domid vm_uuid
-      else
-        Printf.sprintf "/var/run/xen/%s-root-%d" daemon domid
+      let dir =
+        if domid = 0 then
+          Printf.sprintf "%s-root-%d-%s" daemon domid vm_uuid
+        else
+          Printf.sprintf "%s-root-%d" daemon domid
+      in
+      Filename.concat base dir
     in
     (* per VM uid/gid as for QEMU *)
     let uid = qemu_base_uid () + domid in
     let gid = qemu_base_gid () + domid in
     {root; uid; gid}
 
-  let create ~daemon ~domid ~vm_uuid paths =
-    let chroot = of_domid ~daemon ~domid ~vm_uuid in
+  let create ~base ~daemon ~domid ~vm_uuid paths =
+    let chroot = of_domid ~base ~daemon ~domid ~vm_uuid in
     try
       Xenops_utils.Unixext.mkdir_rec chroot.root 0o755 ;
       (* we want parent dir to be 0o755 and this dir 0o750 *)
@@ -85,13 +103,8 @@ end = struct
       (* the chrooted daemon will have r-x permissions *)
       Unix.chown chroot.root 0 chroot.gid ;
       D.debug "Created chroot %s" chroot.root ;
-      let prepare path =
-        let fullpath = absolute_path_outside chroot path in
-        Xenops_utils.Unixext.with_file fullpath [Unix.O_CREAT; Unix.O_EXCL]
-          0o600 (fun fd -> Unix.fchown fd chroot.uid chroot.gid
-        )
-      in
-      List.iter prepare paths ; chroot
+      List.iter (create_dir ~within:chroot 0o600) paths ;
+      chroot
     with e ->
       Backtrace.is_important e ;
       D.warn "Failed to create chroot at %s for UID %d: %s" chroot.root
@@ -104,47 +117,70 @@ end = struct
     )
 end
 
-module Varstore_guard = struct
-  let daemon = "varstored"
+module type SANDBOX = sig
+  val prepare : domid:int -> vm_uuid:string -> Chroot.Path.t -> string
 
-  let varstored_chroot ~domid ~vm_uuid = Chroot.of_domid ~daemon ~domid ~vm_uuid
+  val start :
+       string
+    -> vm_uuid:string
+    -> domid:int
+    -> paths:Chroot.Path.t list
+    -> Chroot.t * string
+
+  val read : domid:int -> Chroot.Path.t -> vm_uuid:string -> string
+
+  val stop : string -> domid:int -> vm_uuid:string -> unit
+end
+
+module type GUARD = sig
+  val daemon_name : string
+
+  val base_directory : string
+
+  val create : string -> vm_uuid:Uuidm.t -> domid:int -> path:string -> unit
+
+  val destroy : string -> domid:int -> path:string -> unit
+end
+
+module Guard (G : GUARD) : SANDBOX = struct
+  let daemon = G.daemon_name
 
   let socket_path = Chroot.Path.of_string ~relative:"xapi-depriv-socket"
 
-  (** [start dbg ~vm_uuid ~domid ~paths] prepares a chroot for [domid], and asks
-      varstore-guard to create a socket restricted to [vm_uuid]. Also creates
-      empty files specified in [paths] owned by [domid] user.*)
+  let chroot ~domid ~vm_uuid =
+    Chroot.of_domid ~base:G.base_directory ~daemon ~domid ~vm_uuid
+
   let start dbg ~vm_uuid ~domid ~paths =
-    let chroot = Chroot.create ~daemon ~domid ~vm_uuid paths in
+    let chroot =
+      Chroot.create ~base:G.base_directory ~daemon ~domid ~vm_uuid paths
+    in
     let absolute_socket_path =
       Chroot.absolute_path_outside chroot socket_path
     in
-    let vm_uuidm =
+    let vm_uuid =
       match Uuidm.of_string vm_uuid with
       | Some uuid ->
           uuid
       | None ->
           failwith (Printf.sprintf "Invalid VM uuid %s" vm_uuid)
     in
-    Varstore_privileged_client.Client.create dbg vm_uuidm chroot.gid
-      absolute_socket_path ;
+    G.create dbg ~vm_uuid ~domid:chroot.gid ~path:absolute_socket_path ;
     (chroot, Chroot.chroot_path_inside socket_path)
 
-  (** [prepare ~domid path] creates an empty [path] file owned by [domid] inside
-      the chroot for [domid] and returns the absolute path to it outside the
-      chroot *)
-  let prepare ~domid ~vm_uuid path =
-    let chroot = Chroot.create ~daemon ~domid ~vm_uuid [path] in
+  let create ~domid ~vm_uuid path =
+    let chroot =
+      Chroot.create ~base:G.base_directory ~daemon ~domid ~vm_uuid [path]
+    in
     Chroot.absolute_path_outside chroot path
 
   let read ~domid path ~vm_uuid =
-    let chroot = varstored_chroot ~domid ~vm_uuid in
+    let chroot = chroot ~domid ~vm_uuid in
     path
     |> Chroot.absolute_path_outside chroot
     |> Xenops_utils.Unixext.string_of_file
 
   let stop dbg ~domid ~vm_uuid =
-    let chroot = varstored_chroot ~domid ~vm_uuid in
+    let chroot = chroot ~domid ~vm_uuid in
     if Sys.file_exists chroot.root then (
       D.debug "About to stop varstored for %d (%s) %s" domid vm_uuid __LOC__ ;
       let gid = chroot.Chroot.gid in
@@ -152,11 +188,24 @@ module Varstore_guard = struct
         Chroot.absolute_path_outside chroot socket_path
       in
       Xenops_utils.best_effort "Stop listening on deprivileged socket"
-        (fun () ->
-          Varstore_privileged_client.Client.destroy dbg gid absolute_socket_path
+        (fun () -> G.destroy dbg ~domid:gid ~path:absolute_socket_path
       ) ;
       Chroot.destroy chroot
     ) else
-      D.warn "Can't stop varstored for %d (%s): %s does not exist" domid vm_uuid
+      D.warn "Can't stop %s for %d (%s): %s does not exist" daemon domid vm_uuid
         chroot.root
 end
+
+module Varstored : GUARD = struct
+  let daemon_name = "varstored"
+
+  let base_directory = "/var/run/xen"
+
+  let create dbg ~vm_uuid ~domid ~path =
+    Varstore_privileged_client.Client.create dbg vm_uuid domid path
+
+  let destroy dbg ~domid ~path =
+    Varstore_privileged_client.Client.destroy dbg domid path
+end
+
+module Varstore_guard = Guard (Varstored)
