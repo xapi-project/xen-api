@@ -32,7 +32,7 @@ module Compression = struct
 
   let compress = Gzip.compress
 
-  let decompress = Gzip.decompress
+  let decompress = Gzip.decompress_passive
 end
 
 type xen_arm_arch_domainconfig = Xenctrl.xen_arm_arch_domainconfig = {
@@ -1322,6 +1322,38 @@ let restore_common (task : Xenops_task.task_handle) ~xc ~xs
   | Ok Structured ->
       let open Suspend_image.M in
       let open Emu_manager in
+      let xenops_header =
+        ( debug "Expecing Xenops header... (fd=%d)" (Obj.magic main_fd) ;
+          read_header main_fd >>= function
+          | Xenops, len ->
+              debug "Read Xenops record header (length=%Ld)" len ;
+              let rec_str = Io.read main_fd (Io.int_of_int64_exn len) in
+              debug "Read Xenops record contents" ;
+              Xenops_record.of_string rec_str >>= fun (xr : Xenops_record.t) ->
+              debug "Validated Xenops record contents" ;
+              return xr
+          | _ ->
+              error "Was expecting Xenops header but didn't find it" ;
+              Error Suspend_image_failure
+        )
+        |> function
+        | Ok header ->
+            header
+        | Error e ->
+            warn "Canceling task %s, error during resume: %s"
+              (Xenops_task.get_dbg task) (Printexc.to_string e) ;
+            Xenops_task.cancel task |> ignore ;
+            raise e
+      in
+      let decompress =
+        match Suspend_image.Xenops_record.compression xenops_header with
+        | None ->
+            fun fd f -> f fd (* no compression *)
+        | Some _ ->
+            Compression.decompress
+        (* decompress using this fn *)
+      in
+      decompress main_fd @@ fun main_fd ->
       let fds =
         match vgpu_fd with
         | Some fd when fd <> main_fd ->
@@ -1758,7 +1790,7 @@ let suspend (task : Xenops_task.task_handle) ~xc ~xs ~domain_type ~is_uefi ~dm
     ?(progress_callback = fun _ -> ()) ~qemu_domid do_suspend_callback =
   let module DD = Debug.Make (struct let name = "mig64" end) in
   let open DD in
-  let compression, compress = Compression.(scheme, compress) in
+  let scheme, compress = Compression.(scheme, compress) in
   let hvm = domain_type = `hvm in
   let uuid = get_uuid ~xc domid in
   debug "VM = %s; domid = %d; suspend live = %b" (Uuid.to_string uuid) domid
@@ -1774,7 +1806,7 @@ let suspend (task : Xenops_task.task_handle) ~xc ~xs ~domain_type ~is_uefi ~dm
      nothing but keep the write to maintain the protocol. *)
   let res =
     let xs_subtree = [] in
-    Xenops_record.(to_string (make ~xs_subtree ~vm_str ~compression ()))
+    Xenops_record.(to_string (make ~xs_subtree ~vm_str ~compression:scheme ()))
     >>= fun xenops_record ->
     let xenops_rec_len = String.length xenops_record in
     debug "Writing Xenops header (length=%d)" xenops_rec_len ;
