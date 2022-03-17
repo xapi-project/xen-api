@@ -24,7 +24,12 @@ end
 module Xenops_record : sig
   type t
 
-  val make : ?vm_str:string -> ?xs_subtree:(string * string) list -> unit -> t
+  val make :
+       ?vm_str:string
+    -> ?xs_subtree:(string * string) list
+    -> ?compression:string
+    -> unit
+    -> t
 
   (* Are we using compression in the suspend image? *)
   val compression : t -> string option

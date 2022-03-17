@@ -13,6 +13,7 @@
   fd-send-recv
   fmt
   forkexec
+  gzip
   mtime
   mtime.clock.os
   polly

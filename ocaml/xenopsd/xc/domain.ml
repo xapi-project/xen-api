@@ -27,6 +27,14 @@ open D
 
 let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
+module Compression = struct
+  let scheme = "gzip"
+
+  let compress = Gzip.compress
+
+  let decompress = Gzip.decompress
+end
+
 type xen_arm_arch_domainconfig = Xenctrl.xen_arm_arch_domainconfig = {
     gic_version: int
   ; nr_spis: int
@@ -1750,6 +1758,7 @@ let suspend (task : Xenops_task.task_handle) ~xc ~xs ~domain_type ~is_uefi ~dm
     ?(progress_callback = fun _ -> ()) ~qemu_domid do_suspend_callback =
   let module DD = Debug.Make (struct let name = "mig64" end) in
   let open DD in
+  let compression, compress = Compression.(scheme, compress) in
   let hvm = domain_type = `hvm in
   let uuid = get_uuid ~xc domid in
   debug "VM = %s; domid = %d; suspend live = %b" (Uuid.to_string uuid) domid
@@ -1765,13 +1774,14 @@ let suspend (task : Xenops_task.task_handle) ~xc ~xs ~domain_type ~is_uefi ~dm
      nothing but keep the write to maintain the protocol. *)
   let res =
     let xs_subtree = [] in
-    Xenops_record.(to_string (make ~xs_subtree ~vm_str ()))
+    Xenops_record.(to_string (make ~xs_subtree ~vm_str ~compression ()))
     >>= fun xenops_record ->
     let xenops_rec_len = String.length xenops_record in
     debug "Writing Xenops header (length=%d)" xenops_rec_len ;
     write_header main_fd (Xenops, Int64.of_int xenops_rec_len) >>= fun () ->
     debug "Writing Xenops record contents" ;
     Io.write main_fd xenops_record ;
+    compress main_fd @@ fun main_fd ->
     suspend_emu_manager ~task ~xc ~xs ~domain_type ~is_uefi ~dm ~manager_path
       ~domid ~uuid ~main_fd ~vgpu_fd ~flags ~progress_callback ~qemu_domid
       ~do_suspend_callback

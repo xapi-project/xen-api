@@ -42,10 +42,9 @@ module Xenops_record = struct
   }
   [@@deriving sexp]
 
-  let make ?vm_str ?xs_subtree () =
+  let make ?vm_str ?xs_subtree ?compression () =
     let time = Xapi_stdext_date.Date.(to_string (of_float (Unix.time ()))) in
     let word_size = Sys.word_size in
-    let compression = None in
     {word_size; time; vm_str; xs_subtree; compression}
 
   let compression t = t.compression
