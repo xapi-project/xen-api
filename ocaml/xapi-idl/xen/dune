@@ -3,7 +3,11 @@
  (public_name xapi-idl.xen.interface.types)
  (modules xenops_types device_number)
  (libraries
+   result
    rpclib.core
+   rresult
+   sexplib
+   sexplib0
    threads
    xapi-idl
  )
@@ -15,10 +19,12 @@
  (public_name xapi-idl.xen.interface)
  (modules xenops_interface)
  (libraries
+   result
    rpclib.core
-   threads
+   rresult
    xapi-idl
    xapi-idl.xen.interface.types
+   xapi-log
  )
  (wrapped false)
  (preprocess (pps ppx_deriving_rpc ppx_sexp_conv)))
@@ -28,7 +34,9 @@
  (public_name xapi-idl.xen)
  (modules (:standard \ device_number xenops_interface xenops_types))
  (libraries
+   result
    rpclib.core
+   rpclib.json
    threads
    xapi-idl
    xapi-idl.xen.interface

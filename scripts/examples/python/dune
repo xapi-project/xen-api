@@ -2,6 +2,7 @@
   (modes byte exe)
   (name setuppy_gen)
   (libraries
+    dune-build-info
     xapi-stdext-unix
     xapi-datamodel
   )

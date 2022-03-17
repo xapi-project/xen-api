@@ -9,7 +9,7 @@
    logs.lwt
    lwt
    lwt.unix
-   re.str
+   re
    uuid
    wslib
   )

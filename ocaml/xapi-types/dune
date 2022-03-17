@@ -16,8 +16,9 @@
     astring
     http-svr
     rpclib.core
+    rpclib.json
     rpclib.xml
-    threads
+    uuid
     xapi-consts
     xapi-stdext-date
     xapi-stdext-unix

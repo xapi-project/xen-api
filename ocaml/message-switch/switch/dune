@@ -3,16 +3,30 @@
   (name switch_main)
   (libraries
     cmdliner
+    cohttp
+    cohttp-lwt
     cohttp-lwt-unix
+    conduit-lwt-unix
+    cstruct
     io-page-unix
+    lwt
+    lwt.unix
     lwt_log
+    message-switch-core
     message-switch-lwt
     message-switch-unix
+    mirage-block
+    mirage-block-unix
+    mirage-time
     mtime
     mtime.clock.os
-    mirage-block-unix
+    result
+    rpclib.core
+    rpclib.json
     shared-block-ring
     sexplib
+    sexplib0
+    uri
   )
   (preprocess (pps ppx_sexp_conv))
 )

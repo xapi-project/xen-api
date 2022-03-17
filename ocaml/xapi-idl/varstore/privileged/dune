@@ -3,8 +3,9 @@
  (public_name xapi-idl.varstore.privileged)
  (modules (:standard \ varstore_privileged_cli))
  (libraries
+   result
    rpclib.core
-   threads
+   rresult
    uuidm
    xcp
  )
@@ -16,8 +17,11 @@
  (modules varstore_privileged_cli)
  (libraries
    cmdliner
+   dune-build-info
    rpclib.cmdliner
+   rpclib.core
    rpclib.markdown
+   xapi-idl
    xapi-idl.varstore.privileged
  ))
 

@@ -4,10 +4,13 @@
   (package rrdd-plugins)
   (public_name xcp-rrdd-xenpm)
   (libraries
+    dune-build-info
     rrdd-plugin
     rrdd-plugins.libs
     str
-    threads
+    xapi-idl.rrd
+    xapi-log
+    xapi-rrd
     xenctrl
   )
 )

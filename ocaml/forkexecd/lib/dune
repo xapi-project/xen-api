@@ -2,7 +2,16 @@
  (name forkexec)
  (public_name forkexec)
  (wrapped false)
- (libraries astring fd-send-recv rpclib.json threads uuid xapi-stdext-pervasives
-   xapi-stdext-unix)
+ (libraries
+   astring
+   fd-send-recv
+   rpclib.core
+   rpclib.json
+   uuid
+   xapi-backtrace
+   xapi-log
+   xapi-stdext-pervasives
+   xapi-stdext-unix
+ )
  (preprocess
   (pps ppx_deriving_rpc)))

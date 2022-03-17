@@ -4,9 +4,12 @@
  (public_name xapi-idl.cluster)
  (modules (:standard \ cluster_cli))
  (libraries
+   result
+   rpclib.core
+   rpclib.json
+   rresult
    xapi-idl
    threads
-   rpclib.core
  )
  (wrapped false)
  (preprocess (pps ppx_deriving_rpc)))
@@ -17,7 +20,9 @@
  (libraries
    cmdliner
    rpclib.cmdliner
+   rpclib.core
    rpclib.markdown
+   xapi-idl
    xapi-idl.cluster))
 
 (rule

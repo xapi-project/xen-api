@@ -1,9 +1,11 @@
 (executable
  (name example)
  (libraries
+   astring
    rpclib.core
-   xapi-idl
    xapi-consts.xapi_version
+   xapi-idl
+   xapi-log
  )
  (preprocess (pps ppx_deriving_rpc)))
 

@@ -3,7 +3,12 @@
  (libraries
   alcotest
   astring
+  dune-build-info
+  fmt
   networklibs
+  rpclib.core
+  rpclib.json
+  xapi-log
   xapi-test-utils)
 )
 

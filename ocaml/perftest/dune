@@ -4,6 +4,7 @@
   (public_name perftest)
   (package xapi)
   (libraries
+    dune-build-info
     http-svr
     rpclib.core
     threads.posix
@@ -11,7 +12,6 @@
     xapi-cli-protocol
     xapi-client
     xapi-datamodel
-    xapi-idl
     xapi-inventory
     xapi-types
     xapi-stdext-pervasives

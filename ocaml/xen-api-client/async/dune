@@ -3,13 +3,18 @@
   (public_name xen-api-client-async)
   (libraries
     async
+    async_kernel
     async_unix
+    base
     cohttp
     core
-    rpclib
+    core_kernel
+    rpclib.core
     rpclib.json
-    threads
+    rpclib.xml
     uri
+    xapi-client
+    xapi-consts
     xen-api-client
     xmlm
   )

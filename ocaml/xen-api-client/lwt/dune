@@ -2,16 +2,24 @@
   (name xen_api_client_lwt)
   (public_name xen-api-client-lwt)
   (libraries
+    astring
+    bigarray-compat
     cohttp
     cstruct
     lwt
     lwt_ssl
     lwt.unix
     re.str
-    rpclib
+    rpclib.core
     rpclib.json
+    rpclib.xml
+    ssl
     uri
+    xapi-client
+    xapi-consts
+    xapi-idl.varstore.privileged
     xapi-stdext-std
+    xapi-types
     xen-api-client
     xmlm
   )

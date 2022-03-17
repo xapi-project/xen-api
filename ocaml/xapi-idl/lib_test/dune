@@ -4,9 +4,13 @@
  (deps (source_tree test_data))
  (libraries
    alcotest
+   fmt
+   result
    rpclib.core
+   rpclib.json
    rpclib.markdown
-   threads
+   rpclib.xml
+   threads.posix
    xapi-idl
    xapi-idl.cluster
    xapi-idl.rrd
@@ -15,9 +19,13 @@
    xapi-idl.network
    xapi-idl.gpumon
    xapi-idl.storage
+   xapi-idl.storage.interface
    xapi-idl.varstore.privileged
    xapi-idl.varstore.deprivileged
    xapi-idl.v6
    xapi-idl.xen
+   xapi-idl.xen.interface
+   xapi-idl.xen.interface.types
+   xapi-log
  )
  (preprocess (pps ppx_deriving_rpc)))

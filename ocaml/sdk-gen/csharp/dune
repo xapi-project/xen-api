@@ -3,9 +3,12 @@
   (name gen_csharp_binding)
   (modules Gen_csharp_binding)
   (libraries
-    xapi-datamodel
-    CommonFunctions
     astring
+    CommonFunctions
+    dune-build-info
+    mustache
+    xapi-consts
+    xapi-datamodel
   )
 )
 
@@ -14,8 +17,11 @@
   (name friendly_error_names)
   (modules Friendly_error_names)
   (libraries
-    xapi-datamodel
     CommonFunctions
+    dune-build-info
+    mustache
+    xapi-datamodel
+    xmllight2
   )
 )
 

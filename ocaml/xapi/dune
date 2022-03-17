@@ -105,6 +105,7 @@
     unixpwd
     uri
     uuid
+    uuidm
     x509
     xapi_aux
     xapi-backtrace
@@ -132,6 +133,8 @@
     xapi-idl.gpumon
     xapi-idl.updates
     xapi-inventory
+    xapi-log
+    xapi-open-uri
     xapi-rrd
     xapi-types
     xapi-stdext-date
@@ -161,6 +164,7 @@
   (libraries
     xapi_internal
     xapi-idl
+    xapi-log
     xapi-stdext-unix
   )
 )

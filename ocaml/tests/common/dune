@@ -3,8 +3,29 @@
   (modules :standard)
   (wrapped false)
   (libraries
+    alcotest
+    fmt
+    http-svr
+    rpclib.core
+    rpclib.json
+    rpclib.xml
+    threads.posix
+    uuid
+    xapi_aux
+    xapi-consts
+    xapi-database
+    xapi-datamodel
+    xapi-idl
+    xapi-idl.memory
+    xapi-idl.network
+    xapi-idl.xen.interface
     xapi_internal
+    xapi-inventory
+    xapi-log
     xapi-test-utils
+    xapi-types
+    xapi-stdext-date
+    xapi-stdext-unix
   )
 )
 

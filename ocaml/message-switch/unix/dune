@@ -6,8 +6,11 @@
     protocol_unix_scheduler
   )
   (libraries
+    cohttp
     message-switch-core
-    threads
+    rpclib.core
+    rpclib.json
+    threads.posix
   )
   (preprocess (pps ppx_deriving_rpc))
 )

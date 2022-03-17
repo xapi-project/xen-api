@@ -9,6 +9,6 @@
     xenctrl
     unix
     squeeze
-    xapi-idl
+    xapi-log
   )
 )

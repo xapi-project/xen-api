@@ -11,10 +11,12 @@
     xapi-stdext-std
     xapi-stdext-threads
     xapi-stdext-unix
-    threads
+    threads.posix
     xapi-rrd
     rrd-transport.file
+    rrd-transport.lib
     xapi-idl.rrd
+    xapi-log
     xenstore_transport.unix
     xenstore.unix
   )
@@ -27,7 +29,14 @@
   (wrapped false)
   (modules reporter_local)
   (libraries
-    rrdd_plugin_base
+    rrdd-plugin.base
+    rrd-transport.file
+    rrd-transport.lib
+    threads.posix
+    xapi-idl.rrd
+    xapi-log
+    xapi-stdext-threads
+    xapi-stdext-unix
   )
 )
 
@@ -38,8 +47,13 @@
   (wrapped false)
   (modules reporter_interdomain)
   (libraries
-    rrdd_plugin_base
+    rrdd-plugin.base
+    rrd-transport.lib
     rrd-transport.page
+    threads.posix
+    xapi-idl.rrd.interface
+    xapi-log
+    xenstore_transport.unix
   )
 )
 
@@ -50,9 +64,15 @@
   (wrapped false)
   (modules rrdd_plugin)
   (libraries
-    rrdd_plugin_local
-    rrdd_plugin_interdomain
+    rrdd-plugin.base
+    rrdd-plugin.local
+    rrdd-plugin.interdomain
     rrd-transport
+    threads.posix
+    xapi-idl.rrd
+    xapi-idl.rrd.interface.types
+    xapi-log
+    xapi-rrd
   )
 )
 

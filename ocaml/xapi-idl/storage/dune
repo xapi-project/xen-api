@@ -3,7 +3,9 @@
  (public_name xapi-idl.storage.interface.types)
  (modules vdi_automaton)
  (libraries
+   result
    rpclib.core
+   rresult
    threads
    xapi-idl
  )
@@ -16,11 +18,14 @@
  (modules storage_interface)
  (libraries
    astring
+   result
    rpclib.core
-   threads
+   rpclib.json
+   rresult
    xapi-stdext-date
    xapi-idl
    xapi-idl.storage.interface.types
+   xapi-log
  )
  (wrapped false)
  (preprocess (pps ppx_sexp_conv ppx_deriving_rpc)))
@@ -33,7 +38,7 @@
     vdi_automaton_test))
  (libraries
    rpclib.core
-   threads
+   threads.posix
    xapi-idl
    xapi-idl.storage.interface
    xapi-stdext-date
@@ -41,14 +46,16 @@
  (wrapped false)
  (preprocess (pps ppx_sexp_conv ppx_deriving_rpc)))
 
-(executable
+(test
  (name storage_test)
  (modules storage_test)
  (libraries
    alcotest
    cmdliner
+   dune-build-info
    xapi-idl
    xapi-idl.storage
+   xapi-idl.storage.interface
  )
  (preprocess (pps ppx_sexp_conv ppx_deriving_rpc)))
 
@@ -57,6 +64,7 @@
  (modules suite vdi_automaton_test)
  (libraries
    alcotest
+   dune-build-info
    xapi-idl.storage.interface
    xapi-idl.storage.interface.types
  )

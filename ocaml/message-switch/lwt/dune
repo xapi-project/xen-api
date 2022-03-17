@@ -5,6 +5,7 @@
     cohttp-lwt-unix
     message-switch-core
     lwt
+    lwt.unix
   )
 )
 

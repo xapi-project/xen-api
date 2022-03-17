@@ -6,10 +6,11 @@
    astring
    cmdliner
    cohttp
+   (re_export dune-build-info)
    fd-send-recv
    logs
    message-switch-core
-   message-switch-unix 
+   message-switch-unix
    mtime
    mtime.clock.os
    ppx_sexp_conv.runtime-lib
@@ -17,10 +18,14 @@
    rpclib.core
    rpclib.json
    rpclib.xml
+   result
+   rresult
    sexplib
-   threads
+   sexplib0
+   threads.posix
    unix
    uri
+   uuidm
    xapi-backtrace
    xapi-consts
    xapi-log
@@ -37,6 +42,18 @@
  (name xcp_updates)
  (public_name xapi-idl.updates)
  (modules updates task_server scheduler)
- (libraries xapi-idl)
+ (libraries
+   mtime
+   mtime.clock.os
+   rpclib.core
+   rpclib.json
+   sexplib
+   sexplib0
+   threads.posix
+   xapi-backtrace
+   xapi-log
+   xapi-stdext-pervasives
+   xapi-stdext-threads
+ )
  (wrapped false)
  (preprocess (pps ppx_deriving_rpc)))

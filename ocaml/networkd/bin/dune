@@ -15,19 +15,31 @@
  (package xapi-networkd)
  (modes byte exe)
  (libraries
+  astring
+  dune-build-info
   forkexec
+  http-svr
+  integers
   netlink
   networklibs
-  rpclib
+  rpclib.core
+  rpclib.json
+  result
+  rresult
   systemd
-  threads
-  xapi_version
+  threads.posix
+  xapi-client
+  xapi-consts
+  xapi-consts.xapi_version
   xapi-stdext-pervasives
+  xapi-stdext-std
   xapi-stdext-threads
   xapi-stdext-unix
   xapi-inventory
   xapi-idl
   xapi-idl.network
+  xapi-log
+  xapi-types
   xen-api-client))
 
 (alias

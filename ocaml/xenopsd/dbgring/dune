@@ -3,8 +3,10 @@
  (public_name dbgring)
  (package xapi-xenopsd-xc)
  (libraries
+   dune-build-info
    xapi-xenopsd
    xenctrl
+   xenctrl.xenmmap
    xenstore
    xenstore.unix
    xenstore_transport
@@ -13,7 +15,7 @@
    xapi-idl.xen
    rpclib.core
    uutf
-   xapi-idl
+   xapi-log
    rpclib.json
    xapi-stdext-pervasives
  )

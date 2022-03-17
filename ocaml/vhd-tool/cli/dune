@@ -4,10 +4,22 @@
   (package vhd-tool)
   (public_names vhd-tool sparse_dd get_vhd_vsize)
   (libraries
-    cmdliner
+    astring
+    dune-build-info
     local_lib
+    cmdliner
     cstruct
+    forkexec
+    lwt
+    lwt.unix
+    tapctl
+    threads.posix
+    uri
+    vhd-format
+    vhd-format-lwt
     xapi-idl
+    xapi-log
+    xenstore_transport.unix
   )
 )
 

@@ -6,20 +6,31 @@
   (name local_lib)
   (wrapped false)
   (libraries
+    astring
+    bigarray-compat
+    cohttp
     cohttp-lwt
     cstruct
     io-page.unix
     lwt
+    lwt.unix
+    lwt_ssl
+    nbd
     nbd-unix
     re.str
-    rpclib
+    result
+    rpclib.core
     rpclib.json
     sha
+    ssl
     tar
+    uri
     vhd-format
     vhd-format-lwt
     tapctl
     xapi-stdext-std
+    xapi-stdext-unix
+    xenstore
     xenstore.client
     xenstore.unix
     xenstore_transport

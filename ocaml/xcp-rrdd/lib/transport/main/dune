@@ -3,8 +3,9 @@
   (public_name rrd-transport)
   (wrapped false)
   (libraries
-    rrd_transport_file
-    rrd_transport_page
+    (re_export rrd_transport_lib)
+    (re_export rrd_transport_file)
+    (re_export rrd_transport_page)
   )
 )
 

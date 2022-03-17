@@ -4,18 +4,29 @@
   (package rrdd-plugins)
   (public_name xcp-rrdd-iostat)
   (libraries
+    astring
+    cstruct
+    dune-build-info
+    ezxenstore.core
+    inotify
+    mtime
+    mtime.clock.os
     rrdd-plugin
     rrdd-plugins.libs
-    xapi-stdext-std
-    xapi-stdext-unix
     str
-    threads
+    stringext
+    threads.posix
     uuid
-    ezxenstore
+    xapi-idl.rrd
+    xapi-log
+    xapi-rrd
+    xapi-stdext-std
+    xapi-stdext-threads
+    xapi-stdext-unix
     xenctrl
+    xenstore
     xenstore.unix
-    inotify
-    mtime.clock.os
+    xenstore_transport
   )
 )
 

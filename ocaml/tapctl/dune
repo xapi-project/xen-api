@@ -3,9 +3,11 @@
   (wrapped false)
   (preprocess (pps ppx_deriving_rpc))
   (libraries
+    astring
     re
-    rpclib
-    threads
+    rpclib.core
+    rpclib.json
+    threads.posix
     forkexec
     xapi-stdext-unix
     xapi-stdext-threads

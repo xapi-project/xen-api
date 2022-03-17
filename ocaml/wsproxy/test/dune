@@ -1,5 +1,5 @@
 (test
   (name wsproxy_tests)
   (package wsproxy)
-  (libraries oUnit qcheck wslib)
+  (libraries ounit2 qcheck-core wslib)
 )

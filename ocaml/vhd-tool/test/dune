@@ -3,6 +3,7 @@
   (libraries
     alcotest
     alcotest-lwt
+    lwt
     local_lib
     vhd-format
     vhd-format-lwt

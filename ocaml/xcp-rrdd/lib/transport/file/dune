@@ -3,7 +3,10 @@
   (public_name rrd-transport.file)
   (wrapped false)
   (libraries
+    bigarray-compat
+    cstruct
     rrd_transport_lib
+    threads.posix
   )
 )
 

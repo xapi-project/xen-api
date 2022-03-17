@@ -2,10 +2,12 @@
   (modes byte exe)
   (name main)
   (libraries
-    xapi-datamodel
-    str
-    CommonFunctions
     astring
+    CommonFunctions
+    dune-build-info
+    mustache
+    str
+    xapi-datamodel
   )
 )
 

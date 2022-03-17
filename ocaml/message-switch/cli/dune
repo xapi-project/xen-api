@@ -3,7 +3,11 @@
   (name main)
   (libraries
     cmdliner
+    message-switch-core
     message-switch-unix
+    rpclib.core
+    rpclib.json
+    threads.posix
   )
   (preprocess (pps ppx_deriving_rpc))
 )

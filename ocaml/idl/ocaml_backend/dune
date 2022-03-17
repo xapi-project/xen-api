@@ -2,12 +2,12 @@
   (modes byte exe)
   (name gen_api_main)
   (libraries
+    dune-build-info
     sexpr
-    threads
     uuid
     xapi-consts
     xapi-datamodel
-    xapi-idl
+    xapi-log
     xapi-stdext-pervasives
     xapi-stdext-std
   )

@@ -12,5 +12,5 @@
   (name uuid_test)
   (package uuid)
   (modules uuid_test)
-  (libraries uuid alcotest)
+  (libraries alcotest fmt uuid)
   )

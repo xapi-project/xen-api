@@ -8,16 +8,44 @@
       test_livepatch test_rpm test_updateinfo))
   (libraries
     alcotest
+    angstrom
     astring
+    cstruct
+    dune-build-info
     fmt
+    http-svr
+    ipaddr
+    mirage-crypto
+    pam
+    result
+    rpclib.core
+    rpclib.json
     rresult
+    tapctl
+    tests_common
+    threads.posix
+    uuid
+    xapi-backtrace
+    xapi-client
+    xapi_cli_server
+    xapi-consts
+    xapi-database
+    xapi-datamodel
+    xapi-idl
+    xapi-idl.storage.interface
+    xapi-idl.xen.interface
+    xapi-idl.xen.interface.types
     xapi_internal
+    xapi-log
     xapi-stdext-date
     xapi-stdext-std
     xapi-stdext-threads
     xapi-stdext-unix
     xapi-test-utils
-    tests_common
+    xapi-types
+    xapi-stdext-pervasives
+    xapi-xenopsd
+    xml-light2
   )
   (preprocess (pps ppx_deriving_rpc ppx_sexp_conv))
   (deps
@@ -36,8 +64,29 @@
     test_updateinfo)
   (libraries
     alcotest
-    xapi_internal
+    fmt
+    result
+    rpclib.core
+    rpclib.json
+    rresult
     tests_common
+    threads.posix
+    uuid
+    xapi-client
+    xapi_cli_server
+    xapi-consts
+    xapi-database
+    xapi-idl
+    xapi-idl.cluster
+    xapi-idl.storage
+    xapi-idl.storage.interface
+    xapi-idl.xen
+    xapi_internal
+    xapi-test-utils
+    xapi-types
+    xapi-stdext-threads
+    xml-light2
+    yojson
   )
   (preprocess (pps ppx_deriving_rpc ppx_sexp_conv))
 )

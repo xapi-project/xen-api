@@ -3,7 +3,11 @@
  (libraries
   cmdliner
   forkexec
+  result
+  uuid
+  xapi-consts.xapi_version
   xapi-idl
+  xapi-log
   xapi-stdext-unix
   xapi-xenopsd
  )

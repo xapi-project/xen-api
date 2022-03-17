@@ -3,6 +3,7 @@
  (package xapi-xenopsd)
  (libraries
   alcotest
+  dune-build-info
   fmt
   result
   rpclib.core
@@ -10,6 +11,7 @@
   xapi-idl
   xapi-idl.xen.interface
   xapi-idl.xen.interface.types
+  xapi-log
   xapi-stdext-pervasives
   xapi-xenopsd
   xenstore_transport.unix

@@ -17,7 +17,7 @@
     mtime.clock.os
     rpclib.core
     xapi-consts
-    xapi-idl
+    xapi-log
     xapi-types
     xapi-stdext-date
     xapi-stdext-pervasives

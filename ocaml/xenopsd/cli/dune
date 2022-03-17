@@ -6,7 +6,9 @@
   (public_name xenops-cli)
   (package xapi-xenopsd-cli)
   (libraries
+      astring
       cmdliner
+      dune-build-info
       re
       result
       rpclib.core
@@ -14,10 +16,12 @@
       rresult
       threads
       uuid
+      uuidm
       xapi-idl
       xapi-idl.xen
       xapi-idl.xen.interface
       xapi-idl.xen.interface.types
+      xapi-stdext-pervasives
   )
   (preprocess (pps ppx_deriving_rpc))
 )

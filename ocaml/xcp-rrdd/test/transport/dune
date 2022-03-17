@@ -2,8 +2,11 @@
   (names test_unit test_scale)
   (package rrd-transport)
   (libraries
-    oUnit
+    dune-build-info
+    ounit2
     rrd-transport
+    xapi-idl.rrd
+    xapi-rrd
   )
 )
 
