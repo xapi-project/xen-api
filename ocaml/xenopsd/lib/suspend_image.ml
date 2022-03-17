@@ -38,13 +38,17 @@ module Xenops_record = struct
     ; (* All additional fields below should use the [@sexp.option] extension *)
       vm_str: string option [@sexp.option]
     ; xs_subtree: (string * string) list option [@sexp.option]
+    ; compression: string option [@sexp.option]
   }
   [@@deriving sexp]
 
   let make ?vm_str ?xs_subtree () =
     let time = Xapi_stdext_date.Date.(to_string (of_float (Unix.time ()))) in
     let word_size = Sys.word_size in
-    {word_size; time; vm_str; xs_subtree}
+    let compression = None in
+    {word_size; time; vm_str; xs_subtree; compression}
+
+  let compression t = t.compression
 
   let to_string t = wrap (fun () -> t |> sexp_of_t |> Sexp.to_string)
 

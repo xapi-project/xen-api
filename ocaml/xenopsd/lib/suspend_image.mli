@@ -26,6 +26,9 @@ module Xenops_record : sig
 
   val make : ?vm_str:string -> ?xs_subtree:(string * string) list -> unit -> t
 
+  (* Are we using compression in the suspend image? *)
+  val compression : t -> string option
+
   val to_string : t -> (string, exn) Result.t
 
   val of_string : string -> (t, exn) Result.t
