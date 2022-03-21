@@ -93,6 +93,8 @@ let get_event_params ~__context host =
     ("auth_type", auth_type)
   ; ("service_name", service_name)
   ; ("ad_backend", !Xapi_globs.extauth_ad_backend)
+  ; ("list_sep", !Xapi_globs.extauth_pam_access_list_sep)
+  ; ("field_sep", !Xapi_globs.extauth_pam_access_field_sep)
   ]
 
 (* allows extauth hook script to be called only under specific conditions *)

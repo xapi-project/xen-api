@@ -2,7 +2,9 @@
 Test module for extauth_hook_ad
 """
 #pylint: disable=invalid-name
+import copy
 import sys
+import os
 from unittest import TestCase
 from mock import MagicMock, patch
 # mock modules to avoid dependencies
@@ -22,9 +24,11 @@ def line_exists_in_config(lines, line):
 
 domain = "conappada.local"
 args_bd_winbind = {'auth_type': 'AD',
-                   'service_name': domain, 'ad_backend': 'winbind'}
+                   'service_name': domain, 'ad_backend': 'winbind',
+                   'field_sep': ',', 'list_sep': ';'}
 args_bd_pbis = {'auth_type': 'AD',
-                'service_name': domain, 'ad_backend': 'pbis'}
+                'service_name': domain, 'ad_backend': 'pbis',
+                'field_sep': ',', 'list_sep': ';'}
 mock_session = MagicMock()
 
 subjects = ['OpaqueRef:96ae4be5-8815-4de8-a40f-d5e5c531dda9']
@@ -73,117 +77,125 @@ def build_group(domain, name, is_admin):
     }
 
 
+def mock_rename_by_clean(src, dest):
+    """
+    In unittest, the temp files are created, and rename are mocked
+    This function mock rename to clean the temporary files
+    """
+    os.remove(src)
+
+
 @patch("os.chmod")
 @patch("os.rename")
 class TestStaicPamConfig(TestCase):
     def test_ad_not_enabled(self, mock_rename, mock_chmod):
-        # No hcp_users file should be included
+        mock_rename.side_effect = mock_rename_by_clean
         static = StaticPam(mock_session, args_bd_winbind, ad_enabled=False)
         static.apply()
-        enabled_keyward = "account     include       hcp_users"
-        self.assertFalse(line_exists_in_config(static._lines, enabled_keyward))
+        enabled_keyword = "hcp_access.conf"
+        self.assertFalse(enabled_keyword in "".join(static._lines))
 
     def test_ad_enabled_with_winbind(self, mock_rename, mock_chmod):
         # pam_winbind should be used
+        mock_rename.side_effect = mock_rename_by_clean
         static = StaticPam(mock_session, args_bd_winbind)
         static.apply()
-        enabled_keyward = "auth sufficient    pam_winbind.so try_first_pass try_authtok"
-        self.assertTrue(line_exists_in_config(static._lines, enabled_keyward))
+        enabled_keyword = "auth sufficient    pam_winbind.so try_first_pass try_authtok"
+        self.assertTrue(line_exists_in_config(static._lines, enabled_keyword))
 
     def test_ad_enabled_with_pbis(self, mock_rename, mock_chmod):
         # pam_lsass should be used
+        mock_rename.side_effect = mock_rename_by_clean
         static = StaticPam(mock_session, args_bd_pbis)
         static.apply()
-        enabled_keyward = "auth sufficient /lib/security/pam_lsass.so try_first_pass try_authtok"
-        self.assertTrue(line_exists_in_config(static._lines, enabled_keyward))
+        enabled_keyword = "auth sufficient /lib/security/pam_lsass.so try_first_pass try_authtok"
+        self.assertTrue(line_exists_in_config(static._lines, enabled_keyword))
 
 
-@patch("os.chmod")
-@patch("os.rename")
+@patch("extauth_hook_ad.ADConfig._install")
 class TestDynamicPam(TestCase):
     @patch("extauth_hook_ad.open")
     @patch("os.path.exists")
     @patch("os.remove")
-    def test_ad_not_enabled(self, mock_remove, mock_exists, mock_open, mock_rename, mock_chmod):
+    def test_ad_not_enabled(self, mock_remove, mock_exists, mock_open, mock_install):
         # dynamic pam file should be removed
         mock_exists.return_value = True
         dynamic = DynamicPam(mock_session, args_bd_winbind, ad_enabled=False)
         dynamic.apply()
         mock_remove.assert_called()
-        mock_rename.assert_not_called()
+        mock_install.assert_not_called()
 
-    def test_permit_admin_user(self, mock_rename, mock_chmod):
+    def test_permit_admin_user(self, mock_install):
         # Domain user with admin role should be included in config file
         user = build_user("CONNAPP", "radmin", True)
         mock_session.xenapi.subject.get_record.return_value = user
-        permit_user = r"account sufficient pam_succeed_if.so user = CONNAPP\radmin"
+        permit_user = r"+,CONNAPP\radmin,ALL"
         dynamic = DynamicPam(mock_session, args_bd_winbind)
         dynamic.apply()
         self.assertTrue(line_exists_in_config(dynamic._lines, permit_user))
-        mock_rename.assert_called()
+        mock_install.assert_called()
 
-    def test_pbis_permit_admin_user_with_space(self, mock_rename, mock_chmod):
+    def test_pbis_permit_admin_user_with_space(self, mock_install):
         # Domain user name with space should be repalced by "+" with PBIS
         user = build_user("CONNAPP", "radmin  l1", True)
         mock_session.xenapi.subject.get_record.return_value = user
-        permit_user = r"account sufficient pam_succeed_if.so user = CONNAPP\radmin++l1"
+        permit_user = r"+,CONNAPP\radmin++l1,ALL"
         dynamic = DynamicPam(mock_session, args_bd_pbis)
         dynamic.apply()
         self.assertTrue(line_exists_in_config(dynamic._lines, permit_user))
-        mock_rename.assert_called()
+        mock_install.assert_called()
 
-    def test_winbind_permit_admin_user_with_space(self, mock_rename, mock_chmod):
+    def test_winbind_permit_admin_user_with_space(self, mock_install):
         # Domain user name with space should be surrounded by [] with winbind
         user = build_user("CONNAPP", "radmin  l1", True)
         mock_session.xenapi.subject.get_record.return_value = user
-        permit_user = r"account sufficient pam_succeed_if.so user = [CONNAPP\radmin  l1]"
+        permit_user = r"+,CONNAPP\radmin  l1,ALL"
         dynamic = DynamicPam(mock_session, args_bd_winbind)
         dynamic.apply()
         self.assertTrue(line_exists_in_config(dynamic._lines, permit_user))
-        mock_rename.assert_called()
+        mock_install.assert_called()
 
-    def test_not_permit_non_admin_user(self, mock_rename, mock_chmod):
+    def test_not_permit_non_admin_user(self, mock_install):
         # Domain user without admin role should be included in config file
         user = build_user("CONNAPP", "radmin", False)
         mock_session.xenapi.subject.get_record.return_value = user
-        permit_user = r"account sufficient pam_succeed_if.so user = CONNAPP\radmin"
+        permit_user = r"+,CONNAPP\radmin,ALL"
         dynamic = DynamicPam(mock_session, args_bd_winbind)
         dynamic.apply()
         self.assertFalse(line_exists_in_config(dynamic._lines, permit_user))
-        mock_rename.assert_called()
+        mock_install.assert_called()
 
-    def test_permit_admin_group(self, mock_rename, mock_chmod):
+    def test_permit_admin_group(self, mock_install):
         # Domain group with admin role should be included in config file
         group = build_group("CONNAPP", "test_group", True)
         mock_session.xenapi.subject.get_record.return_value = group
-        permit_group = r"account sufficient pam_succeed_if.so user ingroup CONNAPP\test_group"
+        permit_group = r"+,(CONNAPP\test_group),ALL"
         dynamic = DynamicPam(mock_session, args_bd_winbind)
         dynamic.apply()
         self.assertTrue(line_exists_in_config(dynamic._lines, permit_group))
-        mock_rename.assert_called()
+        mock_install.assert_called()
 
-    def test_not_permit_non_admin_group(self, mock_rename, mock_chmod):
+    def test_not_permit_non_admin_group(self, mock_install):
         # Domain user without admin role should not be included in config file
         group = build_group("CONNAPP", "test_group", False)
         mock_session.xenapi.subject.get_record.return_value = group
-        permit_group = r"account sufficient pam_succeed_if.so user ingroup CONNAPP\test_group"
+        permit_group = r"+,(CONNAPP\test_group),ALLL"
         dynamic = DynamicPam(mock_session, args_bd_winbind)
         dynamic.apply()
         self.assertFalse(line_exists_in_config(dynamic._lines, permit_group))
-        mock_rename.assert_called()
 
-    def test_not_permit_pool_admin_with_plus_in_name(self, mock_rename, mock_chmod):
+    def test_pbis_not_permit_pool_admin_with_plus_in_name(self, mock_install):
         """
         Domain user name should not contain "+"
         """
         user = build_user("CONNAPP", "radm+in", True)
         mock_session.xenapi.subject.get_record.return_value = user
-        permit_user = r"account sufficient pam_succeed_if.so user = CONNAPP\radm+in"
-        dynamic = DynamicPam(mock_session, args_bd_winbind)
+        permit_user = r"+,CONNAPP\radm+in,ALL"
+        dynamic = DynamicPam(mock_session, args_bd_pbis)
         dynamic.apply()
         self.assertFalse(line_exists_in_config(dynamic._lines, permit_user))
 
-    def test_failed_to_add_one_admin_should_not_affact_others(self, mock_rename, mock_chmod):
+    def test_failed_to_add_one_admin_should_not_affact_others(self, mock_install):
         """
         Failed to add one bad domain users should not affact others
         """
@@ -199,24 +211,60 @@ class TestDynamicPam(TestCase):
             bad_user, good_user]
         mock_session_with_multi_users.xenapi.role.get_by_name_label.return_value = admin_roles
 
-        bad_condition = r"account sufficient pam_succeed_if.so user = CONNAPP\bad+in"
-        good_condition = r"account sufficient pam_succeed_if.so user = CONNAPP\good"
-        dynamic = DynamicPam(mock_session_with_multi_users, args_bd_winbind)
+        bad_condition = r"+,CONNAPP\bad+in,ALL"
+        good_condition = r"+,CONNAPP\good,ALL"
+        dynamic = DynamicPam(mock_session_with_multi_users, args_bd_pbis)
         dynamic.apply()
         self.assertFalse(line_exists_in_config(dynamic._lines, bad_condition))
         self.assertTrue(line_exists_in_config(dynamic._lines, good_condition))
 
+    def test_update_seps(self, mock_install):
+        """
+        The seps can be updated by xapi arguments
+        """
+        args = copy.deepcopy(args_bd_winbind)
+        args['field_sep'] = '|'
+        args['list_sep'] = '^'
+        user = build_user("CONNAPP", "radmin", True)
+        mock_session.xenapi.subject.get_record.return_value = user
+        permit_user = r"+|CONNAPP\radmin|ALL"
+        dynamic = DynamicPam(mock_session, args_bd_winbind)
+        dynamic.apply()
+        self.assertFalse(line_exists_in_config(dynamic._lines, permit_user))
 
-@patch("os.chmod")
-@patch("os.rename")
+    def test_deny_all_by_default(self, mock_install):
+        """
+        Deny all others does not exist in the configration
+        """
+        user = build_user("CONNAPP", "radmin", True)
+        mock_session.xenapi.subject.get_record.return_value = user
+        deny_all = r"-,ALL,ALL"
+        dynamic = DynamicPam(mock_session, args_bd_winbind)
+        dynamic.apply()
+        #  last line is empty, then the line should deny all
+        self.assertEqual(dynamic._lines[-2], deny_all)
+
+    def test_not_add_seps(self, mock_install):
+        """
+        If subject contains subjects, does not add them in the configuration
+        """
+        user = build_user("CONNAPP", "rad,min", True)
+        mock_session.xenapi.subject.get_record.return_value = user
+        permit_user = r"+,CONNAPP\rad,min,ALL"
+        dynamic = DynamicPam(mock_session, args_bd_winbind)
+        dynamic.apply()
+        self.assertFalse(line_exists_in_config(dynamic._lines, permit_user))
+
+
+@patch("extauth_hook_ad.ADConfig._install")
 class TestNssConfig(TestCase):
-    def test_ad_not_enabled(self, mock_rename, mock_chmod):
+    def test_ad_not_enabled(self, mock_install):
         expected_config = "passwd:  files sss"
         nss = NssConfig(mock_session, args_bd_winbind, False)
         nss.apply()
         self.assertTrue(line_exists_in_config(nss._lines, expected_config))
 
-    def test_ad_enabled(self, mock_rename, mock_chmod):
+    def test_ad_enabled(self, mock_install):
         expected_config = "passwd: files hcp winbind"
         nss = NssConfig(mock_session, args_bd_winbind, True)
         nss.apply()
@@ -224,11 +272,10 @@ class TestNssConfig(TestCase):
 
 
 @patch("extauth_hook_ad.run_cmd")
-@patch("os.chmod")
-@patch("os.rename")
+@patch("extauth_hook_ad.ADConfig._install")
 @patch("extauth_hook_ad.open")
 class TestSshdConfig(TestCase):
-    def test_ad_not_enabled(self, mock_open, mock_rename, mock_chmod, mock_run_cmd):
+    def test_ad_not_enabled(self, mock_open, mock_install, mock_run_cmd):
         expected_config = "ChallengeResponseAuthentication no"
         # mock empty file exists
         mock_open.return_value.__enter__.return_value.readlines.return_value = []
@@ -237,7 +284,7 @@ class TestSshdConfig(TestCase):
         self.assertTrue(line_exists_in_config(sshd._lines, expected_config))
         mock_run_cmd.assert_called()
 
-    def test_ad_enabled(self, mock_open, mock_rename, mock_chmod, mock_run_cmd):
+    def test_ad_enabled(self, mock_open, mock_install, mock_run_cmd):
         expected_config = "ChallengeResponseAuthentication yes"
         # mock empty file exists
         mock_open.return_value.__enter__.return_value.readlines.return_value = []

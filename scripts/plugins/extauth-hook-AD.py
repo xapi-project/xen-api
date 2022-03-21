@@ -104,7 +104,27 @@ class ADConfig(object):
             os.chmod(self._file_path, self._file_mode)
 
 
-class StaticPam(ADConfig):
+# pylint:disable=too-few-public-methods
+class PamConfig(ADConfig):
+    """
+    Base class for Pam configuration
+    """
+    ACCESS_CONFIG = "/etc/security/hcp_access.conf"
+    @abc.abstractmethod
+    def _apply_to_cache(self):
+        pass
+
+    def __init__(self, path, session, args, ad_enabled=True):
+        super(PamConfig, self).__init__(path, session, args, ad_enabled,
+                                        load_existing=False)
+        self.list_sep = args.get("list_sep", ";")
+        self.field_sep = args.get("field_sep", ",")
+
+
+class StaticPam(PamConfig):
+    """
+    Class to manage ssh pam configuration
+    """
     ad_pam_format = """#%PAM-1.0
 auth        required      pam_env.so
 auth        sufficient    pam_unix.so try_first_pass nullok
@@ -120,7 +140,7 @@ session     sufficient    {ad_module}
 
 account     required      pam_nologin.so
 account     required      {ad_module} unknown_ok
-account     include       hcp_users
+account     sufficient    pam_access.so listsep={list_sep} fieldsep={field_sep} accessfile={conf_file}
 account     required      pam_unix.so"""
 
     no_ad_pam = """#%PAM-1.0
@@ -133,8 +153,8 @@ session    include      system-auth
 session    required     pam_loginuid.so"""
 
     def __init__(self, session, args, ad_enabled=True):
-        super(StaticPam, self).__init__("/etc/pam.d/sshd", session, args, ad_enabled,
-                                        load_existing=False)
+        super(StaticPam, self).__init__(
+            "/etc/pam.d/sshd", session, args, ad_enabled)
 
     def _apply_to_cache(self):
         if self._ad_enabled:
@@ -142,19 +162,24 @@ session    required     pam_loginuid.so"""
                 ad_pam_module = "/lib/security/pam_lsass.so"
             else:
                 ad_pam_module = "pam_winbind.so"
-            content = self.ad_pam_format.format(ad_module=ad_pam_module)
+            content = self.ad_pam_format.format(
+                ad_module=ad_pam_module, list_sep=self.list_sep,
+                field_sep=self.field_sep, conf_file=self.ACCESS_CONFIG)
         else:
             content = self.no_ad_pam
         self._lines = content.split("\n")
 
 
-class DynamicPam(ADConfig):
+class DynamicPam(PamConfig):
     #pylint: disable=too-few-public-methods
-    """Class manage /etc/pam.d/hcp_users which permit pool admin ssh"""
+    """Class manage /etc/security/hcp_access.conf which permit pool admin ssh"""
 
-    def __init__(self, session, arg, ad_enabled=True):
-        super(DynamicPam, self).__init__("/etc/pam.d/hcp_users", session, arg, ad_enabled,
-                                         load_existing=False)
+    # the format for pam_access is permission:users:origins
+    # details, refer to /etc/security/access.conf
+    CONF_TEMP = "{perm}{sep}{name}{sep}{origins}"
+
+    def __init__(self, session, args, ad_enabled=True):
+        super(DynamicPam, self).__init__(self.ACCESS_CONFIG, session, args, ad_enabled)
 
     def _apply_to_cache(self):
         # AD is not enabled, just return as the configure file will be removed during install
@@ -162,50 +187,55 @@ class DynamicPam(ADConfig):
             return
         # Rewrite the PAM SSH config using the latest info from Active Directory
         # and the list of subjects from xapi
-        subjects = self._session.xenapi.subject.get_all()
-        admin_role = self._session.xenapi.role.get_by_name_label(
-            'pool-admin')[0]
-        # Add each subject which contains the admin role
-        for opaque_ref in subjects:
-            subject_rec = self._session.xenapi.subject.get_record(opaque_ref)
-            if admin_role in subject_rec['roles']:
-                self._add_subject(subject_rec)
+        try:
+            subjects = self._session.xenapi.subject.get_all()
+            admin_role = self._session.xenapi.role.get_by_name_label(
+                'pool-admin')[0]
+            # Add each subject which contains the admin role
+            for opaque_ref in subjects:
+                subject_rec = self._session.xenapi.subject.get_record(
+                    opaque_ref)
+                if admin_role in subject_rec['roles']:
+                    self._add_subject(subject_rec)
+        except Exception:  # pylint: disable=broad-except
+            logger.exception("Failed to permit subjects")
+        finally:
+            # deny all others by default
+            conf = self.CONF_TEMP.format(
+                perm="-", sep=self.field_sep, name="ALL", origins="ALL")
+            self._lines.append(conf)
+            self._lines.append("")  # Require ending line sep
 
-    def _format_item(self, item):
+    def _format_item(self, item, is_group):
         space_replacement = "+"
-        if space_replacement in item:
-            raise ValueError(
-                "{} is not permitted in subject name".format(space_replacement))
-
-        if " " not in item:
-            return item
+        if self.list_sep in item or self.field_sep in item:
+            msg = "item '{}' contains separators '{}{}', Please update the separators".format(
+                item, self.list_sep, self.field_sep)
+            raise ValueError(msg)
 
         if self._backend == ADBackend.bd_pbis:
+            if space_replacement in item:
+                raise ValueError(
+                    "{} is not permitted in subject name".format(space_replacement))
+
             # PBIS relace space with "+", eg "ab  cd" -> "ab++cd"
             # PBIS pam module will reverse it back
-            return item.replace(" ", space_replacement)
-
-        # winbind put name with space within "[]"
-        return "[{}]".format(item)
+            item = item.replace(" ", space_replacement)
+        if is_group:  # put group into () to avoid conflict with user
+            return "({})".format(item)
+        return item
 
     def _add_subject(self, subject_rec):
         try:
             sid = subject_rec['subject_identifier']
-            name = self._format_item(
-                subject_rec["other_config"]["subject-name"])
             is_group = subject_rec["other_config"]["subject-is-group"] == "true"
+            name = self._format_item(
+                subject_rec["other_config"]["subject-name"], is_group=is_group)
             logger.debug("Permit %s with sid %s is_group as %s",
                          name, sid, is_group)
-            condition = "ingroup" if is_group else "="
-            self._lines.append("account sufficient pam_succeed_if.so user {} {}".format(
-                condition, name))
-            # If ssh key is permittd in authorized_keys,
-            # UPN cannot match by SAM, put UPN format explictly
-            if not is_group:
-                subject_upn = self._format_item(
-                    subject_rec["other_config"]["subject-upn"])
-                self._lines.append("account sufficient pam_succeed_if.so user {} {}".format(
-                    condition, subject_upn))
+            conf = self.CONF_TEMP.format(
+                perm="+", sep=self.field_sep, name=name, origins="ALL")
+            self._lines.append(conf)
         # pylint: disable=broad-except
         except Exception as exp:
             logger.warning(

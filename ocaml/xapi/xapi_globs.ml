@@ -919,6 +919,10 @@ type xapi_globs_spec_ty = Float of float ref | Int of int ref
 
 let extauth_ad_backend = ref "winbind"
 
+let extauth_pam_access_list_sep = ref ";"
+
+let extauth_pam_access_field_sep = ref ","
+
 let net_cmd = ref "/usr/bin/net"
 
 let wb_cmd = ref "/usr/bin/wbinfo"
@@ -1275,6 +1279,16 @@ let other_options =
     , Arg.Set_string extauth_ad_backend
     , (fun () -> !extauth_ad_backend)
     , "Which AD backend used to talk to DC"
+    )
+  ; ( "extauth_pam_access_list_sep"
+    , Arg.Set_string extauth_pam_access_list_sep
+    , (fun () -> !extauth_pam_access_list_sep)
+    , "Special char pam_access used to seperate list items"
+    )
+  ; ( "extauth_pam_access_field_sep"
+    , Arg.Set_string extauth_pam_access_field_sep
+    , (fun () -> !extauth_pam_access_field_sep)
+    , "Special char pam_access used to seperate fields"
     )
   ; ( "winbind_kerberos_encryption_type"
     , Arg.String
