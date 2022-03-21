@@ -75,6 +75,14 @@ let error_of_exn e =
       (internal_error, [Printf.sprintf "Invalid argument: %s" x])
   | Db_filter.Expression_error (expr, exc) ->
       (invalid_value, [expr; Printexc.to_string exc])
+  | Forkhelpers.Subprocess_failed n ->
+      ( internal_error
+      , [Printf.sprintf "Subprocess exited with unexpected code %d" n]
+      )
+  | Forkhelpers.Subprocess_killed n ->
+      ( internal_error
+      , [Format.asprintf "Subprocess killed with %a" Fmt.Dump.signal n]
+      )
   | e ->
       (internal_error, [Printexc.to_string e])
 
