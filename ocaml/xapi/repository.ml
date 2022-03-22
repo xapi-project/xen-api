@@ -374,8 +374,7 @@ let create_pool_repository ~__context ~self =
           )
         in
         let updateinfo_xml_gz_path =
-          Filename.concat repo_dir
-            (md.RepoMetaData.checksum ^ "-updateinfo.xml.gz")
+          Filename.concat repo_dir (Filename.basename md.RepoMetaData.location)
         in
         match Sys.file_exists updateinfo_xml_gz_path with
         | true ->
