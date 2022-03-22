@@ -361,13 +361,23 @@ let create_pool_repository ~__context ~self =
   match Sys.file_exists repo_dir with
   | true -> (
     try
-      let comps_file = Filename.concat repo_dir "comps.xml" in
+      let cachedir = get_repo_config repo_name "cachedir" in
+      let group_params =
+        match
+          RepoMetaData.(
+            of_xml_file (Filename.concat cachedir "repomd.xml") Group
+          )
+        with
+        | RepoMetaData.{checksum= _; location} ->
+            ["-g"; Filename.concat cachedir (Filename.basename location)]
+        | exception _ ->
+            []
+      in
       ignore
         (Helpers.call_script !Xapi_globs.createrepo_cmd
-           ["-g"; comps_file; repo_dir]
+           (group_params @ [repo_dir])
         ) ;
       if Db.Repository.get_update ~__context ~self then
-        let cachedir = get_repo_config repo_name "cachedir" in
         let md =
           RepoMetaData.(
             of_xml_file (Filename.concat cachedir "repomd.xml") UpdateInfo

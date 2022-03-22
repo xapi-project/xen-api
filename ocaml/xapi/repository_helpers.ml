@@ -566,9 +566,13 @@ end
 module RepoMetaData = struct
   type t = {checksum: string; location: string}
 
-  type datatype = UpdateInfo
+  type datatype = UpdateInfo | Group
 
-  let string_of_datatype = function UpdateInfo -> "updateinfo"
+  let string_of_datatype = function
+    | UpdateInfo ->
+        "updateinfo"
+    | Group ->
+        "group"
 
   let assert_valid = function
     | {checksum= ""; _} | {location= ""; _} ->
