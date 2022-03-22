@@ -124,6 +124,8 @@ let _platform_name = "platform_name"
 
 let _platform_version = "platform_version"
 
+let _xapi_version = "xapi"
+
 let _product_brand = "product_brand"
 
 let _build_number = "build_number"
