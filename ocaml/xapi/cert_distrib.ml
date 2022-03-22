@@ -581,10 +581,7 @@ let exchange_ca_certificates_with_joiner ~__context ~import ~export =
   let parsed =
     List.map
       (fun WireProtocol.{filename; content} ->
-        let () =
-          if C.(is_unsafe CA_Certificate filename) then
-            C.(raise_name_invalid CA_Certificate filename)
-        in
+        let () = C.(validate_name CA_Certificate filename) in
         let cert = C.pem_of_string content in
         (filename, cert)
       )

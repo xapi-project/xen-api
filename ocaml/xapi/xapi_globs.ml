@@ -752,6 +752,8 @@ let server_cert_path = ref (Filename.concat "/etc/xensource" "xapi-ssl.pem")
 let server_cert_internal_path =
   ref (Filename.concat "/etc/xensource" "xapi-pool-tls.pem")
 
+let c_rehash = ref "c_rehash"
+
 let trusted_certs_dir = ref "/etc/stunnel/certs"
 
 let trusted_pool_certs_dir = ref "/etc/stunnel/certs-pool"
@@ -1444,6 +1446,7 @@ module Resources = struct
       , yum_config_manager_cmd
       , "Path to yum-config-manager command"
       )
+    ; ("c_rehash", c_rehash, "Path to Regenerate CA store")
     ]
 
   let nonessential_executables =
