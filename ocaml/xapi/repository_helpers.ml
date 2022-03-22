@@ -563,22 +563,32 @@ module Applicability = struct
         raise Invalid_inequality
 end
 
-module UpdateInfoMetaData = struct
+module RepoMetaData = struct
   type t = {checksum: string; location: string}
 
-  let assert_valid_repomd = function
-    | {checksum= ""; _} | {location= ""; _} ->
-        error "Missing 'checksum' or 'location' in updateinfo in repomod.xml" ;
-        raise Api_errors.(Server_error (invalid_repomd_xml, []))
-    | umd ->
-        umd
+  type datatype = UpdateInfo | Group
 
-  let of_xml = function
+  let string_of_datatype = function
+    | UpdateInfo ->
+        "updateinfo"
+    | Group ->
+        "group"
+
+  let assert_valid = function
+    | {checksum= ""; _} | {location= ""; _} ->
+        error "Can't find valid 'checksum' or 'location'" ;
+        raise Api_errors.(Server_error (invalid_repomd_xml, []))
+    | md ->
+        ()
+
+  let of_xml xml data_type =
+    let dt = string_of_datatype data_type in
+    match xml with
     | Xml.Element ("repomd", _, children) -> (
-        let get_updateinfo_node = function
+        let get_node = function
           | Xml.Element ("data", attrs, nodes) -> (
             match List.assoc_opt "type" attrs with
-            | Some "updateinfo" ->
+            | Some data_type' when data_type' = dt ->
                 Some nodes
             | _ ->
                 None
@@ -586,7 +596,7 @@ module UpdateInfoMetaData = struct
           | _ ->
               None
         in
-        match List.filter_map get_updateinfo_node children with
+        match List.filter_map get_node children with
         | [l] ->
             List.fold_left
               (fun md n ->
@@ -596,7 +606,7 @@ module UpdateInfoMetaData = struct
                 | Xml.Element ("location", attrs, _) -> (
                   try {md with location= List.assoc "href" attrs}
                   with _ ->
-                    error "Failed to get location of updateinfo.xml.gz" ;
+                    error "Failed to get 'href' in 'location' of '%s'" dt ;
                     raise Api_errors.(Server_error (invalid_repomd_xml, []))
                 )
                 | _ ->
@@ -604,16 +614,16 @@ module UpdateInfoMetaData = struct
               )
               {checksum= ""; location= ""}
               l
-            |> assert_valid_repomd
+            |> fun md -> assert_valid md ; md
         | _ ->
-            error "Missing or multiple 'updateinfo' node(s)" ;
+            error "Missing or multiple '%s' node(s)" dt ;
             raise Api_errors.(Server_error (invalid_repomd_xml, []))
       )
     | _ ->
         error "Missing 'repomd' node" ;
         raise Api_errors.(Server_error (invalid_repomd_xml, []))
 
-  let of_xml_file xml_path =
+  let of_xml_file xml_path data_type =
     match Sys.file_exists xml_path with
     | false ->
         error "No repomd.xml found: %s" xml_path ;
@@ -621,7 +631,7 @@ module UpdateInfoMetaData = struct
     | true -> (
       match Xml.parse_file xml_path with
       | xml ->
-          of_xml xml
+          of_xml xml data_type
       | exception e ->
           error "Failed to parse repomd.xml: %s" (ExnHelper.string_of_exn e) ;
           raise Api_errors.(Server_error (invalid_repomd_xml, []))
