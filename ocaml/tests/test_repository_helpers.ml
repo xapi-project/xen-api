@@ -724,15 +724,15 @@ module UpdateInfoMetaDataOfXml = Generic.MakeStateless (struct
   module Io = struct
     type input_t = string
 
-    type output_t = (UpdateInfoMetaData.t, exn) result
+    type output_t = (RepoMetaData.t, exn) result
 
     let string_of_input_t x = x
 
     let fields =
       Fmt.Dump.
         [
-          field "checksum" (fun (r : UpdateInfoMetaData.t) -> r.checksum) string
-        ; field "location" (fun (r : UpdateInfoMetaData.t) -> r.location) string
+          field "checksum" (fun (r : RepoMetaData.t) -> r.checksum) string
+        ; field "location" (fun (r : RepoMetaData.t) -> r.location) string
         ]
       
 
@@ -741,7 +741,7 @@ module UpdateInfoMetaDataOfXml = Generic.MakeStateless (struct
   end
 
   let transform input =
-    try Ok (UpdateInfoMetaData.of_xml (Xml.parse_string input))
+    try Ok RepoMetaData.(of_xml (Xml.parse_string input) UpdateInfo)
     with e -> Error e
 
   let tests =
@@ -808,7 +808,7 @@ module UpdateInfoMetaDataOfXml = Generic.MakeStateless (struct
             </repomd>
            |}
         , Ok
-            UpdateInfoMetaData.
+            RepoMetaData.
               {checksum= "123abc"; location= "repodata/123abc.xml.gz"}
             
         )
