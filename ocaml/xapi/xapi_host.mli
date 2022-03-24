@@ -479,6 +479,9 @@ val nvidia_vf_setup :
 val allocate_resources_for_vm :
   __context:Context.t -> self:API.ref_host -> vm:API.ref_VM -> live:bool -> unit
 
+val write_uefi_certificates_to_disk :
+  __context:Context.t -> host:API.ref_host -> unit
+
 val set_uefi_certificates :
   __context:Context.t -> host:API.ref_host -> value:string -> unit
 
