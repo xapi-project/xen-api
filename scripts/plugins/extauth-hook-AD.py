@@ -31,6 +31,10 @@ import XenAPI
 # pylint: disable=super-with-arguments
 
 
+HCP_USERS = "/etc/security/hcp_ad_users.conf"
+HCP_GROUPS = "/etc/security/hcp_ad_groups.conf"
+
+
 def setup_logger():
     """Helper function setup logger"""
     log = logging.getLogger()
@@ -90,7 +94,7 @@ class ADConfig(object):
                 self._lines = [l.strip() for l in lines]
 
     def _get_ad_backend(self):
-        """Get atctive AD backend"""
+        """Get active AD backend"""
         if self._args.get("ad_backend", "winbind") == "pbis":
             logger.debug("pbis is used as AD backend")
             return ADBackend.BD_PBIS
@@ -135,7 +139,8 @@ session     sufficient    {ad_module}
 
 account     required      pam_nologin.so
 account     required      {ad_module} unknown_ok
-account     include       hcp_users
+account     sufficient    pam_listfile.so item=user file={user_list} sense=allow onerr=fail
+account     sufficient    pam_listfile.so item=group file={group_list} sense=allow onerr=fail
 account     required      pam_unix.so"""
 
     no_ad_pam = """#%PAM-1.0
@@ -149,7 +154,7 @@ session    required     pam_loginuid.so"""
 
     def __init__(self, session, args, ad_enabled=True):
         super(StaticSSHPam, self).__init__("/etc/pam.d/sshd", session, args, ad_enabled,
-                                        load_existing=False)
+                                           load_existing=False)
 
     def _apply_to_cache(self):
         if self._ad_enabled:
@@ -157,7 +162,8 @@ session    required     pam_loginuid.so"""
                 ad_pam_module = "/lib/security/pam_lsass.so"
             else:
                 ad_pam_module = "pam_winbind.so"
-            content = self.ad_pam_format.format(ad_module=ad_pam_module)
+            content = self.ad_pam_format.format(ad_module=ad_pam_module,
+                                                user_list=HCP_USERS, group_list=HCP_GROUPS)
         else:
             content = self.no_ad_pam
         self._lines = content.split("\n")
@@ -165,65 +171,65 @@ session    required     pam_loginuid.so"""
 
 class DynamicPam(ADConfig):
     #pylint: disable=too-few-public-methods
-    """Class manage /etc/pam.d/hcp_users which permit pool admin ssh"""
+    """Base class to manage AD users and groups configure which permit pool admin ssh"""
 
-    def __init__(self, session, arg, ad_enabled=True):
-        super(DynamicPam, self).__init__("/etc/pam.d/hcp_users", session, arg, ad_enabled,
+    def __init__(self, path, session, args, ad_enabled=True):
+        super(DynamicPam, self).__init__(path, session, args, ad_enabled,
                                          load_existing=False)
+        self.admin_role = self._session.xenapi.role.get_by_name_label(
+            'pool-admin')[0]
 
     def _apply_to_cache(self):
         # AD is not enabled, just return as the configure file will be removed during install
         if not self._ad_enabled:
             return
-        # Rewrite the PAM SSH config using the latest info from Active Directory
-        # and the list of subjects from xapi
-        subjects = self._session.xenapi.subject.get_all()
-        admin_role = self._session.xenapi.role.get_by_name_label(
-            'pool-admin')[0]
-        # Add each subject which contains the admin role
-        for opaque_ref in subjects:
-            subject_rec = self._session.xenapi.subject.get_record(opaque_ref)
-            if admin_role in subject_rec['roles']:
-                self._add_subject(subject_rec)
+
+        try:
+            # Rewrite the PAM SSH config using the latest info from Active Directory
+            # and the list of subjects from xapi
+            subjects = self._session.xenapi.subject.get_all()
+            # Add each subject which contains the admin role
+            for opaque_ref in subjects:
+                subject_rec = self._session.xenapi.subject.get_record(
+                    opaque_ref)
+                if self._is_pool_admin(subject_rec) and self._is_responsible_for(subject_rec):
+                    self._add_subject(subject_rec)
+            self._lines.append("")  # ending new line
+        except Exception as exp:  # pylint: disable=broad-except
+            logger.info("Failed to add subjects %s", str(exp))
+
+    def _is_pool_admin(self, subject_rec):
+        try:
+            return self.admin_role in subject_rec['roles']
+        except KeyError:
+            logger.warning("subject %s does not have role", subject_rec)
+            return False
 
     def _format_item(self, item):
         space_replacement = "+"
-        if " " not in item:
-            return item
         if self._backend == ADBackend.BD_PBIS:
             if space_replacement in item:
                 raise ValueError(
                     "{} is not permitted in subject name".format(space_replacement))
-
             # PBIS relace space with "+", eg "ab  cd" -> "ab++cd"
             # PBIS pam module will reverse it back
             return item.replace(" ", space_replacement)
+        return item
 
-        # winbind put name with space within "[]"
-        return "[{}]".format(item)
-
-    def _add_subject(self, subject_rec):
+    def _is_responsible_for(self, subject_rec):
         try:
-            sid = subject_rec['subject_identifier']
-            name = self._format_item(
-                subject_rec["other_config"]["subject-name"])
-            is_group = subject_rec["other_config"]["subject-is-group"] == "true"
-            logger.debug("Permit %s with sid %s is_group as %s",
-                         name, sid, is_group)
-            condition = "ingroup" if is_group else "="
-            self._lines.append("account sufficient pam_succeed_if.so user {} {}".format(
-                condition, name))
-            # If ssh key is permittd in authorized_keys,
-            # UPN cannot match by SAM, put UPN format explictly
-            if not is_group:
-                subject_upn = self._format_item(
-                    subject_rec["other_config"]["subject-upn"])
-                self._lines.append("account sufficient pam_succeed_if.so user {} {}".format(
-                    condition, subject_upn))
-        # pylint: disable=broad-except
-        except Exception as exp:
-            logger.warning(
-                "Failed to add subject %s for dynamic pam: %s", subject_rec, str(exp))
+            return self._match_subject(subject_rec)
+        except KeyError:
+            logger.exception("Failed to match subject %s", subject_rec)
+            return False
+
+    @abc.abstractmethod
+    def _match_subject(self, subject_rec):
+        pass
+
+    @abc.abstractmethod
+    def _add_subject(self, subject_rec):
+        pass
 
     def _install(self):
         if self._ad_enabled:
@@ -231,6 +237,70 @@ class DynamicPam(ADConfig):
         else:
             if os.path.exists(self._file_path):
                 os.remove(self._file_path)
+
+
+class UsersList(DynamicPam):
+    #pylint: disable=too-few-public-methods
+    """Class manage users which permit pool admin ssh"""
+
+    def __init__(self, session, arg, ad_enabled=True):
+        super(UsersList, self).__init__(HCP_USERS, session, arg, ad_enabled)
+
+    def _match_subject(self, subject_rec):
+        return subject_rec["other_config"]["subject-is-group"] != "true"
+
+    def _add_upn(self, subject_rec):
+        sep = "@"
+        try:
+            upn = subject_rec["other_config"]["subject-upn"]
+            user, domain = upn.split(sep)
+            if self._backend == ADBackend.BD_PBIS:
+                # PBIS convert domain to UPPER case, we revert it back
+                domain = domain.lower()
+            self._lines.append("{}{}{}".format(user, sep, domain))
+        except KeyError:
+            logger.info("subject does not have upn %s", subject_rec)
+        except ValueError:
+            logger.info("UPN format is not right %s", upn)
+
+    def _add_subject(self, subject_rec):
+        try:
+            sid = subject_rec['subject_identifier']
+            name = subject_rec["other_config"]["subject-name"]
+            formatted_name = self._format_item(name)
+            logger.debug("Permit user %s, Current sid is %s",
+                         formatted_name, sid)
+            self._lines.append(formatted_name)
+            # If ssh key is permittd in authorized_keys,
+            # The original name is compared, add UPN and original name
+            if self._backend == ADBackend.BD_PBIS and name != formatted_name:
+                self._lines.append(name)
+            self._add_upn(subject_rec)
+        # pylint: disable=broad-except
+        except Exception as exp:
+            logger.warning("Failed to add user %s: %s", subject_rec, str(exp))
+
+
+class GroupsList(DynamicPam):
+    #pylint: disable=too-few-public-methods
+    """Class manage groups which permit pool admin ssh"""
+
+    def __init__(self, session, arg, ad_enabled=True):
+        super(GroupsList, self).__init__(HCP_GROUPS, session, arg, ad_enabled)
+
+    def _match_subject(self, subject_rec):
+        return subject_rec["other_config"]["subject-is-group"] == "true"
+
+    def _add_subject(self, subject_rec):
+        try:
+            sid = subject_rec['subject_identifier']
+            name = self._format_item(
+                subject_rec["other_config"]["subject-name"])
+            logger.debug("Permit group %s, Current sid is %s", name, sid)
+            self._lines.append(name)
+       # pylint: disable=broad-except
+        except Exception as exp:
+            logger.warning("Failed to add group %s:%s", subject_rec, str(exp))
 
 
 class KeyValueConfig(ADConfig):
@@ -350,20 +420,23 @@ class ConfigManager:
         self._nss = NssConfig(session, args, ad_enabled)
         self._sshd = SshdConfig(session, args, ad_enabled)
         self._static_pam = StaticSSHPam(session, args, ad_enabled)
-        self._dynamic_pam = DynamicPam(session, args, ad_enabled)
+        self._users = UsersList(session, args, ad_enabled)
+        self._groups = GroupsList(session, args, ad_enabled)
         self._pam_winbind = PamWinbindConfig(session, args, ad_enabled)
 
     def refresh_all(self):
         """Update all the configurations"""
         self._nss.apply()
         self._sshd.apply()
-        self._dynamic_pam.apply()
+        self._users.apply()
+        self._groups.apply()
         self._static_pam.apply()
         self._pam_winbind.apply()
 
     def refresh_dynamic_pam(self):
         """Only refresh the dynanic configurations"""
-        self._dynamic_pam.apply()
+        self._users.apply()
+        self._groups.apply()
 
 
 def refresh_all_configurations(session, args, name, ad_enabled=True):

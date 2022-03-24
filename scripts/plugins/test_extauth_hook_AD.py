@@ -11,7 +11,7 @@ sys.modules["XenAPIPlugin"] = MagicMock()
 sys.modules["XenAPI"] = MagicMock()
 # pylint: disable=wrong-import-position
 # Import must after mock modules
-from extauth_hook_ad import StaticSSHPam, DynamicPam, NssConfig, SshdConfig
+from extauth_hook_ad import StaticSSHPam, NssConfig, SshdConfig, UsersList, GroupsList
 
 
 def line_exists_in_config(lines, line):
@@ -38,13 +38,13 @@ mock_session.xenapi.role.get_by_name_label.return_value = admin_roles
 # pylint: disable=too-many-arguments, missing-class-docstring, no-self-use
 
 
-def build_user(domain, name, is_admin=True):
+def build_user(domain_netbios, domain, name, is_admin=True):
     return {
         'subject_identifier': 'S-1-5-21-3143668282-2591278241-912959342-1179',
         'other_config': {
             'subject-password-expired': 'FALSE',
             'subject-gecos': name,
-            'subject-name': '{}\\{}'.format(domain, name),
+            'subject-name': '{}\\{}'.format(domain_netbios, name),
             'subject-account-disabled': 'FALSE',
             'subject-account-locked': 'FALSE',
             'subject-is-group': 'false',
@@ -108,92 +108,74 @@ class TestStaicPamConfig(TestCase):
 
 
 @patch("extauth_hook_ad.ADConfig._install")
-class TestDynamicPam(TestCase):
+class TestUsersList(TestCase):
     @patch("extauth_hook_ad.open")
     @patch("os.path.exists")
     @patch("os.remove")
     def test_ad_not_enabled(self, mock_remove, mock_exists, mock_open, mock_install):
         # dynamic pam file should be removed
         mock_exists.return_value = True
-        dynamic = DynamicPam(mock_session, args_bd_winbind, ad_enabled=False)
+        dynamic = UsersList(mock_session, args_bd_winbind, ad_enabled=False)
         dynamic.apply()
         mock_remove.assert_called()
         mock_install.assert_not_called()
 
     def test_permit_admin_user(self, mock_install):
         # Domain user with admin role should be included in config file
-        user = build_user("CONNAPP", "radmin", True)
+        user = build_user("CONNAPP", "CONAPPADA.LOCAL", "radmin", True)
         mock_session.xenapi.subject.get_record.return_value = user
-        permit_user = r"account sufficient pam_succeed_if.so user = CONNAPP\radmin"
-        dynamic = DynamicPam(mock_session, args_bd_winbind)
+        dynamic = UsersList(mock_session, args_bd_pbis)
         dynamic.apply()
-        self.assertTrue(line_exists_in_config(dynamic._lines, permit_user))
+        self.assertIn(r"CONNAPP\radmin", dynamic._lines)
+        self.assertIn(r"radmin@conappada.local", dynamic._lines)
         mock_install.assert_called()
 
     def test_pbis_permit_admin_user_with_space(self, mock_install):
         # Domain user name with space should be repalced by "+" with PBIS
-        user = build_user("CONNAPP", "radmin  l1", True)
+        user = build_user("CONNAPP", "conappada.local", "radmin  l1", True)
         mock_session.xenapi.subject.get_record.return_value = user
-        permit_user = r"account sufficient pam_succeed_if.so user = CONNAPP\radmin++l1"
-        dynamic = DynamicPam(mock_session, args_bd_pbis)
+        permit_user = r"CONNAPP\radmin++l1"
+        dynamic = UsersList(mock_session, args_bd_pbis)
         dynamic.apply()
-        self.assertTrue(line_exists_in_config(dynamic._lines, permit_user))
+        self.assertIn(permit_user, dynamic._lines)
         mock_install.assert_called()
 
     def test_winbind_permit_admin_user_with_space(self, mock_install):
         # Domain user name with space should be surrounded by [] with winbind
-        user = build_user("CONNAPP", "radmin  l1", True)
+        user = build_user("CONNAPP", "conappada.local", "radmin  l1", True)
         mock_session.xenapi.subject.get_record.return_value = user
-        permit_user = r"account sufficient pam_succeed_if.so user = [CONNAPP\radmin  l1]"
-        dynamic = DynamicPam(mock_session, args_bd_winbind)
+        permit_user = r"CONNAPP\radmin  l1"
+        dynamic = UsersList(mock_session, args_bd_winbind)
         dynamic.apply()
-        self.assertTrue(line_exists_in_config(dynamic._lines, permit_user))
+        self.assertIn(permit_user, dynamic._lines)
         mock_install.assert_called()
 
     def test_not_permit_non_admin_user(self, mock_install):
         # Domain user without admin role should be included in config file
-        user = build_user("CONNAPP", "radmin", False)
+        user = build_user("CONNAPP", "conappada.local", "radmin", False)
         mock_session.xenapi.subject.get_record.return_value = user
-        permit_user = r"account sufficient pam_succeed_if.so user = CONNAPP\radmin"
-        dynamic = DynamicPam(mock_session, args_bd_winbind)
+        permit_user = r"CONNAPP\radmin"
+        dynamic = UsersList(mock_session, args_bd_winbind)
         dynamic.apply()
-        self.assertFalse(line_exists_in_config(dynamic._lines, permit_user))
-
-    def test_permit_admin_group(self, mock_install):
-        # Domain group with admin role should be included in config file
-        group = build_group("CONNAPP", "test_group", True)
-        mock_session.xenapi.subject.get_record.return_value = group
-        permit_group = r"account sufficient pam_succeed_if.so user ingroup CONNAPP\test_group"
-        dynamic = DynamicPam(mock_session, args_bd_winbind)
-        dynamic.apply()
-        self.assertTrue(line_exists_in_config(dynamic._lines, permit_group))
-
-    def test_not_permit_non_admin_group(self, mock_install):
-        # Domain user without admin role should not be included in config file
-        group = build_group("CONNAPP", "test_group", False)
-        mock_session.xenapi.subject.get_record.return_value = group
-        permit_group = r"account sufficient pam_succeed_if.so user ingroup CONNAPP\test_group"
-        dynamic = DynamicPam(mock_session, args_bd_winbind)
-        dynamic.apply()
-        self.assertFalse(line_exists_in_config(dynamic._lines, permit_group))
+        self.assertNotIn(permit_user, dynamic._lines)
 
     def test_pbis_not_permit_pool_admin_with_plus_in_name(self, mock_install):
         """
         Domain user name should not contain "+"
         """
-        user = build_user("CONNAPP", "rad m+in", True)
+        user = build_user("CONNAPP", "conappada.local", "radm+in", True)
         mock_session.xenapi.subject.get_record.return_value = user
-        permit_user = r"account sufficient pam_succeed_if.so user = CONNAPP\ra dm+in"
-        dynamic = DynamicPam(mock_session, args_bd_pbis)
+        permit_user = r"CONNAPP\radm+in"
+        dynamic = UsersList(mock_session, args_bd_pbis)
         dynamic.apply()
-        self.assertFalse(line_exists_in_config(dynamic._lines, permit_user))
+        self.assertNotIn(permit_user, dynamic._lines)
 
     def test_failed_to_add_one_admin_should_not_affact_others(self, mock_install):
         """
         Failed to add one bad domain users should not affact others
         """
-        bad_user = build_user("CONNAPP", "ba d+in", True)
-        good_user = build_user("CONNAPP", "good", True)
+        bad_user = build_user("CONNAPP", "conappada.local", "bad+in", True)
+        good_user = build_user("CONNAPP", "conappada.local", "good", True)
 
         mock_session_with_multi_users = MagicMock()
 
@@ -204,12 +186,42 @@ class TestDynamicPam(TestCase):
             bad_user, good_user]
         mock_session_with_multi_users.xenapi.role.get_by_name_label.return_value = admin_roles
 
-        bad_condition = r"account sufficient pam_succeed_if.so user = CONNAPP\ba d+in"
-        good_condition = r"account sufficient pam_succeed_if.so user = CONNAPP\good"
-        dynamic = DynamicPam(mock_session_with_multi_users, args_bd_pbis)
+        bad_user = r"CONNAPP\bad+in"
+        good_user = r"CONNAPP\good"
+        dynamic = UsersList(mock_session_with_multi_users, args_bd_pbis)
         dynamic.apply()
-        self.assertFalse(line_exists_in_config(dynamic._lines, bad_condition))
-        self.assertTrue(line_exists_in_config(dynamic._lines, good_condition))
+        self.assertIn(good_user, dynamic._lines)
+        self.assertNotIn(bad_user, dynamic._lines)
+
+
+@patch("extauth_hook_ad.ADConfig._install")
+class TestGroups(TestCase):
+    def test_permit_admin_group(self, mock_install):
+        # Domain group with admin role should be included in config file
+        group = build_group("CONNAPP", "test_group", True)
+        mock_session.xenapi.subject.get_record.return_value = group
+        permit_group = r"CONNAPP\test_group"
+        dynamic = GroupsList(mock_session, args_bd_winbind)
+        dynamic.apply()
+        self.assertIn(permit_group, dynamic._lines)
+
+    def test_not_permit_non_admin_group(self, mock_install):
+        # Domain group without admin role should not be included in config file
+        group = build_group("CONNAPP", "test_group", False)
+        mock_session.xenapi.subject.get_record.return_value = group
+        bad_group = r"CONNAPP\test_group"
+        dynamic = GroupsList(mock_session, args_bd_winbind)
+        dynamic.apply()
+        self.assertNotIn(bad_group, dynamic._lines)
+
+    def test_permit_admin_group_with_space(self, mock_install):
+        # Domain group name with space should be included in config file
+        group = build_group("CONNAPP", "test group", True)
+        mock_session.xenapi.subject.get_record.return_value = group
+        permit_group = r"CONNAPP\test group"
+        dynamic = GroupsList(mock_session, args_bd_winbind)
+        dynamic.apply()
+        self.assertIn(permit_group, dynamic._lines)
 
 
 @patch("extauth_hook_ad.ADConfig._install")
