@@ -304,15 +304,16 @@ let synchronize_certificates_with_coordinator ~__context =
       && Cert_distrib.am_i_missing_certs ~__context
     then (
       D.debug
-        "am_i_missing_certs: i am missing certs! asking primary host to send \
-         us its certs" ;
+        "%s: Certificates are missing! asking coordinator to send us its trust \
+         root"
+        __FUNCTION__ ;
       let host = get_localhost ~__context in
       call_api_functions ~__context @@ fun rpc session_id ->
       Client.Host.copy_primary_host_certs ~rpc ~session_id ~host ;
-      D.debug "am_i_missing_certs: successfully copied certs from primary host!"
+      D.debug "%s: successfully copied certs from coordinator!" __FUNCTION__
     )
   with e ->
-    D.error "am_i_missing_certs: exception (ignoring): %s" (Printexc.to_string e)
+    D.error "%s: exception (ignoring): %s" __FUNCTION__ (Printexc.to_string e)
 
 (* Make sure the local database can be read *)
 let init_local_database () =
