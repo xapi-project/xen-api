@@ -11,7 +11,8 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-open Xapi_stdext_threads.Threadext
+let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
+
 module Unixext = Xapi_stdext_unix.Unixext
 
 module D = Debug.Make (struct let name = "xapi_mgmt_iface" end)
@@ -179,14 +180,14 @@ let mgmt_is_enabled () = Server.current_mode () = Any
 
 let run ~__context ?mgmt_enabled () =
   let mgmt_enabled = Option.value ~default:(mgmt_is_enabled ()) mgmt_enabled in
-  Mutex.execute management_m (fun () ->
+  with_lock management_m (fun () ->
       Client_certificate_auth_server.update ~__context ~mgmt_enabled ;
       next_server_mode ~mgmt_enabled |> Server.update ~__context ;
       Xapi_stunnel_server.sync ~__context (Server.is_ipv6_enabled ())
   )
 
 let reconfigure_himn ~__context ~addr =
-  Mutex.execute management_m (fun () ->
+  with_lock management_m (fun () ->
       himn := addr ;
       next_server_mode ~mgmt_enabled:(mgmt_is_enabled ())
       |> Server.update ~__context
@@ -209,7 +210,7 @@ let wait_for_ip get_ip is_connected =
     ) else
       ip
   in
-  Mutex.execute ip_mutex loop
+  with_lock ip_mutex loop
 
 let wait_for_management_ip ~__context =
   let get_ip () = Helpers.get_management_ip_addr ~__context in
@@ -269,4 +270,4 @@ let on_dom0_networking_change ~__context =
   ) ;
   Helpers.update_domain_zero_name ~__context localhost new_hostname ;
   debug "Signalling anyone waiting for the management IP address to change" ;
-  Mutex.execute ip_mutex (fun () -> Condition.broadcast ip_cond)
+  with_lock ip_mutex (fun () -> Condition.broadcast ip_cond)

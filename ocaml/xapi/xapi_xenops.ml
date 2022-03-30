@@ -20,7 +20,9 @@ open Network
 open Xapi_stdext_std.Xstringext
 module Date = Xapi_stdext_date.Date
 module Listext = Xapi_stdext_std.Listext.List
-module Mutex = Xapi_stdext_threads.Threadext.Mutex
+
+let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
+
 module Unixext = Xapi_stdext_unix.Unixext
 module XenAPI = Client.Client
 module Rrdd = Rrd_client.Client
@@ -1423,7 +1425,7 @@ module Xapi_cache = struct
 
   let mutex = Mutex.create ()
 
-  let with_lock f = Mutex.execute mutex f
+  let with_lock f = with_lock mutex f
 
   let register id initial_value =
     debug "xapi_cache: creating cache for %s" id ;
@@ -1485,7 +1487,7 @@ module Xenops_cache = struct
 
   let mutex = Mutex.create ()
 
-  let with_lock f = Mutex.execute mutex f
+  let with_lock f = with_lock mutex f
 
   let register id =
     debug "xenops_cache: creating empty cache for %s" id ;
@@ -1627,7 +1629,7 @@ module Xenopsd_metadata = struct
       )
 
   let push ~__context ~self =
-    Mutex.execute metadata_m (fun () ->
+    with_lock metadata_m (fun () ->
         let md = create_metadata ~__context ~self in
         let txt = md |> rpc_of Metadata.t |> Jsonrpc.to_string in
         info "xenops: VM.import_metadata %s" txt ;
@@ -1669,7 +1671,7 @@ module Xenopsd_metadata = struct
 
   (* Unregisters a VM with xenopsd, and cleans up metadata and caches *)
   let pull ~__context id =
-    Mutex.execute metadata_m (fun () ->
+    with_lock metadata_m (fun () ->
         info "xenops: VM.export_metadata %s" id ;
         let dbg = Context.string_of_task __context in
         let module Client = ( val make_client
@@ -1699,12 +1701,12 @@ module Xenopsd_metadata = struct
     )
 
   let delete ~__context id =
-    Mutex.execute metadata_m (fun () -> delete_nolock ~__context id)
+    with_lock metadata_m (fun () -> delete_nolock ~__context id)
 
   let update ~__context ~self =
     let id = id_of_vm ~__context ~self in
     let queue_name = queue_of_vm ~__context ~self in
-    Mutex.execute metadata_m (fun () ->
+    with_lock metadata_m (fun () ->
         let dbg = Context.string_of_task __context in
         if vm_exists_in_xenopsd queue_name dbg id then
           let txt =
@@ -1724,7 +1726,7 @@ module Xenopsd_metadata = struct
 end
 
 let add_caches id =
-  Mutex.execute metadata_m (fun () ->
+  with_lock metadata_m (fun () ->
       Xapi_cache.register id None ;
       Xenops_cache.register id
   )
@@ -1764,7 +1766,7 @@ module Events_from_xenopsd = struct
   let register =
     let counter = ref 0 in
     fun t ->
-      Mutex.execute active_m (fun () ->
+      with_lock active_m (fun () ->
           let id = !counter in
           incr counter ;
           Hashtbl.replace active id t ;
@@ -1777,7 +1779,7 @@ module Events_from_xenopsd = struct
     let id = register t in
     debug "Client.UPDATES.inject_barrier %d" id ;
     Client.UPDATES.inject_barrier dbg vm_id id ;
-    Mutex.execute t.m (fun () ->
+    with_lock t.m (fun () ->
         while not t.finished do
           Condition.wait t.c t.m
         done
@@ -1787,7 +1789,7 @@ module Events_from_xenopsd = struct
     let module Client = (val make_client queue_name : XENOPS) in
     Client.UPDATES.remove_barrier dbg id ;
     let t =
-      Mutex.execute active_m (fun () ->
+      with_lock active_m (fun () ->
           if not (Hashtbl.mem active id) then (
             warn "Events_from_xenopsd.wakeup: unknown id %d" id ;
             None
@@ -1798,7 +1800,7 @@ module Events_from_xenopsd = struct
     in
     Option.iter
       (fun t ->
-        Mutex.execute t.m (fun () ->
+        with_lock t.m (fun () ->
             t.finished <- true ;
             Condition.signal t.c
         )
@@ -1816,11 +1818,11 @@ module Events_from_xenopsd = struct
   let with_suppressed queue_name dbg vm_id f =
     debug "suppressing xenops events on VM: %s" vm_id ;
     let module Client = (val make_client queue_name : XENOPS) in
-    Mutex.execute events_suppressed_on_m (fun () ->
+    with_lock events_suppressed_on_m (fun () ->
         Hashtbl.add events_suppressed_on vm_id ()
     ) ;
     finally f (fun () ->
-        Mutex.execute events_suppressed_on_m (fun () ->
+        with_lock events_suppressed_on_m (fun () ->
             Hashtbl.remove events_suppressed_on vm_id ;
             if not (Hashtbl.mem events_suppressed_on vm_id) then (
               debug "re-enabled xenops events on VM: %s; refreshing VM" vm_id ;
@@ -3147,14 +3149,14 @@ module Events_from_xapi = struct
       )
     in
     debug "Waiting for token greater than: %s" t ;
-    Mutex.execute m (fun () ->
+    with_lock m (fun () ->
         while !greatest_token < t do
           Condition.wait c m
         done
     )
 
   let broadcast new_token =
-    Mutex.execute m (fun () ->
+    with_lock m (fun () ->
         greatest_token := new_token ;
         Condition.broadcast c
     )

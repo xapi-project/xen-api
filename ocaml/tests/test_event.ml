@@ -14,7 +14,7 @@
 
 open Test_common
 open Event_types
-open Xapi_stdext_threads.Threadext
+module Delay = Xapi_stdext_threads.Threadext.Delay
 
 let event_setup_common = Test_event_common.event_setup_common
 

@@ -14,11 +14,12 @@
 
 open Network_utils
 open Xapi_stdext_pervasives
-open Xapi_stdext_threads.Threadext
 
 module D = Debug.Make (struct let name = "network_monitor_thread" end)
 
 open D
+
+let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
 (** Table for bonds status. *)
 let bonds_status : (string, int * int) Hashtbl.t = Hashtbl.create 10
@@ -375,7 +376,7 @@ let rec ip_watcher () =
   let cmd = Network_utils.iproute2 in
   let args = ["monitor"; "address"] in
   let readme, writeme = Unix.pipe () in
-  Mutex.execute watcher_m (fun () ->
+  with_lock watcher_m (fun () ->
       watcher_pid :=
         Some
           (Forkhelpers.safe_close_and_exec ~env:(Unix.environment ()) None
@@ -433,7 +434,7 @@ let start () =
     ()
 
 let stop () =
-  Mutex.execute watcher_m (fun () ->
+  with_lock watcher_m (fun () ->
       match !watcher_pid with
       | None ->
           ()

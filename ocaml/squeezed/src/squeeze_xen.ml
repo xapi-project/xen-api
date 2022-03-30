@@ -21,7 +21,7 @@
 (** Interface between the abstract domain memory balancing code and Xen. *)
 open Squeezed_xenstore
 
-open Xapi_stdext_threads.Threadext
+let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
 module D = Debug.Make (struct let name = "squeeze_xen" end)
 
@@ -143,7 +143,7 @@ module Domain = struct
 
   let remove_gone_domains_cache xc =
     let current_domains = Xenctrl.domain_getinfolist xc 0 in
-    Mutex.execute m (fun () ->
+    with_lock m (fun () ->
         let alive_domids =
           List.map (fun d -> d.Xenctrl.domid) current_domains
         in
@@ -239,7 +239,7 @@ module Domain = struct
             )
             gone ;
           watching_domids := existing ;
-          Mutex.execute m (fun () ->
+          with_lock m (fun () ->
               IntSet.iter (Hashtbl.remove cache) gone ;
               IntSet.iter
                 (fun domid ->
@@ -259,7 +259,7 @@ module Domain = struct
         let incoming_watches_m = Mutex.create () in
         let incoming_watches_c = Condition.create () in
         let enqueue_watches event =
-          Mutex.execute incoming_watches_m (fun () ->
+          with_lock incoming_watches_m (fun () ->
               if Queue.length incoming_watches = 1024 then
                 queue_overflowed := true
               else
@@ -271,7 +271,7 @@ module Domain = struct
           try
             while true do
               let event =
-                Mutex.execute incoming_watches_m (fun () ->
+                with_lock incoming_watches_m (fun () ->
                     while
                       Queue.is_empty incoming_watches && not !queue_overflowed
                     do
@@ -300,7 +300,7 @@ module Domain = struct
               when List.mem rest interesting_paths ->
                 let value = try Some (Client.read xs path) with _ -> None in
                 let domid = int_of_string domid in
-                Mutex.execute m (fun () ->
+                with_lock m (fun () ->
                     match get_per_domain xc domid with
                     | None ->
                         ()
@@ -347,19 +347,19 @@ module Domain = struct
     ()
 
   let get_domain_type cnx domid =
-    Mutex.execute m (fun () ->
+    with_lock m (fun () ->
         Option.fold ~none:`pv
           ~some:(fun d -> d.domain_type)
           (get_per_domain cnx domid)
     )
 
   let get_maxmem cnx domid =
-    Mutex.execute m (fun () ->
+    with_lock m (fun () ->
         Option.fold ~none:0L ~some:(fun d -> d.maxmem) (get_per_domain cnx domid)
     )
 
   let set_maxmem_noexn xc domid mem =
-    Mutex.execute m (fun () ->
+    with_lock m (fun () ->
         match get_per_domain xc domid with
         | None ->
             ()
@@ -379,7 +379,7 @@ module Domain = struct
   (** Read a particular domain's key, using the cache *)
   let read xc domid key =
     let x =
-      Mutex.execute m (fun () ->
+      with_lock m (fun () ->
           match get_per_domain xc domid with
           | None ->
               None

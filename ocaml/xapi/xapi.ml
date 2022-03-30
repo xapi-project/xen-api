@@ -16,7 +16,9 @@
 *)
 
 open Printf
-open Xapi_stdext_threads.Threadext
+
+let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
+
 module Unixext = Xapi_stdext_unix.Unixext
 
 let finally = Xapi_stdext_pervasives.Pervasiveext.finally
@@ -111,14 +113,14 @@ let start_database_engine () =
   Xapi_event.register_hooks () ;
   Xapi_message.register_event_hook () ;
   debug "Signalling any waiting db clients to proceed" ;
-  Mutex.execute database_ready_for_clients_m (fun () ->
+  with_lock database_ready_for_clients_m (fun () ->
       database_ready_for_clients := true ;
       Condition.broadcast database_ready_for_clients_c
   )
 
 (* Block premature incoming client requests until the database engine is ready *)
 let wait_until_database_is_ready_for_clients () =
-  Mutex.execute database_ready_for_clients_m (fun () ->
+  with_lock database_ready_for_clients_m (fun () ->
       while not !database_ready_for_clients do
         Condition.wait database_ready_for_clients_c database_ready_for_clients_m
       done
@@ -281,7 +283,7 @@ let on_master_restart ~__context =
     let host = Helpers.get_localhost ~__context in
     let metrics = Db.Host.get_metrics ~__context ~self:host in
     let shutting_down =
-      Mutex.execute Xapi_globs.hosts_which_are_shutting_down_m (fun () ->
+      with_lock Xapi_globs.hosts_which_are_shutting_down_m (fun () ->
           List.mem host !Xapi_globs.hosts_which_are_shutting_down
       )
     in

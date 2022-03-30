@@ -16,7 +16,6 @@ module D = Debug.Make (struct let name = "nm" end)
 open D
 open Xapi_stdext_std.Xstringext
 module Listext = Xapi_stdext_std.Listext.List
-open Xapi_stdext_threads.Threadext
 open Db_filter_types
 open Network
 open Network_interface
@@ -24,7 +23,7 @@ open Network_interface
 (* Protect a bunch of local operations with a mutex *)
 let local_m = Mutex.create ()
 
-let with_local_lock f = Mutex.execute local_m f
+let with_local_lock f = Xapi_stdext_threads.Threadext.Mutex.execute local_m f
 
 let is_dom0_interface pif_r =
   pif_r.API.pIF_ip_configuration_mode <> `None

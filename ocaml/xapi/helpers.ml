@@ -15,10 +15,12 @@
  * Provide some helpers for XAPI
  *)
 
-open Xapi_stdext_threads.Threadext
+module Delay = Xapi_stdext_threads.Threadext.Delay
 module Unixext = Xapi_stdext_unix.Unixext
 
 let finally = Xapi_stdext_pervasives.Pervasiveext.finally
+
+let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
 open Xapi_globs
 open Db_filter_types
@@ -559,8 +561,7 @@ let domain_zero_ref_cache = ref None
 let domain_zero_ref_cache_mutex = Mutex.create ()
 
 let get_domain_zero ~__context : API.ref_VM =
-  Xapi_stdext_threads.Threadext.Mutex.execute domain_zero_ref_cache_mutex
-    (fun () ->
+  with_lock domain_zero_ref_cache_mutex (fun () ->
       match !domain_zero_ref_cache with
       | Some r ->
           r
@@ -1462,7 +1463,7 @@ let __number_of_queueing_threads = ref 0
 
 let max_number_of_queueing_threads = 100
 
-let with_global_lock x = Mutex.execute __internal_mutex x
+let with_global_lock x = with_lock __internal_mutex x
 
 (** Call the function f having incremented the number of queueing threads counter.
     If we exceed a built-in threshold, throw TOO_MANY_PENDING_TASKS *)
@@ -1503,17 +1504,17 @@ module Early_wakeup = struct
   let wait key time =
     (* debug "Early_wakeup wait key = (%s, %s) time = %.2f" a b time; *)
     let d = Delay.make () in
-    Mutex.execute table_m (fun () -> Hashtbl.add table key d) ;
+    with_lock table_m (fun () -> Hashtbl.add table key d) ;
     finally
       (fun () ->
         let (_ : bool) = Delay.wait d time in
         ()
       )
-      (fun () -> Mutex.execute table_m (fun () -> Hashtbl.remove table key))
+      (fun () -> with_lock table_m (fun () -> Hashtbl.remove table key))
 
   let broadcast _key =
     (*debug "Early_wakeup broadcast key = (%s, %s)" a b;*)
-    Mutex.execute table_m (fun () ->
+    with_lock table_m (fun () ->
         Hashtbl.iter
           (fun (_, _) d ->
             (*debug "Signalling thread blocked on (%s, %s)" a b;*)
@@ -1524,7 +1525,7 @@ module Early_wakeup = struct
 
   let signal key =
     (*debug "Early_wakeup signal key = (%s, %s)" a b;*)
-    Mutex.execute table_m (fun () ->
+    with_lock table_m (fun () ->
         if Hashtbl.mem table key then
           (*debug "Signalling thread blocked on (%s,%s)" a b;*)
           Delay.signal (Hashtbl.find table key)
@@ -1993,7 +1994,7 @@ let update_ca_bundle =
    * itself *)
   let m = Mutex.create () in
   fun () ->
-    Mutex.execute m (fun () ->
+    with_lock m (fun () ->
         ignore
           (Forkhelpers.execute_command_get_output
              "/opt/xensource/bin/update-ca-bundle.sh" []

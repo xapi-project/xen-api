@@ -1,5 +1,4 @@
 open Xapi_stdext_unix
-open Xapi_stdext_threads.Threadext
 
 type mode =
   | Slave of string
@@ -91,7 +90,7 @@ let _ =
           finished := true
         ) ;
         (* Wait for either completion *)
-        Mutex.execute m (fun () ->
+        Xapi_stdext_threads.Threadext.Mutex.execute m (fun () ->
             while not !finished do
               Condition.wait c m
             done

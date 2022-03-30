@@ -15,7 +15,8 @@
 (* The framework requires type 'context' to be defined. *)
 type context = unit
 
-module Mutex = Xapi_stdext_threads.Threadext.Mutex
+let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
+
 open Rrdd_shared
 open Rrd_interface
 
@@ -25,7 +26,7 @@ open D
 
 let archive_sr_rrd (sr_uuid : string) : string =
   let sr_rrd =
-    Mutex.execute mutex (fun () ->
+    with_lock mutex (fun () ->
         try
           let rrd = Hashtbl.find sr_rrds sr_uuid in
           Hashtbl.remove sr_rrds sr_uuid ;
@@ -59,13 +60,13 @@ let push_sr_rrd (sr_uuid : string) (path : string) : unit =
     in
     let rrd = rrd_of_gzip path in
     debug "Pushing RRD for SR uuid=%s locally" sr_uuid ;
-    Mutex.execute mutex (fun _ ->
+    with_lock mutex (fun _ ->
         Hashtbl.replace sr_rrds sr_uuid {rrd; dss= []; domid= 0}
     )
   with _ -> ()
 
 let has_vm_rrd (vm_uuid : string) =
-  Mutex.execute mutex (fun _ -> Hashtbl.mem vm_rrds vm_uuid)
+  with_lock mutex (fun _ -> Hashtbl.mem vm_rrds vm_uuid)
 
 (** [archive_rrd] is used exclusively to send rrds to the pool master when
     suspending/halting vms *)
@@ -83,7 +84,7 @@ let archive_rrd vm_uuid (remote_address : string option) : unit =
       )
       remote_address
   in
-  Mutex.execute mutex (fun () ->
+  with_lock mutex (fun () ->
       try
         let rrd = (Hashtbl.find vm_rrds vm_uuid).rrd in
         Hashtbl.remove vm_rrds vm_uuid ;
@@ -129,7 +130,7 @@ let backup_rrds (remote_address : string option) () : unit =
       List.iter
         (fun (uuid, rrd) ->
           debug "Backup: saving RRD for VM uuid=%s %s" uuid destination ;
-          let rrd = Mutex.execute mutex (fun () -> Rrd.copy_rrd rrd) in
+          let rrd = with_lock mutex (fun () -> Rrd.copy_rrd rrd) in
           archive_rrd_internal ~transport ~uuid ~rrd ()
         )
         vrrds ;
@@ -142,14 +143,14 @@ let backup_rrds (remote_address : string option) () : unit =
       List.iter
         (fun (uuid, rrd) ->
           debug "Backup: saving RRD for SR uuid=%s %s" uuid destination ;
-          let rrd = Mutex.execute mutex (fun () -> Rrd.copy_rrd rrd) in
+          let rrd = with_lock mutex (fun () -> Rrd.copy_rrd rrd) in
           archive_rrd_internal ~transport ~uuid ~rrd ()
         )
         srrds ;
       match !host_rrd with
       | Some rrdi ->
           debug "Backup: saving RRD for host %s" destination ;
-          let rrd = Mutex.execute mutex (fun () -> Rrd.copy_rrd rrdi.rrd) in
+          let rrd = with_lock mutex (fun () -> Rrd.copy_rrd rrdi.rrd) in
           archive_rrd_internal ~transport
             ~uuid:(Inventory.lookup Inventory._installation_uuid)
             ~rrd ()
@@ -249,7 +250,7 @@ module Deprecated = struct
             )
         )
       in
-      Mutex.execute mutex (fun () -> host_rrd := Some {rrd; dss= []; domid= 0})
+      with_lock mutex (fun () -> host_rrd := Some {rrd; dss= []; domid= 0})
     with _ -> ()
 end
 
@@ -261,7 +262,7 @@ let push_rrd_local vm_uuid domid : unit =
   try
     let rrd = get_rrd ~vm_uuid in
     debug "Pushing RRD for VM uuid=%s locally" vm_uuid ;
-    Mutex.execute mutex (fun _ ->
+    with_lock mutex (fun _ ->
         Hashtbl.replace vm_rrds vm_uuid {rrd; dss= []; domid}
     )
   with _ -> ()
@@ -298,7 +299,7 @@ let migrate_rrd (session_id : string option) (remote_address : string)
     (vm_uuid : string) (host_uuid : string) : unit =
   try
     let rrdi =
-      Mutex.execute mutex (fun () ->
+      with_lock mutex (fun () ->
           let rrdi = Hashtbl.find vm_rrds vm_uuid in
           debug "Sending RRD for VM uuid=%s to remote host %s for migrate"
             vm_uuid host_uuid ;
@@ -334,7 +335,7 @@ let send_host_rrd_to_master master_address =
           )
       in
       debug "sending host RRD to master" ;
-      let rrd = Mutex.execute mutex (fun () -> Rrd.copy_rrd rrdi.rrd) in
+      let rrd = with_lock mutex (fun () -> Rrd.copy_rrd rrdi.rrd) in
       send_rrd ~transport ~to_archive:true
         ~uuid:(Inventory.lookup Inventory._installation_uuid)
         ~rrd ()
@@ -352,7 +353,7 @@ let add_ds ~rrdi ~ds_name =
     (Rrd.ds_create ds.ds_name ds.ds_type ~mrhb:300.0 Rrd.VT_Unknown)
 
 let add_host_ds (ds_name : string) : unit =
-  Mutex.execute mutex (fun () ->
+  with_lock mutex (fun () ->
       match !host_rrd with
       | None ->
           ()
@@ -362,7 +363,7 @@ let add_host_ds (ds_name : string) : unit =
   )
 
 let forget_host_ds (ds_name : string) : unit =
-  Mutex.execute mutex (fun () ->
+  with_lock mutex (fun () ->
       match !host_rrd with
       | None ->
           ()
@@ -432,13 +433,13 @@ let query_possible_dss rrdi =
   |> List.of_seq
 
 let query_possible_host_dss () : Data_source.t list =
-  Mutex.execute mutex (fun () ->
+  with_lock mutex (fun () ->
       match !host_rrd with None -> [] | Some rrdi -> query_possible_dss rrdi
   )
 
 let query_host_ds (ds_name : string) : float =
   let now = Unix.gettimeofday () in
-  Mutex.execute mutex (fun () ->
+  with_lock mutex (fun () ->
       match !host_rrd with
       | None ->
           failwith "No data source!"
@@ -452,14 +453,14 @@ let query_host_ds (ds_name : string) : float =
     present in the host or if there is no live source for the VM with the name
     {ds_name}. *)
 let add_vm_ds (vm_uuid : string) (domid : int) (ds_name : string) : unit =
-  Mutex.execute mutex (fun () ->
+  with_lock mutex (fun () ->
       let rrdi = Hashtbl.find vm_rrds vm_uuid in
       let rrd = add_ds ~rrdi ~ds_name in
       Hashtbl.replace vm_rrds vm_uuid {rrd; dss= rrdi.dss; domid}
   )
 
 let forget_vm_ds (vm_uuid : string) (ds_name : string) : unit =
-  Mutex.execute mutex (fun () ->
+  with_lock mutex (fun () ->
       let rrdi = Hashtbl.find vm_rrds vm_uuid in
       let rrd = rrdi.rrd in
       Hashtbl.replace vm_rrds vm_uuid
@@ -467,14 +468,14 @@ let forget_vm_ds (vm_uuid : string) (ds_name : string) : unit =
   )
 
 let query_possible_vm_dss (vm_uuid : string) : Data_source.t list =
-  Mutex.execute mutex (fun () ->
+  with_lock mutex (fun () ->
       let rrdi = Hashtbl.find vm_rrds vm_uuid in
       query_possible_dss rrdi
   )
 
 let query_vm_ds (vm_uuid : string) (ds_name : string) : float =
   let now = Unix.gettimeofday () in
-  Mutex.execute mutex (fun () ->
+  with_lock mutex (fun () ->
       let rrdi = Hashtbl.find vm_rrds vm_uuid in
       Rrd.query_named_ds rrdi.rrd now ds_name Rrd.CF_Average
   )
@@ -485,14 +486,14 @@ let query_vm_ds (vm_uuid : string) (ds_name : string) : float =
     present in the host or if there is no live source for the SR with the name
     {ds_name}. *)
 let add_sr_ds (sr_uuid : string) (ds_name : string) : unit =
-  Mutex.execute mutex (fun () ->
+  with_lock mutex (fun () ->
       let rrdi = Hashtbl.find sr_rrds sr_uuid in
       let rrd = add_ds ~rrdi ~ds_name in
       Hashtbl.replace sr_rrds sr_uuid {rrd; dss= rrdi.dss; domid= 0}
   )
 
 let forget_sr_ds (sr_uuid : string) (ds_name : string) : unit =
-  Mutex.execute mutex (fun () ->
+  with_lock mutex (fun () ->
       let rrdi = Hashtbl.find sr_rrds sr_uuid in
       let rrd = rrdi.rrd in
       Hashtbl.replace sr_rrds sr_uuid
@@ -500,7 +501,7 @@ let forget_sr_ds (sr_uuid : string) (ds_name : string) : unit =
   )
 
 let query_possible_sr_dss (sr_uuid : string) : Data_source.t list =
-  Mutex.execute mutex (fun () ->
+  with_lock mutex (fun () ->
       try
         let rrdi = Hashtbl.find sr_rrds sr_uuid in
         query_possible_dss rrdi
@@ -509,7 +510,7 @@ let query_possible_sr_dss (sr_uuid : string) : Data_source.t list =
 
 let query_sr_ds (sr_uuid : string) (ds_name : string) : float =
   let now = Unix.gettimeofday () in
-  Mutex.execute mutex (fun () ->
+  with_lock mutex (fun () ->
       let rrdi = Hashtbl.find sr_rrds sr_uuid in
       Rrd.query_named_ds rrdi.rrd now ds_name Rrd.CF_Average
   )
@@ -519,15 +520,14 @@ let update_use_min_max (value : bool) : unit =
   use_min_max := value
 
 let update_vm_memory_target (domid : int) (target : int64) : unit =
-  Mutex.execute memory_targets_m (fun _ ->
+  with_lock memory_targets_m (fun _ ->
       Hashtbl.replace memory_targets domid target
   )
 
 let set_cache_sr (sr_uuid : string) : unit =
-  Mutex.execute cache_sr_lock (fun () -> cache_sr_uuid := Some sr_uuid)
+  with_lock cache_sr_lock (fun () -> cache_sr_uuid := Some sr_uuid)
 
-let unset_cache_sr () =
-  Mutex.execute cache_sr_lock (fun () -> cache_sr_uuid := None)
+let unset_cache_sr () = with_lock cache_sr_lock (fun () -> cache_sr_uuid := None)
 
 module Plugin = struct
   (* Static values. *)
@@ -606,7 +606,7 @@ module Plugin = struct
       let incr_skip_count uid plugin =
         let skip_max = 256 in
         (* about 21.3 min on 5sec cycle *)
-        Mutex.execute registered_m (fun () ->
+        with_lock registered_m (fun () ->
             let skips = min (plugin.skip_init * 2) skip_max in
             plugin.skip_init <- skips ;
             plugin.skip <- skips ;
@@ -620,7 +620,7 @@ module Plugin = struct
         if plugin.skip_init > 1 then (
           warn "re-setting skip-cycles-after-error for plugin %s to 1"
             (P.string_of_uid ~uid) ;
-          Mutex.execute registered_m (fun () ->
+          with_lock registered_m (fun () ->
               plugin.skip_init <- 1 ;
               plugin.skip <- 0
           )
@@ -632,7 +632,7 @@ module Plugin = struct
       (* we are skipping a reading *)
       let decr_skip_count ((_uid, plugin) as p) =
         if skip p then
-          Mutex.execute registered_m (fun () -> plugin.skip <- plugin.skip - 1)
+          with_lock registered_m (fun () -> plugin.skip <- plugin.skip - 1)
 
       let get_payload ~(uid : P.uid) plugin : Rrd_protocol.payload =
         try
@@ -663,8 +663,8 @@ module Plugin = struct
          specified unique ID. If the plugin is not registered, -1 is returned. *)
       let next_reading (uid : P.uid) : float =
         let open Rrdd_shared in
-        if Mutex.execute registered_m (fun _ -> Hashtbl.mem registered uid) then
-          Mutex.execute last_loop_end_time_m (fun _ ->
+        if with_lock registered_m (fun _ -> Hashtbl.mem registered uid) then
+          with_lock last_loop_end_time_m (fun _ ->
               !last_loop_end_time +. !timeslice -. Unix.gettimeofday ()
           )
         else
@@ -680,7 +680,7 @@ module Plugin = struct
          until the next reading phase for the specified sampling frequency. *)
       let register (uid : P.uid) (info : P.info)
           (protocol : Rrd_interface.plugin_protocol) : float =
-        Mutex.execute registered_m (fun _ ->
+        with_lock registered_m (fun _ ->
             if not (Hashtbl.mem registered uid) then
               let reader =
                 P.make_reader ~uid ~info ~protocol:(choose_protocol protocol)
@@ -692,7 +692,7 @@ module Plugin = struct
       (* The function deregisters a plugin. After this call, the framework will
          process its output at most once more. *)
       let deregister (uid : P.uid) : unit =
-        Mutex.execute registered_m (fun _ ->
+        with_lock registered_m (fun _ ->
             if Hashtbl.mem registered uid then (
               let plugin = Hashtbl.find registered uid in
               plugin.reader.Rrd_reader.cleanup () ;
@@ -703,7 +703,7 @@ module Plugin = struct
       (* Read, parse, and combine metrics from all registered plugins. *)
       let read_stats () : (Rrd.ds_owner * Ds.ds) list =
         let plugins =
-          Mutex.execute registered_m (fun _ ->
+          with_lock registered_m (fun _ ->
               List.of_seq (Hashtbl.to_seq registered)
           )
         in
@@ -770,7 +770,7 @@ end
 module HA = struct
   let enable_and_update (statefile_latencies : Rrd.Statefile_latency.t list)
       (heartbeat_latency : float) (xapi_latency : float) =
-    Mutex.execute Rrdd_ha_stats.m (fun _ ->
+    with_lock Rrdd_ha_stats.m (fun _ ->
         Rrdd_ha_stats.enabled := true ;
         Rrdd_ha_stats.Statefile_latency.all := statefile_latencies ;
         Rrdd_ha_stats.Heartbeat_latency.raw := Some heartbeat_latency ;
@@ -778,5 +778,5 @@ module HA = struct
     )
 
   let disable () =
-    Mutex.execute Rrdd_ha_stats.m (fun _ -> Rrdd_ha_stats.enabled := false)
+    with_lock Rrdd_ha_stats.m (fun _ -> Rrdd_ha_stats.enabled := false)
 end

@@ -12,7 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Xapi_stdext_threads.Threadext
 open Xapi_stdext_unix
 open Reporter
 
@@ -44,7 +43,7 @@ let start_local (module D : Debug.DEBUG) ~reporter ~uid ~neg_shift ~page_count
   with exn -> (
     match reporter with
     | Some reporter ->
-        Mutex.execute reporter.lock (fun () ->
+        Xapi_stdext_threads.Threadext.Mutex.execute reporter.lock (fun () ->
             reporter.state <- Stopped (`Failed exn)
         )
     | None ->

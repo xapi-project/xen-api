@@ -15,7 +15,8 @@ module D = Debug.Make (struct let name = "taskhelper" end)
 
 open D
 module Date = Xapi_stdext_date.Date
-open Xapi_stdext_threads.Threadext
+
+let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
 type t = API.ref_task
 
@@ -276,14 +277,14 @@ let task_to_id_tbl : (API.ref_task, id) Hashtbl.t = Hashtbl.create 10
 let task_tbl_m = Mutex.create ()
 
 let id_to_task_exn id =
-  Mutex.execute task_tbl_m (fun () -> Hashtbl.find id_to_task_tbl id)
+  with_lock task_tbl_m (fun () -> Hashtbl.find id_to_task_tbl id)
 
 let task_to_id_exn task =
-  Mutex.execute task_tbl_m (fun () -> Hashtbl.find task_to_id_tbl task)
+  with_lock task_tbl_m (fun () -> Hashtbl.find task_to_id_tbl task)
 
 let register_task __context ?(cancellable = true) id =
   let task = Context.get_task_id __context in
-  Mutex.execute task_tbl_m (fun () ->
+  with_lock task_tbl_m (fun () ->
       Hashtbl.replace id_to_task_tbl id task ;
       Hashtbl.replace task_to_id_tbl task id
   ) ;
@@ -299,7 +300,7 @@ let register_task __context ?(cancellable = true) id =
 let unregister_task __context id =
   (* The rest of the XenAPI Task won't be cancellable *)
   set_not_cancellable ~__context ;
-  Mutex.execute task_tbl_m (fun () ->
+  with_lock task_tbl_m (fun () ->
       let task = Hashtbl.find id_to_task_tbl id in
       Hashtbl.remove id_to_task_tbl id ;
       Hashtbl.remove task_to_id_tbl task

@@ -1,7 +1,8 @@
 open Forkhelpers
 open Xapi_stdext_unix
-open Xapi_stdext_threads.Threadext
 module IntSet = Set.Make (Int)
+
+let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
 (* Tapdisk stats *)
 module Stats = struct
@@ -130,7 +131,7 @@ module Dummy = struct
     with _ -> None
 
   let allocate ctx =
-    Mutex.execute d_lock (fun () ->
+    with_lock d_lock (fun () ->
         let list = get_dummy_tapdisk_list ctx in
         let minor = find_next_unused_minor list in
         let entry =
@@ -145,7 +146,7 @@ module Dummy = struct
     )
 
   let spawn ctx =
-    Mutex.execute d_lock (fun () ->
+    with_lock d_lock (fun () ->
         let list = get_dummy_tapdisk_list ctx in
         let pid = find_next_unused_pid list in
         let entry =
@@ -156,7 +157,7 @@ module Dummy = struct
     )
 
   let attach ctx pid minor =
-    Mutex.execute d_lock (fun () ->
+    with_lock d_lock (fun () ->
         let list = get_dummy_tapdisk_list ctx in
         (* sanity check *)
         ( match
@@ -191,7 +192,7 @@ module Dummy = struct
 
   let _open ctx t leaf_path driver =
     let args = Printf.sprintf "%s:%s" (string_of_driver driver) leaf_path in
-    Mutex.execute d_lock (fun () ->
+    with_lock d_lock (fun () ->
         let list = get_dummy_tapdisk_list ctx in
         let list =
           List.map
@@ -207,7 +208,7 @@ module Dummy = struct
     )
 
   let close ctx t =
-    Mutex.execute d_lock (fun () ->
+    with_lock d_lock (fun () ->
         let list = get_dummy_tapdisk_list ctx in
         let list =
           List.map
@@ -223,7 +224,7 @@ module Dummy = struct
     )
 
   let pause ctx t =
-    Mutex.execute d_lock (fun () ->
+    with_lock d_lock (fun () ->
         let list = get_dummy_tapdisk_list ctx in
         let list =
           List.map
@@ -240,7 +241,7 @@ module Dummy = struct
 
   let unpause ctx t leaf_path driver =
     let args = Printf.sprintf "%s:%s" (string_of_driver driver) leaf_path in
-    Mutex.execute d_lock (fun () ->
+    with_lock d_lock (fun () ->
         let list = get_dummy_tapdisk_list ctx in
         let list =
           List.map
@@ -256,7 +257,7 @@ module Dummy = struct
     )
 
   let detach ctx t =
-    Mutex.execute d_lock (fun () ->
+    with_lock d_lock (fun () ->
         let list = get_dummy_tapdisk_list ctx in
         let a, b =
           ( get_entry_from_pid t.tapdisk_pid list
@@ -275,7 +276,7 @@ module Dummy = struct
     )
 
   let free ctx minor =
-    Mutex.execute d_lock (fun () ->
+    with_lock d_lock (fun () ->
         let list = get_dummy_tapdisk_list ctx in
         let entry = get_entry_from_minor minor list in
         (* sanity check *)
@@ -290,7 +291,7 @@ module Dummy = struct
     )
 
   let list ?t ctx =
-    Mutex.execute d_lock (fun () ->
+    with_lock d_lock (fun () ->
         let list = get_dummy_tapdisk_list ctx in
         List.filter_map
           (fun e ->

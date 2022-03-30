@@ -62,19 +62,19 @@ let preferred_write_db () = List.hd (Db_conn_store.read_db_connections ())
 let exit_on_next_flush = ref false
 
 (* db flushing thread refcount: the last thread out of the door does the exit(0) when flush_on_exit is true *)
-open Xapi_stdext_threads
+let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
 let db_flush_thread_refcount_m = Mutex.create ()
 
 let db_flush_thread_refcount = ref 0
 
 let inc_db_flush_thread_refcount () =
-  Threadext.Mutex.execute db_flush_thread_refcount_m (fun () ->
+  with_lock db_flush_thread_refcount_m (fun () ->
       db_flush_thread_refcount := !db_flush_thread_refcount + 1
   )
 
 let dec_and_read_db_flush_thread_refcount () =
-  Threadext.Mutex.execute db_flush_thread_refcount_m (fun () ->
+  with_lock db_flush_thread_refcount_m (fun () ->
       db_flush_thread_refcount := !db_flush_thread_refcount - 1 ;
       !db_flush_thread_refcount
   )

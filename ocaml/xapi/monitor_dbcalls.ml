@@ -15,7 +15,8 @@
 open Db_filter_types
 open Monitor_types
 open Monitor_dbcalls_cache
-open Xapi_stdext_threads.Threadext
+
+let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
 module D = Debug.Make (struct let name = "monitor_dbcalls" end)
 
@@ -55,12 +56,12 @@ let get_pif_and_bond_changes () =
   (pif_changes, bond_changes)
 
 let set_pif_changes ?except () =
-  Mutex.execute pifs_cached_m (fun _ ->
+  with_lock pifs_cached_m (fun _ ->
       transfer_map ?except ~source:pifs_tmp ~target:pifs_cached ()
   )
 
 let set_bond_changes ?except () =
-  Mutex.execute bonds_links_up_cached_m (fun _ ->
+  with_lock bonds_links_up_cached_m (fun _ ->
       transfer_map ?except ~source:bonds_links_up_tmp
         ~target:bonds_links_up_cached ()
   )

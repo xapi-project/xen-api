@@ -16,7 +16,8 @@
    Useful for offloading potentially blocking but not critical tasks to background threads (like HA alerts) *)
 
 open Xapi_stdext_pervasives.Pervasiveext
-open Xapi_stdext_threads.Threadext
+
+let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
 module D = Debug.Make (struct let name = "thread_queue" end)
 
@@ -45,7 +46,7 @@ let make ?max_q_length ?(name = "unknown") (process_fn : 'a process_fn) : 'a t =
   (* The background thread *)
   let t = ref None in
   let thread_body () =
-    Mutex.execute m (fun () ->
+    with_lock m (fun () ->
         while true do
           (* Wait until there is work to do *)
           while Queue.length q = 0 do
@@ -80,7 +81,7 @@ let make ?max_q_length ?(name = "unknown") (process_fn : 'a process_fn) : 'a t =
         t := Some (Thread.create thread_body ())
   in
   let push description x =
-    Mutex.execute m (fun () ->
+    with_lock m (fun () ->
         let q_length = Queue.length q in
         match max_q_length with
         | Some max when q_length > max ->

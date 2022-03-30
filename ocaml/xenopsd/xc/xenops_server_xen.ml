@@ -28,6 +28,8 @@ module StringSet = Set.Make (String)
 
 let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
+let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
+
 (* libxl_internal.h:DISABLE_UDEV_PATH *)
 let disable_udev_path = "libxl/disable_udev"
 
@@ -586,7 +588,7 @@ module Mem = struct
   let cached_session_id_m = Mutex.create ()
 
   let get_session_id dbg =
-    Mutex.execute cached_session_id_m (fun () ->
+    with_lock cached_session_id_m (fun () ->
         match !cached_session_id with
         | Some x ->
             x
@@ -684,7 +686,7 @@ module Mem = struct
           domid
       with Unix.Unix_error (Unix.ECONNREFUSED, "connect", _) ->
         (* This happens when someone manually runs 'service squeezed stop' *)
-        Mutex.execute cached_session_id_m (fun () -> cached_session_id := None) ;
+        with_lock cached_session_id_m (fun () -> cached_session_id := None) ;
         error
           "Ballooning daemon has disappeared. Manually setting domain maxmem \
            for domid = %d to %Ld KiB"
@@ -760,7 +762,7 @@ module DeviceCache = struct
   let create n = (create n, Mutex.create ())
 
   let discard (cache, mutex) domid =
-    Mutex.execute mutex (fun () ->
+    with_lock mutex (fun () ->
         debug "removing device cache for domid %d" domid ;
         remove cache domid
     )
@@ -769,7 +771,7 @@ module DeviceCache = struct
 
   let get (cache, mutex) fetch_all_f fetch_one_f domid key =
     let domid_cache, domid_mutex =
-      Mutex.execute mutex (fun () ->
+      with_lock mutex (fun () ->
           if mem cache domid then
             find cache domid
           else
@@ -779,7 +781,7 @@ module DeviceCache = struct
             domid_cache
       )
     in
-    Mutex.execute domid_mutex (fun () ->
+    with_lock domid_mutex (fun () ->
         let refresh_cache () =
           (* expensive *)
           PerVMCache.reset domid_cache ;
@@ -1125,7 +1127,7 @@ end
 let dB_m = Mutex.create ()
 
 let dm_of ~vm =
-  Mutex.execute dB_m (fun () ->
+  with_lock dB_m (fun () ->
       try
         let vmextra = DB.read_exn vm in
         match VmExtra.(vmextra.persistent.profile, vmextra.persistent.ty) with

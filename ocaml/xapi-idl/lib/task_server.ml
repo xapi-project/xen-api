@@ -15,7 +15,8 @@
 (** @group Xenops *)
 
 open Xapi_stdext_pervasives.Pervasiveext
-open Xapi_stdext_threads.Threadext
+
+let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
 module D = Debug.Make (struct let name = "task_server" end)
 
@@ -116,12 +117,10 @@ functor
         incr counter ; result
 
     let set_cancel_trigger tasks dbg n =
-      Mutex.execute tasks.m (fun () ->
-          tasks.test_cancel_trigger <- Some (dbg, n)
-      )
+      with_lock tasks.m (fun () -> tasks.test_cancel_trigger <- Some (dbg, n))
 
     let clear_cancel_trigger tasks =
-      Mutex.execute tasks.m (fun () -> tasks.test_cancel_trigger <- None)
+      with_lock tasks.m (fun () -> tasks.test_cancel_trigger <- None)
 
     let id_of_handle task_handle = task_handle.id
 
@@ -153,7 +152,7 @@ functor
         ; destroy_on_finish= false
         }
       in
-      Mutex.execute tasks.m (fun () ->
+      with_lock tasks.m (fun () ->
           tasks.task_map := SMap.add t.id t !(tasks.task_map)
       ) ;
       t
@@ -162,7 +161,7 @@ functor
        still continue. *)
     let destroy task =
       let tasks = task.tasks in
-      Mutex.execute tasks.m (fun () ->
+      with_lock tasks.m (fun () ->
           tasks.task_map := SMap.remove task.id !(tasks.task_map)
       )
 
@@ -207,7 +206,7 @@ functor
       }
 
     let handle_of_id tasks id =
-      Mutex.execute tasks.m (fun () -> find_locked tasks id)
+      with_lock tasks.m (fun () -> find_locked tasks id)
 
     let get_state task = task.state
 
@@ -236,13 +235,13 @@ functor
         raise e
 
     let list tasks =
-      Mutex.execute tasks.m (fun () ->
+      with_lock tasks.m (fun () ->
           SMap.bindings !(tasks.task_map) |> List.map snd
       )
 
     let cancel task =
       let callbacks =
-        Mutex.execute task.tm (fun () ->
+        with_lock task.tm (fun () ->
             if not task.cancellable then (
               info "Task %s is not cancellable." task.id ;
               []
@@ -279,11 +278,10 @@ functor
         )
         task.test_cancel_at
 
-    let check_cancelling t =
-      Mutex.execute t.tm (fun () -> check_cancelling_locked t)
+    let check_cancelling t = with_lock t.tm (fun () -> check_cancelling_locked t)
 
     let with_cancel t cancel_fn f =
-      Mutex.execute t.tm (fun () ->
+      with_lock t.tm (fun () ->
           try
             check_cancelling_locked t ;
             t.cancel <- cancel_fn :: t.cancel
@@ -297,10 +295,10 @@ functor
       ) ;
       finally
         (fun () -> check_cancelling t ; f ())
-        (fun () -> Mutex.execute t.tm (fun () -> t.cancel <- List.tl t.cancel))
+        (fun () -> with_lock t.tm (fun () -> t.cancel <- List.tl t.cancel))
 
     let prohibit_cancellation task =
-      Mutex.execute task.tm (fun () ->
+      with_lock task.tm (fun () ->
           (* If task is cancelling, just cancel it before setting it to not
              cancellable *)
           check_cancelling_locked task ;
@@ -310,7 +308,7 @@ functor
     let destroy_on_finish t =
       t.destroy_on_finish <- true ;
       let already_finished =
-        Mutex.execute t.tm @@ fun () ->
+        with_lock t.tm @@ fun () ->
         t.destroy_on_finish <- true ;
         match t.state with
         | Interface.Task.Pending _ ->

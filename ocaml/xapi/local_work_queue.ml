@@ -13,7 +13,7 @@
  *)
 (** Queues of jobs to perform, represented as unit -> unit thunks *)
 
-open Xapi_stdext_threads.Threadext
+let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
 let vm_lifecycle_queue_started = ref false
 
@@ -22,7 +22,7 @@ let m = Mutex.create ()
 let c = Condition.create ()
 
 let vm_lifecycle_queue_process_fn f =
-  Mutex.execute m (fun () ->
+  with_lock m (fun () ->
       while not !vm_lifecycle_queue_started do
         Condition.wait c m
       done
@@ -30,7 +30,7 @@ let vm_lifecycle_queue_process_fn f =
   f ()
 
 let start_vm_lifecycle_queue () =
-  Mutex.execute m (fun () ->
+  with_lock m (fun () ->
       vm_lifecycle_queue_started := true ;
       Condition.signal c
   )
@@ -67,12 +67,12 @@ let wait_in_line q description f =
   let ok =
     q.Thread_queue.push_fn description (fun () ->
         (* Signal the mothership to run the computation now *)
-        Mutex.execute m (fun () ->
+        with_lock m (fun () ->
             state := `Running ;
             Condition.signal c
         ) ;
         (* Wait for the computation to complete *)
-        Mutex.execute m (fun () ->
+        with_lock m (fun () ->
             while !state = `Running do
               Condition.wait c m
             done
@@ -82,7 +82,7 @@ let wait_in_line q description f =
   assert ok ;
   (* queue has no length limit *)
   (* Wait for the signal from the queue processor *)
-  Mutex.execute m (fun () ->
+  with_lock m (fun () ->
       while !state = `Pending do
         Condition.wait c m
       done
@@ -92,7 +92,7 @@ let wait_in_line q description f =
   finally f (fun () ->
       Locking_helpers.Thread_state.released
         (Locking_helpers.Lock q.Thread_queue.name) ;
-      Mutex.execute m (fun () ->
+      with_lock m (fun () ->
           state := `Finished ;
           Condition.signal c
       )

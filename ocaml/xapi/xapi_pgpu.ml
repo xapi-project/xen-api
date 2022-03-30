@@ -15,7 +15,9 @@ module D = Debug.Make (struct let name = "xapi_pgpu" end)
 
 open D
 module Listext = Xapi_stdext_std.Listext
-module Mutex = Xapi_stdext_threads.Threadext.Mutex
+
+let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
+
 module Unixext = Xapi_stdext_unix.Unixext
 
 let calculate_max_capacities ~__context ~pCI:_ ~size ~supported_VGPU_types =
@@ -256,7 +258,7 @@ let update_group_enabled_VGPU_types ~__context ~self =
 let pgpu_m = Mutex.create ()
 
 let add_enabled_VGPU_types ~__context ~self ~value =
-  Mutex.execute pgpu_m (fun () ->
+  with_lock pgpu_m (fun () ->
       Xapi_pgpu_helpers.assert_VGPU_type_supported ~__context ~self
         ~vgpu_type:value ;
       Db.PGPU.add_enabled_VGPU_types ~__context ~self ~value ;
@@ -264,7 +266,7 @@ let add_enabled_VGPU_types ~__context ~self ~value =
   )
 
 let remove_enabled_VGPU_types ~__context ~self ~value =
-  Mutex.execute pgpu_m (fun () ->
+  with_lock pgpu_m (fun () ->
       Xapi_pgpu_helpers.assert_no_resident_VGPUs_of_type ~__context ~self
         ~vgpu_type:value ;
       Db.PGPU.remove_enabled_VGPU_types ~__context ~self ~value ;
@@ -272,7 +274,7 @@ let remove_enabled_VGPU_types ~__context ~self ~value =
   )
 
 let set_enabled_VGPU_types ~__context ~self ~value =
-  Mutex.execute pgpu_m (fun () ->
+  with_lock pgpu_m (fun () ->
       let current_types = Db.PGPU.get_enabled_VGPU_types ~__context ~self in
       let to_enable = Listext.List.set_difference value current_types
       and to_disable = Listext.List.set_difference current_types value in
@@ -296,7 +298,7 @@ let set_GPU_group ~__context ~self ~value =
   debug "Move PGPU %s -> GPU group %s"
     (Db.PGPU.get_uuid ~__context ~self)
     (Db.GPU_group.get_uuid ~__context ~self:value) ;
-  Mutex.execute pgpu_m (fun () ->
+  with_lock pgpu_m (fun () ->
       (* Precondition: PGPU has no resident VGPUs *)
       let resident_vgpus = Db.PGPU.get_resident_VGPUs ~__context ~self in
       ( if resident_vgpus <> [] then
@@ -489,7 +491,7 @@ let nvidia_vf_setup ~__context ~pf ~enable =
   in
   (* Update the gpus even if the VFs were present already, in case they were
    * already created before xapi was (re)started. *)
-  Mutex.execute nvidia_vf_setup_mutex @@ fun () ->
+  with_lock nvidia_vf_setup_mutex @@ fun () ->
   debug "nvidia_vf_setup_mutex - enter" ;
   dequarantine pci ;
   (* this is always safe to do *)

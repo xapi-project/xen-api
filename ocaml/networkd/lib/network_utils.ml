@@ -1193,7 +1193,7 @@ module Ovs = struct
 
     val appctl : ?log:bool -> string list -> string
   end = struct
-    open Xapi_stdext_threads
+    module Semaphore = Xapi_stdext_threads.Semaphore
 
     let s = Semaphore.create 5
 

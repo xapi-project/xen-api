@@ -18,7 +18,6 @@
    restarts in emergency mode.
 *)
 
-open Xapi_stdext_threads.Threadext
 open Safe_resources
 
 type db_record = (string * string) list * (string * string list) list
@@ -119,7 +118,7 @@ let watchdog_start_mutex = Mutex.create ()
 let my_watchdog : Thread.t option ref = ref None
 
 let start_master_connection_watchdog () =
-  Mutex.execute watchdog_start_mutex (fun () ->
+  Xapi_stdext_threads.Threadext.Mutex.execute watchdog_start_mutex (fun () ->
       match !my_watchdog with
       | None ->
           my_watchdog :=

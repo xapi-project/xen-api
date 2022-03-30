@@ -83,27 +83,27 @@ let db_registration_mutex = Mutex.create ()
 
 let foreign_databases : (string, Db_ref.t) Hashtbl.t = Hashtbl.create 5
 
-open Xapi_stdext_threads.Threadext
+let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
 let create_registered_session create_session db_ref =
-  Mutex.execute db_registration_mutex (fun () ->
+  with_lock db_registration_mutex (fun () ->
       let session = create_session () in
       Hashtbl.replace foreign_databases session db_ref ;
       session
   )
 
 let unregister_session session =
-  Mutex.execute db_registration_mutex (fun () ->
+  with_lock db_registration_mutex (fun () ->
       Hashtbl.remove foreign_databases session
   )
 
 let is_session_registered session =
-  Mutex.execute db_registration_mutex (fun () ->
+  with_lock db_registration_mutex (fun () ->
       Hashtbl.mem foreign_databases session
   )
 
 let get_registered_database session =
-  Mutex.execute db_registration_mutex (fun () ->
+  with_lock db_registration_mutex (fun () ->
       if Hashtbl.mem foreign_databases session then
         Some (Hashtbl.find foreign_databases session)
       else

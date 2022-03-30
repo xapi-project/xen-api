@@ -13,7 +13,6 @@
  *)
 (* Lock shared between client/slave implementations *)
 
-open Xapi_stdext_threads.Threadext
 open Xapi_stdext_pervasives.Pervasiveext
 
 (* Withlock takes dbcache_mutex, and ref-counts to allow the same thread to re-enter without blocking as many times

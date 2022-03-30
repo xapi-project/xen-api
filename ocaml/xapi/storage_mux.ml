@@ -18,7 +18,8 @@ open D
 
 type processor = Rpc.call -> Rpc.response
 
-open Xapi_stdext_threads.Threadext
+let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
+
 open Storage_interface
 
 let s_of_sr = Sr.string_of
@@ -42,7 +43,7 @@ let debug_printer rpc call =
   result
 
 let register sr rpc d info =
-  Mutex.execute m (fun () ->
+  with_lock m (fun () ->
       Hashtbl.replace plugins sr
         {processor= debug_printer rpc; backend_domain= d; query_result= info} ;
       debug "register SR %s (currently-registered = [ %s ])" (s_of_sr sr)
@@ -52,7 +53,7 @@ let register sr rpc d info =
   )
 
 let unregister sr =
-  Mutex.execute m (fun () ->
+  with_lock m (fun () ->
       Hashtbl.remove plugins sr ;
       debug "unregister SR %s (currently-registered = [ %s ])" (s_of_sr sr)
         (String.concat ", "
@@ -61,12 +62,12 @@ let unregister sr =
   )
 
 let query_result_of_sr sr =
-  try Mutex.execute m (fun () -> Some (Hashtbl.find plugins sr).query_result)
+  try with_lock m (fun () -> Some (Hashtbl.find plugins sr).query_result)
   with _ -> None
 
 (* This is the policy: *)
 let of_sr sr =
-  Mutex.execute m (fun () ->
+  with_lock m (fun () ->
       if not (Hashtbl.mem plugins sr) then (
         error "No storage plugin for SR: %s (currently-registered = [ %s ])"
           (s_of_sr sr)

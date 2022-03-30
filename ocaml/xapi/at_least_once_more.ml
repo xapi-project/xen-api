@@ -16,7 +16,7 @@
    to minimise the number of times we run the operation i.e. if a large set of changes happen we'd ideally like to
    just execute the function once or twice but not once per thing that changed. *)
 
-open Xapi_stdext_threads.Threadext
+let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
 (** Type of the function executed in the background *)
 type operation = unit -> unit
@@ -38,7 +38,7 @@ let make name f =
 
 (** Signal that 'something' has changed and so the operation needs re-executed. *)
 let again (x : manager) =
-  Mutex.execute x.m (fun () ->
+  with_lock x.m (fun () ->
       if x.in_progress then
         x.needs_doing_again <- true
       (* existing thread will go around the loop again *)
@@ -52,7 +52,7 @@ let again (x : manager) =
               (* Always do the operation immediately: thread is only created when work needs doing *)
               x.f () ;
               while
-                Mutex.execute x.m (fun () ->
+                with_lock x.m (fun () ->
                     if x.needs_doing_again then (
                       x.needs_doing_again <- false ;
                       true

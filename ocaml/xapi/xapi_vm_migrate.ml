@@ -20,7 +20,7 @@
     co-ordinate tapdisk locking. We have not got code for this.
 *)
 
-open Xapi_stdext_threads.Threadext
+let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
 let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
@@ -97,13 +97,13 @@ let number = ref 0
 let nmutex = Mutex.create ()
 
 let with_migrate f =
-  Mutex.execute nmutex (fun () ->
+  with_lock nmutex (fun () ->
       if !number = 3 then
         raise
           (Api_errors.Server_error (Api_errors.too_many_storage_migrates, ["3"])) ;
       incr number
   ) ;
-  finally f (fun () -> Mutex.execute nmutex (fun () -> decr number))
+  finally f (fun () -> with_lock nmutex (fun () -> decr number))
 
 module XenAPI = Client
 

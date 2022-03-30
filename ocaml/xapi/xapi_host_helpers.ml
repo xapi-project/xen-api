@@ -22,7 +22,7 @@ module Unixext = Xapi_stdext_unix.Unixext
 open Db_filter_types
 open Record_util (* for host_operation_to_string *)
 
-open Xapi_stdext_threads.Threadext
+let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
 let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
@@ -254,7 +254,7 @@ let cancel_tasks ~__context ~self ~all_tasks_in_db ~task_ids =
    and add the host to the global list of known-dying hosts. *)
 let mark_host_as_dead ~__context ~host ~reason =
   let done_already =
-    Mutex.execute Xapi_globs.hosts_which_are_shutting_down_m (fun () ->
+    with_lock Xapi_globs.hosts_which_are_shutting_down_m (fun () ->
         if List.mem host !Xapi_globs.hosts_which_are_shutting_down then
           true
         else (
@@ -293,10 +293,10 @@ let startup_complete = ref false
 let startup_complete_m = Mutex.create ()
 
 let signal_startup_complete () =
-  Mutex.execute startup_complete_m (fun () -> startup_complete := true)
+  with_lock startup_complete_m (fun () -> startup_complete := true)
 
 let assert_startup_complete () =
-  Mutex.execute startup_complete_m (fun () ->
+  with_lock startup_complete_m (fun () ->
       if not !startup_complete then
         raise (Api_errors.Server_error (Api_errors.host_still_booting, []))
   )
@@ -432,7 +432,7 @@ module Host_requires_reboot = struct
   let m = Mutex.create ()
 
   let get () =
-    Mutex.execute m (fun () ->
+    with_lock m (fun () ->
         try
           Unix.access Xapi_globs.requires_reboot_file [Unix.F_OK] ;
           true
@@ -440,9 +440,7 @@ module Host_requires_reboot = struct
     )
 
   let set () =
-    Mutex.execute m (fun () ->
-        Unixext.touch_file Xapi_globs.requires_reboot_file
-    )
+    with_lock m (fun () -> Unixext.touch_file Xapi_globs.requires_reboot_file)
 end
 
 module Configuration = struct
