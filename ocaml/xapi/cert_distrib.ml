@@ -470,32 +470,30 @@ let ( (get_local_ca_certs : unit -> WireProtocol.certificate_file list)
 
 let am_i_missing_certs ~__context : bool =
   (* compare what's in the database with what's on my filesystem *)
-  let f exp_fnames ac_dir () =
-    let exp = exp_fnames ~__context |> StringSet.of_list in
-    let ac = Sys.readdir ac_dir |> Array.to_seq |> StringSet.of_seq in
-    let diff = StringSet.diff exp ac in
-    if StringSet.is_empty diff then
-      false
-    else (
-      D.warn
-        "am_i_missing_certs: expected to see the following certs in %s but did \
-         not: [ %s ]"
-        ac_dir
+  let local_is_missing_certificates remote_list_getter trust_root_dir () =
+    let remotes = remote_list_getter ~__context |> StringSet.of_list in
+    let local =
+      Sys.readdir trust_root_dir |> Array.to_seq |> StringSet.of_seq
+    in
+    let diff = StringSet.diff remotes local in
+    let in_sync_with_remote = StringSet.is_empty diff in
+    if not in_sync_with_remote then
+      D.warn "%s: the following certs are missing from %s: [ %s ]" __FUNCTION__
+        trust_root_dir
         (diff |> StringSet.elements |> String.concat "; ") ;
-      true
-    )
+    not in_sync_with_remote
   in
-  let missing_pool_certs =
-    f
+  let pool_certs_are_missing () =
+    local_is_missing_certificates
       (fun ~__context ->
         Db.Host.get_all ~__context
         |> List.map (fun self -> Db.Host.get_uuid ~__context ~self)
         |> List.map HostPoolProvider.cert_fname_of_host_uuid
       )
-      HostPoolProvider.store_path
+      HostPoolProvider.store_path ()
   in
-  let missing_ca_certs =
-    f
+  let ca_certs_are_missing () =
+    local_is_missing_certificates
       (fun ~__context ->
         Db.Certificate.get_all ~__context
         |> List.filter_map (fun self ->
@@ -506,17 +504,17 @@ let am_i_missing_certs ~__context : bool =
                    None
            )
       )
-      ApplianceProvider.store_path
+      ApplianceProvider.store_path ()
   in
-  missing_pool_certs () || missing_ca_certs ()
+  pool_certs_are_missing () || ca_certs_are_missing ()
 
 let copy_certs_to_host ~__context ~host =
-  D.debug "copy_certs_to_host: sending my certs to host %s"
+  D.debug "%s: sending my certs to host %s" __FUNCTION__
     (Ref.short_string_of host) ;
   if am_i_missing_certs ~__context then
     D.error
-      "i have been asked to copy my certs to %s but i myself am missing \
-       certs... this is bad, but continuing anyway"
+      "Coordinator is trying to copy its own trust root certificates to %s but \
+       it's missing them... this is bad, but continuing anyway"
       (Ref.short_string_of host) ;
   Helpers.call_api_functions ~__context @@ fun rpc session_id ->
   Worker.remote_write_certs_fs HostPoolCertificate Erase_old
