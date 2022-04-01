@@ -4788,10 +4788,15 @@ module Actions = struct
         (Option.map (function {VmExtra.persistent} as extra ->
              ( match persistent with
              | {VmExtra.ty= Some (Vm.HVM hvm_info)} ->
+                 let platformdata =
+                   ("timeoffset", timeoffset)
+                   :: List.remove_assoc "timeoffset" persistent.platformdata
+                 in
                  let persistent =
                    {
                      persistent with
                      VmExtra.ty= Some (Vm.HVM {hvm_info with Vm.timeoffset})
+                   ; platformdata
                    }
                  in
                  debug "VM = %s; rtc/timeoffset <- %s" vm timeoffset ;
