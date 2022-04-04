@@ -208,4 +208,19 @@ module Varstored : GUARD = struct
     Varstore_privileged_client.Client.destroy dbg domid path
 end
 
+module Swtpm : GUARD = struct
+  let daemon_name = "swtpm"
+
+  (* swtpm cannot run on /var/run because it's mounted using nodev and access
+     is needed to /dev/urandom *)
+  let base_directory = "/var/lib/xcp/run"
+
+  let create dbg ~vm_uuid ~domid ~path =
+    Varstore_privileged_client.Client.create dbg vm_uuid domid path
+
+  let destroy dbg ~domid ~path =
+    Varstore_privileged_client.Client.destroy dbg domid path
+end
+
 module Varstore_guard = Guard (Varstored)
+module Swtpm_guard = Guard (Swtpm)

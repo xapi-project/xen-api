@@ -64,3 +64,5 @@ module type SANDBOX = sig
 end
 
 module Varstore_guard : SANDBOX
+
+module Swtpm_guard : SANDBOX
