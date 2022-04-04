@@ -316,6 +316,8 @@ module Interface = struct
                 ~some:(fun n -> [`dns n])
                 !config.dns_interface
             in
+            if not (Dhclient.is_running name) then (* Remove any static IPs *)
+              Ip.flush_ip_addr name ;
             let options = gateway @ dns in
             Dhclient.ensure_running name options
         | Static4 addrs ->
