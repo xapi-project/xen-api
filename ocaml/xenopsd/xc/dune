@@ -13,6 +13,7 @@
   fd-send-recv
   fmt
   forkexec
+  inotify
   mtime
   mtime.clock.os
   polly

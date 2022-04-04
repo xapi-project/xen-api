@@ -28,7 +28,7 @@ exception Device_not_found
 
 exception Cdrom
 
-module D = Debug.Make (struct let name = "xenops" end)
+module D = Debug.Make (struct let name = "device" end)
 
 open D
 
@@ -66,11 +66,7 @@ module Profile = struct
   let wrapper_of = function
     | Qemu_none | Qemu_trad ->
         "/bin/false"
-    | Qemu_upstream_compat ->
-        !Resources.upstream_compat_qemu_dm_wrapper
-    | Qemu_upstream ->
-        !Resources.upstream_compat_qemu_dm_wrapper
-    | Qemu_upstream_uefi ->
+    | Qemu_upstream_compat | Qemu_upstream | Qemu_upstream_uefi ->
         !Resources.upstream_compat_qemu_dm_wrapper
 
   let of_string = function
@@ -4212,7 +4208,6 @@ module Dm = struct
     in
     let backend = nvram.Nvram_uefi_variables.backend in
     let open Fe_argv in
-    let ( >>= ) = bind in
     let argf fmt = ksprintf (fun s -> ["--arg"; s]) fmt in
     let on cond value = if cond then value else return () in
     let chroot, socket_path =
