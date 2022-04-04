@@ -447,6 +447,26 @@ let with_connect ?unique_id ?use_fork_exec_helper ?write_to_log ~verify_cert
 
 let with_client_proxy ~verify_cert ~remote_host ~remote_port ~local_host
     ~local_port f =
+  ( try
+      D.debug "Clean up running stunnel client proxy if there is any ..." ;
+      let out, _ =
+        Forkhelpers.execute_command_get_output "/usr/sbin/fuser"
+          ["-4k"; string_of_int local_port ^ "/tcp"]
+      in
+      D.debug "Killed running stunnel client proxy:%s" out
+    with
+    | Forkhelpers.Spawn_internal_error (stderr, stdout, process_status) -> (
+      match process_status with
+      | Unix.WEXITED 1 ->
+          D.debug "No running stunnel client proxy"
+      | _ ->
+          D.warn
+            "Cleaning up running stunnel client proxy returned unexpectedly: \
+             stdout=(%s); stderr=(%s)"
+            stdout stderr
+    )
+  ) ;
+
   retry
     (fun () ->
       let pid, _ =
