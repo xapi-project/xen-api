@@ -1,0 +1,17 @@
+(test
+ (name xapi_guard_test)
+ (libraries
+  alcotest
+  alcotest-lwt
+  dune-build-info
+  fmt
+  lwt
+  rpclib.core
+  uri
+  uuid
+  xapi_guard
+  xapi-log
+  xapi-types
+  xen-api-client-lwt)
+ (package varstored-guard)
+ )
