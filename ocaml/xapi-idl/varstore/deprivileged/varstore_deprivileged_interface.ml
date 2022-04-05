@@ -19,6 +19,12 @@ let err = Xenops_interface.err
 
 type nvram = (string * string) list [@@deriving rpcty]
 
+type vtpm = string [@@deriving rpcty]
+
+type vtpm_profile = (string * string) list [@@deriving rpcty]
+
+type vtpms = string list [@@deriving rpcty]
+
 module RPC_API (R : RPC) = struct
   open R
 
@@ -39,6 +45,12 @@ module RPC_API (R : RPC) = struct
   let unit_p = Param.mk ~name:"unit" Types.unit
 
   let nvram_p = Param.mk ~name:"NVRAM" nvram
+
+  let vtpm_p = Param.mk vtpm
+
+  let vtpm_profile_p = Param.mk vtpm_profile
+
+  let vtpms_p = Param.mk vtpms
 
   let string_p = Param.mk Types.string
 
@@ -91,4 +103,30 @@ module RPC_API (R : RPC) = struct
       @-> string_p
       @-> returning unit_p err
       )
+
+  (* these should match the API in Datamodel_vtpm.ml *)
+  let get_vtpm =
+    declare "VM.get_VTPMs"
+      ["Dummy, for wire compatibility with XAPI"]
+      (string_p @-> string_p @-> returning vtpms_p err)
+
+  let get_profile =
+    declare "VTPM.get_profile"
+      ["Obtain the profile of the TPM"]
+      (string_p @-> string_p @-> returning vtpm_profile_p err)
+
+  let get_vm =
+    declare "VTPM.get_VM"
+      ["Dummy, for wire compatibility with XAPI"]
+      (string_p @-> string_p @-> returning string_p err)
+
+  let get_contents =
+    declare "VTPM.get_contents"
+      ["Obtain the contents of the TPM"]
+      (string_p @-> string_p @-> returning vtpm_p err)
+
+  let set_contents =
+    declare "VTPM.set_contents"
+      ["Obtain the contents of the TPM"]
+      (string_p @-> string_p @-> vtpm_p @-> returning unit_p err)
 end
