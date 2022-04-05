@@ -2373,50 +2373,35 @@ module VM = struct
         with e -> debug "Caught %s" (Printexc.to_string e)
       )
 
+  let is_raw_image path =
+    Unixext.with_file path [Unix.O_RDONLY] 0o400 @@ fun fd ->
+    Result.is_ok (Suspend_image.read_save_signature fd)
+
+  let fsync fd =
+    try Unixext.fsync fd
+    with Unix.Unix_error (Unix.EIO, _, _) ->
+      error "Caught EIO in fsync after suspend; suspend image may be corrupt" ;
+      raise (Xenopsd_error IO_error)
+
   (** open a file, and make sure the close is always done *)
   let with_data ~xc ~xs task data write f =
+    let f_synced fd = finally (fun () -> f fd) (fun () -> fsync fd) in
     match data with
-    | Disk disk ->
-        with_disk ~xc ~xs task disk write (fun path ->
-            let with_fd_of_path p f =
-              let is_raw_image =
-                Unixext.with_file path [Unix.O_RDONLY] 0o400 (fun fd ->
-                    match Suspend_image.read_save_signature fd with
-                    | Ok _ ->
-                        true
-                    | _ ->
-                        false
-                )
-              in
-              match (write, is_raw_image) with
-              | true, _ ->
-                  (* Always write raw *)
-                  Unixext.with_file path [Unix.O_WRONLY; Unix.O_APPEND] 0o600 f
-              | false, true ->
-                  (* We're reading raw *)
-                  Unixext.with_file path [Unix.O_RDONLY] 0o600 f
-              | false, false ->
-                  (* Assume reading from filesystem *)
-                  with_mounted_dir_ro p (fun dir ->
-                      let filename = dir ^ "/suspend-image" in
-                      Unixext.with_file filename [Unix.O_RDONLY] 0o600 f
-                  )
-            in
-            with_fd_of_path path (fun fd ->
-                finally
-                  (fun () -> f fd)
-                  (fun () ->
-                    try Xapi_stdext_unix.Unixext.fsync fd
-                    with Unix.Unix_error (Unix.EIO, _, _) ->
-                      error
-                        "Caught EIO in fsync after suspend; suspend image may \
-                         be corrupt" ;
-                      raise (Xenopsd_error IO_error)
-                  )
-            )
-        )
     | FD fd ->
         f fd
+    | Disk disk when write ->
+        with_disk ~xc ~xs task disk write @@ fun path ->
+        Unixext.with_file path [Unix.O_WRONLY; Unix.O_APPEND] 0o600 f_synced
+    | Disk disk (* when read *) -> (
+        with_disk ~xc ~xs task disk write @@ fun path ->
+        match is_raw_image path with
+        | true ->
+            Unixext.with_file path [Unix.O_RDONLY] 0o600 f_synced
+        | false ->
+            with_mounted_dir_ro path @@ fun dir ->
+            let filename = Filename.concat dir "suspend-image" in
+            Unixext.with_file filename [Unix.O_RDONLY] 0o600 f_synced
+      )
 
   let wait_ballooning task vm =
     on_domain
