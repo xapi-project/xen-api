@@ -38,23 +38,23 @@ let all_possible_tests =
   ; Internal_op Internal_crash
   ]
 
-let one rpc s vm test =
+let one rpc session_id vm test =
   print_endline ("Running test " ^ string_of_test test) ;
-  if Client.Client.VM.get_power_state rpc s vm = `Halted then
-    Client.Client.VM.start rpc s vm false false ;
+  if Client.Client.VM.get_power_state ~rpc ~session_id ~self:vm = `Halted then
+    Client.Client.VM.start ~rpc ~session_id ~vm ~start_paused:false ~force:false ;
   (* wait for the guest to actually start up *)
   Thread.delay 15. ;
   let call_api = function
     | Clean, Shutdown ->
-        Client.Client.VM.clean_shutdown rpc s vm
+        Client.Client.VM.clean_shutdown ~rpc ~session_id ~vm
     | Hard, Shutdown ->
-        Client.Client.VM.hard_shutdown rpc s vm
+        Client.Client.VM.hard_shutdown ~rpc ~session_id ~vm
     | Clean, Reboot ->
-        Client.Client.VM.clean_reboot rpc s vm
+        Client.Client.VM.clean_reboot ~rpc ~session_id ~vm
     | Hard, Reboot ->
-        Client.Client.VM.hard_reboot rpc s vm
+        Client.Client.VM.hard_reboot ~rpc ~session_id ~vm
   in
-  let domid = Client.Client.VM.get_domid rpc s vm in
+  let domid = Client.Client.VM.get_domid ~rpc ~session_id ~self:vm in
   ( match test with
   | Internal_op internal_op -> (
       (* The Xenctrl module is used in xenopsd *)
@@ -80,7 +80,7 @@ let one rpc s vm test =
     let start = Unix.gettimeofday () in
     let finished = ref false in
     while Unix.gettimeofday () -. start < 300. && not !finished do
-      finished := p (Client.Client.VM.get_domid rpc s vm) ;
+      finished := p (Client.Client.VM.get_domid ~rpc ~session_id ~self:vm) ;
       if not !finished then Thread.delay 1.
     done ;
     if not !finished then failwith "timeout"

@@ -1,19 +1,19 @@
 module Mutex = Xapi_stdext_threads.Threadext.Mutex
 
 (* CA-11402 *)
-let event_next_unblocking_test rpc session_id () =
+let event_next_unblocking_test rpc _ () =
   (* Need to create a temporary session ID *)
   let session_id =
     Qt.init_session rpc !Quicktest_args.username !Quicktest_args.password
   in
-  let () = Client.Client.Event.register rpc session_id [] in
+  let () = Client.Client.Event.register ~rpc ~session_id ~classes:[] in
   (* no events *)
   let m = Mutex.create () in
   let unblocked = ref false in
   let (_ : Thread.t) =
     Thread.create
       (fun () ->
-        ( try ignore (Client.Client.Event.next rpc session_id)
+        ( try ignore (Client.Client.Event.next ~rpc ~session_id)
           with e ->
             print_endline
               (Printf.sprintf
@@ -29,7 +29,7 @@ let event_next_unblocking_test rpc session_id () =
      logout so a little pause in here is probably the best we can do *)
   Thread.delay 2. ;
   (* Logout which should cause the background thread to unblock *)
-  Client.Client.Session.logout rpc session_id ;
+  Client.Client.Session.logout ~rpc ~session_id ;
   (* Again we can't tell the difference between a slow and a totally blocked thread
      so a little pause in here is also required *)
   Thread.delay 2. ;
@@ -38,20 +38,24 @@ let event_next_unblocking_test rpc session_id () =
     (Mutex.execute m (fun () -> !unblocked))
 
 let event_next_test rpc session_id () =
-  let () = Client.Client.Event.register rpc session_id ["pool"] in
+  let () = Client.Client.Event.register ~rpc ~session_id ~classes:["pool"] in
   let m = Mutex.create () in
   let finished = ref false in
-  let pool = Client.Client.Pool.get_all rpc session_id |> List.hd in
+  let pool = Client.Client.Pool.get_all ~rpc ~session_id |> List.hd in
   let key = "event_next_test" in
-  ( try Client.Client.Pool.remove_from_other_config rpc session_id pool key
+  ( try
+      Client.Client.Pool.remove_from_other_config ~rpc ~session_id ~self:pool
+        ~key
     with _ -> ()
   ) ;
   let (_ : Thread.t) =
     Thread.create
       (fun () ->
         while not (Mutex.execute m (fun () -> !finished)) do
-          ignore (Client.Client.Event.next rpc session_id) ;
-          let oc = Client.Client.Pool.get_other_config rpc session_id pool in
+          ignore (Client.Client.Event.next ~rpc ~session_id) ;
+          let oc =
+            Client.Client.Pool.get_other_config ~rpc ~session_id ~self:pool
+          in
           if List.mem_assoc key oc && List.assoc key oc = "1" then
             Mutex.execute m (fun () ->
                 print_endline "got expected event" ;
@@ -62,7 +66,8 @@ let event_next_test rpc session_id () =
       ()
   in
   Thread.delay 1. ;
-  Client.Client.Pool.add_to_other_config rpc session_id pool key "1" ;
+  Client.Client.Pool.add_to_other_config ~rpc ~session_id ~self:pool ~key
+    ~value:"1" ;
   Thread.delay 1. ;
   Alcotest.(check bool)
     "failed to see pool.other_config change" true
@@ -71,23 +76,26 @@ let event_next_test rpc session_id () =
 let wait_for_pool_key rpc session_id key =
   let token = ref "" in
   let finished = ref false in
-  let pool = Client.Client.Pool.get_all rpc session_id |> List.hd in
+  let pool = Client.Client.Pool.get_all ~rpc ~session_id |> List.hd in
   while not !finished do
     let events =
-      Client.Client.Event.from rpc session_id ["pool"] !token 10.
+      Client.Client.Event.from ~rpc ~session_id ~classes:["pool"] ~token:!token
+        ~timeout:10.
       |> Event_types.event_from_of_rpc
     in
     token := events.token ;
-    let oc = Client.Client.Pool.get_other_config rpc session_id pool in
+    let oc = Client.Client.Pool.get_other_config ~rpc ~session_id ~self:pool in
     if List.mem_assoc key oc && List.assoc key oc = "1" then finished := true
   done
 
 let event_from_test rpc session_id () =
   let m = Mutex.create () in
   let finished = ref false in
-  let pool = Client.Client.Pool.get_all rpc session_id |> List.hd in
+  let pool = Client.Client.Pool.get_all ~rpc ~session_id |> List.hd in
   let key = "event_next_test" in
-  ( try Client.Client.Pool.remove_from_other_config rpc session_id pool key
+  ( try
+      Client.Client.Pool.remove_from_other_config ~rpc ~session_id ~self:pool
+        ~key
     with _ -> ()
   ) ;
   let (_ : Thread.t) =
@@ -99,16 +107,19 @@ let event_from_test rpc session_id () =
       ()
   in
   Thread.delay 1. ;
-  Client.Client.Pool.add_to_other_config rpc session_id pool key "1" ;
+  Client.Client.Pool.add_to_other_config ~rpc ~session_id ~self:pool ~key
+    ~value:"1" ;
   Thread.delay 1. ;
   Alcotest.(check bool)
     "failed to see pool.other_config change" true
     (Mutex.execute m (fun () -> !finished))
 
 let event_from_parallel_test rpc session_id () =
-  let pool = Client.Client.Pool.get_all rpc session_id |> List.hd in
+  let pool = Client.Client.Pool.get_all ~rpc ~session_id |> List.hd in
   let key = "event_next_test" in
-  ( try Client.Client.Pool.remove_from_other_config rpc session_id pool key
+  ( try
+      Client.Client.Pool.remove_from_other_config ~rpc ~session_id ~self:pool
+        ~key
     with _ -> ()
   ) ;
   let ok = ref true in
@@ -116,7 +127,10 @@ let event_from_parallel_test rpc session_id () =
     Thread.create
       (fun () ->
         try
-          let _ = Client.Client.Event.from rpc session_id [] "" 10. in
+          let _ =
+            Client.Client.Event.from ~rpc ~session_id ~classes:[] ~token:""
+              ~timeout:10.
+          in
           ()
           (* good *)
         with e ->
@@ -130,7 +144,8 @@ let event_from_parallel_test rpc session_id () =
   in
   Thread.delay 1. ;
   (* wait for both threads to block in Event.from *)
-  Client.Client.Pool.add_to_other_config rpc session_id pool key "1" ;
+  Client.Client.Pool.add_to_other_config ~rpc ~session_id ~self:pool ~key
+    ~value:"1" ;
   Thread.join interfering_thread ;
   Thread.join i_should_succeed ;
   Alcotest.(check bool) "Event.from got cancelled by mistake" true !ok
@@ -140,17 +155,19 @@ let object_level_event_test rpc session_id () =
   let finished = ref false in
   let reported_failure = ref false in
   (* Let's play with templates *)
-  let vms = Client.Client.VM.get_all rpc session_id in
+  let vms = Client.Client.VM.get_all ~rpc ~session_id in
   if List.length vms < 2 then failwith "Test needs 2 VMs" ;
   let vm_a = List.hd vms in
   let vm_b = List.hd (List.tl vms) in
   print_endline (Printf.sprintf "watching %s" (Ref.string_of vm_a)) ;
   print_endline (Printf.sprintf "ignoring %s" (Ref.string_of vm_b)) ;
   let key = "object_level_event_next" in
-  ( try Client.Client.VM.remove_from_other_config rpc session_id vm_a key
+  ( try
+      Client.Client.VM.remove_from_other_config ~rpc ~session_id ~self:vm_a ~key
     with _ -> ()
   ) ;
-  ( try Client.Client.VM.remove_from_other_config rpc session_id vm_b key
+  ( try
+      Client.Client.VM.remove_from_other_config ~rpc ~session_id ~self:vm_b ~key
     with _ -> ()
   ) ;
   let (_ : Thread.t) =
@@ -159,9 +176,9 @@ let object_level_event_test rpc session_id () =
         let token = ref "" in
         while not (Mutex.execute m (fun () -> !finished)) do
           let events =
-            Client.Client.Event.from rpc session_id
-              [Printf.sprintf "vm/%s" (Ref.string_of vm_a)]
-              !token 10.
+            Client.Client.Event.from ~rpc ~session_id
+              ~classes:[Printf.sprintf "vm/%s" (Ref.string_of vm_a)]
+              ~token:!token ~timeout:10.
             |> Event_types.event_from_of_rpc
           in
           List.iter
@@ -183,7 +200,9 @@ let object_level_event_test rpc session_id () =
             )
             events.events ;
           token := events.token ;
-          let oc = Client.Client.VM.get_other_config rpc session_id vm_a in
+          let oc =
+            Client.Client.VM.get_other_config ~rpc ~session_id ~self:vm_a
+          in
           if List.mem_assoc key oc && List.assoc key oc = "1" then
             Mutex.execute m (fun () ->
                 print_endline
@@ -195,10 +214,12 @@ let object_level_event_test rpc session_id () =
       ()
   in
   Thread.delay 1. ;
-  Client.Client.VM.add_to_other_config rpc session_id vm_b key "1" ;
+  Client.Client.VM.add_to_other_config ~rpc ~session_id ~self:vm_b ~key
+    ~value:"1" ;
   Thread.delay 1. ;
-  Client.Client.VM.remove_from_other_config rpc session_id vm_b key ;
-  Client.Client.VM.add_to_other_config rpc session_id vm_a key "1" ;
+  Client.Client.VM.remove_from_other_config ~rpc ~session_id ~self:vm_b ~key ;
+  Client.Client.VM.add_to_other_config ~rpc ~session_id ~self:vm_a ~key
+    ~value:"1" ;
   Thread.delay 1. ;
   Mutex.execute m (fun () ->
       if not !reported_failure then
@@ -211,12 +232,13 @@ let object_level_event_test rpc session_id () =
 let event_message_test rpc session_id () =
   print_endline "Message creation event test" ;
   let events =
-    Client.Client.Event.from rpc session_id ["message"] "" 1.0
+    Client.Client.Event.from ~rpc ~session_id ~classes:["message"] ~token:""
+      ~timeout:1.0
     |> Event_types.event_from_of_rpc
   in
   let token = events.token in
-  let pool = List.hd (Client.Client.Pool.get_all rpc session_id) in
-  let obj_uuid = Client.Client.Pool.get_uuid rpc session_id pool in
+  let pool = List.hd (Client.Client.Pool.get_all ~rpc ~session_id) in
+  let obj_uuid = Client.Client.Pool.get_uuid ~rpc ~session_id ~self:pool in
   print_endline "Creating message" ;
   let cls = `Pool in
   let message =
@@ -225,7 +247,8 @@ let event_message_test rpc session_id () =
   in
   print_endline (Printf.sprintf "Created message: %s" (Ref.string_of message)) ;
   let events =
-    Client.Client.Event.from rpc session_id ["message"] token 1.0
+    Client.Client.Event.from ~rpc ~session_id ~classes:["message"] ~token
+      ~timeout:1.0
     |> Event_types.event_from_of_rpc
   in
   print_endline
@@ -245,9 +268,10 @@ let event_message_test rpc session_id () =
     ) ;
   print_endline "Message deletion event test" ;
   print_endline "Destroying message" ;
-  Client.Client.Message.destroy rpc session_id message ;
+  Client.Client.Message.destroy ~rpc ~session_id ~self:message ;
   let events =
-    Client.Client.Event.from rpc session_id ["message"] token 1.0
+    Client.Client.Event.from ~rpc ~session_id ~classes:["message"] ~token
+      ~timeout:1.0
     |> Event_types.event_from_of_rpc
   in
   print_endline "Got some events" ;
@@ -261,7 +285,8 @@ let event_message_test rpc session_id () =
     ) ;
   print_endline "Message deletion from cache test" ;
   let events =
-    Client.Client.Event.from rpc session_id ["message"] "" 1.0
+    Client.Client.Event.from ~rpc ~session_id ~classes:["message"] ~token:""
+      ~timeout:1.0
     |> Event_types.event_from_of_rpc
   in
   print_endline "Got lots of events" ;
@@ -283,7 +308,8 @@ let event_message_test rpc session_id () =
       ~obj_uuid ~body:"Hello"
   in
   let events =
-    Client.Client.Event.from rpc session_id ["message"] token 1.0
+    Client.Client.Event.from ~rpc ~session_id ~classes:["message"] ~token
+      ~timeout:1.0
     |> Event_types.event_from_of_rpc
   in
   let token = events.token in
@@ -292,7 +318,8 @@ let event_message_test rpc session_id () =
       ~obj_uuid ~body:"Hello"
   in
   let events2 =
-    Client.Client.Event.from rpc session_id ["message"] token 1.0
+    Client.Client.Event.from ~rpc ~session_id ~classes:["message"] ~token
+      ~timeout:1.0
     |> Event_types.event_from_of_rpc
   in
   print_endline (Printf.sprintf "message1=%s" (Ref.string_of message1)) ;
@@ -352,7 +379,7 @@ let event_message_test rpc session_id () =
     (ok1 && ok2 && ok3) ;
   print_endline
     (Printf.sprintf "Finding messages for object: %s"
-       (Client.Client.Pool.get_uuid rpc session_id pool)
+       (Client.Client.Pool.get_uuid ~rpc ~session_id ~self:pool)
     ) ;
   let messages =
     Client.Client.Message.get ~rpc ~session_id ~cls ~obj_uuid
@@ -365,16 +392,20 @@ let event_message_test rpc session_id () =
 
 let event_inject_test rpc session_id () =
   let events =
-    Client.Client.Event.from rpc session_id ["pool"] "" 1.0
+    Client.Client.Event.from ~rpc ~session_id ~classes:["pool"] ~token:""
+      ~timeout:1.0
     |> Event_types.event_from_of_rpc
   in
   let token = events.token in
-  let pool = List.hd (Client.Client.Pool.get_all rpc session_id) in
+  let pool = List.hd (Client.Client.Pool.get_all ~rpc ~session_id) in
   let starttime = Unix.gettimeofday () in
   let (x : Thread.t) =
     Thread.create
       (fun () ->
-        let _ = Client.Client.Event.from rpc session_id ["pool"] token 5.0 in
+        let _ =
+          Client.Client.Event.from ~rpc ~session_id ~classes:["pool"] ~token
+            ~timeout:5.0
+        in
         ()
       )
       ()
@@ -393,7 +424,8 @@ module StringSet = Set.Make (String)
 
 let event_from_number_test rpc session_id () =
   let events =
-    Client.Client.Event.from rpc session_id ["vm"] "" 10.
+    Client.Client.Event.from ~rpc ~session_id ~classes:["vm"] ~token:""
+      ~timeout:10.
     |> Event_types.event_from_of_rpc
   in
   let _, f =

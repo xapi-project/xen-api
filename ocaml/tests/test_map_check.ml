@@ -13,7 +13,6 @@
  *)
 
 open Map_check
-open Test_common
 open Test_highlevel
 
 let string_of_requirement requirement =
@@ -133,7 +132,7 @@ end)
 let string_of_ty = function String -> "String" | _ -> ""
 
 let string_of_ks ks =
-  let field, kss = ks in
+  let _, kss = ks in
   List.map
     (fun (a, b) ->
       let inner_string =
@@ -169,7 +168,7 @@ module AssertAllKeys = Generic.MakeStateless (struct
     let string_of_output_t = Test_printers.(assoc_list string string)
   end
 
-  let transform (ty, ks, value, db) = assert_all_keys ty ks value db
+  let transform (ty, ks, value, db) = assert_all_keys ~ty ~ks ~value ~db
 
   let tests =
     `QuickAndAutoDocumented
@@ -372,7 +371,7 @@ module AssertKeys = Generic.MakeStateless (struct
 
     type output_t = ((string * string) list, exn) result
 
-    let string_of_input_t (ty, ks, value, db) =
+    let string_of_input_t (_, ks, value, db) =
       Printf.sprintf "keys=%s, input_value=%s, db_value=%s" (string_of_ks ks)
         (Test_printers.(assoc_list string string) value)
         (Test_printers.(assoc_list string string) db)
@@ -382,7 +381,7 @@ module AssertKeys = Generic.MakeStateless (struct
   end
 
   let transform (ty, ks, value, db) =
-    try Ok (assert_keys ty ks value db) with e -> Error e
+    try Ok (assert_keys ~ty ~ks ~value ~db) with e -> Error e
 
   let tests =
     `QuickAndAutoDocumented

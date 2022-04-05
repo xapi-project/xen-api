@@ -1,4 +1,3 @@
-open Test_common
 module Date = Xapi_stdext_date.Date
 
 let now = Date.of_string "2020-09-22T14:57:11Z"
@@ -14,7 +13,7 @@ let fail_login ~__context ~uname ~originator ~now () =
         else
           raise (Auth_signature.Auth_failure "Auth failure")
     )
-  with e -> ()
+  with _ -> ()
 
 let success_login ~__context ~uname ~originator ~now () =
   Xapi_session._record_login_failure ~__context ~now ~uname ~originator

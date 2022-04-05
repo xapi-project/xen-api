@@ -124,7 +124,7 @@ let assert_host_group_coherent g =
   match g with
   | [] ->
       ()
-  | (h, c) :: _ ->
+  | (_, c) :: _ ->
       assert_list_is_set (List.map fst g) ;
       Alcotest.(check bool)
         "Score not same for all hosts in group" true
@@ -197,7 +197,7 @@ let check_expectations ~__context gpu_group visible_hosts vgpu_type
 let test_group_hosts_bf () =
   on_pool_of_k1s
     VGPU_T.(
-      fun __context h h' h'' ->
+      fun __context _ h' h'' ->
         let gpu_group = List.hd (Db.GPU_group.get_all ~__context) in
         Db.GPU_group.set_allocation_algorithm ~__context ~self:gpu_group
           ~value:`breadth_first ;
@@ -206,18 +206,19 @@ let test_group_hosts_bf () =
           @ Db.Host.get_PGPUs ~__context ~self:h''
         with
         | [h'_p; h''_p; h''_p'] ->
-            check_expectations __context gpu_group [h'; h''] k100 [[h'']; [h']] ;
-            check_expectations __context gpu_group [h'; h''] k140q [[h'']; [h']] ;
+            check_expectations ~__context gpu_group [h'; h''] k100 [[h'']; [h']] ;
+            check_expectations ~__context gpu_group [h'; h''] k140q
+              [[h'']; [h']] ;
             ignore (make_vgpu ~__context ~resident_on:h''_p k100) ;
-            check_expectations __context gpu_group [h'; h''] k100 [[h'']; [h']] ;
-            check_expectations __context gpu_group [h'; h''] k140q [[h'; h'']] ;
+            check_expectations ~__context gpu_group [h'; h''] k100 [[h'']; [h']] ;
+            check_expectations ~__context gpu_group [h'; h''] k140q [[h'; h'']] ;
             ignore (make_vgpu ~__context ~resident_on:h''_p' k140q) ;
-            check_expectations __context gpu_group [h'; h''] k100 [[h']; [h'']] ;
-            check_expectations __context gpu_group [h''] k140q [[h'']] ;
+            check_expectations ~__context gpu_group [h'; h''] k100 [[h']; [h'']] ;
+            check_expectations ~__context gpu_group [h''] k140q [[h'']] ;
             ignore (make_vgpu ~__context ~resident_on:h'_p k100) ;
-            check_expectations __context gpu_group [h'; h''] k100 [[h'; h'']] ;
+            check_expectations ~__context gpu_group [h'; h''] k100 [[h'; h'']] ;
             ignore (make_vgpu ~__context ~resident_on:h'_p k100) ;
-            check_expectations __context gpu_group [h'; h''] k100 [[h'']; [h']]
+            check_expectations ~__context gpu_group [h'; h''] k100 [[h'']; [h']]
         | _ ->
             Alcotest.fail
               "Test-failure: Unexpected number of pgpus in test setup"
@@ -226,7 +227,7 @@ let test_group_hosts_bf () =
 let test_group_hosts_df () =
   on_pool_of_k1s
     VGPU_T.(
-      fun __context h h' h'' ->
+      fun __context _ h' h'' ->
         let gpu_group = List.hd (Db.GPU_group.get_all ~__context) in
         Db.GPU_group.set_allocation_algorithm ~__context ~self:gpu_group
           ~value:`depth_first ;
@@ -235,18 +236,19 @@ let test_group_hosts_df () =
           @ Db.Host.get_PGPUs ~__context ~self:h''
         with
         | [h'_p; h''_p; h''_p'] ->
-            check_expectations __context gpu_group [h'; h''] k100 [[h']; [h'']] ;
-            check_expectations __context gpu_group [h'; h''] k140q [[h']; [h'']] ;
+            check_expectations ~__context gpu_group [h'; h''] k100 [[h']; [h'']] ;
+            check_expectations ~__context gpu_group [h'; h''] k140q
+              [[h']; [h'']] ;
             ignore (make_vgpu ~__context ~resident_on:h''_p k100) ;
-            check_expectations __context gpu_group [h'; h''] k100 [[h']; [h'']] ;
-            check_expectations __context gpu_group [h'; h''] k140q [[h'; h'']] ;
+            check_expectations ~__context gpu_group [h'; h''] k100 [[h']; [h'']] ;
+            check_expectations ~__context gpu_group [h'; h''] k140q [[h'; h'']] ;
             ignore (make_vgpu ~__context ~resident_on:h''_p' k140q) ;
-            check_expectations __context gpu_group [h'; h''] k100 [[h'']; [h']] ;
-            check_expectations __context gpu_group [h''] k140q [[h'']] ;
+            check_expectations ~__context gpu_group [h'; h''] k100 [[h'']; [h']] ;
+            check_expectations ~__context gpu_group [h''] k140q [[h'']] ;
             ignore (make_vgpu ~__context ~resident_on:h'_p k100) ;
-            check_expectations __context gpu_group [h'; h''] k100 [[h'; h'']] ;
+            check_expectations ~__context gpu_group [h'; h''] k100 [[h'; h'']] ;
             ignore (make_vgpu ~__context ~resident_on:h'_p k100) ;
-            check_expectations __context gpu_group [h'; h''] k100 [[h']; [h'']]
+            check_expectations ~__context gpu_group [h'; h''] k100 [[h']; [h'']]
         | _ ->
             Alcotest.fail
               "Test-failure: Unexpected number of pgpus in test setup"
@@ -414,7 +416,7 @@ let assert_grouping_of_sriov ~__context ~network ~expection_groups =
   assert_equivalent expection_groups host_lists
 
 let test_group_hosts_netsriov () =
-  on_pool_of_intel_i350 (fun __context h h' h'' ->
+  on_pool_of_intel_i350 (fun __context _ h' h'' ->
       let sriov_networks =
         List.find_all
           (fun network ->
@@ -442,7 +444,7 @@ let test_group_hosts_netsriov () =
   )
 
 let test_group_hosts_netsriov_unattached () =
-  on_pool_of_intel_i350 (fun __context h h' h'' ->
+  on_pool_of_intel_i350 (fun __context _ h' h'' ->
       let sriov_networks =
         List.find_all
           (fun network ->
@@ -476,7 +478,7 @@ let test_group_hosts_netsriov_unattached () =
   )
 
 let test_group_hosts_netsriov_with_allocated () =
-  on_pool_of_intel_i350 (fun __context h h' h'' ->
+  on_pool_of_intel_i350 (fun __context _ h' h'' ->
       let sriov_networks =
         List.find_all
           (fun network ->
@@ -523,7 +525,7 @@ let test_group_hosts_netsriov_with_allocated () =
   )
 
 let test_get_group_key_vgpu () =
-  on_pool_of_intel_i350 (fun __context _ h' _ ->
+  on_pool_of_intel_i350 (fun __context _ _ _ ->
       let group = List.hd (Db.GPU_group.get_all ~__context) in
       let vm = make_vm_with_vgpu_in_group ~__context VGPU_T.k100 group in
       match Xapi_vm_helpers.get_group_key ~__context ~vm with
@@ -534,7 +536,7 @@ let test_get_group_key_vgpu () =
   )
 
 let test_get_group_key_netsriov () =
-  on_pool_of_intel_i350 (fun __context _ h' _ ->
+  on_pool_of_intel_i350 (fun __context _ _ _ ->
       let sriov_network =
         List.find
           (fun network ->
@@ -551,7 +553,7 @@ let test_get_group_key_netsriov () =
   )
 
 let test_get_group_key_vgpu_and_netsriov () =
-  on_pool_of_intel_i350 (fun __context _ h' _ ->
+  on_pool_of_intel_i350 (fun __context _ _ _ ->
       let group = List.hd (Db.GPU_group.get_all ~__context) in
       let vm = make_vm_with_vgpu_in_group ~__context VGPU_T.k100 group in
       let sriov_network =

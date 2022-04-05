@@ -71,21 +71,15 @@ let ignore_fmt_lwt fmt = Printf.ksprintf (fun _ -> Lwt.return ()) fmt
 (* General system logging *)
 let logger = create 512
 
-type level = Debug | Info | Warn | Error | Null
-
-let log_level = ref Warn
+type level = Info | Warn | Error
 
 let string_of_level = function
-  | Debug ->
-      "debug"
   | Info ->
       "info"
   | Warn ->
       "warn"
   | Error ->
       "error"
-  | Null ->
-      "null"
 
 let log level key (fmt : (_, _, _, _) format4) =
   let level = string_of_level level in

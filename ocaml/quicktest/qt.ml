@@ -12,7 +12,7 @@ let init_session rpc username password =
     ~version:Datamodel_common.api_version_string ~originator:"quick_test"
 
 let get_pool rpc session_id =
-  match Client.Client.Pool.get_all rpc session_id with
+  match Client.Client.Pool.get_all ~rpc ~session_id with
   | [pool] ->
       pool
   | _ ->
@@ -114,13 +114,13 @@ module VM = struct
     let other = "Other install media"
 
     let find rpc session_id startswith =
-      let vms = Client.Client.VM.get_all rpc session_id in
+      let vms = Client.Client.VM.get_all ~rpc ~session_id in
       match
         List.filter
           (fun self ->
             Xapi_stdext_std.Xstringext.String.startswith startswith
-              (Client.Client.VM.get_name_label rpc session_id self)
-            && Client.Client.VM.get_is_a_template rpc session_id self
+              (Client.Client.VM.get_name_label ~rpc ~session_id ~self)
+            && Client.Client.VM.get_is_a_template ~rpc ~session_id ~self
           )
           vms
       with
@@ -128,7 +128,7 @@ module VM = struct
           None
       | x :: _ ->
           Printf.printf "Choosing template with name: %s\n"
-            (Client.Client.VM.get_name_label rpc session_id x) ;
+            (Client.Client.VM.get_name_label ~rpc ~session_id ~self:x) ;
           Some x
   end
 
@@ -144,20 +144,20 @@ module VM = struct
         ; "new-name-label=" ^ name
         ]
     in
-    Client.Client.VM.get_by_uuid rpc session_id newvm_uuid
+    Client.Client.VM.get_by_uuid ~rpc ~session_id ~uuid:newvm_uuid
 
   let uninstall rpc session_id vm =
     let uuid = Client.Client.VM.get_uuid ~rpc ~session_id ~self:vm in
     cli_cmd ["vm-uninstall"; "uuid=" ^ uuid; "--force"] |> ignore
 
   let with_new rpc session_id ~template f =
-    let vm = install rpc session_id template "temp_quicktest_vm" in
+    let vm = install rpc session_id ~template ~name:"temp_quicktest_vm" in
     Xapi_stdext_pervasives.Pervasiveext.finally
       (fun () -> f vm)
       (fun () -> uninstall rpc session_id vm)
 
   let dom0_of_host rpc session_id host =
-    Client.Client.Host.get_control_domain rpc session_id host
+    Client.Client.Host.get_control_domain ~rpc ~session_id ~self:host
 
   let get_dom0 rpc session_id =
     let uuid = inventory_lookup Xapi_inventory._control_domain_uuid in
@@ -193,7 +193,7 @@ module VDI = struct
       let vdis =
         Client.Client.SR.get_VDIs ~rpc ~session_id ~self:sr_info.sr
         |> List.filter (fun vdi ->
-               not (Client.Client.VDI.get_missing rpc session_id vdi)
+               not (Client.Client.VDI.get_missing ~rpc ~session_id ~self:vdi)
            )
       in
       match vdis with

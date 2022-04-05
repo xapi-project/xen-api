@@ -28,7 +28,7 @@ let string_of_vm_config conf =
     (Test_printers.(assoc_list string string) conf.oc)
     (Test_printers.(assoc_list string string) conf.platform)
 
-let string_of_vgpu_type {Xapi_vgpu_type.vendor_name; model_name} =
+let string_of_vgpu_type {Xapi_vgpu_type.vendor_name; model_name; _} =
   Printf.sprintf "vendor_name = %s, model_name = %s" vendor_name model_name
 
 let load_vm_config __context conf =
@@ -71,7 +71,7 @@ module HVMSerial = Generic.MakeStateful (struct
   let extract_output __context _ =
     let metadata = run_create_metadata ~__context in
     match metadata.Metadata.vm.Vm.ty with
-    | Vm.HVM {Vm.serial} ->
+    | Vm.HVM {Vm.serial; _} ->
         serial
     | _ ->
         failwith "expected HVM metadata"
@@ -141,7 +141,7 @@ module VideoMode = Generic.MakeStateful (struct
   let extract_output __context _ =
     let metadata = run_create_metadata ~__context in
     match metadata.Metadata.vm.Vm.ty with
-    | Vm.HVM {Vm.video= video_mode} ->
+    | Vm.HVM {Vm.video= video_mode; _} ->
         video_mode
     | _ ->
         failwith "expected HVM metadata"
@@ -190,7 +190,7 @@ module VideoRam = Generic.MakeStateful (struct
   let extract_output __context _ =
     let metadata = run_create_metadata ~__context in
     match metadata.Metadata.vm.Vm.ty with
-    | Vm.HVM {Vm.video_mib} ->
+    | Vm.HVM {Vm.video_mib; _} ->
         video_mib
     | _ ->
         failwith "expected HVM metadata"

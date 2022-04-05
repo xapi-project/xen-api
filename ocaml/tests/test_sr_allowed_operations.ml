@@ -16,7 +16,7 @@ open Test_common
 
 (* Helpers for testing Xapi_sr_operations.assert_operation_valid *)
 
-let setup_test ~__context ?sm_fun ?vdi_fun () =
+let setup_test ~__context ?sm_fun ?vdi_fun:_ () =
   let run f x = match f with Some f -> ignore (f x) | None -> () in
   let _sm_ref = make_sm ~__context () in
   let sr_ref = make_sr ~__context () in
@@ -44,7 +44,7 @@ let check_operation_error f exn =
 let test_operations_restricted_during_rpu =
   let test_check_operation_error () =
     let __context = Mock.make_context_with_new_db "Mock context" in
-    let master = Test_common.make_host __context () in
+    let master = Test_common.make_host ~__context () in
     let pool = Test_common.make_pool ~__context ~master () in
     let sr_ref, _ = setup_test ~__context () in
     (* Artificially put xapi into RPU mode - see Helpers.rolling_upgrade_in_progress *)

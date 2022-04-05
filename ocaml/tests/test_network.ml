@@ -13,7 +13,7 @@ let with_test f =
   f network add_purpose remove_purpose get_purpose
 
 let test_add_purpose () =
-  with_test (fun network add_purpose remove_purpose get_purpose ->
+  with_test (fun network add_purpose _ get_purpose ->
       let network1 = network ~purpose:[] in
       let _network2 : _ API.Ref.t = network ~purpose:[] in
       add_purpose ~self:network1 ~value:`nbd ;
@@ -23,7 +23,7 @@ let test_add_purpose () =
         [`nbd]
         (get_purpose ~self:network1)
   ) ;
-  with_test (fun network add_purpose remove_purpose get_purpose ->
+  with_test (fun network add_purpose _ get_purpose ->
       let network1 = network ~purpose:[] in
       let _network2 : _ API.Ref.t = network ~purpose:[`nbd] in
       add_purpose ~self:network1 ~value:`nbd ;
@@ -33,7 +33,7 @@ let test_add_purpose () =
         [`nbd]
         (get_purpose ~self:network1)
   ) ;
-  with_test (fun network add_purpose remove_purpose get_purpose ->
+  with_test (fun network add_purpose _ get_purpose ->
       let network1 = network ~purpose:[] in
       let _network2 : _ API.Ref.t = network ~purpose:[] in
       add_purpose ~self:network1 ~value:`insecure_nbd ;
@@ -43,7 +43,7 @@ let test_add_purpose () =
         [`insecure_nbd]
         (get_purpose ~self:network1)
   ) ;
-  with_test (fun network add_purpose remove_purpose get_purpose ->
+  with_test (fun network add_purpose _ get_purpose ->
       let network1 = network ~purpose:[] in
       let _network2 : _ API.Ref.t = network ~purpose:[`insecure_nbd] in
       add_purpose ~self:network1 ~value:`insecure_nbd ;
@@ -53,7 +53,7 @@ let test_add_purpose () =
         [`insecure_nbd]
         (get_purpose ~self:network1)
   ) ;
-  with_test (fun network add_purpose remove_purpose get_purpose ->
+  with_test (fun network add_purpose _ get_purpose ->
       let network1 = network ~purpose:[`nbd] in
       add_purpose ~self:network1 ~value:`nbd ;
       assert_equal
@@ -62,7 +62,7 @@ let test_add_purpose () =
         [`nbd]
         (get_purpose ~self:network1)
   ) ;
-  with_test (fun network add_purpose remove_purpose get_purpose ->
+  with_test (fun network add_purpose _ _ ->
       let network1 = network ~purpose:[`nbd] in
       Alcotest.check_raises
         "Should not be allowed to add 'insecure_nbd' to a network that already \
@@ -73,7 +73,7 @@ let test_add_purpose () =
         )
         (fun () -> add_purpose ~self:network1 ~value:`insecure_nbd)
   ) ;
-  with_test (fun network add_purpose remove_purpose get_purpose ->
+  with_test (fun network add_purpose _ _ ->
       let network1 = network ~purpose:[] in
       let _network2 : _ API.Ref.t = network ~purpose:[`nbd] in
       Alcotest.check_raises
@@ -84,7 +84,7 @@ let test_add_purpose () =
         )
         (fun () -> add_purpose ~self:network1 ~value:`insecure_nbd)
   ) ;
-  with_test (fun network add_purpose remove_purpose get_purpose ->
+  with_test (fun network add_purpose _ _ ->
       let network1 = network ~purpose:[`insecure_nbd] in
       Alcotest.check_raises
         "Should not be allowed to add 'nbd' to a network that already has the \
@@ -94,7 +94,7 @@ let test_add_purpose () =
         )
         (fun () -> add_purpose ~self:network1 ~value:`nbd)
   ) ;
-  with_test (fun network add_purpose remove_purpose get_purpose ->
+  with_test (fun network add_purpose _ _ ->
       let network1 = network ~purpose:[] in
       let _network2 : _ API.Ref.t = network ~purpose:[`insecure_nbd] in
       Alcotest.check_raises
@@ -107,7 +107,7 @@ let test_add_purpose () =
   )
 
 let test_remove_purpose () =
-  with_test (fun network add_purpose remove_purpose get_purpose ->
+  with_test (fun network _ remove_purpose get_purpose ->
       let network1 = network ~purpose:[`nbd] in
       remove_purpose ~self:network1 ~value:`insecure_nbd ;
       assert_equal
@@ -116,7 +116,7 @@ let test_remove_purpose () =
         [`nbd]
         (get_purpose ~self:network1)
   ) ;
-  with_test (fun network add_purpose remove_purpose get_purpose ->
+  with_test (fun network _ remove_purpose get_purpose ->
       let network1 = network ~purpose:[] in
       remove_purpose ~self:network1 ~value:`nbd ;
       assert_equal
@@ -125,7 +125,7 @@ let test_remove_purpose () =
         []
         (get_purpose ~self:network1)
   ) ;
-  with_test (fun network add_purpose remove_purpose get_purpose ->
+  with_test (fun network _ remove_purpose get_purpose ->
       let network1 = network ~purpose:[`nbd] in
       remove_purpose ~self:network1 ~value:`nbd ;
       assert_equal
