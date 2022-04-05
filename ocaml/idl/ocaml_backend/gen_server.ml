@@ -444,7 +444,8 @@ let gen_module api : O.Module.t =
       ]
     ~preamble:
       [
-        "module D = Debug.Make(struct let name = \"dispatcher\" end)"
+        {|[@@@ocaml.warning "-27"]|}
+      ; "module D = Debug.Make(struct let name = \"dispatcher\" end)"
       ; "module ApiLogRead = Debug.Make(struct let name = \"api_readonly\" end)"
       ; "module ApiLogSideEffect = Debug.Make(struct let name = \"api_effect\" \
          end)"

@@ -520,7 +520,7 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
     (* Check software version, but as of CA-249786 don't check the build number*)
     let get_software_version_fields fields =
       let open Xapi_globs in
-      ( (try List.assoc _platform_version fields with _ -> "")
+      ( (try List.assoc _xapi_version fields with _ -> "")
       , (match get_compatibility_name fields with Some x -> x | None -> "")
       , (try List.assoc _git_id fields with _ -> "")
       , try

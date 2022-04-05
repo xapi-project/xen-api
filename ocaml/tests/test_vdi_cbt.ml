@@ -37,7 +37,7 @@ let register_smapiv2_server (module S : Storage_interface.Server_impl) sr_ref =
   Storage_mux.register sr_ref rpc "" dummy_query_result
 
 let make_smapiv2_storage_server ?vdi_enable_cbt ?vdi_disable_cbt
-    ?vdi_list_changed_blocks ?vdi_data_destroy ?vdi_snapshot ?vdi_clone () =
+    ?vdi_list_changed_blocks ?vdi_data_destroy ?vdi_snapshot ?vdi_clone:_ () =
   let default def = Option.value ~default:def in
   (module struct
     include (
@@ -113,8 +113,10 @@ let test_cbt_enable_disable () =
   let enable_cbt_params = ref None in
   let disable_cbt_params = ref None in
   register_smapiv2_server
-    ~vdi_enable_cbt:(fun _ ~dbg ~sr ~vdi -> enable_cbt_params := Some (sr, vdi))
-    ~vdi_disable_cbt:(fun _ ~dbg ~sr ~vdi ->
+    ~vdi_enable_cbt:(fun _ ~dbg:_ ~sr ~vdi ->
+      enable_cbt_params := Some (sr, vdi)
+    )
+    ~vdi_disable_cbt:(fun _ ~dbg:_ ~sr ~vdi ->
       disable_cbt_params := Some (sr, vdi)
     )
     sr ;
@@ -446,8 +448,8 @@ let test_get_nbd_info =
     fail, registers a SMAPIv2 data_destroy function that is a no-op by default,
     and returns a CBT-enabled snapshot VDI on which it is allowed to run
     data_destroy. *)
-let setup_test_for_data_destroy ?(vdi_data_destroy = fun _ ~dbg ~sr ~vdi -> ())
-    () =
+let setup_test_for_data_destroy
+    ?(vdi_data_destroy = fun _ ~dbg:_ ~sr:_ ~vdi:_ -> ()) () =
   (* data_destroy uses the event mechanism, this is required to make the unit test work *)
   let __context, _ = Test_event.event_setup_common () in
   let sR = make_mock_server_infrastructure ~__context in
@@ -462,7 +464,7 @@ let setup_test_for_data_destroy ?(vdi_data_destroy = fun _ ~dbg ~sr ~vdi -> ())
 let test_allowed_operations_updated_when_necessary () =
   let __context, sR, self = setup_test_for_data_destroy () in
   register_smapiv2_server
-    ~vdi_data_destroy:(fun _ ~dbg ~sr ~vdi -> ())
+    ~vdi_data_destroy:(fun _ ~dbg:_ ~sr:_ ~vdi:_ -> ())
     (Db.SR.get_uuid ~__context ~self:sR |> Storage_interface.Sr.of_string) ;
   let assert_allowed_operations msg check =
     Alcotest.(check bool)
@@ -484,11 +486,10 @@ let test_allowed_operations_updated_when_necessary () =
 let test_data_destroy =
   (* Confirm VDI.data_destroy changes requisite fields of VDI *)
   let test_vdi_after_data_destroy () =
-    let __context, sR, vDI = setup_test_for_data_destroy () in
+    let __context, _, vDI = setup_test_for_data_destroy () in
     Db.VDI.set_type ~__context ~self:vDI ~value:`suspend ;
     let vM = Test_common.make_vm ~__context () in
     let check_vdi_is_snapshot_and_type ~vDI ~snapshot ~vdi_type ~managed =
-      let open Printf in
       Alcotest.check Alcotest_comparators.vdi_type "VDI.type" vdi_type
         (Db.VDI.get_type ~__context ~self:vDI) ;
       Alcotest.(check bool)
@@ -525,16 +526,16 @@ let test_data_destroy =
   in
   (* check VDI.data_destroy throws VDI_NOT_MANAGED if managed:false *)
   let test_vdi_managed_data_destroy () =
-    let __context, sR, vDI = setup_test_for_data_destroy () in
+    let __context, _, vDI = setup_test_for_data_destroy () in
     Db.VDI.set_managed ~__context ~self:vDI ~value:false ;
     Alcotest.check_raises "VDI.data_destroy only works on managed VDI"
       Api_errors.(Server_error (vdi_not_managed, [Ref.string_of vDI]))
       (fun () -> Xapi_vdi.data_destroy ~__context ~self:vDI)
   in
   let test_does_not_change_vdi_type_to_cbt_metadata_if_it_fails () =
-    let __context, sR, vdi =
+    let __context, _, vdi =
       setup_test_for_data_destroy
-        ~vdi_data_destroy:(fun _ ~dbg ~sr ~vdi -> raise (Failure "error"))
+        ~vdi_data_destroy:(fun _ ~dbg:_ ~sr:_ ~vdi:_ -> raise (Failure "error"))
         ()
     in
     let original_type = Db.VDI.get_type ~__context ~self:vdi in
@@ -551,7 +552,7 @@ let test_data_destroy =
     let bg f = Thread.create f () in
     (* Creates a VBD that is currently_attached to our VDI *)
     let setup_test () =
-      let __context, sR, vDI = setup_test_for_data_destroy () in
+      let __context, _, vDI = setup_test_for_data_destroy () in
       let vM = Test_common.make_vm ~__context () in
       let vbd =
         Test_common.make_vbd ~__context ~vDI ~vM ~currently_attached:true ()
@@ -633,9 +634,7 @@ let test_data_destroy =
       Thread.delay 0.1 ; data_destroy ~timeout:1.0 ; Thread.join t
     in
     let test_data_destroy_times_out_when_vbd_does_not_get_unplugged_in_time () =
-      let vDI, start_vbd_unplug, finish_vbd_unplug, destroy_vbd, data_destroy =
-        setup_test ()
-      in
+      let vDI, start_vbd_unplug, _, _, data_destroy = setup_test () in
       let t =
         bg (fun () ->
             start_vbd_unplug () (* finish_vbd_unplug does not happen in time *)
@@ -650,7 +649,7 @@ let test_data_destroy =
       Thread.join t
     in
     let test_data_destroy_times_out_when_vbd_does_not_get_destroyed_in_time () =
-      let vDI, start_vbd_unplug, finish_vbd_unplug, destroy_vbd, data_destroy =
+      let vDI, start_vbd_unplug, finish_vbd_unplug, _, data_destroy =
         setup_test ()
       in
       let t =
@@ -721,7 +720,7 @@ let test_vdi_list_changed_blocks () =
   in
   let vdi_to = Storage_interface.Vdi.of_string vdi_to_location in
   register_smapiv2_server
-    ~vdi_list_changed_blocks:(fun _ ~dbg ~sr ~vdi_from ~vdi_to ->
+    ~vdi_list_changed_blocks:(fun _ ~dbg:_ ~sr ~vdi_from ~vdi_to ->
       list_changed_blocks_params := Some (sr, (vdi_from, vdi_to)) ;
       list_changed_blocks_string
     )

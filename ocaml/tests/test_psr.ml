@@ -110,8 +110,6 @@ module Impl =
 functor
   (Hosts : sig
      val master : master
-
-     val members : member list
    end)
   ->
   struct
@@ -195,12 +193,8 @@ end
 
 (* the test implementation has been defined above,
    and we use this function to access it *)
-let mk_psr master members =
-  let module PSR = Xapi_psr.Make (Impl (struct
-    let master = master
-
-    let members = members
-  end)) in
+let mk_psr master =
+  let module PSR = Xapi_psr.Make (Impl (struct let master = master end)) in
   let module PSR = struct
     include PSR
 
@@ -294,7 +288,7 @@ let almost_all_possible_fists ~num_hosts =
 
 let test_no_fistpoint () =
   let master, members = mk_hosts 6 in
-  let module PSR = (val mk_psr master members) in
+  let module PSR = (val mk_psr master) in
   let r = PSR.start (default_pool_secret, new_pool_secret) ~master ~members in
   check_psr_succeeded r new_pool_secret master members
 
@@ -304,7 +298,7 @@ let test_no_fistpoint () =
 let test_fail_once () =
   let num_hosts = 3 in
   let master, members = mk_hosts num_hosts in
-  let module PSR = (val mk_psr master members) in
+  let module PSR = (val mk_psr master) in
   let hosts = master.member :: members in
   almost_all_possible_fists ~num_hosts
   |> List.iter (fun (fistpoint, host_id, exp_err) ->
@@ -329,7 +323,7 @@ let test_master_fails_during_cleanup () =
   let open Xapi_psr in
   let num_hosts = 6 in
   let master, members = mk_hosts num_hosts in
-  let module PSR = (val mk_psr master members) in
+  let module PSR = (val mk_psr master) in
   let fistpoint = (After, Cleanup) in
   let exp_err = Error (Failed_during_cleanup, 0) in
   master.member.fistpoint <- Some fistpoint ;

@@ -20,11 +20,16 @@ let event_setup_common = Test_event_common.event_setup_common
 
 let test_event_from_ev () =
   (* Test that creating an object generates an event for that object *)
-  let __context, session_id = event_setup_common () in
-  let evs = Xapi_event.from __context ["vm"] "" 30.0 |> parse_event_from in
+  let __context, _ = event_setup_common () in
+  let evs =
+    Xapi_event.from ~__context ~classes:["vm"] ~token:"" ~timeout:30.0
+    |> parse_event_from
+  in
   let tok = evs.token in
-  let vm = make_vm __context () in
-  let evs_rpc = Xapi_event.from __context ["vm"] tok 4.0 in
+  let vm = make_vm ~__context () in
+  let evs_rpc =
+    Xapi_event.from ~__context ~classes:["vm"] ~token:tok ~timeout:4.0
+  in
   let evs = evs_rpc |> parse_event_from in
   Printf.printf "evs: %s\n%!" (Jsonrpc.to_string evs_rpc) ;
   let ev = List.filter (fun ev -> ev.ty = "vm") evs.events in
@@ -34,14 +39,17 @@ let test_event_from_ev () =
 
 let test_event_from_ev_rel () =
   (* Test that creating a connector object generates all relevant events *)
-  let __context, session_id = event_setup_common () in
-  let vm = make_vm __context () in
+  let __context, _ = event_setup_common () in
+  let vm = make_vm ~__context () in
   let evs =
-    Xapi_event.from __context ["vm"; "vbd"] "" 30.0 |> parse_event_from
+    Xapi_event.from ~__context ~classes:["vm"; "vbd"] ~token:"" ~timeout:30.0
+    |> parse_event_from
   in
   let tok = evs.token in
   let vbd = make_vbd ~__context ~vM:vm () in
-  let evs_rpc = Xapi_event.from __context ["vm"; "vbd"] tok 4.0 in
+  let evs_rpc =
+    Xapi_event.from ~__context ~classes:["vm"; "vbd"] ~token:tok ~timeout:4.0
+  in
   let evs2 = evs_rpc |> parse_event_from in
   let tok2 = evs2.token in
   let vm_ev = List.filter (fun ev -> ev.ty = "vm") evs2.events in
@@ -51,7 +59,9 @@ let test_event_from_ev_rel () =
   let ev = List.hd vm_ev in
   Alcotest.(check string) "ev.reference" (Ref.string_of vm) ev.reference ;
   Db.VBD.destroy ~__context ~self:vbd ;
-  let evs_rpc = Xapi_event.from __context ["vm"; "vbd"] tok2 4.0 in
+  let evs_rpc =
+    Xapi_event.from ~__context ~classes:["vm"; "vbd"] ~token:tok2 ~timeout:4.0
+  in
   let evs3 = evs_rpc |> parse_event_from in
   let vm_ev = List.filter (fun ev -> ev.ty = "vm") evs3.events in
   let vbd_ev = List.filter (fun ev -> ev.ty = "vbd") evs3.events in
@@ -59,11 +69,17 @@ let test_event_from_ev_rel () =
   Alcotest.(check int) "list length" 1 (List.length vbd_ev)
 
 let test_event_from_timeout () =
-  let __context, session_id = event_setup_common () in
-  let evs = Xapi_event.from __context ["vm"] "" 30.0 |> parse_event_from in
+  let __context, _ = event_setup_common () in
+  let evs =
+    Xapi_event.from ~__context ~classes:["vm"] ~token:"" ~timeout:30.0
+    |> parse_event_from
+  in
   let tok = evs.token in
   let start_time = Unix.gettimeofday () in
-  let _ = Xapi_event.from __context ["vm"] tok 1.0 |> parse_event_from in
+  let _ =
+    Xapi_event.from ~__context ~classes:["vm"] ~token:tok ~timeout:1.0
+    |> parse_event_from
+  in
   let end_time = Unix.gettimeofday () in
   let elapsed = end_time -. start_time in
   Printf.printf "test_event_from_timeout: elapsed=%f\n" elapsed ;
@@ -91,26 +107,28 @@ let event_next_unblock () =
      logout so a little pause in here is probably the best we can do *)
   Thread.delay 0.5 ;
   (* Logout which should cause the background thread to unblock *)
-  Xapi_session.destroy_db_session __context session_id ;
+  Xapi_session.destroy_db_session ~__context ~self:session_id ;
   (* Again we can't tell the difference between a slow and a totally blocked thread
      so set the max wait time 10 times more, but it will ublock as early as possible *)
   let unblocked = not (Delay.wait wait_hdl (0.5 *. 10.)) in
   Alcotest.(check bool) "Unblocked" true unblocked
 
 let event_next_test () =
-  let __context, session_id = event_setup_common () in
+  let __context, _ = event_setup_common () in
   let () = Xapi_event.register ~__context ~classes:["pool"] in
   let wait_hdl = Delay.make () in
   let pool = Db.Pool.get_all ~__context |> List.hd in
   let key = "event_next_test" in
-  (try Db.Pool.remove_from_other_config __context pool key with _ -> ()) ;
+  ( try Db.Pool.remove_from_other_config ~__context ~self:pool ~key
+    with _ -> ()
+  ) ;
   let (_ : Thread.t) =
     Thread.create
       (fun () ->
         let finished = ref false in
         while not !finished do
-          ignore (Xapi_event.next __context) ;
-          let oc = Db.Pool.get_other_config __context pool in
+          ignore (Xapi_event.next ~__context) ;
+          let oc = Db.Pool.get_other_config ~__context ~self:pool in
           if List.mem_assoc key oc && List.assoc key oc = "1" then (
             Printf.printf "got expected event" ;
             finished := true ;
@@ -121,7 +139,7 @@ let event_next_test () =
       ()
   in
   Thread.delay 1. ;
-  Db.Pool.add_to_other_config __context pool key "1" ;
+  Db.Pool.add_to_other_config ~__context ~self:pool ~key ~value:"1" ;
   let unblocked = not (Delay.wait wait_hdl (1.0 *. 10.)) in
   Alcotest.(check bool) "checking other_config" true unblocked
 
@@ -131,19 +149,22 @@ let wait_for_pool_key __context key =
   let pool = Db.Pool.get_all ~__context |> List.hd in
   while not !finished do
     let events =
-      Xapi_event.from __context ["pool"] !token 10. |> parse_event_from
+      Xapi_event.from ~__context ~classes:["pool"] ~token:!token ~timeout:10.
+      |> parse_event_from
     in
     token := events.token ;
-    let oc = Db.Pool.get_other_config __context pool in
+    let oc = Db.Pool.get_other_config ~__context ~self:pool in
     if List.mem_assoc key oc && List.assoc key oc = "1" then finished := true
   done
 
 let event_from_test () =
-  let __context, session_id = event_setup_common () in
+  let __context, _ = event_setup_common () in
   let wait_hdl = Delay.make () in
-  let pool = Db.Pool.get_all __context |> List.hd in
+  let pool = Db.Pool.get_all ~__context |> List.hd in
   let key = "event_from_test" in
-  (try Db.Pool.remove_from_other_config __context pool key with _ -> ()) ;
+  ( try Db.Pool.remove_from_other_config ~__context ~self:pool ~key
+    with _ -> ()
+  ) ;
   let (_ : Thread.t) =
     Thread.create
       (fun () ->
@@ -153,21 +174,25 @@ let event_from_test () =
       ()
   in
   Thread.delay 0.5 ;
-  Db.Pool.add_to_other_config __context pool key "1" ;
+  Db.Pool.add_to_other_config ~__context ~self:pool ~key ~value:"1" ;
   let unblocked = not (Delay.wait wait_hdl (0.5 *. 10.)) in
   Alcotest.(check bool) "event_from_test" true unblocked
 
 let event_from_parallel_test () =
-  let __context, session_id = event_setup_common () in
-  let pool = Db.Pool.get_all __context |> List.hd in
+  let __context, _ = event_setup_common () in
+  let pool = Db.Pool.get_all ~__context |> List.hd in
   let key = "event_next_test" in
-  (try Db.Pool.remove_from_other_config __context pool key with _ -> ()) ;
+  ( try Db.Pool.remove_from_other_config ~__context ~self:pool ~key
+    with _ -> ()
+  ) ;
   let ok = ref true in
   let (i_should_succeed : Thread.t) =
     Thread.create
       (fun () ->
         try
-          let _ = Xapi_event.from __context [] "" 2.0 in
+          let _ =
+            Xapi_event.from ~__context ~classes:[] ~token:"" ~timeout:2.0
+          in
           ()
           (* good *)
         with e ->
@@ -182,14 +207,14 @@ let event_from_parallel_test () =
   in
   Thread.delay 0.5 ;
   (* wait for both threads to block in Event.from *)
-  Db.Pool.add_to_other_config __context pool key "1" ;
+  Db.Pool.add_to_other_config ~__context ~self:pool ~key ~value:"1" ;
   Thread.join interfering_thread ;
   Thread.join i_should_succeed ;
   (* Check that Event.from didn't get cancelled by mistake *)
   Alcotest.(check bool) "event_from_parallel_test" true !ok
 
-let object_level_event_test session_id =
-  let __context, session_id = event_setup_common () in
+let object_level_event_test _session_id =
+  let __context, _ = event_setup_common () in
   let finished = ref false in
   let failure = ref false in
   let wait_hdl = Delay.make () in
@@ -198,8 +223,8 @@ let object_level_event_test session_id =
   Printf.printf "watching %s\n%!" (Ref.string_of vm_a) ;
   Printf.printf "ignoring %s\n%!" (Ref.string_of vm_b) ;
   let key = "object_level_event_next" in
-  (try Db.VM.remove_from_other_config __context vm_a key with _ -> ()) ;
-  (try Db.VM.remove_from_other_config __context vm_b key with _ -> ()) ;
+  (try Db.VM.remove_from_other_config ~__context ~self:vm_a ~key with _ -> ()) ;
+  (try Db.VM.remove_from_other_config ~__context ~self:vm_b ~key with _ -> ()) ;
   let (_ : Thread.t) =
     Thread.create
       (fun () ->
@@ -207,9 +232,9 @@ let object_level_event_test session_id =
         while not !finished do
           Printf.printf "Calling event.from...\n%!" ;
           let events =
-            Xapi_event.from __context
-              [Printf.sprintf "vm/%s" (Ref.string_of vm_a)]
-              !token 10.
+            Xapi_event.from ~__context
+              ~classes:[Printf.sprintf "vm/%s" (Ref.string_of vm_a)]
+              ~token:!token ~timeout:10.
             |> parse_event_from
           in
           Printf.printf "Got %d events\n%!" (List.length events.events) ;
@@ -225,7 +250,7 @@ let object_level_event_test session_id =
             )
             events.events ;
           token := events.token ;
-          let oc = Db.VM.get_other_config __context vm_a in
+          let oc = Db.VM.get_other_config ~__context ~self:vm_a in
           if List.mem_assoc key oc && List.assoc key oc = "1" then (
             Printf.printf "got expected event (new token = %s)\n%!" !token ;
             finished := true
@@ -238,12 +263,12 @@ let object_level_event_test session_id =
   in
   Thread.delay 0.5 ;
   Printf.printf "Adding to vm_b\n%!" ;
-  Db.VM.add_to_other_config __context vm_b key "1" ;
+  Db.VM.add_to_other_config ~__context ~self:vm_b ~key ~value:"1" ;
   Thread.delay 0.5 ;
   Printf.printf "Removing from vm_b\n%!" ;
-  Db.VM.remove_from_other_config __context vm_b key ;
+  Db.VM.remove_from_other_config ~__context ~self:vm_b ~key ;
   Printf.printf "Adding to vm_a. This ought to wake up the event thread\n%!" ;
-  Db.VM.add_to_other_config __context vm_a key "1" ;
+  Db.VM.add_to_other_config ~__context ~self:vm_a ~key ~value:"1" ;
   let blocked = Delay.wait wait_hdl (1.0 *. 10.) in
   if blocked then (
     Printf.printf "FAILURE: Didn't get expected change in event thread\n%!" ;

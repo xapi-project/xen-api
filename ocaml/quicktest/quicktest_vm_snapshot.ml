@@ -1,15 +1,19 @@
 (** Set up snapshot test: create a small VM with a selection of VBDs *)
 let with_setup rpc session_id sr vm_template f =
   print_endline "Setting up test VM" ;
-  let uuid = Client.Client.VM.get_uuid rpc session_id vm_template in
+  let uuid = Client.Client.VM.get_uuid ~rpc ~session_id ~self:vm_template in
   print_endline (Printf.sprintf "Template has uuid: %s%!" uuid) ;
   let vdi =
-    Client.Client.VDI.create rpc session_id "small" __LOC__ sr 4194304L `user
-      false false [] [] [] []
+    Client.Client.VDI.create ~rpc ~session_id ~name_label:"small"
+      ~name_description:__LOC__ ~sR:sr ~virtual_size:4194304L ~_type:`user
+      ~sharable:false ~read_only:false ~other_config:[] ~xenstore_data:[]
+      ~sm_config:[] ~tags:[]
   in
   let vdi2 =
-    Client.Client.VDI.create rpc session_id "small2" __LOC__ sr 4194304L `user
-      false false [] [] [] []
+    Client.Client.VDI.create ~rpc ~session_id ~name_label:"small2"
+      ~name_description:__LOC__ ~sR:sr ~virtual_size:4194304L ~_type:`user
+      ~sharable:false ~read_only:false ~other_config:[] ~xenstore_data:[]
+      ~sm_config:[] ~tags:[]
   in
   Qt.VM.with_new rpc session_id ~template:vm_template (fun vm ->
       print_endline (Printf.sprintf "Installed new VM") ;
@@ -32,17 +36,22 @@ let with_setup rpc session_id sr vm_template f =
            ~currently_attached:true
         ) ;
       f rpc session_id vm vdi vdi2 ;
-      Client.Client.VDI.destroy rpc session_id vdi ;
-      Client.Client.VDI.destroy rpc session_id vdi2
+      Client.Client.VDI.destroy ~rpc ~session_id ~self:vdi ;
+      Client.Client.VDI.destroy ~rpc ~session_id ~self:vdi2
   )
 
 let test_snapshot rpc session_id vm vdi vdi2 =
-  let snapshot = Client.Client.VM.snapshot rpc session_id vm "Snapshot" [] in
-  let vbds = Client.Client.VM.get_VBDs rpc session_id snapshot in
+  let snapshot =
+    Client.Client.VM.snapshot ~rpc ~session_id ~vm ~new_name:"Snapshot"
+      ~ignore_vdis:[]
+  in
+  let vbds = Client.Client.VM.get_VBDs ~rpc ~session_id ~self:snapshot in
   let snap_vbd =
     match
       List.find_opt
-        (fun vbd -> Client.Client.VBD.get_userdevice rpc session_id vbd = "0")
+        (fun vbd ->
+          Client.Client.VBD.get_userdevice ~rpc ~session_id ~self:vbd = "0"
+        )
         vbds
     with
     | None ->
@@ -53,7 +62,9 @@ let test_snapshot rpc session_id vm vdi vdi2 =
   let snap_vbd2 =
     match
       List.find_opt
-        (fun vbd -> Client.Client.VBD.get_userdevice rpc session_id vbd = "1")
+        (fun vbd ->
+          Client.Client.VBD.get_userdevice ~rpc ~session_id ~self:vbd = "1"
+        )
         vbds
     with
     | None ->
@@ -61,22 +72,29 @@ let test_snapshot rpc session_id vm vdi vdi2 =
     | Some vbd ->
         vbd
   in
-  let snap_vdi = Client.Client.VBD.get_VDI rpc session_id snap_vbd in
-  let snap_vdi2 = Client.Client.VBD.get_VDI rpc session_id snap_vbd2 in
-  let orig_vdi = Client.Client.VDI.get_snapshot_of rpc session_id snap_vdi in
-  let orig_vdi2 = Client.Client.VDI.get_snapshot_of rpc session_id snap_vdi2 in
+  let snap_vdi = Client.Client.VBD.get_VDI ~rpc ~session_id ~self:snap_vbd in
+  let snap_vdi2 = Client.Client.VBD.get_VDI ~rpc ~session_id ~self:snap_vbd2 in
+  let orig_vdi =
+    Client.Client.VDI.get_snapshot_of ~rpc ~session_id ~self:snap_vdi
+  in
+  let orig_vdi2 =
+    Client.Client.VDI.get_snapshot_of ~rpc ~session_id ~self:snap_vdi2
+  in
   assert (orig_vdi = vdi) ;
   assert (orig_vdi2 = vdi2)
 
 let test_snapshot_ignore_vdi rpc session_id vm vdi vdi2 =
   let snapshot =
-    Client.Client.VM.snapshot rpc session_id vm "Snapshot" [vdi2]
+    Client.Client.VM.snapshot ~rpc ~session_id ~vm ~new_name:"Snapshot"
+      ~ignore_vdis:[vdi2]
   in
-  let vbds = Client.Client.VM.get_VBDs rpc session_id snapshot in
+  let vbds = Client.Client.VM.get_VBDs ~rpc ~session_id ~self:snapshot in
   let snap_vbd =
     match
       List.find_opt
-        (fun vbd -> Client.Client.VBD.get_userdevice rpc session_id vbd = "0")
+        (fun vbd ->
+          Client.Client.VBD.get_userdevice ~rpc ~session_id ~self:vbd = "0"
+        )
         vbds
     with
     | None ->
@@ -87,12 +105,16 @@ let test_snapshot_ignore_vdi rpc session_id vm vdi vdi2 =
   assert (
     not
       (List.exists
-         (fun vbd -> Client.Client.VBD.get_userdevice rpc session_id vbd = "1")
+         (fun vbd ->
+           Client.Client.VBD.get_userdevice ~rpc ~session_id ~self:vbd = "1"
+         )
          vbds
       )
   ) ;
-  let snap_vdi = Client.Client.VBD.get_VDI rpc session_id snap_vbd in
-  let orig_vdi = Client.Client.VDI.get_snapshot_of rpc session_id snap_vdi in
+  let snap_vdi = Client.Client.VBD.get_VDI ~rpc ~session_id ~self:snap_vbd in
+  let orig_vdi =
+    Client.Client.VDI.get_snapshot_of ~rpc ~session_id ~self:snap_vdi
+  in
   assert (orig_vdi = vdi)
 
 let test rpc session_id sr_info vm_template () =

@@ -35,6 +35,36 @@ module SRSet = Set.Make (struct
   let compare = Stdlib.compare
 end)
 
+let is_dmc_compatible_vmr ~__context ~vmr =
+  let module C = Xapi_vm_memory_constraints.Vm_memory_constraints in
+  let constraints = C.extract vmr in
+  Pool_features.is_enabled ~__context Features.DMC
+  || C.are_valid_and_pinned_at_static_max ~constraints
+
+let is_dmc_compatible ~__context ~vm =
+  let vmr = Db.VM.get_record ~__context ~self:vm in
+  is_dmc_compatible_vmr ~__context ~vmr
+
+let assert_dmc_compatible ~__context ~vm =
+  if not @@ is_dmc_compatible ~__context ~vm then
+    raise
+      Api_errors.(
+        Server_error (dynamic_memory_control_unavailable, [Ref.string_of vm])
+      )
+
+let enforce_memory_constraints_always ~__context ~vm =
+  let module C = Xapi_vm_memory_constraints.Vm_memory_constraints in
+  let constraints = C.reset_to_safe_defaults (C.get ~__context ~vm_ref:vm) in
+  C.set ~__context ~vm_ref:vm ~constraints
+
+let enforce_memory_constraints_for_dmc ~__context ~vm =
+  let module C = Xapi_vm_memory_constraints.Vm_memory_constraints in
+  if not @@ is_dmc_compatible ~__context ~vm then (
+    info "VM %s requires unavailable DMC, updating memory settings"
+      (Ref.string_of vm) ;
+    enforce_memory_constraints_always ~__context ~vm
+  )
+
 let compute_memory_overhead ~__context ~vm =
   let vm_record = Db.VM.get_record ~__context ~self:vm in
   Memory_check.vm_compute_memory_overhead vm_record

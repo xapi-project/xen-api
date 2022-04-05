@@ -275,11 +275,11 @@ let assert_can_live_import __context rpc session_id vm_record =
            )
         )
   in
-  if
-    vm_record.API.vM_power_state = `Running
-    || vm_record.API.vM_power_state = `Paused
-  then
-    assert_memory_available ()
+  match vm_record.API.vM_power_state with
+  | `Running | `Paused ->
+      assert_memory_available ()
+  | _other ->
+      ()
 
 (* Assert that the local host, which is the host we are live-migrating the VM to,
  * has free capacity on a PGPU from the given VGPU's GPU group. *)
@@ -417,6 +417,21 @@ module VM : HandlerTools = struct
 
   let precheck __context config rpc session_id state x =
     let vm_record = get_vm_record x.snapshot in
+
+    (* we can't import a VM if it is not in a resting state and requires
+       DMC *)
+    let is_dmc_compatible =
+      match vm_record.API.vM_power_state with
+      | (`Running | `Suspended | `Paused)
+        when not
+             @@ Xapi_vm_helpers.is_dmc_compatible_vmr ~__context ~vmr:vm_record
+        ->
+          false
+      | _ ->
+          true
+      (* but might require memory adjustments *)
+    in
+
     let is_default_template =
       vm_record.API.vM_is_default_template
       || vm_record.API.vM_is_a_template
@@ -426,7 +441,13 @@ module VM : HandlerTools = struct
               vm_record.API.vM_other_config
             = "true"
     in
-    if is_default_template then
+    if not @@ is_dmc_compatible then
+      Fail
+        Api_errors.(
+          Server_error
+            (dynamic_memory_control_unavailable, [vm_record.API.vM_uuid])
+        )
+    else if is_default_template then
       (* If the VM is a default template, then pick up the one with the same name. *)
       let template =
         try
@@ -549,23 +570,28 @@ module VM : HandlerTools = struct
           }
       in
       let vm_record =
-        if vm_exported_pre_dmc x then (
-          let safe_constraints =
-            Vm_memory_constraints.reset_to_safe_defaults
-              ~constraints:(Vm_memory_constraints.extract ~vm_record)
-          in
-          debug "VM %s was exported pre-DMC; dynamic_{min,max},target <- %Ld"
-            vm_record.API.vM_name_label safe_constraints.static_max ;
-          {
-            vm_record with
-            API.vM_memory_static_min= safe_constraints.static_min
-          ; vM_memory_dynamic_min= safe_constraints.dynamic_min
-          ; vM_memory_target= safe_constraints.target
-          ; vM_memory_dynamic_max= safe_constraints.dynamic_max
-          ; vM_memory_static_max= safe_constraints.static_max
-          }
-        ) else
-          vm_record
+        match vm_record.API.vM_power_state with
+        | `Halted ->
+            (* make sure we don't use DMC *)
+            let safe_constraints =
+              Vm_memory_constraints.reset_to_safe_defaults
+                ~constraints:(Vm_memory_constraints.extract ~vm_record)
+            in
+            debug "Disabling DMC for VM %s; dynamic_{min,max},target <- %Ld"
+              vm_record.API.vM_uuid safe_constraints.dynamic_max ;
+            {
+              vm_record with
+              API.vM_memory_static_min= safe_constraints.static_min
+            ; vM_memory_dynamic_min= safe_constraints.dynamic_min
+            ; vM_memory_target= safe_constraints.target
+            ; vM_memory_dynamic_max= safe_constraints.dynamic_max
+            ; vM_memory_static_max= safe_constraints.static_max
+            }
+        | _otherwise ->
+            (* the precheck should make sure we don't have a VM that
+               requires DMC. But just to be safe, we don't update
+               memory settings on any VM that is not in rest *)
+            vm_record
       in
       let vm_record =
         if vm_has_field ~x ~name:"has_vendor_device" then

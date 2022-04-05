@@ -70,7 +70,8 @@ module Vm_memory_constraints : T = struct
   let assert_valid_for_current_context ~__context ~vm ~constraints =
     let is_control_domain = Db.VM.get_is_control_domain ~__context ~self:vm in
     if not (Pool_features.is_enabled ~__context Features.DMC) then
-      assert_valid_and_pinned_at_static_max ~constraints ~reason:"DMC disabled"
+      assert_valid_and_pinned_at_static_max ~constraints
+        ~reason:"DMC unavailable"
     else if is_control_domain then
       assert_valid_and_pinned_at_static_max ~constraints
         ~reason:"control domain"

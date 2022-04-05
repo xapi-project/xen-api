@@ -1577,6 +1577,7 @@ let migration_type ~__context ~remote =
 let assert_can_migrate ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options
     ~vgpu_map =
   assert_licensed_storage_motion ~__context ;
+  Xapi_vm_helpers.assert_dmc_compatible ~__context ~vm ;
   let remote = remote_of_dest ~__context dest in
   let force =
     try bool_of_string (List.assoc "force" options) with _ -> false

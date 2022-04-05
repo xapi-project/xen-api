@@ -28,7 +28,7 @@ let thread_forever f v =
     match f v with
     | (_ : ('a, 'b) result) ->
         assert false
-    | exception e ->
+    | exception _ ->
         Thread.delay 1.0 ; (loop [@tailcall]) ()
   in
   Thread.create loop ()
@@ -546,5 +546,5 @@ module Server = struct
     let (_ : Thread.t) = thread_forever (loop connections) None in
     Ok ()
 
-  let shutdown ~t () = failwith "Shutdown is unimplemented"
+  let shutdown ~t:_ () = failwith "Shutdown is unimplemented"
 end

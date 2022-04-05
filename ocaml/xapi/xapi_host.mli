@@ -310,7 +310,7 @@ val install_server_certificate :
     remote. This is done to refresh the server certificate used in the
     connections. *)
 
-val emergency_reset_server_certificate : __context:'a -> unit
+val emergency_reset_server_certificate : __context:Context.t -> unit
 
 val reset_server_certificate : __context:Context.t -> host:API.ref_host -> unit
 

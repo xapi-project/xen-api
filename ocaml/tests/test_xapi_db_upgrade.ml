@@ -41,21 +41,24 @@ let upgrade_vm_memory_for_dmc () =
   Db.VM.set_memory_target ~__context ~self ~value:2L ;
   Db.VM.set_memory_dynamic_max ~__context ~self ~value:3L ;
   Db.VM.set_memory_static_max ~__context ~self ~value:4L ;
+  Db.VM.set_power_state ~__context ~self ~value:`Halted ;
   (* Apply the upgrade rule *)
   X.upgrade_vm_memory_for_dmc.fn ~__context ;
   let r = Db.VM.get_record ~__context ~self in
-  Alcotest.(check int64)
-    "upgrade_vm_memory_for_dmc: memory_dynamic_max <> memory_static_max"
-    r.API.vM_memory_dynamic_max r.API.vM_memory_static_max ;
-  Alcotest.(check int64)
-    "upgrade_vm_memory_for_dmc: memory_target <> memory_static_max"
-    r.API.vM_memory_target r.API.vM_memory_static_max ;
-  Alcotest.(check int64)
-    "upgrade_vm_memory_for_dmc: memory_dynamic_min <> memory_static_max"
-    r.API.vM_memory_dynamic_min r.API.vM_memory_static_max ;
-  Alcotest.(check bool)
-    "upgrade_vm_memory_for_dmc: memory_static_min > memory_static_max" true
-    (r.API.vM_memory_static_min <= r.API.vM_memory_static_max)
+  if not @@ Pool_features.is_enabled ~__context Features.DMC then (
+    Alcotest.(check int64)
+      "upgrade_vm_memory_for_dmc: memory_dynamic_max <> memory_static_max"
+      r.API.vM_memory_dynamic_max r.API.vM_memory_static_max ;
+    Alcotest.(check int64)
+      "upgrade_vm_memory_for_dmc: memory_target <> memory_static_max"
+      r.API.vM_memory_target r.API.vM_memory_static_max ;
+    Alcotest.(check int64)
+      "upgrade_vm_memory_for_dmc: memory_dynamic_min <> memory_static_max"
+      r.API.vM_memory_dynamic_min r.API.vM_memory_static_max ;
+    Alcotest.(check bool)
+      "upgrade_vm_memory_for_dmc: memory_static_min > memory_static_max" true
+      (r.API.vM_memory_static_min <= r.API.vM_memory_static_max)
+  )
 
 let upgrade_bios () =
   let tmp_filename =

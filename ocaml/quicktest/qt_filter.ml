@@ -15,12 +15,12 @@ let vdi_count = Hashtbl.create 4
 
 (** Scan an SR and return the number of managed VDIs contained within *)
 let count_vdis rpc session_id sr =
-  Client.Client.SR.scan rpc session_id sr ;
+  Client.Client.SR.scan ~rpc ~session_id ~sr ;
   let managed_vdis =
-    Client.Client.SR.get_VDIs rpc session_id sr
+    Client.Client.SR.get_VDIs ~rpc ~session_id ~self:sr
     (* NB vhd backends may delete records beneath us *)
     |> Valid_ref_list.filter (fun vdi ->
-           Client.Client.VDI.get_managed rpc session_id vdi
+           Client.Client.VDI.get_managed ~rpc ~session_id ~self:vdi
        )
   in
   List.length managed_vdis
@@ -78,11 +78,13 @@ module SR = struct
          happen to be R/O NFS exports *)
       let avoid_vdi_create session_id sr =
         let other_config =
-          Client.Client.SR.get_other_config rpc session_id sr
+          Client.Client.SR.get_other_config ~rpc ~session_id ~self:sr
         in
-        let is_tools_sr = Client.Client.SR.get_is_tools_sr rpc session_id sr in
+        let is_tools_sr =
+          Client.Client.SR.get_is_tools_sr ~rpc ~session_id ~self:sr
+        in
         let is_iso_sr =
-          Client.Client.SR.get_content_type rpc session_id sr = "iso"
+          Client.Client.SR.get_content_type ~rpc ~session_id ~self:sr = "iso"
         in
         let special_key = "quicktest-no-VDI_CREATE" in
         let is_marked =
@@ -92,8 +94,8 @@ module SR = struct
         is_tools_sr || is_iso_sr || is_marked
       in
       let sm =
-        let ty = Client.Client.SR.get_type rpc session_id sR in
-        let sms = Client.Client.SM.get_all_records rpc session_id in
+        let ty = Client.Client.SR.get_type ~rpc ~session_id ~self:sR in
+        let sms = Client.Client.SM.get_all_records ~rpc ~session_id in
         match List.filter (fun (_, r) -> r.API.sM_type = ty) sms with
         | [] ->
             Alcotest.failf "Could not find SM plugin for SR type %s" ty
@@ -137,7 +139,7 @@ module SR = struct
     let is_attached =
       Client.Client.PBD.get_currently_attached ~rpc ~session_id
     in
-    let all_attached = List.for_all (fun pbd -> is_attached pbd) in
+    let all_attached = List.for_all (fun pbd -> is_attached ~self:pbd) in
     let does_pbd_belong_to_me pbd =
       let pbd_host = Client.Client.PBD.get_host ~rpc ~session_id ~self:pbd in
       let pbd_host_uuid =
@@ -146,14 +148,14 @@ module SR = struct
       pbd_host_uuid = Qt.localhost_uuid
     in
     let is_shared_or_local_and_my_pbds_attached sr =
-      let pbds = Client.Client.SR.get_PBDs rpc session_id sr in
+      let pbds = Client.Client.SR.get_PBDs ~rpc ~session_id ~self:sr in
       let my_pbds = List.find_all does_pbd_belong_to_me pbds in
       match (pbds, my_pbds) with
       | [], _ ->
           Printf.eprintf "SR (%s) has no pbds %s\n" (Ref.string_of sr) __LOC__ ;
           false
       | [_], [my_pbd] ->
-          (* Local SR *) is_attached my_pbd
+          (* Local SR *) is_attached ~self:my_pbd
       | _ :: _, [] ->
           Printf.eprintf
             "This host doesn't own any PBDs from shared SR (%s) %s\n"
@@ -162,7 +164,7 @@ module SR = struct
       | _ :: _, _ :: _ ->
           (* Shared SR *) my_pbds |> all_attached
     in
-    Client.Client.SR.get_all rpc session_id
+    Client.Client.SR.get_all ~rpc ~session_id
     |> List.filter is_shared_or_local_and_my_pbds_attached
     |> List.map (get_sr_info rpc session_id)
 
@@ -189,7 +191,8 @@ module SR = struct
 
   let not_iso =
     sr_filter (fun sr_info ->
-        Client.Client.SR.get_content_type !A.rpc !session_id sr_info.Qt.sr
+        Client.Client.SR.get_content_type ~rpc:!A.rpc ~session_id:!session_id
+          ~self:sr_info.Qt.sr
         <> "iso"
     )
 

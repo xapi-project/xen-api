@@ -1,6 +1,6 @@
 let rec wait_for_task_complete rpc session_id task =
   Thread.delay 1. ;
-  match Client.Client.Task.get_status rpc session_id task with
+  match Client.Client.Task.get_status ~rpc ~session_id ~self:task with
   | `pending | `cancelling ->
       wait_for_task_complete rpc session_id task
   | _ ->
@@ -20,12 +20,13 @@ let async_test rpc session_id sr_info () =
   print_endline "Async.VDI.copy test" ;
   Qt.VDI.with_new rpc session_id sr (fun newvdi ->
       let task =
-        Client.Client.Async.VDI.copy rpc session_id newvdi sr Ref.null Ref.null
+        Client.Client.Async.VDI.copy ~rpc ~session_id ~vdi:newvdi ~sr
+          ~base_vdi:Ref.null ~into_vdi:Ref.null
       in
       wait_for_task_complete rpc session_id task ;
       Printf.printf "Task completed!\n%!" ;
-      let status = Client.Client.Task.get_status rpc session_id task in
-      let result = Client.Client.Task.get_result rpc session_id task in
+      let status = Client.Client.Task.get_status ~rpc ~session_id ~self:task in
+      let result = Client.Client.Task.get_result ~rpc ~session_id ~self:task in
       print_endline
         (Printf.sprintf "Status: %s  result: %s%!"
            ( match status with
@@ -46,7 +47,7 @@ let async_test rpc session_id sr_info () =
       | `failure ->
           Alcotest.failf "Failure of VDI copy! error_info: %s"
             (String.concat ","
-               (Client.Client.Task.get_error_info rpc session_id task)
+               (Client.Client.Task.get_error_info ~rpc ~session_id ~self:task)
             )
       | `success ->
           let self = result |> extract_ref in

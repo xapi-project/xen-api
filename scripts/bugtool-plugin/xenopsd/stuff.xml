@@ -1,5 +1,4 @@
 <collect>
-<directory label="xenopsd_log">/var/log/xenopsd</directory>
-<directory label="xenops_db">/var/run/xenops</directory>
-<command label="xn_diagnostics">/opt/xensource/libexec/xn_diagnostics</command>
+<directory label="xenops_db">/var/run/nonpersistent/xenopsd</directory>
+<command label="xn_diagnostics">@LIBEXECDIR@/xn_diagnostics</command>
 </collect>

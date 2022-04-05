@@ -38,8 +38,10 @@ let host_backup_handler_core ~__context s =
               true
           | _, Unix.WEXITED n ->
               raise (Subprocess_failed n)
-          | _, _ ->
-              raise (Subprocess_failed 0)
+          | _, Unix.WSIGNALED n ->
+              raise (Subprocess_killed n)
+          | _, Unix.WSTOPPED n ->
+              raise (Subprocess_killed n)
         in
         let t = ref 0.0 in
         while not (waitpid ()) do
@@ -54,7 +56,9 @@ let host_backup_handler_core ~__context s =
       debug "host_backup succeeded - returned: %s" log ;
       ()
   | Failure (log, e) ->
-      debug "host_backup failed - host_backup returned: %s" log ;
+      warn {|host_backup failed with "%s" - returned: %s|}
+        (ExnHelper.string_of_exn e)
+        log ;
       raise (Api_errors.Server_error (Api_errors.backup_script_failed, [log]))
 
 let host_backup_handler (req : Request.t) s _ =
