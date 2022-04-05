@@ -66,11 +66,24 @@ let safe_unlink path =
       | Unix.Unix_error (Unix.ENOENT, _, _) -> Lwt.return_unit | e -> Lwt.fail e
       )
 
+(* make_json doesn't work here *)
+let rpc = Xen_api_lwt_unix.make "file:///var/lib/xcp/xapi"
+
+let cache =
+  SessionCache.create ~rpc ~login:Varstored_interface.login
+    ~logout:Varstored_interface.logout
+
+let () =
+  Lwt_switch.add_hook (Some Varstored_interface.shutdown) (fun () ->
+      D.debug "Cleaning up cache at exit" ;
+      SessionCache.destroy cache
+  )
+
 let listen_for_vm {Persistent.vm_uuid; path; gid} =
   let vm_uuid_str = Uuidm.to_string vm_uuid in
   D.debug "resume: listening on socket %s for VM %s" path vm_uuid_str ;
   safe_unlink path >>= fun () ->
-  make_server_rpcfn path vm_uuid_str >>= fun stop_server ->
+  make_server_rpcfn ~cache path vm_uuid_str >>= fun stop_server ->
   Hashtbl.add sockets path (stop_server, (vm_uuid, gid)) ;
   Lwt_unix.chmod path 0o660 >>= fun () -> Lwt_unix.chown path 0 gid
 
