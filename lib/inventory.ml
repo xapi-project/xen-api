@@ -14,7 +14,7 @@
 (* Code to parse the XenSource inventory file *)
 
 open Xapi_stdext_unix
-open Xapi_stdext_threads.Threadext
+module M = Xapi_stdext_threads.Threadext.Mutex
 
 let inventory_filename = ref "/etc/xensource-inventory"
 
@@ -85,15 +85,15 @@ let read_inventory_contents () =
     !inventory_filename;
   loaded_inventory := true
 
-let read_inventory () = Mutex.execute inventory_m read_inventory_contents
-let reread_inventory () = Mutex.execute inventory_m (fun () ->
+let read_inventory () = M.execute inventory_m read_inventory_contents
+let reread_inventory () = M.execute inventory_m (fun () ->
     Hashtbl.clear inventory;
     read_inventory_contents ())
 
 exception Missing_inventory_key of string
 
 let lookup ?default key =
-  Mutex.execute inventory_m (fun () ->
+  M.execute inventory_m (fun () ->
       (if not (!loaded_inventory) then read_inventory_contents ());
       if (Hashtbl.mem inventory key)
       then
@@ -107,13 +107,13 @@ let flush_to_disk_locked () =
   let h = Hashtbl.fold (fun k v acc -> (k, v) :: acc) inventory [] in
   Unixext.write_string_to_file !inventory_filename (string_of_table h)
 
-let update key value = Mutex.execute inventory_m (fun () ->
+let update key value = M.execute inventory_m (fun () ->
     Hashtbl.clear inventory;
     read_inventory_contents ();
     Hashtbl.replace inventory key value;
     flush_to_disk_locked ())
 
-let remove key = Mutex.execute inventory_m (fun () ->
+let remove key = M.execute inventory_m (fun () ->
     Hashtbl.clear inventory;
     read_inventory_contents ();
     Hashtbl.remove inventory key;
