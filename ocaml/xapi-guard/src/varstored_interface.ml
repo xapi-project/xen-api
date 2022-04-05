@@ -25,26 +25,26 @@ let err = Xenops_interface.err
 
 type nvram = (string * string) list [@@deriving rpcty]
 
-(* make_json doesn't work here *)
-let rpc = Xen_api_lwt_unix.make "file:///var/lib/xcp/xapi"
-
 let originator = "varstored-guard"
 
 let version = "0.1"
 
 type session = [`session] Ref.t
 
+type rpc = call -> response Lwt.t
+
 module SessionCache : sig
   type t
 
   val create :
-    login:(unit -> session Lwt.t) -> logout:(session -> unit Lwt.t) -> t
-  (** [create ~login ~logout] will create a global session cache holding 1 session. *)
+       rpc:rpc
+    -> login:(rpc:rpc -> session Lwt.t)
+    -> logout:(rpc:rpc -> session -> unit Lwt.t)
+    -> t
+  (** [create ~rpc ~login ~logout] will create a global session cache holding 1 session. *)
 
   val with_session :
-       t
-    -> (rpc:(call -> response Lwt.t) -> session_id:session -> 'a Lwt.t)
-    -> 'a Lwt.t
+    t -> (rpc:rpc -> session_id:session -> 'a Lwt.t) -> 'a Lwt.t
   (** [with_session cache f] acquires a session (logging in if necessary) and calls [f].
    ** If [f] fails due to an invalid session then the session is removed from the cache,
    ** and [f] is retried with a new session *)
@@ -52,11 +52,15 @@ module SessionCache : sig
   val destroy : t -> unit Lwt.t
   (** [destroy cache] logs out all sessions from the cache *)
 end = struct
-  type t = {valid_sessions: (session, unit) Hashtbl.t; pool: session Lwt_pool.t}
+  type t = {
+      rpc: rpc
+    ; valid_sessions: (session, unit) Hashtbl.t
+    ; pool: session Lwt_pool.t
+  }
 
   (* Do NOT log session IDs, they are secret *)
 
-  let create ~login ~logout =
+  let create ~rpc ~login ~logout =
     let valid_sessions = Hashtbl.create 3 in
     let validate session =
       let is_valid = Hashtbl.mem valid_sessions session in
@@ -66,19 +70,19 @@ end = struct
       Lwt.return is_valid
     in
     let acquire () =
-      login () >>= fun session ->
+      login ~rpc >>= fun session ->
       Hashtbl.add valid_sessions session () ;
       debug "SessionCache.acquired" ;
       Lwt.return session
     in
     let dispose session =
       debug "SessionCache.dispose" ;
-      logout session >|= fun () ->
+      logout ~rpc session >|= fun () ->
       debug "SessionCache.disposed" ;
       Hashtbl.remove valid_sessions session
     in
     let pool = Lwt_pool.create 1 ~validate ~dispose acquire in
-    {valid_sessions; pool}
+    {valid_sessions; pool; rpc}
 
   let invalidate t session_id =
     (* Remove just the specified expired session,
@@ -93,7 +97,7 @@ end = struct
      * we just do not want to log in more than once *)
     Lwt_pool.use t.pool Lwt.return >>= fun session_id ->
     Lwt.catch
-      (fun () -> f ~rpc ~session_id)
+      (fun () -> f ~rpc:t.rpc ~session_id)
       (function
         | Api_errors.Server_error (code, _)
           when code = Api_errors.session_invalid ->
@@ -107,10 +111,10 @@ end
 
 open Xen_api_lwt_unix
 
-let login () =
+let login ~rpc =
   Session.login_with_password ~rpc ~uname:"root" ~pwd:"" ~version ~originator
 
-let logout session_id =
+let logout ~rpc session_id =
   Lwt.catch
     (fun () -> Session.logout ~rpc ~session_id)
     (function
@@ -122,15 +126,7 @@ let logout session_id =
           Lwt.fail e
       )
 
-let cache = SessionCache.create ~login ~logout
-
 let shutdown = Lwt_switch.create ()
-
-let () =
-  Lwt_switch.add_hook (Some shutdown) (fun () ->
-      debug "Cleaning up cache at exit" ;
-      SessionCache.destroy cache
-  )
 
 let () =
   let cleanup n =
@@ -147,7 +143,7 @@ let () =
    * this is only needed for syscalls that would otherwise block *)
   Lwt_unix.set_pool_size 16
 
-let with_xapi f =
+let with_xapi ~cache f =
   Lwt_unix.with_timeout 120. (fun () -> SessionCache.with_session cache f)
 
 (* Unfortunately Cohttp doesn't provide us a way to know when it finished
@@ -223,21 +219,21 @@ let serve_forever_lwt rpc_fn path =
   >>= fun () -> Lwt.return cleanup
 
 (* Create a restricted RPC function and socket for a specific VM *)
-let make_server_rpcfn path vm_uuid =
+let make_server_rpcfn ~cache path vm_uuid =
   let module Server =
     Varstore_deprivileged_interface.RPC_API (Rpc_lwt.GenServer ()) in
-  with_xapi @@ VM.get_by_uuid ~uuid:vm_uuid >>= fun vm ->
+  with_xapi ~cache @@ VM.get_by_uuid ~uuid:vm_uuid >>= fun vm ->
   let ret v =
     (* TODO: maybe map XAPI exceptions *)
     v >>= Lwt.return_ok |> Rpc_lwt.T.put
   in
-  let get_nvram _ _ = ret @@ with_xapi @@ VM.get_NVRAM ~self:vm in
+  let get_nvram _ _ = ret @@ with_xapi ~cache @@ VM.get_NVRAM ~self:vm in
   let set_nvram _ _ nvram =
-    ret @@ with_xapi @@ VM.set_NVRAM_EFI_variables ~self:vm ~value:nvram
+    ret @@ with_xapi ~cache @@ VM.set_NVRAM_EFI_variables ~self:vm ~value:nvram
   in
   let message_create _ _name priority _cls _uuid body =
     ret
-      ( with_xapi
+      ( with_xapi ~cache
       @@ Message.create ~name:"VM_SECURE_BOOT_FAILED" ~priority ~cls:`VM
            ~obj_uuid:vm_uuid ~body
       >>= fun _ -> Lwt.return_unit
