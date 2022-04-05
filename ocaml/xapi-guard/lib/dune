@@ -1,0 +1,12 @@
+(library
+ (name xapi_guard)
+ (libraries
+  cohttp-lwt-unix
+  conduit-lwt-unix
+  rpclib-lwt
+  xapi-idl
+  xapi-idl.varstore.deprivileged
+  xapi-idl.varstore.privileged
+  xen-api-client-lwt
+ )
+ (preprocess (pps ppx_deriving_rpc)))

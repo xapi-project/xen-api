@@ -13,6 +13,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
+open Xapi_guard
 open Varstored_interface
 open Lwt.Infix
 
