@@ -14,6 +14,7 @@
 
 open Rpc
 open Lwt.Infix
+open Lwt.Syntax
 
 module D = Debug.Make (struct let name = "varstored_interface" end)
 
@@ -151,22 +152,61 @@ let with_xapi ~cache f =
  * It only ever returns from server creation when the server is stopped.
  * Try actually connecting: the file could be present but nobody listening on the other side.
  * *)
-let rec wait_for_file_to_appear path =
-  Lwt.pause () >>= fun () ->
-  Lwt.try_bind
-    (fun () ->
-      Conduit_lwt_unix.connect ~ctx:Conduit_lwt_unix.default_ctx
-        (`Unix_domain_socket (`File path))
-    )
-    (fun (_, ic, _oc) ->
+let rec wait_connectable path =
+  let* res =
+    Lwt_result.catch
+      (Conduit_lwt_unix.connect ~ctx:Conduit_lwt_unix.default_ctx
+         (`Unix_domain_socket (`File path))
+      )
+  in
+  match res with
+  | Ok (_, ic, _oc) ->
       D.debug "Socket at %s works" path ;
       (* do not close both channels, or we get an EBADF *)
       Lwt_io.close ic
+  | Error e ->
+      D.debug "Waiting for socket to be connectable at %s: %s" path
+        (Printexc.to_string e) ;
+      (* just in case Lwt_unix.listen doesn't get called soon enough,
+         avoid using up 100% CPU waiting for it,
+         better than Lwt.pause ()
+      *)
+      let* () = Lwt_unix.sleep 0.001 in
+      wait_connectable path
+
+let with_inotify f =
+  let* inotify = Lwt_inotify.create () in
+  Lwt.finalize (fun () -> f inotify) (fun () -> Lwt_inotify.close inotify)
+
+let wait_for_file_to_appear path =
+  with_inotify @@ fun inotify ->
+  (* we need to check for existence after setting up the watch to avoid race conditions:
+     S_Create event on parent dir is only sent on creating a new file,
+     and you cannot set up an inotify on a non-existent file.
+  *)
+  let* (_watch : Inotify.watch) =
+    Lwt_inotify.add_watch inotify (Filename.dirname path) [Inotify.S_Create]
+  in
+  let rec loop () =
+    let* exists = Lwt_unix.file_exists path in
+    if exists then
+      Lwt.return_unit
+    else (
+      D.debug "Waiting for file %s to appear" path ;
+      let* (_event : Inotify.event) = Lwt_inotify.read inotify in
+      (* we've got a create event knowing that *a* file got created,
+         but not necessarily the one we were looking for *)
+      loop ()
     )
-    (fun e ->
-      D.debug "Waiting for file %s to appear (%s)" path (Printexc.to_string e) ;
-      Lwt_unix.sleep 0.1 >>= fun () -> wait_for_file_to_appear path
-    )
+  in
+  loop ()
+
+let wait_for_connectable_socket path =
+  (* pause gives a chance for the conduit lwt promise to run and listen *)
+  let* () = Lwt.pause () in
+  let* () = wait_for_file_to_appear path in
+  let* () = Lwt.pause () in
+  wait_connectable path
 
 let serve_forever_lwt rpc_fn path =
   let conn_closed _ = () in
@@ -214,7 +254,7 @@ let serve_forever_lwt rpc_fn path =
    * otherwise do not cancel the server if the file appeared (Lwt.protected) *)
   Lwt.pick
     [
-      Lwt_unix.with_timeout 120. (fun () -> wait_for_file_to_appear path)
+      Lwt_unix.with_timeout 120. (fun () -> wait_for_connectable_socket path)
     ; Lwt.protected server_wait_exit
     ]
   >>= fun () -> Lwt.return cleanup

@@ -3,6 +3,7 @@
  (libraries
   cohttp-lwt-unix
   conduit-lwt-unix
+  inotify.lwt
   rpclib-lwt
   xapi-idl
   xapi-idl.varstore.deprivileged
