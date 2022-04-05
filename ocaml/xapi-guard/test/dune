@@ -1,0 +1,7 @@
+(test
+ (name xapi_guard_test)
+ (libraries
+  alcotest-lwt
+  xapi_guard)
+ (package varstored-guard)
+ )
