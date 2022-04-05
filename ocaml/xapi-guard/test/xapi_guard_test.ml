@@ -10,6 +10,8 @@ let expected_session_id : [`session] Ref.t = Ref.make ()
 
 let vm : [`VM] Ref.t = Ref.make ()
 
+let vm_bad : [`VM] Ref.t = Ref.make ()
+
 let nvram_contents = ref []
 
 (* simulates what xapi would do *)
@@ -92,10 +94,11 @@ let with_rpc f switch () =
     )
     stop_server
 
+let dict = Alcotest.(list @@ pair string string)
+
 let test_change_nvram ~rpc ~session_id () =
   let* self = VM.get_by_uuid ~rpc ~session_id ~uuid:vm_uuid in
   let* nvram0 = VM.get_NVRAM ~rpc ~session_id ~self in
-  let dict = Alcotest.(list @@ pair string string) in
   Alcotest.(check' dict) ~msg:"nvram initial" ~expected:[] ~actual:nvram0 ;
   let contents = "nvramnew" in
   let* () = VM.set_NVRAM_EFI_variables ~rpc ~session_id ~self ~value:contents in
@@ -107,8 +110,40 @@ let test_change_nvram ~rpc ~session_id () =
   Lwt.return_unit
 
 let uefi_tests =
-  ("UEFI", [test_case "NVRAM" `Quick @@ with_rpc test_change_nvram])
+  ( "UEFI"
+  , [test_case "NVRAM change contents" `Quick @@ with_rpc test_change_nvram]
+  )
+
+(* xapi-guard filters API calls, and ignores VM / session refs, and replaces it
+   with the ref the daemon is supposed to use. It doesn't reject bad refs,
+   although it could in the future, and then the tests below should be updated
+*)
+
+let test_bad_get_nvram ~rpc ~session_id () =
+  let* _ = VM.get_NVRAM ~rpc ~session_id ~self:vm_bad in
+  Lwt.return_unit
+
+let test_bad_set_nvram ~rpc ~session_id () =
+  let* () =
+    VM.set_NVRAM_EFI_variables ~rpc ~session_id ~self:vm_bad ~value:"bad"
+  in
+  let* vm_ref = VM.get_by_uuid ~rpc ~session_id ~uuid:vm_uuid in
+  let* nvram = VM.get_NVRAM ~rpc ~session_id ~self:vm_ref in
+  Alcotest.(check' dict)
+    ~msg:"only managed to change own nvram" ~actual:nvram
+    ~expected:[("EFI-variables", "bad")] ;
+  Lwt.return_unit
+
+let bad_params_tests =
+  ( "Bad params"
+  , [
+      test_case "VM.get_NVRAM" `Quick @@ with_rpc test_bad_get_nvram
+    ; test_case "VM.set_NVRAM_EFI_variables" `Quick
+      @@ with_rpc test_bad_set_nvram
+    ]
+  )
 
 let () =
   Debug.log_to_stdout () ;
-  Lwt_main.run @@ Alcotest_lwt.run "xapi_guard_test" [uefi_tests]
+  Lwt_main.run
+  @@ Alcotest_lwt.run "xapi_guard_test" [uefi_tests; bad_params_tests]
