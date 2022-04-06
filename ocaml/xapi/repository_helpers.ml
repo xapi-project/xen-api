@@ -1042,6 +1042,10 @@ let with_local_repositories ~__context f =
               [
                 "--save"
               ; Printf.sprintf "--setopt=%s.sslverify=false" repo_name
+                (* certificate verification is handled by the stunnel proxy *)
+              ; Printf.sprintf "--setopt=%s.ptoken=true" repo_name
+                (* makes yum include the pool secret as a cookie in all requests
+                   (only to access the repo mirror in the coordinator!) *)
               ; repo_name
               ]
             in
@@ -1215,6 +1219,7 @@ let get_updates_from_repoquery repositories =
   let params =
     [
       "-a"
+    ; "--plugins"
     ; "--disablerepo=*"
     ; Printf.sprintf "--enablerepo=%s" (String.concat "," repositories)
     ; "--pkgnarrow=updates"

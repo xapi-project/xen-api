@@ -8350,7 +8350,7 @@ let http_actions =
     , (Get, Constants.get_pool_update_download_uri, false, [], _R_READ_ONLY, [])
     )
   ; ( "get_repository"
-    , (Get, Constants.get_repository_uri, false, [], _R_READ_ONLY, [])
+    , (Get, Constants.get_repository_uri, false, [], _R_LOCAL_ROOT_ONLY, [])
     )
   ; ( "get_host_updates"
     , ( Get
@@ -8394,7 +8394,6 @@ let public_http_actions_with_no_rbac_check =
   ; "post_jsonrpc"
   ; "post_jsonrpc_options"
   ; "get_pool_update_download"
-  ; "get_repository"
   ]
 
 (* permissions not associated with any object message or field *)

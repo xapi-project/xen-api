@@ -175,6 +175,8 @@ install:
 # YUM plugins
 	$(IPROG) yum-plugins/accesstoken.py $(DESTDIR)$(YUMPLUGINDIR)
 	$(IDATA) yum-plugins/accesstoken.conf $(DESTDIR)$(YUMPLUGINCONFDIR)
+	$(IPROG) yum-plugins/ptoken.py $(DESTDIR)$(YUMPLUGINDIR)
+	$(IDATA) yum-plugins/ptoken.conf $(DESTDIR)$(YUMPLUGINCONFDIR)
 # maillanguages
 	mkdir -p $(DESTDIR)/etc/xapi.d/mail-languages
 	$(IDATA) mail-languages/en-US.json $(DESTDIR)/etc/xapi.d/mail-languages
