@@ -132,8 +132,10 @@ let with_vtpm ~rpc ~session_id f =
   let* vm_ref = VM.get_by_uuid ~rpc ~session_id ~uuid in
   let* vtpms = VM.get_VTPMs ~rpc ~session_id ~self:vm_ref in
   Alcotest.(check' int) ~msg:"no. vtpms" ~expected:1 ~actual:(List.length vtpms) ;
-  let vtpm = List.hd vtpms in
-  f ~self:vtpm
+  match vtpms with
+  | [] -> Alcotest.fail "No VTPMs"
+  | [vtpm] -> f ~self:vtpm
+  | multiple -> Alcotest.failf "Too many vTPMs: %d" (List.length multiple)
 
 let test_get_vtpm ~rpc ~session_id () =
   with_vtpm ~rpc ~session_id @@ fun ~self ->
