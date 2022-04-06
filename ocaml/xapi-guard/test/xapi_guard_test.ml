@@ -143,7 +143,12 @@ let bad_params_tests =
     ]
   )
 
+let test_shutdown _ () = Lwt_switch.turn_off Varstored_interface.shutdown
+
+let shutdown_tests = ("Shutdown", [test_case "shutdown" `Quick test_shutdown])
+
 let () =
   Debug.log_to_stdout () ;
   Lwt_main.run
-  @@ Alcotest_lwt.run "xapi_guard_test" [uefi_tests; bad_params_tests]
+  @@ Alcotest_lwt.run "xapi_guard_test"
+       [uefi_tests; bad_params_tests; shutdown_tests]
