@@ -13,7 +13,6 @@
  *)
 
 open Rpc
-open Lwt.Infix
 open Lwt.Syntax
 
 module D = Debug.Make (struct let name = "varstored_interface" end)
@@ -71,14 +70,14 @@ end = struct
       Lwt.return is_valid
     in
     let acquire () =
-      login ~rpc >>= fun session ->
+      let* session = login ~rpc in
       Hashtbl.add valid_sessions session () ;
       debug "SessionCache.acquired" ;
       Lwt.return session
     in
     let dispose session =
       debug "SessionCache.dispose" ;
-      logout ~rpc session >|= fun () ->
+      let+ () = logout ~rpc session in
       debug "SessionCache.disposed" ;
       Hashtbl.remove valid_sessions session
     in
@@ -96,7 +95,7 @@ end = struct
   let rec with_session t f =
     (* we can use the same session from multiple concurrent requests,
      * we just do not want to log in more than once *)
-    Lwt_pool.use t.pool Lwt.return >>= fun session_id ->
+    let* session_id = Lwt_pool.use t.pool Lwt.return in
     Lwt.catch
       (fun () -> f ~rpc:t.rpc ~session_id)
       (function
@@ -133,7 +132,7 @@ let () =
   let cleanup n =
     debug "Triggering cleanup on signal %d, and waiting for servers to stop" n ;
     Lwt.async (fun () ->
-        Lwt_switch.turn_off shutdown >>= fun () ->
+        let* () = Lwt_switch.turn_off shutdown in
         info "Cleanup complete, exiting" ;
         exit 0
     )
@@ -162,7 +161,8 @@ let rec wait_connectable path =
   match res with
   | Ok (_, ic, oc) ->
       D.debug "Socket at %s works" path ;
-      Lwt_io.close oc >>= fun () -> Lwt_io.close ic
+      let* () = Lwt_io.close oc in
+      Lwt_io.close ic
   | Error e ->
       D.debug "Waiting for socket to be connectable at %s: %s" path
         (Printexc.to_string e) ;
@@ -217,14 +217,15 @@ let serve_forever_lwt rpc_fn path =
     let uri = Cohttp.Request.uri req in
     match (Cohttp.Request.meth req, Uri.path uri) with
     | `POST, _ ->
-        Cohttp_lwt.Body.to_string body >>= fun body ->
-        Dorpc.wrap_rpc err (fun () ->
-            let call = Xmlrpc.call_of_string body in
-            (* Do not log the request, it will contain NVRAM *)
-            D.debug "Received request on %s, method %s" path call.Rpc.name ;
-            rpc_fn call
-        )
-        >>= fun response ->
+        let* body = Cohttp_lwt.Body.to_string body in
+        let* response =
+          Dorpc.wrap_rpc err (fun () ->
+              let call = Xmlrpc.call_of_string body in
+              (* Do not log the request, it will contain NVRAM *)
+              D.debug "Received request on %s, method %s" path call.Rpc.name ;
+              rpc_fn call
+          )
+        in
         let body = response |> Xmlrpc.string_of_response in
         Cohttp_lwt_unix.Server.respond_string ~status:`OK ~body ()
     | _, _ ->
@@ -251,21 +252,23 @@ let serve_forever_lwt rpc_fn path =
   Lwt_switch.add_hook (Some shutdown) cleanup ;
   (* if server_wait_exit fails then cancel waiting for file to appear
    * otherwise do not cancel the server if the file appeared (Lwt.protected) *)
-  Lwt.pick
-    [
-      Lwt_unix.with_timeout 120. (fun () -> wait_for_connectable_socket path)
-    ; Lwt.protected server_wait_exit
-    ]
-  >>= fun () -> Lwt.return cleanup
+  let* () =
+    Lwt.pick
+      [
+        Lwt_unix.with_timeout 120. (fun () -> wait_for_connectable_socket path)
+      ; Lwt.protected server_wait_exit
+      ]
+  in
+  Lwt.return cleanup
 
 (* Create a restricted RPC function and socket for a specific VM *)
 let make_server_rpcfn ~cache path vm_uuid =
   let module Server =
     Varstore_deprivileged_interface.RPC_API (Rpc_lwt.GenServer ()) in
-  with_xapi ~cache @@ VM.get_by_uuid ~uuid:vm_uuid >>= fun vm ->
+  let* vm = with_xapi ~cache @@ VM.get_by_uuid ~uuid:vm_uuid in
   let ret v =
     (* TODO: maybe map XAPI exceptions *)
-    v >>= Lwt.return_ok |> Rpc_lwt.T.put
+    Lwt.bind v Lwt.return_ok |> Rpc_lwt.T.put
   in
   let get_nvram _ _ = ret @@ with_xapi ~cache @@ VM.get_NVRAM ~self:vm in
   let set_nvram _ _ nvram =
@@ -273,10 +276,12 @@ let make_server_rpcfn ~cache path vm_uuid =
   in
   let message_create _ _name priority _cls _uuid body =
     ret
-      ( with_xapi ~cache
-      @@ Message.create ~name:"VM_SECURE_BOOT_FAILED" ~priority ~cls:`VM
-           ~obj_uuid:vm_uuid ~body
-      >>= fun _ -> Lwt.return_unit
+      (let* (_ : _ Ref.t) =
+         with_xapi ~cache
+         @@ Message.create ~name:"VM_SECURE_BOOT_FAILED" ~priority ~cls:`VM
+              ~obj_uuid:vm_uuid ~body
+       in
+       Lwt.return_unit
       )
   in
   let get_by_uuid _ _ = ret @@ Lwt.return "DUMMYVM" in

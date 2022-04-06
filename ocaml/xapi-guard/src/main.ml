@@ -15,17 +15,17 @@
 
 open Xapi_guard
 open Varstored_interface
-open Lwt.Infix
+open Lwt.Syntax
 
 module D = Debug.Make (struct let name = "varstored-guard" end)
 
-let ret v = v >>= Lwt.return_ok |> Rpc_lwt.T.put
+let ret v = Lwt.bind v Lwt.return_ok |> Rpc_lwt.T.put
 
 let sockets = Hashtbl.create 127
 
 let log_fds () =
   let count stream = Lwt_stream.fold (fun _ n -> n + 1) stream 0 in
-  Lwt_unix.files_of_directory "/proc/self/fd" |> count >>= fun fds ->
+  let* fds = Lwt_unix.files_of_directory "/proc/self/fd" |> count in
   D.info "file descriptors in use: %d" fds ;
   Lwt.return_unit
 
@@ -44,18 +44,18 @@ module Persistent = struct
     Lwt_io.with_file ~mode:Lwt_io.Output path (fun ch -> Lwt_io.write ch json)
 
   let loadfrom path =
-    Lwt_unix.file_exists path >>= function
-    | false ->
-        Lwt.return_nil
-    | true -> (
+    let* exists = Lwt_unix.file_exists path in
+    if exists then
+      let* json =
         Lwt_io.with_file ~mode:Lwt_io.Input path (fun ch -> Lwt_io.read ch)
-        >>= fun json ->
-        json |> Jsonrpc.of_string |> Rpcmarshal.unmarshal typ_of |> function
-        | Ok result ->
-            Lwt.return result
-        | Error (`Msg m) ->
-            Lwt.fail_with m
-      )
+      in
+      json |> Jsonrpc.of_string |> Rpcmarshal.unmarshal typ_of |> function
+      | Ok result ->
+          Lwt.return result
+      | Error (`Msg m) ->
+          Lwt.fail_with m
+    else
+      Lwt.return_nil
 end
 
 let recover_path = "/run/nonpersistent/varstored-guard-active.json"
@@ -89,15 +89,17 @@ let () =
 let listen_for_vm {Persistent.vm_uuid; path; gid} =
   let vm_uuid_str = Uuidm.to_string vm_uuid in
   D.debug "resume: listening on socket %s for VM %s" path vm_uuid_str ;
-  safe_unlink path >>= fun () ->
-  make_server_rpcfn ~cache path vm_uuid_str >>= fun stop_server ->
-  log_fds () >>= fun () ->
+  let* () = safe_unlink path in
+  let* stop_server = make_server_rpcfn ~cache path vm_uuid_str in
+  let* () = log_fds () in
   Hashtbl.add sockets path (stop_server, (vm_uuid, gid)) ;
-  Lwt_unix.chmod path 0o660 >>= fun () -> Lwt_unix.chown path 0 gid
+  let* () = Lwt_unix.chmod path 0o660 in
+  Lwt_unix.chown path 0 gid
 
 let resume () =
-  Persistent.loadfrom recover_path >>= Lwt_list.iter_p listen_for_vm
-  >>= fun () -> D.debug "resume completed" ; Lwt.return_unit
+  let* vms = Persistent.loadfrom recover_path in
+  let+ () = Lwt_list.iter_p listen_for_vm vms in
+  D.debug "resume completed"
 
 (* caller here is trusted (xenopsd through message-switch *)
 let depriv_create dbg vm_uuid gid path =
@@ -112,7 +114,7 @@ let depriv_create dbg vm_uuid gid path =
     @@
     ( D.debug "[%s] creating deprivileged socket at %s, owned by group %d" dbg
         path gid ;
-      listen_for_vm {Persistent.path; vm_uuid; gid} >>= fun () ->
+      let* () = listen_for_vm {Persistent.path; vm_uuid; gid} in
       store_args sockets
     )
 
@@ -127,9 +129,10 @@ let depriv_destroy dbg gid path =
       Lwt.return_unit
   | Some (stop_server, _) ->
       let finally () =
-        safe_unlink path >|= fun () -> Hashtbl.remove sockets path
+        let+ () = safe_unlink path in
+        Hashtbl.remove sockets path
       in
-      Lwt.finalize stop_server finally >>= fun () ->
+      let* () = Lwt.finalize stop_server finally in
       D.debug "[%s] stopped server for gid %d and removed socket" dbg gid ;
       Lwt.return_unit
 
@@ -164,32 +167,38 @@ let rpc_fn =
   Rpc_lwt.server Server.implementation
 
 let process body =
-  Dorpc.wrap_rpc Varstore_privileged_interface.E.error (fun () ->
-      let call = Jsonrpc.call_of_string body in
-      D.debug "Received request from message-switch, method %s" call.Rpc.name ;
-      rpc_fn call
-  )
-  >|= Jsonrpc.string_of_response
+  let+ response =
+    Dorpc.wrap_rpc Varstore_privileged_interface.E.error (fun () ->
+        let call = Jsonrpc.call_of_string body in
+        D.debug "Received request from message-switch, method %s" call.Rpc.name ;
+        rpc_fn call
+    )
+  in
+  Jsonrpc.string_of_response response
 
 let make_message_switch_server () =
   let open Message_switch_lwt.Protocol_lwt in
   let wait_server, server_stopped = Lwt.task () in
-  Server.listen ~process ~switch:!Xcp_client.switch_path
-    ~queue:Varstore_privileged_interface.queue_name ()
-  >>= fun result ->
+  let* result =
+    Server.listen ~process ~switch:!Xcp_client.switch_path
+      ~queue:Varstore_privileged_interface.queue_name ()
+  in
   match Server.error_to_msg result with
   | Ok t ->
       Lwt_switch.add_hook (Some shutdown) (fun () ->
           D.debug "Stopping message-switch queue server" ;
-          Server.shutdown ~t () >|= Lwt.wakeup server_stopped
+          let+ () = Server.shutdown ~t () in
+          Lwt.wakeup server_stopped ()
       ) ;
       (* best effort resume *)
-      Lwt.catch resume (fun e ->
-          D.log_backtrace () ;
-          D.warn "Resume failed: %s" (Printexc.to_string e) ;
-          Lwt.return_unit
-      )
-      >>= fun () -> wait_server
+      let* () =
+        Lwt.catch resume (fun e ->
+            D.log_backtrace () ;
+            D.warn "Resume failed: %s" (Printexc.to_string e) ;
+            Lwt.return_unit
+        )
+      in
+      wait_server
   | Error (`Msg m) ->
       Lwt.fail_with
         (Printf.sprintf "Failed to listen on message-switch queue: %s" m)
