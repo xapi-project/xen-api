@@ -118,7 +118,7 @@ end = struct
 end
 
 module type SANDBOX = sig
-  val prepare : domid:int -> vm_uuid:string -> Chroot.Path.t -> string
+  val create : domid:int -> vm_uuid:string -> Chroot.Path.t -> string
 
   val start :
        string

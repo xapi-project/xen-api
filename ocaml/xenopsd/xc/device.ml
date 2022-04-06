@@ -4510,7 +4510,7 @@ module Dm = struct
   let restore_varstored (task : Xenops_task.task_handle) ~xs ~efivars domid =
     debug "Called Dm.restore_varstored (domid=%d)" domid ;
     let path =
-      Xenops_sandbox.Varstore_guard.prepare ~domid
+      Xenops_sandbox.Varstore_guard.create ~domid
         ~vm_uuid:(Uuidm.to_string (Xenops_helpers.uuid_of_domid ~xs domid))
         efivars_resume_path
     in

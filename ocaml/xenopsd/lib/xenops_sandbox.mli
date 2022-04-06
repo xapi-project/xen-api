@@ -43,8 +43,8 @@ module Chroot : sig
 end
 
 module type SANDBOX = sig
-  val prepare : domid:int -> vm_uuid:string -> Chroot.Path.t -> string
-  (** [prepare ~domid ~vm_uuid path] creates an empty [path] file owned by
+  val create : domid:int -> vm_uuid:string -> Chroot.Path.t -> string
+  (** [create ~domid ~vm_uuid path] creates an empty [path] file owned by
       [domid] inside the chroot for [domid] and returns the absolute path to it
       outside the chroot *)
 
