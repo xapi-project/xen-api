@@ -229,6 +229,8 @@ let bad_params_tests =
   ; test_case "VTPM.get_all_records" `Quick @@ with_rpc test_vtpm_all
   ]
 
+let shutdown_test _ () = Lwt_switch.turn_off Varstored_interface.shutdown
+
 let () =
   Debug.log_to_stdout () ;
   Lwt_main.run
@@ -237,4 +239,5 @@ let () =
          ("VTPM", vtpm_tests)
        ; ("UEFI", uefi_tests)
        ; ("bad_params", bad_params_tests)
+       ; ("shutdown", [test_case "shutdown" `Quick shutdown_test])
        ]
