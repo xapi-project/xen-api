@@ -57,3 +57,8 @@ module Pkg : sig
 
   val gte : Epoch.t -> string -> string -> Epoch.t -> string -> string -> bool
 end
+
+val get_latest_version_release :
+  (string * string) list -> (string * string) option
+(** [get_latest_version_release vrs] is the latest version-release in [vrs]
+   * or [None] if [vrs] is empty. *)

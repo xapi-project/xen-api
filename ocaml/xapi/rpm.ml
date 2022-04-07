@@ -274,3 +274,17 @@ module Pkg = struct
 
   let gte e1 v1 r1 e2 v2 r2 = gt e1 v1 r1 e2 v2 r2 || eq e1 v1 r1 e2 v2 r2
 end
+
+let get_latest_version_release vrs =
+  List.fold_left
+    (fun acc (ver, rel) ->
+      match acc with
+      | Some (acc_ver, acc_rel) ->
+          if Pkg.gt None ver rel None acc_ver acc_rel then
+            Some (ver, rel)
+          else
+            acc
+      | None ->
+          Some (ver, rel)
+    )
+    None vrs

@@ -65,6 +65,24 @@ module RepoMetaData : sig
   val of_xml_file : string -> datatype -> t
 end
 
+(** The live patch of metadata for one update in updateinfo *)
+module LivePatch : sig
+  type t = {
+      component: Livepatch.component
+    ; base_build_id: string
+    ; base_version: string
+    ; base_release: string
+    ; to_version: string
+    ; to_release: string
+  }
+
+  val to_json : t -> Yojson.Basic.t
+
+  val to_string : t -> string
+
+  val of_xml : Xml.xml list -> t list
+end
+
 (** The metadata of one update in updateinfo *)
 module UpdateInfo : sig
   type t = {
@@ -77,6 +95,8 @@ module UpdateInfo : sig
     ; spec_info: string
     ; url: string
     ; update_type: string
+    ; livepatch_guidance: Guidance.t option
+    ; livepatches: LivePatch.t list
   }
 
   val to_json : t -> Yojson.Basic.t

@@ -254,6 +254,136 @@ module RepoMetaData = struct
     )
 end
 
+module LivePatch = struct
+  exception Invalid_version_release
+
+  exception Invalid_livepatch
+
+  type t = {
+      component: Livepatch.component
+    ; base_build_id: string
+    ; base_version: string
+    ; base_release: string
+    ; to_version: string
+    ; to_release: string
+  }
+
+  let version_release_of_string s =
+    match Astring.String.cuts ~sep:"-" s with
+    | [version; release] ->
+        (version, release)
+    | _ ->
+        raise Invalid_version_release
+
+  let to_json lp =
+    let open Option in
+    `Assoc
+      [
+        ("component", `String (Livepatch.string_of_component lp.component))
+      ; ("base", `String (lp.base_version ^ "-" ^ lp.base_release))
+      ; ("to", `String (lp.to_version ^ "-" ^ lp.to_release))
+      ]
+
+  let to_string lp = Yojson.Basic.pretty_to_string (to_json lp)
+
+  let assert_valid = function
+    | {base_build_id= ""; _}
+    | {base_version= ""; _}
+    | {base_release= ""; _}
+    | {to_version= ""; _}
+    | {to_release= ""; _} ->
+        (* The error should not block update. Ingore it. *)
+        warn "Invalid livepatch metadata" ;
+        raise Invalid_livepatch
+    | a ->
+        ()
+
+  let initial_record attrs =
+    match List.assoc_opt "component" attrs with
+    | Some s -> (
+      try
+        let component = Livepatch.component_of_string s in
+        Some
+          {
+            component
+          ; base_build_id= ""
+          ; base_version= ""
+          ; base_release= ""
+          ; to_version= ""
+          ; to_release= ""
+          }
+      with e ->
+        let msg = Printf.sprintf "%s: %s" (ExnHelper.string_of_exn e) s in
+        warn "%s" msg ; None
+    )
+    | None ->
+        warn "No component in livepatch" ;
+        None
+
+  let of_xml livepatches =
+    livepatches
+    |> List.filter_map (function
+         | Xml.Element ("livepatch", attrs, _) -> (
+           match initial_record attrs with
+           | None ->
+               None
+           | Some lp -> (
+             match
+               ( List.assoc_opt "base-buildid" attrs
+               , List.assoc_opt "base" attrs
+               , List.assoc_opt "to" attrs
+               )
+             with
+             | Some base_build_id, Some base_vr, Some to_vr -> (
+                 let open Rresult.R.Infix in
+                 ( Ok {lp with base_build_id} >>= fun lp ->
+                   ( try
+                       let v, r = version_release_of_string base_vr in
+                       Ok {lp with base_version= v; base_release= r}
+                     with e ->
+                       let msg =
+                         Printf.sprintf "%s: %s in 'base' of livepatch"
+                           (ExnHelper.string_of_exn e)
+                           base_vr
+                       in
+                       Error msg
+                   )
+                   >>= fun lp ->
+                   try
+                     let v, r = version_release_of_string to_vr in
+                     Ok {lp with to_version= v; to_release= r}
+                   with e ->
+                     let msg =
+                       Printf.sprintf "%s: %s in 'to' of livepatch"
+                         (ExnHelper.string_of_exn e)
+                         to_vr
+                     in
+                     Error msg
+                 )
+                 |> function
+                 | Ok lp -> (
+                   try assert_valid lp ; Some lp with _ -> None
+                 )
+                 | Error msg ->
+                     warn "Can't parse livepatch: %s" msg ;
+                     None
+               )
+             | _ ->
+                 let s =
+                   attrs
+                   |> List.map (fun (k, v) -> k ^ "=" ^ v)
+                   |> Astring.String.concat ~sep:";"
+                 in
+                 warn "Can't parse livepatch from attributes: %s" s ;
+                 None
+           )
+         )
+         | _ ->
+             warn "Unexpected child in livepatches" ;
+             None
+         )
+end
+
 module UpdateInfo = struct
   type t = {
       id: string
@@ -265,13 +395,15 @@ module UpdateInfo = struct
     ; spec_info: string
     ; url: string
     ; update_type: string
+    ; livepatch_guidance: Guidance.t option
+    ; livepatches: LivePatch.t list
   }
 
   let guidance_to_string o =
     Option.value (Option.map Guidance.to_string o) ~default:""
 
   let to_json ui =
-    `Assoc
+    let l =
       [
         ("id", `String ui.id)
       ; ("summary", `String ui.summary)
@@ -282,14 +414,35 @@ module UpdateInfo = struct
       ; ("recommended-guidance", `String (guidance_to_string ui.rec_guidance))
       ; ("absolute-guidance", `String (guidance_to_string ui.abs_guidance))
       ]
+    in
+    match ui.livepatches with
+    | [] ->
+        `Assoc l
+    | _ as lps ->
+        let l' =
+          ( "livepatch-guidance"
+          , `String (guidance_to_string ui.livepatch_guidance)
+          )
+          :: ( "livepatches"
+             , `List (List.map (fun x -> `String (LivePatch.to_string x)) lps)
+             )
+          :: l
+        in
+        `Assoc l'
 
   let to_string ui =
     Printf.sprintf
-      "id=%s rec_guidance=%s abs_guidance=%s guidance_applicabilities=%s" ui.id
+      "id=%s rec_guidance=%s abs_guidance=%s guidance_applicabilities=%s \
+       livepatch_guidance=%s livepatches=%s"
+      ui.id
       (guidance_to_string ui.rec_guidance)
       (guidance_to_string ui.abs_guidance)
       (String.concat ";"
          (List.map Applicability.to_string ui.guidance_applicabilities)
+      )
+      (guidance_to_string ui.livepatch_guidance)
+      (Astring.String.concat ~sep:";"
+         (List.map LivePatch.to_string ui.livepatches)
       )
 
   let default =
@@ -303,6 +456,8 @@ module UpdateInfo = struct
     ; spec_info= ""
     ; url= ""
     ; update_type= ""
+    ; livepatch_guidance= None
+    ; livepatches= []
     }
 
   let assert_valid_updateinfo = function
@@ -364,12 +519,26 @@ module UpdateInfo = struct
                           warn "%s" (ExnHelper.string_of_exn e) ;
                           acc
                       )
+                      | Xml.Element ("livepatch_guidance", _, [Xml.PCData v])
+                        -> (
+                        try
+                          {
+                            acc with
+                            livepatch_guidance= Some (Guidance.of_string v)
+                          }
+                        with e ->
+                          (* The error should not block update. Ingore it. *)
+                          warn "%s" (ExnHelper.string_of_exn e) ;
+                          acc
+                      )
                       | Xml.Element ("guidance_applicabilities", _, apps) ->
                           {
                             acc with
                             guidance_applicabilities=
                               List.filter_map Applicability.of_xml apps
                           }
+                      | Xml.Element ("livepatches", _, livepatches) ->
+                          {acc with livepatches= LivePatch.of_xml livepatches}
                       | _ ->
                           acc
                     )

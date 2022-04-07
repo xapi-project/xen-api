@@ -837,6 +837,18 @@ let fields_of_updateinfo =
     ; field "spec_info" (fun (r : UpdateInfo.t) -> r.spec_info) string
     ; field "url" (fun (r : UpdateInfo.t) -> r.url) string
     ; field "update_type" (fun (r : UpdateInfo.t) -> r.update_type) string
+    ; field "livepatch_guidance"
+        (fun (r : UpdateInfo.t) ->
+          UpdateInfo.guidance_to_string r.livepatch_guidance
+        )
+        string
+    ; field "livepatches"
+        (fun (r : UpdateInfo.t) ->
+          List.map
+            (fun x -> x |> LivePatch.to_json |> Yojson.Basic.pretty_to_string)
+            r.livepatches
+        )
+        (list string)
     ]
   
 
@@ -951,6 +963,8 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                   ; spec_info= "special information"
                   ; url= "https://update.details.info"
                   ; update_type= "security"
+                  ; livepatch_guidance= None
+                  ; livepatches= []
                   }
                 
               )
@@ -1009,6 +1023,8 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                   ; spec_info= "special information"
                   ; url= "https://update.details.info"
                   ; update_type= "security"
+                  ; livepatch_guidance= None
+                  ; livepatches= []
                   }
                 
               )
@@ -1051,6 +1067,8 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                   ; spec_info= "special information"
                   ; url= "https://update.details.info"
                   ; update_type= "security"
+                  ; livepatch_guidance= None
+                  ; livepatches= []
                   }
                 
               )
@@ -1066,6 +1084,8 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                   ; spec_info= "special information"
                   ; url= "https://update.details.info"
                   ; update_type= "security"
+                  ; livepatch_guidance= None
+                  ; livepatches= []
                   }
                 
               )
@@ -1140,6 +1160,8 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                   ; spec_info= "special information"
                   ; url= "https://update.details.info"
                   ; update_type= "security"
+                  ; livepatch_guidance= None
+                  ; livepatches= []
                   }
                 
               )
@@ -1365,6 +1387,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
 
   let transform (updates_info, update) =
     eval_guidance_for_one_update ~updates_info ~update ~kind:Guidance.Absolute
+      ~uids_of_livepatches:UpdateIdSet.empty
 
   let tests =
     `QuickAndAutoDocumented
@@ -1403,6 +1426,8 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                   ; spec_info= "special info"
                   ; url= "https://update.details.info"
                   ; update_type= "security"
+                  ; livepatch_guidance= None
+                  ; livepatches= []
                   }
                 
               )
@@ -1418,6 +1443,8 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                   ; spec_info= "special info"
                   ; url= "https://update.details.info"
                   ; update_type= "security"
+                  ; livepatch_guidance= None
+                  ; livepatches= []
                   }
                 
               )
@@ -1454,6 +1481,8 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                   ; spec_info= "special info"
                   ; url= "https://update.details.info"
                   ; update_type= "security"
+                  ; livepatch_guidance= None
+                  ; livepatches= []
                   }
                 
               )
@@ -1489,6 +1518,8 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                   ; spec_info= "special info"
                   ; url= "https://update.details.info"
                   ; update_type= "security"
+                  ; livepatch_guidance= None
+                  ; livepatches= []
                   }
                 
               )
@@ -1504,6 +1535,8 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                   ; spec_info= "special info"
                   ; url= "https://update.details.info"
                   ; update_type= "security"
+                  ; livepatch_guidance= None
+                  ; livepatches= []
                   }
                 
               )
@@ -1539,6 +1572,8 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                   ; spec_info= "special info"
                   ; url= "https://update.details.info"
                   ; update_type= "security"
+                  ; livepatch_guidance= None
+                  ; livepatches= []
                   }
                 
               )
@@ -1568,6 +1603,8 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                   ; spec_info= "special info"
                   ; url= "https://update.details.info"
                   ; update_type= "security"
+                  ; livepatch_guidance= None
+                  ; livepatches= []
                   }
                 
               )
@@ -1603,6 +1640,8 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                   ; spec_info= "special info"
                   ; url= "https://update.details.info"
                   ; update_type= "security"
+                  ; livepatch_guidance= None
+                  ; livepatches= []
                   }
                 
               )
@@ -1644,6 +1683,8 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                   ; spec_info= "special info"
                   ; url= "https://update.details.info"
                   ; update_type= "security"
+                  ; livepatch_guidance= None
+                  ; livepatches= []
                   }
                 
               )
@@ -1679,6 +1720,8 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                   ; spec_info= "special info"
                   ; url= "https://update.details.info"
                   ; update_type= "security"
+                  ; livepatch_guidance= None
+                  ; livepatches= []
                   }
                 
               )
@@ -1708,6 +1751,8 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                   ; spec_info= "special info"
                   ; url= "https://update.details.info"
                   ; update_type= "security"
+                  ; livepatch_guidance= None
+                  ; livepatches= []
                   }
                 
               )
@@ -1743,6 +1788,8 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                   ; spec_info= "special info"
                   ; url= "https://update.details.info"
                   ; update_type= "security"
+                  ; livepatch_guidance= None
+                  ; livepatches= []
                   }
                 
               )
@@ -1771,6 +1818,8 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                   ; spec_info= "special info"
                   ; url= "https://update.details.info"
                   ; update_type= "security"
+                  ; livepatch_guidance= None
+                  ; livepatches= []
                   }
                 
               )
@@ -1806,6 +1855,8 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                   ; spec_info= "special info"
                   ; url= "https://update.details.info"
                   ; update_type= "security"
+                  ; livepatch_guidance= None
+                  ; livepatches= []
                   }
                 
               )
@@ -1847,6 +1898,8 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                   ; spec_info= "special info"
                   ; url= "https://update.details.info"
                   ; update_type= "security"
+                  ; livepatch_guidance= None
+                  ; livepatches= []
                   }
                 
               )
@@ -2198,6 +2251,8 @@ module ConsolidateUpdatesOfHost = Generic.MakeStateless (struct
       ; spec_info= "special info"
       ; url= "https://update.details.info"
       ; update_type= "security"
+      ; livepatch_guidance= None
+      ; livepatches= []
       }
     
 
@@ -2245,7 +2300,8 @@ module ConsolidateUpdatesOfHost = Generic.MakeStateless (struct
         ( (* No updates *)
           {|
             { "updates": [],
-              "accumulative_updates": []
+              "accumulative_updates": [],
+              "applied_livepatches": []
             }
           |}
         , ( `Assoc
@@ -2322,7 +2378,9 @@ module ConsolidateUpdatesOfHost = Generic.MakeStateless (struct
                   "updateId": "UPDATE-0001",
                   "repository": "regular"
                 }
-              ]
+              ],
+
+              "applied_livepatches": []
             }
           |}
         , ( `Assoc
@@ -2377,7 +2435,8 @@ module ConsolidateUpdatesOfHost = Generic.MakeStateless (struct
                   "updateId": "UPDATE-0001",
                   "repository": "regular"
                 }
-              ]
+              ],
+              "applied_livepatches": []
             }
           |}
         , ( `Assoc
@@ -2426,7 +2485,8 @@ module ConsolidateUpdatesOfHost = Generic.MakeStateless (struct
                   "updateId": "UPDATE-0003",
                   "repository": "regular"
                 }
-              ]
+              ],
+              "applied_livepatches": []
             }
           |}
         , ( `Assoc
@@ -2502,7 +2562,8 @@ module ConsolidateUpdatesOfHost = Generic.MakeStateless (struct
                   "updateId": "UPDATE-0001",
                   "repository": "regular"
                 }
-              ]
+              ],
+              "applied_livepatches": []
             }
           |}
         , ( `Assoc
@@ -2584,7 +2645,8 @@ module ConsolidateUpdatesOfHost = Generic.MakeStateless (struct
                   "updateId": "UPDATE-0001",
                   "repository": "regular"
                 }
-              ]
+              ],
+              "applied_livepatches": []
             }
           |}
         , ( `Assoc
@@ -2698,7 +2760,8 @@ module ConsolidateUpdatesOfHost = Generic.MakeStateless (struct
                   "updateId": null,
                   "repository": "regular"
                 }
-              ]
+              ],
+              "applied_livepatches": []
             }
           |}
         , ( `Assoc

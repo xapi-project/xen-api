@@ -677,6 +677,45 @@ let prune_accumulative_updates ~accumulative_updates ~latest_updates
     )
     accumulative_updates
 
+(* Get metadata of all livepatches with same component and base_build_id from updateinfo *)
+let get_livepatches_in_updateinfo ~updates_info ~component ~base_build_id =
+  List.fold_left
+    (fun acc (_, update_info) ->
+      let available_livepatches =
+        update_info.UpdateInfo.livepatches
+        |> List.filter (fun lp ->
+               let open LivePatch in
+               lp.component = component && lp.base_build_id = base_build_id
+           )
+        |> List.map (fun lp -> (lp, update_info))
+      in
+      List.rev_append available_livepatches acc
+    )
+    [] updates_info
+
+(* Get all applicable livepatches which are newer than 'since' *)
+let get_accumulative_livepatches ~since ~updates_info =
+  get_livepatches_in_updateinfo ~updates_info
+    ~component:since.Livepatch.component
+    ~base_build_id:since.Livepatch.base_build_id
+  |> List.filter (fun (lp, _) ->
+         let open LivePatch in
+         match since with
+         | Livepatch.{to_version= Some to_ver; to_release= Some to_rel; _} ->
+             (* There is a running livepatch *)
+             Pkg.gt None lp.to_version lp.to_release None to_ver to_rel
+         | Livepatch.{to_version= None; to_release= None; _} ->
+             (* No running livepatch *)
+             true
+         | _ ->
+             (* Ignore unexpected error to get updating proceeded *)
+             let lp_in_str =
+               Yojson.Basic.pretty_to_string (Livepatch.to_json since)
+             in
+             warn "Ignore un-expected applied livepatch %s." lp_in_str ;
+             false
+     )
+
 let get_update_in_json ~installed_pkgs (new_pkg, update_id, repo) =
   let remove_prefix prefix s =
     match Astring.String.cut ~sep:prefix s with
