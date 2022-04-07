@@ -895,6 +895,12 @@ let repository_domain_name_allowlist = ref []
 
 let yum_cmd = ref "/usr/bin/yum"
 
+let kpatch_cmd = ref "/usr/sbin/kpatch"
+
+let xen_livepatch_cmd = ref "/usr/sbin/xen-livepatch"
+
+let xl_cmd = ref "/usr/sbin/xl"
+
 let yum_repos_config_dir = ref "/etc/yum.repos.d"
 
 let remote_repository_prefix = ref "remote"
