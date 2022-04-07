@@ -13,6 +13,8 @@
  *)
 
 open Test_highlevel
+open Rpm
+open Updateinfo
 open Repository_helpers
 
 let fields_of_pkg =

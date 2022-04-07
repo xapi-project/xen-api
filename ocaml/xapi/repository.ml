@@ -17,6 +17,7 @@ module Unixext = Xapi_stdext_unix.Unixext
 module D = Debug.Make (struct let name = "repository" end)
 
 open D
+open Updateinfo
 open Repository_helpers
 module UpdateIdSet = Set.Make (String)
 
