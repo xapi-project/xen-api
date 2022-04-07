@@ -55,12 +55,12 @@ val apply_updates :
      __context:Context.t
   -> host:[`host] API.Ref.t
   -> hash:string
-  -> Repository_helpers.Guidance.t list
+  -> Updateinfo.Guidance.t list
 
 val apply_immediate_guidances :
      __context:Context.t
   -> host:[`host] API.Ref.t
-  -> guidances:Repository_helpers.Guidance.t list
+  -> guidances:Updateinfo.Guidance.t list
   -> unit
 
 val set_available_updates : __context:Context.t -> string
