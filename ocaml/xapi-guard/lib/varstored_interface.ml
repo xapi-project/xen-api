@@ -159,10 +159,11 @@ let rec wait_connectable path =
       )
   in
   match res with
-  | Ok (_, ic, _oc) ->
+  | Ok (_, ic, oc) ->
       D.debug "Socket at %s works" path ;
-      (* do not close both channels, or we get an EBADF *)
-      Lwt_io.close ic
+      (* close both channels, in non-SSL mode this would leak otherwise *)
+      let* () = Lwt_io.close ic in
+      Lwt_io.close oc
   | Error e ->
       D.debug "Waiting for socket to be connectable at %s: %s" path
         (Printexc.to_string e) ;
