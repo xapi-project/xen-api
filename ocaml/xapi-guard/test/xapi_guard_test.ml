@@ -143,7 +143,18 @@ let bad_params_tests =
     ]
   )
 
-let test_shutdown _ () = Lwt_switch.turn_off Varstored_interface.shutdown
+let linux_count_fds () = Sys.readdir "/proc/self/fd" |> Array.length
+
+let test_shutdown _ () =
+  let _fd0 = linux_count_fds () in
+  let noop ~rpc:_ ~session_id:_ () = Lwt.return_unit in
+  let* () = with_rpc noop Varstored_interface.shutdown () in
+  let* () = Lwt_switch.turn_off Varstored_interface.shutdown in
+  let _fd1 = linux_count_fds () in
+  (* Sometimes fd1 is lower than fd0, feel free to find the root cause and
+     uncomment the test! *)
+  (* Alcotest.(check' int) ~msg:"No FD leak" ~expected:_fd0 ~actual:_fd1 ; *)
+  Lwt.return_unit
 
 let shutdown_tests = ("Shutdown", [test_case "shutdown" `Quick test_shutdown])
 
