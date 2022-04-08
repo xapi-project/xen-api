@@ -1177,11 +1177,13 @@ let build (task : Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domid
 
 type suspend_flag = Live | Debug
 
-let dm_flags = function
-  | Device.Profile.Qemu_upstream | Device.Profile.Qemu_upstream_compat ->
-    ["-dm"; "qemu"]
-  | _ ->
-    []
+let dm_flags =
+  let open Device.Profile in
+  function
+  | Qemu_upstream | Qemu_upstream_compat | Qemu_upstream_uefi ->
+      ["-dm"; "qemu"]
+  | Qemu_trad | Qemu_none ->
+      []
 
 let with_emu_manager_restore (task : Xenops_task.task_handle) ~domain_type
     ~(dm : Device.Profile.t) ~store_port ~console_port ~extras manager_path
