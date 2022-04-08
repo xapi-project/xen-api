@@ -49,8 +49,6 @@ module Profile = struct
 
   let fallback = Qemu_upstream_compat
 
-  let all = [Qemu_none; Qemu_upstream_compat; Qemu_upstream]
-
   module Name = struct
     let qemu_none = "qemu-none"
 
