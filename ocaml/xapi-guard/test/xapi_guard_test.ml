@@ -231,7 +231,16 @@ let bad_params_tests =
   ; test_case "VTPM.get_all_records" `Quick @@ with_rpc test_vtpm_all
   ]
 
-let shutdown_test _ () = Lwt_switch.turn_off Varstored_interface.shutdown
+let linux_count_fds () = Sys.readdir "/proc/self/fd" |> Array.length
+
+let shutdown_test _ () =
+  let fd0 = linux_count_fds () in
+  let noop ~rpc ~session_id () = Lwt.return_unit in
+  let* () = with_rpc noop Varstored_interface.shutdown () in
+  let* () = Lwt_switch.turn_off Varstored_interface.shutdown in
+  let fd1 = linux_count_fds () in
+  Alcotest.(check' int) ~msg:"No FD leak" ~expected:fd0 ~actual:fd1;
+  Lwt.return_unit
 
 let () =
   Debug.log_to_stdout () ;
