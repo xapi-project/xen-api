@@ -458,7 +458,7 @@ let test_cbt =
 let test_operations_restricted_during_rpu =
   let test_check_operation_error () =
     let __context = Mock.make_context_with_new_db "Mock context" in
-    let master = Test_common.make_host __context () in
+    let master = Test_common.make_host ~__context () in
     let pool = Test_common.make_pool ~__context ~master () in
     Db.Pool.add_to_other_config ~__context ~self:pool
       ~key:Xapi_globs.rolling_upgrade_in_progress ~value:"x" ;
@@ -478,7 +478,7 @@ let test_operations_restricted_during_rpu =
   in
   let test_update_allowed_operations () =
     let __context = Mock.make_context_with_new_db "Mock context" in
-    let master = Test_common.make_host __context () in
+    let master = Test_common.make_host ~__context () in
     let pool = Test_common.make_pool ~__context ~master () in
     Db.Pool.add_to_other_config ~__context ~self:pool
       ~key:Xapi_globs.rolling_upgrade_in_progress ~value:"x" ;
@@ -532,7 +532,7 @@ let test_null_vm =
 
 let test_update_allowed_operations () =
   let __context = Test_common.make_test_database () in
-  let vdi_ref, vdi_record =
+  let vdi_ref, _ =
     setup_test ~__context
       ~vdi_fun:(fun vdi_ref ->
         let host_ref = Helpers.get_localhost ~__context in

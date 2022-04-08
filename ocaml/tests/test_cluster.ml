@@ -202,7 +202,7 @@ let test_get_network_fails () =
     (Failure ("No cluster_hosts found for cluster " ^ Ref.string_of cluster))
     (fun () -> Xapi_cluster.get_network ~__context ~self:cluster |> ignore) ;
   (* Add two cluster_hosts on different networks *)
-  for i = 0 to 1 do
+  for _ = 0 to 1 do
     make_cluster_host ~__context ~cluster () |> ignore
   done ;
   Alcotest.check_raises "Cluster_hosts on different networks"

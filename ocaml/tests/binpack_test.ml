@@ -74,7 +74,7 @@ let prove_plan_is_possible_via_counterexample_search
           (fun _ ->
             let num_failures = Random.int config.num_failures in
             (* choose 'num_failures' elements at random *)
-            let alive, dead =
+            let _, dead =
               List.fold_left
                 (fun (remaining, sofar) _ ->
                   if List.length sofar = num_failures then
@@ -196,7 +196,7 @@ let check_planning_performance filename n' r' i =
   let heuristic = Array.make (n' * r') 0 in
   let get array n r = array.((r' * (n - 1)) + (r - 1)) in
   let set array n r value = array.((r' * (n - 1)) + (r - 1)) <- value in
-  for attempts = 1 to i do
+  for _ = 1 to i do
     for n = 1 to n' do
       for r = 1 to r' do
         if r < n then (

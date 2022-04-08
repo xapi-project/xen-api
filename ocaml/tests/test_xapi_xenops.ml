@@ -1,5 +1,4 @@
 open Test_common
-open Test_vgpu_common
 
 module D = Debug.Make (struct let name = "test_xapi_xenops" end)
 
@@ -265,7 +264,7 @@ let test_nested_virt_licensing () =
                (string_of_platform platform)
             )
       with
-      | Api_errors.Server_error (e, l)
+      | Api_errors.Server_error (e, _)
       when e = Api_errors.license_restriction
       ->
         if not should_raise then

@@ -6,7 +6,7 @@ module Make : functor (Algorithm : ALGORITHM) -> sig
   val available : unit -> bool
   (** Returns whether this compression algorithm is available *)
 
-  val compress : Unix.file_descr -> (Unix.file_descr -> unit) -> unit
+  val compress : Unix.file_descr -> (Unix.file_descr -> 'a) -> 'a
   (** Runs a compression process which is fed from a pipe whose entrance is passed to 'f'
       and whose output is 'ofd' *)
 

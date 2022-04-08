@@ -13,7 +13,6 @@
  *)
 
 open Test_highlevel
-open Dbsync_master
 
 module CreateToolsSR = Generic.MakeStateful (struct
   module Io = struct
@@ -66,7 +65,7 @@ module CreateToolsSR = Generic.MakeStateful (struct
     Dbsync_master.create_tools_sr __context name description sr_introduce
       maybe_create_pbd
 
-  let extract_output __context vms =
+  let extract_output __context _ =
     List.fold_left
       (fun acc self ->
         if Db.SR.get_is_tools_sr ~__context ~self then

@@ -14,10 +14,6 @@
 
 open Test_common
 
-module D = Debug.Make (struct let name = "test_xapi_xenops" end)
-
-open D
-
 let add_host __context name =
   ignore
     (Xapi_host.create ~__context

@@ -26,7 +26,7 @@ let test_exists =
 
 let test_valid_ref_filter =
   with_vm_list (fun __context -> function
-    | [vm1; vm2; vm3; vm4] as l ->
+    | [vm1; _; _; vm4] as l ->
         let assert_equal l1 l2 =
           let as_strings = List.map Ref.string_of in
           assert_equal (l1 |> as_strings) (l2 |> as_strings)
@@ -77,7 +77,7 @@ let test_flat_map =
 
 let test_filter_map =
   with_vm_list (fun __context -> function
-    | [vm1; vm2; vm3; vm4] as l ->
+    | [_; _; _; _] as l ->
         let f vm =
           let n = Db.VM.get_name_label ~__context ~self:vm in
           if n = "c" then Some n else None

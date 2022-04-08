@@ -15,13 +15,13 @@
 let apply_edition_succeed ~__context ~host ~edition =
   Db.Host.set_edition ~__context ~self:host ~value:edition
 
-let apply_edition_fail_host_offline ~__context ~host ~edition =
+let apply_edition_fail_host_offline ~__context ~host ~edition:_ =
   raise Api_errors.(Server_error (host_offline, [Ref.string_of host]))
 
 let setup ~host_count ~edition =
   let __context = Test_common.make_test_database () in
   let hosts = ref [] in
-  for n = 2 to host_count do
+  for _ = 2 to host_count do
     (* Already made one in make_test_database *)
     hosts := Test_common.make_host ~__context () :: !hosts
   done ;

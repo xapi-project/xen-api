@@ -59,7 +59,7 @@ module Networks = Generic.MakeStateless (struct
       with Not_found -> []
     )
 
-  let list (T (root, children)) path =
+  let list (T (_root, children)) path =
     let nodes =
       Xapi_stdext_std.Xstringext.String.split_f (fun s -> s = '/') path
     in

@@ -24,7 +24,7 @@ let on_host_with_k2 (f : Context.t -> API.ref_PGPU -> 'a) =
 
 let assert_raises_api_error msg expected_error f =
   match f () with
-  | exception Api_errors.(Server_error (actual_error, params)) ->
+  | exception Api_errors.(Server_error (actual_error, _)) ->
       Alcotest.(check string) msg expected_error actual_error
   | _ ->
       Alcotest.fail msg

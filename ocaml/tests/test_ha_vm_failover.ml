@@ -55,7 +55,7 @@ type pool = {
   ; cluster: int
 }
 
-let string_of_vm {memory; name_label} =
+let string_of_vm {memory; name_label; _} =
   Printf.sprintf "{memory = %Ld; name_label = %S}" memory name_label
 
 let string_of_host {memory_total; name_label; vms} =
@@ -370,8 +370,6 @@ let string_of_unit_result =
 
 module AssertNewVMPreservesHAPlan = Generic.MakeStateful (struct
   module Io = struct
-    open Xapi_ha_vm_failover
-
     type input_t = pool * vm
 
     type output_t = (unit, exn) result
@@ -385,7 +383,7 @@ module AssertNewVMPreservesHAPlan = Generic.MakeStateful (struct
 
   let load_input __context (pool, _) = setup ~__context pool
 
-  let extract_output __context (pool, vm) =
+  let extract_output __context (_pool, vm) =
     let open Db_filter_types in
     let local_sr =
       Db.SR.get_refs_where ~__context
@@ -510,8 +508,6 @@ end)
 
 module ComputeMaxFailures = Generic.MakeStateful (struct
   module Io = struct
-    open Xapi_ha_vm_failover
-
     type input_t = pool
 
     type output_t = int

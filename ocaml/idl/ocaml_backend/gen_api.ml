@@ -425,7 +425,8 @@ let gen_db_actions highapi =
   List.iter (List.iter print)
     (between [""]
        [
-         ["open API"]
+         [{|[@@@ocaml.warning "-6-27-33"]|}]
+       ; ["open API"]
        ; (* These records have the hidden fields inside.
             This excludes records not stored in the database, which must not
             have hidden fields. *)
