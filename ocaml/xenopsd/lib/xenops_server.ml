@@ -1649,12 +1649,11 @@ let rec perform_atomic ~progress_callback ?subtask:_ ?result (op : atomic)
       (* make sure that we destroy all the parallel tasks that finished *)
       let errors =
         List.map
-          (fun task_handle ->
-            let id = Xenops_task.id_of_handle task_handle in
-            match Xenops_task.get_state task_handle with
-            | Task.Completed _ ->
+          (fun (id, task_handle, task_state) ->
+            match task_state with
+            | Some (Task.Completed _) ->
                 TASK.destroy' id ; None
-            | Task.Failed e ->
+            | Some (Task.Failed e) ->
                 TASK.destroy' id ;
                 let e =
                   match Rpcmarshal.unmarshal Errors.error.Rpc.Types.ty e with
@@ -1667,10 +1666,18 @@ let rec perform_atomic ~progress_callback ?subtask:_ ?result (op : atomic)
                         )
                 in
                 Some e
-            | Task.Pending _ ->
-                error "Parallel: queue_atomics_and_wait returned a pending task" ;
+            | None | Some (Task.Pending _) ->
+                (* Because pending tasks are filtered out in
+                   queue_atomics_and_wait with task_ended the second case will
+                   never be encountered. The previous boolean used in
+                   event_wait was enough to express the possible cases *)
+                let err_msg =
+                  Printf.sprintf "Timed out while waiting on task %s (%s)" id
+                    (Xenops_task.get_dbg task_handle)
+                in
+                error "%s" err_msg ;
                 Xenops_task.cancel task_handle ;
-                Some (Xenopsd_error (Cancelled id))
+                Some (Xenopsd_error (Internal_error err_msg))
           )
           task_list
       in
@@ -2109,14 +2116,16 @@ and queue_atomics_and_wait ~progress_callback ~max_parallel_atoms dbg id ops =
              ops
          in
          let timeout_start = Unix.gettimeofday () in
-         List.iter
+         List.map
            (fun task ->
-             event_wait updates task ~from ~timeout_start 1200.0
-               (task_finished_p (Xenops_task.id_of_handle task))
-             |> ignore
+             let task_id = Xenops_task.id_of_handle task in
+             let completion =
+               event_wait updates task ~from ~timeout_start 1200.0
+                 (is_task task_id) task_ended
+             in
+             (task_id, task, completion)
            )
-           task_list ;
-         task_list
+           task_list
      )
   |> List.concat
 
@@ -2894,7 +2903,7 @@ let queue_operation_and_wait dbg id op =
   let from = Updates.last_id dbg updates in
   let task = queue_operation_int dbg id op in
   let task_id = Xenops_task.id_of_handle task in
-  event_wait updates task ~from 1200.0 (task_finished_p task_id) |> ignore ;
+  event_wait updates task ~from 1200.0 (is_task task_id) task_ended |> ignore ;
   task
 
 module PCI = struct

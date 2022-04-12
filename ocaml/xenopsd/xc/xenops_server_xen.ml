@@ -2315,16 +2315,21 @@ module VM = struct
       task vm
 
   let wait_shutdown task vm _reason timeout =
-    event_wait internal_updates task timeout (function
+    let is_vm_event = function
       | Dynamic.Vm id when id = vm.Vm.id ->
           debug "EVENT on our VM: %s" id ;
-          on_domain (fun _ _ _ _ di -> di.Xenctrl.shutdown) task vm
+          Some ()
       | Dynamic.Vm id ->
           debug "EVENT on other VM: %s" id ;
-          false
+          None
       | _ ->
-          debug "OTHER EVENT" ; false
-      )
+          debug "OTHER EVENT" ; None
+    in
+    let vm_has_shutdown () =
+      on_domain (fun _ _ _ _ di -> di.Xenctrl.shutdown) task vm
+    in
+    Option.is_some
+      (event_wait internal_updates task timeout is_vm_event vm_has_shutdown)
 
   (* Mount a filesystem somewhere, with optional type *)
   let mount ?(ty = None) src dest write =

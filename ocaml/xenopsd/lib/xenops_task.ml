@@ -25,7 +25,12 @@ let updates = Updates.empty scheduler
 
 let tasks = Xenops_task.empty ()
 
-let event_wait local_updates task ?from ?timeout_start timeout p =
+(* [event_wait local_updates task ~from ~timeout_start timeout filter p] waits
+   for an event in the queue [local_updates] after event [from] until
+   [timeout_start + timeout] that matches [filter] and makes [p] return [true],
+   then returns it, otherwise returns None when the timeout is reached. This
+   can be interrupted by cancelling the task [task]. *)
+let event_wait local_updates task ?from ?timeout_start timeout filter p =
   let start =
     match timeout_start with Some s -> s | None -> Unix.gettimeofday ()
   in
@@ -39,28 +44,28 @@ let event_wait local_updates task ?from ?timeout_start timeout p =
           (Some (remaining |> ceil |> int_of_float))
           local_updates
       in
-      let success = List.fold_left (fun acc d -> acc || p d) false deltas in
-      let finished = success in
-      if not finished then
-        let elapsed = Unix.gettimeofday () -. start in
-        inner (timeout -. elapsed) (Some next_id)
-      else
-        success
-    else
-      false
+      match List.find_map filter deltas with
+      | Some found when p found ->
+          Some found
+      | Some _ | None ->
+          (* no matching events found by Updates.get, retry *)
+          let elapsed = Unix.gettimeofday () -. start in
+          inner (timeout -. elapsed) (Some next_id)
+    else (* timeout reached *)
+      None
   in
   let result = inner timeout from in
   Xenops_task.check_cancelling task ;
   result
 
-let task_ended id =
-  let handle = Xenops_task.handle_of_id tasks id in
-  match Xenops_task.get_state handle with
-  | Completed _ | Failed _ ->
+let task_ended = function
+  | Xenops_interface.Task.Completed _ | Failed _ ->
       true
   | Pending _ ->
       false
 
-let task_finished_p task =
-  let open Xenops_interface in
-  function Dynamic.Task id -> id = task && task_ended id | _ -> false
+let is_task task = function
+  | Xenops_interface.Dynamic.Task id when id = task ->
+      Some Xenops_task.(get_state (handle_of_id tasks id))
+  | _ ->
+      None
