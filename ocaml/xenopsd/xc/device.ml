@@ -263,7 +263,7 @@ module Generic = struct
 
   let is_backend backend_type path =
     let affix = Printf.sprintf "backend/%s/" backend_type in
-    Astring.String.is_infix affix path
+    Astring.String.is_infix ~affix path
 
   let is_qdisk_or_9pfs x =
     let path = Hotplug.path_written_by_hotplug_scripts x in
@@ -708,7 +708,7 @@ module Vbd_Common = struct
             ("physical-device", physical_device)
           ; ("physical-device-path", physical_device_path)
           ]
-    | [vdi; tag; security_model; path] ->
+    | [_vdi; tag; security_model; path] ->
         List.iter
           (fun (k, v) -> Hashtbl.replace back_tbl k v)
           [("security_model", security_model); ("path", path)] ;

@@ -37,33 +37,7 @@ exception PleaseClose
 
 let set_intersect a b = List.filter (fun x -> List.mem x b) a
 
-(** Establish a server; handler is either 'by_thread' or 'in_this_thread' *)
-type sock_or_addr =
-  | Server_sockaddr of Unix.sockaddr
-  | Server_fd of Unix.file_descr
-
-let establish_server ?(signal_fds = []) forker sockoraddr =
-  let sock =
-    match sockoraddr with
-    | Server_sockaddr sockaddr ->
-        let domain =
-          match sockaddr with
-          | ADDR_UNIX _ ->
-              debug "Establishing Unix domain server" ;
-              Unix.PF_UNIX
-          | ADDR_INET (_, _) ->
-              debug "Establishing inet domain server" ;
-              Unix.PF_INET
-        in
-        let sock = Unix.socket domain Unix.SOCK_STREAM 0 in
-        Unix.set_close_on_exec sock ;
-        Unix.setsockopt sock Unix.SO_REUSEADDR true ;
-        Unix.bind sock sockaddr ;
-        Unix.listen sock 5 ;
-        sock
-    | Server_fd fd ->
-        fd
-  in
+let establish_server ?(signal_fds = []) forker sock =
   while true do
     try
       let r, _, _ = Unix.select ([sock] @ signal_fds) [] [] (-1.) in
@@ -117,7 +91,7 @@ let server handler sock =
             try
               establish_server ~signal_fds:[status_out]
                 (handler_by_thread handler)
-                (Server_fd sock)
+                sock
             with PleaseClose -> debug "Server thread exiting"
           )
           ()

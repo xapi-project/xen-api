@@ -85,9 +85,9 @@ jobs:
         # On top of this it's difficult to make it just run once on CI
         # without adding changes to more than a single file
         run: |
-          ERR=$(egrep 'Error |Warning ' -c make-check.log)
+          ERR=$(egrep 'Error \(|Warning \(' -c make-check.log)
           echo ERR=$ERR
-          test 5 -eq  "$ERR"
+          test 1 -eq  "$ERR"
 
       - name: Check all code in release mode
         # This should be removed when the preceding passes succeed
