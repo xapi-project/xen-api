@@ -41,6 +41,8 @@ let vgpu_ready_timeout = ref 30.
 
 let varstored_ready_timeout = ref 30.
 
+let swtpm_ready_timeout = ref 30.
+
 let use_upstream_qemu = ref false
 
 let pci_quarantine = ref true
