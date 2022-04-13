@@ -423,7 +423,9 @@ let make ~xc ~xs vm_info vcpus domain_config uuid final_uuid no_sharept =
             )
             dirs
         in
-        let device_dirs = ["device"; "device/vbd"; "device/vif"] in
+        let device_dirs =
+          ["device"; "device/vbd"; "device/9pfs"; "device/vif"]
+        in
         let device_dirs' =
           let xsi_254 =
             try List.assoc "netscaler" vm_info.platformdata = "XSI-254"

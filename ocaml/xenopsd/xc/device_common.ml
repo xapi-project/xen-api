@@ -47,7 +47,7 @@ module D = Debug.Make (struct let name = "xenops" end)
 open D
 open Printf
 
-let supported_vbd_backends = ["vbd"; "vbd3"; "qdisk"]
+let supported_vbd_backends = ["vbd"; "vbd3"; "qdisk"; "9pfs"]
 
 (* TODO: get from xenopsd config *)
 
@@ -268,6 +268,8 @@ let device_of_backend (backend : endpoint) (domu : Xenctrl.domid) =
       domid= domu
     ; kind=
         ( match backend.kind with
+        | Vbd "9pfs" ->
+            Vbd "9pfs"
         | Tap | Vbd _ ->
             default_vbd_frontend_kind
         | _ ->

@@ -329,6 +329,8 @@ let params_of_backend backend =
         (path, [])
     | _, _, {uri} :: _, xendisk :: _ ->
         (uri, [("qemu-params", xendisk.Storage_interface.params)])
+    | _, _, _, xendisk :: _ ->
+        ("", [("qemu-params", xendisk.Storage_interface.params)])
     | _ ->
         raise
           (Xenopsd_error
@@ -5008,7 +5010,7 @@ module Actions = struct
         let id = Uuidm.to_string (uuid_of_di di) in
         let update =
           match kind with
-          | "vbd" | "vbd3" | "qdisk" ->
+          | "vbd" | "vbd3" | "qdisk" | "9pfs" ->
               let devid' =
                 devid
                 |> int_of_string
