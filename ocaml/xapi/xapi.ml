@@ -1410,10 +1410,8 @@ let server_init () =
           ; ( "Sync UEFI certificates on host with XAPI db"
             , [Startup.NoExnRaising]
             , fun () ->
-                Helpers.call_api_functions ~__context (fun rpc session_id ->
-                    Xapi_host.write_uefi_certificates_to_disk __context
-                      (Helpers.get_localhost ~__context)
-                )
+                Xapi_host.write_uefi_certificates_to_disk ~__context
+                  ~host:(Helpers.get_localhost ~__context)
             )
           ] ;
         debug "startup: startup sequence finished"

@@ -1546,16 +1546,16 @@ let join_common ~__context ~master_address ~master_username ~master_password
       ( try
           let _uefi_certs =
             Client.Pool.get_uefi_certificates ~rpc ~session_id
-              ~self:(get_pool rpc session_id)
+              ~self:(get_pool ~rpc ~session_id)
           in
           Db.Pool.set_uefi_certificates ~__context
             ~self:(Helpers.get_pool ~__context)
             ~value:_uefi_certs ;
           Helpers.call_api_functions ~__context
             (fun local_rpc local_session_id ->
-              Client.Host.write_uefi_certificates_to_disk local_rpc
-                local_session_id
-                (Helpers.get_localhost ~__context)
+              Client.Host.write_uefi_certificates_to_disk ~rpc:local_rpc
+                ~session_id:local_session_id
+                ~host:(Helpers.get_localhost ~__context)
           )
         with e ->
           error
@@ -3589,7 +3589,7 @@ let set_uefi_certificates ~__context ~self ~value =
   Helpers.call_api_functions ~__context (fun rpc session_id ->
       List.iter
         (fun host ->
-          Client.Host.write_uefi_certificates_to_disk rpc session_id host
+          Client.Host.write_uefi_certificates_to_disk ~rpc ~session_id ~host
         )
         (Db.Host.get_all ~__context)
   )

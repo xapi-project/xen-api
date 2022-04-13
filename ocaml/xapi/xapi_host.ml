@@ -2572,7 +2572,7 @@ let with_temp_file_contents ~contents f =
     )
     (fun () -> Sys.remove filename)
 
-let write_uefi_certificates_to_disk ~__context ~host =
+let write_uefi_certificates_to_disk ~__context ~host:_ =
   if
     Sys.file_exists !Xapi_globs.varstore_dir
     && Sys.is_directory !Xapi_globs.varstore_dir
@@ -2606,9 +2606,9 @@ let write_uefi_certificates_to_disk ~__context ~host =
 let set_uefi_certificates ~__context ~host ~value =
   Db.Host.set_uefi_certificates ~__context ~self:host ~value ;
   Helpers.call_api_functions ~__context (fun rpc session_id ->
-      Client.Client.Pool.set_uefi_certificates rpc session_id
-        (Helpers.get_pool ~__context)
-        value
+      Client.Client.Pool.set_uefi_certificates ~rpc ~session_id
+        ~self:(Helpers.get_pool ~__context)
+        ~value
   )
 
 let set_iscsi_iqn ~__context ~host ~value =

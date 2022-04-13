@@ -1384,7 +1384,7 @@ let pool_record rpc session_id pool =
       ; make_field ~name:"uefi-certificates" ~hidden:true
           ~get:(fun () -> (x ()).API.pool_uefi_certificates)
           ~set:(fun value ->
-            Client.Pool.set_uefi_certificates rpc session_id pool value
+            Client.Pool.set_uefi_certificates ~rpc ~session_id ~self:pool ~value
           )
           ()
       ; make_field ~name:"tls-verification-enabled"
