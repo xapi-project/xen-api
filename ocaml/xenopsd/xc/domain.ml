@@ -174,8 +174,6 @@ exception Domain_restore_failed
 
 exception Domain_restore_truncated_hvmstate
 
-exception Domain_restore_truncated_vgpustate
-
 exception Xenguest_protocol_failure of string (* internal protocol failure *)
 
 exception Xenguest_failure of string (* an actual error is reported to us *)
@@ -187,8 +185,6 @@ exception Emu_manager_failure of string (* an actual error is reported to us *)
 exception Timeout_backend
 
 exception Could_not_read_file of string (* eg linux kernel/ initrd *)
-
-exception Domain_stuck_in_dying_state of Xenctrl.domid
 
 module Uuid = Uuidm
 
@@ -780,7 +776,7 @@ let get_action_request ~xs domid =
 let maybe_ca_140252_workaround ~xc ~vcpus domid =
   if !Xenopsd.ca_140252_workaround then
     debug "Allocating %d I/O req evtchns in advance for device model" vcpus ;
-  for i = 1 to vcpus do
+  for _ = 1 to vcpus do
     ignore_int (Xenctrl.evtchn_alloc_unbound xc domid 0)
   done
 
@@ -949,9 +945,9 @@ let xenguest_args_hvm ~domid ~store_port ~store_domid ~console_port
     ~console_domid ~memory ~kernel ~vgpus =
   ["-mode"; "hvm_build"; "-image"; kernel]
   @ (vgpus |> function
-     | [Xenops_interface.Vgpu.{implementation= Nvidia _}] ->
+     | [Xenops_interface.Vgpu.{implementation= Nvidia _; _}] ->
          ["-vgpu"]
-     | Xenops_interface.Vgpu.{implementation= Nvidia _} :: _ ->
+     | Xenops_interface.Vgpu.{implementation= Nvidia _; _} :: _ ->
          ["-vgpu"]
      | _ ->
          []
@@ -1036,7 +1032,7 @@ let correct_shadow_allocation xc domid uuid shadow_mib =
   )
 
 (* puts value in store after the domain build succeed *)
-let build_post ~xc ~xs ~vcpus ~static_max_mib ~target_mib domid domain_type
+let build_post ~xc ~xs ~vcpus:_ ~static_max_mib ~target_mib domid domain_type
     store_mfn store_port ents vments =
   let uuid = get_uuid ~xc domid in
   let dom_path = xs.Xs.getdomainpath domid in
@@ -1179,7 +1175,7 @@ type suspend_flag = Live | Debug
 
 let with_emu_manager_restore (task : Xenops_task.task_handle) ~domain_type
     ~(dm : Device.Profile.t) ~store_port ~console_port ~extras manager_path
-    domid uuid main_fd vgpu_fd f =
+    domid _uuid main_fd vgpu_fd f =
   let mode =
     match domain_type with `hvm | `pvh -> "hvm_restore" | `pv -> "restore"
   in
@@ -1267,9 +1263,9 @@ let consume_qemu_record fd limit domid uuid =
     (fun () -> Unix.close fd2)
 
 let restore_common (task : Xenops_task.task_handle) ~xc ~xs
-    ~(dm : Device.Profile.t) ~domain_type ~store_port ~store_domid ~console_port
-    ~console_domid ~no_incr_generationid ~vcpus ~extras manager_path domid
-    main_fd vgpu_fd =
+    ~(dm : Device.Profile.t) ~domain_type ~store_port ~store_domid:_
+    ~console_port ~console_domid:_ ~no_incr_generationid:_ ~vcpus:_ ~extras
+    manager_path domid main_fd vgpu_fd =
   let module DD = Debug.Make (struct let name = "mig64" end) in
   let open DD in
   let uuid = get_uuid ~xc domid in
@@ -1418,7 +1414,7 @@ let restore_common (task : Xenops_task.task_handle) ~xc ~xs
                   (* Exhaust the thread_requests before returning the error,
                      this prevenst leaking blocked results threads *)
                   List.iter
-                    (fun (emu, wakeup) -> Event.send wakeup () |> Event.sync)
+                    (fun (_emu, wakeup) -> Event.send wakeup () |> Event.sync)
                     !thread_requests ;
                   Error Domain_restore_failed
                 )
@@ -1545,7 +1541,7 @@ let restore (task : Xenops_task.task_handle) ~xc ~xs ~dm ~store_domid
         let vm_stuff = [("rtc/timeoffset", timeoffset)] in
         maybe_ca_140252_workaround ~xc ~vcpus domid ;
         (memory, vm_stuff, `hvm)
-    | BuildPV pvinfo ->
+    | BuildPV _info ->
         let shadow_multiplier = Memory.Linux.shadow_multiplier_default in
         let memory =
           Memory.Linux.full_config static_max_mib video_mib target_mib vcpus
@@ -1576,7 +1572,7 @@ let restore (task : Xenops_task.task_handle) ~xc ~xs ~dm ~store_domid
   build_post ~xc ~xs ~vcpus ~target_mib ~static_max_mib domid domain_type
     store_mfn store_port local_stuff vm_stuff
 
-let suspend_emu_manager ~(task : Xenops_task.task_handle) ~xc ~xs ~domain_type
+let suspend_emu_manager ~(task : Xenops_task.task_handle) ~xc:_ ~xs ~domain_type
     ~is_uefi ~dm ~manager_path ~domid ~uuid ~main_fd ~vgpu_fd ~flags
     ~progress_callback ~qemu_domid ~do_suspend_callback =
   let open Suspend_image in
@@ -1691,7 +1687,7 @@ let suspend_emu_manager ~(task : Xenops_task.task_handle) ~xc ~xs ~domain_type
                     vGPU fd"
                 )
         )
-        | Result x ->
+        | Result _ ->
             debug "VM = %s; domid = %d; emu-manager completed successfully"
               (Uuid.to_string uuid) domid ;
             return ()

@@ -19,7 +19,6 @@
    XE-CLI Front End
    ---------------------------------------------------------------------- *)
 
-open Cli_util
 open Cli_cmdtable
 
 module D = Debug.Make (struct let name = "cli" end)
@@ -3758,11 +3757,11 @@ let rio_help printer minimal cmd =
       Hashtbl.fold (fun name cmd list -> (name, cmd) :: list) cmdtable []
     in
     let cmds =
-      List.filter (fun (name, cmd) -> not (List.mem Hidden cmd.flags)) cmds
+      List.filter (fun (_, cmd) -> not (List.mem Hidden cmd.flags)) cmds
     in
     (* Filter hidden commands from help *)
     let cmds =
-      List.sort (fun (name1, cmd1) (name2, cmd2) -> compare name1 name2) cmds
+      List.sort (fun (name1, _) (name2, _) -> compare name1 name2) cmds
     in
     if List.mem_assoc "all" cmd.params && List.assoc "all" cmd.params = "true"
     then
@@ -3799,7 +3798,7 @@ let rio_help printer minimal cmd =
       )
     else
       let cmds =
-        List.filter (fun (name, cmd) -> List.mem Standard cmd.flags) cmds
+        List.filter (fun (_, cmd) -> List.mem Standard cmd.flags) cmds
       in
       let cmds = List.map fst cmds in
       let h =

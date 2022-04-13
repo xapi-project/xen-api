@@ -86,6 +86,8 @@ module Profile = struct
         |> fun s -> Xenopsd_error (Internal_error s) |> raise
     | x when x = Name.qemu_upstream_uefi ->
         Qemu_upstream_uefi
+    | x when x = Name.qemu_none ->
+        Qemu_none
     | x ->
         debug "unknown device-model profile %s: defaulting to %s" x
           Name.qemu_upstream_compat ;
@@ -222,11 +224,6 @@ module Generic = struct
       true
     with Xs_protocol.Enoent _ -> false
 
-  let assert_exists_t ~xs t (x : device) =
-    let backend_stub = backend_path_of_device ~xs x in
-    try ignore_string (t.Xst.read backend_stub)
-    with Xs_protocol.Enoent _ -> raise Device_not_found
-
   (** When hot-unplugging a device we ask nicely *)
   let clean_shutdown_async ~xs (x : device) =
     let backend_path = backend_path_of_device ~xs x in
@@ -245,7 +242,7 @@ module Generic = struct
         )
     )
 
-  let unplug_watch ~xs (x : device) =
+  let unplug_watch ~xs:_ (x : device) =
     Hotplug.path_written_by_hotplug_scripts x |> Watch.key_to_disappear
 
   let error_watch ~xs (x : device) =
@@ -413,13 +410,8 @@ module Vbd_Common = struct
         ReadOnly
     | "w" ->
         ReadWrite
-    | s ->
+    | _ ->
         invalid_arg "mode_of_string"
-
-  type lock = string
-
-  (** The format understood by blocktap *)
-  let string_of_lock lock mode = lock ^ ":" ^ string_of_mode mode
 
   type physty = File | Phys | Qcow | Vhd | Aio
 
@@ -975,7 +967,7 @@ end
 
 (** Network SR-IOV VFs: *)
 module NetSriovVf = struct
-  let add ~xs ~devid ~mac ?mtu ?(rate = None) ?(backend_domid = 0)
+  let add ~xs ~devid ~mac ?mtu:_ ?(rate = None) ?(backend_domid = 0)
       ?(other_config = []) ~pci ~vlan ~carrier ?(extra_private_keys = [])
       ?(extra_xenserver_keys = []) (task : Xenops_task.task_handle) domid =
     let vlan_str =
@@ -1202,13 +1194,6 @@ module SystemdDaemonMgmt (D : DAEMONPIDPATH) = struct
       Some key
     else
       None
-
-  let is_running ~xs domid =
-    match of_domid domid with
-    | None ->
-        Compat.is_running ~xs domid
-    | Some key ->
-        Fe_systemctl.is_active ~service:key
 
   let alive service _ =
     if Fe_systemctl.is_active ~service then
@@ -1613,7 +1598,7 @@ module PCI = struct
       _xen_domctl_dev_rdm_relaxed
 
   let add ~xc ~xs ~hvm pcidevs domid =
-    let host_addr {host; guest= _} = host in
+    let host_addr {host; guest= _; _} = host in
     try
       if !Xenopsd.use_old_pci_add || not hvm then (
         List.iter (fun x -> ignore (quarantine xc (host_addr x))) pcidevs ;
@@ -1621,7 +1606,7 @@ module PCI = struct
       ) else
         List.iter (_pci_add ~xc ~xs ~hvm domid) pcidevs ;
       List.iter
-        (fun {host= pcidev; guest= dev, _} ->
+        (fun {host= pcidev; guest= dev, _; _} ->
           xs.Xs.write
             (Printf.sprintf "%s/dev-%d"
                (device_model_pci_device_path xs 0 domid)
@@ -1953,89 +1938,26 @@ module PCI = struct
          [] (Array.to_list devs)
       )
 
-  let reset ~xs address =
+  let reset ~xs:_ address =
     let devstr = Xenops_interface.Pci.string_of_address address in
     debug "Device.Pci.reset %s" devstr ;
     do_flr devstr
 
-  let clean_shutdown (task : Xenops_task.task_handle) ~xs (x : device) =
+  let clean_shutdown (_ : Xenops_task.task_handle) ~xs (x : device) =
     debug "Device.Pci.clean_shutdown %s" (string_of_device x) ;
     let devs = enumerate_devs ~xs x in
-    Xenctrl.with_intf (fun xc ->
-        try release devs x.frontend.domid with _ -> ()
-    ) ;
-    ()
+    try release devs x.frontend.domid with _ -> ()
 
   let hard_shutdown (task : Xenops_task.task_handle) ~xs (x : device) =
     debug "Device.Pci.hard_shutdown %s" (string_of_device x) ;
     clean_shutdown task ~xs x
 
-  (* This is the global location where PCI device add/remove status is put. We
-     should aim to use a per-device location to support parallel requests in
-     future *)
-  let device_model_state_path xs be_domid fe_domid =
-    Printf.sprintf "%s/device-model/%d/state"
-      (xs.Xs.getdomainpath be_domid)
-      fe_domid
-
-  let signal_device_model ~xs domid cmd parameter =
-    debug "Device.Pci.signal_device_model domid=%d cmd=%s param=%s" domid cmd
-      parameter ;
-    let be_domid = 0 in
-    (* XXX: assume device model is in domain 0 *)
-    let be_path = xs.Xs.getdomainpath be_domid in
-    (* Currently responses go in this global place. Blank it to prevent
-       request/response/request confusion *)
-    xs.Xs.rm (device_model_state_path xs be_domid domid) ;
-    Xs.transaction xs (fun t ->
-        t.Xst.writev be_path
-          [
-            (Printf.sprintf "device-model/%d/command" domid, cmd)
-          ; (Printf.sprintf "device-model/%d/parameter" domid, parameter)
-          ]
-    )
-
   (* Return a list of PCI devices *)
   let list = read_pcidir
-
-  (* We explicitly add a device frontend in the hotplug case so the device watch
-     code can find the backend and monitor it. *)
-  let ensure_device_frontend_exists ~xs backend_domid frontend_domid =
-    let frontend_path =
-      Printf.sprintf "/local/domain/%d/device/pci/0" frontend_domid
-    in
-    let backend_path =
-      Printf.sprintf "/local/domain/%d/backend/pci/%d/0" backend_domid
-        frontend_domid
-    in
-    debug "adding PCI frontend: frontend_domid = %d; backend_domid = %d"
-      frontend_domid backend_domid ;
-    Xs.transaction xs (fun t ->
-        (* If the frontend already exists, no work to do *)
-        if
-          try
-            ignore (t.Xst.read (frontend_path ^ "/backend")) ;
-            true
-          with _ -> false
-        then
-          debug "PCI frontend already exists: no work to do"
-        else (
-          t.Xst.mkdirperms frontend_path
-            Xs_protocol.ACL.
-              {owner= frontend_domid; other= NONE; acl= [(backend_domid, READ)]}
-             ;
-          t.Xst.writev frontend_path
-            [
-              ("backend", backend_path)
-            ; ("backend-id", string_of_int backend_domid)
-            ; ("state", "1")
-            ]
-        )
-    )
 end
 
 module Vfs = struct
-  let add ~xc ~xs ?(backend_domid = 0) domid =
+  let add ~xc:_ ~xs ?(backend_domid = 0) domid =
     debug "Device.Vfs.add domid=%d" domid ;
     let frontend = {domid; kind= Vfs; devid= 0} in
     let backend = {domid= backend_domid; kind= Vfs; devid= 0} in
@@ -2073,17 +1995,17 @@ module Vfs = struct
     ) ;
     ()
 
-  let hard_shutdown (task : Xenops_task.task_handle) ~xs (x : device) =
+  let hard_shutdown (_ : Xenops_task.task_handle) ~xs:_ (x : device) =
     debug "Device.Vfs.hard_shutdown %s" (string_of_device x) ;
     ()
 
-  let clean_shutdown (task : Xenops_task.task_handle) ~xs (x : device) =
+  let clean_shutdown (_ : Xenops_task.task_handle) ~xs:_ (x : device) =
     debug "Device.Vfs.clean_shutdown %s" (string_of_device x) ;
     ()
 end
 
 module Vfb = struct
-  let add ~xc ~xs ?(backend_domid = 0) ?(protocol = Protocol_Native) domid =
+  let add ~xc:_ ~xs ?(backend_domid = 0) ?(protocol = Protocol_Native) domid =
     debug "Device.Vfb.add %d" domid ;
     let frontend = {domid; kind= Vfb; devid= 0} in
     let backend = {domid= backend_domid; kind= Vfb; devid= 0} in
@@ -2105,17 +2027,17 @@ module Vfb = struct
     Generic.add_device ~xs device back front [] [] ;
     ()
 
-  let hard_shutdown (task : Xenops_task.task_handle) ~xs (x : device) =
+  let hard_shutdown (_ : Xenops_task.task_handle) ~xs:_ (x : device) =
     debug "Device.Vfb.hard_shutdown %s" (string_of_device x) ;
     ()
 
-  let clean_shutdown (task : Xenops_task.task_handle) ~xs (x : device) =
+  let clean_shutdown (_ : Xenops_task.task_handle) ~xs:_ (x : device) =
     debug "Device.Vfb.clean_shutdown %s" (string_of_device x) ;
     ()
 end
 
 module Vkbd = struct
-  let add ~xc ~xs ?(backend_domid = 0) ?(protocol = Protocol_Native) domid =
+  let add ~xc:_ ~xs ?(backend_domid = 0) ?(protocol = Protocol_Native) domid =
     debug "Device.Vkbd.add %d" domid ;
     let frontend = {domid; kind= Vkbd; devid= 0} in
     let backend = {domid= backend_domid; kind= Vkbd; devid= 0} in
@@ -2137,11 +2059,11 @@ module Vkbd = struct
     Generic.add_device ~xs device back front [] [] ;
     ()
 
-  let hard_shutdown (task : Xenops_task.task_handle) ~xs (x : device) =
+  let hard_shutdown (_ : Xenops_task.task_handle) ~xs:_ (x : device) =
     debug "Device.Vkbd.hard_shutdown %s" (string_of_device x) ;
     ()
 
-  let clean_shutdown (task : Xenops_task.task_handle) ~xs (x : device) =
+  let clean_shutdown (_ : Xenops_task.task_handle) ~xs:_ (x : device) =
     debug "Device.Vkbd.clean_shutdown %s" (string_of_device x) ;
     ()
 end
@@ -2213,7 +2135,7 @@ module Vusb = struct
       match qmp_send_cmd domid Qmp.(Qom_list path) with
       | Qmp.(Qom usbs) ->
           List.map (fun p -> p.Qmp.name) usbs
-      | other ->
+      | _other ->
           debug "%s unexpected QMP result for domid %d Qom_list" __LOC__ domid ;
           []
       | exception QMP_connection_error _ ->
@@ -2339,7 +2261,7 @@ end = struct
     match qmp_send_cmd domid Qmp.Query_chardev with
     | Qmp.(Char_devices devices) ->
         List.find_opt is_serial0 devices
-    | other ->
+    | _other ->
         warn "Unexpected QMP result for domid %d query-chardev" domid ;
         None
 
@@ -2370,9 +2292,6 @@ module Dm_Common = struct
      -usb -usbdevice tablet -domain-name bee94ac1-8f97-42e0-bf77-5cb7a6b664ee
      -net nic,vlan=1,macaddr=00:16:3E:76:CE:44,model=rtl8139 -net
      tap,vlan=1,bridge=xenbr0 -vnc 39 -k en-us -vnclisten 127.0.0.1] *)
-
-  (** Should be <= the hardcoded maximum number of emulated NICs *)
-  let max_emulated_nics = 8
 
   type usb_opt = Enabled of (string * int) list | Disabled
 
@@ -2515,11 +2434,11 @@ module Dm_Common = struct
     let vga_type_opts x =
       let open Xenops_interface.Vgpu in
       match x with
-      | Vgpu [{implementation= Nvidia _}] ->
+      | Vgpu [{implementation= Nvidia _; _}] ->
           ["-vgpu"]
-      | Vgpu ({implementation= Nvidia _} :: _) ->
+      | Vgpu ({implementation= Nvidia _; _} :: _) ->
           ["-vgpu"]
-      | Vgpu [{implementation= GVT_g gvt_g}] ->
+      | Vgpu [{implementation= GVT_g gvt_g; _}] ->
           let base_opts =
             [
               "-xengt"
@@ -2532,7 +2451,7 @@ module Dm_Common = struct
             ]
           and priv_opt = ["-priv"] in
           List.flatten [base_opts; priv_opt]
-      | Vgpu [{implementation= MxGPU mxgpu}] ->
+      | Vgpu [{implementation= MxGPU _; _}] ->
           []
       | Vgpu _ ->
           failwith "Unsupported vGPU configuration"
@@ -2574,7 +2493,7 @@ module Dm_Common = struct
       match info.disp with
       | NONE ->
           ([], false)
-      | SDL (opts, x11name) ->
+      | SDL (_, _) ->
           ([], false)
       | VNC (disp_intf, ip_addr_opt, auto, port, keymap) ->
           let vga_type_opts = vga_type_opts disp_intf in
@@ -2583,9 +2502,9 @@ module Dm_Common = struct
     in
     (disp_options, wait_for_port)
 
-  let qemu_args ~xs ~dm info restore ?(domid_for_vnc = false) domid =
+  let qemu_args ~xs:_ ~dm:_ info restore ?(domid_for_vnc = false) domid =
     let restorefile = sprintf qemu_restore_path domid in
-    let disp_options, wait_for_port =
+    let disp_options, _ =
       if domid_for_vnc then
         cmdline_of_disp info ~domid
       else
@@ -2657,6 +2576,7 @@ module Dm_Common = struct
                    virtual_pci_address
                  ; config_file= Some config_file
                  ; extra_args
+                 ; _
                  } ->
                  (* The VGPU UUID is not available. Create a fresh one; xapi
                     will deal with it. *)
@@ -2676,6 +2596,7 @@ module Dm_Common = struct
                  ; type_id= Some type_id
                  ; uuid= Some uuid
                  ; extra_args
+                 ; _
                  } ->
                  debug "NVidia vGPU config: using type id %s and uuid: %s"
                    type_id uuid ;
@@ -2686,7 +2607,7 @@ module Dm_Common = struct
                    ; uuid
                    ; extra_args
                    ]
-             | Nvidia {type_id= None; config_file= None} ->
+             | Nvidia {type_id= None; config_file= None; _} ->
                  (* No type_id _and_ no config_file: something is wrong *)
                  raise
                    (Xenopsd_error
@@ -2907,7 +2828,7 @@ module Dm_Common = struct
         ]
     ]
 
-  let xen_platform ~trad_compat ~xs ~domid ~info =
+  let xen_platform ~trad_compat ~xs:_ ~domid:_ ~info =
     [
       "-device"
     ; String.concat ","
@@ -3068,23 +2989,22 @@ module Backend = struct
             with _ -> None
         )
 
-      let assert_can_suspend ~xs _ = ()
+      let assert_can_suspend ~xs:_ _ = ()
 
       let suspend (task : Xenops_task.task_handle) ~xs ~qemu_domid domid =
         Dm_Common.signal task ~xs ~qemu_domid ~domid "save" ~wait_for:"paused"
 
-      let stop ~xs ~qemu_domid domid = ()
+      let stop ~xs:_ ~qemu_domid:_ _ = ()
 
-      let init_daemon ~task ~path ~args ~domid ~xs ~ready_path ~timeout ~cancel
-          ?(fds = []) _ =
+      let init_daemon ~task:_ ~path:_ ~args:_ ~domid:_ ~xs:_ ~ready_path:_
+          ~timeout:_ ~cancel:_ ?fds:_ _ =
         raise (Ioemu_failed (Qemu.name, "PV guests have no IO emulator"))
 
-      let qemu_args ~xs ~dm info restore domid =
-        {Dm_Common.argv= []; fd_map= []}
+      let qemu_args ~xs:_ ~dm:_ _ _ _ = {Dm_Common.argv= []; fd_map= []}
 
-      let after_suspend_image ~xs ~qemu_domid domid = ()
+      let after_suspend_image ~xs:_ ~qemu_domid:_ _ = ()
 
-      let pci_assign_guest ~xs ~index ~host = None
+      let pci_assign_guest ~xs:_ ~index:_ ~host:_ = None
     end
 
     (* Backend.Qemu_none.Dm *)
@@ -3160,7 +3080,7 @@ module Backend = struct
 
       let base_addr = 4
 
-      let addr ~devid ~index = devid + base_addr
+      let addr ~devid ~index:_ = devid + base_addr
 
       let extra_flags = []
     end
@@ -3216,16 +3136,16 @@ module Backend = struct
               first_gap n xs
           | x :: xs when x = n ->
               first_gap (n + 1) xs
-          | x :: xs ->
+          | _ ->
               n
         in
         let has_nvidia_vgpu =
           let open Xenops_interface.Vgpu in
           let open Dm_Common in
           match info.disp with
-          | VNC (Vgpu [{implementation= Nvidia _}], _, _, _, _) ->
+          | VNC (Vgpu [{implementation= Nvidia _; _}], _, _, _, _) ->
               true
-          | SDL (Vgpu [{implementation= Nvidia _}], _) ->
+          | SDL (Vgpu [{implementation= Nvidia _; _}], _) ->
               true
           | _ ->
               false
@@ -3244,7 +3164,7 @@ module Backend = struct
 
     module PCI = struct
       (* compat: let qemu deal with it as before *)
-      let assign_guest ~xs ~index ~host = None
+      let assign_guest ~xs:_ ~index:_ ~host:_ = None
     end
 
     let name = Profile.Name.qemu_upstream_compat
@@ -3287,7 +3207,7 @@ module Backend = struct
 
       let default = "e1000"
 
-      let addr ~devid ~index = 4 + index
+      let addr ~devid:_ ~index = 4 + index
 
       let extra_flags = ["rombar=0"]
     end
@@ -3307,7 +3227,7 @@ module Backend = struct
       let extra_args = ["-device"; "nvme,serial=nvme0,id=nvme0,addr=7"]
     end
 
-    module XenPV = struct let addr ~xs ~domid _ ~nics = 6 end
+    module XenPV = struct let addr ~xs:_ ~domid:_ _ ~nics:_ = 6 end
 
     module VGPU = struct let device ~index = Some (8 + index) end
 
@@ -3322,7 +3242,7 @@ module Backend = struct
     end
 
     module PCI = struct
-      let assign_guest ~xs ~index ~host =
+      let assign_guest ~xs:_ ~index ~host:_ =
         (* domain here refers to PCI segment from SBDF, and not a Xen domain *)
         Some {Pci.domain= 0; bus= 0; dev= 8 + index; fn= 0}
     end
@@ -3501,7 +3421,7 @@ module Backend = struct
         with _ -> None
       in
       let add_domain id =
-        try add id with e -> error "Adding QMP socket for domain %d failed" id
+        try add id with _ -> error "Adding QMP socket for domain %d failed" id
       in
       ( try
           debug "Starting QMP_Event thread using Polly" ;
@@ -3518,7 +3438,7 @@ module Backend = struct
       while true do
         try
           ignore
-          @@ Polly.wait m 10 forever (fun m fd events ->
+          @@ Polly.wait m 10 forever (fun _ fd events ->
                  Lookup.domid_of fd >>= fun domid ->
                  Lookup.channel_of domid >>= fun c ->
                  let qmp = Qmp_protocol.to_fd c in
@@ -3691,15 +3611,15 @@ module Backend = struct
               | Qmp.Hotpluggable_cpus x -> (
                   x
                   |> List.filter
-                       (fun Qmp.Device.VCPU.{qom_path; props= {socket_id}} ->
+                       (fun Qmp.Device.VCPU.{props= {socket_id; _}; _} ->
                          socket_id = devid
                      )
                   |> function
                   | [] ->
                       err (sprintf "No QEMU CPU found with devid %d" devid)
-                  | Qmp.Device.VCPU.{qom_path= None} :: _ ->
+                  | Qmp.Device.VCPU.{qom_path= None; _} :: _ ->
                       err (sprintf "No qom_path for QEMU CPU devid %d" devid)
-                  | Qmp.Device.VCPU.{qom_path= Some p} :: _ ->
+                  | Qmp.Device.VCPU.{qom_path= Some p; _} :: _ ->
                       p
                 )
               | other ->
@@ -3736,13 +3656,13 @@ module Backend = struct
                     , msg
                     )
                  )
-        | exception e ->
+        | exception _ ->
             debug "assert_can_suspend: OK (domid=%d)" domid ;
             ()
 
       (* key not present *)
 
-      let suspend (task : Xenops_task.task_handle) ~xs ~qemu_domid domid =
+      let suspend (_ : Xenops_task.task_handle) ~xs:_ ~qemu_domid:_ domid =
         let as_msg cmd = Qmp.(Success (Some __LOC__, cmd)) in
         let perms = [Unix.O_WRONLY; Unix.O_CREAT] in
         let save_file = sprintf qemu_save_path domid in
@@ -3814,8 +3734,8 @@ module Backend = struct
         if not !finished then
           raise (Ioemu_failed (name, "Timeout reached while starting daemon"))
 
-      let init_daemon ~task ~path ~args ~domid ~xs ~ready_path ~timeout ~cancel
-          ?(fds = []) _ =
+      let init_daemon ~task ~path ~args ~domid ~xs:_ ~ready_path:_ ~timeout
+          ~cancel:_ ?(fds = []) _ =
         let pid = Qemu.start_daemon ~path ~args ~domid ~fds () in
         wait_event_socket ~task ~name:Qemu.name ~domid ~timeout ;
         QMP_Event.add domid ;
@@ -4034,7 +3954,7 @@ module Backend = struct
         (* add_nic is used in a fold: it adds fd and command line args for a nic
            to the existing fds and arguments (fds, argv) *)
         let none = ["-net"; "none"] in
-        let add_nic (index, fds, argv) (mac, bridge, devid) =
+        let add_nic (index, fds, argv) (mac, _bridge, devid) =
           let ifname = sprintf "tap%d.%d" domid devid in
           let ((uuid, _) as tap) = tap_open ifname in
           let args =
@@ -4264,10 +4184,10 @@ module Dm = struct
       ~timeout:!Xenopsd.varstored_ready_timeout
       ~cancel:(Cancel_utils.Varstored domid) ()
 
-  let start_vgpu ~xc ~xs task ?(restore = false) domid vgpus vcpus profile =
+  let start_vgpu ~xc:_ ~xs task ?(restore = false) domid vgpus vcpus profile =
     let open Xenops_interface.Vgpu in
     match vgpus with
-    | {physical_pci_address= pci; implementation= Nvidia vgpu} :: _ ->
+    | {implementation= Nvidia _; _} :: _ ->
         (* Start DEMU and wait until it has reached the desired state *)
         let state_path = Printf.sprintf "/local/domain/%d/vgpu/state" domid in
         let cancel = Cancel_utils.Vgpu domid in
@@ -4314,9 +4234,9 @@ module Dm = struct
                , Printf.sprintf "Daemon vgpu returned error: %s" error_code
                )
             )
-    | [{physical_pci_address= pci; implementation= GVT_g vgpu}] ->
+    | [{physical_pci_address= pci; implementation= GVT_g _; _}] ->
         PCI.bind [pci] PCI.I915
-    | [{physical_pci_address= pci; implementation= MxGPU vgpu}] ->
+    | [{physical_pci_address= pci; implementation= MxGPU vgpu; _}] ->
         Mutex.execute gimtool_m (fun () ->
             configure_gim ~xs pci vgpu.vgpus_per_pgpu vgpu.framebufferbytes ;
             let keys = [("pf", Xenops_interface.Pci.string_of_address pci)] in
@@ -4454,12 +4374,12 @@ module Dm = struct
     debug "Called Dm.restore_vgpu" ;
     start_vgpu ~xc ~xs task ~restore:true domid vgpus vcpus profile
 
-  let suspend_varstored (task : Xenops_task.task_handle) ~xs domid ~vm_uuid =
+  let suspend_varstored (_ : Xenops_task.task_handle) ~xs domid ~vm_uuid =
     debug "Called Dm.suspend_varstored (domid=%d)" domid ;
     Varstored.stop ~xs domid ;
     Xenops_sandbox.Varstore_guard.read ~domid efivars_save_path ~vm_uuid
 
-  let restore_varstored (task : Xenops_task.task_handle) ~xs ~efivars domid =
+  let restore_varstored (_ : Xenops_task.task_handle) ~xs ~efivars domid =
     debug "Called Dm.restore_varstored (domid=%d)" domid ;
     let path =
       Xenops_sandbox.Varstore_guard.prepare ~domid
