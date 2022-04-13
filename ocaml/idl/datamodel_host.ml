@@ -1588,9 +1588,21 @@ let set_multipathing =
       ]
     ~allowed_roles:_R_POOL_OP ()
 
+let write_uefi_certificates_to_disk =
+  call ~name:"write_uefi_certificates_to_disk"
+    ~lifecycle:[(Published, rel_next, "")]
+    ~doc:"Writes the UEFI certificates to a host disk"
+    ~params:[(Ref _host, "host", "The host")]
+    ~allowed_roles:_R_LOCAL_ROOT_ONLY ~pool_internal:true ~hide_from_docs:true
+    ()
+
 let set_uefi_certificates =
   call ~name:"set_uefi_certificates"
-    ~lifecycle:[(Published, rel_quebec, "")]
+    ~lifecycle:
+      [
+        (Published, rel_quebec, "")
+      ; (Deprecated, rel_next, "Use Pool.set_uefi_certificates instead")
+      ]
     ~doc:"Sets the UEFI certificates on a host"
     ~params:
       [
@@ -1834,6 +1846,7 @@ let t =
       ; allocate_resources_for_vm
       ; set_iscsi_iqn
       ; set_multipathing
+      ; write_uefi_certificates_to_disk
       ; set_uefi_certificates
       ; notify_accept_new_pool_secret
       ; notify_send_new_pool_secret
@@ -2036,7 +2049,11 @@ let t =
             ~default_value:(Some (VBool false)) ~ty:Bool "multipathing"
             "Specifies whether multipathing is enabled"
         ; field ~qualifier:StaticRO
-            ~lifecycle:[(Published, rel_quebec, "")]
+            ~lifecycle:
+              [
+                (Published, rel_quebec, "")
+              ; (Deprecated, rel_next, "Use Pool.uefi_certificates instead")
+              ]
             ~default_value:(Some (VString "")) ~ty:String "uefi_certificates"
             "The UEFI certificates allowing Secure Boot"
         ; field ~qualifier:DynamicRO

@@ -2555,11 +2555,63 @@ let allocate_resources_for_vm ~__context ~self ~vm ~live =
   (* Implemented entirely in Message_forwarding *)
   ()
 
+(* Sync uefi certificates with the ones of the hosts *)
+let extract_certificate_file name =
+  if String.contains name '/' then
+    (* Internal error: tarfile not created correctly *)
+    failwith ("Path in certificate tarball %s contains '/'" ^ name) ;
+  let path = Filename.concat !Xapi_globs.varstore_dir name in
+  Helpers.touch_file path ; path
+
+let with_temp_file_contents ~contents f =
+  let filename, out = Filename.open_temp_file "xapi-uefi-certificates" "tar" in
+  Xapi_stdext_pervasives.Pervasiveext.finally
+    (fun () ->
+      Xapi_stdext_pervasives.Pervasiveext.finally
+        (fun () -> output_string out contents)
+        (fun () -> close_out out) ;
+      Unixext.with_file filename [Unix.O_RDONLY] 0 f
+    )
+    (fun () -> Sys.remove filename)
+
+let write_uefi_certificates_to_disk ~__context ~host =
+  if
+    Sys.file_exists !Xapi_globs.varstore_dir
+    && Sys.is_directory !Xapi_globs.varstore_dir
+  then
+    match
+      Base64.decode
+        (Db.Pool.get_uefi_certificates ~__context
+           ~self:(Helpers.get_pool ~__context)
+        )
+    with
+    | Ok contents ->
+        (* Remove existing certs before extracting xapi ones
+         * to avoid a extract override issue. *)
+        List.iter
+          (fun name ->
+            let path = Filename.concat !Xapi_globs.varstore_dir name in
+            Unixext.unlink_safe path
+          )
+          ["PK.auth"; "KEK.auth"; "db.auth"; "dbx.auth"] ;
+        (* No uefi certificates, nothing to do. *)
+        if contents <> "" then (
+          with_temp_file_contents ~contents
+            (Tar_unix.Archive.extract extract_certificate_file) ;
+          debug "UEFI tar file extracted to temporary directory"
+        )
+    (* No UEFI tar file. *)
+    | Error _ ->
+        debug
+          "UEFI tar file was not extracted: it was not base64-encoded correctly"
+
 let set_uefi_certificates ~__context ~host ~value =
   Db.Host.set_uefi_certificates ~__context ~self:host ~value ;
-  let pool = Helpers.get_pool ~__context in
-  if value <> "" then
-    Db.Pool.set_uefi_certificates ~__context ~self:pool ~value
+  Helpers.call_api_functions ~__context (fun rpc session_id ->
+      Client.Client.Pool.set_uefi_certificates rpc session_id
+        (Helpers.get_pool ~__context)
+        value
+  )
 
 let set_iscsi_iqn ~__context ~host ~value =
   if value = "" then

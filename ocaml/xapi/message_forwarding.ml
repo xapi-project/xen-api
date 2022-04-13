@@ -1082,6 +1082,12 @@ functor
         info "Pool.disable_repository_proxy: pool = '%s'"
           (pool_uuid ~__context self) ;
         Local.Pool.disable_repository_proxy ~__context ~self
+
+      let set_uefi_certificates ~__context ~self ~value =
+        info "Pool.set_uefi_certificates: pool='%s' value='%s'"
+          (pool_uuid ~__context self)
+          value ;
+        Local.Pool.set_uefi_certificates ~__context ~self ~value
     end
 
     module VM = struct
@@ -3881,6 +3887,14 @@ functor
         let local_fn = Local.Host.set_multipathing ~host ~value in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
             Client.Host.set_multipathing ~rpc ~session_id ~host ~value
+        )
+
+      let write_uefi_certificates_to_disk ~__context ~host =
+        info "Host.write_uefi_certificates_to_disk: host='%s' "
+          (host_uuid ~__context host) ;
+        let local_fn = Local.Host.write_uefi_certificates_to_disk ~host in
+        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
+            Client.Host.write_uefi_certificates_to_disk ~rpc ~session_id ~host
         )
 
       let set_uefi_certificates ~__context ~host ~value =

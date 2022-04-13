@@ -888,8 +888,7 @@ let rec create_or_get_host_on_master __context rpc session_id (host_ref, host) :
       (* Copy the uefi-certificates into the newly created host record *)
       no_exn
         (fun () ->
-          Client.Host.set_uefi_certificates ~rpc ~session_id ~host:ref
-            ~value:host.API.host_uefi_certificates
+          Client.Host.write_uefi_certificates_to_disk ~rpc ~session_id ~host:ref
         )
         () ;
       (* Copy the crashdump SR *)
@@ -1537,6 +1536,26 @@ let join_common ~__context ~master_address ~master_username ~master_password
             ~pool_secret:!new_pool_secret ~force:None
         with e ->
           error "Failed fetching a database backup from the master: %s"
+            (ExnHelper.string_of_exn e)
+      ) ;
+      (* Writes UEFI certificates of the pool we join to this host's disk. *)
+      ( try
+          let _uefi_certs =
+            Client.Pool.get_uefi_certificates ~rpc ~session_id
+              ~self:(get_pool rpc session_id)
+          in
+          Db.Pool.set_uefi_certificates ~__context
+            ~self:(Helpers.get_pool ~__context)
+            ~value:_uefi_certs ;
+          Helpers.call_api_functions ~__context
+            (fun local_rpc local_session_id ->
+              Client.Host.write_uefi_certificates_to_disk local_rpc
+                local_session_id
+                (Helpers.get_localhost ~__context)
+          )
+        with e ->
+          error
+            "Unable to set the write the new pool certificates to the disk : %s"
             (ExnHelper.string_of_exn e)
       ) ;
       (* this is where we try and sync up as much state as we can
@@ -3556,3 +3575,13 @@ let disable_repository_proxy ~__context ~self =
     Xapi_stdext_pervasives.Pervasiveext.ignore_exn (fun _ ->
         Db.Secret.destroy ~__context ~self:old_secret_ref
     )
+
+let set_uefi_certificates ~__context ~self ~value =
+  Db.Pool.set_uefi_certificates ~__context ~self ~value ;
+  Helpers.call_api_functions ~__context (fun rpc session_id ->
+      List.iter
+        (fun host ->
+          Client.Host.write_uefi_certificates_to_disk rpc session_id host
+        )
+        (Db.Host.get_all ~__context)
+  )

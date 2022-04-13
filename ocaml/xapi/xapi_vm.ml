@@ -298,46 +298,6 @@ let update_platform_secureboot ~__context ~self platform =
   | _ ->
       platform
 
-let extract_certificate_file name =
-  if String.contains name '/' then
-    (* Internal error: tarfile not created correctly *)
-    failwith ("Invalid path in certificate tarball: " ^ name) ;
-  let path = Filename.concat !Xapi_globs.varstore_dir name in
-  Helpers.touch_file path ; path
-
-let with_temp_file_contents ~contents f =
-  let filename, out = Filename.open_temp_file "xapi_uefi_certificates" "tar" in
-  Xapi_stdext_pervasives.Pervasiveext.finally
-    (fun () ->
-      Xapi_stdext_pervasives.Pervasiveext.finally
-        (fun () -> output_string out contents)
-        (fun () -> close_out out) ;
-      Unixext.with_file filename [Unix.O_RDONLY] 0 f
-    )
-    (fun () -> Sys.remove filename)
-
-let save_uefi_certificates_to_dir ~__context ~pool ~vm =
-  let uefi_key = Filename.concat !Xapi_globs.varstore_dir "KEK.auth" in
-  if not (Sys.file_exists uefi_key) then
-    if
-      Sys.file_exists !Xapi_globs.varstore_dir
-      && Sys.is_directory !Xapi_globs.varstore_dir
-    then
-      match
-        Base64.decode (Db.Pool.get_uefi_certificates ~__context ~self:pool)
-      with
-      | Ok contents when contents <> "" ->
-          with_temp_file_contents ~contents
-            (Tar_unix.Archive.extract extract_certificate_file) ;
-          debug "UEFI tar file extracted to varstore directory"
-      | Ok _ ->
-          ()
-      (* no UEFI tar file *)
-      | Error _ ->
-          debug
-            "UEFI tar file was not extracted: it was not base64-encoded \
-             correctly"
-
 let start ~__context ~vm ~start_paused ~force =
   let vmr = Db.VM.get_record ~__context ~self:vm in
   if vmr.API.vM_ha_restart_priority = Constants.ha_restart then (
@@ -351,7 +311,6 @@ let start ~__context ~vm ~start_paused ~force =
     | Bios ->
         Vm_platform.fallback_device_model_default_value
     | Uefi _ ->
-        save_uefi_certificates_to_dir ~__context ~pool ~vm ;
         Vm_platform.fallback_device_model_default_value_uefi
   in
   let platform =
