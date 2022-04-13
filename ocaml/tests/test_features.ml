@@ -23,10 +23,8 @@ module OfAssocList = Generic.MakeStateless (struct
 
     let string_of_input_t = Test_printers.(assoc_list string string)
 
-    let string_of_output_t =
-      Test_printers.(
-        fun features -> String.concat "," (List.map name_of_feature features)
-      )
+    let string_of_output_t features =
+      String.concat "," (List.map name_of_feature features)
   end
 
   let transform = of_assoc_list

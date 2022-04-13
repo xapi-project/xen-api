@@ -48,6 +48,9 @@ type accounting_policy =
   | Dynamic_min
       (** use dynamic_min: liberal: assumes that guests always co-operate. *)
 
+val default_policy : __context:Context.t -> accounting_policy
+(** Accounting policy depending on the availability of DMC *)
+
 val get_host_memory_summary :
   __context:Context.t -> host:API.ref_host -> host_memory_summary
 (** Return a host's memory summary from live database contents. *)

@@ -64,9 +64,9 @@ let run_test (nv, nm, force, permitted) op =
         (Printf.sprintf "nv=%b nm=%b force=%b permitted=%b op=%s" nv nm force
            permitted (op_string op)
         )
-  | Some (x, xs) when not permitted ->
+  | Some _ when not permitted ->
       ()
-  | Some (x, xs) ->
+  | Some (x, _) ->
       Alcotest.fail
         (Printf.sprintf "nv=%b nm=%b force=%b permitted=%b op=%s error was=%s"
            nv nm force permitted (op_string op) x

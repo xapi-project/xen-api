@@ -139,7 +139,7 @@ let test_migration_allowed_when_cbt_enabled_vdis_are_not_moved () =
 
 let test_sxm_allowed_when_rum () =
   with_test_vm (fun __context vm_ref ->
-      let master = Test_common.make_host __context () in
+      let master = Test_common.make_host ~__context () in
       let pool = Test_common.make_pool ~__context ~master () in
       Db.Pool.add_to_other_config ~__context ~self:pool
         ~key:Xapi_globs.rolling_upgrade_in_progress ~value:"x" ;

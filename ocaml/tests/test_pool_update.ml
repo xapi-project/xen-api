@@ -29,16 +29,16 @@ let test_pool_update_refcount () =
   let __context = make_test_database () in
   let vdi = make_vdi ~__context ~virtual_size:4096L () in
   Xapi_pool_update.with_inc_refcount ~__context ~uuid:"a" ~vdi
-    (fun ~__context ~uuid ~vdi -> ()
+    (fun ~__context ~uuid:_ ~vdi:_ -> ()
   ) ;
   Xapi_pool_update.with_inc_refcount ~__context ~uuid:"a" ~vdi
-    (fun ~__context ~uuid ~vdi -> assert_equal 0 1
+    (fun ~__context ~uuid:_ ~vdi:_ -> assert_equal 0 1
   ) ;
   Xapi_pool_update.with_dec_refcount ~__context ~uuid:"a" ~vdi
-    (fun ~__context ~uuid ~vdi -> assert_equal 0 1
+    (fun ~__context ~uuid:_ ~vdi:_ -> assert_equal 0 1
   ) ;
   Xapi_pool_update.with_dec_refcount ~__context ~uuid:"a" ~vdi
-    (fun ~__context ~uuid ~vdi -> ()
+    (fun ~__context ~uuid:_ ~vdi:_ -> ()
   )
 
 let test_assert_space_available () =

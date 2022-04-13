@@ -1750,6 +1750,7 @@ functor
 
       let start ~__context ~vm ~start_paused ~force =
         info "VM.start: VM = '%s'" (vm_uuid ~__context vm) ;
+        Xapi_vm_helpers.enforce_memory_constraints_for_dmc ~__context ~vm ;
         let local_fn = Local.VM.start ~vm ~start_paused ~force in
         let host =
           with_vm_operation ~__context ~self:vm ~doc:"VM.start" ~op:`start
@@ -1813,6 +1814,7 @@ functor
                 ()
           )
           (Db.Host.get_current_operations ~__context ~self:host) ;
+        Xapi_vm_helpers.enforce_memory_constraints_for_dmc ~__context ~vm ;
         info "VM.start_on: VM = '%s'; host '%s'" (vm_uuid ~__context vm)
           (host_uuid ~__context host) ;
         let local_fn = Local.VM.start_on ~vm ~host ~start_paused ~force in
@@ -1880,6 +1882,7 @@ functor
 
       let unpause ~__context ~vm =
         info "VM.unpause: VM = '%s'" (vm_uuid ~__context vm) ;
+        Xapi_vm_helpers.assert_dmc_compatible ~__context ~vm ;
         let local_fn = Local.VM.unpause ~vm in
         with_vm_operation ~__context ~self:vm ~doc:"VM.unpause" ~op:`unpause
           (fun () ->
@@ -2254,6 +2257,7 @@ functor
       (* Like start.. resume on any suitable host *)
       let resume ~__context ~vm ~start_paused ~force =
         info "VM.resume: VM = '%s'" (vm_uuid ~__context vm) ;
+        Xapi_vm_helpers.assert_dmc_compatible ~__context ~vm ;
         let local_fn = Local.VM.resume ~vm ~start_paused ~force in
         let host =
           with_vm_operation ~__context ~self:vm ~doc:"VM.resume" ~op:`resume
@@ -2293,6 +2297,7 @@ functor
           Helpers.assert_host_has_highest_version_in_pool ~__context ~host ;
         info "VM.resume_on: VM = '%s'; host = '%s'" (vm_uuid ~__context vm)
           (host_uuid ~__context host) ;
+        Xapi_vm_helpers.assert_dmc_compatible ~__context ~vm ;
         let local_fn = Local.VM.resume_on ~vm ~host ~start_paused ~force in
         with_vm_operation ~__context ~self:vm ~doc:"VM.resume_on" ~op:`resume_on
           (fun () ->
@@ -2340,6 +2345,7 @@ functor
           (host_uuid ~__context host) ;
         let local_fn = Local.VM.pool_migrate ~vm ~host ~options in
         (* Check that the VM is compatible with the host it is being migrated to. *)
+        Xapi_vm_helpers.assert_dmc_compatible ~__context ~vm ;
         let force =
           try bool_of_string (List.assoc "force" options) with _ -> false
         in

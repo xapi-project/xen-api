@@ -185,7 +185,6 @@ let sync ~__context ~self ~token ~token_id =
           ; !Xapi_globs.local_pool_repo_dir
           ; "--downloadcomps"
           ; "--download-metadata"
-          ; (if !Xapi_globs.repository_gpgcheck then "--gpgcheck" else "")
           ; "--delete"
           ; "--plugins"
           ; Printf.sprintf "--repoid=%s" repo_name
@@ -343,10 +342,10 @@ let set_available_updates ~__context =
             |> Filename.concat repo_name
             |> Filename.concat !Xapi_globs.local_pool_repo_dir
           in
-          let md = UpdateInfoMetaData.of_xml_file xml_path in
+          let md = RepoMetaData.(of_xml_file xml_path UpdateInfo) in
           Db.Repository.set_hash ~__context ~self:repository
-            ~value:md.UpdateInfoMetaData.checksum ;
-          Some md.UpdateInfoMetaData.checksum
+            ~value:md.RepoMetaData.checksum ;
+          Some md.RepoMetaData.checksum
         ) else
           None
       )
@@ -362,19 +361,30 @@ let create_pool_repository ~__context ~self =
   match Sys.file_exists repo_dir with
   | true -> (
     try
-      let comps_file = Filename.concat repo_dir "comps.xml" in
+      let cachedir = get_repo_config repo_name "cachedir" in
+      let group_params =
+        match
+          RepoMetaData.(
+            of_xml_file (Filename.concat cachedir "repomd.xml") Group
+          )
+        with
+        | RepoMetaData.{checksum= _; location} ->
+            ["-g"; Filename.concat cachedir (Filename.basename location)]
+        | exception _ ->
+            []
+      in
       ignore
         (Helpers.call_script !Xapi_globs.createrepo_cmd
-           ["-g"; comps_file; repo_dir]
+           (group_params @ [repo_dir])
         ) ;
       if Db.Repository.get_update ~__context ~self then
-        let cachedir = get_repo_config repo_name "cachedir" in
         let md =
-          UpdateInfoMetaData.of_xml_file (Filename.concat cachedir "repomd.xml")
+          RepoMetaData.(
+            of_xml_file (Filename.concat cachedir "repomd.xml") UpdateInfo
+          )
         in
         let updateinfo_xml_gz_path =
-          Filename.concat repo_dir
-            (md.UpdateInfoMetaData.checksum ^ "-updateinfo.xml.gz")
+          Filename.concat repo_dir (Filename.basename md.RepoMetaData.location)
         in
         match Sys.file_exists updateinfo_xml_gz_path with
         | true ->
@@ -483,19 +493,19 @@ let parse_updateinfo ~__context ~self =
   let repo_dir = Filename.concat !Xapi_globs.local_pool_repo_dir repo_name in
   let repodata_dir = Filename.concat repo_dir "repodata" in
   let repomd_xml_path = Filename.concat repodata_dir "repomd.xml" in
-  let md = UpdateInfoMetaData.of_xml_file repomd_xml_path in
-  if hash <> md.UpdateInfoMetaData.checksum then (
+  let md = RepoMetaData.(of_xml_file repomd_xml_path UpdateInfo) in
+  if hash <> md.RepoMetaData.checksum then (
     let msg =
       Printf.sprintf
         "Unexpected mismatch between XAPI DB (%s) and YUM DB (%s). Need to do \
          pool.sync-updates again."
-        hash md.UpdateInfoMetaData.checksum
+        hash md.RepoMetaData.checksum
     in
     error "%s: %s" repo_name msg ;
     raise Api_errors.(Server_error (internal_error, [msg]))
   ) ;
   let updateinfo_xml_gz_path =
-    Filename.concat repo_dir md.UpdateInfoMetaData.location
+    Filename.concat repo_dir md.RepoMetaData.location
   in
   match Sys.file_exists updateinfo_xml_gz_path with
   | false ->

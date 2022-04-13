@@ -3,14 +3,14 @@ let sr_scan_test rpc session_id sr_info () =
   let sr = sr_info.Qt.sr in
   Alcotest.(check unit)
     "SR_SCAN should be able to scan a working SR" ()
-    (Client.Client.SR.scan rpc session_id sr)
+    (Client.Client.SR.scan ~rpc ~session_id ~sr)
 
 (** If SR_UPDATE is present then try it out *)
 let sr_update_test rpc session_id sr_info () =
   let sr = sr_info.Qt.sr in
   Alcotest.(check unit)
     "SR_UPDATE should not fail" ()
-    (Client.Client.SR.update rpc session_id sr)
+    (Client.Client.SR.update ~rpc ~session_id ~sr)
 
 (** Basic support for parsing the SR probe result *)
 type sr_probe_sr = {uuid: string}
@@ -43,18 +43,20 @@ let parse_sr_probe_xml (xml : string) : sr_probe_sr list =
 let sr_probe_test rpc session_id sr_info () =
   let sr = sr_info.Qt.sr in
   (* Acquire device config parameters from an attached PBD *)
-  let all_pbds = Client.Client.SR.get_PBDs rpc session_id sr in
+  let all_pbds = Client.Client.SR.get_PBDs ~rpc ~session_id ~self:sr in
   match
     List.filter
-      (fun pbd -> Client.Client.PBD.get_currently_attached rpc session_id pbd)
+      (fun pbd ->
+        Client.Client.PBD.get_currently_attached ~rpc ~session_id ~self:pbd
+      )
       all_pbds
   with
   | [] ->
       Alcotest.fail "Couldn't find an attached PBD"
   | pbd :: _ ->
-      let srr = Client.Client.SR.get_record rpc session_id sr in
-      let pbdr = Client.Client.PBD.get_record rpc session_id pbd in
-      Client.Client.PBD.unplug rpc session_id pbd ;
+      let srr = Client.Client.SR.get_record ~rpc ~session_id ~self:sr in
+      let pbdr = Client.Client.PBD.get_record ~rpc ~session_id ~self:pbd in
+      Client.Client.PBD.unplug ~rpc ~session_id ~self:pbd ;
       let xml =
         Xapi_stdext_pervasives.Pervasiveext.finally
           (fun () ->
@@ -63,7 +65,7 @@ let sr_probe_test rpc session_id sr_info () =
               ~sm_config:srr.API.sR_sm_config ~_type:srr.API.sR_type
           )
           (* Restore the original state even if the above code fails *)
-            (fun () -> Client.Client.PBD.plug rpc session_id pbd
+            (fun () -> Client.Client.PBD.plug ~rpc ~session_id ~self:pbd
           )
       in
       let srs = parse_sr_probe_xml xml in

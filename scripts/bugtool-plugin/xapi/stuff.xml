@@ -7,4 +7,9 @@
 <command label="diagnostic_net_stats">@OPTDIR@/bin/xe diagnostic-net-stats</command>
 <command label="host_data_source_list">@OPTDIR@/bin/xe host-data-source-list host=$(@OPTDIR@/bin/xe pool-list params=master --minimal)</command>
 <command label="sr_data_source_list">@OPTDIR@/bin/xe sr-list --minimal | tr , '\n' | xargs --verbose -n 1 -I {} @OPTDIR@/bin/xe sr-data-source-list uuid={} 2>&amp;1</command>
+<files>@ETCDIR@/stunnel/xapi.conf</files>
+<files>@ETCDIR@/stunnel/xapi-pool-ca-bundle.pem</files>
+<files>@ETCDIR@/stunnel/xapi-stunnel-ca-bundle.pem</files>
+<command label="xapi_cert">cat @ETCXENDIR@/xapi-ssl.pem | @BINDIR@/openssl x509 -text</command>
+<command label="xapi_pool_cert">cat @ETCXENDIR@/xapi-pool-tls.pem | @BINDIR@/openssl x509 -text</command>
 </collect>

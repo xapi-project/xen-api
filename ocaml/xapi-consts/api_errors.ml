@@ -1275,3 +1275,5 @@ let cannot_restart_device_model = "CANNOT_RESTART_DEVICE_MODEL"
 let invalid_repository_proxy_url = "INVALID_REPOSITORY_PROXY_URL"
 
 let invalid_repository_proxy_credential = "INVALID_REPOSITORY_PROXY_CREDENTIAL"
+
+let dynamic_memory_control_unavailable = "DYNAMIC_MEMORY_CONTROL_UNAVAILABLE"

@@ -76,58 +76,105 @@ module PoolCpuinfo = Generic.MakeStateful (struct
   let tests =
     `QuickAndAutoDocumented
       [
-        ( [(cpu_info "Abacus" "1" "1" "0000000a" "0000000a", true)]
-        , cpu_pinfo "Abacus" "1" "1" "0000000a" "0000000a"
-        )
-      ; ( [
-            (cpu_info "Abacus" "2" "4" "0000000a" "0000000a", true)
-          ; (cpu_info "Abacus" "1" "1" "0000000a" "0000000a", true)
-          ]
-        , cpu_pinfo "Abacus" "3" "5" "0000000a" "0000000a"
-        )
-      ; ( [
-            (cpu_info "Abacus" "8" "2" "0000000a" "00000002", true)
-          ; (cpu_info "Abacus" "4" "1" "0000000f" "00000001", true)
-          ]
-        , cpu_pinfo "Abacus" "12" "3" "0000000a" "00000000"
-        )
-      ; ( [
-            ( cpu_info "Abacus" "24" "1" "ffffffff-ffffffff" "ffffffff-ffffffff"
-            , true
-            )
-          ; ( cpu_info "Abacus" "24" "24" "ffffffff-ffffffff" "ffffffff-ffffffff"
+        ( [
+            ( cpu_info ~vendor:"Abacus" ~cpu_count:"1" ~socket_count:"1"
+                ~features_hvm:"0000000a" ~features_pv:"0000000a"
             , true
             )
           ]
-        , cpu_pinfo "Abacus" "48" "25" "ffffffff-ffffffff" "ffffffff-ffffffff"
+        , cpu_pinfo ~vendor:"Abacus" ~cpu_count:"1" ~socket_count:"1"
+            ~features_hvm:"0000000a" ~features_pv:"0000000a"
         )
       ; ( [
-            ( cpu_info "Abacus" "1" "1" "ffffffff" "ffffffff-ffffffff-ffffffff"
+            ( cpu_info ~vendor:"Abacus" ~cpu_count:"2" ~socket_count:"4"
+                ~features_hvm:"0000000a" ~features_pv:"0000000a"
             , true
             )
-          ; ( cpu_info "Abacus" "1" "1" "ffffffff-ffffffff" "ffffffff-ffffffff"
+          ; ( cpu_info ~vendor:"Abacus" ~cpu_count:"1" ~socket_count:"1"
+                ~features_hvm:"0000000a" ~features_pv:"0000000a"
             , true
             )
           ]
-        , cpu_pinfo "Abacus" "2" "2" "ffffffff-00000000"
-            "ffffffff-ffffffff-00000000"
+        , cpu_pinfo ~vendor:"Abacus" ~cpu_count:"3" ~socket_count:"5"
+            ~features_hvm:"0000000a" ~features_pv:"0000000a"
         )
       ; ( [
-            (cpu_info "Abacus" "10" "1" "01230123-5a5a5a5a" "00000002", true)
-          ; (cpu_info "Abacus" "1" "10" "ffff1111-a5a56666" "00004242", true)
+            ( cpu_info ~vendor:"Abacus" ~cpu_count:"8" ~socket_count:"2"
+                ~features_hvm:"0000000a" ~features_pv:"00000002"
+            , true
+            )
+          ; ( cpu_info ~vendor:"Abacus" ~cpu_count:"4" ~socket_count:"1"
+                ~features_hvm:"0000000f" ~features_pv:"00000001"
+            , true
+            )
           ]
-        , cpu_pinfo "Abacus" "11" "11" "01230101-00004242" "00000002"
+        , cpu_pinfo ~vendor:"Abacus" ~cpu_count:"12" ~socket_count:"3"
+            ~features_hvm:"0000000a" ~features_pv:"00000000"
+        )
+      ; ( [
+            ( cpu_info ~vendor:"Abacus" ~cpu_count:"24" ~socket_count:"1"
+                ~features_hvm:"ffffffff-ffffffff"
+                ~features_pv:"ffffffff-ffffffff"
+            , true
+            )
+          ; ( cpu_info ~vendor:"Abacus" ~cpu_count:"24" ~socket_count:"24"
+                ~features_hvm:"ffffffff-ffffffff"
+                ~features_pv:"ffffffff-ffffffff"
+            , true
+            )
+          ]
+        , cpu_pinfo ~vendor:"Abacus" ~cpu_count:"48" ~socket_count:"25"
+            ~features_hvm:"ffffffff-ffffffff" ~features_pv:"ffffffff-ffffffff"
+        )
+      ; ( [
+            ( cpu_info ~vendor:"Abacus" ~cpu_count:"1" ~socket_count:"1"
+                ~features_hvm:"ffffffff"
+                ~features_pv:"ffffffff-ffffffff-ffffffff"
+            , true
+            )
+          ; ( cpu_info ~vendor:"Abacus" ~cpu_count:"1" ~socket_count:"1"
+                ~features_hvm:"ffffffff-ffffffff"
+                ~features_pv:"ffffffff-ffffffff"
+            , true
+            )
+          ]
+        , cpu_pinfo ~vendor:"Abacus" ~cpu_count:"2" ~socket_count:"2"
+            ~features_hvm:"ffffffff-00000000"
+            ~features_pv:"ffffffff-ffffffff-00000000"
+        )
+      ; ( [
+            ( cpu_info ~vendor:"Abacus" ~cpu_count:"10" ~socket_count:"1"
+                ~features_hvm:"01230123-5a5a5a5a" ~features_pv:"00000002"
+            , true
+            )
+          ; ( cpu_info ~vendor:"Abacus" ~cpu_count:"1" ~socket_count:"10"
+                ~features_hvm:"ffff1111-a5a56666" ~features_pv:"00004242"
+            , true
+            )
+          ]
+        , cpu_pinfo ~vendor:"Abacus" ~cpu_count:"11" ~socket_count:"11"
+            ~features_hvm:"01230101-00004242" ~features_pv:"00000002"
         )
       ; (* Include one host that is not HVM-capable *)
         ( [
-            (cpu_info "Abacus" "10" "1" "00000000-00000000" "00000002", false)
-          ; (cpu_info "Abacus" "1" "10" "ffff1111-a5a56666" "00004242", true)
+            ( cpu_info ~vendor:"Abacus" ~cpu_count:"10" ~socket_count:"1"
+                ~features_hvm:"00000000-00000000" ~features_pv:"00000002"
+            , false
+            )
+          ; ( cpu_info ~vendor:"Abacus" ~cpu_count:"1" ~socket_count:"10"
+                ~features_hvm:"ffff1111-a5a56666" ~features_pv:"00004242"
+            , true
+            )
           ]
-        , cpu_pinfo "Abacus" "11" "11" "ffff1111-a5a56666" "00000002"
+        , cpu_pinfo ~vendor:"Abacus" ~cpu_count:"11" ~socket_count:"11"
+            ~features_hvm:"ffff1111-a5a56666" ~features_pv:"00000002"
         )
       ; (* Test a Dundee host which has features_hvm, but not features_hvm_host (test for CA-188665 no longer relevant, was for pre-Dundeee) *)
         ( [
-            (cpu_info "Abacus" "1" "1" "01230123-5a5a5a5a" "00000002", true)
+            ( cpu_info ~vendor:"Abacus" ~cpu_count:"1" ~socket_count:"1"
+                ~features_hvm:"01230123-5a5a5a5a" ~features_pv:"00000002"
+            , true
+            )
           ; ( [
                 ("cpu_count", "1")
               ; ("features", "ffff1111-a5a56666")
@@ -139,18 +186,25 @@ module PoolCpuinfo = Generic.MakeStateful (struct
             , true
             )
           ]
-        , cpu_pinfo "Abacus" "2" "2" "01230101-00004242" "00000002"
+        , cpu_pinfo ~vendor:"Abacus" ~cpu_count:"2" ~socket_count:"2"
+            ~features_hvm:"01230101-00004242" ~features_pv:"00000002"
         )
       ; (* Test that the new _host fields are used for pool leveling *)
         ( [
-            ( cpu_info_common "Abacus" "1" "1" "deadbeef-deadbeef" "deadbeef"
-                "01230123-5a5a5a5a" "00000002"
+            ( cpu_info_common ~vendor:"Abacus" ~cpu_count:"1" ~socket_count:"1"
+                ~features_hvm:"deadbeef-deadbeef" ~features_pv:"deadbeef"
+                ~features_hvm_host:"01230123-5a5a5a5a"
+                ~features_pv_host:"00000002"
             , true
             )
-          ; (cpu_info "Abacus" "1" "1" "01230123-5a5a5a5a" "00000002", true)
+          ; ( cpu_info ~vendor:"Abacus" ~cpu_count:"1" ~socket_count:"1"
+                ~features_hvm:"01230123-5a5a5a5a" ~features_pv:"00000002"
+            , true
+            )
           ]
-        , cpu_info_common "Abacus" "2" "2" "00210023-5a081a4a" "00000002"
-            "01230123-5a5a5a5a" "00000002"
+        , cpu_info_common ~vendor:"Abacus" ~cpu_count:"2" ~socket_count:"2"
+            ~features_hvm:"00210023-5a081a4a" ~features_pv:"00000002"
+            ~features_hvm_host:"01230123-5a5a5a5a" ~features_pv_host:"00000002"
         )
       ]
 end)

@@ -1523,12 +1523,13 @@ let reset_server_certificate ~__context ~host =
   let write_cert_fs () = _new_host_cert ~dbg ~path in
   replace_host_certificate ~__context ~type':`host ~host write_cert_fs
 
-let emergency_reset_server_certificate ~(__context : 'a) =
+let emergency_reset_server_certificate ~__context =
+  let dbg = Context.string_of_task __context in
   let path = !Xapi_globs.server_cert_path in
-  let (_ : X509.Certificate.t) =
-    _new_host_cert ~dbg:"emergency_reset_certificate" ~path
-  in
-  ()
+  (* Different from the non-emergency call this context doesn't allow database
+     access *)
+  let (_ : X509.Certificate.t) = _new_host_cert ~dbg ~path in
+  Xapi_stunnel_server.reload ()
 
 let refresh_server_certificate ~__context ~host =
   (* we need to do different things depending on whether we

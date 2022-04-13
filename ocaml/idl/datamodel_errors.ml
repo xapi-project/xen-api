@@ -147,6 +147,10 @@ let _ =
     ~doc:"The function is not implemented" () ;
   error Api_errors.unimplemented_in_sm_backend ["message"]
     ~doc:"You have attempted a function which is not implemented" () ;
+
+  error Api_errors.dynamic_memory_control_unavailable ["VM"]
+    ~doc:"The VM requires Dynamic Memory Control (DMC), which is unavailable" () ;
+
   (* DB errors *)
   error Api_errors.handle_invalid ["class"; "handle"]
     ~doc:
@@ -172,8 +176,8 @@ let _ =
     () ;
   error Api_errors.memory_constraint_violation_maxpin ["reason"]
     ~doc:
-      "The dynamic memory range violates constraint static_min = dynamic_min = \
-       dynamic_max = static_max."
+      "The dynamic memory range violates constraint static_min <= dynamic_min \
+       = dynamic_max = static_max."
     () ;
 
   (* Session errors *)

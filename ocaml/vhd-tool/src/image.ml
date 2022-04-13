@@ -8,8 +8,6 @@ let is_nbd_device path =
   let major, _ = get_device_numbers path in
   major = nbd_device_num
 
-module Opt = struct let default d = function None -> d | Some x -> x end
-
 type t = [`Vhd of string | `Raw of string | `Nbd of string * string]
 
 let to_string = function

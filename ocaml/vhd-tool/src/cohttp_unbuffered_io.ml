@@ -66,8 +66,6 @@ let read_http_headers c =
     let remaining x = String.length x.marker - x.i
 
     let matched x = x.i = String.length x.marker
-
-    let to_string x = Printf.sprintf "%d" x.i
   end in
   let marker = Scanner.make end_of_headers in
 

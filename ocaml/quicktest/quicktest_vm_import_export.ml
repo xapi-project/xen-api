@@ -6,7 +6,9 @@ let name_of_sr rpc session_id self =
 let vm_import ?(metadata_only = false) ?(preserve = false) ?sr rpc session_id
     filename =
   let sr_uuid =
-    Option.map (fun sr -> Client.Client.SR.get_uuid rpc session_id sr) sr
+    Option.map
+      (fun sr -> Client.Client.SR.get_uuid ~rpc ~session_id ~self:sr)
+      sr
   in
   let args = ["vm-import"; "filename=" ^ filename] in
   let args =
@@ -16,31 +18,33 @@ let vm_import ?(metadata_only = false) ?(preserve = false) ?sr rpc session_id
   let args = if preserve then args @ ["preserve=true"] else args in
   let newvm_uuids = String.split_on_char ',' (Qt.cli_cmd args) in
   List.map
-    (fun uuid -> Client.Client.VM.get_by_uuid rpc session_id uuid)
+    (fun uuid -> Client.Client.VM.get_by_uuid ~rpc ~session_id ~uuid)
     newvm_uuids
 
 let vm_export ?(metadata_only = false) rpc session_id vm filename =
-  let uuid = Client.Client.VM.get_uuid rpc session_id vm in
+  let uuid = Client.Client.VM.get_uuid ~rpc ~session_id ~self:vm in
   let args = ["vm-export"; "vm=" ^ uuid; "filename=" ^ filename] in
   let args = if metadata_only then args @ ["metadata=true"] else args in
   ignore (Qt.cli_cmd args)
 
 let vm_uninstall rpc session_id vm =
-  let uuid = Client.Client.VM.get_uuid rpc session_id vm in
+  let uuid = Client.Client.VM.get_uuid ~rpc ~session_id ~self:vm in
   ignore (Qt.cli_cmd ["vm-uninstall"; "uuid=" ^ uuid; "--force"])
 
 (** Set up export test: create a small VM with a selection of VBDs *)
 let with_setup rpc session_id sr vm_template f =
   print_endline "Setting up test VM" ;
-  let uuid = Client.Client.VM.get_uuid rpc session_id vm_template in
+  let uuid = Client.Client.VM.get_uuid ~rpc ~session_id ~self:vm_template in
   print_endline (Printf.sprintf "Template has uuid: %s%!" uuid) ;
   Qt.VM.with_new rpc session_id ~template:vm_template (fun vm ->
       print_endline (Printf.sprintf "Installed new VM") ;
       print_endline
         (Printf.sprintf "Using SR: %s" (name_of_sr rpc session_id sr)) ;
       let vdi =
-        Client.Client.VDI.create rpc session_id "small" "description" sr
-          4194304L `user false false [] [] [] []
+        Client.Client.VDI.create ~rpc ~session_id ~name_label:"small"
+          ~name_description:"description" ~sR:sr ~virtual_size:4194304L
+          ~_type:`user ~sharable:false ~read_only:false ~other_config:[]
+          ~xenstore_data:[] ~sm_config:[] ~tags:[]
       in
       ignore
         (Client.Client.VBD.create ~rpc ~session_id ~vM:vm ~vDI:Ref.null
@@ -64,8 +68,10 @@ let import_export_test rpc session_id sr_info vm_template () =
   with_setup rpc session_id sr vm_template (fun vm ->
       let by_device =
         List.map
-          (fun vbd -> (Client.Client.VBD.get_userdevice rpc session_id vbd, vbd))
-          (Client.Client.VM.get_VBDs rpc session_id vm)
+          (fun vbd ->
+            (Client.Client.VBD.get_userdevice ~rpc ~session_id ~self:vbd, vbd)
+          )
+          (Client.Client.VM.get_VBDs ~rpc ~session_id ~self:vm)
       in
       Xapi_stdext_unix.Unixext.unlink_safe export_filename ;
       vm_export rpc session_id vm export_filename ;
@@ -82,15 +88,17 @@ let import_export_test rpc session_id sr_info vm_template () =
                (name_of_sr rpc session_id sr)
             ) ;
           let vm' = List.hd (vm_import ~sr rpc session_id export_filename) in
-          let vbds = Client.Client.VM.get_VBDs rpc session_id vm' in
+          let vbds = Client.Client.VM.get_VBDs ~rpc ~session_id ~self:vm' in
           if List.length vbds <> List.length by_device then
             Alcotest.fail "Wrong number of VBDs after import" ;
           List.iter
             (fun vbd ->
-              let all = Client.Client.VBD.get_record rpc session_id vbd in
+              let all =
+                Client.Client.VBD.get_record ~rpc ~session_id ~self:vbd
+              in
               let orig_vbd = List.assoc all.API.vBD_userdevice by_device in
               let orig_vbd =
-                Client.Client.VBD.get_record rpc session_id orig_vbd
+                Client.Client.VBD.get_record ~rpc ~session_id ~self:orig_vbd
               in
               (* type, empty should match *)
               if all.API.vBD_type <> orig_vbd.API.vBD_type then
@@ -111,11 +119,11 @@ let import_export_test rpc session_id sr_info vm_template () =
                       (Printf.sprintf
                          "Device %s varies in VDIness (original = %s; new = %s)"
                          all.API.vBD_userdevice
-                         (Client.Client.VDI.get_uuid rpc session_id
-                            orig_vbd.API.vBD_VDI
+                         (Client.Client.VDI.get_uuid ~rpc ~session_id
+                            ~self:orig_vbd.API.vBD_VDI
                          )
-                         (Client.Client.VDI.get_uuid rpc session_id
-                            all.API.vBD_VDI
+                         (Client.Client.VDI.get_uuid ~rpc ~session_id
+                            ~self:all.API.vBD_VDI
                          )
                       )
               | "1" ->

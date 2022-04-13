@@ -28,7 +28,7 @@ exception Device_not_found
 
 exception Cdrom
 
-module D = Debug.Make (struct let name = "xenops" end)
+module D = Debug.Make (struct let name = "device" end)
 
 open D
 
@@ -66,11 +66,7 @@ module Profile = struct
   let wrapper_of = function
     | Qemu_none | Qemu_trad ->
         "/bin/false"
-    | Qemu_upstream_compat ->
-        !Resources.upstream_compat_qemu_dm_wrapper
-    | Qemu_upstream ->
-        !Resources.upstream_compat_qemu_dm_wrapper
-    | Qemu_upstream_uefi ->
+    | Qemu_upstream_compat | Qemu_upstream | Qemu_upstream_uefi ->
         !Resources.upstream_compat_qemu_dm_wrapper
 
   let of_string = function
@@ -1271,6 +1267,14 @@ module Varstored = SystemdDaemonMgmt (struct
   let name = "varstored"
 
   let use_pidfile = true
+
+  let pid_path domid = sprintf "/local/domain/%d/varstored-pid" domid
+end)
+
+module Swtpm = SystemdDaemonMgmt (struct
+  let name = "swtpm-wrapper"
+
+  let use_pidfile = false
 
   let pid_path domid = sprintf "/local/domain/%d/varstored-pid" domid
 end)
@@ -2804,6 +2808,8 @@ module Dm_Common = struct
   (* Called by every domain destroy, even non-HVM *)
   let stop ~xs ~qemu_domid domid =
     let qemu_pid_path = Qemu.pid_path domid in
+    let vm_uuid = Xenops_helpers.uuid_of_domid ~xs domid |> Uuidm.to_string in
+    let dbg = Printf.sprintf "stop domid %d" domid in
     let stop_qemu () =
       match Qemu.pid ~xs domid with
       | None ->
@@ -2835,15 +2841,17 @@ module Dm_Common = struct
               )
         )
     in
+    let stop_swptm () =
+      Swtpm.stop ~xs domid ;
+      Xenops_sandbox.Swtpm_guard.stop dbg ~domid ~vm_uuid
+    in
     let stop_vgpu () = Vgpu.stop ~xs domid in
     let stop_varstored () =
-      let vm_uuid = Xenops_helpers.uuid_of_domid ~xs domid |> Uuidm.to_string in
       debug "About to stop varstored for domain %d (%s)" domid vm_uuid ;
       Varstored.stop ~xs domid ;
-      let dbg = Printf.sprintf "stop domid %d" domid in
       Xenops_sandbox.Varstore_guard.stop dbg ~domid ~vm_uuid
     in
-    stop_vgpu () ; stop_varstored () ; stop_qemu ()
+    stop_vgpu () ; stop_varstored () ; stop_swptm () ; stop_qemu ()
 
   type disk_type_args = int * string * Media.t -> string list
 
@@ -4200,6 +4208,32 @@ module Dm = struct
   (* the following functions depend on the functions above that use the qemu
      backend Q *)
 
+  let start_swtpm ~xs task domid =
+    debug "Preparing to start swtpm-wrapper to provide a vTPM (domid=%d)" domid ;
+    let exec_path = "/usr/lib64/xen/bin/swtpm-wrapper" in
+    let name = "swtpm" in
+    let vm_uuid = Xenops_helpers.uuid_of_domid ~xs domid |> Uuidm.to_string in
+
+    let chroot, _socket_path =
+      Xenops_sandbox.Swtpm_guard.start (Xenops_task.get_dbg task) ~vm_uuid
+        ~domid ~paths:[]
+    in
+    let tpm_root =
+      Xenops_sandbox.Chroot.(absolute_path_outside chroot Path.root)
+    in
+    let args = Fe_argv.Add.many [string_of_int domid; tpm_root] in
+    let args = Fe_argv.run args |> snd |> Fe_argv.argv in
+    let timeout_seconds = !Xenopsd.swtpm_ready_timeout in
+    let execute = Swtpm.start_daemon in
+    let service =
+      {Service.name; domid; exec_path; chroot; args; execute; timeout_seconds}
+    in
+    Service.start_and_wait_for_readyness ~task ~service ;
+    (* return the socket path so qemu can have a reference to it*)
+    Xenops_sandbox.Chroot.(
+      absolute_path_outside chroot (Path.of_string ~relative:"swtpm-sock")
+    )
+
   let start_varstored ~xs ~nvram ?(restore = false)
       (task : Xenops_task.task_handle) domid =
     let open Xenops_types in
@@ -4212,7 +4246,6 @@ module Dm = struct
     in
     let backend = nvram.Nvram_uefi_variables.backend in
     let open Fe_argv in
-    let ( >>= ) = bind in
     let argf fmt = ksprintf (fun s -> ["--arg"; s]) fmt in
     let on cond value = if cond then value else return () in
     let chroot, socket_path =
@@ -4354,9 +4387,24 @@ module Dm = struct
     | Bios ->
         ()
     ) ;
+
+    (* start swtpm-wrapper *)
+    let tpm_socket_path = start_swtpm ~xs task domid in
+
+    let tpmargs =
+      [
+        "-chardev"
+      ; Printf.sprintf "socket,id=chrtpm,path=%s" tpm_socket_path
+      ; "-tpmdev"
+      ; "emulator,id=tpm0,chardev=chrtpm"
+      ; "-device"
+      ; "tpm-crb,tpmdev=tpm0"
+      ]
+    in
+
     (* Execute qemu-dm-wrapper, forwarding stdout to the syslog, with the key
        "qemu-dm-<domid>" *)
-    let argv = prepend_wrapper_args domid args.argv in
+    let argv = prepend_wrapper_args domid (List.concat [tpmargs; args.argv]) in
     let qemu_domid = 0 in
     let ready_path =
       Printf.sprintf "/local/domain/%d/device-model/%d/state" qemu_domid domid
@@ -4462,7 +4510,7 @@ module Dm = struct
   let restore_varstored (task : Xenops_task.task_handle) ~xs ~efivars domid =
     debug "Called Dm.restore_varstored (domid=%d)" domid ;
     let path =
-      Xenops_sandbox.Varstore_guard.prepare ~domid
+      Xenops_sandbox.Varstore_guard.create ~domid
         ~vm_uuid:(Uuidm.to_string (Xenops_helpers.uuid_of_domid ~xs domid))
         efivars_resume_path
     in

@@ -139,8 +139,11 @@ module Vm_memory_constraints : T = struct
     && constraints.static_min <= constraints.dynamic_min
     && are_pinned_at_static_max constraints
 
+  (* We reset to dynamic max because it was deemed sufficient to run the
+     VM and static max could be unreasonably large while not being acutally
+     used *)
   let reset_to_safe_defaults ~constraints =
-    let max = constraints.static_max in
+    let max = constraints.dynamic_max in
     let min = constraints.static_min in
     {
       static_max= max

@@ -631,13 +631,11 @@ module Categorisation = struct
 end
 
 module Selection = struct
-  open Construction
+  let match_no_hosts _ = -1L
 
-  let match_no_hosts host = -1L
+  let match_all_hosts _ = 1L
 
-  let match_all_hosts host = 1L
-
-  let validate_all_hosts host = true
+  let validate_all_hosts _ = true
 
   let select_first_host () = 0.0
 

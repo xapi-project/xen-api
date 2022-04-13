@@ -22,7 +22,7 @@ val cli_cmd : string list -> string
 val localhost_uuid : string
 
 module Test : sig
-  val assert_raises_match : (exn -> bool) -> (unit -> 'a) -> unit
+  val assert_raises_match : (exn -> bool) -> (unit -> unit) -> unit
   (** This test succeeds if an exception is raised for which the given
       exception matching function returns true *)
 end

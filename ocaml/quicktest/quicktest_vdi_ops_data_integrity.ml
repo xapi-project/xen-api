@@ -32,7 +32,7 @@ let write_random_data rpc session_id vdi =
         write_random_block offset length
       in
       let num_extents = Random.int max_writes in
-      for i = 1 to num_extents do
+      for _ = 1 to num_extents do
         write_random_extent ()
       done
   )
@@ -42,10 +42,13 @@ let fill rpc session_id vdi =
     Client.Client.VDI.get_virtual_size ~rpc ~session_id ~self:vdi
     |> Int64.to_int
   in
-  Qt.VDI.with_open rpc session_id vdi `RW (fun fd ->
-      let buf = random_bytes size in
-      Unix.write fd buf 0 size
-  )
+  let (_ : int) =
+    Qt.VDI.with_open rpc session_id vdi `RW (fun fd ->
+        let buf = random_bytes size in
+        Unix.write fd buf 0 size
+    )
+  in
+  ()
 
 let noop _rpc _session_id _vdi = ()
 

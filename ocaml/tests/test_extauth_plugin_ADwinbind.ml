@@ -26,7 +26,7 @@ module ExtractOuConfig = Generic.MakeStateless (struct
       Test_printers.(pair (assoc_list string string) (list string))
   end
 
-  let transform x = Extauth_plugin_ADwinbind.extract_ou_config x
+  let transform x = Extauth_plugin_ADwinbind.extract_ou_config ~config_params:x
 
   let tests =
     `QuickAndAutoDocumented

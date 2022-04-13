@@ -22,7 +22,7 @@ let vdi_create_destroy rpc session_id sr_info () =
       let uuid =
         Qt.VDI.with_new rpc session_id ~virtual_size sr (fun vdi ->
             let actual_size =
-              Client.Client.VDI.get_virtual_size rpc session_id vdi
+              Client.Client.VDI.get_virtual_size ~rpc ~session_id ~self:vdi
             in
             if actual_size < virtual_size then (
               print_endline
@@ -32,15 +32,15 @@ let vdi_create_destroy rpc session_id sr_info () =
                 ) ;
               Alcotest.fail "VDI.create created too small a VDI"
             ) ;
-            Client.Client.VDI.get_uuid rpc session_id vdi
+            Client.Client.VDI.get_uuid ~rpc ~session_id ~self:vdi
         )
       in
       (* check that the new disk has gone already (after only one SR.scan) *)
       try
-        let vdi = Client.Client.VDI.get_by_uuid rpc session_id uuid in
+        let vdi = Client.Client.VDI.get_by_uuid ~rpc ~session_id ~uuid in
         print_endline
           "VDI still exists: checking to see whether it is marked as managed" ;
-        if Client.Client.VDI.get_managed rpc session_id vdi then
+        if Client.Client.VDI.get_managed ~rpc ~session_id ~self:vdi then
           Alcotest.fail
             "VDI was not destroyed (or marked as unmanaged) properly after one \
              SR.scan"
@@ -50,16 +50,18 @@ let vdi_create_destroy rpc session_id sr_info () =
 
 (** For an SR which may be shared, return one plugged in PBD *)
 let choose_active_pbd rpc session_id sr =
-  let pbds = Client.Client.SR.get_PBDs rpc session_id sr in
+  let pbds = Client.Client.SR.get_PBDs ~rpc ~session_id ~self:sr in
   match
     List.filter
-      (fun pbd -> Client.Client.PBD.get_currently_attached rpc session_id pbd)
+      (fun pbd ->
+        Client.Client.PBD.get_currently_attached ~rpc ~session_id ~self:pbd
+      )
       pbds
   with
   | [] ->
       failwith
         (Printf.sprintf "SR %s has no attached PBDs"
-           (Client.Client.SR.get_uuid rpc session_id sr)
+           (Client.Client.SR.get_uuid ~rpc ~session_id ~self:sr)
         )
   | x :: _ ->
       x
@@ -69,10 +71,10 @@ let vdi_generate_config_test rpc session_id sr_info () =
   Qt.VDI.with_any rpc session_id sr_info (fun vdi ->
       let sr = sr_info.Qt.sr in
       let pbd = choose_active_pbd rpc session_id sr in
-      let host = Client.Client.PBD.get_host rpc session_id pbd in
+      let host = Client.Client.PBD.get_host ~rpc ~session_id ~self:pbd in
       Alcotest.(check unit)
         "VDI_GENERATE_CONFIG should not fail" ()
-        ((Client.Client.VDI.generate_config rpc session_id host vdi : string)
+        ((Client.Client.VDI.generate_config ~rpc ~session_id ~host ~vdi : string)
         |> ignore
         )
   )
@@ -82,19 +84,23 @@ let vdi_update_test rpc session_id sr_info () =
   Qt.VDI.with_any rpc session_id sr_info (fun vdi ->
       Alcotest.(check unit)
         "VDI_UPDATE should not fail" ()
-        (Client.Client.VDI.update rpc session_id vdi)
+        (Client.Client.VDI.update ~rpc ~session_id ~vdi)
   )
 
 (** If VDI_RESIZE is present then try it out *)
 let vdi_resize_test rpc session_id sr_info () =
   Qt.VDI.with_new rpc session_id sr_info.Qt.sr (fun vdi ->
-      let current = Client.Client.VDI.get_virtual_size rpc session_id vdi in
+      let current =
+        Client.Client.VDI.get_virtual_size ~rpc ~session_id ~self:vdi
+      in
       print_endline (Printf.sprintf "current size = %Ld" current) ;
       (* Make it 1 MiB bigger *)
       let new_size = Int64.add current 1048576L in
       print_endline (Printf.sprintf "requested size = %Ld" new_size) ;
-      Client.Client.VDI.resize rpc session_id vdi new_size ;
-      let actual_size = Client.Client.VDI.get_virtual_size rpc session_id vdi in
+      Client.Client.VDI.resize ~rpc ~session_id ~vdi ~size:new_size ;
+      let actual_size =
+        Client.Client.VDI.get_virtual_size ~rpc ~session_id ~self:vdi
+      in
       print_endline (Printf.sprintf "final size = %Ld" actual_size) ;
       if actual_size < new_size then
         Alcotest.fail "The final size should be >= the requested size"
@@ -105,7 +111,7 @@ let vdi_resize_test rpc session_id sr_info () =
 let vdi_db_forget rpc session_id sr_info () =
   Qt.VDI.with_any rpc session_id sr_info (fun vdi ->
       try
-        Client.Client.VDI.db_forget rpc session_id vdi ;
+        Client.Client.VDI.db_forget ~rpc ~session_id ~vdi ;
         Alcotest.fail "Call succeeded but it shouldn't have"
       with
       | Api_errors.Server_error (code, _)
@@ -120,7 +126,7 @@ let vdi_db_forget rpc session_id sr_info () =
     and another with a bad UUID to make sure that is reported as an error *)
 let vdi_bad_introduce rpc session_id sr_info () =
   Qt.VDI.with_any rpc session_id sr_info (fun vdi ->
-      let vdir = Client.Client.VDI.get_record rpc session_id vdi in
+      let vdir = Client.Client.VDI.get_record ~rpc ~session_id ~self:vdi in
       ( try
           print_endline
             (Printf.sprintf "Introducing a VDI with a duplicate UUID (%s)"
@@ -235,16 +241,18 @@ let vdi_snapshot_in_pool rpc session_id sr_info () =
       in
       let do_test () = check_vdi_snapshot rpc session_id vdi in
       let test_snapshot_on host =
-        let name = Client.Client.Host.get_name_label rpc session_id host in
+        let name =
+          Client.Client.Host.get_name_label ~rpc ~session_id ~self:host
+        in
         let dom0 = Qt.VM.dom0_of_host rpc session_id host in
         let vbd = vbd_create_helper ~rpc ~session_id ~vM:dom0 ~vDI:vdi () in
         print_endline (Printf.sprintf "Plugging in to host %s" name) ;
-        Client.Client.VBD.plug rpc session_id vbd ;
+        Client.Client.VBD.plug ~rpc ~session_id ~self:vbd ;
         Xapi_stdext_pervasives.Pervasiveext.finally do_test (fun () ->
             print_endline (Printf.sprintf "Unplugging from host %s" name) ;
-            Client.Client.VBD.unplug rpc session_id vbd ;
+            Client.Client.VBD.unplug ~rpc ~session_id ~self:vbd ;
             print_endline "Destroying VBD" ;
-            Client.Client.VBD.destroy rpc session_id vbd
+            Client.Client.VBD.destroy ~rpc ~session_id ~self:vbd
         )
       in
       test_snapshot_on localhost ; do_test ()
@@ -258,7 +266,7 @@ let vdi_create_destroy_plug_checksize rpc session_id sr_info () =
   let exception Not_this_host in
   (* Query /sys to find the actual size of the plugged in device *)
   let size_of_dom0_vbd rpc session_id vbd =
-    let device = Client.Client.VBD.get_device rpc session_id vbd in
+    let device = Client.Client.VBD.get_device ~rpc ~session_id ~self:vbd in
     let path = Printf.sprintf "/sys/block/%s/size" device in
     try
       let ic = open_in path in
@@ -275,18 +283,18 @@ let vdi_create_destroy_plug_checksize rpc session_id sr_info () =
   in
   let sr = sr_info.Qt.sr in
   let pbd = choose_active_pbd rpc session_id sr in
-  let host = Client.Client.PBD.get_host rpc session_id pbd in
+  let host = Client.Client.PBD.get_host ~rpc ~session_id ~self:pbd in
   print_endline
     (Printf.sprintf "Will plug into host %s"
-       (Client.Client.Host.get_name_label rpc session_id host)
+       (Client.Client.Host.get_name_label ~rpc ~session_id ~self:host)
     ) ;
   let plug_in_check_size rpc session_id host vdi =
     let size_should_be =
-      Client.Client.VDI.get_virtual_size rpc session_id vdi
+      Client.Client.VDI.get_virtual_size ~rpc ~session_id ~self:vdi
     in
     let dom0 = Qt.VM.dom0_of_host rpc session_id host in
     let vbd = vbd_create_helper ~rpc ~session_id ~vM:dom0 ~vDI:vdi () in
-    Client.Client.VBD.plug rpc session_id vbd ;
+    Client.Client.VBD.plug ~rpc ~session_id ~self:vbd ;
     Xapi_stdext_pervasives.Pervasiveext.finally
       (fun () ->
         try
@@ -302,16 +310,16 @@ let vdi_create_destroy_plug_checksize rpc session_id sr_info () =
           print_endline "Skipping size check: disk is plugged into another host"
       )
       (fun () ->
-        Client.Client.VBD.unplug rpc session_id vbd ;
-        Client.Client.VBD.destroy rpc session_id vbd
+        Client.Client.VBD.unplug ~rpc ~session_id ~self:vbd ;
+        Client.Client.VBD.destroy ~rpc ~session_id ~self:vbd
       )
   in
   let small_size = Sizes.(4L ** mib) and large_size = Sizes.(1L ** gib) in
   (* Make sure we zap any attached volume state *)
   print_endline "Unplugging PBD" ;
-  Client.Client.PBD.unplug rpc session_id pbd ;
+  Client.Client.PBD.unplug ~rpc ~session_id ~self:pbd ;
   print_endline "Plugging PBD" ;
-  Client.Client.PBD.plug rpc session_id pbd ;
+  Client.Client.PBD.plug ~rpc ~session_id ~self:pbd ;
   print_endline
     (Printf.sprintf "Creating VDI with requested size: %Ld" small_size) ;
   Qt.VDI.with_new rpc session_id ~virtual_size:small_size sr (fun small_vdi ->
@@ -333,11 +341,12 @@ let vdi_general_test rpc session_id sr_info () =
   Qt.VDI.with_new rpc session_id sr (fun newvdi ->
       let createtime = Unix.gettimeofday () -. t in
       print_endline (Printf.sprintf "Time to create: %f%!" createtime) ;
-      let pbd = List.hd (Client.Client.SR.get_PBDs rpc session_id sr) in
-      let host = Client.Client.PBD.get_host rpc session_id pbd in
+      let pbd = List.hd (Client.Client.SR.get_PBDs ~rpc ~session_id ~self:sr) in
+      let host = Client.Client.PBD.get_host ~rpc ~session_id ~self:pbd in
       let dom0 = Qt.VM.dom0_of_host rpc session_id host in
       let device =
-        List.hd (Client.Client.VM.get_allowed_VBD_devices rpc session_id dom0)
+        List.hd
+          (Client.Client.VM.get_allowed_VBD_devices ~rpc ~session_id ~vm:dom0)
       in
       print_endline
         (Printf.sprintf "Creating a VBD connecting the VDI to localhost%!") ;
@@ -352,7 +361,8 @@ let vdi_general_test rpc session_id sr_info () =
           let t = Unix.gettimeofday () in
           print_endline (Printf.sprintf "Attempting to copy the VDI%!") ;
           let newvdi2 =
-            Client.Client.VDI.copy rpc session_id newvdi sr Ref.null Ref.null
+            Client.Client.VDI.copy ~rpc ~session_id ~vdi:newvdi ~sr
+              ~base_vdi:Ref.null ~into_vdi:Ref.null
           in
           Qt.VDI.with_destroyed rpc session_id newvdi2 (fun () ->
               let copytime = Unix.gettimeofday () -. t in
@@ -360,7 +370,7 @@ let vdi_general_test rpc session_id sr_info () =
               print_endline (Printf.sprintf "Destroying copied VDI%!")
           )
         )
-        (fun () -> Client.Client.VBD.destroy rpc session_id vbd)
+        (fun () -> Client.Client.VBD.destroy ~rpc ~session_id ~self:vbd)
   )
 
 let multiple_dom0_attach rpc session_id sr_info () =

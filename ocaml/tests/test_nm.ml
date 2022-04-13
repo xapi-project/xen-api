@@ -1,5 +1,4 @@
 open Test_highlevel
-open Test_common
 
 module MaybeUpdateMasterPifMac = Generic.MakeStateful (struct
   module Io = struct
