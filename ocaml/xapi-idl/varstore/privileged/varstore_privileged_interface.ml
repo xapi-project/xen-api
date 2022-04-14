@@ -69,6 +69,7 @@ module Uuidm = struct
 end
 
 type vm_uuid = Uuidm.t [@@deriving rpcty]
+type vtpm_uuid = Uuidm.t [@@deriving rpcty]
 
 module RPC_API (R : RPC) = struct
   open R
@@ -120,4 +121,23 @@ module RPC_API (R : RPC) = struct
     declare "destroy"
       ["Stop listening on sockets for the specified group"]
       (debug_info_p @-> gid_p @-> path_p @-> returning unit_p err)
+
+  let vtpm_uuid_p = Param.mk ~name:"vtpm_uuid" ~description:["VTPM UUID"] vtpm_uuid
+
+  let manage_vtpm_start =
+    declare "manage_vtpm_start"
+      [ "Manages vTPM state in the specified directory."
+      ; "Creates the directory and fills it with vTPM state read from the XAPI object."
+      ; "Watches for file modifications, creations and deletions and updates XAPI state accordingly."
+      ; "swtpm can only be started after this call returns"
+      ]
+      (debug_info_p @-> vtpm_uuid_p @-> path_p @-> returning unit_p err)
+
+  let manage_vtpm_stop =
+    declare "manage_vtpm_stop"
+      [ "Stops managing vTPM state in the specified directory."
+      ; "Synchronizes final contents with XAPI, and then deletes it."
+      ; "swtpm is expected to be stopped at this point."
+      ]
+      (debug_info_p @-> vtpm_uuid_p @-> path_p @-> returning unit_p err)
 end

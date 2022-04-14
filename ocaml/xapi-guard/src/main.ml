@@ -129,11 +129,49 @@ let depriv_destroy dbg gid path =
       D.debug "[%s] stopped server for gid %d and removed socket" dbg gid ;
       Lwt.return_unit
 
+let inotify_lwt = Lwt_inotify.create ()
+let vtpm_watches = Hashtbl.create 127
+    (* TODO: Lwt_inotify.read stream here... *)
+
+let manage_vtpm_start dbg vtpm_uuid path =
+  if Hashtbl.mem vtpm_watches path then
+    Lwt.return_error
+      (Varstore_privileged_interface.InternalError
+         (Printf.sprintf "Path %s is already managed" path)
+      )
+    |> Rpc_lwt.T.put
+  else
+  ret @@
+  let* inotify = inotify_lwt in
+  let* watch = Lwt_inotify.add_watch inotify path [Inotify.S_Moved_to; Inotify.S_Delete;
+                                                   Inotify.S_Delete_self] in
+  Hashtbl.add vtpm_watches path watch;
+  Lwt.return_unit
+
+let manage_vtpm_stop dbg vtpm_uuid path =
+  match Hashtbl.find_opt vtpm_watches path with
+  | None ->
+    Lwt.return_error
+      (Varstore_privileged_interface.InternalError
+         (Printf.sprintf "Path %s is not managed" path)
+      )
+    |> Rpc_lwt.T.put
+  | Some watch ->
+  ret @@
+  let* () = vtpm_scan path in
+  let* inotify = inotify_lwt in
+  Hashtbl.remove vtpm_watches path;
+  Lwt_inotify.rm_watch inotify watch
+
 let rpc_fn =
   let module Server = Varstore_privileged_interface.RPC_API (Rpc_lwt.GenServer ()) in
   (* bind APIs *)
   Server.create depriv_create ;
   Server.destroy depriv_destroy ;
+  let* inotify = Lwt_inotify.create () in
+  Lwt_switch.add_hook (Some shutdown) (fun () -> Lwt_inotify.close inotify);
+  Server.manage_vtpm_start manage_vtpm_start;
+  Server.manage_vtpm_start manage_vtpm_stop;
   Rpc_lwt.server Server.implementation
 
 let process body =
