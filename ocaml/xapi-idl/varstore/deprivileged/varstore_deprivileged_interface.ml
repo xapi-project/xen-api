@@ -103,30 +103,4 @@ module RPC_API (R : RPC) = struct
       @-> string_p
       @-> returning unit_p err
       )
-
-  (* these should match the API in Datamodel_vtpm.ml *)
-  let get_vtpm =
-    declare "VM.get_VTPMs"
-      ["Dummy, for wire compatibility with XAPI"]
-      (string_p @-> string_p @-> returning vtpms_p err)
-
-  let get_profile =
-    declare "VTPM.get_profile"
-      ["Obtain the profile of the TPM"]
-      (string_p @-> string_p @-> returning vtpm_profile_p err)
-
-  let get_vm =
-    declare "VTPM.get_VM"
-      ["Dummy, for wire compatibility with XAPI"]
-      (string_p @-> string_p @-> returning string_p err)
-
-  let get_contents =
-    declare "VTPM.get_contents"
-      ["Obtain the contents of the TPM"]
-      (string_p @-> string_p @-> returning vtpm_p err)
-
-  let set_contents =
-    declare "VTPM.set_contents"
-      ["Obtain the contents of the TPM"]
-      (string_p @-> string_p @-> vtpm_p @-> returning unit_p err)
 end

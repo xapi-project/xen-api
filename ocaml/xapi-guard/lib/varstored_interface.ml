@@ -291,46 +291,10 @@ let make_server_rpcfn ~cache path vm_uuid =
   let get_by_uuid _ _ = ret @@ Lwt.return "DUMMYVM" in
   let dummy_login _ _ _ _ = ret @@ Lwt.return "DUMMYSESSION" in
   let dummy_logout _ = ret @@ Lwt.return_unit in
-  let get_vm _ _ = ret @@ Lwt.return "DUMMYVM" in
-  let with_vtpm f =
-    ret
-      (let* vtpms = with_xapi ~cache @@ VM.get_VTPMs ~self:vm in
-       match vtpms with
-       | [] ->
-           Lwt.fail_with "No VTPMs"
-       | [vtpm] ->
-           f ~self:vtpm
-       | _ ->
-           Lwt.fail_with "Multiple VTPMs are not supported"
-      )
-  in
-  let get_vtpm _ _ = with_vtpm @@ fun ~self:_ -> Lwt.return ["DUMMYVTPM"] in
-
-  (* Note: sandboxing is done only to isolate VMs, but varstored will be able to access/change swtpm
-     storage, and swtpm will be able to change UEFI NVRAM storage.
-     If needed this can be isolated in the future too if xapi-guard is told which daemon the socket
-     is for.
-  *)
-  let get_profile _ _ =
-    with_vtpm @@ fun ~self -> with_xapi ~cache @@ VTPM.get_profile ~self
-  in
-  let get_contents _ _ =
-    with_vtpm @@ fun ~self -> with_xapi ~cache @@ VTPM.get_contents ~self
-  in
-  let set_contents _ _ contents =
-    with_vtpm @@ fun ~self ->
-    with_xapi ~cache @@ VTPM.set_contents ~self ~contents
-  in
-
   Server.get_NVRAM get_nvram ;
   Server.set_NVRAM set_nvram ;
   Server.message_create message_create ;
   Server.session_login dummy_login ;
   Server.session_logout dummy_logout ;
   Server.get_by_uuid get_by_uuid ;
-  Server.get_vtpm get_vtpm ;
-  Server.get_profile get_profile ;
-  Server.get_vm get_vm ;
-  Server.get_contents get_contents ;
-  Server.set_contents set_contents ;
   serve_forever_lwt (Rpc_lwt.server Server.implementation) path

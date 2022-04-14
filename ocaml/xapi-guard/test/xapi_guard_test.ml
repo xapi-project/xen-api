@@ -10,13 +10,10 @@ let expected_session_id = Ref.make ()
 
 let vm = Ref.make ()
 
-let vtpm = Ref.make ()
 
 let badref = Ref.make ()
 
 let badref' = Ref.make ()
-
-let vtpm_contents = ref ""
 
 let nvram_contents = ref []
 
@@ -38,10 +35,6 @@ let xapi_rpc call =
     let actual = API.ref_VM_of_rpc vm_rpc in
     Alcotest.(check' ref) ~expected:vm ~actual ~msg:"vm ref"
   in
-  let expect_vtpm vtpm_rpc =
-    let actual = API.ref_VTPM_of_rpc vtpm_rpc in
-    Alcotest.(check' ref) ~expected:vtpm ~actual ~msg:"vtpm ref"
-  in
   match (call.Rpc.name, call.Rpc.params) with
   | "session.login_with_password", _ ->
       ret_ok (Ref.string_of expected_session_id)
@@ -51,31 +44,6 @@ let xapi_rpc call =
   | "VM.get_by_uuid", [session_id_rpc; uuid] ->
       expect_session_id session_id_rpc ;
       ret_ok (Ref.string_of vm)
-  | "VM.get_VTPMs", [session_id_rpc; vm_rpc] ->
-      expect_session_id session_id_rpc ;
-      expect_vm vm_rpc ;
-      Lwt.return
-        Rpc.
-          {
-            success= true
-          ; contents= Rpc.Enum [Rpc.String (Ref.string_of vtpm)]
-          ; is_notification= false
-          }
-        
-  | "VTPM.get_profile", [session_id_rpc; vtpm_rpc] ->
-      expect_session_id session_id_rpc ;
-      expect_vtpm vtpm_rpc ;
-      Lwt.return
-        Rpc.{success= true; contents= Rpc.Dict []; is_notification= false}
-  | "VTPM.get_contents", [session_id_rpc; vtpm_rpc] ->
-      expect_session_id session_id_rpc ;
-      expect_vtpm vtpm_rpc ;
-      ret_ok !vtpm_contents
-  | "VTPM.set_contents", [session_id_rpc; vtpm_rpc; contents] ->
-      expect_session_id session_id_rpc ;
-      expect_vtpm vtpm_rpc ;
-      vtpm_contents := API.string_of_rpc contents ;
-      ret_ok ""
   | "VM.get_NVRAM", [session_id_rpc; vm_rpc] ->
       expect_session_id session_id_rpc ;
       expect_vm vm_rpc ;
@@ -86,7 +54,6 @@ let xapi_rpc call =
           ; contents= API.rpc_of_string_to_string_map !nvram_contents
           ; is_notification= false
           }
-        
   | "VM.set_NVRAM_EFI_variables", [session_id_rpc; vm_rpc; contents] ->
       expect_session_id session_id_rpc ;
       expect_vm vm_rpc ;
@@ -127,38 +94,6 @@ let with_rpc f switch () =
       Lwt.finalize logout @@ f ~rpc ~session_id
     )
     stop_server
-
-let with_vtpm ~rpc ~session_id f =
-  let* vm_ref = VM.get_by_uuid ~rpc ~session_id ~uuid in
-  let* vtpms = VM.get_VTPMs ~rpc ~session_id ~self:vm_ref in
-  Alcotest.(check' int) ~msg:"no. vtpms" ~expected:1 ~actual:(List.length vtpms) ;
-  match vtpms with
-  | [] -> Alcotest.fail "No VTPMs"
-  | [vtpm] -> f ~self:vtpm
-  | multiple -> Alcotest.failf "Too many vTPMs: %d" (List.length multiple)
-
-let test_get_vtpm ~rpc ~session_id () =
-  with_vtpm ~rpc ~session_id @@ fun ~self ->
-  let* vm_ref = VTPM.get_VM ~rpc ~session_id ~self in
-  let* profile = VTPM.get_profile ~rpc ~session_id ~self in
-  let* contents = VTPM.get_contents ~rpc ~session_id ~self in
-  Lwt.return_unit
-
-let test_change_contents ~rpc ~session_id () =
-  with_vtpm ~rpc ~session_id @@ fun ~self ->
-  let* contents0 = VTPM.get_contents ~rpc ~session_id ~self in
-  Alcotest.(check' string) ~msg:"contents" ~expected:"" ~actual:contents0 ;
-  let contents = "somedata" in
-  let* () = VTPM.set_contents ~rpc ~session_id ~self ~contents in
-  let* contents1 = VTPM.get_contents ~rpc ~session_id ~self in
-  Alcotest.(check' string) ~msg:"contents" ~expected:contents ~actual:contents1 ;
-  Lwt.return_unit
-
-let vtpm_tests =
-  [
-    test_case "VTPM query" `Quick @@ with_rpc test_get_vtpm
-  ; test_case "VTPM change contents" `Quick @@ with_rpc test_change_contents
-  ]
 
 let dict = Alcotest.(list @@ pair string string)
 
@@ -202,14 +137,6 @@ let test_bad_set_nvram ~rpc ~session_id () =
     ~expected:[("EFI-variables", "bad")] ;
   Lwt.return_unit
 
-let test_bad_set_vtpm ~rpc ~session_id () =
-  let* () = VTPM.set_contents ~rpc ~session_id ~self:badref' ~contents:"bad" in
-  with_vtpm ~rpc ~session_id @@ fun ~self ->
-  let* contents = VTPM.get_contents ~rpc ~session_id ~self in
-  Alcotest.(check' string)
-    ~msg:"only managed to change own vtpm" ~actual:contents ~expected:"bad" ;
-  Lwt.return_unit
-
 let test_vtpm_all ~rpc ~session_id () =
   let+ res = Lwt_result.catch (VTPM.get_all_records ~rpc ~session_id) in
   let res = res |> Result.map ignore |> Result.map_error Printexc.to_string in
@@ -225,10 +152,7 @@ let test_vtpm_all ~rpc ~session_id () =
 let bad_params_tests =
   [
     test_case "VM.get_NVRAM" `Quick @@ with_rpc test_bad_get_nvram
-  ; test_case "VTPM.get_contents" `Quick @@ with_rpc test_bad_get_vtpm
   ; test_case "VM.set_NVRAM_EFI_variables" `Quick @@ with_rpc test_bad_set_nvram
-  ; test_case "VTPM.set_contents" `Quick @@ with_rpc test_bad_set_vtpm
-  ; test_case "VTPM.get_all_records" `Quick @@ with_rpc test_vtpm_all
   ]
 
 let linux_count_fds () = Sys.readdir "/proc/self/fd" |> Array.length
@@ -246,9 +170,7 @@ let () =
   Debug.log_to_stdout () ;
   Lwt_main.run
   @@ Alcotest_lwt.run "xapi_guard_test"
-       [
-         ("VTPM", vtpm_tests)
-       ; ("UEFI", uefi_tests)
+       [ ("UEFI", uefi_tests)
        ; ("bad_params", bad_params_tests)
        ; ("shutdown", [test_case "shutdown" `Quick shutdown_test])
        ]
