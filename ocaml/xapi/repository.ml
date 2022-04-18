@@ -465,24 +465,44 @@ let get_repository_handler (req : Http.Request.t) s _ =
   req.Request.close <- true ;
   if Fileserver.access_forbidden req s then
     Http_svr.response_forbidden ~req s
-  else if is_local_pool_repo_enabled () then (
-    try
-      let len = String.length Constants.get_repository_uri in
-      match String.sub_to_end req.Request.uri len with
-      | uri_path ->
-          let root = !Xapi_globs.local_pool_repo_dir in
-          Fileserver.response_file s (Helpers.resolve_uri_path ~root ~uri_path)
-      | exception e ->
-          let msg =
-            Printf.sprintf "Failed to get path from uri': %s"
-              (ExnHelper.string_of_exn e)
-          in
-          raise Api_errors.(Server_error (internal_error, [msg]))
-    with e ->
-      error "Failed to serve for request on uri %s: %s" req.Request.uri
-        (ExnHelper.string_of_exn e) ;
-      Http_svr.response_forbidden ~req s
-  ) else (
+  else if is_local_pool_repo_enabled () then
+    let can_be_authorized =
+      try
+        Xapi_http.with_context "get_repository_handler" req s (fun _ -> ()) ;
+        true
+      with _ -> false
+    in
+    let internal_repo_access_only =
+      let __context =
+        Context.make ~origin:(Http (req, s)) "get_repository_handler"
+      in
+      Pool_features.is_enabled ~__context Features.Internal_repo_access
+    in
+    match (can_be_authorized, internal_repo_access_only) with
+    | false, true ->
+        error
+          "Invalid secret for authorization when Internal_repo_access is \
+           enabled" ;
+        Http_svr.response_forbidden ~req s
+    | _ -> (
+      try
+        let len = String.length Constants.get_repository_uri in
+        match String.sub_to_end req.Request.uri len with
+        | uri_path ->
+            let root = !Xapi_globs.local_pool_repo_dir in
+            Fileserver.response_file s (Helpers.resolve_uri_path ~root ~uri_path)
+        | exception e ->
+            let msg =
+              Printf.sprintf "Failed to get path from uri': %s"
+                (ExnHelper.string_of_exn e)
+            in
+            raise Api_errors.(Server_error (internal_error, [msg]))
+      with e ->
+        error "Failed to serve for request on uri %s: %s" req.Request.uri
+          (ExnHelper.string_of_exn e) ;
+        Http_svr.response_forbidden ~req s
+    )
+  else (
     error "Rejecting request: local pool repository is not enabled" ;
     Http_svr.response_forbidden ~req s
   )
