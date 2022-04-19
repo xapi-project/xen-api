@@ -8394,6 +8394,7 @@ let public_http_actions_with_no_rbac_check =
   ; "post_jsonrpc"
   ; "post_jsonrpc_options"
   ; "get_pool_update_download"
+  ; "get_repository"
   ]
 
 (* permissions not associated with any object message or field *)
