@@ -2593,7 +2593,7 @@ let write_uefi_certificates_to_disk ~__context ~host =
             let path = Filename.concat !Xapi_globs.varstore_dir name in
             Unixext.unlink_safe path
           )
-          ["PK.auth"; "KEK.auth"; "db.auth"; "dbx.auth"] ;
+          ["KEK.auth"; "db.auth"] ;
         (* No uefi certificates, nothing to do. *)
         if contents <> "" then (
           with_temp_file_contents ~contents
