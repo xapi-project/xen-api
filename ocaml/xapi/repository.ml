@@ -319,8 +319,7 @@ let parse_updateinfo ~__context ~self ~check =
   | true ->
       with_updateinfo_xml updateinfo_xml_gz_path UpdateInfo.of_xml_file
 
-let set_available_updates ~__context =
-  ignore (get_single_enabled_update_repository ~__context) ;
+let get_hosts_updates ~__context =
   let hosts = Db.Host.get_all ~__context in
   let funs =
     List.map
@@ -329,30 +328,57 @@ let set_available_updates ~__context =
       )
       hosts
   in
-  let rets =
-    with_pool_repositories (fun () ->
-        Helpers.run_in_parallel ~funs ~capacity:capacity_in_parallel
+  with_pool_repositories (fun () ->
+      Helpers.run_in_parallel ~funs ~capacity:capacity_in_parallel
+  )
+
+let get_applied_livepatches_of_hosts hosts_updates =
+  List.map
+    (fun (h, updates_of_host) ->
+      let applied_livepatches =
+        get_list_from_updates_of_host "applied_livepatches" updates_of_host
+        |> List.map Livepatch.of_json
+      in
+      (h, applied_livepatches)
     )
+    hosts_updates
+
+(* Group updates by repository for each host *)
+let get_updates_of_hosts ~__context enabled_repositories hosts_updates =
+  List.map
+    (fun (h, updates_of_host) ->
+      group_host_updates_by_repository ~__context enabled_repositories h
+        updates_of_host
+    )
+    hosts_updates
+
+let is_livepatchable ~__context repository applied_livepatches_of_hosts =
+  let updates_info =
+    parse_updateinfo ~__context ~self:repository ~check:false
   in
-  let applied_livepatches_of_hosts =
-    List.map
-      (fun (h, updates_of_host) ->
-        let applied_livepatches =
-          get_list_from_updates_of_host "applied_livepatches" updates_of_host
-          |> List.map Livepatch.of_json
-        in
-        (h, applied_livepatches)
-      )
-      rets
-  in
+  List.exists
+    (fun (_, applied_livepatches) ->
+      List.exists
+        (fun lp ->
+          get_accumulative_livepatches ~since:lp ~updates_info |> function
+          | [] ->
+              false
+          | _ ->
+              true
+        )
+        applied_livepatches
+    )
+    applied_livepatches_of_hosts
+
+let set_available_updates ~__context =
+  ignore (get_single_enabled_update_repository ~__context) ;
   let enabled = get_enabled_repositories ~__context in
-  (* Group updates by repository for each host *)
+  let hosts_updates = get_hosts_updates ~__context in
+  let applied_livepatches_of_hosts =
+    get_applied_livepatches_of_hosts hosts_updates
+  in
   let updates_of_hosts =
-    List.map
-      (fun (h, updates_of_host) ->
-        group_host_updates_by_repository ~__context enabled h updates_of_host
-      )
-      rets
+    get_updates_of_hosts ~__context enabled hosts_updates
   in
   (* Group updates by repository for all hosts *)
   let updates_by_repository =
@@ -385,26 +411,10 @@ let set_available_updates ~__context =
               (* No RPM packages to be updated.
                * Find out if there are available livepatches from a update repo
                *)
-              let updates_info =
-                parse_updateinfo ~__context ~self:repository ~check:false
-              in
-              let livepatches_available =
-                List.exists
-                  (fun (_, applied_livepatches) ->
-                    List.exists
-                      (fun lp ->
-                        get_accumulative_livepatches ~since:lp ~updates_info
-                        |> function
-                        | [] ->
-                            false
-                        | _ ->
-                            true
-                      )
-                      applied_livepatches
-                  )
-                  applied_livepatches_of_hosts
-              in
-              not livepatches_available
+              not
+                (is_livepatchable ~__context repository
+                   applied_livepatches_of_hosts
+                )
         in
         Db.Repository.set_up_to_date ~__context ~self:repository
           ~value:up_to_date ;
@@ -427,7 +437,7 @@ let set_available_updates ~__context =
       enabled
   in
   Hashtbl.clear updates_in_cache ;
-  Hashtbl.add_seq updates_in_cache (List.to_seq rets) ;
+  Hashtbl.add_seq updates_in_cache (List.to_seq hosts_updates) ;
   get_singleton checksums
 
 let create_pool_repository ~__context ~self =
