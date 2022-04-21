@@ -43,9 +43,7 @@ module Make (Algorithm : ALGORITHM) = struct
   let go (mode : zcat_mode) (input : input_type) fd f =
     let open Safe_resources in
     Unixfd.with_pipe ~loc:__LOC__ () @@ fun zcat_out zcat_in ->
-    let args =
-      if mode = Compress then [] else ["--decompress"] @ ["--stdout"; "--force"]
-    in
+    let args = if mode = Compress then [] else ["--decompress"; "--stdout"] in
     let stdin, stdout, close_now, close_later =
       match input with
       | Active ->
