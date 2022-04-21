@@ -770,6 +770,201 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
               )
             ]
         )
+      ; (* Single update with livepatches and livepatch_guidance *)
+        ( {|
+            <updates>
+              <update type="security">
+                <id>UPDATE-0000</id>
+                <title>title</title>
+                <summary>summary</summary>
+                <description>description</description>
+                <special_info>special information</special_info>
+                <url>https://update.details.info</url>
+                <guidance_applicabilities/>
+                <livepatch_guidance>RestartToolstack</livepatch_guidance>
+                <livepatches>
+                  <livepatch component="kernel" base="4.19.19-8.0.19.xs8" to="4.19.19-8.0.21.xs8" base-buildid="8346194f2e98a228f5a595b13ecabd43a99fada0"/>
+                  <livepatch component="kernel" base="4.19.19-8.0.20.xs8" to="4.19.19-8.0.21.xs8" base-buildid="9346194f2e98a228f5a595b13ecabd43a99fada0"/>
+                </livepatches>
+              </update>
+            </updates>
+          |}
+        , Ok
+            [
+              ( "UPDATE-0000"
+              , UpdateInfo.
+                  {
+                    id= "UPDATE-0000"
+                  ; summary= "summary"
+                  ; description= "description"
+                  ; rec_guidance= None
+                  ; abs_guidance= None
+                  ; guidance_applicabilities= []
+                  ; spec_info= "special information"
+                  ; url= "https://update.details.info"
+                  ; update_type= "security"
+                  ; livepatch_guidance= Some Guidance.RestartToolstack
+                  ; livepatches=
+                      [
+                        LivePatch.
+                          {
+                            component= Kernel
+                          ; base_build_id=
+                              "8346194f2e98a228f5a595b13ecabd43a99fada0"
+                          ; base_version= "4.19.19"
+                          ; base_release= "8.0.19.xs8"
+                          ; to_version= "4.19.19"
+                          ; to_release= "8.0.21.xs8"
+                          }
+                        
+                      ; LivePatch.
+                          {
+                            component= Kernel
+                          ; base_build_id=
+                              "9346194f2e98a228f5a595b13ecabd43a99fada0"
+                          ; base_version= "4.19.19"
+                          ; base_release= "8.0.20.xs8"
+                          ; to_version= "4.19.19"
+                          ; to_release= "8.0.21.xs8"
+                          }
+                        
+                      ]
+                  }
+                
+              )
+            ]
+        )
+      ; (* Single update with livepatch_guidance but empty livepatches *)
+        ( {|
+            <updates>
+              <update type="security">
+                <id>UPDATE-0000</id>
+                <title>title</title>
+                <summary>summary</summary>
+                <description>description</description>
+                <special_info>special information</special_info>
+                <url>https://update.details.info</url>
+                <guidance_applicabilities/>
+                <livepatch_guidance>RestartDeviceModel</livepatch_guidance>
+                <livepatches>
+                </livepatches>
+              </update>
+            </updates>
+          |}
+        , Ok
+            [
+              ( "UPDATE-0000"
+              , UpdateInfo.
+                  {
+                    id= "UPDATE-0000"
+                  ; summary= "summary"
+                  ; description= "description"
+                  ; rec_guidance= None
+                  ; abs_guidance= None
+                  ; guidance_applicabilities= []
+                  ; spec_info= "special information"
+                  ; url= "https://update.details.info"
+                  ; update_type= "security"
+                  ; livepatch_guidance= Some Guidance.RestartDeviceModel
+                  ; livepatches= []
+                  }
+                
+              )
+            ]
+        )
+      ; (* Single update with invalid livepatches *)
+        ( {|
+            <updates>
+              <update type="security">
+                <id>UPDATE-0000</id>
+                <title>title</title>
+                <summary>summary</summary>
+                <description>description</description>
+                <special_info>special information</special_info>
+                <url>https://update.details.info</url>
+                <guidance_applicabilities/>
+                <livepatch_guidance>RestartToolstack</livepatch_guidance>
+                <livepatches>
+                  <livepatch component="toolstack" base="4.19.19-8.0.20.xs8" to="4.19.19-8.0.21.xs8" base-buildid="9346194f2e98a228f5a595b13ecabd43a99fada0"/>
+                  <livepatch component="kernel" base="4.19.19-8.0.20.xs8" to="4.19.19-8.0.21.xs8" base-buildid="9346194f2e98a228f5a595b13ecabd43a99fada0"/>
+                </livepatches>
+              </update>
+            </updates>
+          |}
+        , Ok
+            [
+              ( "UPDATE-0000"
+              , UpdateInfo.
+                  {
+                    id= "UPDATE-0000"
+                  ; summary= "summary"
+                  ; description= "description"
+                  ; rec_guidance= None
+                  ; abs_guidance= None
+                  ; guidance_applicabilities= []
+                  ; spec_info= "special information"
+                  ; url= "https://update.details.info"
+                  ; update_type= "security"
+                  ; livepatch_guidance= Some Guidance.RestartToolstack
+                  ; livepatches=
+                      [
+                        LivePatch.
+                          {
+                            component= Kernel
+                          ; base_build_id=
+                              "9346194f2e98a228f5a595b13ecabd43a99fada0"
+                          ; base_version= "4.19.19"
+                          ; base_release= "8.0.20.xs8"
+                          ; to_version= "4.19.19"
+                          ; to_release= "8.0.21.xs8"
+                          }
+                        
+                      ]
+                  }
+                
+              )
+            ]
+        )
+      ; (* Single update with invalid livepatches *)
+        ( {|
+            <updates>
+              <update type="security">
+                <id>UPDATE-0000</id>
+                <title>title</title>
+                <summary>summary</summary>
+                <description>description</description>
+                <special_info>special information</special_info>
+                <url>https://update.details.info</url>
+                <guidance_applicabilities/>
+                <livepatch_guidance>RestartToolstack</livepatch_guidance>
+                <livepatches>
+                  <livepatch component="xen" base="4.19.19-8.0.20.xs8" to="4.19.19-8.0.21.xs8" base-buildid=""/>
+                  <livepatch component="kernel" base="4.19.19-8.0.20.xs8" base-buildid="9346194f2e98a228f5a595b13ecabd43a99fada0"/>
+                </livepatches>
+              </update>
+            </updates>
+          |}
+        , Ok
+            [
+              ( "UPDATE-0000"
+              , UpdateInfo.
+                  {
+                    id= "UPDATE-0000"
+                  ; summary= "summary"
+                  ; description= "description"
+                  ; rec_guidance= None
+                  ; abs_guidance= None
+                  ; guidance_applicabilities= []
+                  ; spec_info= "special information"
+                  ; url= "https://update.details.info"
+                  ; update_type= "security"
+                  ; livepatch_guidance= Some Guidance.RestartToolstack
+                  ; livepatches= []
+                  }
+                
+              )
+            ]
+        )
       ]
 end)
 
