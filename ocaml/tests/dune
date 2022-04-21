@@ -4,7 +4,7 @@
   (modules
     (:standard \ test_daemon_manager test_vdi_cbt test_event test_clustering
       test_cluster_host test_cluster test_pusb test_network_sriov
-      test_vm_placement test_vm_helpers test_repository test_repository_helpers))
+      test_vm_placement test_vm_helpers test_repository test_repository_helpers test_livepatch))
   (libraries
     alcotest
     astring
@@ -26,11 +26,11 @@
 
 (tests
   (names test_vm_helpers test_vm_placement test_network_sriov test_vdi_cbt
-    test_clustering test_pusb test_daemon_manager test_repository test_repository_helpers)
+    test_clustering test_pusb test_daemon_manager test_repository test_repository_helpers test_livepatch)
   (package xapi)
   (modules test_vm_helpers test_vm_placement test_network_sriov test_vdi_cbt
     test_event test_clustering test_cluster_host test_cluster test_pusb
-    test_daemon_manager test_repository test_repository_helpers)
+    test_daemon_manager test_repository test_repository_helpers test_livepatch)
   (libraries
     alcotest
     xapi_internal

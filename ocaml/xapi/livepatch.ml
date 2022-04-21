@@ -88,7 +88,7 @@ module BuildId = struct
 end
 
 module KernelLivePatch = struct
-  let get_running_livepatch () =
+  let get_running_livepatch' s =
     let r =
       (* This expects the kernel livepatch module name should be built as:
        * livepatch_<base_version>__<base_release>__<to_version>__<to_releaes>
@@ -100,8 +100,7 @@ module KernelLivePatch = struct
       Re.Posix.compile_pat
         {|^[ ]*livepatch_([^ \[]+)__([^ \[]+)__([^ \[]+)__([^ \[]+).*$|}
     in
-    Helpers.call_script !Xapi_globs.kpatch_cmd ["list"]
-    |> Astring.String.cuts ~sep:"\n"
+    Astring.String.cuts ~sep:"\n" s
     |> List.fold_left
          (fun (acc, acc_flag) line ->
            match
@@ -134,6 +133,10 @@ module KernelLivePatch = struct
                None
        )
     |> get_latest_livepatch
+
+  let get_running_livepatch () =
+    Helpers.call_script !Xapi_globs.kpatch_cmd ["list"]
+    |> get_running_livepatch'
 
   (* The actual size is aligned with 4. *)
   let align4 n = (Int32.to_int n + 3) / 4 * 4
@@ -180,10 +183,9 @@ module KernelLivePatch = struct
 end
 
 module XenLivePatch = struct
-  let get_running_livepatch () =
+  let get_running_livepatch' s =
     let r = Re.Posix.compile_pat {|^[ ]*lp_([^_ ]+)_([^_ ]+).+APPLIED.*$|} in
-    Helpers.call_script !Xapi_globs.xen_livepatch_cmd ["list"]
-    |> Astring.String.cuts ~sep:"\n"
+    Astring.String.cuts ~sep:"\n" s
     |> List.filter_map (fun line ->
            match Re.exec_opt r line with
            | Some groups -> (
@@ -201,6 +203,10 @@ module XenLivePatch = struct
                None
        )
     |> get_latest_livepatch
+
+  let get_running_livepatch () =
+    Helpers.call_script !Xapi_globs.xen_livepatch_cmd ["list"]
+    |> get_running_livepatch'
 
   let get_base_build_id () =
     let drop x =
