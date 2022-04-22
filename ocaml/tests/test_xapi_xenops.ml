@@ -4,30 +4,66 @@ module D = Debug.Make (struct let name = "test_xapi_xenops" end)
 
 open D
 
-let test_enabled_in_xenguest () =
-  let should_raise = ["foo"; ""; "banana"; "2"] in
-  let should_be_true = ["TRUE"; "tRuE"; "1"; "true"] in
-  let should_be_false = ["FALSE"; "fAlSe"; "0"; "false"] in
-  let err k = failwith (Printf.sprintf "Failed to parse '%s' correctly" k) in
-  let k = "test_key" in
-  let p v = [(k, v)] in
-  let val_fn p = Vm_platform.is_true ~key:k ~platformdata:p ~default:false in
-  let valid_fn p = Vm_platform.is_valid ~key:k ~platformdata:p in
-  (* Empty list should be valid *)
-  if not (valid_fn []) then err "[]" ;
-  List.iter (fun x -> if valid_fn (p x) then err x) should_raise ;
-  List.iter
-    (fun x ->
-      let e = val_fn (p x) in
-      if not e then err x
+module Vm_platform_key_values = struct
+  let invalid_values = ["foo"; ""; "banana"; "2"]
+
+  let true_values = ["TRUE"; "tRuE"; "1"; "true"]
+
+  let false_values = ["FALSE"; "fAlSe"; "0"; "false"]
+
+  let valid_platformdata = [[]]
+
+  let key = "test_key"
+
+  let test_truthiness p =
+    Vm_platform.is_true ~key ~platformdata:p ~default:false
+
+  let test_validity p = Vm_platform.is_valid ~key ~platformdata:p
+
+  let test_value typ f value expected =
+    let title = Printf.sprintf "platformdata %s values: %s" typ value in
+    ( title
+    , `Quick
+    , fun () ->
+        Alcotest.(check bool)
+          (Printf.sprintf "'%s' must evaluate to %b" value expected)
+          expected
+          (f [(key, value)])
     )
-    should_be_true ;
-  List.iter
-    (fun x ->
-      let e = val_fn (p x) in
-      if e then err x
-    )
-    should_be_false
+
+  let truthy_value_tests =
+    let test v = test_value "truthy" test_truthiness v true in
+    List.map test true_values
+
+  let falsy_value_tests =
+    let test v = test_value "falsy" test_truthiness v false in
+    List.map test false_values
+
+  let invalid_value_tests =
+    let test v = test_value "invalid" test_validity v false in
+    List.map test invalid_values
+
+  let empty_platformdata_tests =
+    [
+      ( "Validity with empty platformdata"
+      , `Quick
+      , fun () ->
+          Alcotest.(check bool)
+            "Any key in an empty platformdata must be valid" (test_validity [])
+            true
+      )
+    ]
+end
+
+let vm_platform_values_parser_tests =
+  let open Vm_platform_key_values in
+  List.concat
+    [
+      truthy_value_tests
+    ; falsy_value_tests
+    ; invalid_value_tests
+    ; empty_platformdata_tests
+    ]
 
 let simulator_setup = ref false
 
@@ -225,65 +261,70 @@ let test_xapi_restart () =
     )
     unsetup_simulator
 
-let test_nested_virt_licensing () =
+(* Nested_virt is restricted in the default test database *)
+
+(* List of platform keys and whether they must be restricted when 'Nested_virt' is restricted.
+   true -> must be restricted
+   false -> must not be restricted
+*)
+let nested_virt_checks =
+  [
+    ([], false)
+  ; ([("foo", "bar"); ("baz", "moo"); ("nested-virt", "true")], true)
+  ; ([("nested-virt", "TRUE")], true)
+  ; ([("nested-virt", "false")], false)
+  ; ([("nested-virt", "1")], true)
+  ; ([("nested-virt", "0")], false)
+  ; ([("nested-virt", "true")], true)
+  ]
+
+let pp_platform = Fmt.Dump.(list @@ pair string string)
+
+let test_nested_virt_licensing (platform, should_raise) () =
   let __context = make_test_database () in
 
-  (* Nested_virt is restricted in the default test database *)
-
-  (* List of plaform keys and whether they should be restricted when 'Nested_virt' is restricted.
-     true -> definitely should be restricted
-     false -> definitely should be unrestricted
-  *)
-  let nested_virt_checks =
-    [
-      ([], false)
-    ; ([("foo", "bar"); ("baz", "moo"); ("nested-virt", "true")], true)
-    ; ([("nested-virt", "TRUE")], true)
-    ; ([("nested-virt", "false")], false)
-    ; ([("nested-virt", "1")], true)
-    ; ([("nested-virt", "0")], false)
-    ; ([("nested-virt", "true")], true)
-    ]
-  in
-  let string_of_platform p =
-    Printf.sprintf "[%s]"
-      (String.concat ";"
-         (List.map (fun (k, v) -> Printf.sprintf "'%s','%s'" k v) p)
-      )
-  in
   let pool = Db.Pool.get_all ~__context |> List.hd in
-  let check_one (platform, should_raise) =
-    ( try
-        Db.Pool.set_restrictions ~__context ~self:pool
-          ~value:[("restrict_nested_virt", "true")] ;
-        Vm_platform.check_restricted_flags ~__context platform ;
-        if should_raise then
-          failwith
-            (Printf.sprintf
-               "Failed to raise an exception for platform map: '[%s]'"
-               (string_of_platform platform)
-            )
-      with
-      | Api_errors.Server_error (e, _)
-      when e = Api_errors.license_restriction
-      ->
-        if not should_raise then
-          failwith
-            (Printf.sprintf
-               "Raise an exception unexpectedly for platform map: '[%s]'"
-               (string_of_platform platform)
-            )
-    ) ;
-    (* If the feature is unrestricted, nothing should raise an exception *)
-    Db.Pool.set_restrictions ~__context ~self:pool
-      ~value:[("restrict_nested_virt", "false")] ;
-    Vm_platform.check_restricted_flags ~__context platform
+  let test_checks =
+    if should_raise then
+      Alcotest.check_raises
+        (Format.asprintf "Failed to raise an exception for platform map: '%a'"
+           pp_platform platform
+        )
+        Api_errors.(Server_error (license_restriction, ["Nested_virt"]))
+    else
+      fun f ->
+    try f ()
+    with
+    | Api_errors.(Server_error (license_restriction, ["Nested_virt"])) as e ->
+      Alcotest.fail
+        (Format.asprintf "Unexpectedly raised '%a' for platform map: '%a'"
+           Fmt.exn e pp_platform platform
+        )
   in
-  List.iter check_one nested_virt_checks
+
+  test_checks (fun () ->
+      Db.Pool.set_restrictions ~__context ~self:pool
+        ~value:[("restrict_nested_virt", "true")] ;
+      Vm_platform.check_restricted_flags ~__context platform
+  ) ;
+  (* If the feature is unrestricted, nothing should raise an exception *)
+  Db.Pool.set_restrictions ~__context ~self:pool
+    ~value:[("restrict_nested_virt", "false")] ;
+  Vm_platform.check_restricted_flags ~__context platform
+
+let nested_virt_licensing_tests =
+  let test (p, r) =
+    ( Format.asprintf "Nested_virt licensing: %a" pp_platform p
+    , `Quick
+    , test_nested_virt_licensing (p, r)
+    )
+  in
+  List.map test nested_virt_checks
 
 let test =
-  [
-    ("test_nested_virt_licensing", `Quick, test_nested_virt_licensing)
-  ; ("test_enabled_in_xenguest", `Quick, test_enabled_in_xenguest)
-  ; ("test_xapi_restart", `Quick, test_xapi_restart)
-  ]
+  List.concat
+    [
+      nested_virt_licensing_tests
+    ; vm_platform_values_parser_tests
+    ; [("test_xapi_restart", `Quick, test_xapi_restart)]
+    ]
