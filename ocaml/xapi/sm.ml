@@ -18,7 +18,6 @@
 open Xapi_stdext_std.Xstringext
 open Smint
 open Printf
-open Xapi_stdext_pervasives.Pervasiveext
 
 module D = Debug.Make (struct let name = "sm" end)
 
@@ -354,7 +353,7 @@ let assert_session_has_internal_sr_access ~__context ~sr =
 (* Higher-level functions                                                    *)
 
 let get_my_pbd_for_sr __context sr_id =
-  let me = Helpers.get_localhost __context in
+  let me = Helpers.get_localhost ~__context in
   let pbd_ref_and_record =
     Db.PBD.get_records_where ~__context
       ~expr:
@@ -387,7 +386,7 @@ let sm_master x = ("SRmaster", string_of_bool x)
 (* Internal only function - use 'call_sm_functions' and 'call_sm_vdi_functions' *)
 let __get_my_devconf_for_sr __context sr_id =
   let srmaster = Helpers.i_am_srmaster ~__context ~sr:sr_id in
-  let pbdref, pbd = get_my_pbd_for_sr __context sr_id in
+  let _, pbd = get_my_pbd_for_sr __context sr_id in
   sm_master srmaster :: pbd.API.pBD_device_config
 
 (** Make it easier to call SM backend functions on an SR *)

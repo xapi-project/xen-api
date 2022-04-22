@@ -38,7 +38,7 @@ let asynchronously_run_hook_script_after_subject_add =
   At_least_once_more.make "running after-subject-add hook script"
     run_hook_script_after_subject_add
 
-let create ~__context ~subject_identifier ~other_config =
+let create ~__context ~subject_identifier ~other_config:_ =
   (* If at least one of the hosts uses AD external auth, then assert that the AD feature is enabled *)
   let hosts = Db.Host.get_all ~__context in
   let auth_types =
@@ -50,7 +50,7 @@ let create ~__context ~subject_identifier ~other_config =
   let subjects = Db.Subject.get_all_records ~__context in
   if
     List.exists
-      (fun (subj, record) ->
+      (fun (_, record) ->
         (* visits each subject in the table o(n) *)
         let subject_id_in_db = record.API.subject_subject_identifier in
         subject_identifier = subject_id_in_db

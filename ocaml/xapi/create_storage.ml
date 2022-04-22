@@ -73,15 +73,19 @@ let plug_all_pbds __context =
 
 (* Create a PBD which connects this host to the SR, if one doesn't already exist *)
 let maybe_create_pbd rpc session_id sr device_config me =
-  let pbds = Client.SR.get_PBDs rpc session_id sr in
+  let pbds = Client.SR.get_PBDs ~rpc ~session_id ~self:sr in
   let pbds =
-    List.filter (fun self -> Client.PBD.get_host rpc session_id self = me) pbds
+    List.filter
+      (fun self -> Client.PBD.get_host ~rpc ~session_id ~self = me)
+      pbds
   in
   (* Check not more than 1 pbd in the database *)
   let pbds =
     if List.length pbds > 1 then (
       (* shouldn't happen... delete all but first pbd to make db consistent again *)
-      List.iter (fun pbd -> Client.PBD.destroy rpc session_id pbd) (List.tl pbds) ;
+      List.iter
+        (fun pbd -> Client.PBD.destroy ~rpc ~session_id ~self:pbd)
+        (List.tl pbds) ;
       [List.hd pbds]
     ) else
       pbds
@@ -116,7 +120,7 @@ let maybe_remove_tools_sr rpc session_id __context =
     Db.PBD.set_currently_attached ~__context ~self:pbd ~value:false ;
     (* Destroy any Tools SRs *)
     try
-      Client.SR.forget rpc session_id sr ;
+      Client.SR.forget ~rpc ~session_id ~sr ;
       info "Tools SR %s has been removed" (Ref.string_of sr)
     with
     | Api_errors.Server_error (e, _) when e = Api_errors.sr_has_pbd ->
@@ -131,10 +135,10 @@ let maybe_remove_tools_sr rpc session_id __context =
 
 let initialise_storage (me : API.ref_host) rpc session_id __context : unit =
   let create_pbds_for_shared_srs () =
-    let pool = List.hd (Client.Pool.get_all rpc session_id) in
-    let master = Client.Pool.get_master rpc session_id pool in
-    let srs = Client.SR.get_all_records_where rpc session_id "true" in
-    let pbds = Client.PBD.get_all_records_where rpc session_id "true" in
+    let pool = List.hd (Client.Pool.get_all ~rpc ~session_id) in
+    let master = Client.Pool.get_master ~rpc ~session_id ~self:pool in
+    let srs = Client.SR.get_all_records_where ~rpc ~session_id ~expr:"true" in
+    let pbds = Client.PBD.get_all_records_where ~rpc ~session_id ~expr:"true" in
     (* We want all shared SRs, but not the Tools SR (if any) if it is being removed *)
     let shared_srs =
       List.filter
@@ -149,7 +153,7 @@ let initialise_storage (me : API.ref_host) rpc session_id __context : unit =
       List.filter (fun (_, pbd_rec) -> pbd_rec.API.pBD_host = master) pbds
     in
     let maybe_create_pbd_for_shared_sr s =
-      let mpbd, mpbd_rec =
+      let _, mpbd_rec =
         List.find (fun (_, pbdr) -> pbdr.API.pBD_SR = s) master_pbds
       in
       let master_devconf = mpbd_rec.API.pBD_device_config in

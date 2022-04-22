@@ -29,11 +29,6 @@ let xml_leaf_element name value = Xml.Element (name, [], [Xml.PCData value])
 let xml_element_has_name name element =
   match element with Xml.Element (name_, _, _) -> name = name_ | _ -> false
 
-(** Returns a sub-list of the given element list, containing
-    only those elements with the specified name. *)
-let xml_elements_with_name elements name =
-  List.filter (xml_element_has_name name) elements
-
 (** Returns the first element with the specified name from
     the given element list. *)
 let first_xml_element_with_name elements name =
@@ -44,7 +39,7 @@ let first_xml_element_with_name elements name =
     Returns a (name, value) string pair, where the arguments
     are stripped of leading and trailing whitespace. *)
 let hash_table_entry_of_leaf_xml_element = function
-  | Xml.Element (name, _, Xml.PCData value :: values) ->
+  | Xml.Element (name, _, Xml.PCData value :: _) ->
       Some (String.strip String.isspace name, String.strip String.isspace value)
   | Xml.Element (name, _, []) ->
       Some (String.strip String.isspace name, "")

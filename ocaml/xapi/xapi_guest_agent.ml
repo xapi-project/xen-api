@@ -246,7 +246,7 @@ let get_initial_guest_metrics (lookup : string -> string option)
       (List.map
          (fun (xskey, mapkey) ->
            match (lookup xskey, xskey, cant_suspend_reason) with
-           | Some xsval, "control/feature-suspend", Some reason ->
+           | Some _, "control/feature-suspend", Some reason ->
                [("data-cant-suspend-reason", reason)]
            | Some xsval, _, _ ->
                [(mapkey, xsval)]
@@ -441,7 +441,7 @@ let all (lookup : string -> string option) (list : string -> string list)
     if guest_metrics_cached.other <> other then (
       Db.VM_guest_metrics.set_other ~__context ~self:gm ~value:other ;
       Helpers.call_api_functions ~__context (fun rpc session_id ->
-          Client.Client.VM.update_allowed_operations rpc session_id self
+          Client.Client.VM.update_allowed_operations ~rpc ~session_id ~self
       )
     ) ;
     if guest_metrics_cached.can_use_hotplug_vbd <> can_use_hotplug_vbd then
@@ -493,7 +493,7 @@ let all (lookup : string -> string option) (list : string -> string list)
       || guest_metrics_cached.can_use_hotplug_vif <> can_use_hotplug_vif
     then
       Helpers.call_api_functions ~__context (fun rpc session_id ->
-          Client.Client.VM.update_allowed_operations rpc session_id self
+          Client.Client.VM.update_allowed_operations ~rpc ~session_id ~self
       )
   )
 

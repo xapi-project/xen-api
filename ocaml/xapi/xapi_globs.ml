@@ -17,7 +17,6 @@
 module String_plain = String (* For when we don't want the Xstringext version *)
 
 open Xapi_stdext_std.Xstringext
-open Printf
 
 module D = Debug.Make (struct let name = "xapi_globs" end)
 

@@ -36,7 +36,7 @@ let do_cmd s cmd args =
       | _ ->
           raise (Spawn_internal_error (log, "", status))
     )
-  | Failure (log, exn) ->
+  | Failure (_, exn) ->
       raise exn
 
 let allowed_cmds = [("rsync", "/usr/bin/rsync")]
@@ -51,6 +51,6 @@ let handler (req : Http.Request.t) s _ =
         failwith "Not a pool session" ;
       let cmd = List.assoc "cmd" q in
       let cmd = List.assoc cmd allowed_cmds in
-      let args = List.map snd (List.filter (fun (x, y) -> x = "arg") q) in
+      let args = List.map snd (List.filter (fun (x, _) -> x = "arg") q) in
       do_cmd s cmd args
   )

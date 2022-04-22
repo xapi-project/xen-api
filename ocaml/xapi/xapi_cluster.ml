@@ -130,7 +130,7 @@ let get_network ~__context ~self = get_network_internal ~__context ~self
 (** Cluster.pool* functions are convenience wrappers for iterating low-level APIs over a pool.
     Concurrency checks are done in the implementation of these calls *)
 
-let foreach_cluster_host ~__context ~self
+let foreach_cluster_host ~__context ~self:_
     ~(fn :
           rpc:(Rpc.call -> Rpc.response)
        -> session_id:API.ref_session
@@ -140,7 +140,7 @@ let foreach_cluster_host ~__context ~self
   let wrapper = if log then log_and_ignore_exn else fun f -> f () in
   List.iter (fun self ->
       Helpers.call_api_functions ~__context (fun rpc session_id ->
-          wrapper (fun () -> fn rpc session_id self)
+          wrapper (fun () -> fn ~rpc ~session_id ~self)
       )
   )
 
@@ -179,7 +179,9 @@ let pool_force_destroy ~__context ~self =
   in
   info "We now delete completely the cluster_hosts where forget failed" ;
   foreach_cluster_host ~__context ~self ~log:false
-    ~fn:(fun ~rpc ~session_id ~self -> Db.Cluster_host.destroy ~__context ~self)
+    ~fn:(fun ~rpc:_ ~session_id:_ ~self ->
+      Db.Cluster_host.destroy ~__context ~self
+    )
     unforgotten_cluster_hosts ;
   match Db.Cluster.get_cluster_hosts ~__context ~self with
   | [] ->
@@ -246,7 +248,7 @@ let pool_create ~__context ~network ~cluster_stack ~token_timeout
 
 (* Work is split between message_forwarding and this code. This code is
    executed on each host locally *)
-let pool_resync ~__context ~(self : API.ref_Cluster) =
+let pool_resync ~__context ~self:_ =
   let host = Helpers.get_localhost ~__context in
   log_and_ignore_exn @@ fun () ->
   Xapi_cluster_host.create_as_necessary ~__context ~host ;

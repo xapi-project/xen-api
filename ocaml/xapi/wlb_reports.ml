@@ -137,14 +137,14 @@ let trim_and_send method_name tag recv_sock send_sock =
       in
       debug "send conent: %s" xml_data_set_content ;
       send xml_data_set_content
-    with Workload_balancing.Xml_parse_failure error ->
+    with Workload_balancing.Xml_parse_failure _ ->
       Workload_balancing.parse_result_code method_name report_result_xml
         "Failed to detect end of XML, data could be truncated" s true
-  with Xml.Error err ->
+  with Xml.Error _ ->
     Workload_balancing.raise_malformed_response' method_name
       "Expected data is truncated." s
 
-let handle req bio method_name tag (method_name, request_func) =
+let handle req bio _method_name tag (method_name, request_func) =
   let client_sock = Buf_io.fd_of bio in
   Buf_io.assert_buffer_empty bio ;
   debug "handle: fd = %d"
@@ -155,7 +155,7 @@ let handle req bio method_name tag (method_name, request_func) =
       (* This is the signal to say we've taken responsibility from the CLI server for completing the task *)
       (* The GUI can deal with this itself, but the CLI is complicated by the thin cli/cli server split *)
       TaskHelper.set_progress ~__context 0.0 ;
-      let parse response wlb_sock =
+      let parse _response wlb_sock =
         Http_svr.headers client_sock (Http.http_200_ok ()) ;
         trim_and_send method_name tag wlb_sock client_sock
       in

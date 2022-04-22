@@ -127,7 +127,7 @@ module Mux = struct
     match fail_or combine m with SMSuccess x -> x | SMFailure e -> raise e
 
   module Query = struct
-    let query () ~dbg =
+    let query () ~dbg:_ =
       {
         driver= "mux"
       ; name= "storage multiplexor"
@@ -142,7 +142,7 @@ module Mux = struct
       }
 
     let diagnostics () ~dbg =
-      forall (fun sr rpc ->
+      forall (fun sr _rpc ->
           let module C = StorageAPI (Idl.Exn.GenClient (struct
             let rpc = of_sr sr
           end)) in
@@ -210,11 +210,11 @@ module Mux = struct
 
     let list () ~dbg =
       List.fold_left
-        (fun acc (sr, list) ->
-          match list with SMSuccess l -> l @ acc | x -> acc
+        (fun acc (_, list) ->
+          match list with SMSuccess l -> l @ acc | _ -> acc
         )
         []
-        (multicast (fun sr rpc ->
+        (multicast (fun sr _rpc ->
              let module C = StorageAPI (Idl.Exn.GenClient (struct
                let rpc = of_sr sr
              end)) in
@@ -222,7 +222,7 @@ module Mux = struct
          )
         )
 
-    let reset () ~dbg ~sr = assert false
+    let reset () ~dbg:_ ~sr:_ = assert false
 
     let update_snapshot_info_src () = Storage_migrate.update_snapshot_info_src
 
@@ -312,7 +312,7 @@ module Mux = struct
       C.VDI.epoch_begin dbg sr vdi vm persistent
 
     (* We need to include this to satisfy the SMAPIv2 signature *)
-    let attach () ~dbg ~dp ~sr ~vdi ~read_write =
+    let attach () ~dbg:_ ~dp:_ ~sr:_ ~vdi:_ ~read_write:_ =
       failwith
         "We'll never get here: attach is implemented in Storage_impl.Wrapper"
 
@@ -440,7 +440,7 @@ module Mux = struct
     | [name] -> (
       match
         success_or choose
-          (multicast (fun sr rpc ->
+          (multicast (fun sr _rpc ->
                let module C = StorageAPI (Idl.Exn.GenClient (struct
                  let rpc = of_sr sr
                end)) in
@@ -479,7 +479,7 @@ module Mux = struct
   end
 
   module Policy = struct
-    let get_backend_vm () ~dbg ~vm ~sr ~vdi =
+    let get_backend_vm () ~dbg:_ ~vm:_ ~sr ~vdi:_ =
       if not (Hashtbl.mem plugins sr) then (
         error "No registered plugin for sr = %s" (s_of_sr sr) ;
         raise (Storage_error (No_storage_plugin_for_sr (s_of_sr sr)))
@@ -488,16 +488,18 @@ module Mux = struct
   end
 
   module TASK = struct
-    let stat () ~dbg ~task = assert false
+    let stat () ~dbg:_ ~task:_ = assert false
 
-    let cancel () ~dbg ~task = assert false
+    let cancel () ~dbg:_ ~task:_ = assert false
 
-    let destroy () ~dbg ~task = assert false
+    let destroy () ~dbg:_ ~task:_ = assert false
 
-    let list () ~dbg = assert false
+    let list () ~dbg:_ = assert false
   end
 
-  module UPDATES = struct let get () ~dbg ~from ~timeout = assert false end
+  module UPDATES = struct
+    let get () ~dbg:_ ~from:_ ~timeout:_ = assert false
+  end
 end
 
 module Server = Storage_interface.Server (Storage_impl.Wrapper (Mux)) ()

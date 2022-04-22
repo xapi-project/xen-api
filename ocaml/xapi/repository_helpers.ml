@@ -93,7 +93,7 @@ module Pkg = struct
     |> function
     | Ok (e, v, r) ->
         (e, v, r)
-    | Error msg ->
+    | Error _ ->
         let msg = error_msg epoch_ver_rel in
         error "%s" msg ;
         raise Api_errors.(Server_error (internal_error, [msg]))
@@ -216,9 +216,9 @@ module Pkg = struct
               compare_segments t1 t2
             else
               LT
-        | Int s1, Str s2 ->
+        | Int _, Str _ ->
             GT
-        | Str s1, Int s2 ->
+        | Str _, Int _ ->
             LT
         | Str s1, Str s2 ->
             let r = String.compare s1 s2 in
@@ -578,7 +578,7 @@ module RepoMetaData = struct
     | {checksum= ""; _} | {location= ""; _} ->
         error "Can't find valid 'checksum' or 'location'" ;
         raise Api_errors.(Server_error (invalid_repomd_xml, []))
-    | md ->
+    | _ ->
         ()
 
   let of_xml xml data_type =
@@ -802,7 +802,7 @@ let assert_url_is_valid ~url =
             ()
         | l -> (
           match
-            List.exists (fun d -> Astring.String.is_suffix ("." ^ d) h) l
+            List.exists (fun d -> Astring.String.is_suffix ~affix:("." ^ d) h) l
           with
           | true ->
               ()

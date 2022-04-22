@@ -12,8 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Xmlrpc_client
-
 module type RPC_META = sig
   val client_name : string
 

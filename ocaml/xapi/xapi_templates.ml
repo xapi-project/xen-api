@@ -104,7 +104,7 @@ open Client
 
 (** From a VM reference, return an 'install' record option. *)
 let get_template_record rpc session_id vm =
-  let other_config = Client.VM.get_other_config rpc session_id vm in
+  let other_config = Client.VM.get_other_config ~rpc ~session_id ~self:vm in
   let disks =
     if List.mem_assoc disks_key other_config then
       disks_of_xml (Xml.parse_string (List.assoc disks_key other_config))
@@ -131,7 +131,7 @@ let needs_to_be_installed rpc session_id vm =
     library. Hopefully we can link this code directly into the in-guest installer. *)
 let create_disk rpc session_id vm sm_config disk =
   let sr =
-    try Client.SR.get_by_uuid rpc session_id disk.sr
+    try Client.SR.get_by_uuid ~rpc ~session_id ~uuid:disk.sr
     with _ ->
       D.error "Unable to find SR (uuid: %s) to provision the disk" disk.sr ;
       raise (Api_errors.Server_error (Api_errors.uuid_invalid, ["sr"; disk.sr]))
@@ -160,7 +160,7 @@ let create_disk rpc session_id vm sm_config disk =
 let pre_install rpc session_id vm =
   debug "Performing pre_install actions (ie creating disks)" ;
   (* driver params for each call - vmhint and epochhint for netapp *)
-  let vmuuid = Client.VM.get_uuid rpc session_id vm in
+  let vmuuid = Client.VM.get_uuid ~rpc ~session_id ~self:vm in
   let sm_config = [(Constants._sm_vm_hint, vmuuid)] in
   match get_template_record rpc session_id vm with
   | Some {disks; post_install_script= script} ->
@@ -174,8 +174,12 @@ let pre_install rpc session_id vm =
 let post_install rpc session_id vm =
   debug
     "Performing post_install actions (ie removing template information from VM)" ;
-  ( try Client.VM.remove_from_other_config rpc session_id vm disks_key
+  ( try
+      Client.VM.remove_from_other_config ~rpc ~session_id ~self:vm
+        ~key:disks_key
     with _ -> ()
   ) ;
-  try Client.VM.remove_from_other_config rpc session_id vm post_install_key
+  try
+    Client.VM.remove_from_other_config ~rpc ~session_id ~self:vm
+      ~key:post_install_key
   with _ -> ()

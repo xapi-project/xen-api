@@ -28,7 +28,6 @@ module Unixext = Xapi_stdext_unix.Unixext
 
 let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
-open Forkhelpers
 open Client
 open Db_filter_types
 open Xha_scripts
@@ -301,7 +300,7 @@ module Monitor = struct
             let localhost_uuid = Helpers.get_localhost_uuid () in
             let boolean_warning msg body_option =
               let trigger =
-                Xapi_alert.edge_trigger (fun old newvalue ->
+                Xapi_alert.edge_trigger (fun _ newvalue ->
                     if newvalue then (
                       warn "%s" (fst msg) ;
                       match body_option with
@@ -1007,8 +1006,8 @@ let on_server_restart () =
               let address = Pool_role.get_master_address () in
               Helpers.call_emergency_mode_functions address
                 (fun rpc session_id ->
-                  let pool = List.hd (Client.Pool.get_all rpc session_id) in
-                  not (Client.Pool.get_ha_enabled rpc session_id pool)
+                  let pool = List.hd (Client.Pool.get_all ~rpc ~session_id) in
+                  not (Client.Pool.get_ha_enabled ~rpc ~session_id ~self:pool)
               )
             with _ ->
               (* there's no-one for us to ask about whether HA is enabled or not *)
@@ -1092,7 +1091,7 @@ let on_database_engine_ready () =
 (*********************************************************************************************)
 (* Internal API calls to configure individual hosts                                          *)
 
-let ha_disable_failover_decisions __context localhost =
+let ha_disable_failover_decisions __context _localhost =
   debug "Disabling failover decisions" ;
   (* FIST *)
   if Xapi_fist.disable_ha_disable_failover () then (
@@ -1101,18 +1100,18 @@ let ha_disable_failover_decisions __context localhost =
   ) ;
   Localdb.put Constants.ha_disable_failover_decisions "true"
 
-let ha_disarm_fencing __context localhost =
+let ha_disarm_fencing __context _localhost =
   try
     let (_ : string) = call_script ha_disarm_fencing [] in
     ()
   with Xha_error Xha_errno.Mtc_exit_daemon_is_not_present ->
     info "ha_disarm_fencing: daemon has exited so returning success"
 
-let ha_set_excluded __context localhost =
+let ha_set_excluded __context _localhost =
   let (_ : string) = call_script ha_set_excluded [] in
   ()
 
-let ha_stop_daemon __context localhost =
+let ha_stop_daemon __context _localhost =
   Monitor.stop () ;
   let (_ : string) = call_script ha_stop_daemon [] in
   ()
@@ -1154,7 +1153,7 @@ let emergency_ha_disable __context soft =
     if not soft then Localdb.put Constants.ha_armed "false"
   )
 
-let ha_release_resources __context localhost =
+let ha_release_resources __context _localhost =
   Monitor.stop () ;
 
   (* Why aren't we calling Xha_statefile.detach_existing_statefiles?
@@ -1183,7 +1182,7 @@ let ha_release_resources __context localhost =
   (* At this point a restart won't enable the HA subsystem *)
   Localdb.put Constants.ha_armed "false"
 
-let ha_wait_for_shutdown_via_statefile __context localhost =
+let ha_wait_for_shutdown_via_statefile __context _localhost =
   try
     while true do
       let liveset = query_liveset () in
@@ -1578,7 +1577,8 @@ let disable_internal __context =
               debug "Waiting for host '%s' ('%s') to see invalid statefile"
                 (Db.Host.get_name_label ~__context ~self:host)
                 (Ref.string_of host) ;
-              Client.Host.ha_wait_for_shutdown_via_statefile rpc session_id host
+              Client.Host.ha_wait_for_shutdown_via_statefile ~rpc ~session_id
+                ~host
             )
             hosts
         in
@@ -1612,7 +1612,7 @@ let disable_internal __context =
               debug "Disabling all failover decisions on host '%s' ('%s')"
                 (Db.Host.get_name_label ~__context ~self:host)
                 (Ref.string_of host) ;
-              Client.Host.ha_disable_failover_decisions rpc session_id host
+              Client.Host.ha_disable_failover_decisions ~rpc ~session_id ~host
             )
             hosts
         in
@@ -1643,7 +1643,7 @@ let disable_internal __context =
               debug "Disarming fencing on host '%s' ('%s')"
                 (Db.Host.get_name_label ~__context ~self:host)
                 (Ref.string_of host) ;
-              Client.Host.ha_disarm_fencing rpc session_id host
+              Client.Host.ha_disarm_fencing ~rpc ~session_id ~host
             )
             hosts
         in
@@ -1664,7 +1664,7 @@ let disable_internal __context =
               debug "Stopping HA daemon on host '%s' ('%s')"
                 (Db.Host.get_name_label ~__context ~self:host)
                 (Ref.string_of host) ;
-              Client.Host.ha_stop_daemon rpc session_id host
+              Client.Host.ha_stop_daemon ~rpc ~session_id ~host
             )
             hosts
         in
@@ -1712,7 +1712,7 @@ let disable_internal __context =
               debug "Releasing resources on host '%s' ('%s')"
                 (Db.Host.get_name_label ~__context ~self:host)
                 (Ref.string_of host) ;
-              Client.Host.ha_release_resources rpc session_id host
+              Client.Host.ha_release_resources ~rpc ~session_id ~host
             )
             hosts
         in
@@ -1800,7 +1800,7 @@ let enable __context heartbeat_srs configuration =
          have storage PIFs that are not dedicated:"
       ]
       @ List.map
-          (fun (hostname, pif, pifr) ->
+          (fun (hostname, _, pifr) ->
             Printf.sprintf "%s: %s (uuid: %s)" hostname pifr.API.pIF_device
               pifr.API.pIF_uuid
           )
@@ -1910,8 +1910,9 @@ let enable __context heartbeat_srs configuration =
               debug "Preconfiguring HA on host '%s' ('%s')"
                 (Db.Host.get_name_label ~__context ~self:host)
                 (Ref.string_of host) ;
-              Client.Host.preconfigure_ha rpc session_id host !statefile_vdis
-                database_vdi generation ;
+              Client.Host.preconfigure_ha ~rpc ~session_id ~host
+                ~statefiles:!statefile_vdis ~metadata_vdi:database_vdi
+                ~generation ;
               count_call ()
             with e ->
               error
@@ -1934,7 +1935,7 @@ let enable __context heartbeat_srs configuration =
               debug "host '%s' ('%s') will attempt to join the liveset"
                 (Db.Host.get_name_label ~__context ~self:host)
                 (Ref.string_of host) ;
-              Client.Host.ha_join_liveset rpc session_id host ;
+              Client.Host.ha_join_liveset ~rpc ~session_id ~host ;
               count_call ()
             )
             hosts
@@ -1976,7 +1977,8 @@ let enable __context heartbeat_srs configuration =
               debug "Synchronising database with host '%s' ('%s')"
                 (Db.Host.get_name_label ~__context ~self:host)
                 (Ref.string_of host) ;
-              Client.Host.request_backup rpc session_id host generation true ;
+              Client.Host.request_backup ~rpc ~session_id ~host ~generation
+                ~force:true ;
               count_call ()
             )
             hosts
@@ -2011,7 +2013,7 @@ let enable __context heartbeat_srs configuration =
        notice the invalid state and disable its HA *)
     raise exn
 
-let assert_have_statefile_access ~__context ~host =
+let assert_have_statefile_access ~__context ~host:_ =
   let pool = Helpers.get_pool ~__context in
   if Db.Pool.get_ha_enabled ~__context ~self:pool then
     let liveset = query_liveset () in

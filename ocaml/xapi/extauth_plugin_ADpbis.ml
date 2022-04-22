@@ -104,7 +104,7 @@ let match_error_tag (lines : string list) =
 
 let extract_sid_from_group_list group_list =
   List.map
-    (fun (n, v) ->
+    (fun (_, v) ->
       let v = String.replace ")" "" v in
       let v = String.replace "sid =" "|" v in
       let vs = String.split_f (fun c -> c = '|') v in
@@ -112,7 +112,7 @@ let extract_sid_from_group_list group_list =
       debug "extract_sid_from_group_list get sid=[%s]" sid ;
       sid
     )
-    (List.filter (fun (n, v) -> n = "") group_list)
+    (List.filter (fun (n, _) -> n = "") group_list)
 
 let start_damon () =
   try Lwsmd.start ~timeout:5. ~wait_until_success:true
@@ -525,22 +525,6 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
     *)
     extract_sid_from_group_list subject_attrs
 
-  let pbis_get_sid_bygid gid =
-    let subject_attrs =
-      pbis_common "/opt/pbis/bin/find-group-by-id" ["--level"; "1"; gid]
-    in
-    (* find-group-by-id returns several lines. We only need the SID *)
-    if List.mem_assoc "SID" subject_attrs then
-      List.assoc "SID" subject_attrs (* OK, return SID *)
-    else
-      (*no SID value returned*)
-      (* this should not have happend, pbis didn't return an SID field!! *)
-      let msg =
-        Printf.sprintf "Pbis didn't return an SID field for gid %s" gid
-      in
-      debug "Error pbis_get_sid_bygid for gid %s: %s" gid msg ;
-      raise (Auth_signature.Auth_service_error (Auth_signature.E_GENERIC, msg))
-
   (* general Pbis error *)
 
   let pbis_get_sid_byname _subject_name cmd =
@@ -632,7 +616,7 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
   *)
   (* not implemented now, not needed for our tests, only for a *)
   (* future single sign-on feature *)
-  let authenticate_ticket tgt =
+  let authenticate_ticket _tgt =
     failwith "extauth_plugin authenticate_ticket not implemented"
 
   (* ((string*string) list) query_subject_information(string subject_identifier)
@@ -756,7 +740,7 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
          AD server. as such, we don't care if krbtgt was not originally in
          the cache *)
       match get_full_subject_name krbtgt with
-      | exception e ->
+      | exception _ ->
           info
             "_is_pbis_server_available: failed to get full subject name for %s"
             krbtgt ;
@@ -1117,7 +1101,7 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
       Called internally by xapi whenever it starts up. The system_boot flag is true iff xapi is
       starting for the first time after a host boot
   *)
-  let on_xapi_initialize system_boot =
+  let on_xapi_initialize _system_boot =
     (* the AD server is initialized outside xapi, by init.d scripts *)
 
     (* this function is called during xapi initialization in xapi.ml *)

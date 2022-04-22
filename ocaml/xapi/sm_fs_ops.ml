@@ -13,8 +13,6 @@
  *)
 (* Make VDIs with ext2 filesystems on them *)
 
-open Client
-
 let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
 module D = Debug.Make (struct let name = "sm_fs_ops" end)
@@ -40,7 +38,7 @@ let with_open_block_attached_device __context rpc session_id vdi mode f =
   )
 
 (** Return a URL suitable for passing to the sparse_dd process *)
-let import_vdi_url ~__context ?(prefer_slaves = false) rpc session_id task_id
+let import_vdi_url ~__context ?(prefer_slaves = false) _rpc session_id task_id
     vdi =
   (* Find a suitable host for the SR containing the VDI *)
   let sr = Db.VDI.get_SR ~__context ~self:vdi in

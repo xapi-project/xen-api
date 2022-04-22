@@ -280,7 +280,7 @@ let ensure_vm_metrics_records_exist __context =
         Db.VM.set_metrics ~__context ~self:vm ~value:m
       )
     )
-    (Db.VM.get_all __context)
+    (Db.VM.get_all ~__context)
 
 let ensure_vm_metrics_records_exist_noexn __context =
   Helpers.log_exn_continue "ensuring VM_metrics flags exist"

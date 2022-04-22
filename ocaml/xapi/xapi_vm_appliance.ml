@@ -73,13 +73,13 @@ let create_action_list ~__context start vms =
 (* Return once all the tasks have completed, with a list of VMs which threw an exception. *)
 let run_operation_on_vms ~__context operation vms =
   Helpers.call_api_functions ~__context (fun rpc session_id ->
-      let tasks, failed_vms =
+      let tasks, _failed_vms =
         List.fold_left
           (fun (tasks, failed_vms) vm ->
             try
               let task = operation vm rpc session_id in
               (task :: tasks, failed_vms)
-            with e -> (tasks, vm :: failed_vms)
+            with _ -> (tasks, vm :: failed_vms)
           )
           ([], []) vms
       in

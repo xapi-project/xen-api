@@ -11,9 +11,6 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-module D = Debug.Make (struct let name = "xapi" end)
-
-open D
 
 (* High-level functions called when rolling upgrade 'starts' and 'stops' where
    start and stop are defined by the logic in db_gc.ml. *)

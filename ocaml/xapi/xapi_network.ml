@@ -18,7 +18,6 @@ open Xapi_stdext_std.Xstringext
 module D = Debug.Make (struct let name = "xapi_network" end)
 
 open D
-open Db_filter
 open Network
 
 let bridge_blacklist = ["xen"; "xapi"; "vif"; "tap"; "eth"]
@@ -159,7 +158,7 @@ let detach ~__context net =
     Net.Bridge.destroy dbg false bridge_name
   )
 
-let attach ~__context ~network ~host =
+let attach ~__context ~network ~host:_ =
   attach_internal ~force_bringup:true ~__context ~self:network ()
 
 let active_vifs_to_networks : (API.ref_VIF, API.ref_network) Hashtbl.t =
@@ -360,7 +359,7 @@ let attach_for_vif ~__context ~vif () =
   Xapi_udhcpd.maybe_add_lease ~__context vif ;
   Pvs_proxy_control.maybe_start_proxy_for_vif ~__context ~vif
 
-let attach_for_vm ~__context ~host ~vm =
+let attach_for_vm ~__context ~host:_ ~vm =
   List.iter
     (fun vif -> attach_for_vif ~__context ~vif ())
     (Db.VM.get_VIFs ~__context ~self:vm)
@@ -369,7 +368,7 @@ let detach_for_vif ~__context ~vif =
   deregister_vif ~__context vif ;
   Pvs_proxy_control.maybe_stop_proxy_for_vif ~__context ~vif
 
-let detach_for_vm ~__context ~host ~vm =
+let detach_for_vm ~__context ~host:_ ~vm =
   try
     List.iter
       (fun vif -> detach_for_vif ~__context ~vif)
@@ -406,7 +405,7 @@ let with_networks_attached_for_vm ~__context ?host ~vm f =
 
 (* Note that in the revision history is a version of this function
  * with logic for additional purposes, which may be useful in future. *)
-let assert_can_add_purpose ~__context ~network ~current newval =
+let assert_can_add_purpose ~__context ~network:_ ~current:_ newval =
   let sop (*string-of-porpoise*) = Record_util.network_purpose_to_string in
   let reject conflicting =
     raise

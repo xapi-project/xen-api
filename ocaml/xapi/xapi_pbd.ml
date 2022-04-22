@@ -15,7 +15,6 @@
  * @group XenAPI functions
 *)
 
-open Db_filter
 open Db_filter_types
 
 module D = Debug.Make (struct let name = "xapi_pbd" end)
@@ -32,8 +31,7 @@ let assert_no_srmaster_key dev_cfg =
          )
       )
 
-let create_common ~__context ~host ~sR ~device_config ~currently_attached
-    ~other_config =
+let create_common ~__context ~host ~sR ~device_config ~currently_attached =
   let pbds = Db.SR.get_PBDs ~__context ~self:sR in
   if List.exists (fun pbd -> Db.PBD.get_host ~__context ~self:pbd = host) pbds
   then
@@ -61,16 +59,15 @@ let create_common ~__context ~host ~sR ~device_config ~currently_attached
     ~currently_attached ~other_config:[] ;
   ref
 
-let create ~__context ~host ~sR ~device_config ~other_config =
+let create ~__context ~host ~sR ~device_config ~other_config:_ =
   create_common ~__context ~host ~sR ~device_config ~currently_attached:false
-    ~other_config
 
 (* Useful internal helpers *)
 
 let create_thishost ~__context ~sR ~device_config ~currently_attached =
   create_common ~__context
     ~host:(Helpers.get_localhost ~__context)
-    ~sR ~device_config ~currently_attached ~other_config:[]
+    ~sR ~device_config ~currently_attached
 
 let get_active_vdis_by_pbd ~__context ~self =
   let sr = Db.PBD.get_SR ~__context ~self in
@@ -79,7 +76,7 @@ let get_active_vdis_by_pbd ~__context ~self =
     Db.VM.get_records_where ~__context
       ~expr:(Eq (Field "resident_on", Literal (Ref.string_of host)))
   in
-  let vbds = List.flatten (List.map (fun (vm, vmr) -> vmr.API.vM_VBDs) vms) in
+  let vbds = List.flatten (List.map (fun (_, vmr) -> vmr.API.vM_VBDs) vms) in
   let vbds_r =
     List.map (fun self -> Db.VBD.get_record_internal ~__context ~self) vbds
   in

@@ -171,14 +171,14 @@ let take_random_element_from_list generate_random_value list =
 let evaluate_sort_partition evaluate sort partition list =
   let list_evaluated = List.map (fun x -> (x, evaluate x)) list in
   let list_sorted =
-    List.sort (fun (a, av) (b, bv) -> sort av bv) list_evaluated
+    List.sort (fun (_, av) (_, bv) -> sort av bv) list_evaluated
   in
   (* TODO: Use a more efficient partition. *)
   let list_selected, list_unselected =
-    List.partition (fun (a, av) -> partition av) list_sorted
+    List.partition (fun (_, av) -> partition av) list_sorted
   in
-  ( List.map (fun (a, av) -> a) list_selected
-  , List.map (fun (a, av) -> a) list_unselected
+  ( List.map (fun (a, _) -> a) list_selected
+  , List.map (fun (a, _) -> a) list_unselected
   )
 
 (* === Host categories======================================================= *)
@@ -306,9 +306,7 @@ let select_host_from_categories categories hosts validate_host
     generate_random_value =
   let rec select hosts categories =
     match (hosts, categories) with
-    | [], xx ->
-        None
-    | xx, [] ->
+    | [], _ | _, [] ->
         None
     | hosts, category :: categories_remaining -> (
         let host, hosts_remaining =

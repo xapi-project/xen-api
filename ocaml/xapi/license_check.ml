@@ -35,7 +35,7 @@ let check_expiry ~__context ~host =
   if expired then
     raise (Api_errors.Server_error (Api_errors.license_expired, []))
 
-let vm ~__context vm =
+let vm ~__context _vm =
   (* Here we check that the license is still valid - this should be the only place where this happens *)
   let host = Helpers.get_localhost ~__context in
   check_expiry ~__context ~host

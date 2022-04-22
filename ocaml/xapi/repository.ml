@@ -233,7 +233,7 @@ let http_get_host_updates_in_json ~__context ~host ~installed =
       try
         let json_str =
           with_transport transport
-            (with_http request (fun (response, fd) ->
+            (with_http request (fun (_, fd) ->
                  Xapi_stdext_unix.Unixext.string_of_fd fd
              )
             )
@@ -301,7 +301,7 @@ let set_available_updates ~__context =
   in
   let rets =
     with_pool_repositories (fun () ->
-        Helpers.run_in_parallel funs capacity_in_parallel
+        Helpers.run_in_parallel ~funs ~capacity:capacity_in_parallel
     )
   in
   let enabled = get_enabled_repositories ~__context in
@@ -596,7 +596,7 @@ let apply ~__context ~host =
         raise Api_errors.(Server_error (apply_updates_failed, [host']))
   )
 
-let do_with_device_models ~__context ~host ~action_label f =
+let do_with_device_models ~__context ~host ~action_label:_ f =
   (* Call f with device models of all running HVM VMs on the host *)
   Db.Host.get_resident_VMs ~__context ~self:host
   |> List.map (fun self -> (self, Db.VM.get_record ~__context ~self))
@@ -634,8 +634,8 @@ let restart_device_models ~__context ~host =
   with
   | `Running, true ->
       Helpers.call_api_functions ~__context (fun rpc session_id ->
-          Client.Client.VM.pool_migrate rpc session_id ref host
-            [("live", "true")]
+          Client.Client.VM.pool_migrate ~rpc ~session_id ~vm:ref ~host
+            ~options:[("live", "true")]
       ) ;
       None
   | `Paused, true ->

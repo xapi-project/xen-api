@@ -53,7 +53,6 @@ let unreachable_hosts ~__context =
 
 let maybe_update_clustering_tls_config ~__context =
   let open Xapi_clustering in
-  let open Xapi_cluster_host in
   with_clustering_lock __LOC__ @@ fun () ->
   let host = Helpers.get_localhost ~__context in
   match Xapi_clustering.find_cluster_host ~__context ~host with

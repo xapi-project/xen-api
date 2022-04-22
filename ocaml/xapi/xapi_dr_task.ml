@@ -162,7 +162,6 @@ let create ~__context ~_type ~device_config ~whitelist =
   dr_task
 
 let destroy ~__context ~self =
-  let open Db_filter_types in
   let introduced_SRs = Db.DR_task.get_introduced_SRs ~__context ~self in
   List.iter
     (fun sr ->

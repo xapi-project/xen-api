@@ -81,7 +81,7 @@ let config_file_sync_handler (req : Http.Request.t) s _ =
       debug "sending headers" ;
       Http_svr.headers s (Http.http_200_ok ~keep_alive:false ()) ;
       match uri with
-      | [path; version] when current version ->
+      | [_; version] when current version ->
           debug "writing dom0 config files" ;
           transmit_config_files s ;
           debug "finished writing dom0 config files"
@@ -91,9 +91,9 @@ let config_file_sync_handler (req : Http.Request.t) s _ =
           debug "finished writing legacy dom0 config files"
   )
 
-let fetch_config_files_internal ~master_address ~pool_secret =
+let fetch_config_files_internal ~master_address =
   Server_helpers.exec_with_new_task "fetch_config_files" (fun __context ->
-      Helpers.call_api_functions ~__context (fun rpc session_id ->
+      Helpers.call_api_functions ~__context (fun _ session_id ->
           let request =
             Xapi_http.http_request
               ~cookie:[("session_id", Ref.string_of session_id)]
@@ -108,7 +108,7 @@ let fetch_config_files_internal ~master_address ~pool_secret =
               )
           in
           with_transport transport
-            (with_http request (fun (response, fd) ->
+            (with_http request (fun (_, fd) ->
                  Xapi_stdext_unix.Unixext.string_of_fd fd
              )
             )
@@ -118,19 +118,16 @@ let fetch_config_files_internal ~master_address ~pool_secret =
 (* Invoked on slave as a notification that config files may have changed. Slaves can use
    this to decide whether to sync the new config files if the hash is different from the
    files they currently have. We do the hash thing to minimize flash writes on OEM build.. *)
-let fetch_config_files ~master_address ~pool_secret =
+let fetch_config_files ~master_address =
   (* fetch new config files from master and write them *)
-  let config_files = fetch_config_files_internal ~master_address ~pool_secret in
+  let config_files = fetch_config_files_internal ~master_address in
   rewrite_config_files config_files
 
 (* Called by slave on each startup to sync master's config files. *)
 let fetch_config_files_on_slave_startup () =
   Server_helpers.exec_with_new_task "checking no other known hosts are masters"
     (fun __context ->
-      let master_address = Helpers.get_main_ip_address () in
-      let pool_secret = Xapi_globs.pool_secret () in
-      let config_files =
-        fetch_config_files_internal ~master_address ~pool_secret
-      in
+      let master_address = Helpers.get_main_ip_address ~__context in
+      let config_files = fetch_config_files_internal ~master_address in
       rewrite_config_files config_files
   )

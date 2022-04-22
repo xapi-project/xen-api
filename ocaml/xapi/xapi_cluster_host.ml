@@ -191,7 +191,7 @@ let resync_host ~__context ~host =
               (Ref.string_of self) ;
             Xapi_clustering.Daemon.enable ~__context ;
             (* Note that join_internal and enable both use the clustering lock *)
-            Client.Client.Cluster_host.enable rpc session_id self
+            Client.Client.Cluster_host.enable ~rpc ~session_id ~self
           ) ;
           let verify = Stunnel_client.get_verify_by_default () in
           set_tls_config ~__context ~self ~verify

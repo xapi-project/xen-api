@@ -19,8 +19,6 @@ open Xapi_stdext_threads.Threadext
 
 type t = API.ref_task
 
-let now () = Date.of_float (Unix.time ())
-
 (* creates a new task *)
 let make ~__context ~http_other_config ?(description = "") ?session_id
     ?subtask_of label : t * t Uuid.t =

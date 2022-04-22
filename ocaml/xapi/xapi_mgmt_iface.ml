@@ -11,8 +11,6 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-open Db_filter_types
-open Xapi_stdext_pervasives.Pervasiveext
 open Xapi_stdext_threads.Threadext
 module Unixext = Xapi_stdext_unix.Unixext
 

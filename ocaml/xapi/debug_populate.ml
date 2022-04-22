@@ -124,14 +124,14 @@ let make_tasks __context tasks =
   let pick_random l =
     let len = List.length l in
     let i = Random.int len in
-    try List.nth l i with exn -> List.hd l
+    try List.nth l i with _ -> List.hd l
   in
   let all_vms = Db.VM.get_all ~__context in
   let all_vbds = Db.VBD.get_all ~__context in
   let all_vdis = Db.VDI.get_all ~__context in
   let all_vifs = Db.VIF.get_all ~__context in
   let all_srs = Db.SR.get_all ~__context in
-  for i = 0 to tasks - 1 do
+  for _ = 0 to tasks - 1 do
     let mode = Random.int 6 in
     let label =
       match mode with

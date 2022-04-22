@@ -410,7 +410,7 @@ functor
         Storage_locks.with_master_lock locks f
 
       let side_effects context dbg dp sr sr_t vdi vdi_t vm ops =
-        let perform_one vdi_t (op, state_on_fail) =
+        let perform_one vdi_t (op, _state_on_fail) =
           try
             let vdi_t = Vdi.perform (Dp.make dp) op vdi_t in
             let new_vdi_t =
@@ -581,7 +581,7 @@ functor
             )
             [] dps
         in
-        match failures with [] -> next () | f :: fs -> raise f
+        match failures with [] -> next () | f :: _ -> raise f
 
       let epoch_begin context ~dbg ~sr ~vdi ~vm ~persistent =
         info "VDI.epoch_begin dbg:%s sr:%s vdi:%s vm:%s persistent:%b" dbg
@@ -723,7 +723,7 @@ functor
           (string_of_vdi_info vdi_info) ;
         let result = Impl.VDI.create context ~dbg ~sr ~vdi_info in
         match result with
-        | {virtual_size= virtual_size'}
+        | {virtual_size= virtual_size'; _}
           when virtual_size' < vdi_info.virtual_size ->
             error "VDI.create dbg:%s created a smaller VDI (%Ld)" dbg
               virtual_size' ;
@@ -907,7 +907,7 @@ functor
     end
 
     module DP = struct
-      let create context ~dbg ~id = id
+      let create _context ~dbg:_ ~id = id
 
       (** [destroy_sr context dp sr allow_leak vdi_already_locked] attempts to free
         		    the resources associated with [dp] in [sr]. If [vdi_already_locked] then
@@ -920,11 +920,11 @@ functor
         let vdis = Sr.list sr_t in
         (* Note that we assume this filter returns 0 or 1 items, but we need to verify that. *)
         let vdis_with_dp =
-          List.filter (fun (vdi, vdi_t) -> Vdi.dp_on_vdi dp vdi_t) vdis
+          List.filter (fun (_, vdi_t) -> Vdi.dp_on_vdi dp vdi_t) vdis
         in
         debug "[destroy_sr] Filtered VDI count:%d" (List.length vdis_with_dp) ;
         List.iter
-          (fun (vdi, vdi_t) ->
+          (fun (vdi, _) ->
             debug "[destroy_sr] VDI found with the dp is %s" (s_of_vdi vdi)
           )
           vdis_with_dp ;
@@ -960,7 +960,7 @@ functor
           match vdi_to_remove with
           | None ->
               None
-          | Some (vdi, vdi_t) ->
+          | Some (vdi, _) ->
               locker vdi (fun () ->
                   try
                     let vm = vm_of_s "" in
@@ -973,18 +973,14 @@ functor
         (* This is debug code to assert that we removed the datapath from all VDIs by looking for a situation where a VDI not known about has the datapath at this point *)
         (* Can't just check for vdis_with_dp = 0, the actual removal isn't necessarily complete at this point *)
         let vdi_ident =
-          match vdi_to_remove with
-          | None ->
-              None
-          | Some (vdi, vdi_t) ->
-              Some vdi
+          match vdi_to_remove with None -> None | Some (vdi, _) -> Some vdi
         in
         let vdis = Sr.list sr_t in
         let vdis_with_dp =
-          List.filter (fun (vdi, vdi_t) -> Vdi.dp_on_vdi dp vdi_t) vdis
+          List.filter (fun (_, vdi_t) -> Vdi.dp_on_vdi dp vdi_t) vdis
         in
         (* Function to see if a (vdi, vdi_t) matches vdi_ident *)
-        let matches (vdi, vdi_t) =
+        let matches (vdi, _) =
           match vdi_ident with None -> false | Some s -> vdi = s
         in
         let race_occured =
@@ -1010,7 +1006,7 @@ functor
                   )
               ]
               @ List.map
-                  (fun (vdi, vdi_t) ->
+                  (fun (vdi, _) ->
                     Printf.sprintf "VDI found with the dp is %s" (s_of_vdi vdi)
                   )
                   vdis_with_dp
@@ -1040,7 +1036,7 @@ functor
             info "Forgetting leaked datapath: dp: %s" dp ;
             ()
 
-      let diagnostics context () =
+      let diagnostics _context () =
         let srs = Host.list !Host.host in
         let of_sr (sr, sr_t) =
           let title = Printf.sprintf "SR %s" (s_of_sr sr) in
@@ -1064,7 +1060,7 @@ functor
         in
         String.concat "" (List.map (fun x -> x ^ "\n") lines)
 
-      let attach_info context ~dbg ~sr ~vdi ~dp =
+      let attach_info _context ~dbg:_ ~sr ~vdi ~dp =
         let srs = Host.list !Host.host in
         let sr_state = List.assoc sr srs in
         let vdi_state = Hashtbl.find sr_state.Sr.vdis vdi in
@@ -1083,7 +1079,7 @@ functor
                  )
               )
 
-      let stat_vdi context ~dbg ~sr ~vdi () =
+      let stat_vdi _context ~dbg ~sr ~vdi () =
         info "DP.stat_vdi dbg:%s sr:%s vdi:%s" dbg (s_of_sr sr) (s_of_vdi vdi) ;
         VDI.with_vdi sr vdi (fun () ->
             match Host.find sr !Host.host with
@@ -1113,7 +1109,7 @@ functor
       let probe context ~dbg ~queue ~device_config ~sm_config =
         Impl.SR.probe context ~dbg ~queue ~device_config ~sm_config
 
-      let list context ~dbg = List.map fst (Host.list !Host.host)
+      let list _context ~dbg:_ = List.map fst (Host.list !Host.host)
 
       let stat context ~dbg ~sr =
         info "SR.stat dbg:%s sr:%s" dbg (s_of_sr sr) ;
@@ -1232,7 +1228,7 @@ functor
         info "SR.detach dbg:%s sr:%s" dbg (s_of_sr sr) ;
         detach_destroy_common context ~dbg ~sr Impl.SR.detach
 
-      let reset context ~dbg ~sr =
+      let reset _context ~dbg ~sr =
         info "SR.reset dbg:%s sr:%s" dbg (s_of_sr sr) ;
         with_sr sr (fun () ->
             Host.remove sr !Host.host ;
@@ -1289,19 +1285,19 @@ functor
     module TASK = struct
       open Storage_task
 
-      let cancel _ ~dbg ~task = handle_of_id tasks task |> Storage_task.cancel
+      let cancel _ ~dbg:_ ~task = handle_of_id tasks task |> Storage_task.cancel
 
       let stat' task = handle_of_id tasks task |> to_interface_task
 
-      let stat _ ~dbg ~task = stat' task
+      let stat _ ~dbg:_ ~task = stat' task
 
       let destroy' ~task =
         handle_of_id tasks task |> destroy ;
         Updates.remove (Dynamic.Task task) updates
 
-      let destroy _ ~dbg ~task = destroy' ~task
+      let destroy _ ~dbg:_ ~task = destroy' ~task
 
-      let list _ ~dbg = list tasks |> List.map to_interface_task
+      let list _ ~dbg:_ = list tasks |> List.map to_interface_task
     end
 
     module UPDATES = struct

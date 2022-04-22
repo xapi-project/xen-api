@@ -126,7 +126,7 @@ module Vm_memory_constraints : T = struct
   let are_pinned_at_static_max ~constraints =
     true
     && constraints.dynamic_max = constraints.static_max
-    && are_pinned constraints
+    && are_pinned ~constraints
 
   let are_valid ~constraints =
     true
@@ -137,7 +137,7 @@ module Vm_memory_constraints : T = struct
   let are_valid_and_pinned_at_static_max ~constraints =
     true
     && constraints.static_min <= constraints.dynamic_min
-    && are_pinned_at_static_max constraints
+    && are_pinned_at_static_max ~constraints
 
   (* We reset to dynamic max because it was deemed sufficient to run the
      VM and static max could be unreasonably large while not being acutally

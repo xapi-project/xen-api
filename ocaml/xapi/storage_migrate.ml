@@ -571,7 +571,7 @@ let copy_into ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi =
 let remove_from_sm_config vdi_info key =
   {
     vdi_info with
-    sm_config= List.filter (fun (k, v) -> k <> key) vdi_info.sm_config
+    sm_config= List.filter (fun (k, _) -> k <> key) vdi_info.sm_config
   }
 
 let add_to_sm_config vdi_info key value =
@@ -724,7 +724,7 @@ let start' ~task ~dbg ~sr ~vdi ~dp ~url ~dest =
           let pid = Tapctl.get_tapdisk_pid tapdev in
           let path = Printf.sprintf "/var/run/blktap-control/nbdclient%d" pid in
           with_transport transport
-            (with_http request (fun (response, s) ->
+            (with_http request (fun (_response, s) ->
                  let control_fd = Unix.socket Unix.PF_UNIX Unix.SOCK_STREAM 0 in
                  finally
                    (fun () ->
@@ -848,7 +848,7 @@ let stop ~dbg ~id =
   | e ->
       raise e
 
-let stat ~dbg ~id =
+let stat ~dbg:_ ~id =
   let recv_opt = State.find_active_receive_mirror id in
   let send_opt = State.find_active_local_mirror id in
   let copy_opt = State.find_active_copy id in
@@ -862,7 +862,7 @@ let stat ~dbg ~id =
             try
               let stats = Tapctl.stats (Tapctl.create ()) tapdev in
               stats.Tapctl.Stats.nbd_mirror_failed = 1
-            with e ->
+            with _ ->
               debug "Using cached copy of failure status" ;
               send_state.Send_state.failed
           )
@@ -909,7 +909,7 @@ let list ~dbg =
     get_ids send_ops @ get_ids recv_ops @ get_ids copy_ops
     |> Listext.List.setify
   in
-  List.map (fun id -> (id, stat dbg id)) ids
+  List.map (fun id -> (id, stat ~dbg ~id)) ids
 
 let killall ~dbg =
   let send_ops, recv_ops, copy_ops = State.map_of () in
@@ -918,7 +918,7 @@ let killall ~dbg =
       debug "Send in progress: %s" id ;
       List.iter log_and_ignore_exn
         [
-          (fun () -> stop dbg id)
+          (fun () -> stop ~dbg ~id)
         ; (fun () ->
             Local.DP.destroy dbg send_state.State.Send_state.local_dp true
           )
@@ -956,7 +956,7 @@ let killall ~dbg =
     )
     copy_ops ;
   List.iter
-    (fun (id, recv_state) ->
+    (fun (id, _recv_state) ->
       debug "Receive in progress: %s" id ;
       log_and_ignore_exn (fun () -> Local.DATA.MIRROR.receive_cancel dbg id)
     )
@@ -984,7 +984,7 @@ let receive_start ~dbg ~sr ~vdi_info ~id ~similar =
       List.fold_left
         (fun acc content_id ->
           match acc with
-          | Some x ->
+          | Some _ ->
               acc
           | None -> (
             try
@@ -1085,7 +1085,7 @@ let reqs_outstanding_timeout = 150.0
 
 (* Tapdisk should time out after 2 mins. We can wait a little longer *)
 
-let pre_deactivate_hook ~dbg ~dp ~sr ~vdi =
+let pre_deactivate_hook ~dbg:_ ~dp:_ ~sr ~vdi =
   let open State.Send_state in
   let id = State.mirror_id_of (sr, vdi) in
   let start = Mtime_clock.counter () in
@@ -1129,7 +1129,7 @@ let pre_deactivate_hook ~dbg ~dp ~sr ~vdi =
              s.failed <- true
      )
 
-let post_detach_hook ~sr ~vdi ~dp =
+let post_detach_hook ~sr ~vdi ~dp:_ =
   let open State.Send_state in
   let id = State.mirror_id_of (sr, vdi) in
   State.find_active_local_mirror id
@@ -1186,7 +1186,7 @@ let nbd_handler req s sr vdi dp =
   | None ->
       ()
 
-let copy ~task ~dbg ~sr ~vdi ~dp ~url ~dest =
+let copy ~task ~dbg ~sr ~vdi ~dp:_ ~url ~dest =
   debug "copy sr:%s vdi:%s url:%s dest:%s"
     (Storage_interface.Sr.string_of sr)
     (Storage_interface.Vdi.string_of vdi)
@@ -1226,7 +1226,7 @@ let copy ~task ~dbg ~sr ~vdi ~dp ~url ~dest =
         List.fold_left
           (fun acc content_id ->
             match acc with
-            | Some x ->
+            | Some _ ->
                 acc
             | None -> (
               try

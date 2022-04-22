@@ -20,12 +20,8 @@ module Unixext = Xapi_stdext_unix.Unixext
 
 let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
-open Printf
 open Xapi_globs
-open Db_filter
 open Db_filter_types
-open Xmlrpc_sexpr
-open Api_errors
 include Helper_process
 open Network
 
@@ -318,7 +314,7 @@ let update_getty () =
          !Xapi_globs.kill_process_script
          ["-q"; "-HUP"; "-r"; ".*getty"]
       )
-  with e -> warn "Unable to update getty at %s" __LOC__
+  with _ -> warn "Unable to update getty at %s" __LOC__
 
 let set_gateway ~__context ~pif ~bridge =
   let dbg = Context.string_of_task __context in
@@ -477,8 +473,8 @@ let call_api_functions_internal ~__context f =
   let require_explicit_logout = ref false in
   let do_master_login () =
     let session =
-      Client.Client.Session.slave_login rpc (get_localhost ~__context)
-        (Xapi_globs.pool_secret ())
+      Client.Client.Session.slave_login ~rpc ~host:(get_localhost ~__context)
+        ~psecret:(Xapi_globs.pool_secret ())
     in
     require_explicit_logout := true ;
     session
@@ -504,7 +500,7 @@ let call_api_functions_internal ~__context f =
     (fun () ->
       (* debug "remote client call finished; logging out"; *)
       if !require_explicit_logout then
-        try Client.Client.Session.logout rpc session_id
+        try Client.Client.Session.logout ~rpc ~session_id
         with e ->
           debug "Helpers.call_api_functions failed to logout: %s (ignoring)"
             (Printexc.to_string e)
@@ -531,11 +527,12 @@ let call_emergency_mode_functions hostname f =
     XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"xapi" ~transport ~http
   in
   let session_id =
-    Client.Client.Session.slave_local_login rpc (Xapi_globs.pool_secret ())
+    Client.Client.Session.slave_local_login ~rpc
+      ~psecret:(Xapi_globs.pool_secret ())
   in
   finally
     (fun () -> f rpc session_id)
-    (fun () -> Client.Client.Session.local_logout rpc session_id)
+    (fun () -> Client.Client.Session.local_logout ~rpc ~session_id)
 
 let progress ~__context t =
   for i = 0 to int_of_float (t *. 100.) do
@@ -766,7 +763,7 @@ let get_host_internal_management_network =
    ------------------------------------------------------------------------------------------------- *)
 
 let get_my_pbds __context =
-  let localhost = get_localhost __context in
+  let localhost = get_localhost ~__context in
   let localhost = Ref.string_of localhost in
   Db.PBD.get_records_where ~__context
     ~expr:(Eq (Field "host", Literal localhost))
@@ -1126,7 +1123,7 @@ let gethostbyname_family host family =
   in
   let getaddr x =
     match x with
-    | Unix.ADDR_INET (addr, port) ->
+    | Unix.ADDR_INET (addr, _) ->
         addr
     | _ ->
         failwith "Expected ADDR_INET"
@@ -1279,7 +1276,7 @@ let get_srmaster ~__context ~sr =
         raise (Api_errors.Server_error (Api_errors.sr_no_pbds, []))
     | 1 ->
         Db.PBD.get_host ~__context ~self:(List.hd pbds)
-    | n ->
+    | _ ->
         raise
           (Api_errors.Server_error
              ( Api_errors.sr_has_multiple_pbds
@@ -1299,7 +1296,7 @@ let get_all_plugged_srs ~__context =
     (List.map (fun self -> Db.PBD.get_SR ~__context ~self) pbds_plugged_in)
 
 let get_local_plugged_srs ~__context =
-  let localhost = get_localhost __context in
+  let localhost = get_localhost ~__context in
   let localhost = Ref.string_of localhost in
   let my_pbds_plugged_in =
     Db.PBD.get_refs_where ~__context
@@ -1404,7 +1401,6 @@ let rmtree path =
     failwith msg
 
 let resolve_uri_path ~root ~uri_path =
-  let open Xapi_stdext_std.Xstringext in
   uri_path
   |> Filename.concat root
   |> Uri.pct_decode
@@ -1507,7 +1503,7 @@ module Early_wakeup = struct
 
   let table_m = Mutex.create ()
 
-  let wait ((a, b) as key) time =
+  let wait key time =
     (* debug "Early_wakeup wait key = (%s, %s) time = %.2f" a b time; *)
     let d = Delay.make () in
     Mutex.execute table_m (fun () -> Hashtbl.add table key d) ;
@@ -1518,18 +1514,18 @@ module Early_wakeup = struct
       )
       (fun () -> Mutex.execute table_m (fun () -> Hashtbl.remove table key))
 
-  let broadcast (a, b) =
+  let broadcast _key =
     (*debug "Early_wakeup broadcast key = (%s, %s)" a b;*)
     Mutex.execute table_m (fun () ->
         Hashtbl.iter
-          (fun (a, b) d ->
+          (fun (_, _) d ->
             (*debug "Signalling thread blocked on (%s, %s)" a b;*)
             Delay.signal d
           )
           table
     )
 
-  let signal ((a, b) as key) =
+  let signal key =
     (*debug "Early_wakeup signal key = (%s, %s)" a b;*)
     Mutex.execute table_m (fun () ->
         if Hashtbl.mem table key then
@@ -1618,7 +1614,7 @@ let retry ~__context ~doc ?(policy = Policy.standard) f =
       ) ;
       f ()
     with
-    | Api_errors.Server_error (code, objref :: _) as e
+    | Api_errors.Server_error (code, _ :: _) as e
     when code = Api_errors.other_operation_in_progress
     ->
       debug "%s locking failed: caught transient failure %s" doc
@@ -1828,7 +1824,7 @@ let try_internal_async ~__context (marshaller : Rpc.t -> 'b)
   let res =
     try `internal_async_task (internal_async_fn ())
     with
-    | Api_errors.Server_error (code, params)
+    | Api_errors.Server_error (code, _)
     when code = Api_errors.message_method_unknown
     ->
       `use_old_api
