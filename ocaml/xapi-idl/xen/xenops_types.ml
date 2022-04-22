@@ -77,6 +77,8 @@ module Vm = struct
 
   let default_firmware = Bios [@@deriving rpcty]
 
+  type tpm = Vtpm [@@deriving rpcty, sexp]
+
   type hvm_info = {
       hap: bool [@default true]
     ; shadow_multiplier: float [@default 1.0]
@@ -93,6 +95,7 @@ module Vm = struct
     ; qemu_disk_cmdline: bool [@default false]
     ; qemu_stubdom: bool [@default false]
     ; firmware: firmware_type [@default default_firmware]
+    ; tpm: tpm option [@default None]
   }
   [@@deriving rpcty, sexp]
 

@@ -1863,7 +1863,8 @@ module VM = struct
             ?(serial = "pty") ?(monitor = "null") ?(nics = []) ?(disks = [])
             ?(vgpus = []) ?(pci_emulations = []) ?(usb = Device.Dm.Disabled)
             ?(parallel = None) ?(acpi = true) ?(video = Cirrus) ?keymap ?vnc_ip
-            ?(pci_passthrough = false) ?(hvm = true) ?(video_mib = 4) () =
+            ?(pci_passthrough = false) ?(hvm = true) ?(video_mib = 4)
+            ?(tpm = None) () =
           let video =
             match (video, vgpus) with
             | Cirrus, [] ->
@@ -1911,6 +1912,7 @@ module VM = struct
           ; disp= VNC (video, vnc_ip, true, 0, keymap)
           ; pci_passthrough
           ; video_mib
+          ; tpm
           ; xen_platform
           ; extras= []
           }
@@ -1974,12 +1976,7 @@ module VM = struct
               | false, _ ->
                   Device.Dm.Disabled
             in
-            let parallel =
-              if List.mem_assoc "parallel" vm.Vm.platformdata then
-                Some (List.assoc "parallel" vm.Vm.platformdata)
-              else
-                None
-            in
+            let parallel = List.assoc_opt "parallel" vm.Vm.platformdata in
             Some
               (make ~video_mib:hvm_info.video_mib ~firmware:hvm_info.firmware
                  ~video:hvm_info.video ~acpi:hvm_info.acpi
@@ -1987,7 +1984,8 @@ module VM = struct
                  ?vnc_ip:hvm_info.vnc_ip ~usb ~parallel
                  ~pci_emulations:hvm_info.pci_emulations
                  ~pci_passthrough:hvm_info.pci_passthrough
-                 ~boot_order:hvm_info.boot_order ~nics ~disks ~vgpus ()
+                 ~boot_order:hvm_info.boot_order ~nics ~disks ~vgpus
+                 ~tpm:hvm_info.tpm ()
               )
       )
 

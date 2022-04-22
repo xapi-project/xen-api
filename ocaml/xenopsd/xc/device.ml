@@ -2461,6 +2461,7 @@ module Dm_Common = struct
     ; pci_emulations: string list
     ; pci_passthrough: bool
     ; video_mib: int
+    ; tpm: Xenops_types.Vm.tpm option
     ; xen_platform: (int * int) option
     ; extras: (string * string option) list
   }
@@ -4388,18 +4389,21 @@ module Dm = struct
         ()
     ) ;
 
-    (* start swtpm-wrapper *)
-    let tpm_socket_path = start_swtpm ~xs task domid in
-
+    (* start swtpm-wrapper if appropriate and modify QEMU arguments as needed *)
     let tpmargs =
-      [
-        "-chardev"
-      ; Printf.sprintf "socket,id=chrtpm,path=%s" tpm_socket_path
-      ; "-tpmdev"
-      ; "emulator,id=tpm0,chardev=chrtpm"
-      ; "-device"
-      ; "tpm-crb,tpmdev=tpm0"
-      ]
+      match info.tpm with
+      | Some Vtpm ->
+          let tpm_socket_path = start_swtpm ~xs task domid in
+          [
+            "-chardev"
+          ; Printf.sprintf "socket,id=chrtpm,path=%s" tpm_socket_path
+          ; "-tpmdev"
+          ; "emulator,id=tpm0,chardev=chrtpm"
+          ; "-device"
+          ; "tpm-crb,tpmdev=tpm0"
+          ]
+      | None ->
+          []
     in
 
     (* Execute qemu-dm-wrapper, forwarding stdout to the syslog, with the key
