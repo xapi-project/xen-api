@@ -36,6 +36,3 @@
   )
   (action (run ./check-no-xenctrl.sh %{x}))
 )
-
-(env (_ (env-vars (ALCOTEST_COMPACT 1))))
-
