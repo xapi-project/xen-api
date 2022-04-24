@@ -608,11 +608,11 @@ let get_pool_updates_in_json ~__context ~hosts =
         Hashtbl.fold
           (fun host updates_of_host (acc1, acc2) ->
             if List.mem host hosts then
-              let json_of_host, uids =
+              let json_of_host, upd_ids =
                 consolidate_updates_of_host ~repository_name ~updates_info
                   (Ref.string_of host) updates_of_host
               in
-              (json_of_host :: acc1, UpdateIdSet.union uids acc2)
+              (json_of_host :: acc1, UpdateIdSet.union upd_ids acc2)
             else
               (acc1, acc2)
           )
@@ -624,8 +624,8 @@ let get_pool_updates_in_json ~__context ~hosts =
         ; ( "updates"
           , `List
               (UpdateIdSet.elements ids_of_updates
-              |> List.map (fun uid ->
-                     UpdateInfo.to_json (List.assoc uid updates_info)
+              |> List.map (fun upd_id ->
+                     UpdateInfo.to_json (List.assoc upd_id updates_info)
                  )
               )
           )
@@ -811,13 +811,13 @@ let apply_updates ~__context ~host ~hash =
             in
             let immediate_guidances =
               eval_guidances ~updates_info ~updates ~kind:Recommended
-                ~uids_of_livepatches:UpdateIdSet.empty
+                ~upd_ids_of_livepatches:UpdateIdSet.empty
             in
             let pending_guidances =
               List.filter
                 (fun g -> not (List.mem g immediate_guidances))
                 (eval_guidances ~updates_info ~updates ~kind:Absolute
-                   ~uids_of_livepatches:UpdateIdSet.empty
+                   ~upd_ids_of_livepatches:UpdateIdSet.empty
                 )
             in
             GuidanceSet.assert_valid_guidances immediate_guidances ;

@@ -1387,7 +1387,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
 
   let transform (updates_info, update) =
     eval_guidance_for_one_update ~updates_info ~update ~kind:Guidance.Absolute
-      ~uids_of_livepatches:UpdateIdSet.empty
+      ~upd_ids_of_livepatches:UpdateIdSet.empty
 
   let tests =
     `QuickAndAutoDocumented
@@ -3078,12 +3078,12 @@ module PruneAccumulativeUpdates = Generic.MakeStateless (struct
 
     let string_of_output_t l =
       List.fold_left
-        (fun acc (pkg, uid, repo) ->
+        (fun acc (pkg, upd_id, repo) ->
           acc
           ^ "\n"
           ^ Fmt.(str "%a" Dump.(record @@ fields_of_pkg)) pkg
           ^ ", "
-          ^ Fmt.(str "%a" Dump.(option string)) uid
+          ^ Fmt.(str "%a" Dump.(option string)) upd_id
           ^ ", "
           ^ repo
         )

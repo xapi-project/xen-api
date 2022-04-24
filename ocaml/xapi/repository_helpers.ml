@@ -476,11 +476,11 @@ let get_updates_from_updateinfo ~__context repositories =
   |> List.fold_left parse_updateinfo_list []
 
 let eval_guidance_for_one_update ~updates_info ~update ~kind
-    ~uids_of_livepatches =
+    ~upd_ids_of_livepatches =
   let open Update in
   match update.update_id with
-  | Some uid -> (
-    match List.assoc_opt uid updates_info with
+  | Some upd_id -> (
+    match List.assoc_opt upd_id updates_info with
     | Some updateinfo -> (
         let is_applicable (a : Applicability.t) =
           match
@@ -507,7 +507,7 @@ let eval_guidance_for_one_update ~updates_info ~update ~kind
           Printf.sprintf
             "Evaluating applicability for package %s.%s in update %s returned \
              '%s'"
-            update.name update.arch uid (string_of_bool r)
+            update.name update.arch upd_id (string_of_bool r)
         in
         let apps = updateinfo.UpdateInfo.guidance_applicabilities in
         match (List.exists is_applicable apps, apps) with
@@ -517,7 +517,7 @@ let eval_guidance_for_one_update ~updates_info ~update ~kind
             | Guidance.Absolute ->
                 updateinfo.UpdateInfo.abs_guidance
             | Guidance.Recommended ->
-                if UpdateIdSet.mem uid uids_of_livepatches then
+                if UpdateIdSet.mem upd_id upd_ids_of_livepatches then
                   (* The update has an applicable livepatch.
                    * Using the livaptch guidance.
                    *)
@@ -530,8 +530,8 @@ let eval_guidance_for_one_update ~updates_info ~update ~kind
             None
       )
     | None ->
-        warn "Can't find update ID %s from updateinfo.xml for update %s.%s" uid
-          update.name update.arch ;
+        warn "Can't find update ID %s from updateinfo.xml for update %s.%s"
+          upd_id update.name update.arch ;
         None
   )
   | None ->
@@ -544,23 +544,23 @@ let eval_guidance_for_one_update ~updates_info ~update ~kind
  * In other words, this RPM update will not appear in parameter [updates] of
  * function [eval_guidances], but the live patch in it is still applicable.
  *)
-let append_livepatch_guidances ~updates_info ~uids_of_livepatches guidances =
+let append_livepatch_guidances ~updates_info ~upd_ids_of_livepatches guidances =
   UpdateIdSet.fold
-    (fun uid acc ->
-      match List.assoc_opt uid updates_info with
+    (fun upd_id acc ->
+      match List.assoc_opt upd_id updates_info with
       | Some UpdateInfo.{livepatch_guidance= Some g; _} ->
           GuidanceSet.add g acc
       | _ ->
           acc
     )
-    uids_of_livepatches guidances
+    upd_ids_of_livepatches guidances
 
-let eval_guidances ~updates_info ~updates ~kind ~uids_of_livepatches =
+let eval_guidances ~updates_info ~updates ~kind ~upd_ids_of_livepatches =
   List.fold_left
     (fun acc u ->
       match
         eval_guidance_for_one_update ~updates_info ~update:u ~kind
-          ~uids_of_livepatches
+          ~upd_ids_of_livepatches
       with
       | Some g ->
           GuidanceSet.add g acc
@@ -568,7 +568,7 @@ let eval_guidances ~updates_info ~updates ~kind ~uids_of_livepatches =
           acc
     )
     GuidanceSet.empty updates
-  |> append_livepatch_guidances ~updates_info ~uids_of_livepatches
+  |> append_livepatch_guidances ~updates_info ~upd_ids_of_livepatches
   |> GuidanceSet.resort_guidances ~kind
   |> GuidanceSet.elements
 
@@ -625,15 +625,15 @@ let validate_latest_updates ~latest_updates ~accumulative_updates =
   List.map
     (fun (pkg, repo) ->
       match List.assoc_opt pkg accumulative_updates with
-      | Some uid ->
-          (pkg, Some uid, repo)
+      | Some upd_id ->
+          (pkg, Some upd_id, repo)
       | None ->
           warn "Not found update ID for update %s" (Pkg.to_fullname pkg) ;
           (pkg, None, repo)
     )
     latest_updates
 
-let prune_by_latest_updates latest_updates pkg uid =
+let prune_by_latest_updates latest_updates pkg upd_id =
   let open Pkg in
   let is_same_name_arch pkg1 pkg2 =
     pkg1.name = pkg2.name && pkg1.arch = pkg2.arch
@@ -654,7 +654,7 @@ let prune_by_latest_updates latest_updates pkg uid =
         in
         Error (Some msg)
       else
-        Ok (pkg, uid, repo)
+        Ok (pkg, upd_id, repo)
   | None ->
       let msg =
         Printf.sprintf
@@ -664,7 +664,7 @@ let prune_by_latest_updates latest_updates pkg uid =
       in
       Error (Some msg)
 
-let prune_by_installed_pkgs installed_pkgs pkg uid repo =
+let prune_by_installed_pkgs installed_pkgs pkg upd_id repo =
   let open Pkg in
   let name_arch = to_name_arch_string pkg in
   match List.assoc_opt name_arch installed_pkgs with
@@ -673,7 +673,7 @@ let prune_by_installed_pkgs installed_pkgs pkg uid repo =
         Pkg.gt pkg.epoch pkg.version pkg.release pkg'.epoch pkg'.version
           pkg'.release
       then
-        Ok (pkg, uid, repo)
+        Ok (pkg, upd_id, repo)
       else (* An out-dated update *)
         Error None
   | None ->
@@ -688,15 +688,15 @@ let prune_by_installed_pkgs installed_pkgs pkg uid repo =
 let prune_accumulative_updates ~accumulative_updates ~latest_updates
     ~installed_pkgs =
   List.filter_map
-    (fun (pkg, uid) ->
+    (fun (pkg, upd_id) ->
       let open Rresult.R.Infix in
-      ( prune_by_latest_updates latest_updates pkg uid
-      >>= fun (pkg', uid', repo') ->
-        prune_by_installed_pkgs installed_pkgs pkg' uid' repo'
+      ( prune_by_latest_updates latest_updates pkg upd_id
+      >>= fun (pkg', upd_id', repo') ->
+        prune_by_installed_pkgs installed_pkgs pkg' upd_id' repo'
       )
       |> function
-      | Ok (pkg', uid', repo') ->
-          Some (pkg', Some uid', repo')
+      | Ok (pkg', upd_id', repo') ->
+          Some (pkg', Some upd_id', repo')
       | Error (Some msg) ->
           warn "%s" msg ; None
       | Error None ->
@@ -754,7 +754,7 @@ let get_update_in_json ~installed_pkgs (new_pkg, update_id, repo) =
   match remove_prefix (!Xapi_globs.local_repository_prefix ^ "-") repo with
   | Some repo_name -> (
       let open Pkg in
-      let uid_in_json =
+      let upd_id_in_json =
         match update_id with Some s -> `String s | None -> `Null
       in
       let l =
@@ -762,7 +762,7 @@ let get_update_in_json ~installed_pkgs (new_pkg, update_id, repo) =
           ("name", `String new_pkg.name)
         ; ("arch", `String new_pkg.arch)
         ; ("newEpochVerRel", to_epoch_ver_rel_json new_pkg)
-        ; ("updateId", uid_in_json)
+        ; ("updateId", upd_id_in_json)
         ; ("repository", `String repo_name)
         ]
       in
@@ -788,12 +788,12 @@ let merge_updates ~repository_name ~updates =
   let open Update in
   (* The update IDs and guidances come from accumulative updates *)
   List.fold_left
-    (fun (acc_uids', acc_updates') u ->
+    (fun (acc_upd_ids', acc_updates') u ->
       match (u.update_id, u.repository = repository_name) with
       | Some id, true ->
-          (UpdateIdSet.add id acc_uids', u :: acc_updates')
+          (UpdateIdSet.add id acc_upd_ids', u :: acc_updates')
       | _ ->
-          (acc_uids', acc_updates')
+          (acc_upd_ids', acc_updates')
     )
     (UpdateIdSet.empty, []) accumulative_updates
 
@@ -809,7 +809,7 @@ let merge_livepatches ~updates_info ~updates =
   get_list_from_updates_of_host "applied_livepatches" updates
   |> List.map Livepatch.of_json
   |> List.fold_left
-       (fun (acc_uids, acc_lps) applied_lp ->
+       (fun (acc_upd_ids, acc_lps) applied_lp ->
          let acc_livepatches =
            get_accumulative_livepatches ~since:applied_lp ~updates_info
          in
@@ -835,14 +835,14 @@ let merge_livepatches ~updates_info ~updates =
          in
          match latest_livepatch with
          | Some latest_lp ->
-             let uids =
+             let upd_ids =
                List.fold_left
                  (fun acc (_, u) -> UpdateIdSet.add u.UpdateInfo.id acc)
                  UpdateIdSet.empty acc_livepatches
              in
-             (UpdateIdSet.union uids acc_uids, latest_lp :: acc_lps)
+             (UpdateIdSet.union upd_ids acc_upd_ids, latest_lp :: acc_lps)
          | None ->
-             (acc_uids, acc_lps)
+             (acc_upd_ids, acc_lps)
        )
        (UpdateIdSet.empty, [])
 
@@ -871,40 +871,41 @@ let consolidate_updates_of_host ~repository_name ~updates_info host
       )
       latest_updates
   in
-  let uids_of_updates, updates =
+  let ids_of_updates, updates =
     merge_updates ~repository_name ~updates:updates_of_host
   in
   (* Find out applicable latest livepatches and the info of accumulative updates
    * introduced them. These accumulative updates will not be evaluated for guidance.
    * They are only to be returned in the update list.
    *)
-  let uids_of_livepatches, livepatches =
+  let upd_ids_of_livepatches, livepatches =
     merge_livepatches ~updates_info ~updates:updates_of_host
   in
   let rec_guidances =
-    eval_guidances ~updates_info ~updates ~kind:Recommended ~uids_of_livepatches
+    eval_guidances ~updates_info ~updates ~kind:Recommended
+      ~upd_ids_of_livepatches
   in
   let abs_guidances_in_json =
     let abs_guidances =
       List.filter
         (fun g -> not (List.mem g rec_guidances))
         (eval_guidances ~updates_info ~updates ~kind:Absolute
-           ~uids_of_livepatches:UpdateIdSet.empty
+           ~upd_ids_of_livepatches:UpdateIdSet.empty
         )
     in
     List.map (fun g -> `String (Guidance.to_string g)) abs_guidances
   in
-  let uids_of_livepatches', livepatches' =
+  let upd_ids_of_livepatches', livepatches' =
     if List.mem Guidance.RebootHost rec_guidances then
       (* Any livepatches should not be applied if packages updates require RebootHost *)
       (UpdateIdSet.empty, [])
     else
-      (uids_of_livepatches, livepatches)
+      (upd_ids_of_livepatches, livepatches)
   in
   let rec_guidances_in_json =
     List.map (fun g -> `String (Guidance.to_string g)) rec_guidances
   in
-  let uids = UpdateIdSet.union uids_of_updates uids_of_livepatches' in
+  let upd_ids = UpdateIdSet.union ids_of_updates upd_ids_of_livepatches' in
   let json_of_host =
     `Assoc
       [
@@ -913,12 +914,16 @@ let consolidate_updates_of_host ~repository_name ~updates_info host
       ; ("absolute-guidance", `List abs_guidances_in_json)
       ; ("RPMS", `List (List.map (fun r -> `String r) rpms))
       ; ( "updates"
-        , `List (List.map (fun uid -> `String uid) (UpdateIdSet.elements uids))
+        , `List
+            (List.map
+               (fun upd_id -> `String upd_id)
+               (UpdateIdSet.elements upd_ids)
+            )
         )
       ; ("livepatches", `List (List.map LivePatch.to_json livepatches'))
       ]
   in
-  (json_of_host, uids)
+  (json_of_host, upd_ids)
 
 let append_by_key l k v =
   (* Append a (k, v) into a assoc list l [ (k1, [v1]); (k2, [...]); ... ] as
