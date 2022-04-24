@@ -29,12 +29,6 @@ let component_of_string x =
   | _ ->
       raise Invalid_component
 
-let pkg_name_of_component = function
-  | Xen ->
-      "xen-hypervisor"
-  | Kernel ->
-      "kernel"
-
 let string_of_component = function Xen -> "xen" | Kernel -> "kernel"
 
 (** [to_version] and [to_release] are the RPM version and release of the component reached
@@ -223,19 +217,6 @@ module XenLivePatch = struct
         warn "Can't get Xen build id" ;
         None
 end
-
-let get_livepatch_dir ~component ~base_build_id =
-  let comp_str = string_of_component component in
-  Printf.sprintf "/usr/lib/%s-livepatch/%s" comp_str base_build_id
-
-let get_installed_livepatch_file ~component ~base_build_id =
-  let lp_dir = get_livepatch_dir ~component ~base_build_id in
-  let installed_symlink = Filename.concat lp_dir "livepatch.livepatch" in
-  match Unix.lstat installed_symlink with
-  | Unix.{st_kind= S_LNK; _} ->
-      Unix.readlink installed_symlink |> Filename.concat lp_dir |> Option.some
-  | _ | (exception _) ->
-      None
 
 let get_applied_livepatch ~component ~base_build_id ~running_livepatch =
   ( match (base_build_id, running_livepatch) with

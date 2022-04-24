@@ -276,7 +276,6 @@ module LivePatch = struct
         raise Invalid_version_release
 
   let to_json lp =
-    let open Option in
     `Assoc
       [
         ("component", `String (Livepatch.string_of_component lp.component))
@@ -295,7 +294,7 @@ module LivePatch = struct
         (* The error should not block update. Ingore it. *)
         warn "Invalid livepatch metadata" ;
         raise Invalid_livepatch
-    | a ->
+    | _ ->
         ()
 
   let initial_record attrs =
