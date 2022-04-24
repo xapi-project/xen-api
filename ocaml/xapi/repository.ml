@@ -394,9 +394,9 @@ let set_available_updates ~__context =
         let pkg_updates_available =
           match List.assoc_opt repository updates_by_repository with
           | Some (_ :: _) ->
-              false
-          | _ ->
               true
+          | _ ->
+              false
         in
         let is_update_repo =
           Db.Repository.get_update ~__context ~self:repository
