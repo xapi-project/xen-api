@@ -182,7 +182,7 @@ module Guard (G : GUARD) : SANDBOX = struct
   let stop dbg ~domid ~vm_uuid =
     let chroot = chroot ~domid ~vm_uuid in
     if Sys.file_exists chroot.root then (
-      D.debug "About to stop varstored for %d (%s) %s" domid vm_uuid __LOC__ ;
+      D.debug "About to stop %s for %d (%s) %s" daemon domid vm_uuid __LOC__ ;
       let gid = chroot.Chroot.gid in
       let absolute_socket_path =
         Chroot.absolute_path_outside chroot socket_path
