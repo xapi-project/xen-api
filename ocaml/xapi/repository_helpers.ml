@@ -17,267 +17,10 @@ module D = Debug.Make (struct let name = "repository_helpers" end)
 open D
 module Unixext = Xapi_stdext_unix.Unixext
 module UpdateIdSet = Set.Make (String)
+open Updateinfo
+open Rpm
 
 let exposing_pool_repo_mutex = Mutex.create ()
-
-module Epoch = struct
-  type t = int option
-
-  let epoch_none = "(none)"
-
-  exception Invalid_epoch
-
-  let of_string = function
-    | s when s = epoch_none || s = "None" ->
-        None
-    | s -> (
-      match int_of_string s with
-      | i when i = 0 ->
-          None
-      | i when i > 0 ->
-          Some i
-      | _ ->
-          raise Invalid_epoch
-      | exception _ ->
-          raise Invalid_epoch
-    )
-
-  let to_string = function Some i -> string_of_int i | None -> epoch_none
-end
-
-module Pkg = struct
-  type t = {
-      name: string
-    ; epoch: Epoch.t
-    ; version: string
-    ; release: string
-    ; arch: string
-  }
-
-  type order = LT | EQ | GT
-
-  type segment_of_version = Int of int | Str of string
-
-  let string_of_order = function LT -> "<" | EQ -> "=" | GT -> ">"
-
-  let error_msg = Printf.sprintf "Failed to parse '%s'"
-
-  let parse_epoch_version_release epoch_ver_rel =
-    (* The epoch_ver_rel likes, I.E.
-     *   "10.1.11-34",
-     *   "2:1.1.11-34",
-     *   "None:1.1.11-34", or
-     *   "(none):1.1.11-34".
-     *
-     * These may come from:
-     *   "yum list updates",
-     *   "yum updateinfo list updates", or
-     *   "rpm -qa" *)
-    let open Rresult.R.Infix in
-    ( ( match Astring.String.cuts ~sep:":" epoch_ver_rel with
-      | [e; vr] -> (
-        try Ok (Epoch.of_string e, vr) with _ -> Error "Invalid epoch"
-      )
-      | [vr] ->
-          Ok (None, vr)
-      | _ ->
-          Error "Invalid epoch:version-release"
-      )
-    >>= fun (e, vr) ->
-      match Astring.String.cuts ~sep:"-" vr with
-      | [v; r] ->
-          Ok (e, v, r)
-      | _ ->
-          Error "Invalid version-release"
-    )
-    |> function
-    | Ok (e, v, r) ->
-        (e, v, r)
-    | Error _ ->
-        let msg = error_msg epoch_ver_rel in
-        error "%s" msg ;
-        raise Api_errors.(Server_error (internal_error, [msg]))
-
-  let of_fullname s =
-    (* The s likes, I.E.
-     *   "libpath-utils-0.2.1-29.el7.x86_64",
-     *   "qemu-dp-2:2.12.0-2.0.11.x86_64", or
-     *   "time-(none):1.7-45.el7.x86_64".
-     * These may come from "yum updateinfo list updates" and "rpm -qa" *)
-    match Astring.String.cut ~rev:true ~sep:"." s with
-    | Some (pkg, (("noarch" | "x86_64") as arch)) -> (
-      try
-        let pos1 = String.rindex pkg '-' in
-        let pos2 = String.rindex_from pkg (pos1 - 1) '-' in
-        let epoch_ver_rel =
-          String.sub pkg (pos2 + 1) (String.length pkg - pos2 - 1)
-        in
-        let epoch, version, release =
-          parse_epoch_version_release epoch_ver_rel
-        in
-        let name = String.sub pkg 0 pos2 in
-        Some {name; epoch; version; release; arch}
-      with e ->
-        let msg = error_msg s in
-        warn "%s: %s" msg (ExnHelper.string_of_exn e) ;
-        (* The error should not block update. Ingore it. *)
-        None
-    )
-    | Some _ | None ->
-        None
-
-  let to_epoch_ver_rel_json pkg =
-    `Assoc
-      [
-        ("epoch", `String (Epoch.to_string pkg.epoch))
-      ; ("version", `String pkg.version)
-      ; ("release", `String pkg.release)
-      ]
-
-  let to_name_arch_string pkg = pkg.name ^ "." ^ pkg.arch
-
-  let to_fullname pkg =
-    match pkg.epoch with
-    | Some i ->
-        Printf.sprintf "%s-%s:%s-%s.%s.rpm" pkg.name (string_of_int i)
-          pkg.version pkg.release pkg.arch
-    | None ->
-        Printf.sprintf "%s-%s-%s.%s.rpm" pkg.name pkg.version pkg.release
-          pkg.arch
-
-  let compare_epoch e1 e2 =
-    match (e1, e2) with
-    | Some i1, Some i2 ->
-        if i1 < i2 then
-          LT
-        else if i1 = i2 then
-          EQ
-        else
-          GT
-    | Some _, None ->
-        GT
-    | None, Some _ ->
-        LT
-    | None, None ->
-        EQ
-
-  let compare_version_strings s1 s2 =
-    (* Compare versions or releases of RPM packages
-     * I.E. for "libpath-utils-0.2.1-29.el7.x86_64" and "libpath-utils-0.2.1a-30.el7.x86_64",
-     * this function compares:
-     * versions between "0.2.1" and "0.2.1a", or
-     * releases between "29.el7" and "30.el7".
-     * More examples:
-     *  "1.2.3" "<" "1.2.4"
-     *  "1.2.3" "=" "1.2.3"
-     *  "1.2.3" ">" "1.2"
-     *  "1.0011" ">" "1.9"
-     *  "1.05" "=" "1.5"
-     *  "1.0" ">" "1"
-     *  "1.0" ">" "1.a"
-     *  "2.50" ">" "2.5"
-     *  "XS3" "<" "xs2"
-     *  "1.2.3" ">" "1.2.3a"
-     *  "xs4" "=" "xs.4"
-     *  "2a" "<" "2.0"
-     *  "2a" "<" "2b"
-     *  "1.0" ">" "1.xs2"
-     *  "1.0_xs" "=" "1.0.xs"
-     *)
-    let normalize v =
-      let split_letters_and_numbers s =
-        let r = Re.Posix.compile_pat {|^([^0-9]+)([0-9]+)$|} in
-        match Re.exec_opt r s with
-        | Some groups ->
-            [Re.Group.get groups 1; Re.Group.get groups 2]
-        | None ->
-            [s]
-      in
-      let number = Re.Posix.compile_pat "^[0-9]+$" in
-      v
-      |> Astring.String.cuts ~sep:"."
-      |> List.concat_map (fun s -> Astring.String.cuts ~sep:"_" s)
-      |> List.concat_map (fun s -> split_letters_and_numbers s)
-      |> List.map (fun s ->
-             if Re.execp number s then
-               match int_of_string s with i -> Int i | exception _ -> Str s
-             else
-               Str s
-         )
-    in
-    let rec compare_segments l1 l2 =
-      match (l1, l2) with
-      | c1 :: t1, c2 :: t2 -> (
-        match (c1, c2) with
-        | Int s1, Int s2 ->
-            if s1 > s2 then
-              GT
-            else if s1 = s2 then
-              compare_segments t1 t2
-            else
-              LT
-        | Int _, Str _ ->
-            GT
-        | Str _, Int _ ->
-            LT
-        | Str s1, Str s2 ->
-            let r = String.compare s1 s2 in
-            if r < 0 then
-              LT
-            else if r > 0 then
-              GT
-            else
-              compare_segments t1 t2
-      )
-      | _ :: _, [] ->
-          GT
-      | [], _ :: _ ->
-          LT
-      | [], [] ->
-          EQ
-    in
-    compare_segments (normalize s1) (normalize s2)
-
-  let lt e1 v1 r1 e2 v2 r2 =
-    match
-      ( compare_epoch e1 e2
-      , compare_version_strings v1 v2
-      , compare_version_strings r1 r2
-      )
-    with
-    | LT, _, _ | EQ, LT, _ | EQ, EQ, LT ->
-        true
-    | _ ->
-        false
-
-  let gt e1 v1 r1 e2 v2 r2 =
-    match
-      ( compare_epoch e1 e2
-      , compare_version_strings v1 v2
-      , compare_version_strings r1 r2
-      )
-    with
-    | GT, _, _ | EQ, GT, _ | EQ, EQ, GT ->
-        true
-    | _ ->
-        false
-
-  let eq e1 v1 r1 e2 v2 r2 =
-    match
-      ( compare_epoch e1 e2
-      , compare_version_strings v1 v2
-      , compare_version_strings r1 r2
-      )
-    with
-    | EQ, EQ, EQ ->
-        true
-    | _ ->
-        false
-
-  let lte e1 v1 r1 e2 v2 r2 = lt e1 v1 r1 e2 v2 r2 || eq e1 v1 r1 e2 v2 r2
-
-  let gte e1 v1 r1 e2 v2 r2 = gt e1 v1 r1 e2 v2 r2 || eq e1 v1 r1 e2 v2 r2
-end
 
 module Update = struct
   type t = {
@@ -348,37 +91,6 @@ module Update = struct
       u.repository
 end
 
-module Guidance = struct
-  type t = RebootHost | RestartToolstack | EvacuateHost | RestartDeviceModel
-
-  type guidance_kind = Absolute | Recommended
-
-  let compare = Stdlib.compare
-
-  let to_string = function
-    | RebootHost ->
-        "RebootHost"
-    | RestartToolstack ->
-        "RestartToolstack"
-    | EvacuateHost ->
-        "EvacuateHost"
-    | RestartDeviceModel ->
-        "RestartDeviceModel"
-
-  let of_string = function
-    | "RebootHost" ->
-        RebootHost
-    | "RestartToolstack" ->
-        RestartToolstack
-    | "EvacuateHost" ->
-        EvacuateHost
-    | "RestartDeviceModel" ->
-        RestartDeviceModel
-    | _ ->
-        error "Unknown node in <absolute|recommended_guidance>" ;
-        raise Api_errors.(Server_error (invalid_updateinfo_xml, []))
-end
-
 module GuidanceSet' = Set.Make (Guidance)
 
 module GuidanceSet = struct
@@ -430,356 +142,6 @@ module GuidanceSet = struct
         gs precedences
     in
     match kind with Recommended -> gs' | Absolute -> remove EvacuateHost gs'
-end
-
-module Applicability = struct
-  type inequality = Lt | Eq | Gt | Lte | Gte
-
-  type t = {
-      name: string
-    ; arch: string
-    ; inequality: inequality option
-    ; epoch: Epoch.t
-    ; version: string
-    ; release: string
-  }
-
-  exception Invalid_inequality
-
-  let string_of_inequality = function
-    | Lt ->
-        "lt"
-    | Eq ->
-        "eq"
-    | Gt ->
-        "gt"
-    | Gte ->
-        "gte"
-    | Lte ->
-        "lte"
-
-  let inequality_of_string = function
-    | "gte" ->
-        Gte
-    | "lte" ->
-        Lte
-    | "gt" ->
-        Gt
-    | "lt" ->
-        Lt
-    | "eq" ->
-        Eq
-    | _ ->
-        raise Invalid_inequality
-
-  let default =
-    {
-      name= ""
-    ; arch= ""
-    ; inequality= None
-    ; epoch= None
-    ; version= ""
-    ; release= ""
-    }
-
-  let assert_valid = function
-    | {name= ""; _}
-    | {arch= ""; _}
-    | {inequality= None; _}
-    | {version= ""; _}
-    | {release= ""; _} ->
-        (* The error should not block update. Ingore it. *)
-        warn "Invalid applicability" ;
-        None
-    | a ->
-        Some a
-
-  let of_xml = function
-    | Xml.Element ("applicability", _, children) ->
-        List.fold_left
-          (fun a n ->
-            match n with
-            | Xml.Element ("inequality", _, [Xml.PCData v]) ->
-                {
-                  a with
-                  inequality=
-                    ( try Some (inequality_of_string v)
-                      with Invalid_inequality -> None
-                    )
-                }
-            | Xml.Element ("epoch", _, [Xml.PCData v]) -> (
-              try {a with epoch= Epoch.of_string v}
-              with e ->
-                let msg =
-                  Printf.sprintf "%s: %s" (ExnHelper.string_of_exn e) v
-                in
-                (* The error should not block update. Ingore it. *)
-                warn "%s" msg ; a
-            )
-            | Xml.Element ("version", _, [Xml.PCData v]) ->
-                {a with version= v}
-            | Xml.Element ("release", _, [Xml.PCData v]) ->
-                {a with release= v}
-            | Xml.Element ("name", _, [Xml.PCData v]) ->
-                {a with name= v}
-            | Xml.Element ("arch", _, [Xml.PCData v]) ->
-                {a with arch= v}
-            | _ ->
-                (* The error should not block update. Ingore it. *)
-                warn "Unknown node in <applicability>" ;
-                a
-          )
-          default children
-        |> assert_valid
-    | _ ->
-        (* The error should not block update. Ingore it. *)
-        warn "Unknown node in <guidance_applicabilities>" ;
-        None
-
-  let to_string a =
-    Printf.sprintf "%s %s %s:%s-%s" a.name
-      (Option.value
-         (Option.map string_of_inequality a.inequality)
-         ~default:"InvalidInequality"
-      )
-      (Epoch.to_string a.epoch) a.version a.release
-
-  let eval ~epoch ~version ~release ~applicability =
-    let epoch' = applicability.epoch in
-    let version' = applicability.version in
-    let release' = applicability.release in
-    match applicability.inequality with
-    | Some Lt ->
-        Pkg.lt epoch version release epoch' version' release'
-    | Some Lte ->
-        Pkg.lte epoch version release epoch' version' release'
-    | Some Gt ->
-        Pkg.gt epoch version release epoch' version' release'
-    | Some Gte ->
-        Pkg.gte epoch version release epoch' version' release'
-    | Some Eq ->
-        Pkg.eq epoch version release epoch' version' release'
-    | _ ->
-        raise Invalid_inequality
-end
-
-module RepoMetaData = struct
-  type t = {checksum: string; location: string}
-
-  type datatype = UpdateInfo | Group
-
-  let string_of_datatype = function
-    | UpdateInfo ->
-        "updateinfo"
-    | Group ->
-        "group"
-
-  let assert_valid = function
-    | {checksum= ""; _} | {location= ""; _} ->
-        error "Can't find valid 'checksum' or 'location'" ;
-        raise Api_errors.(Server_error (invalid_repomd_xml, []))
-    | _ ->
-        ()
-
-  let of_xml xml data_type =
-    let dt = string_of_datatype data_type in
-    match xml with
-    | Xml.Element ("repomd", _, children) -> (
-        let get_node = function
-          | Xml.Element ("data", attrs, nodes) -> (
-            match List.assoc_opt "type" attrs with
-            | Some data_type' when data_type' = dt ->
-                Some nodes
-            | _ ->
-                None
-          )
-          | _ ->
-              None
-        in
-        match List.filter_map get_node children with
-        | [l] ->
-            List.fold_left
-              (fun md n ->
-                match n with
-                | Xml.Element ("checksum", _, [Xml.PCData v]) ->
-                    {md with checksum= v}
-                | Xml.Element ("location", attrs, _) -> (
-                  try {md with location= List.assoc "href" attrs}
-                  with _ ->
-                    error "Failed to get 'href' in 'location' of '%s'" dt ;
-                    raise Api_errors.(Server_error (invalid_repomd_xml, []))
-                )
-                | _ ->
-                    md
-              )
-              {checksum= ""; location= ""}
-              l
-            |> fun md -> assert_valid md ; md
-        | _ ->
-            error "Missing or multiple '%s' node(s)" dt ;
-            raise Api_errors.(Server_error (invalid_repomd_xml, []))
-      )
-    | _ ->
-        error "Missing 'repomd' node" ;
-        raise Api_errors.(Server_error (invalid_repomd_xml, []))
-
-  let of_xml_file xml_path data_type =
-    match Sys.file_exists xml_path with
-    | false ->
-        error "No repomd.xml found: %s" xml_path ;
-        raise Api_errors.(Server_error (invalid_repomd_xml, []))
-    | true -> (
-      match Xml.parse_file xml_path with
-      | xml ->
-          of_xml xml data_type
-      | exception e ->
-          error "Failed to parse repomd.xml: %s" (ExnHelper.string_of_exn e) ;
-          raise Api_errors.(Server_error (invalid_repomd_xml, []))
-    )
-end
-
-module UpdateInfo = struct
-  type t = {
-      id: string
-    ; summary: string
-    ; description: string
-    ; rec_guidance: Guidance.t option
-    ; abs_guidance: Guidance.t option
-    ; guidance_applicabilities: Applicability.t list
-    ; spec_info: string
-    ; url: string
-    ; update_type: string
-  }
-
-  let guidance_to_string o =
-    Option.value (Option.map Guidance.to_string o) ~default:""
-
-  let to_json ui =
-    `Assoc
-      [
-        ("id", `String ui.id)
-      ; ("summary", `String ui.summary)
-      ; ("description", `String ui.description)
-      ; ("special-info", `String ui.spec_info)
-      ; ("URL", `String ui.url)
-      ; ("type", `String ui.update_type)
-      ; ("recommended-guidance", `String (guidance_to_string ui.rec_guidance))
-      ; ("absolute-guidance", `String (guidance_to_string ui.abs_guidance))
-      ]
-
-  let to_string ui =
-    Printf.sprintf
-      "id=%s rec_guidance=%s abs_guidance=%s guidance_applicabilities=%s" ui.id
-      (guidance_to_string ui.rec_guidance)
-      (guidance_to_string ui.abs_guidance)
-      (String.concat ";"
-         (List.map Applicability.to_string ui.guidance_applicabilities)
-      )
-
-  let default =
-    {
-      id= ""
-    ; summary= ""
-    ; description= ""
-    ; rec_guidance= None
-    ; abs_guidance= None
-    ; guidance_applicabilities= []
-    ; spec_info= ""
-    ; url= ""
-    ; update_type= ""
-    }
-
-  let assert_valid_updateinfo = function
-    | {id= ""; _} | {summary= ""; _} | {update_type= ""; _} ->
-        error "One or more of 'id', 'summary', and 'type' is/are missing" ;
-        raise Api_errors.(Server_error (invalid_updateinfo_xml, []))
-    | ui ->
-        ui
-
-  let assert_no_dup_update_id l =
-    let comp x y = compare x.id y.id in
-    if List.length (List.sort_uniq comp l) = List.length (List.sort comp l) then
-      l
-    else (
-      error "Found updates with same upadte ID" ;
-      raise Api_errors.(Server_error (invalid_updateinfo_xml, []))
-    )
-
-  let of_xml = function
-    | Xml.Element ("updates", _, children) ->
-        List.filter_map
-          (fun n ->
-            match n with
-            | Xml.Element ("update", attr, update_nodes) ->
-                let ty =
-                  match List.assoc_opt "type" attr with
-                  | Some ty ->
-                      ty
-                  | None ->
-                      ""
-                in
-                let ui =
-                  List.fold_left
-                    (fun acc node ->
-                      match node with
-                      | Xml.Element ("id", _, [Xml.PCData v]) ->
-                          {acc with id= v}
-                      | Xml.Element ("url", _, [Xml.PCData v]) ->
-                          {acc with url= v}
-                      | Xml.Element ("special_info", _, [Xml.PCData v]) ->
-                          {acc with spec_info= v}
-                      | Xml.Element ("summary", _, [Xml.PCData v]) ->
-                          {acc with summary= v}
-                      | Xml.Element ("description", _, [Xml.PCData v]) ->
-                          {acc with description= v}
-                      | Xml.Element ("recommended_guidance", _, [Xml.PCData v])
-                        -> (
-                        try {acc with rec_guidance= Some (Guidance.of_string v)}
-                        with e ->
-                          (* The error should not block update. Ingore it. *)
-                          warn "%s" (ExnHelper.string_of_exn e) ;
-                          acc
-                      )
-                      | Xml.Element ("absolute_guidance", _, [Xml.PCData v])
-                        -> (
-                        try {acc with abs_guidance= Some (Guidance.of_string v)}
-                        with e ->
-                          (* The error should not block update. Ingore it. *)
-                          warn "%s" (ExnHelper.string_of_exn e) ;
-                          acc
-                      )
-                      | Xml.Element ("guidance_applicabilities", _, apps) ->
-                          {
-                            acc with
-                            guidance_applicabilities=
-                              List.filter_map Applicability.of_xml apps
-                          }
-                      | _ ->
-                          acc
-                    )
-                    {default with update_type= ty}
-                    update_nodes
-                  |> assert_valid_updateinfo
-                in
-                debug "updateinfo: %s" (to_string ui) ;
-                Some ui
-            | _ ->
-                None
-          )
-          children
-        |> assert_no_dup_update_id
-        |> List.map (fun updateinfo -> (updateinfo.id, updateinfo))
-    | _ ->
-        error "Failed to parse updateinfo.xml: missing <updates>" ;
-        raise Api_errors.(Server_error (invalid_updateinfo_xml, []))
-
-  let of_xml_file xml_file_path =
-    match Xml.parse_file xml_file_path with
-    | xml ->
-        of_xml xml
-    | exception e ->
-        error "Failed to parse updateinfo.xml: %s" (ExnHelper.string_of_exn e) ;
-        raise Api_errors.(Server_error (invalid_updateinfo_xml, []))
 end
 
 let create_repository_record ~__context ~name_label ~name_description
@@ -1113,11 +475,12 @@ let get_updates_from_updateinfo ~__context repositories =
   |> Astring.String.cuts ~sep:"\n"
   |> List.fold_left parse_updateinfo_list []
 
-let eval_guidance_for_one_update ~updates_info ~update ~kind =
+let eval_guidance_for_one_update ~updates_info ~update ~kind
+    ~upd_ids_of_livepatches =
   let open Update in
   match update.update_id with
-  | Some uid -> (
-    match List.assoc_opt uid updates_info with
+  | Some upd_id -> (
+    match List.assoc_opt upd_id updates_info with
     | Some updateinfo -> (
         let is_applicable (a : Applicability.t) =
           match
@@ -1144,7 +507,7 @@ let eval_guidance_for_one_update ~updates_info ~update ~kind =
           Printf.sprintf
             "Evaluating applicability for package %s.%s in update %s returned \
              '%s'"
-            update.name update.arch uid (string_of_bool r)
+            update.name update.arch upd_id (string_of_bool r)
         in
         let apps = updateinfo.UpdateInfo.guidance_applicabilities in
         match (List.exists is_applicable apps, apps) with
@@ -1154,15 +517,21 @@ let eval_guidance_for_one_update ~updates_info ~update ~kind =
             | Guidance.Absolute ->
                 updateinfo.UpdateInfo.abs_guidance
             | Guidance.Recommended ->
-                updateinfo.UpdateInfo.rec_guidance
+                if UpdateIdSet.mem upd_id upd_ids_of_livepatches then
+                  (* The update has an applicable livepatch.
+                   * Using the livaptch guidance.
+                   *)
+                  updateinfo.UpdateInfo.livepatch_guidance
+                else
+                  updateinfo.UpdateInfo.rec_guidance
           )
         | _ ->
             debug "%s" (dbg_msg false) ;
             None
       )
     | None ->
-        warn "Can't find update ID %s from updateinfo.xml for update %s.%s" uid
-          update.name update.arch ;
+        warn "Can't find update ID %s from updateinfo.xml for update %s.%s"
+          upd_id update.name update.arch ;
         None
   )
   | None ->
@@ -1170,16 +539,36 @@ let eval_guidance_for_one_update ~updates_info ~update ~kind =
         update.name update.arch ;
       None
 
-let eval_guidances ~updates_info ~updates ~kind =
+(* In case that the RPM in an update has been installed (including live patch file),
+ * but the live patch has not been applied.
+ * In other words, this RPM update will not appear in parameter [updates] of
+ * function [eval_guidances], but the live patch in it is still applicable.
+ *)
+let append_livepatch_guidances ~updates_info ~upd_ids_of_livepatches guidances =
+  UpdateIdSet.fold
+    (fun upd_id acc ->
+      match List.assoc_opt upd_id updates_info with
+      | Some UpdateInfo.{livepatch_guidance= Some g; _} ->
+          GuidanceSet.add g acc
+      | _ ->
+          acc
+    )
+    upd_ids_of_livepatches guidances
+
+let eval_guidances ~updates_info ~updates ~kind ~upd_ids_of_livepatches =
   List.fold_left
     (fun acc u ->
-      match eval_guidance_for_one_update ~updates_info ~update:u ~kind with
+      match
+        eval_guidance_for_one_update ~updates_info ~update:u ~kind
+          ~upd_ids_of_livepatches
+      with
       | Some g ->
           GuidanceSet.add g acc
       | None ->
           acc
     )
     GuidanceSet.empty updates
+  |> append_livepatch_guidances ~updates_info ~upd_ids_of_livepatches
   |> GuidanceSet.resort_guidances ~kind
   |> GuidanceSet.elements
 
@@ -1236,15 +625,15 @@ let validate_latest_updates ~latest_updates ~accumulative_updates =
   List.map
     (fun (pkg, repo) ->
       match List.assoc_opt pkg accumulative_updates with
-      | Some uid ->
-          (pkg, Some uid, repo)
+      | Some upd_id ->
+          (pkg, Some upd_id, repo)
       | None ->
           warn "Not found update ID for update %s" (Pkg.to_fullname pkg) ;
           (pkg, None, repo)
     )
     latest_updates
 
-let prune_by_latest_updates latest_updates pkg uid =
+let prune_by_latest_updates latest_updates pkg upd_id =
   let open Pkg in
   let is_same_name_arch pkg1 pkg2 =
     pkg1.name = pkg2.name && pkg1.arch = pkg2.arch
@@ -1265,7 +654,7 @@ let prune_by_latest_updates latest_updates pkg uid =
         in
         Error (Some msg)
       else
-        Ok (pkg, uid, repo)
+        Ok (pkg, upd_id, repo)
   | None ->
       let msg =
         Printf.sprintf
@@ -1275,7 +664,7 @@ let prune_by_latest_updates latest_updates pkg uid =
       in
       Error (Some msg)
 
-let prune_by_installed_pkgs installed_pkgs pkg uid repo =
+let prune_by_installed_pkgs installed_pkgs pkg upd_id repo =
   let open Pkg in
   let name_arch = to_name_arch_string pkg in
   match List.assoc_opt name_arch installed_pkgs with
@@ -1284,7 +673,7 @@ let prune_by_installed_pkgs installed_pkgs pkg uid repo =
         Pkg.gt pkg.epoch pkg.version pkg.release pkg'.epoch pkg'.version
           pkg'.release
       then
-        Ok (pkg, uid, repo)
+        Ok (pkg, upd_id, repo)
       else (* An out-dated update *)
         Error None
   | None ->
@@ -1299,21 +688,60 @@ let prune_by_installed_pkgs installed_pkgs pkg uid repo =
 let prune_accumulative_updates ~accumulative_updates ~latest_updates
     ~installed_pkgs =
   List.filter_map
-    (fun (pkg, uid) ->
+    (fun (pkg, upd_id) ->
       let open Rresult.R.Infix in
-      ( prune_by_latest_updates latest_updates pkg uid
-      >>= fun (pkg', uid', repo') ->
-        prune_by_installed_pkgs installed_pkgs pkg' uid' repo'
+      ( prune_by_latest_updates latest_updates pkg upd_id
+      >>= fun (pkg', upd_id', repo') ->
+        prune_by_installed_pkgs installed_pkgs pkg' upd_id' repo'
       )
       |> function
-      | Ok (pkg', uid', repo') ->
-          Some (pkg', Some uid', repo')
+      | Ok (pkg', upd_id', repo') ->
+          Some (pkg', Some upd_id', repo')
       | Error (Some msg) ->
           warn "%s" msg ; None
       | Error None ->
           None
     )
     accumulative_updates
+
+(* Get metadata of all livepatches with same component and base_build_id from updateinfo *)
+let get_livepatches_in_updateinfo ~updates_info ~component ~base_build_id =
+  List.fold_left
+    (fun acc (_, update_info) ->
+      let available_livepatches =
+        update_info.UpdateInfo.livepatches
+        |> List.filter (fun lp ->
+               let open LivePatch in
+               lp.component = component && lp.base_build_id = base_build_id
+           )
+        |> List.map (fun lp -> (lp, update_info))
+      in
+      List.rev_append available_livepatches acc
+    )
+    [] updates_info
+
+(* Get all applicable livepatches which are newer than 'since' *)
+let get_accumulative_livepatches ~since ~updates_info =
+  get_livepatches_in_updateinfo ~updates_info
+    ~component:since.Livepatch.component
+    ~base_build_id:since.Livepatch.base_build_id
+  |> List.filter (fun (lp, _) ->
+         let open LivePatch in
+         match since with
+         | Livepatch.{to_version= Some to_ver; to_release= Some to_rel; _} ->
+             (* There is a running livepatch *)
+             Pkg.gt None lp.to_version lp.to_release None to_ver to_rel
+         | Livepatch.{to_version= None; to_release= None; _} ->
+             (* No running livepatch *)
+             true
+         | _ ->
+             (* Ignore unexpected error to get updating proceeded *)
+             let lp_in_str =
+               Yojson.Basic.pretty_to_string (Livepatch.to_json since)
+             in
+             warn "Ignore un-expected applied livepatch %s." lp_in_str ;
+             false
+     )
 
 let get_update_in_json ~installed_pkgs (new_pkg, update_id, repo) =
   let remove_prefix prefix s =
@@ -1326,7 +754,7 @@ let get_update_in_json ~installed_pkgs (new_pkg, update_id, repo) =
   match remove_prefix (!Xapi_globs.local_repository_prefix ^ "-") repo with
   | Some repo_name -> (
       let open Pkg in
-      let uid_in_json =
+      let upd_id_in_json =
         match update_id with Some s -> `String s | None -> `Null
       in
       let l =
@@ -1334,7 +762,7 @@ let get_update_in_json ~installed_pkgs (new_pkg, update_id, repo) =
           ("name", `String new_pkg.name)
         ; ("arch", `String new_pkg.arch)
         ; ("newEpochVerRel", to_epoch_ver_rel_json new_pkg)
-        ; ("updateId", uid_in_json)
+        ; ("updateId", upd_id_in_json)
         ; ("repository", `String repo_name)
         ]
       in
@@ -1350,14 +778,76 @@ let get_update_in_json ~installed_pkgs (new_pkg, update_id, repo) =
       error "%s: %s" msg repo ;
       raise Api_errors.(Server_error (internal_error, [msg]))
 
-let consolidate_updates_of_host ~repository_name ~updates_info host
-    updates_of_host =
+let merge_updates ~repository_name ~updates =
   let accumulative_updates =
-    updates_of_host
+    updates
     |> Yojson.Basic.Util.member "accumulative_updates"
     |> Yojson.Basic.Util.to_list
     |> List.map Update.of_json
   in
+  let open Update in
+  (* The update IDs and guidances come from accumulative updates *)
+  List.fold_left
+    (fun (acc_upd_ids', acc_updates') u ->
+      match (u.update_id, u.repository = repository_name) with
+      | Some id, true ->
+          (UpdateIdSet.add id acc_upd_ids', u :: acc_updates')
+      | _ ->
+          (acc_upd_ids', acc_updates')
+    )
+    (UpdateIdSet.empty, []) accumulative_updates
+
+let get_list_from_updates_of_host key updates_of_host =
+  match Yojson.Basic.Util.member key updates_of_host with
+  | `Null ->
+      []
+  | l ->
+      Yojson.Basic.Util.to_list l
+
+let merge_livepatches ~updates_info ~updates =
+  let open LivePatch in
+  get_list_from_updates_of_host "applied_livepatches" updates
+  |> List.map Livepatch.of_json
+  |> List.fold_left
+       (fun (acc_upd_ids, acc_lps) applied_lp ->
+         let acc_livepatches =
+           get_accumulative_livepatches ~since:applied_lp ~updates_info
+         in
+         (* Find the livepatch with maximum 'to-version' and 'to-release' *)
+         let latest_livepatch =
+           acc_livepatches
+           |> List.map (fun (lp, _) -> (lp.to_version, lp.to_release))
+           |> get_latest_version_release
+           |> fun latest ->
+           match latest with
+           | Some (latest_ver, latest_rel) ->
+               List.find_map
+                 (fun (lp, _) ->
+                   if lp.to_version = latest_ver && lp.to_release = latest_rel
+                   then
+                     Some lp
+                   else
+                     None
+                 )
+                 acc_livepatches
+           | None ->
+               None
+         in
+         match latest_livepatch with
+         | Some latest_lp ->
+             let upd_ids =
+               List.fold_left
+                 (fun acc (_, u) -> UpdateIdSet.add u.UpdateInfo.id acc)
+                 UpdateIdSet.empty acc_livepatches
+             in
+             (UpdateIdSet.union upd_ids acc_upd_ids, latest_lp :: acc_lps)
+         | None ->
+             (acc_upd_ids, acc_lps)
+       )
+       (UpdateIdSet.empty, [])
+
+let consolidate_updates_of_host ~repository_name ~updates_info host
+    updates_of_host =
   let latest_updates =
     updates_of_host
     |> Yojson.Basic.Util.member "updates"
@@ -1381,33 +871,41 @@ let consolidate_updates_of_host ~repository_name ~updates_info host
       )
       latest_updates
   in
-  let open Update in
-  (* The update IDs and guidances come from accumulative updates *)
-  let acc_uids, acc_updates =
-    List.fold_left
-      (fun (acc_uids', acc_updates') u ->
-        match (u.update_id, u.repository = repository_name) with
-        | Some id, true ->
-            (UpdateIdSet.add id acc_uids', u :: acc_updates')
-        | _ ->
-            (acc_uids', acc_updates')
-      )
-      (UpdateIdSet.empty, []) accumulative_updates
+  let ids_of_updates, updates =
+    merge_updates ~repository_name ~updates:updates_of_host
+  in
+  (* Find out applicable latest livepatches and the info of accumulative updates
+   * introduced them. These accumulative updates will not be evaluated for guidance.
+   * They are only to be returned in the update list.
+   *)
+  let upd_ids_of_livepatches, livepatches =
+    merge_livepatches ~updates_info ~updates:updates_of_host
   in
   let rec_guidances =
-    eval_guidances ~updates_info ~updates:acc_updates ~kind:Recommended
+    eval_guidances ~updates_info ~updates ~kind:Recommended
+      ~upd_ids_of_livepatches
   in
   let abs_guidances_in_json =
     let abs_guidances =
       List.filter
         (fun g -> not (List.mem g rec_guidances))
-        (eval_guidances ~updates_info ~updates:acc_updates ~kind:Absolute)
+        (eval_guidances ~updates_info ~updates ~kind:Absolute
+           ~upd_ids_of_livepatches:UpdateIdSet.empty
+        )
     in
     List.map (fun g -> `String (Guidance.to_string g)) abs_guidances
+  in
+  let upd_ids_of_livepatches', livepatches' =
+    if List.mem Guidance.RebootHost rec_guidances then
+      (* Any livepatches should not be applied if packages updates require RebootHost *)
+      (UpdateIdSet.empty, [])
+    else
+      (upd_ids_of_livepatches, livepatches)
   in
   let rec_guidances_in_json =
     List.map (fun g -> `String (Guidance.to_string g)) rec_guidances
   in
+  let upd_ids = UpdateIdSet.union ids_of_updates upd_ids_of_livepatches' in
   let json_of_host =
     `Assoc
       [
@@ -1417,11 +915,15 @@ let consolidate_updates_of_host ~repository_name ~updates_info host
       ; ("RPMS", `List (List.map (fun r -> `String r) rpms))
       ; ( "updates"
         , `List
-            (List.map (fun uid -> `String uid) (UpdateIdSet.elements acc_uids))
+            (List.map
+               (fun upd_id -> `String upd_id)
+               (UpdateIdSet.elements upd_ids)
+            )
         )
+      ; ("livepatches", `List (List.map LivePatch.to_json livepatches'))
       ]
   in
-  (json_of_host, acc_uids)
+  (json_of_host, upd_ids)
 
 let append_by_key l k v =
   (* Append a (k, v) into a assoc list l [ (k1, [v1]); (k2, [...]); ... ] as
