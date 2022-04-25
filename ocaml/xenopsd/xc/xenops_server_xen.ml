@@ -2379,9 +2379,16 @@ module VM = struct
         with e -> debug "Caught %s" (Printexc.to_string e)
       )
 
+  (* A raw image is a file or device in contrast to a directory where
+     would need to open a file *)
   let is_raw_image path =
-    Unixext.with_file path [Unix.O_RDONLY] 0o400 @@ fun fd ->
-    Result.is_ok (Suspend_image.read_save_signature fd)
+    match Unix.((stat path).st_kind) with
+    | Unix.S_REG | Unix.S_BLK ->
+        true
+    | _ ->
+        false
+    | exception _ ->
+        false
 
   let fsync fd =
     try Unixext.fsync fd
