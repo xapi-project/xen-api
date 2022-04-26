@@ -386,10 +386,21 @@ let builder_of_vm ~__context (vmref, vm) timeoffset pci_passthrough vgpu =
       warn "QEMU stub domains are no longer implemented" ;
 
     let tpm_of_vm () =
-      if bool vm.API.vM_platform false "vtpm" then
-          Some Xenops_interface.Vm.Vtpm
-      else
-          None
+      if bool vm.API.vM_platform false "vtpm" then (
+        if vm.API.vM_VTPMs = [] then (
+          let ref () = Ref.make () in
+          let uuid () = Uuid.(to_string (make_uuid ())) in
+          let profile = [] in
+          let other_config = [] in
+          let contents = ref () in
+          Db.Secret.create ~__context ~ref:contents ~uuid:(uuid ()) ~value:""
+            ~other_config ;
+          Db.VTPM.create ~__context ~ref:(ref ()) ~uuid:(uuid ()) ~vM:vmref
+            ~profile ~contents
+        ) ;
+        Some Xenops_interface.Vm.Vtpm
+      ) else
+        None
     in
 
     {
