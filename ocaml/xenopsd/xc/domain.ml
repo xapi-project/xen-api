@@ -1175,6 +1175,14 @@ let build (task : Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domid
 
 type suspend_flag = Live | Debug
 
+let dm_flags =
+  let open Device.Profile in
+  function
+  | Qemu_upstream | Qemu_upstream_compat | Qemu_upstream_uefi ->
+      ["-dm"; "qemu"]
+  | Qemu_trad | Qemu_none ->
+      []
+
 let with_emu_manager_restore (task : Xenops_task.task_handle) ~domain_type
     ~(dm : Device.Profile.t) ~store_port ~console_port ~extras manager_path
     domid _uuid main_fd vgpu_fd f =
@@ -1206,12 +1214,7 @@ let with_emu_manager_restore (task : Xenops_task.task_handle) ~domain_type
     ; "-console_port"
     ; string_of_int console_port
     ]
-    @ ( match dm with
-      | Device.Profile.Qemu_upstream | Device.Profile.Qemu_upstream_compat ->
-          ["-dm"; "qemu"]
-      | _ ->
-          []
-      )
+    @ dm_flags dm
     @ extras
     @ vgpu_cmdline
   in
@@ -1600,12 +1603,7 @@ let suspend_emu_manager ~(task : Xenops_task.task_handle) ~xc:_ ~xs ~domain_type
   let flags' = List.map cmdline_to_flag flags in
   let args =
     ["-fd"; fd_uuid; "-mode"; mode; "-domid"; string_of_int domid]
-    @ ( match dm with
-      | Device.Profile.Qemu_upstream | Device.Profile.Qemu_upstream_compat ->
-          ["-dm"; "qemu"]
-      | _ ->
-          []
-      )
+    @ dm_flags dm
     @ List.concat flags'
     @ vgpu_cmdline
   in
