@@ -16,7 +16,7 @@ depends: [
   "re"
   "rpclib"
   "rresult"
-  "uuidm"
+  "uuid"
   "xapi-idl"
   "xenstore_transport" {with-test}
 ]

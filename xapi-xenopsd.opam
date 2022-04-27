@@ -29,7 +29,7 @@ depends: [
   "sexplib"
   "sexplib0"
   "uri"
-  "uuidm"
+  "uuid"
   "uutf"
   "xapi-backtrace"
   "xapi-idl"

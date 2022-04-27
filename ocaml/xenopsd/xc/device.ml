@@ -2588,7 +2588,7 @@ module Dm_Common = struct
                  } ->
                  (* The VGPU UUID is not available. Create a fresh one; xapi
                     will deal with it. *)
-                 let uuid = Uuidm.to_string (Uuidm.create `V4) in
+                 let uuid = Uuid.(to_string (make ())) in
                  debug "NVidia vGPU config: using config file %s and uuid %s"
                    config_file uuid ;
                  make addr
@@ -2766,7 +2766,7 @@ module Dm_Common = struct
     in
     let stop_vgpu () = Vgpu.stop ~xs domid in
     let stop_varstored () =
-      let vm_uuid = Xenops_helpers.uuid_of_domid ~xs domid |> Uuidm.to_string in
+      let vm_uuid = Xenops_helpers.uuid_of_domid ~xs domid |> Uuid.to_string in
       debug "About to stop varstored for domain %d (%s)" domid vm_uuid ;
       Varstored.stop ~xs domid ;
       let dbg = Printf.sprintf "stop domid %d" domid in
@@ -3374,7 +3374,7 @@ module Backend = struct
         with_xs (fun xs ->
             let timeoffset_key =
               sprintf "/vm/%s/rtc/timeoffset"
-                (Uuidm.to_string (Xenops_helpers.uuid_of_domid ~xs domid))
+                (Uuid.to_string (Xenops_helpers.uuid_of_domid ~xs domid))
             in
             try
               let rtc = xs.Xs.read timeoffset_key in
@@ -3660,7 +3660,7 @@ module Backend = struct
                     ( "VM"
                     , domid
                       |> Xenops_helpers.uuid_of_domid ~xs
-                      |> Uuidm.to_string
+                      |> Uuid.to_string
                     , msg
                     )
                  )
@@ -3771,7 +3771,7 @@ module Backend = struct
         )
 
       let tap_open ifname =
-        let uuid = Uuidm.to_string (Uuidm.create `V4) in
+        let uuid = Uuid.(to_string (make ())) in
         let fd = Tuntap.tap_open ifname in
         (uuid, fd)
 
@@ -4134,7 +4134,7 @@ module Dm = struct
     debug "Preparing to start varstored for UEFI boot (domid=%d)" domid ;
     let path = !Xc_resources.varstored in
     let name = "varstored" in
-    let vm_uuid = Xenops_helpers.uuid_of_domid ~xs domid |> Uuidm.to_string in
+    let vm_uuid = Xenops_helpers.uuid_of_domid ~xs domid |> Uuid.to_string in
     let reset_on_boot =
       nvram.Nvram_uefi_variables.on_boot = Nvram_uefi_variables.Reset
     in
@@ -4391,7 +4391,7 @@ module Dm = struct
     debug "Called Dm.restore_varstored (domid=%d)" domid ;
     let path =
       Xenops_sandbox.Varstore_guard.prepare ~domid
-        ~vm_uuid:(Uuidm.to_string (Xenops_helpers.uuid_of_domid ~xs domid))
+        ~vm_uuid:(Uuid.to_string (Xenops_helpers.uuid_of_domid ~xs domid))
         efivars_resume_path
     in
     debug "Writing EFI variables to %s (domid=%d)" path domid ;

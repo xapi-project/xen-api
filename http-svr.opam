@@ -17,6 +17,7 @@ depends: [
   "rpclib"
   "sha"
   "stunnel"
+  "uuid"
   "xapi-stdext-date"
   "xapi-stdext-pervasives"
   "xapi-stdext-threads"

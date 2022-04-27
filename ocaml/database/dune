@@ -93,6 +93,3 @@
   (package xapi-database)
   (action (run %{x} --master db.xml --test))
 )
-
-(env (_ (env-vars (ALCOTEST_COMPACT 1))))
-

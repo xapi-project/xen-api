@@ -135,7 +135,7 @@ let create ~__context ~vendor_name ~model_name ~framebuffer_size ~max_heads
     ~identifier ~experimental ~compatible_model_names_in_vm
     ~compatible_model_names_on_pgpu =
   let ref = Ref.make () in
-  let uuid = Uuidm.to_string (Uuidm.create `V4) in
+  let uuid = Uuid.(to_string (make ())) in
   (* Currently Nvidia has only one type of vGPU in the VM and on pGPU
    * We just check the compatilbe list, if it is not empty, then it just
    * compatible with self.

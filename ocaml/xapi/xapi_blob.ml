@@ -18,7 +18,7 @@ module D = Debug.Make (struct let name = "xapi_blob" end)
 open D
 
 let create ~__context ~mime_type ~public =
-  let uuid = Uuid.make_uuid () in
+  let uuid = Uuid.make () in
   let ref = Ref.make () in
   let mime_type' =
     if mime_type = "" then "application/octet-stream" else mime_type

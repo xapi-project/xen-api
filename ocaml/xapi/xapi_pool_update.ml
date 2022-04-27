@@ -502,13 +502,13 @@ let verify update_info update_path =
     (Option.value ~default:"" update_info.key)
 
 let patch_uuid_of_update_uuid uuid =
-  let arr = Uuid.int_array_of_uuid (Uuid.uuid_of_string uuid) in
+  let arr = Uuid.of_string uuid |> Option.get |> Uuid.to_int_array in
   let modify x = arr.(x) <- 0 in
   modify 4 ;
   modify 5 ;
   modify 6 ;
   modify 7 ;
-  Uuid.uuid_of_int_array arr |> Uuid.string_of_uuid
+  Uuid.of_int_array arr |> Option.get |> Uuid.to_string
 
 let create_update_record ~__context ~update ~update_info ~vdi =
   let patch_ref = Ref.make () in

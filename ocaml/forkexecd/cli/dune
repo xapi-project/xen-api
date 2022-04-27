@@ -1,7 +1,7 @@
 (executable
  (modes byte exe)
  (name fe_cli)
- (libraries forkexec uuidm))
+ (libraries forkexec))
 
 (install
  (package xapi-forkexecd)

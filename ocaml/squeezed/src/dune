@@ -18,7 +18,7 @@
     rpclib
     xapi-idl
     xapi-idl.memory
-    uuidm
+    uuid
     re
     re.str
   )

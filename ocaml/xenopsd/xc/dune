@@ -24,7 +24,7 @@
   sexplib0
   qmp
   threads.posix
-  uuidm
+  uuid
   xapi-backtrace
   xapi-idl
   xapi-idl.memory
@@ -62,7 +62,7 @@
 
  (libraries
   ezxenstore.core
-  uuidm
+  uuid
   xapi-idl.varstore.privileged
   xapi-idl.xen.interface
   xapi-inventory

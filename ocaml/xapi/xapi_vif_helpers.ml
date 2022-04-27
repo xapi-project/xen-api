@@ -238,7 +238,7 @@ let create ~__context ~device ~network ~vM ~mAC ~mTU ~other_config
     Pool_features.assert_enabled ~__context ~f:Features.Network_sriov ;
   if locking_mode = `locked || ipv4_allowed <> [] || ipv6_allowed <> [] then
     assert_locking_licensed ~__context ;
-  let uuid = Uuid.make_uuid () in
+  let uuid = Uuid.make () in
   let ref = Ref.make () in
   let vm_mac_seed =
     try
@@ -290,7 +290,7 @@ let create ~__context ~device ~network ~vM ~mAC ~mTU ~other_config
         raise
           (Api_errors.Server_error (Api_errors.device_already_exists, [device])) ;
       let metrics = Ref.make ()
-      and metrics_uuid = Uuid.to_string (Uuid.make_uuid ()) in
+      and metrics_uuid = Uuid.to_string (Uuid.make ()) in
       Db.VIF_metrics.create ~__context ~ref:metrics ~uuid:metrics_uuid
         ~io_read_kbs:0. ~io_write_kbs:0.
         ~last_updated:(Xapi_stdext_date.Date.of_float 0.)
@@ -371,7 +371,7 @@ let copy ~__context ~vm ~preserve_mac_address vif =
         let site = proxy.API.pVS_proxy_site in
         let vIF = result in
         let pvs_proxy = Ref.make () in
-        let uuid = Uuidm.to_string (Uuidm.create `V4) in
+        let uuid = Uuid.(to_string (make ())) in
         Db.PVS_proxy.create ~__context ~ref:pvs_proxy ~uuid ~site ~vIF
           ~currently_attached:false ~status:`stopped
       with e ->

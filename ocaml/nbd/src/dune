@@ -10,7 +10,7 @@
   mirage-block-unix
   nbd-unix
   uri
-  uuidm
+  uuid
   vbd_store
   xapi-inventory
   xen-api-client-lwt

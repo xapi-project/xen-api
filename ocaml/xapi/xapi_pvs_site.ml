@@ -22,7 +22,7 @@ let introduce ~__context ~name_label ~name_description ~pVS_uuid =
   Pool_features.assert_enabled ~__context ~f:Features.PVS_proxy ;
   Helpers.assert_using_vswitch ~__context ;
   let pvs_site = Ref.make () in
-  let uuid = Uuid.to_string (Uuid.make_uuid ()) in
+  let uuid = Uuid.to_string (Uuid.make ()) in
   Db.PVS_site.create ~__context ~ref:pvs_site ~uuid ~name_label
     ~name_description ~pVS_uuid ~cache_storage:[] ;
   pvs_site

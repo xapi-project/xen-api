@@ -606,7 +606,7 @@ let login_no_password_common ~__context ~uname ~originator ~host ~pool
     ~rbac_permissions ~db_ref ~client_certificate =
   let create_session () =
     let session_id = Ref.make () in
-    let uuid = Uuid.to_string (Uuid.make_uuid ()) in
+    let uuid = Uuid.to_string (Uuid.make ()) in
     let user = Ref.null in
     (* always return a null reference to the deprecated user object *)
     let parent = try Context.get_session_id __context with _ -> Ref.null in

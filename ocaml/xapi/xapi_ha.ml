@@ -107,11 +107,18 @@ let address_of_host_uuid uuid =
     the host IP address *)
 let uuid_of_host_address address =
   let table = List.map (fun (k, v) -> (v, k)) (get_uuid_to_ip_mapping ()) in
-  if not (List.mem_assoc address table) then (
-    error "Failed to find the UUID address of host with address %s" address ;
-    raise Not_found
-  ) else
-    List.assoc address table
+  match List.assoc_opt address table with
+  | None ->
+      error "Failed to find the UUID address of host with address %s" address ;
+      raise Not_found
+  | Some uuid_str -> (
+    match Uuid.of_string uuid_str with
+    | None ->
+        error "Failed parse UUID of host with address %s" address ;
+        raise (Invalid_argument "Invalid UUID")
+    | Some uuid ->
+        uuid
+  )
 
 (** Called in two circumstances:
     1. When I started up I thought I was the master but my proposal was rejected by the
@@ -173,11 +180,11 @@ let on_master_failure () =
           info "no other master exists yet; waiting 5 seconds and retrying" ;
           Thread.delay 5.
       | [uuid] ->
-          become_slave_of (Uuid.string_of_uuid uuid)
+          become_slave_of (Uuid.to_string uuid)
       | xs ->
           (* should never happen *)
           error "multiple masters reported: [ %s ]; failing"
-            (String.concat "; " (List.map Uuid.string_of_uuid xs)) ;
+            (String.concat "; " (List.map Uuid.to_string xs)) ;
           failwith "multiple masters"
     )
   done
@@ -451,7 +458,7 @@ module Monitor = struct
               let master_uuid = uuid_of_host_address address in
               let master_info =
                 Hashtbl.find liveset.Xha_interface.LiveSetInformation.hosts
-                  (Uuid.uuid_of_string master_uuid)
+                  master_uuid
               in
               if
                 true
@@ -465,7 +472,8 @@ module Monitor = struct
                 warn
                   "We think node %s (%s) is the master but the liveset \
                    disagrees"
-                  master_uuid address ;
+                  (Uuid.to_string master_uuid)
+                  address ;
                 on_master_failure ()
               )
             in
@@ -508,8 +516,7 @@ module Monitor = struct
               let liveset_refs =
                 List.map
                   (fun uuid ->
-                    Db.Host.get_by_uuid ~__context
-                      ~uuid:(Uuid.string_of_uuid uuid)
+                    Db.Host.get_by_uuid ~__context ~uuid:(Uuid.to_string uuid)
                   )
                   liveset_uuids
               in
@@ -584,8 +591,8 @@ module Monitor = struct
                     ( host
                     , Hashtbl.find
                         liveset.Xha_interface.LiveSetInformation.hosts
-                        (Uuid.uuid_of_string
-                           (Db.Host.get_uuid ~__context ~self:host)
+                        (Uuid.of_string (Db.Host.get_uuid ~__context ~self:host)
+                        |> Option.get
                         )
                     )
                   )
@@ -649,8 +656,9 @@ module Monitor = struct
                             local
                               .Xha_interface.LiveSetInformation.RawStatus
                                .host_raw_data
-                            (Uuid.uuid_of_string
+                            (Uuid.of_string
                                (Db.Host.get_uuid ~__context ~self:host)
+                            |> Option.get
                             )
                         )
                       )
@@ -676,7 +684,7 @@ module Monitor = struct
                             .Xha_interface.LiveSetInformation.HostRawData
                              .heartbeat_active_list_on_heartbeat
                       in
-                      let peer_strings = List.map Uuid.string_of_uuid peers in
+                      let peer_strings = List.map Uuid.to_string peers in
                       debug "Network peers = [%s]"
                         (String.concat ";" peer_strings) ;
                       let existing_strings =
@@ -732,7 +740,7 @@ module Monitor = struct
                   if Mutex.execute m (fun () -> not !request_shutdown) then (
                     let liveset = query_liveset_on_all_hosts () in
                     let uuids =
-                      List.map Uuid.string_of_uuid (uuids_of_liveset liveset)
+                      List.map Uuid.to_string (uuids_of_liveset liveset)
                     in
                     let enabled =
                       List.map
@@ -1292,7 +1300,7 @@ let write_config_file ~__context statevdi_paths generation =
       ~xapi_restart_attempts:timeouts.Timeouts.xapi_restart_attempts
       ~xapi_restart_timeout:timeouts.Timeouts.xapi_restart_timeout
       ~common_udp_port:Xapi_globs.xha_udp_port
-      ~common_generation_uuid:(Uuid.uuid_of_string generation)
+      ~common_generation_uuid:(Uuid.of_string generation |> Option.get)
       ~local_heart_beat_interface ~local_heart_beat_physical_interface
       ~local_state_file ~__context ()
   in
@@ -1369,9 +1377,7 @@ let join_liveset __context host =
       (* If this host is a slave then we must wait to confirm that the master manages to
          assert itself, otherwise our monitoring thread might attempt a hostile takeover *)
       let master_address = Pool_role.get_master_address () in
-      let master_uuid =
-        Uuid.uuid_of_string (uuid_of_host_address master_address)
-      in
+      let master_uuid = uuid_of_host_address master_address in
       let master_found = ref false in
       while not !master_found do
         (* It takes a non-trivial amount of time for the master to assert itself: we might
@@ -1880,7 +1886,7 @@ let enable __context heartbeat_srs configuration =
     (* Start by assuming there is no ha_plan_for: this can be revised upwards later *)
     Db.Pool.set_ha_plan_exists_for ~__context ~self:pool ~value:0L ;
     let (_ : bool) = Xapi_ha_vm_failover.update_pool_status ~__context () in
-    let generation = Uuid.string_of_uuid (Uuid.make_uuid ()) in
+    let generation = Uuid.to_string (Uuid.make ()) in
     let hosts = Db.Host.get_all ~__context in
     (* This code always runs on the master *)
     let statefiles = attach_statefiles ~__context !statefile_vdis in

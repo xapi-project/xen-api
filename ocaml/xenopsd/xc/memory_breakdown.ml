@@ -141,7 +141,12 @@ let host_field_extractors = List.map snd host_fields
 
 (** {2 Guest fields} *)
 
-let guest_id _ _ g = Uuid.to_string (Uuid.uuid_of_int_array g.Xenctrl.handle)
+let guest_id _ _ g =
+  match Uuid.of_int_array g.Xenctrl.handle with
+  | Some uuid ->
+      Uuid.to_string uuid
+  | None ->
+      "-"
 
 let guest_domain_id _ _ g = string_of_int g.Xenctrl.domid
 

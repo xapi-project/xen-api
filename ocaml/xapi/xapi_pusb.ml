@@ -22,7 +22,7 @@ open D
 let create ~__context ~uSB_group ~host:_ ~other_config ~path ~vendor_id
     ~vendor_desc ~product_id ~product_desc ~serial ~version ~description ~speed
     =
-  let pusb = Ref.make () and uuid = Uuid.make_uuid () in
+  let pusb = Ref.make () and uuid = Uuid.make () in
   let host = Helpers.get_localhost ~__context in
   Db.PUSB.create ~__context ~ref:pusb ~uuid:(Uuid.to_string uuid) ~uSB_group
     ~host ~other_config ~path ~vendor_id ~vendor_desc ~product_id ~product_desc

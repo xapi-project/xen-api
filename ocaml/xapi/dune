@@ -105,7 +105,6 @@
     unixpwd
     uri
     uuid
-    uuidm
     x509
     xapi_aux
     xapi-backtrace
