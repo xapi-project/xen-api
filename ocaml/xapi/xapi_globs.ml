@@ -924,7 +924,7 @@ let repository_gpgkey_name = ref ""
 
 let repository_gpgcheck = ref true
 
-let migration_compression = ref true
+let migration_compression = ref false
 
 type xapi_globs_spec_ty = Float of float ref | Int of int ref
 
