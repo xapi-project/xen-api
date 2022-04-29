@@ -51,6 +51,12 @@ let cookie_vgpu_migration = "vgpu_migration"
 
 let cookie_mem_migration = "mem_migration"
 
+let cookie_mem_migration_value = Build_info.version
+
+let cookie_mem_compression = "compress"
+
+let cookie_mem_compression_value = "zstd"
+
 let backend = ref None
 
 let get_backend () =
@@ -163,6 +169,7 @@ type vm_migrate_op = {
   ; vmm_url: string
   ; vmm_tmp_src_id: Vm.id
   ; vmm_tmp_dest_id: Vm.id
+  ; vmm_compress: bool
 }
 [@@deriving rpcty]
 
@@ -172,6 +179,7 @@ type vm_receive_op = {
   ; vmr_memory_limit: int64
   ; vmr_socket: Unix.file_descr
   ; vmr_handshake: string option  (** handshake protocol *)
+  ; vmr_compressed: bool
 }
 [@@deriving rpcty]
 
@@ -2381,6 +2389,16 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
         let vm = VM_DB.read_exn id in
         let dbg = (Xenops_task.to_interface_task t).Task.dbg in
         let url = Uri.of_string vmm.vmm_url in
+        let compress_memory = vmm.vmm_compress in
+        let compress =
+          match compress_memory with
+          | true ->
+              Zstd.Default.compress
+          | false ->
+              fun fd fn -> fn fd
+          (* do nothing *)
+        in
+        debug "%s compress memory: %b" __FUNCTION__ compress_memory ;
         (* We need to perform version exchange here *)
         let module B = (val get_backend () : S) in
         B.VM.assert_can_save vm ;
@@ -2416,7 +2434,6 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
             ~path:(Uri.path url ^ snippet ^ id_str)
             ~query:(Uri.query url) ()
         in
-        let memory_url = make_url "/memory/" new_dest_id in
         (* CA-78365: set the memory dynamic range to a single value to stop
            ballooning. *)
         let atomic =
@@ -2437,20 +2454,29 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
            memory on the receiver *)
         let state = B.VM.get_state vm in
         info "VM %s has memory_limit = %Ld" id state.Vm.memory_limit ;
-        Open_uri.with_open_uri memory_url (fun mem_fd ->
+        let url = make_url "/migrate/vm/" new_dest_id in
+        Open_uri.with_open_uri url (fun vm_fd ->
             let module Handshake = Xenops_migrate.Handshake in
             let do_request fd extra_cookies url =
               Sockopt.set_sock_keepalives fd ;
               let module Request =
                 Cohttp.Request.Make (Cohttp_posix_io.Unbuffered_IO) in
               let cookies =
-                [
-                  ("instance_id", instance_id)
-                ; ("final_id", id)
-                ; ("dbg", dbg)
-                ; (cookie_mem_migration, "")
-                ]
-                @ extra_cookies
+                List.concat
+                  [
+                    [
+                      ("instance_id", instance_id)
+                    ; ("final_id", id)
+                    ; ("dbg", dbg)
+                    ; (cookie_mem_migration, cookie_mem_migration_value)
+                    ]
+                  ; ( if compress_memory then
+                        [(cookie_mem_compression, cookie_mem_compression_value)]
+                    else
+                      []
+                    )
+                  ; extra_cookies
+                  ]
               in
               let headers =
                 Cohttp.Header.of_list
@@ -2465,11 +2491,11 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
               in
               Request.write (fun _ -> ()) request fd
             in
-            do_request mem_fd
+            do_request vm_fd
               [("memory_limit", Int64.to_string state.Vm.memory_limit)]
-              memory_url ;
+              url ;
             let first_handshake () =
-              ( match Handshake.recv mem_fd with
+              ( match Handshake.recv vm_fd with
               | Handshake.Success ->
                   ()
               | Handshake.Error msg -> (
@@ -2489,9 +2515,9 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
               debug "VM.migrate: Synchronisation point 1"
             in
             let final_handshake () =
-              Handshake.send ~verbose:true mem_fd Handshake.Success ;
+              Handshake.send vm_fd Handshake.Success ;
               debug "VM.migrate: Synchronisation point 3" ;
-              match Handshake.recv mem_fd with
+              match Handshake.recv vm_fd with
               | Success ->
                   debug "VM.migrate: Synchronisation point 4"
               | Error msg ->
@@ -2505,18 +2531,19 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
                   raise (Xenopsd_error (Internal_error msg))
             in
             let save ?vgpu_fd () =
-              let url = make_url "/migrate-mem/" new_dest_id in
-              Open_uri.with_open_uri url (fun fd ->
-                  (* mem_fd: signaling channel, fd: memory stream *)
-                  do_request fd [] url ;
-                  Handshake.recv_success fd ;
+              let url = make_url "/migrate/mem/" new_dest_id in
+              Open_uri.with_open_uri url (fun mem_fd ->
+                  (* vm_fd: signaling channel, mem_fd: memory stream *)
+                  do_request mem_fd [] url ;
+                  Handshake.recv_success mem_fd ;
                   debug "VM.migrate: Synchronisation point 1-mem" ;
-                  Handshake.send ~verbose:true mem_fd Handshake.Success ;
+                  Handshake.send vm_fd Handshake.Success ;
                   debug "VM.migrate: Synchronisation point 1-mem ACK" ;
 
+                  compress mem_fd @@ fun mem_fd ->
                   perform_atomics
                     [
-                      VM_save (id, [Live], FD fd, vgpu_fd)
+                      VM_save (id, [Live], FD mem_fd, vgpu_fd)
                     ; VM_rename (id, new_src_id, Pre_migration)
                     ]
                     t ;
@@ -2529,15 +2556,16 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
             | [] ->
                 first_handshake () ; save () ; final_handshake ()
             | (_vm_id, dev_id) :: _ ->
-                let vgpu_url =
-                  make_url "/migrate-vgpu/"
+                let url =
+                  make_url "/migrate/vgpu/"
                     (VGPU_DB.string_of_id (new_dest_id, dev_id))
                 in
-                Open_uri.with_open_uri vgpu_url (fun vgpu_fd ->
-                    do_request vgpu_fd [(cookie_vgpu_migration, "")] vgpu_url ;
+                Open_uri.with_open_uri url (fun vgpu_fd ->
+                    Sockopt.set_sock_keepalives vgpu_fd ;
+                    do_request vgpu_fd [(cookie_vgpu_migration, "")] url ;
                     Handshake.recv_success vgpu_fd ;
                     debug "VM.migrate: Synchronisation point 1-vgpu" ;
-                    Handshake.send ~verbose:true mem_fd Handshake.Success ;
+                    Handshake.send vm_fd Handshake.Success ;
                     debug "VM.migrate: Synchronisation point 1-vgpu ACK" ;
                     first_handshake () ;
                     save ~vgpu_fd:(FD vgpu_fd) ()
@@ -2573,7 +2601,15 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
         ; vmr_memory_limit= memory_limit
         ; vmr_socket= s
         ; vmr_handshake= handshake
+        ; vmr_compressed
         } -> (
+        let decompress =
+          match vmr_compressed with
+          | true ->
+              Zstd.Default.decompress_passive
+          | false ->
+              fun fd fn -> fn fd
+        in
         if final_id <> id then
           (* Note: In the localhost case, there are necessarily two worker
              threads operating on the same VM. The first one is using tag
@@ -2589,11 +2625,11 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
              resolved first and hence in practice any further actions related to
              the real uuid will be queued up on this worker thread's queue. *)
           Redirector.alias ~tag:id ~alias:final_id ;
-        debug "VM.receive_memory %s" id ;
+        debug "VM.receive_memory: %s (compressed=%b)" id vmr_compressed ;
         Sockopt.set_sock_keepalives s ;
         let open Xenops_migrate in
         (* set up the destination domain *)
-        debug "VM.receive_memory creating domain and restoring VIFs" ;
+        debug "VM.receive_memory: creating domain and restoring VIFs" ;
         finally
           (fun () ->
             (* If we have a vGPU, wait for the vgpu-1 ACK, which indicates that
@@ -2639,7 +2675,7 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
                 raise e
             ) ;
             debug "VM.receive_memory: Synchronisation point 1" ;
-            debug "VM.receive_memory restoring VM" ;
+            debug "VM.receive_memory: restoring VM" ;
             try
               (* Check if there is a separate vGPU data channel *)
               let vgpu_info =
@@ -2648,14 +2684,19 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
                 )
               in
               let pcis = PCI_DB.pcis id |> pci_plug_order in
-              let receive id s =
-                debug "using new handshake protocol for VM %s" id ;
-                Handshake.recv_success ~verbose:true s ;
+              let receive_mem_fd id s =
+                debug
+                  "VM.receive_memory: using new handshake protocol for VM %s" id ;
+                Handshake.recv_success s ;
+                with_lock mem_receiver_sync_m @@ fun () ->
                 match Hashtbl.find_opt mem_receiver_sync id with
                 | Some fd ->
                     fd.mem_fd
                 | None ->
-                    error "Failed to receive FD for VM memory (id=%s)" id ;
+                    error
+                      "VM.receive_memory: Failed to receive FD for VM memory \
+                       (id=%s)"
+                      id ;
                     failwith __FUNCTION__
               in
               let vgpu_start_operations () =
@@ -2679,11 +2720,13 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
               let mem_fd =
                 match handshake with
                 | Some _ ->
-                    receive id s (* new handshake protocol *)
+                    receive_mem_fd id s (* new handshake protocol *)
                 | None ->
                     s
-                (* receiving memory on this conncection *)
+                (* receiving memory on this connection *)
               in
+              Sockopt.set_sock_keepalives mem_fd ;
+              decompress mem_fd @@ fun mem_fd ->
               perform_atomics
                 (List.concat
                    [
@@ -2698,7 +2741,7 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
                    ]
                 )
                 t ;
-              debug "VM.receive_memory restore complete"
+              debug "VM.receive_memory: restore complete"
             with e ->
               Backtrace.is_important e ;
               Debug.log_backtrace e (Backtrace.get e) ;
@@ -2728,13 +2771,13 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
         debug "VM.receive_memory: Synchronisation point 2" ;
         try
           (* Receive the all-clear to unpause *)
-          Handshake.recv_success ~verbose:true s ;
+          Handshake.recv_success s ;
           debug "VM.receive_memory: Synchronisation point 3" ;
           if final_id <> id then (
             debug "VM.receive_memory: Renaming domain" ;
             perform_atomics [VM_rename (id, final_id, Post_migration)] t
           ) ;
-          debug "VM.receive_memory restoring remaining devices and unpausing" ;
+          debug "VM.receive_memory: restoring remaining devices and unpausing" ;
           perform_atomics
             (atomics_of_operation (VM_restore_devices (final_id, false))
             @ [
@@ -3324,7 +3367,8 @@ module VM = struct
 
   let s3resume _ dbg id = queue_operation dbg id (Atomic (VM_s3resume id))
 
-  let migrate _context dbg id vmm_vdi_map vmm_vif_map vmm_vgpu_pci_map vmm_url =
+  let migrate _context dbg id vmm_vdi_map vmm_vif_map vmm_vgpu_pci_map vmm_url
+      (compress : bool) =
     let tmp_uuid_of uuid ~kind =
       Printf.sprintf "%s00000000000%c" (String.sub uuid 0 24)
         (match kind with `dest -> '1' | `src -> '0')
@@ -3339,10 +3383,15 @@ module VM = struct
          ; vmm_url
          ; vmm_tmp_src_id= tmp_uuid_of id ~kind:`src
          ; vmm_tmp_dest_id= tmp_uuid_of id ~kind:`dest
+         ; vmm_compress= compress
          }
       )
 
   let migrate_receive_memory _ _ _ _ _ _ = failwith "Unimplemented"
+
+  let get_compression cookies =
+    let key = cookie_mem_compression in
+    match List.assoc_opt key cookies with Some _ -> true | _ -> false
 
   let not_found_response =
     let headers = Cohttp.Header.of_list [("User-agent", "xenopsd")] in
@@ -3354,6 +3403,7 @@ module VM = struct
     let dbg = List.assoc "dbg" cookies in
     let memory_limit = List.assoc "memory_limit" cookies |> Int64.of_string in
     let handshake = List.assoc_opt cookie_mem_migration cookies in
+    let compressed_memory = get_compression cookies in
     Debug.with_thread_associated dbg
       (fun () ->
         let id, final_id =
@@ -3380,6 +3430,7 @@ module VM = struct
                 ; vmr_memory_limit= memory_limit
                 ; vmr_socket= transferred_fd
                 ; vmr_handshake= handshake
+                ; vmr_compressed= compressed_memory
                 }
             in
             let task = Some (queue_operation dbg id op) in
@@ -3433,7 +3484,7 @@ module VM = struct
                   cookie_vgpu_migration
               in
               Xenops_migrate.(
-                Handshake.send ~verbose:true transferred_fd (Handshake.Error msg)
+                Handshake.send transferred_fd (Handshake.Error msg)
               ) ;
               debug "VM.receive_vgpu: Synchronisation point 1-vgpu ERR %s" msg ;
               raise (Xenopsd_error (Internal_error msg))
@@ -3448,9 +3499,7 @@ module VM = struct
             ) ;
             (* Inform the sender that everything is in place to start
                save/restore *)
-            Xenops_migrate.(
-              Handshake.send ~verbose:true transferred_fd Handshake.Success
-            ) ;
+            Xenops_migrate.(Handshake.send transferred_fd Handshake.Success) ;
             debug "VM.receive_vgpu: Synchronisation point 1-vgpu" ;
             (* Keep the thread/connection open until the restore is done on the
                other thread *)
@@ -3484,7 +3533,7 @@ module VM = struct
             ) ;
             (* Inform the sender that everything is in place to start
                save/restore *)
-            Xenops_migrate.(Handshake.send ~verbose:true fd Handshake.Success) ;
+            Xenops_migrate.(Handshake.send fd Handshake.Success) ;
             debug "VM.receive_mem: Synchronisation point 1-mem" ;
             (* Keep the thread/connection open until the restore is done on the
                other thread *)
