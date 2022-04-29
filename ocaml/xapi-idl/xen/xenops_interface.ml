@@ -660,6 +660,11 @@ module XenopsAPI (R : RPC) = struct
           ~description:["URL on which the remote xenopsd can be contacted"]
           Types.string
       in
+      let compress =
+        Param.mk ~name:"compress"
+          ~description:["when true, use stream compression"]
+          Types.bool
+      in
       declare "VM.migrate" []
         (debug_info_p
         @-> vm_id_p
@@ -667,6 +672,7 @@ module XenopsAPI (R : RPC) = struct
         @-> vifmap
         @-> pcimap
         @-> xenops_url
+        @-> compress
         @-> returning task_id_p err
         )
 

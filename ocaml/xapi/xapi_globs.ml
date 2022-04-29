@@ -924,6 +924,8 @@ let repository_gpgkey_name = ref ""
 
 let repository_gpgcheck = ref true
 
+let migration_compression = ref true
+
 type xapi_globs_spec_ty = Float of float ref | Int of int ref
 
 let extauth_ad_backend = ref "winbind"
@@ -1347,6 +1349,11 @@ let other_options =
     , Arg.Set_int message_limit
     , (fun () -> string_of_int !message_limit)
     , "Maximum number of messages kept before deleting oldest ones."
+    )
+  ; ( "migration-compression"
+    , Arg.Set migration_compression
+    , (fun () -> string_of_bool !migration_compression)
+    , "Use compression during VM migration when no API option provided."
     )
   ]
 

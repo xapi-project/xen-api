@@ -42,7 +42,7 @@ module Handshake = struct
     if n < len then really_read fd buf (ofs + n) (len - n)
 
   (** Receive a 'result' from the remote *)
-  let recv ?(verbose = false) (s : Unix.file_descr) : result =
+  let recv ?(verbose = true) (s : Unix.file_descr) : result =
     let buf = Bytes.make 2 '\000' in
     if verbose then
       debug "Handshake.recv: about to read result code from remote." ;
@@ -78,7 +78,7 @@ module Handshake = struct
         raise (Remote_failed ("error from remote: " ^ x))
 
   (** Transmit a 'result' to the remote *)
-  let send ?(verbose = false) (s : Unix.file_descr) (r : result) =
+  let send ?(verbose = true) (s : Unix.file_descr) (r : result) =
     let len = match r with Success -> 0 | Error msg -> String.length msg in
     let buf = Bytes.make (2 + len) '\000' in
     Bytes.set buf 0 @@ char_of_int ((len lsr 8) land 0xff) ;

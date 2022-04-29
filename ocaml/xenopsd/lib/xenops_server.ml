@@ -163,6 +163,7 @@ type vm_migrate_op = {
   ; vmm_url: string
   ; vmm_tmp_src_id: Vm.id
   ; vmm_tmp_dest_id: Vm.id
+  ; vmm_compress: bool
 }
 [@@deriving rpcty]
 
@@ -172,6 +173,7 @@ type vm_receive_op = {
   ; vmr_memory_limit: int64
   ; vmr_socket: Unix.file_descr
   ; vmr_handshake: string option  (** handshake protocol *)
+  ; vmr_compressed: bool
 }
 [@@deriving rpcty]
 
@@ -2381,6 +2383,16 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
         let vm = VM_DB.read_exn id in
         let dbg = (Xenops_task.to_interface_task t).Task.dbg in
         let url = Uri.of_string vmm.vmm_url in
+        let compress_memory = vmm.vmm_compress in
+        let compress =
+          match compress_memory with
+          | true ->
+              Zstd.Default.compress
+          | false ->
+              fun fd fn -> fn fd
+          (* do nothing *)
+        in
+        debug "%s compress memory: %b" __FUNCTION__ compress_memory ;
         (* We need to perform version exchange here *)
         let module B = (val get_backend () : S) in
         B.VM.assert_can_save vm ;
@@ -2449,6 +2461,7 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
                 ; ("final_id", id)
                 ; ("dbg", dbg)
                 ; (cookie_mem_migration, "")
+                ; ("compress", string_of_bool compress_memory)
                 ]
                 @ extra_cookies
               in
@@ -2514,6 +2527,7 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
                   Handshake.send ~verbose:true mem_fd Handshake.Success ;
                   debug "VM.migrate: Synchronisation point 1-mem ACK" ;
 
+                  compress fd @@ fun fd ->
                   perform_atomics
                     [
                       VM_save (id, [Live], FD fd, vgpu_fd)
@@ -2534,6 +2548,7 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
                     (VGPU_DB.string_of_id (new_dest_id, dev_id))
                 in
                 Open_uri.with_open_uri vgpu_url (fun vgpu_fd ->
+                    Sockopt.set_sock_keepalives vgpu_fd ;
                     do_request vgpu_fd [(cookie_vgpu_migration, "")] vgpu_url ;
                     Handshake.recv_success vgpu_fd ;
                     debug "VM.migrate: Synchronisation point 1-vgpu" ;
@@ -2573,7 +2588,15 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
         ; vmr_memory_limit= memory_limit
         ; vmr_socket= s
         ; vmr_handshake= handshake
+        ; vmr_compressed
         } -> (
+        let decompress =
+          match vmr_compressed with
+          | true ->
+              Zstd.Default.decompress_passive
+          | false ->
+              fun fd fn -> fn fd
+        in
         if final_id <> id then
           (* Note: In the localhost case, there are necessarily two worker
              threads operating on the same VM. The first one is using tag
@@ -2590,6 +2613,7 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
              the real uuid will be queued up on this worker thread's queue. *)
           Redirector.alias ~tag:id ~alias:final_id ;
         debug "VM.receive_memory %s" id ;
+        debug "%s compressed memory: %b" __FUNCTION__ vmr_compressed ;
         Sockopt.set_sock_keepalives s ;
         let open Xenops_migrate in
         (* set up the destination domain *)
@@ -2684,6 +2708,8 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
                     s
                 (* receiving memory on this conncection *)
               in
+              Sockopt.set_sock_keepalives mem_fd ;
+              decompress mem_fd @@ fun mem_fd ->
               perform_atomics
                 (List.concat
                    [
@@ -3324,7 +3350,8 @@ module VM = struct
 
   let s3resume _ dbg id = queue_operation dbg id (Atomic (VM_s3resume id))
 
-  let migrate _context dbg id vmm_vdi_map vmm_vif_map vmm_vgpu_pci_map vmm_url =
+  let migrate _context dbg id vmm_vdi_map vmm_vif_map vmm_vgpu_pci_map vmm_url
+      (compress : bool) =
     let tmp_uuid_of uuid ~kind =
       Printf.sprintf "%s00000000000%c" (String.sub uuid 0 24)
         (match kind with `dest -> '1' | `src -> '0')
@@ -3339,10 +3366,23 @@ module VM = struct
          ; vmm_url
          ; vmm_tmp_src_id= tmp_uuid_of id ~kind:`src
          ; vmm_tmp_dest_id= tmp_uuid_of id ~kind:`dest
+         ; vmm_compress= compress
          }
       )
 
   let migrate_receive_memory _ _ _ _ _ _ = failwith "Unimplemented"
+
+  let get_bool ~default key cookies =
+    match List.assoc_opt key cookies with
+    | Some "true" ->
+        true
+    | Some "false" ->
+        false
+    | Some v ->
+        error "%s cookie '%s' not a boolean: %s" __FUNCTION__ key v ;
+        default
+    | None ->
+        default
 
   let not_found_response =
     let headers = Cohttp.Header.of_list [("User-agent", "xenopsd")] in
@@ -3354,6 +3394,7 @@ module VM = struct
     let dbg = List.assoc "dbg" cookies in
     let memory_limit = List.assoc "memory_limit" cookies |> Int64.of_string in
     let handshake = List.assoc_opt cookie_mem_migration cookies in
+    let compressed_memory = get_bool ~default:false "compress" cookies in
     Debug.with_thread_associated dbg
       (fun () ->
         let id, final_id =
@@ -3380,6 +3421,7 @@ module VM = struct
                 ; vmr_memory_limit= memory_limit
                 ; vmr_socket= transferred_fd
                 ; vmr_handshake= handshake
+                ; vmr_compressed= compressed_memory
                 }
             in
             let task = Some (queue_operation dbg id op) in
