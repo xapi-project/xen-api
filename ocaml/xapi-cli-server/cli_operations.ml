@@ -4434,7 +4434,10 @@ let vm_migrate printer rpc session_id params =
   let options =
     Listext.map_assoc_with_key
       (comp2 string_of_bool bool_of_string)
-      (Listext.restrict_with_default "false" ["force"; "live"; "copy"] params)
+      (Listext.restrict_with_default "false"
+         ["force"; "live"; "copy"; "compress"]
+         params
+      )
   in
   (* We assume the user wants to do Storage XenMotion if they supply any of the
      SXM-specific parameters, and then we use the new codepath. *)
@@ -4660,6 +4663,7 @@ let vm_migrate printer rpc session_id params =
                   :: "live"
                   :: "force"
                   :: "copy"
+                  :: "compress"
                   :: vm_migrate_sxm_params
                   )
               in
@@ -4773,7 +4777,7 @@ let vm_migrate printer rpc session_id params =
              ~options
          )
          params
-         ["host"; "host-uuid"; "host-name"; "live"]
+         ["host"; "host-uuid"; "host-name"; "live"; "compress"]
       )
   )
 
