@@ -22,12 +22,14 @@ type endpoint = {
 let make_endpoint fdin fdout =
   {fdin; fdout; buffer= Bytes.make 4096 '\000'; buffer_len= 0}
 
-let proxy (ain : Unix.file_descr) (aout : Unix.file_descr)
-    (bin : Unix.file_descr) (bout : Unix.file_descr) =
-  let a' = make_endpoint ain aout and b' = make_endpoint bin bout in
+open Safe_resources
+
+let proxy (ain : Unix.file_descr) (aout : Unix.file_descr) (bin : Unixfd.t)
+    (bout : Unix.file_descr) =
+  let a' = make_endpoint ain aout and b' = make_endpoint Unixfd.(!bin) bout in
   Unix.set_nonblock ain ;
   Unix.set_nonblock aout ;
-  Unix.set_nonblock bin ;
+  Unix.set_nonblock Unixfd.(!bin) ;
   Unix.set_nonblock bout ;
   let can_read x = x.buffer_len < Bytes.length x.buffer - 1 in
   let can_write x = x.buffer_len > 0 in
@@ -47,7 +49,8 @@ let proxy (ain : Unix.file_descr) (aout : Unix.file_descr)
   try
     while true do
       let r =
-        (if can_read a' then [ain] else []) @ if can_read b' then [bin] else []
+        (if can_read a' then [ain] else [])
+        @ if can_read b' then [Unixfd.(!bin)] else []
       in
       let w =
         (if can_write a' then [bout] else [])
@@ -62,11 +65,11 @@ let proxy (ain : Unix.file_descr) (aout : Unix.file_descr)
     done
   with _ -> (
     (try Unix.clear_nonblock ain with _ -> ()) ;
-    (try Unix.clear_nonblock bin with _ -> ()) ;
+    (try Unix.clear_nonblock Unixfd.(!bin) with _ -> ()) ;
     (try Unix.clear_nonblock aout with _ -> ()) ;
     (try Unix.clear_nonblock bout with _ -> ()) ;
     (try Unix.close ain with _ -> ()) ;
-    (try Unix.close bin with _ -> ()) ;
+    (try Unixfd.safe_close bin with _ -> ()) ;
     (try Unix.close aout with _ -> ()) ;
     try Unix.close bout with _ -> ()
   )
@@ -74,11 +77,10 @@ let proxy (ain : Unix.file_descr) (aout : Unix.file_descr)
 let with_open_tcp_ssl server f =
   let port = 443 in
   (* We don't bother closing fds since this requires our close_and_exec wrapper *)
-  let open Safe_resources in
   Stunnel.with_connect ~use_fork_exec_helper:false
     ~write_to_log:(fun _ -> ())
     server port
-  @@ fun x -> f Unixfd.(!(x.Stunnel.fd))
+  @@ fun x -> f x.Stunnel.fd
 
 let _ =
   let host = Sys.argv.(1) in
@@ -96,5 +98,5 @@ let _ =
       session cmd (String.concat "" args)
   in
   with_open_tcp_ssl host @@ fun fd ->
-  Unix.write_substring fd req 0 (String.length req) |> ignore ;
-  proxy Unix.stdin Unix.stdout fd (Unix.dup fd)
+  Unix.write_substring Unixfd.(!fd) req 0 (String.length req) |> ignore ;
+  proxy Unix.stdin Unix.stdout fd (Unix.dup Unixfd.(!fd))
