@@ -2591,13 +2591,34 @@ let write_uefi_certificates_to_disk ~__context ~host:_ =
             let path = Filename.concat !Xapi_globs.varstore_dir name in
             Unixext.unlink_safe path
           )
-          ["KEK.auth"; "db.auth"] ;
+          ["PK.auth"; "KEK.auth"; "db.auth"; "dbx.auth"] ;
         (* No uefi certificates, nothing to do. *)
         if contents <> "" then (
           with_temp_file_contents ~contents
             (Tar_unix.Archive.extract extract_certificate_file) ;
           debug "UEFI tar file extracted to temporary directory"
-        )
+        ) ;
+        (* If some mandatory auth files are missing, fetch them from a fallback dir *)
+        List.iter
+          (fun name ->
+            let path = Filename.concat !Xapi_globs.varstore_dir name in
+            let fallback_path =
+              Filename.concat !Xapi_globs.fallback_auth_dir name
+            in
+            if (not (Sys.file_exists path)) && Sys.file_exists fallback_path
+            then (
+              debug "Copy fallback auth %s to varstore dir" name ;
+              let ifd = Unix.openfile fallback_path [Unix.O_RDONLY] 0o0 in
+              let ofd =
+                Unix.openfile path [Unix.O_WRONLY; Unix.O_CREAT] 0o640
+              in
+              ignore
+              @@ Xapi_stdext_pervasives.Pervasiveext.finally
+                   (fun () -> Unixext.copy_file ifd ofd)
+                   (fun () -> Unix.close ifd ; Unix.close ofd)
+            )
+          )
+          ["PK.auth"; "dbx.auth"]
     (* No UEFI tar file. *)
     | Error _ ->
         debug
