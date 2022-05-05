@@ -174,6 +174,13 @@ let string_of_task_and_tracing __context =
     )
     __context.tracing
 
+let tracing_of_dbg dbg =
+  match String.split_on_char '\x00' dbg with
+  | [dbg; tracing] ->
+      (dbg, Tracing.Span.of_string tracing)
+  | _ ->
+      (dbg, None)
+
 let check_for_foreign_database ~__context =
   match __context.session_id with
   | Some sid -> (
