@@ -69,3 +69,10 @@ let is_task task = function
       Some Xenops_task.(get_state (handle_of_id tasks id))
   | _ ->
       None
+
+let parallel_id_with_tracing parallel_id t =
+  match Xenops_task.tracing t with
+  | Some t ->
+      parallel_id ^ "\x00" ^ t
+  | None ->
+      parallel_id
