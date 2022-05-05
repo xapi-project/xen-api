@@ -1844,10 +1844,17 @@ let rec perform_atomic ~progress_callback ?subtask:_ ?result (op : atomic)
           (Xenops_task.id_of_handle t)
           (List.length atoms) description
       in
+      let parallel_id_with_tracing =
+        match Xenops_task.tracing t with
+        | Some t ->
+            parallel_id ^ "\n" ^ t
+        | None ->
+            parallel_id
+      in
       debug "begin_%s" parallel_id ;
       let task_list =
         queue_atomics_and_wait ~progress_callback ~max_parallel_atoms:10
-          parallel_id parallel_id atoms
+          parallel_id_with_tracing parallel_id atoms
       in
       debug "end_%s" parallel_id ;
       (* make sure that we destroy all the parallel tasks that finished *)
