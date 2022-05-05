@@ -9,6 +9,7 @@
 
 (test
   (name uuid_test)
+  (package uuid)
   (modules uuid_test)
   (libraries uuid alcotest)
   )

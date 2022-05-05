@@ -4,12 +4,16 @@ authors: "xen-api@lists.xen.org"
 homepage: "https://xapi-project.github.io/"
 bug-reports: "https://github.com/xapi-project/xen-api.git"
 dev-repo: "git+https://github.com/xapi-project/xen-api.git"
-build: [[ "dune" "build" "-p" name "-j" jobs ]]
+build: [
+  ["dune" "build" "-p" name "-j" jobs]
+  ["dune" "runtest" "-p" name "-j" jobs] {with-test}
+]
 
 available: [ os = "linux" ]
 depends: [
   "ocaml"
   "dune"
+  "alcotest" {with-test}
 ]
 synopsis: "Library required by xapi"
 description: """
