@@ -3802,18 +3802,16 @@ module VM = struct
     Debug.with_thread_associated dbg
       (fun () ->
         let id, md = parse_metadata s in
+        let op = Atomic (VM_import_metadata (id, md)) in
         (* We allow a higher-level toolstack to replace the metadata of a
            running VM. Any changes will take place on next reboot.
            The metadata update will be queued so that ongoing operations
            do not see unexpected state changes. *)
         if DB.exists id then
-          let _ =
-            queue_operation_and_wait dbg id
-              (Atomic (VM_import_metadata (id, md)))
-          in
-          id
+          ignore (queue_operation_and_wait dbg id op)
         else
-          import_metadata id md
+          immediate_operation dbg id op ;
+        id
       )
       ()
 
