@@ -359,6 +359,25 @@ module Everything = struct
     Errors.errors := h.errors
 end
 
+let with_tracing ~name ~dbg f =
+  let dbg, parent =
+    match String.index_opt dbg '\x00' with
+    | Some i ->
+        let tracing = String.sub dbg (i + 1) (String.length dbg - i - 1) in
+        (String.sub dbg 0 i, Tracing.t_of_string tracing)
+    | None ->
+        (dbg, Tracing.empty)
+  in
+  let name = "SM." ^ name in
+  match Tracing.start ~name ~parent with
+  | Ok span_context ->
+      let result = f dbg in
+      let _ = Tracing.finish span_context in
+      result
+  | Error e ->
+      D.warn "Failed to start tracing: %s" (Printexc.to_string e) ;
+      f dbg
+
 module Wrapper =
 functor
   (Impl : Server_impl)
@@ -453,11 +472,12 @@ functor
         in
         List.fold_left perform_one vdi_t ops
 
-      let perform_nolock context ~dbg ~dp ~sr ~vdi ~vm this_op =
+      let perform_nolock context ~dbg ~name ~dp ~sr ~vdi ~vm this_op =
         match Host.find sr !Host.host with
         | None ->
             raise (Storage_error (Sr_not_attached (s_of_sr sr)))
         | Some sr_t ->
+            with_tracing ~name ~dbg @@ fun dbg ->
             let vdi_t =
               Option.value ~default:(Vdi.empty ()) (Sr.find vdi sr_t)
             in
@@ -524,7 +544,9 @@ functor
                   ignore
                     (List.fold_left
                        (fun _ op ->
-                         perform_nolock context ~dbg ~dp ~sr ~vdi ~vm op
+                         perform_nolock context ~dbg
+                           ~name:"VDI.destroy_datapath_nolock" ~dp ~sr ~vdi ~vm
+                           op
                        )
                        vdi_t ops
                     )
@@ -584,6 +606,7 @@ functor
       let epoch_begin context ~dbg ~sr ~vdi ~vm ~persistent =
         info "VDI.epoch_begin dbg:%s sr:%s vdi:%s vm:%s persistent:%b" dbg
           (s_of_sr sr) (s_of_vdi vdi) (s_of_vm vm) persistent ;
+        with_tracing ~name:"VDI.epoch_begin" ~dbg @@ fun dbg ->
         with_vdi sr vdi (fun () ->
             remove_datapaths_andthen_nolock context ~dbg ~sr ~vdi ~vm Vdi.leaked
               (fun () ->
@@ -598,7 +621,8 @@ functor
             remove_datapaths_andthen_nolock context ~dbg ~sr ~vdi ~vm Vdi.leaked
               (fun () ->
                 let state =
-                  perform_nolock context ~dbg ~dp ~sr ~vdi ~vm
+                  perform_nolock context ~dbg ~name:"VDI.attach3" ~dp ~sr ~vdi
+                    ~vm
                     (Vdi_automaton.Attach
                        ( if read_write then
                            Vdi_automaton.RW
@@ -668,8 +692,8 @@ functor
             remove_datapaths_andthen_nolock context ~dbg ~sr ~vdi ~vm Vdi.leaked
               (fun () ->
                 ignore
-                  (perform_nolock context ~dbg ~dp ~sr ~vdi ~vm
-                     Vdi_automaton.Activate
+                  (perform_nolock context ~dbg ~dp ~name:"VDI.activate3" ~sr
+                     ~vdi ~vm Vdi_automaton.Activate
                   )
             )
         )
@@ -690,8 +714,8 @@ functor
             remove_datapaths_andthen_nolock context ~dbg ~sr ~vdi ~vm Vdi.leaked
               (fun () ->
                 ignore
-                  (perform_nolock context ~dbg ~dp ~sr ~vdi ~vm
-                     Vdi_automaton.Deactivate
+                  (perform_nolock context ~dbg ~name:"VDI.deactivate" ~dp ~sr
+                     ~vdi ~vm Vdi_automaton.Deactivate
                   )
             )
         )
@@ -703,8 +727,8 @@ functor
             remove_datapaths_andthen_nolock context ~dbg ~sr ~vdi ~vm Vdi.leaked
               (fun () ->
                 ignore
-                  (perform_nolock context ~dbg ~dp ~sr ~vdi ~vm
-                     Vdi_automaton.Detach
+                  (perform_nolock context ~dbg ~name:"VDI.detach" ~dp ~sr ~vdi
+                     ~vm Vdi_automaton.Detach
                   )
             )
         )
@@ -712,6 +736,7 @@ functor
       let epoch_end context ~dbg ~sr ~vdi ~vm =
         info "VDI.epoch_end dbg:%s sr:%s vdi:%s vm:%s" dbg (s_of_sr sr)
           (s_of_vdi vdi) (s_of_vm vm) ;
+        with_tracing ~name:"VDI.epoch_end" ~dbg @@ fun dbg ->
         with_vdi sr vdi (fun () ->
             remove_datapaths_andthen_nolock context ~dbg ~sr ~vdi ~vm Vdi.leaked
               (fun () -> Impl.VDI.epoch_end context ~dbg ~sr ~vdi ~vm
@@ -1019,6 +1044,8 @@ functor
         failure
 
       let destroy' context ~dbg ~dp ~allow_leak =
+        info "DP.destroy dbg:%s dp:%s allow_leak:%b" dbg dp allow_leak ;
+        with_tracing ~name:"DP.destroy" ~dbg @@ fun dbg ->
         let failures =
           Host.list !Host.host
           |> List.filter_map (fun (sr, sr_t) ->
