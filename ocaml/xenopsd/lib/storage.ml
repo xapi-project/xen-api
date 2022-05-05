@@ -36,16 +36,21 @@ let transform_exception f x =
 (* Used to identify this VBD to the storage layer *)
 let id_of frontend vbd = Printf.sprintf "vbd/%s/%s" frontend (snd vbd)
 
+let get_dbg task =
+  match Xenops_task.tracing task with
+  | None ->
+      Xenops_task.get_dbg task
+  | Some tracing ->
+      Xenops_task.get_dbg task ^ "\n" ^ tracing
+
 let epoch_begin task sr vdi domid persistent =
   transform_exception
-    (fun () ->
-      Client.VDI.epoch_begin (Xenops_task.get_dbg task) sr vdi domid persistent
-    )
+    (fun () -> Client.VDI.epoch_begin (get_dbg task) sr vdi domid persistent)
     ()
 
 let epoch_end task sr vdi domid =
   transform_exception
-    (fun () -> Client.VDI.epoch_end (Xenops_task.get_dbg task) sr vdi domid)
+    (fun () -> Client.VDI.epoch_end (get_dbg task) sr vdi domid)
     ()
 
 let vm_of_domid vmdomid =
@@ -60,40 +65,36 @@ let vm_of_domid vmdomid =
       Storage_interface.Vm.of_string ""
 
 let attach_and_activate ~task ~_vm ~vmdomid ~dp ~sr ~vdi ~read_write =
+  let dbg = get_dbg task in
   let result =
     Xenops_task.with_subtask task
       (Printf.sprintf "VDI.attach3 %s" dp)
       (transform_exception (fun () ->
-           Client.VDI.attach3 "attach_and_activate_impl" dp sr vdi vmdomid
-             read_write
+           Client.VDI.attach3 dbg dp sr vdi vmdomid read_write
        )
       )
   in
   Xenops_task.with_subtask task
     (Printf.sprintf "VDI.activate3 %s" dp)
-    (transform_exception (fun () ->
-         Client.VDI.activate3 "attach_and_activate_impl" dp sr vdi vmdomid
-     )
-    ) ;
+    (transform_exception (fun () -> Client.VDI.activate3 dbg dp sr vdi vmdomid)) ;
   result
 
 let deactivate task dp sr vdi vmdomid =
   debug "Deactivating disk %s %s" (Sr.string_of sr) (Vdi.string_of vdi) ;
+  let dbg = get_dbg task in
   Xenops_task.with_subtask task
     (Printf.sprintf "VDI.deactivate %s" dp)
-    (transform_exception (fun () ->
-         Client.VDI.deactivate "deactivate" dp sr vdi vmdomid
-     )
-    )
+    (transform_exception (fun () -> Client.VDI.deactivate dbg dp sr vdi vmdomid))
 
 let dp_destroy task dp =
   Xenops_task.with_subtask task
     (Printf.sprintf "DP.destroy %s" dp)
     (transform_exception (fun () ->
+         let dbg = get_dbg task in
          let waiting_for_plugin = ref true in
          while !waiting_for_plugin do
            try
-             Client.DP.destroy "dp_destroy" dp false ;
+             Client.DP.destroy dbg dp false ;
              waiting_for_plugin := false
            with
            | Storage_interface.Storage_error (No_storage_plugin_for_sr _sr) as e
