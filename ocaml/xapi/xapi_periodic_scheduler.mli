@@ -16,10 +16,10 @@
 (** Timer type. *)
 type func_ty =
   | OneShot  (** Fire just once *)
-  | Periodic of float  (** Fire periodically with a given period in seconds *)
+  | Periodic of Mtime.Span.t  (** Fire periodically with a given period *)
 
 val add_to_queue :
-  ?signal:bool -> string -> func_ty -> float -> (unit -> unit) -> unit
+  ?signal:bool -> string -> func_ty -> Mtime.Span.t -> (unit -> unit) -> unit
 (** Start a new timer. *)
 
 val remove_from_queue : string -> unit

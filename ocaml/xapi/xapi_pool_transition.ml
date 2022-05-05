@@ -164,7 +164,7 @@ let attempt_two_phase_commit_of_new_master ~__context (manual : bool)
       "Phase 2.2: setting flag to make us restart when the connection to the \
        master dies" ;
     Master_connection.restart_on_connection_timeout := true ;
-    Master_connection.connection_timeout := 0.
+    Master_connection.connection_timeout := 0
   ) ;
   if !hosts_which_failed <> [] then (
     error

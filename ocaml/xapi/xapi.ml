@@ -878,7 +878,7 @@ let server_init () =
   (* Record the initial value of Master_connection.connection_timeout and set it to 'never'. When we are a slave who
      has just started up we want to wait forever for the master to appear. (See CA-25481) *)
   let initial_connection_timeout = !Master_connection.connection_timeout in
-  Master_connection.connection_timeout := -1. ;
+  Master_connection.connection_timeout := -1 ;
   (* never timeout *)
   let call_extauth_hook_script_after_xapi_initialize ~__context =
     (* CP-709 *)
@@ -1137,7 +1137,7 @@ let server_init () =
                 (* We can't tolerate an exception in db synchronization so fall back into emergency mode
                    if this happens and try again later.. *)
                 Master_connection.restart_on_connection_timeout := false ;
-                Master_connection.connection_timeout := 10. ;
+                Master_connection.connection_timeout := 10 ;
                 (* give up retrying after 10s *)
                 Db_cache_impl.initialise () ;
                 Sm.register () ;

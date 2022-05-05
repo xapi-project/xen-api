@@ -3707,21 +3707,14 @@ module Backend = struct
          is ready. *)
       let wait_event_socket ~task ~name ~domid ~timeout =
         let finished = ref false in
-        let timeout_ns = Int64.of_float (timeout *. Mtime.s_to_ns) in
-        let now = Mtime_clock.now () in
-        let target =
-          match Mtime.(add_span now (Span.of_uint64_ns timeout_ns)) with
-          | None ->
-              raise (Ioemu_failed (name, "Timeout overflow"))
-          | Some x ->
-              x
-        in
+        let timeout = Mtime.Span.(Float.to_int (timeout *. 1e9) * ns) in
+        let elapsed = Mtime_clock.counter () in
         let path = qmp_event_path domid in
         let socket = Unix.(socket PF_UNIX SOCK_STREAM 0) in
         finally (* make sure we don't leak socket *)
           (fun () ->
             while
-              Mtime.is_earlier (Mtime_clock.now ()) ~than:target
+              Mtime.Span.compare (Mtime_clock.count elapsed) timeout < 0
               && not !finished
             do
               Xenops_task.check_cancelling task ;

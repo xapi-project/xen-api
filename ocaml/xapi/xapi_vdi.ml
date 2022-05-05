@@ -890,9 +890,11 @@ let wait_for_vbds_to_be_unplugged_and_destroyed ~__context ~self ~timeout =
         )
         most_recent_snapshot
     in
+    let timeout_seconds = Mtime.Span.to_s timeout in
     let from =
       Helpers.call_api_functions ~__context (fun rpc session_id ->
-          Client.Event.from ~rpc ~session_id ~classes ~token ~timeout
+          Client.Event.from ~rpc ~session_id ~classes ~token
+            ~timeout:timeout_seconds
           |> Event_types.event_from_of_rpc
       )
     in
@@ -906,16 +908,8 @@ let wait_for_vbds_to_be_unplugged_and_destroyed ~__context ~self ~timeout =
   in
   (* Wait for 4 seconds in total for all the VBDs of this VDI to be unplugged & destroyed *)
   let start = Mtime_clock.now () in
-  let finish =
-    let maybe_finish =
-      let timeout =
-        Mtime.(Span.of_uint64_ns (Int64.of_float (timeout *. s_to_ns)))
-      in
-      Mtime.(add_span start timeout)
-    in
-    (* It is safe to unbox this because the timeout should not cause an overflow *)
-    Option.get maybe_finish
-  in
+  (* It is safe to unbox this because the timeout should not cause an overflow *)
+  let finish = Option.get (Mtime.add_span start timeout) in
   let token, initial_vbds = next_token_and_vbds ~token:"" ~timeout in
   (* When we use an empty token, we always get back the whole VDI record *)
   let initial_vbds = Option.get initial_vbds in
@@ -927,11 +921,11 @@ let wait_for_vbds_to_be_unplugged_and_destroyed ~__context ~self ~timeout =
          VDI %s to be unplugged and destroyed"
         (List.length remaining_vbds)
         vdi_uuid ;
-      let remaining = Mtime.(span now finish |> Span.to_s) in
+      let remaining = Mtime.span now finish in
       debug
-        "wait_for_vbds_to_be_unplugged_and_destroyed: remaining: %f seconds \
-         until timeout"
-        remaining ;
+        "wait_for_vbds_to_be_unplugged_and_destroyed: remaining: %s until \
+         timeout"
+        (Format.asprintf "%a" Mtime.Span.pp remaining) ;
       let token, most_recent_vbds =
         next_token_and_vbds ~token ~timeout:remaining
       in
@@ -1048,7 +1042,7 @@ let _data_destroy ~__context ~self ~timeout =
       raise e
   )
 
-let data_destroy = _data_destroy ~timeout:4.0
+let data_destroy = _data_destroy ~timeout:Mtime.Span.(4 * s)
 
 let resize ~__context ~vdi ~size =
   Sm.assert_pbd_is_plugged ~__context ~sr:(Db.VDI.get_SR ~__context ~self:vdi) ;

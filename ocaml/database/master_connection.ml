@@ -96,19 +96,19 @@ let force_connection_reset () =
         ) ;
       Unix.kill (Stunnel.getpid st_proc.Stunnel.pid) Sys.sigterm
 
-(* whenever a call is made that involves read/write to the master connection, a timestamp is
-   written into this global: *)
-let last_master_connection_call : float option ref = ref None
+(* whenever a call is made that involves read/write to the master connection, a
+   counter is started into this global: *)
+let time_since_last_connection_call : Mtime_clock.counter option ref = ref None
 
 (* the master_connection_watchdog uses this time to determine whether the master connection
    should be reset *)
 
-(* Set and unset the timestamp global. (No locking required since we are operating under
-   mutual exclusion provided by the database lock here anyway) *)
-let with_timestamp f =
-  last_master_connection_call := Some (Unix.gettimeofday ()) ;
+(* Set and unset the global counter. No locking required since we are
+   operating under mutual exclusion provided by the database lock *)
+let with_timer f =
+  time_since_last_connection_call := Some (Mtime_clock.counter ()) ;
   Xapi_stdext_pervasives.Pervasiveext.finally f (fun () ->
-      last_master_connection_call := None
+      time_since_last_connection_call := None
   )
 
 (* call force_connection_reset if we detect that a master-connection is blocked for too long.
@@ -128,16 +128,16 @@ let start_master_connection_watchdog () =
                  (fun () ->
                    while true do
                      try
-                       ( match !last_master_connection_call with
+                       ( match !time_since_last_connection_call with
                        | None ->
                            ()
-                       | Some t ->
-                           let now = Unix.gettimeofday () in
-                           let since_last_call = now -. t in
-                           if
-                             since_last_call
-                             > !Db_globs.master_connection_reset_timeout
-                           then (
+                       | Some elapsed ->
+                           let open Mtime.Span in
+                           let since_last_call = Mtime_clock.count elapsed in
+                           let timeout =
+                             !Db_globs.master_connection_reset_timeout * s
+                           in
+                           if compare since_last_call timeout > 0 then (
                              debug
                                "Master connection timeout: forcibly resetting \
                                 master connection" ;
@@ -203,7 +203,7 @@ exception Content_length_required
 
 let do_db_xml_rpc_persistent_with_reopen ~host:_ ~path (req : string) :
     Db_interface.response =
-  let time_call_started = Unix.gettimeofday () in
+  let time_since_call_started = Mtime_clock.counter () in
   let write_ok = ref false in
   let result = ref "" in
   let surpress_no_timeout_logs = ref false in
@@ -234,7 +234,7 @@ let do_db_xml_rpc_persistent_with_reopen ~host:_ ~path (req : string) :
           raise Goto_handler
       | Some stunnel_proc ->
           let fd = stunnel_proc.Stunnel.fd in
-          with_timestamp (fun () ->
+          with_timer (fun () ->
               with_http request
                 (fun (response, _) ->
                   (* XML responses must have a content-length because we cannot use the Xml.parse_in
@@ -282,8 +282,7 @@ let do_db_xml_rpc_persistent_with_reopen ~host:_ ~path (req : string) :
             try Stunnel.disconnect st_proc with _ -> ()
           )
         ) ;
-        let time_sofar = Unix.gettimeofday () -. time_call_started in
-        if !connection_timeout < 0. then (
+        if !connection_timeout < 0 then (
           if not !surpress_no_timeout_logs then (
             debug
               "Connection to master died. I will continue to retry \
@@ -294,31 +293,30 @@ let do_db_xml_rpc_persistent_with_reopen ~host:_ ~path (req : string) :
           ) ;
           surpress_no_timeout_logs := true
         ) else
+          let time_sofar = Mtime_clock.count time_since_call_started in
+          let timeout_period = Mtime.Span.(!connection_timeout * s) in
           debug
-            "Connection to master died: time taken so far in this call '%f'; \
-             will %s"
-            time_sofar
-            ( if !connection_timeout < 0. then
-                "never timeout"
-            else
-              Printf.sprintf "timeout after '%f'" !connection_timeout
+            "Connection to master died: time taken so far in this call '%s'; \
+             will timeout after %s"
+            (Format.asprintf "%a" Mtime.Span.pp time_sofar)
+            (Format.asprintf "%a" Mtime.Span.pp timeout_period) ;
+          if Mtime.Span.compare time_sofar timeout_period > 0 then
+            if !restart_on_connection_timeout then (
+              debug
+                "Exceeded timeout for retrying master connection: restarting \
+                 xapi" ;
+              !Db_globs.restart_fn ()
+            ) else (
+              debug
+                "Exceeded timeout for retrying master connection: raising \
+                 Cannot_connect_to_master" ;
+              raise Cannot_connect_to_master
             ) ;
-        if time_sofar > !connection_timeout && !connection_timeout >= 0. then
-          if !restart_on_connection_timeout then (
-            debug
-              "Exceeded timeout for retrying master connection: restarting xapi" ;
-            !Db_globs.restart_fn ()
-          ) else (
-            debug
-              "Exceeded timeout for retrying master connection: raising \
-               Cannot_connect_to_master" ;
-            raise Cannot_connect_to_master
-          ) ;
-        debug "Sleeping %f seconds before retrying master connection..."
-          !backoff_delay ;
-        Thread.delay !backoff_delay ;
-        update_backoff_delay () ;
-        try open_secure_connection () with _ -> ()
+          debug "Sleeping %f seconds before retrying master connection..."
+            !backoff_delay ;
+          Thread.delay !backoff_delay ;
+          update_backoff_delay () ;
+          try open_secure_connection () with _ -> ()
         (* oh well, maybe nextime... *)
       )
   done ;

@@ -820,7 +820,7 @@ let is_slave ~__context ~host:_ = not (Pool_role.is_master ())
 let ask_host_if_it_is_a_slave ~__context ~host =
   let ask_and_warn_when_slow ~__context =
     let local_fn = is_slave ~host in
-    let timeout = 10. in
+    let timeout = Mtime.Span.(10 * s) in
     let task_name = Context.get_task_id __context |> Ref.string_of in
     let ip, uuid =
       ( Db.Host.get_address ~__context ~self:host
@@ -828,13 +828,15 @@ let ask_host_if_it_is_a_slave ~__context ~host =
       )
     in
     let rec log_host_slow_to_respond timeout () =
+      let minimum a b = if Mtime.Span.compare a b > 0 then b else a in
+      let next_timeout = Mtime.Span.(minimum (2 * timeout) (300 * s)) in
       D.warn
         "ask_host_if_it_is_a_slave: host taking a long time to respond - IP: \
          %s; uuid: %s"
         ip uuid ;
       Xapi_periodic_scheduler.add_to_queue task_name
         Xapi_periodic_scheduler.OneShot timeout
-        (log_host_slow_to_respond (min (2. *. timeout) 300.))
+        (log_host_slow_to_respond next_timeout)
     in
     Xapi_periodic_scheduler.add_to_queue task_name
       Xapi_periodic_scheduler.OneShot timeout
@@ -1392,9 +1394,10 @@ let sync_data ~__context ~host = Xapi_sync.sync_host ~__context host
 
 (* Nb, no attempt to wrap exceptions yet *)
 
-let backup_rrds ~__context ~host:_ ~delay =
+let backup_rrds ~__context ~host:_ ~(delay : float) =
+  let start = Mtime.Span.(Float.to_int (delay *. 1e9) * ns) in
   Xapi_periodic_scheduler.add_to_queue "RRD backup"
-    Xapi_periodic_scheduler.OneShot delay (fun _ ->
+    Xapi_periodic_scheduler.OneShot start (fun _ ->
       let master_address = Pool_role.get_master_address_opt () in
       log_and_ignore_exn (Rrdd.backup_rrds master_address) ;
       log_and_ignore_exn (fun () ->

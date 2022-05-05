@@ -78,13 +78,10 @@ type t = {
 
 type time = Delta of int
 
-(*type t = int64 * int [@@deriving rpc]*)
+let mtime_sub time now =
+  Mtime.Span.(abs_diff time now |> to_s |> ceil |> Int64.of_float)
 
-let time_of_span span = span |> Mtime.Span.to_s |> ceil |> Int64.of_float
-
-let mtime_sub time now = Mtime.Span.abs_diff time now |> time_of_span
-
-let now () = Mtime_clock.elapsed ()
+let elapsed = Mtime_clock.counter ()
 
 module Dump = struct
   type u = {time: int64; thing: string} [@@deriving rpc]
@@ -92,7 +89,7 @@ module Dump = struct
   type dump = u list [@@deriving rpc]
 
   let make s =
-    let now = now () in
+    let now = Mtime_clock.count elapsed in
     Threadext.Mutex.execute s.m (fun () ->
         HandleMap.fold
           (fun (time, _) i acc ->
@@ -102,12 +99,8 @@ module Dump = struct
     )
 end
 
-let mtime_add x t =
-  let dt = Mtime.(x *. Mtime.s_to_ns |> Int64.of_float |> Span.of_uint64_ns) in
-  Mtime.Span.add dt t
-
 let one_shot_f s dt (name : string) f =
-  let time = mtime_add dt (now ()) in
+  let time = Mtime.Span.add dt (Mtime_clock.count elapsed) in
   Threadext.Mutex.execute s.m (fun () ->
       let id = s.next_id in
       s.next_id <- s.next_id + 1 ;
@@ -118,7 +111,9 @@ let one_shot_f s dt (name : string) f =
       handle
   )
 
-let one_shot s (Delta x) name f = one_shot_f s (float x) name f
+let one_shot s (Delta x) name f =
+  let dt = Mtime.Span.(x * s) in
+  one_shot_f s dt name f
 
 let cancel s handle =
   Threadext.Mutex.execute s.m (fun () ->
@@ -126,7 +121,7 @@ let cancel s handle =
   )
 
 let process_expired s =
-  let t = now () in
+  let t = Mtime_clock.count elapsed in
   let expired =
     Threadext.Mutex.execute s.m (fun () ->
         let expired, eq, unexpired = HandleMap.split (t, max_int) s.schedule in
@@ -154,15 +149,17 @@ let rec main_loop s =
   let sleep_until =
     Threadext.Mutex.execute s.m (fun () ->
         try HandleMap.min_binding s.schedule |> fst |> fst
-        with Not_found -> mtime_add 3600. (now ())
+        with Not_found ->
+          let now = Mtime_clock.count elapsed in
+          Mtime.Span.(add (1 * hour) now)
     )
   in
-  let this = now () in
+  let now = Mtime_clock.count elapsed in
   let seconds =
-    if Mtime.Span.compare sleep_until this > 0 then
+    if Mtime.Span.compare sleep_until now > 0 then
       (* be careful that this is absolute difference,
          it is never negative! *)
-      Mtime.Span.(abs_diff sleep_until this |> to_s)
+      Mtime.Span.(abs_diff sleep_until now |> to_s)
     else
       0.
   in
@@ -193,9 +190,10 @@ module Delay = struct
   let make () = {c= Condition.create (); m= Mutex.create (); state= None}
 
   let wait t seconds =
+    let wait = Mtime.Span.(Float.to_int (seconds *. 1e9) * ns) in
     Threadext.Mutex.execute t.m (fun () ->
         let handle =
-          one_shot_f s seconds "Delay.wait" (fun () ->
+          one_shot_f s wait "Delay.wait" (fun () ->
               if t.state = None then
                 t.state <- Some Timedout ;
               Condition.broadcast t.c

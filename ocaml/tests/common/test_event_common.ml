@@ -4,11 +4,13 @@ let scheduler_mutex = Mutex.create ()
 
 let start_periodic_scheduler () =
   Mutex.lock scheduler_mutex ;
-  if !ps_start then
-    ()
-  else (
+  ( if !ps_start then
+      ()
+  else
+    let period = Mtime.Span.(1 * min) in
+    let start = Mtime.Span.zero in
     Xapi_periodic_scheduler.add_to_queue "dummy"
-      (Xapi_periodic_scheduler.Periodic 60.0) 0.0 (fun () -> ()
+      (Xapi_periodic_scheduler.Periodic period) start (fun () -> ()
     ) ;
     Xapi_event.register_hooks () ;
     ignore (Thread.create Xapi_periodic_scheduler.loop ()) ;

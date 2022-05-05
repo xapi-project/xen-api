@@ -3214,13 +3214,15 @@ let events_from_xapi () =
                   resident_VMs
               in
               (* NB we re-use the old token so we don't get events we've already
-                 							   received BUT we will not necessarily receive events for the new VMs *)
+                 received BUT we will not necessarily receive events for the new
+                 VMs *)
               while true do
-                let api_timeout = 60. in
+                let ( ++ ) = Mtime.Span.add in
+                let api_timeout = Mtime.Span.(60 * s) in
                 let timeout =
-                  30.
-                  +. api_timeout
-                  +. !Db_globs.master_connection_reset_timeout
+                  Mtime.Span.(30 * s)
+                  ++ api_timeout
+                  ++ Mtime.Span.(!Db_globs.master_connection_reset_timeout * s)
                 in
                 let timebox_rpc =
                   Helpers.make_timeboxed_rpc ~__context timeout
@@ -3228,7 +3230,8 @@ let events_from_xapi () =
                 let from =
                   try
                     XenAPI.Event.from ~rpc:timebox_rpc ~session_id ~classes
-                      ~token:!token ~timeout:api_timeout
+                      ~token:!token
+                      ~timeout:Mtime.Span.(to_s api_timeout)
                     |> event_from_of_rpc
                   with e ->
                     Debug.log_backtrace e (Backtrace.get e) ;

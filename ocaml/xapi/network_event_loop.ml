@@ -24,10 +24,7 @@ let _watch_networks_for_nbd_changes __context ~update_firewall
      to allow NBD traffic on them. At startup, we don't know on which
      interfaces NBD is allowed, and we always update the firewall. *)
   let allowed_interfaces = None in
-  let api_timeout = 60. in
-  let timeout =
-    30. +. api_timeout +. !Db_globs.master_connection_reset_timeout
-  in
+  let timeout = Float.of_int (90 + !Db_globs.master_connection_reset_timeout) in
   let wait_for_network_change ~token =
     let from =
       Helpers.call_api_functions ~__context (fun rpc session_id ->

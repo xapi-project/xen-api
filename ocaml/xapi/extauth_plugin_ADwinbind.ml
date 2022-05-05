@@ -79,7 +79,7 @@ type domain_info = {
         (* For upgrade case, the legacy db does not contain workgroup *)
   ; netbios_name: string option
         (* Persist netbios_name to support hostname change *)
-  ; machine_pwd_last_change_time: float option
+  ; machine_pwd_last_change_time: Ptime.t option
 }
 
 let hd msg = function
@@ -114,8 +114,9 @@ let get_domain_info_from_db () =
     |> fun config ->
     ( List.assoc_opt "workgroup" config
     , List.assoc_opt "netbios_name" config
-    , List.assoc_opt "machine_pwd_last_change_time" config
-      |> Option.map (fun s -> float_of_string s)
+    , Option.bind (List.assoc_opt "machine_pwd_last_change_time" config)
+        (fun s -> float_of_string s |> Ptime.of_float_s
+      )
     )
   in
   {service_name; workgroup; netbios_name; machine_pwd_last_change_time}
@@ -846,7 +847,7 @@ let persist_extauth_config ~domain ~user ~ou_conf ~workgroup ~netbios_name
         ; ("user", u)
         ; ("workgroup", wkg)
         ; ("netbios_name", netbios)
-        ; ("machine_pwd_last_change_time", pwd_time)
+        ; ("machine_pwd_last_change_time", Float.to_string pwd_time)
         ]
         @ ou_conf
     | _ ->
@@ -1007,7 +1008,7 @@ end
 module ClosestKdc = struct
   let periodic_update_task_name = "Update closest kdc"
 
-  let startup_delay = 5.
+  let startup_delay = Mtime.Span.(5 * s)
 
   let mtime_this ~name ~f =
     let start = Mtime_clock.counter () in
@@ -1077,11 +1078,11 @@ module ClosestKdc = struct
   let trigger_update ~start =
     if Pool_role.is_master () then (
       debug "Trigger task: %s" periodic_update_task_name ;
+      let period =
+        Mtime.Span.(!Xapi_globs.winbind_update_closest_kdc_interval * s)
+      in
       Xapi_periodic_scheduler.add_to_queue periodic_update_task_name
-        (Xapi_periodic_scheduler.Periodic
-           !Xapi_globs.winbind_update_closest_kdc_interval
-        )
-        start update
+        (Xapi_periodic_scheduler.Periodic period) start update
     )
 
   let stop_update () =
@@ -1152,14 +1153,20 @@ module RotateMachinePassword = struct
         debug "Failed to remove tmp keytab file  %s" (ExnHelper.string_of_exn e)
 
   let rotate () =
-    let now = Unix.time () in
-    let now_str = string_of_float now in
+    let now = Ptime_clock.now () in
+    let now_str = Float.to_string (Ptime.to_float_s now) in
+    let machine_pwd_timeout_elapsed time =
+      let open Ptime in
+      Span.compare (diff now time)
+        (Span.of_int_s !Xapi_globs.winbind_machine_pwd_timeout)
+      > 0
+    in
     try
       let {service_name; machine_pwd_last_change_time; _} =
         get_domain_info_from_db ()
       in
       match machine_pwd_last_change_time with
-      | Some time when now < time +. !Xapi_globs.winbind_machine_pwd_timeout ->
+      | Some time when not (machine_pwd_timeout_elapsed time) ->
           ()
       | _ -> (
         match ClosestKdc.from_db service_name with
@@ -1200,9 +1207,9 @@ module RotateMachinePassword = struct
 
   let trigger_rotate ~start =
     debug "Trigger task: %s" task_name ;
+    let period = Mtime.Span.(!Xapi_globs.winbind_machine_pwd_timeout * s) in
     Xapi_periodic_scheduler.add_to_queue task_name
-      (Xapi_periodic_scheduler.Periodic !Xapi_globs.winbind_machine_pwd_timeout)
-      start rotate
+      (Xapi_periodic_scheduler.Periodic period) start rotate
 
   let stop_rotate () = Xapi_periodic_scheduler.remove_from_queue task_name
 end
@@ -1516,13 +1523,16 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
       (* Need to restart to refresh cache *)
       Winbind.restart ~timeout:5. ~wait_until_success:true ;
       Winbind.check_ready_to_serve ~timeout:300. ;
-      let machine_pwd_last_change_time = Unix.time () |> string_of_float in
+      let machine_pwd_last_change_time =
+        Ptime.to_float_s (Ptime_clock.now ())
+      in
       persist_extauth_config ~domain:(Some service_name) ~user:(Some user)
         ~ou_conf ~workgroup:(Some workgroup)
         ~machine_pwd_last_change_time:(Some machine_pwd_last_change_time)
         ~netbios_name:(Some netbios_name) ;
-      ClosestKdc.trigger_update ~start:0. ;
-      RotateMachinePassword.trigger_rotate ~start:0. ;
+      let start = Mtime.Span.zero in
+      ClosestKdc.trigger_update ~start ;
+      RotateMachinePassword.trigger_rotate ~start ;
       (* Trigger right now *)
       debug "Succeed to join domain %s" service_name
     with
@@ -1579,7 +1589,7 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
   let on_xapi_initialize _system_boot =
     Winbind.start ~timeout:5. ~wait_until_success:true ;
     ClosestKdc.trigger_update ~start:ClosestKdc.startup_delay ;
-    RotateMachinePassword.trigger_rotate ~start:5. ;
+    RotateMachinePassword.trigger_rotate ~start:Mtime.Span.(5 * s) ;
     Winbind.check_ready_to_serve ~timeout:300.
 
   (* unit on_xapi_exit()

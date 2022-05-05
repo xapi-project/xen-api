@@ -568,7 +568,7 @@ let test_data_destroy =
       let destroy_vbd () = Db.VBD.destroy ~__context ~self:vbd in
       let data_destroy ~timeout =
         (* It could return earlier normally, but this is the longest we'd wait in case of extreme situation *)
-        let timebox_timeout = timeout +. (1.0 *. 10.) in
+        let timebox_timeout = Mtime.Span.(add timeout (10 * s)) in
         let wait_hdl = Threadext.Delay.make () in
         let raisedexn = ref None in
         ignore
@@ -579,9 +579,9 @@ let test_data_destroy =
                Threadext.Delay.signal wait_hdl
            )
           ) ;
-        if Threadext.Delay.wait wait_hdl timebox_timeout then
+        if Threadext.Delay.wait wait_hdl (Mtime.Span.to_s timebox_timeout) then
           Alcotest.fail
-            (Printf.sprintf "data_destroy did not return in %f seconds"
+            (Format.asprintf "data_destroy did not return in %a" Mtime.Span.pp
                timebox_timeout
             ) ;
         match !raisedexn with None -> () | Some e -> raise e
@@ -602,7 +602,8 @@ let test_data_destroy =
             destroy_vbd ()
         )
       in
-      data_destroy ~timeout:1.0 ; Thread.join t
+      data_destroy ~timeout:Mtime.Span.(1 * s) ;
+      Thread.join t
     in
     let test_data_destroy_succeeds_when_vbd_is_being_unplugged () =
       let _vdi, start_vbd_unplug, finish_vbd_unplug, destroy_vbd, data_destroy =
@@ -617,7 +618,9 @@ let test_data_destroy =
             destroy_vbd ()
         )
       in
-      Thread.delay 0.1 ; data_destroy ~timeout:1.0 ; Thread.join t
+      Thread.delay 0.1 ;
+      data_destroy ~timeout:Mtime.Span.(1 * s) ;
+      Thread.join t
     in
     let test_data_destroy_succeeds_when_vbd_is_being_destroyed () =
       let _vdi, start_vbd_unplug, finish_vbd_unplug, destroy_vbd, data_destroy =
@@ -631,7 +634,9 @@ let test_data_destroy =
             destroy_vbd ()
         )
       in
-      Thread.delay 0.1 ; data_destroy ~timeout:1.0 ; Thread.join t
+      Thread.delay 0.1 ;
+      data_destroy ~timeout:Mtime.Span.(1 * s) ;
+      Thread.join t
     in
     let test_data_destroy_times_out_when_vbd_does_not_get_unplugged_in_time () =
       let vDI, start_vbd_unplug, _, _, data_destroy = setup_test () in
@@ -645,7 +650,7 @@ let test_data_destroy =
         Api_errors.(
           Server_error (vdi_in_use, [Ref.string_of vDI; "data_destroy"])
         )
-        (fun () -> data_destroy ~timeout:1.0) ;
+        (fun () -> data_destroy ~timeout:Mtime.Span.(1 * s)) ;
       Thread.join t
     in
     let test_data_destroy_times_out_when_vbd_does_not_get_destroyed_in_time () =
@@ -664,7 +669,7 @@ let test_data_destroy =
         Api_errors.(
           Server_error (vdi_in_use, [Ref.string_of vDI; "data_destroy"])
         )
-        (fun () -> data_destroy ~timeout:1.0) ;
+        (fun () -> data_destroy ~timeout:Mtime.Span.(1 * s)) ;
       Thread.join t
     in
     [

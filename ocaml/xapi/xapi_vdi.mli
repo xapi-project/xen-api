@@ -157,7 +157,7 @@ val destroy : __context:Context.t -> self:[`VDI] API.Ref.t -> unit
 val data_destroy : __context:Context.t -> self:[`VDI] API.Ref.t -> unit
 
 val _data_destroy :
-  __context:Context.t -> self:[`VDI] API.Ref.t -> timeout:float -> unit
+  __context:Context.t -> self:[`VDI] API.Ref.t -> timeout:Mtime.Span.t -> unit
 (** This version of {!data_destroy} is for unit testing purposes: the timeout
     for waiting for the VDI's VBDs to disappear is configurable to enable faster
     unit tests. *)

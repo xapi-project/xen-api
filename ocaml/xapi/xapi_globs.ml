@@ -656,7 +656,7 @@ let pif_reconfigure_ip_timeout = ref 300.
 let pool_db_sync_interval = ref 300.
 
 (* blob/message/rrd file syncing - sync once a day *)
-let pool_data_sync_interval = ref 86400.
+let pool_data_sync_interval = ref 86400
 
 let domain_shutdown_total_timeout = ref 1200.
 
@@ -681,13 +681,13 @@ let ha_xapi_restart_timeout = ref 300
    logrotate when it exceeds the threshold *)
 let logrotate_check_interval = ref 300.
 
-let rrd_backup_interval = ref 86400.
+let rrd_backup_interval = ref 86400
 
 (* CP-703: Periodic revalidation of externally-authenticated sessions *)
-let session_revalidation_interval = ref 300. (* every 5 minutes *)
+let session_revalidation_interval = ref 300 (* every 5 minutes *)
 
 (* CP-820: other-config field in subjects should be periodically refreshed *)
-let update_all_subjects_interval = ref 900. (* every 15 minutes *)
+let update_all_subjects_interval = ref 900 (* every 15 minutes *)
 
 (* The default upper bound on the length of time to wait for a running VM to
    reach its current memory target. *)
@@ -936,9 +936,10 @@ let winbind_debug_level = ref 2
 
 let winbind_cache_time = ref 60
 
-let winbind_machine_pwd_timeout = ref (2. *. 7. *. 24. *. 3600.)
+let winbind_machine_pwd_timeout = ref (2 * 7 * 24 * 3600)
+(* every 2 weeks *)
 
-let winbind_update_closest_kdc_interval = ref (3600. *. 22.)
+let winbind_update_closest_kdc_interval = ref (3600 * 22)
 (* every 22 hours *)
 
 let winbind_kerberos_encryption_type = ref Kerberos_encryption_types.Winbind.All
@@ -956,19 +957,19 @@ let samba_dir = "/var/lib/samba"
 let xapi_globs_spec =
   [
     ( "master_connection_reset_timeout"
-    , Float Db_globs.master_connection_reset_timeout
+    , Int Db_globs.master_connection_reset_timeout
     )
   ; ( "master_connection_retry_timeout"
-    , Float Db_globs.master_connection_retry_timeout
+    , Int Db_globs.master_connection_retry_timeout
     )
   ; ( "master_connection_default_timeout"
-    , Float Db_globs.master_connection_default_timeout
+    , Int Db_globs.master_connection_default_timeout
     )
   ; ("qemu_dm_ready_timeout", Float qemu_dm_ready_timeout)
   ; ("hotplug_timeout", Float hotplug_timeout)
   ; ("pif_reconfigure_ip_timeout", Float pif_reconfigure_ip_timeout)
   ; ("pool_db_sync_interval", Float pool_db_sync_interval)
-  ; ("pool_data_sync_interval", Float pool_data_sync_interval)
+  ; ("pool_data_sync_interval", Int pool_data_sync_interval)
   ; ("domain_shutdown_total_timeout", Float domain_shutdown_total_timeout)
   ; ("emergency_reboot_delay_base", Float emergency_reboot_delay_base)
   ; ("emergency_reboot_delay_extra", Float emergency_reboot_delay_extra)
@@ -977,9 +978,9 @@ let xapi_globs_spec =
   ; ("ha_xapi_restart_attempts", Int ha_xapi_restart_attempts)
   ; ("ha_xapi_restart_timeout", Int ha_xapi_restart_timeout)
   ; ("logrotate_check_interval", Float logrotate_check_interval)
-  ; ("rrd_backup_interval", Float rrd_backup_interval)
-  ; ("session_revalidation_interval", Float session_revalidation_interval)
-  ; ("update_all_subjects_interval", Float update_all_subjects_interval)
+  ; ("rrd_backup_interval", Int rrd_backup_interval)
+  ; ("session_revalidation_interval", Int session_revalidation_interval)
+  ; ("update_all_subjects_interval", Int update_all_subjects_interval)
   ; ("wait_memory_target_timeout", Float wait_memory_target_timeout)
   ; ("snapshot_with_quiesce_timeout", Float snapshot_with_quiesce_timeout)
   ; ("host_heartbeat_interval", Float host_heartbeat_interval)
@@ -1022,9 +1023,9 @@ let xapi_globs_spec =
   ; ("max_active_sr_scans", Int max_active_sr_scans)
   ; ("winbind_debug_level", Int winbind_debug_level)
   ; ("winbind_cache_time", Int winbind_cache_time)
-  ; ("winbind_machine_pwd_timeout", Float winbind_machine_pwd_timeout)
+  ; ("winbind_machine_pwd_timeout", Int winbind_machine_pwd_timeout)
   ; ( "winbind_update_closest_kdc_interval"
-    , Float winbind_update_closest_kdc_interval
+    , Int winbind_update_closest_kdc_interval
     )
   ]
 
