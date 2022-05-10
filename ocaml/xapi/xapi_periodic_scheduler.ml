@@ -29,7 +29,7 @@ let lock = Mutex.create ()
 
 module Clock = struct
   (** time span of s seconds *)
-  let span s = Mtime.(Span.of_uint64_ns (Int64.of_float (s *. s_to_ns)))
+  let span s = Mtime.Span.of_uint64_ns (Int64.of_float (s *. 1e9))
 
   let add_span clock secs =
     match Mtime.add_span clock (span secs) with
