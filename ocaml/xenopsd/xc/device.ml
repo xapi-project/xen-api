@@ -3707,7 +3707,7 @@ module Backend = struct
          is ready. *)
       let wait_event_socket ~task ~name ~domid ~timeout =
         let finished = ref false in
-        let timeout_ns = Int64.of_float (timeout *. Mtime.s_to_ns) in
+        let timeout_ns = Int64.of_float (timeout *. 1e9) in
         let now = Mtime_clock.now () in
         let target =
           match Mtime.(add_span now (Span.of_uint64_ns timeout_ns)) with

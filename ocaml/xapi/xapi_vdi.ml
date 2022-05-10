@@ -908,9 +908,7 @@ let wait_for_vbds_to_be_unplugged_and_destroyed ~__context ~self ~timeout =
   let start = Mtime_clock.now () in
   let finish =
     let maybe_finish =
-      let timeout =
-        Mtime.(Span.of_uint64_ns (Int64.of_float (timeout *. s_to_ns)))
-      in
+      let timeout = Mtime.Span.of_uint64_ns (Int64.of_float (timeout *. 1e9)) in
       Mtime.(add_span start timeout)
     in
     (* It is safe to unbox this because the timeout should not cause an overflow *)
