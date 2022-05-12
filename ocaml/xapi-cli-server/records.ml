@@ -148,6 +148,17 @@ let get_uuid_from_ref r =
         x.Ref_index.uuid
   with _ -> nid
 
+let concat_with_semi = String.concat "; "
+
+(* Some lists are separated with commas and cannot be changed to preserve
+   backwards compatibility. Do not use this function on new fields. *)
+let concat_with_comma = String.concat ", "
+
+let map_and_concat f rs = concat_with_semi (List.map f rs)
+
+let get_uuids_from_refs rs = map_and_concat get_uuid_from_ref rs
+
+
 let get_name_from_ref r =
   try
     match Ref_index.lookup (Ref.string_of r) with
