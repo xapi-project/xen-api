@@ -129,9 +129,7 @@ let upgrade_features ~__context ~vm ~host host_features vm_features =
       raise
         (Api_errors.Server_error
            ( Api_errors.vm_incompatible_with_this_host
-           , [Ref.string_of vm; Ref.string_of host; msg]
-           )
-        )
+           , [Ref.string_of vm; Ref.string_of host; msg] ))
   ) ;
   let upgraded_features =
     zero_extend vm_features (Array.length host_features)

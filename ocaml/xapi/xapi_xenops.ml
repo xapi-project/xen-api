@@ -2286,8 +2286,7 @@ let update_vm ~__context id =
                   Db.VM.set_last_boot_CPU_flags ~__context ~self ~value
                 with e ->
                   error "Caught %s: while updating VM %s last_boot_CPU_flags"
-                    (Printexc.to_string e) id
-                )
+                    (Printexc.to_string e) id)
               info ;
           Xenops_cache.update_vm id (Option.map snd info) ;
           if !should_update_allowed_operations then
