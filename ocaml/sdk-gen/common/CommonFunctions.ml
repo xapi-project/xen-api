@@ -33,12 +33,22 @@ open Datamodel_types
 
 type wireProtocol = XmlRpc | JsonRpc
 
+type rpm_version = {major: int; minor: int; micro: int}
+
 let finally f ~(always : unit -> unit) =
   match f () with
   | result ->
       always () ; result
   | exception e ->
       always () ; raise e
+
+let parse_to_rpm_version_option inputStr =
+  match String.split_on_char '.' inputStr with
+  | [x; y; z] ->
+      Some
+        {major= int_of_string x; minor= int_of_string y; micro= int_of_string z}
+  | _ ->
+      None
 
 let string_of_file filename =
   let in_channel = open_in filename in
@@ -65,27 +75,7 @@ let escape_xml s =
   |> Astring.String.cuts ~sep:">" ~empty:true
   |> String.concat "&gt;"
 
-let rec list_distinct list =
-  match list with
-  | [] ->
-      []
-  | [x] ->
-      [x]
-  | hd1 :: (hd2 :: _ as tl) ->
-      if hd1 = hd2 then
-        list_distinct tl
-      else
-        hd1 :: list_distinct tl
-
-let rec list_last = function
-  | [x] ->
-      x
-  | _ :: tl ->
-      list_last tl
-  | [] ->
-      failwith "Cannot return the last element of an empty list."
-
-and list_index_of x list =
+let list_index_of x list =
   let rec index_rec i = function
     | [] ->
         raise Not_found
@@ -94,15 +84,7 @@ and list_index_of x list =
   in
   try index_rec 0 list with Not_found -> -1
 
-let rec gen_param_groups_for_releases releaseOrder params =
-  match releaseOrder with
-  | [] ->
-      [("", [])]
-  | hd :: tl ->
-      (hd, List.filter (fun x -> List.mem hd x.param_release.internal) params)
-      :: gen_param_groups_for_releases tl params
-
-and is_method_static message =
+let is_method_static message =
   match message.msg_params with
   | [] ->
       true
@@ -111,137 +93,188 @@ and is_method_static message =
   | {param_type= ty; _} :: _ ->
       not (ty = Ref message.msg_obj_name)
 
-and get_method_params_list message =
-  if is_method_static message then
-    message.msg_params
-  else
-    List.tl message.msg_params
+and is_setter message =
+  String.length message.msg_name >= 3 && String.sub message.msg_name 0 3 = "set"
 
-and code_name_of_release_ext x =
-  try code_name_of_release x with UnspecifiedRelease -> ""
+and is_getter message =
+  String.length message.msg_name >= 3 && String.sub message.msg_name 0 3 = "get"
 
-and code_name_order = release_order |> List.map code_name_of_release
+and is_adder message =
+  String.length message.msg_name >= 3 && String.sub message.msg_name 0 3 = "add"
 
-and gen_param_groups message params =
-  let expRelease = get_prototyped_release message.msg_lifecycle in
-  let msgRelease = get_first_release message.msg_release.internal in
-  let msgReleaseIndex = list_index_of msgRelease code_name_order in
-  let paramGroups = gen_param_groups_for_releases code_name_order params in
-  let rec getValid x =
-    match x with
-    | [] ->
-        []
-    | hd :: tl ->
-        let index = list_index_of (fst hd) code_name_order in
-        let valid =
-          if
-            (not (index = -1))
-            && (not (msgReleaseIndex = -1))
-            && index < msgReleaseIndex
-          then
-            []
-          else
-            snd hd
-        in
-        valid :: getValid tl
-  in
-  let filteredGroups =
+and is_remover message =
+  String.length message.msg_name >= 6
+  && String.sub message.msg_name 0 6 = "remove"
+
+and is_constructor message =
+  message.msg_tag = FromObject Make || message.msg_name = "create"
+
+and is_real_constructor message = message.msg_tag = FromObject Make
+
+and is_destructor message =
+  message.msg_tag = FromObject Delete || message.msg_name = "destroy"
+
+let code_name_order = release_order |> List.map code_name_of_release
+
+let compare_versions x y =
+  let option1 = parse_to_rpm_version_option x in
+  let option2 = parse_to_rpm_version_option y in
+  match (option1, option2) with
+  | None, None ->
+      let index1 = list_index_of x code_name_order in
+      let index2 = list_index_of y code_name_order in
+      index1 - index2
+  | None, _ ->
+      -1
+  | _, None ->
+      1
+  | Some v1, Some v2 ->
+      if v1.major == v2.major && v1.minor == v2.minor && v1.micro == v2.micro
+      then
+        0
+      else if v1.major == v2.major && v1.minor == v2.minor then
+        v1.micro - v2.micro
+      else if v1.major == v2.major then
+        v1.minor - v2.minor
+      else
+        v1.major - v2.major
+
+let rec lifecycle_matcher milestone lifecycle =
+  match lifecycle with
+  | [] ->
+      ""
+  | (x, y, _) :: tl ->
+      if x == milestone then
+        y
+      else
+        lifecycle_matcher milestone tl
+
+let get_published_release_for_param releases =
+  let filtered =
     List.filter
-      (fun x -> match x with [] -> false | _ -> true)
-      (getValid paramGroups)
+      (fun x -> x <> "closed" && x <> "3.0.3" && x <> "debug")
+      releases
   in
-  if not (expRelease = "") then
-    [params]
-  else
-    list_distinct filteredGroups
+  match filtered with [] -> "" | hd :: _ -> hd
 
-and get_release_name codename =
+let get_prototyped_release lifecycle = lifecycle_matcher Prototyped lifecycle
+
+let get_published_release lifecycle = lifecycle_matcher Published lifecycle
+
+let get_release_branding codename =
   try
     let found =
       List.find (fun x -> code_name_of_release x = codename) release_order
     in
     found.branding
-  with Not_found -> ""
+  with Not_found -> codename
 
-and get_first_release releases =
-  let filtered = List.filter (fun x -> List.mem x releases) code_name_order in
-  match filtered with [] -> "" | hd :: _ -> hd
+let group_params_per_release params =
+  let same_release p1 p2 =
+    compare_versions
+      (get_published_release_for_param p1.param_release.internal)
+      (get_published_release_for_param p2.param_release.internal)
+    = 0
+  in
+  let rec groupByRelease acc = function
+    | [] ->
+        acc
+    | hd :: tl ->
+        let l1, l2 = List.partition (same_release hd) tl in
+        groupByRelease ((hd :: l1) :: acc) l2
+  in
+  List.rev (groupByRelease [] params)
 
-and get_first_release_string release =
-  if release = "" then
-    ""
+let collate l =
+  let rec collator x acc = function
+    | [] ->
+        acc
+    | hd :: tl ->
+        collator (hd :: x) ((hd :: x) :: acc) tl
+  in
+  collator [] [] l
+
+let gen_param_groups message params =
+  let expRelease = get_prototyped_release message.msg_lifecycle in
+  let paramGroups = group_params_per_release params in
+  let overloadGroups =
+    List.rev (List.map List.concat (List.map List.rev (collate paramGroups)))
+  in
+  let filter_self_param message params =
+    match params with
+    | [] ->
+        []
+    | {param_name= "self"; _} :: tl ->
+        tl
+    | {param_type= ty; _} :: tl when ty = Ref message.msg_obj_name ->
+        tl
+    | _ ->
+        params
+  in
+  let valid x =
+    match x with
+    | [] when is_setter message ->
+        false
+    | [] when is_adder message ->
+        false
+    | [] when is_remover message ->
+        false
+    | _ ->
+        true
+  in
+  List.filter valid
+    (List.map
+       (filter_self_param message)
+       (if expRelease = "" then overloadGroups else [params])
+    )
+
+(*** XML documentation ***)
+
+and get_published_info_message message cls =
+  let classRelease = get_published_release cls.obj_lifecycle in
+  let msgRelease = get_published_release message.msg_lifecycle in
+  let expRel = get_prototyped_release message.msg_lifecycle in
+  if msgRelease == "" && expRel <> "" then
+    sprintf "Experimental. First published in %s." (get_release_branding expRel)
   else
-    sprintf "First published in %s." (get_release_name release)
+    let codename =
+      if compare_versions msgRelease classRelease > 0 then
+        msgRelease
+      else
+        classRelease
+    in
+    sprintf "First published in %s." (get_release_branding codename)
 
-and get_deprecated_info_message_string version =
+and get_deprecated_info_message message =
+  let version = message.msg_release.internal_deprecated_since in
   match version with
   | None ->
       ""
   | Some x ->
-      sprintf "Deprecated since %s." (get_release_name x)
-
-and get_prototyped_release lifecycle =
-  match lifecycle with [(Prototyped, release, _)] -> release | _ -> ""
-
-and get_prototyped_release_string lifecycle =
-  match lifecycle with
-  | [(Prototyped, release, _)] ->
-      "Experimental. " ^ get_first_release_string release
-  | _ ->
-      ""
-
-and get_published_info_message message cls =
-  let expRelease = get_prototyped_release_string message.msg_lifecycle in
-  let clsRelease = get_first_release cls.obj_release.internal in
-  let msgRelease = get_first_release message.msg_release.internal in
-  let clsReleaseIndex = list_index_of clsRelease code_name_order in
-  let msgReleaseIndex = list_index_of msgRelease code_name_order in
-  if not (expRelease = "") then
-    expRelease
-  else if
-    (not (clsReleaseIndex = -1))
-    && (not (msgReleaseIndex = -1))
-    && clsReleaseIndex < msgReleaseIndex
-  then
-    get_first_release_string msgRelease
-  else
-    get_first_release_string clsRelease
-
-and get_deprecated_info_message message =
-  let msgDeprecated = message.msg_release.internal_deprecated_since in
-  get_deprecated_info_message_string msgDeprecated
+      sprintf "Deprecated since %s." (get_release_branding x)
 
 and get_published_info_param message param =
-  let msgRelease = get_first_release message.msg_release.internal in
-  let paramRelease = get_first_release param.param_release.internal in
-  let msgReleaseIndex = list_index_of msgRelease code_name_order in
-  let paramReleaseIndex = list_index_of paramRelease code_name_order in
-  if
-    (not (msgReleaseIndex = -1))
-    && (not (paramReleaseIndex = -1))
-    && msgReleaseIndex < paramReleaseIndex
-  then
-    get_first_release_string paramRelease
+  let msgRelease = get_published_release message.msg_lifecycle in
+  let paramRelease =
+    get_published_release_for_param param.param_release.internal
+  in
+  if compare_versions paramRelease msgRelease > 0 then
+    sprintf "First published in %s." (get_release_branding paramRelease)
   else
     ""
 
 and get_published_info_class cls =
-  get_first_release_string (get_first_release cls.obj_release.internal)
+  let clsRelease = get_published_release cls.obj_lifecycle in
+  sprintf "First published in %s." (get_release_branding clsRelease)
 
 and get_published_info_field field cls =
-  let expRelease = get_prototyped_release_string field.lifecycle in
-  let clsRelease = get_first_release cls.obj_release.internal in
-  let fieldRelease = get_first_release field.release.internal in
-  let clsReleaseIndex = list_index_of clsRelease code_name_order in
-  let fieldReleaseIndex = list_index_of fieldRelease code_name_order in
-  if not (expRelease = "") then
-    expRelease
-  else if
-    (not (clsReleaseIndex = -1))
-    && (not (fieldReleaseIndex = -1))
-    && clsReleaseIndex < fieldReleaseIndex
-  then
-    get_first_release_string fieldRelease
+  let clsRelease = get_published_release cls.obj_lifecycle in
+  let fieldRelease = get_published_release field.lifecycle in
+  let expRel = get_prototyped_release field.lifecycle in
+  if fieldRelease == "" && expRel <> "" then
+    sprintf "Experimental. First published in %s." (get_release_branding expRel)
+  else if compare_versions fieldRelease clsRelease > 0 then
+    sprintf "First published in %s." (get_release_branding fieldRelease)
   else
     ""
 
@@ -259,16 +292,6 @@ let render_file (infile, outfile) json templates_dir dest_dir =
   render_template input_path json output_path
 
 let json_releases =
-  let json_of_rel x y =
-    `O
-      [
-        ("code_name", `String (code_name_of_release_ext x))
-      ; ("version_major", `Float (float_of_int x.version_major))
-      ; ("version_minor", `Float (float_of_int x.version_minor))
-      ; ("branding", `String x.branding)
-      ; ("version_index", `Float (float_of_int y))
-      ]
-  in
   let rec get_unique l =
     match l with
     | [] ->
@@ -285,17 +308,39 @@ let json_releases =
         hd :: get_unique (remove_duplicates tl)
   in
   let unique_version_bumps = get_unique release_order_full in
+  let version_index_of x list =
+    let rec index_rec i = function
+      | [] ->
+          raise Not_found
+      | hd :: tl ->
+          if
+            hd.version_major == x.version_major
+            && hd.version_minor == x.version_minor
+          then
+            i
+          else
+            index_rec (i + 1) tl
+    in
+    try index_rec 0 list with Not_found -> -1
+  in
+  let json_of_rel x =
+    let y = version_index_of x unique_version_bumps + 1 in
+    `O
+      [
+        ( "code_name"
+        , `String (match x.code_name with Some r -> r | None -> "")
+        )
+      ; ("version_major", `Float (float_of_int x.version_major))
+      ; ("version_minor", `Float (float_of_int x.version_minor))
+      ; ("branding", `String x.branding)
+      ; ("version_index", `Float (float_of_int y))
+      ]
+  in
   `O
     [
       ("API_VERSION_MAJOR", `Float (Int64.to_float Datamodel.api_version_major))
     ; ("API_VERSION_MINOR", `Float (Int64.to_float Datamodel.api_version_minor))
-    ; ( "releases"
-      , `A
-          (List.map
-             (fun x -> json_of_rel x (list_index_of x unique_version_bumps + 1))
-             unique_version_bumps
-          )
-      )
+    ; ("releases", `A (List.map (fun x -> json_of_rel x) unique_version_bumps))
     ; ( "latest_version_index"
       , `Float (float_of_int (List.length unique_version_bumps))
       )
