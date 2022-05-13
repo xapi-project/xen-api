@@ -1590,7 +1590,7 @@ let set_multipathing =
 
 let write_uefi_certificates_to_disk =
   call ~name:"write_uefi_certificates_to_disk"
-    ~lifecycle:[(Published, rel_next, "")]
+    ~lifecycle:[(Published, "22.16.0", "")]
     ~doc:"Writes the UEFI certificates to a host disk"
     ~params:[(Ref _host, "host", "The host")]
     ~allowed_roles:_R_LOCAL_ROOT_ONLY ~pool_internal:true ~hide_from_docs:true
@@ -1601,7 +1601,7 @@ let set_uefi_certificates =
     ~lifecycle:
       [
         (Published, rel_quebec, "")
-      ; (Deprecated, rel_next, "Use Pool.set_uefi_certificates instead")
+      ; (Deprecated, "22.16.0", "Use Pool.set_uefi_certificates instead")
       ]
     ~doc:"Sets the UEFI certificates on a host"
     ~params:
@@ -2052,7 +2052,7 @@ let t =
             ~lifecycle:
               [
                 (Published, rel_quebec, "")
-              ; (Deprecated, rel_next, "Use Pool.uefi_certificates instead")
+              ; (Deprecated, "22.16.0", "Use Pool.uefi_certificates instead")
               ]
             ~default_value:(Some (VString "")) ~ty:String "uefi_certificates"
             "The UEFI certificates allowing Secure Boot"
