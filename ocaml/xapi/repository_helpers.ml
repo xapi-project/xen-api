@@ -502,6 +502,10 @@ let get_pkgs_from_yum_updateinfo_list sub_command repositories =
   Helpers.call_script !Xapi_globs.yum_cmd params
   |> assert_yum_error
   |> Astring.String.cuts ~sep:"\n"
+  |> List.map (fun x ->
+         debug "yum updateinfo list %s: %s" sub_command x ;
+         x
+     )
   |> List.fold_left parse_updateinfo_list []
 
 let get_updates_from_updateinfo ~__context repositories =
@@ -640,6 +644,10 @@ let get_installed_pkgs () =
   let params = ["-a"; "--pkgnarrow=installed"; "--qf"; fmt] in
   Helpers.call_script !Xapi_globs.repoquery_cmd params
   |> Astring.String.cuts ~sep:"\n"
+  |> List.map (fun x ->
+         debug "repoquery installed: %s" x ;
+         x
+     )
   |> List.fold_left parse_line_of_repoquery []
   |> List.map (fun (pkg, _) -> (Pkg.to_name_arch_string pkg, pkg))
 
@@ -658,6 +666,10 @@ let get_pkgs_from_repoquery pkg_narrow repositories =
   in
   Helpers.call_script !Xapi_globs.repoquery_cmd params
   |> Astring.String.cuts ~sep:"\n"
+  |> List.map (fun x ->
+         debug "repoquery available: %s" x ;
+         x
+     )
   |> List.fold_left parse_line_of_repoquery []
 
 let get_updates_from_repoquery repositories =
