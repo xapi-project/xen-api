@@ -528,6 +528,9 @@ let destroy ~__context ~self =
   let basefilename = List.hd (List.rev (String.split_on_char '/' fullpath)) in
   destroy_real __context basefilename
 
+let destroy_many ~__context ~messages =
+  List.iter (fun self -> destroy ~__context ~self) messages
+
 (* Gc the messages - leave only the number of messages defined in 'Xapi_globs.message_limit' *)
 let gc ~__context =
   let message_limit = !Xapi_globs.message_limit in

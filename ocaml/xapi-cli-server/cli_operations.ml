@@ -1315,9 +1315,25 @@ let message_create (_ : printer) rpc session_id params =
     (Client.Message.create ~rpc ~session_id ~name ~priority ~cls ~obj_uuid ~body)
 
 let message_destroy (_ : printer) rpc session_id params =
-  let uuid = List.assoc "uuid" params in
-  let message = Client.Message.get_by_uuid ~rpc ~session_id ~uuid in
-  Client.Message.destroy ~rpc ~session_id ~self:message
+  let fail msg = raise (Cli_util.Cli_failure msg) in
+  let uuid = List.assoc_opt "uuid" params in
+  let uuids = List.assoc_opt "uuids" params in
+  let uuids =
+    match (uuid, uuids) with
+    | Some uuid, None ->
+        [uuid]
+    | None, Some uuids ->
+        String.split_on_char ',' uuids
+    | Some _, Some _ ->
+        fail "Ambiguous arguments; need one of uuid, uuids"
+    | None, None ->
+        fail "Need one of uuid, uuids"
+  in
+  let messages =
+    uuids
+    |> List.map (fun uuid -> Client.Message.get_by_uuid ~rpc ~session_id ~uuid)
+  in
+  Client.Message.destroy_many ~rpc ~session_id ~messages
 
 (* Pool operations *)
 

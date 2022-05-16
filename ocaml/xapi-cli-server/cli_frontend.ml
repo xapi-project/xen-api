@@ -120,9 +120,9 @@ let rec cmdtable_data : (string * cmd_spec) list =
     )
   ; ( "message-destroy"
     , {
-        reqd= ["uuid"]
-      ; optn= []
-      ; help= "Destroy an existing message."
+        reqd= []
+      ; optn= ["uuid"; "uuids"]
+      ; help= "Destroy one existing message or many"
       ; implementation= No_fd Cli_operations.message_destroy
       ; flags= []
       }

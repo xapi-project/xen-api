@@ -6281,6 +6281,11 @@ module Message = struct
         [(Ref _message, "self", "The reference of the message to destroy")]
       ~flags:[`Session] ~allowed_roles:_R_POOL_OP ()
 
+  let destroy_many =
+    call ~name:"destroy_many" ~in_product_since:rel_next
+      ~params:[(Set (Ref _message), "messages", "Messages to destroy")]
+      ~flags:[`Session] ~allowed_roles:_R_POOL_OP ()
+
   let get_all =
     call ~name:"get_all" ~in_product_since:rel_orlando ~params:[]
       ~flags:[`Session]
@@ -6343,6 +6348,7 @@ module Message = struct
         [
           create
         ; destroy
+        ; destroy_many
         ; get
         ; get_all
         ; get_since
