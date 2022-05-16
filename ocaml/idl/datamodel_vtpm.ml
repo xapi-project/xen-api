@@ -16,6 +16,9 @@ open Datamodel_types
 open Datamodel_common
 open Datamodel_roles
 
+let persistence_backend =
+  Enum ("persistence_backend", [("xapi", "This VTPM is persisted in XAPI's DB")])
+
 let create =
   call ~name:"create"
     ~lifecycle:
@@ -61,7 +64,7 @@ let t =
         (Published, rel_rio, "Added VTPM stub")
       ; (Extended, rel_next, "Added ability to manipulate contents")
       ; (Extended, rel_next, "Added VTPM profiles")
-      ; (Changed, rel_next, "Removed backend field")
+      ; (Extended, rel_next, "Added Persistence backed")
       ]
     ~gen_constructor_destructor:false ~name:_vtpm ~descr:"A virtual TPM device"
     ~gen_events:false ~doccomments:[]
@@ -71,6 +74,12 @@ let t =
         uid _vtpm
       ; field ~qualifier:StaticRO ~ty:(Ref _vm) "VM"
           "The virtual machine the TPM is attached to"
+      ; field ~qualifier:DynamicRO ~ty:(Ref _vm) "backend"
+          ~default_value:(Some (VRef null_ref))
+          "The domain where the backend is located (unused)"
+      ; field ~qualifier:DynamicRO ~ty:persistence_backend
+          ~default_value:(Some (VEnum "xapi")) ~lifecycle:[]
+          "persistence_backend" "The backend where the vTPM is persisted"
       ; field ~qualifier:DynamicRO
           ~ty:(Map (String, String))
           ~lifecycle:[(Published, rel_next, "Added VTPM profiles")]

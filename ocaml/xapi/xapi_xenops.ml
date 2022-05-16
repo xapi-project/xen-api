@@ -405,7 +405,7 @@ let builder_of_vm ~__context (vmref, vm) timeoffset pci_passthrough vgpu =
                 ~value:"" ~other_config ;
               let vtpm_uuid = uuid () in
               Db.VTPM.create ~__context ~ref:(ref ()) ~uuid:vtpm_uuid ~vM:vmref
-                ~profile ~contents ;
+                ~profile ~backend:Ref.null ~persistence_backend:`xapi ~contents ;
               Some vtpm_uuid
             ) else
               None
