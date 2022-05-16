@@ -3574,6 +3574,17 @@ let register_objects () =
     )
     (VM_DB.ids ())
 
+let upgrade_internal_state_of_running_vms () =
+  (* B.VM.set_internal_state contains upgrade code, needed for the case that
+     the type of the backend's internal state is extended in a xenopsd update. *)
+  let module B = (val get_backend () : S) in
+  List.iter
+    (fun vm ->
+      let vm_t = VM_DB.read_exn vm in
+      B.VM.get_internal_state [] [] vm_t |> B.VM.set_internal_state vm_t
+    )
+    (VM_DB.ids ())
+
 type rpc_t = Rpc.t
 
 let typ_of_rpc_t =
