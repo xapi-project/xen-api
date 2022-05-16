@@ -12,16 +12,17 @@
    GNU Lesser General Public License for more details.
  *)
 
-let introduce ~__context ~uuid ~vM ~profile ~contents =
+let introduce ~__context ~uuid ~vM ~backend ~profile ~contents =
   let ref = Ref.make () in
-  Db.VTPM.create ~__context ~ref ~uuid ~vM ~profile ~contents ;
+  Db.VTPM.create ~__context ~ref ~uuid ~vM ~backend ~profile ~contents ;
   ref
 
 let create ~__context ~vM =
   let uuid = Uuid.(to_string (make_uuid ())) in
   let profile = Db.VM.get_default_vtpm_profile ~__context ~self:vM in
+  let backend = `xapi in
   let contents = Xapi_secret.create ~__context ~value:"" ~other_config:[] in
-  let ref = introduce ~__context ~uuid ~vM ~profile ~contents in
+  let ref = introduce ~__context ~uuid ~vM ~backend ~profile ~contents in
   ref
 
 let destroy ~__context ~self =

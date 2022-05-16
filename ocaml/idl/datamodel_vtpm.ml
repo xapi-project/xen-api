@@ -16,6 +16,9 @@ open Datamodel_types
 open Datamodel_common
 open Datamodel_roles
 
+let persistence_backend =
+  Enum ("persistence_backend", [("xapi", "This VTPM is persisted in XAPI's DB")])
+
 let get_contents =
   call ~name:"get_contents" ~in_product_since:"rel_next"
     ~doc:"Obtain the contents of the TPM" ~secret:true
@@ -40,7 +43,10 @@ let t =
         (Published, rel_rio, "Added VTPM stub")
       ; (Extended, rel_next, "Added ability to manipulate contents")
       ; (Extended, rel_next, "Added VTPM profiles")
-      ; (Changed, rel_next, "Removed backend field")
+      ; ( Changed
+        , rel_next
+        , "Changed the backend field to signify the persistence method"
+        )
       ]
     ~gen_constructor_destructor:true ~name:_vtpm ~descr:"A virtual TPM device"
     ~gen_events:false ~doccomments:[]
@@ -50,6 +56,8 @@ let t =
         uid _vtpm
       ; field ~qualifier:StaticRO ~ty:(Ref _vm) "VM"
           "The virtual machine the TPM is attached to"
+      ; field ~qualifier:DynamicRO ~ty:persistence_backend "backend"
+          "The backend where the vTPM is persisted"
       ; field ~qualifier:DynamicRO
           ~ty:(Map (String, String))
           ~lifecycle:[(Published, rel_next, "Added VTPM profiles")]
