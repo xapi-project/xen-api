@@ -728,6 +728,12 @@ let destroy ~__context ~self =
       Client.Client.VLAN.destroy ~rpc ~session_id ~self:vlan
   )
 
+let restrict_to ~domain dns =
+  Astring.String.cuts ~sep:"," ~empty:false dns
+  |> List.filter (fun addr ->
+         Xapi_stdext_unix.Unixext.domain_of_addr addr = Some domain
+     )
+
 let reconfigure_ipv6 ~__context ~self ~mode ~iPv6 ~gateway ~dNS =
   Xapi_pif_helpers.assert_pif_is_managed ~__context ~self ;
   assert_no_protection_enabled ~__context ~self ;
@@ -737,10 +743,8 @@ let reconfigure_ipv6 ~__context ~self ~mode ~iPv6 ~gateway ~dNS =
   (* If we have an IPv6 address, check that it is valid and a prefix length is specified *)
   if iPv6 <> "" then
     Helpers.assert_is_valid_cidr `ipv6 "IPv6" iPv6 ;
-  if dNS <> "" then
-    List.iter
-      (fun address -> Helpers.assert_is_valid_ip `ipv6 "DNS" address)
-      (String.split ',' dNS) ;
+  (* Only set IPv6 dNS *)
+  let ipv6_dNS = restrict_to ~domain:Unix.PF_INET6 dNS in
   (* Management iface must have an address for the primary address type *)
   let management = Db.PIF.get_management ~__context ~self in
   let primary_address_type = Db.PIF.get_primary_address_type ~__context ~self in
@@ -753,15 +757,12 @@ let reconfigure_ipv6 ~__context ~self ~mode ~iPv6 ~gateway ~dNS =
   Db.PIF.set_ipv6_configuration_mode ~__context ~self ~value:mode ;
   Db.PIF.set_ipv6_gateway ~__context ~self ~value:gateway ;
   Db.PIF.set_IPv6 ~__context ~self ~value:[iPv6] ;
-  (* Keep IPv4 DNS entries *)
-  let pif_dns =
-    List.filter
-      (fun dns_addr ->
-        Xapi_stdext_unix.Unixext.domain_of_addr dns_addr = Some Unix.PF_INET
-      )
-      (String.split_on_char ',' (Db.PIF.get_DNS ~__context ~self))
+  (* Only keep existing IPv4 entries *)
+  let pif_ipv4_dNS =
+    restrict_to ~domain:Unix.PF_INET (Db.PIF.get_DNS ~__context ~self)
   in
-  Db.PIF.set_DNS ~__context ~self ~value:(String.concat "," (dNS :: pif_dns)) ;
+  Db.PIF.set_DNS ~__context ~self
+    ~value:(String.concat "," (List.concat [ipv6_dNS; pif_ipv4_dNS])) ;
   if Db.PIF.get_currently_attached ~__context ~self then (
     debug
       "PIF %s is currently_attached and the configuration has changed; calling \
@@ -793,10 +794,8 @@ let reconfigure_ip ~__context ~self ~mode ~iP ~netmask ~gateway ~dNS =
       if value <> "" then Helpers.assert_is_valid_ip `ipv4 param value
     )
     [("IP", iP); ("netmask", netmask); ("gateway", gateway)] ;
-  if dNS <> "" then
-    List.iter
-      (fun address -> Helpers.assert_is_valid_ip `ipv4 "DNS" address)
-      (String.split ',' dNS) ;
+  (* Only set IPv4 dNS *)
+  let ipv4_dNS = restrict_to ~domain:Unix.PF_INET dNS in
   (* If this is a management PIF, make sure the IP config mode isn't None *)
   let management = Db.PIF.get_management ~__context ~self in
   let primary_address_type = Db.PIF.get_primary_address_type ~__context ~self in
@@ -809,15 +808,12 @@ let reconfigure_ip ~__context ~self ~mode ~iP ~netmask ~gateway ~dNS =
   Db.PIF.set_IP ~__context ~self ~value:iP ;
   Db.PIF.set_netmask ~__context ~self ~value:netmask ;
   Db.PIF.set_gateway ~__context ~self ~value:gateway ;
-  (* Keep IPv6 DNS entries *)
-  let pif_dns =
-    List.filter
-      (fun dns_addr ->
-        Xapi_stdext_unix.Unixext.domain_of_addr dns_addr = Some Unix.PF_INET6
-      )
-      (String.split_on_char ',' (Db.PIF.get_DNS ~__context ~self))
+  (* Only keep existing IPv6 entries *)
+  let pif_ipv6_dNS =
+    restrict_to ~domain:Unix.PF_INET6 (Db.PIF.get_DNS ~__context ~self)
   in
-  Db.PIF.set_DNS ~__context ~self ~value:(String.concat "," (dNS :: pif_dns)) ;
+  Db.PIF.set_DNS ~__context ~self
+    ~value:(String.concat "," (List.concat [ipv4_dNS; pif_ipv6_dNS])) ;
   if Db.PIF.get_currently_attached ~__context ~self then (
     debug
       "PIF %s is currently_attached and the configuration has changed; calling \
