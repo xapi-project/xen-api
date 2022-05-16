@@ -730,11 +730,12 @@ let prune_by_installed_pkgs installed_pkgs pkg upd_id repo =
   | None ->
       let msg =
         Printf.sprintf
-          "Found an accumulative update but this package (name.arch) is not \
-           installed: %s"
+          "Found an accumulative update but this package (name.arch) has not \
+           been installed: %s"
           (to_fullname pkg)
       in
-      Error (Some msg)
+      debug "%s" msg ;
+      Ok (pkg, upd_id, repo)
 
 let prune_accumulative_updates ~accumulative_updates ~latest_updates
     ~installed_pkgs =
