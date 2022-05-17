@@ -380,7 +380,6 @@ let start ~__context ~vm ~start_paused ~force =
      	 * If/when we introduce another version, we must reassess this. *)
   update_vm_virtual_hardware_platform_version ~__context ~vm ;
   (* Reset CPU feature set, which will be passed to xenopsd *)
-  Cpuid_helpers.reset_cpu_flags ~__context ~vm ;
   (* If the VM has any vGPUs, gpumon must remain stopped until the
      * VM has started. *)
   ( match vmr.API.vM_VGPUs with
@@ -597,7 +596,6 @@ let resume ~__context ~vm ~start_paused ~force =
   if not force then
     Cpuid_helpers.assert_vm_is_compatible ~__context ~vm ~host () ;
   (* Update CPU feature set, which will be passed to xenopsd *)
-  Cpuid_helpers.update_cpu_flags ~__context ~vm ~host ;
   Xapi_xenops.resume ~__context ~self:vm ~start_paused ~force
 
 let resume_on ~__context ~vm ~host ~start_paused ~force =

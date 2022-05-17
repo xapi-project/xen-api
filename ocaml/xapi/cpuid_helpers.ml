@@ -119,33 +119,20 @@ let get_flags_for_vm ~__context vm cpu_info =
   let onboot = Map_check.getf ~default:migration features_field_boot cpu_info in
   (vendor, migration, onboot)
 
-(** Upgrade a VM's feature set based on the host's one, if needed.
- *  The output will be a feature set that is the same length as the host's
- *  set, with a prefix equal to the VM's set, and extended where needed.
- *  If the current VM set has 4 words, then we assume it was last running on
- *  a host that did not support "feature levelling v2". In that case, we cannot
- *  be certain about which host features it was using, so we'll extend the set
- *  with all current host features. Otherwise we'll zero-extend. *)
-let upgrade_features ~__context ~vm host_features vm_features =
-  let len = Array.length vm_features in
+(** Upgrade a VM's feature set based on the host's one by zero-extending, if needed. *)
+let upgrade_features ~__context ~vm ~host host_features vm_features =
+  ( if Array.length vm_features <= 4 then
+      let msg =
+        "VM featureset too old to be upgraded; VM needs to be shut down before \
+         it can run here"
+      in
+      raise
+        (Api_errors.Server_error
+           ( Api_errors.vm_incompatible_with_this_host
+           , [Ref.string_of vm; Ref.string_of host; msg] ))
+  ) ;
   let upgraded_features =
-    if len <= 4 then
-      let open Xapi_xenops_queue in
-      let dbg = Context.string_of_task __context in
-      let module Client = (val make_client (default_xenopsd ()) : XENOPS) in
-      let uses_hvm_features =
-        match Helpers.domain_type ~__context ~self:vm with
-        | `hvm | `pv_in_pvh ->
-            true
-        | `pv ->
-            false
-      in
-      let vm_features' =
-        Client.HOST.upgrade_cpu_features dbg vm_features uses_hvm_features
-      in
-      extend vm_features' host_features
-    else
-      zero_extend vm_features (Array.length host_features)
+    zero_extend vm_features (Array.length host_features)
   in
   if vm_features <> upgraded_features then
     debug "VM featureset upgraded from %s to %s"
@@ -153,45 +140,30 @@ let upgrade_features ~__context ~vm host_features vm_features =
       (string_of_features upgraded_features) ;
   upgraded_features
 
-let set_flags ~__context self vendor features =
-  let features = features |> snd features_t in
-  let value =
-    [(cpu_info_vendor_key, vendor); (cpu_info_features_key, features)]
-  in
-  debug "VM's CPU features set to: %s" features ;
-  Db.VM.set_last_boot_CPU_flags ~__context ~self ~value
-
-(* Reset last_boot_CPU_flags with the vendor and feature set.
- * On VM.start, the feature set is inherited from the pool level (PV or HVM) *)
-let reset_cpu_flags ~__context ~vm =
-  let pool_vendor, _, pool_features =
-    let pool = Helpers.get_pool ~__context in
-    let pool_cpu_info = Db.Pool.get_cpu_info ~__context ~self:pool in
-    get_flags_for_vm ~__context vm pool_cpu_info
-  in
-  set_flags ~__context vm pool_vendor pool_features
-
-(* Update last_boot_CPU_flags with the vendor and feature set.
- * On VM.resume or migrate, the field is kept intact, and upgraded if needed. *)
-let update_cpu_flags ~__context ~vm ~host =
-  let current_features =
-    let flags = Db.VM.get_last_boot_CPU_flags ~__context ~self:vm in
-    Map_check.getf ~default:[||] features flags
-  in
-  debug "VM last boot CPU features: %s" (string_of_features current_features) ;
-  try
-    let host_vendor, host_features, _ =
-      let host_cpu_info = Db.Host.get_cpu_info ~__context ~self:host in
-      get_flags_for_vm ~__context vm host_cpu_info
+(* Return the featureset to be used for the next boot of the given VM. *)
+let next_boot_cpu_features ~__context ~vm =
+  (* On VM.start, the feature set is inherited from the pool level (PV or HVM) *)
+  let pool = Helpers.get_pool ~__context in
+  let pool_cpu_info = Db.Pool.get_cpu_info ~__context ~self:pool in
+  let features_field, features_field_boot =
+    (* Always use VM.domain_type, even if the VM is running, because we
+       need the features for when the VM starts next. *)
+    let domain_type =
+      Db.VM.get_domain_type ~__context ~self:vm |> Helpers.check_domain_type
     in
-    let new_features =
-      upgrade_features ~__context ~vm host_features current_features
-    in
-    if new_features <> current_features then
-      set_flags ~__context vm host_vendor new_features
-  with Not_found ->
-    (* pre-Dundee? *)
-    failwith "Host does not have new leveling feature keys"
+    match domain_type with
+    | `hvm | `pv_in_pvh ->
+        (features_hvm, features_hvm_host)
+    | `pv ->
+        (features_pv, features_pv_host)
+  in
+  (* The default is for backwards compatibility with versions that do not
+     yet have a features_field_boot (e.g. during RPU). *)
+  let default = Map_check.getf features_field pool_cpu_info in
+  let pool_features =
+    Map_check.getf ~default features_field_boot pool_cpu_info
+  in
+  snd features_t pool_features
 
 let get_host_cpu_info ~__context ~vm ~host ?remote () =
   match remote with
@@ -236,7 +208,8 @@ let assert_vm_is_compatible ~__context ~vm ~host ?remote () =
           (string_of_features vm_cpu_features)
           (string_of_features host_cpu_features') ;
         let vm_cpu_features' =
-          vm_cpu_features |> upgrade_features ~__context ~vm host_cpu_features'
+          vm_cpu_features
+          |> upgrade_features ~__context ~vm ~host host_cpu_features'
         in
         if not (is_subset vm_cpu_features' host_cpu_features') then (
           debug

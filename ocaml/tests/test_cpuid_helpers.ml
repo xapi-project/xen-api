@@ -436,7 +436,7 @@ end)
 let domain_type : API.domain_type Test_printers.printer =
   Record_util.domain_type_to_string
 
-module ResetCPUFlags = Generic.MakeStateful (struct
+module NextBootCPUFeatures = Generic.MakeStateful (struct
   module Io = struct
     type input_t = (string * API.domain_type) list
 
@@ -469,20 +469,15 @@ module ResetCPUFlags = Generic.MakeStateful (struct
     Db.Pool.set_cpu_info ~__context
       ~self:(Db.Pool.get_all ~__context |> List.hd)
       ~value:cpu_info ;
-    let vms =
-      List.map
-        (fun (name_label, domain_type) ->
-          Test_common.make_vm ~__context ~name_label ~domain_type ())
-        cases
-    in
-    List.iter (fun vm -> Cpuid_helpers.reset_cpu_flags ~__context ~vm) vms
+    List.iter
+      (fun (name_label, domain_type) ->
+        ignore (Test_common.make_vm ~__context ~name_label ~domain_type ()))
+      cases
 
   let extract_output __context vms =
     let get_flags (label, _) =
-      let self = List.hd (Db.VM.get_by_name_label ~__context ~label) in
-      let flags = Db.VM.get_last_boot_CPU_flags ~__context ~self in
-      try List.assoc Xapi_globs.cpu_info_features_key flags
-      with Not_found -> ""
+      let vm = List.hd (Db.VM.get_by_name_label ~__context ~label) in
+      Cpuid_helpers.next_boot_cpu_features ~__context ~vm
     in
     List.map get_flags vms
 
@@ -706,6 +701,6 @@ let tests =
     ; ("accessors", Accessors.tests)
     ; ("setters", Setters.tests)
     ; ("modifiers", Modifiers.tests)
-    ; ("reset_cpu_flags", ResetCPUFlags.tests)
+    ; ("next_boot_cpu_features", NextBootCPUFeatures.tests)
     ; ("test_assert_vm_is_compatible", AssertVMIsCompatible.tests)
     ]

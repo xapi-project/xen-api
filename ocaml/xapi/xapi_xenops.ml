@@ -1173,28 +1173,34 @@ module MD = struct
            (fun (key, _) -> key <> Vm_platform.timeoffset)
            platformdata
     in
-    let platformdata =
-      let genid =
-        match vm.API.vM_generation_id with
-        | "0:0" ->
-            Xapi_vm_helpers.vm_fresh_genid ~__context ~self:vmref
-        | _ ->
-            vm.API.vM_generation_id
-      in
-      (Vm_platform.generation_id, genid) :: platformdata
+    let generation_id =
+      match vm.API.vM_generation_id with
+      | "0:0" ->
+          Some (Xapi_vm_helpers.vm_fresh_genid ~__context ~self:vmref)
+      | _ ->
+          Some vm.API.vM_generation_id
     in
-    (* Add the CPUID feature set for the VM to the platform data. *)
+    (* Add the CPUID feature set for the VM's next boot to the platform data. *)
     let platformdata =
       if not (List.mem_assoc Vm_platform.featureset platformdata) then
         let featureset =
-          if
-            List.mem_assoc Xapi_globs.cpu_info_features_key
+          match
+            List.assoc_opt Xapi_globs.cpu_info_features_key
               vm.API.vM_last_boot_CPU_flags
-          then
-            List.assoc Xapi_globs.cpu_info_features_key
-              vm.API.vM_last_boot_CPU_flags
-          else
-            failwith "VM's CPU featureset not initialised"
+          with
+          | _ when vm.API.vM_power_state <> `Suspended ->
+              Cpuid_helpers.next_boot_cpu_features ~__context ~vm:vmref
+          | Some fs ->
+              (* The VM's current featureset is now part of xenopsd's
+                 persistent metadata, and taken from there on resume
+                 and migrate-receive. However, VMs suspended before this
+                 change don't have the featureset there yet, and xenopsd
+                 falls back to the platformdata. We can't detect this case
+                 here, so we'll therefore fall back to the original source
+                 (VM.last_boot_CPU_flags) regardless. *)
+              fs
+          | None ->
+              failwith "VM's CPU featureset not initialised"
         in
         (Vm_platform.featureset, featureset) :: platformdata
       else
@@ -1249,6 +1255,7 @@ module MD = struct
     ; pci_msitranslate
     ; pci_power_mgmt= false
     ; has_vendor_device= vm.API.vM_has_vendor_device
+    ; generation_id
     }
 end
 
@@ -1970,8 +1977,7 @@ let update_vm ~__context id =
                     | Some x ->
                         Db.VM.set_last_booted_record ~__context ~self ~value:x ;
                         debug "VM %s last_booted_record set to %s"
-                          (Ref.string_of self) x ;
-                        Xenopsd_metadata.delete ~__context id
+                          (Ref.string_of self) x
                 ) ;
                 if power_state = `Halted then
                   !trigger_xenapi_reregister ()
@@ -2258,6 +2264,30 @@ let update_vm ~__context id =
                 error "Caught %s: while updating VM %s HVM_shadow_multiplier"
                   (Printexc.to_string e) id
           ) ;
+          (* Preserve last_boot_CPU_flags when suspending (see current_domain_type) *)
+          if different (fun x -> x.Vm.featureset) && power_state <> `Suspended
+          then
+            Option.iter
+              (fun (_, state) ->
+                try
+                  debug
+                    "xenopsd event: Updating VM %s last_boot_CPU_flags <- %s" id
+                    state.Vm.featureset ;
+                  let vendor =
+                    Db.Host.get_cpu_info ~__context ~self:localhost
+                    |> List.assoc Xapi_globs.cpu_info_vendor_key
+                  in
+                  let value =
+                    [
+                      (Xapi_globs.cpu_info_vendor_key, vendor)
+                    ; (Xapi_globs.cpu_info_features_key, state.Vm.featureset)
+                    ]
+                  in
+                  Db.VM.set_last_boot_CPU_flags ~__context ~self ~value
+                with e ->
+                  error "Caught %s: while updating VM %s last_boot_CPU_flags"
+                    (Printexc.to_string e) id)
+              info ;
           Xenops_cache.update_vm id (Option.map snd info) ;
           if !should_update_allowed_operations then
             Helpers.call_api_functions ~__context (fun rpc session_id ->
