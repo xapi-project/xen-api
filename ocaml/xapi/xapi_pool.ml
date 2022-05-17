@@ -3440,7 +3440,8 @@ let check_update_readiness ~__context ~self:_ ~requires_reboot =
     if not alive then
       [[Api_errors.host_offline; Ref.string_of host]]
     else if requires_reboot then
-      Xapi_host.get_vms_which_prevent_evacuation ~__context ~self:host
+      Xapi_host.get_vms_which_prevent_evacuation_internal ~__context ~self:host
+        ~ignore_ha:true
       |> List.map (fun (_, error) -> error)
     else
       [[]]

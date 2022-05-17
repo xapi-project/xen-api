@@ -257,7 +257,7 @@ let string_of_per_vm_plan p =
 
 (** Return a table mapping VMs to 'per_vm_plan' types indicating either a target
     	Host or a reason why the VM cannot be migrated. *)
-let compute_evacuation_plan_no_wlb ~__context ~host =
+let compute_evacuation_plan_no_wlb ~__context ~host ?(ignore_ha = false) () =
   let all_hosts = Db.Host.get_all ~__context in
   let enabled_hosts =
     List.filter (fun self -> Db.Host.get_enabled ~__context ~self) all_hosts
@@ -308,7 +308,7 @@ let compute_evacuation_plan_no_wlb ~__context ~host =
        			   planner's PoV) to the result obtained following a host failure and VM restart. *)
     let pool = Helpers.get_pool ~__context in
     let protected_vms, unprotected_vms =
-      if Db.Pool.get_ha_enabled ~__context ~self:pool then
+      if Db.Pool.get_ha_enabled ~__context ~self:pool && not ignore_ha then
         List.partition
           (fun (_, record) ->
             Helpers.vm_should_always_run record.API.vM_ha_always_run
@@ -393,7 +393,7 @@ let compute_evacuation_plan_no_wlb ~__context ~host =
 (* Old Miami style function with the strange error encoding *)
 let assert_can_evacuate ~__context ~host =
   (* call no_wlb function as we only care about errors, and wlb only provides recs for moveable vms *)
-  let plans = compute_evacuation_plan_no_wlb ~__context ~host in
+  let plans = compute_evacuation_plan_no_wlb ~__context ~host () in
   let errors =
     Hashtbl.fold
       (fun _ plan acc ->
@@ -411,9 +411,10 @@ let assert_can_evacuate ~__context ~host =
          (Api_errors.cannot_evacuate_host, [String.concat "|" errors])
       )
 
-(* New Orlando style function which returns a Map *)
-let get_vms_which_prevent_evacuation ~__context ~self =
-  let plans = compute_evacuation_plan_no_wlb ~__context ~host:self in
+let get_vms_which_prevent_evacuation_internal ~__context ~self ~ignore_ha =
+  let plans =
+    compute_evacuation_plan_no_wlb ~__context ~host:self ~ignore_ha ()
+  in
   Hashtbl.fold
     (fun vm plan acc ->
       match plan with
@@ -423,6 +424,10 @@ let get_vms_which_prevent_evacuation ~__context ~self =
           acc
     )
     plans []
+
+(* New Orlando style function which returns a Map *)
+let get_vms_which_prevent_evacuation ~__context ~self =
+  get_vms_which_prevent_evacuation_internal ~__context ~self ~ignore_ha:false
 
 let compute_evacuation_plan_wlb ~__context ~self =
   (* We treat xapi as primary when it comes to "hard" errors, i.e. those that aren't down to memory constraints.  These are things like
@@ -438,7 +443,7 @@ let compute_evacuation_plan_wlb ~__context ~self =
      	   right thing to do because WLB doesn't know about all the HA corner cases (for example), but xapi does.
      	   If there are any VMs left over, record them as HOST_NOT_ENOUGH_FREE_MEMORY, because we assume that WLB thinks they don't fit.
   *)
-  let error_vms = compute_evacuation_plan_no_wlb ~__context ~host:self in
+  let error_vms = compute_evacuation_plan_no_wlb ~__context ~host:self () in
   let vm_recoms =
     get_evacuation_recoms ~__context ~uuid:(Db.Host.get_uuid ~__context ~self)
   in
@@ -538,7 +543,7 @@ let compute_evacuation_plan ~__context ~host =
     debug
       "Using wlb recommendations for choosing a host has been disabled or wlb \
        is not available. Using original algorithm" ;
-    compute_evacuation_plan_no_wlb ~__context ~host
+    compute_evacuation_plan_no_wlb ~__context ~host ()
   ) else
     try
       debug "Using WLB recommendations for host evacuation." ;
@@ -565,12 +570,12 @@ let compute_evacuation_plan ~__context ~host =
               )
           with _ -> ()
         ) ;
-        compute_evacuation_plan_no_wlb ~__context ~host
+        compute_evacuation_plan_no_wlb ~__context ~host ()
     | _ ->
         debug
           "Encountered an unknown error when using wlb for choosing host. \
            Using original algorithm" ;
-        compute_evacuation_plan_no_wlb ~__context ~host
+        compute_evacuation_plan_no_wlb ~__context ~host ()
 
 let evacuate ~__context ~host ~network =
   let task = Context.get_task_id __context in
