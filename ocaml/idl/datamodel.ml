@@ -6284,7 +6284,7 @@ module Message = struct
   let destroy_many =
     call ~name:"destroy_many" ~lifecycle:[]
       ~params:[(Set (Ref _message), "messages", "Messages to destroy")]
-      ~flags:[`Session] ~allowed_roles:_R_POOL_OP ()
+      ~allowed_roles:_R_POOL_OP ()
 
   let get_all =
     call ~name:"get_all" ~in_product_since:rel_orlando ~params:[]
