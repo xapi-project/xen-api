@@ -459,21 +459,65 @@ let parse_updateinfo_list acc line =
       debug "Ignore unrecognized line '%s' in parsing updateinfo list" line ;
       acc
 
-let get_updates_from_updateinfo ~__context repositories =
-  let params_of_updateinfo_list =
+let is_obsoleted pkg_name repositories =
+  let params =
+    [
+      "-a"
+    ; "--plugins"
+    ; "--disablerepo=*"
+    ; Printf.sprintf "--enablerepo=%s" (String.concat "," repositories)
+    ; "--whatobsoletes"
+    ; pkg_name
+    ; "--qf"
+    ; "%{name}"
+    ]
+  in
+  match
+    Helpers.call_script !Xapi_globs.repoquery_cmd params
+    |> Astring.String.cuts ~sep:"\n" ~empty:false
+  with
+  | [] ->
+      false
+  | _ ->
+      debug "Available package %s has been obsoleted." pkg_name ;
+      true
+  | exception _ ->
+      warn
+        "Can't determine if available package %s is obsoleted or not. Assuming \
+         it is not."
+        pkg_name ;
+      false
+
+let get_pkgs_from_yum_updateinfo_list sub_command repositories =
+  let params =
     [
       "-q"
     ; "--disablerepo=*"
     ; Printf.sprintf "--enablerepo=%s" (String.concat "," repositories)
     ; "updateinfo"
     ; "list"
-    ; "updates"
+    ; sub_command
     ]
   in
-  Helpers.call_script !Xapi_globs.yum_cmd params_of_updateinfo_list
+  Helpers.call_script !Xapi_globs.yum_cmd params
   |> assert_yum_error
   |> Astring.String.cuts ~sep:"\n"
+  |> List.map (fun x ->
+         debug "yum updateinfo list %s: %s" sub_command x ;
+         x
+     )
   |> List.fold_left parse_updateinfo_list []
+
+let get_updates_from_updateinfo ~__context repositories =
+  (* Use 'updates' to decrease the number of packages to apply 'is_obsoleted' *)
+  let updates = get_pkgs_from_yum_updateinfo_list "updates" repositories in
+  (* 'new_updates' are a list of RPM packages to be installed, rather than updated *)
+  let new_updates =
+    get_pkgs_from_yum_updateinfo_list "available" repositories
+    |> List.filter (fun x -> not (List.mem x updates))
+    |> List.filter (fun (pkg, _) -> not (is_obsoleted pkg.Pkg.name repositories))
+  in
+  new_updates @ updates
 
 let eval_guidance_for_one_update ~updates_info ~update ~kind
     ~upd_ids_of_livepatches =
@@ -600,10 +644,14 @@ let get_installed_pkgs () =
   let params = ["-a"; "--pkgnarrow=installed"; "--qf"; fmt] in
   Helpers.call_script !Xapi_globs.repoquery_cmd params
   |> Astring.String.cuts ~sep:"\n"
+  |> List.map (fun x ->
+         debug "repoquery installed: %s" x ;
+         x
+     )
   |> List.fold_left parse_line_of_repoquery []
   |> List.map (fun (pkg, _) -> (Pkg.to_name_arch_string pkg, pkg))
 
-let get_updates_from_repoquery repositories =
+let get_pkgs_from_repoquery pkg_narrow repositories =
   let fmt = get_repoquery_fmt () in
   let params =
     [
@@ -611,15 +659,30 @@ let get_updates_from_repoquery repositories =
     ; "--plugins"
     ; "--disablerepo=*"
     ; Printf.sprintf "--enablerepo=%s" (String.concat "," repositories)
-    ; "--pkgnarrow=updates"
+    ; Printf.sprintf "--pkgnarrow=%s" pkg_narrow
     ; "--qf"
     ; fmt
     ]
   in
-  List.iter (fun r -> clean_yum_cache r) repositories ;
   Helpers.call_script !Xapi_globs.repoquery_cmd params
   |> Astring.String.cuts ~sep:"\n"
+  |> List.map (fun x ->
+         debug "repoquery available: %s" x ;
+         x
+     )
   |> List.fold_left parse_line_of_repoquery []
+
+let get_updates_from_repoquery repositories =
+  List.iter (fun r -> clean_yum_cache r) repositories ;
+  (* Use 'updates' to decrease the number of packages to apply 'is_obsoleted' *)
+  let updates = get_pkgs_from_repoquery "updates" repositories in
+  (* 'new_updates' are a list of RPM packages to be installed, rather than updated *)
+  let new_updates =
+    get_pkgs_from_repoquery "available" repositories
+    |> List.filter (fun x -> not (List.mem x updates))
+    |> List.filter (fun (pkg, _) -> not (is_obsoleted pkg.Pkg.name repositories))
+  in
+  new_updates @ updates
 
 let validate_latest_updates ~latest_updates ~accumulative_updates =
   List.map
@@ -679,11 +742,12 @@ let prune_by_installed_pkgs installed_pkgs pkg upd_id repo =
   | None ->
       let msg =
         Printf.sprintf
-          "Found an accumulative update but this package (name.arch) is not \
-           installed: %s"
+          "Found an accumulative update but this package (name.arch) has not \
+           been installed: %s"
           (to_fullname pkg)
       in
-      Error (Some msg)
+      debug "%s" msg ;
+      Ok (pkg, upd_id, repo)
 
 let prune_accumulative_updates ~accumulative_updates ~latest_updates
     ~installed_pkgs =
