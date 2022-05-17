@@ -440,6 +440,7 @@ let main backend =
     ) ;
   Xenops_server.register_objects () ;
   Xenops_server.set_backend (Some backend) ;
+  Xenops_server.upgrade_internal_state_of_running_vms () ;
   Debug.with_thread_associated "main"
     (fun () ->
       let (_ : Thread.t) =
