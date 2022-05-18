@@ -3147,6 +3147,9 @@ let host_record rpc session_id host =
             (x ()).API.host_tls_verification_enabled |> string_of_bool
           )
           ()
+      ; make_field ~name:"last-software-update"
+          ~get:(fun () -> Date.to_string (x ()).API.host_last_software_update)
+          ()
       ]
   }
 

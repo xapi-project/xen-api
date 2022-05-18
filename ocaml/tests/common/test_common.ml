@@ -203,7 +203,7 @@ let make_host2 ~__context ?(ref = Ref.make ()) ?(uuid = make_uuid ())
     ~display:`enabled ~virtual_hardware_platform_versions:[]
     ~control_domain:Ref.null ~updates_requiring_reboot:[] ~iscsi_iqn:""
     ~multipathing:false ~uefi_certificates:"" ~editions:[] ~pending_guidances:[]
-    ~tls_verification_enabled ;
+    ~tls_verification_enabled ~last_software_update:(Date.localtime ()) ;
   ref
 
 let make_pif ~__context ~network ~host ?(device = "eth0")
