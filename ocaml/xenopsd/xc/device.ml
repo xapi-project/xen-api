@@ -2052,11 +2052,9 @@ module Dm_Common = struct
 
   let vnc_socket_path = (sprintf "%s/vnc-%d") Device_common.var_run_xen_path
 
-  let efivars_resume_path =
-    Xenops_sandbox.Chroot.Path.of_string ~relative:"efi-vars-resume.dat"
+  let efivars_resume_path = Service.Varstored.efivars_resume_path
 
-  let efivars_save_path =
-    Xenops_sandbox.Chroot.Path.of_string ~relative:"efi-vars-save.dat"
+  let efivars_save_path = Service.Varstored.efivars_save_path
 
   let get_vnc_port ~xs domid ~f =
     match Service.Qemu.is_running ~xs domid with true -> f () | false -> None
@@ -2361,26 +2359,6 @@ module Dm_Common = struct
     | _, (Unix.WSIGNALED n | Unix.WSTOPPED n) ->
         error "%s: unexpected signal: %d" name n ;
         false
-
-  (* Waits for a daemon to signal startup by writing to a xenstore path
-     (optionally with a given value) If this doesn't happen in the timeout then
-     an exception is raised *)
-  let wait_path ~pidalive ~task ~name ~domid ~xs ~ready_path ~timeout ~cancel _
-      =
-    let syslog_key = Printf.sprintf "%s-%d" name domid in
-    let watch = Watch.value_to_appear ready_path |> Watch.map (fun _ -> ()) in
-    Xenops_task.check_cancelling task ;
-    ( try
-        let (_ : bool) =
-          cancellable_watch cancel [watch] [] task ~xs ~timeout ()
-        in
-        ()
-      with Watch.Timeout _ ->
-        if pidalive name then
-          raise (Ioemu_failed (name, "Timeout reached while starting daemon")) ;
-        raise (Ioemu_failed (name, "Daemon exited unexpectedly"))
-    ) ;
-    debug "Daemon initialised: %s" syslog_key
 
   let gimtool_m = Mutex.create ()
 
@@ -3804,70 +3782,6 @@ module Dm = struct
   (* the following functions depend on the functions above that use the qemu
      backend Q *)
 
-  let start_varstored ~xs ~nvram ?(restore = false)
-      (task : Xenops_task.task_handle) domid =
-    let open Xenops_types in
-    debug "Preparing to start varstored for UEFI boot (domid=%d)" domid ;
-    let path = !Xc_resources.varstored in
-    let name = "varstored" in
-    let vm_uuid = Xenops_helpers.uuid_of_domid ~xs domid |> Uuid.to_string in
-    let reset_on_boot =
-      nvram.Nvram_uefi_variables.on_boot = Nvram_uefi_variables.Reset
-    in
-    let backend = nvram.Nvram_uefi_variables.backend in
-    let open Fe_argv in
-    let argf fmt = ksprintf (fun s -> ["--arg"; s]) fmt in
-    let on cond value = if cond then value else return () in
-    let chroot, socket_path =
-      Xenops_sandbox.Varstore_guard.start (Xenops_task.get_dbg task) ~vm_uuid
-        ~domid ~paths:[efivars_save_path]
-    in
-    let args =
-      Add.many
-        [
-          "--domain"
-        ; string_of_int domid
-        ; "--chroot"
-        ; chroot.root
-        ; "--depriv"
-        ; "--uid"
-        ; string_of_int chroot.uid
-        ; "--gid"
-        ; string_of_int chroot.gid
-        ; "--backend"
-        ; backend
-        ; "--arg"
-        ; Printf.sprintf "socket:%s" socket_path
-        ]
-      >>= fun () ->
-      (Service.Varstored.pidfile_path domid |> function
-       | None ->
-           return ()
-       | Some x ->
-           Add.many ["--pidfile"; x]
-      )
-      >>= fun () ->
-      Add.many @@ argf "uuid:%s" vm_uuid >>= fun () ->
-      on reset_on_boot @@ Add.arg "--nonpersistent" >>= fun () ->
-      on restore @@ Add.arg "--resume" >>= fun () ->
-      on restore
-      @@ Add.many
-      @@ argf "resume:%s"
-           (Xenops_sandbox.Chroot.chroot_path_inside efivars_resume_path)
-      >>= fun () ->
-      Add.many
-      @@ argf "save:%s"
-           (Xenops_sandbox.Chroot.chroot_path_inside efivars_save_path)
-    in
-    let args = Fe_argv.run args |> snd |> Fe_argv.argv in
-    let service = Service.Varstored.start_daemon ~path ~args ~domid () in
-    let ready_path = Service.Varstored.pid_path domid in
-    wait_path
-      ~pidalive:(Service.Varstored.alive service)
-      ~task ~name ~domid ~xs ~ready_path
-      ~timeout:!Xenopsd.varstored_ready_timeout
-      ~cancel:(Cancel_utils.Varstored domid) ()
-
   let start_vgpu ~xc:_ ~xs task ?(restore = false) domid vgpus vcpus profile =
     let open Xenops_interface.Vgpu in
     match vgpus with
@@ -3884,8 +3798,8 @@ module Dm = struct
             Service.Vgpu.start_daemon ~path:!Xc_resources.vgpu ~args ~domid
               ~fds:[] ()
           in
-          wait_path ~pidalive:(pid_alive vgpu_pid) ~task ~name:"vgpu" ~domid ~xs
-            ~ready_path:state_path
+          Service.Vgpu.wait_path ~pidalive:(pid_alive vgpu_pid) ~task
+            ~name:"vgpu" ~domid ~xs ~ready_path:state_path
             ~timeout:!Xenopsd.vgpu_ready_timeout
             ~cancel () ;
           Forkhelpers.dontwaitpid vgpu_pid
@@ -3954,8 +3868,8 @@ module Dm = struct
     (* start varstored if appropriate *)
     ( match info.firmware with
     | Uefi nvram_uefi ->
-        start_varstored ~restore:(action = Restore) ~xs ~nvram:nvram_uefi task
-          domid
+        Service.Varstored.start ~restore:(action = Restore) ~xs
+          ~nvram:nvram_uefi task domid
     | Bios ->
         ()
     ) ;

@@ -180,6 +180,25 @@ let start_and_wait_for_readyness ~task ~service =
 
   debug "Service %s initialized" syslog_key
 
+(* Waits for a daemon to signal startup by writing to a xenstore path
+   (optionally with a given value) If this doesn't happen in the timeout then
+   an exception is raised *)
+let wait_path ~pidalive ~task ~name ~domid ~xs ~ready_path ~timeout ~cancel _ =
+  let syslog_key = Printf.sprintf "%s-%d" name domid in
+  let watch = Watch.value_to_appear ready_path |> Watch.map (fun _ -> ()) in
+  Xenops_task.check_cancelling task ;
+  ( try
+      let (_ : bool) =
+        Cancel_utils.cancellable_watch cancel [watch] [] task ~xs ~timeout ()
+      in
+      ()
+    with Watch.Timeout _ ->
+      if pidalive name then
+        raise (Service_failed (name, "Timeout reached while starting daemon")) ;
+      raise (Service_failed (name, "Daemon exited unexpectedly"))
+  ) ;
+  debug "Daemon initialised: %s" syslog_key
+
 module type DAEMONPIDPATH = sig
   val name : string
 
@@ -312,13 +331,25 @@ module Qemu = DaemonMgmt (struct
   let pid_path domid = Printf.sprintf "/local/domain/%d/qemu-pid" domid
 end)
 
-module Vgpu = DaemonMgmt (struct
-  let name = "vgpu"
+module Vgpu = struct
+  module D = DaemonMgmt (struct
+    let name = "vgpu"
 
-  let use_pidfile = false
+    let use_pidfile = false
 
-  let pid_path domid = Printf.sprintf "/local/domain/%d/vgpu-pid" domid
-end)
+    let pid_path domid = Printf.sprintf "/local/domain/%d/vgpu-pid" domid
+  end)
+
+  let start_daemon = D.start_daemon
+
+  let pid = D.pid
+
+  let is_running = D.is_running
+
+  let stop = D.stop
+
+  let wait_path = wait_path
+end
 
 module SystemdDaemonMgmt (D : DAEMONPIDPATH) = struct
   (* backward compat: for daemons running during an update *)
@@ -383,13 +414,84 @@ module SystemdDaemonMgmt (D : DAEMONPIDPATH) = struct
     service
 end
 
-module Varstored = SystemdDaemonMgmt (struct
-  let name = "varstored"
+module Varstored = struct
+  module D = SystemdDaemonMgmt (struct
+    let name = "varstored"
 
-  let use_pidfile = true
+    let use_pidfile = true
 
-  let pid_path domid = Printf.sprintf "/local/domain/%d/varstored-pid" domid
-end)
+    let pid_path domid = Printf.sprintf "/local/domain/%d/varstored-pid" domid
+  end)
+
+  let efivars_resume_path =
+    Xenops_sandbox.Chroot.Path.of_string ~relative:"efi-vars-resume.dat"
+
+  let efivars_save_path =
+    Xenops_sandbox.Chroot.Path.of_string ~relative:"efi-vars-save.dat"
+
+  let start ~xs ~nvram ?(restore = false) task domid =
+    let open Xenops_types in
+    debug "Preparing to start varstored for UEFI boot (domid=%d)" domid ;
+    let path = !Xc_resources.varstored in
+    let name = "varstored" in
+    let vm_uuid = Xenops_helpers.uuid_of_domid ~xs domid |> Uuid.to_string in
+    let reset_on_boot =
+      nvram.Nvram_uefi_variables.on_boot = Nvram_uefi_variables.Reset
+    in
+    let backend = nvram.Nvram_uefi_variables.backend in
+    let open Fe_argv in
+    let argf fmt = Printf.ksprintf (fun s -> ["--arg"; s]) fmt in
+    let on cond value = if cond then value else return () in
+    let chroot, socket_path =
+      Xenops_sandbox.Varstore_guard.start (Xenops_task.get_dbg task) ~vm_uuid
+        ~domid ~paths:[efivars_save_path]
+    in
+    let args =
+      Add.many
+        [
+          "--domain"
+        ; string_of_int domid
+        ; "--chroot"
+        ; chroot.root
+        ; "--depriv"
+        ; "--uid"
+        ; string_of_int chroot.uid
+        ; "--gid"
+        ; string_of_int chroot.gid
+        ; "--backend"
+        ; backend
+        ; "--arg"
+        ; Printf.sprintf "socket:%s" socket_path
+        ]
+      >>= fun () ->
+      (D.pidfile_path domid |> function
+       | None ->
+           return ()
+       | Some x ->
+           Add.many ["--pidfile"; x]
+      )
+      >>= fun () ->
+      Add.many @@ argf "uuid:%s" vm_uuid >>= fun () ->
+      on reset_on_boot @@ Add.arg "--nonpersistent" >>= fun () ->
+      on restore @@ Add.arg "--resume" >>= fun () ->
+      on restore
+      @@ Add.many
+      @@ argf "resume:%s"
+           (Xenops_sandbox.Chroot.chroot_path_inside efivars_resume_path)
+      >>= fun () ->
+      Add.many
+      @@ argf "save:%s"
+           (Xenops_sandbox.Chroot.chroot_path_inside efivars_save_path)
+    in
+    let args = Fe_argv.run args |> snd |> Fe_argv.argv in
+    let service = D.start_daemon ~path ~args ~domid () in
+    let ready_path = D.pid_path domid in
+    wait_path ~pidalive:(D.alive service) ~task ~name ~domid ~xs ~ready_path
+      ~timeout:!Xenopsd.varstored_ready_timeout
+      ~cancel:(Cancel_utils.Varstored domid) ()
+
+  let stop = D.stop
+end
 
 (* TODO: struct and include and uri to uri mapper, etc.
    also xapi needs default backend set
