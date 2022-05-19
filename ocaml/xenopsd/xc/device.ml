@@ -3804,43 +3804,6 @@ module Dm = struct
   (* the following functions depend on the functions above that use the qemu
      backend Q *)
 
-  let start_swtpm ~xs task domid ~vtpm_uuid ~index =
-    debug "Preparing to start swtpm-wrapper to provide a vTPM (domid=%d)" domid ;
-    let exec_path = !Resources.swtpm_wrapper in
-    let name = "swtpm" in
-    let vm_uuid = Xenops_helpers.uuid_of_domid ~xs domid |> Uuid.to_string in
-
-    let chroot, _socket_path =
-      Xenops_sandbox.Swtpm_guard.start (Xenops_task.get_dbg task) ~vm_uuid
-        ~domid ~paths:[]
-    in
-    let tpm_root =
-      Xenops_sandbox.Chroot.(absolute_path_outside chroot Path.root)
-    in
-    (* the uri here is relative to the chroot path, if chrooting is disabled then
-       swtpm-wrapper should modify the uri accordingly.
-       xenopsd needs to be in charge of choosing the scheme according to the backend
-    *)
-    let state_uri =
-      Filename.concat "file://"
-      @@ Xenops_sandbox.Chroot.chroot_path_inside Service.Swtpm.state_path
-    in
-    let args = Fe_argv.Add.many [string_of_int domid; tpm_root; state_uri] in
-    let args = Fe_argv.run args |> snd |> Fe_argv.argv in
-    let timeout_seconds = !Xenopsd.swtpm_ready_timeout in
-    let dbg = Xenops_task.get_dbg task in
-    let execute =
-      Service.Swtpm.start_daemon dbg ~xs ~chroot ~vtpm_uuid ~vm_uuid ~index
-    in
-    let service =
-      {Service.name; domid; exec_path; chroot; args; execute; timeout_seconds}
-    in
-    Service.start_and_wait_for_readyness ~task ~service ;
-    (* return the socket path so qemu can have a reference to it*)
-    Xenops_sandbox.Chroot.(
-      absolute_path_outside chroot (Path.of_string ~relative:"swtpm-sock")
-    )
-
   let start_varstored ~xs ~nvram ?(restore = false)
       (task : Xenops_task.task_handle) domid =
     let open Xenops_types in
@@ -4002,7 +3965,7 @@ module Dm = struct
       match info.tpm with
       | Some (Vtpm vtpm_uuid) ->
           let tpm_socket_path =
-            start_swtpm ~xs task domid ~vtpm_uuid ~index:0
+            Service.Swtpm.start ~xs task domid ~vtpm_uuid ~index:0
           in
           [
             "-chardev"

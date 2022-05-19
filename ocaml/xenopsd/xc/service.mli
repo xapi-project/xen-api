@@ -1,19 +1,5 @@
 exception Service_failed of (string * string)
 
-type t = {
-    name: string
-  ; domid: Xenctrl.domid
-  ; exec_path: string
-  ; chroot: Xenops_sandbox.Chroot.t
-  ; timeout_seconds: float
-  ; args: string list
-  ; execute:
-      path:string -> args:string list -> domid:Xenctrl.domid -> unit -> string
-}
-
-val start_and_wait_for_readyness :
-  task:Xenops_task.Xenops_task.task_handle -> service:t -> unit
-
 module Qemu : sig
   module SignalMask : sig
     type t
@@ -110,19 +96,12 @@ module Varstored : sig
 end
 
 module Swtpm : sig
-  val state_path : Xenops_sandbox.Chroot.Path.t
-
-  val start_daemon :
-       string
-    -> xs:Xenstore.Xs.xsh
-    -> chroot:Xenops_sandbox.Chroot.t
-    -> path:string
-    -> args:string list
-    -> domid:Xenctrl.domid
-    -> vm_uuid:string
+  val start :
+       xs:Xenstore.Xs.xsh
     -> vtpm_uuid:Varstore_privileged_interface.Uuidm.t
     -> index:int
-    -> unit
+    -> Xenops_task.Xenops_task.task_handle
+    -> Xenctrl.domid
     -> string
 
   val restore : domid:int -> vm_uuid:string -> string -> unit

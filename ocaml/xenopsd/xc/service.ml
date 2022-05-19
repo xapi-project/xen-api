@@ -9,7 +9,7 @@
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
    GNU Lesser General Public License for more details.
- *)
+*)
 
 module D = Debug.Make (struct let name = "service" end)
 
@@ -421,12 +421,41 @@ module Swtpm = struct
     ) else
       debug "vTPM state for domid %d is empty: not restoring" domid
 
-  let start_daemon dbg ~xs ~chroot ~path ~args ~domid ~vm_uuid ~vtpm_uuid ~index
-      () =
+  let start ~xs ~vtpm_uuid ~index task domid =
+    debug "Preparing to start swtpm-wrapper to provide a vTPM (domid=%d)" domid ;
+    let exec_path = !Resources.swtpm_wrapper in
+    let name = "swtpm" in
+    let vm_uuid = Xenops_helpers.uuid_of_domid ~xs domid |> Uuid.to_string in
+
+    let chroot, _socket_path =
+      Xenops_sandbox.Swtpm_guard.start (Xenops_task.get_dbg task) ~vm_uuid
+        ~domid ~paths:[]
+    in
+    let tpm_root =
+      Xenops_sandbox.Chroot.(absolute_path_outside chroot Path.root)
+    in
+    (* the uri here is relative to the chroot path, if chrooting is disabled then
+       swtpm-wrapper should modify the uri accordingly.
+       xenopsd needs to be in charge of choosing the scheme according to the backend
+    *)
+    let state_uri =
+      Filename.concat "file://"
+      @@ Xenops_sandbox.Chroot.chroot_path_inside state_path
+    in
+    let args = Fe_argv.Add.many [string_of_int domid; tpm_root; state_uri] in
+    let args = Fe_argv.run args |> snd |> Fe_argv.argv in
+    let timeout_seconds = !Xenopsd.swtpm_ready_timeout in
+    let execute = D.start_daemon in
+    let service =
+      {name; domid; exec_path; chroot; args; execute; timeout_seconds}
+    in
+
+    let dbg = Xenops_task.get_dbg task in
     let state =
       Varstore_privileged_client.Client.vtpm_get_contents dbg vtpm_uuid
       |> Base64.decode_exn
     in
+
     let abs_path =
       Xenops_sandbox.Chroot.absolute_path_outside chroot state_path
     in
@@ -435,10 +464,16 @@ module Swtpm = struct
     else
       restore ~domid ~vm_uuid state ;
     let vtpm_path = xs_path ~domid in
+
     xs.Xs.write
       (Filename.concat vtpm_path @@ string_of_int index)
       (Uuidm.to_string vtpm_uuid) ;
-    D.start_daemon ~path ~args ~domid ()
+
+    start_and_wait_for_readyness ~task ~service ;
+    (* return the socket path so qemu can have a reference to it*)
+    Xenops_sandbox.Chroot.(
+      absolute_path_outside chroot (Path.of_string ~relative:"swtpm-sock")
+    )
 
   let suspend ~xs ~domid ~vm_uuid =
     D.stop ~xs domid ;
