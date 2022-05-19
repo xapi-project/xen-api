@@ -63,6 +63,18 @@ module Vgpu : sig
   val is_running : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> bool
 
   val stop : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> unit
+
+  val wait_path :
+       pidalive:(string -> bool)
+    -> task:Xenops_task.Xenops_task.task_handle
+    -> name:string
+    -> domid:int
+    -> xs:Xenstore.Xs.xsh
+    -> ready_path:Watch.path
+    -> timeout:float
+    -> cancel:Cancel_utils.key
+    -> 'a
+    -> unit
 end
 
 module PV_Vnc : sig
@@ -92,16 +104,17 @@ module PV_Vnc : sig
 end
 
 module Varstored : sig
-  val pidfile_path : Xenctrl.domid -> string option
-  (** path of file containing the pid value *)
+  val efivars_save_path : Xenops_sandbox.Chroot.Path.t
 
-  val pid_path : Xenctrl.domid -> string
-  (** xenstore key containing the pid value *)
+  val efivars_resume_path : Xenops_sandbox.Chroot.Path.t
 
-  val start_daemon :
-    path:string -> args:string list -> domid:Xenctrl.domid -> unit -> string
-
-  val alive : string -> 'a -> bool
+  val start :
+       xs:Xenstore.Xs.xsh
+    -> nvram:Xenops_types.Nvram_uefi_variables.t
+    -> ?restore:bool
+    -> Xenops_task.Xenops_task.task_handle
+    -> Xenctrl.domid
+    -> unit
 
   val stop : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> unit
 end
