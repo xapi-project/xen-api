@@ -2202,100 +2202,6 @@ module Dm_Common = struct
     in
     {argv; fd_map= []}
 
-  let vgpu_args_of_nvidia domid vcpus vgpus restore =
-    let open Xenops_interface.Vgpu in
-    let virtual_pci_address_compare vgpu1 vgpu2 =
-      match (vgpu1, vgpu2) with
-      | ( {implementation= Nvidia {virtual_pci_address= pci1; _}; _}
-        , {implementation= Nvidia {virtual_pci_address= pci2; _}; _} ) ->
-          Stdlib.compare pci1.dev pci2.dev
-      | other1, other2 ->
-          Stdlib.compare other1 other2
-    in
-    let device_args =
-      let make addr args =
-        Printf.sprintf "--device=%s"
-          (Xcp_pci.string_of_address addr :: args
-          |> List.filter (fun str -> str <> "")
-          |> String.concat ","
-          )
-      in
-      vgpus
-      |> List.sort virtual_pci_address_compare
-      |> List.map (fun vgpu ->
-             let addr =
-               match vgpu.virtual_pci_address with
-               | Some pci ->
-                   pci (* pass VF in case of SRIOV *)
-               | None ->
-                   vgpu.physical_pci_address
-             in
-             (* pass PF otherwise *)
-             match vgpu.implementation with
-             (* 1. Upgrade case, migrate from a old host with old vGPU having
-                config_path 2. Legency case, run with old Nvidia host driver *)
-             | Nvidia
-                 {
-                   virtual_pci_address
-                 ; config_file= Some config_file
-                 ; extra_args
-                 ; _
-                 } ->
-                 (* The VGPU UUID is not available. Create a fresh one; xapi
-                    will deal with it. *)
-                 let uuid = Uuid.(to_string (make ())) in
-                 debug "NVidia vGPU config: using config file %s and uuid %s"
-                   config_file uuid ;
-                 make addr
-                   [
-                     config_file
-                   ; Xcp_pci.string_of_address virtual_pci_address
-                   ; uuid
-                   ; extra_args
-                   ]
-             | Nvidia
-                 {
-                   virtual_pci_address
-                 ; type_id= Some type_id
-                 ; uuid= Some uuid
-                 ; extra_args
-                 ; _
-                 } ->
-                 debug "NVidia vGPU config: using type id %s and uuid: %s"
-                   type_id uuid ;
-                 make addr
-                   [
-                     type_id
-                   ; Xcp_pci.string_of_address virtual_pci_address
-                   ; uuid
-                   ; extra_args
-                   ]
-             | Nvidia {type_id= None; config_file= None; _} ->
-                 (* No type_id _and_ no config_file: something is wrong *)
-                 raise
-                   (Xenopsd_error
-                      (Internal_error
-                         (Printf.sprintf "NVidia vGPU metadata incomplete (%s)"
-                            __LOC__
-                         )
-                      )
-                   )
-             | _ ->
-                 ""
-         )
-    in
-    let suspend_file = sprintf demu_save_path domid in
-    let base_args =
-      [
-        "--domain=" ^ string_of_int domid
-      ; "--vcpus=" ^ string_of_int vcpus
-      ; "--suspend=" ^ suspend_file
-      ]
-      @ device_args
-    in
-    let fd_arg = if restore then ["--resume"] else [] in
-    List.concat [base_args; fd_arg]
-
   let write_vgpu_data ~xs domid devid keys =
     let path = xenops_vgpu_path domid devid in
     xs.Xs.writev path keys
@@ -2348,17 +2254,6 @@ module Dm_Common = struct
 
   let prepend_wrapper_args domid args =
     string_of_int domid :: "--syslog" :: args
-
-  let pid_alive pid name =
-    match Forkhelpers.waitpid_nohang pid with
-    | 0, Unix.WEXITED 0 ->
-        true
-    | _, Unix.WEXITED n ->
-        error "%s: unexpected exit with code: %d" name n ;
-        false
-    | _, (Unix.WSIGNALED n | Unix.WSTOPPED n) ->
-        error "%s: unexpected signal: %d" name n ;
-        false
 
   let gimtool_m = Mutex.create ()
 
@@ -3787,27 +3682,17 @@ module Dm = struct
     match vgpus with
     | {implementation= Nvidia _; _} :: _ ->
         (* Start DEMU and wait until it has reached the desired state *)
-        let state_path = Printf.sprintf "/local/domain/%d/vgpu/state" domid in
-        let cancel = Cancel_utils.Vgpu domid in
         if not (Service.Vgpu.is_running ~xs domid) then (
           let pcis = List.map (fun x -> x.physical_pci_address) vgpus in
           PCI.bind pcis PCI.Nvidia ;
           let module Q = (val Backend.of_profile profile) in
-          let args = vgpu_args_of_nvidia domid vcpus vgpus restore in
-          let vgpu_pid =
-            Service.Vgpu.start_daemon ~path:!Xc_resources.vgpu ~args ~domid
-              ~fds:[] ()
-          in
-          Service.Vgpu.wait_path ~pidalive:(pid_alive vgpu_pid) ~task
-            ~name:"vgpu" ~domid ~xs ~ready_path:state_path
-            ~timeout:!Xenopsd.vgpu_ready_timeout
-            ~cancel () ;
-          Forkhelpers.dontwaitpid vgpu_pid
+          Service.Vgpu.start ~xs ~vcpus ~vgpus ~restore task domid
         ) else
           info "Daemon %s is already running for domain %d" !Xc_resources.vgpu
             domid ;
         (* Keep waiting until DEMU's state becomes "initialising" or "running",
            or an error occurred. *)
+        let state_path = Service.Vgpu.state_path domid in
         let good_watches =
           [
             Watch.value_to_become state_path "initialising"
@@ -3817,8 +3702,9 @@ module Dm = struct
         in
         let error_watch = Watch.value_to_become state_path "error" in
         if
-          cancellable_watch cancel good_watches [error_watch] task ~xs
-            ~timeout:3600. ()
+          cancellable_watch
+            (Service.Vgpu.cancel_key domid)
+            good_watches [error_watch] task ~xs ~timeout:3600. ()
         then
           info "Daemon vgpu is ready"
         else

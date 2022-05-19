@@ -39,31 +39,24 @@ module Qemu : sig
 end
 
 module Vgpu : sig
-  val start_daemon :
-       path:string
-    -> args:string list
-    -> domid:Xenctrl.domid
-    -> ?fds:(string * Unix.file_descr) list
+  val start :
+       xs:Xenstore.Xs.xsh
+    -> vcpus:int
+    -> vgpus:Xenops_interface.Vgpu.t list
+    -> restore:bool
+    -> Xenops_task.Xenops_task.task_handle
+    -> int
     -> unit
-    -> Forkhelpers.pidty
+
+  val cancel_key : Xenctrl.domid -> Cancel_utils.key
+
+  val state_path : Xenctrl.domid -> string
 
   val pid : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> int option
 
   val is_running : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> bool
 
   val stop : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> unit
-
-  val wait_path :
-       pidalive:(string -> bool)
-    -> task:Xenops_task.Xenops_task.task_handle
-    -> name:string
-    -> domid:int
-    -> xs:Xenstore.Xs.xsh
-    -> ready_path:Watch.path
-    -> timeout:float
-    -> cancel:Cancel_utils.key
-    -> 'a
-    -> unit
 end
 
 module PV_Vnc : sig
