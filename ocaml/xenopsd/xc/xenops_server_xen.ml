@@ -1684,7 +1684,7 @@ module VM = struct
           )
           () ;
         log_exn_continue "Error stoping vncterm, already dead ?"
-          (fun () -> Device.PV_Vnc.stop ~xs domid)
+          (fun () -> Service.PV_Vnc.stop ~xs domid)
           ()
         (* If qemu is in a different domain to storage, detach disks *)
     )
@@ -1742,7 +1742,7 @@ module VM = struct
           (fun () ->
             (* Finally, discard any device caching for the domid destroyed *)
             DeviceCache.discard device_cache di.Xenctrl.domid ;
-            Device.(Qemu.SignalMask.unset Qemu.signal_mask di.Xenctrl.domid)
+            Service.Qemu.(SignalMask.unset signal_mask di.Xenctrl.domid)
           )
     )
 
@@ -2256,7 +2256,7 @@ module VM = struct
       match vm.Vm.ty with
       | Vm.PV {vncterm= true; vncterm_ip= ip; _}
       | Vm.PVinPVH {vncterm= true; vncterm_ip= ip; _} ->
-          Device.PV_Vnc.start ~xs ?ip di.Xenctrl.domid
+          Service.PV_Vnc.start ~xs ?ip di.Xenctrl.domid
       | _ ->
           ()
     with Device.Ioemu_failed (name, msg) ->
@@ -2731,9 +2731,9 @@ module VM = struct
             let vnc =
               Option.map
                 (function
-                  | Device.Socket.Port port ->
+                  | Xenops_utils.Socket.Port port ->
                       {Vm.protocol= Vm.Rfb; port; path= ""}
-                  | Device.Socket.Unix path ->
+                  | Xenops_utils.Socket.Unix path ->
                       {Vm.protocol= Vm.Rfb; port= 0; path}
                   )
                 (Device.get_vnc_port ~xs ~dm:(dm_of ~vm) di.Xenctrl.domid)
@@ -3442,9 +3442,9 @@ module VGPU = struct
         let emulator_pid =
           match vgpu.implementation with
           | Empty | MxGPU _ | GVT_g _ ->
-              Device.Qemu.pid ~xs frontend_domid
+              Service.Qemu.pid ~xs frontend_domid
           | Nvidia _ ->
-              Device.Vgpu.pid ~xs frontend_domid
+              Service.Vgpu.pid ~xs frontend_domid
         in
         match emulator_pid with
         | Some _ ->
@@ -3463,7 +3463,7 @@ module VUSB = struct
   let get_state vm vusb =
     on_frontend
       (fun _ xs frontend_domid _ ->
-        let emulator_pid = Device.Qemu.pid ~xs frontend_domid in
+        let emulator_pid = Service.Qemu.pid ~xs frontend_domid in
         debug "Qom list to get vusb state" ;
         let peripherals = Device.Vusb.qom_list ~xs ~domid:frontend_domid in
         let found = List.mem (snd vusb.Vusb.id) peripherals in
@@ -4877,7 +4877,7 @@ module Actions = struct
     ; sprintf "/local/domain/%d/memory/uncooperative" domid
     ; sprintf "/local/domain/%d/console/vnc-port" domid
     ; sprintf "/local/domain/%d/console/tc-port" domid
-    ; Device.Qemu.pid_path_signal domid
+    ; Service.Qemu.pid_path_signal domid
     ; sprintf "/local/domain/%d/control" domid
     ; sprintf "/local/domain/%d/device" domid
     ; sprintf "/local/domain/%d/rrd" domid
@@ -5054,7 +5054,8 @@ module Actions = struct
         debug "Ignoring qemu-pid-signal watch on shutdown domain %d" d
       else
         let signal =
-          try Some (xs.Xs.read (Device.Qemu.pid_path_signal d)) with _ -> None
+          try Some (xs.Xs.read (Service.Qemu.pid_path_signal d))
+          with _ -> None
         in
         match signal with
         | None ->

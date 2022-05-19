@@ -694,7 +694,7 @@ let destroy (task : Xenops_task.task_handle) ~xc ~xs ~qemu_domid ~vtpm ~dm domid
     (fun () -> Device.Dm.stop ~xs ~qemu_domid ~vtpm ~dm domid)
     () ;
   log_exn_continue "Error stoping vncterm, already dead ?"
-    (fun () -> Device.PV_Vnc.stop ~xs domid)
+    (fun () -> Service.PV_Vnc.stop ~xs domid)
     () ;
   (* Forcibly shutdown every backend *)
   List.iter
