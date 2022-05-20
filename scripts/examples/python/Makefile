@@ -3,7 +3,7 @@ PROFILE=release
 .PHONY: build clean
 
 build: setup.py
-	python setup.py bdist_wheel
+	pip wheel -w dist --no-deps .
 	python setup.py sdist
 
 setup.py:
