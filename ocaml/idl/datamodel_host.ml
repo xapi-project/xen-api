@@ -2071,6 +2071,10 @@ let t =
         ; field ~qualifier:DynamicRO ~in_product_since:"1.313.0" ~ty:Bool
             "tls_verification_enabled" ~default_value:(Some (VBool false))
             "True if this host has TLS verifcation enabled"
+        ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:DateTime
+            "last_software_update"
+            ~default_value:(Some (VDateTime (Date.of_float 0.0)))
+            "Date and time when the last software update was applied"
         ]
       )
     ()

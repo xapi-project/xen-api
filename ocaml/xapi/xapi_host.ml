@@ -950,7 +950,7 @@ let create ~__context ~uuid ~name_label ~name_description:_ ~hostname ~address
       )
     ~control_domain:Ref.null ~updates_requiring_reboot:[] ~iscsi_iqn:""
     ~multipathing:false ~uefi_certificates:"" ~editions:[] ~pending_guidances:[]
-    ~tls_verification_enabled ;
+    ~tls_verification_enabled ~last_software_update:(Date.localtime ()) ;
   (* If the host we're creating is us, make sure its set to live *)
   Db.Host_metrics.set_last_updated ~__context ~self:metrics
     ~value:(Date.of_float (Unix.gettimeofday ())) ;
@@ -2814,4 +2814,5 @@ let apply_updates ~__context ~self ~hash =
       ~doc:"Host.apply_updates" ~op:`apply_updates
     @@ fun () -> Repository.apply_updates ~__context ~host:self ~hash
   in
+  Db.Host.set_last_software_update ~__context ~self ~value:(Date.localtime ()) ;
   Repository.apply_immediate_guidances ~__context ~host:self ~guidances
