@@ -1,0 +1,31 @@
+#!/bin/sh
+set -eu
+# RRDtool has a built-in limit of 20 chars
+zcat "$1" | xmllint -format - | sed -e 's/io_throughput_/io_/g' \
+    -e 's/memory_reclaimed_max/mem_reclaim/g' \
+    -e 's/read_latency/rlat/g' \
+    -e 's/write_latency/wlat/g' \
+    -e 's/Tapdisks_in_low_memory_mode/tapdisks_lowmem/g' \
+    -e 's/runstate_/rs_/g' \
+    -e 's/_concurrency_/_conc_/g' \
+    -e 's/_partial_/_part_/g' \
+    -re 's/sr_([^-])+-[^_]+_/sr_\1_/g' \
+    -e 's/memory/mem/g' >"${1}.rrd2.xml"
+rm -f "${1}.rrd"
+rrdtool restore "${1}.rrd2.xml" "${1}.rrd"
+
+END=$(rrdtool last data.rrd)
+for i in $(seq 0 9); do rrdtool first data.rrd --rraindex $i; done | sort -u | while read START; do
+    SPAN=$(( ${END} - ${START} ))
+    rrdtool graph --imgformat SVG fds_${SPAN}.svg \
+        'DEF:xapi_open_fds_min=data.rrd:xapi_open_fds:MIN'\
+        'DEF:xapi_open_fds_max=data.rrd:xapi_open_fds:MAX'\
+        'DEF:xapi_open_fds_avg=data.rrd:xapi_open_fds:AVERAGE'\
+        'AREA:xapi_open_fds_min#00ff00:MIN(xapi_open_fds)'\
+        'LINE:xapi_open_fds_avg#0000ff:AVG(xapi_open_fds)'\
+        'LINE:xapi_open_fds_max#ff0000:MAX(xapi_open_fds)'\
+        --title "XAPI open file descriptors over time (${SPAN}s)"\
+        --upper-limit 1024 --lower-limit 0 --rigid --allow-shrink \
+        --width 1024 --height 368 \
+        --start "${START}" --end "${END}"
+done
