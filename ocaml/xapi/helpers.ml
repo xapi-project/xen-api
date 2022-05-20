@@ -1219,16 +1219,13 @@ let local_storage_exists () =
     true
   with _ -> false
 
-let touch_file fname =
-  try
-    if fname <> "" then
-      match Unixext.spawnvp "touch" [|"touch"; fname|] with
-      | Unix.WEXITED 0 ->
-          ()
-      | _ ->
-          warn "Unable to touch ready file '%s': touch exited abnormally" fname
-  with e ->
-    warn "Unable to touch ready file '%s': %s" fname (Printexc.to_string e)
+(** Stdlib's Arg module doesn't support string option ref, instead the empty
+    string is used for expressing the null value *)
+let touch_file cmd_arg =
+  if cmd_arg <> "" then
+    try Unixext.touch_file cmd_arg
+    with e ->
+      warn "Unable to touch file '%s': %s" cmd_arg (Printexc.to_string e)
 
 let vm_to_string __context vm =
   let str = Ref.string_of vm in

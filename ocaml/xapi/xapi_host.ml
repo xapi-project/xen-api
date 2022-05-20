@@ -1108,8 +1108,12 @@ let syslog_reconfigure ~__context ~host:_ =
   let flag =
     match destination with "" -> "--noremote" | _ -> "--remote=" ^ destination
   in
-  let args = [|!Xapi_globs.xe_syslog_reconfigure; flag|] in
-  ignore (Unixext.spawnvp args.(0) args)
+  let (_ : string * string) =
+    Forkhelpers.execute_command_get_output
+      !Xapi_globs.xe_syslog_reconfigure
+      [flag]
+  in
+  ()
 
 let get_management_interface ~__context ~host =
   let pifs =
