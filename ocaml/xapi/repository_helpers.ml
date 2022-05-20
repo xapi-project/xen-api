@@ -229,7 +229,7 @@ let with_updateinfo_xml gz_path f =
         (fun () ->
           try
             Unixext.with_file gz_path [Unix.O_RDONLY] 0o0 @@ fun gz_fd_in ->
-            Gzip.decompress_passive gz_fd_in @@ fun fd_in ->
+            Gzip.Default.decompress_passive gz_fd_in @@ fun fd_in ->
             let ic = Unix.in_channel_of_descr fd_in in
             try
               while true do

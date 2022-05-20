@@ -1980,10 +1980,10 @@ let with_open_archive fd ?length f =
       in
       if zstd then (
         debug "Failed to directly open the archive; trying zstd" ;
-        Zstd.decompress
+        Zstd.Default.decompress
       ) else (
         debug "Failed to directly open the archive; trying gzip" ;
-        Gzip.decompress
+        Gzip.Default.decompress
       )
     in
     let feeder pipe_in =
