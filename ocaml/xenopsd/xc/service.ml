@@ -53,12 +53,25 @@ let pid_alive pid name =
       error "%s: unexpected signal: %d" name n ;
       false
 
+let pidfile_path root daemon_name domid =
+  Printf.sprintf "%s/%s-%d.pid" root daemon_name domid
+
+let pidfile_path_tmpfs daemon_name domid =
+  pidfile_path Device_common.var_run_xen_path daemon_name domid
+
+module Pid = struct
+  type both = {key: int -> string; file: int -> string}
+
+  type path =
+    | Xenstore of (int -> string)
+    (* | File of (int -> string) *)
+    | Path_of of both
+end
+
 module type DAEMONPIDPATH = sig
   val name : string
 
-  val use_pidfile : bool
-
-  val pid_path : int -> string
+  val pid_location : Pid.path
 end
 
 module DaemonMgmt (D : DAEMONPIDPATH) = struct
@@ -80,23 +93,23 @@ module DaemonMgmt (D : DAEMONPIDPATH) = struct
 
   let name = D.name
 
-  let pid_path = D.pid_path
+  let pid_path domid =
+    match D.pid_location with Xenstore key | Path_of {key; _} -> key domid
 
   let pid_path_signal domid = pid_path domid ^ "-signal"
 
   let pidfile_path domid =
-    if D.use_pidfile then
-      Some
-        (Printf.sprintf "%s/%s-%d.pid" Device_common.var_run_xen_path D.name
-           domid
-        )
-    else
-      None
+    match D.pid_location with
+    | Path_of {file; _} ->
+        Some (file domid)
+    | _ ->
+        None
 
   let pid ~xs domid =
     try
-      match pidfile_path domid with
-      | Some path when Sys.file_exists path ->
+      match D.pid_location with
+      | Path_of {file; _} when Sys.file_exists (file domid) ->
+          let path = file domid in
           let pid =
             path |> Unixext.string_of_file |> String.trim |> int_of_string
           in
@@ -110,10 +123,10 @@ module DaemonMgmt (D : DAEMONPIDPATH) = struct
                 (* cannot obtain lock: process is alive *)
                 Some pid
           )
-      | _ ->
+      | Xenstore key | Path_of {key; _} ->
           (* backward compatibility during update installation: only has
-             xenstore pid *)
-          let pid = xs.Xs.read (pid_path domid) in
+             xenstore pid available *)
+          let pid = xs.Xs.read (key domid) in
           Some (int_of_string pid)
     with _ -> None
 
@@ -180,18 +193,18 @@ end
 module Qemu = DaemonMgmt (struct
   let name = "qemu-dm"
 
-  let use_pidfile = true
-
   let pid_path domid = Printf.sprintf "/local/domain/%d/qemu-pid" domid
+
+  let pid_location = Pid.Path_of {key= pid_path; file= pidfile_path_tmpfs name}
 end)
 
 module Vgpu = struct
   module D = DaemonMgmt (struct
     let name = "vgpu"
 
-    let use_pidfile = false
-
     let pid_path domid = Printf.sprintf "/local/domain/%d/vgpu-pid" domid
+
+    let pid_location = Pid.Xenstore pid_path
   end)
 
   let vgpu_args_of_nvidia domid vcpus vgpus restore =
@@ -349,7 +362,9 @@ module SystemdDaemonMgmt (D : DAEMONPIDPATH) = struct
   let start_daemon ~path ~args ~domid () =
     debug "Starting daemon: %s with args [%s]" path (String.concat "; " args) ;
     let service = Compat.syslog_key ~domid in
-    let pidpath = D.pid_path domid in
+    let pidpath =
+      match D.pid_location with Xenstore key | Path_of {key; _} -> key domid
+    in
     let properties =
       ("ExecStopPost", "-/usr/bin/xenstore-rm " ^ pidpath)
       ::
@@ -369,9 +384,10 @@ module Varstored = struct
   module D = SystemdDaemonMgmt (struct
     let name = "varstored"
 
-    let use_pidfile = true
-
     let pid_path domid = Printf.sprintf "/local/domain/%d/varstored-pid" domid
+
+    let pid_location =
+      Pid.Path_of {key= pid_path; file= pidfile_path_tmpfs name}
   end)
 
   let efivars_resume_path =
@@ -448,9 +464,9 @@ module PV_Vnc = struct
   module D = DaemonMgmt (struct
     let name = "vncterm"
 
-    let use_pidfile = false
-
     let pid_path domid = Printf.sprintf "/local/domain/%d/vncterm-pid" domid
+
+    let pid_location = Pid.Xenstore pid_path
   end)
 
   let vnc_console_path domid = Printf.sprintf "/local/domain/%d/console" domid
