@@ -6,6 +6,7 @@
     threads
     xapi-rrd.unix
     bos.setup
+    tyre
   )
   (package rrdview)
 )
