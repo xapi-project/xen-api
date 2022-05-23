@@ -599,7 +599,16 @@ let append_livepatch_guidances ~updates_info ~upd_ids_of_livepatches guidances =
     )
     upd_ids_of_livepatches guidances
 
-let eval_guidances ~updates_info ~updates ~kind ~upd_ids_of_livepatches =
+let eval_guidances ~updates_info ~updates ~kind ~livepatches =
+  let upd_ids_of_livepatches =
+    List.fold_left
+      (fun acc (_, lps) ->
+        List.fold_left
+          (fun acc' (_, upd_info) -> UpdateIdSet.add upd_info.UpdateInfo.id acc')
+          acc lps
+      )
+      UpdateIdSet.empty livepatches
+  in
   List.fold_left
     (fun acc u ->
       match
@@ -868,12 +877,11 @@ let get_list_from_updates_of_host key updates_of_host =
   | l ->
       Yojson.Basic.Util.to_list l
 
-let merge_livepatches ~updates_info ~updates =
+let retrieve_livepatches_from_updateinfo ~updates_info ~updates =
   let open LivePatch in
   get_list_from_updates_of_host "applied_livepatches" updates
   |> List.map Livepatch.of_json
-  |> List.fold_left
-       (fun (acc_upd_ids, acc_lps) applied_lp ->
+  |> List.filter_map (fun applied_lp ->
          let acc_livepatches =
            get_accumulative_livepatches ~since:applied_lp ~updates_info
          in
@@ -899,14 +907,21 @@ let merge_livepatches ~updates_info ~updates =
          in
          match latest_livepatch with
          | Some latest_lp ->
-             let upd_ids =
-               List.fold_left
-                 (fun acc (_, u) -> UpdateIdSet.add u.UpdateInfo.id acc)
-                 UpdateIdSet.empty acc_livepatches
-             in
-             (UpdateIdSet.union upd_ids acc_upd_ids, latest_lp :: acc_lps)
+             Some (latest_lp, acc_livepatches)
          | None ->
-             (acc_upd_ids, acc_lps)
+             None
+     )
+
+let merge_livepatches ~livepatches =
+  livepatches
+  |> List.fold_left
+       (fun (acc_upd_ids, acc_latest_lps) (latest_lp, acc_lps) ->
+         let upd_ids =
+           List.fold_left
+             (fun acc (_, u) -> UpdateIdSet.add u.UpdateInfo.id acc)
+             UpdateIdSet.empty acc_lps
+         in
+         (UpdateIdSet.union upd_ids acc_upd_ids, latest_lp :: acc_latest_lps)
        )
        (UpdateIdSet.empty, [])
 
@@ -942,34 +957,30 @@ let consolidate_updates_of_host ~repository_name ~updates_info host
    * introduced them. These accumulative updates will not be evaluated for guidance.
    * They are only to be returned in the update list.
    *)
-  let upd_ids_of_livepatches, livepatches =
-    merge_livepatches ~updates_info ~updates:updates_of_host
+  let livepatches =
+    retrieve_livepatches_from_updateinfo ~updates_info ~updates:updates_of_host
   in
   let rec_guidances =
-    eval_guidances ~updates_info ~updates ~kind:Recommended
-      ~upd_ids_of_livepatches
+    eval_guidances ~updates_info ~updates ~kind:Recommended ~livepatches
   in
   let abs_guidances_in_json =
     let abs_guidances =
-      List.filter
-        (fun g -> not (List.mem g rec_guidances))
-        (eval_guidances ~updates_info ~updates ~kind:Absolute
-           ~upd_ids_of_livepatches:UpdateIdSet.empty
-        )
+      eval_guidances ~updates_info ~updates ~kind:Absolute ~livepatches:[]
+      |> List.filter (fun g -> not (List.mem g rec_guidances))
     in
     List.map (fun g -> `String (Guidance.to_string g)) abs_guidances
   in
-  let upd_ids_of_livepatches', livepatches' =
+  let upd_ids_of_livepatches, lps =
     if List.mem Guidance.RebootHost rec_guidances then
       (* Any livepatches should not be applied if packages updates require RebootHost *)
       (UpdateIdSet.empty, [])
     else
-      (upd_ids_of_livepatches, livepatches)
+      merge_livepatches ~livepatches
   in
   let rec_guidances_in_json =
     List.map (fun g -> `String (Guidance.to_string g)) rec_guidances
   in
-  let upd_ids = UpdateIdSet.union ids_of_updates upd_ids_of_livepatches' in
+  let upd_ids = UpdateIdSet.union ids_of_updates upd_ids_of_livepatches in
   let json_of_host =
     `Assoc
       [
@@ -984,7 +995,7 @@ let consolidate_updates_of_host ~repository_name ~updates_info host
                (UpdateIdSet.elements upd_ids)
             )
         )
-      ; ("livepatches", `List (List.map LivePatch.to_json livepatches'))
+      ; ("livepatches", `List (List.map LivePatch.to_json lps))
       ]
   in
   (json_of_host, upd_ids)
