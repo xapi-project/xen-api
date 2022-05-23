@@ -29,6 +29,7 @@ type t = {
     name: string
   ; domid: Xenctrl.domid
   ; exec_path: string
+  ; pid_filename: string
   ; chroot: Chroot.t
   ; timeout_seconds: float
   ; args: string list
@@ -86,7 +87,6 @@ let start_and_wait_for_readyness ~task ~service =
     Chroot.absolute_path_outside service.chroot (Path.of_string ~relative:p)
   in
 
-  let pid_name = Printf.sprintf "%s-%d.pid" service.name service.domid in
   let cancel_name =
     Printf.sprintf "%s-%s.cancel" service.name (Xenops_task.get_dbg task)
   in
@@ -111,11 +111,11 @@ let start_and_wait_for_readyness ~task ~service =
       (* treat deleted directory or pidfile as cancelling *)
       | Cancelled, _, _ | _, (Inotify.Ignored | Inotify.Delete_self), _ ->
           Cancelled
-      | _, Inotify.Delete, Some name when name = pid_name ->
+      | _, Inotify.Delete, Some name when name = service.pid_filename ->
           Cancelled
       | _, Inotify.Create, Some name when name = cancel_name ->
           Cancelled
-      | _, Inotify.Create, Some name when name = pid_name ->
+      | _, Inotify.Create, Some name when name = service.pid_filename ->
           Created
       | _, _, _ ->
           acc
@@ -221,7 +221,7 @@ module Pid = struct
 
   type path =
     | Xenstore of (int -> string)
-    (* | File of (int -> string) *)
+    | File of (int -> string)
     | Path_of of both
 end
 
@@ -253,7 +253,7 @@ module DaemonMgmt (D : DAEMONPIDPATH) = struct
   let pid ~xs domid =
     try
       match D.pid_location with
-      | Path_of {file; _} when Sys.file_exists (file domid) ->
+      | (File file | Path_of {file; _}) when Sys.file_exists (file domid) ->
           let path = file domid in
           let pid =
             path |> Unixext.string_of_file |> String.trim |> int_of_string
@@ -273,6 +273,8 @@ module DaemonMgmt (D : DAEMONPIDPATH) = struct
              xenstore pid available *)
           let pid = xs.Xs.read (key domid) in
           Some (int_of_string pid)
+      | _ ->
+          None
     with _ -> None
 
   let is_running ~xs domid =
@@ -310,6 +312,8 @@ module DaemonMgmt (D : DAEMONPIDPATH) = struct
         match D.pid_location with
         | Xenstore key ->
             remove_key (key domid)
+        | File file ->
+            remove_file (file domid)
         | Path_of {key; file} ->
             remove_key (key domid) ;
             remove_file (file domid)
@@ -560,6 +564,9 @@ module SystemdDaemonMgmt (D : DAEMONPIDPATH) = struct
       | Xenstore get_path ->
           let key_path = get_path domid in
           [remove_key key_path]
+      | File get_path ->
+          let file_path = get_path domid in
+          [remove_file file_path]
       | Path_of {key; file} ->
           let key_path = key domid in
           let file_path = file domid in
@@ -650,13 +657,12 @@ end
    also xapi needs default backend set
 *)
 module Swtpm = struct
+  let pidfile_path domid = Printf.sprintf "swtpm-%d.pid" domid
+
   module D = SystemdDaemonMgmt (struct
     let name = "swtpm-wrapper"
 
-    let pid_path domid = Printf.sprintf "/local/domain/%d/varstored-pid" domid
-
-    (* XXX: the xenstore key is not used, the daemon should define the pidfile *)
-    let pid_location = Pid.Xenstore pid_path
+    let pid_location = Pid.File pidfile_path
   end)
 
   let xs_path ~domid = Device_common.get_private_path domid ^ "/vtpm"
@@ -679,8 +685,9 @@ module Swtpm = struct
 
   let start ~xs ~vtpm_uuid ~index task domid =
     debug "Preparing to start swtpm-wrapper to provide a vTPM (domid=%d)" domid ;
-    let exec_path = !Resources.swtpm_wrapper in
     let name = "swtpm" in
+    let exec_path = !Resources.swtpm_wrapper in
+    let pid_filename = pidfile_path domid in
     let vm_uuid = Xenops_helpers.uuid_of_domid ~xs domid |> Uuid.to_string in
 
     let chroot, _socket_path =
@@ -703,7 +710,16 @@ module Swtpm = struct
     let timeout_seconds = !Xenopsd.swtpm_ready_timeout in
     let execute = D.start_daemon in
     let service =
-      {name; domid; exec_path; chroot; args; execute; timeout_seconds}
+      {
+        name
+      ; domid
+      ; exec_path
+      ; pid_filename
+      ; chroot
+      ; args
+      ; execute
+      ; timeout_seconds
+      }
     in
 
     let dbg = Xenops_task.get_dbg task in
