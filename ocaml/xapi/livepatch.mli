@@ -41,3 +41,15 @@ val to_json : t -> Yojson.Basic.t
 val of_json : Yojson.Basic.t -> t
 
 val get_applied_livepatches : unit -> t list
+
+(** The Xen live patch utility functions *)
+module XenLivePatch : sig
+  val get_running_livepatch' :
+    string -> (string * string * string * string) option
+end
+
+(** The Kernel live patch utility functions *)
+module KernelLivePatch : sig
+  val get_running_livepatch' :
+    string -> (string * string * string * string) option
+end
