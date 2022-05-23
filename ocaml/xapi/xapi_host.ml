@@ -25,6 +25,10 @@ module D = Debug.Make (struct let name = "xapi_host" end)
 
 open D
 
+let get_servertime ~__context ~host:_ = Date.of_float (Unix.gettimeofday ())
+
+let get_server_localtime ~__context ~host:_ = Date.localtime ()
+
 let set_emergency_mode_error code params =
   Xapi_globs.emergency_mode_error := Api_errors.Server_error (code, params)
 
@@ -950,7 +954,7 @@ let create ~__context ~uuid ~name_label ~name_description:_ ~hostname ~address
       )
     ~control_domain:Ref.null ~updates_requiring_reboot:[] ~iscsi_iqn:""
     ~multipathing:false ~uefi_certificates:"" ~editions:[] ~pending_guidances:[]
-    ~tls_verification_enabled ~last_software_update:(Date.localtime ()) ;
+    ~tls_verification_enabled ~last_software_update:Date.never ;
   (* If the host we're creating is us, make sure its set to live *)
   Db.Host_metrics.set_last_updated ~__context ~self:metrics
     ~value:(Date.of_float (Unix.gettimeofday ())) ;
@@ -1412,10 +1416,6 @@ let backup_rrds ~__context ~host:_ ~delay =
             (Helpers.get_all_plugged_srs ~__context)
       )
   )
-
-let get_servertime ~__context ~host:_ = Date.of_float (Unix.gettimeofday ())
-
-let get_server_localtime ~__context ~host:_ = Date.localtime ()
 
 let enable_binary_storage ~__context ~host =
   Unixext.mkdir_safe Xapi_globs.xapi_blob_location 0o700 ;
@@ -2814,5 +2814,6 @@ let apply_updates ~__context ~self ~hash =
       ~doc:"Host.apply_updates" ~op:`apply_updates
     @@ fun () -> Repository.apply_updates ~__context ~host:self ~hash
   in
-  Db.Host.set_last_software_update ~__context ~self ~value:(Date.localtime ()) ;
+  Db.Host.set_last_software_update ~__context ~self
+    ~value:(get_servertime ~__context ~host:self) ;
   Repository.apply_immediate_guidances ~__context ~host:self ~guidances
