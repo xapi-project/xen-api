@@ -28,13 +28,10 @@ module Qemu : sig
 
   val name : string
 
-  val pid_path_signal : Xenctrl.domid -> string
+  val pidxenstore_path_signal : Xenctrl.domid -> string
 
-  val pidfile_path : Xenctrl.domid -> string option
+  val pidfile_path : Xenctrl.domid -> string
   (** path of file containing the pid value *)
-
-  val pid_path : Xenctrl.domid -> string
-  (** xenstore key containing the pid value *)
 
   val start_daemon :
        path:string
@@ -47,6 +44,9 @@ module Qemu : sig
   val pid : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> int option
 
   val is_running : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> bool
+
+  val stop :
+    xs:Xenstore.Xs.xsh -> qemu_domid:Xenctrl.domid -> Xenctrl.domid -> unit
 end
 
 module Vgpu : sig
