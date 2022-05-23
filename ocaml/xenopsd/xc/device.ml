@@ -341,8 +341,6 @@ module Generic = struct
       "Device.Generic.hard_shutdown about to blow away backend and error paths" ;
     rm_device_state ~xs x
 
-  let really_kill = Xenops_utils.really_kill
-
   let best_effort = Xenops_utils.best_effort
 end
 
@@ -1865,36 +1863,29 @@ module Vusb = struct
             speed id ;
           get_bus_from_version ()
     in
-    if Service.Qemu.is_running ~xs domid then (
-      let bus, prepare_bus = get_bus () in
-      prepare_bus () ;
-      (* Need to reset USB device before passthrough to vm according to
-         CP-24616. Also need to do deprivileged work in usb_reset script if QEMU
-         is deprivileged. *)
-      ( match Service.Qemu.pid ~xs domid with
-      | Some pid ->
-          usb_reset_attach ~hostbus ~hostport ~domid ~pid ~privileged
-      | _ ->
-          raise
-            (Xenopsd_error
-               (Internal_error
-                  (Printf.sprintf "qemu pid does not exist for vm %d" domid)
-               )
-            )
-      ) ;
-      let cmd =
-        Qmp.(
-          Device_add
-            Device.
-              {
-                driver= "usb-host"
-              ; device= USB {USB.id; params= Some USB.{bus; hostbus; hostport}}
-              }
-            
-        )
-      in
-      qmp_send_cmd domid cmd |> ignore
-    )
+    match Service.Qemu.pid ~xs domid with
+    | Some pid ->
+        (* Need to reset USB device before passthrough to vm according to
+           CP-24616. Also need to do deprivileged work in usb_reset script if QEMU
+           is deprivileged. *)
+        let bus, prepare_bus = get_bus () in
+        prepare_bus () ;
+        usb_reset_attach ~hostbus ~hostport ~domid ~pid ~privileged ;
+
+        let cmd =
+          Qmp.(
+            Device_add
+              Device.
+                {
+                  driver= "usb-host"
+                ; device= USB {USB.id; params= Some {bus; hostbus; hostport}}
+                }
+              
+          )
+        in
+        qmp_send_cmd domid cmd |> ignore
+    | None ->
+        ()
 
   let vusb_unplug ~xs ~privileged ~domid ~id ~hostbus ~hostport =
     debug "vusb_unplug: unplug VUSB device %s" id ;
@@ -2192,12 +2183,7 @@ module Dm_Common = struct
                )
           |> List.concat
         ; (info.monitor |> function None -> [] | Some x -> ["-monitor"; x])
-        ; (Service.Qemu.pidfile_path domid |> function
-           | None ->
-               []
-           | Some x ->
-               ["-pidfile"; x]
-          )
+        ; ["-pidfile"; Service.Qemu.pidfile_path domid]
         ]
     in
     {argv; fd_map= []}
@@ -2262,40 +2248,9 @@ module Dm_Common = struct
 
   (* Called by every domain destroy, even non-HVM *)
   let stop ~xs ~qemu_domid ~vtpm domid =
-    let qemu_pid_path = Service.Qemu.pid_path domid in
     let vm_uuid = Xenops_helpers.uuid_of_domid ~xs domid |> Uuid.to_string in
     let dbg = Printf.sprintf "stop domid %d" domid in
-    let stop_qemu () =
-      match Service.Qemu.pid ~xs domid with
-      | None ->
-          () (* nothing to do *)
-      | Some qemu_pid -> (
-          debug "qemu-dm: stopping qemu-dm with SIGTERM (domid = %d)" domid ;
-          let open Generic in
-          best_effort
-            "signalling that qemu is ending as expected, mask further signals"
-            (fun () -> Service.Qemu.(SignalMask.set signal_mask domid)
-          ) ;
-          best_effort "killing qemu-dm" (fun () -> really_kill qemu_pid) ;
-          best_effort "removing qemu-pid from xenstore" (fun () ->
-              xs.Xs.rm qemu_pid_path
-          ) ;
-          best_effort
-            "unmasking signals, qemu-pid is already gone from xenstore"
-            (fun () -> Service.Qemu.(SignalMask.unset signal_mask domid)
-          ) ;
-          best_effort "removing device model path from xenstore" (fun () ->
-              xs.Xs.rm (device_model_path ~qemu_domid domid)
-          ) ;
-          match Service.Qemu.pidfile_path domid with
-          | None ->
-              ()
-          | Some path ->
-              best_effort (sprintf "removing %s" path) (fun () ->
-                  Unix.unlink path
-              )
-        )
-    in
+    let stop_qemu () = Service.Qemu.stop ~xs ~qemu_domid domid in
     let stop_swptm () =
       Option.iter
         (fun (Xenops_interface.Vm.Vtpm vtpm_uuid) ->
@@ -3866,7 +3821,7 @@ module Dm = struct
                     (* before expected qemu stop: qemu-pid is available in
                        domain xs tree: signal action to take *)
                     xs.Xs.write
-                      (Service.Qemu.pid_path_signal domid)
+                      (Service.Qemu.pidxenstore_path_signal domid)
                       crash_reason
             )
         )

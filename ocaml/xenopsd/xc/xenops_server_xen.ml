@@ -4877,7 +4877,7 @@ module Actions = struct
     ; sprintf "/local/domain/%d/memory/uncooperative" domid
     ; sprintf "/local/domain/%d/console/vnc-port" domid
     ; sprintf "/local/domain/%d/console/tc-port" domid
-    ; Service.Qemu.pid_path_signal domid
+    ; Service.Qemu.pidxenstore_path_signal domid
     ; sprintf "/local/domain/%d/control" domid
     ; sprintf "/local/domain/%d/device" domid
     ; sprintf "/local/domain/%d/rrd" domid
@@ -5054,7 +5054,7 @@ module Actions = struct
         debug "Ignoring qemu-pid-signal watch on shutdown domain %d" d
       else
         let signal =
-          try Some (xs.Xs.read (Service.Qemu.pid_path_signal d))
+          try Some (xs.Xs.read (Service.Qemu.pidxenstore_path_signal d))
           with _ -> None
         in
         match signal with

@@ -253,8 +253,6 @@ module DaemonMgmt (D : DAEMONPIDPATH) = struct
   let pid_path domid =
     match D.pid_location with Xenstore key | Path_of {key; _} -> key domid
 
-  let pid_path_signal domid = pid_path domid ^ "-signal"
-
   let pidfile_path domid =
     match D.pid_location with
     | Path_of {file; _} ->
@@ -347,13 +345,59 @@ module DaemonMgmt (D : DAEMONPIDPATH) = struct
     pid
 end
 
-module Qemu = DaemonMgmt (struct
+module Qemu = struct
   let name = "qemu-dm"
 
-  let pid_path domid = Printf.sprintf "/local/domain/%d/qemu-pid" domid
+  let pidfile_path = pidfile_path_tmpfs name
 
-  let pid_location = Pid.Path_of {key= pid_path; file= pidfile_path_tmpfs name}
-end)
+  let pidxenstore_path domid = Printf.sprintf "/local/domain/%d/qemu-pid" domid
+
+  let pidxenstore_path_signal domid = pidxenstore_path domid ^ "-signal"
+
+  module D = DaemonMgmt (struct
+    let name = name
+
+    let pid_location = Pid.Path_of {key= pidxenstore_path; file= pidfile_path}
+  end)
+
+  module SignalMask = D.SignalMask
+
+  let signal_mask = D.signal_mask
+
+  let start_daemon = D.start_daemon
+
+  let pid = D.pid
+
+  let is_running = D.is_running
+
+  let stop ~xs ~qemu_domid domid =
+    match pid ~xs domid with
+    | None ->
+        () (* nothing to do *)
+    | Some pid ->
+        let xenstore_path = pidxenstore_path domid in
+        let best_effort = Xenops_utils.best_effort in
+        let really_kill = Xenops_utils.really_kill in
+        debug "qemu-dm: stopping qemu-dm with SIGTERM (domid = %d)" domid ;
+        best_effort
+          "signalling that qemu is ending as expected, mask further signals"
+          (fun () -> SignalMask.set signal_mask domid
+        ) ;
+        best_effort "killing qemu-dm" (fun () -> really_kill pid) ;
+        best_effort "removing qemu-pid from xenstore" (fun () ->
+            xs.Xs.rm xenstore_path
+        ) ;
+        best_effort "unmasking signals, qemu-pid is already gone from xenstore"
+          (fun () -> SignalMask.unset signal_mask domid
+        ) ;
+        best_effort "removing device model path from xenstore" (fun () ->
+            xs.Xs.rm (Device_common.device_model_path ~qemu_domid domid)
+        ) ;
+        let file_path = pidfile_path domid in
+        best_effort (Printf.sprintf "removing %s" file_path) (fun () ->
+            Unix.unlink file_path
+        )
+end
 
 module Vgpu = struct
   module D = DaemonMgmt (struct
