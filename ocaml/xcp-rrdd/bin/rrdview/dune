@@ -1,0 +1,12 @@
+(executable
+  (modes byte exe)
+  (name rrdview)
+  (public_name rrdview)
+  (libraries
+    threads
+    xapi-rrd.unix
+    bos.setup
+  )
+  (package rrdview)
+)
+
