@@ -22,11 +22,28 @@ let name ~ds_name ~cf_type =
   |> String.Ascii.lowercase
   |> Printf.sprintf "%s_%s" ds_name
 
+type ds_def = {
+    name_description: string option
+  ; standard: bool
+  ; min: float
+  ; max: float
+  ; units: string option
+}
+
+let default_def =
+  {
+    name_description= None
+  ; standard= false
+  ; min= Float.neg_infinity
+  ; max= Float.infinity
+  ; units= None
+  }
+
 let def ~data ~ds_name ~cf_type =
   let cfstr = Rrd.cf_type_to_string cf_type in
   let namestr = name ~ds_name ~cf_type in
   ( Def (ds_name, cf_type)
-  , Printf.sprintf "DEF:%s=%s:%s:%s" namestr data ds_name cfstr
+  , Printf.sprintf "DEF:%s=%s:%s:%s" namestr (Fpath.to_string data) ds_name cfstr
   )
 
 let shape kind ~def:(Def (ds_name, cf_type)) ~r ~g ~b =
@@ -72,7 +89,7 @@ let rrdtool ~filename ~data title ~ds_name ~first ~last =
     %% of_list graph
   )
 
-let process ~data rrd =
+let process ~data ~original_ds rrd =
   let open Rrd in
   for rra_i = 0 to Array.length rrd.rrd_rras - 1 do
     let rra = rrd.rrd_rras.(rra_i) in
@@ -80,7 +97,6 @@ let process ~data rrd =
       Int64.mul (Int64.of_int (rra.rra_pdp_cnt * rra.rra_row_cnt)) rrd.timestep
     in
     let start = rrd.last_updated -. Int64.to_float timespan in
-    Printf.printf "start=%f\n" start ;
     for j = 0 to Array.length rrd.rrd_dss - 1 do
       let ds_name = rrd.rrd_dss.(j).ds_name in
       Printf.printf "Doing ds: %s\n" ds_name ;
@@ -165,106 +181,11 @@ let nicdir_or_errors =
     nicdir <&> opt @@ str "_errors" |> conv nickind_of_match match_of_nickind
   )
 
-type category =
-  | SR of {id: string; dsname: string}
-  | CPU of {idx: int; cstate: int option}
-  | CPUavg
-  | NIC of {name: string; idx: int option; kind: nickind}
-  | Tapdisks_lowmem
-  | Memory_kib of {dsname: string}
-  | Memory_reclaimed_bytes of {dsname: string option}
-  | Pool_count of {dsname: string}
-  | Xapi_kib of {dsname: string}
-  | Openfds of {dsname: string}
-  | Loadavg
-  | Unknown of string
-
-let make_sr (id, dsname) = SR {id; dsname}
-
-let make_cpu (idx, cstate) = CPU {idx; cstate}
-
-let make_nic ((name, idx), kind) = NIC {name; idx; kind}
-
-let make_memory_kib dsname = Memory_kib {dsname}
-
-let make_memory_bytes dsname = Memory_reclaimed_bytes {dsname}
-
-let make_pool_count dsname = Pool_count {dsname}
-
-let make_xapi_kib dsname = Xapi_kib {dsname}
-
-let make_openfds () = Openfds {dsname= "xapi"}
-
-let pp ppf = function
-  (* TODO: load description from datasource list *)
-  | SR {id; dsname} ->
-      Fmt.pf ppf "SR (uuid=%s) %s" id dsname
-  | CPU {idx; cstate} ->
-      Fmt.pf ppf "CPU %d %a" idx Fmt.(option int) cstate
-  | CPUavg ->
-      Fmt.pf ppf "CPUavg"
-  | NIC {name; idx; kind} ->
-      Fmt.pf ppf "NIC %s%a %a" name Fmt.(option int) idx pp_nickind kind
-  | Tapdisks_lowmem ->
-      Fmt.pf ppf "Tapdisks_lowmem"
-  | Memory_kib {dsname} ->
-      Fmt.pf ppf "Memory %s (KiB)" dsname
-  | Memory_reclaimed_bytes {dsname} ->
-      Fmt.pf ppf "Memory_reclaimed %a (bytes)" Fmt.(option string) dsname
-  | Pool_count {dsname} ->
-      Fmt.pf ppf "pool_count %s" dsname
-  | Xapi_kib {dsname} ->
-      Fmt.pf ppf "XAPI memory %s kib" dsname
-  | Openfds {dsname} ->
-      Fmt.pf ppf "openfds %s" dsname
-  | Loadavg ->
-      Fmt.pf ppf "loadavg"
-  | Unknown dsname ->
-      Fmt.pf ppf "Unknown %s" dsname
-
-let groups =
-  let open Tyre in
-  let uuid8 = pcre "[0-9a-f]{8}" in
-  let uuid_rest = pcre "(-[0-9a-f]{4}){3}-[0-9a-f]{12}" in
-  let dsname = pcre "[a-zA-Z_]+" in
-  [
-    (dsname <&> char '_' *> uuid8) --> make_sr
-  ; (str "sr_" *> uuid8 <* uuid_rest <* char '_' <&> dsname) --> make_sr
-  ; (str "cpu" *> int <&> opt @@ (str "-C" *> int)) --> make_cpu
-  ; (str "cpu_avg" --> fun () -> CPUavg)
-  ; (pcre "pif_" *> pcre "bond|eth|aggr"
-    <&> opt int
-    <* char '_'
-    <&> nicdir_or_errors
-    )
-    --> make_nic
-  ; (str "Tapdisks_in_low_memory_mode" --> fun () -> Tapdisks_lowmem)
-  ; (str "memory_" *> dsname <* str "_kib") --> make_memory_kib
-  ; (str "memory_reclaimed" *> opt dsname) --> make_memory_bytes
-  ; (str "pool_" *> dsname <* str "_count") --> make_pool_count
-  ; (str "xapi_" *> dsname <* str "_kib") --> make_xapi_kib
-  ; str "xapi_open_fds" --> make_openfds
-  ; (str "loadavg" --> fun () -> Loadavg)
-  ]
-  |> route
-
 let pp_error ppf = function
   | `NoMatch (_re, str) ->
       Fmt.pf ppf "NoMatch '%s'" str
   | `ConverterFailure e ->
       Fmt.exn ppf e
-
-let group name =
-  let use _ = Unknown name in
-  (* we have to shorten DS names to fit in RRD's 20 char limit *)
-  Tyre.exec groups name |> Logs.on_error ~pp:pp_error ~use
-
-let group_graphs rrd =
-  let open Rrd in
-  let names = ds_names rrd in
-  names
-  |> List.iter @@ fun name ->
-     Logs.debug (fun m -> m "%s -> %a" name pp (group name))
 
 type ds = Ds : string -> ds
 (* to avoid mixing data source and filenames we use a different type here *)
@@ -322,23 +243,6 @@ let classify_dsname dsname =
   let error _ = make_ds dsname in
   dsname |> Tyre.exec classify |> Result.fold ~ok:Fun.id ~error
 
-type ds_def = {
-    name_description: string option
-  ; standard: bool
-  ; min: float
-  ; max: float
-  ; units: string option
-}
-
-let default_def =
-  {
-    name_description= None
-  ; standard= false
-  ; min= Float.neg_infinity
-  ; max= Float.infinity
-  ; units= None
-  }
-
 module StringMap = Map.Make (String)
 
 let classify ~ds_def ~filename ds =
@@ -379,6 +283,7 @@ let rrd_restore filename rrd =
   let dot_rrd = Fpath.set_ext "rrd" filename in
   Logs.debug (fun m -> m "Restoring RRD to %a" Fpath.pp dot_rrd) ;
   Cmd.(rrdtool % "restore" % "-f" % p filename % p dot_rrd) |> OS.Cmd.run
+  |> Result.map (fun () -> dot_rrd)
 
 (*let classify f seq =
   let fold map (group, item) = StringMap.add item group map in
@@ -387,6 +292,7 @@ let rrd_restore filename rrd =
 let split_rrd ~ds_def ~filename rrd =
   let open Rrd in
   let rrds = Hashtbl.create 3 in
+  let original_ds = Hashtbl.create 127 in
 
   (* split the rrd into multiple rrds based on data source name *)
   let () =
@@ -398,6 +304,7 @@ let split_rrd ~ds_def ~filename rrd =
        let previous =
          Hashtbl.find_opt rrds filename |> Option.value ~default:[]
        in
+       Hashtbl.replace original_ds ds_name ds;
        Hashtbl.replace rrds filename
        @@ (({ds with ds_name}, Array.map get_i rrd.rrd_rras) :: previous)
   in
@@ -419,8 +326,11 @@ let split_rrd ~ds_def ~filename rrd =
           }
      in
      let rrd = {rrd with rrd_dss= Array.of_list rrd_dss; rrd_rras} in
-     rrd_restore filename rrd
-     |> Logs.on_error_msg ~use:(fun () -> failwith "Failed to restore RRD")
+     let data =
+       rrd_restore filename rrd
+       |> Logs.on_error_msg ~use:(fun () -> failwith "Failed to restore RRD");
+     in
+     process ~data ~original_ds rrd
 
 type mode = Split | Default | Plot
 
