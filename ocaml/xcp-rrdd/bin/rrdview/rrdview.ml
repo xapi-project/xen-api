@@ -54,7 +54,9 @@ type cdef = Op of cdef * string * cdef | Var of def
 let rec string_of_cdef = function
   | Op (lhs, op, rhs) ->
       String.concat ~sep:"," [string_of_cdef lhs; string_of_cdef rhs; op]
-  | Var (Def (s, _) | Cdef s) ->
+  | Var (Def (ds_name, cf_type)) ->
+      name ~ds_name ~cf_type
+  | Var (Cdef s) ->
       s
 
 let cdef name ops =
@@ -62,7 +64,7 @@ let cdef name ops =
 
 type fill = RGB of {r: int; g: int; b: int}
 
-let shape ?(stack = false) kind ?(label = "") ~def fill =
+let shape ?(stack = false) kind ?label ~def fill =
   let defstr =
     match def with
     | Def (ds_name, cf_type) ->
@@ -79,7 +81,7 @@ let shape ?(stack = false) kind ?(label = "") ~def fill =
   in
   Printf.sprintf "%s:%s%s%s%s" kind defstr fillstr
     (if stack then ":STACK" else "")
-    label
+    (match label with None -> "" | Some x -> ":" ^ x)
 
 let area = shape "AREA"
 
@@ -87,17 +89,26 @@ let area_stack = shape ~stack:true "AREA"
 
 let line ?label = shape ?label "LINE"
 
+let colors =
+  (* TODO: calc more *)
+  [|
+     RGB {r= 0x24; g= 0xbc; b= 0x14}
+   ; RGB {r= 0xbc; g= 0x24; b= 0x14}
+   ; RGB {r= 0x14; g= 0x24; b= 0xbc}
+  |]
+
 let rrdtool ~filename ~data title ~ds_names ~first ~last =
   let graph =
     List.of_seq
       (ds_names
+      |> List.mapi (fun x s -> (s, x))
       |> List.to_seq
-      |> Seq.flat_map @@ fun ds_name ->
+      |> Seq.flat_map @@ fun (ds_name, i) ->
          let ds_min, def1 = def ~data ~ds_name ~cf_type:Rrd.CF_Min
          and ds_max, def2 = def ~data ~ds_name ~cf_type:Rrd.CF_Max
          and ds_avg, def3 = def ~data ~ds_name ~cf_type:Rrd.CF_Average in
          let ds_range, cdef1 =
-           cdef "range" (Op (Var ds_max, "-", Var ds_min))
+           cdef (ds_name ^ "range") (Op (Var ds_max, "-", Var ds_min))
          in
          List.to_seq
            [
@@ -107,8 +118,7 @@ let rrdtool ~filename ~data title ~ds_names ~first ~last =
            ; cdef1
            ; area ~def:ds_min None
            ; area_stack ~def:ds_range (Some (RGB {r= 0x20; g= 0x20; b= 0x20}))
-           ; line ~label:ds_name ~def:ds_avg
-               (Some (RGB {r= 0x24; g= 0xbc; b= 0x14}))
+           ; line ~label:ds_name ~def:ds_avg (Some colors.(i mod 3))
            ]
       )
   in
@@ -146,7 +156,7 @@ let prepare_plot_cmds ~filename ~data ~original_ds rrd =
      let filename =
        Fpath.add_ext (Int64.to_string timespan) filename |> Fpath.add_ext "svg"
      in
-     let title = "TODO" in
+     let title = Fpath.rem_ext filename |> Fpath.basename in
      (* TODO: could look up original names in original_ds *)
      rrdtool ~data ~filename title ~ds_names:(ds_names rrd)
        ~first:(Int64.of_float start)
