@@ -11,7 +11,6 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-open Event_types
 
 val register : __context:Context.t -> classes:string list -> unit
 (** Register an interest in events generated on objects of class <class_name> *)

@@ -11,9 +11,6 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-module D = Debug.Make (struct let name = "xapi_plugins" end)
-
-open D
 
 (* Allow xapi 'plugins' (ie scripts) which can be dropped onto individual host dom0s
    and then remote-execed by API clients *)
@@ -43,7 +40,7 @@ let call_plugin session_id plugin_name fn_name args =
     try
       Forkhelpers.execute_command_get_output plugin_name [Xml.to_string call]
     with
-    | Forkhelpers.Spawn_internal_error (log, output, Unix.WSTOPPED i) ->
+    | Forkhelpers.Spawn_internal_error (log, output, Unix.WSTOPPED _) ->
         raise
           (Api_errors.Server_error
              (Api_errors.xenapi_plugin_failure, ["task stopped"; output; log])
@@ -60,7 +57,7 @@ let call_plugin session_id plugin_name fn_name args =
                ]
              )
           )
-    | Forkhelpers.Spawn_internal_error (log, output, Unix.WEXITED i) ->
+    | Forkhelpers.Spawn_internal_error (log, output, Unix.WEXITED _) ->
         raise
           (Api_errors.Server_error
              (Api_errors.xenapi_plugin_failure, ["non-zero exit"; output; log])

@@ -35,7 +35,7 @@ let get_driver_name address =
       Unix.readlink (Printf.sprintf "/sys/bus/pci/devices/%s/driver" address)
     in
     match Astring.String.cut ~sep:"/" ~rev:true driver_path with
-    | Some (prefix, suffix) ->
+    | Some (_, suffix) ->
         Some suffix
     | None ->
         None

@@ -177,9 +177,7 @@ let apply_plan config plan =
   let hosts = account config.hosts config.vms plan in
   (* compute the VM -> host mappings which are unchanged *)
   let untouched =
-    List.filter
-      (fun (vm, host) -> not (List.mem_assoc vm plan))
-      config.placement
+    List.filter (fun (vm, _) -> not (List.mem_assoc vm plan)) config.placement
   in
   let placement = plan @ untouched in
   {config with hosts; placement}
@@ -193,7 +191,7 @@ type ('a, 'b) heuristic = {
 (** Return a list of failed VMs given a set of dead Hosts *)
 let get_failed_vms config dead_hosts =
   List.map fst
-    (List.filter (fun (vm, host) -> List.mem host dead_hosts) config.placement)
+    (List.filter (fun (_, host) -> List.mem host dead_hosts) config.placement)
 
 (** Given a configuration and a set of failed VMs, return a map of failed VM -> new Host *)
 let pack_failed_vms_onto_live_hosts (config : ('a, 'b) configuration)
@@ -251,7 +249,7 @@ let simulate_failure_approximation config =
   let rec drop n = function
     | [] ->
         []
-    | x :: xl when n > 0 ->
+    | _ :: xl when n > 0 ->
         drop (n - 1) xl
     | l ->
         l
@@ -275,7 +273,7 @@ let simulate_failure_approximation config =
     List.sort less_than'
       (List.map
          (fun (host, _) ->
-           List.length (List.filter (fun (vm, h) -> h = host) config.placement)
+           List.length (List.filter (fun (_, h) -> h = host) config.placement)
          )
          config.hosts
       )

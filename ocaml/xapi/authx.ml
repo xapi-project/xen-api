@@ -87,22 +87,22 @@ module AuthX : Auth_signature.AUTH_MODULE = struct
   (* Returns the id corresponding to the subject_name *)
   (* Raises Not_found if subject_name not in NSS database *)
   let getent_idbyname nss_database subject_name =
-    getent_common nss_database (fun username uid recs ->
+    getent_common nss_database (fun username uid _recs ->
         if username = subject_name then Some uid else None
     )
 
   let getent_namebyid nss_database subject_id =
-    getent_common nss_database (fun username uid recs ->
+    getent_common nss_database (fun username uid _recs ->
         if uid = subject_id then Some username else None
     )
 
   let getent_idbyid nss_database subject_id =
-    getent_common nss_database (fun username uid recs ->
+    getent_common nss_database (fun _username uid _recs ->
         if uid = subject_id then Some uid else None
     )
 
   let getent_allbyid nss_database subject_id =
-    getent_common nss_database (fun username uid recs ->
+    getent_common nss_database (fun _username uid recs ->
         if uid = subject_id then Some recs else None
     )
 
@@ -155,7 +155,7 @@ module AuthX : Auth_signature.AUTH_MODULE = struct
   *)
   (* not implemented now, not needed for our tests, only for a *)
   (* future single sign-on feature *)
-  let authenticate_ticket tgt =
+  let authenticate_ticket _tgt =
     failwith "authx authenticate_ticket not implemented"
 
   (* ((string*string) list) query_subject_information(string subject_identifier)
@@ -304,7 +304,7 @@ module AuthX : Auth_signature.AUTH_MODULE = struct
      		explicitly filter any one-time credentials [like AD username/password for example] that it
      		does not need long-term.]
   *)
-  let on_enable config_params =
+  let on_enable _config_params =
     (* nothing to do in this unix plugin, we always have /etc/passwd and /etc/group *)
     ()
 
@@ -315,7 +315,7 @@ module AuthX : Auth_signature.AUTH_MODULE = struct
      	service are cleared (i.e. so you can access the config params you need from the pool metadata
      	within the body of the on_disable method)
   *)
-  let on_disable config_params =
+  let on_disable _config_params =
     (* nothing to disable in this unix plugin, we should not disable /etc/passwd and /etc/group:) *)
     ()
 
@@ -324,7 +324,7 @@ module AuthX : Auth_signature.AUTH_MODULE = struct
      	Called internally by xapi whenever it starts up. The system_boot flag is true iff xapi is
      	starting for the first time after a host boot
   *)
-  let on_xapi_initialize system_boot =
+  let on_xapi_initialize _system_boot =
     (* again, nothing to be initialized here in this unix plugin *)
     ()
 

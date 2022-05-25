@@ -147,7 +147,7 @@ val make :
   -> create_info
   -> int
   -> arch_domainconfig
-  -> Uuidm.t
+  -> [`Vm] Uuid.t
   -> string option
   -> bool (* no_sharept *)
   -> domid
@@ -285,7 +285,7 @@ val soft_reset : xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> domid -> unit
 val vcpu_affinity_get : xc:Xenctrl.handle -> domid -> int -> bool array
 (** Get Cpu affinity of some vcpus of a domain *)
 
-val get_uuid : xc:Xenctrl.handle -> Xenctrl.domid -> Uuidm.t
+val get_uuid : xc:Xenctrl.handle -> Xenctrl.domid -> [`Vm] Uuid.t
 (** Get the uuid from a specific domain *)
 
 val set_memory_dynamic_range :

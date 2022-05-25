@@ -107,9 +107,6 @@ let raise_internal ?e ?details msg : 'a =
 module type CertificateProvider = sig
   val store_path : string
 
-  val certificate_of_id_content :
-    string -> string -> WireProtocol.certificate_file
-
   val read_certificate : string -> WireProtocol.certificate_file
 end
 
@@ -134,7 +131,7 @@ module HostPoolProvider = struct
         certificate_of_id_content uuid host_cert
 end
 
-let string_of_file path = Unixext.read_lines path |> String.concat "\n"
+let string_of_file path = Unixext.read_lines ~path |> String.concat "\n"
 
 module ApplianceProvider = struct
   let store_path = !Xapi_globs.trusted_certs_dir
@@ -165,10 +162,10 @@ module Worker : sig
     -> string
     -> WireProtocol.certificate_file remote_call
 
-  val remote_collect_certs :
-       WireProtocol.certificate
-    -> string list
-    -> WireProtocol.certificate_file list remote_call
+  (* val remote_collect_certs :
+        WireProtocol.certificate
+     -> string list
+     -> WireProtocol.certificate_file list remote_call*)
 
   val remote_write_certs_fs :
        WireProtocol.certificate
@@ -289,7 +286,8 @@ end = struct
           "result_or_fail: failed to parse result"
 
   let remote_call_sync host command rpc session_id =
-    XenAPI.Host.cert_distrib_atom rpc session_id host (string_of_command command)
+    XenAPI.Host.cert_distrib_atom ~rpc ~session_id ~host
+      ~command:(string_of_command command)
     |> result_or_fail
 
   let unexpected_result name r =
@@ -304,12 +302,12 @@ end = struct
     | r ->
         unexpected_result "remote_collect_cert" r
 
-  let remote_collect_certs typ ids host rpc session_id =
+  (*let remote_collect_certs typ ids host rpc session_id =
     remote_call_sync host (CollectMany (typ, ids)) rpc session_id |> function
     | CollectManyResult certs ->
         certs
     | r ->
-        unexpected_result "remote_collect_certs" r
+        unexpected_result "remote_collect_certs" r*)
 
   let remote_write_certs_fs typ strategy certs host rpc session_id =
     remote_call_sync host (Write (typ, strategy, certs)) rpc session_id

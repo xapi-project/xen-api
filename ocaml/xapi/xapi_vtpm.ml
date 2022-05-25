@@ -18,7 +18,7 @@ let introduce ~__context ~uuid ~vM ~profile ~contents =
   ref
 
 let create ~__context ~vM =
-  let uuid = Uuid.(to_string (make_uuid ())) in
+  let uuid = Uuid.(to_string (make ())) in
   let profile = Db.VM.get_default_vtpm_profile ~__context ~self:vM in
   let contents = Xapi_secret.create ~__context ~value:"" ~other_config:[] in
   let ref = introduce ~__context ~uuid ~vM ~profile ~contents in

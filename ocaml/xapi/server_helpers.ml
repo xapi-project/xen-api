@@ -11,7 +11,6 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-open Locking_helpers
 
 module D = Debug.Make (struct let name = "dispatcher" end)
 
@@ -39,21 +38,6 @@ let async_length = String.length async_wire_name
 let internal_async_wire_name = "InternalAsync."
 
 let internal_async_length = String.length internal_async_wire_name
-
-(* hardcode the wire-name messages that we want to supress the printing of in the logs to avoid log spam: *)
-let supress_printing_for_these_messages : (string, unit) Hashtbl.t =
-  let tbl = Hashtbl.create 20 in
-  List.iter
-    (fun k -> Hashtbl.replace tbl k ())
-    [
-      "host.tickle_heartbeat"
-    ; "session.login_with_password"
-    ; "session.logout"
-    ; "session.local_logout"
-    ; "session.slave_local_login"
-    ; "session.slave_local_login_with_password"
-    ] ;
-  tbl
 
 (** removes Async. or InternalAsync. prefixes if they exist
   * NB. X_y api call format does not work with Async (and didn't previously) *)
@@ -108,7 +92,7 @@ let exec_with_context ~__context ~need_complete ?marshaller ?f_forward
       ) ;
       result
     with
-    | Api_errors.Server_error (a, b) as e when a = Api_errors.task_cancelled ->
+    | Api_errors.Server_error (a, _) as e when a = Api_errors.task_cancelled ->
         Backtrace.is_important e ;
         if need_complete then TaskHelper.cancel ~__context ;
         raise e
@@ -141,7 +125,7 @@ let dispatch_exn_wrapper f =
     let code, params = ExnHelper.error_of_exn exn in
     API.response_of_failure code params
 
-let do_dispatch ?session_id ?forward_op ?self supports_async called_fn_name
+let do_dispatch ?session_id ?forward_op ?self:_ supports_async called_fn_name
     op_fn marshaller fd http_req label sync_ty generate_task_for =
   (* if the call has been forwarded to us, then they are responsible for completing the task, so we don't need to complete it *)
   let called_async = sync_ty <> `Sync in

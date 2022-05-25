@@ -27,7 +27,7 @@ open D
 	- Additional: Relating to features provided by v6d beyond the core ones.
 *)
 
-let all_flags = List.map (fun (k, v) -> k) (to_assoc_list all_features)
+let all_flags = List.map (fun (k, _) -> k) (to_assoc_list all_features)
 
 let get_pool_features ~__context =
   let pool = Helpers.get_pool ~__context in
@@ -56,7 +56,7 @@ let compute_core_features all_host_params =
 let find_additional_flags params =
   let kvs =
     List.filter
-      (fun (k, v) ->
+      (fun (k, _) ->
         try String.sub k 0 9 = "restrict_" && not (List.mem k all_flags)
         with Invalid_argument _ -> false
       )

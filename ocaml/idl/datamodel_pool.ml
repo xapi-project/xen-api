@@ -995,6 +995,17 @@ let disable_repository_proxy =
     ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
     ()
 
+let set_uefi_certificates =
+  call ~name:"set_uefi_certificates"
+    ~lifecycle:[(Published, "22.16.0", "")]
+    ~doc:"Sets the UEFI certificates for a pool and all its hosts"
+    ~params:
+      [
+        (Ref _pool, "self", "The pool")
+      ; (String, "value", "The certificates to apply to the pool and its hosts")
+      ]
+    ~allowed_roles:_R_POOL_ADMIN ()
+
 (** A pool class *)
 let t =
   create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:None
@@ -1075,6 +1086,7 @@ let t =
       ; disable_client_certificate_auth
       ; configure_repository_proxy
       ; disable_repository_proxy
+      ; set_uefi_certificates
       ]
     ~contents:
       ([uid ~in_oss_since:None _pool]
@@ -1242,7 +1254,18 @@ let t =
         ; field ~in_product_since:rel_inverness ~qualifier:DynamicRO ~ty:Bool
             ~default_value:(Some (VBool false)) "igmp_snooping_enabled"
             "true if IGMP snooping is enabled in the pool, false otherwise."
-        ; field ~in_product_since:rel_quebec ~qualifier:RW ~ty:String
+        ; field ~qualifier:StaticRO ~ty:String
+            ~lifecycle:
+              [
+                ( Published
+                , rel_quebec
+                , "The UEFI certificates allowing Secure Boot"
+                )
+              ; ( Changed
+                , "22.16.0"
+                , "Became StaticRO to be editable through new method"
+                )
+              ]
             ~default_value:(Some (VString "")) "uefi_certificates"
             "The UEFI certificates allowing Secure Boot"
         ; field ~in_product_since:rel_stockholm_psr ~qualifier:RW ~ty:Bool

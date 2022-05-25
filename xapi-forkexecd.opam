@@ -16,7 +16,7 @@ depends: [
   "astring"
   "forkexec"
   "systemd" {>= "1.2"}
-  "uuidm"
+  "uuid"
   "xapi-stdext-unix"
 ]
 conflicts: [

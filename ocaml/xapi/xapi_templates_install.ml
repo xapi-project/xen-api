@@ -17,7 +17,6 @@
 
 open Client
 open Forkhelpers
-open Xapi_templates
 open Attach_helpers
 
 module D = Debug.Make (struct let name = "xapi_templates_install" end)
@@ -64,21 +63,24 @@ let post_install_script rpc session_id __context install_vm vm (script, vbds) =
   | Some script ->
       assert_script_is_whitelisted script ;
       let vdis =
-        List.map (fun self -> Client.VBD.get_VDI rpc session_id self) vbds
+        List.map (fun self -> Client.VBD.get_VDI ~rpc ~session_id ~self) vbds
       in
       with_vbds rpc session_id __context install_vm vdis `RW
         (fun install_vm_vbds ->
           let devices =
             List.map
               (fun (install_vm_vbd, vbd) ->
-                let hvm = Client.VM.get_domain_type rpc session_id vm = `hvm in
+                let hvm =
+                  Client.VM.get_domain_type ~rpc ~session_id ~self:vm = `hvm
+                in
                 let device =
                   Vbdops.translate_vbd_device vbd
-                    (Client.VBD.get_userdevice rpc session_id vbd)
+                    (Client.VBD.get_userdevice ~rpc ~session_id ~self:vbd)
                     hvm
                 in
                 ( Device_number.to_linux_device device
-                , "/dev/" ^ Client.VBD.get_device rpc session_id install_vm_vbd
+                , "/dev/"
+                  ^ Client.VBD.get_device ~rpc ~session_id ~self:install_vm_vbd
                 )
               )
               (List.combine install_vm_vbds vbds)
@@ -112,7 +114,7 @@ let post_install_script rpc session_id __context install_vm vm (script, vbds) =
                     refresh_session () ;
                     let curtime = Unix.time () in
                     let elapsed = curtime -. starttime in
-                    let f x =
+                    let f _ =
                       0.1 +. (0.9 -. (0.9 *. exp (-.elapsed /. 60.0)))
                     in
                     let progress = f elapsed in
@@ -125,7 +127,7 @@ let post_install_script rpc session_id __context install_vm vm (script, vbds) =
           with
           | Success _ ->
               debug "Install script exited successfully."
-          | Failure (log, Subprocess_failed n) ->
+          | Failure (log, Subprocess_failed _) ->
               error
                 "post_install_script failed: message='%s' (assuming this was \
                  because the disk was too small)"
@@ -134,6 +136,6 @@ let post_install_script rpc session_id __context install_vm vm (script, vbds) =
                 (Api_errors.Server_error
                    (Api_errors.provision_failed_out_of_space, [])
                 )
-          | Failure (log, exn) ->
+          | Failure (_, exn) ->
               raise exn
       )

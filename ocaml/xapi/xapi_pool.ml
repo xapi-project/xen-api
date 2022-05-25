@@ -13,7 +13,6 @@
  *)
 
 open Client
-open Db_filter_types
 module Date = Xapi_stdext_date.Date
 module Listext = Xapi_stdext_std.Listext
 module Threadext = Xapi_stdext_threads.Threadext
@@ -54,14 +53,14 @@ let get_pool ~rpc ~session_id =
 
 let get_master ~rpc ~session_id =
   let pool = get_pool ~rpc ~session_id in
-  Client.Pool.get_master rpc session_id pool
+  Client.Pool.get_master ~rpc ~session_id ~self:pool
 
 (* Pre-join asserts *)
 let pre_join_checks ~__context ~rpc ~session_id ~force =
   (* I cannot join a Pool unless my management interface exists in the db, otherwise
      	   Pool.eject will fail to rewrite network interface files. *)
   let remote_pool =
-    match Client.Pool.get_all rpc session_id with
+    match Client.Pool.get_all ~rpc ~session_id with
     | [pool] ->
         pool
     | _ ->
@@ -95,7 +94,7 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
   (* I Cannot join a Pool if it has HA enabled on it *)
   let ha_is_not_enable_on_the_distant_pool () =
     let pool = get_pool ~rpc ~session_id in
-    if Client.Pool.get_ha_enabled rpc session_id pool then (
+    if Client.Pool.get_ha_enabled ~rpc ~session_id ~self:pool then (
       error "Cannot join pool which already has HA enabled" ;
       raise (Api_errors.Server_error (Api_errors.ha_is_enabled, []))
     )
@@ -193,7 +192,7 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
           )
   in
   let assert_api_version_matches () =
-    let master = get_master rpc session_id in
+    let master = get_master ~rpc ~session_id in
     let candidate_slave = Helpers.get_localhost ~__context in
     let master_major =
       Client.Host.get_API_version_major ~rpc ~session_id ~self:master
@@ -224,7 +223,7 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
     )
   in
   let assert_db_schema_matches () =
-    let master = get_master rpc session_id in
+    let master = get_master ~rpc ~session_id in
     let candidate_slave = Helpers.get_localhost ~__context in
     let master_sw_version =
       Client.Host.get_software_version ~rpc ~session_id ~self:master
@@ -273,14 +272,14 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
     in
     (* compare updates on host and pool master *)
     let pool_host = get_master ~rpc ~session_id in
-    let remote_updates = updates_on rpc session_id pool_host in
+    let remote_updates = updates_on ~rpc ~session_id pool_host in
     if not (S.equal local_updates remote_updates) then (
-      let remote_uuid = Client.Host.get_uuid rpc session_id pool_host in
+      let remote_uuid = Client.Host.get_uuid ~rpc ~session_id ~self:pool_host in
       let diff xs ys = S.diff xs ys |> S.elements |> String.concat "," in
       let reason =
         Printf.sprintf "Updates on local host %s and pool host %s differ"
           (Db.Host.get_name_label ~__context ~self:local_host)
-          (Client.Host.get_name_label rpc session_id pool_host)
+          (Client.Host.get_name_label ~rpc ~session_id ~self:pool_host)
       in
       error
         "Pool join: Updates differ. Only on pool host %s: {%s} -- only on \
@@ -295,7 +294,7 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
   (* CP-700: Restrict pool.join if AD configuration of slave-to-be does not match *)
   (* that of master of pool-to-join *)
   let assert_external_auth_matches () =
-    let master = get_master rpc session_id in
+    let master = get_master ~rpc ~session_id in
     let slavetobe = Helpers.get_localhost ~__context in
     let slavetobe_auth_type =
       Db.Host.get_external_auth_type ~__context ~self:slavetobe
@@ -389,7 +388,7 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
     let my_srs = Db.SR.get_all_records ~__context in
     let my_shared_srs =
       List.filter
-        (fun (sr, srec) -> srec.API.sR_shared && not srec.API.sR_is_tools_sr)
+        (fun (_, srec) -> srec.API.sR_shared && not srec.API.sR_is_tools_sr)
         my_srs
     in
     if not (my_shared_srs = []) then (
@@ -452,11 +451,11 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
     in
     let vlan_tag = Db.PIF.get_VLAN ~__context ~self:management_pif in
     let remote_management_pif =
-      Client.Host.get_management_interface rpc session_id
-        (get_master ~rpc ~session_id)
+      Client.Host.get_management_interface ~rpc ~session_id
+        ~host:(get_master ~rpc ~session_id)
     in
     let remote_vlan_tag =
-      Client.PIF.get_VLAN rpc session_id remote_management_pif
+      Client.PIF.get_VLAN ~rpc ~session_id ~self:remote_management_pif
     in
     if vlan_tag <> remote_vlan_tag then (
       error
@@ -483,7 +482,7 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
     let me =
       Db.Host.get_record ~__context ~self:(Helpers.get_localhost ~__context)
     in
-    let master_ref = get_master rpc session_id in
+    let master_ref = get_master ~rpc ~session_id in
     let master = Client.Host.get_record ~rpc ~session_id ~self:master_ref in
     let my_software_version = me.API.host_software_version in
     let master_software_version = master.API.host_software_version in
@@ -515,7 +514,7 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
   in
   let assert_hosts_homogeneous () =
     let me = Helpers.get_localhost ~__context in
-    let master_ref = get_master rpc session_id in
+    let master_ref = get_master ~rpc ~session_id in
     let master = Client.Host.get_record ~rpc ~session_id ~self:master_ref in
     (* Check software version, but as of CA-249786 don't check the build number*)
     let get_software_version_fields fields =
@@ -558,8 +557,9 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
       Db.Host.get_cpu_info ~__context ~self:me |> List.assoc "vendor"
     in
     let pool_cpu_vendor =
-      let pool = get_pool rpc session_id in
-      Client.Pool.get_cpu_info rpc session_id pool |> List.assoc "vendor"
+      let pool = get_pool ~rpc ~session_id in
+      Client.Pool.get_cpu_info ~rpc ~session_id ~self:pool
+      |> List.assoc "vendor"
     in
     debug "Pool pre-join CPU homogeneity check:" ;
     debug "Slave CPUs: %s" my_cpu_vendor ;
@@ -571,8 +571,8 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
         )
   in
   let assert_not_joining_myself () =
-    let master = get_master rpc session_id in
-    let master_uuid = Client.Host.get_uuid rpc session_id master in
+    let master = get_master ~rpc ~session_id in
+    let master_uuid = Client.Host.get_uuid ~rpc ~session_id ~self:master in
     let my_uuid =
       Db.Host.get_uuid ~__context ~self:(Helpers.get_localhost ~__context)
     in
@@ -666,12 +666,13 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
     let mgmt_addr_type =
       Db.PIF.get_primary_address_type ~__context ~self:mgmt_iface
     in
-    let master = get_master rpc session_id in
+    let master = get_master ~rpc ~session_id in
     let master_mgmt_iface =
-      Client.Host.get_management_interface rpc session_id master
+      Client.Host.get_management_interface ~rpc ~session_id ~host:master
     in
     let master_addr_type =
-      Client.PIF.get_primary_address_type rpc session_id master_mgmt_iface
+      Client.PIF.get_primary_address_type ~rpc ~session_id
+        ~self:master_mgmt_iface
     in
     if mgmt_addr_type <> master_addr_type then
       raise
@@ -688,7 +689,7 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
         |> List.find (function `nbd | `insecure_nbd -> true | _ -> false)
       in
       let remote_nbdish =
-        Client.Network.get_all rpc session_id
+        Client.Network.get_all ~rpc ~session_id
         |> List.map (fun nwk ->
                Client.Network.get_purpose ~rpc ~session_id ~self:nwk
            )
@@ -838,7 +839,7 @@ let rec create_or_get_host_on_master __context rpc session_id (host_ref, host) :
     API.ref_host =
   let my_uuid = host.API.host_uuid in
   let new_host_ref =
-    try Client.Host.get_by_uuid rpc session_id my_uuid
+    try Client.Host.get_by_uuid ~rpc ~session_id ~uuid:my_uuid
     with _ ->
       debug "Found no host with uuid = '%s' on the master, so creating one."
         my_uuid ;
@@ -888,8 +889,7 @@ let rec create_or_get_host_on_master __context rpc session_id (host_ref, host) :
       (* Copy the uefi-certificates into the newly created host record *)
       no_exn
         (fun () ->
-          Client.Host.set_uefi_certificates ~rpc ~session_id ~host:ref
-            ~value:host.API.host_uefi_certificates
+          Client.Host.write_uefi_certificates_to_disk ~rpc ~session_id ~host:ref
         )
         () ;
       (* Copy the crashdump SR *)
@@ -938,7 +938,7 @@ let rec create_or_get_host_on_master __context rpc session_id (host_ref, host) :
   in
   new_host_ref
 
-and create_or_get_sr_on_master __context rpc session_id (sr_ref, sr) :
+and create_or_get_sr_on_master __context rpc session_id (_sr_ref, sr) :
     API.ref_SR =
   let my_uuid = sr.API.sR_uuid in
   try Client.SR.get_by_uuid ~rpc ~session_id ~uuid:my_uuid
@@ -971,7 +971,7 @@ and create_or_get_sr_on_master __context rpc session_id (sr_ref, sr) :
       ref
     )
 
-let create_or_get_pbd_on_master __context rpc session_id (pbd_ref, pbd) :
+let create_or_get_pbd_on_master __context rpc session_id (_pbd_ref, pbd) :
     API.ref_PBD =
   let my_uuid = pbd.API.pBD_uuid in
   let new_pbd_ref =
@@ -1028,7 +1028,7 @@ let create_or_get_vdi_on_master __context rpc session_id (vdi_ref, vdi) :
   new_vdi_ref
 
 let create_or_get_network_on_master __context rpc session_id
-    (network_ref, network) : API.ref_network =
+    (_network_ref, network) : API.ref_network =
   let my_bridge = network.API.network_bridge in
   let is_physical =
     match network.API.network_PIFs with
@@ -1086,7 +1086,7 @@ let create_or_get_network_on_master __context rpc session_id
   in
   new_network_ref
 
-let create_or_get_pif_on_master __context rpc session_id (pif_ref, pif) :
+let create_or_get_pif_on_master __context rpc session_id (_pif_ref, pif) :
     API.ref_PIF =
   let my_uuid = pif.API.pIF_uuid in
   let my_host_ref = pif.API.pIF_host in
@@ -1098,10 +1098,10 @@ let create_or_get_pif_on_master __context rpc session_id (pif_ref, pif) :
     if pif.API.pIF_VLAN <> -1L then
       (* Get the remote management network for management VLAN PIF *)
       let remote_mgmt_pif =
-        Client.Host.get_management_interface rpc session_id
-          (get_master ~rpc ~session_id)
+        Client.Host.get_management_interface ~rpc ~session_id
+          ~host:(get_master ~rpc ~session_id)
       in
-      Client.PIF.get_network rpc session_id remote_mgmt_pif
+      Client.PIF.get_network ~rpc ~session_id ~self:remote_mgmt_pif
     else
       let my_network_ref = pif.API.pIF_network in
       let my_network = Db.Network.get_record ~__context ~self:my_network_ref in
@@ -1132,7 +1132,7 @@ let create_or_get_pif_on_master __context rpc session_id (pif_ref, pif) :
   in
   new_pif_ref
 
-let create_or_get_vlan_on_master __context rpc session_id (vlan_ref, vlan) :
+let create_or_get_vlan_on_master __context rpc session_id (_vlan_ref, vlan) :
     API.ref_VLAN =
   (* Create a VLAN PIF record only if it is a management PIF *)
   let my_host_ref = Db.PIF.get_host ~__context ~self:vlan.API.vLAN_tagged_PIF in
@@ -1222,7 +1222,7 @@ let create_or_get_pvs_site_on_master __context rpc session_id
   new_pvs_site_ref
 
 let create_or_get_pvs_cache_storage_on_master __context rpc session_id
-    (pcs_ref, pcs) : API.ref_PVS_cache_storage =
+    (_pcs_ref, pcs) : API.ref_PVS_cache_storage =
   let my_host_ref = pcs.API.pVS_cache_storage_host in
   let my_host = Db.Host.get_record ~__context ~self:my_host_ref in
   let new_host_ref =
@@ -1257,7 +1257,7 @@ let create_or_get_pvs_cache_storage_on_master __context rpc session_id
   in
   new_pvs_cache_storage_ref
 
-let create_or_get_secret_on_master __context rpc session_id (secret_ref, secret)
+let create_or_get_secret_on_master __context rpc session_id (_secret_ref, secret)
     : API.ref_secret =
   let my_uuid = secret.API.secret_uuid in
   let my_value = secret.API.secret_value in
@@ -1421,9 +1421,10 @@ let join_common ~__context ~master_address ~master_username ~master_password
   let me = Helpers.get_localhost ~__context in
   let session_id =
     try
-      Client.Session.login_with_password unverified_rpc master_username
-        master_password Datamodel_common.api_version_string
-        Constants.xapi_user_agent
+      Client.Session.login_with_password ~rpc:unverified_rpc
+        ~uname:master_username ~pwd:master_password
+        ~version:Datamodel_common.api_version_string
+        ~originator:Constants.xapi_user_agent
     with Http_client.Http_request_rejected _ | Http_client.Http_error _ ->
       raise
         (Api_errors.Server_error
@@ -1438,7 +1439,8 @@ let join_common ~__context ~master_address ~master_username ~master_password
          then an error will be thrown at this stage *)
       pre_join_checks ~__context ~rpc:unverified_rpc ~session_id ~force ;
       (* get hold of cluster secret - this is critical; if this fails whole pool join fails *)
-      new_pool_secret := Client.Pool.initial_auth unverified_rpc session_id ;
+      new_pool_secret :=
+        Client.Pool.initial_auth ~rpc:unverified_rpc ~session_id ;
 
       (* Distribute the pool certificate so other members can connect to me
          and I can connect to them *)
@@ -1450,15 +1452,16 @@ let join_common ~__context ~master_address ~master_username ~master_password
       in
       Cert_distrib.import_joining_pool_certs ~__context ~pool_certs
     )
-    (fun () -> Client.Session.logout unverified_rpc session_id) ;
+    (fun () -> Client.Session.logout ~rpc:unverified_rpc ~session_id) ;
 
   (* Certificate exchange done, we must switch to verified pool connections as
      soon as possible *)
   let rpc = rpc ~verify_cert:(Stunnel_client.pool ()) master_address in
   let session_id =
     try
-      Client.Session.login_with_password rpc master_username master_password
-        Datamodel_common.api_version_string Constants.xapi_user_agent
+      Client.Session.login_with_password ~rpc ~uname:master_username
+        ~pwd:master_password ~version:Datamodel_common.api_version_string
+        ~originator:Constants.xapi_user_agent
     with Http_client.Http_request_rejected _ | Http_client.Http_error _ ->
       raise
         (Api_errors.Server_error
@@ -1475,11 +1478,11 @@ let join_common ~__context ~master_address ~master_username ~master_password
     in
     if Db.PIF.get_VLAN_master_of ~__context ~self:my_pif <> Ref.null then
       let pif =
-        Client.Host.get_management_interface rpc session_id
-          (get_master ~rpc ~session_id)
+        Client.Host.get_management_interface ~rpc ~session_id
+          ~host:(get_master ~rpc ~session_id)
       in
-      let network = Client.PIF.get_network rpc session_id pif in
-      (Some (Client.Network.get_bridge rpc session_id network), my_pif)
+      let network = Client.PIF.get_network ~rpc ~session_id ~self:pif in
+      (Some (Client.Network.get_bridge ~rpc ~session_id ~self:network), my_pif)
     else
       (None, my_pif)
   in
@@ -1539,6 +1542,26 @@ let join_common ~__context ~master_address ~master_username ~master_password
           error "Failed fetching a database backup from the master: %s"
             (ExnHelper.string_of_exn e)
       ) ;
+      (* Writes UEFI certificates of the pool we join to this host's disk. *)
+      ( try
+          let _uefi_certs =
+            Client.Pool.get_uefi_certificates ~rpc ~session_id
+              ~self:(get_pool ~rpc ~session_id)
+          in
+          Db.Pool.set_uefi_certificates ~__context
+            ~self:(Helpers.get_pool ~__context)
+            ~value:_uefi_certs ;
+          Helpers.call_api_functions ~__context
+            (fun local_rpc local_session_id ->
+              Client.Host.write_uefi_certificates_to_disk ~rpc:local_rpc
+                ~session_id:local_session_id
+                ~host:(Helpers.get_localhost ~__context)
+          )
+        with e ->
+          error
+            "Unable to set the write the new pool certificates to the disk : %s"
+            (ExnHelper.string_of_exn e)
+      ) ;
       (* this is where we try and sync up as much state as we can
          with the master. This is "best effort" rather than
          critical; if we fail part way through this then we carry
@@ -1557,7 +1580,7 @@ let join_common ~__context ~master_address ~master_username ~master_password
            operation will continue, but some of the slave's VMs may not be \
            available on the master."
     )
-    (fun () -> Client.Session.logout rpc session_id) ;
+    (fun () -> Client.Session.logout ~rpc ~session_id) ;
 
   (* Attempt to unplug all our local storage. This is needed because
      when we restart as a slave, all the references will be wrong
@@ -1567,7 +1590,7 @@ let join_common ~__context ~master_address ~master_username ~master_password
         (fun self ->
           Helpers.log_exn_continue
             (Printf.sprintf "Unplugging PBD %s" (Ref.string_of self))
-            (fun () -> Client.PBD.unplug rpc session_id self)
+            (fun () -> Client.PBD.unplug ~rpc ~session_id ~self)
             ()
         )
         (Db.Host.get_PBDs ~__context ~self:me)
@@ -1588,12 +1611,12 @@ let join_common ~__context ~master_address ~master_username ~master_password
       )
   ) ;
   (* Rewrite the pool secret on every host of the current pool, and restart all the agent as slave of the distant pool master. *)
-  Helpers.call_api_functions ~__context (fun my_rpc my_session_id ->
+  Helpers.call_api_functions ~__context (fun rpc session_id ->
       List.iter
         (fun (host, _) ->
-          Client.Host.update_pool_secret my_rpc my_session_id host
-            !new_pool_secret ;
-          Client.Host.update_master my_rpc my_session_id host master_address
+          Client.Host.update_pool_secret ~rpc ~session_id ~host
+            ~pool_secret:!new_pool_secret ;
+          Client.Host.update_master ~rpc ~session_id ~host ~master_address
         )
         (Db.Host.get_all_records ~__context)
   ) ;
@@ -1656,7 +1679,8 @@ let recover_slaves ~__context =
         let newcontext = Context.make "emergency_reset_master" in
         Message_forwarding.do_op_on_localsession_nolivecheck ~local_fn
           ~__context:newcontext ~host:hostref (fun session_id rpc ->
-            Client.Pool.emergency_reset_master rpc session_id my_address
+            Client.Pool.emergency_reset_master ~rpc ~session_id
+              ~master_address:my_address
         ) ;
         recovered_hosts := hostref :: !recovered_hosts
       with _ -> ()
@@ -1985,7 +2009,8 @@ let sync_database ~__context =
         Threadext.thread_iter
           (fun host ->
             Helpers.call_api_functions ~__context (fun rpc session_id ->
-                Client.Host.request_backup rpc session_id host generation true
+                Client.Host.request_backup ~rpc ~session_id ~host ~generation
+                  ~force:true
             )
           )
           (Db.Host.get_all ~__context)
@@ -1993,7 +2018,7 @@ let sync_database ~__context =
   )
 
 (* This also means me, since call will have been forwarded from the current master *)
-let designate_new_master ~__context ~host =
+let designate_new_master ~__context ~host:_ =
   if not (Pool_role.is_master ()) then (
     let pool = Helpers.get_pool ~__context in
     if Db.Pool.get_ha_enabled ~__context ~self:pool then
@@ -2001,7 +2026,7 @@ let designate_new_master ~__context ~host =
     (* Only the master can sync the *current* database; only the master
        knows the current generation count etc. *)
     Helpers.call_api_functions ~__context (fun rpc session_id ->
-        Client.Pool.sync_database rpc session_id
+        Client.Pool.sync_database ~rpc ~session_id
     ) ;
     let all_hosts = Db.Host.get_all ~__context in
     (* We make no attempt to demand a quorum or anything. *)
@@ -2071,7 +2096,7 @@ let management_reconfigure ~__context ~network =
   (* Perform Pool.recover_slaves *)
   let hosts_recovered =
     Helpers.call_api_functions ~__context (fun rpc session_id ->
-        Client.Pool.recover_slaves rpc session_id
+        Client.Pool.recover_slaves ~rpc ~session_id
     )
   in
   List.iter
@@ -2084,7 +2109,7 @@ let initial_auth ~__context = Xapi_globs.pool_secret ()
 
 (** This call is used during master startup so we should check to see whether we need to re-establish our database
     connection and resynchronise lost database state i.e. state which is non-persistent or reverted over a master crash *)
-let is_slave ~__context ~host =
+let is_slave ~__context ~host:_ =
   let is_slave = not (Pool_role.is_master ()) in
   info "Pool.is_slave call received (I'm a %s)"
     (if is_slave then "slave" else "master") ;
@@ -2125,7 +2150,7 @@ let hello ~__context ~host_uuid ~host_address =
                (fun ~__context ->
                  Message_forwarding.do_op_on_nolivecheck_no_retry ~local_fn
                    ~__context ~host:host_ref (fun session_id rpc ->
-                     Client.Pool.is_slave rpc session_id host_ref
+                     Client.Pool.is_slave ~rpc ~session_id ~host:host_ref
                  )
              )
             )
@@ -2189,8 +2214,8 @@ let create_VLAN ~__context ~device ~network ~vLAN =
         List.iter
           (fun pif ->
             (* This call destroys the metrics too *)
-            try Client.PIF.destroy rpc session_id pif with
-            | Api_errors.Server_error (a, b) ->
+            try Client.PIF.destroy ~rpc ~session_id ~self:pif with
+            | Api_errors.Server_error (a, _) ->
                 if a = Api_errors.host_offline then
                   Db.PIF.destroy ~__context ~self:pif
                 else
@@ -2212,7 +2237,8 @@ let create_VLAN ~__context ~device ~network ~vLAN =
           (fun host ->
             try
               let pif =
-                Client.PIF.create_VLAN rpc session_id device network host vLAN
+                Client.PIF.create_VLAN ~rpc ~session_id ~device ~network ~host
+                  ~vLAN
               in
               created := pif :: !created ;
               pif
@@ -2230,7 +2256,7 @@ let create_VLAN ~__context ~device ~network ~vLAN =
         (fun pif ->
           Helpers.log_exn_continue
             (Printf.sprintf "Plugging VLAN PIF %s" (Ref.string_of pif))
-            (fun () -> Client.PIF.plug rpc session_id pif)
+            (fun () -> Client.PIF.plug ~rpc ~session_id ~self:pif)
             ()
         )
         pifs ;
@@ -2246,7 +2272,7 @@ let create_VLAN_from_PIF ~__context ~pif ~network ~vLAN =
     Helpers.call_api_functions ~__context (fun rpc session_id ->
         List.iter
           (fun vlan ->
-            try Client.VLAN.destroy rpc session_id vlan with _ -> ()
+            try Client.VLAN.destroy ~rpc ~session_id ~self:vlan with _ -> ()
           )
           vlans
     )
@@ -2272,7 +2298,10 @@ let create_VLAN_from_PIF ~__context ~pif ~network ~vLAN =
         List.map
           (fun pif ->
             try
-              let vlan = Client.VLAN.create rpc session_id pif vLAN network in
+              let vlan =
+                Client.VLAN.create ~rpc ~session_id ~tagged_PIF:pif ~tag:vLAN
+                  ~network
+              in
               created := vlan :: !created ;
               vlan
             with e ->
@@ -2294,7 +2323,7 @@ let create_VLAN_from_PIF ~__context ~pif ~network ~vLAN =
         (fun pif ->
           Helpers.log_exn_continue
             (Printf.sprintf "Plugging VLAN PIF %s" (Ref.string_of pif))
-            (fun () -> Client.PIF.plug rpc session_id pif)
+            (fun () -> Client.PIF.plug ~rpc ~session_id ~self:pif)
             ()
         )
         vlan_pifs ;
@@ -2384,7 +2413,7 @@ let ha_compute_hypothetical_max_host_failures_to_tolerate ~__context
   let protected_vms =
     List.map fst
       (List.filter
-         (fun (vm, priority) -> Helpers.vm_should_always_run true priority)
+         (fun (_, priority) -> Helpers.vm_should_always_run true priority)
          configuration
       )
   in
@@ -2427,7 +2456,7 @@ let ha_compute_vm_failover_plan ~__context ~failed_hosts ~failed_vms =
              Agility.vm_assert_agile ~__context ~self ;
              [(self, [("error_code", Api_errors.host_not_enough_free_memory)])]
              (* default *)
-           with Api_errors.Server_error (code, params) ->
+           with Api_errors.Server_error (code, _) ->
              [(self, [("error_code", code)])]
          )
          failed_vms
@@ -2524,7 +2553,7 @@ let revalidate_subjects ~__context =
     * If a call to a single host to enable external auth fails, then Pool.enable_external_auth fails, and there is
       a best-effort attempt to disable any hosts who had their external auth successfully enabled before the failure occured
 *)
-let enable_external_auth ~__context ~pool ~config ~service_name ~auth_type =
+let enable_external_auth ~__context ~pool:_ ~config ~service_name ~auth_type =
   (* CP-825: Serialize execution of pool-enable-extauth and pool-disable-extauth *)
   (* enabling/disabling the pool's extauth at the same time could produce inconsistent states for extauth in each host of the pool *)
   Threadext.Mutex.execute Xapi_globs.serialize_pool_enable_disable_extauth
@@ -2706,7 +2735,7 @@ let enable_external_auth ~__context ~pool ~config ~service_name ~auth_type =
     * Reports failure if any of the individual Host.disable_external_auth calls failed or timed-out
     * Guarantees to call Host.disable_external_auth() on every pool host, regardless of whether some of these calls fail
 *)
-let disable_external_auth ~__context ~pool ~config =
+let disable_external_auth ~__context ~pool:_ ~config =
   (* CP-825: Serialize execution of pool-enable-extauth and pool-disable-extauth *)
   (* enabling/disabling the pool's extauth at the same time could produce inconsistent states for extauth in each host of the pool *)
   Threadext.Mutex.execute Xapi_globs.serialize_pool_enable_disable_extauth
@@ -2754,7 +2783,7 @@ let disable_external_auth ~__context ~pool ~config =
           hosts
       in
       let failedhosts_list =
-        List.filter (fun (host, err, msg) -> err <> "") host_msgs_list
+        List.filter (fun (_, err, _) -> err <> "") host_msgs_list
       in
       if List.length failedhosts_list > 0 then ((* FAILED *)
         match List.hd failedhosts_list with
@@ -2783,17 +2812,15 @@ let disable_external_auth ~__context ~pool ~config =
 
 (* CA-24856: detect non-homogeneous external-authentication config in pool *)
 let detect_nonhomogeneous_external_auth_in_pool ~__context =
-  Helpers.call_api_functions ~__context (fun rpc session_id ->
-      let slaves = Xapi_pool_helpers.get_slaves_list ~__context in
-      List.iter
-        (fun slave ->
-          (* check every *slave* in the pool... (the master is always homogeneous to the pool by definition) *)
-          (* (also, checking the master inside this function would create an infinite recursion loop) *)
-          Xapi_host.detect_nonhomogeneous_external_auth_in_host ~__context
-            ~host:slave
-        )
-        slaves
-  )
+  let slaves = Xapi_pool_helpers.get_slaves_list ~__context in
+  List.iter
+    (fun slave ->
+      (* check every *slave* in the pool... (the master is always homogeneous to the pool by definition) *)
+      (* (also, checking the master inside this function would create an infinite recursion loop) *)
+      Xapi_host.detect_nonhomogeneous_external_auth_in_host ~__context
+        ~host:slave
+    )
+    slaves
 
 let run_detect_nonhomogeneous_external_auth_in_pool () =
   (* we do not want to run this test while the pool's extauth is being enabled or disabled *)
@@ -2817,7 +2844,7 @@ let detect_nonhomogeneous_external_auth () =
     asynchronously_run_detect_nonhomogeneous_external_auth_in_pool
 
 (* CA-24856: API call to detect non-homogeneous external-authentication config in pool *)
-let detect_nonhomogeneous_external_auth ~__context ~pool =
+let detect_nonhomogeneous_external_auth ~__context ~pool:_ =
   detect_nonhomogeneous_external_auth ()
 
 let create_redo_log_vdi ~__context ~sr =
@@ -2853,7 +2880,7 @@ let enable_redo_log ~__context ~sr =
   (* find or create suitable VDI *)
   let vdi =
     try find_or_create_redo_log_vdi ~__context ~sr
-    with e ->
+    with _ ->
       let msg =
         "failed to create a VDI for the redo log on the SR with the given UUID."
       in
@@ -2869,20 +2896,20 @@ let enable_redo_log ~__context ~sr =
           (Db.Host.get_name_label ~__context ~self:host)
           (Ref.string_of host) ;
         Helpers.call_api_functions ~__context (fun rpc session_id ->
-            Client.Host.attach_static_vdis rpc session_id host
-              [(vdi, Xapi_globs.gen_metadata_vdi_reason)]
+            Client.Host.attach_static_vdis ~rpc ~session_id ~host
+              ~vdi_reason_map:[(vdi, Xapi_globs.gen_metadata_vdi_reason)]
         ) ;
         debug "Setting redo-log local-DB flag on host '%s' ('%s')"
           (Db.Host.get_name_label ~__context ~self:host)
           (Ref.string_of host) ;
         Helpers.call_api_functions ~__context (fun rpc session_id ->
-            Client.Host.set_localdb_key rpc session_id host
-              Constants.redo_log_enabled "true"
+            Client.Host.set_localdb_key ~rpc ~session_id ~host
+              ~key:Constants.redo_log_enabled ~value:"true"
         )
       in
       List.iter attach hosts ;
       debug "VDI is static on all hosts"
-    with e ->
+    with _ ->
       let msg = "failed to make VDI static." in
       raise (Api_errors.Server_error (Api_errors.cannot_enable_redo_log, [msg]))
   ) ;
@@ -2916,18 +2943,18 @@ let disable_redo_log ~__context =
           (Db.Host.get_name_label ~__context ~self:host)
           (Ref.string_of host) ;
         Helpers.call_api_functions ~__context (fun rpc session_id ->
-            Client.Host.detach_static_vdis rpc session_id host [vdi]
+            Client.Host.detach_static_vdis ~rpc ~session_id ~host ~vdis:[vdi]
         ) ;
         debug "Clearing redo-log local-DB flag on host '%s' ('%s')"
           (Db.Host.get_name_label ~__context ~self:host)
           (Ref.string_of host) ;
         Helpers.call_api_functions ~__context (fun rpc session_id ->
-            Client.Host.set_localdb_key rpc session_id host
-              Constants.redo_log_enabled "false"
+            Client.Host.set_localdb_key ~rpc ~session_id ~host
+              ~key:Constants.redo_log_enabled ~value:"false"
         )
       in
       List.iter detach hosts
-    with e -> info "Failed to detach static VDIs from all hosts."
+    with _ -> info "Failed to detach static VDIs from all hosts."
   ) ;
   info "The redo log is now disabled"
 
@@ -2969,17 +2996,17 @@ let audit_log_append ~__context ~line =
   let (_ : string) = Rbac_audit.append_line ~raw:true "%s" line in
   ()
 
-let test_archive_target ~__context ~self ~config =
+let test_archive_target ~__context ~self:_ ~config:_ =
   raise (Api_errors.Server_error (Api_errors.message_removed, []))
 
-let enable_local_storage_caching ~__context ~self =
+let enable_local_storage_caching ~__context ~self:_ =
   let srs = Db.SR.get_all_records ~__context in
   let pbds = Db.PBD.get_all_records ~__context in
   let hosts = Db.Host.get_all ~__context in
   (* Exception handler is to cope with transient PBDs with invalid references *)
   let hosts_and_srs =
     List.filter_map
-      (fun (pbdref, pbdrec) ->
+      (fun (_, pbdrec) ->
         try
           Some
             ( pbdrec.API.pBD_host
@@ -2992,7 +3019,7 @@ let enable_local_storage_caching ~__context ~self =
   in
   let acceptable =
     List.filter
-      (fun (href, srref, srrec) ->
+      (fun (_, _, srrec) ->
         (not srrec.API.sR_shared)
         && List.length srrec.API.sR_PBDs = 1
         && List.mem_assoc Smint.Sr_supports_local_caching
@@ -3007,13 +3034,13 @@ let enable_local_storage_caching ~__context ~self =
             (fun host ->
               let result = ref (Some host) in
               let acceptable_srs =
-                List.filter (fun (href, srref, srrec) -> href = host) acceptable
+                List.filter (fun (href, _, _) -> href = host) acceptable
               in
               List.iter
-                (fun (href, ref, sr) ->
+                (fun (_, ref, _) ->
                   try
-                    Client.Host.enable_local_storage_caching rpc session_id host
-                      ref ;
+                    Client.Host.enable_local_storage_caching ~rpc ~session_id
+                      ~host ~sr:ref ;
                     result := None
                   with _ -> ()
                 )
@@ -3035,7 +3062,7 @@ let enable_local_storage_caching ~__context ~self =
   else
     ()
 
-let disable_local_storage_caching ~__context ~self =
+let disable_local_storage_caching ~__context ~self:_ =
   let hosts = Db.Host.get_all ~__context in
   let failed_hosts =
     Helpers.call_api_functions ~__context (fun rpc session_id ->
@@ -3059,7 +3086,7 @@ let disable_local_storage_caching ~__context ~self =
   else
     ()
 
-let get_license_state ~__context ~self =
+let get_license_state ~__context ~self:_ =
   let edition_to_int =
     List.map
       V6_interface.(fun ed -> (ed.title, ed.order))
@@ -3082,7 +3109,7 @@ let get_license_state ~__context ~self =
   in
   [("edition", pool_edition); ("expiry", pool_expiry)]
 
-let apply_edition ~__context ~self ~edition =
+let apply_edition ~__context ~self:_ ~edition =
   let hosts = Db.Host.get_all ~__context in
   let apply_fn ~__context ~host ~edition =
     Helpers.call_api_functions ~__context (fun rpc session_id ->
@@ -3093,7 +3120,7 @@ let apply_edition ~__context ~self ~edition =
     ~apply_fn
 
 (* This is expensive, so should always be run on the master. *)
-let assert_mac_seeds_available ~__context ~self ~seeds =
+let assert_mac_seeds_available ~__context ~self:_ ~seeds =
   let module StringSet = Set.Make (String) in
   let all_guests =
     Db.VM.get_records_where ~__context
@@ -3126,7 +3153,7 @@ let assert_mac_seeds_available ~__context ~self ~seeds =
          (Api_errors.duplicate_mac_seed, [StringSet.choose problem_mac_seeds])
       )
 
-let disable_ssl_legacy ~__context ~self =
+let disable_ssl_legacy ~__context ~self:_ =
   warn "disable_ssl_legacy: doing nothing"
 
 let set_igmp_snooping_enabled ~__context ~self ~value =
@@ -3179,12 +3206,12 @@ let set_igmp_snooping_enabled ~__context ~self ~value =
           )
   )
 
-let has_extension ~__context ~self ~name =
+let has_extension ~__context ~self:_ ~name =
   let hosts = Db.Host.get_all ~__context in
   List.for_all
     (fun host ->
       Helpers.call_api_functions ~__context (fun rpc session_id ->
-          Client.Host.has_extension rpc session_id host name
+          Client.Host.has_extension ~rpc ~session_id ~host ~name
       )
     )
     hosts
@@ -3250,7 +3277,7 @@ let alert_failed_login_attempts () =
       )
 
 let perform ~local_fn ~__context ~host op =
-  let rpc' context hostname (task_opt : API.ref_task option) xml =
+  let rpc' _context hostname (task_opt : API.ref_task option) xml =
     let open Xmlrpc_client in
     let verify_cert = Some Stunnel.pool (* verify! *) in
     let task_id = Option.map Ref.string_of task_opt in
@@ -3272,11 +3299,11 @@ yet enabled. *)
 let ping_with_tls_verification ~__context host =
   let local_fn = is_slave ~host in
   let this_uuid = Helpers.get_localhost_uuid () in
-  let remote_uuid = Db.Host.get_uuid __context host in
+  let remote_uuid = Db.Host.get_uuid ~__context ~self:host in
   info "pinging host before enabling TLS: %s -> %s" this_uuid remote_uuid ;
   Server_helpers.exec_with_subtask ~__context "pool.ping" (fun ~__context ->
       perform ~local_fn ~__context ~host (fun session_id rpc ->
-          Client.Pool.is_slave rpc session_id host
+          Client.Pool.is_slave ~rpc ~session_id ~host
       )
   )
   |> ignore
@@ -3390,7 +3417,7 @@ let sync_updates ~__context ~self ~force ~token ~token_id =
       List.iter (fun x -> create_pool_repository ~__context ~self:x) enabled ;
       set_available_updates ~__context
 
-let check_update_readiness ~__context ~self ~requires_reboot =
+let check_update_readiness ~__context ~self:_ ~requires_reboot =
   (* Pool license check *)
   Pool_features.assert_enabled ~__context ~f:Features.Updates ;
   (* Pool checks *)
@@ -3413,7 +3440,8 @@ let check_update_readiness ~__context ~self ~requires_reboot =
     if not alive then
       [[Api_errors.host_offline; Ref.string_of host]]
     else if requires_reboot then
-      Xapi_host.get_vms_which_prevent_evacuation ~__context ~self:host
+      Xapi_host.get_vms_which_prevent_evacuation_internal ~__context ~self:host
+        ~ignore_ha:true
       |> List.map (fun (_, error) -> error)
     else
       [[]]
@@ -3431,13 +3459,13 @@ let enable_client_certificate_auth ~__context ~self ~name =
   (* TODO: actually enable client-certificate auth *)
   Db.Pool.set_client_certificate_auth_enabled ~__context ~self ~value:true ;
   Db.Pool.set_client_certificate_auth_name ~__context ~self ~value:name ;
-  Xapi_mgmt_iface.run __context ()
+  Xapi_mgmt_iface.run ~__context ()
 
 let disable_client_certificate_auth ~__context ~self =
   (* TODO: actually disable client-certificate auth *)
   Db.Pool.set_client_certificate_auth_enabled ~__context ~self ~value:false ;
   Db.Pool.set_client_certificate_auth_name ~__context ~self ~value:"" ;
-  Xapi_mgmt_iface.run __context ()
+  Xapi_mgmt_iface.run ~__context ()
 
 let get_updates_handler (req : Http.Request.t) s _ =
   debug "Pool.get_updates_handler: received request" ;
@@ -3556,3 +3584,13 @@ let disable_repository_proxy ~__context ~self =
     Xapi_stdext_pervasives.Pervasiveext.ignore_exn (fun _ ->
         Db.Secret.destroy ~__context ~self:old_secret_ref
     )
+
+let set_uefi_certificates ~__context ~self ~value =
+  Db.Pool.set_uefi_certificates ~__context ~self ~value ;
+  Helpers.call_api_functions ~__context (fun rpc session_id ->
+      List.iter
+        (fun host ->
+          Client.Host.write_uefi_certificates_to_disk ~rpc ~session_id ~host
+        )
+        (Db.Host.get_all ~__context)
+  )

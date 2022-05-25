@@ -65,7 +65,7 @@ let call_script ?log_output script args =
     Xapi_stdext_threads.Threadext.Mutex.execute ha_script_m (fun () ->
         Helpers.call_script ?log_output ~env script' args
     )
-  with Forkhelpers.Spawn_internal_error (stderr, stdout, Unix.WEXITED n) ->
+  with Forkhelpers.Spawn_internal_error (_, _, Unix.WEXITED n) ->
     let code = Xha_errno.of_int n in
     warn "%s %s returned %s (%s)" script' (String.concat " " args)
       (Xha_errno.to_string code)

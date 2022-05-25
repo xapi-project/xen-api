@@ -15,7 +15,6 @@
  * @group Command-Line Interface (CLI)
 *)
 
-open Cli_util
 open Cli_protocol
 
 type record = (string * string) list
@@ -38,7 +37,7 @@ let pad_rhs s len =
 
 let rec multi_line_record r =
   let maxlen =
-    4 + List.fold_left max 0 (List.map (fun (a, b) -> String.length a) r)
+    4 + List.fold_left max 0 (List.map (fun (a, _) -> String.length a) r)
   in
   let indent fs = List.map (fun (f, v) -> (pad_string f maxlen, v)) fs in
   let r =

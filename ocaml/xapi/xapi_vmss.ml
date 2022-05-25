@@ -108,7 +108,7 @@ let schedule_frequency_weekly_keys =
 let schedule_keys =
   ( schedule_field
   , List.map
-      (function f, [k] -> k | _ -> assert false)
+      (function _, [k] -> k | _ -> assert false)
       [
         schedule_frequency_hourly_keys
       ; schedule_frequency_daily_keys
@@ -122,9 +122,9 @@ let schedule_all_keys =
   , [
       ( ""
       , List.fold_left
-          (fun acc (sf, ks) -> acc @ ks)
+          (fun acc (_, ks) -> acc @ ks)
           []
-          (let f, kss = schedule_keys in
+          (let _, kss = schedule_keys in
            kss
           )
       )
@@ -225,7 +225,7 @@ let create ~__context ~name_label ~name_description ~enabled ~_type
   (* assert retained_snapshots *)
   assert_retained_snapshots ~retained_snapshots ;
   let ref = Ref.make () in
-  let uuid = Uuid.to_string (Uuid.make_uuid ()) in
+  let uuid = Uuid.to_string (Uuid.make ()) in
   Db.VMSS.create ~__context ~ref ~uuid ~name_label ~name_description ~enabled
     ~_type ~retained_snapshots ~frequency ~schedule
     ~last_run_time:(Xapi_stdext_date.Date.of_float 0.) ;

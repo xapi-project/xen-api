@@ -77,7 +77,7 @@ let valid_operations ~__context record _ref' : table =
   ) ;
   let vm_current_ops = Db.VM.get_current_operations ~__context ~self:vm in
   List.iter
-    (fun (task, op) ->
+    (fun (_, op) ->
       if List.mem op [`clean_shutdown; `hard_shutdown; `suspend; `pause] then
         let current_op_str =
           "Current operation on VM:"

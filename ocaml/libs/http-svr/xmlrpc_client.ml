@@ -68,7 +68,7 @@ let write_to_log x = StunnelDebug.debug "%s" (Astring.String.trim x)
     closed or left in some other inconsistent state. *)
 let check_reusable_inner (x : Unixfd.t) =
   let msg_name = "system.isAlive" in
-  let msg_uuid = Uuidm.to_string (Uuidm.create `V4) in
+  let msg_uuid = Uuid.(to_string (make ())) in
   (* This is for backward compatability *)
   let msg_func = Printf.sprintf "%s:%s" msg_name msg_uuid in
   let msg_param = [XMLRPC.To.string msg_uuid] in

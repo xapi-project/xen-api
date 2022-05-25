@@ -166,10 +166,10 @@ let compare_checksums a b =
   !success
 
 let get_default_sr rpc session_id =
-  let pool = List.hd (Client.Pool.get_all rpc session_id) in
-  let sr = Client.Pool.get_default_SR rpc session_id pool in
+  let pool = List.hd (Client.Pool.get_all ~rpc ~session_id) in
+  let sr = Client.Pool.get_default_SR ~rpc ~session_id ~self:pool in
   try
-    ignore (Client.SR.get_uuid rpc session_id sr) ;
+    ignore (Client.SR.get_uuid ~rpc ~session_id ~self:sr) ;
     sr
   with _ ->
     raise
@@ -246,7 +246,7 @@ let remote_metadata_export_import ~__context ~rpc ~session_id ~remote_address
     match which with
     | `All ->
         "all=true&include_dom0=true"
-    | `Only {vm; send_snapshots} ->
+    | `Only {vm; send_snapshots; _} ->
         Printf.sprintf "export_snapshots=%b&ref=%s" send_snapshots
           (Ref.string_of vm)
   in
@@ -255,7 +255,7 @@ let remote_metadata_export_import ~__context ~rpc ~session_id ~remote_address
       match which with
       | `All ->
           []
-      | `Only {vm; live; dry_run; send_snapshots} ->
+      | `Only {live; dry_run; send_snapshots; _} ->
           [
             Printf.sprintf "live=%b" live
           ; Printf.sprintf "dry_run=%b" dry_run
@@ -266,7 +266,7 @@ let remote_metadata_export_import ~__context ~rpc ~session_id ~remote_address
     Printf.sprintf "%s?%s" Constants.import_metadata_uri
       (String.concat "&" params)
   in
-  Helpers.call_api_functions ~__context (fun my_rpc my_session_id ->
+  Helpers.call_api_functions ~__context (fun _ my_session_id ->
       let get =
         Xapi_http.http_request ~version:"1.0" ~subtask_of
           ~cookie:[("session_id", Ref.string_of my_session_id)]
@@ -276,7 +276,8 @@ let remote_metadata_export_import ~__context ~rpc ~session_id ~remote_address
           )
       in
       let remote_task =
-        Client.Task.create rpc session_id "VM metadata import" ""
+        Client.Task.create ~rpc ~session_id ~label:"VM metadata import"
+          ~description:""
       in
       finally
         (fun () ->
@@ -341,7 +342,7 @@ let remote_metadata_export_import ~__context ~rpc ~session_id ~remote_address
           ) ;
           (* Wait for remote task to succeed or fail *)
           Cli_util.wait_for_task_completion rpc session_id remote_task ;
-          match Client.Task.get_status rpc session_id remote_task with
+          match Client.Task.get_status ~rpc ~session_id ~self:remote_task with
           | `cancelling | `cancelled ->
               raise
                 (Api_errors.Server_error
@@ -351,7 +352,7 @@ let remote_metadata_export_import ~__context ~rpc ~session_id ~remote_address
               failwith "wait_for_task_completion failed; task is still pending"
           | `failure -> (
               let error_info =
-                Client.Task.get_error_info rpc session_id remote_task
+                Client.Task.get_error_info ~rpc ~session_id ~self:remote_task
               in
               match error_info with
               | code :: params when Hashtbl.mem Datamodel.errors code ->
@@ -364,7 +365,9 @@ let remote_metadata_export_import ~__context ~rpc ~session_id ~remote_address
             )
           | `success -> (
               debug "Remote metadata import succeeded" ;
-              let result = Client.Task.get_result rpc session_id remote_task in
+              let result =
+                Client.Task.get_result ~rpc ~session_id ~self:remote_task
+              in
               try result |> Xmlrpc.of_string |> API.ref_VM_set_of_rpc
               with parse_error ->
                 raise
@@ -374,7 +377,7 @@ let remote_metadata_export_import ~__context ~rpc ~session_id ~remote_address
                   )
             )
         )
-        (fun () -> Client.Task.destroy rpc session_id remote_task)
+        (fun () -> Client.Task.destroy ~rpc ~session_id ~self:remote_task)
   )
 
 let vdi_of_req ~__context (req : Http.Request.t) =

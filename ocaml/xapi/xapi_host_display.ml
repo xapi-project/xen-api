@@ -19,15 +19,15 @@ let call_script ~command =
   String.trim stdout
 
 let disable () =
-  let (_ : string) = call_script "disable" in
+  let (_ : string) = call_script ~command:"disable" in
   ()
 
 let enable () =
-  let (_ : string) = call_script "enable" in
+  let (_ : string) = call_script ~command:"enable" in
   ()
 
 let status () =
-  match call_script "status" with
+  match call_script ~command:"status" with
   | "disabled" ->
       `disabled
   | "enabled" ->

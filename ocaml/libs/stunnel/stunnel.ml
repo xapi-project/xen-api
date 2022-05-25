@@ -92,15 +92,9 @@ module Unsafe = struct
 
   (* File descriptor operations to be performed after a fork.
    * These are all safe in the presence of threads *)
-  type fd_operation =
-    | Dup2 of Unix.file_descr * Unix.file_descr
-    | Close of Unix.file_descr
+  type fd_operation = Dup2 of Unix.file_descr * Unix.file_descr
 
-  let do_fd_operation = function
-    | Dup2 (a, b) ->
-        Unix.dup2 a b
-    | Close a ->
-        Unix.close a
+  let do_fd_operation = function Dup2 (a, b) -> Unix.dup2 a b
 end
 
 type pid =
@@ -303,7 +297,7 @@ let attempt_one_connect ?(use_fork_exec_helper = true)
     ?(write_to_log = fun _ -> ()) ?(extended_diagnosis = false) data_channel
     verify_cert host port =
   Unixfd.with_pipe () ~loc:__LOC__ @@ fun config_out config_in ->
-  let config_out_uuid = Uuidm.to_string (Uuidm.create `V4) in
+  let config_out_uuid = Uuid.(to_string (make ())) in
   let config_out_fd =
     string_of_int (Unixext.int_of_file_descr Unixfd.(!config_out))
   in

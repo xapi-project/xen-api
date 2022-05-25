@@ -105,14 +105,14 @@ let allocate_vgpu_to_gpu ?(dry_run = false) ?(pre_allocate_list = []) ~__context
   |> function
   | [] ->
       fail_creation vm vgpu
-  | hd :: tail ->
+  | hd :: _ ->
       if not dry_run then
         Db.VGPU.set_scheduled_to_be_resident_on ~__context ~self:vgpu.vgpu_ref
           ~value:hd ;
       (vgpu.vgpu_ref, hd) :: pre_allocate_list
 
 (* Take a PCI device and assign it to the VM *)
-let add_pcis_to_vm ~__context host vm vgpu pci =
+let add_pcis_to_vm ~__context _host vm vgpu pci =
   Db.VGPU.set_PCI ~__context ~self:vgpu.vgpu_ref ~value:pci ;
   (* Add a platform key to the VM if any of the PCIs are integrated GPUs;
    * otherwise remove the key. *)
@@ -133,7 +133,7 @@ let reserve_free_virtual_function ~__context vm impl pf =
         ( match impl with
         | `mxgpu ->
             Helpers.call_api_functions ~__context @@ fun rpc session_id ->
-            Client.Client.Host.mxgpu_vf_setup rpc session_id host
+            Client.Client.Host.mxgpu_vf_setup ~rpc ~session_id ~host
         | `nvidia_sriov ->
             Helpers.call_api_functions ~__context @@ fun rpc session_id ->
             Client.Client.Host.nvidia_vf_setup ~rpc ~session_id ~host ~pf

@@ -14,9 +14,6 @@
 
 (* This module implements methods for the PVS_site class *)
 
-module D = Debug.Make (struct let name = "xapi_pvs_site" end)
-
-open D
 module E = Api_errors
 
 let api_error msg xs = raise (E.Server_error (msg, xs))
@@ -25,7 +22,7 @@ let introduce ~__context ~name_label ~name_description ~pVS_uuid =
   Pool_features.assert_enabled ~__context ~f:Features.PVS_proxy ;
   Helpers.assert_using_vswitch ~__context ;
   let pvs_site = Ref.make () in
-  let uuid = Uuid.to_string (Uuid.make_uuid ()) in
+  let uuid = Uuid.to_string (Uuid.make ()) in
   Db.PVS_site.create ~__context ~ref:pvs_site ~uuid ~name_label
     ~name_description ~pVS_uuid ~cache_storage:[] ;
   pvs_site
@@ -39,7 +36,6 @@ let cleanup_storage __context self =
   )
 
 let forget_internal ~__context ~self ~cleanup_storage =
-  let open Db_filter_types in
   (* Check there are no running proxies. *)
   let running_proxies =
     Pvs_proxy_control.get_running_proxies ~__context ~site:self

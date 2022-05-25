@@ -9,6 +9,3 @@
   )
   (action (run %{test} --color=always))
 )
-
-(env (_ (env-vars (ALCOTEST_COMPACT 1))))
-

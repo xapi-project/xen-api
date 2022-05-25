@@ -30,7 +30,7 @@ let uuid_of_domid ~xs domid =
   try
     let vm = xs.Xs.getdomainpath domid ^ "/vm" in
     let vm_dir = xs.Xs.read vm in
-    match Uuidm.of_string (xs.Xs.read (vm_dir ^ "/uuid")) with
+    match Uuid.of_string (xs.Xs.read (vm_dir ^ "/uuid")) with
     | Some uuid ->
         uuid
     | None ->
@@ -38,6 +38,23 @@ let uuid_of_domid ~xs domid =
   with _ -> raise Domain_not_found
 
 let domains_of_uuid ~xc uuid =
+  let string_of_domain_handle handle =
+    Array.to_list handle |> List.map string_of_int |> String.concat "; "
+  in
+
   List.filter
-    (fun x -> Ez_xenctrl_uuid.uuid_of_handle x.Xenctrl.handle = uuid)
+    (fun x ->
+      match Uuid.of_int_array x.Xenctrl.handle with
+      | Some x ->
+          x = uuid
+      | None ->
+          failwith
+            (Printf.sprintf
+               "Invalid VM handle for domid %d returned by domain_getinfolist \
+                at %s: %a"
+               x.Xenctrl.domid __FUNCTION__
+               (fun () -> string_of_domain_handle)
+               x.Xenctrl.handle
+            )
+    )
     (Xenctrl.domain_getinfolist xc 0)

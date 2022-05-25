@@ -11,9 +11,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-module D = Debug.Make (struct let name = "pciops" end)
 
-open D
 open Xapi_stdext_threads.Threadext
 
 let m = Mutex.create ()
@@ -150,19 +148,19 @@ let unhide_pci ~__context pci =
   Mutex.execute m (fun () -> _unhide_pci ~__context pci)
 
 (** Return the id of a PCI device *)
-let id_of (id, (domain, bus, dev, fn)) = id
+let id_of (id, _) = id
 
 (** Return the domain of a PCI device *)
-let domain_of (id, (domain, bus, dev, fn)) = domain
+let domain_of (_, (domain, _, _, _)) = domain
 
 (** Return the bus of a PCI device *)
-let bus_of (id, (domain, bus, dev, fn)) = bus
+let bus_of (_, (_, bus, _, _)) = bus
 
 (** Return the device of a PCI device *)
-let dev_of (id, (domain, bus, dev, fn)) = dev
+let dev_of (_, (_, _, dev, _)) = dev
 
 (** Return the function of a PCI device *)
-let fn_of (id, (domain, bus, dev, fn)) = fn
+let fn_of (_, (_, _, _, fn)) = fn
 
 (** Find a free virtual function given a physical function (SR-IOV) *)
 let reserve_free_virtual_function ~__context vm pf =

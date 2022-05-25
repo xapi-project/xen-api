@@ -1,5 +1,25 @@
 module type ALGORITHM = sig
   val executable : string
+
+  val compress_options : string list
+
+  val decompress_options : string list
+end
+
+module type COMPRESSOR = sig
+  val available : unit -> bool
+  (** Returns whether this compression algorithm is available *)
+
+  val compress : Unix.file_descr -> (Unix.file_descr -> 'a) -> 'a
+  (** Runs a compression process which is fed from a pipe whose entrance
+  is passed to 'f' and whose output is 'ofd' *)
+
+  val decompress : Unix.file_descr -> (Unix.file_descr -> 'a) -> 'a
+  (** Runs a decompression process which is fed from a pipe whose
+  entrance is passed to 'f' and whose output is 'ofd' *)
+
+  (* Experimental decompressor which is fed from an fd and writes to a pipe *)
+  val decompress_passive : Unix.file_descr -> (Unix.file_descr -> 'a) -> 'a
 end
 
 module D = Debug.Make (struct let name = "xapi_compression" end)
@@ -44,7 +64,11 @@ module Make (Algorithm : ALGORITHM) = struct
     let open Safe_resources in
     Unixfd.with_pipe ~loc:__LOC__ () @@ fun zcat_out zcat_in ->
     let args =
-      if mode = Compress then [] else ["--decompress"] @ ["--stdout"; "--force"]
+      match mode with
+      | Compress ->
+          Algorithm.compress_options
+      | Decompress ->
+          Algorithm.decompress_options
     in
     let stdin, stdout, close_now, close_later =
       match input with

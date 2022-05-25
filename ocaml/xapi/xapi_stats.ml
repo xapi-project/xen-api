@@ -167,6 +167,6 @@ let stop () =
       | None ->
           ()
       | Some reporter ->
-          Reporter.cancel reporter ;
+          Reporter.cancel ~reporter ;
           reporter_cache := None
   )

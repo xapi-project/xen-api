@@ -384,3 +384,6 @@ val configure_repository_proxy :
   -> unit
 
 val disable_repository_proxy : __context:Context.t -> self:API.ref_pool -> unit
+
+val set_uefi_certificates :
+  __context:Context.t -> self:API.ref_pool -> value:string -> unit

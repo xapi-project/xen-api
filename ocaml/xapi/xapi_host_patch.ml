@@ -15,11 +15,7 @@
  * @group Host Management
 *)
 
-module D = Debug.Make (struct let name = "xapi_host_patch" end)
-
-open D
-
 let destroy ~__context ~self = Db.Host_patch.destroy ~__context ~self
 
-let apply ~__context ~self =
+let apply ~__context ~self:_ =
   raise (Api_errors.Server_error (Api_errors.message_deprecated, []))

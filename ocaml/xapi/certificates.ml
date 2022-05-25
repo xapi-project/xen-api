@@ -193,10 +193,9 @@ end = struct
       dates_of_ptimes (X509.Certificate.validity certificate)
     in
     let fingerprint =
-      X509.Certificate.fingerprint Mirage_crypto.Hash.(`SHA256) certificate
-      |> pp_hash
+      X509.Certificate.fingerprint `SHA256 certificate |> pp_hash
     in
-    let uuid = Uuid.(to_string (make_uuid ())) in
+    let uuid = Uuid.(to_string (make ())) in
     let ref' = Ref.make () in
     Db.Certificate.create ~__context ~ref:ref' ~uuid ~host ~not_before
       ~not_after ~fingerprint ~name ~_type ;
@@ -326,7 +325,7 @@ let sync_all_hosts ~__context hosts =
   Helpers.call_api_functions ~__context (fun rpc session_id ->
       List.iter
         (fun host ->
-          try Client.Host.certificate_sync rpc session_id host
+          try Client.Host.certificate_sync ~rpc ~session_id ~host
           with e -> exn := Some e
         )
         hosts
@@ -356,23 +355,23 @@ let sync_certs kind ~__context master_certs host =
   | CA_Certificate ->
       sync_certs_crls CA_Certificate
         (fun rpc session_id host ->
-          Client.Host.certificate_list rpc session_id host
+          Client.Host.certificate_list ~rpc ~session_id ~host
         )
-        (fun rpc session_id host c cert ->
-          Client.Host.install_ca_certificate rpc session_id host c cert
+        (fun rpc session_id host name cert ->
+          Client.Host.install_ca_certificate ~rpc ~session_id ~host ~name ~cert
         )
-        (fun rpc session_id host c ->
-          Client.Host.uninstall_ca_certificate rpc session_id host c
+        (fun rpc session_id host name ->
+          Client.Host.uninstall_ca_certificate ~rpc ~session_id ~host ~name
         )
         ~__context master_certs host
   | CRL ->
       sync_certs_crls CRL
-        (fun rpc session_id host -> Client.Host.crl_list rpc session_id host)
-        (fun rpc session_id host c cert ->
-          Client.Host.crl_install rpc session_id host c cert
+        (fun rpc session_id host -> Client.Host.crl_list ~rpc ~session_id ~host)
+        (fun rpc session_id host name crl ->
+          Client.Host.crl_install ~rpc ~session_id ~host ~name ~crl
         )
-        (fun rpc session_id host c ->
-          Client.Host.crl_uninstall rpc session_id host c
+        (fun rpc session_id host name ->
+          Client.Host.crl_uninstall ~rpc ~session_id ~host ~name
         )
         ~__context master_certs host
 

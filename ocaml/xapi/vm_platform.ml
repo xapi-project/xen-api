@@ -119,7 +119,7 @@ let is_valid ~key ~platformdata =
   match List.assoc key platformdata |> String.lowercase_ascii with
   | "true" | "1" | "false" | "0" ->
       true
-  | v ->
+  | _ ->
       false
 
 let is_true ~key ~platformdata ~default =
@@ -143,12 +143,12 @@ let is_valid_device_model ~key ~platformdata =
         false
   with Not_found -> false
 
-let sanity_check ~platformdata ?firmware ~vcpu_max ~vcpu_at_startup ~domain_type
-    ~filter_out_unknowns () =
+let sanity_check ~platformdata ?firmware ~vcpu_max ~vcpu_at_startup:_
+    ~domain_type ~filter_out_unknowns () =
   (* Filter out unknown flags, if applicable *)
   let platformdata =
     if filter_out_unknowns then
-      List.filter (fun (k, v) -> List.mem k filtered_flags) platformdata
+      List.filter (fun (k, _) -> List.mem k filtered_flags) platformdata
     else
       platformdata
   in
@@ -202,7 +202,7 @@ let sanity_check ~platformdata ?firmware ~vcpu_max ~vcpu_at_startup ~domain_type
                , [string_of_int vcpus; cps_str]
                )
             )
-      with Failure msg ->
+      with Failure _ ->
         raise
           (Api_errors.Server_error
              (Api_errors.invalid_value, ["platform:cores-per-socket"; cps_str])
@@ -242,7 +242,7 @@ let sanity_check ~platformdata ?firmware ~vcpu_max ~vcpu_at_startup ~domain_type
   platformdata
 
 let check_restricted_flags ~__context platform =
-  if not (is_valid nested_virt platform) then
+  if not (is_valid ~key:nested_virt ~platformdata:platform) then
     raise
       (Api_errors.Server_error
          ( Api_errors.invalid_value
@@ -252,11 +252,11 @@ let check_restricted_flags ~__context platform =
            ]
          )
       ) ;
-  if is_true nested_virt platform false then
+  if is_true ~key:nested_virt ~platformdata:platform ~default:false then
     Pool_features.assert_enabled ~__context ~f:Features.Nested_virt
 
 let check_restricted_device_model ~__context platform =
-  if not (is_valid_device_model device_model platform) then
+  if not (is_valid_device_model ~key:device_model ~platformdata:platform) then
     raise
       (Api_errors.Server_error
          ( Api_errors.invalid_value

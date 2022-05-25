@@ -6,6 +6,3 @@
     xapi_cli_protocol
   )
 )
-
-(env (_ (env-vars (ALCOTEST_COMPACT 1))))
-

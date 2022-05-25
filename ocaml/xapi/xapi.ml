@@ -29,8 +29,6 @@ module D = Debug.Make (struct let name = "xapi" end)
 
 open D
 
-let info s = info s ; debug s (* write info to both info and debug log *)
-
 module L = Debug.Make (struct let name = "license" end)
 
 module W = Debug.Make (struct let name = "watchdog" end)
@@ -136,7 +134,7 @@ let remote_database_access_handler_v2 req bio c =
   wait_until_database_is_ready_for_clients () ;
   Db_remote_cache_access_v2.handler req bio c
 
-let cleanup_handler i =
+let cleanup_handler _ =
   debug "Executing cleanup handler" ;
   (*  Monitor_rrds.cleanup ();*)
   Db_connections.exit_on_next_flush := true ;
@@ -144,7 +142,7 @@ let cleanup_handler i =
   debug "cleanup handler exiting"
 
 let signals_handling () =
-  let at_hangup i = eprintf "[signal received] hangup\n%!" in
+  let at_hangup _ = eprintf "[signal received] hangup\n%!" in
   (* install hangup and exit handler *)
   Sys.set_signal Sys.sighup (Sys.Signal_handle at_hangup) ;
   Sys.set_signal Sys.sigterm (Sys.Signal_handle cleanup_handler) ;
@@ -164,11 +162,11 @@ let register_callback_fns () =
     Api_server.callback1 false req sock xml
   in
   Xapi_cli.rpc_fun := Some fake_rpc ;
-  let set_stunnelpid task_opt pid =
+  let set_stunnelpid _task_opt pid =
     Locking_helpers.Thread_state.acquired
       (Locking_helpers.Process ("stunnel", pid))
   in
-  let unset_stunnelpid task_opt pid =
+  let unset_stunnelpid _task_opt pid =
     Locking_helpers.Thread_state.released
       (Locking_helpers.Process ("stunnel", pid))
   in
@@ -429,7 +427,10 @@ let attempt_pool_hello my_ip =
   try
     Helpers.call_emergency_mode_functions (Pool_role.get_master_address ())
       (fun rpc session_id ->
-        match Client.Client.Pool.hello rpc session_id localhost_uuid my_ip with
+        match
+          Client.Client.Pool.hello ~rpc ~session_id ~host_uuid:localhost_uuid
+            ~host_address:my_ip
+        with
         | `cannot_talk_back ->
             error "Master claims he cannot talk back to us on IP: %s" my_ip ;
             Xapi_host.set_emergency_mode_error
@@ -444,7 +445,7 @@ let attempt_pool_hello my_ip =
             None
     )
   with
-  | Api_errors.Server_error (code, params)
+  | Api_errors.Server_error (code, _)
     when code = Api_errors.session_authentication_failed ->
       debug
         "Master did not recognise our pool secret: we must be pointing at the \
@@ -677,7 +678,7 @@ let check_network_reset () =
         in
         (* Erase networking database objects for this host *)
         Helpers.call_api_functions ~__context (fun rpc session_id ->
-            Client.Client.Host.reset_networking rpc session_id host
+            Client.Client.Host.reset_networking ~rpc ~session_id ~host
         ) ;
         (* Introduce PIFs for remaining interfaces *)
         Xapi_pif.scan ~__context ~host ;
@@ -695,7 +696,7 @@ let check_network_reset () =
             | Some network ->
                 network
           in
-          let vlan, untagged_PIF =
+          let _vlan, untagged_PIF =
             Xapi_vlan.create_internal ~__context ~host ~tagged_PIF:pif ~network
               ~tag:(Int64.of_string vlan) ~device
           in
@@ -894,7 +895,7 @@ let server_init () =
           (Extauth.call_extauth_hook_script_in_host ~__context host
              Extauth.event_name_after_xapi_initialize
           )
-      with e -> ()
+      with _ -> ()
     (* we ignore errors on the extauth_hook calls *)
   in
   let call_extauth_hook_script_before_xapi_initialize ~__context =
@@ -955,8 +956,7 @@ let server_init () =
                              "timeout"
                          | Some e -> (
                            match e with
-                           | Auth_signature.Auth_service_error (errtag, errmsg)
-                             ->
+                           | Auth_signature.Auth_service_error (_, errmsg) ->
                                errmsg (* this is the expected error msg *)
                            | e ->
                                ExnHelper.string_of_exn e (* unknown error msg *)
@@ -987,7 +987,7 @@ let server_init () =
           (* Call the hook script *after* extauth initialization, so that any access from outside xapi (e.g. in sshd) *)
           (* will only include those users in xapi's current subject-list *)
           try call_extauth_hook_script_after_xapi_initialize ~__context
-          with e -> ()
+          with _ -> ()
           (* CP-709 *)
         with e ->
           (* something failed during initialization of the external authentication subsystem *)
@@ -1149,7 +1149,7 @@ let server_init () =
                     )
                   ] ;
                 Dbsync.setup ()
-              with e ->
+              with _ ->
                 debug
                   "Failure in slave dbsync; slave will pause and then restart \
                    to try again. Entering emergency mode." ;
@@ -1323,9 +1323,7 @@ let server_init () =
               ip ;
             (* This may fail without the clustering IP, which is why we attempt
                another replug in maybe_wait_for_clustering_ip *)
-            Helpers.call_api_functions ~__context (fun rpc session_id ->
-                Create_storage.plug_unplugged_pbds __context
-            )
+            Create_storage.plug_unplugged_pbds __context
           )
         in
         let maybe_wait_for_clustering_ip () =
@@ -1340,16 +1338,11 @@ let server_init () =
                 (Ref.string_of self) ;
               Xapi_cluster_host.resync_host ~__context ~host ;
               debug "Attempting to re-plug remaining unplugged PBDs" ;
-              Helpers.call_api_functions ~__context (fun rpc session_id ->
-                  Create_storage.plug_unplugged_pbds __context
-              )
+              Create_storage.plug_unplugged_pbds __context
           | None ->
               ()
           ) ;
-          Helpers.call_api_functions ~__context (fun rcp session_id ->
-              ignore
-                (Create_storage.check_for_unplugged_pbds ~__context ~alert:true)
-          )
+          ignore (Create_storage.check_for_unplugged_pbds ~__context ~alert:true)
         in
         Startup.run ~__context
           [
@@ -1370,8 +1363,8 @@ let server_init () =
             , [Startup.NoExnRaising]
             , fun () ->
                 log_and_ignore_exn (fun () ->
-                    Xapi_cluster_host.create_as_necessary __context
-                      (Helpers.get_localhost ~__context)
+                    Xapi_cluster_host.create_as_necessary ~__context
+                      ~host:(Helpers.get_localhost ~__context)
                 )
             )
           ; (* Here as the last attempt to plug all PBDs, we will raise alerts if any PBD fails to plug.
@@ -1406,18 +1399,19 @@ let server_init () =
             )
           ; ( "Cleanup attached pool_updates when start"
             , [Startup.NoExnRaising]
-            , fun () ->
-                Helpers.call_api_functions ~__context (fun rpc session_id ->
-                    Xapi_pool_update.detach_attached_updates __context
-                )
+            , fun () -> Xapi_pool_update.detach_attached_updates __context
             )
           ; ( "Resync the applied updates of the host when start"
             , [Startup.NoExnRaising]
             , fun () ->
-                Helpers.call_api_functions ~__context (fun rpc session_id ->
-                    Xapi_pool_update.resync_host __context
-                      (Helpers.get_localhost ~__context)
-                )
+                Xapi_pool_update.resync_host ~__context
+                  ~host:(Helpers.get_localhost ~__context)
+            )
+          ; ( "Sync UEFI certificates on host with XAPI db"
+            , [Startup.NoExnRaising]
+            , fun () ->
+                Xapi_host.write_uefi_certificates_to_disk ~__context
+                  ~host:(Helpers.get_localhost ~__context)
             )
           ] ;
         debug "startup: startup sequence finished"

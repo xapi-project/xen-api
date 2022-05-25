@@ -19,9 +19,7 @@ open Xapi_stdext_threads.Threadext
 
 let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
-open Server_helpers
 open Client
-open Db_filter_types
 
 module D = Debug.Make (struct let name = "message_forwarding" end)
 
@@ -51,7 +49,7 @@ end)
 *)
 
 (* Use HTTP 1.0, don't use the connection cache and don't pre-verify the connection *)
-let remote_rpc_no_retry context hostname (task_opt : API.ref_task option) xml =
+let remote_rpc_no_retry _context hostname (task_opt : API.ref_task option) xml =
   let open Xmlrpc_client in
   let transport =
     SSL
@@ -68,7 +66,7 @@ let remote_rpc_no_retry context hostname (task_opt : API.ref_task option) xml =
   XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"dst_xapi" ~transport ~http xml
 
 (* Use HTTP 1.1, use the stunnel cache and pre-verify the connection *)
-let remote_rpc_retry context hostname (task_opt : API.ref_task option) xml =
+let remote_rpc_retry _context hostname (task_opt : API.ref_task option) xml =
   let open Xmlrpc_client in
   let transport =
     SSL
@@ -1082,6 +1080,12 @@ functor
         info "Pool.disable_repository_proxy: pool = '%s'"
           (pool_uuid ~__context self) ;
         Local.Pool.disable_repository_proxy ~__context ~self
+
+      let set_uefi_certificates ~__context ~self ~value =
+        info "Pool.set_uefi_certificates: pool='%s' value='%s'"
+          (pool_uuid ~__context self)
+          value ;
+        Local.Pool.set_uefi_certificates ~__context ~self ~value
     end
 
     module VM = struct
@@ -1131,7 +1135,7 @@ functor
         in
         wait_for_tasks ~__context ~tasks:cancelled
 
-      let unmark_vbds ~__context ~vbds ~doc ~op =
+      let unmark_vbds ~__context ~vbds ~doc ~op:_ =
         let task_id = Ref.string_of (Context.get_task_id __context) in
         iter_with_drop
           ~doc:("unmarking VBDs after " ^ doc)
@@ -1186,7 +1190,7 @@ functor
             )
           )
 
-      let unmark_vifs ~__context ~vifs ~doc ~op =
+      let unmark_vifs ~__context ~vifs ~doc ~op:_ =
         let task_id = Ref.string_of (Context.get_task_id __context) in
         iter_with_drop
           ~doc:("unmarking VIFs after " ^ doc)
@@ -1335,7 +1339,7 @@ functor
       (* For start/start_on/resume/resume_on/migrate *)
       let finally_clear_host_operation ~__context ~host ?host_op () =
         match host_op with
-        | Some x ->
+        | Some _ ->
             let task_id = Ref.string_of (Context.get_task_id __context) in
             Db.Host.remove_from_current_operations ~__context ~self:host
               ~key:task_id ;
@@ -1756,9 +1760,9 @@ functor
           with_vm_operation ~__context ~self:vm ~doc:"VM.start" ~op:`start
             (fun () ->
               with_vbds_marked ~__context ~vm ~doc:"VM.start" ~op:`attach
-                (fun vbds ->
+                (fun _vbds ->
                   with_vifs_marked ~__context ~vm ~doc:"VM.start" ~op:`attach
-                    (fun vifs ->
+                    (fun _vifs ->
                       Xapi_vm_helpers.ensure_domain_type_is_specified ~__context
                         ~self:vm ;
                       (* The start operation makes use of the cached memory overhead *)
@@ -1821,9 +1825,9 @@ functor
         with_vm_operation ~__context ~self:vm ~doc:"VM.start_on" ~op:`start_on
           (fun () ->
             with_vbds_marked ~__context ~vm ~doc:"VM.start_on" ~op:`attach
-              (fun vbds ->
+              (fun _vbds ->
                 with_vifs_marked ~__context ~vm ~doc:"VM.start_on" ~op:`attach
-                  (fun vifs ->
+                  (fun _vifs ->
                     Xapi_vm_helpers.ensure_domain_type_is_specified ~__context
                       ~self:vm ;
                     (* The start operation makes use of the cached memory overhead *)
@@ -1996,11 +2000,11 @@ functor
         with_vm_operation ~__context ~self:vm ~doc:"VM.clean_reboot"
           ~op:`clean_reboot (fun () ->
             with_vbds_marked ~__context ~vm ~doc:"VM.clean_reboot" ~op:`attach
-              (fun vbds ->
+              (fun _vbds ->
                 with_vifs_marked ~__context ~vm ~doc:"VM.clean_reboot"
-                  ~op:`attach (fun vifs ->
-                    (* CA-31903: we don't need to reserve memory for reboot because the memory settings can't
-                       									   change across reboot. *)
+                  ~op:`attach (fun _vifs ->
+                    (* CA-31903: we don't need to reserve memory for reboot
+                       because the memory settings can't change across reboot. *)
                     forward_vm_op ~local_fn ~__context ~vm
                       (fun session_id rpc ->
                         Client.VM.clean_reboot ~rpc ~session_id ~vm
@@ -2095,11 +2099,11 @@ functor
                 ; `suspend
                 ] ;
             with_vbds_marked ~__context ~vm ~doc:"VM.hard_reboot" ~op:`attach
-              (fun vbds ->
+              (fun _vbds ->
                 with_vifs_marked ~__context ~vm ~doc:"VM.hard_reboot"
-                  ~op:`attach (fun vifs ->
-                    (* CA-31903: we don't need to reserve memory for reboot because the memory settings can't
-                       									   change across reboot. *)
+                  ~op:`attach (fun _vifs ->
+                    (* CA-31903: we don't need to reserve memory for reboot
+                       because the memory settings can't change across reboot. *)
                     do_op_on ~host ~local_fn ~__context (fun session_id rpc ->
                         Client.VM.hard_reboot ~rpc ~session_id ~vm
                     )
@@ -2121,9 +2125,9 @@ functor
         let local_fn = Local.VM.hard_reboot_internal ~vm in
         (* no VM operation: we assume the VM is still Running *)
         with_vbds_marked ~__context ~vm ~doc:"VM.hard_reboot" ~op:`attach
-          (fun vbds ->
+          (fun _vbds ->
             with_vifs_marked ~__context ~vm ~doc:"VM.hard_reboot" ~op:`attach
-              (fun vifs ->
+              (fun _vifs ->
                 (* CA-31903: we don't need to reserve memory for reboot because the memory settings can't
                    							   change across reboot. *)
                 forward_vm_op ~local_fn ~__context ~vm (fun session_id rpc ->
@@ -2164,7 +2168,9 @@ functor
             Xapi_vm_snapshot.create_vm_from_snapshot ~__context ~snapshot
         in
         let local_fn = Local.VM.revert ~snapshot in
-        let forward_fn session_id rpc = Local.VM.revert ~__context ~snapshot in
+        let forward_fn _session_id _rpc =
+          Local.VM.revert ~__context ~snapshot
+        in
         with_vm_operation ~__context ~self:snapshot ~doc:"VM.revert" ~op:`revert
           (fun () ->
             with_vm_operation ~__context ~self:vm ~doc:"VM.reverting"
@@ -2263,7 +2269,7 @@ functor
           with_vm_operation ~__context ~self:vm ~doc:"VM.resume" ~op:`resume
             (fun () ->
               with_vbds_marked ~__context ~vm ~doc:"VM.resume" ~op:`attach
-                (fun vbds ->
+                (fun _vbds ->
                   Xapi_vm_helpers.ensure_domain_type_is_specified ~__context
                     ~self:vm ;
                   let snapshot = Db.VM.get_record ~__context ~self:vm in
@@ -2302,7 +2308,7 @@ functor
         with_vm_operation ~__context ~self:vm ~doc:"VM.resume_on" ~op:`resume_on
           (fun () ->
             with_vbds_marked ~__context ~vm ~doc:"VM.resume_on" ~op:`attach
-              (fun vbds ->
+              (fun _vbds ->
                 Xapi_vm_helpers.ensure_domain_type_is_specified ~__context
                   ~self:vm ;
                 let snapshot = Db.VM.get_record ~__context ~self:vm in
@@ -2405,7 +2411,7 @@ functor
                 ~live ~vdi_map ~vif_map ~vgpu_map ~options
           )
         with
-        | Api_errors.Server_error (code, params)
+        | Api_errors.Server_error (code, _)
         when code = Api_errors.message_method_unknown
         ->
           warn
@@ -3858,7 +3864,7 @@ functor
             Client.Host.nvidia_vf_setup ~rpc ~session_id ~host ~pf ~enable
         )
 
-      let allocate_resources_for_vm ~__context ~self ~vm ~live =
+      let allocate_resources_for_vm ~__context ~self ~vm ~live:_ =
         info "Host.host_allocate_resources_for_vm: host = %s; VM = %s"
           (host_uuid ~__context self)
           (vm_uuid ~__context vm) ;
@@ -3881,6 +3887,14 @@ functor
         let local_fn = Local.Host.set_multipathing ~host ~value in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
             Client.Host.set_multipathing ~rpc ~session_id ~host ~value
+        )
+
+      let write_uefi_certificates_to_disk ~__context ~host =
+        info "Host.write_uefi_certificates_to_disk: host='%s' "
+          (host_uuid ~__context host) ;
+        let local_fn = Local.Host.write_uefi_certificates_to_disk ~host in
+        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
+            Client.Host.write_uefi_certificates_to_disk ~rpc ~session_id ~host
         )
 
       let set_uefi_certificates ~__context ~host ~value =
@@ -4127,7 +4141,7 @@ functor
     end
 
     module VIF = struct
-      let unmark_vif ~__context ~vif ~doc ~op =
+      let unmark_vif ~__context ~vif ~doc ~op:_ =
         let task_id = Ref.string_of (Context.get_task_id __context) in
         log_exn
           ~doc:("unmarking VIF after " ^ doc)
@@ -4623,7 +4637,7 @@ functor
     module SM = struct end
 
     module SR = struct
-      let unmark_sr ~__context ~sr ~doc ~op =
+      let unmark_sr ~__context ~sr ~doc ~op:_ =
         let task_id = Ref.string_of (Context.get_task_id __context) in
         debug "Unmarking SR after %s (task=%s)" doc task_id ;
         log_exn_ignore
@@ -4934,7 +4948,7 @@ functor
     end
 
     module VDI = struct
-      let unmark_vdi ~__context ~vdi ~doc ~op =
+      let unmark_vdi ~__context ~vdi ~doc ~op:_ =
         let task_id = Ref.string_of (Context.get_task_id __context) in
         log_exn_ignore
           ~doc:("unmarking VDI after " ^ doc)
@@ -5459,7 +5473,7 @@ functor
             with _ -> ()
         )
 
-      let unmark_vbd ~__context ~vbd ~doc ~op =
+      let unmark_vbd ~__context ~vbd ~doc ~op:_ =
         let task_id = Ref.string_of (Context.get_task_id __context) in
         log_exn
           ~doc:("unmarking VBD after " ^ doc)
@@ -5686,7 +5700,7 @@ functor
       (* Mark the SR and check, if we are the 'SRmaster' that no VDI
          current_operations are present (eg snapshot, clone) since these are all
          done on the SR master. *)
-      let with_unplug_locks ~__context ~pbd ~sr f =
+      let with_unplug_locks ~__context ~pbd:_ ~sr f =
         let doc = "PBD.unplug" and op = `unplug in
         Helpers.retry_with_global_lock ~__context ~doc (fun () ->
             if Helpers.i_am_srmaster ~__context ~sr then
@@ -6080,7 +6094,7 @@ functor
             Xapi_vusb_helpers.update_allowed_operations ~__context ~self:vusb
         )
 
-      let unmark_vusb ~__context ~vusb ~doc ~op =
+      let unmark_vusb ~__context ~vusb ~doc ~op:_ =
         let task_id = Ref.string_of (Context.get_task_id __context) in
         log_exn
           ~doc:("unmarking VUSB after " ^ doc)

@@ -14,6 +14,130 @@
 
 open Test_highlevel
 
+module Key_values = struct
+  let invalid_values = ["foo"; ""; "banana"; "2"]
+
+  let true_values = ["TRUE"; "tRuE"; "1"; "true"]
+
+  let false_values = ["FALSE"; "fAlSe"; "0"; "false"]
+
+  let valid_platformdata = [[]]
+
+  let key = "test_key"
+
+  let test_truthiness p =
+    Vm_platform.is_true ~key ~platformdata:p ~default:false
+
+  let test_validity p = Vm_platform.is_valid ~key ~platformdata:p
+
+  let test_value typ f value expected =
+    let title = Printf.sprintf "%s values: %s" typ value in
+    ( title
+    , `Quick
+    , fun () ->
+        Alcotest.(check bool)
+          (Printf.sprintf "'%s' must evaluate to %b" value expected)
+          expected
+          (f [(key, value)])
+    )
+
+  let truthy_value_tests =
+    let test v = test_value "truthy" test_truthiness v true in
+    List.map test true_values
+
+  let falsy_value_tests =
+    let test v = test_value "falsy" test_truthiness v false in
+    List.map test false_values
+
+  let invalid_value_tests =
+    let test v = test_value "invalid" test_validity v false in
+    List.map test invalid_values
+
+  let empty_platformdata_tests =
+    [
+      ( "Validity with empty platformdata"
+      , `Quick
+      , fun () ->
+          Alcotest.(check bool)
+            "Any key in an empty platformdata must be valid" (test_validity [])
+            true
+      )
+    ]
+
+  let tests =
+    List.concat
+      [
+        truthy_value_tests
+      ; falsy_value_tests
+      ; invalid_value_tests
+      ; empty_platformdata_tests
+      ]
+end
+
+module Licensing = struct
+  (* Nested_virt is restricted in the default test database *)
+
+  (* List of platform keys and whether they must be restricted when 'Nested_virt' is restricted.
+     true -> must be restricted
+     false -> must not be restricted
+  *)
+  let nested_virt_checks =
+    [
+      ([], false)
+    ; ([("foo", "bar"); ("baz", "moo"); ("nested-virt", "true")], true)
+    ; ([("nested-virt", "TRUE")], true)
+    ; ([("nested-virt", "false")], false)
+    ; ([("nested-virt", "1")], true)
+    ; ([("nested-virt", "0")], false)
+    ; ([("nested-virt", "true")], true)
+    ]
+
+  let pp_platform = Fmt.Dump.(list @@ pair string string)
+
+  let test_nested_virt_licensing (platform, should_raise) () =
+    let __context = Test_common.make_test_database () in
+
+    let pool = Db.Pool.get_all ~__context |> List.hd in
+    let test_checks =
+      if should_raise then
+        Alcotest.check_raises
+          (Format.asprintf "Failed to raise an exception for platform map: '%a'"
+             pp_platform platform
+          )
+          Api_errors.(Server_error (license_restriction, ["Nested_virt"]))
+      else
+        fun f ->
+      try f ()
+      with
+      | Api_errors.(Server_error (typ, ["Nested_virt"])) as e
+      when typ = Api_errors.license_restriction
+      ->
+        Alcotest.fail
+          (Format.asprintf "Unexpectedly raised '%a' for platform map: '%a'"
+             Fmt.exn e pp_platform platform
+          )
+    in
+
+    test_checks (fun () ->
+        Db.Pool.set_restrictions ~__context ~self:pool
+          ~value:[("restrict_nested_virt", "true")] ;
+        Vm_platform.check_restricted_flags ~__context platform
+    ) ;
+    (* If the feature is unrestricted, nothing should raise an exception *)
+    Db.Pool.set_restrictions ~__context ~self:pool
+      ~value:[("restrict_nested_virt", "false")] ;
+    Vm_platform.check_restricted_flags ~__context platform
+
+  let tests =
+    let test (p, r) =
+      ( Format.asprintf "Nested_virt licensing: %a" pp_platform p
+      , `Quick
+      , test_nested_virt_licensing (p, r)
+      )
+    in
+    List.map test nested_virt_checks
+end
+
 let firmware_type_printer v =
   v
   |> Rpcmarshal.marshal Xenops_types.Vm.typ_of_firmware_type
@@ -232,4 +356,9 @@ module SanityCheck = Generic.MakeStateless (struct
       ]
 end)
 
-let tests = [("platform_data_sanity_check", SanityCheck.tests)]
+let tests =
+  [
+    ( "platform_data"
+    , List.concat [Key_values.tests; Licensing.tests; SanityCheck.tests]
+    )
+  ]

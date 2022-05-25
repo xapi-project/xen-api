@@ -17,7 +17,7 @@ open API
 (* A directory to use for temporary files. *)
 let working_area = Filename.(concat (get_temp_dir_name ()) "xapi-test")
 
-let make_uuid () = Uuid.string_of_uuid (Uuid.make_uuid ())
+let make_uuid () = Uuid.(to_string (make ()))
 
 let assert_raises_api_error (code : string) ?(args : string list option)
     (f : unit -> 'a) : unit =
@@ -203,7 +203,8 @@ let make_host2 ~__context ?(ref = Ref.make ()) ?(uuid = make_uuid ())
     ~display:`enabled ~virtual_hardware_platform_versions:[]
     ~control_domain:Ref.null ~updates_requiring_reboot:[] ~iscsi_iqn:""
     ~multipathing:false ~uefi_certificates:"" ~editions:[] ~pending_guidances:[]
-    ~tls_verification_enabled ;
+    ~tls_verification_enabled
+    ~last_software_update:(Xapi_host.get_servertime ~__context ~host:ref) ;
   ref
 
 let make_pif ~__context ~network ~host ?(device = "eth0")

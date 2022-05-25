@@ -15,9 +15,6 @@
  * @group Access Control
 *)
 
-open Db_actions
-open Auth_signature
-
 module D = Debug.Make (struct let name = "extauth" end)
 
 open D
@@ -150,10 +147,10 @@ let call_extauth_hook_script_in_host ~__context host event_name =
   let event_params = get_event_params ~__context host in
   let call_plugin_fn () =
     Helpers.call_api_functions ~__context (fun rpc session_id ->
-        Client.Client.Host.call_plugin rpc session_id
-          host (* will call extauth plugin with mutex *)
-          extauth_hook_script_name (* script name in @PLUGINDIR@/ *) event_name
-          (* event name sent to script *) event_params
+        Client.Client.Host.call_plugin ~rpc ~session_id
+          ~host (* will call extauth plugin with mutex *)
+          ~plugin:extauth_hook_script_name (* script name in @PLUGINDIR@/ *)
+          ~fn:event_name (* event name sent to script *) ~args:event_params
         (* parameters sent to event name *)
     )
   in

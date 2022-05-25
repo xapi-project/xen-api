@@ -13,23 +13,11 @@
  *)
 (** Detect when PV drivers are out of date *)
 
-module D = Debug.Make (struct let name = "xapi_pv_driver_version" end)
-
-open D
-
 (** Represents the detected PV driver version *)
 type t =
   | Linux of int * int * int * int
   | Windows of int * int * int * int
   | Unknown
-
-let string_of = function
-  | Linux (major, minor, micro, build) ->
-      Printf.sprintf "Linux %d.%d.%d-%d" major minor micro build
-  | Windows (major, minor, micro, build) ->
-      Printf.sprintf "Windows %d.%d.%d-%d" major minor micro build
-  | Unknown ->
-      "Unknown"
 
 let has_pv_drivers x = x <> Unknown
 

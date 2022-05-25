@@ -95,52 +95,74 @@ let rec retry_with_session f rpc x =
 let keep_mpath =
   List.filter (fun (key, _) -> Xstringext.String.startswith "mpath-" key)
 
+let create_alert ~host_uuid_string ~host_name ~pbd_uuid_string key value
+    timestamp scsi_id =
+  let current, max =
+    Scanf.sscanf value "[%d, %d]" (fun current max -> (current, max))
+  in
+  let host_maybe = Uuid.of_string host_uuid_string in
+  let pbd_maybe = Uuid.of_string pbd_uuid_string in
+  let host_error : ('a -> 'b -> 'c -> 'd, unit, string, unit) format4 =
+    "Retrieved malformed UUID for host (%s) while creating PBD alert from \
+     %s=%s; ignoring entry"
+  in
+  let pbd_error : ('a -> 'b -> 'c -> 'd, unit, string, unit) format4 =
+    "Retrieved malformed UUID for pbd (%s) while creating PBD alert from \
+     %s=%s; ignoring entry"
+  in
+  match (host_maybe, pbd_maybe) with
+  | None, None ->
+      debug host_error host_uuid_string key value ;
+      debug pbd_error host_uuid_string key value ;
+      None
+  | None, _ ->
+      debug host_error host_uuid_string key value ;
+      None
+  | _, None ->
+      debug pbd_error host_uuid_string key value ;
+      None
+  | Some host, Some pbd ->
+      let alert = {host; host_name; pbd; timestamp; scsi_id; current; max} in
+      debug "Alert '%s' created from %s=%s" (to_string alert) key value ;
+      Some alert
+
 (* create a list of alerts from a PBD event *)
 let create_pbd_alerts rpc session_id snapshot (_pbd_ref, pbd_rec, timestamp) =
   let aux (key, value) =
     let scsi_id = Xstringext.String.sub_to_end key 6 in
-    let current, max =
-      Scanf.sscanf value "[%d, %d]" (fun current max -> (current, max))
-    in
-    let host =
-      Uuid.of_string
-        (Client.Host.get_uuid ~rpc ~session_id ~self:pbd_rec.API.pBD_host)
+    let host_uuid_string =
+      Client.Host.get_uuid ~rpc ~session_id ~self:pbd_rec.API.pBD_host
     in
     let host_name =
       Client.Host.get_name_label ~rpc ~session_id ~self:pbd_rec.API.pBD_host
     in
-    let pbd = Uuid.of_string pbd_rec.API.pBD_uuid in
-    let alert = {host; host_name; pbd; timestamp; scsi_id; current; max} in
-    debug "Alert '%s' created from %s=%s" (to_string alert) key value ;
-    alert
+    let pbd_uuid_string = pbd_rec.API.pBD_uuid in
+    create_alert ~host_uuid_string ~host_name ~pbd_uuid_string key value
+      timestamp scsi_id
   in
   let diff =
     Listext.List.set_difference
       (keep_mpath pbd_rec.API.pBD_other_config)
       snapshot
   in
-  List.map aux diff
+  List.filter_map aux diff
 
 (* create a list of alerts from a host event *)
 let create_host_alerts _rpc _session snapshot (_, host_rec, timestamp) =
   let aux (key, value) =
     let scsi_id = "n/a" in
-    let current, max =
-      Scanf.sscanf value "[%d, %d]" (fun current max -> (current, max))
-    in
-    let host = Uuid.of_string host_rec.API.host_uuid in
+    let host_uuid_string = host_rec.API.host_uuid in
     let host_name = host_rec.API.host_name_label in
-    let pbd = Uuid.null in
-    let alert = {host; host_name; pbd; timestamp; scsi_id; current; max} in
-    debug "Alert '%s' created from %s=%s" (to_string alert) key value ;
-    alert
+    let pbd_uuid_string = Uuid.(to_string null) in
+    create_alert ~host_uuid_string ~host_name ~pbd_uuid_string key value
+      timestamp scsi_id
   in
   let diff =
     Listext.List.set_difference
       (keep_mpath host_rec.API.host_other_config)
       snapshot
   in
-  List.map aux diff
+  List.filter_map aux diff
 
 let listener rpc session_id queue =
   let snapshot = Hashtbl.create 48 in

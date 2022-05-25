@@ -40,9 +40,6 @@ module Profile : sig
   (** the fallback profile in case an invalid profile string is provided to
       [of_string] *)
 
-  val all : t list
-  (** all available profiles *)
-
   (** Valid names for a profile, used to define valid values for
       VM.platform.device-model *)
   module Name : sig

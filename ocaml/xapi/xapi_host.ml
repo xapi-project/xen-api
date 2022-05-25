@@ -18,15 +18,16 @@ module Pervasiveext = Xapi_stdext_pervasives.Pervasiveext
 open Xapi_stdext_threads.Threadext
 module Unixext = Xapi_stdext_unix.Unixext
 open Xapi_host_helpers
-open Xapi_support
 open Db_filter_types
-open Create_misc
-open Network
 open Workload_balancing
 
 module D = Debug.Make (struct let name = "xapi_host" end)
 
 open D
+
+let get_servertime ~__context ~host:_ = Date.of_float (Unix.gettimeofday ())
+
+let get_server_localtime ~__context ~host:_ = Date.localtime ()
 
 let set_emergency_mode_error code params =
   Xapi_globs.emergency_mode_error := Api_errors.Server_error (code, params)
@@ -104,9 +105,7 @@ let pool_size_is_restricted ~__context =
   (not cvm_exception)
   && not (Pool_features.is_enabled ~__context Features.Pool_size)
 
-let xen_bugtool = "/usr/sbin/xen-bugtool"
-
-let bugreport_upload ~__context ~host ~url ~options =
+let bugreport_upload ~__context ~host:_ ~url ~options =
   let proxy =
     if List.mem_assoc "http_proxy" options then
       List.assoc "http_proxy" options
@@ -250,8 +249,6 @@ let signal_cdrom_event ~__context params =
 let notify ~__context ~ty ~params =
   match ty with "cdrom" -> signal_cdrom_event ~__context params | _ -> ()
 
-let rotate = function [] -> [] | x :: xs -> xs @ [x]
-
 (* A host evacuation plan consists of a hashtable mapping VM refs to instances of per_vm_plan: *)
 type per_vm_plan = Migrate of API.ref_host | Error of (string * string list)
 
@@ -264,7 +261,7 @@ let string_of_per_vm_plan p =
 
 (** Return a table mapping VMs to 'per_vm_plan' types indicating either a target
     	Host or a reason why the VM cannot be migrated. *)
-let compute_evacuation_plan_no_wlb ~__context ~host =
+let compute_evacuation_plan_no_wlb ~__context ~host ?(ignore_ha = false) () =
   let all_hosts = Db.Host.get_all ~__context in
   let enabled_hosts =
     List.filter (fun self -> Db.Host.get_enabled ~__context ~self) all_hosts
@@ -315,9 +312,9 @@ let compute_evacuation_plan_no_wlb ~__context ~host =
        			   planner's PoV) to the result obtained following a host failure and VM restart. *)
     let pool = Helpers.get_pool ~__context in
     let protected_vms, unprotected_vms =
-      if Db.Pool.get_ha_enabled ~__context ~self:pool then
+      if Db.Pool.get_ha_enabled ~__context ~self:pool && not ignore_ha then
         List.partition
-          (fun (vm, record) ->
+          (fun (_, record) ->
             Helpers.vm_should_always_run record.API.vM_ha_always_run
               record.API.vM_ha_restart_priority
           )
@@ -331,7 +328,7 @@ let compute_evacuation_plan_no_wlb ~__context ~host =
           (Error (Api_errors.host_not_enough_free_memory, [Ref.string_of vm]))
       )
       unprotected_vms ;
-    let migratable_vms, unmigratable_vms =
+    let migratable_vms, _ =
       List.partition
         (fun (vm, record) ->
           try
@@ -400,10 +397,10 @@ let compute_evacuation_plan_no_wlb ~__context ~host =
 (* Old Miami style function with the strange error encoding *)
 let assert_can_evacuate ~__context ~host =
   (* call no_wlb function as we only care about errors, and wlb only provides recs for moveable vms *)
-  let plans = compute_evacuation_plan_no_wlb ~__context ~host in
+  let plans = compute_evacuation_plan_no_wlb ~__context ~host () in
   let errors =
     Hashtbl.fold
-      (fun vm plan acc ->
+      (fun _ plan acc ->
         match plan with
         | Error (code, params) ->
             String.concat "," (code :: params) :: acc
@@ -418,9 +415,10 @@ let assert_can_evacuate ~__context ~host =
          (Api_errors.cannot_evacuate_host, [String.concat "|" errors])
       )
 
-(* New Orlando style function which returns a Map *)
-let get_vms_which_prevent_evacuation ~__context ~self =
-  let plans = compute_evacuation_plan_no_wlb ~__context ~host:self in
+let get_vms_which_prevent_evacuation_internal ~__context ~self ~ignore_ha =
+  let plans =
+    compute_evacuation_plan_no_wlb ~__context ~host:self ~ignore_ha ()
+  in
   Hashtbl.fold
     (fun vm plan acc ->
       match plan with
@@ -430,6 +428,10 @@ let get_vms_which_prevent_evacuation ~__context ~self =
           acc
     )
     plans []
+
+(* New Orlando style function which returns a Map *)
+let get_vms_which_prevent_evacuation ~__context ~self =
+  get_vms_which_prevent_evacuation_internal ~__context ~self ~ignore_ha:false
 
 let compute_evacuation_plan_wlb ~__context ~self =
   (* We treat xapi as primary when it comes to "hard" errors, i.e. those that aren't down to memory constraints.  These are things like
@@ -445,7 +447,7 @@ let compute_evacuation_plan_wlb ~__context ~self =
      	   right thing to do because WLB doesn't know about all the HA corner cases (for example), but xapi does.
      	   If there are any VMs left over, record them as HOST_NOT_ENOUGH_FREE_MEMORY, because we assume that WLB thinks they don't fit.
   *)
-  let error_vms = compute_evacuation_plan_no_wlb ~__context ~host:self in
+  let error_vms = compute_evacuation_plan_no_wlb ~__context ~host:self () in
   let vm_recoms =
     get_evacuation_recoms ~__context ~uuid:(Db.Host.get_uuid ~__context ~self)
   in
@@ -545,7 +547,7 @@ let compute_evacuation_plan ~__context ~host =
     debug
       "Using wlb recommendations for choosing a host has been disabled or wlb \
        is not available. Using original algorithm" ;
-    compute_evacuation_plan_no_wlb ~__context ~host
+    compute_evacuation_plan_no_wlb ~__context ~host ()
   ) else
     try
       debug "Using WLB recommendations for host evacuation." ;
@@ -572,19 +574,19 @@ let compute_evacuation_plan ~__context ~host =
               )
           with _ -> ()
         ) ;
-        compute_evacuation_plan_no_wlb ~__context ~host
+        compute_evacuation_plan_no_wlb ~__context ~host ()
     | _ ->
         debug
           "Encountered an unknown error when using wlb for choosing host. \
            Using original algorithm" ;
-        compute_evacuation_plan_no_wlb ~__context ~host
+        compute_evacuation_plan_no_wlb ~__context ~host ()
 
 let evacuate ~__context ~host ~network =
   let task = Context.get_task_id __context in
   let plans = compute_evacuation_plan ~__context ~host in
   (* Check there are no errors in this list *)
   Hashtbl.iter
-    (fun vm plan ->
+    (fun _ plan ->
       match plan with
       | Error (code, params) ->
           raise (Api_errors.Server_error (code, params))
@@ -621,7 +623,7 @@ let evacuate ~__context ~host ~network =
                   ~options
             )
           with
-        | Api_errors.Server_error (code, params)
+        | Api_errors.Server_error (code, _)
           when code = Api_errors.vm_bad_power_state ->
             ()
         | e ->
@@ -669,7 +671,7 @@ let retrieve_wlb_evacuate_recommendations ~__context ~self =
     )
     plans []
 
-let restart_agent ~__context ~host =
+let restart_agent ~__context ~host:_ =
   let syslog_stdout = Forkhelpers.Syslog_WithKey "Host.restart_agent" in
   let pid =
     Forkhelpers.safe_close_and_exec None None None [] ~syslog_stdout
@@ -710,7 +712,7 @@ let enable ~__context ~host =
       && Db.Pool.get_ha_overcommitted ~__context ~self:pool
     then
       Helpers.call_api_functions ~__context (fun rpc session_id ->
-          Client.Client.Pool.ha_schedule_plan_recomputation rpc session_id
+          Client.Client.Pool.ha_schedule_plan_recomputation ~rpc ~session_id
       )
   )
 
@@ -801,19 +803,19 @@ let power_on ~__context ~host =
   if result <> "True" then
     failwith (Printf.sprintf "The host failed to power on.")
 
-let dmesg ~__context ~host =
+let dmesg ~__context ~host:_ =
   let dbg = Context.string_of_task __context in
   let open Xapi_xenops_queue in
   let module Client = (val make_client (default_xenopsd ()) : XENOPS) in
   Client.HOST.get_console_data dbg
 
-let dmesg_clear ~__context ~host =
+let dmesg_clear ~__context ~host:_ =
   raise (Api_errors.Server_error (Api_errors.not_implemented, ["dmesg_clear"]))
 
-let get_log ~__context ~host =
+let get_log ~__context ~host:_ =
   raise (Api_errors.Server_error (Api_errors.not_implemented, ["get_log"]))
 
-let send_debug_keys ~__context ~host ~keys =
+let send_debug_keys ~__context ~host:_ ~keys =
   let open Xapi_xenops_queue in
   let module Client = (val make_client (default_xenopsd ()) : XENOPS) in
   let dbg = Context.string_of_task __context in
@@ -822,7 +824,7 @@ let send_debug_keys ~__context ~host ~keys =
 let list_methods ~__context =
   raise (Api_errors.Server_error (Api_errors.not_implemented, ["list_method"]))
 
-let is_slave ~__context ~host = not (Pool_role.is_master ())
+let is_slave ~__context ~host:_ = not (Pool_role.is_master ())
 
 let ask_host_if_it_is_a_slave ~__context ~host =
   let ask_and_warn_when_slow ~__context =
@@ -849,7 +851,7 @@ let ask_host_if_it_is_a_slave ~__context ~host =
     let res =
       Message_forwarding.do_op_on_localsession_nolivecheck ~local_fn ~__context
         ~host (fun session_id rpc ->
-          Client.Client.Pool.is_slave rpc session_id host
+          Client.Client.Pool.is_slave ~rpc ~session_id ~host
       )
     in
     Xapi_periodic_scheduler.remove_from_queue task_name ;
@@ -889,10 +891,10 @@ let is_host_alive ~__context ~host =
     false
   )
 
-let create ~__context ~uuid ~name_label ~name_description ~hostname ~address
+let create ~__context ~uuid ~name_label ~name_description:_ ~hostname ~address
     ~external_auth_type ~external_auth_service_name ~external_auth_configuration
     ~license_params ~edition ~license_server ~local_cache_sr ~chipset_info
-    ~ssl_legacy =
+    ~ssl_legacy:_ =
   (* fail-safe. We already test this on the joining host, but it's racy, so multiple concurrent
      pool-join might succeed. Note: we do it in this order to avoid a problem checking restrictions during
      the initial setup of the database *)
@@ -908,7 +910,7 @@ let create ~__context ~uuid ~name_label ~name_description ~hostname ~address
       ) ;
   let make_new_metrics_object ref =
     Db.Host_metrics.create ~__context ~ref
-      ~uuid:(Uuid.to_string (Uuid.make_uuid ()))
+      ~uuid:(Uuid.to_string (Uuid.make ()))
       ~live:false ~memory_total:0L ~memory_free:0L ~last_updated:Date.never
       ~other_config:[]
   in
@@ -952,7 +954,7 @@ let create ~__context ~uuid ~name_label ~name_description ~hostname ~address
       )
     ~control_domain:Ref.null ~updates_requiring_reboot:[] ~iscsi_iqn:""
     ~multipathing:false ~uefi_certificates:"" ~editions:[] ~pending_guidances:[]
-    ~tls_verification_enabled ;
+    ~tls_verification_enabled ~last_software_update:Date.never ;
   (* If the host we're creating is us, make sure its set to live *)
   Db.Host_metrics.set_last_updated ~__context ~self:metrics
     ~value:(Date.of_float (Unix.gettimeofday ())) ;
@@ -1016,12 +1018,12 @@ let declare_dead ~__context ~host =
    * This needs to happen before we reset the power state of the VMs *)
   Xapi_hooks.host_pre_declare_dead ~__context ~host
     ~reason:Xapi_hooks.reason__user ;
-  let my_control_domains, my_regular_vms =
+  let _control_domains, my_regular_vms =
     get_resident_vms ~__context ~self:host
   in
   Helpers.call_api_functions ~__context (fun rpc session_id ->
       List.iter
-        (fun vm -> Client.Client.VM.power_state_reset rpc session_id vm)
+        (fun vm -> Client.Client.VM.power_state_reset ~rpc ~session_id ~vm)
         my_regular_vms
   ) ;
   Db.Host.set_enabled ~__context ~self:host ~value:false ;
@@ -1062,15 +1064,15 @@ let ha_join_liveset ~__context ~host =
         )
 
 let propose_new_master ~__context ~address ~manual =
-  Xapi_ha.propose_new_master __context address manual
+  Xapi_ha.propose_new_master ~__context ~address ~manual
 
 let commit_new_master ~__context ~address =
-  Xapi_ha.commit_new_master __context address
+  Xapi_ha.commit_new_master ~__context ~address
 
 let abort_new_master ~__context ~address =
-  Xapi_ha.abort_new_master __context address
+  Xapi_ha.abort_new_master ~__context ~address
 
-let update_master ~__context ~host ~master_address = assert false
+let update_master ~__context ~host:_ ~master_address:_ = assert false
 
 let emergency_ha_disable ~__context ~soft =
   Xapi_ha.emergency_ha_disable __context soft
@@ -1088,21 +1090,20 @@ let request_backup ~__context ~host ~generation ~force =
     let connections = Db_conn_store.read_db_connections () in
     Db_cache_impl.sync connections (Db_ref.get_database (Db_backend.make ()))
   ) else
-    let master_address = Helpers.get_main_ip_address () in
+    let master_address = Helpers.get_main_ip_address ~__context in
     Pool_db_backup.fetch_database_backup ~master_address
       ~pool_secret:(Xapi_globs.pool_secret ())
       ~force:(if force then None else Some generation)
 
 (* request_config_file_sync is used to inform a slave that it should consider resyncing dom0 config files
    (currently only /etc/passwd) *)
-let request_config_file_sync ~__context ~host ~hash =
+let request_config_file_sync ~__context ~host:_ ~hash:_ =
   debug "Received notification of dom0 config file change" ;
-  let master_address = Helpers.get_main_ip_address () in
+  let master_address = Helpers.get_main_ip_address ~__context in
   Config_file_sync.fetch_config_files ~master_address
-    ~pool_secret:(Xapi_globs.pool_secret ())
 
 (* Host parameter will just be me, as message forwarding layer ensures this call has been forwarded correctly *)
-let syslog_reconfigure ~__context ~host =
+let syslog_reconfigure ~__context ~host:_ =
   let localhost = Helpers.get_localhost ~__context in
   let logging = Db.Host.get_logging ~__context ~self:localhost in
   let destination =
@@ -1111,8 +1112,12 @@ let syslog_reconfigure ~__context ~host =
   let flag =
     match destination with "" -> "--noremote" | _ -> "--remote=" ^ destination
   in
-  let args = [|!Xapi_globs.xe_syslog_reconfigure; flag|] in
-  ignore (Unixext.spawnvp args.(0) args)
+  let (_ : string * string) =
+    Forkhelpers.execute_command_get_output
+      !Xapi_globs.xe_syslog_reconfigure
+      [flag]
+  in
+  ()
 
 let get_management_interface ~__context ~host =
   let pifs =
@@ -1207,15 +1212,16 @@ let get_system_status_capabilities ~__context ~host =
     failwith "Forwarded to the wrong host" ;
   System_status.get_capabilities ()
 
-let get_sm_diagnostics ~__context ~host = Storage_access.diagnostics ~__context
+let get_sm_diagnostics ~__context ~host:_ =
+  Storage_access.diagnostics ~__context
 
-let get_thread_diagnostics ~__context ~host =
+let get_thread_diagnostics ~__context ~host:_ =
   Locking_helpers.Thread_state.to_graphviz ()
 
-let sm_dp_destroy ~__context ~host ~dp ~allow_leak =
+let sm_dp_destroy ~__context ~host:_ ~dp ~allow_leak =
   Storage_access.dp_destroy ~__context dp allow_leak
 
-let get_diagnostic_timing_stats ~__context ~host = Stats.summarise ()
+let get_diagnostic_timing_stats ~__context ~host:_ = Stats.summarise ()
 
 (* CP-825: Serialize execution of host-enable-extauth and host-disable-extauth *)
 (* We need to protect against concurrent execution of the extauth-hook script and host.enable/disable extauth, *)
@@ -1290,7 +1296,7 @@ let set_hostname_live ~__context ~host ~hostname =
       Helpers.update_domain_zero_name ~__context host hostname
   )
 
-let set_ssl_legacy ~__context ~self ~value =
+let set_ssl_legacy ~__context ~self:_ ~value =
   if value then
     raise
       Api_errors.(
@@ -1316,16 +1322,16 @@ let compute_free_memory ~__context ~host =
 let compute_memory_overhead ~__context ~host =
   Memory_check.host_compute_memory_overhead ~__context ~host
 
-let get_data_sources ~__context ~host =
+let get_data_sources ~__context ~host:_ =
   List.map Rrdd_helper.to_API_data_source (Rrdd.query_possible_host_dss ())
 
-let record_data_source ~__context ~host ~data_source =
+let record_data_source ~__context ~host:_ ~data_source =
   Rrdd.add_host_ds data_source
 
-let query_data_source ~__context ~host ~data_source =
+let query_data_source ~__context ~host:_ ~data_source =
   Rrdd.query_host_ds data_source
 
-let forget_data_source_archives ~__context ~host ~data_source =
+let forget_data_source_archives ~__context ~host:_ ~data_source =
   Rrdd.forget_host_ds data_source
 
 let tickle_heartbeat ~__context ~host ~stuff =
@@ -1360,7 +1366,7 @@ let call_plugin ~__context ~host ~plugin ~fn ~args =
     Xapi_plugins.call_plugin (Context.get_session_id __context) plugin fn args
 
 (* this is the generic extension call available to xapi users *)
-let call_extension ~__context ~host ~call =
+let call_extension ~__context ~host:_ ~call =
   let rpc = Jsonrpc.call_of_string call in
   let response = Xapi_extensions.call_extension rpc in
   if response.Rpc.success then
@@ -1389,17 +1395,17 @@ let call_extension ~__context ~host ~call =
     | _ ->
         protocol_failure ()
 
-let has_extension ~__context ~host ~name =
+let has_extension ~__context ~host:_ ~name =
   try
     let (_ : string) = Xapi_extensions.find_extension name in
     true
   with _ -> false
 
-let sync_data ~__context ~host = Xapi_sync.sync_host __context host
+let sync_data ~__context ~host = Xapi_sync.sync_host ~__context host
 
 (* Nb, no attempt to wrap exceptions yet *)
 
-let backup_rrds ~__context ~host ~delay =
+let backup_rrds ~__context ~host:_ ~delay =
   Xapi_periodic_scheduler.add_to_queue "RRD backup"
     Xapi_periodic_scheduler.OneShot delay (fun _ ->
       let master_address = Pool_role.get_master_address_opt () in
@@ -1410,10 +1416,6 @@ let backup_rrds ~__context ~host ~delay =
             (Helpers.get_all_plugged_srs ~__context)
       )
   )
-
-let get_servertime ~__context ~host = Date.of_float (Unix.gettimeofday ())
-
-let get_server_localtime ~__context ~host = Date.localtime ()
 
 let enable_binary_storage ~__context ~host =
   Unixext.mkdir_safe Xapi_globs.xapi_blob_location 0o700 ;
@@ -1431,32 +1433,33 @@ let disable_binary_storage ~__context ~host =
     ~key:Xapi_globs.host_no_local_storage ~value:"true"
 
 (* Dummy implementation for a deprecated API method. *)
-let get_uncooperative_resident_VMs ~__context ~self = []
+let get_uncooperative_resident_VMs ~__context ~self:_ = []
 
 (* Dummy implementation for a deprecated API method. *)
-let get_uncooperative_domains ~__context ~self = []
+let get_uncooperative_domains ~__context ~self:_ = []
 
-let install_ca_certificate ~__context ~host ~name ~cert =
+let install_ca_certificate ~__context ~host:_ ~name ~cert =
   (* don't modify db - Pool.install_ca_certificate will handle that *)
-  Certificates.(host_install CA_Certificate name cert)
+  Certificates.(host_install CA_Certificate ~name ~cert)
 
-let uninstall_ca_certificate ~__context ~host ~name =
+let uninstall_ca_certificate ~__context ~host:_ ~name =
   (* don't modify db - Pool.uninstall_ca_certificate will handle that *)
-  Certificates.(host_uninstall CA_Certificate name)
+  Certificates.(host_uninstall CA_Certificate ~name)
 
-let certificate_list ~__context ~host = Certificates.(local_list CA_Certificate)
+let certificate_list ~__context ~host:_ =
+  Certificates.(local_list CA_Certificate)
 
-let crl_install ~__context ~host ~name ~crl =
-  Certificates.(host_install CRL name crl)
+let crl_install ~__context ~host:_ ~name ~crl =
+  Certificates.(host_install CRL ~name ~cert:crl)
 
-let crl_uninstall ~__context ~host ~name =
-  Certificates.(host_uninstall CRL name)
+let crl_uninstall ~__context ~host:_ ~name =
+  Certificates.(host_uninstall CRL ~name)
 
-let crl_list ~__context ~host = Certificates.(local_list CRL)
+let crl_list ~__context ~host:_ = Certificates.(local_list CRL)
 
-let certificate_sync ~__context ~host = Certificates.local_sync ()
+let certificate_sync ~__context ~host:_ = Certificates.local_sync ()
 
-let get_server_certificate ~__context ~host =
+let get_server_certificate ~__context ~host:_ =
   Certificates.get_server_certificate ()
 
 let with_cert_lock : (unit -> 'a) -> 'a =
@@ -1549,14 +1552,18 @@ let refresh_server_certificate ~__context ~host =
 (* CA-24856: detect non-homogeneous external-authentication config in pool *)
 let detect_nonhomogeneous_external_auth_in_host ~__context ~host =
   Helpers.call_api_functions ~__context (fun rpc session_id ->
-      let pool = List.hd (Client.Client.Pool.get_all rpc session_id) in
-      let master = Client.Client.Pool.get_master rpc session_id pool in
-      let master_rec = Client.Client.Host.get_record rpc session_id master in
-      let host_rec = Client.Client.Host.get_record rpc session_id host in
+      let pool = List.hd (Client.Client.Pool.get_all ~rpc ~session_id) in
+      let master = Client.Client.Pool.get_master ~rpc ~session_id ~self:pool in
+      let master_rec =
+        Client.Client.Host.get_record ~rpc ~session_id ~self:master
+      in
+      let host_rec =
+        Client.Client.Host.get_record ~rpc ~session_id ~self:host
+      in
       (* if this host being verified is the master, then we need to verify homogeneity for all slaves in the pool *)
       if host_rec.API.host_uuid = master_rec.API.host_uuid then
-        Client.Client.Pool.detect_nonhomogeneous_external_auth rpc session_id
-          pool
+        Client.Client.Pool.detect_nonhomogeneous_external_auth ~rpc ~session_id
+          ~pool
       else
         (* this host is a slave, let's check if it is homogeneous to the master *)
         let master_external_auth_type =
@@ -1848,7 +1855,7 @@ let disable_external_auth ~__context ~host ~config =
   disable_external_auth_common ~during_pool_eject:false ~__context ~host ~config
     ()
 
-let attach_static_vdis ~__context ~host ~vdi_reason_map =
+let attach_static_vdis ~__context ~host:_ ~vdi_reason_map =
   (* We throw an exception immediately if any of the VDIs in vdi_reason_map is
      a changed block tracking metadata VDI. *)
   List.iter
@@ -1883,7 +1890,7 @@ let attach_static_vdis ~__context ~host ~vdi_reason_map =
   in
   List.iter attach vdi_reason_map
 
-let detach_static_vdis ~__context ~host ~vdis =
+let detach_static_vdis ~__context ~host:_ ~vdis =
   let detach vdi =
     let static_vdis = Static_vdis_list.list () in
     let check v =
@@ -1894,22 +1901,22 @@ let detach_static_vdis ~__context ~host ~vdis =
   in
   List.iter detach vdis
 
-let update_pool_secret ~__context ~host ~pool_secret =
+let update_pool_secret ~__context ~host:_ ~pool_secret =
   SecretString.write_to_file !Xapi_globs.pool_secret_path pool_secret
 
-let set_localdb_key ~__context ~host ~key ~value =
+let set_localdb_key ~__context ~host:_ ~key ~value =
   Localdb.put key value ;
   debug "Local-db key '%s' has been set to '%s'" key value
 
 (* Licensing *)
 
-let copy_license_to_db ~__context ~host ~features ~additional =
+let copy_license_to_db ~__context ~host:_ ~features ~additional =
   let restrict_kvpairs = Features.to_assoc_list features in
   let license_params = additional @ restrict_kvpairs in
   Helpers.call_api_functions ~__context (fun rpc session_id ->
       (* This will trigger a pool sku/restrictions recomputation *)
-      Client.Client.Host.set_license_params rpc session_id
-        !Xapi_globs.localhost_ref license_params
+      Client.Client.Host.set_license_params ~rpc ~session_id
+        ~self:!Xapi_globs.localhost_ref ~value:license_params
   )
 
 let set_license_params ~__context ~self ~value =
@@ -1954,7 +1961,7 @@ let apply_edition_internal ~__context ~host ~edition ~additional =
   in
   let create_feature fname fenabled =
     Db.Feature.create ~__context
-      ~uuid:(Uuid.to_string (Uuid.make_uuid ()))
+      ~uuid:(Uuid.to_string (Uuid.make ()))
       ~ref:(Ref.make ()) ~name_label:fname ~name_description:""
       ~enabled:fenabled ~experimental:true ~version:"1.0" ~host
   in
@@ -1988,7 +1995,7 @@ let apply_edition_internal ~__context ~host ~edition ~additional =
     | [(rf, _)] ->
         update_feature rf fenabled
     | x ->
-        List.iter (fun (rf, r) -> destroy_feature rf) x ;
+        List.iter (fun (rf, _) -> destroy_feature rf) x ;
         create_feature fname fenabled
   in
   let open V6_interface in
@@ -2001,7 +2008,10 @@ let apply_edition_internal ~__context ~host ~edition ~additional =
 let apply_edition ~__context ~host ~edition ~force =
   (* if HA is enabled do not allow the edition to be changed *)
   let pool = Helpers.get_pool ~__context in
-  if Db.Pool.get_ha_enabled ~__context ~self:pool then
+  if
+    Db.Pool.get_ha_enabled ~__context ~self:pool
+    && edition <> Db.Host.get_edition ~__context ~self:host
+  then
     raise (Api_errors.Server_error (Api_errors.ha_is_enabled, []))
   else
     let additional = if force then [("force", "true")] else [] in
@@ -2037,7 +2047,7 @@ let license_remove ~__context ~host =
 
 (* Supplemental packs *)
 
-let refresh_pack_info ~__context ~host =
+let refresh_pack_info ~__context ~host:_ =
   debug "Refreshing software_version" ;
   Create_misc.create_software_version ~__context ()
 
@@ -2203,7 +2213,7 @@ let sync_vlans ~__context ~host =
               )
           )
   in
-  let maybe_create_vlan (master_pif_ref, master_pif_rec) =
+  let maybe_create_vlan (_, master_pif_rec) =
     (* Check to see if the slave has any existing pif(s) that for the specified device, network, vlan... *)
     (* On the master, we find the pif, p, that underlies the VLAN
      * (e.g. "eth0" underlies "eth0.25") and then find the network that p's on: *)
@@ -2212,7 +2222,7 @@ let sync_vlans ~__context ~host =
     in
     let existing_pif =
       List.filter
-        (fun (slave_pif_ref, slave_pif_record) ->
+        (fun (_, slave_pif_record) ->
           (* Is slave VLAN PIF that we're considering (slave_pif_ref) the one that corresponds
              			 * to the master_pif we're considering (master_pif_ref)? *)
           true
@@ -2299,7 +2309,7 @@ let sync_tunnels ~__context ~host =
               )
           )
   in
-  let maybe_create_tunnel_for_me (master_pif_ref, master_pif_rec) =
+  let maybe_create_tunnel_for_me (_, master_pif_rec) =
     (* check to see if I have any existing pif(s) that for the specified device, network, vlan... *)
     let existing_pif =
       List.filter
@@ -2397,7 +2407,7 @@ let sync_pif_currently_attached ~__context ~host ~bridges =
     )
     pifs
 
-let migrate_receive ~__context ~host ~network ~options =
+let migrate_receive ~__context ~host ~network ~options:_ =
   Xapi_vm_migrate.assert_licensed_storage_motion ~__context ;
   let session_id = Context.get_session_id __context in
   let session_rec = Db.Session.get_record ~__context ~self:session_id in
@@ -2541,25 +2551,77 @@ let sync_display ~__context ~host =
     Db.Host.set_display ~__context ~self:host ~value:status
   )
 
-let apply_guest_agent_config ~__context ~host =
+let apply_guest_agent_config ~__context ~host:_ =
   let pool = Helpers.get_pool ~__context in
   let config = Db.Pool.get_guest_agent_config ~__context ~self:pool in
   Xapi_xenops.apply_guest_agent_config ~__context config
 
-let mxgpu_vf_setup ~__context ~host = Xapi_pgpu.mxgpu_vf_setup __context
+let mxgpu_vf_setup ~__context ~host:_ = Xapi_pgpu.mxgpu_vf_setup ~__context
 
-let nvidia_vf_setup ~__context ~host ~pf ~enable =
+let nvidia_vf_setup ~__context ~host:_ ~pf ~enable =
   Xapi_pgpu.nvidia_vf_setup ~__context ~pf ~enable
 
-let allocate_resources_for_vm ~__context ~self ~vm ~live =
+let allocate_resources_for_vm ~__context ~self:_ ~vm:_ ~live:_ =
   (* Implemented entirely in Message_forwarding *)
   ()
 
+(* Sync uefi certificates with the ones of the hosts *)
+let extract_certificate_file name =
+  if String.contains name '/' then
+    (* Internal error: tarfile not created correctly *)
+    failwith ("Path in certificate tarball %s contains '/'" ^ name) ;
+  let path = Filename.concat !Xapi_globs.varstore_dir name in
+  Helpers.touch_file path ; path
+
+let with_temp_file_contents ~contents f =
+  let filename, out = Filename.open_temp_file "xapi-uefi-certificates" "tar" in
+  Xapi_stdext_pervasives.Pervasiveext.finally
+    (fun () ->
+      Xapi_stdext_pervasives.Pervasiveext.finally
+        (fun () -> output_string out contents)
+        (fun () -> close_out out) ;
+      Unixext.with_file filename [Unix.O_RDONLY] 0 f
+    )
+    (fun () -> Sys.remove filename)
+
+let write_uefi_certificates_to_disk ~__context ~host:_ =
+  if
+    Sys.file_exists !Xapi_globs.varstore_dir
+    && Sys.is_directory !Xapi_globs.varstore_dir
+  then
+    match
+      Base64.decode
+        (Db.Pool.get_uefi_certificates ~__context
+           ~self:(Helpers.get_pool ~__context)
+        )
+    with
+    | Ok contents ->
+        (* Remove existing certs before extracting xapi ones
+         * to avoid a extract override issue. *)
+        List.iter
+          (fun name ->
+            let path = Filename.concat !Xapi_globs.varstore_dir name in
+            Unixext.unlink_safe path
+          )
+          ["KEK.auth"; "db.auth"] ;
+        (* No uefi certificates, nothing to do. *)
+        if contents <> "" then (
+          with_temp_file_contents ~contents
+            (Tar_unix.Archive.extract extract_certificate_file) ;
+          debug "UEFI tar file extracted to temporary directory"
+        )
+    (* No UEFI tar file. *)
+    | Error _ ->
+        debug
+          "UEFI tar file was not extracted: it was not base64-encoded correctly"
+
 let set_uefi_certificates ~__context ~host ~value =
   Db.Host.set_uefi_certificates ~__context ~self:host ~value ;
-  let pool = Helpers.get_pool ~__context in
-  if value <> "" then
-    Db.Pool.set_uefi_certificates ~__context ~self:pool ~value
+  Helpers.call_api_functions ~__context (fun rpc session_id ->
+      Client.Client.Pool.set_uefi_certificates ~rpc ~session_id
+        ~self:(Helpers.get_pool ~__context)
+        ~value
+  )
 
 let set_iscsi_iqn ~__context ~host ~value =
   if value = "" then
@@ -2590,13 +2652,13 @@ let set_multipathing ~__context ~host ~value =
     ~value:(string_of_bool value) ;
   Xapi_host_helpers.Configuration.set_multipathing value
 
-let notify_accept_new_pool_secret ~__context ~host ~old_ps ~new_ps =
+let notify_accept_new_pool_secret ~__context ~host:_ ~old_ps ~new_ps =
   Xapi_psr.notify_new ~__context ~old_ps ~new_ps
 
-let notify_send_new_pool_secret ~__context ~host ~old_ps ~new_ps =
+let notify_send_new_pool_secret ~__context ~host:_ ~old_ps ~new_ps =
   Xapi_psr.notify_send ~__context ~old_ps ~new_ps
 
-let cleanup_pool_secret ~__context ~host ~old_ps ~new_ps =
+let cleanup_pool_secret ~__context ~host:_ ~old_ps ~new_ps =
   Xapi_psr.cleanup ~__context ~old_ps ~new_ps
 
 let set_sched_gran ~__context ~self ~value =
@@ -2686,8 +2748,8 @@ let alert_if_tls_verification_was_emergency_disabled ~__context =
     && tls_verification_enabled_pool_wide <> tls_verification_enabled_locally
   then
     let alert_exists =
-      Helpers.call_api_functions ~__context (fun rpc session ->
-          Client.Client.Message.get_all_records rpc session
+      Helpers.call_api_functions ~__context (fun rpc session_id ->
+          Client.Client.Message.get_all_records ~rpc ~session_id
           |> List.exists (fun (_, record) ->
                  record.API.message_name
                  = fst Api_messages.tls_verification_emergency_disabled
@@ -2704,7 +2766,7 @@ let alert_if_tls_verification_was_emergency_disabled ~__context =
         ~obj_uuid:(Db.Host.get_uuid ~__context ~self)
         ~body
 
-let cert_distrib_atom ~__context ~host ~command =
+let cert_distrib_atom ~__context ~host:_ ~command =
   Cert_distrib.local_exec ~__context ~command
 
 let copy_primary_host_certs = Cert_distrib.copy_certs_to_host
@@ -2752,4 +2814,6 @@ let apply_updates ~__context ~self ~hash =
       ~doc:"Host.apply_updates" ~op:`apply_updates
     @@ fun () -> Repository.apply_updates ~__context ~host:self ~hash
   in
+  Db.Host.set_last_software_update ~__context ~self
+    ~value:(get_servertime ~__context ~host:self) ;
   Repository.apply_immediate_guidances ~__context ~host:self ~guidances

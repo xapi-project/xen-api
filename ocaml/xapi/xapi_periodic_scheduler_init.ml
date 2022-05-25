@@ -49,8 +49,8 @@ let register () =
         Helpers.call_api_functions ~__context (fun rpc session_id ->
             ignore
               (List.fold_left
-                 (fun delay member ->
-                   Client.Client.Host.backup_rrds rpc session_id member delay ;
+                 (fun delay host ->
+                   Client.Client.Host.backup_rrds ~rpc ~session_id ~host ~delay ;
                    delay +. 60.0
                  )
                  0.0 hosts

@@ -124,7 +124,7 @@ let get_pif_topo ~__context ~pif_rec =
   let pif_t_list = List.rev pif_t_list in
   pif_t_list
 
-let vlan_is_allowed_on_pif ~__context ~tagged_PIF ~pif_rec ~pif_topo ~tag =
+let vlan_is_allowed_on_pif ~__context ~tagged_PIF ~pif_rec:_ ~pif_topo ~tag:_ =
   match pif_topo with
   | Physical pif_rec :: _ when pif_rec.API.pIF_bond_slave_of <> Ref.null ->
       (* Disallow creating on bond slave *)

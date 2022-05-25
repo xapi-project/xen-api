@@ -32,7 +32,7 @@ let create_guest_snapshot __context guest =
   }
 
 let create_host_snapshot __context host =
-  let host_id = Db.Host.get_uuid __context host in
+  let host_id = Db.Host.get_uuid ~__context ~self:host in
   let memory_overhead = Db.Host.get_memory_overhead ~__context ~self:host in
   let metrics = Db.Host.get_metrics ~__context ~self:host in
   let memory_total =
@@ -71,7 +71,7 @@ let affinity_host_ids_of_guest __context guest =
   let affinity_host = Db.VM.get_affinity ~__context ~self:guest in
   let affinity_host_is_valid = Db.is_valid_ref __context affinity_host in
   if affinity_host_is_valid then
-    [Db.Host.get_uuid __context affinity_host]
+    [Db.Host.get_uuid ~__context ~self:affinity_host]
   else
     []
 

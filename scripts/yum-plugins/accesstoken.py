@@ -6,7 +6,7 @@
 #   enabled=1
 #
 # Configure it by:
-# yum-config-manager --setopt=centaurus.accesstoken=file://<token-file-path> --save
+# yum-config-manager --setopt=<repo-name>.accesstoken=file://<token-file-path> --save
 
 # The content of the file referred by the <token-file-path> looks like:
 # { 'token': '...', 'token_id': '...' }

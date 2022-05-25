@@ -47,11 +47,11 @@ let int_of_id string_id =
 let id_of_int hex_id = Printf.sprintf "%04x" hex_id
 
 let create ~__context ~class_id ~class_name ~vendor_id ~vendor_name ~device_id
-    ~device_name ~host ~pci_id ~functions ~physical_function ~dependencies
-    ~other_config ~subsystem_vendor_id ~subsystem_vendor_name
+    ~device_name ~host ~pci_id ~functions ~physical_function ~dependencies:_
+    ~other_config:_ ~subsystem_vendor_id ~subsystem_vendor_name
     ~subsystem_device_id ~driver_name ~subsystem_device_name =
   let p = Ref.make () in
-  let uuid = Uuid.to_string (Uuid.make_uuid ()) in
+  let uuid = Uuid.to_string (Uuid.make ()) in
   Db.PCI.create ~__context ~ref:p ~uuid ~class_id ~class_name ~vendor_id
     ~vendor_name ~device_id ~device_name ~host ~pci_id ~functions
     ~physical_function ~dependencies:[] ~other_config:[] ~subsystem_vendor_id
@@ -160,7 +160,7 @@ let update_pcis ~__context =
             let driver_name = string_of_pci_driver_name pci.driver_name in
             let rf, rc =
               List.find
-                (fun (rf, rc) ->
+                (fun (_, rc) ->
                   rc.Db_actions.pCI_pci_id = pci.address
                   && rc.Db_actions.pCI_vendor_id = id_of_int pci.vendor.id
                   && rc.Db_actions.pCI_device_id = id_of_int pci.device.id
@@ -251,13 +251,13 @@ let update_pcis ~__context =
     |> List.map (fun ((pref, prec), pci) ->
            (pref, prec, pci, get_phyfn_path prec)
        )
-    |> List.partition (fun (_, _, pci, phyfn_path) -> phyfn_path = None)
+    |> List.partition (fun (_, _, _, phyfn_path) -> phyfn_path = None)
   in
   let update_dependencies pfs =
     let rec update = function
       | [] ->
           ()
-      | (pref, prec, pci, _) :: remaining ->
+      | (pref, _prec, pci, _) :: remaining ->
           let dependencies =
             try
               pci.related

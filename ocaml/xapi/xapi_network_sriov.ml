@@ -21,7 +21,7 @@ let network_sriov_mac = "fe:ff:ff:ff:ff:ff"
 
 let create_internal ~__context ~physical_PIF ~physical_rec ~network =
   let sriov = Ref.make () in
-  let sriov_uuid = Uuid.to_string (Uuid.make_uuid ()) in
+  let sriov_uuid = Uuid.to_string (Uuid.make ()) in
   let logical_PIF = Ref.make () in
   let mTU = physical_rec.API.pIF_MTU in
   let metrics = physical_rec.API.pIF_metrics in
@@ -29,7 +29,7 @@ let create_internal ~__context ~physical_PIF ~physical_rec ~network =
   let host = physical_rec.API.pIF_host in
   let primary_address_type = physical_rec.API.pIF_primary_address_type in
   Db.PIF.create ~__context ~ref:logical_PIF
-    ~uuid:(Uuid.to_string (Uuid.make_uuid ()))
+    ~uuid:(Uuid.to_string (Uuid.make ()))
     ~device ~device_name:device ~network ~host ~mAC:network_sriov_mac ~mTU
     ~vLAN:(-1L) ~metrics ~physical:false ~currently_attached:false
     ~igmp_snooping_status:`unknown ~ip_configuration_mode:`None ~iP:""
