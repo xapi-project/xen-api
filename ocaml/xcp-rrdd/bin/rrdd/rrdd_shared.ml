@@ -101,7 +101,7 @@ let rrd_of_gzip path =
   in
   if gz_exists then
     Xapi_stdext_unix.Unixext.with_file gz_path [Unix.O_RDONLY] 0o0 (fun fd ->
-        Gzip.decompress_passive fd rrd_of_fd
+        Gzip.Default.decompress_passive fd rrd_of_fd
     )
   else (* If this fails, let the exception propagate *)
     Xapi_stdext_unix.Unixext.with_file path [Unix.O_RDONLY] 0 rrd_of_fd
@@ -153,7 +153,7 @@ let archive_rrd_internal ?(transport = None) ~uuid ~rrd () =
             0o755 ;
           let base_filename = Rrdd_libs.Constants.rrd_location ^ "/" ^ uuid in
           Xapi_stdext_unix.Unixext.atomic_write_to_file (base_filename ^ ".gz")
-            0o644 (fun fd -> Gzip.compress fd (Rrd_unix.to_fd rrd)
+            0o644 (fun fd -> Gzip.Default.compress fd (Rrd_unix.to_fd rrd)
           ) ;
           (* If there's an uncompressed one hanging around, remove it. *)
           Xapi_stdext_unix.Unixext.unlink_safe base_filename

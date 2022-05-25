@@ -12,9 +12,11 @@
  * GNU Lesser General Public License for more details.
  *)
 
-module Gzip = Xapi_compression.Make (struct
+module Default = Xapi_compression.Make (struct
   (** Path to the gzip binary *)
   let executable = "/bin/gzip"
-end)
 
-include Gzip
+  let compress_options = []
+
+  let decompress_options = ["--decompress"; "--stdout"]
+end)

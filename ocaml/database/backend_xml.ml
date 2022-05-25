@@ -26,7 +26,7 @@ let unmarshall schema dbconn =
     Xapi_stdext_pervasives.Pervasiveext.finally
       (fun () ->
         let result = ref None in
-        Gzip.decompress_passive compressed (fun uncompressed ->
+        Gzip.Default.decompress_passive compressed (fun uncompressed ->
             result :=
               Some
                 (Db_xml.From.channel schema
@@ -58,7 +58,9 @@ let flush dbconn db =
         if not dbconn.Parse_db_conf.compress then
           Db_xml.To.fd fd db
         else
-          Gzip.compress fd (fun uncompressed -> Db_xml.To.fd uncompressed db)
+          Gzip.Default.compress fd (fun uncompressed ->
+              Db_xml.To.fd uncompressed db
+          )
     )
   in
   let do_flush_gen db filename =

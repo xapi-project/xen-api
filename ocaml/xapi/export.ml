@@ -922,9 +922,9 @@ let handler (req : Request.t) s _ =
                     in
                     match compression_algorithm with
                     | Some Gzip ->
-                        Gzip.compress s go
+                        Gzip.Default.compress s go
                     | Some Zstd ->
-                        Zstd.compress s go
+                        Zstd.Default.compress s go
                     | None ->
                         go s
                 )

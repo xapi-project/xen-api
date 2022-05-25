@@ -573,7 +573,7 @@ let recv_all_zurich refresh_session ifd (__context : Context.t) rpc session_id
                   raise (Failure "Invalid XVA file")
                 ) ;
                 debug "Decompressing %Ld bytes from %s\n" length file_name ;
-                Gzip.decompress ofd (fun zcat_in ->
+                Gzip.Default.decompress ofd (fun zcat_in ->
                     Tar_helpers.copy_n ifd zcat_in length
                 ) ;
                 Tar_helpers.skip ifd

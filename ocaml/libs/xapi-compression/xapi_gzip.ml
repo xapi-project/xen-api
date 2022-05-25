@@ -18,7 +18,13 @@
 
 module C = Cmdliner
 
-module Gzip = Xapi_compression.Make (struct let executable = "/bin/gzip" end)
+module Gzip = Xapi_compression.Make (struct
+  let executable = "/bin/gzip"
+
+  let compress_options = []
+
+  let decompress_options = ["--decompress"; "--stdout"]
+end)
 
 let help =
   [
