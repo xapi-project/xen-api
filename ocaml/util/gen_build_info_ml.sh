@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-DATE=$(date "+%Y-%m-%d")
+DATE=$(date -u "+%Y%m%dT%H:%M:%SZ")
 
 if [[ -z "$XAPI_VERSION" ]]; then
   printf "XAPI_VERSION not set" 1>&2
