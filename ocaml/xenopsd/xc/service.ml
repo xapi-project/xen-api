@@ -110,9 +110,8 @@ module DaemonMgmt (D : DAEMONPIDPATH) = struct
       match D.pid_location with
       | Path_of {file; _} when Sys.file_exists (file domid) ->
           let path = file domid in
-          let pid =
-            path |> Unixext.string_of_file |> String.trim |> int_of_string
-          in
+          let ( let* ) = Option.bind in
+          let* pid = Unixext.pidfile_read path in
           Unixext.with_file path [Unix.O_RDONLY] 0 (fun fd ->
               try
                 Unix.lockf fd Unix.F_TRLOCK 0 ;
@@ -221,9 +220,10 @@ module Qemu = struct
   let is_running = D.is_running
 
   let stop ~xs ~qemu_domid domid =
+    let file_path = pidfile_path domid in
     match pid ~xs domid with
     | None ->
-        () (* nothing to do *)
+        Unixext.unlink_safe file_path
     | Some pid ->
         let xenstore_path = pidxenstore_path domid in
         let best_effort = Xenops_utils.best_effort in
@@ -243,7 +243,6 @@ module Qemu = struct
         best_effort "removing device model path from xenstore" (fun () ->
             xs.Xs.rm (Device_common.device_model_path ~qemu_domid domid)
         ) ;
-        let file_path = pidfile_path domid in
         best_effort (Printf.sprintf "removing %s" file_path) (fun () ->
             Unix.unlink file_path
         )
