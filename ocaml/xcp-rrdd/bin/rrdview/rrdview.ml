@@ -62,7 +62,9 @@ let rec string_of_cdef = function
 let cdef name ops =
   (Cdef name, Printf.sprintf "CDEF:%s=%s" name @@ string_of_cdef ops)
 
-type fill = RGB of {r: int; g: int; b: int}
+type rgb = {r: int; g: int; b: int; alpha: int option}
+
+type fill = RGB of rgb
 
 let shape ?(stack = false) kind ?label ~def fill =
   let defstr =
@@ -74,8 +76,9 @@ let shape ?(stack = false) kind ?label ~def fill =
   in
   let fillstr =
     match fill with
-    | Some (RGB {r; g; b}) ->
-        Printf.sprintf "#%02x%02x%02x" r g b
+    | Some (RGB {r; g; b; alpha}) ->
+        Printf.sprintf "#%02x%02x%02x%s" r g b
+          (Option.fold ~none:"" ~some:(Printf.sprintf "%02u") alpha)
     | None ->
         ""
   in
@@ -89,13 +92,29 @@ let area_stack = shape ~stack:true "AREA"
 
 let line ?label = shape ?label "LINE"
 
+(* colors from rrdtool wiki OutlinedAreaGraph  *)
+let rgb ?alpha hex =
+  let r = (hex lsr 16) land 0xff
+  and g = (hex lsr 8) land 0xff
+  and b = hex land 0xff in
+  RGB {r; g; b; alpha}
+
+let rgb light dark = (rgb light, rgb dark)
+
 let colors =
-  (* TODO: calc more *)
   [|
-     RGB {r= 0x24; g= 0xbc; b= 0x14}
-   ; RGB {r= 0xbc; g= 0x24; b= 0x14}
-   ; RGB {r= 0x14; g= 0x24; b= 0xbc}
+     rgb 0x54EC48 0x24BC14
+   ; rgb 0x48C4EC 0x1598C3
+   ; rgb 0xDE48EC 0xB415C7
+   ; rgb 0x7648EC 0x4D18E4
+   ; rgb 0xEA644A 0xCC3118
+   ; rgb 0xEC9D48 0xCC7016
+   ; rgb 0xECD748 0xC9B215
   |]
+
+let get_color ~dark i =
+  let RGB col_light, col_dark = colors.(i mod Array.length colors) in
+  Some (if dark then col_dark else RGB {col_light with alpha= Some 50})
 
 let rrdtool ~filename ~data title ~ds_names ~first ~last ~step ~width
     ~has_min_max =
@@ -120,8 +139,7 @@ let rrdtool ~filename ~data title ~ds_names ~first ~last ~step ~width
                  ; def2
                  ; cdef1
                  ; area ~def:ds_min None
-                 ; area_stack ~def:ds_range
-                     (Some (RGB {r= 0x20; g= 0x20; b= 0x20}))
+                 ; area_stack ~def:ds_range @@ get_color ~dark:false i
                  ]
            else
              Seq.empty
@@ -130,7 +148,7 @@ let rrdtool ~filename ~data title ~ds_names ~first ~last ~step ~width
               def ~step ~data ~ds_name ~cf_type:Rrd.CF_Average
             in
             List.to_seq
-              [def3; line ~label:ds_name ~def:ds_avg (Some colors.(i mod 3))]
+              [def3; line ~label:ds_name ~def:ds_avg @@ get_color ~dark:true i]
            )
       )
   in
@@ -172,7 +190,12 @@ let prepare_plot_cmds ~filename ~data ~original_ds rrd =
      let filename =
        Fpath.add_ext (Int64.to_string timespan) filename |> Fpath.add_ext "svg"
      in
-     let title = Fpath.rem_ext filename |> Fpath.basename in
+     let title =
+       Fpath.rem_ext filename
+       |> Fpath.basename
+       |> String.cuts ~sep:"."
+       |> String.concat ~sep:"<br/>"
+     in
      let step = Int64.(mul (of_int rra.rra_pdp_cnt) rrd.timestep) in
      let width = 2 * rra.rra_row_cnt in
      (* 1 point = 1 CDP from the RRA *)
@@ -311,6 +334,7 @@ let classify =
       in
       make_ds ~filename ("cpu" ^ string_of_int cpuidx)
     )
+  ; (str "cpu_avg" --> fun () -> make_ds ~filename:"cpu_avg" "cpu_avg")
   ; (pcre "pif_" *> dsname) --> make_ds ~filename:"pif"
     (* TODO: could provide info on polarity based on rx/tx and on kind, TICK for errors *)
   ]
