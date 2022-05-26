@@ -39,12 +39,12 @@ let default_def =
   ; units= None
   }
 
-let def ~data ~ds_name ~cf_type =
+let def ~data ~step ~ds_name ~cf_type =
   let cfstr = Rrd.cf_type_to_string cf_type in
   let namestr = name ~ds_name ~cf_type in
   ( Def (ds_name, cf_type)
-  , Printf.sprintf "DEF:%s=%s:%s:%s" namestr (Fpath.to_string data) ds_name
-      cfstr
+  , Printf.sprintf "DEF:%s=%s:%s:%s:step=%Ld" namestr (Fpath.to_string data)
+      ds_name cfstr step
   )
 
 type ds = Ds : string -> ds
@@ -97,29 +97,41 @@ let colors =
    ; RGB {r= 0x14; g= 0x24; b= 0xbc}
   |]
 
-let rrdtool ~filename ~data title ~ds_names ~first ~last =
+let rrdtool ~filename ~data title ~ds_names ~first ~last ~step ~width
+    ~has_min_max =
   let graph =
     List.of_seq
       (ds_names
       |> List.mapi (fun x s -> (s, x))
       |> List.to_seq
       |> Seq.flat_map @@ fun (ds_name, i) ->
-         let ds_min, def1 = def ~data ~ds_name ~cf_type:Rrd.CF_Min
-         and ds_max, def2 = def ~data ~ds_name ~cf_type:Rrd.CF_Max
-         and ds_avg, def3 = def ~data ~ds_name ~cf_type:Rrd.CF_Average in
-         let ds_range, cdef1 =
-           cdef (ds_name ^ "range") (Op (Var ds_max, "-", Var ds_min))
-         in
-         List.to_seq
-           [
-             def1
-           ; def2
-           ; def3
-           ; cdef1
-           ; area ~def:ds_min None
-           ; area_stack ~def:ds_range (Some (RGB {r= 0x20; g= 0x20; b= 0x20}))
-           ; line ~label:ds_name ~def:ds_avg (Some colors.(i mod 3))
-           ]
+         Seq.append
+           ( if has_min_max then
+               let ds_min, def1 = def ~step ~data ~ds_name ~cf_type:Rrd.CF_Min
+               and ds_max, def2 =
+                 def ~step ~data ~ds_name ~cf_type:Rrd.CF_Max
+               in
+               let ds_range, cdef1 =
+                 cdef (ds_name ^ "range") (Op (Var ds_max, "-", Var ds_min))
+               in
+               List.to_seq
+                 [
+                   def1
+                 ; def2
+                 ; cdef1
+                 ; area ~def:ds_min None
+                 ; area_stack ~def:ds_range
+                     (Some (RGB {r= 0x20; g= 0x20; b= 0x20}))
+                 ]
+           else
+             Seq.empty
+           )
+           (let ds_avg, def3 =
+              def ~step ~data ~ds_name ~cf_type:Rrd.CF_Average
+            in
+            List.to_seq
+              [def3; line ~label:ds_name ~def:ds_avg (Some colors.(i mod 3))]
+           )
       )
   in
   Cmd.(
@@ -131,7 +143,7 @@ let rrdtool ~filename ~data title ~ds_names ~first ~last =
     % "--title"
     % title
     % "--width"
-    % "640" (* ~3 graphs / row on HD screen *)
+    % string_of_int width
     % "--height"
     % "256" (* ~4 rows *)
     % "--start"
@@ -143,6 +155,13 @@ let rrdtool ~filename ~data title ~ds_names ~first ~last =
 
 let prepare_plot_cmds ~filename ~data ~original_ds rrd =
   let open Rrd in
+  let has cf rra = rra.rra_cf = cf in
+  let has_min =
+    Array.find_opt (has Rrd.CF_Min) rrd.rrd_rras |> Option.is_some
+  in
+  let has_max =
+    Array.find_opt (has Rrd.CF_Max) rrd.rrd_rras |> Option.is_some
+  in
   rrd.rrd_rras
   |> Array.to_seq
   |> Seq.map @@ fun rra ->
@@ -150,25 +169,32 @@ let prepare_plot_cmds ~filename ~data ~original_ds rrd =
        Int64.mul (Int64.of_int (rra.rra_pdp_cnt * rra.rra_row_cnt)) rrd.timestep
      in
      let start = rrd.last_updated -. Int64.to_float timespan in
-     let timespan =
-       Int64.mul (Int64.of_int (rra.rra_pdp_cnt * rra.rra_row_cnt)) rrd.timestep
-     in
      let filename =
        Fpath.add_ext (Int64.to_string timespan) filename |> Fpath.add_ext "svg"
      in
      let title = Fpath.rem_ext filename |> Fpath.basename in
+     let step = Int64.(mul (of_int rra.rra_pdp_cnt) rrd.timestep) in
+     let width = 2*rra.rra_row_cnt in
+     (* 1 point = 1 CDP from the RRA *)
      (* TODO: could look up original names in original_ds *)
-     rrdtool ~data ~filename title ~ds_names:(ds_names rrd)
-       ~first:(Int64.of_float start)
+     rrdtool ~step ~width ~data ~filename title ~ds_names:(ds_names rrd)
+       ~has_min_max:(has_min && has_max) ~first:(Int64.of_float start)
        ~last:(Int64.of_float rrd.last_updated)
 
-let prepare_plots ~filename ~data ~original_ds rrd =
+let prepare_plots ?(exec = false) ~filename ~data ~original_ds rrd =
   let output = Fpath.set_ext ".sh" filename in
-  prepare_plot_cmds ~filename ~data ~original_ds rrd
-  |> Seq.map Cmd.to_string
-  |> List.of_seq
-  |> OS.File.write_lines output
-  |> Logs.on_error_msg ~use:(fun _ -> exit 2)
+  let cmds = prepare_plot_cmds ~filename ~data ~original_ds rrd in
+  if exec then
+    cmds
+    |> Seq.iter @@ fun cmd ->
+       OS.Cmd.run cmd
+       |> Logs.on_error_msg ~use:(fun () -> failwith "failed to run rrdtool")
+  else
+    cmds
+    |> Seq.map Cmd.to_string
+    |> List.of_seq
+    |> OS.File.write_lines output
+    |> Logs.on_error_msg ~use:(fun _ -> exit 2)
 
 let finally f ~(always : unit -> unit) =
   match f () with
@@ -283,7 +309,7 @@ let classify =
       let filename =
         match cstate with None -> "cpu" | Some n -> Printf.sprintf "cpu-C%d" n
       in
-      make_ds ~filename (string_of_int cpuidx)
+      make_ds ~filename ("cpu" ^ string_of_int cpuidx)
     )
   ; (pcre "pif_" *> dsname) --> make_ds ~filename:"pif"
     (* TODO: could provide info on polarity based on rx/tx and on kind, TICK for errors *)
@@ -384,7 +410,7 @@ let split_rrd ~ds_def ~filename rrd =
      in
      prepare_plots ~filename ~data ~original_ds rrd
 
-type mode = Split | Default
+type mode = Split | Default | Plot
 
 let parse_ds_def def k v =
   match k with
@@ -402,6 +428,7 @@ let parse_ds_def def k v =
       def
 
 let parse_ds_defs path =
+  Logs.info (fun m -> m "Loading data source definitions from %a" Fpath.pp path) ;
   let fields line =
     line
     |> String.cut ~sep:":"
@@ -429,6 +456,14 @@ let parse_ds_defs path =
      )
   |> fst
 
+let plot_rrd ~ds_def ~filename rrd =
+  let original_ds = Hashtbl.create 1 in
+  let data =
+    rrd_restore filename rrd
+    |> Logs.on_error_msg ~use:(fun () -> failwith "Failed to restore RRD")
+  in
+  prepare_plots ~exec:true ~filename ~data ~original_ds rrd
+
 let () =
   let open OS.Arg in
   let level =
@@ -438,14 +473,17 @@ let () =
     in
     opt ["log"] conv ~absent:(Some Logs.Debug)
   in
-  let mode = opt ["mode"] ~absent:Default @@ enum [("split", Split)] in
+  let mode =
+    opt ["mode"] ~absent:Default @@ enum [("split", Split); ("plot", Plot)]
+  in
   let data_source_list = opt ["def"] ~absent:None (some path) in
+  let paths = OS.Arg.(parse ~pos:path ()) in
+
+  Logs.set_level level ;
   let ds_def =
     Option.map parse_ds_defs data_source_list
     |> Option.value ~default:StringMap.empty
   in
-  let paths = OS.Arg.(parse ~pos:path ()) in
-  Logs.set_level level ;
   match mode with
   | Default ->
       let cmd =
@@ -474,3 +512,5 @@ let () =
       Logs.on_error_msg ~use:(fun _ -> exit 1) res
   | Split ->
       paths |> List.iter @@ with_input_rrd (split_rrd ~ds_def)
+  | Plot ->
+      paths |> List.iter @@ with_input_rrd (plot_rrd ~ds_def)
