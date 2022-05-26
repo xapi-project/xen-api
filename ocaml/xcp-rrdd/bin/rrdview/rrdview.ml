@@ -174,7 +174,7 @@ let prepare_plot_cmds ~filename ~data ~original_ds rrd =
      in
      let title = Fpath.rem_ext filename |> Fpath.basename in
      let step = Int64.(mul (of_int rra.rra_pdp_cnt) rrd.timestep) in
-     let width = 2*rra.rra_row_cnt in
+     let width = 2 * rra.rra_row_cnt in
      (* 1 point = 1 CDP from the RRA *)
      (* TODO: could look up original names in original_ds *)
      rrdtool ~step ~width ~data ~filename title ~ds_names:(ds_names rrd)
@@ -345,7 +345,7 @@ let classify ~ds_def ~filename ds =
            e.g. rate vs duration *)
         Rrd.ds_type_to_string ds.ds_ty
     | Some u ->
-        u
+        String.take ~sat:Char.Ascii.is_alphanum u
   in
   (Fpath.(pathname + extra |> add_ext "xml"), dsname)
 
@@ -500,6 +500,7 @@ let () =
           % "-P0"
           % "-n1"
           % Sys.executable_name
+          %% of_values ~slip:"--def" p (Option.to_list data_source_list)
           % "--mode=split"
           |> OS.Cmd.run_in
         )
