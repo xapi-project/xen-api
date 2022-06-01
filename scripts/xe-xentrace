@@ -10,10 +10,14 @@
 # The VDI has the other_config:xentrace flag set to 1, so these can be
 # identified later on as xentrace records.
 # The VDI contains a ext3 fs (no partition table) and single file "trace.bz2"
-
+set -euo pipefail
 TIME=5
 SIZE_GB=1
-while getopts "ht:s:" opt ; do
+CIRCULAR=0
+MEMORY_MB=400 # 400 MiB
+DUMP_ON_CPUAVG=
+
+while getopts "hct:s:M:p:r:" opt ; do
     case $opt in
     h)
        echo "Usage: $0 [-t time (sec)] [-s size (GB)]"
@@ -23,12 +27,28 @@ while getopts "ht:s:" opt ; do
     ;;
     s) SIZE_GB=$OPTARG
     ;;
+
+    c) CIRCULAR=1
+    ;;
+
+    M) MEMORY_MB=$OPTARG
+    ;;
+
+    p) CIRCULAR=1
+       DUMP_ON_CPUAVG=$OPTARG
+       REPEAT=6
+    ;;
+
+    r) REPEAT=$OPTARG
+    ;;
+
     *) echo "Invalid option"; exit 1
     ;;
     esac
 done
 
 SIZE=$((${SIZE_GB} * 1024 * 1024 * 1024))
+MEMORY=$((${MEMORY_MB} * 1024 * 1024))
 
 if [ ! -e @INVENTORY@ ]; then
   echo Must run on a Citrix Hypervisor host.
@@ -62,6 +82,8 @@ ${XE} vdi-param-set uuid=${vdi_uuid} other-config:xentrace=1
 
 mnt=
 function cleanup {
+   killall xentrace
+
    if [ ! -z "${vdi_uuid}" ]; then
       ${XE} vdi-destroy uuid=${vdi_uuid}
    fi
@@ -116,15 +138,48 @@ if [ $? -ne 0 ]; then
 fi
 
 echo "done"
+echo "Trace recording to VDI: ${vdi_uuid}"
+trap cleanup EXIT
 
-echo "Xentrace: starting"
-/usr/sbin/xentrace -D -e all -r 1 ${mnt}/trace -T ${TIME}
+if [ -n "${DUMP_ON_CPUAVG}" ]; then
+    echo "Xentrace: will dump when host cpu usage >= ${DUMP_ON_CPUAVG}"
+    echo "Xentrace: will dump when triggered for ${REPEAT}*5s intervals in a row"
+    (rrd2csv "AVERAGE:host:${INSTALLATION_UUID}:cpu_avg" \
+        | (TRIGGER=0
+            read IGNORE
+            while IFS=, read -r time value; do
+                if (( $(echo "${value} > ${DUMP_ON_CPUAVG}/100" | bc -l) )); then
+                    TRIGGER=$((${TRIGGER} + 1))
+                else
+                    TRIGGER=0
+                fi
+                if [ "${TRIGGER}" -gt "${REPEAT}" ]; then
+                    TRIGGER=0
+                    echo "Killing xentrace to dump trace"
+                    killall xentrace || true
+                    echo "Waiting for 1m"
+                    sleep 60
+                fi
+            done))&
+fi
 
-echo "Xentrace: compressing"
-bzip2 -9 ${mnt}/trace
+while : ; do
+    echo "Xentrace: starting"
+    TRACE="${mnt}/trace.$(date +%s)"
+    if [ "${CIRCULAR}" = 1 ]; then
+        echo "Xentrace: in circular mode, waiting for 'killall xentrace'"
+        /usr/sbin/xentrace -D -e all -r 1 "${TRACE}" -M "${MEMORY}"
+    else
+        /usr/sbin/xentrace -D -e all -r 1 "${TRACE}" -T ${TIME}
+    fi
+
+    # do not destroy the VDI anymore, we've got useful data on it
+    vdi_uuid=""
+
+    echo "Xentrace: compressing ${TRACE}"
+    bzip2 -9 "${TRACE}"
+
+    [ "${CIRCULAR}" = 1 ] || break
+done
 
 echo "Xentrace: done"
-echo "Trace recorded to VDI: ${vdi_uuid}"
-
-vdi_uuid=""
-cleanup
