@@ -118,7 +118,7 @@ fi
 echo "done"
 
 echo "Xentrace: starting"
-/usr/bin/xentrace -D -e all -r 1 ${mnt}/trace -T ${TIME}
+/usr/sbin/xentrace -D -e all -r 1 ${mnt}/trace -T ${TIME}
 
 echo "Xentrace: compressing"
 bzip2 -9 ${mnt}/trace
