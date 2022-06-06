@@ -87,9 +87,14 @@ let rbac_audit_params_of (req : Request.t) =
 
 let create_session_for_client_cert req s =
   let __context = Context.make ~origin:(Http (req, s)) "client_cert" in
-  Xapi_session.login_with_password ~__context ~uname:"" ~pwd:""
-    ~version:Datamodel_common.api_version_string
-    ~originator:Constants.xapi_user_agent
+  match Context.preauth ~__context with
+  | Some `client_cert ->
+      (* Has been authenticated. Performing RBAC check only ... *)
+      Xapi_session.login_with_password ~__context ~uname:"" ~pwd:""
+        ~version:Datamodel_common.api_version_string
+        ~originator:Constants.xapi_user_agent
+  | _ ->
+      raise (Http.Unauthorised "")
 
 let assert_credentials_ok realm ?(http_action = realm) ?(fn = Rbac.nofn)
     (req : Request.t) ic =
