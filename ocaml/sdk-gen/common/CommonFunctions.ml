@@ -43,12 +43,11 @@ let finally f ~(always : unit -> unit) =
       always () ; raise e
 
 let parse_to_rpm_version_option inputStr =
-  match String.split_on_char '.' inputStr with
-  | [x; y; z] ->
-      Some
-        {major= int_of_string x; minor= int_of_string y; micro= int_of_string z}
-  | _ ->
-      None
+  try
+    Scanf.sscanf inputStr "%d.%d.%d" (fun x y z ->
+        Some {major= x; minor= y; micro= z}
+    )
+  with _ -> None
 
 let string_of_file filename =
   let in_channel = open_in filename in
@@ -93,18 +92,13 @@ let is_method_static message =
   | {param_type= ty; _} :: _ ->
       not (ty = Ref message.msg_obj_name)
 
-and is_setter message =
-  String.length message.msg_name >= 3 && String.sub message.msg_name 0 3 = "set"
+and is_setter message = String.starts_with ~prefix:"set" message.msg_name
 
-and is_getter message =
-  String.length message.msg_name >= 3 && String.sub message.msg_name 0 3 = "get"
+and is_getter message = String.starts_with ~prefix:"get" message.msg_name
 
-and is_adder message =
-  String.length message.msg_name >= 3 && String.sub message.msg_name 0 3 = "add"
+and is_adder message = String.starts_with ~prefix:"add" message.msg_name
 
-and is_remover message =
-  String.length message.msg_name >= 6
-  && String.sub message.msg_name 0 6 = "remove"
+and is_remover message = String.starts_with ~prefix:"remove" message.msg_name
 
 and is_constructor message =
   message.msg_tag = FromObject Make || message.msg_name = "create"
@@ -129,12 +123,11 @@ let compare_versions x y =
   | _, None ->
       1
   | Some v1, Some v2 ->
-      if v1.major == v2.major && v1.minor == v2.minor && v1.micro == v2.micro
-      then
+      if v1.major = v2.major && v1.minor = v2.minor && v1.micro = v2.micro then
         0
-      else if v1.major == v2.major && v1.minor == v2.minor then
+      else if v1.major = v2.major && v1.minor = v2.minor then
         v1.micro - v2.micro
-      else if v1.major == v2.major then
+      else if v1.major = v2.major then
         v1.minor - v2.minor
       else
         v1.major - v2.major
@@ -144,7 +137,7 @@ let rec lifecycle_matcher milestone lifecycle =
   | [] ->
       ""
   | (x, y, _) :: tl ->
-      if x == milestone then
+      if x = milestone then
         y
       else
         lifecycle_matcher milestone tl
@@ -188,7 +181,7 @@ let group_params_per_release params =
 let collate l =
   let rec collator x acc = function
     | [] ->
-        acc
+        List.rev List.(map rev acc)
     | hd :: tl ->
         collator (hd :: x) ((hd :: x) :: acc) tl
   in
@@ -197,9 +190,7 @@ let collate l =
 let gen_param_groups message params =
   let expRelease = get_prototyped_release message.msg_lifecycle in
   let paramGroups = group_params_per_release params in
-  let overloadGroups =
-    List.rev (List.map List.concat (List.map List.rev (collate paramGroups)))
-  in
+  let overloadGroups = List.map List.concat (collate paramGroups) in
   let filter_self_param message params =
     match params with
     | [] ->
@@ -234,7 +225,7 @@ and get_published_info_message message cls =
   let classRelease = get_published_release cls.obj_lifecycle in
   let msgRelease = get_published_release message.msg_lifecycle in
   let expRel = get_prototyped_release message.msg_lifecycle in
-  if msgRelease == "" && expRel <> "" then
+  if msgRelease = "" && expRel <> "" then
     sprintf "Experimental. First published in %s." (get_release_branding expRel)
   else
     let codename =
@@ -271,7 +262,7 @@ and get_published_info_field field cls =
   let clsRelease = get_published_release cls.obj_lifecycle in
   let fieldRelease = get_published_release field.lifecycle in
   let expRel = get_prototyped_release field.lifecycle in
-  if fieldRelease == "" && expRel <> "" then
+  if fieldRelease = "" && expRel <> "" then
     sprintf "Experimental. First published in %s." (get_release_branding expRel)
   else if compare_versions fieldRelease clsRelease > 0 then
     sprintf "First published in %s." (get_release_branding fieldRelease)
@@ -314,8 +305,8 @@ let json_releases =
           raise Not_found
       | hd :: tl ->
           if
-            hd.version_major == x.version_major
-            && hd.version_minor == x.version_minor
+            hd.version_major = x.version_major
+            && hd.version_minor = x.version_minor
           then
             i
           else

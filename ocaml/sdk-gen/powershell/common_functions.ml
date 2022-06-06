@@ -58,10 +58,8 @@ let rec pascal_case_ s =
 and pascal_case s =
   let str = pascal_case_ s in
   if
-    String.length str > 3
-    && (String.lowercase_ascii (String.sub str 0 3) = "set"
-       || String.lowercase_ascii (String.sub str 0 3) = "get"
-       )
+    String.starts_with ~prefix:"set" (String.lowercase_ascii str)
+    || String.starts_with ~prefix:"get" (String.lowercase_ascii str)
   then
     String.sub str 3 (String.length str - 3)
   else
