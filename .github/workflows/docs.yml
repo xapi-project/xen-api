@@ -1,0 +1,55 @@
+name: Generate and upload docs
+
+on:
+  push:
+    branches: master
+
+jobs:
+  ocaml:
+    name: Docs
+    runs-on: ubuntu-20.04
+    env:
+      XAPI_VERSION: "v0.0.0-${{ github.sha }}"
+      STORAGE_DOCDIR: .gh-pages-xapi-storage
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Pull configuration from xs-opam
+        run: |
+          curl --fail --silent https://raw.githubusercontent.com/xapi-project/xs-opam/master/tools/xs-opam-ci.env | cut -f2 -d " " > .env
+
+      - name: Load environment file
+        id: dotenv
+        uses: falti/dotenv-action@v0.2.8
+
+      - name: Use ocaml
+        uses: ocaml/setup-ocaml@v2
+        with:
+          ocaml-compiler: ${{ steps.dotenv.outputs.ocaml_version_full }}
+          opam-repositories: |
+            xs-opam: ${{ steps.dotenv.outputs.repository }}
+          dune-cache: true
+
+      - name: Install dependencies
+        run: |
+          opam install . --deps-only --with-doc -v
+
+      - name: Generate xapi-storage docs
+        run: |
+          mkdir $STORAGE_DOCDIR
+          opam exec -- dune exec ocaml/xapi-storage/generator/src/main.exe -- gen_markdown --path=$STORAGE_DOCDIR
+
+      - name: Deploy xapi-storage docs
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          deploy_key: ${{ secrets.ACTIONS_STORAGE_DEPLOY_KEY }}
+          publish_dir: ${{ env.STORAGE_DOCDIR }}
+          user_name: 'Github action on xapi-project/xen-api'
+          user_email: 'github-actions-xapi-project-xen-api[bot]@users.noreply.github.com'
+          external_repository: xapi-project/xapi-storage
+          publish_branch: slate
+          destination_dir: source/includes/
+          allow_empty_commit: false
+          enable_jekyll: true # do not create .nojekyll file
