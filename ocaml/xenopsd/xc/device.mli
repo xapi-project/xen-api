@@ -381,6 +381,7 @@ module Dm : sig
     ; pci_emulations: string list
     ; pci_passthrough: bool
     ; video_mib: int
+    ; tpm: Xenops_types.Vm.tpm option
     ; xen_platform: (int * int) option
     ; extras: (string * string option) list
   }

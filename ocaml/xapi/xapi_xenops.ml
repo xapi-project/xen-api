@@ -213,7 +213,8 @@ let assume_default_if_null_empty map default feature =
 
 let int = find int_of_string
 
-let bool = find (function "1" -> true | "0" -> false | x -> bool_of_string x)
+let bool platformdata default key =
+  Vm_platform.is_true ~key ~platformdata ~default
 
 let nvram_uefi_of_vm vm =
   let open Xenops_types.Nvram_uefi_variables in
@@ -383,6 +384,25 @@ let builder_of_vm ~__context (_, vm) timeoffset pci_passthrough vgpu =
   let make_hvmloader_boot_record () =
     if bool vm.API.vM_platform false "qemu_stubdom" then
       warn "QEMU stub domains are no longer implemented" ;
+
+    let tpm_of_vm () =
+      if bool vm.API.vM_platform false "vtpm" then (
+        if vm.API.vM_VTPMs = [] then (
+          let ref () = Ref.make () in
+          let uuid () = Uuid.(to_string (make_uuid ())) in
+          let profile = [] in
+          let other_config = [] in
+          let contents = ref () in
+          Db.Secret.create ~__context ~ref:contents ~uuid:(uuid ()) ~value:""
+            ~other_config ;
+          Db.VTPM.create ~__context ~ref:(ref ()) ~uuid:(uuid ()) ~vM:vmref
+            ~profile ~contents
+        ) ;
+        Some Xenops_interface.Vm.Vtpm
+      ) else
+        None
+    in
+
     {
       hap= true
     ; shadow_multiplier= vm.API.vM_HVM_shadow_multiplier
@@ -431,9 +451,9 @@ let builder_of_vm ~__context (_, vm) timeoffset pci_passthrough vgpu =
           hvm_default_boot_order hvm_boot_params_order
         )
     ; qemu_disk_cmdline= bool vm.API.vM_platform false "qemu_disk_cmdline"
-    ; qemu_stubdom= false
-    ; (* Obsolete: implementation removed *)
-      firmware= firmware_of_vm vm
+    ; qemu_stubdom= false (* Obsolete: implementation removed *)
+    ; firmware= firmware_of_vm vm
+    ; tpm= tpm_of_vm ()
     }
   in
   let make_direct_boot_record
@@ -1609,7 +1629,7 @@ module Xenopsd_metadata = struct
   (** Manage the lifetime of VM metadata pushed to xenopsd *)
 
   (* If the VM has Xapi_globs.persist_xenopsd_md -> filename in its other_config,
-     	   we persist the xenopsd metadata to a well-known location in the filesystem *)
+     we persist the xenopsd metadata to a well-known location in the filesystem *)
   let maybe_persist_md ~__context ~self md =
     let oc = Db.VM.get_other_config ~__context ~self in
     if List.mem_assoc Xapi_globs.persist_xenopsd_md oc then

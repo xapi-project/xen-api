@@ -511,7 +511,8 @@ let add' _copts x () =
           let open Xn_cfg_types in
           let mem x = List.mem_assoc x config in
           let find x = List.assoc x config in
-          let any xs = List.fold_left ( || ) false (List.map mem xs) in
+          let find_opt x = List.assoc_opt x config in
+          let any xs = List.exists mem xs in
           let pv =
             false
             || mem _builder
@@ -602,6 +603,13 @@ let add' _copts x () =
                   ; qemu_disk_cmdline= false
                   ; qemu_stubdom= false
                   ; firmware= Xenops_types.Vm.default_firmware
+                  ; tpm=
+                      ( match find_opt _vtpm with
+                      | Some id when bool id ->
+                          Some Vtpm
+                      | _ ->
+                          None
+                      )
                   }
           in
           let uuid =

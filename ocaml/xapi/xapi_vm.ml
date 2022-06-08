@@ -688,6 +688,9 @@ let destroy ~__context ~self =
     (Db.VM.get_children ~__context ~self) ;
   let uuid = Db.VM.get_uuid ~__context ~self in
   log_and_ignore_exn (fun () -> Rrdd.remove_rrd uuid) ;
+  List.iter
+    (fun self -> Db.VTPM.destroy ~__context ~self)
+    (Db.VM.get_VTPMs ~__context ~self) ;
   destroy ~__context ~self
 
 (* Note: we don't need to call lock_vm around clone or copy. The lock_vm just takes the local
