@@ -43,16 +43,13 @@ module TypeSet = Set.Make (struct
   let compare = compare
 end)
 
-let get_deprecated_attribute_string version =
+let get_deprecated_attribute message =
+  let version = message.msg_release.internal_deprecated_since in
   match version with
   | None ->
       ""
   | Some versionString ->
-      "[Deprecated(\"" ^ get_release_name versionString ^ "\")]"
-
-let get_deprecated_attribute message =
-  let version = message.msg_release.internal_deprecated_since in
-  get_deprecated_attribute_string version
+      "[Deprecated(\"" ^ get_release_branding versionString ^ "\")]"
 
 let destdir = "autogen/src"
 
@@ -288,7 +285,7 @@ and gen_class out_chan cls =
   let exposed_class_name = exposed_class_name cls.name in
   let messages =
     List.filter
-      (fun msg -> String.compare msg.msg_name "get_all_records_where" != 0)
+      (fun msg -> String.compare msg.msg_name "get_all_records_where" <> 0)
       cls.messages
   in
   let contents = cls.contents in
@@ -617,12 +614,11 @@ and gen_to_proxy_line out_chan content =
       List.iter (gen_to_proxy_line out_chan) c
 
 and gen_overloads generator message =
-  let methodParams = get_method_params_list message in
-  match methodParams with
+  match message.msg_params with
   | [] ->
       [generator []]
   | _ ->
-      let paramGroups = gen_param_groups message methodParams in
+      let paramGroups = gen_param_groups message message.msg_params in
       List.map generator paramGroups
 
 and gen_exposed_method cls msg curParams =
