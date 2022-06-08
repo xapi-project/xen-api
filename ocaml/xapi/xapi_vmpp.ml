@@ -11,9 +11,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-module D = Debug.Make (struct let name = "xapi_vmpp" end)
 
-open D
+(* none of the parameters in this module are used *)
+[@@@ocaml.warning "-27"]
 
 let raise_removed () =
   raise (Api_errors.Server_error (Api_errors.message_removed, []))

@@ -153,11 +153,7 @@ end = struct
           ctr
       )
 
-    type key = client
-
     type value = {num_failed_attempts: int; last_failed_attempt: Date.iso8601}
-
-    type table_t = (key, value) Hashtbl.t
 
     let table = Hashtbl.create 10
 
@@ -168,7 +164,7 @@ end = struct
               Hashtbl.add table k
                 {num_failed_attempts= 1; last_failed_attempt= now} ;
               1
-          | Some ({num_failed_attempts} : value) ->
+          | Some ({num_failed_attempts; _} : value) ->
               let num_failed_attempts = num_failed_attempts + 1 in
               Hashtbl.replace table k
                 {num_failed_attempts; last_failed_attempt= now} ;
@@ -610,7 +606,7 @@ let login_no_password_common ~__context ~uname ~originator ~host ~pool
     ~rbac_permissions ~db_ref ~client_certificate =
   let create_session () =
     let session_id = Ref.make () in
-    let uuid = Uuid.to_string (Uuid.make_uuid ()) in
+    let uuid = Uuid.to_string (Uuid.make ()) in
     let user = Ref.null in
     (* always return a null reference to the deprecated user object *)
     let parent = try Context.get_session_id __context with _ -> Ref.null in
@@ -650,7 +646,7 @@ let login_no_password_common ~__context ~uname ~originator ~host ~pool
   (* At this point, the session is created, but with an incorrect time *)
   (* Force the time to be updated by calling an API function with this session *)
   let rpc = Helpers.make_rpc ~__context in
-  ignore (Client.Pool.get_all rpc session_id) ;
+  ignore (Client.Pool.get_all ~rpc ~session_id) ;
   session_id
 
 (* XXX: only used internally by the code which grants the guest access to the API.
@@ -671,7 +667,7 @@ let consider_touching_session rpc session_id =
     if Unix.gettimeofday () -. !time > interval then (
       time := Unix.gettimeofday () ;
       (* a side-effect is that the master updates the session *)
-      ignore (Client.Session.get_uuid rpc session_id session_id)
+      ignore (Client.Session.get_uuid ~rpc ~session_id ~self:session_id)
     )
 
 (* Make sure the pool secret matches *)
@@ -721,7 +717,7 @@ let slave_local_login_with_password ~__context ~uname ~pwd =
       - try and authenticate remotely, passing the supplied username/password to the external auth/directory service. (Note: see below for definition of 'authenticate remotely')
    2. otherwise, Session.login_with_password will only attempt to authenticate against the local superuser credentials
 *)
-let login_with_password ~__context ~uname ~pwd ~version ~originator =
+let login_with_password ~__context ~uname ~pwd ~version:_ ~originator =
   let pwd = Bytes.of_string pwd in
   wipe_params_after_fn [pwd] (fun () ->
       (* !!! Do something with the version number *)
@@ -897,7 +893,7 @@ let login_with_password ~__context ~uname ~pwd ~version ~originator =
                           subject_identifier
                       else
                         (suspended, name)
-                    with Auth_signature.Auth_service_error (errtag, msg) ->
+                    with Auth_signature.Auth_service_error (_, msg) ->
                       debug
                         "Failed to find if user %s (subject_id %s, from %s) is \
                          suspended: %s"
@@ -941,7 +937,7 @@ let login_with_password ~__context ~uname ~pwd ~version ~originator =
                           thread_delay_and_raise_error
                             ~error:Api_errors.session_authorization_failed uname
                             msg
-                      | Auth_signature.Auth_service_error (errtag, msg) ->
+                      | Auth_signature.Auth_service_error (_, msg) ->
                           debug
                             "Failed to obtain the group membership closure for \
                              user %s (subject_id %s, from %s): %s"
@@ -970,7 +966,7 @@ let login_with_password ~__context ~uname ~pwd ~version ~originator =
                     (* returns all elements of reflexive_membership_closure that are inside subject_ids_in_db *)
                     let intersect ext_sids db_sids =
                       List.filter
-                        (fun (subj, db_sid) -> List.mem db_sid ext_sids)
+                        (fun (_, db_sid) -> List.mem db_sid ext_sids)
                         db_sids
                     in
                     let intersection =
@@ -991,9 +987,7 @@ let login_with_password ~__context ~uname ~pwd ~version ~originator =
                       thread_delay_and_raise_error
                         ~error:Api_errors.session_authorization_failed uname msg
                     ) else (* compute RBAC structures for the session *)
-                      let subject_membership =
-                        List.map (fun (subj_ref, sid) -> subj_ref) intersection
-                      in
+                      let subject_membership = List.map fst intersection in
                       debug
                         "subject membership intersection with subject-list=[%s]"
                         (List.fold_left
@@ -1158,8 +1152,8 @@ let change_password ~__context ~old_pwd ~new_pwd =
               List.iter
                 (fun host ->
                   try
-                    Client.Host.request_config_file_sync rpc session_id host
-                      hash
+                    Client.Host.request_config_file_sync ~rpc ~session_id ~host
+                      ~hash
                   with e ->
                     error "Failed to sync password to host %s: %s"
                       (Db.Host.get_name_label ~__context ~self:host)

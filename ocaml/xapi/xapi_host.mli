@@ -54,6 +54,15 @@ val assert_can_evacuate : __context:Context.t -> host:API.ref_host -> unit
 val get_vms_which_prevent_evacuation :
   __context:Context.t -> self:API.ref_host -> (API.ref_VM * string list) list
 
+(* Similar to the (API) call `host.get_vms_which_prevent_evacuation`, but with an
+   additional `ignore_ha` argument. The makes the evacuation planner behave the
+   same no matter whether HA is enabled or not. *)
+val get_vms_which_prevent_evacuation_internal :
+     __context:Context.t
+  -> self:API.ref_host
+  -> ignore_ha:bool
+  -> (API.ref_VM * string list) list
+
 val evacuate :
   __context:Context.t -> host:API.ref_host -> network:API.ref_network -> unit
 
@@ -478,6 +487,9 @@ val nvidia_vf_setup :
 
 val allocate_resources_for_vm :
   __context:Context.t -> self:API.ref_host -> vm:API.ref_VM -> live:bool -> unit
+
+val write_uefi_certificates_to_disk :
+  __context:Context.t -> host:API.ref_host -> unit
 
 val set_uefi_certificates :
   __context:Context.t -> host:API.ref_host -> value:string -> unit

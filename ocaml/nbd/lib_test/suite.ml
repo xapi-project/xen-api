@@ -1,6 +1,6 @@
 open Lwt.Infix
 
-let dir = Uuidm.v `V4 |> Uuidm.to_string
+let dir = Uuid.(to_string (make ()))
 
 let dir = Filename.get_temp_dir_name () ^ "/" ^ dir
 

@@ -19,7 +19,7 @@ depends: [
   "mirage-block-unix"
   "nbd-unix"
   "uri"
-  "uuidm"
+  "uuid"
   "xapi-inventory"
   "xen-api-client-lwt"
 ]

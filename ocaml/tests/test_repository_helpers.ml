@@ -13,6 +13,8 @@
  *)
 
 open Test_highlevel
+open Rpm
+open Updateinfo
 open Repository_helpers
 
 let fields_of_pkg =
@@ -25,123 +27,6 @@ let fields_of_pkg =
     ; field "arch" (fun (r : Pkg.t) -> r.arch) string
     ]
   
-
-module PkgOfFullnameTest = Generic.MakeStateless (struct
-  module Io = struct
-    type input_t = Line of string | FilePath of string
-
-    type output_t = (Pkg.t option, exn) result
-
-    let string_of_input_t = function
-      | Line s ->
-          "Line: " ^ s
-      | FilePath p ->
-          "File " ^ p
-
-    let string_of_output_t =
-      Fmt.(
-        str "%a"
-          Dump.(result ~ok:(option @@ record @@ fields_of_pkg) ~error:exn)
-      )
-  end
-
-  exception Can_not_parse of string
-
-  let transform input =
-    try
-      match input with
-      | Io.Line line ->
-          Ok (Pkg.of_fullname line)
-      | Io.FilePath p -> (
-          let rec for_each_line ic =
-            match input_line ic with
-            | line -> (
-              match Pkg.of_fullname line with
-              | None
-              | Some Pkg.{name= ""; _}
-              | Some Pkg.{version= ""; _}
-              | Some Pkg.{release= ""; _}
-              | Some Pkg.{arch= ""; _} ->
-                  raise (Can_not_parse line)
-              | _ ->
-                  for_each_line ic
-            )
-            | exception End_of_file ->
-                ()
-          in
-          let in_ch = open_in p in
-          try for_each_line in_ch ; close_in in_ch ; Ok None
-          with e -> close_in in_ch ; raise e
-        )
-    with e -> Error e
-
-  let tests =
-    `QuickAndAutoDocumented
-      [
-        (Io.Line "libpath-utils-0.2.1-29.el7.x86", Ok None)
-      ; (Io.Line "libpath-utils.x86_64", Ok None)
-      ; ( Io.Line "libpath-utils-0.2.1-29.el7.noarch"
-        , Ok
-            (Some
-               Pkg.
-                 {
-                   name= "libpath-utils"
-                 ; epoch= None
-                 ; version= "0.2.1"
-                 ; release= "29.el7"
-                 ; arch= "noarch"
-                 }
-               
-            )
-        )
-      ; ( Io.Line "libpath-utils-0.2.1-29.el7.x86_64"
-        , Ok
-            (Some
-               Pkg.
-                 {
-                   name= "libpath-utils"
-                 ; epoch= None
-                 ; version= "0.2.1"
-                 ; release= "29.el7"
-                 ; arch= "x86_64"
-                 }
-               
-            )
-        )
-      ; ( Io.Line "libpath-utils-2:0.2.1-29.el7.x86_64"
-        , Ok
-            (Some
-               Pkg.
-                 {
-                   name= "libpath-utils"
-                 ; epoch= Some 2
-                 ; version= "0.2.1"
-                 ; release= "29.el7"
-                 ; arch= "x86_64"
-                 }
-               
-            )
-        )
-      ; ( Io.Line "libpath-utils-(none):0.2.1-29.el7.x86_64"
-        , Ok
-            (Some
-               Pkg.
-                 {
-                   name= "libpath-utils"
-                 ; epoch= None
-                 ; version= "0.2.1"
-                 ; release= "29.el7"
-                 ; arch= "x86_64"
-                 }
-               
-            )
-        )
-      ; (Io.Line "libpath-utils-:0.2.1-29.el7.x86_64", Ok None)
-      ; (Io.Line "libpath-utils-2:0.2.1-29.el7x86_64", Ok None)
-      ; (* all RPM packages installed by default *)
-        (Io.FilePath "test_data/repository_pkg_of_fullname_all", Ok None)
-      ]
-end)
 
 let fields_of_update =
   Fmt.Dump.
@@ -385,436 +270,6 @@ module GuidanceSetAssertValidGuidanceTest = Generic.MakeStateless (struct
       ]
 end)
 
-module PkgCompareVersionStringsTest = Generic.MakeStateless (struct
-  module Io = struct
-    type input_t = string * string
-
-    type output_t = string
-
-    let string_of_input_t = Fmt.(str "%a" Dump.(pair string string))
-
-    let string_of_output_t = Fmt.(str "%a" Dump.string)
-  end
-
-  let transform (s1, s2) =
-    Pkg.string_of_order (Pkg.compare_version_strings s1 s2)
-
-  let tests =
-    `QuickAndAutoDocumented
-      [
-        (("1.2.3", "1.2.4"), "<")
-      ; (("1.2.3", "1.2.3"), "=")
-      ; (("1.2.3", "1.2"), ">")
-      ; (("1.0011", "1.9"), ">")
-      ; (("1.05", "1.5"), "=")
-      ; (("1.0", "1"), ">")
-      ; (("1.0", "1.a"), ">")
-      ; (("2.50", "2.5"), ">")
-      ; (("XS3", "xs2"), "<")
-      ; (("1.2.3", "1.2.3a"), ">")
-      ; (("xs4", "xs.4"), "=")
-      ; (("2a", "2.0"), "<")
-      ; (("2a", "2b"), "<")
-      ; (("1.0", "1.xs2"), ">")
-      ; (("1.0_xs", "1.0.xs"), "=")
-      ; (("1.0x3", "1.0x04"), ">")
-      ; (("1.0O3", "1.0O04"), ">")
-      ]
-end)
-
-module ApplicabilityEval = Generic.MakeStateless (struct
-  module Io = struct
-    (*  ( (installed_epoch, installed_version, installed_release) *
-     *    (inequality * (epoch, version * release)) ) *)
-    type input_t =
-      (int option * string * string) * (string * (int option * string * string))
-
-    type output_t = (bool, exn) result
-
-    let string_of_input_t =
-      Test_printers.(
-        pair
-          (tuple3 (option int) string string)
-          (pair string (tuple3 (option int) string string))
-      )
-
-    let string_of_output_t = Fmt.(str "%a" Dump.(result ~ok:bool ~error:exn))
-  end
-
-  let transform ((e1, v1, r1), (ineq, (e2, v2, r2))) =
-    try
-      let applicability =
-        Applicability.
-          {
-            name= ""
-          ; arch= ""
-          ; inequality= Some (Applicability.inequality_of_string ineq)
-          ; epoch= e2
-          ; version= v2
-          ; release= r2
-          }
-        
-      in
-
-      Ok (Applicability.eval ~epoch:e1 ~version:v1 ~release:r1 ~applicability)
-    with e -> Error e
-
-  let tests =
-    `QuickAndAutoDocumented
-      [
-        (((None, "1.2.3", "3.el7"), ("gt", (None, "1.2.3", "4.el7"))), Ok false)
-      ; (((None, "1.2.3", "3.el7"), ("gt", (None, "1.2.4", "3.el7"))), Ok false)
-      ; (((None, "1.2.3", "3.el7"), ("gt", (None, "1.2.3", "2.el7"))), Ok true)
-      ; (((None, "1.2.3", "3.el7"), ("gt", (None, "1.2.2", "3.el7"))), Ok true)
-      ; (((None, "1.2.3", "3.el7"), ("lt", (None, "1.2.3", "2.el7"))), Ok false)
-      ; (((None, "1.2.3", "3.el7"), ("lt", (None, "1.2.2", "3.el7"))), Ok false)
-      ; (((None, "1.2.3", "3.el7"), ("lt", (None, "1.2.3", "4.el7"))), Ok true)
-      ; (((None, "1.2.3", "3.el7"), ("lt", (None, "1.2.4", "3.el7"))), Ok true)
-      ; (((None, "1.2.3", "3.el7"), ("eq", (None, "1.2.3", "3.el7"))), Ok true)
-      ; (((None, "1.2.3", "3.el7"), ("eq", (None, "1.2.4", "3.el7"))), Ok false)
-      ; (((None, "1.2.3", "3.el7"), ("gte", (None, "1.2.3", "4.el7"))), Ok false)
-      ; (((None, "1.2.3", "3.el7"), ("gte", (None, "1.2.4", "3.el7"))), Ok false)
-      ; (((None, "1.2.3", "3.el7"), ("gte", (None, "1.2.3", "3.el7"))), Ok true)
-      ; (((None, "1.2.3", "3.el7"), ("gte", (None, "1.2.3", "2.el7"))), Ok true)
-      ; (((None, "1.2.3", "3.el7"), ("gte", (None, "1.2.2", "3.el7"))), Ok true)
-      ; (((None, "1.2.3", "3.el7"), ("lte", (None, "1.2.3", "2.el7"))), Ok false)
-      ; (((None, "1.2.3", "3.el7"), ("lte", (None, "1.2.2", "3.el7"))), Ok false)
-      ; (((None, "1.2.3", "3.el7"), ("lte", (None, "1.2.3", "3.el7"))), Ok true)
-      ; (((None, "1.2.3", "3.el7"), ("lte", (None, "1.2.3", "4.el7"))), Ok true)
-      ; (((None, "1.2.3", "3.el7"), ("lte", (None, "1.2.4", "3.el7"))), Ok true)
-      ; ( ((None, "1.2.3", "3.el7"), ("let", (None, "1.2.3", "3.el7")))
-        , Error Applicability.Invalid_inequality
-        )
-      ; ( ((Some 3, "1.2.3", "3.el7"), ("gt", (Some 3, "1.2.3", "4.el7")))
-        , Ok false
-        )
-      ; ( ((Some 3, "1.2.3", "3.el7"), ("gt", (Some 3, "1.2.4", "3.el7")))
-        , Ok false
-        )
-      ; ( ((Some 3, "1.2.3", "3.el7"), ("gt", (Some 3, "1.2.3", "2.el7")))
-        , Ok true
-        )
-      ; ( ((Some 3, "1.2.3", "3.el7"), ("gt", (Some 3, "1.2.2", "3.el7")))
-        , Ok true
-        )
-      ; ( ((Some 3, "1.2.3", "3.el7"), ("lt", (Some 3, "1.2.3", "2.el7")))
-        , Ok false
-        )
-      ; ( ((Some 3, "1.2.3", "3.el7"), ("lt", (Some 3, "1.2.2", "3.el7")))
-        , Ok false
-        )
-      ; ( ((Some 3, "1.2.3", "3.el7"), ("lt", (Some 3, "1.2.3", "4.el7")))
-        , Ok true
-        )
-      ; ( ((Some 3, "1.2.3", "3.el7"), ("lt", (Some 3, "1.2.4", "3.el7")))
-        , Ok true
-        )
-      ; ( ((Some 3, "1.2.3", "3.el7"), ("eq", (Some 3, "1.2.3", "3.el7")))
-        , Ok true
-        )
-      ; ( ((Some 3, "1.2.3", "3.el7"), ("eq", (Some 3, "1.2.4", "3.el7")))
-        , Ok false
-        )
-      ; ( ((Some 3, "1.2.3", "3.el7"), ("gte", (Some 3, "1.2.3", "4.el7")))
-        , Ok false
-        )
-      ; ( ((Some 3, "1.2.3", "3.el7"), ("gte", (Some 3, "1.2.4", "3.el7")))
-        , Ok false
-        )
-      ; ( ((Some 3, "1.2.3", "3.el7"), ("gte", (Some 3, "1.2.3", "3.el7")))
-        , Ok true
-        )
-      ; ( ((Some 3, "1.2.3", "3.el7"), ("gte", (Some 3, "1.2.3", "2.el7")))
-        , Ok true
-        )
-      ; ( ((Some 3, "1.2.3", "3.el7"), ("gte", (Some 3, "1.2.2", "3.el7")))
-        , Ok true
-        )
-      ; ( ((Some 3, "1.2.3", "3.el7"), ("lte", (Some 3, "1.2.3", "2.el7")))
-        , Ok false
-        )
-      ; ( ((Some 3, "1.2.3", "3.el7"), ("lte", (Some 3, "1.2.2", "3.el7")))
-        , Ok false
-        )
-      ; ( ((Some 3, "1.2.3", "3.el7"), ("lte", (Some 3, "1.2.3", "3.el7")))
-        , Ok true
-        )
-      ; ( ((Some 3, "1.2.3", "3.el7"), ("lte", (Some 3, "1.2.3", "4.el7")))
-        , Ok true
-        )
-      ; ( ((Some 3, "1.2.3", "3.el7"), ("lte", (Some 3, "1.2.4", "3.el7")))
-        , Ok true
-        )
-      ; (((Some 1, "1.2.3", "3.el7"), ("gt", (None, "1.2.3", "4.el7"))), Ok true)
-      ; (((Some 1, "1.2.3", "3.el7"), ("gt", (None, "1.2.4", "3.el7"))), Ok true)
-      ; (((Some 1, "1.2.3", "3.el7"), ("gt", (None, "1.2.3", "2.el7"))), Ok true)
-      ; (((Some 1, "1.2.3", "3.el7"), ("gt", (None, "1.2.2", "3.el7"))), Ok true)
-      ; ( ((Some 1, "1.2.3", "3.el7"), ("lt", (None, "1.2.3", "2.el7")))
-        , Ok false
-        )
-      ; ( ((Some 1, "1.2.3", "3.el7"), ("lt", (None, "1.2.2", "3.el7")))
-        , Ok false
-        )
-      ; ( ((Some 1, "1.2.3", "3.el7"), ("lt", (None, "1.2.3", "4.el7")))
-        , Ok false
-        )
-      ; ( ((Some 1, "1.2.3", "3.el7"), ("lt", (None, "1.2.4", "3.el7")))
-        , Ok false
-        )
-      ; ( ((Some 1, "1.2.3", "3.el7"), ("eq", (None, "1.2.3", "3.el7")))
-        , Ok false
-        )
-      ; ( ((Some 1, "1.2.3", "3.el7"), ("eq", (None, "1.2.4", "3.el7")))
-        , Ok false
-        )
-      ; ( ((Some 1, "1.2.3", "3.el7"), ("gte", (None, "1.2.3", "4.el7")))
-        , Ok true
-        )
-      ; ( ((Some 1, "1.2.3", "3.el7"), ("gte", (None, "1.2.4", "3.el7")))
-        , Ok true
-        )
-      ; ( ((Some 1, "1.2.3", "3.el7"), ("gte", (None, "1.2.3", "3.el7")))
-        , Ok true
-        )
-      ; ( ((Some 1, "1.2.3", "3.el7"), ("gte", (None, "1.2.3", "2.el7")))
-        , Ok true
-        )
-      ; ( ((Some 1, "1.2.3", "3.el7"), ("gte", (None, "1.2.2", "3.el7")))
-        , Ok true
-        )
-      ; ( ((Some 1, "1.2.3", "3.el7"), ("lte", (None, "1.2.3", "2.el7")))
-        , Ok false
-        )
-      ; ( ((Some 1, "1.2.3", "3.el7"), ("lte", (None, "1.2.2", "3.el7")))
-        , Ok false
-        )
-      ; ( ((Some 1, "1.2.3", "3.el7"), ("lte", (None, "1.2.3", "3.el7")))
-        , Ok false
-        )
-      ; ( ((Some 1, "1.2.3", "3.el7"), ("lte", (None, "1.2.3", "4.el7")))
-        , Ok false
-        )
-      ; ( ((Some 1, "1.2.3", "3.el7"), ("lte", (None, "1.2.4", "3.el7")))
-        , Ok false
-        )
-      ; ( ((Some 1, "1.2.3", "3.el7"), ("gt", (Some 2, "1.2.3", "4.el7")))
-        , Ok false
-        )
-      ; ( ((Some 1, "1.2.3", "3.el7"), ("gt", (Some 2, "1.2.4", "3.el7")))
-        , Ok false
-        )
-      ; ( ((Some 1, "1.2.3", "3.el7"), ("gt", (Some 2, "1.2.3", "2.el7")))
-        , Ok false
-        )
-      ; ( ((Some 1, "1.2.3", "3.el7"), ("gt", (Some 2, "1.2.2", "3.el7")))
-        , Ok false
-        )
-      ; ( ((Some 1, "1.2.3", "3.el7"), ("lt", (Some 2, "1.2.3", "2.el7")))
-        , Ok true
-        )
-      ; ( ((Some 1, "1.2.3", "3.el7"), ("lt", (Some 2, "1.2.2", "3.el7")))
-        , Ok true
-        )
-      ; ( ((Some 1, "1.2.3", "3.el7"), ("lt", (Some 2, "1.2.3", "4.el7")))
-        , Ok true
-        )
-      ; ( ((Some 1, "1.2.3", "3.el7"), ("lt", (Some 2, "1.2.4", "3.el7")))
-        , Ok true
-        )
-      ; ( ((Some 1, "1.2.3", "3.el7"), ("eq", (Some 2, "1.2.3", "3.el7")))
-        , Ok false
-        )
-      ; ( ((Some 1, "1.2.3", "3.el7"), ("eq", (Some 2, "1.2.4", "3.el7")))
-        , Ok false
-        )
-      ; ( ((Some 1, "1.2.3", "3.el7"), ("gte", (Some 2, "1.2.3", "4.el7")))
-        , Ok false
-        )
-      ; ( ((Some 1, "1.2.3", "3.el7"), ("gte", (Some 2, "1.2.4", "3.el7")))
-        , Ok false
-        )
-      ; ( ((Some 1, "1.2.3", "3.el7"), ("gte", (Some 2, "1.2.3", "3.el7")))
-        , Ok false
-        )
-      ; ( ((Some 1, "1.2.3", "3.el7"), ("gte", (Some 2, "1.2.3", "2.el7")))
-        , Ok false
-        )
-      ; ( ((Some 1, "1.2.3", "3.el7"), ("gte", (Some 2, "1.2.2", "3.el7")))
-        , Ok false
-        )
-      ; ( ((Some 1, "1.2.3", "3.el7"), ("lte", (Some 2, "1.2.3", "2.el7")))
-        , Ok true
-        )
-      ; ( ((Some 1, "1.2.3", "3.el7"), ("lte", (Some 2, "1.2.2", "3.el7")))
-        , Ok true
-        )
-      ; ( ((Some 1, "1.2.3", "3.el7"), ("lte", (Some 2, "1.2.3", "3.el7")))
-        , Ok true
-        )
-      ; ( ((Some 1, "1.2.3", "3.el7"), ("lte", (Some 2, "1.2.3", "4.el7")))
-        , Ok true
-        )
-      ; ( ((Some 1, "1.2.3", "3.el7"), ("lte", (Some 2, "1.2.4", "3.el7")))
-        , Ok true
-        )
-      ; ( ((Some 3, "1.2.3", "3.el7"), ("gt", (Some 2, "1.2.3", "4.el7")))
-        , Ok true
-        )
-      ; ( ((Some 3, "1.2.3", "3.el7"), ("gt", (Some 2, "1.2.4", "3.el7")))
-        , Ok true
-        )
-      ; ( ((Some 3, "1.2.3", "3.el7"), ("gt", (Some 2, "1.2.3", "2.el7")))
-        , Ok true
-        )
-      ; ( ((Some 3, "1.2.3", "3.el7"), ("gt", (Some 2, "1.2.2", "3.el7")))
-        , Ok true
-        )
-      ; ( ((Some 3, "1.2.3", "3.el7"), ("lt", (Some 2, "1.2.3", "2.el7")))
-        , Ok false
-        )
-      ; ( ((Some 3, "1.2.3", "3.el7"), ("lt", (Some 2, "1.2.2", "3.el7")))
-        , Ok false
-        )
-      ; ( ((Some 3, "1.2.3", "3.el7"), ("lt", (Some 2, "1.2.3", "4.el7")))
-        , Ok false
-        )
-      ; ( ((Some 3, "1.2.3", "3.el7"), ("lt", (Some 2, "1.2.4", "3.el7")))
-        , Ok false
-        )
-      ; ( ((Some 3, "1.2.3", "3.el7"), ("eq", (Some 2, "1.2.3", "3.el7")))
-        , Ok false
-        )
-      ; ( ((Some 3, "1.2.3", "3.el7"), ("eq", (Some 2, "1.2.4", "3.el7")))
-        , Ok false
-        )
-      ; ( ((Some 3, "1.2.3", "3.el7"), ("gte", (Some 2, "1.2.3", "4.el7")))
-        , Ok true
-        )
-      ; ( ((Some 3, "1.2.3", "3.el7"), ("gte", (Some 2, "1.2.4", "3.el7")))
-        , Ok true
-        )
-      ; ( ((Some 3, "1.2.3", "3.el7"), ("gte", (Some 2, "1.2.3", "3.el7")))
-        , Ok true
-        )
-      ; ( ((Some 3, "1.2.3", "3.el7"), ("gte", (Some 2, "1.2.3", "2.el7")))
-        , Ok true
-        )
-      ; ( ((Some 3, "1.2.3", "3.el7"), ("gte", (Some 2, "1.2.2", "3.el7")))
-        , Ok true
-        )
-      ; ( ((Some 3, "1.2.3", "3.el7"), ("lte", (Some 2, "1.2.3", "2.el7")))
-        , Ok false
-        )
-      ; ( ((Some 3, "1.2.3", "3.el7"), ("lte", (Some 2, "1.2.2", "3.el7")))
-        , Ok false
-        )
-      ; ( ((Some 3, "1.2.3", "3.el7"), ("lte", (Some 2, "1.2.3", "3.el7")))
-        , Ok false
-        )
-      ; ( ((Some 3, "1.2.3", "3.el7"), ("lte", (Some 2, "1.2.3", "4.el7")))
-        , Ok false
-        )
-      ; ( ((Some 3, "1.2.3", "3.el7"), ("lte", (Some 2, "1.2.4", "3.el7")))
-        , Ok false
-        )
-      ]
-end)
-
-module UpdateInfoMetaDataOfXml = Generic.MakeStateless (struct
-  module Io = struct
-    type input_t = string
-
-    type output_t = (RepoMetaData.t, exn) result
-
-    let string_of_input_t x = x
-
-    let fields =
-      Fmt.Dump.
-        [
-          field "checksum" (fun (r : RepoMetaData.t) -> r.checksum) string
-        ; field "location" (fun (r : RepoMetaData.t) -> r.location) string
-        ]
-      
-
-    let string_of_output_t =
-      Fmt.(str "%a" Dump.(result ~ok:(record @@ fields) ~error:exn))
-  end
-
-  let transform input =
-    try Ok RepoMetaData.(of_xml (Xml.parse_string input) UpdateInfo)
-    with e -> Error e
-
-  let tests =
-    `QuickAndAutoDocumented
-      [
-        (* no data node *)
-        ( {|
-            <repomd>
-            </repomd>
-           |}
-        , Error Api_errors.(Server_error (invalid_repomd_xml, []))
-        )
-      ; (* no updateinfo node *)
-        ( {|
-            <repomd>
-              <data type="primary"></data>
-            </repomd>
-           |}
-        , Error Api_errors.(Server_error (invalid_repomd_xml, []))
-        )
-      ; (* duplicate updateinfo *)
-        ( {|
-            <repomd>
-              <data type="updateinfo">
-                <checksum type="sha256">123abc</checksum>
-                <location href="repodata/123abc.xml.gz"/>
-              </data>
-              <data type="updateinfo">
-                <checksum type="sha256">123abc</checksum>
-                <location href="repodata/123abc.xml.gz"/>
-              </data>
-            </repomd>
-           |}
-        , Error Api_errors.(Server_error (invalid_repomd_xml, []))
-        )
-      ; (* missing checksum *)
-        ( {|
-            <repomd>
-              <data type="updateinfo">
-                <location href="repodata/123abc.xml.gz"/>
-              </data>
-            </repomd>
-           |}
-        , Error Api_errors.(Server_error (invalid_repomd_xml, []))
-        )
-      ; (* missing location *)
-        ( {|
-            <repomd>
-              <data type="updateinfo">
-                <checksum type="sha256">123abc</checksum>
-                <location href=""/>
-              </data>
-            </repomd>
-           |}
-        , Error Api_errors.(Server_error (invalid_repomd_xml, []))
-        )
-      ; (* normal case *)
-        ( {|
-            <repomd>
-              <data type="updateinfo">
-                <checksum type="sha256">123abc</checksum>
-                <location href="repodata/123abc.xml.gz"/>
-              </data>
-            </repomd>
-           |}
-        , Ok
-            RepoMetaData.
-              {checksum= "123abc"; location= "repodata/123abc.xml.gz"}
-            
-        )
-      ]
-end)
-
 let fields_of_updateinfo =
   Fmt.Dump.
     [
@@ -835,316 +290,20 @@ let fields_of_updateinfo =
     ; field "spec_info" (fun (r : UpdateInfo.t) -> r.spec_info) string
     ; field "url" (fun (r : UpdateInfo.t) -> r.url) string
     ; field "update_type" (fun (r : UpdateInfo.t) -> r.update_type) string
+    ; field "livepatch_guidance"
+        (fun (r : UpdateInfo.t) ->
+          UpdateInfo.guidance_to_string r.livepatch_guidance
+        )
+        string
+    ; field "livepatches"
+        (fun (r : UpdateInfo.t) ->
+          List.map
+            (fun x -> x |> LivePatch.to_json |> Yojson.Basic.pretty_to_string)
+            r.livepatches
+        )
+        (list string)
     ]
   
-
-module UpdateInfoOfXml = Generic.MakeStateless (struct
-  module Io = struct
-    type input_t = string
-
-    type output_t = ((string * UpdateInfo.t) list, exn) result
-
-    let string_of_input_t s = s
-
-    let string_of_output_t =
-      Fmt.(
-        str "%a"
-          Dump.(
-            result
-              ~ok:(list (pair string (record @@ fields_of_updateinfo)))
-              ~error:exn
-          )
-      )
-  end
-
-  let transform input =
-    try Ok (UpdateInfo.of_xml (Xml.parse_string input)) with e -> Error e
-
-  let tests =
-    `QuickAndAutoDocumented
-      [
-        (* No "updates" node *)
-        ( {|
-            <pdates>
-            </pdates>
-          |}
-        , Error Api_errors.(Server_error (invalid_updateinfo_xml, []))
-        )
-      ; (* No update in updateinfo.xml *)
-        ({|
-            <updates>
-            </updates>
-          |}, Ok [])
-      ; (* Missing update_type *)
-        ( {|
-            <updates>
-              <update type="">
-                <id>UPDATE-0000</id>
-                <title>title</title>
-                <summary>summary</summary>
-                <description>description</description>
-                <special_info>special information</special_info>
-                <url>https://update.details.info</url>
-                <guidance_applicabilities/>
-              </update>
-            </updates>
-          |}
-        , Error Api_errors.(Server_error (invalid_updateinfo_xml, []))
-        )
-      ; (* Missing id *)
-        ( {|
-            <updates>
-              <update type="security">
-                <title>title</title>
-                <summary>summary</summary>
-                <description>description</description>
-                <special_info>special information</special_info>
-                <url>https://update.details.info</url>
-                <guidance_applicabilities/>
-              </update>
-            </updates>
-          |}
-        , Error Api_errors.(Server_error (invalid_updateinfo_xml, []))
-        )
-      ; (* Missing summary *)
-        ( {|
-            <updates>
-              <update type="security">
-                <id>UPDATE-0000</id>
-                <title>title</title>
-                <description>description</description>
-                <special_info>special information</special_info>
-                <url>https://update.details.info</url>
-                <guidance_applicabilities/>
-              </update>
-            </updates>
-          |}
-        , Error Api_errors.(Server_error (invalid_updateinfo_xml, []))
-        )
-      ; (* Missing description *)
-        ( {|
-            <updates>
-              <update type="security">
-                <id>UPDATE-0000</id>
-                <title>title</title>
-                <description/>
-                <summary>summary</summary>
-                <special_info>special information</special_info>
-                <url>https://update.details.info</url>
-                <guidance_applicabilities/>
-              </update>
-            </updates>
-          |}
-        , Ok
-            [
-              ( "UPDATE-0000"
-              , UpdateInfo.
-                  {
-                    id= "UPDATE-0000"
-                  ; summary= "summary"
-                  ; description= ""
-                  ; rec_guidance= None
-                  ; abs_guidance= None
-                  ; guidance_applicabilities= []
-                  ; spec_info= "special information"
-                  ; url= "https://update.details.info"
-                  ; update_type= "security"
-                  }
-                
-              )
-            ]
-        )
-      ; (* Duplicate update ID *)
-        ( {|
-            <updates>
-              <update type="security">
-                <id>UPDATE-0000</id>
-                <title>title</title>
-                <summary>summary</summary>
-                <description>description</description>
-                <special_info>special information</special_info>
-                <url>https://update.details.info</url>
-                <guidance_applicabilities/>
-              </update>
-              <update type="security">
-                <id>UPDATE-0000</id>
-                <title>title</title>
-                <summary>summary</summary>
-                <description>description</description>
-                <special_info>special information</special_info>
-                <url>https://update.details.info</url>
-                <guidance_applicabilities/>
-              </update>
-            </updates>
-          |}
-        , Error Api_errors.(Server_error (invalid_updateinfo_xml, []))
-        )
-      ; (* Single update *)
-        ( {|
-            <updates>
-              <update type="security">
-                <id>UPDATE-0000</id>
-                <title>title</title>
-                <summary>summary</summary>
-                <description>description</description>
-                <special_info>special information</special_info>
-                <url>https://update.details.info</url>
-                <guidance_applicabilities/>
-              </update>
-            </updates>
-          |}
-        , Ok
-            [
-              ( "UPDATE-0000"
-              , UpdateInfo.
-                  {
-                    id= "UPDATE-0000"
-                  ; summary= "summary"
-                  ; description= "description"
-                  ; rec_guidance= None
-                  ; abs_guidance= None
-                  ; guidance_applicabilities= []
-                  ; spec_info= "special information"
-                  ; url= "https://update.details.info"
-                  ; update_type= "security"
-                  }
-                
-              )
-            ]
-        )
-      ; (* Two updates *)
-        ( {|
-            <updates>
-              <update type="security">
-                <id>UPDATE-0000</id>
-                <title>title</title>
-                <summary>summary</summary>
-                <description>description</description>
-                <special_info>special information</special_info>
-                <url>https://update.details.info</url>
-                <guidance_applicabilities/>
-              </update>
-              <update type="security">
-                <id>UPDATE-0001</id>
-                <title>title</title>
-                <summary>summary</summary>
-                <description>description</description>
-                <special_info>special information</special_info>
-                <url>https://update.details.info</url>
-                <guidance_applicabilities/>
-              </update>
-            </updates>
-          |}
-        , Ok
-            [
-              ( "UPDATE-0000"
-              , UpdateInfo.
-                  {
-                    id= "UPDATE-0000"
-                  ; summary= "summary"
-                  ; description= "description"
-                  ; rec_guidance= None
-                  ; abs_guidance= None
-                  ; guidance_applicabilities= []
-                  ; spec_info= "special information"
-                  ; url= "https://update.details.info"
-                  ; update_type= "security"
-                  }
-                
-              )
-            ; ( "UPDATE-0001"
-              , UpdateInfo.
-                  {
-                    id= "UPDATE-0001"
-                  ; summary= "summary"
-                  ; description= "description"
-                  ; rec_guidance= None
-                  ; abs_guidance= None
-                  ; guidance_applicabilities= []
-                  ; spec_info= "special information"
-                  ; url= "https://update.details.info"
-                  ; update_type= "security"
-                  }
-                
-              )
-            ]
-        )
-      ; (* Single update with guidances *)
-        ( {|
-            <updates>
-              <update type="security">
-                <id>UPDATE-0000</id>
-                <title>title</title>
-                <summary>summary</summary>
-                <description>description</description>
-                <special_info>special information</special_info>
-                <url>https://update.details.info</url>
-                <recommended_guidance>RestartDeviceModel</recommended_guidance>
-                <absolute_guidance>RebootHost</absolute_guidance>
-                <guidance_applicabilities>
-                  <applicability>
-                    <name>xsconsole</name>
-                    <inequality>gte</inequality>
-                    <epoch>None</epoch>
-                    <version>10.1.0</version>
-                    <release>25</release>
-                    <arch>x86_64</arch>
-                  </applicability>
-                  <applicability>
-                    <name>xsconsole</name>
-                    <inequality>lt</inequality>
-                    <epoch>None</epoch>
-                    <version>10.1.0</version>
-                    <release>25</release>
-                    <arch>x86_64</arch>
-                  </applicability>
-                </guidance_applicabilities>
-              </update>
-            </updates>
-          |}
-        , Ok
-            [
-              ( "UPDATE-0000"
-              , UpdateInfo.
-                  {
-                    id= "UPDATE-0000"
-                  ; summary= "summary"
-                  ; description= "description"
-                  ; rec_guidance= Some Guidance.RestartDeviceModel
-                  ; abs_guidance= Some Guidance.RebootHost
-                  ; guidance_applicabilities=
-                      [
-                        Applicability.
-                          {
-                            name= "xsconsole"
-                          ; arch= "x86_64"
-                          ; inequality= Some Gte
-                          ; epoch= None
-                          ; version= "10.1.0"
-                          ; release= "25"
-                          }
-                        
-                      ; Applicability.
-                          {
-                            name= "xsconsole"
-                          ; arch= "x86_64"
-                          ; inequality= Some Lt
-                          ; epoch= None
-                          ; version= "10.1.0"
-                          ; release= "25"
-                          }
-                        
-                      ]
-                  ; spec_info= "special information"
-                  ; url= "https://update.details.info"
-                  ; update_type= "security"
-                  }
-                
-              )
-            ]
-        )
-      ]
-end)
 
 module AssertUrlIsValid = Generic.MakeStateless (struct
   module Io = struct
@@ -1343,7 +502,7 @@ end)
 
 module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
   module Io = struct
-    type input_t = (string * UpdateInfo.t) list * Update.t
+    type input_t = ((string * UpdateInfo.t) list * Update.t) * string list
 
     type output_t = Guidance.t option
 
@@ -1352,8 +511,11 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
         str "%a"
           Dump.(
             pair
-              (list (pair string (record @@ fields_of_updateinfo)))
-              (record @@ fields_of_update)
+              (pair
+                 (list (pair string (record @@ fields_of_updateinfo)))
+                 (record @@ fields_of_update)
+              )
+              (list string)
           )
       )
 
@@ -1361,510 +523,990 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
       Fmt.(str "%a" Dump.(string)) (UpdateInfo.guidance_to_string g)
   end
 
-  let transform (updates_info, update) =
-    eval_guidance_for_one_update ~updates_info ~update ~kind:Guidance.Absolute
+  let transform ((updates_info, update), upd_ids_of_livepatches) =
+    eval_guidance_for_one_update ~updates_info ~update
+      ~kind:Guidance.Recommended
+      ~upd_ids_of_livepatches:(UpdateIdSet.of_list upd_ids_of_livepatches)
 
   let tests =
     `QuickAndAutoDocumented
       [
         (* Update ID in update can't be found in updateinfo list *)
-        ( ( []
-          , Update.
-              {
-                (* No id here *)
-                name= "xsconsole"
-              ; arch= "x86_64"
-              ; old_epoch= None
-              ; old_version= None
-              ; old_release= None
-              ; new_epoch= None
-              ; new_version= "0.2.2"
-              ; new_release= "10.el7"
-              ; update_id= Some "UPDATE-0000"
-              ; repository= "regular"
-              }
-            
+        ( ( ( []
+            , Update.
+                {
+                  (* No id here *)
+                  name= "xsconsole"
+                ; arch= "x86_64"
+                ; old_epoch= None
+                ; old_version= None
+                ; old_release= None
+                ; new_epoch= None
+                ; new_version= "0.2.2"
+                ; new_release= "10.el7"
+                ; update_id= Some "UPDATE-0000"
+                ; repository= "regular"
+                }
+              
+            )
+          , []
           )
         , None
         )
       ; (* Update ID in update can't be found in updateinfo list *)
-        ( ( [
-              ( "UPDATE-0000"
-              , UpdateInfo.
-                  {
-                    id= "UPDATE-0000"
-                  ; summary= "summary"
-                  ; description= "description"
-                  ; rec_guidance= Some Guidance.EvacuateHost
-                  ; abs_guidance= Some Guidance.RebootHost
-                  ; guidance_applicabilities= []
-                  ; spec_info= "special info"
-                  ; url= "https://update.details.info"
-                  ; update_type= "security"
-                  }
-                
-              )
-            ; ( "UPDATE-0001"
-              , UpdateInfo.
-                  {
-                    id= "UPDATE-0001"
-                  ; summary= "summary"
-                  ; description= "description"
-                  ; rec_guidance= Some Guidance.EvacuateHost
-                  ; abs_guidance= Some Guidance.RebootHost
-                  ; guidance_applicabilities= []
-                  ; spec_info= "special info"
-                  ; url= "https://update.details.info"
-                  ; update_type= "security"
-                  }
-                
-              )
-            ]
-          , Update.
-              {
-                name= "xsconsole"
-              ; arch= "x86_64"
-              ; old_epoch= Some None
-              ; old_version= Some "0.2.1"
-              ; old_release= Some "29.el7"
-              ; new_epoch= None
-              ; new_version= "0.2.2"
-              ; new_release= "10.el7"
-              ; update_id=
-                  Some "UPDATE-0002" (* This ID can't be found in above *)
-              ; repository= "regular"
-              }
-            
+        ( ( ( [
+                ( "UPDATE-0000"
+                , UpdateInfo.
+                    {
+                      id= "UPDATE-0000"
+                    ; summary= "summary"
+                    ; description= "description"
+                    ; rec_guidance= Some Guidance.EvacuateHost
+                    ; abs_guidance= Some Guidance.RebootHost
+                    ; guidance_applicabilities= []
+                    ; spec_info= "special info"
+                    ; url= "https://update.details.info"
+                    ; update_type= "security"
+                    ; livepatch_guidance= None
+                    ; livepatches= []
+                    }
+                  
+                )
+              ; ( "UPDATE-0001"
+                , UpdateInfo.
+                    {
+                      id= "UPDATE-0001"
+                    ; summary= "summary"
+                    ; description= "description"
+                    ; rec_guidance= Some Guidance.EvacuateHost
+                    ; abs_guidance= Some Guidance.RebootHost
+                    ; guidance_applicabilities= []
+                    ; spec_info= "special info"
+                    ; url= "https://update.details.info"
+                    ; update_type= "security"
+                    ; livepatch_guidance= None
+                    ; livepatches= []
+                    }
+                  
+                )
+              ]
+            , Update.
+                {
+                  name= "xsconsole"
+                ; arch= "x86_64"
+                ; old_epoch= Some None
+                ; old_version= Some "0.2.1"
+                ; old_release= Some "29.el7"
+                ; new_epoch= None
+                ; new_version= "0.2.2"
+                ; new_release= "10.el7"
+                ; update_id=
+                    Some "UPDATE-0002" (* This ID can't be found in above *)
+                ; repository= "regular"
+                }
+              
+            )
+          , []
           )
         , None
         )
       ; (* No update ID in update *)
-        ( ( [
-              ( "UPDATE-0000"
-              , UpdateInfo.
-                  {
-                    id= "UPDATE-0000"
-                  ; summary= "summary"
-                  ; description= "description"
-                  ; rec_guidance= Some Guidance.EvacuateHost
-                  ; abs_guidance= Some Guidance.RebootHost
-                  ; guidance_applicabilities= []
-                  ; spec_info= "special info"
-                  ; url= "https://update.details.info"
-                  ; update_type= "security"
-                  }
-                
-              )
-            ]
-          , Update.
-              {
-                name= "xsconsole"
-              ; arch= "x86_64"
-              ; old_epoch= Some None
-              ; old_version= Some "0.2.1"
-              ; old_release= Some "29.el7"
-              ; new_epoch= None
-              ; new_version= "0.2.2"
-              ; new_release= "10.el7"
-              ; update_id= None (* This is None *)
-              ; repository= "regular"
-              }
-            
+        ( ( ( [
+                ( "UPDATE-0000"
+                , UpdateInfo.
+                    {
+                      id= "UPDATE-0000"
+                    ; summary= "summary"
+                    ; description= "description"
+                    ; rec_guidance= Some Guidance.EvacuateHost
+                    ; abs_guidance= Some Guidance.RebootHost
+                    ; guidance_applicabilities= []
+                    ; spec_info= "special info"
+                    ; url= "https://update.details.info"
+                    ; update_type= "security"
+                    ; livepatch_guidance= None
+                    ; livepatches= []
+                    }
+                  
+                )
+              ]
+            , Update.
+                {
+                  name= "xsconsole"
+                ; arch= "x86_64"
+                ; old_epoch= Some None
+                ; old_version= Some "0.2.1"
+                ; old_release= Some "29.el7"
+                ; new_epoch= None
+                ; new_version= "0.2.2"
+                ; new_release= "10.el7"
+                ; update_id= None (* This is None *)
+                ; repository= "regular"
+                }
+              
+            )
+          , []
           )
         , None
         )
       ; (* Empty applicabilities *)
-        ( ( [
-              ( "UPDATE-0000"
-              , UpdateInfo.
-                  {
-                    id= "UPDATE-0000"
-                  ; summary= "summary"
-                  ; description= "description"
-                  ; rec_guidance= None
-                  ; abs_guidance= None
-                  ; guidance_applicabilities= []
-                  ; spec_info= "special info"
-                  ; url= "https://update.details.info"
-                  ; update_type= "security"
-                  }
-                
-              )
-            ; ( "UPDATE-0001"
-              , UpdateInfo.
-                  {
-                    id= "UPDATE-0001"
-                  ; summary= "summary"
-                  ; description= "description"
-                  ; rec_guidance= None
-                  ; abs_guidance= Some Guidance.RebootHost
-                  ; guidance_applicabilities= [] (* No applicabilities *)
-                  ; spec_info= "special info"
-                  ; url= "https://update.details.info"
-                  ; update_type= "security"
-                  }
-                
-              )
-            ]
-          , Update.
-              {
-                name= "xsconsole"
-              ; arch= "x86_64"
-              ; old_epoch= Some None
-              ; old_version= Some "0.2.1"
-              ; old_release= Some "29.el7"
-              ; new_epoch= None
-              ; new_version= "0.2.2"
-              ; new_release= "10.el7"
-              ; update_id= Some "UPDATE-0001"
-              ; repository= "regular"
-              }
-            
+        ( ( ( [
+                ( "UPDATE-0000"
+                , UpdateInfo.
+                    {
+                      id= "UPDATE-0000"
+                    ; summary= "summary"
+                    ; description= "description"
+                    ; rec_guidance= None
+                    ; abs_guidance= None
+                    ; guidance_applicabilities= []
+                    ; spec_info= "special info"
+                    ; url= "https://update.details.info"
+                    ; update_type= "security"
+                    ; livepatch_guidance= None
+                    ; livepatches= []
+                    }
+                  
+                )
+              ; ( "UPDATE-0001"
+                , UpdateInfo.
+                    {
+                      id= "UPDATE-0001"
+                    ; summary= "summary"
+                    ; description= "description"
+                    ; rec_guidance= Some Guidance.RebootHost
+                    ; abs_guidance= None
+                    ; guidance_applicabilities= [] (* No applicabilities *)
+                    ; spec_info= "special info"
+                    ; url= "https://update.details.info"
+                    ; update_type= "security"
+                    ; livepatch_guidance= None
+                    ; livepatches= []
+                    }
+                  
+                )
+              ]
+            , Update.
+                {
+                  name= "xsconsole"
+                ; arch= "x86_64"
+                ; old_epoch= Some None
+                ; old_version= Some "0.2.1"
+                ; old_release= Some "29.el7"
+                ; new_epoch= None
+                ; new_version= "0.2.2"
+                ; new_release= "10.el7"
+                ; update_id= Some "UPDATE-0001"
+                ; repository= "regular"
+                }
+              
+            )
+          , []
           )
         , Some Guidance.RebootHost
         )
       ; (* Matched applicability *)
-        ( ( [
-              ( "UPDATE-0000"
-              , UpdateInfo.
-                  {
-                    id= "UPDATE-0000"
-                  ; summary= "summary"
-                  ; description= "description"
-                  ; rec_guidance= None
-                  ; abs_guidance= None
-                  ; guidance_applicabilities= []
-                  ; spec_info= "special info"
-                  ; url= "https://update.details.info"
-                  ; update_type= "security"
-                  }
-                
-              )
-            ; ( "UPDATE-0001"
-              , UpdateInfo.
-                  {
-                    id= "UPDATE-0001"
-                  ; summary= "summary"
-                  ; description= "description"
-                  ; rec_guidance= None
-                  ; abs_guidance= Some Guidance.RestartDeviceModel
-                  ; guidance_applicabilities=
-                      [
-                        Applicability.
-                          {
-                            name= "xsconsole"
-                          ; arch= "x86_64"
-                          ; inequality=
-                              Some Lte
-                              (* old version 0.2.0 is less than 0.2.1 *)
-                          ; epoch= None
-                          ; version= "0.2.1"
-                          ; release= "29.el7"
-                          }
-                        
-                      ]
-                  ; spec_info= "special info"
-                  ; url= "https://update.details.info"
-                  ; update_type= "security"
-                  }
-                
-              )
-            ]
-          , Update.
-              {
-                name= "xsconsole"
-              ; arch= "x86_64"
-              ; old_epoch= Some None
-              ; old_version= Some "0.2.0"
-              ; old_release= Some "29.el7"
-              ; new_epoch= None
-              ; new_version= "0.2.2"
-              ; new_release= "10.el7"
-              ; update_id= Some "UPDATE-0001"
-              ; repository= "regular"
-              }
-            
+        ( ( ( [
+                ( "UPDATE-0000"
+                , UpdateInfo.
+                    {
+                      id= "UPDATE-0000"
+                    ; summary= "summary"
+                    ; description= "description"
+                    ; rec_guidance= None
+                    ; abs_guidance= None
+                    ; guidance_applicabilities= []
+                    ; spec_info= "special info"
+                    ; url= "https://update.details.info"
+                    ; update_type= "security"
+                    ; livepatch_guidance= None
+                    ; livepatches= []
+                    }
+                  
+                )
+              ; ( "UPDATE-0001"
+                , UpdateInfo.
+                    {
+                      id= "UPDATE-0001"
+                    ; summary= "summary"
+                    ; description= "description"
+                    ; rec_guidance= Some Guidance.RestartDeviceModel
+                    ; abs_guidance= None
+                    ; guidance_applicabilities=
+                        [
+                          Applicability.
+                            {
+                              name= "xsconsole"
+                            ; arch= "x86_64"
+                            ; inequality=
+                                Some Lte
+                                (* old version 0.2.0 is less than 0.2.1 *)
+                            ; epoch= None
+                            ; version= "0.2.1"
+                            ; release= "29.el7"
+                            }
+                          
+                        ]
+                    ; spec_info= "special info"
+                    ; url= "https://update.details.info"
+                    ; update_type= "security"
+                    ; livepatch_guidance= None
+                    ; livepatches= []
+                    }
+                  
+                )
+              ]
+            , Update.
+                {
+                  name= "xsconsole"
+                ; arch= "x86_64"
+                ; old_epoch= Some None
+                ; old_version= Some "0.2.0"
+                ; old_release= Some "29.el7"
+                ; new_epoch= None
+                ; new_version= "0.2.2"
+                ; new_release= "10.el7"
+                ; update_id= Some "UPDATE-0001"
+                ; repository= "regular"
+                }
+              
+            )
+          , []
           )
         , Some Guidance.RestartDeviceModel
         )
       ; (* Matched in multiple applicabilities *)
-        ( ( [
-              ( "UPDATE-0000"
-              , UpdateInfo.
-                  {
-                    id= "UPDATE-0000"
-                  ; summary= "summary"
-                  ; description= "description"
-                  ; rec_guidance= None
-                  ; abs_guidance= None
-                  ; guidance_applicabilities= []
-                  ; spec_info= "special info"
-                  ; url= "https://update.details.info"
-                  ; update_type= "security"
-                  }
-                
-              )
-            ; ( "UPDATE-0001"
-              , UpdateInfo.
-                  {
-                    id= "UPDATE-0001"
-                  ; summary= "summary"
-                  ; description= "description"
-                  ; rec_guidance= None
-                  ; abs_guidance= Some Guidance.RestartDeviceModel
-                  ; guidance_applicabilities=
-                      [
-                        Applicability.
-                          {
-                            name= "xsconsole"
-                          ; arch= "x86_64"
-                          ; inequality=
-                              Some Gt
-                              (* Unmatch: old version 0.2.1 is equal to 0.2.1 *)
-                          ; epoch= None
-                          ; version= "0.2.1"
-                          ; release= "29.el7"
-                          }
-                        
-                      ; Applicability.
-                          {
-                            name= "xsconsole"
-                          ; arch= "x86_64"
-                          ; inequality=
-                              Some Eq
-                              (* Match: old version 0.2.1 is equal to 0.2.1 *)
-                          ; epoch= None
-                          ; version= "0.2.1"
-                          ; release= "29.el7"
-                          }
-                        
-                      ]
-                  ; spec_info= "special info"
-                  ; url= "https://update.details.info"
-                  ; update_type= "security"
-                  }
-                
-              )
-            ]
-          , Update.
-              {
-                name= "xsconsole"
-              ; arch= "x86_64"
-              ; old_epoch= Some None
-              ; old_version= Some "0.2.1"
-              ; old_release= Some "29.el7"
-              ; new_epoch= None
-              ; new_version= "0.2.2"
-              ; new_release= "10.el7"
-              ; update_id= Some "UPDATE-0001"
-              ; repository= "regular"
-              }
-            
+        ( ( ( [
+                ( "UPDATE-0000"
+                , UpdateInfo.
+                    {
+                      id= "UPDATE-0000"
+                    ; summary= "summary"
+                    ; description= "description"
+                    ; rec_guidance= None
+                    ; abs_guidance= None
+                    ; guidance_applicabilities= []
+                    ; spec_info= "special info"
+                    ; url= "https://update.details.info"
+                    ; update_type= "security"
+                    ; livepatch_guidance= None
+                    ; livepatches= []
+                    }
+                  
+                )
+              ; ( "UPDATE-0001"
+                , UpdateInfo.
+                    {
+                      id= "UPDATE-0001"
+                    ; summary= "summary"
+                    ; description= "description"
+                    ; rec_guidance= Some Guidance.RestartDeviceModel
+                    ; abs_guidance= None
+                    ; guidance_applicabilities=
+                        [
+                          Applicability.
+                            {
+                              name= "xsconsole"
+                            ; arch= "x86_64"
+                            ; inequality=
+                                Some Gt
+                                (* Unmatch: old version 0.2.1 is equal to 0.2.1 *)
+                            ; epoch= None
+                            ; version= "0.2.1"
+                            ; release= "29.el7"
+                            }
+                          
+                        ; Applicability.
+                            {
+                              name= "xsconsole"
+                            ; arch= "x86_64"
+                            ; inequality=
+                                Some Eq
+                                (* Match: old version 0.2.1 is equal to 0.2.1 *)
+                            ; epoch= None
+                            ; version= "0.2.1"
+                            ; release= "29.el7"
+                            }
+                          
+                        ]
+                    ; spec_info= "special info"
+                    ; url= "https://update.details.info"
+                    ; update_type= "security"
+                    ; livepatch_guidance= None
+                    ; livepatches= []
+                    }
+                  
+                )
+              ]
+            , Update.
+                {
+                  name= "xsconsole"
+                ; arch= "x86_64"
+                ; old_epoch= Some None
+                ; old_version= Some "0.2.1"
+                ; old_release= Some "29.el7"
+                ; new_epoch= None
+                ; new_version= "0.2.2"
+                ; new_release= "10.el7"
+                ; update_id= Some "UPDATE-0001"
+                ; repository= "regular"
+                }
+              
+            )
+          , []
           )
         , Some Guidance.RestartDeviceModel
         )
       ; (* No matched applicability *)
-        ( ( [
-              ( "UPDATE-0000"
-              , UpdateInfo.
-                  {
-                    id= "UPDATE-0000"
-                  ; summary= "summary"
-                  ; description= "description"
-                  ; rec_guidance= None
-                  ; abs_guidance= None
-                  ; guidance_applicabilities= []
-                  ; spec_info= "special info"
-                  ; url= "https://update.details.info"
-                  ; update_type= "security"
-                  }
-                
-              )
-            ; ( "UPDATE-0001"
-              , UpdateInfo.
-                  {
-                    id= "UPDATE-0001"
-                  ; summary= "summary"
-                  ; description= "description"
-                  ; rec_guidance= None
-                  ; abs_guidance= Some Guidance.RestartDeviceModel
-                  ; guidance_applicabilities=
-                      [
-                        Applicability.
-                          {
-                            name= "xsconsole"
-                          ; arch= "x86_64"
-                          ; inequality=
-                              Some Lte
-                              (* Unmatch: old version 0.2.1 is greater than 0.2.0 *)
-                          ; epoch= None
-                          ; version= "0.2.0"
-                          ; release= "29.el7"
-                          }
-                        
-                      ]
-                  ; spec_info= "special info"
-                  ; url= "https://update.details.info"
-                  ; update_type= "security"
-                  }
-                
-              )
-            ]
-          , Update.
-              {
-                name= "xsconsole"
-              ; arch= "x86_64"
-              ; old_epoch= Some None
-              ; old_version= Some "0.2.1"
-              ; old_release= Some "29.el7"
-              ; new_epoch= None
-              ; new_version= "0.2.2"
-              ; new_release= "10.el7"
-              ; update_id= Some "UPDATE-0001"
-              ; repository= "regular"
-              }
-            
+        ( ( ( [
+                ( "UPDATE-0000"
+                , UpdateInfo.
+                    {
+                      id= "UPDATE-0000"
+                    ; summary= "summary"
+                    ; description= "description"
+                    ; rec_guidance= None
+                    ; abs_guidance= None
+                    ; guidance_applicabilities= []
+                    ; spec_info= "special info"
+                    ; url= "https://update.details.info"
+                    ; update_type= "security"
+                    ; livepatch_guidance= None
+                    ; livepatches= []
+                    }
+                  
+                )
+              ; ( "UPDATE-0001"
+                , UpdateInfo.
+                    {
+                      id= "UPDATE-0001"
+                    ; summary= "summary"
+                    ; description= "description"
+                    ; rec_guidance= Some Guidance.RestartDeviceModel
+                    ; abs_guidance= None
+                    ; guidance_applicabilities=
+                        [
+                          Applicability.
+                            {
+                              name= "xsconsole"
+                            ; arch= "x86_64"
+                            ; inequality=
+                                Some Lte
+                                (* Unmatch: old version 0.2.1 is greater than 0.2.0 *)
+                            ; epoch= None
+                            ; version= "0.2.0"
+                            ; release= "29.el7"
+                            }
+                          
+                        ]
+                    ; spec_info= "special info"
+                    ; url= "https://update.details.info"
+                    ; update_type= "security"
+                    ; livepatch_guidance= None
+                    ; livepatches= []
+                    }
+                  
+                )
+              ]
+            , Update.
+                {
+                  name= "xsconsole"
+                ; arch= "x86_64"
+                ; old_epoch= Some None
+                ; old_version= Some "0.2.1"
+                ; old_release= Some "29.el7"
+                ; new_epoch= None
+                ; new_version= "0.2.2"
+                ; new_release= "10.el7"
+                ; update_id= Some "UPDATE-0001"
+                ; repository= "regular"
+                }
+              
+            )
+          , []
           )
         , None
         )
       ; (* Unmatched arch *)
-        ( ( [
-              ( "UPDATE-0000"
-              , UpdateInfo.
-                  {
-                    id= "UPDATE-0000"
-                  ; summary= "summary"
-                  ; description= "description"
-                  ; rec_guidance= None
-                  ; abs_guidance= None
-                  ; guidance_applicabilities= []
-                  ; spec_info= "special info"
-                  ; url= "https://update.details.info"
-                  ; update_type= "security"
-                  }
-                
-              )
-            ; ( "UPDATE-0001"
-              , UpdateInfo.
-                  {
-                    id= "UPDATE-0001"
-                  ; summary= "summary"
-                  ; description= "description"
-                  ; rec_guidance= None
-                  ; abs_guidance= Some Guidance.RestartDeviceModel
-                  ; guidance_applicabilities=
-                      [
-                        Applicability.
-                          {
-                            name= "xsconsole"
-                          ; arch=
-                              "x86_64" (* Unmatch: arch of update is x86_64 *)
-                          ; inequality= Some Lte
-                          ; epoch= None
-                          ; version= "0.2.1"
-                          ; release= "29.el7"
-                          }
-                        
-                      ]
-                  ; spec_info= "special info"
-                  ; url= "https://update.details.info"
-                  ; update_type= "security"
-                  }
-                
-              )
-            ]
-          , Update.
-              {
-                name= "xsconsole"
-              ; arch= "noarch"
-              ; old_epoch= Some None
-              ; old_version= Some "0.2.1"
-              ; old_release= Some "29.el7"
-              ; new_epoch= None
-              ; new_version= "0.2.2"
-              ; new_release= "10.el7"
-              ; update_id= Some "UPDATE-0001"
-              ; repository= "regular"
-              }
-            
+        ( ( ( [
+                ( "UPDATE-0000"
+                , UpdateInfo.
+                    {
+                      id= "UPDATE-0000"
+                    ; summary= "summary"
+                    ; description= "description"
+                    ; rec_guidance= None
+                    ; abs_guidance= None
+                    ; guidance_applicabilities= []
+                    ; spec_info= "special info"
+                    ; url= "https://update.details.info"
+                    ; update_type= "security"
+                    ; livepatch_guidance= None
+                    ; livepatches= []
+                    }
+                  
+                )
+              ; ( "UPDATE-0001"
+                , UpdateInfo.
+                    {
+                      id= "UPDATE-0001"
+                    ; summary= "summary"
+                    ; description= "description"
+                    ; rec_guidance= Some Guidance.RestartDeviceModel
+                    ; abs_guidance= None
+                    ; guidance_applicabilities=
+                        [
+                          Applicability.
+                            {
+                              name= "xsconsole"
+                            ; arch=
+                                "x86_64" (* Unmatch: arch of update is x86_64 *)
+                            ; inequality= Some Lte
+                            ; epoch= None
+                            ; version= "0.2.1"
+                            ; release= "29.el7"
+                            }
+                          
+                        ]
+                    ; spec_info= "special info"
+                    ; url= "https://update.details.info"
+                    ; update_type= "security"
+                    ; livepatch_guidance= None
+                    ; livepatches= []
+                    }
+                  
+                )
+              ]
+            , Update.
+                {
+                  name= "xsconsole"
+                ; arch= "noarch"
+                ; old_epoch= Some None
+                ; old_version= Some "0.2.1"
+                ; old_release= Some "29.el7"
+                ; new_epoch= None
+                ; new_version= "0.2.2"
+                ; new_release= "10.el7"
+                ; update_id= Some "UPDATE-0001"
+                ; repository= "regular"
+                }
+              
+            )
+          , []
           )
         , None
         )
       ; (* Matched in multiple applicabilities with epoch *)
-        ( ( [
-              ( "UPDATE-0000"
-              , UpdateInfo.
-                  {
-                    id= "UPDATE-0000"
-                  ; summary= "summary"
-                  ; description= "description"
-                  ; rec_guidance= None
-                  ; abs_guidance= None
-                  ; guidance_applicabilities= []
-                  ; spec_info= "special info"
-                  ; url= "https://update.details.info"
-                  ; update_type= "security"
-                  }
-                
-              )
-            ; ( "UPDATE-0001"
-              , UpdateInfo.
-                  {
-                    id= "UPDATE-0001"
-                  ; summary= "summary"
-                  ; description= "description"
-                  ; rec_guidance= None
-                  ; abs_guidance= Some Guidance.RestartDeviceModel
-                  ; guidance_applicabilities=
-                      [
-                        Applicability.
-                          {
-                            name= "xsconsole"
-                          ; arch= "x86_64"
-                          ; inequality=
-                              Some Gt
-                              (* Unmatch: old version 0.2.1 is equal to 0.2.1 *)
-                          ; epoch= None
-                          ; version= "0.2.1"
-                          ; release= "29.el7"
-                          }
-                        
-                      ; Applicability.
-                          {
-                            name= "xsconsole"
-                          ; arch= "x86_64"
-                          ; inequality=
-                              Some Eq
-                              (* Match: old version 0.2.1 is equal to 0.2.1 *)
-                          ; epoch= Some 1
-                          ; version= "0.1.1"
-                          ; release= "29.el7"
-                          }
-                        
-                      ]
-                  ; spec_info= "special info"
-                  ; url= "https://update.details.info"
-                  ; update_type= "security"
-                  }
-                
-              )
-            ]
-          , Update.
-              {
-                name= "xsconsole"
-              ; arch= "x86_64"
-              ; old_epoch= Some (Some 1)
-              ; old_version= Some "0.1.1"
-              ; old_release= Some "29.el7"
-              ; new_epoch= Some 1
-              ; new_version= "0.2.2"
-              ; new_release= "10.el7"
-              ; update_id= Some "UPDATE-0001"
-              ; repository= "regular"
-              }
-            
+        ( ( ( [
+                ( "UPDATE-0000"
+                , UpdateInfo.
+                    {
+                      id= "UPDATE-0000"
+                    ; summary= "summary"
+                    ; description= "description"
+                    ; rec_guidance= None
+                    ; abs_guidance= None
+                    ; guidance_applicabilities= []
+                    ; spec_info= "special info"
+                    ; url= "https://update.details.info"
+                    ; update_type= "security"
+                    ; livepatch_guidance= None
+                    ; livepatches= []
+                    }
+                  
+                )
+              ; ( "UPDATE-0001"
+                , UpdateInfo.
+                    {
+                      id= "UPDATE-0001"
+                    ; summary= "summary"
+                    ; description= "description"
+                    ; rec_guidance= Some Guidance.RestartDeviceModel
+                    ; abs_guidance= None
+                    ; guidance_applicabilities=
+                        [
+                          Applicability.
+                            {
+                              name= "xsconsole"
+                            ; arch= "x86_64"
+                            ; inequality=
+                                Some Gt
+                                (* Unmatch: old version 0.2.1 is equal to 0.2.1 *)
+                            ; epoch= None
+                            ; version= "0.2.1"
+                            ; release= "29.el7"
+                            }
+                          
+                        ; Applicability.
+                            {
+                              name= "xsconsole"
+                            ; arch= "x86_64"
+                            ; inequality=
+                                Some Eq
+                                (* Match: old version 0.2.1 is equal to 0.2.1 *)
+                            ; epoch= Some 1
+                            ; version= "0.1.1"
+                            ; release= "29.el7"
+                            }
+                          
+                        ]
+                    ; spec_info= "special info"
+                    ; url= "https://update.details.info"
+                    ; update_type= "security"
+                    ; livepatch_guidance= None
+                    ; livepatches= []
+                    }
+                  
+                )
+              ]
+            , Update.
+                {
+                  name= "xsconsole"
+                ; arch= "x86_64"
+                ; old_epoch= Some (Some 1)
+                ; old_version= Some "0.1.1"
+                ; old_release= Some "29.el7"
+                ; new_epoch= Some 1
+                ; new_version= "0.2.2"
+                ; new_release= "10.el7"
+                ; update_id= Some "UPDATE-0001"
+                ; repository= "regular"
+                }
+              
+            )
+          , []
           )
         , Some Guidance.RestartDeviceModel
+        )
+      ; (* livepatch_guidance: Some _ *)
+        ( ( ( [
+                ( "UPDATE-0000"
+                , UpdateInfo.
+                    {
+                      id= "UPDATE-0000"
+                    ; summary= "summary"
+                    ; description= "description"
+                    ; rec_guidance= Some Guidance.RebootHost
+                    ; abs_guidance= None
+                    ; guidance_applicabilities= [] (* No applicabilities *)
+                    ; spec_info= "special info"
+                    ; url= "https://update.details.info"
+                    ; update_type= "security"
+                    ; livepatch_guidance= Some Guidance.RestartDeviceModel
+                    ; livepatches=
+                        [
+                          LivePatch.
+                            {
+                              component= Livepatch.Xen
+                            ; base_build_id=
+                                "9346194f2e98a228f5a595b13ecabd43a99fada0"
+                            ; base_version= "4.13.4"
+                            ; base_release= "10.22.xs8"
+                            ; to_version= "4.13.4"
+                            ; to_release= "10.23.xs8"
+                            }
+                          
+                        ; LivePatch.
+                            {
+                              component= Livepatch.Xen
+                            ; base_build_id=
+                                "8346194f2e98a228f5a595b13ecabd43a99fada0"
+                            ; base_version= "4.13.4"
+                            ; base_release= "10.21.xs8"
+                            ; to_version= "4.13.4"
+                            ; to_release= "10.23.xs8"
+                            }
+                          
+                        ]
+                    }
+                  
+                )
+              ]
+            , Update.
+                {
+                  name= "xen-hypervisor"
+                ; arch= "x86_64"
+                ; old_epoch= Some None
+                ; old_version= Some "4.13.4"
+                ; old_release= Some "10.22.xs8"
+                ; new_epoch= None
+                ; new_version= "4.13.4"
+                ; new_release= "10.23.xs8"
+                ; update_id= Some "UPDATE-0000"
+                ; repository= "regular"
+                }
+              
+            )
+          , ["UPDATE-0000"]
+          )
+        , Some Guidance.RestartDeviceModel
+        )
+      ; (* livepatch_guidance - None *)
+        ( ( ( [
+                ( "UPDATE-0000"
+                , UpdateInfo.
+                    {
+                      id= "UPDATE-0000"
+                    ; summary= "summary"
+                    ; description= "description"
+                    ; rec_guidance= Some Guidance.RebootHost
+                    ; abs_guidance= None
+                    ; guidance_applicabilities= [] (* No applicabilities *)
+                    ; spec_info= "special info"
+                    ; url= "https://update.details.info"
+                    ; update_type= "security"
+                    ; livepatch_guidance= None
+                    ; livepatches=
+                        [
+                          LivePatch.
+                            {
+                              component= Livepatch.Xen
+                            ; base_build_id=
+                                "9346194f2e98a228f5a595b13ecabd43a99fada0"
+                            ; base_version= "4.13.4"
+                            ; base_release= "10.22.xs8"
+                            ; to_version= "4.13.4"
+                            ; to_release= "10.23.xs8"
+                            }
+                          
+                        ]
+                    }
+                  
+                )
+              ]
+            , Update.
+                {
+                  name= "xen-hypervisor"
+                ; arch= "x86_64"
+                ; old_epoch= Some None
+                ; old_version= Some "4.13.4"
+                ; old_release= Some "10.22.xs8"
+                ; new_epoch= None
+                ; new_version= "4.13.4"
+                ; new_release= "10.23.xs8"
+                ; update_id= Some "UPDATE-0000"
+                ; repository= "regular"
+                }
+              
+            )
+          , ["UPDATE-0000"]
+          )
+        , None
+        )
+      ; (* livepatch_guidance: livepatch does not come from RPM update UPDATE-0001.
+         * And the RPM update UPDATE-0001 requires RebootHost.
+         *)
+        ( ( ( [
+                ( "UPDATE-0000"
+                , UpdateInfo.
+                    {
+                      id= "UPDATE-0000"
+                    ; summary= "summary"
+                    ; description= "description"
+                    ; rec_guidance= None
+                    ; abs_guidance= None
+                    ; guidance_applicabilities= [] (* No applicabilities *)
+                    ; spec_info= "special info"
+                    ; url= "https://update.details.info"
+                    ; update_type= "security"
+                    ; livepatch_guidance= Some Guidance.RestartDeviceModel
+                    ; livepatches=
+                        [
+                          LivePatch.
+                            {
+                              component= Livepatch.Xen
+                            ; base_build_id=
+                                "9346194f2e98a228f5a595b13ecabd43a99fada0"
+                            ; base_version= "4.19.19"
+                            ; base_release= "8.0.20.xs8"
+                            ; to_version= "4.19.19"
+                            ; to_release= "8.0.21.xs8"
+                            }
+                          
+                        ]
+                    }
+                  
+                )
+              ; ( "UPDATE-0001"
+                , UpdateInfo.
+                    {
+                      id= "UPDATE-0001"
+                    ; summary= "summary"
+                    ; description= "description"
+                    ; rec_guidance= Some Guidance.RebootHost
+                    ; abs_guidance= None
+                    ; guidance_applicabilities= [] (* No applicabilities *)
+                    ; spec_info= "special info"
+                    ; url= "https://update.details.info"
+                    ; update_type= "security"
+                    ; livepatch_guidance= Some Guidance.RestartToolstack
+                    ; livepatches=
+                        [
+                          LivePatch.
+                            {
+                              component= Livepatch.Xen
+                            ; base_build_id=
+                                "8346194f2e98a228f5a595b13ecabd43a99fada0"
+                            ; base_version= "4.19.19"
+                            ; base_release= "8.0.21.xs8"
+                            ; to_version= "4.19.19"
+                            ; to_release= "8.0.22.xs8"
+                            }
+                          
+                        ]
+                    }
+                  
+                )
+              ]
+            , Update.
+                {
+                  name= "xen-hypervisor"
+                ; arch= "x86_64"
+                ; old_epoch= Some None
+                ; old_version= Some "4.19.19"
+                ; old_release= Some "8.0.20.xs8"
+                ; new_epoch= None
+                ; new_version= "4.19.19"
+                ; new_release= "8.0.22.xs8"
+                ; update_id= Some "UPDATE-0001"
+                ; repository= "regular"
+                }
+              
+            )
+          , ["UPDATE-0000"]
+          )
+        , Some Guidance.RebootHost
+        )
+      ; (* livepatch_guidance: livepatch comes from the RPM update UPDATE-001 *)
+        ( ( ( [
+                ( "UPDATE-0000"
+                , UpdateInfo.
+                    {
+                      id= "UPDATE-0000"
+                    ; summary= "summary"
+                    ; description= "description"
+                    ; rec_guidance= Some Guidance.RebootHost
+                    ; abs_guidance= None
+                    ; guidance_applicabilities= [] (* No applicabilities *)
+                    ; spec_info= "special info"
+                    ; url= "https://update.details.info"
+                    ; update_type= "security"
+                    ; livepatch_guidance= Some Guidance.RestartDeviceModel
+                    ; livepatches=
+                        [
+                          LivePatch.
+                            {
+                              component= Livepatch.Xen
+                            ; base_build_id=
+                                "9346194f2e98a228f5a595b13ecabd43a99fada0"
+                            ; base_version= "4.19.19"
+                            ; base_release= "8.0.20.xs8"
+                            ; to_version= "4.19.19"
+                            ; to_release= "8.0.21.xs8"
+                            }
+                          
+                        ]
+                    }
+                  
+                )
+              ; ( "UPDATE-0001"
+                , UpdateInfo.
+                    {
+                      id= "UPDATE-0001"
+                    ; summary= "summary"
+                    ; description= "description"
+                    ; rec_guidance= Some Guidance.RebootHost
+                    ; abs_guidance= None
+                    ; guidance_applicabilities= [] (* No applicabilities *)
+                    ; spec_info= "special info"
+                    ; url= "https://update.details.info"
+                    ; update_type= "security"
+                    ; livepatch_guidance= Some Guidance.RestartToolstack
+                    ; livepatches=
+                        [
+                          LivePatch.
+                            {
+                              component= Livepatch.Xen
+                            ; base_build_id=
+                                "8346194f2e98a228f5a595b13ecabd43a99fada0"
+                            ; base_version= "4.19.19"
+                            ; base_release= "8.0.21.xs8"
+                            ; to_version= "4.19.19"
+                            ; to_release= "8.0.22.xs8"
+                            }
+                          
+                        ; LivePatch.
+                            {
+                              component= Livepatch.Xen
+                            ; base_build_id=
+                                "9346194f2e98a228f5a595b13ecabd43a99fada0"
+                            ; base_version= "4.19.19"
+                            ; base_release= "8.0.20.xs8"
+                            ; to_version= "4.19.19"
+                            ; to_release= "8.0.22.xs8"
+                            }
+                          
+                        ]
+                    }
+                  
+                )
+              ]
+            , Update.
+                {
+                  name= "xen-hypervisor"
+                ; arch= "x86_64"
+                ; old_epoch= Some None
+                ; old_version= Some "4.19.19"
+                ; old_release= Some "8.0.20.xs8"
+                ; new_epoch= None
+                ; new_version= "4.19.19"
+                ; new_release= "8.0.22.xs8"
+                ; update_id= Some "UPDATE-0001"
+                ; repository= "regular"
+                }
+              
+            )
+          , ["UPDATE-0001"]
+          )
+        , Some Guidance.RestartToolstack
+        )
+      ; (* livepatch_guidance: latest update doesn't have livepatch and recommendedGuidance is None *)
+        ( ( ( [
+                ( "UPDATE-0000"
+                , UpdateInfo.
+                    {
+                      id= "UPDATE-0000"
+                    ; summary= "summary"
+                    ; description= "description"
+                    ; rec_guidance= Some Guidance.RebootHost
+                    ; abs_guidance= None
+                    ; guidance_applicabilities= [] (* No applicabilities *)
+                    ; spec_info= "special info"
+                    ; url= "https://update.details.info"
+                    ; update_type= "security"
+                    ; livepatch_guidance= None
+                    ; livepatches=
+                        [
+                          LivePatch.
+                            {
+                              component= Livepatch.Xen
+                            ; base_build_id=
+                                "9346194f2e98a228f5a595b13ecabd43a99fada0"
+                            ; base_version= "4.19.19"
+                            ; base_release= "8.0.20.xs8"
+                            ; to_version= "4.19.19"
+                            ; to_release= "8.0.21.xs8"
+                            }
+                          
+                        ]
+                    }
+                  
+                )
+              ; ( "UPDATE-0001"
+                , UpdateInfo.
+                    {
+                      id= "UPDATE-0001"
+                    ; summary= "summary"
+                    ; description= "description"
+                    ; rec_guidance= None
+                    ; abs_guidance= None
+                    ; guidance_applicabilities= [] (* No applicabilities *)
+                    ; spec_info= "special info"
+                    ; url= "https://update.details.info"
+                    ; update_type= "security"
+                    ; livepatch_guidance= None
+                    ; livepatches= []
+                    }
+                  
+                )
+              ]
+            , Update.
+                {
+                  name= "xen-hypervisor"
+                ; arch= "x86_64"
+                ; old_epoch= Some None
+                ; old_version= Some "4.19.19"
+                ; old_release= Some "8.0.20.xs8"
+                ; new_epoch= None
+                ; new_version= "4.19.19"
+                ; new_release= "8.0.22.xs8"
+                ; update_id= Some "UPDATE-0001"
+                ; repository= "regular"
+                }
+              
+            )
+          , ["UPDATE-0000"]
+          )
+        , None
+        )
+      ; (* livepatch_guidance: latest update doesn't have livepatch and recommendedGuidance is RebootHost *)
+        ( ( ( [
+                ( "UPDATE-0000"
+                , UpdateInfo.
+                    {
+                      id= "UPDATE-0000"
+                    ; summary= "summary"
+                    ; description= "description"
+                    ; rec_guidance= Some Guidance.RebootHost
+                    ; abs_guidance= None
+                    ; guidance_applicabilities= [] (* No applicabilities *)
+                    ; spec_info= "special info"
+                    ; url= "https://update.details.info"
+                    ; update_type= "security"
+                    ; livepatch_guidance= None
+                    ; livepatches=
+                        [
+                          LivePatch.
+                            {
+                              component= Livepatch.Xen
+                            ; base_build_id=
+                                "9346194f2e98a228f5a595b13ecabd43a99fada0"
+                            ; base_version= "4.19.19"
+                            ; base_release= "8.0.20.xs8"
+                            ; to_version= "4.19.19"
+                            ; to_release= "8.0.21.xs8"
+                            }
+                          
+                        ]
+                    }
+                  
+                )
+              ; ( "UPDATE-0001"
+                , UpdateInfo.
+                    {
+                      id= "UPDATE-0001"
+                    ; summary= "summary"
+                    ; description= "description"
+                    ; rec_guidance= Some Guidance.RebootHost
+                    ; abs_guidance= None
+                    ; guidance_applicabilities= [] (* No applicabilities *)
+                    ; spec_info= "special info"
+                    ; url= "https://update.details.info"
+                    ; update_type= "security"
+                    ; livepatch_guidance= None
+                    ; livepatches= []
+                    }
+                  
+                )
+              ]
+            , Update.
+                {
+                  name= "xen-hypervisor"
+                ; arch= "x86_64"
+                ; old_epoch= Some None
+                ; old_version= Some "4.19.19"
+                ; old_release= Some "10.20.xs8"
+                ; new_epoch= None
+                ; new_version= "4.19.19"
+                ; new_release= "8.0.22.xs8"
+                ; update_id= Some "UPDATE-0001"
+                ; repository= "regular"
+                }
+              
+            )
+          , ["UPDATE-0000"]
+          )
+        , Some Guidance.RebootHost
         )
       ]
 end)
@@ -2196,6 +1838,8 @@ module ConsolidateUpdatesOfHost = Generic.MakeStateless (struct
       ; spec_info= "special info"
       ; url= "https://update.details.info"
       ; update_type= "security"
+      ; livepatch_guidance= None
+      ; livepatches= []
       }
     
 
@@ -2243,7 +1887,8 @@ module ConsolidateUpdatesOfHost = Generic.MakeStateless (struct
         ( (* No updates *)
           {|
             { "updates": [],
-              "accumulative_updates": []
+              "accumulative_updates": [],
+              "applied_livepatches": []
             }
           |}
         , ( `Assoc
@@ -2253,6 +1898,7 @@ module ConsolidateUpdatesOfHost = Generic.MakeStateless (struct
               ; ("absolute-guidance", `List [])
               ; ("RPMS", `List [])
               ; ("updates", `List [])
+              ; ("livepatches", `List [])
               ]
           , UpdateIdSet.empty
           )
@@ -2320,7 +1966,9 @@ module ConsolidateUpdatesOfHost = Generic.MakeStateless (struct
                   "updateId": "UPDATE-0001",
                   "repository": "regular"
                 }
-              ]
+              ],
+
+              "applied_livepatches": []
             }
           |}
         , ( `Assoc
@@ -2336,6 +1984,7 @@ module ConsolidateUpdatesOfHost = Generic.MakeStateless (struct
                     ]
                 )
               ; ("updates", `List [`String "UPDATE-0000"; `String "UPDATE-0001"])
+              ; ("livepatches", `List [])
               ]
           , UpdateIdSet.of_list ["UPDATE-0000"; "UPDATE-0001"]
           )
@@ -2375,7 +2024,8 @@ module ConsolidateUpdatesOfHost = Generic.MakeStateless (struct
                   "updateId": "UPDATE-0001",
                   "repository": "regular"
                 }
-              ]
+              ],
+              "applied_livepatches": []
             }
           |}
         , ( `Assoc
@@ -2385,6 +2035,7 @@ module ConsolidateUpdatesOfHost = Generic.MakeStateless (struct
               ; ("absolute-guidance", `List [])
               ; ("RPMS", `List [`String "libpath-utils-0.2.2-9.el7.noarch.rpm"])
               ; ("updates", `List [`String "UPDATE-0001"])
+              ; ("livepatches", `List [])
               ]
           , UpdateIdSet.of_list ["UPDATE-0001"]
           )
@@ -2424,7 +2075,8 @@ module ConsolidateUpdatesOfHost = Generic.MakeStateless (struct
                   "updateId": "UPDATE-0003",
                   "repository": "regular"
                 }
-              ]
+              ],
+              "applied_livepatches": []
             }
           |}
         , ( `Assoc
@@ -2434,6 +2086,7 @@ module ConsolidateUpdatesOfHost = Generic.MakeStateless (struct
               ; ("absolute-guidance", `List [])
               ; ("RPMS", `List [`String "libpath-utils-0.2.2-9.el7.noarch.rpm"])
               ; ("updates", `List [`String "UPDATE-0003"])
+              ; ("livepatches", `List [])
               ]
           , UpdateIdSet.of_list ["UPDATE-0003"]
           )
@@ -2500,7 +2153,8 @@ module ConsolidateUpdatesOfHost = Generic.MakeStateless (struct
                   "updateId": "UPDATE-0001",
                   "repository": "regular"
                 }
-              ]
+              ],
+              "applied_livepatches": []
             }
           |}
         , ( `Assoc
@@ -2516,6 +2170,7 @@ module ConsolidateUpdatesOfHost = Generic.MakeStateless (struct
                     ]
                 )
               ; ("updates", `List [`String "UPDATE-0001"])
+              ; ("livepatches", `List [])
               ]
           , UpdateIdSet.of_list ["UPDATE-0001"]
           )
@@ -2582,7 +2237,8 @@ module ConsolidateUpdatesOfHost = Generic.MakeStateless (struct
                   "updateId": "UPDATE-0001",
                   "repository": "regular"
                 }
-              ]
+              ],
+              "applied_livepatches": []
             }
           |}
         , ( `Assoc
@@ -2598,6 +2254,7 @@ module ConsolidateUpdatesOfHost = Generic.MakeStateless (struct
                     ]
                 )
               ; ("updates", `List [`String "UPDATE-0000"; `String "UPDATE-0001"])
+              ; ("livepatches", `List [])
               ]
           , UpdateIdSet.of_list ["UPDATE-0000"; "UPDATE-0001"]
           )
@@ -2696,7 +2353,8 @@ module ConsolidateUpdatesOfHost = Generic.MakeStateless (struct
                   "updateId": null,
                   "repository": "regular"
                 }
-              ]
+              ],
+              "applied_livepatches": []
             }
           |}
         , ( `Assoc
@@ -2719,6 +2377,7 @@ module ConsolidateUpdatesOfHost = Generic.MakeStateless (struct
                     ; `String "UPDATE-0003"
                     ]
                 )
+              ; ("livepatches", `List [])
               ]
           , UpdateIdSet.of_list ["UPDATE-0001"; "UPDATE-0002"; "UPDATE-0003"]
           )
@@ -3006,12 +2665,12 @@ module PruneAccumulativeUpdates = Generic.MakeStateless (struct
 
     let string_of_output_t l =
       List.fold_left
-        (fun acc (pkg, uid, repo) ->
+        (fun acc (pkg, upd_id, repo) ->
           acc
           ^ "\n"
           ^ Fmt.(str "%a" Dump.(record @@ fields_of_pkg)) pkg
           ^ ", "
-          ^ Fmt.(str "%a" Dump.(option string)) uid
+          ^ Fmt.(str "%a" Dump.(option string)) upd_id
           ^ ", "
           ^ repo
         )
@@ -3299,13 +2958,8 @@ end)
 let tests =
   make_suite "repository_helpers_"
     [
-      ("pkg_of_fullname", PkgOfFullnameTest.tests)
-    ; ("update_of_json", UpdateOfJsonTest.tests)
+      ("update_of_json", UpdateOfJsonTest.tests)
     ; ("assert_valid_guidances", GuidanceSetAssertValidGuidanceTest.tests)
-    ; ("pkg_compare_version_strings", PkgCompareVersionStringsTest.tests)
-    ; ("applicability_eval", ApplicabilityEval.tests)
-    ; ("updateinfo_metadata_of_xml", UpdateInfoMetaDataOfXml.tests)
-    ; ("updateinfo_of_xml", UpdateInfoOfXml.tests)
     ; ("assert_url_is_valid", AssertUrlIsValid.tests)
     ; ("write_yum_config", WriteYumConfig.tests)
     ; ("eval_guidance_for_one_update", EvalGuidanceForOneUpdate.tests)

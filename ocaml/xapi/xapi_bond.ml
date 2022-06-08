@@ -62,7 +62,7 @@ let move_configuration ~__context from_pif to_pif =
   Db.PIF.set_gateway ~__context ~self:from_pif ~value:"" ;
   Db.PIF.set_DNS ~__context ~self:from_pif ~value:""
 
-let move_management ~__context from_pif to_pif =
+let move_management ~__context _from_pif to_pif =
   Nm.bring_pif_up ~__context ~management_interface:true to_pif ;
   let network = Db.PIF.get_network ~__context ~self:to_pif in
   let bridge = Db.Network.get_bridge ~__context ~self:network in
@@ -129,7 +129,7 @@ let move_vlan ~__context host new_slave old_vlan =
     Nm.bring_pif_down ~__context old_master
   ) ;
   (* Only create new objects if the tag does not yet exist *)
-  let new_vlan, new_master =
+  let _, new_master =
     let existing_vlans = Db.PIF.get_VLAN_slave_of ~__context ~self:new_slave in
     let same_tag =
       List.filter
@@ -502,7 +502,7 @@ let create ~__context ~network ~members ~mAC ~mode ~properties =
       let device_name = device in
       let metrics = Xapi_pif.make_pif_metrics ~__context in
       Db.PIF.create ~__context ~ref:master
-        ~uuid:(Uuid.to_string (Uuid.make_uuid ()))
+        ~uuid:(Uuid.to_string (Uuid.make ()))
         ~device ~device_name ~network ~host ~mAC ~mTU:(-1L) ~vLAN:(-1L) ~metrics
         ~physical:false ~currently_attached:false ~igmp_snooping_status:`unknown
         ~ip_configuration_mode:`None ~iP:"" ~netmask:"" ~gateway:"" ~dNS:""
@@ -512,7 +512,7 @@ let create ~__context ~network ~members ~mAC ~mode ~properties =
         ~primary_address_type:primary_slave_address_type ~managed:true
         ~properties:pif_properties ~capabilities:[] ~pCI:Ref.null ;
       Db.Bond.create ~__context ~ref:bond
-        ~uuid:(Uuid.to_string (Uuid.make_uuid ()))
+        ~uuid:(Uuid.to_string (Uuid.make ()))
         ~master ~other_config:[] ~primary_slave ~mode ~properties ~links_up:0L
         ~auto_update_mac ;
       (* Set the PIF.bond_slave_of fields of the members.

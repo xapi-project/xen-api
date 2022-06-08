@@ -36,7 +36,7 @@ let introduce ~__context ~addresses ~first_port ~last_port ~site =
     ~last_port:(Int64.to_int last_port) ~last_name:"last_port" ;
   Helpers.assert_is_valid_ref ~__context ~name:"site" ~ref:site ;
   let pvs_server = Ref.make () in
-  let uuid = Uuidm.to_string (Uuidm.create `V4) in
+  let uuid = Uuid.(to_string (make ())) in
   Db.PVS_server.create ~__context ~ref:pvs_server ~uuid
     ~addresses:(Listext.setify addresses) ~first_port ~last_port ~site ;
   pvs_server

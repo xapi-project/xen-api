@@ -17,7 +17,6 @@
 module String_plain = String (* For when we don't want the Xstringext version *)
 
 open Xapi_stdext_std.Xstringext
-open Printf
 
 module D = Debug.Make (struct let name = "xapi_globs" end)
 
@@ -894,6 +893,12 @@ let gen_pool_secret_script = ref "/usr/bin/pool_secret_wrapper"
 let repository_domain_name_allowlist = ref []
 
 let yum_cmd = ref "/usr/bin/yum"
+
+let kpatch_cmd = ref "/usr/sbin/kpatch"
+
+let xen_livepatch_cmd = ref "/usr/sbin/xen-livepatch"
+
+let xl_cmd = ref "/usr/sbin/xl"
 
 let yum_repos_config_dir = ref "/etc/yum.repos.d"
 

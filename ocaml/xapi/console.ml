@@ -41,7 +41,7 @@ let string_of_address = function
       "unix:" ^ x
 
 let address_of_console __context console : address option =
-  let vm = Db.Console.get_VM __context console in
+  let vm = Db.Console.get_VM ~__context ~self:console in
   let address_option =
     if Db.VM.get_is_control_domain ~__context ~self:vm then
       Some (Port (Db.Console.get_port ~__context ~self:console |> Int64.to_int))
@@ -57,7 +57,7 @@ let address_of_console __context console : address option =
         in
         let _, s = Client.VM.stat dbg id in
         let proto =
-          match Db.Console.get_protocol __context console with
+          match Db.Console.get_protocol ~__context ~self:console with
           | `rfb ->
               Vm.Rfb
           | `vt100 ->
@@ -145,7 +145,7 @@ let ws_proxy __context req protocol address s =
               in
               let len = String.length message in
               ignore (Unixext.send_fd_substring sock message 0 len [] s)
-          | sock, None ->
+          | _, None ->
               Http_svr.headers s (Http.http_501_method_not_implemented ())
           )
         upgrade_successful
@@ -184,7 +184,7 @@ let console_of_request __context req =
      default VNC console or it may be a console ref in which case we
      go for that. *)
   let db = Context.database_of __context in
-  let is_vm, is_console =
+  let is_vm, _ =
     let module DB = (val Db_cache.get db : Db_interface.DB_ACCESS) in
     match DB.get_table_from_ref db _ref with
     | Some c when c = Db_names.vm ->

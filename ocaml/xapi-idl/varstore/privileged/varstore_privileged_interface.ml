@@ -42,7 +42,7 @@ module Uuidm = struct
     Rpc.Types.Abstract
       {
         aname= "uuid"
-      ; test_data= [Uuidm.v `V4]
+      ; test_data= [Uuidm.v4_gen (Random.get_state ()) ()]
       ; rpc_of= (fun t -> Rpc.String (Uuidm.to_string t))
       ; of_rpc=
           (function

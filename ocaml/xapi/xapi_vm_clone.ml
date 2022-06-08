@@ -25,18 +25,18 @@ open D
 
 let delete_disks rpc session_id disks =
   List.iter
-    (fun (vbd, vdi, on_error_delete) ->
+    (fun (_, vdi, on_error_delete) ->
       if on_error_delete then
-        try Client.VDI.destroy rpc session_id vdi with _ -> ()
+        try Client.VDI.destroy ~rpc ~session_id ~self:vdi with _ -> ()
       else
         debug "Not destroying CD VDI: %s" (Ref.string_of vdi)
     )
     disks
 
 let wait_for_subtask ?progress_minmax ~__context task =
-  Helpers.call_api_functions ~__context (fun rpc session ->
+  Helpers.call_api_functions ~__context (fun rpc session_id ->
       let refresh_session =
-        Xapi_session.consider_touching_session rpc session
+        Xapi_session.consider_touching_session rpc session_id
       in
       let main_task = Context.get_task_id __context in
       let cancel_task () =
@@ -91,18 +91,19 @@ let wait_for_subtask ?progress_minmax ~__context task =
       in
       (* Check for the initial state before entering the event-wait loop
          	   in case the task has already finished *)
-      process_copy_task (Client.Task.get_record rpc session task) ;
-      process_main_task (Client.Task.get_record rpc session main_task) ;
+      process_copy_task (Client.Task.get_record ~rpc ~session_id ~self:task) ;
+      process_main_task (Client.Task.get_record ~rpc ~session_id ~self:main_task) ;
       let token = ref "" in
       (* Watch for events relating to the VDI copy sub-task and the over-arching task *)
       while not !finished do
         let events =
-          Client.Event.from rpc session
-            [
-              Printf.sprintf "task/%s" (Ref.string_of task)
-            ; Printf.sprintf "task/%s" (Ref.string_of main_task)
-            ]
-            !token 30.
+          Client.Event.from ~rpc ~session_id
+            ~classes:
+              [
+                Printf.sprintf "task/%s" (Ref.string_of task)
+              ; Printf.sprintf "task/%s" (Ref.string_of main_task)
+              ]
+            ~token:!token ~timeout:30.
           |> Event_types.event_from_of_rpc
         in
         token := events.token ;
@@ -146,14 +147,16 @@ let clone_single_vdi ?progress rpc session_id disk_op ~__context vdi
   let task =
     match disk_op with
     | Disk_op_clone ->
-        Client.Async.VDI.clone rpc session_id vdi driver_params
+        Client.Async.VDI.clone ~rpc ~session_id ~vdi ~driver_params
     | Disk_op_copy None ->
-        let sr = Client.VDI.get_SR rpc session_id vdi in
-        Client.Async.VDI.copy rpc session_id vdi sr Ref.null Ref.null
+        let sr = Client.VDI.get_SR ~rpc ~session_id ~self:vdi in
+        Client.Async.VDI.copy ~rpc ~session_id ~vdi ~sr ~base_vdi:Ref.null
+          ~into_vdi:Ref.null
     | Disk_op_copy (Some other_sr) ->
-        Client.Async.VDI.copy rpc session_id vdi other_sr Ref.null Ref.null
+        Client.Async.VDI.copy ~rpc ~session_id ~vdi ~sr:other_sr
+          ~base_vdi:Ref.null ~into_vdi:Ref.null
     | Disk_op_snapshot | Disk_op_checkpoint ->
-        Client.Async.VDI.snapshot rpc session_id vdi driver_params
+        Client.Async.VDI.snapshot ~rpc ~session_id ~vdi ~driver_params
   in
   (* This particular clone takes overall progress from startprogress to endprogress *)
   let progress_minmax =
@@ -168,7 +171,7 @@ let clone_single_vdi ?progress rpc session_id disk_op ~__context vdi
       progress
   in
   let vdi_ref = wait_for_clone ?progress_minmax ~__context task in
-  Client.Task.destroy rpc session_id task ;
+  Client.Task.destroy ~rpc ~session_id ~self:task ;
   vdi_ref
 
 (* Clone a list of disks, if any error occurs then delete all the ones we've
@@ -195,7 +198,7 @@ let safe_clone_disks rpc session_id disk_op ~__context vbds driver_params =
   let fold_function (acc, done_so_far) (vbd, size) =
     try
       TaskHelper.exn_if_cancelling ~__context ;
-      let vbd_r = Client.VBD.get_record rpc session_id vbd in
+      let vbd_r = Client.VBD.get_record ~rpc ~session_id ~self:vbd in
       (* If the VBD is empty there is no VDI to copy. *)
       (* If the VBD is a CD then eject it (we cannot make copies of ISOs: they're identified *)
       (* by their filename unlike other VDIs) *)
@@ -254,7 +257,7 @@ let copy_vm_record ?snapshot_info_record ~__context ~vm ~disk_op ~new_name
     disk_op = Disk_op_snapshot || disk_op = Disk_op_checkpoint
   in
   let task_id = Ref.string_of (Context.get_task_id __context) in
-  let uuid = Uuid.make_uuid () in
+  let uuid = Uuid.make () in
   let ref = Ref.make () in
   let power_state = Db.VM.get_power_state ~__context ~self:vm in
   let current_op =
@@ -275,7 +278,7 @@ let copy_vm_record ?snapshot_info_record ~__context ~vm ~disk_op ~new_name
         []
     | (x, y) :: xs ->
         if x = Xapi_globs.mac_seed then
-          (x, Uuid.to_string (Uuid.make_uuid ())) :: xs
+          (x, Uuid.to_string (Uuid.make ())) :: xs
         else
           (x, y) :: replace_seed xs
   in
@@ -287,12 +290,12 @@ let copy_vm_record ?snapshot_info_record ~__context ~vm ~disk_op ~new_name
     else if List.mem_assoc Xapi_globs.mac_seed other_config then
       replace_seed other_config
     else
-      (Xapi_globs.mac_seed, Uuid.to_string (Uuid.make_uuid ())) :: other_config
+      (Xapi_globs.mac_seed, Uuid.to_string (Uuid.make ())) :: other_config
   in
   (* remove "default_template" and "xensource_internal" from other_config if it's there *)
   let other_config =
     List.filter
-      (fun (k, v) ->
+      (fun (k, _) ->
         k <> Xapi_globs.default_template_key
         && k <> Xapi_globs.xensource_internal
       )
@@ -406,7 +409,7 @@ let copy_vm_record ?snapshot_info_record ~__context ~vm ~disk_op ~new_name
 
 (* epoch hint for netapp backend *)
 let make_driver_params () =
-  [(Constants._sm_epoch_hint, Uuid.to_string (Uuid.make_uuid ()))]
+  [(Constants._sm_epoch_hint, Uuid.to_string (Uuid.make ()))]
 
 (* NB this function may be called when the VM is suspended for copy/clone operations. Snapshot can be done in live.*)
 let clone ?snapshot_info_record ?(ignore_vdis = []) disk_op ~__context ~vm

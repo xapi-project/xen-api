@@ -15,9 +15,6 @@
  * @group XenAPI functions
 *)
 
-module D = Debug.Make (struct let name = "xapi_role" end)
-
-open D
 open Db_actions
 
 (* A note on roles: *)
@@ -41,7 +38,7 @@ let static_role_by_name_label_tbl =
 
 let _ =
   List.iter (* initialize static_role_by_ref_tbl *)
-    (fun r -> Hashtbl.add static_role_by_ref_tbl (ref_of_role r) r)
+    (fun r -> Hashtbl.add static_role_by_ref_tbl (ref_of_role ~role:r) r)
     get_all_static_roles ;
   List.iter (* initialize static_role_by_uuid_tbl *)
     (fun r -> Hashtbl.add static_role_by_uuid_tbl r.role_uuid r)
@@ -58,7 +55,8 @@ let find_role_by_name_label name_label =
   Hashtbl.find static_role_by_name_label_tbl name_label
 
 (*    val get_all : __context:Context.t -> ref_role_set*)
-let get_all ~__context = List.map (fun r -> ref_of_role r) get_all_static_roles
+let get_all ~__context =
+  List.map (fun r -> ref_of_role ~role:r) get_all_static_roles
 
 (*@ (* concatenate with Db table *)
   	Db.Role.get_all ~__context*)
@@ -91,7 +89,7 @@ let get_api_record ~static_record =
 
 let get_record ~__context ~self =
   get_common ~__context ~self
-    ~static_fn:(fun static_record -> get_api_record static_record)
+    ~static_fn:(fun static_record -> get_api_record ~static_record)
     ~db_fn:(fun ~__context ~self -> Db.Role.get_record ~__context ~self)
 
 (*    val get_all_records_where : __context:Context.t -> expr:string -> ref_role_to_role_t_map*)
@@ -102,16 +100,16 @@ let expr_only_permissions = "subroles=[]"
 let get_all_records_where ~__context ~expr =
   if expr = expr_no_permissions then (* composite role, ie. not a permission *)
     List.map
-      (fun r -> (ref_of_role r, get_api_record ~static_record:r))
+      (fun r -> (ref_of_role ~role:r, get_api_record ~static_record:r))
       Rbac_static.all_static_roles
   else if expr = expr_only_permissions then
     (* composite role, ie. a permission *)
     List.map
-      (fun r -> (ref_of_role r, get_api_record ~static_record:r))
+      (fun r -> (ref_of_role ~role:r, get_api_record ~static_record:r))
       Rbac_static.all_static_permissions
   else (* anything in this table, ie. roles+permissions *)
     List.map
-      (fun r -> (ref_of_role r, get_api_record ~static_record:r))
+      (fun r -> (ref_of_role ~role:r, get_api_record ~static_record:r))
       get_all_static_roles
 
 (*@ (* concatenate with Db table *)
@@ -125,7 +123,7 @@ let get_all_records ~__context = get_all_records_where ~__context ~expr:"True"
 let get_by_uuid ~__context ~uuid =
   try
     let static_record = find_role_by_uuid uuid in
-    ref_of_role static_record
+    ref_of_role ~role:static_record
   with Not_found ->
     (* pass-through to Db *)
     Db.Role.get_by_uuid ~__context ~uuid
@@ -133,7 +131,7 @@ let get_by_uuid ~__context ~uuid =
 let get_by_name_label ~__context ~label =
   try
     let static_record = find_role_by_name_label label in
-    [ref_of_role static_record]
+    [ref_of_role ~role:static_record]
   with Not_found ->
     (* pass-through to Db *)
     Db.Role.get_by_name_label ~__context ~label

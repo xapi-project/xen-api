@@ -20,7 +20,7 @@ let vlan_mac = "fe:ff:ff:ff:ff:ff"
 
 let pool_introduce ~__context ~tagged_PIF ~untagged_PIF ~tag ~other_config =
   let vlan = Ref.make () in
-  let vlan_uuid = Uuid.to_string (Uuid.make_uuid ()) in
+  let vlan_uuid = Uuid.to_string (Uuid.make ()) in
   let () =
     Db.VLAN.create ~__context ~ref:vlan ~uuid:vlan_uuid ~tagged_PIF
       ~untagged_PIF ~tag ~other_config
@@ -30,7 +30,7 @@ let pool_introduce ~__context ~tagged_PIF ~untagged_PIF ~tag ~other_config =
   vlan
 
 let create_internal ~__context ~host ~tagged_PIF ~tag ~network ~device =
-  let vlan = Ref.make () and vlan_uuid = Uuid.to_string (Uuid.make_uuid ()) in
+  let vlan = Ref.make () and vlan_uuid = Uuid.to_string (Uuid.make ()) in
   let untagged_PIF = Ref.make () in
   (* Copy the MTU and metrics from the base PIF *)
   let mTU = Db.PIF.get_MTU ~__context ~self:tagged_PIF in
@@ -39,7 +39,7 @@ let create_internal ~__context ~host ~tagged_PIF ~tag ~network ~device =
     Db.PIF.get_primary_address_type ~__context ~self:tagged_PIF
   in
   Db.PIF.create ~__context ~ref:untagged_PIF
-    ~uuid:(Uuid.to_string (Uuid.make_uuid ()))
+    ~uuid:(Uuid.to_string (Uuid.make ()))
     ~device ~device_name:device ~network ~host ~mAC:vlan_mac ~mTU ~vLAN:tag
     ~metrics ~physical:false ~currently_attached:false
     ~igmp_snooping_status:`unknown ~ip_configuration_mode:`None ~iP:""

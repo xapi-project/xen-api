@@ -12,10 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-module D = Debug.Make (struct let name = "xapi_vm_lifecycle_helpers" end)
-
-open D
-
 (** VM is considered as "live" when it's either Running or Paused, i.e. with a live domain *)
 let is_live ~__context ~self =
   let power_state = Db.VM.get_power_state ~__context ~self in

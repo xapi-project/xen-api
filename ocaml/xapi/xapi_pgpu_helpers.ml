@@ -177,7 +177,7 @@ let assert_capacity_exists_for_VGPU_type ~__context ~self ~vgpu_type =
   with
   | Error e ->
       raise e
-  | Ok capacity ->
+  | Ok _ ->
       ()
 
 (* extract vgpu implementation *)
@@ -193,7 +193,7 @@ let assert_destination_pgpu_is_compatible_with_vm ~__context ~vm ~vgpu ~pgpu
     | None ->
         Db.PGPU.get_compatibility_metadata ~__context ~self:pgpu
     | Some (rpc, session_id) ->
-        XenAPI.PGPU.get_compatibility_metadata rpc session_id pgpu
+        XenAPI.PGPU.get_compatibility_metadata ~rpc ~session_id ~self:pgpu
   in
   let test_nvidia_compatibility vgpu pgpu =
     let pgpu_metadata =
@@ -223,28 +223,28 @@ let assert_destination_has_pgpu_compatible_with_vm ~__context ~vm ~vgpu_map
     | None ->
         Db.Host.get_PGPUs ~__context ~self:host
     | Some (rpc, session_id) ->
-        XenAPI.Host.get_PGPUs rpc session_id host
+        XenAPI.Host.get_PGPUs ~rpc ~session_id ~self:host
   in
   let get_gpu_group_of_pgpu pgpu =
     match remote with
     | None ->
         Db.PGPU.get_GPU_group ~__context ~self:pgpu
     | Some (rpc, session_id) ->
-        XenAPI.PGPU.get_GPU_group rpc session_id pgpu
+        XenAPI.PGPU.get_GPU_group ~rpc ~session_id ~self:pgpu
   in
   let get_gpu_types_of_gpu_group gpu_group =
     match remote with
     | None ->
         Db.GPU_group.get_GPU_types ~__context ~self:gpu_group
     | Some (rpc, session_id) ->
-        XenAPI.GPU_group.get_GPU_types rpc session_id gpu_group
+        XenAPI.GPU_group.get_GPU_types ~rpc ~session_id ~self:gpu_group
   in
   let get_pgpus_of_gpu_group gpu_group =
     match remote with
     | None ->
         Db.GPU_group.get_PGPUs ~__context ~self:gpu_group
     | Some (rpc, session_id) ->
-        XenAPI.GPU_group.get_PGPUs rpc session_id gpu_group
+        XenAPI.GPU_group.get_PGPUs ~rpc ~session_id ~self:gpu_group
   in
   (* get first pgpu with the correct implementation, the vgpu is needed for the error metadata *)
   let rec get_first_suitable_pgpu pgpu_types vgpu = function

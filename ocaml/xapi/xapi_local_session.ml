@@ -27,7 +27,7 @@ let m = Mutex.create ()
 let table = Hashtbl.create 10
 
 let get_all ~__context =
-  Mutex.execute m (fun () -> Hashtbl.fold (fun k v acc -> k :: acc) table [])
+  Mutex.execute m (fun () -> Hashtbl.fold (fun k _ acc -> k :: acc) table [])
 
 let create ~__context ~pool =
   let r = Ref.make () in

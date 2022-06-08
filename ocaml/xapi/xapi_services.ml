@@ -20,7 +20,6 @@ open D
 
 let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
-open Xapi_stdext_threads.Threadext
 module Unixext = Xapi_stdext_unix.Unixext
 open Constants
 

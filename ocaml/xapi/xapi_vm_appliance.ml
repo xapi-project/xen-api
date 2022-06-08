@@ -40,7 +40,7 @@ let update_allowed_operations =
   Xapi_vm_appliance_lifecycle.update_allowed_operations
 
 let create ~__context ~name_label ~name_description =
-  let uuid = Uuid.make_uuid () in
+  let uuid = Uuid.make () in
   let ref = Ref.make () in
   Db.VM_appliance.create ~__context ~ref ~uuid:(Uuid.to_string uuid) ~name_label
     ~name_description ~allowed_operations:[] ~current_operations:[] ;
@@ -73,13 +73,13 @@ let create_action_list ~__context start vms =
 (* Return once all the tasks have completed, with a list of VMs which threw an exception. *)
 let run_operation_on_vms ~__context operation vms =
   Helpers.call_api_functions ~__context (fun rpc session_id ->
-      let tasks, failed_vms =
+      let tasks, _failed_vms =
         List.fold_left
           (fun (tasks, failed_vms) vm ->
             try
               let task = operation vm rpc session_id in
               (task :: tasks, failed_vms)
-            with e -> (tasks, vm :: failed_vms)
+            with _ -> (tasks, vm :: failed_vms)
           )
           ([], []) vms
       in

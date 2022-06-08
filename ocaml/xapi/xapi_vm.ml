@@ -15,7 +15,6 @@ module Rrdd = Rrd_client.Client
 open Xapi_vm_helpers
 open Client
 module Unixext = Xapi_stdext_unix.Unixext
-open Xmlrpc_sexpr
 
 (* Notes re: VM.{start,resume}{on,}:
  * Until we support pools properly VM.start and VM.start_on both try
@@ -148,7 +147,7 @@ open Xapi_vm_memory_constraints
 (* Since dom0 is not started by the toolstack but by Xen at boot time,
    we have to modify the Xen command line in order to update dom0's
    memory allocation. *)
-let set_dom0_memory ~__context ~self ~bytes =
+let set_dom0_memory ~__context ~self:_ ~bytes =
   let arg = Printf.sprintf "dom0_mem=%LdB,max:%LdB" bytes bytes in
   let args = ["--set-xen"; arg] in
   try
@@ -190,15 +189,15 @@ let set_memory_static_range ~__context ~self ~min ~max =
 
 (* These are always converted into set_memory_dynamic_range *)
 (* by the message forwarding layer:                         *)
-let set_memory_dynamic_min ~__context ~self ~value = assert false
+let set_memory_dynamic_min ~__context ~self:_ ~value:_ = assert false
 
-let set_memory_dynamic_max ~__context ~self ~value = assert false
+let set_memory_dynamic_max ~__context ~self:_ ~value:_ = assert false
 
 (* These are always converted into set_memory_static_range *)
 (* by the message forwarding layer:                        *)
-let set_memory_static_min ~__context ~self ~value = assert false
+let set_memory_static_min ~__context ~self:_ ~value:_ = assert false
 
-let set_memory_static_max ~__context ~self ~value = assert false
+let set_memory_static_max ~__context ~self:_ ~value:_ = assert false
 
 let set_memory_limits ~__context ~self ~static_min ~static_max ~dynamic_min
     ~dynamic_max =
@@ -298,46 +297,6 @@ let update_platform_secureboot ~__context ~self platform =
   | _ ->
       platform
 
-let extract_certificate_file name =
-  if String.contains name '/' then
-    (* Internal error: tarfile not created correctly *)
-    failwith ("Invalid path in certificate tarball: " ^ name) ;
-  let path = Filename.concat !Xapi_globs.varstore_dir name in
-  Helpers.touch_file path ; path
-
-let with_temp_file_contents ~contents f =
-  let filename, out = Filename.open_temp_file "xapi_uefi_certificates" "tar" in
-  Xapi_stdext_pervasives.Pervasiveext.finally
-    (fun () ->
-      Xapi_stdext_pervasives.Pervasiveext.finally
-        (fun () -> output_string out contents)
-        (fun () -> close_out out) ;
-      Unixext.with_file filename [Unix.O_RDONLY] 0 f
-    )
-    (fun () -> Sys.remove filename)
-
-let save_uefi_certificates_to_dir ~__context ~pool ~vm =
-  let uefi_key = Filename.concat !Xapi_globs.varstore_dir "KEK.auth" in
-  if not (Sys.file_exists uefi_key) then
-    if
-      Sys.file_exists !Xapi_globs.varstore_dir
-      && Sys.is_directory !Xapi_globs.varstore_dir
-    then
-      match
-        Base64.decode (Db.Pool.get_uefi_certificates ~__context ~self:pool)
-      with
-      | Ok contents when contents <> "" ->
-          with_temp_file_contents ~contents
-            (Tar_unix.Archive.extract extract_certificate_file) ;
-          debug "UEFI tar file extracted to varstore directory"
-      | Ok _ ->
-          ()
-      (* no UEFI tar file *)
-      | Error _ ->
-          debug
-            "UEFI tar file was not extracted: it was not base64-encoded \
-             correctly"
-
 let start ~__context ~vm ~start_paused ~force =
   let vmr = Db.VM.get_record ~__context ~self:vm in
   if vmr.API.vM_ha_restart_priority = Constants.ha_restart then (
@@ -351,7 +310,6 @@ let start ~__context ~vm ~start_paused ~force =
     | Bios ->
         Vm_platform.fallback_device_model_default_value
     | Uefi _ ->
-        save_uefi_certificates_to_dir ~__context ~pool ~vm ;
         Vm_platform.fallback_device_model_default_value_uefi
   in
   let platform =
@@ -372,7 +330,7 @@ let start ~__context ~vm ~start_paused ~force =
   if vusbs <> [] then
     Vm_platform.check_restricted_device_model ~__context vmr.API.vM_platform ;
   let sriov_networks =
-    Xapi_network_sriov_helpers.get_sriov_networks_from_vm __context vm
+    Xapi_network_sriov_helpers.get_sriov_networks_from_vm ~__context ~vm
   in
   if sriov_networks <> [] then
     Pool_features.assert_enabled ~__context ~f:Features.Network_sriov ;
@@ -431,7 +389,7 @@ let hard_shutdown ~__context ~vm =
         Helpers.log_exn_continue
           (Printf.sprintf "destroying suspend VDI: %s" (Ref.string_of vdi))
           (Helpers.call_api_functions ~__context)
-          (fun rpc session_id -> Client.VDI.destroy rpc session_id vdi) ;
+          (fun rpc session_id -> Client.VDI.destroy ~rpc ~session_id ~self:vdi) ;
       (* Whether or not that worked, forget about the VDI *)
       Db.VM.set_suspend_VDI ~__context ~self:vm ~value:Ref.null ;
       Xapi_vm_lifecycle.force_state_reset ~__context ~self:vm ~value:`Halted
@@ -495,7 +453,7 @@ let shutdown ~__context ~vm =
 (***************************************************************************************)
 
 (** @deprecated *)
-let hard_reboot_internal ~__context ~vm = assert false
+let hard_reboot_internal ~__context ~vm:_ = assert false
 
 (***************************************************************************************)
 
@@ -630,8 +588,8 @@ let create ~__context ~name_label ~name_description ~power_state ~user_version
     ~pV_bootloader_args ~pV_legacy_args ~hVM_boot_policy ~hVM_boot_params
     ~hVM_shadow_multiplier ~platform ~pCI_bus ~other_config ~last_boot_CPU_flags
     ~last_booted_record ~recommendations ~xenstore_data ~ha_always_run
-    ~ha_restart_priority ~tags ~blocked_operations ~protection_policy
-    ~is_snapshot_from_vmpp ~snapshot_schedule ~is_vmss_snapshot ~appliance
+    ~ha_restart_priority ~tags ~blocked_operations:_ ~protection_policy:_
+    ~is_snapshot_from_vmpp:_ ~snapshot_schedule:_ ~is_vmss_snapshot:_ ~appliance
     ~start_delay ~shutdown_delay ~order ~suspend_SR ~version ~generation_id
     ~hardware_platform_version ~has_vendor_device ~reference_label ~domain_type
     ~nVRAM ~default_vtpm_profile : API.ref_VM =
@@ -640,14 +598,14 @@ let create ~__context ~name_label ~name_description ~power_state ~user_version
       ~f:Features.PCI_device_for_auto_update ;
   (* Add random mac_seed if there isn't one specified already *)
   let other_config =
-    let gen_mac_seed () = Uuid.to_string (Uuid.make_uuid ()) in
+    let gen_mac_seed () = Uuid.to_string (Uuid.make ()) in
     if not (List.mem_assoc Xapi_globs.mac_seed other_config) then
       (Xapi_globs.mac_seed, gen_mac_seed ()) :: other_config
     else
       other_config
   in
   (* NB apart from the above, parameter validation is delayed until VM.start *)
-  let uuid = Uuid.make_uuid () in
+  let uuid = Uuid.make () in
   let vm_ref = Ref.make () in
   let resident_on = Ref.null in
   let scheduled_to_be_resident_on = Ref.null in
@@ -656,8 +614,7 @@ let create ~__context ~name_label ~name_description ~power_state ~user_version
      - power_state = `Suspended and suspend_VDI = Ref.null || last_booted_record = "" || last_boot_CPU_flags = []
      - power_state not in [`Halted, `Suspended]
   *)
-  let metrics = Ref.make ()
-  and metrics_uuid = Uuid.to_string (Uuid.make_uuid ()) in
+  let metrics = Ref.make () and metrics_uuid = Uuid.to_string (Uuid.make ()) in
   let vCPUs_utilisation = [(0L, 0.)] in
   let suspended = power_state = `Suspended in
   let current_domain_type = if suspended then domain_type else `unspecified in
@@ -839,7 +796,7 @@ let provision ~__context ~vm =
         (* If an error occurs after this then delete the created VDIs, VBDs... *)
         try
           debug "install: phase 2/3: running optional script (in domain 0)" ;
-          let dom0 = Helpers.get_domain_zero __context in
+          let dom0 = Helpers.get_domain_zero ~__context in
           Xapi_templates_install.post_install_script rpc session_id __context
             dom0 vm (script, vbds) ;
           debug "install: phase 3/3: removing install information from VM" ;
@@ -848,17 +805,19 @@ let provision ~__context ~vm =
         with e ->
           (* On error delete the VBDs and their associated VDIs *)
           let vdis =
-            List.map (fun self -> Client.VBD.get_VDI rpc session_id self) vbds
+            List.map
+              (fun self -> Client.VBD.get_VDI ~rpc ~session_id ~self)
+              vbds
           in
           List.iter
             (Helpers.log_exn_continue "deleting auto-provisioned VBD"
-               (fun self -> Client.VBD.destroy rpc session_id self
+               (fun self -> Client.VBD.destroy ~rpc ~session_id ~self
              )
             )
             vbds ;
           List.iter
             (Helpers.log_exn_continue "deleting auto-provisioned VDI"
-               (fun self -> Client.VDI.destroy rpc session_id self
+               (fun self -> Client.VDI.destroy ~rpc ~session_id ~self
              )
             )
             vdis ;
@@ -917,7 +876,7 @@ let set_VCPUs_number_live ~__context ~self ~nvcpu =
   (* the overhead in case our level of conservativeness changes in future. *)
   update_memory_overhead ~__context ~vm:self
 
-let add_to_VCPUs_params_live ~__context ~self ~key ~value =
+let add_to_VCPUs_params_live ~__context ~self:_ ~key:_ ~value:_ =
   raise
     (Api_errors.Server_error
        (Api_errors.not_implemented, ["add_to_VCPUs_params_live"])
@@ -932,7 +891,7 @@ let add_to_NVRAM ~__context ~self ~key ~value =
   Db.VM.add_to_NVRAM ~__context ~self ~key ~value
 
 (* Use set_memory_dynamic_range instead *)
-let set_memory_target_live ~__context ~self ~target = ()
+let set_memory_target_live ~__context ~self:_ ~target:_ = ()
 
 (** The default upper bound on the acceptable difference between
     actual memory usage and target memory usage when waiting for
@@ -1009,7 +968,7 @@ let wait_memory_target_live ~__context ~self =
   wait 0
 
 (* Dummy implementation for a deprecated API method. *)
-let get_cooperative ~__context ~self = true
+let get_cooperative ~__context ~self:_ = true
 
 let set_HVM_shadow_multiplier ~__context ~self ~value =
   set_HVM_shadow_multiplier ~__context ~self ~value
@@ -1218,10 +1177,10 @@ let call_plugin ~__context ~vm ~plugin ~fn ~args =
          (Api_errors.xenapi_plugin_failure, ["failed to execute fn"; msg; msg])
       )
 
-let send_sysrq ~__context ~vm ~key =
+let send_sysrq ~__context ~vm:_ ~key:_ =
   raise (Api_errors.Server_error (Api_errors.not_implemented, ["send_sysrq"]))
 
-let send_trigger ~__context ~vm ~trigger =
+let send_trigger ~__context ~vm:_ ~trigger:_ =
   raise (Api_errors.Server_error (Api_errors.not_implemented, ["send_trigger"]))
 
 let get_boot_record ~__context ~self = Db.VM.get_record ~__context ~self
@@ -1286,9 +1245,9 @@ let maximise_memory ~__context ~self ~total ~approximate =
   Int64.(mul (mul (div (div the_max 1024L) 1024L) 1024L) 1024L)
 
 (* In the master's forwarding layer with the global forwarding lock *)
-let atomic_set_resident_on ~__context ~vm ~host = assert false
+let atomic_set_resident_on ~__context ~vm:_ ~host:_ = assert false
 
-let update_snapshot_metadata ~__context ~vm ~snapshot_of ~snapshot_time =
+let update_snapshot_metadata ~__context ~vm:_ ~snapshot_of:_ ~snapshot_time:_ =
   assert false
 
 let create_new_blob ~__context ~vm ~name ~mime_type ~public =
@@ -1316,7 +1275,7 @@ let set_bios_strings ~__context ~self ~value =
 
 let copy_bios_strings = Xapi_vm_helpers.copy_bios_strings
 
-let set_protection_policy ~__context ~self ~value =
+let set_protection_policy ~__context ~self:_ ~value:_ =
   raise (Api_errors.Server_error (Api_errors.message_removed, []))
 
 let set_snapshot_schedule ~__context ~self ~value =
@@ -1481,7 +1440,7 @@ let set_appliance ~__context ~self ~value =
   if Db.is_valid_ref __context previous_value then
     Xapi_vm_appliance.update_allowed_operations ~__context ~self:previous_value ;
   (* Update the VM's allowed operations - this will update the new appliance's operations, if valid. *)
-  update_allowed_operations __context self
+  update_allowed_operations ~__context ~self
 
 let import_convert ~__context ~_type ~username ~password ~sr ~remote_config =
   let open Vpx in
@@ -1617,7 +1576,7 @@ let rec import_inner n ~__context ~url ~sr ~full_restore ~force =
 let import ~__context ~url ~sr ~full_restore ~force =
   import_inner 0 ~__context ~url ~sr ~full_restore ~force
 
-let query_services ~__context ~self =
+let query_services ~__context ~self:_ =
   raise
     (Api_errors.Server_error (Api_errors.not_implemented, ["query_services"]))
 

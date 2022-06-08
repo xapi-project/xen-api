@@ -11,13 +11,10 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-module D = Debug.Make (struct let name = "xapi_gpu_group" end)
-
-open D
 
 let create ~__context ~name_label ~name_description ~other_config =
   let group = Ref.make () in
-  let uuid = Uuid.to_string (Uuid.make_uuid ()) in
+  let uuid = Uuid.to_string (Uuid.make ()) in
   Db.GPU_group.create ~__context ~ref:group ~uuid ~name_label ~name_description
     ~gPU_types:[] ~other_config ~allocation_algorithm:`depth_first ;
   group
@@ -98,7 +95,7 @@ let union_type_lists ~type_lists =
 let update_enabled_VGPU_types ~__context ~self =
   let pgpus = Db.GPU_group.get_PGPUs ~__context ~self in
   let enabled_VGPU_types =
-    union_type_lists
+    (fun type_lists -> union_type_lists ~type_lists)
       (List.map
          (fun pgpu -> Db.PGPU.get_enabled_VGPU_types ~__context ~self:pgpu)
          pgpus
@@ -109,7 +106,7 @@ let update_enabled_VGPU_types ~__context ~self =
 let update_supported_VGPU_types ~__context ~self =
   let pgpus = Db.GPU_group.get_PGPUs ~__context ~self in
   let supported_VGPU_types =
-    union_type_lists
+    (fun type_lists -> union_type_lists ~type_lists)
       (List.map
          (fun pgpu -> Db.PGPU.get_supported_VGPU_types ~__context ~self:pgpu)
          pgpus
@@ -176,7 +173,7 @@ let get_remaining_capacity_internal ~__context ~self ~vgpu_type =
 
 let get_remaining_capacity ~__context ~self ~vgpu_type =
   match get_remaining_capacity_internal ~__context ~self ~vgpu_type with
-  | Error e ->
+  | Error _ ->
       0L
   | Ok capacity ->
       capacity

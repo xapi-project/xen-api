@@ -29,7 +29,7 @@ let lock = Mutex.create ()
 
 module Clock = struct
   (** time span of s seconds *)
-  let span s = Mtime.(Span.of_uint64_ns (Int64.of_float (s *. s_to_ns)))
+  let span s = Mtime.Span.of_uint64_ns (Int64.of_float (s *. 1e9))
 
   let add_span clock secs =
     match Mtime.add_span clock (span secs) with
@@ -54,7 +54,7 @@ let add_to_queue ?(signal = true) name ty start newfunc =
   if signal then Delay.signal delay
 
 let remove_from_queue name =
-  let index = Ipq.find_p queue (fun {name= n} -> name = n) in
+  let index = Ipq.find_p queue (fun {name= n; _} -> name = n) in
   if index > -1 then
     Ipq.remove queue index
 

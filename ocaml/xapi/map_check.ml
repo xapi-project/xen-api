@@ -97,7 +97,7 @@ let mem value range =
 
 let assert_value ~field ~key ~attr ~value =
   let err v = err field key v in
-  let ty, default = attr in
+  let ty, _ = attr in
   match ty with
   | Enum range -> (
     match mem value range with None -> err value | Some v -> v
@@ -196,7 +196,7 @@ let assert_all_keys ~ty ~ks ~value ~db =
             (* add missing keys with default values *)
             let value =
               List.map
-                (fun (k, (kt, default)) ->
+                (fun (k, (_, default)) ->
                   if List.mem_assoc k value then
                     (k, List.assoc k value)
                   else

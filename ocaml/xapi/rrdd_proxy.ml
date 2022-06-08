@@ -31,7 +31,7 @@ let get_query_string_from_query ~(query : (string * string) list) : string =
 
 let make_url_from_query ~(address : string) ~(uri : string)
     ~(query : (string * string) list) : string =
-  let query_string = get_query_string_from_query query in
+  let query_string = get_query_string_from_query ~query in
   let address = Http.Url.maybe_wrap_IPv6_literal address in
   Printf.sprintf "https://%s%s?%s" address uri query_string
 

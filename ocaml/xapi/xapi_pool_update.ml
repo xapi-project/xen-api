@@ -12,12 +12,9 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Xapi_stdext_pervasives.Pervasiveext
 open Xapi_stdext_std.Xstringext
 module Unixext = Xapi_stdext_unix.Unixext
 open Http
-open Forkhelpers
-open Xml
 open Helpers
 open Client
 open Xapi_stdext_threads.Threadext
@@ -71,7 +68,7 @@ let umount ?(retry = true) dest =
       ignore (Forkhelpers.execute_command_get_output "/bin/umount" [dest]) ;
       finished := true
     with
-    | Forkhelpers.Spawn_internal_error (stderr, stdout, status) as e -> (
+    | Forkhelpers.Spawn_internal_error (_, _, status) as e -> (
         debug
           "Caught exception (%s) while unmounting %s: pausing before retrying"
           (ExnHelper.string_of_exn e)
@@ -480,7 +477,7 @@ let verify update_info update_path =
     (fun filename ->
       let signature = filename ^ ".asc" in
       try
-        Gpg.with_verified_signature filename signature (fun fingerprint fd ->
+        Gpg.with_verified_signature filename signature (fun fingerprint _ ->
             match fingerprint with
             | Some f ->
                 debug "Fingerprint '%s' verified." f
@@ -505,13 +502,13 @@ let verify update_info update_path =
     (Option.value ~default:"" update_info.key)
 
 let patch_uuid_of_update_uuid uuid =
-  let arr = Uuid.int_array_of_uuid (Uuid.uuid_of_string uuid) in
+  let arr = Uuid.of_string uuid |> Option.get |> Uuid.to_int_array in
   let modify x = arr.(x) <- 0 in
   modify 4 ;
   modify 5 ;
   modify 6 ;
   modify 7 ;
-  Uuid.uuid_of_int_array arr |> Uuid.string_of_uuid
+  Uuid.of_int_array arr |> Option.get |> Uuid.to_string
 
 let create_update_record ~__context ~update ~update_info ~vdi =
   let patch_ref = Ref.make () in
@@ -596,7 +593,7 @@ let pool_apply ~__context ~self =
           try
             ignore
               (Helpers.call_api_functions ~__context (fun rpc session_id ->
-                   Client.Pool_update.apply rpc session_id self host
+                   Client.Pool_update.apply ~rpc ~session_id ~self ~host
                )
               ) ;
             acc
@@ -620,7 +617,7 @@ let pool_clean ~__context ~self =
   detach ~__context ~self ;
   let vdi = Db.Pool_update.get_vdi ~__context ~self in
   Helpers.call_api_functions ~__context (fun rpc session_id ->
-      Client.VDI.destroy rpc session_id vdi
+      Client.VDI.destroy ~rpc ~session_id ~self:vdi
   ) ;
   Db.Pool_update.set_vdi ~__context ~self ~value:Ref.null
 
@@ -629,7 +626,7 @@ let destroy ~__context ~self =
   debug "pool_update.destroy %s" pool_update_name ;
   match Db.Pool_update.get_hosts ~__context ~self with
   | [] ->
-      let patch = Xapi_pool_patch.pool_patch_of_update __context self in
+      let patch = Xapi_pool_patch.pool_patch_of_update ~__context self in
       Db.Pool_update.destroy ~__context ~self ;
       Db.Pool_patch.destroy ~__context ~self:patch ;
       Db_gc_util.gc_updates_requiring_reboot ~__context

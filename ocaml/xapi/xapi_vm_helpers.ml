@@ -37,7 +37,7 @@ end)
 
 let is_dmc_compatible_vmr ~__context ~vmr =
   let module C = Xapi_vm_memory_constraints.Vm_memory_constraints in
-  let constraints = C.extract vmr in
+  let constraints = C.extract ~vm_record:vmr in
   Pool_features.is_enabled ~__context Features.DMC
   || C.are_valid_and_pinned_at_static_max ~constraints
 
@@ -54,7 +54,8 @@ let assert_dmc_compatible ~__context ~vm =
 
 let enforce_memory_constraints_always ~__context ~vm =
   let module C = Xapi_vm_memory_constraints.Vm_memory_constraints in
-  let constraints = C.reset_to_safe_defaults (C.get ~__context ~vm_ref:vm) in
+  let constraints = C.get ~__context ~vm_ref:vm in
+  let constraints = C.reset_to_safe_defaults ~constraints in
   C.set ~__context ~vm_ref:vm ~constraints
 
 let enforce_memory_constraints_for_dmc ~__context ~vm =
@@ -67,7 +68,7 @@ let enforce_memory_constraints_for_dmc ~__context ~vm =
 
 let compute_memory_overhead ~__context ~vm =
   let vm_record = Db.VM.get_record ~__context ~self:vm in
-  Memory_check.vm_compute_memory_overhead vm_record
+  Memory_check.vm_compute_memory_overhead ~vm_record
 
 let update_memory_overhead ~__context ~vm =
   Db.VM.set_memory_overhead ~__context ~self:vm
@@ -185,8 +186,8 @@ let update_vm_virtual_hardware_platform_version ~__context ~vm =
 let create_from_record_without_checking_licence_feature_for_vendor_device
     ~__context rpc session_id vm_record =
   let mk_vm r =
-    Client.Client.VM.create_from_record rpc session_id
-      {r with API.vM_suspend_VDI= Ref.null; API.vM_power_state= `Halted}
+    Client.Client.VM.create_from_record ~rpc ~session_id
+      ~value:{r with API.vM_suspend_VDI= Ref.null; API.vM_power_state= `Halted}
   in
   let has_vendor_device = vm_record.API.vM_has_vendor_device in
   if
@@ -299,8 +300,8 @@ let validate_memory ~__context ~snapshot:vm_record =
   (* memory constraints that can be coerced to valid constraints. *)
   (* In future, we can be more rigorous and require the snapshot  *)
   (* to have valid constraints without allowing coercion.         *)
-  match Vm_memory_constraints.transform constraints with
-  | Some constraints ->
+  match Vm_memory_constraints.transform ~constraints with
+  | Some _ ->
       ()
   (* Do nothing. *)
   | None ->
@@ -406,7 +407,7 @@ let assert_hardware_platform_support ~__context ~vm ~host =
       match host with
       | Helpers.LocalObject host_ref ->
           host_ref
-      | Helpers.RemoteObject (rpc, session_id, host_ref) ->
+      | Helpers.RemoteObject (_, _, host_ref) ->
           host_ref
     in
     raise
@@ -549,7 +550,6 @@ let has_non_allocated_vgpus ~__context ~self =
  * *)
 let assert_gpus_available ~__context ~self ~host =
   let vgpus = Db.VM.get_VGPUs ~__context ~self in
-  let open Vgpuops in
   let vGPU_structs = List.map (Vgpuops.vgpu_of_ref ~__context) vgpus in
   ignore
     (List.fold_left
@@ -772,7 +772,7 @@ let retrieve_wlb_recommendations ~__context ~vm ~snapshot =
   let compatible_vm_or_impossible (host, recommendation) =
     let recommendation =
       match recommendation with
-      | Recommendation {source; id; score} -> (
+      | Recommendation {source; id; _} -> (
         try
           assert_can_boot_here ~__context ~self:vm ~host ~snapshot
             ~do_cpuid_check:true () ;
@@ -969,7 +969,7 @@ let vm_has_sriov ~__context ~vm =
 let ( >>= ) opt f = match opt with Some _ as v -> v | None -> f
 
 let get_group_key ~__context ~vm =
-  match None >>= vm_has_vgpu __context vm >>= vm_has_sriov __context vm with
+  match None >>= vm_has_vgpu ~__context ~vm >>= vm_has_sriov ~__context ~vm with
   | Some x ->
       x
   | None ->
@@ -1107,7 +1107,7 @@ let choose_host_for_vm ~__context ~vm ~snapshot =
     try
       let possible_rec (host, recommendation) =
         match recommendation with
-        | Recommendation {source; id; score} ->
+        | Recommendation {id; score; _} ->
             Some (host, score, id)
         | _ ->
             None
@@ -1118,14 +1118,14 @@ let choose_host_for_vm ~__context ~vm ~snapshot =
         |> List.filter_map possible_rec
         |> List.sort cmp_descending
       in
-      let pp_host (host, score, reason) =
+      let pp_host (host, score, _) =
         let hostname = Db.Host.get_name_label ~__context ~self:host in
         Printf.sprintf "%s %f" hostname score
       in
       debug "Hosts sorted by priority: %s"
         (all_hosts |> List.map pp_host |> String.concat "; ") ;
       match all_hosts with
-      | (h, s, r) :: _ ->
+      | (h, _, r) :: _ ->
           debug "Wlb has recommended host %s"
             (Db.Host.get_name_label ~__context ~self:h) ;
           let action =
@@ -1303,8 +1303,7 @@ let copy_metrics ~__context ~vm =
     else
       None
   in
-  let metrics = Ref.make ()
-  and metrics_uuid = Uuid.to_string (Uuid.make_uuid ()) in
+  let metrics = Ref.make () and metrics_uuid = Uuid.to_string (Uuid.make ()) in
   Db.VM_metrics.create ~__context ~ref:metrics ~uuid:metrics_uuid
     ~memory_actual:
       (Option.fold ~none:0L
@@ -1380,7 +1379,7 @@ let copy_guest_metrics ~__context ~vm =
     let all = Db.VM_guest_metrics.get_record ~__context ~self:gm in
     let ref = Ref.make () in
     Db.VM_guest_metrics.create ~__context ~ref
-      ~uuid:(Uuid.to_string (Uuid.make_uuid ()))
+      ~uuid:(Uuid.to_string (Uuid.make ()))
       ~os_version:all.API.vM_guest_metrics_os_version
       ~pV_drivers_version:all.API.vM_guest_metrics_PV_drivers_version
       ~pV_drivers_up_to_date:all.API.vM_guest_metrics_PV_drivers_up_to_date
@@ -1483,7 +1482,7 @@ let get_SRs_required_for_recovery ~__context ~self ~session_to =
                 pbds
             in
             if attached_pbds = [] then true else false
-          with Db_exn.Read_missing_uuid (_, _, sr_uuid) -> true
+          with Db_exn.Read_missing_uuid _ -> true
         )
         required_SR_list
   )

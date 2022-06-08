@@ -14,5 +14,4 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
-let sleep_ns nanoseconds =
-  Lwt_unix.sleep (Int64.to_float nanoseconds *. Mtime.ns_to_s)
+let sleep_ns nanoseconds = Lwt_unix.sleep (Int64.to_float nanoseconds *. 1e-9)

@@ -90,7 +90,7 @@ let preauth ~__context =
   match __context.origin with
   | Internal ->
       None
-  | Http (req, s) -> (
+  | Http (_, s) -> (
     match Unix.getsockname s with
     | Unix.ADDR_UNIX path when path = Xapi_globs.unix_domain_socket ->
         Some `root
@@ -116,17 +116,17 @@ let get_initial () =
 
 (* ref fn used to break the cyclic dependency between context, db_actions and taskhelper *)
 let __get_task_name : (__context:t -> API.ref_task -> string) ref =
-  ref (fun ~__context t -> "__get_task_name not set")
+  ref (fun ~__context _ -> "__get_task_name not set")
 
 let __make_task =
   ref
     (fun
       ~__context
-      ~(http_other_config : (string * string) list)
-      ?(description : string option)
-      ?(session_id : API.ref_session option)
-      ?(subtask_of : API.ref_task option)
-      (task_name : string)
+      ~http_other_config:_
+      ?description:_
+      ?session_id:_
+      ?subtask_of:_
+      _
     -> (Ref.null, Uuid.null)
   )
 
@@ -303,7 +303,7 @@ let make_subcontext ~__context ?task_in_database task_name =
 let get_http_other_config http_req =
   let http_other_config_hdr = "x-http-other-config-" in
   http_req.Http.Request.additional_headers
-  |> List.filter (fun (k, v) ->
+  |> List.filter (fun (k, _) ->
          Astring.String.is_prefix ~affix:http_other_config_hdr k
      )
   |> List.map (fun (k, v) ->

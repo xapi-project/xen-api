@@ -103,7 +103,8 @@ let attempt_two_phase_commit_of_new_master ~__context (manual : bool)
           (fun () ->
             debug "Issuing abort to host address: %s" address ;
             Helpers.call_emergency_mode_functions address (fun rpc session_id ->
-                Client.Host.abort_new_master rpc session_id my_address
+                Client.Host.abort_new_master ~rpc ~session_id
+                  ~address:my_address
             )
           )
           ()
@@ -116,7 +117,8 @@ let attempt_two_phase_commit_of_new_master ~__context (manual : bool)
         (fun address ->
           debug "Proposing myself as a new master to host address: %s" address ;
           Helpers.call_emergency_mode_functions address (fun rpc session_id ->
-              Client.Host.propose_new_master rpc session_id my_address manual
+              Client.Host.propose_new_master ~rpc ~session_id
+                ~address:my_address ~manual
           ) ;
           done_so_far := address :: !done_so_far
         )
@@ -140,7 +142,7 @@ let attempt_two_phase_commit_of_new_master ~__context (manual : bool)
     debug "Signalling commit to host address: %s" address ;
     try
       Helpers.call_emergency_mode_functions address (fun rpc session_id ->
-          Client.Host.commit_new_master rpc session_id my_address
+          Client.Host.commit_new_master ~rpc ~session_id ~address:my_address
       )
     with e ->
       debug "Caught exception %s while telling host to commit new master"

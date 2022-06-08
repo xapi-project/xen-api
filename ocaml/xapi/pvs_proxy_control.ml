@@ -143,7 +143,7 @@ let metadata_of_site ~__context ~site ~vdi ~proxies =
   in
   let clients =
     List.map
-      (fun (vif, proxy) ->
+      (fun (vif, _) ->
         let rc = Db.VIF.get_record ~__context ~self:vif in
         let uuid = Db.VM.get_uuid ~__context ~self:rc.API.vIF_VM in
         PVS_proxy.Client.
@@ -174,7 +174,6 @@ let configure_proxy_m = Mutex.create ()
  *  for all locally running proxies, taking into account starting and stopping proxies *)
 let update_site_on_localhost ~__context ~site ~vdi =
   debug "Updating PVS site %s." (Ref.string_of site) ;
-  let open Network.Net.PVS_proxy in
   let dbg = Context.string_of_task __context in
   Mutex.execute configure_proxy_m (fun () ->
       let proxies = State.get_running_proxies ~__context site in
@@ -186,7 +185,6 @@ let update_site_on_localhost ~__context ~site ~vdi =
  *  proxying for the given site, and release the associated cache VDI. *)
 let remove_site_on_localhost ~__context ~site =
   debug "Removing PVS site %s." (Ref.string_of site) ;
-  let open Network.Net.PVS_proxy in
   let dbg = Context.string_of_task __context in
   let uuid = Db.PVS_site.get_uuid ~__context ~self:site in
   State.remove_site ~__context site ;
@@ -310,7 +308,7 @@ let start_proxy ~__context vif proxy =
         when code = Api_errors.license_restriction
              && args = [Features.(name_of_feature PVS_proxy)] ->
           "PVS proxy not licensed"
-      | Api_errors.Server_error (code, args)
+      | Api_errors.Server_error (code, _)
         when code = Api_errors.openvswitch_not_active ->
           "Host is not using openvswitch"
       | Api_errors.Server_error ("SR_BACKEND_FAILURE_44", _)
@@ -376,7 +374,7 @@ let stop_proxy ~__context vif proxy =
     error "Unable to disable PVS proxy for VIF %s: %s." (Ref.string_of vif)
       reason
 
-let clear_proxy_state ~__context vif proxy =
+let clear_proxy_state ~__context _vif proxy =
   Db.PVS_proxy.set_currently_attached ~__context ~self:proxy ~value:false ;
   Db.PVS_proxy.set_status ~__context ~self:proxy ~value:`stopped
 

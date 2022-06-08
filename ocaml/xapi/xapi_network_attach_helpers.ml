@@ -25,7 +25,7 @@ let assert_network_has_no_vifs_in_use_on_me ~__context ~host ~network =
       (* Note this doesn't happen too often, I hope! *)
       let ops = Db.VIF.get_current_operations ~__context ~self in
       List.iter
-        (fun (task, op) ->
+        (fun (_, op) ->
           match op with
           | `attach ->
               (* Let's see if the VM is either resident here or scheduled to

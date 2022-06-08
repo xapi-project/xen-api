@@ -14,9 +14,6 @@
 
 (* Note: this used to be in Helpers; moved due to cyclic dependencies relating to License *)
 
-open Xapi_globs
-open Printf
-
 module D = Debug.Make (struct let name = "xapi_config" end)
 
 open D

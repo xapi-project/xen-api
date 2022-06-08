@@ -4,7 +4,10 @@
     (flags (:standard -w -39))
   )
   (dev (flags (:standard -g -w -39)))
-  (release (flags (:standard -w -39-6)))
+  (release
+    (flags (:standard -w -39-6))
+    (env-vars (ALCOTEST_COMPACT 1))
+  )
 )
 
 (executable

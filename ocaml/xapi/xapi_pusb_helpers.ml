@@ -11,9 +11,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-module D = Debug.Make (struct let name = "xapi_pusb_helpers" end)
 
-open D
 open Yojson.Basic.Util
 
 module USB = struct
@@ -97,11 +95,9 @@ let get_script_stdout () =
   (* usb_scan is a script that will get all the usb details in current host, which will return json format data *)
   let usb_scan_script = "/opt/xensource/libexec/usb_scan.py" in
   try
-    let stdout, stderr =
-      Forkhelpers.execute_command_get_output usb_scan_script []
-    in
+    let stdout, _ = Forkhelpers.execute_command_get_output usb_scan_script [] in
     stdout
-  with Forkhelpers.Spawn_internal_error (stdout, stderr, Unix.WEXITED n) ->
+  with Forkhelpers.Spawn_internal_error (_, _, Unix.WEXITED n) ->
     raise
       Api_errors.(
         Server_error
@@ -149,7 +145,7 @@ let destroy_pusb ~__context pusb =
       in
       if currently_attached then
         Helpers.call_api_functions ~__context (fun rpc session_id ->
-            Client.Client.VUSB.unplug rpc session_id vusb
+            Client.Client.VUSB.unplug ~rpc ~session_id ~self:vusb
         ) ;
       Db.VUSB.destroy ~__context ~self:vusb
     )

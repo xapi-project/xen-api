@@ -22,6 +22,12 @@ let ret v = v >>= Lwt.return_ok |> Rpc_lwt.T.put
 
 let sockets = Hashtbl.create 127
 
+let log_fds () =
+  let count stream = Lwt_stream.fold (fun _ n -> n + 1) stream 0 in
+  Lwt_unix.files_of_directory "/proc/self/fd" |> count >>= fun fds ->
+  D.info "file descriptors in use: %d" fds ;
+  Lwt.return_unit
+
 module Persistent = struct
   type args = {
       vm_uuid: Varstore_privileged_interface.Uuidm.t
@@ -71,6 +77,7 @@ let listen_for_vm {Persistent.vm_uuid; path; gid} =
   D.debug "resume: listening on socket %s for VM %s" path vm_uuid_str ;
   safe_unlink path >>= fun () ->
   make_server_rpcfn path vm_uuid_str >>= fun stop_server ->
+  log_fds () >>= fun () ->
   Hashtbl.add sockets path (stop_server, (vm_uuid, gid)) ;
   Lwt_unix.chmod path 0o660 >>= fun () -> Lwt_unix.chown path 0 gid
 

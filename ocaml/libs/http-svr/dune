@@ -11,6 +11,7 @@
     sha
     stunnel
     threads.posix
+    uuid
     xapi-idl
     xapi-idl.updates
     xapi-stdext-date

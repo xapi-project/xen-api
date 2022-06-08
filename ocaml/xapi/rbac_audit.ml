@@ -41,7 +41,6 @@ module D = Debug.Make (struct let name = "rbac_audit" end)
 let trackid session_id = Context.trackid_of_session (Some session_id)
 
 open Db_actions
-open Db_filter_types
 
 let is_http action =
   Astring.String.is_prefix ~affix:Datamodel.rbac_http_permission_prefix action
@@ -184,7 +183,7 @@ let populate_audit_record_with_obj_names_of_refs line =
                   (SExpr.Node
                      (prefix @ [SExpr.Node (get_obj_names_of_refs arg_list)])
                   )
-          | prefix, _ ->
+          | _ ->
               line
       )
     | _ ->
@@ -491,7 +490,7 @@ let add_dummy_args __context action args =
       | "VBD.destroy" -> (
         try
           let vbd = API.ref_VBD_of_rpc (find_self str_names rpc_values) in
-          let vdi = DB_Action.VBD.get_VDI __context vbd in
+          let vdi = DB_Action.VBD.get_VDI ~__context ~self:vbd in
           Some (str_names @ ["VDI"], rpc_values @ [API.rpc_of_ref_VDI vdi])
         with e ->
           D.debug "couldn't get VDI ref for VBD: %s" (ExnHelper.string_of_exn e) ;
@@ -502,7 +501,7 @@ let add_dummy_args __context action args =
     )
 
 let sexpr_of __context session_id allowed_denied ok_error result_error ?args
-    ?sexpr_of_args action permission =
+    ?sexpr_of_args action _permission =
   let result_error =
     if result_error = "" then result_error else ":" ^ result_error
   in
@@ -514,7 +513,7 @@ let sexpr_of __context session_id allowed_denied ok_error result_error ?args
     ; SExpr.String (get_subject_name __context session_id)
     ; SExpr.String allowed_denied
     ; SExpr.String (ok_error ^ result_error)
-    ; SExpr.String (call_type_of action)
+    ; SExpr.String (call_type_of ~action)
     ; (*SExpr.String (Helper_hostname.get_hostname ())::*)
       SExpr.String action
     ; SExpr.Node
@@ -567,7 +566,7 @@ let allowed_pre_fn ~__context ~action ?args () =
     None
 
 let allowed_post_fn_ok ~__context ~session_id ~action ~permission ?sexpr_of_args
-    ?args ?result () =
+    ?args ?result:_ () =
   wrap (fun () ->
       if has_to_audit action then
         audit_line_of __context session_id "ALLOWED" "OK" "" action permission

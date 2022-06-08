@@ -13,8 +13,6 @@
  *)
 (* Allows xapi to drive the sparse_dd program *)
 
-open Client
-open Printf
 open Xapi_stdext_threads.Threadext
 module Unixext = Xapi_stdext_unix.Unixext
 

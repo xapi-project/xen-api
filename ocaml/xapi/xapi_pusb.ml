@@ -19,10 +19,10 @@ module D = Debug.Make (struct let name = "xapi_pusb" end)
 
 open D
 
-let create ~__context ~uSB_group ~host ~other_config ~path ~vendor_id
+let create ~__context ~uSB_group ~host:_ ~other_config ~path ~vendor_id
     ~vendor_desc ~product_id ~product_desc ~serial ~version ~description ~speed
     =
-  let pusb = Ref.make () and uuid = Uuid.make_uuid () in
+  let pusb = Ref.make () and uuid = Uuid.make () in
   let host = Helpers.get_localhost ~__context in
   Db.PUSB.create ~__context ~ref:pusb ~uuid:(Uuid.to_string uuid) ~uSB_group
     ~host ~other_config ~path ~vendor_id ~vendor_desc ~product_id ~product_desc
@@ -39,7 +39,7 @@ let scan_start ~__context usbs =
   let host = Helpers.get_localhost ~__context in
   let known_pusbs_in_db =
     Db.PUSB.get_all_records ~__context
-    |> List.filter (fun (rf, rc) -> rc.API.pUSB_host = host)
+    |> List.filter (fun (_, rc) -> rc.API.pUSB_host = host)
   in
   let known_usb_set = known_pusbs_in_db |> get_known_usb in
   let local_usb_set = get_local_usb usbs in
@@ -77,7 +77,7 @@ let scan_start ~__context usbs =
      in before that update. *)
   List.iter refresh_speed known_pusbs_in_db ;
   List.filter
-    (fun (rf, rc) ->
+    (fun (_, rc) ->
       USBSet.mem
         (extract_known_usb_info rc)
         (USBSet.diff known_usb_set local_usb_set)
@@ -118,7 +118,7 @@ let start_thread f =
        ()
     )
 
-let scan ~__context ~host =
+let scan ~__context ~host:_ =
   (* notify that scan is required. *)
   Mutex.execute mutex (fun () ->
       scan_required := true ;
@@ -222,7 +222,7 @@ let set_passthrough_enabled ~__context ~self ~value =
             ~expr:(Eq (Field "type", Literal "udev"))
           |> List.iter (fun sr ->
                  Helpers.call_api_functions ~__context (fun rpc session_id ->
-                     Client.Client.SR.scan rpc session_id sr
+                     Client.Client.SR.scan ~rpc ~session_id ~sr
                  )
              )
         with e ->

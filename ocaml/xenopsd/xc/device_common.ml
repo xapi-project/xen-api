@@ -47,7 +47,7 @@ module D = Debug.Make (struct let name = "xenops" end)
 open D
 open Printf
 
-let supported_vbd_backends = ["vbd"; "vbd3"; "qdisk"]
+let supported_vbd_backends = ["vbd"; "vbd3"; "qdisk"; "9pfs"]
 
 (* TODO: get from xenopsd config *)
 
@@ -227,8 +227,7 @@ let string_of_device (x : device) =
    It can be made a little more efficient by changing the functions below to
    take the UUID as an argument (and change the callers as well...) *)
 let uuid_of_domid domid =
-  try
-    with_xs (fun xs -> Uuidm.to_string (Xenops_helpers.uuid_of_domid ~xs domid))
+  try with_xs (fun xs -> Uuid.to_string (Xenops_helpers.uuid_of_domid ~xs domid))
   with Xenops_helpers.Domain_not_found ->
     error "uuid_of_domid failed for domid %d" domid ;
     (* Returning a random string on error is not very neat, but we must avoid
@@ -247,7 +246,7 @@ let private_path = "/xapi"
 let get_private_path domid = sprintf "%s/%s" private_path (uuid_of_domid domid)
 
 let get_private_path_by_uuid uuid =
-  sprintf "%s/%s" private_path (Uuidm.to_string uuid)
+  sprintf "%s/%s" private_path (Uuid.to_string uuid)
 
 let get_private_data_path_of_device (x : device) =
   sprintf "%s/private/%s/%d"
@@ -268,6 +267,8 @@ let device_of_backend (backend : endpoint) (domu : Xenctrl.domid) =
       domid= domu
     ; kind=
         ( match backend.kind with
+        | Vbd "9pfs" ->
+            Vbd "9pfs"
         | Tap | Vbd _ ->
             default_vbd_frontend_kind
         | _ ->

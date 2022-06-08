@@ -34,7 +34,7 @@ let create ~__context ~site ~vIF =
   if device <> "0" then
     raise Api_errors.(Server_error (invalid_device, [device])) ;
   let pvs_proxy = Ref.make () in
-  let uuid = Uuidm.to_string (Uuidm.create `V4) in
+  let uuid = Uuid.(to_string (make ())) in
   Db.PVS_proxy.create ~__context ~ref:pvs_proxy ~uuid ~site ~vIF
     ~currently_attached:false ~status:`stopped ;
   if Db.VIF.get_currently_attached ~__context ~self:vIF then

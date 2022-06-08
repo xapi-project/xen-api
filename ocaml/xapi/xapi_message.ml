@@ -104,7 +104,7 @@ let of_xml input =
   let gen = ref 0L in
   let rec f () =
     match Xmlm.input input with
-    | `El_start ((ns, tag), attr) ->
+    | `El_start ((_, tag), _) ->
         current_elt := tag ;
         f ()
     | `El_end ->
@@ -248,7 +248,7 @@ let check_uuid ~__context ~cls ~uuid =
 
 (*********** Thread_queue to exec the message script hook ***********)
 
-let queue_push = ref (fun (description : string) (m : string) -> false)
+let queue_push = ref (fun (_ : string) (_ : string) -> false)
 
 let message_to_string (_ref, message) =
   let buffer = Buffer.create 10 in
@@ -419,7 +419,7 @@ let create ~__context ~name ~priority ~cls ~obj_uuid ~body =
          (Api_errors.uuid_invalid, [Record_util.class_to_string cls; obj_uuid])
       ) ;
   let _ref = Ref.make () in
-  let uuid = Uuid.to_string (Uuid.make_uuid ()) in
+  let uuid = Uuid.to_string (Uuid.make ()) in
   let timestamp = Mutex.execute event_mutex (fun () -> Unix.gettimeofday ()) in
   (* During rolling upgrade, upgraded master might have a alerts grading
      	   system different from the not yet upgraded slaves, during that process we
@@ -464,7 +464,7 @@ let destroy_real __context basefilename =
       (fun () -> close_in ic)
   in
   let symlinks = symlinks _ref (Some gen) message basefilename in
-  List.iter (fun (dir, newpath) -> Unixext.unlink_safe newpath) symlinks ;
+  List.iter (fun (_, newpath) -> Unixext.unlink_safe newpath) symlinks ;
   Unixext.unlink_safe filename ;
   let rpc = API.rpc_of_message_t message in
   let gen = ref 0L in
@@ -528,6 +528,9 @@ let destroy ~__context ~self =
   let basefilename = List.hd (List.rev (String.split_on_char '/' fullpath)) in
   destroy_real __context basefilename
 
+let destroy_many ~__context ~messages =
+  List.iter (fun self -> destroy ~__context ~self) messages
+
 (* Gc the messages - leave only the number of messages defined in 'Xapi_globs.message_limit' *)
 let gc ~__context =
   let message_limit = !Xapi_globs.message_limit in
@@ -583,7 +586,7 @@ let get_real_inner dir filter name_filter =
         messages
     in
     List.sort
-      (fun (t1, r1, m1) (t2, r2, m2) ->
+      (fun (t1, _, m1) (t2, _, m2) ->
         let r = compare t2 t1 in
         if r <> 0 then
           r
@@ -603,7 +606,7 @@ let since_name_filter since name =
 let get_from_generation gen =
   if gen > 0L then
     get_real_inner (gen_symlink ())
-      (fun x -> true)
+      (fun _ -> true)
       (fun n -> try Int64.of_string n > gen with _ -> false)
   else
     get_real_inner message_dir
@@ -680,7 +683,7 @@ let get_since_for_events ~__context since =
   in
   let all_results = result @ delete_results in
   let newsince =
-    List.fold_left (fun acc (ts, m) -> max ts acc) since all_results
+    List.fold_left (fun acc (ts, _) -> max ts acc) since all_results
   in
   (newsince, List.map snd all_results)
 
@@ -722,7 +725,7 @@ let get_record ~__context ~self =
 
 let get_all_records ~__context = get_real message_dir (fun _ -> true) 0.0
 
-let get_all_records_where ~__context ~expr =
+let get_all_records_where ~__context ~expr:_ =
   get_real message_dir (fun _ -> true) 0.0
 
 let repopulate_cache () =
@@ -832,7 +835,7 @@ let send_messages ~__context ~cls ~obj_uuid ~session_id ~remote_address =
     SSL (SSL.make ~verify_cert:None (), remote_address, !Constants.https_port)
   in
   with_transport transport
-    (with_http request (fun (rsp, fd) ->
+    (with_http request (fun (rsp, _) ->
          if rsp.Http.Response.code <> "200" then
            error "Error transferring messages"
      )

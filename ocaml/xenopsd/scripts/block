@@ -22,12 +22,16 @@ add)
 		params=$(readlink -f $params || echo $params)
 		frontend="/local/domain/${DOMID}/device/${TYPE}/${DEVID}"
 		syslog "${XENBUS_PATH}: add params=\"${params}\""
-		physical_device=$(/usr/bin/stat --format="%t:%T" "${params}")
-		syslog "${XENBUS_PATH}: physical-device=${physical_device}"
-		xenstore-exists "${XENBUS_PATH}/physical-device"
-		if [ $? -eq 1 ]; then
-			syslog "${XENBUS_PATH}: writing physical-device=${physical_device}"
-			xenstore-write "${XENBUS_PATH}/physical-device" "${physical_device}"
+
+		# Write physical-device field only for real block devices.
+		if [ "$TYPE" != "9pfs" ]; then
+			physical_device=$(/usr/bin/stat --format="%t:%T" "${params}")
+			syslog "${XENBUS_PATH}: physical-device=${physical_device}"
+			xenstore-exists "${XENBUS_PATH}/physical-device"
+			if [ $? -eq 1 ]; then
+				syslog "${XENBUS_PATH}: writing physical-device=${physical_device}"
+				xenstore-write "${XENBUS_PATH}/physical-device" "${physical_device}"
+			fi
 		fi
 	fi
 	xenstore-write "${HOTPLUG}/hotplug" "online"

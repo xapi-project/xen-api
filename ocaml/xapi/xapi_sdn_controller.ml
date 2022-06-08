@@ -14,10 +14,6 @@
 
 open Network
 
-module D = Debug.Make (struct let name = "xapi_sdn_controller" end)
-
-open D
-
 let db_introduce ~__context ~protocol ~address ~port =
   if Db.SDN_controller.get_all ~__context <> [] then
     raise
@@ -45,9 +41,9 @@ let db_introduce ~__context ~protocol ~address ~port =
         (Api_errors.Server_error (Api_errors.invalid_value, ["address"; address])
         ) ;
   if port <> 0L then
-    Helpers.assert_is_valid_tcp_udp_port (Int64.to_int port) "port" ;
+    Helpers.assert_is_valid_tcp_udp_port ~port:(Int64.to_int port) ~name:"port" ;
   let tcpport = if protocol = `ssl && port = 0L then 6632L else port in
-  let r = Ref.make () and uuid = Uuid.make_uuid () in
+  let r = Ref.make () and uuid = Uuid.make () in
   Db.SDN_controller.create ~__context ~ref:r ~uuid:(Uuid.to_string uuid)
     ~protocol ~address ~port:tcpport ;
   r

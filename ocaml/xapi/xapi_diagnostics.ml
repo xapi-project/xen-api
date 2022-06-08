@@ -1,10 +1,20 @@
-module D = Debug.Make (struct let name = "xapi_diagnostics" end)
+(*
+   Copyright (C) Citrix Systems Inc.
+  
+   This program is free software; you can redistribute it and/or modify
+   it under the terms of the GNU Lesser General Public License as published
+   by the Free Software Foundation; version 2.1 only. with the special
+   exception on linking described in file LICENSE.
+  
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU Lesser General Public License for more details.
+ *)
 
-open D
+let gc_compact ~__context ~host:_ = Gc.compact ()
 
-let gc_compact ~__context ~host = Gc.compact ()
-
-let gc_stats ~__context ~host =
+let gc_stats ~__context ~host:_ =
   let stat = Gc.stat () in
   [
     ("minor_words", string_of_float stat.Gc.minor_words)
@@ -34,7 +44,7 @@ let db_stats ~__context =
   ; ("max", Printf.sprintf "%f" max)
   ]
 
-let network_stats ~__context ~host ~params =
+let network_stats ~__context ~host:_ ~params =
   let meth (m, _, _) =
     (not (List.mem_assoc "method" params))
     || String.lowercase_ascii (Http.string_of_method_t m)

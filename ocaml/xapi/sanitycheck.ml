@@ -21,7 +21,7 @@ let check_for_bad_link () =
   try Unix.access "/etc/xapi.d/doesntexist" [Unix.F_OK] with
   | Unix.Unix_error (_, _, _) ->
       debug "Binary appears to be correctly linked"
-  | e ->
+  | _ ->
       let msg =
         "This binary is broken: check your link lines (see c/s \
          4200:694e7dabb159)"

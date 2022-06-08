@@ -10,7 +10,7 @@
    lwt
    lwt.unix
    re.str
-   uuidm
+   uuid
    wslib
   )
 )

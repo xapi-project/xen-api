@@ -15,13 +15,8 @@
 
 (* XXX: need to push some of this into the datamodel *)
 
-open XMLRPC
 open Api_errors
 open Printf
-
-module D = Debug.Make (struct let name = "backtrace" end)
-
-open D
 
 let error_of_exn e =
   match e with
@@ -46,12 +41,12 @@ let error_of_exn e =
     match reason with
     | "missing row" ->
         (handle_invalid, [p1; p2])
-    | s ->
+    | _ ->
         (internal_error, [reason; p1; p2])
   )
   | Db_exn.Duplicate_key (tbl, fld, uuid, key) ->
       (map_duplicate_key, [tbl; fld; uuid; key])
-  | Db_exn.Read_missing_uuid (tbl, ref, uuid) ->
+  | Db_exn.Read_missing_uuid (tbl, _, uuid) ->
       (uuid_invalid, [tbl; uuid])
   | Db_actions.DM_to_String.StringEnumTypeError s
   | Db_actions.DM_to_String.DateTimeError s

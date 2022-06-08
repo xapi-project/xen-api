@@ -15,9 +15,6 @@
  * @group Storage
 *)
 
-open Debug
-open Http
-open Forkhelpers
 module Zerocheck = Xapi_stdext_zerocheck.Zerocheck
 module Unixext = Xapi_stdext_unix.Unixext
 
@@ -101,7 +98,7 @@ let made_progress __context progress n =
   let time_since_last_update = now -. progress.time_of_last_update in
   if time_since_last_update > 10.0 then (
     progress.time_of_last_update <- now ;
-    TaskHelper.set_progress progress.__context fraction_complete ;
+    TaskHelper.set_progress ~__context:progress.__context fraction_complete ;
     TaskHelper.exn_if_cancelling ~__context
   )
 
@@ -124,7 +121,7 @@ let write_block ~__context filename buffer ofd len =
     Tar_helpers.write_block hdr'
       (fun ofd -> ignore (Unix.write_substring ofd csum 0 (String.length csum)))
       ofd
-  with Unix.Unix_error (a, b, c) as e ->
+  with Unix.Unix_error (_, b, _) as e ->
     TaskHelper.exn_if_cancelling ~__context ;
     if b = "write" then
       raise
@@ -235,7 +232,7 @@ let send_all refresh_session ofd ~__context rpc session_id
     (prefix_vdis : vdi list) =
   TaskHelper.set_cancellable ~__context ;
   let progress = new_progress_record __context prefix_vdis in
-  let send_one ofd (__context : Context.t) (prefix, vdi_ref, size) =
+  let send_one ofd (__context : Context.t) (prefix, vdi_ref, _size) =
     let size = Db.VDI.get_virtual_size ~__context ~self:vdi_ref in
     let reusable_buffer = Bytes.make (Int64.to_int chunk_size) '\000' in
     with_open_vdi __context rpc session_id vdi_ref `RO [Unix.O_RDONLY] 0o644
@@ -431,7 +428,7 @@ let recv_all_vdi refresh_session ifd (__context : Context.t) rpc session_id
     debug "begun import of VDI %s preserving sparseness"
       (if vdi_skip_zeros then "" else "NOT") ;
     with_open_vdi __context rpc session_id vdi_ref `RW [Unix.O_WRONLY] 0o644
-      (fun ofd dom0_path ->
+      (fun ofd _ ->
         let reusable_buffer = Bytes.make (Int64.to_int chunk_size) '\000' in
         let rec stream_from (last_suffix : string) (offset : int64) =
           refresh_session () ;
@@ -477,7 +474,7 @@ let recv_all_vdi refresh_session ifd (__context : Context.t) rpc session_id
                 (* If we're skipping zeros, seek to the correct place *)
                 ignore (Unix.LargeFile.lseek ofd skipped_size Unix.SEEK_CUR)
               else (* Write some blocks of zeros *)
-                for i = 1 to num_zero_blocks do
+                for _ = 1 to num_zero_blocks do
                   ignore (Unix.write ofd !zerochunkstring 0 !firstchunklength)
                 done
             ) ;
@@ -513,7 +510,7 @@ let recv_all_vdi refresh_session ifd (__context : Context.t) rpc session_id
             made_progress __context progress (Int64.add skipped_size length) ;
             ( if has_inline_checksums then
                 try verify_inline_checksum ifd checksum_table csum_hdr
-                with Invalid_checksum s as e -> if not force then raise e
+                with Invalid_checksum _ as e -> if not force then raise e
             ) ;
             stream_from suffix (Int64.add skipped_size (Int64.add offset length))
           )
@@ -552,11 +549,11 @@ let recv_all_zurich refresh_session ifd (__context : Context.t) rpc session_id
           raise e
   in
   next () ;
-  let recv_one ifd (__context : Context.t) (prefix, vdi_ref, size) =
+  let recv_one ifd (__context : Context.t) (prefix, vdi_ref, _size) =
     (* Open this VDI and stream in all the blocks. Return when hdr represents
        a chunk which is not part of this VDI or the end of stream is reached. *)
     with_open_vdi __context rpc session_id vdi_ref `RW [Unix.O_WRONLY] 0o644
-      (fun ofd dom0_path ->
+      (fun ofd _ ->
         let rec stream_from (last_suffix : string) =
           match !hdr with
           | Some hdr ->
@@ -576,7 +573,7 @@ let recv_all_zurich refresh_session ifd (__context : Context.t) rpc session_id
                   raise (Failure "Invalid XVA file")
                 ) ;
                 debug "Decompressing %Ld bytes from %s\n" length file_name ;
-                Gzip.decompress ofd (fun zcat_in ->
+                Gzip.Default.decompress ofd (fun zcat_in ->
                     Tar_helpers.copy_n ifd zcat_in length
                 ) ;
                 Tar_helpers.skip ifd

@@ -78,7 +78,7 @@ let update rrd_files =
             if Db.VM.get_resident_on ~__context ~self:vm = host then
               Db.VM_metrics.set_memory_actual ~__context ~self:vmm ~value:memory
             else
-              Mcache.clear_cache_for_vm vm_uuid
+              Mcache.clear_cache_for_vm ~vm_uuid
           with e ->
             keeps := vm_uuid :: !keeps ;
             error "Unable to update memory usage for VM %s: %s" vm_uuid

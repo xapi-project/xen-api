@@ -17,7 +17,7 @@ let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 let all_cluster_host_operations = [`enable; `disable]
 
 (** check if [op] can be done while [current_ops] are already in progress.*)
-let is_allowed_concurrently ~op ~current_ops =
+let is_allowed_concurrently ~op:_ ~current_ops:_ =
   (* for now, disallow all concurrent operations *)
   false
 

@@ -27,7 +27,7 @@ let create_pool_record ~__context =
   let pools = Db.Pool.get_all ~__context in
   if pools = [] then
     Db.Pool.create ~__context ~ref:(Ref.make ())
-      ~uuid:(Uuid.to_string (Uuid.make_uuid ()))
+      ~uuid:(Uuid.to_string (Uuid.make ()))
       ~name_label:"" ~name_description:""
       ~master:(Helpers.get_localhost ~__context)
       ~default_SR:Ref.null ~suspend_image_SR:Ref.null ~crash_dump_SR:Ref.null
@@ -164,7 +164,7 @@ let create_tools_sr __context name_label name_description sr_introduce
        		   to make the PBD for the shared tools SR *)
     let sr =
       sr_introduce
-        ~uuid:(Uuid.to_string (Uuid.make_uuid ()))
+        ~uuid:(Uuid.to_string (Uuid.make ()))
         ~name_label ~name_description ~_type:"iso" ~content_type:"iso"
         ~shared:true ~sm_config:[]
     in
@@ -269,7 +269,7 @@ let ensure_vm_metrics_records_exist __context =
         info "Regenerating missing VM_metrics record for VM %s"
           (Ref.string_of vm) ;
         let m = Ref.make () in
-        let uuid = Uuid.to_string (Uuid.make_uuid ()) in
+        let uuid = Uuid.to_string (Uuid.make ()) in
         Db.VM_metrics.create ~__context ~ref:m ~uuid ~vCPUs_number:0L
           ~vCPUs_utilisation:[] ~memory_actual:0L ~vCPUs_CPU:[] ~vCPUs_params:[]
           ~vCPUs_flags:[] ~start_time:Xapi_stdext_date.Date.never
@@ -280,7 +280,7 @@ let ensure_vm_metrics_records_exist __context =
         Db.VM.set_metrics ~__context ~self:vm ~value:m
       )
     )
-    (Db.VM.get_all __context)
+    (Db.VM.get_all ~__context)
 
 let ensure_vm_metrics_records_exist_noexn __context =
   Helpers.log_exn_continue "ensuring VM_metrics flags exist"

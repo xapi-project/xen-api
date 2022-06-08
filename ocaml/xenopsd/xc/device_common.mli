@@ -80,7 +80,7 @@ val backend_state_path_of_device : xs:Xenstore.Xs.xsh -> device -> string
 
 val get_private_path : Xenctrl.domid -> string
 
-val get_private_path_by_uuid : Uuidm.t -> string
+val get_private_path_by_uuid : 'a Uuid.t -> string
 
 val get_private_data_path_of_device : device -> string
 

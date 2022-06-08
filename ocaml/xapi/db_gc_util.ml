@@ -414,7 +414,7 @@ let timeout_sessions_common ~__context sessions limit session_group =
     List.partition (fun (_, y, _) -> y > threshold_time) disposable_sessions
   in
   (* If there are too many young sessions then we need to delete the oldest *)
-  let lucky, unlucky =
+  let _, unlucky =
     if List.length young <= limit then
       (young, []) (* keep them all *)
     else (* Need to reverse sort by last active and drop the oldest *)
@@ -549,7 +549,7 @@ let gc_PVS_proxies ~__context =
  * hence we never GC a server right after it was created. *)
 let gc_PVS_servers ~__context =
   gc_connector ~__context Db.PVS_server.get_all Db.PVS_server.get_record
-    (fun x -> true)
+    (fun _ -> true)
     (fun x -> valid_ref __context x.pVS_server_site)
     Db.PVS_server.destroy
 
