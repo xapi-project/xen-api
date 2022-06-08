@@ -105,7 +105,7 @@ let scan_one ~__context ?callback sr =
                                (Printf.sprintf "scanning SR %s"
                                   (Ref.string_of sr)
                                )
-                               (fun sr -> Client.SR.scan rpc session_id sr)
+                               (fun sr -> Client.SR.scan ~rpc ~session_id ~sr)
                                sr
                          )
                      )
@@ -199,7 +199,7 @@ let scanning_thread () =
 let introduce ~__context ~uuid ~name_label ~name_description ~_type
     ~content_type ~shared ~sm_config =
   let _type = String.lowercase_ascii _type in
-  let uuid = if uuid = "" then Uuid.to_string (Uuid.make_uuid ()) else uuid in
+  let uuid = if uuid = "" then Uuid.to_string (Uuid.make ()) else uuid in
   (* fill in uuid if none specified *)
   let sr_ref = Ref.make () in
   (* Create SR record in DB *)
@@ -216,8 +216,8 @@ let introduce ~__context ~uuid ~name_label ~name_description ~_type
   with Db_exn.Uniqueness_constraint_violation ("SR", "uuid", _) ->
     raise (Api_errors.Server_error (Api_errors.sr_uuid_exists, [uuid]))
 
-let make ~__context ~host ~device_config ~physical_size ~name_label
-    ~name_description ~_type ~content_type ~sm_config =
+let make ~__context ~host:_ ~device_config:_ ~physical_size:_ ~name_label:_
+    ~name_description:_ ~_type ~content_type:_ ~sm_config:_ =
   raise (Api_errors.Server_error (Api_errors.message_deprecated, []))
 
 let get_pbds ~__context ~self ~attached ~master_pos =
@@ -242,7 +242,7 @@ let get_pbds ~__context ~self ~attached ~master_pos =
   | `Last ->
       slave_pbds @ master_pbds
 
-let call_probe ~__context ~host ~device_config ~_type ~sm_config ~f =
+let call_probe ~__context ~host:_ ~device_config ~_type ~sm_config ~f =
   debug "SR.probe sm_config=[ %s ]"
     (String.concat "; " (List.map (fun (k, v) -> k ^ " = " ^ v) sm_config)) ;
   let _type = String.lowercase_ascii _type in
@@ -290,15 +290,7 @@ let probe =
         in
         let sr_info
             Storage_interface.
-              {
-                sr_uuid
-              ; name_label
-              ; name_description
-              ; total_space
-              ; free_space
-              ; clustered
-              ; health
-              } =
+              {sr_uuid; name_label; name_description; total_space; _} =
           let el_uuid =
             match sr_uuid with
             | Some sr_uuid ->
@@ -364,7 +356,7 @@ let probe_ext =
   in
 
   call_probe ~f:(function
-    | Storage_interface.Raw x ->
+    | Storage_interface.Raw _ ->
         raise Api_errors.(Server_error (sr_operation_not_supported, []))
     | Storage_interface.Probe results ->
         List.map to_xenapi_probe_result results
@@ -398,7 +390,7 @@ let create ~__context ~host ~device_config ~(physical_size : int64) ~name_label
 		  | _ -> ()
 	end;
 *)
-        let sr_uuid = Uuid.make_uuid () in
+        let sr_uuid = Uuid.make () in
         let sr_uuid_str = Uuid.to_string sr_uuid in
         (* Create the SR in the database before creating on disk, so the backends can read the sm_config field. If an error happens here
            	we have to clean up the record.*)
@@ -433,18 +425,15 @@ let create ~__context ~host ~device_config ~(physical_size : int64) ~name_label
             List.iter (fun pbd -> Db.PBD.destroy ~__context ~self:pbd) pbds ;
             raise e
         in
-        Helpers.call_api_functions ~__context (fun rpc session_id ->
-            List.iter
-              (fun self ->
-                try
-                  Db.PBD.set_device_config ~__context ~self ~value:device_config
-                with e ->
-                  warn "Could not set PBD device-config '%s': %s"
-                    (Db.PBD.get_uuid ~__context ~self)
-                    (Printexc.to_string e)
-              )
-              pbds
-        ) ;
+        List.iter
+          (fun self ->
+            try Db.PBD.set_device_config ~__context ~self ~value:device_config
+            with e ->
+              warn "Could not set PBD device-config '%s': %s"
+                (Db.PBD.get_uuid ~__context ~self)
+                (Printexc.to_string e)
+          )
+          pbds ;
         (pbds, sr_ref)
     )
   in
@@ -652,23 +641,15 @@ let update_vdis ~__context ~sr db_vdis vdi_infos =
   in
   let to_delete =
     VdiMap.merge
-      (fun loc db scan ->
-        match (loc, db, scan) with
-        | loc, Some (r, v), None ->
-            Some r
-        | _, _, _ ->
-            None
+      (fun _ db scan ->
+        match (db, scan) with Some (r, _), None -> Some r | _, _ -> None
       )
       db_vdi_map scan_vdi_map
   in
   let to_create =
     VdiMap.merge
-      (fun loc db scan ->
-        match (loc, db, scan) with
-        | loc, None, Some v ->
-            Some v
-        | _, _, _ ->
-            None
+      (fun _ db scan ->
+        match (db, scan) with None, Some v -> Some v | _, _ -> None
       )
       db_vdi_map scan_vdi_map
   in
@@ -686,7 +667,7 @@ let update_vdis ~__context ~sr db_vdis vdi_infos =
   in
   (* Delete ones which have gone away *)
   VdiMap.iter
-    (fun loc r ->
+    (fun _ r ->
       debug "Forgetting VDI: %s" (Ref.string_of r) ;
       Db.VDI.destroy ~__context ~self:r
     )
@@ -694,18 +675,18 @@ let update_vdis ~__context ~sr db_vdis vdi_infos =
   (* Create the new ones *)
   let db_vdi_map =
     VdiMap.fold
-      (fun loc vdi m ->
+      (fun _ vdi m ->
         let ref = Ref.make () in
         let uuid =
-          match vdi.uuid with
+          match Option.bind vdi.uuid Uuid.of_string with
           | Some x ->
-              Uuid.of_string x
+              x
           | None ->
-              Uuid.make_uuid ()
+              Uuid.make ()
         in
         debug "Creating VDI: %s (ref=%s)" (string_of_vdi_info vdi)
           (Ref.string_of ref) ;
-        Db.VDI.create ~__context ~ref ~uuid:(Uuid.string_of_uuid uuid)
+        Db.VDI.create ~__context ~ref ~uuid:(Uuid.to_string uuid)
           ~name_label:vdi.name_label ~name_description:vdi.name_description
           ~current_operations:[] ~allowed_operations:[]
           ~is_a_snapshot:vdi.is_a_snapshot
@@ -729,17 +710,17 @@ let update_vdis ~__context ~sr db_vdis vdi_infos =
      and may now potentially have null `snapshot_of` references (CA-254515) *)
   let to_update =
     VdiMap.merge
-      (fun loc db scan ->
-        match (loc, db, scan) with
-        | loc, Some (r, v), Some vi ->
+      (fun _ db scan ->
+        match (db, scan) with
+        | Some (r, v), Some vi ->
             Some (r, v, vi)
-        | _, _, _ ->
+        | _, _ ->
             None
       )
       db_vdi_map scan_vdi_map
   in
   VdiMap.iter
-    (fun loc (r, v, (vi : vdi_info)) ->
+    (fun _ (r, v, (vi : vdi_info)) ->
       if v.API.vDI_name_label <> vi.name_label then (
         debug "%s name_label <- %s" (Ref.string_of r) vi.name_label ;
         Db.VDI.set_name_label ~__context ~self:r ~value:vi.name_label

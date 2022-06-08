@@ -26,7 +26,7 @@ let vhd_search_path = "/dev/mapper:."
 let update_task_progress __context x =
   TaskHelper.set_progress ~__context (float_of_int x /. 100.)
 
-let run_vhd_tool progress_cb args s s' path =
+let run_vhd_tool progress_cb args s s' _path =
   let vhd_tool = !Xapi_globs.vhd_tool in
   info "Executing %s %s" vhd_tool (String.concat " " args) ;
   let open Forkhelpers in
@@ -82,7 +82,7 @@ let run_vhd_tool progress_cb args s s' path =
 let receive progress_cb format protocol (s : Unix.file_descr)
     (length : int64 option) (path : string) (prefix : string) (prezeroed : bool)
     =
-  let s' = Uuidm.to_string (Uuidm.create `V4) in
+  let s' = Uuid.(to_string (make ())) in
   let args =
     [
       "serve"
@@ -183,7 +183,7 @@ let vhd_of_device path =
 
 let send progress_cb ?relative_to (protocol : string) (dest_format : string)
     (s : Unix.file_descr) (path : string) (prefix : string) =
-  let s' = Uuidm.to_string (Uuidm.create `V4) in
+  let s' = Uuid.(to_string (make ())) in
   let source_format, source =
     match vhd_of_device path with
     | Some vhd ->

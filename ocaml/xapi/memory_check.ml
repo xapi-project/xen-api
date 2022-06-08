@@ -19,10 +19,6 @@ let ( +++ ) = Int64.add
 
 let ( --- ) = Int64.sub
 
-let ( *** ) = Int64.mul
-
-let ( /// ) = Int64.div
-
 (** Calculates the amounts of 'normal' and 'shadow' host memory needed
     to run the given guest with the given amount of guest memory. *)
 let vm_compute_required_memory vm_record guest_memory_kib =

@@ -104,7 +104,7 @@ module Chunk = struct
     Xapi_stdext_unix.Unixext.really_read fd buf 0 (Bytes.length buf) ;
     let stream = (buf, 0) in
     let start, stream = Unmarshal.int64 stream in
-    let len, stream = Unmarshal.int32 stream in
+    let len, _ = Unmarshal.int32 stream in
     let payload = Bytes.make (Int32.to_int len) '\000' in
     Xapi_stdext_unix.Unixext.really_read fd payload 0 (Bytes.length payload) ;
     {start; data= payload}

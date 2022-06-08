@@ -69,6 +69,8 @@ type feature =
   | Pool_secret_rotation  (** Enable Pool Secret Rotation *)
   | Certificate_verification  (** Used by XenCenter *)
   | Updates  (** Enable host updates from a repository *)
+  | Internal_repo_access
+      (** Enable restriction on repository access to pool members only *)
 
 val feature_of_rpc : Rpc.t -> feature
 (** Convert RPC into {!feature}s *)

@@ -86,7 +86,7 @@ let proxy (fd : Lwt_unix.file_descr) addr protocol =
   )
   >>= fun (frame, unframe) ->
   with_open_connection_fd addr ~callback:(fun localfd ->
-      let session_id = Uuidm.v `V4 |> Uuidm.to_string in
+      let session_id = Uuid.(to_string (make ())) in
       Logs_lwt.debug (fun m -> m "Starting proxy session %s" session_id)
       >>= fun () ->
       let thread1 =

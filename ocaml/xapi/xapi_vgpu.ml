@@ -59,7 +59,7 @@ let get_valid_device ~__context ~device ~vM ~vGPUs =
 let create' ~__context ~vM ~gPU_group ~device ~other_config ~_type
     ~powerstate_check ~compatibility_metadata =
   let vgpu = Ref.make () in
-  let uuid = Uuid.to_string (Uuid.make_uuid ()) in
+  let uuid = Uuid.to_string (Uuid.make ()) in
   if not (Pool_features.is_enabled ~__context Features.GPU) then
     raise (Api_errors.Server_error (Api_errors.feature_restricted, [])) ;
   if powerstate_check then
@@ -129,7 +129,7 @@ let destroy ~__context ~self =
       ) ;
   Db.VGPU.destroy ~__context ~self
 
-let atomic_set_resident_on ~__context ~self ~value = assert false
+let atomic_set_resident_on ~__context ~self:_ ~value:_ = assert false
 
 let copy ~__context ~vm vgpu =
   let all = Db.VGPU.get_record ~__context ~self:vgpu in

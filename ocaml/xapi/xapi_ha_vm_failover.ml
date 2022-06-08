@@ -55,18 +55,12 @@ module TaskChains : sig
   (** the type of delayed task related actions *)
   type +'a t
 
-  val return : 'a -> 'a t
-
   val ok : 'a -> ('a, exn) result t
 
   val fail : exn -> ('a, exn) result t
 
   val task : (unit -> API.ref_task) -> task_result t
   (**[task f] is an action that evaluates to the result of task [f ()] *)
-
-  val fmap : ('a -> 'b) -> 'a t -> 'b t
-  (** [fmap f t] will map the final result of action [t] through the function [f].
-     * It is not guaranteed that [f] is executed as soon as the result of [t] is available. *)
 
   (** this module is meant to be opened, defines only an infix operator,
    * avoids polluting the namespace with other functions *)
@@ -76,11 +70,6 @@ module TaskChains : sig
      * It is not guaranteed that [k] is executed as soon as the result of [m] is available.
      * *)
   end
-
-  val eval : __context:Context.t -> 'a t -> 'a t
-  (** [eval ~__context t] will either return [t] unchanged,
-      or evaluate the next action after receiving the result of the contained task.
-      If the action raises an exception, that exceptions propagates out of this function *)
 
   val parallel :
        __context:Context.t
@@ -115,19 +104,6 @@ end = struct
   let task f = wrap (fun () -> Task (f (), return))
 
   (* Operations *)
-
-  let rec fmap f = function
-    | Completed x ->
-        (* just map the result through [f] if we already have it *)
-        Completed (f x)
-    | Task (task, task_next) ->
-        (* If everything was immediately available then the result would be:
-           * [f (task_next (result_of_task task))]
-           * However we first need to wait for the task to finish,
-           * and when we receive the result from the task, we need to map it through
-           * [task_next] and then through [f].
-           * The type system helps to ensure that the pipeline below is correct *)
-        Task (task, fun x -> x |> task_next |> fmap f)
 
   module Infix = struct
     let rec ( >>= ) m k =
@@ -193,11 +169,9 @@ let all_protected_vms ~__context =
     vms
 
 (* Comparison function which can be used to sort a list of VM ref, record by order *)
-let order_f (vm_ref, vm_rec) =
+let order_f (_, vm_rec) =
   let negative_high x = if x < 0L then Int64.max_int else x in
   negative_high vm_rec.API.vM_order
-
-let by_order a b = compare (order_f a) (order_f b)
 
 let ( $ ) x y = x y
 
@@ -353,7 +327,7 @@ let get_live_set ~__context =
   let all_hosts = Db.Host.get_all_records ~__context in
   let live_hosts =
     List.filter
-      (fun (rf, r) ->
+      (fun (_, r) ->
         r.API.host_enabled
         &&
         try Db.Host_metrics.get_live ~__context ~self:r.API.host_metrics
@@ -460,7 +434,7 @@ let compute_restart_plan ~__context ~all_protected_vms ~live_set
        )
     && List.mem rf live_set
   in
-  let live_hosts_and_snapshots, dead_hosts_and_snapshots =
+  let live_hosts_and_snapshots, _dead_hosts_and_snapshots =
     List.partition is_alive all_hosts_and_snapshots
   in
   let live_hosts =
@@ -603,7 +577,7 @@ let compute_restart_plan ~__context ~all_protected_vms ~live_set
   in
   (* Compute the current placement for all agile VMs. VMs which are powered off currently are placed nowhere *)
   let agile_vm_accounted_to_host =
-    List.map (fun (vm, snapshot) -> (vm, vm_accounted_to_host vm)) agile_vms
+    List.map (fun (vm, _snapshot) -> (vm, vm_accounted_to_host vm)) agile_vms
   in
   (* All these hosts are live and the VMs are running (or scheduled to be running): *)
   let agile_vm_placement =
@@ -692,7 +666,7 @@ let plan_for_n_failures ~__context ~all_protected_vms ?live_set
   in
   try
     (* 'changes' are applied by the compute_restart_plan function *)
-    let plan, config, vms_not_restarted, non_agile_protected_vms_exist =
+    let _plan, config, vms_not_restarted, non_agile_protected_vms_exist =
       compute_restart_plan ~__context ~all_protected_vms ~live_set ~change n
     in
     (* Could some VMs not be started? If so we're overcommitted before we started. *)
@@ -1013,7 +987,7 @@ let restart_auto_run_vms ~__context live_set n =
       let plan, config, vms_not_restarted, non_agile_protected_vms_exist =
         compute_restart_plan ~__context ~all_protected_vms ~live_set n
       in
-      let plan, config, vms_not_restarted, non_agile_protected_vms_exist =
+      let plan, _config, vms_not_restarted, _non_agile_protected_vms_exist =
         if
           true
           && Xapi_hooks.pool_pre_ha_vm_restart_hook_exists ()
@@ -1084,9 +1058,11 @@ let restart_auto_run_vms ~__context live_set n =
             Hashtbl.replace last_start_attempt vm (Unix.gettimeofday ()) ;
             match host with
             | None ->
-                Client.Client.Async.VM.start rpc session_id vm false true
-            | Some h ->
-                Client.Client.Async.VM.start_on rpc session_id vm h false true
+                Client.Client.Async.VM.start ~rpc ~session_id ~vm
+                  ~start_paused:false ~force:true
+            | Some host ->
+                Client.Client.Async.VM.start_on ~rpc ~session_id ~vm ~host
+                  ~start_paused:false ~force:true
           ) else
             failwith
               (Printf.sprintf "VM: %s restart attempt delayed for 120s"
@@ -1094,7 +1070,7 @@ let restart_auto_run_vms ~__context live_set n =
               )
         in
         TaskChains.task go >>= function
-        | Error (Api_errors.Server_error (code, params))
+        | Error (Api_errors.Server_error (code, _))
           when code = Api_errors.ha_operation_would_break_failover_plan -> (
             (* This should never happen since the planning code would always allow the restart of a protected VM... *)
             error
@@ -1233,7 +1209,8 @@ let restart_auto_run_vms ~__context live_set n =
                  = Constants.ha_restart_best_effort
             then
               TaskChains.task (fun () ->
-                  Client.Client.Async.VM.start rpc session_id vm false true
+                  Client.Client.Async.VM.start ~rpc ~session_id ~vm
+                    ~start_paused:false ~force:true
               )
             else
               TaskChains.ok Rpc.Null

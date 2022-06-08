@@ -21,21 +21,6 @@ module type V6clientS = module type of V6_client
 
 let v6client = ref (module V6_client : V6clientS)
 
-let fst4 (e, _, _, _) = e
-
-and lst4 (_, _, _, i) = i
-
-let find_min_edition allowed_editions =
-  List.fold_left
-    (fun a b ->
-      if lst4 a < lst4 b then
-        a
-      else
-        b
-    )
-    ("", "", "", max_int) allowed_editions
-  |> fst4
-
 let initialise_host_editions ~__context ~host =
   let dbg = Context.string_of_task __context in
   let editions =

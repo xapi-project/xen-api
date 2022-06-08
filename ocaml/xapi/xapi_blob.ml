@@ -18,7 +18,7 @@ module D = Debug.Make (struct let name = "xapi_blob" end)
 open D
 
 let create ~__context ~mime_type ~public =
-  let uuid = Uuid.make_uuid () in
+  let uuid = Uuid.make () in
   let ref = Ref.make () in
   let mime_type' =
     if mime_type = "" then "application/octet-stream" else mime_type
@@ -74,7 +74,7 @@ let send_blobs ~__context ~remote_address ~session_id uuid_map =
             )
         in
         with_transport transport
-          (with_http request (fun (response, put_fd) ->
+          (with_http request (fun (_, put_fd) ->
                let blob_fd = Unix.openfile path [Unix.O_RDONLY] 0o600 in
                ignore
                  (Xapi_stdext_pervasives.Pervasiveext.finally

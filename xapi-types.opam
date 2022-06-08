@@ -21,7 +21,6 @@ depends: [
   "sexpr"
   "base-threads"
   "uuid"
-  "uuidm"
   "xapi-consts"
   "xapi-datamodel"
   "xapi-stdext-date"

@@ -32,8 +32,6 @@ module Message = struct
 end
 
 module Token = struct
-  type t = int64 * int64 (* last id, message id *)
-
   exception Failed_to_parse of string
 
   let of_string token =
@@ -68,18 +66,6 @@ module Subscription = struct
             (Api_errors.Server_error
                (Api_errors.event_subscription_parse_failure, [x])
             )
-
-  let to_string subs =
-    let to_string x =
-      match x with
-      | Class y ->
-          Printf.sprintf "class(%s)" y
-      | Object (cls, id) ->
-          Printf.sprintf "object(%s,%s)" cls id
-      | All ->
-          "all"
-    in
-    Printf.sprintf "[%s]" (String.concat "," (List.map to_string subs))
 
   let any = List.fold_left (fun acc x -> acc || x) false
 
@@ -196,7 +182,7 @@ module Next = struct
                 )
                 !queue
             in
-            let total_size_after, rev_to_keep, rev_to_drop =
+            let _total_size_after, rev_to_keep, rev_to_drop =
               List.fold_left
                 (fun (tot_size, keep, drop) (size, elt) ->
                   if tot_size + size < max_queue_size then
@@ -618,8 +604,8 @@ let from_inner __context session subs from from_t deadline =
   let msg_gen, messages, tableset, (creates, mods, deletes, last) =
     with_call session subs (fun sub ->
         let rec grab_nonempty_range () =
-          let ( (msg_gen, messages, tableset, (creates, mods, deletes, last)) as
-              result
+          let ( (msg_gen, messages, _tableset, (creates, mods, deletes, last))
+              as result
               ) =
             Db_lock.with_lock (fun () -> grab_range (Db_backend.make ()))
           in
@@ -707,7 +693,7 @@ let from_inner __context session subs from from_t deadline =
     Db_cache_types.TableSet.fold
       (fun tablename _ table acc ->
         ( String.lowercase_ascii tablename
-        , Db_cache_types.Table.fold (fun r _ _ acc -> Int32.add 1l acc) table 0l
+        , Db_cache_types.Table.fold (fun _ _ _ acc -> Int32.add 1l acc) table 0l
         )
         :: acc
       )

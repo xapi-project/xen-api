@@ -188,7 +188,7 @@ let stop_request_thread () =
       Condition.signal request_cond
   )
 
-let read_response result response s =
+let read_response result _response s =
   try result := Unixext.string_of_fd s
   with Unix.Unix_error (Unix.ECONNRESET, _, _) ->
     raise Xmlrpc_client.Connection_reset

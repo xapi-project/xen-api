@@ -90,7 +90,7 @@ let valid_operations ~__context record _ref' : table =
    * like [clean_shutdown; hard_shutdown; suspend; pause] on VM *)
   let vm_current_ops = Db.VM.get_current_operations ~__context ~self:vm in
   List.iter
-    (fun (task, op) ->
+    (fun (_, op) ->
       if List.mem op [`clean_shutdown; `hard_shutdown; `suspend; `pause] then
         let current_op_str =
           "Current operation on VM:"
@@ -172,11 +172,6 @@ let assert_operation_valid ~__context ~self ~(op : API.vif_operations) =
   let table = valid_operations ~__context all self in
   throw_error table op
 
-let assert_attachable ~__context ~self =
-  let all = Db.VIF.get_record_internal ~__context ~self in
-  let table = valid_operations ~__context all self in
-  throw_error table `attach
-
 let update_allowed_operations ~__context ~self : unit =
   let all = Db.VIF.get_record_internal ~__context ~self in
   let valid = valid_operations ~__context all self in
@@ -186,13 +181,6 @@ let update_allowed_operations ~__context ~self : unit =
   Db.VIF.set_allowed_operations ~__context ~self ~value:keys
 
 (** Someone is cancelling a task so remove it from the current_operations *)
-let cancel_task ~__context ~self ~task_id =
-  let all = List.map fst (Db.VIF.get_current_operations ~__context ~self) in
-  if List.mem task_id all then (
-    Db.VIF.remove_from_current_operations ~__context ~self ~key:task_id ;
-    update_allowed_operations ~__context ~self
-  )
-
 let cancel_tasks ~__context ~self ~all_tasks_in_db ~task_ids =
   let ops = Db.VIF.get_current_operations ~__context ~self in
   let set value = Db.VIF.set_current_operations ~__context ~self ~value in
@@ -250,7 +238,7 @@ let create ~__context ~device ~network ~vM ~mAC ~mTU ~other_config
     Pool_features.assert_enabled ~__context ~f:Features.Network_sriov ;
   if locking_mode = `locked || ipv4_allowed <> [] || ipv6_allowed <> [] then
     assert_locking_licensed ~__context ;
-  let uuid = Uuid.make_uuid () in
+  let uuid = Uuid.make () in
   let ref = Ref.make () in
   let vm_mac_seed =
     try
@@ -302,7 +290,7 @@ let create ~__context ~device ~network ~vM ~mAC ~mTU ~other_config
         raise
           (Api_errors.Server_error (Api_errors.device_already_exists, [device])) ;
       let metrics = Ref.make ()
-      and metrics_uuid = Uuid.to_string (Uuid.make_uuid ()) in
+      and metrics_uuid = Uuid.to_string (Uuid.make ()) in
       Db.VIF_metrics.create ~__context ~ref:metrics ~uuid:metrics_uuid
         ~io_read_kbs:0. ~io_write_kbs:0.
         ~last_updated:(Xapi_stdext_date.Date.of_float 0.)
@@ -383,7 +371,7 @@ let copy ~__context ~vm ~preserve_mac_address vif =
         let site = proxy.API.pVS_proxy_site in
         let vIF = result in
         let pvs_proxy = Ref.make () in
-        let uuid = Uuidm.to_string (Uuidm.create `V4) in
+        let uuid = Uuid.(to_string (make ())) in
         Db.PVS_proxy.create ~__context ~ref:pvs_proxy ~uuid ~site ~vIF
           ~currently_attached:false ~status:`stopped
       with e ->

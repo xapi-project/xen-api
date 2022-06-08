@@ -30,7 +30,9 @@ let get_running_domUs xc xs =
   let metadata_of_domain di =
     let open Xenctrl in
     let domid = di.domid in
-    let uuid = Uuid.(to_string (uuid_of_int_array di.handle)) in
+    let ( let* ) = Option.bind in
+    let* uuid_raw = Uuid.of_int_array di.handle in
+    let uuid = Uuid.to_string uuid_raw in
 
     (* Actively hide migrating VM uuids, these are temporary and xenops
        writes the original and the final uuid to xenstore *)
@@ -51,10 +53,10 @@ let get_running_domUs xc xs =
       else
         None
     in
-    (domid, stable_uuid key)
+    Some (domid, stable_uuid key)
   in
   (* Do not list dom0 *)
-  Xenctrl.domain_getinfolist xc 1 |> List.map metadata_of_domain
+  Xenctrl.domain_getinfolist xc 1 |> List.filter_map metadata_of_domain
 
 (* A mapping of VDIs to the VMs they are plugged to, in which position, and the device-id *)
 let vdi_to_vm_map : (string * (string * string * int)) list ref = ref []

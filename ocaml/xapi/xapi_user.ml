@@ -16,7 +16,7 @@
 *)
 
 let create ~__context ~short_name ~fullname ~other_config =
-  let uuid = Uuid.make_uuid () in
+  let uuid = Uuid.make () in
   let ref = Ref.make () in
   Db.User.create ~__context ~ref ~uuid:(Uuid.to_string uuid) ~short_name
     ~fullname ~other_config ;

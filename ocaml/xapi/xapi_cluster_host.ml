@@ -60,7 +60,7 @@ let create_internal ~__context ~cluster ~host ~pIF : API.ref_Cluster_host =
       assert_pif_attached_to ~host ~pIF ~__context ;
       assert_cluster_host_can_be_created ~__context ~host ;
       let ref = Ref.make () in
-      let uuid = Uuidm.to_string (Uuidm.create `V4) in
+      let uuid = Uuid.(to_string (make ())) in
       Db.Cluster_host.create ~__context ~ref ~uuid ~cluster ~host ~pIF
         ~enabled:false ~current_operations:[] ~allowed_operations:[]
         ~other_config:[] ~joined:false ;
@@ -191,7 +191,7 @@ let resync_host ~__context ~host =
               (Ref.string_of self) ;
             Xapi_clustering.Daemon.enable ~__context ;
             (* Note that join_internal and enable both use the clustering lock *)
-            Client.Client.Cluster_host.enable rpc session_id self
+            Client.Client.Cluster_host.enable ~rpc ~session_id ~self
           ) ;
           let verify = Stunnel_client.get_verify_by_default () in
           set_tls_config ~__context ~self ~verify

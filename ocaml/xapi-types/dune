@@ -18,7 +18,6 @@
     rpclib.core
     rpclib.xml
     threads
-    uuidm
     xapi-consts
     xapi-stdext-date
     xapi-stdext-unix

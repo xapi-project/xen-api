@@ -21,9 +21,6 @@ module D = Debug.Make (struct let name = "gpg" end)
 
 open D
 
-(* Set from config file: *)
-let filename = ref ""
-
 let gpg_binary_path = "/usr/bin/gpg"
 
 exception InvalidSignature
@@ -62,7 +59,7 @@ let common ty filename signature size f =
   Unix.unlink tmp_file ;
   (* no need to close the 'tmp_oc' -> closing the fd is enough *)
   let status_out, status_in = Unix.pipe () in
-  let status_in_uuid = Uuid.to_string (Uuid.make_uuid ()) in
+  let status_in_uuid = Uuid.to_string (Uuid.make ()) in
   (* from the parent's PoV *)
   let fds_to_close = ref [result_out; result_in; status_out; status_in] in
   let close' fd =
@@ -138,7 +135,7 @@ let common ty filename signature size f =
       | Forkhelpers.Success (_, x) ->
           debug "gpg subprocess succeeded" ;
           x
-      | Forkhelpers.Failure (log, Forkhelpers.Subprocess_failed 2) ->
+      | Forkhelpers.Failure (_, Forkhelpers.Subprocess_failed 2) ->
           (* Happens when gpg cannot find a readable signature *)
           raise InvalidSignature
       | Forkhelpers.Failure (log, exn) ->

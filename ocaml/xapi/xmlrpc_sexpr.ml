@@ -16,8 +16,6 @@
 *)
 
 open Xml
-open XMLRPC
-open SExpr
 open Xapi_stdext_std.Xstringext
 
 (** Accepts an xml-rpc tree of type xml.xml
@@ -40,9 +38,9 @@ open Xapi_stdext_std.Xstringext
 let xmlrpc_to_sexpr (root : xml) =
   let rec visit (h : int) (xml_lt : xml list) =
     match (h, xml_lt) with
-    | h, [] ->
+    | _, [] ->
         []
-    | h, PCData text :: _ ->
+    | _, PCData text :: _ ->
         let text = String.strip String.isspace text in
         [SExpr.String text]
     (* empty <value>s have default value '' *)
@@ -54,20 +52,20 @@ let xmlrpc_to_sexpr (root : xml) =
     | h, Element ("name", _, children) :: siblings ->
         visit (h + 1) children @ visit h siblings
     (* <member> tags *)
-    | h, Element ("member", _, children) :: siblings ->
+    | h, Element ("member", _, children) :: siblings -> (
         let (mychildren : SExpr.t list) = visit (h + 1) children in
         let anode = SExpr.Node mychildren in
         let (mysiblings : SExpr.t list) = visit h siblings in
-        if List.length mychildren = 2 then (*name & value?*)
-          match List.nth mychildren 0 with
-          | SExpr.String name ->
-              (*is name a string?*)
-              anode :: mysiblings
-              (*then add member anode*)
-          | _ ->
-              mysiblings (*ignore incorrect member*)
-        else
-          mysiblings
+        match mychildren with
+        (*name & value?*)
+        | [SExpr.String _; _] ->
+            (*is name a string?*)
+            anode :: mysiblings
+            (*then add member anode*)
+        | _ ->
+            mysiblings
+        (*ignore incorrect member*)
+      )
     (*ignore incorrect member*)
     (* any other element *)
     | h, Element (tag, _, children) :: siblings ->
@@ -140,7 +138,7 @@ let sexpr_to_xmlrpc (root : SExpr.t) =
           Element ("WRONG_SEXPR_MEMBER", [], [])
     )
     (* member tag without values - wrong format - defaults to empty value *)
-    | h, SExpr.Node (SExpr.String "struct" :: _), SExpr.Node [SExpr.String name]
+    | _, SExpr.Node (SExpr.String "struct" :: _), SExpr.Node [SExpr.String name]
       ->
         Element
           ( "member"
@@ -161,10 +159,10 @@ let sexpr_to_xmlrpc (root : SExpr.t) =
         let xml_noemptytags = List.filter is_not_empty_tag xmlvalues in
         Element (tag, [], xml_noemptytags)
     (* sexpr representing a pcdata *)
-    | h, _, SExpr.String s ->
+    | _, _, SExpr.String s ->
         PCData s
     (* sexpr representing a nameless tag *)
-    | h, _, SExpr.Node [] ->
+    | _, _, SExpr.Node [] ->
         Element ("EMPTY_SEXPR", [], [])
     (* otherwise, we reached a senseless sexpr *)
     | _ ->

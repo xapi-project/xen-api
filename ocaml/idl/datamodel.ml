@@ -6264,6 +6264,11 @@ module Message = struct
         [(Ref _message, "self", "The reference of the message to destroy")]
       ~flags:[`Session] ~allowed_roles:_R_POOL_OP ()
 
+  let destroy_many =
+    call ~name:"destroy_many" ~lifecycle:[]
+      ~params:[(Set (Ref _message), "messages", "Messages to destroy")]
+      ~allowed_roles:_R_POOL_OP ()
+
   let get_all =
     call ~name:"get_all" ~in_product_since:rel_orlando ~params:[]
       ~flags:[`Session]
@@ -6326,6 +6331,7 @@ module Message = struct
         [
           create
         ; destroy
+        ; destroy_many
         ; get
         ; get_all
         ; get_since
@@ -8334,7 +8340,7 @@ let http_actions =
     , (Get, Constants.get_pool_update_download_uri, false, [], _R_READ_ONLY, [])
     )
   ; ( "get_repository"
-    , (Get, Constants.get_repository_uri, false, [], _R_READ_ONLY, [])
+    , (Get, Constants.get_repository_uri, false, [], _R_LOCAL_ROOT_ONLY, [])
     )
   ; ( "get_host_updates"
     , ( Get

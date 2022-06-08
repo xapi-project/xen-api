@@ -39,7 +39,7 @@ let call_extension rpc =
         Forkhelpers.execute_command_get_output_send_stdin path ["--xmlrpc"]
           (Xmlrpc.string_of_call rpc)
       with
-      | Forkhelpers.Spawn_internal_error (log, output, Unix.WSTOPPED i) ->
+      | Forkhelpers.Spawn_internal_error (log, output, Unix.WSTOPPED _) ->
           raise
             (Api_errors.Server_error
                (Api_errors.internal_error, [path; "task stopped"; output; log])
@@ -57,7 +57,7 @@ let call_extension rpc =
                  ]
                )
             )
-      | Forkhelpers.Spawn_internal_error (log, output, Unix.WEXITED i) ->
+      | Forkhelpers.Spawn_internal_error (log, output, Unix.WEXITED _) ->
           raise
             (Api_errors.Server_error
                (Api_errors.internal_error, [path; "non-zero exit"; output; log])

@@ -16,9 +16,7 @@ module D = Debug.Make (struct let name = "xapi_pool_helpers" end)
 
 open D
 open Client
-open Db_filter
 open Record_util
-open Api_errors
 
 let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
@@ -228,7 +226,7 @@ let get_master_slaves_list ~__context =
 
 (* returns the list of slaves in the pool *)
 let get_slaves_list ~__context =
-  get_master_slaves_list_with_fn ~__context (fun master slaves -> slaves)
+  get_master_slaves_list_with_fn ~__context (fun _ slaves -> slaves)
 
 let call_fn_on_hosts ~__context hosts f =
   Helpers.call_api_functions ~__context (fun rpc session_id ->

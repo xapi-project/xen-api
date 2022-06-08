@@ -99,7 +99,7 @@ let refresh_localhost_info ~__context info =
     match info.hypervisor with
     | None ->
         []
-    | Some {capabilities} ->
+    | Some {capabilities; _} ->
         String.split ' ' capabilities
   in
   Db.Host.set_capabilities ~__context ~self:host ~value:caps ;
@@ -209,7 +209,8 @@ let resynchronise_pif_params ~__context =
   Helpers.call_api_functions ~__context (fun rpc session_id ->
       let dbg = Context.string_of_task __context in
       let bridges = Net.Bridge.get_all dbg () in
-      Client.Host.sync_pif_currently_attached rpc session_id localhost bridges
+      Client.Host.sync_pif_currently_attached ~rpc ~session_id ~host:localhost
+        ~bridges
   ) ;
   (* sync management *)
   Xapi_pif.update_management_flags ~__context ~host:localhost ;

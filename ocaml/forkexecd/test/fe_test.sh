@@ -1,7 +1,8 @@
 #!/bin/sh
 
 # Use user-writable directories
-export XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-/tmp}
+export TMPDIR=${TMPDIR:-/tmp}
+export XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-$TMPDIR}
 export FE_TEST=1
 
 SOCKET=${XDG_RUNTIME_DIR}/xapi/forker/main

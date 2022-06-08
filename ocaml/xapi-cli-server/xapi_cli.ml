@@ -121,7 +121,7 @@ let with_session ~local rpc u p session f =
     (fun () -> f session)
     (fun () -> do_logout ())
 
-let do_rpcs req s username password minimal cmd session args =
+let do_rpcs _req s username password minimal cmd session args =
   let cmdname = get_cmdname cmd in
   let cspec =
     try Hashtbl.find cmdtable cmdname
@@ -326,7 +326,7 @@ let exception_handler s e =
         s
   | Failure str ->
       Cli_util.server_error Api_errors.internal_error ["Failure: " ^ str] s
-  | Unix.Unix_error (a, b, c) ->
+  | Unix.Unix_error (a, _, _) ->
       Cli_util.server_error Api_errors.internal_error
         ["Unix_error: " ^ Unix.error_message a]
         s
@@ -343,7 +343,7 @@ let handler (req : Http.Request.t) (bio : Buf_io.t) _ =
   (* Tell the client the server version *)
   marshal_protocol s ;
   (* Read the client's protocol version *)
-  let major', minor' = unmarshal_protocol s in
+  let major', _ = unmarshal_protocol s in
   if major' <> major then (
     debug "Rejecting request from client" ;
     failwith "Version mismatch"

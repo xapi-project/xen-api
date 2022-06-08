@@ -189,7 +189,7 @@ let update_pifs ~__context host pifs =
               else
                 let ref = Ref.make () in
                 Db.PIF_metrics.create ~__context ~ref
-                  ~uuid:(Uuid.to_string (Uuid.make_uuid ()))
+                  ~uuid:(Uuid.to_string (Uuid.make ()))
                   ~carrier:false ~device_name:"" ~vendor_name:"" ~device_id:""
                   ~vendor_id:"" ~speed:0L ~duplex:false ~pci_bus_path:""
                   ~io_read_kbs:0. ~io_write_kbs:0.

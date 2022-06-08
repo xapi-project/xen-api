@@ -140,7 +140,7 @@ let make_call ?driver_params ?sr_sm_config ?vdi_sm_config ?vdi_type
             (Db.SR.get_uuid ~__context
                ~self:
                  (Db.Host.get_local_cache_sr ~__context
-                    ~self:(Helpers.get_localhost __context)
+                    ~self:(Helpers.get_localhost ~__context)
                  )
             )
         with _ -> None
@@ -320,8 +320,8 @@ let with_session sr f =
       finally (fun () -> f session_id) (fun () -> destroy_session session_id)
   )
 
-let exec_xmlrpc ?context ?(needs_session = true) (driver : string) (call : call)
-    =
+let exec_xmlrpc ?context:_ ?(needs_session = true) (driver : string)
+    (call : call) =
   let do_call call =
     let xml = xmlrpc_of_call call in
     let name = Printf.sprintf "sm_exec: %s" call.cmd in
@@ -371,7 +371,7 @@ let exec_xmlrpc ?context ?(needs_session = true) (driver : string) (call : call)
                       )
                    )
                 )
-          | Forkhelpers.Spawn_internal_error (log, output, Unix.WEXITED i) ->
+          | Forkhelpers.Spawn_internal_error (log, output, Unix.WEXITED _) ->
               raise
                 (Storage_interface.Storage_error
                    (Backend_error

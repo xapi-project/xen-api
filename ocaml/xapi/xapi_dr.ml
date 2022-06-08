@@ -300,10 +300,7 @@ let recover_vms ~__context ~vms ~session_to ~force =
       in
       let vmrefs =
         Xapi_stdext_std.Listext.List.setify
-          (List.map
-             (fun (cls, id, r) -> Ref.of_string r)
-             state.Import.created_vms
-          )
+          (List.map (fun (_, _, r) -> Ref.of_string r) state.Import.created_vms)
       in
       try
         Import.complete_import ~__context:__context_to vmrefs ;

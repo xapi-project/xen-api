@@ -33,7 +33,6 @@ depends: [
   "rresult"
   "sexplib0"
   "uuid"
-  "uuidm"
   "xapi-backtrace"
   "xapi-idl"
   "xapi-rrd"

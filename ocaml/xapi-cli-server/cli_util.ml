@@ -76,7 +76,7 @@ let track callback rpc (session_id : API.ref_session) task =
     (fun () -> Client.Event.unregister ~rpc ~session_id ~classes)
 
 let result_from_task rpc session_id remote_task =
-  match Client.Task.get_status rpc session_id remote_task with
+  match Client.Task.get_status ~rpc ~session_id ~self:remote_task with
   | `cancelling | `cancelled ->
       raise
         (Api_errors.Server_error
@@ -87,8 +87,12 @@ let result_from_task rpc session_id remote_task =
   | `success ->
       ()
   | `failure ->
-      let error_info = Client.Task.get_error_info rpc session_id remote_task in
-      let trace = Client.Task.get_backtrace rpc session_id remote_task in
+      let error_info =
+        Client.Task.get_error_info ~rpc ~session_id ~self:remote_task
+      in
+      let trace =
+        Client.Task.get_backtrace ~rpc ~session_id ~self:remote_task
+      in
       let exn =
         match error_info with
         | code :: params ->
@@ -130,7 +134,7 @@ let track_http_operation ?use_existing_task ?(progress_bar = false) fd rpc
   let task_id =
     match use_existing_task with
     | None ->
-        Client.Task.create rpc session_id label ""
+        Client.Task.create ~rpc ~session_id ~label ~description:""
     | Some t ->
         t
   in
@@ -156,12 +160,14 @@ let track_http_operation ?use_existing_task ?(progress_bar = false) fd rpc
         rpc session_id task_id ;
       Thread.join receive_heartbeats ;
       if !response = Response OK then
-        if Client.Task.get_status rpc session_id task_id = `success then (
-          let result = Client.Task.get_result rpc session_id task_id in
+        if Client.Task.get_status ~rpc ~session_id ~self:task_id = `success then (
+          let result = Client.Task.get_result ~rpc ~session_id ~self:task_id in
           debug "result was [%s]" result ;
           result
         ) else
-          let params = Client.Task.get_error_info rpc session_id task_id in
+          let params =
+            Client.Task.get_error_info ~rpc ~session_id ~self:task_id
+          in
           raise (Api_errors.Server_error (List.hd params, List.tl params))
       else (
         debug "client-side reports failure" ;
@@ -174,7 +180,9 @@ let track_http_operation ?use_existing_task ?(progress_bar = false) fd rpc
         (* using this as an indicator that the handler never got the task. All handlers *)
         (* would need to use this mechanism if we want to check for it here. For now a  *)
         (* delay of 1 will do... *)
-        let params = Client.Task.get_error_info rpc session_id task_id in
+        let params =
+          Client.Task.get_error_info ~rpc ~session_id ~self:task_id
+        in
         if params = [] then
           raise (Api_errors.Server_error (Api_errors.client_error, []))
         else
@@ -187,7 +195,7 @@ let track_http_operation ?use_existing_task ?(progress_bar = false) fd rpc
       match use_existing_task with
       | None ->
           log_exn_continue "destroying task"
-            (fun x -> Client.Task.destroy rpc session_id x)
+            (fun self -> Client.Task.destroy ~rpc ~session_id ~self)
             task_id
       | Some _ ->
           ()
@@ -214,20 +222,21 @@ let rewrite_provisioning_xml rpc session_id new_vm sr_uuid =
     | x ->
         x
   in
-  let other_config = Client.VM.get_other_config rpc session_id new_vm in
+  let other_config = Client.VM.get_other_config ~rpc ~session_id ~self:new_vm in
   if List.mem_assoc "disks" other_config then (
     let xml = Xml.parse_string (List.assoc "disks" other_config) in
-    Client.VM.remove_from_other_config rpc session_id new_vm "disks" ;
+    Client.VM.remove_from_other_config ~rpc ~session_id ~self:new_vm
+      ~key:"disks" ;
     let newdisks = rewrite_xml xml sr_uuid in
-    Client.VM.add_to_other_config rpc session_id new_vm "disks"
-      (Xml.to_string newdisks)
+    Client.VM.add_to_other_config ~rpc ~session_id ~self:new_vm ~key:"disks"
+      ~value:(Xml.to_string newdisks)
   )
 
 let get_default_sr_uuid rpc session_id =
-  let pool = List.hd (Client.Pool.get_all rpc session_id) in
-  let sr = Client.Pool.get_default_SR rpc session_id pool in
+  let pool = List.hd (Client.Pool.get_all ~rpc ~session_id) in
+  let sr = Client.Pool.get_default_SR ~rpc ~session_id ~self:pool in
   try
-    Some (Client.SR.get_uuid rpc session_id sr)
+    Some (Client.SR.get_uuid ~rpc ~session_id ~self:sr)
     (* throws an exception if not found *)
   with _ -> None
 
@@ -308,12 +317,12 @@ let rec uri_of_someone rpc session_id = function
       (* See ocaml/xe-cli/newcli.ml:parse_url *)
       ""
   | SpecificHost h ->
-      let pool = List.hd (Client.Pool.get_all rpc session_id) in
-      let pool_master = Client.Pool.get_master rpc session_id pool in
+      let pool = List.hd (Client.Pool.get_all ~rpc ~session_id) in
+      let pool_master = Client.Pool.get_master ~rpc ~session_id ~self:pool in
       if h = pool_master then
         uri_of_someone rpc session_id Master
       else
-        let address = Client.Host.get_address rpc session_id h in
+        let address = Client.Host.get_address ~rpc ~session_id ~self:h in
         "https://" ^ address
 
 let error_of_exn e =

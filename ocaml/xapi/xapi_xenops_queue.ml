@@ -15,7 +15,6 @@
 module D = Debug.Make (struct let name = "xenops" end)
 
 open D
-open Xenops_interface
 
 module type XENOPS = module type of Xenops_client.Client
 

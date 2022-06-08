@@ -12,10 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 open API
-
-module D = Debug.Make (struct let name = "xapi_network_helpers" end)
-
-open D
 open Xapi_pif_helpers
 
 let is_sriov_based_network ~__context ~network =

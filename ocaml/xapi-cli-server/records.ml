@@ -185,7 +185,7 @@ let get_uuids_from_refs rs = map_and_concat get_uuid_from_ref rs
 let get_pbds_host rpc session_id pbds =
   match pbds with
   | [pbd] ->
-      Client.PBD.get_host rpc session_id pbd
+      Client.PBD.get_host ~rpc ~session_id ~self:pbd
   | _ ->
       Ref.null
 
@@ -197,7 +197,7 @@ let get_sr_host rpc session_id record =
 let bond_record rpc session_id bond =
   let _ref = ref bond in
   let empty_record =
-    ToGet (fun () -> Client.Bond.get_record rpc session_id !_ref)
+    ToGet (fun () -> Client.Bond.get_record ~rpc ~session_id ~self:!_ref)
   in
   let record = ref empty_record in
   let x () = lzy_get record in
@@ -231,8 +231,8 @@ let bond_record rpc session_id bond =
             Record_util.s2sm_to_string "; " (x ()).API.bond_properties
           )
           ~get_map:(fun () -> (x ()).API.bond_properties)
-          ~set_in_map:(fun k v ->
-            Client.Bond.set_property rpc session_id bond k v
+          ~set_in_map:(fun name value ->
+            Client.Bond.set_property ~rpc ~session_id ~self:bond ~name ~value
           )
           ()
       ; make_field ~name:"primary-slave"
@@ -250,7 +250,7 @@ let bond_record rpc session_id bond =
 let vlan_record rpc session_id vlan =
   let _ref = ref vlan in
   let empty_record =
-    ToGet (fun () -> Client.VLAN.get_record rpc session_id !_ref)
+    ToGet (fun () -> Client.VLAN.get_record ~rpc ~session_id ~self:!_ref)
   in
   let record = ref empty_record in
   let x () = lzy_get record in
@@ -285,7 +285,7 @@ let vlan_record rpc session_id vlan =
 let tunnel_record rpc session_id tunnel =
   let _ref = ref tunnel in
   let empty_record =
-    ToGet (fun () -> Client.Tunnel.get_record rpc session_id !_ref)
+    ToGet (fun () -> Client.Tunnel.get_record ~rpc ~session_id ~self:!_ref)
   in
   let record = ref empty_record in
   let x () = lzy_get record in
@@ -320,11 +320,13 @@ let tunnel_record rpc session_id tunnel =
           ~get:(fun () ->
             Record_util.s2sm_to_string "; " (x ()).API.tunnel_other_config
           )
-          ~add_to_map:(fun k v ->
-            Client.Tunnel.add_to_other_config rpc session_id tunnel k v
+          ~add_to_map:(fun key value ->
+            Client.Tunnel.add_to_other_config ~rpc ~session_id ~self:tunnel ~key
+              ~value
           )
-          ~remove_from_map:(fun k ->
-            Client.Tunnel.remove_from_other_config rpc session_id tunnel k
+          ~remove_from_map:(fun key ->
+            Client.Tunnel.remove_from_other_config ~rpc ~session_id ~self:tunnel
+              ~key
           )
           ~get_map:(fun () -> (x ()).API.tunnel_other_config)
           ()
@@ -339,7 +341,7 @@ let tunnel_record rpc session_id tunnel =
 let message_record rpc session_id message =
   let _ref = ref message in
   let empty_record =
-    ToGet (fun () -> Client.Message.get_record rpc session_id !_ref)
+    ToGet (fun () -> Client.Message.get_record ~rpc ~session_id ~self:!_ref)
   in
   let record = ref empty_record in
   let x () = lzy_get record in
@@ -379,7 +381,8 @@ let message_record rpc session_id message =
 let network_sriov_record rpc session_id network_sriov =
   let _ref = ref network_sriov in
   let empty_record =
-    ToGet (fun () -> Client.Network_sriov.get_record rpc session_id !_ref)
+    ToGet
+      (fun () -> Client.Network_sriov.get_record ~rpc ~session_id ~self:!_ref)
   in
   let record = ref empty_record in
   let x () = lzy_get record in
@@ -416,8 +419,8 @@ let network_sriov_record rpc session_id network_sriov =
           ~get:(fun () ->
             try
               Int64.to_string
-                (Client.Network_sriov.get_remaining_capacity rpc session_id
-                   network_sriov
+                (Client.Network_sriov.get_remaining_capacity ~rpc ~session_id
+                   ~self:network_sriov
                 )
             with _ -> "<unknown>"
           )
@@ -428,7 +431,7 @@ let network_sriov_record rpc session_id network_sriov =
 let pif_record rpc session_id pif =
   let _ref = ref pif in
   let empty_record =
-    ToGet (fun () -> Client.PIF.get_record rpc session_id !_ref)
+    ToGet (fun () -> Client.PIF.get_record ~rpc ~session_id ~self:!_ref)
   in
   let record = ref empty_record in
   let x () = lzy_get record in
@@ -438,8 +441,8 @@ let pif_record rpc session_id pif =
          (fun () ->
            try
              Some
-               (Client.PIF_metrics.get_record rpc session_id
-                  (x ()).API.pIF_metrics
+               (Client.PIF_metrics.get_record ~rpc ~session_id
+                  ~self:(x ()).API.pIF_metrics
                )
            with _ -> None
          )
@@ -569,7 +572,9 @@ let pif_record rpc session_id pif =
             Record_util.s2sm_to_string "; " (x ()).API.pIF_properties
           )
           ~get_map:(fun () -> (x ()).API.pIF_properties)
-          ~set_in_map:(fun k v -> Client.PIF.set_property rpc session_id pif k v)
+          ~set_in_map:(fun name value ->
+            Client.PIF.set_property ~rpc ~session_id ~self:pif ~name ~value
+          )
           ()
       ; make_field ~name:"capabilities"
           ~get:(fun () -> concat_with_semi (x ()).API.pIF_capabilities)
@@ -581,7 +586,8 @@ let pif_record rpc session_id pif =
               let host = (x ()).API.pIF_host in
               let name = Printf.sprintf "pif_%s_rx" (x ()).API.pIF_device in
               let value =
-                Client.Host.query_data_source rpc session_id host name
+                Client.Host.query_data_source ~rpc ~session_id ~host
+                  ~data_source:name
               in
               string_of_float (value /. 1024.0)
             with _ -> "<unknown>"
@@ -593,7 +599,8 @@ let pif_record rpc session_id pif =
               let host = (x ()).API.pIF_host in
               let name = Printf.sprintf "pif_%s_tx" (x ()).API.pIF_device in
               let value =
-                Client.Host.query_data_source rpc session_id host name
+                Client.Host.query_data_source ~rpc ~session_id ~host
+                  ~data_source:name
               in
               string_of_float (value /. 1024.0)
             with _ -> "<unknown>"
@@ -660,8 +667,8 @@ let pif_record rpc session_id pif =
       ; make_field ~name:"disallow-unplug"
           ~get:(fun () -> string_of_bool (x ()).API.pIF_disallow_unplug)
           ~set:(fun disallow_unplug ->
-            Client.PIF.set_disallow_unplug rpc session_id pif
-              (safe_bool_of_string "disallow-unplug" disallow_unplug)
+            Client.PIF.set_disallow_unplug ~rpc ~session_id ~self:pif
+              ~value:(safe_bool_of_string "disallow-unplug" disallow_unplug)
           )
           ()
       ; make_field ~name:"pci-bus-path"
@@ -675,11 +682,12 @@ let pif_record rpc session_id pif =
           ~get:(fun () ->
             Record_util.s2sm_to_string "; " (x ()).API.pIF_other_config
           )
-          ~add_to_map:(fun k v ->
-            Client.PIF.add_to_other_config rpc session_id pif k v
+          ~add_to_map:(fun key value ->
+            Client.PIF.add_to_other_config ~rpc ~session_id ~self:pif ~key
+              ~value
           )
-          ~remove_from_map:(fun k ->
-            Client.PIF.remove_from_other_config rpc session_id pif k
+          ~remove_from_map:(fun key ->
+            Client.PIF.remove_from_other_config ~rpc ~session_id ~self:pif ~key
           )
           ~get_map:(fun () -> (x ()).API.pIF_other_config)
           ()
@@ -695,7 +703,7 @@ let pif_record rpc session_id pif =
 let task_record rpc session_id task =
   let _ref = ref task in
   let empty_record =
-    ToGet (fun () -> Client.Task.get_record rpc session_id !_ref)
+    ToGet (fun () -> Client.Task.get_record ~rpc ~session_id ~self:!_ref)
   in
   let record = ref empty_record in
   let x () = lzy_get record in
@@ -766,11 +774,13 @@ let task_record rpc session_id task =
           ~get:(fun () ->
             Record_util.s2sm_to_string "; " (x ()).API.task_other_config
           )
-          ~add_to_map:(fun k v ->
-            Client.Task.add_to_other_config rpc session_id task k v
+          ~add_to_map:(fun key value ->
+            Client.Task.add_to_other_config ~rpc ~session_id ~self:task ~key
+              ~value
           )
-          ~remove_from_map:(fun k ->
-            Client.Task.remove_from_other_config rpc session_id task k
+          ~remove_from_map:(fun key ->
+            Client.Task.remove_from_other_config ~rpc ~session_id ~self:task
+              ~key
           )
           ~get_map:(fun () -> (x ()).API.task_other_config)
           ()
@@ -780,7 +790,7 @@ let task_record rpc session_id task =
 let vif_record rpc session_id vif =
   let _ref = ref vif in
   let empty_record =
-    ToGet (fun () -> Client.VIF.get_record rpc session_id !_ref)
+    ToGet (fun () -> Client.VIF.get_record ~rpc ~session_id ~self:!_ref)
   in
   let record = ref empty_record in
   let x () = lzy_get record in
@@ -843,19 +853,21 @@ let vif_record rpc session_id vif =
           ()
       ; make_field ~name:"qos_algorithm_type"
           ~get:(fun () -> (x ()).API.vIF_qos_algorithm_type)
-          ~set:(fun qat ->
-            Client.VIF.set_qos_algorithm_type rpc session_id vif qat
+          ~set:(fun value ->
+            Client.VIF.set_qos_algorithm_type ~rpc ~session_id ~self:vif ~value
           )
           ()
       ; make_field ~name:"qos_algorithm_params"
           ~get:(fun () ->
             Record_util.s2sm_to_string "; " (x ()).API.vIF_qos_algorithm_params
           )
-          ~add_to_map:(fun k v ->
-            Client.VIF.add_to_qos_algorithm_params rpc session_id vif k v
+          ~add_to_map:(fun key value ->
+            Client.VIF.add_to_qos_algorithm_params ~rpc ~session_id ~self:vif
+              ~key ~value
           )
-          ~remove_from_map:(fun k ->
-            Client.VIF.remove_from_qos_algorithm_params rpc session_id vif k
+          ~remove_from_map:(fun key ->
+            Client.VIF.remove_from_qos_algorithm_params ~rpc ~session_id
+              ~self:vif ~key
           )
           ~get_map:(fun () -> (x ()).API.vIF_qos_algorithm_params)
           ()
@@ -869,11 +881,12 @@ let vif_record rpc session_id vif =
           ~get:(fun () ->
             Record_util.s2sm_to_string "; " (x ()).API.vIF_other_config
           )
-          ~add_to_map:(fun k v ->
-            Client.VIF.add_to_other_config rpc session_id vif k v
+          ~add_to_map:(fun key value ->
+            Client.VIF.add_to_other_config ~rpc ~session_id ~self:vif ~key
+              ~value
           )
-          ~remove_from_map:(fun k ->
-            Client.VIF.remove_from_other_config rpc session_id vif k
+          ~remove_from_map:(fun key ->
+            Client.VIF.remove_from_other_config ~rpc ~session_id ~self:vif ~key
           )
           ~get_map:(fun () -> (x ()).API.vIF_other_config)
           ()
@@ -888,8 +901,8 @@ let vif_record rpc session_id vif =
             try
               let name = Printf.sprintf "vif_%s_rx" (x ()).API.vIF_device in
               string_of_float
-                (Client.VM.query_data_source rpc session_id (x ()).API.vIF_VM
-                   name
+                (Client.VM.query_data_source ~rpc ~session_id
+                   ~self:(x ()).API.vIF_VM ~data_source:name
                 /. 1024.0
                 )
             with _ -> "<unknown>"
@@ -900,8 +913,8 @@ let vif_record rpc session_id vif =
             try
               let name = Printf.sprintf "vif_%s_tx" (x ()).API.vIF_device in
               string_of_float
-                (Client.VM.query_data_source rpc session_id (x ()).API.vIF_VM
-                   name
+                (Client.VM.query_data_source ~rpc ~session_id
+                   ~self:(x ()).API.vIF_VM ~data_source:name
                 /. 1024.0
                 )
             with _ -> "<unknown>"
@@ -912,34 +925,36 @@ let vif_record rpc session_id vif =
             Record_util.vif_locking_mode_to_string (x ()).API.vIF_locking_mode
           )
           ~set:(fun value ->
-            Client.VIF.set_locking_mode rpc session_id vif
-              (Record_util.string_to_vif_locking_mode value)
+            Client.VIF.set_locking_mode ~rpc ~session_id ~self:vif
+              ~value:(Record_util.string_to_vif_locking_mode value)
           )
           ()
       ; make_field ~name:"ipv4-allowed"
           ~get:(fun () -> concat_with_semi (x ()).API.vIF_ipv4_allowed)
           ~get_set:(fun () -> (x ()).API.vIF_ipv4_allowed)
           ~add_to_set:(fun value ->
-            Client.VIF.add_ipv4_allowed rpc session_id vif value
+            Client.VIF.add_ipv4_allowed ~rpc ~session_id ~self:vif ~value
           )
           ~remove_from_set:(fun value ->
-            Client.VIF.remove_ipv4_allowed rpc session_id vif value
+            Client.VIF.remove_ipv4_allowed ~rpc ~session_id ~self:vif ~value
           )
           ~set:(fun value ->
-            Client.VIF.set_ipv4_allowed rpc session_id vif (get_words ',' value)
+            Client.VIF.set_ipv4_allowed ~rpc ~session_id ~self:vif
+              ~value:(get_words ',' value)
           )
           ()
       ; make_field ~name:"ipv6-allowed"
           ~get:(fun () -> concat_with_semi (x ()).API.vIF_ipv6_allowed)
           ~get_set:(fun () -> (x ()).API.vIF_ipv6_allowed)
           ~add_to_set:(fun value ->
-            Client.VIF.add_ipv6_allowed rpc session_id vif value
+            Client.VIF.add_ipv6_allowed ~rpc ~session_id ~self:vif ~value
           )
           ~remove_from_set:(fun value ->
-            Client.VIF.remove_ipv6_allowed rpc session_id vif value
+            Client.VIF.remove_ipv6_allowed ~rpc ~session_id ~self:vif ~value
           )
           ~set:(fun value ->
-            Client.VIF.set_ipv6_allowed rpc session_id vif (get_words ',' value)
+            Client.VIF.set_ipv6_allowed ~rpc ~session_id ~self:vif
+              ~value:(get_words ',' value)
           )
           ()
       ; make_field ~name:"ipv4-configuration-mode"
@@ -972,7 +987,7 @@ let vif_record rpc session_id vif =
 let net_record rpc session_id net =
   let _ref = ref net in
   let empty_record =
-    ToGet (fun () -> Client.Network.get_record rpc session_id !_ref)
+    ToGet (fun () -> Client.Network.get_record ~rpc ~session_id ~self:!_ref)
   in
   let record = ref empty_record in
   let x () = lzy_get record in
@@ -994,12 +1009,15 @@ let net_record rpc session_id net =
         make_field ~name:"uuid" ~get:(fun () -> (x ()).API.network_uuid) ()
       ; make_field ~name:"name-label"
           ~get:(fun () -> (x ()).API.network_name_label)
-          ~set:(fun x -> Client.Network.set_name_label rpc session_id net x)
+          ~set:(fun value ->
+            Client.Network.set_name_label ~rpc ~session_id ~self:net ~value
+          )
           ()
       ; make_field ~name:"name-description"
           ~get:(fun () -> (x ()).API.network_name_description)
-          ~set:(fun x ->
-            Client.Network.set_name_description rpc session_id net x
+          ~set:(fun value ->
+            Client.Network.set_name_description ~rpc ~session_id ~self:net
+              ~value
           )
           ()
       ; make_field ~name:"VIF-uuids"
@@ -1017,7 +1035,8 @@ let net_record rpc session_id net =
       ; make_field ~name:"MTU"
           ~get:(fun () -> Int64.to_string (x ()).API.network_MTU)
           ~set:(fun x ->
-            Client.Network.set_MTU rpc session_id net (Int64.of_string x)
+            Client.Network.set_MTU ~rpc ~session_id ~self:net
+              ~value:(Int64.of_string x)
           )
           ()
       ; make_field ~name:"bridge" ~get:(fun () -> (x ()).API.network_bridge) ()
@@ -1028,11 +1047,13 @@ let net_record rpc session_id net =
           ~get:(fun () ->
             Record_util.s2sm_to_string "; " (x ()).API.network_other_config
           )
-          ~add_to_map:(fun k v ->
-            Client.Network.add_to_other_config rpc session_id net k v
+          ~add_to_map:(fun key value ->
+            Client.Network.add_to_other_config ~rpc ~session_id ~self:net ~key
+              ~value
           )
-          ~remove_from_map:(fun k ->
-            Client.Network.remove_from_other_config rpc session_id net k
+          ~remove_from_map:(fun key ->
+            Client.Network.remove_from_other_config ~rpc ~session_id ~self:net
+              ~key
           )
           ~get_map:(fun () -> (x ()).API.network_other_config)
           ()
@@ -1045,9 +1066,11 @@ let net_record rpc session_id net =
       ; make_field ~name:"tags"
           ~get:(fun () -> concat_with_comma (x ()).API.network_tags)
           ~get_set:(fun () -> (x ()).API.network_tags)
-          ~add_to_set:(fun tag -> Client.Network.add_tags rpc session_id net tag)
-          ~remove_from_set:(fun tag ->
-            Client.Network.remove_tags rpc session_id net tag
+          ~add_to_set:(fun value ->
+            Client.Network.add_tags ~rpc ~session_id ~self:net ~value
+          )
+          ~remove_from_set:(fun value ->
+            Client.Network.remove_tags ~rpc ~session_id ~self:net ~value
           )
           ()
       ; make_field ~name:"default-locking-mode"
@@ -1056,8 +1079,9 @@ let net_record rpc session_id net =
               (x ()).API.network_default_locking_mode
           )
           ~set:(fun value ->
-            Client.Network.set_default_locking_mode rpc session_id net
-              (Record_util.string_to_network_default_locking_mode value)
+            Client.Network.set_default_locking_mode ~rpc ~session_id
+              ~network:net
+              ~value:(Record_util.string_to_network_default_locking_mode value)
           )
           ()
       ; make_field ~name:"purpose"
@@ -1070,12 +1094,12 @@ let net_record rpc session_id net =
             |> List.map Record_util.network_purpose_to_string
           )
           ~add_to_set:(fun s ->
-            Client.Network.add_purpose rpc session_id net
-              (Record_util.string_to_network_purpose s)
+            Client.Network.add_purpose ~rpc ~session_id ~self:net
+              ~value:(Record_util.string_to_network_purpose s)
           )
           ~remove_from_set:(fun s ->
-            Client.Network.remove_purpose rpc session_id net
-              (Record_util.string_to_network_purpose s)
+            Client.Network.remove_purpose ~rpc ~session_id ~self:net
+              ~value:(Record_util.string_to_network_purpose s)
           )
           ()
       ]
@@ -1084,7 +1108,7 @@ let net_record rpc session_id net =
 let pool_record rpc session_id pool =
   let _ref = ref pool in
   let empty_record =
-    ToGet (fun () -> Client.Pool.get_record rpc session_id !_ref)
+    ToGet (fun () -> Client.Pool.get_record ~rpc ~session_id ~self:!_ref)
   in
   let record = ref empty_record in
   let x () = lzy_get record in
@@ -1106,11 +1130,15 @@ let pool_record rpc session_id pool =
         make_field ~name:"uuid" ~get:(fun () -> (x ()).API.pool_uuid) ()
       ; make_field ~name:"name-label"
           ~get:(fun () -> (x ()).API.pool_name_label)
-          ~set:(fun x -> Client.Pool.set_name_label rpc session_id pool x)
+          ~set:(fun value ->
+            Client.Pool.set_name_label ~rpc ~session_id ~self:pool ~value
+          )
           ()
       ; make_field ~name:"name-description"
           ~get:(fun () -> (x ()).API.pool_name_description)
-          ~set:(fun x -> Client.Pool.set_name_description rpc session_id pool x)
+          ~set:(fun value ->
+            Client.Pool.set_name_description ~rpc ~session_id ~self:pool ~value
+          )
           ()
       ; make_field ~name:"master"
           ~get:(fun () -> get_uuid_from_ref (x ()).API.pool_master)
@@ -1122,9 +1150,9 @@ let pool_record rpc session_id pool =
               if x = "" then
                 Ref.null
               else
-                Client.SR.get_by_uuid rpc session_id x
+                Client.SR.get_by_uuid ~rpc ~session_id ~uuid:x
             in
-            Client.Pool.set_default_SR rpc session_id pool sr_ref
+            Client.Pool.set_default_SR ~rpc ~session_id ~self:pool ~value:sr_ref
           )
           ()
       ; make_field ~name:"crash-dump-SR"
@@ -1134,9 +1162,10 @@ let pool_record rpc session_id pool =
               if x = "" then
                 Ref.null
               else
-                Client.SR.get_by_uuid rpc session_id x
+                Client.SR.get_by_uuid ~rpc ~session_id ~uuid:x
             in
-            Client.Pool.set_crash_dump_SR rpc session_id pool sr_ref
+            Client.Pool.set_crash_dump_SR ~rpc ~session_id ~self:pool
+              ~value:sr_ref
           )
           ()
       ; make_field ~name:"suspend-image-SR"
@@ -1146,25 +1175,28 @@ let pool_record rpc session_id pool =
               if x = "" then
                 Ref.null
               else
-                Client.SR.get_by_uuid rpc session_id x
+                Client.SR.get_by_uuid ~rpc ~session_id ~uuid:x
             in
-            Client.Pool.set_suspend_image_SR rpc session_id pool sr_ref
+            Client.Pool.set_suspend_image_SR ~rpc ~session_id ~self:pool
+              ~value:sr_ref
           )
           ()
       ; make_field ~name:"supported-sr-types"
           ~get:(fun () ->
-            concat_with_semi (Client.SR.get_supported_types rpc session_id)
+            concat_with_semi (Client.SR.get_supported_types ~rpc ~session_id)
           )
           ~expensive:true ()
       ; make_field ~name:"other-config"
           ~get:(fun () ->
             Record_util.s2sm_to_string "; " (x ()).API.pool_other_config
           )
-          ~add_to_map:(fun k v ->
-            Client.Pool.add_to_other_config rpc session_id pool k v
+          ~add_to_map:(fun key value ->
+            Client.Pool.add_to_other_config ~rpc ~session_id ~self:pool ~key
+              ~value
           )
-          ~remove_from_map:(fun k ->
-            Client.Pool.remove_from_other_config rpc session_id pool k
+          ~remove_from_map:(fun key ->
+            Client.Pool.remove_from_other_config ~rpc ~session_id ~self:pool
+              ~key
           )
           ~get_map:(fun () -> (x ()).API.pool_other_config)
           ()
@@ -1210,8 +1242,8 @@ let pool_record rpc session_id pool =
             Int64.to_string (x ()).API.pool_ha_host_failures_to_tolerate
           )
           ~set:(fun x ->
-            Client.Pool.set_ha_host_failures_to_tolerate rpc session_id pool
-              (Int64.of_string x)
+            Client.Pool.set_ha_host_failures_to_tolerate ~rpc ~session_id
+              ~self:pool ~value:(Int64.of_string x)
           )
           ()
       ; make_field ~name:"ha-plan-exists-for"
@@ -1220,8 +1252,8 @@ let pool_record rpc session_id pool =
       ; make_field ~name:"ha-allow-overcommit"
           ~get:(fun () -> string_of_bool (x ()).API.pool_ha_allow_overcommit)
           ~set:(fun x ->
-            Client.Pool.set_ha_allow_overcommit rpc session_id pool
-              (bool_of_string x)
+            Client.Pool.set_ha_allow_overcommit ~rpc ~session_id ~self:pool
+              ~value:(bool_of_string x)
           )
           ()
       ; make_field ~name:"ha-overcommitted"
@@ -1240,32 +1272,34 @@ let pool_record rpc session_id pool =
       ; make_field ~name:"wlb-enabled"
           ~get:(fun () -> string_of_bool (x ()).API.pool_wlb_enabled)
           ~set:(fun x ->
-            Client.Pool.set_wlb_enabled rpc session_id pool (bool_of_string x)
+            Client.Pool.set_wlb_enabled ~rpc ~session_id ~self:pool
+              ~value:(bool_of_string x)
           )
           ()
       ; make_field ~name:"wlb-verify-cert"
           ~get:(fun () -> string_of_bool (x ()).API.pool_wlb_verify_cert)
           ~set:(fun x ->
-            Client.Pool.set_wlb_verify_cert rpc session_id pool
-              (bool_of_string x)
+            Client.Pool.set_wlb_verify_cert ~rpc ~session_id ~self:pool
+              ~value:(bool_of_string x)
           )
           ()
       ; make_field ~name:"igmp-snooping-enabled"
           ~get:(fun () -> string_of_bool (x ()).API.pool_igmp_snooping_enabled)
           ~set:(fun x ->
-            Client.Pool.set_igmp_snooping_enabled rpc session_id pool
-              (bool_of_string x)
+            Client.Pool.set_igmp_snooping_enabled ~rpc ~session_id ~self:pool
+              ~value:(bool_of_string x)
           )
           ()
       ; make_field ~name:"gui-config"
           ~get:(fun () ->
             Record_util.s2sm_to_string "; " (x ()).API.pool_gui_config
           )
-          ~add_to_map:(fun k v ->
-            Client.Pool.add_to_gui_config rpc session_id pool k v
+          ~add_to_map:(fun key value ->
+            Client.Pool.add_to_gui_config ~rpc ~session_id ~self:pool ~key
+              ~value
           )
-          ~remove_from_map:(fun k ->
-            Client.Pool.remove_from_gui_config rpc session_id pool k
+          ~remove_from_map:(fun key ->
+            Client.Pool.remove_from_gui_config ~rpc ~session_id ~self:pool ~key
           )
           ~get_map:(fun () -> (x ()).API.pool_gui_config)
           ()
@@ -1273,11 +1307,13 @@ let pool_record rpc session_id pool =
           ~get:(fun () ->
             Record_util.s2sm_to_string "; " (x ()).API.pool_health_check_config
           )
-          ~add_to_map:(fun k v ->
-            Client.Pool.add_to_health_check_config rpc session_id pool k v
+          ~add_to_map:(fun key value ->
+            Client.Pool.add_to_health_check_config ~rpc ~session_id ~self:pool
+              ~key ~value
           )
-          ~remove_from_map:(fun k ->
-            Client.Pool.remove_from_health_check_config rpc session_id pool k
+          ~remove_from_map:(fun key ->
+            Client.Pool.remove_from_health_check_config ~rpc ~session_id
+              ~self:pool ~key
           )
           ~get_map:(fun () -> (x ()).API.pool_health_check_config)
           ()
@@ -1295,15 +1331,17 @@ let pool_record rpc session_id pool =
       ; make_field ~name:"tags"
           ~get:(fun () -> concat_with_comma (x ()).API.pool_tags)
           ~get_set:(fun () -> (x ()).API.pool_tags)
-          ~add_to_set:(fun tag -> Client.Pool.add_tags rpc session_id pool tag)
-          ~remove_from_set:(fun tag ->
-            Client.Pool.remove_tags rpc session_id pool tag
+          ~add_to_set:(fun value ->
+            Client.Pool.add_tags ~rpc ~session_id ~self:pool ~value
+          )
+          ~remove_from_set:(fun value ->
+            Client.Pool.remove_tags ~rpc ~session_id ~self:pool ~value
           )
           ()
       ; make_field ~name:"license-state"
           ~get:(fun () ->
             Record_util.s2sm_to_string "; "
-              (Client.Pool.get_license_state rpc session_id pool)
+              (Client.Pool.get_license_state ~rpc ~session_id ~self:pool)
           )
           ()
       ; make_field ~name:"ha-cluster-stack"
@@ -1313,11 +1351,13 @@ let pool_record rpc session_id pool =
           ~get:(fun () ->
             Record_util.s2sm_to_string "; " (x ()).API.pool_guest_agent_config
           )
-          ~add_to_map:(fun k v ->
-            Client.Pool.add_to_guest_agent_config rpc session_id pool k v
+          ~add_to_map:(fun key value ->
+            Client.Pool.add_to_guest_agent_config ~rpc ~session_id ~self:pool
+              ~key ~value
           )
-          ~remove_from_map:(fun k ->
-            Client.Pool.remove_from_guest_agent_config rpc session_id pool k
+          ~remove_from_map:(fun key ->
+            Client.Pool.remove_from_guest_agent_config ~rpc ~session_id
+              ~self:pool ~key
           )
           ~get_map:(fun () -> (x ()).API.pool_guest_agent_config)
           ()
@@ -1330,19 +1370,22 @@ let pool_record rpc session_id pool =
       ; make_field ~name:"policy-no-vendor-device"
           ~get:(fun () -> string_of_bool (x ()).API.pool_policy_no_vendor_device)
           ~set:(fun s ->
-            Client.Pool.set_policy_no_vendor_device rpc session_id pool
-              (safe_bool_of_string "policy-no-vendor-device" s)
+            Client.Pool.set_policy_no_vendor_device ~rpc ~session_id ~self:pool
+              ~value:(safe_bool_of_string "policy-no-vendor-device" s)
           )
           ()
       ; make_field ~name:"live-patching-disabled"
           ~get:(fun () -> string_of_bool (x ()).API.pool_live_patching_disabled)
           ~set:(fun s ->
-            Client.Pool.set_live_patching_disabled rpc session_id pool
-              (safe_bool_of_string "live-patching-disabled" s)
+            Client.Pool.set_live_patching_disabled ~rpc ~session_id ~self:pool
+              ~value:(safe_bool_of_string "live-patching-disabled" s)
           )
           ()
       ; make_field ~name:"uefi-certificates" ~hidden:true
           ~get:(fun () -> (x ()).API.pool_uefi_certificates)
+          ~set:(fun value ->
+            Client.Pool.set_uefi_certificates ~rpc ~session_id ~self:pool ~value
+          )
           ()
       ; make_field ~name:"tls-verification-enabled"
           ~get:(fun () ->
@@ -1363,19 +1406,22 @@ let pool_record rpc session_id pool =
             List.map get_uuid_from_ref (x ()).API.pool_repositories
           )
           ~set:(fun uuids ->
-            Client.Pool.set_repositories rpc session_id pool
-              (List.map
-                 (fun uuid -> Client.Repository.get_by_uuid rpc session_id uuid)
-                 (get_words ',' uuids)
-              )
+            Client.Pool.set_repositories ~rpc ~session_id ~self:pool
+              ~value:
+                (List.map
+                   (fun uuid ->
+                     Client.Repository.get_by_uuid ~rpc ~session_id ~uuid
+                   )
+                   (get_words ',' uuids)
+                )
           )
           ~add_to_set:(fun uuid ->
-            Client.Pool.add_repository rpc session_id pool
-              (Client.Repository.get_by_uuid rpc session_id uuid)
+            Client.Pool.add_repository ~rpc ~session_id ~self:pool
+              ~value:(Client.Repository.get_by_uuid ~rpc ~session_id ~uuid)
           )
           ~remove_from_set:(fun uuid ->
-            Client.Pool.remove_repository rpc session_id pool
-              (Client.Repository.get_by_uuid rpc session_id uuid)
+            Client.Pool.remove_repository ~rpc ~session_id ~self:pool
+              ~value:(Client.Repository.get_by_uuid ~rpc ~session_id ~uuid)
           )
           ()
       ; make_field ~name:"repository-proxy-url"
@@ -1390,7 +1436,7 @@ let pool_record rpc session_id pool =
 let vmss_record rpc session_id vmss =
   let _ref = ref vmss in
   let empty_record =
-    ToGet (fun () -> Client.VMSS.get_record rpc session_id !_ref)
+    ToGet (fun () -> Client.VMSS.get_record ~rpc ~session_id ~self:!_ref)
   in
   let record = ref empty_record in
   let x () = lzy_get record in
@@ -1412,24 +1458,28 @@ let vmss_record rpc session_id vmss =
         make_field ~name:"uuid" ~get:(fun () -> (x ()).API.vMSS_uuid) ()
       ; make_field ~name:"name-label"
           ~get:(fun () -> (x ()).API.vMSS_name_label)
-          ~set:(fun x -> Client.VMSS.set_name_label rpc session_id vmss x)
+          ~set:(fun value ->
+            Client.VMSS.set_name_label ~rpc ~session_id ~self:vmss ~value
+          )
           ()
       ; make_field ~name:"name-description"
           ~get:(fun () -> (x ()).API.vMSS_name_description)
-          ~set:(fun x -> Client.VMSS.set_name_description rpc session_id vmss x)
+          ~set:(fun value ->
+            Client.VMSS.set_name_description ~rpc ~session_id ~self:vmss ~value
+          )
           ()
       ; make_field ~name:"enabled"
           ~get:(fun () -> string_of_bool (x ()).API.vMSS_enabled)
           ~set:(fun x ->
-            Client.VMSS.set_enabled rpc session_id vmss
-              (safe_bool_of_string "enabled" x)
+            Client.VMSS.set_enabled ~rpc ~session_id ~self:vmss
+              ~value:(safe_bool_of_string "enabled" x)
           )
           ()
       ; make_field ~name:"type"
           ~get:(fun () -> Record_util.vmss_type_to_string (x ()).API.vMSS_type)
           ~set:(fun x ->
-            Client.VMSS.set_type rpc session_id vmss
-              (Record_util.string_to_vmss_type x)
+            Client.VMSS.set_type ~rpc ~session_id ~self:vmss
+              ~value:(Record_util.string_to_vmss_type x)
           )
           ()
       ; make_field ~name:"retained-snapshots"
@@ -1437,8 +1487,8 @@ let vmss_record rpc session_id vmss =
             string_of_int (Int64.to_int (x ()).API.vMSS_retained_snapshots)
           )
           ~set:(fun x ->
-            Client.VMSS.set_retained_snapshots rpc session_id vmss
-              (safe_i64_of_string "retained-snapshots" x)
+            Client.VMSS.set_retained_snapshots ~rpc ~session_id ~self:vmss
+              ~value:(safe_i64_of_string "retained-snapshots" x)
           )
           ()
       ; make_field ~name:"frequency"
@@ -1446,8 +1496,8 @@ let vmss_record rpc session_id vmss =
             Record_util.vmss_frequency_to_string (x ()).API.vMSS_frequency
           )
           ~set:(fun x ->
-            Client.VMSS.set_frequency rpc session_id vmss
-              (Record_util.string_to_vmss_frequency x)
+            Client.VMSS.set_frequency ~rpc ~session_id ~self:vmss
+              ~value:(Record_util.string_to_vmss_frequency x)
           )
           ()
       ; make_field ~name:"schedule"
@@ -1455,11 +1505,11 @@ let vmss_record rpc session_id vmss =
             Record_util.s2sm_to_string "; " (x ()).API.vMSS_schedule
           )
           ~get_map:(fun () -> (x ()).API.vMSS_schedule)
-          ~add_to_map:(fun k v ->
-            Client.VMSS.add_to_schedule rpc session_id vmss k v
+          ~add_to_map:(fun key value ->
+            Client.VMSS.add_to_schedule ~rpc ~session_id ~self:vmss ~key ~value
           )
-          ~remove_from_map:(fun k ->
-            Client.VMSS.remove_from_schedule rpc session_id vmss k
+          ~remove_from_map:(fun key ->
+            Client.VMSS.remove_from_schedule ~rpc ~session_id ~self:vmss ~key
           )
           ()
       ; make_field ~name:"last-run-time"
@@ -1470,9 +1520,9 @@ let vmss_record rpc session_id vmss =
             try
               map_and_concat
                 (fun self ->
-                  try Client.VM.get_uuid rpc session_id self with _ -> nid
+                  try Client.VM.get_uuid ~rpc ~session_id ~self with _ -> nid
                 )
-                (Client.VMSS.get_VMs rpc session_id vmss)
+                (Client.VMSS.get_VMs ~rpc ~session_id ~self:vmss)
             with _ -> ""
           )
           ~expensive:false
@@ -1480,9 +1530,9 @@ let vmss_record rpc session_id vmss =
             try
               List.map
                 (fun self ->
-                  try Client.VM.get_uuid rpc session_id self with _ -> nid
+                  try Client.VM.get_uuid ~rpc ~session_id ~self with _ -> nid
                 )
-                (Client.VMSS.get_VMs rpc session_id vmss)
+                (Client.VMSS.get_VMs ~rpc ~session_id ~self:vmss)
             with _ -> []
           )
           ()
@@ -1492,7 +1542,7 @@ let vmss_record rpc session_id vmss =
 let subject_record rpc session_id subject =
   let _ref = ref subject in
   let empty_record =
-    ToGet (fun () -> Client.Subject.get_record rpc session_id !_ref)
+    ToGet (fun () -> Client.Subject.get_record ~rpc ~session_id ~self:!_ref)
   in
   let record = ref empty_record in
   let x () = lzy_get record in
@@ -1526,10 +1576,10 @@ let subject_record rpc session_id subject =
             try
               map_and_concat
                 (fun self ->
-                  try Client.Role.get_name_label rpc session_id self
+                  try Client.Role.get_name_label ~rpc ~session_id ~self
                   with _ -> nid
                 )
-                (Client.Subject.get_roles rpc session_id subject)
+                (Client.Subject.get_roles ~rpc ~session_id ~self:subject)
             with _ -> ""
           )
           ~expensive:false
@@ -1537,10 +1587,10 @@ let subject_record rpc session_id subject =
             try
               List.map
                 (fun self ->
-                  try Client.Role.get_name_label rpc session_id self
+                  try Client.Role.get_name_label ~rpc ~session_id ~self
                   with _ -> nid
                 )
-                (Client.Subject.get_roles rpc session_id subject)
+                (Client.Subject.get_roles ~rpc ~session_id ~self:subject)
             with _ -> []
           )
           ()
@@ -1550,7 +1600,7 @@ let subject_record rpc session_id subject =
 let role_record rpc session_id role =
   let _ref = ref role in
   let empty_record =
-    ToGet (fun () -> Client.Role.get_record rpc session_id !_ref)
+    ToGet (fun () -> Client.Role.get_record ~rpc ~session_id ~self:!_ref)
   in
   let record = ref empty_record in
   let x () = lzy_get record in
@@ -1580,7 +1630,7 @@ let role_record rpc session_id role =
 let console_record rpc session_id console =
   let _ref = ref console in
   let empty_record =
-    ToGet (fun () -> Client.Console.get_record rpc session_id !_ref)
+    ToGet (fun () -> Client.Console.get_record ~rpc ~session_id ~self:!_ref)
   in
   let record = ref empty_record in
   let x () = lzy_get record in
@@ -1618,11 +1668,13 @@ let console_record rpc session_id console =
           ~get:(fun () ->
             Record_util.s2sm_to_string "; " (x ()).API.console_other_config
           )
-          ~add_to_map:(fun k v ->
-            Client.Console.add_to_other_config rpc session_id console k v
+          ~add_to_map:(fun key value ->
+            Client.Console.add_to_other_config ~rpc ~session_id ~self:console
+              ~key ~value
           )
-          ~remove_from_map:(fun k ->
-            Client.Console.remove_from_other_config rpc session_id console k
+          ~remove_from_map:(fun key ->
+            Client.Console.remove_from_other_config ~rpc ~session_id
+              ~self:console ~key
           )
           ~get_map:(fun () -> (x ()).API.console_other_config)
           ()
@@ -1632,7 +1684,7 @@ let console_record rpc session_id console =
 let vm_record rpc session_id vm =
   let _ref = ref vm in
   let empty_record =
-    ToGet (fun () -> Client.VM.get_record rpc session_id !_ref)
+    ToGet (fun () -> Client.VM.get_record ~rpc ~session_id ~self:!_ref)
   in
   let record = ref empty_record in
   let x () = lzy_get record in
@@ -1641,7 +1693,9 @@ let vm_record rpc session_id vm =
       (fun () ->
         try
           Some
-            (Client.VM_metrics.get_record rpc session_id (x ()).API.vM_metrics)
+            (Client.VM_metrics.get_record ~rpc ~session_id
+               ~self:(x ()).API.vM_metrics
+            )
         with _ -> None
       )
   in
@@ -1652,8 +1706,8 @@ let vm_record rpc session_id vm =
       (fun () ->
         try
           Some
-            (Client.VM_guest_metrics.get_record rpc session_id
-               (x ()).API.vM_guest_metrics
+            (Client.VM_guest_metrics.get_record ~rpc ~session_id
+               ~self:(x ()).API.vM_guest_metrics
             )
         with _ -> None
       )
@@ -1671,8 +1725,8 @@ let vm_record rpc session_id vm =
       else
         ( string_of_int n
         , string_of_float
-            (Client.VM.query_data_source rpc session_id !_ref
-               (Printf.sprintf "cpu%d" n)
+            (Client.VM.query_data_source ~rpc ~session_id ~self:!_ref
+               ~data_source:(Printf.sprintf "cpu%d" n)
             )
         )
         :: inner (n + 1)
@@ -1684,7 +1738,9 @@ let vm_record rpc session_id vm =
       Int64.to_string
         ( try
             Int64.of_float
-              (Client.VM.query_data_source rpc session_id !_ref "memory_target")
+              (Client.VM.query_data_source ~rpc ~session_id ~self:!_ref
+                 ~data_source:"memory_target"
+              )
           with
           | Api_errors.Server_error (code, _)
           when code = Api_errors.vm_bad_power_state
@@ -1712,31 +1768,35 @@ let vm_record rpc session_id vm =
         make_field ~name:"uuid" ~get:(fun () -> (x ()).API.vM_uuid) ()
       ; make_field ~name:"name-label"
           ~get:(fun () -> (x ()).API.vM_name_label)
-          ~set:(fun x -> Client.VM.set_name_label rpc session_id vm x)
+          ~set:(fun value ->
+            Client.VM.set_name_label ~rpc ~session_id ~self:vm ~value
+          )
           ()
       ; make_field ~name:"name-description"
           ~get:(fun () -> (x ()).API.vM_name_description)
-          ~set:(fun x -> Client.VM.set_name_description rpc session_id vm x)
+          ~set:(fun value ->
+            Client.VM.set_name_description ~rpc ~session_id ~self:vm ~value
+          )
           ()
       ; make_field ~name:"user-version"
           ~get:(fun () -> Int64.to_string (x ()).API.vM_user_version)
           ~set:(fun x ->
-            Client.VM.set_user_version rpc session_id vm
-              (safe_i64_of_string "user-version" x)
+            Client.VM.set_user_version ~rpc ~session_id ~self:vm
+              ~value:(safe_i64_of_string "user-version" x)
           )
           ()
       ; make_field ~name:"is-a-template"
           ~get:(fun () -> string_of_bool (x ()).API.vM_is_a_template)
           ~set:(fun x ->
-            Client.VM.set_is_a_template rpc session_id vm
-              (safe_bool_of_string "is-a-template" x)
+            Client.VM.set_is_a_template ~rpc ~session_id ~self:vm
+              ~value:(safe_bool_of_string "is-a-template" x)
           )
           ()
       ; make_field ~name:"is-default-template"
           ~get:(fun () -> string_of_bool (x ()).API.vM_is_default_template)
           ~set:(fun x ->
-            Client.VM.set_is_default_template rpc session_id vm
-              (safe_bool_of_string "is-default-template" x)
+            Client.VM.set_is_default_template ~rpc ~session_id ~vm
+              ~value:(safe_bool_of_string "is-default-template" x)
           )
           ()
       ; make_field ~name:"is-a-snapshot"
@@ -1787,79 +1847,80 @@ let vm_record rpc session_id vm =
       ; make_field ~name:"memory-static-max"
           ~get:(fun () -> Int64.to_string (x ()).API.vM_memory_static_max)
           ~set:(fun x ->
-            Client.VM.set_memory_static_max rpc session_id vm
-              (Record_util.bytes_of_string "memory-static-max" x)
+            Client.VM.set_memory_static_max ~rpc ~session_id ~self:vm
+              ~value:(Record_util.bytes_of_string "memory-static-max" x)
           )
           ()
       ; make_field ~name:"memory-dynamic-max"
           ~get:(fun () -> Int64.to_string (x ()).API.vM_memory_dynamic_max)
           ~set:(fun x ->
-            Client.VM.set_memory_dynamic_max rpc session_id vm
-              (Record_util.bytes_of_string "memory-dynamic-max" x)
+            Client.VM.set_memory_dynamic_max ~rpc ~session_id ~self:vm
+              ~value:(Record_util.bytes_of_string "memory-dynamic-max" x)
           )
           ()
       ; make_field ~name:"memory-dynamic-min"
           ~get:(fun () -> Int64.to_string (x ()).API.vM_memory_dynamic_min)
           ~set:(fun x ->
-            Client.VM.set_memory_dynamic_min rpc session_id vm
-              (Record_util.bytes_of_string "memory-dynamic-min" x)
+            Client.VM.set_memory_dynamic_min ~rpc ~session_id ~self:vm
+              ~value:(Record_util.bytes_of_string "memory-dynamic-min" x)
           )
           ()
       ; make_field ~name:"memory-static-min"
           ~get:(fun () -> Int64.to_string (x ()).API.vM_memory_static_min)
           ~set:(fun x ->
-            Client.VM.set_memory_static_min rpc session_id vm
-              (Record_util.bytes_of_string "memory-static-min" x)
+            Client.VM.set_memory_static_min ~rpc ~session_id ~self:vm
+              ~value:(Record_util.bytes_of_string "memory-static-min" x)
           )
           ()
       ; make_field ~name:"suspend-VDI-uuid"
           ~get:(fun () -> get_uuid_from_ref (x ()).API.vM_suspend_VDI)
           ~set:(fun x ->
-            Client.VM.set_suspend_VDI rpc session_id vm
-              (Client.VDI.get_by_uuid rpc session_id x)
+            Client.VM.set_suspend_VDI ~rpc ~session_id ~self:vm
+              ~value:(Client.VDI.get_by_uuid ~rpc ~session_id ~uuid:x)
           )
           ()
       ; make_field ~name:"suspend-SR-uuid"
           ~get:(fun () -> get_uuid_from_ref (x ()).API.vM_suspend_SR)
           ~set:(fun x ->
-            Client.VM.set_suspend_SR rpc session_id vm
-              (Client.SR.get_by_uuid rpc session_id x)
+            Client.VM.set_suspend_SR ~rpc ~session_id ~self:vm
+              ~value:(Client.SR.get_by_uuid ~rpc ~session_id ~uuid:x)
           )
           ()
       ; make_field ~name:"VCPUs-params"
           ~get:(fun () ->
             Record_util.s2sm_to_string "; " (x ()).API.vM_VCPUs_params
           )
-          ~add_to_map:(fun k v ->
-            match k with
+          ~add_to_map:(fun key value ->
+            match key with
             | "weight" | "cap" | "mask" ->
-                Client.VM.add_to_VCPUs_params rpc session_id vm k v
+                Client.VM.add_to_VCPUs_params ~rpc ~session_id ~self:vm ~key
+                  ~value
             | _ ->
                 raise
                   (Record_util.Record_failure
                      ("Failed to add parameter '"
-                     ^ k
+                     ^ key
                      ^ "': expecting 'weight','cap' or 'mask'"
                      )
                   )
           )
-          ~remove_from_map:(fun k ->
-            Client.VM.remove_from_VCPUs_params rpc session_id vm k
+          ~remove_from_map:(fun key ->
+            Client.VM.remove_from_VCPUs_params ~rpc ~session_id ~self:vm ~key
           )
           ~get_map:(fun () -> (x ()).API.vM_VCPUs_params)
           ()
       ; make_field ~name:"VCPUs-max"
           ~get:(fun () -> Int64.to_string (x ()).API.vM_VCPUs_max)
           ~set:(fun x ->
-            Client.VM.set_VCPUs_max rpc session_id vm
-              (safe_i64_of_string "VCPUs-max" x)
+            Client.VM.set_VCPUs_max ~rpc ~session_id ~self:vm
+              ~value:(safe_i64_of_string "VCPUs-max" x)
           )
           ()
       ; make_field ~name:"VCPUs-at-startup"
           ~get:(fun () -> Int64.to_string (x ()).API.vM_VCPUs_at_startup)
           ~set:(fun x ->
-            Client.VM.set_VCPUs_at_startup rpc session_id vm
-              (safe_i64_of_string "VCPUs-at-startup" x)
+            Client.VM.set_VCPUs_at_startup ~rpc ~session_id ~self:vm
+              ~value:(safe_i64_of_string "VCPUs-at-startup" x)
           )
           ()
       ; make_field ~name:"actions-after-shutdown"
@@ -1868,8 +1929,8 @@ let vm_record rpc session_id vm =
               (x ()).API.vM_actions_after_shutdown
           )
           ~set:(fun x ->
-            Client.VM.set_actions_after_shutdown rpc session_id vm
-              (Record_util.string_to_on_normal_exit x)
+            Client.VM.set_actions_after_shutdown ~rpc ~session_id ~self:vm
+              ~value:(Record_util.string_to_on_normal_exit x)
           )
           ()
       ; make_field ~name:"actions-after-reboot"
@@ -1878,8 +1939,8 @@ let vm_record rpc session_id vm =
               (x ()).API.vM_actions_after_reboot
           )
           ~set:(fun x ->
-            Client.VM.set_actions_after_reboot rpc session_id vm
-              (Record_util.string_to_on_normal_exit x)
+            Client.VM.set_actions_after_reboot ~rpc ~session_id ~self:vm
+              ~value:(Record_util.string_to_on_normal_exit x)
           )
           ()
       ; make_field ~name:"actions-after-crash"
@@ -1888,8 +1949,8 @@ let vm_record rpc session_id vm =
               (x ()).API.vM_actions_after_crash
           )
           ~set:(fun x ->
-            Client.VM.set_actions_after_crash rpc session_id vm
-              (Record_util.string_to_on_crash_behaviour x)
+            Client.VM.set_actions_after_crash ~rpc ~session_id ~self:vm
+              ~value:(Record_util.string_to_on_crash_behaviour x)
           )
           ()
       ; make_field ~name:"console-uuids"
@@ -1919,11 +1980,11 @@ let vm_record rpc session_id vm =
           ()
       ; make_field ~name:"platform"
           ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.vM_platform)
-          ~add_to_map:(fun k v ->
-            Client.VM.add_to_platform rpc session_id vm k v
+          ~add_to_map:(fun key value ->
+            Client.VM.add_to_platform ~rpc ~session_id ~self:vm ~key ~value
           )
-          ~remove_from_map:(fun k ->
-            Client.VM.remove_from_platform rpc session_id vm k
+          ~remove_from_map:(fun key ->
+            Client.VM.remove_from_platform ~rpc ~session_id ~self:vm ~key
           )
           ~get_map:(fun () -> (x ()).API.vM_platform)
           ()
@@ -1957,14 +2018,14 @@ let vm_record rpc session_id vm =
                  (x ()).API.vM_blocked_operations
               )
           )
-          ~add_to_map:(fun k v ->
-            Client.VM.add_to_blocked_operations rpc session_id vm
-              (Record_util.string_to_vm_operation k)
-              v
+          ~add_to_map:(fun k value ->
+            Client.VM.add_to_blocked_operations ~rpc ~session_id ~self:vm
+              ~key:(Record_util.string_to_vm_operation k)
+              ~value
           )
           ~remove_from_map:(fun k ->
-            Client.VM.remove_from_blocked_operations rpc session_id vm
-              (Record_util.string_to_vm_operation k)
+            Client.VM.remove_from_blocked_operations ~rpc ~session_id ~self:vm
+              ~key:(Record_util.string_to_vm_operation k)
           )
           ~get_map:(fun () ->
             List.map
@@ -1976,32 +2037,33 @@ let vm_record rpc session_id vm =
         make_field ~name:"allowed-VBD-devices"
           ~get:(fun () ->
             concat_with_semi
-              ( try Client.VM.get_allowed_VBD_devices rpc session_id vm
+              ( try Client.VM.get_allowed_VBD_devices ~rpc ~session_id ~vm
                 with _ -> []
               )
           )
           ~expensive:true
           ~get_set:(fun () ->
-            try Client.VM.get_allowed_VBD_devices rpc session_id vm
+            try Client.VM.get_allowed_VBD_devices ~rpc ~session_id ~vm
             with _ -> []
           )
           ()
       ; make_field ~name:"allowed-VIF-devices"
           ~get:(fun () ->
             concat_with_semi
-              ( try Client.VM.get_allowed_VIF_devices rpc session_id vm
+              ( try Client.VM.get_allowed_VIF_devices ~rpc ~session_id ~vm
                 with _ -> []
               )
           )
           ~expensive:true
           ~get_set:(fun () ->
-            try Client.VM.get_allowed_VIF_devices rpc session_id vm
+            try Client.VM.get_allowed_VIF_devices ~rpc ~session_id ~vm
             with _ -> []
           )
           ()
       ; make_field ~name:"possible-hosts"
           ~get:(fun () ->
-            get_uuids_from_refs (Client.VM.get_possible_hosts rpc session_id vm)
+            get_uuids_from_refs
+              (Client.VM.get_possible_hosts ~rpc ~session_id ~vm)
           )
           ~expensive:true ()
       ; make_field ~name:"domain-type"
@@ -2009,8 +2071,8 @@ let vm_record rpc session_id vm =
             Record_util.domain_type_to_string (x ()).API.vM_domain_type
           )
           ~set:(fun x ->
-            Client.VM.set_domain_type rpc session_id vm
-              (Record_util.domain_type_of_string x)
+            Client.VM.set_domain_type ~rpc ~session_id ~self:vm
+              ~value:(Record_util.domain_type_of_string x)
           )
           ()
       ; make_field ~name:"current-domain-type"
@@ -2025,58 +2087,75 @@ let vm_record rpc session_id vm =
           ()
       ; make_field ~name:"HVM-boot-policy"
           ~get:(fun () -> (x ()).API.vM_HVM_boot_policy)
-          ~set:(fun x -> Client.VM.set_HVM_boot_policy rpc session_id vm x)
+          ~set:(fun value ->
+            Client.VM.set_HVM_boot_policy ~rpc ~session_id ~self:vm ~value
+          )
           ()
       ; make_field ~name:"HVM-boot-params"
           ~get:(fun () ->
             Record_util.s2sm_to_string "; " (x ()).API.vM_HVM_boot_params
           )
-          ~add_to_map:(fun k v ->
-            Client.VM.add_to_HVM_boot_params rpc session_id vm k v
+          ~add_to_map:(fun key value ->
+            Client.VM.add_to_HVM_boot_params ~rpc ~session_id ~self:vm ~key
+              ~value
           )
-          ~remove_from_map:(fun k ->
-            Client.VM.remove_from_HVM_boot_params rpc session_id vm k
+          ~remove_from_map:(fun key ->
+            Client.VM.remove_from_HVM_boot_params ~rpc ~session_id ~self:vm ~key
           )
           ~get_map:(fun () -> (x ()).API.vM_HVM_boot_params)
           ()
       ; make_field ~name:"HVM-shadow-multiplier"
           ~get:(fun () -> string_of_float (x ()).API.vM_HVM_shadow_multiplier)
           ~set:(fun x ->
-            Client.VM.set_HVM_shadow_multiplier rpc session_id vm
-              (float_of_string x)
+            Client.VM.set_HVM_shadow_multiplier ~rpc ~session_id ~self:vm
+              ~value:(float_of_string x)
           )
           ()
       ; make_field ~name:"NVRAM" ~hidden:true
           ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.vM_NVRAM)
-          ~add_to_map:(fun k v -> Client.VM.add_to_NVRAM rpc session_id vm k v)
-          ~remove_from_map:(fun k ->
-            Client.VM.remove_from_NVRAM rpc session_id vm k
+          ~add_to_map:(fun key value ->
+            Client.VM.add_to_NVRAM ~rpc ~session_id ~self:vm ~key ~value
+          )
+          ~remove_from_map:(fun key ->
+            Client.VM.remove_from_NVRAM ~rpc ~session_id ~self:vm ~key
           )
           ~get_map:(fun () -> (x ()).API.vM_NVRAM)
           ()
       ; make_field ~name:"PV-kernel"
           ~get:(fun () -> (x ()).API.vM_PV_kernel)
-          ~set:(fun x -> Client.VM.set_PV_kernel rpc session_id vm x)
+          ~set:(fun value ->
+            Client.VM.set_PV_kernel ~rpc ~session_id ~self:vm ~value
+          )
           ()
       ; make_field ~name:"PV-ramdisk"
           ~get:(fun () -> (x ()).API.vM_PV_ramdisk)
-          ~set:(fun x -> Client.VM.set_PV_ramdisk rpc session_id vm x)
+          ~set:(fun value ->
+            Client.VM.set_PV_ramdisk ~rpc ~session_id ~self:vm ~value
+          )
           ()
       ; make_field ~name:"PV-args"
           ~get:(fun () -> (x ()).API.vM_PV_args)
-          ~set:(fun x -> Client.VM.set_PV_args rpc session_id vm x)
+          ~set:(fun value ->
+            Client.VM.set_PV_args ~rpc ~session_id ~self:vm ~value
+          )
           ()
       ; make_field ~name:"PV-legacy-args"
           ~get:(fun () -> (x ()).API.vM_PV_legacy_args)
-          ~set:(fun x -> Client.VM.set_PV_legacy_args rpc session_id vm x)
+          ~set:(fun value ->
+            Client.VM.set_PV_legacy_args ~rpc ~session_id ~self:vm ~value
+          )
           ()
       ; make_field ~name:"PV-bootloader"
           ~get:(fun () -> (x ()).API.vM_PV_bootloader)
-          ~set:(fun x -> Client.VM.set_PV_bootloader rpc session_id vm x)
+          ~set:(fun value ->
+            Client.VM.set_PV_bootloader ~rpc ~session_id ~self:vm ~value
+          )
           ()
       ; make_field ~name:"PV-bootloader-args"
           ~get:(fun () -> (x ()).API.vM_PV_bootloader_args)
-          ~set:(fun x -> Client.VM.set_PV_bootloader_args rpc session_id vm x)
+          ~set:(fun value ->
+            Client.VM.set_PV_bootloader_args ~rpc ~session_id ~self:vm ~value
+          )
           ()
       ; make_field ~name:"last-boot-CPU-flags"
           ~get:(fun () ->
@@ -2093,21 +2172,21 @@ let vm_record rpc session_id vm =
           ~get:(fun () -> get_uuid_from_ref (x ()).API.vM_affinity)
           ~set:(fun x ->
             if x = "" then
-              Client.VM.set_affinity rpc session_id vm Ref.null
+              Client.VM.set_affinity ~rpc ~session_id ~self:vm ~value:Ref.null
             else
-              Client.VM.set_affinity rpc session_id vm
-                (Client.Host.get_by_uuid rpc session_id x)
+              Client.VM.set_affinity ~rpc ~session_id ~self:vm
+                ~value:(Client.Host.get_by_uuid ~rpc ~session_id ~uuid:x)
           )
           ()
       ; make_field ~name:"other-config"
           ~get:(fun () ->
             Record_util.s2sm_to_string "; " (x ()).API.vM_other_config
           )
-          ~add_to_map:(fun k v ->
-            Client.VM.add_to_other_config rpc session_id vm k v
+          ~add_to_map:(fun key value ->
+            Client.VM.add_to_other_config ~rpc ~session_id ~self:vm ~key ~value
           )
-          ~remove_from_map:(fun k ->
-            Client.VM.remove_from_other_config rpc session_id vm k
+          ~remove_from_map:(fun key ->
+            Client.VM.remove_from_other_config ~rpc ~session_id ~self:vm ~key
           )
           ~get_map:(fun () -> (x ()).API.vM_other_config)
           ()
@@ -2121,26 +2200,29 @@ let vm_record rpc session_id vm =
           ~get:(fun () ->
             Record_util.s2sm_to_string "; " (x ()).API.vM_xenstore_data
           )
-          ~add_to_map:(fun k v ->
-            Client.VM.add_to_xenstore_data rpc session_id vm k v
+          ~add_to_map:(fun key value ->
+            Client.VM.add_to_xenstore_data ~rpc ~session_id ~self:vm ~key ~value
           )
           ~clear_map:(fun () ->
             Client.VM.set_xenstore_data ~rpc ~session_id ~self:vm ~value:[]
           )
-          ~remove_from_map:(fun k ->
-            Client.VM.remove_from_xenstore_data rpc session_id vm k
+          ~remove_from_map:(fun key ->
+            Client.VM.remove_from_xenstore_data ~rpc ~session_id ~self:vm ~key
           )
           ~get_map:(fun () -> (x ()).API.vM_xenstore_data)
           ()
       ; make_field ~name:"ha-always-run" ~deprecated:true
           ~get:(fun () -> string_of_bool (x ()).API.vM_ha_always_run)
           ~set:(fun x ->
-            Client.VM.set_ha_always_run rpc session_id vm (bool_of_string x)
+            Client.VM.set_ha_always_run ~rpc ~session_id ~self:vm
+              ~value:(bool_of_string x)
           )
           ()
       ; make_field ~name:"ha-restart-priority"
           ~get:(fun () -> (x ()).API.vM_ha_restart_priority)
-          ~set:(fun x -> Client.VM.set_ha_restart_priority rpc session_id vm x)
+          ~set:(fun value ->
+            Client.VM.set_ha_restart_priority ~rpc ~session_id ~self:vm ~value
+          )
           ()
       ; make_field ~name:"blobs"
           ~get:(fun () ->
@@ -2324,35 +2406,40 @@ let vm_record rpc session_id vm =
       ; make_field ~name:"cooperative" (* NB this can receive VM_IS_SNAPSHOT *)
           ~get:(fun () ->
             string_of_bool
-              (try Client.VM.get_cooperative rpc session_id vm with _ -> true)
+              ( try Client.VM.get_cooperative ~rpc ~session_id ~self:vm
+                with _ -> true
+              )
           )
           ~expensive:true ~deprecated:true ()
       ; make_field ~name:"tags"
           ~get:(fun () -> concat_with_comma (x ()).API.vM_tags)
           ~get_set:(fun () -> (x ()).API.vM_tags)
-          ~add_to_set:(fun tag -> Client.VM.add_tags rpc session_id vm tag)
-          ~remove_from_set:(fun tag ->
-            Client.VM.remove_tags rpc session_id vm tag
+          ~add_to_set:(fun value ->
+            Client.VM.add_tags ~rpc ~session_id ~self:vm ~value
+          )
+          ~remove_from_set:(fun value ->
+            Client.VM.remove_tags ~rpc ~session_id ~self:vm ~value
           )
           ()
       ; make_field ~name:"appliance"
           ~get:(fun () -> get_uuid_from_ref (x ()).API.vM_appliance)
           ~set:(fun x ->
             if x = "" then
-              Client.VM.set_appliance rpc session_id vm Ref.null
+              Client.VM.set_appliance ~rpc ~session_id ~self:vm ~value:Ref.null
             else
-              Client.VM.set_appliance rpc session_id vm
-                (Client.VM_appliance.get_by_uuid rpc session_id x)
+              Client.VM.set_appliance ~rpc ~session_id ~self:vm
+                ~value:(Client.VM_appliance.get_by_uuid ~rpc ~session_id ~uuid:x)
           )
           ()
       ; make_field ~name:"snapshot-schedule"
           ~get:(fun () -> get_uuid_from_ref (x ()).API.vM_snapshot_schedule)
           ~set:(fun x ->
             if x = "" then
-              Client.VM.set_snapshot_schedule rpc session_id vm Ref.null
+              Client.VM.set_snapshot_schedule ~rpc ~session_id ~self:vm
+                ~value:Ref.null
             else
-              Client.VM.set_snapshot_schedule rpc session_id vm
-                (Client.VMSS.get_by_uuid rpc session_id x)
+              Client.VM.set_snapshot_schedule ~rpc ~session_id ~self:vm
+                ~value:(Client.VMSS.get_by_uuid ~rpc ~session_id ~uuid:x)
           )
           ()
       ; make_field ~name:"is-vmss-snapshot"
@@ -2361,21 +2448,22 @@ let vm_record rpc session_id vm =
       ; make_field ~name:"start-delay"
           ~get:(fun () -> Int64.to_string (x ()).API.vM_start_delay)
           ~set:(fun x ->
-            Client.VM.set_start_delay rpc session_id vm
-              (safe_i64_of_string "start-delay" x)
+            Client.VM.set_start_delay ~rpc ~session_id ~self:vm
+              ~value:(safe_i64_of_string "start-delay" x)
           )
           ()
       ; make_field ~name:"shutdown-delay"
           ~get:(fun () -> Int64.to_string (x ()).API.vM_shutdown_delay)
           ~set:(fun x ->
-            Client.VM.set_shutdown_delay rpc session_id vm
-              (safe_i64_of_string "shutdown-delay" x)
+            Client.VM.set_shutdown_delay ~rpc ~session_id ~self:vm
+              ~value:(safe_i64_of_string "shutdown-delay" x)
           )
           ()
       ; make_field ~name:"order"
           ~get:(fun () -> Int64.to_string (x ()).API.vM_order)
           ~set:(fun x ->
-            Client.VM.set_order rpc session_id vm (safe_i64_of_string "order" x)
+            Client.VM.set_order ~rpc ~session_id ~self:vm
+              ~value:(safe_i64_of_string "order" x)
           )
           ()
       ; make_field ~name:"version"
@@ -2392,8 +2480,8 @@ let vm_record rpc session_id vm =
       ; make_field ~name:"has-vendor-device"
           ~get:(fun () -> string_of_bool (x ()).API.vM_has_vendor_device)
           ~set:(fun x ->
-            Client.VM.set_has_vendor_device rpc session_id vm
-              (safe_bool_of_string "has-vendor-device" x)
+            Client.VM.set_has_vendor_device ~rpc ~session_id ~self:vm
+              ~value:(safe_bool_of_string "has-vendor-device" x)
           )
           ()
       ; make_field ~name:"requires-reboot"
@@ -2422,7 +2510,7 @@ let vm_record rpc session_id vm =
                     )
               )
               x ;
-            Client.VM.set_bios_strings rpc session_id vm x
+            Client.VM.set_bios_strings ~rpc ~session_id ~self:vm ~value:x
           )
           ()
       ; make_field ~name:"pending-guidances"
@@ -2445,7 +2533,8 @@ let vm_record rpc session_id vm =
 let host_crashdump_record rpc session_id host =
   let _ref = ref host in
   let empty_record =
-    ToGet (fun () -> Client.Host_crashdump.get_record rpc session_id !_ref)
+    ToGet
+      (fun () -> Client.Host_crashdump.get_record ~rpc ~session_id ~self:!_ref)
   in
   let record = ref empty_record in
   let x () = lzy_get record in
@@ -2482,7 +2571,7 @@ let host_crashdump_record rpc session_id host =
 let pool_patch_record rpc session_id patch =
   let _ref = ref patch in
   let empty_record =
-    ToGet (fun () -> Client.Pool_patch.get_record rpc session_id !_ref)
+    ToGet (fun () -> Client.Pool_patch.get_record ~rpc ~session_id ~self:!_ref)
   in
   let record = ref empty_record in
   let x () = lzy_get record in
@@ -2557,7 +2646,7 @@ let pool_patch_record rpc session_id patch =
 let pool_update_record rpc session_id update =
   let _ref = ref update in
   let empty_record =
-    ToGet (fun () -> Client.Pool_update.get_record rpc session_id !_ref)
+    ToGet (fun () -> Client.Pool_update.get_record ~rpc ~session_id ~self:!_ref)
   in
   let record = ref empty_record in
   let x () = lzy_get record in
@@ -2634,7 +2723,7 @@ let pool_update_record rpc session_id update =
 let host_cpu_record rpc session_id host_cpu =
   let _ref = ref host_cpu in
   let empty_record =
-    ToGet (fun () -> Client.Host_cpu.get_record rpc session_id !_ref)
+    ToGet (fun () -> Client.Host_cpu.get_record ~rpc ~session_id ~self:!_ref)
   in
   let record = ref empty_record in
   let x () = lzy_get record in
@@ -2681,9 +2770,10 @@ let host_cpu_record rpc session_id host_cpu =
           ~get:(fun () ->
             try
               string_of_float
-                (Client.Host.query_data_source rpc session_id
-                   (x ()).API.host_cpu_host
-                   (Printf.sprintf "cpu%Ld" (x ()).API.host_cpu_number)
+                (Client.Host.query_data_source ~rpc ~session_id
+                   ~host:(x ()).API.host_cpu_host
+                   ~data_source:
+                     (Printf.sprintf "cpu%Ld" (x ()).API.host_cpu_number)
                 )
             with _ -> "<unknown>"
           )
@@ -2694,7 +2784,7 @@ let host_cpu_record rpc session_id host_cpu =
 let host_record rpc session_id host =
   let _ref = ref host in
   let empty_record =
-    ToGet (fun () -> Client.Host.get_record rpc session_id !_ref)
+    ToGet (fun () -> Client.Host.get_record ~rpc ~session_id ~self:!_ref)
   in
   let record = ref empty_record in
   let x () = lzy_get record in
@@ -2704,8 +2794,8 @@ let host_record rpc session_id host =
          (fun () ->
            try
              Some
-               (Client.Host_metrics.get_record rpc session_id
-                  (x ()).API.host_metrics
+               (Client.Host_metrics.get_record ~rpc ~session_id
+                  ~self:(x ()).API.host_metrics
                )
            with _ -> None
          )
@@ -2753,11 +2843,15 @@ let host_record rpc session_id host =
         make_field ~name:"uuid" ~get:(fun () -> (x ()).API.host_uuid) ()
       ; make_field ~name:"name-label"
           ~get:(fun () -> (x ()).API.host_name_label)
-          ~set:(fun s -> Client.Host.set_name_label rpc session_id host s)
+          ~set:(fun value ->
+            Client.Host.set_name_label ~rpc ~session_id ~self:host ~value
+          )
           ()
       ; make_field ~name:"name-description"
           ~get:(fun () -> (x ()).API.host_name_description)
-          ~set:(fun s -> Client.Host.set_name_description rpc session_id host s)
+          ~set:(fun value ->
+            Client.Host.set_name_description ~rpc ~session_id ~self:host ~value
+          )
           ()
       ; make_field ~name:"allowed-operations"
           ~get:(fun () ->
@@ -2809,34 +2903,36 @@ let host_record rpc session_id host =
           ~get:(fun () ->
             Record_util.s2sm_to_string "; " (x ()).API.host_logging
           )
-          ~add_to_map:(fun k v ->
-            Client.Host.add_to_logging rpc session_id host k v
+          ~add_to_map:(fun key value ->
+            Client.Host.add_to_logging ~rpc ~session_id ~self:host ~key ~value
           )
-          ~remove_from_map:(fun k ->
-            Client.Host.remove_from_logging rpc session_id host k
+          ~remove_from_map:(fun key ->
+            Client.Host.remove_from_logging ~rpc ~session_id ~self:host ~key
           )
           ~get_map:(fun () -> (x ()).API.host_logging)
           ()
       ; make_field ~name:"suspend-image-sr-uuid"
           ~get:(fun () -> get_uuid_from_ref (x ()).API.host_suspend_image_sr)
           ~set:(fun s ->
-            Client.Host.set_suspend_image_sr rpc session_id host
-              ( if s = "" then
-                  Ref.null
-              else
-                Client.SR.get_by_uuid rpc session_id s
-              )
+            Client.Host.set_suspend_image_sr ~rpc ~session_id ~self:host
+              ~value:
+                ( if s = "" then
+                    Ref.null
+                else
+                  Client.SR.get_by_uuid ~rpc ~session_id ~uuid:s
+                )
           )
           ()
       ; make_field ~name:"crash-dump-sr-uuid"
           ~get:(fun () -> get_uuid_from_ref (x ()).API.host_crash_dump_sr)
           ~set:(fun s ->
-            Client.Host.set_crash_dump_sr rpc session_id host
-              ( if s = "" then
-                  Ref.null
-              else
-                Client.SR.get_by_uuid rpc session_id s
-              )
+            Client.Host.set_crash_dump_sr ~rpc ~session_id ~self:host
+              ~value:
+                ( if s = "" then
+                    Ref.null
+                else
+                  Client.SR.get_by_uuid ~rpc ~session_id ~uuid:s
+                )
           )
           ()
       ; make_field ~name:"software-version"
@@ -2853,11 +2949,13 @@ let host_record rpc session_id host =
           ~get:(fun () ->
             Record_util.s2sm_to_string "; " (x ()).API.host_other_config
           )
-          ~add_to_map:(fun k v ->
-            Client.Host.add_to_other_config rpc session_id host k v
+          ~add_to_map:(fun key value ->
+            Client.Host.add_to_other_config ~rpc ~session_id ~self:host ~key
+              ~value
           )
-          ~remove_from_map:(fun k ->
-            Client.Host.remove_from_other_config rpc session_id host k
+          ~remove_from_map:(fun key ->
+            Client.Host.remove_from_other_config ~rpc ~session_id ~self:host
+              ~key
           )
           ~get_map:(fun () -> (x ()).API.host_other_config)
           ()
@@ -2904,7 +3002,8 @@ let host_record rpc session_id host =
           ()
       ; make_field ~name:"memory-free-computed" ~expensive:true
           ~get:(fun () ->
-            Int64.to_string (Client.Host.compute_free_memory rpc session_id host)
+            Int64.to_string
+              (Client.Host.compute_free_memory ~rpc ~session_id ~host)
           )
           ()
       ; make_field ~name:"host-metrics-live"
@@ -2965,16 +3064,18 @@ let host_record rpc session_id host =
       ; make_field ~name:"tags"
           ~get:(fun () -> concat_with_comma (x ()).API.host_tags)
           ~get_set:(fun () -> (x ()).API.host_tags)
-          ~add_to_set:(fun tag -> Client.Host.add_tags rpc session_id host tag)
-          ~remove_from_set:(fun tag ->
-            Client.Host.remove_tags rpc session_id host tag
+          ~add_to_set:(fun value ->
+            Client.Host.add_tags ~rpc ~session_id ~self:host ~value
+          )
+          ~remove_from_set:(fun value ->
+            Client.Host.remove_tags ~rpc ~session_id ~self:host ~value
           )
           ()
       ; make_field ~name:"ssl-legacy"
           ~get:(fun () -> string_of_bool (x ()).API.host_ssl_legacy)
           ~set:(fun s ->
-            Client.Host.set_ssl_legacy rpc session_id host
-              (safe_bool_of_string "ssl-legacy" s)
+            Client.Host.set_ssl_legacy ~rpc ~session_id ~self:host
+              ~value:(safe_bool_of_string "ssl-legacy" s)
           )
           ()
       ; make_field ~name:"guest_VCPUs_params"
@@ -2982,11 +3083,13 @@ let host_record rpc session_id host =
             Record_util.s2sm_to_string "; " (x ()).API.host_guest_VCPUs_params
           )
           ~get_map:(fun () -> (x ()).API.host_guest_VCPUs_params)
-          ~add_to_map:(fun k v ->
-            Client.Host.add_to_guest_VCPUs_params rpc session_id host k v
+          ~add_to_map:(fun key value ->
+            Client.Host.add_to_guest_VCPUs_params ~rpc ~session_id ~self:host
+              ~key ~value
           )
-          ~remove_from_map:(fun k ->
-            Client.Host.remove_from_guest_VCPUs_params rpc session_id host k
+          ~remove_from_map:(fun key ->
+            Client.Host.remove_from_guest_VCPUs_params ~rpc ~session_id
+              ~self:host ~key
           )
           ()
       ; make_field ~name:"virtual-hardware-platform-versions"
@@ -3024,13 +3127,15 @@ let host_record rpc session_id host =
           ()
       ; make_field ~name:"iscsi_iqn"
           ~get:(fun () -> (x ()).API.host_iscsi_iqn)
-          ~set:(fun s -> Client.Host.set_iscsi_iqn rpc session_id host s)
+          ~set:(fun value ->
+            Client.Host.set_iscsi_iqn ~rpc ~session_id ~host ~value
+          )
           ()
       ; make_field ~name:"multipathing"
           ~get:(fun () -> string_of_bool (x ()).API.host_multipathing)
           ~set:(fun s ->
-            Client.Host.set_multipathing rpc session_id host
-              (safe_bool_of_string "multipathing" s)
+            Client.Host.set_multipathing ~rpc ~session_id ~host
+              ~value:(safe_bool_of_string "multipathing" s)
           )
           ()
       ; make_field ~name:"uefi-certificates" ~hidden:true
@@ -3050,13 +3155,16 @@ let host_record rpc session_id host =
             (x ()).API.host_tls_verification_enabled |> string_of_bool
           )
           ()
+      ; make_field ~name:"last-software-update"
+          ~get:(fun () -> Date.to_string (x ()).API.host_last_software_update)
+          ()
       ]
   }
 
 let vdi_record rpc session_id vdi =
   let _ref = ref vdi in
   let empty_record =
-    ToGet (fun () -> Client.VDI.get_record rpc session_id !_ref)
+    ToGet (fun () -> Client.VDI.get_record ~rpc ~session_id ~self:!_ref)
   in
   let record = ref empty_record in
   let x () = lzy_get record in
@@ -3078,12 +3186,14 @@ let vdi_record rpc session_id vdi =
         make_field ~name:"uuid" ~get:(fun () -> (x ()).API.vDI_uuid) ()
       ; make_field ~name:"name-label"
           ~get:(fun () -> (x ()).API.vDI_name_label)
-          ~set:(fun label -> Client.VDI.set_name_label rpc session_id vdi label)
+          ~set:(fun value ->
+            Client.VDI.set_name_label ~rpc ~session_id ~self:vdi ~value
+          )
           ()
       ; make_field ~name:"name-description"
           ~get:(fun () -> (x ()).API.vDI_name_description)
-          ~set:(fun desc ->
-            Client.VDI.set_name_description rpc session_id vdi desc
+          ~set:(fun value ->
+            Client.VDI.set_name_description ~rpc ~session_id ~self:vdi ~value
           )
           ()
       ; make_field ~name:"is-a-snapshot"
@@ -3171,11 +3281,12 @@ let vdi_record rpc session_id vdi =
           ~get:(fun () ->
             Record_util.s2sm_to_string "; " (x ()).API.vDI_other_config
           )
-          ~add_to_map:(fun k v ->
-            Client.VDI.add_to_other_config rpc session_id vdi k v
+          ~add_to_map:(fun key value ->
+            Client.VDI.add_to_other_config ~rpc ~session_id ~self:vdi ~key
+              ~value
           )
-          ~remove_from_map:(fun k ->
-            Client.VDI.remove_from_other_config rpc session_id vdi k
+          ~remove_from_map:(fun key ->
+            Client.VDI.remove_from_other_config ~rpc ~session_id ~self:vdi ~key
           )
           ~get_map:(fun () -> (x ()).API.vDI_other_config)
           ()
@@ -3197,14 +3308,15 @@ let vdi_record rpc session_id vdi =
       ; make_field ~name:"on-boot"
           ~get:(fun () -> Record_util.on_boot_to_string (x ()).API.vDI_on_boot)
           ~set:(fun onboot ->
-            Client.VDI.set_on_boot rpc session_id vdi
-              (Record_util.string_to_vdi_onboot onboot)
+            Client.VDI.set_on_boot ~rpc ~session_id ~self:vdi
+              ~value:(Record_util.string_to_vdi_onboot onboot)
           )
           ()
       ; make_field ~name:"allow-caching"
           ~get:(fun () -> string_of_bool (x ()).API.vDI_allow_caching)
           ~set:(fun b ->
-            Client.VDI.set_allow_caching rpc session_id vdi (bool_of_string b)
+            Client.VDI.set_allow_caching ~rpc ~session_id ~self:vdi
+              ~value:(bool_of_string b)
           )
           ()
       ; make_field ~name:"metadata-latest"
@@ -3229,9 +3341,11 @@ let vdi_record rpc session_id vdi =
       ; make_field ~name:"tags"
           ~get:(fun () -> concat_with_comma (x ()).API.vDI_tags)
           ~get_set:(fun () -> (x ()).API.vDI_tags)
-          ~add_to_set:(fun tag -> Client.VDI.add_tags rpc session_id vdi tag)
-          ~remove_from_set:(fun tag ->
-            Client.VDI.remove_tags rpc session_id vdi tag
+          ~add_to_set:(fun value ->
+            Client.VDI.add_tags ~rpc ~session_id ~self:vdi ~value
+          )
+          ~remove_from_set:(fun value ->
+            Client.VDI.remove_tags ~rpc ~session_id ~self:vdi ~value
           )
           ()
       ; make_field ~name:"cbt-enabled"
@@ -3243,7 +3357,7 @@ let vdi_record rpc session_id vdi =
 let vbd_record rpc session_id vbd =
   let _ref = ref vbd in
   let empty_record =
-    ToGet (fun () -> Client.VBD.get_record rpc session_id !_ref)
+    ToGet (fun () -> Client.VBD.get_record ~rpc ~session_id ~self:!_ref)
   in
   let record = ref empty_record in
   let x () = lzy_get record in
@@ -3308,13 +3422,15 @@ let vbd_record rpc session_id vbd =
       ; make_field ~name:"device" ~get:(fun () -> (x ()).API.vBD_device) ()
       ; make_field ~name:"userdevice"
           ~get:(fun () -> (x ()).API.vBD_userdevice)
-          ~set:(fun dev -> Client.VBD.set_userdevice rpc session_id vbd dev)
+          ~set:(fun value ->
+            Client.VBD.set_userdevice ~rpc ~session_id ~self:vbd ~value
+          )
           ()
       ; make_field ~name:"bootable"
           ~get:(fun () -> string_of_bool (x ()).API.vBD_bootable)
           ~set:(fun boot ->
-            Client.VBD.set_bootable rpc session_id vbd
-              (safe_bool_of_string "bootable" boot)
+            Client.VBD.set_bootable ~rpc ~session_id ~self:vbd
+              ~value:(safe_bool_of_string "bootable" boot)
           )
           ()
       ; make_field ~name:"mode"
@@ -3322,8 +3438,8 @@ let vbd_record rpc session_id vbd =
             match (x ()).API.vBD_mode with `RO -> "RO" | `RW -> "RW"
           )
           ~set:(fun mode ->
-            Client.VBD.set_mode rpc session_id vbd
-              (Record_util.string_to_vbd_mode mode)
+            Client.VBD.set_mode ~rpc ~session_id ~self:vbd
+              ~value:(Record_util.string_to_vbd_mode mode)
           )
           ()
       ; make_field ~name:"type"
@@ -3337,15 +3453,15 @@ let vbd_record rpc session_id vbd =
                 "Floppy"
           )
           ~set:(fun ty ->
-            Client.VBD.set_type rpc session_id vbd
-              (Record_util.string_to_vbd_type ty)
+            Client.VBD.set_type ~rpc ~session_id ~self:vbd
+              ~value:(Record_util.string_to_vbd_type ty)
           )
           ()
       ; make_field ~name:"unpluggable"
           ~get:(fun () -> string_of_bool (x ()).API.vBD_unpluggable)
           ~set:(fun unpluggable ->
-            Client.VBD.set_unpluggable rpc session_id vbd
-              (safe_bool_of_string "unpluggable" unpluggable)
+            Client.VBD.set_unpluggable ~rpc ~session_id ~self:vbd
+              ~value:(safe_bool_of_string "unpluggable" unpluggable)
           )
           ()
       ; make_field ~name:"currently-attached"
@@ -3354,7 +3470,7 @@ let vbd_record rpc session_id vbd =
       ; make_field ~name:"attachable"
           ~get:(fun () ->
             try
-              Client.VBD.assert_attachable rpc session_id vbd ;
+              Client.VBD.assert_attachable ~rpc ~session_id ~self:vbd ;
               "true"
             with e -> Printf.sprintf "false (error: %s)" (Printexc.to_string e)
           )
@@ -3370,8 +3486,8 @@ let vbd_record rpc session_id vbd =
           ()
       ; make_field ~name:"qos_algorithm_type"
           ~get:(fun () -> (x ()).API.vBD_qos_algorithm_type)
-          ~set:(fun qat ->
-            Client.VBD.set_qos_algorithm_type rpc session_id vbd qat
+          ~set:(fun value ->
+            Client.VBD.set_qos_algorithm_type ~rpc ~session_id ~self:vbd ~value
           )
           ()
       ; make_field ~name:"qos_algorithm_params"
@@ -3379,11 +3495,13 @@ let vbd_record rpc session_id vbd =
             Record_util.s2sm_to_string "; " (x ()).API.vBD_qos_algorithm_params
           )
           ~get_map:(fun () -> (x ()).API.vBD_qos_algorithm_params)
-          ~add_to_map:(fun k v ->
-            Client.VBD.add_to_qos_algorithm_params rpc session_id vbd k v
+          ~add_to_map:(fun key value ->
+            Client.VBD.add_to_qos_algorithm_params ~rpc ~session_id ~self:vbd
+              ~key ~value
           )
-          ~remove_from_map:(fun k ->
-            Client.VBD.remove_from_qos_algorithm_params rpc session_id vbd k
+          ~remove_from_map:(fun key ->
+            Client.VBD.remove_from_qos_algorithm_params ~rpc ~session_id
+              ~self:vbd ~key
           )
           ()
       ; make_field ~name:"qos_supported_algorithms"
@@ -3396,11 +3514,12 @@ let vbd_record rpc session_id vbd =
           ~get:(fun () ->
             Record_util.s2sm_to_string "; " (x ()).API.vBD_other_config
           )
-          ~add_to_map:(fun k v ->
-            Client.VBD.add_to_other_config rpc session_id vbd k v
+          ~add_to_map:(fun key value ->
+            Client.VBD.add_to_other_config ~rpc ~session_id ~self:vbd ~key
+              ~value
           )
-          ~remove_from_map:(fun k ->
-            Client.VBD.remove_from_other_config rpc session_id vbd k
+          ~remove_from_map:(fun key ->
+            Client.VBD.remove_from_other_config ~rpc ~session_id ~self:vbd ~key
           )
           ~get_map:(fun () -> (x ()).API.vBD_other_config)
           ()
@@ -3409,8 +3528,8 @@ let vbd_record rpc session_id vbd =
             try
               let name = Printf.sprintf "vbd_%s_read" (x ()).API.vBD_device in
               string_of_float
-                (Client.VM.query_data_source rpc session_id (x ()).API.vBD_VM
-                   name
+                (Client.VM.query_data_source ~rpc ~session_id
+                   ~self:(x ()).API.vBD_VM ~data_source:name
                 /. 1024.0
                 )
             with _ -> "<unknown>"
@@ -3421,8 +3540,8 @@ let vbd_record rpc session_id vbd =
             try
               let name = Printf.sprintf "vbd_%s_write" (x ()).API.vBD_device in
               string_of_float
-                (Client.VM.query_data_source rpc session_id (x ()).API.vBD_VM
-                   name
+                (Client.VM.query_data_source ~rpc ~session_id
+                   ~self:(x ()).API.vBD_VM ~data_source:name
                 /. 1024.0
                 )
             with _ -> "<unknown>"
@@ -3434,7 +3553,7 @@ let vbd_record rpc session_id vbd =
 let crashdump_record rpc session_id crashdump =
   let _ref = ref crashdump in
   let empty_record =
-    ToGet (fun () -> Client.Crashdump.get_record rpc session_id !_ref)
+    ToGet (fun () -> Client.Crashdump.get_record ~rpc ~session_id ~self:!_ref)
   in
   let record = ref empty_record in
   let x () = lzy_get record in
@@ -3469,7 +3588,7 @@ let crashdump_record rpc session_id crashdump =
 let sm_record rpc session_id sm =
   let _ref = ref sm in
   let empty_record =
-    ToGet (fun () -> Client.SM.get_record rpc session_id !_ref)
+    ToGet (fun () -> Client.SM.get_record ~rpc ~session_id ~self:!_ref)
   in
   let record = ref empty_record in
   let x () = lzy_get record in
@@ -3529,7 +3648,7 @@ let sm_record rpc session_id sm =
 let sr_record rpc session_id sr =
   let _ref = ref sr in
   let empty_record =
-    ToGet (fun () -> Client.SR.get_record rpc session_id !_ref)
+    ToGet (fun () -> Client.SR.get_record ~rpc ~session_id ~self:!_ref)
   in
   let record = ref empty_record in
   let x () = lzy_get record in
@@ -3551,11 +3670,15 @@ let sr_record rpc session_id sr =
         make_field ~name:"uuid" ~get:(fun () -> (x ()).API.sR_uuid) ()
       ; make_field ~name:"name-label"
           ~get:(fun () -> (x ()).API.sR_name_label)
-          ~set:(fun x -> Client.SR.set_name_label rpc session_id sr x)
+          ~set:(fun value ->
+            Client.SR.set_name_label ~rpc ~session_id ~sr ~value
+          )
           ()
       ; make_field ~name:"name-description"
           ~get:(fun () -> (x ()).API.sR_name_description)
-          ~set:(fun x -> Client.SR.set_name_description rpc session_id sr x)
+          ~set:(fun value ->
+            Client.SR.set_name_description ~rpc ~session_id ~sr ~value
+          )
           ()
       ; make_field ~name:"host"
           ~get:(fun () ->
@@ -3613,8 +3736,8 @@ let sr_record rpc session_id sr =
       ; make_field ~name:"shared"
           ~get:(fun () -> string_of_bool (x ()).API.sR_shared)
           ~set:(fun x ->
-            Client.SR.set_shared rpc session_id sr
-              (safe_bool_of_string "shared" x)
+            Client.SR.set_shared ~rpc ~session_id ~sr
+              ~value:(safe_bool_of_string "shared" x)
           )
           ()
       ; make_field ~name:"introduced-by"
@@ -3627,11 +3750,11 @@ let sr_record rpc session_id sr =
           ~get:(fun () ->
             Record_util.s2sm_to_string "; " (x ()).API.sR_other_config
           )
-          ~add_to_map:(fun k v ->
-            Client.SR.add_to_other_config rpc session_id sr k v
+          ~add_to_map:(fun key value ->
+            Client.SR.add_to_other_config ~rpc ~session_id ~self:sr ~key ~value
           )
-          ~remove_from_map:(fun k ->
-            Client.SR.remove_from_other_config rpc session_id sr k
+          ~remove_from_map:(fun key ->
+            Client.SR.remove_from_other_config ~rpc ~session_id ~self:sr ~key
           )
           ~get_map:(fun () -> (x ()).API.sR_other_config)
           ()
@@ -3653,9 +3776,11 @@ let sr_record rpc session_id sr =
       ; make_field ~name:"tags"
           ~get:(fun () -> concat_with_comma (x ()).API.sR_tags)
           ~get_set:(fun () -> (x ()).API.sR_tags)
-          ~add_to_set:(fun tag -> Client.SR.add_tags rpc session_id sr tag)
-          ~remove_from_set:(fun tag ->
-            Client.SR.remove_tags rpc session_id sr tag
+          ~add_to_set:(fun value ->
+            Client.SR.add_tags ~rpc ~session_id ~self:sr ~value
+          )
+          ~remove_from_set:(fun value ->
+            Client.SR.remove_tags ~rpc ~session_id ~self:sr ~value
           )
           ()
       ; make_field ~name:"clustered"
@@ -3667,7 +3792,7 @@ let sr_record rpc session_id sr =
 let pbd_record rpc session_id pbd =
   let _ref = ref pbd in
   let empty_record =
-    ToGet (fun () -> Client.PBD.get_record rpc session_id !_ref)
+    ToGet (fun () -> Client.PBD.get_record ~rpc ~session_id ~self:!_ref)
   in
   let record = ref empty_record in
   let x () = lzy_get record in
@@ -3715,11 +3840,12 @@ let pbd_record rpc session_id pbd =
           ~get:(fun () ->
             Record_util.s2sm_to_string "; " (x ()).API.pBD_other_config
           )
-          ~add_to_map:(fun k v ->
-            Client.PBD.add_to_other_config rpc session_id pbd k v
+          ~add_to_map:(fun key value ->
+            Client.PBD.add_to_other_config ~rpc ~session_id ~self:pbd ~key
+              ~value
           )
-          ~remove_from_map:(fun k ->
-            Client.PBD.remove_from_other_config rpc session_id pbd k
+          ~remove_from_map:(fun key ->
+            Client.PBD.remove_from_other_config ~rpc ~session_id ~self:pbd ~key
           )
           ~get_map:(fun () -> (x ()).API.pBD_other_config)
           ()
@@ -3783,14 +3909,16 @@ let vm_appliance_record rpc session_id vm_appliance =
         make_field ~name:"uuid" ~get:(fun () -> (x ()).API.vM_appliance_uuid) ()
       ; make_field ~name:"name-label"
           ~get:(fun () -> (x ()).API.vM_appliance_name_label)
-          ~set:(fun x ->
-            Client.VM_appliance.set_name_label rpc session_id !_ref x
+          ~set:(fun value ->
+            Client.VM_appliance.set_name_label ~rpc ~session_id ~self:!_ref
+              ~value
           )
           ()
       ; make_field ~name:"name-description"
           ~get:(fun () -> (x ()).API.vM_appliance_name_description)
-          ~set:(fun x ->
-            Client.VM_appliance.set_name_description rpc session_id !_ref x
+          ~set:(fun value ->
+            Client.VM_appliance.set_name_description ~rpc ~session_id
+              ~self:!_ref ~value
           )
           ()
       ; make_field ~name:"VMs"
@@ -3856,12 +3984,12 @@ let dr_task_record rpc session_id dr_task =
 let pgpu_record rpc session_id pgpu =
   let _ref = ref pgpu in
   let empty_record =
-    ToGet (fun () -> Client.PGPU.get_record rpc session_id !_ref)
+    ToGet (fun () -> Client.PGPU.get_record ~rpc ~session_id ~self:!_ref)
   in
   let record = ref empty_record in
   let x () = lzy_get record in
   let pci_record p =
-    ref (ToGet (fun () -> Client.PCI.get_record rpc session_id p))
+    ref (ToGet (fun () -> Client.PCI.get_record ~rpc ~session_id ~self:p))
   in
   let xp0 p = lzy_get (pci_record p) in
   let xp () = xp0 (x ()).API.pGPU_PCI in
@@ -3901,11 +4029,12 @@ let pgpu_record rpc session_id pgpu =
           ~get:(fun () ->
             try get_uuid_from_ref (x ()).API.pGPU_GPU_group with _ -> nid
           )
-          ~set:(fun gpu_group_uuid ->
+          ~set:(fun uuid ->
             let gpu_group =
-              Client.GPU_group.get_by_uuid rpc session_id gpu_group_uuid
+              Client.GPU_group.get_by_uuid ~rpc ~session_id ~uuid
             in
-            Client.PGPU.set_GPU_group rpc session_id pgpu gpu_group
+            Client.PGPU.set_GPU_group ~rpc ~session_id ~self:pgpu
+              ~value:gpu_group
           )
           ()
       ; make_field ~name:"gpu-group-name-label"
@@ -3942,11 +4071,13 @@ let pgpu_record rpc session_id pgpu =
           ~get:(fun () ->
             Record_util.s2sm_to_string "; " (x ()).API.pGPU_other_config
           )
-          ~add_to_map:(fun k v ->
-            Client.PGPU.add_to_other_config rpc session_id pgpu k v
+          ~add_to_map:(fun key value ->
+            Client.PGPU.add_to_other_config ~rpc ~session_id ~self:pgpu ~key
+              ~value
           )
-          ~remove_from_map:(fun k ->
-            Client.PGPU.remove_from_other_config rpc session_id pgpu k
+          ~remove_from_map:(fun key ->
+            Client.PGPU.remove_from_other_config ~rpc ~session_id ~self:pgpu
+              ~key
           )
           ~get_map:(fun () -> (x ()).API.pGPU_other_config)
           ()
@@ -3962,22 +4093,23 @@ let pgpu_record rpc session_id pgpu =
               (fun vgpu_type -> get_uuid_from_ref vgpu_type)
               (x ()).API.pGPU_enabled_VGPU_types
           )
-          ~add_to_set:(fun vgpu_type_uuid ->
-            Client.PGPU.add_enabled_VGPU_types rpc session_id pgpu
-              (Client.VGPU_type.get_by_uuid rpc session_id vgpu_type_uuid)
+          ~add_to_set:(fun uuid ->
+            Client.PGPU.add_enabled_VGPU_types ~rpc ~session_id ~self:pgpu
+              ~value:(Client.VGPU_type.get_by_uuid ~rpc ~session_id ~uuid)
           )
-          ~remove_from_set:(fun vgpu_type_uuid ->
-            Client.PGPU.remove_enabled_VGPU_types rpc session_id pgpu
-              (Client.VGPU_type.get_by_uuid rpc session_id vgpu_type_uuid)
+          ~remove_from_set:(fun uuid ->
+            Client.PGPU.remove_enabled_VGPU_types ~rpc ~session_id ~self:pgpu
+              ~value:(Client.VGPU_type.get_by_uuid ~rpc ~session_id ~uuid)
           )
           ~set:(fun vgpu_type_uuids ->
-            Client.PGPU.set_enabled_VGPU_types rpc session_id pgpu
-              (List.map
-                 (fun vgpu_type_uuid ->
-                   Client.VGPU_type.get_by_uuid rpc session_id vgpu_type_uuid
-                 )
-                 (get_words ',' vgpu_type_uuids)
-              )
+            Client.PGPU.set_enabled_VGPU_types ~rpc ~session_id ~self:pgpu
+              ~value:
+                (List.map
+                   (fun uuid ->
+                     Client.VGPU_type.get_by_uuid ~rpc ~session_id ~uuid
+                   )
+                   (get_words ',' vgpu_type_uuids)
+                )
           )
           ()
       ; make_field ~name:"resident-VGPUs"
@@ -3989,7 +4121,7 @@ let pgpu_record rpc session_id pgpu =
 let gpu_group_record rpc session_id gpu_group =
   let _ref = ref gpu_group in
   let empty_record =
-    ToGet (fun () -> Client.GPU_group.get_record rpc session_id !_ref)
+    ToGet (fun () -> Client.GPU_group.get_record ~rpc ~session_id ~self:!_ref)
   in
   let record = ref empty_record in
   let x () = lzy_get record in
@@ -4011,14 +4143,16 @@ let gpu_group_record rpc session_id gpu_group =
         make_field ~name:"uuid" ~get:(fun () -> (x ()).API.gPU_group_uuid) ()
       ; make_field ~name:"name-label"
           ~get:(fun () -> (x ()).API.gPU_group_name_label)
-          ~set:(fun x ->
-            Client.GPU_group.set_name_label rpc session_id gpu_group x
+          ~set:(fun value ->
+            Client.GPU_group.set_name_label ~rpc ~session_id ~self:gpu_group
+              ~value
           )
           ()
       ; make_field ~name:"name-description"
           ~get:(fun () -> (x ()).API.gPU_group_name_description)
-          ~set:(fun x ->
-            Client.GPU_group.set_name_description rpc session_id gpu_group x
+          ~set:(fun value ->
+            Client.GPU_group.set_name_description ~rpc ~session_id
+              ~self:gpu_group ~value
           )
           ()
       ; make_field ~name:"VGPU-uuids"
@@ -4041,25 +4175,29 @@ let gpu_group_record rpc session_id gpu_group =
           ~get:(fun () ->
             Record_util.s2sm_to_string "; " (x ()).API.gPU_group_other_config
           )
-          ~add_to_map:(fun k v ->
-            Client.GPU_group.add_to_other_config rpc session_id gpu_group k v
+          ~add_to_map:(fun key value ->
+            Client.GPU_group.add_to_other_config ~rpc ~session_id
+              ~self:gpu_group ~key ~value
           )
-          ~remove_from_map:(fun k ->
-            Client.GPU_group.remove_from_other_config rpc session_id gpu_group k
+          ~remove_from_map:(fun key ->
+            Client.GPU_group.remove_from_other_config ~rpc ~session_id
+              ~self:gpu_group ~key
           )
           ~get_map:(fun () -> (x ()).API.gPU_group_other_config)
           ()
       ; make_field ~name:"enabled-VGPU-types"
           ~get:(fun () ->
             get_uuids_from_refs
-              (Client.GPU_group.get_enabled_VGPU_types rpc session_id gpu_group)
+              (Client.GPU_group.get_enabled_VGPU_types ~rpc ~session_id
+                 ~self:gpu_group
+              )
           )
           ()
       ; make_field ~name:"supported-VGPU-types"
           ~get:(fun () ->
             get_uuids_from_refs
-              (Client.GPU_group.get_supported_VGPU_types rpc session_id
-                 gpu_group
+              (Client.GPU_group.get_supported_VGPU_types ~rpc ~session_id
+                 ~self:gpu_group
               )
           )
           ()
@@ -4069,8 +4207,9 @@ let gpu_group_record rpc session_id gpu_group =
               (x ()).API.gPU_group_allocation_algorithm
           )
           ~set:(fun ty ->
-            Client.GPU_group.set_allocation_algorithm rpc session_id gpu_group
-              (Record_util.allocation_algorithm_of_string ty)
+            Client.GPU_group.set_allocation_algorithm ~rpc ~session_id
+              ~self:gpu_group
+              ~value:(Record_util.allocation_algorithm_of_string ty)
           )
           ()
       ]
@@ -4079,12 +4218,12 @@ let gpu_group_record rpc session_id gpu_group =
 let vgpu_record rpc session_id vgpu =
   let _ref = ref vgpu in
   let empty_record =
-    ToGet (fun () -> Client.VGPU.get_record rpc session_id !_ref)
+    ToGet (fun () -> Client.VGPU.get_record ~rpc ~session_id ~self:!_ref)
   in
   let record = ref empty_record in
   let x () = lzy_get record in
   let pci_record p =
-    ref (ToGet (fun () -> Client.PCI.get_record rpc session_id p))
+    ref (ToGet (fun () -> Client.PCI.get_record ~rpc ~session_id ~self:p))
   in
   let xp () = lzy_get (pci_record (x ()).API.vGPU_PCI) in
   {
@@ -4127,11 +4266,13 @@ let vgpu_record rpc session_id vgpu =
           ~get:(fun () ->
             Record_util.s2sm_to_string "; " (x ()).API.vGPU_other_config
           )
-          ~add_to_map:(fun k v ->
-            Client.VGPU.add_to_other_config rpc session_id vgpu k v
+          ~add_to_map:(fun key value ->
+            Client.VGPU.add_to_other_config ~rpc ~session_id ~self:vgpu ~key
+              ~value
           )
-          ~remove_from_map:(fun k ->
-            Client.VGPU.remove_from_other_config rpc session_id vgpu k
+          ~remove_from_map:(fun key ->
+            Client.VGPU.remove_from_other_config ~rpc ~session_id ~self:vgpu
+              ~key
           )
           ~get_map:(fun () -> (x ()).API.vGPU_other_config)
           ()
@@ -4141,8 +4282,8 @@ let vgpu_record rpc session_id vgpu =
       ; make_field ~name:"type-model-name"
           ~get:(fun () ->
             try
-              Client.VGPU_type.get_model_name rpc session_id
-                (x ()).API.vGPU_type
+              Client.VGPU_type.get_model_name ~rpc ~session_id
+                ~self:(x ()).API.vGPU_type
             with _ -> nid
           )
           ()
@@ -4160,7 +4301,9 @@ let vgpu_record rpc session_id vgpu =
           ()
       ; make_field ~name:"extra_args"
           ~get:(fun () -> (x ()).API.vGPU_extra_args)
-          ~set:(fun v -> Client.VGPU.set_extra_args rpc session_id vgpu v)
+          ~set:(fun value ->
+            Client.VGPU.set_extra_args ~rpc ~session_id ~self:vgpu ~value
+          )
           ()
       ; make_field ~name:"pci"
           ~get:(fun () -> try (xp ()).API.pCI_pci_id with _ -> nid)
@@ -4171,7 +4314,7 @@ let vgpu_record rpc session_id vgpu =
 let vgpu_type_record rpc session_id vgpu_type =
   let _ref = ref vgpu_type in
   let empty_record =
-    ToGet (fun () -> Client.VGPU_type.get_record rpc session_id !_ref)
+    ToGet (fun () -> Client.VGPU_type.get_record ~rpc ~session_id ~self:!_ref)
   in
   let record = ref empty_record in
   let x () = lzy_get record in
@@ -4251,7 +4394,7 @@ let vgpu_type_record rpc session_id vgpu_type =
 let pvs_site_record rpc session_id pvs_site =
   let _ref = ref pvs_site in
   let empty_record =
-    ToGet (fun () -> Client.PVS_site.get_record rpc session_id !_ref)
+    ToGet (fun () -> Client.PVS_site.get_record ~rpc ~session_id ~self:!_ref)
   in
   let record = ref empty_record in
   let x () = lzy_get record in
@@ -4273,17 +4416,22 @@ let pvs_site_record rpc session_id pvs_site =
         make_field ~name:"uuid" ~get:(fun () -> (x ()).API.pVS_site_uuid) ()
       ; make_field ~name:"name-label"
           ~get:(fun () -> (x ()).API.pVS_site_name_label)
-          ~set:(fun x -> Client.PVS_site.set_name_label rpc session_id !_ref x)
+          ~set:(fun value ->
+            Client.PVS_site.set_name_label ~rpc ~session_id ~self:!_ref ~value
+          )
           ()
       ; make_field ~name:"name-description"
           ~get:(fun () -> (x ()).API.pVS_site_name_description)
-          ~set:(fun x ->
-            Client.PVS_site.set_name_description rpc session_id !_ref x
+          ~set:(fun value ->
+            Client.PVS_site.set_name_description ~rpc ~session_id ~self:!_ref
+              ~value
           )
           ()
       ; make_field ~name:"pvs-uuid"
           ~get:(fun () -> (x ()).API.pVS_site_PVS_uuid)
-          ~set:(fun x -> Client.PVS_site.set_PVS_uuid rpc session_id !_ref x)
+          ~set:(fun value ->
+            Client.PVS_site.set_PVS_uuid ~rpc ~session_id ~self:!_ref ~value
+          )
           ()
       ; make_field ~name:"pvs-cache-storage-uuids"
           ~get:(fun () -> get_uuids_from_refs (x ()).API.pVS_site_cache_storage)
@@ -4309,7 +4457,7 @@ let pvs_site_record rpc session_id pvs_site =
 let pvs_server_record rpc session_id pvs_site =
   let _ref = ref pvs_site in
   let empty_record =
-    ToGet (fun () -> Client.PVS_server.get_record rpc session_id !_ref)
+    ToGet (fun () -> Client.PVS_server.get_record ~rpc ~session_id ~self:!_ref)
   in
   let record = ref empty_record in
   let x () = lzy_get record in
@@ -4348,7 +4496,7 @@ let pvs_server_record rpc session_id pvs_site =
 let pvs_proxy_record rpc session_id pvs_site =
   let _ref = ref pvs_site in
   let empty_record =
-    ToGet (fun () -> Client.PVS_proxy.get_record rpc session_id !_ref)
+    ToGet (fun () -> Client.PVS_proxy.get_record ~rpc ~session_id ~self:!_ref)
   in
   let record = ref empty_record in
   let x () = lzy_get record in
@@ -4391,7 +4539,10 @@ let pvs_proxy_record rpc session_id pvs_site =
 let pvs_cache_storage_record rpc session_id pvs_site =
   let _ref = ref pvs_site in
   let empty_record =
-    ToGet (fun () -> Client.PVS_cache_storage.get_record rpc session_id !_ref)
+    ToGet
+      (fun () ->
+        Client.PVS_cache_storage.get_record ~rpc ~session_id ~self:!_ref
+      )
   in
   let record = ref empty_record in
   let x () = lzy_get record in
@@ -4434,7 +4585,7 @@ let pvs_cache_storage_record rpc session_id pvs_site =
 let feature_record rpc session_id feature =
   let _ref = ref feature in
   let empty_record =
-    ToGet (fun () -> Client.Feature.get_record rpc session_id !_ref)
+    ToGet (fun () -> Client.Feature.get_record ~rpc ~session_id ~self:!_ref)
   in
   let record = ref empty_record in
   let x () = lzy_get record in
@@ -4478,7 +4629,8 @@ let feature_record rpc session_id feature =
 let sdn_controller_record rpc session_id sdn_controller =
   let _ref = ref sdn_controller in
   let empty_record =
-    ToGet (fun () -> Client.SDN_controller.get_record rpc session_id !_ref)
+    ToGet
+      (fun () -> Client.SDN_controller.get_record ~rpc ~session_id ~self:!_ref)
   in
   let record = ref empty_record in
   let x () = lzy_get record in
@@ -4518,7 +4670,7 @@ let sdn_controller_record rpc session_id sdn_controller =
 let pusb_record rpc session_id pusb =
   let _ref = ref pusb in
   let empty_record =
-    ToGet (fun () -> Client.PUSB.get_record rpc session_id !_ref)
+    ToGet (fun () -> Client.PUSB.get_record ~rpc ~session_id ~self:!_ref)
   in
   let record = ref empty_record in
   let x () = lzy_get record in
@@ -4575,8 +4727,9 @@ let pusb_record rpc session_id pusb =
       ; make_field ~name:"passthrough-enabled"
           ~get:(fun () -> string_of_bool (x ()).API.pUSB_passthrough_enabled)
           ~set:(fun passthrough_enabled ->
-            Client.PUSB.set_passthrough_enabled rpc session_id pusb
-              (safe_bool_of_string "passthrough-enabled" passthrough_enabled)
+            Client.PUSB.set_passthrough_enabled ~rpc ~session_id ~self:pusb
+              ~value:
+                (safe_bool_of_string "passthrough-enabled" passthrough_enabled)
           )
           ()
       ]
@@ -4585,7 +4738,7 @@ let pusb_record rpc session_id pusb =
 let usb_group_record rpc session_id usb_group =
   let _ref = ref usb_group in
   let empty_record =
-    ToGet (fun () -> Client.USB_group.get_record rpc session_id !_ref)
+    ToGet (fun () -> Client.USB_group.get_record ~rpc ~session_id ~self:!_ref)
   in
   let record = ref empty_record in
   let x () = lzy_get record in
@@ -4607,14 +4760,16 @@ let usb_group_record rpc session_id usb_group =
         make_field ~name:"uuid" ~get:(fun () -> (x ()).API.uSB_group_uuid) ()
       ; make_field ~name:"name-label"
           ~get:(fun () -> (x ()).API.uSB_group_name_label)
-          ~set:(fun x ->
-            Client.USB_group.set_name_label rpc session_id usb_group x
+          ~set:(fun value ->
+            Client.USB_group.set_name_label ~rpc ~session_id ~self:usb_group
+              ~value
           )
           ()
       ; make_field ~name:"name-description"
           ~get:(fun () -> (x ()).API.uSB_group_name_description)
-          ~set:(fun x ->
-            Client.USB_group.set_name_description rpc session_id usb_group x
+          ~set:(fun value ->
+            Client.USB_group.set_name_description ~rpc ~session_id
+              ~self:usb_group ~value
           )
           ()
       ; make_field ~name:"VUSB-uuids"
@@ -4637,11 +4792,13 @@ let usb_group_record rpc session_id usb_group =
           ~get:(fun () ->
             Record_util.s2sm_to_string "; " (x ()).API.uSB_group_other_config
           )
-          ~add_to_map:(fun k v ->
-            Client.USB_group.add_to_other_config rpc session_id usb_group k v
+          ~add_to_map:(fun key value ->
+            Client.USB_group.add_to_other_config ~rpc ~session_id
+              ~self:usb_group ~key ~value
           )
-          ~remove_from_map:(fun k ->
-            Client.USB_group.remove_from_other_config rpc session_id usb_group k
+          ~remove_from_map:(fun key ->
+            Client.USB_group.remove_from_other_config ~rpc ~session_id
+              ~self:usb_group ~key
           )
           ~get_map:(fun () -> (x ()).API.uSB_group_other_config)
           ()
@@ -4651,7 +4808,7 @@ let usb_group_record rpc session_id usb_group =
 let vusb_record rpc session_id vusb =
   let _ref = ref vusb in
   let empty_record =
-    ToGet (fun () -> Client.VUSB.get_record rpc session_id !_ref)
+    ToGet (fun () -> Client.VUSB.get_record ~rpc ~session_id ~self:!_ref)
   in
   let record = ref empty_record in
   let x () = lzy_get record in
@@ -4691,11 +4848,13 @@ let vusb_record rpc session_id vusb =
           ~get:(fun () ->
             Record_util.s2sm_to_string "; " (x ()).API.vUSB_other_config
           )
-          ~add_to_map:(fun k v ->
-            Client.VUSB.add_to_other_config rpc session_id vusb k v
+          ~add_to_map:(fun key value ->
+            Client.VUSB.add_to_other_config ~rpc ~session_id ~self:vusb ~key
+              ~value
           )
-          ~remove_from_map:(fun k ->
-            Client.VUSB.remove_from_other_config rpc session_id vusb k
+          ~remove_from_map:(fun key ->
+            Client.VUSB.remove_from_other_config ~rpc ~session_id ~self:vusb
+              ~key
           )
           ~get_map:(fun () -> (x ()).API.vUSB_other_config)
           ()
@@ -4730,7 +4889,7 @@ let vusb_record rpc session_id vusb =
 let cluster_record rpc session_id cluster =
   let _ref = ref cluster in
   let empty_record =
-    ToGet (fun () -> Client.Cluster.get_record rpc session_id !_ref)
+    ToGet (fun () -> Client.Cluster.get_record ~rpc ~session_id ~self:!_ref)
   in
   let record = ref empty_record in
   let x () = lzy_get record in
@@ -4810,11 +4969,13 @@ let cluster_record rpc session_id cluster =
             Record_util.s2sm_to_string "; " (x ()).API.cluster_other_config
           )
           ~get_map:(fun () -> (x ()).API.cluster_other_config)
-          ~add_to_map:(fun k v ->
-            Client.Cluster.add_to_other_config rpc session_id cluster k v
+          ~add_to_map:(fun key value ->
+            Client.Cluster.add_to_other_config ~rpc ~session_id ~self:cluster
+              ~key ~value
           )
-          ~remove_from_map:(fun k ->
-            Client.Cluster.remove_from_other_config rpc session_id cluster k
+          ~remove_from_map:(fun key ->
+            Client.Cluster.remove_from_other_config ~rpc ~session_id
+              ~self:cluster ~key
           )
           ()
       ]
@@ -4823,7 +4984,7 @@ let cluster_record rpc session_id cluster =
 let cluster_host_record rpc session_id cluster_host =
   let _ref = ref cluster_host in
   let empty_record =
-    ToGet (fun () -> Client.Cluster_host.get_record rpc session_id !_ref)
+    ToGet (fun () -> Client.Cluster_host.get_record ~rpc ~session_id ~self:!_ref)
   in
   let record = ref empty_record in
   let x () = lzy_get record in
@@ -4892,7 +5053,7 @@ let cluster_host_record rpc session_id cluster_host =
 let certificate_record rpc session_id certificate =
   let _ref = ref certificate in
   let empty_record =
-    ToGet (fun () -> Client.Certificate.get_record rpc session_id !_ref)
+    ToGet (fun () -> Client.Certificate.get_record ~rpc ~session_id ~self:!_ref)
   in
   let record = ref empty_record in
   let x () = lzy_get record in
@@ -4937,7 +5098,7 @@ let certificate_record rpc session_id certificate =
 let repository_record rpc session_id repository =
   let _ref = ref repository in
   let empty_record =
-    ToGet (fun () -> Client.Repository.get_record rpc session_id !_ref)
+    ToGet (fun () -> Client.Repository.get_record ~rpc ~session_id ~self:!_ref)
   in
   let record = ref empty_record in
   let x () = lzy_get record in
@@ -4959,14 +5120,16 @@ let repository_record rpc session_id repository =
         make_field ~name:"uuid" ~get:(fun () -> (x ()).API.repository_uuid) ()
       ; make_field ~name:"name-label"
           ~get:(fun () -> (x ()).API.repository_name_label)
-          ~set:(fun x ->
-            Client.Repository.set_name_label rpc session_id repository x
+          ~set:(fun value ->
+            Client.Repository.set_name_label ~rpc ~session_id ~self:repository
+              ~value
           )
           ()
       ; make_field ~name:"name-description"
           ~get:(fun () -> (x ()).API.repository_name_description)
-          ~set:(fun x ->
-            Client.Repository.set_name_description rpc session_id repository x
+          ~set:(fun value ->
+            Client.Repository.set_name_description ~rpc ~session_id
+              ~self:repository ~value
           )
           ()
       ; make_field ~name:"binary-url"
@@ -4985,7 +5148,8 @@ let repository_record rpc session_id repository =
       ; make_field ~name:"gpgkey-path"
           ~get:(fun () -> (x ()).API.repository_gpgkey_path)
           ~set:(fun x ->
-            Client.Repository.set_gpgkey_path rpc session_id repository x
+            Client.Repository.set_gpgkey_path ~rpc ~session_id ~self:repository
+              ~value:x
           )
           ()
       ]
@@ -4994,7 +5158,7 @@ let repository_record rpc session_id repository =
 let vtpm_record rpc session_id vtpm =
   let _ref = ref vtpm in
   let empty_record =
-    ToGet (fun () -> Client.VTPM.get_record rpc session_id !_ref)
+    ToGet (fun () -> Client.VTPM.get_record ~rpc ~session_id ~self:!_ref)
   in
   let record = ref empty_record in
   let x () = lzy_get record in

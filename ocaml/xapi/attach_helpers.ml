@@ -23,7 +23,7 @@ let timeout = 300. (* 5 minutes, should never take this long *)
 (** Attempt an unplug, and if it fails because the device is in use, wait for it to
     detach by polling the currently-attached field. *)
 let safe_unplug rpc session_id self =
-  try Client.VBD.unplug rpc session_id self with
+  try Client.VBD.unplug ~rpc ~session_id ~self with
   | Api_errors.Server_error (error, _)
     when error = Api_errors.device_already_detached ->
       debug "safe_unplug caught DEVICE_ALREADY_DETACHED: this is safe to ignore"
@@ -36,7 +36,8 @@ let safe_unplug rpc session_id self =
       let unplugged = ref false in
       while (not !unplugged) && Unix.gettimeofday () -. start < timeout do
         Thread.delay 5. ;
-        unplugged := not (Client.VBD.get_currently_attached rpc session_id self)
+        unplugged :=
+          not (Client.VBD.get_currently_attached ~rpc ~session_id ~self)
       done ;
       if not !unplugged then (
         debug "Timeout waiting for dom0 device to be unplugged" ;
@@ -108,7 +109,7 @@ let with_vbds rpc session_id __context vm vdis mode f =
           debug "created VBD (uuid %s); attempting to hotplug to VM (uuid: %s)"
             vbd_uuid uuid ;
           vbds := vbd :: !vbds ;
-          Client.VBD.plug rpc session_id vbd
+          Client.VBD.plug ~rpc ~session_id ~self:vbd
         )
         vdis ;
       vbds := List.rev !vbds ;
@@ -125,7 +126,7 @@ let with_vbds rpc session_id __context vm vdis mode f =
             !vbds ;
           List.iter
             (Helpers.log_exn_continue "destroying VBD on VM" (fun self ->
-                 Client.VBD.destroy rpc session_id self
+                 Client.VBD.destroy ~rpc ~session_id ~self
              )
             )
             !vbds

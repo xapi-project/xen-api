@@ -19,7 +19,6 @@ module L = Debug.Make (struct let name = "license" end)
 
 open Db_filter_types
 module Listext = Xapi_stdext_std.Listext.List
-open Xapi_stdext_pervasives.Pervasiveext
 open Xapi_stdext_std.Xstringext
 open Xapi_stdext_threads.Threadext
 module Date = Xapi_stdext_date.Date
@@ -332,7 +331,7 @@ let assert_fcoe_not_in_use ~__context ~self =
   debug "Scsi ids on %s are: %s" interface output ;
   let fcoe_scsids = Str.split (Str.regexp " ") output in
   Helpers.get_my_pbds __context
-  |> List.iter (fun (pbd, pbd_rec) ->
+  |> List.iter (fun (_, pbd_rec) ->
          let sr = pbd_rec.API.pBD_SR in
          match Db.SR.get_type ~__context ~self:sr with
          | "lvmofcoe" -> (
@@ -360,8 +359,7 @@ let find_or_create_network (bridge : string) (device : string) ~__context =
   | [net] ->
       net
   | _ ->
-      let net_ref = Ref.make ()
-      and net_uuid = Uuid.to_string (Uuid.make_uuid ()) in
+      let net_ref = Ref.make () and net_uuid = Uuid.to_string (Uuid.make ()) in
       let () =
         Db.Network.create ~__context ~ref:net_ref ~uuid:net_uuid
           ~current_operations:[] ~allowed_operations:[]
@@ -409,8 +407,7 @@ let is_my_management_pif ~__context ~self =
   Db.Network.get_bridge ~__context ~self:net = management_if
 
 let make_pif_metrics ~__context =
-  let metrics = Ref.make ()
-  and metrics_uuid = Uuid.to_string (Uuid.make_uuid ()) in
+  let metrics = Ref.make () and metrics_uuid = Uuid.to_string (Uuid.make ()) in
   let () =
     Db.PIF_metrics.create ~__context ~ref:metrics ~uuid:metrics_uuid
       ~carrier:false ~device_name:"" ~vendor_name:"" ~device_id:"" ~vendor_id:""
@@ -435,7 +432,7 @@ let set_default_properties ~__context ~self =
     Db.PIF.set_properties ~__context ~self ~value:[]
 
 let pool_introduce ~__context ~device ~network ~host ~mAC ~mTU ~vLAN ~physical
-    ~ip_configuration_mode ~iP ~netmask ~gateway ~dNS ~bond_slave_of
+    ~ip_configuration_mode ~iP ~netmask ~gateway ~dNS ~bond_slave_of:_
     ~vLAN_master_of ~management ~other_config ~disallow_unplug
     ~ipv6_configuration_mode ~iPv6 ~ipv6_gateway ~primary_address_type ~managed
     ~properties =
@@ -443,7 +440,7 @@ let pool_introduce ~__context ~device ~network ~host ~mAC ~mTU ~vLAN ~physical
   let metrics = make_pif_metrics ~__context in
   let () =
     Db.PIF.create ~__context ~ref:pif_ref
-      ~uuid:(Uuid.to_string (Uuid.make_uuid ()))
+      ~uuid:(Uuid.to_string (Uuid.make ()))
       ~device ~device_name:device ~network ~host ~mAC ~mTU ~vLAN ~metrics
       ~physical ~currently_attached:false ~igmp_snooping_status:`unknown
       ~ip_configuration_mode ~iP ~netmask ~gateway ~dNS ~bond_slave_of:Ref.null
@@ -458,9 +455,9 @@ let db_introduce = pool_introduce
 let db_forget ~__context ~self = Db.PIF.destroy ~__context ~self
 
 (* Internal [introduce] is passed a pre-built table [t] *)
-let introduce_internal ?network ?(physical = true) ~t ~__context ~host ~mAC ~mTU
-    ~device ~vLAN ~vLAN_master_of ?metrics ~managed ?(disallow_unplug = false)
-    () =
+let introduce_internal ?network ?(physical = true) ~t:_ ~__context ~host ~mAC
+    ~mTU ~device ~vLAN ~vLAN_master_of ?metrics ~managed
+    ?(disallow_unplug = false) () =
   let bridge = bridge_naming_convention device in
   (* If we are not told which network to use,
      	 * apply the default convention *)
@@ -481,7 +478,7 @@ let introduce_internal ?network ?(physical = true) ~t ~__context ~host ~mAC ~mTU
   debug "Creating a new record for NIC: %s: %s" device (Ref.string_of pif) ;
   let () =
     Db.PIF.create ~__context ~ref:pif
-      ~uuid:(Uuid.to_string (Uuid.make_uuid ()))
+      ~uuid:(Uuid.to_string (Uuid.make ()))
       ~device ~device_name:device ~network:net_ref ~host ~mAC ~mTU ~vLAN
       ~metrics ~physical ~currently_attached:false
       ~igmp_snooping_status:`unknown ~ip_configuration_mode:`None ~iP:""
@@ -529,7 +526,7 @@ let assert_no_clustering_enabled_on ~__context ~self =
           Api_errors.(
             Server_error (clustering_enabled, [Ref.string_of cluster_host])
           )
-  | lst ->
+  | _ ->
       failwith
         "Should never happen: there can only be one cluster host associated \
          with a PIF"
@@ -716,7 +713,8 @@ let create_VLAN ~__context ~device ~network ~host ~vLAN =
   let tagged_PIF = List.hd base_pifs in
   let vlan =
     Helpers.call_api_functions ~__context (fun rpc session_id ->
-        Client.Client.VLAN.create rpc session_id tagged_PIF vLAN network
+        Client.Client.VLAN.create ~rpc ~session_id ~tagged_PIF ~tag:vLAN
+          ~network
     )
   in
   Db.VLAN.get_untagged_PIF ~__context ~self:vlan
@@ -727,8 +725,14 @@ let destroy ~__context ~self =
     raise (Api_errors.Server_error (Api_errors.pif_is_physical, [])) ;
   let vlan = Db.PIF.get_VLAN_master_of ~__context ~self in
   Helpers.call_api_functions ~__context (fun rpc session_id ->
-      Client.Client.VLAN.destroy rpc session_id vlan
+      Client.Client.VLAN.destroy ~rpc ~session_id ~self:vlan
   )
+
+let restrict_to ~domain dns =
+  Astring.String.cuts ~sep:"," ~empty:false dns
+  |> List.filter (fun addr ->
+         Xapi_stdext_unix.Unixext.domain_of_addr addr = Some domain
+     )
 
 let reconfigure_ipv6 ~__context ~self ~mode ~iPv6 ~gateway ~dNS =
   Xapi_pif_helpers.assert_pif_is_managed ~__context ~self ;
@@ -739,10 +743,8 @@ let reconfigure_ipv6 ~__context ~self ~mode ~iPv6 ~gateway ~dNS =
   (* If we have an IPv6 address, check that it is valid and a prefix length is specified *)
   if iPv6 <> "" then
     Helpers.assert_is_valid_cidr `ipv6 "IPv6" iPv6 ;
-  if dNS <> "" then
-    List.iter
-      (fun address -> Helpers.assert_is_valid_ip `ipv6 "DNS" address)
-      (String.split ',' dNS) ;
+  (* Only set IPv6 dNS *)
+  let ipv6_dNS = restrict_to ~domain:Unix.PF_INET6 dNS in
   (* Management iface must have an address for the primary address type *)
   let management = Db.PIF.get_management ~__context ~self in
   let primary_address_type = Db.PIF.get_primary_address_type ~__context ~self in
@@ -755,7 +757,12 @@ let reconfigure_ipv6 ~__context ~self ~mode ~iPv6 ~gateway ~dNS =
   Db.PIF.set_ipv6_configuration_mode ~__context ~self ~value:mode ;
   Db.PIF.set_ipv6_gateway ~__context ~self ~value:gateway ;
   Db.PIF.set_IPv6 ~__context ~self ~value:[iPv6] ;
-  if dNS <> "" then Db.PIF.set_DNS ~__context ~self ~value:dNS ;
+  (* Only keep existing IPv4 entries *)
+  let pif_ipv4_dNS =
+    restrict_to ~domain:Unix.PF_INET (Db.PIF.get_DNS ~__context ~self)
+  in
+  Db.PIF.set_DNS ~__context ~self
+    ~value:(String.concat "," (List.concat [ipv6_dNS; pif_ipv4_dNS])) ;
   if Db.PIF.get_currently_attached ~__context ~self then (
     debug
       "PIF %s is currently_attached and the configuration has changed; calling \
@@ -787,10 +794,8 @@ let reconfigure_ip ~__context ~self ~mode ~iP ~netmask ~gateway ~dNS =
       if value <> "" then Helpers.assert_is_valid_ip `ipv4 param value
     )
     [("IP", iP); ("netmask", netmask); ("gateway", gateway)] ;
-  if dNS <> "" then
-    List.iter
-      (fun address -> Helpers.assert_is_valid_ip `ipv4 "DNS" address)
-      (String.split ',' dNS) ;
+  (* Only set IPv4 dNS *)
+  let ipv4_dNS = restrict_to ~domain:Unix.PF_INET dNS in
   (* If this is a management PIF, make sure the IP config mode isn't None *)
   let management = Db.PIF.get_management ~__context ~self in
   let primary_address_type = Db.PIF.get_primary_address_type ~__context ~self in
@@ -803,7 +808,12 @@ let reconfigure_ip ~__context ~self ~mode ~iP ~netmask ~gateway ~dNS =
   Db.PIF.set_IP ~__context ~self ~value:iP ;
   Db.PIF.set_netmask ~__context ~self ~value:netmask ;
   Db.PIF.set_gateway ~__context ~self ~value:gateway ;
-  Db.PIF.set_DNS ~__context ~self ~value:dNS ;
+  (* Only keep existing IPv6 entries *)
+  let pif_ipv6_dNS =
+    restrict_to ~domain:Unix.PF_INET6 (Db.PIF.get_DNS ~__context ~self)
+  in
+  Db.PIF.set_DNS ~__context ~self
+    ~value:(String.concat "," (List.concat [ipv4_dNS; pif_ipv6_dNS])) ;
   if Db.PIF.get_currently_attached ~__context ~self then (
     debug
       "PIF %s is currently_attached and the configuration has changed; calling \

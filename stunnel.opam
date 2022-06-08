@@ -13,7 +13,7 @@ depends: [
   "astring"
   "forkexec"
   "safe-resources"
-  "uuidm"
+  "uuid"
   "xapi-idl"
   "xapi-inventory"
   "xapi-stdext-pervasives"

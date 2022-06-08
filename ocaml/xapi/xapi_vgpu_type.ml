@@ -135,7 +135,7 @@ let create ~__context ~vendor_name ~model_name ~framebuffer_size ~max_heads
     ~identifier ~experimental ~compatible_model_names_in_vm
     ~compatible_model_names_on_pgpu =
   let ref = Ref.make () in
-  let uuid = Uuidm.to_string (Uuidm.create `V4) in
+  let uuid = Uuid.(to_string (make ())) in
   (* Currently Nvidia has only one type of vGPU in the VM and on pGPU
    * We just check the compatilbe list, if it is not empty, then it just
    * compatible with self.
@@ -283,8 +283,8 @@ let find_or_create ~__context vgpu_type =
         ~compatible_model_names_on_pgpu:vgpu_type.compatible_model_names_on_pgpu
 
 module Passthrough = struct
-  let find_or_create_supported_types ~__context ~pci ~is_system_display_device
-      ~is_host_display_enabled ~is_pci_hidden =
+  let find_or_create_supported_types ~__context ~pci:_ ~is_system_display_device
+      ~is_host_display_enabled:_ ~is_pci_hidden:_ =
     if is_system_display_device then
       []
     else
@@ -385,13 +385,12 @@ let read_whitelist_line_by_line ~whitelist ~device_id ~parse_line
     ~device_id_of_conf =
   if Sys.file_exists whitelist then
     Xapi_stdext_unix.Unixext.file_lines_fold
-      Identifier.(
-        fun acc line ->
-          match parse_line ~line with
-          | Some conf when device_id_of_conf conf = device_id ->
-              conf :: acc
-          | _ ->
-              acc
+      (fun acc line ->
+        match parse_line ~line with
+        | Some conf when device_id_of_conf conf = device_id ->
+            conf :: acc
+        | _ ->
+            acc
       )
       [] whitelist
   else
@@ -455,9 +454,9 @@ module Vendor_nvidia = struct
           compare xs v2
       | _, [] ->
           1
-      | x :: xs, y :: ys when x < y ->
+      | x :: _, y :: _ when x < y ->
           -1
-      | x :: xs, y :: ys when x > y ->
+      | x :: _, y :: _ when x > y ->
           1
       | _ :: xs, _ :: ys ->
           compare xs ys
@@ -940,7 +939,7 @@ module Nvidia_compat = struct
 
   let of_conf_file file_path =
     try
-      let conf = Xapi_stdext_unix.Unixext.read_lines file_path in
+      let conf = Xapi_stdext_unix.Unixext.read_lines ~path:file_path in
       let args =
         List.filter
           (fun s -> not (Astring.String.is_prefix ~affix:"#" s || s = ""))

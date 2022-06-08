@@ -682,7 +682,9 @@ module IntSet = Set.Make (Int)
 
 let domain_snapshot xc =
   let metadata_of_domain dom =
-    let uuid = Uuid.(to_string (uuid_of_int_array dom.Xenctrl.handle)) in
+    let ( let* ) = Option.bind in
+    let* uuid_raw = Uuid.of_int_array dom.Xenctrl.handle in
+    let uuid = Uuid.to_string uuid_raw in
     let domid = dom.Xenctrl.domid in
     let start = String.sub uuid 0 18 in
     (* Actively hide migrating VM uuids, these are temporary and xenops writes

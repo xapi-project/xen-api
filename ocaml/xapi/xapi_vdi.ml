@@ -18,8 +18,6 @@
 module D = Debug.Make (struct let name = "xapi_vdi" end)
 
 open D
-open Xapi_stdext_pervasives.Pervasiveext
-open Printf
 
 (**************************************************************************************)
 (* current/allowed operations checking                                                *)
@@ -65,7 +63,7 @@ let check_sm_feature_error (op : API.vdi_operations) sm_features sr =
     if not and [None] if everything is ok. If the [vbd_records] parameter is
     specified, it should contain at least all the VBD records from the database
     that are linked to this VDI. *)
-let check_operation_error ~__context ?(sr_records = []) ?(pbd_records = [])
+let check_operation_error ~__context ?sr_records:_ ?(pbd_records = [])
     ?vbd_records ha_enabled record _ref' op =
   let _ref = Ref.string_of _ref' in
   let current_ops = record.Db_actions.vDI_current_operations in
@@ -560,13 +558,6 @@ let cancel_tasks ~__context ~self ~all_tasks_in_db ~task_ids =
     ~parent:(default Ref.null parent);
   r*)
 
-let require_uuid vdi_info =
-  match vdi_info.Smint.vdi_info_uuid with
-  | Some uuid ->
-      uuid
-  | None ->
-      failwith "SM backend failed to return <uuid> field"
-
 (* This function updates xapi's database for a single VDI. The row will be created if it doesn't exist *)
 let update_vdi_db ~__context ~sr newvdi =
   let open Db_filter_types in
@@ -731,9 +722,9 @@ let db_forget ~__context ~vdi =
   Db.VDI.destroy ~__context ~self:vdi
 
 let introduce ~__context ~uuid ~name_label ~name_description ~sR ~_type
-    ~sharable ~read_only ~other_config ~location ~xenstore_data ~sm_config
-    ~managed ~virtual_size ~physical_utilisation ~metadata_of_pool
-    ~is_a_snapshot ~snapshot_time ~snapshot_of =
+    ~sharable ~read_only:_ ~other_config ~location ~xenstore_data ~sm_config
+    ~managed:_ ~virtual_size:_ ~physical_utilisation:_ ~metadata_of_pool:_
+    ~is_a_snapshot:_ ~snapshot_time:_ ~snapshot_of:_ =
   let open Storage_access in
   debug "introduce uuid=%s name_label=%s sm_config=[ %s ]" uuid name_label
     (String.concat "; " (List.map (fun (k, v) -> k ^ " = " ^ v) sm_config)) ;
@@ -809,7 +800,6 @@ let snapshot_and_clone call_f ~__context ~vdi ~driver_params =
   Xapi_vdi_helpers.assert_managed ~__context ~vdi ;
   let vdi_rec = Db.VDI.get_record ~__context ~self:vdi in
   let call_snapshot () =
-    let open Storage_access in
     let task = Context.get_task_id __context in
     let open Storage_interface in
     let vdi_info =
@@ -918,9 +908,7 @@ let wait_for_vbds_to_be_unplugged_and_destroyed ~__context ~self ~timeout =
   let start = Mtime_clock.now () in
   let finish =
     let maybe_finish =
-      let timeout =
-        Mtime.(Span.of_uint64_ns (Int64.of_float (timeout *. s_to_ns)))
-      in
+      let timeout = Mtime.Span.of_uint64_ns (Int64.of_float (timeout *. 1e9)) in
       Mtime.(add_span start timeout)
     in
     (* It is safe to unbox this because the timeout should not cause an overflow *)
@@ -1080,7 +1068,7 @@ let resize ~__context ~vdi ~size =
       Db.VDI.set_virtual_size ~__context ~self:vdi ~value:new_size
   )
 
-let generate_config ~__context ~host ~vdi =
+let generate_config ~__context ~host:_ ~vdi =
   Sm.assert_pbd_is_plugged ~__context ~sr:(Db.VDI.get_SR ~__context ~self:vdi) ;
   Xapi_vdi_helpers.assert_managed ~__context ~vdi ;
   Sm.call_sm_vdi_functions ~__context ~vdi (fun srconf srtype sr ->
@@ -1179,7 +1167,7 @@ let copy ~__context ~vdi ~sr ~base_vdi ~into_vdi =
         )
     in
     (* Check the destination VDI is suitable to receive the data. *)
-    let dst_r = Db.VDI.get_record __context dst in
+    let dst_r = Db.VDI.get_record ~__context ~self:dst in
     if dst_r.API.vDI_read_only then (
       error "VDI.copy: cannot copy into a read-only VDI: %s" (Ref.string_of dst) ;
       raise
@@ -1214,14 +1202,14 @@ let copy ~__context ~vdi ~sr ~base_vdi ~into_vdi =
         error "Caught %s during VDI.copy; cleaning up created VDI %s"
           (Printexc.to_string e) (Ref.string_of vdi) ;
         Helpers.call_api_functions ~__context (fun rpc session_id ->
-            Client.VDI.destroy rpc session_id vdi
+            Client.VDI.destroy ~rpc ~session_id ~self:vdi
         )
     | None ->
         ()
     ) ;
     raise e
 
-let force_unlock ~__context ~vdi =
+let force_unlock ~__context ~vdi:_ =
   raise (Api_errors.Server_error (Api_errors.message_deprecated, []))
 
 let set_sharable ~__context ~self ~value =
@@ -1289,7 +1277,6 @@ let set_allow_caching ~__context ~self ~value =
 
 let set_name_label ~__context ~self ~value =
   let open Storage_access in
-  let open Storage_interface in
   let task = Context.get_task_id __context in
   let sr = Db.VDI.get_SR ~__context ~self in
   let sr' =

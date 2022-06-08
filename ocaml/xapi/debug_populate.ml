@@ -24,7 +24,7 @@ let rec make_srs __context i =
   if i = 0 then
     ()
   else
-    let uuid = Uuid.to_string (Uuid.make_uuid ()) in
+    let uuid = Uuid.to_string (Uuid.make ()) in
     let sr_ref =
       Xapi_sr.introduce ~__context ~uuid
         ~name_label:("SR-" ^ string_of_int i)
@@ -56,7 +56,7 @@ let rec make_vdis_and_vbds __context vmref i =
   if i = 0 then
     ()
   else
-    let uuid = Uuid.to_string (Uuid.make_uuid ()) in
+    let uuid = Uuid.to_string (Uuid.make ()) in
     let vm_uuid = Db.VM.get_uuid ~self:vmref ~__context in
     let name_label = "VDI-" ^ string_of_int i ^ "-for-VM-" ^ vm_uuid in
     let name_description = "dummy" in
@@ -124,14 +124,14 @@ let make_tasks __context tasks =
   let pick_random l =
     let len = List.length l in
     let i = Random.int len in
-    try List.nth l i with exn -> List.hd l
+    try List.nth l i with _ -> List.hd l
   in
   let all_vms = Db.VM.get_all ~__context in
   let all_vbds = Db.VBD.get_all ~__context in
   let all_vdis = Db.VDI.get_all ~__context in
   let all_vifs = Db.VIF.get_all ~__context in
   let all_srs = Db.SR.get_all ~__context in
-  for i = 0 to tasks - 1 do
+  for _ = 0 to tasks - 1 do
     let mode = Random.int 6 in
     let label =
       match mode with

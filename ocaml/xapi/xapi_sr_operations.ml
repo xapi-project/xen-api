@@ -21,10 +21,6 @@ open Client
 
 (* internal api *)
 
-module D = Debug.Make (struct let name = "xapi_sr_operations" end)
-
-open D
-
 (**************************************************************************************)
 (* current/allowed operations checking                                                *)
 
@@ -164,7 +160,7 @@ let valid_operations ~__context ?op record _ref' : table =
     in
     set_errors Api_errors.sr_operation_not_supported [_ref] forbidden_by_backend
   in
-  let check_any_attached_pbds ~__context record =
+  let check_any_attached_pbds ~__context _record =
     (* CA-70294: if the SR has any attached PBDs, destroy and forget operations are not allowed.*)
     let all_pbds_attached_to_this_sr =
       Db.PBD.get_records_where ~__context
@@ -180,12 +176,12 @@ let valid_operations ~__context ?op record _ref' : table =
     else
       ()
   in
-  let check_no_pbds ~__context record =
+  let check_no_pbds ~__context _record =
     (* If the SR has no PBDs, destroy is not allowed. *)
     if Db.SR.get_PBDs ~__context ~self:_ref' = [] then
       set_errors Api_errors.sr_no_pbds [_ref] [`destroy]
   in
-  let check_any_managed_vdis ~__context record =
+  let check_any_managed_vdis ~__context _record =
     (* If the SR contains any managed VDIs, destroy is not allowed. *)
     (* Iterating through them until we find the first managed one is normally more efficient than calling Db.VDI.get_records_where with managed=true *)
     let vdis = Db.SR.get_VDIs ~__context ~self:_ref' in
@@ -199,7 +195,7 @@ let valid_operations ~__context ?op record _ref' : table =
     then
       set_errors Api_errors.sr_not_empty [] [`destroy]
   in
-  let check_parallel_ops ~__context record =
+  let check_parallel_ops ~__context _record =
     let safe_to_parallelise = [`plug] in
     let current_ops =
       Xapi_stdext_std.Listext.List.setify (List.map snd current_ops)
@@ -221,7 +217,7 @@ let valid_operations ~__context ?op record _ref' : table =
         ["SR"; _ref; sr_operation_to_string (List.hd current_ops)]
         safe_to_parallelise
   in
-  let check_cluster_stack_compatible ~__context record =
+  let check_cluster_stack_compatible ~__context _record =
     (* Check whether there are any conflicts with HA that prevent us from
      * plugging a PBD for this SR *)
     try

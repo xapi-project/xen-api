@@ -41,7 +41,7 @@ let perform ~wait_until_success ~service ~timeout op =
       ) ;
     if wait_until_success then (
       if op = Restart then Thread.delay 0.1 ;
-      let is_active = Fe_systemctl.is_active service in
+      let is_active = Fe_systemctl.is_active ~service in
       let success_cond () =
         match op with Start | Restart -> is_active | Stop -> is_active |> not
       in

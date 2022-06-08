@@ -103,7 +103,7 @@ module Dump = struct
 end
 
 let mtime_add x t =
-  let dt = Mtime.(x *. Mtime.s_to_ns |> Int64.of_float |> Span.of_uint64_ns) in
+  let dt = x *. 1e9 |> Int64.of_float |> Mtime.Span.of_uint64_ns in
   Mtime.Span.add dt t
 
 let one_shot_f s dt (name : string) f =

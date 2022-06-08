@@ -69,7 +69,7 @@ let sync_host ~__context host =
         ) else
           debug "Ignoring host synchronise: localhost=%b host_has_storage=%b"
             localhost host_has_storage
-      with Forkhelpers.Spawn_internal_error (log, output, status) ->
+      with Forkhelpers.Spawn_internal_error (log, output, _) ->
         (* Do we think the host is supposed to be online? *)
         let online =
           try

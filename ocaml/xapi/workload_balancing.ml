@@ -127,7 +127,7 @@ let match_xml_tag x t =
   match x with
   | Xml.Element (tag, _, _) ->
       String.compare tag t = 0
-  | Xml.PCData data ->
+  | Xml.PCData _ ->
       false
 
 let is_parent_to parent_element child_tag =
@@ -158,7 +158,7 @@ let rec descend_and_match tag_names xml =
   | [], elem ->
       elem
       (* have reached end of the list, with all correct matches so return this element*)
-  | hd_tag :: tail, Xml.Element (_, _, [Xml.PCData data]) ->
+  | hd_tag :: _, Xml.Element (_, _, [Xml.PCData _]) ->
       (*we have a leaf node, check that we are at the end of the path and return it *)
       raise_malformed_response "unknown"
         (sprintf
@@ -272,20 +272,20 @@ let parse_result_code meth xml_data response initial_error enable_log =
   in
   let message =
     try data_from_leaf (descend_and_match ["ErrorMessage"] xml_data)
-    with Xml_parse_failure msg -> ""
+    with Xml_parse_failure _ -> ""
   in
   raise_internal_error [code; message]
 
 let retrieve_inner_xml meth response enable_log =
   try descend_and_match (path_to_inner meth) response
-  with Xml_parse_failure error -> (
+  with Xml_parse_failure _ -> (
     try
       raise_internal_error
         [
           "Exception:"
         ; data_from_leaf (descend_and_match path_to_exception response)
         ]
-    with Xml_parse_failure msg ->
+    with Xml_parse_failure _ ->
       if enable_log then
         raise_malformed_response meth
           "Expected data is missing or corrupt. No exception found." response
@@ -378,14 +378,14 @@ let perform_wlb_request ?auth ?url ?enable_log ~meth ~params ~handle_response
       Some
         (let code =
            try data_from_leaf (descend_and_match ["ResultCode"] inner_xml)
-           with Xml_parse_failure error -> "0"
+           with Xml_parse_failure _ -> "0"
            (* If it failed trying to get ResultCode, assume the call was successful *)
          in
          if code <> "0" then
            (* Call failed, get error message and raise internal error *)
            let message =
              try data_from_leaf (descend_and_match ["ErrorMessage"] inner_xml)
-             with Xml_parse_failure error -> ""
+             with Xml_parse_failure _ -> ""
            in
            raise_internal_error [code; message]
          else (* Call was successful, parse inner xml *)
@@ -602,7 +602,7 @@ let retrieve_wlb_config ~__context =
           , data_from_leaf (descend_and_match ["Value"] key_value_parent)
           )
           :: gen_map tl
-      | Xml.PCData _ :: tl ->
+      | Xml.PCData _ :: _ ->
           unexpected_data "GetXenPoolConfiguration" "Configuration" inner_xml
       | [] ->
           []
@@ -639,7 +639,7 @@ let get_opt_recommendations ~__context =
             )
             kvalues
           :: gen_map tl
-      | Xml.PCData _ :: tl ->
+      | Xml.PCData _ :: _ ->
           unexpected_data "GetOptimizationRecommendations"
             "Recommendations node" inner_xml
       | [] ->
@@ -736,7 +736,7 @@ let get_evacuation_recoms ~__context ~uuid =
             )
             kvalues
           :: gen_map tl
-      | Xml.PCData _ :: tl ->
+      | Xml.PCData _ :: _ ->
           unexpected_data "HostGetRecommendations" "Recommendations" inner_xml
       | [] ->
           []

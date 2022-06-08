@@ -10,7 +10,7 @@
     rpclib
     xapi-rrd
     uri
-    uuidm
+    uuid
     xmlm
     xapi-client
     xapi-types

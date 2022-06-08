@@ -319,7 +319,7 @@ let rtc_timeoffset_of_vm ~__context (vm, vm_t) vbds =
   match vdis_with_timeoffset_to_be_reset_on_boot with
   | [] ->
       timeoffset
-  | [(reference, timeoffset)] ->
+  | [(_, timeoffset)] ->
       timeoffset
   | reference_timeoffset_pairs ->
       raise
@@ -345,7 +345,7 @@ let is_boot_file_whitelisted filename =
   (* avoid ..-style attacks and other weird things *)
   && safe_str filename
 
-let builder_of_vm ~__context (vmref, vm) timeoffset pci_passthrough vgpu =
+let builder_of_vm ~__context (_, vm) timeoffset pci_passthrough vgpu =
   let open Vm in
   let video_mode =
     if vgpu then
@@ -380,7 +380,7 @@ let builder_of_vm ~__context (vmref, vm) timeoffset pci_passthrough vgpu =
       with _ -> []
     )
   in
-  let make_hvmloader_boot_record {Helpers.timeoffset= t} =
+  let make_hvmloader_boot_record () =
     if bool vm.API.vM_platform false "qemu_stubdom" then
       warn "QEMU stub domains are no longer implemented" ;
     {
@@ -512,8 +512,8 @@ let builder_of_vm ~__context (vmref, vm) timeoffset pci_passthrough vgpu =
       (check_domain_type vm.API.vM_domain_type, boot_method_of_vm ~__context ~vm)
     
   with
-  | `hvm, Helpers.Hvmloader options ->
-      HVM (make_hvmloader_boot_record options)
+  | `hvm, Helpers.Hvmloader _ ->
+      HVM (make_hvmloader_boot_record ())
   | `pv, Helpers.Direct options ->
       PV (make_direct_boot_record options)
   | `pv, Helpers.Indirect options ->
@@ -1041,8 +1041,7 @@ module MD = struct
     | Failure _ (* int_of_string *) ->
         failwith "AMD MxGPU settings invalid"
 
-  let vgpus_of_vm ~__context (vmref, vm) =
-    let open Vgpu in
+  let vgpus_of_vm ~__context (_, vm) =
     List.fold_left
       (fun acc vgpu ->
         let vgpu_record = Db.VGPU.get_record_internal ~__context ~self:vgpu in
@@ -1086,7 +1085,7 @@ module MD = struct
         pusb.API.pUSB_path ;
       raise e
 
-  let vusbs_of_vm ~__context (vmref, vm) =
+  let vusbs_of_vm ~__context (_, vm) =
     vm.API.vM_VUSBs
     |> List.map (fun self -> Db.VUSB.get_record ~__context ~self)
     |> List.filter (fun self -> self.API.vUSB_currently_attached)
@@ -1499,27 +1498,39 @@ module Xenops_cache = struct
   let find id : t option = with_lock (fun () -> Hashtbl.find_opt cache id)
 
   let find_vm id : Vm.state option =
-    match find id with Some {vm= Some vm} -> Some vm | _ -> None
+    match find id with Some {vm= Some vm; _} -> Some vm | _ -> None
 
   let find_vbd id : Vbd.state option =
-    match find (fst id) with Some {vbds} -> List.assoc_opt id vbds | _ -> None
+    match find (fst id) with
+    | Some {vbds; _} ->
+        List.assoc_opt id vbds
+    | _ ->
+        None
 
   let find_vif id : Vif.state option =
-    match find (fst id) with Some {vifs} -> List.assoc_opt id vifs | _ -> None
+    match find (fst id) with
+    | Some {vifs; _} ->
+        List.assoc_opt id vifs
+    | _ ->
+        None
 
   let find_pci id : Pci.state option =
-    match find (fst id) with Some {pcis} -> List.assoc_opt id pcis | _ -> None
+    match find (fst id) with
+    | Some {pcis; _} ->
+        List.assoc_opt id pcis
+    | _ ->
+        None
 
   let find_vgpu id : Vgpu.state option =
     match find (fst id) with
-    | Some {vgpus} ->
+    | Some {vgpus; _} ->
         List.assoc_opt id vgpus
     | _ ->
         None
 
   let find_vusb id : Vusb.state option =
     match find (fst id) with
-    | Some {vusbs} ->
+    | Some {vusbs; _} ->
         List.assoc_opt id vusbs
     | _ ->
         None
@@ -1872,7 +1883,7 @@ let update_vm ~__context id =
             in
             let results =
               List.filter_map
-                (fun (path, value) ->
+                (fun (path, _) ->
                   if String.startswith dir path then
                     let rest =
                       String.sub path (String.length dir)
@@ -2131,7 +2142,7 @@ let update_vm ~__context id =
                     List.iter
                       (fun (protocol, _) ->
                         let ref = Ref.make () in
-                        let uuid = Uuid.to_string (Uuid.make_uuid ()) in
+                        let uuid = Uuid.to_string (Uuid.make ()) in
                         let location = Printf.sprintf "%s?uuid=%s" uri uuid in
                         let port =
                           try
@@ -2444,7 +2455,7 @@ let update_vbd ~__context (id : string * string) =
           debug "VBD %s.%s matched device %s" (fst id) (snd id)
             vbd_r.API.vBD_userdevice ;
           Option.iter
-            (fun (vb, state) ->
+            (fun (_, state) ->
               let currently_attached = state.Vbd.plugged || state.Vbd.active in
               debug
                 "xenopsd event: Updating VBD %s.%s device <- %s; \
@@ -2530,7 +2541,7 @@ let update_vif ~__context id =
             List.find (fun (_, vifr) -> vifr.API.vIF_device = snd id) vifrs
           in
           Option.iter
-            (fun (vf, state) ->
+            (fun (_, state) ->
               if not (state.Vif.plugged || state.Vif.active) then (
                 ( try Xapi_network.deregister_vif ~__context vif
                   with e ->
@@ -2592,7 +2603,8 @@ let update_vif ~__context id =
                     Db.PVS_proxy.set_currently_attached ~__context ~self:proxy
                       ~value:true ;
                     (* force status to be read again by invalidating cache *)
-                    Monitor_dbcalls_cache.clear_pvs_status_cache (fst id)
+                    Monitor_dbcalls_cache.clear_pvs_status_cache
+                      ~vm_uuid:(fst id)
                   ) else
                     Pvs_proxy_control.clear_proxy_state ~__context vif proxy
               ) ;
@@ -2729,7 +2741,7 @@ let update_vgpu ~__context id =
             = None
           then
             Option.iter
-              (fun (xenopsd_vgpu, state) ->
+              (fun (_, state) ->
                 ( if state.Vgpu.plugged then
                     let scheduled =
                       Db.VGPU.get_scheduled_to_be_resident_on ~__context
@@ -2781,7 +2793,7 @@ let update_vusb ~__context (id : string * string) =
              changed"
             (fst id) (snd id)
         else
-          let pusb, pusb_r =
+          let pusb, _ =
             Db.VM.get_VUSBs ~__context ~self:vm
             |> List.map (fun self -> Db.VUSB.get_USB_group ~__context ~self)
             |> List.map (fun usb_group ->
@@ -2795,7 +2807,7 @@ let update_vusb ~__context (id : string * string) =
           let usb_group = Db.PUSB.get_USB_group ~__context ~self:pusb in
           let vusb = Helpers.get_first_vusb ~__context usb_group in
           Option.iter
-            (fun (ub, state) ->
+            (fun (_, state) ->
               debug "xenopsd event: Updating USB %s.%s; plugged <- %b" (fst id)
                 (snd id) state.Vusb.plugged ;
               let currently_attached = state.Vusb.plugged in
@@ -2973,7 +2985,7 @@ let resync_resident_on ~__context =
   in
   (* Of the VMs xapi knows about, partition that set into VMs xapi believes
      should be running here, and those that it didn't *)
-  let xapi_thinks_are_here, xapi_thinks_are_not_here =
+  let _, xapi_thinks_are_not_here =
     List.partition
       (fun ((id, _), _) ->
         List.exists (fun (id', _) -> id = id') resident_vms_in_db
@@ -3049,7 +3061,7 @@ let resync_resident_on ~__context =
      the events thread will be aware of it. If it's not running, the events thread will
      remove the metadata from xenopsd and reset resident_on. *)
   List.iter
-    (fun ((id, state), queue_name) ->
+    (fun ((id, _), _) ->
       let vm = vm_of_id ~__context id in
       info
         "Setting resident_on for VM %s to be this host as xenopsd is aware of \
@@ -3226,7 +3238,7 @@ let events_from_xapi () =
                   warn "Warning: received more than 200 events!" ;
                 List.iter
                   (function
-                    | {ty= "vm"; reference= vm'} -> (
+                    | {ty= "vm"; reference= vm'; _} -> (
                         let vm = Ref.of_string vm' in
                         try
                           let id = id_of_vm ~__context ~self:vm in
@@ -3389,7 +3401,7 @@ let transform_xenops_exn ~__context ~vm queue_name f =
           reraise Api_errors.vms_failed_to_cooperate vms'
       | IO_error ->
           reraise Api_errors.vdi_io_error ["I/O error saving VM suspend image"]
-      | Failed_to_contact_remote_service x ->
+      | Failed_to_contact_remote_service _ ->
           reraise Api_errors.vm_migrate_contact_remote_service_failed []
       | Hook_failed (script, reason, stdout, i) ->
           reraise Api_errors.xapi_hook_failed [script; reason; stdout; i]
@@ -3438,7 +3450,7 @@ let set_resident_on ~__context ~self =
   debug "VM %s set_resident_on" id ;
   let localhost = Helpers.get_localhost ~__context in
   Helpers.call_api_functions ~__context (fun rpc session_id ->
-      XenAPI.VM.atomic_set_resident_on rpc session_id self localhost
+      XenAPI.VM.atomic_set_resident_on ~rpc ~session_id ~vm:self ~host:localhost
   ) ;
   debug
     "Signalling xenapi event thread to re-register, and xenopsd events to sync" ;
@@ -3788,7 +3800,7 @@ let suspend ~__context ~self =
       let id = id_of_vm ~__context ~self in
       let dbg = Context.string_of_task __context in
       let module Client = (val make_client queue_name : XENOPS) in
-      let vm_t, state = Client.VM.stat dbg id in
+      let vm_t, _state = Client.VM.stat dbg id in
       (* XXX: this needs to be at boot time *)
       let space_needed =
         let ram =
@@ -3865,7 +3877,7 @@ let suspend ~__context ~self =
       )
   )
 
-let resume ~__context ~self ~start_paused ~force =
+let resume ~__context ~self ~start_paused ~force:_ =
   let dbg = Context.string_of_task __context in
   let queue_name = queue_of_vm ~__context ~self in
   let vm_id = id_of_vm ~__context ~self in
@@ -3916,7 +3928,7 @@ let resume ~__context ~self ~start_paused ~force =
        *)
       Xapi_gpumon.clear_vgpu_metadata ~__context ~vm:self ;
       Helpers.call_api_functions ~__context (fun rpc session_id ->
-          XenAPI.VDI.destroy rpc session_id vdi
+          XenAPI.VDI.destroy ~rpc ~session_id ~self:vdi
       ) ;
       check_power_state_is ~__context ~self
         ~expected:(if start_paused then `Paused else `Running)
@@ -4224,7 +4236,7 @@ let vif_unplug ~__context ~self force =
           )
   )
 
-let vif_move ~__context ~self network =
+let vif_move ~__context ~self _network =
   let vm = Db.VIF.get_VM ~__context ~self in
   let queue_name = queue_of_vm ~__context ~self:vm in
   transform_xenops_exn ~__context ~vm queue_name (fun () ->

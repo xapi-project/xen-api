@@ -17,7 +17,7 @@ open Test_common
 let add_host __context name =
   ignore
     (Xapi_host.create ~__context
-       ~uuid:(Uuid.to_string (Uuid.make_uuid ()))
+       ~uuid:(Uuid.to_string (Uuid.make ()))
        ~name_label:name ~name_description:"" ~hostname:"host2"
        ~address:"127.0.0.1" ~external_auth_type:""
        ~external_auth_service_name:"" ~external_auth_configuration:[]

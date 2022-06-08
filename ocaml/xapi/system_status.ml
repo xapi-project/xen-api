@@ -36,7 +36,7 @@ let get_capabilities () =
 (* This fn outputs xen-bugtool straight to the socket, only
    for tar output. It should work on embedded edition *)
 let send_via_fd __context s entries output =
-  let s_uuid = Uuid.to_string (Uuid.make_uuid ()) in
+  let s_uuid = Uuid.to_string (Uuid.make ()) in
   let params =
     [
       sprintf "--entries=%s" entries
@@ -115,7 +115,7 @@ let handler (req : Request.t) s _ =
   let output = get_param "output" in
   let () = debug "session_id: %s" (get_param "session_id") in
   Xapi_http.with_context task_label req s (fun __context ->
-      if Helpers.on_oem __context && output <> "tar" then
+      if Helpers.on_oem ~__context && output <> "tar" then
         raise
           (Api_errors.Server_error
              (Api_errors.system_status_must_use_tar_on_oem, [])

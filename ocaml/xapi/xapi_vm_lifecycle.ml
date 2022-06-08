@@ -172,7 +172,7 @@ let has_definitely_booted_pv ~vmmr =
  *  (which is advisory only) and false (more permissive) when we are potentially about
  *  to perform an operation. This makes a difference for ops that require the guest to
  *  react helpfully. *)
-let check_op_for_feature ~__context ~vmr ~vmmr ~vmgmr ~power_state ~op ~ref
+let check_op_for_feature ~__context ~vmr:_ ~vmmr ~vmgmr ~power_state ~op ~ref
     ~strict =
   if
     power_state <> `Running
@@ -242,7 +242,7 @@ let check_template ~vmr ~op ~ref_str =
       , [ref_str; Record_util.vm_operation_to_string op]
       )
 
-let check_snapshot ~vmr ~op ~ref_str =
+let check_snapshot ~vmr:_ ~op ~ref_str =
   let allowed =
     [
       `revert; `clone; `copy; `export; `destroy; `hard_shutdown; `metadata_export

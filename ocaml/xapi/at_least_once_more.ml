@@ -16,12 +16,7 @@
    to minimise the number of times we run the operation i.e. if a large set of changes happen we'd ideally like to
    just execute the function once or twice but not once per thing that changed. *)
 
-open Xapi_stdext_pervasives.Pervasiveext
 open Xapi_stdext_threads.Threadext
-
-module D = Debug.Make (struct let name = "at_least_once_more" end)
-
-open D
 
 (** Type of the function executed in the background *)
 type operation = unit -> unit

@@ -77,21 +77,7 @@ jobs:
         run: opam exec -- make test
 
       - name: Check all code
-        continue-on-error: true
-        run: opam exec -- make check |& tee make-check.log
-
-      - name: Do not allow more warnings to get in the ocaml code
-        # Adding this check to quality gate makes it dependent on opam
-        # On top of this it's difficult to make it just run once on CI
-        # without adding changes to more than a single file
-        run: |
-          ERR=$(egrep 'Error |Warning ' -c make-check.log)
-          echo ERR=$ERR
-          test 240 -eq  "$ERR"
-
-      - name: Check all code in release mode
-        # This should be removed when the preceding passes succeed
-        run: opam exec -- make check-release
+        run: opam exec -- make check
 
       - name: Run stress tests
         run: opam exec -- make stresstest
