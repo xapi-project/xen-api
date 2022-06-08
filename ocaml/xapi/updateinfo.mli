@@ -14,7 +14,12 @@
 
 (** The guidance of metadata for one update in updateinfo *)
 module Guidance : sig
-  type t = RebootHost | RestartToolstack | EvacuateHost | RestartDeviceModel
+  type t =
+    | RebootHost
+    | RestartToolstack
+    | EvacuateHost
+    | RestartDeviceModel
+    | RebootHostOnLivePatchFailure
 
   type guidance_kind = Absolute | Recommended
 

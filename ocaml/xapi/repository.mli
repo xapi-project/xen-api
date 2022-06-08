@@ -51,11 +51,22 @@ val get_pool_updates_in_json :
 
 val apply : __context:Context.t -> host:[`host] API.Ref.t -> unit
 
+val apply_livepatch :
+     __context:Context.t
+  -> host:[`host] API.Ref.t
+  -> component:string
+  -> base_build_id:string
+  -> base_version:string
+  -> base_release:string
+  -> to_version:string
+  -> to_release:string
+  -> unit
+
 val apply_updates :
      __context:Context.t
   -> host:[`host] API.Ref.t
   -> hash:string
-  -> Updateinfo.Guidance.t list
+  -> Updateinfo.Guidance.t list * string list list
 
 val apply_immediate_guidances :
      __context:Context.t

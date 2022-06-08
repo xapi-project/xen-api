@@ -34,15 +34,15 @@ module XenGetRunningLivepatch = Generic.MakeStateless (struct
         ( {|
  ID                                     | status
 ----------------------------------------+------------
-lp_4.13.4-10.22.xs8_4.13.4-10.23.xs8    | CHECKED
-lp_4.13.4-10.22.xs8_4.13.4-10.23.xs8    | APPLIED
+lp_4.13.4-10.22.xs8-4.13.4-10.23.xs8    | CHECKED
+lp_4.13.4-10.22.xs8-4.13.4-10.23.xs8    | APPLIED
           |}
         , Some ("4.13.4", "10.22.xs8", "4.13.4", "10.23.xs8")
         )
       ; ( {|
  ID                                     | status
 ----------------------------------------+------------
-lp_4.13.4-10.22.xs8_4.13.4-10.23.xs8    | CHECKED
+lp_4.13.4-10.22.xs8-4.13.4-10.23.xs8    | CHECKED
           |}
         , None
         )
@@ -74,24 +74,24 @@ module KernelGetRunningLivepatch = Generic.MakeStateless (struct
       [
         ( {|
 Loaded patch modules:
-livepatch_4_19_19__8_0_20_xs8__4_19_19__8_0_21_xs8 [enabled]
+lp_4_19_19__8_0_20_xs8__4_19_19__8_0_21_xs8 [enabled]
 Installed patch modules:
           |}
         , Some ("4.19.19", "8.0.20.xs8", "4.19.19", "8.0.21.xs8")
         )
       ; ( {|
 Loaded patch modules:
-livepatch_4_19_19__8_0_20_xs8__4_19_19__8_0_21_xs8 [enabled]
-livepatch_4_19_19__8_0_20_xs8__4_19_19__8_0_22_xs8 [enabled]
+lp_4_19_19__8_0_20_xs8__4_19_19__8_0_21_xs8 [enabled]
+lp_4_19_19__8_0_20_xs8__4_19_19__8_0_22_xs8 [enabled]
 Installed patch modules:
           |}
         , Some ("4.19.19", "8.0.20.xs8", "4.19.19", "8.0.22.xs8")
         )
       ; ( {|
 Loaded patch modules:
-livepatch_4_19_19__8_0_20_xs8__4_19_19__8_0_21_xs8 [enabled]
-livepatch_4_19_19__8_0_20_xs8__4_19_19__8_0_22_xs8 [enabled]
-livepatch_4_19_19__8_0_20_xs8__4_19_19__8_1_21_xs8 [enabled]
+lp_4_19_19__8_0_20_xs8__4_19_19__8_0_21_xs8 [enabled]
+lp_4_19_19__8_0_20_xs8__4_19_19__8_0_22_xs8 [enabled]
+lp_4_19_19__8_0_20_xs8__4_19_19__8_1_21_xs8 [enabled]
 Installed patch modules:
           |}
         , Some ("4.19.19", "8.0.20.xs8", "4.19.19", "8.1.21.xs8")

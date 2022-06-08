@@ -96,6 +96,38 @@ let apply =
     ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
     ()
 
+let apply_livepatch =
+  call ~name:"apply_livepatch" ~in_oss_since:None ~lifecycle:[]
+    ~doc:"Apply a livepatch on a host"
+    ~params:
+      [
+        (Ref _host, "host", "The host to be live-patched")
+      ; (String, "component", "The name of the component to be live-patched")
+      ; ( String
+        , "base_build_id"
+        , "The build ID of the component to be live-patched"
+        )
+      ; ( String
+        , "base_version"
+        , "The RPM version of the component to be live-patched"
+        )
+      ; ( String
+        , "base_release"
+        , "The RPM release of the component to be live-patched"
+        )
+      ; ( String
+        , "to_version"
+        , "The RPM version of the component after applying the livepatch"
+        )
+      ; ( String
+        , "to_release"
+        , "The RPM release of the component after applying the livepatch"
+        )
+      ]
+    ~pool_internal:true ~hide_from_docs:true
+    ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
+    ()
+
 let set_gpgkey_path =
   call ~name:"set_gpgkey_path" ~in_oss_since:None ~lifecycle:[]
     ~doc:"Set the file name of the GPG public key of the repository"
@@ -116,7 +148,7 @@ let t =
     ~lifecycle:[(Published, "1.301.0", "")]
     ~persist:PersistEverything ~in_oss_since:None
     ~messages_default_allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
-    ~messages:[introduce; forget; apply; set_gpgkey_path]
+    ~messages:[introduce; forget; apply; set_gpgkey_path; apply_livepatch]
     ~contents:
       [
         uid _repository ~lifecycle:[(Published, "1.301.0", "")]

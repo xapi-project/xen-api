@@ -642,7 +642,7 @@ let get_pool_updates_in_json ~__context ~hosts =
       raise Api_errors.(Server_error (get_updates_failed, []))
 
 let apply ~__context ~host =
-  (* This function runs on slave host *)
+  (* This function runs on member host *)
   with_local_repositories ~__context (fun repositories ->
       let params =
         [
@@ -659,6 +659,29 @@ let apply ~__context ~host =
           (ExnHelper.string_of_exn e) ;
         raise Api_errors.(Server_error (apply_updates_failed, [host']))
   )
+
+let apply_livepatch ~__context ~host:_ ~component ~base_build_id ~base_version
+    ~base_release ~to_version ~to_release =
+  (* This function runs on member host *)
+  let open Livepatch in
+  let component' =
+    try component_of_string component
+    with _ ->
+      let msg = Printf.sprintf "Invalid component name '%s'" component in
+      error "%s" msg ;
+      raise Api_errors.(Server_error (internal_error, [msg]))
+  in
+  match
+    Livepatch.get_livepatch_file_path ~component:component' ~base_build_id
+      ~base_version ~base_release ~to_version ~to_release
+  with
+  | Some livepatch_file ->
+      Livepatch.apply ~component:component' ~livepatch_file ~base_build_id
+        ~base_version ~base_release ~to_version ~to_release
+  | None ->
+      let msg = Printf.sprintf "No expected livepatch file for %s" component in
+      error "%s" msg ;
+      raise Api_errors.(Server_error (internal_error, [msg]))
 
 let do_with_device_models ~__context ~host ~action_label:_ f =
   (* Call f with device models of all running HVM VMs on the host *)
@@ -711,7 +734,7 @@ let restart_device_models ~__context ~host =
       None
 
 let apply_immediate_guidances ~__context ~host ~guidances =
-  (* This function runs on master host *)
+  (* This function runs on coordinator host *)
   try
     let open Client in
     Helpers.call_api_functions ~__context (fun rpc session_id ->
@@ -759,6 +782,9 @@ let set_pending_guidances ~__context ~host ~guidances =
        | RebootHost ->
            Db.Host.add_pending_guidances ~__context ~self:host
              ~value:`reboot_host
+       | RebootHostOnLivePatchFailure ->
+           Db.Host.add_pending_guidances ~__context ~self:host
+             ~value:`reboot_host_on_livepatch_failure
        | RestartToolstack ->
            Db.Host.add_pending_guidances ~__context ~self:host
              ~value:`restart_toolstack
@@ -769,67 +795,142 @@ let set_pending_guidances ~__context ~host ~guidances =
              (Guidance.to_string g)
        )
 
+let apply_livepatches' ~__context ~host ~livepatches =
+  List.partition_map
+    (fun (lp, lps) ->
+      let component_str =
+        Livepatch.string_of_component lp.LivePatch.component
+      in
+      try
+        Helpers.call_api_functions ~__context (fun rpc session_id ->
+            let open LivePatch in
+            Client.Client.Repository.apply_livepatch ~rpc ~session_id ~host
+              ~component:component_str ~base_build_id:lp.base_build_id
+              ~base_version:lp.base_version ~base_release:lp.base_release
+              ~to_version:lp.to_version ~to_release:lp.to_release
+        ) ;
+        Left (lp, lps)
+      with
+      | Api_errors.(Server_error (_, _)) as e ->
+          let host' = Ref.string_of host in
+          let msg = ExnHelper.string_of_exn e in
+          error "applying %s livepatch (%s) on host ref='%s failed: %s"
+            component_str (LivePatch.to_string lp) host' msg ;
+          Right lp
+      | e ->
+          let host' = Ref.string_of host in
+          let msg = ExnHelper.string_of_exn e in
+          error "applying %s livepatch (%s) on host ref='%s failed: %s"
+            component_str (LivePatch.to_string lp) host' msg ;
+          Right lp
+    )
+    livepatches
+
+let apply_updates' ~__context ~host ~updates_info ~livepatches ~acc_rpm_updates
+    =
+  (* This function runs on coordinator host *)
+  (* Install RPM updates firstly *)
+  Helpers.call_api_functions ~__context (fun rpc session_id ->
+      Client.Client.Repository.apply ~rpc ~session_id ~host
+  ) ;
+  (* Apply live patches with best effort *)
+  let successful_livepatches, failed_livepatches =
+    apply_livepatches' ~__context ~host ~livepatches
+  in
+  (* Update states in cache with best effort as well *)
+  Hashtbl.replace updates_in_cache host
+    (`Assoc
+      [
+        ("updates", `List [])
+      ; ("accumulative_updates", `List [])
+      ; ( "livepatches"
+        , `List
+            (List.map
+               (fun lp -> `String (LivePatch.to_string lp))
+               failed_livepatches
+            )
+        )
+      ]
+      ) ;
+  (* Evaluate immediate/pending guidances *)
+  let immediate_guidances, pending_guidances =
+    let immediate_guidances' =
+      eval_guidances ~updates_info ~updates:acc_rpm_updates ~kind:Recommended
+        ~livepatches:successful_livepatches
+    in
+    let pending_guidances' =
+      List.filter
+        (fun g -> not (List.mem g immediate_guidances'))
+        (eval_guidances ~updates_info ~updates:acc_rpm_updates ~kind:Absolute
+           ~livepatches:[]
+        )
+    in
+    match failed_livepatches with
+    | [] ->
+        (immediate_guidances', pending_guidances')
+    | _ :: _ ->
+        (* There is(are) livepatch failure(s):
+         * the host should not be rebooted, and
+         * an extra pending guidance 'RebootHostOnLivePatchFailure' should be set.
+         *)
+        ( List.filter
+            (fun g -> not (g = Guidance.RebootHost))
+            immediate_guidances'
+        , Guidance.RebootHostOnLivePatchFailure :: pending_guidances'
+        )
+  in
+  List.iter
+    (fun g -> debug "immediate_guidance: %s" (Guidance.to_string g))
+    immediate_guidances ;
+  List.iter
+    (fun g -> debug "pending_guidance: %s" (Guidance.to_string g))
+    pending_guidances ;
+  GuidanceSet.assert_valid_guidances immediate_guidances ;
+  set_pending_guidances ~__context ~host ~guidances:pending_guidances ;
+  let warnings =
+    List.map
+      (fun lp -> [Api_errors.apply_livepatch_failed; LivePatch.to_string lp])
+      failed_livepatches
+  in
+  (immediate_guidances, warnings)
+
 let apply_updates ~__context ~host ~hash =
-  (* This function runs on master host *)
+  (* This function runs on coordinator host *)
   try
     let repository = get_single_enabled_update_repository ~__context in
     if hash = "" || hash <> Db.Repository.get_hash ~__context ~self:repository
     then
       raise Api_errors.(Server_error (updateinfo_hash_mismatch, [])) ;
     with_pool_repositories (fun () ->
+        let updates_info =
+          parse_updateinfo ~__context ~self:repository ~check:true
+        in
         let host_updates =
           http_get_host_updates_in_json ~__context ~host ~installed:true
         in
-        let latest_updates =
+        let rpm_updates =
           host_updates
-          |> Yojson.Basic.Util.member "updates"
-          |> Yojson.Basic.Util.to_list
+          |> get_list_from_updates_of_host "updates"
           |> List.map Update.of_json
         in
-        match latest_updates with
-        | [] ->
+        let livepatches =
+          retrieve_livepatches_from_updateinfo ~updates_info
+            ~updates:host_updates
+        in
+        match (rpm_updates, livepatches) with
+        | [], [] ->
             let host' = Ref.string_of host in
             info "Host ref='%s' is already up to date." host' ;
-            []
+            ([], [])
         | _ ->
             let repository_name =
               get_repository_name ~__context ~self:repository
             in
-            let accumulative_updates =
-              host_updates
-              |> Yojson.Basic.Util.member "accumulative_updates"
-              |> Yojson.Basic.Util.to_list
-              |> List.map Update.of_json
+            let _, acc_rpm_updates =
+              merge_updates ~repository_name ~updates:host_updates
             in
-            let updates =
-              List.filter
-                (fun u -> u.Update.repository = repository_name)
-                accumulative_updates
-            in
-            let updates_info =
-              parse_updateinfo ~__context ~self:repository ~check:true
-            in
-            let immediate_guidances =
-              eval_guidances ~updates_info ~updates ~kind:Recommended
-                ~upd_ids_of_livepatches:UpdateIdSet.empty
-            in
-            let pending_guidances =
-              List.filter
-                (fun g -> not (List.mem g immediate_guidances))
-                (eval_guidances ~updates_info ~updates ~kind:Absolute
-                   ~upd_ids_of_livepatches:UpdateIdSet.empty
-                )
-            in
-            GuidanceSet.assert_valid_guidances immediate_guidances ;
-            Helpers.call_api_functions ~__context (fun rpc session_id ->
-                Client.Client.Repository.apply ~rpc ~session_id ~host
-            ) ;
-            Hashtbl.replace updates_in_cache host
-              (`Assoc
-                [("updates", `List []); ("accumulative_updates", `List [])]
-                ) ;
-            set_pending_guidances ~__context ~host ~guidances:pending_guidances ;
-            immediate_guidances
+            apply_updates' ~__context ~host ~updates_info ~livepatches
+              ~acc_rpm_updates
     )
   with
   | Api_errors.(Server_error (code, _)) as e

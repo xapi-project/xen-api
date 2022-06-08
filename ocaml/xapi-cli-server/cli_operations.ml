@@ -7605,6 +7605,9 @@ let host_apply_updates _printer rpc session_id params =
        (fun _ host ->
          let host = host.getref () in
          Client.Host.apply_updates ~rpc ~session_id ~self:host ~hash
+         |> List.iter (fun l ->
+                _printer (Cli_printer.PMsg (String.concat "; " l))
+            )
        )
        params ["hash"]
     )

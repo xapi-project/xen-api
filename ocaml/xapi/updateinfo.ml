@@ -18,7 +18,12 @@ open D
 open Rpm
 
 module Guidance = struct
-  type t = RebootHost | RestartToolstack | EvacuateHost | RestartDeviceModel
+  type t =
+    | RebootHost
+    | RestartToolstack
+    | EvacuateHost
+    | RestartDeviceModel
+    | RebootHostOnLivePatchFailure
 
   type guidance_kind = Absolute | Recommended
 
@@ -33,6 +38,8 @@ module Guidance = struct
         "EvacuateHost"
     | RestartDeviceModel ->
         "RestartDeviceModel"
+    | RebootHostOnLivePatchFailure ->
+        "RebootHostOnLivePatchFailure"
 
   let of_string = function
     | "RebootHost" ->
