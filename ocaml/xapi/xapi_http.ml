@@ -93,7 +93,7 @@ let create_session_for_client_cert req s =
       Xapi_session.login_with_password ~__context ~uname:"" ~pwd:""
         ~version:Datamodel_common.api_version_string
         ~originator:Constants.xapi_user_agent
-  | _ ->
+  | Some `root | None ->
       raise (Http.Unauthorised "")
 
 let assert_credentials_ok realm ?(http_action = realm) ?(fn = Rbac.nofn)
