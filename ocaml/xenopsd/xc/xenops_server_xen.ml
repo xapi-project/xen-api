@@ -1863,8 +1863,7 @@ module VM = struct
             ?(serial = "pty") ?(monitor = "null") ?(nics = []) ?(disks = [])
             ?(vgpus = []) ?(pci_emulations = []) ?(usb = Device.Dm.Disabled)
             ?(parallel = None) ?(acpi = true) ?(video = Cirrus) ?keymap ?vnc_ip
-            ?(pci_passthrough = false) ?(video_mib = 4)
-            ?(tpm = None) () =
+            ?(pci_passthrough = false) ?(video_mib = 4) ?(tpm = None) () =
           let video =
             match (video, vgpus) with
             | Cirrus, [] ->

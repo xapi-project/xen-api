@@ -346,7 +346,7 @@ let is_boot_file_whitelisted filename =
   (* avoid ..-style attacks and other weird things *)
   && safe_str filename
 
-let builder_of_vm ~__context (_, vm) timeoffset pci_passthrough vgpu =
+let builder_of_vm ~__context (vmref, vm) timeoffset pci_passthrough vgpu =
   let open Vm in
   let video_mode =
     if vgpu then
@@ -389,7 +389,7 @@ let builder_of_vm ~__context (_, vm) timeoffset pci_passthrough vgpu =
       if bool vm.API.vM_platform false "vtpm" then (
         if vm.API.vM_VTPMs = [] then (
           let ref () = Ref.make () in
-          let uuid () = Uuid.(to_string (make_uuid ())) in
+          let uuid () = Uuid.(to_string (make ())) in
           let profile = [] in
           let other_config = [] in
           let contents = ref () in
