@@ -11,6 +11,8 @@ let prototyped_of_field = function
       None
 
 let prototyped_of_message = function
+  | "Repository", "apply_livepatch" ->
+      Some "22.19.0-next"
   | "Repository", "set_gpgkey_path" ->
       Some "22.12.0"
   | "message", "destroy_many" ->
