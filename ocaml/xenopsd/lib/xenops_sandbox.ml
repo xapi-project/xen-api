@@ -120,6 +120,8 @@ end
 module type SANDBOX = sig
   val create : domid:int -> vm_uuid:string -> Chroot.Path.t -> string
 
+  val chroot: domid:int -> vm_uuid:string -> Chroot.t
+
   val start :
        string
     -> vm_uuid:string
