@@ -30,4 +30,13 @@ module Uuidm = struct
                   )
           )
       }
+
+  let t_of_sexp sexp =
+    match sexp |> Sexplib.Std.string_of_sexp |> Uuidm.of_string with
+    | None ->
+        Sexplib.Conv.of_sexp_error "not a UUID" sexp
+    | Some u ->
+        u
+
+  let sexp_of_t t = t |> Uuidm.to_string |> Sexplib.Std.sexp_of_string
 end
