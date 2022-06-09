@@ -20,6 +20,8 @@ let qemu_system_i386 = ref "qemu-system-i386"
 
 let upstream_compat_qemu_dm_wrapper = ref "qemu-wrapper"
 
+let swtpm_wrapper = ref "swtpm-wrapper"
+
 let chgrp = ref "chgrp"
 
 let modprobe = ref "/usr/sbin/modprobe"
@@ -76,6 +78,9 @@ let pvinpvh_guests =
     , "path to the inner-xen for PV-in-PVH guests"
     )
   ]
+
+let vtpm_guests =
+  [(X_OK, "swtpm-wrapper", swtpm_wrapper, "path to swtpm-wrapper")]
 
 (* libvirt xc *)
 let network_configuration =

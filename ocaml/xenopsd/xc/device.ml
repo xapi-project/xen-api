@@ -4213,7 +4213,7 @@ module Dm = struct
 
   let start_swtpm ~xs task domid ~vtpm_uuid ~index =
     debug "Preparing to start swtpm-wrapper to provide a vTPM (domid=%d)" domid ;
-    let exec_path = "/usr/lib64/xen/bin/swtpm-wrapper" in
+    let exec_path = !Resources.swtpm_wrapper in
     let name = "swtpm" in
     let vm_uuid = Xenops_helpers.uuid_of_domid ~xs domid |> Uuid.to_string in
 
