@@ -3345,7 +3345,7 @@ module Backend = struct
       let path = Dm_Common.cant_suspend_reason_path domid in
       (* This will raise QMP_Error if it can't do it, we catch it and update
          xenstore. *)
-      match qmp_send_cmd domid Qmp.Query_migratable with
+      match qmp_send_cmd ~may_fail:true domid Qmp.Query_migratable with
       | Qmp.Unit ->
           debug "query-migratable precheck passed (domid=%d)" domid ;
           Generic.safe_rm ~xs path
