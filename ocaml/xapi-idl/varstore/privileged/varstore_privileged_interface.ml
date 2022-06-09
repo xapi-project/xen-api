@@ -37,6 +37,8 @@ end)
 
 type vm_uuid = Uuidm.t [@@deriving rpcty]
 
+type vtpm_uuid = Uuidm.t [@@deriving rpcty]
+
 module RPC_API (R : RPC) = struct
   open R
 
@@ -87,4 +89,17 @@ module RPC_API (R : RPC) = struct
     declare "destroy"
       ["Stop listening on sockets for the specified group"]
       (debug_info_p @-> gid_p @-> path_p @-> returning unit_p err)
+
+  let vtpm_uuid_p =
+    Param.mk ~name:"vtpm_uuid" ~description:["VTPM UUID"] vtpm_uuid
+
+  let string_p = Param.mk Types.string
+
+  let vtpm_set_contents =
+    declare "vtpm_set_contents" ["Set vTPM contents blob"]
+      (debug_info_p @-> vtpm_uuid_p @-> string_p @-> returning unit_p err)
+
+  let vtpm_get_contents =
+    declare "vtpm_get_contents" ["Get vTPM contents blob"]
+      (debug_info_p @-> vtpm_uuid_p @-> returning string_p err)
 end
