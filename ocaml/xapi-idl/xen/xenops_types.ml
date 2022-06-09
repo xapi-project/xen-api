@@ -1,5 +1,6 @@
 open Sexplib.Std
 open Xcp_pci
+open Uuidm_rpc_type
 
 module TopLevel = struct
   type power_state = Running | Halted | Suspended | Paused
