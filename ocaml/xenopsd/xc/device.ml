@@ -1278,28 +1278,20 @@ module Swtpm = struct
 
   let xs_path ~domid = Device_common.get_private_path domid ^ "/vtpm"
 
-  let vtpms_of_domid ~xs ~domid =
-    try
-      let vtpm_path = xs_path domid in
-      xs.Xs.directory vtpm_path
-      |> List.map @@ fun index ->
-         xs.Xs.read @@ Filename.concat vtpm_path index
-         |> Uuidm.of_string
-         |> Option.get
-    with _ -> []
-
   let state_path =
     (* for easier compat with dir:// mode, but can be anything.
        If we implement VDI state storage this could be a block device
     *)
     Xenops_sandbox.Chroot.Path.of_string ~relative:"tpm2-00.permall"
 
-  let restore ~xs ~domid ~vm_uuid state =
-    if String.length state > 0 then begin
+  let restore ~xs:_ ~domid ~vm_uuid state =
+    if String.length state > 0 then (
       let path = Xenops_sandbox.Swtpm_guard.create ~domid ~vm_uuid state_path in
-      debug "Restored vTPM for domid %d: %d bytes, digest %s" domid (String.length state) (state |> Digest.string |> Digest.to_hex);
+      debug "Restored vTPM for domid %d: %d bytes, digest %s" domid
+        (String.length state)
+        (state |> Digest.string |> Digest.to_hex) ;
       Unixext.write_string_to_file path state
-    end else
+    ) else
       debug "vTPM state for domid %d is empty: not restoring" domid
 
   let start_daemon dbg ~xs ~path ~args ~domid ~vm_uuid ~vtpm_uuid ~index () =
@@ -1308,12 +1300,14 @@ module Swtpm = struct
       |> Base64.decode_exn
     in
     let chroot = Xenops_sandbox.Swtpm_guard.chroot ~domid ~vm_uuid in
-    let abs_path = Xenops_sandbox.Chroot.absolute_path_outside chroot state_path in
+    let abs_path =
+      Xenops_sandbox.Chroot.absolute_path_outside chroot state_path
+    in
     if Sys.file_exists abs_path then
       debug "Not restoring vTPM: %s already exists" abs_path
     else
       restore ~xs ~domid ~vm_uuid state ;
-    let vtpm_path = xs_path domid in
+    let vtpm_path = xs_path ~domid in
     xs.Xs.write
       (Filename.concat vtpm_path @@ string_of_int index)
       (Uuidm.to_string vtpm_uuid) ;
@@ -1329,12 +1323,12 @@ module Swtpm = struct
       domid vm_uuid ;
     let contents = suspend ~xs ~domid ~vm_uuid in
     let length = String.length contents in
-    if length > 0 then begin
-      debug "Storing vTPM state of %d bytes" length;
-      Varstore_privileged_client.Client.vtpm_set_contents dbg vtpm_uuid (Base64.encode_string contents);
-    end else begin
-      debug "vTPM state is empty: not storing"
-    end;
+    if length > 0 then (
+      debug "Storing vTPM state of %d bytes" length ;
+      Varstore_privileged_client.Client.vtpm_set_contents dbg vtpm_uuid
+        (Base64.encode_string contents)
+    ) else
+      debug "vTPM state is empty: not storing" ;
     (* needed to save contents before wiping the chroot *)
     Xenops_sandbox.Swtpm_guard.stop dbg ~domid ~vm_uuid
 end
@@ -2803,7 +2797,7 @@ module Dm_Common = struct
     signal task ~xs ~qemu_domid ~domid "continue" ~wait_for:"running"
 
   (* Called by every domain destroy, even non-HVM *)
-  let stop ~xs ~qemu_domid domid =
+  let stop ~xs ~qemu_domid ~vtpm domid =
     let qemu_pid_path = Qemu.pid_path domid in
     let vm_uuid = Xenops_helpers.uuid_of_domid ~xs domid |> Uuid.to_string in
     let dbg = Printf.sprintf "stop domid %d" domid in
@@ -2839,11 +2833,11 @@ module Dm_Common = struct
         )
     in
     let stop_swptm () =
-      let () =
-        Swtpm.vtpms_of_domid ~xs ~domid
-        |> List.iter @@ fun vtpm_uuid ->
-           Swtpm.stop dbg ~xs ~domid ~vm_uuid ~vtpm_uuid
-      in
+      Option.iter
+        (fun (Xenops_interface.Vm.Vtpm vtpm_uuid) ->
+          Swtpm.stop dbg ~xs ~domid ~vm_uuid ~vtpm_uuid
+        )
+        vtpm ;
       Xenops_sandbox.Swtpm_guard.stop dbg ~domid ~vm_uuid
     in
     let stop_vgpu () = Vgpu.stop ~xs domid in
@@ -3015,7 +3009,12 @@ module Backend = struct
       (** [init_daemon task path args domid xenstore ready_path timeout cancel]
           returns a forkhelper pid after starting the qemu daemon in dom0 *)
 
-      val stop : xs:Xenstore.Xs.xsh -> qemu_domid:int -> int -> unit
+      val stop :
+           xs:Xenstore.Xs.xsh
+        -> qemu_domid:int
+        -> vtpm:Xenops_interface.Vm.tpm option
+        -> int
+        -> unit
       (** [stop xenstore qemu_domid domid] stops a domain *)
 
       val qemu_args :
@@ -3029,7 +3028,11 @@ module Backend = struct
           arguments to pass to the qemu wrapper script *)
 
       val after_suspend_image :
-        xs:Xenstore.Xs.xsh -> qemu_domid:int -> int -> unit
+           xs:Xenstore.Xs.xsh
+        -> qemu_domid:int
+        -> vtpm:Xenops_interface.Vm.tpm option
+        -> int
+        -> unit
       (** [after_suspend_image xs qemu_domid domid] hook to execute actions
           after the suspend image has been created *)
 
@@ -3082,7 +3085,7 @@ module Backend = struct
       let suspend (task : Xenops_task.task_handle) ~xs ~qemu_domid domid =
         Dm_Common.signal task ~xs ~qemu_domid ~domid "save" ~wait_for:"paused"
 
-      let stop ~xs:_ ~qemu_domid:_ _ = ()
+      let stop ~xs:_ ~qemu_domid:_ ~vtpm:_ _ = ()
 
       let init_daemon ~task:_ ~path:_ ~args:_ ~domid:_ ~xs:_ ~ready_path:_
           ~timeout:_ ~cancel:_ ?fds:_ _ =
@@ -3090,7 +3093,7 @@ module Backend = struct
 
       let qemu_args ~xs:_ ~dm:_ _ _ _ = {Dm_Common.argv= []; fd_map= []}
 
-      let after_suspend_image ~xs:_ ~qemu_domid:_ _ = ()
+      let after_suspend_image ~xs:_ ~qemu_domid:_ ~vtpm:_ _ = ()
 
       let pci_assign_guest ~xs:_ ~index:_ ~host:_ = None
     end
@@ -3829,8 +3832,8 @@ module Backend = struct
         QMP_Event.add domid ;
         pid
 
-      let stop ~xs ~qemu_domid domid =
-        Dm_Common.stop ~xs ~qemu_domid domid ;
+      let stop ~xs ~qemu_domid ~vtpm domid =
+        Dm_Common.stop ~xs ~qemu_domid ~vtpm domid ;
         QMP_Event.remove domid ;
         let rm path =
           let msg = Printf.sprintf "removing %s" path in
@@ -4085,9 +4088,9 @@ module Backend = struct
               }
             
 
-      let after_suspend_image ~xs ~qemu_domid domid =
+      let after_suspend_image ~xs ~qemu_domid ~vtpm domid =
         (* device model not needed anymore after suspend image has been created *)
-        stop ~xs ~qemu_domid domid
+        stop ~xs ~qemu_domid ~vtpm domid
 
       let pci_assign_guest ~xs ~index ~host =
         DefaultConfig.PCI.assign_guest ~xs ~index ~host
@@ -4189,17 +4192,17 @@ module Dm = struct
     let module Q = (val Backend.of_profile dm) in
     Q.Dm.suspend task ~xs ~qemu_domid domid
 
-  let stop ~xs ~qemu_domid ~dm domid =
+  let stop ~xs ~qemu_domid ~vtpm ~dm domid =
     let module Q = (val Backend.of_profile dm) in
-    Q.Dm.stop ~xs ~qemu_domid domid
+    Q.Dm.stop ~xs ~vtpm ~qemu_domid domid
 
   let qemu_args ~xs ~dm info restore domid =
     let module Q = (val Backend.of_profile dm) in
     Q.Dm.qemu_args ~xs ~dm info restore domid
 
-  let after_suspend_image ~xs ~dm ~qemu_domid domid =
+  let after_suspend_image ~xs ~dm ~qemu_domid ~vtpm domid =
     let module Q = (val Backend.of_profile dm) in
-    Q.Dm.after_suspend_image ~xs ~qemu_domid domid
+    Q.Dm.after_suspend_image ~xs ~qemu_domid ~vtpm domid
 
   let pci_assign_guest ~xs ~dm ~index ~host =
     let module Q = (val Backend.of_profile dm) in
@@ -4532,6 +4535,21 @@ module Dm = struct
     debug "Writing EFI variables to %s (domid=%d)" path domid ;
     Unixext.write_string_to_file path efivars ;
     debug "Wrote EFI variables to %s (domid=%d)" path domid
+
+  let suspend_vtpms (_task : Xenops_task.task_handle) ~xs domid ~vm_uuid ~vtpm =
+    debug "Called Dm.suspend_vtpms (domid=%d)" domid ;
+    Option.map
+      (fun (Xenops_interface.Vm.Vtpm _vtpm_uuid) ->
+        Swtpm.suspend ~xs ~domid ~vm_uuid
+      )
+      vtpm
+    |> Option.to_list
+
+  let restore_vtpm (_task : Xenops_task.task_handle) ~xs ~contents domid =
+    debug "Called Dm.restore_vtpms (domid=%d)" domid ;
+    let vm_uuid = Uuid.to_string (Xenops_helpers.uuid_of_domid ~xs domid) in
+    (* TODO: multiple vTPM support? *)
+    Swtpm.restore ~xs ~domid ~vm_uuid contents
 end
 
 (* Dm *)

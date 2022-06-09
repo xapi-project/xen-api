@@ -1138,6 +1138,8 @@ let dm_of ~vm =
       with _ -> Device.Profile.fallback
   )
 
+let vtpm_of ~vm = match vm.Vm.ty with Vm.HVM h -> h.tpm | _ -> None
+
 module VM = struct
   open Vm
 
@@ -1676,7 +1678,10 @@ module VM = struct
         let domid = di.Xenctrl.domid in
         let qemu_domid = this_domid ~xs in
         log_exn_continue "Error stoping device-model, already dead ?"
-          (fun () -> Device.Dm.stop ~xs ~qemu_domid ~dm:(dm_of ~vm) domid)
+          (fun () ->
+            Device.Dm.stop ~xs ~qemu_domid ~vtpm:(vtpm_of ~vm) ~dm:(dm_of ~vm)
+              domid
+          )
           () ;
         log_exn_continue "Error stoping vncterm, already dead ?"
           (fun () -> Device.PV_Vnc.stop ~xs domid)
@@ -1722,7 +1727,8 @@ module VM = struct
                 vm.Vm.id di.Xenctrl.domid ;
               if DB.exists vm.Vm.id then DB.remove vm.Vm.id
             ) ;
-            Domain.destroy task ~xc ~xs ~qemu_domid ~dm:(dm_of ~vm) domid ;
+            Domain.destroy task ~xc ~xs ~qemu_domid ~vtpm:(vtpm_of ~vm)
+              ~dm:(dm_of ~vm) domid ;
             (* Detach any remaining disks *)
             List.iter
               (fun dp ->
@@ -2488,8 +2494,8 @@ module VM = struct
             in
             let manager_path = choose_emu_manager vm.Vm.platformdata in
             Domain.suspend task ~xc ~xs ~domain_type ~dm:(dm_of ~vm)
-              ~progress_callback ~qemu_domid ~manager_path ~is_uefi vm_str domid
-              fd vgpu_fd flags' (fun () ->
+              ~vtpm:(vtpm_of ~vm) ~progress_callback ~qemu_domid ~manager_path
+              ~is_uefi vm_str domid fd vgpu_fd flags' (fun () ->
                 (* SCTX-2558: wait more for ballooning if needed *)
                 wait_ballooning task vm ;
                 pre_suspend_callback task ;
@@ -2665,8 +2671,8 @@ module VM = struct
                         "VM %s: libxenguest has destroyed domid %d; cleaning \
                          up xenstore for consistency"
                         vm.Vm.id di.Xenctrl.domid ;
-                      Domain.destroy task ~xc ~xs ~qemu_domid ~dm:(dm_of ~vm)
-                        di.Xenctrl.domid
+                      Domain.destroy task ~xc ~xs ~qemu_domid
+                        ~vtpm:(vtpm_of ~vm) ~dm:(dm_of ~vm) di.Xenctrl.domid
                     with _ ->
                       debug "Domain.destroy failed. Re-raising original error."
                 ) ;

@@ -48,7 +48,7 @@ module type SANDBOX = sig
       [domid] inside the chroot for [domid] and returns the absolute path to it
       outside the chroot *)
 
-  val chroot: domid: int -> vm_uuid:string -> Chroot.t
+  val chroot : domid:int -> vm_uuid:string -> Chroot.t
   (** [chroot ~domid ~vm_uuid] returns the chroot for [domid] and [vm_uuid].
       The chroot may not necessarily exist yet.
   *)
