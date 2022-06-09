@@ -4137,7 +4137,7 @@ module Dm = struct
   (* the following functions depend on the functions above that use the qemu
      backend Q *)
 
-  let start_swtpm ~xs task domid =
+  let start_swtpm ~xs task domid ~vtpm_uuid ~index =
     debug "Preparing to start swtpm-wrapper to provide a vTPM (domid=%d)" domid ;
     let exec_path = "/usr/lib64/xen/bin/swtpm-wrapper" in
     let name = "swtpm" in
@@ -4320,8 +4320,10 @@ module Dm = struct
     (* start swtpm-wrapper if appropriate and modify QEMU arguments as needed *)
     let tpmargs =
       match info.tpm with
-      | Some Vtpm ->
-          let tpm_socket_path = start_swtpm ~xs task domid in
+      | Some (Vtpm vtpm_uuid) ->
+          let tpm_socket_path =
+            start_swtpm ~xs task domid ~vtpm_uuid ~index:0
+          in
           [
             "-chardev"
           ; Printf.sprintf "socket,id=chrtpm,path=%s" tpm_socket_path
@@ -4331,6 +4333,7 @@ module Dm = struct
           ; "tpm-crb,tpmdev=tpm0"
           ]
       | None ->
+          D.debug "VM domid %d has no vTPM" domid ;
           []
     in
 

@@ -78,7 +78,7 @@ module Vm = struct
 
   let default_firmware = Bios [@@deriving rpcty]
 
-  type tpm = Vtpm [@@deriving rpcty, sexp]
+  type tpm = Vtpm of Uuidm.t [@@deriving rpcty, sexp]
 
   type hvm_info = {
       hap: bool [@default true]

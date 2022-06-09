@@ -605,8 +605,9 @@ let add' _copts x () =
                   ; firmware= Xenops_types.Vm.default_firmware
                   ; tpm=
                       ( match find_opt _vtpm with
-                      | Some id when bool id ->
-                          Some Vtpm
+                      | Some id ->
+                          Some
+                            (Vtpm (string id |> Uuidm.of_string |> Option.get))
                       | _ ->
                           None
                       )
