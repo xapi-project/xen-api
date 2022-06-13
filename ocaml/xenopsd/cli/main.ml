@@ -56,7 +56,7 @@ let common_options_t =
     let doc = Printf.sprintf "Specify queue name in message switch." in
     Arg.(value & opt (some string) default & info ["queue"] ~docs ~doc)
   in
-  Term.(pure Common.make $ debug $ verb $ socket $ queue)
+  Term.(const Common.make $ debug $ verb $ socket $ queue)
 
 (* Commands *)
 
@@ -71,8 +71,8 @@ let events_cmd =
     ]
     @ help
   in
-  ( Term.(ret (pure Xn.events $ common_options_t))
-  , Term.info "events" ~sdocs:_common_options ~doc ~man
+  ( Term.(ret (const Xn.events $ common_options_t))
+  , Cmd.info "events" ~sdocs:_common_options ~doc ~man
   )
 
 let create_cmd =
@@ -93,8 +93,8 @@ let create_cmd =
     let doc = "Connect to the VM's console." in
     Arg.(value & flag & info ["console"] ~doc)
   in
-  ( Term.(ret (pure Xn.create $ common_options_t $ filename $ console))
-  , Term.info "create" ~sdocs:_common_options ~doc ~man
+  ( Term.(ret (const Xn.create $ common_options_t $ filename $ console))
+  , Cmd.info "create" ~sdocs:_common_options ~doc ~man
   )
 
 let add_cmd =
@@ -106,8 +106,8 @@ let add_cmd =
     let doc = Printf.sprintf "Path to the VM metadata to be registered." in
     Arg.(value & pos 0 (some file) None & info [] ~doc)
   in
-  ( Term.(ret (pure Xn.add $ common_options_t $ filename))
-  , Term.info "add" ~sdocs:_common_options ~doc ~man
+  ( Term.(ret (const Xn.add $ common_options_t $ filename))
+  , Cmd.info "add" ~sdocs:_common_options ~doc ~man
   )
 
 let list_cmd =
@@ -125,8 +125,8 @@ let list_cmd =
     ]
     @ help
   in
-  ( Term.(pure Xn.list $ common_options_t)
-  , Term.info "list" ~sdocs:_common_options ~doc ~man
+  ( Term.(const Xn.list $ common_options_t)
+  , Cmd.info "list" ~sdocs:_common_options ~doc ~man
   )
 
 let vm_arg verb =
@@ -158,8 +158,8 @@ let remove_cmd =
     ; `P "Something about power state exceptions"
     ]
   in
-  ( Term.(ret (pure Xn.remove $ common_options_t $ vm))
-  , Term.info "remove" ~sdocs:_common_options ~doc ~man
+  ( Term.(ret (const Xn.remove $ common_options_t $ vm))
+  , Cmd.info "remove" ~sdocs:_common_options ~doc ~man
   )
 
 let start_cmd =
@@ -189,8 +189,8 @@ let start_cmd =
     ]
     @ help
   in
-  ( Term.(ret (pure Xn.start $ common_options_t $ paused $ console $ vm))
-  , Term.info "start" ~sdocs:_common_options ~doc ~man
+  ( Term.(ret (const Xn.start $ common_options_t $ paused $ console $ vm))
+  , Cmd.info "start" ~sdocs:_common_options ~doc ~man
   )
 
 let console_cmd =
@@ -210,8 +210,8 @@ let console_cmd =
     ]
     @ help
   in
-  ( Term.(ret (pure Xn.console_connect $ common_options_t $ vm))
-  , Term.info "console" ~sdocs:_common_options ~doc ~man
+  ( Term.(ret (const Xn.console_connect $ common_options_t $ vm))
+  , Cmd.info "console" ~sdocs:_common_options ~doc ~man
   )
 
 let shutdown_cmd =
@@ -238,8 +238,8 @@ let shutdown_cmd =
     ]
     @ help
   in
-  ( Term.(ret (pure Xn.shutdown $ common_options_t $ timeout $ vm))
-  , Term.info "shutdown" ~sdocs:_common_options ~doc ~man
+  ( Term.(ret (const Xn.shutdown $ common_options_t $ timeout $ vm))
+  , Cmd.info "shutdown" ~sdocs:_common_options ~doc ~man
   )
 
 let reboot_cmd =
@@ -267,8 +267,8 @@ let reboot_cmd =
     ]
     @ help
   in
-  ( Term.(ret (pure Xn.reboot $ common_options_t $ timeout $ vm))
-  , Term.info "reboot" ~sdocs:_common_options ~doc ~man
+  ( Term.(ret (const Xn.reboot $ common_options_t $ timeout $ vm))
+  , Cmd.info "reboot" ~sdocs:_common_options ~doc ~man
   )
 
 let suspend_cmd =
@@ -290,8 +290,8 @@ let suspend_cmd =
     ]
     @ help
   in
-  ( Term.(ret (pure Xn.suspend $ common_options_t $ device $ vm))
-  , Term.info "suspend" ~sdocs:_common_options ~doc ~man
+  ( Term.(ret (const Xn.suspend $ common_options_t $ device $ vm))
+  , Cmd.info "suspend" ~sdocs:_common_options ~doc ~man
   )
 
 let resume_cmd =
@@ -313,8 +313,8 @@ let resume_cmd =
     ]
     @ help
   in
-  ( Term.(ret (pure Xn.resume $ common_options_t $ device $ vm))
-  , Term.info "resume" ~sdocs:_common_options ~doc ~man
+  ( Term.(ret (const Xn.resume $ common_options_t $ device $ vm))
+  , Cmd.info "resume" ~sdocs:_common_options ~doc ~man
   )
 
 let pause_cmd =
@@ -333,8 +333,8 @@ let pause_cmd =
     ]
     @ help
   in
-  ( Term.(ret (pure Xn.pause $ common_options_t $ vm))
-  , Term.info "pause" ~sdocs:_common_options ~doc ~man
+  ( Term.(ret (const Xn.pause $ common_options_t $ vm))
+  , Cmd.info "pause" ~sdocs:_common_options ~doc ~man
   )
 
 let unpause_cmd =
@@ -352,8 +352,8 @@ let unpause_cmd =
     ]
     @ help
   in
-  ( Term.(ret (pure Xn.unpause $ common_options_t $ vm))
-  , Term.info "unpause" ~sdocs:_common_options ~doc ~man
+  ( Term.(ret (const Xn.unpause $ common_options_t $ vm))
+  , Cmd.info "unpause" ~sdocs:_common_options ~doc ~man
   )
 
 let import_cmd =
@@ -380,8 +380,8 @@ let import_cmd =
     ]
     @ help
   in
-  ( Term.(ret (pure Xn.import $ common_options_t $ metadata $ filename))
-  , Term.info "import" ~sdocs:_common_options ~doc ~man
+  ( Term.(ret (const Xn.import $ common_options_t $ metadata $ filename))
+  , Cmd.info "import" ~sdocs:_common_options ~doc ~man
   )
 
 let export_cmd =
@@ -410,9 +410,9 @@ let export_cmd =
     @ help
   in
   ( Term.(
-      ret (pure Xn.export $ common_options_t $ metadata $ xm $ filename $ vm)
+      ret (const Xn.export $ common_options_t $ metadata $ xm $ filename $ vm)
     )
-  , Term.info "export" ~sdocs:_common_options ~doc ~man
+  , Cmd.info "export" ~sdocs:_common_options ~doc ~man
   )
 
 let diagnostics_cmd =
@@ -424,8 +424,8 @@ let diagnostics_cmd =
     ]
     @ help
   in
-  ( Term.(ret (pure Xn.diagnostics $ common_options_t))
-  , Term.info "diagnostics" ~sdocs:_common_options ~doc ~man
+  ( Term.(ret (const Xn.diagnostics $ common_options_t))
+  , Cmd.info "diagnostics" ~sdocs:_common_options ~doc ~man
   )
 
 let tasks_cmd =
@@ -433,8 +433,8 @@ let tasks_cmd =
   let man =
     [`S "DESCRIPTION"; `P "Describe the set of in-progress tasks."] @ help
   in
-  ( Term.(ret (pure Xn.task_list $ common_options_t))
-  , Term.info "tasks" ~sdocs:_common_options ~doc ~man
+  ( Term.(ret (const Xn.task_list $ common_options_t))
+  , Cmd.info "tasks" ~sdocs:_common_options ~doc ~man
   )
 
 let task_cancel_cmd =
@@ -452,8 +452,8 @@ let task_cancel_cmd =
     let doc = "Task id to cancel" in
     Arg.(value & pos 0 (some string) None & info [] ~doc)
   in
-  ( Term.(ret (pure Xn.task_cancel $ common_options_t $ task))
-  , Term.info "task-cancel" ~sdocs:_common_options ~doc ~man
+  ( Term.(ret (const Xn.task_cancel $ common_options_t $ task))
+  , Cmd.info "task-cancel" ~sdocs:_common_options ~doc ~man
   )
 
 let cd_eject_cmd =
@@ -463,8 +463,8 @@ let cd_eject_cmd =
     let doc = "VBD id" in
     Arg.(value & pos 0 (some string) None & info [] ~doc)
   in
-  ( Term.(ret (pure Xn.cd_eject $ common_options_t $ vbd))
-  , Term.info "cd-eject" ~sdocs:_common_options ~doc ~man
+  ( Term.(ret (const Xn.cd_eject $ common_options_t $ vbd))
+  , Cmd.info "cd-eject" ~sdocs:_common_options ~doc ~man
   )
 
 let stat_vm_cmd =
@@ -476,15 +476,8 @@ let stat_vm_cmd =
     let doc = "The uuid of the VM to stat." in
     Arg.(required & pos 0 (some string) None & info [] ~doc ~docv:"uuid")
   in
-  ( Term.(ret (pure Xn.stat_vm $ common_options_t $ vm))
-  , Term.info "vm-stat" ~sdocs:_common_options ~doc ~man
-  )
-
-let default_cmd =
-  let doc = "interact with the XCP xenopsd VM management service" in
-  let man = help in
-  ( Term.(ret (pure (fun _ -> `Help (`Pager, None)) $ common_options_t))
-  , Term.info "xenops-cli" ~version:"1.0.0" ~sdocs:_common_options ~doc ~man
+  ( Term.(ret (const Xn.stat_vm $ common_options_t $ vm))
+  , Cmd.info "vm-stat" ~sdocs:_common_options ~doc ~man
   )
 
 let cmds =
@@ -510,11 +503,17 @@ let cmds =
   ; cd_eject_cmd
   ; stat_vm_cmd
   ]
+  |> List.map (fun (t, i) -> Cmd.v i t)
 
-let _ =
+let default =
+  Term.(ret (const (fun _ -> `Help (`Pager, None)) $ common_options_t))
+
+let info =
+  let doc = "interact with the XCP xenopsd VM management service" in
+  let man = help in
+  Cmd.info "xenops-cli" ~version:"1.0.0" ~sdocs:_common_options ~doc ~man
+
+let () =
   Xcp_client.use_switch := false ;
-  match Term.eval_choice default_cmd cmds with
-  | `Error _ ->
-      exit 1
-  | _ ->
-      exit 0
+  let cmd = Cmd.group ~default info cmds in
+  exit (Cmd.eval cmd)
