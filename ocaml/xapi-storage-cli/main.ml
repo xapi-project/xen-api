@@ -86,7 +86,7 @@ let common_options_t =
     let doc = Printf.sprintf "Specify queue name in message switch." in
     Arg.(value & opt (some string) None & info ["queue"] ~docs ~doc)
   in
-  Term.(pure Common.make $ debug $ verb $ socket $ queue)
+  Term.(const Common.make $ debug $ verb $ socket $ queue)
 
 (* Help sections common to all commands *)
 let help =
@@ -463,8 +463,8 @@ let query_cmd =
     ]
     @ help
   in
-  ( Term.(ret (pure query $ common_options_t))
-  , Term.info "query" ~sdocs:_common_options ~doc ~man
+  ( Term.(ret (const query $ common_options_t))
+  , Cmd.info "query" ~sdocs:_common_options ~doc ~man
   )
 
 let sr_arg =
@@ -495,8 +495,8 @@ let mirror_list_cmd =
     ]
     @ help
   in
-  ( Term.(ret (pure mirror_list $ common_options_t))
-  , Term.info "mirror-list" ~sdocs:_common_options ~doc ~man
+  ( Term.(ret (const mirror_list $ common_options_t))
+  , Cmd.info "mirror-list" ~sdocs:_common_options ~doc ~man
   )
 
 let mirror_start_cmd =
@@ -525,7 +525,7 @@ let mirror_start_cmd =
   in
   ( Term.(
       ret
-        (pure mirror_start
+        (const mirror_start
         $ common_options_t
         $ sr_arg
         $ vdi_arg
@@ -534,7 +534,7 @@ let mirror_start_cmd =
         $ dest
         )
     )
-  , Term.info "mirror-start" ~sdocs:_common_options ~doc ~man
+  , Cmd.info "mirror-start" ~sdocs:_common_options ~doc ~man
   )
 
 let mirror_stop_cmd =
@@ -544,8 +544,8 @@ let mirror_stop_cmd =
     let doc = "ID of the mirror" in
     Arg.(value & pos 0 (some string) None & info [] ~docv:"ID" ~doc)
   in
-  ( Term.(ret (pure mirror_stop $ common_options_t $ id))
-  , Term.info "mirror-stop" ~sdocs:_common_options ~doc ~man
+  ( Term.(ret (const mirror_stop $ common_options_t $ id))
+  , Cmd.info "mirror-stop" ~sdocs:_common_options ~doc ~man
   )
 
 let sr_attach_cmd =
@@ -575,8 +575,8 @@ let sr_attach_cmd =
     ]
     @ help
   in
-  ( Term.(ret (pure sr_attach $ common_options_t $ sr_arg $ device_config))
-  , Term.info "sr-attach" ~sdocs:_common_options ~doc ~man
+  ( Term.(ret (const sr_attach $ common_options_t $ sr_arg $ device_config))
+  , Cmd.info "sr-attach" ~sdocs:_common_options ~doc ~man
   )
 
 let sr_detach_cmd =
@@ -591,8 +591,8 @@ let sr_detach_cmd =
     ]
     @ help
   in
-  ( Term.(ret (pure sr_detach $ common_options_t $ sr_arg))
-  , Term.info "sr-detach" ~sdocs:_common_options ~doc ~man
+  ( Term.(ret (const sr_detach $ common_options_t $ sr_arg))
+  , Cmd.info "sr-detach" ~sdocs:_common_options ~doc ~man
   )
 
 let sr_stat_cmd =
@@ -607,8 +607,8 @@ let sr_stat_cmd =
     ]
     @ help
   in
-  ( Term.(ret (pure sr_stat $ common_options_t $ sr_arg))
-  , Term.info "sr-stat" ~sdocs:_common_options ~doc ~man
+  ( Term.(ret (const sr_stat $ common_options_t $ sr_arg))
+  , Cmd.info "sr-stat" ~sdocs:_common_options ~doc ~man
   )
 
 let sr_scan_cmd =
@@ -622,8 +622,8 @@ let sr_scan_cmd =
     ]
     @ help
   in
-  ( Term.(ret (pure sr_scan $ common_options_t $ sr_arg))
-  , Term.info "sr-scan" ~sdocs:_common_options ~doc ~man
+  ( Term.(ret (const sr_scan $ common_options_t $ sr_arg))
+  , Cmd.info "sr-scan" ~sdocs:_common_options ~doc ~man
   )
 
 let vdi_create_cmd =
@@ -666,7 +666,7 @@ let vdi_create_cmd =
   in
   ( Term.(
       ret
-        (pure vdi_create
+        (const vdi_create
         $ common_options_t
         $ sr_arg
         $ name_arg
@@ -676,7 +676,7 @@ let vdi_create_cmd =
         $ format_arg
         )
     )
-  , Term.info "vdi-create" ~sdocs:_common_options ~doc ~man
+  , Cmd.info "vdi-create" ~sdocs:_common_options ~doc ~man
   )
 
 let vdi_clone_cmd =
@@ -705,7 +705,7 @@ let vdi_clone_cmd =
   in
   ( Term.(
       ret
-        (pure vdi_clone
+        (const vdi_clone
         $ common_options_t
         $ sr_arg
         $ vdi_arg
@@ -713,7 +713,7 @@ let vdi_clone_cmd =
         $ descr_arg
         )
     )
-  , Term.info "vdi-clone" ~sdocs:_common_options ~doc ~man
+  , Cmd.info "vdi-clone" ~sdocs:_common_options ~doc ~man
   )
 
 let vdi_resize_cmd =
@@ -733,9 +733,9 @@ let vdi_resize_cmd =
     @ help
   in
   ( Term.(
-      ret (pure vdi_resize $ common_options_t $ sr_arg $ vdi_arg $ new_size_arg)
+      ret (const vdi_resize $ common_options_t $ sr_arg $ vdi_arg $ new_size_arg)
     )
-  , Term.info "vdi-resize" ~sdocs:_common_options ~doc ~man
+  , Cmd.info "vdi-resize" ~sdocs:_common_options ~doc ~man
   )
 
 let vdi_compose_cmd =
@@ -751,9 +751,9 @@ let vdi_compose_cmd =
       ~doc:"unique identifier for the VDI whose contents should be applied"
   in
   ( Term.(
-      ret (pure vdi_compose $ common_options_t $ sr_arg $ vdi_arg $ vdi2_arg)
+      ret (const vdi_compose $ common_options_t $ sr_arg $ vdi_arg $ vdi2_arg)
     )
-  , Term.info "vdi-compose" ~sdocs:_common_options ~doc ~man
+  , Cmd.info "vdi-compose" ~sdocs:_common_options ~doc ~man
   )
 
 let vdi_destroy_cmd =
@@ -765,8 +765,8 @@ let vdi_destroy_cmd =
     ]
     @ help
   in
-  ( Term.(ret (pure vdi_destroy $ common_options_t $ sr_arg $ vdi_arg))
-  , Term.info "vdi-destroy" ~sdocs:_common_options ~doc ~man
+  ( Term.(ret (const vdi_destroy $ common_options_t $ sr_arg $ vdi_arg))
+  , Cmd.info "vdi-destroy" ~sdocs:_common_options ~doc ~man
   )
 
 let vdi_attach_cmd =
@@ -781,8 +781,8 @@ let vdi_attach_cmd =
     ]
     @ help
   in
-  ( Term.(ret (pure vdi_attach $ common_options_t $ sr_arg $ vdi_arg))
-  , Term.info "vdi-attach" ~sdocs:_common_options ~doc ~man
+  ( Term.(ret (const vdi_attach $ common_options_t $ sr_arg $ vdi_arg))
+  , Cmd.info "vdi-attach" ~sdocs:_common_options ~doc ~man
   )
 
 let vdi_detach_cmd =
@@ -796,8 +796,8 @@ let vdi_detach_cmd =
     ]
     @ help
   in
-  ( Term.(ret (pure vdi_detach $ common_options_t $ sr_arg $ vdi_arg $ vm_arg))
-  , Term.info "vdi-detach" ~sdocs:_common_options ~doc ~man
+  ( Term.(ret (const vdi_detach $ common_options_t $ sr_arg $ vdi_arg $ vm_arg))
+  , Cmd.info "vdi-detach" ~sdocs:_common_options ~doc ~man
   )
 
 let vdi_activate_cmd =
@@ -811,8 +811,8 @@ let vdi_activate_cmd =
     ]
     @ help
   in
-  ( Term.(ret (pure vdi_activate $ common_options_t $ sr_arg $ vdi_arg))
-  , Term.info "vdi-activate" ~sdocs:_common_options ~doc ~man
+  ( Term.(ret (const vdi_activate $ common_options_t $ sr_arg $ vdi_arg))
+  , Cmd.info "vdi-activate" ~sdocs:_common_options ~doc ~man
   )
 
 let vdi_deactivate_cmd =
@@ -828,9 +828,9 @@ let vdi_deactivate_cmd =
     @ help
   in
   ( Term.(
-      ret (pure vdi_deactivate $ common_options_t $ sr_arg $ vdi_arg $ vm_arg)
+      ret (const vdi_deactivate $ common_options_t $ sr_arg $ vdi_arg $ vm_arg)
     )
-  , Term.info "vdi-deactivate" ~sdocs:_common_options ~doc ~man
+  , Cmd.info "vdi-deactivate" ~sdocs:_common_options ~doc ~man
   )
 
 let vdi_similar_content_cmd =
@@ -846,8 +846,8 @@ let vdi_similar_content_cmd =
     ]
     @ help
   in
-  ( Term.(ret (pure vdi_similar_content $ common_options_t $ sr_arg $ vdi_arg))
-  , Term.info "vdi-similar-content" ~sdocs:_common_options ~doc ~man
+  ( Term.(ret (const vdi_similar_content $ common_options_t $ sr_arg $ vdi_arg))
+  , Cmd.info "vdi-similar-content" ~sdocs:_common_options ~doc ~man
   )
 
 let vdi_enable_cbt_cmd =
@@ -859,8 +859,8 @@ let vdi_enable_cbt_cmd =
     ]
     @ help
   in
-  ( Term.(ret (pure vdi_enable_cbt $ common_options_t $ sr_arg $ vdi_arg))
-  , Term.info "vdi-enable-cbt" ~sdocs:_common_options ~doc ~man
+  ( Term.(ret (const vdi_enable_cbt $ common_options_t $ sr_arg $ vdi_arg))
+  , Cmd.info "vdi-enable-cbt" ~sdocs:_common_options ~doc ~man
   )
 
 let vdi_disable_cbt_cmd =
@@ -872,8 +872,8 @@ let vdi_disable_cbt_cmd =
     ]
     @ help
   in
-  ( Term.(ret (pure vdi_disable_cbt $ common_options_t $ sr_arg $ vdi_arg))
-  , Term.info "vdi-disable-cbt" ~sdocs:_common_options ~doc ~man
+  ( Term.(ret (const vdi_disable_cbt $ common_options_t $ sr_arg $ vdi_arg))
+  , Cmd.info "vdi-disable-cbt" ~sdocs:_common_options ~doc ~man
   )
 
 let vdi_data_destroy_cmd =
@@ -890,8 +890,8 @@ let vdi_data_destroy_cmd =
     ]
     @ help
   in
-  ( Term.(ret (pure vdi_data_destroy $ common_options_t $ sr_arg $ vdi_arg))
-  , Term.info "vdi-data-destroy" ~sdocs:_common_options ~doc ~man
+  ( Term.(ret (const vdi_data_destroy $ common_options_t $ sr_arg $ vdi_arg))
+  , Cmd.info "vdi-data-destroy" ~sdocs:_common_options ~doc ~man
   )
 
 let vdi_list_changed_blocks_cmd =
@@ -910,21 +910,14 @@ let vdi_list_changed_blocks_cmd =
   in
   ( Term.(
       ret
-        (pure vdi_list_changed_blocks
+        (const vdi_list_changed_blocks
         $ common_options_t
         $ sr_arg
         $ vdi_arg
         $ vdi2_arg
         )
     )
-  , Term.info "vdi-list-changed-blocks" ~sdocs:_common_options ~doc ~man
-  )
-
-let default_cmd =
-  let doc = "interact with an XCP storage management service" in
-  let man = help in
-  ( Term.(ret (pure (fun _ -> `Help (`Pager, None)) $ common_options_t))
-  , Term.info "sm-cli" ~version:"1.0.0" ~sdocs:_common_options ~doc ~man
+  , Cmd.info "vdi-list-changed-blocks" ~sdocs:_common_options ~doc ~man
   )
 
 let cmds =
@@ -952,10 +945,15 @@ let cmds =
   ; mirror_start_cmd
   ; mirror_stop_cmd
   ]
+  |> List.map (fun (t, i) -> Cmd.v i t)
 
 let () =
-  match Term.eval_choice default_cmd cmds with
-  | `Error _ ->
-      exit 1
-  | _ ->
-      exit 0
+  let default =
+    Term.(ret (const (fun _ -> `Help (`Pager, None)) $ common_options_t))
+  in
+  let doc = "interact with an XCP storage management service" in
+  let info =
+    Cmd.info "sm-cli" ~version:"1.0.0" ~sdocs:_common_options ~doc ~man:help
+  in
+  let cmd = Cmd.group ~default info cmds in
+  exit (Cmd.eval cmd)
