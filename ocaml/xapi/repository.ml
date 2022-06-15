@@ -816,13 +816,13 @@ let apply_livepatches' ~__context ~host ~livepatches =
           let msg = ExnHelper.string_of_exn e in
           error "applying %s livepatch (%s) on host ref='%s failed: %s"
             component_str (LivePatch.to_string lp) host' msg ;
-          Right lp
+          Right (lp, lps)
       | e ->
           let host' = Ref.string_of host in
           let msg = ExnHelper.string_of_exn e in
           error "applying %s livepatch (%s) on host ref='%s failed: %s"
             component_str (LivePatch.to_string lp) host' msg ;
-          Right lp
+          Right (lp, lps)
     )
     livepatches
 
@@ -846,7 +846,7 @@ let apply_updates' ~__context ~host ~updates_info ~livepatches ~acc_rpm_updates
       ; ( "livepatches"
         , `List
             (List.map
-               (fun lp -> `String (LivePatch.to_string lp))
+               (fun (lp, _) -> `String (LivePatch.to_string lp))
                failed_livepatches
             )
         )
@@ -856,13 +856,13 @@ let apply_updates' ~__context ~host ~updates_info ~livepatches ~acc_rpm_updates
   let immediate_guidances, pending_guidances =
     let immediate_guidances' =
       eval_guidances ~updates_info ~updates:acc_rpm_updates ~kind:Recommended
-        ~livepatches:successful_livepatches
+        ~livepatches:successful_livepatches ~failed_livepatches
     in
     let pending_guidances' =
       List.filter
         (fun g -> not (List.mem g immediate_guidances'))
         (eval_guidances ~updates_info ~updates:acc_rpm_updates ~kind:Absolute
-           ~livepatches:[]
+           ~livepatches:[] ~failed_livepatches:[]
         )
     in
     match failed_livepatches with
@@ -889,7 +889,9 @@ let apply_updates' ~__context ~host ~updates_info ~livepatches ~acc_rpm_updates
   set_pending_guidances ~__context ~host ~guidances:pending_guidances ;
   let warnings =
     List.map
-      (fun lp -> [Api_errors.apply_livepatch_failed; LivePatch.to_string lp])
+      (fun (lp, _) ->
+        [Api_errors.apply_livepatch_failed; LivePatch.to_string lp]
+      )
       failed_livepatches
   in
   (immediate_guidances, warnings)

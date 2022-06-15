@@ -502,7 +502,8 @@ end)
 
 module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
   module Io = struct
-    type input_t = ((string * UpdateInfo.t) list * Update.t) * string list
+    type input_t =
+      ((string * UpdateInfo.t) list * Update.t) * (string list * string list)
 
     type output_t = Guidance.t option
 
@@ -515,7 +516,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                  (list (pair string (record @@ fields_of_updateinfo)))
                  (record @@ fields_of_update)
               )
-              (list string)
+              (pair (list string) (list string))
           )
       )
 
@@ -523,10 +524,15 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
       Fmt.(str "%a" Dump.(string)) (UpdateInfo.guidance_to_string g)
   end
 
-  let transform ((updates_info, update), upd_ids_of_livepatches) =
+  let transform
+      ( (updates_info, update)
+      , (upd_ids_of_livepatches, upd_ids_of_failed_livepatches)
+      ) =
     eval_guidance_for_one_update ~updates_info ~update
       ~kind:Guidance.Recommended
       ~upd_ids_of_livepatches:(UpdateIdSet.of_list upd_ids_of_livepatches)
+      ~upd_ids_of_failed_livepatches:
+        (UpdateIdSet.of_list upd_ids_of_failed_livepatches)
 
   let tests =
     `QuickAndAutoDocumented
@@ -549,7 +555,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                 }
               
             )
-          , []
+          , ([], [])
           )
         , None
         )
@@ -606,7 +612,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                 }
               
             )
-          , []
+          , ([], [])
           )
         , None
         )
@@ -645,7 +651,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                 }
               
             )
-          , []
+          , ([], [])
           )
         , None
         )
@@ -701,7 +707,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                 }
               
             )
-          , []
+          , ([], [])
           )
         , Some Guidance.RebootHost
         )
@@ -771,7 +777,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                 }
               
             )
-          , []
+          , ([], [])
           )
         , Some Guidance.RestartDeviceModel
         )
@@ -853,7 +859,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                 }
               
             )
-          , []
+          , ([], [])
           )
         , Some Guidance.RestartDeviceModel
         )
@@ -923,7 +929,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                 }
               
             )
-          , []
+          , ([], [])
           )
         , None
         )
@@ -992,7 +998,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                 }
               
             )
-          , []
+          , ([], [])
           )
         , None
         )
@@ -1074,7 +1080,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                 }
               
             )
-          , []
+          , ([], [])
           )
         , Some Guidance.RestartDeviceModel
         )
@@ -1137,7 +1143,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                 }
               
             )
-          , ["UPDATE-0000"]
+          , (["UPDATE-0000"], [])
           )
         , Some Guidance.RestartDeviceModel
         )
@@ -1189,7 +1195,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                 }
               
             )
-          , ["UPDATE-0000"]
+          , (["UPDATE-0000"], [])
           )
         , None
         )
@@ -1273,7 +1279,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                 }
               
             )
-          , ["UPDATE-0000"]
+          , (["UPDATE-0000"], [])
           )
         , Some Guidance.RebootHost
         )
@@ -1366,7 +1372,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                 }
               
             )
-          , ["UPDATE-0001"]
+          , (["UPDATE-0001"], [])
           )
         , Some Guidance.RestartToolstack
         )
@@ -1435,7 +1441,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                 }
               
             )
-          , ["UPDATE-0000"]
+          , (["UPDATE-0000"], [])
           )
         , None
         )
@@ -1504,7 +1510,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                 }
               
             )
-          , ["UPDATE-0000"]
+          , (["UPDATE-0000"], [])
           )
         , Some Guidance.RebootHost
         )

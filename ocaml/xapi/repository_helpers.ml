@@ -520,7 +520,7 @@ let get_updates_from_updateinfo ~__context repositories =
   new_updates @ updates
 
 let eval_guidance_for_one_update ~updates_info ~update ~kind
-    ~upd_ids_of_livepatches =
+    ~upd_ids_of_livepatches ~upd_ids_of_failed_livepatches =
   let open Update in
   match update.update_id with
   | Some upd_id -> (
@@ -547,11 +547,13 @@ let eval_guidance_for_one_update ~updates_info ~update ~kind
           | _ ->
               false
         in
+        let pkg_str =
+          Printf.sprintf "package %s.%s in update %s" update.name update.arch
+            upd_id
+        in
         let dbg_msg r =
-          Printf.sprintf
-            "Evaluating applicability for package %s.%s in update %s returned \
-             '%s'"
-            update.name update.arch upd_id (string_of_bool r)
+          Printf.sprintf "Evaluating applicability for %s returned '%s'" pkg_str
+            (string_of_bool r)
         in
         let apps = updateinfo.UpdateInfo.guidance_applicabilities in
         match (List.exists is_applicable apps, apps) with
@@ -560,14 +562,32 @@ let eval_guidance_for_one_update ~updates_info ~update ~kind
             match kind with
             | Guidance.Absolute ->
                 updateinfo.UpdateInfo.abs_guidance
-            | Guidance.Recommended ->
-                if UpdateIdSet.mem upd_id upd_ids_of_livepatches then
-                  (* The update has an applicable livepatch.
-                   * Using the livaptch guidance.
+            | Guidance.Recommended -> (
+              match
+                ( UpdateIdSet.mem upd_id upd_ids_of_livepatches
+                , UpdateIdSet.mem upd_id upd_ids_of_failed_livepatches
+                )
+              with
+              | _, true ->
+                  (* The update contains a failed livepatch. No guidance should be picked up. *)
+                  debug
+                    "%s doesn't contribute guidance due to a livepatch failure"
+                    pkg_str ;
+                  None
+              | true, false ->
+                  (* The update has an applicable/successful livepatch.
+                   * Using the livepatch guidance.
                    *)
-                  updateinfo.UpdateInfo.livepatch_guidance
-                else
-                  updateinfo.UpdateInfo.rec_guidance
+                  let g = updateinfo.UpdateInfo.livepatch_guidance in
+                  debug "%s provides livepatch guidance %s" pkg_str
+                    (Option.value (Option.map Guidance.to_string g) ~default:"") ;
+                  g
+              | false, false ->
+                  let g = updateinfo.UpdateInfo.rec_guidance in
+                  debug "%s provides recommended guidance %s" pkg_str
+                    (Option.value (Option.map Guidance.to_string g) ~default:"") ;
+                  g
+            )
           )
         | _ ->
             debug "%s" (dbg_msg false) ;
@@ -599,21 +619,24 @@ let append_livepatch_guidances ~updates_info ~upd_ids_of_livepatches guidances =
     )
     upd_ids_of_livepatches guidances
 
-let eval_guidances ~updates_info ~updates ~kind ~livepatches =
-  let upd_ids_of_livepatches =
+let eval_guidances ~updates_info ~updates ~kind ~livepatches ~failed_livepatches
+    =
+  let extract_upd_ids lps =
     List.fold_left
       (fun acc (_, lps) ->
         List.fold_left
           (fun acc' (_, upd_info) -> UpdateIdSet.add upd_info.UpdateInfo.id acc')
           acc lps
       )
-      UpdateIdSet.empty livepatches
+      UpdateIdSet.empty lps
   in
+  let upd_ids_of_livepatches = extract_upd_ids livepatches in
+  let upd_ids_of_failed_livepatches = extract_upd_ids failed_livepatches in
   List.fold_left
     (fun acc u ->
       match
         eval_guidance_for_one_update ~updates_info ~update:u ~kind
-          ~upd_ids_of_livepatches
+          ~upd_ids_of_livepatches ~upd_ids_of_failed_livepatches
       with
       | Some g ->
           GuidanceSet.add g acc
@@ -963,10 +986,12 @@ let consolidate_updates_of_host ~repository_name ~updates_info host
   in
   let rec_guidances =
     eval_guidances ~updates_info ~updates ~kind:Recommended ~livepatches
+      ~failed_livepatches:[]
   in
   let abs_guidances_in_json =
     let abs_guidances =
       eval_guidances ~updates_info ~updates ~kind:Absolute ~livepatches:[]
+        ~failed_livepatches:[]
       |> List.filter (fun g -> not (List.mem g rec_guidances))
     in
     List.map (fun g -> `String (Guidance.to_string g)) abs_guidances
