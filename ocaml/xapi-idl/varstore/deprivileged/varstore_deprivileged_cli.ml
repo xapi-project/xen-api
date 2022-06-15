@@ -18,15 +18,9 @@ let version_str description =
   let maj, min, mic = description.Idl.Interface.version in
   Printf.sprintf "%d.%d.%d" maj min mic
 
-let default_cmd =
-  let doc = "debug CLI" in
-  ( Cmdliner.Term.(ret (const (fun _ -> `Help (`Pager, None)) $ const ()))
-  , Cmdliner.Term.info "varstored_cli"
-      ~version:(version_str Cmds.description)
-      ~doc
-  )
+open! Cmdliner
 
-let cli =
+let cli () =
   let uri = ref "" in
   let rpc call =
     Xcp_client.xml_http_rpc
@@ -41,17 +35,22 @@ let cli =
   in
   let doc = "Path to deprivileged socket in /var/run/xen" in
   let path =
-    Cmdliner.Arg.(
-      required & opt (some file) None & info ["socket"] ~doc ~docv:"SOCKET"
-    )
+    Arg.(required & opt (some file) None & info ["socket"] ~doc ~docv:"SOCKET")
   in
-  Cmdliner.Term.eval_choice default_cmd
-    (List.map
-       (fun t ->
-         let term, info = t rpc in
-         (Cmdliner.Term.(const wrapper $ path $ term $ const ()), info)
-       )
-       (Cmds.implementation ())
-    )
+  let default = Term.(ret (const (fun _ -> `Help (`Pager, None)) $ const ())) in
+  let info =
+    Cmd.info "varstored_cli"
+      ~version:(version_str Cmds.description)
+      ~doc:"debug CLI"
+  in
+  let cmds =
+    List.map
+      (fun t ->
+        let term, info = t rpc in
+        Cmd.v info Term.(const wrapper $ path $ term $ const ())
+      )
+      (Cmds.implementation ())
+  in
+  Cmd.eval (Cmd.group ~default info cmds)
 
-let () = Cmdliner.Term.exit cli
+let () = exit (cli ())
