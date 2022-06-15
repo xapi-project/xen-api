@@ -346,7 +346,7 @@ let command_of ?(name = Sys.argv.(0)) ?(version = "unknown")
   in
   Cmd.v
     (Cmd.info name ~version ~sdocs:_common_options ~man)
-    Term.(ret (const (fun (_ : unit list) -> `Ok ()) $ list terms))
+    Term.(const (fun (_ : unit list) -> `Ok ()) $ list terms)
 
 let arg_spec = List.map (fun (a, b, _, c) -> ("-" ^ a, b, c))
 
@@ -476,7 +476,18 @@ let configure ?(options = []) ?(resources = []) () =
 
 let configure2 ~name ~version ~doc ?(options = []) ?(resources = []) () =
   configure_common ~options ~resources @@ fun config_spec ->
-  Cmd.eval ~catch:true (command_of ~name ~version ~doc config_spec)
+  let cmd = command_of ~name ~version ~doc config_spec in
+  match Cmd.eval_value ~catch:true cmd with
+  | Ok (`Ok _) ->
+      ()
+  | Ok `Help | Ok `Version ->
+      exit Cmd.Exit.ok
+  | Error `Parse ->
+      exit Cmd.Exit.some_error
+  | Error `Term ->
+      exit Cmd.Exit.cli_error
+  | Error `Exn ->
+      exit Cmd.Exit.internal_error
 
 let http_handler call_of_string string_of_response process s =
   let ic = Unix.in_channel_of_descr s in
