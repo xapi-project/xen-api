@@ -280,6 +280,6 @@ let cmd =
     let doc = "The attached SR." in
     Arg.(value & pos 1 (some sr_t) None & info [] ~doc)
   in
-  (Term.(const start $ verbose $ queue $ sr), Term.info "test" ~doc ~man)
+  Cmd.v (Cmd.info "test" ~doc ~man) Term.(const start $ verbose $ queue $ sr)
 
-let () = Term.exit @@ Term.eval ~catch:true cmd
+let () = exit @@ Cmd.eval ~catch:true cmd
