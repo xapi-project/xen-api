@@ -399,15 +399,9 @@ let configure ?(specific_options = []) ?(specific_essential_paths = [])
       ~essentials:(Resources.essentials @ specific_essential_paths)
       ~nonessentials:(Resources.nonessentials @ specific_nonessential_paths)
   in
-  match
-    Xcp_service.configure2
-      ~name:(Filename.basename Sys.argv.(0))
-      ~version:Build_info.version ~doc ~options ~resources ()
-  with
-  | `Ok () ->
-      ()
-  | `Error m ->
-      error "%s" m ; exit 1
+  Xcp_service.configure2
+    ~name:(Filename.basename Sys.argv.(0))
+    ~version:Build_info.version ~doc ~options ~resources ()
 
 let main backend =
   Printexc.record_backtrace true ;

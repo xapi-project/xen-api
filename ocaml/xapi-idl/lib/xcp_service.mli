@@ -30,8 +30,6 @@ type res = {
 
 val configure : ?options:opt list -> ?resources:res list -> unit -> unit
 
-type ('a, 'b) error = [`Ok of 'a | `Error of 'b]
-
 val configure2 :
      name:string
   -> version:string
@@ -39,7 +37,7 @@ val configure2 :
   -> ?options:opt list
   -> ?resources:res list
   -> unit
-  -> (unit, string) error
+  -> unit
 (** More advanced service configuration with manpage generation *)
 
 type server

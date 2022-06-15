@@ -1797,15 +1797,8 @@ let _ =
       )
     ]
   in
-  ( match
-      configure2 ~name:"xapi-script-storage" ~version:Version.version
-        ~doc:description ~resources ~options ()
-    with
-  | `Ok () ->
-      ()
-  | `Error x ->
-      error "Error: %s\n%!" x ; Stdlib.exit 1
-  ) ;
+  configure2 ~name:"xapi-script-storage" ~version:Version.version
+    ~doc:description ~resources ~options () ;
   if !Xcp_service.daemon then (
     Xcp_service.maybe_daemonize () ;
     use_syslog := true ;

@@ -74,15 +74,8 @@ let options =
 
 let _ =
   Debug.log_to_stdout () ;
-  match
-    configure2 ~name:"Example-service" ~version:"1.0"
-      ~doc:
-        "This is an example service which demonstrates the configuration \
-         mechanism."
-      ~options ~resources ()
-  with
-  | `Ok () ->
-      exit 0
-  | `Error m ->
-      Printf.fprintf stderr "Error: %s\n%!" m ;
-      exit 1
+  configure2 ~name:"Example-service" ~version:"1.0"
+    ~doc:
+      "This is an example service which demonstrates the configuration \
+       mechanism."
+    ~options ~resources ()
