@@ -143,7 +143,7 @@ let term =
     in
     Arg.(value & opt int 256 & info ["trace-truncate"] ~doc)
   in
-  Term.(pure config $ trace_entries $ trace_truncate)
+  Term.(const config $ trace_entries $ trace_truncate)
 
 let init config =
   CompactMessage.truncate_at := config.trace_truncate ;
