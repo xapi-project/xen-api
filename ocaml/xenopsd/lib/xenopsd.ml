@@ -347,6 +347,7 @@ let handle_received_fd this_connection =
       let common_prefix = "/services/xenops/" in
       let memory_prefix = common_prefix ^ "memory/" in
       let migrate_vgpu_prefix = common_prefix ^ "migrate-vgpu/" in
+      let migrate_mem_prefix = common_prefix ^ "migrate-mem/" in
       let has_prefix str prefix =
         String.length prefix <= String.length str
         && String.sub str 0 (String.length prefix) = prefix
@@ -362,6 +363,8 @@ let handle_received_fd this_connection =
         do_receive Xenops_server.VM.receive_memory
       else if has_prefix uri migrate_vgpu_prefix then
         do_receive Xenops_server.VM.receive_vgpu
+      else if has_prefix uri migrate_mem_prefix then
+        do_receive Xenops_server.VM.receive_mem
       else (
         error "Expected URI prefix %s or %s, got %s" memory_prefix
           migrate_vgpu_prefix uri ;
