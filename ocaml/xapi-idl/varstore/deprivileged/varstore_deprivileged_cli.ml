@@ -14,10 +14,6 @@
 
 module Cmds = Varstore_deprivileged_interface.RPC_API (Cmdlinergen.Gen ())
 
-let version_str description =
-  let maj, min, mic = description.Idl.Interface.version in
-  Printf.sprintf "%d.%d.%d" maj min mic
-
 open! Cmdliner
 
 let cli () =
@@ -33,24 +29,19 @@ let cli () =
     uri := "file://" ^ file ;
     next
   in
-  let doc = "Path to deprivileged socket in /var/run/xen" in
   let path =
+    let doc = "Path to deprivileged socket in /var/run/xen" in
     Arg.(required & opt (some file) None & info ["socket"] ~doc ~docv:"SOCKET")
   in
-  let default = Term.(ret (const (fun _ -> `Help (`Pager, None)) $ const ())) in
-  let info =
-    Cmd.info "varstored_cli"
-      ~version:(version_str Cmds.description)
-      ~doc:"debug CLI"
-  in
-  let cmds =
+  let cmdline_gen () =
     List.map
       (fun t ->
         let term, info = t rpc in
-        Cmd.v info Term.(const wrapper $ path $ term $ const ())
+        (Term.(const wrapper $ path $ term $ const ()), info)
       )
       (Cmds.implementation ())
   in
-  Cmd.eval (Cmd.group ~default info cmds)
+  Xcp_service.cli ~name:"varstored_cli" ~doc:"debug CLI"
+    ~version:Cmds.description.version ~cmdline_gen
 
-let () = exit (cli ())
+let () = exit (Cmd.eval @@ cli ())

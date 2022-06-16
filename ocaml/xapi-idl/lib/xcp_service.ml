@@ -679,3 +679,16 @@ let maybe_daemonize ?start_fn () =
     daemonize ?start_fn ()
   else
     Option.iter (fun fn -> fn ()) start_fn
+
+let cli ~name ~doc ~version ~cmdline_gen =
+  let default = Term.(ret (const (fun _ -> `Help (`Pager, None)) $ const ())) in
+  let version =
+    let maj, min, mic = version in
+    Printf.sprintf "%d.%d.%d" maj min mic
+  in
+  let info = Cmd.info name ~version ~doc in
+  let cmds = List.map (fun (t, i) -> Cmd.v i t) (cmdline_gen ()) in
+  Cmd.group ~default info cmds
+
+let eval_cmdline cmdline =
+  match Cmd.eval_value cmdline with Ok (`Ok f) -> f () | _ -> ()

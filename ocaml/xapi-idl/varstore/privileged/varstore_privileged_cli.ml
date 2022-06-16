@@ -16,35 +16,20 @@ open Varstore_privileged_interface
 
 module Cmds = RPC_API (Cmdlinergen.Gen ())
 
-let version_str description =
-  let maj, min, mic = description.Idl.Interface.version in
-  Printf.sprintf "%d.%d.%d" maj min mic
+let doc =
+  String.concat " "
+    [
+      "A CLI for the deprivileged socket spawning API."
+    ; "This allows scripting of the varstored deprivileging daemon"
+    ; "for testing and debugging. This tool is not intended to be used"
+    ; "as an end user tool"
+    ]
 
-open! Cmdliner
+let cmdline_gen () =
+  List.map (fun t -> t Varstore_privileged_client.rpc) (Cmds.implementation ())
 
-let cli () =
-  let default = Term.(ret (const (fun _ -> `Help (`Pager, None)) $ const ())) in
-  let info =
-    let doc =
-      String.concat " "
-        [
-          "A CLI for the deprivileged socket spawning API."
-        ; "This allows scripting of the varstored deprivileging daemon"
-        ; "for testing and debugging. This tool is not intended to be used"
-        ; "as an end user tool"
-        ]
-    in
-    Cmd.info "varstore_cli" ~version:(version_str Cmds.description) ~doc
-  in
-  let cmds =
-    List.map
-      (fun t ->
-        let t, i = t Varstore_privileged_client.rpc in
-        Cmd.v i t
-      )
-      (Cmds.implementation ())
-  in
-  let cmd = Cmd.group ~default info cmds in
-  Cmd.eval_value cmd
+let cli =
+  Xcp_service.cli ~name:"varstore_cli" ~doc ~version:Cmds.description.version
+    ~cmdline_gen
 
-let () = match cli () with Ok (`Ok f) -> f () | _ -> ()
+let () = Xcp_service.eval_cmdline cli

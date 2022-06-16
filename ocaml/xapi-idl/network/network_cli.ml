@@ -4,10 +4,6 @@ open Network_interface
 
 module Cmds = Interface_API (Cmdlinergen.Gen ())
 
-let version_str description =
-  let maj, min, mic = description.Idl.Interface.version in
-  Printf.sprintf "%d.%d.%d" maj min mic
-
 let doc =
   String.concat ""
     [
@@ -16,22 +12,11 @@ let doc =
     ; "as an end user tool"
     ]
 
-open! Cmdliner
+let cmdline_gen () =
+  List.map (fun t -> t Network_client.rpc) (Cmds.implementation ())
 
-let cmds =
-  List.map
-    (fun t ->
-      let term, inf = t Network_client.rpc in
-      Cmd.v inf term
-    )
-    (Cmds.implementation ())
+let cli =
+  Xcp_service.cli ~name:"network_cli" ~doc ~version:Cmds.description.version
+    ~cmdline_gen
 
-let cli () =
-  let default = Term.(ret (const (fun _ -> `Help (`Pager, None)) $ const ())) in
-  let info =
-    Cmd.info "network_cli" ~version:(version_str Cmds.description) ~doc
-  in
-  let cmd = Cmd.group ~default info cmds in
-  Cmd.eval_value cmd
-
-let () = match cli () with Ok (`Ok f) -> f () | _ -> ()
+let () = Xcp_service.eval_cmdline cli
