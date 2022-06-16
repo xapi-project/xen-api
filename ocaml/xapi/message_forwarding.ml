@@ -15,8 +15,6 @@
  * @group API Messaging
 *)
 
-open Xapi_stdext_threads.Threadext
-
 let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
 open Client

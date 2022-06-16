@@ -17,7 +17,8 @@
 *)
 module Rrdd = Rrd_client.Client
 
-open Xapi_stdext_threads.Threadext
+let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
+
 module Listext = Xapi_stdext_std.Listext
 module Semaphore = Xapi_stdext_threads.Semaphore
 module Unixext = Xapi_stdext_unix.Unixext
@@ -45,7 +46,7 @@ let scans_in_progress_m = Mutex.create ()
 let scans_in_progress_c = Condition.create ()
 
 let i_should_scan_sr sr =
-  Mutex.execute scans_in_progress_m (fun () ->
+  with_lock scans_in_progress_m (fun () ->
       if Hashtbl.mem scans_in_progress sr then
         false (* someone else already is *)
       else (
@@ -55,7 +56,7 @@ let i_should_scan_sr sr =
   )
 
 let scan_finished sr =
-  Mutex.execute scans_in_progress_m (fun () ->
+  with_lock scans_in_progress_m (fun () ->
       Hashtbl.remove scans_in_progress sr ;
       Condition.broadcast scans_in_progress_c
   )
@@ -66,7 +67,7 @@ module Throttle () = struct
   let m = Mutex.create ()
 
   let get_semaphore () =
-    Mutex.execute m (fun () ->
+    with_lock m (fun () ->
         (* overridable on startup from config file, have
          * to delay initialization *)
         match !semaphore with
@@ -139,7 +140,7 @@ let scan_one ~__context ?callback sr =
                  "Tried to scan SR %s but scan already in progress - waiting \
                   for scan to complete."
                  sr_uuid ;
-               Mutex.execute scans_in_progress_m (fun () ->
+               with_lock scans_in_progress_m (fun () ->
                    while Hashtbl.mem scans_in_progress sr do
                      Condition.wait scans_in_progress_c scans_in_progress_m
                    done

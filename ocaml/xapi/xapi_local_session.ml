@@ -20,14 +20,14 @@ type t = {
   ; last_active: Xapi_stdext_date.Date.iso8601
 }
 
-open Xapi_stdext_threads.Threadext
+let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
 let m = Mutex.create ()
 
 let table = Hashtbl.create 10
 
 let get_all ~__context =
-  Mutex.execute m (fun () -> Hashtbl.fold (fun k _ acc -> k :: acc) table [])
+  with_lock m (fun () -> Hashtbl.fold (fun k _ acc -> k :: acc) table [])
 
 let create ~__context ~pool =
   let r = Ref.make () in
@@ -38,14 +38,12 @@ let create ~__context ~pool =
     ; last_active= Xapi_stdext_date.Date.of_float (Unix.gettimeofday ())
     }
   in
-  Mutex.execute m (fun () -> Hashtbl.replace table r session) ;
+  with_lock m (fun () -> Hashtbl.replace table r session) ;
   r
 
-let get_record ~__context ~self =
-  Mutex.execute m (fun () -> Hashtbl.find table self)
+let get_record ~__context ~self = with_lock m (fun () -> Hashtbl.find table self)
 
-let destroy ~__context ~self =
-  Mutex.execute m (fun () -> Hashtbl.remove table self)
+let destroy ~__context ~self = with_lock m (fun () -> Hashtbl.remove table self)
 
 let local_session_hook ~__context ~session_id =
   try

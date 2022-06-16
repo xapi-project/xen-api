@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Xapi_stdext_threads.Threadext
+let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
 let m = Mutex.create ()
 
@@ -100,7 +100,7 @@ let _is_pci_hidden ~__context pci =
 
 (** Check whether a PCI device will be hidden from the dom0 kernel on boot. *)
 let is_pci_hidden ~__context pci =
-  Mutex.execute m (fun () -> _is_pci_hidden ~__context pci)
+  with_lock m (fun () -> _is_pci_hidden ~__context pci)
 
 let _hide_pci ~__context pci =
   if not (_is_pci_hidden ~__context pci) then
@@ -117,8 +117,7 @@ let _hide_pci ~__context pci =
     ()
 
 (** Hide a PCI device from the dom0 kernel. (Takes effect after next boot.) *)
-let hide_pci ~__context pci =
-  Mutex.execute m (fun () -> _hide_pci ~__context pci)
+let hide_pci ~__context pci = with_lock m (fun () -> _hide_pci ~__context pci)
 
 let _unhide_pci ~__context pci =
   if _is_pci_hidden ~__context pci then
@@ -145,7 +144,7 @@ let _unhide_pci ~__context pci =
 
 (** Unhide a PCI device from the dom0 kernel. (Takes effect after next boot.) *)
 let unhide_pci ~__context pci =
-  Mutex.execute m (fun () -> _unhide_pci ~__context pci)
+  with_lock m (fun () -> _unhide_pci ~__context pci)
 
 (** Return the id of a PCI device *)
 let id_of (id, _) = id

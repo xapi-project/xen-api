@@ -32,7 +32,8 @@ module Encodings = Xapi_stdext_encodings.Encodings
 module Listext = Xapi_stdext_std.Listext
 module Pervasiveext = Xapi_stdext_pervasives.Pervasiveext
 module Unixext = Xapi_stdext_unix.Unixext
-open Xapi_stdext_threads.Threadext
+
+let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
 module D = Debug.Make (struct let name = "xapi_message" end)
 
@@ -285,7 +286,7 @@ let start_message_hook_thread ~__context () =
 (********************************************************************)
 
 let cache_insert _ref message gen =
-  Mutex.execute in_memory_cache_mutex (fun () ->
+  with_lock in_memory_cache_mutex (fun () ->
       in_memory_cache := (gen, _ref, message) :: !in_memory_cache ;
       in_memory_cache_length := !in_memory_cache_length + 1 ;
       if !in_memory_cache_length > in_memory_cache_length_max then (
@@ -299,7 +300,7 @@ let cache_insert _ref message gen =
   )
 
 let cache_remove _ref =
-  Mutex.execute in_memory_cache_mutex (fun () ->
+  with_lock in_memory_cache_mutex (fun () ->
       let to_delete, to_keep =
         List.partition (function _, _ref', _ -> _ref' = _ref) !in_memory_cache
       in
@@ -345,7 +346,7 @@ let write ~__context ~_ref ~message =
     Some (message_gen ())
   else
     try
-      Mutex.execute event_mutex (fun () ->
+      with_lock event_mutex (fun () ->
           let fd, basefilename, filename =
             (* Try 10, no wait, 11 times to create message file *)
             let rec doit n =
@@ -420,7 +421,7 @@ let create ~__context ~name ~priority ~cls ~obj_uuid ~body =
       ) ;
   let _ref = Ref.make () in
   let uuid = Uuid.to_string (Uuid.make ()) in
-  let timestamp = Mutex.execute event_mutex (fun () -> Unix.gettimeofday ()) in
+  let timestamp = with_lock event_mutex (fun () -> Unix.gettimeofday ()) in
   (* During rolling upgrade, upgraded master might have a alerts grading
      	   system different from the not yet upgraded slaves, during that process we
      	   transform the priority of received messages as a special case. *)
@@ -477,7 +478,7 @@ let destroy_real __context basefilename =
           Db_cache_types.Database.increment db
       )
   ) ;
-  Mutex.execute event_mutex (fun () ->
+  with_lock event_mutex (fun () ->
       deleted := (!gen, _ref) :: !deleted ;
       ndeleted := !ndeleted + 1 ;
       if !ndeleted > 1024 then (
@@ -640,7 +641,7 @@ let get_since ~__context ~since =
 
 let get_since_for_events ~__context since =
   let cached_result =
-    Mutex.execute in_memory_cache_mutex (fun () ->
+    with_lock in_memory_cache_mutex (fun () ->
         match List.rev !in_memory_cache with
         | (last_in_memory, _, _) :: _ when last_in_memory < since ->
             Some
@@ -674,7 +675,7 @@ let get_since_for_events ~__context since =
           (get_from_generation since)
   in
   let delete_results =
-    Mutex.execute deleted_mutex (fun () ->
+    with_lock deleted_mutex (fun () ->
         let deleted =
           List.filter (fun (deltime, _ref) -> deltime > since) !deleted
         in
@@ -729,7 +730,7 @@ let get_all_records_where ~__context ~expr:_ =
   get_real message_dir (fun _ -> true) 0.0
 
 let repopulate_cache () =
-  Mutex.execute in_memory_cache_mutex (fun () ->
+  with_lock in_memory_cache_mutex (fun () ->
       let messages =
         get_real_inner message_dir
           (fun _ -> true)

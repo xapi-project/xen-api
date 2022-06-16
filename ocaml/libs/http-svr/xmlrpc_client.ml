@@ -12,7 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-module Mutex = Xapi_stdext_threads.Threadext.Mutex
 module Unixext = Xapi_stdext_unix.Unixext
 
 let finally = Xapi_stdext_pervasives.Pervasiveext.finally
@@ -118,9 +117,10 @@ let check_reusable_inner (x : Unixfd.t) =
 exception Stunnel_connection_failed
 
 let get_new_stunnel_id =
+  let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute in
   let counter = ref 0 in
   let m = Mutex.create () in
-  fun () -> Mutex.execute m (fun () -> incr counter ; !counter)
+  fun () -> with_lock m (fun () -> incr counter ; !counter)
 
 let watchdog_scheduler = Scheduler.make ()
 

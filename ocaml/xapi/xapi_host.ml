@@ -15,7 +15,9 @@
 module Rrdd = Rrd_client.Client
 module Date = Xapi_stdext_date.Date
 module Pervasiveext = Xapi_stdext_pervasives.Pervasiveext
-open Xapi_stdext_threads.Threadext
+
+let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
+
 module Unixext = Xapi_stdext_unix.Unixext
 open Xapi_host_helpers
 open Db_filter_types
@@ -1230,7 +1232,7 @@ let get_diagnostic_timing_stats ~__context ~host:_ = Stats.summarise ()
 let serialize_host_enable_disable_extauth = Mutex.create ()
 
 let set_hostname_live ~__context ~host ~hostname =
-  Mutex.execute serialize_host_enable_disable_extauth (fun () ->
+  with_lock serialize_host_enable_disable_extauth (fun () ->
       let current_auth_type =
         Db.Host.get_external_auth_type ~__context ~self:host
       in
@@ -1354,7 +1356,7 @@ let call_extauth_plugin_nomutex ~__context ~host ~fn ~args =
 
 (* this is the generic extauth plugin call available to xapi users that avoids concurrency problems *)
 let call_extauth_plugin ~__context ~host ~fn ~args =
-  Mutex.execute serialize_host_enable_disable_extauth (fun () ->
+  with_lock serialize_host_enable_disable_extauth (fun () ->
       call_extauth_plugin_nomutex ~__context ~host ~fn ~args
   )
 
@@ -1464,7 +1466,7 @@ let get_server_certificate ~__context ~host:_ =
 
 let with_cert_lock : (unit -> 'a) -> 'a =
   let cert_m = Mutex.create () in
-  Mutex.execute cert_m
+  with_lock cert_m
 
 let replace_host_certificate ~__context ~type' ~host
     (write_cert_fs : unit -> X509.Certificate.t) : unit =
@@ -1626,7 +1628,7 @@ open Extauth
 let enable_external_auth ~__context ~host ~config ~service_name ~auth_type =
   (* CP-825: Serialize execution of host-enable-extauth and host-disable-extauth *)
   (* we need to protect against concurrent access to the host.external_auth_type variable *)
-  Mutex.execute serialize_host_enable_disable_extauth (fun () ->
+  with_lock serialize_host_enable_disable_extauth (fun () ->
       let host_name_label = Db.Host.get_name_label ~__context ~self:host in
       let current_auth_type =
         Db.Host.get_external_auth_type ~__context ~self:host
@@ -1760,7 +1762,7 @@ let disable_external_auth_common ?(during_pool_eject = false) ~__context ~host
     ~config () =
   (* CP-825: Serialize execution of host-enable-extauth and host-disable-extauth *)
   (* we need to protect against concurrent access to the host.external_auth_type variable *)
-  Mutex.execute serialize_host_enable_disable_extauth (fun () ->
+  with_lock serialize_host_enable_disable_extauth (fun () ->
       let host_name_label = Db.Host.get_name_label ~__context ~self:host in
       let auth_type = Db.Host.get_external_auth_type ~__context ~self:host in
       if auth_type = "" then

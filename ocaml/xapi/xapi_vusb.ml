@@ -12,8 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Xapi_stdext_threads.Threadext
-
 module D = Debug.Make (struct let name = "xapi_vusb" end)
 
 open D
@@ -24,7 +22,7 @@ let create ~__context ~vM ~uSB_group ~other_config =
   let vusb = Ref.make () in
   let uuid = Uuid.to_string (Uuid.make ()) in
   Pool_features.assert_enabled ~__context ~f:Features.USB_passthrough ;
-  Mutex.execute m (fun () ->
+  Xapi_stdext_threads.Threadext.Mutex.execute m (fun () ->
       let attached_vusbs = Db.VM.get_VUSBs ~__context ~self:vM in
       (* At most 6 VUSBS can be attached to one vm *)
       if List.length attached_vusbs > 5 then

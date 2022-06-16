@@ -11,7 +11,8 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-open Xapi_stdext_threads.Threadext
+let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
+
 open Client
 open Xapi_stdext_std.Xstringext
 
@@ -37,7 +38,7 @@ let create_internal_bridge ~__context ~bridge ~uuid ~persist =
   if List.mem bridge current then (* No serialisation needed in this case *)
     debug "Internal bridge %s exists" bridge
   else (* Atomic test-and-set process *)
-    Mutex.execute internal_bridge_m (fun () ->
+    with_lock internal_bridge_m (fun () ->
         let current = Net.Bridge.get_all dbg () in
         if not (List.mem bridge current) then (
           let other_config = [("network-uuids", uuid)] in
@@ -168,7 +169,7 @@ let active_vifs_to_networks_m = Mutex.create ()
 
 let register_vif ~__context vif =
   let network = Db.VIF.get_network ~__context ~self:vif in
-  Mutex.execute active_vifs_to_networks_m (fun () ->
+  with_lock active_vifs_to_networks_m (fun () ->
       debug "register_vif vif=%s network=%s" (Ref.string_of vif)
         (Ref.string_of network) ;
       Hashtbl.replace active_vifs_to_networks vif network
@@ -179,7 +180,7 @@ let deregister_vif ~__context vif =
   let network_rc = Db.Network.get_record ~__context ~self:network in
   let bridge = network_rc.API.network_bridge in
   let internal_only = network_rc.API.network_PIFs = [] in
-  Mutex.execute active_vifs_to_networks_m (fun () ->
+  with_lock active_vifs_to_networks_m (fun () ->
       Hashtbl.remove active_vifs_to_networks vif ;
       (* If a network has PIFs, then we create/destroy when the PIFs are plugged/unplugged.
          			   If a network is entirely internal, then we remove it after we've stopped using it
@@ -231,7 +232,7 @@ let rec choose_bridge_name bridges =
 
 let create ~__context ~name_label ~name_description ~mTU ~other_config ~bridge
     ~managed ~tags =
-  Mutex.execute mutex (fun () ->
+  with_lock mutex (fun () ->
       let networks = Db.Network.get_all ~__context in
       let bridges =
         List.map (fun self -> Db.Network.get_bridge ~__context ~self) networks

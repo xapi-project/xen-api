@@ -16,7 +16,6 @@ module D = Debug.Make (struct let name = "http_proxy" end)
 
 open D
 open Xmlrpc_client
-open Xapi_stdext_threads.Threadext
 
 let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
@@ -75,7 +74,7 @@ let http_proxy src_ip src_port transport =
   try
     let addr = Unix.inet_addr_of_string src_ip in
     let sockaddr = Unix.ADDR_INET (addr, src_port) in
-    Mutex.execute m (fun () ->
+    Xapi_stdext_threads.Threadext.Mutex.execute m (fun () ->
         (* shutdown any server which currently exists *)
         Option.iter (fun server -> server.Server_io.shutdown ()) !server ;
         (* Make sure we don't try to double-close the server *)

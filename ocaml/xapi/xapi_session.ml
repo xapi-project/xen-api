@@ -20,7 +20,9 @@
 module D = Debug.Make (struct let name = "xapi_session" end)
 
 open D
-open Xapi_stdext_threads.Threadext
+
+let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
+
 module Date = Xapi_stdext_date.Date
 module Listext = Xapi_stdext_std.Listext
 open Client
@@ -147,7 +149,7 @@ end = struct
     let unknown_ctr = ref 0
 
     let record_unknown () =
-      Mutex.execute m (fun () ->
+      with_lock m (fun () ->
           let ctr = !unknown_ctr + 1 in
           unknown_ctr := ctr ;
           ctr
@@ -158,7 +160,7 @@ end = struct
     let table = Hashtbl.create 10
 
     let record_client k ~now =
-      Mutex.execute m (fun () ->
+      with_lock m (fun () ->
           match Hashtbl.find_opt table k with
           | None ->
               Hashtbl.add table k
@@ -176,7 +178,7 @@ end = struct
         Hashtbl.reset table ;
         unknown_ctr := 0
       in
-      Mutex.execute m (fun () ->
+      with_lock m (fun () ->
           let unknown_client_failed_attempts = !unknown_ctr in
           if Hashtbl.length table = 0 && unknown_client_failed_attempts = 0 then
             None
@@ -266,13 +268,13 @@ let wipe_params_after_fn params fn =
   with e -> wipe params ; raise e
 
 let do_external_auth uname pwd =
-  Mutex.execute serialize_auth (fun () ->
+  with_lock serialize_auth (fun () ->
       (Ext_auth.d ()).authenticate_username_password uname
         (Bytes.unsafe_to_string pwd)
   )
 
 let do_local_auth uname pwd =
-  Mutex.execute serialize_auth (fun () ->
+  with_lock serialize_auth (fun () ->
       try Pam.authenticate uname (Bytes.unsafe_to_string pwd)
       with Failure msg ->
         raise
@@ -282,7 +284,7 @@ let do_local_auth uname pwd =
   )
 
 let do_local_change_password uname newpwd =
-  Mutex.execute serialize_auth (fun () ->
+  with_lock serialize_auth (fun () ->
       Pam.change_password uname (Bytes.unsafe_to_string newpwd)
   )
 

@@ -17,6 +17,8 @@ open Xenops_server_plugin
 open Xenops_utils
 open Xenops_task
 
+let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
+
 module D = Debug.Make (struct let name = "xenops_server" end)
 
 open D
@@ -231,13 +233,13 @@ module VM_DB = struct
 
   let signal id =
     debug "VM_DB.signal %s" id ;
-    Mutex.execute m (fun () ->
+    with_lock m (fun () ->
         if exists id then
           Updates.add (Dynamic.Vm id) updates
     )
 
   let remove id =
-    Mutex.execute m (fun () ->
+    with_lock m (fun () ->
         Updates.remove (Dynamic.Vm id) updates ;
         remove id
     )
@@ -280,13 +282,13 @@ module PCI_DB = struct
 
   let signal id =
     debug "PCI_DB.signal %s" (string_of_id id) ;
-    Mutex.execute m (fun () ->
+    with_lock m (fun () ->
         if exists id then
           Updates.add (Dynamic.Pci id) updates
     )
 
   let remove id =
-    Mutex.execute m (fun () ->
+    with_lock m (fun () ->
         Updates.remove (Dynamic.Pci id) updates ;
         remove id
     )
@@ -344,13 +346,13 @@ module VBD_DB = struct
 
   let signal id =
     debug "VBD_DB.signal %s" (string_of_id id) ;
-    Mutex.execute m (fun () ->
+    with_lock m (fun () ->
         if exists id then
           Updates.add (Dynamic.Vbd id) updates
     )
 
   let remove id =
-    Mutex.execute m (fun () ->
+    with_lock m (fun () ->
         Updates.remove (Dynamic.Vbd id) updates ;
         remove id
     )
@@ -406,10 +408,10 @@ module VIF_DB = struct
 
   let signal id =
     debug "VIF_DB.signal %s" (string_of_id id) ;
-    Mutex.execute m (fun () -> Updates.add (Dynamic.Vif id) updates)
+    with_lock m (fun () -> Updates.add (Dynamic.Vif id) updates)
 
   let remove id =
-    Mutex.execute m (fun () ->
+    with_lock m (fun () ->
         Updates.remove (Dynamic.Vif id) updates ;
         remove id
     )
@@ -485,13 +487,13 @@ module VGPU_DB = struct
 
   let signal id =
     debug "VGPU_DB.signal %s" (string_of_id id) ;
-    Mutex.execute m (fun () ->
+    with_lock m (fun () ->
         if exists id then
           Updates.add (Dynamic.Vgpu id) updates
     )
 
   let remove id =
-    Mutex.execute m (fun () ->
+    with_lock m (fun () ->
         Updates.remove (Dynamic.Vgpu id) updates ;
         remove id
     )
@@ -548,10 +550,10 @@ module VUSB_DB = struct
 
   let signal id =
     debug "VUSB_DB.signal %s" (string_of_id id) ;
-    Mutex.execute m (fun () -> Updates.add (Dynamic.Vusb id) updates)
+    with_lock m (fun () -> Updates.add (Dynamic.Vusb id) updates)
 
   let remove id =
-    Mutex.execute m (fun () ->
+    with_lock m (fun () ->
         Updates.remove (Dynamic.Vusb id) updates ;
         remove id
     )
@@ -633,7 +635,7 @@ module Queues = struct
     }
 
   let get tag qs =
-    Mutex.execute qs.m (fun () ->
+    with_lock qs.m (fun () ->
         if StringMap.mem tag qs.qs then
           StringMap.find tag qs.qs
         else
@@ -641,14 +643,12 @@ module Queues = struct
     )
 
   let tags qs =
-    Mutex.execute qs.m (fun () ->
-        StringMap.fold (fun x _ acc -> x :: acc) qs.qs []
-    )
+    with_lock qs.m (fun () -> StringMap.fold (fun x _ acc -> x :: acc) qs.qs [])
 
-  let get_last_tag qs = Mutex.execute qs.m (fun () -> qs.last_tag)
+  let get_last_tag qs = with_lock qs.m (fun () -> qs.last_tag)
 
   let push_with_coalesce should_keep tag item qs =
-    Mutex.execute qs.m (fun () ->
+    with_lock qs.m (fun () ->
         let q =
           if StringMap.mem tag qs.qs then
             StringMap.find tag qs.qs
@@ -661,7 +661,7 @@ module Queues = struct
     )
 
   let pop qs =
-    Mutex.execute qs.m (fun () ->
+    with_lock qs.m (fun () ->
         while StringMap.is_empty qs.qs do
           Condition.wait qs.c qs.m
         done ;
@@ -683,8 +683,8 @@ module Queues = struct
     )
 
   let transfer_tag tag a b =
-    Mutex.execute a.m (fun () ->
-        Mutex.execute b.m (fun () ->
+    with_lock a.m (fun () ->
+        with_lock b.m (fun () ->
             if StringMap.mem tag a.qs then (
               b.qs <- StringMap.add tag (StringMap.find tag a.qs) b.qs ;
               a.qs <- StringMap.remove tag a.qs ;
@@ -732,7 +732,7 @@ module Redirector = struct
   let push t tag item =
     Debug.with_thread_associated "queue"
       (fun () ->
-        Mutex.execute m (fun () ->
+        with_lock m (fun () ->
             let real_tag, aliased =
               match StringMap.find_opt tag !aliases with
               | Some x ->
@@ -774,9 +774,9 @@ module Redirector = struct
     (* We must prevent worker threads all calling Queues.pop before we've
        successfully put the redirection in place. Otherwise we end up with
        parallel threads operating on the same VM. *)
-    Mutex.execute t.mutex (fun () ->
+    with_lock t.mutex (fun () ->
         let tag, item = Queues.pop t.queues in
-        Mutex.execute m (fun () ->
+        with_lock m (fun () ->
             let q = Queues.create () in
             Queues.transfer_tag tag t.queues q ;
             overrides := StringMap.add tag q !overrides ;
@@ -786,7 +786,7 @@ module Redirector = struct
     )
 
   let finished t tag queue =
-    Mutex.execute m (fun () ->
+    with_lock m (fun () ->
         Queues.transfer_tag tag queue t.queues ;
         overrides := StringMap.remove tag !overrides ;
         (* All items with [tag] will enter the queues queue *)
@@ -795,7 +795,7 @@ module Redirector = struct
     )
 
   let alias ~tag ~alias =
-    Mutex.execute m (fun () ->
+    with_lock m (fun () ->
         if StringMap.mem tag !overrides then (
           debug "Queue: Aliasing existing tag '%s' to new tag '%s'" tag alias ;
           aliases := StringMap.add alias tag !aliases
@@ -809,7 +809,7 @@ module Redirector = struct
     type t = q list [@@deriving rpcty]
 
     let make () =
-      Mutex.execute m (fun () ->
+      with_lock m (fun () ->
           let one queue =
             List.map
               (fun t ->
@@ -858,16 +858,16 @@ module Worker = struct
     else
       t.state
 
-  let get_state t = Mutex.execute t.m (fun () -> get_state_locked t)
+  let get_state t = with_lock t.m (fun () -> get_state_locked t)
 
   let join t =
-    Mutex.execute t.m (fun () ->
+    with_lock t.m (fun () ->
         assert (t.state = Shutdown) ;
         Option.iter Thread.join t.t
     )
 
   let is_active t =
-    Mutex.execute t.m (fun () ->
+    with_lock t.m (fun () ->
         match get_state_locked t with
         | Idle | Processing (_, _) ->
             true
@@ -876,7 +876,7 @@ module Worker = struct
     )
 
   let shutdown t =
-    Mutex.execute t.m (fun () ->
+    with_lock t.m (fun () ->
         if not t.shutdown_requested then (
           t.shutdown_requested <- true ;
           true (* success *)
@@ -885,7 +885,7 @@ module Worker = struct
     )
 
   let restart t =
-    Mutex.execute t.m (fun () ->
+    with_lock t.m (fun () ->
         if t.shutdown_requested && t.state <> Shutdown then (
           t.shutdown_requested <- false ;
           true (* success *)
@@ -909,18 +909,18 @@ module Worker = struct
         (fun () ->
           while
             not
-              (Mutex.execute t.m (fun () ->
+              (with_lock t.m (fun () ->
                    if t.shutdown_requested then t.state <- Shutdown ;
                    t.shutdown_requested
                )
               )
           do
-            Mutex.execute t.m (fun () -> t.state <- Idle) ;
+            with_lock t.m (fun () -> t.state <- Idle) ;
             let tag, queue, (op, item) = Redirector.pop redirector () in
             (* blocks here *)
             let id = Xenops_task.id_of_handle item in
             debug "Queue.pop returned %s" (string_of_operation op) ;
-            Mutex.execute t.m (fun () -> t.state <- Processing (op, item)) ;
+            with_lock t.m (fun () -> t.state <- Processing (op, item)) ;
             ( try
                 let t' = Xenops_task.to_interface_task item in
                 Debug.with_thread_associated t'.Task.dbg
@@ -989,7 +989,7 @@ module WorkerPool = struct
     type t = w list [@@deriving rpcty]
 
     let make () =
-      Mutex.execute m (fun () ->
+      with_lock m (fun () ->
           List.map
             (fun t ->
               match Worker.get_state t with
@@ -1013,7 +1013,7 @@ module WorkerPool = struct
   (* Compute the number of active threads ie those which will continue to
      operate *)
   let count_active queues =
-    Mutex.execute m (fun () ->
+    with_lock m (fun () ->
         (* we do not want to use = when comparing queues: queues can contain
            (uncomparable) functions, and we are only interested in comparing the
            equality of their static references *)
@@ -1046,7 +1046,7 @@ module WorkerPool = struct
 
   let incr queues =
     debug "Adding a new worker to the thread pool" ;
-    Mutex.execute m (fun () ->
+    with_lock m (fun () ->
         pool := gc queues !pool ;
         if not (find_one queues Worker.restart !pool) then
           pool := Worker.create queues :: !pool
@@ -1054,7 +1054,7 @@ module WorkerPool = struct
 
   let decr queues =
     debug "Removing a worker from the thread pool" ;
-    Mutex.execute m (fun () ->
+    with_lock m (fun () ->
         pool := gc queues !pool ;
         if not (find_one queues Worker.shutdown !pool) then
           debug "There are no worker threads left to shutdown."
@@ -1088,15 +1088,15 @@ let rebooting_vms = ref []
 let rebooting_vms_m = Mutex.create ()
 
 let rebooting id f =
-  Mutex.execute rebooting_vms_m (fun () -> rebooting_vms := id :: !rebooting_vms) ;
+  with_lock rebooting_vms_m (fun () -> rebooting_vms := id :: !rebooting_vms) ;
   finally f (fun () ->
-      Mutex.execute rebooting_vms_m (fun () ->
+      with_lock rebooting_vms_m (fun () ->
           rebooting_vms := List.filter (fun x -> x <> id) !rebooting_vms
       )
   )
 
 let is_rebooting id =
-  Mutex.execute rebooting_vms_m (fun () -> List.mem id !rebooting_vms)
+  with_lock rebooting_vms_m (fun () -> List.mem id !rebooting_vms)
 
 let export_metadata vdi_map vif_map vgpu_pci_map id =
   let module B = (val get_backend () : S) in
@@ -3350,7 +3350,7 @@ module VM = struct
             let info =
               {vgpu_fd= transferred_fd; vgpu_channel= Event.new_channel ()}
             in
-            Mutex.execute vgpu_receiver_sync_m (fun () ->
+            with_lock vgpu_receiver_sync_m (fun () ->
                 Hashtbl.add vgpu_receiver_sync vm_id info
             ) ;
             (* Inform the sender that everything is in place to start
@@ -3363,7 +3363,7 @@ module VM = struct
                other thread *)
             Event.receive info.vgpu_channel |> Event.sync ;
             debug "VM.receive_vgpu: Synchronisation point 2-vgpu" ;
-            Mutex.execute vgpu_receiver_sync_m (fun () ->
+            with_lock vgpu_receiver_sync_m (fun () ->
                 Hashtbl.remove vgpu_receiver_sync vm_id
             )
         | None ->

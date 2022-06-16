@@ -11,7 +11,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-module Mutex = Xapi_stdext_threads.Threadext.Mutex
+let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
 let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
@@ -60,13 +60,13 @@ module Thread_state = struct
   let thread_states = ref IntMap.empty
 
   let get_acquired_resources_by_task task =
-    let snapshot = Mutex.execute m (fun () -> !thread_states) in
+    let snapshot = with_lock m (fun () -> !thread_states) in
     let all, _ = IntMap.partition (fun _ ts -> ts.task = task) snapshot in
     List.map fst
       (IntMap.fold (fun _ ts acc -> ts.acquired_resources @ acc) all [])
 
   let get_all_acquired_resources () =
-    let snapshot = Mutex.execute m (fun () -> !thread_states) in
+    let snapshot = with_lock m (fun () -> !thread_states) in
     List.map fst
       (IntMap.fold (fun _ ts acc -> ts.acquired_resources @ acc) snapshot [])
 
@@ -74,14 +74,14 @@ module Thread_state = struct
 
   let update f =
     let id = me () in
-    let snapshot = Mutex.execute m (fun () -> !thread_states) in
+    let snapshot = with_lock m (fun () -> !thread_states) in
     let ts =
       if IntMap.mem id snapshot then
         f (IntMap.find id snapshot)
       else
         f empty
     in
-    Mutex.execute m (fun () ->
+    with_lock m (fun () ->
         thread_states :=
           if ts = empty then
             IntMap.remove id !thread_states
@@ -118,7 +118,7 @@ module Thread_state = struct
 
   let to_graphviz () =
     let t' = now () in
-    let snapshot = Mutex.execute m (fun () -> !thread_states) in
+    let snapshot = with_lock m (fun () -> !thread_states) in
     (* Map from thread ids -> record rows *)
     let threads =
       IntMap.map
@@ -218,7 +218,7 @@ module Named_mutex = struct
   let execute (x : t) f =
     let r = Lock x.name in
     Thread_state.waiting_for r ;
-    Mutex.execute x.m (fun () ->
+    with_lock x.m (fun () ->
         Thread_state.acquired r ;
         finally f (fun () -> Thread_state.released r)
     )

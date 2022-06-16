@@ -14,6 +14,8 @@
 
 module D = Debug.Make (struct let name = "xapi_stats" end)
 
+let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
+
 let generate_master_stats ~__context =
   let session_count =
     Db.Session.get_all ~__context |> List.length |> Int64.of_int
@@ -138,7 +140,7 @@ let shared_page_count = 1
 let start () =
   let __context = Context.make "xapi_stats" in
   let master = Pool_role.is_master () in
-  Xapi_stdext_threads.Threadext.Mutex.execute reporter_m (fun () ->
+  with_lock reporter_m (fun () ->
       match !reporter_cache with
       | Some _ ->
           ()
@@ -162,7 +164,7 @@ let start () =
   )
 
 let stop () =
-  Xapi_stdext_threads.Threadext.Mutex.execute reporter_m (fun () ->
+  with_lock reporter_m (fun () ->
       match !reporter_cache with
       | None ->
           ()

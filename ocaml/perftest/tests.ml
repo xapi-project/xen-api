@@ -15,10 +15,11 @@
 
 open Client
 open Xapi_stdext_std
-open Xapi_stdext_threads.Threadext
 open Xapi_stdext_pervasives.Pervasiveext
 open Testtypes
 open Perfdebug
+
+let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
 type test = {
     run: bool
@@ -107,7 +108,7 @@ let parallel_with_vms async_op opname n vms rpc session_id test subtest_name =
   let process_finished_tasks finished =
     let to_delete = ref [] in
     let finished =
-      Mutex.execute m (fun () ->
+      with_lock m (fun () ->
           List.iter
             (fun task ->
               if List.mem task !active_tasks then (
@@ -156,11 +157,11 @@ let parallel_with_vms async_op opname n vms rpc session_id test subtest_name =
                 (fun task ->
                   Client.Task.get_status ~rpc ~session_id ~self:task <> `pending
                 )
-                (Mutex.execute m (fun () -> !active_tasks))
+                (with_lock m (fun () -> !active_tasks))
             in
             finished := process_finished_tasks finished_tasks ;
             while not !finished do
-              (* debug ~out:stderr "Polling for events (%d active tasks)" (Mutex.execute m (fun () -> List.length !active_tasks)); *)
+              (* debug ~out:stderr "Polling for events (%d active tasks)" (with_lock m (fun () -> List.length !active_tasks)); *)
               let events =
                 Event_types.events_of_rpc (Client.Event.next ~rpc ~session_id)
               in
@@ -208,7 +209,7 @@ let parallel_with_vms async_op opname n vms rpc session_id test subtest_name =
     let start_one () =
       let vm, _, uuid = List.hd !vms_to_start in
       vms_to_start := List.tl !vms_to_start ;
-      Mutex.execute m (fun () ->
+      with_lock m (fun () ->
           let task = async_op ~rpc ~session_id ~vm in
           debug ~out:stderr "Issued VM %s for '%s'" opname uuid ;
           Hashtbl.add tasks_to_vm task uuid ;
@@ -217,7 +218,7 @@ let parallel_with_vms async_op opname n vms rpc session_id test subtest_name =
       )
     in
     (* Only start at most 'n' at once. Note that the active_task list includes a master control task *)
-    Mutex.execute m (fun () ->
+    with_lock m (fun () ->
         while List.length !active_tasks > n do
           Condition.wait c m
         done

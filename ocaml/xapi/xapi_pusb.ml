@@ -12,7 +12,8 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Xapi_stdext_threads.Threadext
+let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
+
 open Xapi_pusb_helpers
 
 module D = Debug.Make (struct let name = "xapi_pusb" end)
@@ -101,7 +102,7 @@ let start_thread f =
     (Thread.create
        (fun () ->
          while true do
-           Mutex.execute mutex (fun () ->
+           with_lock mutex (fun () ->
                while not !scan_required do
                  Condition.wait cond mutex
                done ;
@@ -120,7 +121,7 @@ let start_thread f =
 
 let scan ~__context ~host:_ =
   (* notify that scan is required. *)
-  Mutex.execute mutex (fun () ->
+  with_lock mutex (fun () ->
       scan_required := true ;
       Condition.broadcast cond
   )
@@ -140,7 +141,7 @@ let get_sm_usb_path ~__context vdi =
   with _ -> ""
 
 let set_passthrough_enabled ~__context ~self ~value =
-  Mutex.execute mutex (fun () ->
+  with_lock mutex (fun () ->
       match value with
       | true ->
           (* Remove the vdi records which 'usb_path' in sm-config has the

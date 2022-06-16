@@ -193,7 +193,7 @@ let with_conversion_script task name hvm fd f =
     let name = "suspend_image_conversion"
   end) in
   let open D in
-  let module Mutex = Xapi_stdext_threads.Threadext.Mutex in
+  let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute in
   let module Unixext = Xapi_stdext_unix.Unixext in
   let finally = Xapi_stdext_pervasives.Pervasiveext.finally in
   check_conversion_script () >>= fun () ->
@@ -224,12 +224,12 @@ let with_conversion_script task name hvm fd f =
         (fun () ->
           try
             let result = finally (fun () -> f ()) (fun () -> Unix.close fd') in
-            Mutex.execute m (fun () ->
+            with_lock m (fun () ->
                 status := Success result ;
                 Condition.signal c
             )
           with e ->
-            Mutex.execute m (fun () ->
+            with_lock m (fun () ->
                 status := Thread_failure e ;
                 Condition.signal c
             )
@@ -297,4 +297,4 @@ let with_conversion_script task name hvm fd f =
         Thread.join f_th ;
         Ok res
   in
-  Mutex.execute m handle_threads
+  with_lock m handle_threads

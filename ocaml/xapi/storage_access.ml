@@ -14,7 +14,8 @@
 
 module Date = Xapi_stdext_date.Date
 module Listext = Xapi_stdext_std.Listext
-open Xapi_stdext_threads.Threadext
+
+let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
 let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
@@ -554,7 +555,7 @@ module SMAPIv1 = struct
                   let read_caching = not attach_info_v1.Smint.o_direct in
                   let on_key = read_caching_key ~__context in
                   let reason_key = read_caching_reason_key ~__context in
-                  Mutex.execute vdi_read_caching_m (fun () ->
+                  with_lock vdi_read_caching_m (fun () ->
                       Db.VDI.remove_from_sm_config ~__context ~self ~key:on_key ;
                       Db.VDI.remove_from_sm_config ~__context ~self
                         ~key:reason_key ;
@@ -580,7 +581,7 @@ module SMAPIv1 = struct
               }
           )
         in
-        Mutex.execute vdi_read_write_m (fun () ->
+        with_lock vdi_read_write_m (fun () ->
             Hashtbl.replace vdi_read_write (sr, vdi) read_write
         ) ;
         backend
@@ -598,7 +599,7 @@ module SMAPIv1 = struct
     let activate _context ~dbg ~dp ~sr ~vdi =
       try
         let read_write =
-          Mutex.execute vdi_read_write_m (fun () ->
+          with_lock vdi_read_write_m (fun () ->
               if not (Hashtbl.mem vdi_read_write (sr, vdi)) then
                 error "VDI.activate: doesn't know if sr:%s vdi:%s is RO or RW"
                   (s_of_sr sr) (s_of_vdi vdi) ;
@@ -656,14 +657,14 @@ module SMAPIv1 = struct
               ~subtask_of:(Ref.of_string dbg) (fun __context ->
                 let on_key = read_caching_key ~__context in
                 let reason_key = read_caching_reason_key ~__context in
-                Mutex.execute vdi_read_caching_m (fun () ->
+                with_lock vdi_read_caching_m (fun () ->
                     Db.VDI.remove_from_sm_config ~__context ~self ~key:on_key ;
                     Db.VDI.remove_from_sm_config ~__context ~self
                       ~key:reason_key
                 )
             )
         ) ;
-        Mutex.execute vdi_read_write_m (fun () ->
+        with_lock vdi_read_write_m (fun () ->
             Hashtbl.remove vdi_read_write (sr, vdi)
         )
       with Api_errors.Server_error (code, params) ->
@@ -824,7 +825,7 @@ module SMAPIv1 = struct
         for_vdi ~dbg ~sr ~vdi "VDI.destroy" (fun device_config _type sr self ->
             Sm.vdi_delete device_config _type sr self
         ) ;
-        Mutex.execute vdi_read_write_m (fun () ->
+        with_lock vdi_read_write_m (fun () ->
             Hashtbl.remove vdi_read_write (sr, vdi)
         )
       with
@@ -1524,30 +1525,30 @@ let mirror_task_tbl = Hashtbl.create 10
 let progress_map_m = Mutex.create ()
 
 let add_to_progress_map f id =
-  Mutex.execute progress_map_m (fun () -> Hashtbl.add progress_map_tbl id f) ;
+  with_lock progress_map_m (fun () -> Hashtbl.add progress_map_tbl id f) ;
   id
 
 let remove_from_progress_map id =
-  Mutex.execute progress_map_m (fun () -> Hashtbl.remove progress_map_tbl id) ;
+  with_lock progress_map_m (fun () -> Hashtbl.remove progress_map_tbl id) ;
   id
 
 let get_progress_map id =
-  Mutex.execute progress_map_m (fun () ->
+  with_lock progress_map_m (fun () ->
       try Hashtbl.find progress_map_tbl id with _ -> fun x -> x
   )
 
 let register_mirror __context mid =
   let task = Context.get_task_id __context in
   debug "Registering mirror id %s with task %s" mid (Ref.string_of task) ;
-  Mutex.execute progress_map_m (fun () -> Hashtbl.add mirror_task_tbl mid task) ;
+  with_lock progress_map_m (fun () -> Hashtbl.add mirror_task_tbl mid task) ;
   mid
 
 let unregister_mirror mid =
-  Mutex.execute progress_map_m (fun () -> Hashtbl.remove mirror_task_tbl mid) ;
+  with_lock progress_map_m (fun () -> Hashtbl.remove mirror_task_tbl mid) ;
   mid
 
 let get_mirror_task mid =
-  Mutex.execute progress_map_m (fun () -> Hashtbl.find mirror_task_tbl mid)
+  with_lock progress_map_m (fun () -> Hashtbl.find mirror_task_tbl mid)
 
 exception Not_an_sm_task
 
@@ -1894,7 +1895,7 @@ let refresh_local_vdi_activations ~__context =
   in
   let remember key ro_rw =
     (* The module above contains a hashtable of R/O vs R/W-ness *)
-    Mutex.execute SMAPIv1.VDI.vdi_read_write_m (fun () ->
+    with_lock SMAPIv1.VDI.vdi_read_write_m (fun () ->
         Hashtbl.replace SMAPIv1.VDI.vdi_read_write key (ro_rw = RW)
     )
   in

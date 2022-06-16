@@ -15,7 +15,7 @@
  * @group Helper functions for handling system domains
 *)
 
-open Xapi_stdext_threads.Threadext
+let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
 module D = Debug.Make (struct let name = "system_domains" end)
 
@@ -246,21 +246,21 @@ let service_to_queue = Hashtbl.create 10
 let service_to_queue_m = Mutex.create ()
 
 let register_service service queue =
-  Mutex.execute service_to_queue_m (fun () ->
+  with_lock service_to_queue_m (fun () ->
       Hashtbl.replace service_to_queue service queue
   )
 
 let unregister_service service =
-  Mutex.execute service_to_queue_m (fun () ->
+  with_lock service_to_queue_m (fun () ->
       Hashtbl.remove service_to_queue service
   )
 
 let get_service service =
-  Mutex.execute service_to_queue_m (fun () ->
+  with_lock service_to_queue_m (fun () ->
       try Some (Hashtbl.find service_to_queue service) with Not_found -> None
   )
 
 let list_services () =
-  Mutex.execute service_to_queue_m (fun () ->
+  with_lock service_to_queue_m (fun () ->
       Hashtbl.fold (fun service _ acc -> service :: acc) service_to_queue []
   )
