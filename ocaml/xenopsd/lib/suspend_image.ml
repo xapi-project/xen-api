@@ -62,6 +62,7 @@ type header_type =
   | Qemu_xen
   | Demu
   | Varstored
+  | Swtpm
   | End_of_image
 
 exception Invalid_header_type
@@ -83,6 +84,8 @@ let header_type_of_int64 = function
       Ok Demu
   | 0x0f11L ->
       Ok Varstored
+  | 0x0f12L ->
+      Ok Swtpm
   | 0xffffL ->
       Ok End_of_image
   | _ ->
@@ -105,6 +108,8 @@ let int64_of_header_type = function
       0x0f10L
   | Varstored ->
       0x0f11L
+  | Swtpm ->
+      0x0f12L
   | End_of_image ->
       0xffffL
 
@@ -129,6 +134,8 @@ let string_of_header h =
       s "vGPU save record (record length=%Ld)" len
   | Varstored, len ->
       s "varstored save record (record length=%Ld)" len
+  | Swtpm, len ->
+      s "swtpm save record (record length=%Ld)" len
   | End_of_image, _ ->
       s "Suspend image footer"
 

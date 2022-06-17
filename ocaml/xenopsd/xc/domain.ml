@@ -632,7 +632,8 @@ let sysrq ~xs domid key =
   let path = xs.Xs.getdomainpath domid ^ "/control/sysrq" in
   xs.Xs.write path (String.make 1 key)
 
-let destroy (task : Xenops_task.task_handle) ~xc ~xs ~qemu_domid ~dm domid =
+let destroy (task : Xenops_task.task_handle) ~xc ~xs ~qemu_domid ~vtpm ~dm domid
+    =
   let dom_path = xs.Xs.getdomainpath domid in
   let xenops_dom_path = xenops_path_of_domain domid in
   let libxl_dom_path = sprintf "/libxl/%d" domid in
@@ -690,7 +691,7 @@ let destroy (task : Xenops_task.task_handle) ~xc ~xs ~qemu_domid ~dm domid =
     (Uuid.to_string uuid) domid ;
   log_exn_continue "Xenctrl.domain_destroy" (Xenctrl.domain_destroy xc) domid ;
   log_exn_continue "Error stoping device-model, already dead ?"
-    (fun () -> Device.Dm.stop ~xs ~qemu_domid ~dm domid)
+    (fun () -> Device.Dm.stop ~xs ~qemu_domid ~vtpm ~dm domid)
     () ;
   log_exn_continue "Error stoping vncterm, already dead ?"
     (fun () -> Device.PV_Vnc.stop ~xs domid)
@@ -1399,6 +1400,12 @@ let restore_common (task : Xenops_task.task_handle) ~xc ~xs
                 debug "Read varstored record contents (domid=%d)" domid ;
                 Device.Dm.restore_varstored task ~xs ~efivars domid ;
                 process_header fd res
+            | Swtpm, len ->
+                debug "Read swtpm record header (domid=%d length=%Ld)" domid len ;
+                let contents = Io.read fd (Io.int_of_int64_exn len) in
+                debug "Read swtpm record contents (domid=%d)" domid ;
+                Device.Dm.restore_vtpm task ~xs ~contents domid ;
+                process_header fd res
             | End_of_image, _ ->
                 debug "Read suspend image footer" ;
                 res
@@ -1585,7 +1592,7 @@ let restore (task : Xenops_task.task_handle) ~xc ~xs ~dm ~store_domid
     store_mfn store_port local_stuff vm_stuff
 
 let suspend_emu_manager ~(task : Xenops_task.task_handle) ~xc:_ ~xs ~domain_type
-    ~is_uefi ~dm ~manager_path ~domid ~uuid ~main_fd ~vgpu_fd ~flags
+    ~is_uefi ~vtpm ~dm ~manager_path ~domid ~uuid ~main_fd ~vgpu_fd ~flags
     ~progress_callback ~qemu_domid ~do_suspend_callback =
   let open Suspend_image in
   let open Suspend_image.M in
@@ -1669,6 +1676,9 @@ let suspend_emu_manager ~(task : Xenops_task.task_handle) ~xc:_ ~xs ~domain_type
                 let (_ : string) =
                   Device.Dm.suspend_varstored task ~xs domid ~vm_uuid
                 in
+                let (_ : string list) =
+                  Device.Dm.suspend_vtpms task ~xs domid ~vm_uuid ~vtpm
+                in
                 ()
             ) ;
             send_done cnx ;
@@ -1745,12 +1755,30 @@ let write_varstored_record task ~xs domid main_fd =
   Io.write main_fd varstored_record ;
   return ()
 
+let forall f l =
+  let open Suspend_image.M in
+  fold (fun x () -> f x) l ()
+
+let write_vtpms_record task ~xs ~vtpm domid main_fd =
+  let open Suspend_image in
+  let open Suspend_image.M in
+  Device.Dm.suspend_vtpms task ~xs domid
+    ~vm_uuid:(Uuid.to_string (Xenops_helpers.uuid_of_domid ~xs domid))
+    ~vtpm
+  |> forall @@ fun swtpm_record ->
+     let swtpm_rec_len = String.length swtpm_record in
+     debug "Writing swtpm record (domid=%d length=%d)" domid swtpm_rec_len ;
+     write_header main_fd (Swtpm, Int64.of_int swtpm_rec_len) >>= fun () ->
+     debug "Writing swtpm record contents (domid=%d)" domid ;
+     Io.write main_fd swtpm_record ;
+     return ()
+
 (* suspend register the callback function that will be call by linux_save and is
    in charge to suspend the domain when called. the whole domain context is
    saved to fd *)
 let suspend (task : Xenops_task.task_handle) ~xc ~xs ~domain_type ~is_uefi ~dm
     ~manager_path vm_str domid main_fd vgpu_fd flags
-    ?(progress_callback = fun _ -> ()) ~qemu_domid do_suspend_callback =
+    ?(progress_callback = fun _ -> ()) ~qemu_domid ~vtpm do_suspend_callback =
   let module DD = Debug.Make (struct let name = "mig64" end) in
   let open DD in
   let hvm = domain_type = `hvm in
@@ -1775,12 +1803,13 @@ let suspend (task : Xenops_task.task_handle) ~xc ~xs ~domain_type ~is_uefi ~dm
     write_header main_fd (Xenops, Int64.of_int xenops_rec_len) >>= fun () ->
     debug "Writing Xenops record contents" ;
     Io.write main_fd xenops_record ;
-    suspend_emu_manager ~task ~xc ~xs ~domain_type ~is_uefi ~dm ~manager_path
-      ~domid ~uuid ~main_fd ~vgpu_fd ~flags ~progress_callback ~qemu_domid
-      ~do_suspend_callback
+    suspend_emu_manager ~task ~xc ~xs ~domain_type ~is_uefi ~vtpm ~dm
+      ~manager_path ~domid ~uuid ~main_fd ~vgpu_fd ~flags ~progress_callback
+      ~qemu_domid ~do_suspend_callback
     >>= fun () ->
     ( if is_uefi then
-        write_varstored_record task ~xs domid main_fd
+        write_varstored_record task ~xs domid main_fd >>= fun () ->
+        write_vtpms_record task ~xs ~vtpm domid main_fd
     else
       return ()
     )
@@ -1814,7 +1843,7 @@ let suspend (task : Xenops_task.task_handle) ~xc ~xs ~domain_type ~is_uefi ~dm
   | Ok () ->
       debug "VM = %s; domid = %d; suspend complete" (Uuid.to_string uuid) domid
   ) ;
-  if hvm then Device.Dm.after_suspend_image ~xs ~dm ~qemu_domid domid
+  if hvm then Device.Dm.after_suspend_image ~xs ~dm ~qemu_domid ~vtpm domid
 
 let send_s3resume ~xc domid =
   let uuid = get_uuid ~xc domid in

@@ -1,5 +1,6 @@
 open Sexplib.Std
 open Xcp_pci
+open Uuidm_rpc_type
 
 module TopLevel = struct
   type power_state = Running | Halted | Suspended | Paused
@@ -77,7 +78,7 @@ module Vm = struct
 
   let default_firmware = Bios [@@deriving rpcty]
 
-  type tpm = Vtpm [@@deriving rpcty, sexp]
+  type tpm = Vtpm of Uuidm.t [@@deriving rpcty, sexp]
 
   type hvm_info = {
       hap: bool [@default true]
