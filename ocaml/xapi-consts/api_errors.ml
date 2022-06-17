@@ -1279,3 +1279,5 @@ let invalid_repository_proxy_credential = "INVALID_REPOSITORY_PROXY_CREDENTIAL"
 let dynamic_memory_control_unavailable = "DYNAMIC_MEMORY_CONTROL_UNAVAILABLE"
 
 let apply_livepatch_failed = "APPLY_LIVEPATCH_FAILED"
+
+let update_guidance_changed = "UPDATE_GUIDANCE_CHANGED"
