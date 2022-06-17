@@ -1514,6 +1514,99 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
           )
         , Some Guidance.RebootHost
         )
+      ; (* livepatch_guidance: failure of applying livepatch *)
+        ( ( ( [
+                ( "UPDATE-0000"
+                , UpdateInfo.
+                    {
+                      id= "UPDATE-0000"
+                    ; summary= "summary"
+                    ; description= "description"
+                    ; rec_guidance= Some Guidance.RebootHost
+                    ; abs_guidance= None
+                    ; guidance_applicabilities= [] (* No applicabilities *)
+                    ; spec_info= "special info"
+                    ; url= "https://update.details.info"
+                    ; update_type= "security"
+                    ; livepatch_guidance= Some Guidance.RestartToolstack
+                    ; livepatches=
+                        [
+                          LivePatch.
+                            {
+                              component= Livepatch.Xen
+                            ; base_build_id=
+                                "9346194f2e98a228f5a595b13ecabd43a99fada0"
+                            ; base_version= "4.13.4"
+                            ; base_release= "10.24.xs8"
+                            ; to_version= "4.13.4"
+                            ; to_release= "10.25.xs8"
+                            }
+                          
+                        ; LivePatch.
+                            {
+                              component= Livepatch.Kernel
+                            ; base_build_id=
+                                "8346194f2e98a228f5a595b13ecabd43a99fada0"
+                            ; base_version= "4.19.19"
+                            ; base_release= "8.0.20.xs8"
+                            ; to_version= "4.19.19"
+                            ; to_release= "8.0.21.xs8"
+                            }
+                          
+                        ]
+                    }
+                  
+                )
+              ; ( "UPDATE-0001"
+                , UpdateInfo.
+                    {
+                      id= "UPDATE-0001"
+                    ; summary= "summary"
+                    ; description= "description"
+                    ; rec_guidance= Some Guidance.RebootHost
+                    ; abs_guidance= None
+                    ; guidance_applicabilities= [] (* No applicabilities *)
+                    ; spec_info= "special info"
+                    ; url= "https://update.details.info"
+                    ; update_type= "security"
+                    ; livepatch_guidance= None
+                    ; livepatches=
+                        [
+                          LivePatch.
+                            {
+                              component= Livepatch.Kernel
+                            ; base_build_id=
+                                "8346194f2e98a228f5a595b13ecabd43a99fada0"
+                            ; base_version= "4.19.19"
+                            ; base_release= "8.0.20.xs8"
+                            ; to_version= "4.19.19"
+                            ; to_release= "8.0.22.xs8"
+                            }
+                          
+                        ]
+                    }
+                  
+                )
+              ]
+            , Update.
+                {
+                  name= "kernel"
+                ; arch= "x86_64"
+                ; old_epoch= Some None
+                ; old_version= Some "4.19.19"
+                ; old_release= Some "10.20.xs8"
+                ; new_epoch= None
+                ; new_version= "4.19.19"
+                ; new_release= "8.0.22.xs8"
+                ; update_id= Some "UPDATE-0001"
+                ; repository= "regular"
+                }
+              
+            )
+          , (["UPDATE-0000"], ["UPDATE-0001"])
+          )
+        , None
+        )
       ]
 end)
 
