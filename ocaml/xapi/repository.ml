@@ -871,6 +871,9 @@ let apply_updates' ~__context ~host ~updates_info ~livepatches ~acc_rpm_updates
     in
     match failed_livepatches with
     | [] ->
+        (* No livepatch should be applicable now *)
+        Db.Host.remove_pending_guidances ~__context ~self:host
+          ~value:`reboot_host_on_livepatch_failure ;
         (immediate_guidances', pending_guidances')
     | _ :: _ ->
         (* There is(are) livepatch failure(s):
