@@ -1294,12 +1294,11 @@ module Swtpm = struct
     ) else
       debug "vTPM state for domid %d is empty: not restoring" domid
 
-  let start_daemon dbg ~xs ~path ~args ~domid ~vm_uuid ~vtpm_uuid ~index () =
+  let start_daemon dbg ~xs ~chroot ~path ~args ~domid ~vm_uuid ~vtpm_uuid ~index () =
     let state =
       Varstore_privileged_client.Client.vtpm_get_contents dbg vtpm_uuid
       |> Base64.decode_exn
     in
-    let chroot = Xenops_sandbox.Swtpm_guard.chroot ~domid ~vm_uuid in
     let abs_path =
       Xenops_sandbox.Chroot.absolute_path_outside chroot state_path
     in
@@ -4236,7 +4235,7 @@ module Dm = struct
     let args = Fe_argv.run args |> snd |> Fe_argv.argv in
     let timeout_seconds = !Xenopsd.swtpm_ready_timeout in
     let dbg = Xenops_task.get_dbg task in
-    let execute = Swtpm.start_daemon dbg ~xs ~vtpm_uuid ~vm_uuid ~index in
+    let execute = Swtpm.start_daemon dbg ~xs ~chroot ~vtpm_uuid ~vm_uuid ~index in
     let service =
       {Service.name; domid; exec_path; chroot; args; execute; timeout_seconds}
     in
