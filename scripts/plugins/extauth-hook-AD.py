@@ -114,7 +114,7 @@ class ADConfig(object):
     def _install(self):
         """Install configuration"""
         with tempfile.NamedTemporaryFile(prefix="extauth-", delete=False) as file:
-            file.write("\n".join(self._lines).encode())
+            file.write("\n".join(self._lines).encode("utf-8"))
             file.flush()
             os.rename(file.name, self._file_path)
             os.chmod(self._file_path, self._file_mode)
@@ -257,7 +257,7 @@ class UsersList(DynamicPam):
             if self._backend == ADBackend.BD_PBIS:
                 # PBIS convert domain to UPPER case, we revert it back
                 domain = domain.lower()
-            self._lines.append("{}{}{}".format(user, sep, domain))
+            self._lines.append(u"{}{}{}".format(user, sep, domain))
         except KeyError:
             logger.info("subject does not have upn %s", subject_rec)
         except ValueError:
