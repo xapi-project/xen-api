@@ -82,7 +82,7 @@ let get_latest_livepatch lps =
 module BuildId = struct
   let one_byte =
     let open Angstrom in
-    any_uint8 >>= fun c -> return (Printf.sprintf "%0x" c)
+    any_uint8 >>= fun c -> return (Printf.sprintf "%02x" c)
 
   let all_bytes = Angstrom.many one_byte
 end
