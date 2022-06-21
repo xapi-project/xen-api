@@ -137,9 +137,10 @@
 )
 
 (rule
- (targets xenopsd-xc.1.gz)
+ (target xenopsd-xc.1.gz)
+ (deps (:man xenopsd-xc.1))
  (action
-  (run gzip %{dep:xenopsd-xc.1}))
+   (with-stdout-to %{target} (with-stdin-from %{man} (run gzip))))
 )
 
 (install
