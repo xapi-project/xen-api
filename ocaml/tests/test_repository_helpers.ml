@@ -502,32 +502,62 @@ end)
 
 module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
   module Io = struct
-    type input_t =
-      ((string * UpdateInfo.t) list * Update.t) * (string list * string list)
+    type input_t = {
+        updates_info: (string * UpdateInfo.t) list
+      ; update: Update.t
+      ; upd_ids_of_livepatches: string list
+      ; upd_ids_of_failed_livepatches: string list
+    }
 
     type output_t = Guidance.t option
 
-    let string_of_input_t =
-      Fmt.(
-        str "%a"
-          Dump.(
-            pair
-              (pair
-                 (list (pair string (record @@ fields_of_updateinfo)))
-                 (record @@ fields_of_update)
-              )
-              (pair (list string) (list string))
-          )
-      )
+    let fields_of_input =
+      Fmt.Dump.
+        [
+          field "updates_info"
+            (fun (r : input_t) ->
+              List.map
+                (fun (upd_id, upd_info) ->
+                  Printf.sprintf "(%s, %s)" upd_id
+                    (UpdateInfo.to_json upd_info
+                    |> Yojson.Basic.pretty_to_string
+                    )
+                )
+                r.updates_info
+            )
+            (list string)
+        ; field "update" (fun (r : input_t) -> Update.to_string r.update) string
+        ; field "upd_ids_of_livepatches"
+            (fun (r : input_t) ->
+              r.upd_ids_of_livepatches
+              |> String.concat ";"
+              |> Printf.sprintf "[%s]"
+            )
+            string
+        ; field "upd_ids_of_failed_livepatches"
+            (fun (r : input_t) ->
+              r.upd_ids_of_failed_livepatches
+              |> String.concat ";"
+              |> Printf.sprintf "[%s]"
+            )
+            string
+        ]
+      
+
+    let string_of_input_t = Fmt.(str "%a" Dump.(record @@ fields_of_input))
 
     let string_of_output_t g =
       Fmt.(str "%a" Dump.(string)) (UpdateInfo.guidance_to_string g)
   end
 
   let transform
-      ( (updates_info, update)
-      , (upd_ids_of_livepatches, upd_ids_of_failed_livepatches)
-      ) =
+      Io.
+        {
+          updates_info
+        ; update
+        ; upd_ids_of_livepatches
+        ; upd_ids_of_failed_livepatches
+        } =
     eval_guidance_for_one_update ~updates_info ~update
       ~kind:Guidance.Recommended
       ~upd_ids_of_livepatches:(UpdateIdSet.of_list upd_ids_of_livepatches)
@@ -535,11 +565,14 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
         (UpdateIdSet.of_list upd_ids_of_failed_livepatches)
 
   let tests =
+    let open Io in
     `QuickAndAutoDocumented
       [
         (* Update ID in update can't be found in updateinfo list *)
-        ( ( ( []
-            , Update.
+        ( {
+            updates_info= []
+          ; update=
+              Update.
                 {
                   (* No id here *)
                   name= "xsconsole"
@@ -554,13 +587,15 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                 ; repository= "regular"
                 }
               
-            )
-          , ([], [])
-          )
+          ; upd_ids_of_livepatches= []
+          ; upd_ids_of_failed_livepatches= []
+          }
         , None
         )
       ; (* Update ID in update can't be found in updateinfo list *)
-        ( ( ( [
+        ( {
+            updates_info=
+              [
                 ( "UPDATE-0000"
                 , UpdateInfo.
                     {
@@ -596,7 +631,8 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                   
                 )
               ]
-            , Update.
+          ; update=
+              Update.
                 {
                   name= "xsconsole"
                 ; arch= "x86_64"
@@ -611,13 +647,15 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                 ; repository= "regular"
                 }
               
-            )
-          , ([], [])
-          )
+          ; upd_ids_of_livepatches= []
+          ; upd_ids_of_failed_livepatches= []
+          }
         , None
         )
       ; (* No update ID in update *)
-        ( ( ( [
+        ( {
+            updates_info=
+              [
                 ( "UPDATE-0000"
                 , UpdateInfo.
                     {
@@ -636,7 +674,8 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                   
                 )
               ]
-            , Update.
+          ; update=
+              Update.
                 {
                   name= "xsconsole"
                 ; arch= "x86_64"
@@ -650,13 +689,15 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                 ; repository= "regular"
                 }
               
-            )
-          , ([], [])
-          )
+          ; upd_ids_of_livepatches= []
+          ; upd_ids_of_failed_livepatches= []
+          }
         , None
         )
       ; (* Empty applicabilities *)
-        ( ( ( [
+        ( {
+            updates_info=
+              [
                 ( "UPDATE-0000"
                 , UpdateInfo.
                     {
@@ -692,7 +733,8 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                   
                 )
               ]
-            , Update.
+          ; update=
+              Update.
                 {
                   name= "xsconsole"
                 ; arch= "x86_64"
@@ -706,13 +748,15 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                 ; repository= "regular"
                 }
               
-            )
-          , ([], [])
-          )
+          ; upd_ids_of_livepatches= []
+          ; upd_ids_of_failed_livepatches= []
+          }
         , Some Guidance.RebootHost
         )
       ; (* Matched applicability *)
-        ( ( ( [
+        ( {
+            updates_info=
+              [
                 ( "UPDATE-0000"
                 , UpdateInfo.
                     {
@@ -762,7 +806,8 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                   
                 )
               ]
-            , Update.
+          ; update=
+              Update.
                 {
                   name= "xsconsole"
                 ; arch= "x86_64"
@@ -776,13 +821,15 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                 ; repository= "regular"
                 }
               
-            )
-          , ([], [])
-          )
+          ; upd_ids_of_livepatches= []
+          ; upd_ids_of_failed_livepatches= []
+          }
         , Some Guidance.RestartDeviceModel
         )
       ; (* Matched in multiple applicabilities *)
-        ( ( ( [
+        ( {
+            updates_info=
+              [
                 ( "UPDATE-0000"
                 , UpdateInfo.
                     {
@@ -844,7 +891,8 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                   
                 )
               ]
-            , Update.
+          ; update=
+              Update.
                 {
                   name= "xsconsole"
                 ; arch= "x86_64"
@@ -858,13 +906,15 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                 ; repository= "regular"
                 }
               
-            )
-          , ([], [])
-          )
+          ; upd_ids_of_livepatches= []
+          ; upd_ids_of_failed_livepatches= []
+          }
         , Some Guidance.RestartDeviceModel
         )
       ; (* No matched applicability *)
-        ( ( ( [
+        ( {
+            updates_info=
+              [
                 ( "UPDATE-0000"
                 , UpdateInfo.
                     {
@@ -914,7 +964,8 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                   
                 )
               ]
-            , Update.
+          ; update=
+              Update.
                 {
                   name= "xsconsole"
                 ; arch= "x86_64"
@@ -928,13 +979,15 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                 ; repository= "regular"
                 }
               
-            )
-          , ([], [])
-          )
+          ; upd_ids_of_livepatches= []
+          ; upd_ids_of_failed_livepatches= []
+          }
         , None
         )
       ; (* Unmatched arch *)
-        ( ( ( [
+        ( {
+            updates_info=
+              [
                 ( "UPDATE-0000"
                 , UpdateInfo.
                     {
@@ -983,7 +1036,8 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                   
                 )
               ]
-            , Update.
+          ; update=
+              Update.
                 {
                   name= "xsconsole"
                 ; arch= "noarch"
@@ -997,13 +1051,15 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                 ; repository= "regular"
                 }
               
-            )
-          , ([], [])
-          )
+          ; upd_ids_of_livepatches= []
+          ; upd_ids_of_failed_livepatches= []
+          }
         , None
         )
       ; (* Matched in multiple applicabilities with epoch *)
-        ( ( ( [
+        ( {
+            updates_info=
+              [
                 ( "UPDATE-0000"
                 , UpdateInfo.
                     {
@@ -1065,7 +1121,8 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                   
                 )
               ]
-            , Update.
+          ; update=
+              Update.
                 {
                   name= "xsconsole"
                 ; arch= "x86_64"
@@ -1079,13 +1136,15 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                 ; repository= "regular"
                 }
               
-            )
-          , ([], [])
-          )
+          ; upd_ids_of_livepatches= []
+          ; upd_ids_of_failed_livepatches= []
+          }
         , Some Guidance.RestartDeviceModel
         )
       ; (* livepatch_guidance: Some _ *)
-        ( ( ( [
+        ( {
+            updates_info=
+              [
                 ( "UPDATE-0000"
                 , UpdateInfo.
                     {
@@ -1128,7 +1187,8 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                   
                 )
               ]
-            , Update.
+          ; update=
+              Update.
                 {
                   name= "xen-hypervisor"
                 ; arch= "x86_64"
@@ -1142,13 +1202,15 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                 ; repository= "regular"
                 }
               
-            )
-          , (["UPDATE-0000"], [])
-          )
+          ; upd_ids_of_livepatches= ["UPDATE-0000"]
+          ; upd_ids_of_failed_livepatches= []
+          }
         , Some Guidance.RestartDeviceModel
         )
       ; (* livepatch_guidance - None *)
-        ( ( ( [
+        ( {
+            updates_info=
+              [
                 ( "UPDATE-0000"
                 , UpdateInfo.
                     {
@@ -1180,7 +1242,8 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                   
                 )
               ]
-            , Update.
+          ; update=
+              Update.
                 {
                   name= "xen-hypervisor"
                 ; arch= "x86_64"
@@ -1194,15 +1257,17 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                 ; repository= "regular"
                 }
               
-            )
-          , (["UPDATE-0000"], [])
-          )
+          ; upd_ids_of_livepatches= ["UPDATE-0000"]
+          ; upd_ids_of_failed_livepatches= []
+          }
         , None
         )
       ; (* livepatch_guidance: livepatch does not come from RPM update UPDATE-0001.
          * And the RPM update UPDATE-0001 requires RebootHost.
          *)
-        ( ( ( [
+        ( {
+            updates_info=
+              [
                 ( "UPDATE-0000"
                 , UpdateInfo.
                     {
@@ -1264,7 +1329,8 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                   
                 )
               ]
-            , Update.
+          ; update=
+              Update.
                 {
                   name= "xen-hypervisor"
                 ; arch= "x86_64"
@@ -1278,13 +1344,15 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                 ; repository= "regular"
                 }
               
-            )
-          , (["UPDATE-0000"], [])
-          )
+          ; upd_ids_of_livepatches= ["UPDATE-0000"]
+          ; upd_ids_of_failed_livepatches= []
+          }
         , Some Guidance.RebootHost
         )
       ; (* livepatch_guidance: livepatch comes from the RPM update UPDATE-001 *)
-        ( ( ( [
+        ( {
+            updates_info=
+              [
                 ( "UPDATE-0000"
                 , UpdateInfo.
                     {
@@ -1357,7 +1425,8 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                   
                 )
               ]
-            , Update.
+          ; update=
+              Update.
                 {
                   name= "xen-hypervisor"
                 ; arch= "x86_64"
@@ -1371,13 +1440,15 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                 ; repository= "regular"
                 }
               
-            )
-          , (["UPDATE-0001"], [])
-          )
+          ; upd_ids_of_livepatches= ["UPDATE-0001"]
+          ; upd_ids_of_failed_livepatches= []
+          }
         , Some Guidance.RestartToolstack
         )
       ; (* livepatch_guidance: latest update doesn't have livepatch and recommendedGuidance is None *)
-        ( ( ( [
+        ( {
+            updates_info=
+              [
                 ( "UPDATE-0000"
                 , UpdateInfo.
                     {
@@ -1426,7 +1497,8 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                   
                 )
               ]
-            , Update.
+          ; update=
+              Update.
                 {
                   name= "xen-hypervisor"
                 ; arch= "x86_64"
@@ -1440,13 +1512,15 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                 ; repository= "regular"
                 }
               
-            )
-          , (["UPDATE-0000"], [])
-          )
+          ; upd_ids_of_livepatches= ["UPDATE-0000"]
+          ; upd_ids_of_failed_livepatches= []
+          }
         , None
         )
       ; (* livepatch_guidance: latest update doesn't have livepatch and recommendedGuidance is RebootHost *)
-        ( ( ( [
+        ( {
+            updates_info=
+              [
                 ( "UPDATE-0000"
                 , UpdateInfo.
                     {
@@ -1495,7 +1569,8 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                   
                 )
               ]
-            , Update.
+          ; update=
+              Update.
                 {
                   name= "xen-hypervisor"
                 ; arch= "x86_64"
@@ -1509,13 +1584,15 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                 ; repository= "regular"
                 }
               
-            )
-          , (["UPDATE-0000"], [])
-          )
+          ; upd_ids_of_livepatches= ["UPDATE-0000"]
+          ; upd_ids_of_failed_livepatches= []
+          }
         , Some Guidance.RebootHost
         )
       ; (* livepatch_guidance: failure of applying livepatch *)
-        ( ( ( [
+        ( {
+            updates_info=
+              [
                 ( "UPDATE-0000"
                 , UpdateInfo.
                     {
@@ -1588,7 +1665,8 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                   
                 )
               ]
-            , Update.
+          ; update=
+              Update.
                 {
                   name= "kernel"
                 ; arch= "x86_64"
@@ -1602,9 +1680,9 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                 ; repository= "regular"
                 }
               
-            )
-          , (["UPDATE-0000"], ["UPDATE-0001"])
-          )
+          ; upd_ids_of_livepatches= ["UPDATE-0000"]
+          ; upd_ids_of_failed_livepatches= ["UPDATE-0001"]
+          }
         , None
         )
       ]
