@@ -4284,7 +4284,7 @@ module Dm = struct
     | Bios ->
         ()
     ) ;
-    (* Execute qemu-dm-wrapper, forwarding stdout to the syslog, with the key
+    (* Execute qemu-wrapper, forwarding stdout to the syslog, with the key
        "qemu-dm-<domid>" *)
     let argv = prepend_wrapper_args domid args.argv in
     let qemu_domid = 0 in
