@@ -1940,9 +1940,11 @@ let _ =
   error Api_errors.invalid_repository_proxy_url ["url"]
     ~doc:"The repository proxy URL is invalid." () ;
   error Api_errors.invalid_repository_proxy_credential []
-    ~doc:"The repository proxy username/password is invalid." ()
+    ~doc:"The repository proxy username/password is invalid." () ;
 
-let _ =
+  error Api_errors.vtpm_max_amount_reached ["amount"]
+    ~doc:"The VM cannot be associated with more VTPMs." () ;
+
   message
     (fst Api_messages.ha_pool_overcommitted)
     ~doc:
