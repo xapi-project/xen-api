@@ -28,7 +28,7 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
- package com.xensource.xenapi.samples;
+package com.xensource.xenapi.samples;
 
 import java.net.URL;
 import java.util.Map;
@@ -36,12 +36,14 @@ import java.util.Set;
 
 import com.xensource.xenapi.*;
 
-public abstract class TestBase
-{
+import javax.net.ssl.HostnameVerifier;
+import javax.net.ssl.HttpsURLConnection;
+
+public abstract class TestBase {
     /**
      * Exception thrown when we want to skip a test
      */
-    public class SkippingException extends Exception{
+    public static class SkippingException extends Exception {
 
     }
 
@@ -50,10 +52,17 @@ public abstract class TestBase
     private String connectionName;
 
     protected abstract void TestCore() throws Exception;
+
     public abstract String getTestName();
 
     public void RunTest(FileLogger logger, TargetServer server) throws Exception {
         this.logger = logger;
+
+        // Create our own HostnameVerifier and set the default HostnameVerifier
+        // used on all Https connections created after this point
+        HostnameVerifier hv = (hostname, session) -> session.getPeerHost().equals(hostname);
+        HttpsURLConnection.setDefaultHostnameVerifier(hv);
+
         connect(server);
         try {
             TestCore();
@@ -63,64 +72,71 @@ public abstract class TestBase
         }
     }
 
-    private void connect(TargetServer target) throws Exception
-    {
+    private void connect(TargetServer target) throws Exception {
+
         connection = new Connection(new URL("https://" + target.Hostname));
+
         log(String.format("logging in to '%s'...", target.Hostname));
-        Session.loginWithPassword(connection, target.Username, target.Password, APIVersion.latest().toString());
-        logf("Success! Session API version is %s", connection.getAPIVersion().toString());
+        Session.loginWithPassword(connection, target.Username, target.Password, "");
+        logFormat("Success! Session API version is %s", connection.getAPIVersion().toString());
 
         connectionName = target.Hostname;
     }
 
-    private void disconnect() throws Exception
-    {
-        logf("disposing connection for %s", connectionName);
+    private void disconnect() throws Exception {
+        logFormat("disposing connection for %s", connectionName);
         Session.logout(connection);
     }
 
-    protected void hRule()
-    {
+    protected void hRule() {
         log("----------------------------------------------------------------------");
     }
 
-    protected void announce(String s, Object... args)
-    {
+    protected void announce(String s, Object... args) {
         hRule();
-        logf(s, args);
+        logFormat(s, args);
         hRule();
     }
 
-    protected void logf(String s, Object... args)
-    {
-        logger.logf(String.format(s, args));
+    protected void logFormat(String s, Object... args) {
+        logger.logFormat(String.format(s, args));
     }
 
-    protected void log(String s)
-    {
+    protected void log(String s) {
         logger.log(s);
     }
 
     /**
      * Given a task in progress, sleeps until it completes, waking to print status reports periodically.
      */
-    protected void waitForTask(Connection c, Task task, int delay) throws Exception
-    {
-        while (task.getStatus(c) == Types.TaskStatusType.PENDING)
-        {
-            logf("%.2f;", task.getProgress(c));
+    protected void waitForTask(Connection c, Task task, int delay) throws Exception {
+        while (true) {
+            Types.TaskStatusType status = task.getStatus(c);
+
+            switch (status) {
+                case UNRECOGNIZED:
+                case PENDING:
+                case CANCELLING:
+                    log(String.format("%.0f", task.getProgress(c) * 100) + "% done");
+                    break;
+                case SUCCESS:
+                case FAILURE:
+                    log("100% done");
+                    return;
+                case CANCELLED:
+                    return;
+            }
+
             Thread.sleep(delay);
         }
     }
 
     /**
      * Get the pool's default storage; if null, get a local storage.
-     * @return
-     * @throws Exception
      */
     protected SR getStorage() throws Exception {
         Set<Pool> pools = Pool.getAll(connection);
-        Pool pool = (Pool)pools.toArray()[0];
+        Pool pool = (Pool) pools.toArray()[0];
         SR storage = pool.getDefaultSR(connection);
 
         if (storage != null && !storage.isNull())
@@ -163,13 +179,10 @@ public abstract class TestBase
         return false;
     }
 
-    protected VM getFirstWindowsTemplate() throws Exception
-    {
+    protected VM getFirstWindowsTemplate() throws Exception {
         Map<VM, VM.Record> all_recs = VM.getAllRecords(connection);
-        for (Map.Entry<VM, VM.Record> e : all_recs.entrySet())
-        {
-            if (e.getValue().isATemplate == true && e.getValue().nameLabel.contains("Windows"))
-            {
+        for (Map.Entry<VM, VM.Record> e : all_recs.entrySet()) {
+            if (e.getValue().isATemplate && e.getValue().nameLabel.contains("Windows")) {
                 return e.getKey();
             }
         }
@@ -180,13 +193,11 @@ public abstract class TestBase
     /**
      * Finds the first network (probably the one created by AddNetwork.java).
      */
-    protected Network getFirstNetwork() throws Exception
-    {
+    protected Network getFirstNetwork() throws Exception {
         Set<Network> networks = Network.getAll(connection);
-        for (Network i : networks)
-        {
-            return i;
-        }
+
+        if (!networks.isEmpty())
+            return networks.iterator().next();
 
         throw new Exception("No networks found!");
     }
@@ -194,15 +205,14 @@ public abstract class TestBase
     /**
      * Checks whether the master has hvm capabilities.
      */
-    protected void checkMasterHvmCapable() throws Exception
-    {
+    protected void checkMasterHvmCapable() throws Exception {
         log("checking master has hvm capabilities...");
         Pool pool = (Pool) Pool.getAll(connection).toArray()[0];
         Host master = pool.getMaster(connection);
         Set<String> capabilities = master.getCapabilities(connection);
 
-        Boolean hvmCapable = false;
-        for (String s: capabilities)
+        boolean hvmCapable = false;
+        for (String s : capabilities)
             if (s.contains("hvm")) {
                 hvmCapable = true;
                 break;

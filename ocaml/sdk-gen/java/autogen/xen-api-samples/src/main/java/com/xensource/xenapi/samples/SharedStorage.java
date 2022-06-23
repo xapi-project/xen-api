@@ -28,7 +28,7 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
- package com.xensource.xenapi.samples;
+package com.xensource.xenapi.samples;
 
 import java.util.Date;
 import java.util.HashMap;
@@ -46,10 +46,9 @@ import com.xensource.xenapi.Types.XenAPIException;
  * java equivalent to the cli command: xe sr-create type=nfs name-label=&lt;name&gt; device-config-server=&lt;nfsServer&gt;
  * device-config-serverpath=&lt;serverPath&gt; shared=true
  */
-public class SharedStorage extends TestBase
-{
-    private String nfsServer;
-    private String serverPath;
+public class SharedStorage extends TestBase {
+    private final String nfsServer;
+    private final String serverPath;
 
     public String getTestName() {
         return "SharedStorage";
@@ -60,8 +59,7 @@ public class SharedStorage extends TestBase
         this.serverPath = serverPath;
     }
 
-    protected void TestCore() throws Exception
-    {
+    protected void TestCore() throws Exception {
         if (nfsServer == null || serverPath == null) {
             log("nfsServer and nfsPath were not provided. Skipping SharedStorage test");
             throw new SkippingException();
@@ -69,10 +67,10 @@ public class SharedStorage extends TestBase
 
         log("getting list of hosts and choosing the first one...");
         Host host = (Host) Host.getAll(connection).toArray()[0];
-        logf("Got host %s", host.getNameLabel(connection));
+        logFormat("Got host %s", host.getNameLabel(connection));
 
         // create config parameter for shared storage on nfs server
-        Map<String, String> deviceConfig = new HashMap<String, String>();
+        Map<String, String> deviceConfig = new HashMap<>();
         deviceConfig.put("server", nfsServer);
         deviceConfig.put("serverpath", serverPath);
 
@@ -80,16 +78,14 @@ public class SharedStorage extends TestBase
 
         SR newSr = SR.create(connection, host, deviceConfig, 100000L,
                 "NFS SR created by SharedStorage.java",
-                String.format("[%s:%s] Created at %s", nfsServer, serverPath, new Date().toString()),
-                "nfs", "unused", true, new HashMap<String, String>());
+                String.format("[%s:%s] Created at %s", nfsServer, serverPath, new Date()),
+                "nfs", "unused", true, new HashMap<>());
 
         log("Now unplugging any PBDs");
         // First unplug any PBDs associated with the SR
         Set<PBD> pbds = PBD.getAll(connection);
-        for (PBD pbd : pbds)
-        {
-            if (pbd.getSR(connection).equals(newSr))
-            {
+        for (PBD pbd : pbds) {
+            if (pbd.getSR(connection).equals(newSr)) {
                 pbd.unplug(connection);
             }
         }
@@ -101,20 +97,20 @@ public class SharedStorage extends TestBase
 
         log("now trying to create one with bad device_config - should throw exception");
         try {
-            SR.create(connection, host, new HashMap<String, String>(), 100000L, "bad_device_config", "description", "nfs",
-                    "contenttype", true, new HashMap<String, String>());
+            SR.create(connection, host, new HashMap<>(), 100000L, "bad_device_config", "description", "nfs",
+                    "contenttype", true, new HashMap<>());
         }
         catch (XenAPIException ex) {
-            logf("Received expected exception: %s", ex.toString());
+            logFormat("Received expected exception: %s", ex.toString());
         }
 
         log("now trying to create one with a bad 'type' field - should throw a different exception");
         try {
-            SR.create(connection, host, new HashMap<String, String>(), 100000L, "bad_sr_type", "description", "made_up",
-                    "", true, new HashMap<String, String>());
+            SR.create(connection, host, new HashMap<>(), 100000L, "bad_sr_type", "description", "made_up",
+                    "", true, new HashMap<>());
         }
         catch (XenAPIException ex) {
-            logf("Received expected exception: %s", ex.toString());
+            logFormat("Received expected exception: %s", ex.toString());
         }
     }
 }

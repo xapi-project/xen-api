@@ -28,7 +28,7 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
- package com.xensource.xenapi.samples;
+package com.xensource.xenapi.samples;
 
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
@@ -39,11 +39,11 @@ public class FileLoggerText extends FileLogger {
     }
 
     public void logTestResult(TestBase test, RunTests.Result result) {
-        logf("^^^ %s %s ^^^", test.getTestName(), result.toString());
+        logFormat("^^^ %s %s ^^^", test.getTestName(), result.toString());
     }
 
     public void logTestStart(TestBase test) {
-        logf("^^^ %s starting ^^^", test.getTestName());
+        logFormat("^^^ %s starting ^^^", test.getTestName());
     }
 
     public void logException(Exception e) {

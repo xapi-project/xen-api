@@ -37,13 +37,11 @@ public enum APIVersion
 {{/releases}}
     UNKNOWN;
 
-    public static APIVersion latest()
-    {
+    public static APIVersion latest() {
         return API_{{API_VERSION_MAJOR}}_{{API_VERSION_MINOR}};
     }
 
-    public static APIVersion fromMajorMinor(long major, long minor)
-    {
+    public static APIVersion fromMajorMinor(long major, long minor) {
 {{#releases}}
         if (major == {{version_major}} && minor == {{version_minor}})
             return API_{{version_major}}_{{version_minor}};
@@ -52,8 +50,7 @@ public enum APIVersion
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         switch (this) {
 {{#releases}}
             case API_{{version_major}}_{{version_minor}}:
