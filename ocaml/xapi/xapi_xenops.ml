@@ -386,10 +386,14 @@ let builder_of_vm ~__context (vmref, vm) timeoffset pci_passthrough vgpu =
       warn "QEMU stub domains are no longer implemented" ;
 
     let tpm_of_vm () =
-      if bool vm.API.vM_platform false "vtpm" then
-        let uuid =
-          match vm.API.vM_VTPMs with
-          | [] ->
+      let ( let* ) = Option.bind in
+      let* uuid =
+        match vm.API.vM_VTPMs with
+        | [] ->
+            (* The vtpm parameter in platform data only has influence when the
+               VM does not have a VTPM associated, otherwise the associated
+               VTPM gets always attached. *)
+            if bool vm.API.vM_platform false "vtpm" then (
               let ref () = Ref.make () in
               let uuid () = Uuid.(to_string (make ())) in
               let profile = [] in
@@ -400,15 +404,15 @@ let builder_of_vm ~__context (vmref, vm) timeoffset pci_passthrough vgpu =
               let vtpm_uuid = uuid () in
               Db.VTPM.create ~__context ~ref:(ref ()) ~uuid:vtpm_uuid ~vM:vmref
                 ~profile ~contents ;
-              vtpm_uuid
-          | [self] ->
-              Db.VTPM.get_uuid ~__context ~self
-          | _ :: _ :: _ ->
-              failwith "Multiple vTPMs are not supported"
-        in
-        Some (Xenops_interface.Vm.Vtpm (Uuidm.of_string uuid |> Option.get))
-      else
-        None
+              Some vtpm_uuid
+            ) else
+              None
+        | [self] ->
+            Some (Db.VTPM.get_uuid ~__context ~self)
+        | _ :: _ :: _ ->
+            failwith "Multiple vTPMs are not supported"
+      in
+      Some (Xenops_interface.Vm.Vtpm (Uuidm.of_string uuid |> Option.get))
     in
 
     {

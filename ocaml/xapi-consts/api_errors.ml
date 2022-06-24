@@ -1277,3 +1277,7 @@ let invalid_repository_proxy_url = "INVALID_REPOSITORY_PROXY_URL"
 let invalid_repository_proxy_credential = "INVALID_REPOSITORY_PROXY_CREDENTIAL"
 
 let dynamic_memory_control_unavailable = "DYNAMIC_MEMORY_CONTROL_UNAVAILABLE"
+
+(* VTPMs *)
+
+let vtpm_max_amount_reached = "VTPM_MAX_AMOUNT_REACHED"

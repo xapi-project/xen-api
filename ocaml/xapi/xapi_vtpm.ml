@@ -12,12 +12,23 @@
    GNU Lesser General Public License for more details.
  *)
 
+let assert_no_vtpm_associated ~__context vm =
+  match Db.VM.get_VTPMs ~__context ~self:vm with
+  | [] ->
+      ()
+  | vtpms ->
+      let amount = List.length vtpms |> Int.to_string in
+      raise Api_errors.(Server_error (vtpm_max_amount_reached, [amount]))
+
 let introduce ~__context ~uuid ~vM ~profile ~contents =
   let ref = Ref.make () in
   Db.VTPM.create ~__context ~ref ~uuid ~vM ~profile ~contents ;
   ref
 
 let create ~__context ~vM =
+  assert_no_vtpm_associated ~__context vM ;
+  Xapi_vm_lifecycle.assert_initial_power_state_is ~__context ~self:vM
+    ~expected:`Halted ;
   let uuid = Uuid.(to_string (make ())) in
   let profile = Db.VM.get_default_vtpm_profile ~__context ~self:vM in
   let contents = Xapi_secret.create ~__context ~value:"" ~other_config:[] in
@@ -25,6 +36,9 @@ let create ~__context ~vM =
   ref
 
 let destroy ~__context ~self =
+  let vm = Db.VTPM.get_VM ~__context ~self in
+  Xapi_vm_lifecycle.assert_initial_power_state_is ~__context ~self:vm
+    ~expected:`Halted ;
   let secret = Db.VTPM.get_contents ~__context ~self in
   Db.Secret.destroy ~__context ~self:secret ;
   Db.VTPM.destroy ~__context ~self
