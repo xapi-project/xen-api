@@ -45,11 +45,16 @@ let destroy ~__context ~self =
 
 let get_contents ~__context ~self =
   let secret = Db.VTPM.get_contents ~__context ~self in
-  Base64.decode_exn (Db.Secret.get_value ~__context ~self:secret)
+  Db.Secret.get_value ~__context ~self:secret
 
 let set_contents ~__context ~self ~contents =
   let previous_secret = Db.VTPM.get_contents ~__context ~self in
-  let encoded = Base64.encode_exn contents in
-  let secret = Xapi_secret.create ~__context ~value:encoded ~other_config:[] in
+  let _ =
+    (* verify contents to be already base64-encoded *)
+    try Base64.decode contents
+    with Invalid_argument err ->
+      raise Api_errors.(Server_error (internal_error, [err]))
+  in
+  let secret = Xapi_secret.create ~__context ~value:contents ~other_config:[] in
   Db.VTPM.set_contents ~__context ~self ~value:secret ;
   Db.Secret.destroy ~__context ~self:previous_secret
