@@ -20,7 +20,16 @@ let hostname = "localhost"
 
 let date = Xapi_build_info.date
 
-let version = Xapi_build_info.version
+let version =
+  match Build_info.V1.version () with
+  | None ->
+      "0.0.0"
+  | Some v ->
+      let str = Build_info.V1.Version.to_string v in
+      if String.starts_with ~prefix:"v" str then
+        String.sub str 1 (String.length str - 1)
+      else
+        str
 
 let xapi_version_major, xapi_version_minor =
   try Scanf.sscanf version "%d.%d.%s" (fun maj min _rest -> (maj, min))
