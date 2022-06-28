@@ -691,4 +691,14 @@ let cli ~name ~doc ~version ~cmdline_gen =
   Cmd.group ~default info cmds
 
 let eval_cmdline cmdline =
-  match Cmd.eval_value cmdline with Ok (`Ok f) -> f () | _ -> ()
+  match Cmd.eval_value cmdline with
+  | Ok (`Ok f) ->
+      f ()
+  | Ok _ ->
+      ()
+  | Error (`Parse | `Term) ->
+      error "Error when parsing command line" ;
+      exit Cmd.Exit.cli_error
+  | Error `Exn ->
+      error "Error: uncaught exception" ;
+      exit Cmd.Exit.internal_error
