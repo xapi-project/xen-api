@@ -51,7 +51,7 @@ let cookie_vgpu_migration = "vgpu_migration"
 
 let cookie_mem_migration = "mem_migration"
 
-let cookie_mem_migration_value = Build_info.version
+let cookie_mem_migration_value = Xapi_version.version
 
 let cookie_mem_compression = "compress"
 
