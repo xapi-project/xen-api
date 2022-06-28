@@ -6,6 +6,10 @@
   (name xapi_version)
   (public_name xapi-consts.xapi_version)
   (modules xapi_version xapi_build_info)
+  ; avoid rebuilding everything when the implementation (of e.g. date) changes
+  ; accessing version information is not performance critical:
+  ; we don't want it inlined
+  (flags (:standard -opaque))
   (libraries
     xapi-inventory
     dune-build-info
