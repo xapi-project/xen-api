@@ -402,7 +402,7 @@ let configure ?(specific_options = []) ?(specific_essential_paths = [])
   match
     Xcp_service.configure2
       ~name:(Filename.basename Sys.argv.(0))
-      ~version:Build_info.version ~doc ~options ~resources ()
+      ~version:Xapi_version.version ~doc ~options ~resources ()
   with
   | `Ok () ->
       ()
