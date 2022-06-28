@@ -16,6 +16,27 @@ open Datamodel_types
 open Datamodel_common
 open Datamodel_roles
 
+let create =
+  call ~name:"create"
+    ~lifecycle:
+      [
+        (Published, rel_rio, "")
+      ; ( Changed
+        , rel_next
+        , "Require only a VM reference to create a VTPM instance"
+        )
+      ]
+    ~doc:"Create a new VTPM instance, and return its handle."
+    ~params:[(Ref _vm, "vM", "The VM reference the VTPM will be attached to")]
+    ~result:(Ref _vtpm, "The reference of the newly created VTPM")
+    ~allowed_roles:_R_POOL_ADMIN ()
+
+let destroy =
+  call ~name:"destroy" ~lifecycle:[(Published, rel_rio, "")]
+    ~doc:"Destroy the specified VTPM instance, along with its state."
+    ~params:[(Ref _vtpm, "self", "The reference to the VTPM object")]
+    ~allowed_roles:_R_POOL_ADMIN ()
+
 let get_contents =
   call ~name:"get_contents" ~in_product_since:"rel_next"
     ~doc:"Obtain the contents of the TPM" ~secret:true
@@ -42,7 +63,7 @@ let t =
       ; (Extended, rel_next, "Added VTPM profiles")
       ; (Changed, rel_next, "Removed backend field")
       ]
-    ~gen_constructor_destructor:true ~name:_vtpm ~descr:"A virtual TPM device"
+    ~gen_constructor_destructor:false ~name:_vtpm ~descr:"A virtual TPM device"
     ~gen_events:false ~doccomments:[]
     ~messages_default_allowed_roles:_R_POOL_ADMIN
     ~contents:
@@ -58,5 +79,5 @@ let t =
           ~lifecycle:[(Published, rel_next, "Added VTPM contents")]
           "contents" "The contents of the TPM"
       ]
-    ~messages:[get_contents; set_contents]
+    ~messages:[create; destroy; get_contents; set_contents]
     ()
