@@ -10,8 +10,8 @@ OPTMANDIR ?= $(OPTDIR)/man/man1/
 .PHONY: build clean test doc python format install uninstall
 
 build:
+	XAPI_VERSION=$(XAPI_VERSION) dune build @update-dm-lifecycle -j $(JOBS) --profile=$(PROFILE) --auto-promote || XAPI_VERSION=$(XAPI_VERSION) dune build @update-dm-lifecycle -j $(JOBS) --profile=$(PROFILE) --auto-promote
 	XAPI_VERSION=$(XAPI_VERSION) dune build @install -j $(JOBS) --profile=$(PROFILE)
-	XAPI_VERSION=$(XAPI_VERSION) PROFILE=$(PROFILE) ./update-dm-lifecycle
 	dune build @python --profile=$(PROFILE)
 
 # Quickly verify that the code compiles, without actually building it

@@ -49,4 +49,13 @@
     xapi-datamodel
     xapi_version
   )
-)
+ )
+
+(rule
+ (with-stdout-to datamodel_lifecycle.ml.generated (run ./gen_lifecycle.exe)))
+
+; 'diff' handles promotion too, see https://dune.readthedocs.io/en/stable/concepts.html?highlight=diffing#diffing-and-promotion
+(rule
+  (alias update-dm-lifecycle)
+  (action
+    (diff datamodel_lifecycle.ml datamodel_lifecycle.ml.generated)))
