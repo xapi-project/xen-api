@@ -50,10 +50,14 @@
     xapi-datamodel
     xapi_version
   )
+  (promote (until-clean))
  )
 
+; use the binary promoted file from the source dir (not the build dir) that has
+; the correct version number embedded
 (rule
- (with-stdout-to datamodel_lifecycle.ml.generated (run ./gen_lifecycle.exe)))
+ (deps gen_lifecycle.exe)
+ (action (with-stdout-to datamodel_lifecycle.ml.generated (system %{project_root}/../../ocaml/idl/gen_lifecycle.exe))))
 
 ; 'diff' handles promotion too, see https://dune.readthedocs.io/en/stable/concepts.html?highlight=diffing#diffing-and-promotion
 (rule

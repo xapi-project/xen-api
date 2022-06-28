@@ -4,19 +4,21 @@ XAPIDOC=_build/install/default/xapi/doc
 XAPISDK=_build/install/default/xapi/sdk
 JOBS = $(shell getconf _NPROCESSORS_ONLN)
 PROFILE=release
-XAPI_VERSION ?= $(shell git describe --always --dirty || echo "NO_GIT")
 OPTMANDIR ?= $(OPTDIR)/man/man1/
 
 .PHONY: build clean test doc python format install uninstall
 
+# if we have XAPI_VERSION set then set it in dune-project so we use that version number instead of the one obtained from git
+# this is typically used when we're not building from a git repo
 build:
-	XAPI_VERSION=$(XAPI_VERSION) dune build @update-dm-lifecycle -j $(JOBS) --profile=$(PROFILE) --auto-promote || XAPI_VERSION=$(XAPI_VERSION) dune build @update-dm-lifecycle -j $(JOBS) --profile=$(PROFILE) --auto-promote
-	XAPI_VERSION=$(XAPI_VERSION) dune build @install -j $(JOBS) --profile=$(PROFILE)
+	[ -z "${XAPI_VERSION}" ] || (sed -i '/(version.*)/d' dune-project && echo "(version ${XAPI_VERSION})" >> dune-project)
+	dune build @update-dm-lifecycle -j $(JOBS) --profile=$(PROFILE) --auto-promote || dune build @update-dm-lifecycle -j $(JOBS) --profile=$(PROFILE) --auto-promote
+	dune build @install -j $(JOBS) --profile=$(PROFILE)
 	dune build @python --profile=$(PROFILE)
 
 # Quickly verify that the code compiles, without actually building it
 check:
-	XAPI_VERSION=$(XAPI_VERSION) dune build @check -j $(JOBS)
+	dune build @check -j $(JOBS)
 
 clean:
 	dune clean
@@ -27,33 +29,33 @@ lint:
 	pycodestyle --ignore=E501 _build/default/xapi-storage/python/xapi/storage/api/v5/*.py
 
 test:
-	XAPI_VERSION=$(XAPI_VERSION) dune runtest --profile=$(PROFILE) --no-buffer -j $(JOBS)
-	XAPI_VERSION=$(XAPI_VERSION) dune build @runtest-python --profile=$(PROFILE)
+	dune runtest --profile=$(PROFILE) --no-buffer -j $(JOBS)
+	dune build @runtest-python --profile=$(PROFILE)
 
 stresstest:
-	XAPI_VERSION=$(XAPI_VERSION) dune build @stresstest --profile=$(PROFILE) --no-buffer -j $(JOBS)
+	dune build @stresstest --profile=$(PROFILE) --no-buffer -j $(JOBS)
 
 doc:
-	XAPI_VERSION=$(XAPI_VERSION) dune build --profile=$(PROFILE) ocaml/idl/datamodel_main.exe
-	XAPI_VERSION=$(XAPI_VERSION) dune build --profile=$(PROFILE) -f @ocaml/doc/jsapigen
+	dune build --profile=$(PROFILE) ocaml/idl/datamodel_main.exe
+	dune build --profile=$(PROFILE) -f @ocaml/doc/jsapigen
 	mkdir -p $(XAPIDOC)/html
 	cp -r _build/default/ocaml/doc/api $(XAPIDOC)/html
 	cp _build/default/ocaml/doc/branding.js $(XAPIDOC)/html
 	cp ocaml/doc/*.js ocaml/doc/*.html ocaml/doc/*.css $(XAPIDOC)/html
-	XAPI_VERSION=$(XAPI_VERSION) dune exec --profile=$(PROFILE) -- ocaml/idl/datamodel_main.exe -closed -markdown $(XAPIDOC)/markdown
+	dune exec --profile=$(PROFILE) -- ocaml/idl/datamodel_main.exe -closed -markdown $(XAPIDOC)/markdown
 	cp ocaml/doc/*.dot ocaml/doc/doc-convert.sh $(XAPIDOC)
 	find ocaml/doc -name "*.md" -not -name "README.md" -exec cp {} $(XAPIDOC)/markdown/ \;
 # Build manpages, networkd generated these
-	XAPI_VERSION=$(XAPI_VERSION) dune build --profile=$(PROFILE) -f @man
+	dune build --profile=$(PROFILE) -f @man
 
 sdk:
 	cp $(SHAREDIR)/sm/XE_SR_ERRORCODES.xml ocaml/sdk-gen/csharp/XE_SR_ERRORCODES.xml
-	XAPI_VERSION=$(XAPI_VERSION) dune build --profile=$(PROFILE) \
+	dune build --profile=$(PROFILE) \
 		ocaml/sdk-gen/c/gen_c_binding.exe \
 		ocaml/sdk-gen/csharp/gen_csharp_binding.exe \
 		ocaml/sdk-gen/java/main.exe \
 		ocaml/sdk-gen/powershell/gen_powershell_binding.exe
-	XAPI_VERSION=$(XAPI_VERSION) dune build --profile=$(PROFILE) -f\
+	dune build --profile=$(PROFILE) -f\
 		@ocaml/sdk-gen/c/generate \
 		@ocaml/sdk-gen/csharp/generate \
 		@ocaml/sdk-gen/java/generate \
@@ -76,8 +78,8 @@ python:
 	$(MAKE) -C scripts/examples/python build
 
 doc-json:
-	XAPI_VERSION=$(XAPI_VERSION) dune build --profile=$(PROFILE) ocaml/idl/json_backend/gen_json.exe
-	XAPI_VERSION=$(XAPI_VERSION) dune exec --profile=$(PROFILE) -- ocaml/idl/json_backend/gen_json.exe -destdir $(XAPIDOC)/jekyll
+	dune build --profile=$(PROFILE) ocaml/idl/json_backend/gen_json.exe
+	dune exec --profile=$(PROFILE) -- ocaml/idl/json_backend/gen_json.exe -destdir $(XAPIDOC)/jekyll
 
 format:
 	dune build @fmt --auto-promote

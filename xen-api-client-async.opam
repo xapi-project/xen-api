@@ -8,7 +8,6 @@ bug-reports: "https://github.com/xapi-project/xen-api/issues"
 tags: [
   "org:xapi-project"
 ]
-build-env: [[ XAPI_VERSION = "v0.0.0" ]]
 build: [
   ["dune" "build" "-p" name "-j" jobs]
   ["dune" "runtest" "-p" name "-j" jobs] {with-test}
