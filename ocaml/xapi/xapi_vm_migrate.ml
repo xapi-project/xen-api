@@ -81,6 +81,10 @@ let get_bool_option key values =
 (** Decide whether to use stream compression during migration based on
 options passed to the API, localhost, and destination *)
 let use_compression options src dst =
+  debug "%s: options=%s" __FUNCTION__
+    (String.concat ", "
+       (List.map (fun (k, v) -> Printf.sprintf "%s:%s" k v) options)
+    ) ;
   match (get_bool_option "compress" options, src = dst) with
   | Some b, _ ->
       b (* honour any option given *)
