@@ -2398,6 +2398,13 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
               fun fd fn -> fn fd
           (* do nothing *)
         in
+        let compress_vgpu vgpu_fd f =
+          match vgpu_fd with
+          | Some (FD fd) when compress_memory ->
+              compress fd (fun fd -> f (Some (FD fd)))
+          | vgpu_fd ->
+              f vgpu_fd
+        in
         debug "%s compress memory: %b" __FUNCTION__ compress_memory ;
         (* We need to perform version exchange here *)
         let module B = (val get_backend () : S) in
@@ -2541,6 +2548,7 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
                   debug "VM.migrate: Synchronisation point 1-mem ACK" ;
 
                   compress mem_fd @@ fun mem_fd ->
+                  compress_vgpu vgpu_fd @@ fun vgpu_fd ->
                   perform_atomics
                     [
                       VM_save (id, [Live], FD mem_fd, vgpu_fd)
@@ -2610,6 +2618,16 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
           | false ->
               fun fd fn -> fn fd
         in
+        let decompress_vgpu vgpu_info f =
+          match vgpu_info with
+          | Some info when vmr_compressed ->
+              decompress info.vgpu_fd (fun fd -> f (Some (FD fd)))
+          | Some info ->
+              f (Some (FD info.vgpu_fd))
+          | None ->
+              f None
+        in
+
         if final_id <> id then
           (* Note: In the localhost case, there are necessarily two worker
              threads operating on the same VM. The first one is using tag
@@ -2728,17 +2746,12 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
               in
               Sockopt.set_sock_keepalives mem_fd ;
               decompress mem_fd @@ fun mem_fd ->
+              decompress_vgpu vgpu_info @@ fun vgpu_info ->
               perform_atomics
                 (List.concat
                    [
                      vgpu_start_operations ()
-                   ; [
-                       VM_restore
-                         ( id
-                         , FD mem_fd
-                         , Option.map (fun x -> FD x.vgpu_fd) vgpu_info
-                         )
-                     ]
+                   ; [VM_restore (id, FD mem_fd, vgpu_info)]
                    ]
                 )
                 t ;
