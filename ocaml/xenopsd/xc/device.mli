@@ -58,11 +58,6 @@ module Profile : sig
       [fallback] if an invalid name is provided. *)
 end
 
-(** Represent an IPC endpoint *)
-module Socket : sig
-  type t = Unix of string | Port of int
-end
-
 module Generic : sig
   val rm_device_state : xs:Xenstore.Xs.xsh -> device -> unit
 
@@ -225,55 +220,6 @@ module Vcpu : sig
   val status : xs:Xenstore.Xs.xsh -> dm:Profile.t -> devid:int -> int -> bool
 end
 
-module PV_Vnc : sig
-  exception Failed_to_start
-
-  val save : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> unit
-
-  val get_statefile : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> string option
-
-  val start :
-       ?statefile:string
-    -> xs:Xenstore.Xs.xsh
-    -> ?ip:string
-    -> Xenctrl.domid
-    -> unit
-
-  val stop : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> unit
-
-  val get_vnc_port : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> Socket.t option
-
-  val get_tc_port : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> int option
-end
-
-module Qemu : sig
-  module SignalMask : sig
-    type t
-
-    val create : unit -> t
-
-    val set : t -> int -> unit
-
-    val unset : t -> int -> unit
-
-    val has : t -> int -> bool
-  end
-
-  val signal_mask : SignalMask.t
-
-  val pid_path_signal : Xenctrl.domid -> string
-
-  val pid : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> int option
-
-  val is_running : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> bool
-end
-
-module Vgpu : sig
-  val pid : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> int option
-
-  val is_running : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> bool
-end
-
 module PCI : sig
   open Xenops_interface.Pci
 
@@ -392,7 +338,10 @@ module Dm : sig
   }
 
   val get_vnc_port :
-    xs:Xenstore.Xs.xsh -> dm:Profile.t -> Xenctrl.domid -> Socket.t option
+       xs:Xenstore.Xs.xsh
+    -> dm:Profile.t
+    -> Xenctrl.domid
+    -> Xenops_utils.Socket.t option
 
   val get_tc_port : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> int option
 
@@ -549,6 +498,9 @@ module Vusb : sig
 end
 
 val get_vnc_port :
-  xs:Xenstore.Xs.xsh -> dm:Profile.t -> Xenctrl.domid -> Socket.t option
+     xs:Xenstore.Xs.xsh
+  -> dm:Profile.t
+  -> Xenctrl.domid
+  -> Xenops_utils.Socket.t option
 
 val get_tc_port : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> int option

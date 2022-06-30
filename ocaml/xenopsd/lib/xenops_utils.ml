@@ -43,6 +43,23 @@ module Unix = struct
       }
 end
 
+(** Represent an IPC endpoint *)
+module Socket = struct
+  type t = Unix of string | Port of int
+
+  module Unix = struct
+    let path x = "unix:" ^ x
+
+    let rm x =
+      let dbg = debug "error cleaning unix socket %s: %s" x in
+      try Unix.unlink x with
+      | Unix.Unix_error (Unix.ENOENT, _, _) ->
+          ()
+      | Unix.Unix_error (e, _, _) ->
+          dbg (Unix.error_message e)
+  end
+end
+
 let all = List.fold_left ( && ) true
 
 let any = List.fold_left ( || ) false
@@ -631,6 +648,12 @@ let chunks size lst =
     [] lst
   |> List.map (fun xs -> List.rev xs)
   |> List.rev
+
+let really_kill pid =
+  try Unixext.kill_and_wait pid
+  with Unixext.Process_still_alive ->
+    debug "%d: failed to respond to SIGTERM, sending SIGKILL" pid ;
+    Unixext.kill_and_wait ~signal:Sys.sigkill pid
 
 let best_effort txt f =
   try f ()
