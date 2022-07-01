@@ -95,6 +95,11 @@ let valid_operations ~expensive_sharing_checks ~__context record _ref' : table =
     set_errors Api_errors.other_operation_in_progress
       ["VBD"; _ref; vbd_operation_to_string (List.hd current_ops)]
       [`unpause] ;
+  (* No hotplug on dom0 *)
+  if Helpers.is_domain_zero ~__context vm then
+    set_errors Api_errors.operation_not_allowed
+      ["Control domain does not support hotplug"]
+      [`plug] ;
   (* Drives marked as not unpluggable cannot be unplugged *)
   if not record.Db_actions.vBD_unpluggable then
     set_errors Api_errors.vbd_not_unpluggable [_ref] [`unplug; `unplug_force] ;
