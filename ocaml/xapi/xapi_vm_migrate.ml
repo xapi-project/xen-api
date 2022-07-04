@@ -387,8 +387,8 @@ let pool_migrate ~__context ~vm ~host ~options =
         ( try
             let _, state = XenopsAPI.VM.stat dbg vm_uuid in
             if Xenops_interface.(state.Vm.power_state = Suspended) then (
-              debug "xenops: %s: shutting down suspended VM" vm_uuid ;
-              Xapi_xenops.shutdown ~__context ~self:vm None
+              debug "xenops: %s: Resuming suspended VM on source host" vm_uuid ;
+              Xapi_xenops.fast_resume ~__context ~self:vm
             )
           with _ -> ()
         ) ;
@@ -1549,8 +1549,8 @@ let migrate_send' ~__context ~vm ~dest ~live:_ ~vdi_map ~vif_map ~vgpu_map
         try
           let _, state = XenopsAPI.VM.stat dbg vm_uuid in
           if Xenops_interface.(state.Vm.power_state = Suspended) then (
-            debug "xenops: %s: shutting down suspended VM" vm_uuid ;
-            Xapi_xenops.shutdown ~__context ~self:vm None
+            debug "xenops: %s: Resuming suspended VM on source host" vm_uuid ;
+            Xapi_xenops.fast_resume ~__context ~self:vm
           )
         with _ -> ()
     ) ;

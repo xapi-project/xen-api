@@ -2000,3 +2000,10 @@ let move_xstree ~xs domid olduuid newuuid =
     )
   in
   List.iter mv_tree search_paths
+
+(** Request a fast_resume, return without waiting for acknowledgement *)
+let fast_resume ~xc ~xs domid =
+  let uuid = get_uuid ~xc domid in
+  debug "VM = %s; domid = %d; Requesting domain fast resume"
+    (Uuid.to_string uuid) domid ;
+  Xenctrl.domain_resume_fast xc domid
