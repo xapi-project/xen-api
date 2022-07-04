@@ -4010,7 +4010,11 @@ let vbd_unplug ~__context ~self force =
           info "xenops: VBD.unplug %s.%s" (fst vbd.Vbd.id) (snd vbd.Vbd.id) ;
           Client.VBD.unplug dbg vbd.Vbd.id force
           |> sync_with_task __context queue_name
-        with Xenopsd_error (Device_detach_rejected (_, _, _)) ->
+        with
+      | Xenopsd_error (Does_not_exist _) ->
+          info "VBD is not plugged; setting currently_attached to false" ;
+          Db.VBD.set_currently_attached ~__context ~self ~value:false
+      | Xenopsd_error (Device_detach_rejected (_, _, _)) ->
           raise
             Api_errors.(
               Server_error
@@ -4221,21 +4225,25 @@ let vif_unplug ~__context ~self force =
       info "xenops: VIF.unplug %s.%s" (fst vif.Vif.id) (snd vif.Vif.id) ;
       let dbg = Context.string_of_task __context in
       let module Client = (val make_client queue_name : XENOPS) in
-      Client.VIF.unplug dbg vif.Vif.id force
-      |> sync_with_task __context queue_name ;
-      (* We need to make sure VIF.stat still works so: wait before calling VIF.remove *)
-      Events_from_xenopsd.wait queue_name dbg (fst vif.Vif.id) () ;
-      if Db.VIF.get_currently_attached ~__context ~self then
-        raise
-          Api_errors.(
-            Server_error
-              ( internal_error
-              , [
-                  Printf.sprintf "vif_unplug: Unable to unplug VIF %s"
-                    (Ref.string_of self)
-                ]
-              )
-          )
+      try
+        Client.VIF.unplug dbg vif.Vif.id force
+        |> sync_with_task __context queue_name ;
+        (* We need to make sure VIF.stat still works so: wait before calling VIF.remove *)
+        Events_from_xenopsd.wait queue_name dbg (fst vif.Vif.id) () ;
+        if Db.VIF.get_currently_attached ~__context ~self then
+          raise
+            Api_errors.(
+              Server_error
+                ( internal_error
+                , [
+                    Printf.sprintf "vif_unplug: Unable to unplug VIF %s"
+                      (Ref.string_of self)
+                  ]
+                )
+            )
+      with Xenopsd_error (Does_not_exist _) ->
+        info "VIF is not plugged; setting currently_attached to false" ;
+        Db.VIF.set_currently_attached ~__context ~self ~value:false
   )
 
 let vif_move ~__context ~self _network =

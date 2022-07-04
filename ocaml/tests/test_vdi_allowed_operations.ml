@@ -135,7 +135,10 @@ let test_ca125187 () =
     setup_test ~__context
       ~vdi_fun:(fun vdi_ref ->
         let host_ref = Helpers.get_localhost ~__context in
-        let vm_ref = Db.Host.get_control_domain ~__context ~self:host_ref in
+        let vm_ref =
+          Test_common.make_vm ~__context ~domain_type:`pv ~power_state:`Running
+            ~resident_on:host_ref ()
+        in
         let vbd_ref = Ref.make () in
         let (_ : API.ref_VBD) =
           make_vbd ~__context ~ref:vbd_ref ~vDI:vdi_ref ~vM:vm_ref
