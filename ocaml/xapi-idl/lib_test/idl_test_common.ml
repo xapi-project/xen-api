@@ -105,11 +105,14 @@ module GenTestData (C : CONFIG) (M : MARSHALLER) = struct
 
   type _ fn =
     | Function : 'a Idl.Param.t * 'b fn -> ('a -> 'b) fn
+    | NoargsFunction : 'b fn -> (unit -> 'b) fn
     | Returning : ('a Idl.Param.t * 'b Idl.Error.t) -> ('a, _) comp fn
 
   let returning a err = Returning (a, err)
 
   let ( @-> ) t f = Function (t, f)
+
+  let noargs f = NoargsFunction f
 
   open M
 
@@ -175,6 +178,8 @@ module GenTestData (C : CONFIG) (M : MARSHALLER) = struct
                 )
                 f
         )
+      | NoargsFunction f ->
+          inner [] f
       | Returning (t, e) ->
           let wire_name = Idl.get_wire_name !description name in
           let calls =
@@ -333,11 +338,14 @@ module TestOldRpcs (C : CONFIG) (M : MARSHALLER) = struct
 
   type _ fn =
     | Function : 'a Param.t * 'b fn -> ('a -> 'b) fn
+    | NoArgsFunction : 'b fn -> (unit -> 'b) fn
     | Returning : ('a Param.t * 'b Error.t) -> (_, _) comp fn
 
   let returning a b = Returning (a, b)
 
   let ( @-> ) t f = Function (t, f)
+
+  let noargs f = NoArgsFunction f
 
   open M
 
@@ -345,7 +353,7 @@ module TestOldRpcs (C : CONFIG) (M : MARSHALLER) = struct
     | Function (t, f) -> (
       match t.Param.name with Some _ -> true | None -> has_named_args f
     )
-    | Returning (_, _) ->
+    | NoArgsFunction _ | Returning (_, _) ->
         false
 
   let declare_ : bool -> string -> string list -> 'a fn -> _ res =
@@ -426,6 +434,9 @@ module TestOldRpcs (C : CONFIG) (M : MARSHALLER) = struct
             in
             verify t.Param.typedef.Rpc.Types.ty arg_rpc |> ignore ;
             inner f call'
+        | NoArgsFunction _ ->
+            (* nothing to verify about the parameters *)
+            ()
         | Returning (t, e) -> (
           match response.success with
           | true ->

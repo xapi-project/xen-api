@@ -256,7 +256,7 @@ let common_options_t =
     let doc = "Expect json on stdin, print json on stdout." in
     Arg.(value & flag & info ["json"] ~docs ~doc)
   in
-  Term.(pure make $ debug $ verb $ test $ json)
+  Term.(const make $ debug $ verb $ test $ json)
 
 let help =
   [
@@ -318,7 +318,7 @@ module Make (C : Command) (T : Test) = struct
   let cmd =
     let doc = C.CommandLine.doc in
     let man = help in
-    ( Term.(ret (pure wrap $ common_options_t $ C.CommandLine.t))
+    ( Term.(ret (const wrap $ common_options_t $ C.CommandLine.t))
     , Term.info Sys.argv.(0) ~version ~sdocs:_common_options ~doc ~man
     )
 

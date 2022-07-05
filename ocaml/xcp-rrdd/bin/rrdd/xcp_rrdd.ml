@@ -987,16 +987,8 @@ let _ =
   Debug.set_facility Syslog.Local5 ;
   (* Read configuration file. *)
   debug "Reading configuration file .." ;
-  ( match
-      Xcp_service.configure2 ~name:Sys.argv.(0) ~version:Version.version ~doc
-        ~options ()
-    with
-  | `Ok () ->
-      ()
-  | `Error m ->
-      Printf.fprintf stderr "%s\n" m ;
-      exit 1
-  ) ;
+  Xcp_service.configure2 ~name:Sys.argv.(0) ~version:Version.version ~doc
+    ~options () ;
   Xcp_service.maybe_daemonize () ;
   debug "Starting the HTTP server .." ;
   (* Eventually we should switch over to xcp_service to declare our services,

@@ -2,27 +2,19 @@
 
 module Cmds = Gpumon_interface.RPC_API (Cmdlinergen.Gen ())
 
-let version_str description =
-  let maj, min, mic = description.Idl.Interface.version in
-  Printf.sprintf "%d.%d.%d" maj min mic
+let doc =
+  String.concat ""
+    [
+      "A CLI for the GPU monitoring API. This allows scripting of the "
+    ; "gpumon daemon for testing and debugging. This tool is not intended "
+    ; "to be used as an end user tool"
+    ]
 
-let default_cmd =
-  let doc =
-    String.concat ""
-      [
-        "A CLI for the GPU monitoring API. This allows scripting of the gpumon \
-         daemon "
-      ; "for testing and debugging. This tool is not intended to be used as an "
-      ; "end user tool"
-      ]
-  in
-  ( Cmdliner.Term.(ret (const (fun _ -> `Help (`Pager, None)) $ const ()))
-  , Cmdliner.Term.info "gpumon_cli" ~version:(version_str Cmds.description) ~doc
-  )
+let cmdline_gen () =
+  List.map (fun t -> t Gpumon_client.rpc) (Cmds.implementation ())
 
-let cli () =
-  let rpc = Gpumon_client.rpc in
-  Cmdliner.Term.eval_choice default_cmd
-    (List.map (fun t -> t rpc) (Cmds.implementation ()))
+let cli =
+  Xcp_service.cli ~name:"gpumon_cli" ~doc ~version:Cmds.description.version
+    ~cmdline_gen
 
-let _ = match cli () with `Ok f -> f () | _ -> ()
+let () = Xcp_service.eval_cmdline cli

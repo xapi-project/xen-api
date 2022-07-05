@@ -30,8 +30,6 @@ type res = {
 
 val configure : ?options:opt list -> ?resources:res list -> unit -> unit
 
-type ('a, 'b) error = [`Ok of 'a | `Error of 'b]
-
 val configure2 :
      name:string
   -> version:string
@@ -39,7 +37,7 @@ val configure2 :
   -> ?options:opt list
   -> ?resources:res list
   -> unit
-  -> (unit, string) error
+  -> unit
 (** More advanced service configuration with manpage generation *)
 
 type server
@@ -63,3 +61,17 @@ val loglevel : unit -> Syslog.level
 val daemonize : ?start_fn:(unit -> unit) -> unit -> unit
 
 val maybe_daemonize : ?start_fn:(unit -> unit) -> unit -> unit
+
+val cli :
+     name:string
+  -> doc:string
+  -> version:Rpc.Version.t
+  -> cmdline_gen:(unit -> ('a Cmdliner.Term.t * Cmdliner.Cmd.info) list)
+  -> 'a Cmdliner.Cmd.t
+(** [cli ~name ~doc ~version ~cmdline_gen] creates a [Cmdliner] cli parser with
+    the subcommands defined by [cmdline_gen] which by default prints the
+    manpage. The resulting parser needs to be evaluated for the current args *)
+
+val eval_cmdline : (unit -> unit) Cmdliner.Cmd.t -> unit
+(** [eval_cmdline cli] evaluates the cli parser [cli] for the parsers usually
+    generated using [cli] with the [rpclib] cli generator *)

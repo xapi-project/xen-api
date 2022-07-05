@@ -62,7 +62,7 @@ let common_options_t =
       & info ["path"] ~docs ~doc
     )
   in
-  Term.(pure Common.make $ debug $ verb $ path)
+  Term.(const Common.make $ debug $ verb $ path)
 
 (* Help sections common to all commands *)
 let help =
@@ -483,8 +483,8 @@ let diagnostics_cmd =
     ]
     @ help
   in
-  ( Term.(ret (pure diagnostics $ common_options_t))
-  , Term.info "diagnostics" ~sdocs:_common_options ~doc ~man
+  ( Term.(ret (const diagnostics $ common_options_t))
+  , Cmd.info "diagnostics" ~sdocs:_common_options ~doc ~man
   )
 
 let list_cmd =
@@ -507,8 +507,8 @@ let list_cmd =
     let doc = "List all queues, even if no-one is listening." in
     Arg.(value & flag & info ["all"] ~docv:"ALL" ~doc)
   in
-  ( Term.(ret (pure list $ common_options_t $ prefix $ all))
-  , Term.info "list" ~sdocs:_common_options ~doc ~man
+  ( Term.(ret (const list $ common_options_t $ prefix $ all))
+  , Cmd.info "list" ~sdocs:_common_options ~doc ~man
   )
 
 let tail_cmd =
@@ -526,8 +526,8 @@ let tail_cmd =
     let doc = "keep waiting for new events to display." in
     Arg.(value & flag & info ["follow"] ~docv:"FOLLOW" ~doc)
   in
-  ( Term.(ret (pure tail $ common_options_t $ follow))
-  , Term.info "tail" ~sdocs:_common_options ~doc ~man
+  ( Term.(ret (const tail $ common_options_t $ follow))
+  , Cmd.info "tail" ~sdocs:_common_options ~doc ~man
   )
 
 let mscgen_cmd =
@@ -541,8 +541,8 @@ let mscgen_cmd =
     ]
     @ help
   in
-  ( Term.(ret (pure mscgen $ common_options_t))
-  , Term.info "mscgen" ~sdocs:_common_options ~doc ~man
+  ( Term.(ret (const mscgen $ common_options_t))
+  , Cmd.info "mscgen" ~sdocs:_common_options ~doc ~man
   )
 
 let ack_cmd =
@@ -564,8 +564,8 @@ let ack_cmd =
     let doc = "message id" in
     Arg.(value & pos 1 (some int64) None & info [] ~docv:"ACK" ~doc)
   in
-  ( Term.(ret (pure ack $ common_options_t $ qname $ id))
-  , Term.info "ack" ~sdocs:_common_options ~doc ~man
+  ( Term.(ret (const ack $ common_options_t $ qname $ id))
+  , Cmd.info "ack" ~sdocs:_common_options ~doc ~man
   )
 
 let destroy_cmd =
@@ -582,8 +582,8 @@ let destroy_cmd =
     let doc = "queue name" in
     Arg.(value & pos 0 (some string) None & info [] ~docv:"QUEUE" ~doc)
   in
-  ( Term.(ret (pure destroy $ common_options_t $ n))
-  , Term.info "destroy" ~sdocs:_common_options ~doc ~man
+  ( Term.(ret (const destroy $ common_options_t $ n))
+  , Cmd.info "destroy" ~sdocs:_common_options ~doc ~man
   )
 
 let string_of_ic ?end_marker ic =
@@ -650,8 +650,8 @@ let call_cmd =
     let doc = "Time to wait for a response before failing." in
     Arg.(value & opt (some int) None & info ["timeout"] ~docv:"TIMEOUT" ~doc)
   in
-  ( Term.(ret (pure call $ common_options_t $ qname $ body $ path $ timeout))
-  , Term.info "call" ~sdocs:_common_options ~doc ~man
+  ( Term.(ret (const call $ common_options_t $ qname $ body $ path $ timeout))
+  , Cmd.info "call" ~sdocs:_common_options ~doc ~man
   )
 
 let serve common_options_t name program =
@@ -704,8 +704,8 @@ let serve_cmd =
     let doc = "Path of the program to invoke on every call." in
     Arg.(value & opt (some file) None & info ["program"] ~doc)
   in
-  ( Term.(ret (pure serve $ common_options_t $ qname $ program))
-  , Term.info "serve" ~sdocs:_common_options ~doc ~man
+  ( Term.(ret (const serve $ common_options_t $ qname $ program))
+  , Cmd.info "serve" ~sdocs:_common_options ~doc ~man
   )
 
 let shutdown common_options_t =
@@ -721,15 +721,8 @@ let shutdown_cmd =
     ]
     @ help
   in
-  ( Term.(ret (pure shutdown $ common_options_t))
-  , Term.info "shutdown" ~sdocs:_common_options ~doc ~man
-  )
-
-let default_cmd =
-  let doc = "interact with an XCP message switch" in
-  let man = help in
-  ( Term.(ret (pure (fun _ -> `Help (`Pager, None)) $ common_options_t))
-  , Term.info "m-cli" ~version:"1.0.0" ~sdocs:_common_options ~doc ~man
+  ( Term.(ret (const shutdown $ common_options_t))
+  , Cmd.info "shutdown" ~sdocs:_common_options ~doc ~man
   )
 
 let cmds =
@@ -744,10 +737,15 @@ let cmds =
   ; diagnostics_cmd
   ; shutdown_cmd
   ]
+  |> List.map (fun (t, i) -> Cmd.v i t)
 
-let _ =
-  match Term.eval_choice default_cmd cmds with
-  | `Error _ ->
-      exit 1
-  | _ ->
-      exit 0
+let () =
+  let default =
+    Term.(ret (const (fun _ -> `Help (`Pager, None)) $ common_options_t))
+  in
+  let info =
+    let doc = "interact with an XCP message switch" in
+    Cmd.info "m-cli" ~version:"1.0.0" ~sdocs:_common_options ~doc ~man:help
+  in
+  let cmd = Cmd.group ~default info cmds in
+  exit (Cmd.eval cmd)

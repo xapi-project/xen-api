@@ -139,11 +139,6 @@ let () =
       )
     ]
   in
-  match
-    Xcp_service.configure2 ~name:"suspend-image-viewer"
-      ~version:Build_info.version ~resources ~doc ~options ()
-  with
-  | `Ok () ->
-      print_image !path
-  | `Error m ->
-      error "%s" m ; exit 1
+  Xcp_service.configure2 ~name:"suspend-image-viewer"
+    ~version:Build_info.version ~resources ~doc ~options () ;
+  print_image !path

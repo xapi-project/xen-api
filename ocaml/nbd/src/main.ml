@@ -238,9 +238,9 @@ let cmd =
     let doc = "Local port to listen for connections on" in
     Arg.(value & opt int Consts.standard_nbd_port & info ["port"] ~doc)
   in
-  ( Term.(ret (pure main $ port $ certfile $ ciphersuites))
-  , Term.info "xapi-nbd" ~version:"1.0.0" ~doc ~man ~sdocs:_common_options
-  )
+  Cmd.v
+    (Cmd.info "xapi-nbd" ~version:"1.0.0" ~doc ~man ~sdocs:_common_options)
+    Term.(ret (const main $ port $ certfile $ ciphersuites))
 
 let setup_logging () =
   Lwt_log.default := Lwt_log.syslog ~facility:`Daemon () ;
@@ -255,4 +255,4 @@ let () =
      in the failed state, and a backtrace will show up in the logs. *)
   Cleanup.Runtime.register_signal_handler () ;
   setup_logging () ;
-  match Term.eval cmd with `Error _ -> exit 1 | _ -> exit 0
+  exit (Cmd.eval cmd)

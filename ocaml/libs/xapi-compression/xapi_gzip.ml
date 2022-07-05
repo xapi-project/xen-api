@@ -68,6 +68,8 @@ let decompress =
 
 let main =
   let doc = "Test compression and uncompression" in
-  C.Term.(const compress $ decompress, info "xapi-gzip" ~doc ~man:help)
+  C.Cmd.v
+    C.Cmd.(info "xapi-gzip" ~doc ~man:help)
+    C.Term.(const compress $ decompress)
 
-let () = if !Sys.interactive then () else C.Term.(exit @@ eval main)
+let () = if !Sys.interactive then () else exit @@ C.Cmd.eval main

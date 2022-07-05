@@ -21,13 +21,6 @@ let help_secs =
   ; `Noblank
   ]
 
-let default_cmd =
-  let doc = "RRD protocol reader" in
-  let man = help_secs in
-  ( Term.(ret (pure (fun _ -> `Help (`Pager, None)) $ pure ()))
-  , Term.info "reader" ~version:"0.1" ~doc ~man
-  )
-
 let read_file_cmd =
   let path =
     let doc = "The path of the file to read" in
@@ -49,8 +42,8 @@ let read_file_cmd =
     ]
     @ help_secs
   in
-  ( Term.(pure Reader_commands.read_file $ once $ path $ protocol)
-  , Term.info "file" ~doc ~man
+  ( Term.(const Reader_commands.read_file $ once $ path $ protocol)
+  , Cmd.info "file" ~doc ~man
   )
 
 let read_page_cmd =
@@ -78,15 +71,15 @@ let read_page_cmd =
     ]
     @ help_secs
   in
-  ( Term.(pure Reader_commands.read_page $ domid $ grantref $ protocol)
-  , Term.info "page" ~doc ~man
+  ( Term.(const Reader_commands.read_page $ domid $ grantref $ protocol)
+  , Cmd.info "page" ~doc ~man
   )
 
-let cmds = [read_file_cmd; read_page_cmd]
+let cmds = List.map (fun (t, i) -> Cmd.v i t) [read_file_cmd; read_page_cmd]
 
 let () =
-  match Term.eval_choice default_cmd cmds with
-  | `Error _ ->
-      exit 1
-  | _ ->
-      exit 0
+  let default = Term.(ret (const (fun _ -> `Help (`Pager, None)) $ const ())) in
+  let doc = "RRD protocol reader" in
+  let info = Cmd.info "reader" ~version:"0.1" ~doc ~man:help_secs in
+  let cmd = Cmd.group ~default info cmds in
+  exit (Cmd.eval cmd)

@@ -71,7 +71,7 @@ let common_options_t =
     let doc = Printf.sprintf "Specify port to connect to the message switch." in
     Arg.(value & opt int 8080 & info ["port"] ~docs ~doc)
   in
-  Term.(pure Common.make $ debug $ verb $ port)
+  Term.(const Common.make $ debug $ verb $ port)
 
 (* Help sections common to all commands *)
 let help =
@@ -169,9 +169,9 @@ let advertise_cmd =
     let doc = Printf.sprintf "File descriptor to advertise" in
     Arg.(value & pos 0 (some int) None & info [] ~docv:"FD" ~doc)
   in
-  ( Term.(ret (pure advertise $ common_options_t $ fd))
-  , Term.info "advertise" ~sdocs:_common_options ~doc ~man
-  )
+  Cmd.v
+    (Cmd.info "advertise" ~sdocs:_common_options ~doc ~man)
+    Term.(ret (const advertise $ common_options_t $ fd))
 
 let connect_t _common_options_t =
   (Lwt_io.read_line_opt Lwt_io.stdin >>= function
@@ -206,22 +206,20 @@ let connect_cmd =
     ]
     @ help
   in
-  ( Term.(ret (pure connect $ common_options_t))
-  , Term.info "connect" ~sdocs:_common_options ~doc ~man
-  )
-
-let default_cmd =
-  let doc = "channel (file-descriptor) passing helper program" in
-  let man = help in
-  ( Term.(ret (pure (fun _ -> `Help (`Pager, None)) $ common_options_t))
-  , Term.info "proxy" ~version:"1.0.0" ~sdocs:_common_options ~doc ~man
-  )
+  Cmd.v
+    (Cmd.info "connect" ~sdocs:_common_options ~doc ~man)
+    Term.(ret (const connect $ common_options_t))
 
 let cmds = [advertise_cmd; connect_cmd]
 
-let _ =
-  match Term.eval_choice default_cmd cmds with
-  | `Error _ ->
-      exit 1
-  | _ ->
-      exit 0
+let () =
+  let default =
+    Term.(ret (const (fun _ -> `Help (`Pager, None)) $ common_options_t))
+  in
+  let info =
+    let doc = "channel (file-descriptor) passing helper program" in
+    let man = help in
+    Cmd.info "proxy" ~version:"1.0.0" ~sdocs:_common_options ~doc ~man
+  in
+  let cmd = Cmd.group ~default info cmds in
+  exit (Cmd.eval cmd)
