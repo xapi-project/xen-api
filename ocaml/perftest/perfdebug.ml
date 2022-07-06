@@ -11,12 +11,10 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-module Mutex = Xapi_stdext_threads.Threadext.Mutex
-
 let stdout_m = Mutex.create ()
 
 let debug ?(out = stdout) (fmt : ('a, unit, string, unit) format4) =
-  Mutex.execute stdout_m (fun () ->
+  Xapi_stdext_threads.Threadext.Mutex.execute stdout_m (fun () ->
       Printf.kprintf
         (fun s ->
           Printf.fprintf out "%s\n" s ;

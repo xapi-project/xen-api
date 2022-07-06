@@ -32,7 +32,9 @@
 *)
 
 module Unixext = Xapi_stdext_unix.Unixext
-open Xapi_stdext_threads.Threadext
+module Delay = Xapi_stdext_threads.Threadext.Delay
+
+let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
 module D = Debug.Make (struct let name = "remote_requests" end)
 
@@ -87,12 +89,12 @@ let signal_result' req result () =
   )
 
 let signal_result req result =
-  Mutex.execute req.resp_mutex (signal_result' req result)
+  with_lock req.resp_mutex (signal_result' req result)
 
 let watcher_thread = function
   | __context, timeout, delay, req ->
       ignore (Delay.wait delay timeout) ;
-      Mutex.execute req.resp_mutex (fun () ->
+      with_lock req.resp_mutex (fun () ->
           if !(req.resp) = NoResponse then (
             warn "Remote request timed out" ;
             let resources =
@@ -128,10 +130,10 @@ let handle_request req =
     signal_result req (Exception exn)
 
 let handle_requests () =
-  while Mutex.execute request_mutex (fun () -> not !shutting_down) do
+  while with_lock request_mutex (fun () -> not !shutting_down) do
     try
       let req =
-        Mutex.execute request_mutex (fun () ->
+        with_lock request_mutex (fun () ->
             while !request_queue = [] do
               Condition.wait request_cond request_mutex
             done ;
@@ -151,7 +153,7 @@ let start_watcher __context timeout delay req =
   ignore (Thread.create watcher_thread (__context, timeout, delay, req))
 
 let queue_request req =
-  Mutex.execute request_mutex (fun () ->
+  with_lock request_mutex (fun () ->
       request_queue := req :: !request_queue ;
       Condition.signal request_cond
   )
@@ -162,7 +164,7 @@ let perform_request ~__context ~timeout ~verify_cert ~host ~port ~request
   let resp = ref NoResponse in
   let resp_mutex = Mutex.create () in
   let resp_cond = Condition.create () in
-  Mutex.execute resp_mutex (fun () ->
+  with_lock resp_mutex (fun () ->
       let delay = Delay.make () in
       let req =
         make_queued_request task verify_cert host port request handler resp
@@ -183,7 +185,7 @@ let perform_request ~__context ~timeout ~verify_cert ~host ~port ~request
   )
 
 let stop_request_thread () =
-  Mutex.execute request_mutex (fun () ->
+  with_lock request_mutex (fun () ->
       shutting_down := true ;
       Condition.signal request_cond
   )

@@ -17,7 +17,8 @@
 module D = Debug.Make (struct let name = "stats" end)
 
 open D
-module Mutex = Xapi_stdext_threads.Threadext.Mutex
+
+let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
 module Normal_population = struct
   (** Stats on a normally-distributed population *)
@@ -71,7 +72,7 @@ let string_of (p : Normal_population.t) =
 let sample (name : string) (x : float) : unit =
   (* Use the lognormal distribution: *)
   let x' = log x in
-  Mutex.execute timings_m (fun () ->
+  with_lock timings_m (fun () ->
       let p =
         if Hashtbl.mem timings name then
           Hashtbl.find timings name
@@ -98,7 +99,7 @@ let time_this (name : string) f =
   with e -> endfn () ; raise e
 
 let summarise () =
-  Mutex.execute timings_m (fun () ->
+  with_lock timings_m (fun () ->
       Hashtbl.fold (fun k v acc -> (k, string_of v) :: acc) timings []
   )
 
@@ -129,7 +130,7 @@ let log_db_call task_opt dbcall ty =
   if not !log_stats then
     ()
   else
-    Mutex.execute dbstats_m (fun () ->
+    with_lock dbstats_m (fun () ->
         let hashtbl =
           match ty with
           | Read ->
@@ -176,7 +177,7 @@ let summarise_db_calls () =
     Printf.sprintf "Total: %d" total
     :: List.map (fun (count, str) -> Printf.sprintf "%s: %d" str count) sorted
   in
-  Mutex.execute dbstats_m (fun () ->
+  with_lock dbstats_m (fun () ->
       ( summarise_table dbstats_write_dbcalls
       , summarise_table dbstats_read_dbcalls
       , summarise_table dbstats_create_dbcalls

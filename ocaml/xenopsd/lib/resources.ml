@@ -14,8 +14,6 @@
 
 let network_conf = ref "/etc/xcp/network.conf"
 
-let qemu_dm_wrapper = ref "qemu-dm-wrapper"
-
 let qemu_system_i386 = ref "qemu-system-i386"
 
 let upstream_compat_qemu_dm_wrapper = ref "qemu-wrapper"
@@ -47,11 +45,6 @@ open Unix
 let hvm_guests =
   [
     (R_OK, "hvmloader", hvmloader, "path to the hvmloader binary for HVM guests")
-  ; ( X_OK
-    , "qemu-dm-wrapper"
-    , qemu_dm_wrapper
-    , "path to the qemu-dm-wrapper script"
-    )
   ; ( X_OK
     , "qemu-system-i386"
     , qemu_system_i386

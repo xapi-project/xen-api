@@ -15,7 +15,8 @@
     Note this only deals with relatively static data (like version numbers) and
     not dynamic performance data. *)
 
-open Xapi_stdext_threads.Threadext
+let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
+
 module Date = Xapi_stdext_date.Date
 
 module D = Debug.Make (struct let name = "xapi_guest_metrics" end)
@@ -326,11 +327,9 @@ let create_and_set_guest_metrics (lookup : string -> string option)
     ~can_use_hotplug_vif:initial_gm.can_use_hotplug_vif ;
   Db.VM.set_guest_metrics ~__context ~self ~value:new_gm_ref ;
   (* Update the cache with the new values *)
-  Mutex.execute mutex (fun () -> Hashtbl.replace cache domid initial_gm) ;
+  with_lock mutex (fun () -> Hashtbl.replace cache domid initial_gm) ;
   (* We've just set the thing to live, let's make sure it's not in the dead list *)
-  Mutex.execute mutex (fun () ->
-      dead_domains := IntSet.remove domid !dead_domains
-  ) ;
+  with_lock mutex (fun () -> dead_domains := IntSet.remove domid !dead_domains) ;
   let sl xs = String.concat "; " (List.map (fun (k, v) -> k ^ ": " ^ v) xs) in
   info
     "Received initial update from guest agent in VM %s; os_version = [ %s ]; \
@@ -356,11 +355,11 @@ let all (lookup : string -> string option) (list : string -> string list)
   } =
     get_initial_guest_metrics lookup list
   in
-  (* let num = Mutex.execute mutex (fun () -> Hashtbl.fold (fun _ _ c -> 1 + c) cache 0) in
+  (* let num = with_lock mutex (fun () -> Hashtbl.fold (fun _ _ c -> 1 + c) cache 0) in
      debug "Number of entries in hashtbl: %d" num; *)
   let self = Db.VM.get_by_uuid ~__context ~uuid in
   let guest_metrics_cached =
-    Mutex.execute mutex (fun () ->
+    with_lock mutex (fun () ->
         try Hashtbl.find cache domid
         with _ ->
           (* Make sure our cached idea of whether the domain is live or not is correct *)
@@ -388,7 +387,7 @@ let all (lookup : string -> string option) (list : string -> string list)
     )
   in
   (* Only if the data is valid, cache it (CA-20353) *)
-  Mutex.execute mutex (fun () ->
+  with_lock mutex (fun () ->
       Hashtbl.replace cache domid
         {
           pv_drivers_version

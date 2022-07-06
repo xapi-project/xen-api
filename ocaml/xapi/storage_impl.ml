@@ -68,7 +68,9 @@
 module Date = Xapi_stdext_date.Date
 module Listext = Xapi_stdext_std.Listext
 module Unixext = Xapi_stdext_unix.Unixext
-open Xapi_stdext_threads.Threadext
+
+let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
+
 open Storage_interface
 open Storage_task
 
@@ -251,19 +253,19 @@ module Sr = struct
   let m = Mutex.create ()
 
   let find vdi sr =
-    Mutex.execute m (fun () ->
+    with_lock m (fun () ->
         try Some (Hashtbl.find sr.vdis vdi) with Not_found -> None
     )
 
   let replace vdi vdi_t sr =
-    Mutex.execute m (fun () -> Hashtbl.replace sr.vdis vdi vdi_t)
+    with_lock m (fun () -> Hashtbl.replace sr.vdis vdi vdi_t)
 
   let list sr =
-    Mutex.execute m (fun () ->
+    with_lock m (fun () ->
         Hashtbl.fold (fun k v acc -> (k, v) :: acc) sr.vdis []
     )
 
-  let remove vdi sr = Mutex.execute m (fun () -> Hashtbl.remove sr.vdis vdi)
+  let remove vdi sr = with_lock m (fun () -> Hashtbl.remove sr.vdis vdi)
 
   let to_string_list x =
     Hashtbl.fold
@@ -290,19 +292,16 @@ module Host = struct
   let m = Mutex.create ()
 
   let find sr h =
-    Mutex.execute m (fun () ->
+    with_lock m (fun () ->
         try Some (Hashtbl.find h.srs sr) with Not_found -> None
     )
 
-  let remove sr h = Mutex.execute m (fun () -> Hashtbl.remove h.srs sr)
+  let remove sr h = with_lock m (fun () -> Hashtbl.remove h.srs sr)
 
-  let replace sr sr_t h =
-    Mutex.execute m (fun () -> Hashtbl.replace h.srs sr sr_t)
+  let replace sr sr_t h = with_lock m (fun () -> Hashtbl.replace h.srs sr sr_t)
 
   let list h =
-    Mutex.execute m (fun () ->
-        Hashtbl.fold (fun k v acc -> (k, v) :: acc) h.srs []
-    )
+    with_lock m (fun () -> Hashtbl.fold (fun k v acc -> (k, v) :: acc) h.srs [])
 
   (** All global state held here *)
   let host = ref (empty ())
@@ -328,12 +327,12 @@ module Errors = struct
   let errors_m = Mutex.create ()
 
   let add dp sr vdi code =
-    Mutex.execute errors_m (fun () ->
+    with_lock errors_m (fun () ->
         let t = {dp; time= Unix.gettimeofday (); sr; vdi; error= code} in
         errors := Listext.List.take 100 (t :: !errors)
     )
 
-  let list () = Mutex.execute errors_m (fun () -> !errors)
+  let list () = with_lock errors_m (fun () -> !errors)
 
   let to_string x =
     Printf.sprintf "%s @ %s; sr:%s vdi:%s error:%s" x.dp (string_of_date x.time)
@@ -346,7 +345,7 @@ module Everything = struct
   let make () = {host= !Host.host; errors= !Errors.errors}
 
   let to_file filename h =
-    let rpc = Mutex.execute Host.m (fun () -> Rpcmarshal.marshal typ_of h) in
+    let rpc = with_lock Host.m (fun () -> Rpcmarshal.marshal typ_of h) in
     let s = Jsonrpc.to_string rpc in
     Unixext.write_string_to_file filename s
 
@@ -389,7 +388,7 @@ functor
 
       let locks_find sr =
         let sr_key = s_of_sr sr in
-        Mutex.execute locks_m (fun () ->
+        with_lock locks_m (fun () ->
             if not (Hashtbl.mem locks sr_key) then (
               let result = Storage_locks.make () in
               Hashtbl.replace locks sr_key result ;
@@ -399,7 +398,7 @@ functor
         )
 
       let locks_remove sr =
-        Mutex.execute locks_m (fun () -> Hashtbl.remove locks (s_of_sr sr))
+        with_lock locks_m (fun () -> Hashtbl.remove locks (s_of_sr sr))
 
       let with_vdi sr vdi f =
         let locks = locks_find sr in

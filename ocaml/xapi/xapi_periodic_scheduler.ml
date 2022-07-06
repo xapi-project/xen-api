@@ -15,7 +15,9 @@
 module D = Debug.Make (struct let name = "backgroundscheduler" end)
 
 open D
-open Xapi_stdext_threads.Threadext
+module Delay = Xapi_stdext_threads.Threadext.Delay
+
+let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
 type func_ty = OneShot | Periodic of float
 
@@ -43,7 +45,7 @@ module Clock = struct
 end
 
 let add_to_queue ?(signal = true) name ty start newfunc =
-  Mutex.execute lock (fun () ->
+  with_lock lock (fun () ->
       let ( ++ ) = Clock.add_span in
       Ipq.add queue
         {
@@ -62,16 +64,16 @@ let loop () =
   debug "Periodic scheduler started" ;
   try
     while true do
-      let empty = Mutex.execute lock (fun () -> Ipq.is_empty queue) in
+      let empty = with_lock lock (fun () -> Ipq.is_empty queue) in
       if empty then
         Thread.delay 10.0
       (* Doesn't happen often - the queue isn't usually empty *)
       else
-        let next = Mutex.execute lock (fun () -> Ipq.maximum queue) in
+        let next = with_lock lock (fun () -> Ipq.maximum queue) in
         let now = Mtime_clock.now () in
         if next.Ipq.time < now then (
           let todo =
-            (Mutex.execute lock (fun () -> Ipq.pop_maximum queue)).Ipq.ev
+            (with_lock lock (fun () -> Ipq.pop_maximum queue)).Ipq.ev
           in
           (try todo.func () with _ -> ()) ;
           match todo.ty with

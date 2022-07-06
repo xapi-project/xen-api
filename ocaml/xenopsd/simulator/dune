@@ -16,9 +16,10 @@
 )
 
 (rule
- (targets xenopsd-simulator.1.gz)
+ (target xenopsd-simulator.1.gz)
+ (deps (:man xenopsd-simulator.1))
  (action
-  (run gzip %{dep:xenopsd-simulator.1}))
+  (with-stdout-to %{target} (with-stdin-from %{man} (run gzip))))
 )
 
 (install

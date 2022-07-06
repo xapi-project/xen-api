@@ -18,7 +18,12 @@ open D
 open Rpm
 
 module Guidance = struct
-  type t = RebootHost | RestartToolstack | EvacuateHost | RestartDeviceModel
+  type t =
+    | RebootHost
+    | RestartToolstack
+    | EvacuateHost
+    | RestartDeviceModel
+    | RebootHostOnLivePatchFailure
 
   type guidance_kind = Absolute | Recommended
 
@@ -33,6 +38,8 @@ module Guidance = struct
         "EvacuateHost"
     | RestartDeviceModel ->
         "RestartDeviceModel"
+    | RebootHostOnLivePatchFailure ->
+        "RebootHostOnLivePatchFailure"
 
   let of_string = function
     | "RebootHost" ->
@@ -279,8 +286,11 @@ module LivePatch = struct
     `Assoc
       [
         ("component", `String (Livepatch.string_of_component lp.component))
-      ; ("base", `String (lp.base_version ^ "-" ^ lp.base_release))
-      ; ("to", `String (lp.to_version ^ "-" ^ lp.to_release))
+      ; ("base_build_id", `String lp.base_build_id)
+      ; ("base_version", `String lp.base_version)
+      ; ("base_release", `String lp.base_release)
+      ; ("to_version", `String lp.to_version)
+      ; ("to_release", `String lp.to_release)
       ]
 
   let to_string lp = Yojson.Basic.pretty_to_string (to_json lp)
@@ -422,9 +432,7 @@ module UpdateInfo = struct
           ( "livepatch-guidance"
           , `String (guidance_to_string ui.livepatch_guidance)
           )
-          :: ( "livepatches"
-             , `List (List.map (fun x -> `String (LivePatch.to_string x)) lps)
-             )
+          :: ("livepatches", `List (List.map (fun x -> LivePatch.to_json x) lps))
           :: l
         in
         `Assoc l'

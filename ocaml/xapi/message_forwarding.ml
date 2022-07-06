@@ -15,8 +15,6 @@
  * @group API Messaging
 *)
 
-open Xapi_stdext_threads.Threadext
-
 let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
 open Client
@@ -6421,5 +6419,23 @@ functor
           (repository_uuid ~__context self)
           value ;
         Local.Repository.set_gpgkey_path ~__context ~self ~value
+
+      let apply_livepatch ~__context ~host ~component ~base_build_id
+          ~base_version ~base_release ~to_version ~to_release =
+        info
+          "Repository.apply_livepatch: host='%s' component=%s \
+           base_build_id='%s' base_version='%s' base_release='%s' \
+           to_version='%s' to_release='%s'"
+          (host_uuid ~__context host)
+          component base_build_id base_version base_release to_version
+          to_release ;
+        let local_fn =
+          Local.Repository.apply_livepatch ~host ~component ~base_build_id
+            ~base_version ~base_release ~to_version ~to_release
+        in
+        do_op_on ~__context ~local_fn ~host (fun session_id rpc ->
+            Client.Repository.apply_livepatch ~rpc ~session_id ~host ~component
+              ~base_build_id ~base_version ~base_release ~to_version ~to_release
+        )
     end
   end

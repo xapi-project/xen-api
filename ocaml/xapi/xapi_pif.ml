@@ -20,7 +20,6 @@ module L = Debug.Make (struct let name = "license" end)
 open Db_filter_types
 module Listext = Xapi_stdext_std.Listext.List
 open Xapi_stdext_std.Xstringext
-open Xapi_stdext_threads.Threadext
 module Date = Xapi_stdext_date.Date
 open Network
 
@@ -670,7 +669,7 @@ let scan ~__context ~host =
       ([], [])
     )
   in
-  Mutex.execute scan_m (fun () ->
+  Xapi_stdext_threads.Threadext.Mutex.execute scan_m (fun () ->
       let t = make_tables ~__context ~host in
       let devices_not_yet_represented_by_pifs =
         Listext.set_difference

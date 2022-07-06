@@ -11,7 +11,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-open Xapi_stdext_threads.Threadext
+let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
 let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
@@ -145,7 +145,7 @@ module Next = struct
 
   (* Add an event to the queue if it matches any active subscriptions *)
   let add ev =
-    Mutex.execute m (fun () ->
+    with_lock m (fun () ->
         let matches =
           Hashtbl.fold
             (fun _ s acc ->
@@ -210,7 +210,7 @@ module Next = struct
     )
 
   let assert_subscribed session =
-    Mutex.execute m (fun () ->
+    with_lock m (fun () ->
         if not (Hashtbl.mem subscriptions session) then
           raise
             (Api_errors.Server_error
@@ -223,7 +223,7 @@ module Next = struct
   (* Fetch the single subscription_record associated with a session or create
      	   one if one doesn't exist already *)
   let get_subscription session =
-    Mutex.execute m (fun () ->
+    with_lock m (fun () ->
         if Hashtbl.mem subscriptions session then
           Hashtbl.find subscriptions session
         else
@@ -242,10 +242,10 @@ module Next = struct
     )
 
   let on_session_deleted session_id =
-    Mutex.execute m (fun () ->
+    with_lock m (fun () ->
         let mark_invalid sub =
           (* Mark the subscription as invalid and wake everyone up *)
-          Mutex.execute sub.m (fun () -> sub.session_invalid <- true) ;
+          with_lock sub.m (fun () -> sub.session_invalid <- true) ;
           Condition.broadcast c
         in
         if Hashtbl.mem subscriptions session_id then (
@@ -255,14 +255,13 @@ module Next = struct
         )
     )
 
-  let session_is_invalid sub =
-    Mutex.execute sub.m (fun () -> sub.session_invalid)
+  let session_is_invalid sub = with_lock sub.m (fun () -> sub.session_invalid)
 
   (* Blocks the caller until the current ID has changed OR the session has been
      	    invalidated. *)
   let wait subscription from_id =
     let result = ref 0L in
-    Mutex.execute m (fun () ->
+    with_lock m (fun () ->
         (* NB we occasionally grab the specific session lock while holding the general lock *)
         while !id = from_id && not (session_is_invalid subscription) do
           Condition.wait c m
@@ -294,7 +293,7 @@ module Next = struct
     in
     let some_events_lost = ref false in
     let selected_events =
-      Mutex.execute m (fun () ->
+      with_lock m (fun () ->
           some_events_lost := !highest_forgotten_id >= id_start ;
           List.find_all (fun (_, ev) -> check_ev ev) !queue
       )
@@ -314,7 +313,7 @@ module From = struct
   let next_index =
     let id = ref 0L in
     fun () ->
-      Mutex.execute m (fun () ->
+      with_lock m (fun () ->
           let result = !id in
           id := Int64.succ !id ;
           result
@@ -346,7 +345,7 @@ module From = struct
 
   (* Add an event to the queue if it matches any active subscriptions *)
   let add ev =
-    Mutex.execute m (fun () ->
+    with_lock m (fun () ->
         let matches_per_thread =
           Hashtbl.fold
             (fun _ s acc ->
@@ -379,7 +378,7 @@ module From = struct
       ; session_invalid= false
       }
     in
-    Mutex.execute m (fun () ->
+    with_lock m (fun () ->
         let existing =
           if Hashtbl.mem calls session then
             Hashtbl.find calls session
@@ -391,7 +390,7 @@ module From = struct
     finally
       (fun () -> f fresh)
       (fun () ->
-        Mutex.execute m (fun () ->
+        with_lock m (fun () ->
             if Hashtbl.mem calls session then
               let existing = Hashtbl.find calls session in
               let remaining =
@@ -406,10 +405,10 @@ module From = struct
 
   (* Is called by the session timeout code *)
   let on_session_deleted session_id =
-    Mutex.execute m (fun () ->
+    with_lock m (fun () ->
         let mark_invalid sub =
           (* Mark the subscription as invalid and wake everyone up *)
-          Mutex.execute sub.m (fun () -> sub.session_invalid <- true) ;
+          with_lock sub.m (fun () -> sub.session_invalid <- true) ;
           Condition.broadcast c
         in
         if Hashtbl.mem calls session_id then (
@@ -418,12 +417,11 @@ module From = struct
         )
     )
 
-  let session_is_invalid call =
-    Mutex.execute call.m (fun () -> call.session_invalid)
+  let session_is_invalid call = with_lock call.m (fun () -> call.session_invalid)
 
   let wait2 call from_id deadline =
     let timeoutname = Printf.sprintf "event_from_timeout_%Ld" call.index in
-    Mutex.execute m (fun () ->
+    with_lock m (fun () ->
         while
           from_id = call.cur_id
           && (not (session_is_invalid call))
@@ -453,7 +451,7 @@ let register ~__context ~classes =
   let open Next in
   let subs = List.map Subscription.of_string classes in
   let sub = Next.get_subscription session in
-  Mutex.execute sub.m (fun () -> sub.subs <- subs @ sub.subs)
+  with_lock sub.m (fun () -> sub.subs <- subs @ sub.subs)
 
 (** Unregister interest in events generated on objects of class <class_name> *)
 let unregister ~__context ~classes =
@@ -461,7 +459,7 @@ let unregister ~__context ~classes =
   let open Next in
   let subs = List.map Subscription.of_string classes in
   let sub = Next.get_subscription session in
-  Mutex.execute sub.m (fun () ->
+  with_lock sub.m (fun () ->
       sub.subs <- List.filter (fun x -> not (List.mem x subs)) sub.subs
   )
 
@@ -476,8 +474,8 @@ let rec next ~__context =
      	   empty. *)
   let grab_range () =
     (* Briefly hold both the general and the specific mutex *)
-    Mutex.execute m (fun () ->
-        Mutex.execute subscription.m (fun () ->
+    with_lock m (fun () ->
+        with_lock subscription.m (fun () ->
             let last_id = subscription.last_id in
             (* Bump our last_id counter: these events don't have to be looked at again *)
             subscription.last_id <- !id ;
@@ -498,7 +496,7 @@ let rec next ~__context =
   (* debug "next examining events in range %Ld <= x < %Ld" last_id end_id; *)
   (* Are any of the new events interesting? *)
   let events = events_read last_id end_id in
-  let subs = Mutex.execute subscription.m (fun () -> subscription.subs) in
+  let subs = with_lock subscription.m (fun () -> subscription.subs) in
   let relevant =
     List.filter (fun ev -> Subscription.event_matches subs ev) events
   in
@@ -729,7 +727,7 @@ let from ~__context ~classes ~token ~timeout =
   in
   loop ()
 
-let get_current_id ~__context = Mutex.execute Next.m (fun () -> !Next.id)
+let get_current_id ~__context = with_lock Next.m (fun () -> !Next.id)
 
 let inject ~__context ~_class ~_ref =
   let open Db_cache_types in

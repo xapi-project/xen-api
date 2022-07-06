@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Xapi_stdext_threads.Threadext
+let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
 (* This exception is setup to be raised on sigint by Process.initialise,
  * and is used to cancel the synchronous function Reporter.start. *)
@@ -31,7 +31,7 @@ module Xs = struct
   let cached_xs_state_m = Mutex.create ()
 
   let get_xs_state () =
-    Mutex.execute cached_xs_state_m (fun () ->
+    with_lock cached_xs_state_m (fun () ->
         match !cached_xs_state with
         | Some state ->
             state
@@ -95,7 +95,7 @@ let loop (module D : Debug.DEBUG) ~reporter ~report ~cleanup =
   let running = ref true in
   ( match reporter with
   | Some reporter ->
-      Mutex.execute reporter.lock (fun () -> reporter.state <- Running)
+      with_lock reporter.lock (fun () -> reporter.state <- Running)
   | None ->
       ()
   ) ;
@@ -106,7 +106,7 @@ let loop (module D : Debug.DEBUG) ~reporter ~report ~cleanup =
       match reporter with
       | Some reporter ->
           (* Handle asynchronous cancellation. *)
-          Mutex.execute reporter.lock (fun () ->
+          with_lock reporter.lock (fun () ->
               match reporter.state with
               | Running ->
                   ()
@@ -134,10 +134,10 @@ let loop (module D : Debug.DEBUG) ~reporter ~report ~cleanup =
   done ;
   D.info "leaving main loop"
 
-let get_state ~reporter = Mutex.execute reporter.lock (fun () -> reporter.state)
+let get_state ~reporter = with_lock reporter.lock (fun () -> reporter.state)
 
 let cancel ~reporter =
-  Mutex.execute reporter.lock (fun () ->
+  with_lock reporter.lock (fun () ->
       match reporter.state with
       | Running ->
           reporter.state <- Cancelled ;
@@ -149,6 +149,6 @@ let cancel ~reporter =
   )
 
 let wait_until_stopped ~reporter =
-  Mutex.execute reporter.lock (fun () ->
+  with_lock reporter.lock (fun () ->
       Condition.wait reporter.condition reporter.lock
   )

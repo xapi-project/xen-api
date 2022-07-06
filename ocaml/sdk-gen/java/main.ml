@@ -433,16 +433,15 @@ let gen_method file cls message params async_version =
 (*Some methods have an almost identical asynchronous counterpart, which returns*)
 (* a Task reference rather than its usual return value*)
 let gen_method_and_asynchronous_counterpart file cls message =
-  let methodParams = get_method_params_list message in
   let generator x =
     if message.msg_async then gen_method file cls message x true ;
     gen_method file cls message x false
   in
-  match methodParams with
+  match message.msg_params with
   | [] ->
       generator []
   | _ ->
-      let paramGroups = gen_param_groups message methodParams in
+      let paramGroups = gen_param_groups message message.msg_params in
       List.iter generator paramGroups
 
 (* Generate the record *)

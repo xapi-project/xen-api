@@ -16,12 +16,11 @@
 module D = Debug.Make (struct let name = "sync" end)
 
 open D
-open Xapi_stdext_threads.Threadext
 
 let sync_lock = Mutex.create ()
 
 let sync_host ~__context host =
-  Mutex.execute sync_lock (fun () ->
+  Xapi_stdext_threads.Threadext.Mutex.execute sync_lock (fun () ->
       try
         let localhost = host = !Xapi_globs.localhost_ref
         and host_has_storage =

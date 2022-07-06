@@ -1941,6 +1941,10 @@ let _ =
     ~doc:"The repository proxy URL is invalid." () ;
   error Api_errors.invalid_repository_proxy_credential []
     ~doc:"The repository proxy username/password is invalid." () ;
+  error Api_errors.apply_livepatch_failed ["livepatch"]
+    ~doc:"Failed to apply a livepatch." () ;
+  error Api_errors.update_guidance_changed ["guidance"]
+    ~doc:"Guidance for the update has changed" () ;
 
   error Api_errors.vtpm_max_amount_reached ["amount"]
     ~doc:"The VM cannot be associated with more VTPMs." () ;

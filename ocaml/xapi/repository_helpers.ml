@@ -520,7 +520,7 @@ let get_updates_from_updateinfo ~__context repositories =
   new_updates @ updates
 
 let eval_guidance_for_one_update ~updates_info ~update ~kind
-    ~upd_ids_of_livepatches =
+    ~upd_ids_of_livepatches ~upd_ids_of_failed_livepatches =
   let open Update in
   match update.update_id with
   | Some upd_id -> (
@@ -547,11 +547,13 @@ let eval_guidance_for_one_update ~updates_info ~update ~kind
           | _ ->
               false
         in
+        let pkg_str =
+          Printf.sprintf "package %s.%s in update %s" update.name update.arch
+            upd_id
+        in
         let dbg_msg r =
-          Printf.sprintf
-            "Evaluating applicability for package %s.%s in update %s returned \
-             '%s'"
-            update.name update.arch upd_id (string_of_bool r)
+          Printf.sprintf "Evaluating applicability for %s returned '%s'" pkg_str
+            (string_of_bool r)
         in
         let apps = updateinfo.UpdateInfo.guidance_applicabilities in
         match (List.exists is_applicable apps, apps) with
@@ -560,14 +562,32 @@ let eval_guidance_for_one_update ~updates_info ~update ~kind
             match kind with
             | Guidance.Absolute ->
                 updateinfo.UpdateInfo.abs_guidance
-            | Guidance.Recommended ->
-                if UpdateIdSet.mem upd_id upd_ids_of_livepatches then
-                  (* The update has an applicable livepatch.
-                   * Using the livaptch guidance.
+            | Guidance.Recommended -> (
+              match
+                ( UpdateIdSet.mem upd_id upd_ids_of_livepatches
+                , UpdateIdSet.mem upd_id upd_ids_of_failed_livepatches
+                )
+              with
+              | _, true ->
+                  (* The update contains a failed livepatch. No guidance should be picked up. *)
+                  debug
+                    "%s doesn't contribute guidance due to a livepatch failure"
+                    pkg_str ;
+                  None
+              | true, false ->
+                  (* The update has an applicable/successful livepatch.
+                   * Using the livepatch guidance.
                    *)
-                  updateinfo.UpdateInfo.livepatch_guidance
-                else
-                  updateinfo.UpdateInfo.rec_guidance
+                  let g = updateinfo.UpdateInfo.livepatch_guidance in
+                  debug "%s provides livepatch guidance %s" pkg_str
+                    (Option.value (Option.map Guidance.to_string g) ~default:"") ;
+                  g
+              | false, false ->
+                  let g = updateinfo.UpdateInfo.rec_guidance in
+                  debug "%s provides recommended guidance %s" pkg_str
+                    (Option.value (Option.map Guidance.to_string g) ~default:"") ;
+                  g
+            )
           )
         | _ ->
             debug "%s" (dbg_msg false) ;
@@ -583,10 +603,10 @@ let eval_guidance_for_one_update ~updates_info ~update ~kind
         update.name update.arch ;
       None
 
-(* In case that the RPM in an update has been installed (including live patch file),
- * but the live patch has not been applied.
+(* In case that the RPM in an update has been installed (including livepatch file),
+ * but the livepatch has not been applied.
  * In other words, this RPM update will not appear in parameter [updates] of
- * function [eval_guidances], but the live patch in it is still applicable.
+ * function [eval_guidances], but the livepatch in it is still applicable.
  *)
 let append_livepatch_guidances ~updates_info ~upd_ids_of_livepatches guidances =
   UpdateIdSet.fold
@@ -599,12 +619,24 @@ let append_livepatch_guidances ~updates_info ~upd_ids_of_livepatches guidances =
     )
     upd_ids_of_livepatches guidances
 
-let eval_guidances ~updates_info ~updates ~kind ~upd_ids_of_livepatches =
+let eval_guidances ~updates_info ~updates ~kind ~livepatches ~failed_livepatches
+    =
+  let extract_upd_ids lps =
+    List.fold_left
+      (fun acc (_, lps) ->
+        List.fold_left
+          (fun acc' (_, upd_info) -> UpdateIdSet.add upd_info.UpdateInfo.id acc')
+          acc lps
+      )
+      UpdateIdSet.empty lps
+  in
+  let upd_ids_of_livepatches = extract_upd_ids livepatches in
+  let upd_ids_of_failed_livepatches = extract_upd_ids failed_livepatches in
   List.fold_left
     (fun acc u ->
       match
         eval_guidance_for_one_update ~updates_info ~update:u ~kind
-          ~upd_ids_of_livepatches
+          ~upd_ids_of_livepatches ~upd_ids_of_failed_livepatches
       with
       | Some g ->
           GuidanceSet.add g acc
@@ -868,12 +900,11 @@ let get_list_from_updates_of_host key updates_of_host =
   | l ->
       Yojson.Basic.Util.to_list l
 
-let merge_livepatches ~updates_info ~updates =
+let retrieve_livepatches_from_updateinfo ~updates_info ~updates =
   let open LivePatch in
   get_list_from_updates_of_host "applied_livepatches" updates
   |> List.map Livepatch.of_json
-  |> List.fold_left
-       (fun (acc_upd_ids, acc_lps) applied_lp ->
+  |> List.filter_map (fun applied_lp ->
          let acc_livepatches =
            get_accumulative_livepatches ~since:applied_lp ~updates_info
          in
@@ -899,14 +930,22 @@ let merge_livepatches ~updates_info ~updates =
          in
          match latest_livepatch with
          | Some latest_lp ->
-             let upd_ids =
-               List.fold_left
-                 (fun acc (_, u) -> UpdateIdSet.add u.UpdateInfo.id acc)
-                 UpdateIdSet.empty acc_livepatches
-             in
-             (UpdateIdSet.union upd_ids acc_upd_ids, latest_lp :: acc_lps)
+             Some (latest_lp, acc_livepatches)
          | None ->
-             (acc_upd_ids, acc_lps)
+             None
+     )
+
+let merge_livepatches ~livepatches =
+  let get_accumulative_upd_ids acc_lps =
+    List.fold_left
+      (fun acc (_, u) -> UpdateIdSet.add u.UpdateInfo.id acc)
+      UpdateIdSet.empty acc_lps
+  in
+  livepatches
+  |> List.fold_left
+       (fun (acc_upd_ids, acc_latest_lps) (latest_lp, acc_lps) ->
+         let upd_ids = get_accumulative_upd_ids acc_lps in
+         (UpdateIdSet.union upd_ids acc_upd_ids, latest_lp :: acc_latest_lps)
        )
        (UpdateIdSet.empty, [])
 
@@ -942,34 +981,32 @@ let consolidate_updates_of_host ~repository_name ~updates_info host
    * introduced them. These accumulative updates will not be evaluated for guidance.
    * They are only to be returned in the update list.
    *)
-  let upd_ids_of_livepatches, livepatches =
-    merge_livepatches ~updates_info ~updates:updates_of_host
+  let livepatches =
+    retrieve_livepatches_from_updateinfo ~updates_info ~updates:updates_of_host
   in
   let rec_guidances =
-    eval_guidances ~updates_info ~updates ~kind:Recommended
-      ~upd_ids_of_livepatches
+    eval_guidances ~updates_info ~updates ~kind:Recommended ~livepatches
+      ~failed_livepatches:[]
   in
   let abs_guidances_in_json =
     let abs_guidances =
-      List.filter
-        (fun g -> not (List.mem g rec_guidances))
-        (eval_guidances ~updates_info ~updates ~kind:Absolute
-           ~upd_ids_of_livepatches:UpdateIdSet.empty
-        )
+      eval_guidances ~updates_info ~updates ~kind:Absolute ~livepatches:[]
+        ~failed_livepatches:[]
+      |> List.filter (fun g -> not (List.mem g rec_guidances))
     in
     List.map (fun g -> `String (Guidance.to_string g)) abs_guidances
   in
-  let upd_ids_of_livepatches', livepatches' =
+  let upd_ids_of_livepatches, lps =
     if List.mem Guidance.RebootHost rec_guidances then
       (* Any livepatches should not be applied if packages updates require RebootHost *)
       (UpdateIdSet.empty, [])
     else
-      (upd_ids_of_livepatches, livepatches)
+      merge_livepatches ~livepatches
   in
   let rec_guidances_in_json =
     List.map (fun g -> `String (Guidance.to_string g)) rec_guidances
   in
-  let upd_ids = UpdateIdSet.union ids_of_updates upd_ids_of_livepatches' in
+  let upd_ids = UpdateIdSet.union ids_of_updates upd_ids_of_livepatches in
   let json_of_host =
     `Assoc
       [
@@ -984,7 +1021,7 @@ let consolidate_updates_of_host ~repository_name ~updates_info host
                (UpdateIdSet.elements upd_ids)
             )
         )
-      ; ("livepatches", `List (List.map LivePatch.to_json livepatches'))
+      ; ("livepatches", `List (List.map LivePatch.to_json lps))
       ]
   in
   (json_of_host, upd_ids)

@@ -13,7 +13,8 @@
  *)
 
 open Db_cache_types
-open Xapi_stdext_threads.Threadext
+
+let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
 module D = Debug.Make (struct let name = "xapi_dr" end)
 
@@ -108,7 +109,7 @@ let read_database_generation ~db_ref =
 (* If this is successful, add its generation count to the cache. *)
 (* Finally, update metadata_latest on all metadata VDIs. *)
 let add_vdis_to_cache ~__context ~vdis =
-  Mutex.execute db_vdi_cache_mutex (fun () ->
+  with_lock db_vdi_cache_mutex (fun () ->
       List.iter
         (fun vdi ->
           let vdi_uuid = Db.VDI.get_uuid ~__context ~self:vdi in
@@ -136,7 +137,7 @@ let add_vdis_to_cache ~__context ~vdis =
 
 (* Remove all the supplied VDIs from the cache, then update metadata_latest on the remaining VDIs. *)
 let remove_vdis_from_cache ~__context ~vdis =
-  Mutex.execute db_vdi_cache_mutex (fun () ->
+  with_lock db_vdi_cache_mutex (fun () ->
       List.iter
         (fun vdi ->
           debug "Removing VDI %s from metadata VDI cache."
@@ -148,7 +149,7 @@ let remove_vdis_from_cache ~__context ~vdis =
   )
 
 let read_vdi_cache_record ~vdi =
-  Mutex.execute db_vdi_cache_mutex (fun () ->
+  with_lock db_vdi_cache_mutex (fun () ->
       if Hashtbl.mem db_vdi_cache vdi then
         Some (Hashtbl.find db_vdi_cache vdi)
       else
@@ -208,7 +209,7 @@ let processing_srs_c = Condition.create ()
 let signal_sr_is_processing ~__context ~sr =
   debug "Recording that processing of SR %s has started."
     (Db.SR.get_uuid ~__context ~self:sr) ;
-  Mutex.execute processing_srs_m (fun () ->
+  with_lock processing_srs_m (fun () ->
       let srs = !processing_srs in
       if not (List.mem sr srs) then
         processing_srs := sr :: srs
@@ -217,7 +218,7 @@ let signal_sr_is_processing ~__context ~sr =
 let signal_sr_is_ready ~__context ~sr =
   debug "Recording that processing of SR %s has finished."
     (Db.SR.get_uuid ~__context ~self:sr) ;
-  Mutex.execute processing_srs_m (fun () ->
+  with_lock processing_srs_m (fun () ->
       let srs = !processing_srs in
       if List.mem sr srs then (
         processing_srs := List.filter (fun x -> x <> sr) srs ;
@@ -227,7 +228,7 @@ let signal_sr_is_ready ~__context ~sr =
 
 let wait_until_sr_is_ready ~__context ~sr =
   let sr_uuid = Db.SR.get_uuid ~__context ~self:sr in
-  Mutex.execute processing_srs_m (fun () ->
+  with_lock processing_srs_m (fun () ->
       debug "Waiting for SR %s to be processed." sr_uuid ;
       while List.mem sr !processing_srs do
         Condition.wait processing_srs_c processing_srs_m

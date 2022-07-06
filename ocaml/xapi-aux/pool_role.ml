@@ -15,7 +15,6 @@
  * @group Pool Management
 *)
 
-module Mutex = Xapi_stdext_threads.Threadext.Mutex
 module Unixext = Xapi_stdext_unix.Unixext
 
 module D = Debug.Make (struct let name = "pool_role" end)
@@ -35,7 +34,7 @@ let role_unit_tests = ref false
 
 let role_m = Mutex.create ()
 
-let with_pool_role_lock f = Mutex.execute role_m f
+let with_pool_role_lock f = Xapi_stdext_threads.Threadext.Mutex.execute role_m f
 
 let set_pool_role_for_test () =
   with_pool_role_lock (fun _ ->

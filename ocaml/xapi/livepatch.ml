@@ -82,7 +82,7 @@ let get_latest_livepatch lps =
 module BuildId = struct
   let one_byte =
     let open Angstrom in
-    any_uint8 >>= fun c -> return (Printf.sprintf "%0x" c)
+    any_uint8 >>= fun c -> return (Printf.sprintf "%02x" c)
 
   let all_bytes = Angstrom.many one_byte
 end
@@ -91,14 +91,14 @@ module KernelLivePatch = struct
   let get_running_livepatch' s =
     let r =
       (* This expects the kernel livepatch module name should be built as:
-       * livepatch_<base_version>__<base_release>__<to_version>__<to_releaes>
+       * lp_<base_version>__<base_release>__<to_version>__<to_releaes>
        * The "." in <base_version>, <base_release>, <to_version>, and <to_releaes>
        * should be replaced with "_".
        * For example:
-       * livepatch_4_19_19__8_0_20__4_19_19__8_0_22
+       * lp_4_19_19__8_0_20__4_19_19__8_0_22
        *)
       Re.Posix.compile_pat
-        {|^[ ]*livepatch_([^ \[]+)__([^ \[]+)__([^ \[]+)__([^ \[]+).*$|}
+        {|^[ ]*lp_([^ \[]+)__([^ \[]+)__([^ \[]+)__([^ \[]+).*$|}
     in
     Astring.String.cuts ~sep:"\n" s
     |> List.fold_left
@@ -180,25 +180,27 @@ module KernelLivePatch = struct
     | Error msg ->
         warn "Can't get kernel build id: %s" msg ;
         None
+
+  let apply ~livepatch_file =
+    Helpers.call_script !Xapi_globs.kpatch_cmd ["load"; livepatch_file]
+    |> ignore
 end
 
 module XenLivePatch = struct
   let get_running_livepatch' s =
-    let r = Re.Posix.compile_pat {|^[ ]*lp_([^_ ]+)_([^_ ]+).+APPLIED.*$|} in
+    let r =
+      Re.Posix.compile_pat
+        {|^[ ]*lp_([^- ]+)-([^- ]+)-([^- ]+)-([^- ]+).+APPLIED.*$|}
+    in
     Astring.String.cuts ~sep:"\n" s
     |> List.filter_map (fun line ->
            match Re.exec_opt r line with
-           | Some groups -> (
-               let base_vr = Re.Group.get groups 1 in
-               let to_vr = Re.Group.get groups 2 in
-               match
-                 Astring.String.(cuts ~sep:"-" base_vr, cuts ~sep:"-" to_vr)
-               with
-               | [b_v; b_r], [t_v; t_r] ->
-                   Some (b_v, b_r, t_v, t_r)
-               | _ ->
-                   None
-             )
+           | Some groups ->
+               let base_version = Re.Group.get groups 1 in
+               let base_release = Re.Group.get groups 2 in
+               let to_version = Re.Group.get groups 3 in
+               let to_release = Re.Group.get groups 4 in
+               Some (base_version, base_release, to_version, to_release)
            | None ->
                None
        )
@@ -222,6 +224,26 @@ module XenLivePatch = struct
     | _ ->
         warn "Can't get Xen build id" ;
         None
+
+  let apply ~livepatch_file ~base_version ~base_release ~to_version ~to_release
+      =
+    let name =
+      (* Example lp_4.13.4-10.20.xs8-4.13.4-10.21.xs8 *)
+      Printf.sprintf "lp_%s-%s-%s-%s" base_version base_release to_version
+        to_release
+    in
+    (* try to unload anyway *)
+    ( try
+        ignore
+          (Helpers.call_script !Xapi_globs.xen_livepatch_cmd ["unload"; name])
+      with _ -> ()
+    ) ;
+    Helpers.call_script
+      !Xapi_globs.xen_livepatch_cmd
+      ["upload"; name; livepatch_file]
+    |> ignore ;
+    Helpers.call_script !Xapi_globs.xen_livepatch_cmd ["replace"; name]
+    |> ignore
 end
 
 let get_applied_livepatch ~component ~base_build_id ~running_livepatch =
@@ -260,3 +282,61 @@ let get_applied_livepatches () =
       ~running_livepatch:(KernelLivePatch.get_running_livepatch ())
   ]
   |> List.filter_map (fun x -> x)
+
+let get_livepatch_file_path ~component ~base_build_id ~base_version
+    ~base_release ~to_version ~to_release =
+  let lp_dir =
+    Printf.sprintf "/usr/lib/%s-livepatch/%s"
+      (string_of_component component)
+      base_build_id
+  in
+  let suffix = match component with Xen -> "livepatch" | Kernel -> "ko" in
+  let installed_symlink = Filename.concat lp_dir ("livepatch." ^ suffix) in
+  match Unix.lstat installed_symlink with
+  | Unix.{st_kind= S_LNK; _} -> (
+      let installed_filename = Unix.readlink installed_symlink in
+      let replace s = Astring.String.(cuts ~sep:"." s |> concat ~sep:"_") in
+      let expected_filename =
+        Printf.sprintf "lp_%s__%s__%s__%s.%s" (replace base_version)
+          (replace base_release) (replace to_version) (replace to_release)
+          suffix
+      in
+      match installed_filename = expected_filename with
+      | true ->
+          Some (Filename.concat lp_dir expected_filename)
+      | false ->
+          error "The installed livepatch file is '%s' but expected '%s'"
+            installed_filename expected_filename ;
+          None
+    )
+  | _ | (exception _) ->
+      error "Invalid installed livepatch file" ;
+      None
+
+let apply ~component ~livepatch_file ~base_build_id ~base_version ~base_release
+    ~to_version ~to_release =
+  let assert_same_build_id ~expected ~real =
+    let component_str = string_of_component component in
+    match (expected, real) with
+    | expected_id, Some real_id when expected_id = real_id ->
+        ()
+    | _ ->
+        let msg =
+          Printf.sprintf
+            "The livepatch is against build ID %s, but the build ID of the \
+             running %s is %s"
+            expected component_str
+            (Option.value real ~default:"None")
+        in
+        raise Api_errors.(Server_error (internal_error, [msg]))
+  in
+  match component with
+  | Xen ->
+      let build_id = XenLivePatch.get_base_build_id () in
+      assert_same_build_id ~expected:base_build_id ~real:build_id ;
+      XenLivePatch.apply ~livepatch_file ~base_version ~base_release ~to_version
+        ~to_release
+  | Kernel ->
+      let build_id = KernelLivePatch.get_base_build_id () in
+      assert_same_build_id ~expected:base_build_id ~real:build_id ;
+      KernelLivePatch.apply ~livepatch_file

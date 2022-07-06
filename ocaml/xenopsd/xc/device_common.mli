@@ -149,7 +149,8 @@ val xenops_vgpu_path : Xenctrl.domid -> devid -> string
 val is_upstream_qemu : Xenctrl.domid -> bool
 
 val qmp_send_cmd :
-     ?send_fd:Unix.file_descr (* send this fd ahead of command *)
+     ?send_fd:Unix.file_descr (** send this fd ahead of command *)
+  -> ?may_fail:bool (** wether QMP returning an error is an expected response *)
   -> Xenctrl.domid
   -> Qmp.command
   -> Qmp.result

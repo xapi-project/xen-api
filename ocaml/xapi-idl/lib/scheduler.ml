@@ -12,11 +12,11 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Xapi_stdext_threads
-
 module D = Debug.Make (struct let name = "scheduler" end)
 
 open D
+
+let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
 module PipeDelay = struct
   (* Concrete type is the ends of a pipe *)
@@ -93,7 +93,7 @@ module Dump = struct
 
   let make s =
     let now = now () in
-    Threadext.Mutex.execute s.m (fun () ->
+    with_lock s.m (fun () ->
         HandleMap.fold
           (fun (time, _) i acc ->
             {time= mtime_sub time now; thing= i.name} :: acc
@@ -108,7 +108,7 @@ let mtime_add x t =
 
 let one_shot_f s dt (name : string) f =
   let time = mtime_add dt (now ()) in
-  Threadext.Mutex.execute s.m (fun () ->
+  with_lock s.m (fun () ->
       let id = s.next_id in
       s.next_id <- s.next_id + 1 ;
       let item = {id; name; fn= f} in
@@ -121,14 +121,12 @@ let one_shot_f s dt (name : string) f =
 let one_shot s (Delta x) name f = one_shot_f s (float x) name f
 
 let cancel s handle =
-  Threadext.Mutex.execute s.m (fun () ->
-      s.schedule <- HandleMap.remove handle s.schedule
-  )
+  with_lock s.m (fun () -> s.schedule <- HandleMap.remove handle s.schedule)
 
 let process_expired s =
   let t = now () in
   let expired =
-    Threadext.Mutex.execute s.m (fun () ->
+    with_lock s.m (fun () ->
         let expired, eq, unexpired = HandleMap.split (t, max_int) s.schedule in
         assert (eq = None) ;
         s.schedule <- unexpired ;
@@ -152,7 +150,7 @@ let rec main_loop s =
     ()
   done ;
   let sleep_until =
-    Threadext.Mutex.execute s.m (fun () ->
+    with_lock s.m (fun () ->
         try HandleMap.min_binding s.schedule |> fst |> fst
         with Not_found -> mtime_add 3600. (now ())
     )
@@ -193,7 +191,7 @@ module Delay = struct
   let make () = {c= Condition.create (); m= Mutex.create (); state= None}
 
   let wait t seconds =
-    Threadext.Mutex.execute t.m (fun () ->
+    with_lock t.m (fun () ->
         let handle =
           one_shot_f s seconds "Delay.wait" (fun () ->
               if t.state = None then
@@ -220,7 +218,7 @@ module Delay = struct
     )
 
   let signal t =
-    Threadext.Mutex.execute t.m (fun () ->
+    with_lock t.m (fun () ->
         t.state <- Some Signalled ;
         Condition.broadcast t.c
     )

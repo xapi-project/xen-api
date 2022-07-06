@@ -17,7 +17,8 @@ module Unixext = Xapi_stdext_unix.Unixext
 open Http
 open Helpers
 open Client
-open Xapi_stdext_threads.Threadext
+
+let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
 module D = Debug.Make (struct let name = "xapi_pool_update" end)
 
@@ -121,7 +122,7 @@ let assert_update_vbds_attached ~__context ~vdi =
       raise Api_errors.(Server_error (internal_error, [msg]))
 
 let with_dec_refcount ~__context ~uuid ~vdi f =
-  Mutex.execute updates_to_attach_count_tbl_mutex (fun () ->
+  with_lock updates_to_attach_count_tbl_mutex (fun () ->
       assert_update_vbds_attached ~__context ~vdi ;
       let count =
         try Hashtbl.find updates_to_attach_count_tbl uuid with _ -> 0
@@ -136,7 +137,7 @@ let with_dec_refcount ~__context ~uuid ~vdi f =
   )
 
 let with_inc_refcount ~__context ~uuid ~vdi f =
-  Mutex.execute updates_to_attach_count_tbl_mutex (fun () ->
+  with_lock updates_to_attach_count_tbl_mutex (fun () ->
       let count =
         try Hashtbl.find updates_to_attach_count_tbl uuid with _ -> 0
       in

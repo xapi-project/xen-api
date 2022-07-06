@@ -51,7 +51,7 @@ let common_options_t =
     let doc = "Search path for vhds." in
     Arg.(value & opt string "." & info ["path"] ~docs ~doc)
   in
-  Term.(pure Common.make $ debug $ verb $ unbuffered $ search_path)
+  Term.(const Common.make $ debug $ verb $ unbuffered $ search_path)
 
 let get_cmd =
   let doc = "query vhd metadata" in
@@ -70,8 +70,8 @@ let get_cmd =
     let doc = "Key to query" in
     Arg.(value & pos 1 (some string) None & info [] ~doc)
   in
-  ( Term.(ret (pure Impl.get $ common_options_t $ filename $ key))
-  , Term.info "get" ~sdocs:_common_options ~doc ~man
+  ( Term.(ret (const Impl.get $ common_options_t $ filename $ key))
+  , Cmd.info "get" ~sdocs:_common_options ~doc ~man
   )
 
 let filename =
@@ -90,8 +90,8 @@ let info_cmd =
     ]
     @ help
   in
-  ( Term.(ret (pure Impl.info $ common_options_t $ filename))
-  , Term.info "info" ~sdocs:_common_options ~doc ~man
+  ( Term.(ret (const Impl.info $ common_options_t $ filename))
+  , Cmd.info "info" ~sdocs:_common_options ~doc ~man
   )
 
 let contents_cmd =
@@ -106,8 +106,8 @@ let contents_cmd =
     ]
     @ help
   in
-  ( Term.(ret (pure Impl.contents $ common_options_t $ filename))
-  , Term.info "contents" ~sdocs:_common_options ~doc ~man
+  ( Term.(ret (const Impl.contents $ common_options_t $ filename))
+  , Cmd.info "contents" ~sdocs:_common_options ~doc ~man
   )
 
 let create_cmd =
@@ -133,8 +133,8 @@ let create_cmd =
     let doc = Printf.sprintf "Parent image" in
     Arg.(value & opt (some file) None & info ["parent"] ~doc)
   in
-  ( Term.(ret (pure Impl.create $ common_options_t $ filename $ size $ parent))
-  , Term.info "create" ~sdocs:_common_options ~doc ~man
+  ( Term.(ret (const Impl.create $ common_options_t $ filename $ size $ parent))
+  , Cmd.info "create" ~sdocs:_common_options ~doc ~man
   )
 
 let check_cmd =
@@ -152,8 +152,8 @@ let check_cmd =
     let doc = Printf.sprintf "Path to the vhd to be checked." in
     Arg.(value & pos 0 (some file) None & info [] ~doc)
   in
-  ( Term.(ret (pure Impl.check $ common_options_t $ filename))
-  , Term.info "check" ~sdocs:_common_options ~doc ~man
+  ( Term.(ret (const Impl.check $ common_options_t $ filename))
+  , Cmd.info "check" ~sdocs:_common_options ~doc ~man
   )
 
 let source =
@@ -237,7 +237,7 @@ let serve_cmd =
   in
   ( Term.(
       ret
-        (pure Impl.serve
+        (const Impl.serve
         $ common_options_t
         $ source
         $ source_fd
@@ -254,7 +254,7 @@ let serve_cmd =
         $ ignore_checksums
         )
     )
-  , Term.info "serve" ~sdocs:_common_options ~doc ~man
+  , Cmd.info "serve" ~sdocs:_common_options ~doc ~man
   )
 
 let stream_cmd =
@@ -350,7 +350,7 @@ let stream_cmd =
   in
   let stream_args_t =
     Term.(
-      pure StreamCommon.make
+      const StreamCommon.make
       $ source
       $ relative_to
       $ source_format
@@ -366,25 +366,23 @@ let stream_cmd =
       $ good_ciphersuites
     )
   in
-  ( Term.(ret (pure Impl.stream $ common_options_t $ stream_args_t))
-  , Term.info "stream" ~sdocs:_common_options ~doc ~man
-  )
-
-let default_cmd =
-  let doc = "manipulate virtual disks stored in vhd files" in
-  let man = help in
-  ( Term.(ret (pure (fun _ -> `Help (`Pager, None)) $ common_options_t))
-  , Term.info "vhd-tool" ~version:"1.0.0" ~sdocs:_common_options ~doc ~man
+  ( Term.(ret (const Impl.stream $ common_options_t $ stream_args_t))
+  , Cmd.info "stream" ~sdocs:_common_options ~doc ~man
   )
 
 let cmds =
   [
     info_cmd; contents_cmd; get_cmd; create_cmd; check_cmd; serve_cmd; stream_cmd
   ]
+  |> List.map (fun (t, i) -> Cmd.v i t)
 
-let _ =
-  match Term.eval_choice default_cmd cmds with
-  | `Error _ ->
-      exit 1
-  | _ ->
-      exit 0
+let () =
+  let default =
+    Term.(ret (const (fun _ -> `Help (`Pager, None)) $ common_options_t))
+  in
+  let doc = "manipulate virtual disks stored in vhd files" in
+  let info =
+    Cmd.info "vhd-tool" ~version:"1.0.0" ~sdocs:_common_options ~doc ~man:help
+  in
+  let cmd = Cmd.group ~default info cmds in
+  exit (Cmd.eval cmd)

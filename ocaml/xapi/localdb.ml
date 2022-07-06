@@ -14,8 +14,9 @@
 (* Store and retrieve some host-specific data as key-value pairs. This can
    be used in emergency mode since every slave has its own copy. *)
 
-open Xapi_stdext_threads.Threadext
-open Xapi_stdext_pervasives.Pervasiveext
+let finally = Xapi_stdext_pervasives.Pervasiveext.finally
+
+let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
 module D = Debug.Make (struct let name = "localdb" end)
 
@@ -63,7 +64,7 @@ exception Missing_key of string
 let m = Mutex.create ()
 
 let get (key : string) =
-  Mutex.execute m (fun () ->
+  with_lock m (fun () ->
       assert_loaded () ;
       try Hashtbl.find db key with Not_found -> raise (Missing_key key)
   )
@@ -86,14 +87,14 @@ let flush () =
   Xapi_stdext_unix.Unixext.write_string_to_file Xapi_globs.local_database s
 
 let put (key : string) (v : string) =
-  Mutex.execute m (fun () ->
+  with_lock m (fun () ->
       assert_loaded () ;
       if put_one key v then
         flush ()
   )
 
 let putv (all : (string * string) list) =
-  Mutex.execute m (fun () ->
+  with_lock m (fun () ->
       assert_loaded () ;
       let changes_made = List.map (fun (k, v) -> put_one k v) all in
       if
@@ -104,7 +105,7 @@ let putv (all : (string * string) list) =
   )
 
 let del (key : string) =
-  Mutex.execute m (fun () ->
+  with_lock m (fun () ->
       assert_loaded () ;
       Hashtbl.remove db key ;
       (* Does nothing if the key isn't there *)

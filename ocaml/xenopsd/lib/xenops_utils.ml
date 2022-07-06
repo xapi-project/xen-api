@@ -14,7 +14,8 @@
 
 open Xenops_interface
 module Unixext = Xapi_stdext_unix.Unixext
-module Mutex = Xapi_stdext_threads.Threadext.Mutex
+
+let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
 let rpc_of ty x = Rpcmarshal.marshal ty.Rpc.Types.ty x
 
@@ -272,10 +273,10 @@ module MemFS = struct
       )
       (List.rev (prefixes_of path))
 
-  let mkdir path = Mutex.execute m (fun () -> mkdir_locked path)
+  let mkdir path = with_lock m (fun () -> mkdir_locked path)
 
   let read path =
-    Mutex.execute m (fun () ->
+    with_lock m (fun () ->
         try
           match StringMap.find (filename path) !(dir_locked (dirname path)) with
           | Leaf x ->
@@ -286,7 +287,7 @@ module MemFS = struct
     )
 
   let write path x =
-    Mutex.execute m (fun () ->
+    with_lock m (fun () ->
         (* debug "DB.write %s <- %s" (String.concat "/" path) x; *)
         mkdir_locked (dirname path) ;
         let dir = dir_locked (dirname path) in
@@ -294,19 +295,19 @@ module MemFS = struct
     )
 
   let exists path =
-    Mutex.execute m (fun () ->
+    with_lock m (fun () ->
         try StringMap.mem (filename path) !(dir_locked (dirname path))
         with _ -> false
     )
 
   let readdir path =
-    Mutex.execute m (fun () ->
+    with_lock m (fun () ->
         try StringMap.fold (fun x _ acc -> x :: acc) !(dir_locked path) []
         with _ -> []
     )
 
   let rm path =
-    Mutex.execute m (fun () ->
+    with_lock m (fun () ->
         List.iter
           (fun p ->
             let dir = dir_locked (dirname p) in
@@ -326,7 +327,7 @@ module MemFS = struct
     )
 
   let rename path path' =
-    Mutex.execute m (fun () ->
+    with_lock m (fun () ->
         try
           let contents =
             match
@@ -433,7 +434,7 @@ functor
     let m = Mutex.create ()
 
     let add (k : I.key) (x : t) =
-      Mutex.execute m (fun () ->
+      with_lock m (fun () ->
           let path = k |> I.key |> of_key |> String.concat "/" in
           debug "TypedTable: Adding %s" path ;
           if exists k then (
@@ -444,7 +445,7 @@ functor
       )
 
     let remove (k : I.key) =
-      Mutex.execute m (fun () ->
+      with_lock m (fun () ->
           let path = k |> I.key |> of_key |> String.concat "/" in
           debug "TypedTable: Removing %s" path ;
           if not (exists k) then (
@@ -461,7 +462,7 @@ functor
        Note that `f` should never itself include an `add`, `remove` or another
        `update` or deadlock will occur! *)
     let update (k : I.key) (f : t option -> t option) : bool =
-      Mutex.execute m (fun () ->
+      with_lock m (fun () ->
           let x = read k in
           let y = f x in
           (* Only update the DB if the value has changed *)
@@ -476,7 +477,7 @@ functor
       )
 
     let rename (k : I.key) (k' : I.key) =
-      Mutex.execute m (fun () ->
+      with_lock m (fun () ->
           let path = get_path k |> String.concat "/" in
           let path' = get_path k' |> String.concat "/" in
           assert (path <> path') ;

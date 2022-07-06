@@ -20,12 +20,12 @@
      the connection should be kept-alive
 *)
 
-module Mutex = Xapi_stdext_threads.Threadext.Mutex
-
 module D = Debug.Make (struct let name = "stunnel_cache" end)
 
 open D
 open Safe_resources
+
+let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
 (* Disable debug-level logging but leave higher-priority enabled.  It would be
  * better to handle this sort of configuration in the Debug module itself.
@@ -166,13 +166,13 @@ let unlocked_gc () =
   times := times' ;
   stunnels := stunnels'
 
-let gc () = Mutex.execute m unlocked_gc
+let gc () = with_lock m unlocked_gc
 
 let counter = ref 0
 
 let add (x : Stunnel.t) =
   let now = Unix.gettimeofday () in
-  Mutex.execute m (fun () ->
+  with_lock m (fun () ->
       let idx = !counter in
       incr counter ;
       Hashtbl.add !times idx now ;
@@ -201,7 +201,7 @@ let add (x : Stunnel.t) =
 let with_remove host port verified f =
   let ep = {host; port; verified} in
   let get_id () =
-    Mutex.execute m (fun () ->
+    with_lock m (fun () ->
         unlocked_gc () ;
         let ids = Hashtbl.find !index ep in
         let table = List.map (fun id -> (id, Hashtbl.find !times id)) ids in
@@ -227,7 +227,7 @@ let with_remove host port verified f =
 
 (** Flush the cache - remove everything *)
 let flush () =
-  Mutex.execute m (fun () ->
+  with_lock m (fun () ->
       info "Flushing cache of all %d stunnels." (Tbl.length !stunnels) ;
       Tbl.iter !stunnels (fun _id st -> Stunnel.disconnect st) ;
       Tbl.reset !stunnels ;

@@ -68,7 +68,7 @@ module Config = struct
       let doc = "Directory containing state files" in
       Arg.(value & opt (some string) default.statedir & info ["statedir"] ~doc)
     in
-    Term.(pure make $ path $ pidfile $ configfile $ statedir)
+    Term.(const make $ path $ pidfile $ configfile $ statedir)
 end
 
 module Lwt_result = struct
@@ -361,8 +361,8 @@ let cmd =
          using simple HTTP requests."
     ]
   in
-  ( Term.(ret (pure main $ Config.term $ Traceext.term))
-  , Term.info "main" ~doc ~man
-  )
+  Cmd.v
+    (Cmd.info "main" ~doc ~man)
+    Term.(ret (const main $ Config.term $ Traceext.term))
 
-let _ = match Term.eval cmd with `Error _ -> exit 1 | _ -> exit 0
+let () = exit (Cmd.eval cmd)

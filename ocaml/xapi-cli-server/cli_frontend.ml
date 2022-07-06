@@ -1539,6 +1539,7 @@ let rec cmdtable_data : (string * cmd_spec) list =
           ; "remote-network"
           ; "force"
           ; "copy"
+          ; "compress"
           ; "vif:"
           ; "vdi:"
           ]

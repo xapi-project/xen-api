@@ -1,5 +1,3 @@
-open Xapi_stdext_threads.Threadext
-
 module DBCacheRemoteListener = struct
   open Db_rpc_common_v1
   open Db_exn
@@ -36,7 +34,8 @@ module DBCacheRemoteListener = struct
       		Note that, although the messages still contain the pool_secret for historical reasons,
       		access has already been applied by the RBAC code in Xapi_http.add_handler. *)
   let process_xmlrpc xml =
-    Mutex.execute ctr_mutex (fun () -> calls_processed := !calls_processed + 1) ;
+    let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute in
+    with_lock ctr_mutex (fun () -> calls_processed := !calls_processed + 1) ;
     let fn_name, args =
       match XMLRPC.From.array (fun x -> x) xml with
       | [fn_name; _; args] ->

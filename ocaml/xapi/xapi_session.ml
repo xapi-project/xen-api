@@ -20,7 +20,9 @@
 module D = Debug.Make (struct let name = "xapi_session" end)
 
 open D
-open Xapi_stdext_threads.Threadext
+
+let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
+
 module Date = Xapi_stdext_date.Date
 module Listext = Xapi_stdext_std.Listext
 open Client
@@ -147,7 +149,7 @@ end = struct
     let unknown_ctr = ref 0
 
     let record_unknown () =
-      Mutex.execute m (fun () ->
+      with_lock m (fun () ->
           let ctr = !unknown_ctr + 1 in
           unknown_ctr := ctr ;
           ctr
@@ -158,7 +160,7 @@ end = struct
     let table = Hashtbl.create 10
 
     let record_client k ~now =
-      Mutex.execute m (fun () ->
+      with_lock m (fun () ->
           match Hashtbl.find_opt table k with
           | None ->
               Hashtbl.add table k
@@ -176,7 +178,7 @@ end = struct
         Hashtbl.reset table ;
         unknown_ctr := 0
       in
-      Mutex.execute m (fun () ->
+      with_lock m (fun () ->
           let unknown_client_failed_attempts = !unknown_ctr in
           if Hashtbl.length table = 0 && unknown_client_failed_attempts = 0 then
             None
@@ -266,13 +268,13 @@ let wipe_params_after_fn params fn =
   with e -> wipe params ; raise e
 
 let do_external_auth uname pwd =
-  Mutex.execute serialize_auth (fun () ->
+  with_lock serialize_auth (fun () ->
       (Ext_auth.d ()).authenticate_username_password uname
         (Bytes.unsafe_to_string pwd)
   )
 
 let do_local_auth uname pwd =
-  Mutex.execute serialize_auth (fun () ->
+  with_lock serialize_auth (fun () ->
       try Pam.authenticate uname (Bytes.unsafe_to_string pwd)
       with Failure msg ->
         raise
@@ -282,7 +284,7 @@ let do_local_auth uname pwd =
   )
 
 let do_local_change_password uname newpwd =
-  Mutex.execute serialize_auth (fun () ->
+  with_lock serialize_auth (fun () ->
       Pam.change_password uname (Bytes.unsafe_to_string newpwd)
   )
 
@@ -1235,22 +1237,32 @@ let logout_subject_identifier ~__context ~subject_identifier =
   let all_sessions = Db.Session.get_all ~__context in
   let current_session = Context.get_session_id __context in
   (* we filter the sessions to be destroyed *)
+  (* 1. we never allow local_superuser sessions to be forcibly logged out *)
+  let is_not_local_superuser s =
+    not (Db.Session.get_is_local_superuser ~__context ~self:s)
+  in
+  (* 2. we remove the session associated with this function call from the list
+        of all sessions to be destroyed *)
+  let is_not_current_session s =
+    Db.Session.get_uuid ~__context ~self:s
+    <> Db.Session.get_uuid ~__context ~self:current_session
+  in
+  (* 3. we only consider those sessions associated with the specific subject_id
+        received as parameter *)
+  let is_associated_with_user_logging_out s =
+    (* TODO: better to look up the membership closure *)
+    (* 3.1. the sid of the authenticated user or
+       3.2. any sids of the group that authenticated the user *)
+    Db.Session.get_auth_user_sid ~__context ~self:s = subject_identifier
+    || get_group_subject_identifier_from_session ~__context ~session:s
+       = subject_identifier
+  in
   let sessions =
     List.filter
       (fun s ->
-        (* 1. we never allow local_superuser sessions to be forcibly logged out *)
-        (not (Db.Session.get_is_local_superuser ~__context ~self:s))
-        (* 2. we remove the session associated with this function call from the list of all sessions to be destroyed *)
-        && Db.Session.get_uuid ~__context ~self:s
-           <> Db.Session.get_uuid ~__context ~self:current_session
-        && (* 3. we only consider those sessions associated with the specific subject_id received as parameter *)
-        ((* 3.1. the sid of the authenticated user *)
-         Db.Session.get_auth_user_sid ~__context ~self:s = subject_identifier
-        || (* 3.2. any sids of the group that authenticated the user *)
-           (* TODO: better to look up the membership closure *)
-        get_group_subject_identifier_from_session ~__context ~session:s
-        = subject_identifier
-        )
+        is_not_local_superuser s
+        && is_not_current_session s
+        && is_associated_with_user_logging_out s
       )
       all_sessions
   in

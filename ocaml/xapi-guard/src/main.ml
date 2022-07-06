@@ -190,30 +190,28 @@ let main log_level =
   let () = Lwt_main.run @@ make_message_switch_server () in
   D.debug "Exiting varstored-guard"
 
+open! Cmdliner
+
 let cmd =
-  Cmdliner.(
-    let info = Term.info "varstored-guard" ~exits:Term.default_exits in
-    let log_level =
-      let doc = "Syslog level. E.g. debug, info etc." in
-      let level_conv =
-        let parse s =
-          try `Ok (Syslog.level_of_string s)
-          with _ -> `Error (Format.sprintf "Unknown level: %s" s)
-        in
-        let print ppf level =
-          Format.pp_print_string ppf (Syslog.string_of_level level)
-        in
-        (parse, print)
+  let info = Cmd.info "varstored-guard" in
+  let log_level =
+    let doc = "Syslog level. E.g. debug, info etc." in
+    let level_conv =
+      let parse s =
+        try `Ok (Syslog.level_of_string s)
+        with _ -> `Error (Format.sprintf "Unknown level: %s" s)
       in
-      Arg.(
-        value
-        & opt level_conv Syslog.Info
-        & info ["log-level"] ~docv:"LEVEL" ~doc
-      )
+      let print ppf level =
+        Format.pp_print_string ppf (Syslog.string_of_level level)
+      in
+      (parse, print)
     in
+    Arg.(
+      value & opt level_conv Syslog.Info & info ["log-level"] ~docv:"LEVEL" ~doc
+    )
+  in
 
-    let program = Term.(const main $ log_level) in
-    (program, info)
-  )
+  let program = Term.(const main $ log_level) in
+  Cmd.v info program
 
-let () = Cmdliner.Term.(exit @@ eval cmd)
+let () = exit (Cmdliner.Cmd.eval cmd)

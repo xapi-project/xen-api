@@ -13,7 +13,8 @@
  *)
 (* Allows xapi to drive the sparse_dd program *)
 
-open Xapi_stdext_threads.Threadext
+let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
+
 module Unixext = Xapi_stdext_unix.Unixext
 
 module D = Debug.Make (struct let name = "sparse_dd_wrapper" end)
@@ -61,11 +62,11 @@ module State = struct
     let pids = load () in
     save (List.filter (fun x -> x <> pid) pids)
 
-  let add pid = Mutex.execute m (fun () -> unsafe_add pid)
+  let add pid = with_lock m (fun () -> unsafe_add pid)
 
-  let remove pid = Mutex.execute m (fun () -> unsafe_remove pid)
+  let remove pid = with_lock m (fun () -> unsafe_remove pid)
 
-  let list () = Mutex.execute m load
+  let list () = with_lock m load
 end
 
 exception Cancelled
@@ -174,13 +175,13 @@ let start ?(progress_cb = fun _ -> ()) ?base prezeroed infile outfile size =
   let thread_progress_cb = function
     | Started pid' ->
         pid := Some pid' ;
-        Mutex.execute m (fun () -> Condition.broadcast c)
+        with_lock m (fun () -> Condition.broadcast c)
     | Continuing progress ->
         progress_cb progress
     | Finished exn' ->
         finished := true ;
         exn := exn' ;
-        Mutex.execute m (fun () -> Condition.broadcast c)
+        with_lock m (fun () -> Condition.broadcast c)
   in
   let _ =
     Thread.create
@@ -189,7 +190,7 @@ let start ?(progress_cb = fun _ -> ()) ?base prezeroed infile outfile size =
       )
       ()
   in
-  Mutex.execute m (fun () ->
+  with_lock m (fun () ->
       while !pid = None && !finished = false && !cancelled = false do
         Condition.wait c m
       done
@@ -203,7 +204,7 @@ let start ?(progress_cb = fun _ -> ()) ?base prezeroed infile outfile size =
       failwith "Unexpected error in start_dd"
 
 let wait t =
-  Mutex.execute t.m (fun () ->
+  with_lock t.m (fun () ->
       while !(t.finished) = false do
         Condition.wait t.c t.m
       done

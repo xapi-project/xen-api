@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Xapi_stdext_threads.Threadext
+let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
 (** A table of 'instance' locks with a single master lock *)
 type ('a, 'b) t = {
@@ -38,7 +38,7 @@ let with_instance_lock t key f =
       ("SM/" ^ Ref.really_pretty_and_small (Ref.of_string key))
   in
   Locking_helpers.Thread_state.waiting_for r ;
-  Mutex.execute t.m (fun () ->
+  with_lock t.m (fun () ->
       (* Wait for the lock to be free (ie the table entry to be removed and the master lock to be released *)
       while Hashtbl.mem t.t key || t.master_lock do
         Condition.wait t.c t.m
@@ -47,9 +47,7 @@ let with_instance_lock t key f =
   ) ;
   Locking_helpers.Thread_state.acquired r ;
   Xapi_stdext_pervasives.Pervasiveext.finally f (fun () ->
-      Mutex.execute t.m (fun () ->
-          Hashtbl.remove t.t key ; Condition.broadcast t.c
-      ) ;
+      with_lock t.m (fun () -> Hashtbl.remove t.t key ; Condition.broadcast t.c) ;
       Locking_helpers.Thread_state.released r
   )
 
@@ -57,7 +55,7 @@ let with_instance_lock t key f =
 let with_master_lock t f =
   let r = Locking_helpers.Lock "SM" in
   Locking_helpers.Thread_state.waiting_for r ;
-  Mutex.execute t.m (fun () ->
+  with_lock t.m (fun () ->
       (* Wait for the master_lock to be released *)
       while t.master_lock do
         Condition.wait t.c t.m
@@ -71,7 +69,7 @@ let with_master_lock t f =
   ) ;
   Locking_helpers.Thread_state.acquired r ;
   Xapi_stdext_pervasives.Pervasiveext.finally f (fun () ->
-      Mutex.execute t.m (fun () ->
+      with_lock t.m (fun () ->
           t.master_lock <- false ;
           Condition.broadcast t.c
       ) ;

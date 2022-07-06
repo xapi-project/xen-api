@@ -31,6 +31,7 @@
 open Printf
 open Datamodel
 open Datamodel_types
+open CommonFunctions
 module DU = Datamodel_utils
 
 let rec pascal_case_ s =
@@ -57,10 +58,8 @@ let rec pascal_case_ s =
 and pascal_case s =
   let str = pascal_case_ s in
   if
-    String.length str > 3
-    && (String.lowercase_ascii (String.sub str 0 3) = "set"
-       || String.lowercase_ascii (String.sub str 0 3) = "get"
-       )
+    String.starts_with ~prefix:"set" (String.lowercase_ascii str)
+    || String.starts_with ~prefix:"get" (String.lowercase_ascii str)
   then
     String.sub str 3 (String.length str - 3)
   else
@@ -203,27 +202,6 @@ and is_invoke message =
   && (not (is_remover message))
   && (not (is_constructor message))
   && not (is_destructor message)
-
-and is_setter message =
-  String.length message.msg_name >= 3 && String.sub message.msg_name 0 3 = "set"
-
-and is_getter message =
-  String.length message.msg_name >= 3 && String.sub message.msg_name 0 3 = "get"
-
-and is_adder message =
-  String.length message.msg_name >= 3 && String.sub message.msg_name 0 3 = "add"
-
-and is_remover message =
-  String.length message.msg_name >= 6
-  && String.sub message.msg_name 0 6 = "remove"
-
-and is_constructor message =
-  message.msg_tag = FromObject Make || message.msg_name = "create"
-
-and is_real_constructor message = message.msg_tag = FromObject Make
-
-and is_destructor message =
-  message.msg_tag = FromObject Delete || message.msg_name = "destroy"
 
 (* Some adders/removers are just prefixed by Add or RemoveFrom
    and some are prefixed by AddTo or RemoveFrom *)

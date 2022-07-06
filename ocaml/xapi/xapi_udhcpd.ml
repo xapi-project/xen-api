@@ -16,7 +16,9 @@ module D = Debug.Make (struct let name = "xapi_udhcpd" end)
 
 open D
 open Forkhelpers
-open Xapi_stdext_threads.Threadext
+
+let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
+
 module Unixext = Xapi_stdext_unix.Unixext
 
 let ip_begin_key = "ip_begin"
@@ -283,19 +285,15 @@ let mutex = Mutex.create ()
 let maybe_add_lease ~__context vif =
   Helpers.log_exn_continue
     (Printf.sprintf "maybe_add_lease VIF:%s" (Ref.string_of vif))
-    (fun () ->
-      Mutex.execute mutex (fun () -> maybe_add_lease_nolock ~__context vif)
-    )
+    (fun () -> with_lock mutex (fun () -> maybe_add_lease_nolock ~__context vif))
     ()
 
 let get_ip ~__context vif =
   let vif = Ref.string_of vif in
-  Mutex.execute mutex (fun () ->
-      Option.map (fun l -> l.ip) (find_lease_nolock vif)
-  )
+  with_lock mutex (fun () -> Option.map (fun l -> l.ip) (find_lease_nolock vif))
 
 let init () =
-  Mutex.execute mutex (fun () ->
+  with_lock mutex (fun () ->
       try load_db_nolock ()
       with e ->
         info

@@ -22,6 +22,8 @@ open Xapi_stdext_std.Xstringext
 
 let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
+let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
+
 let lwsmd_service = "lwsmd"
 
 module Lwsmd = struct
@@ -435,7 +437,7 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
           !cache_of_pbis_common @ [(cache_key, (Unix.time (), result))] ;
         result
     in
-    Xapi_stdext_threads.Threadext.Mutex.execute cache_of_pbis_common_m f
+    with_lock cache_of_pbis_common_m f
 
   let get_joined_domain_name () =
     Server_helpers.exec_with_new_task "obtaining joined-domain name"
@@ -984,9 +986,7 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
               debug "added external_auth_configuration for host %s"
                 (Db.Host.get_name_label ~__context ~self:host)
           ) ;
-          Xapi_stdext_threads.Threadext.Mutex.execute cache_of_pbis_common_m
-            (fun _ -> cache_of_pbis_common := []
-          ) ;
+          with_lock cache_of_pbis_common_m (fun _ -> cache_of_pbis_common := []) ;
           ensure_pbis_configured ()
         with e ->
           (*ERROR, we didn't join the AD domain*)

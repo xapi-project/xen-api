@@ -11,11 +11,12 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-module Mutex = Xapi_stdext_threads.Threadext.Mutex
 module Xstringext = Xapi_stdext_std.Xstringext
 module Listext = Xapi_stdext_std.Listext
 open Client
 open Event_types
+
+let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
 let print_debug = ref false
 
@@ -23,7 +24,7 @@ let delay = ref 120.
 
 let lock = Mutex.create ()
 
-let with_global_lock (f : unit -> unit) = Mutex.execute lock f
+let with_global_lock (f : unit -> unit) = with_lock lock f
 
 let time_of_float x =
   let time = Unix.gmtime x in
@@ -35,7 +36,7 @@ let stdout_m = Mutex.create ()
 
 let debug (fmt : ('a, unit, string, unit) format4) =
   if !print_debug then
-    Mutex.execute stdout_m (fun () ->
+    with_lock stdout_m (fun () ->
         Printf.kprintf
           (fun s ->
             Printf.printf "%s [%d] %s\n"
