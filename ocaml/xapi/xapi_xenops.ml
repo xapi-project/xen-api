@@ -4376,20 +4376,3 @@ let vusb_unplug ~__context ~self =
             ]
           )
       )
-
-let fast_resume ~__context ~self =
-  let queue_name = queue_of_vm ~__context ~self in
-  transform_xenops_exn ~__context ~vm:self queue_name (fun () ->
-      let id = id_of_vm ~__context ~self in
-      let dbg = Context.string_of_task __context in
-      info "xenops: VM.fast_resume %s" id ;
-      let module Client = (val make_client queue_name : XENOPS) in
-      let () =
-        finally
-          (fun () ->
-            Client.VM.fast_resume dbg id |> sync_with_task __context queue_name
-          )
-          (fun () -> Events_from_xenopsd.wait queue_name dbg id ())
-      in
-      check_power_state_is ~__context ~self ~expected:`Running
-  )

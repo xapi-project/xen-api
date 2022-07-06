@@ -815,10 +815,6 @@ module XenopsAPI (R : RPC) = struct
         @-> Param.mk ~name:"metadata" Types.string
         @-> returning task_id_p err
         )
-
-    let fast_resume =
-      declare "VM.fast_resume" []
-        (debug_info_p @-> vm_id_p @-> returning task_id_p err)
   end
 
   module PCI = struct

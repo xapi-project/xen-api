@@ -323,5 +323,3 @@ val set_xsdata : xs:Xenstore.Xs.xsh -> domid -> (string * string) list -> unit
 val move_xstree : xs:Xenstore.Xs.xsh -> domid -> string -> string -> unit
 
 val numa_init : unit -> unit
-
-val fast_resume : xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> domid -> unit
