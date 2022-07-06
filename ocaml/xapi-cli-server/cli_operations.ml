@@ -4431,11 +4431,19 @@ let vm_migrate printer rpc session_id params =
       )
       params
   in
+  let compress =
+    (* Avoid setting a default for the compress option here if none
+       given; let the API decide if no option is given. Otherwise API and
+       CLI could implement different defaults *)
+    let key = "compress" in
+    match List.assoc_opt key params with Some v -> [(key, v)] | None -> []
+  in
   let options =
     Listext.map_assoc_with_key
       (comp2 string_of_bool bool_of_string)
       (Listext.restrict_with_default "false" ["force"; "live"; "copy"] params)
   in
+  let options = List.concat [compress; options] in
   (* We assume the user wants to do Storage XenMotion if they supply any of the
      SXM-specific parameters, and then we use the new codepath. *)
   let use_sxm_migration =
@@ -4660,6 +4668,7 @@ let vm_migrate printer rpc session_id params =
                   :: "live"
                   :: "force"
                   :: "copy"
+                  :: "compress"
                   :: vm_migrate_sxm_params
                   )
               in
@@ -4773,7 +4782,7 @@ let vm_migrate printer rpc session_id params =
              ~options
          )
          params
-         ["host"; "host-uuid"; "host-name"; "live"]
+         ["host"; "host-uuid"; "host-name"; "live"; "compress"]
       )
   )
 

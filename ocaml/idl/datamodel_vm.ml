@@ -988,7 +988,12 @@ let pool_migrate =
       [
         (Ref _vm, "vm", "The VM to migrate")
       ; (Ref _host, "host", "The target host")
-      ; (Map (String, String), "options", "Extra configuration operations")
+      ; ( Map (String, String)
+        , "options"
+        , "Extra configuration operations: force, live, copy, compress. Each \
+           is a boolean option, taking 'true' or 'false' as a value. Option \
+           'compress' controls the use of stream compression during migration."
+        )
       ]
     ~errs:
       [

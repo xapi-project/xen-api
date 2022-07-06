@@ -64,6 +64,35 @@ let get_ip_from_url url =
   | _, _ ->
       failwith (Printf.sprintf "Cannot extract foreign IP address from: %s" url)
 
+let get_bool_option key values =
+  match List.assoc_opt key values with
+  | Some word -> (
+    match String.lowercase_ascii word with
+    | "true" | "on" | "1" ->
+        Some true
+    | "false" | "off" | "0" ->
+        Some false
+    | _ ->
+        None
+  )
+  | None ->
+      None
+
+(** Decide whether to use stream compression during migration based on
+options passed to the API, localhost, and destination *)
+let use_compression options src dst =
+  debug "%s: options=%s" __FUNCTION__
+    (String.concat ", "
+       (List.map (fun (k, v) -> Printf.sprintf "%s:%s" k v) options)
+    ) ;
+  match (get_bool_option "compress" options, src = dst) with
+  | Some b, _ ->
+      b (* honour any option given *)
+  | None, true ->
+      false (* don't use for local migration *)
+  | None, _ ->
+      !Xapi_globs.migration_compression
+
 let remote_of_dest ~__context dest =
   let master_url = List.assoc _master dest in
   let xenops_url = List.assoc _xenops dest in
@@ -203,7 +232,7 @@ let assert_licensed_storage_motion ~__context =
   Pool_features.assert_enabled ~__context ~f:Features.Storage_motion
 
 let rec migrate_with_retries ~__context queue_name max try_no dbg vm_uuid
-    xenops_vdi_map xenops_vif_map xenops_vgpu_map xenops =
+    xenops_vdi_map xenops_vif_map xenops_vgpu_map xenops compress =
   let open Xapi_xenops_queue in
   let module Client = (val make_client queue_name : XENOPS) in
   let progress = ref "(none yet)" in
@@ -211,7 +240,7 @@ let rec migrate_with_retries ~__context queue_name max try_no dbg vm_uuid
     progress := "Client.VM.migrate" ;
     let t1 =
       Client.VM.migrate dbg vm_uuid xenops_vdi_map xenops_vif_map
-        xenops_vgpu_map xenops
+        xenops_vgpu_map xenops compress
     in
     progress := "sync_with_task" ;
     ignore (Xapi_xenops.sync_with_task __context queue_name t1)
@@ -237,7 +266,7 @@ let rec migrate_with_retries ~__context queue_name max try_no dbg vm_uuid
           "xenops: will retry migration: caught %s from %s in attempt %d of %d."
           (Printexc.to_string e) !progress try_no max ;
         migrate_with_retries ~__context queue_name max (try_no + 1) dbg vm_uuid
-          xenops_vdi_map xenops_vif_map xenops_vgpu_map xenops
+          xenops_vdi_map xenops_vif_map xenops_vgpu_map xenops compress
     (* Something else went wrong *)
     | e ->
         debug
@@ -344,6 +373,10 @@ let pool_migrate ~__context ~vm ~host ~options =
         .assert_valid_ip_configuration_on_network_for_host ~__context
           ~self:network ~host
   in
+  let compress =
+    use_compression options (Helpers.get_localhost ~__context) host
+  in
+  debug "%s using stream compression=%b" __FUNCTION__ compress ;
   let ip = Http.Url.maybe_wrap_IPv6_literal address in
   let xenops_url =
     Printf.sprintf "http://%s/services/xenops?session_id=%s" ip session_id
@@ -370,7 +403,7 @@ let pool_migrate ~__context ~vm ~host ~options =
             Xapi_xenops.transform_xenops_exn ~__context ~vm queue_name
               (fun () ->
                 migrate_with_retry ~__context queue_name dbg vm_uuid [] []
-                  xenops_vgpu_map xenops_url ;
+                  xenops_vgpu_map xenops_url compress ;
                 (* Delete all record of this VM locally (including caches) *)
                 Xapi_xenops.Xenopsd_metadata.delete ~__context vm_uuid
             )
@@ -1104,6 +1137,8 @@ let migrate_send' ~__context ~vm ~dest ~live:_ ~vdi_map ~vif_map ~vgpu_map
   (* Copy mode means we don't destroy the VM on the source host. We also don't
      	   copy over the RRDs/messages *)
   let copy = try bool_of_string (List.assoc "copy" options) with _ -> false in
+  let compress = use_compression options localhost remote.dest_host in
+  debug "%s using stream compression=%b" __FUNCTION__ compress ;
 
   (* The first thing to do is to create mirrors of all the disks on the remote.
      We look through the VM's VBDs and all of those of the snapshots. We then
@@ -1460,7 +1495,8 @@ let migrate_send' ~__context ~vm ~dest ~live:_ ~vdi_map ~vif_map ~vgpu_map
                 infer_vgpu_map ~__context ~remote new_vm
               in
               migrate_with_retry ~__context queue_name dbg vm_uuid
-                xenops_vdi_map xenops_vif_map xenops_vgpu_map remote.xenops_url ;
+                xenops_vdi_map xenops_vif_map xenops_vgpu_map remote.xenops_url
+                compress ;
               Xapi_xenops.Xenopsd_metadata.delete ~__context vm_uuid
           )
         with
