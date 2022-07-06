@@ -2688,6 +2688,7 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
                 debug
                   "VM.receive_memory: using new handshake protocol for VM %s" id ;
                 Handshake.recv_success s ;
+                debug "VM.receive_memory: Synchronisation point 1-mem ACK" ;
                 with_lock mem_receiver_sync_m @@ fun () ->
                 match Hashtbl.find_opt mem_receiver_sync id with
                 | Some fd ->
