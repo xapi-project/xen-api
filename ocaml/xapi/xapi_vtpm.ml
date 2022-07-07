@@ -20,26 +20,17 @@ let assert_no_vtpm_associated ~__context vm =
       let amount = List.length vtpms |> Int.to_string in
       raise Api_errors.(Server_error (vtpm_max_amount_reached, [amount]))
 
-let introduce ~__context ~uuid ~vM ~backend ~persistence_backend ~profile
-    ~contents =
-  let ref = Ref.make () in
-  Db.VTPM.create ~__context ~ref ~uuid ~vM ~backend ~persistence_backend
-    ~profile ~contents ;
-  ref
-
-let create ~__context ~vM =
+let create ~__context ~vM ~is_unique =
   assert_no_vtpm_associated ~__context vM ;
   Xapi_vm_lifecycle.assert_initial_power_state_is ~__context ~self:vM
     ~expected:`Halted ;
-  let profile = Db.VM.get_default_vtpm_profile ~__context ~self:vM in
+  let ref = Ref.make () in
   let uuid = Uuid.(to_string (make ())) in
   let backend = Ref.null in
   let persistence_backend = `xapi in
   let contents = Xapi_secret.create ~__context ~value:"" ~other_config:[] in
-  let ref =
-    introduce ~__context ~uuid ~vM ~backend ~persistence_backend ~profile
-      ~contents
-  in
+  Db.VTPM.create ~__context ~ref ~uuid ~vM ~backend ~persistence_backend
+    ~is_unique ~is_protected:false ~contents ;
   ref
 
 let destroy ~__context ~self =

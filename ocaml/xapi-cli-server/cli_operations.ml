@@ -2744,7 +2744,7 @@ let vm_create printer rpc session_id params =
       ~suspend_VDI:Ref.null ~version:0L ~generation_id:""
       ~hardware_platform_version:0L ~has_vendor_device:false ~reference_label:""
       ~domain_type:`unspecified ~nVRAM:[] ~last_booted_record:""
-      ~last_boot_CPU_flags:[] ~default_vtpm_profile:[] ~power_state:`Halted
+      ~last_boot_CPU_flags:[] ~power_state:`Halted
   in
   let uuid = Client.VM.get_uuid ~rpc ~session_id ~self:vm in
   printer (Cli_printer.PList [uuid])
@@ -7845,7 +7845,14 @@ module VTPM = struct
   let create printer rpc session_id params =
     let vm_uuid = List.assoc "vm-uuid" params in
     let vM = Client.VM.get_by_uuid ~rpc ~session_id ~uuid:vm_uuid in
-    let ref = Client.VTPM.create ~rpc ~session_id ~vM in
+    let is_unique =
+      match List.assoc_opt "is_unique" params with
+      | Some value ->
+          bool_of_string "is_unique" value
+      | None ->
+          false
+    in
+    let ref = Client.VTPM.create ~rpc ~session_id ~vM ~is_unique in
     let uuid = Client.VTPM.get_uuid ~rpc ~session_id ~self:ref in
     printer (Cli_printer.PList [uuid])
 

@@ -2118,11 +2118,6 @@ let t =
             ~ty:(Set update_guidances) "pending_guidances"
             ~default_value:(Some (VSet []))
             "The set of pending guidances after applying updates"
-        ; field ~qualifier:StaticRO ~in_product_since:rel_next
-            ~ty:(Map (String, String))
-            ~default_value:(Some (VMap [])) "default_vtpm_profile"
-            "The security properties that will be used by default when \
-             creating a TPMs attached to the VM / template"
         ]
       )
     ()

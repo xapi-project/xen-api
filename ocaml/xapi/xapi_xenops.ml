@@ -389,31 +389,22 @@ let builder_of_vm ~__context (vmref, vm) timeoffset pci_passthrough vgpu =
 
     let tpm_of_vm () =
       let ( let* ) = Option.bind in
-      let* uuid =
+      let* vtpm =
         match vm.API.vM_VTPMs with
         | [] ->
             (* The vtpm parameter in platform data only has influence when the
                VM does not have a VTPM associated, otherwise the associated
                VTPM gets always attached. *)
-            if bool vm.API.vM_platform false "vtpm" then (
-              let ref () = Ref.make () in
-              let uuid () = Uuid.(to_string (make ())) in
-              let profile = [] in
-              let other_config = [] in
-              let contents = ref () in
-              Db.Secret.create ~__context ~ref:contents ~uuid:(uuid ())
-                ~value:"" ~other_config ;
-              let vtpm_uuid = uuid () in
-              Db.VTPM.create ~__context ~ref:(ref ()) ~uuid:vtpm_uuid ~vM:vmref
-                ~profile ~backend:Ref.null ~persistence_backend:`xapi ~contents ;
-              Some vtpm_uuid
-            ) else
+            if bool vm.API.vM_platform false "vtpm" then
+              Some (Xapi_vtpm.create ~__context ~vM:vmref ~is_unique:false)
+            else
               None
-        | [self] ->
-            Some (Db.VTPM.get_uuid ~__context ~self)
+        | [vtpm] ->
+            Some vtpm
         | _ :: _ :: _ ->
             failwith "Multiple vTPMs are not supported"
       in
+      let uuid = Db.VTPM.get_uuid ~__context ~self:vtpm in
       Some (Xenops_interface.Vm.Vtpm (Uuidm.of_string uuid |> Option.get))
     in
 

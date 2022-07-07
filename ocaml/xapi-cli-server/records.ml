@@ -2522,11 +2522,6 @@ let vm_record rpc session_id vm =
       ; make_field ~name:"vtpm"
           ~get:(fun () -> get_uuids_from_refs (x ()).API.vM_VTPMs)
           ()
-      ; make_field ~name:"default_vtpm_profile"
-          ~get:(fun () ->
-            Record_util.s2sm_to_string "; " (x ()).API.vM_default_vtpm_profile
-          )
-          ()
       ]
   }
 
@@ -5181,10 +5176,11 @@ let vtpm_record rpc session_id vtpm =
       ; make_field ~name:"vm"
           ~get:(fun () -> get_uuid_from_ref (x ()).API.vTPM_VM)
           ()
-      ; make_field ~name:"profile"
-          ~get:(fun () ->
-            Record_util.s2sm_to_string "; " (x ()).API.vTPM_profile
-          )
+      ; make_field ~name:"unique"
+          ~get:(fun () -> string_of_bool (x ()).API.vTPM_is_unique)
+          ()
+      ; make_field ~name:"protected"
+          ~get:(fun () -> string_of_bool (x ()).API.vTPM_is_protected)
           ()
       ]
   }
