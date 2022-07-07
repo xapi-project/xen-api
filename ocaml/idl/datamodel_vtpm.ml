@@ -67,7 +67,7 @@ let t =
       ; (Extended, rel_next, "Added Persistence backed")
       ]
     ~gen_constructor_destructor:false ~name:_vtpm ~descr:"A virtual TPM device"
-    ~gen_events:false ~doccomments:[]
+    ~gen_events:true ~doccomments:[]
     ~messages_default_allowed_roles:_R_POOL_ADMIN
     ~contents:
       [
