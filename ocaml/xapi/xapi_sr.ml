@@ -61,7 +61,7 @@ let scan_finished sr =
       Condition.broadcast scans_in_progress_c
   )
 
-module Size = struct let n = !Xapi_globs.max_active_sr_scans end
+module Size = struct let n () = !Xapi_globs.max_active_sr_scans end
 
 module AutoScanThrottle = Throttle.Make (Size)
 module SRScanThrottle = Throttle.Make (Size)

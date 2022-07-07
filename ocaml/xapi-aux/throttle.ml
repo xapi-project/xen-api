@@ -13,7 +13,7 @@
  *)
 
 module type SIZE = sig
-  val n : int
+  val n : unit -> int
 end
 
 module Make (Size : SIZE) = struct
@@ -29,7 +29,7 @@ module Make (Size : SIZE) = struct
     with_lock m @@ fun () ->
     match !semaphore with
     | None ->
-        let result = Semaphore.create Size.n in
+        let result = Semaphore.create (Size.n ()) in
         semaphore := Some result ;
         result
     | Some s ->
