@@ -1,8 +1,9 @@
 module D = Debug.Make (struct let name = "rrdd_http_handler" end)
 
 open D
-module Mutex = Xapi_stdext_threads.Threadext.Mutex
 open Rrdd_shared
+
+let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
 (* A handler for unarchiving RRDs. Only called on pool master. *)
 let unarchive_rrd_handler (req : Http.Request.t) (s : Unix.file_descr) _ =
@@ -26,9 +27,7 @@ let get_vm_rrd_handler (req : Http.Request.t) (s : Unix.file_descr) _ =
   let query = req.Http.Request.query in
   let vm_uuid = List.assoc "uuid" query in
   let rrd =
-    Mutex.execute mutex (fun () ->
-        Rrd.copy_rrd (Hashtbl.find vm_rrds vm_uuid).rrd
-    )
+    with_lock mutex (fun () -> Rrd.copy_rrd (Hashtbl.find vm_rrds vm_uuid).rrd)
   in
   Http_svr.headers s (Http.http_200_ok ~version:"1.0" ~keep_alive:false ()) ;
   Rrd_unix.to_fd rrd s
@@ -38,7 +37,7 @@ let get_host_rrd_handler (req : Http.Request.t) (s : Unix.file_descr) _ =
   debug "get_host_rrd_handler: start" ;
   let query = req.Http.Request.query in
   let rrd =
-    Mutex.execute mutex (fun _ ->
+    with_lock mutex (fun _ ->
         debug "Received request for Host RRD." ;
         Rrd.copy_rrd
           ( match !host_rrd with
@@ -61,7 +60,7 @@ let get_sr_rrd_handler (req : Http.Request.t) (s : Unix.file_descr) _ =
   let query = req.Http.Request.query in
   let sr_uuid = List.assoc "uuid" query in
   let rrd =
-    Mutex.execute mutex (fun () ->
+    with_lock mutex (fun () ->
         let rrdi =
           try Hashtbl.find sr_rrds sr_uuid
           with Not_found -> failwith "No SR RRD available!"
@@ -77,7 +76,7 @@ let get_sr_rrd_handler (req : Http.Request.t) (s : Unix.file_descr) _ =
 let get_host_stats ?(json = false) ~(start : int64) ~(interval : int64)
     ~(cfopt : Rrd.cf_type option) ~(is_host : string) ~(vm_uuid : string)
     ~(sr_uuid : string) () =
-  Mutex.execute mutex (fun () ->
+  with_lock mutex (fun () ->
       let prefixandrrds =
         let vm_rrds = Hashtbl.to_seq vm_rrds in
         let sr_rrds = Hashtbl.to_seq sr_rrds in
@@ -197,7 +196,5 @@ let put_rrd_handler (req : Http.Request.t) (s : Unix.file_descr) _ =
   ) else (
     debug "Receiving RRD for resident VM uuid=%s. Replacing in hashtable." uuid ;
     let domid = int_of_string (List.assoc "domid" query) in
-    Mutex.execute mutex (fun _ ->
-        Hashtbl.replace vm_rrds uuid {rrd; dss= []; domid}
-    )
+    with_lock mutex (fun _ -> Hashtbl.replace vm_rrds uuid {rrd; dss= []; domid})
   )

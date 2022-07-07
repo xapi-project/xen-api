@@ -19,12 +19,13 @@ module D = Debug.Make (struct let name = "xapi_subject" end)
 
 open D
 
+let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
+
 let run_hook_script_after_subject_add () =
   (* CP-825: Serialize execution of pool-enable-extauth and pool-disable-extauth *)
   (* We should not call the hook script while enabling/disabling the pool's extauth, since that will *)
   (* potentially create different sshd configuration files in different hosts of the pool. *)
-  Xapi_stdext_threads.Threadext.Mutex.execute
-    Xapi_globs.serialize_pool_enable_disable_extauth (fun () ->
+  with_lock Xapi_globs.serialize_pool_enable_disable_extauth (fun () ->
       ignore
         (Server_helpers.exec_with_new_task "run_hook_script_after_subject_add"
            (fun __context ->
@@ -102,8 +103,7 @@ let run_hook_script_after_subject_remove () =
   (* CP-825: Serialize execution of pool-enable-extauth and pool-disable-extauth *)
   (* We should not call the hook script while enabling/disabling the pool's extauth, since that will *)
   (* potentially create different sshd configuration files in different hosts of the pool. *)
-  Xapi_stdext_threads.Threadext.Mutex.execute
-    Xapi_globs.serialize_pool_enable_disable_extauth (fun () ->
+  with_lock Xapi_globs.serialize_pool_enable_disable_extauth (fun () ->
       ignore
         (Server_helpers.exec_with_new_task
            "run_hook_script_after_subject_remove" (fun __context ->
@@ -166,8 +166,7 @@ let update_all_subjects ~__context =
         false subjects
     in
     if need_update_config then
-      Xapi_stdext_threads.Threadext.Mutex.execute
-        Xapi_globs.serialize_pool_enable_disable_extauth (fun () ->
+      with_lock Xapi_globs.serialize_pool_enable_disable_extauth (fun () ->
           Extauth.call_extauth_hook_script_in_pool ~__context
             Extauth.event_name_after_subject_update
           |> ignore
@@ -194,8 +193,7 @@ let run_hook_script_after_subject_roles_update () =
   (* CP-825: Serialize execution of pool-enable-extauth and pool-disable-extauth *)
   (* We should not call the hook script while enabling/disabling the pool's extauth, since that will *)
   (* potentially create different sshd configuration files in different hosts of the pool. *)
-  Xapi_stdext_threads.Threadext.Mutex.execute
-    Xapi_globs.serialize_pool_enable_disable_extauth (fun () ->
+  with_lock Xapi_globs.serialize_pool_enable_disable_extauth (fun () ->
       ignore
         (Server_helpers.exec_with_new_task
            "run_hook_script_after_subject_roles_update" (fun __context ->

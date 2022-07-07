@@ -34,6 +34,8 @@ open D
 
 let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
+let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
+
 (** Definition of available qemu profiles, used by the qemu backend
     implementations *)
 module Profile = struct
@@ -104,7 +106,7 @@ module Generic = struct
 
   let add_device ~xs device backend_list frontend_list private_list
       xenserver_list =
-    Mutex.execute device_serialise_m (fun () ->
+    with_lock device_serialise_m (fun () ->
         let frontend_ro_path = frontend_ro_path_of_device ~xs device
         and frontend_rw_path = frontend_rw_path_of_device ~xs device
         and backend_path = backend_path_of_device ~xs device
@@ -1552,7 +1554,7 @@ module PCI = struct
       | driver ->
           unbind devstr driver
     in
-    Mutex.execute bind_lock (fun () ->
+    with_lock bind_lock (fun () ->
         List.iter
           (fun device ->
             let devstr = Xenops_interface.Pci.string_of_address device in
@@ -2849,7 +2851,7 @@ module Backend = struct
       let path = Dm_Common.cant_suspend_reason_path domid in
       (* This will raise QMP_Error if it can't do it, we catch it and update
          xenstore. *)
-      match qmp_send_cmd domid Qmp.Query_migratable with
+      match qmp_send_cmd ~may_fail:true domid Qmp.Query_migratable with
       | Qmp.Unit ->
           debug "query-migratable precheck passed (domid=%d)" domid ;
           Generic.safe_rm ~xs path
@@ -3677,7 +3679,7 @@ module Dm = struct
     | [{physical_pci_address= pci; implementation= GVT_g _; _}] ->
         PCI.bind [pci] PCI.I915
     | [{physical_pci_address= pci; implementation= MxGPU vgpu; _}] ->
-        Mutex.execute gimtool_m (fun () ->
+        with_lock gimtool_m (fun () ->
             configure_gim ~xs pci vgpu.vgpus_per_pgpu vgpu.framebufferbytes ;
             let keys = [("pf", Xenops_interface.Pci.string_of_address pci)] in
             write_vgpu_data ~xs domid 0 keys
@@ -3735,7 +3737,7 @@ module Dm = struct
           []
     in
 
-    (* Execute qemu-dm-wrapper, forwarding stdout to the syslog, with the key
+    (* Execute qemu-wrapper, forwarding stdout to the syslog, with the key
        "qemu-dm-<domid>" *)
     let argv = prepend_wrapper_args domid (List.concat [tpmargs; args.argv]) in
     let qemu_domid = 0 in

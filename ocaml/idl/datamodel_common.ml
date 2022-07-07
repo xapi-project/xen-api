@@ -9,7 +9,7 @@ open Datamodel_roles
               to leave a gap for potential hotfixes needing to increment the schema version.*)
 let schema_major_vsn = 5
 
-let schema_minor_vsn = 752
+let schema_minor_vsn = 753
 
 (* Historical schema versions just in case this is useful later *)
 let rio_schema_major_vsn = 5
@@ -308,6 +308,10 @@ let update_guidances =
     , [
         ( "reboot_host"
         , "Indicates the updated host should reboot as soon as possible"
+        )
+      ; ( "reboot_host_on_livepatch_failure"
+        , "Indicates the updated host should reboot as soon as possible since \
+           one or more livepatch(es) failed to be applied."
         )
       ; ( "restart_toolstack"
         , "Indicates the Toolstack running on the updated host should restart \

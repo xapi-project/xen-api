@@ -47,8 +47,9 @@ end
 module D = Debug.Make (struct let name = "stats" end)
 
 open D
-open Xapi_stdext_threads.Threadext
 open Xapi_stdext_pervasives.Pervasiveext
+
+let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
 let timings : (string, Normal_population.t) Hashtbl.t = Hashtbl.create 10
 
@@ -74,7 +75,7 @@ let string_of (p : Normal_population.t) =
 let sample (name : string) (x : float) : unit =
   (* Use the lognormal distribution: *)
   let x' = log x in
-  Mutex.execute timings_m (fun () ->
+  with_lock timings_m (fun () ->
       let p =
         if Hashtbl.mem timings name then
           Hashtbl.find timings name
@@ -105,6 +106,6 @@ let time_this (name : string) f =
   )
 
 let summarise () =
-  Mutex.execute timings_m (fun () ->
+  with_lock timings_m (fun () ->
       Hashtbl.fold (fun k v acc -> (k, string_of v) :: acc) timings []
   )

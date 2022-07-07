@@ -14,7 +14,6 @@
 
 open Xapi_stdext_std
 open Xapi_stdext_unix
-open Xapi_stdext_threads.Threadext
 open Rrdd_plugin
 open Blktap3_stats
 
@@ -500,6 +499,8 @@ module Blktap3_stats_wrapper = struct
 
   let m = Mutex.create ()
 
+  let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
+
   let cache : (int * int, Blktap3_stats.t option) Hashtbl.t = Hashtbl.create 100
 
   let get_stats () =
@@ -519,7 +520,7 @@ module Blktap3_stats_wrapper = struct
       (* Most likely the pid hasn't been written yet *)
     in
 
-    Mutex.execute m (fun () ->
+    with_lock m (fun () ->
         Hashtbl.fold
           (fun (domid, devid) stats_opt acc ->
             match stats_opt with
@@ -557,7 +558,7 @@ module Blktap3_stats_wrapper = struct
     let operate f fn =
       match domdev_of_file f with
       | Some (domid, devid) ->
-          Mutex.execute m (fun () -> fn (domid, devid))
+          with_lock m (fun () -> fn (domid, devid))
       | None ->
           ()
     in
@@ -566,11 +567,11 @@ module Blktap3_stats_wrapper = struct
     let remove_file f = operate f (fun k -> Hashtbl.remove cache k) in
 
     let initialise () =
-      Mutex.execute m (fun () -> Hashtbl.clear cache) ;
+      with_lock m (fun () -> Hashtbl.clear cache) ;
       let shm_dirs = Array.to_list (Sys.readdir shm_devices_dir) in
       List.iter add_file shm_dirs ;
       D.debug "Populated %d cache entries"
-        (Mutex.execute m (fun () -> Hashtbl.length cache))
+        (with_lock m (fun () -> Hashtbl.length cache))
     in
 
     let inotify = Inotify.create () in

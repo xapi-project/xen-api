@@ -17,7 +17,9 @@
 
 open Client
 open Db_cache_types
-open Xapi_stdext_threads.Threadext
+
+let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
+
 module Unixext = Xapi_stdext_unix.Unixext
 
 module D = Debug.Make (struct let name = "xapi_vdi_helpers" end)
@@ -91,7 +93,7 @@ let destroy_all_vbds ~__context ~vdi =
 
 (* Create and plug a VBD from the VDI, then create a redo log and point it at the block device. *)
 let enable_database_replication ~__context ~get_vdi_callback =
-  Mutex.execute redo_log_lifecycle_mutex (fun () ->
+  with_lock redo_log_lifecycle_mutex (fun () ->
       (* Check that the number of metadata redo_logs isn't already at the limit. *)
       (* There should never actually be more redo_logs than the limit! *)
       if
@@ -163,7 +165,7 @@ let enable_database_replication ~__context ~get_vdi_callback =
 
 (* Shut down the redo log, then unplug and destroy the VBD. *)
 let disable_database_replication ~__context ~vdi =
-  Mutex.execute redo_log_lifecycle_mutex (fun () ->
+  with_lock redo_log_lifecycle_mutex (fun () ->
       debug "Attempting to disable metadata replication on VDI [%s:%s]."
         (Db.VDI.get_name_label ~__context ~self:vdi)
         (Db.VDI.get_uuid ~__context ~self:vdi) ;
@@ -214,7 +216,7 @@ let database_ref_of_vdi ~__context ~vdi =
       ) ;
     db_ref
   in
-  Mutex.execute database_open_mutex (fun () ->
+  with_lock database_open_mutex (fun () ->
       Helpers.call_api_functions ~__context (fun rpc session_id ->
           Sm_fs_ops.with_block_attached_device __context rpc session_id vdi `RW
             database_ref_of_device

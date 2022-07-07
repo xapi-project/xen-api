@@ -40,10 +40,10 @@ namespace XenAPI
     public abstract partial class XenObject<S> : IXenObject where S : XenObject<S>
     {
         /// <summary>
-        /// Copies properties from 'update' into this object. It uses property setters so that
+        /// Copies properties from a given object into this object. It uses property setters so that
         /// event handlers are triggered if the value is changing.
         /// </summary>
-        public abstract void UpdateFrom(S update);
+        public abstract void UpdateFrom(S record);
 
         /// <summary>
         /// Save any changed fields to the server.

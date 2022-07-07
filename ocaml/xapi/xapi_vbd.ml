@@ -17,7 +17,6 @@
 
 open Xapi_vbd_helpers
 open Vbdops
-open Xapi_stdext_threads.Threadext
 module Date = Xapi_stdext_date.Date
 open D
 
@@ -238,7 +237,7 @@ let create ~__context ~vM ~vDI ~device ~userdevice ~bootable ~mode ~_type
            )
         )
   | _ ->
-      Mutex.execute autodetect_mutex (fun () ->
+      Xapi_stdext_threads.Threadext.Mutex.execute autodetect_mutex (fun () ->
           let possibilities =
             match
               Xapi_vm_helpers.allowed_VBD_devices ~__context ~vm:vM ~_type

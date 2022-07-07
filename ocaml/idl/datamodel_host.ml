@@ -1709,6 +1709,8 @@ let apply_updates =
            pool.sync_udpates"
         )
       ]
+    ~result:
+      (Set (Set String), "The list of warnings happened in applying updates")
     ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
     ()
 

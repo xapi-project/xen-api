@@ -12,8 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Xapi_stdext_threads.Threadext
-
 module IntSet = Set.Make (struct
   type t = int
 
@@ -58,6 +56,8 @@ module Make (D : DAEMON) = struct
 
   let m = Mutex.create ()
 
+  let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute m
+
   let is_running () =
     match D.check with
     | Pidfile file -> (
@@ -92,7 +92,7 @@ module Make (D : DAEMON) = struct
   let with_daemon_stopped ?timeout f =
     let thread_id = Thread.(id (self ())) in
     (* Stop the daemon if it's running, then register this thread. *)
-    Mutex.execute m (fun () ->
+    with_lock (fun () ->
         ( match (is_running (), !daemon_state) with
         | true, _ ->
             daemon_state := `should_start ;
@@ -108,7 +108,7 @@ module Make (D : DAEMON) = struct
       (* Deregister this thread, and if there are no more threads registered,
          			 * start the daemon if it was running in the first place. *)
       (fun () ->
-        Mutex.execute m (fun () ->
+        with_lock (fun () ->
             deregister_thread_nolock thread_id ;
             match (are_threads_registered_nolock (), !daemon_state) with
             | true, _ ->

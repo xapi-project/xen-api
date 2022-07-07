@@ -12,9 +12,10 @@
  * GNU Lesser General Public License for more details.
  *)
 open Xapi_stdext_pervasives.Pervasiveext
-open Xapi_stdext_threads.Threadext
 open Xapi_stdext_std.Xstringext
 open Xapi_stdext_unix
+
+let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
 module R = Debug.Make (struct let name = "redo_log" end)
 
@@ -584,12 +585,12 @@ let shutdown log =
             (Thread.create
                (fun () ->
                  R.debug "Waiting for I/O process with pid %d to die..." ipid ;
-                 Mutex.execute log.dying_processes_mutex (fun () ->
+                 with_lock log.dying_processes_mutex (fun () ->
                      log.num_dying_processes := !(log.num_dying_processes) + 1
                  ) ;
                  ignore (Forkhelpers.waitpid p) ;
                  R.debug "Finished waiting for process with pid %d" ipid ;
-                 Mutex.execute log.dying_processes_mutex (fun () ->
+                 with_lock log.dying_processes_mutex (fun () ->
                      log.num_dying_processes := !(log.num_dying_processes) - 1
                  )
                )
@@ -630,7 +631,7 @@ let startup log =
           () (* We're already started *)
       | None -> (
           (* Don't start if there are already some processes hanging around *)
-          Mutex.execute log.dying_processes_mutex (fun () ->
+          with_lock log.dying_processes_mutex (fun () ->
               if
                 !(log.num_dying_processes)
                 >= Db_globs.redo_log_max_dying_processes
@@ -793,7 +794,7 @@ let create ~name ~state_change_callback ~read_only =
     ; num_dying_processes= ref 0
     }
   in
-  Mutex.execute redo_log_creation_mutex (fun () ->
+  with_lock redo_log_creation_mutex (fun () ->
       all_redo_logs := RedoLogSet.add instance !all_redo_logs
   ) ;
   instance
@@ -801,14 +802,14 @@ let create ~name ~state_change_callback ~read_only =
 let delete log =
   shutdown log ;
   disable log ;
-  Mutex.execute redo_log_creation_mutex (fun () ->
+  with_lock redo_log_creation_mutex (fun () ->
       all_redo_logs := RedoLogSet.remove log !all_redo_logs
   )
 
 (* -------------------------------------------------------- *)
 (* Helper functions for interacting with multiple redo_logs *)
 let with_active_redo_logs f =
-  Mutex.execute redo_log_creation_mutex (fun () ->
+  with_lock redo_log_creation_mutex (fun () ->
       let active_redo_logs =
         RedoLogSet.filter
           (fun log -> is_enabled log && not log.read_only)

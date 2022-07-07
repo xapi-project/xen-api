@@ -23,10 +23,12 @@ module D = Debug.Make (struct let name = "xapi_ha" end)
 open D
 module Rrdd = Rrd_client.Client
 module Date = Xapi_stdext_date.Date
-open Xapi_stdext_threads.Threadext
+module Delay = Xapi_stdext_threads.Threadext.Delay
 module Unixext = Xapi_stdext_unix.Unixext
 
 let finally = Xapi_stdext_pervasives.Pervasiveext.finally
+
+let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
 open Client
 open Db_filter_types
@@ -370,14 +372,14 @@ module Monitor = struct
                     info
                       "Monitor thread caught MTC_EXIT_DAEMON_IS_NOT_PRESENT; \
                        deactivating HA failover thread" ;
-                    Mutex.execute m (fun () -> request_shutdown := true) ;
+                    with_lock m (fun () -> request_shutdown := true) ;
                     raise e
                 | e ->
                     info
                       "Caught exception querying liveset: %s; deactivating HA \
                        failover thread"
                       (ExnHelper.string_of_exn e) ;
-                    Mutex.execute m (fun () -> request_shutdown := true) ;
+                    with_lock m (fun () -> request_shutdown := true) ;
                     raise e
               in
               debug "Liveset: %s"
@@ -553,7 +555,7 @@ module Monitor = struct
                         Db.Host_metrics.get_live ~__context ~self:metrics
                       in
                       let shutting_down =
-                        Mutex.execute Xapi_globs.hosts_which_are_shutting_down_m
+                        with_lock Xapi_globs.hosts_which_are_shutting_down_m
                           (fun () ->
                             List.mem host
                               !Xapi_globs.hosts_which_are_shutting_down
@@ -720,7 +722,7 @@ module Monitor = struct
               info
                 "Master HA startup waiting for explicit signal that the \
                  database state is valid" ;
-              Mutex.execute thread_m (fun () ->
+              with_lock thread_m (fun () ->
                   while not !database_state_valid do
                     Condition.wait database_state_valid_c thread_m
                   done
@@ -732,12 +734,11 @@ module Monitor = struct
               let start = Unix.gettimeofday () in
               let finished = ref false in
               while
-                Mutex.execute m (fun () -> not !request_shutdown)
-                && not !finished
+                with_lock m (fun () -> not !request_shutdown) && not !finished
               do
                 try
                   ignore (Delay.wait delay !Xapi_globs.ha_monitor_interval) ;
-                  if Mutex.execute m (fun () -> not !request_shutdown) then (
+                  if with_lock m (fun () -> not !request_shutdown) then (
                     let liveset = query_liveset_on_all_hosts () in
                     let uuids =
                       List.map Uuid.to_string (uuids_of_liveset liveset)
@@ -789,10 +790,10 @@ module Monitor = struct
             (* If we're the master we must wait for our live slaves to turn up before we consider restarting VMs etc *)
             if Pool_role.is_master () then wait_for_slaves_on_master () ;
             (* Monitoring phase: we must assume the worst and not touch the database here *)
-            while Mutex.execute m (fun () -> not !request_shutdown) do
+            while with_lock m (fun () -> not !request_shutdown) do
               try
                 ignore (Delay.wait delay !Xapi_globs.ha_monitor_interval) ;
-                if Mutex.execute m (fun () -> not !request_shutdown) then (
+                if with_lock m (fun () -> not !request_shutdown) then (
                   let liveset = query_liveset_on_all_hosts () in
                   if Pool_role.is_slave () then process_liveset_on_slave liveset ;
                   if Pool_role.is_master () then
@@ -801,7 +802,7 @@ module Monitor = struct
                     finally
                       (fun () ->
                         let until =
-                          Mutex.execute m (fun () ->
+                          with_lock m (fun () ->
                               (* Callers of 'delay' will have to wait until we have finished processing this loop iteration *)
                               block_delay_calls := true ;
                               !prevent_failover_actions_until
@@ -822,7 +823,7 @@ module Monitor = struct
                       )
                       (fun () ->
                         (* Safe to unblock callers of 'delay' now *)
-                        Mutex.execute m (fun () ->
+                        with_lock m (fun () ->
                             (* Callers of 'delay' can now safely request a delay knowing that
                                the liveset won't be processed until after the delay period. *)
                             block_delay_calls := false ;
@@ -837,7 +838,7 @@ module Monitor = struct
                 Thread.delay !Xapi_globs.ha_monitor_interval
             done ;
             debug "Re-enabling old Host_metrics.live heartbeat" ;
-            Mutex.execute Db_gc.use_host_heartbeat_for_liveness_m (fun () ->
+            with_lock Db_gc.use_host_heartbeat_for_liveness_m (fun () ->
                 Db_gc.use_host_heartbeat_for_liveness := true
             ) ;
             debug "Stopping reading per-host HA stats" ;
@@ -849,7 +850,7 @@ module Monitor = struct
 
   let prevent_restarts_for seconds =
     (* Wait until the thread stops processing and is about to sleep / is already sleeping *)
-    Mutex.execute m (fun () ->
+    with_lock m (fun () ->
         while !block_delay_calls = true do
           Condition.wait block_delay_calls_c m
         done ;
@@ -866,10 +867,10 @@ module Monitor = struct
       "Disabling old heartbeat; live flag will be driven directly from xHA \
        liveset" ;
     (* NB in the xapi startup case this will prevent the db_gc.single_pass from setting any live flags *)
-    Mutex.execute Db_gc.use_host_heartbeat_for_liveness_m (fun () ->
+    with_lock Db_gc.use_host_heartbeat_for_liveness_m (fun () ->
         Db_gc.use_host_heartbeat_for_liveness := false
     ) ;
-    Mutex.execute thread_m (fun () ->
+    with_lock thread_m (fun () ->
         match !thread with
         | Some _ ->
             raise Already_started
@@ -880,7 +881,7 @@ module Monitor = struct
     )
 
   let signal_database_state_valid () =
-    Mutex.execute thread_m (fun () ->
+    with_lock thread_m (fun () ->
         debug
           "Signalling HA monitor thread that it is ok to look at the database \
            now" ;
@@ -890,14 +891,14 @@ module Monitor = struct
 
   let stop () =
     debug "Monitor.stop()" ;
-    Mutex.execute thread_m (fun () ->
+    with_lock thread_m (fun () ->
         match !thread with
         | None ->
             warn
               "Failed to stop HA monitor thread because it wasn't running. \
                Perhaps it was stopped more than once?"
         | Some t ->
-            Mutex.execute m (fun () ->
+            with_lock m (fun () ->
                 request_shutdown := true ;
                 Delay.signal delay
             ) ;
@@ -1465,7 +1466,7 @@ let rec propose_new_master_internal ~__context ~address ~manual =
       proposed_master_time := Unix.gettimeofday ()
 
 let propose_new_master ~__context ~address ~manual =
-  Mutex.execute proposed_master_m (fun () ->
+  with_lock proposed_master_m (fun () ->
       propose_new_master_internal ~__context ~address ~manual
   )
 
@@ -1490,7 +1491,7 @@ let commit_new_master ~__context ~address =
   | Some _ ->
       debug "Setting new master address to: %s" address
   ) ;
-  Mutex.execute proposed_master_m (fun () ->
+  with_lock proposed_master_m (fun () ->
       (* NB we might not be in emergency mode yet, so not identical to
          			   Xapi_pool.emergency_reset_master *)
       if Helpers.this_is_my_address ~__context address then
@@ -1500,7 +1501,7 @@ let commit_new_master ~__context ~address =
   )
 
 let abort_new_master ~__context ~address =
-  Mutex.execute proposed_master_m (fun () ->
+  with_lock proposed_master_m (fun () ->
       if !proposed_master = None then
         error
           "Received abort_new_master %s but we never saw the original proposal"
@@ -1578,7 +1579,7 @@ let disable_internal __context =
     Helpers.call_api_functions ~__context (fun rpc session_id ->
         (* Wait for each host to shutdown via the statefile *)
         let errors =
-          thread_iter_all_exns
+          Xapi_stdext_threads.Threadext.thread_iter_all_exns
             (fun host ->
               debug "Waiting for host '%s' ('%s') to see invalid statefile"
                 (Db.Host.get_name_label ~__context ~self:host)
@@ -1613,7 +1614,7 @@ let disable_internal __context =
            in which case the user will have to retry. Permanent network outtages will cause all
            nodes to self-fence. *)
         let errors =
-          thread_iter_all_exns
+          Xapi_stdext_threads.Threadext.thread_iter_all_exns
             (fun host ->
               debug "Disabling all failover decisions on host '%s' ('%s')"
                 (Db.Host.get_name_label ~__context ~self:host)
@@ -1644,7 +1645,7 @@ let disable_internal __context =
         Db.Pool.set_ha_enabled ~__context ~self:pool ~value:false ;
         info "Pool.ha_enabled <- false" ;
         let errors =
-          thread_iter_all_exns
+          Xapi_stdext_threads.Threadext.thread_iter_all_exns
             (fun host ->
               debug "Disarming fencing on host '%s' ('%s')"
                 (Db.Host.get_name_label ~__context ~self:host)
@@ -1665,7 +1666,7 @@ let disable_internal __context =
           )
           errors ;
         let errors =
-          thread_iter_all_exns
+          Xapi_stdext_threads.Threadext.thread_iter_all_exns
             (fun host ->
               debug "Stopping HA daemon on host '%s' ('%s')"
                 (Db.Host.get_name_label ~__context ~self:host)
@@ -1713,7 +1714,7 @@ let disable_internal __context =
     (* Assuming all is well then we can release resources on all hosts *)
     Helpers.call_api_functions ~__context (fun rpc session_id ->
         let errors =
-          thread_iter_all_exns
+          Xapi_stdext_threads.Threadext.thread_iter_all_exns
             (fun host ->
               debug "Releasing resources on host '%s' ('%s')"
                 (Db.Host.get_name_label ~__context ~self:host)
@@ -1901,7 +1902,7 @@ let enable __context heartbeat_srs configuration =
       let task_m = Mutex.create () in
       let call_count = ref 0 in
       fun () ->
-        Mutex.execute task_m (fun () ->
+        with_lock task_m (fun () ->
             incr call_count ;
             Db.Task.set_progress ~__context ~self:task
               ~value:(float_of_int !call_count /. float_of_int total_calls)
@@ -1936,7 +1937,7 @@ let enable __context heartbeat_srs configuration =
           )
           hosts ;
         let errors =
-          thread_iter_all_exns
+          Xapi_stdext_threads.Threadext.thread_iter_all_exns
             (fun host ->
               debug "host '%s' ('%s') will attempt to join the liveset"
                 (Db.Host.get_name_label ~__context ~self:host)
@@ -1978,7 +1979,7 @@ let enable __context heartbeat_srs configuration =
           )
         in
         let errors =
-          thread_iter_all_exns
+          Xapi_stdext_threads.Threadext.thread_iter_all_exns
             (fun host ->
               debug "Synchronising database with host '%s' ('%s')"
                 (Db.Host.get_name_label ~__context ~self:host)

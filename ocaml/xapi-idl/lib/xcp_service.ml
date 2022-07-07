@@ -250,12 +250,13 @@ let common_options =
 let loglevel () = !log_level
 
 module Term = Cmdliner.Term
+module Cmd = Cmdliner.Cmd
 
 let rec list = function
   | [] ->
-      Term.pure []
+      Term.const []
   | x :: xs ->
-      Term.app (Term.app (Term.pure (fun x y -> x :: y)) x) (list xs)
+      Term.app (Term.app (Term.const (fun x y -> x :: y)) x) (list xs)
 
 let command_of ?(name = Sys.argv.(0)) ?(version = "unknown")
     ?(doc = "Please describe this command.") xs =
@@ -265,14 +266,14 @@ let command_of ?(name = Sys.argv.(0)) ?(version = "unknown")
     | Arg.Unit f ->
         let t = Cmdliner.Arg.(value & flag & info [key] ~doc) in
         let make = function true -> f () | false -> () in
-        Term.(pure make $ t)
+        Term.(const make $ t)
     | Arg.Bool f ->
         let t =
           Cmdliner.Arg.(
             value & opt bool (bool_of_string default) & info [key] ~doc
           )
         in
-        Term.(pure f $ t)
+        Term.(const f $ t)
     | Arg.Set b ->
         let t =
           Cmdliner.Arg.(
@@ -280,7 +281,7 @@ let command_of ?(name = Sys.argv.(0)) ?(version = "unknown")
           )
         in
         let make v = b := v in
-        Term.(pure make $ t)
+        Term.(const make $ t)
     | Arg.Clear b ->
         let t =
           Cmdliner.Arg.(
@@ -288,21 +289,21 @@ let command_of ?(name = Sys.argv.(0)) ?(version = "unknown")
           )
         in
         let make v = b := not v in
-        Term.(pure make $ t)
+        Term.(const make $ t)
     | Arg.String f ->
         let t = Cmdliner.Arg.(value & opt string default & info [key] ~doc) in
-        Term.(pure f $ t)
+        Term.(const f $ t)
     | Arg.Set_string s ->
         let t = Cmdliner.Arg.(value & opt string default & info [key] ~doc) in
         let make v = s := v in
-        Term.(pure make $ t)
+        Term.(const make $ t)
     | Arg.Int f ->
         let t =
           Cmdliner.Arg.(
             value & opt int (int_of_string default) & info [key] ~doc
           )
         in
-        Term.(pure f $ t)
+        Term.(const f $ t)
     | Arg.Set_int s ->
         let t =
           Cmdliner.Arg.(
@@ -310,14 +311,14 @@ let command_of ?(name = Sys.argv.(0)) ?(version = "unknown")
           )
         in
         let make v = s := v in
-        Term.(pure make $ t)
+        Term.(const make $ t)
     | Arg.Float f ->
         let t =
           Cmdliner.Arg.(
             value & opt float (float_of_string default) & info [key] ~doc
           )
         in
-        Term.(pure f $ t)
+        Term.(const f $ t)
     | Arg.Set_float s ->
         let t =
           Cmdliner.Arg.(
@@ -325,11 +326,11 @@ let command_of ?(name = Sys.argv.(0)) ?(version = "unknown")
           )
         in
         let make v = s := v in
-        Term.(pure make $ t)
+        Term.(const make $ t)
     | _ ->
         let t = Cmdliner.Arg.(value & opt string default & info [key] ~doc) in
         let make v = Config_file.apply v arg in
-        Term.(pure make $ t)
+        Term.(const make $ t)
   in
   let terms = List.map term_of_option xs in
   let _common_options = "COMMON OPTIONS" in
@@ -343,9 +344,9 @@ let command_of ?(name = Sys.argv.(0)) ?(version = "unknown")
     ; `P "Check bug reports at http://github.com/xapi-project/xcp-idl"
     ]
   in
-  ( Term.(ret (pure (fun (_ : unit list) -> `Ok ()) $ list terms))
-  , Term.info name ~version ~sdocs:_common_options ~man
-  )
+  Cmd.v
+    (Cmd.info name ~version ~sdocs:_common_options ~man)
+    Term.(const (fun (_ : unit list) -> `Ok ()) $ list terms)
 
 let arg_spec = List.map (fun (a, b, _, c) -> ("-" ^ a, b, c))
 
@@ -473,22 +474,20 @@ let configure ?(options = []) ?(resources = []) () =
     )
   with Failure _ -> exit 1
 
-type ('a, 'b) error = [`Ok of 'a | `Error of 'b]
-
 let configure2 ~name ~version ~doc ?(options = []) ?(resources = []) () =
-  try
-    configure_common ~options ~resources (fun config_spec ->
-        match Term.eval (command_of ~name ~version ~doc config_spec) with
-        | `Ok () ->
-            ()
-        | `Error _ ->
-            failwith "Failed to parse command-line arguments"
-        | _ ->
-            exit 0
-        (* --help *)
-    ) ;
-    `Ok ()
-  with Failure m -> `Error m
+  configure_common ~options ~resources @@ fun config_spec ->
+  let cmd = command_of ~name ~version ~doc config_spec in
+  match Cmd.eval_value ~catch:true cmd with
+  | Ok (`Ok _) ->
+      ()
+  | Ok `Help | Ok `Version ->
+      exit Cmd.Exit.ok
+  | Error `Parse ->
+      exit Cmd.Exit.some_error
+  | Error `Term ->
+      exit Cmd.Exit.cli_error
+  | Error `Exn ->
+      exit Cmd.Exit.internal_error
 
 let http_handler call_of_string string_of_response process s =
   let ic = Unix.in_channel_of_descr s in
@@ -680,3 +679,26 @@ let maybe_daemonize ?start_fn () =
     daemonize ?start_fn ()
   else
     Option.iter (fun fn -> fn ()) start_fn
+
+let cli ~name ~doc ~version ~cmdline_gen =
+  let default = Term.(ret (const (fun _ -> `Help (`Pager, None)) $ const ())) in
+  let version =
+    let maj, min, mic = version in
+    Printf.sprintf "%d.%d.%d" maj min mic
+  in
+  let info = Cmd.info name ~version ~doc in
+  let cmds = List.map (fun (t, i) -> Cmd.v i t) (cmdline_gen ()) in
+  Cmd.group ~default info cmds
+
+let eval_cmdline cmdline =
+  match Cmd.eval_value cmdline with
+  | Ok (`Ok f) ->
+      f ()
+  | Ok _ ->
+      ()
+  | Error (`Parse | `Term) ->
+      error "Error when parsing command line" ;
+      exit Cmd.Exit.cli_error
+  | Error `Exn ->
+      error "Error: uncaught exception" ;
+      exit Cmd.Exit.internal_error

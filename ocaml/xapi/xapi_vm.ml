@@ -26,6 +26,8 @@ module D = Debug.Make (struct let name = "xapi_vm" end)
 
 open D
 
+let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
+
 exception InvalidOperation of string
 
 let assert_operation_valid =
@@ -1105,7 +1107,7 @@ let call_plugin_latest_m = Mutex.create ()
 
 let record_call_plugin_latest vm =
   let interval = Int64.of_float (!Xapi_globs.vm_call_plugin_interval *. 1e9) in
-  Xapi_stdext_threads.Threadext.Mutex.execute call_plugin_latest_m (fun () ->
+  with_lock call_plugin_latest_m (fun () ->
       let now = Mtime.to_uint64_ns (Mtime_clock.now ()) in
       (* First do a round of GC *)
       let to_gc = ref [] in
@@ -1611,7 +1613,7 @@ let set_HVM_boot_policy ~__context ~self ~value =
 let nvram = Mutex.create ()
 
 let set_NVRAM_EFI_variables ~__context ~self ~value =
-  Xapi_stdext_threads.Threadext.Mutex.execute nvram (fun () ->
+  with_lock nvram (fun () ->
       (* do not use remove_from_NVRAM: we do not want to
          * temporarily end up with an empty NVRAM in HA *)
       let key = "EFI-variables" in

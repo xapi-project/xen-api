@@ -349,6 +349,12 @@ let handle_received_fd this_connection =
       let common_prefix = "/services/xenops/" in
       let memory_prefix = common_prefix ^ "memory/" in
       let migrate_vgpu_prefix = common_prefix ^ "migrate-vgpu/" in
+      (* below we define new routes used for the new handshake protocol *)
+      let migrate = "/services/xenops/migrate/" in
+      let migrate_vm = migrate ^ "vm" in
+      let migrate_mem = migrate ^ "mem" in
+      let migrate_vgpu = migrate ^ "vgpu" in
+
       let has_prefix str prefix =
         String.length prefix <= String.length str
         && String.sub str 0 (String.length prefix) = prefix
@@ -363,6 +369,13 @@ let handle_received_fd this_connection =
       if has_prefix uri memory_prefix then
         do_receive Xenops_server.VM.receive_memory
       else if has_prefix uri migrate_vgpu_prefix then
+        do_receive Xenops_server.VM.receive_vgpu
+      (* new routes but using same handlers *)
+      else if has_prefix uri migrate_vm then
+        do_receive Xenops_server.VM.receive_memory
+      else if has_prefix uri migrate_mem then
+        do_receive Xenops_server.VM.receive_mem
+      else if has_prefix uri migrate_vgpu then
         do_receive Xenops_server.VM.receive_vgpu
       else (
         error "Expected URI prefix %s or %s, got %s" memory_prefix
@@ -401,15 +414,9 @@ let configure ?(specific_options = []) ?(specific_essential_paths = [])
       ~essentials:(Resources.essentials @ specific_essential_paths)
       ~nonessentials:(Resources.nonessentials @ specific_nonessential_paths)
   in
-  match
-    Xcp_service.configure2
-      ~name:(Filename.basename Sys.argv.(0))
-      ~version:Build_info.version ~doc ~options ~resources ()
-  with
-  | `Ok () ->
-      ()
-  | `Error m ->
-      error "%s" m ; exit 1
+  Xcp_service.configure2
+    ~name:(Filename.basename Sys.argv.(0))
+    ~version:Build_info.version ~doc ~options ~resources ()
 
 let main backend =
   Printexc.record_backtrace true ;

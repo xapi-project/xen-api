@@ -212,17 +212,9 @@ let bind () =
   S.Sriov.disable Sriov.disable ;
   S.Sriov.make_vf_config Sriov.make_vf_config
 
-let _ =
-  ( match
-      Xcp_service.configure2 ~name:Sys.argv.(0) ~version:Build_info.version ~doc
-        ~options ~resources ()
-    with
-  | `Ok () ->
-      ()
-  | `Error m ->
-      Printf.fprintf stderr "%s\n" m ;
-      exit 1
-  ) ;
+let () =
+  Xcp_service.configure2 ~name:Sys.argv.(0) ~version:Build_info.version ~doc
+    ~options ~resources () ;
   bind () ;
   let server =
     Xcp_service.make

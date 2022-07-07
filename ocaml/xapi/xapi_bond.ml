@@ -14,7 +14,6 @@
 module D = Debug.Make (struct let name = "xapi_bond" end)
 
 open D
-module Mutex = Xapi_stdext_threads.Threadext.Mutex
 open Db_filter_types
 
 (* Returns the name of a new bond device, which is the string "bond" followed
@@ -272,7 +271,7 @@ let fix_bond ~__context ~bond =
 (* Protect a bunch of local operations with a mutex *)
 let local_m = Mutex.create ()
 
-let with_local_lock f = Mutex.execute local_m f
+let with_local_lock f = Xapi_stdext_threads.Threadext.Mutex.execute local_m f
 
 let requirements_of_mode = function
   | `lacp ->

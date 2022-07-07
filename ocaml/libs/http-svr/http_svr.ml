@@ -30,7 +30,6 @@
  *)
 
 open Http
-module Mutex = Xapi_stdext_threads.Threadext.Mutex
 module Unixext = Xapi_stdext_unix.Unixext
 
 (* This resolves the lowercase deprecation for all compiler versions *)
@@ -54,7 +53,7 @@ module Stats = struct
   let empty () = {n_requests= 0; n_connections= 0; n_framed= 0}
 
   let update (x : t) (m : Mutex.t) req =
-    Mutex.execute m (fun () ->
+    Xapi_stdext_threads.Threadext.Mutex.execute m (fun () ->
         x.n_requests <- x.n_requests + 1 ;
         if req.Http.Request.close then x.n_connections <- x.n_connections + 1 ;
         if req.Http.Request.frame then x.n_framed <- x.n_framed + 1

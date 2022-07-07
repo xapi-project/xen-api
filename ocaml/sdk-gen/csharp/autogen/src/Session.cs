@@ -30,6 +30,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 
 using CookComputing.XmlRpc;
@@ -404,11 +405,12 @@ namespace XenAPI
         private void SetAPIVersion()
         {
             Dictionary<XenRef<Pool>, Pool> pools = Pool.get_all_records(this);
-            foreach (Pool pool in pools.Values)
+
+            if (pools.Values.Count > 0)
             {
+                var pool = pools.Values.First();
                 Host host = Host.get_record(this, pool.master);
                 APIVersion = Helper.GetAPIVersion(host.API_version_major, host.API_version_minor);
-                break;
             }
         }
 

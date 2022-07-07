@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Xapi_stdext_threads.Threadext
+let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
 module D = Debug.Make (struct let name = "xapi_pvs_proxy_control" end)
 
@@ -175,7 +175,7 @@ let configure_proxy_m = Mutex.create ()
 let update_site_on_localhost ~__context ~site ~vdi =
   debug "Updating PVS site %s." (Ref.string_of site) ;
   let dbg = Context.string_of_task __context in
-  Mutex.execute configure_proxy_m (fun () ->
+  with_lock configure_proxy_m (fun () ->
       let proxies = State.get_running_proxies ~__context site in
       let proxy_config = metadata_of_site ~__context ~site ~vdi ~proxies in
       Network.Net.PVS_proxy.configure_site dbg proxy_config
@@ -188,7 +188,7 @@ let remove_site_on_localhost ~__context ~site =
   let dbg = Context.string_of_task __context in
   let uuid = Db.PVS_site.get_uuid ~__context ~self:site in
   State.remove_site ~__context site ;
-  Mutex.execute configure_proxy_m (fun () ->
+  with_lock configure_proxy_m (fun () ->
       Network.Net.PVS_proxy.remove_site dbg uuid
   )
 

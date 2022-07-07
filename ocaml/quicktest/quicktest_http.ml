@@ -11,7 +11,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-open Xapi_stdext_pervasives.Pervasiveext
+let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
 module Uds = struct
   (* {{{1 *)

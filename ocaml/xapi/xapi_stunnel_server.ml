@@ -12,7 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Xapi_stdext_threads.Threadext
 module Unixext = Xapi_stdext_unix.Unixext
 
 module D = Debug.Make (struct let name = "xapi_stunnel_server" end)
@@ -123,7 +122,7 @@ end = struct
     )
 
   let update ~accept ~client_auth_name =
-    Mutex.execute m (fun () ->
+    Xapi_stdext_threads.Threadext.Mutex.execute m (fun () ->
         match (!current_accept, !current_client_auth_name) with
         | Some current_accept, Some current_client_auth_name
           when current_accept = accept

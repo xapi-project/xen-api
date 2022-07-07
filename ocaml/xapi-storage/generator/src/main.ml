@@ -1,4 +1,4 @@
-open Cmdliner
+open! Cmdliner
 
 let gen_markdown path =
   let open Xapi_storage in
@@ -53,9 +53,7 @@ let gen_python_cmd =
       & info ["p"; "path"] ~doc ~docv:"PATH"
     )
   in
-  ( Term.(ret (const gen_python $ path))
-  , Term.info "gen_python" ~doc ~exits:Term.default_exits
-  )
+  Cmd.v (Cmd.info "gen_python" ~doc) Term.(ret (const gen_python $ path))
 
 let gen_markdown_cmd =
   let doc = "Generate documentation files in markdown format" in
@@ -63,15 +61,10 @@ let gen_markdown_cmd =
     let doc = "Generate the files in the path specified" in
     Arg.(value & opt string "." & info ["p"; "path"] ~doc ~docv:"PATH")
   in
-  ( Term.(ret (const gen_markdown $ path))
-  , Term.info "gen_markdown" ~doc ~exits:Term.default_exits
-  )
+  Cmd.v (Cmd.info "gen_markdown" ~doc) Term.(ret (const gen_markdown $ path))
 
-let default_cmd =
-  let doc = "SMAPI code/documentation generation tool" in
-  ( Term.(ret (const (fun _ -> `Help (`Pager, None)) $ const ()))
-  , Term.info "main" ~doc ~exits:Term.default_exits
-  )
-
-let _ =
-  Term.(exit @@ eval_choice default_cmd [gen_python_cmd; gen_markdown_cmd])
+let () =
+  let default = Term.(ret (const (fun _ -> `Help (`Pager, None)) $ const ())) in
+  let info = Cmd.info "main" ~doc:"SMAPI code/documentation generation tool" in
+  let cmd = Cmd.group ~default info [gen_python_cmd; gen_markdown_cmd] in
+  exit @@ Cmd.eval cmd

@@ -131,7 +131,7 @@ functor
         (* let fold f t init = M.fold f t.map init *)
       end
 
-    open Xapi_stdext_threads.Threadext
+    let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
     module U = UpdateRecorder (struct
       type t = Interface.Dynamic.id
@@ -153,7 +153,7 @@ functor
       let from = Option.value ~default:U.initial from in
       let cancel = ref false in
       let cancel_fn () =
-        Mutex.execute t.m (fun () ->
+        with_lock t.m (fun () ->
             cancel := true ;
             Condition.broadcast t.c
         )
@@ -168,7 +168,7 @@ functor
       with_cancel cancel_fn (fun () ->
           finally
             (fun () ->
-              Mutex.execute t.m (fun () ->
+              with_lock t.m (fun () ->
                   let is_empty (x, y, _) = x = [] && y = [] in
                   let rec wait () =
                     let result = U.get from t.u in
@@ -183,38 +183,38 @@ functor
             (fun () -> Option.iter (Scheduler.cancel t.s) id)
       )
 
-    let last_id _dbg t = Mutex.execute t.m (fun () -> U.last_id t.u)
+    let last_id _dbg t = with_lock t.m (fun () -> U.last_id t.u)
 
     let add x t =
-      Mutex.execute t.m (fun () ->
+      with_lock t.m (fun () ->
           let result, _id = U.add x t.u in
           t.u <- result ;
           Condition.broadcast t.c
       )
 
     let remove x t =
-      Mutex.execute t.m (fun () ->
+      with_lock t.m (fun () ->
           let result, _id = U.remove x t.u in
           t.u <- result ;
           Condition.broadcast t.c
       )
 
     let filter f t =
-      Mutex.execute t.m (fun () ->
+      with_lock t.m (fun () ->
           let result, _id = U.filter (fun x _y -> f x) t.u in
           t.u <- result ;
           Condition.broadcast t.c
       )
 
     let inject_barrier id filter t =
-      Mutex.execute t.m (fun () ->
+      with_lock t.m (fun () ->
           let result, _id = U.inject_barrier id filter t.u in
           t.u <- result ;
           Condition.broadcast t.c
       )
 
     let remove_barrier id t =
-      Mutex.execute t.m (fun () ->
+      with_lock t.m (fun () ->
           let result, _id = U.remove_barrier id t.u in
           t.u <- result ;
           Condition.broadcast t.c
@@ -248,6 +248,6 @@ functor
               u.U.barriers
         }
 
-      let make t = Mutex.execute t.m (fun () -> make_raw t.u)
+      let make t = with_lock t.m (fun () -> make_raw t.u)
     end
   end

@@ -12,7 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Xapi_stdext_threads.Threadext
 open Reporter
 
 let start_interdomain (module D : Debug.DEBUG) ~reporter ~uid ~backend_domid

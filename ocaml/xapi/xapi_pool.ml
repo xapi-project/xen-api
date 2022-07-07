@@ -15,11 +15,12 @@
 open Client
 module Date = Xapi_stdext_date.Date
 module Listext = Xapi_stdext_std.Listext
-module Threadext = Xapi_stdext_threads.Threadext
 module Unixext = Xapi_stdext_unix.Unixext
 module Xstringext = Xapi_stdext_std.Xstringext
 
 let finally = Xapi_stdext_pervasives.Pervasiveext.finally
+
+let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
 open Network
 
@@ -1985,7 +1986,7 @@ let sync_m = Mutex.create ()
 open Db_cache_types
 
 let sync_database ~__context =
-  Threadext.Mutex.execute sync_m (fun () ->
+  with_lock sync_m (fun () ->
       (* If HA is enabled I'll first try to flush to the LUN *)
       let pool = Helpers.get_pool ~__context in
       let flushed_to_vdi =
@@ -2006,7 +2007,7 @@ let sync_database ~__context =
                 )
           )
         in
-        Threadext.thread_iter
+        Xapi_stdext_threads.Threadext.thread_iter
           (fun host ->
             Helpers.call_api_functions ~__context (fun rpc session_id ->
                 Client.Host.request_backup ~rpc ~session_id ~host ~generation
@@ -2180,8 +2181,7 @@ let hello ~__context ~host_uuid ~host_address =
       debug "Hello message from slave OK: cancelling tasks on behalf of slave" ;
       Cancel_tasks.cancel_tasks_on_host ~__context ~host_opt:(Some host_ref) ;
       (* Make sure we mark this host as live again *)
-      Threadext.Mutex.execute Xapi_globs.hosts_which_are_shutting_down_m
-        (fun () ->
+      with_lock Xapi_globs.hosts_which_are_shutting_down_m (fun () ->
           Xapi_globs.hosts_which_are_shutting_down :=
             List.filter
               (fun x -> x <> host_ref)
@@ -2339,14 +2339,14 @@ let enable_disable_m = Mutex.create ()
 
 let enable_ha ~__context ~heartbeat_srs ~configuration =
   if not (Helpers.pool_has_different_host_platform_versions ~__context) then
-    Threadext.Mutex.execute enable_disable_m (fun () ->
+    with_lock enable_disable_m (fun () ->
         Xapi_ha.enable __context heartbeat_srs configuration
     )
   else
     raise (Api_errors.Server_error (Api_errors.not_supported_during_upgrade, []))
 
 let disable_ha ~__context =
-  Threadext.Mutex.execute enable_disable_m (fun () -> Xapi_ha.disable __context)
+  with_lock enable_disable_m (fun () -> Xapi_ha.disable __context)
 
 let ha_prevent_restarts_for ~__context ~seconds =
   Xapi_ha.ha_prevent_restarts_for __context seconds
@@ -2556,8 +2556,7 @@ let revalidate_subjects ~__context =
 let enable_external_auth ~__context ~pool:_ ~config ~service_name ~auth_type =
   (* CP-825: Serialize execution of pool-enable-extauth and pool-disable-extauth *)
   (* enabling/disabling the pool's extauth at the same time could produce inconsistent states for extauth in each host of the pool *)
-  Threadext.Mutex.execute Xapi_globs.serialize_pool_enable_disable_extauth
-    (fun () ->
+  with_lock Xapi_globs.serialize_pool_enable_disable_extauth (fun () ->
       (* the first element in the hosts list needs to be the pool's master, because we *)
       (* always want to update first the master's record due to homogeneity checks in CA-24856 *)
       let hosts = Xapi_pool_helpers.get_master_slaves_list ~__context in
@@ -2738,8 +2737,7 @@ let enable_external_auth ~__context ~pool:_ ~config ~service_name ~auth_type =
 let disable_external_auth ~__context ~pool:_ ~config =
   (* CP-825: Serialize execution of pool-enable-extauth and pool-disable-extauth *)
   (* enabling/disabling the pool's extauth at the same time could produce inconsistent states for extauth in each host of the pool *)
-  Threadext.Mutex.execute Xapi_globs.serialize_pool_enable_disable_extauth
-    (fun () ->
+  with_lock Xapi_globs.serialize_pool_enable_disable_extauth (fun () ->
       (* the first element in the hosts list needs to be the pool's master, because we *)
       (* always want to update first the master's record due to homogeneity checks in CA-24856 *)
       let hosts = Xapi_pool_helpers.get_master_slaves_list ~__context in
@@ -2824,8 +2822,7 @@ let detect_nonhomogeneous_external_auth_in_pool ~__context =
 
 let run_detect_nonhomogeneous_external_auth_in_pool () =
   (* we do not want to run this test while the pool's extauth is being enabled or disabled *)
-  Threadext.Mutex.execute Xapi_globs.serialize_pool_enable_disable_extauth
-    (fun () ->
+  with_lock Xapi_globs.serialize_pool_enable_disable_extauth (fun () ->
       ignore
         (Server_helpers.exec_with_new_task
            "run_detect_nonhomogeneous_external_auth" (fun __context ->

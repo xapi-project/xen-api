@@ -1,4 +1,5 @@
-open Xapi_stdext_threads.Threadext
+let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
+
 open Xapi_stdext_unix
 
 let finished = ref false
@@ -25,7 +26,7 @@ let _ =
        (fun _ s _ ->
          let r = Http.Response.to_wire_string (Http.Response.make "200" "OK") in
          Unixext.really_write_string s r ;
-         Mutex.execute finished_m (fun () ->
+         with_lock finished_m (fun () ->
              finished := true ;
              Condition.signal finished_c
          )
@@ -74,7 +75,7 @@ let _ =
   let socket = Http_svr.bind ~listen_backlog:5 addr "server" in
   start server socket ;
   Printf.printf "Server started on %s:%d\n" ip !port ;
-  Mutex.execute finished_m (fun () ->
+  with_lock finished_m (fun () ->
       while not !finished do
         Condition.wait finished_c finished_m
       done

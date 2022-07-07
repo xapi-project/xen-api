@@ -16,7 +16,8 @@
 *)
 
 open API
-open Xapi_stdext_threads.Threadext
+
+let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
 module D = Debug.Make (struct let name = "db_gc" end)
 
@@ -91,7 +92,7 @@ let check_host_liveness ~__context =
         (* See if the host is using the new HB mechanism, if so we'll use that *)
         let new_heartbeat_time =
           try
-            Mutex.execute host_table_m (fun () ->
+            with_lock host_table_m (fun () ->
                 Hashtbl.find host_heartbeat_table host
             )
           with _ -> 0.0
@@ -118,7 +119,7 @@ let check_host_liveness ~__context =
         if now -. host_time < !Xapi_globs.host_assumed_dead_interval then
           (* From the heartbeat PoV the host looks alive. We try to (i) minimise database sets; and (ii)
              	     avoid toggling the host back to live if it has been marked as shutting_down. *)
-          Mutex.execute Xapi_globs.hosts_which_are_shutting_down_m (fun () ->
+          with_lock Xapi_globs.hosts_which_are_shutting_down_m (fun () ->
               let shutting_down =
                 List.exists
                   (fun x -> x = host)
@@ -141,7 +142,7 @@ let check_host_liveness ~__context =
         (* Check for clock skew *)
         detect_clock_skew ~__context host
           ( try
-              Mutex.execute host_table_m (fun () ->
+              with_lock host_table_m (fun () ->
                   Hashtbl.find host_skew_table host
               )
             with _ -> 0.
@@ -243,11 +244,11 @@ let detect_rolling_upgrade ~__context =
 let tickle_heartbeat ~__context host stuff =
   (* debug "Tickling heartbeat for host: %s stuff = [ %s ]" (Ref.string_of host) (String.concat ";" (List.map (fun (a, b) -> a ^ "=" ^ b) stuff)); *)
   let use_host_heartbeat_for_liveness =
-    Mutex.execute use_host_heartbeat_for_liveness_m (fun () ->
+    with_lock use_host_heartbeat_for_liveness_m (fun () ->
         !use_host_heartbeat_for_liveness
     )
   in
-  Mutex.execute host_table_m (fun () ->
+  with_lock host_table_m (fun () ->
       (* When a host is going down it will send a negative heartbeat *)
       if List.mem_assoc _shutting_down stuff then (
         Hashtbl.remove host_skew_table host ;
@@ -277,7 +278,7 @@ let single_pass () =
           in
           List.iter time_one Db_gc_util.gc_subtask_list
       ) ;
-      Mutex.execute use_host_heartbeat_for_liveness_m (fun () ->
+      with_lock use_host_heartbeat_for_liveness_m (fun () ->
           if !use_host_heartbeat_for_liveness then
             check_host_liveness ~__context
       ) ;

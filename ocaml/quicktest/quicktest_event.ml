@@ -1,4 +1,4 @@
-module Mutex = Xapi_stdext_threads.Threadext.Mutex
+let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
 (* CA-11402 *)
 let event_next_unblocking_test rpc _ () =
@@ -21,7 +21,7 @@ let event_next_unblocking_test rpc _ () =
                  (Printexc.to_string e)
               )
         ) ;
-        Mutex.execute m (fun () -> unblocked := true)
+        with_lock m (fun () -> unblocked := true)
       )
       ()
   in
@@ -33,9 +33,7 @@ let event_next_unblocking_test rpc _ () =
   (* Again we can't tell the difference between a slow and a totally blocked thread
      so a little pause in here is also required *)
   Thread.delay 2. ;
-  Alcotest.(check bool)
-    "returns true" true
-    (Mutex.execute m (fun () -> !unblocked))
+  Alcotest.(check bool) "returns true" true (with_lock m (fun () -> !unblocked))
 
 let event_next_test rpc session_id () =
   let () = Client.Client.Event.register ~rpc ~session_id ~classes:["pool"] in
@@ -51,13 +49,13 @@ let event_next_test rpc session_id () =
   let (_ : Thread.t) =
     Thread.create
       (fun () ->
-        while not (Mutex.execute m (fun () -> !finished)) do
+        while not (with_lock m (fun () -> !finished)) do
           ignore (Client.Client.Event.next ~rpc ~session_id) ;
           let oc =
             Client.Client.Pool.get_other_config ~rpc ~session_id ~self:pool
           in
           if List.mem_assoc key oc && List.assoc key oc = "1" then
-            Mutex.execute m (fun () ->
+            with_lock m (fun () ->
                 print_endline "got expected event" ;
                 finished := true
             )
@@ -71,7 +69,7 @@ let event_next_test rpc session_id () =
   Thread.delay 1. ;
   Alcotest.(check bool)
     "failed to see pool.other_config change" true
-    (Mutex.execute m (fun () -> !finished))
+    (with_lock m (fun () -> !finished))
 
 let wait_for_pool_key rpc session_id key =
   let token = ref "" in
@@ -102,7 +100,7 @@ let event_from_test rpc session_id () =
     Thread.create
       (fun () ->
         wait_for_pool_key rpc session_id key ;
-        Mutex.execute m (fun () -> finished := true)
+        with_lock m (fun () -> finished := true)
       )
       ()
   in
@@ -112,7 +110,7 @@ let event_from_test rpc session_id () =
   Thread.delay 1. ;
   Alcotest.(check bool)
     "failed to see pool.other_config change" true
-    (Mutex.execute m (fun () -> !finished))
+    (with_lock m (fun () -> !finished))
 
 let event_from_parallel_test rpc session_id () =
   let pool = Client.Client.Pool.get_all ~rpc ~session_id |> List.hd in
@@ -174,7 +172,7 @@ let object_level_event_test rpc session_id () =
     Thread.create
       (fun () ->
         let token = ref "" in
-        while not (Mutex.execute m (fun () -> !finished)) do
+        while not (with_lock m (fun () -> !finished)) do
           let events =
             Client.Client.Event.from ~rpc ~session_id
               ~classes:[Printf.sprintf "vm/%s" (Ref.string_of vm_a)]
@@ -188,7 +186,7 @@ let object_level_event_test rpc session_id () =
                   (Printf.sprintf "event on %s which we aren't watching"
                      event.reference
                   ) ;
-                Mutex.execute m (fun () ->
+                with_lock m (fun () ->
                     reported_failure := true ;
                     finished := true ;
                     Alcotest.fail
@@ -204,7 +202,7 @@ let object_level_event_test rpc session_id () =
             Client.Client.VM.get_other_config ~rpc ~session_id ~self:vm_a
           in
           if List.mem_assoc key oc && List.assoc key oc = "1" then
-            Mutex.execute m (fun () ->
+            with_lock m (fun () ->
                 print_endline
                   (Printf.sprintf "got expected event (new token = %s)" !token) ;
                 finished := true
@@ -221,7 +219,7 @@ let object_level_event_test rpc session_id () =
   Client.Client.VM.add_to_other_config ~rpc ~session_id ~self:vm_a ~key
     ~value:"1" ;
   Thread.delay 1. ;
-  Mutex.execute m (fun () ->
+  with_lock m (fun () ->
       if not !reported_failure then
         Alcotest.(check bool)
           "failed to see object-level event change" true !finished

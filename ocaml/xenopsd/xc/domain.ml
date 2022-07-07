@@ -27,6 +27,8 @@ open D
 
 let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
+let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
+
 type xen_arm_arch_domainconfig = Xenctrl.xen_arm_arch_domainconfig = {
     gic_version: int
   ; nr_spis: int
@@ -831,7 +833,7 @@ let numa_placement domid ~vcpus ~memory =
   let open Xenctrlext in
   let open Topology in
   let hint =
-    Mutex.execute numa_mutex (fun () ->
+    with_lock numa_mutex (fun () ->
         let host = Lazy.force numa_hierarchy in
         let numa_meminfo =
           Xenctrlext.(with_xc numainfo).memory |> Array.to_list
@@ -1346,11 +1348,11 @@ let restore_common (task : Xenops_task.task_handle) ~xc ~xs
                do here is block until this has happened before sending the next
                request to emu-manager. *)
             let wakeup = Event.new_channel () in
-            Mutex.execute thread_requests_m (fun () ->
+            with_lock thread_requests_m (fun () ->
                 thread_requests := (emu, wakeup) :: !thread_requests
             ) ;
             wrap (fun () ->
-                Mutex.execute emu_manager_send_m (fun () -> send_restore cnx emu)
+                with_lock emu_manager_send_m (fun () -> send_restore cnx emu)
             )
             >>= fun () ->
             debug "Sent restore:%s to emu-manager. Waiting for result..."
@@ -1358,7 +1360,7 @@ let restore_common (task : Xenops_task.task_handle) ~xc ~xs
             (* Block until woken up by the main thread once the result has been
                received. *)
             Event.receive wakeup |> Event.sync ;
-            Mutex.execute thread_requests_m (fun () ->
+            with_lock thread_requests_m (fun () ->
                 thread_requests := List.remove_assoc emu !thread_requests
             ) ;
             return ()

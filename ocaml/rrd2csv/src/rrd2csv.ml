@@ -13,7 +13,6 @@
  *)
 
 module Xstringext = Xapi_stdext_std.Xstringext
-module Mutex = Xapi_stdext_threads.Threadext.Mutex
 open Rrd
 
 let version = "0.1.3"
@@ -37,7 +36,7 @@ module Stdout = struct
 
   let debug (fmt : ('a, unit, string, unit) format4) =
     if !print_debug then
-      Mutex.execute stdout_m (fun () ->
+      Xapi_stdext_threads.Threadext.Mutex.execute stdout_m (fun () ->
           Printf.kprintf
             (fun s ->
               Printf.printf "%s [%d] %s\n"

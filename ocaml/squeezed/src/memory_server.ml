@@ -23,9 +23,9 @@ module D = Debug.Make (struct let name = Memory_interface.service_name end)
 
 open D
 
-module Host_free_memory_event = struct
-  open Xapi_stdext_threads
+let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
+module Host_free_memory_event = struct
   let accesible = ref false
 
   let c = Condition.create ()
@@ -33,14 +33,14 @@ module Host_free_memory_event = struct
   let m = Mutex.create ()
 
   let wait () =
-    Threadext.Mutex.execute m (fun () ->
+    with_lock m (fun () ->
         while not !accesible do
           Condition.wait c m
         done
     )
 
   let set () =
-    Threadext.Mutex.execute m (fun () ->
+    with_lock m (fun () ->
         accesible := true ;
         Condition.signal c
     )
@@ -50,10 +50,10 @@ type context = unit
 
 (** The main body of squeezed is single-threaded, so we protect it with a mutex
     here. *)
-let big_server_mutex = Xapi_stdext_threads.Threadext.Mutex.create ()
+let big_server_mutex = Mutex.create ()
 
 let wrap _dbg f =
-  try Xapi_stdext_threads.Threadext.Mutex.execute big_server_mutex f with
+  try with_lock big_server_mutex f with
   | Squeeze.Cannot_free_this_much_memory (needed, free) ->
       (* NB both needed and free have been inflated by the lowmem_emergency_pool
          etc *)

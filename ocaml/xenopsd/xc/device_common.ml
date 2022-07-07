@@ -523,12 +523,16 @@ let with_qmp_connection domid f =
     (fun () -> f connection)
     (fun () -> exec (fun () -> Qmp_protocol.close connection))
 
-(** [qmp_send_cmd domid cmd] sends [cmd] to [domid] and checks that the result
-    it returns is Success. Otherwise it will raise [QMP_Error].
+(** [qmp_send_cmd ~send_fd ~may_fail domid cmd] sends [cmd] to [domid] and
+    checks that the result it returns is Success. Otherwise it will raise
+    [QMP_Error].
 
     [qmp_send_cmd] can send optionally a file descriptor [send_fd] over the
-    connection before it sends the command. This is required for some commands. *)
-let qmp_send_cmd ?send_fd domid cmd =
+    connection before it sends the command. This is required for some commands.
+    [may_fail] is an optional command that indicates that a failure is expected
+    in response, this allows to reduce noise in the logs.
+    *)
+let qmp_send_cmd ?send_fd ?(may_fail = false) domid cmd =
   with_qmp_connection domid (fun connection ->
       let result =
         try
@@ -553,6 +557,7 @@ let qmp_send_cmd ?send_fd domid cmd =
           result
       | message ->
           let msg' = Qmp.string_of_message message in
-          error "QMP result for domid %d: %s (%s)" domid msg' __LOC__ ;
+          if not may_fail then
+            error "QMP result for domid %d: %s (%s)" domid msg' __LOC__ ;
           raise (QMP_Error (domid, msg'))
   )

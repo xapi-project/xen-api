@@ -20,7 +20,6 @@ module SMPERF = Debug.Make (struct let name = "SMPERF" end)
 
 module Listext = Xapi_stdext_std.Listext
 open Xapi_stdext_pervasives.Pervasiveext
-open Xapi_stdext_threads.Threadext
 module Unixext = Xapi_stdext_unix.Unixext
 open Xmlrpc_client
 open Storage_interface
@@ -227,7 +226,7 @@ module State = struct
     save_one (Copy_table active_copy)
 
   let access_table ~save_after f table =
-    Mutex.execute mutex (fun () ->
+    Xapi_stdext_threads.Threadext.Mutex.execute mutex (fun () ->
         if not !loaded then load () ;
         let result = f table in
         if save_after then save () ;

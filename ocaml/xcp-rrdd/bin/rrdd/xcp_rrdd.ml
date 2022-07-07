@@ -121,8 +121,7 @@ let start (xmlrpc_path, http_fwd_path) process =
 
 (* Monitoring code --- START. *)
 
-module Mutex = Xapi_stdext_threads.Threadext.Mutex
-module Thread = Xapi_stdext_threads.Threadext.Thread
+let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
 (*****************************************************)
 (* xenstore related code                             *)
@@ -530,7 +529,7 @@ let dss_mem_vms doms =
       in
       let memory_target_opt =
         try
-          Mutex.execute Rrdd_shared.memory_targets_m (fun _ ->
+          with_lock Rrdd_shared.memory_targets_m (fun _ ->
               Some (Hashtbl.find Rrdd_shared.memory_targets domid)
           )
         with Not_found -> None
@@ -591,7 +590,7 @@ let tapdisk_cache_stats : string =
 
 let dss_cache timestamp =
   let cache_sr_opt =
-    Mutex.execute Rrdd_shared.cache_sr_lock (fun _ -> !Rrdd_shared.cache_sr_uuid)
+    with_lock Rrdd_shared.cache_sr_lock (fun _ -> !Rrdd_shared.cache_sr_uuid)
   in
   let do_read cache_sr =
     debug "do_read: %s %s" tapdisk_cache_stats cache_sr ;
@@ -774,7 +773,7 @@ let monitor_write_loop writers =
           while true do
             try
               do_monitor_write xc writers ;
-              Mutex.execute Rrdd_shared.last_loop_end_time_m (fun _ ->
+              with_lock Rrdd_shared.last_loop_end_time_m (fun _ ->
                   Rrdd_shared.last_loop_end_time := Unix.gettimeofday ()
               ) ;
               Thread.delay !Rrdd_shared.timeslice
@@ -792,7 +791,7 @@ let monitor_write_loop writers =
 (* Monitoring code --- END. *)
 
 module type GCLOG = sig
-  val start : unit -> Xapi_stdext_threads.Threadext.Thread.t
+  val start : unit -> Thread.t
 end
 
 module GCLog : GCLOG = struct
@@ -829,7 +828,7 @@ end
    gives a plugin the possibility to use an atomic rename(2) call. *)
 
 module type DISCOVER = sig
-  val start : string list -> Xapi_stdext_threads.Threadext.Thread.t
+  val start : string list -> Thread.t
 end
 
 module Discover : DISCOVER = struct
@@ -988,16 +987,8 @@ let _ =
   Debug.set_facility Syslog.Local5 ;
   (* Read configuration file. *)
   debug "Reading configuration file .." ;
-  ( match
-      Xcp_service.configure2 ~name:Sys.argv.(0) ~version:Version.version ~doc
-        ~options ()
-    with
-  | `Ok () ->
-      ()
-  | `Error m ->
-      Printf.fprintf stderr "%s\n" m ;
-      exit 1
-  ) ;
+  Xcp_service.configure2 ~name:Sys.argv.(0) ~version:Version.version ~doc
+    ~options () ;
   Xcp_service.maybe_daemonize () ;
   debug "Starting the HTTP server .." ;
   (* Eventually we should switch over to xcp_service to declare our services,

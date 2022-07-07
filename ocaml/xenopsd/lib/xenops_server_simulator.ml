@@ -20,6 +20,8 @@ module D = Debug.Make (struct let name = "xenops_server_simulator" end)
 
 open D
 
+let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
+
 module Domain = struct
   type t = {
       domid: int
@@ -537,44 +539,42 @@ module VM = struct
 
   let remove _vm = ()
 
-  let create _ memory_limit vm _ _ =
-    Mutex.execute m (create_nolock memory_limit vm)
+  let create _ memory_limit vm _ _ = with_lock m (create_nolock memory_limit vm)
 
-  let destroy _ vm = Mutex.execute m (destroy_nolock vm)
+  let destroy _ vm = with_lock m (destroy_nolock vm)
 
-  let pause _ vm = Mutex.execute m (do_pause_unpause_nolock vm true)
+  let pause _ vm = with_lock m (do_pause_unpause_nolock vm true)
 
-  let unpause _ vm = Mutex.execute m (do_pause_unpause_nolock vm false)
+  let unpause _ vm = with_lock m (do_pause_unpause_nolock vm false)
 
-  let set_xsdata _ vm xs = Mutex.execute m (do_set_xsdata_nolock vm xs)
+  let set_xsdata _ vm xs = with_lock m (do_set_xsdata_nolock vm xs)
 
-  let set_vcpus _ vm n = Mutex.execute m (do_set_vcpus_nolock vm n)
+  let set_vcpus _ vm n = with_lock m (do_set_vcpus_nolock vm n)
 
   let set_shadow_multiplier _ vm n =
-    Mutex.execute m (do_set_shadow_multiplier_nolock vm n)
+    with_lock m (do_set_shadow_multiplier_nolock vm n)
 
   let set_memory_dynamic_range _ vm min max =
-    Mutex.execute m (do_set_memory_dynamic_range_nolock vm min max)
+    with_lock m (do_set_memory_dynamic_range_nolock vm min max)
 
   let build ?restore_fd:_ _ vm vbds vifs vgpus vusbs extras _force =
-    Mutex.execute m (build_nolock vm vbds vifs vgpus vusbs extras)
+    with_lock m (build_nolock vm vbds vifs vgpus vusbs extras)
 
   let create_device_model _ vm _vbds _vifs _vgpus _vusbs _ =
-    Mutex.execute m (create_device_model_nolock vm)
+    with_lock m (create_device_model_nolock vm)
 
-  let destroy_device_model _ vm =
-    Mutex.execute m (destroy_device_model_nolock vm)
+  let destroy_device_model _ vm = with_lock m (destroy_device_model_nolock vm)
 
   let request_shutdown _ vm reason _ack_delay =
-    Mutex.execute m (request_shutdown_nolock vm reason)
+    with_lock m (request_shutdown_nolock vm reason)
 
   let wait_shutdown _ _vm _reason _timeout = true
 
   let save _ _cb vm flags data vgpu_data _pre_suspend_callback =
-    Mutex.execute m (save_nolock vm flags data vgpu_data)
+    with_lock m (save_nolock vm flags data vgpu_data)
 
   let restore _ _cb vm vbds vifs data vgpu_data extras =
-    Mutex.execute m (restore_nolock vm vbds vifs data vgpu_data extras)
+    with_lock m (restore_nolock vm vbds vifs data vgpu_data extras)
 
   let s3suspend _ _vm = ()
 
@@ -582,7 +582,7 @@ module VM = struct
 
   let soft_reset _ _vm = ()
 
-  let get_state vm = Mutex.execute m (get_state_nolock vm)
+  let get_state vm = with_lock m (get_state_nolock vm)
 
   let request_rdp _vm _enabled = ()
 
@@ -593,7 +593,7 @@ module VM = struct
   let set_domain_action_request _vm _request = ()
 
   let get_domain_action_request vm =
-    Mutex.execute m (get_domain_action_request_nolock vm)
+    with_lock m (get_domain_action_request_nolock vm)
 
   let get_hook_args (_vm_uuid : Vm.id) = []
 
@@ -631,11 +631,11 @@ module VM = struct
 end
 
 module PCI = struct
-  let plug _ (vm : Vm.id) (pci : Pci.t) _ = Mutex.execute m (add_pci vm pci)
+  let plug _ (vm : Vm.id) (pci : Pci.t) _ = with_lock m (add_pci vm pci)
 
-  let unplug _ vm pci = Mutex.execute m (remove_pci vm pci)
+  let unplug _ vm pci = with_lock m (remove_pci vm pci)
 
-  let get_state vm pci = Mutex.execute m (pci_state vm pci)
+  let get_state vm pci = with_lock m (pci_state vm pci)
 
   let get_device_action_request _vm _pci = None
 
@@ -645,7 +645,7 @@ end
 module VGPU = struct
   include Xenops_server_skeleton.VGPU
 
-  let get_state vm vgpu = Mutex.execute m (vgpu_state vm vgpu)
+  let get_state vm vgpu = with_lock m (vgpu_state vm vgpu)
 end
 
 module VUSB = struct
@@ -653,7 +653,7 @@ module VUSB = struct
 
   let unplug _ _vm _vusb = ()
 
-  let get_state vm vusb = Mutex.execute m (vusb_state vm vusb)
+  let get_state vm vusb = with_lock m (vusb_state vm vusb)
 
   let get_device_action_request _vm _vusb = None
 end
@@ -665,17 +665,17 @@ module VBD = struct
 
   let epoch_end _ (_vm : Vm.id) (_disk : disk) = ()
 
-  let plug _ (vm : Vm.id) (vbd : Vbd.t) = Mutex.execute m (add_vbd vm vbd)
+  let plug _ (vm : Vm.id) (vbd : Vbd.t) = with_lock m (add_vbd vm vbd)
 
-  let unplug _ vm vbd _ = Mutex.execute m (remove_vbd vm vbd)
+  let unplug _ vm vbd _ = with_lock m (remove_vbd vm vbd)
 
   let insert _ _vm _vbd _disk = ()
 
   let eject _ _vm _vbd = ()
 
-  let set_qos _ vm vbd = Mutex.execute m (set_qos_vbd vm vbd)
+  let set_qos _ vm vbd = with_lock m (set_qos_vbd vm vbd)
 
-  let get_state vm vbd = Mutex.execute m (vbd_state vm vbd)
+  let get_state vm vbd = with_lock m (vbd_state vm vbd)
 
   let get_device_action_request _vm _vbd = None
 end
@@ -683,26 +683,25 @@ end
 module VIF = struct
   let set_active _ (_vm : Vm.id) (_vif : Vif.t) (_b : bool) = ()
 
-  let plug _ vm vif = Mutex.execute m (add_vif vm vif)
+  let plug _ vm vif = with_lock m (add_vif vm vif)
 
-  let unplug _ vm vif _ = Mutex.execute m (remove_vif vm vif)
+  let unplug _ vm vif _ = with_lock m (remove_vif vm vif)
 
-  let move _ vm vif network = Mutex.execute m (move_vif vm vif network)
+  let move _ vm vif network = with_lock m (move_vif vm vif network)
 
-  let set_carrier _ vm vif carrier = Mutex.execute m (set_carrier vm vif carrier)
+  let set_carrier _ vm vif carrier = with_lock m (set_carrier vm vif carrier)
 
-  let set_locking_mode _ vm vif mode =
-    Mutex.execute m (set_locking_mode vm vif mode)
+  let set_locking_mode _ vm vif mode = with_lock m (set_locking_mode vm vif mode)
 
   let set_ipv4_configuration _ vm vif ipv4_configuration =
-    Mutex.execute m (set_ipv4_configuration vm vif ipv4_configuration)
+    with_lock m (set_ipv4_configuration vm vif ipv4_configuration)
 
   let set_ipv6_configuration _ vm vif ipv6_configuration =
-    Mutex.execute m (set_ipv6_configuration vm vif ipv6_configuration)
+    with_lock m (set_ipv6_configuration vm vif ipv6_configuration)
 
-  let set_pvs_proxy _ vm vif proxy = Mutex.execute m (set_pvs_proxy vm vif proxy)
+  let set_pvs_proxy _ vm vif proxy = with_lock m (set_pvs_proxy vm vif proxy)
 
-  let get_state vm vif = Mutex.execute m (vif_state vm vif)
+  let get_state vm vif = with_lock m (vif_state vm vif)
 
   let get_device_action_request _vm _vif = None
 end

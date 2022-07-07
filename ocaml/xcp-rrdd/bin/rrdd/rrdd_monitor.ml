@@ -73,8 +73,7 @@ let update_rrds timestamp dss (uuid_domids : (string * int) list) paused_vms =
   (* Here we do the synchronising between the dom0 view of the world and our
      Hashtbl. By the end of this execute block, the Hashtbl correctly represents
      the world *)
-  let execute = Xapi_stdext_threads.Threadext.Mutex.execute in
-  execute mutex (fun _ ->
+  Xapi_stdext_threads.Threadext.Mutex.execute mutex (fun _ ->
       let out_of_date, by_how_much =
         match !host_rrd with
         | None ->
