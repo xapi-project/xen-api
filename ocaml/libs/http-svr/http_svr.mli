@@ -48,12 +48,7 @@ module Server : sig
 
   val all_stats : 'a t -> (Http.method_t * uri_path * Stats.t) list
   (** [all_stats x] returns a list of (method, uri, stats) triples *)
-
-  val enable_fastpath : 'a t -> unit
-  (** [enable_fastpath x] switches on experimental performance optimisations *)
 end
-
-exception Too_many_headers
 
 exception Generic_error of string
 

@@ -348,8 +348,6 @@ let read_up_to buf already_read marker fd =
   done ;
   !b
 
-let read_http_header buf fd = read_up_to buf 0 end_of_headers fd
-
 let smallest_request = "GET / HTTP/1.0\r\n\r\n"
 
 (* let smallest_response = "HTTP/1.0 200 OK\r\n\r\n" *)

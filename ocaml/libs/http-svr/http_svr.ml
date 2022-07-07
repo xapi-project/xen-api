@@ -253,12 +253,10 @@ end)
 module Server = struct
   type 'a t = {
       mutable handlers: 'a TE.t Radix_tree.t MethodMap.t
-    ; mutable use_fastpath: bool
     ; default_context: 'a
   }
 
-  let empty default_context =
-    {handlers= MethodMap.empty; use_fastpath= false; default_context}
+  let empty default_context = {handlers= MethodMap.empty; default_context}
 
   let add_handler x ty uri handler =
     let existing =
@@ -284,8 +282,6 @@ module Server = struct
     MethodMap.fold
       (fun m rt acc -> fold (fun k te acc -> (m, k, te.TE.stats) :: acc) acc rt)
       x.handlers []
-
-  let enable_fastpath x = x.use_fastpath <- true
 end
 
 let escape uri =
@@ -312,121 +308,10 @@ let escape uri =
       ]
     uri
 
-exception Too_many_headers
-
 exception Generic_error of string
-
-let request_of_bio_exn_slow ic =
-  (* Try to keep the connection open for a while to prevent spurious End_of_file type
-     	   problems under load *)
-  let initial_timeout = 5. *. 60. in
-  let content_length = ref (-1L) in
-  let cookie = ref "" in
-  let transfer_encoding = ref None in
-  let accept = ref None in
-  let auth = ref None in
-  let task = ref None in
-  let subtask_of = ref None in
-  let content_type = ref None in
-  let host = ref None in
-  let user_agent = ref None in
-  content_length := -1L ;
-  cookie := "" ;
-  let req =
-    Buf_io.input_line ~timeout:initial_timeout ic
-    |> Bytes.to_string
-    |> Request.of_request_line
-  in
-  (* Default for HTTP/1.1 is persistent connections. Anything else closes *)
-  (* the channel as soon as the request is processed *)
-  if req.Request.version <> "1.1" then req.Request.close <- true ;
-  let rec read_rest_of_headers left =
-    let cl_hdr = lowercase Http.Hdr.content_length in
-    let cookie_hdr = lowercase Http.Hdr.cookie in
-    let connection_hdr = lowercase Http.Hdr.connection in
-    let transfer_encoding_hdr = lowercase Http.Hdr.transfer_encoding in
-    let accept_hdr = lowercase Http.Hdr.accept in
-    let auth_hdr = lowercase Http.Hdr.authorization in
-    let task_hdr = lowercase Http.Hdr.task_id in
-    let subtask_of_hdr = lowercase Http.Hdr.subtask_of in
-    let content_type_hdr = lowercase Http.Hdr.content_type in
-    let host_hdr = lowercase Http.Hdr.host in
-    let user_agent_hdr = lowercase Http.Hdr.user_agent in
-    let r =
-      Buf_io.input_line ~timeout:Buf_io.infinite_timeout ic |> Bytes.to_string
-    in
-    match Astring.String.cut ~sep:":" r with
-    | Some (k, v) ->
-        let k = lowercase k in
-        let v = String.trim v in
-        let absorbed =
-          match k with
-          | k when k = cl_hdr ->
-              content_length := Int64.of_string v ;
-              true
-          | k when k = cookie_hdr ->
-              cookie := v ;
-              true
-          | k when k = transfer_encoding_hdr ->
-              transfer_encoding := Some v ;
-              true
-          | k when k = accept_hdr ->
-              accept := Some v ;
-              true
-          | k when k = auth_hdr ->
-              auth := Some (authorization_of_string v) ;
-              true
-          | k when k = task_hdr ->
-              task := Some v ;
-              true
-          | k when k = subtask_of_hdr ->
-              subtask_of := Some v ;
-              true
-          | k when k = content_type_hdr ->
-              content_type := Some v ;
-              true
-          | k when k = host_hdr ->
-              host := Some v ;
-              true
-          | k when k = user_agent_hdr ->
-              user_agent := Some v ;
-              true
-          | k when k = connection_hdr ->
-              req.Request.close <- lowercase v = "close" ;
-              true
-          | _ ->
-              false
-        in
-        if (not absorbed) && left <= 0 then raise Too_many_headers ;
-        if absorbed then
-          read_rest_of_headers (left - 1)
-        else
-          (k, v) :: read_rest_of_headers (left - 1)
-    | None ->
-        []
-  in
-  let headers = read_rest_of_headers 242 in
-  let request =
-    {
-      req with
-      Request.cookie= Http.parse_keyvalpairs !cookie
-    ; content_length=
-        (if !content_length = -1L then None else Some !content_length)
-    ; auth= !auth
-    ; task= !task
-    ; subtask_of= !subtask_of
-    ; content_type= !content_type
-    ; host= !host
-    ; user_agent= !user_agent
-    ; additional_headers= headers
-    ; accept= !accept
-    }
-  in
-  (request, None)
 
 (** [request_of_bio_exn ic] reads a single Http.req from [ic] and returns it. On error
     	it simply throws an exception and doesn't touch the output stream. *)
-
 let request_of_bio_exn ~proxy_seen bio =
   let fd = Buf_io.fd_of bio in
   let frame, headers, proxy' = Http.read_http_request_header fd in
@@ -505,20 +390,9 @@ let request_of_bio_exn ~proxy_seen bio =
 
 (** [request_of_bio ic] returns [Some req] read from [ic], or [None]. If [None] it will have
     	already sent back a suitable error code and response to the client. *)
-let request_of_bio ?(use_fastpath = false) ?proxy_seen ic =
+let request_of_bio ?proxy_seen ic =
   try
-    let r, proxy =
-      ( if use_fastpath then
-          request_of_bio_exn ~proxy_seen
-      else
-        request_of_bio_exn_slow
-      )
-        ic
-    in
-    (*
-		Printf.fprintf stderr "Parsed [%s]\n" (Http.Request.to_wire_string r);
-		flush stderr;
-*)
+    let r, proxy = request_of_bio_exn ~proxy_seen ic in
     (Some r, proxy)
   with e ->
     D.warn "%s (%s)" (Printexc.to_string e) __LOC__ ;
@@ -530,10 +404,6 @@ let request_of_bio ?(use_fastpath = false) ?proxy_seen ic =
             response_internal_error ss
               ~extra:"The HTTP headers could not be parsed." ;
             debug "Error parsing HTTP headers"
-        | Too_many_headers ->
-            (* don't log anything, since it could fill the log *)
-            response_internal_error ss
-              ~extra:"Too many HTTP headers were received."
         | Buf_io.Timeout ->
             ()
         (* Idle connection closed. NB infinite timeout used when headers are being read *)
@@ -623,9 +493,7 @@ let handle_connection (x : 'a Server.t) _ ss =
      along in the loop below. *)
   let rec loop proxy_seen =
     (* 1. we must successfully parse a request *)
-    let req, proxy =
-      request_of_bio ~use_fastpath:x.Server.use_fastpath ?proxy_seen ic
-    in
+    let req, proxy = request_of_bio ?proxy_seen ic in
     (* 2. now we attempt to process the request *)
     let finished =
       Option.fold ~none:true
