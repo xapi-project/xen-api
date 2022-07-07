@@ -92,8 +92,7 @@ let t =
           "Whether the contents of the VTPM are secured according to the TPM \
            spec"
       ; field ~qualifier:DynamicRO ~ty:(Ref _secret) ~internal_only:true
-          ~lifecycle:[(Published, rel_next, "Added VTPM contents")]
-          "contents" "The contents of the TPM"
+          ~lifecycle:[] "contents" "The contents of the TPM"
       ]
     ~messages:[create; destroy; get_contents; set_contents]
     ()
