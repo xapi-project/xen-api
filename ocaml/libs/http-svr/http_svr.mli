@@ -59,7 +59,8 @@ val bind : ?listen_backlog:int -> Unix.sockaddr -> string -> socket
 (* [bind_retry]: like [bind] but will catch (possibly transient exceptions) and retry *)
 val bind_retry : ?listen_backlog:int -> Unix.sockaddr -> socket
 
-val start : conn_limit:int -> 'a Server.t -> socket -> unit
+val start :
+  ?header_read_timeout:float -> conn_limit:int -> 'a Server.t -> socket -> unit
 
 val handle_one : 'a Server.t -> Unix.file_descr -> 'a -> Http.Request.t -> bool
 

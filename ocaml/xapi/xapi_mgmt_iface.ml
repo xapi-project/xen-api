@@ -81,8 +81,9 @@ end = struct
           ipv6_enabled := Unix.domain_of_sockaddr sockaddr = Unix.PF_INET6 ;
           Xapi_http.bind sockaddr
     in
-    Http_svr.start ~conn_limit:!Xapi_globs.conn_limit_tcp Xapi_http.server
-      socket ;
+    Http_svr.start
+      ~header_read_timeout:!Xapi_globs.header_read_timeout_tcp
+      ~conn_limit:!Xapi_globs.conn_limit_tcp Xapi_http.server socket ;
     management_servers := socket :: !management_servers ;
     if Pool_role.is_master () && addr = None then
       (* NB if we synchronously bring up the management interface on a master with a blank

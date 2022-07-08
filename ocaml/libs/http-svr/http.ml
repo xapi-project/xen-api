@@ -363,7 +363,14 @@ let read_frame_header buf =
   let prefix = Bytes.sub_string buf 0 frame_header_length in
   try Scanf.sscanf prefix "FRAME %012d" (fun x -> Some x) with _ -> None
 
-let read_http_request_header fd =
+let set_socket_timeout fd t =
+  try Unix.(setsockopt_float fd SO_RCVTIMEO t)
+  with Unix.Unix_error (Unix.ENOTSOCK, _, _) ->
+    (* In the unit tests, the fd comes from a pipe... ignore *)
+    ()
+
+let read_http_request_header ~read_timeout fd =
+  Option.iter (fun t -> set_socket_timeout fd t) read_timeout ;
   let buf = Bytes.create 1024 in
   Unixext.really_read fd buf 0 6 ;
   (* return PROXY header if it exists, and then read up to FRAME header length (which also may not exist) *)
@@ -387,6 +394,7 @@ let read_http_request_header fd =
         Unixext.really_read fd buf 0 length ;
         (true, length)
   in
+  set_socket_timeout fd 0. ;
   (frame, Bytes.sub_string buf 0 headers_length, proxy)
 
 let read_http_response_header buf fd =
