@@ -1,0 +1,70 @@
+name: Create release from tag
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      XAPI_VERSION: ${{ github.ref_name }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Pull configuration from xs-opam
+        run: |
+          curl --fail --silent https://raw.githubusercontent.com/xapi-project/xs-opam/master/tools/xs-opam-ci.env | cut -f2 -d " " > .env
+
+      - name: Load environment file
+        id: dotenv
+        uses: falti/dotenv-action@v0.2.8
+
+      - name: Use python 
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Retrieve date for cache key
+        id: cache-key
+        run: echo "::set-output name=date::$(/bin/date -u "+%Y%m%d")"
+        shell: bash
+
+      - name: Restore opam cache
+        id: opam-cache
+        uses: actions/cache@v2
+        with:
+          path: "~/.opam"
+          # invalidate cache daily, gets built daily using a scheduled job
+          key: ${{ steps.cache-key.outputs.date }}
+
+      - name: Use ocaml
+        uses: ocaml/setup-ocaml@v1
+        with:
+          ocaml-version: ${{ steps.dotenv.outputs.ocaml_version_full }}
+          opam-repository: ${{ steps.dotenv.outputs.repository }}
+
+      - name: Install dependencies
+        run: |
+          opam update
+          opam pin add xapi-datamodel . --no-action
+          opam upgrade
+          opam install xapi-stdext-unix xapi-datamodel
+
+      - name: Generate python package for XenAPI
+        run: |
+          opam exec -- ./configure
+          opam exec -- make python
+
+      - name: Draft Release ${{ github.ref_name }}
+        id: create_release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            scripts/examples/python/dist/*
+          fail_on_unmatched_files: true
+          draft: true
+          generate_release_notes: true
