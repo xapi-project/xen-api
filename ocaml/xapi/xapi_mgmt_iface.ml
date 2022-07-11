@@ -113,7 +113,8 @@ let start ~__context ?addr () =
         )
       )
   in
-  Http_svr.start Xapi_http.server socket ;
+  Http_svr.start ~conn_limit:!Xapi_globs.conn_limit_tcp Xapi_http.server
+    socket ;
   management_interface_server := socket :: !management_interface_server ;
   restart_stunnel ~__context ~accept ;
   if Pool_role.is_master () && addr = None then
