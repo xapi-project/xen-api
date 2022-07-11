@@ -93,7 +93,7 @@ let start (xmlrpc_path, http_fwd_path) process =
   Xapi_stdext_unix.Unixext.mkdir_safe (Filename.dirname xmlrpc_path) 0o700 ;
   Xapi_stdext_unix.Unixext.unlink_safe xmlrpc_path ;
   let xmlrpc_socket = Http_svr.bind (Unix.ADDR_UNIX xmlrpc_path) "unix_rpc" in
-  Http_svr.start server xmlrpc_socket ;
+  Http_svr.start ~conn_limit:1024 server xmlrpc_socket ;
   Xapi_stdext_unix.Unixext.unlink_safe http_fwd_path ;
   let http_fwd_socket = Unix.socket Unix.PF_UNIX Unix.SOCK_STREAM 0 in
   Unix.bind http_fwd_socket (Unix.ADDR_UNIX http_fwd_path) ;

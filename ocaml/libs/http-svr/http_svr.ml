@@ -105,6 +105,7 @@ let response_fct req ?(hdrs = []) s (response_length : int64)
       Http.Response.content_length= Some response_length
     }
   in
+  D.debug "Response %s" (Http.Response.to_string res) ;
   Unixext.really_write_string s (Http.Response.to_wire_string res) ;
   write_response_to_fd_fn s
 
@@ -122,6 +123,7 @@ let response_missing ?(hdrs = []) s body =
       ~headers:(connection :: cache :: hdrs)
       ~body "404" "Not Found"
   in
+  D.debug "Response %s" (Http.Response.to_string res) ;
   Unixext.really_write_string s (Http.Response.to_wire_string res)
 
 let response_error_html ?(version = "1.1") s code message hdrs body =
@@ -133,6 +135,7 @@ let response_error_html ?(version = "1.1") s code message hdrs body =
       ~headers:(content_type :: connection :: cache :: hdrs)
       ~body code message
   in
+  D.debug "Response %s" (Http.Response.to_string res) ;
   Unixext.really_write_string s (Http.Response.to_wire_string res)
 
 let response_unauthorised ?req label s =
@@ -484,7 +487,15 @@ let handle_one (x : 'a Server.t) ss context req =
     ) ;
     !finished
 
-let handle_connection (x : 'a Server.t) _ ss =
+let handle_connection (x : 'a Server.t) caller ss =
+  ( match caller with
+  | Unix.ADDR_UNIX _ ->
+      debug "Accepted unix connection"
+  | Unix.ADDR_INET (addr, port) ->
+      debug "Accepted inet connection from %s:%d"
+        (Unix.string_of_inet_addr addr)
+        port
+  ) ;
   let ic = Buf_io.of_fd ss in
   (* For HTTPS requests, a PROXY header is sent by stunnel right at the beginning of
      of its connection to the server, before HTTP requests are transferred, and
@@ -504,7 +515,7 @@ let handle_connection (x : 'a Server.t) _ ss =
     if not finished then
       loop proxy
   in
-  loop None ; Unix.close ss
+  loop None ; debug "Closing connection" ; Unix.close ss
 
 let bind ?(listen_backlog = 128) sockaddr name =
   let domain =
@@ -570,8 +581,15 @@ let socket_table = Hashtbl.create 10
 type socket = Unix.file_descr * string
 
 (* Start an HTTP server on a new socket *)
-let start (x : 'a Server.t) (socket, name) =
-  let handler = {Server_io.name; body= handle_connection x} in
+let start ~conn_limit (x : 'a Server.t) (socket, name)
+    =
+let handler =
+    {
+      Server_io.name
+    ; body= handle_connection x
+    ; lock= Xapi_stdext_threads.Semaphore.create conn_limit
+    }
+  in
   let server = Server_io.server handler socket in
   Hashtbl.add socket_table socket server
 

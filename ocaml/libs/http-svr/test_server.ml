@@ -68,7 +68,7 @@ let _ =
   let inet_addr = Unix.inet_addr_of_string ip in
   let addr = Unix.ADDR_INET (inet_addr, !port) in
   let socket = Http_svr.bind ~listen_backlog:5 addr "server" in
-  start server socket ;
+  start ~conn_limit:1024 server socket ;
   Printf.printf "Server started on %s:%d\n" ip !port ;
   with_lock finished_m (fun () ->
       while not !finished do

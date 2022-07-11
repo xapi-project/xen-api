@@ -961,6 +961,12 @@ let sqlite3 = ref "/usr/bin/sqlite3"
 
 let samba_dir = "/var/lib/samba"
 
+let conn_limit_tcp = ref 800
+
+let conn_limit_unix = ref 1024
+
+let conn_limit_clientcert = ref 800
+
 let xapi_globs_spec =
   [
     ( "master_connection_reset_timeout"
@@ -1034,6 +1040,9 @@ let xapi_globs_spec =
   ; ( "winbind_update_closest_kdc_interval"
     , Float winbind_update_closest_kdc_interval
     )
+  ; ("conn_limit_tcp", Int conn_limit_tcp)
+  ; ("conn_limit_unix", Int conn_limit_unix)
+  ; ("conn_limit_clientcert", Int conn_limit_clientcert)
   ]
 
 let options_of_xapi_globs_spec =
