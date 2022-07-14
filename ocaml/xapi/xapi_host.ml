@@ -674,14 +674,24 @@ let retrieve_wlb_evacuate_recommendations ~__context ~self =
     plans []
 
 let restart_agent ~__context ~host:_ =
-  let syslog_stdout = Forkhelpers.Syslog_WithKey "Host.restart_agent" in
-  let pid =
-    Forkhelpers.safe_close_and_exec None None None [] ~syslog_stdout
-      !Xapi_globs.xe_toolstack_restart
-      []
-  in
-  debug "Created process with pid: %d to perform xe-toolstack-restart"
-    (Forkhelpers.getpid pid)
+  (* Spawn a thread to call the restarting script so that this call could return
+   * successfully before its stunnel connection being terminated by the restarting.
+   *)
+  ignore
+    (Thread.create
+       (fun () ->
+         Thread.delay 1. ;
+         let syslog_stdout = Forkhelpers.Syslog_WithKey "Host.restart_agent" in
+         let pid =
+           Forkhelpers.safe_close_and_exec None None None [] ~syslog_stdout
+             !Xapi_globs.xe_toolstack_restart
+             []
+         in
+         debug "Created process with pid: %d to perform xe-toolstack-restart"
+           (Forkhelpers.getpid pid)
+       )
+       ()
+    )
 
 let shutdown_agent ~__context =
   debug "Host.restart_agent: Host agent will shutdown in 1s!!!!" ;
