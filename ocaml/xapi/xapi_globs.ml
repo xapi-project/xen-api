@@ -926,6 +926,8 @@ let repository_gpgcheck = ref true
 
 let migration_compression = ref false
 
+let evacuation_batch_size = ref 10
+
 type xapi_globs_spec_ty = Float of float ref | Int of int ref
 
 let extauth_ad_backend = ref "winbind"
@@ -1354,6 +1356,11 @@ let other_options =
     , Arg.Set migration_compression
     , (fun () -> string_of_bool !migration_compression)
     , "Use compression during VM migration when no API option provided."
+    )
+  ; ( "evacuation-batch-size"
+    , Arg.Set_int evacuation_batch_size
+    , (fun () -> string_of_int !evacuation_batch_size)
+    , "The number of VMs evacauted from a host in parallel."
     )
   ]
 

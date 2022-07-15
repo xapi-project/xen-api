@@ -27,6 +27,21 @@ module D = Debug.Make (struct let name = "xapi_host" end)
 
 open D
 
+(* [take n xs] returns the first [n] elements of [xs] and the remaining
+   tail. Similar to Listext.chop but never raises an exception even if
+   n <= 0 or n > |xs|. *)
+let take n xs =
+  let rec loop n head tail =
+    match tail with
+    | [] ->
+        (List.rev head, tail)
+    | tail when n <= 0 ->
+        (List.rev head, tail)
+    | t :: ts ->
+        loop (n - 1) (t :: head) ts
+  in
+  loop n [] xs
+
 let get_servertime ~__context ~host:_ = Date.of_float (Unix.gettimeofday ())
 
 let get_server_localtime ~__context ~host:_ = Date.localtime ()
@@ -584,8 +599,8 @@ let compute_evacuation_plan ~__context ~host =
         compute_evacuation_plan_no_wlb ~__context ~host ()
 
 let evacuate ~__context ~host ~network =
-  let task = Context.get_task_id __context in
   let plans = compute_evacuation_plan ~__context ~host in
+  let plans_length = float (Hashtbl.length plans) in
   (* Check there are no errors in this list *)
   Hashtbl.iter
     (fun _ plan ->
@@ -596,48 +611,104 @@ let evacuate ~__context ~host ~network =
           ()
     )
     plans ;
-  (* Do it *)
-  let individual_progress = 1.0 /. float (Hashtbl.length plans) in
-  let migrate_vm vm plan =
+
+  (* check all hosts that show up as destinations *)
+  let assert_valid_networks plans =
+    plans
+    |> Hashtbl.to_seq
+    |> Seq.filter_map (function _, Migrate host -> Some host | _ -> None)
+    |> List.of_seq
+    |> List.sort_uniq compare
+    |> List.iter (fun host ->
+           ignore
+           @@ Xapi_network_attach_helpers
+              .assert_valid_ip_configuration_on_network_for_host ~__context
+                ~self:network ~host
+       )
+  in
+
+  let options =
+    match network with
+    | network when network = Ref.null ->
+        [("live", "true")]
+    | network ->
+        assert_valid_networks plans ;
+        [("network", Ref.string_of network); ("live", "true")]
+  in
+
+  let migrate_vm ~rpc ~session_id (vm, plan) =
     match plan with
     | Migrate host ->
-        ( try
-            ( if network <> Ref.null then
-                let hosts = Db.Host.get_all ~__context in
-                List.iter
-                  (fun host ->
-                    ignore
-                    @@ Xapi_network_attach_helpers
-                       .assert_valid_ip_configuration_on_network_for_host
-                         ~__context ~self:network ~host
-                  )
-                  hosts
-            ) ;
-            let with_network_option =
-              if network <> Ref.null then
-                [("network", Ref.string_of network)]
-              else
-                []
-            in
-            let options = ("live", "true") :: with_network_option in
-            Helpers.call_api_functions ~__context (fun rpc session_id ->
-                Client.Client.VM.pool_migrate ~rpc ~session_id ~vm ~host
-                  ~options
-            )
-          with
-        | Api_errors.Server_error (code, _)
-          when code = Api_errors.vm_bad_power_state ->
-            ()
-        | e ->
-            raise e
-        ) ;
-        let progress = Db.Task.get_progress ~__context ~self:task in
-        TaskHelper.set_progress ~__context (progress +. individual_progress)
+        Client.Client.Async.VM.pool_migrate ~rpc ~session_id ~vm ~host ~options
     | Error (code, params) ->
         (* should never happen *)
         raise (Api_errors.Server_error (code, params))
   in
-  let () = Hashtbl.iter migrate_vm plans in
+
+  (* execute [n] asynchronous API calls [api_fn] for [xs] and wait for them to
+     finish before executing the next batch. *)
+  let batch ~__context n api_fn xs =
+    let finally = Xapi_stdext_pervasives.Pervasiveext.finally in
+    let destroy = Client.Client.Task.destroy in
+    let fail task msg =
+      raise
+        Api_errors.(
+          Server_error
+            (internal_error, [Printf.sprintf "%s, %s" (Ref.string_of task) msg])
+        )
+    in
+
+    let assert_success task =
+      match Db.Task.get_status ~__context ~self:task with
+      | `success ->
+          ()
+      | `failure -> (
+        match Db.Task.get_error_info ~__context ~self:task with
+        | [] ->
+            fail task "couldn't extract error result from task"
+        | code :: _ when code = Api_errors.vm_bad_power_state ->
+            ()
+        | code :: params ->
+            raise (Api_errors.Server_error (code, params))
+      )
+      | _ ->
+          fail task "unexpected status of migration task"
+    in
+
+    let rec loop xs =
+      match take n xs with
+      | [], _ ->
+          ()
+      | head, tail ->
+          Helpers.call_api_functions ~__context @@ fun rpc session_id ->
+          let tasks = List.map (api_fn ~rpc ~session_id) head in
+          finally
+            (fun () ->
+              Tasks.wait_for_all ~rpc ~session_id ~tasks ;
+              List.iter assert_success tasks ;
+              let tail_length = List.length tail |> float in
+              let progress = 1.0 -. (tail_length /. plans_length) in
+              TaskHelper.set_progress ~__context progress
+            )
+            (fun () ->
+              List.iter (fun self -> destroy ~rpc ~session_id ~self) tasks
+            ) ;
+          loop tail
+    in
+    loop xs ;
+    TaskHelper.set_progress ~__context 1.0
+  in
+
+  (* avoid edge cases from meaningless batch sizes *)
+  let batch_size = Int.(max 1 (abs !Xapi_globs.evacuation_batch_size)) in
+  info "Host.evacuate: migrating VMs in batches of %d" batch_size ;
+
+  (* execute evacuation plan in batches *)
+  plans
+  |> Hashtbl.to_seq
+  |> List.of_seq
+  |> batch ~__context batch_size migrate_vm ;
+
   (* Now check there are no VMs left *)
   let vms = Db.Host.get_resident_VMs ~__context ~self:host in
   let vms =
