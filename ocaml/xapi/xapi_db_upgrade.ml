@@ -871,7 +871,7 @@ let remove_legacy_ssl_support =
 let upgrade_last_updated_field =
   {
     description= "update Host.last_software_update field"
-  ; version= (fun _ -> true)
+  ; version= (fun version -> version <= yangtze)
   ; fn=
       (fun ~__context ->
         let host = Helpers.get_localhost ~__context in
