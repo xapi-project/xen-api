@@ -44,18 +44,24 @@ let get_vdi ~__context ~self =
   if vbds <> [] then
     Some vdi
   else
-    (* Scan the SR. This will cause the removal of VDI records that are not backed
-       by an actual volume on the SR. *)
     let sr = Db.PVS_cache_storage.get_SR ~__context ~self in
-    Helpers.call_api_functions ~__context (fun rpc session_id ->
-        Client.Client.SR.scan ~rpc ~session_id ~sr
-    ) ;
-    (* If our VDI reference is still valid, then we're good. *)
-    if Db.is_valid_ref __context vdi then
-      Some vdi
-    else (
-      info "PVS-cache VDI %s is no longer present on the SR" (Ref.string_of vdi) ;
+    if not (Db.is_valid_ref __context sr) then (
+      info "PVS-cache SR %s is no longer present" (Ref.string_of sr) ;
       None
+    ) else (
+      (* Scan the SR. This will cause the removal of VDI records that are not backed
+         by an actual volume on the SR. *)
+      Helpers.call_api_functions ~__context (fun rpc session_id ->
+          Client.Client.SR.scan ~rpc ~session_id ~sr
+      ) ;
+      (* If our VDI reference is still valid, then we're good. *)
+      if Db.is_valid_ref __context vdi then
+        Some vdi
+      else (
+        info "PVS-cache VDI %s is no longer present on the SR"
+          (Ref.string_of vdi) ;
+        None
+      )
     )
 
 let m = Mutex.create ()
