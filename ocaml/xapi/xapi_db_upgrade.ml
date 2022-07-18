@@ -868,6 +868,18 @@ let remove_legacy_ssl_support =
       )
   }
 
+let upgrade_last_updated_field =
+  {
+    description= "update Host.last_software_update field"
+  ; version= (fun _ -> true)
+  ; fn=
+      (fun ~__context ->
+        let host = Helpers.get_localhost ~__context in
+        Db.Host.set_last_software_update ~__context ~self:host
+          ~value:(Xapi_host.get_servertime ~__context ~host)
+      )
+  }
+
 let rules =
   [
     upgrade_domain_type
@@ -896,6 +908,7 @@ let rules =
   ; upgrade_cluster_timeouts
   ; upgrade_secrets
   ; remove_legacy_ssl_support
+  ; upgrade_last_updated_field
   ]
 
 (* Maybe upgrade most recent db *)
