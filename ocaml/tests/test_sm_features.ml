@@ -46,55 +46,53 @@ let test_sequences =
     {
       raw=
         [
-          "SR_PROBE"
-        ; "SR_UPDATE"
+          "ATOMIC_PAUSE"
         ; "SR_CACHING"
-        ; (* xapi ignores this. *)
-          "VDI_CREATE"
-        ; "VDI_DELETE"
+        ; "SR_PROBE"
+        ; "SR_UPDATE"
         ; "VDI_ATTACH"
-        ; "VDI_DETACH"
-        ; "VDI_UPDATE"
         ; "VDI_CLONE"
-        ; "VDI_SNAPSHOT"
-        ; "VDI_RESIZE"
+        ; "VDI_CONFIG_CBT"
+        ; "VDI_CREATE"
+        ; "VDI_DELETE"
+        ; "VDI_DETACH"
         ; "VDI_GENERATE_CONFIG"
         ; "VDI_RESET_ON_BOOT/2"
-        ; "VDI_CONFIG_CBT"
-        ; "ATOMIC_PAUSE"
-          (* xapi ignores this *)
+        ; "VDI_RESIZE"
+        ; "VDI_SNAPSHOT"
+        ; "VDI_UPDATE"
         ]
     ; smapiv1_features=
         [
           (Sr_probe, 1L)
         ; (Sr_update, 1L)
+        ; (Vdi_attach, 1L)
+        ; (Vdi_clone, 1L)
+        ; (Vdi_configure_cbt, 1L)
         ; (Vdi_create, 1L)
         ; (Vdi_delete, 1L)
-        ; (Vdi_attach, 1L)
         ; (Vdi_detach, 1L)
-        ; (Vdi_update, 1L)
-        ; (Vdi_clone, 1L)
-        ; (Vdi_snapshot, 1L)
-        ; (Vdi_resize, 1L)
         ; (Vdi_generate_config, 1L)
         ; (Vdi_reset_on_boot, 2L)
-        ; (Vdi_configure_cbt, 1L)
+        ; (Vdi_resize, 1L)
+        ; (Vdi_snapshot, 1L)
+        ; (Vdi_update, 1L)
         ]
     ; smapiv2_features=
         [
           "SR_PROBE/1"
         ; "SR_UPDATE/1"
+        ; "VDI_ATTACH/1"
+        ; "VDI_CLONE/1"
+        ; "VDI_CONFIG_CBT/1"
         ; "VDI_CREATE/1"
         ; "VDI_DELETE/1"
-        ; "VDI_ATTACH/1"
         ; "VDI_DETACH/1"
-        ; "VDI_UPDATE/1"
-        ; "VDI_CLONE/1"
-        ; "VDI_SNAPSHOT/1"
-        ; "VDI_RESIZE/1"
         ; "VDI_GENERATE_CONFIG/1"
         ; "VDI_RESET_ON_BOOT/2"
-        ; "VDI_CONFIG_CBT/1"
+        ; "VDI_RESIZE/1"
+        ; "VDI_SNAPSHOT/1"
+        ; "VDI_UPDATE/1"
         ]
     ; sm=
         {
@@ -102,33 +100,33 @@ let test_sequences =
             [
               "SR_PROBE"
             ; "SR_UPDATE"
+            ; "VDI_ATTACH"
+            ; "VDI_CLONE"
+            ; "VDI_CONFIG_CBT"
             ; "VDI_CREATE"
             ; "VDI_DELETE"
-            ; "VDI_ATTACH"
             ; "VDI_DETACH"
-            ; "VDI_UPDATE"
-            ; "VDI_CLONE"
-            ; "VDI_SNAPSHOT"
-            ; "VDI_RESIZE"
             ; "VDI_GENERATE_CONFIG"
             ; "VDI_RESET_ON_BOOT"
-            ; "VDI_CONFIG_CBT"
+            ; "VDI_RESIZE"
+            ; "VDI_SNAPSHOT"
+            ; "VDI_UPDATE"
             ]
         ; features=
             [
               ("SR_PROBE", 1L)
             ; ("SR_UPDATE", 1L)
+            ; ("VDI_ATTACH", 1L)
+            ; ("VDI_CLONE", 1L)
+            ; ("VDI_CONFIG_CBT", 1L)
             ; ("VDI_CREATE", 1L)
             ; ("VDI_DELETE", 1L)
-            ; ("VDI_ATTACH", 1L)
             ; ("VDI_DETACH", 1L)
-            ; ("VDI_UPDATE", 1L)
-            ; ("VDI_CLONE", 1L)
-            ; ("VDI_SNAPSHOT", 1L)
-            ; ("VDI_RESIZE", 1L)
             ; ("VDI_GENERATE_CONFIG", 1L)
             ; ("VDI_RESET_ON_BOOT", 2L)
-            ; ("VDI_CONFIG_CBT", 1L)
+            ; ("VDI_RESIZE", 1L)
+            ; ("VDI_SNAPSHOT", 1L)
+            ; ("VDI_UPDATE", 1L)
             ]
         }
     }
