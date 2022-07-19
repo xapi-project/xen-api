@@ -1216,29 +1216,19 @@ static size_t size_of_member(const abstract_type *type)
 {
     switch (type->XEN_API_TYPE)
     {
-    case STRING:
-        return sizeof(char *);
-
-    case INT:
-        return sizeof(int64_t);
-	/*
-    case FLOAT:
-        return sizeof(double);
-
-    case BOOL:
-        return sizeof(bool);
-*/
-    case ENUM:
-        return sizeof(int);
-
-    case REF:
-        return sizeof(arbitrary_record_opt *);
-
-    case STRUCT:
-        return type->struct_size;
-
-    default:
-        assert(false);
+        case STRING:
+            return sizeof(char *);
+        case INT:
+            return sizeof(int64_t);
+        case ENUM:
+            return sizeof(int);
+        case REF:
+            return sizeof(arbitrary_record_opt *);
+        case STRUCT:
+        case SET:
+            return type->struct_size;
+        default:
+            assert(false);
     }
 }
 
@@ -1887,6 +1877,12 @@ const abstract_type abstract_type_string_set =
         .XEN_API_TYPE = SET,
         .child = &abstract_type_string
     };
+
+const abstract_type abstract_type_string_set_set =
+{
+    .XEN_API_TYPE = SET,
+    .child = &abstract_type_string_set
+};
 
 const abstract_type abstract_type_int_set =
   {
