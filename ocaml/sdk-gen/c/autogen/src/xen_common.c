@@ -1873,10 +1873,10 @@ const abstract_type abstract_type_datetime = { .XEN_API_TYPE = DATETIME };
 const abstract_type abstract_type_ref = { .XEN_API_TYPE = REF };
 
 const abstract_type abstract_type_string_set =
-    {
-        .XEN_API_TYPE = SET,
-        .child = &abstract_type_string
-    };
+{
+    .XEN_API_TYPE = SET,
+    .child = &abstract_type_string
+};
 
 const abstract_type abstract_type_string_set_set =
 {
@@ -1885,16 +1885,16 @@ const abstract_type abstract_type_string_set_set =
 };
 
 const abstract_type abstract_type_int_set =
-  {
+{
     .XEN_API_TYPE = SET,
     .child = &abstract_type_int
-  };
+};
 
 const abstract_type abstract_type_ref_set =
-    {
-        .XEN_API_TYPE = SET,
-        .child = &abstract_type_ref
-    };
+{
+    .XEN_API_TYPE = SET,
+    .child = &abstract_type_ref
+};
 
 
 typedef struct xen_string_ref_map_contents
@@ -1902,6 +1902,7 @@ typedef struct xen_string_ref_map_contents
   char *key;
   struct arbitrary_record_opt *val;
 } xen_string_ref_map_contents;
+
 static const struct struct_member string_ref_members[] =
 {
     {
@@ -1913,12 +1914,13 @@ static const struct struct_member string_ref_members[] =
         .offset = offsetof(xen_string_ref_map_contents, val)
     }
 };
+
 const abstract_type abstract_type_string_ref_map =
-    {
-        .XEN_API_TYPE = MAP,
-        .struct_size = sizeof(xen_string_ref_map_contents),
-        .members = string_ref_members
-    };
+{
+    .XEN_API_TYPE = MAP,
+    .struct_size = sizeof(xen_string_ref_map_contents),
+    .members = string_ref_members
+};
 
 static const struct struct_member string_int_members[] =
 {
@@ -1931,12 +1933,13 @@ static const struct struct_member string_int_members[] =
         .offset = offsetof(xen_string_int_map_contents, val)
     }
 };
+
 const abstract_type abstract_type_string_int_map =
-    {
-        .XEN_API_TYPE = MAP,
-        .struct_size = sizeof(xen_string_int_map_contents),
-        .members = string_int_members
-    };
+{
+    .XEN_API_TYPE = MAP,
+    .struct_size = sizeof(xen_string_int_map_contents),
+    .members = string_int_members
+};
 
 static const struct struct_member string_string_members[] =
 {
@@ -1949,12 +1952,13 @@ static const struct struct_member string_string_members[] =
         .offset = offsetof(xen_string_string_map_contents, val)
     }
 };
+
 const abstract_type abstract_type_string_string_map =
-    {
-        .XEN_API_TYPE = MAP,
-        .struct_size = sizeof(xen_string_string_map_contents),
-        .members = string_string_members
-    };
+{
+    .XEN_API_TYPE = MAP,
+    .struct_size = sizeof(xen_string_string_map_contents),
+    .members = string_string_members
+};
 
 static struct struct_member int_float_members[] =
 {
@@ -1967,12 +1971,13 @@ static struct struct_member int_float_members[] =
         .offset = offsetof(xen_int_float_map_contents, val)
     }
 };
+
 const abstract_type abstract_type_int_float_map =
-    {
-        .XEN_API_TYPE = MAP,
-        .struct_size = sizeof(xen_int_float_map_contents),
-        .members = int_float_members
-    };
+{
+    .XEN_API_TYPE = MAP,
+    .struct_size = sizeof(xen_int_float_map_contents),
+    .members = int_float_members
+};
 
 static struct struct_member int_int_members[] =
 {
@@ -1985,12 +1990,13 @@ static struct struct_member int_int_members[] =
         .offset = offsetof(xen_int_int_map_contents, val)
     }
 };
+
 const abstract_type abstract_type_int_int_map =
-    {
-        .XEN_API_TYPE = MAP,
-        .struct_size = sizeof(xen_int_int_map_contents),
-        .members = int_int_members
-    };
+{
+    .XEN_API_TYPE = MAP,
+    .struct_size = sizeof(xen_int_int_map_contents),
+    .members = int_int_members
+};
 
 static struct struct_member int_string_set_members[] =
 {
@@ -2003,12 +2009,13 @@ static struct struct_member int_string_set_members[] =
         .offset = offsetof(xen_int_string_set_map_contents, val)
     }
 };
+
 const abstract_type abstract_type_int_string_set_map =
-    {
-        .XEN_API_TYPE = MAP,
-        .struct_size = sizeof(xen_int_string_set_map_contents),
-        .members = int_string_set_members
-    };
+{
+    .XEN_API_TYPE = MAP,
+    .struct_size = sizeof(xen_int_string_set_map_contents),
+    .members = int_string_set_members
+};
 
 static struct struct_member string_string_set_members[] =
 {
@@ -2021,12 +2028,13 @@ static struct struct_member string_string_set_members[] =
         .offset = offsetof(xen_string_string_set_map_contents, val)
     }
 };
+
 const abstract_type abstract_type_string_string_set_map =
-    {
-        .XEN_API_TYPE = MAP,
-        .struct_size = sizeof(xen_string_string_set_map_contents),
-        .members = string_string_set_members
-    };
+{
+    .XEN_API_TYPE = MAP,
+    .struct_size = sizeof(xen_string_string_set_map_contents),
+    .members = string_string_set_members
+};
 
 static struct struct_member string_string_string_map_members[] =
 {
@@ -2039,10 +2047,11 @@ static struct struct_member string_string_string_map_members[] =
         .offset = offsetof(xen_string_string_string_map_map_contents, val)
     }
 };
+
 const abstract_type abstract_type_string_string_string_map_map =
-    {
-        .XEN_API_TYPE = MAP,
-        .struct_size = sizeof(xen_string_string_string_map_map_contents),
-        .members = string_string_string_map_members
-    };
+{
+    .XEN_API_TYPE = MAP,
+    .struct_size = sizeof(xen_string_string_string_map_map_contents),
+    .members = string_string_string_map_members
+};
 
