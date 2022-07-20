@@ -106,34 +106,31 @@ let has_capability (c : capability) fl = List.mem_assoc c fl
 
 let capability_of_feature : feature -> capability = fst
 
-let parse_string_int64_features strings =
-  let text_features =
-    List.filter
-      (fun s ->
-        let s = List.hd (Xapi_stdext_std.Xstringext.String.split '/' s) in
-        let p = List.mem s (List.map fst string_to_capability_table) in
-        if not p then debug "SM.feature: unknown feature %s" s ;
-        p
-      )
-      strings
-  in
-  List.map
-    (fun c ->
-      match Xapi_stdext_std.Xstringext.String.split '/' c with
-      | [] ->
-          failwith "parse_feature" (* not possible *)
-      | [cs] ->
-          (cs, 1L) (* default version *)
-      | [cs; vs] | cs :: vs :: _ -> (
-        try
-          let v = int_of_string vs in
-          (cs, if v < 1 then 1L else Int64.of_int v)
-        with _ ->
-          debug "SM.feature %s has bad version %s, defaulting to 1" cs vs ;
-          (cs, 1L)
-      )
+let known_features = List.map fst string_to_capability_table
+
+let parse_string_int64_features features =
+  let scan feature =
+    match String.split_on_char '/' feature with
+    | [] ->
+        None
+    | [feature] when List.mem feature known_features ->
+        Some (feature, 1L)
+    | feature :: version :: _ when List.mem feature known_features -> (
+      try
+        let v = Int64.(max 1L (of_string version)) in
+        Some (feature, v)
+      with _ ->
+        debug "SM.feature: %s has bad version %s, defaulting to 1" feature
+          version ;
+        Some (feature, 1L)
     )
-    text_features
+    | feature :: _ ->
+        error "SM.feature: unknown feature %s" feature ;
+        None
+  in
+  features
+  |> List.filter_map scan
+  |> List.sort_uniq (fun (x, _) (y, _) -> compare x y)
 
 let parse_capability_int64_features strings =
   List.map
