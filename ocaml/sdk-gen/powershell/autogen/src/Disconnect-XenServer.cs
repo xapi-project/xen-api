@@ -29,9 +29,8 @@
  */
 
 using System;
-using System.Collections.Generic;
+using System.Linq;
 using System.Management.Automation;
-using System.Text;
 
 using XenAPI;
 
@@ -45,7 +44,7 @@ namespace Citrix.XenServer.Commands
 
         [Parameter(ParameterSetName = "Ref", ValueFromPipelineByPropertyName = true, Position = 0)]
         [Alias("opaque_ref")]
-        public XenRef<XenAPI.Session> Ref { get; set; }
+        public XenRef<Session> Ref { get; set; }
 
         protected override void ProcessRecord()
         {
@@ -65,8 +64,7 @@ namespace Citrix.XenServer.Commands
             {
                 if (sessions.Count == 1)
                 {
-                    foreach (KeyValuePair<string, Session> kvp in sessions)
-                        session = kvp.Value;
+                    session = sessions.Values.FirstOrDefault();
                 }
                 else
                 {
@@ -77,7 +75,7 @@ namespace Citrix.XenServer.Commands
 
                     if (session == null)
                         ThrowTerminatingError(new ErrorRecord(
-                            new Exception("A default XenServer session has not beeen set."),
+                            new Exception("A default XenServer session has not been set."),
                             "",
                             ErrorCategory.InvalidArgument, null));
                 }
@@ -96,6 +94,9 @@ namespace Citrix.XenServer.Commands
                         ErrorCategory.InvalidArgument,
                         Session != null ? Session.opaque_ref : Ref.opaque_ref));
             }
+
+            if (session == null)
+                return;
 
             //store the session's opaque_ref as logging out sets it to null
             var sessionRef = session.opaque_ref;

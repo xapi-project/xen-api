@@ -136,7 +136,6 @@ and gen_http_action action =
        using System.Collections;\n\
        using System.Collections.Generic;\n\
        using System.Management.Automation;\n\
-       using System.Text;\n\n\
        using XenAPI;\n\n\
        namespace Citrix.XenServer.Commands\n\
        {\n\
@@ -279,7 +278,6 @@ and gen_body_xenref_converters classes =
      using System.Collections;\n\
      using System.Collections.Generic;\n\
      using System.Management.Automation;\n\
-     using System.Text;\n\n\
      using XenAPI;\n\n\
      namespace Citrix.XenServer.Commands\n\
      {\n\
@@ -389,7 +387,6 @@ and print_header_class classname =
      using System.Collections;\n\
      using System.Collections.Generic;\n\
      using System.Management.Automation;\n\
-     using System.Text;\n\n\
      using XenAPI;\n\n\
      namespace Citrix.XenServer.Commands\n\
      {\n\
@@ -494,7 +491,6 @@ and print_header_constructor message classname =
      using System.Collections;\n\
      using System.Collections.Generic;\n\
      using System.Management.Automation;\n\
-     using System.Text;\n\n\
      using XenAPI;\n\n\
      namespace Citrix.XenServer.Commands\n\
      {\n\
@@ -783,7 +779,6 @@ and gen_destructor obj classname messages =
          using System.Collections;\n\
          using System.Collections.Generic;\n\
          using System.Management.Automation;\n\
-         using System.Text;\n\n\
          using XenAPI;\n\n\
          namespace Citrix.XenServer.Commands\n\
          {\n\
@@ -865,7 +860,6 @@ and gen_remover obj classname messages =
          using System.Collections;\n\
          using System.Collections.Generic;\n\
          using System.Management.Automation;\n\
-         using System.Text;\n\n\
          using XenAPI;\n\n\
          namespace Citrix.XenServer.Commands\n\
          {\n\
@@ -931,7 +925,6 @@ and gen_setter obj classname messages =
          using System.Collections;\n\
          using System.Collections.Generic;\n\
          using System.Management.Automation;\n\
-         using System.Text;\n\n\
          using XenAPI;\n\n\
          namespace Citrix.XenServer.Commands\n\
          {\n\
@@ -997,7 +990,6 @@ and gen_adder obj classname messages =
          using System.Collections;\n\
          using System.Collections.Generic;\n\
          using System.Management.Automation;\n\
-         using System.Text;\n\n\
          using XenAPI;\n\n\
          namespace Citrix.XenServer.Commands\n\
          {\n\
@@ -1062,7 +1054,6 @@ and gen_invoker obj classname messages =
          using System.Collections;\n\
          using System.Collections.Generic;\n\
          using System.Management.Automation;\n\
-         using System.Text;\n\n\
          using XenAPI;\n\n\
          namespace Citrix.XenServer.Commands\n\
          {\n\
@@ -1132,7 +1123,6 @@ and gen_getter obj classname messages =
          using System.Collections;\n\
          using System.Collections.Generic;\n\
          using System.Management.Automation;\n\
-         using System.Text;\n\n\
          using XenAPI;\n\n\
          namespace Citrix.XenServer.Commands\n\
          {\n\
@@ -1736,13 +1726,23 @@ and gen_csharp_api_call message classname commonVerb switch =
         commonVerb = "Invoke"
         && is_message_with_dynamic_params classname message
       then
-          sprintf "var contxt = _context as Xen%sAction%sDynamicParameters;\n"
+          sprintf
+            "\n\
+            \                var contxt = _context as \
+             Xen%sAction%sDynamicParameters;\n\
+            \                if (contxt == null)\n\
+            \                    return;"
             (ocaml_class_to_csharp_class classname)
             (cut_msg_name (pascal_case message.msg_name) "Invoke")
       else if
       commonVerb = "Get" && is_message_with_dynamic_params classname message
     then
-        sprintf "var contxt = _context as Xen%sProperty%sDynamicParameters;\n"
+        sprintf
+          "\n\
+          \                var contxt = _context as \
+           Xen%sProperty%sDynamicParameters;\n\
+          \                if (contxt == null)\n\
+          \                    return;"
           (ocaml_class_to_csharp_class classname)
           (cut_msg_name (pascal_case message.msg_name) "Get")
       else

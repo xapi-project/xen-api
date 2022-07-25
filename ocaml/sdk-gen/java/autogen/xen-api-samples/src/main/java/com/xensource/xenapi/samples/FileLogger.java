@@ -28,7 +28,7 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
- package com.xensource.xenapi.samples;
+package com.xensource.xenapi.samples;
 
 import java.io.FileWriter;
 import java.io.IOException;
@@ -66,7 +66,7 @@ public abstract class FileLogger {
         }
     }
 
-    public void logf(String s, Object... args) {
+    public void logFormat(String s, Object... args) {
         log(String.format(s, args));
     }
 }
