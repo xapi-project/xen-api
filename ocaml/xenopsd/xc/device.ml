@@ -94,23 +94,6 @@ module Profile = struct
         Qemu_upstream_compat
 end
 
-(** Represent an IPC endpoint *)
-module Socket = struct
-  type t = Unix of string | Port of int
-
-  module Unix = struct
-    let path x = "unix:" ^ x
-
-    let rm x =
-      let dbg = debug "error cleaning unix socket %s: %s" x in
-      try Unix.unlink x with
-      | Unix.Unix_error (Unix.ENOENT, _, _) ->
-          ()
-      | Unix.Unix_error (e, _, _) ->
-          dbg (Unix.error_message e)
-  end
-end
-
 (* keys read by vif udev script (keep in sync with api:scripts/vif) *)
 let vif_udev_keys =
   "promiscuous"
@@ -119,10 +102,6 @@ let vif_udev_keys =
 (****************************************************************************************)
 
 module Generic = struct
-  let vnc_port_path domid = sprintf "/local/domain/%d/console/vnc-port" domid
-
-  let tc_port_path domid = sprintf "/local/domain/%d/console/tc-port" domid
-
   (* Oxenstored's transaction conflict algorithm will cause parallel but
      separate device creation transactions to abort and retry, leading to
      livelock while starting lots of VMs. Work around this by serialising these
@@ -367,12 +346,6 @@ module Generic = struct
     debug
       "Device.Generic.hard_shutdown about to blow away backend and error paths" ;
     rm_device_state ~xs x
-
-  let really_kill pid =
-    try Unixext.kill_and_wait pid
-    with Unixext.Process_still_alive ->
-      debug "%d: failed to respond to SIGTERM, sending SIGKILL" pid ;
-      Unixext.kill_and_wait ~signal:Sys.sigkill pid
 
   let best_effort = Xenops_utils.best_effort
 end
@@ -1076,321 +1049,6 @@ module Vcpu_Common = struct
     with Xs_protocol.Enoent _ -> false
 end
 
-module type DAEMONPIDPATH = sig
-  val name : string
-
-  val use_pidfile : bool
-
-  val pid_path : int -> string
-end
-
-module DaemonMgmt (D : DAEMONPIDPATH) = struct
-  module SignalMask = struct
-    module H = Hashtbl
-
-    type t = (int, bool) H.t
-
-    let create () = H.create 16
-
-    let set tbl key = H.replace tbl key true
-
-    let unset tbl key = H.remove tbl key
-
-    let has tbl key = H.mem tbl key
-  end
-
-  let signal_mask = SignalMask.create ()
-
-  let name = D.name
-
-  let pid_path = D.pid_path
-
-  let pid_path_signal domid = pid_path domid ^ "-signal"
-
-  let pidfile_path domid =
-    if D.use_pidfile then
-      Some (sprintf "%s/%s-%d.pid" Device_common.var_run_xen_path D.name domid)
-    else
-      None
-
-  let pid ~xs domid =
-    try
-      match pidfile_path domid with
-      | Some path when Sys.file_exists path ->
-          let pid =
-            path |> Unixext.string_of_file |> String.trim |> int_of_string
-          in
-          Unixext.with_file path [Unix.O_RDONLY] 0 (fun fd ->
-              try
-                Unix.lockf fd Unix.F_TRLOCK 0 ;
-                (* we succeeded taking the lock: original process is dead.
-                 * some other process might've reused its pid *)
-                None
-              with Unix.Unix_error (Unix.EAGAIN, _, _) ->
-                (* cannot obtain lock: process is alive *)
-                Some pid
-          )
-      | _ ->
-          (* backward compatibility during update installation: only has
-             xenstore pid *)
-          let pid = xs.Xs.read (pid_path domid) in
-          Some (int_of_string pid)
-    with _ -> None
-
-  let is_running ~xs domid =
-    match pid ~xs domid with
-    | None ->
-        false
-    | Some p -> (
-      try Unix.kill p 0 ; (* This checks the existence of pid p *)
-                          true
-      with _ -> false
-    )
-
-  let stop ~xs domid =
-    match pid ~xs domid with
-    | None ->
-        ()
-    | Some pid -> (
-        debug "%s: stopping %s with SIGTERM (domid = %d pid = %d)" D.name D.name
-          domid pid ;
-        let open Generic in
-        best_effort (sprintf "killing %s" D.name) (fun () -> really_kill pid) ;
-        let key = pid_path domid in
-        best_effort (sprintf "removing XS key %s" key) (fun () -> xs.Xs.rm key) ;
-        match pidfile_path domid with
-        | None ->
-            ()
-        | Some path ->
-            best_effort (sprintf "removing %s" path) (fun () -> Unix.unlink path)
-      )
-
-  let syslog_key ~domid = Printf.sprintf "%s-%d" D.name domid
-
-  let start ~fds ~syslog_key path args =
-    let syslog_stdout = Forkhelpers.Syslog_WithKey syslog_key in
-    let redirect_stderr_to_stdout = true in
-    let pid =
-      Forkhelpers.safe_close_and_exec None None None fds ~syslog_stdout
-        ~redirect_stderr_to_stdout path args
-    in
-    debug
-      "%s: should be running in the background (stdout -> syslog); (fd,pid) = \
-       %s"
-      D.name
-      (Forkhelpers.string_of_pidty pid) ;
-    pid
-
-  (* Forks a daemon and then returns the pid. *)
-  let start_daemon ~path ~args ~domid ?(fds = []) () =
-    let syslog_key = syslog_key ~domid in
-    debug "Starting daemon: %s with args [%s]" path (String.concat "; " args) ;
-    let pid = start ~fds ~syslog_key path args in
-    debug "Daemon started: %s" syslog_key ;
-    pid
-end
-
-module SystemdDaemonMgmt (D : DAEMONPIDPATH) = struct
-  (* backward compat: for daemons running during an update *)
-  module Compat = DaemonMgmt (D)
-
-  let pidfile_path = Compat.pidfile_path
-
-  let pid_path = Compat.pid_path
-
-  let of_domid domid =
-    let key = Compat.syslog_key ~domid in
-    if Fe_systemctl.exists ~service:key then
-      Some key
-    else
-      None
-
-  let alive service _ =
-    if Fe_systemctl.is_active ~service then
-      true
-    else
-      let status = Fe_systemctl.show ~service in
-      let open Fe_systemctl in
-      error
-        "%s: unexpected termination \
-         (Result=%s,ExecMainPID=%d,ExecMainStatus=%d,ActiveState=%s)"
-        service status.result status.exec_main_pid status.exec_main_status
-        status.active_state ;
-      false
-
-  let stop ~xs domid =
-    match of_domid domid with
-    | None ->
-        Compat.stop ~xs domid
-    | Some service ->
-        (* xenstore cleanup is done by systemd unit file *)
-        let (_ : Fe_systemctl.status) = Fe_systemctl.stop ~service in
-        ()
-
-  let start_daemon ~path ~args ~domid () =
-    debug "Starting daemon: %s with args [%s]" path (String.concat "; " args) ;
-    let service = Compat.syslog_key ~domid in
-    let pidpath = D.pid_path domid in
-    let properties =
-      ("ExecStopPost", "-/usr/bin/xenstore-rm " ^ pidpath)
-      ::
-      ( match Compat.pidfile_path domid with
-      | None ->
-          []
-      | Some path ->
-          [("ExecStopPost", "-/bin/rm -f " ^ path)]
-      )
-    in
-    Fe_systemctl.start_transient ~properties ~service path args ;
-    debug "Daemon started: %s" service ;
-    service
-end
-
-module Qemu = DaemonMgmt (struct
-  let name = "qemu-dm"
-
-  let use_pidfile = true
-
-  let pid_path domid = sprintf "/local/domain/%d/qemu-pid" domid
-end)
-
-module Vgpu = DaemonMgmt (struct
-  let name = "vgpu"
-
-  let use_pidfile = false
-
-  let pid_path domid = sprintf "/local/domain/%d/vgpu-pid" domid
-end)
-
-module Varstored = SystemdDaemonMgmt (struct
-  let name = "varstored"
-
-  let use_pidfile = true
-
-  let pid_path domid = sprintf "/local/domain/%d/varstored-pid" domid
-end)
-
-module PV_Vnc = struct
-  module D = DaemonMgmt (struct
-    let name = "vncterm"
-
-    let use_pidfile = false
-
-    let pid_path domid = sprintf "/local/domain/%d/vncterm-pid" domid
-  end)
-
-  let vnc_console_path domid = sprintf "/local/domain/%d/console" domid
-
-  let pid ~xs domid = D.pid ~xs domid
-
-  (* Look up the commandline args for the vncterm pid; *)
-  (* Check that they include the vncterm binary path and the xenstore console
-     path for the supplied domid. *)
-  let is_cmdline_valid domid pid =
-    try
-      let cmdline =
-        Printf.sprintf "/proc/%d/cmdline" pid
-        |> Unixext.string_of_file
-        |> Astring.String.cuts ~sep:"\000"
-      in
-      List.mem !Xc_resources.vncterm cmdline
-      && List.mem (vnc_console_path domid) cmdline
-    with _ -> false
-
-  let is_vncterm_running ~xs domid =
-    match pid ~xs domid with
-    | None ->
-        false
-    | Some p ->
-        D.is_running ~xs domid && is_cmdline_valid domid p
-
-  let get_vnc_port ~xs domid =
-    if not (is_vncterm_running ~xs domid) then
-      None
-    else
-      try
-        Some
-          (Socket.Port (int_of_string (xs.Xs.read (Generic.vnc_port_path domid)))
-          )
-      with _ -> None
-
-  let get_tc_port ~xs domid =
-    if not (is_vncterm_running ~xs domid) then
-      None
-    else
-      try Some (int_of_string (xs.Xs.read (Generic.tc_port_path domid)))
-      with _ -> None
-
-  let load_args = function
-    | None ->
-        []
-    | Some filename ->
-        if Sys.file_exists filename then
-          ["-l"; filename]
-        else
-          []
-
-  exception Failed_to_start
-
-  let vncterm_statefile pid =
-    sprintf "/var/xen/vncterm/%d/vncterm.statefile" pid
-
-  let get_statefile ~xs domid =
-    match pid ~xs domid with
-    | None ->
-        None
-    | Some pid ->
-        let filename = vncterm_statefile pid in
-        if Sys.file_exists filename then
-          Some filename
-        else
-          None
-
-  let save ~xs domid =
-    match pid ~xs domid with
-    | Some pid ->
-        Unix.kill pid Sys.sigusr1 ;
-        let filename = vncterm_statefile pid in
-        let delay = 10. in
-        let start_time = Unix.time () in
-        (* wait at most ten seconds *)
-        while
-          (not (Sys.file_exists filename)) || Unix.time () -. start_time > delay
-        do
-          debug "Device.PV_Vnc.save: waiting for %s to appear" filename ;
-          Thread.delay 1.
-        done ;
-        if Unix.time () -. start_time > delay then
-          debug "Device.PV_Vnc.save: timeout while waiting for %s to appear"
-            filename
-        else
-          debug "Device.PV_Vnc.save: %s has appeared" filename
-    | None ->
-        ()
-
-  let start ?statefile ~xs ?ip domid =
-    debug "In PV_Vnc.start" ;
-    let ip = Option.value ~default:"127.0.0.1" ip in
-    let l =
-      [
-        "-x"
-      ; sprintf "/local/domain/%d/console" domid
-      ; "-T"
-      ; (* listen for raw connections *)
-        "-v"
-      ; ip ^ ":1"
-      ]
-      @ load_args statefile
-    in
-    (* Now add the close fds wrapper *)
-    let pid = D.start_daemon ~path:!Xc_resources.vncterm ~args:l ~domid () in
-    let path = D.pid_path domid in
-    xs.Xs.write path (string_of_int (Forkhelpers.getpid pid)) ;
-    Forkhelpers.dontwaitpid pid
-
-  let stop ~xs domid = D.stop ~xs domid
-end
-
 module PCI = struct
   type t = {
       address: Xenops_interface.Pci.address
@@ -1550,7 +1208,7 @@ module PCI = struct
       |> int_of_string
     in
     if hvm && qmp_add then
-      if Qemu.is_running ~xs domid then
+      if Service.Qemu.is_running ~xs domid then
         let id =
           Printf.sprintf "pci-pt-%02x_%02x.%01x" host.bus host.dev host.fn
         in
@@ -2140,7 +1798,7 @@ module Vusb = struct
       {"execute":"qom-list","arguments":{"path":"/machine/peripheral"}} result:
       {"return": [{"name": "usb1", "type": "child<usb-host>"}, {"name":"type",
       "type": "string"}} The usb1 is added. *)
-    if Qemu.is_running ~xs domid then
+    if Service.Qemu.is_running ~xs domid then
       let path = "/machine/peripheral" in
       match qmp_send_cmd domid Qmp.(Qom_list path) with
       | Qmp.(Qom usbs) ->
@@ -2211,42 +1869,35 @@ module Vusb = struct
             speed id ;
           get_bus_from_version ()
     in
-    if Qemu.is_running ~xs domid then (
-      let bus, prepare_bus = get_bus () in
-      prepare_bus () ;
-      (* Need to reset USB device before passthrough to vm according to
-         CP-24616. Also need to do deprivileged work in usb_reset script if QEMU
-         is deprivileged. *)
-      ( match Qemu.pid ~xs domid with
-      | Some pid ->
-          usb_reset_attach ~hostbus ~hostport ~domid ~pid ~privileged
-      | _ ->
-          raise
-            (Xenopsd_error
-               (Internal_error
-                  (Printf.sprintf "qemu pid does not exist for vm %d" domid)
-               )
-            )
-      ) ;
-      let cmd =
-        Qmp.(
-          Device_add
-            Device.
-              {
-                driver= "usb-host"
-              ; device= USB {USB.id; params= Some USB.{bus; hostbus; hostport}}
-              }
-            
-        )
-      in
-      qmp_send_cmd domid cmd |> ignore
-    )
+    match Service.Qemu.pid ~xs domid with
+    | Some pid ->
+        (* Need to reset USB device before passthrough to vm according to
+           CP-24616. Also need to do deprivileged work in usb_reset script if QEMU
+           is deprivileged. *)
+        let bus, prepare_bus = get_bus () in
+        prepare_bus () ;
+        usb_reset_attach ~hostbus ~hostport ~domid ~pid ~privileged ;
+
+        let cmd =
+          Qmp.(
+            Device_add
+              Device.
+                {
+                  driver= "usb-host"
+                ; device= USB {USB.id; params= Some {bus; hostbus; hostport}}
+                }
+              
+          )
+        in
+        qmp_send_cmd domid cmd |> ignore
+    | None ->
+        ()
 
   let vusb_unplug ~xs ~privileged ~domid ~id ~hostbus ~hostport =
     debug "vusb_unplug: unplug VUSB device %s" id ;
     finally
       (fun () ->
-        if Qemu.is_running ~xs domid then
+        if Service.Qemu.is_running ~xs domid then
           try qmp_send_cmd domid Qmp.(Device_del id) |> ignore
           with QMP_connection_error _ ->
             raise (Xenopsd_error Device_not_connected)
@@ -2278,7 +1929,7 @@ end = struct
   (** query qemu for the serial console and write it to xenstore. Only write
       path for a real console, not a file or socket path. CA-318579 *)
   let update_xenstore ~xs domid =
-    ( if not @@ Qemu.is_running ~xs domid then
+    ( if not @@ Service.Qemu.is_running ~xs domid then
         let msg = sprintf "Qemu not running for domain %d (%s)" domid __LOC__ in
         raise (Xenopsd_error (Internal_error msg))
     ) ;
@@ -2397,20 +2048,18 @@ module Dm_Common = struct
 
   let vnc_socket_path = (sprintf "%s/vnc-%d") Device_common.var_run_xen_path
 
-  let efivars_resume_path =
-    Xenops_sandbox.Chroot.Path.of_string ~relative:"efi-vars-resume.dat"
+  let efivars_resume_path = Service.Varstored.efivars_resume_path
 
-  let efivars_save_path =
-    Xenops_sandbox.Chroot.Path.of_string ~relative:"efi-vars-save.dat"
+  let efivars_save_path = Service.Varstored.efivars_save_path
 
   let get_vnc_port ~xs domid ~f =
-    match Qemu.is_running ~xs domid with true -> f () | false -> None
+    match Service.Qemu.is_running ~xs domid with true -> f () | false -> None
 
   let get_tc_port ~xs domid =
-    if not (Qemu.is_running ~xs domid) then
+    if not (Service.Qemu.is_running ~xs domid) then
       None
     else
-      try Some (int_of_string (xs.Xs.read (Generic.tc_port_path domid)))
+      try Some (int_of_string (xs.Xs.read (Service.PV_Vnc.tc_port_path domid)))
       with _ -> None
 
   let signal (task : Xenops_task.task_handle) ~xs ~qemu_domid ~domid ?wait_for
@@ -2539,109 +2188,10 @@ module Dm_Common = struct
                )
           |> List.concat
         ; (info.monitor |> function None -> [] | Some x -> ["-monitor"; x])
-        ; (Qemu.pidfile_path domid |> function
-           | None ->
-               []
-           | Some x ->
-               ["-pidfile"; x]
-          )
+        ; ["-pidfile"; Service.Qemu.pidfile_path domid]
         ]
     in
     {argv; fd_map= []}
-
-  let vgpu_args_of_nvidia domid vcpus vgpus restore =
-    let open Xenops_interface.Vgpu in
-    let virtual_pci_address_compare vgpu1 vgpu2 =
-      match (vgpu1, vgpu2) with
-      | ( {implementation= Nvidia {virtual_pci_address= pci1; _}; _}
-        , {implementation= Nvidia {virtual_pci_address= pci2; _}; _} ) ->
-          Stdlib.compare pci1.dev pci2.dev
-      | other1, other2 ->
-          Stdlib.compare other1 other2
-    in
-    let device_args =
-      let make addr args =
-        Printf.sprintf "--device=%s"
-          (Xcp_pci.string_of_address addr :: args
-          |> List.filter (fun str -> str <> "")
-          |> String.concat ","
-          )
-      in
-      vgpus
-      |> List.sort virtual_pci_address_compare
-      |> List.map (fun vgpu ->
-             let addr =
-               match vgpu.virtual_pci_address with
-               | Some pci ->
-                   pci (* pass VF in case of SRIOV *)
-               | None ->
-                   vgpu.physical_pci_address
-             in
-             (* pass PF otherwise *)
-             match vgpu.implementation with
-             (* 1. Upgrade case, migrate from a old host with old vGPU having
-                config_path 2. Legency case, run with old Nvidia host driver *)
-             | Nvidia
-                 {
-                   virtual_pci_address
-                 ; config_file= Some config_file
-                 ; extra_args
-                 ; _
-                 } ->
-                 (* The VGPU UUID is not available. Create a fresh one; xapi
-                    will deal with it. *)
-                 let uuid = Uuid.(to_string (make ())) in
-                 debug "NVidia vGPU config: using config file %s and uuid %s"
-                   config_file uuid ;
-                 make addr
-                   [
-                     config_file
-                   ; Xcp_pci.string_of_address virtual_pci_address
-                   ; uuid
-                   ; extra_args
-                   ]
-             | Nvidia
-                 {
-                   virtual_pci_address
-                 ; type_id= Some type_id
-                 ; uuid= Some uuid
-                 ; extra_args
-                 ; _
-                 } ->
-                 debug "NVidia vGPU config: using type id %s and uuid: %s"
-                   type_id uuid ;
-                 make addr
-                   [
-                     type_id
-                   ; Xcp_pci.string_of_address virtual_pci_address
-                   ; uuid
-                   ; extra_args
-                   ]
-             | Nvidia {type_id= None; config_file= None; _} ->
-                 (* No type_id _and_ no config_file: something is wrong *)
-                 raise
-                   (Xenopsd_error
-                      (Internal_error
-                         (Printf.sprintf "NVidia vGPU metadata incomplete (%s)"
-                            __LOC__
-                         )
-                      )
-                   )
-             | _ ->
-                 ""
-         )
-    in
-    let suspend_file = sprintf demu_save_path domid in
-    let base_args =
-      [
-        "--domain=" ^ string_of_int domid
-      ; "--vcpus=" ^ string_of_int vcpus
-      ; "--suspend=" ^ suspend_file
-      ]
-      @ device_args
-    in
-    let fd_arg = if restore then ["--resume"] else [] in
-    List.concat [base_args; fd_arg]
 
   let write_vgpu_data ~xs domid devid keys =
     let path = xenops_vgpu_path domid devid in
@@ -2696,37 +2246,6 @@ module Dm_Common = struct
   let prepend_wrapper_args domid args =
     string_of_int domid :: "--syslog" :: args
 
-  let pid_alive pid name =
-    match Forkhelpers.waitpid_nohang pid with
-    | 0, Unix.WEXITED 0 ->
-        true
-    | _, Unix.WEXITED n ->
-        error "%s: unexpected exit with code: %d" name n ;
-        false
-    | _, (Unix.WSIGNALED n | Unix.WSTOPPED n) ->
-        error "%s: unexpected signal: %d" name n ;
-        false
-
-  (* Waits for a daemon to signal startup by writing to a xenstore path
-     (optionally with a given value) If this doesn't happen in the timeout then
-     an exception is raised *)
-  let wait_path ~pidalive ~task ~name ~domid ~xs ~ready_path ~timeout ~cancel _
-      =
-    let syslog_key = Printf.sprintf "%s-%d" name domid in
-    let watch = Watch.value_to_appear ready_path |> Watch.map (fun _ -> ()) in
-    Xenops_task.check_cancelling task ;
-    ( try
-        let (_ : bool) =
-          cancellable_watch cancel [watch] [] task ~xs ~timeout ()
-        in
-        ()
-      with Watch.Timeout _ ->
-        if pidalive name then
-          raise (Ioemu_failed (name, "Timeout reached while starting daemon")) ;
-        raise (Ioemu_failed (name, "Daemon exited unexpectedly"))
-    ) ;
-    debug "Daemon initialised: %s" syslog_key
-
   let gimtool_m = Mutex.create ()
 
   let resume (task : Xenops_task.task_handle) ~xs ~qemu_domid domid =
@@ -2734,44 +2253,13 @@ module Dm_Common = struct
 
   (* Called by every domain destroy, even non-HVM *)
   let stop ~xs ~qemu_domid domid =
-    let qemu_pid_path = Qemu.pid_path domid in
-    let stop_qemu () =
-      match Qemu.pid ~xs domid with
-      | None ->
-          () (* nothing to do *)
-      | Some qemu_pid -> (
-          debug "qemu-dm: stopping qemu-dm with SIGTERM (domid = %d)" domid ;
-          let open Generic in
-          best_effort
-            "signalling that qemu is ending as expected, mask further signals"
-            (fun () -> Qemu.SignalMask.set Qemu.signal_mask domid
-          ) ;
-          best_effort "killing qemu-dm" (fun () -> really_kill qemu_pid) ;
-          best_effort "removing qemu-pid from xenstore" (fun () ->
-              xs.Xs.rm qemu_pid_path
-          ) ;
-          best_effort
-            "unmasking signals, qemu-pid is already gone from xenstore"
-            (fun () -> Qemu.SignalMask.unset Qemu.signal_mask domid
-          ) ;
-          best_effort "removing device model path from xenstore" (fun () ->
-              xs.Xs.rm (device_model_path ~qemu_domid domid)
-          ) ;
-          match Qemu.pidfile_path domid with
-          | None ->
-              ()
-          | Some path ->
-              best_effort (sprintf "removing %s" path) (fun () ->
-                  Unix.unlink path
-              )
-        )
-    in
-    let stop_vgpu () = Vgpu.stop ~xs domid in
+    let vm_uuid = Xenops_helpers.uuid_of_domid ~xs domid |> Uuid.to_string in
+    let dbg = Printf.sprintf "stop domid %d" domid in
+    let stop_qemu () = Service.Qemu.stop ~xs ~qemu_domid domid in
+    let stop_vgpu () = Service.Vgpu.stop ~xs domid in
     let stop_varstored () =
-      let vm_uuid = Xenops_helpers.uuid_of_domid ~xs domid |> Uuid.to_string in
       debug "About to stop varstored for domain %d (%s)" domid vm_uuid ;
-      Varstored.stop ~xs domid ;
-      let dbg = Printf.sprintf "stop domid %d" domid in
+      Service.Varstored.stop ~xs domid ;
       Xenops_sandbox.Varstore_guard.stop dbg ~domid ~vm_uuid
     in
     stop_vgpu () ; stop_varstored () ; stop_qemu ()
@@ -2994,7 +2482,9 @@ module Backend = struct
             try
               Some
                 (Socket.Port
-                   (int_of_string (xs.Xs.read (Generic.vnc_port_path domid)))
+                   (int_of_string
+                      (xs.Xs.read (Service.PV_Vnc.vnc_port_path domid))
+                   )
                 )
             with _ -> None
         )
@@ -3008,7 +2498,7 @@ module Backend = struct
 
       let init_daemon ~task:_ ~path:_ ~args:_ ~domid:_ ~xs:_ ~ready_path:_
           ~timeout:_ ~cancel:_ ?fds:_ _ =
-        raise (Ioemu_failed (Qemu.name, "PV guests have no IO emulator"))
+        raise (Ioemu_failed (Service.Qemu.name, "PV guests have no IO emulator"))
 
       let qemu_args ~xs:_ ~dm:_ _ _ _ = {Dm_Common.argv= []; fd_map= []}
 
@@ -3746,8 +3236,8 @@ module Backend = struct
 
       let init_daemon ~task ~path ~args ~domid ~xs:_ ~ready_path:_ ~timeout
           ~cancel:_ ?(fds = []) _ =
-        let pid = Qemu.start_daemon ~path ~args ~domid ~fds () in
-        wait_event_socket ~task ~name:Qemu.name ~domid ~timeout ;
+        let pid = Service.Qemu.start_daemon ~path ~args ~domid ~fds () in
+        wait_event_socket ~task ~name:Service.Qemu.name ~domid ~timeout ;
         QMP_Event.add domid ;
         pid
 
@@ -4130,95 +3620,22 @@ module Dm = struct
   (* the following functions depend on the functions above that use the qemu
      backend Q *)
 
-  let start_varstored ~xs ~nvram ?(restore = false)
-      (task : Xenops_task.task_handle) domid =
-    let open Xenops_types in
-    debug "Preparing to start varstored for UEFI boot (domid=%d)" domid ;
-    let path = !Xc_resources.varstored in
-    let name = "varstored" in
-    let vm_uuid = Xenops_helpers.uuid_of_domid ~xs domid |> Uuid.to_string in
-    let reset_on_boot =
-      nvram.Nvram_uefi_variables.on_boot = Nvram_uefi_variables.Reset
-    in
-    let backend = nvram.Nvram_uefi_variables.backend in
-    let open Fe_argv in
-    let ( >>= ) = bind in
-    let argf fmt = ksprintf (fun s -> ["--arg"; s]) fmt in
-    let on cond value = if cond then value else return () in
-    let chroot, socket_path =
-      Xenops_sandbox.Varstore_guard.start (Xenops_task.get_dbg task) ~vm_uuid
-        ~domid ~paths:[efivars_save_path]
-    in
-    let args =
-      Add.many
-        [
-          "--domain"
-        ; string_of_int domid
-        ; "--chroot"
-        ; chroot.root
-        ; "--depriv"
-        ; "--uid"
-        ; string_of_int chroot.uid
-        ; "--gid"
-        ; string_of_int chroot.gid
-        ; "--backend"
-        ; backend
-        ; "--arg"
-        ; Printf.sprintf "socket:%s" socket_path
-        ]
-      >>= fun () ->
-      (Varstored.pidfile_path domid |> function
-       | None ->
-           return ()
-       | Some x ->
-           Add.many ["--pidfile"; x]
-      )
-      >>= fun () ->
-      Add.many @@ argf "uuid:%s" vm_uuid >>= fun () ->
-      on reset_on_boot @@ Add.arg "--nonpersistent" >>= fun () ->
-      on restore @@ Add.arg "--resume" >>= fun () ->
-      on restore
-      @@ Add.many
-      @@ argf "resume:%s"
-           (Xenops_sandbox.Chroot.chroot_path_inside efivars_resume_path)
-      >>= fun () ->
-      Add.many
-      @@ argf "save:%s"
-           (Xenops_sandbox.Chroot.chroot_path_inside efivars_save_path)
-    in
-    let args = Fe_argv.run args |> snd |> Fe_argv.argv in
-    let service = Varstored.start_daemon ~path ~args ~domid () in
-    let ready_path = Varstored.pid_path domid in
-    wait_path ~pidalive:(Varstored.alive service) ~task ~name ~domid ~xs
-      ~ready_path
-      ~timeout:!Xenopsd.varstored_ready_timeout
-      ~cancel:(Cancel_utils.Varstored domid) ()
-
   let start_vgpu ~xc:_ ~xs task ?(restore = false) domid vgpus vcpus profile =
     let open Xenops_interface.Vgpu in
     match vgpus with
     | {implementation= Nvidia _; _} :: _ ->
         (* Start DEMU and wait until it has reached the desired state *)
-        let state_path = Printf.sprintf "/local/domain/%d/vgpu/state" domid in
-        let cancel = Cancel_utils.Vgpu domid in
-        if not (Vgpu.is_running ~xs domid) then (
+        if not (Service.Vgpu.is_running ~xs domid) then (
           let pcis = List.map (fun x -> x.physical_pci_address) vgpus in
           PCI.bind pcis PCI.Nvidia ;
           let module Q = (val Backend.of_profile profile) in
-          let args = vgpu_args_of_nvidia domid vcpus vgpus restore in
-          let vgpu_pid =
-            Vgpu.start_daemon ~path:!Xc_resources.vgpu ~args ~domid ~fds:[] ()
-          in
-          wait_path ~pidalive:(pid_alive vgpu_pid) ~task ~name:"vgpu" ~domid ~xs
-            ~ready_path:state_path
-            ~timeout:!Xenopsd.vgpu_ready_timeout
-            ~cancel () ;
-          Forkhelpers.dontwaitpid vgpu_pid
+          Service.Vgpu.start ~xs ~vcpus ~vgpus ~restore task domid
         ) else
           info "Daemon %s is already running for domain %d" !Xc_resources.vgpu
             domid ;
         (* Keep waiting until DEMU's state becomes "initialising" or "running",
            or an error occurred. *)
+        let state_path = Service.Vgpu.state_path domid in
         let good_watches =
           [
             Watch.value_to_become state_path "initialising"
@@ -4228,8 +3645,9 @@ module Dm = struct
         in
         let error_watch = Watch.value_to_become state_path "error" in
         if
-          cancellable_watch cancel good_watches [error_watch] task ~xs
-            ~timeout:3600. ()
+          cancellable_watch
+            (Service.Vgpu.cancel_key domid)
+            good_watches [error_watch] task ~xs ~timeout:3600. ()
         then
           info "Daemon vgpu is ready"
         else
@@ -4279,8 +3697,8 @@ module Dm = struct
     (* start varstored if appropriate *)
     ( match info.firmware with
     | Uefi nvram_uefi ->
-        start_varstored ~restore:(action = Restore) ~xs ~nvram:nvram_uefi task
-          domid
+        Service.Varstored.start ~restore:(action = Restore) ~xs
+          ~nvram:nvram_uefi task domid
     | Bios ->
         ()
     ) ;
@@ -4357,8 +3775,8 @@ module Dm = struct
                       Printf.sprintf "unknown"
                 )
               in
-              if not (Qemu.SignalMask.has Qemu.signal_mask domid) then
-                match Qemu.pid ~xs domid with
+              if not Service.Qemu.(SignalMask.has signal_mask domid) then
+                match Service.Qemu.pid ~xs domid with
                 | None ->
                     (* after expected qemu stop or domain xs tree destroyed:
                        this event arrived too late, nothing to do *)
@@ -4369,7 +3787,9 @@ module Dm = struct
                 | Some _ ->
                     (* before expected qemu stop: qemu-pid is available in
                        domain xs tree: signal action to take *)
-                    xs.Xs.write (Qemu.pid_path_signal domid) crash_reason
+                    xs.Xs.write
+                      (Service.Qemu.pidxenstore_path_signal domid)
+                      crash_reason
             )
         )
 
@@ -4386,7 +3806,7 @@ module Dm = struct
 
   let suspend_varstored (_ : Xenops_task.task_handle) ~xs domid ~vm_uuid =
     debug "Called Dm.suspend_varstored (domid=%d)" domid ;
-    Varstored.stop ~xs domid ;
+    Service.Varstored.stop ~xs domid ;
     Xenops_sandbox.Varstore_guard.read ~domid efivars_save_path ~vm_uuid
 
   let restore_varstored (_ : Xenops_task.task_handle) ~xs ~efivars domid =
@@ -4441,16 +3861,16 @@ let clean_shutdown (task : Xenops_task.task_handle) ~xs (x : device) =
 
 let get_vnc_port ~xs ~dm domid =
   (* Check whether a qemu exists for this domain *)
-  let qemu_exists = Qemu.is_running ~xs domid in
+  let qemu_exists = Service.Qemu.is_running ~xs domid in
   if qemu_exists then
     Dm.get_vnc_port ~xs ~dm domid
   else
-    PV_Vnc.get_vnc_port ~xs domid
+    Service.PV_Vnc.get_vnc_port ~xs domid
 
 let get_tc_port ~xs domid =
   (* Check whether a qemu exists for this domain *)
-  let qemu_exists = Qemu.is_running ~xs domid in
+  let qemu_exists = Service.Qemu.is_running ~xs domid in
   if qemu_exists then
     Dm.get_tc_port ~xs domid
   else
-    PV_Vnc.get_tc_port ~xs domid
+    Service.PV_Vnc.get_tc_port ~xs domid
