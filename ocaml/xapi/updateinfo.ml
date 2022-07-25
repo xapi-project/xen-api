@@ -275,6 +275,8 @@ module LivePatch = struct
     ; to_release: string
   }
 
+  let compare = Stdlib.compare
+
   let version_release_of_string s =
     match Astring.String.cuts ~sep:"-" s with
     | [version; release] ->
@@ -572,4 +574,34 @@ module UpdateInfo = struct
     | exception e ->
         error "Failed to parse updateinfo.xml: %s" (ExnHelper.string_of_exn e) ;
         raise Api_errors.(Server_error (invalid_updateinfo_xml, []))
+end
+
+module HostUpdates = struct
+  type t = {
+      host: string
+    ; rec_guidances: Guidance.t list
+    ; abs_guidances: Guidance.t list
+    ; rpms: Rpm.Pkg.t list
+    ; update_ids: string list
+    ; livepatches: LivePatch.t list
+  }
+
+  let to_json host_updates =
+    let g_to_j x = `String (Guidance.to_string x) in
+    let p_to_j x = `String (Pkg.to_fullname x) in
+    `Assoc
+      [
+        ("ref", `String host_updates.host)
+      ; ( "recommended-guidance"
+        , `List (List.map g_to_j host_updates.rec_guidances)
+        )
+      ; ("absolute-guidance", `List (List.map g_to_j host_updates.abs_guidances))
+      ; ("RPMS", `List (List.map p_to_j host_updates.rpms))
+      ; ( "updates"
+        , `List (List.map (fun upd_id -> `String upd_id) host_updates.update_ids)
+        )
+      ; ( "livepatches"
+        , `List (List.map LivePatch.to_json host_updates.livepatches)
+        )
+      ]
 end

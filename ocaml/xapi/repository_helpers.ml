@@ -17,8 +17,9 @@ module D = Debug.Make (struct let name = "repository_helpers" end)
 open D
 module Unixext = Xapi_stdext_unix.Unixext
 module UpdateIdSet = Set.Make (String)
-open Updateinfo
 open Rpm
+open Updateinfo
+module LivePatchSet = Set.Make (LivePatch)
 
 let exposing_pool_repo_mutex = Mutex.create ()
 
@@ -961,16 +962,15 @@ let consolidate_updates_of_host ~repository_name ~updates_info host
   let rpms =
     List.map
       (fun u ->
-        Pkg.(
-          to_fullname
-            {
-              name= u.Update.name
-            ; arch= u.Update.arch
-            ; epoch= u.Update.new_epoch
-            ; version= u.Update.new_version
-            ; release= u.Update.new_release
-            }
-        )
+        Pkg.
+          {
+            name= u.Update.name
+          ; arch= u.Update.arch
+          ; epoch= u.Update.new_epoch
+          ; version= u.Update.new_version
+          ; release= u.Update.new_release
+          }
+        
       )
       latest_updates
   in
@@ -988,13 +988,10 @@ let consolidate_updates_of_host ~repository_name ~updates_info host
     eval_guidances ~updates_info ~updates ~kind:Recommended ~livepatches
       ~failed_livepatches:[]
   in
-  let abs_guidances_in_json =
-    let abs_guidances =
-      eval_guidances ~updates_info ~updates ~kind:Absolute ~livepatches:[]
-        ~failed_livepatches:[]
-      |> List.filter (fun g -> not (List.mem g rec_guidances))
-    in
-    List.map (fun g -> `String (Guidance.to_string g)) abs_guidances
+  let abs_guidances =
+    eval_guidances ~updates_info ~updates ~kind:Absolute ~livepatches:[]
+      ~failed_livepatches:[]
+    |> List.filter (fun g -> not (List.mem g rec_guidances))
   in
   let upd_ids_of_livepatches, lps =
     if List.mem Guidance.RebootHost rec_guidances then
@@ -1003,28 +1000,21 @@ let consolidate_updates_of_host ~repository_name ~updates_info host
     else
       merge_livepatches ~livepatches
   in
-  let rec_guidances_in_json =
-    List.map (fun g -> `String (Guidance.to_string g)) rec_guidances
-  in
   let upd_ids = UpdateIdSet.union ids_of_updates upd_ids_of_livepatches in
-  let json_of_host =
-    `Assoc
-      [
-        ("ref", `String host)
-      ; ("recommended-guidance", `List rec_guidances_in_json)
-      ; ("absolute-guidance", `List abs_guidances_in_json)
-      ; ("RPMS", `List (List.map (fun r -> `String r) rpms))
-      ; ( "updates"
-        , `List
-            (List.map
-               (fun upd_id -> `String upd_id)
-               (UpdateIdSet.elements upd_ids)
-            )
-        )
-      ; ("livepatches", `List (List.map LivePatch.to_json lps))
-      ]
+  let host_updates =
+    HostUpdates.
+      {
+        host
+      ; rec_guidances
+      ; abs_guidances
+      ; rpms
+      ; update_ids= UpdateIdSet.elements upd_ids
+      ; livepatches= lps
+      }
+    
   in
-  (json_of_host, upd_ids)
+
+  (host_updates, upd_ids)
 
 let append_by_key l k v =
   (* Append a (k, v) into a assoc list l [ (k1, [v1]); (k2, [...]); ... ] as
@@ -1079,3 +1069,10 @@ let with_access_token ~token ~token_id f =
   | _ ->
       let msg = Printf.sprintf "%s: The token or token_id is empty" __LOC__ in
       raise Api_errors.(Server_error (internal_error, [msg]))
+
+let prune_updateinfo_for_livepatches livepatches updateinfo =
+  let open UpdateInfo in
+  let lps =
+    List.filter (fun x -> LivePatchSet.mem x livepatches) updateinfo.livepatches
+  in
+  {updateinfo with livepatches= lps}
