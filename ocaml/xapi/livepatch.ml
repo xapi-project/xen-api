@@ -187,7 +187,7 @@ module KernelLivePatch = struct
 end
 
 module XenLivePatch = struct
-  let get_pattern status =
+  let get_regexp status =
     Re.Posix.compile_pat
       (Printf.sprintf {|^[ ]*lp_([^- ]+)-([^- ]+)-([^- ]+)-([^- ]+).+%s.*$|}
          status
@@ -208,7 +208,7 @@ module XenLivePatch = struct
        )
 
   let get_running_livepatch' s =
-    let r = get_pattern "APPLIED" in
+    let r = get_regexp "APPLIED" in
     get_livepatches r s |> get_latest_livepatch
 
   let get_running_livepatch () =
@@ -217,7 +217,7 @@ module XenLivePatch = struct
 
   let get_checked_livepatches () =
     Helpers.call_script !Xapi_globs.xen_livepatch_cmd ["list"]
-    |> get_livepatches (get_pattern "CHECKED")
+    |> get_livepatches (get_regexp "CHECKED")
 
   let get_base_build_id () =
     let drop x =
