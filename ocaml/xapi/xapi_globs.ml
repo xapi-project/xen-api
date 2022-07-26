@@ -880,6 +880,9 @@ let samba_dir = "/var/lib/samba"
 let header_read_timeout_tcp = ref 10.
 (* Timeout in seconds for every read while reading HTTP headers (on TCP only) *)
 
+let header_total_timeout_tcp = ref 60.
+(* Timeout in seconds to receive all HTTP headers (on TCP only) *)
+
 let conn_limit_tcp = ref 800
 
 let conn_limit_unix = ref 1024
@@ -958,6 +961,7 @@ let xapi_globs_spec =
     , Float winbind_update_closest_kdc_interval
     )
   ; ("header_read_timeout_tcp", Float header_read_timeout_tcp)
+  ; ("header_total_timeout_tcp", Float header_total_timeout_tcp)
   ; ("conn_limit_tcp", Int conn_limit_tcp)
   ; ("conn_limit_unix", Int conn_limit_unix)
   ]
