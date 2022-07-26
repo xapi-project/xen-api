@@ -83,6 +83,7 @@ end = struct
     in
     Http_svr.start
       ~header_read_timeout:!Xapi_globs.header_read_timeout_tcp
+      ~header_total_timeout:!Xapi_globs.header_total_timeout_tcp
       ~conn_limit:!Xapi_globs.conn_limit_tcp Xapi_http.server socket ;
     management_servers := socket :: !management_servers ;
     if Pool_role.is_master () && addr = None then

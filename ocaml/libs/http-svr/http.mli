@@ -28,12 +28,17 @@ exception Method_not_implemented
 
 exception Forbidden
 
+exception Timeout
+
 type authorization = Basic of string * string | UnknownAuth of string
 
 val make_frame_header : string -> string
 
 val read_http_request_header :
-  read_timeout:float option -> Unix.file_descr -> bool * string * string option
+     read_timeout:float option
+  -> total_timeout:float option
+  -> Unix.file_descr
+  -> bool * string * string option
 
 val read_http_response_header : bytes -> Unix.file_descr -> int
 

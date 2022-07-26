@@ -26,6 +26,8 @@ exception Method_not_implemented
 
 exception Malformed_url of string
 
+exception Timeout
+
 module D = Debug.Make (struct let name = "http" end)
 
 open D
@@ -281,7 +283,7 @@ let header_len_header = Printf.sprintf "\r\n%s:" Hdr.header_len
 
 let header_len_value_len = 5
 
-let read_up_to buf already_read marker fd =
+let read_up_to ?deadline buf already_read marker fd =
   let marker = Scanner.make marker in
   let hl_marker = Scanner.make header_len_header in
   let b = ref 0 in
@@ -289,6 +291,12 @@ let read_up_to buf already_read marker fd =
   let header_len = ref None in
   let header_len_value_at = ref None in
   while not (Scanner.matched marker) do
+    Option.iter
+      (fun d ->
+        if Mtime.Span.compare (Mtime_clock.elapsed ()) d > 0 then
+          raise Timeout
+      )
+      deadline ;
     let safe_to_read =
       match (!header_len_value_at, !header_len) with
       | None, None ->
@@ -369,29 +377,47 @@ let set_socket_timeout fd t =
     (* In the unit tests, the fd comes from a pipe... ignore *)
     ()
 
-let read_http_request_header ~read_timeout fd =
+let read_http_request_header ~read_timeout ~total_timeout fd =
   Option.iter (fun t -> set_socket_timeout fd t) read_timeout ;
   let buf = Bytes.create 1024 in
-  Unixext.really_read fd buf 0 6 ;
+  let deadline =
+    Option.map
+      (fun t ->
+        let start = Mtime_clock.elapsed () in
+        let timeout_ns = int_of_float (t *. 1e9) in
+        Mtime.Span.(add start (timeout_ns * ns))
+      )
+      total_timeout
+  in
+  let check_timeout_and_read x y =
+    Option.iter
+      (fun d ->
+        if Mtime.Span.compare (Mtime_clock.elapsed ()) d > 0 then
+          raise Timeout
+      )
+      deadline ;
+    Unixext.really_read fd buf x y
+  in
+  check_timeout_and_read 0 6 ;
   (* return PROXY header if it exists, and then read up to FRAME header length (which also may not exist) *)
   let proxy =
     match Bytes.sub_string buf 0 6 with
     | "PROXY " ->
-        let proxy_header_length = read_up_to buf 6 "\r\n" fd in
+        let proxy_header_length = read_up_to ?deadline buf 6 "\r\n" fd in
         (* chop 'PROXY ' from the beginning, and '\r\n' from the end *)
         let proxy = Bytes.sub_string buf 6 (proxy_header_length - 6 - 2) in
-        Unixext.really_read fd buf 0 frame_header_length ;
+        check_timeout_and_read 0 frame_header_length ;
         Some proxy
     | _ ->
-        Unixext.really_read fd buf 6 (frame_header_length - 6) ;
+        check_timeout_and_read 6 (frame_header_length - 6) ;
         None
   in
   let frame, headers_length =
     match read_frame_header buf with
     | None ->
-        (false, read_up_to buf frame_header_length end_of_headers fd)
+        (false, read_up_to ?deadline buf frame_header_length end_of_headers fd)
     | Some length ->
-        Unixext.really_read fd buf 0 length ;
+        check_timeout_and_read 0 length ;
         (true, length)
   in
   set_socket_timeout fd 0. ;

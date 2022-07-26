@@ -322,9 +322,11 @@ exception Generic_error of string
 
 (** [request_of_bio_exn ic] reads a single Http.req from [ic] and returns it. On error
     	it simply throws an exception and doesn't touch the output stream. *)
-let request_of_bio_exn ~proxy_seen ~read_timeout bio =
+let request_of_bio_exn ~proxy_seen ~read_timeout ~total_timeout bio =
   let fd = Buf_io.fd_of bio in
-  let frame, headers, proxy' = Http.read_http_request_header ~read_timeout fd in
+  let frame, headers, proxy' =
+    Http.read_http_request_header ~read_timeout ~total_timeout fd
+  in
   let proxy = match proxy' with None -> proxy_seen | x -> x in
   let additional_headers =
     proxy |> Option.fold ~none:[] ~some:(fun p -> [("STUNNEL_PROXY", p)])
@@ -400,9 +402,11 @@ let request_of_bio_exn ~proxy_seen ~read_timeout bio =
 
 (** [request_of_bio ic] returns [Some req] read from [ic], or [None]. If [None] it will have
     	already sent back a suitable error code and response to the client. *)
-let request_of_bio ?proxy_seen ~read_timeout ic =
+let request_of_bio ?proxy_seen ~read_timeout ~total_timeout ic =
   try
-    let r, proxy = request_of_bio_exn ~proxy_seen ~read_timeout ic in
+    let r, proxy =
+      request_of_bio_exn ~proxy_seen ~read_timeout ~total_timeout ic
+    in
     (Some r, proxy)
   with e ->
     D.warn "%s (%s)" (Printexc.to_string e) __LOC__ ;
@@ -426,7 +430,7 @@ let request_of_bio ?proxy_seen ~read_timeout ic =
         (* Generic errors thrown during parsing *)
         | End_of_file ->
             ()
-        | Unix.Unix_error (Unix.EAGAIN, _, _) ->
+        | Unix.Unix_error (Unix.EAGAIN, _, _) | Http.Timeout ->
             response_request_timeout ss
         (* Premature termination of connection! *)
         | Unix.Unix_error (a, b, c) ->
@@ -496,7 +500,8 @@ let handle_one (x : 'a Server.t) ss context req =
     ) ;
     !finished
 
-let handle_connection ~header_read_timeout (x : 'a Server.t) caller ss =
+let handle_connection ~header_read_timeout ~header_total_timeout
+    (x : 'a Server.t) caller ss =
   ( match caller with
   | Unix.ADDR_UNIX _ ->
       debug "Accepted unix connection"
@@ -511,9 +516,11 @@ let handle_connection ~header_read_timeout (x : 'a Server.t) caller ss =
      just once per connection. To allow for the PROXY metadata (including e.g. the
      client IP) to be added to all request records on a connection, it must be passed
      along in the loop below. *)
-  let rec loop ~read_timeout proxy_seen =
+  let rec loop ~read_timeout ~total_timeout proxy_seen =
     (* 1. we must successfully parse a request *)
-    let req, proxy = request_of_bio ?proxy_seen ~read_timeout ic in
+    let req, proxy =
+      request_of_bio ?proxy_seen ~read_timeout ~total_timeout ic
+    in
     (* 2. now we attempt to process the request *)
     let finished =
       Option.fold ~none:true
@@ -522,9 +529,10 @@ let handle_connection ~header_read_timeout (x : 'a Server.t) caller ss =
     in
     (* 3. do it again if the connection is kept open, but without timeouts *)
     if not finished then
-      loop ~read_timeout:None proxy
+      loop ~read_timeout:None ~total_timeout:None proxy
   in
-  loop ~read_timeout:header_read_timeout None ;
+  loop ~read_timeout:header_read_timeout ~total_timeout:header_total_timeout
+    None ;
   debug "Closing connection" ;
   Unix.close ss
 
@@ -592,11 +600,12 @@ let socket_table = Hashtbl.create 10
 type socket = Unix.file_descr * string
 
 (* Start an HTTP server on a new socket *)
-let start ?header_read_timeout ~conn_limit (x : 'a Server.t) (socket, name) =
+let start ?header_read_timeout ?header_total_timeout ~conn_limit
+    (x : 'a Server.t) (socket, name) =
   let handler =
     {
       Server_io.name
-    ; body= handle_connection ~header_read_timeout x
+    ; body= handle_connection ~header_read_timeout ~header_total_timeout x
     ; lock= Xapi_stdext_threads.Semaphore.create conn_limit
     }
   in
