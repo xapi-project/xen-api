@@ -48,7 +48,7 @@ let bool b = string "%b" b (* Should use `Bool b *)
 
 let float x = string "%.2f" x
 
-let record xs = `O xs
+let record xs = `Assoc xs
 
 let description = function
   | "" ->
@@ -82,22 +82,18 @@ let dss_to_json ~header timestamp dss =
       ; ("datasources", record @@ List.map ds_to_json dss)
       ]
   in
-  let buf = Buffer.create 2048 in
   let out = Buffer.create 2048 in
-  let () = Ezjsonm.to_buffer buf payload in
-  let json = Buffer.contents buf in
+  let json = Yojson.to_string payload in
   let digest = Digest.string json |> Digest.to_hex in
   Buffer.add_string out
-  @@ Printf.sprintf "%s%08x\n%s\n" header (Buffer.length buf) digest ;
+  @@ Printf.sprintf "%s%08x\n%s\n" header (String.length json) digest ;
   Buffer.add_string out json ;
   Buffer.add_char out '\n' ;
   Buffer.contents out
 
 let metadata_to_json (dss : (Rrd.ds_owner * Ds.ds) list) =
   let json = record [("datasources", record @@ List.map ds_to_json dss)] in
-  let buf = Buffer.create 2048 in
-  let () = Ezjsonm.to_buffer buf json in
-  Buffer.contents buf
+  Yojson.to_string json
 
 let json_of_dss = dss_to_json
 

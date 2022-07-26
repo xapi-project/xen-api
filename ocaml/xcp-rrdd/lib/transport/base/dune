@@ -10,7 +10,7 @@
     xapi-rrd
     threads
     xapi-idl.rrd
-    ezjsonm
+    yojson
   )
 )
 
