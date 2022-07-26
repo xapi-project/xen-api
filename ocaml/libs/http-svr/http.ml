@@ -28,6 +28,8 @@ exception Malformed_url of string
 
 exception Timeout
 
+exception Too_large
+
 module D = Debug.Make (struct let name = "http" end)
 
 open D
@@ -283,7 +285,7 @@ let header_len_header = Printf.sprintf "\r\n%s:" Hdr.header_len
 
 let header_len_value_len = 5
 
-let read_up_to ?deadline buf already_read marker fd =
+let read_up_to ?deadline ?max buf already_read marker fd =
   let marker = Scanner.make marker in
   let hl_marker = Scanner.make header_len_header in
   let b = ref 0 in
@@ -310,6 +312,7 @@ let read_up_to ?deadline buf already_read marker fd =
 		Printf.fprintf stderr "b = %d; safe_to_read = %d\n" !b safe_to_read;
 		flush stderr;
 *)
+    Option.iter (fun m -> if !b + safe_to_read > m then raise Too_large) max ;
     let n =
       if !b < already_read then
         min safe_to_read (already_read - !b)
@@ -377,9 +380,9 @@ let set_socket_timeout fd t =
     (* In the unit tests, the fd comes from a pipe... ignore *)
     ()
 
-let read_http_request_header ~read_timeout ~total_timeout fd =
+let read_http_request_header ~read_timeout ~total_timeout ~max_length fd =
   Option.iter (fun t -> set_socket_timeout fd t) read_timeout ;
-  let buf = Bytes.create 1024 in
+  let buf = Bytes.create (Option.value ~default:1024 max_length) in
   let deadline =
     Option.map
       (fun t ->
@@ -415,7 +418,10 @@ let read_http_request_header ~read_timeout ~total_timeout fd =
   let frame, headers_length =
     match read_frame_header buf with
     | None ->
-        (false, read_up_to ?deadline buf frame_header_length end_of_headers fd)
+        let max = Option.map (fun m -> m - frame_header_length) max_length in
+        ( false
+        , read_up_to ?deadline ?max buf frame_header_length end_of_headers fd
+        )
     | Some length ->
         check_timeout_and_read 0 length ;
         (true, length)

@@ -30,6 +30,8 @@ exception Forbidden
 
 exception Timeout
 
+exception Too_large
+
 type authorization = Basic of string * string | UnknownAuth of string
 
 val make_frame_header : string -> string
@@ -37,6 +39,7 @@ val make_frame_header : string -> string
 val read_http_request_header :
      read_timeout:float option
   -> total_timeout:float option
+  -> max_length:int option
   -> Unix.file_descr
   -> bool * string * string option
 

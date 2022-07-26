@@ -170,6 +170,13 @@ let response_request_timeout s =
   in
   response_error_html s "408" "Request Timeout" [] body
 
+let response_request_header_fields_too_large s =
+  let body =
+    "<html><body><h1>HTTP 431 request header fields too large</h1>Exceeded the \
+     maximum header size.</body></html>"
+  in
+  response_error_html s "431" "Request Header Fields Too Large" [] body
+
 let response_internal_error ?req ?extra s =
   let version = Option.map get_return_version req in
   let extra =
@@ -322,10 +329,11 @@ exception Generic_error of string
 
 (** [request_of_bio_exn ic] reads a single Http.req from [ic] and returns it. On error
     	it simply throws an exception and doesn't touch the output stream. *)
-let request_of_bio_exn ~proxy_seen ~read_timeout ~total_timeout bio =
+let request_of_bio_exn ~proxy_seen ~read_timeout ~total_timeout ~max_length bio
+    =
   let fd = Buf_io.fd_of bio in
   let frame, headers, proxy' =
-    Http.read_http_request_header ~read_timeout ~total_timeout fd
+    Http.read_http_request_header ~read_timeout ~total_timeout ~max_length fd
   in
   let proxy = match proxy' with None -> proxy_seen | x -> x in
   let additional_headers =
@@ -402,10 +410,10 @@ let request_of_bio_exn ~proxy_seen ~read_timeout ~total_timeout bio =
 
 (** [request_of_bio ic] returns [Some req] read from [ic], or [None]. If [None] it will have
     	already sent back a suitable error code and response to the client. *)
-let request_of_bio ?proxy_seen ~read_timeout ~total_timeout ic =
+let request_of_bio ?proxy_seen ~read_timeout ~total_timeout ~max_length ic =
   try
     let r, proxy =
-      request_of_bio_exn ~proxy_seen ~read_timeout ~total_timeout ic
+      request_of_bio_exn ~proxy_seen ~read_timeout ~total_timeout ~max_length ic
     in
     (Some r, proxy)
   with e ->
@@ -432,6 +440,8 @@ let request_of_bio ?proxy_seen ~read_timeout ~total_timeout ic =
             ()
         | Unix.Unix_error (Unix.EAGAIN, _, _) | Http.Timeout ->
             response_request_timeout ss
+        | Http.Too_large ->
+            response_request_header_fields_too_large ss
         (* Premature termination of connection! *)
         | Unix.Unix_error (a, b, c) ->
             response_internal_error ss
@@ -501,7 +511,7 @@ let handle_one (x : 'a Server.t) ss context req =
     !finished
 
 let handle_connection ~header_read_timeout ~header_total_timeout
-    (x : 'a Server.t) caller ss =
+    ~max_header_length (x : 'a Server.t) caller ss =
   ( match caller with
   | Unix.ADDR_UNIX _ ->
       debug "Accepted unix connection"
@@ -519,7 +529,8 @@ let handle_connection ~header_read_timeout ~header_total_timeout
   let rec loop ~read_timeout ~total_timeout proxy_seen =
     (* 1. we must successfully parse a request *)
     let req, proxy =
-      request_of_bio ?proxy_seen ~read_timeout ~total_timeout ic
+      request_of_bio ?proxy_seen ~read_timeout ~total_timeout
+        ~max_length:max_header_length ic
     in
     (* 2. now we attempt to process the request *)
     let finished =
@@ -600,12 +611,14 @@ let socket_table = Hashtbl.create 10
 type socket = Unix.file_descr * string
 
 (* Start an HTTP server on a new socket *)
-let start ?header_read_timeout ?header_total_timeout ~conn_limit
-    (x : 'a Server.t) (socket, name) =
+let start ?header_read_timeout ?header_total_timeout ?max_header_length
+    ~conn_limit (x : 'a Server.t) (socket, name) =
   let handler =
     {
       Server_io.name
-    ; body= handle_connection ~header_read_timeout ~header_total_timeout x
+    ; body=
+        handle_connection ~header_read_timeout ~header_total_timeout
+          ~max_header_length x
     ; lock= Xapi_stdext_threads.Semaphore.create conn_limit
     }
   in

@@ -62,6 +62,7 @@ val bind_retry : ?listen_backlog:int -> Unix.sockaddr -> socket
 val start :
      ?header_read_timeout:float
   -> ?header_total_timeout:float
+  -> ?max_header_length:int
   -> conn_limit:int
   -> 'a Server.t
   -> socket

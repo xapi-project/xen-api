@@ -967,6 +967,9 @@ let header_read_timeout_tcp = ref 10.
 let header_total_timeout_tcp = ref 60.
 (* Timeout in seconds to receive all HTTP headers (on TCP only) *)
 
+let max_header_length_tcp = ref 1024
+(* Maximum accepted size of HTTP headers in bytes (on TCP only) *)
+
 let conn_limit_tcp = ref 800
 
 let conn_limit_unix = ref 1024
@@ -1048,6 +1051,7 @@ let xapi_globs_spec =
     )
   ; ("header_read_timeout_tcp", Float header_read_timeout_tcp)
   ; ("header_total_timeout_tcp", Float header_total_timeout_tcp)
+  ; ("max_header_length_tcp", Int max_header_length_tcp)
   ; ("conn_limit_tcp", Int conn_limit_tcp)
   ; ("conn_limit_unix", Int conn_limit_unix)
   ; ("conn_limit_clientcert", Int conn_limit_clientcert)
