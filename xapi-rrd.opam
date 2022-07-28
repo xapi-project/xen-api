@@ -21,9 +21,11 @@ depends: [
   "rpclib"
   "xmlm"
   "uuidm"
+  "xapi-stdext-pervasives"
   "yojson"
   "alcotest" {with-test}
   "crowbar" {with-test}
+  "xapi-stdext-unix" {with-test}
 ]
 synopsis: "RRD library for use with xapi"
 description: """

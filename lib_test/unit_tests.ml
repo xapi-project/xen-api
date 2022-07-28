@@ -93,20 +93,23 @@ let test_ranges rrd () =
     (in_range_rra @@ Array.to_list rrd.rrd_dss)
     (Array.to_list rrd.rrd_rras)
 
-let temp_rrd ~json () =
-  let extension = match json with true -> ".json" | false -> ".xml" in
-  Filename.temp_file "rrd-" extension
-
 let test_marshall rrd ~json () =
-  let filename = temp_rrd ~json () in
-  Rrd_unix.to_file ~json rrd filename ;
-  Unix.unlink filename
+  ignore
+    ( if json then
+        Rrd.json_to_string rrd
+    else
+      let out = Buffer.create 2048 in
+      Rrd.xml_to_output rrd (Xmlm.make_output (`Buffer out)) ;
+      Buffer.contents out
+    )
 
 let test_marshall_unmarshall rrd () =
-  let filename = temp_rrd ~json:false () in
-  Rrd_unix.to_file rrd filename ;
-  let rrd' = Rrd_unix.of_file filename in
-  assert_rrds_equal rrd rrd' ; Unix.unlink filename
+  let out = Buffer.create 2048 in
+  Rrd.xml_to_output rrd (Xmlm.make_output (`Buffer out)) ;
+  let contents = Buffer.contents out in
+  let xml = Xmlm.make_input (`String (0, contents)) in
+  let rrd' = Rrd.from_xml xml in
+  assert_rrds_equal rrd rrd'
 
 let test_export rrd () =
   let check_same_as_rras (updates : Rrd_updates.row array)
@@ -167,6 +170,11 @@ let gauge_rrd =
     ds_update rrd t [|v1; v2; v3; v4|] [|id; id; id; id|] false
   done ;
   rrd
+
+let of_file filename =
+  let body = Xapi_stdext_unix.Unixext.string_of_file filename in
+  let input = Xmlm.make_input (`String (0, body)) in
+  Rrd.from_xml input
 
 (* Used to generate flip_flop.xml for test_ca_325844,
  * then gets edited manually to set min to 0 *)
@@ -285,7 +293,7 @@ let test_ca_322008 () =
   @@ Array.to_list rrd.rrd_rras
 
 let test_ca_325844 () =
-  let rrd = Rrd_unix.of_file (Filename.concat "test_data" "flip_flop.xml") in
+  let rrd = of_file (Filename.concat "test_data" "flip_flop.xml") in
   test_ranges rrd ()
 
 let suite_create_multi =

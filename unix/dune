@@ -6,6 +6,7 @@
     unix
     uuidm
     xapi-rrd
+    xapi-stdext-pervasives
     xmlm
   )
 )
