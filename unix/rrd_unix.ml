@@ -26,7 +26,8 @@ let with_out_channel_output fd f =
   finally
     (fun () ->
       let output = Xmlm.make_output (`Channel oc) in
-      f output)
+      f output
+    )
     (fun () -> flush oc)
 
 let xml_to_fd rrd fd = with_out_channel_output fd (Rrd.xml_to_output rrd)

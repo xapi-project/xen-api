@@ -112,8 +112,8 @@ let test_marshall_unmarshall rrd () =
   assert_rrds_equal rrd rrd'
 
 let test_export rrd () =
-  let check_same_as_rras (updates : Rrd_updates.row array)
-      (rras : Rrd.rra array) =
+  let check_same_as_rras (updates : Rrd_updates.row array) (rras : Rrd.rra array)
+      =
     let cf_count = Array.length rras in
     for i = 0 to cf_count - 1 do
       (* consolidation functions *)
@@ -142,7 +142,8 @@ let test_length_invariants rrd () =
       (Printf.sprintf
          "Number of elements in Datasource (%d) must be the same as Frings in \
           a RRA (%d)"
-         (Array.length dss) (Array.length frings))
+         (Array.length dss) (Array.length frings)
+      )
       (Array.length dss) (Array.length frings)
   in
   let check_length dss rra = check_length_of_fring dss rra.rra_data in
@@ -262,7 +263,8 @@ let create_rrd ?(rows = 2) values min max =
   List.iteri
     (fun i v ->
       let t = 5. *. (init_time +. float_of_int i) in
-      ds_update rrd t [|VT_Int64 v|] [|id; id; id; id|] (i = 0))
+      ds_update rrd t [|VT_Int64 v|] [|id; id; id; id|] (i = 0)
+    )
     values ;
   rrd
 
@@ -309,14 +311,17 @@ let suite_create_multi =
            Alcotest.(check int)
              (Printf.sprintf
                 "number of cols in legend must matche number of cols in row[%i]"
-                i)
+                i
+             )
              num_cols_in_legend
-             (Array.length r.RU.row_data))
+             (Array.length r.RU.row_data)
+       )
   in
   let test_no_rrds () =
     Alcotest.check_raises "should raise error" (Failure "hd") (fun () ->
         let _ = RU.create_multi [] 0L 1L None in
-        ())
+        ()
+    )
   in
   (* confusingly, rows in an rra are used to define the cols in the rrd_updates/ xml...
      essentially we usually expect 'rows' in each rrd to be the same (test_rows_with_same_num_cols)
@@ -328,12 +333,14 @@ let suite_create_multi =
       , [
           create_rrd ~rows:3 [0L; 5L; 10L] 0. 1.
         ; create_rrd ~rows:3 [1L; 6L; 11L] 0. 1.
-        ] )
+        ]
+      )
     ; ( "rows_with_different_num_cols"
       , [
           create_rrd ~rows:3 [0L; 5L; 10L] 0. 1.
         ; create_rrd ~rows:2 [1L; 6L; 11L] 0. 1.
-        ] )
+        ]
+      )
     ]
     |> List.map (fun (name, rrds) ->
            ( name
@@ -342,7 +349,9 @@ let suite_create_multi =
                let rrds =
                  List.mapi (fun i rrd -> (Printf.sprintf "row[%i]" i, rrd)) rrds
                in
-               RU.create_multi rrds 0L 1L None |> assert_size ))
+               RU.create_multi rrds 0L 1L None |> assert_size
+           )
+       )
   in
   ("no rrds", `Quick, test_no_rrds) :: valid_rrd_tests
 
