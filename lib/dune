@@ -7,7 +7,7 @@
     bigarray
     rpclib.json
     xmlm
-    ezjsonm
+    yojson
   )
   (preprocess (pps ppx_deriving_rpc))
 )

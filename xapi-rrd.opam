@@ -21,7 +21,7 @@ depends: [
   "rpclib"
   "xmlm"
   "uuidm"
-  "ezjsonm"
+  "yojson"
   "alcotest" {with-test}
   "crowbar" {with-test}
 ]

@@ -902,9 +902,9 @@ module Json = struct
 
   let float x = string "%.2f" x
 
-  let record xs = `O xs
+  let record xs = `Assoc xs
 
-  let array xs = `A xs
+  let array xs = `List xs
 
   let datasource ds =
     record
@@ -967,9 +967,7 @@ module Json = struct
 end
 
 let json_to_string rrd =
-  let buf = Buffer.create 4096 in
-  let () = Ezjsonm.to_buffer buf (Json.rrd rrd) in
-  Buffer.contents buf
+  Yojson.to_string (Json.rrd rrd)
 
 module Statefile_latency = struct
   type t = {id: string; latency: float option} [@@deriving rpc]
