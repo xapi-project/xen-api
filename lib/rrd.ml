@@ -257,7 +257,8 @@ let rra_update rrd proc_pdp_st elapsed_pdp_st pdps =
     let start_pdp_offset =
       rra.rra_pdp_cnt
       - Int64.(
-          to_int (rem (proc_pdp_st /// rrd.timestep) (of_int rra.rra_pdp_cnt)))
+          to_int (rem (proc_pdp_st /// rrd.timestep) (of_int rra.rra_pdp_cnt))
+        )
     in
     let rra_step_cnt =
       if elapsed_pdp_st < start_pdp_offset then
@@ -283,7 +284,8 @@ let rra_update rrd proc_pdp_st elapsed_pdp_st pdps =
             then
               cdp.cdp_value
             else
-              nan)
+              nan
+          )
           rra.rra_cdps
       in
       let secondaries = pdps in
@@ -303,7 +305,8 @@ let rra_update rrd proc_pdp_st elapsed_pdp_st pdps =
           let ds = rrd.rrd_dss.(i) in
           let cdp_init = cf_init_value rra.rra_cf ds in
           cdp.cdp_unknown_pdps <- 0 ;
-          cdp.cdp_value <- cdp_init)
+          cdp.cdp_value <- cdp_init
+        )
         rra.rra_cdps ;
       do_cfs rra new_start_pdp_offset pdps ;
       match rra.rra_updatehook with None -> () | Some f -> f rrd rra_step_cnt
@@ -393,7 +396,8 @@ let ds_update rrd timestamp values transforms new_domid =
       if Utils.isnan value then
         ds.ds_unknown_sec <- pre_int
       else
-        ds.ds_value <- ds.ds_value +. (pre_int *. value /. interval))
+        ds.ds_value <- ds.ds_value +. (pre_int *. value /. interval)
+    )
     v2s ;
 
   (* If we've passed a PDP point, we need to update the RRAs *)
@@ -417,7 +421,8 @@ let ds_update rrd timestamp values transforms new_domid =
             if raw < ds.ds_min || raw > ds.ds_max then
               nan
             else
-              raw)
+              raw
+        )
         rrd.rrd_dss
     in
 
@@ -433,7 +438,8 @@ let ds_update rrd timestamp values transforms new_domid =
         ) else (
           ds.ds_value <- post_int *. value /. interval ;
           ds.ds_unknown_sec <- 0.0
-        ))
+        )
+      )
       v2s
   )
 
@@ -444,13 +450,15 @@ let ds_update_named rrd timestamp ~new_domid valuesandtransforms =
   let ds_values =
     Array.map
       (fun name ->
-        try fst (List.assoc name valuesandtransforms) with _ -> VT_Unknown)
+        try fst (List.assoc name valuesandtransforms) with _ -> VT_Unknown
+      )
       ds_names
   in
   let ds_transforms =
     Array.map
       (fun name ->
-        try snd (List.assoc name valuesandtransforms) with _ -> identity)
+        try snd (List.assoc name valuesandtransforms) with _ -> identity
+      )
       ds_names
   in
   ds_update rrd timestamp ds_values ds_transforms new_domid
@@ -502,13 +510,16 @@ let rrd_create dss rras timestep inittime =
               rra_data=
                 Array.init (Array.length dss) (fun i ->
                     let ds = dss.(i) in
-                    Fring.make rra.rra_row_cnt nan ds.ds_min ds.ds_max)
+                    Fring.make rra.rra_row_cnt nan ds.ds_min ds.ds_max
+                )
             ; rra_cdps=
                 Array.init (Array.length dss) (fun i ->
                     let ds = dss.(i) in
                     let cdp_init = cf_init_value rra.rra_cf ds in
-                    {cdp_value= cdp_init; cdp_unknown_pdps= 0})
-            })
+                    {cdp_value= cdp_init; cdp_unknown_pdps= 0}
+                )
+            }
+          )
           rras
     }
   in
@@ -548,7 +559,8 @@ let rrd_add_ds rrd now newds =
             ; rra_cdps=
                 Array.append rra.rra_cdps
                   [|{cdp_value= cdp_init; cdp_unknown_pdps= nunknowns}|]
-            })
+            }
+          )
           rrd.rrd_rras
     }
 
@@ -570,7 +582,8 @@ let rrd_remove_ds rrd ds_name =
               rra with
               rra_data= Utils.array_remove n rra.rra_data
             ; rra_cdps= Utils.array_remove n rra.rra_cdps
-            })
+            }
+          )
           rrd.rrd_rras
     }
 
@@ -584,9 +597,7 @@ let find_best_rras rrd pdp_interval cf start =
   let rras =
     match cf with
     | Some realcf ->
-        List.filter
-          (fun rra -> rra.rra_cf = realcf)
-          (Array.to_list rrd.rrd_rras)
+        List.filter (fun rra -> rra.rra_cf = realcf) (Array.to_list rrd.rrd_rras)
     | None ->
         Array.to_list rrd.rrd_rras
   in
@@ -674,7 +685,8 @@ let from_xml input =
           ; (* float_of_string "last_ds"; *)
             ds_value= float_of_string value
           ; ds_unknown_sec= float_of_string unknown_sec
-          })
+          }
+        )
         i
     in
     let dss = read_all "ds" read_ds i [] in
@@ -694,7 +706,8 @@ let from_xml input =
               {
                 cdp_value= float_of_string value
               ; cdp_unknown_pdps= int_of_string unknown_datapoints
-              })
+              }
+            )
             i
         in
         let cdps =
@@ -722,7 +735,8 @@ let from_xml input =
         let db =
           Array.init cols (fun i ->
               let ds = List.nth dss i in
-              Fring.make rows nan ds.ds_min ds.ds_max)
+              Fring.make rows nan ds.ds_min ds.ds_max
+          )
         in
         for i = 0 to cols - 1 do
           for j = 0 to rows - 1 do
@@ -760,7 +774,8 @@ let from_xml input =
             ; rra_data= database
             ; rra_cdps= Array.of_list cdps
             ; rra_updatehook= None
-            })
+            }
+          )
           i
       in
       rra
@@ -791,7 +806,8 @@ let from_xml input =
         List.map
           (fun name ->
             let x, _ = List.partition (( = ) name) ds_names in
-            (name, List.length x))
+            (name, List.length x)
+          )
           ds_names_set
       in
       let removals_required =
@@ -806,8 +822,10 @@ let from_xml input =
             else
               inner (rrd_remove_ds rrd name) (n - 1)
           in
-          inner rrd n)
-        rrd removals_required)
+          inner rrd n
+        )
+        rrd removals_required
+    )
     input
 
 let xml_to_output rrd output =
@@ -832,7 +850,8 @@ let xml_to_output rrd output =
         tag "value" (data (Utils.f_to_s ds.ds_value)) output ;
         tag "unknown_sec"
           (data (Printf.sprintf "%d" (int_of_float ds.ds_unknown_sec)))
-          output)
+          output
+      )
       output
   in
 
@@ -846,7 +865,8 @@ let xml_to_output rrd output =
         tag "value" (data (Utils.f_to_s cdp.cdp_value)) output ;
         tag "unknown_datapoints"
           (data (Printf.sprintf "%d" cdp.cdp_unknown_pdps))
-          output)
+          output
+      )
       output
   in
 
@@ -867,7 +887,8 @@ let xml_to_output rrd output =
               tag "v"
                 (data (Utils.f_to_s (Fring.peek rings.(col) (rows - row - 1))))
                 output
-            done)
+            done
+          )
           output
       done
   in
@@ -879,7 +900,8 @@ let xml_to_output rrd output =
         tag "pdp_per_row" (data (string_of_int rra.rra_pdp_cnt)) output ;
         tag "params" (tag "xff" (data (Utils.f_to_s rra.rra_xff))) output ;
         tag "cdp_prep" (fun output -> do_rra_cdps rra.rra_cdps output) output ;
-        tag "database" (fun output -> do_database rra.rra_data output) output)
+        tag "database" (fun output -> do_database rra.rra_data output) output
+      )
       output
   in
 
@@ -894,7 +916,8 @@ let xml_to_output rrd output =
         (data (Printf.sprintf "%Ld" (Int64.of_float rrd.last_updated)))
         output ;
       do_dss rrd.rrd_dss output ;
-      do_rras rrd.rrd_rras output)
+      do_rras rrd.rrd_rras output
+    )
     output
 
 module Json = struct
@@ -902,9 +925,9 @@ module Json = struct
 
   let float x = string "%.2f" x
 
-  let record xs = `O xs
+  let record xs = `Assoc xs
 
-  let array xs = `A xs
+  let array xs = `List xs
 
   let datasource ds =
     record
@@ -942,7 +965,8 @@ module Json = struct
         @@ Array.init rows (fun row ->
                array
                @@ Array.to_list
-               @@ Array.init cols (fun col -> get rings rows row col))
+               @@ Array.init cols (fun col -> get rings rows row col)
+           )
 
   let rra x =
     record
@@ -951,7 +975,8 @@ module Json = struct
       ; ("pdp_per_row", string "%d" x.rra_pdp_cnt)
       ; ("params", record [("xff", string "%s" (Utils.f_to_s x.rra_xff))])
       ; ( "cdp_prep"
-        , record [("ds", array @@ List.map cdp @@ Array.to_list x.rra_cdps)] )
+        , record [("ds", array @@ List.map cdp @@ Array.to_list x.rra_cdps)]
+        )
       ; ("database", database x.rra_data)
       ]
 
@@ -966,10 +991,7 @@ module Json = struct
       ]
 end
 
-let json_to_string rrd =
-  let buf = Buffer.create 4096 in
-  let () = Ezjsonm.to_buffer buf (Json.rrd rrd) in
-  Buffer.contents buf
+let json_to_string rrd = Yojson.to_string (Json.rrd rrd)
 
 module Statefile_latency = struct
   type t = {id: string; latency: float option} [@@deriving rpc]

@@ -36,9 +36,8 @@ let string_of t =
   let leg_string =
     Printf.sprintf "[%s]"
       (String.concat ";"
-         (List.map
-            (fun l -> Printf.sprintf "\"%s\"" l)
-            (Array.to_list t.legend)))
+         (List.map (fun l -> Printf.sprintf "\"%s\"" l) (Array.to_list t.legend))
+      )
   in
 
   let data_string =
@@ -50,8 +49,13 @@ let string_of t =
                 (String.concat "; "
                    (List.map
                       (fun f -> Printf.sprintf "%0.4f" f)
-                      (Array.to_list row.row_data))))
-            (Array.to_list t.data)))
+                      (Array.to_list row.row_data)
+                   )
+                )
+            )
+            (Array.to_list t.data)
+         )
+      )
   in
 
   Printf.sprintf
@@ -129,7 +133,8 @@ let of_xml input =
         {
           time= Int64.of_string time
         ; row_data= Array.of_list (List.map (fun v -> float_of_string v) values)
-        })
+        }
+      )
       i
   in
 
@@ -151,7 +156,8 @@ let of_xml input =
         in
         let data = [||] in
         let meta = {start_time; step; end_time; legend; data} in
-        (meta, rows, columns))
+        (meta, rows, columns)
+      )
       i
   in
 
@@ -160,7 +166,8 @@ let of_xml input =
     (fun i ->
       let meta, _, _ = read_meta i in
       let data = read_block "data" read_data i in
-      {meta with data})
+      {meta with data}
+    )
     input
 
 let json_of_t t =
@@ -175,7 +182,8 @@ let json_of_t t =
     t.start_time t.step t.end_time (Array.length t.data) (Array.length t.legend) ;
   Printf.bprintf buffer "legend:[%s]},"
     (String.concat ","
-       (List.map (fun x -> "\"" ^ x ^ "\"") (Array.to_list t.legend))) ;
+       (List.map (fun x -> "\"" ^ x ^ "\"") (Array.to_list t.legend))
+    ) ;
   Printf.bprintf buffer "data:[" ;
   for i = 0 to Array.length t.data - 2 do
     do_data t.data.(i) ;
@@ -211,7 +219,8 @@ let create_multi prefixandrrds start interval cfopt =
            if start < 0L then
              Int64.(add start (of_float rrd.last_updated))
            else
-             start)
+             start
+       )
     |> List.fold_left min Int64.max_int
   in
 
@@ -219,7 +228,8 @@ let create_multi prefixandrrds start interval cfopt =
     List.map
       (fun (_prefix, rrd) ->
         (* Find the rrds that satisfy the requirements *)
-        Rrd.find_best_rras rrd pdp_interval cfopt start)
+        Rrd.find_best_rras rrd pdp_interval cfopt start
+      )
       prefixandrrds
   in
   let first_rra =
@@ -250,11 +260,15 @@ let create_multi prefixandrrds start interval cfopt =
                   (fun rra ->
                     Array.map
                       (fun name -> cf_type_to_string rra.rra_cf ^ ":" ^ name)
-                      ds_legends)
-                  rras)
+                      ds_legends
+                  )
+                  rras
+               )
            in
-           ds_legends_with_cf_prefix)
-         prefixandrrds rras)
+           ds_legends_with_cf_prefix
+         )
+         prefixandrrds rras
+      )
   in
 
   let rras = List.flatten rras in

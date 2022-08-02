@@ -7,7 +7,8 @@
     alcotest
     unix
     xapi-rrd
-    xapi-rrd.unix)
+    xapi-stdext-unix
+  )
 )
 
 (test
@@ -18,5 +19,5 @@
     crowbar
     unix
     xapi-rrd
-    xapi-rrd.unix)
+  )
 )

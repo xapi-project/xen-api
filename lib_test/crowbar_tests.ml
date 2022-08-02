@@ -72,14 +72,16 @@ let ds_value =
    be infinity, leading to a comparison where the clamped value is out of range.
    This is not an issue when normally running as there are no data sources which
    such outrageous limits.
-   *)
+*)
 let ds =
   let open Rrd in
   let ds_type = Cb.(choose [const Derive; const Absolute; const Gauge]) in
   Cb.(
     map [ds_value; float; float; ds_type] (fun v x y typ ->
         let min, max = castd2s x y in
-        ds_create (ds_type_to_string typ) ~min ~max typ v))
+        ds_create (ds_type_to_string typ) ~min ~max typ v
+    )
+  )
 
 let rrd =
   Cb.(map [list1 int64; rra; ds]) (fun values rra ds ->
@@ -91,8 +93,10 @@ let rrd =
       List.iteri
         (fun i v ->
           let t = 5. *. (init_time +. float_of_int i) in
-          ds_update rrd t [|VT_Int64 v|] [|Fun.id|] (i = 0))
+          ds_update rrd t [|VT_Int64 v|] [|Fun.id|] (i = 0)
+        )
         values ;
-      rrd)
+      rrd
+  )
 
 let () = Cb.add_test ~name:"Out-of-bounds rates in archives" [rrd] test_ranges
