@@ -760,7 +760,8 @@ let start_on =
       ; Api_errors.bootloader_failed
       ; Api_errors.unknown_bootloader
       ]
-    ~allowed_roles:_R_VM_POWER_ADMIN ()
+    ~allowed_roles:(_R_VM_POWER_ADMIN ++ _R_CLIENT_CERT)
+    ()
 
 (* VM.Pause *)
 
@@ -861,7 +862,8 @@ let shutdown =
       ; Api_errors.operation_not_allowed
       ; Api_errors.vm_is_template
       ]
-    ~allowed_roles:_R_VM_OP ()
+    ~allowed_roles:(_R_VM_OP ++ _R_CLIENT_CERT)
+    ()
 
 (* VM.PowerStateReset *)
 
