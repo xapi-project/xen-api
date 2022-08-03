@@ -20,19 +20,17 @@ let assert_no_vtpm_associated ~__context vm =
       let amount = List.length vtpms |> Int.to_string in
       raise Api_errors.(Server_error (vtpm_max_amount_reached, [amount]))
 
-let introduce ~__context ~uuid ~vM ~profile ~contents =
-  let ref = Ref.make () in
-  Db.VTPM.create ~__context ~ref ~uuid ~vM ~profile ~contents ;
-  ref
-
-let create ~__context ~vM =
+let create ~__context ~vM ~is_unique =
   assert_no_vtpm_associated ~__context vM ;
   Xapi_vm_lifecycle.assert_initial_power_state_is ~__context ~self:vM
     ~expected:`Halted ;
+  let ref = Ref.make () in
   let uuid = Uuid.(to_string (make ())) in
-  let profile = Db.VM.get_default_vtpm_profile ~__context ~self:vM in
+  let backend = Ref.null in
+  let persistence_backend = `xapi in
   let contents = Xapi_secret.create ~__context ~value:"" ~other_config:[] in
-  let ref = introduce ~__context ~uuid ~vM ~profile ~contents in
+  Db.VTPM.create ~__context ~ref ~uuid ~vM ~backend ~persistence_backend
+    ~is_unique ~is_protected:false ~contents ;
   ref
 
 let destroy ~__context ~self =
@@ -45,11 +43,16 @@ let destroy ~__context ~self =
 
 let get_contents ~__context ~self =
   let secret = Db.VTPM.get_contents ~__context ~self in
-  Base64.decode_exn (Db.Secret.get_value ~__context ~self:secret)
+  Db.Secret.get_value ~__context ~self:secret
 
 let set_contents ~__context ~self ~contents =
   let previous_secret = Db.VTPM.get_contents ~__context ~self in
-  let encoded = Base64.encode_exn contents in
-  let secret = Xapi_secret.create ~__context ~value:encoded ~other_config:[] in
+  let _ =
+    (* verify contents to be already base64-encoded *)
+    try Base64.decode contents
+    with Invalid_argument err ->
+      raise Api_errors.(Server_error (internal_error, [err]))
+  in
+  let secret = Xapi_secret.create ~__context ~value:contents ~other_config:[] in
   Db.VTPM.set_contents ~__context ~self ~value:secret ;
   Db.Secret.destroy ~__context ~self:previous_secret

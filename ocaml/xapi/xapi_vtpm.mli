@@ -12,7 +12,8 @@
    GNU Lesser General Public License for more details.
  *)
 
-val create : __context:Context.t -> vM:[`VM] API.Ref.t -> [`VTPM] Ref.t
+val create :
+  __context:Context.t -> vM:[`VM] API.Ref.t -> is_unique:bool -> [`VTPM] Ref.t
 
 val destroy : __context:Context.t -> self:[`VTPM] Ref.t -> unit
 

@@ -171,7 +171,12 @@ module Row = struct
               add g c.Schema.Column.name default t
           | None ->
               raise
-                (DBCache_NotFound ("missing field", c.Schema.Column.name, ""))
+                (DBCache_NotFound
+                   ( "missing default value in datamodel for new field"
+                   , c.Schema.Column.name
+                   , ""
+                   )
+                )
         else
           t
       )
