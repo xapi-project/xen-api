@@ -20,18 +20,43 @@ let assert_no_vtpm_associated ~__context vm =
       let amount = List.length vtpms |> Int.to_string in
       raise Api_errors.(Server_error (vtpm_max_amount_reached, [amount]))
 
+let introduce ~__context ~vM ~persistence_backend ~contents ~is_unique =
+  let ref = Ref.make () in
+  let uuid = Uuid.(to_string (make ())) in
+  let backend = Ref.null in
+  Db.VTPM.create ~__context ~ref ~uuid ~vM ~backend ~persistence_backend
+    ~is_unique ~is_protected:false ~contents ;
+  ref
+
+(** Contents from unique vtpms cannot be copied! *)
+let get_contents ~__context ?from () =
+  let create () = Xapi_secret.create ~__context ~value:"" ~other_config:[] in
+  let copy ref =
+    let contents = Db.VTPM.get_contents ~__context ~self:ref in
+    Xapi_secret.copy ~__context ~secret:contents
+  in
+  let maybe_copy ref =
+    if Db.VTPM.get_is_unique ~__context ~self:ref then
+      create ()
+    else
+      copy ref
+  in
+  Option.fold ~none:(create ()) ~some:maybe_copy from
+
 let create ~__context ~vM ~is_unique =
   assert_no_vtpm_associated ~__context vM ;
   Xapi_vm_lifecycle.assert_initial_power_state_is ~__context ~self:vM
     ~expected:`Halted ;
-  let ref = Ref.make () in
-  let uuid = Uuid.(to_string (make ())) in
-  let backend = Ref.null in
   let persistence_backend = `xapi in
-  let contents = Xapi_secret.create ~__context ~value:"" ~other_config:[] in
-  Db.VTPM.create ~__context ~ref ~uuid ~vM ~backend ~persistence_backend
-    ~is_unique ~is_protected:false ~contents ;
-  ref
+  let contents = get_contents ~__context () in
+  introduce ~__context ~vM ~persistence_backend ~contents ~is_unique
+
+let copy ~__context ~vM ref =
+  let vtpm = Db.VTPM.get_record ~__context ~self:ref in
+  let persistence_backend = vtpm.vTPM_persistence_backend in
+  let is_unique = vtpm.vTPM_is_unique in
+  let contents = get_contents ~__context ~from:ref () in
+  introduce ~__context ~vM ~persistence_backend ~contents ~is_unique
 
 let destroy ~__context ~self =
   let vm = Db.VTPM.get_VM ~__context ~self in

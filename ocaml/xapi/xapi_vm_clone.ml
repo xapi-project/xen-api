@@ -419,6 +419,7 @@ let clone ?snapshot_info_record ?(ignore_vdis = []) disk_op ~__context ~vm
       let vbds = Db.VM.get_VBDs ~__context ~self:vm in
       let vifs = Db.VM.get_VIFs ~__context ~self:vm in
       let vgpus = Db.VM.get_VGPUs ~__context ~self:vm in
+      let vtpms = Db.VM.get_VTPMs ~__context ~self:vm in
       let power_state = Db.VM.get_power_state ~__context ~self:vm in
       (* If a VM is snapshotted, then the new VM must remain halted.
          Otherwise, we keep the same power-state as the initial VM *)
@@ -501,6 +502,10 @@ let clone ?snapshot_info_record ?(ignore_vdis = []) disk_op ~__context ~vm
           (* copy VGPUs *)
           let (_ : [`VGPU] Ref.t list) =
             List.map (fun vgpu -> Xapi_vgpu.copy ~__context ~vm:ref vgpu) vgpus
+          in
+          (* copy vTPMs *)
+          let (_ : [`VTPM] Ref.t list) =
+            List.map (fun vtpm -> Xapi_vtpm.copy ~__context ~vM:ref vtpm) vtpms
           in
           (* copy the suspended VDI if needed *)
           let suspend_VDI =
