@@ -7852,7 +7852,14 @@ module VTPM = struct
       | None ->
           false
     in
-    let ref = Client.VTPM.create ~rpc ~session_id ~vM ~is_unique in
+    let sR =
+      match List.assoc_opt "sr" params with
+      | Some uuid ->
+          Client.SR.get_by_uuid ~rpc ~session_id ~uuid
+      | None ->
+          Ref.null
+    in
+    let ref = Client.VTPM.create ~rpc ~session_id ~vM ~is_unique ~sR in
     let uuid = Client.VTPM.get_uuid ~rpc ~session_id ~self:ref in
     printer (Cli_printer.PList [uuid])
 

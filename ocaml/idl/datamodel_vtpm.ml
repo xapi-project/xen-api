@@ -17,7 +17,13 @@ open Datamodel_common
 open Datamodel_roles
 
 let persistence_backend =
-  Enum ("persistence_backend", [("xapi", "This VTPM is persisted in XAPI's DB")])
+  Enum
+    ( "persistence_backend"
+    , [
+        ("xapi", "This VTPM is persisted in XAPI's DB")
+      ; ("vdi", "This VTPM is persisted in a VDI")
+      ]
+    )
 
 let create =
   call ~name:"create"
@@ -34,6 +40,10 @@ let create =
       [
         (Ref _vm, "vM", "The VM reference the VTPM will be attached to")
       ; (Bool, "is_unique", "Whether the VTPM must be unique")
+      ; ( Ref _sr
+        , "sR"
+        , "The SR on which to store the vTPM state. Null to let XAPI choose."
+        )
       ]
     ~result:(Ref _vtpm, "The reference of the newly created VTPM")
     ~allowed_roles:_R_VM_ADMIN ()
@@ -93,6 +103,8 @@ let t =
            spec"
       ; field ~qualifier:DynamicRO ~ty:(Ref _secret) ~internal_only:true
           ~lifecycle:[] "contents" "The contents of the TPM"
+      ; field ~qualifier:DynamicRO ~ty:(Ref _vdi) ~lifecycle:[] "VDI"
+          "vTPM state storage"
       ]
     ~messages:[create; destroy; get_contents; set_contents]
     ()

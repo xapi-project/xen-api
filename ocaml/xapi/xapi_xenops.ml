@@ -396,7 +396,10 @@ let builder_of_vm ~__context (vmref, vm) timeoffset pci_passthrough vgpu =
                VM does not have a VTPM associated, otherwise the associated
                VTPM gets always attached. *)
             if bool vm.API.vM_platform false "vtpm" then
-              Some (Xapi_vtpm.create ~__context ~vM:vmref ~is_unique:false)
+              Some
+                (Xapi_vtpm.create ~__context ~vM:vmref ~is_unique:false
+                   ~sR:Ref.null
+                )
             else
               None
         | [vtpm] ->

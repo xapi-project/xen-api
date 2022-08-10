@@ -5274,9 +5274,13 @@ functor
                 ~prefer_slaves:true op
           )
 
-      let pool_migrate ~__context ~vdi ~sr ~options =
-        let vbds =
-          Db.VBD.get_records_where ~__context
+      let get_vm_of_vdi ~__context get_records_where vm_of_record ~vdi =
+        (* which VM to migrate to get this VDI migrated
+           Note that this may be different from the VM that the VDI is currently plugged in,
+           if that VM is Dom0
+        *)
+        let refs =
+          get_records_where ~__context
             ~expr:
               (Db_filter_types.Eq
                  ( Db_filter_types.Field "VDI"
@@ -5284,12 +5288,23 @@ functor
                  )
               )
         in
-        if List.length vbds < 1 then
+        if List.length refs < 1 then
           raise
             (Api_errors.Server_error
                (Api_errors.vdi_needs_vm_for_migrate, [Ref.string_of vdi])
             ) ;
-        let vm = (snd (List.hd vbds)).API.vBD_VM in
+        snd (List.hd refs) |> vm_of_record
+
+      let pool_migrate ~__context ~vdi ~sr ~options =
+        let vm =
+          match Db.VDI.get_type ~__context ~self:vdi with
+          | `vtpm_state ->
+              let vm_of_vtpm x = x.API.vTPM_VM in
+              get_vm_of_vdi ~__context ~vdi Db.VTPM.get_records_where vm_of_vtpm
+          | _ ->
+              let vm_of_vbd x = x.API.vBD_VM in
+              get_vm_of_vdi ~__context ~vdi Db.VBD.get_records_where vm_of_vbd
+        in
         (* hackity hack *)
         let options =
           ("__internal__vm", Ref.string_of vm)

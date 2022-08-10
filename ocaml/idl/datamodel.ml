@@ -3580,6 +3580,7 @@ module VDI = struct
              blocks that changed between some previous version of the disk and \
              the version tracked by the snapshot."
           )
+        ; ("vtpm_state", "VTPM state storage")
         ]
       )
 

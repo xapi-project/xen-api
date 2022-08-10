@@ -13,7 +13,11 @@
  *)
 
 val create :
-  __context:Context.t -> vM:[`VM] API.Ref.t -> is_unique:bool -> [`VTPM] Ref.t
+     __context:Context.t
+  -> vM:[`VM] API.Ref.t
+  -> is_unique:bool
+  -> sR:[`SR] API.Ref.t
+  -> [`VTPM] Ref.t
 
 val destroy : __context:Context.t -> self:[`VTPM] Ref.t -> unit
 

@@ -624,6 +624,8 @@ let create ~__context ~name_label ~name_description ~sR ~virtual_size ~_type
         "pvs_cache"
     | `cbt_metadata ->
         "cbt_metadata"
+    | `vtpm_state ->
+        "vtpm_state"
   in
   let open Storage_access in
   let task = Context.get_task_id __context in

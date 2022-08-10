@@ -730,6 +730,8 @@ let vdi_type_to_string t =
       "PVS cache"
   | `cbt_metadata ->
       "CBT metadata"
+  | `vtpm_state ->
+      "VTPM state"
 
 let ip_configuration_mode_to_string = function
   | `None ->
