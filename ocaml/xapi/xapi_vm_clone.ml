@@ -421,6 +421,18 @@ let clone ?snapshot_info_record ?(ignore_vdis = []) disk_op ~__context ~vm
       let vgpus = Db.VM.get_VGPUs ~__context ~self:vm in
       let vtpms = Db.VM.get_VTPMs ~__context ~self:vm in
       let power_state = Db.VM.get_power_state ~__context ~self:vm in
+      ( match (power_state, vtpms) with
+      | `Running, _ :: _ ->
+          error "%s: Running VMs with VTPMs cannot be snapshotted yet"
+            __FUNCTION__ ;
+          raise
+            Api_errors.(
+              Server_error
+                (not_implemented, ["VM.clone of running VM with VTPM"])
+            )
+      | _ ->
+          ()
+      ) ;
       (* If a VM is snapshotted, then the new VM must remain halted.
          Otherwise, we keep the same power-state as the initial VM *)
       let new_power_state =
