@@ -1753,21 +1753,13 @@ let eject_self ~__context ~host =
       && vm_rec.API.vM_resident_on = host
     in
     let vm_has_disks_on_local_sr_of_host vm_rec host =
+      let open! Helpers in
       let is_sr_local x =
-        try not (Helpers.is_sr_shared ~__context ~self:x)
+        try not (is_sr_shared ~__context ~self:x)
         with Db_exn.DBCache_NotFound _ -> false
       in
       let host_has_sr x =
-        Helpers.check_sr_exists_for_host ~__context ~self:x ~host <> None
-      in
-      let ignore_invalid_ref f x =
-        try
-          let ref = f x in
-          if ref <> Ref.null then
-            Some ref
-          else
-            None
-        with Db_exn.DBCache_NotFound _ -> None
+        check_sr_exists_for_host ~__context ~self:x ~host <> None
       in
       vm_rec.API.vM_VBDs
       |> List.filter_map

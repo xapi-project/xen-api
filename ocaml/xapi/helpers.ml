@@ -122,6 +122,9 @@ let choose_network_name_for_pif device =
 (* !! FIXME(2) - this code could be shared with the CLI? *)
 let checknull f = try f () with _ -> "<not in database>"
 
+let ignore_invalid_ref f (x : 'a Ref.t) =
+  try Ref.to_option (f x) with Db_exn.DBCache_NotFound _ -> None
+
 let get_pool ~__context = List.hd (Db.Pool.get_all ~__context)
 
 let get_master ~__context =
