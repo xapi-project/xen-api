@@ -772,7 +772,7 @@ let get_my_pbds __context =
 (* Return the PBD for specified SR on a specific host *)
 (* Just say an SR is shared if it has more than one PBD *)
 let is_sr_shared ~__context ~self =
-  List.length (Db.SR.get_PBDs ~__context ~self) > 1
+  match Db.SR.get_PBDs ~__context ~self with [] | [_] -> false | _ -> true
 
 let get_main_ip_address ~__context =
   try Pool_role.get_master_address () with _ -> "127.0.0.1"
