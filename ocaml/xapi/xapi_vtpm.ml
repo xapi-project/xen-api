@@ -12,6 +12,17 @@
    GNU Lesser General Public License for more details.
  *)
 
+(** Don't allow unless VTPM is enabled as an experimental feature *)
+let assert_not_restricted ~__context =
+  let pool = Helpers.get_pool ~__context in
+  let restrictions = Db.Pool.get_restrictions ~__context ~self:pool in
+  let feature = "restrict_vtpm" in
+  match List.assoc_opt feature restrictions with
+  | Some "false" ->
+      ()
+  | _ ->
+      raise Api_errors.(Server_error (feature_restricted, [feature]))
+
 let assert_no_vtpm_associated ~__context vm =
   match Db.VM.get_VTPMs ~__context ~self:vm with
   | [] ->
@@ -44,6 +55,7 @@ let get_contents ~__context ?from () =
   Option.fold ~none:(create ()) ~some:maybe_copy from
 
 let create ~__context ~vM ~is_unique =
+  assert_not_restricted ~__context ;
   assert_no_vtpm_associated ~__context vM ;
   Xapi_vm_lifecycle.assert_initial_power_state_is ~__context ~self:vM
     ~expected:`Halted ;
