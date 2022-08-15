@@ -15,6 +15,9 @@
 val create :
   __context:Context.t -> vM:[`VM] API.Ref.t -> is_unique:bool -> [`VTPM] Ref.t
 
+val copy :
+  __context:Context.t -> vM:[`VM] Ref.t -> [`VTPM] Ref.t -> [`VTPM] Ref.t
+
 val destroy : __context:Context.t -> self:[`VTPM] Ref.t -> unit
 
 val get_contents : __context:Context.t -> self:[`VTPM] Ref.t -> string
