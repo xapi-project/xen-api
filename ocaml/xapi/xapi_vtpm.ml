@@ -23,6 +23,19 @@ let assert_not_restricted ~__context =
   | _ ->
       raise Api_errors.(Server_error (feature_restricted, [feature]))
 
+(** The state in the xapi backend is only up-to-date when the VMs are halted *)
+let assert_no_fencing ~__context ~persistence_backend =
+  let pool = Helpers.get_pool ~__context in
+  let ha_enabled = Db.Pool.get_ha_enabled ~__context ~self:pool in
+  let clustering_enabled = Db.Cluster.get_all ~__context <> [] in
+  let may_fence = ha_enabled || clustering_enabled in
+  match (persistence_backend, may_fence) with
+  | `xapi, true ->
+      let message = "VTPM.create with HA or clustering enabled" in
+      raise Api_errors.(Server_error (not_implemented, [message]))
+  | _ ->
+      ()
+
 let assert_no_vtpm_associated ~__context vm =
   match Db.VM.get_VTPMs ~__context ~self:vm with
   | [] ->
@@ -55,11 +68,12 @@ let get_contents ~__context ?from () =
   Option.fold ~none:(create ()) ~some:maybe_copy from
 
 let create ~__context ~vM ~is_unique =
+  let persistence_backend = `xapi in
   assert_not_restricted ~__context ;
+  assert_no_fencing ~__context ~persistence_backend ;
   assert_no_vtpm_associated ~__context vM ;
   Xapi_vm_lifecycle.assert_initial_power_state_is ~__context ~self:vM
     ~expected:`Halted ;
-  let persistence_backend = `xapi in
   let contents = get_contents ~__context () in
   introduce ~__context ~vM ~persistence_backend ~contents ~is_unique
 
