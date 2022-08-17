@@ -456,7 +456,7 @@ module Vgpu = struct
                  } ->
                  (* The VGPU UUID is not available. Create a fresh one; xapi
                     will deal with it. *)
-                 let uuid = Uuidm.to_string (Uuidm.create `V4) in
+                 let uuid = Uuidx.(to_string (make ())) in
                  debug "NVidia vGPU config: using config file %s and uuid %s"
                    config_file uuid ;
                  make addr
