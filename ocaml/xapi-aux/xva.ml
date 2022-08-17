@@ -141,7 +141,8 @@ let parse_appliance attrs children =
             and variety = variety_of_string (assoc "variety" attrs) in
             {vdi_name= name; size; source; ty; variety}
         | _ ->
-            raise (Parse_failure "expected VDI"))
+            raise (Parse_failure "expected VDI")
+      )
       (find_all "vdi" children)
   in
   (* make an assocation list of vdi names -> vdis *)
@@ -175,7 +176,8 @@ let parse_appliance attrs children =
               ( assoc "mem_set" attrs
               , assoc "vcpus" attrs
               , (try Some (assoc "distrib" attrs) with _ -> None)
-              , try Some (assoc "distrib_version" attrs) with _ -> None )
+              , try Some (assoc "distrib_version" attrs) with _ -> None
+              )
             )
           | _ ->
               raise (Parse_failure "Failed to find element: config")
@@ -188,7 +190,8 @@ let parse_appliance attrs children =
           match find_element "hacks" children with
           | Xml.Element (_, attrs, _) ->
               ( default_assoc "true" "is_hvm" attrs
-              , default_assoc "" "kernel_boot_cmdline" attrs )
+              , default_assoc "" "kernel_boot_cmdline" attrs
+              )
           | _ ->
               ("true", "")
         in

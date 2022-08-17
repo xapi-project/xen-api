@@ -26,7 +26,8 @@ let parse_args () =
     [
       ( "-destdir"
       , Arg.Set_string destdir'
-      , "the destination directory for the generated files" )
+      , "the destination directory for the generated files"
+      )
     ]
     (fun x -> Printf.printf "Ignoring anonymous argument %s" x)
     "Generates documentation for the datamodel classes. See -help."
@@ -78,7 +79,8 @@ let rec string_of_json n = function
           ("," ^ endl (n + 1))
           (List.map
              (fun (s, j) -> "\"" ^ s ^ "\": " ^ string_of_json (n + 2) j)
-             l)
+             l
+          )
       ^ " }"
   | JArray l ->
       "[ "
@@ -151,8 +153,11 @@ let rec string_of_default = function
            (List.map
               (fun (a, b) ->
                 Printf.sprintf "%s -> %s" (string_of_default a)
-                  (string_of_default b))
-              x))
+                  (string_of_default b)
+              )
+              x
+           )
+        )
   | VSet x ->
       Printf.sprintf "{%s}" (String.concat ", " (List.map string_of_default x))
   | VRef x ->
@@ -169,14 +174,20 @@ let jarray_of_lifecycle lc =
              ("transition", JString (string_of_lifecycle_transition t))
            ; ("release", JString r)
            ; ("description", JString d)
-           ])
-       lc)
+           ]
+       )
+       lc
+    )
 
 let fields_of_obj_with_enums obj =
   let rec flatten_contents contents =
     List.fold_left
-      (fun l -> function Field f -> f :: l | Namespace (name, contents) ->
-            flatten_contents contents @ l)
+      (fun l -> function
+        | Field f ->
+            f :: l
+        | Namespace (name, contents) ->
+            flatten_contents contents @ l
+      )
       [] contents
   in
   let fields = flatten_contents obj.contents in
@@ -195,7 +206,8 @@ let fields_of_obj_with_enums obj =
                      ""
                  | t :: _ ->
                      string_of_doc_tag t
-                 ) )
+                 )
+             )
           :: ("lifecycle", jarray_of_lifecycle field.lifecycle)
           ::
           ( match field.default_value with
@@ -206,7 +218,9 @@ let fields_of_obj_with_enums obj =
           )
           )
         :: fields
-      , enums @ e ))
+      , enums @ e
+      )
+    )
     ([], []) fields
 
 let jarray_of_result_with_enums obj msg =
@@ -232,7 +246,9 @@ let jarray_of_params_with_enums ps =
             ; ("doc", JString p.param_doc)
             ]
           :: params
-        , enums @ e ))
+        , enums @ e
+        )
+      )
       ([], []) ps
   in
   (JArray (List.rev params), enums)
@@ -241,8 +257,10 @@ let jarray_of_errors es =
   JArray
     (List.map
        (fun e ->
-         JObject [("name", JString e.err_name); ("doc", JString e.err_doc)])
-       es)
+         JObject [("name", JString e.err_name); ("doc", JString e.err_doc)]
+       )
+       es
+    )
 
 let jarray_of_roles = function
   | None ->
@@ -276,7 +294,8 @@ let messages_of_obj_with_enums obj =
               (fields_of_obj obj)
             |> List.map (fun f ->
                    String.concat "_" f.full_name
-                   ^ if f.default_value = None then "*" else "")
+                   ^ if f.default_value = None then "*" else ""
+               )
           in
           Printf.sprintf "\nThe constructor args are: %s (* = non-optional)."
             (String.concat ", " ctor_fields)
@@ -300,12 +319,15 @@ let messages_of_obj_with_enums obj =
                     ""
                 | t :: _ ->
                     string_of_doc_tag t
-                ) )
+                )
+            )
           ; ("lifecycle", jarray_of_lifecycle msg.msg_lifecycle)
           ; ("implicit", JBoolean (msg.msg_tag <> Custom))
           ]
         :: msgs
-      , enums @ enums1 @ enums2 ))
+      , enums @ enums1 @ enums2
+      )
+    )
     ([], []) obj.messages
 
 let jarray_of_enums enums =
@@ -319,10 +341,15 @@ let jarray_of_enums enums =
              , JArray
                  (List.map
                     (fun (v, d) ->
-                      JObject [("name", JString v); ("doc", JString d)])
-                    vs) )
-           ])
-       enums)
+                      JObject [("name", JString v); ("doc", JString d)]
+                    )
+                    vs
+                 )
+             )
+           ]
+       )
+       enums
+    )
 
 let json_of_objs objs =
   JArray
@@ -340,12 +367,14 @@ let json_of_objs objs =
                  ; ( "description"
                    , JString
                        "The record of the database object that was added, \
-                        changed or deleted" )
+                        changed or deleted"
+                   )
                  ; ("type", JString "&lt;object record&gt;")
                  ; ("qualifier", JString (string_of_qualifier DynamicRO))
                  ; ("tag", JString "")
                  ; ( "lifecycle"
-                   , jarray_of_lifecycle [(Published, rel_boston, "")] )
+                   , jarray_of_lifecycle [(Published, rel_boston, "")]
+                   )
                  ]
              ]
            else
@@ -366,9 +395,12 @@ let json_of_objs objs =
                      ""
                  | t :: _ ->
                      string_of_doc_tag t
-                 ) )
-           ])
-       objs)
+                 )
+             )
+           ]
+       )
+       objs
+    )
 
 let jobject_of_change (t, n, l, s) =
   JObject
@@ -431,14 +463,17 @@ let releases objs =
               else
                 doc
               )
-            , "class" ))
+            , "class"
+            )
+          )
           changes
       in
       let changes_for_msg m =
         let changes =
           List.filter
             (fun (transition, release, doc) ->
-              release = code_name_of_release rel)
+              release = code_name_of_release rel
+            )
             m.msg_lifecycle
         in
         List.map
@@ -446,7 +481,9 @@ let releases objs =
             ( transition
             , obj.name ^ "." ^ m.msg_name
             , (if doc = "" && transition = Published then m.msg_doc else doc)
-            , "message" ))
+            , "message"
+            )
+          )
           changes
       in
       (* Don't include implicit messages *)
@@ -458,7 +495,8 @@ let releases objs =
         let changes =
           List.filter
             (fun (transition, release, doc) ->
-              release = code_name_of_release rel)
+              release = code_name_of_release rel
+            )
             f.lifecycle
         in
         let field_name = String.concat "_" f.full_name in
@@ -471,13 +509,19 @@ let releases objs =
               else
                 doc
               )
-            , "field" ))
+            , "field"
+            )
+          )
           changes
       in
       let rec flatten_contents contents =
         List.fold_left
-          (fun l -> function Field f -> f :: l | Namespace (name, contents) ->
-                flatten_contents contents @ l)
+          (fun l -> function
+            | Field f ->
+                f :: l
+            | Namespace (name, contents) ->
+                flatten_contents contents @ l
+          )
           [] contents
       in
       let fields = flatten_contents obj.contents in
@@ -491,7 +535,8 @@ let releases objs =
             , "event.snapshot"
             , "The record of the database object that was added, changed or \
                deleted"
-            , "field" )
+            , "field"
+            )
           ]
         else
           []
@@ -508,7 +553,8 @@ let releases objs =
   JObject
     (List.map
        (fun rel -> (code_name_of_release rel, changes_in_release rel))
-       release_order)
+       release_order
+    )
 
 let _ =
   parse_args () ;
@@ -594,6 +640,7 @@ let _ =
         |> String.concat "\n"
         |> Xapi_stdext_unix.Unixext.write_string_to_file
              (Filename.concat class_md_dir
-                (Printf.sprintf "%s.md" (String.lowercase_ascii name)))
+                (Printf.sprintf "%s.md" (String.lowercase_ascii name))
+             )
   in
   objs |> List.iter class_md

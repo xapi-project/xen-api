@@ -29,9 +29,11 @@ module Type = struct
           Some
             (Printf.sprintf "Schema.Type.Error: expected %s; received %s"
                (Sexplib.Sexp.to_string_hum (sexp_of_t expected))
-               (Sexplib.Sexp.to_string_hum (sexp_of_t actual)))
+               (Sexplib.Sexp.to_string_hum (sexp_of_t actual))
+            )
       | _ ->
-          None)
+          None
+      )
 end
 
 module Value = struct

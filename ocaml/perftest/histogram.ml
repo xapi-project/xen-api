@@ -39,14 +39,18 @@ let _ =
             | "x11" ->
                 format := `X11
             | _ ->
-                failwith "huh ?" )
-      , " Set output format (default: X11)" )
+                failwith "huh ?"
+          )
+      , " Set output format (default: X11)"
+      )
     ; ( "-output"
       , Arg.Set_string graphic_filename
-      , " Set default output file (for non-X11 modes)" )
+      , " Set default output file (for non-X11 modes)"
+      )
     ; ( "-sigma"
       , Arg.Set_float sigma
-      , Printf.sprintf " Set sigma for the gaussian (default %f)" !sigma )
+      , Printf.sprintf " Set sigma for the gaussian (default %f)" !sigma
+      )
     ; ( "-integrate"
       , Arg.Set integrate
       , Printf.sprintf
@@ -58,15 +62,18 @@ let _ =
       )
     ; ( "-log"
       , Arg.Set log_axis
-      , Printf.sprintf " Use a log x axis (default: %b)" !log_axis )
+      , Printf.sprintf " Use a log x axis (default: %b)" !log_axis
+      )
     ; ( "-minpercentile"
       , Arg.Set_float min_percentile
       , Printf.sprintf " Minimum percentile to plot (default: %.2f)"
-          !min_percentile )
+          !min_percentile
+      )
     ; ( "-maxpercentile"
       , Arg.Set_float max_percentile
       , Printf.sprintf " Maximum percentile to plot (default: %.2f)"
-          !max_percentile )
+          !max_percentile
+      )
     ]
     (fun x -> inputs := x :: !inputs)
     "Generate a histogram by convolving sample points with a gaussian.\nusage:" ;
@@ -86,7 +93,8 @@ let _ =
         (fun (info, points) ->
           debug ~out:stderr "%s has lognormal mean %f +/- %f"
             (short_info_to_string info)
-            (LogNormal.mean points) (LogNormal.sigma points))
+            (LogNormal.mean points) (LogNormal.sigma points)
+        )
         inputs ;
       let min_point = get_min inputs in
       let max_point = get_max inputs in
@@ -118,13 +126,15 @@ let _ =
           let num_points = float_of_int (List.length points) in
           List.iter
             (fun y ->
-              Hist.convolve x (fun z -> gaussian y sigma z /. num_points))
+              Hist.convolve x (fun z -> gaussian y sigma z /. num_points)
+            )
             points ;
           (* Sanity-check: area under histogram should be almost 1.0 *)
           let total_area =
             Hist.fold x
               (fun bin_start bin_end height acc ->
-                ((bin_end -. bin_start) *. height) +. acc)
+                ((bin_end -. bin_start) *. height) +. acc
+              )
               0.
           in
           if abs_float (1. -. total_area) > 0.01 then
@@ -145,18 +155,21 @@ let _ =
             replace_assoc result
               (min
                  (List.assoc result !xrange_min)
-                 (Hist.find_x cumulative (!min_percentile /. 100.)))
+                 (Hist.find_x cumulative (!min_percentile /. 100.))
+              )
               !xrange_min ;
           xrange_max :=
             replace_assoc result
               (max
                  (List.assoc result !xrange_max)
-                 (Hist.find_x cumulative (!max_percentile /. 100.)))
+                 (Hist.find_x cumulative (!max_percentile /. 100.))
+              )
               !xrange_max ;
           let x = if !integrate then Hist.integrate x else x in
           Xapi_stdext_unix.Unixext.with_file output_file
             [Unix.O_WRONLY; Unix.O_TRUNC; Unix.O_CREAT]
-            0o644 (Hist.to_gnuplot x))
+            0o644 (Hist.to_gnuplot x)
+        )
         all ;
       let ls =
         List.map
@@ -169,7 +182,8 @@ let _ =
             ; yaxis= 1
             ; scale= 1.
             ; style= "linespoints"
-            })
+            }
+          )
           all
       in
       let ylabel =
@@ -205,11 +219,12 @@ let _ =
             | `Eps ->
                 Gnuplot.Ps (Printf.sprintf "%s-%s.eps" !graphic_filename result)
             | `Gif ->
-                Gnuplot.Gif
-                  (Printf.sprintf "%s-%s.gif" !graphic_filename result)
+                Gnuplot.Gif (Printf.sprintf "%s-%s.gif" !graphic_filename result)
             | `X11 ->
                 Gnuplot.X11
           in
-          ignore (Gnuplot.render g output))
-        (get_result_types inputs))
+          ignore (Gnuplot.render g output)
+        )
+        (get_result_types inputs)
+    )
     (fun () -> List.iter Xapi_stdext_unix.Unixext.unlink_safe output_files)

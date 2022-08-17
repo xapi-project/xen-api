@@ -47,9 +47,11 @@ module FixCookie = Generic.MakeStateless (struct
       ; ([("foo", "x;\tbar=y")], [("foo", "x"); ("bar", "y")])
       ; (* These cookies need unmangling and filtering. *)
         ( [("foo=x,\tbar", "y"); ("$Stuff", "whatever")]
-        , [("foo", "x"); ("bar", "y")] )
+        , [("foo", "x"); ("bar", "y")]
+        )
       ; ( [("$Stuff", "whatever"); ("foo=x,\tbar", "y")]
-        , [("foo", "x"); ("bar", "y")] )
+        , [("foo", "x"); ("bar", "y")]
+        )
       ]
 end)
 

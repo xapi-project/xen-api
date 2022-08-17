@@ -40,7 +40,8 @@ let update_metadata_latest ~__context =
   List.iter
     (fun vdi ->
       if not (Db.is_valid_ref __context vdi) then
-        Hashtbl.remove db_vdi_cache vdi)
+        Hashtbl.remove db_vdi_cache vdi
+    )
     cached_vdis ;
   debug "Updating metadata_latest on all foreign pool metadata VDIs" ;
   let module PoolMap = Map.Make (struct
@@ -60,7 +61,8 @@ let update_metadata_latest ~__context =
             (vdi, generation) :: current_list
           with Not_found -> [(vdi, generation)]
         in
-        PoolMap.add pool new_list map)
+        PoolMap.add pool new_list map
+      )
       db_vdi_cache PoolMap.empty
   in
   (* For each pool who has metadata VDIs in the database, find the VDIs with the highest database generation count. *)
@@ -78,7 +80,8 @@ let update_metadata_latest ~__context =
             if generation > acc then
               generation
             else
-              acc)
+              acc
+          )
           vdi_list 0L
       in
       debug "Largest known database generation for pool %s is %Ld."
@@ -92,8 +95,10 @@ let update_metadata_latest ~__context =
              to %b."
             (Db.VDI.get_uuid ~__context ~self:vdi)
             generation metadata_latest ;
-          Db.VDI.set_metadata_latest ~__context ~self:vdi ~value:metadata_latest)
-        vdi_list)
+          Db.VDI.set_metadata_latest ~__context ~self:vdi ~value:metadata_latest
+        )
+        vdi_list
+    )
     vdis_grouped_by_pool
 
 let read_database_generation ~db_ref =
@@ -125,9 +130,11 @@ let add_vdis_to_cache ~__context ~vdis =
             (* If we can't open the database then it doesn't really matter that the VDI is not added to the cache. *)
             debug "Could not open database from VDI %s - caught %s"
               (Db.VDI.get_uuid ~__context ~self:vdi)
-              (Printexc.to_string e))
+              (Printexc.to_string e)
+        )
         vdis ;
-      update_metadata_latest ~__context)
+      update_metadata_latest ~__context
+  )
 
 (* Remove all the supplied VDIs from the cache, then update metadata_latest on the remaining VDIs. *)
 let remove_vdis_from_cache ~__context ~vdis =
@@ -136,16 +143,19 @@ let remove_vdis_from_cache ~__context ~vdis =
         (fun vdi ->
           debug "Removing VDI %s from metadata VDI cache."
             (Db.VDI.get_uuid ~__context ~self:vdi) ;
-          Hashtbl.remove db_vdi_cache vdi)
+          Hashtbl.remove db_vdi_cache vdi
+        )
         vdis ;
-      update_metadata_latest ~__context)
+      update_metadata_latest ~__context
+  )
 
 let read_vdi_cache_record ~vdi =
   Mutex.execute db_vdi_cache_mutex (fun () ->
       if Hashtbl.mem db_vdi_cache vdi then
         Some (Hashtbl.find db_vdi_cache vdi)
       else
-        None)
+        None
+  )
 
 let handle_metadata_vdis ~__context ~sr =
   let sr_uuid = Db.SR.get_uuid ~__context ~self:sr in
@@ -166,19 +176,24 @@ let handle_metadata_vdis ~__context ~sr =
     (String.concat ";"
        (List.map
           (fun vdi -> Db.VDI.get_uuid ~__context ~self:vdi)
-          vdis_of_foreign_pool)) ;
+          vdis_of_foreign_pool
+       )
+    ) ;
   add_vdis_to_cache ~__context ~vdis:vdis_of_foreign_pool ;
   debug "Found metadata VDIs created by this pool: [%s]"
     (String.concat ";"
        (List.map
           (fun vdi -> Db.VDI.get_uuid ~__context ~self:vdi)
-          vdis_of_this_pool)) ;
+          vdis_of_this_pool
+       )
+    ) ;
   if vdis_of_this_pool <> [] then
     let target_vdi = List.hd vdis_of_this_pool in
     let vdi_uuid = Db.VDI.get_uuid ~__context ~self:target_vdi in
     try
       Xapi_vdi_helpers.enable_database_replication ~__context
-        ~get_vdi_callback:(fun () -> target_vdi) ;
+        ~get_vdi_callback:(fun () -> target_vdi
+      ) ;
       debug "Re-enabled database replication to VDI %s" vdi_uuid
     with e ->
       debug "Could not re-enable database replication to VDI %s - caught %s"
@@ -198,7 +213,8 @@ let signal_sr_is_processing ~__context ~sr =
   Mutex.execute processing_srs_m (fun () ->
       let srs = !processing_srs in
       if not (List.mem sr srs) then
-        processing_srs := sr :: srs)
+        processing_srs := sr :: srs
+  )
 
 let signal_sr_is_ready ~__context ~sr =
   debug "Recording that processing of SR %s has finished."
@@ -208,7 +224,8 @@ let signal_sr_is_ready ~__context ~sr =
       if List.mem sr srs then (
         processing_srs := List.filter (fun x -> x <> sr) srs ;
         Condition.broadcast processing_srs_c
-      ))
+      )
+  )
 
 let wait_until_sr_is_ready ~__context ~sr =
   let sr_uuid = Db.SR.get_uuid ~__context ~self:sr in
@@ -217,7 +234,8 @@ let wait_until_sr_is_ready ~__context ~sr =
       while List.mem sr !processing_srs do
         Condition.wait processing_srs_c processing_srs_m
       done ;
-      debug "Finished waiting for SR %s to be processed." sr_uuid)
+      debug "Finished waiting for SR %s to be processed." sr_uuid
+  )
 
 (* --------------------------------- VM recovery ---------------------------- *)
 
@@ -227,7 +245,8 @@ let create_import_objects ~__context ~vms =
   let table = Export.create_table () in
   List.iter
     (Export.update_table ~__context ~include_snapshots:true
-       ~preserve_power_state:true ~include_vhd_parents:false ~table)
+       ~preserve_power_state:true ~include_vhd_parents:false ~table
+    )
     vms ;
   Export.make_all ~with_snapshot_metadata:true ~preserve_power_state:true table
     __context
@@ -254,7 +273,10 @@ let assert_session_allows_dr ~session_id ~action =
                  action
                ; "The supplied session does not have the required permissions \
                   for VM recovery."
-               ] )))
+               ]
+             )
+          )
+  )
 
 let recover_vms ~__context ~vms ~session_to ~force =
   let metadata_options =
@@ -282,7 +304,8 @@ let recover_vms ~__context ~vms ~session_to ~force =
         List.setify
           (List.map
              (fun (cls, id, r) -> Ref.of_string r)
-             state.Import.created_vms)
+             state.Import.created_vms
+          )
       in
       try
         Import.complete_import ~__context:__context_to vmrefs ;
@@ -299,4 +322,5 @@ let recover_vms ~__context ~vms ~session_to ~force =
           debug "%s" "VM recovery failed - cleaning up." ;
           Importexport.cleanup state.Import.cleanup
         ) ;
-        raise e)
+        raise e
+  )

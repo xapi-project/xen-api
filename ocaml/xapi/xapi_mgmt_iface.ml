@@ -70,7 +70,8 @@ let reconfigure_stunnel ~__context =
                 "reconfigure_stunnel: accept is not set, so not restarting \
                  stunnel"
         | Some accept ->
-            fun () -> _restart_stunnel_no_cache ~__context ~accept)
+            fun () -> _restart_stunnel_no_cache ~__context ~accept
+    )
   in
   f ()
 
@@ -108,7 +109,8 @@ let start ~__context ?addr () =
           | Unix.PF_INET6 ->
               "::1:443"
           | _ ->
-              "127.0.0.1:443" )
+              "127.0.0.1:443"
+        )
       )
   in
   Http_svr.start Xapi_http.server socket ;
@@ -120,7 +122,8 @@ let start ~__context ?addr () =
     Server_helpers.exec_with_new_task "refreshing consoles" (fun __context ->
         Dbsync_master.set_master_ip ~__context ;
         Helpers.update_getty () ;
-        Dbsync_master.refresh_console_urls ~__context)
+        Dbsync_master.refresh_console_urls ~__context
+    )
 
 let change interface primary_address_type =
   Xapi_inventory.update Xapi_inventory._management_interface interface ;
@@ -148,9 +151,11 @@ let run ~__context ~mgmt_enabled =
             if not !listening_himn then (
               start ~__context ~addr () ;
               listening_himn := true
-            ))
+            )
+          )
           !himn_addr
-      ))
+      )
+  )
 
 let enable_himn ~__context ~addr =
   Mutex.execute management_m (fun () -> himn_addr := Some addr) ;

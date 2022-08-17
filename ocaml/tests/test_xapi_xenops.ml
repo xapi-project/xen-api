@@ -20,12 +20,14 @@ let test_enabled_in_xenguest () =
   List.iter
     (fun x ->
       let e = val_fn (p x) in
-      if not e then err x)
+      if not e then err x
+    )
     should_be_true ;
   List.iter
     (fun x ->
       let e = val_fn (p x) in
-      if e then err x)
+      if e then err x
+    )
     should_be_false
 
 let simulator_setup = ref false
@@ -68,7 +70,8 @@ let test_xapi_restart_inner () =
             ->
               ()
           | e ->
-              raise e)
+              raise e
+        )
         ()
     in
     (cancel, th)
@@ -154,9 +157,7 @@ let test_xapi_restart_inner () =
     Db.VM.set_name_label ~__context ~self:vm2
       ~value:"vm2: force_state_reset to halted" ;
     ignore
-      (Client.VM.shutdown "dbg"
-         (Xapi_xenops.id_of_vm ~__context ~self:vm3)
-         None) ;
+      (Client.VM.shutdown "dbg" (Xapi_xenops.id_of_vm ~__context ~self:vm3) None) ;
     Db.VM.set_name_label ~__context ~self:vm3
       ~value:"vm3: shutdown in xenopsd while xapi was off" ;
     Db.VM.set_resident_on ~__context ~self:vm4 ~value:host2 ;
@@ -166,9 +167,7 @@ let test_xapi_restart_inner () =
     Db.VM.set_name_label ~__context ~self:vm6
       ~value:"vm6: is_control_domain=true" ;
     ignore
-      (Client.VM.shutdown "dbg"
-         (Xapi_xenops.id_of_vm ~__context ~self:vm7)
-         None) ;
+      (Client.VM.shutdown "dbg" (Xapi_xenops.id_of_vm ~__context ~self:vm7) None) ;
     Db.VM.set_name_label ~__context ~self:vm7
       ~value:
         "vm7: shutdown in xenopsd while xapi was off (and is_control_domain)" ;
@@ -185,7 +184,8 @@ let test_xapi_restart_inner () =
               ->
                 ()
             | e ->
-                raise e)
+                raise e
+          )
           ()
       in
       (cancel, th)
@@ -212,8 +212,7 @@ let test_xapi_restart_inner () =
       ]
   with e ->
     Printf.printf "Caught: %s\n" (Printexc.to_string e) ;
-    Printf.printf "Backtrace: %s\n%!"
-      (Backtrace.to_string_hum (Backtrace.get e)) ;
+    Printf.printf "Backtrace: %s\n%!" (Backtrace.to_string_hum (Backtrace.get e)) ;
     raise e
 
 let test_xapi_restart () =
@@ -223,7 +222,8 @@ let test_xapi_restart () =
       | `Ok x ->
           x
       | `Error (e, _b) ->
-          raise e)
+          raise e
+    )
     unsetup_simulator
 
 let test_nested_virt_licensing () =
@@ -249,7 +249,8 @@ let test_nested_virt_licensing () =
   let string_of_platform p =
     Printf.sprintf "[%s]"
       (String.concat ";"
-         (List.map (fun (k, v) -> Printf.sprintf "'%s','%s'" k v) p))
+         (List.map (fun (k, v) -> Printf.sprintf "'%s','%s'" k v) p)
+      )
   in
   let pool = Db.Pool.get_all ~__context |> List.hd in
   let check_one (platform, should_raise) =
@@ -261,7 +262,8 @@ let test_nested_virt_licensing () =
           failwith
             (Printf.sprintf
                "Failed to raise an exception for platform map: '[%s]'"
-               (string_of_platform platform))
+               (string_of_platform platform)
+            )
       with
       | Api_errors.Server_error (e, l)
       when e = Api_errors.license_restriction
@@ -270,7 +272,8 @@ let test_nested_virt_licensing () =
           failwith
             (Printf.sprintf
                "Raise an exception unexpectedly for platform map: '[%s]'"
-               (string_of_platform platform))
+               (string_of_platform platform)
+            )
     ) ;
     (* If the feature is unrestricted, nothing should raise an exception *)
     Db.Pool.set_restrictions ~__context ~self:pool

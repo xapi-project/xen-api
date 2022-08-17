@@ -47,10 +47,12 @@ let _ =
     [
       ( "--slave-of"
       , Arg.String (fun master -> mode := Some (Slave master))
-      , "run as a slave of a remote db" )
+      , "run as a slave of a remote db"
+      )
     ; ( "--master"
       , Arg.String (fun db -> mode := Some (Master db))
-      , "run as a master from the given db filename" )
+      , "run as a master from the given db filename"
+      )
     ; ( "--listen-on"
       , Arg.Set_string listen_path
       , Printf.sprintf "listen for requests on path (default %s)" !listen_path
@@ -93,6 +95,7 @@ let _ =
         Mutex.execute m (fun () ->
             while not !finished do
               Condition.wait c m
-            done) ;
+            done
+        ) ;
         Http_svr.stop socket
   )

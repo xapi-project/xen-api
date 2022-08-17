@@ -29,13 +29,17 @@ let test_pool_update_refcount () =
   let __context = make_test_database () in
   let vdi = make_vdi ~__context ~virtual_size:4096L () in
   Xapi_pool_update.with_inc_refcount ~__context ~uuid:"a" ~vdi
-    (fun ~__context ~uuid ~vdi -> ()) ;
+    (fun ~__context ~uuid ~vdi -> ()
+  ) ;
   Xapi_pool_update.with_inc_refcount ~__context ~uuid:"a" ~vdi
-    (fun ~__context ~uuid ~vdi -> assert_equal 0 1) ;
+    (fun ~__context ~uuid ~vdi -> assert_equal 0 1
+  ) ;
   Xapi_pool_update.with_dec_refcount ~__context ~uuid:"a" ~vdi
-    (fun ~__context ~uuid ~vdi -> assert_equal 0 1) ;
+    (fun ~__context ~uuid ~vdi -> assert_equal 0 1
+  ) ;
   Xapi_pool_update.with_dec_refcount ~__context ~uuid:"a" ~vdi
-    (fun ~__context ~uuid ~vdi -> ())
+    (fun ~__context ~uuid ~vdi -> ()
+  )
 
 let test_assert_space_available () =
   let free_bytes = 1_000_000L in
@@ -44,7 +48,8 @@ let test_assert_space_available () =
     (fun () ->
       Xapi_pool_update.assert_space_available
         ~get_free_bytes:(fun _ -> free_bytes)
-        "./" (Int64.div free_bytes 2L))
+        "./" (Int64.div free_bytes 2L)
+    )
 
 let test_download_restriction () =
   Xapi_globs.host_update_dir := "." ;

@@ -62,9 +62,12 @@ let schedule_frequency_hourly_keys =
       ( schedule_frequency_hourly
       , [
           ( Datamodel.VMSS.schedule_min
-          , (Enum schedule_min_enum, schedule_min_default) )
-        ] )
-    ] )
+          , (Enum schedule_min_enum, schedule_min_default)
+          )
+        ]
+      )
+    ]
+  )
 
 let schedule_frequency_daily_keys =
   ( schedule_field
@@ -72,11 +75,15 @@ let schedule_frequency_daily_keys =
       ( schedule_frequency_daily
       , [
           ( Datamodel.VMSS.schedule_hour
-          , (IntRange (0, 23), schedule_hour_default) )
+          , (IntRange (0, 23), schedule_hour_default)
+          )
         ; ( Datamodel.VMSS.schedule_min
-          , (Enum schedule_min_enum, schedule_min_default) )
-        ] )
-    ] )
+          , (Enum schedule_min_enum, schedule_min_default)
+          )
+        ]
+      )
+    ]
+  )
 
 let schedule_frequency_weekly_keys =
   ( schedule_field
@@ -84,13 +91,18 @@ let schedule_frequency_weekly_keys =
       ( schedule_frequency_weekly
       , [
           ( Datamodel.VMSS.schedule_hour
-          , (IntRange (0, 23), schedule_hour_default) )
+          , (IntRange (0, 23), schedule_hour_default)
+          )
         ; ( Datamodel.VMSS.schedule_min
-          , (Enum schedule_min_enum, schedule_min_default) )
+          , (Enum schedule_min_enum, schedule_min_default)
+          )
         ; ( Datamodel.VMSS.schedule_days
-          , (EnumSet schedule_days_enum, schedule_days_default) )
-        ] )
-    ] )
+          , (EnumSet schedule_days_enum, schedule_days_default)
+          )
+        ]
+      )
+    ]
+  )
 
 (* look-up structures, contain allowed map keys in a specific map type *)
 let schedule_keys =
@@ -101,7 +113,8 @@ let schedule_keys =
         schedule_frequency_hourly_keys
       ; schedule_frequency_daily_keys
       ; schedule_frequency_weekly_keys
-      ] )
+      ]
+  )
 
 (* look-up structures, contain allowed map keys in all map types *)
 let schedule_all_keys =
@@ -112,8 +125,11 @@ let schedule_all_keys =
           (fun acc (sf, ks) -> acc @ ks)
           []
           (let f, kss = schedule_keys in
-           kss) )
-    ] )
+           kss
+          )
+      )
+    ]
+  )
 
 (* assert VMSS frequency *)
 let assert_set_frequency ~frequency ~schedule =
@@ -150,7 +166,8 @@ let set_type ~__context ~self ~value =
     Db.VMSS.get_VMs ~__context ~self
     |> List.iter (fun vm ->
            Xapi_vm_helpers.assert_vm_supports_quiesce_snapshot ~__context
-             ~self:vm)
+             ~self:vm
+       )
   ) ;
   Db.VMSS.set_type ~__context ~self ~value
 
@@ -172,7 +189,8 @@ let add_to_schedule ~__context ~self ~key ~value =
       List.assoc key
         (Map_check.assert_keys ~ty:"" ~ks:schedule_all_keys
            ~value:[(key, value)]
-           ~db:(Db.VMSS.get_schedule ~__context ~self))
+           ~db:(Db.VMSS.get_schedule ~__context ~self)
+        )
     in
     Db.VMSS.add_to_schedule ~__context ~self ~key ~value
   with e ->

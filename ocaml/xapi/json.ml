@@ -52,12 +52,14 @@ let rec xmlrpc_to_json xml =
         | Element
             ( "member"
             , _
-            , [Element ("name", _, [PCData n]); Element ("value", _, [v])] ) ->
+            , [Element ("name", _, [PCData n]); Element ("value", _, [v])]
+            ) ->
             "\"" ^ n ^ "\":" ^ xmlrpc_to_json v
         | Element
             ( "member"
             , _
-            , [Element ("name", _, [PCData n]); Element ("value", _, [])] ) ->
+            , [Element ("name", _, [PCData n]); Element ("value", _, [])]
+            ) ->
             "\"" ^ n ^ "\":\"\""
         | Element (n, _, _) ->
             Printf.fprintf stderr "%s"
@@ -77,7 +79,8 @@ let rec xmlrpc_to_json xml =
             | Element ("value", _, []) ->
                 "\"\""
             | _ ->
-                failwith "Bad XMLRPC")
+                failwith "Bad XMLRPC"
+            )
           values
       in
       "[" ^ String.concat "," values ^ "]"

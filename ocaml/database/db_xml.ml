@@ -37,8 +37,7 @@ let _generation_count = "generation_count"
 module To = struct
   (* Write out a key/value pair *)
   let pair (output : Xmlm.output) (key : string) (v : string) =
-    Xmlm.output output
-      (`El_start (make_tag "pair" [("key", key); ("value", v)])) ;
+    Xmlm.output output (`El_start (make_tag "pair" [("key", key); ("value", v)])) ;
     Xmlm.output output `El_end
 
   (* Write out a string *)
@@ -71,8 +70,11 @@ module To = struct
           (List.rev
              (Row.fold
                 (fun k _ v acc ->
-                  (k, Xml_spaces.protect (Schema.Value.marshal v)) :: acc)
-                row preamble))
+                  (k, Xml_spaces.protect (Schema.Value.marshal v)) :: acc
+                )
+                row preamble
+             )
+          )
       in
       Xmlm.output output (`El_start tag) ;
       Xmlm.output output `El_end
@@ -190,9 +192,11 @@ module From = struct
                       let exc =
                         Unmarshall_error
                           (Printf.sprintf "Unexpected column in table %s: %s"
-                             tblname k)
+                             tblname k
+                          )
                       in
-                      raise exc)
+                      raise exc
+                  )
                   Row.empty rest
               in
               f
@@ -201,12 +205,12 @@ module From = struct
                     (fun _ -> row)
                     (Table.add ctime rf row table)
                 , tblname
-                , manifest )
+                , manifest
+                )
           | (_, "pair"), [((_, "key"), k); ((_, "value"), v)] ->
               f (tableset, table, tblname, (k, v) :: manifest)
           | (_, name), _ ->
-              raise
-                (Unmarshall_error (Printf.sprintf "Unexpected tag: %s" name))
+              raise (Unmarshall_error (Printf.sprintf "Unexpected tag: %s" name))
         )
       (* On reading an end tag... *)
       | `El_end -> (
@@ -218,8 +222,7 @@ module From = struct
               maybe_return f
                 (TableSet.add 0L name table tableset, Table.empty, "", manifest)
           | (_, name), _ ->
-              raise
-                (Unmarshall_error (Printf.sprintf "Unexpected tag: %s" name))
+              raise (Unmarshall_error (Printf.sprintf "Unexpected tag: %s" name))
         )
       | _ ->
           f acc
@@ -238,6 +241,5 @@ module From = struct
       (fun () -> database schema (Xmlm.make_input (`Channel input)))
       (fun () -> close_in input)
 
-  let channel schema inchan =
-    database schema (Xmlm.make_input (`Channel inchan))
+  let channel schema inchan = database schema (Xmlm.make_input (`Channel inchan))
 end

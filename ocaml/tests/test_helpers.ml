@@ -54,7 +54,8 @@ module DetermineGateway = Generic.MakeStateful (struct
             ~ip_configuration_mode:`DHCP ~device:pif.device
             ~management:pif.management ~other_config:pif.other_config ()
         in
-        ())
+        ()
+      )
       pifs
 
   let extract_output __context (_, mgmt) =
@@ -66,7 +67,8 @@ module DetermineGateway = Generic.MakeStateful (struct
             Db.PIF.get_refs_where ~__context
               ~expr:(Eq (Field "device", Literal device))
           in
-          List.hd pifs)
+          List.hd pifs
+        )
         mgmt
     in
     let gateway, dns =
@@ -84,14 +86,18 @@ module DetermineGateway = Generic.MakeStateful (struct
               {device= "eth0"; management= true; other_config= []}
             ; {device= "eth1"; management= false; other_config= []}
             ]
-          , None )
-        , (Some "eth0", Some "eth0") )
+          , None
+          )
+        , (Some "eth0", Some "eth0")
+        )
       ; ( ( [
               {device= "eth0"; management= true; other_config= []}
             ; {device= "eth1"; management= false; other_config= []}
             ]
-          , Some "eth1" )
-        , (Some "eth1", Some "eth1") )
+          , Some "eth1"
+          )
+        , (Some "eth1", Some "eth1")
+        )
       ; ( ( [
               {device= "eth0"; management= true; other_config= []}
             ; {
@@ -100,8 +106,10 @@ module DetermineGateway = Generic.MakeStateful (struct
               ; other_config= [("defaultroute", "true")]
               }
             ]
-          , None )
-        , (Some "eth1", Some "eth0") )
+          , None
+          )
+        , (Some "eth1", Some "eth0")
+        )
       ; ( ( [
               {device= "eth0"; management= true; other_config= []}
             ; {
@@ -110,8 +118,10 @@ module DetermineGateway = Generic.MakeStateful (struct
               ; other_config= [("peerdns", "true")]
               }
             ]
-          , None )
-        , (Some "eth0", Some "eth1") )
+          , None
+          )
+        , (Some "eth0", Some "eth1")
+        )
       ; ( ( [
               {device= "eth0"; management= false; other_config= []}
             ; {
@@ -120,8 +130,10 @@ module DetermineGateway = Generic.MakeStateful (struct
               ; other_config= [("defaultroute", "true")]
               }
             ]
-          , Some "eth0" )
-        , (Some "eth1", Some "eth0") )
+          , Some "eth0"
+          )
+        , (Some "eth1", Some "eth0")
+        )
       ; ( ( [
               {device= "eth0"; management= false; other_config= []}
             ; {
@@ -130,8 +142,10 @@ module DetermineGateway = Generic.MakeStateful (struct
               ; other_config= [("peerdns", "true")]
               }
             ]
-          , Some "eth0" )
-        , (Some "eth0", Some "eth1") )
+          , Some "eth0"
+          )
+        , (Some "eth0", Some "eth1")
+        )
       ]
 end)
 
@@ -161,23 +175,29 @@ module PortCheckers = Generic.MakeStateless (struct
         ( (-22, "myport")
         , Error
             (Server_error
-               (value_not_supported, ["myport"; "-22"; "Port out of range"])) )
+               (value_not_supported, ["myport"; "-22"; "Port out of range"])
+            )
+        )
       ; ( (0, "myport")
         , Error
             (Server_error
-               (value_not_supported, ["myport"; "0"; "Port out of range"])) )
+               (value_not_supported, ["myport"; "0"; "Port out of range"])
+            )
+        )
       ; ((1, "myport"), Ok ())
       ; ((1234, "myport"), Ok ())
       ; ((65535, "myport"), Ok ())
       ; ( (65536, "myport")
         , Error
             (Server_error
-               (value_not_supported, ["myport"; "65536"; "Port out of range"]))
+               (value_not_supported, ["myport"; "65536"; "Port out of range"])
+            )
         )
       ; ( (123456, "myport")
         , Error
             (Server_error
-               (value_not_supported, ["myport"; "123456"; "Port out of range"]))
+               (value_not_supported, ["myport"; "123456"; "Port out of range"])
+            )
         )
       ]
 end)
@@ -200,7 +220,8 @@ module PortRangeCheckers = Generic.MakeStateless (struct
     try
       Ok
         (Helpers.assert_is_valid_tcp_udp_port_range ~first_port ~first_name
-           ~last_port ~last_name)
+           ~last_port ~last_name
+        )
     with e -> Error e
 
   let tests =
@@ -209,7 +230,8 @@ module PortRangeCheckers = Generic.MakeStateless (struct
         ( ((-22, "first_port"), (1234, "last_port"))
         , Error
             (Server_error
-               (value_not_supported, ["first_port"; "-22"; "Port out of range"]))
+               (value_not_supported, ["first_port"; "-22"; "Port out of range"])
+            )
         )
       ; (((1, "first_port"), (1234, "last_port")), Ok ())
       ; (((1234, "first_port"), (1234, "last_port")), Ok ())
@@ -219,12 +241,17 @@ module PortRangeCheckers = Generic.MakeStateless (struct
         , Error
             (Server_error
                ( value_not_supported
-               , ["last_port"; "123456"; "Port out of range"] )) )
+               , ["last_port"; "123456"; "Port out of range"]
+               )
+            )
+        )
       ; ( ((5678, "first_port"), (1234, "last_port"))
         , Error
             (Server_error
                ( value_not_supported
-               , ["last_port"; "1234"; "last_port smaller than first_port"] ))
+               , ["last_port"; "1234"; "last_port smaller than first_port"]
+               )
+            )
         )
       ]
 end)
@@ -259,28 +286,38 @@ module IPCheckers = Generic.MakeStateless (struct
         ((`ipv4, "address", "192.168.0.1"), Ok ())
       ; ((`ipv4, "address", "255.255.255.0"), Ok ())
       ; ( (`ipv4, "address1", "")
-        , Error (Server_error (invalid_ip_address_specified, ["address1"])) )
+        , Error (Server_error (invalid_ip_address_specified, ["address1"]))
+        )
       ; ( (`ipv4, "address2", "192.168.0.300")
-        , Error (Server_error (invalid_ip_address_specified, ["address2"])) )
+        , Error (Server_error (invalid_ip_address_specified, ["address2"]))
+        )
       ; ( (`ipv4, "address3", "192.168.0")
-        , Error (Server_error (invalid_ip_address_specified, ["address3"])) )
+        , Error (Server_error (invalid_ip_address_specified, ["address3"]))
+        )
       ; ( (`ipv4, "address4", "bad-address")
-        , Error (Server_error (invalid_ip_address_specified, ["address4"])) )
+        , Error (Server_error (invalid_ip_address_specified, ["address4"]))
+        )
       ; ( (`ipv6, "address5", "192.168.0.1")
-        , Error (Server_error (invalid_ip_address_specified, ["address5"])) )
+        , Error (Server_error (invalid_ip_address_specified, ["address5"]))
+        )
       ; ((`ipv6, "address", "fe80::bae8:56ff:fe29:894a"), Ok ())
       ; ((`ipv6, "address", "fe80:0000:0000:0000:bae8:56ff:fe29:894a"), Ok ())
       ; ((`ipv6, "address", "::1"), Ok ())
       ; ( (`ipv6, "address1", "")
-        , Error (Server_error (invalid_ip_address_specified, ["address1"])) )
+        , Error (Server_error (invalid_ip_address_specified, ["address1"]))
+        )
       ; ( (`ipv6, "address2", "fe80:0000:0000:0000:bae8:56ff:fe29:894a:0000")
-        , Error (Server_error (invalid_ip_address_specified, ["address2"])) )
+        , Error (Server_error (invalid_ip_address_specified, ["address2"]))
+        )
       ; ( (`ipv6, "address3", "bad-address")
-        , Error (Server_error (invalid_ip_address_specified, ["address3"])) )
+        , Error (Server_error (invalid_ip_address_specified, ["address3"]))
+        )
       ; ( (`ipv4, "address4", "fe80::bae8:56ff:fe29:894a")
-        , Error (Server_error (invalid_ip_address_specified, ["address4"])) )
+        , Error (Server_error (invalid_ip_address_specified, ["address4"]))
+        )
       ; ( (`ipv6, "address5", "ze80::bae8:56ff:fe29:894a")
-        , Error (Server_error (invalid_ip_address_specified, ["address5"])) )
+        , Error (Server_error (invalid_ip_address_specified, ["address5"]))
+        )
       ]
 end)
 
@@ -314,36 +351,50 @@ module CIDRCheckers = Generic.MakeStateless (struct
         ((`ipv4, "address", "192.168.0.1/24"), Ok ())
       ; ((`ipv4, "address", "255.255.255.0/32"), Ok ())
       ; ( (`ipv4, "address1", "")
-        , Error (Server_error (invalid_cidr_address_specified, ["address1"])) )
+        , Error (Server_error (invalid_cidr_address_specified, ["address1"]))
+        )
       ; ( (`ipv4, "address1", "192.168.0.2")
-        , Error (Server_error (invalid_cidr_address_specified, ["address1"])) )
+        , Error (Server_error (invalid_cidr_address_specified, ["address1"]))
+        )
       ; ( (`ipv4, "address1", "192.168.0.2/33")
-        , Error (Server_error (invalid_cidr_address_specified, ["address1"])) )
+        , Error (Server_error (invalid_cidr_address_specified, ["address1"]))
+        )
       ; ( (`ipv4, "address1", "192.168.0.2/x")
-        , Error (Server_error (invalid_cidr_address_specified, ["address1"])) )
+        , Error (Server_error (invalid_cidr_address_specified, ["address1"]))
+        )
       ; ( (`ipv4, "address2", "192.168.0.300/10")
-        , Error (Server_error (invalid_cidr_address_specified, ["address2"])) )
+        , Error (Server_error (invalid_cidr_address_specified, ["address2"]))
+        )
       ; ( (`ipv4, "address3", "192.168.0/20")
-        , Error (Server_error (invalid_cidr_address_specified, ["address3"])) )
+        , Error (Server_error (invalid_cidr_address_specified, ["address3"]))
+        )
       ; ( (`ipv4, "address4", "bad-address/24")
-        , Error (Server_error (invalid_cidr_address_specified, ["address4"])) )
+        , Error (Server_error (invalid_cidr_address_specified, ["address4"]))
+        )
       ; ( (`ipv6, "address5", "192.168.0.1/24")
-        , Error (Server_error (invalid_cidr_address_specified, ["address5"])) )
+        , Error (Server_error (invalid_cidr_address_specified, ["address5"]))
+        )
       ; ((`ipv6, "address", "fe80::bae8:56ff:fe29:894a/64"), Ok ())
       ; ((`ipv6, "address", "fe80:0000:0000:0000:bae8:56ff:fe29:894a/80"), Ok ())
       ; ((`ipv6, "address", "::1/128"), Ok ())
       ; ( (`ipv6, "address1", "")
-        , Error (Server_error (invalid_cidr_address_specified, ["address1"])) )
+        , Error (Server_error (invalid_cidr_address_specified, ["address1"]))
+        )
       ; ( (`ipv6, "address2", "fe80::bae8:56ff:fe29:894a:0000/129")
-        , Error (Server_error (invalid_cidr_address_specified, ["address2"])) )
+        , Error (Server_error (invalid_cidr_address_specified, ["address2"]))
+        )
       ; ( (`ipv6, "address2", "fe80::bae8:56ff:fe29:894a:0000")
-        , Error (Server_error (invalid_cidr_address_specified, ["address2"])) )
+        , Error (Server_error (invalid_cidr_address_specified, ["address2"]))
+        )
       ; ( (`ipv6, "address3", "bad-address/64")
-        , Error (Server_error (invalid_cidr_address_specified, ["address3"])) )
+        , Error (Server_error (invalid_cidr_address_specified, ["address3"]))
+        )
       ; ( (`ipv4, "address4", "fe80::bae8:56ff:fe29:894a/64")
-        , Error (Server_error (invalid_cidr_address_specified, ["address4"])) )
+        , Error (Server_error (invalid_cidr_address_specified, ["address4"]))
+        )
       ; ( (`ipv6, "address5", "ze80::bae8:56ff:fe29:894a/64")
-        , Error (Server_error (invalid_cidr_address_specified, ["address5"])) )
+        , Error (Server_error (invalid_cidr_address_specified, ["address5"]))
+        )
       ]
 end)
 

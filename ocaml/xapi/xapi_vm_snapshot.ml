@@ -91,7 +91,8 @@ let checkpoint ~__context ~vm ~new_name =
         let vdi_sr =
           List.filter_map
             (fun vdi ->
-              try Some (Db.VDI.get_SR ~__context ~self:vdi) with _ -> None)
+              try Some (Db.VDI.get_SR ~__context ~self:vdi) with _ -> None
+            )
             vdis
         in
         let vdi_sr = List.setify vdi_sr in
@@ -106,7 +107,8 @@ let checkpoint ~__context ~vm ~new_name =
             not
               Smint.(
                 has_capability Vdi_snapshot
-                  (Xapi_sr_operations.features_of_sr ~__context sr))
+                  (Xapi_sr_operations.features_of_sr ~__context sr)
+              )
           then
             false
           else
@@ -117,7 +119,9 @@ let checkpoint ~__context ~vm ~new_name =
             if not (sr_has_snapshot_feature sr) then
               raise
                 (Api_errors.Server_error
-                   (Api_errors.sr_operation_not_supported, [Ref.string_of vm])))
+                   (Api_errors.sr_operation_not_supported, [Ref.string_of vm])
+                )
+          )
           sr_records ;
         (* suspend the VM *)
         Xapi_gpumon.update_vgpu_metadata ~__context ~vm ;
@@ -131,8 +135,10 @@ let checkpoint ~__context ~vm ~new_name =
       try
         ( Some
             (Xapi_vm_clone.clone Xapi_vm_clone.Disk_op_checkpoint ~__context ~vm
-               ~new_name ~snapshot_info_record:!snapshot_info)
-        , None )
+               ~new_name ~snapshot_info_record:!snapshot_info
+            )
+        , None
+        )
       with e -> (None, Some e)
     else
       (None, None)
@@ -167,7 +173,9 @@ let copy_vm_fields ~__context ~metadata ~dst ~do_not_copy ~overrides =
       Api_errors.(
         Server_error
           ( internal_error
-          , ["copy_vm_fields: Aborting because the host is not master"] )) ;
+          , ["copy_vm_fields: Aborting because the host is not master"]
+          )
+      ) ;
   debug "copying metadata into %s" (Ref.string_of dst) ;
   let db = Context.database_of __context in
   let module DB = (val Db_cache.get db : Db_interface.DB_ACCESS) in
@@ -180,7 +188,8 @@ let copy_vm_fields ~__context ~metadata ~dst ~do_not_copy ~overrides =
           value
       in
       if not (List.mem key do_not_copy) then
-        DB.write_field db Db_names.vm (Ref.string_of dst) key value)
+        DB.write_field db Db_names.vm (Ref.string_of dst) key value
+    )
     metadata
 
 let safe_destroy_vbd ~__context ~rpc ~session_id vbd =
@@ -279,8 +288,10 @@ let update_vifs_vbds_vgpus_and_vusbs ~__context ~snapshot ~vm =
           List.iter
             (fun snapshot ->
               Db.VDI.set_snapshot_of ~__context ~self:snapshot
-                ~value:cloned_disk)
-            all_snaps_in_tree)
+                ~value:cloned_disk
+            )
+            all_snaps_in_tree
+        )
         snap_disks cloned_disks ;
       debug "Cloning the suspend VDI if needed" ;
       let cloned_suspend_VDI =
@@ -309,7 +320,8 @@ let update_vifs_vbds_vgpus_and_vusbs ~__context ~snapshot ~vm =
           List.map
             (fun vif ->
               Xapi_vif_helpers.copy ~__context ~vm ~preserve_mac_address:true
-                vif)
+                vif
+            )
             snap_VIFs
         in
         TaskHelper.set_progress ~__context 0.8 ;
@@ -331,11 +343,13 @@ let update_vifs_vbds_vgpus_and_vusbs ~__context ~snapshot ~vm =
           cloned_suspend_VDI
           :: List.fold_left
                (fun acc (_, vdi, on_error_delete) ->
-                 if on_error_delete then vdi :: acc else acc)
+                 if on_error_delete then vdi :: acc else acc
+               )
                [] cloned_disks
         in
         List.iter (safe_destroy_vdi ~__context ~rpc ~session_id) vdis ;
-        raise e)
+        raise e
+  )
 
 let update_guest_metrics ~__context ~vm ~snapshot =
   let snap_gm = Db.VM.get_guest_metrics ~__context ~self:snapshot in
@@ -423,14 +437,17 @@ let ensure_domain_type_is_consistent ~__context ~snap_metadata =
            raise
              Api_errors.(
                Server_error
-                 (invalid_value, ["snapshot_metadata:HVM__boot_policy"; "null"])))
+                 (invalid_value, ["snapshot_metadata:HVM__boot_policy"; "null"])
+             )
+       )
     |> Option.get
   in
   match Stdlib.List.assoc_opt "domain_type" snap_metadata with
   | Some "unspecified" | None ->
       let policy = hvm_boot_policy () in
       ( "domain_type"
-      , domain_type_to_string (Xapi_vm_helpers.derive_domain_type policy) )
+      , domain_type_to_string (Xapi_vm_helpers.derive_domain_type policy)
+      )
       :: List.remove_assoc "domain_type" snap_metadata
   | _ ->
       snap_metadata
@@ -492,7 +509,9 @@ let revert ~__context ~snapshot ~vm =
         raise
           (Api_errors.Server_error
              ( Api_errors.vm_revert_failed
-             , [Ref.string_of snapshot; Ref.string_of vm] ))
+             , [Ref.string_of snapshot; Ref.string_of vm]
+             )
+          )
   )
 
 let create_vm_from_snapshot ~__context ~snapshot =
@@ -502,7 +521,9 @@ let create_vm_from_snapshot ~__context ~snapshot =
       Db.VM.get_records_where __context
         (Db_filter_types.Eq
            ( Db_filter_types.Field "snapshot_of"
-           , Db_filter_types.Literal (Ref.string_of old_vm) ))
+           , Db_filter_types.Literal (Ref.string_of old_vm)
+           )
+        )
     in
     let snap_metadata = Db.VM.get_snapshot_metadata ~__context ~self:snapshot in
     let snap_metadata = Helpers.vm_string_to_assoc snap_metadata in
@@ -523,16 +544,20 @@ let create_vm_from_snapshot ~__context ~snapshot =
             ~do_not_copy ~overrides ;
           List.iter
             (fun (snap, _) ->
-              Db.VM.set_snapshot_of ~__context ~self:snap ~value:new_vm)
+              Db.VM.set_snapshot_of ~__context ~self:snap ~value:new_vm
+            )
             snapshots ;
           new_vm
         with e ->
           debug "cleaning-up by deleting the VM %s" (Ref.string_of new_vm) ;
           Client.VM.destroy rpc session_id new_vm ;
-          raise e)
+          raise e
+    )
   with e ->
     error "create_vm_from_snapshot failed: %s" (Printexc.to_string e) ;
     raise
       (Api_errors.Server_error
          ( Api_errors.vm_revert_failed
-         , [Ref.string_of snapshot; Ref.string_of old_vm] ))
+         , [Ref.string_of snapshot; Ref.string_of old_vm]
+         )
+      )

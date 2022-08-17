@@ -49,15 +49,18 @@ let wipe_params_after_fn params fn =
 let do_external_auth uname pwd =
   Mutex.execute serialize_auth (fun () ->
       (Ext_auth.d ()).authenticate_username_password uname
-        (Bytes.unsafe_to_string pwd))
+        (Bytes.unsafe_to_string pwd)
+  )
 
 let do_local_auth uname pwd =
   Mutex.execute serialize_auth (fun () ->
-      Pam.authenticate uname (Bytes.unsafe_to_string pwd))
+      Pam.authenticate uname (Bytes.unsafe_to_string pwd)
+  )
 
 let do_local_change_password uname newpwd =
   Mutex.execute serialize_auth (fun () ->
-      Pam.change_password uname (Bytes.unsafe_to_string newpwd))
+      Pam.change_password uname (Bytes.unsafe_to_string newpwd)
+  )
 
 let trackid session_id = Context.trackid_of_session (Some session_id)
 
@@ -77,7 +80,8 @@ let get_subject_in_intersection ~__context subjects_in_db intersection =
     (fun subj ->
       (* is this the subject ref that returned the non-empty intersection?*)
       List.hd intersection
-      = Db.Subject.get_subject_identifier ~__context ~self:subj)
+      = Db.Subject.get_subject_identifier ~__context ~self:subj
+    )
     subjects_in_db
 
 let get_permissions ~__context ~subject_membership =
@@ -86,7 +90,8 @@ let get_permissions ~__context ~subject_membership =
     Listext.List.setify
       (List.fold_left (* efficiently compute unions of subsets in set *)
          (fun accu elem -> List.rev_append (get_subset_fn elem) accu)
-         [] set)
+         [] set
+      )
   in
   let role_membership =
     get_union_of_subsets (*automatically removes duplicated roles*)
@@ -100,7 +105,8 @@ let get_permissions ~__context ~subject_membership =
           Xapi_role.get_name_label ~__context ~self:role
           :: Xapi_role.get_permissions_name_label ~__context ~self:role
         with _ -> []
-        (* if the role disappeared, ignore it *))
+        (* if the role disappeared, ignore it *)
+      )
       ~set:role_membership
   in
   permission_membership
@@ -212,8 +218,7 @@ let revalidate_external_session ~__context ~session =
 
         (* 2. has the external session expired/does it need revalidation? *)
         let session_last_validation_time =
-          Date.to_float
-            (Db.Session.get_validation_time ~__context ~self:session)
+          Date.to_float (Db.Session.get_validation_time ~__context ~self:session)
         in
         let now = Unix.time () in
         let session_needs_revalidation =
@@ -262,7 +267,8 @@ let revalidate_external_session ~__context ~session =
               let subject_ids_in_db =
                 List.map
                   (fun subj ->
-                    Db.Subject.get_subject_identifier ~__context ~self:subj)
+                    Db.Subject.get_subject_identifier ~__context ~self:subj
+                  )
                   subjects_in_db
               in
               let intersection =
@@ -357,7 +363,8 @@ let revalidate_all_sessions ~__context =
     let external_sessions =
       List.filter
         (fun session ->
-          not (Db.Session.get_is_local_superuser ~__context ~self:session))
+          not (Db.Session.get_is_local_superuser ~__context ~self:session)
+        )
         sessions
     in
     (* revalidate each external session *)
@@ -471,10 +478,12 @@ let slave_local_login_with_password ~__context ~uname ~pwd =
           debug "Failed to authenticate user %s: %s" uname msg ;
           raise
             (Api_errors.Server_error
-               (Api_errors.session_authentication_failed, [uname; msg]))
+               (Api_errors.session_authentication_failed, [uname; msg])
+            )
       ) ;
       debug "Add session to local storage" ;
-      Xapi_local_session.create ~__context ~pool:false)
+      Xapi_local_session.create ~__context ~pool:false
+  )
 
 (* CP-714: Modify session.login_with_password to first try local super-user login; and then call into external auth plugin if this is enabled *)
 (* 1. If the pool master's Host.external_auth_type field is not none, then the Session.login_with_password XenAPI method will:
@@ -499,7 +508,8 @@ let login_with_password ~__context ~uname ~pwd ~version ~originator =
           if Pool_role.is_slave () then
             raise
               (Api_errors.Server_error
-                 (Api_errors.host_is_slave, [Pool_role.get_master_address ()]))
+                 (Api_errors.host_is_slave, [Pool_role.get_master_address ()])
+              )
         in
         let login_as_local_superuser auth_type =
           if auth_type <> "" && uname <> local_superuser then
@@ -526,7 +536,8 @@ let login_with_password ~__context ~uname ~pwd ~version ~originator =
           else
             raise
               (Api_errors.Server_error
-                 (error, ["session.login_with_password"; msg]))
+                 (error, ["session.login_with_password"; msg])
+              )
         in
         match
           Db.Host.get_external_auth_type ~__context
@@ -674,7 +685,9 @@ let login_with_password ~__context ~uname ~pwd ~version ~originator =
                       (fun subj ->
                         ( subj
                         , Db.Subject.get_subject_identifier ~__context
-                            ~self:subj ))
+                            ~self:subj
+                        )
+                      )
                       subjects_in_db
                   in
                   let reflexive_membership_closure =
@@ -717,14 +730,17 @@ let login_with_password ~__context ~uname ~pwd ~version ~originator =
                                  Auth_signature
                                  .subject_information_field_subject_name
                                  (Db.Subject.get_other_config ~__context
-                                    ~self:subj_ref)
+                                    ~self:subj_ref
+                                 )
                              with _ -> Ref.string_of subj_ref
                            in
                            if i = "" then
                              subj_ref ^ " (" ^ sid ^ ")"
                            else
-                             i ^ "," ^ subj_ref ^ " (" ^ sid ^ ")")
-                         "" intersection) ;
+                             i ^ "," ^ subj_ref ^ " (" ^ sid ^ ")"
+                         )
+                         "" intersection
+                      ) ;
                     let rbac_permissions =
                       get_permissions ~__context ~subject_membership
                     in
@@ -750,7 +766,9 @@ let login_with_password ~__context ~uname ~pwd ~version ~originator =
                               List.hd intersection
                               = ( subj
                                 , Db.Subject.get_subject_identifier ~__context
-                                    ~self:subj ))
+                                    ~self:subj
+                                )
+                            )
                             subjects_in_db
                           (* goes through exactly the same subject list that we went when computing the intersection, *)
                           (* so that no one is able to undetectably remove/add another subject with the same subject_identifier *)
@@ -810,7 +828,8 @@ let login_with_password ~__context ~uname ~pwd ~version ~originator =
                     msg ;
                   thread_delay_and_raise_error uname msg
             )
-          ))
+          )
+  )
 
 let change_password ~__context ~old_pwd ~new_pwd =
   let old_pwd = Bytes.of_string old_pwd in
@@ -856,13 +875,16 @@ let change_password ~__context ~old_pwd ~new_pwd =
                   with e ->
                     error "Failed to sync password to host %s: %s"
                       (Db.Host.get_name_label ~__context ~self:host)
-                      (Printexc.to_string e))
-                hosts) ;
+                      (Printexc.to_string e)
+                )
+                hosts
+          ) ;
           info "Finished syncing password across pool"
         with Failure msg ->
           error "Failed to change password for user %s: %s" uname msg ;
           raise
-            (Api_errors.Server_error (Api_errors.change_password_rejected, [msg]))
+            (Api_errors.Server_error (Api_errors.change_password_rejected, [msg])
+            )
       ) else
         (* CP-696: session does not have is_local_superuser bit set, so we must fail *)
         let msg =
@@ -871,7 +893,9 @@ let change_password ~__context ~old_pwd ~new_pwd =
         debug "User %s is not local superuser: %s" uname msg ;
         raise
           (Api_errors.Server_error
-             (Api_errors.user_is_not_local_superuser, [msg])))
+             (Api_errors.user_is_not_local_superuser, [msg])
+          )
+  )
 
 let logout ~__context =
   let session_id = Context.get_session_id __context in
@@ -900,7 +924,8 @@ let get_all_subject_identifiers ~__context =
     List.filter
       (fun session ->
         (* an externally-authenticated session is one which is not a local_superuser session *)
-        not (Db.Session.get_is_local_superuser ~__context ~self:session))
+        not (Db.Session.get_is_local_superuser ~__context ~self:session)
+      )
       all_sessions
   in
   (* we only want to return sids of externally-authenticated sessions *)
@@ -915,8 +940,10 @@ let get_all_subject_identifiers ~__context =
       (List.map
          (fun session ->
            (* TODO: better to look up the membership closure *)
-           get_group_subject_identifier_from_session ~__context ~session)
-         all_extauth_sessions)
+           get_group_subject_identifier_from_session ~__context ~session
+         )
+         all_extauth_sessions
+      )
   in
   (* avoid returning repeated sids *)
   Listext.List.setify
@@ -941,7 +968,8 @@ let logout_subject_identifier ~__context ~subject_identifier =
            (* TODO: better to look up the membership closure *)
         get_group_subject_identifier_from_session ~__context ~session:s
         = subject_identifier
-        ))
+        )
+      )
       all_sessions
   in
   debug
@@ -989,7 +1017,8 @@ let create_readonly_session ~__context ~uname ~db_ref =
   let role =
     List.hd
       (Xapi_role.get_by_name_label ~__context
-         ~label:Datamodel_roles.role_read_only)
+         ~label:Datamodel_roles.role_read_only
+      )
   in
   let rbac_permissions =
     Xapi_role.get_permissions_name_label ~__context ~self:role

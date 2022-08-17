@@ -102,7 +102,8 @@ let operation_list =
           host table"
        ; "write_hostiqn -- write a new initiator IQN for this host into all \
           db's host tables"
-       ])
+       ]
+    )
 
 let do_write_database () =
   if not !xmltostdout then
@@ -129,7 +130,8 @@ let find_my_host_row () =
       then
         Some (r, row)
       else
-        acc)
+        acc
+    )
     tbl None
 
 let _iscsi_iqn = "iscsi_iqn"
@@ -188,14 +190,16 @@ let _ =
     ; ( "-xmltostdout"
       , Arg.Set xmltostdout
       , "write XML db to stdout [compress/filename ignored if this option is \
-         present]" )
+         present]"
+      )
     ; ( "-operation"
       , Arg.Set_string operation
       , "operation to perform:\n"
         ^ operation_list
         ^ "\n"
         ^ help_pad
-        ^ "(defaults to write_db if no operation specified)" )
+        ^ "(defaults to write_db if no operation specified)"
+      )
     ; ("-hostiqn", Arg.Set_string iqn, "hostiqn value")
     ]
     (fun x -> print_string ("Warning, ignoring unknown argument: " ^ x))

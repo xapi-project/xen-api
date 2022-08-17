@@ -178,12 +178,14 @@ let test_rpu_suppression () =
     "ISCSI IQN was set" true
     (List.exists
        (function h, `set_iscsi_iqn t -> h = host1 && t = "test1" | _ -> false)
-       !calls) ;
+       !calls
+    ) ;
   Alcotest.(check bool)
     "Multipathing was set" true
     (List.exists
        (function h, `set_multipathing t -> h = host2 && t | _ -> false)
-       !calls)
+       !calls
+    )
 
 let test =
   [

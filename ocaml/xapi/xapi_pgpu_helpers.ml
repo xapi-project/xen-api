@@ -24,7 +24,9 @@ let assert_VGPU_type_supported ~__context ~self ~vgpu_type =
     raise
       (Api_errors.Server_error
          ( Api_errors.vgpu_type_not_supported
-         , List.map Ref.string_of (vgpu_type :: supported_VGPU_types) ))
+         , List.map Ref.string_of (vgpu_type :: supported_VGPU_types)
+         )
+      )
 
 let assert_VGPU_type_enabled ~__context ~self ~vgpu_type =
   assert_VGPU_type_supported ~__context ~self ~vgpu_type ;
@@ -33,7 +35,9 @@ let assert_VGPU_type_enabled ~__context ~self ~vgpu_type =
     raise
       (Api_errors.Server_error
          ( Api_errors.vgpu_type_not_enabled
-         , List.map Ref.string_of (vgpu_type :: enabled_VGPU_types) ))
+         , List.map Ref.string_of (vgpu_type :: enabled_VGPU_types)
+         )
+      )
 
 let get_scheduled_VGPUs ~__context ~self =
   let open Db_filter_types in
@@ -76,7 +80,9 @@ let assert_VGPU_type_allowed ~__context ~self ~vgpu_type =
              |> List.sort_uniq Stdlib.compare
              |> List.map (fun vgpu_type_ref -> Ref.string_of vgpu_type_ref)
              |> String.concat sep
-           ] ))
+           ]
+         )
+      )
 
 let assert_no_resident_VGPUs_of_type ~__context ~self ~vgpu_type =
   let open Db_filter_types in
@@ -85,7 +91,9 @@ let assert_no_resident_VGPUs_of_type ~__context ~self ~vgpu_type =
       ~expr:
         (And
            ( Eq (Field "resident_on", Literal (Ref.string_of self))
-           , Eq (Field "type", Literal (Ref.string_of vgpu_type)) ))
+           , Eq (Field "type", Literal (Ref.string_of vgpu_type))
+           )
+        )
   with
   | [] ->
       ()
@@ -97,7 +105,8 @@ let assert_no_resident_VGPUs_of_type ~__context ~self ~vgpu_type =
       in
       raise
         (Api_errors.Server_error
-           (Api_errors.pgpu_in_use_by_vm, List.map Ref.string_of vms))
+           (Api_errors.pgpu_in_use_by_vm, List.map Ref.string_of vms)
+        )
 
 let get_remaining_capacity_internal ~__context ~self ~vgpu_type
     ~pre_allocate_list =
@@ -110,7 +119,9 @@ let get_remaining_capacity_internal ~__context ~self ~vgpu_type
         Error
           (Api_errors.Server_error
              ( Api_errors.pgpu_insufficient_capacity_for_vgpu
-             , [Ref.string_of self; Ref.string_of vgpu_type] ))
+             , [Ref.string_of self; Ref.string_of vgpu_type]
+             )
+          )
     in
     if Xapi_vgpu_type.requires_passthrough ~__context ~self:vgpu_type = Some `PF
     then
@@ -139,7 +150,8 @@ let get_remaining_capacity_internal ~__context ~self ~vgpu_type
           (fun acc vgpu ->
             let _type = Db.VGPU.get_type ~__context ~self:vgpu in
             let vgpu_size = Db.VGPU_type.get_size ~__context ~self:_type in
-            Int64.add acc vgpu_size)
+            Int64.add acc vgpu_size
+          )
           0L
           (get_allocated_VGPUs ~__context ~self @ pgpu_pre_allocated_vGPUs)
       in
@@ -243,7 +255,8 @@ let assert_destination_has_pgpu_compatible_with_vm ~__context ~vm ~vgpu_map
         raise
           Api_errors.(
             Server_error
-              (vm_requires_gpu, [Ref.string_of vm; Ref.string_of pgpu_group]))
+              (vm_requires_gpu, [Ref.string_of vm; Ref.string_of pgpu_group])
+          )
     | pgpu :: rest ->
         let types = get_gpu_group_of_pgpu pgpu |> get_gpu_types_of_gpu_group in
         if Listext.List.set_equiv pgpu_types types then
@@ -284,12 +297,15 @@ let assert_destination_has_pgpu_compatible_with_vm ~__context ~vm ~vgpu_map
                 Api_errors.(
                   Server_error
                     ( vm_requires_gpu
-                    , [Ref.string_of vm; Ref.string_of gpu_group] ))
+                    , [Ref.string_of vm; Ref.string_of gpu_group]
+                    )
+                )
           | pgpu :: _ ->
               (* We can run the compatibility test with any of the PGPUs *)
               assert_destination_pgpu_is_compatible_with_vm ~__context ~vm ~vgpu
                 ~pgpu ~host ?remote ()
-        ))
+        )
+    )
     vgpu_map ;
   (* Check that there is a potential pgpu candidate for each of the other vgpus *)
   let pgpus = get_pgpus_of_host host in

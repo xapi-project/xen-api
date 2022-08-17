@@ -55,8 +55,10 @@ let compute_object_references_to_follow (obj_name : string) =
              else
                []
          | _ ->
-             [])
-       (Datamodel_utils.fields_of_obj obj))
+             []
+         )
+       (Datamodel_utils.fields_of_obj obj)
+    )
 
 let obj_references_table : (string, (string * string) list) Hashtbl.t =
   Hashtbl.create 30
@@ -67,7 +69,8 @@ let _ =
     (fun obj ->
       let obj_name = obj.Datamodel_types.name in
       Hashtbl.replace obj_references_table obj_name
-        (compute_object_references_to_follow obj_name))
+        (compute_object_references_to_follow obj_name)
+    )
     (Dm_api.objects_of_api Datamodel.all_api)
 
 let follow_references (obj_name : string) =
@@ -83,8 +86,10 @@ let events_of_other_tbl_refs other_tbl_refs =
          with _ ->
            (* Probably means the reference was dangling *)
            warn "skipping event for dangling reference %s: %s" tbl fld ;
-           [])
-       other_tbl_refs)
+           []
+       )
+       other_tbl_refs
+    )
 
 open Db_cache_types
 open Db_action_helper
@@ -126,8 +131,11 @@ let database_callback event db =
                (fun (tbl, fld) ->
                  ( tbl
                  , oldval
-                 , find_get_record tbl ~__context:context ~self:oldval ))
-               (other_tbl_refs_for_this_field tblname fldname))
+                 , find_get_record tbl ~__context:context ~self:oldval
+                 )
+               )
+               (other_tbl_refs_for_this_field tblname fldname)
+            )
         else
           []
       in
@@ -139,8 +147,11 @@ let database_callback event db =
                (fun (tbl, fld) ->
                  ( tbl
                  , newval
-                 , find_get_record tbl ~__context:context ~self:newval ))
-               (other_tbl_refs_for_this_field tblname fldname))
+                 , find_get_record tbl ~__context:context ~self:newval
+                 )
+               )
+               (other_tbl_refs_for_this_field tblname fldname)
+            )
         else
           []
       in
@@ -153,7 +164,8 @@ let database_callback event db =
               error "Failed to send MOD event for %s %s" tbl ref ;
               Printf.printf "Failed to send MOD event for %s %s\n%!" tbl ref
           | tbl, ref, Some s ->
-              events_notify ~snapshot:s tbl "mod" ref)
+              events_notify ~snapshot:s tbl "mod" ref
+          )
         events_old_val ;
       ( match record with
       | None ->
@@ -168,7 +180,8 @@ let database_callback event db =
               error "Failed to send MOD event for %s %s" tbl ref ;
               Printf.printf "Failed to send MOD event for %s %s\n%!" tbl ref
           | tbl, ref, Some s ->
-              events_notify ~snapshot:s tbl "mod" ref)
+              events_notify ~snapshot:s tbl "mod" ref
+          )
         events_new_val
   | PreDelete (tblname, objref) -> (
     match find_get_record tblname ~__context:context ~self:objref () with
@@ -188,10 +201,12 @@ let database_callback event db =
               let fld_value = Schema.Value.Unsafe_cast.string fld_value in
               ( remote_tbl
               , fld_value
-              , find_get_record remote_tbl ~__context:context ~self:fld_value )
+              , find_get_record remote_tbl ~__context:context ~self:fld_value
+              )
               :: accu
             else
-              accu)
+              accu
+          )
           [] other_tbl_refs
       in
       let other_tbl_ref_events = events_of_other_tbl_refs other_tbl_refs in
@@ -201,7 +216,8 @@ let database_callback event db =
               error "Failed to generate MOD event on %s %s" tbl ref
           (*					Printf.printf "Failed to generate MOD event on %s %s\n%!" tbl ref; *)
           | tbl, ref, Some s ->
-              events_notify ~snapshot:s tbl "mod" ref)
+              events_notify ~snapshot:s tbl "mod" ref
+          )
         other_tbl_ref_events
   | Create (tblname, new_objref, kv) ->
       let snapshot =
@@ -216,10 +232,12 @@ let database_callback event db =
               let fld_value = Schema.Value.Unsafe_cast.string fld_value in
               ( tbl
               , fld_value
-              , find_get_record tbl ~__context:context ~self:fld_value )
+              , find_get_record tbl ~__context:context ~self:fld_value
+              )
               :: accu
             else
-              accu)
+              accu
+          )
           [] other_tbl_refs
       in
       let other_tbl_events = events_of_other_tbl_refs other_tbl_refs in
@@ -236,5 +254,6 @@ let database_callback event db =
               error "Failed to generate MOD event for %s %s" tbl ref
           (* 				Printf.printf "Failed to generate MOD event for %s %s\n%!" tbl ref;*)
           | tbl, ref, Some s ->
-              events_notify ~snapshot:s tbl "mod" ref)
+              events_notify ~snapshot:s tbl "mod" ref
+          )
         other_tbl_events

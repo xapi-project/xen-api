@@ -55,8 +55,7 @@ let mount ?(ty = None) ?(lo = true) src dest =
   let ty = match ty with None -> [] | Some ty -> ["-t"; ty] in
   let lo = if lo then ["-o"; "loop"] else [] in
   ignore
-    (Forkhelpers.execute_command_get_output "/bin/mount"
-       (ty @ lo @ [src; dest]))
+    (Forkhelpers.execute_command_get_output "/bin/mount" (ty @ lo @ [src; dest]))
 
 let timeout = 300.
 
@@ -111,7 +110,8 @@ let assert_update_vbds_attached ~__context ~vdi =
   let unplugged =
     get_update_vbds ~__context ~vdi
     |> List.filter (fun self ->
-           not (Db.VBD.get_currently_attached ~__context ~self))
+           not (Db.VBD.get_currently_attached ~__context ~self)
+       )
   in
   match unplugged with
   | [] ->
@@ -136,7 +136,8 @@ let with_dec_refcount ~__context ~uuid ~vdi f =
       if count > 1 then
         Hashtbl.replace updates_to_attach_count_tbl uuid (count - 1)
       else if count = 1 then
-        Hashtbl.remove updates_to_attach_count_tbl uuid)
+        Hashtbl.remove updates_to_attach_count_tbl uuid
+  )
 
 let with_inc_refcount ~__context ~uuid ~vdi f =
   Mutex.execute updates_to_attach_count_tbl_mutex (fun () ->
@@ -147,7 +148,8 @@ let with_inc_refcount ~__context ~uuid ~vdi f =
       if count = 0 then
         f ~__context ~uuid ~vdi ;
       assert_update_vbds_attached ~__context ~vdi ;
-      Hashtbl.replace updates_to_attach_count_tbl uuid (count + 1))
+      Hashtbl.replace updates_to_attach_count_tbl uuid (count + 1)
+  )
 
 let detach_helper ~__context ~uuid ~vdi =
   with_dec_refcount ~__context ~uuid ~vdi (fun ~__context ~uuid ~vdi ->
@@ -166,8 +168,10 @@ let detach_helper ~__context ~uuid ~vdi =
           List.iter
             (fun self ->
               Client.VBD.unplug ~rpc ~session_id ~self ;
-              Client.VBD.destroy ~rpc ~session_id ~self)
-            vbds) ;
+              Client.VBD.destroy ~rpc ~session_id ~self
+            )
+            vbds
+      ) ;
       if try Sys.is_directory mount_point_parent_dir with _ -> false then (
         Helpers.log_exn_continue
           ("pool_update.detach_helper: rm " ^ mount_point)
@@ -177,7 +181,8 @@ let detach_helper ~__context ~uuid ~vdi =
                 ["-r"; mount_point]
             in
             debug "pool_update.detach_helper Mountpoint removed (output=%s)"
-              output)
+              output
+          )
           () ;
         Helpers.log_exn_continue
           ("pool_update.detach_helper: rmdir " ^ mount_point_parent_dir)
@@ -189,9 +194,11 @@ let detach_helper ~__context ~uuid ~vdi =
             debug
               "pool_update.detach_helper Mountpoint parent dir removed \
                (output=%s)"
-              output)
+              output
+          )
           ()
-      ))
+      )
+  )
 
 let detach ~__context ~self =
   let uuid = Db.Pool_update.get_uuid ~__context ~self in
@@ -277,10 +284,12 @@ let attach_helper ~__context ~uuid ~vdi ~use_localhost_proxy =
                 ~qos_algorithm_params:[] ~other_config:[]
             in
             Client.VBD.plug ~rpc ~session_id ~self:vbd ;
-            "/dev/" ^ Client.VBD.get_device ~rpc ~session_id ~self:vbd)
+            "/dev/" ^ Client.VBD.get_device ~rpc ~session_id ~self:vbd
+        )
       in
       with_api_errors (mount device) mount_point ;
-      debug "pool_update.attach_helper Mounted %s" mount_point) ;
+      debug "pool_update.attach_helper Mounted %s" mount_point
+  ) ;
   let ip =
     if use_localhost_proxy then
       "127.0.0.1"
@@ -325,14 +334,16 @@ let parse_update_info xml =
           | "" ->
               None
           | s ->
-              Some (Filename.basename s))
+              Some (Filename.basename s)
+          )
       in
       let uuid =
         try List.assoc "uuid" attr
         with _ ->
           raise
             (Api_errors.Server_error
-               (Api_errors.invalid_update, ["missing <uuid> in update.xml"]))
+               (Api_errors.invalid_update, ["missing <uuid> in update.xml"])
+            )
       in
       let name_label =
         try List.assoc "name-label" attr
@@ -340,14 +351,17 @@ let parse_update_info xml =
           raise
             (Api_errors.Server_error
                ( Api_errors.invalid_update
-               , ["missing <name-label> in update.xml"] ))
+               , ["missing <name-label> in update.xml"]
+               )
+            )
       in
       let version =
         try List.assoc "version" attr
         with _ ->
           raise
             (Api_errors.Server_error
-               (Api_errors.invalid_update, ["missing <version> in update.xml"]))
+               (Api_errors.invalid_update, ["missing <version> in update.xml"])
+            )
       in
       let installation_size =
         try Int64.of_string (List.assoc "installation-size" attr) with _ -> 0L
@@ -379,7 +393,9 @@ let parse_update_info xml =
             raise
               (Api_errors.Server_error
                  ( Api_errors.invalid_update
-                 , ["missing <name-description> in update.xml"] ))
+                 , ["missing <name-description> in update.xml"]
+                 )
+              )
       in
       {
         uuid
@@ -394,7 +410,8 @@ let parse_update_info xml =
   | _ ->
       raise
         (Api_errors.Server_error
-           (Api_errors.invalid_update, ["missing <update> in update.xml"]))
+           (Api_errors.invalid_update, ["missing <update> in update.xml"])
+        )
 
 let extract_applied_update_info applied_uuid =
   let applied_update =
@@ -424,11 +441,14 @@ let extract_update_info ~__context ~vdi ~verify =
           raise
             (Api_errors.Server_error
                ( Api_errors.invalid_update
-               , ["missing update document (update.xml) in the package."] ))
+               , ["missing update document (update.xml) in the package."]
+               )
+            )
       in
       let update_info = parse_update_info xml in
       ignore (verify update_info update_path) ;
-      update_info)
+      update_info
+    )
     (fun () -> detach_helper ~__context ~uuid:vdi_uuid ~vdi)
 
 let get_free_bytes path =
@@ -447,7 +467,8 @@ let assert_space_available ?(multiplier = 3L) ?(get_free_bytes = get_free_bytes)
       really_required free_bytes ;
     raise
       (Api_errors.Server_error
-         (Api_errors.out_of_space, [!Xapi_globs.host_update_dir]))
+         (Api_errors.out_of_space, [!Xapi_globs.host_update_dir])
+      )
   )
 
 exception Cannot_expose_yum_repo_on_slave
@@ -467,13 +488,17 @@ let verify update_info update_path =
                 debug "No fingerprint!" ;
                 raise
                   (Api_errors.Server_error
-                     (Api_errors.invalid_update, ["Invalid signature"])))
+                     (Api_errors.invalid_update, ["Invalid signature"])
+                  )
+        )
       with exn ->
         debug "Caught exception while checking signature: %s"
           (ExnHelper.string_of_exn exn) ;
         raise
           (Api_errors.Server_error
-             (Api_errors.invalid_update, ["Invalid signature"])))
+             (Api_errors.invalid_update, ["Invalid signature"])
+          )
+    )
     [update_xml_path; repomd_xml_path] ;
   debug "Verify signature OK for pool update uuid: %s by key: %s"
     update_info.uuid
@@ -498,7 +523,8 @@ let create_update_record ~__context ~update ~update_info ~vdi =
        ~version:update_info.version ~filename:""
        ~size:update_info.installation_size ~pool_applied:false
        ~after_apply_guidance:update_info.after_apply_guidance
-       ~pool_update:update ~other_config:[]) ;
+       ~pool_update:update ~other_config:[]
+    ) ;
   Db.Pool_update.create ~__context ~ref:update ~uuid:update_info.uuid
     ~name_label:update_info.name_label
     ~name_description:update_info.name_description ~version:update_info.version
@@ -515,7 +541,9 @@ let introduce ~__context ~vdi =
       Api_errors.(
         Server_error
           ( vdi_incompatible_type
-          , [Ref.string_of vdi; Record_util.vdi_type_to_string `cbt_metadata] ))
+          , [Ref.string_of vdi; Record_util.vdi_type_to_string `cbt_metadata]
+          )
+      )
   ) ;
   ignore (Unixext.mkdir_safe !Xapi_globs.host_update_dir 0o755) ;
   (*If current disk free space is smaller than 1MB raise exception*)
@@ -532,7 +560,8 @@ let introduce ~__context ~vdi =
     ) else if vdi <> vdi_of_update then
       raise
         (Api_errors.Server_error
-           (Api_errors.update_already_exists, [update_info.uuid]))
+           (Api_errors.update_already_exists, [update_info.uuid])
+        )
     else
       update
   with Db_exn.Read_missing_uuid (_, _, _) ->
@@ -558,7 +587,8 @@ let pool_apply ~__context ~self =
       pool_update_name ;
     raise
       (Api_errors.Server_error
-         (Api_errors.update_already_applied_in_pool, [Ref.string_of self]))
+         (Api_errors.update_already_applied_in_pool, [Ref.string_of self])
+      )
   ) else
     let failed_hosts =
       HostSet.fold
@@ -566,19 +596,23 @@ let pool_apply ~__context ~self =
           try
             ignore
               (Helpers.call_api_functions ~__context (fun rpc session_id ->
-                   Client.Pool_update.apply rpc session_id self host)) ;
+                   Client.Pool_update.apply rpc session_id self host
+               )
+              ) ;
             acc
           with e ->
             let host_str = Ref.string_of host in
             debug "Caught exception while pool_apply %s: %s" host_str
               (ExnHelper.string_of_exn e) ;
-            host_str :: acc)
+            host_str :: acc
+        )
         unapplied_hosts []
     in
     if List.length failed_hosts > 0 then
       raise
         (Api_errors.Server_error
-           (Api_errors.update_pool_apply_failed, failed_hosts))
+           (Api_errors.update_pool_apply_failed, failed_hosts)
+        )
 
 let pool_clean ~__context ~self =
   let pool_update_name = Db.Pool_update.get_name_label ~__context ~self in
@@ -586,7 +620,8 @@ let pool_clean ~__context ~self =
   detach ~__context ~self ;
   let vdi = Db.Pool_update.get_vdi ~__context ~self in
   Helpers.call_api_functions ~__context (fun rpc session_id ->
-      Client.VDI.destroy rpc session_id vdi) ;
+      Client.VDI.destroy rpc session_id vdi
+  ) ;
   Db.Pool_update.set_vdi ~__context ~self ~value:Ref.null
 
 let destroy ~__context ~self =
@@ -615,7 +650,8 @@ let detach_attached_updates __context =
              Helpers.log_exn_continue
                ("detach_attached_updates: update_uuid " ^ uuid)
                (fun () -> detach_helper ~__context ~uuid ~vdi)
-               ())
+               ()
+     )
 
 let resync_host ~__context ~host =
   let update_applied_dir =
@@ -653,12 +689,14 @@ let resync_host ~__context ~host =
             debug
               "pool_update.resync_host: update %s not in database - creating it"
               update_uuid ;
-            create_update_record ~__context ~update ~update_info ~vdi:Ref.null)
+            create_update_record ~__context ~update ~update_info ~vdi:Ref.null
+      )
       update_uuids ;
     let update_refs =
       List.map
         (fun update_uuid ->
-          Db.Pool_update.get_by_uuid ~__context ~uuid:update_uuid)
+          Db.Pool_update.get_by_uuid ~__context ~uuid:update_uuid
+        )
         update_uuids
     in
     Db.Host.set_updates ~__context ~self:host ~value:update_refs ;
@@ -677,7 +715,8 @@ let resync_host ~__context ~host =
          * Honolulu it was stored in pool patches. To avoid any confusion, we
          * delete it there. CA-260352 *)
         Db.Pool_patch.remove_from_other_config ~__context ~self:pool_patch_ref
-          ~key:"enforce_homogeneity")
+          ~key:"enforce_homogeneity"
+      )
       update_refs ;
     Create_misc.create_updates_requiring_reboot_info ~__context ~host ;
     let host_info = Create_misc.read_localhost_info ~__context in
@@ -689,18 +728,22 @@ let resync_host ~__context ~host =
     (* Remove any pool_patch objects that don't have a corresponding pool_update object *)
     Db.Pool_patch.get_all ~__context
     |> List.filter (fun self ->
-           Db.Pool_patch.get_pool_update ~__context ~self = Ref.null)
+           Db.Pool_patch.get_pool_update ~__context ~self = Ref.null
+       )
     |> List.iter (fun self ->
            (* Destroy connector before destroying Pool_patch *)
            Db.Pool_patch.get_host_patches ~__context ~self
            |> List.iter (fun self ->
                   if Db.Host_patch.get_host ~__context ~self = host then
-                    Db.Host_patch.destroy ~__context ~self) ;
-           Db.Pool_patch.destroy ~__context ~self) ;
+                    Db.Host_patch.destroy ~__context ~self
+              ) ;
+           Db.Pool_patch.destroy ~__context ~self
+       ) ;
     (* Clean updates that don't have a corresponding patch record *)
     Db.Pool_update.get_all ~__context
     |> List.filter (fun self ->
-           Xapi_pool_patch.pool_patch_of_update ~__context self = Ref.null)
+           Xapi_pool_patch.pool_patch_of_update ~__context self = Ref.null
+       )
     |> List.iter (fun self -> destroy ~__context ~self) ;
     (*
      * If db indicates an update is not applied to any host but the corresponding patch is applied
@@ -716,7 +759,8 @@ let resync_host ~__context ~host =
               | [] ->
                   false
               | _ ->
-                  true)
+                  true
+       )
     |> List.iter (fun self -> destroy ~__context ~self)
   )
 
@@ -750,10 +794,12 @@ let proxy_request req s host_uuid =
           let transport = Xmlrpc_client.(SSL (SSL.make (), ip, 443)) in
           Xmlrpc_client.with_transport transport (fun fd ->
               Unixext.really_write_string fd (Http.Request.to_wire_string req) ;
-              Unixext.proxy (Unix.dup s) (Unix.dup fd))
+              Unixext.proxy (Unix.dup s) (Unix.dup fd)
+          )
       | None ->
           debug "Caught exception while get Host by uuid %s" host_uuid ;
-          Http_svr.response_badrequest ~req s)
+          Http_svr.response_badrequest ~req s
+  )
 
 let pool_update_download_handler (req : Request.t) s _ =
   debug "pool_update.pool_update_download_handler URL %s" req.Request.uri ;

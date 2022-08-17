@@ -34,7 +34,8 @@ let cli_cmd args =
     let output =
       Xapi_stdext_std.Xstringext.String.rtrim
         (fst
-           (Forkhelpers.execute_command_get_output !Quicktest_args.xe_path args))
+           (Forkhelpers.execute_command_get_output !Quicktest_args.xe_path args)
+        )
     in
     print_endline output ; output
   with
@@ -97,7 +98,8 @@ module Time = struct
   let check t ~after ~before =
     Alcotest.(check bool)
       (Printf.sprintf "Time %s should be between %s and %s (+-1s)" (pp t)
-         (pp before) (pp after))
+         (pp before) (pp after)
+      )
       true
       (t > after -. 1.0 && t < before +. 1.0)
 end
@@ -113,7 +115,8 @@ module VM = struct
           (fun self ->
             Xapi_stdext_std.Xstringext.String.startswith startswith
               (Client.Client.VM.get_name_label rpc session_id self)
-            && Client.Client.VM.get_is_a_template rpc session_id self)
+            && Client.Client.VM.get_is_a_template rpc session_id self
+          )
           vms
       with
       | [] ->
@@ -171,7 +174,8 @@ module VDI = struct
 
   let with_destroyed rpc session_id self f =
     Xapi_stdext_pervasives.Pervasiveext.finally f (fun () ->
-        Client.Client.VDI.destroy ~rpc ~session_id ~self)
+        Client.Client.VDI.destroy ~rpc ~session_id ~self
+    )
 
   let with_new rpc session_id ?(virtual_size = 4194304L) sr f =
     let self = make rpc session_id ~virtual_size sr in
@@ -184,7 +188,8 @@ module VDI = struct
       let vdis =
         Client.Client.SR.get_VDIs ~rpc ~session_id ~self:sr_info.sr
         |> List.filter (fun vdi ->
-               not (Client.Client.VDI.get_missing rpc session_id vdi))
+               not (Client.Client.VDI.get_missing rpc session_id vdi)
+           )
       in
       match vdis with
       | self :: _ ->
@@ -205,8 +210,10 @@ module VDI = struct
         Client.Client.VBD.plug ~rpc ~session_id ~self:vbd ;
         Xapi_stdext_pervasives.Pervasiveext.finally
           (fun () ->
-            f ("/dev/" ^ Client.Client.VBD.get_device ~rpc ~session_id ~self:vbd))
-          (fun () -> Client.Client.VBD.unplug ~rpc ~session_id ~self:vbd))
+            f ("/dev/" ^ Client.Client.VBD.get_device ~rpc ~session_id ~self:vbd)
+          )
+          (fun () -> Client.Client.VBD.unplug ~rpc ~session_id ~self:vbd)
+      )
       (fun () -> Client.Client.VBD.destroy ~rpc ~session_id ~self:vbd)
 
   let with_open rpc session_id vdi mode f =
@@ -217,7 +224,8 @@ module VDI = struct
         let fd = Unix.openfile path mode' 0 in
         Xapi_stdext_pervasives.Pervasiveext.finally
           (fun () -> f fd)
-          (fun () -> Unix.close fd))
+          (fun () -> Unix.close fd)
+    )
 
   let check_fields = Test.compare_fields "VDI"
 
@@ -229,21 +237,25 @@ module VDI = struct
       [
         ( `Same
         , "cbt_enabled"
-        , fun vdi -> vdi.API.vDI_cbt_enabled |> string_of_bool )
+        , fun vdi -> vdi.API.vDI_cbt_enabled |> string_of_bool
+        )
       ; ( `Same
         , "is_a_snapshot"
-        , fun vdi -> vdi.API.vDI_is_a_snapshot |> string_of_bool )
+        , fun vdi -> vdi.API.vDI_is_a_snapshot |> string_of_bool
+        )
       ; (`Same, "location", fun vdi -> vdi.API.vDI_location)
       ; (`Same, "managed", fun vdi -> vdi.API.vDI_managed |> string_of_bool)
       ; (`Same, "name_description", fun vdi -> vdi.API.vDI_name_description)
       ; (`Same, "name_label", fun vdi -> vdi.API.vDI_name_label)
       ; ( `Same
         , "snapshot_of"
-        , fun vdi -> vdi.API.vDI_snapshot_of |> API.Ref.string_of )
+        , fun vdi -> vdi.API.vDI_snapshot_of |> API.Ref.string_of
+        )
       ; ( `Same
         , "snapshot_time"
         , fun vdi ->
-            vdi.API.vDI_snapshot_time |> Xapi_stdext_date.Date.to_string )
+            vdi.API.vDI_snapshot_time |> Xapi_stdext_date.Date.to_string
+        )
       ; (`Same, "virtual_size", fun vdi -> vdi.API.vDI_location)
       ]
     in

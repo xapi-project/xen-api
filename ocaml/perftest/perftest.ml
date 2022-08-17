@@ -32,7 +32,8 @@ let marshall_xenrt pool metadata results =
   List.iter
     (fun r ->
       Printf.fprintf oc "  <test name=\"%s\" subtest=\"%s\">%f</test>\n"
-        r.resultname r.subtest r.xenrtresult)
+        r.resultname r.subtest r.xenrtresult
+    )
     results ;
   Printf.fprintf oc " </tests>\n</testrun>" ;
   close_out oc
@@ -73,43 +74,53 @@ let _ =
          ( "-template"
          , Arg.Set_string template_name
          , Printf.sprintf " Clone VMs from named base template (default is %s)"
-             !template_name )
+             !template_name
+         )
        ; ( "-scenario"
          , Arg.Set_string scenario
          , Printf.sprintf
              " Choose scenario (default is %s; possibilities are %s" !scenario
-             (string_of_set (Scenario.get_all ())) )
+             (string_of_set (Scenario.get_all ()))
+         )
        ; ("-key", Arg.Set_string key, " Key name to identify the Pool instance")
        ; ( "-ipbase"
          , Arg.Set_int ipbase
          , Printf.sprintf
              " Choose base IP address (default is %d for 192.168.%d.1)" !ipbase
-             !ipbase )
+             !ipbase
+         )
        ; ( "-xenrtoutput"
          , Arg.Set_string xenrtfname
-         , " Set output filename for xenrt (defaults to perftest-xenrt.log)" )
+         , " Set output filename for xenrt (defaults to perftest-xenrt.log)"
+         )
        ; ( "-rawoutput"
          , Arg.Set_string rawfname
          , " Set output filename for raw results (by default, do not output \
-            results)" )
+            results)"
+         )
        ; ( "-runall"
          , Arg.Set run_all
          , Printf.sprintf " Run tests %s (tests run by default are %s)"
              (string_of_set Tests.testnames)
-             (string_of_set Tests.runtestnames) )
+             (string_of_set Tests.runtestnames)
+         )
        ; ( "-iter"
          , Arg.Set_int iter
-         , Printf.sprintf " Number of iterations (default is %i)" !iter )
-       ])
+         , Printf.sprintf " Number of iterations (default is %i)" !iter
+         )
+       ]
+    )
     (fun x ->
       if !mode = "" then
         mode := x
       else
-        debug ~out:stderr "Ignoring unexpected argument: %s" x)
+        debug ~out:stderr "Ignoring unexpected argument: %s" x
+    )
     (Printf.sprintf
        "Configure and run a simulated test\nUsage: %s -key <pool_name> %s"
        Sys.argv.(0)
-       (string_of_set possible_modes)) ;
+       (string_of_set possible_modes)
+    ) ;
   if not (List.mem !mode possible_modes) then (
     debug ~out:stderr "Unknown mode: \"%s\" (possibilities are %s)" !mode
       (string_of_set possible_modes) ;
@@ -169,12 +180,15 @@ let _ =
                   (fun () ->
                     marshall pool
                       (get_metadata newrpc session)
-                      (Tests.run newrpc session !key !run_all !iter))
+                      (Tests.run newrpc session !key !run_all !iter)
+                  )
                   (fun () ->
                     if pool.Scenario.sdk then
-                      Client.Session.logout newrpc session)
+                      Client.Session.logout newrpc session
+                  )
             | _ ->
-                failwith (Printf.sprintf "unknown mode: %s" !mode))
+                failwith (Printf.sprintf "unknown mode: %s" !mode)
+          )
           (fun () -> Client.Session.logout rpc session)
   with Api_errors.Server_error (code, params) ->
     debug ~out:stderr "Caught API error: %s [ %s ]" code

@@ -80,7 +80,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Save the binary blob to the local filesystem"
       ; implementation= With_fd Cli_operations.blob_get
       ; flags= [Hidden]
-      } )
+      }
+    )
   ; ( "blob-put"
     , {
         reqd= ["uuid"; "filename"]
@@ -88,7 +89,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Upload a binary blob to the xapi server"
       ; implementation= With_fd Cli_operations.blob_put
       ; flags= [Hidden]
-      } )
+      }
+    )
   ; ( "blob-create"
     , {
         reqd= ["name"]
@@ -104,7 +106,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Create a binary blob to be associated with an API object"
       ; implementation= No_fd Cli_operations.blob_create
       ; flags= [Hidden]
-      } )
+      }
+    )
   ; ( "message-create"
     , {
         reqd= ["name"; "priority"; "body"]
@@ -114,7 +117,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
            exactly one of the optional parameters must be supplied."
       ; implementation= No_fd Cli_operations.message_create
       ; flags= []
-      } )
+      }
+    )
   ; ( "message-destroy"
     , {
         reqd= ["uuid"]
@@ -122,7 +126,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Destroy an existing message."
       ; implementation= No_fd Cli_operations.message_destroy
       ; flags= []
-      } )
+      }
+    )
   ; (* "host-introduce",
        {
        reqd=["name"; "address"; "remote-port"; "remote-username"; "remote-password"];
@@ -139,7 +144,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
            blobs."
       ; implementation= No_fd Cli_operations.pool_enable_binary_storage
       ; flags= [Hidden]
-      } )
+      }
+    )
   ; ( "pool-disable-binary-storage"
     , {
         reqd= []
@@ -149,7 +155,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
            RRDs and blobs stored across the pool."
       ; implementation= No_fd Cli_operations.pool_disable_binary_storage
       ; flags= [Hidden]
-      } )
+      }
+    )
   ; ( "pool-designate-new-master"
     , {
         reqd= ["host-uuid"]
@@ -158,7 +165,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
           "Request an orderly handover of the role of master to another host."
       ; implementation= No_fd Cli_operations.pool_designate_new_master
       ; flags= []
-      } )
+      }
+    )
   ; ( "pool-management-reconfigure"
     , {
         reqd= ["network-uuid"]
@@ -168,7 +176,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
            Pool"
       ; implementation= No_fd Cli_operations.pool_management_reconfigure
       ; flags= []
-      } )
+      }
+    )
   ; ( "pool-sync-database"
     , {
         reqd= []
@@ -176,7 +185,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Synchronise the current database across all hosts in the pool."
       ; implementation= No_fd Cli_operations.pool_sync_database
       ; flags= []
-      } )
+      }
+    )
   ; ( "pool-join"
     , {
         reqd= ["master-address"; "master-username"; "master-password"]
@@ -184,7 +194,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Instruct host to join an existing pool."
       ; implementation= No_fd Cli_operations.pool_join
       ; flags= []
-      } )
+      }
+    )
   ; ( "pool-emergency-reset-master"
     , {
         reqd= ["master-address"]
@@ -193,7 +204,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; implementation=
           No_fd_local_session Cli_operations.pool_emergency_reset_master
       ; flags= [Neverforward]
-      } )
+      }
+    )
   ; ( "pool-emergency-transition-to-master"
     , {
         reqd= []
@@ -205,7 +217,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; implementation=
           No_fd_local_session Cli_operations.pool_emergency_transition_to_master
       ; flags= [Neverforward]
-      } )
+      }
+    )
   ; ( "pool-recover-slaves"
     , {
         reqd= []
@@ -215,7 +228,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
            currently running in emergency mode."
       ; implementation= No_fd Cli_operations.pool_recover_slaves
       ; flags= []
-      } )
+      }
+    )
   ; ( "pool-eject"
     , {
         reqd= ["host-uuid"]
@@ -223,7 +237,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Instruct host to leave an existing pool."
       ; implementation= With_fd Cli_operations.pool_eject
       ; flags= []
-      } )
+      }
+    )
   ; ( "pool-dump-database"
     , {
         reqd= ["file-name"]
@@ -231,7 +246,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Download a dump of the pool database."
       ; implementation= With_fd Cli_operations.pool_dump_db
       ; flags= []
-      } )
+      }
+    )
   ; ( "pool-restore-database"
     , {
         reqd= ["file-name"]
@@ -239,7 +255,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Restore a dump of the pool database to the server."
       ; implementation= With_fd Cli_operations.pool_restore_db
       ; flags= []
-      } )
+      }
+    )
   ; ( "pool-enable-external-auth"
     , {
         reqd= ["auth-type"; "service-name"]
@@ -250,7 +267,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
            values."
       ; implementation= No_fd Cli_operations.pool_enable_external_auth
       ; flags= []
-      } )
+      }
+    )
   ; ( "pool-disable-external-auth"
     , {
         reqd= []
@@ -258,7 +276,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Disables external authentication in all the hosts in a pool"
       ; implementation= No_fd Cli_operations.pool_disable_external_auth
       ; flags= []
-      } )
+      }
+    )
   ; ( "pool-initialize-wlb"
     , {
         reqd=
@@ -275,7 +294,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
            wlb server"
       ; implementation= No_fd Cli_operations.pool_initialize_wlb
       ; flags= []
-      } )
+      }
+    )
   ; ( "pool-deconfigure-wlb"
     , {
         reqd= []
@@ -283,7 +303,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Permanently remove the configuration for workload balancing"
       ; implementation= No_fd Cli_operations.pool_deconfigure_wlb
       ; flags= []
-      } )
+      }
+    )
   ; ( "pool-send-wlb-configuration"
     , {
         reqd= []
@@ -293,7 +314,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
            server"
       ; implementation= No_fd Cli_operations.pool_send_wlb_configuration
       ; flags= []
-      } )
+      }
+    )
   ; ( "pool-retrieve-wlb-configuration"
     , {
         reqd= []
@@ -303,7 +325,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
            balancing server"
       ; implementation= No_fd Cli_operations.pool_retrieve_wlb_configuration
       ; flags= []
-      } )
+      }
+    )
   ; ( "pool-retrieve-wlb-recommendations"
     , {
         reqd= []
@@ -313,7 +336,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
            balancing server"
       ; implementation= No_fd Cli_operations.pool_retrieve_wlb_recommendations
       ; flags= []
-      } )
+      }
+    )
   ; ( "pool-retrieve-wlb-report"
     , {
         reqd= ["report"]
@@ -321,7 +345,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= ""
       ; implementation= With_fd Cli_operations.pool_retrieve_wlb_report
       ; flags= [Neverforward]
-      } )
+      }
+    )
   ; ( "pool-retrieve-wlb-diagnostics"
     , {
         reqd= []
@@ -329,7 +354,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= ""
       ; implementation= With_fd Cli_operations.pool_retrieve_wlb_diagnostics
       ; flags= [Neverforward]
-      } )
+      }
+    )
   ; ( "pool-send-test-post"
     , {
         reqd= ["dest-host"; "dest-port"; "body"]
@@ -339,7 +365,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
            print the response.  This is used for debugging the SSL layer."
       ; implementation= No_fd Cli_operations.pool_send_test_post
       ; flags= []
-      } )
+      }
+    )
   ; ( "pool-certificate-install"
     , {
         reqd= ["filename"]
@@ -347,7 +374,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Install a TLS CA certificate, pool-wide."
       ; implementation= With_fd Cli_operations.pool_certificate_install
       ; flags= []
-      } )
+      }
+    )
   ; ( "pool-certificate-uninstall"
     , {
         reqd= ["name"]
@@ -355,7 +383,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Uninstall a pool-wide TLS CA certificate."
       ; implementation= No_fd Cli_operations.pool_certificate_uninstall
       ; flags= []
-      } )
+      }
+    )
   ; ( "pool-certificate-list"
     , {
         reqd= []
@@ -363,7 +392,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "List the names of all installed TLS CA certificates."
       ; implementation= No_fd Cli_operations.pool_certificate_list
       ; flags= []
-      } )
+      }
+    )
   ; ( "pool-crl-install"
     , {
         reqd= ["filename"]
@@ -371,7 +401,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Install a TLS Certificate Revocation List, pool-wide."
       ; implementation= With_fd Cli_operations.pool_crl_install
       ; flags= []
-      } )
+      }
+    )
   ; ( "pool-crl-uninstall"
     , {
         reqd= ["name"]
@@ -379,7 +410,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Uninstall a pool-wide TLS Certificate Revocation List."
       ; implementation= No_fd Cli_operations.pool_crl_uninstall
       ; flags= []
-      } )
+      }
+    )
   ; ( "pool-crl-list"
     , {
         reqd= []
@@ -388,7 +420,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
           "List the names of all installed TLS Certificate Revocation Lists."
       ; implementation= No_fd Cli_operations.pool_crl_list
       ; flags= []
-      } )
+      }
+    )
   ; ( "pool-certificate-sync"
     , {
         reqd= []
@@ -397,7 +430,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
           "Copy the TLS CA certificates and CRLs of the master to all slaves."
       ; implementation= No_fd Cli_operations.pool_certificate_sync
       ; flags= []
-      } )
+      }
+    )
   ; ( "pool-set-vswitch-controller"
     , {
         reqd= ["address"]
@@ -405,7 +439,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Set the IP address of the vswitch controller."
       ; implementation= No_fd Cli_operations.pool_set_vswitch_controller
       ; flags= [Hidden]
-      } )
+      }
+    )
   ; ( "pool-disable-ssl-legacy"
     , {
         reqd= []
@@ -413,7 +448,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Set ssl-legacy to False on each host."
       ; implementation= No_fd Cli_operations.pool_disable_ssl_legacy
       ; flags= [Deprecated ["Legacy SSL no longer supported"]]
-      } )
+      }
+    )
   ; ( "pool-secret-rotate"
     , {
         reqd= []
@@ -421,7 +457,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Change the pool secret"
       ; implementation= No_fd Cli_operations.pool_rotate_secret
       ; flags= []
-      } )
+      }
+    )
   ; ( "host-is-in-emergency-mode"
     , {
         reqd= []
@@ -430,7 +467,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; implementation=
           No_fd_local_session Cli_operations.host_is_in_emergency_mode
       ; flags= [Neverforward]
-      } )
+      }
+    )
   ; ( "host-forget"
     , {
         reqd= ["uuid"]
@@ -442,7 +480,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
            pool-eject instead."
       ; implementation= With_fd Cli_operations.host_forget
       ; flags= []
-      } )
+      }
+    )
   ; ( "host-declare-dead"
     , {
         reqd= ["uuid"]
@@ -453,7 +492,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
            is not actually dead"
       ; implementation= With_fd Cli_operations.host_declare_dead
       ; flags= []
-      } )
+      }
+    )
   ; ( "host-disable"
     , {
         reqd= []
@@ -461,7 +501,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Disable the XE host."
       ; implementation= No_fd Cli_operations.host_disable
       ; flags= [Host_selectors]
-      } )
+      }
+    )
   ; ( "host-sync-data"
     , {
         reqd= []
@@ -471,7 +512,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
            the named XE host."
       ; implementation= No_fd Cli_operations.host_sync_data
       ; flags= [Host_selectors]
-      } )
+      }
+    )
   ; ( "host-enable"
     , {
         reqd= []
@@ -479,7 +521,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Enable the XE host."
       ; implementation= No_fd Cli_operations.host_enable
       ; flags= [Host_selectors]
-      } )
+      }
+    )
   ; ( "host-enable-local-storage-caching"
     , {
         reqd= ["sr-uuid"]
@@ -487,7 +530,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Enable local storage caching on the specified host"
       ; implementation= No_fd Cli_operations.host_enable_local_storage_caching
       ; flags= [Host_selectors]
-      } )
+      }
+    )
   ; ( "host-disable-local-storage-caching"
     , {
         reqd= []
@@ -495,7 +539,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Disable local storage caching on the specified host"
       ; implementation= No_fd Cli_operations.host_disable_local_storage_caching
       ; flags= [Host_selectors]
-      } )
+      }
+    )
   ; ( "pool-enable-local-storage-caching"
     , {
         reqd= ["uuid"]
@@ -503,7 +548,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Enable local storage caching across the pool"
       ; implementation= No_fd Cli_operations.pool_enable_local_storage_caching
       ; flags= []
-      } )
+      }
+    )
   ; ( "pool-disable-local-storage-caching"
     , {
         reqd= ["uuid"]
@@ -511,7 +557,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Disable local storage caching across the pool"
       ; implementation= No_fd Cli_operations.pool_disable_local_storage_caching
       ; flags= []
-      } )
+      }
+    )
   ; ( "pool-apply-edition"
     , {
         reqd= ["edition"]
@@ -519,7 +566,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Apply an edition across the pool"
       ; implementation= No_fd Cli_operations.pool_apply_edition
       ; flags= []
-      } )
+      }
+    )
   ; ( "host-shutdown"
     , {
         reqd= []
@@ -527,7 +575,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Shutdown the XE host."
       ; implementation= No_fd Cli_operations.host_shutdown
       ; flags= [Host_selectors]
-      } )
+      }
+    )
   ; ( "host-reboot"
     , {
         reqd= []
@@ -535,7 +584,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Reboot the XE host."
       ; implementation= No_fd Cli_operations.host_reboot
       ; flags= [Host_selectors]
-      } )
+      }
+    )
   ; ( "host-power-on"
     , {
         reqd= []
@@ -543,7 +593,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Power on the XE host."
       ; implementation= No_fd Cli_operations.host_power_on
       ; flags= [Host_selectors]
-      } )
+      }
+    )
   ; ( "host-prepare-for-poweroff"
     , {
         reqd= []
@@ -551,7 +602,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Perform the necessary actions before host shutdown or reboot."
       ; implementation= No_fd Cli_operations.host_prepare_for_poweroff
       ; flags= [Hidden]
-      } )
+      }
+    )
   ; ( "host-dmesg"
     , {
         reqd= []
@@ -559,7 +611,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Get xen dmesg of the XE host."
       ; implementation= No_fd Cli_operations.host_dmesg
       ; flags= [Host_selectors]
-      } )
+      }
+    )
   ; ( "host-crashdump-upload"
     , {
         reqd= ["uuid"]
@@ -567,7 +620,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Upload a host crash dump to the support website."
       ; implementation= No_fd Cli_operations.host_crash_upload
       ; flags= []
-      } )
+      }
+    )
   ; ( "host-crashdump-destroy"
     , {
         reqd= ["uuid"]
@@ -575,7 +629,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Delete a host crashdump from the server."
       ; implementation= No_fd Cli_operations.host_crash_destroy
       ; flags= []
-      } )
+      }
+    )
   ; ( "host-bugreport-upload"
     , {
         reqd= []
@@ -585,7 +640,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
            the support website."
       ; implementation= No_fd Cli_operations.host_bugreport_upload
       ; flags= [Host_selectors]
-      } )
+      }
+    )
   ; ( "host-backup"
     , {
         reqd= ["file-name"]
@@ -593,7 +649,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Download a backup of the host's control domain."
       ; implementation= With_fd Cli_operations.host_backup
       ; flags= [Host_selectors]
-      } )
+      }
+    )
   ; ( "host-restore"
     , {
         reqd= ["file-name"]
@@ -601,7 +658,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Upload a backup of the host's control domain."
       ; implementation= With_fd Cli_operations.host_restore
       ; flags= [Host_selectors]
-      } )
+      }
+    )
   ; ( "host-logs-download"
     , {
         reqd= []
@@ -609,7 +667,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Download a copy of the host logs."
       ; implementation= With_fd Cli_operations.host_logs_download
       ; flags= [Host_selectors]
-      } )
+      }
+    )
   ; ( "host-signal-networking-change"
     , {
         reqd= []
@@ -618,7 +677,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; implementation=
           No_fd_local_session Cli_operations.host_signal_networking_change
       ; flags= [Neverforward; Hidden]
-      } )
+      }
+    )
   ; ( "host-send-debug-keys"
     , {
         reqd= ["host-uuid"; "keys"]
@@ -626,7 +686,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Send specified hypervisor debug keys to specified host"
       ; implementation= No_fd_local_session Cli_operations.host_send_debug_keys
       ; flags= []
-      } )
+      }
+    )
   ; ( "host-notify"
     , {
         reqd= ["type"]
@@ -634,7 +695,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Notify some event."
       ; implementation= No_fd_local_session Cli_operations.host_notify
       ; flags= [Neverforward; Hidden]
-      } )
+      }
+    )
   ; ( "host-syslog-reconfigure"
     , {
         reqd= ["host-uuid"]
@@ -642,7 +704,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Reconfigure syslog daemon."
       ; implementation= No_fd Cli_operations.host_syslog_reconfigure
       ; flags= []
-      } )
+      }
+    )
   ; ( "host-emergency-management-reconfigure"
     , {
         reqd= ["interface"]
@@ -654,7 +717,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
           No_fd_local_session
             Cli_operations.host_emergency_management_reconfigure
       ; flags= [Neverforward]
-      } )
+      }
+    )
   ; ( "host-emergency-ha-disable"
     , {
         reqd= []
@@ -665,7 +729,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; implementation=
           No_fd_local_session Cli_operations.host_emergency_ha_disable
       ; flags= [Neverforward]
-      } )
+      }
+    )
   ; ( "host-emergency-reset-server-certificate"
     , {
         reqd= []
@@ -677,7 +742,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
           No_fd_local_session
             Cli_operations.host_emergency_reset_server_certificate
       ; flags= [Neverforward]
-      } )
+      }
+    )
   ; ( "host-management-reconfigure"
     , {
         reqd= ["pif-uuid"]
@@ -685,7 +751,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Reconfigure the management interface of this node."
       ; implementation= No_fd Cli_operations.host_management_reconfigure
       ; flags= []
-      } )
+      }
+    )
   ; ( "host-management-disable"
     , {
         reqd= []
@@ -694,7 +761,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; implementation=
           No_fd_local_session Cli_operations.host_management_disable
       ; flags= [Neverforward]
-      } )
+      }
+    )
   ; ( "host-compute-free-memory"
     , {
         reqd= []
@@ -702,7 +770,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Computes the amount of free memory on the host."
       ; implementation= No_fd Cli_operations.host_compute_free_memory
       ; flags= [Host_selectors]
-      } )
+      }
+    )
   ; ( "host-compute-memory-overhead"
     , {
         reqd= []
@@ -710,7 +779,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Computes the virtualization memory overhead of a host."
       ; implementation= No_fd Cli_operations.host_compute_memory_overhead
       ; flags= [Host_selectors]
-      } )
+      }
+    )
   ; ( "host-get-system-status-capabilities"
     , {
         reqd= []
@@ -719,7 +789,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; implementation=
           No_fd_local_session Cli_operations.host_get_system_status_capabilities
       ; flags= [Neverforward; Host_selectors]
-      } )
+      }
+    )
   ; ( "host-get-system-status"
     , {
         reqd= ["filename"]
@@ -730,7 +801,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
            or 'zip'."
       ; implementation= With_fd Cli_operations.host_get_system_status
       ; flags= [Host_selectors]
-      } )
+      }
+    )
   ; ( "host-set-hostname-live"
     , {
         reqd= ["host-uuid"; "host-name"]
@@ -740,7 +812,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
            lower-level system hostname are changed."
       ; implementation= No_fd Cli_operations.host_set_hostname_live
       ; flags= [Host_selectors]
-      } )
+      }
+    )
   ; ( "host-set-power-on-mode"
     , {
         reqd= ["power-on-mode"]
@@ -748,7 +821,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Sets the power-on mode for the XE host"
       ; implementation= No_fd Cli_operations.host_set_power_on_mode
       ; flags= [Host_selectors]
-      } )
+      }
+    )
   ; ( "host-call-plugin"
     , {
         reqd= ["host-uuid"; "plugin"; "fn"]
@@ -758,7 +832,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
            optional arguments."
       ; implementation= No_fd Cli_operations.host_call_plugin
       ; flags= []
-      } )
+      }
+    )
   ; ( "host-retrieve-wlb-evacuate-recommendations"
     , {
         reqd= ["uuid"]
@@ -770,7 +845,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; implementation=
           No_fd Cli_operations.host_retrieve_wlb_evacuate_recommendations
       ; flags= [Hidden]
-      } )
+      }
+    )
   ; ( "host-enable-external-auth"
     , {
         reqd= ["host-uuid"; "auth-type"; "service-name"]
@@ -778,7 +854,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Enables external authentication in a host"
       ; implementation= No_fd Cli_operations.host_enable_external_auth
       ; flags= [Hidden]
-      } )
+      }
+    )
   ; ( "host-disable-external-auth"
     , {
         reqd= ["host-uuid"]
@@ -786,7 +863,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Disables external authentication in a host"
       ; implementation= No_fd Cli_operations.host_disable_external_auth
       ; flags= [Hidden]
-      } )
+      }
+    )
   ; ( "host-refresh-pack-info"
     , {
         reqd= ["host-uuid"]
@@ -794,7 +872,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Refreshes Host.software_version"
       ; implementation= No_fd Cli_operations.host_refresh_pack_info
       ; flags= [Hidden]
-      } )
+      }
+    )
   ; ( "host-cpu-info"
     , {
         reqd= []
@@ -802,7 +881,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Lists information about the host's physical CPUs."
       ; implementation= No_fd Cli_operations.host_cpu_info
       ; flags= []
-      } )
+      }
+    )
   ; ( "host-get-cpu-features"
     , {
         reqd= []
@@ -812,7 +892,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
            features."
       ; implementation= No_fd Cli_operations.host_get_cpu_features
       ; flags= []
-      } )
+      }
+    )
   ; ( "host-enable-display"
     , {
         reqd= ["uuid"]
@@ -820,7 +901,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Enable display for the host"
       ; implementation= No_fd Cli_operations.host_enable_display
       ; flags= []
-      } )
+      }
+    )
   ; ( "host-disable-display"
     , {
         reqd= ["uuid"]
@@ -828,7 +910,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Disable display for the host"
       ; implementation= No_fd Cli_operations.host_disable_display
       ; flags= []
-      } )
+      }
+    )
   ; ( "patch-upload"
     , {
         reqd= ["file-name"]
@@ -836,7 +919,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Upload a patch file to the server."
       ; implementation= With_fd Cli_operations.patch_upload
       ; flags= []
-      } )
+      }
+    )
   ; ( "patch-destroy"
     , {
         reqd= ["uuid"]
@@ -844,7 +928,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Remove an unapplied patch record and files from the server."
       ; implementation= No_fd Cli_operations.patch_destroy
       ; flags= []
-      } )
+      }
+    )
   ; ( "update-upload"
     , {
         reqd= ["file-name"]
@@ -854,7 +939,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
            SR <sr-uuid>, or, if it is not specified, to the pool's default SR."
       ; implementation= With_fd Cli_operations.update_upload
       ; flags= []
-      } )
+      }
+    )
   ; ( "patch-precheck"
     , {
         reqd= ["uuid"; "host-uuid"]
@@ -864,7 +950,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
            the specified host."
       ; implementation= No_fd Cli_operations.patch_precheck
       ; flags= []
-      } )
+      }
+    )
   ; ( "patch-apply"
     , {
         reqd= ["uuid"; "host-uuid"]
@@ -872,7 +959,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Apply the previously uploaded patch to the specified host."
       ; implementation= No_fd Cli_operations.patch_apply
       ; flags= []
-      } )
+      }
+    )
   ; ( "patch-pool-apply"
     , {
         reqd= ["uuid"]
@@ -880,7 +968,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Apply the previously uploaded patch to all hosts in the pool."
       ; implementation= No_fd Cli_operations.patch_pool_apply
       ; flags= []
-      } )
+      }
+    )
   ; ( "patch-clean"
     , {
         reqd= ["uuid"]
@@ -888,7 +977,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Delete a previously uploaded patch file."
       ; implementation= No_fd Cli_operations.patch_clean
       ; flags= []
-      } )
+      }
+    )
   ; ( "patch-pool-clean"
     , {
         reqd= ["uuid"]
@@ -897,7 +987,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
           "Delete a previously uploaded patch file on all hosts in the pool."
       ; implementation= No_fd Cli_operations.patch_pool_clean
       ; flags= []
-      } )
+      }
+    )
   ; ( "update-introduce"
     , {
         reqd= ["vdi-uuid"]
@@ -905,7 +996,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Introduce update VDI."
       ; implementation= No_fd Cli_operations.update_introduce
       ; flags= []
-      } )
+      }
+    )
   ; ( "update-precheck"
     , {
         reqd= ["uuid"]
@@ -915,7 +1007,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
            host."
       ; implementation= No_fd Cli_operations.update_precheck
       ; flags= [Host_selectors]
-      } )
+      }
+    )
   ; ( "update-apply"
     , {
         reqd= ["uuid"]
@@ -923,7 +1016,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Apply the selected update to the specified host."
       ; implementation= No_fd Cli_operations.update_apply
       ; flags= [Host_selectors]
-      } )
+      }
+    )
   ; ( "update-pool-apply"
     , {
         reqd= ["uuid"]
@@ -931,7 +1025,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Apply the selected update to all hosts in the pool."
       ; implementation= No_fd Cli_operations.update_pool_apply
       ; flags= []
-      } )
+      }
+    )
   ; ( "update-pool-clean"
     , {
         reqd= ["uuid"]
@@ -939,7 +1034,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Removes the update's files from all hosts in the pool."
       ; implementation= No_fd Cli_operations.update_pool_clean
       ; flags= []
-      } )
+      }
+    )
   ; ( "update-destroy"
     , {
         reqd= ["uuid"]
@@ -947,7 +1043,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Removes the database entry. Only works on unapplied update."
       ; implementation= No_fd Cli_operations.update_destroy
       ; flags= []
-      } )
+      }
+    )
   ; ( "update-resync-host"
     , {
         reqd= ["host-uuid"]
@@ -955,7 +1052,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Refreshes Host.updates"
       ; implementation= No_fd Cli_operations.update_resync_host
       ; flags= [Hidden]
-      } )
+      }
+    )
   ; ( "user-password-change"
     , {
         reqd= ["new"]
@@ -963,7 +1061,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Change a user's login password."
       ; implementation= No_fd Cli_operations.user_password_change
       ; flags= []
-      } )
+      }
+    )
   ; ( "vm-compute-memory-overhead"
     , {
         reqd= []
@@ -971,7 +1070,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Computes the virtualization memory overhead of a VM."
       ; implementation= No_fd Cli_operations.vm_compute_memory_overhead
       ; flags= [Vm_selectors]
-      } )
+      }
+    )
   ; ( "vm-memory-balloon"
     , {
         reqd= ["target"]
@@ -984,7 +1084,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; implementation= No_fd Cli_operations.vm_memory_target_set
       ; flags=
           [Deprecated ["vm-memory-dynamic-range-set"]; Vm_selectors; Hidden]
-      } )
+      }
+    )
   ; ( "vm-memory-dynamic-range-set"
     , {
         reqd= ["min"; "max"]
@@ -996,7 +1097,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
            dynamic range must fit within the static range."
       ; implementation= No_fd Cli_operations.vm_memory_dynamic_range_set
       ; flags= [Vm_selectors]
-      } )
+      }
+    )
   ; ( "vm-memory-static-range-set"
     , {
         reqd= ["min"; "max"]
@@ -1008,7 +1110,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
            static range must encompass the dynamic range."
       ; implementation= No_fd Cli_operations.vm_memory_static_range_set
       ; flags= [Vm_selectors]
-      } )
+      }
+    )
   ; ( "vm-memory-limits-set"
     , {
         reqd= ["static-min"; "static-max"; "dynamic-min"; "dynamic-max"]
@@ -1016,7 +1119,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Configure the memory limits of a VM."
       ; implementation= No_fd Cli_operations.vm_memory_limits_set
       ; flags= [Vm_selectors]
-      } )
+      }
+    )
   ; ( "vm-memory-set"
     , {
         reqd= ["memory"]
@@ -1024,7 +1128,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Configure the memory allocation of a VM."
       ; implementation= No_fd Cli_operations.vm_memory_set
       ; flags= [Vm_selectors]
-      } )
+      }
+    )
   ; ( "vm-memory-target-set"
     , {
         reqd= ["target"]
@@ -1035,7 +1140,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
            memory_static_max values."
       ; implementation= No_fd Cli_operations.vm_memory_target_set
       ; flags= [Vm_selectors]
-      } )
+      }
+    )
   ; ( "vm-memory-target-wait"
     , {
         reqd= []
@@ -1043,7 +1149,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Wait for a running VM to reach its current memory target."
       ; implementation= No_fd Cli_operations.vm_memory_target_wait
       ; flags= [Vm_selectors; Hidden]
-      } )
+      }
+    )
   ; ( "vm-data-source-list"
     , {
         reqd= []
@@ -1051,7 +1158,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "List the data sources that can be recorded for a VM."
       ; implementation= No_fd Cli_operations.vm_data_source_list
       ; flags= [Vm_selectors]
-      } )
+      }
+    )
   ; ( "vm-data-source-record"
     , {
         reqd= ["data-source"]
@@ -1059,7 +1167,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Record the specified data source for a VM."
       ; implementation= No_fd Cli_operations.vm_data_source_record
       ; flags= [Vm_selectors]
-      } )
+      }
+    )
   ; ( "vm-data-source-query"
     , {
         reqd= ["data-source"]
@@ -1067,7 +1176,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Query the last value read from a VM data source."
       ; implementation= No_fd Cli_operations.vm_data_source_query
       ; flags= [Vm_selectors]
-      } )
+      }
+    )
   ; ( "vm-data-source-forget"
     , {
         reqd= ["data-source"]
@@ -1077,7 +1187,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
            of the recorded data."
       ; implementation= No_fd Cli_operations.vm_data_source_forget
       ; flags= [Vm_selectors]
-      } )
+      }
+    )
   ; ( "vm-memory-shadow-multiplier-set"
     , {
         reqd= ["multiplier"]
@@ -1085,7 +1196,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Set the shadow memory multiplier of a VM which may be running."
       ; implementation= No_fd Cli_operations.vm_memory_shadow_multiplier_set
       ; flags= [Vm_selectors]
-      } )
+      }
+    )
   ; ( "vm-clone"
     , {
         reqd= ["new-name-label"]
@@ -1095,7 +1207,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
            where available."
       ; implementation= No_fd Cli_operations.vm_clone
       ; flags= [Standard; Vm_selectors]
-      } )
+      }
+    )
   ; ( "vm-snapshot"
     , {
         reqd= ["new-name-label"]
@@ -1105,7 +1218,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
            operation where available."
       ; implementation= No_fd Cli_operations.vm_snapshot
       ; flags= [Standard; Vm_selectors]
-      } )
+      }
+    )
   ; ( "vm-snapshot-with-quiesce"
     , {
         reqd= ["new-name-label"]
@@ -1116,7 +1230,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
            fast disk snapshot operation where available."
       ; implementation= No_fd Cli_operations.vm_snapshot_with_quiesce
       ; flags= [Standard; Vm_selectors]
-      } )
+      }
+    )
   ; ( "vm-checkpoint"
     , {
         reqd= ["new-name-label"]
@@ -1126,7 +1241,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
            operation where available."
       ; implementation= No_fd Cli_operations.vm_checkpoint
       ; flags= [Standard; Vm_selectors]
-      } )
+      }
+    )
   ; ( "vm-copy"
     , {
         reqd= ["new-name-label"]
@@ -1138,7 +1254,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
            CoW chain."
       ; implementation= No_fd Cli_operations.vm_copy
       ; flags= [Standard; Vm_selectors]
-      } )
+      }
+    )
   ; ( "snapshot-revert"
     , {
         reqd= []
@@ -1148,7 +1265,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
            state."
       ; implementation= No_fd Cli_operations.snapshot_revert
       ; flags= [Standard]
-      } )
+      }
+    )
   ; ( "vm-install"
     , {
         reqd= ["new-name-label"]
@@ -1158,7 +1276,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
            either the template name or the uuid."
       ; implementation= No_fd Cli_operations.vm_install
       ; flags= [Standard]
-      } )
+      }
+    )
   ; ( "vm-uninstall"
     , {
         reqd= []
@@ -1169,7 +1288,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
            record, use vm-destroy."
       ; implementation= With_fd Cli_operations.vm_uninstall
       ; flags= [Standard; Vm_selectors]
-      } )
+      }
+    )
   ; ( "console"
     , {
         reqd= []
@@ -1177,7 +1297,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Attach to a particular console."
       ; implementation= With_fd Cli_operations.console
       ; flags= [Vm_selectors]
-      } )
+      }
+    )
   ; ( "vm-query-services"
     , {
         reqd= []
@@ -1185,7 +1306,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Query the system services offered by the given VM(s)."
       ; implementation= No_fd Cli_operations.vm_query_services
       ; flags= [Standard; Vm_selectors; Hidden]
-      } )
+      }
+    )
   ; ( "vm-start"
     , {
         reqd= []
@@ -1197,7 +1319,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
            hardware-compatibility warnings."
       ; implementation= No_fd Cli_operations.vm_start
       ; flags= [Standard; Vm_selectors]
-      } )
+      }
+    )
   ; ( "vm-suspend"
     , {
         reqd= []
@@ -1205,7 +1328,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Suspend the selected VM(s)."
       ; implementation= No_fd Cli_operations.vm_suspend
       ; flags= [Standard; Vm_selectors]
-      } )
+      }
+    )
   ; ( "vm-resume"
     , {
         reqd= []
@@ -1213,7 +1337,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Resume the selected VM(s)."
       ; implementation= No_fd Cli_operations.vm_resume
       ; flags= [Standard; Vm_selectors]
-      } )
+      }
+    )
   ; ( "vm-shutdown"
     , {
         reqd= []
@@ -1223,7 +1348,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
            forcibly shut down the VM."
       ; implementation= No_fd Cli_operations.vm_shutdown
       ; flags= [Standard; Vm_selectors]
-      } )
+      }
+    )
   ; ( "vm-reset-powerstate"
     , {
         reqd= []
@@ -1237,7 +1363,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
            anywhere."
       ; implementation= No_fd Cli_operations.vm_reset_powerstate
       ; flags= [Standard; Vm_selectors]
-      } )
+      }
+    )
   ; ( "snapshot-reset-powerstate"
     , {
         reqd= []
@@ -1250,7 +1377,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
            you will not be able to resume your snapshot anymore)."
       ; implementation= No_fd Cli_operations.snapshot_reset_powerstate
       ; flags= [Standard; Vm_selectors]
-      } )
+      }
+    )
   ; ( "vm-reboot"
     , {
         reqd= []
@@ -1258,7 +1386,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Reboot the selected VM(s)."
       ; implementation= No_fd Cli_operations.vm_reboot
       ; flags= [Standard; Vm_selectors]
-      } )
+      }
+    )
   ; ( "vm-compute-maximum-memory"
     , {
         reqd= ["total"]
@@ -1269,7 +1398,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
            set then allow some extra wiggle-room."
       ; implementation= No_fd Cli_operations.vm_compute_maximum_memory
       ; flags= [Standard; Vm_selectors]
-      } )
+      }
+    )
   ; ( "vm-retrieve-wlb-recommendations"
     , {
         reqd= []
@@ -1278,7 +1408,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
           "Retrieve the workload balancing recommendations for the selected VM."
       ; implementation= No_fd Cli_operations.vm_retrieve_wlb_recommendations
       ; flags= [Vm_selectors]
-      } )
+      }
+    )
   ; ( "vm-migrate"
     , {
         reqd= []
@@ -1312,7 +1443,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
            Unfortunately, destination uuids cannot be tab-completed."
       ; implementation= No_fd Cli_operations.vm_migrate
       ; flags= [Standard; Vm_selectors]
-      } )
+      }
+    )
   ; ( "vm-pause"
     , {
         reqd= []
@@ -1322,7 +1454,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
            associated memory (see 'vm-suspend')."
       ; implementation= No_fd Cli_operations.vm_pause
       ; flags= [Standard; Vm_selectors]
-      } )
+      }
+    )
   ; ( "vm-unpause"
     , {
         reqd= []
@@ -1330,7 +1463,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Unpause a paused VM."
       ; implementation= No_fd Cli_operations.vm_unpause
       ; flags= [Standard; Vm_selectors]
-      } )
+      }
+    )
   ; ( "vm-disk-list"
     , {
         reqd= []
@@ -1338,7 +1472,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "List the disks on the selected VM(s)."
       ; implementation= No_fd (Cli_operations.vm_disk_list false)
       ; flags= [Standard; Vm_selectors]
-      } )
+      }
+    )
   ; ( "vm-crashdump-list"
     , {
         reqd= []
@@ -1346,7 +1481,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "List crashdumps associated with the selected VM(s)."
       ; implementation= No_fd Cli_operations.vm_crashdump_list
       ; flags= [Vm_selectors]
-      } )
+      }
+    )
   ; ( "vm-cd-add"
     , {
         reqd= ["cd-name"; "device"]
@@ -1356,7 +1492,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
            parameter 'allowed-VBD-devices' of the VM."
       ; implementation= No_fd Cli_operations.vm_cd_add
       ; flags= [Standard; Vm_selectors]
-      } )
+      }
+    )
   ; ( "vm-cd-list"
     , {
         reqd= []
@@ -1364,7 +1501,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "List the CDs currently attached to the VM(s)."
       ; implementation= No_fd (Cli_operations.vm_disk_list true)
       ; flags= [Standard; Vm_selectors]
-      } )
+      }
+    )
   ; ( "vm-cd-remove"
     , {
         optn= []
@@ -1372,7 +1510,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Remove the selected CDs from the VM(s)."
       ; implementation= No_fd Cli_operations.vm_cd_remove
       ; flags= [Standard; Vm_selectors]
-      } )
+      }
+    )
   ; ( "vm-cd-eject"
     , {
         optn= []
@@ -1384,7 +1523,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
            uuid of the VBD."
       ; implementation= No_fd Cli_operations.vm_cd_eject
       ; flags= [Standard; Vm_selectors]
-      } )
+      }
+    )
   ; ( "vm-cd-insert"
     , {
         optn= []
@@ -1397,7 +1537,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
            insert."
       ; implementation= No_fd Cli_operations.vm_cd_insert
       ; flags= [Standard; Vm_selectors]
-      } )
+      }
+    )
   ; ( "vm-vcpu-hotplug"
     , {
         reqd= ["new-vcpus"]
@@ -1405,7 +1546,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Dynamically adjust the number of VCPUs available to running VM."
       ; implementation= No_fd Cli_operations.vm_vcpu_hotplug
       ; flags= [Vm_selectors]
-      } )
+      }
+    )
   ; ( "cd-list"
     , {
         reqd= []
@@ -1413,7 +1555,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "List the CDs available to be attached to VMs."
       ; implementation= No_fd Cli_operations.cd_list
       ; flags= [Standard]
-      } )
+      }
+    )
   ; ( "vm-disk-add"
     , {
         reqd= ["disk-size"; "device"]
@@ -1423,7 +1566,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
            selected from the field 'allowed-VBD-devices' of the VM."
       ; implementation= No_fd Cli_operations.vm_disk_add
       ; flags= [Standard; Vm_selectors]
-      } )
+      }
+    )
   ; ( "vm-disk-remove"
     , {
         reqd= ["device"]
@@ -1431,7 +1575,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Remove a disk from the selected VM and destroy it."
       ; implementation= No_fd Cli_operations.vm_disk_remove
       ; flags= [Standard; Vm_selectors]
-      } )
+      }
+    )
   ; ( "vm-import"
     , {
         reqd= []
@@ -1461,7 +1606,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
            specified, xapi will attempt to import from that URL."
       ; implementation= With_fd Cli_operations.vm_import
       ; flags= [Standard]
-      } )
+      }
+    )
   ; ( "vm-export"
     , {
         reqd= ["filename"]
@@ -1469,7 +1615,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Export a VM to <filename>."
       ; implementation= With_fd Cli_operations.vm_export
       ; flags= [Standard; Vm_selectors]
-      } )
+      }
+    )
   ; ( "vm-copy-bios-strings"
     , {
         reqd= ["host-uuid"]
@@ -1477,7 +1624,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Copy the BIOS strings of the given host to the VM."
       ; implementation= No_fd Cli_operations.vm_copy_bios_strings
       ; flags= [Vm_selectors]
-      } )
+      }
+    )
   ; ( "vm-is-bios-customized"
     , {
         reqd= []
@@ -1486,7 +1634,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
           "Indicates whether the BIOS strings of the VM have been customized."
       ; implementation= No_fd Cli_operations.vm_is_bios_customized
       ; flags= [Vm_selectors]
-      } )
+      }
+    )
   ; ( "vm-call-plugin"
     , {
         reqd= ["vm-uuid"; "plugin"; "fn"]
@@ -1499,7 +1648,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
            local_file will be retrieved and assigned to \"key\" as a whole."
       ; implementation= With_fd Cli_operations.vm_call_plugin
       ; flags= []
-      } )
+      }
+    )
   ; ( "snapshot-export-to-template"
     , {
         reqd= ["filename"; "snapshot-uuid"]
@@ -1507,7 +1657,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Export a snapshot to <filename>."
       ; implementation= With_fd Cli_operations.snapshot_export
       ; flags= [Standard]
-      } )
+      }
+    )
   ; ( "snapshot-clone"
     , {
         reqd= ["new-name-label"]
@@ -1517,7 +1668,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
            storage-level fast disk clone operation where available."
       ; implementation= No_fd Cli_operations.snapshot_clone
       ; flags= [Standard]
-      } )
+      }
+    )
   ; ( "snapshot-copy"
     , {
         reqd= ["new-name-label"]
@@ -1529,7 +1681,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
            'full images' - i.e. not part of a CoW chain."
       ; implementation= No_fd Cli_operations.snapshot_copy
       ; flags= [Standard]
-      } )
+      }
+    )
   ; ( "snapshot-uninstall"
     , {
         reqd= []
@@ -1540,7 +1693,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
            destroy the VM record, use snapshot-destroy."
       ; implementation= With_fd Cli_operations.snapshot_uninstall
       ; flags= [Standard]
-      } )
+      }
+    )
   ; ( "snapshot-destroy"
     , {
         reqd= []
@@ -1550,7 +1704,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
            snapshot intact. To delete storage too, use snapshot-uninstall."
       ; implementation= No_fd Cli_operations.snapshot_destroy
       ; flags= []
-      } )
+      }
+    )
   ; ( "snapshot-disk-list"
     , {
         reqd= []
@@ -1558,7 +1713,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "List the disks on the selected VM(s)."
       ; implementation= No_fd (Cli_operations.snapshot_disk_list false)
       ; flags= [Standard; Vm_selectors]
-      } )
+      }
+    )
   ; ( "template-export"
     , {
         reqd= ["filename"; "template-uuid"]
@@ -1566,7 +1722,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Export a template to <filename>."
       ; implementation= With_fd Cli_operations.template_export
       ; flags= [Standard]
-      } )
+      }
+    )
   ; ( "template-uninstall"
     , {
         reqd= ["template-uuid"]
@@ -1576,7 +1733,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
            that are marked as 'owned' by this template"
       ; implementation= With_fd Cli_operations.template_uninstall
       ; flags= [Standard]
-      } )
+      }
+    )
   ; ( "vm-vif-list"
     , {
         reqd= []
@@ -1584,7 +1742,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "List the VIFs present on selected VM."
       ; implementation= No_fd Cli_operations.vm_vif_list
       ; flags= [Standard; Vm_selectors]
-      } )
+      }
+    )
   ; ( "vlan-create"
     , {
         reqd= ["pif-uuid"; "vlan"; "network-uuid"]
@@ -1592,7 +1751,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Create a new VLAN on a host."
       ; implementation= No_fd Cli_operations.vlan_create
       ; flags= []
-      } )
+      }
+    )
   ; ( "vlan-destroy"
     , {
         reqd= ["uuid"]
@@ -1600,7 +1760,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Destroy a VLAN."
       ; implementation= No_fd Cli_operations.vlan_destroy
       ; flags= []
-      } )
+      }
+    )
   ; ( "tunnel-create"
     , {
         reqd= ["pif-uuid"; "network-uuid"]
@@ -1608,7 +1769,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Create a new tunnel on a host."
       ; implementation= No_fd Cli_operations.tunnel_create
       ; flags= []
-      } )
+      }
+    )
   ; ( "tunnel-destroy"
     , {
         reqd= ["uuid"]
@@ -1616,7 +1778,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Destroy a tunnel."
       ; implementation= No_fd Cli_operations.tunnel_destroy
       ; flags= []
-      } )
+      }
+    )
   ; ( "network-sriov-create"
     , {
         reqd= ["pif-uuid"; "network-uuid"]
@@ -1624,7 +1787,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Create a new network-sriov on a PIF."
       ; implementation= No_fd Cli_operations.Network_sriov.create
       ; flags= []
-      } )
+      }
+    )
   ; ( "network-sriov-destroy"
     , {
         reqd= ["uuid"]
@@ -1632,7 +1796,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Destroy a network-sriov."
       ; implementation= No_fd Cli_operations.Network_sriov.destroy
       ; flags= []
-      } )
+      }
+    )
   ; ( "pif-unplug"
     , {
         reqd= ["uuid"]
@@ -1640,7 +1805,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Attempt to bring down a network interface."
       ; implementation= No_fd Cli_operations.pif_unplug
       ; flags= []
-      } )
+      }
+    )
   ; ( "pif-plug"
     , {
         reqd= ["uuid"]
@@ -1648,7 +1814,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Attempt to bring up a network interface."
       ; implementation= No_fd Cli_operations.pif_plug
       ; flags= []
-      } )
+      }
+    )
   ; ( "pif-reconfigure-ip"
     , {
         reqd= ["uuid"; "mode"]
@@ -1656,7 +1823,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Reconfigure the IP address settings on a PIF."
       ; implementation= No_fd Cli_operations.pif_reconfigure_ip
       ; flags= []
-      } )
+      }
+    )
   ; ( "pif-reconfigure-ipv6"
     , {
         reqd= ["uuid"; "mode"]
@@ -1664,7 +1832,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Reconfigure the IPv6 address settings on a PIF."
       ; implementation= No_fd Cli_operations.pif_reconfigure_ipv6
       ; flags= []
-      } )
+      }
+    )
   ; ( "pif-set-primary-address-type"
     , {
         reqd= ["uuid"; "primary_address_type"]
@@ -1672,7 +1841,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Change the primary address type used by this PIF."
       ; implementation= No_fd Cli_operations.pif_set_primary_address_type
       ; flags= []
-      } )
+      }
+    )
   ; ( "pif-scan"
     , {
         reqd= ["host-uuid"]
@@ -1680,7 +1850,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Scan for new physical interfaces on a host."
       ; implementation= No_fd Cli_operations.pif_scan
       ; flags= []
-      } )
+      }
+    )
   ; ( "pif-introduce"
     , {
         reqd= ["host-uuid"; "device"]
@@ -1689,7 +1860,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
           "Create a new PIF object representing a physical interface on a host."
       ; implementation= No_fd Cli_operations.pif_introduce
       ; flags= []
-      } )
+      }
+    )
   ; ( "pif-forget"
     , {
         reqd= ["uuid"]
@@ -1697,7 +1869,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Destroy a PIF object on a particular host."
       ; implementation= No_fd Cli_operations.pif_forget
       ; flags= []
-      } )
+      }
+    )
   ; ( "pif-db-forget"
     , {
         reqd= ["uuid"]
@@ -1706,7 +1879,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
           "Destroy the database object representing a PIF on a particular host."
       ; implementation= No_fd Cli_operations.pif_db_forget
       ; flags= [Hidden]
-      } )
+      }
+    )
   ; ( "bond-create"
     , {
         reqd= ["network-uuid"; "pif-uuids"]
@@ -1714,7 +1888,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Create a bonded interface from a list of existing PIF objects."
       ; implementation= No_fd Cli_operations.bond_create
       ; flags= []
-      } )
+      }
+    )
   ; ( "bond-destroy"
     , {
         reqd= ["uuid"]
@@ -1722,7 +1897,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Destroy a bonded interface."
       ; implementation= No_fd Cli_operations.bond_destroy
       ; flags= []
-      } )
+      }
+    )
   ; ( "bond-set-mode"
     , {
         reqd= ["uuid"; "mode"]
@@ -1730,7 +1906,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Change the bond mode."
       ; implementation= No_fd Cli_operations.bond_set_mode
       ; flags= []
-      } )
+      }
+    )
   ; (* Lowlevel non-autogenerated stuff *)
     ( "vbd-create"
     , {
@@ -1743,7 +1920,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
            'Disk' or 'CD', and the mode is 'RO' or 'RW'."
       ; implementation= No_fd Cli_operations.vbd_create
       ; flags= []
-      } )
+      }
+    )
   ; ( "vbd-destroy"
     , {
         reqd= ["uuid"]
@@ -1751,7 +1929,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Destroy a VBD."
       ; implementation= No_fd Cli_operations.vbd_destroy
       ; flags= []
-      } )
+      }
+    )
   ; ( "vbd-insert"
     , {
         reqd= ["uuid"; "vdi-uuid"]
@@ -1759,7 +1938,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Insert new media into the drive represented by a VBD."
       ; implementation= No_fd Cli_operations.vbd_insert
       ; flags= []
-      } )
+      }
+    )
   ; ( "vbd-eject"
     , {
         reqd= ["uuid"]
@@ -1767,7 +1947,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Remove the media from the drive represented by a VBD."
       ; implementation= No_fd Cli_operations.vbd_eject
       ; flags= []
-      } )
+      }
+    )
   ; ( "vbd-plug"
     , {
         reqd= ["uuid"]
@@ -1775,7 +1956,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Attempt to attach the VBD while the VM is in the running state."
       ; implementation= No_fd Cli_operations.vbd_plug
       ; flags= []
-      } )
+      }
+    )
   ; ( "vbd-unplug"
     , {
         reqd= ["uuid"]
@@ -1788,7 +1970,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
            unplugged."
       ; implementation= No_fd Cli_operations.vbd_unplug
       ; flags= []
-      } )
+      }
+    )
   ; ( "vbd-pause"
     , {
         reqd= ["uuid"]
@@ -1796,7 +1979,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Request that a backend block device pauses itself."
       ; implementation= No_fd Cli_operations.vbd_pause
       ; flags= [Hidden]
-      } )
+      }
+    )
   ; ( "vbd-unpause"
     , {
         reqd= ["uuid"; "token"]
@@ -1804,7 +1988,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Request that a backend block device unpauses itself."
       ; implementation= No_fd Cli_operations.vbd_unpause
       ; flags= [Hidden]
-      } )
+      }
+    )
   ; ( "sr-create"
     , {
         reqd= ["name-label"; "type"]
@@ -1822,7 +2007,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
            specified by e.g. device-config:foo=baa."
       ; implementation= With_fd Cli_operations.sr_create
       ; flags= []
-      } )
+      }
+    )
   ; ( "sr-probe"
     , {
         reqd= ["type"]
@@ -1832,7 +2018,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
            specified by e.g. device-config:devs=/dev/sdb1."
       ; implementation= No_fd Cli_operations.sr_probe
       ; flags= []
-      } )
+      }
+    )
   ; ( "sr-probe-ext"
     , {
         reqd= ["type"]
@@ -1844,7 +2031,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
            every SR type."
       ; implementation= No_fd Cli_operations.sr_probe_ext
       ; flags= []
-      } )
+      }
+    )
   ; ( "sr-scan"
     , {
         reqd= ["uuid"]
@@ -1854,7 +2042,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
            storage substrate."
       ; implementation= No_fd Cli_operations.sr_scan
       ; flags= []
-      } )
+      }
+    )
   ; ( "sr-introduce"
     , {
         reqd= ["name-label"; "type"; "uuid"]
@@ -1862,7 +2051,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Introduces an SR (but does not create any PBDs)."
       ; implementation= No_fd Cli_operations.sr_introduce
       ; flags= []
-      } )
+      }
+    )
   ; ( "sr-destroy"
     , {
         reqd= ["uuid"]
@@ -1870,7 +2060,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Destroy the SR."
       ; implementation= No_fd Cli_operations.sr_destroy
       ; flags= []
-      } )
+      }
+    )
   ; ( "sr-forget"
     , {
         reqd= ["uuid"]
@@ -1878,7 +2069,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Forget about the SR."
       ; implementation= No_fd Cli_operations.sr_forget
       ; flags= []
-      } )
+      }
+    )
   ; ( "sr-update"
     , {
         reqd= ["uuid"]
@@ -1886,7 +2078,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Refresh the fields of the SR object in the database."
       ; implementation= No_fd Cli_operations.sr_update
       ; flags= []
-      } )
+      }
+    )
   ; ( "sr-enable-database-replication"
     , {
         reqd= ["uuid"]
@@ -1894,7 +2087,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Enable database replication to the SR."
       ; implementation= No_fd Cli_operations.sr_enable_database_replication
       ; flags= []
-      } )
+      }
+    )
   ; ( "sr-disable-database-replication"
     , {
         reqd= ["uuid"]
@@ -1902,7 +2096,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Disable database replication to the SR."
       ; implementation= No_fd Cli_operations.sr_disable_database_replication
       ; flags= []
-      } )
+      }
+    )
   ; ( "sr-data-source-list"
     , {
         reqd= []
@@ -1910,7 +2105,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "List the data sources that can be recorded for a SR."
       ; implementation= No_fd Cli_operations.sr_data_source_list
       ; flags= [Sr_selectors]
-      } )
+      }
+    )
   ; ( "sr-data-source-record"
     , {
         reqd= ["data-source"]
@@ -1918,7 +2114,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Record the specified data source for a SR."
       ; implementation= No_fd Cli_operations.sr_data_source_record
       ; flags= [Sr_selectors]
-      } )
+      }
+    )
   ; ( "sr-data-source-query"
     , {
         reqd= ["data-source"]
@@ -1926,7 +2123,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Query the last value read from a SR data source."
       ; implementation= No_fd Cli_operations.sr_data_source_query
       ; flags= [Sr_selectors]
-      } )
+      }
+    )
   ; ( "sr-data-source-forget"
     , {
         reqd= ["data-source"]
@@ -1936,7 +2134,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
            of the recorded data."
       ; implementation= No_fd Cli_operations.sr_data_source_forget
       ; flags= [Sr_selectors]
-      } )
+      }
+    )
   ; ( "vdi-create"
     , {
         reqd= ["sr-uuid"; "name-label"; "virtual-size"]
@@ -1944,7 +2143,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Create a VDI. Type is 'system' 'user' 'suspend' or 'crashdump'."
       ; implementation= No_fd Cli_operations.vdi_create
       ; flags= []
-      } )
+      }
+    )
   ; ( "vdi-destroy"
     , {
         reqd= ["uuid"]
@@ -1952,7 +2152,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Destroy a VDI."
       ; implementation= No_fd Cli_operations.vdi_destroy
       ; flags= []
-      } )
+      }
+    )
   ; ( "vdi-forget"
     , {
         reqd= ["uuid"]
@@ -1960,7 +2161,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Forget about a VDI."
       ; implementation= No_fd Cli_operations.vdi_forget
       ; flags= []
-      } )
+      }
+    )
   ; ( "vdi-update"
     , {
         reqd= ["uuid"]
@@ -1968,7 +2170,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Refresh the fields of the VDI object in the database."
       ; implementation= No_fd Cli_operations.vdi_update
       ; flags= []
-      } )
+      }
+    )
   ; ( "vdi-introduce"
     , {
         reqd= ["uuid"; "sr-uuid"; "type"; "location"]
@@ -1985,7 +2188,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Create a VDI object representing an existing disk."
       ; implementation= No_fd Cli_operations.vdi_introduce
       ; flags= []
-      } )
+      }
+    )
   ; ( "vdi-import"
     , {
         reqd= ["uuid"; "filename"]
@@ -1993,7 +2197,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Import a raw VDI."
       ; implementation= With_fd Cli_operations.vdi_import
       ; flags= []
-      } )
+      }
+    )
   ; ( "vdi-export"
     , {
         reqd= ["uuid"; "filename"]
@@ -2001,7 +2206,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Export a VDI."
       ; implementation= With_fd Cli_operations.vdi_export
       ; flags= []
-      } )
+      }
+    )
   ; ( "vdi-resize"
     , {
         reqd= ["uuid"; "disk-size"]
@@ -2009,7 +2215,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Resize a VDI."
       ; implementation= No_fd Cli_operations.vdi_resize
       ; flags= []
-      } )
+      }
+    )
   ; ( "vdi-generate-config"
     , {
         reqd= ["host-uuid"; "uuid"]
@@ -2017,7 +2224,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Generate a static VDI configuration."
       ; implementation= No_fd Cli_operations.vdi_generate_config
       ; flags= [Hidden]
-      } )
+      }
+    )
   ; ( "vdi-copy"
     , {
         reqd= ["uuid"]
@@ -2027,7 +2235,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
            either into a fresh VDI in a specified SR or into an existing VDI."
       ; implementation= No_fd Cli_operations.vdi_copy
       ; flags= []
-      } )
+      }
+    )
   ; ( "vdi-pool-migrate"
     , {
         reqd= ["uuid"; "sr-uuid"]
@@ -2037,7 +2246,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
            running guest."
       ; implementation= No_fd Cli_operations.vdi_pool_migrate
       ; flags= []
-      } )
+      }
+    )
   ; ( "vdi-clone"
     , {
         reqd= ["uuid"]
@@ -2045,7 +2255,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Clone a specified VDI."
       ; implementation= No_fd Cli_operations.vdi_clone
       ; flags= []
-      } )
+      }
+    )
   ; ( "vdi-snapshot"
     , {
         reqd= ["uuid"]
@@ -2053,7 +2264,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Snapshot a specified VDI."
       ; implementation= No_fd Cli_operations.vdi_snapshot
       ; flags= []
-      } )
+      }
+    )
   ; ( "vdi-unlock"
     , {
         reqd= ["uuid"]
@@ -2061,7 +2273,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Attempt to unlock a VDI."
       ; implementation= No_fd Cli_operations.vdi_unlock
       ; flags= []
-      } )
+      }
+    )
   ; ( "vdi-enable-cbt"
     , {
         reqd= ["uuid"]
@@ -2069,7 +2282,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Enable changed block tracking on a VDI."
       ; implementation= No_fd Cli_operations.vdi_enable_cbt
       ; flags= []
-      } )
+      }
+    )
   ; ( "vdi-disable-cbt"
     , {
         reqd= ["uuid"]
@@ -2077,7 +2291,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Disable changed block tracking on a VDI."
       ; implementation= No_fd Cli_operations.vdi_disable_cbt
       ; flags= []
-      } )
+      }
+    )
   ; ( "vdi-data-destroy"
     , {
         reqd= ["uuid"]
@@ -2087,7 +2302,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
            metadata."
       ; implementation= No_fd Cli_operations.vdi_data_destroy
       ; flags= []
-      } )
+      }
+    )
   ; ( "vdi-list-changed-blocks"
     , {
         reqd= ["vdi-from-uuid"; "vdi-to-uuid"]
@@ -2097,7 +2313,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
            output as a base64-encoded bitmap string."
       ; implementation= With_fd Cli_operations.vdi_list_changed_blocks
       ; flags= []
-      } )
+      }
+    )
   ; ( "diagnostic-vdi-status"
     , {
         reqd= ["uuid"]
@@ -2105,7 +2322,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Query the locking and sharing status of a VDI."
       ; implementation= No_fd Cli_operations.diagnostic_vdi_status
       ; flags= []
-      } )
+      }
+    )
   ; ( "pbd-create"
     , {
         reqd= ["host-uuid"; "sr-uuid"]
@@ -2117,7 +2335,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
            the argument device-config:path=/tmp"
       ; implementation= No_fd Cli_operations.pbd_create
       ; flags= []
-      } )
+      }
+    )
   ; ( "pbd-destroy"
     , {
         reqd= ["uuid"]
@@ -2125,7 +2344,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Destroy the PBD."
       ; implementation= No_fd Cli_operations.pbd_destroy
       ; flags= []
-      } )
+      }
+    )
   ; ( "pbd-plug"
     , {
         reqd= ["uuid"]
@@ -2136,7 +2356,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
            the host."
       ; implementation= No_fd Cli_operations.pbd_plug
       ; flags= []
-      } )
+      }
+    )
   ; ( "pbd-unplug"
     , {
         reqd= ["uuid"]
@@ -2147,7 +2368,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
            to the host."
       ; implementation= No_fd Cli_operations.pbd_unplug
       ; flags= []
-      } )
+      }
+    )
   ; ( "network-create"
     , {
         reqd= ["name-label"]
@@ -2155,7 +2377,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Create a new network."
       ; implementation= No_fd Cli_operations.net_create
       ; flags= []
-      } )
+      }
+    )
   ; ( "network-destroy"
     , {
         reqd= ["uuid"]
@@ -2163,7 +2386,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Delete an existing network."
       ; implementation= No_fd Cli_operations.net_destroy
       ; flags= []
-      } )
+      }
+    )
   ; ( "network-attach"
     , {
         reqd= ["uuid"; "host-uuid"]
@@ -2171,7 +2395,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Make a network appear on a particular host."
       ; implementation= No_fd Cli_operations.net_attach
       ; flags= [Hidden]
-      } )
+      }
+    )
   ; ( "vif-create"
     , {
         reqd= ["device"; "network-uuid"; "vm-uuid"]
@@ -2183,7 +2408,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
            the server will choose an appropriate MAC automatically."
       ; implementation= No_fd Cli_operations.vif_create
       ; flags= []
-      } )
+      }
+    )
   ; ( "vif-destroy"
     , {
         reqd= ["uuid"]
@@ -2191,7 +2417,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Destroy a VIF."
       ; implementation= No_fd Cli_operations.vif_destroy
       ; flags= []
-      } )
+      }
+    )
   ; ( "vif-plug"
     , {
         reqd= ["uuid"]
@@ -2199,7 +2426,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Attempt to attach the VIF while the VM is in the running state."
       ; implementation= No_fd Cli_operations.vif_plug
       ; flags= []
-      } )
+      }
+    )
   ; ( "vif-unplug"
     , {
         reqd= ["uuid"]
@@ -2207,7 +2435,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Attempt to detach the VIF while the VM is in the running state."
       ; implementation= No_fd Cli_operations.vif_unplug
       ; flags= []
-      } )
+      }
+    )
   ; ( "vif-configure-ipv4"
     , {
         reqd= ["uuid"; "mode"]
@@ -2215,7 +2444,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Configure IPv4 settings on a VIF."
       ; implementation= No_fd Cli_operations.vif_configure_ipv4
       ; flags= []
-      } )
+      }
+    )
   ; ( "vif-configure-ipv6"
     , {
         reqd= ["uuid"; "mode"]
@@ -2223,7 +2453,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Configure IPv6 settings on a VIF."
       ; implementation= No_fd Cli_operations.vif_configure_ipv6
       ; flags= []
-      } )
+      }
+    )
   ; ( "vif-move"
     , {
         reqd= ["uuid"; "network-uuid"]
@@ -2231,7 +2462,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Move the VIF to another network."
       ; implementation= No_fd Cli_operations.vif_move
       ; flags= []
-      } )
+      }
+    )
   ; ( "vm-create"
     , {
         reqd= ["name-label"]
@@ -2239,7 +2471,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Create a new VM with default parameters."
       ; implementation= No_fd Cli_operations.vm_create
       ; flags= [Hidden]
-      } )
+      }
+    )
   ; ( "vm-destroy"
     , {
         reqd= ["uuid"]
@@ -2249,7 +2482,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
            intact. To delete storage too, use vm-uninstall."
       ; implementation= No_fd Cli_operations.vm_destroy
       ; flags= []
-      } )
+      }
+    )
   ; ( "vm-recover"
     , {
         reqd= ["uuid"]
@@ -2257,7 +2491,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Recover a VM from the database contained in the supplied VDI."
       ; implementation= No_fd Cli_operations.vm_recover
       ; flags= []
-      } )
+      }
+    )
   ; ( "vm-assert-can-be-recovered"
     , {
         reqd= ["uuid"]
@@ -2265,7 +2500,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Test whether storage is available to recover this VM."
       ; implementation= No_fd Cli_operations.vm_assert_can_be_recovered
       ; flags= []
-      } )
+      }
+    )
   ; ( "diagnostic-vm-status"
     , {
         reqd= ["uuid"]
@@ -2275,7 +2511,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
            status of all VBDs."
       ; implementation= No_fd Cli_operations.diagnostic_vm_status
       ; flags= [Standard]
-      } )
+      }
+    )
   ; (*
    "diagnostic-event-deltas",
     {
@@ -2293,7 +2530,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Help diagnose pool-wide licensing problems."
       ; implementation= No_fd Cli_operations.diagnostic_license_status
       ; flags= []
-      } )
+      }
+    )
   ; ( "event-wait"
     , {
         reqd= ["class"]
@@ -2303,7 +2541,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
            command line."
       ; implementation= No_fd Cli_operations.event_wait
       ; flags= []
-      } )
+      }
+    )
   ; ( "host-data-source-list"
     , {
         reqd= []
@@ -2311,7 +2550,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "List the data sources that can be recorded for a Host."
       ; implementation= No_fd Cli_operations.host_data_source_list
       ; flags= [Host_selectors]
-      } )
+      }
+    )
   ; ( "host-data-source-record"
     , {
         reqd= ["data-source"]
@@ -2319,7 +2559,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Record the specified data source for a Host."
       ; implementation= No_fd Cli_operations.host_data_source_record
       ; flags= [Host_selectors]
-      } )
+      }
+    )
   ; ( "host-data-source-query"
     , {
         reqd= ["data-source"]
@@ -2327,7 +2568,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Query the last value read from a Host data source."
       ; implementation= No_fd Cli_operations.host_data_source_query
       ; flags= [Host_selectors]
-      } )
+      }
+    )
   ; ( "host-data-source-forget"
     , {
         reqd= ["data-source"]
@@ -2337,7 +2579,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
            of the recorded data."
       ; implementation= No_fd Cli_operations.host_data_source_forget
       ; flags= [Host_selectors]
-      } )
+      }
+    )
   ; ( "host-license-add"
     , {
         reqd= ["license-file"]
@@ -2345,7 +2588,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Add a license to a host."
       ; implementation= With_fd Cli_operations.host_license_add
       ; flags= []
-      } )
+      }
+    )
   ; ( "host-license-remove"
     , {
         reqd= []
@@ -2353,7 +2597,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Remove any licensing applied to a host."
       ; implementation= No_fd Cli_operations.host_license_remove
       ; flags= []
-      } )
+      }
+    )
   ; ( "host-license-view"
     , {
         reqd= []
@@ -2361,7 +2606,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "View the license parameters of the host."
       ; implementation= No_fd Cli_operations.host_license_view
       ; flags= []
-      } )
+      }
+    )
   ; ( "host-apply-edition"
     , {
         reqd= ["edition"]
@@ -2372,7 +2618,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
            checkout of an appropriate license."
       ; implementation= No_fd Cli_operations.host_apply_edition
       ; flags= []
-      } )
+      }
+    )
   ; ( "host-all-editions"
     , {
         reqd= []
@@ -2380,7 +2627,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Get a list of all available editions."
       ; implementation= No_fd Cli_operations.host_all_editions
       ; flags= []
-      } )
+      }
+    )
   ; ( "host-evacuate"
     , {
         reqd= []
@@ -2388,7 +2636,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Migrate all VMs off a host."
       ; implementation= No_fd Cli_operations.host_evacuate
       ; flags= [Host_selectors]
-      } )
+      }
+    )
   ; ( "host-get-vms-which-prevent-evacuation"
     , {
         reqd= ["uuid"]
@@ -2399,7 +2648,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; implementation=
           No_fd Cli_operations.host_get_vms_which_prevent_evacuation
       ; flags= []
-      } )
+      }
+    )
   ; ( "host-shutdown-agent"
     , {
         reqd= []
@@ -2407,7 +2657,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Shut down the agent on the local host."
       ; implementation= No_fd_local_session Cli_operations.host_shutdown_agent
       ; flags= [Neverforward]
-      } )
+      }
+    )
   ; ( "diagnostic-compact"
     , {
         reqd= []
@@ -2415,7 +2666,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Perform a major GC collection and heap compaction."
       ; implementation= No_fd Cli_operations.diagnostic_compact
       ; flags= [Host_selectors]
-      } )
+      }
+    )
   ; ( "diagnostic-gc-stats"
     , {
         reqd= []
@@ -2423,7 +2675,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Print GC stats."
       ; implementation= No_fd Cli_operations.diagnostic_gc_stats
       ; flags= [Host_selectors]
-      } )
+      }
+    )
   ; ( "diagnostic-timing-stats"
     , {
         reqd= []
@@ -2431,7 +2684,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Print timing stats."
       ; implementation= No_fd Cli_operations.diagnostic_timing_stats
       ; flags= []
-      } )
+      }
+    )
   ; ( "diagnostic-db-stats"
     , {
         reqd= []
@@ -2439,7 +2693,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Print db stats."
       ; implementation= No_fd Cli_operations.diagnostic_db_stats
       ; flags= []
-      } )
+      }
+    )
   ; ( "diagnostic-net-stats"
     , {
         reqd= []
@@ -2447,7 +2702,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Print network stats."
       ; implementation= No_fd Cli_operations.diagnostic_net_stats
       ; flags= [Host_selectors]
-      } )
+      }
+    )
   ; ( "host-get-sm-diagnostics"
     , {
         reqd= ["uuid"]
@@ -2455,7 +2711,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Display per-host SM diagnostic information."
       ; implementation= No_fd Cli_operations.host_get_sm_diagnostics
       ; flags= []
-      } )
+      }
+    )
   ; ( "host-get-thread-diagnostics"
     , {
         reqd= ["uuid"]
@@ -2463,7 +2720,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Display per-host thread diagnostic information."
       ; implementation= No_fd Cli_operations.host_get_thread_diagnostics
       ; flags= []
-      } )
+      }
+    )
   ; ( "host-sm-dp-destroy"
     , {
         reqd= ["uuid"; "dp"]
@@ -2474,7 +2732,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
            datapath even if it could not be shutdown cleanly."
       ; implementation= No_fd Cli_operations.host_sm_dp_destroy
       ; flags= []
-      } )
+      }
+    )
   ; ( "task-cancel"
     , {
         reqd= ["uuid"]
@@ -2482,7 +2741,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Set a task to cancelling and return."
       ; implementation= No_fd Cli_operations.task_cancel
       ; flags= []
-      } )
+      }
+    )
   ; (*
    "alert-create",
     {
@@ -2518,7 +2778,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Create a new VLAN on each host in a pool."
       ; implementation= No_fd Cli_operations.pool_vlan_create
       ; flags= []
-      } )
+      }
+    )
   ; ( "pool-ha-enable"
     , {
         reqd= []
@@ -2526,7 +2787,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Enable HA on this Pool."
       ; implementation= No_fd Cli_operations.pool_ha_enable
       ; flags= []
-      } )
+      }
+    )
   ; ( "pool-ha-disable"
     , {
         reqd= []
@@ -2534,7 +2796,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Disable HA on this Pool."
       ; implementation= No_fd Cli_operations.pool_ha_disable
       ; flags= []
-      } )
+      }
+    )
   ; ( "pool-ha-prevent-restarts-for"
     , {
         reqd= ["seconds"]
@@ -2542,7 +2805,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Prevent HA VM restarts for a given number of seconds"
       ; implementation= No_fd Cli_operations.pool_ha_prevent_restarts_for
       ; flags= [Hidden]
-      } )
+      }
+    )
   ; ( "pool-ha-compute-max-host-failures-to-tolerate"
     , {
         reqd= []
@@ -2553,7 +2817,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; implementation=
           No_fd Cli_operations.pool_ha_compute_max_host_failures_to_tolerate
       ; flags= []
-      } )
+      }
+    )
   ; ( "pool-ha-compute-hypothetical-max-host-failures-to-tolerate"
     , {
         reqd= []
@@ -2567,7 +2832,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
             Cli_operations
             .pool_ha_compute_hypothetical_max_host_failures_to_tolerate
       ; flags= []
-      } )
+      }
+    )
   ; ( "pool-ha-compute-vm-failover-plan"
     , {
         reqd= ["host-uuids"]
@@ -2575,7 +2841,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Compute a VM failover plan assuming the given set of hosts fail."
       ; implementation= No_fd Cli_operations.pool_ha_compute_vm_failover_plan
       ; flags= [Hidden]
-      } )
+      }
+    )
   ; ( "pool-enable-redo-log"
     , {
         reqd= ["sr-uuid"]
@@ -2585,7 +2852,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
            is enabled."
       ; implementation= No_fd Cli_operations.pool_enable_redo_log
       ; flags= []
-      } )
+      }
+    )
   ; ( "pool-disable-redo-log"
     , {
         reqd= []
@@ -2593,7 +2861,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Disable the redo log if in use, unless HA is enabled."
       ; implementation= No_fd Cli_operations.pool_disable_redo_log
       ; flags= []
-      } )
+      }
+    )
   ; ( "host-ha-xapi-healthcheck"
     , {
         reqd= []
@@ -2602,7 +2871,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; implementation=
           With_fd_local_session Cli_operations.host_ha_xapi_healthcheck
       ; flags= [Hidden; Neverforward]
-      } )
+      }
+    )
   ; (*
    "host-ha-query",
     {
@@ -2631,7 +2901,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Add a subject to the list of subjects that can access the pool"
       ; implementation= No_fd Cli_operations.subject_add
       ; flags= []
-      } )
+      }
+    )
   ; ( "subject-remove"
     , {
         reqd= ["subject-uuid"]
@@ -2640,7 +2911,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
           "Remove a subject from the list of subjects that can access the pool"
       ; implementation= No_fd Cli_operations.subject_remove
       ; flags= []
-      } )
+      }
+    )
   ; ( "subject-role-add"
     , {
         reqd= ["uuid"]
@@ -2648,7 +2920,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Add a role to a subject"
       ; implementation= No_fd Cli_operations.subject_role_add
       ; flags= []
-      } )
+      }
+    )
   ; ( "subject-role-remove"
     , {
         reqd= ["uuid"]
@@ -2656,7 +2929,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Remove a role from a subject"
       ; implementation= No_fd Cli_operations.subject_role_remove
       ; flags= []
-      } )
+      }
+    )
   ; ( "audit-log-get"
     , {
         reqd= ["filename"]
@@ -2664,7 +2938,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Write the audit log of the pool to <filename>"
       ; implementation= With_fd Cli_operations.audit_log_get
       ; flags= []
-      } )
+      }
+    )
   ; (* RBAC 2.0 only
        "role-create",
        {
@@ -2684,7 +2959,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
            externally-authenticated existing sessions"
       ; implementation= No_fd Cli_operations.session_subject_identifier_list
       ; flags= []
-      } )
+      }
+    )
   ; ( "session-subject-identifier-logout"
     , {
         reqd= ["subject-identifier"]
@@ -2694,7 +2970,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
            subject id"
       ; implementation= No_fd Cli_operations.session_subject_identifier_logout
       ; flags= []
-      } )
+      }
+    )
   ; ( "session-subject-identifier-logout-all"
     , {
         reqd= []
@@ -2703,7 +2980,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; implementation=
           No_fd Cli_operations.session_subject_identifier_logout_all
       ; flags= []
-      } )
+      }
+    )
   ; ( "host-get-server-certificate"
     , {
         reqd= []
@@ -2711,7 +2989,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Get the server TLS certificate of a host"
       ; implementation= No_fd Cli_operations.host_get_server_certificate
       ; flags= [Host_selectors]
-      } )
+      }
+    )
   ; ( "host-server-certificate-install"
     , {
         reqd= ["certificate"; "private-key"]
@@ -2719,7 +2998,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Install a server TLS certificate on a host"
       ; implementation= With_fd Cli_operations.host_install_server_certificate
       ; flags= [Host_selectors]
-      } )
+      }
+    )
   ; ( "secret-create"
     , {
         reqd= ["value"]
@@ -2727,7 +3007,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Create a secret"
       ; implementation= No_fd Cli_operations.secret_create
       ; flags= []
-      } )
+      }
+    )
   ; ( "secret-destroy"
     , {
         reqd= ["uuid"]
@@ -2735,7 +3016,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Destroy a secret"
       ; implementation= No_fd Cli_operations.secret_destroy
       ; flags= []
-      } )
+      }
+    )
   ; ( "vmss-create"
     , {
         reqd= ["name-label"; "type"; "frequency"]
@@ -2743,7 +3025,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Create a VM snapshot schedule."
       ; implementation= No_fd Cli_operations.vmss_create
       ; flags= []
-      } )
+      }
+    )
   ; ( "vmss-destroy"
     , {
         reqd= ["uuid"]
@@ -2751,7 +3034,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Destroy a VM snapshot schedule."
       ; implementation= No_fd Cli_operations.vmss_destroy
       ; flags= []
-      } )
+      }
+    )
   ; ( "appliance-create"
     , {
         reqd= ["name-label"]
@@ -2759,7 +3043,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Create a VM appliance."
       ; implementation= No_fd Cli_operations.vm_appliance_create
       ; flags= []
-      } )
+      }
+    )
   ; ( "appliance-destroy"
     , {
         reqd= ["uuid"]
@@ -2767,7 +3052,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Destroy a VM appliance."
       ; implementation= No_fd Cli_operations.vm_appliance_destroy
       ; flags= []
-      } )
+      }
+    )
   ; ( "appliance-start"
     , {
         reqd= ["uuid"]
@@ -2775,7 +3061,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Start a VM appliance."
       ; implementation= No_fd Cli_operations.vm_appliance_start
       ; flags= []
-      } )
+      }
+    )
   ; ( "appliance-shutdown"
     , {
         reqd= ["uuid"]
@@ -2783,7 +3070,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Shut down all VMs in a VM appliance."
       ; implementation= No_fd Cli_operations.vm_appliance_shutdown
       ; flags= []
-      } )
+      }
+    )
   ; ( "appliance-recover"
     , {
         reqd= ["uuid"]
@@ -2793,7 +3081,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
            VDI."
       ; implementation= No_fd Cli_operations.vm_appliance_recover
       ; flags= []
-      } )
+      }
+    )
   ; ( "appliance-assert-can-be-recovered"
     , {
         reqd= ["uuid"]
@@ -2802,7 +3091,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; implementation=
           No_fd Cli_operations.vm_appliance_assert_can_be_recovered
       ; flags= []
-      } )
+      }
+    )
   ; ( "gpu-group-create"
     , {
         reqd= ["name-label"]
@@ -2810,7 +3100,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Create an empty GPU group"
       ; implementation= No_fd Cli_operations.gpu_group_create
       ; flags= []
-      } )
+      }
+    )
   ; ( "gpu-group-destroy"
     , {
         reqd= ["uuid"]
@@ -2818,7 +3109,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Destroy a GPU group"
       ; implementation= No_fd Cli_operations.gpu_group_destroy
       ; flags= []
-      } )
+      }
+    )
   ; ( "gpu-group-get-remaining-capacity"
     , {
         reqd= ["uuid"; "vgpu-type-uuid"]
@@ -2828,7 +3120,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
            started in the group"
       ; implementation= No_fd Cli_operations.gpu_group_get_remaining_capacity
       ; flags= []
-      } )
+      }
+    )
   ; ( "vgpu-create"
     , {
         reqd= ["vm-uuid"; "gpu-group-uuid"]
@@ -2836,7 +3129,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Create a vGPU."
       ; implementation= No_fd Cli_operations.vgpu_create
       ; flags= []
-      } )
+      }
+    )
   ; ( "vgpu-destroy"
     , {
         reqd= ["uuid"]
@@ -2844,7 +3138,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Destroy a vGPU."
       ; implementation= No_fd Cli_operations.vgpu_destroy
       ; flags= []
-      } )
+      }
+    )
   ; ( "drtask-create"
     , {
         reqd= ["type"]
@@ -2852,7 +3147,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Create a disaster recovery task."
       ; implementation= No_fd Cli_operations.dr_task_create
       ; flags= []
-      } )
+      }
+    )
   ; ( "drtask-destroy"
     , {
         reqd= ["uuid"]
@@ -2860,7 +3156,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Destroy a disaster recovery task."
       ; implementation= No_fd Cli_operations.dr_task_destroy
       ; flags= []
-      } )
+      }
+    )
   ; ( "pgpu-enable-dom0-access"
     , {
         reqd= ["uuid"]
@@ -2868,7 +3165,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Enable PGPU access to dom0."
       ; implementation= No_fd Cli_operations.pgpu_enable_dom0_access
       ; flags= []
-      } )
+      }
+    )
   ; ( "pgpu-disable-dom0-access"
     , {
         reqd= ["uuid"]
@@ -2876,7 +3174,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Disable PGPU access to dom0."
       ; implementation= No_fd Cli_operations.pgpu_disable_dom0_access
       ; flags= []
-      } )
+      }
+    )
   ; ( "lvhd-enable-thin-provisioning"
     , {
         reqd= ["sr-uuid"; "initial-allocation"; "allocation-quantum"]
@@ -2884,7 +3183,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Enable thin-provisioning on an LVHD SR."
       ; implementation= No_fd Cli_operations.lvhd_enable_thin_provisioning
       ; flags= [Host_selectors]
-      } )
+      }
+    )
   ; ( "pvs-site-introduce"
     , {
         reqd= ["name-label"]
@@ -2892,7 +3192,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Introduce new PVS site"
       ; implementation= No_fd Cli_operations.PVS_site.introduce
       ; flags= []
-      } )
+      }
+    )
   ; ( "pvs-site-forget"
     , {
         reqd= ["uuid"]
@@ -2900,7 +3201,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Forget a PVS site"
       ; implementation= No_fd Cli_operations.PVS_site.forget
       ; flags= []
-      } )
+      }
+    )
   ; ( "pvs-server-introduce"
     , {
         reqd= ["addresses"; "first-port"; "last-port"; "pvs-site-uuid"]
@@ -2908,7 +3210,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Introduce new PVS server"
       ; implementation= No_fd Cli_operations.PVS_server.introduce
       ; flags= []
-      } )
+      }
+    )
   ; ( "pvs-server-forget"
     , {
         reqd= ["uuid"]
@@ -2916,7 +3219,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Forget a PVS server"
       ; implementation= No_fd Cli_operations.PVS_server.forget
       ; flags= []
-      } )
+      }
+    )
   ; ( "pvs-proxy-create"
     , {
         reqd= ["pvs-site-uuid"; "vif-uuid"]
@@ -2924,7 +3228,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Configure a VM/VIF to use a PVS proxy"
       ; implementation= No_fd Cli_operations.PVS_proxy.create
       ; flags= []
-      } )
+      }
+    )
   ; ( "pvs-proxy-destroy"
     , {
         reqd= ["uuid"]
@@ -2932,7 +3237,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Remove (or switch off) a PVS proxy for this VIF/VM"
       ; implementation= No_fd Cli_operations.PVS_proxy.destroy
       ; flags= []
-      } )
+      }
+    )
   ; ( "pvs-cache-storage-create"
     , {
         reqd= ["sr-uuid"; "pvs-site-uuid"; "size"]
@@ -2940,7 +3246,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Configure a PVS cache on a given SR for a given host"
       ; implementation= No_fd Cli_operations.PVS_cache_storage.create
       ; flags= [Host_selectors]
-      } )
+      }
+    )
   ; ( "pvs-cache-storage-destroy"
     , {
         reqd= ["uuid"]
@@ -2948,7 +3255,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Remove a PVS cache"
       ; implementation= No_fd Cli_operations.PVS_cache_storage.destroy
       ; flags= []
-      } )
+      }
+    )
   ; ( "sdn-controller-introduce"
     , {
         reqd= []
@@ -2956,7 +3264,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Introduce an SDN controller"
       ; implementation= No_fd Cli_operations.SDN_controller.introduce
       ; flags= []
-      } )
+      }
+    )
   ; ( "sdn-controller-forget"
     , {
         reqd= ["uuid"]
@@ -2964,7 +3273,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Remove an SDN controller"
       ; implementation= No_fd Cli_operations.SDN_controller.forget
       ; flags= []
-      } )
+      }
+    )
   ; ( "pusb-scan"
     , {
         reqd= ["host-uuid"]
@@ -2972,7 +3282,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Scan PUSB and update."
       ; implementation= No_fd Cli_operations.PUSB.scan
       ; flags= []
-      } )
+      }
+    )
   ; ( "vusb-create"
     , {
         reqd= ["usb-group-uuid"; "vm-uuid"]
@@ -2980,7 +3291,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Create a VUSB."
       ; implementation= No_fd Cli_operations.VUSB.create
       ; flags= []
-      } )
+      }
+    )
   ; ( "vusb-unplug"
     , {
         reqd= ["uuid"]
@@ -2988,7 +3300,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Unplug vusb device from vm."
       ; implementation= No_fd Cli_operations.VUSB.unplug
       ; flags= []
-      } )
+      }
+    )
   ; ( "vusb-destroy"
     , {
         reqd= ["uuid"]
@@ -2996,7 +3309,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Destroy a VUSB."
       ; implementation= No_fd Cli_operations.VUSB.destroy
       ; flags= []
-      } )
+      }
+    )
   ; ( "cluster-pool-create"
     , {
         reqd= ["network-uuid"]
@@ -3004,7 +3318,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Create pool-wide cluster"
       ; implementation= No_fd Cli_operations.Cluster.pool_create
       ; flags= []
-      } )
+      }
+    )
   ; ( "cluster-pool-force-destroy"
     , {
         reqd= ["cluster-uuid"]
@@ -3012,7 +3327,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Force destroy pool-wide cluster"
       ; implementation= No_fd Cli_operations.Cluster.pool_force_destroy
       ; flags= []
-      } )
+      }
+    )
   ; ( "cluster-pool-destroy"
     , {
         reqd= ["cluster-uuid"]
@@ -3020,7 +3336,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Destroy pool-wide cluster"
       ; implementation= No_fd Cli_operations.Cluster.pool_destroy
       ; flags= []
-      } )
+      }
+    )
   ; ( "cluster-pool-resync"
     , {
         reqd= ["cluster-uuid"]
@@ -3028,7 +3345,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Resync a cluster across a pool"
       ; implementation= No_fd Cli_operations.Cluster.pool_resync
       ; flags= []
-      } )
+      }
+    )
   ; ( "cluster-create"
     , {
         reqd= ["pif-uuid"]
@@ -3042,7 +3360,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Create new cluster with master as first member"
       ; implementation= No_fd Cli_operations.Cluster.create
       ; flags= [Hidden]
-      } )
+      }
+    )
   ; ( "cluster-destroy"
     , {
         reqd= ["uuid"]
@@ -3050,7 +3369,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Destroy the pool-wide cluster"
       ; implementation= No_fd Cli_operations.Cluster.destroy
       ; flags= []
-      } )
+      }
+    )
   ; ( "cluster-host-create"
     , {
         reqd= ["cluster-uuid"; "host-uuid"; "pif-uuid"]
@@ -3058,7 +3378,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Add a host to an existing cluster"
       ; implementation= No_fd Cli_operations.Cluster_host.create
       ; flags= [Hidden]
-      } )
+      }
+    )
   ; ( "cluster-host-disable"
     , {
         reqd= ["uuid"]
@@ -3066,7 +3387,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Disable cluster membership for an enabled cluster host"
       ; implementation= No_fd Cli_operations.Cluster_host.disable
       ; flags= []
-      } )
+      }
+    )
   ; ( "cluster-host-enable"
     , {
         reqd= ["uuid"]
@@ -3074,7 +3396,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Enable cluster membership for a disabled cluster host"
       ; implementation= No_fd Cli_operations.Cluster_host.enable
       ; flags= []
-      } )
+      }
+    )
   ; ( "cluster-host-destroy"
     , {
         reqd= ["uuid"]
@@ -3082,7 +3405,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help= "Destroy a cluster host, effectively leaving the cluster"
       ; implementation= No_fd Cli_operations.Cluster_host.destroy
       ; flags= []
-      } )
+      }
+    )
   ; ( "cluster-host-force-destroy"
     , {
         reqd= ["uuid"]
@@ -3092,7 +3416,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
            cluster"
       ; implementation= No_fd Cli_operations.Cluster_host.force_destroy
       ; flags= []
-      } )
+      }
+    )
   ]
 
 let cmdtable : (string, cmd_spec) Hashtbl.t = Hashtbl.create 50
@@ -3265,7 +3590,9 @@ let rio_help printer minimal cmd =
       (fun (x, _) ->
         not
           (List.mem x
-             ["server"; "username"; "password"; "port"; "minimal"; "all"]))
+             ["server"; "username"; "password"; "port"; "minimal"; "all"]
+          )
+      )
       cmd.params
   in
   if List.length cmds > 0 then

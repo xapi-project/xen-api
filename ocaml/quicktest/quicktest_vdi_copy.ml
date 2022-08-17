@@ -44,7 +44,8 @@ let write_to_vdi ~rpc ~session_id ~vdi f =
   if t.API.task_status <> `success then
     raise
       (Api_errors.Server_error
-         (List.hd t.API.task_error_info, List.tl t.API.task_error_info))
+         (List.hd t.API.task_error_info, List.tl t.API.task_error_info)
+      )
 
 let read_from_vdi ~session_id ~vdi f =
   let uri =
@@ -87,7 +88,8 @@ let start rpc session_id sr_info () =
       let chunk = {Chunk.start= 0L; data} in
       Chunk.marshal fd chunk ;
       let final = {Chunk.start= 0L; data= Bytes.empty} in
-      Chunk.marshal fd final) ;
+      Chunk.marshal fd final
+  ) ;
   print_endline "Uploaded 1MiB of 'a's" ;
   (* Snapshot the disk *)
   let snapshot =
@@ -101,7 +103,8 @@ let start rpc session_id sr_info () =
       let chunk = {Chunk.start= 0L; data} in
       Chunk.marshal fd chunk ;
       let final = {Chunk.start= 0L; data= Bytes.empty} in
-      Chunk.marshal fd final) ;
+      Chunk.marshal fd final
+  ) ;
   print_endline "Uploaded 1 sector of 'b's" ;
   (* Back up the original snapshot *)
   let snapshot_backup =
@@ -143,7 +146,8 @@ let start rpc session_id sr_info () =
           in
           Alcotest.fail msg
       done ;
-      print_endline "1MiB - 1 sector is full of 'a's") ;
+      print_endline "1MiB - 1 sector is full of 'a's"
+  ) ;
   print_endline "Destroying VDI (cleanup)" ;
   List.iter
     (wait_for_no_vbds_then_destroy ~rpc ~session_id)
@@ -160,6 +164,7 @@ let tests () =
            all
            |> allowed_operations [`vdi_create; `vdi_destroy]
            |> not_iso
-           |> not_type "gfs2")
+           |> not_type "gfs2"
+         )
   ]
   |> List.concat

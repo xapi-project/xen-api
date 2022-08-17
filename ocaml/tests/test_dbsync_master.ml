@@ -23,7 +23,8 @@ module CreateToolsSR = Generic.MakeStateful (struct
 
     let string_of_input_t =
       Test_printers.(
-        list (tuple4 string string (assoc_list string string) bool))
+        list (tuple4 string string (assoc_list string string) bool)
+      )
 
     let string_of_output_t =
       Test_printers.(list (tuple3 string string (assoc_list string string)))
@@ -58,7 +59,9 @@ module CreateToolsSR = Generic.MakeStateful (struct
       (fun (name_label, name_description, other_config, is_tools_sr) ->
         ignore
           (Test_common.make_sr ~__context ~name_label ~name_description
-             ~other_config ~is_tools_sr ()))
+             ~other_config ~is_tools_sr ()
+          )
+      )
       srs ;
     Dbsync_master.create_tools_sr __context name description sr_introduce
       maybe_create_pbd
@@ -69,10 +72,12 @@ module CreateToolsSR = Generic.MakeStateful (struct
         if Db.SR.get_is_tools_sr ~__context ~self then
           ( Db.SR.get_name_label ~__context ~self
           , Db.SR.get_name_description ~__context ~self
-          , Db.SR.get_other_config ~__context ~self )
+          , Db.SR.get_other_config ~__context ~self
+          )
           :: acc
         else
-          acc)
+          acc
+      )
       [] (Db.SR.get_all ~__context)
 
   (* And other_config key/value pair we use to prove that and existing
@@ -88,29 +93,35 @@ module CreateToolsSR = Generic.MakeStateful (struct
         ([], [(name, description, other_config)])
       ; (* An existing Tools SR *)
         ( [("Toolz", "Toolz ISOs", [extra_oc], true)]
-        , [(name, description, extra_oc :: other_config)] )
+        , [(name, description, extra_oc :: other_config)]
+        )
       ; (* Two existing Tools SRs (bad state!) *)
         ( [
             ("Toolz", "Toolz ISOs", [extra_oc], true)
           ; ("Toolz2", "Toolz ISOs2", [extra_oc], true)
           ]
-        , [(name, description, extra_oc :: other_config)] )
+        , [(name, description, extra_oc :: other_config)]
+        )
       ; (* An existing Tools SR with an old tag *)
         ( [
             ( "Toolz"
             , "Toolz ISOs"
             , [(Xapi_globs.tools_sr_tag, "true"); extra_oc]
-            , false )
+            , false
+            )
           ]
-        , [(name, description, extra_oc :: other_config)] )
+        , [(name, description, extra_oc :: other_config)]
+        )
       ; (* An existing Tools SR with another old tag *)
         ( [
             ( "Toolz"
             , "Toolz ISOs"
             , [(Xapi_globs.xensource_internal, "true"); extra_oc]
-            , false )
+            , false
+            )
           ]
-        , [(name, description, extra_oc :: other_config)] )
+        , [(name, description, extra_oc :: other_config)]
+        )
       ; (* Two existing Tools SRs with different tags; expect to keep the
            one with is_tools_iso=true *)
         ( [
@@ -118,42 +129,51 @@ module CreateToolsSR = Generic.MakeStateful (struct
           ; ( "Toolz"
             , "Toolz ISOs"
             , [(Xapi_globs.xensource_internal, "true")]
-            , false )
+            , false
+            )
           ]
-        , [(name, description, extra_oc :: other_config)] )
+        , [(name, description, extra_oc :: other_config)]
+        )
       ; (* Two existing Tools SRs with different tags; expect to keep the
            one with is_tools_iso=true *)
         ( [
             ("Toolz", "Toolz ISOs", [(Xapi_globs.tools_sr_tag, "true")], false)
           ; ("Other", "Other SR", [extra_oc], true)
           ]
-        , [(name, description, extra_oc :: other_config)] )
+        , [(name, description, extra_oc :: other_config)]
+        )
       ; (* Two old SRs - one gets promoted, the other removed *)
         ( [
             ("Toolz", "Toolz ISOs", [(Xapi_globs.tools_sr_tag, "true")], false)
           ; ( "Toolz 2"
             , "Toolz ISOs 2"
             , [(Xapi_globs.tools_sr_tag, "true")]
-            , false )
+            , false
+            )
           ]
-        , [(name, description, other_config)] )
+        , [(name, description, other_config)]
+        )
       ; (* two new SRs, two old SRs - pick first new, remove the others *)
         ( [
             ("Toolz", "Toolz ISOs", [(Xapi_globs.tools_sr_tag, "true")], true)
           ; ( "Toolz 2"
             , "Toolz ISOs 2"
             , [(Xapi_globs.tools_sr_tag, "true")]
-            , true )
+            , true
+            )
           ; ( "Toolz 3"
             , "Toolz ISOs 3"
             , [(Xapi_globs.tools_sr_tag, "true")]
-            , false )
+            , false
+            )
           ; ( "Toolz 4"
             , "Toolz ISOs 4"
             , [(Xapi_globs.tools_sr_tag, "true")]
-            , false )
+            , false
+            )
           ]
-        , [(name, description, other_config)] )
+        , [(name, description, other_config)]
+        )
       ]
 end)
 

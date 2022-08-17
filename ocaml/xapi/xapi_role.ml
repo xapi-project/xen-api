@@ -154,7 +154,8 @@ let get_name_description ~__context ~self =
   get_common ~__context ~self
     ~static_fn:(fun static_record -> static_record.role_name_description)
     ~db_fn:(fun ~__context ~self ->
-      Db.Role.get_name_description ~__context ~self)
+      Db.Role.get_name_description ~__context ~self
+    )
 
 (*    val get_permissions : __context:Context.t -> self:ref_role -> string_set*)
 let get_subroles ~__context ~self =
@@ -194,7 +195,8 @@ let get_permissions_common ~__context ~role ~ret_value_fn =
     else (* step = go recursively down composite roles *)
       List.fold_left
         (fun accu role ->
-          List.rev_append (rec_get_permissions_of_role ~__context ~role) accu)
+          List.rev_append (rec_get_permissions_of_role ~__context ~role) accu
+        )
         [] subroles
   in
   Stdext.Listext.List.setify (rec_get_permissions_of_role ~__context ~role)
@@ -204,7 +206,8 @@ let get_permissions ~__context ~self =
 
 let get_permissions_name_label ~__context ~self =
   get_permissions_common ~__context ~role:self ~ret_value_fn:(fun role ->
-      get_name_label ~__context ~self:role)
+      get_name_label ~__context ~self:role
+  )
 
 (*3. get_all_roles: permission->[roles]*)
 (* return all roles that contain this permission *)
@@ -214,11 +217,13 @@ let get_by_permission_common ~__context ~permission ~cmp_fn =
     (fun role -> List.exists cmp_fn (get_permissions ~__context ~self:role))
     (List.filter
        (fun r -> r <> permission) (* do not include permission itself *)
-       (get_all ~__context) (* get all roles and permissions *))
+       (get_all ~__context) (* get all roles and permissions *)
+    )
 
 let get_by_permission ~__context ~permission =
   get_by_permission_common ~__context ~permission ~cmp_fn:(fun perm ->
-      permission = perm)
+      permission = perm
+  )
 
 let get_by_permission_name_label ~__context ~label =
   let permission =
@@ -230,7 +235,8 @@ let get_by_permission_name_label ~__context ~label =
     (* name not found *)
   in
   get_by_permission_common ~__context ~permission ~cmp_fn:(fun perm ->
-      label = get_name_label ~__context ~self:perm)
+      label = get_name_label ~__context ~self:perm
+  )
 
 (*
 (* SETTTERS DO NOTHING IN RBAC 1.0 *)

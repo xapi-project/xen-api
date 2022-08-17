@@ -32,9 +32,7 @@ let is_sr_properly_shared ~__context ~self =
     in
     let plugged_hosts =
       List.setify
-        (List.map
-           (fun pbd -> Db.PBD.get_host ~__context ~self:pbd)
-           plugged_pbds)
+        (List.map (fun pbd -> Db.PBD.get_host ~__context ~self:pbd) plugged_pbds)
     in
     let all_hosts = Db.Host.get_all ~__context in
     let enabled_hosts =
@@ -70,14 +68,16 @@ let is_network_properly_shared ~__context ~self =
         | VLAN_untagged _ :: Network_sriov_logical sriov :: _ ->
             Xapi_network_sriov_helpers.can_be_up_without_reboot ~__context sriov
         | _ ->
-            true)
+            true
+      )
       pifs_rc
   in
   let hosts_with_pif =
     List.setify
       (List.map
          (fun (_, pif_rec) -> pif_rec.API.pIF_host)
-         non_slave_and_down_sriov_pifs)
+         non_slave_and_down_sriov_pifs
+      )
   in
   let all_hosts = Db.Host.get_all ~__context in
   let enabled_hosts =
@@ -125,7 +125,8 @@ let caching_vm_t_assert_agile ~__context (ok_srs, ok_networks) vm vm_t =
         raise
           Api_errors.(
             Server_error
-              (ha_constraint_violation_sr_not_shared, [Ref.string_of sr]))
+              (ha_constraint_violation_sr_not_shared, [Ref.string_of sr])
+          )
       else
         SRSet.add sr ok_srs
   in
@@ -138,7 +139,8 @@ let caching_vm_t_assert_agile ~__context (ok_srs, ok_networks) vm vm_t =
       raise
         Api_errors.(
           Server_error
-            (ha_constraint_violation_network_not_shared, [Ref.string_of network]))
+            (ha_constraint_violation_network_not_shared, [Ref.string_of network])
+        )
     else if Xapi_network_sriov_helpers.is_sriov_network ~__context ~self:network
     then
       raise Api_errors.(Server_error (vm_has_sriov_vif, [Ref.string_of vm]))

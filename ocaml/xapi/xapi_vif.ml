@@ -82,7 +82,9 @@ let move ~__context ~self ~network =
         raise
           (Api_errors.Server_error
              ( Api_errors.host_cannot_attach_network
-             , [Ref.string_of host; Ref.string_of network] ))
+             , [Ref.string_of host; Ref.string_of network]
+             )
+          )
   ) ;
   move_internal ~__context ~network ~active self
 
@@ -115,32 +117,38 @@ let set_ipv4_allowed ~__context ~self ~value =
   change_locking_config ~__context ~self ~licence_check:(setified_value <> [])
     (fun () ->
       List.iter (Helpers.assert_is_valid_ip `ipv4 "ipv4_allowed") setified_value ;
-      Db.VIF.set_ipv4_allowed ~__context ~self ~value:setified_value)
+      Db.VIF.set_ipv4_allowed ~__context ~self ~value:setified_value
+  )
 
 let add_ipv4_allowed ~__context ~self ~value =
   change_locking_config ~__context ~self ~licence_check:true (fun () ->
       Helpers.assert_is_valid_ip `ipv4 "ipv4_allowed" value ;
-      Db.VIF.add_ipv4_allowed ~__context ~self ~value)
+      Db.VIF.add_ipv4_allowed ~__context ~self ~value
+  )
 
 let remove_ipv4_allowed ~__context ~self ~value =
   change_locking_config ~__context ~self ~licence_check:false (fun () ->
-      Db.VIF.remove_ipv4_allowed ~__context ~self ~value)
+      Db.VIF.remove_ipv4_allowed ~__context ~self ~value
+  )
 
 let set_ipv6_allowed ~__context ~self ~value =
   let setified_value = List.setify value in
   change_locking_config ~__context ~self ~licence_check:(setified_value <> [])
     (fun () ->
       List.iter (Helpers.assert_is_valid_ip `ipv6 "ipv6_allowed") setified_value ;
-      Db.VIF.set_ipv6_allowed ~__context ~self ~value:setified_value)
+      Db.VIF.set_ipv6_allowed ~__context ~self ~value:setified_value
+  )
 
 let add_ipv6_allowed ~__context ~self ~value =
   change_locking_config ~__context ~self ~licence_check:true (fun () ->
       Helpers.assert_is_valid_ip `ipv6 "ipv6_allowed" value ;
-      Db.VIF.add_ipv6_allowed ~__context ~self ~value)
+      Db.VIF.add_ipv6_allowed ~__context ~self ~value
+  )
 
 let remove_ipv6_allowed ~__context ~self ~value =
   change_locking_config ~__context ~self ~licence_check:false (fun () ->
-      Db.VIF.remove_ipv6_allowed ~__context ~self ~value)
+      Db.VIF.remove_ipv6_allowed ~__context ~self ~value
+  )
 
 let assert_has_feature_static_ip_setting ~__context ~self =
   let feature = "feature-static-ip-setting" in
@@ -167,7 +175,8 @@ let assert_no_locking_mode_conflict ~__context ~self kind address =
         if not (List.mem address' allowed) then
           raise
             Api_errors.(
-              Server_error (address_violates_locking_constraint, [address]))
+              Server_error (address_violates_locking_constraint, [address])
+            )
 
 let configure_ipv4 ~__context ~self ~mode ~address ~gateway =
   if mode = `Static then (

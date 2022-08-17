@@ -35,10 +35,12 @@ let parse () =
     [
       ( "-xe-path"
       , Arg.String (fun x -> xe_path := x)
-      , "Path to xe command line executable" )
+      , "Path to xe command line executable"
+      )
     ; ( "-default-sr"
       , Arg.Unit (fun () -> use_default_sr := true)
-      , "Only run SR tests on the pool's default SR" )
+      , "Only run SR tests on the pool's default SR"
+      )
     ; ("-nocolour", Arg.Clear use_colour, "Don't use colour in the output")
     ]
     (fun x ->
@@ -52,7 +54,8 @@ let parse () =
       | _, _, "" ->
           password := x
       | _, _, _ ->
-          Printf.fprintf stderr "Skipping unrecognised argument: %s" x)
+          Printf.fprintf stderr "Skipping unrecognised argument: %s" x
+    )
     "Perform some quick functional tests. The default is to test localhost \
      over a Unix socket. For remote server supply <hostname> <username> and \
      <password> arguments." ;

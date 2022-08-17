@@ -69,7 +69,8 @@ module DBCacheRemoteListener = struct
           let s = unmarshall_get_table_from_ref_args args in
           success
             (marshall_get_table_from_ref_response
-               (DBCache.get_table_from_ref t s))
+               (DBCache.get_table_from_ref t s)
+            )
       | "is_valid_ref" ->
           let s = unmarshall_is_valid_ref_args args in
           success (marshall_is_valid_ref_response (DBCache.is_valid_ref t s))
@@ -82,8 +83,7 @@ module DBCacheRemoteListener = struct
             (marshall_read_field_where_response (DBCache.read_field_where t w))
       | "create_row" ->
           let s1, ssl, s2 = unmarshall_create_row_args args in
-          success
-            (marshall_create_row_response (DBCache.create_row t s1 ssl s2))
+          success (marshall_create_row_response (DBCache.create_row t s1 ssl s2))
       | "delete_row" ->
           let s1, s2 = unmarshall_delete_row_args args in
           success (marshall_delete_row_response (DBCache.delete_row t s1 s2))
@@ -98,14 +98,16 @@ module DBCacheRemoteListener = struct
           let s, e = unmarshall_find_refs_with_filter_args args in
           success
             (marshall_find_refs_with_filter_response
-               (DBCache.find_refs_with_filter t s e))
+               (DBCache.find_refs_with_filter t s e)
+            )
       | "process_structured_field" ->
           let ss, s1, s2, s3, op =
             unmarshall_process_structured_field_args args
           in
           success
             (marshall_process_structured_field_response
-               (DBCache.process_structured_field t ss s1 s2 s3 op))
+               (DBCache.process_structured_field t ss s1 s2 s3 op)
+            )
       | "read_record" ->
           let s1, s2 = unmarshall_read_record_args args in
           success (marshall_read_record_response (DBCache.read_record t s1 s2))
@@ -113,7 +115,8 @@ module DBCacheRemoteListener = struct
           let s, e = unmarshall_read_records_where_args args in
           success
             (marshall_read_records_where_response
-               (DBCache.read_records_where t s e))
+               (DBCache.read_records_where t s e)
+            )
       | "db_get_by_uuid" ->
           let s, e = unmarshall_db_get_by_uuid_args args in
           success
@@ -122,7 +125,8 @@ module DBCacheRemoteListener = struct
           let s, e = unmarshall_db_get_by_name_label_args args in
           success
             (marshall_db_get_by_name_label_response
-               (DBCache.db_get_by_name_label t s e))
+               (DBCache.db_get_by_name_label t s e)
+            )
       | _ ->
           raise (DBCacheListenerUnknownMessageName fn_name)
     with
@@ -153,4 +157,5 @@ let handler req bio _ =
   Http_svr.response_fct req fd
     (Int64.of_int @@ String.length response)
     (fun fd ->
-      Unix.write_substring fd response 0 (String.length response) |> ignore)
+      Unix.write_substring fd response 0 (String.length response) |> ignore
+    )

@@ -80,7 +80,8 @@ let populate_db backend =
   in
   debug "Attempting to populate database from one of these locations: [%s]"
     (String.concat "; "
-       (List.map (fun conn -> conn.Parse_db_conf.path) input_connections)) ;
+       (List.map (fun conn -> conn.Parse_db_conf.path) input_connections)
+    ) ;
   Db_cache_impl.make backend input_connections schema ;
   Db_cache_impl.sync output_connections (Db_ref.get_database backend) ;
   (* Delete the temporary restore file so that we don't revert to it again at next startup. *)
@@ -114,14 +115,16 @@ let start_database_engine () =
   debug "Signalling any waiting db clients to proceed" ;
   Mutex.execute database_ready_for_clients_m (fun () ->
       database_ready_for_clients := true ;
-      Condition.broadcast database_ready_for_clients_c)
+      Condition.broadcast database_ready_for_clients_c
+  )
 
 (* Block premature incoming client requests until the database engine is ready *)
 let wait_until_database_is_ready_for_clients () =
   Mutex.execute database_ready_for_clients_m (fun () ->
       while not !database_ready_for_clients do
         Condition.wait database_ready_for_clients_c database_ready_for_clients_m
-      done)
+      done
+  )
 
 (** Handler for the remote database access URL *)
 let remote_database_access_handler req bio c =
@@ -186,7 +189,8 @@ let register_callback_fns () =
           with _ -> false
         )
         | _ ->
-            true)
+            true
+    )
   in
   Xmlrpc_client.Internal.set_stunnelpid_callback := Some set_stunnelpid ;
   Xmlrpc_client.Internal.unset_stunnelpid_callback := Some unset_stunnelpid ;
@@ -251,7 +255,8 @@ let check_no_other_masters () =
       let hosts = Db.Host.get_all ~__context in
       let me = Helpers.get_localhost ~__context in
       let all_hosts_but_me = List.filter (fun h -> h <> me) hosts in
-      List.iter assert_is_slave all_hosts_but_me)
+      List.iter assert_is_slave all_hosts_but_me
+  )
 
 (** Called when the master restarts and any other time when the database connection restarts.
     XXX Unfortunately the database connection restarts periodically due to the HTTP persistent connection
@@ -270,7 +275,8 @@ let on_master_restart ~__context =
     (fun () ->
       Helpers.call_emergency_mode_functions
         (Pool_role.get_master_address ())
-        (Db_gc.send_one_heartbeat ~__context))
+        (Db_gc.send_one_heartbeat ~__context)
+    )
     () ;
   debug
     "attempting to set Host_metrics.live to true immediately (unless I'm in \
@@ -282,7 +288,8 @@ let on_master_restart ~__context =
       Mutex.execute Xapi_globs.hosts_which_are_shutting_down_m (fun () ->
           List.exists
             (fun x -> x = host)
-            !Xapi_globs.hosts_which_are_shutting_down)
+            !Xapi_globs.hosts_which_are_shutting_down
+      )
     in
     if not shutting_down then
       Db.Host_metrics.set_live ~__context ~self:metrics ~value:true
@@ -337,8 +344,11 @@ let bring_up_management_if ~__context () =
                (fun () ->
                  Server_helpers.exec_with_new_task "dom0 networking update"
                    ~subtask_of:(Context.get_task_id __context) (fun __context ->
-                     Xapi_mgmt_iface.on_dom0_networking_change ~__context))
-               ())
+                     Xapi_mgmt_iface.on_dom0_networking_change ~__context
+                 )
+               )
+               ()
+            )
       | None ->
           warn "Failed to acquire a management IP address"
     ) ;
@@ -393,7 +403,8 @@ let attempt_pool_hello my_ip =
               [localhost_uuid] ;
             Some Permanent
         | `ok ->
-            None)
+            None
+    )
   with
   | Api_errors.Server_error (code, params)
     when code = Api_errors.session_authentication_failed ->
@@ -455,14 +466,16 @@ let start_dr_redo_logs () =
         List.filter
           (fun vdi ->
             Db.VDI.get_type ~__context ~self:vdi = `metadata
-            && Db.VDI.get_metadata_of_pool ~__context ~self:vdi = pool)
+            && Db.VDI.get_metadata_of_pool ~__context ~self:vdi = pool
+          )
           (Db.VDI.get_all ~__context)
       in
       let metadata_srs =
         List.setify
           (List.map
              (fun vdi -> Db.VDI.get_SR ~__context ~self:vdi)
-             metadata_vdis)
+             metadata_vdis
+          )
       in
       (* Attempt to enable database replication to each SR. *)
       List.iter
@@ -475,8 +488,10 @@ let start_dr_redo_logs () =
             (* Best-effort only. *)
             debug
               "Could not re-enable database replication to SR %s - caught %s"
-              sr_uuid (Printexc.to_string e))
-        metadata_srs)
+              sr_uuid (Printexc.to_string e)
+        )
+        metadata_srs
+  )
 
 (* Attempt to cache all metadata VDIs created by foreign pools *)
 let cache_metadata_vdis () =
@@ -486,10 +501,12 @@ let cache_metadata_vdis () =
         List.filter
           (fun vdi ->
             Db.VDI.get_type ~__context ~self:vdi = `metadata
-            && Db.VDI.get_metadata_of_pool ~__context ~self:vdi <> pool)
+            && Db.VDI.get_metadata_of_pool ~__context ~self:vdi <> pool
+          )
           (Db.VDI.get_all ~__context)
       in
-      Xapi_dr.add_vdis_to_cache ~__context ~vdis:metadata_vdis)
+      Xapi_dr.add_vdis_to_cache ~__context ~vdis:metadata_vdis
+  )
 
 (* Called if we cannot contact master at init time *)
 let server_run_in_emergency_mode () =
@@ -507,7 +524,8 @@ let server_run_in_emergency_mode () =
     Thread.create
       (fun () ->
         Thread.delay emergency_reboot_delay ;
-        exit Xapi_globs.restart_return_code)
+        exit Xapi_globs.restart_return_code
+      )
       ()
   in
   wait_to_die () ; exit 0
@@ -555,7 +573,8 @@ let resynchronise_ha_state () =
               Xapi_host.set_emergency_mode_error
                 Api_errors.ha_pool_is_enabled_but_host_is_disabled [] ;
               server_run_in_emergency_mode ()
-            ))
+            )
+    )
   with e ->
     (* Critical that we don't continue as a master and use shared resources *)
     error "Caught exception resynchronising state of HA system: %s"
@@ -575,7 +594,8 @@ let check_network_reset () =
         let args =
           List.map
             (fun s ->
-              match String.split '=' s with [k; v] -> (k, v) | _ -> ("", ""))
+              match String.split '=' s with [k; v] -> (k, v) | _ -> ("", "")
+            )
             args
         in
         let device = List.assoc "DEVICE" args in
@@ -619,7 +639,9 @@ let check_network_reset () =
                 ~expr:
                   (And
                      ( Eq (Field "device", Literal device)
-                     , Eq (Field "VLAN", Literal vlan) ))
+                     , Eq (Field "VLAN", Literal vlan)
+                     )
+                  )
             with
             | [] ->
                 None
@@ -631,7 +653,8 @@ let check_network_reset () =
         in
         (* Erase networking database objects for this host *)
         Helpers.call_api_functions ~__context (fun rpc session_id ->
-            Client.Client.Host.reset_networking rpc session_id host) ;
+            Client.Client.Host.reset_networking rpc session_id host
+        ) ;
         (* Introduce PIFs for remaining interfaces *)
         Xapi_pif.scan ~__context ~host ;
         (* Create a vlan PIF if management interface asked on a VLAN *)
@@ -660,7 +683,9 @@ let check_network_reset () =
             ~expr:
               (And
                  ( Eq (Field "host", Literal (Ref.string_of host))
-                 , Eq (Field "device", Literal device) ))
+                 , Eq (Field "device", Literal device)
+                 )
+              )
         in
         match pifs with
         | [] ->
@@ -675,7 +700,8 @@ let check_network_reset () =
             in
             Xapi_pif.reconfigure_ip ~__context ~self:pif ~mode ~iP ~netmask
               ~gateway ~dNS ;
-            Xapi_host.management_reconfigure ~__context ~pif) ;
+            Xapi_host.management_reconfigure ~__context ~pif
+    ) ;
     (* Remove trigger file *)
     Unix.unlink Xapi_globs.network_reset_trigger
   with _ -> ()
@@ -686,7 +712,8 @@ let check_network_reset () =
 let handle_licensing () =
   Server_helpers.exec_with_new_task "Licensing host" (fun __context ->
       let host = Helpers.get_localhost ~__context in
-      License_init.initialise ~__context ~host)
+      License_init.initialise ~__context ~host
+  )
 
 let startup_script () =
   let startup_script_hook = !Xapi_globs.startup_script_hook in
@@ -705,7 +732,8 @@ let master_only_http_handlers =
     (* CA-26044: don't let people DoS random slaves *)
     ("post_remote_db_access", Http_svr.BufIO remote_database_access_handler)
   ; ( "post_remote_db_access_v2"
-    , Http_svr.BufIO remote_database_access_handler_v2 )
+    , Http_svr.BufIO remote_database_access_handler_v2
+    )
   ]
 
 let common_http_handlers () =
@@ -732,21 +760,26 @@ let common_http_handlers () =
   ; ("get_host_backup", Http_svr.FdIO Xapi_host_backup.host_backup_handler)
   ; ("put_host_restore", Http_svr.FdIO Xapi_host_backup.host_restore_handler)
   ; ( "get_host_logs_download"
-    , Http_svr.FdIO Xapi_logs_download.logs_download_handler )
+    , Http_svr.FdIO Xapi_logs_download.logs_download_handler
+    )
   ; ( "put_pool_patch_upload"
-    , Http_svr.FdIO Xapi_pool_patch.pool_patch_upload_handler )
+    , Http_svr.FdIO Xapi_pool_patch.pool_patch_upload_handler
+    )
   ; ("get_vncsnapshot", Http_svr.FdIO Xapi_vncsnapshot.vncsnapshot_handler)
   ; ( "get_pool_xml_db_sync"
-    , Http_svr.FdIO Pool_db_backup.pull_database_backup_handler )
+    , Http_svr.FdIO Pool_db_backup.pull_database_backup_handler
+    )
   ; ( "put_pool_xml_db_sync"
-    , Http_svr.FdIO Pool_db_backup.push_database_restore_handler )
+    , Http_svr.FdIO Pool_db_backup.push_database_restore_handler
+    )
   ; ("get_config_sync", Http_svr.FdIO Config_file_sync.config_file_sync_handler)
   ; ("get_system_status", Http_svr.FdIO System_status.handler)
   ; (Constants.get_vm_rrd, Http_svr.FdIO Rrdd_proxy.get_vm_rrd_forwarder)
   ; (Constants.get_host_rrd, Http_svr.FdIO Rrdd_proxy.get_host_rrd_forwarder)
   ; (Constants.get_sr_rrd, Http_svr.FdIO Rrdd_proxy.get_sr_rrd_forwarder)
   ; ( Constants.get_rrd_updates
-    , Http_svr.FdIO Rrdd_proxy.get_rrd_updates_forwarder )
+    , Http_svr.FdIO Rrdd_proxy.get_rrd_updates_forwarder
+    )
   ; (Constants.put_rrd, Http_svr.FdIO Rrdd_proxy.put_rrd_forwarder)
   ; ("get_blob", Http_svr.FdIO Xapi_blob.handler)
   ; ("put_blob", Http_svr.FdIO Xapi_blob.handler)
@@ -765,7 +798,8 @@ let common_http_handlers () =
   ; ("post_json_options", Http_svr.BufIO Api_server.options_callback)
   ; ("post_jsonrpc_options", Http_svr.BufIO Api_server.options_callback)
   ; ( "get_pool_update_download"
-    , Http_svr.FdIO Xapi_pool_update.pool_update_download_handler )
+    , Http_svr.FdIO Xapi_pool_update.pool_update_download_handler
+    )
   ]
 
 let listen_unix_socket sock_path =
@@ -809,7 +843,8 @@ let server_init () =
         (* if host-extauth is already disabled then the script will just return *)
         ignore
           (Extauth.call_extauth_hook_script_in_host ~__context host
-             Extauth.event_name_after_xapi_initialize)
+             Extauth.event_name_after_xapi_initialize
+          )
       with e -> ()
     (* we ignore errors on the extauth_hook calls *)
   in
@@ -877,7 +912,10 @@ let server_init () =
                            | e ->
                                ExnHelper.string_of_exn e (* unknown error msg *)
                          )
-                         ))))
+                         )
+                 )
+                )
+          )
           ()
       in
       () ;
@@ -929,7 +967,8 @@ let server_init () =
           ; ("Loading DHCP leases", [], Xapi_udhcpd.init)
           ; ( "Reading pool secret"
             , []
-            , Helpers.PoolSecret.refresh_cache_or_create_new )
+            , Helpers.PoolSecret.refresh_cache_or_create_new
+            )
           ; ("Logging xapi version info", [], Xapi_config.dump_config)
           ; ("Setting signal handlers", [], signals_handling)
           ; ("Initialising random number generator", [], random_setup)
@@ -937,25 +976,29 @@ let server_init () =
           ; ("Registering SMAPIv1 plugins", [Startup.OnlyMaster], Sm.register)
           ; ( "Starting SMAPIv1 proxies"
             , [Startup.OnlyMaster]
-            , Storage_access.start_smapiv1_servers )
+            , Storage_access.start_smapiv1_servers
+            )
           ; ("Initialising SM state", [], Storage_impl.initialise)
           ; ("Starting SM service", [], Storage_access.start)
           ; ("Starting SM xapi event service", [], Storage_access.events_from_sm)
           ; ("Killing stray sparse_dd processes", [], Sparse_dd_wrapper.killall)
           ; ( "Registering http handlers"
             , []
-            , fun () ->
-                List.iter Xapi_http.add_handler (common_http_handlers ()) )
+            , fun () -> List.iter Xapi_http.add_handler (common_http_handlers ())
+            )
           ; ( "Registering master-only http handlers"
             , [Startup.OnlyMaster]
             , fun () ->
-                List.iter Xapi_http.add_handler master_only_http_handlers )
+                List.iter Xapi_http.add_handler master_only_http_handlers
+            )
           ; ( "Listening unix socket"
             , []
-            , fun () -> listen_unix_socket Xapi_globs.unix_domain_socket )
+            , fun () -> listen_unix_socket Xapi_globs.unix_domain_socket
+            )
           ; ( "Metadata VDI liveness monitor"
             , [Startup.OnlyMaster; Startup.OnThread]
-            , fun () -> Redo_log_alert.loop () )
+            , fun () -> Redo_log_alert.loop ()
+            )
           ; ("Checking HA configuration", [], start_ha)
           ; ("Checking for non-HA redo-log", [], start_redo_log)
           ; (* It is a pre-requisite for starting db engine *)
@@ -968,20 +1011,25 @@ let server_init () =
                running etc.) -- see CA-11087 *)
             ( "starting up database engine"
             , [Startup.OnlyMaster]
-            , start_database_engine )
+            , start_database_engine
+            )
           ; ( "hi-level database upgrade"
             , [Startup.OnlyMaster]
-            , Xapi_db_upgrade.hi_level_db_upgrade_rules ~__context )
+            , Xapi_db_upgrade.hi_level_db_upgrade_rules ~__context
+            )
           ; ( "bringing up management interface"
             , []
-            , bring_up_management_if ~__context )
+            , bring_up_management_if ~__context
+            )
           ; ( "Starting periodic scheduler"
             , [Startup.OnThread]
-            , Xapi_periodic_scheduler.loop )
+            , Xapi_periodic_scheduler.loop
+            )
           ; ( "Synchronising host configuration files"
             , []
             , fun () ->
-                Xapi_host_helpers.Configuration.sync_config_files ~__context )
+                Xapi_host_helpers.Configuration.sync_config_files ~__context
+            )
           ; ( "Starting Host other-config watcher"
             , [Startup.OnlyMaster]
             , fun () ->
@@ -989,7 +1037,8 @@ let server_init () =
             )
           ; ( "Remote requests"
             , [Startup.OnThread]
-            , Remote_requests.handle_requests )
+            , Remote_requests.handle_requests
+            )
           ] ;
         match Pool_role.get_role () with
         | Pool_role.Master ->
@@ -1042,7 +1091,8 @@ let server_init () =
                   [
                     ( "Starting SMAPIv1 proxies"
                     , [Startup.OnlySlave]
-                    , Storage_access.start_smapiv1_servers )
+                    , Storage_access.start_smapiv1_servers
+                    )
                   ] ;
                 Dbsync.setup ()
               with e ->
@@ -1055,7 +1105,8 @@ let server_init () =
               !Db_globs.master_connection_retry_timeout ;
             Master_connection.restart_on_connection_timeout := true ;
             Master_connection.on_database_connection_established :=
-              fun () -> on_master_restart ~__context) ;
+              fun () -> on_master_restart ~__context
+    ) ;
     Server_helpers.exec_with_new_task "server_init" ~task_in_database:true
       (fun __context ->
         Startup.run ~__context
@@ -1063,103 +1114,130 @@ let server_init () =
             ("Checking emergency network reset", [], check_network_reset)
           ; ( "Upgrade bonds to Boston"
             , [Startup.NoExnRaising]
-            , Sync_networking.fix_bonds ~__context )
+            , Sync_networking.fix_bonds ~__context
+            )
           ; ( "Initialise monitor configuration"
             , []
-            , Monitor_master.update_configuration_from_master )
+            , Monitor_master.update_configuration_from_master
+            )
           ; ("Initialising licensing", [], handle_licensing)
           ; ( "message_hook_thread"
             , [Startup.NoExnRaising]
-            , Xapi_message.start_message_hook_thread ~__context )
+            , Xapi_message.start_message_hook_thread ~__context
+            )
           ; ( "heartbeat thread"
             , [Startup.NoExnRaising; Startup.OnThread]
-            , Db_gc.start_heartbeat_thread )
+            , Db_gc.start_heartbeat_thread
+            )
           ; ( "resynchronising HA state"
             , [Startup.NoExnRaising]
-            , resynchronise_ha_state )
+            , resynchronise_ha_state
+            )
           ; ( "pool db backup"
             , [Startup.OnlyMaster; Startup.OnThread]
-            , Pool_db_backup.pool_db_backup_thread )
+            , Pool_db_backup.pool_db_backup_thread
+            )
           ; ( "monitor_dbcalls"
             , [Startup.OnThread]
-            , Monitor_dbcalls.monitor_dbcall_thread )
+            , Monitor_dbcalls.monitor_dbcall_thread
+            )
           ; ( "touching ready file"
             , []
-            , fun () -> Helpers.touch_file !Xapi_globs.ready_file )
+            , fun () -> Helpers.touch_file !Xapi_globs.ready_file
+            )
           ; (* -- CRITICAL: this check must be performed before touching shared storage *)
             ( "Performing no-other-masters check"
             , [Startup.OnlyMaster]
-            , check_no_other_masters )
+            , check_no_other_masters
+            )
           ; ( "Registering periodic functions"
             , []
-            , Xapi_periodic_scheduler_init.register )
+            , Xapi_periodic_scheduler_init.register
+            )
           ; ("executing startup scripts", [Startup.NoExnRaising], startup_script)
           ; ( "considering executing on-master-start script"
             , []
             , fun () ->
                 Xapi_pool_transition.run_external_scripts
-                  (Pool_role.is_master ()) )
+                  (Pool_role.is_master ())
+            )
           ; ( "creating networks"
             , [Startup.OnlyMaster]
-            , Create_networks.create_networks_localhost )
+            , Create_networks.create_networks_localhost
+            )
           ; (* CA-22417: bring up all non-bond slaves so that the SM backends can use storage NIC IP addresses (if the routing
                	 table happens to be right) *)
             ( "Best-effort bring up of physical and sriov NICs"
             , [Startup.NoExnRaising]
-            , Xapi_pif.start_of_day_best_effort_bring_up )
+            , Xapi_pif.start_of_day_best_effort_bring_up
+            )
           ; ( "updating the vswitch controller"
             , []
             , fun () ->
                 Helpers.update_vswitch_controller ~__context
-                  ~host:(Helpers.get_localhost ~__context) )
+                  ~host:(Helpers.get_localhost ~__context)
+            )
           ; ( "initialising storage"
             , [Startup.NoExnRaising]
             , fun () ->
                 Helpers.call_api_functions ~__context
-                  Create_storage.initialise_storage_localhost )
+                  Create_storage.initialise_storage_localhost
+            )
           ; (* CA-13878: make sure PBD plugging has happened before attempting to reboot any VMs *)
             ( "resynchronising VM state"
             , [Startup.NoExnRaising]
-            , fun () -> Xapi_xenops.on_xapi_restart ~__context )
+            , fun () -> Xapi_xenops.on_xapi_restart ~__context
+            )
           ; ( "listening to events from xapi"
             , []
             , fun () ->
                 if not !noevents then
-                  ignore (Thread.create Xapi_xenops.events_from_xapi ()) )
+                  ignore (Thread.create Xapi_xenops.events_from_xapi ())
+            )
           ; ( "watching networks for NBD-related changes"
             , [Startup.OnThread]
-            , Network_event_loop.watch_networks_for_nbd_changes )
+            , Network_event_loop.watch_networks_for_nbd_changes
+            )
           ; (* CA-175353: moving VIFs between networks requires VMs to be resynced *)
             ( "Synchronising bonds on slave with master"
             , [Startup.OnlySlave; Startup.NoExnRaising]
-            , Sync_networking.copy_bonds_from_master ~__context )
+            , Sync_networking.copy_bonds_from_master ~__context
+            )
           ; ( "Synchronising network sriovs on slave with master"
             , [Startup.OnlySlave; Startup.NoExnRaising]
-            , Sync_networking.copy_network_sriovs_from_master ~__context )
+            , Sync_networking.copy_network_sriovs_from_master ~__context
+            )
           ; ( "Synchronising VLANs on slave with master"
             , [Startup.OnlySlave; Startup.NoExnRaising]
-            , Sync_networking.copy_vlans_from_master ~__context )
+            , Sync_networking.copy_vlans_from_master ~__context
+            )
           ; ( "Synchronising tunnels on slave with master"
             , [Startup.OnlySlave; Startup.NoExnRaising]
-            , Sync_networking.copy_tunnels_from_master ~__context )
+            , Sync_networking.copy_tunnels_from_master ~__context
+            )
           ; ( "SR scanning"
             , [Startup.OnlyMaster; Startup.OnThread]
-            , Xapi_sr.scanning_thread )
+            , Xapi_sr.scanning_thread
+            )
           ; ("PUSB scanning", [], fun () -> Xapi_pusb.scan_thread ~__context)
           ; ( "Updating pool cpu_info"
             , []
-            , fun () -> Create_misc.create_pool_cpuinfo ~__context )
+            , fun () -> Create_misc.create_pool_cpuinfo ~__context
+            )
           ; ( "writing init complete"
             , []
-            , fun () -> Helpers.touch_file !Xapi_globs.init_complete )
+            , fun () -> Helpers.touch_file !Xapi_globs.init_complete
+            )
           ; (*      "Synchronising HA state with Pool", [ Startup.NoExnRaising ], Xapi_ha.synchronise_ha_state_with_pool; *)
             ("Starting DR redo-logs", [Startup.OnlyMaster], start_dr_redo_logs)
           ; ( "Starting SR physical utilisation scanning"
             , [Startup.OnThread]
-            , Xapi_sr.physical_utilisation_thread ~__context )
+            , Xapi_sr.physical_utilisation_thread ~__context
+            )
           ; ( "Caching metadata VDIs created by foreign pools."
             , [Startup.OnlyMaster]
-            , cache_metadata_vdis )
+            , cache_metadata_vdis
+            )
           ; ("Stats reporting thread", [], Xapi_stats.start)
           ] ;
         if !debug_dummy_data then
@@ -1169,7 +1247,8 @@ let server_init () =
               , [Startup.OnlyMaster; Startup.NoExnRaising]
               , fun () ->
                   Debug_populate.do_populate ~vms:1000 ~vdis_per_vm:3
-                    ~networks:10 ~srs:10 ~tasks:1000 )
+                    ~networks:10 ~srs:10 ~tasks:1000
+              )
             ] ;
         let wait_management_interface () =
           let management_if =
@@ -1187,7 +1266,8 @@ let server_init () =
             (* This may fail without the clustering IP, which is why we attempt
                another replug in maybe_wait_for_clustering_ip *)
             Helpers.call_api_functions ~__context (fun rpc session_id ->
-                Create_storage.plug_unplugged_pbds __context)
+                Create_storage.plug_unplugged_pbds __context
+            )
           )
         in
         let maybe_wait_for_clustering_ip () =
@@ -1203,13 +1283,15 @@ let server_init () =
               Xapi_cluster_host.resync_host ~__context ~host ;
               debug "Attempting to re-plug remaining unplugged PBDs" ;
               Helpers.call_api_functions ~__context (fun rpc session_id ->
-                  Create_storage.plug_unplugged_pbds __context)
+                  Create_storage.plug_unplugged_pbds __context
+              )
           | None ->
               ()
           ) ;
           Helpers.call_api_functions ~__context (fun rcp session_id ->
               ignore
-                (Create_storage.check_for_unplugged_pbds ~__context ~alert:true))
+                (Create_storage.check_for_unplugged_pbds ~__context ~alert:true)
+          )
         in
         Startup.run ~__context
           [
@@ -1219,17 +1301,21 @@ let server_init () =
                 Pool_db_backup.fetch_database_backup
                   ~master_address:(Pool_role.get_master_address ())
                   ~pool_secret:(Xapi_globs.pool_secret ())
-                  ~force:None )
+                  ~force:None
+            )
           ; ( "wait management interface to come up, re-plug unplugged PBDs"
             , [Startup.NoExnRaising]
-            , wait_management_interface )
+            , wait_management_interface
+            )
           ; (* CA-290237, CA-290473: Create cluster objects after network objects and management IP initialised *)
             ( "Create any necessary cluster_host objects"
             , [Startup.NoExnRaising]
             , fun () ->
                 log_and_ignore_exn (fun () ->
                     Xapi_cluster_host.create_as_necessary __context
-                      (Helpers.get_localhost ~__context)) )
+                      (Helpers.get_localhost ~__context)
+                )
+            )
           ; (* Here as the last attempt to plug all PBDs, we will raise alerts if any PBD fails to plug.
                The alerting logic is called from inside, as this is executed asynchronously OnThread and could potentially take long. *)
             ( "wait for clustering IP if any, re-plug remaining unplugged PBDs"
@@ -1239,35 +1325,45 @@ let server_init () =
             )
           ; ( "considering sending a master transition alert"
             , [Startup.NoExnRaising; Startup.OnlyMaster]
-            , Xapi_pool_transition.consider_sending_alert __context )
+            , Xapi_pool_transition.consider_sending_alert __context
+            )
           ; ( "Cancelling in-progress storage migrations"
             , []
-            , fun () -> Storage_migrate.killall ~dbg:"xapi init" )
+            , fun () -> Storage_migrate.killall ~dbg:"xapi init"
+            )
           ; (* Start the external authentification plugin *)
             ( "Calling extauth_hook_script_before_xapi_initialize"
             , [Startup.NoExnRaising]
             , fun () ->
-                call_extauth_hook_script_before_xapi_initialize ~__context )
+                call_extauth_hook_script_before_xapi_initialize ~__context
+            )
           ; ( "Initializing AD external auth service"
             , [Startup.NoExnRaising]
-            , fun () -> Extauth_ad.init_service ~__context )
+            , fun () -> Extauth_ad.init_service ~__context
+            )
           ; ( "Calling on_xapi_initialize event hook in the external \
                authentication plugin"
             , [Startup.NoExnRaising; Startup.OnThread]
-            , fun () -> event_hook_auth_on_xapi_initialize_async ~__context )
+            , fun () -> event_hook_auth_on_xapi_initialize_async ~__context
+            )
           ; ( "Cleanup attached pool_updates when start"
             , [Startup.NoExnRaising]
             , fun () ->
                 Helpers.call_api_functions ~__context (fun rpc session_id ->
-                    Xapi_pool_update.detach_attached_updates __context) )
+                    Xapi_pool_update.detach_attached_updates __context
+                )
+            )
           ; ( "Resync the applied updates of the host when start"
             , [Startup.NoExnRaising]
             , fun () ->
                 Helpers.call_api_functions ~__context (fun rpc session_id ->
                     Xapi_pool_update.resync_host __context
-                      (Helpers.get_localhost ~__context)) )
+                      (Helpers.get_localhost ~__context)
+                )
+            )
           ] ;
-        debug "startup: startup sequence finished") ;
+        debug "startup: startup sequence finished"
+    ) ;
     wait_to_die ()
   with
   | Sys.Break ->

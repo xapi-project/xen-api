@@ -56,5 +56,6 @@ let list () =
       let path =
         try Some (Unix.readlink (Filename.concat path "disk")) with _ -> None
       in
-      {uuid; reason; delete_next_boot; currently_attached; path})
+      {uuid; reason; delete_next_boot; currently_attached; path}
+    )
     all

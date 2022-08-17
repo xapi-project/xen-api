@@ -180,7 +180,9 @@ let operation (obj : obj) (x : message) =
       (String.concat ""
          (List.map
             (fun arg -> " ~" ^ O.string_of_param arg)
-            args_without_session))
+            args_without_session
+         )
+      )
   in
   let has_async = Client.has_async x in
   let comments =
@@ -271,7 +273,8 @@ let operation (obj : obj) (x : message) =
                 Datamodel_values.to_ocaml_string default
           in
           Printf.sprintf "let %s = %s_of_rpc (try %s with _ -> %s) in"
-            param_name param_type try_and_get_default default_value)
+            param_name param_type try_and_get_default default_value
+        )
         (add_counts 1 msg_params_with_default_values)
   in
   let may_be_side_effecting msg =
@@ -500,7 +503,8 @@ let gen_module api : O.Module.t =
                     List.map
                       (fun msg ->
                         Printf.sprintf "\"%s\";"
-                          (DU.wire_name ~sync:true obj msg))
+                          (DU.wire_name ~sync:true obj msg)
+                      )
                       obj.messages
                   in
                   let allmsg =
@@ -508,7 +512,8 @@ let gen_module api : O.Module.t =
                       (fun obj -> String.concat "" (objmsgs obj))
                       all_objs
                   in
-                  allmsg)
+                  allmsg
+                 )
                @ [
                    " ])"
                  ; "| func -> "
@@ -539,6 +544,7 @@ let gen_module api : O.Module.t =
                  ; ")))"
                  ]
                )
-             ())
+             ()
+          )
       ]
     ()

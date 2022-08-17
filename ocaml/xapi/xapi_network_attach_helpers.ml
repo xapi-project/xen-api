@@ -43,10 +43,13 @@ let assert_network_has_no_vifs_in_use_on_me ~__context ~host ~network =
                 raise
                   (Api_errors.Server_error
                      ( Api_errors.vif_in_use
-                     , [Ref.string_of network; Ref.string_of self] ))
+                     , [Ref.string_of network; Ref.string_of self]
+                     )
+                  )
               )
           | _ ->
-              ())
+              ()
+        )
         ops ;
       if Db.VIF.get_currently_attached ~__context ~self then
         let vm = Db.VIF.get_VM ~__context ~self in
@@ -56,7 +59,10 @@ let assert_network_has_no_vifs_in_use_on_me ~__context ~host ~network =
             raise
               (Api_errors.Server_error
                  ( Api_errors.vif_in_use
-                 , [Ref.string_of network; Ref.string_of self] )))
+                 , [Ref.string_of network; Ref.string_of self]
+                 )
+              )
+    )
     vifs
 
 (* nice triple negative ;) *)
@@ -64,7 +70,8 @@ let assert_pif_disallow_unplug_not_set ~__context pif =
   if Db.PIF.get_disallow_unplug ~__context ~self:pif then
     raise
       (Api_errors.Server_error
-         (Api_errors.pif_does_not_allow_unplug, [Ref.string_of pif]))
+         (Api_errors.pif_does_not_allow_unplug, [Ref.string_of pif])
+      )
 
 let get_local_pifs ~__context ~network ~host =
   (* There should be at most one local PIF by construction *)
@@ -72,14 +79,17 @@ let get_local_pifs ~__context ~network ~host =
     ~expr:
       (And
          ( Eq (Field "network", Literal (Ref.string_of network))
-         , Eq (Field "host", Literal (Ref.string_of host)) ))
+         , Eq (Field "host", Literal (Ref.string_of host))
+         )
+      )
 
 (* Plugging a bond slave is not allowed *)
 let assert_no_slave ~__context pif =
   if Db.PIF.get_bond_slave_of ~__context ~self:pif <> Ref.null then
     raise
       (Api_errors.Server_error
-         (Api_errors.cannot_plug_bond_slave, [Ref.string_of pif]))
+         (Api_errors.cannot_plug_bond_slave, [Ref.string_of pif])
+      )
 
 let assert_can_attach_network_on_host ~__context ~self ~host =
   let local_pifs = get_local_pifs ~__context ~network:self ~host in
@@ -130,15 +140,22 @@ let assert_can_see_named_networks ~__context ~vm ~host reqd_nets =
     (fun net ->
       warn "Host %s cannot see Network %s"
         (Helpers.checknull (fun () ->
-             Db.Host.get_name_label ~__context ~self:host))
+             Db.Host.get_name_label ~__context ~self:host
+         )
+        )
         (Helpers.checknull (fun () ->
-             Db.Network.get_name_label ~__context ~self:net)))
+             Db.Network.get_name_label ~__context ~self:net
+         )
+        )
+    )
     not_available ;
   if not_available <> [] then
     raise
       (Api_errors.Server_error
          ( Api_errors.vm_requires_net
-         , [Ref.string_of vm; Ref.string_of (List.hd not_available)] )) ;
+         , [Ref.string_of vm; Ref.string_of (List.hd not_available)]
+         )
+      ) ;
   (* Also, for each of the available networks, we need to ensure that we can bring it
      	 * up on the specified host; i.e. it doesn't need an enslaved PIF. *)
   List.iter
@@ -155,5 +172,8 @@ let assert_can_see_named_networks ~__context ~vm ~host reqd_nets =
         raise
           (Api_errors.Server_error
              ( Api_errors.host_cannot_attach_network
-             , [Ref.string_of host; Ref.string_of network] )))
+             , [Ref.string_of host; Ref.string_of network]
+             )
+          )
+    )
     avail_nets

@@ -48,7 +48,9 @@ let check ~intra_pool_only ~session_id =
                  , [
                      "Internal API call attempted with non-pool (external) \
                       session"
-                   ] )) ;
+                   ]
+                 )
+              ) ;
           (* If the session isn't a pool login, and we're a slave, fail *)
           if (not pool) && not (Pool_role.is_master ()) then
             raise Non_master_login_on_slave ;
@@ -70,8 +72,7 @@ let check ~intra_pool_only ~session_id =
             let address =
               Db_actions.DB_Action.Host.get_address ~__context ~self:master
             in
-            raise
-              (Api_errors.Server_error (Api_errors.host_is_slave, [address]))
+            raise (Api_errors.Server_error (Api_errors.host_is_slave, [address]))
         | Api_errors.Server_error (code, params) as e ->
             debug "Session check failed: unexpected exception %s %s" code
               (String.concat " " params) ;
@@ -81,4 +82,6 @@ let check ~intra_pool_only ~session_id =
               (Printexc.to_string exn) ;
             raise
               (Api_errors.Server_error
-                 (Api_errors.session_invalid, [Ref.string_of session_id])))
+                 (Api_errors.session_invalid, [Ref.string_of session_id])
+              )
+  )

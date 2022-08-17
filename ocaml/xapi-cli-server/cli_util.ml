@@ -56,7 +56,8 @@ let track callback rpc (session_id : API.ref_session) task =
                 | Event_helper.Task (t, Some t_rec) when t = task ->
                     callback t_rec
                 | _ ->
-                    ())
+                    ()
+                )
               events ;
             let matches = function
               | Event_helper.Task (t, Some t_rec) ->
@@ -72,7 +73,8 @@ let track callback rpc (session_id : API.ref_session) task =
         ->
           debug "Caught EVENTS_LOST; reregistering" ;
           Client.Event.unregister ~rpc ~session_id ~classes
-      done)
+      done
+    )
     (fun () -> Client.Event.unregister ~rpc ~session_id ~classes)
 
 let result_from_task rpc session_id remote_task =
@@ -80,7 +82,8 @@ let result_from_task rpc session_id remote_task =
   | `cancelling | `cancelled ->
       raise
         (Api_errors.Server_error
-           (Api_errors.task_cancelled, [Ref.string_of remote_task]))
+           (Api_errors.task_cancelled, [Ref.string_of remote_task])
+        )
   | `pending ->
       failwith "wait_for_task_completion failed; task is still pending"
   | `success ->
@@ -95,7 +98,8 @@ let result_from_task rpc session_id remote_task =
         | [] ->
             Failure
               (Printf.sprintf "Task failed but no error recorded: %s"
-                 (Ref.string_of remote_task))
+                 (Ref.string_of remote_task)
+              )
       in
       Backtrace.(add exn (t_of_sexp (Sexplib.Sexp.of_string trace))) ;
       raise exn
@@ -119,7 +123,8 @@ let wait_for_task_completion_with_progress fd =
       if t.API.task_status <> `pending then (
         marshal fd (Command (PrintStderr "\n")) ;
         marshal fd (Command (PrintStderr (P.summarise p)))
-      ))
+      )
+  )
 
 let track_http_operation ?use_existing_task ?(progress_bar = false) fd rpc
     session_id (make_command : API.ref_task -> command) label =
@@ -140,7 +145,8 @@ let track_http_operation ?use_existing_task ?(progress_bar = false) fd rpc
           (fun () ->
             while !response = Response Wait do
               response := unmarshal fd
-            done)
+            done
+          )
           ()
       in
       (* Wait for the task to complete *)
@@ -175,7 +181,8 @@ let track_http_operation ?use_existing_task ?(progress_bar = false) fd rpc
           raise (Api_errors.Server_error (Api_errors.client_error, []))
         else
           raise (Api_errors.Server_error (List.hd params, List.tl params))
-      ))
+      )
+    )
     (fun () ->
       (* if we created our own task then destroy it again; if the task was supplied to us then don't destroy it --
          	  if clients pass a task in on the command-line then they are responsible for destroying *)
@@ -185,7 +192,8 @@ let track_http_operation ?use_existing_task ?(progress_bar = false) fd rpc
             (fun x -> Client.Task.destroy rpc session_id x)
             task_id
       | Some _ ->
-          ())
+          ()
+    )
 
 (* Rewrite the provisioning XML fragment to create all disks on a new, specified SR *)
 let rewrite_provisioning_xml rpc session_id new_vm sr_uuid =
@@ -197,7 +205,8 @@ let rewrite_provisioning_xml rpc session_id new_vm sr_uuid =
             , List.map
                 (fun (x, y) -> if x <> "sr" then (x, y) else ("sr", newsrname))
                 params
-            , [] )
+            , []
+            )
       | x ->
           x
     in

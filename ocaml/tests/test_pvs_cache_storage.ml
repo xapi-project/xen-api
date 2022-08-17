@@ -56,7 +56,8 @@ module Assert_not_already_present = Generic.MakeStateful (struct
     try
       Ok
         (Xapi_pvs_cache_storage.assert_not_already_present ~__context site'
-           host')
+           host'
+        )
     with e -> Error e
 
   let tests =
@@ -67,7 +68,10 @@ module Assert_not_already_present = Generic.MakeStateful (struct
             Api_errors.(
               Server_error
                 ( pvs_cache_storage_already_present
-                , [Ref.string_of site1; Ref.string_of host1] )) )
+                , [Ref.string_of site1; Ref.string_of host1]
+                )
+            )
+        )
       ; (("site1", "host2"), Ok ())
       ; (("site2", "host1"), Ok ())
       ; (("site2", "host2"), Ok ())
@@ -129,7 +133,8 @@ module Assert_not_in_use = Generic.MakeStateful (struct
     let pcs =
       Db.PVS_site.get_cache_storage ~__context ~self:site'
       |> List.filter (fun pcs ->
-             Db.PVS_cache_storage.get_host ~__context ~self:pcs = host')
+             Db.PVS_cache_storage.get_host ~__context ~self:pcs = host'
+         )
       |> List.hd
     in
     try Ok (Xapi_pvs_cache_storage.assert_not_in_use ~__context pcs)
@@ -141,7 +146,8 @@ module Assert_not_in_use = Generic.MakeStateful (struct
         ( ("site1", "host1")
         , Error
             Api_errors.(
-              Server_error (pvs_cache_storage_is_in_use, [Ref.string_of pcs1]))
+              Server_error (pvs_cache_storage_is_in_use, [Ref.string_of pcs1])
+            )
         )
       ; (("site1", "host2"), Ok ())
       ; (("site2", "host1"), Ok ())

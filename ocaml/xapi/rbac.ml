@@ -63,7 +63,6 @@ let trackid session_id = Context.trackid_of_session (Some session_id)
    1. a session (i.e. a user) has multiple subject IDs;
    2. a subject ID has multiple roles;
    3. a role has multiple permissions.
-
 *)
 
 (* efficient look-up structures *)
@@ -126,7 +125,8 @@ let permission_of_action ?args ~keys _action =
             (List.fold_left (fun ss s -> ss ^ s ^ ",") "" arg_keys)
             (List.fold_left
                (fun ss s -> ss ^ Rpc.to_string s ^ ",")
-               "" arg_values) ;
+               "" arg_values
+            ) ;
           get_keyERR_permission_name action "DENY_WRGLEN" (* will always deny *)
         ) else (* keys and values have the same length *)
           let rec get_permission_name_of_keys arg_keys arg_values =
@@ -152,10 +152,12 @@ let permission_of_action ?args ~keys _action =
                             then (* resolve wildcards at the end *)
                               Stdext.Xstringext.String.startswith
                                 (String.sub key_name 0
-                                   (String.length key_name - 1))
+                                   (String.length key_name - 1)
+                                )
                                 key_name_in_args
                             else (* no wildcards to resolve *)
-                              key_name = key_name_in_args)
+                              key_name = key_name_in_args
+                          )
                           keys
                       in
                       get_key_permission_name action
@@ -239,7 +241,8 @@ let check ?(extra_dmsg = "") ?(extra_msg = "") ?args ?(keys = []) ~__context ~fn
           (fun acc allowed_role ->
             acc
             ^ (if acc = "" then "" else ", ")
-            ^ Xapi_role.get_name_label ~__context ~self:allowed_role)
+            ^ Xapi_role.get_name_label ~__context ~self:allowed_role
+          )
           "" allowed_roles
       with e ->
         debug "Could not obtain allowed roles for %s (%s)" permission
@@ -256,7 +259,8 @@ let check ?(extra_dmsg = "") ?(extra_msg = "") ?args ?(keys = []) ~__context ~fn
     Rbac_audit.denied ~__context ~session_id ~action ~permission ?args () ;
     raise
       (Api_errors.Server_error
-         (Api_errors.rbac_permission_denied, [permission; msg]))
+         (Api_errors.rbac_permission_denied, [permission; msg])
+      )
 
 let get_session_of_context ~__context ~permission =
   try Context.get_session_id __context
@@ -264,7 +268,9 @@ let get_session_of_context ~__context ~permission =
     raise
       (Api_errors.Server_error
          ( Api_errors.rbac_permission_denied
-         , [permission; "no session in context"] ))
+         , [permission; "no session in context"]
+         )
+      )
 
 let assert_permission_name ~__context ~permission =
   let session_id = get_session_of_context ~__context ~permission in
@@ -289,7 +295,8 @@ let check_with_new_task ?(extra_dmsg = "") ?(extra_msg = "")
     ?(task_desc = "check") ?args ~fn session_id action =
   let task_desc = task_desc ^ ":" ^ action in
   Server_helpers.exec_with_new_task task_desc (fun __context ->
-      check ~extra_dmsg ~extra_msg ~__context ?args ~fn session_id action)
+      check ~extra_dmsg ~extra_msg ~__context ?args ~fn session_id action
+  )
 
 (* used by xapi_http.ml to decide if rbac checks should be applied *)
 let is_rbac_enabled_for_http_action http_action_name =

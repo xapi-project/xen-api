@@ -111,7 +111,8 @@ let features_of_sr_internal ~__context ~_type =
       Listext.filter_map
         (fun (name, v) ->
           try Some (List.assoc name Smint.string_to_capability_table, v)
-          with Not_found -> None)
+          with Not_found -> None
+        )
         sm.Db_actions.sM_features
 
 let features_of_sr ~__context record =
@@ -129,7 +130,8 @@ let valid_operations ~__context ?op record _ref' : table =
     List.iter
       (fun op ->
         if Hashtbl.find table op = None then
-          Hashtbl.replace table op (Some (code, params)))
+          Hashtbl.replace table op (Some (code, params))
+      )
       ops
   in
   if Helpers.rolling_upgrade_in_progress ~__context then
@@ -149,7 +151,9 @@ let valid_operations ~__context ?op record _ref' : table =
           (fun f ->
             not
               Smint.(
-                List.mem (capability_of_feature f) [Vdi_create; Vdi_delete]))
+                List.mem (capability_of_feature f) [Vdi_create; Vdi_delete]
+              )
+          )
           sm_features
       else
         sm_features
@@ -158,7 +162,8 @@ let valid_operations ~__context ?op record _ref' : table =
       List.filter
         (fun op ->
           List.mem_assoc op sm_cap_table
-          && not (Smint.has_capability (List.assoc op sm_cap_table) sm_features))
+          && not (Smint.has_capability (List.assoc op sm_cap_table) sm_features)
+        )
         all_ops
     in
     set_errors Api_errors.sr_operation_not_supported [_ref] forbidden_by_backend
@@ -170,7 +175,9 @@ let valid_operations ~__context ?op record _ref' : table =
         ~expr:
           (And
              ( Eq (Field "SR", Literal _ref)
-             , Eq (Field "currently_attached", Literal "true") ))
+             , Eq (Field "currently_attached", Literal "true")
+             )
+          )
     in
     if List.length all_pbds_attached_to_this_sr > 0 then
       set_errors Api_errors.sr_has_pbd [_ref] [`destroy; `forget]
@@ -190,7 +197,8 @@ let valid_operations ~__context ?op record _ref' : table =
       List.exists
         (fun vdi_ref ->
           let vdi = Db.VDI.get_record ~__context ~self:vdi_ref in
-          vdi.API.vDI_managed = true && vdi.API.vDI_type <> `rrd)
+          vdi.API.vDI_managed = true && vdi.API.vDI_type <> `rrd
+        )
         vdis
     then
       set_errors Api_errors.sr_not_empty [] [`destroy]
@@ -252,7 +260,9 @@ let throw_error (table : table) op =
              Printf.sprintf
                "xapi_sr.assert_operation_valid unknown operation: %s"
                (sr_operation_to_string op)
-           ] )) ;
+           ]
+         )
+      ) ;
   match Hashtbl.find table op with
   | Some (code, params) ->
       raise (Api_errors.Server_error (code, params))
@@ -307,11 +317,13 @@ let sr_health_check ~__context ~self =
                   let info =
                     C.SR.stat dbg
                       (Storage_interface.Sr.of_string
-                         (Db.SR.get_uuid ~__context ~self))
+                         (Db.SR.get_uuid ~__context ~self)
+                      )
                   in
                   if
                     (not
-                       (Db.Task.get_status ~__context ~self:task = `cancelling))
+                       (Db.Task.get_status ~__context ~self:task = `cancelling)
+                    )
                     && info.Storage_interface.clustered
                     && info.Storage_interface.health
                        = Storage_interface.Recovering
@@ -323,10 +335,12 @@ let sr_health_check ~__context ~self =
                       ~__context
                   )
                 in
-                loop ())
+                loop ()
+              )
               ()
           in
-          ())
+          ()
+      )
 
 let stop_health_check_thread ~__context ~self =
   if Helpers.i_am_srmaster ~__context ~sr:self then

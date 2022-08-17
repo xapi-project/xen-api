@@ -85,8 +85,10 @@ let destroy_all_vbds ~__context ~vdi =
           ) ;
           (* Meanwhile, HA should mark the previous master as dead and set the VBD as detached. *)
           (* If the VBD is not detached by now, VBD.destroy will fail and we will give up. *)
-          Client.VBD.destroy ~rpc ~session_id ~self:vbd)
-        existing_vbds)
+          Client.VBD.destroy ~rpc ~session_id ~self:vbd
+        )
+        existing_vbds
+  )
 
 (* Create and plug a VBD from the VDI, then create a redo log and point it at the block device. *)
 let enable_database_replication ~__context ~get_vdi_callback =
@@ -117,7 +119,8 @@ let enable_database_replication ~__context ~get_vdi_callback =
                   ~qos_algorithm_params:[] ~other_config:[]
               in
               Client.VBD.plug ~rpc ~session_id ~self:vbd ;
-              vbd)
+              vbd
+          )
         in
         (* This needs to be done in a thread, otherwise the redo_log will hang when attempting the DB write. *)
         let state_change_callback =
@@ -127,8 +130,11 @@ let enable_database_replication ~__context ~get_vdi_callback =
                 (Thread.create
                    (fun () ->
                      Db.VDI.set_metadata_latest ~__context ~self:vdi
-                       ~value:new_state)
-                   ()))
+                       ~value:new_state
+                   )
+                   ()
+                )
+            )
         in
         (* Enable redo_log and point it at the new device *)
         let log_name = Printf.sprintf "DR redo log for VDI %s" vdi_uuid in
@@ -146,11 +152,14 @@ let enable_database_replication ~__context ~get_vdi_callback =
           Redo_log.shutdown log ;
           Redo_log.delete log ;
           Helpers.call_api_functions ~__context (fun rpc session_id ->
-              Client.VBD.unplug ~rpc ~session_id ~self:vbd) ;
+              Client.VBD.unplug ~rpc ~session_id ~self:vbd
+          ) ;
           raise
             (Api_errors.Server_error
-               (Api_errors.cannot_enable_redo_log, [Printexc.to_string e]))
-      ))
+               (Api_errors.cannot_enable_redo_log, [Printexc.to_string e])
+            )
+      )
+  )
 
 (* Shut down the redo log, then unplug and destroy the VBD. *)
 let disable_database_replication ~__context ~vdi =
@@ -172,10 +181,12 @@ let disable_database_replication ~__context ~vdi =
                 Client.VBD.destroy ~rpc ~session_id ~self:vbd
               with e ->
                 debug "Caught %s while trying to dispose of VBD %s."
-                  (Printexc.to_string e) (Ref.string_of vbd)) ;
+                  (Printexc.to_string e) (Ref.string_of vbd)
+          ) ;
         Hashtbl.remove metadata_replication vdi ;
         Redo_log.delete log ;
-        Db.VDI.set_metadata_latest ~__context ~self:vdi ~value:false)
+        Db.VDI.set_metadata_latest ~__context ~self:vdi ~value:false
+  )
 
 let database_open_mutex = Mutex.create ()
 
@@ -205,7 +216,9 @@ let database_ref_of_vdi ~__context ~vdi =
   Mutex.execute database_open_mutex (fun () ->
       Helpers.call_api_functions ~__context (fun rpc session_id ->
           Sm_fs_ops.with_block_attached_device __context rpc session_id vdi `RW
-            database_ref_of_device))
+            database_ref_of_device
+      )
+  )
 
 module VDI_CStruct = struct
   let magic_number = 0x7ada7adal
@@ -279,7 +292,9 @@ let write_raw ~__context ~vdi ~text =
             VDI_CStruct.write cstruct text (String.length text) ;
             Unix.ftruncate fd 0 ;
             Unixext.seek_to fd 0 |> ignore ;
-            Unixext.really_write_string fd (VDI_CStruct.read cstruct)))
+            Unixext.really_write_string fd (VDI_CStruct.read cstruct)
+        )
+    )
   )
 
 let read_raw ~__context ~vdi =
@@ -295,4 +310,6 @@ let read_raw ~__context ~vdi =
                None" ;
             None
           ) else
-            Some (VDI_CStruct.read cstruct)))
+            Some (VDI_CStruct.read cstruct)
+      )
+  )

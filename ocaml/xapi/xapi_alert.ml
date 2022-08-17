@@ -36,7 +36,9 @@ module Alert = struct
               in
               ()
             with e ->
-              warn "Exception creating message: %s" (ExnHelper.string_of_exn e)))
+              warn "Exception creating message: %s" (ExnHelper.string_of_exn e)
+        )
+    )
 end
 
 (** Function which pushes Alerts onto the queue for background processing *)
@@ -53,7 +55,8 @@ let add ~msg:(name, priority) ~cls ~obj_uuid ~body =
           let (_ : 'a Ref.t) =
             Xapi_message.create ~__context ~name ~priority ~cls ~obj_uuid ~body
           in
-          true)
+          true
+      )
     else
       alert_queue_push name {Alert.name; priority; cls; obj_uuid; body}
   in

@@ -94,7 +94,8 @@ let rec strings_of_dtd_element known_els = function
                      :: List.map
                           (fun x -> empty ^ name_of_dtd_element x)
                           (List.tl els)
-                     ))
+                     )
+                  )
               ^ ")"
           in
           Hashtbl.remove known_els name ;
@@ -103,7 +104,8 @@ let rec strings_of_dtd_element known_els = function
              @ List.concat
                  (List.map
                     (strings_of_dtd_element known_els)
-                    (List.filter is_element els))
+                    (List.filter is_element els)
+                 )
              )
       ) else
         []
@@ -124,7 +126,8 @@ let element known_els name children atts =
     Element
       ( name
       , List.setify children @ fst existing_children
-      , List.setify atts @ snd existing_children )
+      , List.setify atts @ snd existing_children
+      )
   in
   Hashtbl.replace known_els name el ;
   el

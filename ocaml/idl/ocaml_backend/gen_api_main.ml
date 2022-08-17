@@ -74,27 +74,35 @@ let _ =
       ( "-mode"
       , Arg.Symbol
           ( ["client"; "server"; "api"; "db"; "actions"; "sql"; "rbac"; "test"]
-          , fun x -> mode := Some x )
-      , "Choose which file to output" )
+          , fun x -> mode := Some x
+          )
+      , "Choose which file to output"
+      )
     ; ( "-filter"
       , Arg.Symbol
           ( ["opensource"; "closed"; "debug"; "nothing"]
-          , fun x -> filter := Some x )
-      , "Apply a filter to the API" )
+          , fun x -> filter := Some x
+          )
+      , "Apply a filter to the API"
+      )
     ; ( "-filterinternal"
       , Arg.Bool (fun x -> filterinternal := x)
-      , "Filter internal fields and messages" )
+      , "Filter internal fields and messages"
+      )
     ; ( "-gendebug"
       , Arg.Unit (fun _ -> set_gendebug ())
-      , "Add debugging code to generated output" )
+      , "Add debugging code to generated output"
+      )
     ; ( "-output"
       , Arg.String
           (fun s ->
             ( try Unix.mkdir (Filename.dirname s) 0o755
               with Unix.Unix_error (Unix.EEXIST, _, _) -> ()
             ) ;
-            Gen_api.oc := open_out s)
-      , "Output to the specified file" )
+            Gen_api.oc := open_out s
+          )
+      , "Output to the specified file"
+      )
     ]
     (fun x -> Printf.eprintf "Ignoring argument: %s\n" x)
     "Generate ocaml code from the datamodel. See -help" ;

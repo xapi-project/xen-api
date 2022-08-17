@@ -49,7 +49,8 @@ let host_backup_handler_core ~__context s =
           t := !t -. 0.1 ;
           let progress = 0.9 *. (1.0 -. exp !t) in
           TaskHelper.set_progress ~__context progress
-        done)
+        done
+    )
   with
   | Success (log, ()) ->
       debug "host_backup succeeded - returned: %s" log ;
@@ -62,7 +63,8 @@ let host_backup_handler (req : Request.t) s _ =
   req.Request.close <- true ;
   Xapi_http.with_context "Downloading host backup" req s (fun __context ->
       Http_svr.headers s (Http.http_200_ok ()) ;
-      host_backup_handler_core ~__context s)
+      host_backup_handler_core ~__context s
+  )
 
 (** Helper function to prevent double-closes of file descriptors
     		TODO: this function was copied from util/sha1sum.ml, and should
@@ -103,10 +105,13 @@ let host_restore_handler (req : Request.t) s _ =
                           Unixext.copy_file s in_pipe
                     in
                     debug "Host restore: read %s bytes of backup..."
-                      (Int64.to_string copied_bytes))
+                      (Int64.to_string copied_bytes)
+                  )
                   (fun () ->
                     close in_pipe ;
-                    waitpid_fail_if_bad_exit pid))
+                    waitpid_fail_if_bad_exit pid
+                  )
+            )
           in
           match result with
           | Success _ ->
@@ -115,5 +120,8 @@ let host_restore_handler (req : Request.t) s _ =
               debug "host-restore script failed with output: %s" log ;
               raise
                 (Api_errors.Server_error
-                   (Api_errors.restore_script_failed, [log])))
-        (fun () -> List.iter close !to_close))
+                   (Api_errors.restore_script_failed, [log])
+                )
+        )
+        (fun () -> List.iter close !to_close)
+  )

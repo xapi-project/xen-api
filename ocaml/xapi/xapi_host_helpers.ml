@@ -48,7 +48,8 @@ let valid_operations ~__context record _ref' =
     List.iter
       (fun op ->
         if Hashtbl.find table op = None then
-          Hashtbl.replace table op (Some (code, params)))
+          Hashtbl.replace table op (Some (code, params))
+      )
       ops
   in
   (* Operations are divided into two groups:
@@ -68,7 +69,8 @@ let valid_operations ~__context record _ref' =
       then
         set_errors Api_errors.other_operation_in_progress
           ["host"; _ref; host_operation_to_string (List.hd current_ops)]
-          [op])
+          [op]
+    )
     (List.filter (fun x -> x <> `power_on) all_operations) ;
   (* reboot and shutdown cannot run concurrently *)
   if List.mem `reboot current_ops then
@@ -106,9 +108,7 @@ let valid_operations ~__context record _ref' =
   (* The power-on-host plugin must be available before power_on is possible *)
   ( try
       Unix.access
-        (Filename.concat
-           !Xapi_globs.xapi_plugins_root
-           Constants.power_on_plugin)
+        (Filename.concat !Xapi_globs.xapi_plugins_root Constants.power_on_plugin)
         [Unix.X_OK]
     with _ ->
       set_errors Api_errors.xenapi_missing_plugin
@@ -132,7 +132,8 @@ let valid_operations ~__context record _ref' =
       not
         (List.for_all
            (Xapi_clustering.is_clustering_disabled_on_host ~__context)
-           hosts_down)
+           hosts_down
+        )
     then
       set_errors Api_errors.clustered_sr_degraded
         [List.hd plugged_clustered_srs |> Ref.string_of]
@@ -163,7 +164,9 @@ let throw_error table op =
              Printf.sprintf
                "xapi_host_helpers.assert_operation_valid unknown operation: %s"
                (host_operation_to_string op)
-           ] )) ;
+           ]
+         )
+      ) ;
   match Hashtbl.find table op with
   | Some (code, params) ->
       raise (Api_errors.Server_error (code, params))
@@ -208,8 +211,8 @@ let shutdown ~__context ~host = ()
 
 let reboot ~__context ~host = ()
 
-(* When the Host.shutdown and Host.reboot calls return to the master, the slave is 
-   shutting down asycnronously. We immediately set the Host_metrics.live to false 
+(* When the Host.shutdown and Host.reboot calls return to the master, the slave is
+   shutting down asycnronously. We immediately set the Host_metrics.live to false
    and add the host to the global list of known-dying hosts. *)
 let mark_host_as_dead ~__context ~host ~reason =
   let done_already =
@@ -220,7 +223,8 @@ let mark_host_as_dead ~__context ~host ~reason =
           Xapi_globs.hosts_which_are_shutting_down :=
             host :: !Xapi_globs.hosts_which_are_shutting_down ;
           false
-        ))
+        )
+    )
   in
   if not done_already then (
     (* The heartbeat handling code (HA and non-HA) will hopefully ignore the heartbeats
@@ -256,7 +260,8 @@ let signal_startup_complete () =
 let assert_startup_complete () =
   Mutex.execute startup_complete_m (fun () ->
       if not !startup_complete then
-        raise (Api_errors.Server_error (Api_errors.host_still_booting, [])))
+        raise (Api_errors.Server_error (Api_errors.host_still_booting, []))
+  )
 
 (* Check whether the currently installed Toolstack is compatible with the
    currently installed xenctrl library and the currently running Xen hypervisor.
@@ -316,7 +321,8 @@ let consider_enabling_host_nolock ~__context =
     List.fold_left ( && ) true
       (List.map
          (fun self -> Db.PBD.get_currently_attached ~__context ~self)
-         pbds)
+         pbds
+      )
   in
   if
     (not !user_requested_host_disable)
@@ -358,7 +364,8 @@ let consider_enabling_host_nolock ~__context =
       && Db.Pool.get_ha_enabled ~__context ~self:pool
     then
       Helpers.call_api_functions ~__context (fun rpc session_id ->
-          Client.Client.Pool.ha_schedule_plan_recomputation rpc session_id)
+          Client.Client.Pool.ha_schedule_plan_recomputation rpc session_id
+      )
   ) ;
   signal_startup_complete ()
 
@@ -366,7 +373,9 @@ let consider_enabling_host_nolock ~__context =
 let consider_enabling_host =
   At_least_once_more.make "consider_enabling_host" (fun () ->
       Server_helpers.exec_with_new_task "consider_enabling_host"
-        (fun __context -> consider_enabling_host_nolock __context))
+        (fun __context -> consider_enabling_host_nolock __context
+      )
+  )
 
 let consider_enabling_host_request ~__context =
   At_least_once_more.again consider_enabling_host
@@ -383,11 +392,13 @@ module Host_requires_reboot = struct
         try
           Unix.access Xapi_globs.requires_reboot_file [Unix.F_OK] ;
           true
-        with _ -> false)
+        with _ -> false
+    )
 
   let set () =
     Mutex.execute m (fun () ->
-        Unixext.touch_file Xapi_globs.requires_reboot_file)
+        Unixext.touch_file Xapi_globs.requires_reboot_file
+    )
 end
 
 module Configuration = struct
@@ -478,7 +489,8 @@ module Configuration = struct
                       List.iter check_host (Db.Host.get_all_records ~__context) ;
                     in_rpu
                 | _ ->
-                    in_rpu)
+                    in_rpu
+              )
               was_in_rpu event_recs
           in
           List.iter
@@ -487,9 +499,11 @@ module Configuration = struct
                   if not in_rpu then
                     check_host (host_ref, host_rec)
               | _ ->
-                  ())
+                  ()
+              )
             event_recs ;
-          (events.Event_types.token, in_rpu))
+          (events.Event_types.token, in_rpu)
+      )
     in
     loop
 
@@ -505,7 +519,8 @@ module Configuration = struct
             error "Caught exception in Configuration.start_watcher_thread: %s"
               (Printexc.to_string e) ;
             Thread.delay 5.0
-        done)
+        done
+      )
       ()
     |> ignore
 end

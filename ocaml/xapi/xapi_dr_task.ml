@@ -87,7 +87,8 @@ let try_create_sr_from_record ~__context ~_type ~device_config ~dr_task
               Client.PBD.create ~rpc ~session_id ~host ~sR:sr ~device_config
                 ~other_config:[]
             in
-            Client.PBD.plug ~rpc ~session_id ~self:pbd) ;
+            Client.PBD.plug ~rpc ~session_id ~self:pbd
+        ) ;
         (* Wait until the asynchronous scan is complete and metadata_latest has been updated for all metadata VDIs. *)
         Xapi_dr.wait_until_sr_is_ready ~__context ~sr ;
         Db.SR.set_introduced_by ~__context ~self:sr ~value:dr_task
@@ -101,7 +102,8 @@ let try_create_sr_from_record ~__context ~_type ~device_config ~dr_task
         in
         List.iter (fun pbd -> Client.PBD.unplug ~rpc ~session_id ~self:pbd) pbds ;
         Client.SR.forget ~rpc ~session_id ~sr ;
-        raise e)
+        raise e
+  )
 
 let create ~__context ~_type ~device_config ~whitelist =
   (* Check if licence allows disaster recovery. *)
@@ -114,13 +116,16 @@ let create ~__context ~_type ~device_config ~whitelist =
          , [
              Printf.sprintf "Disaster recovery not supported on SRs of type %s"
                _type
-           ] )) ;
+           ]
+         )
+      ) ;
   (* Probe the specified device for SRs. *)
   let master = Helpers.get_master ~__context in
   let probe_result =
     Helpers.call_api_functions ~__context (fun rpc session_id ->
         Client.SR.probe ~rpc ~session_id ~host:master ~device_config ~_type
-          ~sm_config:[("metadata", "true")])
+          ~sm_config:[("metadata", "true")]
+    )
   in
   (* Parse the probe result. *)
   let sr_records =
@@ -129,7 +134,9 @@ let create ~__context ~_type ~device_config ~whitelist =
       raise
         (Api_errors.Server_error
            ( Api_errors.internal_error
-           , [Printf.sprintf "SR probe response was malformed: %s" msg] ))
+           , [Printf.sprintf "SR probe response was malformed: %s" msg]
+           )
+        )
   in
   (* If the SR record has a UUID, make sure it's in the whitelist. *)
   let sr_records =
@@ -150,7 +157,8 @@ let create ~__context ~_type ~device_config ~whitelist =
           sr_record.uuid
       with Db_exn.Read_missing_uuid (_, _, _) ->
         try_create_sr_from_record ~__context ~_type ~device_config ~dr_task
-          ~sr_record)
+          ~sr_record
+    )
     sr_records ;
   dr_task
 
@@ -166,13 +174,17 @@ let destroy ~__context ~self =
         (fun pbd ->
           debug "Unplugging PBD %s" (Db.PBD.get_uuid ~__context ~self:pbd) ;
           Helpers.call_api_functions ~__context (fun rpc session_id ->
-              Client.PBD.unplug ~rpc ~session_id ~self:pbd))
+              Client.PBD.unplug ~rpc ~session_id ~self:pbd
+          )
+        )
         pbds ;
       (* Forget the SR. *)
       debug "Forgetting SR %s (%s)"
         (Db.SR.get_uuid ~__context ~self:sr)
         (Db.SR.get_name_label ~__context ~self:sr) ;
       Helpers.call_api_functions ~__context (fun rpc session_id ->
-          Client.SR.forget ~rpc ~session_id ~sr))
+          Client.SR.forget ~rpc ~session_id ~sr
+      )
+    )
     introduced_SRs ;
   Db.DR_task.destroy ~__context ~self

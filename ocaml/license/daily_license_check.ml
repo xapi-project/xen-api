@@ -17,7 +17,8 @@ let get_hosts all_license_params threshold =
       if expiry < threshold then
         name_label :: acc
       else
-        acc)
+        acc
+    )
     [] all_license_params
 
 let check_license now pool_license_state all_license_params =
@@ -37,8 +38,7 @@ let get_info_from_db rpc session =
   let hosts = XenAPI.Host.get_all_records rpc session in
   let all_license_params =
     List.map
-      (fun (_, host) ->
-        (host.API.host_name_label, host.API.host_license_params))
+      (fun (_, host) -> (host.API.host_name_label, host.API.host_license_params))
       hosts
   in
   (pool, pool_license_state, all_license_params)
@@ -47,8 +47,7 @@ let execute rpc session pool result =
   let send_alert session pool msg body =
     let name, priority = msg in
     let pool_uuid = XenAPI.Pool.get_uuid rpc session pool in
-    ignore
-      (XenAPI.Message.create rpc session name priority `Pool pool_uuid body)
+    ignore (XenAPI.Message.create rpc session name priority `Pool pool_uuid body)
   in
   match result with
   | Good ->

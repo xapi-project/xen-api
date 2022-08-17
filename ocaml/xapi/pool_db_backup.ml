@@ -64,8 +64,7 @@ let version_check db =
        expected: (%d,%d), actual: (%d,%d)"
       Datamodel_common.schema_major_vsn Datamodel_common.schema_minor_vsn major
       minor ;
-    raise
-      (Api_errors.Server_error (Api_errors.restore_incompatible_version, []))
+    raise (Api_errors.Server_error (Api_errors.restore_incompatible_version, []))
   )
 
 (** Makes a new database suitable for xapi by rewriting some configuration from the current
@@ -84,7 +83,8 @@ let prepare_database_for_restore ~old_context ~new_context =
           (fun self -> Db.PIF.destroy ~__context:new_context ~self)
           (Db.Host.get_PIFs ~__context:new_context ~self) ;
         Db.Host.destroy ~__context:new_context ~self
-      ))
+      )
+    )
     (Db.Host.get_all ~__context:new_context) ;
   (* Set the master's uuid to ours *)
   let my_installation_uuid =
@@ -161,7 +161,8 @@ let prepare_database_for_restore ~old_context ~new_context =
         if not (List.mem_assoc device device_to_ref) then
           raise
             (Api_errors.Server_error
-               (Api_errors.restore_target_missing_device, [device])) ;
+               (Api_errors.restore_target_missing_device, [device])
+            ) ;
         (* Otherwise rewrite the MAC address to match the current machine
            and set the management flag accordingly *)
         let existing_pif = List.assoc device device_to_ref in
@@ -170,13 +171,15 @@ let prepare_database_for_restore ~old_context ~new_context =
       ) ;
       debug "Rewriting PIF uuid %s device %s management %b MAC %s" uuid device
         is_mgmt
-        (Db.PIF.get_MAC ~__context:new_context ~self))
+        (Db.PIF.get_MAC ~__context:new_context ~self)
+    )
     (Db.Host.get_PIFs ~__context:new_context ~self:master) ;
   (* Check that management interface was synced up *)
   if (not !found_mgmt_if) && mgmt_dev <> None then
     raise
       (Api_errors.Server_error
-         (Api_errors.restore_target_mgmt_if_not_in_backup, !ifs_in_backup))
+         (Api_errors.restore_target_mgmt_if_not_in_backup, !ifs_in_backup)
+      )
 
 (** Restore all of our state from an XML backup. This includes the pool config, token etc *)
 let restore_from_xml __context dry_run (xml_filename : string) =
@@ -203,7 +206,8 @@ let pull_database_backup_handler (req : Http.Request.t) s _ =
       Http_svr.headers s (Http.http_200_ok ~keep_alive:false ()) ;
       debug "writing database xml" ;
       write_database s ~__context ;
-      debug "finished writing database xml")
+      debug "finished writing database xml"
+  )
 
 (** Invoked only by the explicit database restore code *)
 let push_database_restore_handler (req : Http.Request.t) s _ =
@@ -247,7 +251,8 @@ let push_database_restore_handler (req : Http.Request.t) s _ =
             Xapi_fuse.light_fuse_and_reboot
               ~fuse_length:!Constants.db_restore_fuse_time
               ()
-          ))
+          )
+  )
 
 let http_fetch_db ~master_address ~pool_secret =
   let request =
@@ -264,7 +269,9 @@ let http_fetch_db ~master_address ~pool_secret =
          let db =
            Db_xml.From.channel (Datamodel_schema.of_datamodel ()) inchan
          in
-         version_check db ; db))
+         version_check db ; db
+     )
+    )
 
 (* When we eject from a pool, a slave deletes its backup files. This mutex is used to ensure that
    we're not trying to delete these backup files concurrently with making more! *)
@@ -287,7 +294,9 @@ let fetch_database_backup ~master_address ~pool_secret ~force =
         Threadext.Mutex.execute slave_backup_m (fun () ->
             Db_connections.flush dbconn db ;
             Slave_backup.notify_write dbconn
-            (* update writes_this_period for this connection *)))
+            (* update writes_this_period for this connection *)
+        )
+      )
       connections
   else
     debug
@@ -311,7 +320,9 @@ let pool_db_backup_thread () =
                 Db_lock.with_lock (fun () ->
                     Manifest.generation
                       (Database.manifest
-                         (Db_ref.get_database (Context.database_of __context))))
+                         (Db_ref.get_database (Context.database_of __context))
+                      )
+                )
               in
               let dohost host =
                 try
@@ -320,7 +331,8 @@ let pool_db_backup_thread () =
                     (Ref.string_of host) ;
                   Helpers.call_api_functions ~__context (fun rpc session_id ->
                       Client.Host.request_backup rpc session_id host generation
-                        false) ;
+                        false
+                  ) ;
                   debug "Finished DB synchronise"
                 with e ->
                   error "Failed to synchronise DB with host %s: %s"
@@ -334,5 +346,7 @@ let pool_db_backup_thread () =
             with e ->
               debug "Exception in DB synchronise thread: %s"
                 (ExnHelper.string_of_exn e)
-          done))
+          done
+      )
+    )
     ()

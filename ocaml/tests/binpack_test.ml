@@ -81,13 +81,16 @@ let prove_plan_is_possible_via_counterexample_search
                     (remaining, sofar)
                   else
                     let host = choose_one remaining in
-                    (List.filter (fun x -> x <> host) remaining, host :: sofar))
+                    (List.filter (fun x -> x <> host) remaining, host :: sofar)
+                )
                 (List.map fst config.hosts, [])
                 (mkints num_failures)
             in
-            dead)
+            dead
+          )
           (mkints (Int64.to_int limit))
-      , false )
+      , false
+      )
   in
   Printf.printf "Trying %d (out of %Ld) combinations %s\n"
     (List.length combinations_to_try)
@@ -111,7 +114,8 @@ let prove_plan_is_possible_via_counterexample_search
       (*
        Printf.printf "  Plan = [ %s ]\n" (String.concat "; " (List.map (fun (a, b) -> Printf.sprintf "%d -> %d" a b) plan));
 *)
-      check_plan config dead_hosts plan)
+      check_plan config dead_hosts plan
+    )
     combinations_to_try ;
   (* If search was exhaustive then we are sure. Otherwise it's "maybe" *)
   exhaustive
@@ -134,7 +138,8 @@ let try_impossible_cases () =
    try
      check_plan config dead_hosts bad_plan ;
      failwith "bad plan was not detected"
-   with BadPlan -> ()) ;
+   with BadPlan -> ()
+  ) ;
   Printf.printf "OK\n" ;
   (* Hosts all have 500L + a few Mb; 1 400L VM per host; >n/2 failures *)
   Printf.printf
@@ -163,7 +168,8 @@ let try_impossible_cases () =
             "WARNING: failed to find a counterexample; not sure if plan is ok \
              or not\n"
       with BadPlan ->
-        Printf.printf "Found a counterexample: no plan is possible\n")
+        Printf.printf "Found a counterexample: no plan is possible\n"
+    )
     all_heuristics
 
 (* Positive test -- make sure the planner succeeds in easy cases *)
@@ -229,17 +235,21 @@ let _ =
     [
       ( "-graph"
       , Arg.Set_string graph
-      , "Run performance tests and write graph output to file specified" )
+      , "Run performance tests and write graph output to file specified"
+      )
     ; ( "-graph_n"
       , Arg.Set_int graph_n
-      , "Set the maximum N value for the performance tests (eg total hosts)" )
+      , "Set the maximum N value for the performance tests (eg total hosts)"
+      )
     ; ( "-graph_r"
       , Arg.Set_int graph_r
       , "Set the maximum R value for the performance tests (eg host failures \
-         to simulate)" )
+         to simulate)"
+      )
     ; ( "-graph_i"
       , Arg.Set_int graph_i
-      , "Set the number of iterations to run the performance tests over" )
+      , "Set the number of iterations to run the performance tests over"
+      )
     ]
     (fun x -> Printf.fprintf stderr "Skipping unknown argument: %s" x)
     "Run unit and optional performance tests on the binpacker" ;

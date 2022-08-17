@@ -42,14 +42,14 @@ type output = Ps of string | Gif of string | X11
 let make_normal_probability_tics tics =
   Printf.sprintf "set ytics (%s)"
     (String.concat ", "
-       (List.map
-          (fun tic -> Printf.sprintf "\"%.2f\" invnorm(%f)" tic tic)
-          tics))
+       (List.map (fun tic -> Printf.sprintf "\"%.2f\" invnorm(%f)" tic tic) tics)
+    )
 
 let make_log_tics tics =
   Printf.sprintf "set xtics (%s)"
     (String.concat ", "
-       (List.map (fun tic -> Printf.sprintf "\"%.2f\" %f" tic tic) tics))
+       (List.map (fun tic -> Printf.sprintf "\"%.2f\" %f" tic tic) tics)
+    )
 
 let invnorm (x : t) (y : string) =
   if x.normal_probability_y_axis = None then
@@ -159,5 +159,7 @@ let render (x : t) output =
       Unix.system
         (Printf.sprintf "gnuplot %s %s"
            (if output = X11 then "-persist" else "")
-           f))
+           f
+        )
+    )
     (fun () -> Unixext.unlink_safe f)

@@ -96,7 +96,8 @@ module RoundTripStringToString = Generic.MakeStateless (struct
     `QuickAndAutoDocumented
       (List.map
          (fun x -> (x, x))
-         ["00000000-00000002-0000007b"; "00000001"; "00000000"; ""])
+         ["00000000-00000002-0000007b"; "00000001"; "00000000"; ""]
+      )
 end)
 
 module ParseFailure = Generic.MakeStateless (struct
@@ -122,7 +123,8 @@ module ParseFailure = Generic.MakeStateless (struct
     `QuickAndAutoDocumented
       (List.map
          (fun x -> (x, InvalidFeatureString x))
-         ["foo bar baz"; "fgfg-1234"; "0123-foo"; "foo-0123"; "-1234"; "1234-"])
+         ["foo bar baz"; "fgfg-1234"; "0123-foo"; "foo-0123"; "-1234"; "1234-"]
+      )
 end)
 
 module Extend = Generic.MakeStateless (struct
@@ -210,13 +212,17 @@ module Intersect = Generic.MakeStateless (struct
       ; (([|0b00000111L|], [|0b00001111L|]), [|0b00000111L|])
       ; (([|0b00011111L|], [|0b00001111L|]), [|0b00001111L|])
       ; ( ([|0b00000000L; 0b11111111L|], [|0b11111111L; 0b00000000L|])
-        , [|0b00000000L; 0b00000000L|] )
+        , [|0b00000000L; 0b00000000L|]
+        )
       ; ( ([|0b11111111L; 0b01010101L|], [|0b11111111L; 0b01010101L|])
-        , [|0b11111111L; 0b01010101L|] )
+        , [|0b11111111L; 0b01010101L|]
+        )
       ; ( ([|0b01111111L; 0b10000000L|], [|0b11111111L; 0b00000000L|])
-        , [|0b01111111L; 0b00000000L|] )
+        , [|0b01111111L; 0b00000000L|]
+        )
       ; ( ([|0b00000111L; 0b11100000L|], [|0b00001111L; 0b11110000L|])
-        , [|0b00000111L; 0b11100000L|] )
+        , [|0b00000111L; 0b11100000L|]
+        )
       ]
 end)
 
@@ -287,20 +293,25 @@ module Comparisons = Generic.MakeStateless (struct
           , features_of_string
               "07c9cbf5-80082201-20100800-00000001-00000000-00000000-00000000-00000000-00000000"
           )
-        , (false, false) )
+        , (false, false)
+        )
       ; (([|0b00000000L|], [|0b11111111L|]), (true, true))
       ; (([|0b11111111L|], [|0b11111111L|]), (true, false))
       ; (([|0b01111111L|], [|0b11111111L|]), (true, true))
       ; (([|0b00000111L|], [|0b00001111L|]), (true, true))
       ; (([|0b00011111L|], [|0b00001111L|]), (false, false))
       ; ( ([|0b00000000L; 0b11111111L|], [|0b11111111L; 0b00000000L|])
-        , (false, false) )
+        , (false, false)
+        )
       ; ( ([|0b11111111L; 0b01010101L|], [|0b11111111L; 0b01010101L|])
-        , (true, false) )
+        , (true, false)
+        )
       ; ( ([|0b01111111L; 0b10000000L|], [|0b11111111L; 0b00000000L|])
-        , (false, false) )
+        , (false, false)
+        )
       ; ( ([|0b00000111L; 0b11100000L|], [|0b00001111L; 0b11110000L|])
-        , (true, true) )
+        , (true, true)
+        )
       ]
 end)
 
@@ -322,7 +333,8 @@ module Accessors = Generic.MakeStateless (struct
     , getf socket_count record
     , getf cpu_count record
     , getf features_pv record
-    , getf features_hvm record )
+    , getf features_hvm record
+    )
 
   let tests =
     `QuickAndAutoDocumented
@@ -334,7 +346,8 @@ module Accessors = Generic.MakeStateless (struct
           ; ("features_pv", "00000001-00000002-00000003")
           ; ("features_hvm", "0000000a-0000000b-0000000c")
           ]
-        , ("Intel", 1, 1, [|1L; 2L; 3L|], [|0xaL; 0xbL; 0xcL|]) )
+        , ("Intel", 1, 1, [|1L; 2L; 3L|], [|0xaL; 0xbL; 0xcL|])
+        )
       ; ( [
             ("vendor", "Amd")
           ; ("socket_count", "6")
@@ -342,7 +355,8 @@ module Accessors = Generic.MakeStateless (struct
           ; ("features_pv", "00000001")
           ; ("features_hvm", "")
           ]
-        , ("Amd", 6, 24, [|1L|], [||]) )
+        , ("Amd", 6, 24, [|1L|], [||])
+        )
       ]
 end)
 
@@ -379,7 +393,8 @@ module Setters = Generic.MakeStateless (struct
             ; ("cpu_count", "1")
             ; ("features_pv", "00000001-00000002-00000003")
             ; ("features_hvm", "0000000a-0000000b-0000000c")
-            ] )
+            ]
+        )
       ; ( ("Amd", 6, 24, [|1L|], [||])
         , List.sort compare
             [
@@ -388,7 +403,8 @@ module Setters = Generic.MakeStateless (struct
             ; ("cpu_count", "24")
             ; ("features_pv", "00000001")
             ; ("features_hvm", "")
-            ] )
+            ]
+        )
       ]
 end)
 
@@ -429,7 +445,8 @@ module Modifiers = Generic.MakeStateless (struct
           ; ("features_pv", "00000001-00000002-00000003")
           ; ("socket_count", "1")
           ; ("vendor", "Intel")
-          ] )
+          ]
+        )
       ]
 end)
 
@@ -471,7 +488,8 @@ module NextBootCPUFeatures = Generic.MakeStateful (struct
       ~value:cpu_info ;
     List.iter
       (fun (name_label, domain_type) ->
-        ignore (Test_common.make_vm ~__context ~name_label ~domain_type ()))
+        ignore (Test_common.make_vm ~__context ~name_label ~domain_type ())
+      )
       cases
 
   let extract_output __context vms =
@@ -489,7 +507,8 @@ module NextBootCPUFeatures = Generic.MakeStateful (struct
       ; ([("a", `pv)], [features_pv])
       ; ([("a", `pv_in_pvh)], [features_hvm])
       ; ( [("a", `hvm); ("b", `pv); ("c", `pv_in_pvh)]
-        , [features_hvm; features_pv; features_hvm] )
+        , [features_hvm; features_pv; features_hvm]
+        )
       ]
 end)
 
@@ -563,9 +582,10 @@ module AssertVMIsCompatible = Generic.MakeStateful (struct
           (Api_errors.Server_error
              ( vm_incompatible_with_this_host
              , List.filter
-                 (fun s ->
-                   not @@ Astring.String.is_prefix ~affix:"OpaqueRef:" s)
-                 data ))
+                 (fun s -> not @@ Astring.String.is_prefix ~affix:"OpaqueRef:" s)
+                 data
+             )
+          )
     | e ->
         Error e
 
@@ -579,8 +599,11 @@ module AssertVMIsCompatible = Generic.MakeStateful (struct
               [
                 (cpu_info_vendor_key, "Abacus")
               ; (cpu_info_features_key, features_hvm)
-              ] )
-        , Ok () )
+              ]
+            
+          )
+        , Ok ()
+        )
       ; ( ( "a"
           , `hvm
           , Xapi_globs.
@@ -589,7 +612,9 @@ module AssertVMIsCompatible = Generic.MakeStateful (struct
               ; ( cpu_info_features_key
                 , "cafecafe-cafecafe-cafecafe-cafecafe-cafecafe-cafecafe-cafecafe-cafecafe-cafecafe-cafecafe-cafecafe-cafecafe-cafecafe-cafecafe-cafecafe"
                 )
-              ] )
+              ]
+            
+          )
         , Error
             Api_errors.(
               Server_error
@@ -597,14 +622,19 @@ module AssertVMIsCompatible = Generic.MakeStateful (struct
                 , [
                     "VM last booted on a CPU with features this host's CPU \
                      does not have."
-                  ] )) )
+                  ]
+                )
+            )
+        )
       ; ( ( "a"
           , `hvm
           , Xapi_globs.
               [
                 (cpu_info_vendor_key, "Napier's Bones")
               ; (cpu_info_features_key, features_hvm)
-              ] )
+              ]
+            
+          )
         , Error
             Api_errors.(
               Server_error
@@ -612,7 +642,10 @@ module AssertVMIsCompatible = Generic.MakeStateful (struct
                 , [
                     "VM last booted on a host which had a CPU from a different \
                      vendor."
-                  ] )) )
+                  ]
+                )
+            )
+        )
       ; (* PV *)
         ( ( "a"
           , `pv
@@ -620,8 +653,11 @@ module AssertVMIsCompatible = Generic.MakeStateful (struct
               [
                 (cpu_info_vendor_key, "Abacus")
               ; (cpu_info_features_key, features_pv)
-              ] )
-        , Ok () )
+              ]
+            
+          )
+        , Ok ()
+        )
       ; ( ( "a"
           , `pv
           , Xapi_globs.
@@ -630,7 +666,9 @@ module AssertVMIsCompatible = Generic.MakeStateful (struct
               ; ( cpu_info_features_key
                 , "cafecafe-cafecafe-cafecafe-cafecafe-cafecafe-cafecafe-cafecafe-cafecafe-cafecafe-cafecafe-cafecafe-cafecafe-cafecafe-cafecafe-cafecafe"
                 )
-              ] )
+              ]
+            
+          )
         , Error
             Api_errors.(
               Server_error
@@ -638,14 +676,19 @@ module AssertVMIsCompatible = Generic.MakeStateful (struct
                 , [
                     "VM last booted on a CPU with features this host's CPU \
                      does not have."
-                  ] )) )
+                  ]
+                )
+            )
+        )
       ; ( ( "a"
           , `pv
           , Xapi_globs.
               [
                 (cpu_info_vendor_key, "Napier's Bones")
               ; (cpu_info_features_key, features_pv)
-              ] )
+              ]
+            
+          )
         , Error
             Api_errors.(
               Server_error
@@ -653,7 +696,10 @@ module AssertVMIsCompatible = Generic.MakeStateful (struct
                 , [
                     "VM last booted on a host which had a CPU from a different \
                      vendor."
-                  ] )) )
+                  ]
+                )
+            )
+        )
       ; (* TAA *)
         ( ( "a"
           , `hvm
@@ -663,8 +709,11 @@ module AssertVMIsCompatible = Generic.MakeStateful (struct
               ; ( cpu_info_features_key
                 , "feedface-feedface-feedface-feedface-feedface-00000810-feedface-feedface-feedface-feedface-feedface-feedface-feedface-feedface-feedface"
                 )
-              ] )
-        , Ok () )
+              ]
+            
+          )
+        , Ok ()
+        )
       ; ( ( "a"
           , `hvm
           , Xapi_globs.
@@ -673,7 +722,9 @@ module AssertVMIsCompatible = Generic.MakeStateful (struct
               ; ( cpu_info_features_key
                 , "feedface-feedface-feedface-feedface-feedface-00000811-feedface-feedface-feedface-feedface-feedface-feedface-feedface-feedface-feedface"
                 )
-              ] )
+              ]
+            
+          )
         , Error
             Api_errors.(
               Server_error
@@ -681,7 +732,10 @@ module AssertVMIsCompatible = Generic.MakeStateful (struct
                 , [
                     "VM last booted on a CPU with features this host's CPU \
                      does not have."
-                  ] )) )
+                  ]
+                )
+            )
+        )
       ]
 end)
 

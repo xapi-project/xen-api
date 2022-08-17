@@ -122,9 +122,11 @@ let test_invalid_parameters () =
     (fun () -> create_cluster ~__context ~token_timeout:0.5 () |> ignore) ;
   Alcotest.check_raises "token_timeout_coefficient < minimum threshold"
     Api_errors.(
-      Server_error (invalid_value, ["token_timeout_coefficient"; "0.6"]))
+      Server_error (invalid_value, ["token_timeout_coefficient"; "0.6"])
+    )
     (fun () ->
-      create_cluster ~__context ~token_timeout_coefficient:0.6 () |> ignore)
+      create_cluster ~__context ~token_timeout_coefficient:0.6 () |> ignore
+    )
 
 let test_create_cleanup () =
   let __context = Test_common.make_test_database () in
@@ -139,6 +141,7 @@ let test_create_cleanup () =
                 Cluster_interface.(InternalError "Cluster.create failed")
           ; notif= false
           }
+        
     | _, _ ->
         Rpc.{success= true; contents= Rpc.Null; notif= false}
   in
@@ -189,8 +192,7 @@ let test_get_network_fails () =
   | Some self ->
       Db.Cluster_host.destroy ~__context ~self
   | None ->
-      Alcotest.failf "No cluster_host found on localhost %s"
-        (Ref.string_of host)
+      Alcotest.failf "No cluster_host found on localhost %s" (Ref.string_of host)
   ) ;
   Alcotest.check_raises "No cluster_host exists, only cluster"
     (Failure ("No cluster_hosts found for cluster " ^ Ref.string_of cluster))
@@ -201,7 +203,8 @@ let test_get_network_fails () =
   done ;
   Alcotest.check_raises "Cluster_hosts on different networks"
     internal_network_error (fun () ->
-      Xapi_cluster.get_network ~__context ~self:cluster |> ignore)
+      Xapi_cluster.get_network ~__context ~self:cluster |> ignore
+  )
 
 let test =
   [

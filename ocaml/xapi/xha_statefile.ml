@@ -50,8 +50,8 @@ let assert_sr_can_host_statefile ~__context ~sr ~cluster_stack =
     error "Cannot place statefile in SR %s: some hosts lack a PBD: [ %s ]"
       (Ref.string_of sr)
       (String.concat "; "
-         (List.map Ref.string_of
-            (List.set_difference all_hosts connected_hosts))) ;
+         (List.map Ref.string_of (List.set_difference all_hosts connected_hosts))
+      ) ;
     raise (Api_errors.Server_error (Api_errors.sr_no_pbds, [Ref.string_of sr]))
   ) ;
   (* Check that each PBD is plugged in *)
@@ -63,7 +63,8 @@ let assert_sr_can_host_statefile ~__context ~sr ~cluster_stack =
         (* Same exception is used in this case (see Helpers.assert_pbd_is_plugged) *)
         raise
           (Api_errors.Server_error (Api_errors.sr_no_pbds, [Ref.string_of sr]))
-      ))
+      )
+    )
     pbds ;
   (* Check cluster stack constraints *)
   Cluster_stack_constraints.assert_sr_compatible ~__context ~cluster_stack ~sr ;
@@ -83,7 +84,9 @@ let assert_sr_can_host_statefile ~__context ~sr ~cluster_stack =
                "SR does not have corresponding SM record"
              ; Ref.string_of sr
              ; srtype
-             ] ))
+             ]
+           )
+        )
   | (_, sm) :: _ ->
       if
         (not (List.mem_assoc "VDI_GENERATE_CONFIG" sm.Db_actions.sM_features))
@@ -91,7 +94,8 @@ let assert_sr_can_host_statefile ~__context ~sr ~cluster_stack =
       then
         raise
           (Api_errors.Server_error
-             (Api_errors.sr_operation_not_supported, [Ref.string_of sr]))
+             (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
+          )
 
 let list_srs_which_can_host_statefile ~__context ~cluster_stack =
   List.filter
@@ -99,7 +103,8 @@ let list_srs_which_can_host_statefile ~__context ~cluster_stack =
       try
         assert_sr_can_host_statefile ~__context ~sr ~cluster_stack ;
         true
-      with _ -> false)
+      with _ -> false
+    )
     (Db.SR.get_all ~__context)
 
 let create ~__context ~sr ~cluster_stack =
@@ -110,7 +115,8 @@ let create ~__context ~sr ~cluster_stack =
         ~name_description:"Used for storage heartbeating" ~sR:sr
         ~virtual_size:size ~_type:`ha_statefile ~sharable:true ~read_only:false
         ~other_config:[] ~xenstore_data:[] ~sm_config:statefile_sm_config
-        ~tags:[])
+        ~tags:[]
+  )
 
 (** Return a reference to a valid statefile VDI in the given SR.
     This function prefers to reuse existing VDIs to avoid confusing the heartbeat component:
@@ -125,12 +131,12 @@ let find_or_create ~__context ~sr ~cluster_stack =
       (fun self ->
         true
         && Db.VDI.get_type ~__context ~self = `ha_statefile
-        && Db.VDI.get_virtual_size ~__context ~self >= size)
+        && Db.VDI.get_virtual_size ~__context ~self >= size
+      )
       (Db.SR.get_VDIs ~__context ~self:sr)
   with
   | x :: _ ->
-      info "re-using existing statefile: %s"
-        (Db.VDI.get_uuid ~__context ~self:x) ;
+      info "re-using existing statefile: %s" (Db.VDI.get_uuid ~__context ~self:x) ;
       x
   | [] ->
       info "no suitable existing statefile found; creating a fresh one" ;

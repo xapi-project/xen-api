@@ -96,6 +96,9 @@ let gen_test highapi =
                 ; "close_out oc;"
                   (*					sprintf "let s = Xml.to_string (API.Legacy.To.%s x) in" (OU.alias_of_ty ty);*)
                   (*					sprintf "let y =" *)
-                ])
-              all_types)
-       ])
+                ]
+              )
+              all_types
+           )
+       ]
+    )

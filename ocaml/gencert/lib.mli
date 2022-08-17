@@ -41,7 +41,8 @@ type t_certificate = Leaf | Chain
 val validate_private_key :
      string
   -> ( [> `RSA of Mirage_crypto_pk.Rsa.priv]
-     , [> `Msg of string * string list] )
+     , [> `Msg of string * string list]
+     )
      Result.result
 
 val validate_certificate :

@@ -37,12 +37,14 @@ module PoolCpuinfo = Generic.MakeStateful (struct
         let host = Test_common.make_host ~__context () in
         Db.Host.set_cpu_info ~__context ~self:host ~value:cpu_info ;
         if hvm_capable then
-          Db.Host.set_capabilities ~__context ~self:host ~value:["hvm"])
+          Db.Host.set_capabilities ~__context ~self:host ~value:["hvm"]
+      )
       inputs ;
     ignore
       (Test_common.make_pool ~__context
          ~master:(List.hd (Db.Host.get_all ~__context))
-         ()) ;
+         ()
+      ) ;
     Create_misc.create_pool_cpuinfo ~__context
 
   let extract_output __context _ =
@@ -75,44 +77,54 @@ module PoolCpuinfo = Generic.MakeStateful (struct
     `QuickAndAutoDocumented
       [
         ( [(cpu_info "Abacus" "1" "1" "0000000a" "0000000a", true)]
-        , cpu_pinfo "Abacus" "1" "1" "0000000a" "0000000a" )
+        , cpu_pinfo "Abacus" "1" "1" "0000000a" "0000000a"
+        )
       ; ( [
             (cpu_info "Abacus" "2" "4" "0000000a" "0000000a", true)
           ; (cpu_info "Abacus" "1" "1" "0000000a" "0000000a", true)
           ]
-        , cpu_pinfo "Abacus" "3" "5" "0000000a" "0000000a" )
+        , cpu_pinfo "Abacus" "3" "5" "0000000a" "0000000a"
+        )
       ; ( [
             (cpu_info "Abacus" "8" "2" "0000000a" "00000002", true)
           ; (cpu_info "Abacus" "4" "1" "0000000f" "00000001", true)
           ]
-        , cpu_pinfo "Abacus" "12" "3" "0000000a" "00000000" )
+        , cpu_pinfo "Abacus" "12" "3" "0000000a" "00000000"
+        )
       ; ( [
             ( cpu_info "Abacus" "24" "1" "ffffffff-ffffffff" "ffffffff-ffffffff"
-            , true )
+            , true
+            )
           ; ( cpu_info "Abacus" "24" "24" "ffffffff-ffffffff" "ffffffff-ffffffff"
-            , true )
+            , true
+            )
           ]
         , cpu_pinfo "Abacus" "48" "25" "ffffffff-ffffffff" "ffffffff-ffffffff"
         )
       ; ( [
             ( cpu_info "Abacus" "1" "1" "ffffffff" "ffffffff-ffffffff-ffffffff"
-            , true )
+            , true
+            )
           ; ( cpu_info "Abacus" "1" "1" "ffffffff-ffffffff" "ffffffff-ffffffff"
-            , true )
+            , true
+            )
           ]
         , cpu_pinfo "Abacus" "2" "2" "ffffffff-00000000"
-            "ffffffff-ffffffff-00000000" )
+            "ffffffff-ffffffff-00000000"
+        )
       ; ( [
             (cpu_info "Abacus" "10" "1" "01230123-5a5a5a5a" "00000002", true)
           ; (cpu_info "Abacus" "1" "10" "ffff1111-a5a56666" "00004242", true)
           ]
-        , cpu_pinfo "Abacus" "11" "11" "01230101-00004242" "00000002" )
+        , cpu_pinfo "Abacus" "11" "11" "01230101-00004242" "00000002"
+        )
       ; (* Include one host that is not HVM-capable *)
         ( [
             (cpu_info "Abacus" "10" "1" "00000000-00000000" "00000002", false)
           ; (cpu_info "Abacus" "1" "10" "ffff1111-a5a56666" "00004242", true)
           ]
-        , cpu_pinfo "Abacus" "11" "11" "ffff1111-a5a56666" "00000002" )
+        , cpu_pinfo "Abacus" "11" "11" "ffff1111-a5a56666" "00000002"
+        )
       ; (* Test a Dundee host which has features_hvm, but not features_hvm_host (test for CA-188665 no longer relevant, was for pre-Dundeee) *)
         ( [
             (cpu_info "Abacus" "1" "1" "01230123-5a5a5a5a" "00000002", true)
@@ -124,18 +136,22 @@ module PoolCpuinfo = Generic.MakeStateful (struct
               ; ("socket_count", "1")
               ; ("vendor", "Abacus")
               ]
-            , true )
+            , true
+            )
           ]
-        , cpu_pinfo "Abacus" "2" "2" "01230101-00004242" "00000002" )
+        , cpu_pinfo "Abacus" "2" "2" "01230101-00004242" "00000002"
+        )
       ; (* Test that the new _host fields are used for pool leveling *)
         ( [
             ( cpu_info_common "Abacus" "1" "1" "deadbeef-deadbeef" "deadbeef"
                 "01230123-5a5a5a5a" "00000002"
-            , true )
+            , true
+            )
           ; (cpu_info "Abacus" "1" "1" "01230123-5a5a5a5a" "00000002", true)
           ]
         , cpu_info_common "Abacus" "2" "2" "00210023-5a081a4a" "00000002"
-            "01230123-5a5a5a5a" "00000002" )
+            "01230123-5a5a5a5a" "00000002"
+        )
       ]
 end)
 

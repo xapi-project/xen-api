@@ -77,7 +77,8 @@ module AuthX : Auth_signature.AUTH_MODULE = struct
         with e ->
           debug "error looking up nss_database=%s: %s" nss_database
             (Printexc.to_string e) ;
-          raise Not_found)
+          raise Not_found
+    )
 
   (* Verifies if a subject_name is in one of the NSS databases *)
   (* Useful databases are: *)
@@ -87,19 +88,23 @@ module AuthX : Auth_signature.AUTH_MODULE = struct
   (* Raises Not_found if subject_name not in NSS database *)
   let getent_idbyname nss_database subject_name =
     getent_common nss_database (fun username uid recs ->
-        if username = subject_name then Some uid else None)
+        if username = subject_name then Some uid else None
+    )
 
   let getent_namebyid nss_database subject_id =
     getent_common nss_database (fun username uid recs ->
-        if uid = subject_id then Some username else None)
+        if uid = subject_id then Some username else None
+    )
 
   let getent_idbyid nss_database subject_id =
     getent_common nss_database (fun username uid recs ->
-        if uid = subject_id then Some uid else None)
+        if uid = subject_id then Some uid else None
+    )
 
   let getent_allbyid nss_database subject_id =
     getent_common nss_database (fun username uid recs ->
-        if uid = subject_id then Some recs else None)
+        if uid = subject_id then Some recs else None
+    )
 
   (* subject_id get_subject_identifier(string subject_name)
 
@@ -189,7 +194,8 @@ module AuthX : Auth_signature.AUTH_MODULE = struct
               n (* gecos *)
             else
               List.nth infolist 0
-            (* name *) )
+            (* name *)
+          )
         ; (*("subject-homedir", List.nth infolist 5);*)
           (*("subject-shell", List.nth infolist 6);*)
           (* comma-separated list of subjects that are contained in this subject *)
@@ -261,8 +267,10 @@ module AuthX : Auth_signature.AUTH_MODULE = struct
                   (List.length gids) subject_name subject_identifier
                   (List.fold_left
                      (fun p pp -> if p = "" then pp else p ^ "," ^ pp)
-                     "" gids) ;
-                List.map (fun gid -> "g" ^ gid) gids)
+                     "" gids
+                  ) ;
+                List.map (fun gid -> "g" ^ gid) gids
+        )
     | 'g' ->
         [
           (* 2. if (1) fails, we try to see if our subject identifier is a group id...*)

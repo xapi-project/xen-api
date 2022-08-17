@@ -57,7 +57,8 @@ let scan_start ~__context usbs =
           ~speed:s.USB.speed
       in
       let group = Xapi_pusb_helpers.find_or_create ~__context self in
-      Db.PUSB.set_USB_group ~__context ~self ~value:group)
+      Db.PUSB.set_USB_group ~__context ~self ~value:group
+    )
     (USBSet.diff local_usb_set known_usb_set) ;
   let refresh_speed (self, rec') =
     (* anything with a negative speed is considered unset.
@@ -81,13 +82,15 @@ let scan_start ~__context usbs =
     (fun (rf, rc) ->
       USBSet.mem
         (extract_known_usb_info rc)
-        (USBSet.diff known_usb_set local_usb_set))
+        (USBSet.diff known_usb_set local_usb_set)
+    )
     known_pusbs_in_db
   |> List.iter (fun (self, _) ->
          try Xapi_pusb_helpers.destroy_pusb ~__context self
          with e ->
            error "Caught exception while removing PUSB %s: %s"
-             (Ref.string_of self) (Printexc.to_string e))
+             (Ref.string_of self) (Printexc.to_string e)
+     )
 
 let cond = Condition.create ()
 
@@ -105,20 +108,24 @@ let start_thread f =
                  Condition.wait cond mutex
                done ;
                (* scan_required is true now. *)
-               scan_required := false) ;
+               scan_required := false
+           ) ;
            try f ()
            with e ->
              Printf.printf "Caught exception from scan_start '%s' \n%!"
                (Printexc.to_string e) ;
              ()
-         done)
-       ())
+         done
+       )
+       ()
+    )
 
 let scan ~__context ~host =
   (* notify that scan is required. *)
   Mutex.execute mutex (fun () ->
       scan_required := true ;
-      Condition.broadcast cond)
+      Condition.broadcast cond
+  )
 
 let scan_thread ~__context =
   let f () =
@@ -157,12 +164,16 @@ let set_passthrough_enabled ~__context ~self ~value =
                            raise
                              (Api_errors.Server_error
                                 ( Api_errors.pusb_vdi_conflict
-                                , [Ref.string_of self; Ref.string_of rf] )) ;
+                                , [Ref.string_of self; Ref.string_of rf]
+                                )
+                             ) ;
                          Xapi_vdi.forget ~__context ~vdi:rf
                        )
                      with e ->
                        debug "Caught failure during remove vdi records." ;
-                       raise e))
+                       raise e
+                 )
+            )
             udev_srs ;
           debug "set passthrough_enabled %b" value ;
           Db.PUSB.set_passthrough_enabled ~__context ~self ~value
@@ -183,7 +194,9 @@ let set_passthrough_enabled ~__context ~self ~value =
                       , [
                           Printf.sprintf "too many vusb on the USB_group: %s"
                             (Ref.string_of usb_group)
-                        ] ))
+                        ]
+                      )
+                  )
             | [vusb] ->
                 let currently_attached =
                   Db.VUSB.get_currently_attached ~__context ~self:vusb
@@ -193,7 +206,9 @@ let set_passthrough_enabled ~__context ~self ~value =
                   raise
                     (Api_errors.Server_error
                        ( Api_errors.usb_already_attached
-                       , [Ref.string_of self; Ref.string_of vm] ))
+                       , [Ref.string_of self; Ref.string_of vm]
+                       )
+                    )
           in
           (* If vusb has been created, need to destroy it. *)
           List.iter (fun vusb -> Db.VUSB.destroy ~__context ~self:vusb) vusbs ;
@@ -209,8 +224,11 @@ let set_passthrough_enabled ~__context ~self ~value =
             ~expr:(Eq (Field "type", Literal "udev"))
           |> List.iter (fun sr ->
                  Helpers.call_api_functions ~__context (fun rpc session_id ->
-                     Client.Client.SR.scan rpc session_id sr))
+                     Client.Client.SR.scan rpc session_id sr
+                 )
+             )
         with e ->
           debug "Caught failure during set passthrough_enabled %b." value ;
           raise e
-      ))
+      )
+  )

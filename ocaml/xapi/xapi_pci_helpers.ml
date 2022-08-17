@@ -143,7 +143,8 @@ let get_host_pcis () =
                   |> default ~msg:"susbsytem device name"
                 in
                 ( Some {id= sv_id; name= sv_name}
-                , Some {id= sd_id; name= sd_name} )
+                , Some {id= sd_id; name= sd_name}
+                )
           in
           let pci_class =
             {
@@ -163,8 +164,10 @@ let get_host_pcis () =
           ; pci_class
           ; related= List.map address_of_dev related_devs
           ; driver_name
-          })
-        devs)
+          }
+        )
+        devs
+  )
 
 let igd_is_whitelisted ~__context pci =
   let vendor_id = Db.PCI.get_vendor_id ~__context ~self:pci in

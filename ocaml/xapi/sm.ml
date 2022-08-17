@@ -92,13 +92,15 @@ let sr_attach dconf driver sr =
   Locking_helpers.Named_mutex.execute serialize_attach_detach (fun () ->
       debug "sr_attach" driver (sprintf "sr=%s" (Ref.string_of sr)) ;
       let call = Sm_exec.make_call ~sr_ref:sr dconf "sr_attach" [] in
-      Sm_exec.parse_unit (Sm_exec.exec_xmlrpc (driver_filename driver) call))
+      Sm_exec.parse_unit (Sm_exec.exec_xmlrpc (driver_filename driver) call)
+  )
 
 let sr_detach dconf driver sr =
   Locking_helpers.Named_mutex.execute serialize_attach_detach (fun () ->
       debug "sr_detach" driver (sprintf "sr=%s" (Ref.string_of sr)) ;
       let call = Sm_exec.make_call ~sr_ref:sr dconf "sr_detach" [] in
-      Sm_exec.parse_unit (Sm_exec.exec_xmlrpc (driver_filename driver) call))
+      Sm_exec.parse_unit (Sm_exec.exec_xmlrpc (driver_filename driver) call)
+  )
 
 let sr_probe dconf driver sr_sm_config =
   if List.mem_assoc Sr_probe (features_of_driver driver) then
@@ -106,15 +108,20 @@ let sr_probe dconf driver sr_sm_config =
         debug "sr_probe" driver
           (sprintf "sm_config=[%s]"
              (String.concat "; "
-                (List.map (fun (k, v) -> k ^ "=" ^ v) sr_sm_config))) ;
+                (List.map (fun (k, v) -> k ^ "=" ^ v) sr_sm_config)
+             )
+          ) ;
         let call = Sm_exec.make_call ~sr_sm_config dconf "sr_probe" [] in
         (* sr_probe returns an XML document marshalled within an XMLRPC string *)
-        XMLRPC.From.string (Sm_exec.exec_xmlrpc (driver_filename driver) call))
+        XMLRPC.From.string (Sm_exec.exec_xmlrpc (driver_filename driver) call)
+    )
   else
     raise
       (Api_errors.Server_error
          ( Api_errors.sr_backend_failure
-         , ["Operation 'sr_probe' not supported by this SR type"; ""; ""] ))
+         , ["Operation 'sr_probe' not supported by this SR type"; ""; ""]
+         )
+      )
 
 let sr_scan dconf driver sr =
   debug "sr_scan" driver (sprintf "sr=%s" (Ref.string_of sr)) ;
@@ -133,7 +140,8 @@ let vdi_create dconf driver sr sm_config vdi_type size name_label
   debug "vdi_create" driver
     (sprintf "sr=%s sm_config=[%s] type=[%s] size=%Ld" (Ref.string_of sr)
        (String.concat "; " (List.map (fun (k, v) -> k ^ "=" ^ v) sm_config))
-       vdi_type size) ;
+       vdi_type size
+    ) ;
   srmaster_only dconf ;
   let call =
     Sm_exec.make_call ~sr_ref:sr ~vdi_sm_config:sm_config ~vdi_type dconf
@@ -162,7 +170,8 @@ let vdi_introduce dconf driver sr new_uuid sm_config location =
     (sprintf "sr=%s new_uuid=%s sm_config=[%s] location=%s" (Ref.string_of sr)
        new_uuid
        (String.concat "; " (List.map (fun (k, v) -> k ^ "=" ^ v) sm_config))
-       location) ;
+       location
+    ) ;
   let call =
     Sm_exec.make_call ~sr_ref:sr ~vdi_location:location ~vdi_sm_config:sm_config
       ~new_uuid dconf "vdi_introduce" []
@@ -179,7 +188,8 @@ let vdi_delete dconf driver sr vdi =
 let vdi_attach dconf driver sr vdi writable =
   debug "vdi_attach" driver
     (sprintf "sr=%s vdi=%s writable=%b" (Ref.string_of sr) (Ref.string_of vdi)
-       writable) ;
+       writable
+    ) ;
   let call =
     Sm_exec.make_call ~sr_ref:sr ~vdi_ref:vdi dconf "vdi_attach"
       [sprintf "%b" writable]
@@ -221,7 +231,8 @@ let vdi_snapshot dconf driver driver_params sr vdi =
   debug "vdi_snapshot" driver
     (sprintf "sr=%s vdi=%s driver_params=[%s]" (Ref.string_of sr)
        (Ref.string_of vdi)
-       (String.concat "; " (List.map (fun (k, v) -> k ^ "=" ^ v) driver_params))) ;
+       (String.concat "; " (List.map (fun (k, v) -> k ^ "=" ^ v) driver_params))
+    ) ;
   srmaster_only dconf ;
   let call =
     Sm_exec.make_call ~sr_ref:sr ~vdi_ref:vdi ~driver_params dconf
@@ -233,7 +244,8 @@ let vdi_clone dconf driver driver_params sr vdi =
   debug "vdi_clone" driver
     (sprintf "sr=%s vdi=%s driver_params=[%s]" (Ref.string_of sr)
        (Ref.string_of vdi)
-       (String.concat "; " (List.map (fun (k, v) -> k ^ "=" ^ v) driver_params))) ;
+       (String.concat "; " (List.map (fun (k, v) -> k ^ "=" ^ v) driver_params))
+    ) ;
   srmaster_only dconf ;
   let call =
     Sm_exec.make_call ~sr_ref:sr ~vdi_ref:vdi ~driver_params dconf "vdi_clone"
@@ -244,7 +256,8 @@ let vdi_clone dconf driver driver_params sr vdi =
 let vdi_resize dconf driver sr vdi newsize =
   debug "vdi_resize" driver
     (sprintf "sr=%s vdi=%s newsize=%Ld" (Ref.string_of sr) (Ref.string_of vdi)
-       newsize) ;
+       newsize
+    ) ;
   srmaster_only dconf ;
   let call =
     Sm_exec.make_call ~sr_ref:sr ~vdi_ref:vdi dconf "vdi_resize"
@@ -263,7 +276,8 @@ let vdi_generate_config dconf driver sr vdi =
 let vdi_compose dconf driver sr vdi1 vdi2 =
   debug "vdi_compose" driver
     (sprintf "sr=%s vdi1=%s vdi2=%s" (Ref.string_of sr) (Ref.string_of vdi1)
-       (Ref.string_of vdi2)) ;
+       (Ref.string_of vdi2)
+    ) ;
   srmaster_only dconf ;
   let call =
     Sm_exec.make_call ~sr_ref:sr ~vdi_ref:vdi2 dconf "vdi_compose"
@@ -317,7 +331,8 @@ let vdi_data_destroy dconf driver sr vdi =
 let vdi_list_changed_blocks dconf driver sr ~vdi_from ~vdi_to =
   debug "vdi_list_changed_blocks" driver
     (sprintf "sr=%s vdi_from=%s vdi_to=%s" (Ref.string_of sr)
-       (Ref.string_of vdi_from) (Ref.string_of vdi_to)) ;
+       (Ref.string_of vdi_from) (Ref.string_of vdi_to)
+    ) ;
   srmaster_only dconf ;
   let call =
     Sm_exec.make_call ~sr_ref:sr ~vdi_ref:vdi_from dconf
@@ -347,10 +362,14 @@ let get_my_pbd_for_sr __context sr_id =
         (Db_filter_types.And
            ( Db_filter_types.Eq
                ( Db_filter_types.Field "host"
-               , Db_filter_types.Literal (Ref.string_of me) )
+               , Db_filter_types.Literal (Ref.string_of me)
+               )
            , Db_filter_types.Eq
                ( Db_filter_types.Field "SR"
-               , Db_filter_types.Literal (Ref.string_of sr_id) ) ))
+               , Db_filter_types.Literal (Ref.string_of sr_id)
+               )
+           )
+        )
   in
   match pbd_ref_and_record with
   | [] ->

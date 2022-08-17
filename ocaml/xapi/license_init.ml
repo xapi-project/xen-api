@@ -31,7 +31,8 @@ let find_min_edition allowed_editions =
       if lst4 a < lst4 b then
         a
       else
-        b)
+        b
+    )
     ("", "", "", max_int) allowed_editions
   |> fst4
 

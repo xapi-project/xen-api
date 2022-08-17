@@ -18,14 +18,16 @@ module Utility = struct
       | Invalid_argument _ ->
           true
       | _ ->
-          false)
+          false
+      )
 
   (** Tests the drop function with valid arguments. *)
   let test_drop_valid () =
     List.iter
       (fun (n, xs, xs') ->
         Alcotest.(check (list int))
-          "drop function with valid arguments" (Vm_placement.drop n xs) xs')
+          "drop function with valid arguments" (Vm_placement.drop n xs) xs'
+      )
       [
         (0, [], [])
       ; (0, [0], [0])
@@ -43,7 +45,8 @@ module Utility = struct
   let test_drop_invalid () =
     List.iter
       (fun (n, xs) ->
-        assert_invalid_argument (fun () -> ignore (Vm_placement.drop n xs)))
+        assert_invalid_argument (fun () -> ignore (Vm_placement.drop n xs))
+      )
       [
         (-1, [])
       ; (-1, [0])
@@ -59,7 +62,8 @@ module Utility = struct
   let test_take_valid () =
     List.iter
       (fun (n, xs, xs') ->
-        Alcotest.(check (list int)) "same lists" (Vm_placement.take n xs) xs')
+        Alcotest.(check (list int)) "same lists" (Vm_placement.take n xs) xs'
+      )
       [
         (0, [], [])
       ; (0, [0], [])
@@ -77,7 +81,8 @@ module Utility = struct
   let test_take_invalid () =
     List.iter
       (fun (n, xs) ->
-        assert_invalid_argument (fun () -> ignore (Vm_placement.take n xs)))
+        assert_invalid_argument (fun () -> ignore (Vm_placement.take n xs))
+      )
       [
         (-1, [])
       ; (-1, [0])
@@ -96,7 +101,8 @@ module Utility = struct
         Alcotest.(check (pair int (list int)))
           "same lists"
           (Vm_placement.take_nth n xs)
-          (x, xs'))
+          (x, xs')
+      )
       [
         (0, [0], 0, [])
       ; (0, [0; 1], 0, [1])
@@ -110,7 +116,8 @@ module Utility = struct
   let test_take_nth_invalid () =
     List.iter
       (fun (n, xs) ->
-        assert_invalid_argument (fun () -> ignore (Vm_placement.take_nth n xs)))
+        assert_invalid_argument (fun () -> ignore (Vm_placement.take_nth n xs))
+      )
       [
         (-1, [])
       ; (-1, [0])
@@ -129,7 +136,8 @@ module Utility = struct
         Alcotest.(check int)
           "same index"
           (Vm_placement.generate_list_index (fun () -> v) xs)
-          i)
+          i
+      )
       [
         (0.00, [0], 0)
       ; (0.00, [0; 1], 0)
@@ -151,7 +159,9 @@ module Utility = struct
     List.iter
       (fun (v, xs) ->
         assert_invalid_argument (fun () ->
-            ignore (Vm_placement.generate_list_index (fun () -> v) xs)))
+            ignore (Vm_placement.generate_list_index (fun () -> v) xs)
+        )
+      )
       [(0.50, []); (-0.01, [0; 1; 2; 3]); (1.00, [0; 1; 2; 3])]
 
   (** Tests the take_random_element_from_list function with valid arguments. *)
@@ -160,7 +170,8 @@ module Utility = struct
       (fun (v, xs, x, xs') ->
         Alcotest.(check (pair int (list int)))
           "correct element taken" (x, xs')
-          (Vm_placement.take_random_element_from_list (fun () -> v) xs))
+          (Vm_placement.take_random_element_from_list (fun () -> v) xs)
+      )
       [
         (0.00, [0], 0, [])
       ; (0.00, [0; 1], 0, [1])
@@ -182,7 +193,9 @@ module Utility = struct
     List.iter
       (fun (v, xs) ->
         assert_invalid_argument (fun () ->
-            ignore (Vm_placement.take_random_element_from_list (fun () -> v) xs)))
+            ignore (Vm_placement.take_random_element_from_list (fun () -> v) xs)
+        )
+      )
       [(0.50, []); (-0.01, [0; 1; 2; 3]); (1.00, [0; 1; 2; 3])]
 
   type dummy = N2 | N1 | Z | P1 | P2
@@ -217,8 +230,10 @@ module Utility = struct
         Alcotest.(check (pair (list dummy_testable) (list dummy_testable)))
           "same lists"
           (Vm_placement.evaluate_sort_partition evaluate_dummy sort partition
-             input)
-          (out_selected, out_unselected))
+             input
+          )
+          (out_selected, out_unselected)
+      )
       [
         ([], forward, positive, [], [])
       ; ([Z], forward, positive, [], [Z])
@@ -261,13 +276,16 @@ module Utility = struct
     ; ("test_generate_list_index_valid", `Quick, test_generate_list_index_valid)
     ; ( "test_generate_list_index_invalid"
       , `Quick
-      , test_generate_list_index_invalid )
+      , test_generate_list_index_invalid
+      )
     ; ( "test_take_random_element_from_list_valid"
       , `Quick
-      , test_take_random_element_from_list_valid )
+      , test_take_random_element_from_list_valid
+      )
     ; ( "test_take_random_element_from_list_invalid"
       , `Quick
-      , test_take_random_element_from_list_invalid )
+      , test_take_random_element_from_list_invalid
+      )
     ; ("test_evaluate_sort_partition", `Quick, test_evaluate_sort_partition)
     ]
 end
@@ -351,7 +369,8 @@ module Summarisation = struct
     ; (([_11234; _11234], [_11234; _11234], [_11234], 1, 8), (2, 5, 10, 15, 20))
     ; (([_11234; _11234], [_11234], [_11234; _11234], 1, 8), (2, 5, 10, 15, 20))
     ; ( ([_11234; _11234], [_11234; _11234], [_11234; _11234], 1, 8)
-      , (1, 6, 12, 18, 24) )
+      , (1, 6, 12, 18, 24)
+      )
     ]
 
   (*-------------------------+----------------------------*)
@@ -373,7 +392,8 @@ module Summarisation = struct
     let make_guests guests = List.map make_guest guests in
     let make_input (resident, scheduled, extra, x, t) =
       ( host_snapshot "" false (make_guests resident) (make_guests scheduled) x t
-      , make_guests extra )
+      , make_guests extra
+      )
     in
     let make_output (a, p, q, r, s) =
       host_snapshot_summary "" false a p q r s
@@ -389,7 +409,8 @@ module Summarisation = struct
           (Alcotest_comparators.only_compare ())
           "same host snapshot summary"
           (Vm_placement.summarise_host_snapshot extra_guests host_snapshot)
-          host_snapshot_summary)
+          host_snapshot_summary
+      )
       summarise_host_snapshot_input_output_list
 
   (** Tests relating to pool, host and guest snapshot summarisation. *)
@@ -415,7 +436,9 @@ module Categorisation = struct
           "same ints"
           (Int64.of_int expected_result)
           (Vm_placement.definite_host_category
-             (mock_slave a s_min d_min d_max s_max)))
+             (mock_slave a s_min d_min d_max s_max)
+          )
+      )
       [
         (* Varying these parameters SHOULD vary the result: *)
         (* Σ available, Σ static_max                        *)
@@ -444,7 +467,9 @@ module Categorisation = struct
           "same ints"
           (Int64.of_int expected_result)
           (Vm_placement.definite_host_category
-             (mock_master a s_min d_min d_max s_max)))
+             (mock_master a s_min d_min d_max s_max)
+          )
+      )
       [
         (* Varying these parameters SHOULD vary the result: *)
         (* Σ available, Σ static_max                        *)
@@ -473,7 +498,9 @@ module Categorisation = struct
           "same ints"
           (Int64.of_int expected_result)
           (Vm_placement.probable_host_category
-             (mock_slave a s_min d_min d_max s_max)))
+             (mock_slave a s_min d_min d_max s_max)
+          )
+      )
       [
         (* Varying these parameters SHOULD vary the result: *)
         (* Σ available, Σ dynamic_max                       *)
@@ -502,7 +529,9 @@ module Categorisation = struct
           "same ints"
           (Int64.of_int expected_result)
           (Vm_placement.probable_host_category
-             (mock_master a s_min d_min d_max s_max)))
+             (mock_master a s_min d_min d_max s_max)
+          )
+      )
       [
         (* Varying these parameters SHOULD vary the result: *)
         (* Σ available, Σ dynamic_max                       *)
@@ -531,7 +560,8 @@ module Categorisation = struct
       (fun ((a, s_min, d_min, d_max, s_max), expected_result) ->
         Alcotest.(check int64)
           "same ints" expected_result
-          (category_fn (mock_host a s_min d_min d_max s_max)))
+          (category_fn (mock_host a s_min d_min d_max s_max))
+      )
       [
         (* Varying these parameters SHOULD vary the result: *)
         (* Σ available, Σ dynamic_mix, Σ dynamic_max        *)
@@ -581,16 +611,20 @@ module Categorisation = struct
     [
       ( "test_definite_host_category_slave"
       , `Quick
-      , test_definite_host_category_slave )
+      , test_definite_host_category_slave
+      )
     ; ( "test_definite_host_category_master"
       , `Quick
-      , test_definite_host_category_master )
+      , test_definite_host_category_master
+      )
     ; ( "test_probable_host_category_slave"
       , `Quick
-      , test_probable_host_category_slave )
+      , test_probable_host_category_slave
+      )
     ; ( "test_probable_host_category_master"
       , `Quick
-      , test_probable_host_category_master )
+      , test_probable_host_category_master
+      )
     ; ("test_possible_host_category", `Quick, test_possible_host_category)
     ; ("test_affinity_host_category", `Quick, test_affinity_host_category)
     ]
@@ -612,16 +646,19 @@ module Selection = struct
     let check =
       Alcotest.(
         check
-          (pair (option string) (list (Alcotest_comparators.only_compare ()))))
+          (pair (option string) (list (Alcotest_comparators.only_compare ())))
+      )
         "same lists"
     in
     check
       (Vm_placement.select_host_from_category match_no_hosts []
-         validate_all_hosts select_first_host)
+         validate_all_hosts select_first_host
+      )
       (None, []) ;
     check
       (Vm_placement.select_host_from_category match_all_hosts []
-         validate_all_hosts select_first_host)
+         validate_all_hosts select_first_host
+      )
       (None, [])
 
   (** Tests functions relating to host selection. *)

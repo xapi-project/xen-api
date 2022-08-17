@@ -29,7 +29,8 @@ let parse_args () =
     [
       ( "-destdir"
       , Arg.Set_string destdir
-      , "the destination directory for the generated files" )
+      , "the destination directory for the generated files"
+      )
     ]
     (fun x -> Printf.printf "Ignoring anonymous argument %s" x)
     "Generates documentation for the datamodel classes. See -help."
@@ -68,21 +69,26 @@ let generate_files api_dir =
             , if doc = "" && transition = Published then
                 obj.description
               else
-                doc ))
+                doc
+            )
+          )
           changes
       in
       let changes_for_msg m =
         let changes =
           List.filter
             (fun (transition, release, doc) ->
-              release = code_name_of_release rel)
+              release = code_name_of_release rel
+            )
             m.msg_lifecycle
         in
         List.map
           (fun (transition, release, doc) ->
             ( transition
             , m.msg_name
-            , if doc = "" && transition = Published then m.msg_doc else doc ))
+            , if doc = "" && transition = Published then m.msg_doc else doc
+            )
+          )
           changes
       in
       let msgs = List.filter (fun m -> not m.msg_hide_from_docs) obj.messages in
@@ -93,7 +99,8 @@ let generate_files api_dir =
         let changes =
           List.filter
             (fun (transition, release, doc) ->
-              release = code_name_of_release rel)
+              release = code_name_of_release rel
+            )
             f.lifecycle
         in
         let field_name = String.concat "_" f.full_name in
@@ -104,13 +111,19 @@ let generate_files api_dir =
             , if doc = "" && transition = Published then
                 f.field_description
               else
-                doc ))
+                doc
+            )
+          )
           changes
       in
       let rec flatten_contents contents =
         List.fold_left
-          (fun l -> function Field f -> f :: l | Namespace (name, contents) ->
-                flatten_contents contents @ l)
+          (fun l -> function
+            | Field f ->
+                f :: l
+            | Namespace (name, contents) ->
+                flatten_contents contents @ l
+          )
           [] contents
       in
       let fields = flatten_contents obj.contents in

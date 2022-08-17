@@ -62,28 +62,37 @@ module GetRemainingCapacity = Generic.MakeStateful (struct
         (({default_k1 with resident_VGPU_types= [k100; k100]}, k100), 6L)
       ; (({default_k1 with resident_VGPU_types= [k140q; k140q]}, k140q), 2L)
       ; ( ( {default_k1 with resident_VGPU_types= [passthrough_gpu]}
-          , passthrough_gpu )
-        , 0L )
+          , passthrough_gpu
+          )
+        , 0L
+        )
       ; (({default_k2 with resident_VGPU_types= [k200]}, k200), 7L)
       ; ( ({default_k2 with resident_VGPU_types= [k240q; k240q; k240q]}, k240q)
-        , 1L )
+        , 1L
+        )
       ; (({default_k2 with resident_VGPU_types= [k260q]}, k260q), 1L)
       ; ( ( {default_k2 with resident_VGPU_types= [passthrough_gpu]}
-          , passthrough_gpu )
-        , 0L )
+          , passthrough_gpu
+          )
+        , 0L
+        )
       ; (* Test that scheduled vGPUs also affect the capacity calculations. *)
         (({default_k1 with scheduled_VGPU_types= [k100]}, k100), 7L)
       ; (({default_k1 with scheduled_VGPU_types= [k100]}, passthrough_gpu), 0L)
       ; (({default_k1 with scheduled_VGPU_types= [passthrough_gpu]}, k100), 0L)
       ; ( ( {default_k1 with scheduled_VGPU_types= [passthrough_gpu]}
-          , passthrough_gpu )
-        , 0L )
+          , passthrough_gpu
+          )
+        , 0L
+        )
       ; (({default_k2 with scheduled_VGPU_types= [k200; k200]}, k200), 6L)
       ; (({default_k2 with scheduled_VGPU_types= [k200]}, passthrough_gpu), 0L)
       ; (({default_k2 with scheduled_VGPU_types= [passthrough_gpu]}, k200), 0L)
       ; ( ( {default_k2 with scheduled_VGPU_types= [passthrough_gpu]}
-          , passthrough_gpu )
-        , 0L )
+          , passthrough_gpu
+          )
+        , 0L
+        )
       ; (* Test that the capacity calculations work with combinations of scheduled
                 * and resident VGPUs. *)
         ( ( {
@@ -91,15 +100,19 @@ module GetRemainingCapacity = Generic.MakeStateful (struct
               resident_VGPU_types= [k100; k100]
             ; scheduled_VGPU_types= [k100]
             }
-          , k100 )
-        , 5L )
+          , k100
+          )
+        , 5L
+        )
       ; ( ( {
               default_k2 with
               resident_VGPU_types= [k240q; k240q]
             ; scheduled_VGPU_types= [k240q]
             }
-          , k240q )
-        , 1L )
+          , k240q
+          )
+        , 1L
+        )
       ]
 end)
 

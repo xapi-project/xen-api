@@ -39,7 +39,8 @@ let rewrite_provisioning_xml rpc session_id new_vm sr_uuid =
             , List.map
                 (fun (x, y) -> if x <> "sr" then (x, y) else ("sr", newsrname))
                 params
-            , [] )
+            , []
+            )
       | x ->
           x
     in

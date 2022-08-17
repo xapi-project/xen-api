@@ -45,7 +45,8 @@ let full_hostname () =
            | "" ->
                None
            | name ->
-               Some name)
+               Some name
+       )
   in
   match fqdns with fqdn :: _ -> fqdn | [] -> hostname
 

@@ -83,7 +83,8 @@ let event_next_unblock () =
               "background thread caught: %s (an exception is expected)"
               (Printexc.to_string e)
         ) ;
-        Delay.signal wait_hdl)
+        Delay.signal wait_hdl
+      )
       ()
   in
   (* Background thread is started but it cannot simultaneously block and signal us to
@@ -115,7 +116,8 @@ let event_next_test () =
             finished := true ;
             Delay.signal wait_hdl
           )
-        done)
+        done
+      )
       ()
   in
   Thread.delay 1. ;
@@ -146,7 +148,8 @@ let event_from_test () =
     Thread.create
       (fun () ->
         wait_for_pool_key __context key ;
-        Delay.signal wait_hdl)
+        Delay.signal wait_hdl
+      )
       ()
   in
   Thread.delay 0.5 ;
@@ -170,7 +173,8 @@ let event_from_parallel_test () =
         with e ->
           Printf.printf "Caught unexpected error: %s\n"
             (ExnHelper.string_of_exn e) ;
-          ok := false)
+          ok := false
+      )
       ()
   in
   let (interfering_thread : Thread.t) =
@@ -217,7 +221,8 @@ let object_level_event_test session_id =
                   event.reference ;
                 failure := true ;
                 finished := true
-              ))
+              )
+            )
             events.events ;
           token := events.token ;
           let oc = Db.VM.get_other_config __context vm_a in
@@ -227,7 +232,8 @@ let object_level_event_test session_id =
           ) else
             Printf.printf "Db doesn't have expected change in...\n%!"
         done ;
-        Delay.signal wait_hdl)
+        Delay.signal wait_hdl
+      )
       ()
   in
   Thread.delay 0.5 ;

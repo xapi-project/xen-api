@@ -41,7 +41,8 @@ let read_from_redo_log log staging_path db_ref =
             Stdext.Unixext.read_data_in_string_chunks
               (fun str length ->
                 Stdext.Unixext.time_limited_write_substring outfd length str
-                  latest_response_time)
+                  latest_response_time
+              )
               fd
           in
           R.debug "Reading database from fd into file %s" temp_file ;
@@ -61,10 +62,12 @@ let read_from_redo_log log staging_path db_ref =
             "Finished reading database from %s into cache (generation = %Ld)"
             temp_file gen_count ;
           (* Set the generation count *)
-          latest_generation := Some gen_count)
+          latest_generation := Some gen_count
+        )
         (fun () ->
           (* Remove the temporary file *)
-          Stdext.Unixext.unlink_safe temp_file)
+          Stdext.Unixext.unlink_safe temp_file
+        )
     in
     let read_delta gen_count delta =
       (* Apply the delta *)

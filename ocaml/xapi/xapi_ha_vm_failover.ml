@@ -33,7 +33,8 @@ let result_of_task ~__context self : task_result option =
                  Rpc.Null
              | s ->
                  Xmlrpc.of_string s
-             ))
+             )
+          )
     | `cancelled ->
         Some (Error (Failure "Cancelled"))
     | `cancelling ->
@@ -153,9 +154,12 @@ end = struct
 
   let classify completed lst =
     List.fold_left
-      (fun (completed, pending, tasks) -> function k, Completed r ->
-            ((k, r) :: completed, pending, tasks) | (_, Task (task, _)) as t ->
-            (completed, t :: pending, task :: tasks))
+      (fun (completed, pending, tasks) -> function
+        | k, Completed r ->
+            ((k, r) :: completed, pending, tasks)
+        | (_, Task (task, _)) as t ->
+            (completed, t :: pending, task :: tasks)
+      )
       (completed, [], []) lst
 
   let parallel ~__context ~rpc ~session_id lst =
@@ -171,8 +175,7 @@ end = struct
           debug "Waited for %d tasks, evaluating next actions"
             (List.length tasks) ;
           pending
-          |> List.rev_map (fun (k, v) ->
-                 (k, wrap (fun () -> eval ~__context v)))
+          |> List.rev_map (fun (k, v) -> (k, wrap (fun () -> eval ~__context v)))
           |> loop completed
     in
     debug "Starting to process %d parallel actions" (List.length lst) ;
@@ -185,7 +188,8 @@ let all_protected_vms ~__context =
   List.filter
     (fun (_, vm_rec) ->
       Helpers.vm_should_always_run vm_rec.API.vM_ha_always_run
-        vm_rec.API.vM_ha_restart_priority)
+        vm_rec.API.vM_ha_restart_priority
+    )
     vms
 
 (* Comparison function which can be used to sort a list of VM ref, record by order *)
@@ -216,7 +220,9 @@ let compute_evacuation_plan ~__context total_hosts remaining_hosts
       (fun host ->
         ( host
         , Memory_check.host_compute_free_memory_with_maximum_compression
-            ~__context ~host None ))
+            ~__context ~host None
+        )
+      )
       remaining_hosts
   in
   let vms =
@@ -229,7 +235,8 @@ let compute_evacuation_plan ~__context total_hosts remaining_hosts
           | `pv_in_pvh ->
               Memory_check.Static_max
         in
-        (vm, total_memory_of_vm ~__context policy snapshot))
+        (vm, total_memory_of_vm ~__context policy snapshot)
+      )
       vms_and_snapshots
   in
   let config =
@@ -240,18 +247,24 @@ let compute_evacuation_plan ~__context total_hosts remaining_hosts
     (Binpack.string_of_configuration
        (fun x ->
          Printf.sprintf "%s (%s)" (Ref.short_string_of x)
-           (Db.Host.get_hostname ~__context ~self:x))
+           (Db.Host.get_hostname ~__context ~self:x)
+       )
        (fun x ->
          Printf.sprintf "%s (%s)" (Ref.short_string_of x)
-           (Db.VM.get_name_label ~__context ~self:x))
-       config) ;
+           (Db.VM.get_name_label ~__context ~self:x)
+       )
+       config
+    ) ;
   debug "VMs to attempt to evacuate: [ %s ]"
     (String.concat "; "
        (List.map
           (fun (r, record) ->
             Printf.sprintf "%s (%s)" (Ref.short_string_of r)
-              record.API.vM_name_label)
-          vms_and_snapshots)) ;
+              record.API.vM_name_label
+          )
+          vms_and_snapshots
+       )
+    ) ;
   let h = Binpack.choose_heuristic config in
   h.Binpack.get_specific_plan config (List.map fst vms_and_snapshots)
 
@@ -289,15 +302,21 @@ let string_of_configuration_change ~__context (x : configuration_change) =
           (fun (h, (vm_ref, vm_t)) ->
             Printf.sprintf "%s %s (%s)" (string_of_host h)
               (Ref.short_string_of vm_ref)
-              vm_t.API.vM_name_label)
-          x.old_vms_leaving))
+              vm_t.API.vM_name_label
+          )
+          x.old_vms_leaving
+       )
+    )
     (String.concat "; "
        (List.map
           (fun (h, (vm_ref, vm_t)) ->
             Printf.sprintf "%s %s (%s)" (string_of_host h)
               (Ref.short_string_of vm_ref)
-              vm_t.API.vM_name_label)
-          x.old_vms_arriving))
+              vm_t.API.vM_name_label
+          )
+          x.old_vms_arriving
+       )
+    )
     (String.concat "; " (List.map string_of_host x.hosts_to_disable))
     (Option.fold ~none:"no change" ~some:string_of_int x.num_failures)
     (String.concat "; " (List.map Ref.short_string_of x.new_vms_to_protect))
@@ -314,7 +333,8 @@ let host_of_non_agile_vm ~__context all_hosts_and_snapshots_sorted (vm, snapshot
           Xapi_vm_helpers.assert_can_boot_here ~__context ~self:vm ~host
             ~snapshot ~do_memory_check:false ~do_cpuid_check:false () ;
           true
-        with _ -> false)
+        with _ -> false
+      )
       all_hosts_and_snapshots_sorted
   with
   | (host, host_snapshot) :: _ ->
@@ -337,7 +357,8 @@ let get_live_set ~__context =
         r.API.host_enabled
         &&
         try Db.Host_metrics.get_live ~__context ~self:r.API.host_metrics
-        with _ -> false)
+        with _ -> false
+      )
       all_hosts
   in
   List.map (fun (rf, _) -> rf) live_hosts
@@ -404,18 +425,21 @@ let compute_restart_plan ~__context ~all_protected_vms ~live_set
         let arriving_snapshots = List.map snd arriving in
         match
           ( List.mem_assoc vm_ref leaving_host
-          , List.mem_assoc vm_ref arriving_host )
+          , List.mem_assoc vm_ref arriving_host
+          )
         with
         | _, true ->
             ( vm_ref
             , {
                 (List.assoc vm_ref arriving_snapshots) with
                 API.vM_resident_on= List.assoc vm_ref arriving_host
-              } )
+              }
+            )
         | true, false ->
             (vm_ref, {vm_t with API.vM_resident_on= Ref.null})
         | _, _ ->
-            (vm_ref, vm_t))
+            (vm_ref, vm_t)
+      )
       vms_to_ensure_running
   in
   let all_hosts_and_snapshots = Db.Host.get_all_records ~__context in
@@ -478,12 +502,15 @@ let compute_restart_plan ~__context ~all_protected_vms ~live_set
     String.concat "; "
       (List.map
          (fun (vm, host) ->
-           Printf.sprintf "%s -> %s" (string_of_vm vm) (string_of_host host))
-         p)
+           Printf.sprintf "%s -> %s" (string_of_vm vm) (string_of_host host)
+         )
+         p
+      )
   in
   debug "Protected VMs: [ %s ]"
     (String.concat "; "
-       (List.map (fun (vm, _) -> string_of_vm vm) vms_to_ensure_running)) ;
+       (List.map (fun (vm, _) -> string_of_vm vm) vms_to_ensure_running)
+    ) ;
   (* Current free memory on all hosts (does not include any for *offline* protected VMs ie those for which (vm_accounted_to_host vm)
      	   returns None) Also apply the supplied counterfactual-reasoning changes (if any) *)
   let hosts_and_memory =
@@ -511,8 +538,10 @@ let compute_restart_plan ~__context ~all_protected_vms ~live_set
                    else
                      Memory_check.Dynamic_max
                    )
-                   snapshot)
-               arriving)
+                   snapshot
+               )
+               arriving
+            )
         in
         let leaving =
           List.filter (fun (h, _) -> h = host) change.old_vms_leaving
@@ -528,18 +557,23 @@ let compute_restart_plan ~__context ~all_protected_vms ~live_set
                    else
                      Memory_check.Dynamic_max
                    )
-                   snapshot)
-               leaving)
+                   snapshot
+               )
+               leaving
+            )
         in
         ( host
-        , Int64.sub (Int64.add currently_free leaving_memory) arriving_memory ))
+        , Int64.sub (Int64.add currently_free leaving_memory) arriving_memory
+        )
+      )
       live_hosts
   in
   (* Memory required by all protected VMs *)
   let vms_and_memory =
     List.map
       (fun (vm, snapshot) ->
-        (vm, total_memory_of_vm ~__context Memory_check.Static_max snapshot))
+        (vm, total_memory_of_vm ~__context Memory_check.Static_max snapshot)
+      )
       vms_to_ensure_running
   in
   (* For each non-agile VM, consider it pinned it to one host (even if it /could/ run on several). Note that if it is
@@ -549,7 +583,8 @@ let compute_restart_plan ~__context ~all_protected_vms ~live_set
     List.concat
       (List.map
          (host_of_non_agile_vm ~__context all_hosts_and_snapshots)
-         not_agile_vms)
+         not_agile_vms
+      )
   in
   (* The restart plan for offline non-agile VMs is just the map VM -> pinned Host *)
   let non_agile_restart_plan =
@@ -575,14 +610,16 @@ let compute_restart_plan ~__context ~all_protected_vms ~live_set
     List.concat
       (List.map
          (fun (vm, host) -> match host with Some h -> [(vm, h)] | _ -> [])
-         agile_vm_accounted_to_host)
+         agile_vm_accounted_to_host
+      )
   in
   (* These VMs are not running on any host (either in real life or only hypothetically) *)
   let agile_vm_failed =
     List.concat
       (List.map
          (fun (vm, host) -> if host = None then [vm] else [])
-         agile_vm_accounted_to_host)
+         agile_vm_accounted_to_host
+      )
   in
   let config =
     {
@@ -609,8 +646,10 @@ let compute_restart_plan ~__context ~all_protected_vms ~live_set
     List.map fst
       (List.filter
          (fun (vm, _) ->
-           vm_accounted_to_host vm = None && not (List.mem vm vms_restarted))
-         vms_to_ensure_running)
+           vm_accounted_to_host vm = None && not (List.mem vm vms_restarted)
+         )
+         vms_to_ensure_running
+      )
   in
   if vms_not_restarted <> [] then
     warn "Some protected VMs could not be restarted: [ %s ]"
@@ -627,7 +666,8 @@ let compute_restart_plan ~__context ~all_protected_vms ~live_set
   ( non_agile_restart_plan @ agile_restart_plan
   , config
   , vms_not_restarted
-  , not_agile_vms <> [] )
+  , not_agile_vms <> []
+  )
 
 (** Returned by the plan_for_n_failures function *)
 type plan_status =
@@ -666,11 +706,14 @@ let plan_for_n_failures ~__context ~all_protected_vms ?live_set
         (Binpack.string_of_configuration
            (fun x ->
              Printf.sprintf "%s (%s)" (Ref.short_string_of x)
-               (Db.Host.get_hostname ~__context ~self:x))
+               (Db.Host.get_hostname ~__context ~self:x)
+           )
            (fun x ->
              Printf.sprintf "%s (%s)" (Ref.short_string_of x)
-               (Db.VM.get_name_label ~__context ~self:x))
-           config) ;
+               (Db.VM.get_name_label ~__context ~self:x)
+           )
+           config
+        ) ;
       Binpack.check_configuration config ;
       let h = Binpack.choose_heuristic config in
       match
@@ -716,7 +759,8 @@ let compute_max_host_failures_to_tolerate ~__context ?live_set ?protected_vms ()
     (fun n ->
       plan_for_n_failures ~__context ~all_protected_vms:protected_vms ?live_set
         (Int64.to_int n)
-      = Plan_exists_for_all_VMs)
+      = Plan_exists_for_all_VMs
+    )
     0L (Int64.of_int nhosts)
 
 (* Make sure the pool is marked as overcommitted and the appropriate alert is generated. Return
@@ -757,13 +801,15 @@ let mark_pool_as_overcommitted ~__context ~live_set =
                  "The failover tolerance for pool '%s' has dropped and the \
                   initially specified number of host failures to tolerate can \
                   no longer be guaranteed"
-                 pool_name_label)
+                 pool_name_label
+              )
         in
         () ;
         (* Call a hook to allow someone the opportunity to bring more capacity online *)
         Xapi_hooks.pool_ha_overcommitted_hook ~__context
       ) ;
-      planned_for <> max_failures || not overcommitted)
+      planned_for <> max_failures || not overcommitted
+  )
 
 (* Update the pool's HA fields *)
 let update_pool_status ~__context ?live_set () =
@@ -842,7 +888,8 @@ let assert_configuration_change_preserves_ha_plan ~__context c =
              breaks plan" ;
           raise
             (Api_errors.Server_error
-               (Api_errors.ha_operation_would_break_failover_plan, []))
+               (Api_errors.ha_operation_would_break_failover_plan, [])
+            )
     )
 
 let assert_host_disable_preserves_ha_plan ~__context host =
@@ -907,7 +954,8 @@ let restart_auto_run_vms ~__context live_set n =
             let shutting_down =
               Stdext.Threadext.Mutex.execute
                 Xapi_globs.hosts_which_are_shutting_down_m (fun () ->
-                  !Xapi_globs.hosts_which_are_shutting_down)
+                  !Xapi_globs.hosts_which_are_shutting_down
+              )
             in
             ( if not (List.exists (fun x -> x = h) shutting_down) then
                 let obj_uuid = Db.Host.get_uuid ~__context ~self:h in
@@ -926,21 +974,24 @@ let restart_auto_run_vms ~__context live_set n =
           )
         with _ -> ()
         (* if exn assume h_metrics doesn't exist, then "live" is defined to be false implicitly, so do nothing *)
-      ))
+      )
+    )
     hosts ;
   debug "Setting all VMs running or paused to Halted" ;
   (* ensure all vms resident_on this host running or paused have their powerstates reset *)
   List.iter
     (fun vm ->
       if Xapi_vm_lifecycle_helpers.is_live ~__context ~self:vm then
-        Xapi_vm_lifecycle.force_state_reset ~__context ~self:vm ~value:`Halted)
+        Xapi_vm_lifecycle.force_state_reset ~__context ~self:vm ~value:`Halted
+    )
     !reset_vms ;
   (* host_post_declare_dead may take a long time if the SR is locked *)
   dead_hosts := List.rev !dead_hosts ;
   List.iter
     (fun h ->
       Xapi_hooks.host_post_declare_dead ~__context ~host:h
-        ~reason:Xapi_hooks.reason__fenced)
+        ~reason:Xapi_hooks.reason__fenced
+    )
     !dead_hosts ;
   (* If something has changed then we'd better refresh the pool status *)
   if !reset_vms <> [] then ignore (update_pool_status ~__context ~live_set ()) ;
@@ -1014,7 +1065,8 @@ let restart_auto_run_vms ~__context live_set n =
               | 0 ->
                   raise
                     (Api_errors.Server_error
-                       (Api_errors.ha_operation_would_break_failover_plan, []))
+                       (Api_errors.ha_operation_would_break_failover_plan, [])
+                    )
               | 1 ->
                   raise
                     (Api_errors.Server_error ("FIST: unexpected exception", []))
@@ -1038,7 +1090,8 @@ let restart_auto_run_vms ~__context live_set n =
           ) else
             failwith
               (Printf.sprintf "VM: %s restart attempt delayed for 120s"
-                 (Ref.string_of vm))
+                 (Ref.string_of vm)
+              )
         in
         TaskChains.task go >>= function
         | Error (Api_errors.Server_error (code, params))
@@ -1075,7 +1128,8 @@ let restart_auto_run_vms ~__context live_set n =
           (fun accum inner ->
             (* the order of elements in the result doesn't matter,
              * they were launched in parallel *)
-            List.rev_append (f inner) accum)
+            List.rev_append (f inner) accum
+          )
           [] lst
       in
 
@@ -1095,7 +1149,8 @@ let restart_auto_run_vms ~__context live_set n =
                same_order
                |> List.rev_map fst
                |> List.rev_map f
-               |> TaskChains.parallel ~__context ~rpc ~session_id)
+               |> TaskChains.parallel ~__context ~rpc ~session_id
+           )
       in
       (* Build a list of bools, one per Halted protected VM indicating whether we managed to start it or not *)
       let started =
@@ -1126,7 +1181,9 @@ let restart_auto_run_vms ~__context live_set n =
               , if List.mem_assoc vm plan then
                   restart_vm vm ~host:(List.assoc vm plan) ()
                 else
-                  TaskChains.fail (Failure "VM has no plan") ))
+                  TaskChains.fail (Failure "VM has no plan")
+              )
+            )
             all
       in
       (* Perform one final restart attempt of any that weren't started. *)
@@ -1137,13 +1194,15 @@ let restart_auto_run_vms ~__context live_set n =
             | (vm, _), Ok () ->
                 (vm, TaskChains.ok ())
             | (vm, _), Error _ ->
-                (vm, restart_vm vm ()))
+                (vm, restart_vm vm ())
+            )
           started
       in
       (* Send an alert for any failed VMs *)
       List.iter
         (fun (vm, started) ->
-          if started <> Ok () then consider_sending_failed_alert_for vm)
+          if started <> Ok () then consider_sending_failed_alert_for vm
+        )
         started ;
       (* Forget about previously failed VMs which have gone *)
       let vms_we_know_about = List.map fst started in
@@ -1154,7 +1213,8 @@ let restart_auto_run_vms ~__context live_set n =
             if not (List.mem vm vms_we_know_about) then (
               debug "Forgetting VM: %s" (Ref.string_of vm) ;
               Hashtbl.remove tbl vm
-            ))
+            )
+          )
           vms_in_table
       in
       gc_table last_start_attempt ;
@@ -1173,9 +1233,12 @@ let restart_auto_run_vms ~__context live_set n =
                  = Constants.ha_restart_best_effort
             then
               TaskChains.task (fun () ->
-                  Client.Client.Async.VM.start rpc session_id vm false true)
+                  Client.Client.Async.VM.start rpc session_id vm false true
+              )
             else
-              TaskChains.ok Rpc.Null ))
+              TaskChains.ok Rpc.Null
+          )
+        )
         !reset_vms
       |> List.iter (fun (vm, result) ->
              match result with
@@ -1185,4 +1248,6 @@ let restart_auto_run_vms ~__context live_set n =
                    (Db.VM.get_name_label ~__context ~self:vm)
                    (ExnHelper.string_of_exn e)
              | Ok _ ->
-                 ()))
+                 ()
+         )
+  )

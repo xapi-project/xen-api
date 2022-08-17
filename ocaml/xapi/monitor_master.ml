@@ -40,13 +40,15 @@ let update_configuration_from_master () =
       in
       if !Xapi_globs.pass_through_pif_carrier <> carrier then
         debug "Updating pass_through_pif_carrier: New value=%b" carrier ;
-      Xapi_globs.pass_through_pif_carrier := carrier)
+      Xapi_globs.pass_through_pif_carrier := carrier
+  )
 
 let get_pciids vendor device =
   (* FIXME : put a lazy cache *)
   let v, d = Pciutil.parse vendor device in
   ( (match v with None -> "" | Some x -> x)
-  , match d with None -> "" | Some x -> x )
+  , match d with None -> "" | Some x -> x
+  )
 
 let set_pif_metrics ~__context ~self ~vendor ~device ~carrier ~speed ~duplex
     ~pcibuspath pmr =
@@ -87,7 +89,10 @@ let update_pifs ~__context host pifs =
                ( Eq (Field "host", Literal (Ref.string_of host))
                , Or
                    ( Eq (Field "physical", Literal "true")
-                   , Not (Eq (Field "bond_master_of", Literal "()")) ) ))
+                   , Not (Eq (Field "bond_master_of", Literal "()"))
+                   )
+               )
+            )
       in
       (* Iterate over them, and spot and update changes. *)
       List.iter
@@ -127,7 +132,9 @@ let update_pifs ~__context host pifs =
                     Db_filter_types.(
                       And
                         ( Eq (Field "resident_on", Literal (Ref.string_of host))
-                        , Eq (Field "domid", Literal (string_of_int domid)) ))
+                        , Eq (Field "domid", Literal (string_of_int domid))
+                        )
+                    )
                   in
                   match Db.VM.get_refs_where ~__context ~expr with
                   | [] ->
@@ -152,7 +159,8 @@ let update_pifs ~__context host pifs =
                       let vlan_master =
                         Db.VLAN.get_untagged_PIF ~__context ~self:vlan
                       in
-                      Db.PIF.get_network ~__context ~self:vlan_master)
+                      Db.PIF.get_network ~__context ~self:vlan_master
+                    )
                     pifrec.API.pIF_VLAN_slave_of
                 in
                 let tunnel_networks =
@@ -161,7 +169,8 @@ let update_pifs ~__context host pifs =
                       let access_pif =
                         Db.Tunnel.get_access_PIF ~__context ~self:tunnel
                       in
-                      Db.PIF.get_network ~__context ~self:access_pif)
+                      Db.PIF.get_network ~__context ~self:access_pif
+                    )
                     pifrec.API.pIF_tunnel_transport_PIF_of
                 in
                 (pifrec.API.pIF_network :: vlan_networks) @ tunnel_networks
@@ -192,5 +201,6 @@ let update_pifs ~__context host pifs =
             let pmr = Db.PIF_metrics.get_record ~__context ~self:metrics in
             set_pif_metrics ~__context ~self:metrics ~vendor ~device ~carrier
               ~speed ~duplex ~pcibuspath pmr
-          with Not_found -> ())
+          with Not_found -> ()
+        )
         db_pifs

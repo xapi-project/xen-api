@@ -23,7 +23,8 @@ let resident_pages () =
 let smoke_test () =
   with_dump (fun a ->
       let (_ : Pci_dev.t list) = get_devices a in
-      ())
+      ()
+  )
 
 let test_with_access_cleanup () =
   (* Get overhead for calling the fuction and the measuremnt functions *)
@@ -50,7 +51,8 @@ let test_with_access_cleanup () =
   done ;
   let mem''' = Gc.compact () ; resident_pages () in
   assert_raises (OUnitTest.OUnit_failure "not equal") (fun () ->
-      assert_equal mem'' mem''')
+      assert_equal mem'' mem'''
+  )
 
 let test_lookup_functions () =
   (* Subset of `lspci -mnnv` on my system
@@ -62,7 +64,8 @@ let test_lookup_functions () =
   let test_lookup valid_values value =
     assert_bool
       (Printf.sprintf {|Value "%s" is not any of the expected ones: [%s]|} value
-         (String.concat "; " (List.map (Printf.sprintf {|"%s"|}) valid_values)))
+         (String.concat "; " (List.map (Printf.sprintf {|"%s"|}) valid_values))
+      )
       (List.mem value valid_values)
   in
   let default v = match v with Some v -> v | None -> "" in
@@ -81,7 +84,8 @@ let test_lookup_functions () =
       test_lookup ["VGA compatible controller"]
       @@ (lookup_class_name acc 0x0300 |> default) ;
       test_lookup ["VGA controller"]
-      @@ (lookup_progif_name acc 0x0300 0x00 |> default))
+      @@ (lookup_progif_name acc 0x0300 0x00 |> default)
+  )
 
 let _ =
   let suite =

@@ -28,6 +28,7 @@ let rpc __context call =
         ; contents= contents |> Xmlrpc.to_string |> Xmlrpc.of_string
         ; notif= false
         }
+      
   | "VM.update_allowed_operations", [session_id_rpc; self_rpc] ->
       let open API in
       let _session_id = ref_session_of_rpc session_id_rpc in
