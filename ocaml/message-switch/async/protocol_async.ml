@@ -56,7 +56,7 @@ module M = struct
       Monitor.try_with ~extract_exn:true connect >>= function
       | Error
           (Unix.Unix_error
-            (Core.(Unix.ECONNREFUSED | Unix.ECONNABORTED | Unix.ENOENT), _, _)
+            (Core_unix.(ECONNREFUSED | ECONNABORTED | ENOENT), _, _)
             ) ->
           let delay = Float.min maximum_delay delay in
           Clock.after (Time.Span.of_sec delay) >>= fun () ->
