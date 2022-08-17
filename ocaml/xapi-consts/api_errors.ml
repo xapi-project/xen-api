@@ -26,7 +26,8 @@ let _ =
     | Server_error (code, params) as e ->
         Some (to_string e)
     | _ ->
-        None)
+        None
+    )
 
 let message_deprecated = "MESSAGE_DEPRECATED"
 

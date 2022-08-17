@@ -30,8 +30,7 @@ let test_create_internal () =
   Alcotest.check
     (Alcotest_comparators.ref ())
     "get tunnel transport PIF" tunnel
-    (List.hd
-       (Db.PIF.get_tunnel_transport_PIF_of ~__context ~self:transport_PIF)) ;
+    (List.hd (Db.PIF.get_tunnel_transport_PIF_of ~__context ~self:transport_PIF)) ;
   Alcotest.check
     (Alcotest_comparators.ref ())
     "get transport PIF" transport_PIF
@@ -71,7 +70,9 @@ let test_create_network_already_connected () =
     Api_errors.(
       Server_error
         ( network_already_connected
-        , [Ref.string_of host; Ref.string_of transport_PIF] ))
+        , [Ref.string_of host; Ref.string_of transport_PIF]
+        )
+    )
     (fun () -> Xapi_tunnel.create ~__context ~transport_PIF ~network |> ignore)
 
 let test_create_on_bond_slave () =
@@ -86,7 +87,8 @@ let test_create_on_bond_slave () =
   Alcotest.check_raises "test_create_on_bond_slave"
     Api_errors.(
       Server_error
-        (cannot_add_tunnel_to_bond_slave, [Ref.string_of transport_PIF]))
+        (cannot_add_tunnel_to_bond_slave, [Ref.string_of transport_PIF])
+    )
     (fun () -> Xapi_tunnel.create ~__context ~transport_PIF ~network |> ignore)
 
 let test_create_on_tunnel_access () =
@@ -98,7 +100,8 @@ let test_create_on_tunnel_access () =
   Alcotest.check_raises "test_create_on_tunnel_access"
     Api_errors.(Server_error (is_tunnel_access_pif, [Ref.string_of access_PIF]))
     (fun () ->
-      Xapi_tunnel.create ~__context ~transport_PIF:access_PIF ~network |> ignore)
+      Xapi_tunnel.create ~__context ~transport_PIF:access_PIF ~network |> ignore
+    )
 
 let test_create_on_sriov_logical () =
   let __context = T.make_test_database () in
@@ -109,10 +112,12 @@ let test_create_on_sriov_logical () =
   Alcotest.check_raises "test_create_on_sriov_logical"
     Api_errors.(
       Server_error
-        (cannot_add_tunnel_to_sriov_logical, [Ref.string_of sriov_logical_PIF]))
+        (cannot_add_tunnel_to_sriov_logical, [Ref.string_of sriov_logical_PIF])
+    )
     (fun () ->
       Xapi_tunnel.create ~__context ~transport_PIF:sriov_logical_PIF ~network
-      |> ignore)
+      |> ignore
+    )
 
 let test_create_on_vlan_on_sriov_logical () =
   let __context = T.make_test_database () in
@@ -127,7 +132,9 @@ let test_create_on_vlan_on_sriov_logical () =
     Api_errors.(
       Server_error
         ( cannot_add_tunnel_to_vlan_on_sriov_logical
-        , [Ref.string_of transport_PIF] ))
+        , [Ref.string_of transport_PIF]
+        )
+    )
     (fun () -> Xapi_tunnel.create ~__context ~transport_PIF ~network |> ignore)
 
 let test_create_tunnel_into_sriov_network () =
@@ -147,10 +154,12 @@ let test_create_tunnel_into_sriov_network () =
   Alcotest.check_raises "test_create_tunnel_into_sriov_network"
     Api_errors.(
       Server_error
-        (network_incompatible_with_tunnel, [Ref.string_of sriov_network]))
+        (network_incompatible_with_tunnel, [Ref.string_of sriov_network])
+    )
     (fun () ->
       Xapi_tunnel.create ~__context ~transport_PIF:pif ~network:sriov_network
-      |> ignore)
+      |> ignore
+    )
 
 let test_create_tunnel_into_sriov_vlan_network () =
   let __context = T.make_test_database () in
@@ -172,11 +181,13 @@ let test_create_tunnel_into_sriov_vlan_network () =
   Alcotest.check_raises "test_create_tunnel_into_sriov_vlan_network"
     Api_errors.(
       Server_error
-        (network_incompatible_with_tunnel, [Ref.string_of sriov_vlan_network]))
+        (network_incompatible_with_tunnel, [Ref.string_of sriov_vlan_network])
+    )
     (fun () ->
       Xapi_tunnel.create ~__context ~transport_PIF:pif
         ~network:sriov_vlan_network
-      |> ignore)
+      |> ignore
+    )
 
 let test =
   [
@@ -184,17 +195,21 @@ let test =
   ; ("test_create_on_unmanaged_pif", `Quick, test_create_on_unmanaged_pif)
   ; ( "test_create_network_already_connected"
     , `Quick
-    , test_create_network_already_connected )
+    , test_create_network_already_connected
+    )
   ; ("test_create_on_bond_slave", `Quick, test_create_on_bond_slave)
   ; ("test_create_on_tunnel_access", `Quick, test_create_on_tunnel_access)
   ; ("test_create_on_sriov_logical", `Quick, test_create_on_sriov_logical)
   ; ( "test_create_on_vlan_on_sriov_logical"
     , `Quick
-    , test_create_on_vlan_on_sriov_logical )
+    , test_create_on_vlan_on_sriov_logical
+    )
   ; ( "test_create_tunnel_into_sriov_network"
     , `Quick
-    , test_create_tunnel_into_sriov_network )
+    , test_create_tunnel_into_sriov_network
+    )
   ; ( "test_create_tunnel_into_sriov_vlan_network"
     , `Quick
-    , test_create_tunnel_into_sriov_vlan_network )
+    , test_create_tunnel_into_sriov_vlan_network
+    )
   ]

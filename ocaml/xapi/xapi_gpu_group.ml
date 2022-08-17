@@ -33,19 +33,22 @@ let destroy ~__context ~self =
   if connected <> [] then
     raise
       (Api_errors.Server_error
-         (Api_errors.gpu_group_contains_vgpu, List.map Ref.string_of connected)) ;
+         (Api_errors.gpu_group_contains_vgpu, List.map Ref.string_of connected)
+      ) ;
   let pgpus = Db.GPU_group.get_PGPUs ~__context ~self in
   if pgpus <> [] then
     raise
       (Api_errors.Server_error
-         (Api_errors.gpu_group_contains_pgpu, List.map Ref.string_of pgpus)) ;
+         (Api_errors.gpu_group_contains_pgpu, List.map Ref.string_of pgpus)
+      ) ;
   (* Destroy all vGPUs *)
   List.iter
     (fun vgpu ->
       Helpers.log_exn_continue
         (Printf.sprintf "destroying VGPU: %s" (Ref.string_of vgpu))
         (fun vgpu -> Db.VGPU.destroy ~__context ~self:vgpu)
-        vgpu)
+        vgpu
+    )
     vgpus ;
   Db.GPU_group.destroy ~__context ~self
 
@@ -57,7 +60,8 @@ let find_or_create ~__context pgpu =
     List.find
       (fun rf ->
         let rc = Db.GPU_group.get_record_internal ~__context ~self:rf in
-        rc.Db_actions.gPU_group_GPU_types = [gpu_type])
+        rc.Db_actions.gPU_group_GPU_types = [gpu_type]
+      )
       (Db.GPU_group.get_all ~__context)
   with Not_found ->
     let name_label =
@@ -86,7 +90,8 @@ let union_type_lists ~type_lists =
       (fun acc type_list ->
         List.fold_left
           (fun acc vgpu_type -> VGPU_type_set.add vgpu_type acc)
-          acc type_list)
+          acc type_list
+      )
       VGPU_type_set.empty type_lists
   in
   VGPU_type_set.elements union_set
@@ -97,7 +102,8 @@ let update_enabled_VGPU_types ~__context ~self =
     union_type_lists
       (List.map
          (fun pgpu -> Db.PGPU.get_enabled_VGPU_types ~__context ~self:pgpu)
-         pgpus)
+         pgpus
+      )
   in
   Db.GPU_group.set_enabled_VGPU_types ~__context ~self ~value:enabled_VGPU_types
 
@@ -107,7 +113,8 @@ let update_supported_VGPU_types ~__context ~self =
     union_type_lists
       (List.map
          (fun pgpu -> Db.PGPU.get_supported_VGPU_types ~__context ~self:pgpu)
-         pgpus)
+         pgpus
+      )
   in
   Db.GPU_group.set_supported_VGPU_types ~__context ~self
     ~value:supported_VGPU_types
@@ -142,7 +149,8 @@ let get_remaining_capacity_internal ~__context ~self ~vgpu_type =
         in
         List.hd
           (Helpers.sort_by_schwarzian ~descending:true score_exception
-             exceptions)
+             exceptions
+          )
   in
   (* For each PGPU in the group, if it is unable to run the specified VGPU type,
      	 * save the exception returned. Otherwise just add its capacity
@@ -158,7 +166,8 @@ let get_remaining_capacity_internal ~__context ~self ~vgpu_type =
         | Error e ->
             (capacity, e :: exceptions)
         | Ok n ->
-            (Int64.add n capacity, exceptions))
+            (Int64.add n capacity, exceptions)
+      )
       (0L, []) pgpus
   in
   if capacity > 0L then

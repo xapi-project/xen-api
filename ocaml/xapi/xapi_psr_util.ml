@@ -16,7 +16,8 @@ let read_backups () =
       |> SecretString.of_string
     , new_pool_secret_backup_path
       |> Unixext.string_of_file
-      |> SecretString.of_string )
+      |> SecretString.of_string
+    )
   with e ->
     D.error
       "xapi_psr_util.ml:read_backups failed (paths='%s', '%s'). reason: %s"
@@ -27,7 +28,8 @@ let read_backups () =
 let load_psr_pool_secrets () =
   match
     ( Sys.file_exists old_pool_secret_backup_path
-    , Sys.file_exists new_pool_secret_backup_path )
+    , Sys.file_exists new_pool_secret_backup_path
+    )
   with
   | false, false ->
       ()
@@ -37,7 +39,8 @@ let load_psr_pool_secrets () =
       raise
         Api_errors.(
           Server_error
-            (internal_error, ["inconsistent pool secret backup files"]))
+            (internal_error, ["inconsistent pool secret backup files"])
+        )
   | true, true ->
       D.info "loading backup pool secrets from psr" ;
       let old_pool_secret, new_pool_secret = read_backups () in

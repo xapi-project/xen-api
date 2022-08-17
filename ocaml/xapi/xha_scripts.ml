@@ -62,7 +62,8 @@ let call_script ?log_output script args =
   let env = [|Printf.sprintf "PATH=%s:%s" (Sys.getenv "PATH") path|] in
   try
     Stdext.Threadext.Mutex.execute ha_script_m (fun () ->
-        Helpers.call_script ?log_output ~env script' args)
+        Helpers.call_script ?log_output ~env script' args
+    )
   with Forkhelpers.Spawn_internal_error (stderr, stdout, Unix.WEXITED n) ->
     let code = Xha_errno.of_int n in
     warn "%s %s returned %s (%s)" script' (String.concat " " args)

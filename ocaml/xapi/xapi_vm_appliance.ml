@@ -58,7 +58,8 @@ let group_vms_by_order ~__context vms =
       let existing =
         if Int64Map.mem order map then Int64Map.find order map else []
       in
-      Int64Map.add order (vm :: existing) map)
+      Int64Map.add order (vm :: existing) map
+    )
     Int64Map.empty vms
 
 (* Return a list of lists of VMs where each list contains *)
@@ -78,10 +79,12 @@ let run_operation_on_vms ~__context operation vms =
             try
               let task = operation vm rpc session_id in
               (task :: tasks, failed_vms)
-            with e -> (tasks, vm :: failed_vms))
+            with e -> (tasks, vm :: failed_vms)
+          )
           ([], []) vms
       in
-      Tasks.wait_for_all ~rpc ~session_id ~tasks)
+      Tasks.wait_for_all ~rpc ~session_id ~tasks
+  )
 
 let perform_operation ~__context ~self ~operation ~ascending_priority =
   let appliance_uuid = Db.VM_appliance.get_uuid ~__context ~self in
@@ -90,7 +93,8 @@ let perform_operation ~__context ~self ~operation ~ascending_priority =
   let target_vms =
     List.filter
       (fun vm ->
-        Db.VM.get_power_state ~__context ~self:vm <> operation.required_state)
+        Db.VM.get_power_state ~__context ~self:vm <> operation.required_state
+      )
       contained_vms
   in
   let action_list =
@@ -99,13 +103,15 @@ let perform_operation ~__context ~self ~operation ~ascending_priority =
   debug "Beginning operation %s on appliance %s" operation.name appliance_uuid ;
   List.iter
     (fun vm_list ->
-      run_operation_on_vms ~__context operation.vm_operation vm_list)
+      run_operation_on_vms ~__context operation.vm_operation vm_list
+    )
     action_list ;
   (* Check whether all the VMs have transitioned to the required power state. *)
   let failed_vms =
     List.filter
       (fun vm ->
-        Db.VM.get_power_state ~__context ~self:vm <> operation.required_state)
+        Db.VM.get_power_state ~__context ~self:vm <> operation.required_state
+      )
       target_vms
   in
   match failed_vms with
@@ -118,7 +124,9 @@ let perform_operation ~__context ~self ~operation ~ascending_priority =
       raise
         (Api_errors.Server_error
            ( Api_errors.operation_partially_failed
-           , operation.name :: List.map Ref.string_of failed_vms ))
+           , operation.name :: List.map Ref.string_of failed_vms
+           )
+        )
 
 let start ~__context ~self ~paused =
   let operation =
@@ -127,7 +135,8 @@ let start ~__context ~self ~paused =
     ; vm_operation=
         (fun vm rpc session_id ->
           Client.Async.VM.start ~rpc ~session_id ~vm ~start_paused:paused
-            ~force:false)
+            ~force:false
+        )
     ; required_state= (if paused then `Paused else `Running)
     }
   in
@@ -139,7 +148,8 @@ let clean_shutdown ~__context ~self =
       name= "VM_appliance.clean_shutdown"
     ; vm_operation=
         (fun vm rpc session_id ->
-          Client.Async.VM.clean_shutdown ~rpc ~session_id ~vm)
+          Client.Async.VM.clean_shutdown ~rpc ~session_id ~vm
+        )
     ; required_state= `Halted
     }
   in
@@ -151,7 +161,8 @@ let hard_shutdown ~__context ~self =
       name= "VM_appliance.hard_shutdown"
     ; vm_operation=
         (fun vm rpc session_id ->
-          Client.Async.VM.hard_shutdown ~rpc ~session_id ~vm)
+          Client.Async.VM.hard_shutdown ~rpc ~session_id ~vm
+        )
     ; required_state= `Halted
     }
   in
@@ -173,7 +184,8 @@ let assert_can_be_recovered ~__context ~self ~session_to =
   let vms = Db.VM_appliance.get_VMs ~__context ~self in
   List.iter
     (fun vm ->
-      Xapi_vm_helpers.assert_can_be_recovered ~__context ~self:vm ~session_to)
+      Xapi_vm_helpers.assert_can_be_recovered ~__context ~self:vm ~session_to
+    )
     vms
 
 let get_SRs_required_for_recovery ~__context ~self ~session_to =
@@ -182,7 +194,8 @@ let get_SRs_required_for_recovery ~__context ~self ~session_to =
   |> Seq.flat_map (fun vm ->
          Xapi_vm_helpers.get_SRs_required_for_recovery ~__context ~self:vm
            ~session_to
-         |> List.to_seq)
+         |> List.to_seq
+     )
   |> Xapi_vm_helpers.SRSet.of_seq
   |> Xapi_vm_helpers.SRSet.elements
 
@@ -212,7 +225,8 @@ let recover ~__context ~self ~session_to ~force =
           List.iter
             (fun vm ->
               Db.VM.set_appliance ~__context:__context_to ~self:vm
-                ~value:Ref.null)
+                ~value:Ref.null
+            )
             vms ;
           Db.VM_appliance.set_name_label ~__context:__context_to
             ~self:existing_appliance
@@ -239,7 +253,9 @@ let recover ~__context ~self ~session_to ~force =
         (fun vm ->
           if not (Db.VM.get_is_a_template ~__context:__context_to ~self:vm) then
             Db.VM.set_appliance ~__context:__context_to ~self:vm
-              ~value:recovered_appliance)
+              ~value:recovered_appliance
+        )
         recovered_vms ;
       update_allowed_operations ~__context:__context_to
-        ~self:recovered_appliance)
+        ~self:recovered_appliance
+  )

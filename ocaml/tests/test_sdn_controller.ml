@@ -42,7 +42,8 @@ let test_sdn_controller_pssl_invalid_address () =
     Api_errors.(Server_error (invalid_value, ["address"; "192.168.1.10"]))
     (fun () ->
       Xapi_sdn_controller.db_introduce ~__context ~protocol ~address ~port
-      |> ignore)
+      |> ignore
+    )
 
 let test_sdn_controller_pssl_invalid_port () =
   let protocol = `pssl in
@@ -53,7 +54,8 @@ let test_sdn_controller_pssl_invalid_port () =
     Api_errors.(Server_error (invalid_value, ["port"; "1"]))
     (fun () ->
       Xapi_sdn_controller.db_introduce ~__context ~protocol ~address ~port
-      |> ignore)
+      |> ignore
+    )
 
 let test_sdn_controller_ssl_default_port () =
   let protocol = `ssl in
@@ -83,7 +85,8 @@ let test_sdn_controller_ssl_invalid_ip_address () =
     Api_errors.(Server_error (invalid_ip_address_specified, ["address"]))
     (fun () ->
       Xapi_sdn_controller.db_introduce ~__context ~protocol ~address ~port
-      |> ignore)
+      |> ignore
+    )
 
 let test_sdn_controller_ssl_invalid_address_value () =
   let protocol = `ssl in
@@ -94,7 +97,8 @@ let test_sdn_controller_ssl_invalid_address_value () =
     Api_errors.(Server_error (invalid_value, ["address"; ""]))
     (fun () ->
       Xapi_sdn_controller.db_introduce ~__context ~protocol ~address ~port
-      |> ignore)
+      |> ignore
+    )
 
 let test_sdn_controller_ssl_low_port () =
   let protocol = `ssl in
@@ -103,10 +107,12 @@ let test_sdn_controller_ssl_low_port () =
   let __context = T.make_test_database () in
   Alcotest.check_raises "test_sdn_controller_ssl_low_port"
     Api_errors.(
-      Server_error (value_not_supported, ["port"; "-1"; "Port out of range"]))
+      Server_error (value_not_supported, ["port"; "-1"; "Port out of range"])
+    )
     (fun () ->
       Xapi_sdn_controller.db_introduce ~__context ~protocol ~address ~port
-      |> ignore)
+      |> ignore
+    )
 
 let test_sdn_controller_ssl_high_port () =
   let protocol = `ssl in
@@ -115,10 +121,12 @@ let test_sdn_controller_ssl_high_port () =
   let __context = T.make_test_database () in
   Alcotest.check_raises "test_sdn_controller_ssl_high_port"
     Api_errors.(
-      Server_error (value_not_supported, ["port"; "65536"; "Port out of range"]))
+      Server_error (value_not_supported, ["port"; "65536"; "Port out of range"])
+    )
     (fun () ->
       Xapi_sdn_controller.db_introduce ~__context ~protocol ~address ~port
-      |> ignore)
+      |> ignore
+    )
 
 let test_sdn_controller_introduce_twice () =
   let protocol = `ssl in
@@ -130,10 +138,13 @@ let test_sdn_controller_introduce_twice () =
     Api_errors.(
       Server_error
         ( operation_not_allowed
-        , ["SDN controller has been configured. Please forget it first."] ))
+        , ["SDN controller has been configured. Please forget it first."]
+        )
+    )
     (fun () ->
       Xapi_sdn_controller.db_introduce ~__context ~protocol ~address ~port
-      |> ignore)
+      |> ignore
+    )
 
 let test_sdn_controller_forget_ok () =
   let protocol = `ssl in
@@ -152,30 +163,39 @@ let test =
   [
     ( "test_sdn_controller_introduce_ok"
     , `Quick
-    , test_sdn_controller_introduce_ok )
+    , test_sdn_controller_introduce_ok
+    )
   ; ( "test_sdn_controller_pssl_invalid_address"
     , `Quick
-    , test_sdn_controller_pssl_invalid_address )
+    , test_sdn_controller_pssl_invalid_address
+    )
   ; ( "test_sdn_controller_pssl_invalid_port"
     , `Quick
-    , test_sdn_controller_pssl_invalid_port )
+    , test_sdn_controller_pssl_invalid_port
+    )
   ; ( "test_sdn_controller_ssl_default_port"
     , `Quick
-    , test_sdn_controller_ssl_default_port )
+    , test_sdn_controller_ssl_default_port
+    )
   ; ( "test_sdn_controller_ssl_invalid_ip_address"
     , `Quick
-    , test_sdn_controller_ssl_invalid_ip_address )
+    , test_sdn_controller_ssl_invalid_ip_address
+    )
   ; ( "test_sdn_controller_ssl_invalid_address_value"
     , `Quick
-    , test_sdn_controller_ssl_invalid_address_value )
+    , test_sdn_controller_ssl_invalid_address_value
+    )
   ; ( "test_sdn_controller_ssl_low_port"
     , `Quick
-    , test_sdn_controller_ssl_low_port )
+    , test_sdn_controller_ssl_low_port
+    )
   ; ( "test_sdn_controller_ssl_high_port"
     , `Quick
-    , test_sdn_controller_ssl_high_port )
+    , test_sdn_controller_ssl_high_port
+    )
   ; ( "test_sdn_controller_introduce_twice"
     , `Quick
-    , test_sdn_controller_introduce_twice )
+    , test_sdn_controller_introduce_twice
+    )
   ; ("test_sdn_controller_forget_ok", `Quick, test_sdn_controller_forget_ok)
   ]

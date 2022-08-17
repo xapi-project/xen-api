@@ -110,8 +110,10 @@ let rec permutations : 'a list -> 'a list list =
            (fun perm ->
              List.map
                (fun n -> insert_at n x perm)
-               (mkints_exclusive (List.length xs + 1)))
-           (permutations xs))
+               (mkints_exclusive (List.length xs + 1))
+           )
+           (permutations xs)
+        )
 
 let rec factorial = function 0 -> 1L | x -> Int64.of_int x ** factorial (x - 1)
 
@@ -128,7 +130,8 @@ let check_configuration config =
   List.iter
     (fun (vm, host) ->
       if not (List.mem_assoc vm config.vms) then failwith "VM not found" ;
-      if not (List.mem_assoc host config.hosts) then failwith "Host not found")
+      if not (List.mem_assoc host config.hosts) then failwith "Host not found"
+    )
     config.placement ;
   (* num_failures needs to be <= the total number of hosts *)
   if config.num_failures > config.total_hosts then
@@ -147,7 +150,8 @@ let string_of_configuration string_of_a string_of_b c =
     (semicolon (List.map comma (List.map (map string_of_a int64) c.hosts)))
     (semicolon (List.map comma (List.map (map string_of_b int64) c.vms)))
     (semicolon
-       (List.map comma (List.map (map string_of_b string_of_a) c.placement)))
+       (List.map comma (List.map (map string_of_b string_of_a) c.placement))
+    )
 
 let assoc errmsg x xs =
   try List.assoc x xs with Not_found -> failwith ("Not_found: " ^ errmsg)
@@ -158,14 +162,14 @@ let account hosts vms plan =
     let memory_needed =
       List.map
         (fun (vm, host) ->
-          if h = host then assoc "memory_needed_on_host" vm vms else 0L)
+          if h = host then assoc "memory_needed_on_host" vm vms else 0L
+        )
         plan
     in
     List.fold_left Int64.add 0L memory_needed
   in
   List.map
-    (fun (host, memory) ->
-      (host, Int64.sub memory (memory_needed_on_host host)))
+    (fun (host, memory) -> (host, Int64.sub memory (memory_needed_on_host host)))
     hosts
 
 (* Given a configuration and a plan, return the new configuration with the plan applied *)
@@ -235,7 +239,9 @@ let simulate_failure config dead_host =
         , if List.mem_assoc vm plan then
             assoc "simulate_failure" vm plan
           else
-            host ))
+            host
+        )
+      )
       config.placement
   in
   {config with hosts; placement; num_failures= config.num_failures - 1}
@@ -259,7 +265,8 @@ let simulate_failure_approximation config =
     List.sort less_than'
       (List.map
          (fun (_, h_size) -> Int64.(to_int (div h_size max_vm_size)))
-         config.hosts)
+         config.hosts
+      )
   in
   (* Assume biggest hosts fail, get left capacity *)
   let left_capacity = drop config.num_failures hosts_by_capacity |> sum in
@@ -268,8 +275,10 @@ let simulate_failure_approximation config =
     List.sort less_than'
       (List.map
          (fun (host, _) ->
-           List.length (List.filter (fun (vm, h) -> h = host) config.placement))
-         config.hosts)
+           List.length (List.filter (fun (vm, h) -> h = host) config.placement)
+         )
+         config.hosts
+      )
   in
   let vms_to_move =
     Xapi_stdext_std__Listext.List.take config.num_failures num_vms_per_host
@@ -290,8 +299,10 @@ let plan_always_possible config =
             let (_ : ('a, 'b) configuration) =
               List.fold_left simulate_failure config permutation
             in
-            ())
-          (permutations combination))
+            ()
+          )
+          (permutations combination)
+      )
       (choose hosts config.num_failures) ;
     true
   with Stop -> false
@@ -306,11 +317,14 @@ let bin_pack_every_combination =
           (fun vm ->
             ignore
               (assoc "bin_pack_every_combination/get_specific_plan" vm
-                 config.vms))
+                 config.vms
+              )
+          )
           failed_vms ;
         (* config.hosts contains only live hosts *)
         (* Guaranteed to always work if plan_always_possible returned true *)
-        pack_failed_vms_onto_live_hosts config failed_vms)
+        pack_failed_vms_onto_live_hosts config failed_vms
+      )
   }
 
 (** Return the first 'n' items from a list *)
@@ -342,18 +356,20 @@ let approximate_bin_pack =
           if plan_trivially_never_possible config then raise Stop ;
           if config.vms <> [] then simulate_failure_approximation config ;
           true
-        with Stop -> false)
+        with Stop -> false
+      )
   ; get_specific_plan=
       (fun config failed_vms ->
         (* Make sure we know the VM sizes *)
         List.iter
           (fun vm ->
-            ignore
-              (assoc "approximate_bin_pack/get_specific_plan" vm config.vms))
+            ignore (assoc "approximate_bin_pack/get_specific_plan" vm config.vms)
+          )
           failed_vms ;
         (* config.hosts contains only live hosts *)
         (* Guaranteed to always work if plan_always_possible returned true *)
-        pack_failed_vms_onto_live_hosts config failed_vms)
+        pack_failed_vms_onto_live_hosts config failed_vms
+      )
   }
 
 let all_heuristics = [bin_pack_every_combination; approximate_bin_pack]

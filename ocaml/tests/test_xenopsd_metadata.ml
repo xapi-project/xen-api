@@ -87,24 +87,29 @@ module HVMSerial = Generic.MakeStateful (struct
         ({oc= []; platform= [("hvm_serial", "none")]}, Some "none")
       ; (* platform value should override other_config value. *)
         ( {oc= [("hvm_serial", "none")]; platform= [("hvm_serial", "pty")]}
-        , Some "pty" )
+        , Some "pty"
+        )
       ; (* platform value should override other_config value. *)
         ( {oc= [("hvm_serial", "pty")]; platform= [("hvm_serial", "none")]}
-        , Some "none" )
+        , Some "none"
+        )
       ; (* Windows debugger redirects the serial port to tcp - this should be
          * configurable via the other_config key. *)
         ( {oc= [("hvm_serial", "tcp:1.2.3.4:7001")]; platform= []}
-        , Some "tcp:1.2.3.4:7001" )
+        , Some "tcp:1.2.3.4:7001"
+        )
       ; (* Windows debugger should be configurable via the platform key too. *)
         ( {oc= []; platform= [("hvm_serial", "tcp:1.2.3.4:7001")]}
-        , Some "tcp:1.2.3.4:7001" )
+        , Some "tcp:1.2.3.4:7001"
+        )
       ; (* Windows debugger setting via the platform key should override anything
          * set in other_config. *)
         ( {
             oc= [("hvm_serial", "none")]
           ; platform= [("hvm_serial", "tcp:1.2.3.4:7001")]
           }
-        , Some "tcp:1.2.3.4:7001" )
+        , Some "tcp:1.2.3.4:7001"
+        )
       ]
 end)
 
@@ -153,12 +158,15 @@ module VideoMode = Generic.MakeStateful (struct
       ; ({oc= []; platform= [("vga", "std")]}, Vm.Standard_VGA)
       ; (* The IGD passthrough key should be respected. *)
         ( {oc= []; platform= [("igd_passthrough", "true")]}
-        , Vm.(IGD_passthrough GVT_d) )
+        , Vm.(IGD_passthrough GVT_d)
+        )
       ; (* The IGD passthrough should override the "vga" key. *)
         ( {oc= []; platform= [("igd_passthrough", "true"); ("vga", "cirrus")]}
-        , Vm.(IGD_passthrough GVT_d) )
+        , Vm.(IGD_passthrough GVT_d)
+        )
       ; ( {oc= []; platform= [("igd_passthrough", "true"); ("vga", "std")]}
-        , Vm.(IGD_passthrough GVT_d) )
+        , Vm.(IGD_passthrough GVT_d)
+        )
       ]
 end)
 
@@ -215,12 +223,13 @@ module GenerateVGPUMetadata = Generic.MakeStateful (struct
     let string_of_input_t =
       Test_printers.(
         pair string_of_vm_config
-          (list
-             (pair Test_vgpu_common.string_of_pgpu_state string_of_vgpu_type)))
+          (list (pair Test_vgpu_common.string_of_pgpu_state string_of_vgpu_type))
+      )
 
     let string_of_output_t =
       Test_printers.list (fun vgpu ->
-          rpc_of Xenops_interface.Vgpu.implementation vgpu |> Rpc.to_string)
+          rpc_of Xenops_interface.Vgpu.implementation vgpu |> Rpc.to_string
+      )
   end
 
   module State = Test_state.XapiDb
@@ -238,7 +247,8 @@ module GenerateVGPUMetadata = Generic.MakeStateful (struct
           make_vgpu ~__context ~vm_ref ~scheduled_to_be_resident_on:pgpu_ref
             ~uuid:(uuid_with_index 0) vgpu_type
         in
-        ())
+        ()
+      )
       pgpus_and_vgpu_types
 
   let extract_output __context _ =
@@ -254,8 +264,10 @@ module GenerateVGPUMetadata = Generic.MakeStateful (struct
         (({oc= []; platform= []}, []), [])
       ; (* One passthrough GPU. *)
         ( ( {oc= []; platform= []}
-          , [(default_k1, Xapi_vgpu_type.passthrough_gpu)] )
-        , [] )
+          , [(default_k1, Xapi_vgpu_type.passthrough_gpu)]
+          )
+        , []
+        )
       ; (* One NVIDIA vGPU. *)
         ( ({oc= []; platform= []}, [(default_k1, k100)])
         , [
@@ -268,8 +280,10 @@ module GenerateVGPUMetadata = Generic.MakeStateful (struct
                 ; type_id= Some "type_id_1"
                 ; uuid= Some (uuid_with_index 0)
                 ; extra_args= ""
-                })
-          ] )
+                }
+            )
+          ]
+        )
       ; (* One Intel vGPU. *)
         ( ({oc= []; platform= []}, [(default_intel_041a, gvt_g_041a)])
         , [
@@ -281,8 +295,10 @@ module GenerateVGPUMetadata = Generic.MakeStateful (struct
                 ; high_gm_sz= 384L
                 ; fence_sz= 4L
                 ; monitor_config_file= None
-                })
-          ] )
+                }
+            )
+          ]
+        )
       ]
 end)
 
@@ -298,12 +314,13 @@ module GenerateMultiVGPUMetadata = Generic.MakeStateful (struct
     let string_of_input_t =
       Test_printers.(
         pair string_of_vm_config
-          (list
-             (pair Test_vgpu_common.string_of_pgpu_state string_of_vgpu_type)))
+          (list (pair Test_vgpu_common.string_of_pgpu_state string_of_vgpu_type))
+      )
 
     let string_of_output_t =
       Test_printers.list (fun vgpu ->
-          rpc_of Xenops_interface.Vgpu.implementation vgpu |> Rpc.to_string)
+          rpc_of Xenops_interface.Vgpu.implementation vgpu |> Rpc.to_string
+      )
   end
 
   module State = Test_state.XapiDb
@@ -322,7 +339,8 @@ module GenerateMultiVGPUMetadata = Generic.MakeStateful (struct
           make_vgpu ~__context ~vm_ref ~scheduled_to_be_resident_on:pgpu_ref
             ~uuid:test_uuid ~device:(string_of_int index) vgpu_type
         in
-        ())
+        ()
+      )
       pgpus_and_vgpu_types
 
   let extract_output __context _ =
@@ -346,7 +364,8 @@ module GenerateMultiVGPUMetadata = Generic.MakeStateful (struct
                 ; type_id= Some "type_id_1"
                 ; uuid= Some (uuid_with_index 0)
                 ; extra_args= ""
-                })
+                }
+            )
           ; Xenops_interface.Vgpu.(
               Nvidia
                 {
@@ -356,8 +375,10 @@ module GenerateMultiVGPUMetadata = Generic.MakeStateful (struct
                 ; type_id= Some "type_id_1"
                 ; uuid= Some (uuid_with_index 1)
                 ; extra_args= ""
-                })
-          ] )
+                }
+            )
+          ]
+        )
       ; (* 4 NVIDIA vGPUs. *)
         ( ( {oc= []; platform= []}
           , [
@@ -365,7 +386,8 @@ module GenerateMultiVGPUMetadata = Generic.MakeStateful (struct
             ; (default_k1, k100)
             ; (default_k1, k100)
             ; (default_k1, k100)
-            ] )
+            ]
+          )
         , [
             Xenops_interface.Vgpu.(
               Nvidia
@@ -376,7 +398,8 @@ module GenerateMultiVGPUMetadata = Generic.MakeStateful (struct
                 ; type_id= Some "type_id_1"
                 ; uuid= Some (uuid_with_index 0)
                 ; extra_args= ""
-                })
+                }
+            )
           ; Xenops_interface.Vgpu.(
               Nvidia
                 {
@@ -386,7 +409,8 @@ module GenerateMultiVGPUMetadata = Generic.MakeStateful (struct
                 ; type_id= Some "type_id_1"
                 ; uuid= Some (uuid_with_index 1)
                 ; extra_args= ""
-                })
+                }
+            )
           ; Xenops_interface.Vgpu.(
               Nvidia
                 {
@@ -396,7 +420,8 @@ module GenerateMultiVGPUMetadata = Generic.MakeStateful (struct
                 ; type_id= Some "type_id_1"
                 ; uuid= Some (uuid_with_index 2)
                 ; extra_args= ""
-                })
+                }
+            )
           ; Xenops_interface.Vgpu.(
               Nvidia
                 {
@@ -406,8 +431,10 @@ module GenerateMultiVGPUMetadata = Generic.MakeStateful (struct
                 ; type_id= Some "type_id_1"
                 ; uuid= Some (uuid_with_index 3)
                 ; extra_args= ""
-                })
-          ] )
+                }
+            )
+          ]
+        )
       ]
 end)
 

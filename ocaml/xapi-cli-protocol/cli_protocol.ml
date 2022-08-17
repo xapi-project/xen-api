@@ -339,13 +339,15 @@ let marshal_unmarshal (a : message) =
   if a <> b then
     failwith
       (Printf.sprintf "marshal_unmarshal failure: %s <> %s"
-         (string_of_message a) (string_of_message b)) ;
+         (string_of_message a) (string_of_message b)
+      ) ;
   if String.length x <> offset then
     failwith
       (Printf.sprintf
          "Failed to consume all data in marshal_unmarshal %s (length=%d \
           offset=%d)"
-         (string_of_message a) (String.length x) offset)
+         (string_of_message a) (String.length x) offset
+      )
 
 let examples =
   [

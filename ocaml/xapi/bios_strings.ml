@@ -181,7 +181,8 @@ let get_oem_strings decode =
   let values = decode "11" "oem" in
   let convert i (_, value) =
     ( Printf.sprintf "oem-%d" (i + start_index)
-    , remove_invisible value |> String.trim )
+    , remove_invisible value |> String.trim
+    )
   in
   standard @ List.mapi convert values
 
@@ -194,7 +195,8 @@ let get_hp_rombios () =
       Stdext.Pervasiveext.finally
         (fun () ->
           ignore (Unix.lseek mem 0xfffea Unix.SEEK_SET) ;
-          ignore (Unix.read mem hp_rombios 0 6))
+          ignore (Unix.read mem hp_rombios 0 6)
+        )
         (fun () -> Unix.close mem)
     with _ -> ()
   ) ;

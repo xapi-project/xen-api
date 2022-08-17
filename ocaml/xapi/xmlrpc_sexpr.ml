@@ -124,7 +124,8 @@ let sexpr_to_xmlrpc (root : SExpr.t) =
             , [
                 Element ("name", [], [PCData name])
               ; Element ("value", [], [PCData value])
-              ] )
+              ]
+            )
       | SExpr.Node _ as somenode ->
           Element
             ( "member"
@@ -133,7 +134,8 @@ let sexpr_to_xmlrpc (root : SExpr.t) =
                 Element ("name", [], [PCData name])
               ; Element
                   ("value", [], [visit (h + 1) (SExpr.String "member") somenode])
-              ] )
+              ]
+            )
       | _ ->
           Element ("WRONG_SEXPR_MEMBER", [], [])
     )
@@ -143,14 +145,16 @@ let sexpr_to_xmlrpc (root : SExpr.t) =
         Element
           ( "member"
           , []
-          , [Element ("name", [], [PCData name]); Element ("value", [], [])] )
+          , [Element ("name", [], [PCData name]); Element ("value", [], [])]
+          )
     (* sexpr representing array tags *)
     | h, _, SExpr.Node (SExpr.String "array" :: values) ->
         let xmlvalues = List.map (visit (h + 1) sexpr) values in
         Element
           ( "array"
           , []
-          , [Element ("data", [], List.map (encase_with "value") xmlvalues)] )
+          , [Element ("data", [], List.map (encase_with "value") xmlvalues)]
+          )
     (* sexpr representing any other tag with children *)
     | h, _, SExpr.Node (SExpr.String tag :: atail) ->
         let xmlvalues = List.map (visit (h + 1) sexpr) atail in

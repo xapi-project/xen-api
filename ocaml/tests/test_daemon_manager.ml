@@ -50,7 +50,8 @@ module Mock_daemon = struct
           Thread.create
             (fun () ->
               Thread.delay time_until_stopped ;
-              running := false)
+              running := false
+            )
             ()
         in
         raise error
@@ -95,7 +96,8 @@ let test_exception () =
   Mock_daemon.reset ~is_running:true ;
   Alcotest.check_raises "exception is propagated by with_daemon_stopped"
     (Failure "fail") (fun () ->
-      Mock_manager.with_daemon_stopped (fun () -> failwith "fail")) ;
+      Mock_manager.with_daemon_stopped (fun () -> failwith "fail")
+  ) ;
   check_times_called ~start:1 ~stop:1
 
 let spawn_threads_and_wait task count =
@@ -132,7 +134,8 @@ let test_timeout_fail () =
   Mock_daemon.stop_failure :=
     Some {error= Failure "stop failed"; time_until_stopped= 5.0} ;
   Alcotest.check_raises "does not stop within timeout" (Failure "stop failed")
-    (fun () -> Mock_manager.with_daemon_stopped ~timeout:2.0 (fun () -> ())) ;
+    (fun () -> Mock_manager.with_daemon_stopped ~timeout:2.0 (fun () -> ())
+  ) ;
   check_times_called ~start:0 ~stop:1
 
 let test =

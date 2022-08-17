@@ -97,7 +97,8 @@ let _serialize_reg =
     | _ ->
         Mutex.execute lock (fun () ->
             holder := Some (Thread.self ()) ;
-            Pervasiveext.finally f (fun () -> holder := None))
+            Pervasiveext.finally f (fun () -> holder := None)
+        )
 
 let unregister_plugin ~__context q_result =
   _serialize_reg (fun () ->
@@ -116,8 +117,10 @@ let unregister_plugin ~__context q_result =
                 Db.SM.destroy ~__context ~self:rf
               with e ->
                 warn "Ignore unregistering SM plugin failure: %s"
-                  (Printexc.to_string e))
-          (Db.SM.get_all_records ~__context))
+                  (Printexc.to_string e)
+          )
+          (Db.SM.get_all_records ~__context)
+  )
 
 let register_plugin ~__context q_result =
   _serialize_reg (fun () ->
@@ -129,4 +132,5 @@ let register_plugin ~__context q_result =
       else (
         unregister_plugin ~__context q_result ;
         create_from_query_result ~__context q_result
-      ))
+      )
+  )

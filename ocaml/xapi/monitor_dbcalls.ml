@@ -45,7 +45,8 @@ let get_pif_and_bond_changes () =
           }
         in
         Hashtbl.add pifs_tmp pif.pif_name pif
-      ))
+      )
+    )
     stats ;
   (* Check if any of the PIFs have changed since our last reading. *)
   let pif_changes = get_updates_values ~before:pifs_cached ~after:pifs_tmp in
@@ -58,12 +59,14 @@ let get_pif_and_bond_changes () =
 
 let set_pif_changes ?except () =
   Mutex.execute pifs_cached_m (fun _ ->
-      transfer_map ?except ~source:pifs_tmp ~target:pifs_cached)
+      transfer_map ?except ~source:pifs_tmp ~target:pifs_cached
+  )
 
 let set_bond_changes ?except () =
   Mutex.execute bonds_links_up_cached_m (fun _ ->
       transfer_map ?except ~source:bonds_links_up_tmp
-        ~target:bonds_links_up_cached)
+        ~target:bonds_links_up_cached
+  )
 
 (* This function updates the database for all the slowly changing properties
  * of host memory, VM memory, PIFs, and bonds.
@@ -83,8 +86,11 @@ let pifs_update_fn () =
                   (And
                      ( And
                          ( Eq (Field "host", Literal (Ref.string_of host))
-                         , Not (Eq (Field "bond_master_of", Literal "()")) )
-                     , Eq (Field "device", Literal bond) ))
+                         , Not (Eq (Field "bond_master_of", Literal "()"))
+                         )
+                     , Eq (Field "device", Literal bond)
+                     )
+                  )
             in
             let my_bonds =
               List.map
@@ -98,7 +104,8 @@ let pifs_update_fn () =
                 ~value:(Int64.of_int links_up)
           with e ->
             issues := e :: !issues ;
-            keeps := bond :: !keeps)
+            keeps := bond :: !keeps
+        )
         bond_changes ;
       set_bond_changes ~except:!keeps () ;
       ( try
@@ -112,8 +119,10 @@ let pifs_update_fn () =
               ()
           | e ->
               error "pifs_and_memory_update issue: %s"
-                (ExnHelper.string_of_exn e))
-        (List.rev !issues))
+                (ExnHelper.string_of_exn e)
+          )
+        (List.rev !issues)
+  )
 
 let monitor_dbcall_thread () =
   while true do

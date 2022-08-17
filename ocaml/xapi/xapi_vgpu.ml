@@ -74,7 +74,8 @@ let create' ~__context ~vM ~gPU_group ~device ~other_config ~_type
     else
       raise
         (Api_errors.Server_error
-           (Api_errors.invalid_value, ["type"; Ref.string_of _type]))
+           (Api_errors.invalid_value, ["type"; Ref.string_of _type])
+        )
   in
   (* during multiple vgpus creation:
      1. Underlying vgpu_type should support multiple
@@ -92,7 +93,8 @@ let create' ~__context ~vM ~gPU_group ~device ~other_config ~_type
   if not (List.for_all (is_in_compatible_lists _type) types) then
     raise
       (Api_errors.Server_error
-         (Api_errors.vgpu_type_not_compatible, [Ref.string_of _type])) ;
+         (Api_errors.vgpu_type_not_compatible, [Ref.string_of _type])
+      ) ;
   debug "Creating vGPU %s with metadata: [%s]" (Ref.string_of vgpu)
     (List.map fst compatibility_metadata |> String.concat ":") ;
   Stdext.Threadext.Mutex.execute m (fun () ->
@@ -100,7 +102,8 @@ let create' ~__context ~vM ~gPU_group ~device ~other_config ~_type
       Db.VGPU.create ~__context ~ref:vgpu ~uuid ~vM ~gPU_group ~device:device_id
         ~currently_attached:false ~other_config ~_type ~resident_on:Ref.null
         ~scheduled_to_be_resident_on:Ref.null ~compatibility_metadata
-        ~extra_args:"" ~pCI:Ref.null) ;
+        ~extra_args:"" ~pCI:Ref.null
+  ) ;
   debug "VGPU ref='%s' created (VM = '%s', type = '%s')" (Ref.string_of vgpu)
     (Ref.string_of vM) (Ref.string_of _type) ;
   vgpu
@@ -121,7 +124,9 @@ let destroy ~__context ~self =
     raise
       (Api_errors.Server_error
          ( Api_errors.operation_not_allowed
-         , ["vGPU currently attached to a running VM"] )) ;
+         , ["vGPU currently attached to a running VM"]
+         )
+      ) ;
   Db.VGPU.destroy ~__context ~self
 
 let atomic_set_resident_on ~__context ~self ~value = assert false

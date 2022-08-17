@@ -15,7 +15,9 @@ let get_certificate_attributes rpc session =
   XenAPI.Certificate.get_all_records rpc session
   |> List.map (fun (_, certificate) ->
          ( certificate.API.certificate_host
-         , certificate.API.certificate_not_after ))
+         , certificate.API.certificate_not_after
+         )
+     )
 
 let generate_alert epoch (host, expiry) =
   let days = days_until_expiry epoch (Date.to_float expiry) in
@@ -87,7 +89,8 @@ let alert rpc session =
              let open Astring.String in
              is_prefix ~affix:expiring name || is_prefix ~affix:expired name
            in
-           expiring_or_expired record.API.message_name)
+           expiring_or_expired record.API.message_name
+       )
   in
   let send_alert_maybe attributes =
     attributes |> generate_alert now |> execute rpc session previous_messages

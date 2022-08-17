@@ -25,7 +25,9 @@ let required_cluster_stack ~__context =
       ~expr:
         (And
            ( Eq (Field "host", Literal (Ref.string_of localhost))
-           , Eq (Field "currently_attached", Literal "true") ))
+           , Eq (Field "currently_attached", Literal "true")
+           )
+        )
   in
   (* Obtain constraints from the SR drivers. Each SR that has constraints
        * returns a list of alternative cluster stacks, any one of which will
@@ -43,7 +45,8 @@ let required_cluster_stack ~__context =
             None (* No constraints *)
         | l ->
             Some l
-        (* Any one of these will do *))
+        (* Any one of these will do *)
+      )
       pbds
   in
   let failwith_cluster_stack_conflict () =
@@ -94,7 +97,8 @@ let assert_sr_compatible ~__context ~cluster_stack ~sr =
       if not (List.exists (fun x -> x = sr_type) srs) then
         raise
           (Api_errors.Server_error
-             (Api_errors.incompatible_statefile_sr, [sr_type]))
+             (Api_errors.incompatible_statefile_sr, [sr_type])
+          )
 
 (* Check whether we can attach the SR given the cluster stack that is currently in use *)
 let assert_cluster_stack_compatible ~__context sr =
@@ -121,7 +125,9 @@ let assert_cluster_stack_compatible ~__context sr =
                 Api_errors.(
                   Server_error
                     ( incompatible_cluster_stack_active
-                    , [String.concat "," alternatives] ))
+                    , [String.concat "," alternatives]
+                    )
+                )
       )
     | [] ->
         error "SR type not found in SM table." ;

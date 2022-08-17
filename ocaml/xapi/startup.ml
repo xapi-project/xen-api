@@ -54,7 +54,8 @@ let run ~__context tasks =
         | NoExnRaising ->
             exnraise := false
         | OnThread ->
-            onthread := true)
+            onthread := true
+      )
       flags ;
     (!only_master, !only_slave, !exnraise, !onthread)
   in
@@ -87,19 +88,24 @@ let run ~__context tasks =
                  (fun tsk_fct ->
                    Server_helpers.exec_with_new_task
                      ~subtask_of:(Context.get_task_id __context) tsk_name
-                     (fun __context -> thread_exn_wrapper tsk_name tsk_fct))
-                 tsk_fct)
+                     (fun __context -> thread_exn_wrapper tsk_name tsk_fct
+                   )
+                 )
+                 tsk_fct
+              )
           ) else (
             debug "task [%s]" tsk_name ;
             Server_helpers.exec_with_new_task tsk_name
               ~subtask_of:(Context.get_task_id __context) (fun __context ->
-                tsk_fct ())
+                tsk_fct ()
+            )
           )
         )
       with exn ->
         warn "task [%s] exception: %s" tsk_name (Printexc.to_string exn) ;
         if exnraise then
-          raise exn)
+          raise exn
+    )
     tasks
 
 let run ~__context tasks =

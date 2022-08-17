@@ -85,7 +85,8 @@ module DaemonConfiguration = struct
         , [
             xml_leaf_element "HostID" host.uuid
           ; xml_leaf_element "IPaddress" host.address
-          ] )
+          ]
+        )
   end
 
   type t = {
@@ -181,22 +182,31 @@ module DaemonConfiguration = struct
                            ; ("StateFileInterval", config.state_file_interval)
                            ; ("StateFileTimeout", config.state_file_timeout)
                            ; ( "HeartbeatWatchdogTimeout"
-                             , config.heart_beat_watchdog_timeout )
+                             , config.heart_beat_watchdog_timeout
+                             )
                            ; ( "StateFileWatchdogTimeout"
-                             , config.state_file_watchdog_timeout )
+                             , config.state_file_watchdog_timeout
+                             )
                            ; ("BootJoinTimeout", config.boot_join_timeout)
                            ; ("EnableJoinTimeout", config.enable_join_timeout)
                            ; ( "XapiHealthCheckInterval"
-                             , config.xapi_healthcheck_interval )
+                             , config.xapi_healthcheck_interval
+                             )
                            ; ( "XapiHealthCheckTimeout"
-                             , config.xapi_healthcheck_timeout )
+                             , config.xapi_healthcheck_timeout
+                             )
                            ; ( "XapiRestartAttempts"
-                             , config.xapi_restart_attempts )
+                             , config.xapi_restart_attempts
+                             )
                            ; ("XapiRestartTimeout", config.xapi_restart_timeout)
                            ; ( "XapiLicenseCheckTimeout"
-                             , config.xapi_licensecheck_timeout )
-                           ]) )
-                ] )
+                             , config.xapi_licensecheck_timeout
+                             )
+                           ]
+                        )
+                    )
+                ]
+            )
         ; Xml.Element
             ( "local-config"
             , []
@@ -211,9 +221,12 @@ module DaemonConfiguration = struct
                     ; xml_leaf_element "HeartbeatPhysicalInterface"
                         config.local_heart_beat_physical_interface
                     ; xml_leaf_element "StateFile" config.local_state_file
-                    ] )
-              ] )
-        ] )
+                    ]
+                  )
+              ]
+            )
+        ]
+      )
 
   (** Converts the given HA daemon configuration
       into an XML string. *)
@@ -275,7 +288,8 @@ module LiveSetInformation = struct
             with Invalid_argument _ ->
               invalid_arg
                 (Printf.sprintf
-                   "Invalid boolean value '%s' within 'host' element" s)
+                   "Invalid boolean value '%s' within 'host' element" s
+                )
           in
           let uuid = Uuid.of_string in
           Some
@@ -309,15 +323,16 @@ module LiveSetInformation = struct
             with Not_found ->
               invalid_arg
                 (Printf.sprintf
-                   "Missing entry '%s' within 'host_raw_data' element" x)
+                   "Missing entry '%s' within 'host_raw_data' element" x
+                )
           in
           let int s =
             try int_of_string (String.lowercase_ascii s)
             with Invalid_argument _ ->
               invalid_arg
                 (Printf.sprintf
-                   "Invalid integer value '%s' within 'host_raw_data' element"
-                   s)
+                   "Invalid integer value '%s' within 'host_raw_data' element" s
+                )
           in
           let uuid = Uuid.of_string in
           let set f x = List.map f (String.split_f String.isspace x) in
@@ -355,8 +370,8 @@ module LiveSetInformation = struct
             with Not_found ->
               invalid_arg
                 (Printf.sprintf
-                   "Missing entry '%s' within 'warning_on_local_host' element"
-                   x)
+                   "Missing entry '%s' within 'warning_on_local_host' element" x
+                )
           in
           let bool x = find x = "TRUE" in
           Some
@@ -398,7 +413,8 @@ module LiveSetInformation = struct
                 (Printf.sprintf
                    "Missing entry '%s' within 'raw_status_on_local_host' \
                     element"
-                   x)
+                   x
+                )
           in
           let int s =
             try int_of_string (String.lowercase_ascii s)
@@ -407,13 +423,15 @@ module LiveSetInformation = struct
                 (Printf.sprintf
                    "Invalid integer value '%s' within \
                     'raw_status_on_local_host' element"
-                   s)
+                   s
+                )
           in
           let host_raw_data =
             Hashtblext.of_list
               (List.map
                  (fun host -> (host.HostRawData.id, host))
-                 (List.filter_map HostRawData.of_xml_element children))
+                 (List.filter_map HostRawData.of_xml_element children)
+              )
           in
           Some
             {
@@ -448,13 +466,14 @@ module LiveSetInformation = struct
         Hashtblext.of_list
           (List.map
              (fun host -> (host.Host.id, host))
-             (List.filter_map Host.of_xml_element elements))
+             (List.filter_map Host.of_xml_element elements)
+          )
     ; local_host_id=
         ( match first_xml_element_with_name elements "localhost" with
         | Some
             (Xml.Element
-              (_, _, [Xml.Element ("HostID", _, [Xml.PCData local_host_id])]))
-          ->
+              (_, _, [Xml.Element ("HostID", _, [Xml.PCData local_host_id])])
+              ) ->
             Uuid.of_string local_host_id
         | _ ->
             invalid_arg "Invalid or missing 'localhost' element."
@@ -471,7 +490,8 @@ module LiveSetInformation = struct
          | Some status ->
              status
          | _ ->
-             invalid_arg "Invalid or missing 'status' element.")
+             invalid_arg "Invalid or missing 'status' element."
+        )
     ; raw_status_on_local_host=
         ( match
             first_xml_element_with_name elements "raw_status_on_local_host"

@@ -8,7 +8,8 @@ let handlers =
   ; ("post_jsonrpc", Http_svr.BufIO Api_server.jsoncallback)
   ; ("post_remote_db_access", Http_svr.BufIO Db_remote_cache_access_v1.handler)
   ; ( "post_remote_db_access_v2"
-    , Http_svr.BufIO Db_remote_cache_access_v2.handler )
+    , Http_svr.BufIO Db_remote_cache_access_v2.handler
+    )
   ]
 
 let start_server handlers =

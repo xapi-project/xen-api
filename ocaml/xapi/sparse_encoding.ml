@@ -38,7 +38,8 @@ module Unmarshal = struct
       ||| (f <<< 40)
       ||| (g <<< 48)
       ||| (h <<< 56)
-    , (s, offset + 8) )
+    , (s, offset + 8)
+    )
 
   let int32 (s, offset) =
     let ( <<< ) a b = Int32.shift_left a b and ( ||| ) a b = Int32.logor a b in
@@ -89,7 +90,8 @@ module Chunk = struct
       failwith
         (Printf.sprintf
            "Short write: attempted to write %d bytes at %Ld, only wrote %d" len
-           offset n)
+           offset n
+        )
 
   (** Writes a single block of data to the output device *)
   let write fd x =

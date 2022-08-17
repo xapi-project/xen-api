@@ -14,7 +14,9 @@ let vdi_create_destroy rpc session_id sr_info () =
       ; (7L ** mib) +* 1L
       ; (8L ** mib) +* 1L
       ]
+    
   in
+
   List.iter
     (fun virtual_size ->
       let uuid =
@@ -26,10 +28,12 @@ let vdi_create_destroy rpc session_id sr_info () =
               print_endline
                 (Printf.sprintf
                    "VDI requested size of %Ld but was given only %Ld"
-                   virtual_size actual_size) ;
+                   virtual_size actual_size
+                ) ;
               Alcotest.fail "VDI.create created too small a VDI"
             ) ;
-            Client.Client.VDI.get_uuid rpc session_id vdi)
+            Client.Client.VDI.get_uuid rpc session_id vdi
+        )
       in
       (* check that the new disk has gone already (after only one SR.scan) *)
       try
@@ -40,7 +44,8 @@ let vdi_create_destroy rpc session_id sr_info () =
           Alcotest.fail
             "VDI was not destroyed (or marked as unmanaged) properly after one \
              SR.scan"
-      with _ -> ())
+      with _ -> ()
+    )
     sizes_to_try
 
 (** For an SR which may be shared, return one plugged in PBD *)
@@ -54,7 +59,8 @@ let choose_active_pbd rpc session_id sr =
   | [] ->
       failwith
         (Printf.sprintf "SR %s has no attached PBDs"
-           (Client.Client.SR.get_uuid rpc session_id sr))
+           (Client.Client.SR.get_uuid rpc session_id sr)
+        )
   | x :: _ ->
       x
 
@@ -68,14 +74,16 @@ let vdi_generate_config_test rpc session_id sr_info () =
         "VDI_GENERATE_CONFIG should not fail" ()
         ((Client.Client.VDI.generate_config rpc session_id host vdi : string)
         |> ignore
-        ))
+        )
+  )
 
 (** If VDI_UPDATE is present then try it out *)
 let vdi_update_test rpc session_id sr_info () =
   Qt.VDI.with_any rpc session_id sr_info (fun vdi ->
       Alcotest.(check unit)
         "VDI_UPDATE should not fail" ()
-        (Client.Client.VDI.update rpc session_id vdi))
+        (Client.Client.VDI.update rpc session_id vdi)
+  )
 
 (** If VDI_RESIZE is present then try it out *)
 let vdi_resize_test rpc session_id sr_info () =
@@ -89,7 +97,8 @@ let vdi_resize_test rpc session_id sr_info () =
       let actual_size = Client.Client.VDI.get_virtual_size rpc session_id vdi in
       print_endline (Printf.sprintf "final size = %Ld" actual_size) ;
       if actual_size < new_size then
-        Alcotest.fail "The final size should be >= the requested size")
+        Alcotest.fail "The final size should be >= the requested size"
+  )
 
 (** Make sure that I can't call VDI.db_forget
     VDI.db_forget should always fail without authorisation *)
@@ -104,7 +113,8 @@ let vdi_db_forget rpc session_id sr_info () =
           print_endline "Caught PERMISSION_DENIED"
       | e ->
           Alcotest.fail
-            (Printf.sprintf "Caught wrong error: %s" (Printexc.to_string e)))
+            (Printf.sprintf "Caught wrong error: %s" (Printexc.to_string e))
+  )
 
 (** If VDI_INTRODUCE is present then attempt to introduce a VDI with a duplicate location
     and another with a bad UUID to make sure that is reported as an error *)
@@ -114,7 +124,8 @@ let vdi_bad_introduce rpc session_id sr_info () =
       ( try
           print_endline
             (Printf.sprintf "Introducing a VDI with a duplicate UUID (%s)"
-               vdir.API.vDI_uuid) ;
+               vdir.API.vDI_uuid
+            ) ;
           let (_ : API.ref_VDI) =
             Client.Client.VDI.introduce ~rpc ~session_id ~uuid:vdir.API.vDI_uuid
               ~name_label:"bad uuid" ~name_description:"" ~sR:vdir.API.vDI_SR
@@ -135,7 +146,8 @@ let vdi_bad_introduce rpc session_id sr_info () =
       try
         print_endline
           (Printf.sprintf "Introducing a VDI with a duplicate location (%s)"
-             vdir.API.vDI_location) ;
+             vdir.API.vDI_location
+          ) ;
         let (_ : API.ref_VDI) =
           Client.Client.VDI.introduce ~rpc ~session_id
             ~uuid:(Uuid.string_of_uuid (Uuid.make_uuid ()))
@@ -151,8 +163,8 @@ let vdi_bad_introduce rpc session_id sr_info () =
           "vdi_bad_introduce: A bad VDI with a duplicate location was \
            introduced"
       with Api_errors.Server_error (_, _) as e ->
-        Printf.printf "API error caught as expected: %s\n"
-          (Printexc.to_string e))
+        Printf.printf "API error caught as expected: %s\n" (Printexc.to_string e)
+  )
 
 (** When cloning/snapshotting perform field by field comparisons to look for
     problems *)
@@ -163,7 +175,8 @@ let check_clone_snapshot_fields rpc session_id original_vdi new_vdi =
     [
       ( `Same
       , "virtual_size"
-      , fun vdi -> vdi.API.vDI_virtual_size |> Int64.to_string )
+      , fun vdi -> vdi.API.vDI_virtual_size |> Int64.to_string
+      )
     ; (`Different, "location", fun vdi -> vdi.API.vDI_location)
     ]
   in
@@ -190,7 +203,8 @@ let check_vdi_snapshot rpc session_id vdi =
         "VDI.snapshot_of must not be null for snapshot VDI" true
         (r.API.vDI_snapshot_of <> API.Ref.null) ;
       check_clone_snapshot_fields rpc session_id vdi snapshot_vdi ;
-      Qt.VDI.test_update rpc session_id snapshot_vdi)
+      Qt.VDI.test_update rpc session_id snapshot_vdi
+  )
 
 let test_vdi_snapshot rpc session_id sr_info () =
   Qt.VDI.with_any rpc session_id sr_info (check_vdi_snapshot rpc session_id)
@@ -201,7 +215,9 @@ let test_vdi_clone rpc session_id sr_info () =
         Client.Client.VDI.clone ~rpc ~session_id ~vdi ~driver_params:[]
       in
       Qt.VDI.with_destroyed rpc session_id vdi' (fun () ->
-          check_clone_snapshot_fields rpc session_id vdi vdi'))
+          check_clone_snapshot_fields rpc session_id vdi vdi'
+      )
+  )
 
 (* Helper function to make a VBD *)
 let vbd_create_helper ~rpc ~session_id ~vM ~vDI ?(userdevice = "autodetect") ()
@@ -227,9 +243,11 @@ let vdi_snapshot_in_pool rpc session_id sr_info () =
             print_endline (Printf.sprintf "Unplugging from host %s" name) ;
             Client.Client.VBD.unplug rpc session_id vbd ;
             print_endline "Destroying VBD" ;
-            Client.Client.VBD.destroy rpc session_id vbd)
+            Client.Client.VBD.destroy rpc session_id vbd
+        )
       in
-      test_snapshot_on localhost ; do_test ())
+      test_snapshot_on localhost ; do_test ()
+  )
 
 (** Make sure that VDI_CREATE; plug; VDI_DESTROY; VDI_CREATE; plug results in a device of
     the correct size in dom0.
@@ -259,7 +277,8 @@ let vdi_create_destroy_plug_checksize rpc session_id sr_info () =
   let host = Client.Client.PBD.get_host rpc session_id pbd in
   print_endline
     (Printf.sprintf "Will plug into host %s"
-       (Client.Client.Host.get_name_label rpc session_id host)) ;
+       (Client.Client.Host.get_name_label rpc session_id host)
+    ) ;
   let plug_in_check_size rpc session_id host vdi =
     let size_should_be =
       Client.Client.VDI.get_virtual_size rpc session_id vdi
@@ -273,15 +292,18 @@ let vdi_create_destroy_plug_checksize rpc session_id sr_info () =
           let size_dom0 = size_of_dom0_vbd rpc session_id vbd in
           print_endline
             (Printf.sprintf "XenAPI reports size: %Ld; dom0 reports size: %Ld"
-               size_should_be size_dom0) ;
+               size_should_be size_dom0
+            ) ;
           if size_should_be <> size_dom0 then
             Alcotest.fail
               (Printf.sprintf "Size should have been: %Ld" size_should_be)
         with Not_this_host ->
-          print_endline "Skipping size check: disk is plugged into another host")
+          print_endline "Skipping size check: disk is plugged into another host"
+      )
       (fun () ->
         Client.Client.VBD.unplug rpc session_id vbd ;
-        Client.Client.VBD.destroy rpc session_id vbd)
+        Client.Client.VBD.destroy rpc session_id vbd
+      )
   in
   let small_size = Sizes.(4L ** mib) and large_size = Sizes.(1L ** gib) in
   (* Make sure we zap any attached volume state *)
@@ -297,7 +319,9 @@ let vdi_create_destroy_plug_checksize rpc session_id sr_info () =
       Qt.VDI.with_new rpc session_id ~virtual_size:large_size sr
         (fun large_vdi ->
           plug_in_check_size rpc session_id host small_vdi |> ignore ;
-          plug_in_check_size rpc session_id host large_vdi |> ignore))
+          plug_in_check_size rpc session_id host large_vdi |> ignore
+      )
+  )
 
 (** Make a VDI, find a host to put it on, create a VBD to dom0 on that host,
     Attach, Unattach, destroy VBD, destroy VDI *)
@@ -332,8 +356,11 @@ let vdi_general_test rpc session_id sr_info () =
           Qt.VDI.with_destroyed rpc session_id newvdi2 (fun () ->
               let copytime = Unix.gettimeofday () -. t in
               print_endline (Printf.sprintf "Time to copy: %f%!" copytime) ;
-              print_endline (Printf.sprintf "Destroying copied VDI%!")))
-        (fun () -> Client.Client.VBD.destroy rpc session_id vbd))
+              print_endline (Printf.sprintf "Destroying copied VDI%!")
+          )
+        )
+        (fun () -> Client.Client.VBD.destroy rpc session_id vbd)
+  )
 
 let multiple_dom0_attach rpc session_id sr_info () =
   let rec loop vdi = function
@@ -353,7 +380,8 @@ let tests () =
          SR.(
            all
            |> has_capabilities Sr_capabilities.[vdi_create; vdi_delete]
-           |> not_iso)
+           |> not_iso
+         )
   ; [("vdi_generate_config_test", `Slow, vdi_generate_config_test)]
     |> conn
     |> sr SR.(all |> has_capabilities [Sr_capabilities.vdi_generate_config])
@@ -361,7 +389,8 @@ let tests () =
     |> conn
     |> sr
          SR.(
-           all |> has_capabilities [Sr_capabilities.vdi_update] |> with_any_vdi)
+           all |> has_capabilities [Sr_capabilities.vdi_update] |> with_any_vdi
+         )
   ; [("vdi_resize_test", `Slow, vdi_resize_test)]
     |> conn
     |> sr SR.(all |> has_capabilities [Sr_capabilities.vdi_resize])
@@ -374,7 +403,8 @@ let tests () =
          SR.(
            all
            |> has_capabilities [Sr_capabilities.vdi_introduce]
-           |> with_any_vdi)
+           |> with_any_vdi
+         )
   ; [("test_vdi_snapshot", `Slow, test_vdi_snapshot)]
     |> conn
     |> sr SR.(all |> has_capabilities [Sr_capabilities.vdi_snapshot])
@@ -384,14 +414,16 @@ let tests () =
          SR.(
            all
            |> allowed_operations [`scan]
-           |> has_capabilities [Sr_capabilities.vdi_clone])
+           |> has_capabilities [Sr_capabilities.vdi_clone]
+         )
   ; [("vdi_snapshot_in_pool", `Slow, vdi_snapshot_in_pool)]
     |> conn
     |> sr SR.(all |> has_capabilities [Sr_capabilities.vdi_snapshot])
   ; [
       ( "vdi_create_destroy_plug_checksize"
       , `Slow
-      , vdi_create_destroy_plug_checksize )
+      , vdi_create_destroy_plug_checksize
+      )
     ]
     |> conn
     |> sr
@@ -399,7 +431,8 @@ let tests () =
            all
            |> has_capabilities
                 Sr_capabilities.[vdi_create; vdi_delete; vdi_attach]
-           |> can_unplug)
+           |> can_unplug
+         )
   ; [("vdi_general_test", `Slow, vdi_general_test)]
     |> conn
     |> sr SR.(all |> allowed_operations [`vdi_create; `vdi_destroy])

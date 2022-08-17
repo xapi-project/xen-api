@@ -99,16 +99,19 @@ let keys_of_features =
   ; (Integrated_GPU, ("restrict_integrated_gpu_passthrough", Negative, "iGPU"))
   ; (VSS, ("restrict_vss", Negative, "VSS"))
   ; ( Guest_agent_auto_update
-    , ("restrict_guest_agent_auto_update", Negative, "GAAU") )
+    , ("restrict_guest_agent_auto_update", Negative, "GAAU")
+    )
   ; ( PCI_device_for_auto_update
-    , ("restrict_pci_device_for_auto_update", Negative, "PciAU") )
+    , ("restrict_pci_device_for_auto_update", Negative, "PciAU")
+    )
   ; (Xen_motion, ("restrict_xen_motion", Negative, "XenMotion"))
   ; (Guest_ip_setting, ("restrict_guest_ip_setting", Negative, "GuestIP"))
   ; (AD, ("restrict_ad", Negative, "AD"))
   ; (Nested_virt, ("restrict_nested_virt", Negative, "Nested_virt"))
   ; (Live_patching, ("restrict_live_patching", Negative, "Live_patching"))
   ; ( Live_set_vcpus
-    , ("restrict_set_vcpus_number_live", Negative, "Live_set_vcpus") )
+    , ("restrict_set_vcpus_number_live", Negative, "Live_set_vcpus")
+    )
   ; (PVS_proxy, ("restrict_pvs_proxy", Negative, "PVS_proxy"))
   ; (IGMP_snooping, ("restrict_igmp_snooping", Negative, "IGMP_snooping"))
   ; (RPU, ("restrict_rpu", Negative, "RPU"))
@@ -119,7 +122,8 @@ let keys_of_features =
   ; (Corosync, ("restrict_corosync", Negative, "Corosync"))
   ; (Zstd_export, ("restrict_zstd_export", Negative, "Zstd_export"))
   ; ( Pool_secret_rotation
-    , ("restrict_pool_secret_rotation", Negative, "Pool_secret_rotation") )
+    , ("restrict_pool_secret_rotation", Negative, "Pool_secret_rotation")
+    )
   ]
 
 (* A list of features that must be considered "enabled" by `of_assoc_list`

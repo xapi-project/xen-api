@@ -70,7 +70,8 @@ let test_fix_prereq () =
   let pifref = Test_common.make_pif ~__context ~network ~host () in
   Alcotest.check_raises "Should fail when checking PIF prequisites"
     Api_errors.(
-      Server_error (pif_has_no_network_configuration, [Ref.string_of pifref]))
+      Server_error (pif_has_no_network_configuration, [Ref.string_of pifref])
+    )
     (fun () -> Xapi_cluster_host.fix_pif_prerequisites __context pifref) ;
   Db.PIF.set_IP ~__context ~self:pifref ~value:"1.1.1.1" ;
   Xapi_cluster_host.fix_pif_prerequisites ~__context pifref ;
@@ -156,12 +157,12 @@ let test_clusterd_rpc ~__context call =
           Cluster_interface.InternalError "Remaining hosts are not all alive"
         in
         (* in the test we must declare N-1 as dead before it succeeds *)
-        Rpc.failure
-          (Rpcmarshal.marshal Cluster_interface.error.Rpc.Types.ty err)
+        Rpc.failure (Rpcmarshal.marshal Cluster_interface.error.Rpc.Types.ty err)
   | name, params ->
       failwith
         (Printf.sprintf "Unexpected RPC: %s(%s)" name
-           (String.concat " " (List.map Rpc.to_string params)))
+           (String.concat " " (List.map Rpc.to_string params))
+        )
 
 let test_rpc ~__context call =
   match (call.Rpc.name, call.Rpc.params) with
@@ -174,7 +175,8 @@ let test_rpc ~__context call =
   | name, params ->
       failwith
         (Printf.sprintf "Unexpected RPC: %s(%s)" name
-           (String.concat " " (List.map Rpc.to_string params)))
+           (String.concat " " (List.map Rpc.to_string params))
+        )
 
 let make ~__context extra_hosts =
   Context.set_test_rpc __context (test_rpc ~__context) ;
@@ -195,7 +197,8 @@ let test_forget () =
       (list Alcotest_comparators.(ref ()))
       "surviving cluster host"
       [List.hd original_cluster_hosts]
-      cluster_hosts)
+      cluster_hosts
+  )
 
 let test_forget2 () =
   let __context = Test_common.make_test_database () in
@@ -213,7 +216,8 @@ let test_forget2 () =
       (list Alcotest_comparators.(ref ()))
       "surviving cluster host"
       [List.hd original_cluster_hosts]
-      cluster_hosts) ;
+      cluster_hosts
+  ) ;
   let pending = Db.Cluster.get_pending_forget ~__context ~self:cluster in
   Alcotest.(check (list string) "no pending forgets" [] pending)
 
@@ -225,7 +229,8 @@ let test =
   ; ("test_create_as_necessary", `Quick, test_create_as_necessary)
   ; ( "test_destroy_forbidden_when_sr_attached"
     , `Quick
-    , test_destroy_forbidden_when_sr_attached )
+    , test_destroy_forbidden_when_sr_attached
+    )
   ; ("test_forget", `Quick, test_forget)
   ; ("test_forget2", `Quick, test_forget2)
   ]

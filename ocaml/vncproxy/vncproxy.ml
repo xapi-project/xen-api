@@ -25,12 +25,14 @@ let _ =
       ("-vm", Arg.Set_string vm, "VM uuid or name-label")
     ; ( "-s"
       , Arg.Set_string server
-      , "server hostname or IP (default unix domain socket)" )
+      , "server hostname or IP (default unix domain socket)"
+      )
     ; ("-u", Arg.Set_string username, "username")
     ; ("-pw", Arg.Set_string password, "password")
     ; ( "-v"
       , Arg.Set_string ip
-      , Printf.sprintf "IP address to listen on (default %s)" !ip )
+      , Printf.sprintf "IP address to listen on (default %s)" !ip
+      )
     ]
     (fun x -> Printf.fprintf stderr "Ignoring: %s\n" x)
     "Proxy VNC traffic" ;
@@ -97,5 +99,8 @@ let _ =
       with_transport transport
         (with_http http (fun (response, fd) ->
              (* NB this will double-close [fd] *)
-             Xapi_stdext_unix.Unixext.proxy s fd)))
+             Xapi_stdext_unix.Unixext.proxy s fd
+         )
+        )
+    )
     (fun () -> Client.Session.logout rpc session_id)

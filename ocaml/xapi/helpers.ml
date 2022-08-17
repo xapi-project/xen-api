@@ -147,7 +147,9 @@ let determine_gateway_and_dns_ifs ~__context
       ~expr:
         (And
            ( Eq (Field "host", Literal (Ref.string_of localhost))
-           , Not (Eq (Field "ip_configuration_mode", Literal "None")) ))
+           , Not (Eq (Field "ip_configuration_mode", Literal "None"))
+           )
+        )
   in
   if ip_pifs = [] then
     (None, None)
@@ -157,7 +159,8 @@ let determine_gateway_and_dns_ifs ~__context
         List.filter
           (fun (_, r) ->
             List.mem_assoc "defaultroute" r.API.pIF_other_config
-            && List.assoc "defaultroute" r.API.pIF_other_config = "true")
+            && List.assoc "defaultroute" r.API.pIF_other_config = "true"
+          )
           ip_pifs
       in
       match oc with
@@ -191,7 +194,8 @@ let determine_gateway_and_dns_ifs ~__context
         List.filter
           (fun (_, r) ->
             List.mem_assoc "peerdns" r.API.pIF_other_config
-            && List.assoc "peerdns" r.API.pIF_other_config = "true")
+            && List.assoc "peerdns" r.API.pIF_other_config = "true"
+          )
           ip_pifs
       in
       match oc with
@@ -254,7 +258,8 @@ let update_pif_address ~__context ~self =
       let ipv6_addr' =
         List.map
           (fun (addr, plen) ->
-            Printf.sprintf "%s/%d" (Unix.string_of_inet_addr addr) plen)
+            Printf.sprintf "%s/%d" (Unix.string_of_inet_addr addr) plen
+          )
           ipv6_addr
       in
       if ipv6_addr' <> Db.PIF.get_IPv6 ~__context ~self then (
@@ -276,7 +281,8 @@ let update_getty () =
     ignore
       (call_script ~log_output:On_failure
          !Xapi_globs.kill_process_script
-         ["-q"; "-HUP"; "-r"; ".*getty"])
+         ["-q"; "-HUP"; "-r"; ".*getty"]
+      )
   with e -> warn "Unable to update getty at %s" __LOC__
 
 let set_gateway ~__context ~pif ~bridge =
@@ -318,8 +324,12 @@ let update_pif_addresses ~__context =
            , Or
                ( Or
                    ( Eq (Field "ip_configuration_mode", Literal "DHCP")
-                   , Eq (Field "ipv6_configuration_mode", Literal "DHCP") )
-               , Eq (Field "ipv6_configuration_mode", Literal "Autoconf") ) ))
+                   , Eq (Field "ipv6_configuration_mode", Literal "DHCP")
+                   )
+               , Eq (Field "ipv6_configuration_mode", Literal "Autoconf")
+               )
+           )
+        )
   in
   let gateway_if, dns_if = determine_gateway_and_dns_ifs ~__context () in
   Option.iter
@@ -343,7 +353,8 @@ let make_rpc ~__context rpc : Rpc.response =
       SSL
         ( SSL.make ~use_stunnel_cache:true ()
         , Pool_role.get_master_address ()
-        , !Constants.https_port )
+        , !Constants.https_port
+        )
   in
   XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"xapi" ~transport ~http rpc
 
@@ -373,13 +384,15 @@ let make_timeboxed_rpc ~__context timeout rpc : Rpc.response =
             ( SSL.make ~use_stunnel_cache:true ~task_id:(Ref.string_of task_id)
                 ()
             , Pool_role.get_master_address ()
-            , !Constants.https_port )
+            , !Constants.https_port
+            )
       in
       let result =
         XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"xapi" ~transport ~http rpc
       in
       Xapi_periodic_scheduler.remove_from_queue (Ref.string_of task_id) ;
-      result)
+      result
+  )
 
 let make_remote_rpc_of_url ~srcstr ~dststr (url, pool_secret) call =
   let open Xmlrpc_client in
@@ -456,7 +469,8 @@ let call_api_functions_internal ~__context f =
         try Client.Client.Session.logout rpc session_id
         with e ->
           debug "Helpers.call_api_functions failed to logout: %s (ignoring)"
-            (Printexc.to_string e))
+            (Printexc.to_string e)
+    )
 
 let call_api_functions ~__context f =
   match Context.get_test_rpc __context with
@@ -527,7 +541,8 @@ let get_domain_zero ~__context : API.ref_VM =
           with _ ->
             error "Failed to find domain zero (uuid = %s)" uuid ;
             raise (No_domain_zero uuid)
-        ))
+        )
+  )
 
 let update_domain_zero_name ~__context host hostname =
   let stem = "Control domain on host: " in
@@ -844,7 +859,9 @@ let assert_platform_version_is_same_on_master ~__context ~host ~self =
     raise
       (Api_errors.Server_error
          ( Api_errors.vm_host_incompatible_version
-         , [Ref.string_of host; Ref.string_of self] ))
+         , [Ref.string_of host; Ref.string_of self]
+         )
+      )
 
 (** PR-1007 - block operations during rolling upgrade *)
 
@@ -853,16 +870,14 @@ let assert_platform_version_is_same_on_master ~__context ~host ~self =
 let assert_rolling_upgrade_not_in_progress : __context:Context.t -> unit =
  fun ~__context ->
   if rolling_upgrade_in_progress ~__context then
-    raise
-      (Api_errors.Server_error (Api_errors.not_supported_during_upgrade, []))
+    raise (Api_errors.Server_error (Api_errors.not_supported_during_upgrade, []))
 
 let assert_host_has_highest_version_in_pool :
     __context:Context.t -> host:API.ref_host -> unit =
  fun ~__context ~host ->
   if not (host_has_highest_version_in_pool ~__context ~host:(LocalObject host))
   then
-    raise
-      (Api_errors.Server_error (Api_errors.not_supported_during_upgrade, []))
+    raise (Api_errors.Server_error (Api_errors.not_supported_during_upgrade, []))
 
 let pool_has_different_host_platform_versions ~__context =
   let all_hosts = Db.Host.get_all ~__context in
@@ -916,7 +931,8 @@ let choose_suspend_sr ~__context ~vm =
   match
     ( check_sr_exists_for_host ~__context ~self:vm_sr ~host:resident_on
     , check_sr_exists_for_host ~__context ~self:pool_sr ~host:resident_on
-    , check_sr_exists_for_host ~__context ~self:host_sr ~host:resident_on )
+    , check_sr_exists_for_host ~__context ~self:host_sr ~host:resident_on
+    )
   with
   | Some x, _, _ ->
       x
@@ -927,7 +943,8 @@ let choose_suspend_sr ~__context ~vm =
   | None, None, None ->
       raise
         (Api_errors.Server_error
-           (Api_errors.vm_no_suspend_sr, [Ref.string_of vm]))
+           (Api_errors.vm_no_suspend_sr, [Ref.string_of vm])
+        )
 
 (* return the operations filtered for cancels functions *)
 let cancel_tasks ~__context ~ops ~all_tasks_in_db
@@ -946,7 +963,8 @@ let cancel_tasks ~__context ~ops ~all_tasks_in_db
         then
           c := true
         else
-          su1 := s1 :: !su1)
+          su1 := s1 :: !su1
+      )
       set1 ;
     (!su1, !c)
   in
@@ -968,7 +986,8 @@ let assert_is_valid_tcp_udp_port ~port ~name =
     raise
       Api_errors.(
         Server_error
-          (value_not_supported, [name; string_of_int port; "Port out of range"]))
+          (value_not_supported, [name; string_of_int port; "Port out of range"])
+      )
 
 let assert_is_valid_tcp_udp_port_range ~first_port ~first_name ~last_port
     ~last_name =
@@ -983,7 +1002,9 @@ let assert_is_valid_tcp_udp_port_range ~first_port ~first_name ~last_port
               last_name
             ; string_of_int last_port
             ; Printf.sprintf "%s smaller than %s" last_name first_name
-            ] ))
+            ]
+          )
+      )
 
 (* IP address and CIDR checks *)
 
@@ -1032,7 +1053,8 @@ let is_valid_MAC mac =
   List.length l = 6
   && List.fold_left
        (fun acc s ->
-         acc && String.length s = 2 && validchar s.[0] && validchar s.[1])
+         acc && String.length s = 2 && validchar s.[0] && validchar s.[1]
+       )
        true l
 
 (** Returns true if the supplied IP address looks like one of mine *)
@@ -1051,7 +1073,8 @@ let get_live_hosts ~__context =
   List.filter
     (fun self ->
       let metrics = Db.Host.get_metrics ~__context ~self in
-      try Db.Host_metrics.get_live ~__context ~self:metrics with _ -> false)
+      try Db.Host_metrics.get_live ~__context ~self:metrics with _ -> false
+    )
     hosts
 
 let gethostbyname_family host family =
@@ -1180,7 +1203,8 @@ let vm_to_string __context vm =
     SExpr.Node
       (List.map
          (fun (key, value) -> SExpr.Node [SExpr.String key; SExpr.String value])
-         fields)
+         fields
+      )
   in
   SExpr.string_of sexpr
 
@@ -1191,7 +1215,8 @@ let vm_string_to_assoc vm_string =
     | _ ->
         raise
           (Api_errors.Server_error
-             (Api_errors.invalid_value, ["Invalid vm_string"]))
+             (Api_errors.invalid_value, ["Invalid vm_string"])
+          )
   in
   match SExpr_TS.of_string vm_string with
   | SExpr.Node l ->
@@ -1199,7 +1224,8 @@ let vm_string_to_assoc vm_string =
   | _ ->
       raise
         (Api_errors.Server_error
-           (Api_errors.invalid_value, ["Invalid vm_string"]))
+           (Api_errors.invalid_value, ["Invalid vm_string"])
+        )
 
 let get_srmaster ~__context ~sr =
   let shared = Db.SR.get_shared ~__context ~self:sr in
@@ -1217,7 +1243,8 @@ let get_srmaster ~__context ~sr =
           (Api_errors.Server_error
              ( Api_errors.sr_has_multiple_pbds
              , List.map (fun pbd -> Db.PBD.get_uuid ~__context ~self:pbd) pbds
-             ))
+             )
+          )
 
 let i_am_srmaster ~__context ~sr =
   get_srmaster ~__context ~sr = get_localhost ~__context
@@ -1238,7 +1265,9 @@ let get_local_plugged_srs ~__context =
       ~expr:
         (And
            ( Eq (Field "host", Literal localhost)
-           , Eq (Field "currently_attached", Literal "true") ))
+           , Eq (Field "currently_attached", Literal "true")
+           )
+        )
   in
   List.setify
     (List.map (fun self -> Db.PBD.get_SR ~__context ~self) my_pbds_plugged_in)
@@ -1249,7 +1278,9 @@ let find_health_check_task ~__context ~sr =
       (And
          ( Eq
              (Field "name__label", Literal Xapi_globs.sr_health_check_task_label)
-         , Eq (Field "name__description", Literal (Ref.string_of sr)) ))
+         , Eq (Field "name__description", Literal (Ref.string_of sr))
+         )
+      )
 
 let update_vswitch_controller ~__context ~host =
   try
@@ -1260,7 +1291,8 @@ let update_vswitch_controller ~__context ~host =
         in
         debug "openvswitch-config-update(on %s): %s"
           (Db.Host.get_name_label ~__context ~self:host)
-          result)
+          result
+    )
   with e ->
     debug "Got '%s' while trying to update the vswitch configuration on host %s"
       (Printexc.to_string e)
@@ -1273,7 +1305,8 @@ let assert_vswitch_controller_not_active ~__context =
   if sdn_controllers <> [] && backend = Network_interface.Openvswitch then
     raise
       (Api_errors.Server_error
-         (Api_errors.operation_not_allowed, ["A vswitch controller is active"]))
+         (Api_errors.operation_not_allowed, ["A vswitch controller is active"])
+      )
 
 (* use the database rather than networkd so we can unit test the PVS functions that use this *)
 let assert_using_vswitch ~__context =
@@ -1329,9 +1362,11 @@ let queue_thread f =
       if !__number_of_queueing_threads > max_number_of_queueing_threads then
         raise (Api_errors.Server_error (Api_errors.too_many_pending_tasks, []))
       else
-        incr __number_of_queueing_threads) ;
+        incr __number_of_queueing_threads
+  ) ;
   finally f (fun () ->
-      with_global_lock (fun () -> decr __number_of_queueing_threads))
+      with_global_lock (fun () -> decr __number_of_queueing_threads)
+  )
 
 module type POLICY = sig
   type t
@@ -1363,7 +1398,8 @@ module Early_wakeup = struct
     finally
       (fun () ->
         let (_ : bool) = Delay.wait d time in
-        ())
+        ()
+      )
       (fun () -> Mutex.execute table_m (fun () -> Hashtbl.remove table key))
 
   let broadcast (a, b) =
@@ -1372,15 +1408,18 @@ module Early_wakeup = struct
         Hashtbl.iter
           (fun (a, b) d ->
             (*debug "Signalling thread blocked on (%s, %s)" a b;*)
-            Delay.signal d)
-          table)
+            Delay.signal d
+          )
+          table
+    )
 
   let signal ((a, b) as key) =
     (*debug "Early_wakeup signal key = (%s, %s)" a b;*)
     Mutex.execute table_m (fun () ->
         if Hashtbl.mem table key then
           (*debug "Signalling thread blocked on (%s,%s)" a b;*)
-          Delay.signal (Hashtbl.find table key))
+          Delay.signal (Hashtbl.find table key)
+    )
 end
 
 module Repeat_with_uniform_backoff : POLICY = struct
@@ -1457,7 +1496,9 @@ let retry ~__context ~doc ?(policy = Policy.standard) f =
         raise
           (Api_errors.Server_error
              ( Api_errors.task_cancelled
-             , [Ref.string_of (Context.get_task_id __context)] ))
+             , [Ref.string_of (Context.get_task_id __context)]
+             )
+          )
       ) ;
       f ()
     with
@@ -1485,7 +1526,8 @@ let rec retry_until_timeout ?(interval = 0.1) ?(timeout = 5.) doc f =
       if next_timeout < 0. then
         raise
           Api_errors.(
-            Server_error (internal_error, [Printf.sprintf "retry %s failed" doc])) ;
+            Server_error (internal_error, [Printf.sprintf "retry %s failed" doc])
+          ) ;
       Thread.delay interval ;
       retry_until_timeout ~interval:next_interval ~timeout:next_timeout doc f
 
@@ -1500,7 +1542,9 @@ let get_first_pusb ~__context usb_group =
               Printf.sprintf
                 "there is no PUSB associated with the USB_group: %s"
                 (Ref.string_of usb_group)
-            ] ))
+            ]
+          )
+      )
 
 let get_first_vusb ~__context usb_group =
   try List.hd (Db.USB_group.get_VUSBs ~__context ~self:usb_group)
@@ -1513,7 +1557,9 @@ let get_first_vusb ~__context usb_group =
               Printf.sprintf
                 "there is no VUSB associated with the USB_group: %s"
                 (Ref.string_of usb_group)
-            ] ))
+            ]
+          )
+      )
 
 let host_supports_hvm ~__context host =
   (* We say that a host supports HVM if any of
@@ -1561,7 +1607,8 @@ end = struct
       let statuses =
         List.filter_map
           (fun task ->
-            try Some (Db.Task.get_status ~__context ~self:task) with _ -> None)
+            try Some (Db.Task.get_status ~__context ~self:task) with _ -> None
+          )
           tasks
       in
       let unfinished = List.exists (fun state -> state = `pending) statuses in
@@ -1569,7 +1616,8 @@ end = struct
         let from =
           call_api_functions ~__context (fun rpc session_id ->
               Client.Client.Event.from ~rpc ~session_id ~classes ~token
-                ~timeout:30.0)
+                ~timeout:30.0
+          )
         in
         debug "Using events to wait for tasks: %s" (String.concat "," classes) ;
         let from = Event_types.event_from_of_rpc from in
@@ -1625,7 +1673,8 @@ end = struct
       raise
         Api_errors.(
           Server_error
-            (internal_error, [Printf.sprintf "%s, %s" (Ref.string_of t) msg]))
+            (internal_error, [Printf.sprintf "%s, %s" (Ref.string_of t) msg])
+        )
     in
     let res =
       match Db.Task.get_status ~__context ~self:t with
@@ -1651,7 +1700,8 @@ end = struct
               (Printf.sprintf
                  "result wasn't placed in task's (ref = %s) result field. \
                   error: %s"
-                 (Ref.string_of t) (Printexc.to_string e))
+                 (Ref.string_of t) (Printexc.to_string e)
+              )
         )
       )
     in
@@ -1680,10 +1730,12 @@ let try_internal_async ~__context (marshaller : Rpc.t -> 'b)
         (fun () ->
           info "try_internal_async: waiting for task to complete: t = ( %s )"
             ref ;
-          Task.to_result ~__context ~of_rpc:marshaller ~t)
+          Task.to_result ~__context ~of_rpc:marshaller ~t
+        )
         (fun () ->
           info "try_internal_async: destroying task: t = ( %s )" ref ;
-          TaskHelper.destroy ~__context t)
+          TaskHelper.destroy ~__context t
+        )
 
 (** wrapper around the stunnel@xapi systemd service.
   * there exist scripts (e.g. xe-toolstack-restart) which also manipulate
@@ -1752,7 +1804,8 @@ end = struct
       Stdext.Unixext.atomic_write_to_file !Xapi_globs.stunnel_conf 0o0600
         (fun fd ->
           let (_ : int) = Unix.single_write_substring fd conf_contents 0 len in
-          ())
+          ()
+      )
 
     let update ~accept =
       Mutex.execute m (fun () ->
@@ -1761,7 +1814,8 @@ end = struct
               ()
           | None | Some _ ->
               current_accept := Some accept ;
-              rewrite_xapi_ssl_config_file ~accept)
+              rewrite_xapi_ssl_config_file ~accept
+      )
   end
 
   let systemctl cmd = call_script !Xapi_globs.systemctl [cmd; "stunnel@xapi"]
@@ -1826,7 +1880,8 @@ end = struct
       Astring.(
         String.for_all
           (fun c -> Char.Ascii.is_alphanum c || c = '-' || c = '/')
-          x)
+          x
+      )
     in
     let sufficiently_secret = String.length x > 36 in
     if has_valid_chars && sufficiently_secret |> not then
@@ -1836,7 +1891,9 @@ end = struct
             ( internal_error
             , [
                 {|expected pool secret to match the following regex '^[0-9a-f\/\-]{37,}$'|}
-              ] )) ;
+              ]
+            )
+        ) ;
     SecretString.of_string x
 
   let _make () =

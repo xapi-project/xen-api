@@ -56,26 +56,34 @@ let expiry_samples =
       , [
           ("host0", [("expiry", "20160615T00:00:00Z")])
         ; ("host1", [("expiry", "20160615T00:00:00Z")])
-        ] )
-    , Expiring ["host1"; "host0"] )
+        ]
+      )
+    , Expiring ["host1"; "host0"]
+    )
   ; ( ( [("expiry", "20160615T00:00:00Z")]
       , [
           ("host0", [("expiry", "20160615T00:00:00Z")])
         ; ("host1", [("expiry", "20160715T00:00:00Z")])
-        ] )
-    , Expiring ["host0"] )
+        ]
+      )
+    , Expiring ["host0"]
+    )
   ; ( ( [("expiry", "20160101T00:00:00Z")]
       , [
           ("host0", [("expiry", "20160601T00:00:00Z")])
         ; ("host1", [("expiry", "20150601T00:00:00Z")])
-        ] )
-    , Expired ["host1"; "host0"] )
+        ]
+      )
+    , Expired ["host1"; "host0"]
+    )
   ; ( ( [("expiry", "20160101T00:00:00Z")]
       , [
           ("host0", [("expiry", "20170601T00:00:00Z")])
         ; ("host1", [("expiry", "20150601T00:00:00Z")])
-        ] )
-    , Expired ["host1"] )
+        ]
+      )
+    , Expired ["host1"]
+    )
   ]
 
 let test =
@@ -83,5 +91,7 @@ let test =
     (fun i spec ->
       ( Printf.sprintf "Test licence checks as run daily #%d" i
       , `Quick
-      , test_expiry spec ))
+      , test_expiry spec
+      )
+    )
     expiry_samples

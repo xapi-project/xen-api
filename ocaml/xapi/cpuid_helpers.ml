@@ -28,8 +28,7 @@ exception InvalidFeatureString of string
 
 let features_of_string str =
   let scanf fmt s = Scanf.sscanf s fmt (fun x -> x) in
-  try
-    Stringext.split ~on:'-' str |> Array.of_list |> Array.map (scanf "%08Lx%!")
+  try Stringext.split ~on:'-' str |> Array.of_list |> Array.map (scanf "%08Lx%!")
   with _ -> raise (InvalidFeatureString str)
 
 (** If arr0 is shorter than arr1, extend arr0 with elements from arr1 up to the
@@ -129,7 +128,9 @@ let upgrade_features ~__context ~vm ~host host_features vm_features =
       raise
         (Api_errors.Server_error
            ( Api_errors.vm_incompatible_with_this_host
-           , [Ref.string_of vm; Ref.string_of host; msg] ))
+           , [Ref.string_of vm; Ref.string_of host; msg]
+           )
+        )
   ) ;
   let upgraded_features =
     zero_extend vm_features (Array.length host_features)
@@ -182,7 +183,9 @@ let assert_vm_is_compatible ~__context ~vm ~host ?remote () =
     raise
       (Api_errors.Server_error
          ( Api_errors.vm_incompatible_with_this_host
-         , [Ref.string_of vm; Ref.string_of host; msg] ))
+         , [Ref.string_of vm; Ref.string_of host; msg]
+         )
+      )
   in
   if Db.VM.get_power_state ~__context ~self:vm <> `Halted then
     try

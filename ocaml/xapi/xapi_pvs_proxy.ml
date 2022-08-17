@@ -28,7 +28,8 @@ let create ~__context ~site ~vIF =
   if List.length proxies > 0 then
     raise
       Api_errors.(
-        Server_error (pvs_proxy_already_present, List.map Ref.string_of proxies)) ;
+        Server_error (pvs_proxy_already_present, List.map Ref.string_of proxies)
+      ) ;
   Helpers.assert_is_valid_ref ~__context ~name:"site" ~ref:site ;
   Helpers.assert_is_valid_ref ~__context ~name:"VIF" ~ref:vIF ;
   let device = Db.VIF.get_device ~__context ~self:vIF in
@@ -54,7 +55,9 @@ let create ~__context ~site ~vIF =
         Helpers.call_api_functions ~__context (fun rpc session_id ->
             ignore
               (Client.Client.Message.create ~rpc ~session_id ~name ~priority
-                 ~cls:`PVS_proxy ~obj_uuid:uuid ~body)) ;
+                 ~cls:`PVS_proxy ~obj_uuid:uuid ~body
+              )
+        ) ;
         error "Unable to setup PVS proxy for vif %s: %s." (Ref.string_of vIF)
           (ExnHelper.string_of_exn e)
     ) ;

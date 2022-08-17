@@ -6,7 +6,8 @@ let _ =
       [
         ("-ml", Set generate_ml, "Generate ML")
       ; ("-c", Set generate_c, "Generate C")
-      ])
+      ]
+  )
     (fun _ -> failwith "unexpected anonymous argument")
     "stubgen [-ml|-c]" ;
   match (!generate_ml, !generate_c) with

@@ -31,7 +31,8 @@ let overrides =
        failwith \"Marshalling error\"), Rpc.String y) x)\n"
       ^ "let vm_operations_to_string_map_of_rpc x = match x with Rpc.Dict l -> \
          List.map (function (x,y) -> vm_operations_of_rpc (Rpc.String x), \
-         string_of_rpc y) l | _ -> failwith \"Unmarshalling error\"\n" )
+         string_of_rpc y) l | _ -> failwith \"Unmarshalling error\"\n"
+    )
   ; ( "bond_mode"
     , "let rpc_of_bond_mode x = match x with `balanceslb -> Rpc.String \
        \"balance-slb\" | `activebackup -> Rpc.String \"active-backup\" | `lacp \
@@ -39,31 +40,36 @@ let overrides =
       ^ "let bond_mode_of_rpc x = match x with Rpc.String \"balance-slb\" -> \
          `balanceslb | Rpc.String \"active-backup\" -> `activebackup | \
          Rpc.String \"lacp\" -> `lacp | _ -> failwith \"Unmarshalling error in \
-         bond-mode\"\n" )
+         bond-mode\"\n"
+    )
   ; ( "int64_to_float_map"
     , "let rpc_of_int64_to_float_map x = Rpc.Dict (List.map (fun (x,y) -> \
        Int64.to_string x, Rpc.Float y) x)\n"
       ^ "let int64_to_float_map_of_rpc x = match x with Rpc.Dict x -> List.map \
          (fun (x,y) -> Int64.of_string x, float_of_rpc y) x | _ -> failwith \
-         \"Unmarshalling error\"" )
+         \"Unmarshalling error\""
+    )
   ; ( "int64_to_int64_map"
     , "let rpc_of_int64_to_int64_map x = Rpc.Dict (List.map (fun (x,y) -> \
        Int64.to_string x, Rpc.Int y) x)\n"
       ^ "let int64_to_int64_map_of_rpc x = match x with Rpc.Dict x -> List.map \
          (fun (x,y) -> Int64.of_string x, int64_of_rpc y) x | _ -> failwith \
-         \"Unmarshalling error\"" )
+         \"Unmarshalling error\""
+    )
   ; ( "int64_to_string_set_map"
     , "let rpc_of_int64_to_string_set_map x = Rpc.Dict (List.map (fun (x,y) -> \
        Int64.to_string x, rpc_of_string_set y) x)\n"
       ^ "let int64_to_string_set_map_of_rpc x = match x with Rpc.Dict x -> \
          List.map (fun (x,y) -> Int64.of_string x, string_set_of_rpc y) x | _ \
-         -> failwith \"Unmarshalling error\"" )
+         -> failwith \"Unmarshalling error\""
+    )
   ; ( "event_operation"
     , "let rpc_of_event_operation x = match x with | `add -> Rpc.String \
        \"add\" | `del -> Rpc.String \"del\" | `_mod -> Rpc.String \"mod\"\n"
       ^ "let event_operation_of_rpc x = match x with | Rpc.String \"add\" -> \
          `add | Rpc.String \"del\" -> `del | Rpc.String \"mod\" -> `_mod | _ \
-         -> failwith \"Unmarshalling error\"" )
+         -> failwith \"Unmarshalling error\""
+    )
   ]
 
 (** Generate a single type declaration for simple types (eg not containing references to record objects) *)
@@ -246,7 +252,8 @@ let gen_client highapi =
             = x end"
          ; "module Client = ClientF(Id)"
          ]
-       ])
+       ]
+    )
 
 let add_set_enums types =
   List.concat
@@ -259,8 +266,10 @@ let add_set_enums types =
              else
                [DT.Set ty; ty]
          | _ ->
-             [ty])
-       types)
+             [ty]
+       )
+       types
+    )
 
 let all_types_of highapi = DU.Types.of_objects (Dm_api.objects_of_api highapi)
 
@@ -301,7 +310,8 @@ let toposort_types highapi types =
               let referencing = List.filter (references name) remaining in
               List.length referencing > 1
           | _ ->
-              false)
+              false
+        )
         remaining
     in
     match ty_ref with
@@ -373,7 +383,8 @@ let gen_client_types highapi =
        ; gen_record_type ~with_module:true highapi
            (toposort_types highapi all_types)
        ; O.Signature.strings_of (Gen_client.gen_signature highapi)
-       ])
+       ]
+    )
 
 let gen_server highapi =
   List.iter (List.iter print)
@@ -381,7 +392,8 @@ let gen_server highapi =
        [
          ["open API"; "open Server_helpers"]
        ; O.Module.strings_of (Gen_server.gen_module highapi)
-       ])
+       ]
+    )
 
 let gen_custom_actions highapi =
   List.iter (List.iter print)
@@ -390,9 +402,11 @@ let gen_custom_actions highapi =
          ["open API"]
        ; O.Signature.strings_of
            (Gen_empty_custom.gen_signature Gen_empty_custom.signature_name None
-              highapi)
+              highapi
+           )
        ; O.Module.strings_of (Gen_empty_custom.gen_release_module highapi)
-       ])
+       ]
+    )
 
 open Gen_db_actions
 

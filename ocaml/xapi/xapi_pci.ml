@@ -133,7 +133,8 @@ let update_pcis ~__context =
         if prec.Db_actions.pCI_host = host then
           Some (pref, prec)
         else
-          None)
+          None
+      )
       (Db.PCI.get_all ~__context)
   in
   let open Xapi_pci_helpers in
@@ -164,7 +165,8 @@ let update_pcis ~__context =
                   && rc.Db_actions.pCI_vendor_id = id_of_int pci.vendor.id
                   && rc.Db_actions.pCI_device_id = id_of_int pci.device.id
                   && rc.Db_actions.pCI_subsystem_vendor_id = subsystem_vendor_id
-                  && rc.Db_actions.pCI_subsystem_device_id = subsystem_device_id)
+                  && rc.Db_actions.pCI_subsystem_device_id = subsystem_device_id
+                )
                 existing
             in
             (* sync the vendor name. *)
@@ -232,7 +234,8 @@ let update_pcis ~__context =
       (fun pci ->
         List.exists
           (fun k -> is_class_of_kind k pci.pci_class.id)
-          managed_classes)
+          managed_classes
+      )
       host_pcis
   in
   let deps = List.flatten (List.map (fun pci -> pci.related) class_pcis) in
@@ -246,7 +249,8 @@ let update_pcis ~__context =
   let pfs, vfs =
     current
     |> List.map (fun ((pref, prec), pci) ->
-           (pref, prec, pci, get_phyfn_path prec))
+           (pref, prec, pci, get_phyfn_path prec)
+       )
     |> List.partition (fun (_, _, pci, phyfn_path) -> phyfn_path = None)
   in
   let update_dependencies pfs =
@@ -261,10 +265,12 @@ let update_pcis ~__context =
                      let r, _, _, _ =
                        List.find
                          (fun (_, rc, _, _) ->
-                           rc.Db_actions.pCI_pci_id = address)
+                           rc.Db_actions.pCI_pci_id = address
+                         )
                          pfs
                      in
-                     r)
+                     r
+                 )
             with Not_found ->
               let msg =
                 Printf.sprintf "failed to update PCI dependencies for %s (%s)"
@@ -290,14 +296,16 @@ let with_vga_arbiter ~readonly f =
 
 let disable_system_display_device () =
   with_vga_arbiter ~readonly:false (fun fd ->
-      Unixext.really_write_string fd "decodes none")
+      Unixext.really_write_string fd "decodes none"
+  )
 
 let get_system_display_device () =
   try
     let line =
       with_vga_arbiter ~readonly:true (fun fd ->
           let data = Unixext.try_read_string ~limit:1024 fd in
-          List.hd (String.split ~limit:2 '\n' data))
+          List.hd (String.split ~limit:2 '\n' data)
+      )
     in
     (* Example contents of line:
        		 * count:7,PCI:0000:10:00.0,decodes=io+mem,owns=io+mem,locks=none(0:0) *)
@@ -307,6 +315,7 @@ let get_system_display_device () =
         if String.startswith "PCI" item then
           Some (Scanf.sscanf item "PCI:%s" (fun id -> id))
         else
-          acc)
+          acc
+      )
       None items
   with _ -> None

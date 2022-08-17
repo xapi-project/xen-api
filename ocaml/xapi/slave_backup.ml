@@ -58,8 +58,10 @@ let tick_backup_write_table () =
                   ; writes_this_period= 0
                   }
           | _ ->
-              ())
-        backup_write_table)
+              ()
+        )
+        backup_write_table
+  )
 
 (* Can we write to specified connection *)
 let can_we_write dbconn =
@@ -71,7 +73,8 @@ let can_we_write dbconn =
           let write_entry = lookup_write_entry dbconn in
           (* we can write if we haven't used up all our write-cycles for this period: *)
           write_entry.writes_this_period
-          < dbconn.Parse_db_conf.write_limit_write_cycles)
+          < dbconn.Parse_db_conf.write_limit_write_cycles
+  )
 
 (* Update writes_this_period for dbconn *)
 let notify_write dbconn =
@@ -82,7 +85,8 @@ let notify_write dbconn =
         {
           write_entry with
           writes_this_period= write_entry.writes_this_period + 1
-        })
+        }
+  )
 
 (* Read connections and gen counts and find if any are behind. If they are behind then figure out if we're allowed to
    write to them. Return list of connections that satisfy both these properties *)

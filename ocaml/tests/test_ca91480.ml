@@ -1,6 +1,6 @@
 (* Fixture: Create DB with VM. VM has records for Blobs, Appliances,
    VBDs, VIFs, VGPUs, PCIs, VM_metrics, and VM_guest_metrics, but none
-   of these objects should actually exist in the DB.  *)
+   of these objects should actually exist in the DB. *)
 
 let setup_fixture () =
   let __context = Test_common.make_test_database () in

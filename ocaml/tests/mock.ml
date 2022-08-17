@@ -18,8 +18,7 @@ module Database = struct
   let conn = [Parse_db_conf.make "./xapi-db.xml"]
 
   let flush ?(conn = conn) __context =
-    Db_cache_impl.sync conn
-      (Db_ref.get_database (Context.database_of __context))
+    Db_cache_impl.sync conn (Db_ref.get_database (Context.database_of __context))
 
   let make_global ~conn ~reuse () =
     Db_backend.__test_set_master_database
@@ -31,7 +30,8 @@ module Database = struct
     Db_cache_impl.sync conn (Db_ref.get_database db) ;
     Db_ref.update_database db
       (Db_cache_types.Database.register_callback "events"
-         Eventgen.database_callback) ;
+         Eventgen.database_callback
+      ) ;
     db
 end
 

@@ -141,7 +141,8 @@ let gen_module api : O.Module.t =
                OU.alias_of_ty (DT.Ref Datamodel_common._task)
              )
            ~body:(x.msg_name :: "~rpc" :: all)
-           ())
+           ()
+        )
       ]
   in
   (* Convert an operation into a Let-binding *)

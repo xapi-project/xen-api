@@ -66,7 +66,8 @@ let create ~__context ~tagged_PIF ~tag ~network =
   if tag < 0L || tag > 4094L then
     raise
       (Api_errors.Server_error
-         (Api_errors.vlan_tag_invalid, [Int64.to_string tag])) ;
+         (Api_errors.vlan_tag_invalid, [Int64.to_string tag])
+      ) ;
   let device = pif_rec.API.pIF_device in
   let vlans =
     Db.VLAN.get_records_where ~__context
@@ -74,10 +75,14 @@ let create ~__context ~tagged_PIF ~tag ~network =
         (Db_filter_types.And
            ( Db_filter_types.Eq
                ( Db_filter_types.Field "tagged_PIF"
-               , Db_filter_types.Literal (Ref.string_of tagged_PIF) )
+               , Db_filter_types.Literal (Ref.string_of tagged_PIF)
+               )
            , Db_filter_types.Eq
                ( Db_filter_types.Field "tag"
-               , Db_filter_types.Literal (Int64.to_string tag) ) ))
+               , Db_filter_types.Literal (Int64.to_string tag)
+               )
+           )
+        )
   in
   if vlans <> [] then
     raise (Api_errors.Server_error (Api_errors.pif_vlan_exists, [device])) ;
@@ -90,7 +95,8 @@ let create ~__context ~tagged_PIF ~tag ~network =
   then
     raise
       (Api_errors.Server_error
-         (Api_errors.vlan_in_use, [device; Int64.to_string tag])) ;
+         (Api_errors.vlan_in_use, [device; Int64.to_string tag])
+      ) ;
   let vlan, untagged_PIF =
     create_internal ~__context ~host ~tagged_PIF ~tag ~network ~device
   in

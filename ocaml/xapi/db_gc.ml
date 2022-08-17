@@ -67,7 +67,8 @@ let detect_clock_skew ~__context host skew =
             servers in pool '%s'. This could lead to errors when performing VM \
             lifecycle operations, and will also affect the times recorded \
             against archived performance data gathered from this server."
-           host_name_label pool_name_label)
+           host_name_label pool_name_label
+        )
   ) ;
   (* If we are under half the max skew then re-arm the message sender *)
   if skew < Xapi_globs.max_clock_skew /. 2. then
@@ -92,7 +93,8 @@ let check_host_liveness ~__context =
         let new_heartbeat_time =
           try
             Mutex.execute host_table_m (fun () ->
-                Hashtbl.find host_heartbeat_table host)
+                Hashtbl.find host_heartbeat_table host
+            )
           with _ -> 0.0
           (* never *)
         in
@@ -100,8 +102,7 @@ let check_host_liveness ~__context =
           if
             rum
             && Xapi_version.platform_version ()
-               <> Helpers.version_string_of ~__context
-                    (Helpers.LocalObject host)
+               <> Helpers.version_string_of ~__context (Helpers.LocalObject host)
           then (
             debug
               "Host %s considering using metrics last update time as heartbeat"
@@ -128,7 +129,8 @@ let check_host_liveness ~__context =
                 Db.Host_metrics.set_live ~__context ~self:hmetric ~value:true ;
                 Xapi_host_helpers.update_allowed_operations ~__context
                   ~self:host
-              ))
+              )
+          )
         else if live then (
           debug
             "Assuming host is offline since the heartbeat/metrics haven't been \
@@ -141,7 +143,8 @@ let check_host_liveness ~__context =
         detect_clock_skew ~__context host
           ( try
               Mutex.execute host_table_m (fun () ->
-                  Hashtbl.find host_skew_table host)
+                  Hashtbl.find host_skew_table host
+              )
             with _ -> 0.
           )
       with exn ->
@@ -180,7 +183,8 @@ let detect_rolling_upgrade ~__context =
           let platform_versions =
             List.map
               (fun host ->
-                Helpers.version_string_of ~__context (Helpers.LocalObject host))
+                Helpers.version_string_of ~__context (Helpers.LocalObject host)
+              )
               (Db.Host.get_all ~__context)
           in
           debug "xapi platform version = %s; host platform versions = [ %s ]"
@@ -198,7 +202,8 @@ let detect_rolling_upgrade ~__context =
               ~key:Xapi_globs.rolling_upgrade_in_progress ;
             List.iter
               (fun vm ->
-                Xapi_vm_lifecycle.update_allowed_operations ~__context ~self:vm)
+                Xapi_vm_lifecycle.update_allowed_operations ~__context ~self:vm
+              )
               (Db.VM.get_all ~__context)
           ) ;
           (* Call out to an external script to allow external actions to be performed *)
@@ -216,13 +221,15 @@ let detect_rolling_upgrade ~__context =
               rolling_upgrade_script_hook (String.concat " " args) ;
             ignore
               (Forkhelpers.execute_command_get_output
-                 rolling_upgrade_script_hook args)
+                 rolling_upgrade_script_hook args
+              )
           ) ;
           if not actually_in_progress then (
             debug "Resync to remove the old patches or updates." ;
             Helpers.call_api_functions ~__context (fun rpc session_id ->
                 Xapi_pool_update.resync_host __context
-                  (Helpers.get_localhost ~__context))
+                  (Helpers.get_localhost ~__context)
+            )
           ) ;
           (* Call in to internal xapi upgrade code *)
           if actually_in_progress then
@@ -240,7 +247,8 @@ let tickle_heartbeat ~__context host stuff =
   (* debug "Tickling heartbeat for host: %s stuff = [ %s ]" (Ref.string_of host) (String.concat ";" (List.map (fun (a, b) -> a ^ "=" ^ b) stuff)); *)
   let use_host_heartbeat_for_liveness =
     Mutex.execute use_host_heartbeat_for_liveness_m (fun () ->
-        !use_host_heartbeat_for_liveness)
+        !use_host_heartbeat_for_liveness
+    )
   in
   Mutex.execute host_table_m (fun () ->
       (* When a host is going down it will send a negative heartbeat *)
@@ -258,7 +266,8 @@ let tickle_heartbeat ~__context host stuff =
             let slave = float_of_string (List.assoc _time stuff) in
             let skew = abs_float (now -. slave) in
             Hashtbl.replace host_skew_table host skew
-          with _ -> ()) ;
+          with _ -> ()
+  ) ;
   []
 
 let single_pass () =
@@ -266,15 +275,19 @@ let single_pass () =
       Db_lock.with_lock (fun () ->
           let time_one (name, f) =
             Stats.time_this (Printf.sprintf "Db_gc: %s" name) (fun () ->
-                f ~__context)
+                f ~__context
+            )
           in
-          List.iter time_one Db_gc_util.gc_subtask_list) ;
+          List.iter time_one Db_gc_util.gc_subtask_list
+      ) ;
       Mutex.execute use_host_heartbeat_for_liveness_m (fun () ->
           if !use_host_heartbeat_for_liveness then
-            check_host_liveness ~__context) ;
+            check_host_liveness ~__context
+      ) ;
       (* Note that we don't hold the DB lock, because we *)
       (* want to use the CLI from external script hooks: *)
-      detect_rolling_upgrade ~__context)
+      detect_rolling_upgrade ~__context
+  )
 
 let start_db_gc_thread () =
   Thread.create
@@ -285,8 +298,10 @@ let start_db_gc_thread () =
             try Thread.delay db_GC_TIMER ; single_pass ()
             with e ->
               debug "Exception in DB GC thread: %s" (ExnHelper.string_of_exn e)
-          done)
-        ())
+          done
+        )
+        ()
+    )
     ()
 
 let send_one_heartbeat ~__context ?(shutting_down = false) rpc session_id =
@@ -336,7 +351,8 @@ let start_heartbeat_thread () =
                           debug "Caught exception in heartbeat thread: %s"
                             (ExnHelper.string_of_exn e) ;
                           Thread.delay !Xapi_globs.host_heartbeat_interval
-                    done)
+                    done
+                )
               with
               | Api_errors.Server_error (code, params)
                 when code = Api_errors.session_authentication_failed ->
@@ -348,5 +364,7 @@ let start_heartbeat_thread () =
                   debug "Caught %s - logging in again"
                     (ExnHelper.string_of_exn e) ;
                   Thread.delay !Xapi_globs.host_heartbeat_interval
-            done))
+            done
+      )
+    )
     ()

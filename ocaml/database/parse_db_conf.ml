@@ -83,7 +83,8 @@ let from_block r =
     ; String.concat ""
         (List.map
            (fun (k, v) -> Printf.sprintf "%s:%s\n" k v)
-           r.other_parameters)
+           r.other_parameters
+        )
     ]
 
 let write_db_conf connections =
@@ -125,7 +126,8 @@ let parse_db_conf s =
           ( match String.split ':' line with
           | k :: vs ->
               ( String.lowercase_ascii k
-              , String.lowercase_ascii (String.concat ":" vs) )
+              , String.lowercase_ascii (String.concat ":" vs)
+              )
           | _ ->
               failwith (Printf.sprintf "Failed to parse: %s" line)
           )

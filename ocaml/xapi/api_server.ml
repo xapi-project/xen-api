@@ -151,7 +151,8 @@ let forward req call is_json =
     SSL
       ( SSL.make ~use_stunnel_cache:true ()
       , Pool_role.get_master_address ()
-      , !Constants.https_port )
+      , !Constants.https_port
+      )
   in
   let rpc = if is_json then JSONRPC_protocol.rpc else XMLRPC_protocol.rpc in
   rpc ~srcstr:"xapi" ~dststr:"xapi" ~transport
@@ -184,8 +185,8 @@ let is_himn_req req =
       false
 
 (* The API does not use the error.code and only retains it for compliance with
-  the JSON-RPC v2.0 specs. We set this always to a non-zero value because
-  some JsonRpc clients consider error.code 0 as no error*)
+   the JSON-RPC v2.0 specs. We set this always to a non-zero value because
+   some JsonRpc clients consider error.code 0 as no error*)
 let error_code_lit = 1L
 
 let json_of_error_object ?(data = None) code message =
@@ -278,7 +279,9 @@ let callback is_json req bio _ =
         fd
         (Xmlrpc.string_of_response
            (Rpc.failure
-              (Rpc.Enum (List.map (fun s -> Rpc.String s) (err :: params)))))
+              (Rpc.Enum (List.map (fun s -> Rpc.String s) (err :: params)))
+           )
+        )
   | e ->
       Backtrace.is_important e ; raise e
 
@@ -313,7 +316,9 @@ let jsoncallback req bio _ =
       fd
       (Jsonrpc.string_of_response
          (Rpc.failure
-            (Rpc.Enum (List.map (fun s -> Rpc.String s) (err :: params)))))
+            (Rpc.Enum (List.map (fun s -> Rpc.String s) (err :: params)))
+         )
+      )
 
 let options_callback req bio _ =
   let fd = Buf_io.fd_of bio in

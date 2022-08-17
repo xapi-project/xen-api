@@ -82,7 +82,8 @@ let rec update_table ~__context ~include_snapshots ~preserve_power_state
           add vif ;
           let vif = Db.VIF.get_record ~__context ~self:vif in
           add vif.API.vIF_network
-        ))
+        )
+      )
       vm.API.vM_VIFs ;
     List.iter
       (fun vbd ->
@@ -91,7 +92,8 @@ let rec update_table ~__context ~include_snapshots ~preserve_power_state
           let vbd = Db.VBD.get_record ~__context ~self:vbd in
           if not vbd.API.vBD_empty then
             add_vdi vbd.API.vBD_VDI
-        ))
+        )
+      )
       vm.API.vM_VBDs ;
     List.iter
       (fun vgpu ->
@@ -100,7 +102,8 @@ let rec update_table ~__context ~include_snapshots ~preserve_power_state
           let vgpu = Db.VGPU.get_record ~__context ~self:vgpu in
           add vgpu.API.vGPU_type ;
           add vgpu.API.vGPU_GPU_group
-        ))
+        )
+      )
       vm.API.vM_VGPUs ;
     (* add all PVS proxies that have a VIF belonging to this VM, add their
        		 * PVS sites as well
@@ -111,13 +114,15 @@ let rec update_table ~__context ~include_snapshots ~preserve_power_state
            if Db.is_valid_ref __context ref then (
              add ref ;
              add proxy.API.pVS_proxy_site
-           )) ;
+           )
+       ) ;
     (* If we need to include snapshots, update the table for VMs in the 'snapshots' field *)
     if include_snapshots then
       List.iter
         (fun snap ->
           update_table ~__context ~include_snapshots:false ~preserve_power_state
-            ~include_vhd_parents ~table snap)
+            ~include_vhd_parents ~table snap
+        )
         vm.API.vM_snapshots ;
     (* If VM is suspended then add the suspend_VDI *)
     let vdi = vm.API.vM_suspend_VDI in
@@ -190,7 +195,8 @@ let make_host table __context self =
         List.filter (( <> ) Ref.null)
           (List.map
              (fun vm -> lookup table (Ref.string_of vm))
-             host.API.host_resident_VMs)
+             host.API.host_resident_VMs
+          )
     }
   in
   {
@@ -546,7 +552,8 @@ let vm_metadata ~with_snapshot_metadata ~preserve_power_state
   let table = create_table () in
   List.iter
     (update_table ~__context ~include_snapshots:with_snapshot_metadata
-       ~preserve_power_state ~include_vhd_parents ~table)
+       ~preserve_power_state ~include_vhd_parents ~table
+    )
     vms ;
   let objects =
     make_all ~with_snapshot_metadata ~preserve_power_state table __context
@@ -626,7 +633,8 @@ let export refresh_session __context rpc session_id s vm_ref
     List.filter
       (fun self ->
         Db.SR.get_content_type ~__context ~self:(Db.VDI.get_SR ~__context ~self)
-        <> "iso")
+        <> "iso"
+      )
       vdis
   in
   let vdis =
@@ -637,7 +645,9 @@ let export refresh_session __context rpc session_id s vm_ref
       (fun vdi ->
         ( Hashtbl.find table (Ref.string_of vdi)
         , vdi
-        , Db.VDI.get_virtual_size ~__context ~self:vdi ))
+        , Db.VDI.get_virtual_size ~__context ~self:vdi
+        )
+      )
       vdis
   in
   Stream_vdi.send_all refresh_session s __context rpc session_id vdis ;
@@ -669,7 +679,8 @@ let vm_from_request ~__context (req : Request.t) =
   else
     let uuid = List.assoc "uuid" req.Request.query in
     Helpers.call_api_functions ~__context (fun rpc session_id ->
-        Client.VM.get_by_uuid rpc session_id uuid)
+        Client.VM.get_by_uuid rpc session_id uuid
+    )
 
 let bool_from_request ~__context (req : Request.t) default k =
   if List.mem_assoc k req.Request.query then
@@ -718,7 +729,8 @@ let metadata_handler (req : Request.t) s _ =
             List.filter
               (fun (vm, vmr) ->
                 (not (is_default_template vmr))
-                && ((not (Helpers.is_domain_zero ~__context vm)) || include_dom0))
+                && ((not (Helpers.is_domain_zero ~__context vm)) || include_dom0)
+              )
               all_vms
           in
           List.map fst interesting_vms
@@ -732,7 +744,9 @@ let metadata_handler (req : Request.t) s _ =
         raise
           (Api_errors.Server_error
              ( Api_errors.operation_not_allowed
-             , ["Exporting metadata of a snapshot is not allowed"] )) ;
+             , ["Exporting metadata of a snapshot is not allowed"]
+             )
+          ) ;
       let task_id = Ref.string_of (Context.get_task_id __context) in
       let read_fd, write_fd = Unix.pipe () in
       let export_error = ref None in
@@ -747,20 +761,25 @@ let metadata_handler (req : Request.t) s _ =
                      List.iter
                        (fun vm ->
                          lock_vm ~__context ~vm ~task_id `metadata_export ;
-                         locked_vms := vm :: !locked_vms)
+                         locked_vms := vm :: !locked_vms
+                       )
                        vm_refs ;
                      export_metadata ~with_snapshot_metadata:export_snapshots
                        ~preserve_power_state:true ~include_vhd_parents
-                       ~__context ~vms:vm_refs write_fd)
+                       ~__context ~vms:vm_refs write_fd
+                   )
                    (fun () ->
                      Unix.close write_fd ;
                      List.iter
                        (fun vm -> unlock_vm ~__context ~vm ~task_id)
-                       !locked_vms)
+                       !locked_vms
+                   )
                with e ->
                  Backtrace.is_important e ;
                  export_error := Some e ;
-                 raise e))
+                 raise e
+           )
+          )
           ()
       in
       let tar_data = Unixext.string_of_fd read_fd in
@@ -786,7 +805,8 @@ let metadata_handler (req : Request.t) s _ =
           Unixext.really_write_string s response_string ;
           error "Caught %s while exporting metadata - responding with HTTP 500"
             (Printexc.to_string e) ;
-          raise e)
+          raise e
+  )
 
 let handler (req : Request.t) s _ =
   debug "export handler" ;
@@ -831,7 +851,8 @@ let handler (req : Request.t) s _ =
           let url =
             Printf.sprintf "https://%s%s?%s" address req.Request.uri
               (String.concat "&"
-                 (List.map (fun (a, b) -> a ^ "=" ^ b) req.Request.query))
+                 (List.map (fun (a, b) -> a ^ "=" ^ b) req.Request.query)
+              )
           in
           info "export VM = %s redirecting to: %s" (Ref.string_of vm_ref) url ;
           let headers = Http.http_302_redirect url in
@@ -853,14 +874,15 @@ let handler (req : Request.t) s _ =
             | None ->
                 Server_helpers.exec_with_new_task "export"
                   ~task_in_database:true (fun __context ->
-                    TaskHelper.failed ~__context e)
+                    TaskHelper.failed ~__context e
+                )
             | Some task_id ->
                 Server_helpers.exec_with_forwarded_task task_id
-                  (fun __context -> TaskHelper.failed ~__context e)
+                  (fun __context -> TaskHelper.failed ~__context e
+                )
           )
         | e ->
-            error "Caught exception in export handler: %s"
-              (Printexc.to_string e) ;
+            error "Caught exception in export handler: %s" (Printexc.to_string e) ;
             raise e
       ) else (
         (* Xapi_http.with_context always completes the task at the end *)
@@ -900,6 +922,10 @@ let handler (req : Request.t) s _ =
                     | Some Zstd ->
                         Zstd.compress s go
                     | None ->
-                        go s)
-                (* Exceptions are handled by Xapi_http.with_context *)))
-      ))
+                        go s
+                )
+                (* Exceptions are handled by Xapi_http.with_context *)
+            )
+        )
+      )
+  )

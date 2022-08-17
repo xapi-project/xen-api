@@ -49,13 +49,15 @@ let test_idempotent_map () =
     (Db_exn.Duplicate_key ("VM", "other_config", Ref.string_of vm_ref, "test"))
     (fun () ->
       Db.VM.add_to_other_config ~__context ~self:vm_ref ~key:"test"
-        ~value:"value") ;
+        ~value:"value"
+    ) ;
   Alcotest.check_raises
     "add existing key with different value to non-idempotent map"
     (Db_exn.Duplicate_key ("VM", "other_config", Ref.string_of vm_ref, "test"))
     (fun () ->
       Db.VM.add_to_other_config ~__context ~self:vm_ref ~key:"test"
-        ~value:"value2") ;
+        ~value:"value2"
+    ) ;
   Db_globs.idempotent_map := true ;
   let __context = make_test_database () in
   let (vm_ref : API.ref_VM) = make_vm ~__context () in
@@ -63,13 +65,15 @@ let test_idempotent_map () =
   Alcotest.(check unit)
     "add existing (key, value) pair to idempotent map" ()
     (Db.VM.add_to_other_config ~__context ~self:vm_ref ~key:"test"
-       ~value:"value") ;
+       ~value:"value"
+    ) ;
   Alcotest.check_raises
     "add existing key with different value to idempotent map"
     (Db_exn.Duplicate_key ("VM", "other_config", Ref.string_of vm_ref, "test"))
     (fun () ->
       Db.VM.add_to_other_config ~__context ~self:vm_ref ~key:"test"
-        ~value:"value2") ;
+        ~value:"value2"
+    ) ;
   Db_globs.idempotent_map := false
 
 let test_slave_uses_nonlegacy_addmap () =
@@ -91,23 +95,27 @@ let test_slave_uses_nonlegacy_addmap () =
   Alcotest.check Alcotest_comparators.db_rpc_request
     "same request after rpc_of -> of_rpc roundtrip" operationv2'
     (Db_rpc_common_v2.Request.Process_structured_field
-       (("", ""), "", "", "", Db_cache_types.AddMap))
+       (("", ""), "", "", "", Db_cache_types.AddMap)
+    )
 
 let test_empty_key_in_map () =
   let __context = make_test_database () in
   let (vm_ref : API.ref_VM) = make_vm ~__context () in
   Alcotest.check_raises "add_to_other_config: empty key" Db_exn.Empty_key_in_map
     (fun () ->
-      Db.VM.add_to_other_config ~__context ~self:vm_ref ~key:"" ~value:"value") ;
+      Db.VM.add_to_other_config ~__context ~self:vm_ref ~key:"" ~value:"value"
+  ) ;
   Alcotest.check_raises "set_other_config: empty key" Db_exn.Empty_key_in_map
     (fun () ->
-      Db.VM.set_other_config ~__context ~self:vm_ref ~value:[("", "value")])
+      Db.VM.set_other_config ~__context ~self:vm_ref ~value:[("", "value")]
+  )
 
 let test_utf8 () =
   let __context = make_test_database () in
   let (vm_ref : API.ref_VM) = make_vm ~__context () in
   Alcotest.check_raises "non-utf8 Db.set raises exception" Db_exn.Invalid_value
-    (fun () -> Db.VM.set_name_label ~__context ~self:vm_ref ~value:"abc\xffdef")
+    (fun () -> Db.VM.set_name_label ~__context ~self:vm_ref ~value:"abc\xffdef"
+  )
 
 let test =
   [
@@ -115,7 +123,8 @@ let test =
   ; ("test_db_idempotent_map", `Quick, test_idempotent_map)
   ; ( "test_slaves_use_nonlegacy_addmap"
     , `Quick
-    , test_slave_uses_nonlegacy_addmap )
+    , test_slave_uses_nonlegacy_addmap
+    )
   ; ("test_empty_key_in_map", `Quick, test_empty_key_in_map)
   ; ("test_utf8", `Quick, test_utf8)
   ]

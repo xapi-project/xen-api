@@ -48,14 +48,18 @@ let register sr rpc d info =
         {processor= debug_printer rpc; backend_domain= d; query_result= info} ;
       debug "register SR %s (currently-registered = [ %s ])" (s_of_sr sr)
         (String.concat ", "
-           (Hashtbl.fold (fun sr _ acc -> s_of_sr sr :: acc) plugins [])))
+           (Hashtbl.fold (fun sr _ acc -> s_of_sr sr :: acc) plugins [])
+        )
+  )
 
 let unregister sr =
   Mutex.execute m (fun () ->
       Hashtbl.remove plugins sr ;
       debug "unregister SR %s (currently-registered = [ %s ])" (s_of_sr sr)
         (String.concat ", "
-           (Hashtbl.fold (fun sr _ acc -> s_of_sr sr :: acc) plugins [])))
+           (Hashtbl.fold (fun sr _ acc -> s_of_sr sr :: acc) plugins [])
+        )
+  )
 
 let query_result_of_sr sr =
   try Mutex.execute m (fun () -> Some (Hashtbl.find plugins sr).query_result)
@@ -68,17 +72,20 @@ let of_sr sr =
         error "No storage plugin for SR: %s (currently-registered = [ %s ])"
           (s_of_sr sr)
           (String.concat ", "
-             (Hashtbl.fold (fun sr _ acc -> s_of_sr sr :: acc) plugins [])) ;
+             (Hashtbl.fold (fun sr _ acc -> s_of_sr sr :: acc) plugins [])
+          ) ;
         raise (Storage_error (No_storage_plugin_for_sr (s_of_sr sr)))
       ) else
-        (Hashtbl.find plugins sr).processor)
+        (Hashtbl.find plugins sr).processor
+  )
 
 type 'a sm_result = SMSuccess of 'a | SMFailure of exn
 
 let multicast f =
   Hashtbl.fold
     (fun sr plugin acc ->
-      (sr, try SMSuccess (f sr plugin.processor) with e -> SMFailure e) :: acc)
+      (sr, try SMSuccess (f sr plugin.processor) with e -> SMFailure e) :: acc
+    )
     plugins []
 
 let success = function SMSuccess _ -> true | _ -> false
@@ -111,7 +118,8 @@ module Mux = struct
           (fun acc (sr, result) ->
             Printf.sprintf "For SR: %s" (s_of_sr sr)
             :: string_of_sm_result (fun s -> s) result
-            :: acc)
+            :: acc
+          )
           [] results
       in
       SMSuccess (String.concat "\n" all)
@@ -139,7 +147,8 @@ module Mux = struct
           let module C = StorageAPI (Idl.Exn.GenClient (struct
             let rpc = of_sr sr
           end)) in
-          C.Query.diagnostics dbg)
+          C.Query.diagnostics dbg
+      )
   end
 
   module DP = struct
@@ -203,13 +212,16 @@ module Mux = struct
     let list () ~dbg =
       List.fold_left
         (fun acc (sr, list) ->
-          match list with SMSuccess l -> l @ acc | x -> acc)
+          match list with SMSuccess l -> l @ acc | x -> acc
+        )
         []
         (multicast (fun sr rpc ->
              let module C = StorageAPI (Idl.Exn.GenClient (struct
                let rpc = of_sr sr
              end)) in
-             C.SR.list dbg))
+             C.SR.list dbg
+         )
+        )
 
     let reset () ~dbg ~sr = assert false
 
@@ -255,7 +267,8 @@ module Mux = struct
               "SM reports the VDI is activated elsewhere on %s, redirecting to \
                IP %s"
               uuid addr ;
-            raise (Storage_error (Redirect (Some addr))))
+            raise (Storage_error (Redirect (Some addr)))
+        )
 
     let clone () ~dbg ~sr ~vdi_info =
       let module C = StorageAPI (Idl.Exn.GenClient (struct
@@ -432,7 +445,9 @@ module Mux = struct
                let module C = StorageAPI (Idl.Exn.GenClient (struct
                  let rpc = of_sr sr
                end)) in
-               (sr, C.VDI.get_by_name dbg sr name)))
+               (sr, C.VDI.get_by_name dbg sr name)
+           )
+          )
       with
       | SMSuccess (sr, vdi) ->
           (sr, vdi)

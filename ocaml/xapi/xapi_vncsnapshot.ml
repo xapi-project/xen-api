@@ -47,8 +47,10 @@ let vncsnapshot_handler (req : Request.t) s _ =
                 ]
             in
             waitpid_fail_if_bad_exit pid ;
-            Http_svr.response_file s tmp)
+            Http_svr.response_file s tmp
+          )
           (fun () -> try Unix.unlink tmp with _ -> ())
       with e ->
         req.Request.close <- true ;
-        raise e)
+        raise e
+  )

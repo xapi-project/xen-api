@@ -32,7 +32,9 @@ let get_device_pci ~__context ~host ~device =
     Db_filter_types.(
       And
         ( Eq (Field "pci_id", Literal pci_bus_path)
-        , Eq (Field "host", Literal (Ref.string_of host)) ))
+        , Eq (Field "host", Literal (Ref.string_of host))
+        )
+    )
   in
   match Db.PCI.get_refs_where ~__context ~expr with
   | pci :: _ ->
@@ -66,7 +68,8 @@ let refresh_internal ~__context ~self =
           debug "PIF %s %s <- %s" (Ref.string_of self) field_name
             (print_value value) ;
           set_field ~__context ~self ~value
-        ))
+        )
+      )
       (try Some (get_value ()) with _ -> None)
   in
   if pif.API.pIF_physical then
@@ -76,7 +79,8 @@ let refresh_internal ~__context ~self =
   maybe_update_database "PCI" pif.API.pIF_PCI Db.PIF.set_PCI
     (fun () ->
       get_device_pci ~__context ~host:pif.API.pIF_host
-        ~device:pif.API.pIF_device)
+        ~device:pif.API.pIF_device
+    )
     Ref.string_of ;
   maybe_update_database "MTU" pif.API.pIF_MTU Db.PIF.set_MTU
     (Int64.of_int ++ fun () -> Net.Interface.get_mtu dbg bridge)
@@ -97,7 +101,9 @@ let refresh ~__context ~host ~self =
           , [
               Printf.sprintf "refresh: Host mismatch, expected %s but got %s"
                 (Ref.string_of host) (Ref.string_of localhost)
-            ] )) ;
+            ]
+          )
+      ) ;
   refresh_internal ~__context ~self
 
 let refresh_all ~__context ~host =
@@ -111,7 +117,9 @@ let refresh_all ~__context ~host =
               Printf.sprintf
                 "refresh_all: Host mismatch, expected %s but got %s"
                 (Ref.string_of host) (Ref.string_of localhost)
-            ] )) ;
+            ]
+          )
+      ) ;
   (* Only refresh physical or attached PIFs *)
   let pifs =
     Db.PIF.get_refs_where ~__context
@@ -120,7 +128,10 @@ let refresh_all ~__context ~host =
            ( Eq (Field "host", Literal (Ref.string_of host))
            , Or
                ( Eq (Field "physical", Literal "true")
-               , Eq (Field "currently_attached", Literal "true") ) ))
+               , Eq (Field "currently_attached", Literal "true")
+               )
+           )
+        )
   in
   List.iter (fun self -> refresh_internal ~__context ~self) pifs
 
@@ -131,8 +142,7 @@ let bridge_naming_convention (device : string) =
     "br" ^ device
 
 let read_bridges_from_inventory () =
-  try
-    String.split ' ' (Xapi_inventory.lookup Xapi_inventory._current_interfaces)
+  try String.split ' ' (Xapi_inventory.lookup Xapi_inventory._current_interfaces)
   with _ -> []
 
 (* Ensure the PIF is not a bond slave. *)
@@ -140,21 +150,24 @@ let assert_not_bond_slave_of ~__context ~self =
   if Db.PIF.get_bond_slave_of ~__context ~self <> Ref.null then
     raise
       (Api_errors.Server_error
-         (Api_errors.cannot_plug_bond_slave, [Ref.string_of self]))
+         (Api_errors.cannot_plug_bond_slave, [Ref.string_of self])
+      )
 
 (* Ensure the PIF has valid IPv4 configuration mode. *)
 let assert_valid_ip_configuration ~__context ~self =
   if Db.PIF.get_ip_configuration_mode ~__context ~self = `None then
     raise
       (Api_errors.Server_error
-         (Api_errors.pif_has_no_network_configuration, [Ref.string_of self]))
+         (Api_errors.pif_has_no_network_configuration, [Ref.string_of self])
+      )
 
 (* Ensure the PIF has valid IPv6 configuration mode. *)
 let assert_valid_ipv6_configuration ~__context ~self =
   if Db.PIF.get_ipv6_configuration_mode ~__context ~self = `None then
     raise
       (Api_errors.Server_error
-         (Api_errors.pif_has_no_v6_network_configuration, [Ref.string_of self]))
+         (Api_errors.pif_has_no_v6_network_configuration, [Ref.string_of self])
+      )
 
 let assert_usable_for_management ~__context ~primary_address_type ~self =
   assert_not_bond_slave_of ~__context ~self ;
@@ -176,12 +189,14 @@ let assert_not_in_bond ~__context ~self =
   then
     raise
       (Api_errors.Server_error
-         (Api_errors.pif_already_bonded, [Ref.string_of self])) ;
+         (Api_errors.pif_already_bonded, [Ref.string_of self])
+      ) ;
   (* Disallow for bond masters *)
   if Db.PIF.get_bond_master_of ~__context ~self <> [] then
     raise
       (Api_errors.Server_error
-         (Api_errors.pif_already_bonded, [Ref.string_of self]))
+         (Api_errors.pif_already_bonded, [Ref.string_of self])
+      )
 
 let assert_no_vlans ~__context ~self =
   (* Disallow if this is a base interface of any existing VLAN *)
@@ -193,7 +208,8 @@ let assert_no_vlans ~__context ~self =
   then
     raise
       (Api_errors.Server_error
-         (Api_errors.pif_vlan_still_exists, [Ref.string_of self]))
+         (Api_errors.pif_vlan_still_exists, [Ref.string_of self])
+      )
 
 let assert_no_tunnels ~__context ~self =
   (* Disallow if this is a transport interface of any existing tunnel *)
@@ -204,22 +220,26 @@ let assert_no_tunnels ~__context ~self =
   if tunnels <> [] then (
     debug "PIF has associated tunnels: [ %s ]"
       (String.concat "; "
-         (List.map (fun self -> Db.Tunnel.get_uuid ~__context ~self) tunnels)) ;
+         (List.map (fun self -> Db.Tunnel.get_uuid ~__context ~self) tunnels)
+      ) ;
     raise
       (Api_errors.Server_error
-         (Api_errors.pif_tunnel_still_exists, [Ref.string_of self]))
+         (Api_errors.pif_tunnel_still_exists, [Ref.string_of self])
+      )
   ) ;
   (* Disallow if this is an access interface of a tunnel *)
   if Db.PIF.get_tunnel_access_PIF_of ~__context ~self <> [] then
     raise
       (Api_errors.Server_error
-         (Api_errors.pif_tunnel_still_exists, [Ref.string_of self]))
+         (Api_errors.pif_tunnel_still_exists, [Ref.string_of self])
+      )
 
 let assert_not_management_pif ~__context ~self =
   if Db.PIF.get_management ~__context ~self then
     raise
       (Api_errors.Server_error
-         (Api_errors.pif_is_management_iface, [Ref.string_of self]))
+         (Api_errors.pif_is_management_iface, [Ref.string_of self])
+      )
 
 let assert_not_slave_management_pif ~__context ~self =
   if
@@ -230,7 +250,8 @@ let assert_not_slave_management_pif ~__context ~self =
   then
     raise
       (Api_errors.Server_error
-         (Api_errors.pif_is_management_iface, [Ref.string_of self]))
+         (Api_errors.pif_is_management_iface, [Ref.string_of self])
+      )
 
 let assert_no_protection_enabled ~__context ~self =
   (* If HA or redo-log is enabled and PIF is attached
@@ -249,7 +270,8 @@ let assert_no_sriov ~__context ~self =
   | Network_sriov_logical _ :: _, _ ->
       raise
         Api_errors.(
-          Server_error (cannot_forget_sriov_logical, [Ref.string_of self]))
+          Server_error (cannot_forget_sriov_logical, [Ref.string_of self])
+        )
   | Physical _ :: _, _ :: _ ->
       raise
         Api_errors.(Server_error (pif_sriov_still_exists, [Ref.string_of self]))
@@ -276,8 +298,10 @@ let abort_if_network_attached_to_protected_vms ~__context ~self =
             (Ref.string_of vm) (Ref.string_of net) ;
           raise
             (Api_errors.Server_error
-               (Api_errors.ha_operation_would_break_failover_plan, []))
-        ))
+               (Api_errors.ha_operation_would_break_failover_plan, [])
+            )
+        )
+      )
       vms
 
 let assert_no_other_local_pifs ~__context ~host ~network =
@@ -286,13 +310,17 @@ let assert_no_other_local_pifs ~__context ~host ~network =
       ~expr:
         (And
            ( Eq (Field "network", Literal (Ref.string_of network))
-           , Eq (Field "host", Literal (Ref.string_of host)) ))
+           , Eq (Field "host", Literal (Ref.string_of host))
+           )
+        )
   in
   if other_pifs <> [] then
     raise
       (Api_errors.Server_error
          ( Api_errors.network_already_connected
-         , [Ref.string_of host; Ref.string_of (List.hd other_pifs)] ))
+         , [Ref.string_of host; Ref.string_of (List.hd other_pifs)]
+         )
+      )
 
 let assert_fcoe_not_in_use ~__context ~self =
   let interface = Db.PIF.get_device ~__context ~self in
@@ -314,11 +342,14 @@ let assert_fcoe_not_in_use ~__context ~self =
                raise
                  (Api_errors.Server_error
                     ( Api_errors.pif_has_fcoe_sr_in_use
-                    , [Ref.string_of self; Ref.string_of sr] ))
+                    , [Ref.string_of self; Ref.string_of sr]
+                    )
+                 )
            with Not_found -> ()
          )
          | _ ->
-             ())
+             ()
+     )
 
 let find_or_create_network (bridge : string) (device : string) ~__context =
   let nets =
@@ -358,7 +389,9 @@ let make_tables ~__context ~host =
       ~expr:
         (And
            ( Eq (Field "host", Literal (Ref.string_of host))
-           , Eq (Field "physical", Literal "true") ))
+           , Eq (Field "physical", Literal "true")
+           )
+        )
   in
   {
     device_to_mac_table=
@@ -494,7 +527,8 @@ let assert_no_clustering_enabled_on ~__context ~self =
       if Db.Cluster_host.get_enabled ~__context ~self:cluster_host then
         raise
           Api_errors.(
-            Server_error (clustering_enabled, [Ref.string_of cluster_host]))
+            Server_error (clustering_enabled, [Ref.string_of cluster_host])
+          )
   | lst ->
       failwith
         "Should never happen: there can only be one cluster host associated \
@@ -534,14 +568,18 @@ let update_management_flags ~__context ~host =
             ~expr:
               (And
                  ( Eq (Field "host", Literal (Ref.string_of host))
-                 , Eq (Field "network", Literal (Ref.string_of net)) ))
+                 , Eq (Field "network", Literal (Ref.string_of net))
+                 )
+              )
     in
     let management_pifs_in_db =
       Db.PIF.get_refs_where ~__context
         ~expr:
           (And
              ( Eq (Field "host", Literal (Ref.string_of host))
-             , Eq (Field "management", Literal "true") ))
+             , Eq (Field "management", Literal "true")
+             )
+          )
     in
     let set_management value self =
       debug "PIF %s management <- %b" (Ref.string_of self) value ;
@@ -585,7 +623,9 @@ let introduce ~__context ~host ~mAC ~device ~managed =
       (Api_errors.Server_error
          ( Api_errors
            .could_not_find_network_interface_with_specified_device_name_and_mac_address
-         , [device; mAC] )) ;
+         , [device; mAC]
+         )
+      ) ;
   info "Introducing PIF: device = %s; MAC = %s" device mAC ;
   let mTU = Int64.of_int (Net.Interface.get_mtu dbg device) in
   introduce_internal ~t ~__context ~host ~mAC ~device ~mTU ~vLAN:(-1L)
@@ -651,8 +691,10 @@ let scan ~__context ~host =
             introduce_internal ~t ~__context ~host ~mAC ~mTU ~vLAN:(-1L)
               ~vLAN_master_of:Ref.null ~device ~managed ~disallow_unplug ()
           in
-          ())
-        devices_not_yet_represented_by_pifs) ;
+          ()
+        )
+        devices_not_yet_represented_by_pifs
+  ) ;
   (* Make sure the right PIF(s) are marked as management PIFs *)
   update_management_flags ~__context ~host
 
@@ -664,7 +706,8 @@ let create_VLAN ~__context ~device ~network ~host ~vLAN =
     List.filter
       (fun self ->
         Db.PIF.get_device ~__context ~self = device
-        && Db.PIF.get_VLAN ~__context ~self = -1L)
+        && Db.PIF.get_VLAN ~__context ~self = -1L
+      )
       other_pifs
   in
   if List.length base_pifs = 0 then
@@ -673,7 +716,8 @@ let create_VLAN ~__context ~device ~network ~host ~vLAN =
   let tagged_PIF = List.hd base_pifs in
   let vlan =
     Helpers.call_api_functions ~__context (fun rpc session_id ->
-        Client.Client.VLAN.create rpc session_id tagged_PIF vLAN network)
+        Client.Client.VLAN.create rpc session_id tagged_PIF vLAN network
+    )
   in
   Db.VLAN.get_untagged_PIF ~__context ~self:vlan
 
@@ -683,7 +727,8 @@ let destroy ~__context ~self =
     raise (Api_errors.Server_error (Api_errors.pif_is_physical, [])) ;
   let vlan = Db.PIF.get_VLAN_master_of ~__context ~self in
   Helpers.call_api_functions ~__context (fun rpc session_id ->
-      Client.Client.VLAN.destroy rpc session_id vlan)
+      Client.Client.VLAN.destroy rpc session_id vlan
+  )
 
 let reconfigure_ipv6 ~__context ~self ~mode ~iPv6 ~gateway ~dNS =
   Xapi_pif_helpers.assert_pif_is_managed ~__context ~self ;
@@ -704,7 +749,8 @@ let reconfigure_ipv6 ~__context ~self ~mode ~iPv6 ~gateway ~dNS =
   if management && mode = `None && primary_address_type = `IPv6 then
     raise
       (Api_errors.Server_error
-         (Api_errors.pif_is_management_iface, [Ref.string_of self])) ;
+         (Api_errors.pif_is_management_iface, [Ref.string_of self])
+      ) ;
   let old_mode = Db.PIF.get_ipv6_configuration_mode ~__context ~self in
   (* Set the values in the DB *)
   Db.PIF.set_ipv6_configuration_mode ~__context ~self ~value:mode ;
@@ -744,7 +790,8 @@ let reconfigure_ip ~__context ~self ~mode ~iP ~netmask ~gateway ~dNS =
         * then check they contain valid IP address *)
   List.iter
     (fun (param, value) ->
-      if value <> "" then Helpers.assert_is_valid_ip `ipv4 param value)
+      if value <> "" then Helpers.assert_is_valid_ip `ipv4 param value
+    )
     [("IP", iP); ("netmask", netmask); ("gateway", gateway)] ;
   if dNS <> "" then
     List.iter
@@ -756,7 +803,8 @@ let reconfigure_ip ~__context ~self ~mode ~iP ~netmask ~gateway ~dNS =
   if management && mode = `None && primary_address_type = `IPv4 then
     raise
       (Api_errors.Server_error
-         (Api_errors.pif_is_management_iface, [Ref.string_of self])) ;
+         (Api_errors.pif_is_management_iface, [Ref.string_of self])
+      ) ;
   Db.PIF.set_ip_configuration_mode ~__context ~self ~value:mode ;
   Db.PIF.set_IP ~__context ~self ~value:iP ;
   Db.PIF.set_netmask ~__context ~self ~value:netmask ;
@@ -788,7 +836,8 @@ let set_primary_address_type ~__context ~self ~primary_address_type =
   if management then
     raise
       (Api_errors.Server_error
-         (Api_errors.pif_is_management_iface, [Ref.string_of self])) ;
+         (Api_errors.pif_is_management_iface, [Ref.string_of self])
+      ) ;
   Db.PIF.set_primary_address_type ~__context ~self ~value:primary_address_type ;
   Monitor_dbcalls_cache.clear_cache_for_pif
     ~pif_name:(Db.PIF.get_device ~__context ~self)
@@ -798,7 +847,9 @@ let set_property ~__context ~self ~name ~value =
     raise
       (Api_errors.Server_error
          ( Api_errors.invalid_value
-         , ["properties"; Printf.sprintf "%s = %s" name value] ))
+         , ["properties"; Printf.sprintf "%s = %s" name value]
+         )
+      )
   in
   if not (List.mem_assoc name property_names_and_values) then
     fail ()
@@ -811,7 +862,8 @@ let set_property ~__context ~self ~name ~value =
   then
     raise
       (Api_errors.Server_error
-         (Api_errors.cannot_change_pif_properties, [Ref.string_of self])) ;
+         (Api_errors.cannot_change_pif_properties, [Ref.string_of self])
+      ) ;
   (* Remove the existing property with this name, then add the new value. *)
   let properties =
     List.filter
@@ -826,7 +878,8 @@ let set_property ~__context ~self ~name ~value =
     (fun bond ->
       List.iter
         (fun self -> Db.PIF.set_properties ~__context ~self ~value:properties)
-        (Db.Bond.get_slaves ~__context ~self:bond))
+        (Db.Bond.get_slaves ~__context ~self:bond)
+    )
     bond ;
   (* Make it happen, also for VLANs that may be on top of the PIF *)
   let vlans = Db.PIF.get_VLAN_slave_of ~__context ~self in
@@ -836,7 +889,8 @@ let set_property ~__context ~self ~name ~value =
   List.iter
     (fun pif ->
       if Db.PIF.get_currently_attached ~__context ~self then
-        Nm.bring_pif_up ~__context pif)
+        Nm.bring_pif_up ~__context pif
+    )
     (self :: vlan_pifs)
 
 let assert_cluster_host_operation_not_in_progress ~__context =
@@ -852,12 +906,13 @@ let assert_cluster_host_operation_not_in_progress ~__context =
         raise
           Api_errors.(
             Server_error
-              (other_operation_in_progress, ["Cluster"; Ref.string_of cluster]))
+              (other_operation_in_progress, ["Cluster"; Ref.string_of cluster])
+          )
 
 (* Block allowing unplug if
-  - a cluster host is enabled on this PIF
-  - a cluster host is being created in this pool
-  - a Cluster_host.enable is in progress on any PIF *)
+   - a cluster host is enabled on this PIF
+   - a cluster host is being created in this pool
+   - a Cluster_host.enable is in progress on any PIF *)
 let set_disallow_unplug ~__context ~self ~value =
   if Db.PIF.get_disallow_unplug ~__context ~self <> value then (
     if not value then (
@@ -872,7 +927,8 @@ let rec unplug ~__context ~self =
     Db.PIF.get_VLAN_slave_of ~__context ~self
     |> List.iter (fun vlan ->
            let untagged_pif = Db.VLAN.get_untagged_PIF ~__context ~self:vlan in
-           unplug ~__context ~self:untagged_pif)
+           unplug ~__context ~self:untagged_pif
+       )
   in
   Xapi_pif_helpers.assert_pif_is_managed ~__context ~self ;
   assert_no_protection_enabled ~__context ~self ;
@@ -892,7 +948,8 @@ let rec unplug ~__context ~self =
     (fun tunnel ->
       debug "PIF is tunnel transport PIF... also bringing down access PIF" ;
       let access_PIF = Db.Tunnel.get_access_PIF ~__context ~self:tunnel in
-      unplug ~__context ~self:access_PIF)
+      unplug ~__context ~self:access_PIF
+    )
     pif_rec.API.pIF_tunnel_transport_PIF_of ;
   (* Only exclusive PIF types can be put into following pattern match *)
   ( match Xapi_pif_helpers.get_pif_topo ~__context ~pif_rec with
@@ -905,7 +962,8 @@ let rec unplug ~__context ~self =
                physical PIF, also bringing down the slave as network SRIOV \
                physical PIF" ;
             unplug ~__context ~self:slave
-          ))
+          )
+        )
         (Db.Bond.get_slaves ~__context ~self:bond)
   | Network_sriov_logical _ :: _ ->
       debug
@@ -920,7 +978,8 @@ let rec unplug ~__context ~self =
             "PIF is network SRIOV physical PIF, also bringing down SRIOV \
              logical PIF" ;
           let pif = Db.Network_sriov.get_logical_PIF ~__context ~self:sriov in
-          unplug ~__context ~self:pif)
+          unplug ~__context ~self:pif
+        )
         pif_rec.API.pIF_sriov_physical_PIF_of
   | _ ->
       ()
@@ -945,7 +1004,8 @@ let rec plug ~__context ~self =
           raise
             Api_errors.(
               Server_error
-                (transport_pif_not_configured, [Ref.string_of transport_PIF]))
+                (transport_pif_not_configured, [Ref.string_of transport_PIF])
+            )
         else (
           debug "PIF is tunnel access PIF... also bringing up transport PIF" ;
           plug ~__context ~self:transport_PIF
@@ -979,7 +1039,8 @@ let rec plug ~__context ~self =
           ) else
             raise
               Api_errors.(
-                Server_error (cannot_plug_bond_slave, [Ref.string_of self]))
+                Server_error (cannot_plug_bond_slave, [Ref.string_of self])
+              )
         else
           ()
     | _ ->
@@ -1007,16 +1068,22 @@ let calculate_pifs_required_at_start_of_day ~__context =
                , Or
                    ( Or
                        ( Not (Eq (Field "bond_master_of", Literal "()"))
-                       , Eq (Field "physical", Literal "true") )
-                   , Not (Eq (Field "ip_configuration_mode", Literal "None")) )
-               ) ))
+                       , Eq (Field "physical", Literal "true")
+                       )
+                   , Not (Eq (Field "ip_configuration_mode", Literal "None"))
+                   )
+               )
+           )
+        )
   in
   let sriov_pifs =
     Db.PIF.get_records_where ~__context
       ~expr:
         (And
            ( Eq (Field "host", Literal (Ref.string_of localhost))
-           , Not (Eq (Field "sriov_logical_PIF_of", Literal "()")) ))
+           , Not (Eq (Field "sriov_logical_PIF_of", Literal "()"))
+           )
+        )
   in
   pifs @ sriov_pifs
 
@@ -1032,10 +1099,12 @@ let start_of_day_best_effort_bring_up () =
       List.iter
         (fun (pif, pifr) ->
           Helpers.log_exn_continue
-            (Printf.sprintf "error trying to bring up pif: %s"
-               pifr.API.pIF_uuid)
+            (Printf.sprintf "error trying to bring up pif: %s" pifr.API.pIF_uuid)
             (fun pif ->
               debug "Best effort attempt to bring up PIF: %s" pifr.API.pIF_uuid ;
-              plug ~__context ~self:pif)
-            pif)
-        (calculate_pifs_required_at_start_of_day ~__context))
+              plug ~__context ~self:pif
+            )
+            pif
+        )
+        (calculate_pifs_required_at_start_of_day ~__context)
+  )

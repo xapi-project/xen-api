@@ -29,9 +29,9 @@ let find_iscsi_iso session_id =
   try
     Some
       (List.find
-         (fun vdi ->
-           Client.VDI.get_name_label rpc session_id vdi = iscsi_vm_iso)
-         vdis)
+         (fun vdi -> Client.VDI.get_name_label rpc session_id vdi = iscsi_vm_iso)
+         vdis
+      )
   with _ -> None
 
 (** Create the VM with the iscsi iso attached *)
@@ -64,7 +64,8 @@ let make_iscsi session_id pool network =
       let userdevice = Printf.sprintf "%d" (i + 1) in
       ignore
         (Client.VBD.create rpc session_id newvm storage_vdi userdevice false `RW
-           `Disk false false [] "" [])
+           `Disk false false [] "" []
+        )
     done ;
     Client.VM.set_PV_bootloader rpc session_id newvm "pygrub" ;
     Client.VM.set_PV_args rpc session_id newvm
@@ -120,7 +121,8 @@ let make ~rpc ~session_id ~pool ~vm ~networks ~storages =
           (Client.VBD.create ~rpc ~session_id ~vM:clone ~vDI:newdisk
              ~userdevice:(string_of_int userdevice) ~bootable:false ~mode:`RW
              ~_type:`Disk ~unpluggable:true ~empty:false ~qos_algorithm_type:""
-             ~qos_algorithm_params:[] ~other_config:[])
+             ~qos_algorithm_params:[] ~other_config:[]
+          )
       done ;
       Client.VM.provision ~rpc ~session_id ~vm:clone ;
       for device = 0 to min vm.vifs (Array.length networks) - 1 do
@@ -128,7 +130,8 @@ let make ~rpc ~session_id ~pool ~vm ~networks ~storages =
           (Client.VIF.create ~rpc ~session_id ~device:(string_of_int device)
              ~network:networks.(device) ~vM:clone ~mAC:"" ~mTU:1500L
              ~other_config:[] ~qos_algorithm_type:"" ~qos_algorithm_params:[]
-             ~locking_mode:`network_default ~ipv4_allowed:[] ~ipv6_allowed:[])
+             ~locking_mode:`network_default ~ipv4_allowed:[] ~ipv6_allowed:[]
+          )
       done ;
       Client.VM.set_memory_static_min ~rpc ~session_id ~self:clone
         ~value:16777216L ;

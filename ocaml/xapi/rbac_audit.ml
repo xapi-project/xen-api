@@ -75,7 +75,8 @@ let get_subject_identifier __context session_id =
     ~fn_if_local_session:(fun () -> str_local_session)
     ~fn_if_local_superuser:(fun () -> str_local_superuser)
     ~fn_if_subject:(fun () ->
-      DB_Action.Session.get_auth_user_sid ~__context ~self:session_id)
+      DB_Action.Session.get_auth_user_sid ~__context ~self:session_id
+    )
 
 let get_subject_name __context session_id =
   get_subject_common ~__context ~session_id ~fnname:"get_subject_name"
@@ -85,11 +86,14 @@ let get_subject_name __context session_id =
          			 - local sessions do not have a username field
          			 - DB_Action will block forever trying to access an inaccessible master
       *)
-      "")
+      ""
+    )
     ~fn_if_local_superuser:(fun () ->
-      DB_Action.Session.get_auth_user_name ~__context ~self:session_id)
+      DB_Action.Session.get_auth_user_name ~__context ~self:session_id
+    )
     ~fn_if_subject:(fun () ->
-      DB_Action.Session.get_auth_user_name ~__context ~self:session_id)
+      DB_Action.Session.get_auth_user_name ~__context ~self:session_id
+    )
 
 (*given a ref-value, return a human-friendly value associated with that ref*)
 let get_obj_of_ref_common obj_ref fn =
@@ -98,7 +102,8 @@ let get_obj_of_ref_common obj_ref fn =
 
 let get_obj_of_ref obj_ref =
   get_obj_of_ref_common obj_ref (fun irec ->
-      Some (irec.Ref_index.name_label, irec.Ref_index.uuid, irec.Ref_index._ref))
+      Some (irec.Ref_index.name_label, irec.Ref_index.uuid, irec.Ref_index._ref)
+  )
 
 let get_obj_name_of_ref obj_ref =
   get_obj_of_ref_common obj_ref (fun irec -> irec.Ref_index.name_label)
@@ -149,7 +154,8 @@ let get_obj_names_of_refs (obj_ref_list : SExpr.t list) : SExpr.t list =
             ref_value
       | _ ->
           obj_ref
-      (* do nothing if not a triplet *))
+      (* do nothing if not a triplet *)
+    )
     obj_ref_list
 
 (* unwrap the audit record and add names to the arg refs *)
@@ -175,7 +181,8 @@ let populate_audit_record_with_obj_names_of_refs line =
               ^ " "
               ^ SExpr.string_of
                   (SExpr.Node
-                     (prefix @ [SExpr.Node (get_obj_names_of_refs arg_list)]))
+                     (prefix @ [SExpr.Node (get_obj_names_of_refs arg_list)])
+                  )
           | prefix, _ ->
               line
       )
@@ -196,7 +203,8 @@ let action_params_whitelist =
       ; "external_auth_type"
       ; "external_auth_service_name"
       ; "edition"
-      ] )
+      ]
+    )
   ; ( "VM.create"
     , [
         "is_a_template"
@@ -207,7 +215,8 @@ let action_params_whitelist =
       ; "memory_static_min"
       ; "ha_always_run"
       ; "ha_restart_priority"
-      ] )
+      ]
+    )
   ; ("host.set_address", ["value"])
   ; ("VM.migrate", ["dest"; "live"])
   ; ("VM.start_on", ["start_paused"; "force"])
@@ -240,8 +249,9 @@ let zip data =
                 let written = Unix.write_substring fd data 0 len in
                 if written <> len then
                   failwith
-                    (Printf.sprintf "zip: wrote only %i bytes of %i" written
-                       len))) ;
+                    (Printf.sprintf "zip: wrote only %i bytes of %i" written len)
+            )
+        ) ;
         let fd_in = Unix.openfile tmp_path [Unix.O_RDONLY] 0o400 in
         Stdext.Pervasiveext.finally
           (fun () ->
@@ -250,8 +260,10 @@ let zip data =
             zdata := Bytes.create cin_len ;
             for i = 1 to cin_len do
               Bytes.set !zdata (i - 1) (input_char cin)
-            done)
-          (fun () -> Unix.close fd_in))
+            done
+          )
+          (fun () -> Unix.close fd_in)
+      )
       (fun () -> Sys.remove tmp_path) ;
     let b64zdata = Base64.encode_string (Bytes.unsafe_to_string !zdata) in
     b64zdata
@@ -289,20 +301,26 @@ let action_param_ref_getter_fn =
     ( "subject.destroy"
     , [
         ( "self"
-        , fun _ctx _ref -> get_subject_other_config_subject_name _ctx _ref )
-      ] )
+        , fun _ctx _ref -> get_subject_other_config_subject_name _ctx _ref
+        )
+      ]
+    )
   ; ( "subject.remove_from_roles"
     , [
         ( "self"
-        , fun _ctx _ref -> get_subject_other_config_subject_name _ctx _ref )
+        , fun _ctx _ref -> get_subject_other_config_subject_name _ctx _ref
+        )
       ; ("role", fun _ctx _ref -> get_role_name_label _ctx _ref)
-      ] )
+      ]
+    )
   ; ( "subject.add_to_roles"
     , [
         ( "self"
-        , fun _ctx _ref -> get_subject_other_config_subject_name _ctx _ref )
+        , fun _ctx _ref -> get_subject_other_config_subject_name _ctx _ref
+        )
       ; ("role", fun _ctx _ref -> get_role_name_label _ctx _ref)
-      ] )
+      ]
+    )
   ]
 
 (* get a namevalue directly from db, instead from db_cache *)
@@ -356,7 +374,8 @@ let rec sexpr_args_of __context name rpc_value action =
              else
                value
              )
-             "" "")
+             "" ""
+          )
     | Rpc.Dict _ ->
         Some
           (SExpr.Node
@@ -365,10 +384,12 @@ let rec sexpr_args_of __context name rpc_value action =
              ; SExpr.Node
                  (sexpr_of_parameters __context
                     (action ^ "." ^ name)
-                    (Some (["__structure"], [rpc_value])))
+                    (Some (["__structure"], [rpc_value]))
+                 )
              ; SExpr.String ""
              ; SExpr.String ""
-             ])
+             ]
+          )
     | _ ->
         (*D.debug "sexpr_args_of:value=%s" (Xml.to_string xml_value);*)
         (*None*)
@@ -384,7 +405,8 @@ let rec sexpr_args_of __context name rpc_value action =
               Some
                 (get_sexpr_arg name
                    (get_db_namevalue __context name action value)
-                   "" value)
+                   "" value
+                )
             else (* ignore values that are not a ref *)
               None
         | Some (_name_of_ref_value, uuid_of_ref_value, ref_of_ref_value) ->
@@ -399,7 +421,8 @@ let rec sexpr_args_of __context name rpc_value action =
             in
             Some
               (get_sexpr_arg name name_of_ref_value uuid_of_ref_value
-                 ref_of_ref_value)
+                 ref_of_ref_value
+              )
       )
     | _ ->
         None
@@ -419,9 +442,7 @@ and
            lengths don't match. str_names=[%s], xml_values=[%s]"
           action
           (List.fold_left (fun ss s -> ss ^ s ^ ",") "" str_names)
-          (List.fold_left
-             (fun ss s -> ss ^ Rpc.to_string s ^ ",")
-             "" rpc_values) ;
+          (List.fold_left (fun ss s -> ss ^ Rpc.to_string s ^ ",") "" rpc_values) ;
         []
       ) else
         List.fold_right2
@@ -452,7 +473,8 @@ and
               | None ->
                   params
               | Some p ->
-                  p :: params)
+                  p :: params
+          )
           str_names rpc_values []
 
 let has_to_audit action =
@@ -481,7 +503,8 @@ let has_to_audit action =
           ; (* spam *)
             "host.tickle_heartbeat"
             (* spam *)
-          ])
+          ]
+       )
 
 let wrap fn =
   try fn ()
@@ -554,7 +577,8 @@ let audit_line_of __context session_id allowed_denied ok_error result_error
   let _line =
     SExpr.string_of
       (sexpr_of __context session_id allowed_denied ok_error result_error ?args
-         ?sexpr_of_args action permission)
+         ?sexpr_of_args action permission
+      )
   in
   let line = Stdext.Xstringext.String.replace "\n" " " _line in
   (* no \n in line *)
@@ -588,7 +612,8 @@ let allowed_post_fn_ok ~__context ~session_id ~action ~permission ?sexpr_of_args
   wrap (fun () ->
       if has_to_audit action then
         audit_line_of __context session_id "ALLOWED" "OK" "" action permission
-          ?sexpr_of_args ?args ())
+          ?sexpr_of_args ?args ()
+  )
 
 let allowed_post_fn_error ~__context ~session_id ~action ~permission
     ?sexpr_of_args ?args ?error () =
@@ -602,13 +627,15 @@ let allowed_post_fn_error ~__context ~session_id ~action ~permission
               ExnHelper.string_of_exn error
         in
         audit_line_of __context session_id "ALLOWED" "ERROR" error_str action
-          permission ?sexpr_of_args ?args ())
+          permission ?sexpr_of_args ?args ()
+  )
 
 let denied ~__context ~session_id ~action ~permission ?args () =
   wrap (fun () ->
       if has_to_audit action then
         audit_line_of __context session_id "DENIED" "" "" action permission
-          ?args ())
+          ?args ()
+  )
 
 let session_create_or_destroy ~create ~__context ~session_id ~uname =
   wrap (fun () ->
@@ -632,7 +659,8 @@ let session_create_or_destroy ~create ~__context ~session_id ~uname =
             sexpr_of_args
         in
         allowed_post_fn_ok ~__context ~session_id ~action ~sexpr_of_args
-          ~permission:action ())
+          ~permission:action ()
+  )
 
 let session_destroy ~__context ~session_id =
   session_create_or_destroy ~uname:None ~create:false ~__context ~session_id

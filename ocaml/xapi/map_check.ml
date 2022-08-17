@@ -20,7 +20,8 @@ let add_defaults requirements kvpairs =
         | None ->
             acc
         | Some default_value ->
-            (requirement.key, default_value) :: acc)
+            (requirement.key, default_value) :: acc
+    )
     kvpairs requirements
 
 (* Validate a key-value pair against a list of requirements. *)
@@ -29,7 +30,8 @@ let validate_kvpair field_name requirements (key, value) =
     raise
       Api_errors.(
         Server_error
-          (invalid_value, [field_name; Printf.sprintf "%s = %s" key value]))
+          (invalid_value, [field_name; Printf.sprintf "%s = %s" key value])
+      )
   in
   (* Try to find a required property requirement with this name. *)
   let requirement =
@@ -59,7 +61,8 @@ let field : string -> 'a pickler -> 'a field =
  fun name (of_string, to_string) ->
   ( (fun assoc_list -> assoc_list |> List.assoc name |> of_string)
   , fun value assoc_list ->
-      assoc_list |> List.remove_assoc name |> cons (name, to_string value) )
+      assoc_list |> List.remove_assoc name |> cons (name, to_string value)
+  )
 
 let getf : ?default:'a -> 'a field -> assoc_list -> 'a =
  fun ?default (of_string, _) record ->
@@ -88,7 +91,8 @@ let mem value range =
     Some
       (List.find
          (fun r -> String.lowercase_ascii value = String.lowercase_ascii r)
-         range)
+         range
+      )
   with Not_found -> None
 
 let assert_value ~field ~key ~attr ~value =
@@ -112,7 +116,8 @@ let assert_value ~field ~key ~attr ~value =
               else if Stdext.Xstringext.String.has_substr acc v then
                 err value
               else
-                v ^ "," ^ acc)
+                v ^ "," ^ acc
+        )
         vs ""
   | IntRange (min, max) ->
       let v = try int_of_string value with _ -> err value in
@@ -137,13 +142,15 @@ let assert_req_values ~field ~ks ~vs =
   let req_values =
     List.fold_right
       (fun (k, attr) acc ->
-        match attr with ReqValue rv, _ -> (k, rv) :: acc | _ -> acc)
+        match attr with ReqValue rv, _ -> (k, rv) :: acc | _ -> acc
+      )
       ks []
   in
   if vs <> [] then
     List.iter
       (fun (k, rv) ->
-        if List.mem_assoc k vs then if rv <> List.assoc k vs then err field k rv)
+        if List.mem_assoc k vs then if rv <> List.assoc k vs then err field k rv
+      )
       req_values
 
 (* uses xs elements to overwrite ys elements *)
@@ -151,7 +158,8 @@ let merge xs ys =
   let nys =
     List.map
       (fun (ky, vy) ->
-        if List.mem_assoc ky xs then (ky, List.assoc ky xs) else (ky, vy))
+        if List.mem_assoc ky xs then (ky, List.assoc ky xs) else (ky, vy)
+      )
       ys
   in
   let nxs = List.filter (fun (kx, _) -> not (List.mem_assoc kx nys)) xs in
@@ -176,7 +184,8 @@ let assert_keys ~ty ~ks ~value ~db =
               value
           )
       else
-        None)
+        None
+  )
 
 let assert_all_keys ~ty ~ks ~value ~db =
   let value = merge value db in
@@ -191,14 +200,16 @@ let assert_all_keys ~ty ~ks ~value ~db =
                   if List.mem_assoc k value then
                     (k, List.assoc k value)
                   else
-                    (k, default))
+                    (k, default)
+                )
                 ks
             in
             (* remove extra unexpected keys *)
             let value =
               List.fold_right
                 (fun (k, v) acc ->
-                  if List.mem_assoc k ks then (k, v) :: acc else acc)
+                  if List.mem_assoc k ks then (k, v) :: acc else acc
+                )
                 value []
             in
             (* for this ks, each key value must be valid *)
@@ -207,4 +218,5 @@ let assert_all_keys ~ty ~ks ~value ~db =
               value
           )
       else
-        None)
+        None
+  )

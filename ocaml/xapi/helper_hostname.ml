@@ -40,7 +40,8 @@ let get_hostname () =
             try filter_newline (get_process_output "/bin/hostname")
             with _ -> "unknown"
       ) ;
-      !_cached_hostname)
+      !_cached_hostname
+  )
 
 (* Fetch the hostname again in case it has changed beneath us *)
 let reget_hostname () =

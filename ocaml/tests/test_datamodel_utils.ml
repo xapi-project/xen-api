@@ -24,7 +24,8 @@ module HasBeenRemoved = Generic.MakeStateless (struct
       List.map
         (fun (lifecycle_change, _, _) ->
           Datamodel_types.rpc_of_lifecycle_change lifecycle_change
-          |> Rpc.to_string)
+          |> Rpc.to_string
+        )
         input
       |> String.concat "; "
 
@@ -45,15 +46,18 @@ module HasBeenRemoved = Generic.MakeStateless (struct
             ; (Deprecated, "release2", "")
             ; (Removed, "release3", "")
             ]
-          , true )
+          , true
+          )
         ; ( [
               (Published, "release1", "")
             ; (Deprecated, "release2", "")
             ; (Removed, "release3", "")
             ; (Published, "release4", "")
             ]
-          , false )
+          , false
+          )
         ]
+      
 end)
 
 let tests = [("data_model_utils_test_has_been_removed", HasBeenRemoved.tests)]

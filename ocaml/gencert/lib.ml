@@ -27,8 +27,7 @@ let get_management_ip_addr ~dbg =
       let addrs =
         match
           String.lowercase_ascii
-            (Inventory.lookup Inventory._management_address_type
-               ~default:"ipv4")
+            (Inventory.lookup Inventory._management_address_type ~default:"ipv4")
         with
         | "ipv4" ->
             Net.Interface.get_ipv4_addr dbg iface
@@ -37,7 +36,8 @@ let get_management_ip_addr ~dbg =
         | s ->
             raise
               (Unexpected_address_type
-                 (Printf.sprintf "Expected 'ipv4' or 'ipv6', got %s" s))
+                 (Printf.sprintf "Expected 'ipv4' or 'ipv6', got %s" s)
+              )
       in
       let addrs =
         List.map (fun (addr, _) -> Unix.string_of_inet_addr addr) addrs
@@ -78,7 +78,9 @@ let validate_private_key pkcs8_private_key =
           Error
             (`Msg
               ( server_certificate_key_rsa_length_not_supported
-              , [Int.to_string length] ))
+              , [Int.to_string length]
+              )
+              )
         else
           Ok (`RSA priv)
   in
@@ -95,11 +97,13 @@ let validate_private_key pkcs8_private_key =
                  Astring.String.with_range
                    ~first:(String.length unknown_algorithm)
                    err_msg
-               ] )
+               ]
+             )
          else (
            D.info {|Failed to validate private key because "%s"|} err_msg ;
            `Msg (server_certificate_key_invalid, [])
-         ))
+         )
+     )
   >>= ensure_key_length
 
 let validate_certificate kind pem now private_key =
@@ -118,11 +122,14 @@ let validate_certificate kind pem now private_key =
       Error
         (`Msg
           ( server_certificate_not_valid_yet
-          , [to_string time; to_string not_before] ))
+          , [to_string time; to_string not_before]
+          )
+          )
     else if Ptime.is_later time not_after then
       Error
         (`Msg
-          (server_certificate_expired, [to_string time; to_string not_after]))
+          (server_certificate_expired, [to_string time; to_string not_after])
+          )
     else
       Ok certificate
   in
@@ -139,7 +146,8 @@ let validate_certificate kind pem now private_key =
       X509.Certificate.decode_pem raw_pem
       |> R.reword_error (fun (`Msg err_msg) ->
              D.info {|Failed to validate certificate because "%s"|} err_msg ;
-             `Msg (server_certificate_invalid, []))
+             `Msg (server_certificate_invalid, [])
+         )
       >>= ensure_keys_match private_key
       >>= ensure_validity ~time:now
       >>= ensure_sha256_signature_algorithm
@@ -164,7 +172,8 @@ let install_server_certificate ?(pem_chain = None) ~pem_leaf ~pkcs8_private_key
     ~none:(Ok [pkcs8_private_key; pem_leaf])
     ~some:(fun pem_chain ->
       validate_certificate Chain pem_chain now priv >>= fun _ignored ->
-      Ok [pkcs8_private_key; pem_leaf; pem_chain])
+      Ok [pkcs8_private_key; pem_leaf; pem_chain]
+    )
     pem_chain
   >>= fun server_cert_components ->
   let cert_server =
@@ -189,4 +198,6 @@ let install_server_certificate ?(pem_chain = None) ~pem_leaf ~pkcs8_private_key
               "certificates: could not write server certificate to disk. \
                Reason: %s"
               (Unix.error_message err)
-          ] ))
+          ]
+        )
+        )

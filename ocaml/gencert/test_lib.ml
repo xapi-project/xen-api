@@ -38,7 +38,8 @@ let invalid_private_keys =
   ; ("pkey_rsa_n3_2048", server_certificate_key_rsa_multi_not_supported, [])
   ; ( "pkey_ed25519"
     , server_certificate_key_algorithm_not_supported
-    , ["1.3.101.112"] )
+    , ["1.3.101.112"]
+    )
   ; ("pkey_bogus", server_certificate_key_invalid, [])
   ]
 
@@ -48,7 +49,8 @@ let valid_leaf_certificates =
     ( "Valid, SHA256, matches key"
     , "pkey_rsa_2048"
     , "2020-02-01T00:00:00Z"
-    , `SHA256 )
+    , `SHA256
+    )
   ]
 
 (* ( description, leaf_private_key, expected_private_key, time_of_validation,
@@ -61,28 +63,32 @@ let invalid_leaf_certificates =
     , "2019-01-01T00:00:00Z"
     , `SHA256
     , server_certificate_not_valid_yet
-    , ["2019-01-01T00:00:00Z"; "2020-01-01T00:00:00Z"] )
+    , ["2019-01-01T00:00:00Z"; "2020-01-01T00:00:00Z"]
+    )
   ; ( "Expired, SHA256, matching key"
     , "pkey_rsa_2048"
     , "pkey_rsa_2048"
     , "2022-01-01T00:00:00Z"
     , `SHA256
     , server_certificate_expired
-    , ["2022-01-01T00:00:00Z"; "2021-01-01T00:00:00Z"] )
+    , ["2022-01-01T00:00:00Z"; "2021-01-01T00:00:00Z"]
+    )
   ; ( "Valid, SHA256, keys do not match"
     , "pkey_rsa_2048"
     , "pkey_rsa_4096"
     , "2020-02-01T00:00:00Z"
     , `SHA256
     , server_certificate_key_mismatch
-    , [] )
+    , []
+    )
   ; ( "Valid, SHA1, matching keys"
     , "pkey_rsa_2048"
     , "pkey_rsa_2048"
     , "2020-02-01T00:00:00Z"
     , `SHA1
     , server_certificate_signature_not_supported
-    , [] )
+    , []
+    )
   ]
 
 (* ( certificate_name, leaf_private_key, time_of_validation, error_tye,
@@ -93,7 +99,8 @@ let corrupt_certificates =
     , "pkey_rsa_2048"
     , "2020-02-01T00:00:00Z"
     , server_certificate_invalid
-    , [] )
+    , []
+    )
   ]
 
 let key_chain =
@@ -107,12 +114,14 @@ let corrupt_chain_certificates =
     , "pkey_rsa_2048"
     , "2020-02-01T00:00:00Z"
     , server_certificate_chain_invalid
-    , [] )
+    , []
+    )
   ; ( "bogus"
     , "pkey_rsa_2048"
     , "2020-02-01T00:00:00Z"
     , server_certificate_chain_invalid
-    , [] )
+    , []
+    )
   ]
 
 let server_error err reason = Server_error (err, reason)
@@ -140,7 +149,9 @@ let valid_keys_tests =
     (fun name ->
       ( "Validation of a supported key: " ^ name
       , `Quick
-      , Ok (test_valid_key name) ))
+      , Ok (test_valid_key name)
+      )
+    )
     valid_private_keys
 
 let invalid_keys_tests =
@@ -148,7 +159,9 @@ let invalid_keys_tests =
     (fun (name, error, reason) ->
       ( "Validation of an unsupported key: " ^ name
       , `Quick
-      , Ok (test_invalid_key name error reason) ))
+      , Ok (test_invalid_key name error reason)
+      )
+    )
     invalid_private_keys
 
 let test_valid_cert ~kind cert time pkey =
@@ -174,7 +187,9 @@ let load_pkcs8 name =
   |> Rresult.R.reword_error (fun (`Msg msg) ->
          `Msg
            (Printf.sprintf "Could not load private key with name '%s': %s" name
-              msg))
+              msg
+           )
+     )
 
 let sign_cert host_name ~pkey_sign digest pkey_leaf =
   let csr = X509.Signing_request.create [host_name] ~digest pkey_leaf in
@@ -199,7 +214,8 @@ let valid_leaf_cert_tests =
         sign_leaf_cert host_name digest pkey_leaf >>| fun cert ->
         test_valid_leaf_cert cert (time_of_rfc3339 time) pkey_leaf
       in
-      ("Validation of a supported certificate: " ^ name, `Quick, cert_test))
+      ("Validation of a supported certificate: " ^ name, `Quick, cert_test)
+    )
     valid_leaf_certificates
 
 let test_corrupt_leaf_cert (cert_name, pkey_name, time, error, reason) =
@@ -248,7 +264,8 @@ let valid_chain_cert_tests =
             sign_cert host_name ~pkey_sign `SHA256 pkey >>| fun cert ->
             cert :: chain
           in
-          (pkey, Rresult.R.join result))
+          (pkey, Rresult.R.join result)
+        )
         (pkey_root, Ok []) key_chain
     in
     chain >>| X509.Certificate.encode_pem_multiple >>| Cstruct.to_string
@@ -264,7 +281,8 @@ let invalid_chain_cert_tests =
         load_pkcs8 pkey_name >>| fun pkey ->
         test_invalid_cert_chain chain (time_of_rfc3339 time) pkey error reason
       in
-      ("Validation of an unsupported certificate chain", `Quick, test_cert))
+      ("Validation of an unsupported certificate chain", `Quick, test_cert)
+    )
     corrupt_chain_certificates
 
 let load_test = function
@@ -273,8 +291,8 @@ let load_test = function
   | name, speed, Error (`Msg msg) ->
       ( name
       , speed
-      , Alcotest.fail
-          (Printf.sprintf "Problem preparing test '%s': %s" name msg) )
+      , Alcotest.fail (Printf.sprintf "Problem preparing test '%s': %s" name msg)
+      )
 
 let all_tests =
   valid_keys_tests

@@ -38,13 +38,15 @@ let choose connections =
       List.iter
         (fun c ->
           debug "Dbconf contains: %s (generation %Ld)" c.Parse_db_conf.path
-            (Parse_db_conf.generation_read c))
+            (Parse_db_conf.generation_read c)
+        )
         connections ;
       let gen, most_recent =
         List.fold_left
           (fun (g, c) c' ->
             let g' = Parse_db_conf.generation_read c' in
-            if g' > g then (g', c') else (g, c))
+            if g' > g then (g', c') else (g, c)
+          )
           (Parse_db_conf.generation_read c, c)
           cs
       in
@@ -68,12 +70,14 @@ let db_flush_thread_refcount = ref 0
 
 let inc_db_flush_thread_refcount () =
   Threadext.Mutex.execute db_flush_thread_refcount_m (fun () ->
-      db_flush_thread_refcount := !db_flush_thread_refcount + 1)
+      db_flush_thread_refcount := !db_flush_thread_refcount + 1
+  )
 
 let dec_and_read_db_flush_thread_refcount () =
   Threadext.Mutex.execute db_flush_thread_refcount_m (fun () ->
       db_flush_thread_refcount := !db_flush_thread_refcount - 1 ;
-      !db_flush_thread_refcount)
+      !db_flush_thread_refcount
+  )
 
 let pre_exit_hook () =
   (* We're about to exit. Close the active redo logs. *)
@@ -108,7 +112,8 @@ let flush_dirty_and_maybe_exit dbconn exit_spec =
       | Some ret_code ->
           pre_exit_hook () ; exit ret_code
       ) ;
-      was_anything_flushed)
+      was_anything_flushed
+  )
 
 let flush dbconn db =
   debug "About to flush database: %s" dbconn.Parse_db_conf.path ;

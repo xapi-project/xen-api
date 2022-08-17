@@ -137,7 +137,8 @@ let configure_t =
     $ bindir
     $ sbindir
     $ udevdir
-    $ docdir)
+    $ docdir
+  )
 
 let () =
   match Term.eval (configure_t, info) with `Error _ -> exit 1 | _ -> exit 0

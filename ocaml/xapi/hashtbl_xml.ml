@@ -28,8 +28,7 @@ let make_tag n attrs = (name n, List.map (fun (k, v) -> (name k, v)) attrs)
 let to_xml (db : h) (output : Xmlm.output) =
   let elts =
     Hashtbl.fold
-      (fun k v acc ->
-        `El (make_tag "row" [("key", k); ("value", v)], []) :: acc)
+      (fun k v acc -> `El (make_tag "row" [("key", k); ("value", v)], []) :: acc)
       db []
   in
   let table = `El (make_tag "config" [], elts) in

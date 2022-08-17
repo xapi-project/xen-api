@@ -168,7 +168,8 @@ let find_and_update ~__context vgpu_type =
   let old_expr =
     And
       ( Eq (Field "vendor_name", Literal vgpu_type.vendor_name)
-      , Eq (Field "model_name", Literal vgpu_type.model_name) )
+      , Eq (Field "model_name", Literal vgpu_type.model_name)
+      )
   in
   (* First try to look up by identifier. *)
   match Db.VGPU_type.get_internal_records_where ~__context ~expr:new_expr with
@@ -188,7 +189,9 @@ let find_and_update ~__context vgpu_type =
             vGPU_type_vendor_name= vgpu_type.vendor_name
           ; vGPU_type_model_name= vgpu_type.model_name
           }
+        
       in
+
       Some (vgpu_type_ref, new_rc)
   | [] -> (
     (* If looking up by identifier fails, try to the old method (vendor name
@@ -344,14 +347,17 @@ functor
                     device.Pci_dev.domain = address.domain
                     && device.Pci_dev.bus = address.bus
                     && device.Pci_dev.dev = address.dev
-                    && device.Pci_dev.func = address.fn)
+                    && device.Pci_dev.func = address.fn
+                  )
                   (get_devices access)
               in
               (vendor_name, device)
             in
             List.filter_map
               (V.vgpu_type_of_conf access vendor_name device)
-              whitelist))
+              whitelist
+        )
+      )
 
     let find_or_create_supported_types ~__context ~pci ~is_system_display_device
         ~is_host_display_enabled ~is_pci_hidden =
@@ -387,7 +393,8 @@ let read_whitelist_line_by_line ~whitelist ~device_id ~parse_line
           | Some conf when device_id_of_conf conf = device_id ->
               conf :: acc
           | _ ->
-              acc)
+              acc
+      )
       [] whitelist
   else
     []
@@ -417,7 +424,8 @@ module Vendor_nvidia = struct
   let get_host_driver_version () =
     try
       Scanf.sscanf (Unix.readlink !Xapi_globs.nvidia_host_driver_file)
-        "libnvidia-vgpu.so.%s" (fun x -> x)
+        "libnvidia-vgpu.so.%s" (fun x -> x
+      )
     with _ ->
       info "Can not get the file version of %s, use the default value"
         !Xapi_globs.nvidia_host_driver_file ;
@@ -560,10 +568,13 @@ module Vendor_nvidia = struct
                  let max =
                    Int64.of_string (get_data (find_one_by_name "maxVgpus" vgpu))
                  in
-                 (id, {max; psubdev_id; sriov}))
-               vgpus)
+                 (id, {max; psubdev_id; sriov})
+               )
+               vgpus
+            )
         else
-          None)
+          None
+      )
       pgpus
     |> List.concat
 
@@ -615,8 +626,7 @@ module Vendor_nvidia = struct
         if List.mem_assoc id vgpu_ids then (
           let {max= max_instance; psubdev_id; sriov} = List.assoc id vgpu_ids in
           let framebufferlength =
-            Int64.of_string
-              (get_data (find_one_by_name "framebuffer" vgpu_type))
+            Int64.of_string (get_data (find_one_by_name "framebuffer" vgpu_type))
           in
           let num_heads =
             Int64.of_string (get_data (find_one_by_name "numHeads" vgpu_type))
@@ -624,7 +634,8 @@ module Vendor_nvidia = struct
           let max_x, max_y =
             let display = find_one_by_name "display" vgpu_type in
             ( Int64.of_string (get_attr "width" display)
-            , Int64.of_string (get_attr "height" display) )
+            , Int64.of_string (get_attr "height" display)
+            )
           in
           let devid = find_one_by_name "devId" vgpu_type in
           let identifier =
@@ -645,7 +656,9 @@ module Vendor_nvidia = struct
                   )
                   (* don't use SRIOV *)
               }
+            
           in
+
           let file_path = whitelist in
           let type_id = id in
           (* Multiple vgpu support:
@@ -682,7 +695,8 @@ module Vendor_nvidia = struct
             ; compatible_model_names_on_pgpu
             }
         ) else
-          None)
+          None
+      )
       vgpu_types
 
   let read_whitelist ~whitelist ~device_id =
@@ -693,7 +707,8 @@ module Vendor_nvidia = struct
           (fun () ->
             let i = Xmlm.make_input ~strip:true (`Channel ch) in
             let _, t = Xmlm.input_doc_tree ~el ~data i in
-            t)
+            t
+          )
           (fun () -> close_in ch)
       in
       let pgpus = find_by_name "pgpu" t in
@@ -787,7 +802,9 @@ module Vendor_intel = struct
              ; num_heads
              ; max_x
              ; max_y
-             }))
+             }
+         )
+        )
     with e ->
       error "Failed to read whitelist line: '%s' %s" line (Printexc.to_string e) ;
       None
@@ -873,7 +890,9 @@ module Vendor_amd = struct
              ; experimental= experimental <> '0'
              ; model_name
              ; vgpus_per_pgpu
-             }))
+             }
+         )
+        )
     with e ->
       error "Failed to read whitelist line: '%s' %s" line (Printexc.to_string e) ;
       None
@@ -936,7 +955,8 @@ module Nvidia_compat = struct
             | [k; v] ->
                 (k, v)
             | _ ->
-                ("", ""))
+                ("", "")
+          )
           args
       in
       (* plugin0.pdev_id will either be just the physical device id, or of the
@@ -945,7 +965,8 @@ module Nvidia_compat = struct
         let pdev_id_data = List.assoc "plugin0.pdev_id" args in
         try
           Scanf.sscanf pdev_id_data {|"0x%x:0x%x"|} (fun pdev_id psubdev_id ->
-              (pdev_id, Some psubdev_id))
+              (pdev_id, Some psubdev_id)
+          )
         with Scanf.Scan_failure _ ->
           Scanf.sscanf pdev_id_data {|"0x%x"|} (fun pdev_id -> (pdev_id, None))
       in
@@ -954,7 +975,9 @@ module Nvidia_compat = struct
       Scanf.sscanf (List.assoc "plugin0.vdev_id" args) {|"0x%x:0x%x"|}
         (fun vdev_id vsubdev_id ->
           Identifier.(
-            Nvidia {pdev_id; psubdev_id; vdev_id; vsubdev_id; sriov= false}))
+            Nvidia {pdev_id; psubdev_id; vdev_id; vsubdev_id; sriov= false}
+          )
+      )
     with e -> raise (Parse_error e)
 
   let read_config_dir conf_dir =
@@ -1006,7 +1029,8 @@ module Nvidia_compat = struct
                      ~self:vgpu_type_ref ~value:updated_config
                | _ ->
                    ()
-               (* Type is not relevant: ignore *))
+               (* Type is not relevant: ignore *)
+           )
     with e ->
       error "Failed to create NVidia compat config_file: %s\n%s\n"
         (Printexc.to_string e)

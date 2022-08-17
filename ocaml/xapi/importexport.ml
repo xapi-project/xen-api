@@ -73,8 +73,9 @@ let version_of_rpc = function
   | rpc ->
       raise
         (Failure
-           (Printf.sprintf "version_of_rpc: malformed RPC %s"
-              (Rpc.to_string rpc)))
+           (Printf.sprintf "version_of_rpc: malformed RPC %s" (Rpc.to_string rpc)
+           )
+        )
 
 [@@@warning "+8"]
 
@@ -128,7 +129,9 @@ let vm_has_field ~(x : obj) ~name =
       raise
         (Failure
            (Printf.sprintf "vm_has_field: invalid object %s"
-              (Xmlrpc.to_string rpc)))
+              (Xmlrpc.to_string rpc)
+           )
+        )
 
 (* This function returns true when the VM record was created pre-ballooning. *)
 let vm_exported_pre_dmc (x : obj) =
@@ -157,7 +160,8 @@ let compare_checksums a b =
       else (
         error "Missing checksum for file %s (expected %s)" filename csum ;
         success := false
-      ))
+      )
+    )
     a ;
   !success
 
@@ -170,14 +174,16 @@ let get_default_sr rpc session_id =
   with _ ->
     raise
       (Api_errors.Server_error
-         (Api_errors.default_sr_not_found, [Ref.string_of sr]))
+         (Api_errors.default_sr_not_found, [Ref.string_of sr])
+      )
 
 (** Check that the SR is visible on the specified host *)
 let check_sr_availability_host ~__context sr host =
   try
     ignore
       (Xapi_vm_helpers.assert_can_see_specified_SRs ~__context ~reqd_srs:[sr]
-         ~host) ;
+         ~host
+      ) ;
     true
   with _ -> false
 
@@ -216,8 +222,11 @@ let cleanup (x : cleanup_stack) =
           List.iter
             (fun action ->
               Helpers.log_exn_continue "executing cleanup action"
-                (action __context rpc) session_id)
-            x))
+                (action __context rpc) session_id
+            )
+            x
+      )
+  )
 
 open Stdext.Pervasiveext
 
@@ -263,7 +272,8 @@ let remote_metadata_export_import ~__context ~rpc ~session_id ~remote_address
           ~cookie:[("session_id", Ref.string_of my_session_id)]
           ~keep_alive:false Http.Get
           (Printf.sprintf "%s?%s" Constants.export_metadata_uri
-             local_export_request)
+             local_export_request
+          )
       in
       let remote_task =
         Client.Task.create rpc session_id "VM metadata import" ""
@@ -287,7 +297,8 @@ let remote_metadata_export_import ~__context ~rpc ~session_id ~remote_address
                 (with_http get (fun (r, ifd) ->
                      debug "Content-length: %s"
                        (Option.fold ~none:"None" ~some:Int64.to_string
-                          r.Http.Response.content_length) ;
+                          r.Http.Response.content_length
+                       ) ;
                      let put =
                        {
                          put with
@@ -307,18 +318,26 @@ let remote_metadata_export_import ~__context ~rpc ~session_id ~remote_address
                        (SSL
                           ( SSL.make ~use_stunnel_cache:true ()
                           , remote_address
-                          , !Constants.https_port ))
+                          , !Constants.https_port
+                          )
+                       )
                        (with_http put (fun (_, ofd) ->
                             let (n : int64) =
                               Stdext.Unixext.copy_file
                                 ?limit:r.Http.Response.content_length ifd ofd
                             in
-                            debug "Written %Ld bytes" n))))
+                            debug "Written %Ld bytes" n
+                        )
+                       )
+                 )
+                )
             with Xmlrpc_client.Stunnel_connection_failed ->
               raise
                 (Api_errors.Server_error
                    ( Api_errors.tls_connection_failed
-                   , [remote_address; string_of_int !Constants.https_port] ))
+                   , [remote_address; string_of_int !Constants.https_port]
+                   )
+                )
           ) ;
           (* Wait for remote task to succeed or fail *)
           Cli_util.wait_for_task_completion rpc session_id remote_task ;
@@ -326,7 +345,8 @@ let remote_metadata_export_import ~__context ~rpc ~session_id ~remote_address
           | `cancelling | `cancelled ->
               raise
                 (Api_errors.Server_error
-                   (Api_errors.task_cancelled, [Ref.string_of remote_task]))
+                   (Api_errors.task_cancelled, [Ref.string_of remote_task])
+                )
           | `pending ->
               failwith "wait_for_task_completion failed; task is still pending"
           | `failure -> (
@@ -339,7 +359,8 @@ let remote_metadata_export_import ~__context ~rpc ~session_id ~remote_address
               | _ ->
                   failwith
                     (Printf.sprintf "VM metadata import failed: %s"
-                       (String.concat " " error_info))
+                       (String.concat " " error_info)
+                    )
             )
           | `success -> (
               debug "Remote metadata import succeeded" ;
@@ -349,9 +370,12 @@ let remote_metadata_export_import ~__context ~rpc ~session_id ~remote_address
                 raise
                   Api_errors.(
                     Server_error
-                      (field_type_error, [Printexc.to_string parse_error]))
-            ))
-        (fun () -> Client.Task.destroy rpc session_id remote_task))
+                      (field_type_error, [Printexc.to_string parse_error])
+                  )
+            )
+        )
+        (fun () -> Client.Task.destroy rpc session_id remote_task)
+  )
 
 let vdi_of_req ~__context (req : Http.Request.t) =
   let all = req.Http.Request.query @ req.Http.Request.cookie in
@@ -432,7 +456,8 @@ let return_302_redirect (req : Http.Request.t) s address =
   let url =
     Printf.sprintf "https://%s%s?%s" address req.Http.Request.uri
       (String.concat "&"
-         (List.map (fun (a, b) -> a ^ "=" ^ b) req.Http.Request.query))
+         (List.map (fun (a, b) -> a ^ "=" ^ b) req.Http.Request.query)
+      )
   in
   let headers = Http.http_302_redirect url in
   debug "HTTP 302 redirect to: %s" url ;

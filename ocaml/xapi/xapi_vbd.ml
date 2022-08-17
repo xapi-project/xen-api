@@ -109,7 +109,10 @@ let plug ~__context ~self =
                           ^ (Storage_interface.(rpc_of backend) attach_info
                             |> Jsonrpc.to_string
                             )
-                        ] )))
+                        ]
+                      )
+                   )
+                )
         in
         let device_path =
           let prefix = "/dev/" in
@@ -119,14 +122,16 @@ let plug ~__context ~self =
         in
         debug "device path: %s" device_path ;
         Db.VBD.set_device ~__context ~self ~value:device_path ;
-        Db.VBD.set_currently_attached ~__context ~self ~value:true)
+        Db.VBD.set_currently_attached ~__context ~self ~value:true
+    )
   ) else (* CA-83260: prevent HVM guests having readonly disk VBDs *)
     let dev_type = Db.VBD.get_type ~__context ~self in
     let mode = Db.VBD.get_mode ~__context ~self in
     if hvm && dev_type <> `CD && mode = `RO then
       raise
         (Api_errors.Server_error
-           (Api_errors.disk_vbd_must_be_readwrite_for_hvm, [Ref.string_of self])) ;
+           (Api_errors.disk_vbd_must_be_readwrite_for_hvm, [Ref.string_of self])
+        ) ;
     Xapi_xenops.vbd_plug ~__context ~self
 
 let unplug ~__context ~self =
@@ -183,12 +188,15 @@ let create ~__context ~vM ~vDI ~userdevice ~bootable ~mode ~_type ~unpluggable
              ; `metadata
              ; `rrd
              ; `pvs_cache
-             ])
+             ]
+          )
       then
         raise
           (Api_errors.Server_error
              ( Api_errors.vdi_incompatible_type
-             , [Ref.string_of vDI; Record_util.vdi_type_to_string vdi_type] ))
+             , [Ref.string_of vDI; Record_util.vdi_type_to_string vdi_type]
+             )
+          )
   ) ;
   (* All "CD" VBDs must be readonly *)
   if _type = `CD && mode <> `RO then
@@ -197,7 +205,8 @@ let create ~__context ~vM ~vDI ~userdevice ~bootable ~mode ~_type ~unpluggable
   if _type <> `CD && empty then
     raise
       (Api_errors.Server_error
-         (Api_errors.vbd_not_removable_media, ["in constructor"])) ;
+         (Api_errors.vbd_not_removable_media, ["in constructor"])
+      ) ;
   (* Prevent RW VBDs being created pointing to RO VDIs *)
   if mode = `RW && Db.VDI.get_read_only ~__context ~self:vDI then
     raise
@@ -217,7 +226,9 @@ let create ~__context ~vM ~vDI ~userdevice ~bootable ~mode ~_type ~unpluggable
       raise
         (Api_errors.Server_error
            ( Api_errors.other_operation_in_progress
-           , ["VM"; Ref.string_of vM; Record_util.vm_operation_to_string op] ))
+           , ["VM"; Ref.string_of vM; Record_util.vm_operation_to_string op]
+           )
+        )
   | _ ->
       Mutex.execute autodetect_mutex (fun () ->
           let possibilities =
@@ -230,7 +241,9 @@ let create ~__context ~vM ~vDI ~userdevice ~bootable ~mode ~_type ~unpluggable
                 raise
                   (Api_errors.Server_error
                      ( Api_errors.not_implemented
-                     , ["VBD of type 'floppy' is not supported on PV domain"] ))
+                     , ["VBD of type 'floppy' is not supported on PV domain"]
+                     )
+                  )
           in
           if
             (not (valid_device userdevice ~_type))
@@ -267,7 +280,8 @@ let create ~__context ~vM ~vDI ~userdevice ~bootable ~mode ~_type ~unpluggable
           if Listext.List.intersect userdevices existing_devices <> [] then
             raise
               (Api_errors.Server_error
-                 (Api_errors.device_already_exists, [userdevice])) ;
+                 (Api_errors.device_already_exists, [userdevice])
+              ) ;
           (* Make people aware that non-shared disks make VMs not agile *)
           if not empty then
             assert_doesnt_make_vm_non_agile ~__context ~vm:vM ~vdi:vDI ;
@@ -293,7 +307,8 @@ let create ~__context ~vM ~vDI ~userdevice ~bootable ~mode ~_type ~unpluggable
             ~status_code:Int64.zero ~status_detail:"" ~runtime_properties:[]
             ~other_config ~metrics ;
           update_allowed_operations ~__context ~self:ref ;
-          ref)
+          ref
+      )
 
 let destroy ~__context ~self = destroy ~__context ~self
 
@@ -303,7 +318,8 @@ let assert_removable ~__context ~vbd =
   if not (Helpers.is_removable ~__context ~vbd) then
     raise
       (Api_errors.Server_error
-         (Api_errors.vbd_not_removable_media, [Ref.string_of vbd]))
+         (Api_errors.vbd_not_removable_media, [Ref.string_of vbd])
+      )
 
 (** Throws VBD_NOT_EMPTY if the VBD already has a VDI *)
 let assert_empty ~__context ~vbd =
@@ -327,8 +343,7 @@ let assert_not_suspended ~__context ~vm =
     let error_params =
       [Ref.string_of vm; expected; Record_util.power_to_string `Suspended]
     in
-    raise
-      (Api_errors.Server_error (Api_errors.vm_bad_power_state, error_params))
+    raise (Api_errors.Server_error (Api_errors.vm_bad_power_state, error_params))
 
 let assert_ok_to_insert ~__context ~vbd ~vdi =
   let vm = Db.VBD.get_VM ~__context ~self:vbd in

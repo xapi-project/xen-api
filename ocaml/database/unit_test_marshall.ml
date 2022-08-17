@@ -83,7 +83,8 @@ let gen_random_4string () =
   ( gen_random_string ()
   , gen_random_string ()
   , gen_random_string ()
-  , gen_random_string () )
+  , gen_random_string ()
+  )
 
 (* test marshall unmarshall is id *)
 let tm u m x =
@@ -124,7 +125,8 @@ let test_cra_args () =
   tm unmarshall_create_row_args marshall_create_row_args
     ( gen_random_string ()
     , gen_random_list gen_random_2string
-    , gen_random_string () )
+    , gen_random_string ()
+    )
 
 let test_cra_response () =
   tm unmarshall_create_row_response marshall_create_row_response ()
@@ -156,7 +158,8 @@ let test_psf_args () =
     , gen_random_string ()
     , gen_random_string ()
     , gen_random_string ()
-    , gen_random_structured_op () )
+    , gen_random_structured_op ()
+    )
 
 let test_psf_response () =
   tm unmarshall_process_structured_field_response
@@ -170,14 +173,18 @@ let test_readrec_response () =
   tm unmarshall_read_record_response marshall_read_record_response
     ( gen_random_list gen_random_2string
     , gen_random_list (fun () ->
-          (gen_random_string (), gen_random_list gen_random_string)) )
+          (gen_random_string (), gen_random_list gen_random_string)
+      )
+    )
 
 let test_exp =
   And
     ( Eq (Field "asd", Literal "qwe")
     , Or
         ( Eq (Field "asd", Literal "qwe")
-        , And (Eq (Field "asd", Literal "qwe"), Not False) ) )
+        , And (Eq (Field "asd", Literal "qwe"), Not False)
+        )
+    )
 
 let test_find_refs_with_filter_args () =
   tm unmarshall_find_refs_with_filter_args marshall_find_refs_with_filter_args

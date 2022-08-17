@@ -34,14 +34,17 @@ let raise_system_alert (name, priority) body =
            ( try
                ignore
                  (Xapi_message.create ~__context ~name ~priority ~cls:`Pool
-                    ~obj_uuid ~body)
+                    ~obj_uuid ~body
+                 )
              with _ -> ()
            ) ;
            debug "Alert raised"
          ) else
            debug "Not raising alert because Pool.other_config:%s <> true"
-             Xapi_globs.redo_log_alert_key)
-       ())
+             Xapi_globs.redo_log_alert_key
+       )
+       ()
+    )
 
 (* Listen for redo_log events, and raise alerts when they occur. *)
 let loop () =
@@ -60,5 +63,6 @@ let loop () =
             name ;
           raise_system_alert Api_messages.redo_log_broken alert_body
         )
-      done)
+      done
+    )
     ()

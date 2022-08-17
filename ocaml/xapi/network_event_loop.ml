@@ -32,7 +32,8 @@ let _watch_networks_for_nbd_changes __context ~update_firewall
     let from =
       Helpers.call_api_functions ~__context (fun rpc session_id ->
           Client.Client.Event.from ~rpc ~session_id ~classes ~token ~timeout
-          |> Event_types.event_from_of_rpc)
+          |> Event_types.event_from_of_rpc
+      )
     in
     from.Event_types.token
   in
@@ -51,7 +52,8 @@ let _watch_networks_for_nbd_changes __context ~update_firewall
               if List.mem `nbd purpose || List.mem `insecure_nbd purpose then
                 Some network
               else
-                None)
+                None
+            )
             pifs
         in
         let interfaces =
@@ -65,7 +67,8 @@ let _watch_networks_for_nbd_changes __context ~update_firewall
           | Some allowed_interfaces ->
               not
                 (Xapi_stdext_std.Listext.List.set_equiv interfaces
-                   allowed_interfaces)
+                   allowed_interfaces
+                )
           | None ->
               (* We've just started the event loop, and we do not know the state of the firewall. *)
               true
@@ -114,4 +117,5 @@ let update_firewall interfaces_allowed_for_nbd =
 let watch_networks_for_nbd_changes () =
   Server_helpers.exec_with_new_task "watching networks for NBD-related changes"
     (_watch_networks_for_nbd_changes ~update_firewall
-       ~wait_after_event_seconds:5.0 ~wait_after_failure_seconds:5.0)
+       ~wait_after_event_seconds:5.0 ~wait_after_failure_seconds:5.0
+    )

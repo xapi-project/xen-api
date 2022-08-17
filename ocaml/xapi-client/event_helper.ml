@@ -61,17 +61,20 @@ let record_of_event ev =
   | "vm_metrics" ->
       VM_metrics
         ( Ref.of_string ev.Event_types.reference
-        , maybe API.vM_metrics_t_of_rpc rpc )
+        , maybe API.vM_metrics_t_of_rpc rpc
+        )
   | "vm_guest_metrics" ->
       VM_guest_metrics
         ( Ref.of_string ev.Event_types.reference
-        , maybe API.vM_guest_metrics_t_of_rpc rpc )
+        , maybe API.vM_guest_metrics_t_of_rpc rpc
+        )
   | "host" ->
       Host (Ref.of_string ev.Event_types.reference, maybe API.host_t_of_rpc rpc)
   | "host_metrics" ->
       Host_metrics
         ( Ref.of_string ev.Event_types.reference
-        , maybe API.host_metrics_t_of_rpc rpc )
+        , maybe API.host_metrics_t_of_rpc rpc
+        )
   | "host_cpu" ->
       Host_cpu
         (Ref.of_string ev.Event_types.reference, maybe API.host_cpu_t_of_rpc rpc)
@@ -83,13 +86,15 @@ let record_of_event ev =
   | "vif_metrics" ->
       VIF_metrics
         ( Ref.of_string ev.Event_types.reference
-        , maybe API.vIF_metrics_t_of_rpc rpc )
+        , maybe API.vIF_metrics_t_of_rpc rpc
+        )
   | "pif" ->
       PIF (Ref.of_string ev.Event_types.reference, maybe API.pIF_t_of_rpc rpc)
   | "pif_metrics" ->
       PIF_metrics
         ( Ref.of_string ev.Event_types.reference
-        , maybe API.pIF_metrics_t_of_rpc rpc )
+        , maybe API.pIF_metrics_t_of_rpc rpc
+        )
   | "sr" ->
       SR (Ref.of_string ev.Event_types.reference, maybe API.sR_t_of_rpc rpc)
   | "vdi" ->
@@ -99,13 +104,15 @@ let record_of_event ev =
   | "vbd_metrics" ->
       VBD_metrics
         ( Ref.of_string ev.Event_types.reference
-        , maybe API.vBD_metrics_t_of_rpc rpc )
+        , maybe API.vBD_metrics_t_of_rpc rpc
+        )
   | "pbd" ->
       PBD (Ref.of_string ev.Event_types.reference, maybe API.pBD_t_of_rpc rpc)
   | "crashdump" ->
       Crashdump
         ( Ref.of_string ev.Event_types.reference
-        , maybe API.crashdump_t_of_rpc rpc )
+        , maybe API.crashdump_t_of_rpc rpc
+        )
   | "vtpm" ->
       VTPM (Ref.of_string ev.Event_types.reference, maybe API.vTPM_t_of_rpc rpc)
   | "console" ->

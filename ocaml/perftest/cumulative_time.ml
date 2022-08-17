@@ -33,14 +33,18 @@ let _ =
             | "x11" ->
                 format := `X11
             | _ ->
-                failwith "huh ?" )
-      , " Set output format (default: X11)" )
+                failwith "huh ?"
+          )
+      , " Set output format (default: X11)"
+      )
     ; ( "-output"
       , Arg.Set_string graphic_filename
-      , " Set default output file (for non-X11 modes)" )
+      , " Set default output file (for non-X11 modes)"
+      )
     ; ( "-separate"
       , Arg.Set separate_graphs
-      , " Plot each data series on separate axes" )
+      , " Plot each data series on separate axes"
+      )
     ]
     (fun x -> inputs := x :: !inputs)
     "Generate a histogram by convolving sample points with a gaussian.\nusage:" ;
@@ -69,8 +73,11 @@ let _ =
                 cumulative := points_array.(i) +. !cumulative ;
                 Unixext.really_write_string fd
                   (Printf.sprintf "%d %f %f\n" (i + 1) !cumulative
-                     points_array.(i))
-              done))
+                     points_array.(i)
+                  )
+              done
+          )
+        )
         all ;
       (* Plot a line for (a) elapsed time and (b) this particular duration *)
       let ls =
@@ -102,8 +109,10 @@ let _ =
                  ; scale= 1.
                  ; style= "lines"
                  }
-               ])
-             all)
+               ]
+             )
+             all
+          )
       in
       List.iter
         (fun result ->
@@ -124,12 +133,14 @@ let _ =
             | `Eps ->
                 Gnuplot.Ps (Printf.sprintf "%s-%s.eps" !graphic_filename result)
             | `Gif ->
-                Gnuplot.Gif
-                  (Printf.sprintf "%s-%s.gif" !graphic_filename result)
+                Gnuplot.Gif (Printf.sprintf "%s-%s.gif" !graphic_filename result)
             | `X11 ->
                 Gnuplot.X11
           in
-          ignore (Gnuplot.render g output))
-        (get_result_types inputs))
+          ignore (Gnuplot.render g output)
+        )
+        (get_result_types inputs)
+    )
     (fun () ->
-      List.iter (fun f -> Xapi_stdext_unix.Unixext.unlink_safe f) output_files)
+      List.iter (fun f -> Xapi_stdext_unix.Unixext.unlink_safe f) output_files
+    )

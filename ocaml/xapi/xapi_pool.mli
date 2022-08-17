@@ -203,7 +203,8 @@ val call_fn_on_host :
   -> (   rpc:(Rpc.call -> Rpc.response)
       -> session_id:API.ref_session
       -> host:'a Ref.t
-      -> 'b)
+      -> 'b
+     )
   -> 'a Ref.t
   -> 'b
 

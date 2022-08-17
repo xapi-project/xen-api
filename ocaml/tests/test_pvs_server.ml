@@ -25,7 +25,8 @@ let test_unlicensed () =
     (fun () ->
       Xapi_pvs_server.introduce ~__context ~addresses ~first_port ~last_port
         ~site:valid_site
-      |> ignore)
+      |> ignore
+    )
 
 let test_introduce_ok () =
   let addresses = ["10.80.12.34"] in
@@ -91,7 +92,8 @@ let test_introduce_invalid_address () =
     (fun () ->
       Xapi_pvs_server.introduce ~__context ~addresses ~first_port ~last_port
         ~site:valid_site
-      |> ignore)
+      |> ignore
+    )
 
 let test_introduce_invalid_site () =
   let addresses = ["10.80.12.34"] in
@@ -101,11 +103,13 @@ let test_introduce_invalid_site () =
   let invalid_site = Ref.make () in
   Alcotest.check_raises "test_introduce_invalid_site"
     Api_errors.(
-      Server_error (invalid_value, ["site"; Ref.string_of invalid_site]))
+      Server_error (invalid_value, ["site"; Ref.string_of invalid_site])
+    )
     (fun () ->
       Xapi_pvs_server.introduce ~__context ~addresses ~first_port ~last_port
         ~site:invalid_site
-      |> ignore)
+      |> ignore
+    )
 
 let test_introduce_invalid_low_port () =
   let addresses = ["10.80.12.34"] in
@@ -116,11 +120,13 @@ let test_introduce_invalid_low_port () =
   Alcotest.check_raises "test_introduce_invalid_low_port"
     Api_errors.(
       Server_error
-        (value_not_supported, ["first_port"; "-5"; "Port out of range"]))
+        (value_not_supported, ["first_port"; "-5"; "Port out of range"])
+    )
     (fun () ->
       Xapi_pvs_server.introduce ~__context ~addresses ~first_port ~last_port
         ~site:valid_site
-      |> ignore)
+      |> ignore
+    )
 
 let test_introduce_invalid_high_port () =
   let addresses = ["10.80.12.34"] in
@@ -131,11 +137,13 @@ let test_introduce_invalid_high_port () =
   Alcotest.check_raises "test_introduce_invalid_high_port"
     Api_errors.(
       Server_error
-        (value_not_supported, ["last_port"; "345678"; "Port out of range"]))
+        (value_not_supported, ["last_port"; "345678"; "Port out of range"])
+    )
     (fun () ->
       Xapi_pvs_server.introduce ~__context ~addresses ~first_port ~last_port
         ~site:valid_site
-      |> ignore)
+      |> ignore
+    )
 
 let test_introduce_invalid_ports () =
   let addresses = ["10.80.12.34"] in
@@ -147,11 +155,14 @@ let test_introduce_invalid_ports () =
     Api_errors.(
       Server_error
         ( value_not_supported
-        , ["last_port"; "1234"; "last_port smaller than first_port"] ))
+        , ["last_port"; "1234"; "last_port smaller than first_port"]
+        )
+    )
     (fun () ->
       Xapi_pvs_server.introduce ~__context ~addresses ~first_port ~last_port
         ~site:valid_site
-      |> ignore)
+      |> ignore
+    )
 
 let test_forget () =
   let addresses = ["10.80.12.34"] in
@@ -194,16 +205,19 @@ let test =
   ; ("test_introduce_ok", `Quick, test_introduce_ok)
   ; ( "test_introduce_duplicate_addresses"
     , `Quick
-    , test_introduce_duplicate_addresses )
+    , test_introduce_duplicate_addresses
+    )
   ; ( "test_introduce_multiple_addresses"
     , `Quick
-    , test_introduce_multiple_addresses )
+    , test_introduce_multiple_addresses
+    )
   ; ("test_introduce_invalid_address", `Quick, test_introduce_invalid_address)
   ; ("test_introduce_invalid_site", `Quick, test_introduce_invalid_site)
   ; ("test_introduce_invalid_low_port", `Quick, test_introduce_invalid_low_port)
   ; ( "test_introduce_invalid_high_port"
     , `Quick
-    , test_introduce_invalid_high_port )
+    , test_introduce_invalid_high_port
+    )
   ; ("test_introduce_invalid_ports", `Quick, test_introduce_invalid_ports)
   ; ("test_gc", `Quick, test_gc)
   ; ("test_forget", `Quick, test_forget)

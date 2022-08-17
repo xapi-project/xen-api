@@ -34,7 +34,8 @@ let assert_raises_api_error msg expected_error f =
 let test_can_run_VGPU_succeeds_empty_pgpu () =
   on_host_with_k2 (fun __context p ->
       let vgpu = VGPU_T.(make_vgpu ~__context k260q) in
-      Xapi_pgpu.assert_can_run_VGPU ~__context ~self:p ~vgpu)
+      Xapi_pgpu.assert_can_run_VGPU ~__context ~self:p ~vgpu
+  )
 
 let test_can_run_VGPU_succeeds_enabled_types () =
   on_host_with_k2 (fun __context p ->
@@ -44,7 +45,9 @@ let test_can_run_VGPU_succeeds_enabled_types () =
       ignore
         (List.map
            (fun vgpu -> Xapi_pgpu.assert_can_run_VGPU ~__context ~self:p ~vgpu)
-           vgpus))
+           vgpus
+        )
+  )
 
 let test_can_run_VGPU_succeeds_same_type () =
   on_host_with_k2 (fun __context p ->
@@ -52,7 +55,8 @@ let test_can_run_VGPU_succeeds_same_type () =
         VGPU_T.(make_vgpu ~__context ~resident_on:p k260q)
       in
       let vgpu = VGPU_T.(make_vgpu ~__context k260q) in
-      Xapi_pgpu.assert_can_run_VGPU ~__context ~self:p ~vgpu)
+      Xapi_pgpu.assert_can_run_VGPU ~__context ~self:p ~vgpu
+  )
 
 let test_can_run_VGPU_fails_unsupported_types () =
   on_host_with_k2 (fun __context p ->
@@ -62,8 +66,12 @@ let test_can_run_VGPU_fails_unsupported_types () =
            (fun vgpu ->
              assert_raises_api_error "test_can_run_VGPU_fails_unsupported_types"
                Api_errors.vgpu_type_not_supported (fun () ->
-                 Xapi_pgpu.assert_can_run_VGPU ~__context ~self:p ~vgpu))
-           vgpus))
+                 Xapi_pgpu.assert_can_run_VGPU ~__context ~self:p ~vgpu
+             )
+           )
+           vgpus
+        )
+  )
 
 let test_can_run_VGPU_fails_disabled_type () =
   on_host_with_k2 (fun __context p ->
@@ -72,7 +80,9 @@ let test_can_run_VGPU_fails_disabled_type () =
       Db.PGPU.remove_enabled_VGPU_types ~__context ~self:p ~value:vgpu_type ;
       assert_raises_api_error "test_can_run_VGPU_fails_disabled_type"
         Api_errors.vgpu_type_not_enabled (fun () ->
-          Xapi_pgpu.assert_can_run_VGPU ~__context ~self:p ~vgpu))
+          Xapi_pgpu.assert_can_run_VGPU ~__context ~self:p ~vgpu
+      )
+  )
 
 let test_can_run_VGPU_fails_different_type () =
   on_host_with_k2 (fun __context p ->
@@ -82,7 +92,9 @@ let test_can_run_VGPU_fails_different_type () =
       let vgpu = VGPU_T.(make_vgpu ~__context k240q) in
       assert_raises_api_error "test_can_run_VGPU_fails_different_type"
         Api_errors.vgpu_type_not_compatible_with_running_type (fun () ->
-          Xapi_pgpu.assert_can_run_VGPU ~__context ~self:p ~vgpu))
+          Xapi_pgpu.assert_can_run_VGPU ~__context ~self:p ~vgpu
+      )
+  )
 
 let test_can_run_VGPU_fails_no_capacity () =
   on_host_with_k2 (fun __context p ->
@@ -94,7 +106,9 @@ let test_can_run_VGPU_fails_no_capacity () =
       let vgpu = VGPU_T.(make_vgpu ~__context k260q) in
       assert_raises_api_error "test_can_run_VGPU_fails_no_capacity"
         Api_errors.pgpu_insufficient_capacity_for_vgpu (fun () ->
-          Xapi_pgpu.assert_can_run_VGPU ~__context ~self:p ~vgpu))
+          Xapi_pgpu.assert_can_run_VGPU ~__context ~self:p ~vgpu
+      )
+  )
 
 (*--- Xapi_pgpu.get_remaining_capacity tests ---*)
 
@@ -108,14 +122,17 @@ let expected_capacities = VGPU_T.[(k200, 8L); (k240q, 4L); (k260q, 2L)]
 
 let test_remaining_capacity_unsupported_types () =
   on_host_with_k2 (fun __context p ->
-      ignore (List.map (check_capacity_is ~__context 0L p) VGPU_T.[k100; k140q]))
+      ignore (List.map (check_capacity_is ~__context 0L p) VGPU_T.[k100; k140q])
+  )
 
 let test_remaining_capacity_supported_types () =
   on_host_with_k2 (fun __context p ->
       ignore
         (List.map
            (fun (v, c) -> check_capacity_is ~__context c p v)
-           expected_capacities))
+           expected_capacities
+        )
+  )
 
 let test_remaining_capacity_decreases () =
   on_host_with_k2 (fun __context _ ->
@@ -130,15 +147,19 @@ let test_remaining_capacity_decreases () =
         (List.map
            (fun (vgpu_type, capacity) ->
              let p = VGPU_T.(make_pgpu ~__context default_k2) in
-             check_remaining_capacity_and_fill p capacity vgpu_type)
-           expected_capacities))
+             check_remaining_capacity_and_fill p capacity vgpu_type
+           )
+           expected_capacities
+        )
+  )
 
 (*--- Xapi_pgpu.set_GPU_group ---*)
 
 let test_set_GPU_group_succeeds_empty_pgpu () =
   on_host_with_k2 (fun __context p ->
       let group_ref = T.make_gpu_group ~__context () in
-      Xapi_pgpu.set_GPU_group ~__context ~self:p ~value:group_ref)
+      Xapi_pgpu.set_GPU_group ~__context ~self:p ~value:group_ref
+  )
 
 let test_set_GPU_group_succeeds_orphan_vgpu () =
   (* This is OK since vGPUs can be created on empty GPU groups *)
@@ -148,7 +169,8 @@ let test_set_GPU_group_succeeds_orphan_vgpu () =
       in
       Xapi_pgpu.set_GPU_group ~__context ~self:p ~value:group ;
       let (_ : API.ref_VGPU) = T.make_vgpu ~__context ~gPU_group:group () in
-      Xapi_pgpu.set_GPU_group ~__context ~self:p ~value:group')
+      Xapi_pgpu.set_GPU_group ~__context ~self:p ~value:group'
+  )
 
 let test_set_GPU_group_fails_resident_vgpu () =
   on_host_with_k2 (fun __context p ->
@@ -159,57 +181,72 @@ let test_set_GPU_group_fails_resident_vgpu () =
       ignore VGPU_T.(make_vgpu ~__context ~resident_on:p k200) ;
       assert_raises_api_error "test_set_GPU_group_fails_resident_vgpu"
         Api_errors.pgpu_in_use_by_vm (fun () ->
-          Xapi_pgpu.set_GPU_group ~__context ~self:p ~value:group'))
+          Xapi_pgpu.set_GPU_group ~__context ~self:p ~value:group'
+      )
+  )
 
 let test_can_run_vgpu =
   [
     ( "test_can_run_VGPU_succeeds_empty_pgpu"
     , `Quick
-    , test_can_run_VGPU_succeeds_empty_pgpu )
+    , test_can_run_VGPU_succeeds_empty_pgpu
+    )
   ; ( "test_can_run_VGPU_succeeds_enabled_types"
     , `Quick
-    , test_can_run_VGPU_succeeds_enabled_types )
+    , test_can_run_VGPU_succeeds_enabled_types
+    )
   ; ( "test_can_run_VGPU_succeeds_same_type"
     , `Quick
-    , test_can_run_VGPU_succeeds_same_type )
+    , test_can_run_VGPU_succeeds_same_type
+    )
   ; ( "test_can_run_VGPU_fails_unsupported_types"
     , `Quick
-    , test_can_run_VGPU_fails_unsupported_types )
+    , test_can_run_VGPU_fails_unsupported_types
+    )
   ; ( "test_can_run_VGPU_fails_disabled_type"
     , `Quick
-    , test_can_run_VGPU_fails_disabled_type )
+    , test_can_run_VGPU_fails_disabled_type
+    )
   ; ( "test_can_run_VGPU_fails_different_type"
     , `Quick
-    , test_can_run_VGPU_fails_different_type )
+    , test_can_run_VGPU_fails_different_type
+    )
   ; ( "test_can_run_VGPU_fails_no_capacity"
     , `Quick
-    , test_can_run_VGPU_fails_no_capacity )
+    , test_can_run_VGPU_fails_no_capacity
+    )
   ]
 
 let test_remaining_capacity =
   [
     ( "test_remaining_capacity_unsupported_types"
     , `Quick
-    , test_remaining_capacity_unsupported_types )
+    , test_remaining_capacity_unsupported_types
+    )
   ; ( "test_remaining_capacity_supported_types"
     , `Quick
-    , test_remaining_capacity_supported_types )
+    , test_remaining_capacity_supported_types
+    )
   ; ( "test_remaining_capacity_decreases"
     , `Quick
-    , test_remaining_capacity_decreases )
+    , test_remaining_capacity_decreases
+    )
   ]
 
 let test_set_GPU_group =
   [
     ( "test_set_GPU_group_succeeds_empty_pgpu"
     , `Quick
-    , test_set_GPU_group_succeeds_empty_pgpu )
+    , test_set_GPU_group_succeeds_empty_pgpu
+    )
   ; ( "test_set_GPU_group_succeeds_orphan_vgpu"
     , `Quick
-    , test_set_GPU_group_succeeds_orphan_vgpu )
+    , test_set_GPU_group_succeeds_orphan_vgpu
+    )
   ; ( "test_set_GPU_group_fails_resident_vgpu"
     , `Quick
-    , test_set_GPU_group_fails_resident_vgpu )
+    , test_set_GPU_group_fails_resident_vgpu
+    )
   ]
 
 let test = test_can_run_vgpu @ test_remaining_capacity @ test_set_GPU_group

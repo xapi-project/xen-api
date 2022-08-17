@@ -37,7 +37,8 @@ let lspci_nnnDv pci_access =
       | None ->
           ()
       ) ;
-      print_endline "")
+      print_endline ""
+    )
     devs ;
   ( match devs with
   | [] ->

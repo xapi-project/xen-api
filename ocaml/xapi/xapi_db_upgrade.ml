@@ -43,61 +43,75 @@ let apply_upgrade_rules ~__context rules previous_version =
       try r.fn ~__context
       with exn ->
         error "Database upgrade rule '%s' failed: %s" r.description
-          (Printexc.to_string exn))
+          (Printexc.to_string exn)
+    )
     required_rules
 
 let george =
   ( Datamodel_common.george_release_schema_major_vsn
-  , Datamodel_common.george_release_schema_minor_vsn )
+  , Datamodel_common.george_release_schema_minor_vsn
+  )
 
 let cowley =
   ( Datamodel_common.cowley_release_schema_major_vsn
-  , Datamodel_common.cowley_release_schema_minor_vsn )
+  , Datamodel_common.cowley_release_schema_minor_vsn
+  )
 
 let boston =
   ( Datamodel_common.boston_release_schema_major_vsn
-  , Datamodel_common.boston_release_schema_minor_vsn )
+  , Datamodel_common.boston_release_schema_minor_vsn
+  )
 
 let tampa =
   ( Datamodel_common.tampa_release_schema_major_vsn
-  , Datamodel_common.tampa_release_schema_minor_vsn )
+  , Datamodel_common.tampa_release_schema_minor_vsn
+  )
 
 let clearwater =
   ( Datamodel_common.clearwater_release_schema_major_vsn
-  , Datamodel_common.clearwater_release_schema_minor_vsn )
+  , Datamodel_common.clearwater_release_schema_minor_vsn
+  )
 
 let creedence =
   ( Datamodel_common.creedence_release_schema_major_vsn
-  , Datamodel_common.creedence_release_schema_minor_vsn )
+  , Datamodel_common.creedence_release_schema_minor_vsn
+  )
 
 let cream =
   ( Datamodel_common.cream_release_schema_major_vsn
-  , Datamodel_common.cream_release_schema_minor_vsn )
+  , Datamodel_common.cream_release_schema_minor_vsn
+  )
 
 let dundee =
   ( Datamodel_common.dundee_release_schema_major_vsn
-  , Datamodel_common.dundee_release_schema_minor_vsn )
+  , Datamodel_common.dundee_release_schema_minor_vsn
+  )
 
 let ely =
   ( Datamodel_common.ely_release_schema_major_vsn
-  , Datamodel_common.ely_release_schema_minor_vsn )
+  , Datamodel_common.ely_release_schema_minor_vsn
+  )
 
 let falcon =
   ( Datamodel_common.falcon_release_schema_major_vsn
-  , Datamodel_common.falcon_release_schema_minor_vsn )
+  , Datamodel_common.falcon_release_schema_minor_vsn
+  )
 
 let inverness =
   ( Datamodel_common.inverness_release_schema_major_vsn
-  , Datamodel_common.inverness_release_schema_minor_vsn )
+  , Datamodel_common.inverness_release_schema_minor_vsn
+  )
 
 let jura =
   ( Datamodel_common.jura_release_schema_major_vsn
-  , Datamodel_common.jura_release_schema_minor_vsn )
+  , Datamodel_common.jura_release_schema_minor_vsn
+  )
 
 (* This is to support upgrade from Dundee tech-preview versions *)
 let vsn_with_meaningful_has_vendor_device =
   ( Datamodel_common.meaningful_vm_has_vendor_device_schema_major_vsn
-  , Datamodel_common.meaningful_vm_has_vendor_device_schema_minor_vsn )
+  , Datamodel_common.meaningful_vm_has_vendor_device_schema_minor_vsn
+  )
 
 let upgrade_alert_priority =
   {
@@ -129,8 +143,10 @@ let upgrade_alert_priority =
                 )
             with e ->
               warn "Update message %s failed due to exception %s"
-                (Ref.string_of r) (Printexc.to_string e))
-          alert_refs)
+                (Ref.string_of r) (Printexc.to_string e)
+          )
+          alert_refs
+      )
   }
 
 let update_mail_min_priority =
@@ -171,8 +187,10 @@ let update_mail_min_priority =
                    pool: %s, remove to reset"
                   (Printexc.to_string e) ;
                 Db.Pool.remove_from_other_config ~__context ~self ~key
-            ))
-          (Db.Pool.get_all ~__context))
+            )
+          )
+          (Db.Pool.get_all ~__context)
+      )
   }
 
 let upgrade_vm_memory_overheads =
@@ -183,7 +201,8 @@ let upgrade_vm_memory_overheads =
       (fun ~__context ->
         List.iter
           (fun vm -> Xapi_vm_helpers.update_memory_overhead ~__context ~vm)
-          (Db.VM.get_all ~__context))
+          (Db.VM.get_all ~__context)
+      )
   }
 
 let upgrade_wlb_configuration =
@@ -208,7 +227,8 @@ let upgrade_wlb_configuration =
           else
             Xapi_secret.create ~__context ~value:old_wlb_pwd ~other_config:[]
         in
-        Db.Pool.set_wlb_password ~__context ~self:pool ~value:wlb_passwd_ref)
+        Db.Pool.set_wlb_password ~__context ~self:pool ~value:wlb_passwd_ref
+      )
   }
 
 (** On upgrade to the first ballooning-enabled XenServer, we reset memory
@@ -270,7 +290,8 @@ let upgrade_vm_memory_for_dmc =
             Db.VM.set_memory_static_max ~__context ~self:vm_ref
               ~value:safe_constraints.VMC.static_max
         in
-        List.iter update_vm (Db.VM.get_all_records ~__context))
+        List.iter update_vm (Db.VM.get_all_records ~__context)
+      )
   }
 
 (* GEORGE OEM -> BODIE/MNR *)
@@ -307,7 +328,8 @@ let upgrade_bios_strings =
         let update_vms bios_strings =
           List.iter
             (fun self ->
-              Db.VM.set_bios_strings ~__context ~self ~value:bios_strings)
+              Db.VM.set_bios_strings ~__context ~self ~value:bios_strings
+            )
             (Db.VM.get_all ~__context)
         in
         match oem_manufacturer with
@@ -323,7 +345,8 @@ let upgrade_bios_strings =
         | None ->
             info "Upgrade from retail edition." ;
             debug "Using generic BIOS strings" ;
-            update_vms Constants.generic_bios_strings)
+            update_vms Constants.generic_bios_strings
+      )
   }
 
 let update_snapshots =
@@ -357,7 +380,8 @@ let update_snapshots =
           in
           aux (ordered_snapshots @ [self])
         in
-        List.iter update_snapshots all_vms)
+        List.iter update_snapshots all_vms
+      )
   }
 
 (* Upgrade the old guest installer network *)
@@ -388,8 +412,10 @@ let upgrade_guest_installer_network =
                 ~value:Create_networks.internal_management_network_oc ;
               Db.Network.set_bridge ~__context ~self
                 ~value:Create_networks.internal_management_bridge
-            ))
-          (Db.Network.get_all ~__context))
+            )
+          )
+          (Db.Network.get_all ~__context)
+      )
   }
 
 (* COWLEY -> BOSTON *)
@@ -405,7 +431,8 @@ let upgrade_vdi_types =
           if vdi_type = `metadata then
             Db.VDI.set_type ~__context ~self:vdi ~value:`redo_log
         in
-        List.iter update_vdi all_vdis)
+        List.iter update_vdi all_vdis
+      )
   }
 
 let upgrade_ha_restart_priority =
@@ -435,7 +462,8 @@ let upgrade_ha_restart_priority =
           Db.VM.set_ha_restart_priority ~__context ~self:vm ~value:new_priority ;
           Db.VM.set_order ~__context ~self:vm ~value:new_order
         in
-        List.iter update_vm all_vms)
+        List.iter update_vm all_vms
+      )
   }
 
 (* To deal with the removal of the "Auto-start on server boot" feature in Boston, *)
@@ -463,7 +491,8 @@ let upgrade_auto_poweron =
             Db.VM.set_ha_restart_priority ~__context ~self:vm
               ~value:Constants.ha_restart_best_effort
         in
-        List.iter update_vm all_vms)
+        List.iter update_vm all_vms
+      )
   }
 
 let upgrade_pif_metrics =
@@ -477,7 +506,8 @@ let upgrade_pif_metrics =
           List.filter
             (fun self ->
               Db.PIF.get_physical ~__context ~self
-              || Db.PIF.get_bond_master_of ~__context ~self <> [])
+              || Db.PIF.get_bond_master_of ~__context ~self <> []
+            )
             pifs
         in
         List.iter
@@ -499,9 +529,12 @@ let upgrade_pif_metrics =
                 if metrics <> rc.API.pIF_metrics then (
                   Db.PIF.set_metrics ~__context ~self ~value:rc.API.pIF_metrics ;
                   Db.PIF_metrics.destroy ~__context ~self:metrics
-                ))
-              (vlan_pifs @ tunnel_pifs))
-          phy_and_bond_pifs)
+                )
+              )
+              (vlan_pifs @ tunnel_pifs)
+          )
+          phy_and_bond_pifs
+      )
   }
 
 let remove_vmpp =
@@ -518,12 +551,16 @@ let remove_vmpp =
             ~expr:
               (Not
                  (Eq
-                    (Field "protection_policy", Literal (Ref.string_of Ref.null))))
+                    (Field "protection_policy", Literal (Ref.string_of Ref.null))
+                 )
+              )
         in
         List.iter
           (fun self ->
-            Db.VM.set_protection_policy ~__context ~self ~value:Ref.null)
-          vms)
+            Db.VM.set_protection_policy ~__context ~self ~value:Ref.null
+          )
+          vms
+      )
   }
 
 let add_default_pif_properties =
@@ -534,7 +571,8 @@ let add_default_pif_properties =
       (fun ~__context ->
         List.iter
           (fun self -> Xapi_pif.set_default_properties ~__context ~self)
-          (Db.PIF.get_all ~__context))
+          (Db.PIF.get_all ~__context)
+      )
   }
 
 let default_has_vendor_device_false =
@@ -544,9 +582,9 @@ let default_has_vendor_device_false =
   ; fn=
       (fun ~__context ->
         List.iter
-          (fun self ->
-            Db.VM.set_has_vendor_device ~__context ~self ~value:false)
-          (Db.VM.get_all ~__context))
+          (fun self -> Db.VM.set_has_vendor_device ~__context ~self ~value:false)
+          (Db.VM.get_all ~__context)
+      )
   }
 
 let default_pv_drivers_detected_false =
@@ -559,8 +597,10 @@ let default_pv_drivers_detected_false =
           (fun self ->
             let gm = Db.VM.get_guest_metrics ~__context ~self in
             Db.VM_guest_metrics.set_PV_drivers_detected ~__context ~self:gm
-              ~value:false)
-          (Db.VM.get_all ~__context))
+              ~value:false
+          )
+          (Db.VM.get_all ~__context)
+      )
   }
 
 let populate_pgpu_vgpu_types =
@@ -586,8 +626,10 @@ let populate_pgpu_vgpu_types =
             Db.PGPU.set_supported_VGPU_types ~__context ~self:pgpu
               ~value:supported_vgpu_types ;
             Db.PGPU.set_enabled_VGPU_types ~__context ~self:pgpu
-              ~value:supported_vgpu_types)
-          pgpus)
+              ~value:supported_vgpu_types
+          )
+          pgpus
+      )
   }
 
 let set_vgpu_types =
@@ -603,8 +645,10 @@ let set_vgpu_types =
         in
         List.iter
           (fun vgpu ->
-            Db.VGPU.set_type ~__context ~self:vgpu ~value:passthrough_vgpu_type)
-          vgpus)
+            Db.VGPU.set_type ~__context ~self:vgpu ~value:passthrough_vgpu_type
+          )
+          vgpus
+      )
   }
 
 let remove_restricted_pbd_keys =
@@ -617,8 +661,10 @@ let remove_restricted_pbd_keys =
           (fun self ->
             let dc = Db.PBD.get_device_config ~__context ~self in
             let dc' = List.filter (fun (k, _) -> k <> "SRmaster") dc in
-            Db.PBD.set_device_config ~__context ~self ~value:dc')
-          (Db.PBD.get_all ~__context))
+            Db.PBD.set_device_config ~__context ~self ~value:dc'
+          )
+          (Db.PBD.get_all ~__context)
+      )
   }
 
 let upgrade_recommendations_for_gpu_passthru =
@@ -664,12 +710,15 @@ let upgrade_recommendations_for_gpu_passthru =
                         , [
                             (("", "field"), "allow-gpu-passthrough")
                           ; (("", "value"), "1")
-                          ] )) ;
+                          ]
+                        )
+                        ) ;
                     Xmlm.output o
                       (`El_start
                         ( ("", name)
                         , [(("", "field"), "allow-vgpu"); (("", "value"), "0")]
-                        )) ;
+                        )
+                        ) ;
                     updated := true
                   ) else
                     Xmlm.output o el ;
@@ -688,8 +737,10 @@ let upgrade_recommendations_for_gpu_passthru =
                   ~value:(Buffer.contents ob)
             with _ ->
               (* Ignore any errors while parsing the recommendations XML. The upgrade is "best effort". *)
-              ())
-          (Db.VM.get_all ~__context))
+              ()
+          )
+          (Db.VM.get_all ~__context)
+      )
   }
 
 let upgrade_vswitch_controller =
@@ -704,7 +755,9 @@ let upgrade_vswitch_controller =
           if address <> "" then
             ignore
               (Xapi_sdn_controller.introduce ~__context ~protocol:`ssl ~address
-                 ~port:6632L))
+                 ~port:6632L
+              )
+      )
   }
 
 let upgrade_vm_platform_device_model =
@@ -719,8 +772,10 @@ let upgrade_vm_platform_device_model =
     @@ SExpr.Node
          (List.map
             (fun (key, value) ->
-              SExpr.Node [SExpr.String key; SExpr.String value])
-            assoc)
+              SExpr.Node [SExpr.String key; SExpr.String value]
+            )
+            assoc
+         )
   in
   let upgrade_metadata ~__context domain_type assoc =
     let upgrade = function
@@ -729,7 +784,8 @@ let upgrade_vm_platform_device_model =
           , string_to_assoc str
             |> Xapi_vm_helpers.ensure_device_model_profile_present ~__context
                  ~domain_type ~is_a_template:false
-            |> assoc_to_string )
+            |> assoc_to_string
+          )
       | other ->
           other
     in
@@ -759,7 +815,9 @@ let upgrade_vm_platform_device_model =
                |> upgrade_metadata ~__context domain_type
                |> assoc_to_string
                |> fun value ->
-               Db.VM.set_snapshot_metadata ~__context ~self:vm ~value))
+               Db.VM.set_snapshot_metadata ~__context ~self:vm ~value
+           )
+      )
   }
 
 let upgrade_domain_type =
@@ -785,8 +843,10 @@ let upgrade_domain_type =
                    we'll calculate incorrectly here. This should be a vanishingly small probability though! *)
                 Db.VM_metrics.set_current_domain_type ~__context ~self:metrics
                   ~value:domain_type
-            ))
-          (Db.VM.get_all_records ~__context))
+            )
+          )
+          (Db.VM.get_all_records ~__context)
+      )
   }
 
 let upgrade_cluster_timeouts =
@@ -805,7 +865,9 @@ let upgrade_cluster_timeouts =
                update_milliseconds Db.Cluster.get_token_timeout
                  Db.Cluster.set_token_timeout ;
                update_milliseconds Db.Cluster.get_token_timeout_coefficient
-                 Db.Cluster.set_token_timeout_coefficient))
+                 Db.Cluster.set_token_timeout_coefficient
+           )
+      )
   }
 
 let upgrade_secrets =
@@ -821,7 +883,9 @@ let upgrade_secrets =
                  Xapi_secret.move_passwds_to_secrets ~__context dconf
                in
                if dconf <> new_dconf then
-                 Db.PBD.set_device_config ~__context ~self ~value:new_dconf))
+                 Db.PBD.set_device_config ~__context ~self ~value:new_dconf
+           )
+      )
   }
 
 let remove_legacy_ssl_support =
@@ -834,7 +898,9 @@ let remove_legacy_ssl_support =
       (fun ~__context ->
         Db.Host.get_all ~__context
         |> List.iter (fun self ->
-               Db.Host.set_ssl_legacy ~__context ~self ~value:false))
+               Db.Host.set_ssl_legacy ~__context ~self ~value:false
+           )
+      )
   }
 
 let rules =
@@ -897,7 +963,9 @@ let maybe_upgrade ~__context =
     Db_ref.update_database db_ref
       ((Db_cache_types.Database.update_manifest
        ++ Db_cache_types.Manifest.update_schema
-       ) (fun _ -> Some (latest_major_vsn, latest_minor_vsn)))
+       ) (fun _ -> Some (latest_major_vsn, latest_minor_vsn)
+       )
+      )
   ) else
     debug "Database schemas match, no upgrade required"
 

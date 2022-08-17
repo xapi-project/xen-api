@@ -230,7 +230,8 @@ let host_compute_free_memory_with_maximum_compression ?(dump_stats = false)
           else
             "scheduled to be resident here"
           )
-          reqd (mib reqd))
+          reqd (mib reqd)
+      )
       (summary.scheduled @ summary.resident) ;
     debug "Memory_check: available memory: %Ld (%Ld MiB)" host_mem_available
       (mib host_mem_available)

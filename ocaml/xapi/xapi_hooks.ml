@@ -74,7 +74,8 @@ let execute_hook ~__context ~script_name ~args ~reason =
         ignore
           (Forkhelpers.execute_command_get_output
              (Filename.concat script_dir script)
-             args)
+             args
+          )
       with
       | Forkhelpers.Spawn_internal_error (_, stdout, Unix.WEXITED i)
       (* i<>0 since that case does not generate exn *)
@@ -87,7 +88,9 @@ let execute_hook ~__context ~script_name ~args ~reason =
             (Api_errors.Server_error
                ( Api_errors.xapi_hook_failed
                , [script_name ^ "/" ^ script; reason; stdout; string_of_int i]
-               )))
+               )
+            )
+    )
     scripts
 
 let execute_vm_hook ~__context ~reason ~vm =
@@ -114,9 +117,11 @@ let host_pre_declare_dead ~__context ~host ~reason =
             info "Declaring cluster host %s as permanently dead"
               (Ref.string_of self) ;
             Helpers.call_api_functions ~__context (fun rpc session_id ->
-                Client.Client.Cluster_host.forget ~rpc ~session_id ~self)
+                Client.Client.Cluster_host.forget ~rpc ~session_id ~self
+            )
         | None ->
-            ())
+            ()
+    )
 
 (* Called when host died -- !! hook code in here to abort outstanding forwarded ops *)
 let internal_host_dead_hook __context host =
@@ -132,7 +137,8 @@ let internal_host_dead_hook __context host =
       let resources =
         Locking_helpers.Thread_state.get_acquired_resources_by_task task
       in
-      List.iter Locking_helpers.kill_resource resources)
+      List.iter Locking_helpers.kill_resource resources
+    )
     forwarded_tasks
 
 let host_post_declare_dead ~__context ~host ~reason =

@@ -34,10 +34,12 @@ module Hist = struct
     {
       bin_start=
         Array.init n (fun i ->
-            (range /. float_of_int n *. float_of_int i) +. min)
+            (range /. float_of_int n *. float_of_int i) +. min
+        )
     ; bin_end=
         Array.init n (fun i ->
-            (range /. float_of_int n *. float_of_int (i + 1)) +. min)
+            (range /. float_of_int n *. float_of_int (i + 1)) +. min
+        )
     ; bin_count= Array.init n (fun _ -> 0.)
     }
 
@@ -66,7 +68,8 @@ module Hist = struct
   let fold (x : t) (f : float -> float -> float -> 'a -> 'a) (init : 'a) =
     let acc = ref init in
     iter x (fun bin_start bin_end height ->
-        acc := f bin_start bin_end height !acc) ;
+        acc := f bin_start bin_end height !acc
+    ) ;
     !acc
 
   (** Write output to a file descriptor in gnuplot format *)
@@ -75,7 +78,8 @@ module Hist = struct
         let center = (bin_start +. bin_end) /. 2.0 in
         let line = Printf.sprintf "%f %f\n" center height |> Bytes.of_string in
         let (_ : int) = Unix.write fd line 0 (Bytes.length line) in
-        ())
+        ()
+    )
 
   exception Stop
 
@@ -111,7 +115,8 @@ module Hist = struct
               if height > y then
                 Some ((bin_start +. bin_end) /. 2.) (* no interpolation *)
               else
-                None)
+                None
+        )
         None
     with
     | Some x ->

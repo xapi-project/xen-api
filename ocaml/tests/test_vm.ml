@@ -96,7 +96,8 @@ module VMSetBiosStrings = Generic.MakeStateful (struct
   let update_list dl nl =
     List.map
       (fun (k, v) ->
-        if List.mem_assoc k nl then (k, List.assoc k nl) else (k, v))
+        if List.mem_assoc k nl then (k, List.assoc k nl) else (k, v)
+      )
       dl
 
   let rec combination (l : ('a * 'b) list list) =
@@ -119,21 +120,27 @@ module VMSetBiosStrings = Generic.MakeStateful (struct
         [
           List.map
             (fun settings ->
-              (settings, Ok (update_list default_settings settings)))
+              (settings, Ok (update_list default_settings settings))
+            )
             valid_settings
         ; [
             (* Invalid BIOS string key *)
             ( [("xxxx", "test")]
             , Error
                 Api_errors.(
-                  Server_error (invalid_value, ["xxxx"; "Unknown key"])) )
+                  Server_error (invalid_value, ["xxxx"; "Unknown key"])
+                )
+            )
           ; (* Empty value *)
             ( [("enclosure-asset-tag", "")]
             , Error
                 Api_errors.(
                   Server_error
                     ( invalid_value
-                    , ["enclosure-asset-tag"; "Value provided is empty"] )) )
+                    , ["enclosure-asset-tag"; "Value provided is empty"]
+                    )
+                )
+            )
           ; (* Value having more than 512 charactors *)
             ( [("enclosure-asset-tag", big_str)]
             , Error
@@ -144,7 +151,10 @@ module VMSetBiosStrings = Generic.MakeStateful (struct
                         "enclosure-asset-tag"
                       ; Printf.sprintf "%s has length more than %d characters"
                           big_str Constants.bios_string_limit_size
-                      ] )) )
+                      ]
+                    )
+                )
+            )
           ; (* Value having non printable ascii characters *)
             ( [("enclosure-asset-tag", non_printable_str1)]
             , Error
@@ -155,7 +165,10 @@ module VMSetBiosStrings = Generic.MakeStateful (struct
                         "enclosure-asset-tag"
                       ; non_printable_str1
                         ^ " has non-printable ASCII characters"
-                      ] )) )
+                      ]
+                    )
+                )
+            )
           ; ( [("enclosure-asset-tag", non_printable_str2)]
             , Error
                 Api_errors.(
@@ -165,7 +178,10 @@ module VMSetBiosStrings = Generic.MakeStateful (struct
                         "enclosure-asset-tag"
                       ; non_printable_str2
                         ^ " has non-printable ASCII characters"
-                      ] )) )
+                      ]
+                    )
+                )
+            )
           ]
         ]
     in

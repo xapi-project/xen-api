@@ -20,7 +20,8 @@ let count_vdis rpc session_id sr =
     Client.Client.SR.get_VDIs rpc session_id sr
     (* NB vhd backends may delete records beneath us *)
     |> Valid_ref_list.filter (fun vdi ->
-           Client.Client.VDI.get_managed rpc session_id vdi)
+           Client.Client.VDI.get_managed rpc session_id vdi
+       )
   in
   List.length managed_vdis
 
@@ -32,7 +33,8 @@ let init () =
   |> List.iter (fun (ref, sr) ->
          if List.mem `scan sr.API.sR_allowed_operations then
            let before = count_vdis !A.rpc !session_id ref in
-           Hashtbl.add vdi_count sr.API.sR_uuid before)
+           Hashtbl.add vdi_count sr.API.sR_uuid before
+     )
 
 (** Called at the end of the quicktests to check that no resources leaked
     during the test run *)
@@ -46,9 +48,11 @@ let finish () =
                if after <> before then
                  failwith
                    (Printf.sprintf "VDIs leaked on SR %s: before=%d, after=%d"
-                      sr.API.sR_uuid before after)
+                      sr.API.sR_uuid before after
+                   )
          | None ->
-             ())
+             ()
+     )
 
 let cleanup () =
   Client.Client.Session.logout ~rpc:!A.rpc ~session_id:!session_id
@@ -104,7 +108,8 @@ module SR = struct
         if avoid_vdi_create then
           List.filter
             (fun cap ->
-              not (List.mem cap Sr_capabilities.[vdi_create; vdi_delete]))
+              not (List.mem cap Sr_capabilities.[vdi_create; vdi_delete])
+            )
             caps
         else
           caps
@@ -170,7 +175,8 @@ module SR = struct
       let pool = Qt.get_pool !A.rpc !session_id in
       only
         (Client.Client.Pool.get_default_SR ~rpc:!A.rpc ~session_id:!session_id
-           ~self:pool)
+           ~self:pool
+        )
     else
       fun () -> Lazy.force all_srs
 
@@ -184,7 +190,8 @@ module SR = struct
   let not_iso =
     sr_filter (fun sr_info ->
         Client.Client.SR.get_content_type !A.rpc !session_id sr_info.Qt.sr
-        <> "iso")
+        <> "iso"
+    )
 
   let is_empty = function [] -> true | _ :: _ -> false
 
@@ -199,8 +206,12 @@ module SR = struct
                 |> List.filter (fun vdi ->
                        not
                          (Client.Client.VDI.get_missing ~rpc:!A.rpc
-                            ~session_id:!session_id ~self:vdi))
-                )))
+                            ~session_id:!session_id ~self:vdi
+                         )
+                   )
+                )
+             )
+    )
 
   let can_unplug =
     (* We filter out SRs that have any VDIs with VBDs. This is a safe
@@ -217,21 +228,25 @@ module SR = struct
             vdis
           |> List.concat
         in
-        is_empty vbds)
+        is_empty vbds
+    )
 
   let allowed_operations ops =
     sr_filter (fun i ->
-        Xapi_stdext_std.Listext.List.subset ops i.Qt.allowed_operations)
+        Xapi_stdext_std.Listext.List.subset ops i.Qt.allowed_operations
+    )
 
   let has_capabilities caps =
     sr_filter (fun i ->
-        Xapi_stdext_std.Listext.List.subset caps i.Qt.capabilities)
+        Xapi_stdext_std.Listext.List.subset caps i.Qt.capabilities
+    )
 
   (* Helper to filter SRs of specific types *)
   let has_one_of_types types sr_info =
     List.mem
       (Client.Client.SR.get_type ~rpc:!A.rpc ~session_id:!session_id
-         ~self:sr_info.Qt.sr)
+         ~self:sr_info.Qt.sr
+      )
       types
 
   let has_type sr_type = sr_filter (has_one_of_types [sr_type])
@@ -240,7 +255,8 @@ module SR = struct
     sr_filter (fun i ->
         Client.Client.SR.get_type ~rpc:!A.rpc ~session_id:!session_id
           ~self:i.Qt.sr
-        <> sr_type)
+        <> sr_type
+    )
 
   let is_smapiv1 sr_info = sr_info.Qt.required_sm_api_version < "3.0"
 
@@ -279,4 +295,5 @@ let vm_template template_name =
       | None ->
           []
       | Some vm_template ->
-          [(name, speed, test vm_template)])
+          [(name, speed, test vm_template)]
+  )

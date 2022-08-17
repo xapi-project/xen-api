@@ -37,7 +37,8 @@ module ExtractOuConfig = Generic.MakeStateless (struct
           ; ("service-name", "conappada.local")
           ; ("ou", "TOU")
           ]
-        , ([("ou", "TOU")], ["createcomputer=TOU"]) )
+        , ([("ou", "TOU")], ["createcomputer=TOU"])
+        )
       ]
 end)
 
@@ -83,7 +84,8 @@ module ParseValueFromPbis = Generic.MakeStateless (struct
     `QuickAndAutoDocumented
       [
         ( "X'58005200540055004B002D00300032002D003000330024000000'"
-        , "XRTUK-02-03" )
+        , "XRTUK-02-03"
+        )
       ; ("X'4C004F00430041004C0048004F0053005400320024000000'", "LOCALHOST2")
       ]
 end)
@@ -156,7 +158,8 @@ let test_parse_wbinfo_uid_info =
           ; uid= 3000003
           ; gid= 3000174
           ; gecos= {|ladmin|}
-          } )
+          }
+      )
     ; ( {|CONNAPP\locked:*:3000004:3000174::/home/CONNAPP/locked:/bin/bash|}
       , Ok
           {user_name= {|CONNAPP\locked|}; uid= 3000004; gid= 3000174; gecos= ""}
@@ -363,7 +366,8 @@ msDS-SupportedEncryptionTypes: 0|}
           ; account_expired= false
           ; account_locked= false
           ; password_expired= false
-          } )
+          }
+      )
     ; ( stdout_locked
       , Ok
           {
@@ -374,7 +378,8 @@ msDS-SupportedEncryptionTypes: 0|}
           ; account_expired= false
           ; account_locked= true
           ; password_expired= false
-          } )
+          }
+      )
     ; ( stdout_expired
       , Ok
           {
@@ -385,7 +390,8 @@ msDS-SupportedEncryptionTypes: 0|}
           ; account_expired= true
           ; account_locked= false
           ; password_expired= true
-          } )
+          }
+      )
     ; ( stdout_krbtgt
       , Ok
           {
@@ -396,10 +402,12 @@ msDS-SupportedEncryptionTypes: 0|}
           ; account_locked= false
           ; account_expired= false
           ; account_disabled= true
-          } )
+          }
+      )
     ; ("Got 0 replies", Error "ldap parsing failed ': got 0 replies'")
     ; ( "complete garbage"
-      , Error "ldap parsing failed 'unexpected header: string'" )
+      , Error "ldap parsing failed 'unexpected header: string'"
+      )
     ]
   in
   matrix |> List.map @@ fun (inp, exp) -> ("<omit inp>", `Quick, check inp exp)
@@ -424,7 +432,8 @@ let test_wbinfo_exception_of_stderr =
     [
       ( "failed to call wbcLookupName: WBC_ERR_DOMAIN_NOT_FOUND\x0ACould not \
          lookup name ladmin@mydomain.net\x0A"
-      , Some (Auth_service_error (E_GENERIC, "WBC_ERR_DOMAIN_NOT_FOUND")) )
+      , Some (Auth_service_error (E_GENERIC, "WBC_ERR_DOMAIN_NOT_FOUND"))
+      )
     ; ("garbage", None)
     ]
   in
@@ -440,5 +449,6 @@ let tests =
   ; ("ADwinbind:test_parse_wbinfo_uid_info", test_parse_wbinfo_uid_info)
   ; ("ADwinbind:test_parse_ldap_stdout", test_parse_ldap_stdout)
   ; ( "ADwinbind:test_wbinfo_exception_of_stderr"
-    , test_wbinfo_exception_of_stderr )
+    , test_wbinfo_exception_of_stderr
+    )
   ]

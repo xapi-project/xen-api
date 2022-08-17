@@ -279,8 +279,7 @@ let read_database block_dev_fd target_response_time =
     (* Seek to the position of the database *)
     ignore_int (Unixext.seek_to block_dev_fd cur_pos) ;
     (* Read 'len' bytes from the block device and send them to the function we were given *)
-    ignore_int
-      (Unixext.read_data_in_string_chunks f ~max_bytes:len block_dev_fd) ;
+    ignore_int (Unixext.read_data_in_string_chunks f ~max_bytes:len block_dev_fd) ;
     (* Seek back to where we were before *)
     ignore_int (Unixext.seek_to block_dev_fd prev_pos)
   in
@@ -359,8 +358,10 @@ let transfer_data_from_sock_to_fd sock dest_fd available_space
               if available_space - !total_length < len then raise NotEnoughSpace ;
               (* Otherwise write it *)
               Unixext.time_limited_write dest_fd len chunk target_response_time ;
-              total_length := !total_length + len)
-            ~block_size:65536 data_client)
+              total_length := !total_length + len
+            )
+            ~block_size:65536 data_client
+        )
         (fun () ->
           (* Close the connection *)
           (* CA-42914: If there was an exception, note that we are forcibly closing the connection when possibly the client (xapi) is still trying to write data. This will cause it to see a 'connection reset by peer' error. *)
@@ -369,7 +370,8 @@ let transfer_data_from_sock_to_fd sock dest_fd available_space
             Unix.shutdown data_client Unix.SHUTDOWN_ALL ;
             Unix.close data_client
           with e ->
-            R.warn "Exception %s while closing socket" (Printexc.to_string e))
+            R.warn "Exception %s while closing socket" (Printexc.to_string e)
+        )
     in
     R.debug "Finished reading from data socket" ;
     bytes_read
@@ -389,10 +391,13 @@ let transfer_database_to_sock sock db_fn target_response_time =
       (* Read the data and send it down the socket *)
       db_fn (fun chunk len ->
           Unixext.time_limited_write_substring data_client len chunk
-            target_response_time))
+            target_response_time
+      )
+    )
     (fun () ->
       (* Close the socket *)
-      Unix.close data_client)
+      Unix.close data_client
+    )
 
 (* --------------------------------------------------- *)
 (* Functions to read and write from the client process *)
@@ -694,7 +699,8 @@ let action_read block_dev_fd client datasock target_response_time =
         else (* Send the delta to the client *)
           send_response client
             (Printf.sprintf "%s|%016Ld|%016d|%s" delta_mesg generation_count
-               length delta)
+               length delta
+            )
       done
     with EndOfDeltas -> send_response client end_mesg
     (* finish with the end message *)
@@ -732,10 +738,12 @@ let _ =
       ("-device", Arg.Set_string block_dev, "Names the block device")
     ; ( "-ctrlsock"
       , Arg.Set_string ctrlsock
-      , "Listen on specified socket as the control channel" )
+      , "Listen on specified socket as the control channel"
+      )
     ; ( "-datasock"
       , Arg.Set_string datasock
-      , "Listen on specified socket as the data channel" )
+      , "Listen on specified socket as the data channel"
+      )
     ; ("-dump", Arg.Set dump, "Dump the contents of the block device to STDOUT")
     ; ("-empty", Arg.Set empty, "Re-initialise the block device")
     ]
@@ -814,7 +822,8 @@ let _ =
                 "*** [Half %s] Error: non-matching marker found: expected \
                  [%s], got [%s]\n\
                  %!"
-                (half_to_string half) a b)
+                (half_to_string half) a b
+        )
         halves ;
       Printf.printf "*** End.\n"
     with
@@ -874,7 +883,8 @@ let _ =
                   match str with
                   | "writedelta" ->
                       ( action_writedelta
-                      , !Db_globs.redo_log_max_block_time_writedelta )
+                      , !Db_globs.redo_log_max_block_time_writedelta
+                      )
                   | "writedb___" ->
                       (action_writedb, !Db_globs.redo_log_max_block_time_writedb)
                   | "read______" ->
@@ -884,8 +894,10 @@ let _ =
                   | _ ->
                       ( (fun _ _ _ _ ->
                           send_failure client (str ^ "|nack")
-                            ("Unknown command " ^ str))
-                      , 0. )
+                            ("Unknown command " ^ str)
+                        )
+                      , 0.
+                      )
                 in
                 (* "Start the clock!" -- set the latest time by which we need to have responded to the client. *)
                 let target_response_time = Unix.gettimeofday () +. block_time in
@@ -903,11 +915,13 @@ let _ =
                   stop := true
             done ;
             R.debug "Stopping." ;
-            ignore_exn (fun () -> Unix.close client))
+            ignore_exn (fun () -> Unix.close client)
+          )
           (fun () ->
             (* Ensure that the block device FD is always closed *)
             R.info "Closing block device '%s'" !block_dev ;
-            ignore_exn (fun () -> Unix.close block_dev_fd))
+            ignore_exn (fun () -> Unix.close block_dev_fd)
+          )
       with
       (* problems opening block device *)
       | Unix.Unix_error (a, b, c) ->
@@ -916,13 +930,16 @@ let _ =
           ignore_exn (fun () ->
               send_failure client connect_failure_mesg
                 (Printf.sprintf "Unix error on %s (%s) [%s]" b
-                   (Unix.error_message a) c)) ;
+                   (Unix.error_message a) c
+                )
+          ) ;
           ignore_exn (fun () -> Unix.close client)
       | e ->
           R.error "Unexpected exception when opening block device: %s"
             (Printexc.to_string e) ;
           ignore_exn (fun () ->
-              send_failure client connect_failure_mesg (Printexc.to_string e)) ;
+              send_failure client connect_failure_mesg (Printexc.to_string e)
+          ) ;
           ignore_exn (fun () -> Unix.close client)
     done
 

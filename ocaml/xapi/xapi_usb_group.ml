@@ -33,18 +33,21 @@ let destroy ~__context ~self =
   if connected <> [] then
     raise
       (Api_errors.Server_error
-         (Api_errors.usb_group_contains_vusb, List.map Ref.string_of connected)) ;
+         (Api_errors.usb_group_contains_vusb, List.map Ref.string_of connected)
+      ) ;
   let pusbs = Db.USB_group.get_PUSBs ~__context ~self in
   if pusbs <> [] then
     raise
       (Api_errors.Server_error
-         (Api_errors.usb_group_contains_pusb, List.map Ref.string_of pusbs)) ;
+         (Api_errors.usb_group_contains_pusb, List.map Ref.string_of pusbs)
+      ) ;
   (* Destroy all vUSBs *)
   List.iter
     (fun vusb ->
       Helpers.log_exn_continue
         (Printf.sprintf "destroying VUSB: %s" (Ref.string_of vusb))
         (fun vusb -> Db.VUSB.destroy ~__context ~self:vusb)
-        vusb)
+        vusb
+    )
     vusbs ;
   Db.USB_group.destroy ~__context ~self
