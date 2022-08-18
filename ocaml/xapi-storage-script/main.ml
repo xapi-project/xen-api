@@ -1709,12 +1709,10 @@ let main ~root_dir ~state_path ~switch_path =
   Attached_SRs.reload state_path >>= fun () ->
   let datapath_root = Filename.concat root_dir "datapath" in
   Async_inotify.create ~recursive:false ~watch_new_dirs:false datapath_root
-  >>= fun (watch, _) ->
-  let datapath = Async_inotify.pipe watch in
+  >>= fun (_, _, datapath) ->
   let volume_root = Filename.concat root_dir "volume" in
   Async_inotify.create ~recursive:false ~watch_new_dirs:false volume_root
-  >>= fun (watch, _) ->
-  let volume = Async_inotify.pipe watch in
+  >>= fun (_, _, volume) ->
   let rec loop () =
     Monitor.try_with (fun () ->
         Deferred.all_unit
