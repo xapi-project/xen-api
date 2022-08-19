@@ -1936,13 +1936,13 @@ let handle_all __context config rpc session_id (xs : obj list) =
 
 (** Read the next file in the archive as xml *)
 let read_xml hdr fd =
-  Unixext.really_read_string fd (Int64.to_int hdr.Tar_unix.Header.file_size)
+  Unixext.really_read_string fd (Int64.to_int hdr.Tar.Header.file_size)
 
 let assert_filename_is hdr =
   let expected = Xapi_globs.ova_xml_filename in
-  let actual = hdr.Tar_unix.Header.file_name in
+  let actual = hdr.Tar.Header.file_name in
   if expected <> actual then (
-    let hex = Tar_unix.Header.to_hex in
+    let hex = Tar.Header.to_hex in
     error "import expects the next file in the stream to be [%s]; got [%s]"
       (hex expected) (hex actual) ;
     raise (IFailure (Unexpected_file (expected, actual)))
@@ -1953,17 +1953,17 @@ let assert_filename_is hdr =
     the lot through an appropriate decompressor and try again *)
 let with_open_archive fd ?length f =
   (* Read the first header's worth into a buffer *)
-  let buffer = Cstruct.create Tar_unix.Header.length in
+  let buffer = Cstruct.create Tar.Header.length in
   let retry_with_compression = ref true in
   try
     Tar_unix.really_read fd buffer ;
     (* we assume the first block is not all zeroes *)
-    let hdr = Option.get (Tar_unix.Header.unmarshal buffer) in
+    let hdr = Option.get (Tar.Header.unmarshal buffer) in
     assert_filename_is hdr ;
     (* successfully opened uncompressed stream *)
     retry_with_compression := false ;
     let xml = read_xml hdr fd in
-    Tar_helpers.skip fd (Tar_unix.Header.compute_zero_padding_length hdr) ;
+    Tar_helpers.skip fd (Tar.Header.compute_zero_padding_length hdr) ;
     f xml fd
   with e ->
     if not !retry_with_compression then raise e ;
@@ -1994,11 +1994,11 @@ let with_open_archive fd ?length f =
               Tar_unix.really_write compressed_in buffer ;
               let limit =
                 Option.map
-                  (fun x -> Int64.sub x (Int64.of_int Tar_unix.Header.length))
+                  (fun x -> Int64.sub x (Int64.of_int Tar.Header.length))
                   length
               in
               let n = Unixext.copy_file ?limit fd compressed_in in
-              debug "Written a total of %d + %Ld bytes" Tar_unix.Header.length n
+              debug "Written a total of %d + %Ld bytes" Tar.Header.length n
           )
         )
         (fun () -> ignore_exn (fun () -> Unix.close pipe_in))
@@ -2006,11 +2006,10 @@ let with_open_archive fd ?length f =
     let consumer pipe_out feeder_t =
       finally
         (fun () ->
-          let hdr = Tar_unix.Header.get_next_header pipe_out in
+          let hdr = Tar_unix.get_next_header pipe_out in
           assert_filename_is hdr ;
           let xml = read_xml hdr pipe_out in
-          Tar_helpers.skip pipe_out
-            (Tar_unix.Header.compute_zero_padding_length hdr) ;
+          Tar_helpers.skip pipe_out (Tar.Header.compute_zero_padding_length hdr) ;
           f xml pipe_out
         )
         (fun () ->
@@ -2103,7 +2102,7 @@ let with_error_handling f =
                  (Api_errors.import_error_attached_disks_not_found, [])
               )
         | Unexpected_file (expected, actual) ->
-            let hex = Tar_unix.Header.to_hex in
+            let hex = Tar.Header.to_hex in
             error
               "Invalid XVA file: import expects the next file in the stream to \
                be \"%s\" [%s]; got \"%s\" [%s]"
@@ -2159,7 +2158,7 @@ let metadata_handler (req : Request.t) s _ =
             (fun metadata s ->
               debug "Got XML" ;
               (* Skip trailing two zero blocks *)
-              Tar_helpers.skip s (Tar_unix.Header.length * 2) ;
+              Tar_helpers.skip s (Tar.Header.length * 2) ;
               let header = metadata |> Xmlrpc.of_string |> header_of_rpc in
               assert_compatible ~__context header.version ;
               if full_restore then

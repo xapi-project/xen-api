@@ -372,8 +372,8 @@ exception Invalid_checksum of string
 
 (* Rio GA and later only *)
 let verify_inline_checksum ifd checksum_table hdr =
-  let file_name = hdr.Tar_unix.Header.file_name in
-  let length = hdr.Tar_unix.Header.file_size in
+  let file_name = hdr.Tar.Header.file_name in
+  let length = hdr.Tar.Header.file_size in
   if
     not
       (List.exists
@@ -394,7 +394,7 @@ let verify_inline_checksum ifd checksum_table hdr =
     let csum = Bytes.make length' ' ' in
     Unixext.really_read ifd csum 0 length' ;
     let csum = Bytes.unsafe_to_string csum in
-    Tar_helpers.skip ifd (Tar_unix.Header.compute_zero_padding_length hdr) ;
+    Tar_helpers.skip ifd (Tar.Header.compute_zero_padding_length hdr) ;
     (* Look up the relevant file_name in the checksum_table *)
     let original_file_name = Filename.remove_extension file_name in
     let csum' = List.assoc original_file_name !checksum_table in
@@ -434,9 +434,9 @@ let recv_all_vdi refresh_session ifd (__context : Context.t) rpc session_id
           refresh_session () ;
           let remaining = Int64.sub size offset in
           if remaining > 0L then (
-            let hdr = Tar_unix.Header.get_next_header ifd in
-            let file_name = hdr.Tar_unix.Header.file_name in
-            let length = hdr.Tar_unix.Header.file_size in
+            let hdr = Tar_unix.get_next_header ifd in
+            let file_name = hdr.Tar.Header.file_name in
+            let length = hdr.Tar.Header.file_size in
             (* First chunk will always be there *)
             if !firstchunklength < 0 then (
               firstchunklength := Int64.to_int length ;
@@ -487,9 +487,9 @@ let recv_all_vdi refresh_session ifd (__context : Context.t) rpc session_id
             Unixext.really_read ifd buffer 0 (Int64.to_int length) ;
             Unix.write ofd buffer 0 (Int64.to_int length) |> ignore ;
             let buffer_string = Bytes.unsafe_to_string buffer in
-            let csum_hdr = Tar_unix.Header.get_next_header ifd in
+            let csum_hdr = Tar_unix.get_next_header ifd in
             (* Header of the checksum file *)
-            let csum_file_name = csum_hdr.Tar_unix.Header.file_name in
+            let csum_file_name = csum_hdr.Tar.Header.file_name in
             let csum =
               (* Infer checksum algorithm from the file extension *)
               match Filename.extension csum_file_name with
@@ -505,8 +505,7 @@ let recv_all_vdi refresh_session ifd (__context : Context.t) rpc session_id
                   error "%s" msg ; raise (Failure msg)
             in
             checksum_table := (file_name, csum) :: !checksum_table ;
-            Tar_helpers.skip ifd
-              (Tar_unix.Header.compute_zero_padding_length hdr) ;
+            Tar_helpers.skip ifd (Tar.Header.compute_zero_padding_length hdr) ;
             made_progress __context progress (Int64.add skipped_size length) ;
             ( if has_inline_checksums then
                 try verify_inline_checksum ifd checksum_table csum_hdr
@@ -542,8 +541,8 @@ let recv_all_zurich refresh_session ifd (__context : Context.t) rpc session_id
   let hdr = ref None in
   let next () =
     hdr :=
-      try Some (Tar_unix.Header.get_next_header ifd) with
-      | Tar_unix.Header.End_of_stream ->
+      try Some (Tar_unix.get_next_header ifd) with
+      | Tar.Header.End_of_stream ->
           None
       | e ->
           raise e
@@ -558,8 +557,8 @@ let recv_all_zurich refresh_session ifd (__context : Context.t) rpc session_id
           match !hdr with
           | Some hdr ->
               refresh_session () ;
-              let file_name = hdr.Tar_unix.Header.file_name in
-              let length = hdr.Tar_unix.Header.file_size in
+              let file_name = hdr.Tar.Header.file_name in
+              let length = hdr.Tar.Header.file_size in
               if Astring.String.is_prefix ~affix:prefix file_name then (
                 let suffix =
                   String.sub file_name (String.length prefix)
@@ -576,8 +575,7 @@ let recv_all_zurich refresh_session ifd (__context : Context.t) rpc session_id
                 Gzip.Default.decompress ofd (fun zcat_in ->
                     Tar_helpers.copy_n ifd zcat_in length
                 ) ;
-                Tar_helpers.skip ifd
-                  (Tar_unix.Header.compute_zero_padding_length hdr) ;
+                Tar_helpers.skip ifd (Tar.Header.compute_zero_padding_length hdr) ;
                 (* XXX: this is totally wrong: *)
                 made_progress __context progress length ;
                 next () ;
