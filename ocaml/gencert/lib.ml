@@ -22,7 +22,7 @@ type t_certificate = Leaf | Chain
 let () = Mirage_crypto_rng_unix.initialize ()
 
 let validate_private_key pkcs8_private_key =
-  let ensure_key_length = function
+  let ensure_rsa_key_length = function
     | `RSA priv ->
         let length = Mirage_crypto_pk.Rsa.priv_bits priv in
         if length < 2048 || length > 4096 then
@@ -34,6 +34,9 @@ let validate_private_key pkcs8_private_key =
               )
         else
           Ok (`RSA priv)
+    | key ->
+        let key_type = X509.(Key_type.to_string (Private_key.key_type key)) in
+        Error (`Msg (server_certificate_key_algorithm_not_supported, [key_type]))
   in
   let raw_pem = Cstruct.of_string pkcs8_private_key in
   X509.Private_key.decode_pem raw_pem
@@ -55,7 +58,7 @@ let validate_private_key pkcs8_private_key =
            `Msg (server_certificate_key_invalid, [])
          )
      )
-  >>= ensure_key_length
+  >>= ensure_rsa_key_length
 
 let pem_of_string x ~error_invalid =
   let raw_pem = Cstruct.of_string x in
