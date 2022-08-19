@@ -22,6 +22,10 @@ val null : 'a t
 
 val string_of : 'a t -> string
 
+val to_option : 'a t -> 'a t option
+(** [to_option ref] returns [None] when [ref] is [Ref.Null] or [Some ref]
+    otherwise *)
+
 val short_string_of : 'a t -> string
 
 val of_string : string -> 'a t

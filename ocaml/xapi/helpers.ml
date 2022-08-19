@@ -122,6 +122,9 @@ let choose_network_name_for_pif device =
 (* !! FIXME(2) - this code could be shared with the CLI? *)
 let checknull f = try f () with _ -> "<not in database>"
 
+let ignore_invalid_ref f (x : 'a Ref.t) =
+  try Ref.to_option (f x) with Db_exn.DBCache_NotFound _ -> None
+
 let get_pool ~__context = List.hd (Db.Pool.get_all ~__context)
 
 let get_master ~__context =
@@ -772,7 +775,7 @@ let get_my_pbds __context =
 (* Return the PBD for specified SR on a specific host *)
 (* Just say an SR is shared if it has more than one PBD *)
 let is_sr_shared ~__context ~self =
-  List.length (Db.SR.get_PBDs ~__context ~self) > 1
+  match Db.SR.get_PBDs ~__context ~self with [] | [_] -> false | _ -> true
 
 let get_main_ip_address ~__context =
   try Pool_role.get_master_address () with _ -> "127.0.0.1"
