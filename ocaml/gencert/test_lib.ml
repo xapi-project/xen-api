@@ -5,6 +5,8 @@ open Gencertlib.Lib
 open Api_errors
 open Rresult.R.Infix
 
+let ( let* ) = Rresult.R.bind
+
 (* Initialize RNG for testing certificates *)
 let () = Mirage_crypto_rng_unix.initialize ()
 
@@ -36,10 +38,7 @@ let invalid_private_keys =
     ("pkey_rsa_1024", server_certificate_key_rsa_length_not_supported, ["1024"])
   ; ("pkey_rsa_8192", server_certificate_key_rsa_length_not_supported, ["8192"])
   ; ("pkey_rsa_n3_2048", server_certificate_key_rsa_multi_not_supported, [])
-  ; ( "pkey_ed25519"
-    , server_certificate_key_algorithm_not_supported
-    , ["1.3.101.112"]
-    )
+  ; ("pkey_ed25519", server_certificate_key_algorithm_not_supported, ["ed25519"])
   ; ("pkey_bogus", server_certificate_key_invalid, [])
   ]
 
@@ -194,9 +193,9 @@ let load_pkcs8 name =
      )
 
 let sign_cert host_name ~pkey_sign digest pkey_leaf =
-  let csr = X509.Signing_request.create [host_name] ~digest pkey_leaf in
+  let* csr = X509.Signing_request.create [host_name] ~digest pkey_leaf in
   X509.Signing_request.sign csr ~valid_from ~valid_until ~digest
-    ~hash_whitelist:[digest] pkey_sign [host_name]
+    ~allowed_hashes:[digest] pkey_sign [host_name]
   |> Rresult.R.error_to_msg ~pp_error:X509.Validation.pp_signature_error
 
 let sign_leaf_cert host_name digest pkey_leaf =

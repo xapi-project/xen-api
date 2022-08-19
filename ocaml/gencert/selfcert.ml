@@ -118,16 +118,14 @@ let generate_pub_priv_key length =
     |> X509.Private_key.decode_pem
     |> R.reword_error (fun _ -> R.msg "decoding private key failed")
   in
-  let* rsa =
-    try match privkey with `RSA x -> Ok x
-    with _ -> R.error_msg "generated private key does not use RSA"
-  in
+  let err_not_rsa = R.error_msg "generated private key does not use RSA" in
+  let* rsa = match privkey with `RSA x -> Ok x | _ -> err_not_rsa in
   let pubkey = `RSA (Rsa.pub_of_priv rsa) in
   Ok (privkey, pubkey)
 
 let selfsign' issuer extensions key_length expiration =
   let* privkey, pubkey = generate_pub_priv_key key_length in
-  let req = X509.Signing_request.create issuer privkey in
+  let* req = X509.Signing_request.create issuer privkey in
   let* cert = sign expiration privkey pubkey issuer req extensions in
   let key_pem = X509.Private_key.encode_pem privkey in
   let cert_pem = X509.Certificate.encode_pem cert in
