@@ -888,6 +888,13 @@ let is_platform_version_same_on_master ~__context ~host =
       (LocalObject host)
     = 0
 
+let assert_ha_vtpms_compatible ~__context =
+  let on_db = {|field "persistence_backend"="xapi"|} in
+  let vtpms_on_db = Db.VTPM.get_all_records_where ~__context ~expr:on_db in
+  if vtpms_on_db <> [] then
+    let message = "VTPM persistence when HA or clustering is enabled" in
+    raise Api_errors.(Server_error (not_implemented, [message]))
+
 let assert_platform_version_is_same_on_master ~__context ~host ~self =
   if not (is_platform_version_same_on_master ~__context ~host) then
     raise
