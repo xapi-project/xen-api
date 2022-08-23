@@ -16,27 +16,16 @@ open Angstrom
 
 type t = {private_key: string; host_cert: string; other_certs: string list}
 
-let is_whitespace = function
-  | ' ' ->
-      true
-  | '\t' ->
-      true
-  | '\n' ->
-      true
-  | '\r' ->
-      true
-  | _ ->
-      false
-
 let is_data = function '-' -> false | _ -> true
-
-let ws = take_while is_whitespace
 
 let data = take_while1 is_data
 
 type kind = RSA | EC | OTHER
 
-let kind = option OTHER (string "RSA" *> return RSA <|> string "EC" *> return EC)
+let kind =
+  string " RSA " *> return RSA
+  <|> string " EC " *> return EC
+  <|> string " " *> return OTHER
 
 let header = function
   | RSA ->
@@ -54,8 +43,7 @@ let footer = function
   | OTHER ->
       "-----END PRIVATE KEY-----"
 
-let key_header =
-  string "-----BEGIN" *> ws *> kind <* ws <* string "PRIVATE KEY-----"
+let key_header = string "-----BEGIN" *> kind <* string "PRIVATE KEY-----"
 
 let key_footer k = string (footer k)
 
@@ -64,19 +52,20 @@ let cert_header = string "-----BEGIN CERTIFICATE-----"
 let cert_footer = string "-----END CERTIFICATE-----"
 
 let key =
-  ws *> key_header >>= fun k ->
+  key_header >>= fun kind ->
   data >>= fun body ->
-  key_footer k *> ws *> return (String.concat "" [header k; body; footer k])
+  key_footer kind *> return (String.concat "" [header kind; body; footer kind])
 
 let cert =
-  ws *> cert_header >>= fun hd ->
+  cert_header >>= fun hd ->
   data >>= fun body ->
-  cert_footer >>= fun tl -> ws *> return (String.concat "" [hd; body; tl])
+  cert_footer >>= fun tl -> return (String.concat "" [hd; body; tl])
 
 let pem =
-  key >>= fun private_key ->
-  cert >>= fun host_cert ->
-  many cert >>= fun other_certs -> return {private_key; host_cert; other_certs}
+  many end_of_line *> key >>= fun private_key ->
+  many end_of_line *> cert >>= fun host_cert ->
+  many end_of_line *> many cert >>= fun other_certs ->
+  many end_of_line *> return {private_key; host_cert; other_certs}
 
 let defer f = Fun.protect ~finally:f
 
