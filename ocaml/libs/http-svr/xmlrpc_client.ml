@@ -36,7 +36,7 @@ module Internal = struct
   let destination_is_ok : (string -> bool) option ref = ref None
 end
 
-let user_agent = "xen-api-libs/1.0"
+let user_agent = "xen-api-libs/" ^ Xapi_version.version
 
 let connect ?session_id ?task_id ?subtask_of path =
   let arg str = Option.fold ~none:[] ~some:(fun x -> [(str, x)]) in
