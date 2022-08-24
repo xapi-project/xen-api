@@ -77,6 +77,8 @@ let of_string x =
           Other x
     )
 
+let to_option = function Null -> None | ref -> Some ref
+
 let name_of_dummy = function
   | Real x | Other x ->
       failwith

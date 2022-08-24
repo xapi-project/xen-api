@@ -172,15 +172,16 @@ module SR = struct
 
   let all_srs = lazy (list_srs_connected_to_localhost !A.rpc !session_id)
 
-  let all =
+  let all () =
     if !A.use_default_sr then
       let pool = Qt.get_pool !A.rpc !session_id in
       only
         (Client.Client.Pool.get_default_SR ~rpc:!A.rpc ~session_id:!session_id
            ~self:pool
         )
+        ()
     else
-      fun () -> Lazy.force all_srs
+      Lazy.force all_srs
 
   let random srs () =
     let srs = srs () in

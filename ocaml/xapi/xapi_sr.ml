@@ -61,30 +61,10 @@ let scan_finished sr =
       Condition.broadcast scans_in_progress_c
   )
 
-module Throttle () = struct
-  let semaphore = ref None
+module Size = struct let n () = !Xapi_globs.max_active_sr_scans end
 
-  let m = Mutex.create ()
-
-  let get_semaphore () =
-    with_lock m (fun () ->
-        (* overridable on startup from config file, have
-         * to delay initialization *)
-        match !semaphore with
-        | None ->
-            let result = Semaphore.create !Xapi_globs.max_active_sr_scans in
-            semaphore := Some result ;
-            result
-        | Some s ->
-            s
-    )
-
-  let execute f = Semaphore.execute (get_semaphore ()) f
-end
-
-module AutoScanThrottle = Throttle ()
-
-module SRScanThrottle = Throttle ()
+module AutoScanThrottle = Throttle.Make (Size)
+module SRScanThrottle = Throttle.Make (Size)
 
 (* Perform a single scan of an SR in a background thread. Limit to one thread per SR *)
 (* If a callback is supplied, call it once the scan is complete. *)

@@ -28,16 +28,14 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
- package com.xensource.xenapi.samples;
+package com.xensource.xenapi.samples;
 
-public class TargetServer
-{
+public class TargetServer {
     public final String Hostname;
     public final String Username;
     public final String Password;
 
-    public TargetServer(String hostname, String username, String password)
-    {
+    public TargetServer(String hostname, String username, String password) {
         this.Hostname = hostname;
         this.Username = username;
         this.Password = password;

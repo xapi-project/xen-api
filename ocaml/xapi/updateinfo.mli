@@ -81,6 +81,8 @@ module LivePatch : sig
     ; to_release: string
   }
 
+  val compare : t -> t -> int
+
   val to_json : t -> Yojson.Basic.t
 
   val to_string : t -> string
@@ -111,4 +113,17 @@ module UpdateInfo : sig
   val of_xml : Xml.xml -> (string * t) list
 
   val of_xml_file : string -> (string * t) list
+end
+
+module HostUpdates : sig
+  type t = {
+      host: string
+    ; rec_guidances: Guidance.t list
+    ; abs_guidances: Guidance.t list
+    ; rpms: Rpm.Pkg.t list
+    ; update_ids: string list
+    ; livepatches: LivePatch.t list
+  }
+
+  val to_json : t -> Yojson.Basic.t
 end

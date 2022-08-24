@@ -28,34 +28,28 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
- package com.xensource.xenapi.samples;
+package com.xensource.xenapi.samples;
 
 import java.util.*;
 
 /**
  * Runs each of the tests except EventMonitor and Https, with plain text debug output, and XML summary of test results.
  */
-public class RunTests
-{
+public class RunTests {
     private static final boolean stopOnFailure = false;
 
     /**
      * Expects the first three parameters to be server {address, username, password}.
-     * 
-     * The fourth and fifth parameters are optional and should be respectively the address of an NFS filer, and the path
-     * on that filer to use for creating a new SR.
-     * 
+     * The fourth and fifth parameters are optional and should be respectively the
+     * address of an NFS filer, and the path on that filer to use for creating a new SR.
      * e.g.
-     * 
      * java RunTests myhost root mypassword nfsserver /nfsshare/sr/path
      */
-    public static void main(String[] args)
-    {
+    public static void main(String[] args) {
         FileLogger textLogger = new FileLoggerText("JavaTestOutput.txt");
         FileLogger xmlLogger = new FileLoggerXml("JavaTestOutput.xml");
 
-        if (args.length != 3 && args.length != 5)
-        {
+        if (args.length != 3 && args.length != 5) {
             textLogger.log("Expected arguments: <host> <username> <password> [nfs server] [nfs path]");
             return;
         }
@@ -64,8 +58,7 @@ public class RunTests
 
         String nfsServer = null;
         String nfsPath = null;
-        if (args.length == 5)
-        {
+        if (args.length == 5) {
             nfsServer = args[3];
             nfsPath = args[4];
         }
@@ -73,17 +66,17 @@ public class RunTests
         xmlLogger.log("<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" +
                 "<results>\n  <group>\n    <name>Java</name>");
 
-        textLogger.logf("RunTests.java: test run started at %s", new Date().toString());
+        textLogger.logFormat("RunTests.java: test run started at %s", new Date().toString());
 
-        List<TestBase> tests = new ArrayList<TestBase>();
+        List<TestBase> tests = new ArrayList<>();
         tests.add(new EventMonitor());
         tests.add(new AddNetwork());
         tests.add(new SessionReuse());
         tests.add(new AsyncVMCreate());
         tests.add(new VdiAndSrOps());
         tests.add(new CreateVM());
+        tests.add(new VMlifecycle());
         tests.add(new GetAllRecordsOfAllTypes());
-        tests.add(new Https());
         tests.add(new SharedStorage(nfsServer, nfsPath));
         tests.add(new StartAllVMs());
 
@@ -116,20 +109,19 @@ public class RunTests
 
         xmlLogger.log("  </group>\n</results>");
 
-        textLogger.logf("%d succeeded, %d skipped, %d failed, %d total",
+        textLogger.logFormat("%d succeeded, %d skipped, %d failed, %d total",
                 succeeded, skipped, failed, succeeded + skipped + failed);
 
-        textLogger.logf("RunTests.java: test run finished at %s", new Date().toString());
+        textLogger.logFormat("RunTests.java: test run finished at %s", new Date().toString());
     }
 
 
-    public enum Result
-    {
+    public enum Result {
         Pass, Fail, Skip;
 
         @Override
         public String toString() {
-            switch (this){
+            switch (this) {
 
                 case Pass:
                     return "Passed";

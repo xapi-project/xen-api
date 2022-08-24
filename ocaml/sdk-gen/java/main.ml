@@ -560,8 +560,7 @@ let gen_record file cls =
   fprintf file "         * Convert a %s.Record to a Map\n" cls.name ;
   fprintf file "         */\n" ;
   fprintf file "        public Map<String,Object> toMap() {\n" ;
-  fprintf file
-    "            Map<String,Object> map = new HashMap<String,Object>();\n" ;
+  fprintf file "            Map<String,Object> map = new HashMap<>();\n" ;
 
   List.iter (gen_record_tomap_contents file []) contents ;
   if cls.name = "event" then
@@ -597,7 +596,6 @@ let gen_class cls folder =
   fprintf file
     "package com.xensource.xenapi;\n\n\
      import com.xensource.xenapi.Types.BadServerResponse;\n\
-     import com.xensource.xenapi.Types.VersionException;\n\
      import com.xensource.xenapi.Types.XenAPIException;\n\n\
      import java.io.PrintWriter;\n\
      import java.io.StringWriter;\n\
@@ -647,7 +645,7 @@ let gen_class cls folder =
     fprintf file "    @Override\n" ;
     fprintf file "    public boolean equals(Object obj)\n" ;
     fprintf file "    {\n" ;
-    fprintf file "        if (obj != null && obj instanceof %s)\n" class_name ;
+    fprintf file "        if (obj instanceof %s)\n" class_name ;
     fprintf file "        {\n" ;
     fprintf file "            %s other = (%s) obj;\n" class_name class_name ;
     fprintf file "            return other.ref.equals(this.ref);\n" ;
@@ -779,8 +777,7 @@ let rec gen_marshall_body file = function
       let ty_name = get_java_type ty in
       let marshall_fn = get_marshall_function ty in
       fprintf file "        Object[] items = (Object[]) object;\n" ;
-      fprintf file "        Set<%s> result = new LinkedHashSet<%s>();\n" ty_name
-        ty_name ;
+      fprintf file "        Set<%s> result = new LinkedHashSet<>();\n" ty_name ;
       fprintf file "        for(Object item: items) {\n" ;
       fprintf file "            %s typed = %s(item);\n" ty_name marshall_fn ;
       fprintf file "            result.add(typed);\n" ;
@@ -791,9 +788,9 @@ let rec gen_marshall_body file = function
       let ty_name' = get_java_type ty' in
       let marshall_fn = get_marshall_function ty in
       let marshall_fn' = get_marshall_function ty' in
-      fprintf file "        Map map = (Map) object;\n" ;
-      fprintf file "        Map<%s,%s> result = new HashMap<%s,%s>();\n" ty_name
-        ty_name' ty_name ty_name' ;
+      fprintf file "        Map map = (Map)object;\n" ;
+      fprintf file "        Map<%s,%s> result = new HashMap<>();\n" ty_name
+        ty_name' ;
       fprintf file "        Set<Map.Entry> entries = map.entrySet();\n" ;
       fprintf file "        for(Map.Entry entry: entries) {\n" ;
       fprintf file "            %s key = %s(entry.getKey());\n" ty_name
@@ -956,7 +953,7 @@ let gen_types_class folder =
     \    /**\n\
     \     * Interface for all Record classes\n\
     \     */\n\
-    \    public static interface Record\n\
+    \    public interface Record\n\
     \    {\n\
     \        /**\n\
     \         * Convert a Record to a Map\n\
@@ -1035,28 +1032,11 @@ let gen_types_class folder =
     \            this.result = result;\n\
     \        }\n\
     \    }\n\n\
-    \    /*\n\
-    \     * A call has been made which should not be made against this version \
-     of host.\n\
-    \     * Probably the host is out of date and cannot handle this call, or is\n\
-    \     * unable to comply with the details of the call.\n\
-    \     */\n\
-    \    public static class VersionException extends XenAPIException\n\
-    \    {\n\
-    \        public final String result;\n\n\
-    \        public VersionException(String result)\n\
-    \        {\n\
-    \            super(result);\n\
-    \            this.result = result;\n\
-    \        }\n\
-    \    }\n\n\
     \    private static String parseResult(String result) throws BadAsyncResult\n\
     \    {\n\
     \        Pattern pattern = Pattern.compile(\"<value>(.*)</value>\");\n\
     \        Matcher matcher = pattern.matcher(result);\n\
-    \        matcher.find();\n\n\
-    \        if (matcher.groupCount() != 1)\n\
-    \        {\n\
+    \        if (!matcher.find() || matcher.groupCount() != 1) {\n\
     \            throw new Types.BadAsyncResult(\"Can't interpret: \" + result);\n\
     \        }\n\n\
     \        return matcher.group(1);\n\

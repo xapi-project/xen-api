@@ -92,26 +92,11 @@ class UDSHTTPConnection(httplib.HTTPConnection):
         self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         self.sock.connect(path)
 
-class UDSHTTP(httplib.HTTPConnection):
-    _connection_class = UDSHTTPConnection
-
 class UDSTransport(xmlrpclib.Transport):
-    def __init__(self, use_datetime=0):
-        self._use_datetime = use_datetime
-        self._extra_headers=[]
-        self._connection = (None, None)
     def add_extra_header(self, key, value):
         self._extra_headers += [ (key,value) ]
     def make_connection(self, host):
-        # Python 2.4 compatibility
-        if sys.version_info[0] <= 2 and sys.version_info[1] < 7:
-            return UDSHTTP(host)
-        else:
-            return UDSHTTPConnection(host)
-    def send_request(self, connection, handler, request_body):
-        connection.putrequest("POST", handler)
-        for key, value in self._extra_headers:
-            connection.putheader(key, value)
+        return UDSHTTPConnection(host)
 
 def notimplemented(name, *args, **kwargs):
     raise NotImplementedError("XMLRPC proxies do not support python magic methods", name, *args, **kwargs)

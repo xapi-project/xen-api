@@ -94,7 +94,9 @@ let parse_payload ~(json : string) : payload =
   try
     let rpc = Jsonrpc.of_string json in
     let kvs = Rrd_rpc.dict_of_rpc ~rpc in
-    let timestamp = Rpc.int64_of_rpc (List.assoc "timestamp" kvs) in
+    let timestamp =
+      Rpc.float_of_rpc (List.assoc "timestamp" kvs) |> Int64.of_float
+    in
     let datasource_rpcs =
       Rrd_rpc.dict_of_rpc ~rpc:(List.assoc "datasources" kvs)
     in

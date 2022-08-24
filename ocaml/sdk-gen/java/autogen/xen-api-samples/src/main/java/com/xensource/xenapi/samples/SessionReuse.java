@@ -28,7 +28,7 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
- package com.xensource.xenapi.samples;
+package com.xensource.xenapi.samples;
 
 import java.lang.Thread.State;
 import java.net.URL;
@@ -43,66 +43,59 @@ import com.xensource.xenapi.Host.Record;
 /**
  * Demonstrates how a Session object can be shared between multiple Connections.
  */
-public class SessionReuse extends TestBase
-{
+public class SessionReuse extends TestBase {
     private static boolean threadExit = false;
 
     public String getTestName() {
         return "SessionReuse";
     }
 
-    protected void TestCore() throws Exception {
+    protected void TestCore() {
 
     }
 
     @Override
-    public void RunTest(FileLogger logger, TargetServer server) throws Exception
-    {
+    public void RunTest(FileLogger logger, TargetServer server) throws Exception {
         this.logger = logger;
 
         URL url = new URL("https://" + server.Hostname);
 
         // Create a Connection. No login is performed for us.
         final Connection connection1 = new Connection(url);
+        final double TIMEOUT_SEC = 30;
 
-        try
-        {
+        try {
             // Create a new Session, whose reference is stored in the Connection.
-            Session.loginWithPassword(connection1, server.Username, server.Password, "1.3");
+            Session.loginWithPassword(connection1, server.Username, server.Password, "");
 
             // Re-use the Session in a second Connection object
             Connection connection2 = new Connection(url, connection1.getSessionReference());
 
             // Listen for events using the first Connection.
-            Thread listener = new Thread(new Runnable()
-            {
-                public void run()
-                {
-                    try
-                    {
-                        Set<String> everything = new HashSet<String>();
-                        everything.add("*");
-                        Event.register(connection1, everything);
-                        Set<Event.Record> events = Event.next(connection1);
+            Thread listener = new Thread(() -> {
+                try {
+                    Set<String> eventTypes = new HashSet<>();
+                    eventTypes.add("*");
 
-                        if (threadExit)
-                        {
-                            // We took too long to get the event, and the test will already have failed.
-                            // Exit now, rather than spamming the logs.
-                            return;
-                        }
+                    String token = "";
 
-                        log("Received " + events.size() + " Event(s). First Event follows.");
-                        for (Event.Record record : events)
-                        {
-                            log(record.toString());
-                            break;
-                        }
-                    } catch (Exception e)
-                    {
-                        log("Event listener thread got an Exception");
-                        log(e.toString());
+                    EventBatch eventBatch = Event.from(connection, eventTypes, token, TIMEOUT_SEC);
+
+                    if (threadExit) {
+                        // We took too long to get the event, and the test will already have failed.
+                        // Exit now, rather than spamming the logs.
+                        return;
                     }
+
+                    log("Received " + eventBatch.events.size() + " Event(s). First Event follows.");
+
+                    if (!eventBatch.events.isEmpty()) {
+                        log(eventBatch.events.iterator().next().toString());
+                    }
+                }
+                catch (Exception e) {
+                    log("Event listener thread got an Exception");
+                    log(e.toString());
                 }
             });
             listener.start();
@@ -112,26 +105,19 @@ public class SessionReuse extends TestBase
 
             // Cause an event to be generated on the second thread.
             Map<Host, Record> hosts = Host.getAllRecords(connection2);
-            for (Host ref : hosts.keySet())
-            {
-                ref.setNameDescription(connection2, "Set by SessionReuse.java at " + new Date().toString());
-                break;
-            }
+            if (!hosts.isEmpty())
+                hosts.keySet().iterator().next().setNameDescription(connection2, "Set by SessionReuse.java at " + new Date());
 
-            listener.join(60 * 1000);
+            listener.join(60000L);
 
             threadExit = true;
 
-            if (listener.getState() != State.TERMINATED)
-            {
+            if (listener.getState() != State.TERMINATED) {
                 throw new IllegalStateException("Listener thread failed to terminate after 60 seconds");
             }
-        } finally
-        {
-            if (connection1 != null)
-            {
-                Session.logout(connection1);
-            }
+        }
+        finally {
+            Session.logout(connection1);
         }
     }
 }

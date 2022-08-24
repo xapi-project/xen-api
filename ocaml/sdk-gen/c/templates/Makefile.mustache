@@ -84,7 +84,7 @@ test/%: test/%.o libxenserver.so
 
 build: libxenserver.so libxenserver.a
 
-tests: $(TEST_PROGRAMS)
+all: $(TEST_PROGRAMS)
 
 install: libxenserver.so libxenserver.a
 	$(INSTALL_DIR) $(DESTDIR)/include/xen/api
@@ -108,5 +108,5 @@ clean: cleantests
 cleantests:
 	rm -f $(TEST_PROGRAMS)
 
-.PHONY: clean cleantests build tests install
-.DEFAULT_GOAL := tests
+.PHONY: clean cleantests build all install
+.DEFAULT_GOAL := all

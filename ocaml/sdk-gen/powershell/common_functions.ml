@@ -167,8 +167,7 @@ and exposed_type = function
   | Set String ->
       "string[]"
   | Set (Set String) ->
-      (* TODO: implement this new type correctly *)
-      "string[]"
+      "string[][]"
   | Enum (name, _) ->
       name
   | Map (u, v) ->
