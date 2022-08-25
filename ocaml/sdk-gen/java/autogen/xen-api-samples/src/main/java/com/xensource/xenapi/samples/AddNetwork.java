@@ -28,15 +28,13 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
- package com.xensource.xenapi.samples;
+package com.xensource.xenapi.samples;
 
 import java.util.Date;
-import java.util.Random;
 
 import com.xensource.xenapi.Network;
 
-public class AddNetwork extends TestBase
-{
+public class AddNetwork extends TestBase {
     public String getTestName() {
         return "AddNetwork";
     }
@@ -47,8 +45,9 @@ public class AddNetwork extends TestBase
     protected void TestCore() throws Exception {
 
         Network.Record networkRecord = new Network.Record();
-        networkRecord.nameLabel = "TestNetwork" + new Random().nextInt(10000);
-        networkRecord.nameDescription = "Created by AddNetwork.java at " + new Date().toString();
+        Date newDate = new Date();
+        networkRecord.nameLabel = "TestNetwork-" + newDate;
+        networkRecord.nameDescription = "Created by AddNetwork.java at " + newDate;
 
         log("Adding new network: " + networkRecord.nameLabel);
         Network.create(connection, networkRecord);

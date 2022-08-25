@@ -28,45 +28,29 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package com.xensource.xenapi.samples;
+#include "xen_internal.h"
+#include <xen/api/xen_string_set.h>
+#include <xen/api/xen_string_set_set.h>
 
-import java.io.FileWriter;
-import java.io.IOException;
 
-public abstract class FileLogger {
-    private FileWriter w;
+xen_string_set_set *
+xen_string_set_set_alloc(size_t size)
+{
+    xen_string_set_set *result = calloc(1, sizeof(xen_string_set_set) +
+                                    size * sizeof(xen_string_set *));
+    result->size = size;
+    return result;
+}
 
-    protected FileLogger(String path) {
-        try {
-            w = new FileWriter(path);
-        }
-        catch (IOException e) {
-            System.err.print("Couldn't open " + path + " for log output.");
-            e.printStackTrace();
-        }
-    }
+void
+xen_string_set_set_free(xen_string_set_set *set)
+{
+    if (set == NULL)
+        return;
 
-    public abstract void logTestStart(TestBase test);
+    size_t n = set->size;
+    for (size_t i = 0; i < n; i++)
+        xen_string_set_free(set->contents[i]);
 
-    public abstract void logTestResult(TestBase test, RunTests.Result result);
-
-    public abstract void logException(Exception e);
-
-    public void log(String s) {
-        if (w != null) {
-            try {
-                s += "\n";
-                w.write(s);
-                w.flush();
-            }
-            catch (IOException e) {
-                System.err.print("Couldn't write to log file!");
-                e.printStackTrace();
-            }
-        }
-    }
-
-    public void logFormat(String s, Object... args) {
-        log(String.format(s, args));
-    }
+    free(set);
 }

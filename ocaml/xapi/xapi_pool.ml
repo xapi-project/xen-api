@@ -1745,29 +1745,33 @@ let eject_self ~__context ~host =
       )
       my_vms_with_records ;
     (* all control domains resident on me should be destroyed once I leave the
-       		pool, therefore pick them out as follows: if they have a valid resident_on,
-       		the latter should be me; if they don't (e.g. they are halted), they should have
-       		disks on my local storage *)
+       pool, therefore pick them out as follows: if they have a valid
+       resident_on, the latter should be me; if they don't (e.g. they are
+       halted), they should have disks on my local storage *)
     let vm_is_resident_on_host vm_rec host =
       Db.is_valid_ref __context vm_rec.API.vM_resident_on
       && vm_rec.API.vM_resident_on = host
     in
-    let vm_has_disks_on_local_sr_of_host vm_ref host =
-      let is_sr_local x = not (Helpers.is_sr_shared ~__context ~self:x) in
-      let host_has_sr x =
-        Helpers.check_sr_exists_for_host ~__context ~self:x ~host <> None
+    let vm_has_disks_on_local_sr_of_host vm_rec host =
+      let open! Helpers in
+      let is_sr_local x =
+        try not (is_sr_shared ~__context ~self:x)
+        with Db_exn.DBCache_NotFound _ -> false
       in
-      Db.VM.get_VBDs ~__context ~self:vm_ref
-      |> List.map (fun x -> Db.VBD.get_VDI ~__context ~self:x)
-      |> List.filter (fun x -> x <> Ref.null)
-      (* filter out null ref VDIs (can happen e.g. for CDs) *)
-      |> List.map (fun x -> Db.VDI.get_SR ~__context ~self:x)
+      let host_has_sr x =
+        check_sr_exists_for_host ~__context ~self:x ~host <> None
+      in
+      vm_rec.API.vM_VBDs
+      |> List.filter_map
+           (ignore_invalid_ref (fun x -> Db.VBD.get_VDI ~__context ~self:x))
+      |> List.filter_map
+           (ignore_invalid_ref (fun x -> Db.VDI.get_SR ~__context ~self:x))
       |> List.exists (fun x -> is_sr_local x && host_has_sr x)
     in
-    let is_obsolete_control_domain (vm_ref, vm_rec) =
+    let is_obsolete_control_domain (_, vm_rec) =
       vm_rec.API.vM_is_control_domain
       && (vm_is_resident_on_host vm_rec host
-         || vm_has_disks_on_local_sr_of_host vm_ref host
+         || vm_has_disks_on_local_sr_of_host vm_rec host
          )
     in
     let control_domains_to_destroy =

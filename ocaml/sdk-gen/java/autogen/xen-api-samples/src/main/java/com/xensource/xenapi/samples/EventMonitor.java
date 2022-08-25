@@ -28,7 +28,7 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
- package com.xensource.xenapi.samples;
+package com.xensource.xenapi.samples;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -39,8 +39,7 @@ import com.xensource.xenapi.EventBatch;
 /**
  * Listens for events on a connection and prints each event out as it is received.
  */
-public class EventMonitor extends TestBase
-{
+public class EventMonitor extends TestBase {
     private static final int MAX_TRIES = 10;
     private static final double TIMEOUT_SEC = 30;
     private static final int INTERVAL = 10;
@@ -49,16 +48,14 @@ public class EventMonitor extends TestBase
         return "EventMonitor";
     }
 
-    protected void TestCore() throws Exception
-    {
-        Set<String> eventTypes = new HashSet<String>();
+    protected void TestCore() throws Exception {
+        Set<String> eventTypes = new HashSet<>();
         eventTypes.add("*");
 
         int tries = 0;
         String token = "";
 
-        while (tries <= MAX_TRIES)
-        {
+        while (tries <= MAX_TRIES) {
             tries++;
             EventBatch eventBatch = Event.from(connection, eventTypes, token, TIMEOUT_SEC);
             token = eventBatch.token;
@@ -66,15 +63,14 @@ public class EventMonitor extends TestBase
 
             // print the events out in a nice format
             String format = "%-10s %-10s %-10s %-50s%n";
-            logf(format, "class", "id", "operation", "reference");
-            for (Event.Record e : eventBatch.events)
-            {
-                logf(format, e.clazz, e.id, e.operation, e.ref);
+            logFormat(format, "class", "id", "operation", "reference");
+            for (Event.Record e : eventBatch.events) {
+                logFormat(format, e.clazz, e.id, e.operation, e.ref);
                 log("associated snapshot:\n" + e.snapshot);
             }
 
-            logf("Waiting %d seconds before next poll...", INTERVAL);
-            Thread.sleep(INTERVAL * 1000);
+            logFormat("Waiting %d seconds before next poll...", INTERVAL);
+            Thread.sleep(INTERVAL * 1000L);
         }
     }
 }

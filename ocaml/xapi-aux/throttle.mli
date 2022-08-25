@@ -1,5 +1,5 @@
 (*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
+ * Copyright (C) Citrix Systems Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published
@@ -12,30 +12,13 @@
  * GNU Lesser General Public License for more details.
  *)
 
-type 'a t
+module type SIZE = sig
+  val n : unit -> int
+  (** evaluated on first [execute] *)
+end
 
-val ref_prefix : string
+module Make (Size : SIZE) : sig
+  (** [execute f] up to [Size.n ()] in parallel. *)
 
-val make : unit -> 'a t
-
-val null : 'a t
-
-val string_of : 'a t -> string
-
-val to_option : 'a t -> 'a t option
-(** [to_option ref] returns [None] when [ref] is [Ref.Null] or [Some ref]
-    otherwise *)
-
-val short_string_of : 'a t -> string
-
-val of_string : string -> 'a t
-
-val make_dummy : string -> 'a t
-
-val is_real : 'a t -> bool
-
-val is_dummy : 'a t -> bool
-
-val name_of_dummy : 'a t -> string
-
-val really_pretty_and_small : 'a t -> string
+  val execute : (unit -> 'a) -> 'a
+end

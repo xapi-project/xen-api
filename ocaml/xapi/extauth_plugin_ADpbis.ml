@@ -27,6 +27,12 @@ let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 let lwsmd_service = "lwsmd"
 
 module Lwsmd = struct
+  (* This can be refined by Mtime.Span.hour when mtime is updated to 1.4.0 *)
+  let restart_interval = Int64.mul 3600L 1000000000L |> Mtime.Span.of_uint64_ns
+
+  let next_check_point =
+    Mtime.add_span (Mtime_clock.now ()) restart_interval |> ref
+
   let is_ad_enabled ~__context =
     ( Helpers.get_localhost ~__context |> fun self ->
       Db.Host.get_external_auth_type ~__context ~self
@@ -51,6 +57,22 @@ module Lwsmd = struct
   let start ~timeout ~wait_until_success =
     Xapi_systemctl.start ~timeout ~wait_until_success lwsmd_service
 
+  let restart ~timeout ~wait_until_success =
+    Xapi_systemctl.restart ~timeout ~wait_until_success lwsmd_service
+
+  let restart_on_error () =
+    (* Only restart once within restart_interval *)
+    let now = Mtime_clock.now () in
+    match !next_check_point with
+    | Some check_point ->
+        if Mtime.is_later now ~than:check_point then (
+          debug "Restart %s due to local server error" lwsmd_service ;
+          next_check_point := Mtime.add_span now restart_interval ;
+          restart ~timeout:0. ~wait_until_success:false
+        )
+    | None ->
+        debug "next_check_point overflow"
+
   let init_service ~__context =
     (* This function is called during xapi start *)
     (* it will start lwsmd service if the host is authed with AD *)
@@ -59,7 +81,7 @@ module Lwsmd = struct
      * 2. Xapi still needs to boot up even lwsmd bootup fail
      * 3. Xapi does not need to use lwsmd functionality during its bootup *)
     if is_ad_enabled ~__context then (
-      start ~wait_until_success:false ~timeout:5. ;
+      restart ~wait_until_success:false ~timeout:5. ;
       (* Xapi help to enable nsswitch during bootup if it find the host is authed with AD
        * nsswitch will be automatically enabled with command domainjoin-cli
        * but this enabling is necessary when the host authed with AD upgrade
@@ -367,6 +389,13 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
                    (Auth_signature.E_INVALID_OU, errmsg)
                 )
           | "LW_ERROR_INVALID_DOMAIN" ->
+              raise
+                (Auth_signature.Auth_service_error
+                   (Auth_signature.E_GENERIC, errmsg)
+                )
+          | "LW_ERROR_ERRNO_ECONNREFUSED" ->
+              (* CA-368806: Restart service to workaround pbis wedged *)
+              Lwsmd.restart_on_error () ;
               raise
                 (Auth_signature.Auth_service_error
                    (Auth_signature.E_GENERIC, errmsg)

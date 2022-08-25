@@ -28,45 +28,33 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package com.xensource.xenapi.samples;
+#ifndef XEN_STRING_SET_SET_H
+#define XEN_STRING_SET_SET_H
 
-import java.io.FileWriter;
-import java.io.IOException;
 
-public abstract class FileLogger {
-    private FileWriter w;
+#include "xen_common.h"
+#include <xen/api/xen_string_set.h>
 
-    protected FileLogger(String path) {
-        try {
-            w = new FileWriter(path);
-        }
-        catch (IOException e) {
-            System.err.print("Couldn't open " + path + " for log output.");
-            e.printStackTrace();
-        }
-    }
 
-    public abstract void logTestStart(TestBase test);
+typedef struct xen_string_set_set
+{
+    size_t size;
+    xen_string_set *contents[];
+} xen_string_set_set;
 
-    public abstract void logTestResult(TestBase test, RunTests.Result result);
 
-    public abstract void logException(Exception e);
+/**
+ * Allocate a xen_string_set_set of the given size.
+ */
+extern xen_string_set_set *
+xen_string_set_set_alloc(size_t size);
 
-    public void log(String s) {
-        if (w != null) {
-            try {
-                s += "\n";
-                w.write(s);
-                w.flush();
-            }
-            catch (IOException e) {
-                System.err.print("Couldn't write to log file!");
-                e.printStackTrace();
-            }
-        }
-    }
+/**
+ * Free the given xen_string_set_set.  The given set of sets must have been
+ * allocated by this library.
+ */
+extern void
+xen_string_set_set_free(xen_string_set_set *set);
 
-    public void logFormat(String s, Object... args) {
-        log(String.format(s, args));
-    }
-}
+
+#endif

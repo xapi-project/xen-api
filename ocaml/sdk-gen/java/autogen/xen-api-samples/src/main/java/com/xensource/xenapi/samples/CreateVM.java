@@ -28,7 +28,7 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
- package com.xensource.xenapi.samples;
+package com.xensource.xenapi.samples;
 
 import java.util.Date;
 import java.util.Map;
@@ -43,14 +43,12 @@ import com.xensource.xenapi.VM;
 /**
  * Creates a VM on the default SR with a network and DVD drive.
  */
-public class CreateVM extends TestBase
-{
+public class CreateVM extends TestBase {
     public String getTestName() {
         return "CreateVM";
     }
 
-    protected void TestCore() throws Exception
-    {
+    protected void TestCore() throws Exception {
         /*First check we can start an HVM on the master*/
         checkMasterHvmCapable();
 
@@ -58,7 +56,7 @@ public class CreateVM extends TestBase
         log("Template found: " + template.getNameLabel(connection));
 
         /* Clone the template */
-        String vmName = new Date().toString() + " (made by CreateVM.java)";
+        String vmName = new Date() + " (made by CreateVM.java)";
         VM newVm = template.createClone(connection, vmName);
         log("New clone: " + newVm.getNameLabel(connection));
 
@@ -102,31 +100,29 @@ public class CreateVM extends TestBase
      * Create a VIF by making a VIF.record and then filling in the necessary
      * fields
      */
-    private VIF makeVIF(VM newVm, Network network, String device) throws Exception
-    {
-        VIF.Record newvifrecord = new VIF.Record();
+    private void makeVIF(VM newVm, Network network, String device) throws Exception {
+        VIF.Record newVifRecord = new VIF.Record();
 
         // These three parameters are used in the command line VIF creation
-        newvifrecord.VM = newVm;
-        newvifrecord.network = network;
-        newvifrecord.device = device;
-        newvifrecord.MTU = 1500L;
-        newvifrecord.lockingMode = Types.VifLockingMode.NETWORK_DEFAULT;
+        newVifRecord.VM = newVm;
+        newVifRecord.network = network;
+        newVifRecord.device = device;
+        newVifRecord.MTU = 1500L;
+        newVifRecord.lockingMode = Types.VifLockingMode.NETWORK_DEFAULT;
 
-        return VIF.create(connection, newvifrecord);
+        VIF.create(connection, newVifRecord);
     }
 
-    private VBD makeCDDrive(VM vm) throws Exception
-    {
-        VBD.Record vbdrecord = new VBD.Record();
+    private void makeCDDrive(VM vm) throws Exception {
+        VBD.Record vbdRecord = new VBD.Record();
 
-        vbdrecord.VM = vm;
-        vbdrecord.VDI = null;
-        vbdrecord.userdevice = "3";
-        vbdrecord.mode = Types.VbdMode.RO;
-        vbdrecord.type = Types.VbdType.CD;
-        vbdrecord.empty = true;
+        vbdRecord.VM = vm;
+        vbdRecord.VDI = null;
+        vbdRecord.userdevice = "3";
+        vbdRecord.mode = Types.VbdMode.RO;
+        vbdRecord.type = Types.VbdType.CD;
+        vbdRecord.empty = true;
 
-        return VBD.create(connection, vbdrecord);
+        VBD.create(connection, vbdRecord);
     }
 }

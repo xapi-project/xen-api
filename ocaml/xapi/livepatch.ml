@@ -187,14 +187,16 @@ module KernelLivePatch = struct
 end
 
 module XenLivePatch = struct
-  let get_running_livepatch' s =
-    let r =
-      Re.Posix.compile_pat
-        {|^[ ]*lp_([^- ]+)-([^- ]+)-([^- ]+)-([^- ]+).+APPLIED.*$|}
-    in
+  let get_regexp status =
+    Re.Posix.compile_pat
+      (Printf.sprintf {|^[ ]*lp_([^- ]+)-([^- ]+)-([^- ]+)-([^- ]+).+%s.*$|}
+         status
+      )
+
+  let get_livepatches pattern s =
     Astring.String.cuts ~sep:"\n" s
     |> List.filter_map (fun line ->
-           match Re.exec_opt r line with
+           match Re.exec_opt pattern line with
            | Some groups ->
                let base_version = Re.Group.get groups 1 in
                let base_release = Re.Group.get groups 2 in
@@ -204,11 +206,18 @@ module XenLivePatch = struct
            | None ->
                None
        )
-    |> get_latest_livepatch
+
+  let get_running_livepatch' s =
+    let r = get_regexp "APPLIED" in
+    get_livepatches r s |> get_latest_livepatch
 
   let get_running_livepatch () =
     Helpers.call_script !Xapi_globs.xen_livepatch_cmd ["list"]
     |> get_running_livepatch'
+
+  let get_checked_livepatches () =
+    Helpers.call_script !Xapi_globs.xen_livepatch_cmd ["list"]
+    |> get_livepatches (get_regexp "CHECKED")
 
   let get_base_build_id () =
     let drop x =
@@ -243,7 +252,20 @@ module XenLivePatch = struct
       ["upload"; name; livepatch_file]
     |> ignore ;
     Helpers.call_script !Xapi_globs.xen_livepatch_cmd ["replace"; name]
-    |> ignore
+    |> ignore ;
+    (* Unload obsolete livepatches.
+     * The status of these livepatches is changed to 'CHECKED' from 'APPLIED' when
+     * the latest livepatch is being applied.
+     *)
+    get_checked_livepatches ()
+    |> List.iter (fun (base_version, base_release, to_version, to_release) ->
+           let name =
+             Printf.sprintf "lp_%s-%s-%s-%s" base_version base_release
+               to_version to_release
+           in
+           Helpers.call_script !Xapi_globs.xen_livepatch_cmd ["unload"; name]
+           |> ignore
+       )
 end
 
 let get_applied_livepatch ~component ~base_build_id ~running_livepatch =

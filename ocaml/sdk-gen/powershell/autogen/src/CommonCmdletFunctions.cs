@@ -39,12 +39,12 @@ using System.Xml;
 using XenAPI;
 
 namespace Citrix.XenServer
-{  
+{
     class CommonCmdletFunctions
     {
         private const string SessionsVariable = "global:Citrix.XenServer.Sessions";
         private const string DefaultSessionVariable = "global:XenServer_Default_Session";
-        private static string CertificatePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),@"WindowsPowerShell\XenServer_Known_Certificates.xml");
+        private static string CertificatePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), @"WindowsPowerShell\XenServer_Known_Certificates.xml");
 
         static CommonCmdletFunctions()
         {
@@ -82,74 +82,67 @@ namespace Citrix.XenServer
         {
             return string.Format("{0}://{1}:{2}", port == 80 ? "http" : "https", hostname, port);
         }
-       
+
         public static Dictionary<string, string> LoadCertificates()
         {
             Dictionary<string, string> certificates = new Dictionary<string, string>();
 
-            if(File.Exists(CertificatePath))
+            if (File.Exists(CertificatePath))
             {
                 XmlDocument doc = new XmlDocument();
-                try
+                doc.Load(CertificatePath);
+
+                foreach (XmlNode node in doc.GetElementsByTagName("certificate"))
                 {
-                    doc.Load(CertificatePath);
+                    XmlAttribute hostAtt = node.Attributes?["hostname"];
+                    XmlAttribute fngprtAtt = node.Attributes?["fingerprint"];
 
-                    foreach (XmlNode node in doc.GetElementsByTagName("certificate"))
-                    {
-                        XmlAttribute hostAtt = node.Attributes["hostname"];
-                        XmlAttribute fngprtAtt = node.Attributes["fingerprint"];
-
-                        if (hostAtt != null && fngprtAtt != null)
-                            certificates[hostAtt.Value] = fngprtAtt.Value;
-                    }
+                    if (hostAtt != null && fngprtAtt != null)
+                        certificates[hostAtt.Value] = fngprtAtt.Value;
                 }
-                catch
-                {}
             }
+
             return certificates;
         }
-        
+
         public static void SaveCertificates(Dictionary<string, string> certificates)
         {
             string dirName = Path.GetDirectoryName(CertificatePath);
 
             if (!Directory.Exists(dirName))
                 Directory.CreateDirectory(dirName);
-            
+
             XmlDocument doc = new XmlDocument();
             XmlDeclaration decl = doc.CreateXmlDeclaration("1.0", "utf-8", null);
             doc.AppendChild(decl);
             XmlNode node = doc.CreateElement("certificates");
 
-            foreach(KeyValuePair<string, string> cert in certificates)
+            foreach (KeyValuePair<string, string> cert in certificates)
             {
-                XmlNode cert_node = doc.CreateElement("certificate");
+                XmlNode certNode = doc.CreateElement("certificate");
                 XmlAttribute hostname = doc.CreateAttribute("hostname");
                 XmlAttribute fingerprint = doc.CreateAttribute("fingerprint");
                 hostname.Value = cert.Key;
                 fingerprint.Value = cert.Value;
-                cert_node.Attributes.Append(hostname);
-                cert_node.Attributes.Append(fingerprint);
-                node.AppendChild(cert_node);
+                certNode.Attributes?.Append(hostname);
+                certNode.Attributes?.Append(fingerprint);
+                node.AppendChild(certNode);
             }
+
             doc.AppendChild(node);
-            try
-            {
-                doc.Save(CertificatePath);
-            }
-            catch
-            {}
+            doc.Save(CertificatePath);
         }
-        
+
         public static string FingerprintPrettyString(string fingerprint)
         {
             List<string> pairs = new List<string>();
-            while(fingerprint.Length > 1)
+            while (fingerprint.Length > 1)
             {
-                pairs.Add(fingerprint.Substring(0,2));
+                pairs.Add(fingerprint.Substring(0, 2));
                 fingerprint = fingerprint.Substring(2);
             }
-            if(fingerprint.Length > 0)
+
+            if (fingerprint.Length > 0)
                 pairs.Add(fingerprint);
             return string.Join(":", pairs.ToArray());
         }
@@ -165,24 +158,27 @@ namespace Citrix.XenServer
 
             return dict;
         }
-		
-		public static Hashtable ConvertDictionaryToHashtable<T, S>(Dictionary<T, S> dict)
-		{
+
+        public static Hashtable ConvertDictionaryToHashtable<T, S>(Dictionary<T, S> dict)
+        {
             if (dict == null)
                 return null;
-                
-			var tbl = new Hashtable();
-			foreach(KeyValuePair<T, S> pair in dict)
-				tbl.Add(pair.Key, pair.Value);
 
-			return tbl;
-		}
+            var tbl = new Hashtable();
+            foreach (KeyValuePair<T, S> pair in dict)
+                tbl.Add(pair.Key, pair.Value);
+
+            return tbl;
+        }
 
         internal static object EnumParseDefault(Type t, string s)
         {
             try
             {
-                return Enum.Parse(t, s == null ? null : s.Replace('-','_'));
+                if (s == null)
+                    s = string.Empty;
+
+                return Enum.Parse(t, s.Replace('-', '_'));
             }
             catch (ArgumentException)
             {

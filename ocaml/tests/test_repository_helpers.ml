@@ -2057,6 +2057,7 @@ module ConsolidateUpdatesOfHost = Generic.MakeStateless (struct
   let transform updates =
     consolidate_updates_of_host ~repository_name:"regular" ~updates_info host
       (Yojson.Basic.from_string updates)
+    |> fun (x, y) -> (HostUpdates.to_json x, y)
 
   let tests =
     `QuickAndAutoDocumented
@@ -3132,6 +3133,83 @@ module PruneAccumulativeUpdates = Generic.MakeStateless (struct
       ]
 end)
 
+module PruneUpdateInfoForLivepatches = Generic.MakeStateless (struct
+  module Io = struct
+    type input_t = LivePatch.t list * UpdateInfo.t
+
+    type output_t = UpdateInfo.t
+
+    let string_of_input_t (l, updateinfo) =
+      Fmt.(str "%a" Dump.(pair (list string) string))
+        ( List.map LivePatch.to_string l
+        , UpdateInfo.to_json updateinfo |> Yojson.Basic.pretty_to_string
+        )
+
+    let string_of_output_t x =
+      Fmt.(str "%a" Dump.(string))
+        (UpdateInfo.to_json x |> Yojson.Basic.pretty_to_string)
+  end
+
+  let transform (l, updateinfo) =
+    let s = LivePatchSet.of_list l in
+    prune_updateinfo_for_livepatches s updateinfo
+
+  let lp0 =
+    LivePatch.
+      {
+        component= Livepatch.Xen
+      ; base_build_id= "ab7e6a47709be565aae76099bd36ae93fd6da5f4"
+      ; base_version= "4.13.4"
+      ; base_release= "10.24.xs8"
+      ; to_version= "4.13.4"
+      ; to_release= "10.25.xs8"
+      }
+    
+
+  let lp1 =
+    LivePatch.
+      {
+        component= Livepatch.Kernel
+      ; base_build_id= "2cc28689364587682593b6a72e2a586d29996bb9"
+      ; base_version= "4.19.19"
+      ; base_release= "8.0.20.xs8"
+      ; to_version= "4.13.4"
+      ; to_release= "8.0.21.xs8"
+      }
+    
+
+  let updateinfo =
+    UpdateInfo.
+      {
+        id= "UPDATE-00"
+      ; summary= "SUMMARY"
+      ; description= "DESCRIPTION"
+      ; rec_guidance= None
+      ; abs_guidance= None
+      ; guidance_applicabilities= []
+      ; spec_info= "SPEC_INFO"
+      ; url= "URL"
+      ; update_type= "UPDATE_TYPE"
+      ; livepatch_guidance= None
+      ; livepatches= []
+      }
+    
+
+  let tests =
+    `QuickAndAutoDocumented
+      [
+        ( ([lp0], {updateinfo with livepatches= []})
+        , {updateinfo with livepatches= []}
+        )
+      ; ( ([lp0], {updateinfo with livepatches= [lp0; lp1]})
+        , {updateinfo with livepatches= [lp0]}
+        )
+      ; ( ([], {updateinfo with livepatches= [lp0; lp1]})
+        , {updateinfo with livepatches= []}
+        )
+      ]
+end)
+
 let tests =
   make_suite "repository_helpers_"
     [
@@ -3145,6 +3223,7 @@ let tests =
     ; ("parse_updateinfo_list", ParseUpdateInfoList.tests)
     ; ("resort_guidances", GuidanceSetResortGuidancesTest.tests)
     ; ("prune_accumulative_updates", PruneAccumulativeUpdates.tests)
+    ; ("prune_updateinfo_for_livepatches", PruneUpdateInfoForLivepatches.tests)
     ]
 
 let () = Alcotest.run "Repository Helpers" tests

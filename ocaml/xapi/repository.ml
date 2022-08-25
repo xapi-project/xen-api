@@ -608,27 +608,31 @@ let get_pool_updates_in_json ~__context ~hosts =
         Hashtbl.fold
           (fun host updates_of_host (acc1, acc2) ->
             if List.mem host hosts then
-              let json_of_host, upd_ids =
+              let updates_of_host, upd_ids =
                 consolidate_updates_of_host ~repository_name ~updates_info
                   (Ref.string_of host) updates_of_host
               in
-              (json_of_host :: acc1, UpdateIdSet.union upd_ids acc2)
+              (updates_of_host :: acc1, UpdateIdSet.union upd_ids acc2)
             else
               (acc1, acc2)
           )
           updates_in_cache ([], UpdateIdSet.empty)
       in
+      let lps =
+        updates_of_hosts
+        |> List.map (fun x -> x.HostUpdates.livepatches)
+        |> List.concat
+        |> LivePatchSet.of_list
+      in
+      let updateinfo_list =
+        UpdateIdSet.elements ids_of_updates
+        |> List.map (fun upd_id -> List.assoc upd_id updates_info)
+        |> List.map (prune_updateinfo_for_livepatches lps)
+      in
       `Assoc
         [
-          ("hosts", `List updates_of_hosts)
-        ; ( "updates"
-          , `List
-              (UpdateIdSet.elements ids_of_updates
-              |> List.map (fun upd_id ->
-                     UpdateInfo.to_json (List.assoc upd_id updates_info)
-                 )
-              )
-          )
+          ("hosts", `List (List.map HostUpdates.to_json updates_of_hosts))
+        ; ("updates", `List (List.map UpdateInfo.to_json updateinfo_list))
         ; ("hash", `String (Db.Repository.get_hash ~__context ~self:repository))
         ]
     else
