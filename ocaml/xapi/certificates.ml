@@ -288,7 +288,7 @@ let pool_uninstall kind ~__context ~name =
 
 let rec trim_cert = function
   | x :: xs ->
-      if x = pem_certificate_header then
+      if String.trim x = pem_certificate_header then
         trim_cert' [x] xs
       else
         trim_cert xs
@@ -297,7 +297,7 @@ let rec trim_cert = function
 
 and trim_cert' acc = function
   | x :: xs ->
-      if x = pem_certificate_footer then
+      if String.trim x = pem_certificate_footer then
         List.rev (x :: acc)
       else
         trim_cert' (x :: acc) xs
