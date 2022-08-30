@@ -536,24 +536,33 @@ let get_possible_hosts_for_vm ~__context ~vm ~snapshot =
     given [guest] can run on the given [host]. Returns true if and only if the
     guest can run on the host. *)
 let vm_can_run_on_host ~__context ~vm ~snapshot ~do_memory_check host =
+  debug "LIN===> vm_can_run_on_host";
   let is_control_domain  = Db.VM.get_is_control_domain ~__context ~self:vm in
+  if is_control_domain then debug "LIN====> vm is control domain";
+  else debug "LIN===> VM is not control domain";
   let host_has_proper_version () =
     if Helpers.rolling_upgrade_in_progress ~__context
     then
       Helpers.host_has_highest_version_in_pool
         ~__context ~host:(Helpers.LocalObject host)
     else true in
+  if host_has_proper_version then debug "LIN====> host has proper version";
+  else debug "LIN====>host does not has proper version";
   let host_enabled () = Db.Host.get_enabled ~__context ~self:host in
   let host_live () =
     let host_metrics = Db.Host.get_metrics ~__context ~self:host in
     Db.Host_metrics.get_live ~__context ~self:host_metrics in
+  if host_enabled() && host_live() then debug "LIN====> host is enabled and lived";
+  else debug "host is not enabled or lived";
   let host_can_run_vm () =
     Cpuid_helpers.assert_vm_is_compatible ~__context ~vm ~host ();
+    debug "LIN====>Cpuid_helpers.assert_vm_is_compatible passed";
     assert_can_boot_here ~__context ~self:vm ~host ~snapshot ~do_memory_check ();
     true in
   let host_evacuate_in_progress =
     try let _ = List.find (fun s -> snd s = `evacuate) (Db.Host.get_current_operations ~__context ~self:host) in false with _ -> true
   in
+  if host_evacuate_in_progress then debug "LIN====> host_evacuate_in_progress"; else "LIN====> not host_evacuate_in_progress";
   try host_has_proper_version ()
     && (is_control_domain || host_enabled ()) (*CA-233580: allow control domains to start on a disabled host*)
     && host_live () && host_can_run_vm () && host_evacuate_in_progress
@@ -594,6 +603,8 @@ let group_hosts_by_best_pgpu_in_group ~__context gpu_group vgpu_type =
 let choose_host_for_vm_no_wlb ~__context ~vm ~snapshot =
   let validate_host = vm_can_run_on_host ~__context ~vm ~snapshot ~do_memory_check:true in
   let all_hosts = Db.Host.get_all ~__context in
+  let all_host_names = List.map (fun host -> Db.Host.get_name_label ~__context ~self:host) all_hosts in
+  debug "all hosts %s" (String.concat "; " all_host_names);
   try
     match Db.VM.get_VGPUs ~__context ~self:vm with
     | [] -> Xapi_vm_placement.select_host __context vm validate_host all_hosts

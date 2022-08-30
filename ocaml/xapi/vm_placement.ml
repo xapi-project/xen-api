@@ -277,8 +277,8 @@ let select_host_from_categories categories hosts
     validate_host generate_random_value =
   let rec select hosts categories =
     match hosts, categories with
-    | [], xx -> None
-    | xx, [] -> None
+    | [], xx -> debug "LIN====> run out of hosts";  None
+    | xx, [] -> debug "LIN====> run out of categories"; None
     | hosts, (category :: categories_remaining) ->
       begin
         let host, hosts_remaining = select_host_from_category
