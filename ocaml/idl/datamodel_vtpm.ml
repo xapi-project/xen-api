@@ -20,15 +20,7 @@ let persistence_backend =
   Enum ("persistence_backend", [("xapi", "This VTPM is persisted in XAPI's DB")])
 
 let create =
-  call ~name:"create"
-    ~lifecycle:
-      [
-        (Published, rel_rio, "")
-      ; ( Changed
-        , rel_next
-        , "Require only a VM reference and uniqueness to create a VTPM instance"
-        )
-      ]
+  call ~name:"create" ~lifecycle:[]
     ~doc:"Create a new VTPM instance, and return its handle."
     ~params:
       [
@@ -39,20 +31,20 @@ let create =
     ~allowed_roles:_R_VM_ADMIN ()
 
 let destroy =
-  call ~name:"destroy" ~lifecycle:[(Published, rel_rio, "")]
+  call ~name:"destroy" ~lifecycle:[]
     ~doc:"Destroy the specified VTPM instance, along with its state."
     ~params:[(Ref _vtpm, "self", "The reference to the VTPM object")]
     ~allowed_roles:_R_VM_ADMIN ()
 
 let get_contents =
-  call ~name:"get_contents" ~in_product_since:"rel_next"
-    ~doc:"Obtain the contents of the TPM" ~secret:true
+  call ~name:"get_contents" ~lifecycle:[] ~doc:"Obtain the contents of the TPM"
+    ~secret:true
     ~params:[(Ref _vtpm, "self", "The VTPM reference")]
     ~result:(String, "The contents") ~hide_from_docs:true
     ~allowed_roles:_R_LOCAL_ROOT_ONLY ()
 
 let set_contents =
-  call ~name:"set_contents" ~in_product_since:"rel_next"
+  call ~name:"set_contents" ~lifecycle:[]
     ~doc:"Introduce new contents for the TPM" ~secret:true
     ~params:
       [
@@ -63,15 +55,8 @@ let set_contents =
 
 let t =
   create_obj ~in_db:true ~in_oss_since:oss_since_303 ~persist:PersistEverything
-    ~lifecycle:
-      [
-        (Published, rel_rio, "Added VTPM stub")
-      ; (Extended, rel_next, "Added ability to manipulate contents")
-      ; (Extended, rel_next, "Added VTPM unique and protected properties")
-      ; (Extended, rel_next, "Added Persistence backed")
-      ]
-    ~gen_constructor_destructor:false ~name:_vtpm ~descr:"A virtual TPM device"
-    ~gen_events:true ~doccomments:[]
+    ~lifecycle:[] ~gen_constructor_destructor:false ~name:_vtpm
+    ~descr:"A virtual TPM device" ~gen_events:true ~doccomments:[]
     ~messages_default_allowed_roles:_R_POOL_ADMIN
     ~contents:
       [
