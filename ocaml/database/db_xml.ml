@@ -146,14 +146,23 @@ module From = struct
               f acc
           | (_, "table"), [((_, "name"), tblname)] ->
               f (tableset, Table.empty, tblname, manifest)
-          | (_, "row"), ((_, "ref"), rf) :: rest ->
-              (* Remove any other duplicate "ref"s which might have sneaked in there *)
-              let rest = List.filter (fun ((_, k), _) -> k <> "ref") rest in
+          | (_, "row"), rest ->
+              let ref_l, rest =
+                List.partition (fun ((_, k), _) -> k = "ref") rest
+              in
+
               let ctime_l, rest =
                 List.partition (fun ((_, k), _) -> k = "__ctime") rest
               in
               let mtime_l, rest =
                 List.partition (fun ((_, k), _) -> k = "__mtime") rest
+              in
+              let rf =
+                match ref_l with
+                | (_, ref) :: _ ->
+                    ref (* Pick up the first ref and ignore others *)
+                | [] ->
+                    raise (Unmarshall_error "Row does not have ref atrribute")
               in
               let ctime =
                 match ctime_l with
