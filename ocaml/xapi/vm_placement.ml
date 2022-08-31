@@ -15,6 +15,9 @@
  * @group Virtual-Machine Management
 *)
 
+module D=Debug.Make(struct let name="vm_placement" end)
+open D
+
 let ( ++ ) = Int64.add
 let ( -- ) = Int64.sub
 let ( // ) = Int64.div

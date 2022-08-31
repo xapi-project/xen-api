@@ -607,7 +607,7 @@ let choose_host_for_vm_no_wlb ~__context ~vm ~snapshot =
   debug "all hosts %s" (String.concat "; " all_host_names);
   try
     match Db.VM.get_VGPUs ~__context ~self:vm with
-    | [] -> Xapi_vm_placement.select_host __context vm validate_host all_hosts
+    | [] -> debug "VM has not vgpu"; Xapi_vm_placement.select_host __context vm validate_host all_hosts
     | vgpu :: _ -> (* just considering first vgpu *)
       let vgpu_type = Db.VGPU.get_type ~__context ~self:vgpu in
       let gpu_group = Db.VGPU.get_GPU_group ~__context ~self:vgpu in
