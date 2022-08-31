@@ -38,19 +38,13 @@ https://discussions.citrix.com/forum/101-hypervisor-formerly-xenserver/
 Prerequisites
 -------------
 
-This library requires .NET 4.5 and PowerShell 4.0.
+This library requires .NET 6.0 and PowerShell 7.2.
 
 
 Dependencies
 ------------
 
 The Citrix Hypervisor PowerShell Module is dependent upon the following libraries:
-
-- XML-RPC.NET by Charles Cook (see http://xml-rpc.net).
-  XML-RPC.NET is licensed under the MIT X11 license; see
-  LICENSE.CookComputing.XmlRpcV2.txt for details. A patched version of the library
-  (CookComputing.XmlRpcV2.dll) is shipped with the Citrix Hypervisor PowerShell
-  Module.
 
 - Newtonsoft JSON.NET by James Newton-King (see https://www.newtonsoft.com/).
   JSON.NET is licensed under the MIT license; see LICENSE.Newtonsoft.Json.txt
@@ -147,9 +141,9 @@ Getting Started
 Building and Debugging the Source Code
 --------------------------------------
 
-1. Copy CookComputing.XmlRpcV2.dll, Newtonsoft.Json.CH.dll, and XenServer.dll from
-   the XenServerPSModule folder into the source code folder at the same level as
-   the project file XenServerPowerShell.csproj.
+1. Copy Newtonsoft.Json.CH.dll and XenServer.dll from the XenServerPSModule 
+   folder into the source code folder at the same level as the project 
+   file XenServerPowerShell.csproj.
 
 2. Open the project XenServerPowerShell.csproj in Visual Studio (2013 or greater).
 
