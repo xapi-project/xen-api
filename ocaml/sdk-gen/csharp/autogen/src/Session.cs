@@ -30,10 +30,7 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Net;
-
-using CookComputing.XmlRpc;
 using Newtonsoft.Json;
 
 
@@ -59,16 +56,19 @@ namespace XenAPI
 
         private List<Role> roles = new List<Role>();
 
-        /// <summary>
-        /// Applies only to API 2.6 (ely) or 2.8 (inverness) and above.
-        /// </summary>
-        public Action<Session> XmlRpcToJsonRpcInvoker = SwitchToJsonRpcBackend;
-
         #region Constructors
 
         public Session(int timeout, string url)
         {
-            InitializeXmlRpcProxy(url, timeout);
+            JsonRpcClient = new JsonRpcClient(url)
+            {
+                ConnectionGroupName = ConnectionGroupName,
+                Timeout = timeout,
+                KeepAlive = true,
+                UserAgent = UserAgent,
+                WebProxy = Proxy,
+                JsonRpcVersion = JsonRpcVersion.v2
+            };
         }
 
         public Session(string url)
@@ -124,18 +124,6 @@ namespace XenAPI
                     Cookies = session.JsonRpcClient.Cookies
                 };
             }
-            else if (session.XmlRpcProxy != null)
-            {
-                XmlRpcProxy = XmlRpcProxyGen.Create<Proxy>();
-                XmlRpcProxy.Url = session.Url;
-                XmlRpcProxy.Timeout = timeout;
-                XmlRpcProxy.NonStandard = session.XmlRpcProxy.NonStandard;
-                XmlRpcProxy.UseIndentation = session.XmlRpcProxy.UseIndentation;
-                XmlRpcProxy.UserAgent = session.XmlRpcProxy.UserAgent;
-                XmlRpcProxy.KeepAlive = session.XmlRpcProxy.KeepAlive;
-                XmlRpcProxy.Proxy = session.XmlRpcProxy.Proxy;
-            }
-
             CopyADFromSession(session);
         }
 
@@ -146,28 +134,12 @@ namespace XenAPI
         {
             Session newSession = new Session(session.Url) {opaque_ref = _session};
             newSession.SetAPIVersion();
-            if (newSession.XmlRpcToJsonRpcInvoker != null)
-                newSession.XmlRpcToJsonRpcInvoker(newSession);
             return newSession;
-        }
-
-        private void InitializeXmlRpcProxy(string url, int timeout)
-        {
-            XmlRpcProxy = XmlRpcProxyGen.Create<Proxy>();
-            XmlRpcProxy.Url = url;
-            XmlRpcProxy.NonStandard = XmlRpcNonStandard.All;
-            XmlRpcProxy.Timeout = timeout;
-            XmlRpcProxy.UseIndentation = false;
-            XmlRpcProxy.UserAgent = UserAgent;
-            XmlRpcProxy.KeepAlive = true;
-            XmlRpcProxy.Proxy = Proxy;
         }
 
         private void SetupSessionDetails()
         {
             SetAPIVersion();
-            if (XmlRpcToJsonRpcInvoker != null)
-                XmlRpcToJsonRpcInvoker(this);
             SetADDetails();
             SetRbacPermissions();
         }
@@ -254,18 +226,19 @@ namespace XenAPI
             throw new Exception("The method or operation is not implemented.");
         }
 
-        public Proxy XmlRpcProxy { get; private set; }
-
         public JsonRpcClient JsonRpcClient { get; private set; }
+
+        [Obsolete("Use opaque_ref instead.")]
+        public string uuid
+        {
+            get { return opaque_ref; }
+        }
 
         public string Url
         {
             get
             {
-                if (JsonRpcClient != null)
-                    return JsonRpcClient.Url;
-                else
-                    return XmlRpcProxy.Url;
+                return JsonRpcClient.Url;
             }
         }
 
@@ -273,17 +246,11 @@ namespace XenAPI
         {
             get
             {
-                if (JsonRpcClient != null)
-                    return JsonRpcClient.ConnectionGroupName;
-                else
-                    return XmlRpcProxy.ConnectionGroupName;
+                return JsonRpcClient?.ConnectionGroupName;
             }
             set
             {
-                if (JsonRpcClient != null)
-                    JsonRpcClient.ConnectionGroupName = value;
-                else
-                    XmlRpcProxy.ConnectionGroupName = value;
+                JsonRpcClient.ConnectionGroupName = value;
             }
         }
 
@@ -294,9 +261,6 @@ namespace XenAPI
                 if (JsonRpcClient != null)
                     return JsonRpcClient.WebProxy == null ? null : JsonRpcClient.WebProxy.Credentials;
 
-                if (XmlRpcProxy != null)
-                    return XmlRpcProxy.Proxy == null ? null : XmlRpcProxy.Proxy.Credentials;
-
                 return null;
             }
         }
@@ -306,6 +270,14 @@ namespace XenAPI
         /// Filled in after successful session_login_with_password for 1.6 or newer connections
         /// </summary>
         public virtual bool IsLocalSuperuser { get; private set; }
+
+        [Obsolete("Use SessionSubject instead.")]
+        [JsonConverter(typeof(XenRefConverter<Subject>))]
+        public XenRef<Subject> Subject
+        {
+            get { return SessionSubject; }
+            private set { SessionSubject = value; }
+        }
 
         /// <summary>
         /// The OpaqueRef for the Subject under whose authority the current user is logged in;
@@ -339,11 +311,7 @@ namespace XenAPI
 
         public void login_with_password(string username, string password)
         {
-            if (JsonRpcClient != null)
-                opaque_ref = JsonRpcClient.session_login_with_password(username, password);
-            else
-                opaque_ref = XmlRpcProxy.session_login_with_password(username, password).parse();
-
+            opaque_ref = JsonRpcClient.session_login_with_password(username, password);
             SetupSessionDetails();
         }
 
@@ -351,10 +319,7 @@ namespace XenAPI
         {
             try
             {
-                if (JsonRpcClient != null)
-                    opaque_ref = JsonRpcClient.session_login_with_password(username, password, version);
-                else
-                    opaque_ref = XmlRpcProxy.session_login_with_password(username, password, version).parse();
+                opaque_ref = JsonRpcClient.session_login_with_password(username, password, version);
 
                 SetupSessionDetails();
             }
@@ -376,10 +341,7 @@ namespace XenAPI
         {
             try
             {
-                if (JsonRpcClient != null)
-                    opaque_ref = JsonRpcClient.session_login_with_password(username, password, version, originator);
-                else
-                    opaque_ref = XmlRpcProxy.session_login_with_password(username, password, version, originator).parse();
+                opaque_ref = JsonRpcClient.session_login_with_password(username, password, version, originator);
 
                 SetupSessionDetails();
             }
@@ -405,53 +367,17 @@ namespace XenAPI
         private void SetAPIVersion()
         {
             Dictionary<XenRef<Pool>, Pool> pools = Pool.get_all_records(this);
-
-            if (pools.Values.Count > 0)
+            foreach (Pool pool in pools.Values)
             {
-                var pool = pools.Values.First();
                 Host host = Host.get_record(this, pool.master);
                 APIVersion = Helper.GetAPIVersion(host.API_version_major, host.API_version_minor);
-            }
-        }
-
-        /// <summary>
-        /// Applies only to API 2.6 (ely) or 2.8 (inverness) and above.
-        /// </summary>
-        private static void SwitchToJsonRpcBackend(Session session)
-        {
-            session.JsonRpcClient = null;
-            bool isELy = session.APIVersion == API_Version.API_2_6;
-            bool isInvernessOrAbove = session.APIVersion >= API_Version.API_2_8;
-
-            if (isELy || isInvernessOrAbove)
-            {
-                session.JsonRpcClient = new JsonRpcClient(session.XmlRpcProxy.Url)
-                {
-                    ConnectionGroupName = session.XmlRpcProxy.ConnectionGroupName,
-                    Timeout = session.XmlRpcProxy.Timeout,
-                    KeepAlive = session.XmlRpcProxy.KeepAlive,
-                    UserAgent = session.XmlRpcProxy.UserAgent,
-                    WebProxy = session.XmlRpcProxy.Proxy,
-                    ProtocolVersion = session.XmlRpcProxy.ProtocolVersion,
-                    Expect100Continue = session.XmlRpcProxy.Expect100Continue,
-                    AllowAutoRedirect = session.XmlRpcProxy.AllowAutoRedirect,
-                    PreAuthenticate = session.XmlRpcProxy.PreAuthenticate,
-                    Cookies = session.XmlRpcProxy.CookieContainer
-                };
-
-                if (isInvernessOrAbove)
-                    session.JsonRpcClient.JsonRpcVersion = JsonRpcVersion.v2;
-
-                session.XmlRpcProxy = null;
+                break;
             }
         }
 
         public void slave_local_login_with_password(string username, string password)
         {
-            if (JsonRpcClient != null)
-                opaque_ref = JsonRpcClient.session_slave_local_login_with_password(username, password);
-            else
-                opaque_ref = XmlRpcProxy.session_slave_local_login_with_password(username, password).parse();
+            opaque_ref = JsonRpcClient.session_slave_local_login_with_password(username, password);
             //assume the latest API
             APIVersion = API_Version.LATEST;
         }
@@ -480,10 +406,7 @@ namespace XenAPI
             if (_self == null)
                 return;
 
-            if (JsonRpcClient != null)
-                JsonRpcClient.session_logout(_self);
-            else
-                XmlRpcProxy.session_logout(_self).parse();
+            JsonRpcClient.session_logout(_self);
         }
 
         public void local_logout()
@@ -502,10 +425,7 @@ namespace XenAPI
             if (opaqueRef == null)
                 return;
 
-            if (JsonRpcClient != null)
-                JsonRpcClient.session_local_logout(opaqueRef);
-            else
-                XmlRpcProxy.session_local_logout(opaqueRef).parse();
+            JsonRpcClient.session_local_logout(opaqueRef);
         }
 
         public void change_password(string oldPassword, string newPassword)
@@ -521,10 +441,7 @@ namespace XenAPI
         /// <param name="newPassword"></param>
         public void change_password(Session session2, string oldPassword, string newPassword)
         {
-            if (JsonRpcClient != null)
-                JsonRpcClient.session_change_password(session2.opaque_ref, oldPassword, newPassword);
-            else
-                XmlRpcProxy.session_change_password(session2.opaque_ref, oldPassword, newPassword).parse();
+            JsonRpcClient.session_change_password(session2.opaque_ref, oldPassword, newPassword);
         }
 
         public string get_this_host()
@@ -534,10 +451,7 @@ namespace XenAPI
 
         public static string get_this_host(Session session, string _self)
         {
-            if (session.JsonRpcClient != null)
-                return session.JsonRpcClient.session_get_this_host(session.opaque_ref, _self ?? "");
-            else
-                return session.XmlRpcProxy.session_get_this_host(session.opaque_ref, _self ?? "").parse();
+            return session.JsonRpcClient.session_get_this_host(session.opaque_ref, _self ?? "");
         }
 
         public string get_this_user()
@@ -547,10 +461,7 @@ namespace XenAPI
 
         public static string get_this_user(Session session, string _self)
         {
-            if (session.JsonRpcClient != null)
-                return session.JsonRpcClient.session_get_this_user(session.opaque_ref, _self ?? "");
-            else
-                return session.XmlRpcProxy.session_get_this_user(session.opaque_ref, _self ?? "").parse();
+            return session.JsonRpcClient.session_get_this_user(session.opaque_ref, _self ?? "");
         }
 
         public bool get_is_local_superuser()
@@ -560,18 +471,12 @@ namespace XenAPI
 
         public static bool get_is_local_superuser(Session session, string _self)
         {
-            if (session.JsonRpcClient != null)
-                return session.JsonRpcClient.session_get_is_local_superuser(session.opaque_ref, _self ?? "");
-            else
-                return session.XmlRpcProxy.session_get_is_local_superuser(session.opaque_ref, _self ?? "").parse();
+            return session.JsonRpcClient.session_get_is_local_superuser(session.opaque_ref, _self ?? "");
         }
 
         public static string[] get_rbac_permissions(Session session, string _self)
         {
-            if (session.JsonRpcClient != null)
-                return session.JsonRpcClient.session_get_rbac_permissions(session.opaque_ref, _self ?? "");
-            else
-                return session.XmlRpcProxy.session_get_rbac_permissions(session.opaque_ref, _self ?? "").parse();
+            return session.JsonRpcClient.session_get_rbac_permissions(session.opaque_ref, _self ?? "");
         }
 
         public DateTime get_last_active()
@@ -581,10 +486,7 @@ namespace XenAPI
 
         public static DateTime get_last_active(Session session, string _self)
         {
-            if (session.JsonRpcClient != null)
-                return session.JsonRpcClient.session_get_last_active(session.opaque_ref, _self ?? "");
-            else
-                return session.XmlRpcProxy.session_get_last_active(session.opaque_ref, _self ?? "").parse();
+            return session.JsonRpcClient.session_get_last_active(session.opaque_ref, _self ?? "");
         }
 
         public bool get_pool()
@@ -594,23 +496,21 @@ namespace XenAPI
 
         public static bool get_pool(Session session, string _self)
         {
-            if (session.JsonRpcClient != null)
-                return session.JsonRpcClient.session_get_pool(session.opaque_ref, _self ?? "");
-            else
-                return session.XmlRpcProxy.session_get_pool(session.opaque_ref, _self ?? "").parse();
+            return session.JsonRpcClient.session_get_pool(session.opaque_ref, _self ?? "");
         }
 
+#pragma warning disable CS3005 // Identifier differing only in case is not CLS-compliant
         public XenRef<Subject> get_subject()
+#pragma warning restore CS3005 // Identifier differing only in case is not CLS-compliant
         {
             return get_subject(this, opaque_ref);
         }
 
+#pragma warning disable CS3005 // Identifier differing only in case is not CLS-compliant
         public static XenRef<Subject> get_subject(Session session, string _self)
+#pragma warning restore CS3005 // Identifier differing only in case is not CLS-compliant
         {
-            if (session.JsonRpcClient != null)
-                return session.JsonRpcClient.session_get_subject(session.opaque_ref, _self ?? "");
-            else
-                return new XenRef<Subject>(session.XmlRpcProxy.session_get_subject(session.opaque_ref, _self ?? "").parse());
+            return session.JsonRpcClient.session_get_subject(session.opaque_ref, _self ?? "");
         }
 
         public string get_auth_user_sid()
@@ -620,10 +520,7 @@ namespace XenAPI
 
         public static string get_auth_user_sid(Session session, string _self)
         {
-            if (session.JsonRpcClient != null)
-                return session.JsonRpcClient.session_get_auth_user_sid(session.opaque_ref, _self ?? "");
-            else
-                return session.XmlRpcProxy.session_get_auth_user_sid(session.opaque_ref, _self ?? "").parse();
+            return session.JsonRpcClient.session_get_auth_user_sid(session.opaque_ref, _self ?? "");
         }
 
         #region AD SID enumeration and bootout
@@ -635,10 +532,7 @@ namespace XenAPI
 
         public static string[] get_all_subject_identifiers(Session session)
         {
-            if (session.JsonRpcClient != null)
-                return session.JsonRpcClient.session_get_all_subject_identifiers(session.opaque_ref);
-            else
-                return session.XmlRpcProxy.session_get_all_subject_identifiers(session.opaque_ref).parse();
+            return session.JsonRpcClient.session_get_all_subject_identifiers(session.opaque_ref);
         }
 
         public XenRef<Task> async_get_all_subject_identifiers()
@@ -648,10 +542,7 @@ namespace XenAPI
 
         public static XenRef<Task> async_get_all_subject_identifiers(Session session)
         {
-            if (session.JsonRpcClient != null)
-                return session.JsonRpcClient.async_session_get_all_subject_identifiers(session.opaque_ref);
-            else
-                return XenRef<Task>.Create(session.XmlRpcProxy.async_session_get_all_subject_identifiers(session.opaque_ref).parse());
+            return session.JsonRpcClient.async_session_get_all_subject_identifiers(session.opaque_ref);
         }
 
         public string logout_subject_identifier(string subject_identifier)
@@ -661,13 +552,8 @@ namespace XenAPI
 
         public static string logout_subject_identifier(Session session, string subject_identifier)
         {
-            if (session.JsonRpcClient != null)
-            {
-                session.JsonRpcClient.session_logout_subject_identifier(session.opaque_ref, subject_identifier);
-                return string.Empty;
-            }
-            else
-                return session.XmlRpcProxy.session_logout_subject_identifier(session.opaque_ref, subject_identifier).parse();
+            session.JsonRpcClient.session_logout_subject_identifier(session.opaque_ref, subject_identifier);
+            return string.Empty;
         }
 
         public XenRef<Task> async_logout_subject_identifier(string subject_identifier)
@@ -677,10 +563,7 @@ namespace XenAPI
 
         public static XenRef<Task> async_logout_subject_identifier(Session session, string subject_identifier)
         {
-            if (session.JsonRpcClient != null)
-                return session.JsonRpcClient.async_session_logout_subject_identifier(session.opaque_ref, subject_identifier);
-            else
-                return XenRef<Task>.Create(session.XmlRpcProxy.async_session_logout_subject_identifier(session.opaque_ref, subject_identifier).parse());
+            return session.JsonRpcClient.async_session_logout_subject_identifier(session.opaque_ref, subject_identifier);
         }
 
         #endregion
@@ -694,10 +577,7 @@ namespace XenAPI
 
         public static Dictionary<string, string> get_other_config(Session session, string _self)
         {
-            if (session.JsonRpcClient != null)
-                return session.JsonRpcClient.session_get_other_config(session.opaque_ref, _self ?? "");
-            else
-                return Maps.convert_from_proxy_string_string(session.XmlRpcProxy.session_get_other_config(session.opaque_ref, _self ?? "").parse());
+            return session.JsonRpcClient.session_get_other_config(session.opaque_ref, _self ?? "");
         }
 
         public void set_other_config(Dictionary<string, string> _other_config)
@@ -707,10 +587,7 @@ namespace XenAPI
 
         public static void set_other_config(Session session, string _self, Dictionary<string, string> _other_config)
         {
-            if (session.JsonRpcClient != null)
-                session.JsonRpcClient.session_set_other_config(session.opaque_ref, _self ?? "", _other_config);
-            else
-                session.XmlRpcProxy.session_set_other_config(session.opaque_ref, _self ?? "", Maps.convert_to_proxy_string_string(_other_config)).parse();
+            session.JsonRpcClient.session_set_other_config(session.opaque_ref, _self ?? "", _other_config);
         }
 
         public void add_to_other_config(string _key, string _value)
@@ -720,10 +597,7 @@ namespace XenAPI
 
         public static void add_to_other_config(Session session, string _self, string _key, string _value)
         {
-            if (session.JsonRpcClient != null)
-                session.JsonRpcClient.session_add_to_other_config(session.opaque_ref, _self ?? "", _key ?? "", _value ?? "");
-            else
-                session.XmlRpcProxy.session_add_to_other_config(session.opaque_ref, _self ?? "", _key ?? "", _value ?? "").parse();
+            session.JsonRpcClient.session_add_to_other_config(session.opaque_ref, _self ?? "", _key ?? "", _value ?? "");
         }
 
         public void remove_from_other_config(string _key)
@@ -733,10 +607,7 @@ namespace XenAPI
 
         public static void remove_from_other_config(Session session, string _self, string _key)
         {
-            if (session.JsonRpcClient != null)
-                session.JsonRpcClient.session_remove_from_other_config(session.opaque_ref, _self ?? "", _key ?? "");
-            else
-                session.XmlRpcProxy.session_remove_from_other_config(session.opaque_ref, _self ?? "", _key ?? "").parse();
+            session.JsonRpcClient.session_remove_from_other_config(session.opaque_ref, _self ?? "", _key ?? "");
         }
 
         #endregion
