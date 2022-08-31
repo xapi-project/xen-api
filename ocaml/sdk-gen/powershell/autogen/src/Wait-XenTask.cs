@@ -32,8 +32,6 @@ using System;
 using System.Collections.Generic;
 using System.Management.Automation;
 using System.Threading;
-using System.Windows.Forms;
-
 using XenAPI;
 
 namespace Citrix.XenServer.Commands
@@ -46,7 +44,7 @@ namespace Citrix.XenServer.Commands
             Min = 0;
             Max = 100;
         }
-        
+
         #region Cmdlet Parameters
 
         [Parameter]
@@ -70,9 +68,6 @@ namespace Citrix.XenServer.Commands
         public SwitchParameter ShowProgress { get; set; }
 
         [Parameter]
-        public ProgressBar Progressbar { get; set; }
-
-        [Parameter]
         public int Min { get; set; }
 
         [Parameter]
@@ -85,7 +80,7 @@ namespace Citrix.XenServer.Commands
         protected override void ProcessRecord()
         {
             GetSession();
-            
+
             string task = ParseTask();
 
             RunApiCall(delegate()
@@ -112,18 +107,14 @@ namespace Citrix.XenServer.Commands
                         if (prog.PercentComplete == 100)
                             prog.RecordType = ProgressRecordType.Completed;
 
-                        if (Progressbar != null)
-                            Progressbar.Value = (int)(Progressbar.Minimum + (prog.PercentComplete * ((Progressbar.Maximum - Progressbar.Minimum) / 100d)));
-                        else if (ShowProgress)
+                        if (ShowProgress)
                             WriteProgress(prog);
 
                         break;
                     }
                     else
                     {
-                        if (Progressbar != null)
-                            Progressbar.Value = (int)(Progressbar.Minimum + (prog.PercentComplete * ((Progressbar.Maximum - Progressbar.Minimum) / 100d)));
-                        else if (ShowProgress)
+                        if (ShowProgress)
                             WriteProgress(prog);
                     }
                     Thread.Sleep(500);
@@ -133,7 +124,7 @@ namespace Citrix.XenServer.Commands
                 {
                     throw new Failure(XenAPI.Task.get_error_info(session, task));
                 }
-                
+
                 if (XenAPI.Task.get_status(session, task) == XenAPI.task_status_type.cancelled)
                 {
                     throw new Exception("User Cancelled");
@@ -142,7 +133,7 @@ namespace Citrix.XenServer.Commands
                 if (PassThru)
                     WriteObject(XenAPI.Task.get_result(session, task).Replace("<value>", "").Replace("</value>", ""), true);
             });
-            
+
             UpdateSessions();
         }
 
