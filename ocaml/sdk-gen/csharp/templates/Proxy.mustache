@@ -31,65 +31,20 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using CookComputing.XmlRpc;
-
 
 namespace XenAPI
 {
-    public interface Proxy : IXmlRpcProxy
-    {
-        [XmlRpcMethod("event.get_record")]
-        Response<Proxy_Event>
-        event_get_record(string session, string _event);
-
-        [XmlRpcMethod("event.get_by_uuid")]
-        Response<string>
-        event_get_by_uuid(string session, string _uuid);
-
-        [XmlRpcMethod("event.get_id")]
-        Response<string>
-        event_get_id(string session, string _event);
-
-        [XmlRpcMethod("event.set_id")]
-        Response<string>
-        event_set_id(string session, string _event, string _id);
-
-        [XmlRpcMethod("event.register")]
-        Response<string>
-        event_register(string session, string [] _classes);
-
-        [XmlRpcMethod("event.unregister")]
-        Response<string>
-        event_unregister(string session, string [] _classes);
-
-        [XmlRpcMethod("event.next")]
-        Response<Proxy_Event[]>
-        event_next(string session);
-
-        [XmlRpcMethod("event.from")]
-        Response<Events>
-        event_from(string session, string [] _classes, string _token, double _timeout);
-{{#proxy_methods}}
-{{{proxy_method}}}
-{{/proxy_methods}}
-    }
-
-    [XmlRpcMissingMapping(MappingAction.Ignore)]
     public class Proxy_Event
     {
         public string id;
         public string timestamp;
-        [XmlRpcMember("class")]
         public string class_;
         public string operation;
-        [XmlRpcMember("ref")]
         public string opaqueRef;
-        [XmlRpcMember("snapshot")]
         public object snapshot;
     }
 {{#proxy_classes}}
 
-    [XmlRpcMissingMapping(MappingAction.Ignore)]
     public class Proxy_{{proxy_class_name}}
     {
 {{#proxy_class_fields}}
