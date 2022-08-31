@@ -38,18 +38,13 @@ https://discussions.citrix.com/forum/101-hypervisor-formerly-xenserver/
 Prerequisites
 -------------
 
-This library requires .NET 4.5 or greater.
+This library requires .NET Standard 2.0.
 
 
 Dependencies
 ------------
 
 XenServer.NET is dependent upon the following libraries:
-
-- XML-RPC.NET by Charles Cook (see http://xml-rpc.net).
-  XML-RPC.NET is licensed under the MIT X11 license; see
-  LICENSE.CookComputing.XmlRpcV2.txt for details. A patched version of the library
-  (CookComputing.XmlRpcV2.dll) is shipped with XenServer.NET.
 
 - Newtonsoft JSON.NET by James Newton-King (see https://www.newtonsoft.com/).
   JSON.NET is licensed under the MIT license; see LICENSE.Newtonsoft.Json.txt
@@ -72,24 +67,24 @@ Getting Started
 Extract the contents of this archive.
 
 A. To use the compiled binaries in your code:
-  1. Copy XenServer.dll, CookComputing.XmlRpcV2.dll and Newtonsoft.Json.CH.dll
+  1. Copy XenServer.dll and Newtonsoft.Json.CH.dll
      from the bin folder into your own workspace.
   2. In Visual Studio, add references to all DLLs from your own program.
      Project > Add Reference > Browse.
   3. You should now be ready to compile against XenServer.NET.
 
 B. To build the source code:
-  1. Copy CookComputing.XmlRpcV2.dll  and Newtonsoft.Json.CH.dll from the bin
+  1. Copy Newtonsoft.Json.CH.dll from the bin
      folder into the source code folder at the same level as the project file
      XenServer.csproj
   2. Open the project XenServer.csproj in Visual Studio.
   3. You should now be ready to build the source code.
 
 C. To run the examples:
-  1. Copy XenServer.dll, CookComputing.XmlRpcV2.dll and Newtonsoft.Json.CH.dll
+  1. Copy XenServer.dll and Newtonsoft.Json.CH.dll
      from the bin folder into the samples folder at the same level as the
      project file XenSdkSample.csproj.
-  2. Open XenSdkSample.sln inside Visual Studio (2013 or greater).
+  2. Open XenSdkSample.sln inside Visual Studio (2019 or greater).
   3. You should now be ready to compile the solution and run the examples.
      The solution project is a console application expecting the parameters
      <host> <username> <password> to be passed to its Main method.
