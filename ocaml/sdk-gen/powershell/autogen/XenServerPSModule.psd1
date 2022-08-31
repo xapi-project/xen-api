@@ -41,11 +41,10 @@ CompanyName = 'Citrix Systems, Inc'
 Copyright = 'Copyright (c) Citrix Systems, Inc. All rights reserved.'
 
 # Requirements
-PowerShellVersion = '4.0'
+PowerShellVersion = '7.2'
 PowerShellHostName = ''
 PowerShellHostVersion = ''
-DotNetFrameworkVersion = '4.5'
-CLRVersion = '4.0.30319'
+DotNetFrameworkVersion = '6.0'
 ProcessorArchitecture = 'None'
 
 #Contents
@@ -53,17 +52,16 @@ ModuleToProcess = 'XenServerPowerShell.dll'
 RequiredModules = @()
 NestedModules = @()
 ModuleList = @('XenServerPowerShell.dll')
-RequiredAssemblies = @('CookComputing.XmlRpcV2.dll',
-                       'Newtonsoft.Json.CH.dll',
+RequiredAssemblies = @('System.Management.Automation.dll',
+                        'Newtonsoft.Json.CH.dll',
                        'XenServer.dll')
 ScriptsToProcess = @('Initialize-Environment.ps1')
 TypesToProcess = @('XenServer.types.ps1xml')
 FormatsToProcess = @('XenServer.format.ps1xml')
 FileList = @('about_XenServer.help.txt',
-             'CookComputing.XmlRpcV2.dll',
+             'System.Management.Automation.dll',
              'Newtonsoft.Json.CH.dll',
              'Initialize-Environment.ps1',
-             'LICENSE.CookComputing.XmlRpcV2.txt',
              'LICENSE.Newtonsoft.Json.txt',
              'LICENSE.txt',
              'README.txt',
