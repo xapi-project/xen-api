@@ -862,7 +862,7 @@ and gen_exposed_field out_chan cls content =
 (* ------------------- category: proxy classes *)
 and gen_proxy protocol =
   let all_methods =
-    classes |> List.map (gen_proxy_class_methods) |> List.concat
+    classes |> List.map gen_proxy_class_methods |> List.concat
   in
   match protocol with
   | CommonFunctions.XmlRpc ->
@@ -888,10 +888,7 @@ and gen_proxy protocol =
           ; ("proxy_class_fields", `A (List.map proxy_field all_fields))
           ]
       in
-      `O
-        [
-          ("proxy_classes", `A (List.map json_class classes))
-        ]
+      `O [("proxy_classes", `A (List.map json_class classes))]
   | CommonFunctions.JsonRpc ->
       let json_method x = `O [("client_method", `String x)] in
       `O [("client_methods", `A (List.map json_method all_methods))]
@@ -919,8 +916,7 @@ and gen_proxy_class_methods {name; messages; _} =
   overloads @ [records]
 
 and gen_proxy_method classname message params =
-  let proxy_msg_name = proxy_msg_name classname message
-  in
+  let proxy_msg_name = proxy_msg_name classname message in
   let paramsJsonWithTypes =
     proxy_params ~with_types:true ~json:true message classname params
   in
@@ -965,8 +961,8 @@ and gen_proxy_method classname message params =
         \        {\n\
         \            var converters = new List<JsonConverter> {%s};\n\
         \            var serializer = CreateSerializer(converters);\n\
-        \            return Rpc<XenRef<Task>>(\"Async.%s.%s\", new \
-         JArray(%s), serializer);\n\
+        \            return Rpc<XenRef<Task>>(\"Async.%s.%s\", new JArray(%s), \
+         serializer);\n\
         \        }" proxy_msg_name paramsJsonWithTypes
         (String.concat ", " async_converters)
         classname message.msg_name paramsJsonNoTypes
@@ -974,7 +970,6 @@ and gen_proxy_method classname message params =
       ""
   in
   sync ^ async
-      
 
 and proxy_params ~with_types ~json message classname params =
   let refParam =
@@ -1064,9 +1059,8 @@ and gen_maps' out_chan =
     "%s\n\n\
      using System;\n\
      using System.Collections;\n\
-     using System.Collections.Generic;\n\
-     
-     namespace XenAPI\n\
+     using System.Collections.Generic;\n\n\
+    \     namespace XenAPI\n\
      {\n\
     \    internal class Maps\n\
     \    {" Licence.bsd_two_clause ;
