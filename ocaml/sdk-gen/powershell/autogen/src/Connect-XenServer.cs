@@ -32,12 +32,12 @@ using System;
 using System.Collections.Generic;
 using System.Management.Automation;
 using System.Net;
+using System.Net.Http;
 using System.Net.Security;
 using System.Runtime.InteropServices;
 using System.Security;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
-
 using XenAPI;
 
 namespace Citrix.XenServer.Commands
@@ -202,14 +202,53 @@ namespace Citrix.XenServer.Commands
                         {
                             ThrowTerminatingError(new ErrorRecord(f, "", ErrorCategory.InvalidArgument, Url[i])
                             {
-                                ErrorDetails = new ErrorDetails(string.Format("The host you are trying to connect to is a slave. To make regular API calls, please connect to the master host (IP address: {0}).",
-                                    f.ErrorDescription[1]))
+                                ErrorDetails = new ErrorDetails($"The host you are trying to connect to is a slave. To make regular API calls, please connect to the master host (IP address: {f.ErrorDescription[1]}).")
                             });
                         }
                         else
                         {
                             throw;
                         }
+                    }
+                    catch (WebException e)
+                    {
+                        if (e.InnerException is HttpRequestException requestException)
+                        {
+                            if (requestException.InnerException is CertificateChangeException certificateChangeException)
+                            {
+                                if (Force || ShouldContinue(string.Format(CERT_CHANGED, certificateChangeException.Fingerprint, certificateChangeException.OldFingerprint, certificateChangeException.Trusted), CERT_HAS_CHANGED_CAPTION))
+                                {
+                                    AddCertificate(certificateChangeException.Hostname, certificateChangeException.Fingerprint);
+                                    i--;
+                                    continue;
+                                }
+                                else
+                                {
+                                    ThrowTerminatingError(new ErrorRecord(certificateChangeException, "", ErrorCategory.AuthenticationError, Url[i])
+                                    {
+                                        ErrorDetails = new ErrorDetails($"New certificate fingerprint rejected. ({certificateChangeException.Fingerprint} - {certificateChangeException.Hostname}).")
+                                    });
+                                }
+                            }
+                            else if (requestException.InnerException is CertificateNotFoundException certificateNotFoundException)
+                            {
+                                if (Force || ShouldContinue(string.Format(CERT_FOUND, certificateNotFoundException.Fingerprint, certificateNotFoundException.Trusted), CERT_FOUND_CAPTION))
+                                {
+                                    AddCertificate(certificateNotFoundException.Hostname, certificateNotFoundException.Fingerprint);
+                                    i--;
+                                    continue;
+                                }
+                                else
+                                {
+                                    ThrowTerminatingError(new ErrorRecord(e, "", ErrorCategory.AuthenticationError, Url[i])
+                                    {
+                                        ErrorDetails = new ErrorDetails($"Certificate fingerprint rejected. ({certificateNotFoundException.Fingerprint} - {certificateNotFoundException.Hostname}).")
+                                    });
+                                }
+                            }
+                        }
+
+                        throw;
                     }
                 }
                 else
@@ -218,7 +257,6 @@ namespace Citrix.XenServer.Commands
                 }
 
                 session.Tag = Creds;
-                session.opaque_ref = session.opaque_ref;
                 sessions[session.opaque_ref] = session;
                 newSessions[session.opaque_ref] = session;
 
@@ -255,6 +293,13 @@ namespace Citrix.XenServer.Commands
 
         #endregion
 
+        private void AddCertificate(string hostname, string fingerprint)
+        {
+            var certificates = CommonCmdletFunctions.LoadCertificates();
+            certificates[hostname] = fingerprint;
+            CommonCmdletFunctions.SaveCertificates(certificates);
+        }
+
         private readonly object certificateValidationLock = new object();
 
         private bool ValidateServerCertificate(
@@ -279,26 +324,28 @@ namespace Citrix.XenServer.Commands
                                      ? CERT_TRUSTED : CERT_NOT_TRUSTED;
 
                 var certificates = CommonCmdletFunctions.LoadCertificates();
-                bool ok;
+                bool ok = false;
 
                 if (certificates.ContainsKey(hostname))
                 {
                     string fingerprint_old = certificates[hostname];
                     if (fingerprint_old == fingerprint)
                         return true;
-
-                    ok = Force || ignoreChanged || ShouldContinue(string.Format(CERT_CHANGED, fingerprint, fingerprint_old, trusted), CERT_HAS_CHANGED_CAPTION);
+                    ok = Force || ignoreChanged;
+                    if (!ok)
+                    {
+                        throw new CertificateChangeException(fingerprint, fingerprint_old, trusted, hostname);
+                    }
                 }
                 else
                 {
-                    ok = Force || ignoreNew || ShouldContinue(string.Format(CERT_FOUND, fingerprint, trusted), CERT_FOUND_CAPTION);
+                    ok = Force || ignoreNew;
+                    if (!ok)
+                    {
+                        throw new CertificateNotFoundException(fingerprint, trusted, hostname);
+                    }
                 }
-
-                if (ok)
-                {
-                    certificates[hostname] = fingerprint;
-                    CommonCmdletFunctions.SaveCertificates(certificates);
-                }
+                AddCertificate(hostname, fingerprint);
                 return ok;
             }
         }
@@ -314,6 +361,36 @@ namespace Citrix.XenServer.Commands
             {
                 return false;
             }
+        }
+    }
+
+    public class CertificateChangeException : Exception
+    {
+        public readonly string Fingerprint;
+        public readonly string OldFingerprint;
+        public readonly string Trusted;
+        public readonly string Hostname;
+
+        public CertificateChangeException(string fingerprint, string oldFingerprint, string trusted, string hostname)
+        {
+            Fingerprint = fingerprint;
+            OldFingerprint = oldFingerprint;
+            Trusted = trusted;
+            Hostname = hostname;
+        }
+    }
+
+    public class CertificateNotFoundException : Exception
+    {
+        public readonly string Fingerprint;
+        public readonly string Trusted;
+        public readonly string Hostname;
+
+        public CertificateNotFoundException(string fingerprint, string trusted, string hostname)
+        {
+            Fingerprint = fingerprint;
+            Trusted = trusted;
+            Hostname = hostname;
         }
     }
 }
