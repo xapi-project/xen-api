@@ -1261,6 +1261,15 @@ module MD = struct
       else
         platformdata
     in
+    (* Add TPM version 2 iff there's a tpm attached to the VM, this allows
+       hvmloader to load the TPM 2.0 ACPI table while maintaing the current
+       ACPI table for other guests *)
+    let platformdata =
+      if vm.API.vM_VTPMs <> [] || bool vm.API.vM_platform false "vtpm" then
+        (Vm_platform.tpm_version, "2") :: platformdata
+      else
+        platformdata
+    in
     let pci_msitranslate = true in
     (* default setting *)
     (* CA-55754: allow VM.other_config:msitranslate to override the bus-wide setting *)

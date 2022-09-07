@@ -63,6 +63,8 @@ let nested_virt = "nested-virt"
 
 let vcpu_unrestricted = "vcpu-unrestricted"
 
+let tpm_version = "tpm_version"
+
 (* The default value of device model should be set as
    'qemu-trad', 'qemu-upstream-compat', 'qemu-upstream' according to QEMU-upstream feature release stages *)
 let fallback_device_model_stage_1 = "qemu-trad"
