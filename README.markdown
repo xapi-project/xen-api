@@ -1,7 +1,7 @@
 Xapi Project's XenAPI Management Toolstack
 ==========================================
 
-[![Build Status](https://travis-ci.org/xapi-project/xen-api.svg?branch=master)](https://travis-ci.org/xapi-project/xen-api)
+![Build](https://github.com/xapi-project/xen-api/actions/workflows/main.yml/badge.svg?branch=master)
 [![Coverage Status](https://coveralls.io/repos/github/xapi-project/xen-api/badge.svg?branch=master)](https://coveralls.io/github/xapi-project/xen-api?branch=master)
 [![Lines of Code](https://tokei.rs/b1/github/xapi-project/xen-api)](https://github.com/xapi-project/xen-api)
 
