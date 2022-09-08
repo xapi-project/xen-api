@@ -63,6 +63,11 @@ let valid_operations ~__context record _ref' : table =
       ["VIF"; _ref; vif_operation_to_string concurrent_op]
       all_ops
   ) ;
+  (* No hotplug on dom0 *)
+  if Helpers.is_domain_zero ~__context vm then
+    set_errors Api_errors.operation_not_allowed
+      ["Control domain does not support hotplug"]
+      [`plug] ;
   (* SR-IOV VIF do not support  hotplug/unplug *)
   let network = record.Db_actions.vIF_network in
   if Xapi_network_sriov_helpers.is_sriov_network ~__context ~self:network then
