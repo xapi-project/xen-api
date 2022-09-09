@@ -16,7 +16,7 @@
  (foreign_stubs
   (language c)
   (names tuntap_stubs xenctrlext_stubs)
-  (flags (-L/lib64 -lxentoollog))
  )
+  (c_library_flags (-L/lib64 -lxentoollog -lxenforeignmemory))
 )
 

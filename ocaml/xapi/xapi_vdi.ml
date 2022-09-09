@@ -1096,15 +1096,15 @@ let clone ~__context ~vdi ~driver_params =
         in
         try
           (* Remove the vdi_clone from the SR's current operations, this prevents the whole
-             	  SR being locked for the duration of the slow copy *)
+             SR being locked for the duration of the slow copy *)
           let task_id = Ref.string_of (Context.get_task_id __context) in
           Db.SR.remove_from_current_operations ~__context
             ~self:a.Db_actions.vDI_SR ~key:task_id ;
           Xapi_sr_operations.update_allowed_operations ~__context
             ~self:a.Db_actions.vDI_SR ;
           (* Remove the clone from the VDI's current operations since the dom0 block-attach
-             	  will protect the VDI anyway. There's no point refreshing the VDI's allowed operations
-             	  because they're going to change when the VBD.plug happens. *)
+             will protect the VDI anyway. There's no point refreshing the VDI's allowed operations
+             because they're going to change when the VBD.plug happens. *)
           Db.VDI.remove_from_current_operations ~__context ~self:vdi
             ~key:task_id ;
           Sm_fs_ops.copy_vdi ~__context vdi newvdi ;
@@ -1125,11 +1125,11 @@ let copy ~__context ~vdi ~sr ~base_vdi ~into_vdi =
   let src = Db.VDI.get_record ~__context ~self:vdi in
 
   (* If 'into' is a valid VDI then we will write into that.
-     	   Otherwise we'll create a fresh VDI in 'sr'. *)
+     Otherwise we'll create a fresh VDI in 'sr'. *)
 
   (* Note that we should destroy 'dst' on failure IFF we created it
-     	   here. We really ought to have a persistent log of cleanup actions,
-     	   since this will get lost over process restart. *)
+     here. We really ought to have a persistent log of cleanup actions,
+     since this will get lost over process restart. *)
   let vdi_to_cleanup = ref None in
   try
     let dst =
@@ -1137,8 +1137,8 @@ let copy ~__context ~vdi ~sr ~base_vdi ~into_vdi =
         into_vdi
       else
         (* When creating a new VDI, clone as many properties of the
-           				   original as we can. If we're not cloning a property, please
-           				   explain why in a comment. *)
+           original as we can. If we're not cloning a property, please
+           explain why in a comment. *)
         Helpers.call_api_functions ~__context (fun rpc session_id ->
             let new_vdi =
               Client.VDI.create ~rpc ~session_id

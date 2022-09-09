@@ -327,6 +327,7 @@ module Dm : sig
     ; pci_emulations: string list
     ; pci_passthrough: bool
     ; video_mib: int
+    ; tpm: Xenops_types.Vm.tpm option
     ; xen_platform: (int * int) option
     ; extras: (string * string option) list
   }
@@ -404,6 +405,7 @@ module Dm : sig
   val stop :
        xs:Xenstore.Xs.xsh
     -> qemu_domid:int
+    -> vtpm:Xenops_interface.Vm.tpm option
     -> dm:Profile.t
     -> Xenctrl.domid
     -> unit
@@ -432,8 +434,28 @@ module Dm : sig
     -> Xenctrl.domid
     -> unit
 
+  val suspend_vtpms :
+       Xenops_task.task_handle
+    -> xs:Xenstore.Xs.xsh
+    -> Xenctrl.domid
+    -> vm_uuid:string
+    -> vtpm:Xenops_interface.Vm.tpm option
+    -> string list
+
+  val restore_vtpm :
+       Xenops_task.task_handle
+    -> xs:Xenstore.Xs.xsh
+    -> contents:string
+    -> Xenctrl.domid
+    -> unit
+
   val after_suspend_image :
-    xs:Xenstore.Xs.xsh -> dm:Profile.t -> qemu_domid:int -> int -> unit
+       xs:Xenstore.Xs.xsh
+    -> dm:Profile.t
+    -> qemu_domid:int
+    -> vtpm:Xenops_interface.Vm.tpm option
+    -> int
+    -> unit
 
   val pci_assign_guest :
        xs:Xenstore.Xs.xsh

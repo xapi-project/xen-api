@@ -45,6 +45,13 @@ let clean_out_passwds ~__context strmap =
   let secrets = List.map snd (List.filter check_key strmap) in
   List.iter delete_secret secrets
 
+let copy ~__context ~secret =
+  let uuid = Uuid.(to_string (make ())) in
+  let value = Db.Secret.get_value ~__context ~self:secret in
+  let other_config = Db.Secret.get_other_config ~__context ~self:secret in
+  let ref = introduce ~__context ~uuid ~value ~other_config in
+  ref
+
 (* Modify a ((string * string) list) by duplicating all the passwords found in
  * it *)
 let duplicate_passwds ~__context strmap =

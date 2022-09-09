@@ -84,6 +84,15 @@ functor
       ->
         ()
 
+    let expect_missing_default name f =
+      try f ()
+      with
+      | Db_exn.DBCache_NotFound
+          ("missing default value in datamodel for new field", name', _)
+      when name' = name
+      ->
+        ()
+
     let expect_missing_field name f =
       try f ()
       with
@@ -515,7 +524,7 @@ functor
       ) ;
       Printf.printf
         "create_row <unique ref> <unique uuid> <missing required field>\n" ;
-      expect_missing_field name_label (fun () ->
+      expect_missing_default name_label (fun () ->
           let broken_vm =
             List.filter
               (fun (k, _) -> k <> name_label)

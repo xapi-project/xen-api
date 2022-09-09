@@ -2519,6 +2519,9 @@ let vm_record rpc session_id vm =
               (x ()).API.vM_pending_guidances
           )
           ()
+      ; make_field ~name:"vtpm"
+          ~get:(fun () -> get_uuids_from_refs (x ()).API.vM_VTPMs)
+          ()
       ]
   }
 
@@ -5143,6 +5146,41 @@ let repository_record rpc session_id repository =
             Client.Repository.set_gpgkey_path ~rpc ~session_id ~self:repository
               ~value:x
           )
+          ()
+      ]
+  }
+
+let vtpm_record rpc session_id vtpm =
+  let _ref = ref vtpm in
+  let empty_record =
+    ToGet (fun () -> Client.VTPM.get_record ~rpc ~session_id ~self:!_ref)
+  in
+  let record = ref empty_record in
+  let x () = lzy_get record in
+  {
+    setref=
+      (fun r ->
+        _ref := r ;
+        record := empty_record
+      )
+  ; setrefrec=
+      (fun (a, b) ->
+        _ref := a ;
+        record := Got b
+      )
+  ; record= x
+  ; getref= (fun () -> !_ref)
+  ; fields=
+      [
+        make_field ~name:"uuid" ~get:(fun () -> (x ()).API.vTPM_uuid) ()
+      ; make_field ~name:"vm"
+          ~get:(fun () -> get_uuid_from_ref (x ()).API.vTPM_VM)
+          ()
+      ; make_field ~name:"is_unique"
+          ~get:(fun () -> string_of_bool (x ()).API.vTPM_is_unique)
+          ()
+      ; make_field ~name:"is_protected"
+          ~get:(fun () -> string_of_bool (x ()).API.vTPM_is_protected)
           ()
       ]
   }

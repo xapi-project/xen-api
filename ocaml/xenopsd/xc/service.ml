@@ -21,7 +21,21 @@ module Path = Chroot.Path
 module Xs = Xenstore.Xs
 module Socket = Xenops_utils.Socket
 
+let defer f g = Xapi_stdext_pervasives.Pervasiveext.finally g f
+
 exception Service_failed of (string * string)
+
+type t = {
+    name: string
+  ; domid: Xenctrl.domid
+  ; exec_path: string
+  ; pid_filename: string
+  ; chroot: Chroot.t
+  ; timeout_seconds: float
+  ; args: string list
+  ; execute:
+      path:string -> args:string list -> domid:Xenctrl.domid -> unit -> string
+}
 
 let alive service _ =
   let is_active = Fe_systemctl.is_active ~service in
@@ -34,6 +48,137 @@ let alive service _ =
         status.active_state
   ) ;
   is_active
+
+type watch_trigger = Created | Cancelled | Waiting
+
+let fold_events ~init f events =
+  events
+  |> List.to_seq
+  |> Seq.flat_map (fun (_, events, _, fnameopt) ->
+         List.to_seq events |> Seq.map (fun event -> (event, fnameopt))
+     )
+  |> Seq.fold_left f init
+
+exception ECancelled of Xenops_task.task_handle
+
+let raise_e = function
+  | ECancelled t ->
+      Xenops_task.raise_cancelled t
+  | e ->
+      raise e
+
+let with_inotify f =
+  let fd = Inotify.create () in
+  defer (fun () -> Unix.close fd) (fun () -> f fd)
+
+let with_watch notifd dir f =
+  let open Inotify in
+  let flags = [S_Create; S_Delete; S_Delete_self; S_Onlydir] in
+  let watch = Inotify.add_watch notifd dir flags in
+  defer (fun () -> Inotify.rm_watch notifd watch) (fun () -> f watch)
+
+let with_monitor watch_fd f =
+  let fd = Polly.create () in
+  Polly.add fd watch_fd Polly.Events.inp ;
+  defer (fun () -> Polly.del fd watch_fd ; Polly.close fd) (fun () -> f fd)
+
+let start_and_wait_for_readyness ~task ~service =
+  let sandbox_path p =
+    Chroot.absolute_path_outside service.chroot (Path.of_string ~relative:p)
+  in
+
+  let cancel_name =
+    Printf.sprintf "%s-%s.cancel" service.name (Xenops_task.get_dbg task)
+  in
+
+  let cancel_path = sandbox_path cancel_name in
+
+  let cancel () =
+    (* create an empty file to trigger the watch and delete it
+       immediately *)
+    Unixext.touch_file cancel_path ;
+    Unixext.unlink_safe cancel_path
+  in
+  (* create watches for pidfile and task cancellation *)
+  with_inotify @@ fun notifd ->
+  with_watch notifd service.chroot.root @@ fun _ ->
+  with_monitor notifd @@ fun pollfd ->
+  let wait ~for_s ~service_name =
+    let start_time = Mtime_clock.elapsed () in
+    let poll_period_ms = 1000 in
+    let collect_watches acc (event, file) =
+      match (acc, event, file) with
+      (* treat deleted directory or pidfile as cancelling *)
+      | Cancelled, _, _ | _, (Inotify.Ignored | Inotify.Delete_self), _ ->
+          Cancelled
+      | _, Inotify.Delete, Some name when name = service.pid_filename ->
+          Cancelled
+      | _, Inotify.Create, Some name when name = cancel_name ->
+          Cancelled
+      | _, Inotify.Create, Some name when name = service.pid_filename ->
+          Created
+      | _, _, _ ->
+          acc
+    in
+
+    let cancellable_watch () =
+      let event = ref Waiting in
+      let rec poll_loop () =
+        try
+          ignore
+          @@ Polly.wait pollfd 1 poll_period_ms (fun _ fd events ->
+                 if Polly.Events.(test events inp) then
+                   event :=
+                     fold_events ~init:!event collect_watches (Inotify.read fd)
+             ) ;
+
+          let current_time = Mtime_clock.elapsed () in
+          let elapsed_time =
+            Mtime.Span.(to_s (abs_diff start_time current_time))
+          in
+
+          match !event with
+          | Waiting when elapsed_time < for_s ->
+              poll_loop ()
+          | Created ->
+              Ok ()
+          | Cancelled ->
+              Error (ECancelled task)
+          | Waiting ->
+              let err_msg =
+                if alive service_name () then
+                  "Timeout reached while starting service"
+                else
+                  "Service exited unexpectedly"
+              in
+              Error (Service_failed (service_name, err_msg))
+        with e ->
+          let err_msg =
+            Printf.sprintf
+              "Exception while waiting for service %s to be ready: %s"
+              service_name (Printexc.to_string e)
+          in
+          Error (Service_failed (service_name, err_msg))
+      in
+
+      Xenops_task.with_cancel task cancel poll_loop
+    in
+    cancellable_watch ()
+  in
+
+  (* start systemd service *)
+  let syslog_key =
+    service.execute ~path:service.exec_path ~args:service.args
+      ~domid:service.domid ()
+  in
+
+  Xenops_task.check_cancelling task ;
+
+  (* wait for pidfile to appear *)
+  Result.iter_error raise_e
+    (wait ~for_s:service.timeout_seconds ~service_name:syslog_key) ;
+
+  debug "Service %s initialized" syslog_key
 
 (* Waits for a daemon to signal startup by writing to a xenstore path
    (optionally with a given value) If this doesn't happen in the timeout then
@@ -76,7 +221,7 @@ module Pid = struct
 
   type path =
     | Xenstore of (int -> string)
-    (* | File of (int -> string) *)
+    | File of (int -> string)
     | Path_of of both
 end
 
@@ -108,7 +253,7 @@ module DaemonMgmt (D : DAEMONPIDPATH) = struct
   let pid ~xs domid =
     try
       match D.pid_location with
-      | Path_of {file; _} when Sys.file_exists (file domid) ->
+      | (File file | Path_of {file; _}) when Sys.file_exists (file domid) ->
           let path = file domid in
           let ( let* ) = Option.bind in
           let* pid = Unixext.pidfile_read path in
@@ -127,6 +272,8 @@ module DaemonMgmt (D : DAEMONPIDPATH) = struct
              xenstore pid available *)
           let pid = xs.Xs.read (key domid) in
           Some (int_of_string pid)
+      | _ ->
+          None
     with _ -> None
 
   let is_running ~xs domid =
@@ -164,6 +311,8 @@ module DaemonMgmt (D : DAEMONPIDPATH) = struct
         match D.pid_location with
         | Xenstore key ->
             remove_key (key domid)
+        | File file ->
+            remove_file (file domid)
         | Path_of {key; file} ->
             remove_key (key domid) ;
             remove_file (file domid)
@@ -414,6 +563,9 @@ module SystemdDaemonMgmt (D : DAEMONPIDPATH) = struct
       | Xenstore get_path ->
           let key_path = get_path domid in
           [remove_key key_path]
+      | File get_path ->
+          let file_path = get_path domid in
+          [remove_file file_path]
       | Path_of {key; file} ->
           let key_path = key domid in
           let file_path = file domid in
@@ -498,6 +650,120 @@ module Varstored = struct
       ~cancel:(Cancel_utils.Varstored domid) ()
 
   let stop = D.stop
+end
+
+(* TODO: struct and include and uri to uri mapper, etc.
+   also xapi needs default backend set
+*)
+module Swtpm = struct
+  let pidfile_path domid = Printf.sprintf "swtpm-%d.pid" domid
+
+  module D = SystemdDaemonMgmt (struct
+    let name = "swtpm-wrapper"
+
+    let pid_location = Pid.File pidfile_path
+  end)
+
+  let xs_path ~domid = Device_common.get_private_path domid ^ "/vtpm"
+
+  let state_path =
+    (* for easier compat with dir:// mode, but can be anything.
+       If we implement VDI state storage this could be a block device
+    *)
+    Xenops_sandbox.Chroot.Path.of_string ~relative:"tpm2-00.permall"
+
+  let restore ~domid ~vm_uuid state =
+    if String.length state > 0 then (
+      let path = Xenops_sandbox.Swtpm_guard.create ~domid ~vm_uuid state_path in
+      debug "Restored vTPM for domid %d: %d bytes, digest %s" domid
+        (String.length state)
+        (state |> Digest.string |> Digest.to_hex) ;
+      Unixext.write_string_to_file path state
+    ) else
+      debug "vTPM state for domid %d is empty: not restoring" domid
+
+  let start ~xs ~vtpm_uuid ~index task domid =
+    debug "Preparing to start swtpm-wrapper to provide a vTPM (domid=%d)" domid ;
+    let name = "swtpm" in
+    let exec_path = !Resources.swtpm_wrapper in
+    let pid_filename = pidfile_path domid in
+    let vm_uuid = Xenops_helpers.uuid_of_domid ~xs domid |> Uuid.to_string in
+
+    let chroot, _socket_path =
+      Xenops_sandbox.Swtpm_guard.start (Xenops_task.get_dbg task) ~vm_uuid
+        ~domid ~paths:[]
+    in
+    let tpm_root =
+      Xenops_sandbox.Chroot.(absolute_path_outside chroot Path.root)
+    in
+    (* the uri here is relative to the chroot path, if chrooting is disabled then
+       swtpm-wrapper should modify the uri accordingly.
+       xenopsd needs to be in charge of choosing the scheme according to the backend
+    *)
+    let state_uri =
+      Filename.concat "file://"
+      @@ Xenops_sandbox.Chroot.chroot_path_inside state_path
+    in
+    let args = Fe_argv.Add.many [string_of_int domid; tpm_root; state_uri] in
+    let args = Fe_argv.run args |> snd |> Fe_argv.argv in
+    let timeout_seconds = !Xenopsd.swtpm_ready_timeout in
+    let execute = D.start_daemon in
+    let service =
+      {
+        name
+      ; domid
+      ; exec_path
+      ; pid_filename
+      ; chroot
+      ; args
+      ; execute
+      ; timeout_seconds
+      }
+    in
+
+    let dbg = Xenops_task.get_dbg task in
+    let state =
+      Varstore_privileged_client.Client.vtpm_get_contents dbg vtpm_uuid
+      |> Base64.decode_exn
+    in
+
+    let abs_path =
+      Xenops_sandbox.Chroot.absolute_path_outside chroot state_path
+    in
+    if Sys.file_exists abs_path then
+      debug "Not restoring vTPM: %s already exists" abs_path
+    else
+      restore ~domid ~vm_uuid state ;
+    let vtpm_path = xs_path ~domid in
+
+    xs.Xs.write
+      (Filename.concat vtpm_path @@ string_of_int index)
+      (Uuidm.to_string vtpm_uuid) ;
+
+    start_and_wait_for_readyness ~task ~service ;
+    (* return the socket path so qemu can have a reference to it*)
+    Xenops_sandbox.Chroot.(
+      absolute_path_outside chroot (Path.of_string ~relative:"swtpm-sock")
+    )
+
+  let suspend ~xs ~domid ~vm_uuid =
+    D.stop ~xs domid ;
+    Xenops_sandbox.Swtpm_guard.read ~domid ~vm_uuid state_path
+
+  let stop dbg ~xs ~domid ~vm_uuid ~vtpm_uuid =
+    debug "About to stop vTPM (%s) for domain %d (%s)"
+      (Uuidm.to_string vtpm_uuid)
+      domid vm_uuid ;
+    let contents = suspend ~xs ~domid ~vm_uuid in
+    let length = String.length contents in
+    if length > 0 then (
+      debug "Storing vTPM state of %d bytes" length ;
+      Varstore_privileged_client.Client.vtpm_set_contents dbg vtpm_uuid
+        (Base64.encode_string contents)
+    ) else
+      debug "vTPM state is empty: not storing" ;
+    (* needed to save contents before wiping the chroot *)
+    Xenops_sandbox.Swtpm_guard.stop dbg ~domid ~vm_uuid
 end
 
 module PV_Vnc = struct

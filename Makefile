@@ -173,6 +173,7 @@ install: build doc sdk doc-json
 	install -D ./ocaml/xenopsd/scripts/common.py $(DESTDIR)/$(XENOPSD_LIBEXECDIR)/common.py
 	install -D ./ocaml/xenopsd/scripts/igmp_query_injector.py $(DESTDIR)/$(XENOPSD_LIBEXECDIR)/igmp_query_injector.py
 	install -D ./ocaml/xenopsd/scripts/qemu-wrapper $(DESTDIR)/$(QEMU_WRAPPER_DIR)/qemu-wrapper
+	install -D ./ocaml/xenopsd/scripts/swtpm-wrapper $(DESTDIR)/$(QEMU_WRAPPER_DIR)/swtpm-wrapper
 	DESTDIR=$(DESTDIR) SBINDIR=$(SBINDIR) QEMU_WRAPPER_DIR=$(QEMU_WRAPPER_DIR) XENOPSD_LIBEXECDIR=$(XENOPSD_LIBEXECDIR) ETCDIR=$(ETCDIR) ./ocaml/xenopsd/scripts/make-custom-xenopsd.conf
 # squeezed
 	install -D _build/install/default/bin/squeezed $(DESTDIR)/$(SBINDIR)/squeezed

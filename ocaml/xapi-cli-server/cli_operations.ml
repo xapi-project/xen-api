@@ -1287,6 +1287,10 @@ let gen_cmds rpc session_id =
           ]
           rpc session_id
       )
+    ; Client.VTPM.(
+        mk get_all_records_where get_by_uuid vtpm_record "vtpm" []
+          ["uuid"; "vm"; "profile"] rpc session_id
+      )
     ]
 
 let message_create (_ : printer) rpc session_id params =
@@ -7835,4 +7839,25 @@ module Repository = struct
     let gpgkey_path = List.assoc "gpgkey-path" params in
     Client.Repository.set_gpgkey_path ~rpc ~session_id ~self:ref
       ~value:gpgkey_path
+end
+
+module VTPM = struct
+  let create printer rpc session_id params =
+    let vm_uuid = List.assoc "vm-uuid" params in
+    let vM = Client.VM.get_by_uuid ~rpc ~session_id ~uuid:vm_uuid in
+    let is_unique =
+      match List.assoc_opt "is_unique" params with
+      | Some value ->
+          bool_of_string "is_unique" value
+      | None ->
+          false
+    in
+    let ref = Client.VTPM.create ~rpc ~session_id ~vM ~is_unique in
+    let uuid = Client.VTPM.get_uuid ~rpc ~session_id ~self:ref in
+    printer (Cli_printer.PList [uuid])
+
+  let destroy _ rpc session_id params =
+    let uuid = List.assoc "uuid" params in
+    let ref = Client.VTPM.get_by_uuid ~rpc ~session_id ~uuid in
+    Client.VTPM.destroy ~rpc ~session_id ~self:ref
 end

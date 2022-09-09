@@ -2342,12 +2342,13 @@ let create_VLAN_from_PIF ~__context ~pif ~network ~vLAN =
 let enable_disable_m = Mutex.create ()
 
 let enable_ha ~__context ~heartbeat_srs ~configuration =
+  Helpers.assert_ha_vtpms_compatible ~__context ;
   if not (Helpers.pool_has_different_host_platform_versions ~__context) then
     with_lock enable_disable_m (fun () ->
         Xapi_ha.enable __context heartbeat_srs configuration
     )
   else
-    raise (Api_errors.Server_error (Api_errors.not_supported_during_upgrade, []))
+    raise Api_errors.(Server_error (not_supported_during_upgrade, []))
 
 let disable_ha ~__context =
   with_lock enable_disable_m (fun () -> Xapi_ha.disable __context)

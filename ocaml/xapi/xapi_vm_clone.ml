@@ -410,7 +410,8 @@ let copy_vm_record ?snapshot_info_record ~__context ~vm ~disk_op ~new_name
 let make_driver_params () =
   [(Constants._sm_epoch_hint, Uuid.to_string (Uuid.make ()))]
 
-(* NB this function may be called when the VM is suspended for copy/clone operations. Snapshot can be done in live.*)
+(* NB this function may be called when the VM is suspended for copy/clone
+   operations. Snapshot can be done in live. *)
 let clone ?snapshot_info_record ?(ignore_vdis = []) disk_op ~__context ~vm
     ~new_name =
   Helpers.call_api_functions ~__context (fun rpc session_id ->
@@ -418,9 +419,22 @@ let clone ?snapshot_info_record ?(ignore_vdis = []) disk_op ~__context ~vm
       let vbds = Db.VM.get_VBDs ~__context ~self:vm in
       let vifs = Db.VM.get_VIFs ~__context ~self:vm in
       let vgpus = Db.VM.get_VGPUs ~__context ~self:vm in
+      let vtpms = Db.VM.get_VTPMs ~__context ~self:vm in
       let power_state = Db.VM.get_power_state ~__context ~self:vm in
-      (* if we do a snaphshot on a VM, then the new VM must remain halted. *)
-      (* Otherwise, we keep the same power-state as the initial VM          *)
+      ( match (power_state, vtpms) with
+      | `Running, _ :: _ ->
+          error "%s: Running VMs with VTPMs cannot be snapshotted yet"
+            __FUNCTION__ ;
+          raise
+            Api_errors.(
+              Server_error
+                (not_implemented, ["VM.clone of running VM with VTPM"])
+            )
+      | _ ->
+          ()
+      ) ;
+      (* If a VM is snapshotted, then the new VM must remain halted.
+         Otherwise, we keep the same power-state as the initial VM *)
       let new_power_state =
         match (disk_op, power_state) with
         | Disk_op_checkpoint, (`Running | `Suspended) ->
@@ -445,8 +459,9 @@ let clone ?snapshot_info_record ?(ignore_vdis = []) disk_op ~__context ~vm
           vbds
       in
 
-      (* Check licence permission before copying disks, since the copy can take a long time.
-         		 * We always allow snapshotting a VM, but check before clone/copy of an existing snapshot or template. *)
+      (* Check licence permission before copying disks, since the copy can take
+         a long time. We always allow snapshotting a VM, but check before
+         clone/copy of an existing snapshot or template. *)
       if Db.VM.get_has_vendor_device ~__context ~self:vm && not is_a_snapshot
       then
         Pool_features.assert_enabled ~__context
@@ -463,9 +478,9 @@ let clone ?snapshot_info_record ?(ignore_vdis = []) disk_op ~__context ~vm
           copy_vm_record ?snapshot_info_record ~__context ~vm ~disk_op ~new_name
             ~new_power_state ()
         in
-        (* copy every VBD using the new VDI as backend                                *)
-        (* if this fails halfway through, delete the VM and the VDIs, but don't worry *)
-        (* about any VBDs left hanging around, as these will be GC'd later            *)
+        (* Copy every VBD using the new VDI as backend. If this fails halfway
+           through, delete the VM and the VDIs, but don't worry about any VBDs
+           left hanging around, as these will be GC'd later. *)
         try
           (* copy VBDs *)
           List.iter
@@ -473,9 +488,11 @@ let clone ?snapshot_info_record ?(ignore_vdis = []) disk_op ~__context ~vm
               let vbd =
                 Xapi_vbd_helpers.copy ~__context ~vm:ref ~vdi:newvdi vbd
               in
-              (* CA-58405: when we make a clone/snapshot/checkpoint we consider the clone/snapshot/checkpoint VM
-                 					   to "own" all the clone/snapshot/checkpoint *disks* irrespective of the ownership of the original
-                 					   disks. We wish the clone/snapshot/checkpoint disks to be cleaned up with the VM. *)
+              (* CA-58405: when we make a clone/snapshot/checkpoint we consider
+                 the clone / snapshot / checkpoint VM to "own" all the clone /
+                 snapshot / checkpoint *disks* irrespective of the ownership of
+                 the original disks. We wish the clone / snapshot / checkpoint
+                 disks to be cleaned up with the VM. *)
               if Db.VBD.get_type ~__context ~self:vbd = `Disk then
                 let other_config =
                   Db.VBD.get_other_config ~__context ~self:vbd
@@ -497,6 +514,10 @@ let clone ?snapshot_info_record ?(ignore_vdis = []) disk_op ~__context ~vm
           (* copy VGPUs *)
           let (_ : [`VGPU] Ref.t list) =
             List.map (fun vgpu -> Xapi_vgpu.copy ~__context ~vm:ref vgpu) vgpus
+          in
+          (* copy vTPMs *)
+          let (_ : [`VTPM] Ref.t list) =
+            List.map (fun vtpm -> Xapi_vtpm.copy ~__context ~vM:ref vtpm) vtpms
           in
           (* copy the suspended VDI if needed *)
           let suspend_VDI =

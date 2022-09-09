@@ -1140,6 +1140,8 @@ let dm_of ~vm =
       with _ -> Device.Profile.fallback
   )
 
+let vtpm_of ~vm = match vm.Vm.ty with Vm.HVM h -> h.tpm | _ -> None
+
 module VM = struct
   open Vm
 
@@ -1678,7 +1680,10 @@ module VM = struct
         let domid = di.Xenctrl.domid in
         let qemu_domid = this_domid ~xs in
         log_exn_continue "Error stoping device-model, already dead ?"
-          (fun () -> Device.Dm.stop ~xs ~qemu_domid ~dm:(dm_of ~vm) domid)
+          (fun () ->
+            Device.Dm.stop ~xs ~qemu_domid ~vtpm:(vtpm_of ~vm) ~dm:(dm_of ~vm)
+              domid
+          )
           () ;
         log_exn_continue "Error stoping vncterm, already dead ?"
           (fun () -> Service.PV_Vnc.stop ~xs domid)
@@ -1724,7 +1729,8 @@ module VM = struct
                 vm.Vm.id di.Xenctrl.domid ;
               if DB.exists vm.Vm.id then DB.remove vm.Vm.id
             ) ;
-            Domain.destroy task ~xc ~xs ~qemu_domid ~dm:(dm_of ~vm) domid ;
+            Domain.destroy task ~xc ~xs ~qemu_domid ~vtpm:(vtpm_of ~vm)
+              ~dm:(dm_of ~vm) domid ;
             (* Detach any remaining disks *)
             List.iter
               (fun dp ->
@@ -1865,7 +1871,7 @@ module VM = struct
             ?(serial = "pty") ?(monitor = "null") ?(nics = []) ?(disks = [])
             ?(vgpus = []) ?(pci_emulations = []) ?(usb = Device.Dm.Disabled)
             ?(parallel = None) ?(acpi = true) ?(video = Cirrus) ?keymap ?vnc_ip
-            ?(pci_passthrough = false) ?(video_mib = 4) () =
+            ?(pci_passthrough = false) ?(video_mib = 4) ?(tpm = None) () =
           let video =
             match (video, vgpus) with
             | Cirrus, [] ->
@@ -1913,6 +1919,7 @@ module VM = struct
           ; disp= VNC (video, vnc_ip, true, 0, keymap)
           ; pci_passthrough
           ; video_mib
+          ; tpm
           ; xen_platform
           ; extras= []
           }
@@ -1976,12 +1983,7 @@ module VM = struct
               | false, _ ->
                   Device.Dm.Disabled
             in
-            let parallel =
-              if List.mem_assoc "parallel" vm.Vm.platformdata then
-                Some (List.assoc "parallel" vm.Vm.platformdata)
-              else
-                None
-            in
+            let parallel = List.assoc_opt "parallel" vm.Vm.platformdata in
             Some
               (make ~video_mib:hvm_info.video_mib ~firmware:hvm_info.firmware
                  ~video:hvm_info.video ~acpi:hvm_info.acpi
@@ -1989,7 +1991,8 @@ module VM = struct
                  ?vnc_ip:hvm_info.vnc_ip ~usb ~parallel
                  ~pci_emulations:hvm_info.pci_emulations
                  ~pci_passthrough:hvm_info.pci_passthrough
-                 ~boot_order:hvm_info.boot_order ~nics ~disks ~vgpus ()
+                 ~boot_order:hvm_info.boot_order ~nics ~disks ~vgpus
+                 ~tpm:hvm_info.tpm ()
               )
       )
 
@@ -2500,8 +2503,8 @@ module VM = struct
             in
             let manager_path = choose_emu_manager vm.Vm.platformdata in
             Domain.suspend task ~xc ~xs ~domain_type ~dm:(dm_of ~vm)
-              ~progress_callback ~qemu_domid ~manager_path ~is_uefi vm_str domid
-              fd vgpu_fd flags' (fun () ->
+              ~vtpm:(vtpm_of ~vm) ~progress_callback ~qemu_domid ~manager_path
+              ~is_uefi vm_str domid fd vgpu_fd flags' (fun () ->
                 (* SCTX-2558: wait more for ballooning if needed *)
                 wait_ballooning task vm ;
                 pre_suspend_callback task ;
@@ -2677,8 +2680,8 @@ module VM = struct
                         "VM %s: libxenguest has destroyed domid %d; cleaning \
                          up xenstore for consistency"
                         vm.Vm.id di.Xenctrl.domid ;
-                      Domain.destroy task ~xc ~xs ~qemu_domid ~dm:(dm_of ~vm)
-                        di.Xenctrl.domid
+                      Domain.destroy task ~xc ~xs ~qemu_domid
+                        ~vtpm:(vtpm_of ~vm) ~dm:(dm_of ~vm) di.Xenctrl.domid
                     with _ ->
                       debug "Domain.destroy failed. Re-raising original error."
                 ) ;

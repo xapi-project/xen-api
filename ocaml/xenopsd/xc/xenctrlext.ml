@@ -82,3 +82,41 @@ type cputopo = {core: int; socket: int; node: int}
 external numainfo : handle -> numainfo = "stub_xenctrlext_numainfo"
 
 external cputopoinfo : handle -> cputopo array = "stub_xenctrlext_cputopoinfo"
+
+module Xenforeignmemory = struct
+  type handle
+
+  (** pages are mapped linearly *)
+  type mapping =
+    (char, Bigarray.int8_unsigned_elt, Bigarray.c_layout) Bigarray.Array1.t
+
+  type prot = {read: bool; write: bool; exec: bool}
+
+  external acquire : Xentoollog.handle option -> handle
+    = "stub_xenforeignmemory_open"
+
+  external release : handle -> unit = "stub_xenforeignmemory_close"
+
+  external map : handle -> domid -> prot -> Int64.t list -> mapping
+    = "stub_xenforeignmemory_map"
+
+  external unmap : handle -> mapping -> unit = "stub_xenforeignmemory_unmap"
+
+  let with_mapping handle domid prot pages ?on_unmap_failure f =
+    let mapping = map handle domid prot pages in
+    Fun.protect
+      ~finally:(fun () ->
+        try unmap handle mapping
+        with Unix_error (errno, _) -> (
+          match on_unmap_failure with
+          | None ->
+              ()
+          | Some log ->
+              log
+                (Printf.sprintf "Error while unmapping memory: %s\n"
+                   (Unix.error_message errno)
+                )
+        )
+      )
+      (fun () -> f mapping)
+end

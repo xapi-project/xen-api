@@ -95,3 +95,4 @@ let nonessentials =
   @ Resources.hvm_guests
   @ Resources.pv_guests
   @ Resources.pvinpvh_guests
+  @ Resources.vtpm_guests

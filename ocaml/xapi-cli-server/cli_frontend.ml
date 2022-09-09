@@ -3570,6 +3570,24 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; flags= []
       }
     )
+  ; ( "vtpm-create"
+    , {
+        reqd= ["vm-uuid"]
+      ; optn= []
+      ; help= "Create a VTPM associated with a VM."
+      ; implementation= No_fd Cli_operations.VTPM.create
+      ; flags= []
+      }
+    )
+  ; ( "vtpm-destroy"
+    , {
+        reqd= ["uuid"]
+      ; optn= []
+      ; help= "Destroy a VTPM"
+      ; implementation= No_fd Cli_operations.VTPM.destroy
+      ; flags= []
+      }
+    )
   ]
 
 let cmdtable : (string, cmd_spec) Hashtbl.t = Hashtbl.create 50

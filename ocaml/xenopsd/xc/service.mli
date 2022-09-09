@@ -11,6 +11,8 @@
    GNU Lesser General Public License for more details.
 *)
 
+exception Service_failed of (string * string)
+
 module Qemu : sig
   module SignalMask : sig
     type t
@@ -110,4 +112,26 @@ module Varstored : sig
     -> unit
 
   val stop : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> unit
+end
+
+module Swtpm : sig
+  val start :
+       xs:Xenstore.Xs.xsh
+    -> vtpm_uuid:Varstore_privileged_interface.Uuidm.t
+    -> index:int
+    -> Xenops_task.Xenops_task.task_handle
+    -> Xenctrl.domid
+    -> string
+
+  val restore : domid:int -> vm_uuid:string -> string -> unit
+
+  val suspend : xs:Xenstore.Xs.xsh -> domid:int -> vm_uuid:string -> string
+
+  val stop :
+       string
+    -> xs:Xenstore.Xs.xsh
+    -> domid:int
+    -> vm_uuid:string
+    -> vtpm_uuid:Varstore_privileged_interface.Uuidm.t
+    -> unit
 end

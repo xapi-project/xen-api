@@ -215,7 +215,8 @@ let assume_default_if_null_empty map default feature =
 
 let int = find int_of_string
 
-let bool = find (function "1" -> true | "0" -> false | x -> bool_of_string x)
+let bool platformdata default key =
+  Vm_platform.is_true ~key ~platformdata ~default
 
 let nvram_uefi_of_vm vm =
   let open Xenops_types.Nvram_uefi_variables in
@@ -347,7 +348,7 @@ let is_boot_file_whitelisted filename =
   (* avoid ..-style attacks and other weird things *)
   && safe_str filename
 
-let builder_of_vm ~__context (_, vm) timeoffset pci_passthrough vgpu =
+let builder_of_vm ~__context (vmref, vm) timeoffset pci_passthrough vgpu =
   let open Vm in
   let video_mode =
     if vgpu then
@@ -385,6 +386,28 @@ let builder_of_vm ~__context (_, vm) timeoffset pci_passthrough vgpu =
   let make_hvmloader_boot_record () =
     if bool vm.API.vM_platform false "qemu_stubdom" then
       warn "QEMU stub domains are no longer implemented" ;
+
+    let tpm_of_vm () =
+      let ( let* ) = Option.bind in
+      let* vtpm =
+        match vm.API.vM_VTPMs with
+        | [] ->
+            (* The vtpm parameter in platform data only has influence when the
+               VM does not have a VTPM associated, otherwise the associated
+               VTPM gets always attached. *)
+            if bool vm.API.vM_platform false "vtpm" then
+              Some (Xapi_vtpm.create ~__context ~vM:vmref ~is_unique:false)
+            else
+              None
+        | [vtpm] ->
+            Some vtpm
+        | _ :: _ :: _ ->
+            failwith "Multiple vTPMs are not supported"
+      in
+      let uuid = Db.VTPM.get_uuid ~__context ~self:vtpm in
+      Some (Xenops_interface.Vm.Vtpm (Uuidm.of_string uuid |> Option.get))
+    in
+
     {
       hap= true
     ; shadow_multiplier= vm.API.vM_HVM_shadow_multiplier
@@ -433,9 +456,9 @@ let builder_of_vm ~__context (_, vm) timeoffset pci_passthrough vgpu =
           hvm_default_boot_order hvm_boot_params_order
         )
     ; qemu_disk_cmdline= bool vm.API.vM_platform false "qemu_disk_cmdline"
-    ; qemu_stubdom= false
-    ; (* Obsolete: implementation removed *)
-      firmware= firmware_of_vm vm
+    ; qemu_stubdom= false (* Obsolete: implementation removed *)
+    ; firmware= firmware_of_vm vm
+    ; tpm= tpm_of_vm ()
     }
   in
   let make_direct_boot_record
@@ -1238,6 +1261,15 @@ module MD = struct
       else
         platformdata
     in
+    (* Add TPM version 2 iff there's a tpm attached to the VM, this allows
+       hvmloader to load the TPM 2.0 ACPI table while maintaing the current
+       ACPI table for other guests *)
+    let platformdata =
+      if vm.API.vM_VTPMs <> [] || bool vm.API.vM_platform false "vtpm" then
+        (Vm_platform.tpm_version, "2") :: platformdata
+      else
+        platformdata
+    in
     let pci_msitranslate = true in
     (* default setting *)
     (* CA-55754: allow VM.other_config:msitranslate to override the bus-wide setting *)
@@ -1611,7 +1643,7 @@ module Xenopsd_metadata = struct
   (** Manage the lifetime of VM metadata pushed to xenopsd *)
 
   (* If the VM has Xapi_globs.persist_xenopsd_md -> filename in its other_config,
-     	   we persist the xenopsd metadata to a well-known location in the filesystem *)
+     we persist the xenopsd metadata to a well-known location in the filesystem *)
   let maybe_persist_md ~__context ~self md =
     let oc = Db.VM.get_other_config ~__context ~self in
     if List.mem_assoc Xapi_globs.persist_xenopsd_md oc then

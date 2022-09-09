@@ -201,6 +201,7 @@ val destroy :
   -> xc:Xenctrl.handle
   -> xs:Xenstore.Xs.xsh
   -> qemu_domid:int
+  -> vtpm:Xenops_interface.Vm.tpm option
   -> dm:Device.Profile.t
   -> domid
   -> unit
@@ -269,6 +270,7 @@ val suspend :
   -> suspend_flag list
   -> ?progress_callback:(float -> unit)
   -> qemu_domid:int
+  -> vtpm:Xenops_interface.Vm.tpm option
   -> (unit -> unit)
   -> unit
 (** suspend a domain into the file descriptor *)

@@ -231,6 +231,7 @@ let create_vm vmid =
       ; qemu_disk_cmdline= false
       ; qemu_stubdom= false
       ; firmware= Bios
+      ; tpm= None
       }
   in
   {

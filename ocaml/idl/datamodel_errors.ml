@@ -1944,9 +1944,11 @@ let _ =
   error Api_errors.apply_livepatch_failed ["livepatch"]
     ~doc:"Failed to apply a livepatch." () ;
   error Api_errors.update_guidance_changed ["guidance"]
-    ~doc:"Guidance for the update has changed" ()
+    ~doc:"Guidance for the update has changed" () ;
 
-let _ =
+  error Api_errors.vtpm_max_amount_reached ["amount"]
+    ~doc:"The VM cannot be associated with more VTPMs." () ;
+
   message
     (fst Api_messages.ha_pool_overcommitted)
     ~doc:

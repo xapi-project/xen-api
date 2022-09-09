@@ -68,6 +68,9 @@ let parse_layout fd =
         | Varstored, len ->
             Io.read fd (Io.int_of_int64_exn len) |> ignore ;
             aux (h :: acc)
+        | Swtpm, len ->
+            Io.read fd (Io.int_of_int64_exn len) |> ignore ;
+            aux (h :: acc)
         | End_of_image, _ ->
             return (h :: acc)
         | Libxl, _ ->

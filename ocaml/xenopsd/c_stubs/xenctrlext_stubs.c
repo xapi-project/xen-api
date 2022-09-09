@@ -19,6 +19,10 @@
 #include <string.h>
 #include <unistd.h>
 #include <xenctrl.h>
+#include <xenforeignmemory.h>
+#include <xentoollog.h>
+
+#include <sys/mman.h>
 
 #include <caml/mlvalues.h>
 #include <caml/memory.h>
@@ -28,12 +32,23 @@
 #include <caml/signals.h>
 #include <caml/callback.h>
 #include <caml/unixsupport.h>
+#include <caml/bigarray.h>
 
 #define _H(__h) ((xc_interface *)(__h))
 #define _D(__d) ((uint32_t)Int_val(__d))
 
 /* From xenctrl_stubs */
 #define ERROR_STRLEN 1024
+
+#define Xtl_val(x)(*((struct xentoollog_logger **) Data_custom_val(x)))
+#define Xfm_val(x)(*((struct xenforeignmemory_handle **) Data_abstract_val(x)))
+#define Addr_val(x)(*((void **) Data_abstract_val(x)))
+
+// Defined in OCaml 4.12: https://github.com/ocaml/ocaml/pull/9734
+#if OCAML_VERSION < 41200
+#define Some_val(v) Field(v, 0)
+#define Is_some(v) Is_block(v)
+#endif
 
 static void raise_unix_errno_msg(int err_code, const char *err_msg)
 {
@@ -392,6 +407,138 @@ CAMLprim value stub_xenctrlext_cputopoinfo(value xch)
         free(cputopo);
 
 	CAMLreturn(result);
+}
+
+CAMLprim value stub_xenforeignmemory_open(value logger, value open_flags)
+{
+        CAMLparam2(logger, open_flags);
+        struct xentoollog_logger *log_handle = NULL;
+        struct xenforeignmemory_handle *fmem;
+        CAMLlocal1(result);
+
+        if(Is_some(logger)) {
+                log_handle = Xtl_val(Some_val(logger));
+        }
+
+        // allocate memory to store the result, if the call to get the xfm
+        // handle fails the ocaml GC will collect this abstract tag
+        result = caml_alloc(1, Abstract_tag);
+
+        fmem = xenforeignmemory_open(log_handle, Int_val(open_flags));
+
+        if(fmem == NULL) {
+                caml_failwith("Error when opening foreign memory handle");
+        }
+
+        Xfm_val(result) = fmem;
+
+        CAMLreturn(result);
+}
+
+CAMLprim value stub_xenforeignmemory_close(value fmem)
+{
+        CAMLparam1(fmem);
+        int retval;
+
+        if(Xfm_val(fmem) == NULL) {
+                caml_invalid_argument(
+                        "Error: cannot close NULL foreign memory handle");
+        }
+
+        retval = xenforeignmemory_close(Xfm_val(fmem));
+
+        if(retval < 0) {
+                caml_failwith("Error when closing foreign memory handle");
+        }
+
+        // Protect against double close
+        Xfm_val(fmem) = NULL;
+
+        CAMLreturn(Val_unit);
+}
+
+CAMLprim value stub_xenforeignmemory_map(value fmem, value dom,
+        value prot_flags, value pages)
+{
+        CAMLparam4(fmem, dom, prot_flags, pages);
+        CAMLlocal2(cell, result);
+        size_t i, pages_length;
+        xen_pfn_t *arr;
+        int prot, the_errno;
+        void *retval;
+
+        if (Field(prot_flags, 0) == Val_false &&
+            Field(prot_flags, 1) == Val_false &&
+            Field(prot_flags, 2) == Val_false) {
+                prot = PROT_NONE;
+        } else {
+                prot = 0;
+                if(Field(prot_flags, 0) == Val_true) {
+                        prot |= PROT_READ;
+                }
+                if(Field(prot_flags, 1) == Val_true) {
+                        prot |= PROT_WRITE;
+                }
+                if(Field(prot_flags, 2) == Val_true) {
+                        prot |= PROT_EXEC;
+                }
+        }
+
+        // traverse list to know the length of the array
+        cell = pages;
+        for(pages_length = 0; cell != Val_emptylist; pages_length++) {
+                cell = Field(cell, 1);
+        }
+
+        // allocate and populate the array
+        arr = malloc(sizeof(xen_pfn_t) * pages_length);
+        if(arr == NULL) {
+                caml_failwith("Error: could not allocate page array before mapping memory");
+        }
+
+        cell = pages;
+        for(i = 0; i < pages_length; i++) {
+                arr[i] = Int64_val(Field(cell, 0));
+                cell = Field(cell, 1);
+        }
+
+        retval = xenforeignmemory_map
+                (Xfm_val(fmem), _D(dom), prot, pages_length, arr, NULL);
+        the_errno = errno;
+
+        free(arr);
+
+        if(retval == NULL) {
+                raise_unix_errno_msg(the_errno,
+                                "Error when trying to map foreign memory");
+        }
+
+        result = caml_ba_alloc_dims(
+                        CAML_BA_CHAR | CAML_BA_C_LAYOUT | CAML_BA_EXTERNAL, 1,
+                        retval, (long) 4096 * pages_length);
+
+        CAMLreturn(result);
+}
+
+CAMLprim value stub_xenforeignmemory_unmap(value fmem, value mapping)
+{
+        CAMLparam2(fmem, mapping);
+        size_t pages;
+        int retval, the_errno;
+
+        // convert mapping to pages and addr
+        pages = Caml_ba_array_val(mapping)->dim[0] / 4096;
+
+        retval = xenforeignmemory_unmap(Xfm_val(fmem),
+                        Caml_ba_data_val(mapping), pages);
+        the_errno = errno;
+
+        if(retval < 0) {
+                raise_unix_errno_msg(the_errno,
+                                "Error when trying to unmap foreign memory");
+        }
+
+        CAMLreturn(Val_unit);
 }
 
 /*
