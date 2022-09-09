@@ -255,7 +255,7 @@ function must
 4. store the current domain configuration on disk -- it's important to know
    the difference between the configuration you started with and the configuration
    you would use after a reboot because some properties (such as maximum memory
-   and vCPUs) as fixed on create.
+   and vCPUs) are fixed on create.
 
 The xenguest binary was originally
 a separate binary for two reasons: (i) the libxenguest functions weren't

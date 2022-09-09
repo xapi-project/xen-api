@@ -40,7 +40,7 @@ A task has a state, which may be Pending, Completed or failed:
 		| Failed of Rpc.t
 ```
 
-When a task is Failed, we assocate it with a marshalled exception (a value of type
+When a task is Failed, we associate it with a marshalled exception (a value of type
 Rpc.t). This exception must be one from the set defined in the
 [Xenops_interface](https://github.com/xapi-project/xcp-idl/blob/2e5c3dd79c63e3711227892271a6bece98eb0fa1/xen/xenops_interface.ml#L46).
 To see how they are marshalled, see
