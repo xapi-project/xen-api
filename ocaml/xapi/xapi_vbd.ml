@@ -271,10 +271,10 @@ let create ~__context ~vM ~vDI ~device ~userdevice ~bootable ~mode ~_type
             else
               userdevice
           in
-          let uuid = Uuid.make () in
+          let uuid = Uuidx.make () in
           let ref = Ref.make () in
           debug "VBD.create (device = %s; uuid = %s; ref = %s)" userdevice
-            (Uuid.to_string uuid) (Ref.string_of ref) ;
+            (Uuidx.to_string uuid) (Ref.string_of ref) ;
           (* Check that the device is definitely unique. If the requested device is numerical
              		   (eg 1) then we 'expand' it into other possible names (eg 'hdb' 'xvdb') to detect
              		   all possible clashes. *)
@@ -296,7 +296,7 @@ let create ~__context ~vM ~vDI ~device ~userdevice ~bootable ~mode ~_type
           if not empty then
             assert_doesnt_make_vm_non_agile ~__context ~vm:vM ~vdi:vDI ;
           let metrics = Ref.make ()
-          and metrics_uuid = Uuid.to_string (Uuid.make ()) in
+          and metrics_uuid = Uuidx.to_string (Uuidx.make ()) in
           Db.VBD_metrics.create ~__context ~ref:metrics ~uuid:metrics_uuid
             ~io_read_kbs:0. ~io_write_kbs:0. ~last_updated:(Date.of_float 0.)
             ~other_config:[] ;
@@ -309,7 +309,7 @@ let create ~__context ~vM ~vDI ~device ~userdevice ~bootable ~mode ~_type
               (k, v) :: other_config
             with _ -> other_config
           in
-          Db.VBD.create ~__context ~ref ~uuid:(Uuid.to_string uuid)
+          Db.VBD.create ~__context ~ref ~uuid:(Uuidx.to_string uuid)
             ~current_operations:[] ~allowed_operations:[] ~storage_lock:false
             ~vM ~vDI ~userdevice ~device:_device ~bootable ~mode ~_type
             ~unpluggable ~empty ~reserved:false ~qos_algorithm_type

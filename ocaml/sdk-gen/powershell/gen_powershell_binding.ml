@@ -460,7 +460,7 @@ and print_methods_class classname has_uuid has_name =
           \            else if (Uuid != Guid.Empty)\n\
           \            {\n\
           \                foreach (var record in records)\n\
-          \                    if (Uuid.ToString() == record.Value.uuid)\n\
+          \                    if (Uuidx.ToString() == record.Value.uuid)\n\
           \                    {\n\
           \                        results.Add(record.Value);\n\
           \                        break;\n\
@@ -1590,7 +1590,7 @@ and print_parse_xenobject_private_method obj classname includeUuidAndName =
           \            else if (Uuid != Guid.Empty)\n\
           \            {\n\
           \                var xenRef = %s.get_by_uuid(session, \
-           Uuid.ToString());\n\
+           Uuidx.ToString());\n\
           \                if (xenRef != null)\n\
           \                    %s = xenRef.opaque_ref;\n\
           \            }"

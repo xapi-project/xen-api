@@ -503,13 +503,13 @@ let verify update_info update_path =
     (Option.value ~default:"" update_info.key)
 
 let patch_uuid_of_update_uuid uuid =
-  let arr = Uuid.of_string uuid |> Option.get |> Uuid.to_int_array in
+  let arr = Uuidx.of_string uuid |> Option.get |> Uuidx.to_int_array in
   let modify x = arr.(x) <- 0 in
   modify 4 ;
   modify 5 ;
   modify 6 ;
   modify 7 ;
-  Uuid.of_int_array arr |> Option.get |> Uuid.to_string
+  Uuidx.of_int_array arr |> Option.get |> Uuidx.to_string
 
 let create_update_record ~__context ~update ~update_info ~vdi =
   let patch_ref = Ref.make () in
@@ -662,7 +662,7 @@ let resync_host ~__context ~host =
       try Array.to_list (Sys.readdir update_applied_dir) with _ -> []
     in
     let update_uuids =
-      List.filter (fun update -> Uuid.is_uuid update) updates_applied
+      List.filter (fun update -> Uuidx.is_uuid update) updates_applied
     in
     let exists uuid =
       try Some (Db.Pool_update.get_by_uuid ~__context ~uuid) with _ -> None

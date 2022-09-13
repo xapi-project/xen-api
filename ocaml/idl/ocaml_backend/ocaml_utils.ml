@@ -115,7 +115,7 @@ let rec ocaml_of_ty = function
       ocaml_of_enum (List.map fst cs)
   | Map (l, r) ->
       "(" ^ alias_of_ty l ^ " * " ^ alias_of_ty r ^ ") list"
-  (*  | Ref "session" -> "Uuid.cookie" *)
+  (*  | Ref "session" -> "Uuidx.cookie" *)
   | Ref ty ->
       "[`" ^ ty ^ "] Ref.t"
   | Option x ->

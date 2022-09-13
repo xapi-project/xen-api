@@ -420,7 +420,7 @@ let create ~__context ~name ~priority ~cls ~obj_uuid ~body =
          (Api_errors.uuid_invalid, [Record_util.class_to_string cls; obj_uuid])
       ) ;
   let _ref = Ref.make () in
-  let uuid = Uuid.to_string (Uuid.make ()) in
+  let uuid = Uuidx.to_string (Uuidx.make ()) in
   let timestamp = with_lock event_mutex (fun () -> Unix.gettimeofday ()) in
   (* During rolling upgrade, upgraded master might have a alerts grading
      	   system different from the not yet upgraded slaves, during that process we

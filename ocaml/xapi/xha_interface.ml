@@ -128,7 +128,7 @@ module DaemonConfiguration = struct
     in
     {
       common_hosts
-    ; common_generation_uuid= Uuid.to_string common_generation_uuid
+    ; common_generation_uuid= Uuidx.to_string common_generation_uuid
     ; common_udp_port
     ; local_host_uuid
     ; local_heart_beat_interface
@@ -261,7 +261,7 @@ module LiveSetInformation = struct
 
   module Host = struct
     type t = {
-        id: [`host] Uuid.t
+        id: [`host] Uuidx.t
       ; liveness: bool
       ; master: bool
       ; state_file_access: bool
@@ -290,7 +290,7 @@ module LiveSetInformation = struct
                 )
           in
           let uuid s =
-            match Uuid.of_string s with
+            match Uuidx.of_string s with
             | None ->
                 invalid_arg
                   (Printf.sprintf
@@ -314,12 +314,12 @@ module LiveSetInformation = struct
 
   module HostRawData = struct
     type t = {
-        id: [`host] Uuid.t
+        id: [`host] Uuidx.t
       ; time_since_last_update_on_statefile: int
       ; time_since_last_heartbeat: int
       ; time_since_xapi_restart_first_attempted: int
-      ; heartbeat_active_list_on_heartbeat: [`host] Uuid.t list
-      ; heartbeat_active_list_on_statefile: [`host] Uuid.t list
+      ; heartbeat_active_list_on_heartbeat: [`host] Uuidx.t list
+      ; heartbeat_active_list_on_statefile: [`host] Uuidx.t list
     }
 
     let of_xml_element = function
@@ -342,7 +342,7 @@ module LiveSetInformation = struct
                 )
           in
           let uuid s =
-            match Uuid.of_string s with
+            match Uuidx.of_string s with
             | None ->
                 invalid_arg
                   (Printf.sprintf
@@ -416,7 +416,7 @@ module LiveSetInformation = struct
       ; xapi_healthcheck_latency: int
       ; xapi_healthcheck_min: int
       ; xapi_healthcheck_max: int
-      ; host_raw_data: ([`host] Uuid.t, HostRawData.t) Hashtbl.t
+      ; host_raw_data: ([`host] Uuidx.t, HostRawData.t) Hashtbl.t
     }
 
     let of_xml_element = function
@@ -468,8 +468,8 @@ module LiveSetInformation = struct
 
   type t = {
       status: Status.t
-    ; local_host_id: [`host] Uuid.t
-    ; hosts: ([`host] Uuid.t, Host.t) Hashtbl.t
+    ; local_host_id: [`host] Uuidx.t
+    ; hosts: ([`host] Uuidx.t, Host.t) Hashtbl.t
     ; raw_status_on_local_host: RawStatus.t option
     ; warning_on_local_host: Warning.t option
   }
@@ -490,7 +490,7 @@ module LiveSetInformation = struct
             (Xml.Element
               (_, _, [Xml.Element ("HostID", _, [Xml.PCData local_host_id])])
               ) -> (
-          match Uuid.of_string local_host_id with
+          match Uuidx.of_string local_host_id with
           | None ->
               invalid_arg
                 (Printf.sprintf
@@ -550,7 +550,8 @@ module LiveSetInformation = struct
   let to_summary_string t =
     let status = Status.to_string t.status in
     let host h =
-      Printf.sprintf "%s [%s%s%s%s%s%s]" (Uuid.to_string h.Host.id)
+      Printf.sprintf "%s [%s%s%s%s%s%s]"
+        (Uuidx.to_string h.Host.id)
         (if h.Host.id = t.local_host_id then "*" else " ")
         (if h.Host.liveness then "L" else " ")
         (if h.Host.master then "M" else " ")
@@ -637,7 +638,7 @@ module LiveSetInformationTest = struct
 
 		let to_string host =
 			"host {" ^
-				"id = "                   ^ (Uuid.to_string host.id                  ) ^ "; " ^
+				"id = "                   ^ (Uuidx.to_string host.id                  ) ^ "; " ^
 				"liveness = "             ^ (string_of_bool host.liveness            ) ^ "; " ^
 				"master = "               ^ (string_of_bool host.master              ) ^ "; " ^
 				"state_file_access = "    ^ (string_of_bool host.state_file_access   ) ^ "; " ^
@@ -650,7 +651,7 @@ module LiveSetInformationTest = struct
 	let to_string info =
 		"info {" ^
 			"status        = " ^ (Status.to_string info.status         ) ^ "; " ^
-			"local_host_id = " ^ (Uuid.to_string   info.local_host_id  ) ^ "; " ^
+			"local_host_id = " ^ (Uuidx.to_string   info.local_host_id  ) ^ "; " ^
 			"hosts = [" ^
 				String.concat "; " (
 					List.map (HostTest.to_string) (Hashtbl.fold_values info.hosts)

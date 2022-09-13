@@ -51,7 +51,7 @@ let create ~__context ~class_id ~class_name ~vendor_id ~vendor_name ~device_id
     ~other_config:_ ~subsystem_vendor_id ~subsystem_vendor_name
     ~subsystem_device_id ~driver_name ~subsystem_device_name =
   let p = Ref.make () in
-  let uuid = Uuid.to_string (Uuid.make ()) in
+  let uuid = Uuidx.to_string (Uuidx.make ()) in
   Db.PCI.create ~__context ~ref:p ~uuid ~class_id ~class_name ~vendor_id
     ~vendor_name ~device_id ~device_name ~host ~pci_id ~functions
     ~physical_function ~dependencies:[] ~other_config:[] ~subsystem_vendor_id

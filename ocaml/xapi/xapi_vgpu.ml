@@ -59,7 +59,7 @@ let get_valid_device ~__context ~device ~vM ~vGPUs =
 let create' ~__context ~vM ~gPU_group ~device ~other_config ~_type
     ~powerstate_check ~compatibility_metadata =
   let vgpu = Ref.make () in
-  let uuid = Uuid.to_string (Uuid.make ()) in
+  let uuid = Uuidx.to_string (Uuidx.make ()) in
   if not (Pool_features.is_enabled ~__context Features.GPU) then
     raise (Api_errors.Server_error (Api_errors.feature_restricted, [])) ;
   if powerstate_check then

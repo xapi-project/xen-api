@@ -4,7 +4,7 @@ let setup sock cmdargs id_to_fd_map syslog_stdout redirect_stderr_to_stdout env
     =
   let fd_sock_path =
     Printf.sprintf "%s/fd_%s" Forkhelpers.temp_dir_server
-      Uuid.(to_string (make ()))
+      Uuidx.(to_string (make ()))
   in
   let fd_sock = Fecomms.open_unix_domain_sock () in
   Xapi_stdext_unix.Unixext.unlink_safe fd_sock_path ;

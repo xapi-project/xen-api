@@ -17,7 +17,7 @@ open API
 (* A directory to use for temporary files. *)
 let working_area = Filename.(concat (get_temp_dir_name ()) "xapi-test")
 
-let make_uuid () = Uuid.(to_string (make ()))
+let make_uuid () = Uuidx.(to_string (make ()))
 
 let assert_raises_api_error (code : string) ?(args : string list option)
     (f : unit -> 'a) : unit =

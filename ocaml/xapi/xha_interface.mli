@@ -59,7 +59,7 @@ module DaemonConfiguration : sig
     -> ?xapi_restart_attempts:int
     -> ?xapi_restart_timeout:int
     -> ?xapi_licensecheck_timeout:int
-    -> common_generation_uuid:[`generation] Uuid.t
+    -> common_generation_uuid:[`generation] Uuidx.t
     -> local_heart_beat_interface:string
     -> local_heart_beat_physical_interface:string
     -> local_state_file:string
@@ -80,7 +80,7 @@ module LiveSetInformation : sig
 
   module Host : sig
     type t = {
-        id: [`host] Uuid.t
+        id: [`host] Uuidx.t
       ; liveness: bool
       ; master: bool
       ; state_file_access: bool
@@ -91,12 +91,12 @@ module LiveSetInformation : sig
 
   module HostRawData : sig
     type t = {
-        id: [`host] Uuid.t
+        id: [`host] Uuidx.t
       ; time_since_last_update_on_statefile: int
       ; time_since_last_heartbeat: int
       ; time_since_xapi_restart_first_attempted: int
-      ; heartbeat_active_list_on_heartbeat: [`host] Uuid.t list
-      ; heartbeat_active_list_on_statefile: [`host] Uuid.t list (* ... *)
+      ; heartbeat_active_list_on_heartbeat: [`host] Uuidx.t list
+      ; heartbeat_active_list_on_statefile: [`host] Uuidx.t list (* ... *)
     }
   end
 
@@ -111,7 +111,7 @@ module LiveSetInformation : sig
       ; xapi_healthcheck_latency: int
       ; xapi_healthcheck_min: int
       ; xapi_healthcheck_max: int
-      ; host_raw_data: ([`host] Uuid.t, HostRawData.t) Hashtbl.t
+      ; host_raw_data: ([`host] Uuidx.t, HostRawData.t) Hashtbl.t
     }
   end
 
@@ -127,8 +127,8 @@ module LiveSetInformation : sig
 
   type t = {
       status: Status.t
-    ; local_host_id: [`host] Uuid.t
-    ; hosts: ([`host] Uuid.t, Host.t) Hashtbl.t
+    ; local_host_id: [`host] Uuidx.t
+    ; hosts: ([`host] Uuidx.t, Host.t) Hashtbl.t
     ; raw_status_on_local_host: RawStatus.t option
     ; warning_on_local_host: Warning.t option
   }

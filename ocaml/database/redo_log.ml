@@ -780,7 +780,7 @@ let create ~name ~state_change_callback ~read_only =
   let instance =
     {
       name
-    ; marker= Uuid.to_string (Uuid.make ())
+    ; marker= Uuidx.to_string (Uuidx.make ())
     ; read_only
     ; enabled= ref false
     ; device= ref None

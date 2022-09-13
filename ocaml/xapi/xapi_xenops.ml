@@ -277,7 +277,7 @@ let nvram_post_clone ~__context ~self ~uuid =
   | [] ->
       ()
   | original ->
-      let uuid = Uuid.to_string uuid in
+      let uuid = Uuidx.to_string uuid in
       info "VM %s was cloned: clearing certain UEFI variables" uuid ;
       varstore_rm_with_sandbox ~__context ~vm_uuid:uuid
         (fun chroot socket_path ->
@@ -2176,7 +2176,7 @@ let update_vm ~__context id =
                     List.iter
                       (fun (protocol, _) ->
                         let ref = Ref.make () in
-                        let uuid = Uuid.to_string (Uuid.make ()) in
+                        let uuid = Uuidx.to_string (Uuidx.make ()) in
                         let location = Printf.sprintf "%s?uuid=%s" uri uuid in
                         let port =
                           try

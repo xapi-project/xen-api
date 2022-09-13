@@ -600,7 +600,7 @@ module Varstored = struct
     let open Xenops_types in
     debug "Preparing to start varstored for UEFI boot (domid=%d)" domid ;
     let path = !Xc_resources.varstored in
-    let vm_uuid = Xenops_helpers.uuid_of_domid ~xs domid |> Uuid.to_string in
+    let vm_uuid = Xenops_helpers.uuid_of_domid ~xs domid |> Uuidx.to_string in
     let reset_on_boot = Nvram_uefi_variables.(nvram.on_boot = Reset) in
     let backend = nvram.Nvram_uefi_variables.backend in
     let chroot, socket_path =
@@ -687,7 +687,7 @@ module Swtpm = struct
     let name = "swtpm" in
     let exec_path = !Resources.swtpm_wrapper in
     let pid_filename = pidfile_path domid in
-    let vm_uuid = Xenops_helpers.uuid_of_domid ~xs domid |> Uuid.to_string in
+    let vm_uuid = Xenops_helpers.uuid_of_domid ~xs domid |> Uuidx.to_string in
 
     let chroot, _socket_path =
       Xenops_sandbox.Swtpm_guard.start (Xenops_task.get_dbg task) ~vm_uuid

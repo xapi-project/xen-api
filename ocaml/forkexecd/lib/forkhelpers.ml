@@ -137,9 +137,9 @@ let safe_close_and_exec ?env stdin stdout stderr
   let sock =
     Fecomms.open_unix_domain_sock_client (runtime_path ^ "/xapi/forker/main")
   in
-  let stdinuuid = Uuid.(to_string (make ())) in
-  let stdoutuuid = Uuid.(to_string (make ())) in
-  let stderruuid = Uuid.(to_string (make ())) in
+  let stdinuuid = Uuidx.(to_string (make ())) in
+  let stdoutuuid = Uuidx.(to_string (make ())) in
+  let stderruuid = Uuidx.(to_string (make ())) in
 
   let fds_to_close = ref [] in
 

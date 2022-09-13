@@ -142,9 +142,9 @@ let host_field_extractors = List.map snd host_fields
 (** {2 Guest fields} *)
 
 let guest_id _ _ g =
-  match Uuid.of_int_array g.Xenctrl.handle with
+  match Uuidx.of_int_array g.Xenctrl.handle with
   | Some uuid ->
-      Uuid.to_string uuid
+      Uuidx.to_string uuid
   | None ->
       "-"
 
@@ -269,7 +269,7 @@ let sections_of_line line =
 let guest_ids_of_string guest_ids_string =
   try
     let guest_ids = Astring.String.cuts ~sep:" " guest_ids_string in
-    if List.for_all Uuid.is_uuid guest_ids then guest_ids else []
+    if List.for_all Uuidx.is_uuid guest_ids then guest_ids else []
   with _ -> []
 
 let guest_ids_of_line line =

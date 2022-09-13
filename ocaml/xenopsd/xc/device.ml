@@ -2250,7 +2250,7 @@ module Dm_Common = struct
 
   (* Called by every domain destroy, even non-HVM *)
   let stop ~xs ~qemu_domid ~vtpm domid =
-    let vm_uuid = Xenops_helpers.uuid_of_domid ~xs domid |> Uuid.to_string in
+    let vm_uuid = Xenops_helpers.uuid_of_domid ~xs domid |> Uuidx.to_string in
     let dbg = Printf.sprintf "stop domid %d" domid in
     let stop_qemu () = Service.Qemu.stop ~xs ~qemu_domid domid in
     let stop_swptm () =
@@ -2880,7 +2880,7 @@ module Backend = struct
         with_xs (fun xs ->
             let timeoffset_key =
               sprintf "/vm/%s/rtc/timeoffset"
-                (Uuid.to_string (Xenops_helpers.uuid_of_domid ~xs domid))
+                (Uuidx.to_string (Xenops_helpers.uuid_of_domid ~xs domid))
             in
             try
               let rtc = xs.Xs.read timeoffset_key in
@@ -3166,7 +3166,7 @@ module Backend = struct
                     ( "VM"
                     , domid
                       |> Xenops_helpers.uuid_of_domid ~xs
-                      |> Uuid.to_string
+                      |> Uuidx.to_string
                     , msg
                     )
                  )
@@ -3277,7 +3277,7 @@ module Backend = struct
         )
 
       let tap_open ifname =
-        let uuid = Uuid.(to_string (make ())) in
+        let uuid = Uuidx.(to_string (make ())) in
         let fd = Tuntap.tap_open ifname in
         (uuid, fd)
 
@@ -3848,7 +3848,7 @@ module Dm = struct
     debug "Called Dm.restore_varstored (domid=%d)" domid ;
     let path =
       Xenops_sandbox.Varstore_guard.create ~domid
-        ~vm_uuid:(Uuid.to_string (Xenops_helpers.uuid_of_domid ~xs domid))
+        ~vm_uuid:(Uuidx.to_string (Xenops_helpers.uuid_of_domid ~xs domid))
         efivars_resume_path
     in
     debug "Writing EFI variables to %s (domid=%d)" path domid ;
@@ -3866,7 +3866,7 @@ module Dm = struct
 
   let restore_vtpm (_task : Xenops_task.task_handle) ~xs ~contents domid =
     debug "Called Dm.restore_vtpms (domid=%d)" domid ;
-    let vm_uuid = Uuid.to_string (Xenops_helpers.uuid_of_domid ~xs domid) in
+    let vm_uuid = Uuidx.to_string (Xenops_helpers.uuid_of_domid ~xs domid) in
     (* TODO: multiple vTPM support? *)
     Service.Swtpm.restore ~domid ~vm_uuid contents
 end

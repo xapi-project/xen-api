@@ -46,7 +46,7 @@ let assert_no_vtpm_associated ~__context vm =
 
 let introduce ~__context ~vM ~persistence_backend ~contents ~is_unique =
   let ref = Ref.make () in
-  let uuid = Uuid.(to_string (make ())) in
+  let uuid = Uuidx.(to_string (make ())) in
   let backend = Ref.null in
   Db.VTPM.create ~__context ~ref ~uuid ~vM ~backend ~persistence_backend
     ~is_unique ~is_protected:false ~contents ;

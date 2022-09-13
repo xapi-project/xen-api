@@ -31,7 +31,7 @@ let assert_not_already_present ~__context site host =
 let create ~__context ~host ~sR ~site ~size =
   assert_not_already_present ~__context site host ;
   let cache_storage = Ref.make () in
-  let uuid = Uuid.(to_string (make ())) in
+  let uuid = Uuidx.(to_string (make ())) in
   let vDI = Pvs_cache_vdi.create_vdi ~__context ~sR ~size in
   Db.PVS_cache_storage.create ~__context ~ref:cache_storage ~uuid ~host ~sR
     ~site ~vDI ~size ;

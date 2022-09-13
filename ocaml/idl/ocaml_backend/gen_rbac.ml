@@ -57,7 +57,7 @@ let writer_csv static_permissions_roles =
 
 let hash2uuid str =
   let h = Digest.string str in
-  Option.map Uuid.to_string (Uuid.of_bytes h)
+  Option.map Uuidx.to_string (Uuidx.of_bytes h)
 
 let replace_char str c1 c2 =
   let buf = Bytes.of_string str in

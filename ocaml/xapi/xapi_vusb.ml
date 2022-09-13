@@ -20,7 +20,7 @@ let m = Mutex.create ()
 
 let create ~__context ~vM ~uSB_group ~other_config =
   let vusb = Ref.make () in
-  let uuid = Uuid.to_string (Uuid.make ()) in
+  let uuid = Uuidx.to_string (Uuidx.make ()) in
   Pool_features.assert_enabled ~__context ~f:Features.USB_passthrough ;
   Xapi_stdext_threads.Threadext.Mutex.execute m (fun () ->
       let attached_vusbs = Db.VM.get_VUSBs ~__context ~self:vM in

@@ -32,14 +32,14 @@ let dummy_sep = "|"
 let ref_null = ref_prefix ^ "NULL"
 
 let make () =
-  let uuid = Uuid.(to_string (make ())) in
+  let uuid = Uuidx.(to_string (make ())) in
   Real uuid
 
 let null = Null
 
 (* a dummy reference is a reference of an object which is not in database *)
 let make_dummy name =
-  let uuid = Uuid.(to_string (make ())) in
+  let uuid = Uuidx.(to_string (make ())) in
   Dummy (uuid, name)
 
 let is_real = function Real _ -> true | _ -> false

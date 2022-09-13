@@ -3,7 +3,7 @@
 (* Intended use case is to set dom0's uuid *)
 
 let set domain uuid =
-  if not (Uuid.is_uuid uuid) then
+  if not (Uuidx.is_uuid uuid) then
     `Error (false, "Invalid uuid")
   else
     let xc = Xenctrl.interface_open () in

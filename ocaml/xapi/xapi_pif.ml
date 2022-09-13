@@ -358,7 +358,8 @@ let find_or_create_network (bridge : string) (device : string) ~__context =
   | [net] ->
       net
   | _ ->
-      let net_ref = Ref.make () and net_uuid = Uuid.to_string (Uuid.make ()) in
+      let net_ref = Ref.make ()
+      and net_uuid = Uuidx.to_string (Uuidx.make ()) in
       let () =
         Db.Network.create ~__context ~ref:net_ref ~uuid:net_uuid
           ~current_operations:[] ~allowed_operations:[]
@@ -406,7 +407,8 @@ let is_my_management_pif ~__context ~self =
   Db.Network.get_bridge ~__context ~self:net = management_if
 
 let make_pif_metrics ~__context =
-  let metrics = Ref.make () and metrics_uuid = Uuid.to_string (Uuid.make ()) in
+  let metrics = Ref.make ()
+  and metrics_uuid = Uuidx.to_string (Uuidx.make ()) in
   let () =
     Db.PIF_metrics.create ~__context ~ref:metrics ~uuid:metrics_uuid
       ~carrier:false ~device_name:"" ~vendor_name:"" ~device_id:"" ~vendor_id:""
@@ -439,7 +441,7 @@ let pool_introduce ~__context ~device ~network ~host ~mAC ~mTU ~vLAN ~physical
   let metrics = make_pif_metrics ~__context in
   let () =
     Db.PIF.create ~__context ~ref:pif_ref
-      ~uuid:(Uuid.to_string (Uuid.make ()))
+      ~uuid:(Uuidx.to_string (Uuidx.make ()))
       ~device ~device_name:device ~network ~host ~mAC ~mTU ~vLAN ~metrics
       ~physical ~currently_attached:false ~igmp_snooping_status:`unknown
       ~ip_configuration_mode ~iP ~netmask ~gateway ~dNS ~bond_slave_of:Ref.null
@@ -477,7 +479,7 @@ let introduce_internal ?network ?(physical = true) ~t:_ ~__context ~host ~mAC
   debug "Creating a new record for NIC: %s: %s" device (Ref.string_of pif) ;
   let () =
     Db.PIF.create ~__context ~ref:pif
-      ~uuid:(Uuid.to_string (Uuid.make ()))
+      ~uuid:(Uuidx.to_string (Uuidx.make ()))
       ~device ~device_name:device ~network:net_ref ~host ~mAC ~mTU ~vLAN
       ~metrics ~physical ~currently_attached:false
       ~igmp_snooping_status:`unknown ~ip_configuration_mode:`None ~iP:""

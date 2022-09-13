@@ -127,7 +127,7 @@ let __make_task =
       ?session_id:_
       ?subtask_of:_
       _
-    -> (Ref.null, Uuid.null)
+    -> (Ref.null, Uuidx.null)
   )
 
 let __destroy_task : (__context:t -> API.ref_task -> unit) ref =
@@ -259,16 +259,16 @@ let make ?(http_other_config = []) ?(quiet = false) ?subtask_of ?session_id
       !__make_task ~__context:(get_initial ()) ~http_other_config
         ?description:task_description ?session_id ?subtask_of task_name
     else
-      (Ref.make_dummy task_name, Uuid.null)
+      (Ref.make_dummy task_name, Uuidx.null)
   in
   let dbg = make_dbg http_other_config task_name task_id in
   (* log the creation of a subtask (unless quite=true) *)
   ( if (not quiet) && subtask_of <> None then
       let task_uuid =
-        if task_uuid = Uuid.null then
+        if task_uuid = Uuidx.null then
           ""
         else
-          Printf.sprintf " (uuid:%s)" (Uuid.to_string task_uuid)
+          Printf.sprintf " (uuid:%s)" (Uuidx.to_string task_uuid)
       in
       let info = if task_in_database then R.info else D.debug in
       info "task %s%s created%s%s"

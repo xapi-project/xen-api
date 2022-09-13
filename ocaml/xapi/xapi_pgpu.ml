@@ -72,7 +72,7 @@ let populate_compatibility_metadata ~__context ~pgpu ~pgpu_pci =
 let create ~__context ~pCI ~gPU_group ~host ~other_config ~supported_VGPU_types
     ~size ~dom0_access ~is_system_display_device =
   let pgpu = Ref.make () in
-  let uuid = Uuid.(to_string (make ())) in
+  let uuid = Uuidx.(to_string (make ())) in
   let supported_VGPU_max_capacities =
     calculate_max_capacities ~__context ~pCI ~size ~supported_VGPU_types
   in

@@ -18,7 +18,7 @@ let check_domain0_uuid () =
   let uuid =
     try Inventory.lookup Inventory._control_domain_uuid
     with _ ->
-      let uuid = Uuid.(to_string (make ())) in
+      let uuid = Uuidx.(to_string (make ())) in
       Inventory.update Inventory._control_domain_uuid uuid ;
       uuid
   in

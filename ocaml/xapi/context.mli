@@ -122,7 +122,7 @@ val __make_task :
    -> ?session_id:API.ref_session
    -> ?subtask_of:API.ref_task
    -> string
-   -> API.ref_task * API.ref_task Uuid.t
+   -> API.ref_task * API.ref_task Uuidx.t
   )
   ref
 

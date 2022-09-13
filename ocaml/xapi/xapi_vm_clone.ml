@@ -257,7 +257,7 @@ let copy_vm_record ?snapshot_info_record ~__context ~vm ~disk_op ~new_name
     disk_op = Disk_op_snapshot || disk_op = Disk_op_checkpoint
   in
   let task_id = Ref.string_of (Context.get_task_id __context) in
-  let uuid = Uuid.make () in
+  let uuid = Uuidx.make () in
   let ref = Ref.make () in
   let power_state = Db.VM.get_power_state ~__context ~self:vm in
   let current_op =
@@ -278,7 +278,7 @@ let copy_vm_record ?snapshot_info_record ~__context ~vm ~disk_op ~new_name
         []
     | (x, y) :: xs ->
         if x = Xapi_globs.mac_seed then
-          (x, Uuid.to_string (Uuid.make ())) :: xs
+          (x, Uuidx.to_string (Uuidx.make ())) :: xs
         else
           (x, y) :: replace_seed xs
   in
@@ -290,7 +290,7 @@ let copy_vm_record ?snapshot_info_record ~__context ~vm ~disk_op ~new_name
     else if List.mem_assoc Xapi_globs.mac_seed other_config then
       replace_seed other_config
     else
-      (Xapi_globs.mac_seed, Uuid.to_string (Uuid.make ())) :: other_config
+      (Xapi_globs.mac_seed, Uuidx.to_string (Uuidx.make ())) :: other_config
   in
   (* remove "default_template" and "xensource_internal" from other_config if it's there *)
   let other_config =
@@ -333,7 +333,7 @@ let copy_vm_record ?snapshot_info_record ~__context ~vm ~disk_op ~new_name
     is_a_snapshot && Xapi_vmss.is_vmss_snapshot ~__context
   in
   (* create a new VM *)
-  Db.VM.create ~__context ~ref ~uuid:(Uuid.to_string uuid)
+  Db.VM.create ~__context ~ref ~uuid:(Uuidx.to_string uuid)
     ~power_state:new_power_state ~allowed_operations:[] ~blocked_operations:[]
     ~name_label:new_name ~current_operations:[(task_id, current_op)]
     ~name_description:all.Db_actions.vM_name_description
@@ -408,7 +408,7 @@ let copy_vm_record ?snapshot_info_record ~__context ~vm ~disk_op ~new_name
 
 (* epoch hint for netapp backend *)
 let make_driver_params () =
-  [(Constants._sm_epoch_hint, Uuid.to_string (Uuid.make ()))]
+  [(Constants._sm_epoch_hint, Uuidx.to_string (Uuidx.make ()))]
 
 (* NB this function may be called when the VM is suspended for copy/clone
    operations. Snapshot can be done in live. *)

@@ -35,7 +35,7 @@ let cf_of_string = function
 module Legend = struct
   type cls = [`VM | `Host | `Other of string]
 
-  type t = string * cf * cls * [`Generic] Uuid.t
+  type t = string * cf * cls * [`Generic] Uuidx.t
 
   let of_string x =
     match Astring.String.cuts ~sep:":" ~empty:false x with
@@ -47,7 +47,7 @@ module Legend = struct
           let cls =
             match cls with "host" -> `Host | "vm" -> `VM | x -> `Other x
           in
-          match Uuid.of_string uuid with
+          match Uuidx.of_string uuid with
           | None ->
               `Error (`Msg (Printf.sprintf "Failed to parse uuid: %s" uuid))
           | Some uuid ->

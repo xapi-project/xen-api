@@ -30,8 +30,8 @@ let get_running_domUs xc xs =
     let open Xenctrl in
     let domid = di.domid in
     let ( let* ) = Option.bind in
-    let* uuid_raw = Uuid.of_int_array di.handle in
-    let uuid = Uuid.to_string uuid_raw in
+    let* uuid_raw = Uuidx.of_int_array di.handle in
+    let uuid = Uuidx.to_string uuid_raw in
 
     (* Actively hide migrating VM uuids, these are temporary and xenops
        writes the original and the final uuid to xenstore *)

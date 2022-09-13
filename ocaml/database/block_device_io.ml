@@ -104,7 +104,7 @@ let magic_size = 16
 
 let generation_size = 16
 
-let marker_size = String.length (Uuid.to_string (Uuid.make ()))
+let marker_size = String.length (Uuidx.to_string (Uuidx.make ()))
 
 let size_size = 16 (* decimal digits *)
 

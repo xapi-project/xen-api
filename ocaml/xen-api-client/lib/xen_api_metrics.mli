@@ -22,7 +22,7 @@ module Legend : sig
   type cls = [`VM | `Host | `Other of string]
 
   (** A legend identifies a specific data source. *)
-  type t = string * cf * cls * [`Generic] Uuid.t
+  type t = string * cf * cls * [`Generic] Uuidx.t
 
   val of_string : string -> [`Ok of t | `Error of [> `Msg of string]]
 
