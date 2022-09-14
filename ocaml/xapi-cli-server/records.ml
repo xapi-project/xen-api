@@ -2519,7 +2519,7 @@ let vm_record rpc session_id vm =
               (x ()).API.vM_pending_guidances
           )
           ()
-      ; make_field ~name:"vtpm"
+      ; make_field ~name:"vtpms"
           ~get:(fun () -> get_uuids_from_refs (x ()).API.vM_VTPMs)
           ()
       ]
