@@ -1,1 +1,3 @@
 .gitarchive-info export-subst
+# ask git to not disturb the endlines of pems
+*.pem -text

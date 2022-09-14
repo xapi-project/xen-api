@@ -18,8 +18,8 @@ let passing file =
   match G.Pem.parse_file file with
   | Ok _ ->
       ()
-  | Error _ ->
-      Alcotest.failf "expected %s to parse correctly" file
+  | Error e ->
+      Alcotest.failf "expected %s to parse correctly: %s" file e
 
 let failing file =
   match G.Pem.parse_file file with
@@ -28,21 +28,24 @@ let failing file =
   | Error _ ->
       ()
 
-let positive =
-  ["pass-01.pem"; "pass-02.pem"; "pass-03.pem"; "pass-04.pem"]
-  |> List.map (fun pem -> Filename.concat "test_data/pems" pem)
-  |> List.map (fun path -> ("positive", `Quick, fun () -> passing path))
+(* Pems in this folder get tested depending on their names, "pass*" are
+   expected to be parsed successfully, "fail*" are not expected to be parsed *)
+let data_dir = "test_data/pems"
 
-let negative =
-  [
-    "fail-01.pem"
-  ; "fail-02.pem"
-  ; "fail-03.pem"
-  ; "fail-04.pem"
-  ; "fail-05.pem"
-  ; "fail-06.pem"
-  ]
-  |> List.map (fun pem -> Filename.concat "test_data/pems" pem)
-  |> List.map (fun path -> ("negative", `Quick, fun () -> failing path))
+let ( // ) = Filename.concat
 
-let all = List.concat [positive; negative]
+let case_of name test = (name, `Quick, fun () -> test (data_dir // name))
+
+let tests =
+  Array.to_seq (Sys.readdir data_dir)
+  |> Seq.filter_map (fun name ->
+         if String.starts_with ~prefix:"pass" name then
+           Some (case_of name passing)
+         else if String.starts_with ~prefix:"fail" name then
+           Some (case_of name failing)
+         else
+           Alcotest.failf "Found file in %s with unexpected name: %s" data_dir
+             name
+     )
+
+let all = List.of_seq tests
