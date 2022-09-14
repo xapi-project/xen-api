@@ -220,13 +220,14 @@ let with_api_errors f x =
       error "%s" msg ;
       raise (Api_errors.Server_error (Api_errors.invalid_update, [errinfo]))
 
-(* yum confif example
+(* yum config example
    [main]
    keepcache=0
    reposdir=/dev/null
    gpgcheck=$signed
    repo_gpgcheck=$signed
    installonlypkgs=
+   group_command=compat
 
    [$label]
    name=$label
@@ -247,6 +248,7 @@ let create_yum_config ~__context ~self ~url =
     ; Printf.sprintf "gpgcheck=%d" signed_index
     ; Printf.sprintf "repo_gpgcheck=%d" signed_index
     ; "installonlypkgs="
+    ; "group_command=compat"
     ; ""
     ; Printf.sprintf "[%s]" name_label
     ; Printf.sprintf "name=%s" name_label
