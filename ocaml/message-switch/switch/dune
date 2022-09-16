@@ -8,7 +8,7 @@
     cohttp-lwt-unix
     conduit-lwt-unix
     cstruct
-    io-page-unix
+    io-page
     lwt
     lwt.unix
     lwt_log

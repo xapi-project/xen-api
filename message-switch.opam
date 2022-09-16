@@ -18,7 +18,7 @@ depends: [
   "cmdliner"
   "cohttp-async" {with-test}
   "cohttp-lwt-unix"
-  "io-page-unix"
+  "io-page" {>= "2.4.0"}
   "lwt_log"
   "message-switch-async" {with-test}
   "message-switch-lwt"
