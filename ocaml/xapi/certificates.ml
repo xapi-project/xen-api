@@ -233,7 +233,7 @@ end = struct
     let certs =
       match get_ca_certs ~__context name with
       | [x] ->
-          x
+          [x]
       | [] ->
           D.error "unable to find certificate with name='%s'" name ;
           raise
@@ -244,22 +244,12 @@ end = struct
           let ref_str =
             xs |> List.map Ref.short_string_of |> String.concat ", "
           in
-          D.error
+          D.warn
             "expected 1 certificate with name='%s', but found multiple: [ %s ]"
             name ref_str ;
-          raise
-            Api_errors.(
-              Server_error
-                ( internal_error
-                , [
-                    Printf.sprintf
-                      "more than one certificate with name='%s' in the database"
-                      name
-                  ]
-                )
-            )
+          xs
     in
-    remove_cert_by_ref ~__context self
+    List.iter (remove_cert_by_ref ~__context) certs
 
   let get_ca_certs ~__context =
     let expr =
