@@ -200,14 +200,18 @@ end = struct
     Db.Certificate.destroy ~__context ~self
 
   let add_cert ~__context ~type' certificate =
-    let name, host, _type =
+    let name, host, _type, post_action =
       match type' with
       | `host host ->
-          ("", host, `host)
+          ("", host, `host, Fun.id)
       | `host_internal host ->
-          ("", host, `host_internal)
+          ("", host, `host_internal, Fun.id)
       | `ca name ->
-          (name, Ref.null, `ca)
+          let certs = get_ca_certs ~__context name in
+          let remove_obsoleted_copies () =
+            List.iter (remove_cert_by_ref ~__context) certs
+          in
+          (name, Ref.null, `ca, remove_obsoleted_copies)
     in
     let date_of_ptime time = Date.of_float (Ptime.to_float_s time) in
     let dates_of_ptimes (a, b) = (date_of_ptime a, date_of_ptime b) in
@@ -222,6 +226,7 @@ end = struct
     Db.Certificate.create ~__context ~ref:ref' ~uuid ~host ~not_before
       ~not_after ~fingerprint ~name ~_type ;
     debug "added cert %s under uuid=%s ref=%s" name uuid (Ref.string_of ref') ;
+    post_action () ;
     ref'
 
   let remove_ca_cert_by_name ~__context name =
