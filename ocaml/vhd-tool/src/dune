@@ -11,7 +11,7 @@
     cohttp
     cohttp-lwt
     cstruct
-    io-page.unix
+    io-page
     lwt
     lwt.unix
     lwt_ssl
