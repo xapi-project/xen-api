@@ -177,6 +177,28 @@ end = struct
 
   type name = string
 
+  let get_ca_certs ~__context name =
+    let expr =
+      let open Db_filter_types in
+      let type' = Eq (Field "type", Literal "ca") in
+      let name' = Eq (Field "name", Literal name) in
+      And (type', name')
+    in
+    Db.Certificate.get_refs_where ~__context ~expr
+
+  let get_host_certs ~__context ~type' ~host =
+    let open Db_filter_types in
+    let type' =
+      Eq (Field "type", Literal (Record_util.certificate_type_to_string type'))
+    in
+    let host' = Eq (Field "host", Literal (Ref.string_of host)) in
+    let expr = And (type', host') in
+    Db.Certificate.get_refs_where ~__context ~expr
+
+  let remove_cert_by_ref ~__context self =
+    debug "deleting cert ref=%s from the database" (Ref.string_of self) ;
+    Db.Certificate.destroy ~__context ~self
+
   let add_cert ~__context ~type' certificate =
     let name, host, _type =
       match type' with
@@ -202,28 +224,9 @@ end = struct
     debug "added cert %s under uuid=%s ref=%s" name uuid (Ref.string_of ref') ;
     ref'
 
-  let get_host_certs ~__context ~type' ~host =
-    let open Db_filter_types in
-    let type' =
-      Eq (Field "type", Literal (Record_util.certificate_type_to_string type'))
-    in
-    let host' = Eq (Field "host", Literal (Ref.string_of host)) in
-    let expr = And (type', host') in
-    Db.Certificate.get_refs_where ~__context ~expr
-
-  let remove_cert_by_ref ~__context self =
-    debug "deleting cert ref=%s from the database" (Ref.string_of self) ;
-    Db.Certificate.destroy ~__context ~self
-
   let remove_ca_cert_by_name ~__context name =
-    let expr =
-      let open Db_filter_types in
-      let type' = Eq (Field "type", Literal "ca") in
-      let name' = Eq (Field "name", Literal name) in
-      And (type', name')
-    in
-    let self =
-      match Db.Certificate.get_refs_where ~__context ~expr with
+    let certs =
+      match get_ca_certs ~__context name with
       | [x] ->
           x
       | [] ->
