@@ -1167,6 +1167,10 @@ let migrate_send' ~__context ~vm ~dest ~live:_ ~vdi_map ~vif_map ~vgpu_map
       true
     with _ -> false
   in
+  ( if (not is_intra_pool) && Db.VM.get_VTPMs ~__context ~self:vm <> [] then
+      let message = "Cross-pool VM migration with VTPMs attached" in
+      raise Api_errors.(Server_error (not_implemented, [message]))
+  ) ;
   let is_same_host = is_intra_pool && remote.dest_host = localhost in
   if copy && is_intra_pool then
     raise

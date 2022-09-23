@@ -5794,6 +5794,11 @@ let export_common fd _printer rpc session_id params filename num ?task_uuid
   in
   let vm_metadata_only = get_bool_param params "metadata" in
   let vm_record = vm.record () in
+  (* disallow exports and cross-pool migrations of VMs with VTPMs *)
+  ( if vm_record.API.vM_VTPMs <> [] then
+      let message = "Exporting VM metadata with VTPMs attached" in
+      raise Api_errors.(Server_error (not_implemented, [message]))
+  ) ;
   let exporttask, task_destroy_fn =
     match task_uuid with
     | None ->
