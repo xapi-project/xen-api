@@ -58,7 +58,7 @@ structural-equality () {
 }
 
 vtpm-unimplemented () {
-  N=5
+  N=8
   VTPM=$(git grep -r --count 'maybe_raise_vtpm_unimplemented' -- **/*.ml | cut -d ':' -f 2 | paste -sd+ - | bc)
   if [ "$VTPM" -eq "$N" ]; then
     echo "OK found $VTPM usages of vtpm unimplemented errors"
