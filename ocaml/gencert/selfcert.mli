@@ -39,6 +39,3 @@ val xapi_pool :
   -> X509.Certificate.t
 (** [xapi_pool uuid path] creates (atomically) a PEM file at [path] with
     [uuid] as CN *)
-
-val xapi_cluster :
-  ?valid_from:Ptime.t (* default: now *) -> cn:string -> unit -> string
