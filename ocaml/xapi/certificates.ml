@@ -177,30 +177,14 @@ end = struct
 
   type name = string
 
-  let add_cert ~__context ~type' certificate =
-    let name, host, _type =
-      match type' with
-      | `host host ->
-          ("", host, `host)
-      | `host_internal host ->
-          ("", host, `host_internal)
-      | `ca name ->
-          (name, Ref.null, `ca)
+  let get_ca_certs ~__context name =
+    let expr =
+      let open Db_filter_types in
+      let type' = Eq (Field "type", Literal "ca") in
+      let name' = Eq (Field "name", Literal name) in
+      And (type', name')
     in
-    let date_of_ptime time = Date.of_float (Ptime.to_float_s time) in
-    let dates_of_ptimes (a, b) = (date_of_ptime a, date_of_ptime b) in
-    let not_before, not_after =
-      dates_of_ptimes (X509.Certificate.validity certificate)
-    in
-    let fingerprint =
-      X509.Certificate.fingerprint `SHA256 certificate |> pp_hash
-    in
-    let uuid = Uuid.(to_string (make ())) in
-    let ref' = Ref.make () in
-    Db.Certificate.create ~__context ~ref:ref' ~uuid ~host ~not_before
-      ~not_after ~fingerprint ~name ~_type ;
-    debug "added cert %s under uuid=%s ref=%s" name uuid (Ref.string_of ref') ;
-    ref'
+    Db.Certificate.get_refs_where ~__context ~expr
 
   let get_host_certs ~__context ~type' ~host =
     let open Db_filter_types in
@@ -215,17 +199,41 @@ end = struct
     debug "deleting cert ref=%s from the database" (Ref.string_of self) ;
     Db.Certificate.destroy ~__context ~self
 
-  let remove_ca_cert_by_name ~__context name =
-    let expr =
-      let open Db_filter_types in
-      let type' = Eq (Field "type", Literal "ca") in
-      let name' = Eq (Field "name", Literal name) in
-      And (type', name')
+  let add_cert ~__context ~type' certificate =
+    let name, host, _type, post_action =
+      match type' with
+      | `host host ->
+          ("", host, `host, Fun.id)
+      | `host_internal host ->
+          ("", host, `host_internal, Fun.id)
+      | `ca name ->
+          let certs = get_ca_certs ~__context name in
+          let remove_obsoleted_copies () =
+            List.iter (remove_cert_by_ref ~__context) certs
+          in
+          (name, Ref.null, `ca, remove_obsoleted_copies)
     in
-    let self =
-      match Db.Certificate.get_refs_where ~__context ~expr with
+    let date_of_ptime time = Date.of_float (Ptime.to_float_s time) in
+    let dates_of_ptimes (a, b) = (date_of_ptime a, date_of_ptime b) in
+    let not_before, not_after =
+      dates_of_ptimes (X509.Certificate.validity certificate)
+    in
+    let fingerprint =
+      X509.Certificate.fingerprint `SHA256 certificate |> pp_hash
+    in
+    let uuid = Uuid.(to_string (make ())) in
+    let ref' = Ref.make () in
+    Db.Certificate.create ~__context ~ref:ref' ~uuid ~host ~not_before
+      ~not_after ~fingerprint ~name ~_type ;
+    debug "added cert %s under uuid=%s ref=%s" name uuid (Ref.string_of ref') ;
+    post_action () ;
+    ref'
+
+  let remove_ca_cert_by_name ~__context name =
+    let certs =
+      match get_ca_certs ~__context name with
       | [x] ->
-          x
+          [x]
       | [] ->
           D.error "unable to find certificate with name='%s'" name ;
           raise
@@ -236,22 +244,12 @@ end = struct
           let ref_str =
             xs |> List.map Ref.short_string_of |> String.concat ", "
           in
-          D.error
+          D.warn
             "expected 1 certificate with name='%s', but found multiple: [ %s ]"
             name ref_str ;
-          raise
-            Api_errors.(
-              Server_error
-                ( internal_error
-                , [
-                    Printf.sprintf
-                      "more than one certificate with name='%s' in the database"
-                      name
-                  ]
-                )
-            )
+          xs
     in
-    remove_cert_by_ref ~__context self
+    List.iter (remove_cert_by_ref ~__context) certs
 
   let get_ca_certs ~__context =
     let expr =
