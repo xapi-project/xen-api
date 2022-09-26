@@ -114,14 +114,12 @@
  )
 )
 
-(test
+(executable
  (name cancel_utils_test)
- (package xapi-xenopsd-xc)
  (modules cancel_utils_test)
  (libraries
   cmdliner
   ezxenstore.core
-  ounit2
   threads.posix
   xapi-idl.xen.interface
   xapi-xenopsd
