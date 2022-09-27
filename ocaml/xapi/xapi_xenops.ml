@@ -1261,6 +1261,14 @@ module MD = struct
       else
         platformdata
     in
+    (* BIOS guests don't seem to detect the attached VTPM, block them *)
+    ( match (firmware, vm.API.vM_VTPMs) with
+    | Xenops_types.Vm.Bios, _ :: _ ->
+        let message = "Booting BIOS VM with VTPMs attached" in
+        raise Api_errors.(Server_error (not_implemented, [message]))
+    | _ ->
+        ()
+    ) ;
     (* Add TPM version 2 iff there's a tpm attached to the VM, this allows
        hvmloader to load the TPM 2.0 ACPI table while maintaing the current
        ACPI table for other guests *)
