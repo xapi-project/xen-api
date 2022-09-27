@@ -1211,14 +1211,14 @@ module MD = struct
       in
       {priority; affinity}
     in
+    let firmware = firmware_of_vm vm in
     let platformdata =
-      Vm_platform.sanity_check ~platformdata:vm.API.vM_platform
-        ~firmware:(firmware_of_vm vm) ~vcpu_max:vm.API.vM_VCPUs_max
+      Vm_platform.sanity_check ~platformdata:vm.API.vM_platform ~firmware
+        ~vcpu_max:vm.API.vM_VCPUs_max
         ~vcpu_at_startup:vm.API.vM_VCPUs_at_startup
         ~domain_type:(Helpers.check_domain_type vm.API.vM_domain_type)
         ~filter_out_unknowns:
           (not (Pool_features.is_enabled ~__context Features.No_platform_filter))
-        ()
     in
     (* Replace the timeoffset in the platform data too, to avoid confusion *)
     let timeoffset = rtc_timeoffset_of_vm ~__context (vmref, vm) vbds in

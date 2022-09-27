@@ -145,8 +145,8 @@ let is_valid_device_model ~key ~platformdata =
         false
   with Not_found -> false
 
-let sanity_check ~platformdata ?firmware ~vcpu_max ~vcpu_at_startup:_
-    ~domain_type ~filter_out_unknowns () =
+let sanity_check ~platformdata ~firmware ~vcpu_max ~vcpu_at_startup:_
+    ~domain_type ~filter_out_unknowns =
   (* Filter out unknown flags, if applicable *)
   let platformdata =
     if filter_out_unknowns then
@@ -165,7 +165,7 @@ let sanity_check ~platformdata ?firmware ~vcpu_max ~vcpu_at_startup:_
     match domain_type with `hvm | `pv_in_pvh -> true | `pv -> false
   in
   ( match (List.assoc device_model platformdata, firmware) with
-  | "qemu-trad", Some (Xenops_types.Vm.Uefi _) ->
+  | "qemu-trad", Xenops_types.Vm.Uefi _ ->
       raise
         (Api_errors.Server_error
            ( Api_errors.invalid_value
@@ -175,7 +175,7 @@ let sanity_check ~platformdata ?firmware ~vcpu_max ~vcpu_at_startup:_
              ]
            )
         )
-  | "qemu-upstream-uefi", Some Xenops_types.Vm.Bios ->
+  | "qemu-upstream-uefi", Xenops_types.Vm.Bios ->
       raise
         (Api_errors.Server_error
            ( Api_errors.invalid_value

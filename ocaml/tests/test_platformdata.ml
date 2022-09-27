@@ -149,7 +149,7 @@ module SanityCheck = Generic.MakeStateless (struct
   module Io = struct
     type input_t =
       (string * string) list
-      * Xenops_types.Vm.firmware_type option
+      * Xenops_types.Vm.firmware_type
       * bool
       * int64
       * int64
@@ -164,7 +164,7 @@ module SanityCheck = Generic.MakeStateless (struct
          = %Ld,\n\
         \          vcpu_at_startup = %Ld, domain_type = %s)"
         (platformdata |> Test_printers.(assoc_list string string))
-        (firmware |> Test_printers.option firmware_type_printer)
+        (firmware |> firmware_type_printer)
         filter vcpu_max vcpu_startup
         (Record_util.domain_type_to_string domain_type)
 
@@ -187,8 +187,8 @@ module SanityCheck = Generic.MakeStateless (struct
       ) =
     try
       Ok
-        (Vm_platform.sanity_check ~platformdata ?firmware ~vcpu_max
-           ~vcpu_at_startup ~domain_type ~filter_out_unknowns ()
+        (Vm_platform.sanity_check ~platformdata ~firmware ~vcpu_max
+           ~vcpu_at_startup ~domain_type ~filter_out_unknowns
         )
     with e -> Error e
 
@@ -209,7 +209,7 @@ module SanityCheck = Generic.MakeStateless (struct
             ; ("whatever", "def")
             ; ("viridian", "true")
             ]
-          , None
+          , Bios
           , true
           , 0L
           , 0L
@@ -218,28 +218,28 @@ module SanityCheck = Generic.MakeStateless (struct
         , Ok (usb_defaults @ [("pae", "true"); ("viridian", "true")])
         )
       ; (* Check that usb and usb_tablet are turned on by default. *)
-        (([], None, false, 0L, 0L, `pv), Ok usb_defaults)
+        (([], Bios, false, 0L, 0L, `pv), Ok usb_defaults)
       ; (* Check that an invalid tsc_mode gets filtered out. *)
-        (([("tsc_mode", "17")], None, false, 0L, 0L, `pv), Ok usb_defaults)
+        (([("tsc_mode", "17")], Bios, false, 0L, 0L, `pv), Ok usb_defaults)
       ; (* Check that an invalid parallel port gets filtered out. *)
-        ( ([("parallel", "/dev/random")], None, false, 0L, 0L, `pv)
+        ( ([("parallel", "/dev/random")], Bios, false, 0L, 0L, `pv)
         , Ok usb_defaults
         )
       ; (* Check that we can't set usb_tablet to true if usb is false. *)
-        ( ([("usb", "false"); ("usb_tablet", "true")], None, false, 0L, 0L, `pv)
+        ( ([("usb", "false"); ("usb_tablet", "true")], Bios, false, 0L, 0L, `pv)
         , Ok [("usb", "false"); ("usb_tablet", "false")]
         )
       ; (* Check that we can fully disable usb. *)
-        ( ([("usb", "false"); ("usb_tablet", "false")], None, false, 0L, 0L, `pv)
+        ( ([("usb", "false"); ("usb_tablet", "false")], Bios, false, 0L, 0L, `pv)
         , Ok [("usb", "false"); ("usb_tablet", "false")]
         )
       ; (* Check that we can disable the parallel port. *)
-        ( ([("parallel", "none")], None, false, 0L, 0L, `pv)
+        ( ([("parallel", "none")], Bios, false, 0L, 0L, `pv)
         , Ok (usb_defaults @ [("parallel", "none")])
         )
       ; (* Check that a set of valid fields is unchanged (apart from
-           			 * the ordering, which changes due to the implementation of
-           			 * List.update_assoc). *)
+           the ordering, which changes due to the implementation of
+           List.update_assoc). *)
         ( ( [
               ("parallel", "/dev/parport2")
             ; ("pae", "true")
@@ -248,7 +248,7 @@ module SanityCheck = Generic.MakeStateless (struct
             ; ("viridian", "true")
             ; ("usb", "true")
             ]
-          , None
+          , Bios
           , false
           , 0L
           , 0L
@@ -265,13 +265,13 @@ module SanityCheck = Generic.MakeStateless (struct
             ]
         )
       ; (* Check that combination of valid and invalid fields is dealt with
-           			 * correctly. *)
+           correctly. *)
         ( ( [
               ("pae", "true")
             ; ("parallel", "/dev/parport0")
             ; ("tsc_mode", "blah")
             ]
-          , None
+          , Bios
           , false
           , 0L
           , 0L
@@ -279,52 +279,52 @@ module SanityCheck = Generic.MakeStateless (struct
           )
         , Ok (usb_defaults @ [("pae", "true"); ("parallel", "/dev/parport0")])
         )
-      ; (* Check VCPUs configuration - hvm success scenario*)
-        ( ([("cores-per-socket", "3")], None, false, 6L, 6L, `hvm)
+      ; (* Check VCPUs configuration - hvm success scenario *)
+        ( ([("cores-per-socket", "3")], Bios, false, 6L, 6L, `hvm)
         , Ok (usb_defaults @ [("cores-per-socket", "3")])
         )
-      ; (* Check VCPUs configuration - pvm success scenario*)
-        ( ([("cores-per-socket", "3")], None, false, 0L, 0L, `pv)
+      ; (* Check VCPUs configuration - pvm success scenario *)
+        ( ([("cores-per-socket", "3")], Bios, false, 0L, 0L, `pv)
         , Ok (usb_defaults @ [("cores-per-socket", "3")])
         )
-      ; (* Check VCPUs configuration - hvm failure scenario*)
-        ( ([("cores-per-socket", "4")], None, false, 6L, 6L, `hvm)
+      ; (* Check VCPUs configuration - hvm failure scenario *)
+        ( ([("cores-per-socket", "4")], Bios, false, 6L, 6L, `hvm)
         , Error
             (Api_errors.Server_error
                (Api_errors.vcpu_max_not_cores_per_socket_multiple, ["6"; "4"])
             )
         )
       ; (* Check VCPUs configuration - hvm failure scenario*)
-        ( ([("cores-per-socket", "0")], None, false, 6L, 6L, `hvm)
+        ( ([("cores-per-socket", "0")], Bios, false, 6L, 6L, `hvm)
         , Error
             (Api_errors.Server_error
                (Api_errors.vcpu_max_not_cores_per_socket_multiple, ["6"; "0"])
             )
         )
       ; (* Check VCPUs configuration - hvm failure scenario*)
-        ( ([("cores-per-socket", "-1")], None, false, 6L, 6L, `hvm)
+        ( ([("cores-per-socket", "-1")], Bios, false, 6L, 6L, `hvm)
         , Error
             (Api_errors.Server_error
                (Api_errors.vcpu_max_not_cores_per_socket_multiple, ["6"; "-1"])
             )
         )
       ; (* Check VCPUs configuration - hvm failure scenario*)
-        ( ([("cores-per-socket", "abc")], None, false, 6L, 5L, `hvm)
+        ( ([("cores-per-socket", "abc")], Bios, false, 6L, 5L, `hvm)
         , Error
             (Api_errors.Server_error
                (Api_errors.invalid_value, ["platform:cores-per-socket"; "abc"])
             )
         )
       ; (* Check BIOS configuration - qemu trad *)
-        make_firmware_ok "qemu-trad" (Some Bios)
-      ; make_firmware_ok "qemu-upstream" (Some Bios)
-      ; make_firmware_ok "qemu-upstream-compat" (Some Bios)
+        make_firmware_ok "qemu-trad" Bios
+      ; make_firmware_ok "qemu-upstream" Bios
+      ; make_firmware_ok "qemu-upstream-compat" Bios
       ; (* Check UEFI configuration - qemu upstream *)
-        make_firmware_ok "qemu-upstream" (Some uefi)
-      ; make_firmware_ok "qemu-upstream-compat" (Some uefi)
-      ; make_firmware_ok "qemu-upstream-uefi" (Some uefi)
+        make_firmware_ok "qemu-upstream" uefi
+      ; make_firmware_ok "qemu-upstream-compat" uefi
+      ; make_firmware_ok "qemu-upstream-uefi" uefi
       ; (* Check UEFI configuration - qemu-trad incompatibility *)
-        ( ([("device-model", "qemu-trad")], Some uefi, false, 0L, 0L, `hvm)
+        ( ([("device-model", "qemu-trad")], uefi, false, 0L, 0L, `hvm)
         , Error
             (Api_errors.Server_error
                ( Api_errors.invalid_value
@@ -336,13 +336,7 @@ module SanityCheck = Generic.MakeStateless (struct
             )
         )
       ; (* Check BIOS configuration - qemu-upstream-uefi incompatibility *)
-        ( ( [("device-model", "qemu-upstream-uefi")]
-          , Some Bios
-          , false
-          , 0L
-          , 0L
-          , `hvm
-          )
+        ( ([("device-model", "qemu-upstream-uefi")], Bios, false, 0L, 0L, `hvm)
         , Error
             (Api_errors.Server_error
                ( Api_errors.invalid_value
