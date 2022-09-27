@@ -17,7 +17,9 @@ module X = Xapi_db_upgrade
 module Date = Xapi_stdext_date.Date
 
 let upgrade_vm_memory_for_dmc () =
-  let __context = T.make_test_database () in
+  (* disable DMC for unit tests *)
+  let features = Features.(List.filter (( <> ) DMC) all_features) in
+  let __context = T.make_test_database ~features () in
   let self = List.hd (Db.VM.get_all ~__context) in
   (* Set control domain's dynamic_min <> dynamic_max <> target *)
   Db.VM.set_memory_dynamic_min ~__context ~self ~value:1L ;
