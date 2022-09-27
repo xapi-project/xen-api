@@ -846,6 +846,8 @@ let varstore_rm = ref "/usr/bin/varstore-rm"
 
 let varstore_dir = ref "/usr/share/varstored"
 
+let fallback_auth_dir = ref "/var/lib/varstored"
+
 let disable_logging_for = ref []
 
 let nvidia_whitelist = ref "/usr/share/nvidia/vgpu/vgpuConfig.xml"
@@ -1515,6 +1517,7 @@ module Resources = struct
       , "Executed to clear certain UEFI variables during clone"
       )
     ; ("varstore_dir", varstore_dir, "Path to local varstored directory")
+    ; ("fallback_auth_dir", fallback_auth_dir, "Fallback path for auth files")
     ; ( "nvidia-sriov-manage"
       , nvidia_sriov_manage_script
       , "Path to NVIDIA sriov-manage script"
