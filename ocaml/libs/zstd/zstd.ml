@@ -20,3 +20,33 @@ module Default = Xapi_compression.Make (struct
 
   let decompress_options = ["--decompress"; "--stdout"]
 end)
+
+module Adaptive = Xapi_compression.Make (struct
+  (** Path to the zstd binary *)
+  let executable = "/usr/bin/zstd"
+
+  (* default compression level is 3 on a scale 1..19 with lower=faster
+     and higher=more compression. By default 1 thread is used *)
+  let compress_options = ["--adapt=min=1,max=4"; "--threads=1"]
+
+  let decompress_options = ["--decompress"; "--stdout"]
+end)
+
+module Fast = Xapi_compression.Make (struct
+  (** Path to the zstd binary *)
+  let executable = "/usr/bin/zstd"
+
+  (** --threads=2 doesn't improve speed *)
+  let compress_options = ["--fast"]
+
+  let decompress_options = ["--decompress"; "--stdout"]
+end)
+
+module Null = Xapi_compression.Make (struct
+  (** Path to the zstd binary *)
+  let executable = "/usr/bin/cat"
+
+  let compress_options = []
+
+  let decompress_options = []
+end)
