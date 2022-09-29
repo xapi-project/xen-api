@@ -122,8 +122,20 @@ let refresh_localhost_info ~__context info =
       ~key:Xapi_globs.host_no_local_storage ~value:"true"
   ) else
     Db.Host.remove_from_other_config ~__context ~self:host
-      ~key:Xapi_globs.host_no_local_storage
-
+      ~key:Xapi_globs.host_no_local_storage ;
+  let script_output =
+    Helpers.call_script !Xapi_globs.firewall_port_config_script ["check"; "80"]
+  in
+  try
+    let network_state = Scanf.sscanf script_output "Port 80 open: %B" Fun.id in
+    Db.Host.set_https_only ~__context ~self:host ~value:network_state
+  with _ ->
+    let message =
+      Printf.sprintf
+        "unexpected output from /etc/xapi.d/plugins/firewall-port: %s"
+        script_output
+    in
+    raise Api_errors.(Server_error (internal_error, [message]))
 (*************** update database tools ******************)
 
 (** Record host memory properties in database *)

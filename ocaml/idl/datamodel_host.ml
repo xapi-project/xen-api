@@ -1364,6 +1364,24 @@ let host_query_ha = call ~flags:[`Session]
     ~hide_from_docs:true
     ()
 
+let set_https_only =
+  call ~name:"set_https_only"
+    ~doc:
+      "updates the host firewall to open or close port 80 depending on the \
+       value"
+    ~lifecycle:[]
+    ~params:
+      [
+        (Ref _host, "self", "The Host")
+      ; ( Bool
+        , "value"
+        , "true - http port 80 will be blocked, false - http port 80 will be \
+           open"
+        )
+      ]
+    ~allowed_roles:_R_POOL_OP ()
+
+
   (** Hosts *)
   let t =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_host ~descr:"A physical host" ~gen_events:true
@@ -1485,6 +1503,7 @@ let host_query_ha = call ~flags:[`Session]
         notify_accept_new_pool_secret;
         notify_send_new_pool_secret;
         cleanup_pool_secret;
+        set_https_only;
       ]
       ~contents:
         ([ uid _host;
@@ -1544,6 +1563,9 @@ let host_query_ha = call ~flags:[`Session]
            field ~qualifier:StaticRO ~lifecycle:[Published, rel_kolkata, ""] ~default_value:(Some (VBool false)) ~ty:Bool "multipathing" "Specifies whether multipathing is enabled";
            field ~qualifier:StaticRO ~lifecycle:[Published, rel_quebec, ""] ~default_value:(Some (VString "")) ~ty:String "uefi_certificates" "The UEFI certificates allowing Secure Boot";
            field ~qualifier:DynamicRO ~lifecycle:[Published, rel_stockholm, ""] ~ty:(Set (Ref _certificate)) "certificates" "List of certificates installed in the host";
-           field ~qualifier:DynamicRO ~lifecycle:[Published, rel_stockholm, ""] ~default_value:(Some (VSet [])) ~ty:(Set String) "editions" "List of all available product editions"
+           field ~qualifier:DynamicRO ~lifecycle:[Published,
+           rel_stockholm, ""] ~default_value:(Some (VSet [])) ~ty:(Set String) "editions" "List of all available product editions";
+           field ~qualifier:DynamicRO ~lifecycle:[] ~ty:Bool ~default_value:(Some (VBool false)) "https_only" "Reflects whether port 80 is open (false) or not (true)"
+
          ])
       ()

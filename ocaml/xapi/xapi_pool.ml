@@ -2970,3 +2970,12 @@ let remove_from_guest_agent_config ~__context ~self ~key =
   Xapi_pool_helpers.apply_guest_agent_config ~__context
 
 let rotate_secret = Xapi_psr.start
+
+let set_https_only ~__context ~self:_ ~value =
+  Helpers.call_api_functions ~__context (fun rpc session_id ->
+      List.iter
+        (fun host ->
+          Client.Host.set_https_only ~rpc ~session_id ~self:host ~value
+        )
+        (Db.Host.get_all ~__context)
+  )
