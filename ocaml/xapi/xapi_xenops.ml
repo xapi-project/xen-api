@@ -1265,7 +1265,7 @@ module MD = struct
     ( match (firmware, vm.API.vM_VTPMs) with
     | Xenops_types.Vm.Bios, _ :: _ ->
         let message = "Booting BIOS VM with VTPMs attached" in
-        raise Api_errors.(Server_error (not_implemented, [message]))
+        Helpers.maybe_raise_vtpm_unimplemented __FUNCTION__ message
     | _ ->
         ()
     ) ;

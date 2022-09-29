@@ -57,7 +57,19 @@ structural-equality () {
   fi
 }
 
+vtpm-unimplemented () {
+  N=5
+  VTPM=$(git grep -r --count 'maybe_raise_vtpm_unimplemented' -- **/*.ml | cut -d ':' -f 2 | paste -sd+ - | bc)
+  if [ "$VTPM" -eq "$N" ]; then
+    echo "OK found $VTPM usages of vtpm unimplemented errors"
+  else
+    echo "ERROR expected $N usages of unimplemented vtpm functionality, got $VTPM." 1>&2
+    exit 1
+  fi
+}
+
 list-hd
 verify-cert
 mli-files
 structural-equality
+vtpm-unimplemented
