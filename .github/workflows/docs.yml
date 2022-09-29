@@ -56,7 +56,9 @@ jobs:
           enable_jekyll: true # do not create .nojekyll file
 
       - name: Generate xapi docs
-        run: make doc-json
+        run: |
+          ./configure
+          make doc-json
 
       - name: Deploy xapi docs
         uses: peaceiris/actions-gh-pages@v3
