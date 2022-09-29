@@ -1369,7 +1369,7 @@ let set_https_only =
     ~doc:
       "updates the host firewall to open or close port 80 depending on the \
        value"
-    ~lifecycle:[]
+    ~lifecycle:[Published, rel_yangtze_https, ""]
     ~params:
       [
         (Ref _host, "self", "The Host")
@@ -1565,7 +1565,8 @@ let set_https_only =
            field ~qualifier:DynamicRO ~lifecycle:[Published, rel_stockholm, ""] ~ty:(Set (Ref _certificate)) "certificates" "List of certificates installed in the host";
            field ~qualifier:DynamicRO ~lifecycle:[Published,
            rel_stockholm, ""] ~default_value:(Some (VSet [])) ~ty:(Set String) "editions" "List of all available product editions";
-           field ~qualifier:DynamicRO ~lifecycle:[] ~ty:Bool ~default_value:(Some (VBool false)) "https_only" "Reflects whether port 80 is open (false) or not (true)"
+           field ~qualifier:DynamicRO ~lifecycle:[Published, rel_yangtze_https, ""]
+           ~ty:Bool ~default_value:(Some (VBool false)) "https_only" "Reflects whether port 80 is open (false) or not (true)"
 
          ])
       ()

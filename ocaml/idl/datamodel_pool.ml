@@ -652,7 +652,7 @@ let set_https_only =
     ~doc:
       "updates all the host firewalls in the pool to open or close port 80 \
        depending on the value"
-    ~lifecycle:[]
+    ~lifecycle:[Published, rel_yangtze_https, ""]
     ~params:
       [
         (Ref _pool, "self", "The pool")

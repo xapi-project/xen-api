@@ -65,6 +65,7 @@ let rel_oslo = "oslo"
 let rel_quebec = "quebec"
 let rel_stockholm = "stockholm"
 let rel_stockholm_psr = "stockholm_psr"
+let rel_yangtze_https = "yangtze_https"
 
 type api_release = {
   code_name: string option;
@@ -275,7 +276,14 @@ let release_order_full = [{
      version_minor = 15;
      branding      = "Citrix Hypervisor 8.2 Hotfix 2";
      release_date  = None;
+   }; {
+     code_name     = Some rel_yangtze_https;
+     version_major = 2;
+     version_minor = 16;
+     branding      = "Citrix Hypervisor 8.2 CU1 Hotfix";
+     release_date  = None;
    }
+
   ]
 (* When you add a new release, use the version number of the latest release, "Unreleased"
    for the branding and None for the release date, until the actual values are finalised. *)
