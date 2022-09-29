@@ -99,7 +99,7 @@ let dd_internal progress_cb base prezeroed infile outfile size =
                     ; "-size"
                     ; Int64.to_string size
                     ; "-good-ciphersuites"
-                    ; Xcp_const.good_ciphersuites
+                    ; Constants.good_ciphersuites
                     ]
                   ; (if prezeroed then ["-prezeroed"] else [])
                   ; (match base with None -> [] | Some x -> ["-base"; x])

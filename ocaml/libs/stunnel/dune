@@ -8,6 +8,7 @@
     safe-resources
     uuid
     xapi-idl
+    xapi-consts
     xapi-inventory
     xapi-stdext-pervasives
     xapi-stdext-threads

@@ -18,6 +18,7 @@
     xapi-rrdd
     xapi-stdext-threads
     xapi-stdext-unix
+    xapi-consts
     ezxenstore
     xapi-idl.network
     uuid

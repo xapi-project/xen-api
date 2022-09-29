@@ -84,7 +84,7 @@ let init_tls_get_server_ctx ~certfile =
   Some
     (Nbd_unix.TlsServer
        (Nbd_unix.init_tls_get_ctx ~curve:"secp384r1" ~certfile
-          ~ciphersuites:Xcp_const.good_ciphersuites
+          ~ciphersuites:Constants.good_ciphersuites
        )
     )
 

@@ -202,7 +202,7 @@ let config_file ?(accept = None) config host port =
        ; [Printf.sprintf "connect=%s:%d" host port]
        ; [
            "sslVersion = TLSv1.2"
-         ; "ciphers = " ^ Xcp_const.good_ciphersuites
+         ; "ciphers = " ^ Constants.good_ciphersuites
          ; "curve = secp384r1"
          ]
        ; ( match config with
