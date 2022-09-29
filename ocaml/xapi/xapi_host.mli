@@ -543,3 +543,6 @@ val apply_updates :
   __context:Context.t -> self:API.ref_host -> hash:string -> string list list
 
 val copy_primary_host_certs : __context:Context.t -> host:API.ref_host -> unit
+
+val set_https_only :
+  __context:Context.t -> self:API.ref_host -> value:bool -> unit

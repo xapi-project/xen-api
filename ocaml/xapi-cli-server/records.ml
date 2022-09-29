@@ -2968,7 +2968,13 @@ let host_record rpc session_id host =
           ()
       ; make_field ~name:"hostname" ~get:(fun () -> (x ()).API.host_hostname) ()
       ; make_field ~name:"address" ~get:(fun () -> (x ()).API.host_address) ()
-      ; make_field ~name:"https_only" ~get:(fun () -> string_of_bool (x ()).API.host_https_only) ()
+      ; make_field ~name:"https-only"
+          ~get:(fun () -> string_of_bool (x ()).API.host_https_only)
+          ~set:(fun s ->
+            Client.Host.set_https_only ~rpc ~session_id ~self:host
+              ~value:(Stdlib.bool_of_string s)
+          )
+          ()
       ; make_field ~name:"supported-bootloaders"
           ~get:(fun () -> concat_with_semi (x ()).API.host_supported_bootloaders)
           ~get_set:(fun () -> (x ()).API.host_supported_bootloaders)

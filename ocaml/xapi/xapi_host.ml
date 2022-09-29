@@ -1012,8 +1012,7 @@ let create ~__context ~uuid ~name_label ~name_description:_ ~hostname ~address
     (* no or multiple pools *)
   in
   Db.Host.create ~__context ~ref:host ~current_operations:[]
-    ~allowed_operations:[]
-    ~https_only:false
+    ~allowed_operations:[] ~https_only:false
     ~software_version:(Xapi_globs.software_version ())
     ~enabled:false ~aPI_version_major:Datamodel_common.api_version_major
     ~aPI_version_minor:Datamodel_common.api_version_minor
@@ -2926,3 +2925,6 @@ let apply_updates ~__context ~self ~hash =
    * on the coordinator host and the 'restartToolstack' is required.
    *)
   warnings
+
+let set_https_only ~__context ~self ~value =
+  Db.Host.set_https_only ~__context ~self ~value

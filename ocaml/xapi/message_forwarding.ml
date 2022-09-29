@@ -3961,6 +3961,14 @@ functor
         let uuid = host_uuid ~__context self in
         info "Host.apply_updates: host = '%s'; hash = '%s'" uuid hash ;
         Local.Host.apply_updates ~__context ~self ~hash
+
+      let set_https_only ~__context ~self ~value =
+        let uuid = host_uuid ~__context self in
+        info "Host.set_https_only: self = %s ; value = %b" uuid value ;
+        let local_fn = Local.Host.set_https_only ~self ~value in
+        do_op_on ~local_fn ~__context ~host:self (fun session_id rpc ->
+            Client.Host.set_https_only ~rpc ~session_id ~self ~value
+        )
     end
 
     module Host_crashdump = struct
