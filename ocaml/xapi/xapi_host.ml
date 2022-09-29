@@ -2517,7 +2517,6 @@ let cleanup_pool_secret ~__context ~host ~old_ps ~new_ps =
   Xapi_psr.cleanup ~__context ~old_ps ~new_ps
 
 let set_https_only ~__context ~self ~value =
-  Db.Host.set_https_only ~__context ~self ~value ;
   let state = match value with true -> "close" | false -> "open" in
   ignore
   @@ Helpers.call_script !Xapi_globs.firewall_port_config_script [state; "80"] ;
