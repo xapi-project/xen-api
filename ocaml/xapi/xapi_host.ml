@@ -1013,6 +1013,7 @@ let create ~__context ~uuid ~name_label ~name_description:_ ~hostname ~address
   in
   Db.Host.create ~__context ~ref:host ~current_operations:[]
     ~allowed_operations:[]
+    ~https_only:false
     ~software_version:(Xapi_globs.software_version ())
     ~enabled:false ~aPI_version_major:Datamodel_common.api_version_major
     ~aPI_version_minor:Datamodel_common.api_version_minor

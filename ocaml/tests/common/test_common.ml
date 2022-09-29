@@ -187,6 +187,7 @@ let make_host2 ~__context ?(ref = Ref.make ()) ?(uuid = make_uuid ())
   in
   Db.Host.create ~__context ~ref ~current_operations:[] ~allowed_operations:[]
     ~software_version:(Xapi_globs.software_version ())
+    ~https_only:false
     ~enabled:false ~aPI_version_major:Datamodel_common.api_version_major
     ~aPI_version_minor:Datamodel_common.api_version_minor
     ~aPI_version_vendor:Datamodel_common.api_version_vendor

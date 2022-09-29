@@ -1926,6 +1926,7 @@ let t =
             ~doc_tags:[Networking] "address"
             "The address by which this host can be contacted from any other \
              host in the pool"
+        ; field ~qualifier:DynamicRO ~ty:Bool ~default_value:(Some (VBool false)) "https_only" "Reflets wheather port 80 is open (false) or not (true)"
         ; field ~qualifier:DynamicRO ~ty:(Ref _host_metrics) "metrics"
             "metrics associated with this host"
         ; field ~in_oss_since:None ~qualifier:DynamicRO
