@@ -12,6 +12,7 @@ available: [ os = "linux" ]
 depends: [
   "ocaml"
   "dune"
+  "stunnel"
   "xapi-stdext-pervasives"
 ]
 synopsis: "Library required by xapi"
