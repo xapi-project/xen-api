@@ -192,9 +192,9 @@ namespace XenAPI
 
         private T Rpc<T>(string callName, JToken parameters, JsonSerializer serializer)
         {
-            // Note that the following method handles an overflow condition by wrapping;
-            // if the _globalId reaches Int32.MaxValue, _globalId + 1 starts over from
-            //  Int32.MinValue and no exception is thrown.
+            // Note that the following method handles an overflow condition by wrapping.
+            // If the _globalId reaches Int32.MaxValue, _globalId + 1 starts over from
+            // Int32.MinValue and no exception is thrown.
             var id = Interlocked.Increment(ref _globalId);
 
             JsonRequest request = JsonRequest.Create(JsonRpcVersion, id, callName, parameters);
@@ -206,13 +206,13 @@ namespace XenAPI
             webRequest.Proxy = WebProxy;
             webRequest.KeepAlive = KeepAlive;
             webRequest.UserAgent = UserAgent;
-            webRequest.ConnectionGroupName = ConnectionGroupName ?? webRequest.ConnectionGroupName;
+            webRequest.ConnectionGroupName = ConnectionGroupName;
             webRequest.ProtocolVersion = ProtocolVersion ?? webRequest.ProtocolVersion;
             webRequest.ServicePoint.Expect100Continue = Expect100Continue;
             webRequest.AllowAutoRedirect = AllowAutoRedirect;
             webRequest.PreAuthenticate = PreAuthenticate;
             webRequest.AllowWriteStreamBuffering = true;
-            webRequest.CookieContainer = Cookies ?? webRequest.CookieContainer;
+            webRequest.CookieContainer = Cookies ?? webRequest.CookieContainer ?? new CookieContainer();
 
             // for performance reasons it's preferable to deserialize directly
             // from the Stream rather than allocating strings inbetween
@@ -261,7 +261,7 @@ namespace XenAPI
 #endif
                                 if (res2.Error != null)
                                 {
-                                    var descr = new List<string> {res2.Error.Message};
+                                    var descr = new List<string> { res2.Error.Message };
                                     descr.AddRange(res2.Error.Data.ToObject<string[]>());
                                     throw new Failure(descr);
                                 }
