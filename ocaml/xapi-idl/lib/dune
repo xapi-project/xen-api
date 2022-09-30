@@ -2,9 +2,6 @@
  (name xcp)
  (public_name xapi-idl)
  (modules (:standard \ scheduler task_server updates))
- (foreign_stubs
-   (language c)
-   (names syslog_stubs))
  (libraries
    astring
    cmdliner
@@ -26,6 +23,7 @@
    uri
    xapi-backtrace
    xapi-consts
+   xapi-log
    xapi-stdext-pervasives
    xapi-stdext-threads
    xapi-inventory

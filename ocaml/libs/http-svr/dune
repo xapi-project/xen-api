@@ -15,6 +15,7 @@
     xapi-consts.xapi_version
     xapi-idl
     xapi-idl.updates
+    xapi-log
     xapi-stdext-date
     xapi-stdext-pervasives
     xapi-stdext-threads
