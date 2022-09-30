@@ -1727,6 +1727,23 @@ let copy_primary_host_certs =
       ]
     ~allowed_roles:_R_POOL_ADMIN ~hide_from_docs:true ~pool_internal:true ()
 
+let set_https_only =
+  call ~name:"set_https_only"
+    ~doc:
+      "updates the host firewall to open or close port 80 depending on the \
+       value"
+    ~lifecycle:[]
+    ~params:
+      [
+        (Ref _host, "self", "The Host")
+      ; ( Bool
+        , "value"
+        , "true - http port 80 will be blocked, false - http port 80 will be \
+           open"
+        )
+      ]
+    ~allowed_roles:_R_POOL_OP ()
+
 (** Hosts *)
 let t =
   create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303
@@ -1860,6 +1877,7 @@ let t =
       ; cert_distrib_atom
       ; apply_updates
       ; copy_primary_host_certs
+      ; set_https_only
       ]
     ~contents:
       ([
@@ -2077,6 +2095,9 @@ let t =
             "last_software_update"
             ~default_value:(Some (VDateTime (Date.of_float 0.0)))
             "Date and time when the last software update was applied"
+        ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:Bool
+            ~default_value:(Some (VBool false)) "https_only"
+            "Reflects whether port 80 is open (false) or not (true)"
         ]
       )
     ()
