@@ -2466,10 +2466,12 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
         let state = B.VM.get_state vm in
         info "VM %s has memory_limit = %Ld" id state.Vm.memory_limit ;
         let url = make_url "/migrate/vm/" new_dest_id in
+        let https = Uri.scheme url = Some "https" in
         Open_uri.with_open_uri ~verify_cert url (fun vm_fd ->
             let module Handshake = Xenops_migrate.Handshake in
             let do_request fd extra_cookies url =
-              Sockopt.set_sock_keepalives fd ;
+              if not https then
+                Sockopt.set_sock_keepalives fd ;
               let module Request =
                 Cohttp.Request.Make (Cohttp_posix_io.Unbuffered_IO) in
               let cookies =
@@ -2573,7 +2575,8 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
                     (VGPU_DB.string_of_id (new_dest_id, dev_id))
                 in
                 Open_uri.with_open_uri ~verify_cert url (fun vgpu_fd ->
-                    Sockopt.set_sock_keepalives vgpu_fd ;
+                    if not https then
+                      Sockopt.set_sock_keepalives vgpu_fd ;
                     do_request vgpu_fd [(cookie_vgpu_migration, "")] url ;
                     Handshake.recv_success vgpu_fd ;
                     debug "VM.migrate: Synchronisation point 1-vgpu" ;
