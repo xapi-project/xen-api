@@ -30,6 +30,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using Newtonsoft.Json;
 
@@ -228,12 +229,6 @@ namespace XenAPI
 
         public JsonRpcClient JsonRpcClient { get; private set; }
 
-        [Obsolete("Use opaque_ref instead.")]
-        public string uuid
-        {
-            get { return opaque_ref; }
-        }
-
         public string Url
         {
             get
@@ -270,14 +265,6 @@ namespace XenAPI
         /// Filled in after successful session_login_with_password for 1.6 or newer connections
         /// </summary>
         public virtual bool IsLocalSuperuser { get; private set; }
-
-        [Obsolete("Use SessionSubject instead.")]
-        [JsonConverter(typeof(XenRefConverter<Subject>))]
-        public XenRef<Subject> Subject
-        {
-            get { return SessionSubject; }
-            private set { SessionSubject = value; }
-        }
 
         /// <summary>
         /// The OpaqueRef for the Subject under whose authority the current user is logged in;
@@ -367,11 +354,12 @@ namespace XenAPI
         private void SetAPIVersion()
         {
             Dictionary<XenRef<Pool>, Pool> pools = Pool.get_all_records(this);
-            foreach (Pool pool in pools.Values)
+
+            if (pools.Values.Count > 0)
             {
+                var pool = pools.Values.First();
                 Host host = Host.get_record(this, pool.master);
                 APIVersion = Helper.GetAPIVersion(host.API_version_major, host.API_version_minor);
-                break;
             }
         }
 
@@ -499,16 +487,12 @@ namespace XenAPI
             return session.JsonRpcClient.session_get_pool(session.opaque_ref, _self ?? "");
         }
 
-#pragma warning disable CS3005 // Identifier differing only in case is not CLS-compliant
         public XenRef<Subject> get_subject()
-#pragma warning restore CS3005 // Identifier differing only in case is not CLS-compliant
         {
             return get_subject(this, opaque_ref);
         }
 
-#pragma warning disable CS3005 // Identifier differing only in case is not CLS-compliant
         public static XenRef<Subject> get_subject(Session session, string _self)
-#pragma warning restore CS3005 // Identifier differing only in case is not CLS-compliant
         {
             return session.JsonRpcClient.session_get_subject(session.opaque_ref, _self ?? "");
         }
