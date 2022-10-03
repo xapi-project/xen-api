@@ -387,3 +387,6 @@ val disable_repository_proxy : __context:Context.t -> self:API.ref_pool -> unit
 
 val set_uefi_certificates :
   __context:Context.t -> self:API.ref_pool -> value:string -> unit
+
+val set_https_only :
+  __context:Context.t -> self:API.ref_pool -> value:bool -> unit

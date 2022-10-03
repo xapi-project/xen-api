@@ -3596,3 +3596,12 @@ let set_uefi_certificates ~__context ~self ~value =
         )
         (Db.Host.get_all ~__context)
   )
+
+let set_https_only ~__context ~self:_ ~value =
+  Helpers.call_api_functions ~__context (fun rpc session_id ->
+      List.iter
+        (fun host ->
+          Client.Host.set_https_only ~rpc ~session_id ~self:host ~value
+        )
+        (Db.Host.get_all ~__context)
+  )

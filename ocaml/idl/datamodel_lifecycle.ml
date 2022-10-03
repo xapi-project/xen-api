@@ -39,5 +39,7 @@ let prototyped_of_message = function
       Some "22.26.0"
   | "host", "set_https_only" ->
       Some "22.26.0-next"
+  | "pool", "set_https_only" ->
+      Some "22.26.0-next"
   | _ ->
       None

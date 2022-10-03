@@ -961,6 +961,23 @@ let enable_client_certificate_auth =
     ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
     ()
 
+let set_https_only =
+  call ~name:"set_https_only"
+    ~doc:
+      "updates all the host firewalls in the pool to open or close port 80 \
+       depending on the value"
+    ~lifecycle:[]
+    ~params:
+      [
+        (Ref _pool, "self", "The pool")
+      ; ( Bool
+        , "value"
+        , "true - http port 80 will be blocked, false - http port 80 will be \
+           open for the hosts in the pool"
+        )
+      ]
+    ~allowed_roles:_R_POOL_OP ()
+
 let disable_client_certificate_auth =
   call ~name:"disable_client_certificate_auth"
     ~lifecycle:[(Published, "1.318.0", "")]
@@ -1087,6 +1104,7 @@ let t =
       ; configure_repository_proxy
       ; disable_repository_proxy
       ; set_uefi_certificates
+      ; set_https_only
       ]
     ~contents:
       ([uid ~in_oss_since:None _pool]
