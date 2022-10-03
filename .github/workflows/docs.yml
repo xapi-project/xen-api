@@ -11,7 +11,6 @@ jobs:
     env:
       XAPI_VERSION: "v0.0.0-${{ github.sha }}"
       STORAGE_DOCDIR: .gh-pages-xapi-storage
-      JEKYLL_DOCDIR: _build/install/default/xapi/doc/jekyll
 
     steps:
       - name: Checkout code
@@ -52,26 +51,5 @@ jobs:
           external_repository: xapi-project/xapi-storage
           publish_branch: slate
           destination_dir: source/includes/
-          allow_empty_commit: false
-          enable_jekyll: true # do not create .nojekyll file
-
-      - name: Clean SSH state for next upload
-        run: ssh-agent -k || true
-
-      - name: Generate xapi docs
-        run: |
-          opam exec -- ./configure
-          opam exec -- make doc-json
-
-      - name: Deploy xapi docs
-        uses: peaceiris/actions-gh-pages@v3
-        with:
-          deploy_key: ${{ secrets.ACTIONS_JENKINS_DEPLOY_KEY }}
-          user_name: 'Github action on xapi-project/xen-api'
-          user_email: 'github-actions-xapi-project-xen-api[bot]@users.noreply.github.com'
-          external_repository: xapi-project/xapi-project.github.io
-          publish_dir: ${{ env.JEKYLL_DOCDIR }}
-          publish_branch: master
-          keep_files: true
           allow_empty_commit: false
           enable_jekyll: true # do not create .nojekyll file
