@@ -1084,6 +1084,12 @@ functor
           (pool_uuid ~__context self)
           value ;
         Local.Pool.set_uefi_certificates ~__context ~self ~value
+
+      let set_https_only ~__context ~self ~value =
+        info "Pool.set_https_only: pool='%s' value='%B'"
+          (pool_uuid ~__context self)
+          value ;
+        Local.Pool.set_https_only ~__context ~self ~value
     end
 
     module VM = struct
