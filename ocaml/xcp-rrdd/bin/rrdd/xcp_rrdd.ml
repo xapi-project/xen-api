@@ -987,7 +987,7 @@ let _ =
   Debug.set_facility Syslog.Local5 ;
   (* Read configuration file. *)
   debug "Reading configuration file .." ;
-  Xcp_service.configure2 ~name:Sys.argv.(0) ~version:Version.version ~doc
+  Xcp_service.configure2 ~name:Sys.argv.(0) ~version:Xapi_version.version ~doc
     ~options () ;
   Xcp_service.maybe_daemonize () ;
   debug "Starting the HTTP server .." ;

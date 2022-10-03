@@ -1,18 +1,18 @@
 (rule
-  (targets build_info.ml)
-  (deps
-    gen_build_info_ml.sh
-    (env_var XAPI_VERSION)
-  )
-  (action (with-stdout-to %{targets} (bash ./gen_build_info_ml.sh)))
-)
+(with-stdout-to xapi_build_info.ml
+  (bash "echo let date=\\\"$(date +%Y%m%dT%H:%M:%SZ)\\\"")))
 
 (library
   (name xapi_version)
   (public_name xapi-consts.xapi_version)
-  (modules xapi_version build_info)
+  (modules xapi_version xapi_build_info)
+  ; avoid rebuilding everything when the implementation (of e.g. date) changes
+  ; accessing version information is not performance critical:
+  ; we don't want it inlined
+  (flags (:standard -opaque))
   (libraries
     xapi-inventory
+    dune-build-info
   )
   (wrapped false)
 )

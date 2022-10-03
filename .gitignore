@@ -25,3 +25,5 @@ ocaml/sdk-gen/csharp/XE_SR_ERRORCODES.xml
 ocaml/xenopsd/scripts/vif
 ocaml/xenopsd/scripts/xen-backend.rules
 ocaml/xenopsd/xentoollog_flags
+
+ocaml/idl/gen_lifecycle.exe

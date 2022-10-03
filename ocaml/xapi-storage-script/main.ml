@@ -1797,7 +1797,7 @@ let _ =
       )
     ]
   in
-  configure2 ~name:"xapi-script-storage" ~version:Version.version
+  configure2 ~name:"xapi-script-storage" ~version:Xapi_version.version
     ~doc:description ~resources ~options () ;
   if !Xcp_service.daemon then (
     Xcp_service.maybe_daemonize () ;

@@ -74,7 +74,7 @@ let options =
 
 let _ =
   Debug.log_to_stdout () ;
-  configure2 ~name:"Example-service" ~version:"1.0"
+  configure2 ~name:"Example-service" ~version:Xapi_version.version
     ~doc:
       "This is an example service which demonstrates the configuration \
        mechanism."

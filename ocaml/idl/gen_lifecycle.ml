@@ -14,7 +14,8 @@
 
 open Datamodel_types
 
-let current_version = Scanf.sscanf Build_info.version "%s@-%s" (fun v _rest -> v)
+let current_version =
+  Scanf.sscanf Xapi_version.version "%s@-%s" (fun v _rest -> v)
 
 (* A version tag starts with a number *)
 let is_version name =

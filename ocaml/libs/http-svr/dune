@@ -12,6 +12,7 @@
     stunnel
     threads.posix
     uuid
+    xapi-consts.xapi_version
     xapi-idl
     xapi-idl.updates
     xapi-stdext-date

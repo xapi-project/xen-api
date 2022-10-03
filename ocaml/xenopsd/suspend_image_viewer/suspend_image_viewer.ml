@@ -143,5 +143,5 @@ let () =
     ]
   in
   Xcp_service.configure2 ~name:"suspend-image-viewer"
-    ~version:Build_info.version ~resources ~doc ~options () ;
+    ~version:Xapi_version.version ~resources ~doc ~options () ;
   print_image !path

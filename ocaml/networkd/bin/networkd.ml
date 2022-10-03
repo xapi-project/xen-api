@@ -213,7 +213,7 @@ let bind () =
   S.Sriov.make_vf_config Sriov.make_vf_config
 
 let () =
-  Xcp_service.configure2 ~name:Sys.argv.(0) ~version:Build_info.version ~doc
+  Xcp_service.configure2 ~name:Sys.argv.(0) ~version:Xapi_version.version ~doc
     ~options ~resources () ;
   bind () ;
   let server =

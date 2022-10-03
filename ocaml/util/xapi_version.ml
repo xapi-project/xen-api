@@ -18,14 +18,30 @@ let git_id = ""
 
 let hostname = "localhost"
 
-let date = Build_info.date
+let date = Xapi_build_info.date
 
-let xapi_version_major, xapi_version_minor =
-  try
-    Scanf.sscanf Build_info.version "%d.%d.%s" (fun maj min _rest -> (maj, min))
-  with _ ->
-    failwith
-      (Printf.sprintf
-         "Couldn't determine xapi version - got unexpected XAPI_VERSION='%s'"
-         Build_info.version
-      )
+let version, xapi_version_major, xapi_version_minor =
+  match Build_info.V1.version () with
+  | None ->
+      ("0.0.dev", 0, 0)
+  | Some v -> (
+      let str = Build_info.V1.Version.to_string v in
+      let version =
+        if String.starts_with ~prefix:"v" str then
+          String.sub str 1 (String.length str - 1)
+        else
+          str
+      in
+      try
+        let maj, min =
+          Scanf.sscanf version "%d.%d.%s" (fun maj min _rest -> (maj, min))
+        in
+        (version, maj, min)
+      with _ ->
+        failwith
+          (Printf.sprintf
+             "Couldn't determine xapi version - got unexpected version from \
+              dune: '%s'"
+             version
+          )
+    )

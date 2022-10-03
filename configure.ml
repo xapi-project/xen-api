@@ -20,7 +20,8 @@ let libdir_default =
 
 let args =
   [
-    flag "prefix" ~doc:"DIR Final install destination" ~default:"/usr"
+    flag "xapi_version" ~doc:"version embedded into binaries" ~default:""
+  ; flag "prefix" ~doc:"DIR Final install destination" ~default:"/usr"
     (* ensures bin and sbin end up in right places *)
   ; flag "libdir" ~doc:"DIR Directory where library files are copied"
       ~default:libdir_default
