@@ -55,6 +55,9 @@ jobs:
           allow_empty_commit: false
           enable_jekyll: true # do not create .nojekyll file
 
+      - name: Clean SSH state for next upload
+        run: ssh-agent -k || true
+
       - name: Generate xapi docs
         run: |
           opam exec -- ./configure
