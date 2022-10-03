@@ -2393,7 +2393,7 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
         let compress =
           match compress_memory with
           | true ->
-              Zstd.Default.compress
+              Zstd.Fast.compress
           | false ->
               fun fd fn -> fn fd
           (* do nothing *)
@@ -2614,7 +2614,7 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
         let decompress =
           match vmr_compressed with
           | true ->
-              Zstd.Default.decompress_passive
+              Zstd.Fast.decompress_passive
           | false ->
               fun fd fn -> fn fd
         in

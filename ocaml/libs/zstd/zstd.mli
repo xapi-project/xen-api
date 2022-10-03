@@ -13,3 +13,9 @@
  *)
 
 module Default : Xapi_compression.COMPRESSOR
+
+module Adaptive : Xapi_compression.COMPRESSOR
+
+module Fast : Xapi_compression.COMPRESSOR
+
+module Null : Xapi_compression.COMPRESSOR
