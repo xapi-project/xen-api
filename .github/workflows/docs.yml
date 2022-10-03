@@ -57,8 +57,8 @@ jobs:
 
       - name: Generate xapi docs
         run: |
-          ./configure
-          make doc-json
+          opam exec -- ./configure
+          opam exec -- make doc-json
 
       - name: Deploy xapi docs
         uses: peaceiris/actions-gh-pages@v3
@@ -69,6 +69,6 @@ jobs:
           external_repository: xapi-project/xapi-project.github.io
           publish_dir: ${{ env.JEKYLL_DOCDIR }}
           publish_branch: master
-          keep_existing_files: true
+          keep_files: true
           allow_empty_commit: false
           enable_jekyll: true # do not create .nojekyll file
