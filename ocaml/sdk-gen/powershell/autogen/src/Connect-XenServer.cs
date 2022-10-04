@@ -32,7 +32,6 @@ using System;
 using System.Collections.Generic;
 using System.Management.Automation;
 using System.Net;
-using System.Net.Http;
 using System.Net.Security;
 using System.Runtime.InteropServices;
 using System.Security;
@@ -45,8 +44,7 @@ namespace Citrix.XenServer.Commands
     [Cmdlet("Connect", "XenServer")]
     public class ConnectXenServerCommand : PSCmdlet
     {
-        private readonly string _apiVersionString = Helper.APIVersionString(API_Version.LATEST);
-        private string _originator = "XenServerPSModule/" + Helper.APIVersionString(API_Version.LATEST);
+        private readonly object _certificateValidationLock = new object();
 
         public ConnectXenServerCommand()
         {
@@ -81,7 +79,7 @@ namespace Citrix.XenServer.Commands
         public string[] OpaqueRef { get; set; }
 
         [Parameter]
-        public string Originator { get { return _originator; } set { _originator = value; } }
+        public string Originator { get; set; } = "XenServerPSModule/" + Helper.APIVersionString(API_Version.LATEST);
 
         [Parameter]
         public SwitchParameter PassThru { get; set; }
@@ -149,9 +147,7 @@ namespace Citrix.XenServer.Commands
                 }
                 else
                 {
-                    connUser = Creds.UserName.StartsWith("\\")
-                                   ? Creds.GetNetworkCredential().UserName
-                                   : Creds.UserName;
+                    connUser = Creds.UserName.StartsWith("\\") ? Creds.GetNetworkCredential().UserName : Creds.UserName;
 
                     IntPtr ptrPassword = Marshal.SecureStringToBSTR(Creds.Password);
                     connPassword = Marshal.PtrToStringBSTR(ptrPassword);
@@ -159,7 +155,7 @@ namespace Citrix.XenServer.Commands
                 }
             }
 
-            ServicePointManager.ServerCertificateValidationCallback = new RemoteCertificateValidationCallback(ValidateServerCertificate);
+            ServicePointManager.ServerCertificateValidationCallback = ValidateServerCertificate;
             ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls12;
 
             if (Url == null || Url.Length == 0)
@@ -177,7 +173,7 @@ namespace Citrix.XenServer.Commands
             {
                 if (OpaqueRef.Length != Url.Length)
                     ThrowTerminatingError(new ErrorRecord(
-                        new Exception("The number of opaque references provided should be the same as the number of xenservers."),
+                        new Exception("The number of opaque references provided should be the same as the number of servers."),
                         "",
                         ErrorCategory.InvalidArgument,
                         null));
@@ -194,7 +190,7 @@ namespace Citrix.XenServer.Commands
                     session = new Session(Url[i]);
                     try
                     {
-                        session.login_with_password(connUser, connPassword, _apiVersionString, Originator);
+                        session.login_with_password(connUser, connPassword, Helper.APIVersionString(API_Version.LATEST), Originator);
                     }
                     catch (Failure f)
                     {
@@ -202,7 +198,7 @@ namespace Citrix.XenServer.Commands
                         {
                             ThrowTerminatingError(new ErrorRecord(f, "", ErrorCategory.InvalidArgument, Url[i])
                             {
-                                ErrorDetails = new ErrorDetails($"The host you are trying to connect to is a slave. To make regular API calls, please connect to the master host (IP address: {f.ErrorDescription[1]}).")
+                                ErrorDetails = new ErrorDetails($"The host you are trying to connect to is a supporter. To make regular API calls, please connect to the pool coordinator (IP address: {f.ErrorDescription[1]}).")
                             });
                         }
                         else
@@ -212,40 +208,19 @@ namespace Citrix.XenServer.Commands
                     }
                     catch (WebException e)
                     {
-                        if (e.InnerException is HttpRequestException requestException)
+                        if (e.InnerException?.InnerException is CertificateValidationException ex)
                         {
-                            if (requestException.InnerException is CertificateChangeException certificateChangeException)
+                            if (ShouldContinue(ex.Message, ex.Caption))
                             {
-                                if (Force || ShouldContinue(string.Format(CERT_CHANGED, certificateChangeException.Fingerprint, certificateChangeException.OldFingerprint, certificateChangeException.Trusted), CERT_HAS_CHANGED_CAPTION))
-                                {
-                                    AddCertificate(certificateChangeException.Hostname, certificateChangeException.Fingerprint);
-                                    i--;
-                                    continue;
-                                }
-                                else
-                                {
-                                    ThrowTerminatingError(new ErrorRecord(certificateChangeException, "", ErrorCategory.AuthenticationError, Url[i])
-                                    {
-                                        ErrorDetails = new ErrorDetails($"New certificate fingerprint rejected. ({certificateChangeException.Fingerprint} - {certificateChangeException.Hostname}).")
-                                    });
-                                }
+                                AddCertificate(ex.Hostname, ex.Fingerprint);
+                                i--;
+                                continue;
                             }
-                            else if (requestException.InnerException is CertificateNotFoundException certificateNotFoundException)
+
+                            ThrowTerminatingError(new ErrorRecord(ex, "", ErrorCategory.AuthenticationError, Url[i])
                             {
-                                if (Force || ShouldContinue(string.Format(CERT_FOUND, certificateNotFoundException.Fingerprint, certificateNotFoundException.Trusted), CERT_FOUND_CAPTION))
-                                {
-                                    AddCertificate(certificateNotFoundException.Hostname, certificateNotFoundException.Fingerprint);
-                                    i--;
-                                    continue;
-                                }
-                                else
-                                {
-                                    ThrowTerminatingError(new ErrorRecord(e, "", ErrorCategory.AuthenticationError, Url[i])
-                                    {
-                                        ErrorDetails = new ErrorDetails($"Certificate fingerprint rejected. ({certificateNotFoundException.Fingerprint} - {certificateNotFoundException.Hostname}).")
-                                    });
-                                }
-                            }
+                                ErrorDetails = new ErrorDetails($"Certificate fingerprint rejected. ({ex.Fingerprint} - {ex.Hostname}).")
+                            });
                         }
 
                         throw;
@@ -277,22 +252,6 @@ namespace Citrix.XenServer.Commands
                 WriteObject(newSessions.Values, true);
         }
 
-        #region Messages
-
-        const string CERT_HAS_CHANGED_CAPTION = "Security Certificate Changed";
-
-        const string CERT_CHANGED = "The certificate fingerprint of the server you have connected to is:\n{0}\nBut was expected to be:\n{1}\n{2}\nDo you wish to continue?";
-
-        const string CERT_FOUND_CAPTION = "New Security Certificate";
-
-        const string CERT_FOUND = "The certificate fingerprint of the server you have connected to is :\n{0}\n{1}\nDo you wish to continue?";
-
-        const string CERT_TRUSTED = "The certificate on this server is trusted. It is recommended you re-issue this server's certificate.";
-
-        const string CERT_NOT_TRUSTED = "The certificate on this server is not trusted.";
-
-        #endregion
-
         private void AddCertificate(string hostname, string fingerprint)
         {
             var certificates = CommonCmdletFunctions.LoadCertificates();
@@ -300,53 +259,42 @@ namespace Citrix.XenServer.Commands
             CommonCmdletFunctions.SaveCertificates(certificates);
         }
 
-        private readonly object certificateValidationLock = new object();
-
-        private bool ValidateServerCertificate(
-            object sender,
-            X509Certificate certificate,
-            X509Chain chain,
-            SslPolicyErrors sslPolicyErrors)
+        private bool ValidateServerCertificate(object sender, X509Certificate certificate, X509Chain chain, SslPolicyErrors sslPolicyErrors)
         {
             if (sslPolicyErrors == SslPolicyErrors.None)
                 return true;
 
-            lock (certificateValidationLock)
+            lock (_certificateValidationLock)
             {
-                bool ignoreChanged = NoWarnCertificates || (bool)GetVariableValue("NoWarnCertificates", false);
-                bool ignoreNew = ignoreChanged || NoWarnNewCertificates || (bool)GetVariableValue("NoWarnNewCertificates", false);
+                bool ignoreChanged = Force || NoWarnCertificates || (bool)GetVariableValue("NoWarnCertificates", false);
+                bool ignoreNew = Force || NoWarnNewCertificates || (bool)GetVariableValue("NoWarnNewCertificates", false);
 
                 HttpWebRequest webreq = (HttpWebRequest)sender;
                 string hostname = webreq.Address.Host;
                 string fingerprint = CommonCmdletFunctions.FingerprintPrettyString(certificate.GetCertHashString());
 
-                string trusted = VerifyInAllStores(new X509Certificate2(certificate))
-                                     ? CERT_TRUSTED : CERT_NOT_TRUSTED;
+                bool trusted = VerifyInAllStores(new X509Certificate2(certificate));
 
                 var certificates = CommonCmdletFunctions.LoadCertificates();
-                bool ok = false;
 
                 if (certificates.ContainsKey(hostname))
                 {
-                    string fingerprint_old = certificates[hostname];
-                    if (fingerprint_old == fingerprint)
+                    string fingerprintOld = certificates[hostname];
+                    if (fingerprintOld == fingerprint)
                         return true;
-                    ok = Force || ignoreChanged;
-                    if (!ok)
-                    {
-                        throw new CertificateChangeException(fingerprint, fingerprint_old, trusted, hostname);
-                    }
+
+                    if (!ignoreChanged)
+                        throw new CertificateChangedException(fingerprint, fingerprintOld, trusted, hostname);
                 }
                 else
                 {
-                    ok = Force || ignoreNew;
-                    if (!ok)
-                    {
+                    if (!ignoreNew)
                         throw new CertificateNotFoundException(fingerprint, trusted, hostname);
-                    }
                 }
-                AddCertificate(hostname, fingerprint);
-                return ok;
+
+                certificates[hostname] = fingerprint;
+                CommonCmdletFunctions.SaveCertificates(certificates);
+                return true;
             }
         }
 
@@ -364,33 +312,54 @@ namespace Citrix.XenServer.Commands
         }
     }
 
-    public class CertificateChangeException : Exception
+    internal abstract class CertificateValidationException : Exception
     {
+        protected const string CERT_TRUSTED = "The certificate on this server is trusted. It is recommended you re-issue this server's certificate.";
+        protected const string CERT_NOT_TRUSTED = "The certificate on this server is not trusted.";
+
+        protected readonly bool Trusted;
         public readonly string Fingerprint;
-        public readonly string OldFingerprint;
-        public readonly string Trusted;
         public readonly string Hostname;
 
-        public CertificateChangeException(string fingerprint, string oldFingerprint, string trusted, string hostname)
+        protected CertificateValidationException(string fingerprint, bool trusted, string hostname)
         {
             Fingerprint = fingerprint;
-            OldFingerprint = oldFingerprint;
             Trusted = trusted;
             Hostname = hostname;
         }
+
+        public abstract string Caption { get; }
     }
 
-    public class CertificateNotFoundException : Exception
+    internal class CertificateChangedException : CertificateValidationException
     {
-        public readonly string Fingerprint;
-        public readonly string Trusted;
-        public readonly string Hostname;
+        private readonly string _oldFingerprint;
 
-        public CertificateNotFoundException(string fingerprint, string trusted, string hostname)
+        public CertificateChangedException(string fingerprint, string oldFingerprint, bool trusted, string hostname)
+            : base(fingerprint, trusted, hostname)
         {
-            Fingerprint = fingerprint;
-            Trusted = trusted;
-            Hostname = hostname;
+            _oldFingerprint = oldFingerprint;
         }
+
+        public override string Caption => "Security Certificate Changed";
+
+        public override string Message => $"The certificate fingerprint of the server you have connected to is:\n{Fingerprint}\n" +
+                                          $"But was expected to be:\n{_oldFingerprint}\n" +
+                                          (Trusted ? CERT_TRUSTED : CERT_NOT_TRUSTED) +
+                                          "\nDo you wish to continue?";
+    }
+
+    internal class CertificateNotFoundException : CertificateValidationException
+    {
+        public CertificateNotFoundException(string fingerprint, bool trusted, string hostname)
+            : base(fingerprint, trusted, hostname)
+        {
+        }
+
+        public override string Caption => "New Security Certificate";
+
+        public override string Message => $"The certificate fingerprint of the server you have connected to is :\n{Fingerprint}\n" +
+                                          (Trusted ? CERT_TRUSTED : CERT_NOT_TRUSTED) +
+                                          "\nDo you wish to continue?";
     }
 }
