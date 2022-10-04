@@ -16,7 +16,7 @@ open Xapi_cluster_host
 
 let create_cluster ~__context pool_auto_join =
   let cluster_ref = Ref.make () in
-  let cluster_uuid = Uuid.(to_string (make ())) in
+  let cluster_uuid = Uuidx.(to_string (make ())) in
   Db.Cluster.create ~__context ~ref:cluster_ref ~uuid:cluster_uuid
     ~cluster_token:"token"
     ~cluster_stack:Constants.default_smapiv3_cluster_stack

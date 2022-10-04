@@ -617,7 +617,7 @@ let add' _copts x () =
             if mem _uuid then
               find _uuid |> string
             else
-              Uuid.(to_string (make ()))
+              Uuidx.(to_string (make ()))
           in
           let name = if mem _name then find _name |> string else uuid in
           let mib =

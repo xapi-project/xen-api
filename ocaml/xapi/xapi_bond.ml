@@ -501,7 +501,7 @@ let create ~__context ~network ~members ~mAC ~mode ~properties =
       let device_name = device in
       let metrics = Xapi_pif.make_pif_metrics ~__context in
       Db.PIF.create ~__context ~ref:master
-        ~uuid:(Uuid.to_string (Uuid.make ()))
+        ~uuid:(Uuidx.to_string (Uuidx.make ()))
         ~device ~device_name ~network ~host ~mAC ~mTU:(-1L) ~vLAN:(-1L) ~metrics
         ~physical:false ~currently_attached:false ~igmp_snooping_status:`unknown
         ~ip_configuration_mode:`None ~iP:"" ~netmask:"" ~gateway:"" ~dNS:""
@@ -511,7 +511,7 @@ let create ~__context ~network ~members ~mAC ~mode ~properties =
         ~primary_address_type:primary_slave_address_type ~managed:true
         ~properties:pif_properties ~capabilities:[] ~pCI:Ref.null ;
       Db.Bond.create ~__context ~ref:bond
-        ~uuid:(Uuid.to_string (Uuid.make ()))
+        ~uuid:(Uuidx.to_string (Uuidx.make ()))
         ~master ~other_config:[] ~primary_slave ~mode ~properties ~links_up:0L
         ~auto_update_mac ;
       (* Set the PIF.bond_slave_of fields of the members.

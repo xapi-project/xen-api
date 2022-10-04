@@ -202,7 +202,7 @@ let config_file ?(accept = None) config host port =
        ; [Printf.sprintf "connect=%s:%d" host port]
        ; [
            "sslVersion = TLSv1.2"
-         ; "ciphers = " ^ Xcp_const.good_ciphersuites
+         ; "ciphers = " ^ Constants.good_ciphersuites
          ; "curve = secp384r1"
          ]
        ; ( match config with
@@ -297,7 +297,7 @@ let attempt_one_connect ?(use_fork_exec_helper = true)
     ?(write_to_log = fun _ -> ()) ?(extended_diagnosis = false) data_channel
     verify_cert host port =
   Unixfd.with_pipe () ~loc:__LOC__ @@ fun config_out config_in ->
-  let config_out_uuid = Uuid.(to_string (make ())) in
+  let config_out_uuid = Uuidx.(to_string (make ())) in
   let config_out_fd =
     string_of_int (Unixext.int_of_file_descr Unixfd.(!config_out))
   in

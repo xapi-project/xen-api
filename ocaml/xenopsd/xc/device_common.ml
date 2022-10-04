@@ -227,7 +227,8 @@ let string_of_device (x : device) =
    It can be made a little more efficient by changing the functions below to
    take the UUID as an argument (and change the callers as well...) *)
 let uuid_of_domid domid =
-  try with_xs (fun xs -> Uuid.to_string (Xenops_helpers.uuid_of_domid ~xs domid))
+  try
+    with_xs (fun xs -> Uuidx.to_string (Xenops_helpers.uuid_of_domid ~xs domid))
   with Xenops_helpers.Domain_not_found ->
     error "uuid_of_domid failed for domid %d" domid ;
     (* Returning a random string on error is not very neat, but we must avoid
@@ -246,7 +247,7 @@ let private_path = "/xapi"
 let get_private_path domid = sprintf "%s/%s" private_path (uuid_of_domid domid)
 
 let get_private_path_by_uuid uuid =
-  sprintf "%s/%s" private_path (Uuid.to_string uuid)
+  sprintf "%s/%s" private_path (Uuidx.to_string uuid)
 
 let get_private_data_path_of_device (x : device) =
   sprintf "%s/private/%s/%d"

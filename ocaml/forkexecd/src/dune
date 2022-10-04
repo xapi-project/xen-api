@@ -1,7 +1,7 @@
 (executable
  (modes byte exe)
  (name fe_main)
- (libraries astring forkexec systemd uuid xapi-stdext-unix))
+ (libraries astring forkexec systemd uuid xapi-log xapi-stdext-unix))
 
 (install
  (package xapi-forkexecd)

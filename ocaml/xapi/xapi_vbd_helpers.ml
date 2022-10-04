@@ -438,9 +438,9 @@ type do_hotplug_fn = __context:Context.t -> vbd:API.ref_VBD -> unit
 let copy ~__context ?vdi ~vm vbd =
   let all = Db.VBD.get_record ~__context ~self:vbd in
   let new_vbd = Ref.make () in
-  let vbd_uuid = Uuid.to_string (Uuid.make ()) in
+  let vbd_uuid = Uuidx.to_string (Uuidx.make ()) in
   let metrics = Ref.make () in
-  let metrics_uuid = Uuid.to_string (Uuid.make ()) in
+  let metrics_uuid = Uuidx.to_string (Uuidx.make ()) in
   let vdi = Option.value ~default:all.API.vBD_VDI vdi in
   Db.VBD_metrics.create ~__context ~ref:metrics ~uuid:metrics_uuid
     ~io_read_kbs:0. ~io_write_kbs:0. ~last_updated:(Date.of_float 0.)

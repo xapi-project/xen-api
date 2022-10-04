@@ -220,7 +220,7 @@ let get_uuid ~xc domid =
     Array.to_list handle |> List.map string_of_int |> String.concat "; "
   in
   let raw_uuid = (Xenctrl.domain_getinfo xc domid).Xenctrl.handle in
-  match Uuid.of_int_array raw_uuid with
+  match Uuidx.of_int_array raw_uuid with
   | Some x ->
       x
   | None ->
@@ -276,7 +276,7 @@ let make ~xc ~xs vm_info vcpus domain_config uuid final_uuid no_sharept =
   let assert_capability cap ~on_error =
     if not (List.mem cap host_info.capabilities) then (
       let msgstr = on_error () in
-      error "VM = %s: %s" (Uuid.to_string uuid) msgstr ;
+      error "VM = %s: %s" (Uuidx.to_string uuid) msgstr ;
       invalid_arg msgstr
     )
   in
@@ -312,7 +312,7 @@ let make ~xc ~xs vm_info vcpus domain_config uuid final_uuid no_sharept =
             false
         | Some unknown ->
             error "VM = %s; Unrecognized value platform/hap=\"%s\"."
-              (Uuid.to_string uuid) unknown ;
+              (Uuidx.to_string uuid) unknown ;
             invalid_arg ("platform/hap=" ^ unknown)
         | None ->
             List.mem CAP_HAP host_info.capabilities
@@ -335,7 +335,7 @@ let make ~xc ~xs vm_info vcpus domain_config uuid final_uuid no_sharept =
   if iommu then
     assert_capability CAP_DirectIO ~on_error:(fun () -> "IOMMU unavailable") ;
 
-  info "VM = %s; Creating %s%s%s" (Uuid.to_string uuid)
+  info "VM = %s; Creating %s%s%s" (Uuidx.to_string uuid)
     (if hvm then "HVM" else "PV")
     (if hap then " HAP" else "")
     (if iommu then " IOMMU" else "") ;
@@ -343,14 +343,14 @@ let make ~xc ~xs vm_info vcpus domain_config uuid final_uuid no_sharept =
   let config =
     {
       ssidref= vm_info.ssidref
-    ; handle= Uuid.to_string uuid
+    ; handle= Uuidx.to_string uuid
     ; flags=
         [(hvm, CDF_HVM); (hap, CDF_HAP); (iommu, CDF_IOMMU)]
         |> List.filter_map (fun (cond, flag) -> if cond then Some flag else None)
     ; iommu_opts=
         ( match no_sharept with
         | true ->
-            debug "VM %s - using IOMMU_NO_SHAREPT" (Uuid.to_string uuid) ;
+            debug "VM %s - using IOMMU_NO_SHAREPT" (Uuidx.to_string uuid) ;
             [IOMMU_NO_SHAREPT]
         | false ->
             []
@@ -379,11 +379,11 @@ let make ~xc ~xs vm_info vcpus domain_config uuid final_uuid no_sharept =
     let dom_path = xs.Xs.getdomainpath domid in
     let xenops_dom_path = xenops_path_of_domain domid in
     let libxl_dom_path = sprintf "/libxl/%d" domid in
-    let vm_path = "/vm/" ^ Uuid.to_string uuid in
+    let vm_path = "/vm/" ^ Uuidx.to_string uuid in
     let roperm = Xenbus_utils.roperm_for_guest domid in
     let rwperm = Xenbus_utils.rwperm_for_guest domid in
     let zeroperm = Xenbus_utils.rwperm_for_guest 0 in
-    debug "VM = %s; creating xenstored tree: %s" (Uuid.to_string uuid) dom_path ;
+    debug "VM = %s; creating xenstored tree: %s" (Uuidx.to_string uuid) dom_path ;
     let create_time = Mtime.to_uint64_ns (Mtime_clock.now ()) in
     Xs.transaction xs (fun t ->
         (* Clear any existing rubbish in xenstored *)
@@ -412,7 +412,7 @@ let make ~xc ~xs vm_info vcpus domain_config uuid final_uuid no_sharept =
                 [("final-uuid", final_uuid)]
           in
           t.Xst.writev vm_path
-            ([("uuid", Uuid.to_string uuid); ("name", name)] @ final_uuid)
+            ([("uuid", Uuidx.to_string uuid); ("name", name)] @ final_uuid)
         ) ;
         t.Xst.write (Printf.sprintf "%s/domains/%d" vm_path domid) dom_path ;
         t.Xst.write
@@ -484,13 +484,13 @@ let make ~xc ~xs vm_info vcpus domain_config uuid final_uuid no_sharept =
       (if vm_info.has_vendor_device then "1" else "0") ;
     (* CA-30811: let the linux guest agent easily determine if this is a fresh
        domain even if the domid hasn't changed (consider cross-host migrate) *)
-    xs.Xs.write (dom_path ^ "/unique-domain-id") Uuid.(to_string (make ())) ;
-    info "VM = %s; domid = %d" (Uuid.to_string uuid) domid ;
+    xs.Xs.write (dom_path ^ "/unique-domain-id") Uuidx.(to_string (make ())) ;
+    info "VM = %s; domid = %d" (Uuidx.to_string uuid) domid ;
     domid
   with e ->
     debug
       "VM = %s; domid = %d; Caught exception while creating xenstore tree: %s"
-      (Uuid.to_string uuid) domid (Printexc.to_string e) ;
+      (Uuidx.to_string uuid) domid (Printexc.to_string e) ;
     raise e
 
 type shutdown_reason =
@@ -565,7 +565,7 @@ exception Domain_does_not_exist
 (** Request a shutdown, return without waiting for acknowledgement *)
 let shutdown ~xc ~xs domid req =
   let uuid = get_uuid ~xc domid in
-  debug "VM = %s; domid = %d; Requesting domain %s" (Uuid.to_string uuid) domid
+  debug "VM = %s; domid = %d; Requesting domain %s" (Uuidx.to_string uuid) domid
     (string_of_shutdown_reason req) ;
   let reason = string_of_shutdown_reason req in
   let path = control_shutdown ~xs domid in
@@ -609,12 +609,12 @@ let shutdown_wait_for_ack (t : Xenops_task.task_handle) ~timeout ~xc ~xs domid
     debug
       "VM = %s; domid = %d; HVM guest without PV drivers: not expecting any \
        acknowledgement"
-      (Uuid.to_string uuid) domid ;
+      (Uuidx.to_string uuid) domid ;
     Xenctrl.domain_shutdown xc domid (shutdown_to_xc_shutdown req)
   ) else (
     debug
       "VM = %s; domid = %d; Waiting for domain to acknowledge shutdown request"
-      (Uuid.to_string uuid) domid ;
+      (Uuidx.to_string uuid) domid ;
     let path = control_shutdown ~xs domid in
     let cancel = Domain domid in
     if
@@ -624,9 +624,9 @@ let shutdown_wait_for_ack (t : Xenops_task.task_handle) ~timeout ~xc ~xs domid
         t ~xs ~timeout ()
     then
       info "VM = %s; domid = %d; Domain acknowledged shutdown request"
-        (Uuid.to_string uuid) domid
+        (Uuidx.to_string uuid) domid
     else
-      debug "VM = %s; domid = %d; Domain disappeared" (Uuid.to_string uuid)
+      debug "VM = %s; domid = %d; Domain disappeared" (Uuidx.to_string uuid)
         domid
   )
 
@@ -647,7 +647,7 @@ let destroy (task : Xenops_task.task_handle) ~xc ~xs ~qemu_domid ~vtpm ~dm domid
      in some other domain *)
   let all_devices = list_frontends ~xs domid in
   debug "VM = %s; domid = %d; Domain.destroy: all known devices = [ %a ]"
-    (Uuid.to_string uuid) domid
+    (Uuidx.to_string uuid) domid
     (fun () -> String.concat "; ")
     (List.map string_of_device all_devices) ;
   (* Any other domains with the same UUID as the one we are destroying. There
@@ -656,7 +656,7 @@ let destroy (task : Xenops_task.task_handle) ~xc ~xs ~qemu_domid ~vtpm ~dm domid
   debug
     "VM = %s; domid = %d; Domain.destroy: other domains with the same UUID = [ \
      %a ]"
-    (Uuid.to_string uuid) domid
+    (Uuidx.to_string uuid) domid
     (fun () -> String.concat "; ")
     (List.map (fun x -> string_of_int x.Xenctrl.domid) other_domains) ;
   (* reset PCI devices before xc.domain_destroy otherwise we lot all IOMMU
@@ -690,7 +690,7 @@ let destroy (task : Xenops_task.task_handle) ~xc ~xs ~qemu_domid ~vtpm ~dm domid
     all_pci_devices ;
   (* Now we should kill the domain itself *)
   debug "VM = %s; domid = %d; Domain.destroy calling Xenctrl.domain_destroy"
-    (Uuid.to_string uuid) domid ;
+    (Uuidx.to_string uuid) domid ;
   log_exn_continue "Xenctrl.domain_destroy" (Xenctrl.domain_destroy xc) domid ;
   log_exn_continue "Error stoping device-model, already dead ?"
     (fun () -> Device.Dm.stop ~xs ~qemu_domid ~vtpm ~dm domid)
@@ -707,7 +707,7 @@ let destroy (task : Xenops_task.task_handle) ~xc ~xs ~qemu_domid ~vtpm ~dm domid
            from happening! *)
         error
           "VM = %s; domid = %d; Caught exception %s while destroying device %s"
-          (Uuid.to_string uuid) domid (Printexc.to_string e)
+          (Uuidx.to_string uuid) domid (Printexc.to_string e)
           (string_of_device device)
       (* Keep going on a best-effort basis *)
     )
@@ -734,7 +734,7 @@ let destroy (task : Xenops_task.task_handle) ~xc ~xs ~qemu_domid ~vtpm ~dm domid
   List.iter
     (fun dev ->
       error "VM = %s; domid = %d; Domain.destroy failed to release device: %s"
-        (Uuid.to_string uuid) domid (string_of_device dev)
+        (Uuidx.to_string uuid) domid (string_of_device dev)
     )
     failed_devices ;
   (* Remove our reference to the /vm/<uuid> directory *)
@@ -744,12 +744,12 @@ let destroy (task : Xenops_task.task_handle) ~xc ~xs ~qemu_domid ~vtpm ~dm domid
     vm_path ;
   (* Delete /local/domain/<domid>, /xenops/domain/<domid>, /libxl/<domid> and
      all the backend device paths *)
-  debug "VM = %s; domid = %d; xenstore-rm %s" (Uuid.to_string uuid) domid
+  debug "VM = %s; domid = %d; xenstore-rm %s" (Uuidx.to_string uuid) domid
     dom_path ;
   xs.Xs.rm dom_path ;
   xs.Xs.rm xenops_dom_path ;
   xs.Xs.rm libxl_dom_path ;
-  debug "VM = %s; domid = %d; deleting backends" (Uuid.to_string uuid) domid ;
+  debug "VM = %s; domid = %d; deleting backends" (Uuidx.to_string uuid) domid ;
   List.iter
     (fun path ->
       let backend_path = xs.Xs.getdomainpath 0 ^ path in
@@ -797,7 +797,7 @@ let create_channels ~xc uuid domid =
   let store = Xenctrl.evtchn_alloc_unbound xc domid 0 in
   let console = Xenctrl.evtchn_alloc_unbound xc domid 0 in
   debug "VM = %s; domid = %d; store evtchn = %d; console evtchn = %d"
-    (Uuid.to_string uuid) domid store console ;
+    (Uuidx.to_string uuid) domid store console ;
   (store, console)
 
 let numa_hierarchy =
@@ -871,13 +871,13 @@ let build_pre ~xc ~xs ~vcpus ~memory ~has_hard_affinity domid =
   let open Memory in
   let uuid = get_uuid ~xc domid in
   debug "VM = %s; domid = %d; waiting for %Ld MiB of free host memory"
-    (Uuid.to_string uuid) domid memory.required_host_free_mib ;
+    (Uuidx.to_string uuid) domid memory.required_host_free_mib ;
   (* CA-39743: Wait, if necessary, for the Xen scrubber to catch up. *)
   if
     not (wait_xen_free_mem ~xc (Memory.kib_of_mib memory.required_host_free_mib))
   then (
     error "VM = %s; domid = %d; Failed waiting for Xen to free %Ld MiB"
-      (Uuid.to_string uuid) domid memory.required_host_free_mib ;
+      (Uuidx.to_string uuid) domid memory.required_host_free_mib ;
     raise (Not_enough_memory (Memory.bytes_of_mib memory.required_host_free_mib))
   ) ;
   let shadow_mib = Int64.to_int memory.shadow_mib in
@@ -888,7 +888,7 @@ let build_pre ~xc ~xs ~vcpus ~memory ~has_hard_affinity domid =
   in
   let timer_mode = int_platform_flag "timer_mode" in
   let log_reraise call_str f =
-    debug "VM = %s; domid = %d; %s" (Uuid.to_string uuid) domid call_str ;
+    debug "VM = %s; domid = %d; %s" (Uuidx.to_string uuid) domid call_str ;
     try ignore (f ())
     with e ->
       let bt = Printexc.get_backtrace () in
@@ -896,7 +896,7 @@ let build_pre ~xc ~xs ~vcpus ~memory ~has_hard_affinity domid =
       let err_msg =
         Printf.sprintf "Calling '%s' failed: %s" call_str (Printexc.to_string e)
       in
-      error "VM = %s; domid = %d; %s" (Uuid.to_string uuid) domid err_msg ;
+      error "VM = %s; domid = %d; %s" (Uuidx.to_string uuid) domid err_msg ;
       raise (Domain_build_pre_failed err_msg)
   in
   maybe
@@ -1019,12 +1019,12 @@ let xenguest task xenguest_path domid uuid args =
   match Astring.String.cuts ~sep:" " line with
   | store_mfn :: console_mfn :: _ ->
       debug "VM = %s; domid = %d; store_mfn = %s; console_mfn = %s"
-        (Uuid.to_string uuid) domid store_mfn console_mfn ;
+        (Uuidx.to_string uuid) domid store_mfn console_mfn ;
       (Nativeint.of_string store_mfn, Nativeint.of_string console_mfn)
   | _ ->
       error
         "VM = %s; domid = %d; domain builder returned invalid result: \"%s\""
-        (Uuid.to_string uuid) domid line ;
+        (Uuidx.to_string uuid) domid line ;
       raise Domain_build_failed
 
 let correct_shadow_allocation xc domid uuid shadow_mib =
@@ -1036,11 +1036,11 @@ let correct_shadow_allocation xc domid uuid shadow_mib =
     warn
       "VM = %s; domid = %d; HVM domain builder reduced our shadow memory from \
        %d to %d MiB; reverting"
-      (Uuid.to_string uuid) domid requested_shadow_mib actual_shadow_mib ;
+      (Uuidx.to_string uuid) domid requested_shadow_mib actual_shadow_mib ;
     Xenctrl.shadow_allocation_set xc domid requested_shadow_mib ;
     let shadow = Xenctrl.shadow_allocation_get xc domid in
     debug "VM = %s; domid = %d; Domain now has %d MiB of shadow"
-      (Uuid.to_string uuid) domid shadow
+      (Uuidx.to_string uuid) domid shadow
   )
 
 (* puts value in store after the domain build succeed *)
@@ -1071,7 +1071,7 @@ let build_post ~xc ~xs ~vcpus:_ ~static_max_mib ~target_mib domid domain_type
     match domain_type with `pv -> "PV" | `hvm -> "HVM" | `pvh -> "PVH"
   in
   xs.Xs.write (sprintf "/libxl/%d/type" domid) libxl_dom_type ;
-  debug "VM = %s; domid = %d; @introduceDomain" (Uuid.to_string uuid) domid ;
+  debug "VM = %s; domid = %d; @introduceDomain" (Uuidx.to_string uuid) domid ;
   xs.Xs.introduce domid store_mfn store_port
 
 let console_keys console_port console_mfn =
@@ -1199,13 +1199,13 @@ let with_emu_manager_restore (task : Xenops_task.task_handle) ~domain_type
   let mode =
     match domain_type with `hvm | `pvh -> "hvm_restore" | `pv -> "restore"
   in
-  let fd_uuid = Uuid.(to_string (make ())) in
+  let fd_uuid = Uuidx.(to_string (make ())) in
   let vgpu_args, vgpu_cmdline =
     match vgpu_fd with
     | Some fd when fd = main_fd ->
         ([(fd_uuid, main_fd)], ["-dm"; "vgpu:" ^ fd_uuid])
     | Some fd ->
-        let vgpu_fd_uuid = Uuid.(to_string (make ())) in
+        let vgpu_fd_uuid = Uuidx.(to_string (make ())) in
         ([(vgpu_fd_uuid, fd)], ["-dm"; "vgpu:" ^ vgpu_fd_uuid])
     | None ->
         ([], [])
@@ -1237,12 +1237,12 @@ let restore_libxc_record cnx domid uuid =
   match parse_result res with
   | Xenguest_result (store, console) ->
       debug "VM = %s; domid = %d; store_mfn = %nd; console_mfn = %nd"
-        (Uuid.to_string uuid) domid store console ;
+        (Uuidx.to_string uuid) domid store console ;
       (store, console)
   | _ ->
       error
         "VM = %s; domid = %d; domain builder returned invalid result: \"%s\""
-        (Uuid.to_string uuid) domid res ;
+        (Uuidx.to_string uuid) domid res ;
       raise Domain_restore_failed
 
 let consume_qemu_record fd limit domid uuid =
@@ -1250,7 +1250,7 @@ let consume_qemu_record fd limit domid uuid =
     (* 1MB *)
     error
       "VM = %s; domid = %d; QEMU record length in header too large (%Ld bytes)"
-      (Uuid.to_string uuid) domid limit ;
+      (Uuidx.to_string uuid) domid limit ;
     raise Suspend_image_failure
   ) ;
   let file = sprintf qemu_restore_path domid in
@@ -1260,18 +1260,18 @@ let consume_qemu_record fd limit domid uuid =
   finally
     (fun () ->
       debug "VM = %s; domid = %d; reading %Ld bytes from %s"
-        (Uuid.to_string uuid) domid limit file ;
+        (Uuidx.to_string uuid) domid limit file ;
       let bytes =
         try Unixext.copy_file ~limit fd fd2
         with Unix.Unix_error (e, s1, s2) ->
-          error "VM = %s; domid = %d; %s, %s, %s" (Uuid.to_string uuid) domid
+          error "VM = %s; domid = %d; %s, %s, %s" (Uuidx.to_string uuid) domid
             (Unix.error_message e) s1 s2 ;
           Unixext.unlink_safe file ;
           raise Suspend_image_failure
       in
       if bytes <> limit then (
         error "VM = %s; domid = %d; qemu save file was truncated"
-          (Uuid.to_string uuid) domid ;
+          (Uuidx.to_string uuid) domid ;
         raise Domain_restore_truncated_hvmstate
       )
     )
@@ -1315,7 +1315,7 @@ let restore_common (task : Xenops_task.task_handle) ~xc ~xs
               length
           | Error e ->
               error "VM = %s; domid = %d; Error reading QEMU signature: %s"
-                (Uuid.to_string uuid) domid e ;
+                (Uuidx.to_string uuid) domid e ;
               raise Suspend_image_failure
         in
         debug "Consuming QEMU record into file" ;
@@ -1526,7 +1526,7 @@ let restore_common (task : Xenops_task.task_handle) ~xc ~xs
           match res with
           | Ok (Some (store_mfn, console_mfn)) ->
               debug "VM = %s; domid = %d; store_mfn = %nd; console_mfn = %nd"
-                (Uuid.to_string uuid) domid store_mfn console_mfn ;
+                (Uuidx.to_string uuid) domid store_mfn console_mfn ;
               (store_mfn, console_mfn)
           | Ok None ->
               failwith "Well formed, but useless stream"
@@ -1535,7 +1535,7 @@ let restore_common (task : Xenops_task.task_handle) ~xc ~xs
       )
   | Error e ->
       error "VM = %s; domid = %d; Error reading save signature: %s"
-        (Uuid.to_string uuid) domid e ;
+        (Uuidx.to_string uuid) domid e ;
       raise Suspend_image_failure
 
 let restore (task : Xenops_task.task_handle) ~xc ~xs ~dm ~store_domid
@@ -1599,7 +1599,7 @@ let suspend_emu_manager ~(task : Xenops_task.task_handle) ~xc:_ ~xs ~domain_type
   let open Suspend_image in
   let open Suspend_image.M in
   let open Emu_manager in
-  let fd_uuid = Uuid.(to_string (make ())) in
+  let fd_uuid = Uuidx.(to_string (make ())) in
   let mode =
     match domain_type with `hvm | `pvh -> "hvm_save" | `pv -> "save"
   in
@@ -1608,7 +1608,7 @@ let suspend_emu_manager ~(task : Xenops_task.task_handle) ~xc:_ ~xs ~domain_type
     | Some fd when fd = main_fd ->
         ([(fd_uuid, main_fd)], ["-dm"; "vgpu:" ^ fd_uuid])
     | Some fd ->
-        let vgpu_fd_uuid = Uuid.(to_string (make ())) in
+        let vgpu_fd_uuid = Uuidx.(to_string (make ())) in
         ([(vgpu_fd_uuid, fd)], ["-dm"; "vgpu:" ^ vgpu_fd_uuid])
     | None ->
         ([], [])
@@ -1644,12 +1644,12 @@ let suspend_emu_manager ~(task : Xenops_task.task_handle) ~xc:_ ~xs ~domain_type
             try
               let percent = int_of_string percent in
               debug "VM = %s; domid = %d; progress = %d / 100"
-                (Uuid.to_string uuid) domid percent ;
+                (Uuidx.to_string uuid) domid percent ;
               progress_callback (float_of_int percent /. 100.)
             with e ->
               error
                 "VM = %s; domid = %d; failed to parse progress update: \"%s\""
-                (Uuid.to_string uuid) domid percent ;
+                (Uuidx.to_string uuid) domid percent ;
               (* MTC: catch exception by progress_callback, for example, an
                  abort request, and re-raise them *)
               raise e
@@ -1657,21 +1657,21 @@ let suspend_emu_manager ~(task : Xenops_task.task_handle) ~xc:_ ~xs ~domain_type
           | _ ->
               ()
         else
-          debug "VM = %s; domid = %d; %s" (Uuid.to_string uuid) domid txt
+          debug "VM = %s; domid = %d; %s" (Uuidx.to_string uuid) domid txt
       in
       (* Process started; wait for and respond to instructions *)
       let rec wait_for_message () =
         debug "VM = %s; domid = %d; waiting for emu-manager..."
-          (Uuid.to_string uuid) domid ;
+          (Uuidx.to_string uuid) domid ;
         let message = non_debug_receive ~debug_callback:callback cnx in
         debug "VM = %s; domid = %d; message from emu-manager: %s"
-          (Uuid.to_string uuid) domid
+          (Uuidx.to_string uuid) domid
           (string_of_message message) ;
         match message with
         | Suspend ->
             do_suspend_callback () ;
             if domain_type = `hvm then (
-              let vm_uuid = Uuid.to_string uuid in
+              let vm_uuid = Uuidx.to_string uuid in
               debug "VM = %s; domid = %d; suspending qemu-dm" vm_uuid domid ;
               Device.Dm.suspend task ~xs ~qemu_domid ~dm domid ;
               if is_uefi then
@@ -1708,18 +1708,18 @@ let suspend_emu_manager ~(task : Xenops_task.task_handle) ~xc:_ ~xs ~domain_type
         )
         | Result _ ->
             debug "VM = %s; domid = %d; emu-manager completed successfully"
-              (Uuid.to_string uuid) domid ;
+              (Uuidx.to_string uuid) domid ;
             return ()
         | Error x ->
             error "VM = %s; domid = %d; emu-manager failed: \"%s\""
-              (Uuid.to_string uuid) domid x ;
+              (Uuidx.to_string uuid) domid x ;
             Error
               (Emu_manager_failure
                  (Printf.sprintf "Received error from emu-manager: %s" x)
               )
         | _ ->
             error "VM = %s; domid = %d; unexpected message from emu-manager"
-              (Uuid.to_string uuid) domid ;
+              (Uuidx.to_string uuid) domid ;
             Error Emu_manager_protocol_failure
       in
       wait_for_message ()
@@ -1736,7 +1736,7 @@ let write_qemu_record domid uuid fd =
       debug "Writing Qemu_trad header with length %Ld" size ;
       write_header fd (Qemu_trad, size) >>= fun () ->
       debug "VM = %s; domid = %d; writing %Ld bytes from %s"
-        (Uuid.to_string uuid) domid size file ;
+        (Uuidx.to_string uuid) domid size file ;
       if Unixext.copy_file ~limit:size fd2 fd <> size then
         failwith "Failed to write whole qemu-dm state file" ;
       return ()
@@ -1748,7 +1748,7 @@ let write_varstored_record task ~xs domid main_fd =
   let open Suspend_image.M in
   let varstored_record =
     Device.Dm.suspend_varstored task ~xs domid
-      ~vm_uuid:(Uuid.to_string (Xenops_helpers.uuid_of_domid ~xs domid))
+      ~vm_uuid:(Uuidx.to_string (Xenops_helpers.uuid_of_domid ~xs domid))
   in
   let varstored_rec_len = String.length varstored_record in
   debug "Writing varstored record (domid=%d length=%d)" domid varstored_rec_len ;
@@ -1765,7 +1765,7 @@ let write_vtpms_record task ~xs ~vtpm domid main_fd =
   let open Suspend_image in
   let open Suspend_image.M in
   Device.Dm.suspend_vtpms task ~xs domid
-    ~vm_uuid:(Uuid.to_string (Xenops_helpers.uuid_of_domid ~xs domid))
+    ~vm_uuid:(Uuidx.to_string (Xenops_helpers.uuid_of_domid ~xs domid))
     ~vtpm
   |> forall @@ fun swtpm_record ->
      let swtpm_rec_len = String.length swtpm_record in
@@ -1785,7 +1785,7 @@ let suspend (task : Xenops_task.task_handle) ~xc ~xs ~domain_type ~is_uefi ~dm
   let open DD in
   let hvm = domain_type = `hvm in
   let uuid = get_uuid ~xc domid in
-  debug "VM = %s; domid = %d; suspend live = %b" (Uuid.to_string uuid) domid
+  debug "VM = %s; domid = %d; suspend live = %b" (Uuidx.to_string uuid) domid
     (List.mem Live flags) ;
   let open Suspend_image in
   let open Suspend_image.M in
@@ -1843,18 +1843,18 @@ let suspend (task : Xenops_task.task_handle) ~xc ~xs ~domain_type ~is_uefi ~dm
   | Error e ->
       raise e
   | Ok () ->
-      debug "VM = %s; domid = %d; suspend complete" (Uuid.to_string uuid) domid
+      debug "VM = %s; domid = %d; suspend complete" (Uuidx.to_string uuid) domid
   ) ;
   if hvm then Device.Dm.after_suspend_image ~xs ~dm ~qemu_domid ~vtpm domid
 
 let send_s3resume ~xc domid =
   let uuid = get_uuid ~xc domid in
-  debug "VM = %s; domid = %d; send_s3resume" (Uuid.to_string uuid) domid ;
+  debug "VM = %s; domid = %d; send_s3resume" (Uuidx.to_string uuid) domid ;
   Xenctrlext.domain_send_s3resume xc domid
 
 let soft_reset ~xc ~xs domid =
   let uuid = get_uuid ~xc domid in
-  debug "VM = %s; domid = %d; soft_reset" (Uuid.to_string uuid) domid ;
+  debug "VM = %s; domid = %d; soft_reset" (Uuidx.to_string uuid) domid ;
   pause ~xc domid ;
   Xenctrlext.domain_soft_reset xc domid ;
   let dom_path = xs.Xs.getdomainpath domid in
@@ -1875,7 +1875,7 @@ let soft_reset ~xc ~xs domid =
 
 let vcpu_affinity_set ~xc domid vcpu cpumap =
   let uuid = get_uuid ~xc domid in
-  debug "VM = %s; domid = %d; vcpu_affinity_set %d <- %s" (Uuid.to_string uuid)
+  debug "VM = %s; domid = %d; vcpu_affinity_set %d <- %s" (Uuidx.to_string uuid)
     domid vcpu
     (String.concat ""
        (List.map (fun b -> if b then "1" else "0") (Array.to_list cpumap))
@@ -1884,7 +1884,7 @@ let vcpu_affinity_set ~xc domid vcpu cpumap =
 
 let vcpu_affinity_get ~xc domid vcpu =
   let uuid = get_uuid ~xc domid in
-  debug "VM = %s; domid = %d; vcpu_affinity_get %d" (Uuid.to_string uuid) domid
+  debug "VM = %s; domid = %d; vcpu_affinity_get %d" (Uuidx.to_string uuid) domid
     vcpu ;
   Xenctrl.vcpu_affinity_get xc domid vcpu
 
@@ -1894,20 +1894,20 @@ let set_memory_dynamic_range ~xc ~xs ~min ~max domid =
   in
   let uuid = get_uuid ~xc domid in
   debug "VM = %s; domid = %d; set_memory_dynamic_range min = %d; max = %d"
-    (Uuid.to_string uuid) domid min max ;
+    (Uuidx.to_string uuid) domid min max ;
   xs.Xs.writev (Printf.sprintf "%s/memory" (xs.Xs.getdomainpath domid)) kvs
 
 let add_ioport ~xc domid start_port end_port =
   let uuid = get_uuid ~xc domid in
   let nr_ports = end_port - start_port in
-  debug "VM = %s; domid = %d; ioport add %#x-%#x" (Uuid.to_string uuid) domid
+  debug "VM = %s; domid = %d; ioport add %#x-%#x" (Uuidx.to_string uuid) domid
     start_port (start_port + nr_ports) ;
   Xenctrl.domain_ioport_permission xc domid start_port nr_ports true
 
 let del_ioport ~xc domid start_port end_port =
   let uuid = get_uuid ~xc domid in
   let nr_ports = end_port - start_port in
-  debug "VM = %s; domid = %d; ioport del %#x-%#x" (Uuid.to_string uuid) domid
+  debug "VM = %s; domid = %d; ioport del %#x-%#x" (Uuidx.to_string uuid) domid
     start_port (start_port + nr_ports) ;
   Xenctrl.domain_ioport_permission xc domid start_port nr_ports false
 
@@ -1918,7 +1918,7 @@ let add_iomem ~xc domid start_address end_address =
   let start_pfn = mem_to_pfn start_address
   and end_pfn = mem_to_pfn end_address in
   let nr_pfns = Nativeint.sub end_pfn start_pfn in
-  debug "VM = %s; domid = %d; iomem add %#nx-%#nx" (Uuid.to_string uuid) domid
+  debug "VM = %s; domid = %d; iomem add %#nx-%#nx" (Uuidx.to_string uuid) domid
     start_pfn end_pfn ;
   Xenctrl.domain_iomem_permission xc domid start_pfn nr_pfns true
 
@@ -1928,18 +1928,18 @@ let del_iomem ~xc domid start_address end_address =
   let start_pfn = mem_to_pfn start_address
   and end_pfn = mem_to_pfn end_address in
   let nr_pfns = Nativeint.sub end_pfn start_pfn in
-  debug "VM = %s; domid = %d; iomem del %#nx-%#nx" (Uuid.to_string uuid) domid
+  debug "VM = %s; domid = %d; iomem del %#nx-%#nx" (Uuidx.to_string uuid) domid
     start_pfn end_pfn ;
   Xenctrl.domain_iomem_permission xc domid start_pfn nr_pfns false
 
 let add_irq ~xc domid irq =
   let uuid = get_uuid ~xc domid in
-  debug "VM = %s; domid = %d; irq add %#x" (Uuid.to_string uuid) domid irq ;
+  debug "VM = %s; domid = %d; irq add %#x" (Uuidx.to_string uuid) domid irq ;
   Xenctrl.domain_irq_permission xc domid irq true
 
 let del_irq ~xc domid irq =
   let uuid = get_uuid ~xc domid in
-  debug "VM = %s; domid = %d; irq del %#x" (Uuid.to_string uuid) domid irq ;
+  debug "VM = %s; domid = %d; irq del %#x" (Uuidx.to_string uuid) domid irq ;
   Xenctrl.domain_irq_permission xc domid irq false
 
 (** Sets the current memory target for a running VM, to the given value (in

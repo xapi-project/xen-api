@@ -31,7 +31,7 @@ module D = Debug.Make (struct let name = "xapi_sm" end)
 open D
 
 let create_from_query_result ~__context q =
-  let r = Ref.make () and u = Uuid.to_string (Uuid.make ()) in
+  let r = Ref.make () and u = Uuidx.to_string (Uuidx.make ()) in
   let open Storage_interface in
   if String.lowercase_ascii q.driver <> "storage_access" then (
     let features = Smint.parse_string_int64_features q.features in

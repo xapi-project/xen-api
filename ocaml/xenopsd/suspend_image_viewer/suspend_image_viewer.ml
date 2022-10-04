@@ -24,7 +24,7 @@ let debug fmt =
 let error fmt = Printf.ksprintf (msg ~prefix:"error") fmt
 
 let verify_libxc_v2_record fd =
-  let fd_uuid = Uuid.(to_string (make ())) in
+  let fd_uuid = Uuidx.(to_string (make ())) in
   let path = !Resources.verify_libxc_v2 in
   let args = ["--in"; fd_uuid; "--syslog"] in
   ( try Unix.(access path [X_OK])

@@ -75,7 +75,7 @@ let create ~__context ~subject_identifier ~other_config:_ =
 	*)
     (* add the new subject to the db *)
     let ref = Ref.make () in
-    let uuid = Uuid.to_string (Uuid.make ()) in
+    let uuid = Uuidx.to_string (Uuidx.make ()) in
     (* CP-1224: Free Edition: Newly created subjects will have the Pool Administrator role. *)
     (* CP-1224: Paid-for Edition: Newly created subjects will have an empty role. *)
     let default_roles =

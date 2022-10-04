@@ -30,7 +30,7 @@ let uuid_of_domid ~xs domid =
   try
     let vm = xs.Xs.getdomainpath domid ^ "/vm" in
     let vm_dir = xs.Xs.read vm in
-    match Uuid.of_string (xs.Xs.read (vm_dir ^ "/uuid")) with
+    match Uuidx.of_string (xs.Xs.read (vm_dir ^ "/uuid")) with
     | Some uuid ->
         uuid
     | None ->
@@ -44,7 +44,7 @@ let domains_of_uuid ~xc uuid =
 
   List.filter
     (fun x ->
-      match Uuid.of_int_array x.Xenctrl.handle with
+      match Uuidx.of_int_array x.Xenctrl.handle with
       | Some x ->
           x = uuid
       | None ->

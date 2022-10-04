@@ -27,7 +27,7 @@ let introduce ~__context ~uuid ~value ~other_config =
   ref
 
 let create ~__context ~value ~other_config =
-  let uuid = Uuid.to_string (Uuid.make ()) in
+  let uuid = Uuidx.to_string (Uuidx.make ()) in
   let ref = introduce ~__context ~uuid ~value ~other_config in
   ref
 
@@ -46,7 +46,7 @@ let clean_out_passwds ~__context strmap =
   List.iter delete_secret secrets
 
 let copy ~__context ~secret =
-  let uuid = Uuid.(to_string (make ())) in
+  let uuid = Uuidx.(to_string (make ())) in
   let value = Db.Secret.get_value ~__context ~self:secret in
   let other_config = Db.Secret.get_other_config ~__context ~self:secret in
   let ref = introduce ~__context ~uuid ~value ~other_config in

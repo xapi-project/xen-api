@@ -164,7 +164,7 @@ module Block = struct
     let blocks_to_close_mutex = Lwt_mutex.create ()
 
     let with_tracking b f =
-      let block_uuid = Uuid.(to_string (make ())) in
+      let block_uuid = Uuidx.(to_string (make ())) in
       Lwt_mutex.with_lock blocks_to_close_mutex (fun () ->
           Hashtbl.add blocks_to_close block_uuid b ;
           Lwt.return_unit

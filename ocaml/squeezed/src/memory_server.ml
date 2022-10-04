@@ -98,7 +98,7 @@ let login dbg service_name =
   )
 
 let reserve_memory dbg session_id kib =
-  let reservation_id = Uuid.(to_string (make ())) in
+  let reservation_id = Uuidx.(to_string (make ())) in
   if kib < 0L then
     raise (MemoryError (Invalid_memory_value kib)) ;
   wrap dbg (fun () ->
@@ -112,7 +112,7 @@ let reserve_memory dbg session_id kib =
   )
 
 let reserve_memory_range dbg session_id min max =
-  let reservation_id = Uuid.(to_string (make ())) in
+  let reservation_id = Uuidx.(to_string (make ())) in
   if min < 0L then
     raise (MemoryError (Invalid_memory_value min)) ;
   if max < 0L then

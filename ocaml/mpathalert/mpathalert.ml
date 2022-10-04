@@ -51,9 +51,9 @@ let debug (fmt : ('a, unit, string, unit) format4) =
     Printf.kprintf (Fun.const ()) fmt
 
 type t = {
-    host: [`host] Uuid.t
+    host: [`host] Uuidx.t
   ; host_name: string
-  ; pbd: [`pbd] Uuid.t
+  ; pbd: [`pbd] Uuidx.t
   ; timestamp: float
   ; scsi_id: string
   ; current: int
@@ -61,18 +61,19 @@ type t = {
 }
 
 let to_string alert =
-  if alert.pbd <> Uuid.null then
+  if alert.pbd <> Uuidx.null then
     Printf.sprintf
       "[%s] host=%s; host-name=\"%s\"; pbd=%s; scsi_id=%s; current=%d; max=%d"
       (time_of_float alert.timestamp)
-      (String.escaped (Uuid.to_string alert.host))
-      alert.host_name (Uuid.to_string alert.pbd) alert.scsi_id alert.current
-      alert.max
+      (String.escaped (Uuidx.to_string alert.host))
+      alert.host_name
+      (Uuidx.to_string alert.pbd)
+      alert.scsi_id alert.current alert.max
   else
     Printf.sprintf
       "[%s] host=%s; host-name=\"%s\"; root=true; current=%d; max=%d"
       (time_of_float alert.timestamp)
-      (String.escaped (Uuid.to_string alert.host))
+      (String.escaped (Uuidx.to_string alert.host))
       alert.host_name alert.current alert.max
 
 (* execute f within an active session *)
@@ -101,8 +102,8 @@ let create_alert ~host_uuid_string ~host_name ~pbd_uuid_string key value
   let current, max =
     Scanf.sscanf value "[%d, %d]" (fun current max -> (current, max))
   in
-  let host_maybe = Uuid.of_string host_uuid_string in
-  let pbd_maybe = Uuid.of_string pbd_uuid_string in
+  let host_maybe = Uuidx.of_string host_uuid_string in
+  let pbd_maybe = Uuidx.of_string pbd_uuid_string in
   let host_error : ('a -> 'b -> 'c -> 'd, unit, string, unit) format4 =
     "Retrieved malformed UUID for host (%s) while creating PBD alert from \
      %s=%s; ignoring entry"
@@ -154,7 +155,7 @@ let create_host_alerts _rpc _session snapshot (_, host_rec, timestamp) =
     let scsi_id = "n/a" in
     let host_uuid_string = host_rec.API.host_uuid in
     let host_name = host_rec.API.host_name_label in
-    let pbd_uuid_string = Uuid.(to_string null) in
+    let pbd_uuid_string = Uuidx.(to_string null) in
     create_alert ~host_uuid_string ~host_name ~pbd_uuid_string key value
       timestamp scsi_id
   in

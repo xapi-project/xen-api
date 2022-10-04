@@ -27,8 +27,8 @@ let non_uuid_arrays =
 
 type resource
 
-let uuid_testable : (module Alcotest.TESTABLE with type t = resource Uuid.t) =
-  Alcotest.testable Uuid.pp Uuid.equal
+let uuid_testable : (module Alcotest.TESTABLE with type t = resource Uuidx.t) =
+  Alcotest.testable Uuidx.pp Uuidx.equal
 
 let pp_array arr =
   Printf.sprintf "[|%s|]"
@@ -37,12 +37,12 @@ let pp_array arr =
 let roundtrip_tests testing_uuid =
   let expected = Some testing_uuid in
   let test_string () =
-    let result = Uuid.(to_string testing_uuid |> of_string) in
+    let result = Uuidx.(to_string testing_uuid |> of_string) in
     Alcotest.(check @@ option uuid_testable)
       "Roundtrip string conversion" expected result
   in
   let test_array () =
-    let result = Uuid.(to_int_array testing_uuid |> of_int_array) in
+    let result = Uuidx.(to_int_array testing_uuid |> of_int_array) in
     Alcotest.(check @@ option uuid_testable)
       "Roundtrip array conversion" expected result
   in
@@ -53,7 +53,7 @@ let roundtrip_tests testing_uuid =
 
 let string_roundtrip_tests testing_string =
   let testing_uuid =
-    match Uuid.of_string testing_string with
+    match Uuidx.of_string testing_string with
     | Some uuid ->
         uuid
     | None ->
@@ -62,7 +62,7 @@ let string_roundtrip_tests testing_string =
   in
   let test () =
     let expected = String.lowercase_ascii (String.sub testing_string 0 36) in
-    let result = Uuid.to_string testing_uuid in
+    let result = Uuidx.to_string testing_uuid in
     Alcotest.(check string) "Roundtrip conversion" expected result
   in
   ( testing_string
@@ -71,7 +71,7 @@ let string_roundtrip_tests testing_string =
 
 let array_roundtrip_tests testing_array =
   let testing_uuid =
-    match Uuid.of_int_array testing_array with
+    match Uuidx.of_int_array testing_array with
     | Some uuid ->
         uuid
     | None ->
@@ -81,7 +81,7 @@ let array_roundtrip_tests testing_array =
   in
   let test () =
     let expected = Array.init 16 (fun i -> testing_array.(i)) in
-    let result = Uuid.to_int_array testing_uuid in
+    let result = Uuidx.to_int_array testing_uuid in
     Alcotest.(check @@ array int) "Roundtrip conversion" expected result
   in
   ( pp_array testing_array
@@ -92,7 +92,7 @@ let invalid_string_tests testing_string =
   let test () =
     Alcotest.(check @@ option uuid_testable)
       "Must not be converted to UUID" None
-      (Uuid.of_string testing_string)
+      (Uuidx.of_string testing_string)
   in
   (testing_string, [("Fail to convert from string", `Quick, test)])
 
@@ -100,7 +100,7 @@ let invalid_array_tests testing_array =
   let test () =
     Alcotest.(check @@ option uuid_testable)
       "Must not be converted to UUID" None
-      (Uuid.of_int_array testing_array)
+      (Uuidx.of_int_array testing_array)
   in
   (pp_array testing_array, [("Fail to convert from array", `Quick, test)])
 

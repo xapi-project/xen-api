@@ -52,7 +52,7 @@ end = struct
       let open Printf in
       let cipher_options =
         [
-          sprintf "ciphers = %s" Xcp_const.good_ciphersuites
+          sprintf "ciphers = %s" Constants.good_ciphersuites
         ; "curve = secp384r1"
         ; "options = CIPHER_SERVER_PREFERENCE"
         ; "sslVersion = TLSv1.2"

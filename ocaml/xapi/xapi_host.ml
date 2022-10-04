@@ -993,7 +993,7 @@ let create ~__context ~uuid ~name_label ~name_description:_ ~hostname ~address
       ) ;
   let make_new_metrics_object ref =
     Db.Host_metrics.create ~__context ~ref
-      ~uuid:(Uuid.to_string (Uuid.make ()))
+      ~uuid:(Uuidx.to_string (Uuidx.make ()))
       ~live:false ~memory_total:0L ~memory_free:0L ~last_updated:Date.never
       ~other_config:[]
   in
@@ -2044,7 +2044,7 @@ let apply_edition_internal ~__context ~host ~edition ~additional =
   in
   let create_feature fname fenabled =
     Db.Feature.create ~__context
-      ~uuid:(Uuid.to_string (Uuid.make ()))
+      ~uuid:(Uuidx.to_string (Uuidx.make ()))
       ~ref:(Ref.make ()) ~name_label:fname ~name_description:""
       ~enabled:fenabled ~experimental:true ~version:"1.0" ~host
   in

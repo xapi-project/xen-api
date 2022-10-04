@@ -39,7 +39,7 @@ let open_tcp f host port =
     (fun () -> Unix.connect s sockaddr ; handle_socket f s)
     (fun () -> Unix.close s)
 
-let with_open_uri uri f =
+let with_open_uri ?verify_cert uri f =
   match Uri.scheme uri with
   | Some "http" -> (
     match (Uri.host uri, Uri.port uri) with
@@ -53,6 +53,25 @@ let with_open_uri uri f =
              (Uri.to_string uri)
           )
   )
+  | Some "https" -> (
+      let verify_cert =
+        Option.value ~default:(Stunnel_client.pool ()) verify_cert
+      in
+      match (Uri.host uri, Uri.port uri) with
+      | Some host, Some port ->
+          Stunnel.with_connect ~verify_cert host port (fun s ->
+              f Safe_resources.Unixfd.(!(s.Stunnel.fd))
+          )
+      | Some host, None ->
+          Stunnel.with_connect ~verify_cert host !Constants.https_port (fun s ->
+              f Safe_resources.Unixfd.(!(s.Stunnel.fd))
+          )
+      | _, _ ->
+          failwith
+            (Printf.sprintf "Failed to parse host and port from URI: %s"
+               (Uri.to_string uri)
+            )
+    )
   | Some "file" ->
       let filename = Uri.path_and_query uri in
       let sockaddr = Unix.ADDR_UNIX filename in

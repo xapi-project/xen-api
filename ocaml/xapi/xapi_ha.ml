@@ -114,7 +114,7 @@ let uuid_of_host_address address =
       error "Failed to find the UUID address of host with address %s" address ;
       raise Not_found
   | Some uuid_str -> (
-    match Uuid.of_string uuid_str with
+    match Uuidx.of_string uuid_str with
     | None ->
         error "Failed parse UUID of host with address %s" address ;
         raise (Invalid_argument "Invalid UUID")
@@ -182,11 +182,11 @@ let on_master_failure () =
           info "no other master exists yet; waiting 5 seconds and retrying" ;
           Thread.delay 5.
       | [uuid] ->
-          become_slave_of (Uuid.to_string uuid)
+          become_slave_of (Uuidx.to_string uuid)
       | xs ->
           (* should never happen *)
           error "multiple masters reported: [ %s ]; failing"
-            (String.concat "; " (List.map Uuid.to_string xs)) ;
+            (String.concat "; " (List.map Uuidx.to_string xs)) ;
           failwith "multiple masters"
     )
   done
@@ -474,7 +474,7 @@ module Monitor = struct
                 warn
                   "We think node %s (%s) is the master but the liveset \
                    disagrees"
-                  (Uuid.to_string master_uuid)
+                  (Uuidx.to_string master_uuid)
                   address ;
                 on_master_failure ()
               )
@@ -518,7 +518,7 @@ module Monitor = struct
               let liveset_refs =
                 List.map
                   (fun uuid ->
-                    Db.Host.get_by_uuid ~__context ~uuid:(Uuid.to_string uuid)
+                    Db.Host.get_by_uuid ~__context ~uuid:(Uuidx.to_string uuid)
                   )
                   liveset_uuids
               in
@@ -593,7 +593,7 @@ module Monitor = struct
                     ( host
                     , Hashtbl.find
                         liveset.Xha_interface.LiveSetInformation.hosts
-                        (Uuid.of_string (Db.Host.get_uuid ~__context ~self:host)
+                        (Uuidx.of_string (Db.Host.get_uuid ~__context ~self:host)
                         |> Option.get
                         )
                     )
@@ -658,7 +658,7 @@ module Monitor = struct
                             local
                               .Xha_interface.LiveSetInformation.RawStatus
                                .host_raw_data
-                            (Uuid.of_string
+                            (Uuidx.of_string
                                (Db.Host.get_uuid ~__context ~self:host)
                             |> Option.get
                             )
@@ -686,7 +686,7 @@ module Monitor = struct
                             .Xha_interface.LiveSetInformation.HostRawData
                              .heartbeat_active_list_on_heartbeat
                       in
-                      let peer_strings = List.map Uuid.to_string peers in
+                      let peer_strings = List.map Uuidx.to_string peers in
                       debug "Network peers = [%s]"
                         (String.concat ";" peer_strings) ;
                       let existing_strings =
@@ -741,7 +741,7 @@ module Monitor = struct
                   if with_lock m (fun () -> not !request_shutdown) then (
                     let liveset = query_liveset_on_all_hosts () in
                     let uuids =
-                      List.map Uuid.to_string (uuids_of_liveset liveset)
+                      List.map Uuidx.to_string (uuids_of_liveset liveset)
                     in
                     let enabled =
                       List.map
@@ -1301,7 +1301,7 @@ let write_config_file ~__context statevdi_paths generation =
       ~xapi_restart_attempts:timeouts.Timeouts.xapi_restart_attempts
       ~xapi_restart_timeout:timeouts.Timeouts.xapi_restart_timeout
       ~common_udp_port:Xapi_globs.xha_udp_port
-      ~common_generation_uuid:(Uuid.of_string generation |> Option.get)
+      ~common_generation_uuid:(Uuidx.of_string generation |> Option.get)
       ~local_heart_beat_interface ~local_heart_beat_physical_interface
       ~local_state_file ~__context ()
   in
@@ -1887,7 +1887,7 @@ let enable __context heartbeat_srs configuration =
     (* Start by assuming there is no ha_plan_for: this can be revised upwards later *)
     Db.Pool.set_ha_plan_exists_for ~__context ~self:pool ~value:0L ;
     let (_ : bool) = Xapi_ha_vm_failover.update_pool_status ~__context () in
-    let generation = Uuid.to_string (Uuid.make ()) in
+    let generation = Uuidx.to_string (Uuidx.make ()) in
     let hosts = Db.Host.get_all ~__context in
     (* This code always runs on the master *)
     let statefiles = attach_statefiles ~__context !statefile_vdis in

@@ -540,7 +540,7 @@ let cancel_tasks ~__context ~self ~all_tasks_in_db ~task_ids =
   let a = Db.VDI.get_record_internal ~__context ~self:original in
   let r = Ref.make () in
   Db.VDI.create ~__context ~ref:r
-    ~uuid:(Uuid.to_string uuid)
+    ~uuid:(Uuidx.to_string uuid)
     ~name_label:(default a.Db_actions.vDI_name_label name_label)
     ~name_description:(default a.Db_actions.vDI_name_description name_description)
     ~allowed_operations:[] ~current_operations

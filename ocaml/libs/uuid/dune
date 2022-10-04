@@ -1,10 +1,11 @@
 (library
   (name uuid)
   (public_name uuid)
-  (modules uuid)
+  (modules uuidx)
   (libraries
     unix uuidm
   )
+  (wrapped false)
 )
 
 (test

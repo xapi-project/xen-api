@@ -4,8 +4,10 @@
   (package vhd-tool)
   (public_names vhd-tool sparse_dd get_vhd_vsize)
   (libraries
+    cmdliner
     local_lib
     cstruct
+    xapi-idl
   )
 )
 

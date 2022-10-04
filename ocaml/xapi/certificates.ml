@@ -221,7 +221,7 @@ end = struct
     let fingerprint =
       X509.Certificate.fingerprint `SHA256 certificate |> pp_hash
     in
-    let uuid = Uuid.(to_string (make ())) in
+    let uuid = Uuidx.(to_string (make ())) in
     let ref' = Ref.make () in
     Db.Certificate.create ~__context ~ref:ref' ~uuid ~host ~not_before
       ~not_after ~fingerprint ~name ~_type ;

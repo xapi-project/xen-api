@@ -314,7 +314,7 @@ let create_and_set_guest_metrics (lookup : string -> string option)
     =
   let initial_gm = get_initial_guest_metrics lookup list in
   let self = Db.VM.get_by_uuid ~__context ~uuid in
-  let new_gm_uuid = Uuid.to_string (Uuid.make ())
+  let new_gm_uuid = Uuidx.to_string (Uuidx.make ())
   and new_gm_ref = Ref.make () in
   Db.VM_guest_metrics.create ~__context ~ref:new_gm_ref ~uuid:new_gm_uuid
     ~os_version:initial_gm.os_version

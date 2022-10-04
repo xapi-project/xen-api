@@ -14,7 +14,7 @@
 
 let create ~__context ~name_label ~name_description ~other_config =
   let group = Ref.make () in
-  let uuid = Uuid.to_string (Uuid.make ()) in
+  let uuid = Uuidx.to_string (Uuidx.make ()) in
   Db.USB_group.create ~__context ~ref:group ~uuid ~name_label ~name_description
     ~other_config ;
   group

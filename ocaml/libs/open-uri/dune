@@ -1,0 +1,12 @@
+(library
+ (name open_uri)
+ (public_name xapi-open-uri)
+ (libraries
+   cohttp
+   stunnel
+   xapi-consts
+   xapi-log
+   xapi-stdext-pervasives
+ )
+ (wrapped false)
+)

@@ -205,8 +205,8 @@ let with_conversion_script task name hvm fd f =
   let finally = Xapi_stdext_pervasives.Pervasiveext.finally in
   check_conversion_script () >>= fun () ->
   let pipe_r, pipe_w = Unix.pipe () in
-  let fd_uuid = Uuid.(to_string (make ()))
-  and pipe_w_uuid = Uuid.(to_string (make ())) in
+  let fd_uuid = Uuidx.(to_string (make ()))
+  and pipe_w_uuid = Uuidx.(to_string (make ())) in
   let conv_script = !Resources.legacy_conv_tool
   and args =
     [

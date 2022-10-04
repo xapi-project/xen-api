@@ -1,0 +1,12 @@
+(library
+ (name log)
+ (public_name xapi-log)
+ (foreign_stubs
+   (language c)
+   (names syslog_stubs))
+ (libraries
+   astring
+   xapi-stdext-pervasives
+ )
+ (wrapped false)
+)

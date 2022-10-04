@@ -75,7 +75,7 @@ let one fds x =
     Printf.fprintf stderr "extra = %d\n" x.extra;*)
   let fd = Unix.stdin in
   let make_names n =
-    List.map (fun _ -> Uuid.(to_string (make ()))) (mkints n)
+    List.map (fun _ -> Uuidx.(to_string (make ()))) (mkints n)
   in
   let names = make_names x.named_fds in
   let cmdline_names = irrelevant_strings @ names @ names in

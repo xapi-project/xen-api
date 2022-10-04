@@ -1303,7 +1303,8 @@ let copy_metrics ~__context ~vm =
     else
       None
   in
-  let metrics = Ref.make () and metrics_uuid = Uuid.to_string (Uuid.make ()) in
+  let metrics = Ref.make ()
+  and metrics_uuid = Uuidx.to_string (Uuidx.make ()) in
   Db.VM_metrics.create ~__context ~ref:metrics ~uuid:metrics_uuid
     ~memory_actual:
       (Option.fold ~none:0L
@@ -1379,7 +1380,7 @@ let copy_guest_metrics ~__context ~vm =
     let all = Db.VM_guest_metrics.get_record ~__context ~self:gm in
     let ref = Ref.make () in
     Db.VM_guest_metrics.create ~__context ~ref
-      ~uuid:(Uuid.to_string (Uuid.make ()))
+      ~uuid:(Uuidx.to_string (Uuidx.make ()))
       ~os_version:all.API.vM_guest_metrics_os_version
       ~pV_drivers_version:all.API.vM_guest_metrics_PV_drivers_version
       ~pV_drivers_up_to_date:all.API.vM_guest_metrics_PV_drivers_up_to_date

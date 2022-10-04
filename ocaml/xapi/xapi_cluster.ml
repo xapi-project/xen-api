@@ -43,8 +43,8 @@ let create ~__context ~pIF ~cluster_stack ~pool_auto_join ~token_timeout
       validate_params ~token_timeout ~token_timeout_coefficient ;
       let cluster_ref = Ref.make () in
       let cluster_host_ref = Ref.make () in
-      let cluster_uuid = Uuid.(to_string (make ())) in
-      let cluster_host_uuid = Uuid.(to_string (make ())) in
+      let cluster_uuid = Uuidx.(to_string (make ())) in
+      let cluster_host_uuid = Uuidx.(to_string (make ())) in
       (* For now we assume we have only one pool
          TODO: get master ref explicitly passed in as parameter*)
       let host = Helpers.get_master ~__context in

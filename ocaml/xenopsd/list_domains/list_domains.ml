@@ -39,7 +39,7 @@ let hashtbl_of_domaininfo x : (string, string) Hashtbl.t =
     let string_of_domain_handle handle =
       Array.to_list handle |> List.map string_of_int |> String.concat "; "
     in
-    match Uuid.of_int_array di.Xenctrl.handle with
+    match Uuidx.of_int_array di.Xenctrl.handle with
     | Some x ->
         x
     | None ->
@@ -80,7 +80,7 @@ let hashtbl_of_domaininfo x : (string, string) Hashtbl.t =
   Hashtbl.add table "vcpus online" (int x.nr_online_vcpus) ;
   Hashtbl.add table "max vcpu id" (int x.max_vcpu_id) ;
   Hashtbl.add table "ssidref" (int32 x.ssidref) ;
-  Hashtbl.add table "uuid" (Uuid.to_string (uuid_of_di x)) ;
+  Hashtbl.add table "uuid" (Uuidx.to_string (uuid_of_di x)) ;
   (* Ask for shadow allocation separately *)
   let shadow_mib =
     try Some (Int64.of_int (Xenctrl.shadow_allocation_get xc_handle x.domid))
