@@ -16,7 +16,7 @@ let prototyped_of_field = function
   | "VTPM", "persistence_backend" ->
       Some "22.26.0"
   | "host", "https_only" ->
-      Some "22.26.0-next"
+      Some "22.27.0"
   | "host", "last_software_update" ->
       Some "22.20.0"
   | _ ->
@@ -38,8 +38,8 @@ let prototyped_of_message = function
   | "VTPM", "create" ->
       Some "22.26.0"
   | "host", "set_https_only" ->
-      Some "22.26.0-next"
+      Some "22.27.0"
   | "pool", "set_https_only" ->
-      Some "22.26.0-next"
+      Some "22.27.0"
   | _ ->
       None

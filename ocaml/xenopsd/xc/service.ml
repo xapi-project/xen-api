@@ -25,6 +25,15 @@ let defer f g = Xapi_stdext_pervasives.Pervasiveext.finally g f
 
 exception Service_failed of (string * string)
 
+let () =
+  Printexc.register_printer (function
+    | Service_failed (service, reason) ->
+        Some
+          (Printf.sprintf "Service_failed(service=%s,reason=%s)" service reason)
+    | _ ->
+        None
+    )
+
 type t = {
     name: string
   ; domid: Xenctrl.domid
