@@ -11,10 +11,9 @@
     <StartArguments>-NoLogo -NoExit -Command "Import-Module '.\XenServerPowerShell.dll'"</StartArguments>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="System.Management.Automation, Version=3.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>$(MSBuildProgramFiles32)\Reference Assemblies\Microsoft\WindowsPowerShell\3.0\System.Management.Automation.dll</HintPath>
-    </Reference>
+    <PackageReference Include="System.Management.Automation" Version="7.2.6" />
+  </ItemGroup>
+  <ItemGroup>
     <Reference Include="XenServer">
       <SpecificVersion>False</SpecificVersion>
       <HintPath>.\XenServer.dll</HintPath>
