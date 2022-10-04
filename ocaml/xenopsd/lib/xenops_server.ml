@@ -170,6 +170,7 @@ type vm_migrate_op = {
   ; vmm_tmp_src_id: Vm.id
   ; vmm_tmp_dest_id: Vm.id
   ; vmm_compress: bool
+  ; vmm_verify_cert: bool
 }
 [@@deriving rpcty]
 
@@ -2406,6 +2407,9 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
               f vgpu_fd
         in
         debug "%s compress memory: %b" __FUNCTION__ compress_memory ;
+        let verify_cert =
+          if vmm.vmm_verify_cert then Stunnel_client.pool () else None
+        in
         (* We need to perform version exchange here *)
         let module B = (val get_backend () : S) in
         B.VM.assert_can_save vm ;
@@ -2462,7 +2466,7 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
         let state = B.VM.get_state vm in
         info "VM %s has memory_limit = %Ld" id state.Vm.memory_limit ;
         let url = make_url "/migrate/vm/" new_dest_id in
-        Open_uri.with_open_uri url (fun vm_fd ->
+        Open_uri.with_open_uri ~verify_cert url (fun vm_fd ->
             let module Handshake = Xenops_migrate.Handshake in
             let do_request fd extra_cookies url =
               Sockopt.set_sock_keepalives fd ;
@@ -2539,7 +2543,7 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
             in
             let save ?vgpu_fd () =
               let url = make_url "/migrate/mem/" new_dest_id in
-              Open_uri.with_open_uri url (fun mem_fd ->
+              Open_uri.with_open_uri ~verify_cert url (fun mem_fd ->
                   (* vm_fd: signaling channel, mem_fd: memory stream *)
                   do_request mem_fd [] url ;
                   Handshake.recv_success mem_fd ;
@@ -2568,7 +2572,7 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
                   make_url "/migrate/vgpu/"
                     (VGPU_DB.string_of_id (new_dest_id, dev_id))
                 in
-                Open_uri.with_open_uri url (fun vgpu_fd ->
+                Open_uri.with_open_uri ~verify_cert url (fun vgpu_fd ->
                     Sockopt.set_sock_keepalives vgpu_fd ;
                     do_request vgpu_fd [(cookie_vgpu_migration, "")] url ;
                     Handshake.recv_success vgpu_fd ;
@@ -3382,7 +3386,7 @@ module VM = struct
   let s3resume _ dbg id = queue_operation dbg id (Atomic (VM_s3resume id))
 
   let migrate _context dbg id vmm_vdi_map vmm_vif_map vmm_vgpu_pci_map vmm_url
-      (compress : bool) =
+      (compress : bool) (verify_cert : bool) =
     let tmp_uuid_of uuid ~kind =
       Printf.sprintf "%s00000000000%c" (String.sub uuid 0 24)
         (match kind with `dest -> '1' | `src -> '0')
@@ -3398,6 +3402,7 @@ module VM = struct
          ; vmm_tmp_src_id= tmp_uuid_of id ~kind:`src
          ; vmm_tmp_dest_id= tmp_uuid_of id ~kind:`dest
          ; vmm_compress= compress
+         ; vmm_verify_cert= verify_cert
          }
       )
 

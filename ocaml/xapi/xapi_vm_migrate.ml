@@ -232,7 +232,7 @@ let assert_licensed_storage_motion ~__context =
   Pool_features.assert_enabled ~__context ~f:Features.Storage_motion
 
 let rec migrate_with_retries ~__context queue_name max try_no dbg vm_uuid
-    xenops_vdi_map xenops_vif_map xenops_vgpu_map xenops compress =
+    xenops_vdi_map xenops_vif_map xenops_vgpu_map xenops compress verify_cert =
   let open Xapi_xenops_queue in
   let module Client = (val make_client queue_name : XENOPS) in
   let progress = ref "(none yet)" in
@@ -240,7 +240,7 @@ let rec migrate_with_retries ~__context queue_name max try_no dbg vm_uuid
     progress := "Client.VM.migrate" ;
     let t1 =
       Client.VM.migrate dbg vm_uuid xenops_vdi_map xenops_vif_map
-        xenops_vgpu_map xenops compress
+        xenops_vgpu_map xenops compress verify_cert
     in
     progress := "sync_with_task" ;
     ignore (Xapi_xenops.sync_with_task __context queue_name t1)
@@ -267,6 +267,7 @@ let rec migrate_with_retries ~__context queue_name max try_no dbg vm_uuid
           (Printexc.to_string e) !progress try_no max ;
         migrate_with_retries ~__context queue_name max (try_no + 1) dbg vm_uuid
           xenops_vdi_map xenops_vif_map xenops_vgpu_map xenops compress
+          verify_cert
     (* Something else went wrong *)
     | e ->
         debug
@@ -403,7 +404,7 @@ let pool_migrate ~__context ~vm ~host ~options =
             Xapi_xenops.transform_xenops_exn ~__context ~vm queue_name
               (fun () ->
                 migrate_with_retry ~__context queue_name dbg vm_uuid [] []
-                  xenops_vgpu_map xenops_url compress ;
+                  xenops_vgpu_map xenops_url compress true ;
                 (* Delete all record of this VM locally (including caches) *)
                 Xapi_xenops.Xenopsd_metadata.delete ~__context vm_uuid
             )
@@ -1494,9 +1495,10 @@ let migrate_send' ~__context ~vm ~dest ~live:_ ~vdi_map ~vif_map ~vgpu_map
                 (* can raise VGPU_mapping *)
                 infer_vgpu_map ~__context ~remote new_vm
               in
+              let verify_cert = is_intra_pool in
               migrate_with_retry ~__context queue_name dbg vm_uuid
                 xenops_vdi_map xenops_vif_map xenops_vgpu_map remote.xenops_url
-                compress ;
+                compress verify_cert ;
               Xapi_xenops.Xenopsd_metadata.delete ~__context vm_uuid
           )
         with
