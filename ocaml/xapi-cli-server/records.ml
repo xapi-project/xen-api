@@ -1430,6 +1430,20 @@ let pool_record rpc session_id pool =
       ; make_field ~name:"repository-proxy-username"
           ~get:(fun () -> (x ()).API.pool_repository_proxy_username)
           ()
+      ; make_field ~name:"https-only"
+          ~get:(fun () ->
+            Client.Host.get_all ~rpc ~session_id
+            |> List.map (fun h ->
+                   Client.Host.get_https_only ~rpc ~session_id ~self:h
+               )
+            |> List.fold_left ( && ) true
+            |> string_of_bool
+          )
+          ~set:(fun s ->
+            Client.Pool.set_https_only ~rpc ~session_id ~self:pool
+              ~value:(Stdlib.bool_of_string s)
+          )
+          ()
       ]
   }
 
