@@ -210,6 +210,12 @@ let make_host table __context self =
 let make_vm ?(with_snapshot_metadata = false) ~preserve_power_state table
     __context self =
   let vm = Db.VM.get_record ~__context ~self in
+  let vM_VTPMs = filter table (List.map Ref.string_of vm.API.vM_VTPMs) in
+  (* disallow exports and cross-pool migrations of VMs with VTPMs *)
+  ( if vM_VTPMs <> [] then
+      let message = "Exporting VM metadata with VTPMs attached" in
+      Helpers.maybe_raise_vtpm_unimplemented __FUNCTION__ message
+  ) ;
   let vm =
     {
       vm with
@@ -251,7 +257,7 @@ let make_vm ?(with_snapshot_metadata = false) ~preserve_power_state table
     ; API.vM_VBDs= filter table (List.map Ref.string_of vm.API.vM_VBDs)
     ; API.vM_VGPUs= filter table (List.map Ref.string_of vm.API.vM_VGPUs)
     ; API.vM_crash_dumps= []
-    ; API.vM_VTPMs= []
+    ; API.vM_VTPMs
     ; API.vM_resident_on= lookup table (Ref.string_of vm.API.vM_resident_on)
     ; API.vM_affinity= lookup table (Ref.string_of vm.API.vM_affinity)
     ; API.vM_consoles= []

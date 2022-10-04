@@ -32,7 +32,7 @@ let assert_no_fencing ~__context ~persistence_backend =
   match (persistence_backend, may_fence) with
   | `xapi, true ->
       let message = "VTPM.create with HA or clustering enabled" in
-      raise Api_errors.(Server_error (not_implemented, [message]))
+      Helpers.maybe_raise_vtpm_unimplemented __FUNCTION__ message
   | _ ->
       ()
 

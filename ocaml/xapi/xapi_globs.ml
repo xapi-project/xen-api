@@ -926,6 +926,8 @@ let repository_gpgcheck = ref true
 
 let migration_compression = ref false
 
+let ignore_vtpm_unimplemented = ref false
+
 let evacuation_batch_size = ref 10
 
 type xapi_globs_spec_ty = Float of float ref | Int of int ref
@@ -1362,7 +1364,15 @@ let other_options =
     , (fun () -> string_of_int !evacuation_batch_size)
     , "The number of VMs evacauted from a host in parallel."
     )
+  ; ( "ignore-vtpm-unimplemented"
+    , Arg.Set ignore_vtpm_unimplemented
+    , (fun () -> string_of_bool !ignore_vtpm_unimplemented)
+    , "Do not raise errors on use-cases where VTPM codepaths are not finished."
+    )
   ]
+
+(* The options can be set with the variable xapiflags in /etc/sysconfig/xapi.
+   e.g. xapiflags=-nowatchdog *)
 
 let all_options = options_of_xapi_globs_spec @ other_options
 

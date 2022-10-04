@@ -1211,14 +1211,14 @@ module MD = struct
       in
       {priority; affinity}
     in
+    let firmware = firmware_of_vm vm in
     let platformdata =
-      Vm_platform.sanity_check ~platformdata:vm.API.vM_platform
-        ~firmware:(firmware_of_vm vm) ~vcpu_max:vm.API.vM_VCPUs_max
+      Vm_platform.sanity_check ~platformdata:vm.API.vM_platform ~firmware
+        ~vcpu_max:vm.API.vM_VCPUs_max
         ~vcpu_at_startup:vm.API.vM_VCPUs_at_startup
         ~domain_type:(Helpers.check_domain_type vm.API.vM_domain_type)
         ~filter_out_unknowns:
           (not (Pool_features.is_enabled ~__context Features.No_platform_filter))
-        ()
     in
     (* Replace the timeoffset in the platform data too, to avoid confusion *)
     let timeoffset = rtc_timeoffset_of_vm ~__context (vmref, vm) vbds in
@@ -1261,6 +1261,14 @@ module MD = struct
       else
         platformdata
     in
+    (* BIOS guests don't seem to detect the attached VTPM, block them *)
+    ( match (firmware, vm.API.vM_VTPMs) with
+    | Xenops_types.Vm.Bios, _ :: _ ->
+        let message = "Booting BIOS VM with VTPMs attached" in
+        Helpers.maybe_raise_vtpm_unimplemented __FUNCTION__ message
+    | _ ->
+        ()
+    ) ;
     (* Add TPM version 2 iff there's a tpm attached to the VM, this allows
        hvmloader to load the TPM 2.0 ACPI table while maintaing the current
        ACPI table for other guests *)

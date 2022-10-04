@@ -423,13 +423,8 @@ let clone ?snapshot_info_record ?(ignore_vdis = []) disk_op ~__context ~vm
       let power_state = Db.VM.get_power_state ~__context ~self:vm in
       ( match (power_state, vtpms) with
       | `Running, _ :: _ ->
-          error "%s: Running VMs with VTPMs cannot be snapshotted yet"
-            __FUNCTION__ ;
-          raise
-            Api_errors.(
-              Server_error
-                (not_implemented, ["VM.clone of running VM with VTPM"])
-            )
+          let message = "VM.clone of running VM with VTPM" in
+          Helpers.maybe_raise_vtpm_unimplemented __FUNCTION__ message
       | _ ->
           ()
       ) ;
