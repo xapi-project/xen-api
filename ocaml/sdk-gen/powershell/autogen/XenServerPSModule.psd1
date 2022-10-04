@@ -44,22 +44,18 @@ Copyright = 'Copyright (c) Citrix Systems, Inc. All rights reserved.'
 PowerShellVersion = '7.2'
 PowerShellHostName = ''
 PowerShellHostVersion = ''
-DotNetFrameworkVersion = '6.0'
 ProcessorArchitecture = 'None'
 
 #Contents
 ModuleToProcess = 'XenServerPowerShell.dll'
 RequiredModules = @()
 NestedModules = @()
-ModuleList = @('XenServerPowerShell.dll')
-RequiredAssemblies = @('System.Management.Automation.dll',
-                        'Newtonsoft.Json.CH.dll',
+RequiredAssemblies = @('Newtonsoft.Json.CH.dll',
                        'XenServer.dll')
 ScriptsToProcess = @('Initialize-Environment.ps1')
 TypesToProcess = @('XenServer.types.ps1xml')
 FormatsToProcess = @('XenServer.format.ps1xml')
 FileList = @('about_XenServer.help.txt',
-             'System.Management.Automation.dll',
              'Newtonsoft.Json.CH.dll',
              'Initialize-Environment.ps1',
              'LICENSE.Newtonsoft.Json.txt',
