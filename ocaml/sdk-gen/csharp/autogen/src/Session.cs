@@ -68,7 +68,8 @@ namespace XenAPI
                 KeepAlive = true,
                 UserAgent = UserAgent,
                 WebProxy = Proxy,
-                JsonRpcVersion = JsonRpcVersion.v2
+                JsonRpcVersion = JsonRpcVersion.v2,
+                AllowAutoRedirect = true
             };
         }
 
