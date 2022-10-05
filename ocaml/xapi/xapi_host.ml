@@ -2927,7 +2927,7 @@ let apply_updates ~__context ~self ~hash =
   warnings
 
 let set_https_only ~__context ~self ~value =
-  Db.Host.set_https_only ~__context ~self ~value ;
   let state = match value with true -> "close" | false -> "open" in
   ignore
-  @@ Helpers.call_script !Xapi_globs.firewall_port_config_script [state; "80"]
+  @@ Helpers.call_script !Xapi_globs.firewall_port_config_script [state; "80"] ;
+  Db.Host.set_https_only ~__context ~self ~value
