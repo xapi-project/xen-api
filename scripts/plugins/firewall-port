@@ -16,8 +16,16 @@ set -e
 OP="$1"
 PORT="$2"
 PROTOCOL="${3:-tcp}"
-CHAIN="xapi-INPUT"
 RULE="-p $PROTOCOL -m conntrack --ctstate NEW -m $PROTOCOL --dport $PORT -j ACCEPT"
+
+case "$PORT" in
+    80)
+        CHAIN="RH-Firewall-1-INPUT"
+        ;;
+    *)
+        CHAIN="xapi-INPUT"
+        ;;
+esac
 
 case "${OP}" in
     open)
