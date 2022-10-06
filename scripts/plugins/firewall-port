@@ -47,10 +47,19 @@ case "${OP}" in
             service iptables save
         fi
         ;;
+    check) 
+        if [[ -z `iptables -S $CHAIN | grep " $PORT "` ]]
+        then
+            echo "Port $PORT open: true"
+        else
+            echo "Port $PORT open: false"
+        fi
+        ;;
     *)
-        echo $"Usage: $0 {open|close} {port} {protocol}" 1>&2
+        echo $"Usage: $0 {open|close|check} {port} {protocol}" 1>&2
         exit 1
         ;;
 esac
+
 exit 0
 
