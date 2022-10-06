@@ -2267,7 +2267,7 @@ module Dm_Common = struct
       Service.Varstored.stop ~xs domid ;
       Xenops_sandbox.Varstore_guard.stop dbg ~domid ~vm_uuid
     in
-    stop_vgpu () ; stop_varstored () ; stop_swptm () ; stop_qemu ()
+    stop_vgpu () ; stop_varstored () ; stop_qemu () ; stop_swptm ()
 
   type disk_type_args = int * string * Media.t -> string list
 
