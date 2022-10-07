@@ -320,7 +320,9 @@ let rpc ~srcstr ~dststr (url, pool_secret) =
     let open Http.Url in
     match url with
     | Http h, d ->
-        ((Http {h with host= ip}, d), pool_secret)
+        ( (Http {h with host= ip; ssl= !Xapi_globs.migration_https_only}, d)
+        , pool_secret
+        )
     | _ ->
         remote_url ip
   in
