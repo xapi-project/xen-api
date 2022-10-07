@@ -109,7 +109,17 @@ let remote_of_dest ~__context dest =
         (* host unknown - this is a cross-pool migration *)
         Helpers.make_remote_rpc ~verify_cert:None remote_master_ip
   in
-  let sm_url = List.assoc _sm dest in
+  let sm_url =
+    let url = List.assoc _sm dest in
+    if Helpers.this_is_my_address ~__context remote_ip then
+      match Http.Url.of_string url with
+      | Http h, d ->
+          Http.Url.to_string (Http {h with Http.Url.ssl= false}, d)
+      | _ ->
+          url
+    else
+      url
+  in
   {
     rpc
   ; session= session_id
