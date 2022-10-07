@@ -304,7 +304,7 @@ let transport_of_url (scheme, _) =
       let port = Option.value ~default:443 h.port in
       SSL (SSL.make ~verify_cert:None (), h.host, port)
 
-let with_transport transport f =
+let with_transport ?(stunnel_wait_disconnect = true) transport f =
   match transport with
   | Unix path ->
       let fd = Unixext.open_connection_unix_fd path in
@@ -373,7 +373,7 @@ let with_transport transport f =
                   s_pid use_stunnel_cache
               ) else (
                 Unix.unlink st_proc.Stunnel.logfile ;
-                Stunnel.disconnect st_proc
+                Stunnel.disconnect ~wait:stunnel_wait_disconnect st_proc
               )
             )
       )
