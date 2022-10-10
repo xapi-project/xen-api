@@ -11,13 +11,15 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	See the
  * GNU Lesser General Public License for more details.
  *)
-(* main.ml *)
 
 open Datamodel_types
 open Datamodel_utils
 open Dm_api
 
-(* JSON *)
+let ( // ) = Filename.concat
+
+let write_string ~path str =
+  Xapi_stdext_unix.Unixext.write_string_to_file path str
 
 let destdir' = ref "."
 
@@ -558,11 +560,11 @@ let releases objs =
        release_order
     )
 
-let _ =
+let () =
   parse_args () ;
   let destdir = !destdir' in
   Xapi_stdext_unix.Unixext.mkdir_rec destdir 0o755 ;
-  let data_dir = Filename.concat destdir "_data" in
+  let data_dir = destdir // "_data" in
   Xapi_stdext_unix.Unixext.mkdir_rec data_dir 0o755 ;
   let api = Datamodel.all_api in
   (* Add all implicit messages *)
@@ -578,12 +580,12 @@ let _ =
       api
   in
   let objs = objects_of_api api in
-  Xapi_stdext_unix.Unixext.write_string_to_file
-    (Filename.concat data_dir "xenapi.json")
+  write_string
+    ~path:(data_dir // "xenapi.json")
     (objs |> json_of_objs |> string_of_json 0) ;
   let release_info = releases objs in
-  Xapi_stdext_unix.Unixext.write_string_to_file
-    (Filename.concat data_dir "release_info.json")
+  write_string
+    ~path:(data_dir // "release_info.json")
     (string_of_json 0 release_info) ;
   let release_yaml = function
     | {release_date= None; _} ->
@@ -593,12 +595,12 @@ let _ =
     | _ ->
         ""
   in
-  Xapi_stdext_unix.Unixext.write_string_to_file
-    (Filename.concat data_dir "releases.yml")
-    (release_order_full |> List.map release_yaml |> String.concat "") ;
-  let release_md_dir = Filename.concat destdir "xen-api/releases" in
+  write_string
+    ~path:(data_dir // "releases.yml")
+    (List.map release_yaml release_order_full |> String.concat "") ;
+  let release_md_dir = destdir // "xen-api/releases" in
   Xapi_stdext_unix.Unixext.mkdir_rec release_md_dir 0o755 ;
-  let class_md_dir = Filename.concat destdir "xen-api/classes" in
+  let class_md_dir = destdir // "xen-api/classes" in
   Xapi_stdext_unix.Unixext.mkdir_rec class_md_dir 0o755 ;
   let release_md = function
     | {release_date= None; _} ->
@@ -620,14 +622,14 @@ let _ =
           )
         ]
         |> String.concat "\n"
-        |> Xapi_stdext_unix.Unixext.write_string_to_file
-             (Filename.concat release_md_dir (Printf.sprintf "%s.md" x))
+        |> write_string ~path:(release_md_dir // Printf.sprintf "%s.md" x)
     | _ ->
         ()
   in
   release_order_full |> List.iter release_md ;
   let class_md = function
     | {name; _} ->
+        let filename = Printf.sprintf "%s.md" (String.lowercase_ascii name) in
         [
           "---"
         ; "layout: xenapi-class"
@@ -636,9 +638,6 @@ let _ =
         ; "---\n"
         ]
         |> String.concat "\n"
-        |> Xapi_stdext_unix.Unixext.write_string_to_file
-             (Filename.concat class_md_dir
-                (Printf.sprintf "%s.md" (String.lowercase_ascii name))
-             )
+        |> write_string ~path:(class_md_dir // filename)
   in
   objs |> List.iter class_md
