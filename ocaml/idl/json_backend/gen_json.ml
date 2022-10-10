@@ -34,531 +34,453 @@ let parse_args () =
     (fun x -> Printf.printf "Ignoring anonymous argument %s" x)
     "Generates documentation for the datamodel classes. See -help."
 
-let escape_json s =
-  let len = String.length s in
-  if len > 0 then (
-    let buf = Buffer.create len in
-    for i = 0 to len - 1 do
-      match s.[i] with
-      | '\"' ->
-          Buffer.add_string buf "\\\""
-      | '\\' ->
-          Buffer.add_string buf "\\\\"
-      | '\b' ->
-          Buffer.add_string buf "\\b"
-      | '\n' ->
-          Buffer.add_string buf "\\n"
-      | '\r' ->
-          Buffer.add_string buf "\\r"
-      | '\t' ->
-          Buffer.add_string buf "\\t"
-      | c ->
-          Buffer.add_char buf c
-    done ;
-    Buffer.contents buf
-  ) else
-    ""
-
-type json =
-  | JObject of (string * json) list
-  | JArray of json list
-  | JString of string
-  | JNumber of float
-  | JBoolean of bool
-  | JEmpty
-
-let endl n =
-  if n = 0 then
-    ""
-  else
-    "\n" ^ String.make ((2 * n) - 2) ' '
-
-let rec string_of_json n = function
-  | JObject l ->
-      endl n
-      ^ "{ "
-      ^ String.concat
-          ("," ^ endl (n + 1))
-          (List.map
-             (fun (s, j) -> "\"" ^ s ^ "\": " ^ string_of_json (n + 2) j)
-             l
-          )
-      ^ " }"
-  | JArray l ->
-      "[ "
-      ^ String.concat ", " (List.map (fun j -> string_of_json n j) l)
-      ^ " ]"
-  | JString s ->
-      "\"" ^ escape_json s ^ "\""
-  | JNumber n ->
-      Printf.sprintf "%.4f" n
-  | JBoolean b ->
-      if b = true then "true" else "false"
-  | JEmpty ->
-      "\"\""
-
 (* Datamodel *)
 
-let rec string_of_ty_with_enums ty =
-  match ty with
-  | SecretString | String ->
-      ("string", [])
-  | Int ->
-      ("int", [])
-  | Float ->
-      ("float", [])
-  | Bool ->
-      ("bool", [])
-  | DateTime ->
-      ("datetime", [])
-  | Enum (name, kv) ->
-      ("enum " ^ name, [(name, kv)])
-  | Set ty ->
-      let s, e = string_of_ty_with_enums ty in
-      (s ^ " set", e)
-  | Map (ty1, ty2) ->
-      let s1, e1 = string_of_ty_with_enums ty1 in
-      let s2, e2 = string_of_ty_with_enums ty2 in
-      (Printf.sprintf "(%s -> %s) map" s1 s2, e1 @ e2)
-  | Ref r ->
-      (r ^ " ref", [])
-  | Record r ->
-      (r ^ " record", [])
-  | Option ty ->
-      let s, e = string_of_ty_with_enums ty in
-      (s ^ " option", e)
+module Json : sig
+  val xenapi : Datamodel_types.obj list -> Yojson.Safe.t
 
-let string_of_qualifier = function
-  | RW ->
-      "RW"
-  | StaticRO ->
-      "RO/constructor"
-  | DynamicRO ->
-      "RO/runtime"
+  val release_info :
+    api_release list -> Datamodel_types.obj list -> Yojson.Safe.t
+end = struct
+  let rec string_of_ty_with_enums ty =
+    match ty with
+    | SecretString | String ->
+        ("string", [])
+    | Int ->
+        ("int", [])
+    | Float ->
+        ("float", [])
+    | Bool ->
+        ("bool", [])
+    | DateTime ->
+        ("datetime", [])
+    | Enum (name, kv) ->
+        ("enum " ^ name, [(name, kv)])
+    | Set ty ->
+        let s, e = string_of_ty_with_enums ty in
+        (s ^ " set", e)
+    | Map (ty1, ty2) ->
+        let s1, e1 = string_of_ty_with_enums ty1 in
+        let s2, e2 = string_of_ty_with_enums ty2 in
+        (Printf.sprintf "(%s -> %s) map" s1 s2, e1 @ e2)
+    | Ref r ->
+        (r ^ " ref", [])
+    | Record r ->
+        (r ^ " record", [])
+    | Option ty ->
+        let s, e = string_of_ty_with_enums ty in
+        (s ^ " option", e)
 
-let rec string_of_default = function
-  | VString x ->
-      "\"" ^ x ^ "\""
-  | VInt x ->
-      Int64.to_string x
-  | VFloat x ->
-      string_of_float x
-  | VBool x ->
-      string_of_bool x
-  | VDateTime x ->
-      Date.to_string x
-  | VEnum x ->
-      x
-  | VMap x ->
-      Printf.sprintf "{%s}"
-        (String.concat ", "
-           (List.map
-              (fun (a, b) ->
-                Printf.sprintf "%s -> %s" (string_of_default a)
-                  (string_of_default b)
-              )
-              x
-           )
-        )
-  | VSet x ->
-      Printf.sprintf "{%s}" (String.concat ", " (List.map string_of_default x))
-  | VRef x ->
-      if x = "" then "Null" else x
-  | VCustom (_, y) ->
-      string_of_default y
+  let string_of_qualifier = function
+    | RW ->
+        "RW"
+    | StaticRO ->
+        "RO/constructor"
+    | DynamicRO ->
+        "RO/runtime"
 
-let jarray_of_lifecycle lc =
-  JArray
-    (List.map
-       (fun (t, r, d) ->
-         JObject
-           [
-             ("transition", JString (string_of_lifecycle_transition t))
-           ; ("release", JString r)
-           ; ("description", JString d)
-           ]
-       )
-       lc
-    )
-
-let fields_of_obj_with_enums obj =
-  let rec flatten_contents contents =
-    List.fold_left
-      (fun l -> function
-        | Field f ->
-            f :: l
-        | Namespace (_name, contents) ->
-            flatten_contents contents @ l
-      )
-      [] contents
-  in
-  let fields = flatten_contents obj.contents in
-  List.fold_left
-    (fun (fields, enums) field ->
-      let ty, e = string_of_ty_with_enums field.ty in
-      ( JObject
-          (("name", JString (String.concat "_" field.full_name))
-          :: ("description", JString field.field_description)
-          :: ("type", JString ty)
-          :: ("qualifier", JString (string_of_qualifier field.qualifier))
-          :: ( "tag"
-             , JString
-                 ( match field.field_doc_tags with
-                 | [] ->
-                     ""
-                 | t :: _ ->
-                     string_of_doc_tag t
-                 )
+  let rec string_of_default = function
+    | VString x ->
+        "\"" ^ x ^ "\""
+    | VInt x ->
+        Int64.to_string x
+    | VFloat x ->
+        string_of_float x
+    | VBool x ->
+        string_of_bool x
+    | VDateTime x ->
+        Date.to_string x
+    | VEnum x ->
+        x
+    | VMap x ->
+        Printf.sprintf "{%s}"
+          (String.concat ", "
+             (List.map
+                (fun (a, b) ->
+                  Printf.sprintf "%s -> %s" (string_of_default a)
+                    (string_of_default b)
+                )
+                x
              )
-          :: ("lifecycle", jarray_of_lifecycle field.lifecycle)
-          ::
-          ( match field.default_value with
-          | Some d ->
-              [("default", JString (string_of_default d))]
-          | None ->
-              []
           )
-          )
-        :: fields
-      , enums @ e
+    | VSet x ->
+        Printf.sprintf "{%s}" (String.concat ", " (List.map string_of_default x))
+    | VRef x ->
+        if x = "" then "Null" else x
+    | VCustom (_, y) ->
+        string_of_default y
+
+  let of_lifecycle lc =
+    `List
+      (List.map
+         (fun (t, r, d) ->
+           `Assoc
+             [
+               ("transition", `String (string_of_lifecycle_transition t))
+             ; ("release", `String r)
+             ; ("description", `String d)
+             ]
+         )
+         lc
       )
-    )
-    ([], []) fields
 
-let jarray_of_result_with_enums obj msg =
-  match msg.msg_result with
-  | None ->
-      (JArray [JString "void"], [])
-  | Some (t, d) ->
-      if obj.name = "event" && String.lowercase_ascii msg.msg_name = "from" then
-        (JArray [JString "an event batch"; JString d], [])
-      else
-        let t', enums = string_of_ty_with_enums t in
-        (JArray [JString t'; JString d], enums)
-
-let jarray_of_params_with_enums ps =
-  let params, enums =
+  let fields_of_obj_with_enums obj =
+    let rec flatten_contents contents =
+      List.fold_left
+        (fun l -> function
+          | Field f ->
+              f :: l
+          | Namespace (_name, contents) ->
+              flatten_contents contents @ l
+        )
+        [] contents
+    in
+    let fields = flatten_contents obj.contents in
     List.fold_left
-      (fun (params, enums) p ->
-        let t, e = string_of_ty_with_enums p.param_type in
-        ( JObject
-            [
-              ("type", JString t)
-            ; ("name", JString p.param_name)
-            ; ("doc", JString p.param_doc)
-            ]
-          :: params
+      (fun (fields, enums) field ->
+        let ty, e = string_of_ty_with_enums field.ty in
+        ( `Assoc
+            (("name", `String (String.concat "_" field.full_name))
+            :: ("description", `String field.field_description)
+            :: ("type", `String ty)
+            :: ("qualifier", `String (string_of_qualifier field.qualifier))
+            :: ( "tag"
+               , `String
+                   ( match field.field_doc_tags with
+                   | [] ->
+                       ""
+                   | t :: _ ->
+                       string_of_doc_tag t
+                   )
+               )
+            :: ("lifecycle", of_lifecycle field.lifecycle)
+            ::
+            ( match field.default_value with
+            | Some d ->
+                [("default", `String (string_of_default d))]
+            | None ->
+                []
+            )
+            )
+          :: fields
         , enums @ e
         )
       )
-      ([], []) ps
-  in
-  (JArray (List.rev params), enums)
+      ([], []) fields
 
-let jarray_of_errors es =
-  JArray
-    (List.map
-       (fun e ->
-         JObject [("name", JString e.err_name); ("doc", JString e.err_doc)]
-       )
-       es
-    )
-
-let jarray_of_roles = function
-  | None ->
-      JArray []
-  | Some rs ->
-      JArray (List.map (fun s -> JString s) rs)
-
-let session_id =
-  {
-    param_type= Ref Datamodel_common._session
-  ; param_name= "session_id"
-  ; param_doc= "Reference to a valid session"
-  ; param_release= Datamodel_common.rio_release
-  ; param_default= None
-  }
-
-let messages_of_obj_with_enums obj =
-  List.fold_left
-    (fun (msgs, enums) msg ->
-      let params =
-        if msg.msg_session then
-          session_id :: msg.msg_params
+  let of_result obj msg =
+    match msg.msg_result with
+    | None ->
+        (`List [`String "void"], [])
+    | Some (t, d) ->
+        if obj.name = "event" && String.lowercase_ascii msg.msg_name = "from"
+        then
+          (`List [`String "an event batch"; `String d], [])
         else
-          msg.msg_params
-      in
-      let ctor =
-        if msg.msg_tag = FromObject Make then
-          let ctor_fields =
-            List.filter
-              (function {qualifier= StaticRO | RW; _} -> true | _ -> false)
-              (fields_of_obj obj)
-            |> List.map (fun f ->
-                   String.concat "_" f.full_name
-                   ^ if f.default_value = None then "*" else ""
-               )
-          in
-          Printf.sprintf "\nThe constructor args are: %s (* = non-optional)."
-            (String.concat ", " ctor_fields)
-        else
-          ""
-      in
-      let result, enums1 = jarray_of_result_with_enums obj msg in
-      let params, enums2 = jarray_of_params_with_enums params in
-      ( JObject
-          [
-            ("name", JString msg.msg_name)
-          ; ("description", JString (msg.msg_doc ^ ctor))
-          ; ("result", result)
-          ; ("params", params)
-          ; ("errors", jarray_of_errors msg.msg_errors)
-          ; ("roles", jarray_of_roles msg.msg_allowed_roles)
-          ; ( "tag"
-            , JString
-                ( match msg.msg_doc_tags with
-                | [] ->
-                    ""
-                | t :: _ ->
-                    string_of_doc_tag t
-                )
-            )
-          ; ("lifecycle", jarray_of_lifecycle msg.msg_lifecycle)
-          ; ("implicit", JBoolean (msg.msg_tag <> Custom))
-          ]
-        :: msgs
-      , enums @ enums1 @ enums2
-      )
-    )
-    ([], []) obj.messages
+          let t', enums = string_of_ty_with_enums t in
+          (`List [`String t'; `String d], enums)
 
-let jarray_of_enums enums =
-  JArray
-    (List.map
-       (fun (name, vs) ->
-         JObject
-           [
-             ("name", JString name)
-           ; ( "values"
-             , JArray
-                 (List.map
-                    (fun (v, d) ->
-                      JObject [("name", JString v); ("doc", JString d)]
-                    )
-                    vs
-                 )
-             )
-           ]
-       )
-       enums
-    )
-
-let json_of_objs objs =
-  JArray
-    (List.map
-       (fun obj ->
-         let fields, enums1 = fields_of_obj_with_enums obj in
-         let messages, enums2 = messages_of_obj_with_enums obj in
-         let enums = Xapi_stdext_std.Listext.List.setify (enums1 @ enums2) in
-         let event_snapshot =
-           if String.lowercase_ascii obj.name = "event" then
-             [
-               JObject
-                 [
-                   ("name", JString "snapshot")
-                 ; ( "description"
-                   , JString
-                       "The record of the database object that was added, \
-                        changed or deleted"
-                   )
-                 ; ("type", JString "&lt;object record&gt;")
-                 ; ("qualifier", JString (string_of_qualifier DynamicRO))
-                 ; ("tag", JString "")
-                 ; ( "lifecycle"
-                   , jarray_of_lifecycle [(Published, rel_boston, "")]
-                   )
-                 ]
-             ]
-           else
-             []
-         in
-         JObject
-           [
-             ("name", JString obj.name)
-           ; ("description", JString obj.description)
-           ; ("fields", JArray (event_snapshot @ fields))
-           ; ("messages", JArray messages)
-           ; ("enums", jarray_of_enums enums)
-           ; ("lifecycle", jarray_of_lifecycle obj.obj_lifecycle)
-           ; ( "tag"
-             , JString
-                 ( match obj.obj_doc_tags with
-                 | [] ->
-                     ""
-                 | t :: _ ->
-                     string_of_doc_tag t
-                 )
-             )
-           ]
-       )
-       objs
-    )
-
-let jobject_of_change (t, n, l, s) =
-  JObject
-    [
-      ("transition", JString (string_of_lifecycle_transition t ^ " " ^ s))
-    ; ("name", JString n)
-    ; ("log", JString l)
-    ]
-
-let compare_changes (a_t, a_n, _, a_k) (b_t, b_n, _, b_k) =
-  let int_of_transition = function
-    | Published ->
-        0
-    | Extended ->
-        10
-    | Changed ->
-        20
-    | Deprecated ->
-        30
-    | Removed ->
-        40
-    | Prototyped ->
-        50
-  in
-  let int_of_kind = function
-    | "class" ->
-        0
-    | "field" ->
-        1
-    | "message" ->
-        2
-    | _ ->
-        3
-  in
-  let cmp =
-    compare
-      (int_of_transition a_t + int_of_kind a_k)
-      (int_of_transition b_t + int_of_kind b_k)
-  in
-  if cmp = 0 then
-    compare a_n b_n
-  else
-    cmp
-
-let releases objs =
-  let changes_in_release rel =
-    let search_obj obj =
-      let changes =
-        List.filter
-          (fun (_transition, release, _doc) ->
-            release = code_name_of_release rel
+  let of_params ps =
+    let params, enums =
+      List.fold_left
+        (fun (params, enums) p ->
+          let t, e = string_of_ty_with_enums p.param_type in
+          ( `Assoc
+              [
+                ("type", `String t)
+              ; ("name", `String p.param_name)
+              ; ("doc", `String p.param_doc)
+              ]
+            :: params
+          , enums @ e
           )
-          obj.obj_lifecycle
-      in
-      let obj_changes =
-        List.map
-          (fun (transition, _release, doc) ->
-            ( transition
-            , obj.name
-            , ( if doc = "" && transition = Published then
-                  obj.description
-              else
-                doc
-              )
-            , "class"
-            )
-          )
-          changes
-      in
-      let changes_for_msg m =
-        let changes =
-          List.filter
-            (fun (_transition, release, _doc) ->
-              release = code_name_of_release rel
-            )
-            m.msg_lifecycle
-        in
-        List.map
-          (fun (transition, _release, doc) ->
-            ( transition
-            , obj.name ^ "." ^ m.msg_name
-            , (if doc = "" && transition = Published then m.msg_doc else doc)
-            , "message"
-            )
-          )
-          changes
-      in
-      (* Don't include implicit messages *)
-      let msgs = List.filter (fun m -> m.msg_tag = Custom) obj.messages in
-      let msg_changes =
-        List.fold_left (fun l m -> l @ changes_for_msg m) [] msgs
-      in
-      let changes_for_field f =
-        let changes =
-          List.filter
-            (fun (_transition, release, _doc) ->
-              release = code_name_of_release rel
-            )
-            f.lifecycle
-        in
-        let field_name = String.concat "_" f.full_name in
-        List.map
-          (fun (transition, _release, doc) ->
-            ( transition
-            , obj.name ^ "." ^ field_name
-            , ( if doc = "" && transition = Published then
-                  f.field_description
-              else
-                doc
-              )
-            , "field"
-            )
-          )
-          changes
-      in
-      let rec flatten_contents contents =
-        List.fold_left
-          (fun l -> function
-            | Field f ->
-                f :: l
-            | Namespace (_name, contents) ->
-                flatten_contents contents @ l
-          )
-          [] contents
-      in
-      let fields = flatten_contents obj.contents in
-      let field_changes =
-        List.fold_left (fun l f -> l @ changes_for_field f) [] fields
-      in
-      let event_snapshot_change =
-        if obj.name = "event" && rel.code_name = Some rel_boston then
-          [
-            ( Published
-            , "event.snapshot"
-            , "The record of the database object that was added, changed or \
-               deleted"
-            , "field"
-            )
-          ]
-        else
-          []
-      in
-      obj_changes @ event_snapshot_change @ field_changes @ msg_changes
+        )
+        ([], []) ps
     in
-    JArray
-      (List.map search_obj objs
-      |> List.flatten
-      |> List.sort compare_changes
-      |> List.map jobject_of_change
+    (`List (List.rev params), enums)
+
+  let of_error e =
+    `Assoc [("name", `String e.err_name); ("doc", `String e.err_doc)]
+
+  let of_roles = function
+    | None ->
+        `List []
+    | Some rs ->
+        `List (List.map (fun s -> `String s) rs)
+
+  let session_id =
+    {
+      param_type= Ref Datamodel_common._session
+    ; param_name= "session_id"
+    ; param_doc= "Reference to a valid session"
+    ; param_release= Datamodel_common.rio_release
+    ; param_default= None
+    }
+
+  let messages_of_obj_with_enums obj =
+    List.fold_left
+      (fun (msgs, enums) msg ->
+        let params =
+          if msg.msg_session then
+            session_id :: msg.msg_params
+          else
+            msg.msg_params
+        in
+        let ctor =
+          if msg.msg_tag = FromObject Make then
+            let ctor_fields =
+              List.filter
+                (function {qualifier= StaticRO | RW; _} -> true | _ -> false)
+                (fields_of_obj obj)
+              |> List.map (fun f ->
+                     String.concat "_" f.full_name
+                     ^ if f.default_value = None then "*" else ""
+                 )
+            in
+            Printf.sprintf "\nThe constructor args are: %s (* = non-optional)."
+              (String.concat ", " ctor_fields)
+          else
+            ""
+        in
+        let result, enums1 = of_result obj msg in
+        let params, enums2 = of_params params in
+        ( `Assoc
+            [
+              ("name", `String msg.msg_name)
+            ; ("description", `String (msg.msg_doc ^ ctor))
+            ; ("result", result)
+            ; ("params", params)
+            ; ("errors", `List (List.map of_error msg.msg_errors))
+            ; ("roles", of_roles msg.msg_allowed_roles)
+            ; ( "tag"
+              , `String
+                  ( match msg.msg_doc_tags with
+                  | [] ->
+                      ""
+                  | t :: _ ->
+                      string_of_doc_tag t
+                  )
+              )
+            ; ("lifecycle", of_lifecycle msg.msg_lifecycle)
+            ; ("implicit", `Bool (msg.msg_tag <> Custom))
+            ]
+          :: msgs
+        , enums @ enums1 @ enums2
+        )
       )
-  in
-  JObject
-    (List.map
-       (fun rel -> (code_name_of_release rel, changes_in_release rel))
-       release_order
-    )
+      ([], []) obj.messages
+
+  let of_enum (name, vs) =
+    let of_value (v, d) = `Assoc [("name", `String v); ("doc", `String d)] in
+    `Assoc [("name", `String name); ("values", `List (List.map of_value vs))]
+
+  let xenapi objs =
+    `List
+      (List.map
+         (fun obj ->
+           let fields, enums1 = fields_of_obj_with_enums obj in
+           let messages, enums2 = messages_of_obj_with_enums obj in
+           let enums = Xapi_stdext_std.Listext.List.setify (enums1 @ enums2) in
+           let event_snapshot =
+             if String.lowercase_ascii obj.name = "event" then
+               [
+                 `Assoc
+                   [
+                     ("name", `String "snapshot")
+                   ; ( "description"
+                     , `String
+                         "The record of the database object that was added, \
+                          changed or deleted"
+                     )
+                   ; ("type", `String "&lt;object record&gt;")
+                   ; ("qualifier", `String (string_of_qualifier DynamicRO))
+                   ; ("tag", `String "")
+                   ; ("lifecycle", of_lifecycle [(Published, rel_boston, "")])
+                   ]
+               ]
+             else
+               []
+           in
+           `Assoc
+             [
+               ("name", `String obj.name)
+             ; ("description", `String obj.description)
+             ; ("fields", `List (event_snapshot @ fields))
+             ; ("messages", `List messages)
+             ; ("enums", `List (List.map of_enum enums))
+             ; ("lifecycle", of_lifecycle obj.obj_lifecycle)
+             ; ( "tag"
+               , `String
+                   ( match obj.obj_doc_tags with
+                   | [] ->
+                       ""
+                   | t :: _ ->
+                       string_of_doc_tag t
+                   )
+               )
+             ]
+         )
+         objs
+      )
+
+  let of_change (t, n, l, s) =
+    `Assoc
+      [
+        ("transition", `String (string_of_lifecycle_transition t ^ " " ^ s))
+      ; ("name", `String n)
+      ; ("log", `String l)
+      ]
+
+  let compare_changes (a_t, a_n, _, a_k) (b_t, b_n, _, b_k) =
+    let int_of_transition = function
+      | Published ->
+          0
+      | Extended ->
+          10
+      | Changed ->
+          20
+      | Deprecated ->
+          30
+      | Removed ->
+          40
+      | Prototyped ->
+          50
+    in
+    let int_of_kind = function
+      | "class" ->
+          0
+      | "field" ->
+          1
+      | "message" ->
+          2
+      | _ ->
+          3
+    in
+    let cmp =
+      compare
+        (int_of_transition a_t + int_of_kind a_k)
+        (int_of_transition b_t + int_of_kind b_k)
+    in
+    if cmp = 0 then
+      compare a_n b_n
+    else
+      cmp
+
+  let release_info releases objs =
+    let changes_in_release rel =
+      let search_obj obj =
+        let changes =
+          List.filter
+            (fun (_, release, _) -> release = code_name_of_release rel)
+            obj.obj_lifecycle
+        in
+        let obj_changes =
+          List.map
+            (fun (transition, _release, doc) ->
+              ( transition
+              , obj.name
+              , ( if doc = "" && transition = Published then
+                    obj.description
+                else
+                  doc
+                )
+              , "class"
+              )
+            )
+            changes
+        in
+        let changes_for_msg m =
+          let changes =
+            List.filter
+              (fun (_transition, release, _doc) ->
+                release = code_name_of_release rel
+              )
+              m.msg_lifecycle
+          in
+          List.map
+            (fun (transition, _release, doc) ->
+              ( transition
+              , obj.name ^ "." ^ m.msg_name
+              , (if doc = "" && transition = Published then m.msg_doc else doc)
+              , "message"
+              )
+            )
+            changes
+        in
+        (* Don't include implicit messages *)
+        let msgs = List.filter (fun m -> m.msg_tag = Custom) obj.messages in
+        let msg_changes =
+          List.fold_left (fun l m -> l @ changes_for_msg m) [] msgs
+        in
+        let changes_for_field f =
+          let changes =
+            List.filter
+              (fun (_transition, release, _doc) ->
+                release = code_name_of_release rel
+              )
+              f.lifecycle
+          in
+          let field_name = String.concat "_" f.full_name in
+          List.map
+            (fun (transition, _release, doc) ->
+              ( transition
+              , obj.name ^ "." ^ field_name
+              , ( if doc = "" && transition = Published then
+                    f.field_description
+                else
+                  doc
+                )
+              , "field"
+              )
+            )
+            changes
+        in
+        let rec flatten_contents contents =
+          List.fold_left
+            (fun l -> function
+              | Field f ->
+                  f :: l
+              | Namespace (_name, contents) ->
+                  flatten_contents contents @ l
+            )
+            [] contents
+        in
+        let fields = flatten_contents obj.contents in
+        let field_changes =
+          List.fold_left (fun l f -> l @ changes_for_field f) [] fields
+        in
+        let event_snapshot_change =
+          if obj.name = "event" && rel.code_name = Some rel_boston then
+            [
+              ( Published
+              , "event.snapshot"
+              , "The record of the database object that was added, changed or \
+                 deleted"
+              , "field"
+              )
+            ]
+          else
+            []
+        in
+        obj_changes @ event_snapshot_change @ field_changes @ msg_changes
+      in
+      `List
+        (List.concat_map search_obj objs
+        |> List.sort compare_changes
+        |> List.map of_change
+        )
+    in
+    `Assoc
+      (List.filter_map
+         (fun rel ->
+           if rel.code_name <> None then
+             Some (code_name_of_release rel, changes_in_release rel)
+           else
+             None
+         )
+         releases
+      )
+end
 
 let () =
   parse_args () ;
@@ -580,13 +502,11 @@ let () =
       api
   in
   let objs = objects_of_api api in
-  write_string
-    ~path:(data_dir // "xenapi.json")
-    (objs |> json_of_objs |> string_of_json 0) ;
-  let release_info = releases objs in
-  write_string
-    ~path:(data_dir // "release_info.json")
-    (string_of_json 0 release_info) ;
+  let releases = release_order_full in
+  Yojson.Safe.to_file (data_dir // "xenapi.json") (Json.xenapi objs) ;
+  Yojson.Safe.to_file
+    (data_dir // "release_info.json")
+    (Json.release_info releases objs) ;
   let release_yaml = function
     | {release_date= None; _} ->
         ""
@@ -597,7 +517,7 @@ let () =
   in
   write_string
     ~path:(data_dir // "releases.yml")
-    (List.map release_yaml release_order_full |> String.concat "") ;
+    (List.map release_yaml releases |> String.concat "") ;
   let release_md_dir = destdir // "xen-api/releases" in
   Xapi_stdext_unix.Unixext.mkdir_rec release_md_dir 0o755 ;
   let class_md_dir = destdir // "xen-api/classes" in
@@ -626,7 +546,7 @@ let () =
     | _ ->
         ()
   in
-  release_order_full |> List.iter release_md ;
+  List.iter release_md releases ;
   let class_md = function
     | {name; _} ->
         let filename = Printf.sprintf "%s.md" (String.lowercase_ascii name) in
