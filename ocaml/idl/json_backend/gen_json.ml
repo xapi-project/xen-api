@@ -482,6 +482,64 @@ end = struct
       )
 end
 
+module Yaml = struct
+  let release = function
+    | {code_name= Some x; branding; release_date= Some _; _} ->
+        Printf.sprintf "%s: %s\n" x branding
+    | _ ->
+        ""
+end
+
+type file = {filename: string; contents: string}
+
+module Md = struct
+  let release = function
+    | {release_date= None; _} ->
+        None
+    | {code_name= Some x; release_date= y; _} ->
+        let contents =
+          String.concat "\n"
+            [
+              "---"
+            ; "layout: xenapi-release"
+            ; Printf.sprintf "release: %s" x
+            ; "release_index: true"
+            ; "---\n"
+            ; ( match y with
+              | Some "" ->
+                  ""
+              | Some z ->
+                  Printf.sprintf "Released in %s.\n" z
+              | _ ->
+                  ""
+              )
+            ]
+        in
+        Some {filename= Printf.sprintf "%s.md" x; contents}
+    | _ ->
+        None
+
+  let cls {name; _} =
+    let filename = Printf.sprintf "%s.md" (String.lowercase_ascii name) in
+    let contents =
+      String.concat "\n"
+        [
+          "---"
+        ; "layout: xenapi-class"
+        ; Printf.sprintf "class: %s" name
+        ; "class_index: true"
+        ; "---\n"
+        ]
+    in
+    Some {filename; contents}
+end
+
+let write_to_dir dir maybe_file =
+  let write {filename; contents} =
+    write_string ~path:(dir // filename) contents
+  in
+  Option.iter write maybe_file
+
 let () =
   parse_args () ;
   let destdir = !destdir' in
@@ -507,57 +565,12 @@ let () =
   Yojson.Safe.to_file
     (data_dir // "release_info.json")
     (Json.release_info releases objs) ;
-  let release_yaml = function
-    | {release_date= None; _} ->
-        ""
-    | {code_name= Some x; branding= y; _} ->
-        Printf.sprintf "%s: %s\n" x y
-    | _ ->
-        ""
-  in
   write_string
     ~path:(data_dir // "releases.yml")
-    (List.map release_yaml releases |> String.concat "") ;
+    (List.map Yaml.release releases |> String.concat "") ;
   let release_md_dir = destdir // "xen-api/releases" in
   Xapi_stdext_unix.Unixext.mkdir_rec release_md_dir 0o755 ;
   let class_md_dir = destdir // "xen-api/classes" in
   Xapi_stdext_unix.Unixext.mkdir_rec class_md_dir 0o755 ;
-  let release_md = function
-    | {release_date= None; _} ->
-        ()
-    | {code_name= Some x; release_date= y; _} ->
-        [
-          "---"
-        ; "layout: xenapi-release"
-        ; Printf.sprintf "release: %s" x
-        ; "release_index: true"
-        ; "---\n"
-        ; ( match y with
-          | Some "" ->
-              ""
-          | Some z ->
-              Printf.sprintf "Released in %s.\n" z
-          | _ ->
-              ""
-          )
-        ]
-        |> String.concat "\n"
-        |> write_string ~path:(release_md_dir // Printf.sprintf "%s.md" x)
-    | _ ->
-        ()
-  in
-  List.iter release_md releases ;
-  let class_md = function
-    | {name; _} ->
-        let filename = Printf.sprintf "%s.md" (String.lowercase_ascii name) in
-        [
-          "---"
-        ; "layout: xenapi-class"
-        ; Printf.sprintf "class: %s" name
-        ; "class_index: true"
-        ; "---\n"
-        ]
-        |> String.concat "\n"
-        |> write_string ~path:(class_md_dir // filename)
-  in
-  objs |> List.iter class_md
+  List.iter (fun x -> write_to_dir release_md_dir (Md.release x)) releases ;
+  List.iter (fun x -> write_to_dir class_md_dir (Md.cls x)) objs
