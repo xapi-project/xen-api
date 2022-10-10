@@ -627,7 +627,6 @@ and gen_exposed_method cls msg curParams =
   let exposed_ret_type = exposed_type_opt msg.msg_result in
   let paramSignature = exposed_params msg classname curParams in
   let paramsDoc = get_params_doc msg classname curParams in
-  let callParams = exposed_call_params ~json:false msg classname curParams in
   let jsonCallParams = exposed_call_params ~json:true msg classname curParams in
   let publishInfo = get_published_info_message msg cls in
   let deprecatedInfo = get_deprecated_info_message msg in
@@ -646,10 +645,7 @@ and gen_exposed_method cls msg curParams =
       \        /// </summary>%s%s\n\
       \        public static %s %s(%s)\n\
       \        {\n\
-      \            if (session.JsonRpcClient != null)\n\
-      \                %s;\n\
-      \            else\n\
-      \                %s;\n\
+      \            %s;\n\
       \        }\n"
       msg.msg_doc
       (if publishInfo = "" then "" else "\n        /// " ^ publishInfo)
@@ -657,10 +653,6 @@ and gen_exposed_method cls msg curParams =
       msg.msg_name paramSignature
       (json_return_opt
          (sprintf "session.JsonRpcClient.%s(%s)" proxyMsgName jsonCallParams)
-         msg.msg_result
-      )
-      (convert_from_proxy_opt
-         (sprintf "session.XmlRpcProxy.%s(%s).parse()" proxyMsgName callParams)
          msg.msg_result
       )
   in
@@ -673,16 +665,12 @@ and gen_exposed_method cls msg curParams =
         \        /// </summary>%s%s\n\
         \        public static XenRef<Task> async_%s(%s)\n\
         \        {\n\
-        \          if (session.JsonRpcClient != null)\n\
-        \              return session.JsonRpcClient.async_%s(%s);\n\
-        \          else\n\
-        \              return \
-         XenRef<Task>.Create(session.XmlRpcProxy.async_%s(%s).parse());\n\
+        \          return session.JsonRpcClient.async_%s(%s);\n\
         \        }\n"
         msg.msg_doc
         (if publishInfo = "" then "" else "\n        /// " ^ publishInfo)
         deprecatedInfoString paramsDoc deprecatedAttributeString msg.msg_name
-        paramSignature proxyMsgName jsonCallParams proxyMsgName callParams
+        paramSignature proxyMsgName jsonCallParams
     else
       ""
   in
@@ -874,7 +862,7 @@ and gen_exposed_field out_chan cls content =
 (* ------------------- category: proxy classes *)
 and gen_proxy protocol =
   let all_methods =
-    classes |> List.map (gen_proxy_class_methods protocol) |> List.concat
+    classes |> List.map gen_proxy_class_methods |> List.concat
   in
   match protocol with
   | CommonFunctions.XmlRpc ->
@@ -900,23 +888,18 @@ and gen_proxy protocol =
           ; ("proxy_class_fields", `A (List.map proxy_field all_fields))
           ]
       in
-      let json_method x = `O [("proxy_method", `String x)] in
-      `O
-        [
-          ("proxy_methods", `A (List.map json_method all_methods))
-        ; ("proxy_classes", `A (List.map json_class classes))
-        ]
+      `O [("proxy_classes", `A (List.map json_class classes))]
   | CommonFunctions.JsonRpc ->
       let json_method x = `O [("client_method", `String x)] in
       `O [("client_methods", `A (List.map json_method all_methods))]
 
-and gen_proxy_class_methods protocol {name; messages; _} =
-  let gen_message_overloads protocol name message =
-    let generator params = gen_proxy_method protocol name message params in
+and gen_proxy_class_methods {name; messages; _} =
+  let gen_message_overloads name message =
+    let generator params = gen_proxy_method name message params in
     gen_overloads generator message
   in
   let overloads =
-    messages |> List.map (gen_message_overloads protocol name) |> List.concat
+    messages |> List.map (gen_message_overloads name) |> List.concat
   in
   let records =
     if
@@ -926,94 +909,67 @@ and gen_proxy_class_methods protocol {name; messages; _} =
            messages
         )
     then
-      gen_proxy_method protocol name (get_all_records_method name) []
+      gen_proxy_method name (get_all_records_method name) []
     else
       ""
   in
   overloads @ [records]
 
-and gen_proxy_method protocol classname message params =
-  let proxy_ret_type = proxy_type_opt message.msg_result in
+and gen_proxy_method classname message params =
   let proxy_msg_name = proxy_msg_name classname message in
-  let proxyParams =
-    proxy_params ~with_types:true ~json:false message classname params
-  in
   let paramsJsonWithTypes =
     proxy_params ~with_types:true ~json:true message classname params
   in
   let paramsJsonNoTypes =
     proxy_params ~with_types:false ~json:true message classname params
   in
-  match protocol with
-  | CommonFunctions.XmlRpc ->
-      let sync =
-        sprintf
-          "\n\
-          \        [XmlRpcMethod(\"%s.%s\")]\n\
-          \        Response<%s>\n\
-          \        %s(%s);" classname message.msg_name proxy_ret_type
-          proxy_msg_name proxyParams
-      in
-      let async =
-        if message.msg_async then
-          sprintf
-            "\n\n\
-            \        [XmlRpcMethod(\"Async.%s.%s\")]\n\
-            \        Response<string>\n\
-            \        async_%s(%s);" classname message.msg_name proxy_msg_name
-            proxyParams
-        else
-          ""
-      in
-      sync ^ async
-  | CommonFunctions.JsonRpc ->
-      let return_word =
-        match message.msg_result with Some (_, _) -> "return " | None -> ""
-      in
-      let param_converters =
-        List.map (fun x -> json_converter x.param_type) params
-      in
-      let converters =
-        json_converter_opt message.msg_result :: param_converters
-        |> List.filter (fun x -> x <> "")
-      in
-      let async_converters =
-        "new XenRefConverter<Task>()" :: param_converters
-        |> List.filter (fun x -> x <> "")
-      in
-      let sync =
-        sprintf
-          "\n\
-          \        public %s %s(%s)\n\
-          \        {\n\
-          \            var converters = new List<JsonConverter> {%s};\n\
-          \            var serializer = CreateSerializer(converters);\n\
-          \            %sRpc%s(\"%s.%s\", new JArray(%s), serializer);\n\
-          \        }"
-          (exposed_type_opt message.msg_result)
-          proxy_msg_name paramsJsonWithTypes
-          (String.concat ", " converters)
-          return_word
-          (json_deserialise_opt message.msg_result)
-          classname message.msg_name paramsJsonNoTypes
-      in
-      let async =
-        if message.msg_async then
-          sprintf
-            "\n\n\
-            \        public XenRef<Task> async_%s(%s)\n\
-            \        {\n\
-            \            var converters = new List<JsonConverter> {%s};\n\
-            \            var serializer = CreateSerializer(converters);\n\
-            \            return Rpc<XenRef<Task>>(\"Async.%s.%s\", new \
-             JArray(%s), serializer);\n\
-            \        }" proxy_msg_name paramsJsonWithTypes
-            (String.concat ", " async_converters)
-            classname message.msg_name paramsJsonNoTypes
-        else
-          ""
-      in
-      sync ^ async
+  let return_word =
+    match message.msg_result with Some (_, _) -> "return " | None -> ""
+  in
+  let param_converters =
+    List.map (fun x -> json_converter x.param_type) params
+  in
+  let converters =
+    json_converter_opt message.msg_result :: param_converters
+    |> List.filter (fun x -> x <> "")
+  in
+  let async_converters =
+    "new XenRefConverter<Task>()" :: param_converters
+    |> List.filter (fun x -> x <> "")
+  in
+  let sync =
+    sprintf
+      "\n\
+      \        public %s %s(%s)\n\
+      \        {\n\
+      \            var converters = new List<JsonConverter> {%s};\n\
+      \            var serializer = CreateSerializer(converters);\n\
+      \            %sRpc%s(\"%s.%s\", new JArray(%s), serializer);\n\
+      \        }"
+      (exposed_type_opt message.msg_result)
+      proxy_msg_name paramsJsonWithTypes
+      (String.concat ", " converters)
+      return_word
+      (json_deserialise_opt message.msg_result)
+      classname message.msg_name paramsJsonNoTypes
+  in
+  let async =
+    if message.msg_async then
+      sprintf
+        "\n\n\
+        \        public XenRef<Task> async_%s(%s)\n\
+        \        {\n\
+        \            var converters = new List<JsonConverter> {%s};\n\
+        \            var serializer = CreateSerializer(converters);\n\
+        \            return Rpc<XenRef<Task>>(\"Async.%s.%s\", new JArray(%s), \
+         serializer);\n\
+        \        }" proxy_msg_name paramsJsonWithTypes
+        (String.concat ", " async_converters)
+        classname message.msg_name paramsJsonNoTypes
+    else
+      ""
+  in
+  sync ^ async
 
 and proxy_params ~with_types ~json message classname params =
   let refParam =
@@ -1103,9 +1059,8 @@ and gen_maps' out_chan =
     "%s\n\n\
      using System;\n\
      using System.Collections;\n\
-     using System.Collections.Generic;\n\
-     using CookComputing.XmlRpc;\n\n\n\
-     namespace XenAPI\n\
+     using System.Collections.Generic;\n\n\
+    \     namespace XenAPI\n\
      {\n\
     \    internal class Maps\n\
     \    {" Licence.bsd_two_clause ;
@@ -1141,7 +1096,7 @@ and gen_map_conversion out_chan = function
         \                    }\n\
         \                    catch\n\
         \                    {\n\
-        \                        continue;\n\
+        \                       // continue\n\
         \                    }\n\
         \                }\n\
         \            }\n\
@@ -1150,7 +1105,7 @@ and gen_map_conversion out_chan = function
         \        internal static Hashtable \
          convert_to_proxy_%s_%s(Dictionary<%s, %s> table)\n\
         \        {\n\
-        \            var result = new XmlRpcStruct();\n\
+        \            var result = new Hashtable();\n\
         \            if (table != null)\n\
         \            {\n\
         \                foreach (%s key in table.Keys)\n\
@@ -1163,7 +1118,7 @@ and gen_map_conversion out_chan = function
         \                    }\n\
         \                    catch\n\
         \                    {\n\
-        \                        continue;\n\
+        \                        // continue\n\
         \                    }\n\
         \                }\n\
         \            }\n\
@@ -1293,12 +1248,6 @@ and exposed_type_as_literal = function
       sprintf "Dictionary_%s_%s" (exposed_type u) (exposed_type v)
   | x ->
       exposed_type x
-
-and convert_from_proxy_opt thing = function
-  | Some (typ, _) ->
-      "return " ^ simple_convert_from_proxy thing typ
-  | None ->
-      thing
 
 and convert_from_proxy_hashtable_value thing ty =
   match ty with

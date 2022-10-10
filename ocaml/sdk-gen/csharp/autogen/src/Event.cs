@@ -30,9 +30,7 @@
 
 using System;
 using System.Collections.Generic;
-using CookComputing.XmlRpc;
 using Newtonsoft.Json;
-
 
 namespace XenAPI
 {
@@ -86,66 +84,42 @@ namespace XenAPI
 
         public static Event get_record(Session session, string _event)
         {
-            if (session.JsonRpcClient != null)
-                return session.JsonRpcClient.event_get_record(session.opaque_ref, _event);
-            else
-                return new Event(session.XmlRpcProxy.event_get_record(session.opaque_ref, _event ?? "").parse());
+            return session.JsonRpcClient.event_get_record(session.opaque_ref, _event);
         }
 
         public static string get_by_uuid(Session session, string _uuid)
         {
-            if (session.JsonRpcClient != null)
-                return session.JsonRpcClient.event_get_by_uuid(session.opaque_ref, _uuid);
-            else
-                return session.XmlRpcProxy.event_get_by_uuid(session.opaque_ref, _uuid ?? "").parse();
+            return session.JsonRpcClient.event_get_by_uuid(session.opaque_ref, _uuid);
         }
 
         public static long get_id(Session session, string _event)
         {
-            if (session.JsonRpcClient != null)
-                return session.JsonRpcClient.event_get_id(session.opaque_ref, _event);
-            else
-                return long.Parse(session.XmlRpcProxy.event_get_id(session.opaque_ref, _event ?? "").parse());
+            return session.JsonRpcClient.event_get_id(session.opaque_ref, _event);
         }
 
         public static void set_id(Session session, string _event, long _id)
         {
-            if (session.JsonRpcClient != null)
-                session.JsonRpcClient.event_set_id(session.opaque_ref, _event, _id);
-            else
-                session.XmlRpcProxy.event_set_id(session.opaque_ref, _event ?? "", _id.ToString()).parse();
+            session.JsonRpcClient.event_set_id(session.opaque_ref, _event, _id);
         }
 
         public static void register(Session session, string[] _classes)
         {
-            if (session.JsonRpcClient != null)
-                session.JsonRpcClient.event_register(session.opaque_ref, _classes);
-            else
-                session.XmlRpcProxy.event_register(session.opaque_ref, _classes).parse();
+            session.JsonRpcClient.event_register(session.opaque_ref, _classes);
         }
 
         public static void unregister(Session session, string[] _classes)
         {
-            if (session.JsonRpcClient != null)
-                session.JsonRpcClient.event_unregister(session.opaque_ref, _classes);
-            else
-                session.XmlRpcProxy.event_unregister(session.opaque_ref, _classes).parse();
+            session.JsonRpcClient.event_unregister(session.opaque_ref, _classes);
         }
 
         public static Proxy_Event[] next(Session session)
         {
-            if (session.JsonRpcClient != null)
-                throw new NotImplementedException();
-            else
-                return session.XmlRpcProxy.event_next(session.opaque_ref).parse();
+            throw new NotImplementedException();
         }
 
         public static IEventCollection from(Session session, string[] _classes, string _token, double _timeout)
         {
-            if (session.JsonRpcClient != null)
-                return session.JsonRpcClient.event_from(session.opaque_ref, _classes, _token, _timeout);
-            else
-                return session.XmlRpcProxy.event_from(session.opaque_ref, _classes, _token, _timeout).parse();
+            return session.JsonRpcClient.event_from(session.opaque_ref, _classes, _token, _timeout);
         }
 
         private long _id;
@@ -164,20 +138,16 @@ namespace XenAPI
 
         public string timestamp;
 
-        [XmlRpcMember("class")]
         public string class_;
 
         public string operation;
 
-        [XmlRpcMember("ref")]
         public string opaqueRef;
 
-        [XmlRpcMember("snapshot")]
         public object snapshot;
     }
 
 
-    [XmlRpcMissingMapping(MappingAction.Ignore)]
     public class EventBatch : IEventCollection
     {
         public Event[] events;
@@ -185,7 +155,6 @@ namespace XenAPI
         public string token;
     }
 
-    [XmlRpcMissingMapping(MappingAction.Ignore)]
     public class Events : IEventCollection
     {
         public Proxy_Event[] events;

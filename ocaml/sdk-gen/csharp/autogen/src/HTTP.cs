@@ -432,7 +432,6 @@ namespace XenAPI
             Socket socket =
                 new Socket(addressFamily, SocketType.Stream, ProtocolType.Tcp);
             socket.NoDelay = nodelay;
-            //socket.ReceiveBufferSize = 64 * 1024;
             socket.ReceiveTimeout = timeoutMs;
             socket.SendTimeout = timeoutMs;
             socket.Connect(uri.Host, uri.Port);
