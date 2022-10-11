@@ -1098,6 +1098,37 @@ functor
           (pool_uuid ~__context self)
           value ;
         Local.Pool.set_https_only ~__context ~self ~value
+
+      let install_rpmgpgkey ~__context ~self ~name ~pubkey =
+        info "Pool.install_rpmgpgkey: pool = '%s'; name = '%s'"
+          (pool_uuid ~__context self)
+          name ;
+        Xapi_pool_helpers.with_pool_operation ~__context ~op:`install_rpmgpgkey
+          ~doc:"Pool.install_rpmgpgkey"
+          ~self:(Helpers.get_pool ~__context)
+        @@ fun () -> Local.Pool.install_rpmgpgkey ~__context ~self ~name ~pubkey
+
+      let uninstall_rpmgpgkey ~__context ~self ~name =
+        info "Pool.uninstall_rpmgpgkey: pool = '%s'; name = '%s'"
+          (pool_uuid ~__context self)
+          name ;
+        Xapi_pool_helpers.with_pool_operation ~__context
+          ~op:`uninstall_rpmgpgkey ~doc:"Pool.uninstall_rpmgpgkey"
+          ~self:(Helpers.get_pool ~__context)
+        @@ fun () -> Local.Pool.uninstall_rpmgpgkey ~__context ~self ~name
+
+      let sync_rpmgpgkeys ~__context ~self ~hosts =
+        info "Pool.sync_rpmgpgkeys: pool = '%s'" (pool_uuid ~__context self) ;
+        Xapi_pool_helpers.with_pool_operation ~__context ~op:`sync_rpmgpgkeys
+          ~doc:"Pool.sync_rpmgpgkeys"
+          ~self:(Helpers.get_pool ~__context)
+        @@ fun () -> Local.Pool.sync_rpmgpgkeys ~__context ~self ~hosts
+
+      let get_rpm_pubkey_string ~__context ~self ~gpg_key =
+        info "Pool.get_rpm_pubkey_string: self='%s gpg_key='%s''"
+          (pool_uuid ~__context self)
+          (gpg_key_uuid ~__context gpg_key) ;
+        Local.Pool.get_rpm_pubkey_string ~__context ~self ~gpg_key
     end
 
     module VM = struct
@@ -3982,6 +4013,28 @@ functor
         let local_fn = Local.Host.set_https_only ~self ~value in
         do_op_on ~local_fn ~__context ~host:self (fun session_id rpc ->
             Client.Host.set_https_only ~rpc ~session_id ~self ~value
+        )
+
+      let install_rpmgpgkey ~__context ~self ~name ~pubkey ~fingerprint =
+        let uuid = host_uuid ~__context self in
+        info "Host.install_rpmgpgkey: host = '%s'; name = '%s'" uuid name ;
+        let local_fn =
+          Local.Host.install_rpmgpgkey ~self ~name ~pubkey ~fingerprint
+        in
+        do_op_on ~local_fn ~__context ~host:self (fun session_id rpc ->
+            Client.Host.install_rpmgpgkey ~rpc ~session_id ~self ~name ~pubkey
+              ~fingerprint
+        )
+
+      let uninstall_rpmgpgkey ~__context ~self ~name ~fingerprint =
+        let uuid = host_uuid ~__context self in
+        info "Host.uninstall_rpmgpgkey: host = '%s'; name = '%s'" uuid name ;
+        let local_fn =
+          Local.Host.uninstall_rpmgpgkey ~self ~name ~fingerprint
+        in
+        do_op_on ~local_fn ~__context ~host:self (fun session_id rpc ->
+            Client.Host.uninstall_rpmgpgkey ~rpc ~session_id ~self ~name
+              ~fingerprint
         )
     end
 

@@ -546,3 +546,18 @@ val copy_primary_host_certs : __context:Context.t -> host:API.ref_host -> unit
 
 val set_https_only :
   __context:Context.t -> self:API.ref_host -> value:bool -> unit
+
+val install_rpmgpgkey :
+     __context:Context.t
+  -> self:API.ref_host
+  -> name:string
+  -> pubkey:string
+  -> fingerprint:string
+  -> unit
+
+val uninstall_rpmgpgkey :
+     __context:Context.t
+  -> self:API.ref_host
+  -> name:string
+  -> fingerprint:string
+  -> unit

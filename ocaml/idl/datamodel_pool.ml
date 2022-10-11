@@ -44,6 +44,18 @@ let operations =
         , "Indicates the primary host is sending its certificates to another \
            host"
         )
+      ; ( "install_rpmgpgkey"
+        , "Indicates this pool is in the process of installing an RPM GPG \
+           public key"
+        )
+      ; ( "uninstall_rpmgpgkey"
+        , "Indicates this pool is in the process of uninstalling an RPM GPG \
+           public key"
+        )
+      ; ( "sync_rpmgpgkeys"
+        , "Indicates this pool is in the process of syncing all managed RPM \
+           GPG public keys"
+        )
       ]
     )
 
@@ -1023,6 +1035,52 @@ let set_uefi_certificates =
       ]
     ~allowed_roles:_R_POOL_ADMIN ()
 
+let install_rpmgpgkey =
+  call ~name:"install_rpmgpgkey"
+    ~doc:"Install an RPM GPG public key onto the pool."
+    ~params:
+      [
+        (Ref _pool, "self", "The pool")
+      ; (String, "name", "The name of the RPM GPG public key")
+      ; (String, "pubkey", "The RPM GPG public key")
+      ]
+    ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
+    ~lifecycle:[]
+    ~result:(Ref _gpg_key, "The reference of the created Gpg_key object")
+    ()
+
+let uninstall_rpmgpgkey =
+  call ~name:"uninstall_rpmgpgkey"
+    ~doc:"Uninstall an RPM GPG public key from the pool."
+    ~params:
+      [
+        (Ref _pool, "self", "The pool")
+      ; (String, "name", "The name of the RPM GPG public key to be uninstalled")
+      ]
+    ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
+    ~lifecycle:[] ()
+
+let sync_rpmgpgkeys =
+  call ~name:"sync_rpmgpgkeys"
+    ~doc:"Sync all RPM GPG public keys throughout the pool."
+    ~params:
+      [
+        (Ref _pool, "self", "The pool")
+      ; (Set (Ref _host), "hosts", "The hosts to be synced")
+      ]
+    ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
+    ~lifecycle:[] ()
+
+let get_rpm_pubkey_string =
+  call ~name:"get_rpm_pubkey_string" ~doc:"Get the string of an RPM public key."
+    ~params:
+      [
+        (Ref _pool, "self", "The pool")
+      ; (Ref _gpg_key, "gpg_key", "The RPM GPG key")
+      ]
+    ~result:(String, "The string of the RPM GPG public key")
+    ~hide_from_docs:true ~allowed_roles:_R_POOL_OP ~lifecycle:[] ()
+
 (** A pool class *)
 let t =
   create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:None
@@ -1105,6 +1163,10 @@ let t =
       ; disable_repository_proxy
       ; set_uefi_certificates
       ; set_https_only
+      ; install_rpmgpgkey
+      ; uninstall_rpmgpgkey
+      ; sync_rpmgpgkeys
+      ; get_rpm_pubkey_string
       ]
     ~contents:
       ([uid ~in_oss_since:None _pool]

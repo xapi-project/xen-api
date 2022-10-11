@@ -2912,3 +2912,9 @@ let set_https_only ~__context ~self ~value =
   ignore
   @@ Helpers.call_script !Xapi_globs.firewall_port_config_script [state; "80"] ;
   Db.Host.set_https_only ~__context ~self ~value
+
+let install_rpmgpgkey ~__context ~self:_ ~name ~pubkey ~fingerprint =
+  Rpm_gpg_key.install_rpmgpgkey ~name ~pubkey ~fingerprint
+
+let uninstall_rpmgpgkey ~__context ~self:_ ~name ~fingerprint =
+  Rpm_gpg_key.uninstall_rpmgpgkey ~name ~fingerprint

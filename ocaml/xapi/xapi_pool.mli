@@ -390,3 +390,19 @@ val set_uefi_certificates :
 
 val set_https_only :
   __context:Context.t -> self:API.ref_pool -> value:bool -> unit
+
+val install_rpmgpgkey :
+     __context:Context.t
+  -> self:API.ref_pool
+  -> name:string
+  -> pubkey:string
+  -> API.ref_Gpg_key
+
+val uninstall_rpmgpgkey :
+  __context:Context.t -> self:API.ref_pool -> name:string -> unit
+
+val sync_rpmgpgkeys :
+  __context:Context.t -> self:API.ref_pool -> hosts:API.ref_host list -> unit
+
+val get_rpm_pubkey_string :
+  __context:Context.t -> self:API.ref_pool -> gpg_key:API.ref_Gpg_key -> string

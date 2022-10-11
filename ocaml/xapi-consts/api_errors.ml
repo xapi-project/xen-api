@@ -1300,3 +1300,21 @@ let rpm_gpg_key_with_same_name_already_exists =
   "RPM_GPG_KEY_WITH_SAME_NAME_ALREADY_EXISTS"
 
 let rpm_gpg_key_can_not_be_installed = "RPM_GPG_KEY_CAN_NOT_BE_INSTALLED"
+
+let rpm_gpg_key_is_in_use = "RPM_GPG_KEY_IS_IN_USE"
+
+let rpm_gpg_key_record_does_not_exist = "RPM_GPG_KEY_RECORD_DOES_NOT_EXIST"
+
+let install_rpmgpgkey_in_progress = "INSTALL_RPMGPGKEY_IN_PROGRESS"
+
+let uninstall_rpmgpgkey_in_progress = "UNINSTALL_RPMGPGKEY_IN_PROGRESS"
+
+let sync_rpmgpgkeys_in_progress = "SYNC_RPMGPGKEYS_IN_PROGRESS"
+
+let rpm_gpg_key_record_with_same_name_already_exists =
+  "RPM_GPG_KEY_RECORD_WITH_SAME_NAME_ALREADY_EXISTS"
+
+let rpm_gpg_key_with_same_fingerprint_already_exists =
+  "RPM_GPG_KEY_WITH_SAME_FINGERPRINT_ALREADY_EXISTS"
+
+let multiple_rpm_gpg_keys_exist = "MULTIPLE_RPM_GPG_KEYS_EXIST"

@@ -1961,6 +1961,22 @@ let _ =
     ~doc:"Another RPM GPG key with same name exists already" () ;
   error Api_errors.rpm_gpg_key_can_not_be_installed ["name"]
     ~doc:"The RPM GPG key can not be installed through a key file" () ;
+  error Api_errors.rpm_gpg_key_is_in_use ["name"]
+    ~doc:"The RPM GPG key is in use currently" () ;
+  error Api_errors.rpm_gpg_key_record_does_not_exist ["name"]
+    ~doc:"The RPM GPG key does not exist" () ;
+  error Api_errors.install_rpmgpgkey_in_progress []
+    ~doc:"A RPM GPG key installatin is in progress" () ;
+  error Api_errors.uninstall_rpmgpgkey_in_progress []
+    ~doc:"A RPM GPG key un-installation is in progress" () ;
+  error Api_errors.sync_rpmgpgkeys_in_progress []
+    ~doc:"The RPM GPG keys are being synced throughout the pool" () ;
+  error Api_errors.rpm_gpg_key_record_with_same_name_already_exists ["name"]
+    ~doc:"Another RPM GPG key record with same name exists already" () ;
+  error Api_errors.rpm_gpg_key_with_same_fingerprint_already_exists ["name"]
+    ~doc:"Another RPM GPG key with same fingerprint exists already" () ;
+  error Api_errors.multiple_rpm_gpg_keys_exist ["name"]
+    ~doc:"Multiple RPM GPG keys with same name and fingerprint exist" () ;
 
   message
     (fst Api_messages.ha_pool_overcommitted)

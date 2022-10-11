@@ -1563,6 +1563,42 @@ let join_common ~__context ~master_address ~master_username ~master_password
             "Unable to set the write the new pool certificates to the disk : %s"
             (ExnHelper.string_of_exn e)
       ) ;
+      (* Sync RPM GPG keys to every host of the current pool *)
+      ((* Retrieve keys from the new pool *)
+       let pubkeys =
+         Client.Gpg_key.get_all_records ~rpc ~session_id
+         |> List.filter_map (fun (key_ref, key_rec) ->
+                match
+                  (key_rec.API.gpg_key_uninstalled, key_rec.API.gpg_key_type)
+                with
+                | false, `rpm_pubkey ->
+                    let name = key_rec.API.gpg_key_name in
+                    let fingerprint = key_rec.API.gpg_key_fingerprint in
+                    let pubkey =
+                      Client.Pool.get_rpm_pubkey_string ~rpc ~session_id
+                        ~self:(get_pool ~rpc ~session_id)
+                        ~gpg_key:key_ref
+                    in
+                    Some (name, pubkey, fingerprint)
+                | _ ->
+                    None
+            )
+       in
+       (* Install RPM GPG keys on each host in the old pool *)
+       Db.Host.get_all ~__context
+       |> List.iter (fun host ->
+              Helpers.call_api_functions ~__context
+                (fun local_rpc local_session_id ->
+                  List.iter
+                    (fun (name, pubkey, fingerprint) ->
+                      Client.Host.install_rpmgpgkey ~rpc:local_rpc
+                        ~session_id:local_session_id ~self:host ~name ~pubkey
+                        ~fingerprint
+                    )
+                    pubkeys
+              )
+          )
+      ) ;
       (* this is where we try and sync up as much state as we can
          with the master. This is "best effort" rather than
          critical; if we fail part way through this then we carry
@@ -1893,6 +1929,21 @@ let eject_self ~__context ~host =
           control_domains_to_destroy
       with _ -> ()
     ) ;
+    let expr =
+      let open Db_filter_types in
+      Eq (Field "type", Literal "rpm_pubkey")
+    in
+    Db.Gpg_key.get_refs_where ~__context ~expr
+    |> List.iter (fun self ->
+           let name = Db.Gpg_key.get_name ~__context ~self in
+           let fingerprint = Db.Gpg_key.get_fingerprint ~__context ~self in
+           debug "Uninstalling RPM GPG key: name: %s; fingerprint: %s" name
+             fingerprint ;
+           try Rpm_gpg_key.uninstall_rpmgpgkey ~name ~fingerprint
+           with e ->
+             error "Failed to uninstall RPM GPG key %s: %s" name
+               (ExnHelper.string_of_exn e)
+       ) ;
     debug "Pool.eject: setting our role to be master" ;
     Xapi_pool_transition.set_role Pool_role.Master ;
     debug "Pool.eject: forgetting pool secret" ;
@@ -3605,3 +3656,223 @@ let set_https_only ~__context ~self:_ ~value =
         )
         (Db.Host.get_all ~__context)
   )
+
+let install_rpmgpgkey ~__context ~self:_ ~name ~pubkey =
+  (* This function runs on the coordinator host. *)
+  let open Gpg in
+  assert_name_is_valid ~name ;
+  let md = parse_pubkey ~pubkey in
+  let expr =
+    let open Db_filter_types in
+    Eq (Field "type", Literal "rpm_pubkey")
+  in
+  ( Db.Gpg_key.get_refs_where ~__context ~expr
+  |> List.filter_map (fun ref ->
+         let name_in_db = Db.Gpg_key.get_name ~__context ~self:ref in
+         let fp_in_db = Db.Gpg_key.get_fingerprint ~__context ~self:ref in
+         match (name, md.PubKeyMetaData.fingerprint) with
+         | n, fp when n = name_in_db && fp = fp_in_db ->
+             debug "RPM GPG public key %s with fingerprint %s exists already" n
+               fp ;
+             Some ref
+         | n, _ when n = name_in_db ->
+             raise
+               Api_errors.(
+                 Server_error
+                   (rpm_gpg_key_record_with_same_name_already_exists, [name])
+               )
+         | _, fp when fp = fp_in_db ->
+             raise
+               Api_errors.(
+                 Server_error
+                   ( rpm_gpg_key_with_same_fingerprint_already_exists
+                   , [name_in_db]
+                   )
+               )
+         | _ ->
+             None
+     )
+  |> fun gpg_key_refs ->
+    (* Install the key on the coordinator host firstly. *)
+    Rpm_gpg_key.install_rpmgpgkey ~name ~pubkey
+      ~fingerprint:md.PubKeyMetaData.fingerprint ;
+    match gpg_key_refs with
+    | [] ->
+        create_db_record ~__context ~name ~created:md.PubKeyMetaData.created
+          ~fingerprint:md.PubKeyMetaData.fingerprint ~_type:`rpm_pubkey
+    | [ref] ->
+        ref
+    | _ ->
+        raise Api_errors.(Server_error (multiple_rpm_gpg_keys_exist, [name]))
+  )
+  |> fun gpg_key_ref ->
+  (* Install the key on other member hosts. *)
+  let other_members =
+    let coordinator = Helpers.get_localhost ~__context in
+    Db.Host.get_all ~__context |> List.filter (fun href -> href <> coordinator)
+  in
+  let funs =
+    List.map
+      (fun host () ->
+        try
+          Helpers.call_api_functions ~__context @@ fun rpc session_id ->
+          Client.Host.install_rpmgpgkey ~rpc ~session_id ~self:host ~name
+            ~pubkey ~fingerprint:md.PubKeyMetaData.fingerprint
+        with e ->
+          error "Error from Host.install_rpmgpgkey on host %s: %s"
+            (Ref.string_of host)
+            (ExnHelper.string_of_exn e) ;
+          raise e
+      )
+      other_members
+  in
+  Helpers.run_in_parallel ~funs ~capacity:16 |> ignore ;
+  gpg_key_ref
+
+let uninstall_rpmgpgkey ~__context ~self ~name =
+  (* This function runs on the coordinator host. *)
+  Gpg.assert_name_is_valid ~name ;
+  Db.Pool.get_repositories ~__context ~self
+  |> List.map (fun self -> Db.Repository.get_gpgkey_path ~__context ~self)
+  |> List.exists (fun p -> p = name)
+  |> function
+  | true ->
+      raise Api_errors.(Server_error (rpm_gpg_key_is_in_use, [name]))
+  | false -> (
+      let expr =
+        let open Db_filter_types in
+        Eq (Field "type", Literal "rpm_pubkey")
+      in
+      Db.Gpg_key.get_refs_where ~__context ~expr
+      |> List.filter_map (fun ref ->
+             let name_in_db = Db.Gpg_key.get_name ~__context ~self:ref in
+             if name = name_in_db then Some ref else None
+         )
+      |> function
+      | [] ->
+          raise
+            Api_errors.(
+              Server_error (rpm_gpg_key_record_does_not_exist, [name])
+            )
+      | refs ->
+          let hosts = Db.Host.get_all ~__context in
+          List.iter
+            (fun self ->
+              Db.Gpg_key.set_uninstalled ~__context ~self ~value:true ;
+              let fingerprint = Db.Gpg_key.get_fingerprint ~__context ~self in
+              let funs =
+                List.map
+                  (fun host () ->
+                    try
+                      Helpers.call_api_functions ~__context
+                      @@ fun rpc session_id ->
+                      Client.Host.uninstall_rpmgpgkey ~rpc ~session_id
+                        ~self:host ~name ~fingerprint
+                    with e ->
+                      error "Error from Host.uninstall_rpmgpgkey on host %s: %s"
+                        (Ref.string_of host)
+                        (ExnHelper.string_of_exn e) ;
+                      raise e
+                  )
+                  hosts
+              in
+              Helpers.run_in_parallel ~funs ~capacity:16 |> ignore ;
+              Db.Gpg_key.destroy ~__context ~self
+            )
+            refs
+    )
+
+let sync_rpmgpgkeys ~__context ~self:_ ~hosts =
+  (* This function runs on the coordinator host. *)
+  let to_be_removed, to_be_kept =
+    let expr =
+      let open Db_filter_types in
+      Eq (Field "type", Literal "rpm_pubkey")
+    in
+    Db.Gpg_key.get_refs_where ~__context ~expr
+    |> List.partition (fun ref ->
+           Db.Gpg_key.get_uninstalled ~__context ~self:ref
+       )
+  in
+  let hosts' = match hosts with [] -> Db.Host.get_all ~__context | hs -> hs in
+  (* Remove uninstalled *)
+  let funs =
+    List.map
+      (fun host () ->
+        try
+          List.iter
+            (fun self ->
+              let name = Db.Gpg_key.get_name ~__context ~self in
+              let fingerprint = Db.Gpg_key.get_fingerprint ~__context ~self in
+              Helpers.call_api_functions ~__context @@ fun rpc session_id ->
+              Client.Host.uninstall_rpmgpgkey ~rpc ~session_id ~self:host ~name
+                ~fingerprint
+            )
+            to_be_removed
+        with e ->
+          error "Error from Host.uninstall_rpmgpgkey on host %s: %s"
+            (Ref.string_of host)
+            (ExnHelper.string_of_exn e) ;
+          raise e
+      )
+      hosts'
+  in
+  Helpers.run_in_parallel ~funs ~capacity:16 |> ignore ;
+  List.iter (fun self -> Db.Gpg_key.destroy ~__context ~self) to_be_removed ;
+  debug "All uninstalled RPM GPG public keys have been removed" ;
+  (* Sync installed *)
+  let pubkeys =
+    to_be_kept
+    |> List.map (fun ref ->
+           (* This function runs on the coordinator host. Get the pubkeys from the coordinator *)
+           let name = Db.Gpg_key.get_name ~__context ~self:ref in
+           let fingerprint = Db.Gpg_key.get_fingerprint ~__context ~self:ref in
+           Rpm_gpg_key.get_pubkey ~name
+           |> Option.map (fun pubkey ->
+                  let open Gpg in
+                  match parse_pubkey ~pubkey with
+                  | PubKeyMetaData.{fingerprint= fp; _} when fingerprint = fp ->
+                      (name, pubkey, fingerprint)
+                  | _ ->
+                      error
+                        "The fingerprint doesn't match between XAPI DB and key \
+                         file" ;
+                      raise
+                        (Api_errors.Server_error
+                           (Api_errors.gpg_key_is_invalid, [])
+                        )
+              )
+           |> function
+           | Some x ->
+               x
+           | None ->
+               raise
+                 (Api_errors.Server_error
+                    (Api_errors.rpm_gpg_key_record_does_not_exist, [name])
+                 )
+       )
+  in
+  let funs =
+    List.map
+      (fun host () ->
+        try
+          Helpers.call_api_functions ~__context @@ fun rpc session_id ->
+          List.map
+            (fun (name, pubkey, fingerprint) ->
+              Client.Host.install_rpmgpgkey ~rpc ~session_id ~self:host ~name
+                ~pubkey ~fingerprint
+            )
+            pubkeys
+        with e ->
+          error "Error from Host.install_rpmgpgkey on host %s: %s"
+            (Ref.string_of host)
+            (ExnHelper.string_of_exn e) ;
+          raise e
+      )
+      hosts'
+  in
+  Helpers.run_in_parallel ~funs ~capacity:16 |> ignore ;
+  debug "All installed RPM GPG public keys have been synced"
+
+let get_rpm_pubkey_string ~__context ~self:_ ~gpg_key =
+  Rpm_gpg_key.get_rpm_pubkey_string ~__context ~self:gpg_key

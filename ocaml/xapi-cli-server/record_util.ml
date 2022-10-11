@@ -176,6 +176,12 @@ let pool_operation_to_string = function
       "exchange_ca_certificates_on_join"
   | `copy_primary_host_certs ->
       "copy_primary_host_certs"
+  | `install_rpmgpgkey ->
+      "install_rpmgpgkey"
+  | `uninstall_rpmgpgkey ->
+      "uninstall_rpmgpgkey"
+  | `sync_rpmgpgkeys ->
+      "sync_rpmgpgkeys"
 
 let host_operation_to_string = function
   | `provision ->

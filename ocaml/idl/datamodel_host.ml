@@ -1744,6 +1744,34 @@ let set_https_only =
       ]
     ~allowed_roles:_R_POOL_OP ()
 
+let install_rpmgpgkey =
+  call ~name:"install_rpmgpgkey"
+    ~doc:"Install an RPM GPG public key onto the host."
+    ~params:
+      [
+        (Ref _host, "self", "The host")
+      ; (String, "name", "The name of the RPM GPG public key")
+      ; (String, "pubkey", "The RPM GPG public key")
+      ; (String, "fingerprint", "The fingerprint of the RPM GPG public key")
+      ]
+    ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
+    ~lifecycle:[] ()
+
+let uninstall_rpmgpgkey =
+  call ~name:"uninstall_rpmgpgkey"
+    ~doc:"Uninstall an RPM GPG public key on the pool."
+    ~params:
+      [
+        (Ref _host, "self", "The host")
+      ; (String, "name", "The name of the RPM GPG public key to be uninstalled")
+      ; ( String
+        , "fingerprint"
+        , "The fingerprint of the RPM GPG public key to be uninstalled"
+        )
+      ]
+    ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
+    ~lifecycle:[] ~pool_internal:true ()
+
 (** Hosts *)
 let t =
   create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303
@@ -1878,6 +1906,8 @@ let t =
       ; apply_updates
       ; copy_primary_host_certs
       ; set_https_only
+      ; install_rpmgpgkey
+      ; uninstall_rpmgpgkey
       ]
     ~contents:
       ([
