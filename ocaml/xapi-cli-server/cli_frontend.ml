@@ -514,6 +514,33 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; flags= []
       }
     )
+  ; ( "pool-install-rpmgpgkey"
+    , {
+        reqd= ["filename"]
+      ; optn= ["uuid"]
+      ; help= "Install an RPM GPG public key, pool-wide."
+      ; implementation= With_fd Cli_operations.pool_install_rpmgpgkey
+      ; flags= []
+      }
+    )
+  ; ( "pool-uninstall-rpmgpgkey"
+    , {
+        reqd= ["name"]
+      ; optn= ["uuid"]
+      ; help= "Uninstall an RPM GPG public key, pool-wide."
+      ; implementation= No_fd Cli_operations.pool_uninstall_rpmgpgkey
+      ; flags= []
+      }
+    )
+  ; ( "pool-sync-rpmgpgkeys"
+    , {
+        reqd= []
+      ; optn= ["uuid"]
+      ; help= "Sync all managed RPM GPG public keys, pool-wide."
+      ; implementation= No_fd Cli_operations.pool_sync_rpmgpgkeys
+      ; flags= []
+      }
+    )
   ; ( "host-is-in-emergency-mode"
     , {
         reqd= []

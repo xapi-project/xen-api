@@ -1829,6 +1829,28 @@ let pool_disable_repository_proxy _printer rpc session_id params =
   let pool = get_pool_with_default rpc session_id params "uuid" in
   Client.Pool.disable_repository_proxy ~rpc ~session_id ~self:pool
 
+let pool_install_rpmgpgkey fd _printer rpc session_id params =
+  let filename = List.assoc "filename" params in
+  let pool = get_pool_with_default rpc session_id params "uuid" in
+  match get_client_file fd filename with
+  | Some pubkey ->
+      Client.Pool.install_rpmgpgkey ~rpc ~session_id ~self:pool
+        ~name:(Filename.basename filename)
+        ~pubkey
+      |> ignore
+  | None ->
+      marshal fd (Command (PrintStderr "Failed to read RPM GPG key\n")) ;
+      raise (ExitWithError 1)
+
+let pool_uninstall_rpmgpgkey _printer rpc session_id params =
+  let name = List.assoc "name" params in
+  let pool = get_pool_with_default rpc session_id params "uuid" in
+  Client.Pool.uninstall_rpmgpgkey ~rpc ~session_id ~self:pool ~name
+
+let pool_sync_rpmgpgkeys _printer rpc session_id params =
+  let pool = get_pool_with_default rpc session_id params "uuid" in
+  Client.Pool.sync_rpmgpgkeys ~rpc ~session_id ~self:pool ~hosts:[]
+
 let vdi_type_of_string = function
   | "system" ->
       `system
