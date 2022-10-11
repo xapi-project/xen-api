@@ -540,6 +540,79 @@ let write_to_dir dir maybe_file =
   in
   Option.iter write maybe_file
 
+module Version = struct
+  type t = int list
+
+  let rec compare x y =
+    match (x, y) with
+    | x :: xs, y :: ys when x = y ->
+        compare xs ys
+    | x :: _, y :: _ ->
+        Int.compare x y
+    | x :: _, [] when x = 0 ->
+        0
+    | _ :: _, [] ->
+        1
+    | [], y :: _ when y = 0 ->
+        0
+    | [], _ :: _ ->
+        -1
+    | [], [] ->
+        0
+end
+
+module NameSet = Set.Make (String)
+module VersionSet = Set.Make (Version)
+
+let string_of_version = Fmt.(str "%a" (list ~sep:(Fmt.any ".") int))
+
+let get_versions_from api =
+  let classes = Dm_api.objects_of_api api in
+  let rec from_field = function
+    | Field fld ->
+        fld.lifecycle
+    | Namespace (_, nms) ->
+        List.concat_map from_field nms
+  in
+  let from_message {msg_lifecycle; _} = msg_lifecycle in
+  let versions_from_class (cls : obj) =
+    let field_lifecycles = List.concat_map from_field cls.contents in
+    let message_lifecycles = List.concat_map from_message cls.messages in
+    List.concat
+      [cls.Datamodel_types.obj_lifecycle; field_lifecycles; message_lifecycles]
+  in
+  let is_named_release name =
+    List.exists
+      (fun x ->
+        match x.code_name with Some n when n = name -> true | _ -> false
+      )
+      release_order_full
+  in
+  (* now gather versions from the lifecycles *)
+  let versions =
+    List.concat_map versions_from_class classes
+    |> List.to_seq
+    |> Seq.map (fun (_, version, _) -> version)
+    |> NameSet.of_seq
+    |> NameSet.filter (fun x -> not (is_named_release x))
+    |> NameSet.to_seq
+    |> Seq.map (fun v -> String.split_on_char '.' v |> List.map int_of_string)
+    |> VersionSet.of_seq
+    |> VersionSet.elements
+  in
+  (* now transform the versions to releases, in a free-form way *)
+  let release_of_version v =
+    let name = string_of_version v in
+    {
+      code_name= Some name
+    ; version_major= 2
+    ; version_minor= 20
+    ; release_date= Some ""
+    ; branding= Printf.sprintf "XAPI %s" name
+    }
+  in
+  release_order_full @ List.map release_of_version versions
+
 let () =
   parse_args () ;
   let destdir = !destdir' in
@@ -560,7 +633,7 @@ let () =
       api
   in
   let objs = objects_of_api api in
-  let releases = release_order_full in
+  let releases = get_versions_from api in
   Yojson.Safe.to_file (data_dir // "xenapi.json") (Json.xenapi objs) ;
   Yojson.Safe.to_file
     (data_dir // "release_info.json")
