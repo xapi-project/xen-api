@@ -1,5 +1,5 @@
 (*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
+ * Copyright (C) 2006-2022 Citrix Systems Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published
@@ -152,3 +152,91 @@ let with_detached_signature filename signature size f =
 
 let with_verified_signature filename signature f =
   common `verified_signature filename signature Int64.zero f
+
+let assert_name_is_valid ~name =
+  let safe_char = function
+    | 'A' .. 'Z' | 'a' .. 'z' | '0' .. '9' | '.' | '_' | '-' ->
+        true
+    | _ ->
+        false
+  in
+  let len = String.length name in
+  let starts_with_dot = Astring.String.is_prefix ~affix:"." name in
+  let is_valid = String.for_all safe_char name && not starts_with_dot in
+  match (is_valid, len <= 0, len > 64) with
+  | false, _, _ ->
+      raise Api_errors.(Server_error (gpg_key_name_is_invalid, [name]))
+  | true, true, _ ->
+      raise Api_errors.(Server_error (gpg_key_name_is_empty, []))
+  | true, false, true ->
+      raise Api_errors.(Server_error (gpg_key_name_is_too_long, [name]))
+  | true, false, false ->
+      ()
+
+module PubKeyMetaData = struct
+  type t = {created: float; fingerprint: string}
+end
+
+let parse_pubkey_metadata md_str_in_colons =
+  let open Angstrom in
+  let single_field =
+    take_while (fun x -> x <> ':') >>= fun v ->
+    char ':' >>= fun _ -> return v
+  in
+  let pickup =
+    single_field >>= fun _ ->
+    count 4 single_field >>= fun _ ->
+    single_field >>= fun created ->
+    count 13 single_field >>= fun _ ->
+    single_field >>= fun fingerprint -> return (created, fingerprint)
+  in
+  let consume = Consume.Prefix in
+  match (parse_string ~consume pickup) md_str_in_colons with
+  | Ok (date_str, fingerprint) ->
+      let created =
+        try Float.of_string date_str
+        with _ ->
+          error "Failed to parse GPG public key: invalid creation date: %s"
+            date_str ;
+          raise Api_errors.(Server_error (gpg_key_is_invalid, []))
+      in
+      let safe_char = function 'A' .. 'Z' | '0' .. '9' -> true | _ -> false in
+      if not (String.for_all safe_char fingerprint) then (
+        error "Failed to parse GPG public key: invalid fingerprint: %s"
+          fingerprint ;
+        raise Api_errors.(Server_error (gpg_key_is_invalid, []))
+      ) ;
+      PubKeyMetaData.{created; fingerprint}
+  | Error msg ->
+      error "Failed to parse GPG public key from a string: %s" msg ;
+      raise Api_errors.(Server_error (gpg_key_is_invalid, []))
+
+let parse_pubkey ~pubkey =
+  let tmp_file = Filename.temp_file "gpg_pubkey" ".tmp" in
+  Xapi_stdext_pervasives.Pervasiveext.finally
+    (fun () ->
+      try
+        Unixext.write_string_to_file tmp_file pubkey ;
+        let params =
+          [
+            "--homedir=/tmp"
+          ; "--dry-run"
+          ; "--with-fingerprint"
+          ; "--with-colons"
+          ; tmp_file
+          ]
+        in
+        Helpers.call_script !Xapi_globs.gpg_cmd params |> parse_pubkey_metadata
+      with e ->
+        error "Failed to parse GPG public key: %s" (ExnHelper.string_of_exn e) ;
+        raise Api_errors.(Server_error (gpg_key_is_invalid, []))
+    )
+    (fun () -> Unixext.unlink_safe tmp_file)
+
+let create_db_record ~__context ~name ~created ~fingerprint ~_type =
+  let ref = Ref.make () in
+  let uuid = Uuidx.(to_string (make ())) in
+  Db.Gpg_key.create ~__context ~ref ~uuid ~name
+    ~created:(Xapi_stdext_date.Date.of_float created)
+    ~fingerprint ~uninstalled:false ~_type ;
+  ref

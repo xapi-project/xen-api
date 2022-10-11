@@ -1949,6 +1949,19 @@ let _ =
   error Api_errors.vtpm_max_amount_reached ["amount"]
     ~doc:"The VM cannot be associated with more VTPMs." () ;
 
+  error Api_errors.gpg_key_name_is_invalid ["name"]
+    ~doc:"The name of the GPG key is invalid" () ;
+  error Api_errors.gpg_key_name_is_empty []
+    ~doc:"The name of the GPG key can not be empty" () ;
+  error Api_errors.gpg_key_name_is_too_long ["name"]
+    ~doc:"The name of the GPG key is too long" () ;
+  error Api_errors.gpg_key_is_invalid []
+    ~doc:"The GPG key is invalid (maybe corrupted)" () ;
+  error Api_errors.rpm_gpg_key_with_same_name_already_exists ["name"]
+    ~doc:"Another RPM GPG key with same name exists already" () ;
+  error Api_errors.rpm_gpg_key_can_not_be_installed ["name"]
+    ~doc:"The RPM GPG key can not be installed through a key file" () ;
+
   message
     (fst Api_messages.ha_pool_overcommitted)
     ~doc:

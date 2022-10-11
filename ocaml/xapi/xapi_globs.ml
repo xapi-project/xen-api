@@ -918,6 +918,8 @@ let repoquery_cmd = ref "/usr/bin/repoquery"
 
 let rpm_cmd = ref "/usr/bin/rpm"
 
+let gpg_cmd = ref "/usr/bin/gpg"
+
 let rpm_gpgkey_dir = ref "/etc/pki/rpm-gpg"
 
 let repository_gpgkey_name = ref ""

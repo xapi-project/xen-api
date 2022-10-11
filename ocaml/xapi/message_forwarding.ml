@@ -629,6 +629,14 @@ functor
           Ref.string_of repository
       with _ -> "invalid"
 
+    let gpg_key_uuid ~__context gpg_key =
+      try
+        if Pool_role.is_master () then
+          Db.Gpg_key.get_uuid ~__context ~self:gpg_key
+        else
+          Ref.string_of gpg_key
+      with _ -> "invalid"
+
     module Session = struct
       include Local.Session
 
@@ -6452,4 +6460,6 @@ functor
               ~base_build_id ~base_version ~base_release ~to_version ~to_release
         )
     end
+
+    module Gpg_key = struct end
   end

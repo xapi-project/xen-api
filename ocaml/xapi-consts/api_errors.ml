@@ -1285,3 +1285,18 @@ let update_guidance_changed = "UPDATE_GUIDANCE_CHANGED"
 (* VTPMs *)
 
 let vtpm_max_amount_reached = "VTPM_MAX_AMOUNT_REACHED"
+
+(* gpg_key *)
+
+let gpg_key_name_is_invalid = "GPG_KEY_NAME_IS_INVALID"
+
+let gpg_key_name_is_empty = "GPG_KEY_NAME_IS_EMPTY"
+
+let gpg_key_name_is_too_long = "GPG_KEY_NAME_IS_TOO_LONG"
+
+let gpg_key_is_invalid = "GPG_KEY_IS_INVALID"
+
+let rpm_gpg_key_with_same_name_already_exists =
+  "RPM_GPG_KEY_WITH_SAME_NAME_ALREADY_EXISTS"
+
+let rpm_gpg_key_can_not_be_installed = "RPM_GPG_KEY_CAN_NOT_BE_INSTALLED"

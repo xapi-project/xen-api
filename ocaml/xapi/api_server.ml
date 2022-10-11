@@ -128,6 +128,8 @@ module Actions = struct
   module Certificate = Certificates
   module Diagnostics = Xapi_diagnostics
   module Repository = Repository
+
+  module Gpg_key = struct end
 end
 
 (** Use the server functor to make an XML-RPC dispatcher. *)
