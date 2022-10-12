@@ -26,6 +26,10 @@ exception Method_not_implemented
 
 exception Malformed_url of string
 
+exception Timeout
+
+exception Too_large
+
 module D = Debug.Make (struct let name = "http" end)
 
 open D
@@ -281,7 +285,7 @@ let header_len_header = Printf.sprintf "\r\n%s:" Hdr.header_len
 
 let header_len_value_len = 5
 
-let read_up_to buf already_read marker fd =
+let read_up_to ?deadline ?max buf already_read marker fd =
   let marker = Scanner.make marker in
   let hl_marker = Scanner.make header_len_header in
   let b = ref 0 in
@@ -289,6 +293,12 @@ let read_up_to buf already_read marker fd =
   let header_len = ref None in
   let header_len_value_at = ref None in
   while not (Scanner.matched marker) do
+    Option.iter
+      (fun d ->
+        if Mtime.Span.compare (Mtime_clock.elapsed ()) d > 0 then
+          raise Timeout
+      )
+      deadline ;
     let safe_to_read =
       match (!header_len_value_at, !header_len) with
       | None, None ->
@@ -302,6 +312,7 @@ let read_up_to buf already_read marker fd =
 		Printf.fprintf stderr "b = %d; safe_to_read = %d\n" !b safe_to_read;
 		flush stderr;
 *)
+    Option.iter (fun m -> if !b + safe_to_read > m then raise Too_large) max ;
     let n =
       if !b < already_read then
         min safe_to_read (already_read - !b)
@@ -348,8 +359,6 @@ let read_up_to buf already_read marker fd =
   done ;
   !b
 
-let read_http_header buf fd = read_up_to buf 0 end_of_headers fd
-
 let smallest_request = "GET / HTTP/1.0\r\n\r\n"
 
 (* let smallest_response = "HTTP/1.0 200 OK\r\n\r\n" *)
@@ -365,30 +374,59 @@ let read_frame_header buf =
   let prefix = Bytes.sub_string buf 0 frame_header_length in
   try Scanf.sscanf prefix "FRAME %012d" (fun x -> Some x) with _ -> None
 
-let read_http_request_header fd =
-  let buf = Bytes.create 1024 in
-  Unixext.really_read fd buf 0 6 ;
+let set_socket_timeout fd t =
+  try Unix.(setsockopt_float fd SO_RCVTIMEO t)
+  with Unix.Unix_error (Unix.ENOTSOCK, _, _) ->
+    (* In the unit tests, the fd comes from a pipe... ignore *)
+    ()
+
+let read_http_request_header ~read_timeout ~total_timeout ~max_length fd =
+  Option.iter (fun t -> set_socket_timeout fd t) read_timeout ;
+  let buf = Bytes.create (Option.value ~default:1024 max_length) in
+  let deadline =
+    Option.map
+      (fun t ->
+        let start = Mtime_clock.elapsed () in
+        let timeout_ns = int_of_float (t *. 1e9) in
+        Mtime.Span.(add start (timeout_ns * ns))
+      )
+      total_timeout
+  in
+  let check_timeout_and_read x y =
+    Option.iter
+      (fun d ->
+        if Mtime.Span.compare (Mtime_clock.elapsed ()) d > 0 then
+          raise Timeout
+      )
+      deadline ;
+    Unixext.really_read fd buf x y
+  in
+  check_timeout_and_read 0 6 ;
   (* return PROXY header if it exists, and then read up to FRAME header length (which also may not exist) *)
   let proxy =
     match Bytes.sub_string buf 0 6 with
     | "PROXY " ->
-        let proxy_header_length = read_up_to buf 6 "\r\n" fd in
+        let proxy_header_length = read_up_to ?deadline buf 6 "\r\n" fd in
         (* chop 'PROXY ' from the beginning, and '\r\n' from the end *)
         let proxy = Bytes.sub_string buf 6 (proxy_header_length - 6 - 2) in
-        Unixext.really_read fd buf 0 frame_header_length ;
+        check_timeout_and_read 0 frame_header_length ;
         Some proxy
     | _ ->
-        Unixext.really_read fd buf 6 (frame_header_length - 6) ;
+        check_timeout_and_read 6 (frame_header_length - 6) ;
         None
   in
   let frame, headers_length =
     match read_frame_header buf with
     | None ->
-        (false, read_up_to buf frame_header_length end_of_headers fd)
+        let max = Option.map (fun m -> m - frame_header_length) max_length in
+        ( false
+        , read_up_to ?deadline ?max buf frame_header_length end_of_headers fd
+        )
     | Some length ->
-        Unixext.really_read fd buf 0 length ;
+        check_timeout_and_read 0 length ;
         (true, length)
   in
+  set_socket_timeout fd 0. ;
   (frame, Bytes.sub_string buf 0 headers_length, proxy)
 
 let read_http_response_header buf fd =

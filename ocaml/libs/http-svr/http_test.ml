@@ -200,7 +200,8 @@ let test_read_http_request_header _ =
   |> List.iter (fun (frame, proxy, header) ->
          with_fd (mk_header_string ~frame ~proxy ~header) (fun fd ->
              let actual_frame, actual_header, actual_proxy =
-               Http.read_http_request_header fd
+               Http.read_http_request_header ~read_timeout:None
+                 ~total_timeout:None ~max_length:None fd
              in
              assert (actual_frame = frame) ;
              assert (actual_header = header) ;

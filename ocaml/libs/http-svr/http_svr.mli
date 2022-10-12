@@ -48,12 +48,7 @@ module Server : sig
 
   val all_stats : 'a t -> (Http.method_t * uri_path * Stats.t) list
   (** [all_stats x] returns a list of (method, uri, stats) triples *)
-
-  val enable_fastpath : 'a t -> unit
-  (** [enable_fastpath x] switches on experimental performance optimisations *)
 end
-
-exception Too_many_headers
 
 exception Generic_error of string
 
@@ -64,7 +59,14 @@ val bind : ?listen_backlog:int -> Unix.sockaddr -> string -> socket
 (* [bind_retry]: like [bind] but will catch (possibly transient exceptions) and retry *)
 val bind_retry : ?listen_backlog:int -> Unix.sockaddr -> socket
 
-val start : 'a Server.t -> socket -> unit
+val start :
+     ?header_read_timeout:float
+  -> ?header_total_timeout:float
+  -> ?max_header_length:int
+  -> conn_limit:int
+  -> 'a Server.t
+  -> socket
+  -> unit
 
 val handle_one : 'a Server.t -> Unix.file_descr -> 'a -> Http.Request.t -> bool
 
@@ -125,9 +127,3 @@ val respond_to_options : Http.Request.t -> Unix.file_descr -> unit
 val headers : Unix.file_descr -> string list -> unit
 
 val read_body : ?limit:int -> Http.Request.t -> Buf_io.t -> string
-
-val request_of_bio :
-     ?use_fastpath:bool
-  -> ?proxy_seen:string
-  -> Buf_io.t
-  -> Http.Request.t option * string option

@@ -15,9 +15,6 @@
 module D = Debug.Make (struct let name = "http_proxy" end)
 
 open D
-open Xmlrpc_client
-
-let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
 let one request fromfd s =
   let open Xapi_stdext_unix in
@@ -53,57 +50,3 @@ let one request fromfd s =
   | m ->
       error "Proxy doesn't support: %s" (Http.string_of_method_t m) ;
       Http_svr.response_forbidden ~req:request fromfd
-
-let server = ref None
-
-let m = Mutex.create ()
-
-let http_proxy src_ip src_port transport =
-  let tcp_connection _ fromfd =
-    (* NB 'fromfd' is accepted within the server_io module and it expects us to close it *)
-    finally
-      (fun () ->
-        let bio = Buf_io.of_fd fromfd in
-        let request, _ = Http_svr.request_of_bio bio in
-        Option.iter
-          (fun request -> with_transport transport (one request fromfd))
-          request
-      )
-      (fun () -> Unix.close fromfd)
-  in
-  try
-    let addr = Unix.inet_addr_of_string src_ip in
-    let sockaddr = Unix.ADDR_INET (addr, src_port) in
-    Xapi_stdext_threads.Threadext.Mutex.execute m (fun () ->
-        (* shutdown any server which currently exists *)
-        Option.iter (fun server -> server.Server_io.shutdown ()) !server ;
-        (* Make sure we don't try to double-close the server *)
-        server := None ;
-        let handler = {Server_io.name= "http_proxy"; body= tcp_connection} in
-        let sock =
-          Unix.socket (Unix.domain_of_sockaddr sockaddr) Unix.SOCK_STREAM 0
-        in
-        ( try
-            (* Make sure exceptions cause the socket to be closed *)
-            Unix.set_close_on_exec sock ;
-            Unix.setsockopt sock Unix.SO_REUSEADDR true ;
-            ( match sockaddr with
-            | Unix.ADDR_INET _ ->
-                Xapi_stdext_unix.Unixext.set_tcp_nodelay sock true
-            | _ ->
-                ()
-            ) ;
-            Unix.bind sock sockaddr ; Unix.listen sock 128
-          with e ->
-            debug "Caught exception in Http_svr.bind (closing socket): %s"
-              (Printexc.to_string e) ;
-            Unix.close sock ;
-            raise e
-        ) ;
-        let s = Server_io.server handler sock in
-        server := Some s
-    )
-  with e ->
-    error "Caught exception setting up proxy from internal network: %s"
-      (Printexc.to_string e) ;
-    raise e

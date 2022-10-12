@@ -23,42 +23,49 @@ type handler = {
     name: string
   ; (* body should close the provided fd *)
     body: Unix.sockaddr -> Unix.file_descr -> unit
+  ; lock: Xapi_stdext_threads.Semaphore.t
 }
 
 let handler_by_thread (h : handler) (s : Unix.file_descr)
     (caller : Unix.sockaddr) =
   Thread.create
-    (fun () -> Debug.with_thread_named h.name (fun () -> h.body caller s) ())
+    (fun () ->
+      Fun.protect
+        ~finally:(fun () -> Xapi_stdext_threads.Semaphore.release h.lock 1)
+        (Debug.with_thread_named h.name (fun () -> h.body caller s))
+    )
     ()
 
 (** Function with the main accept loop *)
 
 exception PleaseClose
 
-let set_intersect a b = List.filter (fun x -> List.mem x b) a
-
-let establish_server ?(signal_fds = []) forker sock =
+let establish_server ?(signal_fds = []) forker handler sock =
+  let epoll = Polly.create () in
+  List.iter (fun fd -> Polly.add epoll fd Polly.Events.inp) (sock :: signal_fds) ;
   while true do
     try
-      let r, _, _ = Unix.select ([sock] @ signal_fds) [] [] (-1.) in
-      (* If any of the signal_fd is active then bail out *)
-      if set_intersect r signal_fds <> [] then raise PleaseClose ;
-      let s, caller = Unix.accept sock in
-      try
-        Unix.set_close_on_exec s ;
-        ignore (forker s caller)
-      with exc ->
-        (* NB provided 'forker' is configured to make a background thread then the
-           	     only way we can get here is if set_close_on_exec or Thread.create fails.
-           	     This means we haven't executed any code which could close the fd therefore
-           	     we should do it ourselves. *)
-        debug "Got exception in server_io.ml: %s" (Printexc.to_string exc) ;
-        log_backtrace () ;
-        Unix.close s ;
-        Thread.delay 30.0
+      ignore
+      @@ Polly.wait epoll 2 (-1) (fun _ fd _ ->
+             (* If any of the signal_fd is active then bail out *)
+             if List.mem fd signal_fds then raise PleaseClose ;
+             Xapi_stdext_threads.Semaphore.acquire handler.lock 1 ;
+             let s, caller = Unix.accept ~cloexec:true sock in
+             try ignore (forker handler s caller)
+             with exc ->
+               (* NB provided 'forker' is configured to make a background thread then the
+                  only way we can get here is if Thread.create fails.
+                  This means we haven't executed any code which could close the fd therefore
+                  we should do it ourselves. *)
+               debug "Got exception in server_io.ml: %s" (Printexc.to_string exc) ;
+               log_backtrace () ;
+               Unix.close s ;
+               Thread.delay 30.0
+         )
     with
     | PleaseClose ->
         debug "Caught PleaseClose: shutting down server thread" ;
+        Polly.close epoll ;
         raise PleaseClose
     | Unix.Unix_error (err, a, b) ->
         debug "Caught Unix exception in accept: %s in %s %s"
@@ -89,9 +96,8 @@ let server handler sock =
         Debug.with_thread_named handler.name
           (fun () ->
             try
-              establish_server ~signal_fds:[status_out]
-                (handler_by_thread handler)
-                sock
+              establish_server ~signal_fds:[status_out] handler_by_thread
+                handler sock
             with PleaseClose -> debug "Server thread exiting"
           )
           ()

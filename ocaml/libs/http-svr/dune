@@ -7,6 +7,7 @@
   (libraries
     astring
     base64
+    polly
     rpclib
     sha
     stunnel

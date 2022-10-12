@@ -28,13 +28,20 @@ exception Method_not_implemented
 
 exception Forbidden
 
-type authorization = Basic of string * string | UnknownAuth of string
+exception Timeout
 
-val read_http_header : bytes -> Unix.file_descr -> int
+exception Too_large
+
+type authorization = Basic of string * string | UnknownAuth of string
 
 val make_frame_header : string -> string
 
-val read_http_request_header : Unix.file_descr -> bool * string * string option
+val read_http_request_header :
+     read_timeout:float option
+  -> total_timeout:float option
+  -> max_length:int option
+  -> Unix.file_descr
+  -> bool * string * string option
 
 val read_http_response_header : bytes -> Unix.file_descr -> int
 

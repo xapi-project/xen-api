@@ -81,7 +81,7 @@ let _ =
           (Http_svr.BufIO remote_database_access_handler_v1) ;
         Http_svr.Server.add_handler server Http.Post "/post_remote_db_access_v2"
           (Http_svr.BufIO remote_database_access_handler_v2) ;
-        Http_svr.start server socket ;
+        Http_svr.start ~conn_limit:1024 server socket ;
         Printf.printf "server listening\n%!" ;
         if !self_test then (
           Printf.printf "Running unit-tests\n%!" ;
