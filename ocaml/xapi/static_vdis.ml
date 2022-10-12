@@ -36,7 +36,7 @@ let permanent_vdi_attach ~__context ~vdi ~reason =
       )
   ) ;
   ignore
-    (Helpers.call_script !Xapi_globs.static_vdis
+    (Helpers.call_script ~timeout:60.0 !Xapi_globs.static_vdis
        ["add"; Db.VDI.get_uuid ~__context ~self:vdi; reason]
     ) ;
   (* VDI will be attached on next boot; attach it now too *)
