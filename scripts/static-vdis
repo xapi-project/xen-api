@@ -20,6 +20,8 @@ def call_volume_plugin(name, command, args):
              + command), "static-vdis"]
     if args:
         cmd_args.extend(args)
+    # on Python >= 3.3 a timout can be set, not on 2.7
+    # when porting please add a timeout
     output = subprocess.check_output(cmd_args)
     return json.loads(output)
 
