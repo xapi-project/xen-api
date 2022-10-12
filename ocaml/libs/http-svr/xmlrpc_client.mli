@@ -46,7 +46,8 @@ val transport_of_url : Http.Url.t -> transport
 val string_of_transport : transport -> string
 (** [string_of_transport t] returns a debug-friendly version of [t] *)
 
-val with_transport : transport -> (Unix.file_descr -> 'a) -> 'a
+val with_transport :
+  ?stunnel_wait_disconnect:bool -> transport -> (Unix.file_descr -> 'a) -> 'a
 (** [with_transport transport f] calls [f fd] with [fd] connected via
     	the requested [transport] *)
 

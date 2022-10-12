@@ -2552,13 +2552,14 @@ let migrate_receive ~__context ~host ~network ~options:_ =
                (Api_errors.interface_has_no_ip, [Ref.string_of pif])
             )
   ) ;
+  let scheme = if !Xapi_globs.migration_https_only then "https" else "http" in
   let sm_url =
-    Printf.sprintf "http://%s/services/SM?session_id=%s"
+    Printf.sprintf "%s://%s/services/SM?session_id=%s" scheme
       (Http.Url.maybe_wrap_IPv6_literal ip)
       new_session_id
   in
   let xenops_url =
-    Printf.sprintf "http://%s/services/xenops?session_id=%s"
+    Printf.sprintf "%s://%s/services/xenops?session_id=%s" scheme
       (Http.Url.maybe_wrap_IPv6_literal ip)
       new_session_id
   in
@@ -2568,7 +2569,8 @@ let migrate_receive ~__context ~host ~network ~options:_ =
       Option.get (Helpers.get_management_ip_addr ~__context)
   in
   let master_url =
-    Printf.sprintf "http://%s/" (Http.Url.maybe_wrap_IPv6_literal master_address)
+    Printf.sprintf "%s://%s/" scheme
+      (Http.Url.maybe_wrap_IPv6_literal master_address)
   in
   [
     (Xapi_vm_migrate._sm, sm_url)

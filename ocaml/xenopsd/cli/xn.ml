@@ -1013,17 +1013,17 @@ let resume _copts disk x =
 
 let resume copts disk x = diagnose_error (need_vm (resume copts disk) x)
 
-let migrate x url compress =
-  let open Vm in
-  let vm, _ = find_by_name x in
-  let compress =
-    match String.lowercase_ascii compress with
+let migrate ~id ~url ~compress ~verify_cert =
+  let vm, _ = find_by_name id in
+  let bool b =
+    match String.lowercase_ascii b with
     | "t" | "true" | "on" | "1" ->
         true
     | _ ->
         false
   in
-  Client.VM.migrate dbg vm.id [] [] [] url compress |> wait_for_task dbg
+  Client.VM.migrate dbg vm.Vm.id [] [] [] url (bool compress) (bool verify_cert)
+  |> wait_for_task dbg
 
 let trim limit str =
   let l = String.length str in
@@ -1541,9 +1541,11 @@ let old_main () =
   | ["help"] | [] ->
       usage () ; exit 0
   | ["migrate"; id; url] ->
-      migrate id url "false" |> task
+      migrate ~id ~url ~compress:"false" ~verify_cert:"false" |> task
   | ["migrate"; id; url; compress] ->
-      migrate id url compress |> task
+      migrate ~id ~url ~compress ~verify_cert:"false" |> task
+  | ["migrate"; id; url; compress; verify_cert] ->
+      migrate ~id ~url ~compress ~verify_cert |> task
   | ["vbd-list"; id] ->
       vbd_list id
   | ["pci-add"; id; idx; bdf] ->

@@ -819,6 +819,8 @@ let web_dir = ref "/opt/xensource/www"
 
 let website_https_only = ref true
 
+let migration_https_only = ref false
+
 let cluster_stack_root = ref "/usr/libexec/xapi/cluster-stack"
 
 let cluster_stack_default = ref "xhad"
@@ -1320,6 +1322,11 @@ let other_options =
     , Arg.Set website_https_only
     , (fun () -> string_of_bool !website_https_only)
     , "Allow access to the internal website using HTTPS only (no HTTP)"
+    )
+  ; ( "migration-https-only"
+    , Arg.Set migration_https_only
+    , (fun () -> string_of_bool !migration_https_only)
+    , "Exclusively use HTTPS for VM migration"
     )
   ; gen_list_option "repository-domain-name-allowlist"
       "space-separated list of allowed domain name in base URL in repository."

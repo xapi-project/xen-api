@@ -320,7 +320,9 @@ let rpc ~srcstr ~dststr (url, pool_secret) =
     let open Http.Url in
     match url with
     | Http h, d ->
-        ((Http {h with host= ip}, d), pool_secret)
+        ( (Http {h with host= ip; ssl= !Xapi_globs.migration_https_only}, d)
+        , pool_secret
+        )
     | _ ->
         remote_url ip
   in
@@ -722,7 +724,7 @@ let start' ~task ~dbg ~sr ~vdi ~dp ~url ~dest =
       | Some tapdev ->
           let pid = Tapctl.get_tapdisk_pid tapdev in
           let path = Printf.sprintf "/var/run/blktap-control/nbdclient%d" pid in
-          with_transport transport
+          with_transport ~stunnel_wait_disconnect:false transport
             (with_http request (fun (_response, s) ->
                  let control_fd = Unix.socket Unix.PF_UNIX Unix.SOCK_STREAM 0 in
                  finally
