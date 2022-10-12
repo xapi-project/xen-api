@@ -78,7 +78,6 @@ python:
 	$(MAKE) -C scripts/examples/python build
 
 doc-json:
-	dune build --profile=$(PROFILE) ocaml/idl/json_backend/gen_json.exe
 	dune exec --profile=$(PROFILE) -- ocaml/idl/json_backend/gen_json.exe -destdir $(XAPIDOC)/jekyll
 
 format:

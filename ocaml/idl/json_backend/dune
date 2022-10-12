@@ -6,6 +6,7 @@
     xapi-consts
     xapi-stdext-unix
     xapi-stdext-std
+    yojson
   )
 )
 
