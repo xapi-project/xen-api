@@ -245,7 +245,6 @@ let with_context ?(dummy = false) label (req : Request.t) (s : Unix.file_descr)
 
 let server =
   let server = Http_svr.Server.empty () in
-  Http_svr.Server.enable_fastpath server ;
   server
 
 let http_request = Http.Request.make ~user_agent:Constants.xapi_user_agent

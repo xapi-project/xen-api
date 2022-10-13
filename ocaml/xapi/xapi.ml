@@ -807,7 +807,11 @@ let listen_unix_socket sock_path =
   Unixext.mkdir_safe (Filename.dirname sock_path) 0o700 ;
   Unixext.unlink_safe sock_path ;
   let domain_sock = Xapi_http.bind (Unix.ADDR_UNIX sock_path) in
-  ignore (Http_svr.start Xapi_http.server domain_sock)
+  ignore
+    (Http_svr.start
+       ~conn_limit:!Xapi_globs.conn_limit_unix
+       Xapi_http.server domain_sock
+    )
 
 let set_stunnel_timeout () =
   try
