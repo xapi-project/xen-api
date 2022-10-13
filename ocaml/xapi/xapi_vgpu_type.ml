@@ -34,10 +34,10 @@ module Identifier = struct
   let version = 1
 
   type nvidia_id = {
-      pdev_id: int
-    ; psubdev_id: int option
-    ; vdev_id: int
-    ; vsubdev_id: int
+      pdev_id: int  (** pgpu/deviceId in XML *)
+    ; psubdev_id: int option  (** pgpu/subsystemId in XML *)
+    ; vdev_id: int  (** vgpuTYpe/deviceId in XML *)
+    ; vsubdev_id: int  (** vgpuTYpe/subsystemId in XML *)
     ; sriov: bool  (** true if SRIOV mode to be used *)
   }
 
@@ -294,13 +294,18 @@ end
 module type VENDOR = sig
   type vgpu_conf
 
+  (** an [gpu] identifies a GPU, a piece of hardware in a host *)
+  type gpu
+
   val vendor_id : int
+
+  val get_gpu : __context:Context.t -> [`PCI] API.Ref.t -> gpu
 
   val pt_when_vgpu : bool
 
   val whitelist_file : unit -> string
 
-  val read_whitelist : whitelist:string -> device_id:int -> vgpu_conf list
+  val read_whitelist : whitelist:string -> id:gpu -> vgpu_conf list
 
   val vgpu_type_of_conf :
     Pci.Pci_access.t -> string -> Pci.Pci_dev.t -> vgpu_conf -> vgpu_type option
@@ -315,14 +320,12 @@ functor
 
     let make_vgpu_types ~__context ~pci =
       let open Xenops_interface.Pci in
-      let device_id =
-        Db.PCI.get_device_id ~__context ~self:pci |> Xapi_pci.int_of_id
-      in
+      let gpu = V.get_gpu ~__context pci in
       let address =
         Db.PCI.get_pci_id ~__context ~self:pci |> address_of_string
       in
       let whitelist =
-        V.read_whitelist ~whitelist:(V.whitelist_file ()) ~device_id
+        V.read_whitelist ~whitelist:(V.whitelist_file ()) ~id:gpu
       in
       let default ~msg v =
         match v with
@@ -409,6 +412,16 @@ module Vendor_nvidia = struct
     ; compatible_model_names_in_vm: string list
     ; compatible_model_names_on_pgpu: string list
   }
+
+  type gpu = {device_id: int; subsys_id: int}
+
+  let get_gpu ~__context pci =
+    {
+      device_id= Db.PCI.get_device_id ~__context ~self:pci |> Xapi_pci.int_of_id
+    ; subsys_id=
+        Db.PCI.get_subsystem_device_id ~__context ~self:pci
+        |> Xapi_pci.int_of_id
+    }
 
   let vendor_id = 0x10de
 
@@ -519,7 +532,7 @@ module Vendor_nvidia = struct
 
   type vgpu_type = {max: int64; psubdev_id: int option; sriov: bool}
 
-  let find_supported_vgpu_types device_id pgpus =
+  let find_supported_vgpu_types id pgpus =
     (*
       Input example:
         <pgpu hostVgpuMode="sriov">
@@ -537,12 +550,16 @@ module Vendor_nvidia = struct
     *)
     List.filter_map
       (fun pgpu ->
-        let devid = find_one_by_name "devId" pgpu in
-        if int_of_string (get_attr "deviceId" devid) = device_id then
-          let psubdev_id =
-            let id = int_of_string (get_attr "subsystemId" devid) in
-            if id = 0 then None else Some id
-          in
+        let devId = find_one_by_name "devId" pgpu in
+        let deviceId = int_of_string (get_attr "deviceId" devId) in
+        let subsystemId = int_of_string (get_attr "subsystemId" devId) in
+        (* subsystemId=0 is a wildcard and the value ignored in a match *)
+        let psubdev_id = if subsystemId = 0 then None else Some subsystemId in
+        (* check that we have a matching GPU *)
+        if
+          (deviceId = id.device_id && subsystemId = 0)
+          || (deviceId = id.device_id && subsystemId = id.subsys_id)
+        then
           let vgpus = find_by_name "supportedVgpu" pgpu in
           let sriov =
             match get_attr "hostVgpuMode" pgpu with
@@ -575,7 +592,8 @@ module Vendor_nvidia = struct
       pgpus
     |> List.concat
 
-  let extract_conf whitelist device_id vgpu_types vgpu_ids =
+  let extract_conf whitelist gpu vgpu_types vgpu_ids =
+    let device_id = gpu.device_id in
     (*
       Input example:
         <vgpuType id="11" name="GRID M60-0B" class="NVS">
@@ -696,7 +714,7 @@ module Vendor_nvidia = struct
       )
       vgpu_types
 
-  let read_whitelist ~whitelist ~device_id =
+  let read_whitelist ~whitelist ~(id : gpu) =
     try
       let ch = open_in whitelist in
       let t =
@@ -710,8 +728,7 @@ module Vendor_nvidia = struct
       in
       let pgpus = find_by_name "pgpu" t in
       let vgpu_types = find_by_name "vgpuType" t in
-      find_supported_vgpu_types device_id pgpus
-      |> extract_conf whitelist device_id vgpu_types
+      find_supported_vgpu_types id pgpus |> extract_conf whitelist id vgpu_types
     with e ->
       error "Ignoring error parsing %s: %s\n%s\n" whitelist
         (Printexc.to_string e)
@@ -765,6 +782,11 @@ module Vendor_intel = struct
     ; max_y: int64
   }
 
+  type gpu = int
+
+  let get_gpu ~__context pci =
+    Db.PCI.get_device_id ~__context ~self:pci |> Xapi_pci.int_of_id
+
   let vendor_id = 0x8086
 
   let pt_when_vgpu = true
@@ -806,8 +828,8 @@ module Vendor_intel = struct
       error "Failed to read whitelist line: '%s' %s" line (Printexc.to_string e) ;
       None
 
-  let read_whitelist ~whitelist ~device_id =
-    read_whitelist_line_by_line ~whitelist ~device_id
+  let read_whitelist ~whitelist ~id =
+    read_whitelist_line_by_line ~whitelist ~device_id:id
       ~parse_line:read_whitelist_line ~device_id_of_conf
 
   let vgpu_type_of_conf _ vendor_name device conf =
@@ -860,6 +882,11 @@ module Vendor_amd = struct
     ; vgpus_per_pgpu: int64
   }
 
+  type gpu = int
+
+  let get_gpu ~__context pci =
+    Db.PCI.get_device_id ~__context ~self:pci |> Xapi_pci.int_of_id
+
   let vendor_id = 0x1002
 
   let pt_when_vgpu = false
@@ -894,8 +921,8 @@ module Vendor_amd = struct
       error "Failed to read whitelist line: '%s' %s" line (Printexc.to_string e) ;
       None
 
-  let read_whitelist ~whitelist ~device_id =
-    read_whitelist_line_by_line ~whitelist ~device_id
+  let read_whitelist ~whitelist ~id =
+    read_whitelist_line_by_line ~whitelist ~device_id:id
       ~parse_line:read_whitelist_line ~device_id_of_conf
 
   let vgpu_type_of_conf _ vendor_name _ conf =

@@ -36,25 +36,26 @@ module NvidiaTest = struct
 
   module ReadWhitelist = Generic.MakeStateless (struct
     module Io = struct
-      type input_t = string * int (* whitelist * device_id *)
+      type input_t = string * int * int (* whitelist * device_id * subsys_id *)
 
       type output_t = Vendor_nvidia.vgpu_conf list
 
-      let string_of_input_t (whitelist, device_id) =
-        Printf.sprintf "(%s, %04x)" whitelist device_id
+      let string_of_input_t (whitelist, device_id, subsys_id) =
+        Printf.sprintf "(%s, %04x, %04x)" whitelist device_id subsys_id
 
       let string_of_output_t = Test_printers.list string_of_vgpu_conf
     end
 
-    let transform (whitelist, device_id) =
-      Vendor_nvidia.read_whitelist ~whitelist ~device_id
+    let transform (whitelist, device_id, subsys_id) =
+      let id = Vendor_nvidia.{device_id; subsys_id} in
+      Vendor_nvidia.read_whitelist ~whitelist ~id
 
     let tests =
       `QuickAndAutoDocumented
         [
-          (("test_data/this-file-is-not-there.xml", 0x3333), [])
-        ; (("test_data/nvidia-whitelist.xml", 0x4444), [])
-        ; ( ("test_data/nvidia-whitelist.xml", 0x3333)
+          (("test_data/this-file-is-not-there.xml", 0x3333, 0x4444), [])
+        ; (("test_data/nvidia-whitelist.xml", 0x4444, 0x4444), [])
+        ; ( ("test_data/nvidia-whitelist.xml", 0x3333, 0x4444)
           , [
               Vendor_nvidia.
                 {
@@ -81,7 +82,7 @@ module NvidiaTest = struct
               
             ]
           )
-        ; ( ("test_data/nvidia-whitelist.xml", 0x3334)
+        ; ( ("test_data/nvidia-whitelist.xml", 0x3334, 0x0)
           , [
               Vendor_nvidia.
                 {
@@ -108,7 +109,7 @@ module NvidiaTest = struct
               
             ]
           )
-        ; ( ("test_data/nvidia-whitelist.xml", 0x3335)
+        ; ( ("test_data/nvidia-whitelist.xml", 0x3335, 0x4445)
           , [
               Vendor_nvidia.
                 {
@@ -290,8 +291,8 @@ module IntelTest = struct
       let string_of_output_t = Test_printers.list string_of_vgpu_conf
     end
 
-    let transform (whitelist, device_id) =
-      Vendor_intel.read_whitelist ~whitelist ~device_id |> List.rev
+    let transform (whitelist, id) =
+      Vendor_intel.read_whitelist ~whitelist ~id |> List.rev
 
     let tests =
       `QuickAndAutoDocumented
@@ -433,8 +434,8 @@ module AMDTest = struct
       let string_of_output_t = Test_printers.list string_of_vgpu_conf
     end
 
-    let transform (whitelist, device_id) =
-      Vendor_amd.read_whitelist ~whitelist ~device_id |> List.rev
+    let transform (whitelist, id) =
+      Vendor_amd.read_whitelist ~whitelist ~id |> List.rev
 
     let tests =
       `QuickAndAutoDocumented
