@@ -14,11 +14,20 @@
   (action (copy %{deps} %{targets}))
 )
 
+(rule
+  (targets README-NuGet.md)
+  (deps
+    ../README-NuGet.dist
+  )
+  (action (copy %{deps} %{targets}))
+)
+
 (alias
   (name generate)
   (deps
     LICENSE.txt
     README.txt
+    README-NuGet.md
     (source_tree .)
   )
 )

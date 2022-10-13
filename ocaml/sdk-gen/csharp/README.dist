@@ -1,8 +1,8 @@
 XenServer.NET
 =============
 
-XenServer.NET is a complete SDK for Citrix Hypervisor, exposing the Citrix
-Hypervisor API as .NET classes. It is written in C#.
+XenServer.NET is a complete SDK for XenServer, exposing the XenServer
+API as .NET classes. It is written in C#.
 
 XenServer.NET includes a class for every API class, and a method for each API
 call, so API documentation and examples written for other languages will apply
@@ -20,18 +20,18 @@ under the BSD 2-Clause license.
 Reference
 ---------
 
-For Citrix Hypervisor documentation see https://docs.citrix.com/en-us/citrix-hypervisor/
+For XenServer documentation see https://docs.citrix.com/en-us/citrix-hypervisor/
 
-The Citrix Hypervisor Management API Reference is available at
+The XenServer Management API Reference is available at
 https://developer-docs.citrix.com/projects/citrix-hypervisor-management-api/en/latest/
 
-The Citrix Hypervisor Software Development Kit Guide is available at
+The XenServer Software Development Kit Guide is available at
 https://developer-docs.citrix.com/projects/citrix-hypervisor-sdk/en/latest/
 
 For community content, blogs, and downloads, visit
 https://www.citrix.com/community/citrix-developer/
 
-To network with other developers using Citrix Hypervisor visit
+To network with other developers using XenServer visit
 https://discussions.citrix.com/forum/101-hypervisor-formerly-xenserver/
 
 
@@ -49,7 +49,8 @@ XenServer.NET is dependent upon the following libraries:
 - Newtonsoft JSON.NET by James Newton-King (see https://www.newtonsoft.com/).
   JSON.NET is licensed under the MIT license; see LICENSE.Newtonsoft.Json.txt
   for details. A patched version of the library (Newtonsoft.Json.CH.dll) is
-  shipped with XenServer.NET.
+  shipped with XenServer.NET. Its source code and license file can be found in 
+  https://github.com/xenserver/dotnet-packages.
 
 
 Downloads
@@ -74,7 +75,7 @@ A. To use the compiled binaries in your code:
   3. You should now be ready to compile against XenServer.NET.
 
 B. To build the source code:
-  1. Copy Newtonsoft.Json.CH.dll from the bin
+  1. Copy Newtonsoft.Json.CH.dll and LICENSE.Newtonsoft.Json.txt from the bin
      folder into the source code folder at the same level as the project file
      XenServer.csproj
   2. Open the project XenServer.csproj in Visual Studio.

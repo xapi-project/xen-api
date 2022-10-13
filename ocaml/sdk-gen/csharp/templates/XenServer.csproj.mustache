@@ -1,10 +1,31 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
+    <Version>@SDK_VERSION@</Version>
     <TargetFramework>netstandard2.0</TargetFramework>
     <OutputType>Library</OutputType>
     <RootNamespace>XenAPI</RootNamespace>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
+    <Title>XenServer.NET</Title>
+    <Authors>Citrix Systems, Inc.</Authors>
+    <PackageId>$(AssemblyName).NET</PackageId>
+    <Product>$(AssemblyName).NET</Product>
+    <Description>.NET wrapper for the XenServer API</Description>
+    <Copyright>Copyright (c) Citrix Systems, Inc. All rights reserved.</Copyright>
+    <PackageTags>citrix hypervisor virtualization sdk jsonrpc .net c# xen xenserver</PackageTags>
+    <PackageLicenseExpression>BSD-2-Clause</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/xapi-project/xen-api</RepositoryUrl>
+    <PackageIcon>packageIcon.png</PackageIcon>
+    <RepositoryType>git</RepositoryType>
+  <PackageReadmeFile>README-NuGet.md</PackageReadmeFile>
   </PropertyGroup>
+  <ItemGroup>
+    <None Include=".\Newtonsoft.Json.CH.dll" Pack="true" PackagePath="lib\netstandard2.0\Newtonsoft.Json.CH.dll" />
+    <None Include=".\LICENSE.Newtonsoft.Json.txt" Pack="true" PackagePath="LICENSE.Newtonsoft.Json.txt" />
+    <None Include=".\LICENSE.txt" Pack="true" PackagePath="LICENSE.txt" />
+    <None Include=".\packageIcon.png" Pack="true" PackagePath="\" />
+    <None Include=".\README-NuGet.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>

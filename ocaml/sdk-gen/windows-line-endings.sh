@@ -30,7 +30,7 @@
 
 DIR_TO_FLIP=$1
 
-for file in `find ${DIR_TO_FLIP} -type f`
+for file in `find ${DIR_TO_FLIP} -type f ! -name '*.png'`
 do
   sed -i -e 's,\r,,g' $file
   sed -i -e 's,$,\r,g' $file
