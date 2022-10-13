@@ -1,17 +1,21 @@
-#!/bin/sh
+#!/bin/bash
+
+set -o errexit
+set -o pipefail
 
 function usage
 {
-  echo
-  echo Usage:
-  echo $0 "<VDI uuid> [ command to execute, defaults to /bin/sh ]"
-  echo
-  echo Block attaches a VDI to the control domain, executes a command \(typically a shell\),
-  echo detaches and destroys the VBD when the command finishes.
+  cat <<EOF
+Usage:
+$0 <VDI uuid> [ command to execute, defaults to /bin/sh ]
 
+Block-attaches a VDI to the control domain, executes a command
+(typically a shell), detaches, and destroys the VBD when the command
+finishes.
+EOF
 }
 
-VDI=$1
+VDI="$1"
 # check that the VDI actually exists
 if [ -z "$(xe vdi-list params=uuid uuid=${VDI})" ]; then
   echo Failed to find VDI with UUID: ${VDI}
@@ -19,35 +23,35 @@ if [ -z "$(xe vdi-list params=uuid uuid=${VDI})" ]; then
   exit 1
 fi
 
-COMMAND=$2
+COMMAND="$2"
 if [ -n "$COMMAND" ]; then
   if ! which "$COMMAND" > /dev/null ; then
-    echo Failed to find command: ${COMMAND}
+    echo "Failed to find command: ${COMMAND}"
     usage
     exit 1
   else
     shift 1
-    COMMAND=$*
+    COMMAND=$@
   fi
 fi
 
 . @INVENTORY@
 
-if [ `xe vdi-param-get uuid=${VDI} param-name=read-only` = "true" ] ; then 
+if [ $(xe vdi-param-get uuid=${VDI} param-name=read-only) = "true" ] ; then
     MODE=RO
 else
     MODE=RW
 fi
-VBD=`xe vbd-create vm-uuid=${CONTROL_DOMAIN_UUID} vdi-uuid=${VDI} device=autodetect mode=${MODE} unpluggable=true`
-xe vbd-plug uuid=${VBD}
-DEVICE=`xe vbd-param-get uuid=${VBD} param-name=device`
+VBD=$(xe vbd-create vm-uuid=${CONTROL_DOMAIN_UUID} vdi-uuid=${VDI} \
+  device=autodetect mode=${MODE} unpluggable=true)
+xe vbd-plug uuid="${VBD}"
+DEVICE=$(xe vbd-param-get uuid="${VBD}" param-name=device)
 export DEVICE
 if [ -z "$COMMAND" ]; then
   echo DEVICE=${DEVICE}
   COMMAND=/bin/sh
 fi
-${COMMAND}
-RC=$?
-xe vbd-unplug uuid=${VBD} timeout=15
-xe vbd-destroy uuid=${VBD}
-exit ${RC}
+${COMMAND} && RC=0 || RC="$?"
+xe vbd-unplug uuid="${VBD}" timeout=15
+xe vbd-destroy uuid="${VBD}"
+exit "${RC}"
