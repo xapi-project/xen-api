@@ -541,30 +541,43 @@ let write_to_dir dir maybe_file =
   Option.iter write maybe_file
 
 module Version = struct
-  type t = int list
+  (* versions ending in -next are considered unreleased *)
+  type t = int list * string option
 
-  let rec compare x y =
-    match (x, y) with
-    | x :: xs, y :: ys when x = y ->
-        compare xs ys
-    | x :: _, y :: _ ->
-        Int.compare x y
-    | x :: _, [] when x = 0 ->
-        0
-    | _ :: _, [] ->
-        1
-    | [], y :: _ when y = 0 ->
-        0
-    | [], _ :: _ ->
-        -1
-    | [], [] ->
-        0
+  (* orders like this:
+     - 22.10.0
+     - 22.11.0
+     - 22.11.0-next
+     - 22.12.0
+     From the way the lifecycle binary generates versions there only will be a
+     single -next version, with the highest version number
+  *)
+  let compare (xs, x_next) (ys, y_next) =
+    let cmp = List.compare Int.compare xs ys in
+    if cmp = 0 then
+      Option.compare String.compare x_next y_next
+    else
+      cmp
+
+  let of_name name =
+    let of_chunks mj mn mc tag =
+      ([mj; mn; mc], if tag = "" then None else Some tag)
+    in
+    try Scanf.sscanf name "%d.%d.%d%s" of_chunks
+    with _ ->
+      failwith
+        (Printf.sprintf "Version schema changed, please change this code %s"
+           __LOC__
+        )
+
+  let to_name_date (lst, str) =
+    ( Fmt.(str "%a" (list ~sep:(Fmt.any ".") int)) lst
+    , if Option.is_none str then Some "" else None
+    )
 end
 
 module NameSet = Set.Make (String)
 module VersionSet = Set.Make (Version)
-
-let string_of_version = Fmt.(str "%a" (list ~sep:(Fmt.any ".") int))
 
 let get_versions_from api =
   let classes = Dm_api.objects_of_api api in
@@ -596,18 +609,18 @@ let get_versions_from api =
     |> NameSet.of_seq
     |> NameSet.filter (fun x -> not (is_named_release x))
     |> NameSet.to_seq
-    |> Seq.map (fun v -> String.split_on_char '.' v |> List.map int_of_string)
+    |> Seq.map Version.of_name
     |> VersionSet.of_seq
     |> VersionSet.elements
   in
   (* now transform the versions to releases, in a free-form way *)
   let release_of_version v =
-    let name = string_of_version v in
+    let name, release_date = Version.to_name_date v in
     {
       code_name= Some name
     ; version_major= 2
     ; version_minor= 20
-    ; release_date= Some ""
+    ; release_date
     ; branding= Printf.sprintf "XAPI %s" name
     }
   in
