@@ -71,6 +71,22 @@ let get_param params param ~default =
   else
     default
 
+(** [get_unique_param param params] is intended to replace [List.assoc_opt] in
+    the cases where a parameter can only exist once, as repeating it might
+    force the CLI to make choices the user didn't foresee. In those cases
+    raises an exception to warn the user to input it only once *)
+let get_unique_param param params =
+  match List.find_all (fun (n, _) -> n = param) params with
+  | [] ->
+      None
+  | [(_, value)] ->
+      Some value
+  | _ :: _ :: _ ->
+      failwith
+        (Printf.sprintf
+           "Parameter %s is defined multiple times, define it only once." param
+        )
+
 open Client
 
 let progress_bar printer task_record =
@@ -3606,7 +3622,7 @@ let host_install_server_certificate fd _printer rpc session_id params =
     List.assoc "private-key" params |> get_file_or_fail fd "private key"
   in
   let certificate_chain =
-    List.assoc_opt "certificate-chain" params
+    get_unique_param "certificate-chain" params
     |> Option.fold ~none:"" ~some:(get_file_or_fail fd "certificate chain")
   in
   ignore
