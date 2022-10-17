@@ -3588,6 +3588,12 @@ let disable_repository_proxy ~__context ~self =
     )
 
 let set_uefi_certificates ~__context ~self ~value =
+  if not !Xapi_globs.override_auths then
+    raise
+      Api_errors.(
+        Server_error (operation_not_allowed, ["Disabled by xapi.conf"])
+      ) ;
+
   Db.Pool.set_uefi_certificates ~__context ~self ~value ;
   Helpers.call_api_functions ~__context (fun rpc session_id ->
       List.iter

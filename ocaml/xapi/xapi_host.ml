@@ -2683,24 +2683,59 @@ let write_uefi_certificates_to_disk ~__context ~host:_ =
     | Ok contents ->
         (* Remove existing certs before extracting xapi ones
          * to avoid a extract override issue. *)
+        let auth_files = ["PK.auth"; "KEK.auth"; "db.auth"; "dbx.auth"] in
         List.iter
           (fun name ->
             let path = Filename.concat !Xapi_globs.varstore_dir name in
             Unixext.unlink_safe path
           )
-          ["KEK.auth"; "db.auth"] ;
+          auth_files ;
         (* No uefi certificates, nothing to do. *)
         if contents <> "" then (
           with_temp_file_contents ~contents
             (Tar_unix.Archive.extract extract_certificate_file) ;
           debug "UEFI tar file extracted to temporary directory"
-        )
+        ) ;
+        (* If all auth files are missing, fetch them from a default dir *)
+        if
+          List.for_all
+            (fun name ->
+              not
+                (Sys.file_exists (Filename.concat !Xapi_globs.varstore_dir name))
+            )
+            auth_files
+        then
+          List.iter
+            (fun name ->
+              let path = Filename.concat !Xapi_globs.varstore_dir name in
+              let default_path =
+                Filename.concat !Xapi_globs.default_auth_dir name
+              in
+              if Sys.file_exists default_path then (
+                debug "Copy default auth %s to varstore dir" name ;
+                let ifd = Unix.openfile default_path [Unix.O_RDONLY] 0o0 in
+                let ofd =
+                  Unix.openfile path [Unix.O_WRONLY; Unix.O_CREAT] 0o640
+                in
+                ignore
+                @@ Xapi_stdext_pervasives.Pervasiveext.finally
+                     (fun () -> Unixext.copy_file ifd ofd)
+                     (fun () -> Unix.close ifd ; Unix.close ofd)
+              )
+            )
+            auth_files
     (* No UEFI tar file. *)
     | Error _ ->
         debug
           "UEFI tar file was not extracted: it was not base64-encoded correctly"
 
 let set_uefi_certificates ~__context ~host ~value =
+  if not !Xapi_globs.override_auths then
+    raise
+      Api_errors.(
+        Server_error (operation_not_allowed, ["Disabled by xapi.conf"])
+      ) ;
+
   Db.Host.set_uefi_certificates ~__context ~self:host ~value ;
   Helpers.call_api_functions ~__context (fun rpc session_id ->
       Client.Client.Pool.set_uefi_certificates ~rpc ~session_id
