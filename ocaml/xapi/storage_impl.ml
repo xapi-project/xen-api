@@ -112,12 +112,6 @@ let info (fmt : ('a, unit, string, unit) format4) =
 
 let host_state_path = ref "/var/run/nonpersistent/xapi/storage.db"
 
-module Dp = struct
-  type t = string [@@deriving rpcty]
-
-  let make username = username
-end
-
 let indent x = "    " ^ x
 
 let string_of_date x = Date.to_string (Date.of_float x)
@@ -164,6 +158,8 @@ let rpc_fns keyty valty =
   in
   (of_rpc, rpc_of)
 
+module Dp = struct type t = string [@@deriving rpcty] end
+
 module Vdi = struct
   (** Represents the information known about a VDI *)
   type t = {
@@ -172,10 +168,11 @@ module Vdi = struct
     ; dps: (Dp.t * Vdi_automaton.state) list
           (** state of the VDI from each dp's PoV *)
     ; leaked: Dp.t list  (** "leaked" dps *)
+    ; dpv: (Dp.t * Vm.t) list [@default []]  (** VM Datapath *)
   }
   [@@deriving rpcty]
 
-  let empty () = {attach_info= None; dps= []; leaked= []}
+  let empty () = {attach_info= None; dps= []; leaked= []; dpv= []}
 
   (** [superstate x] returns the actual state of the backing VDI by finding the "max" of
       	    the states from the clients' PsoV *)
@@ -189,16 +186,33 @@ module Vdi = struct
     else
       Vdi_automaton.Detached
 
-  let set_dp_state dp state t =
-    let rest = List.filter (fun (u, _) -> u <> dp) t.dps in
+  (** [get_dp_vm] returns [vm] of type Vm.t. If the mapping between a datapath and vm exists, it will return the vm. Owtherwise a blank vm will be returned*)
+
+  let get_dp_vm dp t =
+    let _vm = List.assoc_opt dp t.dpv in
+    match _vm with
+    | Some vm ->
+        vm
+    | None ->
+        debug
+          "[Vdi.get_dp_vm] No vm was found on the datapath please restart host \
+           to fix" ;
+        vm_of_s ""
+
+  let add_or_update_dp dp vm state t =
+    debug "[Vdi.add_or_update] dp:%s vm:%s" dp (s_of_vm vm) ;
+    let rests = List.remove_assoc dp t.dps in
+    let restv = List.remove_assoc dp t.dpv in
     {
       t with
-      dps= (if state = Vdi_automaton.Detached then rest else (dp, state) :: rest)
+      dps=
+        (if state = Vdi_automaton.Detached then rests else (dp, state) :: rests)
+    ; dpv= (if state = Vdi_automaton.Detached then restv else (dp, vm) :: restv)
     }
 
   let get_leaked t = t.leaked
 
-  let leaked t (x : Dp.t) = List.mem x t.leaked
+  let leaked t dp = List.mem dp t.leaked
 
   let all _ _ = true
 
@@ -209,13 +223,18 @@ module Vdi = struct
     let t' = remove_leaked dp t in
     {t' with leaked= dp :: t'.leaked}
 
-  let dps t = List.map fst t.dps
+  let dp t = List.map fst t.dps
 
-  (** [perform dp op t] updates VDI [t] given the request to perform [op] by [dp] *)
-  let perform dp op t =
+  let dpv t = t.dpv
+
+  let dps t = t.dps
+
+  (** [perform dp vm op t] updates VDI [t] given the request to perform [op] by [dp] and then updates the dp on the vdi *)
+
+  let perform dp vm op t =
     let state = get_dp_state dp t in
     let state' = Vdi_automaton.( + ) state op in
-    set_dp_state dp state' t
+    add_or_update_dp dp vm state' t
 
   let to_string_list x =
     let title =
@@ -257,7 +276,7 @@ module Sr = struct
         try Some (Hashtbl.find sr.vdis vdi) with Not_found -> None
     )
 
-  let replace vdi vdi_t sr =
+  let add_or_replace vdi vdi_t sr =
     with_lock m (fun () -> Hashtbl.replace sr.vdis vdi vdi_t)
 
   let list sr =
@@ -298,7 +317,8 @@ module Host = struct
 
   let remove sr h = with_lock m (fun () -> Hashtbl.remove h.srs sr)
 
-  let replace sr sr_t h = with_lock m (fun () -> Hashtbl.replace h.srs sr sr_t)
+  let add_or_replace sr sr_t h =
+    with_lock m (fun () -> Hashtbl.replace h.srs sr sr_t)
 
   let list h =
     with_lock m (fun () -> Hashtbl.fold (fun k v acc -> (k, v) :: acc) h.srs [])
@@ -411,7 +431,7 @@ functor
       let side_effects context dbg dp sr sr_t vdi vdi_t vm ops =
         let perform_one vdi_t (op, _state_on_fail) =
           try
-            let vdi_t = Vdi.perform (Dp.make dp) op vdi_t in
+            let vdi_t = Vdi.perform dp vm op vdi_t in
             let new_vdi_t =
               match op with
               | Vdi_automaton.Nothing ->
@@ -434,7 +454,7 @@ functor
                   Storage_migrate.post_detach_hook ~sr ~vdi ~dp ;
                   vdi_t
             in
-            Sr.replace vdi new_vdi_t sr_t ;
+            Sr.add_or_replace vdi new_vdi_t sr_t ;
             new_vdi_t
           with
           | Storage_interface.Storage_error
@@ -471,7 +491,7 @@ functor
                 let superstate = Vdi.superstate vdi_t in
                 (* We first assume the operation succeeds and compute the new
                    						   datapath+VDI state *)
-                let new_vdi_t = Vdi.perform (Dp.make dp) this_op vdi_t in
+                let new_vdi_t = Vdi.perform dp vm this_op vdi_t in
                 (* Compute the new overall state ('superstate') *)
                 let superstate' = Vdi.superstate new_vdi_t in
                 (* Compute the real operations which would drive the system from
@@ -494,9 +514,9 @@ functor
                				   to update the SR to update this DP's view of the state.
                				   However if nothing changed (e.g. because this was the detach of a DP
                				   which had not attached this VDI) then we won't need to update our on-disk state *)
-            let vdi_t' = Vdi.perform (Dp.make dp) this_op vdi_t' in
+            let vdi_t' = Vdi.perform dp vm this_op vdi_t' in
             if vdi_t <> vdi_t' then (
-              Sr.replace vdi vdi_t' sr_t ;
+              Sr.add_or_replace vdi vdi_t' sr_t ;
               (* If the new VDI state is "detached" then we remove it from the table
                  					   altogether *)
               debug "dbg:%s dp:%s sr:%s vdi:%s superstate:%s" dbg dp
@@ -543,42 +563,45 @@ functor
                        because allow_leak set"
                       dp
                       (Vdi_automaton.string_of_state desired_state) ;
-                    let vdi_t = Vdi.set_dp_state dp desired_state vdi_t in
+                    let vdi_t =
+                      Vdi.add_or_update_dp dp vm desired_state vdi_t
+                    in
                     if Vdi.superstate vdi_t = Vdi_automaton.Detached then
                       Sr.remove vdi sr_t
                     else
-                      Sr.replace vdi vdi_t sr_t ;
+                      Sr.add_or_replace vdi vdi_t sr_t ;
                     Everything.to_file !host_state_path (Everything.make ())
                   )
               )
               (Sr.find vdi sr_t)
 
       (* Attempt to clear leaked datapaths associed with this vdi *)
-      let remove_datapaths_andthen_nolock context ~dbg ~sr ~vdi ~vm which next =
-        let dps =
+      let remove_datapaths_andthen_nolock context ~dbg ~sr ~vdi ?vm which next =
+        let dpv =
           match Host.find sr !Host.host with
           | None ->
               []
           | Some sr_t -> (
             match Sr.find vdi sr_t with
             | Some vdi_t ->
-                List.filter (which vdi_t) (Vdi.dps vdi_t)
+                List.filter (fun (dp, _vm) -> which vdi_t dp) (Vdi.dpv vdi_t)
             | None ->
                 []
           )
         in
         let failures =
           List.fold_left
-            (fun acc dp ->
+            (fun acc (dp, vm') ->
               info "Attempting to destroy datapath dp:%s sr:%s vdi:%s" dp
                 (s_of_sr sr) (s_of_vdi vdi) ;
               try
+                let vm = match vm with None -> vm' | Some vm -> vm in
                 destroy_datapath_nolock context ~dbg ~dp ~sr ~vdi ~vm
                   ~allow_leak:false ;
                 acc
               with e -> e :: acc
             )
-            [] dps
+            [] dpv
         in
         match failures with [] -> next () | f :: _ -> raise f
 
@@ -775,9 +798,9 @@ functor
 
       let destroy_and_data_destroy call_name call_f context ~dbg ~sr ~vdi =
         info "%s dbg:%s sr:%s vdi:%s" call_name dbg (s_of_sr sr) (s_of_vdi vdi) ;
+
         with_vdi sr vdi (fun () ->
-            let vm = vm_of_s "" in
-            remove_datapaths_andthen_nolock context ~dbg ~sr ~vdi ~vm Vdi.all
+            remove_datapaths_andthen_nolock context ~dbg ~sr ~vdi Vdi.all
               (fun () -> call_f context ~dbg ~sr ~vdi
             )
         )
@@ -959,10 +982,10 @@ functor
           match vdi_to_remove with
           | None ->
               None
-          | Some (vdi, _) ->
+          | Some (vdi, vdi_t) ->
               locker vdi (fun () ->
                   try
-                    let vm = vm_of_s "" in
+                    let vm = Vdi.get_dp_vm dp vdi_t in
                     VDI.destroy_datapath_nolock context ~dbg ~dp ~sr ~vdi ~vm
                       ~allow_leak ;
                     None
@@ -1093,7 +1116,7 @@ functor
                 ; dps=
                     List.map
                       (fun dp -> (dp, Vdi.get_dp_state dp vdi_t))
-                      (Vdi.dps vdi_t)
+                      (Vdi.dp vdi_t)
                 }
         )
     end
@@ -1181,7 +1204,7 @@ functor
             match Host.find sr !Host.host with
             | None ->
                 Impl.SR.attach context ~dbg ~sr ~device_config ;
-                Host.replace sr (Sr.empty ()) !Host.host ;
+                Host.add_or_replace sr (Sr.empty ()) !Host.host ;
                 (* FH1: Perform the side-effect first: in the case of a
                    						   failure half-way through we would rather perform the
                    						   side-effect twice than never at all. *)
@@ -1194,7 +1217,7 @@ functor
       let detach_destroy_common context ~dbg ~sr f =
         let active_dps sr_t =
           (* Enumerate all active datapaths *)
-          List.concat (List.map (fun (_, vdi_t) -> Vdi.dps vdi_t) (Sr.list sr_t))
+          List.concat (List.map (fun (_, vdi_t) -> Vdi.dp vdi_t) (Sr.list sr_t))
         in
         with_sr sr (fun () ->
             match Host.find sr !Host.host with
