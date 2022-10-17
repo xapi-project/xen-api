@@ -22,7 +22,7 @@ module Date = Xapi_stdext_date.Date
 module Listext = Xapi_stdext_std.Listext.List
 module Unixext = Xapi_stdext_unix.Unixext
 
-module D = Debug.Make (struct let name = "cli" end)
+module D = Debug.Make (struct let name = __MODULE__ end)
 
 open D
 open Records
@@ -54,22 +54,17 @@ let bool_of_string param string =
         )
 
 let get_bool_param params ?(default = false) param =
-  if List.mem_assoc param params then
-    bool_of_string param (List.assoc param params)
-  else
-    default
+  List.assoc_opt param params
+  |> Option.map (bool_of_string param)
+  |> Option.value ~default
 
 let get_float_param params param ~default =
-  if List.mem_assoc param params then
-    try float_of_string (List.assoc param params) with Not_found -> default
-  else
-    default
+  List.assoc_opt param params
+  |> Fun.flip Option.bind float_of_string_opt
+  |> Option.value ~default
 
 let get_param params param ~default =
-  if List.mem_assoc param params then
-    List.assoc param params
-  else
-    default
+  Option.value ~default (List.assoc_opt param params)
 
 (** [get_unique_param param params] is intended to replace [List.assoc_opt] in
     the cases where a parameter can only exist once, as repeating it might
