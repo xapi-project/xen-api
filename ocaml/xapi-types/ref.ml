@@ -25,6 +25,8 @@ type 'a t =
 
 let ref_prefix = "OpaqueRef:"
 
+let ref_prefix_length = String.length ref_prefix
+
 let dummy_prefix = "DummyRef:"
 
 let dummy_sep = "|"
@@ -89,17 +91,16 @@ let short_string_of = function
 let of_string x =
   if x = ref_null then
     Null
+  else if String.starts_with ~prefix:ref_prefix x then
+    Real String.(sub x ref_prefix_length (length x - ref_prefix_length))
+  else if String.starts_with ~prefix:dummy_prefix x then
+    match Astring.String.cuts ~sep:dummy_sep x with
+    | _prefix :: uuid :: name ->
+        Dummy (uuid, String.concat dummy_sep name)
+    | _ ->
+        Other x
   else
-    match Astring.String.cut ~sep:ref_prefix x with
-    | Some ("", uuid) ->
-        Real uuid
-    | _ -> (
-      match Astring.String.cuts ~sep:dummy_sep x with
-      | prefix :: uuid :: name when prefix = dummy_prefix ->
-          Dummy (uuid, String.concat dummy_sep name)
-      | _ ->
-          Other x
-    )
+    Other x
 
 let to_option = function Null -> None | ref -> Some ref
 
