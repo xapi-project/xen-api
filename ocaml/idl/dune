@@ -45,6 +45,8 @@
 (executable
   (modes byte exe)
   (name gen_lifecycle)
+  (public_name gen_lifecycle)
+  (package xapi-datamodel)
   (modules gen_lifecycle)
   (libraries
     xapi-datamodel
