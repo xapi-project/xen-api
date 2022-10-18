@@ -653,7 +653,7 @@ let () =
     (Json.release_info releases objs) ;
   write_string
     ~path:(data_dir // "releases.yml")
-    (List.map Yaml.release releases |> String.concat "") ;
+    (List.rev_map Yaml.release releases |> String.concat "") ;
   let release_md_dir = destdir // "xen-api/releases" in
   Xapi_stdext_unix.Unixext.mkdir_rec release_md_dir 0o755 ;
   let class_md_dir = destdir // "xen-api/classes" in
