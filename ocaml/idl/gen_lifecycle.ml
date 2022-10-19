@@ -15,7 +15,9 @@
 open Datamodel_types
 
 let current_version =
-  Scanf.sscanf Xapi_version.version "%s@-%s" (fun v _rest -> v)
+  Scanf.sscanf Xapi_version.version "%d.%d.%d%[.-]%s"
+    (fun mj mn mc _sep _rest -> Printf.sprintf "%d.%d.%d" mj mn mc
+  )
 
 (* A version tag starts with a number *)
 let is_version name =
