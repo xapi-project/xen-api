@@ -54,13 +54,8 @@ let debug msg args =
     ""
 
 let has_default_args args =
-  let arg_has_default arg =
-    match arg.DT.param_default with None -> false | Some _ -> true
-  in
-  let any_defaults =
-    List.fold_left (fun e x -> e || x) false (List.map arg_has_default args)
-  in
-  any_defaults
+  let has_default arg = Option.is_some arg.DT.param_default in
+  List.exists has_default args
 
 (* ------------------------------------------------------------------------------------------
     Code to generate a single operation in server dispatcher
@@ -80,11 +75,8 @@ let count_mandatory_message_parameters (msg : message) =
 
 let operation (obj : obj) (x : message) =
   let msg_params = x.DT.msg_params in
-  let msg_params_with_default_values =
-    List.filter (fun p -> p.DT.param_default <> None) msg_params
-  in
-  let msg_params_without_default_values =
-    List.filter (fun p -> p.DT.param_default = None) msg_params
+  let msg_params_with_default_values, msg_params_without_default_values =
+    List.partition (fun p -> p.DT.param_default <> None) msg_params
   in
   let msg_without_default_values =
     {x with DT.msg_params= msg_params_without_default_values}
@@ -145,19 +137,19 @@ let operation (obj : obj) (x : message) =
     let of_field f =
       let binding = O.string_of_param (Client.param_of_field f) in
       let converter = Printf.sprintf "%s_of_rpc" (OU.alias_of_ty f.DT.ty) in
+      let wire_name = Printf.sprintf {|"%s"|} (DU.wire_name_of_field f) in
       let lookup_expr =
         match f.DT.default_value with
         | None ->
-            Printf.sprintf "(my_assoc \"%s\" __structure)"
-              (DU.wire_name_of_field f)
+            Printf.sprintf "(my_assoc %s __structure)" wire_name
         | Some default ->
             Printf.sprintf
-              "(if (List.mem_assoc \"%s\" __structure) then (my_assoc \"%s\" \
-               __structure) else %s)"
-              (DU.wire_name_of_field f) (DU.wire_name_of_field f)
+              "((List.assoc_opt %s __structure) |> Option.value ~default:(%s))"
+              wire_name
               (Datamodel_values.to_ocaml_string default)
       in
-      Printf.sprintf "        let %s = %s %s in" binding converter lookup_expr
+      Printf.sprintf "            let %s = %s %s in" binding converter
+        lookup_expr
     in
     String.concat "\n"
       ("let __structure = match __structure_rpc with Dict d -> d | _ -> \
@@ -201,9 +193,6 @@ let operation (obj : obj) (x : message) =
       ]
   in
   (* Generate the unmarshalling code *)
-  let rec add_counts i l =
-    match l with [] -> [] | x :: xs -> (i, x) :: add_counts (i + 1) xs
-  in
   let has_session_arg =
     if is_ctor then
       is_session_arg Client.session
@@ -256,14 +245,14 @@ let operation (obj : obj) (x : message) =
         args_without_default_values
     )
     (* and for every default value we try to get this from default_args or default it *)
-    @ List.map
-        (fun (param_count, default_param) ->
+    @ List.mapi
+        (fun param_count default_param ->
           let param_name =
             OU.ocaml_of_record_name default_param.DT.param_name
           in
           let param_type = OU.alias_of_ty default_param.DT.param_type in
           let try_and_get_default =
-            Printf.sprintf "Server_helpers.nth %d default_args" param_count
+            Printf.sprintf "List.nth default_args %d" param_count
           in
           let default_value =
             match default_param.DT.param_default with
@@ -275,7 +264,7 @@ let operation (obj : obj) (x : message) =
           Printf.sprintf "let %s = %s_of_rpc (try %s with _ -> %s) in"
             param_name param_type try_and_get_default default_value
         )
-        (add_counts 1 msg_params_with_default_values)
+        msg_params_with_default_values
   in
   let may_be_side_effecting msg =
     match msg.msg_tag with
@@ -481,12 +470,10 @@ let gen_module api : O.Module.t =
                    http_req.Http.Request.subtask_of in"
                 ; "let http_other_config = Context.get_http_other_config \
                    http_req in"
-                ; "let may f = function | None -> None | Some x -> Some (f x) \
-                   in"
                 ; "Server_helpers.exec_with_new_task \
                    (\"dispatch:\"^__call^\"\") ~http_other_config \
-                   ?subtask_of:(may Ref.of_string subtask_of) (fun __context \
-                   ->"
+                   ?subtask_of:(Option.map Ref.of_string subtask_of) (fun \
+                   __context ->"
                 ; (*
 	      "if not (Hashtbl.mem supress_printing_for_these_messages __call) then ";
 	      debug "%s %s" [ "__call"; "(if __async then \"(async)\" else \"\")" ];

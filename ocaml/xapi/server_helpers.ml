@@ -27,15 +27,6 @@ let my_assoc fld assoc_list =
   try List.assoc fld assoc_list
   with Not_found -> raise (Dispatcher_FieldNotFound fld)
 
-exception Nth (* should never be thrown externally *)
-
-let rec nth n l =
-  match l with
-  | [] ->
-      raise Nth
-  | x :: xs ->
-      if n = 1 then x else nth (n - 1) xs
-
 let async_wire_name = "Async."
 
 let async_length = String.length async_wire_name
