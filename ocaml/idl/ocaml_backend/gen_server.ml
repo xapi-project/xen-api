@@ -121,15 +121,14 @@ let operation (obj : obj) (x : message) =
   let is_non_constructor_with_defaults =
     (not is_ctor) && has_default_args x.DT.msg_params
   in
-  let arg_pattern = String.concat "::" string_args in
   let arg_pattern =
     if is_non_constructor_with_defaults then
-      arg_pattern ^ "::default_args"
+      String.concat " :: " (string_args @ ["default_args"])
     else
-      arg_pattern ^ "::[]"
+      Printf.sprintf "[%s]" (String.concat "; " string_args)
   in
   let name_pattern_match =
-    Printf.sprintf "| \"%s\" | \"%s\" -> " wire_name alternative_wire_name
+    Printf.sprintf {|| "%s" | "%s" -> |} wire_name alternative_wire_name
   in
   (* Lookup the various fields from the constructor record *)
   let from_ctor_record =
@@ -201,33 +200,29 @@ let operation (obj : obj) (x : message) =
   in
   let rbac_check_begin =
     if has_session_arg then
+      let serialize_list lst =
+        String.concat "; " lst |> Printf.sprintf "[%s]"
+      in
+      let serialize_name_list lst =
+        List.map (Printf.sprintf {|"%s"|}) lst |> serialize_list
+      in
+      let default_arg_name_params =
+        if is_non_constructor_with_defaults then
+          List.map (fun dp -> dp.DT.param_name) msg_params_with_default_values
+        else
+          []
+      in
+      let arg_names = orig_string_args @ default_arg_name_params in
+      let key_names = List.map fst x.msg_map_keys_roles in
       [
-        "let arg_names = "
-        ^ List.fold_right
-            (fun arg args -> "\"" ^ arg ^ "\"::" ^ args)
-            orig_string_args
-            ( if is_non_constructor_with_defaults then
-                List.fold_right
-                  (fun dp ss -> "\"" ^ dp.DT.param_name ^ "\"::" ^ ss)
-                  msg_params_with_default_values ""
-                ^ "[]"
-            else
-              "[]"
-            )
-        ^ " in"
-      ; "let key_names = "
-        ^ List.fold_right
-            (fun arg args -> "\"" ^ arg ^ "\"::" ^ args)
-            (List.map (fun (k, _) -> k) x.msg_map_keys_roles)
-            "[]"
-        ^ " in"
+        Printf.sprintf "let arg_names = %s in" (serialize_name_list arg_names)
+      ; Printf.sprintf "let key_names = %s in" (serialize_name_list key_names)
       ; "let rbac __context fn = Rbac.check session_id __call \
          ~args:(arg_names,__params) ~keys:key_names ~__context ~fn in"
       ]
     else
-      ["let rbac __context fn = fn() in"]
+      ["let rbac __context fn = fn () in"]
   in
-  let rbac_check_end = if has_session_arg then [] else [] in
   let unmarshall_code =
     (* If we are forwarding the call then we don't want to emit a warning
        because we know we don't need the arguments *)
@@ -298,7 +293,7 @@ let operation (obj : obj) (x : message) =
           "let host = ref_host_of_rpc host_rpc in"
         ; "let call_string = Jsonrpc.string_of_call {call with name=__call} in"
         ; "let marshaller = (fun x -> x) in"
-        ; "let local_op = fun ~__context ->(rbac __context \
+        ; "let local_op = fun ~__context -> (rbac __context \
            (fun()->(Custom.Host.call_extension \
            ~__context:(Context.check_for_foreign_database ~__context) ~host \
            ~call:call_string))) in"
@@ -394,7 +389,6 @@ let operation (obj : obj) (x : message) =
         @ session_check_exp
         @ rbac_check_begin
         @ gen_body ()
-        @ rbac_check_end
       else
         comments
         @ ["let session_id = ref_session_of_rpc session_id_rpc in"]
@@ -513,14 +507,14 @@ let gen_module api : O.Module.t =
                  ; "    then "
                    ^ debug "This is not a built-in rpc \"%s\"" ["__call"]
                  ; "    begin match __params with"
-                 ; "    | session_id_rpc::_->"
+                 ; "    | session_id_rpc :: _->"
                  ; "      let session_id = ref_session_of_rpc session_id_rpc in"
                  ; "      Session_check.check false session_id;"
                  ; "      (* based on the Host.call_extension call *)"
-                 ; "      let arg_names = \"session_id\"::__call::[] in"
+                 ; "      let arg_names = [\"session_id\"; __call] in"
                  ; "      let key_names = [] in"
                  ; "      let rbac __context fn = Rbac.check session_id \
-                    \"Host.call_extension\" ~args:(arg_names,__params) \
+                    \"Host.call_extension\" ~args:(arg_names, __params) \
                     ~keys:key_names ~__context ~fn in"
                  ; "      Server_helpers.forward_extension ~__context rbac { \
                     call with Rpc.name = __call }"
