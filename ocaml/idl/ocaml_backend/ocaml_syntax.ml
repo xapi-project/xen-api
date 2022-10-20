@@ -79,18 +79,25 @@ module Let = struct
       | Named (name, _) ->
           "~" ^ name
     in
-    [
-      Line ("(** " ^ x.doc ^ " *)")
-    ; Line
-        (prefix
-        ^ " "
-        ^ x.name
-        ^ " "
-        ^ String.concat " " (List.map param x.params)
-        ^ " ="
-        )
-    ; Indent (List.map (fun x -> Line x) x.body)
-    ]
+    let doclines =
+      if x.doc <> "" then
+        [Line ("(** " ^ x.doc ^ " *)")]
+      else
+        []
+    in
+
+    doclines
+    @ [
+        Line
+          (prefix
+          ^ " "
+          ^ x.name
+          ^ " "
+          ^ String.concat " " (List.map param x.params)
+          ^ " ="
+          )
+      ; Indent (List.map (fun x -> Line x) x.body)
+      ]
 end
 
 module Type = struct
