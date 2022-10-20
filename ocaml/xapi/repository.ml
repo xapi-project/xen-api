@@ -131,8 +131,9 @@ let sync ~__context ~self ~token ~token_id =
           s
     in
     let write_initial_yum_config () =
+      let rpm_gpg_key = get_rpm_gpg_key ~__context gpgkey_path in
       write_yum_config ~source_url:(Some source_url) ~binary_url
-        ~repo_gpgcheck:true ~gpgkey_path ~repo_name
+        ~repo_gpgcheck:true ~gpgkey_path ~rpm_gpg_key ~repo_name
     in
     write_initial_yum_config () ;
     clean_yum_cache repo_name ;

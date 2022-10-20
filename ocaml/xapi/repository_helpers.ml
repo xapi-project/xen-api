@@ -263,8 +263,28 @@ let remove_repo_conf_file repo_name =
   in
   Unixext.unlink_safe path
 
+let get_rpm_gpg_key ~__context name =
+  let expr =
+    let open Db_filter_types in
+    And
+      (Eq (Field "type", Literal "rpm_pubkey"), Eq (Field "name", Literal name))
+  in
+  Db.Gpg_key.get_records_where ~__context ~expr
+  |> (function [(key_ref, key_rec)] -> Some (key_ref, key_rec) | _ -> None)
+  |> Option.map (fun (key_ref, key_rec) ->
+         let pubkey =
+           Helpers.call_api_functions ~__context (fun rpc session_id ->
+               Client.Client.Pool.get_rpm_pubkey_contents ~rpc ~session_id
+                 ~self:(Helpers.get_pool ~__context)
+                 ~gpg_key:key_ref
+           )
+         in
+         let fingerprint = key_rec.API.gpg_key_fingerprint in
+         (name, fingerprint, pubkey)
+     )
+
 let write_yum_config ~source_url ~binary_url ~repo_gpgcheck ~gpgkey_path
-    ~repo_name =
+    ~rpm_gpg_key ~repo_name =
   let file_path =
     Filename.concat !Xapi_globs.yum_repos_config_dir (repo_name ^ ".repo")
   in
@@ -273,11 +293,16 @@ let write_yum_config ~source_url ~binary_url ~repo_gpgcheck ~gpgkey_path
       let gpgkey_abs_path =
         Filename.concat !Xapi_globs.rpm_gpgkey_dir gpgkey_path
       in
-      if not (Sys.file_exists gpgkey_abs_path) then
-        raise
-          Api_errors.(
-            Server_error (internal_error, ["gpg key file does not exist"])
-          ) ;
+      ( if not (Sys.file_exists gpgkey_abs_path) then
+          match rpm_gpg_key with
+          | Some (name, fingerprint, pubkey) ->
+              Rpm_gpg_key.install_rpmgpgkey ~name ~pubkey ~fingerprint
+          | None ->
+              raise
+                Api_errors.(
+                  Server_error (internal_error, ["gpg key file does not exist"])
+                )
+      ) ;
       if not ((Unix.lstat gpgkey_abs_path).Unix.st_kind = Unix.S_REG) then
         raise
           Api_errors.(
@@ -398,8 +423,9 @@ let with_local_repositories ~__context f =
                   s
             in
             remove_repo_conf_file repo_name ;
+            let rpm_gpg_key = get_rpm_gpg_key ~__context gpgkey_path in
             write_yum_config ~source_url:None ~binary_url ~repo_gpgcheck:false
-              ~gpgkey_path ~repo_name ;
+              ~gpgkey_path ~rpm_gpg_key ~repo_name ;
             clean_yum_cache repo_name ;
             let config_params =
               [
