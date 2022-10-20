@@ -42,8 +42,6 @@ val exec_with_subtask :
 (* used by auto-generated code in server.ml *)
 val my_assoc : string -> (string * 'a) list -> 'a
 
-val nth : int -> 'a list -> 'a
-
 val sync_ty_and_maybe_remove_prefix :
   string -> [> `Async | `InternalAsync | `Sync] * string
 
