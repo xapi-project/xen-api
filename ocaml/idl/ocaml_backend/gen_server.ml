@@ -111,9 +111,8 @@ let operation (obj : obj) (x : message) =
     else
       List.map O.string_of_param args_without_default_values
   in
-  let string_args =
-    List.map (fun s -> Printf.sprintf "%s_rpc" s) orig_string_args
-  in
+  let to_rpc_name s = Printf.sprintf "%s_rpc" s in
+  let string_args = List.map to_rpc_name orig_string_args in
   let is_non_constructor_with_defaults =
     (not is_ctor) && has_default_args x.DT.msg_params
   in
@@ -194,6 +193,26 @@ let operation (obj : obj) (x : message) =
     else
       List.exists (fun a -> is_session_arg a) args_without_default_values
   in
+  let unmarshall_default_params =
+    List.mapi
+      (fun param_count default_param ->
+        let param_name = OU.ocaml_of_record_name default_param.DT.param_name in
+        let param_type = OU.alias_of_ty default_param.DT.param_type in
+        let try_and_get_default =
+          Printf.sprintf "List.nth default_args %d" param_count
+        in
+        let default_value =
+          match default_param.DT.param_default with
+          | None ->
+              "** EXPECTED DEFAULT VALUE IN THIS PARAM **"
+          | Some default ->
+              Datamodel_values.to_ocaml_string default
+        in
+        Printf.sprintf "let %s = %s_of_rpc (try %s with _ -> %s) in" param_name
+          param_type try_and_get_default default_value
+      )
+      msg_params_with_default_values
+  in
   let rbac_check_begin =
     if has_session_arg then
       let serialize_list lst =
@@ -236,26 +255,7 @@ let operation (obj : obj) (x : message) =
         args_without_default_values
     )
     (* and for every default value we try to get this from default_args or default it *)
-    @ List.mapi
-        (fun param_count default_param ->
-          let param_name =
-            OU.ocaml_of_record_name default_param.DT.param_name
-          in
-          let param_type = OU.alias_of_ty default_param.DT.param_type in
-          let try_and_get_default =
-            Printf.sprintf "List.nth default_args %d" param_count
-          in
-          let default_value =
-            match default_param.DT.param_default with
-            | None ->
-                "** EXPECTED DEFAULT VALUE IN THIS PARAM **"
-            | Some default ->
-                Datamodel_values.to_ocaml_string default
-          in
-          Printf.sprintf "let %s = %s_of_rpc (try %s with _ -> %s) in"
-            param_name param_type try_and_get_default default_value
-        )
-        msg_params_with_default_values
+    @ unmarshall_default_params
   in
   let may_be_side_effecting msg =
     match msg.msg_tag with
