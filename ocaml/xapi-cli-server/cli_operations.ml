@@ -7876,6 +7876,11 @@ module VTPM = struct
 
   let destroy _ rpc session_id params =
     let uuid = List.assoc "uuid" params in
+    let force = get_bool_param params "force" in
+    if not force then
+      failwith
+        "This operation is extremely dangerous and may cause data loss. This \
+         operation must be forced (use --force)." ;
     let ref = Client.VTPM.get_by_uuid ~rpc ~session_id ~uuid in
     Client.VTPM.destroy ~rpc ~session_id ~self:ref
 end

@@ -3582,7 +3582,7 @@ let rec cmdtable_data : (string * cmd_spec) list =
   ; ( "vtpm-destroy"
     , {
         reqd= ["uuid"]
-      ; optn= []
+      ; optn= ["force"]
       ; help= "Destroy a VTPM"
       ; implementation= No_fd Cli_operations.VTPM.destroy
       ; flags= []
