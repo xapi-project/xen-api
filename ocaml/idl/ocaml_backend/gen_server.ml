@@ -193,11 +193,12 @@ let operation (obj : obj) (x : message) =
     else
       List.exists (fun a -> is_session_arg a) args_without_default_values
   in
-  let unmarshall_default_params =
+  let name_default_params, unmarshall_default_params =
     List.mapi
       (fun param_count default_param ->
         let param_name = OU.ocaml_of_record_name default_param.DT.param_name in
         let param_type = OU.alias_of_ty default_param.DT.param_type in
+        let param_rpc = to_rpc_name param_name in
         let try_and_get_default =
           Printf.sprintf "List.nth default_args %d" param_count
         in
@@ -208,10 +209,14 @@ let operation (obj : obj) (x : message) =
           | Some default ->
               Datamodel_values.to_ocaml_string default
         in
-        Printf.sprintf "let %s = %s_of_rpc (try %s with _ -> %s) in" param_name
-          param_type try_and_get_default default_value
+        ( Printf.sprintf "let %s = try %s with _ -> %s in" param_rpc
+            try_and_get_default default_value
+        , Printf.sprintf "let %s = %s_of_rpc %s in" param_name param_type
+            param_rpc
+        )
       )
       msg_params_with_default_values
+    |> List.split
   in
   let rbac_check_begin =
     if has_session_arg then
@@ -221,6 +226,10 @@ let operation (obj : obj) (x : message) =
       let serialize_name_list lst =
         List.map (Printf.sprintf {|"%s"|}) lst |> serialize_list
       in
+      let serialize_args args =
+        List.map (fun (n, v) -> Printf.sprintf {|("%s", %s)|} n v) args
+        |> serialize_list
+      in
       let default_arg_name_params =
         if is_non_constructor_with_defaults then
           List.map (fun dp -> dp.DT.param_name) msg_params_with_default_values
@@ -228,12 +237,32 @@ let operation (obj : obj) (x : message) =
           []
       in
       let arg_names = orig_string_args @ default_arg_name_params in
+      let default_arg_values =
+        List.map
+          (fun dp -> to_rpc_name (OU.ocaml_of_record_name dp.DT.param_name))
+          msg_params_with_default_values
+      in
+      let arg_values = string_args @ default_arg_values in
+      let args =
+        try List.combine arg_names arg_values
+        with Invalid_argument _ ->
+          let msg =
+            Printf.sprintf
+              "Cannot serialize call %s.%s: number of arguments doesn't match \
+               with the number of names for it; in %s"
+              (OU.ocaml_of_obj_name obj.DT.name)
+              x.msg_name __LOC__
+          in
+          failwith msg
+      in
       let key_names = List.map fst x.msg_map_keys_roles in
       [
-        Printf.sprintf "let arg_names = %s in" (serialize_name_list arg_names)
+        Printf.sprintf "let arg_names_values = %s in" (serialize_args args)
+      ; (* This incurs a runtime cost *)
+        "let arg_names, arg_values = List.split arg_names_values in"
       ; Printf.sprintf "let key_names = %s in" (serialize_name_list key_names)
       ; "let rbac __context fn = Rbac.check session_id __call \
-         ~args:(arg_names,__params) ~keys:key_names ~__context ~fn in"
+         ~args:(arg_names, arg_values) ~keys:key_names ~__context ~fn in"
       ]
     else
       ["let rbac __context fn = fn () in"]
@@ -380,6 +409,7 @@ let operation (obj : obj) (x : message) =
     let all_list =
       if not (DU.has_been_removed x.DT.msg_lifecycle) then
         comments
+        @ name_default_params
         @ unmarshall_code
         @ session_check_exp
         @ rbac_check_begin
@@ -504,10 +534,15 @@ let gen_module api : O.Module.t =
                  ; "      Session_check.check ~intra_pool_only:false \
                     ~session_id;"
                  ; "      (* based on the Host.call_extension call *)"
-                 ; "      let arg_names = [\"session_id\"; __call] in"
+                 ; "      let call_rpc = Rpc.String __call in "
+                 ; "      let arg_names, arg_values ="
+                 ; "        [(\"session_id\", session_id_rpc); (__call, \
+                    call_rpc)]"
+                 ; "        |> List.split"
+                 ; "      in"
                  ; "      let key_names = [] in"
                  ; "      let rbac __context fn = Rbac.check session_id \
-                    \"Host.call_extension\" ~args:(arg_names, __params) \
+                    \"Host.call_extension\" ~args:(arg_names, arg_values) \
                     ~keys:key_names ~__context ~fn in"
                  ; "      Server_helpers.forward_extension ~__context rbac { \
                     call with Rpc.name = __call }"
