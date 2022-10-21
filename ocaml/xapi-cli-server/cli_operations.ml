@@ -82,6 +82,14 @@ let get_unique_param param params =
            "Parameter %s is defined multiple times, define it only once." param
         )
 
+let no_force_msg =
+  "This operation is dangerous and may cause data loss. This operation must be \
+   forced (use --force)."
+
+let fail_without_force params =
+  if not (get_bool_param params "force") then
+    failwith no_force_msg
+
 open Client
 
 let progress_bar printer task_record =
@@ -2016,10 +2024,7 @@ let vdi_unlock _printer rpc session_id params =
   let vdi =
     Client.VDI.get_by_uuid ~rpc ~session_id ~uuid:(List.assoc "uuid" params)
   in
-  if not (List.mem_assoc "force" params) then
-    failwith
-      "This operation is extremely dangerous and may cause data loss. This \
-       operation must be forced (use --force)." ;
+  fail_without_force params ;
   Client.VDI.force_unlock ~rpc ~session_id ~vdi
 
 let vdi_enable_cbt _printer rpc session_id params =
@@ -4319,10 +4324,7 @@ let vm_copy printer rpc session_id params =
     )
 
 let vm_reset_powerstate printer rpc session_id params =
-  if not (List.mem_assoc "force" params) then
-    failwith
-      "This operation is extremely dangerous and may cause data loss. This \
-       operation must be forced (use --force)." ;
+  fail_without_force params ;
   ignore
     (do_vm_op printer rpc session_id
        (fun vm ->
@@ -4332,10 +4334,7 @@ let vm_reset_powerstate printer rpc session_id params =
     )
 
 let snapshot_reset_powerstate _printer rpc session_id params =
-  if not (List.mem_assoc "force" params) then
-    failwith
-      "This operation is extremely dangerous and may cause data loss. This \
-       operation must be forced (use --force)." ;
+  fail_without_force params ;
   let snapshot_uuid = get_snapshot_uuid params in
   let snapshot = get_snapshotVM_by_uuid rpc session_id snapshot_uuid in
   Client.VM.power_state_reset ~rpc ~session_id ~vm:snapshot
@@ -7031,12 +7030,8 @@ let host_emergency_management_reconfigure _printer rpc session_id params =
   Client.Host.local_management_reconfigure ~rpc ~session_id ~interface
 
 let host_emergency_ha_disable _printer rpc session_id params =
-  let force = get_bool_param params "force" in
   let soft = get_bool_param params "soft" in
-  if not force then
-    failwith
-      "This operation is extremely dangerous and may cause data loss. This \
-       operation must be forced (use --force)." ;
+  fail_without_force params ;
   Client.Host.emergency_ha_disable ~rpc ~session_id ~soft
 
 let host_emergency_reset_server_certificate _printer rpc session_id _params =
@@ -7876,11 +7871,7 @@ module VTPM = struct
 
   let destroy _ rpc session_id params =
     let uuid = List.assoc "uuid" params in
-    let force = get_bool_param params "force" in
-    if not force then
-      failwith
-        "This operation is extremely dangerous and may cause data loss. This \
-         operation must be forced (use --force)." ;
+    fail_without_force params ;
     let ref = Client.VTPM.get_by_uuid ~rpc ~session_id ~uuid in
     Client.VTPM.destroy ~rpc ~session_id ~self:ref
 end
