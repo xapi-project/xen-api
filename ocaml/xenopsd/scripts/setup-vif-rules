@@ -23,7 +23,7 @@ import sys
 import syslog
 import time
 import common
-from common import send_to_syslog, doexec
+from common import ON_ERROR_FAIL, send_to_syslog, doexec, run
 
 path = "/sbin:/usr/sbin:/bin:/usr/bin"
 
@@ -203,7 +203,7 @@ def make_vswitch_external_ids(vif):
 def add_vswitch_port(bridge_name, vif):
     args = [vsctl, "--timeout=30", "add-port", bridge_name, vif.vif_name]
     args += make_vswitch_external_ids(vif)
-    doexec(args)
+    run(ON_ERROR_FAIL, args)
     set_xs_ofport_path(vif)
     setup_pvs_proxy_rules(vif, "add")
 
