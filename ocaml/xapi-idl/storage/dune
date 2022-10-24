@@ -49,6 +49,7 @@
 (test
  (name storage_test)
  (modules storage_test)
+ (package xapi-idl)
  (libraries
    alcotest
    cmdliner
