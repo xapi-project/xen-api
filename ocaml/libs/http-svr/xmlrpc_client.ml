@@ -292,7 +292,7 @@ let string_of_transport = function
   | SSL (ssl, host, port) ->
       Printf.sprintf "SSL %s:%d %s" host port (SSL.to_string ssl)
 
-let transport_of_url (scheme, _) =
+let transport_of_url ~verify_cert (scheme, _) =
   let open Http.Url in
   match scheme with
   | File {path} ->
@@ -302,7 +302,7 @@ let transport_of_url (scheme, _) =
       TCP (h.host, port)
   | Http ({ssl= true; _} as h) ->
       let port = Option.value ~default:443 h.port in
-      SSL (SSL.make ~verify_cert:None (), h.host, port)
+      SSL (SSL.make ~verify_cert (), h.host, port)
 
 let with_transport ?(stunnel_wait_disconnect = true) transport f =
   match transport with

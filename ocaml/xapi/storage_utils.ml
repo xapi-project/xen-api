@@ -45,7 +45,10 @@ let redirectable_rpc ~srcstr ~dststr ~remote_url_of_ip ~local_fn =
           let newurl = remote_url_of_ip ip in
           debug "Redirecting %s to ip: %s" rpcstr ip ;
           (* we need to do a remote call now, so replace [f] *)
-          let f = Helpers.make_remote_rpc_of_url ~srcstr ~dststr newurl in
+          let f =
+            Helpers.make_remote_rpc_of_url ~verify_cert:None ~srcstr ~dststr
+              newurl
+          in
           let r = rpc ~f call in
           debug "Successfully redirected %s. Returning" rpcstr ;
           r

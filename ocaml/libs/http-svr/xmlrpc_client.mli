@@ -40,7 +40,8 @@ type transport =
   | TCP of string * int  (** Plain TCP/IP with a host, port *)
   | SSL of SSL.t * string * int  (** SSL over TCP/IP with a host, port *)
 
-val transport_of_url : Http.Url.t -> transport
+val transport_of_url :
+  verify_cert:Stunnel.verification_config option -> Http.Url.t -> transport
 (** [transport_of_url url] returns the transport associated with [url] *)
 
 val string_of_transport : transport -> string

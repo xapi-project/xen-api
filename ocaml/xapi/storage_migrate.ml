@@ -327,7 +327,8 @@ let rpc ~srcstr ~dststr (url, pool_secret) =
         remote_url ip
   in
   let local_fn =
-    Helpers.make_remote_rpc_of_url ~srcstr ~dststr (url, pool_secret)
+    Helpers.make_remote_rpc_of_url ~verify_cert:None ~srcstr ~dststr
+      (url, pool_secret)
   in
   Storage_utils.redirectable_rpc ~srcstr ~dststr ~remote_url_of_ip ~local_fn
 
@@ -715,7 +716,7 @@ let start' ~task ~dbg ~sr ~vdi ~dp ~url ~dest =
         ~query:(Http.Url.get_query_params dest_url)
         ~version:"1.0" ~user_agent:"smapiv2" Http.Put uri
     in
-    let transport = Xmlrpc_client.transport_of_url dest_url in
+    let transport = Xmlrpc_client.transport_of_url ~verify_cert:None dest_url in
     debug "Searching for data path: %s" dp ;
     let attach_info = Local.DP.attach_info "nbd" sr vdi dp in
     on_fail := (fun () -> Remote.DATA.MIRROR.receive_cancel dbg id) :: !on_fail ;
