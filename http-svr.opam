@@ -18,6 +18,8 @@ depends: [
   "sha"
   "stunnel"
   "uuid"
+  "xapi-idl"
+  "xapi-log"
   "xapi-stdext-date"
   "xapi-stdext-pervasives"
   "xapi-stdext-threads"

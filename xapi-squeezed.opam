@@ -10,19 +10,22 @@ build: [
 ]
 depends: [
   "ocaml"
+  "astring"
+  "cohttp" {>= "0.11.0"}
   "dune"
+  "re"
+  "rpclib"
+  "uri"
   "uuid"
+  "xapi-idl"
+  "xapi-log"
   "xapi-stdext-pervasives"
   "xapi-stdext-threads"
   "xapi-stdext-unix"
-  "cohttp" {>= "0.11.0"}
-  "uri"
-  "re"
-  "rpclib"
-  "xapi-idl"
+  "xapi-types"
+  "xenctrl" {>= "0.9.20"}
   "xenstore"
   "xenstore_transport"
-  "xenctrl" {>= "0.9.20"}
 ]
 synopsis: "A memory ballooning daemon for the Xen hypervisor"
 description: """

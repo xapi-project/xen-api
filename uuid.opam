@@ -14,6 +14,7 @@ depends: [
   "ocaml"
   "dune"
   "alcotest" {with-test}
+  "uuidm"
 ]
 synopsis: "Library required by xapi"
 description: """
