@@ -4,6 +4,7 @@
   (public_name mpathalert)
   (package xapi)
   (libraries
+    dune-build-info
     http-svr
     threads.posix
     uuid

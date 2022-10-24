@@ -3,9 +3,13 @@
  (public_name xapi-idl.network)
  (modules (:standard \ network_cli))
  (libraries
+   result
    rpclib.core
-   threads
+   rpclib.json
+   rresult
+   threads.posix
    xapi-idl
+   xapi-log
  )
  (wrapped false)
  (preprocess (pps ppx_deriving_rpc)))
@@ -15,8 +19,11 @@
  (modules network_cli)
  (libraries
    cmdliner
+   dune-build-info
    rpclib.cmdliner
+   rpclib.core
    rpclib.markdown
+   xapi-idl
    xapi-idl.network
  ))
 

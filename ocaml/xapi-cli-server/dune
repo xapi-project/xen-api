@@ -10,13 +10,14 @@
     result
     rresult
     sexplib
+    sexplib0
     tar
     threads.posix
     xapi-backtrace
     xapi-consts
     xapi-database
     xapi-datamodel
-    xapi-idl
+    xapi-log
     xapi-types
     xapi-client
     xapi-cli-protocol
@@ -24,6 +25,7 @@
     xapi-stdext-date
     xapi-stdext-pervasives
     xapi-stdext-std
+    xapi-stdext-threads
     xapi-stdext-unix
     xmlm
     xml-light2

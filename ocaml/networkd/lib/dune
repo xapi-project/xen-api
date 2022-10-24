@@ -5,13 +5,24 @@
   forkexec
   mtime
   mtime.clock.os
-  rpclib
-  systemd
-  threads
+  re
   re.perl
+  result
+  rpclib.core
+  rpclib.json
+  rresult
+  systemd
+  threads.posix
+  uri
+  xapi-stdext-pervasives
   xapi-stdext-std
+  xapi-stdext-threads
   xapi-stdext-unix
   xapi-inventory
-  xapi-idl.network)
+  xapi-idl.network
+  xapi-log
+  xapi-open-uri
+  yojson
+ )
  (wrapped false)
 )

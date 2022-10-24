@@ -2,8 +2,11 @@
   (name storage_test)
   (libraries
     alcotest
+    fmt
     lwt
     lwt.unix
+    rpclib.core
+    rpclib.xml
     xapi_storage
   )
 )

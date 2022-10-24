@@ -4,11 +4,17 @@
   (public_name rrd2csv)
   (package rrd2csv)
   (libraries
-    threads
+    dune-build-info
+    http-svr
+    threads.posix
     xapi-idl.rrd
     xapi-client
+    xapi-rrd
+    xapi-stdext-pervasives
     xapi-stdext-std
     xapi-stdext-threads
+    xapi-types
+    xmlm
   )
 )
 

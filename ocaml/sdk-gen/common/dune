@@ -2,6 +2,7 @@
   (name CommonFunctions)
   (wrapped false)
   (libraries
+    astring
     xapi-datamodel
     mustache
   )

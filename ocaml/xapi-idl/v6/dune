@@ -3,9 +3,12 @@
  (public_name xapi-idl.v6)
  (modules (:standard \ v6_cli))
  (libraries
+   result
    rpclib.core
-   threads
+   rresult
+   threads.posix
    xapi-idl
+   xapi-log
  )
  (wrapped false)
  (preprocess (pps ppx_deriving_rpc)))
@@ -15,9 +18,13 @@
  (modules v6_cli)
  (libraries
    cmdliner
+   dune-build-info
    rpclib.cmdliner
+   rpclib.core
    rpclib.markdown
+   xapi-idl
    xapi-idl.v6
+   xapi-log
  ))
 
 (rule

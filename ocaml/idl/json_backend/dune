@@ -2,6 +2,8 @@
   (modes byte exe)
   (name gen_json)
   (libraries
+    dune-build-info
+    fmt
     xapi-datamodel
     xapi-consts
     xapi-stdext-unix

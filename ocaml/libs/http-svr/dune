@@ -7,14 +7,19 @@
   (libraries
     astring
     base64
+    mtime
+    mtime.clock.os
     polly
-    rpclib
+    rpclib.core
+    rpclib.json
+    rpclib.xml
+    safe_resources
     sha
     stunnel
     threads.posix
     uuid
+    xapi-backtrace
     xapi-consts.xapi_version
-    xapi-idl
     xapi-idl.updates
     xapi-log
     xapi-stdext-date
@@ -30,16 +35,18 @@
   (name http_test)
   (modules http_test)
   (libraries
+    dune-build-info
     http-svr
-    oUnit
+    ounit2
   )
 )
 
-(executable
-  (modes byte exe)
+(test
   (name radix_tree_test)
   (modules radix_tree_test)
+  (package http-svr)
   (libraries
+    dune-build-info
     http-svr
   )
 )
@@ -49,8 +56,12 @@
   (name test_client)
   (modules test_client)
   (libraries
+    dune-build-info
     http-svr
-    oUnit
+    ounit2
+    safe-resources
+    stunnel
+    threads.posix
     xapi-stdext-pervasives
     xapi-stdext-unix
   )
@@ -61,8 +72,11 @@
   (name test_server)
   (modules test_server)
   (libraries
+    dune-build-info
     http-svr
-    oUnit
+    ounit2
+    safe-resources
+    threads.posix
     xapi-stdext-threads
     xapi-stdext-unix
   )
@@ -75,15 +89,6 @@
     (:x http_test.exe)
   )
   (action (run %{x} -runner sequential -verbose true))
-)
-
-(rule
-  (alias runtest)
-  (package http-svr)
-  (deps
-    (:x radix_tree_test.exe)
-  )
-  (action (run %{x}))
 )
 
 (rule

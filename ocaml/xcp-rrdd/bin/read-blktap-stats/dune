@@ -4,6 +4,7 @@
   (package rrdd-plugins)
   (public_name xcp-rrdd-read-blktap-stats)
   (libraries
+    cstruct
     rrdd-plugins.libs
     unix
   )

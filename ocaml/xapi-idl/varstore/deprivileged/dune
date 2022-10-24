@@ -6,6 +6,7 @@
    rpclib.core
    threads
    xapi-idl.xen
+   xapi-idl.xen.interface
    xcp
  )
  (wrapped false)
@@ -16,8 +17,11 @@
  (modules varstore_deprivileged_cli)
  (libraries
    cmdliner
+   dune-build-info
    rpclib.cmdliner
+   rpclib.core
    rpclib.markdown
+   xapi-idl
    xapi-idl.varstore.deprivileged
  ))
 

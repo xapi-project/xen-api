@@ -5,8 +5,11 @@
   (package xapi-rrd-transport-utils)
   (libraries
     cmdliner
-    threads
+    dune-build-info
     rrd-transport
+    threads.posix
+    xapi-idl.rrd
+    xapi-rrd
   )
 )
 

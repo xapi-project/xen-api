@@ -3,10 +3,15 @@
   (name list_vms)
   (modules list_vms)
   (libraries
-    core
     async
     async_unix
-    threads
+    base
+    base.caml
+    core
+    core_kernel
+    dune-build-info
+    xapi-consts
+    xapi-types
     xen-api-client
     xen-api-client-async
   )
@@ -17,10 +22,18 @@
   (name event_test)
   (modules event_test)
   (libraries
-    core
     async
     async_unix
-    threads
+    base
+    base.caml
+    core
+    core_kernel
+    dune-build-info
+    ppx_sexp_conv.runtime-lib
+    rpclib.json
+    sexplib0
+    xapi-consts
+    xapi-types
     xen-api-client
     xen-api-client-async
   )

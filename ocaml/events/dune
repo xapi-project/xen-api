@@ -4,6 +4,7 @@
   (public_name event_listen)
   (package xapi)
   (libraries
+    dune-build-info
     http-svr
     xapi-client
     xapi-types

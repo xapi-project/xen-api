@@ -5,7 +5,12 @@
     alcotest
     certificate_check
     daily_license_check
+    dune-build-info
+    fmt
+    xapi-consts
+    xapi-log
     xapi-stdext-date
+    xapi-types
   )
   (action (run %{test} --color=always))
 )

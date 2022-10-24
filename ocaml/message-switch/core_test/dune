@@ -6,6 +6,7 @@
   )
   (libraries
     message-switch-unix
+    threads.posix
   )
 )
 

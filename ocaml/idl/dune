@@ -29,7 +29,11 @@
   (name datamodel_main)
   (modules datamodel_main dot_backend dtd_backend markdown_backend)
   (libraries
+    dune-build-info
     xapi-datamodel
+    xapi-stdext-std
+    xapi-stdext-pervasives
+    xapi-stdext-unix
   )
 )
 
@@ -37,6 +41,9 @@
   (name schematest)
   (modules schematest)
   (libraries
+    dune-build-info
+    rpclib.core
+    rpclib.json
     xapi_datamodel
   )
   (package xapi-datamodel)
@@ -49,8 +56,9 @@
   (package xapi-datamodel)
   (modules gen_lifecycle)
   (libraries
+    dune-build-info
     xapi-datamodel
-    xapi_version
+    xapi-consts.xapi_version
   )
   (promote (until-clean))
  )

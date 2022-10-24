@@ -9,7 +9,10 @@
     xapi-stdext-pervasives
     xapi-stdext-unix
     astring
+    dune-build-info
+    rpclib.core
     squeeze
+    threads.posix
     xenctrl
     xenstore
     xenstore.unix
@@ -18,6 +21,8 @@
     rpclib
     xapi-idl
     xapi-idl.memory
+    xapi-log
+    xapi-types
     uuid
     re
     re.str

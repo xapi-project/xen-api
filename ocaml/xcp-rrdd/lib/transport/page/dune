@@ -3,7 +3,11 @@
   (public_name rrd-transport.page)
   (wrapped false)
   (libraries
+    bigarray-compat
+    cstruct
+    io-page.unix
     rrd_transport_lib
+    threads.posix
     xen-gnt
     xen-gnt-unix
   )

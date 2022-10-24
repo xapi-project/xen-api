@@ -2,7 +2,7 @@
   (name zstd)
   (public_name zstd)
   (libraries
-    xapi-compression
+    (re_export xapi-compression)
   )
 )
 

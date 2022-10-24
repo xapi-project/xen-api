@@ -22,12 +22,12 @@
     http-svr
     uuid
     xapi-backtrace
+    xapi-log
     xapi-stdext-encodings
     xapi-stdext-pervasives
     xapi-stdext-std
     xapi-stdext-threads
     xapi-stdext-unix
-    xapi-idl
     xml-light2
     xmlm
   )
@@ -42,8 +42,9 @@
   (package xapi)
   (modules block_device_io)
   (libraries
+    dune-build-info
     xapi-database
-    xapi-idl
+    xapi-log
     xapi-stdext-pervasives
     xapi-stdext-unix
     uuid
@@ -55,10 +56,12 @@
   (name database_server_main)
   (modules database_server_main)
   (libraries
-    xapi-database
-    threads
-    xapi-stdext-threads
+    dune-build-info
     http-svr
+    threads.posix
+    xapi-database
+    xapi-stdext-threads
+    xapi-stdext-unix
   )
 )
 
@@ -68,7 +71,14 @@
   (modules db_cache_test unit_test_marshall)
   (libraries
     alcotest
+    dune-build-info
+    http-svr
+    ppx_sexp_conv.runtime-lib
+    rpclib.xml
+    sexplib
+    sexplib0
     xapi-database
+    xml-light2
   )
 )
 
@@ -81,7 +91,9 @@
   )
   (libraries
     alcotest
+    dune-build-info
     xapi-database
+    xml-light2
   )
 )
 

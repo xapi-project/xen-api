@@ -6,6 +6,9 @@
    (names syslog_stubs))
  (libraries
    astring
+   logs
+   threads.posix
+   xapi-backtrace
    xapi-stdext-pervasives
  )
  (wrapped false)

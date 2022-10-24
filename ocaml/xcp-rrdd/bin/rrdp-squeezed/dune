@@ -4,11 +4,19 @@
   (package rrdd-plugins)
   (public_name xcp-rrdd-squeezed)
   (libraries
+    dune-build-info
     rrdd-plugin
     rrdd-plugins.libs
     xapi-stdext-std
-    threads
     ezxenstore
+    ezxenstore.watch
+    xapi-idl.rrd
+    xapi-log
+    xapi-rrd
+    xenctrl
+    xenstore
+    xenstore.unix
+    xenstore_transport
   )
 )
 

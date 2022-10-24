@@ -4,9 +4,11 @@
   (libraries
     astring
     cohttp
-    rpclib
+    rpclib.core
     rpclib.json
     sexplib
+    sexplib0
+    uri
   )
   (preprocess (pps ppx_deriving_rpc ppx_sexp_conv))
 )

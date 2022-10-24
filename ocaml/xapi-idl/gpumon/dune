@@ -3,9 +3,12 @@
  (public_name xapi-idl.gpumon)
  (modules (:standard \ gpumon_cli))
  (libraries
+   result
    rpclib.core
+   rresult
    threads
    xapi-idl
+   xapi-log
  )
  (wrapped false)
  (preprocess (pps ppx_deriving_rpc)))
@@ -16,7 +19,9 @@
  (libraries
    cmdliner
    rpclib.cmdliner
+   rpclib.core
    rpclib.markdown
+   xapi-idl
    xapi-idl.gpumon))
 
 (rule

@@ -6,9 +6,11 @@
     forkexec
     ipaddr
     tar
+    threads.posix
     xapi-consts
-    xapi-idl
     xapi-idl.network
+    xapi-inventory
+    xapi-log
     xapi-stdext-threads
     xapi-stdext-unix
     xapi-types

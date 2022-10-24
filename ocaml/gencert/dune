@@ -15,9 +15,9 @@
     result
     rresult
     x509
-    xapi_aux
+    xapi-backtrace
     xapi-consts
-    xapi-idl
+    xapi-log
     xapi-inventory
     xapi-stdext-unix
   )
@@ -31,9 +31,12 @@
   (modules gencert)
   (libraries
     astring
+    dune-build-info
     gencertlib
+    x509
     xapi-inventory
-    xapi-idl
+    xapi_aux
+    xapi-log
   )
 )
 
@@ -44,11 +47,14 @@
   (libraries
     alcotest
     cstruct
+    dune-build-info
     fmt
     gencertlib
     mirage-crypto
     mirage-crypto-pk
     mirage-crypto-rng.unix
+    ptime
+    result
     rresult
     x509
     xapi-consts

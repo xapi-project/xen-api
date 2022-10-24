@@ -4,7 +4,9 @@
   (public_name vncproxy)
   (package xapi)
   (libraries
+    dune-build-info
     http-svr
+    stunnel
     xapi-client
     xapi-consts
     xapi-types

@@ -1,11 +1,13 @@
 (executable
   (name main)
   (libraries
+    dune-build-info
     xapi-idl
     xapi-idl.storage
+    xapi-idl.storage.interface
     re
     re.str
-    rpclib
+    rpclib.core
     rpclib.json
     cmdliner
     threads

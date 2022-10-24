@@ -4,7 +4,9 @@
   (modules apis common control data files plugin task)
   (preprocess (pps ppx_deriving_rpc))
   (libraries
-    rpclib
+    result
+    rpclib.core
+    rresult
   )
 )
 

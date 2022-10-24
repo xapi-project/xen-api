@@ -6,8 +6,13 @@
     server_main
   )
   (libraries
+    cohttp
     cohttp-lwt-unix
+    lwt
+    lwt.unix
+    message-switch-core
     message-switch-lwt
+    uri
   )
 )
 

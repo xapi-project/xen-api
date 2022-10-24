@@ -1,14 +1,33 @@
 (executable
  (name main)
  (libraries
-	cmdliner
-	cohttp-lwt 
-	message-switch-lwt
-	rpclib-lwt 
-	xapi-idl 
-	xapi-idl.varstore.deprivileged
-	xapi-idl.varstore.privileged
-	xen-api-client-lwt)
+   cmdliner
+   cohttp
+   cohttp-lwt 
+   cohttp-lwt-unix 
+   conduit-lwt-unix
+   dune-build-info
+   lwt
+   lwt.unix
+   message-switch-lwt
+   result
+   rresult
+   rpclib.core
+   rpclib.json
+   rpclib.xml
+   rpclib-lwt 
+   uri
+   uuidm
+   xapi-backtrace
+   xapi-consts
+   xapi-idl 
+   xapi-idl.varstore.deprivileged
+   xapi-idl.varstore.privileged
+   xapi-idl.xen.interface
+   xapi-idl.xen.interface.types
+   xapi-log
+   xapi-types
+   xen-api-client-lwt)
  (preprocess (pps ppx_deriving_rpc)))
 
 (install

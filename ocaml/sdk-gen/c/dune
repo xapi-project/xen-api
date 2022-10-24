@@ -2,9 +2,11 @@
   (modes byte exe)
   (name gen_c_binding)
   (libraries
-    xapi-datamodel
-    CommonFunctions
     astring
+    CommonFunctions
+    dune-build-info
+    mustache
+    xapi-datamodel
   )
 )
 

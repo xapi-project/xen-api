@@ -3,7 +3,10 @@
  (public_name xapi-open-uri)
  (libraries
    cohttp
+   safe-resources
    stunnel
+   uri
+   xapi-backtrace
    xapi-consts
    xapi-log
    xapi-stdext-pervasives

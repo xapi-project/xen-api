@@ -8,6 +8,7 @@
           cancel_utils_test)
  (libraries
   astring
+  base64
   ezxenstore.core
   ezxenstore.watch
   fd-send-recv
@@ -26,16 +27,18 @@
   qmp
   threads.posix
   uuid
+  uuidm
   xapi-backtrace
   xapi-idl
   xapi-idl.memory
   xapi-idl.network
   xapi-idl.rrd
-  xapi-idl.rrd.interface
   xapi-idl.storage
   xapi-idl.storage.interface
+  xapi-idl.varstore.privileged
   xapi-idl.xen.interface
   xapi-idl.xen.interface.types
+  xapi-log
   xapi-rrd
   xapi-stdext-date
   xapi-stdext-pervasives
@@ -63,9 +66,10 @@
  (modules xenops_xc_main)
 
  (libraries
+  dune-build-info
   ezxenstore.core
   uuid
-  xapi-idl.varstore.privileged
+  xapi-idl
   xapi-idl.xen.interface
   xapi-inventory
   xapi-stdext-unix
@@ -82,6 +86,7 @@
  (libraries
   astring
   cmdliner
+  dune-build-info
   ezxenstore.core
   uuid
   xapi-idl.memory
@@ -97,6 +102,7 @@
  (name memory_summary)
  (modules memory_summary)
  (libraries
+  dune-build-info
   xapi-stdext-date
   xapi-stdext-unix
   xapi-xenopsd
@@ -119,6 +125,7 @@
  (modules cancel_utils_test)
  (libraries
   cmdliner
+  dune-build-info
   ezxenstore.core
   threads.posix
   xapi-idl.xen.interface

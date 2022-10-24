@@ -3,7 +3,12 @@
   (public_name message-switch-async)
   (libraries
     async
+    async_unix
+    async_kernel
+    base
     cohttp-async
+    core
+    core_kernel
     message-switch-core
   )
 )

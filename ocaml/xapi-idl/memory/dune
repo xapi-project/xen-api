@@ -3,9 +3,11 @@
  (public_name xapi-idl.memory)
  (modules (:standard \ memory_cli))
  (libraries
+   result
    rpclib.core
-   threads
+   rresult
    xapi-idl
+   xapi-log
  )
  (wrapped false)
  (preprocess (pps ppx_deriving_rpc)))
@@ -16,7 +18,9 @@
  (libraries
    cmdliner
    rpclib.cmdliner
+   rpclib.core
    rpclib.markdown
+   xapi-idl
    xapi-idl.memory
  ))
 

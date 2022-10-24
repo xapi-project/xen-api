@@ -6,6 +6,7 @@
   (libraries
     alcotest
     astring
+    dune-build-info
     fmt
     forkexec
     http-svr
@@ -14,13 +15,13 @@
     result
     rresult
     rpclib.core
+    stunnel
     threads.posix
     unix
     uuid
     xapi-client
     xapi-consts
     xapi-datamodel
-    xapi-idl
     xapi_internal
     xapi-types
     xapi-stdext-date

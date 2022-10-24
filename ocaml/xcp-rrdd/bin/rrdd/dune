@@ -5,23 +5,31 @@
   (libraries
     astring
     dune-build-info
+    ezxenstore
     gzip
     http-svr
     inotify
     mtime
     mtime.clock.os
+    rpclib.core
+    rrd-transport
+    rrd-transport.lib
+    stunnel
     systemd
+    threads.posix
+    uuid
     xapi-backtrace
+    xapi-consts
+    xapi-idl.network
+    xapi-idl.rrd
+    xapi-inventory
+    xapi-log
     xapi-rrd
     xapi-rrd.unix
-    rrd-transport
     xapi-rrdd
     xapi-stdext-threads
     xapi-stdext-unix
-    xapi-consts
-    ezxenstore
-    xapi-idl.network
-    uuid
+    xmlm
   )
   (preprocess (pps ppx_deriving_rpc))
 )
@@ -33,10 +41,36 @@
   (package xapi-rrdd)
   (modules xcp_rrdd)
   (libraries
+    astring
+    dune-build-info
+    ezxenstore.core
+    ezxenstore.watch
+    forkexec
     http-svr
+    inotify
+    rpclib.core
+    rpclib.json
+    rpclib.xml
     rrdd_libs_internal
+    rrd-transport
+    systemd
+    threads.posix
+    uuid
     xapi-backtrace
+    xapi-consts.xapi_version
     xapi-idl
+    xapi-idl.network
+    xapi-idl.rrd
+    xapi-log
+    xapi-rrd
+    xapi-rrdd
+    xapi-stdext-pervasives
+    xapi-stdext-threads
+    xapi-stdext-unix
+    xenctrl
+    xenstore
+    xenstore.unix
+    xenstore_transport.unix
   )
 )
 

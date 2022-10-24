@@ -3,8 +3,9 @@
  (public_name xapi-idl.rrd.interface.types)
  (modules data_source)
  (libraries
+   result
    rpclib.core
-   threads
+   rresult
    xapi-idl
    xapi-rrd
  )
@@ -16,8 +17,9 @@
  (public_name xapi-idl.rrd.interface)
  (modules rrd_interface)
  (libraries
+   result
    rpclib.core
-   threads
+   rresult
    xapi-idl
    xapi-idl.rrd.interface.types
    xapi-rrd
@@ -31,9 +33,10 @@
  (modules (:standard \ data_source rrd_interface rrd_cli))
  (libraries
    rpclib.core
-   threads
+   threads.posix
    xapi-idl
-   xapi-idl.rrd.interface
+   (re_export xapi-idl.rrd.interface)
+   (re_export xapi-idl.rrd.interface.types)
    xapi-rrd
  )
  (wrapped false)
@@ -44,8 +47,11 @@
  (modules rrd_cli)
  (libraries
    cmdliner
+   dune-build-info
    rpclib.cmdliner
+   rpclib.core
    rpclib.markdown
+   xapi-idl
    xapi-idl.rrd
  ))
 

@@ -4,8 +4,9 @@
   (modules constants stats)
   (flags (:standard -bin-annot))
   (libraries
-    xapi-idl
-    threads
+    threads.posix
+    xapi-log
+    xapi-stdext-threads
   )
 )
 

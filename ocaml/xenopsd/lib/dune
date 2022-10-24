@@ -15,10 +15,13 @@
    result
    rpclib.core
    rpclib.json
+   rpclib.xml
    rresult
    sexplib
    sexplib0
+   stunnel
    uri
+   uuid
    uuidm
    uutf
    threads.posix
@@ -32,6 +35,8 @@
    xapi-idl.xen
    xapi-idl.xen.interface
    xapi-idl.xen.interface.types
+   xapi-log
+   xapi-open-uri
    xapi-stdext-date
    xapi-stdext-pervasives
    xapi-stdext-threads

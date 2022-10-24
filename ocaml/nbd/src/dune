@@ -4,17 +4,24 @@
  (libraries
   cmdliner
   consts
+  dune-build-info
   local_xapi_session
   lwt
   lwt.unix
+  lwt_log
+  mirage-block
   mirage-block-unix
+  nbd
   nbd-unix
+  rpclib.core
   uri
   uuid
   vbd_store
+  xapi-consts
   xapi-inventory
+  xapi-types
   xen-api-client-lwt
-  xapi-idl)
+  )
 )
 (install
  (package xapi-nbd)

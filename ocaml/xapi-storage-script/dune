@@ -1,19 +1,34 @@
 (executable
   (name main)
   (libraries
+    async
     async_inotify
+    async_kernel
+    async_unix
+    base
+    base.caml
+    core
+    core_kernel
+    dune-build-info
     message-switch-async
     message-switch-unix
-    rpclib
+    result
+    rpclib.core
+    rpclib.json
     rpclib-async
     sexplib
-    threads
+    sexplib0
+    uri
+    xapi-backtrace
     xapi-consts.xapi_version
-    xapi-stdext-date
-    xapi-storage
     xapi-idl
     xapi-idl.rrd
     xapi-idl.storage
+    xapi-idl.storage.interface
+    xapi-log
+    xapi-rrd
+    xapi-stdext-date
+    xapi-storage
   )
   (preprocess (pps ppx_deriving_rpc ppx_sexp_conv))
 )

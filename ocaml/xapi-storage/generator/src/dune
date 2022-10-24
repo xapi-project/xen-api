@@ -4,6 +4,7 @@
     xapi-storage
     unix
     cmdliner
+    rpclib.core
     rpclib.markdown
   )
 )

@@ -4,10 +4,11 @@
   (public_name xapi-db-process)
   (package xapi)
   (libraries
+    dune-build-info
     unix
     xapi-inventory
     xapi-database
-    xapi-idl
+    xapi-log
   )
 )
 
