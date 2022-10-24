@@ -61,11 +61,7 @@ let experimental_reads_bypass_tapdisk = ref false
 
 let experimental_writes_bypass_tapdisk = ref false
 
-let ssl_legacy = ref false
-
 let good_ciphersuites = ref None
-
-let legacy_ciphersuites = ref None
 
 let string_opt = function None -> "None" | Some x -> x
 
@@ -140,20 +136,10 @@ let options =
     , (fun () -> string_of_bool !machine_readable_progress)
     , "emit machine-readable output"
     )
-  ; ( "ssl-legacy"
-    , Arg.Set ssl_legacy
-    , (fun () -> string_of_bool !ssl_legacy)
-    , " for TLS, allow all protocol versions instead of just TLSv1.2"
-    )
   ; ( "good-ciphersuites"
     , Arg.String (fun x -> good_ciphersuites := Some x)
     , (fun () -> string_opt !good_ciphersuites)
     , " the list of ciphersuites to allow for TLS"
-    )
-  ; ( "legacy-ciphersuites"
-    , Arg.String (fun x -> legacy_ciphersuites := Some x)
-    , (fun () -> string_opt !legacy_ciphersuites)
-    , " additional TLS ciphersuites allowed only if ssl-legacy is set"
     )
   ]
 
