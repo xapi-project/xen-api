@@ -537,8 +537,8 @@ let copy' ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi =
                 let dd =
                   Sparse_dd_wrapper.start
                     ~progress_cb:(progress_callback 0.05 0.9 task)
-                    ?base:base_path true (Option.get src) dest_vdi_url
-                    remote_vdi.virtual_size
+                    ~verify_cert:None ?base:base_path true (Option.get src)
+                    dest_vdi_url remote_vdi.virtual_size
                 in
                 Storage_task.with_cancel task
                   (fun () -> Sparse_dd_wrapper.cancel dd)
