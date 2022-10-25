@@ -2790,7 +2790,7 @@ let get_sched_gran ~__context ~self =
 let emergency_disable_tls_verification ~__context =
   (* NB: the tls-verification state on this host will no longer agree with state.db *)
   Stunnel_client.set_verify_by_default false ;
-  Unixext.unlink_safe Xapi_globs.verify_certificates_path ;
+  Unixext.unlink_safe Constants.verify_certificates_path ;
   try
     (* we update the database on a best-effort basis because we
        might not have a connection *)
@@ -2816,7 +2816,7 @@ let emergency_reenable_tls_verification ~__context =
      dependency cycle. *)
   let self = Helpers.get_localhost ~__context in
   Stunnel_client.set_verify_by_default true ;
-  Helpers.touch_file Xapi_globs.verify_certificates_path ;
+  Helpers.touch_file Constants.verify_certificates_path ;
   Db.Host.set_tls_verification_enabled ~__context ~self ~value:true
 
 let alert_if_tls_verification_was_emergency_disabled ~__context =

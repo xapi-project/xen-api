@@ -860,13 +860,13 @@ let set_stunnel_timeout () =
   with _ -> debug "Using default stunnel timeout (usually 43200)"
 
 let init_tls_verification () =
-  let file = Xapi_globs.verify_certificates_path in
+  let file = Constants.verify_certificates_path in
   match Sys.file_exists file with
   | false ->
-      warn "TLS verification is disabled on this host: %s" file ;
+      warn "TLS verification is disabled on this host: %s is absent" file ;
       Stunnel_client.set_verify_by_default false
   | true ->
-      info "TLS verification is enabled: %s" file ;
+      info "TLS verification is enabled: %s is present" file ;
       Stunnel_client.set_verify_by_default true
 
 let report_tls_verification ~__context =

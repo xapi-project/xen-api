@@ -3317,7 +3317,7 @@ let enable_tls_verification ~__context =
   List.iter (ping_with_tls_verification ~__context) hosts ;
   Stunnel_client.set_verify_by_default true ;
   Db.Host.set_tls_verification_enabled ~__context ~self ~value:true ;
-  Helpers.touch_file Xapi_globs.verify_certificates_path ;
+  Helpers.touch_file Constants.verify_certificates_path ;
   let host = Helpers.get_localhost ~__context in
   match Xapi_clustering.find_cluster_host ~__context ~host with
   | None ->

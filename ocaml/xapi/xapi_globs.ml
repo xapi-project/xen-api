@@ -765,8 +765,6 @@ let pool_bundle_path = ref "/etc/stunnel/xapi-pool-ca-bundle.pem"
 
 let stunnel_conf = ref "/etc/stunnel/xapi.conf"
 
-let verify_certificates_path = "/var/xapi/verify-certificates"
-
 let udhcpd_conf = ref (Filename.concat "/etc/xensource" "udhcpd.conf")
 
 let udhcpd_skel = ref (Filename.concat "/etc/xensource" "udhcpd.skel")
