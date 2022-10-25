@@ -210,6 +210,18 @@ let good_ciphersuites =
   let doc = "The list of ciphersuites to allow for TLS" in
   Arg.(value & opt (some string) None & info ["good-ciphersuites"] ~doc)
 
+let verify_dest =
+  let doc = "Verify the TLS certificate of the remote host." in
+  Arg.(value & flag & info ["verify-dest"] ~doc)
+
+let sni =
+  let doc = "The SNI hostname if connecting to the remote over TLS" in
+  Arg.(value & opt (some string) None & info ["sni"] ~doc)
+
+let cert_bundle_path =
+  let doc = "Path to a CA certificate bundle" in
+  Arg.(value & opt (some string) None & info ["cert-bundle-path"] ~doc)
+
 let serve_cmd =
   let doc = "serve the contents of a disk" in
   let man =
@@ -364,6 +376,9 @@ let stream_cmd =
       $ machine
       $ tar_filename_prefix
       $ good_ciphersuites
+      $ verify_dest
+      $ sni
+      $ cert_bundle_path
     )
   in
   ( Term.(ret (const Impl.stream $ common_options_t $ stream_args_t))

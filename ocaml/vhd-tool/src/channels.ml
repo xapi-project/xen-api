@@ -151,12 +151,36 @@ let of_seekable_fd fd =
 
 let _ = Ssl.init ()
 
-let sslctx good_ciphersuites =
+type verification_config = {
+    sni: string option
+  ; verify: Ssl.verify_mode
+  ; cert_bundle_path: string
+}
+
+let sslctx good_ciphersuites verify_cert =
   let ctx = Ssl.create_context Ssl.TLSv1_2 Ssl.Client_context in
+  let ctx =
+    match verify_cert with
+    | Some {sni= _; verify; cert_bundle_path} ->
+        Ssl.set_verify ctx [verify] (Some Ssl.client_verify_callback) ;
+        Ssl.load_verify_locations ctx cert_bundle_path "" ;
+        ctx
+    | None ->
+        ctx
+  in
   Ssl.set_cipher_list ctx good_ciphersuites ;
   ctx
 
-let of_ssl_fd fd good_ciphersuites =
+let set_sni uninitialized_socket = function
+  | Some {sni= Some name; _} ->
+      let ssl =
+        Lwt_ssl.ssl_socket_of_uninitialized_socket uninitialized_socket
+      in
+      Ssl.set_client_SNI_hostname ssl name
+  | _ ->
+      ()
+
+let of_ssl_fd fd good_ciphersuites verify_cert =
   let good_ciphersuites =
     match good_ciphersuites with
     | None ->
@@ -164,8 +188,10 @@ let of_ssl_fd fd good_ciphersuites =
     | Some x ->
         x
   in
-  let sslctx = sslctx good_ciphersuites in
-  Lwt_ssl.ssl_connect fd sslctx >>= fun sock ->
+  let sslctx = sslctx good_ciphersuites verify_cert in
+  let s = Lwt_ssl.embed_uninitialized_socket fd sslctx in
+  set_sni s verify_cert ;
+  Lwt_ssl.ssl_perform_handshake s >>= fun sock ->
   let offset = ref 0L in
   let really_read buf =
     IO.complete "read" (Some !offset) Lwt_ssl.read_bytes sock buf >>= fun () ->
