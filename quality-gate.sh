@@ -14,7 +14,7 @@ list-hd () {
 }
 
 verify-cert () {
-  N=13
+  N=12
   NONE=$(git grep -r --count 'verify_cert:None' -- **/*.ml | cut -d ':' -f 2 | paste -sd+ - | bc)
   if [ "$NONE" -eq "$N" ]; then
     echo "OK counted $NONE usages of verify_cert:None"

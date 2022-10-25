@@ -12,6 +12,10 @@
  * GNU Lesser General Public License for more details.
  *)
 
+module D = Debug.Make (struct let name = "xsh" end)
+
+open D
+
 type endpoint = {
     fdin: Unix.file_descr
   ; fdout: Unix.file_descr
@@ -74,12 +78,22 @@ let proxy (ain : Unix.file_descr) (aout : Unix.file_descr) (bin : Unixfd.t)
     try Unix.close bout with _ -> ()
   )
 
+let init_tls_verification () =
+  let file = Constants.verify_certificates_path in
+  match Sys.file_exists file with
+  | false ->
+      warn "TLS verification is disabled on this host: %s is absent" file ;
+      Stunnel_client.set_verify_by_default false
+  | true ->
+      info "TLS verification is enabled: %s is present" file ;
+      Stunnel_client.set_verify_by_default true
+
 let with_open_tcp_ssl server f =
   let port = 443 in
   (* We don't bother closing fds since this requires our close_and_exec wrapper *)
   Stunnel.with_connect ~use_fork_exec_helper:false
     ~write_to_log:(fun _ -> ())
-    ~verify_cert:None server port
+    ~verify_cert:(Stunnel_client.pool ()) server port
   @@ fun x -> f x.Stunnel.fd
 
 let _ =
@@ -97,6 +111,7 @@ let _ =
     Printf.sprintf "CONNECT /remotecmd?session_id=%s&cmd=%s%s http/1.0\r\n\r\n"
       session cmd (String.concat "" args)
   in
+  init_tls_verification () ;
   with_open_tcp_ssl host @@ fun fd ->
   Unix.write_substring Unixfd.(!fd) req 0 (String.length req) |> ignore ;
   proxy Unix.stdin Unix.stdout fd (Unix.dup Unixfd.(!fd))
