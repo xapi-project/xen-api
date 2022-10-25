@@ -30,6 +30,8 @@ depends: [
   "tar"
   "vhd-format"
   "vhd-format-lwt"
+  "xapi-idl"
+  "xapi-log"
   "xenstore"
   "xenstore_transport"
 ]

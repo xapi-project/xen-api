@@ -16,7 +16,7 @@ depends: [
   "ppx_deriving_rpc"
   "rpclib"
   "uuid"
-  "xapi-idl"
+  "xapi-log"
   "xapi-stdext-pervasives"
   "xapi-stdext-unix"
 ]
