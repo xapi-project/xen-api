@@ -1442,10 +1442,11 @@ let unbind ~__context ~pbd =
 *)
 let rpc =
   let srcstr = Xcp_client.get_user_agent () in
-  let local_fn = Storage_mux.Server.process in
-  let remote_url_of_ip = Storage_utils.remote_url in
-  Storage_utils.redirectable_rpc ~srcstr ~dststr:"smapiv2" ~remote_url_of_ip
-    ~local_fn
+  let original = Storage_mux.Server.process in
+  let redirect_to_ip =
+    Storage_utils.intra_pool_rpc_of_ip ~srcstr ~dststr:"smapiv2"
+  in
+  Storage_utils.redirectable_rpc ~original ~redirect_to_ip
 
 module Client = StorageAPI (Idl.Exn.GenClient (struct let rpc = rpc end))
 

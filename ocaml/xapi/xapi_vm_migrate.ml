@@ -148,8 +148,9 @@ module XenAPI = Client
 
 module SMAPI = Storage_interface.StorageAPI (Idl.Exn.GenClient (struct
   let rpc call =
-    Storage_migrate.rpc ~srcstr:"xapi" ~dststr:"smapiv2"
-      (Storage_migrate.local_url ())
+    Storage_utils.(
+      rpc ~srcstr:"xapi" ~dststr:"smapiv2" (localhost_connection_args ())
+    )
       call
 end))
 
