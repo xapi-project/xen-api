@@ -50,9 +50,11 @@ let create_fresh_rrd use_min_max dss =
 let merge_new_dss rrd dss =
   let should_enable_ds ds = !Rrdd_shared.enable_all_dss || ds.ds_default in
   let enabled_dss = List.filter should_enable_ds dss in
-  let current_dss = Rrd.ds_names rrd in
+  let current_dss = Rrd.ds_names rrd |> StringSet.of_list in
   let new_dss =
-    List.filter (fun ds -> not (List.mem ds.ds_name current_dss)) enabled_dss
+    List.filter
+      (fun ds -> not (StringSet.mem ds.ds_name current_dss))
+      enabled_dss
   in
   let now = Unix.gettimeofday () in
   List.fold_left
