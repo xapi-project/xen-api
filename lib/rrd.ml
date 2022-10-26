@@ -16,6 +16,7 @@
 
 module Fring = Rrd_fring
 module Utils = Rrd_utils
+module StringMap = Map.Make (String)
 
 exception No_RRA_Available
 
@@ -445,21 +446,15 @@ let ds_update rrd timestamp values transforms new_domid =
 
 (** Update the rrd with named values rather than just an ordered array *)
 let ds_update_named rrd timestamp ~new_domid valuesandtransforms =
-  let identity x = x in
-  let ds_names = Array.map (fun ds -> ds.ds_name) rrd.rrd_dss in
-  let ds_values =
-    Array.map
-      (fun name ->
-        try fst (List.assoc name valuesandtransforms) with _ -> VT_Unknown
-      )
-      ds_names
+  let valuesandtransforms =
+    valuesandtransforms |> List.to_seq |> StringMap.of_seq
   in
-  let ds_transforms =
-    Array.map
-      (fun name ->
-        try snd (List.assoc name valuesandtransforms) with _ -> identity
-      )
-      ds_names
+  let get_value_and_transform {ds_name; _} =
+    Option.value ~default:(VT_Unknown, Fun.id)
+      (StringMap.find_opt ds_name valuesandtransforms)
+  in
+  let ds_values, ds_transforms =
+    Array.split (Array.map get_value_and_transform rrd.rrd_dss)
   in
   ds_update rrd timestamp ds_values ds_transforms new_domid
 
