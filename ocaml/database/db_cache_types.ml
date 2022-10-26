@@ -463,11 +463,7 @@ module Database = struct
 
   let table_of_ref rf db = fst (KeyMap.find (Ref rf) db.keymap)
 
-  let lookup_key key db =
-    if KeyMap.mem (Ref key) db.keymap then
-      Some (KeyMap.find (Ref key) db.keymap)
-    else
-      None
+  let lookup_key key db = KeyMap.find_opt (Ref key) db.keymap
 
   let make schema =
     {
