@@ -62,7 +62,7 @@ let filter_args args =
     )
     args
 
-let call_script ?(log_output = Always) ?env ?stdin script args =
+let call_script ?(log_output = Always) ?env ?stdin ?timeout script args =
   let should_log_output_on_success, should_log_output_on_failure =
     match log_output with
     | Always ->
@@ -72,7 +72,14 @@ let call_script ?(log_output = Always) ?env ?stdin script args =
     | On_failure ->
         (false, true)
   in
-  debug "about to call script: %s %s" script
+  let timeout_msg =
+    match timeout with
+    | None ->
+        "without a timeout"
+    | Some t ->
+        Printf.sprintf "with a timeout of %.3f seconds" t
+  in
+  debug "about to call script %s: %s %s" timeout_msg script
     (String.concat " " (filter_args args)) ;
   try
     Unix.access script [Unix.X_OK] ;
@@ -83,10 +90,10 @@ let call_script ?(log_output = Always) ?env ?stdin script args =
     let output, _ =
       match stdin with
       | None ->
-          Forkhelpers.execute_command_get_output ~env script args
+          Forkhelpers.execute_command_get_output ~env ?timeout script args
       | Some stdin ->
-          Forkhelpers.execute_command_get_output_send_stdin ~env script args
-            stdin
+          Forkhelpers.execute_command_get_output_send_stdin ~env ?timeout script
+            args stdin
     in
     if should_log_output_on_success then
       debug "%s %s succeeded [ output = '%s' ]" script
