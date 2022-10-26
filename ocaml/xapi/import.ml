@@ -2122,11 +2122,9 @@ let with_error_handling f =
           reraise
             (Api_errors.Server_error (Api_errors.import_error_premature_eof, []))
       | e ->
-          error "Import caught exception: %s" (ExnHelper.string_of_exn e) ;
-          reraise
-            (Api_errors.Server_error
-               (Api_errors.import_error_generic, [ExnHelper.string_of_exn e])
-            )
+          let msg_exn = ExnHelper.string_of_exn e in
+          error "Import caught exception: %s" msg_exn ;
+          reraise Api_errors.(Server_error (import_error_generic, [msg_exn]))
     )
 
 (** Import metadata only *)

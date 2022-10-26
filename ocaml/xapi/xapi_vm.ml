@@ -1508,10 +1508,8 @@ let max_redirects = 5
 
 let rec import_inner n ~__context ~url ~sr ~full_restore ~force =
   if n > max_redirects then
-    raise
-      (Api_errors.Server_error
-         (Api_errors.import_error_generic, ["Maximum redirect limit reached"])
-      )
+    let redirect_limit = "Maximum redirect limit reached" in
+    raise Api_errors.(Server_error (import_error_generic, [redirect_limit]))
   else
     let uri = Uri.of_string url in
     try
@@ -1531,13 +1529,9 @@ let rec import_inner n ~__context ~url ~sr ~full_restore ~force =
           Request.write (fun _ -> ()) request fd ;
           match Response.read ic with
           | `Eof ->
-              raise
-                (Api_errors.Server_error
-                   (Api_errors.import_error_premature_eof, [])
-                )
+              raise Api_errors.(Server_error (import_error_premature_eof, []))
           | `Invalid x ->
-              raise
-                (Api_errors.Server_error (Api_errors.import_error_generic, [x]))
+              raise Api_errors.(Server_error (import_error_generic, [x]))
           | `Ok r -> (
             match r.Cohttp.Response.status with
             | `OK ->
@@ -1554,20 +1548,16 @@ let rec import_inner n ~__context ~url ~sr ~full_restore ~force =
               | Some l ->
                   raise (Retry l)
               | None ->
+                  let cant_redirect = "Redirect with no new location" in
                   raise
-                    (Api_errors.Server_error
-                       ( Api_errors.import_error_generic
-                       , ["Redirect with no new location"]
-                       )
+                    Api_errors.(
+                      Server_error (import_error_generic, [cant_redirect])
                     )
             )
             | e ->
+                let msg_cohttp = Cohttp.Code.string_of_status e in
                 raise
-                  (Api_errors.Server_error
-                     ( Api_errors.import_error_generic
-                     , [Cohttp.Code.string_of_status e]
-                     )
-                  )
+                  Api_errors.(Server_error (import_error_generic, [msg_cohttp]))
           )
       )
     with
@@ -1580,8 +1570,7 @@ let import ~__context ~url ~sr ~full_restore ~force =
   import_inner 0 ~__context ~url ~sr ~full_restore ~force
 
 let query_services ~__context ~self:_ =
-  raise
-    (Api_errors.Server_error (Api_errors.not_implemented, ["query_services"]))
+  raise Api_errors.(Server_error (not_implemented, ["query_services"]))
 
 let assert_can_set_has_vendor_device ~__context ~self ~value =
   if
