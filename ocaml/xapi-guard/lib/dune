@@ -1,0 +1,26 @@
+(library
+ (name xapi_guard)
+ (libraries
+  cohttp
+  cohttp-lwt
+  cohttp-lwt-unix
+  conduit-lwt-unix
+  inotify.lwt
+  lwt
+  lwt.unix
+  result
+  rpclib.core
+  rpclib.xml
+  rpclib-lwt
+  uri
+  xapi-backtrace
+  xapi-consts
+  xapi-idl
+  xapi-idl.varstore.deprivileged
+  xapi-idl.varstore.privileged
+  xapi-idl.xen.interface
+  xapi-log
+  xapi-types
+  xen-api-client-lwt
+ )
+ (preprocess (pps ppx_deriving_rpc)))

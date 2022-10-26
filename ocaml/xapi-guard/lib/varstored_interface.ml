@@ -13,7 +13,7 @@
  *)
 
 open Rpc
-open Lwt.Infix
+open Lwt.Syntax
 
 module D = Debug.Make (struct let name = "varstored_interface" end)
 
@@ -25,26 +25,26 @@ let err = Xenops_interface.err
 
 type nvram = (string * string) list [@@deriving rpcty]
 
-(* make_json doesn't work here *)
-let rpc = Xen_api_lwt_unix.make "file:///var/lib/xcp/xapi"
-
 let originator = "varstored-guard"
 
 let version = "0.1"
 
 type session = [`session] Ref.t
 
+type rpc = call -> response Lwt.t
+
 module SessionCache : sig
   type t
 
   val create :
-    login:(unit -> session Lwt.t) -> logout:(session -> unit Lwt.t) -> t
-  (** [create ~login ~logout] will create a global session cache holding 1 session. *)
+       rpc:rpc
+    -> login:(rpc:rpc -> session Lwt.t)
+    -> logout:(rpc:rpc -> session -> unit Lwt.t)
+    -> t
+  (** [create ~rpc ~login ~logout] will create a global session cache holding 1 session. *)
 
   val with_session :
-       t
-    -> (rpc:(call -> response Lwt.t) -> session_id:session -> 'a Lwt.t)
-    -> 'a Lwt.t
+    t -> (rpc:rpc -> session_id:session -> 'a Lwt.t) -> 'a Lwt.t
   (** [with_session cache f] acquires a session (logging in if necessary) and calls [f].
    ** If [f] fails due to an invalid session then the session is removed from the cache,
    ** and [f] is retried with a new session *)
@@ -52,11 +52,15 @@ module SessionCache : sig
   val destroy : t -> unit Lwt.t
   (** [destroy cache] logs out all sessions from the cache *)
 end = struct
-  type t = {valid_sessions: (session, unit) Hashtbl.t; pool: session Lwt_pool.t}
+  type t = {
+      rpc: rpc
+    ; valid_sessions: (session, unit) Hashtbl.t
+    ; pool: session Lwt_pool.t
+  }
 
   (* Do NOT log session IDs, they are secret *)
 
-  let create ~login ~logout =
+  let create ~rpc ~login ~logout =
     let valid_sessions = Hashtbl.create 3 in
     let validate session =
       let is_valid = Hashtbl.mem valid_sessions session in
@@ -66,19 +70,19 @@ end = struct
       Lwt.return is_valid
     in
     let acquire () =
-      login () >>= fun session ->
+      let* session = login ~rpc in
       Hashtbl.add valid_sessions session () ;
       debug "SessionCache.acquired" ;
       Lwt.return session
     in
     let dispose session =
       debug "SessionCache.dispose" ;
-      logout session >|= fun () ->
+      let+ () = logout ~rpc session in
       debug "SessionCache.disposed" ;
       Hashtbl.remove valid_sessions session
     in
     let pool = Lwt_pool.create 1 ~validate ~dispose acquire in
-    {valid_sessions; pool}
+    {valid_sessions; pool; rpc}
 
   let invalidate t session_id =
     (* Remove just the specified expired session,
@@ -91,9 +95,9 @@ end = struct
   let rec with_session t f =
     (* we can use the same session from multiple concurrent requests,
      * we just do not want to log in more than once *)
-    Lwt_pool.use t.pool Lwt.return >>= fun session_id ->
+    let* session_id = Lwt_pool.use t.pool Lwt.return in
     Lwt.catch
-      (fun () -> f ~rpc ~session_id)
+      (fun () -> f ~rpc:t.rpc ~session_id)
       (function
         | Api_errors.Server_error (code, _)
           when code = Api_errors.session_invalid ->
@@ -107,10 +111,10 @@ end
 
 open Xen_api_lwt_unix
 
-let login () =
+let login ~rpc =
   Session.login_with_password ~rpc ~uname:"root" ~pwd:"" ~version ~originator
 
-let logout session_id =
+let logout ~rpc session_id =
   Lwt.catch
     (fun () -> Session.logout ~rpc ~session_id)
     (function
@@ -122,21 +126,13 @@ let logout session_id =
           Lwt.fail e
       )
 
-let cache = SessionCache.create ~login ~logout
-
 let shutdown = Lwt_switch.create ()
-
-let () =
-  Lwt_switch.add_hook (Some shutdown) (fun () ->
-      debug "Cleaning up cache at exit" ;
-      SessionCache.destroy cache
-  )
 
 let () =
   let cleanup n =
     debug "Triggering cleanup on signal %d, and waiting for servers to stop" n ;
     Lwt.async (fun () ->
-        Lwt_switch.turn_off shutdown >>= fun () ->
+        let* () = Lwt_switch.turn_off shutdown in
         info "Cleanup complete, exiting" ;
         exit 0
     )
@@ -147,7 +143,7 @@ let () =
    * this is only needed for syscalls that would otherwise block *)
   Lwt_unix.set_pool_size 16
 
-let with_xapi f =
+let with_xapi ~cache f =
   Lwt_unix.with_timeout 120. (fun () -> SessionCache.with_session cache f)
 
 (* Unfortunately Cohttp doesn't provide us a way to know when it finished
@@ -155,21 +151,61 @@ let with_xapi f =
  * It only ever returns from server creation when the server is stopped.
  * Try actually connecting: the file could be present but nobody listening on the other side.
  * *)
-let rec wait_for_file_to_appear path =
-  Lwt.pause () >>= fun () ->
-  Lwt.try_bind
-    (fun () ->
-      Conduit_lwt_unix.connect ~ctx:Conduit_lwt_unix.default_ctx
-        (`Unix_domain_socket (`File path))
-    )
-    (fun (_, ic, oc) ->
+let rec wait_connectable path =
+  let* res =
+    Lwt_result.catch
+      (Conduit_lwt_unix.connect ~ctx:Conduit_lwt_unix.default_ctx
+         (`Unix_domain_socket (`File path))
+      )
+  in
+  match res with
+  | Ok (_, ic, oc) ->
       D.debug "Socket at %s works" path ;
-      Lwt_io.close oc >>= fun () -> Lwt_io.close ic
+      let* () = Lwt_io.close oc in
+      Lwt_io.close ic
+  | Error e ->
+      D.debug "Waiting for socket to be connectable at %s: %s" path
+        (Printexc.to_string e) ;
+      (* just in case Lwt_unix.listen doesn't get called soon enough,
+         avoid using up 100% CPU waiting for it,
+         better than Lwt.pause ()
+      *)
+      let* () = Lwt_unix.sleep 0.001 in
+      wait_connectable path
+
+let with_inotify f =
+  let* inotify = Lwt_inotify.create () in
+  Lwt.finalize (fun () -> f inotify) (fun () -> Lwt_inotify.close inotify)
+
+let wait_for_file_to_appear path =
+  with_inotify @@ fun inotify ->
+  (* we need to check for existence after setting up the watch to avoid race conditions:
+     S_Create event on parent dir is only sent on creating a new file,
+     and you cannot set up an inotify on a non-existent file.
+  *)
+  let* (_watch : Inotify.watch) =
+    Lwt_inotify.add_watch inotify (Filename.dirname path) [Inotify.S_Create]
+  in
+  let rec loop () =
+    let* exists = Lwt_unix.file_exists path in
+    if exists then
+      Lwt.return_unit
+    else (
+      D.debug "Waiting for file %s to appear" path ;
+      let* (_event : Inotify.event) = Lwt_inotify.read inotify in
+      (* we've got a create event knowing that *a* file got created,
+         but not necessarily the one we were looking for *)
+      loop ()
     )
-    (fun e ->
-      D.debug "Waiting for file %s to appear (%s)" path (Printexc.to_string e) ;
-      Lwt_unix.sleep 0.1 >>= fun () -> wait_for_file_to_appear path
-    )
+  in
+  loop ()
+
+let wait_for_connectable_socket path =
+  (* pause gives a chance for the conduit lwt promise to run and listen *)
+  let* () = Lwt.pause () in
+  let* () = wait_for_file_to_appear path in
+  let* () = Lwt.pause () in
+  wait_connectable path
 
 let serve_forever_lwt rpc_fn path =
   let conn_closed _ = () in
@@ -181,14 +217,15 @@ let serve_forever_lwt rpc_fn path =
     let uri = Cohttp.Request.uri req in
     match (Cohttp.Request.meth req, Uri.path uri) with
     | `POST, _ ->
-        Cohttp_lwt.Body.to_string body >>= fun body ->
-        Dorpc.wrap_rpc err (fun () ->
-            let call = Xmlrpc.call_of_string body in
-            (* Do not log the request, it will contain NVRAM *)
-            D.debug "Received request on %s, method %s" path call.Rpc.name ;
-            rpc_fn call
-        )
-        >>= fun response ->
+        let* body = Cohttp_lwt.Body.to_string body in
+        let* response =
+          Dorpc.wrap_rpc err (fun () ->
+              let call = Xmlrpc.call_of_string body in
+              (* Do not log the request, it will contain NVRAM *)
+              D.debug "Received request on %s, method %s" path call.Rpc.name ;
+              rpc_fn call
+          )
+        in
         let body = response |> Xmlrpc.string_of_response in
         Cohttp_lwt_unix.Server.respond_string ~status:`OK ~body ()
     | _, _ ->
@@ -215,32 +252,36 @@ let serve_forever_lwt rpc_fn path =
   Lwt_switch.add_hook (Some shutdown) cleanup ;
   (* if server_wait_exit fails then cancel waiting for file to appear
    * otherwise do not cancel the server if the file appeared (Lwt.protected) *)
-  Lwt.pick
-    [
-      Lwt_unix.with_timeout 120. (fun () -> wait_for_file_to_appear path)
-    ; Lwt.protected server_wait_exit
-    ]
-  >>= fun () -> Lwt.return cleanup
+  let* () =
+    Lwt.pick
+      [
+        Lwt_unix.with_timeout 120. (fun () -> wait_for_connectable_socket path)
+      ; Lwt.protected server_wait_exit
+      ]
+  in
+  Lwt.return cleanup
 
 (* Create a restricted RPC function and socket for a specific VM *)
-let make_server_rpcfn path vm_uuid =
+let make_server_rpcfn ~cache path vm_uuid =
   let module Server =
     Varstore_deprivileged_interface.RPC_API (Rpc_lwt.GenServer ()) in
-  with_xapi @@ VM.get_by_uuid ~uuid:vm_uuid >>= fun vm ->
+  let* vm = with_xapi ~cache @@ VM.get_by_uuid ~uuid:vm_uuid in
   let ret v =
     (* TODO: maybe map XAPI exceptions *)
-    v >>= Lwt.return_ok |> Rpc_lwt.T.put
+    Lwt.bind v Lwt.return_ok |> Rpc_lwt.T.put
   in
-  let get_nvram _ _ = ret @@ with_xapi @@ VM.get_NVRAM ~self:vm in
+  let get_nvram _ _ = ret @@ with_xapi ~cache @@ VM.get_NVRAM ~self:vm in
   let set_nvram _ _ nvram =
-    ret @@ with_xapi @@ VM.set_NVRAM_EFI_variables ~self:vm ~value:nvram
+    ret @@ with_xapi ~cache @@ VM.set_NVRAM_EFI_variables ~self:vm ~value:nvram
   in
   let message_create _ _name priority _cls _uuid body =
     ret
-      ( with_xapi
-      @@ Message.create ~name:"VM_SECURE_BOOT_FAILED" ~priority ~cls:`VM
-           ~obj_uuid:vm_uuid ~body
-      >>= fun _ -> Lwt.return_unit
+      (let* (_ : _ Ref.t) =
+         with_xapi ~cache
+         @@ Message.create ~name:"VM_SECURE_BOOT_FAILED" ~priority ~cls:`VM
+              ~obj_uuid:vm_uuid ~body
+       in
+       Lwt.return_unit
       )
   in
   let get_by_uuid _ _ = ret @@ Lwt.return "DUMMYVM" in
