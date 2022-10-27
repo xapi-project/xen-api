@@ -1,6 +1,7 @@
 include ../config.mk
 
 SITE_DIR=$(shell python -c "from distutils.sysconfig import get_python_lib; print(get_python_lib())")
+SITE3_DIR=$(shell python3 -c "from distutils.sysconfig import get_python_lib; print(get_python_lib())")
 
 IPROG=./install.sh 755
 IDATA=./install.sh 644
@@ -22,6 +23,7 @@ install:
 	mkdir -p $(DESTDIR)/usr/lib/yum-plugins
 	mkdir -p $(DESTDIR)$(OPTDIR)/packages/post-install-scripts
 	mkdir -p $(DESTDIR)$(SITE_DIR)
+	mkdir -p $(DESTDIR)$(SITE3_DIR)
 	mkdir -p $(DESTDIR)/etc/systemd/system/stunnel@xapi.service.d/
 	$(IPROG) base-path $(DESTDIR)/etc/xapi.d
 	$(IPROG) sm_diagnostics $(DESTDIR)$(LIBEXECDIR)
@@ -164,6 +166,10 @@ install:
 	$(IDATA) examples/python/XenAPIPlugin.py $(DESTDIR)$(SITE_DIR)/
 	$(IDATA) examples/python/XenAPI/XenAPI.py $(DESTDIR)$(SITE_DIR)/
 	$(IDATA) examples/python/inventory.py $(DESTDIR)$(SITE_DIR)/
+	$(IDATA) examples/python/XenAPIPlugin.py $(DESTDIR)$(SITE3_DIR)/
+	sed -i 's/#!\/usr\/bin\/python/#!\/usr\/bin\/python3/' $(DESTDIR)$(SITE3_DIR)/XenAPIPlugin.py
+	$(IDATA) examples/python/XenAPI/XenAPI.py $(DESTDIR)$(SITE3_DIR)/
+	$(IDATA) examples/python/inventory.py $(DESTDIR)$(SITE3_DIR)/
 	$(IPROG) examples/python/echo.py $(DESTDIR)$(PLUGINDIR)/echo
 	$(IPROG) examples/python/shell.py $(DESTDIR)$(LIBEXECDIR)/shell.py
 	$(IPROG) examples/python/xva.py $(DESTDIR)$(OPTDIR)/bin/xva-rewrite-scsiid

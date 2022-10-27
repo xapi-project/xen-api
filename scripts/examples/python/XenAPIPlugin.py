@@ -2,6 +2,8 @@
 
 # XenAPI python plugin boilerplate code
 
+from __future__ import print_function
+
 import sys, xmlrpclib, XenAPI
 
 class Failure(Exception):
@@ -22,8 +24,8 @@ def failure_message(description):
     return xmlrpclib.dumps((rpcparams, ), '', True)
 
 def dispatch(fn_table):
-    if len(sys.argv) <> 2:
-        raise "Incorrect number of commandline arguments"
+    if len(sys.argv) != 2:
+        raise Exception("Incorrect number of commandline arguments")
     params, methodname = xmlrpclib.loads(sys.argv[1])
     session_id = params[0]
     args = params[1]
@@ -32,14 +34,14 @@ def dispatch(fn_table):
         x._session = session_id
         try:
             result = fn_table[methodname](x, args)
-            print success_message(result)
+            print(success_message(result))
         except SystemExit:
             # SystemExit should not be caught, as it is handled elsewhere in the plugin system.
             raise
-        except Failure, e:
-            print failure_message(e.params)
-        except Exception, e:
-            print failure_message(['XENAPI_PLUGIN_FAILURE',
-                                   methodname, e.__class__.__name__, str(e)])
+        except Failure as e:
+            print(failure_message(e.params))
+        except Exception as e:
+            print(failure_message(['XENAPI_PLUGIN_FAILURE',
+                                   methodname, e.__class__.__name__, str(e)]))
     else:
-        print failure_message(['UNKNOWN_XENAPI_PLUGIN_FUNCTION', methodname])
+        print(failure_message(['UNKNOWN_XENAPI_PLUGIN_FUNCTION', methodname]))
