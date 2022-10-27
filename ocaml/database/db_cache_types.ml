@@ -42,7 +42,7 @@ module StringMap = struct
   include Map.Make (struct
     type t = string
 
-    let compare = Stdlib.compare
+    let compare = String.compare
   end)
 
   let add key v t = add (share key) v t
@@ -274,7 +274,16 @@ module KeyMap = struct
   include Map.Make (struct
     type t = common_key
 
-    let compare = Stdlib.compare
+    let compare a b =
+      match (a, b) with
+      | Ref x, Ref y ->
+          String.compare x y
+      | Uuid x, Uuid y ->
+          String.compare x y
+      | Ref _, Uuid _ ->
+          -1
+      | Uuid _, Ref _ ->
+          1
   end)
 
   let add_unique tblname fldname k v t =
