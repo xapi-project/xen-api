@@ -1,3 +1,6 @@
+## v1.9.1 (28-Oct-2022)
+* CA-371780: Remove quadratic cost in ds_update_name
+
 ## v1.9.0 (02-Aug-2022)
 * ocamlformat: apply new formatting
 * unix: remove code from module

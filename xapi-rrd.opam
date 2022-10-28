@@ -1,5 +1,5 @@
 opam-version: "2.0"
-maintainer: "xen-api@lists.xen.org"
+maintainer: "Xapi project maintainers"
 authors: ["Dave Scott" "Jon Ludlam" "John Else"]
 homepage: "https://github.com/xapi-project/xcp-rrd"
 bug-reports: "https://github.com/xapi-project/xcp-rrd/issues"
@@ -13,11 +13,11 @@ build: [
   ["dune" "runtest" "-p" name "-j" jobs] {with-test}
 ]
 depends: [
-  "ocaml"
-  "dune" {build & >= "1.4.0"}
+  "ocaml" {>= "4.05"}
+  "dune" {>= "2.0.0"}
   "base-bigarray"
   "base-unix"
-  "ppx_deriving_rpc"
+  "ppx_deriving_rpc" {>= "6.1.0"}
   "rpclib"
   "xmlm"
   "uuidm"
