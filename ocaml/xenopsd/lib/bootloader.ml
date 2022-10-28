@@ -24,29 +24,15 @@ module D = Debug.Make (struct let name = "bootloader" end)
 
 open D
 
-type supported_bootloader = Pygrub | Eliloader
+type supported_bootloader = Pygrub
 
-let string_of_bootloader = function
-  | Pygrub ->
-      "pygrub"
-  | Eliloader ->
-      "eliloader"
+let string_of_bootloader = function Pygrub -> "pygrub"
 
-let bootloader_of_string = function
-  | "pygrub" ->
-      Some Pygrub
-  | "eliloader" ->
-      Some Eliloader
-  | _ ->
-      None
+let bootloader_of_string = function "pygrub" -> Some Pygrub | _ -> None
 
-let path_of_bootloader = function
-  | Pygrub ->
-      !Resources.pygrub
-  | Eliloader ->
-      !Resources.eliloader
+let path_of_bootloader = function Pygrub -> !Resources.pygrub
 
-let supported_bootloaders = List.map string_of_bootloader [Pygrub; Eliloader]
+let supported_bootloaders = List.map string_of_bootloader [Pygrub]
 
 exception Bad_sexpr of string
 
@@ -59,7 +45,7 @@ exception Error_from_bootloader of string
 type t = {kernel_path: string; initrd_path: string option; kernel_args: string}
 
 (** Helper function to generate a bootloader commandline *)
-let command bootloader q pv_bootloader_args image vm_uuid =
+let command bootloader q pv_bootloader_args image =
   (* Let's not do anything fancy while parsing the pv_bootloader_args string: no
      escaping of spaces or quotes for now *)
   let pv_bootloader_args =
@@ -69,7 +55,6 @@ let command bootloader q pv_bootloader_args image vm_uuid =
       Astring.String.cuts ~sep:" " pv_bootloader_args
   in
   let q = if q then ["-q"] else [] in
-  let vm = ["--vm"; vm_uuid] in
   let image = [image] in
   match bootloader_of_string bootloader with
   | Some Pygrub ->
@@ -83,13 +68,10 @@ let command bootloader q pv_bootloader_args image vm_uuid =
         ]
       in
       (path_of_bootloader Pygrub, List.concat args)
-  | Some Eliloader ->
-      let args = [q; vm; pv_bootloader_args; image] in
-      (path_of_bootloader Eliloader, List.concat args)
   | None ->
       raise (Unknown_bootloader bootloader)
 
-(* The string to parse comes from eliloader or pygrub, which builds it based on
+(* The string to parse comes from pygrub, which builds it based on
    reading and processing the grub configuration from the guest's disc.
    Therefore it may contain malicious content from the guest if pygrub has not
    cleaned it up sufficiently. *)
@@ -190,7 +172,7 @@ let parse_exception x =
       raise (Bad_error x)
 
 (* A layer of defence against the chance of a malicious guest grub config
-   tricking pygrub or eliloader into giving the guest access to an inappropriate
+   tricking pygrub into giving the guest access to an inappropriate
    file in dom0 *)
 let sanity_check_path p =
   match p with
@@ -204,9 +186,8 @@ let sanity_check_path p =
   | p -> (
       let canonical_path = Xapi_stdext_unix.Unixext.resolve_dot_and_dotdot p in
       match Filename.dirname canonical_path with
-      | "/var/run/xen/pygrub"
-      (* From pygrub, including when called by eliloader *)
-      | "/var/run/xend/boot" (* From eliloader *) ->
+      | "/var/run/xen/pygrub" ->
+          (* From pygrub *)
           canonical_path
       | _ ->
           raise
@@ -220,12 +201,11 @@ let sanity_check_path p =
 
 (** Extract the default kernel using the -q option *)
 let extract (task : Xenops_task.task_handle) ~bootloader ~disk
-    ?(legacy_args = "") ?(extra_args = "") ?(pv_bootloader_args = "")
-    ~vm:vm_uuid () =
+    ?(legacy_args = "") ?(extra_args = "") ?(pv_bootloader_args = "") () =
   (* Without this path, pygrub will fail: *)
   Unixext.mkdir_rec "/var/run/xend/boot" 0o0755 ;
   let bootloader_path, cmdline =
-    command bootloader true pv_bootloader_args disk vm_uuid
+    command bootloader true pv_bootloader_args disk
   in
   debug "Bootloader commandline: %s %s\n" bootloader_path
     (String.concat " " cmdline) ;

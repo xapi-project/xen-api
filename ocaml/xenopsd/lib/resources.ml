@@ -30,8 +30,6 @@ let hvmloader = ref "hvmloader"
 
 let pygrub = ref "pygrub"
 
-let eliloader = ref "eliloader"
-
 let legacy_conv_tool = ref "convert-legacy-stream"
 
 let verify_libxc_v2 = ref "verify-stream-v2"
@@ -58,10 +56,7 @@ let hvm_guests =
   ]
 
 let pv_guests =
-  [
-    (X_OK, "pygrub", pygrub, "path to the pygrub bootloader binary")
-  ; (X_OK, "eliloader", eliloader, "path to the eliloader bootloader binary")
-  ]
+  [(X_OK, "pygrub", pygrub, "path to the pygrub bootloader binary")]
 
 let pvinpvh_guests =
   [

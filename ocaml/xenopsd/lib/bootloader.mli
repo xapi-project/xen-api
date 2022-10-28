@@ -37,7 +37,6 @@ val extract :
   -> ?legacy_args:string
   -> ?extra_args:string
   -> ?pv_bootloader_args:string
-  -> vm:string
   -> unit
   -> t
 (** Extract the default kernel from the disk *)

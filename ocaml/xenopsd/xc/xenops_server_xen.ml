@@ -2075,8 +2075,7 @@ module VM = struct
                   let b =
                     Bootloader.extract task ~bootloader:i.bootloader
                       ~legacy_args:i.legacy_args ~extra_args:i.extra_args
-                      ~pv_bootloader_args:i.bootloader_args ~disk:dev
-                      ~vm:vm.Vm.id ()
+                      ~pv_bootloader_args:i.bootloader_args ~disk:dev ()
                   in
                   kernel_to_cleanup := Some b ;
                   let builder_spec_info =
@@ -2120,8 +2119,7 @@ module VM = struct
                   let b =
                     Bootloader.extract task ~bootloader:i.bootloader
                       ~legacy_args:i.legacy_args ~extra_args:i.extra_args
-                      ~pv_bootloader_args:i.bootloader_args ~disk:dev
-                      ~vm:vm.Vm.id ()
+                      ~pv_bootloader_args:i.bootloader_args ~disk:dev ()
                   in
                   kernel_to_cleanup := Some b ;
                   let builder_spec_info =

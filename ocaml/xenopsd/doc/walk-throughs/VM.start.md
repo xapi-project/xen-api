@@ -249,7 +249,7 @@ from the host in the "build" phase via functions in *libxenguest*. The
 [VM.build_domain_exn](https://github.com/xapi-project/xenopsd/blob/b33bab13080cea91e2fd59d5088622cd68152339/xc/xenops_server_xen.ml#L994)
 function must
 
-1. run pygrub (or eliloader) to extract the kernel and initrd, if necessary
+1. run pygrub to extract the kernel and initrd, if necessary
 2. invoke the *xenguest* binary to interact with libxenguest.
 3. apply the ```cpuid``` configuration
 4. store the current domain configuration on disk -- it's important to know
