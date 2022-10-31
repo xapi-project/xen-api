@@ -4,7 +4,9 @@
 
 from __future__ import print_function
 
-import sys, xmlrpclib, XenAPI
+import sys
+import six.moves.xmlrpc_client as xmlrpclib
+import XenAPI
 
 class Failure(Exception):
     """Provide compatibilty with plugins written against XenServer 5.5 API"""
