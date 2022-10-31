@@ -63,7 +63,7 @@ let best_effort_iso8601_to_rfc3339 x =
   | Some tz  ->
     (x, TZ tz)
 
-let of_string x =
+let of_iso8601 x =
   let (rfc3339, print_timezone) = best_effort_iso8601_to_rfc3339 x in
   match Ptime.of_rfc3339 rfc3339 |> Ptime.rfc3339_error_to_msg with
   | Error (`Msg e) -> invalid_arg (Printf.sprintf "date.ml:of_string: %s" x)
@@ -71,7 +71,7 @@ let of_string x =
                       | None | Some 0 -> Ptime.to_date_time t |> of_dt print_timezone
                       | Some _        -> invalid_arg (Printf.sprintf "date.ml:of_string: %s" x)
 
-let to_string ((y,mon,d), ((h,min,s), _), print_type) =
+let to_rfc3339 ((y,mon,d), ((h,min,s), _), print_type) =
   match print_type with
   | TZ tz -> Printf.sprintf "%04i%02i%02iT%02i:%02i:%02i%s" y mon d h min s tz
   | Empty -> Printf.sprintf "%04i%02i%02iT%02i:%02i:%02i" y mon d h min s
@@ -81,14 +81,18 @@ let to_ptime_t t =
   | Some t -> t
   | None ->
     let (_, (_, offset), _) = t in
-    invalid_arg (Printf.sprintf "date.ml:to_t: dt='%s', offset='%i' is invalid" (to_string t) offset)
+    invalid_arg (Printf.sprintf "date.ml:to_t: dt='%s', offset='%i' is invalid" (to_rfc3339 t) offset)
 
-let of_float s =
+let to_ptime = to_ptime_t
+
+let of_ptime t = Ptime.to_date_time t |> of_dt utc
+
+let of_unix_time s =
   match Ptime.of_float_s s with
-  | None -> invalid_arg (Printf.sprintf "date.ml:of_float: %f" s)
-  | Some t -> Ptime.to_date_time t |> of_dt utc
+  | None -> invalid_arg (Printf.sprintf "%s: %f" __FUNCTION__ s)
+  | Some t -> of_ptime t
 
-let to_float t = to_ptime_t t |> Ptime.to_float_s
+let to_unix_time t = to_ptime_t t |> Ptime.to_float_s
 
 let _localtime current_tz_offset t =
   let tz_offset_s = current_tz_offset |> Option.value ~default:0 in
@@ -103,13 +107,26 @@ let _localtime current_tz_offset t =
   localtime
 
 let _localtime_string current_tz_offset t =
-  _localtime current_tz_offset t |> to_string
+  _localtime current_tz_offset t |> to_rfc3339
 
 let localtime () =
   _localtime (Ptime_clock.current_tz_offset_s ()) (Ptime_clock.now ())
 
-let assert_utc _ = ()
+let now () = of_ptime (Ptime_clock.now ())
 
-let never = of_float 0.0
+let epoch = of_ptime Ptime.epoch
 
 let eq x y = x = y
+
+let assert_utc _ = ()
+
+let never = epoch
+
+let of_string = of_iso8601
+
+let to_string = to_rfc3339
+
+let of_float = of_unix_time
+
+let to_float = to_unix_time
+

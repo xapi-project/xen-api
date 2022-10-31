@@ -8,11 +8,11 @@ let dash_time_str = "2020-04-07T08:28:32Z"
 let no_dash_utc_time_str = "20200407T08:28:32Z"
 
 let iso8601_tests =
-  let test_of_float_invertible () =
+  let test_of_unix_time_invertible () =
     let non_int_time = 1586245987.70200706 in
     let time = non_int_time |> Float.floor in
-    check_float "to_float inverts of_float" time (time |> of_float |> to_float);
-    check_true "of_float inverts to_float" @@ eq (time |> of_float) (time |> of_float |> to_float |> of_float);
+    check_float "to_unix_time inverts of_unix_time" time (time |> of_unix_time |> to_unix_time);
+    check_true "of_unix_time inverts to_unix_time" @@ eq (time |> of_unix_time) (time |> of_unix_time |> to_unix_time |> of_unix_time);
   in
 
   let test_only_utc () =
@@ -24,9 +24,9 @@ let iso8601_tests =
   in
 
   let test_ca333908 () =
-    check_float "dash time and no dash time have same float repr"
-                (dash_time_str |> of_string |> to_float)
-                (no_dash_utc_time_str |> of_string |> to_float)
+    check_float "dash time and no dash time represent the same unix timestamp"
+                (dash_time_str |> of_string |> to_unix_time)
+                (no_dash_utc_time_str |> of_string |> to_unix_time)
   in
 
   let test_of_string_invertible_when_no_dashes () =
@@ -68,13 +68,13 @@ let iso8601_tests =
     check_string "can process missing tz no dash" missing_tz_no_dash (missing_tz_no_dash |> of_string |> to_string) ;
     check_string "can process missing tz with dashes, but return without dashes" missing_tz_no_dash (missing_tz_dash |> of_string |> to_string) ;
 
-    check_float "to_float assumes UTC" 1607620760. (missing_tz_no_dash |> of_string |> to_float) ;
+    check_float "to_unix_time assumes UTC" 1607620760. (missing_tz_no_dash |> of_string |> to_unix_time) ;
 
     let localtime' = localtime () in
     check_string "to_string inverts of_string for localtime" (localtime' |> to_string) (localtime' |> to_string |> of_string |> to_string) ;
   in
 
-  [ "test_of_float_invertible", `Quick, test_of_float_invertible
+  [ "test_of_unix_time_invertible", `Quick, test_of_unix_time_invertible
   ; "test_only_utc", `Quick, test_only_utc
   ; "test_ca333908", `Quick, test_ca333908
   ; "test_of_string_invertible_when_no_dashes", `Quick, test_of_string_invertible_when_no_dashes
