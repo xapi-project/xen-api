@@ -46,10 +46,6 @@ module StringMap = struct
   end)
 
   let add key v t = add (share key) v t
-
-  let update key default f t =
-    let v = try find key t with Not_found -> default in
-    add key (f v) t
 end
 
 module type VAL = sig
@@ -111,26 +107,25 @@ functor
 
     let touch generation key default row =
       let default = {stat= Stat.make generation; v= default} in
-      StringMap.update key default
-        (fun x -> {x with stat= {x.stat with Stat.modified= generation}})
+      StringMap.update key
+        (function
+          | Some x ->
+              Some {x with stat= {x.stat with Stat.modified= generation}}
+          | None ->
+              Some default
+          )
         row
 
     let update generation key default f row =
       let default = {stat= Stat.make generation; v= default} in
-      let updatefn () =
-        StringMap.update key default
-          (fun x -> {stat= {x.stat with Stat.modified= generation}; v= f x.v})
-          row
-      in
-      if mem key row then
-        let old = find key row in
-        let newv = f old in
-        if newv = old then
-          row
-        else
-          updatefn ()
-      else
-        updatefn ()
+      StringMap.update key
+        (function
+          | Some x ->
+              Some {stat= {x.stat with Stat.modified= generation}; v= f x.v}
+          | None ->
+              Some default
+          )
+        row
 
     let fold_over_recent since f t initial =
       StringMap.fold
