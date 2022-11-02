@@ -786,11 +786,12 @@ let get_action_request ~xs domid =
   try Some (xs.Xs.read path) with Xs_protocol.Enoent _ -> None
 
 let maybe_ca_140252_workaround ~xc ~vcpus domid =
-  if !Xenopsd.ca_140252_workaround then
+  if !Xenopsd.ca_140252_workaround then (
     debug "Allocating %d I/O req evtchns in advance for device model" vcpus ;
-  for _ = 1 to vcpus do
-    ignore_int (Xenctrl.evtchn_alloc_unbound xc domid 0)
-  done
+    for _ = 1 to vcpus do
+      ignore_int (Xenctrl.evtchn_alloc_unbound xc domid 0)
+    done
+  )
 
 (** create store and console channels *)
 let create_channels ~xc uuid domid =
