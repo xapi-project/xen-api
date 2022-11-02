@@ -64,6 +64,29 @@ let merge_new_dss rrd dss =
     )
     rrd new_dss
 
+module OwnerMap = Map.Make (struct
+  type t = ds_owner
+
+  let compare a b =
+    match (a, b) with
+    | Host, Host ->
+        0
+    | Host, _ | VM _, SR _ ->
+        -1
+    | _, Host | SR _, VM _ ->
+        1
+    | VM a, VM b | SR a, SR b ->
+        String.compare a b
+end)
+
+let owner_to_string () = function
+  | Host ->
+      "host"
+  | VM uuid ->
+      "VM " ^ uuid
+  | SR uuid ->
+      "SR " ^ uuid
+
 (** Updates all of the hosts rrds. We are passed a list of uuids that is used as
     the primary source for which VMs are resident on us. When a new uuid turns
     up that we haven't got an RRD for in our hashtbl, we create a new one. When
@@ -71,7 +94,28 @@ let merge_new_dss rrd dss =
     update, we assume that the domain has gone and we stream the RRD to the
     master. We also have a list of the currently rebooting VMs to ensure we
     don't accidentally archive the RRD. *)
-let update_rrds timestamp dss (uuid_domids : (string * int) list) paused_vms =
+let update_rrds timestamp dss uuid_domids paused_vms =
+  let uuid_domids = List.to_seq uuid_domids |> StringMap.of_seq in
+  let paused_vms = List.to_seq paused_vms |> StringSet.of_seq in
+  let consolidate all (owner, ds) =
+    let add_ds_to = StringMap.add ds.ds_name ds in
+    let merge = function
+      | None ->
+          Some (add_ds_to StringMap.empty)
+      | Some dss ->
+          warn {|%s: found duplicate datasource with key "%s" in owner "%a"|}
+            __FUNCTION__ ds.ds_name owner_to_string owner ;
+          Some (add_ds_to dss)
+    in
+    OwnerMap.update owner merge all
+  in
+  let dss = List.fold_left consolidate OwnerMap.empty dss in
+
+  (* the first parameter and ds.ds_name are equivalent *)
+  let to_named_updates (_, ds) =
+    (ds.ds_name, (ds.ds_value, ds.ds_pdp_transform_function))
+  in
+
   (* Here we do the synchronising between the dom0 view of the world and our
      Hashtbl. By the end of this execute block, the Hashtbl correctly represents
      the world *)
@@ -90,19 +134,14 @@ let update_rrds timestamp dss (uuid_domids : (string * int) list) paused_vms =
           "Clock just went backwards by %.0f seconds: RRD data may now be \
            unreliable"
           by_how_much ;
-      let do_vm (vm_uuid, domid) =
+      let process_vm vm_uuid dss =
+        let named_updates =
+          StringMap.to_seq dss |> Seq.map to_named_updates |> List.of_seq
+        in
+        let dss = StringMap.to_seq dss |> Seq.map snd |> List.of_seq in
+
         try
-          let dss =
-            List.filter_map
-              (fun (ty, ds) ->
-                match ty with
-                | VM x ->
-                    if x = vm_uuid then Some ds else None
-                | _ ->
-                    None
-              )
-              dss
-          in
+          let domid = StringMap.find vm_uuid uuid_domids in
           (* First, potentially update the rrd with any new default dss *)
           try
             let rrdi = Hashtbl.find vm_rrds vm_uuid in
@@ -112,89 +151,70 @@ let update_rrds timestamp dss (uuid_domids : (string * int) list) paused_vms =
                purpose. During a migrate such updates can also cause undesirable
                discontinuities in the observed value of memory_actual. Hence, we
                ignore changes from paused domains: *)
-            if not (List.mem vm_uuid paused_vms) then (
+            if not (StringSet.mem vm_uuid paused_vms) then (
               Rrd.ds_update_named rrd timestamp ~new_domid:(domid <> rrdi.domid)
-                (List.map
-                   (fun ds ->
-                     (ds.ds_name, (ds.ds_value, ds.ds_pdp_transform_function))
-                   )
-                   dss
-                ) ;
+                named_updates ;
               rrdi.dss <- dss ;
               rrdi.domid <- domid
             )
           with
           | Not_found ->
-              debug "Creating fresh RRD for VM uuid=%s" vm_uuid ;
+              debug "%s: Creating fresh RRD for VM uuid=%s" __FUNCTION__ vm_uuid ;
               let rrd = create_fresh_rrd !use_min_max dss in
               Hashtbl.replace vm_rrds vm_uuid {rrd; dss; domid}
           | e ->
               raise e
         with _ -> log_backtrace ()
       in
-      List.iter do_vm uuid_domids ;
-      let do_sr sr_uuid =
+      let process_sr sr_uuid dss =
+        let named_updates =
+          StringMap.to_seq dss |> Seq.map to_named_updates |> List.of_seq
+        in
+        let dss = StringMap.to_seq dss |> Seq.map snd |> List.of_seq in
         try
-          let dss =
-            List.filter_map
-              (fun (ty, ds) ->
-                match ty with
-                | SR x ->
-                    if x = sr_uuid then Some ds else None
-                | _ ->
-                    None
-              )
-              dss
-          in
           (* First, potentially update the rrd with any new default dss *)
           try
             let rrdi = Hashtbl.find sr_rrds sr_uuid in
             let rrd = merge_new_dss rrdi.rrd dss in
             Hashtbl.replace sr_rrds sr_uuid {rrd; dss; domid= 0} ;
-            Rrd.ds_update_named rrd timestamp ~new_domid:false
-              (List.map
-                 (fun ds ->
-                   (ds.ds_name, (ds.ds_value, ds.ds_pdp_transform_function))
-                 )
-                 dss
-              ) ;
+            Rrd.ds_update_named rrd timestamp ~new_domid:false named_updates ;
             rrdi.dss <- dss ;
             rrdi.domid <- 0
           with
           | Not_found ->
-              debug "Creating fresh RRD for SR uuid=%s" sr_uuid ;
+              debug "%s: Creating fresh RRD for SR uuid=%s" __FUNCTION__ sr_uuid ;
               let rrd = create_fresh_rrd !use_min_max dss in
               Hashtbl.replace sr_rrds sr_uuid {rrd; dss; domid= 0}
           | e ->
               raise e
         with _ -> log_backtrace ()
       in
-      List.to_seq dss
-      |> Seq.filter_map (fun (ty, _ds) ->
-             match ty with SR x -> Some x | _ -> None
-         )
-      |> StringSet.of_seq
-      |> StringSet.iter do_sr ;
-      let host_dss =
-        List.filter_map
-          (fun (ty, ds) -> match ty with Host -> Some ds | _ -> None)
-          dss
+      let process_host dss =
+        let named_updates =
+          StringMap.to_seq dss |> Seq.map to_named_updates |> List.of_seq
+        in
+        let dss = StringMap.to_seq dss |> Seq.map snd |> List.of_seq in
+
+        match !host_rrd with
+        | None ->
+            debug "%s: Creating fresh RRD for localhost" __FUNCTION__ ;
+            let rrd = create_fresh_rrd true dss in
+            (* Always always create localhost rrds with min/max enabled *)
+            host_rrd := Some {rrd; dss; domid= 0}
+        | Some rrdi ->
+            rrdi.dss <- dss ;
+            let rrd = merge_new_dss rrdi.rrd dss in
+            host_rrd := Some {rrd; dss; domid= 0} ;
+            Rrd.ds_update_named rrd timestamp ~new_domid:false named_updates
       in
-      match !host_rrd with
-      | None ->
-          debug "Creating fresh RRD for localhost" ;
-          let rrd = create_fresh_rrd true host_dss in
-          (* Always always create localhost rrds with min/max enabled *)
-          host_rrd := Some {rrd; dss= host_dss; domid= 0}
-      | Some rrdi ->
-          rrdi.dss <- host_dss ;
-          let rrd = merge_new_dss rrdi.rrd host_dss in
-          host_rrd := Some {rrd; dss= host_dss; domid= 0} ;
-          Rrd.ds_update_named rrd timestamp ~new_domid:false
-            (List.map
-               (fun ds ->
-                 (ds.ds_name, (ds.ds_value, ds.ds_pdp_transform_function))
-               )
-               host_dss
-            )
+      let process_dss ds_owner dss =
+        match ds_owner with
+        | Host ->
+            process_host dss
+        | VM uuid ->
+            process_vm uuid dss
+        | SR uuid ->
+            process_sr uuid dss
+      in
+      OwnerMap.iter process_dss dss
   )

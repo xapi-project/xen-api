@@ -31,8 +31,10 @@ let dss_of_rrds rrds =
 
 let check_datasources kind rdds expected_dss =
   match rdds with
-  | None ->
+  | None when expected_dss <> [] ->
       Alcotest.fail (Printf.sprintf "%s RRD must be created" kind)
+  | None ->
+      ()
   | Some actual_rdds ->
       let actual_dss = dss_of_rrds actual_rdds in
       let expected_dss = List.fast_sort Stdlib.compare expected_dss in
