@@ -970,6 +970,8 @@ let domain_type_of_string x =
   | s ->
       raise (Record_failure ("Invalid domain type. Got " ^ s))
 
+let gpg_key_type_to_string = function `rpm_pubkey -> "rpm_pubkey"
+
 (** Parse a string which might have a units suffix on the end *)
 let bytes_of_string field x =
   let ( ** ) a b = Int64.mul a b in

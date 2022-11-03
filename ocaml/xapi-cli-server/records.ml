@@ -5205,3 +5205,44 @@ let vtpm_record rpc session_id vtpm =
           ()
       ]
   }
+
+let gpg_key_record rpc session_id gpgkey =
+  let _ref = ref gpgkey in
+  let empty_record =
+    ToGet (fun () -> Client.Gpg_key.get_record ~rpc ~session_id ~self:!_ref)
+  in
+  let record = ref empty_record in
+  let x () = lzy_get record in
+  {
+    setref=
+      (fun r ->
+        _ref := r ;
+        record := empty_record
+      )
+  ; setrefrec=
+      (fun (a, b) ->
+        _ref := a ;
+        record := Got b
+      )
+  ; record= x
+  ; getref= (fun () -> !_ref)
+  ; fields=
+      [
+        make_field ~name:"uuid" ~get:(fun () -> (x ()).API.gpg_key_uuid) ()
+      ; make_field ~name:"name" ~get:(fun () -> (x ()).API.gpg_key_name) ()
+      ; make_field ~name:"created"
+          ~get:(fun () -> Date.to_string (x ()).API.gpg_key_created)
+          ()
+      ; make_field ~name:"fingerprint"
+          ~get:(fun () -> (x ()).API.gpg_key_fingerprint)
+          ()
+      ; make_field ~name:"uninstalled"
+          ~get:(fun () -> string_of_bool (x ()).API.gpg_key_uninstalled)
+          ()
+      ; make_field ~name:"type"
+          ~get:(fun () ->
+            (x ()).API.gpg_key_type |> Record_util.gpg_key_type_to_string
+          )
+          ()
+      ]
+  }

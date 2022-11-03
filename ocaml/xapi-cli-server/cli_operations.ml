@@ -1310,6 +1310,11 @@ let gen_cmds rpc session_id =
         mk get_all_records_where get_by_uuid vtpm_record "vtpm" []
           ["uuid"; "vm"; "profile"] rpc session_id
       )
+    ; Client.Gpg_key.(
+        mk get_all_records_where get_by_uuid gpg_key_record "gpg-key" []
+          ["uuid"; "name"; "created"; "fingerprint"; "uninstalled"; "type"]
+          rpc session_id
+      )
     ]
 
 let message_create (_ : printer) rpc session_id params =

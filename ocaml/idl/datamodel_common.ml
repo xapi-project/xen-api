@@ -302,6 +302,8 @@ let _diagnostics = "Diagnostics"
 
 let _repository = "Repository"
 
+let _gpg_key = "Gpg_key"
+
 let update_guidances =
   Enum
     ( "update_guidances"
