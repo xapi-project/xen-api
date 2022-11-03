@@ -707,10 +707,12 @@ module Swtpm = struct
     in
     (* the uri here is relative to the chroot path, if chrooting is disabled then
        swtpm-wrapper should modify the uri accordingly.
+       There are two modes in dictated by dir:// and file://.  The latter indicates
+       a linear file storage, and allows further permissions to be restricted.
        xenopsd needs to be in charge of choosing the scheme according to the backend
     *)
     let state_uri =
-      Filename.concat "file://"
+      Filename.concat "dir://"
       @@ Xenops_sandbox.Chroot.chroot_path_inside state_path
     in
     let args = Fe_argv.Add.many [string_of_int domid; tpm_root; state_uri] in
