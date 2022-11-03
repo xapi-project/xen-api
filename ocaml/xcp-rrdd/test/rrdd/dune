@@ -2,8 +2,8 @@
   (name test_rrdd_monitor)
   (package xapi-rrdd)
   (libraries
+    alcotest
     dune-build-info
-    ounit2
     rrdd_libs_internal
     xapi-idl.rrd
     xapi-rrd
