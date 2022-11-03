@@ -93,25 +93,6 @@ let get_subject_name __context session_id =
       DB_Action.Session.get_auth_user_name ~__context ~self:session_id
     )
 
-(*given a ref-value, return a human-friendly value associated with that ref*)
-let get_obj_of_ref_common obj_ref fn =
-  let indexrec = Ref_index.lookup obj_ref in
-  match indexrec with None -> None | Some indexrec -> fn indexrec
-
-let get_obj_of_ref obj_ref =
-  get_obj_of_ref_common obj_ref (fun irec ->
-      Some (irec.Ref_index.name_label, irec.Ref_index.uuid, irec.Ref_index._ref)
-  )
-
-let get_obj_name_of_ref obj_ref =
-  get_obj_of_ref_common obj_ref (fun irec -> irec.Ref_index.name_label)
-
-let get_obj_uuid_of_ref obj_ref =
-  get_obj_of_ref_common obj_ref (fun irec -> Some irec.Ref_index.uuid)
-
-let get_obj_ref_of_ref obj_ref =
-  get_obj_of_ref_common obj_ref (fun irec -> Some irec.Ref_index._ref)
-
 let get_sexpr_arg name name_of_ref uuid_of_ref ref_value : SExpr.t =
   SExpr.Node
     [
@@ -127,33 +108,21 @@ let get_sexpr_arg name name_of_ref uuid_of_ref ref_value : SExpr.t =
 (* used on the master to map missing reference names from slaves *)
 let get_obj_names_of_refs (obj_ref_list : SExpr.t list) : SExpr.t list =
   List.map
-    (fun obj_ref ->
-      match obj_ref with
-      | SExpr.Node
-          [
-            SExpr.String name
-          ; SExpr.String ""
-          ; SExpr.String ""
-          ; SExpr.String ref_value
-          ] ->
-          get_sexpr_arg name
-            ( match get_obj_name_of_ref ref_value with
+    (function
+      | SExpr.(Node [String name; String ""; String ""; String ref_value]) ->
+          let obj_name, uuid =
+            match Ref_index.lookup ref_value with
             | None ->
-                "" (* ref_value is not a ref! *)
-            | Some obj_name ->
-                obj_name (* the missing name *)
-            )
-            ( match get_obj_uuid_of_ref ref_value with
-            | None ->
-                "" (* ref_value is not a ref! *)
-            | Some obj_uuid ->
-                obj_uuid (* the missing uuid *)
-            )
-            ref_value
-      | _ ->
-          obj_ref
-      (* do nothing if not a triplet *)
-    )
+                ("", "")
+            | Some {name_label= None; uuid; _} ->
+                ("", uuid)
+            | Some {name_label= Some name; uuid; _} ->
+                (name, uuid)
+          in
+          get_sexpr_arg name obj_name uuid ref_value
+      | obj_ref ->
+          obj_ref (* do nothing if not a triplet *)
+      )
     obj_ref_list
 
 (* unwrap the audit record and add names to the arg refs *)
@@ -169,22 +138,19 @@ let populate_audit_record_with_obj_names_of_refs line =
     in
     let sexpr = SExpr_TS.of_string sexpr_str in
     match sexpr with
+    | SExpr.Node [] ->
+        line
     | SExpr.Node els -> (
-        if List.length els = 0 then
-          line
-        else
-          let (args : SExpr.t) = List.hd (List.rev els) in
-          match List.partition (fun (e : SExpr.t) -> e <> args) els with
-          | prefix, [SExpr.Node arg_list] ->
-              (* paste together the prefix of original audit record *)
-              before_sexpr_str
-              ^ " "
-              ^ SExpr.string_of
-                  (SExpr.Node
-                     (prefix @ [SExpr.Node (get_obj_names_of_refs arg_list)])
-                  )
-          | _ ->
-              line
+        let (args : SExpr.t) = List.hd (List.rev els) in
+        match List.partition (fun (e : SExpr.t) -> e <> args) els with
+        | prefix, [SExpr.Node arg_list] ->
+            (* paste together the prefix of original audit record *)
+            let the_sexpr =
+              SExpr.Node (prefix @ [SExpr.Node (get_obj_names_of_refs arg_list)])
+            in
+            String.concat " " [before_sexpr_str; SExpr.string_of the_sexpr]
+        | _ ->
+            line
       )
     | _ ->
         line
@@ -286,17 +252,13 @@ let action_param_ref_getter_fn =
 
 (* get a namevalue directly from db, instead from db_cache *)
 let get_db_namevalue __context name action _ref =
-  if List.mem_assoc action action_param_ref_getter_fn then
-    let params = List.assoc action action_param_ref_getter_fn in
-    if List.mem_assoc name params then
-      let getter_fn = List.assoc name params in
-      getter_fn __context _ref
-    else
-      "" (* default value empty *)
-  else
-    ""
-
-(* default value empty *)
+  let maybe_db_namevalue =
+    let ( let* ) = Option.bind in
+    let* params = List.assoc_opt action action_param_ref_getter_fn in
+    let* getter_fn = List.assoc_opt name params in
+    Some (getter_fn __context _ref)
+  in
+  Option.value ~default:"" maybe_db_namevalue
 
 (* Map selected xapi call arguments into audit sexpr arguments.
     Not all parameters are mapped into audit log arguments because
@@ -305,11 +267,11 @@ let get_db_namevalue __context name action _ref =
 *)
 let rec sexpr_args_of __context name rpc_value action =
   let is_selected_action_param action_params =
-    if List.mem_assoc action action_params then
-      let params = List.assoc action action_params in
-      List.mem name params
-    else
-      false
+    match List.assoc_opt action action_params with
+    | Some params ->
+        List.mem name params
+    | None ->
+        false
   in
   (* heuristic 1: print descriptive arguments in the xapi call *)
   if
@@ -337,7 +299,7 @@ let rec sexpr_args_of __context name rpc_value action =
              ; SExpr.Node
                  (sexpr_of_parameters __context
                     (action ^ "." ^ name)
-                    (Some (["__structure"], [rpc_value]))
+                    (Some [("__structure", rpc_value)])
                  )
              ; SExpr.String ""
              ; SExpr.String ""
@@ -350,85 +312,53 @@ let rec sexpr_args_of __context name rpc_value action =
   else (* heuristic 2: print uuid/refs arguments in the xapi call *)
     match rpc_value with
     | Rpc.String value -> (
-        let name_uuid_ref = get_obj_of_ref value in
-        match name_uuid_ref with
-        | None ->
-            if Astring.String.is_prefix ~affix:Ref.ref_prefix value then
-              (* it's a ref, just not in the db cache *)
-              Some
-                (get_sexpr_arg name
-                   (get_db_namevalue __context name action value)
-                   "" value
-                )
-            else (* ignore values that are not a ref *)
-              None
-        | Some (_name_of_ref_value, uuid_of_ref_value, ref_of_ref_value) ->
-            let name_of_ref_value =
-              match _name_of_ref_value with
-              | None ->
-                  get_db_namevalue __context name action ref_of_ref_value
-              | Some "" ->
-                  get_db_namevalue __context name action ref_of_ref_value
-              | Some a ->
-                  a
-            in
-            Some
-              (get_sexpr_arg name name_of_ref_value uuid_of_ref_value
-                 ref_of_ref_value
-              )
-      )
+      match Ref_index.lookup value with
+      | None when Ref.(is_real (of_string value)) ->
+          (* it's a ref, just not in the db cache *)
+          Some
+            (get_sexpr_arg name
+               (get_db_namevalue __context name action value)
+               "" value
+            )
+      | None ->
+          (* ignore values that are not a ref *)
+          None
+      | Some {name_label; uuid; _ref} ->
+          let name_of_ref_value =
+            match name_label with
+            | None | Some "" ->
+                get_db_namevalue __context name action _ref
+            | Some a ->
+                a
+          in
+          Some (get_sexpr_arg name name_of_ref_value uuid _ref)
+    )
     | _ ->
         None
 
 and
     (* Given an action and its parameters, *)
     (* return the marshalled uuid params and corresponding names *)
-    (*let rec*) sexpr_of_parameters __context action args : SExpr.t list =
+    sexpr_of_parameters __context action args : SExpr.t list =
   match args with
   | None ->
       []
-  | Some (str_names, rpc_values) ->
-      if List.length str_names <> List.length rpc_values then (
-        (* debug mode *)
-        D.warn
-          "cannot marshall arguments for the action %s: name and value list \
-           lengths don't match. str_names=[%s], xml_values=[%s]"
-          action
-          (List.fold_left (fun ss s -> ss ^ s ^ ",") "" str_names)
-          (List.fold_left (fun ss s -> ss ^ Rpc.to_string s ^ ",") "" rpc_values) ;
-        []
-      ) else
-        List.fold_right2
-          (fun str_name rpc_value (params : SExpr.t list) ->
-            if str_name = "session_id" then
+  | Some names_rpc_values ->
+      List.fold_right
+        (fun (str_name, rpc_value) (params : SExpr.t list) ->
+          match (str_name, rpc_value) with
+          | "session_id", _ ->
               params (* ignore session_id param *)
-            else if
+          | "__structure", Rpc.Dict d ->
               (* if it is a constructor structure, need to rewrap params *)
-              str_name = "__structure"
-            then
-              match rpc_value with
-              | Rpc.Dict d ->
-                  let names = List.map fst d in
-                  let values = List.map snd d in
-                  let myparam =
-                    sexpr_of_parameters __context action (Some (names, values))
-                  in
-                  myparam @ params
-              | rpc_value -> (
-                match sexpr_args_of __context str_name rpc_value action with
-                | None ->
-                    params
-                | Some p ->
-                    p :: params
-              )
-            else (* the expected list of xml arguments *)
-              match sexpr_args_of __context str_name rpc_value action with
-              | None ->
-                  params
-              | Some p ->
-                  p :: params
-          )
-          str_names rpc_values []
+              let myparam = sexpr_of_parameters __context action (Some d) in
+              myparam @ params
+          | _ ->
+              (* the expected list of xml arguments *)
+              sexpr_args_of __context str_name rpc_value action
+              |> Option.fold ~none:params ~some:(fun p -> p :: params)
+        )
+        names_rpc_values []
 
 let has_to_audit action =
   let has_side_effect action =
@@ -456,6 +386,8 @@ let has_to_audit action =
           ; (* spam *)
             "http/get_rrd_updates"
           ; (* spam *)
+            "http/rrd_updates"
+          ; (* spam *)
             "http/post_remote_db_access"
           ; (* spam *)
             "host.tickle_heartbeat"
@@ -472,40 +404,26 @@ let wrap fn =
 
 (* Extra info required for the WLB audit report. *)
 let add_dummy_args __context action args =
-  match args with
-  | None ->
+  match (args, action) with
+  | Some names_rpc, "VBD.destroy" -> (
+    (* Add VDI info for VBD.destroy *)
+    try
+      let vbd = API.ref_VBD_of_rpc (List.assoc "self" names_rpc) in
+      let vdi = DB_Action.VBD.get_VDI ~__context ~self:vbd in
+      let params = names_rpc @ [("VDI", API.rpc_of_ref_VDI vdi)] in
+      Some params
+    with e ->
+      D.debug "couldn't get VDI ref for VBD: %s" (ExnHelper.string_of_exn e) ;
       args
-  | Some (str_names, rpc_values) -> (
-      let rec find_self str_names rpc_values =
-        match (str_names, rpc_values) with
-        | "self" :: _, rpc :: _ ->
-            rpc
-        | _ :: str_names', _ :: rpc_values' ->
-            find_self str_names' rpc_values'
-        | _, _ ->
-            raise Not_found
-      in
-      match action with
-      (* Add VDI info for VBD.destroy *)
-      | "VBD.destroy" -> (
-        try
-          let vbd = API.ref_VBD_of_rpc (find_self str_names rpc_values) in
-          let vdi = DB_Action.VBD.get_VDI ~__context ~self:vbd in
-          Some (str_names @ ["VDI"], rpc_values @ [API.rpc_of_ref_VDI vdi])
-        with e ->
-          D.debug "couldn't get VDI ref for VBD: %s" (ExnHelper.string_of_exn e) ;
-          args
-      )
-      | _ ->
-          args
-    )
+  )
+  | _ ->
+      args
 
 let sexpr_of __context session_id allowed_denied ok_error result_error ?args
     ?sexpr_of_args action _permission =
   let result_error =
     if result_error = "" then result_error else ":" ^ result_error
   in
-  (*let (params:SExpr.t list) = (string_of_parameters action args) in*)
   SExpr.Node
     [
       SExpr.String (trackid session_id)
@@ -514,8 +432,7 @@ let sexpr_of __context session_id allowed_denied ok_error result_error ?args
     ; SExpr.String allowed_denied
     ; SExpr.String (ok_error ^ result_error)
     ; SExpr.String (call_type_of ~action)
-    ; (*SExpr.String (Helper_hostname.get_hostname ())::*)
-      SExpr.String action
+    ; SExpr.String action
     ; SExpr.Node
         ( match sexpr_of_args with
         | None ->

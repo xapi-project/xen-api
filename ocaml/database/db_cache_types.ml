@@ -42,14 +42,10 @@ module StringMap = struct
   include Map.Make (struct
     type t = string
 
-    let compare = Stdlib.compare
+    let compare = String.compare
   end)
 
   let add key v t = add (share key) v t
-
-  let update key default f t =
-    let v = try find key t with Not_found -> default in
-    add key (f v) t
 end
 
 module type VAL = sig
@@ -111,26 +107,25 @@ functor
 
     let touch generation key default row =
       let default = {stat= Stat.make generation; v= default} in
-      StringMap.update key default
-        (fun x -> {x with stat= {x.stat with Stat.modified= generation}})
+      StringMap.update key
+        (function
+          | Some x ->
+              Some {x with stat= {x.stat with Stat.modified= generation}}
+          | None ->
+              Some default
+          )
         row
 
     let update generation key default f row =
       let default = {stat= Stat.make generation; v= default} in
-      let updatefn () =
-        StringMap.update key default
-          (fun x -> {stat= {x.stat with Stat.modified= generation}; v= f x.v})
-          row
-      in
-      if mem key row then
-        let old = find key row in
-        let newv = f old in
-        if newv = old then
-          row
-        else
-          updatefn ()
-      else
-        updatefn ()
+      StringMap.update key
+        (function
+          | Some x ->
+              Some {stat= {x.stat with Stat.modified= generation}; v= f x.v}
+          | None ->
+              Some default
+          )
+        row
 
     let fold_over_recent since f t initial =
       StringMap.fold
@@ -274,7 +269,16 @@ module KeyMap = struct
   include Map.Make (struct
     type t = common_key
 
-    let compare = Stdlib.compare
+    let compare a b =
+      match (a, b) with
+      | Ref x, Ref y ->
+          String.compare x y
+      | Uuid x, Uuid y ->
+          String.compare x y
+      | Ref _, Uuid _ ->
+          -1
+      | Uuid _, Ref _ ->
+          1
   end)
 
   let add_unique tblname fldname k v t =
@@ -463,11 +467,7 @@ module Database = struct
 
   let table_of_ref rf db = fst (KeyMap.find (Ref rf) db.keymap)
 
-  let lookup_key key db =
-    if KeyMap.mem (Ref key) db.keymap then
-      Some (KeyMap.find (Ref key) db.keymap)
-    else
-      None
+  let lookup_key key db = KeyMap.find_opt (Ref key) db.keymap
 
   let make schema =
     {

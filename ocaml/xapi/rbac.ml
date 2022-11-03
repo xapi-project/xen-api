@@ -69,9 +69,6 @@ let session_permissions_tbl = Hashtbl.create 256 (* initial 256 sessions *)
 
 module Permission_set = Set.Make (String)
 
-(* This flag enables efficient look-up of the permission set *)
-let use_efficient_permission_set = true
-
 let permission_set permission_list =
   List.fold_left
     (fun set r -> Permission_set.add r set)
@@ -79,7 +76,7 @@ let permission_set permission_list =
 
 let create_session_permissions_tbl ~session_id ~rbac_permissions =
   if
-    use_efficient_permission_set && Pool_role.is_master ()
+    Pool_role.is_master ()
     (* Create this structure on the master only, *)
     (* so as to avoid heap-leaking on the slaves *)
   then (
@@ -92,8 +89,7 @@ let create_session_permissions_tbl ~session_id ~rbac_permissions =
     None
 
 let destroy_session_permissions_tbl ~session_id =
-  if use_efficient_permission_set then
-    Hashtbl.remove session_permissions_tbl session_id
+  Hashtbl.remove session_permissions_tbl session_id
 
 (* create a key permission name that can be in the session *)
 let get_key_permission_name permission key_name =
@@ -105,7 +101,7 @@ let get_keyERR_permission_name permission err = permission ^ "/keyERR:" ^ err
 let permission_of_action ?args ~keys _action =
   (* all permissions are in lowercase, see gen_rbac.writer_ *)
   let action = String.lowercase_ascii _action in
-  if List.length keys < 1 then
+  if keys = [] then
     (* most actions do not use rbac-guarded map keys in the arguments *)
     action
   else (* only actions with rbac-guarded map keys fall here *)
@@ -114,86 +110,55 @@ let permission_of_action ?args ~keys _action =
         (* this should never happen *)
         debug "DENYING access: no args for keyed-action %s" action ;
         get_keyERR_permission_name action "DENY_NOARGS" (* will always deny *)
-    | Some (arg_keys, arg_values) ->
-        if List.length arg_keys <> List.length arg_values then (
+    | Some keys_values -> (
+      match List.assoc_opt "key" keys_values with
+      | None ->
+          (* this should never happen *)
+          debug "DENYING access: no 'key' argument in the action %s" action ;
+          get_keyERR_permission_name action "DENY_NOKEY"
+      | Some (Rpc.String key_name_in_args) -> (
+        try
+          let key_name =
+            List.find
+              (fun key_name ->
+                if String.ends_with ~suffix:"*" key_name then
+                  (* resolve wildcards at the end *)
+                  String.starts_with
+                    ~prefix:(String.sub key_name 0 (String.length key_name - 1))
+                    key_name_in_args
+                else (* no wildcards to resolve *)
+                  key_name = key_name_in_args
+              )
+              keys
+          in
+          get_key_permission_name action (String.lowercase_ascii key_name)
+        with Not_found ->
+          (* expected, key_in_args is not rbac-protected *)
+          action
+      )
+      | Some value ->
           (* this should never happen *)
           debug
-            "DENYING access: arg_keys and arg_values lengths don't match: \
-             arg_keys=[%s], arg_values=[%s]"
-            (List.fold_left (fun ss s -> ss ^ s ^ ",") "" arg_keys)
-            (List.fold_left
-               (fun ss s -> ss ^ Rpc.to_string s ^ ",")
-               "" arg_values
-            ) ;
-          get_keyERR_permission_name action "DENY_WRGLEN" (* will always deny *)
-        ) else (* keys and values have the same length *)
-          let rec get_permission_name_of_keys arg_keys arg_values =
-            match (arg_keys, arg_values) with
-            | [], [] | _, [] | [], _ ->
-                (* this should never happen *)
-                debug "DENYING access: no 'key' argument in the action %s"
-                  action ;
-                get_keyERR_permission_name action "DENY_NOKEY"
-                (* deny by default *)
-            | k :: ks, v :: vs -> (
-                if k <> "key" (* "key" is defined in datamodel_utils.ml *) then
-                  get_permission_name_of_keys ks vs
-                else (* found "key" in args *)
-                  match v with
-                  | Rpc.String key_name_in_args -> (
-                    try
-                      (*debug "key_name_in_args=%s, keys=[%s]" key_name_in_args ((List.fold_left (fun ss s->ss^s^",") "" keys)) ;*)
-                      let key_name =
-                        List.find
-                          (fun key_name ->
-                            if Astring.String.is_suffix ~affix:"*" key_name then
-                              (* resolve wildcards at the end *)
-                              Astring.String.is_prefix
-                                ~affix:
-                                  (String.sub key_name 0
-                                     (String.length key_name - 1)
-                                  )
-                                key_name_in_args
-                            else (* no wildcards to resolve *)
-                              key_name = key_name_in_args
-                          )
-                          keys
-                      in
-                      get_key_permission_name action
-                        (String.lowercase_ascii key_name)
-                    with Not_found ->
-                      (* expected, key_in_args is not rbac-protected *)
-                      action
-                  )
-                  | _ ->
-                      (* this should never happen *)
-                      debug
-                        "DENYING access: wrong XML value [%s] in the 'key' \
-                         argument of action %s"
-                        (Rpc.to_string v) action ;
-                      get_keyERR_permission_name action "DENY_NOVALUE"
-              )
-          in
-          get_permission_name_of_keys arg_keys arg_values
+            "DENYING access: wrong XML value [%s] in the 'key' argument of \
+             action %s"
+            (Rpc.to_string value) action ;
+          get_keyERR_permission_name action "DENY_NOVALUE"
+    )
 
 let is_permission_in_session ~session_id ~permission ~session =
   let find_linear elem set = List.exists (fun e -> e = elem) set in
   let find_log elem set = Permission_set.mem elem set in
-  if use_efficient_permission_set then
-    (* use efficient log look-up of permissions *)
-    let permission_tree =
-      try Some (Hashtbl.find session_permissions_tbl session_id)
-      with Not_found ->
-        create_session_permissions_tbl ~session_id
-          ~rbac_permissions:session.API.session_rbac_permissions
-    in
-    match permission_tree with
-    | Some permission_tree ->
-        find_log permission permission_tree
-    | None ->
-        find_linear permission session.API.session_rbac_permissions
-  else (* use linear look-up of permissions *)
-    find_linear permission session.API.session_rbac_permissions
+  let permission_tree =
+    try Some (Hashtbl.find session_permissions_tbl session_id)
+    with Not_found ->
+      create_session_permissions_tbl ~session_id
+        ~rbac_permissions:session.API.session_rbac_permissions
+  in
+  match permission_tree with
+  | Some permission_tree ->
+      find_log permission permission_tree
+  | None ->
+      find_linear permission session.API.session_rbac_permissions
 
 open Db_actions
 
