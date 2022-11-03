@@ -1,10 +1,24 @@
 let prototyped_of_class = function
+  | "Gpg_key" ->
+      Some "22.31.0-next"
   | "VTPM" ->
       Some "22.26.0"
   | _ ->
       None
 
 let prototyped_of_field = function
+  | "Gpg_key", "type" ->
+      Some "22.31.0-next"
+  | "Gpg_key", "uninstalled" ->
+      Some "22.31.0-next"
+  | "Gpg_key", "fingerprint" ->
+      Some "22.31.0-next"
+  | "Gpg_key", "created" ->
+      Some "22.31.0-next"
+  | "Gpg_key", "name" ->
+      Some "22.31.0-next"
+  | "Gpg_key", "uuid" ->
+      Some "22.31.0-next"
   | "Repository", "gpgkey_path" ->
       Some "22.12.0"
   | "VTPM", "contents" ->
@@ -37,8 +51,20 @@ let prototyped_of_message = function
       Some "22.26.0"
   | "VTPM", "create" ->
       Some "22.26.0"
+  | "host", "uninstall_rpmgpgkey" ->
+      Some "22.31.0-next"
+  | "host", "install_rpmgpgkey" ->
+      Some "22.31.0-next"
   | "host", "set_https_only" ->
       Some "22.27.0"
+  | "pool", "get_rpm_pubkey_string" ->
+      Some "22.31.0-next"
+  | "pool", "sync_rpmgpgkeys" ->
+      Some "22.31.0-next"
+  | "pool", "uninstall_rpmgpgkey" ->
+      Some "22.31.0-next"
+  | "pool", "install_rpmgpgkey" ->
+      Some "22.31.0-next"
   | "pool", "set_https_only" ->
       Some "22.27.0"
   | _ ->
