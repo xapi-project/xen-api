@@ -61,11 +61,13 @@ let experimental_reads_bypass_tapdisk = ref false
 
 let experimental_writes_bypass_tapdisk = ref false
 
-let ssl_legacy = ref false
-
 let good_ciphersuites = ref None
 
-let legacy_ciphersuites = ref None
+let verify_dest = ref false
+
+let sni = ref None
+
+let cert_bundle_path = ref None
 
 let string_opt = function None -> "None" | Some x -> x
 
@@ -140,20 +142,25 @@ let options =
     , (fun () -> string_of_bool !machine_readable_progress)
     , "emit machine-readable output"
     )
-  ; ( "ssl-legacy"
-    , Arg.Set ssl_legacy
-    , (fun () -> string_of_bool !ssl_legacy)
-    , " for TLS, allow all protocol versions instead of just TLSv1.2"
-    )
   ; ( "good-ciphersuites"
     , Arg.String (fun x -> good_ciphersuites := Some x)
     , (fun () -> string_opt !good_ciphersuites)
     , " the list of ciphersuites to allow for TLS"
     )
-  ; ( "legacy-ciphersuites"
-    , Arg.String (fun x -> legacy_ciphersuites := Some x)
-    , (fun () -> string_opt !legacy_ciphersuites)
-    , " additional TLS ciphersuites allowed only if ssl-legacy is set"
+  ; ( "verify-dest"
+    , Arg.Set verify_dest
+    , (fun () -> string_of_bool !verify_dest)
+    , "verify the TLS certificate of the remote host"
+    )
+  ; ( "sni"
+    , Arg.String (fun x -> sni := Some x)
+    , (fun () -> string_opt !sni)
+    , "the SNI hostname if connecting to the remote over TLS"
+    )
+  ; ( "cert-bundle-path"
+    , Arg.String (fun x -> cert_bundle_path := Some x)
+    , (fun () -> string_opt !cert_bundle_path)
+    , "path to a CA certificate bundle"
     )
   ]
 
@@ -301,6 +308,17 @@ let _ =
         exit 1
     | Some x ->
         x
+  in
+  let verify_cert =
+    match (!verify_dest, !cert_bundle_path) with
+    | true, None ->
+        error "Must have -cert-bundle-path argument if -verify-dest is used" ;
+        exit 1
+    | true, Some path ->
+        Some
+          Channels.{sni= !sni; verify= Ssl.Verify_peer; cert_bundle_path= path}
+    | false, _ ->
+        None
   in
   if !size = -1L then (
     debug "Must have -size argument\n" ;
@@ -506,7 +524,7 @@ let _ =
   let t =
     stream_t >>= fun s ->
     Impl.write_stream common s destination (Some "none") None !prezeroed
-      progress None !good_ciphersuites
+      progress None !good_ciphersuites verify_cert
   in
   if destination_format = "vhd" then
     with_paused_tapdisk dest (fun () -> Lwt_main.run t)

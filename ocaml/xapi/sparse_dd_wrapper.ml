@@ -72,7 +72,7 @@ end
 exception Cancelled
 
 (** Use the new external sparse_dd program *)
-let dd_internal progress_cb base prezeroed infile outfile size =
+let dd_internal progress_cb base prezeroed verify_cert infile outfile size =
   let pipe_read, pipe_write = Unix.pipe () in
   let to_close = ref [pipe_read; pipe_write] in
   let close x =
@@ -87,6 +87,21 @@ let dd_internal progress_cb base prezeroed infile outfile size =
         match
           Forkhelpers.with_logfile_fd "sparse_dd" (fun log_fd ->
               let sparse_dd_path = !Xapi_globs.sparse_dd in
+              let verify_args =
+                match verify_cert with
+                | None ->
+                    []
+                | Some {Stunnel.sni= None; cert_bundle_path; _} ->
+                    ["-verify-dest"; "-cert-bundle-path"; cert_bundle_path]
+                | Some {Stunnel.sni= Some sni; cert_bundle_path; _} ->
+                    [
+                      "-verify-dest"
+                    ; "-cert-bundle-path"
+                    ; cert_bundle_path
+                    ; "-sni"
+                    ; sni
+                    ]
+              in
               let args =
                 List.concat
                   [
@@ -103,6 +118,7 @@ let dd_internal progress_cb base prezeroed infile outfile size =
                     ]
                   ; (if prezeroed then ["-prezeroed"] else [])
                   ; (match base with None -> [] | Some x -> ["-base"; x])
+                  ; verify_args
                   ]
               in
               debug "%s %s" sparse_dd_path (String.concat " " args) ;
@@ -160,12 +176,13 @@ let dd_internal progress_cb base prezeroed infile outfile size =
     )
     (fun () -> close pipe_read ; close pipe_write)
 
-let dd ?(progress_cb = fun _ -> ()) ?base prezeroed =
+let dd ?(progress_cb = fun _ -> ()) ?base ~verify_cert prezeroed =
   dd_internal
     (function Continuing x -> progress_cb x | _ -> ())
-    base prezeroed
+    base prezeroed verify_cert
 
-let start ?(progress_cb = fun _ -> ()) ?base prezeroed infile outfile size =
+let start ?(progress_cb = fun _ -> ()) ?base ~verify_cert prezeroed infile
+    outfile size =
   let m = Mutex.create () in
   let c = Condition.create () in
   let pid = ref None in
@@ -186,7 +203,8 @@ let start ?(progress_cb = fun _ -> ()) ?base prezeroed infile outfile size =
   let _ =
     Thread.create
       (fun () ->
-        dd_internal thread_progress_cb base prezeroed infile outfile size
+        dd_internal thread_progress_cb base prezeroed verify_cert infile outfile
+          size
       )
       ()
   in

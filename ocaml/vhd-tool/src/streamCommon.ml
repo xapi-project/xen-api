@@ -62,11 +62,13 @@ type t = {
   ; machine: bool
   ; tar_filename_prefix: string option
   ; good_ciphersuites: string option
+  ; verify_cert: Channels.verification_config option
 }
 
 let make source relative_to source_format destination_format destination
     destination_fd source_protocol destination_protocol prezeroed progress
-    machine tar_filename_prefix good_ciphersuites =
+    machine tar_filename_prefix good_ciphersuites verify_dest sni
+    cert_bundle_path =
   let source_protocol =
     protocol_of_string (require "source-protocol" source_protocol)
   in
@@ -88,6 +90,15 @@ let make source relative_to source_format destination_format destination
     | Some fd ->
         "fd://" ^ string_of_int fd
   in
+  let verify_cert =
+    match (verify_dest, cert_bundle_path) with
+    | true, None ->
+        failwith "Must have -cert-bundle-path argument if -verify-dest is used"
+    | true, Some path ->
+        Some Channels.{sni; verify= Ssl.Verify_peer; cert_bundle_path= path}
+    | false, _ ->
+        None
+  in
 
   {
     source
@@ -102,4 +113,5 @@ let make source relative_to source_format destination_format destination
   ; machine
   ; tar_filename_prefix
   ; good_ciphersuites
+  ; verify_cert
   }

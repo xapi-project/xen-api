@@ -944,7 +944,7 @@ let make_stream common source relative_to source_format destination_format =
       assert false
 
 let write_stream common s destination _source_protocol destination_protocol
-    prezeroed progress tar_filename_prefix good_ciphersuites =
+    prezeroed progress tar_filename_prefix good_ciphersuites verify_cert =
   endpoint_of_string destination >>= fun endpoint ->
   let use_ssl = match endpoint with Https _ -> true | _ -> false in
   ( match endpoint with
@@ -997,7 +997,7 @@ let write_stream common s destination _source_protocol destination_protocol
       >>= fun () ->
       let open Cohttp in
       ( if use_ssl then
-          Channels.of_ssl_fd sock good_ciphersuites
+          Channels.of_ssl_fd sock good_ciphersuites verify_cert
       else
         Channels.of_raw_fd sock
       )
@@ -1131,7 +1131,7 @@ let stream_t common args ?(progress = no_progress_bar) () =
   write_stream common s args.StreamCommon.destination
     args.StreamCommon.source_protocol args.StreamCommon.destination_protocol
     args.StreamCommon.prezeroed progress args.StreamCommon.tar_filename_prefix
-    args.StreamCommon.good_ciphersuites
+    args.StreamCommon.good_ciphersuites args.StreamCommon.verify_cert
 
 let stream common args =
   try

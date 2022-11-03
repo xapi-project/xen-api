@@ -141,8 +141,8 @@ let copy_vdi ~__context ?base vdi_src vdi_dst =
               if local_copy then
                 with_block_attached_device __context rpc session_id vdi_dst `RW
                   (fun device_dst ->
-                    Sparse_dd_wrapper.dd ~progress_cb ?base sparse device_src
-                      device_dst size
+                    Sparse_dd_wrapper.dd ~progress_cb ?base ~verify_cert:None
+                      sparse device_src device_dst size
                 )
               else
                 (* Create a new subtask for the inter-host sparse_dd. Without
@@ -163,8 +163,8 @@ let copy_vdi ~__context ?base vdi_src vdi_dst =
                     in
                     debug "remote_uri = %s" remote_uri ;
                     try
-                      Sparse_dd_wrapper.dd ~progress_cb ?base sparse device_src
-                        remote_uri size ;
+                      Sparse_dd_wrapper.dd ~progress_cb ~verify_cert:None ?base
+                        sparse device_src remote_uri size ;
                       Tasks.wait_for_all ~rpc ~session_id
                         ~tasks:[import_task_id] ;
                       match
