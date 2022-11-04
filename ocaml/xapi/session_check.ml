@@ -28,7 +28,7 @@ let is_local_session __context session_id =
     !check_local_session_hook
 
 (* intra_pool_only is true iff the call that's invoking this check can only be called from host<->host intra-pool communication *)
-let check ~intra_pool_only ~session_id =
+let check ~intra_pool_only ~session_id ~action =
   Server_helpers.exec_with_new_task ~quiet:true "session_check"
     (fun __context ->
       (* First see if this is a "local" session *)
@@ -40,17 +40,16 @@ let check ~intra_pool_only ~session_id =
             Db_actions.DB_Action.Session.get_pool ~__context ~self:session_id
           in
           (* If the session is not a pool login, but this call is only supported for pool logins then fail *)
-          if (not pool) && intra_pool_only then
-            raise
-              (Api_errors.Server_error
-                 ( Api_errors.internal_error
-                 , [
-                     "Internal API call attempted with non-pool (external) \
-                      session"
-                   ]
-                 )
-              ) ;
-          (* If the session isn't a pool login, and we're a slave, fail *)
+          ( if (not pool) && intra_pool_only then
+              let msg =
+                Printf.sprintf
+                  {|Internal API "%s" call attempted with non-pool (external) session|}
+                  action
+              in
+              raise Api_errors.(Server_error (internal_error, [msg]))
+          ) ;
+
+          (* If the session isn't a pool login, and we're a supporter, fail *)
           if (not pool) && not (Pool_role.is_master ()) then
             raise Non_master_login_on_slave ;
           if Pool_role.is_master () then
