@@ -300,8 +300,9 @@ let operation (obj : obj) (x : message) =
   let session_check_exp =
     if x.msg_session then
       [
-        Printf.sprintf "Session_check.check ~intra_pool_only:%b ~session_id;"
-          x.msg_pool_internal
+        Printf.sprintf
+          {|Session_check.check ~intra_pool_only:%b ~session_id ~action:"%s";|}
+          x.msg_pool_internal wire_name
       ]
     else
       []
@@ -528,19 +529,19 @@ let gen_module api : O.Module.t =
                    ^ debug "This is not a built-in rpc \"%s\"" ["__call"]
                  ; "    begin match __params with"
                  ; "    | session_id_rpc :: _->"
+                 ; "      (* based on the Host.call_extension call *)"
+                 ; "      let action = \"Host.call_extension\" in"
                  ; "      let session_id = ref_session_of_rpc session_id_rpc in"
                  ; "      Session_check.check ~intra_pool_only:false \
-                    ~session_id;"
-                 ; "      (* based on the Host.call_extension call *)"
+                    ~session_id ~action;"
                  ; "      let call_rpc = Rpc.String __call in "
                  ; "      let arg_names_values ="
                  ; "        [(\"session_id\", session_id_rpc); (__call, \
                     call_rpc)]"
                  ; "      in"
                  ; "      let key_names = [] in"
-                 ; "      let rbac __context fn = Rbac.check session_id \
-                    \"Host.call_extension\" ~args:arg_names_values \
-                    ~keys:key_names ~__context ~fn in"
+                 ; "      let rbac __context fn = Rbac.check session_id action \
+                    ~args:arg_names_values ~keys:key_names ~__context ~fn in"
                  ; "      Server_helpers.forward_extension ~__context rbac { \
                     call with Rpc.name = __call }"
                  ; "    | _ ->"
