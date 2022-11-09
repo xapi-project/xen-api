@@ -1843,9 +1843,12 @@ let pool_install_rpmgpgkey fd _printer rpc session_id params =
       raise (ExitWithError 1)
 
 let pool_uninstall_rpmgpgkey _printer rpc session_id params =
-  let name = List.assoc "name" params in
+  let gpg_key_uuid = List.assoc "gpg-key-uuid" params in
+  let gpg_key =
+    Client.Gpg_key.get_by_uuid ~rpc ~session_id ~uuid:gpg_key_uuid
+  in
   let pool = get_pool_with_default rpc session_id params "uuid" in
-  Client.Pool.uninstall_rpmgpgkey ~rpc ~session_id ~self:pool ~name
+  Client.Pool.uninstall_rpmgpgkey ~rpc ~session_id ~self:pool ~gpg_key
 
 let vdi_type_of_string = function
   | "system" ->

@@ -525,7 +525,7 @@ let rec cmdtable_data : (string * cmd_spec) list =
     )
   ; ( "pool-uninstall-rpmgpgkey"
     , {
-        reqd= ["name"]
+        reqd= ["gpg-key-uuid"]
       ; optn= ["uuid"]
       ; help= "Uninstall an RPM GPG public key, pool-wide."
       ; implementation= No_fd Cli_operations.pool_uninstall_rpmgpgkey
