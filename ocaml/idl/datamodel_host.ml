@@ -1755,7 +1755,7 @@ let install_rpmgpgkey =
       ; (String, "fingerprint", "The fingerprint of the RPM GPG public key")
       ]
     ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
-    ~lifecycle:[] ()
+    ~lifecycle:[] ~pool_internal:true ()
 
 let uninstall_rpmgpgkey =
   call ~name:"uninstall_rpmgpgkey"

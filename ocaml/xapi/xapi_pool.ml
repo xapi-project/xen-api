@@ -1573,31 +1573,39 @@ let join_common ~__context ~master_address ~master_username ~master_password
                 with
                 | false, `rpm_pubkey ->
                     let name = key_rec.API.gpg_key_name in
-                    let fingerprint = key_rec.API.gpg_key_fingerprint in
                     let pubkey =
                       Client.Pool.get_rpm_pubkey_contents ~rpc ~session_id
                         ~self:(get_pool ~rpc ~session_id)
                         ~gpg_key:key_ref
                     in
-                    Some (name, pubkey, fingerprint)
+                    Some (name, pubkey)
                 | _ ->
                     None
             )
        in
-       (* Install RPM GPG keys on each host in the old pool *)
-       Db.Host.get_all ~__context
-       |> List.iter (fun host ->
+       (* Uninstall RPM GPG keys in the old pool *)
+       Db.Gpg_key.get_all ~__context
+       |> List.iter (fun gpg_key ->
               Helpers.call_api_functions ~__context
                 (fun local_rpc local_session_id ->
-                  List.iter
-                    (fun (name, pubkey, fingerprint) ->
-                      Client.Host.install_rpmgpgkey ~rpc:local_rpc
-                        ~session_id:local_session_id ~self:host ~name ~pubkey
-                        ~fingerprint
-                    )
-                    pubkeys
+                  Client.Pool.uninstall_rpmgpgkey ~rpc:local_rpc
+                    ~session_id:local_session_id
+                    ~self:(Helpers.get_pool ~__context)
+                    ~gpg_key
               )
-          )
+          ) ;
+       (* Install RPM GPG keys on each host in the old pool *)
+       Helpers.call_api_functions ~__context (fun local_rpc local_session_id ->
+           List.iter
+             (fun (name, pubkey) ->
+               Client.Pool.install_rpmgpgkey ~rpc:local_rpc
+                 ~session_id:local_session_id
+                 ~self:(Helpers.get_pool ~__context)
+                 ~name ~pubkey
+               |> ignore
+             )
+             pubkeys
+       )
       ) ;
       (* this is where we try and sync up as much state as we can
          with the master. This is "best effort" rather than
