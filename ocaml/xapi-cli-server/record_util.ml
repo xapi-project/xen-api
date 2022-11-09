@@ -180,8 +180,6 @@ let pool_operation_to_string = function
       "install_rpmgpgkey"
   | `uninstall_rpmgpgkey ->
       "uninstall_rpmgpgkey"
-  | `sync_rpmgpgkeys ->
-      "sync_rpmgpgkeys"
 
 let host_operation_to_string = function
   | `provision ->

@@ -532,15 +532,6 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; flags= []
       }
     )
-  ; ( "pool-sync-rpmgpgkeys"
-    , {
-        reqd= []
-      ; optn= ["uuid"]
-      ; help= "Sync all managed RPM GPG public keys, pool-wide."
-      ; implementation= No_fd Cli_operations.pool_sync_rpmgpgkeys
-      ; flags= []
-      }
-    )
   ; ( "host-is-in-emergency-mode"
     , {
         reqd= []

@@ -1309,8 +1309,6 @@ let install_rpmgpgkey_in_progress = "INSTALL_RPMGPGKEY_IN_PROGRESS"
 
 let uninstall_rpmgpgkey_in_progress = "UNINSTALL_RPMGPGKEY_IN_PROGRESS"
 
-let sync_rpmgpgkeys_in_progress = "SYNC_RPMGPGKEYS_IN_PROGRESS"
-
 let rpm_gpg_key_record_with_same_name_already_exists =
   "RPM_GPG_KEY_RECORD_WITH_SAME_NAME_ALREADY_EXISTS"
 

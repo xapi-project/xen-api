@@ -401,8 +401,5 @@ val install_rpmgpgkey :
 val uninstall_rpmgpgkey :
   __context:Context.t -> self:API.ref_pool -> name:string -> unit
 
-val sync_rpmgpgkeys :
-  __context:Context.t -> self:API.ref_pool -> hosts:API.ref_host list -> unit
-
 val get_rpm_pubkey_string :
   __context:Context.t -> self:API.ref_pool -> gpg_key:API.ref_Gpg_key -> string

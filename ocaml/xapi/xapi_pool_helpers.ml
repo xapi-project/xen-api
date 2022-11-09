@@ -40,7 +40,6 @@ let blocking_ops =
   ; (`apply_updates, Api_errors.apply_updates_in_progress)
   ; (`install_rpmgpgkey, Api_errors.install_rpmgpgkey_in_progress)
   ; (`uninstall_rpmgpgkey, Api_errors.uninstall_rpmgpgkey_in_progress)
-  ; (`sync_rpmgpgkeys, Api_errors.sync_rpmgpgkeys_in_progress)
   ]
 
 (* generally these ops will happen internally. example: rather than blocking

@@ -1969,8 +1969,6 @@ let _ =
     ~doc:"A RPM GPG key installatin is in progress" () ;
   error Api_errors.uninstall_rpmgpgkey_in_progress []
     ~doc:"A RPM GPG key un-installation is in progress" () ;
-  error Api_errors.sync_rpmgpgkeys_in_progress []
-    ~doc:"The RPM GPG keys are being synced throughout the pool" () ;
   error Api_errors.rpm_gpg_key_record_with_same_name_already_exists ["name"]
     ~doc:"Another RPM GPG key record with same name exists already" () ;
   error Api_errors.rpm_gpg_key_with_same_fingerprint_already_exists ["name"]

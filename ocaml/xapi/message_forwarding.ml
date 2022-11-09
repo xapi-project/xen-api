@@ -1117,13 +1117,6 @@ functor
           ~self:(Helpers.get_pool ~__context)
         @@ fun () -> Local.Pool.uninstall_rpmgpgkey ~__context ~self ~name
 
-      let sync_rpmgpgkeys ~__context ~self ~hosts =
-        info "Pool.sync_rpmgpgkeys: pool = '%s'" (pool_uuid ~__context self) ;
-        Xapi_pool_helpers.with_pool_operation ~__context ~op:`sync_rpmgpgkeys
-          ~doc:"Pool.sync_rpmgpgkeys"
-          ~self:(Helpers.get_pool ~__context)
-        @@ fun () -> Local.Pool.sync_rpmgpgkeys ~__context ~self ~hosts
-
       let get_rpm_pubkey_string ~__context ~self ~gpg_key =
         info "Pool.get_rpm_pubkey_string: self='%s gpg_key='%s''"
           (pool_uuid ~__context self)

@@ -1847,10 +1847,6 @@ let pool_uninstall_rpmgpgkey _printer rpc session_id params =
   let pool = get_pool_with_default rpc session_id params "uuid" in
   Client.Pool.uninstall_rpmgpgkey ~rpc ~session_id ~self:pool ~name
 
-let pool_sync_rpmgpgkeys _printer rpc session_id params =
-  let pool = get_pool_with_default rpc session_id params "uuid" in
-  Client.Pool.sync_rpmgpgkeys ~rpc ~session_id ~self:pool ~hosts:[]
-
 let vdi_type_of_string = function
   | "system" ->
       `system

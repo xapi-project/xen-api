@@ -52,10 +52,6 @@ let operations =
         , "Indicates this pool is in the process of uninstalling an RPM GPG \
            public key"
         )
-      ; ( "sync_rpmgpgkeys"
-        , "Indicates this pool is in the process of syncing all managed RPM \
-           GPG public keys"
-        )
       ]
     )
 
@@ -1060,17 +1056,6 @@ let uninstall_rpmgpgkey =
     ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
     ~lifecycle:[] ()
 
-let sync_rpmgpgkeys =
-  call ~name:"sync_rpmgpgkeys"
-    ~doc:"Sync all RPM GPG public keys throughout the pool."
-    ~params:
-      [
-        (Ref _pool, "self", "The pool")
-      ; (Set (Ref _host), "hosts", "The hosts to be synced")
-      ]
-    ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
-    ~lifecycle:[] ()
-
 let get_rpm_pubkey_string =
   call ~name:"get_rpm_pubkey_string" ~doc:"Get the string of an RPM public key."
     ~params:
@@ -1165,7 +1150,6 @@ let t =
       ; set_https_only
       ; install_rpmgpgkey
       ; uninstall_rpmgpgkey
-      ; sync_rpmgpgkeys
       ; get_rpm_pubkey_string
       ]
     ~contents:

@@ -59,8 +59,6 @@ let prototyped_of_message = function
       Some "22.27.0"
   | "pool", "get_rpm_pubkey_string" ->
       Some "22.31.0-next"
-  | "pool", "sync_rpmgpgkeys" ->
-      Some "22.31.0-next"
   | "pool", "uninstall_rpmgpgkey" ->
       Some "22.31.0-next"
   | "pool", "install_rpmgpgkey" ->
