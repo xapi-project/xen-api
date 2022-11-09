@@ -1051,13 +1051,17 @@ let uninstall_rpmgpgkey =
     ~params:
       [
         (Ref _pool, "self", "The pool")
-      ; (Ref _gpg_key, "gpg_key", "The reference of the RPM GPG public key to be uninstalled")
+      ; ( Ref _gpg_key
+        , "gpg_key"
+        , "The reference of the RPM GPG public key to be uninstalled"
+        )
       ]
     ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
     ~lifecycle:[] ()
 
 let get_rpm_pubkey_contents =
-  call ~name:"get_rpm_pubkey_contents " ~doc:"Get the contents of an RPM public key."
+  call ~name:"get_rpm_pubkey_contents"
+    ~doc:"Get the contents of an RPM public key."
     ~params:
       [
         (Ref _pool, "self", "The pool")

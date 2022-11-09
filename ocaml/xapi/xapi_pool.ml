@@ -1575,7 +1575,7 @@ let join_common ~__context ~master_address ~master_username ~master_password
                     let name = key_rec.API.gpg_key_name in
                     let fingerprint = key_rec.API.gpg_key_fingerprint in
                     let pubkey =
-                      Client.Pool.get_rpm_pubkey_string ~rpc ~session_id
+                      Client.Pool.get_rpm_pubkey_contents ~rpc ~session_id
                         ~self:(get_pool ~rpc ~session_id)
                         ~gpg_key:key_ref
                     in
@@ -3707,10 +3707,7 @@ let install_rpmgpgkey ~__context ~self:_ ~name ~pubkey =
   )
   |> fun gpg_key_ref ->
   (* Install the key on other member hosts. *)
-  let other_members =
-    let coordinator = Helpers.get_localhost ~__context in
-    Db.Host.get_all ~__context |> List.filter (fun href -> href <> coordinator)
-  in
+  let other_members = Xapi_pool_helpers.get_slaves_list ~__context in
   let funs =
     List.map
       (fun host () ->
@@ -3729,58 +3726,36 @@ let install_rpmgpgkey ~__context ~self:_ ~name ~pubkey =
   Helpers.run_in_parallel ~funs ~capacity:16 |> ignore ;
   gpg_key_ref
 
-let uninstall_rpmgpgkey ~__context ~self ~name =
+let uninstall_rpmgpgkey ~__context ~self ~gpg_key =
   (* This function runs on the coordinator host. *)
-  Gpg.assert_name_is_valid ~name ;
+  let name = Db.Gpg_key.get_name ~__context ~self:gpg_key in
   Db.Pool.get_repositories ~__context ~self
   |> List.map (fun self -> Db.Repository.get_gpgkey_path ~__context ~self)
   |> List.exists (fun p -> p = name)
   |> function
   | true ->
       raise Api_errors.(Server_error (rpm_gpg_key_is_in_use, [name]))
-  | false -> (
-      let expr =
-        let open Db_filter_types in
-        Eq (Field "type", Literal "rpm_pubkey")
+  | false ->
+      let hosts = Db.Host.get_all ~__context in
+      Db.Gpg_key.set_uninstalled ~__context ~self:gpg_key ~value:true ;
+      let fingerprint = Db.Gpg_key.get_fingerprint ~__context ~self:gpg_key in
+      let funs =
+        List.map
+          (fun host () ->
+            try
+              Helpers.call_api_functions ~__context @@ fun rpc session_id ->
+              Client.Host.uninstall_rpmgpgkey ~rpc ~session_id ~self:host ~name
+                ~fingerprint
+            with e ->
+              error "Error from Host.uninstall_rpmgpgkey on host %s: %s"
+                (Ref.string_of host)
+                (ExnHelper.string_of_exn e) ;
+              raise e
+          )
+          hosts
       in
-      Db.Gpg_key.get_refs_where ~__context ~expr
-      |> List.filter_map (fun ref ->
-             let name_in_db = Db.Gpg_key.get_name ~__context ~self:ref in
-             if name = name_in_db then Some ref else None
-         )
-      |> function
-      | [] ->
-          raise
-            Api_errors.(
-              Server_error (rpm_gpg_key_record_does_not_exist, [name])
-            )
-      | refs ->
-          let hosts = Db.Host.get_all ~__context in
-          List.iter
-            (fun self ->
-              Db.Gpg_key.set_uninstalled ~__context ~self ~value:true ;
-              let fingerprint = Db.Gpg_key.get_fingerprint ~__context ~self in
-              let funs =
-                List.map
-                  (fun host () ->
-                    try
-                      Helpers.call_api_functions ~__context
-                      @@ fun rpc session_id ->
-                      Client.Host.uninstall_rpmgpgkey ~rpc ~session_id
-                        ~self:host ~name ~fingerprint
-                    with e ->
-                      error "Error from Host.uninstall_rpmgpgkey on host %s: %s"
-                        (Ref.string_of host)
-                        (ExnHelper.string_of_exn e) ;
-                      raise e
-                  )
-                  hosts
-              in
-              Helpers.run_in_parallel ~funs ~capacity:16 |> ignore ;
-              Db.Gpg_key.destroy ~__context ~self
-            )
-            refs
-    )
+      Helpers.run_in_parallel ~funs ~capacity:16 |> ignore ;
+      Db.Gpg_key.destroy ~__context ~self:gpg_key
 
-let get_rpm_pubkey_string ~__context ~self:_ ~gpg_key =
-  Rpm_gpg_key.get_rpm_pubkey_string ~__context ~self:gpg_key
+let get_rpm_pubkey_contents ~__context ~self:_ ~gpg_key =
+  Rpm_gpg_key.get_rpm_pubkey_contents ~__context ~self:gpg_key

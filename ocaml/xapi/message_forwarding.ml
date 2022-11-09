@@ -1108,20 +1108,20 @@ functor
           ~self:(Helpers.get_pool ~__context)
         @@ fun () -> Local.Pool.install_rpmgpgkey ~__context ~self ~name ~pubkey
 
-      let uninstall_rpmgpgkey ~__context ~self ~name =
-        info "Pool.uninstall_rpmgpgkey: pool = '%s'; name = '%s'"
+      let uninstall_rpmgpgkey ~__context ~self ~gpg_key =
+        info "Pool.uninstall_rpmgpgkey: pool = '%s'; gpg_key = '%s'"
           (pool_uuid ~__context self)
-          name ;
+          (gpg_key_uuid ~__context gpg_key) ;
         Xapi_pool_helpers.with_pool_operation ~__context
           ~op:`uninstall_rpmgpgkey ~doc:"Pool.uninstall_rpmgpgkey"
           ~self:(Helpers.get_pool ~__context)
-        @@ fun () -> Local.Pool.uninstall_rpmgpgkey ~__context ~self ~name
+        @@ fun () -> Local.Pool.uninstall_rpmgpgkey ~__context ~self ~gpg_key
 
-      let get_rpm_pubkey_string ~__context ~self ~gpg_key =
-        info "Pool.get_rpm_pubkey_string: self='%s gpg_key='%s''"
+      let get_rpm_pubkey_contents ~__context ~self ~gpg_key =
+        info "Pool.get_rpm_pubkey_contents: self='%s gpg_key='%s''"
           (pool_uuid ~__context self)
           (gpg_key_uuid ~__context gpg_key) ;
-        Local.Pool.get_rpm_pubkey_string ~__context ~self ~gpg_key
+        Local.Pool.get_rpm_pubkey_contents ~__context ~self ~gpg_key
     end
 
     module VM = struct

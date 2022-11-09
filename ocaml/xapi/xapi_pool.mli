@@ -399,7 +399,7 @@ val install_rpmgpgkey :
   -> API.ref_Gpg_key
 
 val uninstall_rpmgpgkey :
-  __context:Context.t -> self:API.ref_pool -> name:string -> unit
+  __context:Context.t -> self:API.ref_pool -> gpg_key:API.ref_Gpg_key -> unit
 
-val get_rpm_pubkey_string :
+val get_rpm_pubkey_contents :
   __context:Context.t -> self:API.ref_pool -> gpg_key:API.ref_Gpg_key -> string
