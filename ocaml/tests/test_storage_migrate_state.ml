@@ -31,6 +31,7 @@ let sample_send_state =
             dp= "remote_dp"
           ; vdi= Storage_interface.Vdi.of_string "mirror_vdi"
           ; url= "remote_url"
+          ; verify_dest= true
           }
     ; local_dp= "local_dp"
     ; tapdev=
@@ -64,6 +65,7 @@ let sample_copy_state =
     ; dest_sr= Storage_interface.Sr.of_string "dest_sr"
     ; copy_vdi= Storage_interface.Vdi.of_string "copy_vdi"
     ; remote_url= "remote_url"
+    ; verify_dest= true
     }
   
 

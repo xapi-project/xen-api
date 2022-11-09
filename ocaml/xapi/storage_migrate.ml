@@ -50,7 +50,13 @@ module State = struct
   end
 
   module Send_state = struct
-    type remote_info = {dp: dp; vdi: Vdi.t; url: string} [@@deriving rpcty]
+    type remote_info = {
+        dp: dp
+      ; vdi: Vdi.t
+      ; url: string
+      ; verify_dest: bool [@default false]
+    }
+    [@@deriving rpcty]
 
     type tapdev = Tapctl.tapdev
 
@@ -107,6 +113,7 @@ module State = struct
       ; dest_sr: Sr.t
       ; copy_vdi: Vdi.t
       ; remote_url: string
+      ; verify_dest: bool [@default false]
     }
     [@@deriving rpcty]
 
@@ -410,9 +417,7 @@ let progress_callback start len t y =
   signal (Storage_task.id_of_handle t)
 
 let copy' ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi ~verify_dest =
-  let remote_url =
-    Storage_utils.connection_args_of_uri ~verify_dest url
-  in
+  let remote_url = Storage_utils.connection_args_of_uri ~verify_dest url in
   let module Remote = StorageAPI (Idl.Exn.GenClient (struct
     let rpc =
       Storage_utils.rpc ~srcstr:"smapiv2" ~dststr:"dst_smapiv2" remote_url
@@ -499,6 +504,7 @@ let copy' ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi ~verify_dest =
             ; dest_sr= dest
             ; copy_vdi= remote_vdi.vdi
             ; remote_url= url
+            ; verify_dest
             }
           
       ) ;
@@ -604,7 +610,8 @@ let stop ~dbg ~id =
               debug "Snapshot VDI already cleaned up"
           ) ;
           let remote_url =
-            Storage_utils.connection_args_of_uri ~verify_dest:true
+            Storage_utils.connection_args_of_uri
+              ~verify_dest:remote_info.State.Send_state.verify_dest
               remote_info.State.Send_state.url
           in
           let module Remote = StorageAPI (Idl.Exn.GenClient (struct
@@ -742,7 +749,13 @@ let start' ~task ~dbg ~sr ~vdi ~dp ~url ~dest ~verify_dest =
           url
         ; dest_sr= dest
         ; remote_info=
-            Some {dp= mirror_dp; vdi= result.Mirror.mirror_vdi.vdi; url}
+            Some
+              {
+                dp= mirror_dp
+              ; vdi= result.Mirror.mirror_vdi.vdi
+              ; url
+              ; verify_dest
+              }
         ; local_dp= dp
         ; tapdev= Some tapdev
         ; failed= false
@@ -927,7 +940,8 @@ let killall ~dbg =
           )
         ] ;
       let remote_url =
-        Storage_utils.connection_args_of_uri ~verify_dest:true
+        Storage_utils.connection_args_of_uri
+          ~verify_dest:copy_state.State.Copy_state.verify_dest
           copy_state.State.Copy_state.remote_url
       in
       let module Remote = StorageAPI (Idl.Exn.GenClient (struct
@@ -1125,8 +1139,13 @@ let post_detach_hook ~sr ~vdi ~dp:_ =
   let id = State.mirror_id_of (sr, vdi) in
   State.find_active_local_mirror id
   |> Option.iter (fun r ->
+         let verify_dest =
+           Option.fold ~none:false
+             ~some:(fun ri -> ri.verify_dest)
+             r.remote_info
+         in
          let remote_url =
-           Storage_utils.connection_args_of_uri ~verify_dest:true r.url
+           Storage_utils.connection_args_of_uri ~verify_dest r.url
          in
          let module Remote = StorageAPI (Idl.Exn.GenClient (struct
            let rpc =
