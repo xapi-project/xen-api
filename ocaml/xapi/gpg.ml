@@ -161,7 +161,7 @@ let assert_name_is_valid ~name =
         false
   in
   let len = String.length name in
-  let starts_with_dot = Astring.String.is_prefix ~affix:"." name in
+  let starts_with_dot = String.starts_with ~prefix:"." name in
   let is_valid = String.for_all safe_char name && not starts_with_dot in
   match (is_valid, len <= 0, len > 64) with
   | false, _, _ ->

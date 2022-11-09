@@ -19,7 +19,7 @@ val uninstall_rpmgpgkey : name:string -> fingerprint:string -> unit
 
 val get_pubkey : name:string -> string option
 
-val get_rpm_pubkey_string :
+val get_rpm_pubkey_contents :
   __context:Context.t -> self:API.ref_Gpg_key -> string
 
 val extract_pubkey_from_rpm : name:string -> string -> string option

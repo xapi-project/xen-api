@@ -14,7 +14,7 @@
 
 module Unixext = Xapi_stdext_unix.Unixext
 
-module D = Debug.Make (struct let name = "rpm_gpg_key" end)
+module D = Debug.Make (struct let name = __MODULE__ end)
 
 open D
 open Gpg
@@ -37,7 +37,7 @@ let get_pubkey ~name =
       error "The RPM GPG public key file %s doesn't exist" file_path_name ;
       None
 
-let get_rpm_pubkey_string ~__context ~self =
+let get_rpm_pubkey_contents ~__context ~self =
   let name = Db.Gpg_key.get_name ~__context ~self in
   match Db.Gpg_key.get_type ~__context ~self with
   | `rpm_pubkey -> (
