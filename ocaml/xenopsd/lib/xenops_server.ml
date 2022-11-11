@@ -2420,7 +2420,7 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
         Xenops_interface.XenopsAPI (Idl.Exn.GenClient (struct
           let rpc =
             Xcp_client.xml_http_rpc ~srcstr:"xenops" ~dststr:"dst_xenops"
-              (fun () -> vmm.vmm_url
+              ~verify_cert (fun () -> vmm.vmm_url
             )
         end)) in
         let regexp = Re.Pcre.regexp id in
