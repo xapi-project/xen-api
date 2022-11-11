@@ -970,6 +970,11 @@ module StorageAPI (R : RPC) = struct
 
     let task_id_p = Param.mk ~name:"task_id" Task.id
 
+    let verify_dest_p =
+      Param.mk ~name:"verify_dest"
+        ~description:["when true, verify remote server certificate"]
+        Types.bool
+
     (** [copy_into task sr vdi url sr2] copies the data from [vdi] into a remote
         system [url]'s [sr2] *)
     let copy_into =
@@ -981,6 +986,7 @@ module StorageAPI (R : RPC) = struct
         @-> url_p
         @-> dest_p
         @-> dest_vdi_p
+        @-> verify_dest_p
         @-> returning task_id_p err
         )
 
@@ -993,6 +999,7 @@ module StorageAPI (R : RPC) = struct
         @-> dp_p
         @-> url_p
         @-> dest_p
+        @-> verify_dest_p
         @-> returning result_p err
         )
 
@@ -1007,6 +1014,7 @@ module StorageAPI (R : RPC) = struct
           @-> dp_p
           @-> url_p
           @-> dest_p
+          @-> verify_dest_p
           @-> returning task_id_p err
           )
 
@@ -1327,6 +1335,7 @@ module type Server_impl = sig
       -> url:string
       -> dest:sr
       -> dest_vdi:vdi
+      -> verify_dest:bool
       -> Task.id
 
     val copy :
@@ -1337,6 +1346,7 @@ module type Server_impl = sig
       -> dp:dp
       -> url:string
       -> dest:sr
+      -> verify_dest:bool
       -> Task.id
 
     module MIRROR : sig
@@ -1348,6 +1358,7 @@ module type Server_impl = sig
         -> dp:dp
         -> url:string
         -> dest:sr
+        -> verify_dest:bool
         -> Task.id
 
       val stop : context -> dbg:debug_info -> id:Mirror.id -> unit
@@ -1514,14 +1525,14 @@ module Server (Impl : Server_impl) () = struct
         Impl.VDI.list_changed_blocks () ~dbg ~sr ~vdi_from ~vdi_to
     ) ;
     S.get_by_name (fun dbg name -> Impl.get_by_name () ~dbg ~name) ;
-    S.DATA.copy_into (fun dbg sr vdi url dest dest_vdi ->
-        Impl.DATA.copy_into () ~dbg ~sr ~vdi ~url ~dest ~dest_vdi
+    S.DATA.copy_into (fun dbg sr vdi url dest dest_vdi verify_dest ->
+        Impl.DATA.copy_into () ~dbg ~sr ~vdi ~url ~dest ~dest_vdi ~verify_dest
     ) ;
-    S.DATA.copy (fun dbg sr vdi dp url dest ->
-        Impl.DATA.copy () ~dbg ~sr ~vdi ~dp ~url ~dest
+    S.DATA.copy (fun dbg sr vdi dp url dest verify_dest ->
+        Impl.DATA.copy () ~dbg ~sr ~vdi ~dp ~url ~dest ~verify_dest
     ) ;
-    S.DATA.MIRROR.start (fun dbg sr vdi dp url dest ->
-        Impl.DATA.MIRROR.start () ~dbg ~sr ~vdi ~dp ~url ~dest
+    S.DATA.MIRROR.start (fun dbg sr vdi dp url dest verify_dest ->
+        Impl.DATA.MIRROR.start () ~dbg ~sr ~vdi ~dp ~url ~dest ~verify_dest
     ) ;
     S.DATA.MIRROR.stop (fun dbg id -> Impl.DATA.MIRROR.stop () ~dbg ~id) ;
     S.DATA.MIRROR.stat (fun dbg id -> Impl.DATA.MIRROR.stat () ~dbg ~id) ;

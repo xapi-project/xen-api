@@ -962,6 +962,7 @@ let vdi_copy_fun __context dbg vdi_map remote is_intra_pool remote_vdis so_far
     let task =
       if not vconf.do_mirror then
         SMAPI.DATA.copy dbg vconf.sr vconf.location new_dp remote.sm_url dest_sr
+          is_intra_pool
       else
         (* Though we have no intention of "write", here we use the same mode as the
            associated VBD on a mirrored VDIs (i.e. always RW). This avoids problem
@@ -979,7 +980,7 @@ let vdi_copy_fun __context dbg vdi_map remote is_intra_pool remote_vdis so_far
         (* Layering violation!! *)
         ignore (Storage_access.register_mirror __context id) ;
         SMAPI.DATA.MIRROR.start dbg vconf.sr vconf.location new_dp remote.sm_url
-          dest_sr
+          dest_sr is_intra_pool
     in
     let mapfn x =
       let total = Int64.to_float total_size in
