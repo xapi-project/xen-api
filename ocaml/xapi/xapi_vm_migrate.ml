@@ -634,7 +634,8 @@ module VDIMap = Map.Make (struct
   let compare = compare
 end)
 
-let update_snapshot_info ~__context ~dbg ~url ~vdi_map ~snapshots_map =
+let update_snapshot_info ~__context ~dbg ~url ~vdi_map ~snapshots_map
+    ~is_intra_pool =
   (* Construct a map of type:
      	 *   API.ref_VDI -> (mirror_record, (API.ref_VDI * mirror_record) list)
      	 *
@@ -690,8 +691,9 @@ let update_snapshot_info ~__context ~dbg ~url ~vdi_map ~snapshots_map =
             )
             snapshots
         in
+        let verify_dest = is_intra_pool in
         SMAPI.SR.update_snapshot_info_src dbg sr vdi url dest dest_vdi
-          snapshot_pairs
+          snapshot_pairs verify_dest
       )
       vdi_to_snapshots_map
   with Storage_interface.Storage_error Unknown_error ->
@@ -1382,7 +1384,7 @@ let migrate_send' ~__context ~vm ~dest ~live:_ ~vdi_map ~vif_map ~vgpu_map
        * so update the snapshot links if there are any snapshots. *)
       if snapshots_map <> [] then
         update_snapshot_info ~__context ~dbg ~url:remote.sm_url ~vdi_map
-          ~snapshots_map ;
+          ~snapshots_map ~is_intra_pool ;
       let xenops_vdi_map =
         List.map
           (fun mirror_record ->

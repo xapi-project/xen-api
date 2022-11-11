@@ -1342,8 +1342,8 @@ let copy_into ~dbg ~sr ~vdi ~url ~dest ~dest_vdi ~verify_dest =
  * for snapshot_of, snapshot_time and is_a_snapshot, which we don't want to add
  * to SMAPI. *)
 let update_snapshot_info_src ~dbg ~sr ~vdi ~url ~dest ~dest_vdi ~snapshot_pairs
-    =
-  let remote_url = Storage_utils.connection_args_of_uri ~verify_dest:true url in
+    ~verify_dest =
+  let remote_url = Storage_utils.connection_args_of_uri ~verify_dest url in
   let module Remote = StorageAPI (Idl.Exn.GenClient (struct
     let rpc =
       Storage_utils.rpc ~srcstr:"smapiv2" ~dststr:"dst_smapiv2" remote_url

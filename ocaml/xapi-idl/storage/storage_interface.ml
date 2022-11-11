@@ -657,6 +657,11 @@ module StorageAPI (R : RPC) = struct
         Param.mk ~name:"snapshot_pairs"
           TypeCombinators.(list (pair (Vdi.t, Vdi.t)))
       in
+      let verify_dest_p =
+        Param.mk ~name:"verify_dest"
+          ~description:["when true, verify remote server certificate"]
+          Types.bool
+      in
       declare "SR.update_snapshot_info_src" []
         (dbg_p
         @-> sr_p
@@ -665,6 +670,7 @@ module StorageAPI (R : RPC) = struct
         @-> dest_p
         @-> dest_vdi_p
         @-> snapshot_pairs_p
+        @-> verify_dest_p
         @-> returning unit_p err
         )
 
@@ -1170,6 +1176,7 @@ module type Server_impl = sig
       -> dest:sr
       -> dest_vdi:vdi
       -> snapshot_pairs:(vdi * vdi) list
+      -> verify_dest:bool
       -> unit
 
     val update_snapshot_info_dest :
@@ -1444,9 +1451,9 @@ module Server (Impl : Server_impl) () = struct
     S.SR.destroy (fun dbg sr -> Impl.SR.destroy () ~dbg ~sr) ;
     S.SR.scan (fun dbg sr -> Impl.SR.scan () ~dbg ~sr) ;
     S.SR.update_snapshot_info_src
-      (fun dbg sr vdi url dest dest_vdi snapshot_pairs ->
+      (fun dbg sr vdi url dest dest_vdi snapshot_pairs verify_dest ->
         Impl.SR.update_snapshot_info_src () ~dbg ~sr ~vdi ~url ~dest ~dest_vdi
-          ~snapshot_pairs
+          ~snapshot_pairs ~verify_dest
     ) ;
     S.SR.update_snapshot_info_dest (fun dbg sr vdi src_vdi snapshot_pairs ->
         Impl.SR.update_snapshot_info_dest () ~dbg ~sr ~vdi ~src_vdi
