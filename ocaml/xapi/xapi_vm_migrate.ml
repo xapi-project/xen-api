@@ -247,12 +247,13 @@ let rec migrate_with_retries ~__context ~queue_name ~max ~try_no ~dbg ~vm_uuid
     ~verify_cert =
   let open Xapi_xenops_queue in
   let module Client = (val make_client queue_name : XENOPS) in
+  let verify_dest = verify_cert <> None in
   let progress = ref "(none yet)" in
   let f () =
     progress := "Client.VM.migrate" ;
     let t1 =
       Client.VM.migrate dbg vm_uuid xenops_vdi_map xenops_vif_map
-        xenops_vgpu_map xenops_url compress verify_cert
+        xenops_vgpu_map xenops_url compress verify_dest
     in
     progress := "sync_with_task" ;
     ignore (Xapi_xenops.sync_with_task __context queue_name t1)
@@ -416,9 +417,10 @@ let pool_migrate ~__context ~vm ~host ~options =
             info "xenops: VM.migrate %s to %s" vm_uuid xenops_url ;
             Xapi_xenops.transform_xenops_exn ~__context ~vm queue_name
               (fun () ->
+                let verify_cert = Stunnel_client.pool () in
                 migrate_with_retry ~__context ~queue_name ~dbg ~vm_uuid
                   ~xenops_vdi_map:[] ~xenops_vif_map:[] ~xenops_vgpu_map
-                  ~xenops_url ~compress ~verify_cert:true ;
+                  ~xenops_url ~compress ~verify_cert ;
                 (* Delete all record of this VM locally (including caches) *)
                 Xapi_xenops.Xenopsd_metadata.delete ~__context vm_uuid
             )
@@ -1512,7 +1514,9 @@ let migrate_send' ~__context ~vm ~dest ~live:_ ~vdi_map ~vif_map ~vgpu_map
                 (* can raise VGPU_mapping *)
                 infer_vgpu_map ~__context ~remote new_vm
               in
-              let verify_cert = is_intra_pool in
+              let verify_cert =
+                if is_intra_pool then Stunnel_client.pool () else None
+              in
               migrate_with_retry ~__context ~queue_name ~dbg ~vm_uuid
                 ~xenops_vdi_map ~xenops_vif_map ~xenops_vgpu_map
                 ~xenops_url:remote.xenops_url ~compress ~verify_cert ;

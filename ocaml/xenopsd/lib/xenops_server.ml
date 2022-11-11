@@ -2408,7 +2408,11 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
         in
         debug "%s compress memory: %b" __FUNCTION__ compress_memory ;
         let verify_cert =
-          if vmm.vmm_verify_cert then Stunnel_client.pool () else None
+          (* Stunnel_client.pool (which xapi normally uses) is not right here,
+             because xenopsd does not get notified if certificate checking is
+             turned on or off in xapi. Xapi takes the global on/off switch into
+             account when setting `verify_cert`. *)
+          if vmm.vmm_verify_cert then Some Stunnel.pool else None
         in
         (* We need to perform version exchange here *)
         let module B = (val get_backend () : S) in
