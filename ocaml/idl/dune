@@ -15,7 +15,7 @@
     threads
     xapi-backtrace
     xapi-consts
-    xapi-database
+    xapi-schema
     xapi-stdext-date
     xapi-stdext-std
     xapi-stdext-unix

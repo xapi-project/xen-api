@@ -3,26 +3,43 @@
 (ocamlyacc db_filter_parse)
 
 (library
+  (name xapi_schema)
+  (public_name xapi-schema)
+  (modules
+    db_names db_exn schema string_marshall_helper string_unmarshall_helper
+    test_schemas)
+  (libraries
+    ppx_sexp_conv.runtime-lib
+    sexplib0
+    sexpr
+    xapi-log
+    xapi-stdext-encodings
+  )
+  (wrapped false)
+  (preprocess (pps ppx_sexp_conv))
+)
+
+(library
   (name xapi_database)
   (public_name xapi-database)
   (modules
-    (:standard \ database_server_main db_cache_test block_device_io
-      unit_test_marshall unit_test_sql))
+    (:standard \ database_server_main db_cache_test db_names db_exn
+      block_device_io string_marshall_helper string_unmarshall_helper schema
+      test_schemas unit_test_marshall unit_test_sql))
   (libraries
     forkexec
     gzip
-    ppx_sexp_conv.runtime-lib
     rpclib.core
     rpclib.json
     safe-resources
-    sexplib0
-    sexpr
     stunnel
     threads.posix
     http-svr
     uuid
     xapi-backtrace
+    xapi-datamodel
     xapi-log
+    (re_export xapi-schema)
     xapi-stdext-encodings
     xapi-stdext-pervasives
     xapi-stdext-std
@@ -32,7 +49,7 @@
     xmlm
   )
   (wrapped false)
-  (preprocess (pps ppx_deriving_rpc ppx_sexp_conv))
+  (preprocess (pps ppx_deriving_rpc))
 )
 
 (executable
@@ -52,7 +69,6 @@
 )
 
 (executable
-  (modes byte exe)
   (name database_server_main)
   (modules database_server_main)
   (libraries
