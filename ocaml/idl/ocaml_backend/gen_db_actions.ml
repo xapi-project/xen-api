@@ -71,9 +71,10 @@ let dm_to_string tys : O.Module.t =
       | DT.DateTime ->
           "Date.to_string"
       | DT.Enum (_name, cs) ->
-          let aux (c, _) = OU.constructor_of c ^ " -> \"" ^ c ^ "\"" in
-          "fun v -> match v with\n      "
-          ^ String.concat "\n    | " (List.map aux cs)
+          let aux (c, _) =
+            Printf.sprintf {|| %s -> "%s"|} (OU.constructor_of c) c
+          in
+          String.concat "\n    " ("function" :: List.map aux cs)
       | DT.Float ->
           "Printf.sprintf \"%0.18g\""
       | DT.Int ->
@@ -213,8 +214,7 @@ let read_set_ref obj other full_name =
     [
       Printf.sprintf "if not(DB.is_valid_ref __t %s)" Client._self
     ; Printf.sprintf
-        "then raise (Api_errors.Server_error(Api_errors.handle_invalid, [ %s \
-         ]))"
+        "then raise Api_errors.(Server_error (handle_invalid, [ %s ])"
         Client._self
     ; Printf.sprintf "else List.map %s.%s (DB.read_set_ref __t " _string_to_dm
         (OU.alias_of_ty (DT.Ref other))
@@ -280,20 +280,17 @@ let db_action api : O.Module.t =
   let expr_arg = O.Named (expr, "Db_filter_types.expr") in
   let get_refs_where (obj : obj) =
     let tbl = Escaping.escape_obj obj.DT.name in
+    let body =
+      [
+        Printf.sprintf "let refs = (DB.find_refs_with_filter __t \"%s\" %s) in"
+          tbl expr
+      ; "List.map Ref.of_string refs"
+      ]
+    in
     O.Let.make ~name:"get_refs_where"
       ~params:[Gen_common.context_arg; expr_arg]
       ~ty:(OU.alias_of_ty (Ref obj.DT.name) ^ " list")
-      ~body:
-        (open_db_module
-        @ [
-            "let refs = (DB.find_refs_with_filter __t \""
-            ^ tbl
-            ^ "\" "
-            ^ expr
-            ^ ") in"
-          ; "List.map Ref.of_string refs"
-          ]
-        )
+      ~body:(List.concat [open_db_module; body])
       ()
   in
   let get_record_aux_fn_body ?(m = "API.") (obj : obj) (all_fields : field list)

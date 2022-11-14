@@ -15,11 +15,7 @@ module Sexp = Sexplib0.Sexp
 open Sexplib0.Sexp_conv
 
 module Type = struct
-  type t =
-    | String
-    | Set
-    (* of strings *)
-    | Pairs (* of string * string *)
+  type t = String | Set  (** of strings *) | Pairs  (** of strings *)
   [@@deriving sexp]
 
   exception Error of t * t
