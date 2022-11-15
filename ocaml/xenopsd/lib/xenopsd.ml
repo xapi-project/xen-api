@@ -418,8 +418,25 @@ let configure ?(specific_options = []) ?(specific_essential_paths = [])
     ~name:(Filename.basename Sys.argv.(0))
     ~version:Xapi_version.version ~doc ~options ~resources ()
 
+let log_raw_backtrace bt =
+  Option.iter
+    (fun slots ->
+      Array.iteri
+        (fun i slot ->
+          Printexc.Slot.format i slot
+          |> Option.iter (fun s -> error "%d. %s" i s)
+        )
+        slots
+    )
+    (Printexc.backtrace_slots bt)
+
+let log_uncaught_exception e bt =
+  error "xenopsd exitted with an uncaught exception: %s" (Printexc.to_string e) ;
+  log_raw_backtrace bt
+
 let main backend =
   Printexc.record_backtrace true ;
+  Printexc.set_uncaught_exception_handler log_uncaught_exception ;
   (* Listen for transferred file descriptors *)
   let forwarded_server =
     Xcp_service.make_socket_server (forwarded_path ()) handle_received_fd
