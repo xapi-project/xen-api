@@ -170,7 +170,7 @@ type vm_migrate_op = {
   ; vmm_tmp_src_id: Vm.id
   ; vmm_tmp_dest_id: Vm.id
   ; vmm_compress: bool
-  ; vmm_verify_cert: bool
+  ; vmm_verify_dest: bool
 }
 [@@deriving rpcty]
 
@@ -2408,7 +2408,11 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
         in
         debug "%s compress memory: %b" __FUNCTION__ compress_memory ;
         let verify_cert =
-          if vmm.vmm_verify_cert then Stunnel_client.pool () else None
+          (* Stunnel_client.pool (which xapi normally uses) is not right here,
+             because xenopsd does not get notified if certificate checking is
+             turned on or off in xapi. Xapi takes the global on/off switch into
+             account when setting `verify_dest`. *)
+          if vmm.vmm_verify_dest then Some Stunnel.pool else None
         in
         (* We need to perform version exchange here *)
         let module B = (val get_backend () : S) in
@@ -2420,7 +2424,7 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
         Xenops_interface.XenopsAPI (Idl.Exn.GenClient (struct
           let rpc =
             Xcp_client.xml_http_rpc ~srcstr:"xenops" ~dststr:"dst_xenops"
-              (fun () -> vmm.vmm_url
+              ~verify_cert (fun () -> vmm.vmm_url
             )
         end)) in
         let regexp = Re.Pcre.regexp id in
@@ -3389,7 +3393,7 @@ module VM = struct
   let s3resume _ dbg id = queue_operation dbg id (Atomic (VM_s3resume id))
 
   let migrate _context dbg id vmm_vdi_map vmm_vif_map vmm_vgpu_pci_map vmm_url
-      (compress : bool) (verify_cert : bool) =
+      (compress : bool) (verify_dest : bool) =
     let tmp_uuid_of uuid ~kind =
       Printf.sprintf "%s00000000000%c" (String.sub uuid 0 24)
         (match kind with `dest -> '1' | `src -> '0')
@@ -3405,7 +3409,7 @@ module VM = struct
          ; vmm_tmp_src_id= tmp_uuid_of id ~kind:`src
          ; vmm_tmp_dest_id= tmp_uuid_of id ~kind:`dest
          ; vmm_compress= compress
-         ; vmm_verify_cert= verify_cert
+         ; vmm_verify_dest= verify_dest
          }
       )
 

@@ -58,7 +58,7 @@ let split_colon str =
 [@@@ocaml.warning "-27"]
 
 let http_rpc string_of_call response_of_string ?(srcstr = "unset")
-    ?(dststr = "unset") url call =
+    ?(dststr = "unset") ?verify_cert url call =
   let uri = Uri.of_string (url ()) in
   let req = string_of_call call in
   let headers =
@@ -85,7 +85,7 @@ let http_rpc string_of_call response_of_string ?(srcstr = "unset")
   let http_req =
     Cohttp.Request.make ~meth:`POST ~version:`HTTP_1_1 ~headers uri
   in
-  Open_uri.with_open_uri uri (fun fd ->
+  Open_uri.with_open_uri ?verify_cert uri (fun fd ->
       let ic = Unix.in_channel_of_descr fd in
       let oc = Unix.out_channel_of_descr fd in
       Request.write (fun writer -> Request.write_body writer req) http_req oc ;

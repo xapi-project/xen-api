@@ -148,8 +148,9 @@ module XenAPI = Client
 
 module SMAPI = Storage_interface.StorageAPI (Idl.Exn.GenClient (struct
   let rpc call =
-    Storage_migrate.rpc ~srcstr:"xapi" ~dststr:"smapiv2"
-      (Storage_migrate.local_url ())
+    Storage_utils.(
+      rpc ~srcstr:"xapi" ~dststr:"smapiv2" (localhost_connection_args ())
+    )
       call
 end))
 
@@ -246,12 +247,13 @@ let rec migrate_with_retries ~__context ~queue_name ~max ~try_no ~dbg ~vm_uuid
     ~verify_cert =
   let open Xapi_xenops_queue in
   let module Client = (val make_client queue_name : XENOPS) in
+  let verify_dest = verify_cert <> None in
   let progress = ref "(none yet)" in
   let f () =
     progress := "Client.VM.migrate" ;
     let t1 =
       Client.VM.migrate dbg vm_uuid xenops_vdi_map xenops_vif_map
-        xenops_vgpu_map xenops_url compress verify_cert
+        xenops_vgpu_map xenops_url compress verify_dest
     in
     progress := "sync_with_task" ;
     ignore (Xapi_xenops.sync_with_task __context queue_name t1)
@@ -415,9 +417,10 @@ let pool_migrate ~__context ~vm ~host ~options =
             info "xenops: VM.migrate %s to %s" vm_uuid xenops_url ;
             Xapi_xenops.transform_xenops_exn ~__context ~vm queue_name
               (fun () ->
+                let verify_cert = Stunnel_client.pool () in
                 migrate_with_retry ~__context ~queue_name ~dbg ~vm_uuid
                   ~xenops_vdi_map:[] ~xenops_vif_map:[] ~xenops_vgpu_map
-                  ~xenops_url ~compress ~verify_cert:true ;
+                  ~xenops_url ~compress ~verify_cert ;
                 (* Delete all record of this VM locally (including caches) *)
                 Xapi_xenops.Xenopsd_metadata.delete ~__context vm_uuid
             )
@@ -633,7 +636,8 @@ module VDIMap = Map.Make (struct
   let compare = compare
 end)
 
-let update_snapshot_info ~__context ~dbg ~url ~vdi_map ~snapshots_map =
+let update_snapshot_info ~__context ~dbg ~url ~vdi_map ~snapshots_map
+    ~is_intra_pool =
   (* Construct a map of type:
      	 *   API.ref_VDI -> (mirror_record, (API.ref_VDI * mirror_record) list)
      	 *
@@ -689,8 +693,9 @@ let update_snapshot_info ~__context ~dbg ~url ~vdi_map ~snapshots_map =
             )
             snapshots
         in
+        let verify_dest = is_intra_pool in
         SMAPI.SR.update_snapshot_info_src dbg sr vdi url dest dest_vdi
-          snapshot_pairs
+          snapshot_pairs verify_dest
       )
       vdi_to_snapshots_map
   with Storage_interface.Storage_error Unknown_error ->
@@ -961,6 +966,7 @@ let vdi_copy_fun __context dbg vdi_map remote is_intra_pool remote_vdis so_far
     let task =
       if not vconf.do_mirror then
         SMAPI.DATA.copy dbg vconf.sr vconf.location new_dp remote.sm_url dest_sr
+          is_intra_pool
       else
         (* Though we have no intention of "write", here we use the same mode as the
            associated VBD on a mirrored VDIs (i.e. always RW). This avoids problem
@@ -978,7 +984,7 @@ let vdi_copy_fun __context dbg vdi_map remote is_intra_pool remote_vdis so_far
         (* Layering violation!! *)
         ignore (Storage_access.register_mirror __context id) ;
         SMAPI.DATA.MIRROR.start dbg vconf.sr vconf.location new_dp remote.sm_url
-          dest_sr
+          dest_sr is_intra_pool
     in
     let mapfn x =
       let total = Int64.to_float total_size in
@@ -1380,7 +1386,7 @@ let migrate_send' ~__context ~vm ~dest ~live:_ ~vdi_map ~vif_map ~vgpu_map
        * so update the snapshot links if there are any snapshots. *)
       if snapshots_map <> [] then
         update_snapshot_info ~__context ~dbg ~url:remote.sm_url ~vdi_map
-          ~snapshots_map ;
+          ~snapshots_map ~is_intra_pool ;
       let xenops_vdi_map =
         List.map
           (fun mirror_record ->
@@ -1508,7 +1514,9 @@ let migrate_send' ~__context ~vm ~dest ~live:_ ~vdi_map ~vif_map ~vgpu_map
                 (* can raise VGPU_mapping *)
                 infer_vgpu_map ~__context ~remote new_vm
               in
-              let verify_cert = is_intra_pool in
+              let verify_cert =
+                if is_intra_pool then Stunnel_client.pool () else None
+              in
               migrate_with_retry ~__context ~queue_name ~dbg ~vm_uuid
                 ~xenops_vdi_map ~xenops_vif_map ~xenops_vgpu_map
                 ~xenops_url:remote.xenops_url ~compress ~verify_cert ;

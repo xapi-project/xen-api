@@ -1150,12 +1150,17 @@ module SMAPIv1 = struct
   let get_by_name _context ~dbg:_ ~name:_ = assert false
 
   module DATA = struct
-    let copy_into _context ~dbg:_ ~sr:_ ~vdi:_ ~url:_ ~dest:_ = assert false
+    let copy_into _context ~dbg:_ ~sr:_ ~vdi:_ ~url:_ ~dest:_ ~dest_vdi:_
+        ~verify_dest:_ =
+      assert false
 
-    let copy _context ~dbg:_ ~sr:_ ~vdi:_ ~dp:_ ~url:_ ~dest:_ = assert false
+    let copy _context ~dbg:_ ~sr:_ ~vdi:_ ~dp:_ ~url:_ ~dest:_ ~verify_dest:_ =
+      assert false
 
     module MIRROR = struct
-      let start _context ~dbg:_ ~sr:_ ~vdi:_ ~dp:_ ~url:_ ~dest:_ = assert false
+      let start _context ~dbg:_ ~sr:_ ~vdi:_ ~dp:_ ~url:_ ~dest:_ ~verify_dest:_
+          =
+        assert false
 
       let stop _context ~dbg:_ ~id:_ = assert false
 
@@ -1442,10 +1447,11 @@ let unbind ~__context ~pbd =
 *)
 let rpc =
   let srcstr = Xcp_client.get_user_agent () in
-  let local_fn = Storage_mux.Server.process in
-  let remote_url_of_ip = Storage_utils.remote_url in
-  Storage_utils.redirectable_rpc ~srcstr ~dststr:"smapiv2" ~remote_url_of_ip
-    ~local_fn
+  let original = Storage_mux.Server.process in
+  let redirect_to_ip =
+    Storage_utils.intra_pool_rpc_of_ip ~srcstr ~dststr:"smapiv2"
+  in
+  Storage_utils.redirectable_rpc ~original ~redirect_to_ip
 
 module Client = StorageAPI (Idl.Exn.GenClient (struct let rpc = rpc end))
 

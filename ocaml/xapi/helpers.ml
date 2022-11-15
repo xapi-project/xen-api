@@ -438,7 +438,8 @@ let make_timeboxed_rpc ~__context timeout rpc : Rpc.response =
       result
   )
 
-let make_remote_rpc_of_url ~srcstr ~dststr (url, pool_secret) call =
+let make_remote_rpc_of_url ~verify_cert ~srcstr ~dststr (url, pool_secret) call
+    =
   let open Xmlrpc_client in
   let http =
     xmlrpc ~version:"1.0" ?auth:(Http.Url.auth_of url)
@@ -452,8 +453,8 @@ let make_remote_rpc_of_url ~srcstr ~dststr (url, pool_secret) call =
     | None ->
         http
   in
-  XMLRPC_protocol.rpc ~transport:(transport_of_url url) ~srcstr ~dststr ~http
-    call
+  let transport = transport_of_url ~verify_cert url in
+  XMLRPC_protocol.rpc ~transport ~srcstr ~dststr ~http call
 
 (* This one uses rpc-light *)
 let make_remote_rpc ?(verify_cert = Stunnel_client.pool ()) remote_address xml =

@@ -24,17 +24,8 @@ module Unixext = Xapi_stdext_unix.Unixext
 open Xmlrpc_client
 open Storage_interface
 open Storage_task
-open Storage_utils
 
 let vm_of_s = Storage_interface.Vm.of_string
-
-let local_url () =
-  Http.Url.
-    ( Http {host= "127.0.0.1"; auth= None; port= None; ssl= false}
-    , {uri= Constants.sm_uri; query_params= []}
-    )
-  
-  |> storage_url ~pool_secret:(Xapi_globs.pool_secret ())
 
 module State = struct
   module Receive_state = struct
@@ -59,7 +50,13 @@ module State = struct
   end
 
   module Send_state = struct
-    type remote_info = {dp: dp; vdi: Vdi.t; url: string} [@@deriving rpcty]
+    type remote_info = {
+        dp: dp
+      ; vdi: Vdi.t
+      ; url: string
+      ; verify_dest: bool [@default false]
+    }
+    [@@deriving rpcty]
 
     type tapdev = Tapctl.tapdev
 
@@ -116,6 +113,7 @@ module State = struct
       ; dest_sr: Sr.t
       ; copy_vdi: Vdi.t
       ; remote_url: string
+      ; verify_dest: bool [@default false]
     }
     [@@deriving rpcty]
 
@@ -312,25 +310,6 @@ module State = struct
         failwith "Bad id"
 end
 
-(* We are making an RPC to a host that is potentially part of a different pool.
-   It can tell us that we need to send the RPC elsewhere instead (e.g. to its master),
-   so use the [redirectable_rpc] helper here *)
-let rpc ~srcstr ~dststr (url, pool_secret) =
-  let remote_url_of_ip ip =
-    let open Http.Url in
-    match url with
-    | Http h, d ->
-        ( (Http {h with host= ip; ssl= !Xapi_globs.migration_https_only}, d)
-        , pool_secret
-        )
-    | _ ->
-        remote_url ip
-  in
-  let local_fn =
-    Helpers.make_remote_rpc_of_url ~srcstr ~dststr (url, pool_secret)
-  in
-  Storage_utils.redirectable_rpc ~srcstr ~dststr ~remote_url_of_ip ~local_fn
-
 let vdi_info x =
   match x with
   | Some (Vdi_info v) ->
@@ -339,7 +318,10 @@ let vdi_info x =
       failwith "Runtime type error: expecting Vdi_info"
 
 module Local = StorageAPI (Idl.Exn.GenClient (struct
-  let rpc call = rpc ~srcstr:"smapiv2" ~dststr:"smapiv2" (local_url ()) call
+  let rpc call =
+    Storage_utils.rpc ~srcstr:"smapiv2" ~dststr:"smapiv2"
+      (Storage_utils.localhost_connection_args ())
+      call
 end))
 
 let tapdisk_of_attach_info (backend : Storage_interface.backend) =
@@ -434,18 +416,19 @@ let progress_callback start len t y =
   Storage_task.set_state t (Task.Pending new_progress) ;
   signal (Storage_task.id_of_handle t)
 
-let copy' ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi =
-  let remote_url = Http.Url.of_string url in
+let copy' ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi ~verify_dest =
+  let remote_url = Storage_utils.connection_args_of_uri ~verify_dest url in
   let module Remote = StorageAPI (Idl.Exn.GenClient (struct
     let rpc =
-      rpc ~srcstr:"smapiv2" ~dststr:"dst_smapiv2" (storage_url remote_url)
+      Storage_utils.rpc ~srcstr:"smapiv2" ~dststr:"dst_smapiv2" remote_url
   end)) in
-  debug "copy local=%s/%s url=%s remote=%s/%s"
+  debug "copy local=%s/%s url=%s remote=%s/%s verify_dest=%B"
     (Storage_interface.Sr.string_of sr)
     (Storage_interface.Vdi.string_of vdi)
     url
     (Storage_interface.Sr.string_of dest)
-    (Storage_interface.Vdi.string_of dest_vdi) ;
+    (Storage_interface.Vdi.string_of dest_vdi)
+    verify_dest ;
   (* Check the remote SR exists *)
   let srs = Remote.SR.list dbg in
   if not (List.mem dest srs) then
@@ -498,9 +481,9 @@ let copy' ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi =
     let base_dp = Uuidx.(to_string (make ())) in
     let leaf_dp = Uuidx.(to_string (make ())) in
     let dest_vdi_url =
-      Http.Url.set_uri remote_url
-        (Printf.sprintf "%s/nbd/%s/%s/%s"
-           (Http.Url.get_uri remote_url)
+      let url' = Http.Url.of_string url in
+      Http.Url.set_uri url'
+        (Printf.sprintf "%s/nbd/%s/%s/%s" (Http.Url.get_uri url')
            (Storage_interface.Sr.string_of dest)
            (Storage_interface.Vdi.string_of dest_vdi)
            remote_dp
@@ -521,6 +504,7 @@ let copy' ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi =
             ; dest_sr= dest
             ; copy_vdi= remote_vdi.vdi
             ; remote_url= url
+            ; verify_dest
             }
           
       ) ;
@@ -534,10 +518,13 @@ let copy' ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi =
         Remote.VDI.activate dbg remote_dp dest dest_vdi ;
         with_activated_disk ~dbg ~sr ~vdi:base_vdi ~dp:base_dp (fun base_path ->
             with_activated_disk ~dbg ~sr ~vdi:(Some vdi) ~dp:leaf_dp (fun src ->
+                let verify_cert =
+                  if verify_dest then Stunnel_client.pool () else None
+                in
                 let dd =
                   Sparse_dd_wrapper.start
                     ~progress_cb:(progress_callback 0.05 0.9 task)
-                    ~verify_cert:None ?base:base_path true (Option.get src)
+                    ~verify_cert ?base:base_path true (Option.get src)
                     dest_vdi_url remote_vdi.virtual_size
                 in
                 Storage_task.with_cancel task
@@ -566,8 +553,8 @@ let copy' ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi =
     perform_cleanup_actions !on_fail ;
     raise e
 
-let copy_into ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi =
-  copy' ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi
+let copy_into ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi ~verify_dest =
+  copy' ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi ~verify_dest
 
 let remove_from_sm_config vdi_info key =
   {
@@ -623,10 +610,14 @@ let stop ~dbg ~id =
               debug "Snapshot VDI already cleaned up"
           ) ;
           let remote_url =
-            Http.Url.of_string remote_info.State.Send_state.url |> storage_url
+            Storage_utils.connection_args_of_uri
+              ~verify_dest:remote_info.State.Send_state.verify_dest
+              remote_info.State.Send_state.url
           in
           let module Remote = StorageAPI (Idl.Exn.GenClient (struct
-            let rpc = rpc ~srcstr:"smapiv2" ~dststr:"dst_smapiv2" remote_url
+            let rpc =
+              Storage_utils.rpc ~srcstr:"smapiv2" ~dststr:"dst_smapiv2"
+                remote_url
           end)) in
           try Remote.DATA.MIRROR.receive_cancel dbg id with _ -> ()
         )
@@ -637,21 +628,24 @@ let stop ~dbg ~id =
   | None ->
       raise (Storage_interface.Storage_error (Does_not_exist ("mirror", id)))
 
-let start' ~task ~dbg ~sr ~vdi ~dp ~url ~dest =
-  debug "Mirror.start sr:%s vdi:%s url:%s dest:%s"
+let start' ~task ~dbg ~sr ~vdi ~dp ~url ~dest ~verify_dest =
+  debug "Mirror.start sr:%s vdi:%s url:%s dest:%s verify_dest:%B"
     (Storage_interface.Sr.string_of sr)
     (Storage_interface.Vdi.string_of vdi)
     url
-    (Storage_interface.Sr.string_of dest) ;
-  SMPERF.debug "mirror.start called sr:%s vdi:%s url:%s dest:%s"
+    (Storage_interface.Sr.string_of dest)
+    verify_dest ;
+  SMPERF.debug "mirror.start called sr:%s vdi:%s url:%s dest:%s verify_dest:%B"
     (Storage_interface.Sr.string_of sr)
     (Storage_interface.Vdi.string_of vdi)
     url
-    (Storage_interface.Sr.string_of dest) ;
+    (Storage_interface.Sr.string_of dest)
+    verify_dest ;
   let remote_url = Http.Url.of_string url in
   let module Remote = StorageAPI (Idl.Exn.GenClient (struct
     let rpc =
-      rpc ~srcstr:"smapiv2" ~dststr:"dst_smapiv2" (storage_url remote_url)
+      Storage_utils.rpc ~srcstr:"smapiv2" ~dststr:"dst_smapiv2"
+        (Storage_utils.connection_args_of_uri ~verify_dest url)
   end)) in
   (* Find the local VDI *)
   let vdis = Local.SR.scan dbg sr in
@@ -715,7 +709,8 @@ let start' ~task ~dbg ~sr ~vdi ~dp ~url ~dest =
         ~query:(Http.Url.get_query_params dest_url)
         ~version:"1.0" ~user_agent:"smapiv2" Http.Put uri
     in
-    let transport = Xmlrpc_client.transport_of_url dest_url in
+    let verify_cert = if verify_dest then Stunnel_client.pool () else None in
+    let transport = Xmlrpc_client.transport_of_url ~verify_cert dest_url in
     debug "Searching for data path: %s" dp ;
     let attach_info = Local.DP.attach_info "nbd" sr vdi dp in
     on_fail := (fun () -> Remote.DATA.MIRROR.receive_cancel dbg id) :: !on_fail ;
@@ -754,7 +749,13 @@ let start' ~task ~dbg ~sr ~vdi ~dp ~url ~dest =
           url
         ; dest_sr= dest
         ; remote_info=
-            Some {dp= mirror_dp; vdi= result.Mirror.mirror_vdi.vdi; url}
+            Some
+              {
+                dp= mirror_dp
+              ; vdi= result.Mirror.mirror_vdi.vdi
+              ; url
+              ; verify_dest
+              }
         ; local_dp= dp
         ; tapdev= Some tapdev
         ; failed= false
@@ -810,7 +811,7 @@ let start' ~task ~dbg ~sr ~vdi ~dp ~url ~dest =
     let new_parent =
       Storage_task.with_subtask task "copy" (fun () ->
           copy' ~task ~dbg ~sr ~vdi:snapshot.vdi ~url ~dest
-            ~dest_vdi:result.Mirror.copy_diffs_to
+            ~dest_vdi:result.Mirror.copy_diffs_to ~verify_dest
       )
       |> vdi_info
     in
@@ -939,10 +940,13 @@ let killall ~dbg =
           )
         ] ;
       let remote_url =
-        Http.Url.of_string copy_state.State.Copy_state.remote_url |> storage_url
+        Storage_utils.connection_args_of_uri
+          ~verify_dest:copy_state.State.Copy_state.verify_dest
+          copy_state.State.Copy_state.remote_url
       in
       let module Remote = StorageAPI (Idl.Exn.GenClient (struct
-        let rpc = rpc ~srcstr:"smapiv2" ~dststr:"dst_smapiv2" remote_url
+        let rpc =
+          Storage_utils.rpc ~srcstr:"smapiv2" ~dststr:"dst_smapiv2" remote_url
       end)) in
       List.iter log_and_ignore_exn
         [
@@ -1135,9 +1139,18 @@ let post_detach_hook ~sr ~vdi ~dp:_ =
   let id = State.mirror_id_of (sr, vdi) in
   State.find_active_local_mirror id
   |> Option.iter (fun r ->
-         let remote_url = Http.Url.of_string r.url |> storage_url in
+         let verify_dest =
+           Option.fold ~none:false
+             ~some:(fun ri -> ri.verify_dest)
+             r.remote_info
+         in
+         let remote_url =
+           Storage_utils.connection_args_of_uri ~verify_dest r.url
+         in
          let module Remote = StorageAPI (Idl.Exn.GenClient (struct
-           let rpc = rpc ~srcstr:"smapiv2" ~dststr:"dst_smapiv2" remote_url
+           let rpc =
+             Storage_utils.rpc ~srcstr:"smapiv2" ~dststr:"dst_smapiv2"
+               remote_url
          end)) in
          let t =
            Thread.create
@@ -1187,15 +1200,17 @@ let nbd_handler req s sr vdi dp =
   | None ->
       ()
 
-let copy ~task ~dbg ~sr ~vdi ~dp:_ ~url ~dest =
-  debug "copy sr:%s vdi:%s url:%s dest:%s"
+let copy ~task ~dbg ~sr ~vdi ~dp:_ ~url ~dest ~verify_dest =
+  debug "copy sr:%s vdi:%s url:%s dest:%s verify_dest:%B"
     (Storage_interface.Sr.string_of sr)
     (Storage_interface.Vdi.string_of vdi)
     url
-    (Storage_interface.Sr.string_of dest) ;
-  let remote_url = Http.Url.of_string url |> storage_url in
+    (Storage_interface.Sr.string_of dest)
+    verify_dest ;
+  let remote_url = Storage_utils.connection_args_of_uri ~verify_dest url in
   let module Remote = StorageAPI (Idl.Exn.GenClient (struct
-    let rpc = rpc ~srcstr:"smapiv2" ~dststr:"dst_smapiv2" remote_url
+    let rpc =
+      Storage_utils.rpc ~srcstr:"smapiv2" ~dststr:"dst_smapiv2" remote_url
   end)) in
   (* Find the local VDI *)
   try
@@ -1271,6 +1286,7 @@ let copy ~task ~dbg ~sr ~vdi ~dp:_ ~url ~dest =
       in
       let remote_copy =
         copy' ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi:remote_base.vdi
+          ~verify_dest
         |> vdi_info
       in
       let snapshot = Remote.VDI.snapshot dbg dest remote_copy in
@@ -1310,24 +1326,27 @@ let wrap ~dbg f =
   in
   Storage_task.id_of_handle task
 
-let start ~dbg ~sr ~vdi ~dp ~url ~dest =
-  wrap ~dbg (fun task -> start' ~task ~dbg ~sr ~vdi ~dp ~url ~dest)
+let start ~dbg ~sr ~vdi ~dp ~url ~dest ~verify_dest =
+  wrap ~dbg (fun task -> start' ~task ~dbg ~sr ~vdi ~dp ~url ~dest ~verify_dest)
 
-let copy ~dbg ~sr ~vdi ~dp ~url ~dest =
-  wrap ~dbg (fun task -> copy ~task ~dbg ~sr ~vdi ~dp ~url ~dest)
+let copy ~dbg ~sr ~vdi ~dp ~url ~dest ~verify_dest =
+  wrap ~dbg (fun task -> copy ~task ~dbg ~sr ~vdi ~dp ~url ~dest ~verify_dest)
 
-let copy_into ~dbg ~sr ~vdi ~url ~dest ~dest_vdi =
-  wrap ~dbg (fun task -> copy_into ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi)
+let copy_into ~dbg ~sr ~vdi ~url ~dest ~dest_vdi ~verify_dest =
+  wrap ~dbg (fun task ->
+      copy_into ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi ~verify_dest
+  )
 
 (* The remote end of this call, SR.update_snapshot_info_dest, is implemented in
  * the SMAPIv1 section of storage_migrate.ml. It needs to access the setters
  * for snapshot_of, snapshot_time and is_a_snapshot, which we don't want to add
  * to SMAPI. *)
 let update_snapshot_info_src ~dbg ~sr ~vdi ~url ~dest ~dest_vdi ~snapshot_pairs
-    =
-  let remote_url = Http.Url.of_string url |> storage_url in
+    ~verify_dest =
+  let remote_url = Storage_utils.connection_args_of_uri ~verify_dest url in
   let module Remote = StorageAPI (Idl.Exn.GenClient (struct
-    let rpc = rpc ~srcstr:"smapiv2" ~dststr:"dst_smapiv2" remote_url
+    let rpc =
+      Storage_utils.rpc ~srcstr:"smapiv2" ~dststr:"dst_smapiv2" remote_url
   end)) in
   let local_vdis = Local.SR.scan dbg sr in
   let find_vdi ~vdi ~vdi_info_list =

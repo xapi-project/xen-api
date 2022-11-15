@@ -184,28 +184,6 @@ let post_handler (req : Http.Request.t) s _ =
           req.Http.Request.close <- true
   )
 
-let rpc ~srcstr ~dststr call =
-  let url =
-    Http.Url.
-      ( File {path= Filename.concat "/var/lib/xcp" "storage"}
-      , {uri= "/"; query_params= []}
-      )
-    
-  in
-
-  let open Xmlrpc_client in
-  XMLRPC_protocol.rpc ~transport:(transport_of_url url) ~srcstr ~dststr
-    ~http:
-      (xmlrpc ~version:"1.0" ?auth:(Http.Url.auth_of url)
-         ~query:(Http.Url.get_query_params url)
-         (Http.Url.get_uri url)
-      )
-    call
-
-module Local = Storage_interface.StorageAPI (Idl.Exn.GenClient (struct
-  let rpc = rpc ~srcstr:"xapi" ~dststr:"smapiv2"
-end))
-
 let put_handler (req : Http.Request.t) s _ =
   Xapi_http.with_context ~dummy:true "Querying services" req s (fun __context ->
       match String.split_on_char '/' req.Http.Request.uri with

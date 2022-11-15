@@ -21,13 +21,13 @@ module D = Debug.Make (struct let name = "storage_utils" end)
 
 open D
 
-(** [redirectable_rpc ~srcstr ~dststr ~remote_url_of_ip ~local_fn call] is an RPC function
-    that first attempts to call [local_fn call], and if that returns a [Redirect ip] exception then
-    it sends a remote RPC to the url built by [remote_url_of_ip].
+(** [redirectable_rpc ~redirect_to_ip ~original call] is an RPC function
+    that first attempts to call [original call], and if that returns a [Redirect ip] exception then
+    it sends a remote RPC to the function built by [redirect_to_ip].
 *)
-let redirectable_rpc ~srcstr ~dststr ~remote_url_of_ip ~local_fn =
+let redirectable_rpc ~redirect_to_ip ~original : Rpc.call -> Rpc.response =
   let rec rpc ~f call =
-    (* on first iteration this will be the [local_fn] supplied by the caller *)
+    (* on first iteration this will be the [original] supplied by the caller *)
     let result = f call in
     if result.Rpc.success then
       result
@@ -42,10 +42,9 @@ let redirectable_rpc ~srcstr ~dststr ~remote_url_of_ip ~local_fn =
           result.Rpc.contents
       with
       | Ok (Storage_interface.Errors.Redirect (Some ip)) ->
-          let newurl = remote_url_of_ip ip in
           debug "Redirecting %s to ip: %s" rpcstr ip ;
           (* we need to do a remote call now, so replace [f] *)
-          let f = Helpers.make_remote_rpc_of_url ~srcstr ~dststr newurl in
+          let f = redirect_to_ip ~ip in
           let r = rpc ~f call in
           debug "Successfully redirected %s. Returning" rpcstr ;
           r
@@ -53,14 +52,80 @@ let redirectable_rpc ~srcstr ~dststr ~remote_url_of_ip ~local_fn =
           debug "Not a redirect: %s" rpcstr ;
           result
   in
-  rpc ~f:local_fn
+  rpc ~f:original
 
-let storage_url ?pool_secret url = (url, pool_secret)
+(* A type that encodes how to connect to a local or remote host *)
+type connection_args = {
+    url: Http.Url.t
+  ; pool_secret: SecretString.t option
+  ; verify_cert: Stunnel.verification_config option
+}
 
-let remote_url ip =
-  Http.Url.
-    ( Http {host= ip; auth= None; port= None; ssl= true}
-    , {uri= Constants.sm_uri; query_params= []}
-    )
-  
-  |> storage_url ~pool_secret:(Xapi_globs.pool_secret ())
+(* HTTP, standard SM uri, to localhost, with pool secret *)
+let localhost_connection_args () : connection_args =
+  let url =
+    Http.Url.
+      ( Http {host= "127.0.0.1"; auth= None; port= None; ssl= false}
+      , {uri= Constants.sm_uri; query_params= []}
+      )
+    
+  in
+
+  {url; pool_secret= Some (Xapi_globs.pool_secret ()); verify_cert= None}
+
+(* HTTPS (certificate checked), standard SM uri, to host in the pool with the
+   given IP, with pool secret. *)
+let intra_pool_connection_args_of_ip ip : connection_args =
+  let url =
+    Http.Url.
+      ( Http
+          {
+            host= ip
+          ; auth= None
+          ; port= None
+          ; ssl= !Xapi_globs.migration_https_only
+          }
+      , {uri= Constants.sm_uri; query_params= []}
+      )
+    
+  in
+
+  {
+    url
+  ; pool_secret= Some (Xapi_globs.pool_secret ())
+  ; verify_cert= Stunnel_client.pool ()
+  }
+
+(* Uses session_id in HTTP query (no pool secret). *)
+(* Certificate verification for intra-pool remotes only. *)
+let connection_args_of_uri ~verify_dest uri : connection_args =
+  let verify_cert = if verify_dest then Stunnel_client.pool () else None in
+  let url = Http.Url.of_string uri in
+  {url; pool_secret= None; verify_cert}
+
+let intra_pool_rpc_of_ip ~srcstr ~dststr ~ip : Rpc.call -> Rpc.response =
+  let {url; pool_secret; verify_cert} = intra_pool_connection_args_of_ip ip in
+  Helpers.make_remote_rpc_of_url ~verify_cert ~srcstr ~dststr (url, pool_secret)
+
+(* Create an rpc function based on the given connection args (see above).
+   We are making an RPC to a host that is potentially part of a different pool.
+   It can tell us that we need to send the RPC elsewhere instead (e.g. to its master),
+   so use the [redirectable_rpc] helper here *)
+let rpc ~srcstr ~dststr {url; pool_secret; verify_cert} =
+  let original =
+    Helpers.make_remote_rpc_of_url ~verify_cert ~srcstr ~dststr
+      (url, pool_secret)
+  in
+  let redirect_to_ip ~ip =
+    let open Http.Url in
+    match url with
+    | Http h, d ->
+        Helpers.make_remote_rpc_of_url ~srcstr ~dststr ~verify_cert
+          ( (Http {h with host= ip; ssl= !Xapi_globs.migration_https_only}, d)
+          , pool_secret
+          )
+    | _ ->
+        (* The original URL referred to a local file and must be changed to HTTP *)
+        intra_pool_rpc_of_ip ~srcstr ~dststr ~ip
+  in
+  redirectable_rpc ~original ~redirect_to_ip

@@ -665,8 +665,8 @@ module XenopsAPI (R : RPC) = struct
           ~description:["when true, use stream compression"]
           Types.bool
       in
-      let verify_cert =
-        Param.mk ~name:"verify_cert"
+      let verify_dest =
+        Param.mk ~name:"verify_dest"
           ~description:["when true, verify remote server certificate"]
           Types.bool
       in
@@ -678,7 +678,7 @@ module XenopsAPI (R : RPC) = struct
         @-> pcimap
         @-> xenops_url
         @-> compress
-        @-> verify_cert
+        @-> verify_dest
         @-> returning task_id_p err
         )
 

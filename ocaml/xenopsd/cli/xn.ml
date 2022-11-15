@@ -1013,7 +1013,7 @@ let resume _copts disk x =
 
 let resume copts disk x = diagnose_error (need_vm (resume copts disk) x)
 
-let migrate ~id ~url ~compress ~verify_cert =
+let migrate ~id ~url ~compress ~verify_dest =
   let vm, _ = find_by_name id in
   let bool b =
     match String.lowercase_ascii b with
@@ -1022,7 +1022,7 @@ let migrate ~id ~url ~compress ~verify_cert =
     | _ ->
         false
   in
-  Client.VM.migrate dbg vm.Vm.id [] [] [] url (bool compress) (bool verify_cert)
+  Client.VM.migrate dbg vm.Vm.id [] [] [] url (bool compress) (bool verify_dest)
   |> wait_for_task dbg
 
 let trim limit str =
@@ -1541,11 +1541,11 @@ let old_main () =
   | ["help"] | [] ->
       usage () ; exit 0
   | ["migrate"; id; url] ->
-      migrate ~id ~url ~compress:"false" ~verify_cert:"false" |> task
+      migrate ~id ~url ~compress:"false" ~verify_dest:"false" |> task
   | ["migrate"; id; url; compress] ->
-      migrate ~id ~url ~compress ~verify_cert:"false" |> task
-  | ["migrate"; id; url; compress; verify_cert] ->
-      migrate ~id ~url ~compress ~verify_cert |> task
+      migrate ~id ~url ~compress ~verify_dest:"false" |> task
+  | ["migrate"; id; url; compress; verify_dest] ->
+      migrate ~id ~url ~compress ~verify_dest |> task
   | ["vbd-list"; id] ->
       vbd_list id
   | ["pci-add"; id; idx; bdf] ->

@@ -315,7 +315,7 @@ let on_vdi' f common_opts sr vdi =
     )
     common_opts sr vdi
 
-let mirror_start common_opts sr vdi dp url dest =
+let mirror_start common_opts sr vdi dp url dest verify_dest =
   on_vdi'
     (fun sr vdi ->
       let get_opt x err = match x with Some y -> y | None -> failwith err in
@@ -325,6 +325,7 @@ let mirror_start common_opts sr vdi dp url dest =
       let task =
         Client.DATA.MIRROR.start dbg sr vdi dp url
           (Storage_interface.Sr.of_string dest)
+          verify_dest
       in
       Printf.printf "Task id: %s\n" task
     )
@@ -523,6 +524,10 @@ let mirror_start_cmd =
     let doc = "Destination SR" in
     Arg.(value & pos 4 (some string) None & info [] ~docv:"REMOTESR" ~doc)
   in
+  let verify_dest =
+    let doc = "Verify certicate of remote server" in
+    Arg.(value & pos 5 bool false & info [] ~docv:"VERIFYDEST" ~doc)
+  in
   ( Term.(
       ret
         (const mirror_start
@@ -532,6 +537,7 @@ let mirror_start_cmd =
         $ dp
         $ url
         $ dest
+        $ verify_dest
         )
     )
   , Cmd.info "mirror-start" ~sdocs:_common_options ~doc ~man
