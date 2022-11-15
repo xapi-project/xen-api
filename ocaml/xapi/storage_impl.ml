@@ -82,33 +82,9 @@ let s_of_vm = Storage_interface.Vm.string_of
 
 let vm_of_s = Storage_interface.Vm.of_string
 
-let print_debug = ref false
-
-let log_to_stdout prefix (fmt : ('a, unit, string, unit) format4) =
-  let time_of_float x =
-    let time = Unix.gmtime x in
-    Printf.sprintf "%04d%02d%02dT%02d:%02d:%02dZ (%d)"
-      (time.Unix.tm_year + 1900) (time.Unix.tm_mon + 1) time.Unix.tm_mday
-      time.Unix.tm_hour time.Unix.tm_min time.Unix.tm_sec
-      (Thread.id (Thread.self ()))
-  in
-  Printf.kprintf
-    (fun s ->
-      Printf.printf "%s %s %s\n" (time_of_float (Unix.gettimeofday ())) prefix s ;
-      flush stdout
-    )
-    fmt
-
 module D = Debug.Make (struct let name = "storage_impl" end)
 
-let debug (fmt : ('a, unit, string, unit) format4) =
-  if !print_debug then log_to_stdout "debug" fmt else D.debug fmt
-
-let error (fmt : ('a, unit, string, unit) format4) =
-  if !print_debug then log_to_stdout "error" fmt else D.error fmt
-
-let info (fmt : ('a, unit, string, unit) format4) =
-  if !print_debug then log_to_stdout "info" fmt else D.info fmt
+open D
 
 let host_state_path = ref "/var/run/nonpersistent/xapi/storage.db"
 
@@ -187,20 +163,19 @@ module Vdi = struct
       Vdi_automaton.Detached
 
   (** [get_dp_vm] returns [vm] of type Vm.t. If the mapping between a datapath and vm exists, it will return the vm. Owtherwise a blank vm will be returned*)
-
   let get_dp_vm dp t =
     let _vm = List.assoc_opt dp t.dpv in
     match _vm with
     | Some vm ->
         vm
     | None ->
-        debug
-          "[Vdi.get_dp_vm] No vm was found on the datapath please restart host \
-           to fix" ;
+        warn
+          "%s: No vm was found associated with a datapath. Has xapi been \
+           restarted since it was upgraded?"
+          __FUNCTION__ ;
         vm_of_s ""
 
   let add_or_update_dp dp vm state t =
-    debug "[Vdi.add_or_update] dp:%s vm:%s" dp (s_of_vm vm) ;
     let rests = List.remove_assoc dp t.dps in
     let restv = List.remove_assoc dp t.dpv in
     {
