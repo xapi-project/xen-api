@@ -3777,8 +3777,15 @@ let upgrade_internal_state_of_running_vms () =
   let module B = (val get_backend () : S) in
   List.iter
     (fun vm ->
-      let vm_t = VM_DB.read_exn vm in
-      B.VM.get_internal_state [] [] vm_t |> B.VM.set_internal_state vm_t
+      try
+        let vm_t = VM_DB.read_exn vm in
+        B.VM.get_internal_state [] [] vm_t |> B.VM.set_internal_state vm_t
+      with
+      | Xenops_interface.Xenopsd_error (Does_not_exist _) ->
+          warn "Missing VM extra metadata for VM %s" vm
+      | e ->
+          warn "VM metadata upgrade failed for VM %s (%s)" vm
+            (Printexc.to_string e)
     )
     (VM_DB.ids ())
 
