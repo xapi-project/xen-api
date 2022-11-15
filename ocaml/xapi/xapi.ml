@@ -15,16 +15,12 @@
  * @group Main Loop and Start-up
 *)
 
-open Printf
-
 let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
 module Unixext = Xapi_stdext_unix.Unixext
 
 let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
-open Auth_signature
-open Extauth
 open Xapi_database
 open Xapi_database.Db_filter_types
 open Xapi_database.Db_cache_types
@@ -33,11 +29,7 @@ module D = Debug.Make (struct let name = "xapi" end)
 
 open D
 
-module L = Debug.Make (struct let name = "license" end)
-
-module W = Debug.Make (struct let name = "watchdog" end)
-
-let _ =
+let () =
   Master_connection.is_slave := Pool_role.is_slave ;
   Master_connection.get_master_address := Pool_role.get_master_address ;
   Master_connection.master_rpc_path := Constants.remote_db_access_uri
@@ -144,7 +136,7 @@ let cleanup_handler _ =
   debug "cleanup handler exiting"
 
 let signals_handling () =
-  let at_hangup _ = eprintf "[signal received] hangup\n%!" in
+  let at_hangup _ = Printf.eprintf "[signal received] hangup\n%!" in
   (* install hangup and exit handler *)
   Sys.set_signal Sys.sighup (Sys.Signal_handle at_hangup) ;
   Sys.set_signal Sys.sigterm (Sys.Signal_handle cleanup_handler) ;
@@ -1008,7 +1000,7 @@ let server_init () =
       while not !Xapi_globs.event_hook_auth_on_xapi_initialize_succeeded do
         try
           (* try to initialize external authentication service *)
-          (Ext_auth.d ()).on_xapi_initialize ~__context
+          (Extauth.Ext_auth.d ()).on_xapi_initialize ~__context
             !Xapi_globs.on_system_boot ;
           (* tell everybody the service initialized successfully *)
           Xapi_globs.event_hook_auth_on_xapi_initialize_succeeded := true ;

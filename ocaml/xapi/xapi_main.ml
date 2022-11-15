@@ -15,13 +15,14 @@
  * @group Main Loop and Start-up
 *)
 
-open Xapi
 module Unixext = Xapi_stdext_unix.Unixext
 
-let _ =
+module D = Debug.Make (struct let name = __MODULE__ end)
+
+let () =
   Debug.set_facility Syslog.Local5 ;
   Sys.enable_runtime_warnings true ;
-  init_args () ;
+  Xapi.init_args () ;
   (* Disable logging for the module requested in the config *)
   List.iter
     (fun m ->
@@ -34,4 +35,4 @@ let _ =
      (in the unlikely event that there are any ;) *)
   Unixext.mkdir_rec (Filename.concat "/var/lib/xcp" "debug") 0o700 ;
   Unix.chdir (Filename.concat "/var/lib/xcp" "debug") ;
-  watchdog server_init
+  Xapi.(watchdog server_init)
