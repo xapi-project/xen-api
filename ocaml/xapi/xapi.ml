@@ -1235,7 +1235,7 @@ let server_init () =
             , [Startup.OnThread]
             , Monitor_dbcalls.monitor_dbcall_thread
             )
-          ; ( "touching ready file"
+          ; ( "Ready to serve requests: writing ready cookie"
             , []
             , fun () -> Helpers.touch_file !Xapi_globs.ready_file
             )
@@ -1453,9 +1453,12 @@ let server_init () =
                 Xapi_host.write_uefi_certificates_to_disk ~__context
                   ~host:(Helpers.get_localhost ~__context)
             )
-          ; ( "writing init complete"
+          ; ( "Init complete: writing cookie and notifying systemd"
             , []
-            , fun () -> Helpers.touch_file !Xapi_globs.init_complete
+            , fun () ->
+                ignore
+                  Xapi_stdext_unix.Unixext.Daemon.(systemd_notify State.Ready) ;
+                Helpers.touch_file !Xapi_globs.init_complete
             )
           ] ;
         debug "startup: startup sequence finished"

@@ -26,7 +26,8 @@ LimitNOFILE=16384
 User=root
 Environment="LD_PRELOAD=/usr/lib64/libjemalloc.so.2"
 Environment="MALLOC_CONF=narenas:1,tcache:true"
-Type=simple
+Type=notify
+NotifyAccess=all
 Restart=on-failure
 ExecStart=@LIBEXECDIR@/xapi-init start
 ExecStartPost=/usr/bin/touch /var/lock/subsys/xapi
@@ -34,6 +35,7 @@ ExecStartPost=/usr/bin/touch /var/lock/subsys/xapi
 ExecStop=@LIBEXECDIR@/xapi-init stop
 ExecStopPost=/usr/bin/rm -f /var/lock/subsys/xapi /var/run/xapi.pid /var/run/xapi_startup.cookie /var/run/xapi_init_complete.cookie
 StandardError=journal
+TimeoutStartUSec=4min
 
 [Install]
 WantedBy=multi-user.target

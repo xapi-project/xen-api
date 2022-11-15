@@ -31,6 +31,10 @@ let () =
     )
     !Xapi_globs.disable_logging_for ;
   Unixext.pidfile_write "/var/run/xapi.pid" ;
+  ignore
+    Xapi_stdext_unix.Unixext.Daemon.(
+      systemd_notify (State.MainPID (Unix.getpid ()))
+    ) ;
   (* chdir to /var/lib/xcp/debug so that's where xapi coredumps go
      (in the unlikely event that there are any ;) *)
   Unixext.mkdir_rec (Filename.concat "/var/lib/xcp" "debug") 0o700 ;
