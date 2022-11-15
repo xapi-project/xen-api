@@ -19,6 +19,8 @@ After=xenstored.service
 After=stunnel@xapi.service
 PartOf=toolstack.target
 
+Before=xapi-init-complete.target
+
 Conflicts=shutdown.target
 
 [Service]
@@ -38,4 +40,4 @@ StandardError=journal
 TimeoutStartUSec=4min
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=xapi-init-complete.target
