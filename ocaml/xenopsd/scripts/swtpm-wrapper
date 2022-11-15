@@ -15,20 +15,22 @@
 from __future__ import print_function
 import os
 import stat
+import socket
 import sys
 import pwd
 import grp
 import subprocess
 import ctypes
 import ctypes.util
+import struct
 from resource import getrlimit, RLIMIT_CORE, RLIMIT_FSIZE, setrlimit
-
-
-STATE_FILE = 'tpm2-00.permall'
+from urlparse import urlparse
 
 CLONE_NEWNS  = 0x00020000 # mount namespace
 CLONE_NEWNET = 0x40000000 # network namespace
 CLONE_NEWIPC = 0x08000000 # IPC namespace
+
+SWTPM_NVSTORE_LINEAR_MAGIC = 0x737774706d6c696e
 
 # Set cgroup_slice to the name of the cgroup slice the swtpm process
 # should live in.
@@ -85,37 +87,80 @@ def prepare_exec():
     sys.stdout.flush()
     sys.stderr.flush()
 
+def make_socket(fname):
+
+    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    sock.bind(fname)
+    sock.listen(1)
+
+    return sock
+
+def check_state_needs_init(fname):
+
+    if not os.path.exists(fname):
+        return True
+
+    mode = os.stat(fname).st_mode
+
+    if not stat.S_ISBLK(mode):
+        return False
+
+    # Check if block device has non-zero header
+    with open(fname, "r") as file:
+        hdr = file.read(8)
+    int_hdr = struct.unpack("<Q", hdr)[0]
+
+    if len(hdr) == 8 and int_hdr == SWTPM_NVSTORE_LINEAR_MAGIC:
+        return False
+    return True
+
+
 def main(argv):
     print("Arguments: %s" % " ".join(argv[1:]))
 
-    if len(argv) < 3:
-        return 
+    if len(argv) < 4:
+        sys.exit("Not enough arguments.")
 
     domid = int(argv[1])
     tpm_dir = argv[2]
+    tpm_state = argv[3]
     tpm_path = tpm_dir
     depriv = True
 
-    n= 3
-    while n < len(argv):
-        if argv[n] == "-priv":
+    for arg in argv[4:]:
+        if arg == "--priv":
             depriv = False
-            continue
-        n += 1
+        else:
+            sys.exit("Unknown option %s\n" % arg)
+
+    parsed = urlparse(tpm_state)
+    tpm_state_scheme = parsed.scheme
+    tpm_state_file = parsed.path.lstrip('/')
+    tpm_file = os.path.join(tpm_dir, tpm_state_file)
+
+    if (tpm_state_scheme == "dir"):
+        tpm_uri = tpm_dir
+    elif (tpm_state_scheme == "file"):
+        tpm_uri = tpm_state_scheme + "://" + tpm_file
+    else:
+        sys.exit("Unknown state scheme  %s\n" % tpm_state_scheme)
 
     tpm_env = dict(os.environ)
     tpm_env["LD_LIBRARY_PATH"] = "/usr/lib:"
 
-    if not os.path.exists(os.path.join(tpm_dir, STATE_FILE)):
+    if check_state_needs_init(tpm_file):
         # Initial manufacture
-
         tpm_exe = '/usr/bin/swtpm_setup'
-        tpm_args = ["swtpm_setup", "--tpm2", "--tpm-state", tpm_dir, "--createek", "--create-ek-cert", "--create-platform-cert", "--lock-nvram", "--not-overwrite"]
+        tpm_args = ["swtpm_setup", "--tpm2", "--tpm-state", tpm_uri, "--createek", "--create-ek-cert", "--create-platform-cert", "--lock-nvram", "--not-overwrite"]
         subprocess.check_call(tpm_args, executable=tpm_exe, env=tpm_env)
 
     tpm_exe = '/usr/bin/swtpm'
     uid = pwd.getpwnam('swtpm_base').pw_uid + domid
     tpm_args = []
+
+    swtpm_pid_full = os.path.join(tpm_dir, "swtpm-%d.pid" % domid)
+    open(swtpm_pid_full, 'wa').close()
+    os.chown(swtpm_pid_full, uid, uid)
 
     if depriv:
         tpm_args = ["--chroot", tpm_dir,
@@ -129,24 +174,37 @@ def main(argv):
             if not os.path.exists(urandom):
                 os.mknod(urandom, 0666 | stat.S_IFCHR, os.makedev(1, 9))
 
-            os.chown(tpm_dir, uid, uid)
             if os.path.exists(os.path.join(tpm_dir, ".lock")):
                 os.chown(os.path.join(tpm_dir, ".lock"), uid, uid)
-            os.chown(os.path.join(tpm_dir, STATE_FILE), uid, uid)
+            os.chown(tpm_file, uid, uid)
+
+            if (tpm_state_scheme != "file"):
+                os.chown(tpm_dir, uid, uid)
+            else:
+                os.chmod(tpm_dir, 0o750)
+                os.chown(tpm_dir, 0 , uid)
 
         except OSError as error:
             print(error)
             return
 
         tpm_path = '/'
+        tpm_uri = tpm_state
 
-    swtpm_sock = os.path.join(tpm_path, "swtpm-sock")
+    swtpm_sock = os.path.join(tpm_dir, "swtpm-sock")
     swtpm_pid = os.path.join(tpm_path, "swtpm-%d.pid" % domid)
+
+    sock = make_socket(swtpm_sock)
+
+    if (tpm_state_scheme == "dir"):
+        state_param = "dir=%s" % tpm_path
+    else:
+        state_param = "backend-uri=%s" % tpm_uri
 
     tpm_args = ["swtpm-%d" % domid, "socket",
                "--tpm2",
-               "--tpmstate", "dir=%s" % tpm_path,
-               "--ctrl", "type=unixio,path=%s" % swtpm_sock,
+               "--tpmstate", state_param,
+               "--ctrl", "type=unixio,fd=%i" % sock.fileno(),
                "--log", "level=1",
                "--pid", "file=%s" % swtpm_pid,
                "-t"] + tpm_args
@@ -156,6 +214,7 @@ def main(argv):
 
     sys.stdout.flush()
     sys.stderr.flush()
+    sock.close()
 
     # Redirect output from SWTPM to logger
     os.dup2(swtpm.stdout.fileno(), 0)
