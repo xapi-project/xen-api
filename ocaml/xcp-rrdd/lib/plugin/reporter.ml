@@ -92,6 +92,11 @@ let wait_until_next_reading (module D : Debug.DEBUG) ~neg_shift ~uid ~protocol
   )
 
 let loop (module D : Debug.DEBUG) ~reporter ~report ~cleanup =
+  let log_backtrace e =
+    let trace = Printexc.(get_raw_backtrace () |> raw_backtrace_to_string) in
+    D.error "%s: %s" (Printexc.to_string e) trace
+  in
+
   let running = ref true in
   ( match reporter with
   | Some reporter ->
@@ -127,9 +132,10 @@ let loop (module D : Debug.DEBUG) ~reporter ~report ~cleanup =
         cleanup () ;
         running := false
     | e ->
+        log_backtrace e ;
         D.error "Unexpected error %s, sleeping for 10 seconds..."
           (Printexc.to_string e) ;
-        D.log_backtrace () ;
+
         Thread.delay 10.0
   done ;
   D.info "leaving main loop"
