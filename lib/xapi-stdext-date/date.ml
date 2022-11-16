@@ -30,12 +30,10 @@ let months =
 
 let days = [|"Sun"; "Mon"; "Tue"; "Wed"; "Thu"; "Fri"; "Sat"|]
 
-(* ==== ISO8601/RFC3339 ==== *)
-
 type print_timezone = Empty | TZ of string
 
 (* we must store the print_type with iso8601 to handle the case where the local time zone is UTC *)
-type iso8601 = Ptime.date * Ptime.time * print_timezone
+type t = Ptime.date * Ptime.time * print_timezone
 
 let utc = TZ "Z"
 
@@ -73,13 +71,13 @@ let of_iso8601 x =
   let rfc3339, print_timezone = best_effort_iso8601_to_rfc3339 x in
   match Ptime.of_rfc3339 rfc3339 |> Ptime.rfc3339_error_to_msg with
   | Error _ ->
-      invalid_arg (Printf.sprintf "date.ml:of_string: %s" x)
+      invalid_arg (Printf.sprintf "%s: %s" __FUNCTION__ x)
   | Ok (t, tz, _) -> (
     match tz with
     | None | Some 0 ->
         Ptime.to_date_time t |> of_dt print_timezone
     | Some _ ->
-        invalid_arg (Printf.sprintf "date.ml:of_string: %s" x)
+        invalid_arg (Printf.sprintf "%s: %s" __FUNCTION__ x)
   )
 
 let to_rfc3339 ((y, mon, d), ((h, min, s), _), print_type) =
@@ -111,7 +109,7 @@ let to_ptime_t t =
   | None ->
       let _, (_, offset), _ = t in
       invalid_arg
-        (Printf.sprintf "date.ml:to_t: dt='%s', offset='%i' is invalid"
+        (Printf.sprintf "%s: dt='%s', offset='%i' is invalid" __FUNCTION__
            (to_rfc3339 t) offset
         )
 
@@ -134,9 +132,8 @@ let _localtime current_tz_offset t =
   let _, (_, localtime_offset), _ = localtime in
   if localtime_offset <> tz_offset_s then
     invalid_arg
-      (Printf.sprintf
-         "date.ml:_localtime: offsets don't match. offset='%i', t='%s'"
-         tz_offset_s (Ptime.to_rfc3339 t)
+      (Printf.sprintf "%s: offsets don't match. offset='%i', t='%s'"
+         __FUNCTION__ tz_offset_s (Ptime.to_rfc3339 t)
       ) ;
   localtime
 
@@ -168,4 +165,6 @@ let rfc822_of_float = of_unix_time
 
 let rfc822_to_string = to_rfc822
 
-type rfc822 = iso8601
+type iso8601 = t
+
+type rfc822 = t
