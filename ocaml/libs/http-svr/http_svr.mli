@@ -114,7 +114,7 @@ val response_forbidden : ?req:Http.Request.t -> Unix.file_descr -> unit
 val response_badrequest : ?req:Http.Request.t -> Unix.file_descr -> unit
 
 val response_internal_error :
-  ?req:Http.Request.t -> ?extra:uri_path -> Unix.file_descr -> unit
+  ?req:Http.Request.t -> ?extra:uri_path -> exn -> Unix.file_descr -> unit
 
 val response_method_not_implemented :
   ?req:Http.Request.t -> Unix.file_descr -> unit

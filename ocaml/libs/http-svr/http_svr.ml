@@ -39,6 +39,8 @@ module D = Debug.Make (struct let name = "http" end)
 
 open D
 
+module E = Debug.Make (struct let name = "http_internal_errors" end)
+
 type uri_path = string
 
 module Stats = struct
@@ -177,7 +179,9 @@ let response_request_header_fields_too_large s =
   in
   response_error_html s "431" "Request Header Fields Too Large" [] body
 
-let response_internal_error ?req ?extra s =
+let response_internal_error ?req ?extra exc s =
+  E.error "Responding with 500 Internal Error due to %s" (Printexc.to_string exc) ;
+  E.log_backtrace () ;
   let version = Option.map get_return_version req in
   let extra =
     Option.fold ~none:""
@@ -423,7 +427,7 @@ let request_of_bio ?proxy_seen ~read_timeout ~total_timeout ~max_length ic =
         match e with
         (* Specific errors thrown during parsing *)
         | Http.Http_parse_failure ->
-            response_internal_error ss
+            response_internal_error e ss
               ~extra:"The HTTP headers could not be parsed." ;
             debug "Error parsing HTTP headers"
         | Buf_io.Timeout ->
@@ -433,7 +437,7 @@ let request_of_bio ?proxy_seen ~read_timeout ~total_timeout ~max_length ic =
             ()
         (* Connection terminated *)
         | Buf_io.Line _ ->
-            response_internal_error ss
+            response_internal_error e ss
               ~extra:"One of the header lines was too long."
         (* Generic errors thrown during parsing *)
         | End_of_file ->
@@ -444,13 +448,14 @@ let request_of_bio ?proxy_seen ~read_timeout ~total_timeout ~max_length ic =
             response_request_header_fields_too_large ss
         (* Premature termination of connection! *)
         | Unix.Unix_error (a, b, c) ->
-            response_internal_error ss
+            response_internal_error e ss
               ~extra:
                 (Printf.sprintf "Got UNIX error: %s %s %s"
                    (Unix.error_message a) b c
                 )
         | exc ->
-            response_internal_error ss ~extra:(escape (Printexc.to_string exc)) ;
+            response_internal_error exc ss
+              ~extra:(escape (Printexc.to_string exc)) ;
             log_backtrace ()
     ) ;
     (None, None)
@@ -486,7 +491,7 @@ let handle_one (x : 'a Server.t) ss context req =
         match e with
         (* Specific errors thrown by handlers *)
         | Generic_error s ->
-            response_internal_error ~req ss ~extra:s
+            response_internal_error e ~req ss ~extra:s
         | Http.Unauthorised realm ->
             response_unauthorised ~req realm ss
         | Http.Forbidden ->
@@ -498,15 +503,14 @@ let handle_one (x : 'a Server.t) ss context req =
             ()
         (* Premature termination of connection! *)
         | Unix.Unix_error (a, b, c) ->
-            response_internal_error ~req ss
+            response_internal_error ~req e ss
               ~extra:
                 (Printf.sprintf "Got UNIX error: %s %s %s"
                    (Unix.error_message a) b c
                 )
         | exc ->
-            response_internal_error ~req ss
-              ~extra:(escape (Printexc.to_string exc)) ;
-            log_backtrace ()
+            response_internal_error ~req exc ss
+              ~extra:(escape (Printexc.to_string exc))
     ) ;
     !finished
 
