@@ -155,9 +155,9 @@ module From = struct
             let empty = column_schema.Schema.Column.empty in
             Row.update mtime k empty (fun _ -> value) (Row.add ctime k value row)
           with Not_found ->
-            (* This means there's an unexpected field, so we should normally
-               fail. However, prototype fields are permitted to disappear on
-               upgrade, so suppress such errors on such upgrades. *)
+            (* This means there's an unexpected field, fail since no field
+               should ever be deleted, instead they should change their
+               lifecycle state to Removed *)
             let exc =
               Unmarshall_error
                 (Printf.sprintf "Unexpected column in table %s: %s" tblname k)
