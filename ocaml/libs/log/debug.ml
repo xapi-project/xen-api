@@ -27,7 +27,9 @@ let get_thread_id () = try Thread.id (Thread.self ()) with _ -> -1
 module IntMap = Map.Make (Int)
 
 module ThreadLocalTable = struct
-  type 'a t = {mutable tbl: 'a IntMap.t; m: Mutex.t}
+  (* The map values behave like stacks here, with shadowing as in Hashtbl.
+     A Hashtbl is not used here, in order to avoid taking the lock in `find`. *)
+  type 'a t = {mutable tbl: 'a list IntMap.t; m: Mutex.t}
 
   let make () =
     let tbl = IntMap.empty in
@@ -36,15 +38,33 @@ module ThreadLocalTable = struct
 
   let add t v =
     let id = get_thread_id () in
-    Mutex.execute t.m (fun () -> t.tbl <- IntMap.add id v t.tbl)
+    Mutex.execute t.m (fun () ->
+        t.tbl <-
+          IntMap.update id
+            (function Some v' -> Some (v :: v') | None -> Some [v])
+            t.tbl
+    )
 
   let remove t =
     let id = get_thread_id () in
-    Mutex.execute t.m (fun () -> t.tbl <- IntMap.remove id t.tbl)
+    Mutex.execute t.m (fun () ->
+        t.tbl <-
+          IntMap.update id
+            (function
+              | Some [_] ->
+                  None
+              | Some (_hd :: tl) ->
+                  Some tl
+              | Some [] | None ->
+                  None
+              )
+            t.tbl
+    )
 
   let find t =
     let id = get_thread_id () in
     IntMap.find_opt id t.tbl
+    |> Option.fold ~none:None ~some:(function v :: _ -> Some v | [] -> None)
 end
 
 type task = {desc: string; client: string option}
