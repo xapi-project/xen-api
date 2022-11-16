@@ -12,9 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-(* ==== RFC822 ==== *)
-type rfc822 = string
-
 let months =
   [|
      "Jan"
@@ -32,14 +29,6 @@ let months =
   |]
 
 let days = [|"Sun"; "Mon"; "Tue"; "Wed"; "Thu"; "Fri"; "Sat"|]
-
-let rfc822_of_float x =
-  let time = Unix.gmtime x in
-  Printf.sprintf "%s, %d %s %d %02d:%02d:%02d GMT" days.(time.Unix.tm_wday)
-    time.Unix.tm_mday months.(time.Unix.tm_mon) (time.Unix.tm_year + 1900)
-    time.Unix.tm_hour time.Unix.tm_min time.Unix.tm_sec
-
-let rfc822_to_string x = x
 
 (* ==== ISO8601/RFC3339 ==== *)
 
@@ -100,6 +89,21 @@ let to_rfc3339 ((y, mon, d), ((h, min, s), _), print_type) =
   | Empty ->
       Printf.sprintf "%04i%02i%02iT%02i:%02i:%02i" y mon d h min s
 
+let weekday ~year ~mon ~day =
+  let a = (14 - mon) / 12 in
+  let y = year - a in
+  let m = mon + (12 * a) - 2 in
+  (day + y + (y / 4) - (y / 100) + (y / 400) + (31 * m / 12)) mod 7
+
+let to_rfc822 ((year, mon, day), ((h, min, s), _), print_type) =
+  let timezone =
+    match print_type with Empty | TZ "Z" -> "GMT" | TZ tz -> tz
+  in
+  let weekday = weekday ~year ~mon ~day in
+  Printf.sprintf "%s, %d %s %d %02d:%02d:%02d %s" days.(weekday) day
+    months.(mon - 1)
+    year h min s timezone
+
 let to_ptime_t t =
   match to_dt t |> Ptime.of_date_time with
   | Some t ->
@@ -159,3 +163,9 @@ let to_string = to_rfc3339
 let of_float = of_unix_time
 
 let to_float = to_unix_time
+
+let rfc822_of_float = of_unix_time
+
+let rfc822_to_string = to_rfc822
+
+type rfc822 = iso8601

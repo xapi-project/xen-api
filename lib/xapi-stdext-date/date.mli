@@ -32,6 +32,9 @@ val to_unix_time : iso8601 -> float
 (** Convert date/time to a unix timestamp: the number of seconds since 
     00:00:00 UTC, 1 Jan 1970. Assumes the underlying iso8601 is in UTC *)
 
+val to_rfc822 : iso8601 -> string
+(** Convert date/time to email-formatted (RFC 822) string. *)
+
 val to_rfc3339 : iso8601 -> string
 (** Convert date/time to an RFC-3339-formatted string. It also complies with
     the ISO 8601 format.*)
