@@ -69,7 +69,7 @@ module List = struct
 
   let drop n list =
     let rec loop i = function
-      | x :: xs when i < n ->
+      | _ :: xs when i < n ->
           loop (i + 1) xs
       | l ->
           l
@@ -233,8 +233,6 @@ module List = struct
 
   (* Thanks to sharing we only use linear space. (Roughly double the space needed for the spine of the original list) *)
   let rec tails = function [] -> [[]] | _ :: xs as l -> l :: tails xs
-
-  let safe_hd l = List.nth_opt l 0
 
   let replace_assoc key new_value existing =
     (key, new_value) :: List.filter (fun (k, _) -> k <> key) existing

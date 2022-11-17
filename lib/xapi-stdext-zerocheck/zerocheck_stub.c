@@ -29,7 +29,7 @@ value find_a_nonzero(value string, value offset, value remaining)
 	int c_offset = Int_val(offset);
 	int c_remaining = Int_val(remaining);
 	int c_origremaining = c_remaining;
-	char *c_string = String_val(string);
+	const char *c_string = String_val(string);
 	char *s = c_string + c_offset;
 
 	/* Go character by character until we hit an unsigned int boundary */
@@ -68,7 +68,7 @@ value find_a_zero(value string, value offset, value remaining)
 	int c_offset = Int_val(offset);
 	int c_remaining = Int_val(remaining);
 	int c_origremaining = c_remaining;
-	char *c_string = String_val(string);
+	const char *c_string = String_val(string);
 	char *s = c_string + c_offset;
 
 	/* Go character by character until we hit an unsigned int boundary */
@@ -108,7 +108,7 @@ value find_a_zero(value string, value offset, value remaining)
 value is_all_zeros(value string, value length)
 {
 	CAMLparam2(string, length);
-	char *s = String_val(string);
+	const char *s = String_val(string);
 	unsigned int *p;
 	int len = Int_val(length);
 	int i;

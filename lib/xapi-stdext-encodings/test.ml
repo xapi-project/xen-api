@@ -29,7 +29,7 @@ module type WIDTH_GENERATOR = sig val next : unit -> int end
 
 (** A validator that always succeeds. *)
 module Lenient_UCS_validator : E.UCS_VALIDATOR = struct
-  let validate value = ()
+  let validate _ = ()
 end
 
 (* === Mock character decoders ============================================= *)
@@ -63,12 +63,12 @@ module Logged_n_byte_character_decoder = Logged_character_decoder
 
 (** A decoder that succeeds for all characters. *)
 module Universal_character_decoder = struct
-  let decode_character string index = (0l, 1)
+  let decode_character _ _ = (0l, 1)
 end
 
 (** A decoder that fails for all characters. *)
 module Failing_character_decoder = struct
-  let decode_character string index = raise Decode_error
+  let decode_character _ _ = raise Decode_error
 end
 
 (** A decoder that succeeds for all characters except the letter 'F'. *)

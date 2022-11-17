@@ -1,6 +1,8 @@
 ## v4.21.0 (unreleased)
  - unix: add permissions to write_{bytes,string}_to_file
  - Use a dune version with fixed metadata generation 
+ - threads, unix: avoid using C functions deprecated in OCaml 5
+ - Avoid warnings and add the check to detect them to the CI
 
 ## v4.20.0 (17-Nov-2022)
  - date: consolidate the types into a single t
