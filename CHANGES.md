@@ -1,4 +1,8 @@
-## 4.20.0 (17-Nov-2022)
+## v4.21.0 (unreleased)
+ - unix: add permissions to write_{bytes,string}_to_file
+ - Use a dune version with fixed metadata generation 
+
+## v4.20.0 (17-Nov-2022)
  - date: consolidate the types into a single t
  - date: add conversion functions that have semantic meaning, the previous functions containing 'float' and 'string' will be deprecated in a future release.
 
