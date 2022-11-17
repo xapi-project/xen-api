@@ -15,7 +15,7 @@ open Xapi_stdext_pervasives.Pervasiveext
 
 exception Unix_error of int
 
-external _exit : int -> unit = "unix_exit"
+let _exit = Unix._exit
 
 (** remove a file, but doesn't raise an exception if the file is already removed *)
 let unlink_safe file =

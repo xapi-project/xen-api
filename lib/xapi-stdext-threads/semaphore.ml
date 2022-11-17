@@ -27,7 +27,7 @@ let create n =
   { n; m; c; }
 
 exception Inconsistent_state of string
-let inconsistent_state fmt = Printf.kprintf (fun msg ->
+let inconsistent_state fmt = Printf.ksprintf (fun msg ->
     raise (Inconsistent_state msg)) fmt
 
 let acquire s k =
