@@ -113,4 +113,21 @@ let iso8601_tests =
   ; ("test_xsi894", `Quick, test_xsi894)
   ]
 
-let () = Alcotest.run "Date" [("ISO 8601", iso8601_tests)]
+let rfc822_tests =
+  let dates =
+    [
+      (-1221847200., "Tue, 14 Apr 1931 06:00:00 GMT")
+    ; (0., "Thu, 1 Jan 1970 00:00:00 GMT")
+    ; (626637180., "Thu, 9 Nov 1989 17:53:00 GMT")
+    ; (2889734400., "Thu, 28 Jul 2061 00:00:00 GMT")
+    ]
+  in
+  let test_email_date (unix_timestamp, expected) =
+    let formatted = rfc822_of_float unix_timestamp |> rfc822_to_string in
+    check_string "String is properly RFC-822-formatted" expected formatted
+  in
+  let test_email_dates () = List.iter test_email_date dates in
+  [("RFC 822 formatting", `Quick, test_email_dates)]
+
+let () =
+  Alcotest.run "Date" [("ISO 8601", iso8601_tests); ("RFC 822", rfc822_tests)]
