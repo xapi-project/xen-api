@@ -334,13 +334,11 @@ let with_transport ?(stunnel_wait_disconnect = true) transport f =
       st_proc' @@ fun st_proc ->
       let s = st_proc.Stunnel.fd in
       let s_pid = Stunnel.getpid st_proc.Stunnel.pid in
-      debug "stunnel pid: %d (cached = %b) connected to %s:%d" s_pid
-        use_stunnel_cache host port ;
+      debug "stunnel pid: %d (%scached) connected to %s:%d" s_pid
+        (if use_stunnel_cache then "" else "not ")
+        host port ;
       (* Call the {,un}set_stunnelpid_callback hooks around the remote call *)
-      let with_recorded_stunnelpid task_opt s_pid f =
-        debug "with_recorded_stunnelpid task_opt=%s s_pid=%d"
-          (Option.value ~default:"None" task_opt)
-          s_pid ;
+      let with_recorded_stunnelpid f =
         ( match !Internal.set_stunnelpid_callback with
         | Some f ->
             f task_id s_pid
@@ -355,7 +353,7 @@ let with_transport ?(stunnel_wait_disconnect = true) transport f =
                 ()
         )
       in
-      with_recorded_stunnelpid task_id s_pid (fun () ->
+      with_recorded_stunnelpid (fun () ->
           finally
             (fun () ->
               try f Unixfd.(!s)
@@ -367,11 +365,9 @@ let with_transport ?(stunnel_wait_disconnect = true) transport f =
                 raise e
             )
             (fun () ->
-              if use_stunnel_cache then (
-                Stunnel_cache.add st_proc ;
-                debug "stunnel pid: %d (cached = %b) returned stunnel to cache"
-                  s_pid use_stunnel_cache
-              ) else (
+              if use_stunnel_cache then
+                Stunnel_cache.add st_proc
+              else (
                 Unix.unlink st_proc.Stunnel.logfile ;
                 Stunnel.disconnect ~wait:stunnel_wait_disconnect st_proc
               )
