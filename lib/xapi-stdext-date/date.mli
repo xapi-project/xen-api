@@ -11,49 +11,82 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-(** Additional types and functions for dates *)
 
-(** {2 ISO 8601 Dates} *)
+(** date-time with support for keeping timezone for ISO 8601 conversion *)
+type t
 
-(** An ISO-8601 date/time type. *)
-type iso8601
+val of_ptime : Ptime.t -> t
+(** Convert ptime to time in UTC *)
 
-(** Convert calendar time [x] (as returned by e.g. Unix.time), to time in UTC. *)
-val of_float : float -> iso8601
+val to_ptime : t -> Ptime.t
+(** Convert date/time to a ptime value: the number of seconds since 00:00:00
+    UTC, 1 Jan 1970. Assumes the underlying {!t} is in UTC *)
 
-(** Convert date/time to a float value: the number of seconds since 00:00:00 UTC, 1 Jan 1970.
-  * Assumes the underlying iso8601 is in UTC *)
-val to_float : iso8601 -> float
+val of_unix_time : float -> t
+(** Convert calendar time [x] (as returned by e.g. Unix.time), to time in UTC *)
 
-(** Convert date/time to an ISO 8601 formatted string. *)
-val to_string : iso8601 -> string
+val to_unix_time : t -> float
+(** Convert date/time to a unix timestamp: the number of seconds since 
+    00:00:00 UTC, 1 Jan 1970. Assumes the underlying {!t} is in UTC *)
 
-(** Convert ISO 8601 formatted string to a date/time value.
-  * Does not accept a timezone annotated datetime - i.e. string must be UTC, and end with a Z *)
-val of_string : string -> iso8601
+val to_rfc822 : t -> string
+(** Convert date/time to email-formatted (RFC 822) string. *)
 
-(** Raises an Invalid_argument exception if the given date is not a UTC date.
- *  A UTC date is an ISO 8601 strings that ends with the character 'Z'. *)
-val assert_utc : iso8601 -> unit
-[@@deprecated "assertions performed inside constructors, so this fn does nothing"]
+val to_rfc3339 : t -> string
+(** Convert date/time to an RFC-3339-formatted string. It also complies with
+    the ISO 8601 format *)
 
-(** Representation of the concept "never" (actually 00:00:00 UTC, 1 Jan 1970). *)
-val never: iso8601
+val of_iso8601 : string -> t
+(** Convert ISO 8601 formatted string to a date/time value. Does not accept a
+    timezone annotated datetime - i.e. string must be UTC, and end with a Z *)
 
-(** exposed for testing *)
+val epoch : t
+(** 00:00:00 UTC, 1 Jan 1970, in UTC *)
+
+val now : unit -> t
+(** Count the number of seconds passed since 00:00:00 UTC, 1 Jan 1970, in UTC *)
+
 val _localtime_string : Ptime.tz_offset_s option -> Ptime.t -> string
+(** exposed for testing *)
 
-val localtime : unit -> iso8601
+val localtime : unit -> t
+(** Count the number of seconds passed since 00:00:00 UTC, 1 Jan 1970, in local
+    time *)
 
-(** {2 RFC 822 Dates} *)
+val eq : t -> t -> bool
+(** [eq a b] returns whether [a] and [b] are equal *)
 
-(** An RFC 822 date/time type. *)
-type rfc822
+(** Deprecated bindings, these will be removed in a future release: *)
 
-(** Convert calendar time [x] (as returned by e.g. Unix.time), to RFC 822. *)
-val rfc822_of_float : float -> rfc822
+val rfc822_to_string : t -> string
+(** Same as {!to_rfc822} *)
 
-(** Convert RFC 822 date/time to a formatted string. *)
-val rfc822_to_string : rfc822 -> string
+val rfc822_of_float : float -> t
+(** Same as {!of_unix_time} *)
 
-val eq : iso8601 -> iso8601 -> bool
+val of_float : float -> t
+(** Same as {!of_unix_time} *)
+
+val to_float : t -> float
+(** Same as {!to_unix_time} *)
+
+val to_string : t -> string
+(** Same as {!to_rfc3339} *)
+
+val of_string : string -> t
+(** Same as {!of_iso8601} *)
+
+val never : t
+(** Same as {!epoch} *)
+
+val assert_utc : t -> unit
+  [@@deprecated
+    "assertions performed inside constructors, so this fn does nothing"]
+(** Raises an Invalid_argument exception if the given date is not a UTC date.
+    A UTC date is an ISO 8601 strings that ends with the character 'Z' *)
+
+(** Deprecated alias for {!t} *)
+type iso8601 = t
+
+(** Deprecated alias for {!t} *)
+type rfc822 = t

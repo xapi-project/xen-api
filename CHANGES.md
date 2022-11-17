@@ -1,3 +1,7 @@
+## 4.20.0 (17-Nov-2022)
+ - date: consolidate the types into a single t
+ - date: add conversion functions that have semantic meaning, the previous functions containing 'float' and 'string' will be deprecated in a future release.
+
 ## v4.19.0 (17-Jun-2022)
  - maintenance: give a name to the project
  - threads: Remove all the modules except Mutex

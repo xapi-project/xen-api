@@ -12,31 +12,35 @@
  * GNU Lesser General Public License for more details.
  *)
 
-(* ==== RFC822 ==== *)
-type rfc822 = string
+let months =
+  [|
+     "Jan"
+   ; "Feb"
+   ; "Mar"
+   ; "Apr"
+   ; "May"
+   ; "Jun"
+   ; "Jul"
+   ; "Aug"
+   ; "Sep"
+   ; "Oct"
+   ; "Nov"
+   ; "Dec"
+  |]
 
-let months = [| "Jan"; "Feb"; "Mar"; "Apr"; "May"; "Jun";
-                "Jul"; "Aug"; "Sep"; "Oct"; "Nov"; "Dec" |]
-let days = [| "Sun"; "Mon"; "Tue"; "Wed"; "Thu"; "Fri"; "Sat" |]
-
-let rfc822_of_float x =
-  let time = Unix.gmtime x in
-  Printf.sprintf "%s, %d %s %d %02d:%02d:%02d GMT"
-    days.(time.Unix.tm_wday) time.Unix.tm_mday
-    months.(time.Unix.tm_mon) (time.Unix.tm_year+1900)
-    time.Unix.tm_hour time.Unix.tm_min time.Unix.tm_sec
-
-let rfc822_to_string x = x
-
-(* ==== ISO8601/RFC3339 ==== *)
+let days = [|"Sun"; "Mon"; "Tue"; "Wed"; "Thu"; "Fri"; "Sat"|]
 
 type print_timezone = Empty | TZ of string
+
 (* we must store the print_type with iso8601 to handle the case where the local time zone is UTC *)
-type iso8601 = Ptime.date * Ptime.time * print_timezone
+type t = Ptime.date * Ptime.time * print_timezone
 
 let utc = TZ "Z"
 
-let of_dt print_type dt = let (date, time) = dt in (date, time, print_type)
+let of_dt print_type dt =
+  let date, time = dt in
+  (date, time, print_type)
+
 let to_dt (date, time, _) = (date, time)
 
 let best_effort_iso8601_to_rfc3339 x =
@@ -44,72 +48,123 @@ let best_effort_iso8601_to_rfc3339 x =
    * (b) add UTC tz if no tz provided *)
   let x =
     try
-      Scanf.sscanf x "%04d%02d%02dT%s"
-        (fun y mon d rest ->
-          Printf.sprintf "%04d-%02d-%02dT%s" y mon d rest)
-    with _ ->
-      x
+      Scanf.sscanf x "%04d%02d%02dT%s" (fun y mon d rest ->
+          Printf.sprintf "%04d-%02d-%02dT%s" y mon d rest
+      )
+    with _ -> x
   in
   let tz =
     try
-      Scanf.sscanf x "%04d-%02d-%02dT%02d:%02d:%02d%s"
-        (fun _ _ _ _ _ _ tz -> Some tz)
+      Scanf.sscanf x "%04d-%02d-%02dT%02d:%02d:%02d%s" (fun _ _ _ _ _ _ tz ->
+          Some tz
+      )
     with _ -> None
   in
   match tz with
   | None | Some "" ->
-    (* the caller didn't specify a tz. we must try to add one so that ptime can at least attempt to parse *)
-    (Printf.sprintf "%sZ" x, Empty)
-  | Some tz  ->
-    (x, TZ tz)
+      (* the caller didn't specify a tz. we must try to add one so that ptime can at least attempt to parse *)
+      (Printf.sprintf "%sZ" x, Empty)
+  | Some tz ->
+      (x, TZ tz)
 
-let of_string x =
-  let (rfc3339, print_timezone) = best_effort_iso8601_to_rfc3339 x in
+let of_iso8601 x =
+  let rfc3339, print_timezone = best_effort_iso8601_to_rfc3339 x in
   match Ptime.of_rfc3339 rfc3339 |> Ptime.rfc3339_error_to_msg with
-  | Error (`Msg e) -> invalid_arg (Printf.sprintf "date.ml:of_string: %s" x)
-  | Ok (t, tz, _)  -> match tz with
-                      | None | Some 0 -> Ptime.to_date_time t |> of_dt print_timezone
-                      | Some _        -> invalid_arg (Printf.sprintf "date.ml:of_string: %s" x)
+  | Error _ ->
+      invalid_arg (Printf.sprintf "%s: %s" __FUNCTION__ x)
+  | Ok (t, tz, _) -> (
+    match tz with
+    | None | Some 0 ->
+        Ptime.to_date_time t |> of_dt print_timezone
+    | Some _ ->
+        invalid_arg (Printf.sprintf "%s: %s" __FUNCTION__ x)
+  )
 
-let to_string ((y,mon,d), ((h,min,s), _), print_type) =
+let to_rfc3339 ((y, mon, d), ((h, min, s), _), print_type) =
   match print_type with
-  | TZ tz -> Printf.sprintf "%04i%02i%02iT%02i:%02i:%02i%s" y mon d h min s tz
-  | Empty -> Printf.sprintf "%04i%02i%02iT%02i:%02i:%02i" y mon d h min s
+  | TZ tz ->
+      Printf.sprintf "%04i%02i%02iT%02i:%02i:%02i%s" y mon d h min s tz
+  | Empty ->
+      Printf.sprintf "%04i%02i%02iT%02i:%02i:%02i" y mon d h min s
+
+let weekday ~year ~mon ~day =
+  let a = (14 - mon) / 12 in
+  let y = year - a in
+  let m = mon + (12 * a) - 2 in
+  (day + y + (y / 4) - (y / 100) + (y / 400) + (31 * m / 12)) mod 7
+
+let to_rfc822 ((year, mon, day), ((h, min, s), _), print_type) =
+  let timezone =
+    match print_type with Empty | TZ "Z" -> "GMT" | TZ tz -> tz
+  in
+  let weekday = weekday ~year ~mon ~day in
+  Printf.sprintf "%s, %d %s %d %02d:%02d:%02d %s" days.(weekday) day
+    months.(mon - 1)
+    year h min s timezone
 
 let to_ptime_t t =
   match to_dt t |> Ptime.of_date_time with
-  | Some t -> t
+  | Some t ->
+      t
   | None ->
-    let (_, (_, offset), _) = t in
-    invalid_arg (Printf.sprintf "date.ml:to_t: dt='%s', offset='%i' is invalid" (to_string t) offset)
+      let _, (_, offset), _ = t in
+      invalid_arg
+        (Printf.sprintf "%s: dt='%s', offset='%i' is invalid" __FUNCTION__
+           (to_rfc3339 t) offset
+        )
 
-let of_float s =
+let to_ptime = to_ptime_t
+
+let of_ptime t = Ptime.to_date_time t |> of_dt utc
+
+let of_unix_time s =
   match Ptime.of_float_s s with
-  | None -> invalid_arg (Printf.sprintf "date.ml:of_float: %f" s)
-  | Some t -> Ptime.to_date_time t |> of_dt utc
+  | None ->
+      invalid_arg (Printf.sprintf "%s: %f" __FUNCTION__ s)
+  | Some t ->
+      of_ptime t
 
-let to_float t = to_ptime_t t |> Ptime.to_float_s
+let to_unix_time t = to_ptime_t t |> Ptime.to_float_s
 
 let _localtime current_tz_offset t =
   let tz_offset_s = current_tz_offset |> Option.value ~default:0 in
   let localtime = t |> Ptime.to_date_time ~tz_offset_s |> of_dt Empty in
-  let (_, (_, localtime_offset), _) = localtime in
+  let _, (_, localtime_offset), _ = localtime in
   if localtime_offset <> tz_offset_s then
-    invalid_arg (
-      Printf.sprintf "date.ml:_localtime: offsets don't match. offset='%i', t='%s'"
-        tz_offset_s
-        (Ptime.to_rfc3339 t)
-    );
+    invalid_arg
+      (Printf.sprintf "%s: offsets don't match. offset='%i', t='%s'"
+         __FUNCTION__ tz_offset_s (Ptime.to_rfc3339 t)
+      ) ;
   localtime
 
 let _localtime_string current_tz_offset t =
-  _localtime current_tz_offset t |> to_string
+  _localtime current_tz_offset t |> to_rfc3339
 
 let localtime () =
   _localtime (Ptime_clock.current_tz_offset_s ()) (Ptime_clock.now ())
 
-let assert_utc _ = ()
+let now () = of_ptime (Ptime_clock.now ())
 
-let never = of_float 0.0
+let epoch = of_ptime Ptime.epoch
 
 let eq x y = x = y
+
+let assert_utc _ = ()
+
+let never = epoch
+
+let of_string = of_iso8601
+
+let to_string = to_rfc3339
+
+let of_float = of_unix_time
+
+let to_float = to_unix_time
+
+let rfc822_of_float = of_unix_time
+
+let rfc822_to_string = to_rfc822
+
+type iso8601 = t
+
+type rfc822 = t
