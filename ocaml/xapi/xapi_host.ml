@@ -2552,7 +2552,10 @@ let migrate_receive ~__context ~host ~network ~options:_ =
                (Api_errors.interface_has_no_ip, [Ref.string_of pif])
             )
   ) ;
-  let scheme = if !Xapi_globs.migration_https_only then "https" else "http" in
+  (* Set the scheme to HTTP and let the migration source host decide whether to
+     switch to HTTPS instead, to avoid problems with source hosts that are not
+     able to do HTTPS migrations yet. *)
+  let scheme = "http" in
   let sm_url =
     Printf.sprintf "%s://%s/services/SM?session_id=%s" scheme
       (Http.Url.maybe_wrap_IPv6_literal ip)
