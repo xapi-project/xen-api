@@ -94,8 +94,14 @@ let use_compression options src dst =
       !Xapi_globs.migration_compression
 
 let remote_of_dest ~__context dest =
-  let master_url = List.assoc _master dest in
-  let xenops_url = List.assoc _xenops dest in
+  let maybe_set_https url =
+    if !Xapi_globs.migration_https_only then
+      Http.Url.(url |> of_string |> set_ssl true |> to_string)
+    else
+      url
+  in
+  let master_url = List.assoc _master dest |> maybe_set_https in
+  let xenops_url = List.assoc _xenops dest |> maybe_set_https in
   let session_id = Ref.of_string (List.assoc _session_id dest) in
   let remote_ip = get_ip_from_url xenops_url in
   let remote_master_ip = get_ip_from_url master_url in
@@ -111,12 +117,9 @@ let remote_of_dest ~__context dest =
   in
   let sm_url =
     let url = List.assoc _sm dest in
-    if Helpers.this_is_my_address ~__context remote_ip then
-      match Http.Url.of_string url with
-      | Http h, d ->
-          Http.Url.to_string (Http {h with Http.Url.ssl= false}, d)
-      | _ ->
-          url
+    (* Never use HTTPS for local SM calls *)
+    if not (Helpers.this_is_my_address ~__context remote_ip) then
+      maybe_set_https url
     else
       url
   in

@@ -269,4 +269,6 @@ module Url : sig
   val get_query : t -> string
 
   val auth_of : t -> authorization option
+
+  val set_ssl : bool -> t -> t
 end

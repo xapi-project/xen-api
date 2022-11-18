@@ -992,4 +992,6 @@ module Url = struct
 
   let auth_of (scheme, _) =
     match scheme with File _ -> None | Http {auth; _} -> auth
+
+  let set_ssl ssl = function Http h, d -> (Http {h with ssl}, d) | x -> x
 end
