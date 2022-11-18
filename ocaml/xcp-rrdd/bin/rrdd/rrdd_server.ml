@@ -112,11 +112,11 @@ let backup_rrds (remote_address : string option) () : unit =
   let destination =
     match remote_address with
     | None ->
-        "to local disk"
+        "local disk"
     | Some address ->
-        Printf.sprintf "to host %s" address
+        Printf.sprintf "host %s" address
   in
-  debug "backing up rrds %s" destination ;
+  info "%s: trying to back up RRDs to %s" __FUNCTION__ destination ;
   let total_cycles = 5 in
   let cycles_tried = ref 0 in
   while !cycles_tried < total_cycles do
@@ -129,7 +129,7 @@ let backup_rrds (remote_address : string option) () : unit =
       Mutex.unlock mutex ;
       List.iter
         (fun (uuid, rrd) ->
-          debug "Backup: saving RRD for VM uuid=%s %s" uuid destination ;
+          debug "%s: saving RRD for VM uuid=%s" __FUNCTION__ uuid ;
           let rrd = with_lock mutex (fun () -> Rrd.copy_rrd rrd) in
           archive_rrd_internal ~transport ~uuid ~rrd ()
         )
@@ -142,14 +142,14 @@ let backup_rrds (remote_address : string option) () : unit =
       Mutex.unlock mutex ;
       List.iter
         (fun (uuid, rrd) ->
-          debug "Backup: saving RRD for SR uuid=%s %s" uuid destination ;
+          debug "%s: saving RRD for SR uuid=%s" __FUNCTION__ uuid ;
           let rrd = with_lock mutex (fun () -> Rrd.copy_rrd rrd) in
           archive_rrd_internal ~transport ~uuid ~rrd ()
         )
         srrds ;
       match !host_rrd with
       | Some rrdi ->
-          debug "Backup: saving RRD for host %s" destination ;
+          debug "%s: saving RRD for host" __FUNCTION__ ;
           let rrd = with_lock mutex (fun () -> Rrd.copy_rrd rrdi.rrd) in
           archive_rrd_internal ~transport
             ~uuid:(Inventory.lookup Inventory._installation_uuid)
@@ -159,7 +159,7 @@ let backup_rrds (remote_address : string option) () : unit =
     ) else (
       cycles_tried := 1 + !cycles_tried ;
       if !cycles_tried >= total_cycles then
-        debug "Could not acquire RRD lock, skipping RRD backup"
+        warn "%s: Could not acquire RRD lock, skipping RRD backup" __FUNCTION__
       else
         Thread.delay 1.
     )
