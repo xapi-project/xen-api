@@ -103,8 +103,6 @@ let update_rrds timestamp dss uuid_domids paused_vms =
       | None ->
           Some (add_ds_to StringMap.empty)
       | Some dss ->
-          warn {|%s: found duplicate datasource with key "%s" in owner "%a"|}
-            __FUNCTION__ ds.ds_name owner_to_string owner ;
           Some (add_ds_to dss)
     in
     OwnerMap.update owner merge all
