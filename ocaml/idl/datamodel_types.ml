@@ -454,6 +454,119 @@ type lifecycle_change =
 
 and lifecycle_transition = lifecycle_change * string * string [@@deriving rpc]
 
+module Lifecycle = struct
+  type state =
+    | Unreleased_s
+    | Prototyped_s
+    | Published_s
+    | Deprecated_s
+    | Removed_s
+
+  exception Invalid of string
+
+  type ('state, 'change) automaton = {
+      initial: 'state
+    ; next: 'change -> 'state -> 'state
+  }
+
+  let raise_invalid msg = raise (Invalid msg)
+
+  let change_to_string c = Rpc.string_of_rpc (rpc_of_lifecycle_change c)
+
+  let state_to_string = function
+    | Unreleased_s ->
+        "Unreleased"
+    | Prototyped_s ->
+        "Prototyped"
+    | Published_s ->
+        "Published"
+    | Deprecated_s ->
+        "Deprecated"
+    | Removed_s ->
+        "Removed"
+
+  let raise_invalid_next ~from ~into =
+    raise_invalid
+      (Printf.sprintf "Invalid transition %s from %s" (change_to_string into)
+         (state_to_string from)
+      )
+
+  (* lifecycle automaton, rules:
+     - Unreleased is the initial state
+     - Extended and Changed do not change the state
+     - Objects cannot be Changed nor Extended before being prototyped or after
+       being deprecated
+     - The rest of the changes are not idempotent, they cannot be applied twice
+       in a row
+     - Objects can only be removed when are prototyped or deprecated
+  *)
+  let automaton =
+    {
+      initial= Unreleased_s
+    ; next=
+        (function
+        | (Prototyped as into), _, _ -> (
+            function
+            | Unreleased_s ->
+                Prototyped_s
+            | from ->
+                raise_invalid_next ~from ~into
+          )
+        | (Published as into), _, _ -> (
+            function
+            | Unreleased_s | Prototyped_s ->
+                Published_s
+            | from ->
+                raise_invalid_next ~from ~into
+          )
+        | (Extended as into), _, _ -> (
+            function
+            | Prototyped_s ->
+                Prototyped_s
+            | Published_s ->
+                Published_s
+            | from ->
+                raise_invalid_next ~from ~into
+          )
+        | (Changed as into), _, _ -> (
+            function
+            | Prototyped_s ->
+                Prototyped_s
+            | Published_s ->
+                Published_s
+            | from ->
+                raise_invalid_next ~from ~into
+          )
+        | (Deprecated as into), _, _ -> (
+            function
+            | Published_s ->
+                Deprecated_s
+            | from ->
+                raise_invalid_next ~from ~into
+          )
+        | (Removed as into), _, _ -> (
+            function
+            | Prototyped_s | Deprecated_s ->
+                Removed_s
+            | from ->
+                raise_invalid_next ~from ~into
+          )
+        )
+    }
+
+  let from = function
+    | [] ->
+        Unreleased_s
+    | all ->
+        let rec loop from = function
+          | [] ->
+              from
+          | into :: rest ->
+              loop (automaton.next into from) rest
+        in
+        loop automaton.initial all
+end
+
 (** Messages are tagged with one of these indicating whether the message was
     specified explicitly in the datamodel, or is one of the automatically
     generated ones. If automatically generated, the tag tells you where it came
