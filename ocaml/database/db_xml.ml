@@ -13,6 +13,8 @@
  *)
 open Db_cache_types
 
+module D = Debug.Make (struct let name = __MODULE__ end)
+
 (** Functions to marshall/unmarshall the database as XML *)
 
 exception Unmarshall_error of string
@@ -140,6 +142,12 @@ module From = struct
     let ctime = get_int64 ctime_l in
     let mtime = get_int64 mtime_l in
 
+    let lifecycle_state_of ~obj fld =
+      let open Datamodel in
+      let {fld_states; _} = StringMap.find obj all_lifecycles in
+      StringMap.find fld fld_states
+    in
+
     let row =
       List.fold_left
         (fun row ((_, k), v) ->
@@ -147,13 +155,27 @@ module From = struct
             Schema.Database.find tblname schema.Schema.database
           in
           try
-            let column_schema = Schema.Table.find k table_schema in
-            let value =
-              Schema.Value.unmarshal column_schema.Schema.Column.ty
-                (Xml_spaces.unprotect v)
+            let do_not_load =
+              try lifecycle_state_of ~obj:tblname k = Removed_s
+              with Not_found ->
+                D.warn "no lifetime information about %s.%s, ignoring" tblname k ;
+                false
             in
-            let empty = column_schema.Schema.Column.empty in
-            Row.update mtime k empty (fun _ -> value) (Row.add ctime k value row)
+            if do_not_load then (
+              D.info
+                {|dropping column "%s.%s": it has been removed from the datamodel|}
+                tblname k ;
+              row
+            ) else
+              let column_schema = Schema.Table.find k table_schema in
+              let value =
+                Schema.Value.unmarshal column_schema.Schema.Column.ty
+                  (Xml_spaces.unprotect v)
+              in
+              let empty = column_schema.Schema.Column.empty in
+              Row.update mtime k empty
+                (fun _ -> value)
+                (Row.add ctime k value row)
           with Not_found ->
             (* This means there's an unexpected field, fail since no field
                should ever be deleted, instead they should change their
