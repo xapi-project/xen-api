@@ -462,10 +462,20 @@ let iobandwidth =
   [
     field ~persist:false ~qualifier:DynamicRO ~ty:Float "read_kbs"
       "Read bandwidth (KiB/s)"
-      ~lifecycle:[(Published, rel_rio, ""); (Removed, rel_tampa, msg)]
+      ~lifecycle:
+        [
+          (Published, rel_rio, "")
+        ; (Deprecated, rel_tampa, "Dummy transition")
+        ; (Removed, rel_tampa, msg)
+        ]
   ; field ~persist:false ~qualifier:DynamicRO ~ty:Float "write_kbs"
       "Write bandwidth (KiB/s)"
-      ~lifecycle:[(Published, rel_rio, ""); (Removed, rel_tampa, msg)]
+      ~lifecycle:
+        [
+          (Published, rel_rio, "")
+        ; (Deprecated, rel_tampa, "Dummy transition")
+        ; (Removed, rel_tampa, msg)
+        ]
   ]
 
 (** Human users *)
@@ -2672,6 +2682,7 @@ module VIF = struct
               ~lifecycle:
                 [
                   (Published, rel_rio, "")
+                ; (Deprecated, rel_tampa, "Dummy transition")
                 ; (Removed, rel_tampa, "Disabled in favour of RRDs")
                 ]
               "metrics" "metrics associated with this VIF"
@@ -2730,6 +2741,7 @@ module VIF_metrics = struct
           , rel_rio
           , "The metrics associated with a virtual network device"
           )
+        ; (Deprecated, rel_tampa, "Dummy transition")
         ; (Removed, rel_tampa, "Disabled in favour of RRDs")
         ]
       ~in_db:true ~in_oss_since:oss_since_303 ~persist:PersistNothing
@@ -3659,6 +3671,7 @@ module VDI = struct
       ~lifecycle:
         [
           (Published, rel_rio, "")
+        ; (Deprecated, rel_inverness, "Dummy transition")
         ; ( Removed
           , rel_inverness
           , "Online VDI resize is not supported by any of the storage backends."
@@ -4701,6 +4714,7 @@ module VBD = struct
               ~lifecycle:
                 [
                   (Published, rel_rio, "")
+                ; (Deprecated, rel_tampa, "Dummy transition")
                 ; (Removed, rel_tampa, "Disabled in favour of RRDs")
                 ]
               "metrics" "metrics associated with this VBD"
@@ -4718,6 +4732,7 @@ module VBD_metrics = struct
           , rel_rio
           , "The metrics associated with a virtual block device"
           )
+        ; (Deprecated, rel_tampa, "Dummy transition")
         ; (Removed, rel_tampa, "Disabled in favour of RRD")
         ]
       ~in_db:true ~in_oss_since:oss_since_303 ~persist:PersistNothing
@@ -4733,6 +4748,7 @@ module VBD_metrics = struct
             ~lifecycle:
               [
                 (Published, rel_rio, "")
+              ; (Deprecated, rel_tampa, "Dummy transition")
               ; (Removed, rel_tampa, "Disabled in favour of RRD")
               ]
             "last_updated" "Time at which this information was last updated"
@@ -4740,6 +4756,7 @@ module VBD_metrics = struct
             ~lifecycle:
               [
                 (Published, rel_orlando, "")
+              ; (Deprecated, rel_tampa, "Dummy transition")
               ; (Removed, rel_tampa, "Disabled in favour of RRD")
               ]
             ~default_value:(Some (VMap []))
@@ -5067,6 +5084,7 @@ module VM_metrics = struct
         ~lifecycle:
           [
             (Published, rel_rio, "")
+          ; (Deprecated, rel_tampa, "Dummy transition")
           ; (Removed, rel_tampa, "Disabled in favour of RRDs")
           ]
     ; field ~qualifier:DynamicRO
@@ -5177,6 +5195,7 @@ module VM_guest_metrics = struct
             ~lifecycle:
               [
                 (Published, rel_rio, "free/used/total")
+              ; (Deprecated, rel_george, "Dummy transition")
               ; ( Removed
                 , rel_george
                 , "Disabled in favour of the RRDs, to improve scalability"
@@ -5190,6 +5209,7 @@ module VM_guest_metrics = struct
             ~lifecycle:
               [
                 (Published, rel_rio, "Disk configuration/free space")
+              ; (Deprecated, rel_orlando, "Dummy transition")
               ; (Removed, rel_orlando, "No data")
               ]
             "disks" "This field exists but has no data."
@@ -5254,6 +5274,7 @@ module VMPP = struct
   let removed =
     [
       (Published, rel_cowley, "")
+    ; (Deprecated, rel_clearwater, "Dummy transition")
     ; (Removed, rel_clearwater, "The VMPR feature was removed")
     ]
 

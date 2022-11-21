@@ -769,6 +769,7 @@ let enable_ssl_legacy =
     ~lifecycle:
       [
         (Published, rel_dundee, "")
+      ; (Deprecated, rel_dundee, "Legacy SSL will soon cease to be supported")
       ; (Removed, rel_stockholm, "Legacy SSL no longer supported")
       ]
     ~params:[(Ref _pool, "self", "(ignored)")]

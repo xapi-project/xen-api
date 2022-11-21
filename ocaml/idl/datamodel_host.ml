@@ -768,6 +768,7 @@ let license_apply =
     ~lifecycle:
       [
         (Published, rel_rio, "Apply a new license to a host")
+      ; (Deprecated, rel_clearwater, "Dummy transition")
       ; (Removed, rel_clearwater, "Free licenses no longer handled by xapi")
       ]
     ~params:
@@ -1389,7 +1390,6 @@ let set_ssl_legacy =
 
 let set_cpu_features =
   call ~flags:[`Session] ~name:"set_cpu_features"
-    ~in_product_since:rel_midnight_ride
     ~doc:
       "Set the CPU features to be used after a reboot, if the given features \
        string is valid."
@@ -1402,13 +1402,13 @@ let set_cpu_features =
     ~lifecycle:
       [
         (Published, rel_midnight_ride, "")
+      ; (Deprecated, rel_dundee, "Dummy transition")
       ; (Removed, rel_dundee, "Manual CPU feature setting was removed")
       ]
     ()
 
 let reset_cpu_features =
   call ~flags:[`Session] ~name:"reset_cpu_features"
-    ~in_product_since:rel_midnight_ride
     ~doc:
       "Remove the feature mask, such that after a reboot all features of the \
        CPU are enabled."
@@ -1417,6 +1417,7 @@ let reset_cpu_features =
     ~lifecycle:
       [
         (Published, rel_midnight_ride, "")
+      ; (Deprecated, rel_dundee, "Dummy transition")
       ; (Removed, rel_dundee, "Manual CPU feature setting was removed")
       ]
     ()
