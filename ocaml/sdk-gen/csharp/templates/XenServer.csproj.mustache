@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <Version>0.0.0</Version>
-    <TargetFramework>netstandard2.0</TargetFramework>
+    <TargetFrameworks>netstandard2.0;net45</TargetFrameworks>
     <OutputType>Library</OutputType>
     <RootNamespace>XenAPI</RootNamespace>
     <GenerateAssemblyInfo>True</GenerateAssemblyInfo>
@@ -20,7 +20,8 @@
   <PackageReadmeFile>README-NuGet.md</PackageReadmeFile>
   </PropertyGroup>
   <ItemGroup>
-    <None Include=".\Newtonsoft.Json.CH.dll" Pack="true" PackagePath="lib\netstandard2.0\Newtonsoft.Json.CH.dll" />
+    <None Include=".\lib\netstandard2.0\Newtonsoft.Json.CH.dll" Pack="true" PackagePath="lib\netstandard2.0\Newtonsoft.Json.CH.dll" />
+    <None Include=".\lib\net45\Newtonsoft.Json.CH.dll" Pack="true" PackagePath="lib\net45\Newtonsoft.Json.CH.dll" />
     <None Include=".\LICENSE.Newtonsoft.Json.txt" Pack="true" PackagePath="LICENSE.Newtonsoft.Json.txt" />
     <None Include=".\LICENSE.txt" Pack="true" PackagePath="LICENSE.txt" />
     <None Include=".\packageIcon.png" Pack="true" PackagePath="\" />
@@ -29,10 +30,16 @@
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
-  <ItemGroup>
+  <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.0'">
     <Reference Include="Newtonsoft.Json.CH.dll">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>.\Newtonsoft.Json.CH.dll</HintPath>
+      <HintPath>.\lib\netstandard2.0\Newtonsoft.Json.CH.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup Condition="'$(TargetFramework)' == 'net45'">
+    <Reference Include="Newtonsoft.Json.CH.dll">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>.\lib\net45\Newtonsoft.Json.CH.dll</HintPath>
     </Reference>
   </ItemGroup>
   <ItemGroup>
