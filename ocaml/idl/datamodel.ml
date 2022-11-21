@@ -8414,3 +8414,44 @@ let extra_permissions =
     (Task.extra_permission_task_destroy_any, _R_POOL_OP)
     (* only POOL_OP can destroy any tasks *)
   ]
+
+module StringMap = Map.Make (String)
+
+type obj_states = {
+    obj_state: Lifecycle.state
+  ; msg_states: Lifecycle.state StringMap.t
+  ; fld_states: Lifecycle.state StringMap.t
+}
+
+let all_lifecycles =
+  let parse_with ~name lifecycle =
+    try Lifecycle.from lifecycle
+    with Lifecycle.Invalid msg ->
+      failwith
+        Printf.(
+          sprintf "Error while parsing lifecycle transition of %s: %s" name msg
+        )
+  in
+  let get_msg_state obj_name {msg_name; msg_lifecycle; _} =
+    let name = String.concat "." [obj_name; msg_name] in
+    let msg_state = parse_with ~name msg_lifecycle in
+    Seq.return (msg_name, msg_state)
+  in
+  let rec get_content_states obj_name = function
+    | Field {full_name; lifecycle; _} ->
+        let fld_name = String.concat "__" full_name in
+        let all_name = String.concat "." [obj_name; fld_name] in
+        let fld_state = parse_with ~name:all_name lifecycle in
+        Seq.return (fld_name, fld_state)
+    | Namespace (_, contents) ->
+        List.to_seq contents |> Seq.concat_map (get_content_states obj_name)
+  in
+  let map_with f ls = List.to_seq ls |> Seq.concat_map f |> StringMap.of_seq in
+  Dm_api.objects_of_api all_api
+  |> map_with (fun {name; obj_lifecycle; messages; contents; _} ->
+         let obj_state = parse_with ~name obj_lifecycle in
+         let msg_states = map_with (get_msg_state name) messages in
+         let fld_states = map_with (get_content_states name) contents in
+         let fld_states = StringMap.add "_ref" obj_state fld_states in
+         Seq.return (name, {obj_state; msg_states; fld_states})
+     )
