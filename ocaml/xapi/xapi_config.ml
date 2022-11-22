@@ -14,7 +14,7 @@
 
 (* Note: this used to be in Helpers; moved due to cyclic dependencies relating to License *)
 
-module D = Debug.Make (struct let name = "xapi_config" end)
+module D = Debug.Make (struct let name = __MODULE__ end)
 
 open D
 
@@ -22,13 +22,13 @@ let log_if_not_empty format_string value =
   if value <> "" then debug format_string value
 
 let dump_config () =
+  let open Xapi_version in
   debug "Server configuration:" ;
-  log_if_not_empty "product_version: %s" (Xapi_version.product_version ()) ;
-  log_if_not_empty "product_brand: %s" (Xapi_version.product_brand ()) ;
-  debug "platform_version: %s" (Xapi_version.platform_version ()) ;
-  debug "platform_name: %s" (Xapi_version.platform_name ()) ;
-  debug "build_number: %s" (Xapi_version.build_number ()) ;
-  debug "git changeset: %s" Xapi_version.git_id ;
-  debug "version: %d.%d" Constants.version_major Constants.version_minor
+  log_if_not_empty "product_version: %s" (product_version ()) ;
+  log_if_not_empty "product_brand: %s" (product_brand ()) ;
+  debug "platform_version: %s" (platform_version ()) ;
+  debug "platform_name: %s" (platform_name ()) ;
+  debug "build_number: %s" (build_number ()) ;
+  debug "version: %s" version
 
 (* debug "License filename: %s" !License_file.filename *)
