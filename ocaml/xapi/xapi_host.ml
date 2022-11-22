@@ -766,6 +766,9 @@ let restart_agent ~__context ~host:_ =
 
 let shutdown_agent ~__context =
   debug "Host.restart_agent: Host agent will shutdown in 1s!!!!" ;
+  if Pool_role.is_master () &&
+    try Localdb.get Constants.ha_armed = "true" with _ -> false then
+    raise (Api_errors.Server_error (Api_errors.ha_is_enabled, [])) ;
   Xapi_fuse.light_fuse_and_dont_restart ~fuse_length:1. ()
 
 let disable ~__context ~host =
