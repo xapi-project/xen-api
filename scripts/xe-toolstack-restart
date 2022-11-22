@@ -49,15 +49,13 @@ for svc in $SERVICES ; do
 
 	if [ $? -eq 0 ] ; then
 		TO_RESTART="$svc $TO_RESTART"
-		systemctl stop $svc
 	fi
 done
+systemctl stop ${TO_RESTART}
 
 set -e
 
-for svc in $TO_RESTART ; do
-	systemctl start $svc
-done
+systemctl start ${TO_RESTART}
 
 rm -f $LOCKFILE
 echo "done."
