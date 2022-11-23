@@ -1959,6 +1959,9 @@ let t =
             ~in_product_since:rel_orlando ~ty:(Set String)
             ~default_value:(Some (VSet [])) "ha_network_peers"
             "The set of hosts visible via the network from this host"
+        ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:DateTime
+            ~internal_only:true ~default_value:(Some (VDateTime Date.never))
+            "ha_healthcheck_timestamp" "Timestamp of last HA health check"
         ; field ~qualifier:DynamicRO ~in_product_since:rel_orlando
             ~ty:(Map (String, Ref _blob))
             ~default_value:(Some (VMap [])) "blobs"

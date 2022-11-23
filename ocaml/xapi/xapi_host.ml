@@ -766,8 +766,10 @@ let restart_agent ~__context ~host:_ =
 
 let shutdown_agent ~__context =
   debug "Host.restart_agent: Host agent will shutdown in 1s!!!!" ;
-  if Pool_role.is_master () &&
-    try Localdb.get Constants.ha_armed = "true" with _ -> false then
+  if
+    Pool_role.is_master ()
+    && try Localdb.get Constants.ha_armed = "true" with _ -> false
+  then
     raise (Api_errors.Server_error (Api_errors.ha_is_enabled, [])) ;
   Xapi_fuse.light_fuse_and_dont_restart ~fuse_length:1. ()
 
@@ -1040,7 +1042,8 @@ let create ~__context ~uuid ~name_label ~name_description:_ ~hostname ~address
       )
     ~control_domain:Ref.null ~updates_requiring_reboot:[] ~iscsi_iqn:""
     ~multipathing:false ~uefi_certificates:"" ~editions:[] ~pending_guidances:[]
-    ~tls_verification_enabled ~last_software_update:Date.never ;
+    ~ha_healthcheck_timestamp:Date.never ~tls_verification_enabled
+    ~last_software_update:Date.never ;
   (* If the host we're creating is us, make sure its set to live *)
   Db.Host_metrics.set_last_updated ~__context ~self:metrics
     ~value:(Date.of_float (Unix.gettimeofday ())) ;
@@ -1133,6 +1136,12 @@ let ha_wait_for_shutdown_via_statefile ~__context ~host =
 let ha_xapi_healthcheck ~__context =
   (* Consider checking the status of various internal tasks / tickling locks but for now assume
      	 that, since we got here unharmed, all is well.*)
+  let host = Helpers.get_localhost ~__context in
+  Db.Host.set_ha_healthcheck_timestamp ~__context ~self:host
+    ~value:(get_servertime ~__context ~host) ;
+  (* note that the DB may not currently propagate delta DB write errors, it'd just issue alerts.
+     we may want to add more monitoring here *)
+  debug "%s: database is healthy" __FUNCTION__ ;
   not (Xapi_fist.fail_healthcheck ())
 
 let preconfigure_ha ~__context ~host ~statefiles ~metadata_vdi ~generation =
