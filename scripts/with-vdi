@@ -44,7 +44,12 @@ else
 fi
 VBD=$(xe vbd-create vm-uuid=${CONTROL_DOMAIN_UUID} vdi-uuid=${VDI} \
   device=autodetect mode=${MODE} unpluggable=true)
-xe vbd-plug uuid="${VBD}"
+
+xe vbd-plug uuid="${VBD}" && RC="$?" || RC="$?"
+if [ "$RC" != 0 ]; then
+  xe vbd-destroy uuid="${VBD}"
+  exit "$RC"
+fi
 DEVICE=$(xe vbd-param-get uuid="${VBD}" param-name=device)
 export DEVICE
 if [ -z "$COMMAND" ]; then
