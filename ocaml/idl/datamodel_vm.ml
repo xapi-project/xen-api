@@ -1673,8 +1673,7 @@ let set_NVRAM_EFI_variables =
 (** VM (or 'guest') configuration: *)
 let t =
   create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303
-    ~internal_deprecated_since:None ~persist:PersistEverything
-    ~gen_constructor_destructor:true ~name:_vm
+    ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_vm
     ~descr:"A virtual machine (or 'guest')." ~gen_events:true
     ~doccomments:
       [

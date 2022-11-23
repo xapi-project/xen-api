@@ -175,9 +175,8 @@ module Session = struct
 
   let t =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303
-      ~internal_deprecated_since:None ~persist:PersistNothing
-      ~gen_constructor_destructor:false ~name:_session ~descr:"A session"
-      ~gen_events:false ~doccomments:[]
+      ~persist:PersistNothing ~gen_constructor_destructor:false ~name:_session
+      ~descr:"A session" ~gen_events:false ~doccomments:[]
       ~messages_default_allowed_roles:_R_POOL_ADMIN
       ~messages:
         [
@@ -365,8 +364,7 @@ module Task = struct
 
   let t =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303
-      ~internal_deprecated_since:None ~persist:PersistNothing
-      ~gen_constructor_destructor:false ~name:_task
+      ~persist:PersistNothing ~gen_constructor_destructor:false ~name:_task
       ~descr:"A long-running asynchronous task" ~gen_events:true ~doccomments:[]
       ~messages_default_allowed_roles:_R_POOL_OP
       ~messages:
@@ -483,9 +481,8 @@ module User = struct
   let t =
     (* DEPRECATED in favor of subject *)
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303
-      ~internal_deprecated_since:None ~persist:PersistEverything
-      ~gen_constructor_destructor:true ~name:_user ~descr:"A user of the system"
-      ~gen_events:false
+      ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_user
+      ~descr:"A user of the system" ~gen_events:false
       ~lifecycle:
         [
           (Published, rel_rio, "A user of the system")
@@ -531,8 +528,8 @@ module Host_crashdump = struct
 
   let t =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:None
-      ~internal_deprecated_since:None ~persist:PersistEverything
-      ~gen_constructor_destructor:false ~name:_host_crashdump ~gen_events:true
+      ~persist:PersistEverything ~gen_constructor_destructor:false
+      ~name:_host_crashdump ~gen_events:true
       ~descr:"Represents a host crash dump" ~doccomments:[]
       ~messages_default_allowed_roles:_R_POOL_OP ~messages:[destroy; upload]
       ~contents:
@@ -680,8 +677,8 @@ module Pool_update = struct
 
   let t =
     create_obj ~in_db:true ~in_product_since:rel_ely ~in_oss_since:None
-      ~internal_deprecated_since:None ~persist:PersistEverything
-      ~gen_constructor_destructor:false ~gen_events:true ~name:_pool_update
+      ~persist:PersistEverything ~gen_constructor_destructor:false
+      ~gen_events:true ~name:_pool_update
       ~descr:"Pool-wide updates to the host software" ~doccomments:[]
       ~messages_default_allowed_roles:_R_POOL_OP
       ~messages:
@@ -936,10 +933,10 @@ module Host_metrics = struct
 
   let t =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303
-      ~internal_deprecated_since:None ~persist:PersistEverything
-      ~gen_constructor_destructor:false ~name:_host_metrics
-      ~descr:"The metrics associated with a host" ~gen_events:true
-      ~doccomments:[] ~messages_default_allowed_roles:_R_POOL_OP ~messages:[]
+      ~persist:PersistEverything ~gen_constructor_destructor:false
+      ~name:_host_metrics ~descr:"The metrics associated with a host"
+      ~gen_events:true ~doccomments:[]
+      ~messages_default_allowed_roles:_R_POOL_OP ~messages:[]
       ~contents:
         [
           uid _host_metrics
@@ -960,9 +957,8 @@ end
 module Host_cpu = struct
   let t =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303
-      ~internal_deprecated_since:None ~persist:PersistEverything
-      ~gen_constructor_destructor:false ~name:_hostcpu ~descr:"A physical CPU"
-      ~gen_events:true
+      ~persist:PersistEverything ~gen_constructor_destructor:false
+      ~name:_hostcpu ~descr:"A physical CPU" ~gen_events:true
       ~lifecycle:
         [
           (Published, rel_rio, "A physical CPU")
@@ -1234,9 +1230,8 @@ module Network = struct
   (** A virtual network *)
   let t =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303
-      ~internal_deprecated_since:None ~persist:PersistEverything
-      ~gen_constructor_destructor:true ~name:_network ~descr:"A virtual network"
-      ~gen_events:true ~doccomments:[]
+      ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_network
+      ~descr:"A virtual network" ~gen_events:true ~doccomments:[]
       ~messages_default_allowed_roles:
         _R_VM_ADMIN (* vm admins can create/destroy networks without PIFs *)
       ~doc_tags:[Networking]
@@ -1763,8 +1758,7 @@ module PIF = struct
 
   let t =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303
-      ~internal_deprecated_since:None ~persist:PersistEverything
-      ~gen_constructor_destructor:false ~name:_pif
+      ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_pif
       ~descr:
         "A physical network interface (note separate VLANs are represented as \
          several PIFs)"
@@ -1944,8 +1938,8 @@ end
 module PIF_metrics = struct
   let t =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303
-      ~internal_deprecated_since:None ~persist:PersistEverything
-      ~gen_constructor_destructor:false ~name:_pif_metrics
+      ~persist:PersistEverything ~gen_constructor_destructor:false
+      ~name:_pif_metrics
       ~descr:"The metrics associated with a physical network interface"
       ~gen_events:true ~doccomments:[]
       ~messages_default_allowed_roles:_R_POOL_OP ~doc_tags:[Networking]
@@ -2061,10 +2055,9 @@ module Bond = struct
 
   let t =
     create_obj ~in_db:true ~in_product_since:rel_miami ~in_oss_since:None
-      ~internal_deprecated_since:None ~persist:PersistEverything
-      ~gen_constructor_destructor:false ~name:_bond ~descr:"" ~gen_events:true
-      ~doccomments:[] ~messages_default_allowed_roles:_R_POOL_OP
-      ~doc_tags:[Networking]
+      ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_bond
+      ~descr:"" ~gen_events:true ~doccomments:[]
+      ~messages_default_allowed_roles:_R_POOL_OP ~doc_tags:[Networking]
       ~messages:[create; destroy; set_mode; set_property]
       ~contents:
         [
@@ -2168,9 +2161,8 @@ module VLAN = struct
 
   let t =
     create_obj ~in_db:true ~in_product_since:rel_miami ~in_oss_since:None
-      ~internal_deprecated_since:None ~persist:PersistEverything
-      ~gen_constructor_destructor:false ~name:_vlan ~descr:"A VLAN mux/demux"
-      ~gen_events:true ~doccomments:[]
+      ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_vlan
+      ~descr:"A VLAN mux/demux" ~gen_events:true ~doccomments:[]
       ~messages_default_allowed_roles:_R_POOL_OP ~doc_tags:[Networking]
       ~messages:[pool_introduce; create; destroy]
       ~contents:
@@ -2318,8 +2310,7 @@ module PBD = struct
 
   let t =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303
-      ~internal_deprecated_since:None ~persist:PersistEverything
-      ~gen_constructor_destructor:true ~name:_pbd
+      ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_pbd
       ~descr:"The physical block devices through which hosts access SRs"
       ~gen_events:true ~doccomments:[]
       ~messages_default_allowed_roles:_R_POOL_OP
@@ -2635,8 +2626,7 @@ module VIF = struct
   (** A virtual network interface *)
   let t =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303
-      ~internal_deprecated_since:None ~persist:PersistEverything
-      ~gen_constructor_destructor:true ~name:_vif
+      ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_vif
       ~descr:"A virtual network interface" ~gen_events:true ~doccomments:[]
       ~messages_default_allowed_roles:_R_VM_ADMIN ~doc_tags:[Networking]
       ~messages:
@@ -2766,10 +2756,10 @@ end
 module Data_source = struct
   let t =
     create_obj ~in_db:false ~in_product_since:rel_orlando ~in_oss_since:None
-      ~internal_deprecated_since:None ~persist:PersistNothing
-      ~gen_constructor_destructor:false ~name:_data_source
-      ~descr:"Data sources for logging in RRDs" ~gen_events:false
-      ~doccomments:[] ~messages_default_allowed_roles:_R_POOL_ADMIN ~messages:[]
+      ~persist:PersistNothing ~gen_constructor_destructor:false
+      ~name:_data_source ~descr:"Data sources for logging in RRDs"
+      ~gen_events:false ~doccomments:[]
+      ~messages_default_allowed_roles:_R_POOL_ADMIN ~messages:[]
       ~contents:
         [
           namespace ~name:"name" ~contents:(names oss_since_303 DynamicRO) ()
@@ -3324,9 +3314,8 @@ module SR = struct
   (** A storage repository. Note we overide default create/destroy methods with our own here... *)
   let t =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303
-      ~internal_deprecated_since:None ~persist:PersistEverything
-      ~gen_constructor_destructor:false ~name:_sr ~descr:"A storage repository"
-      ~gen_events:true ~doccomments:[]
+      ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_sr
+      ~descr:"A storage repository" ~gen_events:true ~doccomments:[]
       ~messages_default_allowed_roles:_R_POOL_OP
       ~messages:
         [
@@ -3432,8 +3421,7 @@ module SM = struct
 
   let t =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:None
-      ~internal_deprecated_since:None ~persist:PersistEverything
-      ~gen_constructor_destructor:false ~name:_sm
+      ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_sm
       ~descr:"A storage manager plugin" ~gen_events:true ~doccomments:[]
       ~messages_default_allowed_roles:_R_POOL_OP ~messages:[]
       ~contents:
@@ -3514,8 +3502,7 @@ module LVHD = struct
 
   let t =
     create_obj ~in_db:true ~in_product_since:rel_dundee ~in_oss_since:None
-      ~internal_deprecated_since:None ~persist:PersistEverything
-      ~gen_constructor_destructor:false ~name:_lvhd
+      ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_lvhd
       ~descr:"LVHD SR specific operations" ~gen_events:true ~doccomments:[]
       ~messages_default_allowed_roles:_R_POOL_ADMIN
       ~messages:[enable_thin_provisioning] ~contents:[uid _lvhd] ()
@@ -4347,9 +4334,8 @@ module VDI = struct
   (** A virtual disk *)
   let t =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303
-      ~internal_deprecated_since:None ~persist:PersistEverything
-      ~gen_constructor_destructor:true ~name:_vdi ~descr:"A virtual disk image"
-      ~gen_events:true ~doccomments:[]
+      ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_vdi
+      ~descr:"A virtual disk image" ~gen_events:true ~doccomments:[]
       ~messages_default_allowed_roles:_R_VM_ADMIN
       ~messages:
         [
@@ -4652,8 +4638,7 @@ module VBD = struct
   (** A virtual disk interface *)
   let t =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303
-      ~internal_deprecated_since:None ~persist:PersistEverything
-      ~gen_constructor_destructor:true ~name:_vbd
+      ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_vbd
       ~descr:"A virtual block device" ~gen_events:true ~doccomments:[]
       ~messages_default_allowed_roles:_R_VM_ADMIN
       ~messages:
@@ -4860,8 +4845,7 @@ module Auth = struct
 
   let t =
     create_obj ~in_db:false ~in_product_since:rel_george ~in_oss_since:None
-      ~internal_deprecated_since:None ~persist:PersistNothing
-      ~gen_constructor_destructor:false ~name:_auth
+      ~persist:PersistNothing ~gen_constructor_destructor:false ~name:_auth
       ~descr:"Management of remote authentication services" ~gen_events:false
       ~doccomments:[] ~messages_default_allowed_roles:_R_READ_ONLY
       ~messages:
@@ -4920,8 +4904,7 @@ module Subject = struct
   (* a subject is a user/group that can log in xapi *)
   let t =
     create_obj ~in_db:true ~in_product_since:rel_george ~in_oss_since:None
-      ~internal_deprecated_since:None ~persist:PersistEverything
-      ~gen_constructor_destructor:true ~name:_subject
+      ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_subject
       ~descr:"A user or group that can log in xapi" ~gen_events:true
       ~doccomments:[] ~messages_default_allowed_roles:_R_POOL_ADMIN
       ~messages:[add_to_roles; remove_from_roles; get_permissions_name_label]
@@ -5044,9 +5027,8 @@ module Console = struct
   (** A virtual console device *)
   let t =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303
-      ~internal_deprecated_since:None ~persist:PersistEverything
-      ~gen_constructor_destructor:true ~name:_console ~descr:"A console"
-      ~gen_events:true ~doccomments:[]
+      ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_console
+      ~descr:"A console" ~gen_events:true ~doccomments:[]
       ~messages_default_allowed_roles:_R_VM_ADMIN ~messages:[]
       ~contents:
         [
@@ -5100,9 +5082,9 @@ module VM_metrics = struct
 
   let t =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303
-      ~internal_deprecated_since:None ~persist:PersistEverything
-      ~gen_constructor_destructor:false ~name:_vm_metrics
-      ~descr:"The metrics associated with a VM" ~gen_events:true ~doccomments:[]
+      ~persist:PersistEverything ~gen_constructor_destructor:false
+      ~name:_vm_metrics ~descr:"The metrics associated with a VM"
+      ~gen_events:true ~doccomments:[]
       ~messages_default_allowed_roles:_R_VM_ADMIN ~messages:[]
       ~contents:
         [
@@ -5159,8 +5141,8 @@ module VM_guest_metrics = struct
      Other things don't need to persist, so we specify these on a per-field basis *)
   let t =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303
-      ~internal_deprecated_since:None ~persist:PersistEverything
-      ~gen_constructor_destructor:false ~name:_vm_guest_metrics
+      ~persist:PersistEverything ~gen_constructor_destructor:false
+      ~name:_vm_guest_metrics
       ~descr:
         "The metrics reported by the guest (as opposed to inferred from \
          outside)"
@@ -5955,9 +5937,8 @@ module VM_appliance = struct
 
   let t =
     create_obj ~in_db:true ~in_product_since:rel_boston ~in_oss_since:None
-      ~internal_deprecated_since:None ~persist:PersistEverything
-      ~gen_constructor_destructor:true ~name:_vm_appliance ~descr:"VM appliance"
-      ~gen_events:true ~doccomments:[]
+      ~persist:PersistEverything ~gen_constructor_destructor:true
+      ~name:_vm_appliance ~descr:"VM appliance" ~gen_events:true ~doccomments:[]
       ~messages_default_allowed_roles:_R_POOL_OP
       ~messages:
         [
@@ -6011,9 +5992,8 @@ module DR_task = struct
 
   let t =
     create_obj ~in_db:true ~in_product_since:rel_boston ~in_oss_since:None
-      ~internal_deprecated_since:None ~persist:PersistEverything
-      ~gen_constructor_destructor:false ~name:_dr_task ~descr:"DR task"
-      ~gen_events:true ~doccomments:[]
+      ~persist:PersistEverything ~gen_constructor_destructor:false
+      ~name:_dr_task ~descr:"DR task" ~gen_events:true ~doccomments:[]
       ~messages_default_allowed_roles:_R_POOL_OP ~messages:[create; destroy]
       ~contents:
         [
@@ -6223,8 +6203,7 @@ module Blob = struct
 
   let t =
     create_obj ~in_db:true ~in_product_since:rel_orlando ~in_oss_since:None
-      ~internal_deprecated_since:None ~persist:PersistEverything
-      ~gen_constructor_destructor:false ~name:_blob
+      ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_blob
       ~descr:"A placeholder for a binary blob" ~gen_events:true ~doccomments:[]
       ~messages_default_allowed_roles:_R_POOL_OP ~messages:[create; destroy]
       ~contents:
@@ -6417,8 +6396,7 @@ module Secret = struct
     create_obj ~descr:"A secret" ~doccomments:[]
       ~gen_constructor_destructor:true ~gen_events:false ~in_db:true
       ~in_oss_since:None ~in_product_since:rel_midnight_ride
-      ~internal_deprecated_since:None ~messages:[introduce]
-      ~messages_default_allowed_roles:_R_POOL_OP
+      ~messages:[introduce] ~messages_default_allowed_roles:_R_POOL_OP
       ~implicit_messages_allowed_roles:_R_POOL_OP ~name:_secret
       ~persist:PersistEverything
       ~contents:
@@ -6436,7 +6414,7 @@ end
 (*
 
 let alert =
-  create_obj ~in_product_since:rel_miami ~in_oss_since:None ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_alert ~descr:"Notification information"
+  create_obj ~in_product_since:rel_miami ~in_oss_since:None ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_alert ~descr:"Notification information"
     ~gen_events:true
     ~doccomments:[]
     ~messages: []
