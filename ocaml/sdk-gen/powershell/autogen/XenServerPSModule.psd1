@@ -47,7 +47,7 @@ PowerShellHostVersion = ''
 ProcessorArchitecture = 'None'
 
 #Contents
-ModuleToProcess = 'XenServerPowerShell.dll'
+RootModule = 'XenServerPowerShell.dll'
 RequiredModules = @()
 NestedModules = @()
 RequiredAssemblies = @('Newtonsoft.Json.CH.dll',
