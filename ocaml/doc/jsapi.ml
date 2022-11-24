@@ -17,9 +17,7 @@ open Xapi_stdext_pervasives.Pervasiveext
 module Unixext = Xapi_stdext_unix.Unixext
 open Datamodel_types
 
-type change_t = lifecycle_change * string * string
-
-and changes_t = change_t list [@@deriving rpc]
+type changes_t = Lifecycle.transition list [@@deriving rpc]
 
 let destdir = ref "."
 
@@ -60,14 +58,14 @@ let generate_files api_dir =
           (fun (_transition, release, _doc) ->
             release = code_name_of_release rel
           )
-          obj.obj_lifecycle
+          obj.obj_lifecycle.transitions
       in
       let obj_changes : changes_t =
         List.map
           (fun (transition, _release, doc) ->
             ( transition
             , obj.name
-            , if doc = "" && transition = Published then
+            , if doc = "" && transition = Lifecycle.Published then
                 obj.description
               else
                 doc
@@ -81,13 +79,16 @@ let generate_files api_dir =
             (fun (_transition, release, _doc) ->
               release = code_name_of_release rel
             )
-            m.msg_lifecycle
+            m.msg_lifecycle.transitions
         in
         List.map
           (fun (transition, _release, doc) ->
             ( transition
             , m.msg_name
-            , if doc = "" && transition = Published then m.msg_doc else doc
+            , if doc = "" && transition = Lifecycle.Published then
+                m.msg_doc
+              else
+                doc
             )
           )
           changes
@@ -102,14 +103,14 @@ let generate_files api_dir =
             (fun (_transition, release, _doc) ->
               release = code_name_of_release rel
             )
-            f.lifecycle
+            f.lifecycle.transitions
         in
         let field_name = String.concat "_" f.full_name in
         List.map
           (fun (transition, _release, doc) ->
             ( transition
             , field_name
-            , if doc = "" && transition = Published then
+            , if doc = "" && transition = Lifecycle.Published then
                 f.field_description
               else
                 doc

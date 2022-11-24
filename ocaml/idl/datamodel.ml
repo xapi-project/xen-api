@@ -14,6 +14,7 @@
 (** Data Model and Message Specification for Xen Management Tools *)
 
 open Datamodel_types
+open Lifecycle
 open Datamodel_common
 open Datamodel_roles
 
@@ -6125,7 +6126,7 @@ module Event = struct
 
   let t =
     {
-      obj_lifecycle= [(Published, rel_rio, "")]
+      obj_lifecycle= Lifecycle.from [(Published, rel_rio, "")]
     ; name= _event
     ; gen_events= false
     ; description= "Asynchronous event registration and handling"
@@ -7885,14 +7886,16 @@ let all_relations =
 
 let update_lifecycles =
   let replace_prototyped p ls =
-    (Prototyped, p, "")
-    :: List.filter (function Prototyped, _, _ -> false | _ -> true) ls
+    Lifecycle.from
+      ((Prototyped, p, "")
+      :: List.filter (function Prototyped, _, _ -> false | _ -> true) ls
+      )
   in
   let replace_obj_lifecycle obj =
     let obj_lifecycle =
       match Datamodel_lifecycle.prototyped_of_class obj.name with
       | Some p ->
-          replace_prototyped p obj.obj_lifecycle
+          replace_prototyped p obj.obj_lifecycle.transitions
       | None ->
           obj.obj_lifecycle
     in
@@ -7905,7 +7908,7 @@ let update_lifecycles =
           (obj_name, Escaping.escape_id fld.full_name)
       with
       | Some p ->
-          replace_prototyped p fld.lifecycle
+          replace_prototyped p fld.lifecycle.transitions
       | None ->
           fld.lifecycle
     in
@@ -7918,7 +7921,7 @@ let update_lifecycles =
           (msg.msg_obj_name, msg.msg_name)
       with
       | Some p ->
-          replace_prototyped p msg.msg_lifecycle
+          replace_prototyped p msg.msg_lifecycle.transitions
       | None ->
           msg.msg_lifecycle
     in
@@ -8402,34 +8405,21 @@ type obj_states = {
 }
 
 let all_lifecycles =
-  let parse_with ~name lifecycle =
-    try Lifecycle.from lifecycle
-    with Lifecycle.Invalid msg ->
-      failwith
-        Printf.(
-          sprintf "Error while parsing lifecycle transition of %s: %s" name msg
-        )
-  in
-  let get_msg_state obj_name {msg_name; msg_lifecycle; _} =
-    let name = String.concat "." [obj_name; msg_name] in
-    let msg_state = parse_with ~name msg_lifecycle in
-    Seq.return (msg_name, msg_state)
+  let get_msg_state {msg_name; msg_lifecycle= {state; _}; _} =
+    Seq.return (msg_name, state)
   in
   let rec get_content_states obj_name = function
-    | Field {full_name; lifecycle; _} ->
+    | Field {full_name; lifecycle= {state; _}; _} ->
         let fld_name = String.concat "__" full_name in
-        let all_name = String.concat "." [obj_name; fld_name] in
-        let fld_state = parse_with ~name:all_name lifecycle in
-        Seq.return (fld_name, fld_state)
+        Seq.return (fld_name, state)
     | Namespace (_, contents) ->
         List.to_seq contents |> Seq.concat_map (get_content_states obj_name)
   in
   let map_with f ls = List.to_seq ls |> Seq.concat_map f |> StringMap.of_seq in
   Dm_api.objects_of_api all_api
-  |> map_with (fun {name; obj_lifecycle; messages; contents; _} ->
-         let obj_state = parse_with ~name obj_lifecycle in
-         let msg_states = map_with (get_msg_state name) messages in
+  |> map_with (fun {name; obj_lifecycle= {state; _}; messages; contents; _} ->
+         let msg_states = map_with get_msg_state messages in
          let fld_states = map_with (get_content_states name) contents in
-         let fld_states = StringMap.add "_ref" obj_state fld_states in
-         Seq.return (name, {obj_state; msg_states; fld_states})
+         let fld_states = StringMap.add "_ref" state fld_states in
+         Seq.return (name, {obj_state= state; msg_states; fld_states})
      )

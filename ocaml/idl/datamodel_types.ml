@@ -444,16 +444,6 @@ type release = {
 }
 [@@deriving rpc]
 
-type lifecycle_change =
-  | Prototyped
-  | Published
-  | Extended
-  | Changed
-  | Deprecated
-  | Removed
-
-and lifecycle_transition = lifecycle_change * string * string [@@deriving rpc]
-
 module Lifecycle = struct
   type state =
     | Unreleased_s
@@ -461,6 +451,20 @@ module Lifecycle = struct
     | Published_s
     | Deprecated_s
     | Removed_s
+  [@@deriving rpc]
+
+  type change =
+    | Prototyped
+    | Published
+    | Extended
+    | Changed
+    | Deprecated
+    | Removed
+  [@@deriving rpc]
+
+  type transition = change * string * string [@@deriving rpc]
+
+  type t = {state: state; transitions: transition list} [@@deriving rpc]
 
   exception Invalid of string
 
@@ -471,24 +475,14 @@ module Lifecycle = struct
 
   let raise_invalid msg = raise (Invalid msg)
 
-  let change_to_string c = Rpc.string_of_rpc (rpc_of_lifecycle_change c)
+  let string_of_state s = Rpc.string_of_rpc (rpc_of_state s)
 
-  let state_to_string = function
-    | Unreleased_s ->
-        "Unreleased"
-    | Prototyped_s ->
-        "Prototyped"
-    | Published_s ->
-        "Published"
-    | Deprecated_s ->
-        "Deprecated"
-    | Removed_s ->
-        "Removed"
+  let string_of_change c = Rpc.string_of_rpc (rpc_of_change c)
 
   let raise_invalid_next ~from ~into =
     raise_invalid
-      (Printf.sprintf "Invalid transition %s from %s" (change_to_string into)
-         (state_to_string from)
+      (Printf.sprintf "Invalid transition %s from %s" (string_of_change into)
+         (string_of_state from)
       )
 
   (* lifecycle automaton, rules:
@@ -554,17 +548,17 @@ module Lifecycle = struct
         )
     }
 
-  let from = function
+  let from : transition list -> t = function
     | [] ->
-        Unreleased_s
-    | all ->
+        {state= Unreleased_s; transitions= []}
+    | transitions ->
         let rec loop from = function
           | [] ->
-              from
+              {state= from; transitions}
           | into :: rest ->
               loop (automaton.next into from) rest
         in
-        loop automaton.initial all
+        loop automaton.initial transitions
 end
 
 (** Messages are tagged with one of these indicating whether the message was
@@ -616,7 +610,7 @@ and message = {
     msg_db_only: bool
   ; (* this is a db_* only message; not exposed through api *)
     msg_release: release
-  ; msg_lifecycle: lifecycle_transition list
+  ; msg_lifecycle: Lifecycle.t
   ; msg_has_effect: bool
   ; (* if true it appears in the custom operations *)
     msg_force_custom: qualifier option
@@ -636,7 +630,7 @@ and message = {
 
 and field = {
     release: release
-  ; lifecycle: lifecycle_transition list
+  ; lifecycle: Lifecycle.t
   ; field_persist: bool
   ; default_value: api_value option
   ; internal_only: bool
@@ -675,7 +669,7 @@ let default_message =
       ; opensource= []
       ; internal_deprecated_since= None
       }
-  ; msg_lifecycle= []
+  ; msg_lifecycle= Lifecycle.from []
   ; msg_has_effect= true
   ; msg_force_custom= None
   ; msg_no_current_operations= false
@@ -712,7 +706,7 @@ type db_logging = Log_destroy [@@deriving rpc]
 type obj = {
     name: string
   ; description: string
-  ; obj_lifecycle: lifecycle_transition list
+  ; obj_lifecycle: Lifecycle.t
   ; contents: content list
   ; messages: message list
   ; doccomments: (string * string) list

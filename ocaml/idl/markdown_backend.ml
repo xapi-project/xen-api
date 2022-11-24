@@ -152,10 +152,11 @@ let string_of_qualifier = function
   | RW ->
       "_RW_"
 
-let is_removal_marker x = match x with Removed, _, _ -> true | _ -> false
+let is_removal_marker x =
+  match x with Lifecycle.Removed, _, _ -> true | _ -> false
 
 let is_deprecation_marker x =
-  match x with Deprecated, _, _ -> true | _ -> false
+  match x with Lifecycle.Deprecated, _, _ -> true | _ -> false
 
 (* Make a markdown section for an API-specified message *)
 let markdown_section_of_message printer obj ~is_class_deprecated
@@ -167,11 +168,11 @@ let markdown_section_of_message printer obj ~is_class_deprecated
   let return_type = of_ty_opt_verbatim x.msg_result in
   printer (sprintf "#### RPC name: %s" (escape x.msg_name)) ;
   printer "" ;
-  if List.exists is_removal_marker x.msg_lifecycle || is_class_removed then (
+  if x.msg_lifecycle.state = Lifecycle.Removed_s || is_class_removed then (
     printer "**This message is removed.**" ;
     printer ""
   ) else if
-      List.exists is_deprecation_marker x.msg_lifecycle || is_class_deprecated
+      x.msg_lifecycle.state = Lifecycle.Deprecated_s || is_class_deprecated
     then (
     printer "**This message is deprecated.**" ;
     printer ""
@@ -265,11 +266,9 @@ let print_field_table_of_obj printer ~is_class_deprecated ~is_class_removed x =
         ({qualifier; ty; field_description= description; _} as y) =
       let wired_name = Datamodel_utils.wire_name_of_field y in
       let descr =
-        ( if List.exists is_removal_marker y.lifecycle || is_class_removed then
+        ( if y.lifecycle.state = Removed_s || is_class_removed then
             "**Removed**. "
-        else if
-        List.exists is_deprecation_marker y.lifecycle || is_class_deprecated
-      then
+        else if y.lifecycle.state = Deprecated_s || is_class_deprecated then
           "**Deprecated**. "
         else
           ""
@@ -309,8 +308,8 @@ let print_field_table_of_obj printer ~is_class_deprecated ~is_class_removed x =
 let of_obj printer x =
   printer (sprintf "## Class: %s" (escape x.name)) ;
   printer "" ;
-  let is_class_removed = List.exists is_removal_marker x.obj_lifecycle in
-  let is_class_deprecated = List.exists is_deprecation_marker x.obj_lifecycle in
+  let is_class_removed = x.obj_lifecycle.state = Removed_s in
+  let is_class_deprecated = x.obj_lifecycle.state = Deprecated_s in
   if is_class_removed then (
     printer "**This class is removed.**" ;
     printer ""
@@ -400,9 +399,9 @@ let print_classes api io =
      |Description                                                           |\n\
      |:-------------------|:---------------------------------------------------------------------|" ;
   let get_descr obj =
-    ( if List.exists is_removal_marker obj.obj_lifecycle then
+    ( if obj.obj_lifecycle.state = Removed_s then
         "**Removed**. "
-    else if List.exists is_deprecation_marker obj.obj_lifecycle then
+    else if obj.obj_lifecycle.state = Deprecated_s then
       "**Deprecated**. "
     else
       ""

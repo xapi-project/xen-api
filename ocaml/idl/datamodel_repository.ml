@@ -16,7 +16,7 @@ open Datamodel_types
 open Datamodel_common
 open Datamodel_roles
 
-let lifecycle = [(Published, "1.301.0", "")]
+let lifecycle = [(Lifecycle.Published, "1.301.0", "")]
 
 let introduce =
   call ~name:"introduce" ~in_oss_since:None

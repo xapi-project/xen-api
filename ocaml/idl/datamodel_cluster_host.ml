@@ -14,7 +14,8 @@ let cluster_host_operation =
       ]
     )
 
-let lifecycle = [(Prototyped, rel_kolkata, ""); (Published, rel_lima, "")]
+let lifecycle =
+  [(Lifecycle.Prototyped, rel_kolkata, ""); (Published, rel_lima, "")]
 
 let create =
   call ~name:"create" ~doc:"Add a new host to an existing cluster."

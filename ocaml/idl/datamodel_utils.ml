@@ -828,28 +828,3 @@ let string_of_doc_tag = function
       "memory"
   | Windows ->
       "windows-vm"
-
-let string_of_lifecycle_transition = function
-  | Prototyped ->
-      "prototyped"
-  | Published ->
-      "published"
-  | Extended ->
-      "extended"
-  | Changed ->
-      "changed"
-  | Deprecated ->
-      "deprecated"
-  | Removed ->
-      "removed"
-
-(* Check whether the last transition in an API message's lifecycle is Removed.
- * This allows us to remove API calls and re-add them, and fully list the
- * corresponding lifecycle changes. *)
-let rec has_been_removed = function
-  | [] ->
-      false
-  | [(Removed, _, _)] ->
-      true
-  | _ :: other_transitions ->
-      has_been_removed other_transitions

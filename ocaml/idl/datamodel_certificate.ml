@@ -16,7 +16,7 @@ open Datamodel_types
 open Datamodel_common
 open Datamodel_roles
 
-let lifecycle = [(Published, rel_stockholm, "")]
+let lifecycle = [(Lifecycle.Published, rel_stockholm, "")]
 
 let certificate_type =
   Enum

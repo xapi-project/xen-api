@@ -6,7 +6,7 @@ open Datamodel_types
 
 let vmpp_removed =
   [
-    (Published, rel_cowley, "")
+    (Lifecycle.Published, rel_cowley, "")
   ; (Deprecated, rel_clearwater, "Dummy transition")
   ; (Removed, rel_clearwater, "The VMPR feature was removed")
   ]
@@ -15,7 +15,7 @@ let vmpp_removed =
    deprecated only *)
 let vmpp_deprecated =
   [
-    (Published, rel_cowley, "")
+    (Lifecycle.Published, rel_cowley, "")
   ; (Deprecated, rel_clearwater, "The VMPR feature was removed")
   ]
 

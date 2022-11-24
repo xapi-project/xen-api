@@ -520,7 +520,7 @@ and get_all_records_method classname =
       ; internal= ["closed"; "debug"]
       ; internal_deprecated_since= None
       }
-  ; msg_lifecycle= []
+  ; msg_lifecycle= Lifecycle.from []
   ; msg_has_effect= false
   ; msg_tag= Custom
   ; msg_obj_name= classname

@@ -1,6 +1,7 @@
 (* Common definitions shared by multiple object declarations *)
 
 open Datamodel_types
+open Lifecycle
 open Datamodel_roles
 
 (* IMPORTANT: Please bump schema vsn if you change/add/remove a _field_.
@@ -616,7 +617,7 @@ let call ~name ?(doc = "") ?(in_oss_since = Some "3.0.3") ?in_product_since
   ; msg_async= List.mem `Async flags
   ; msg_db_only= db_only
   ; msg_release= call_release
-  ; msg_lifecycle= lifecycle
+  ; msg_lifecycle= Lifecycle.from lifecycle
   ; msg_has_effect= effect
   ; msg_tag= tag
   ; msg_obj_name= ""
@@ -692,7 +693,7 @@ let field ?(in_oss_since = Some "3.0.3") ?in_product_since
   Field
     {
       release
-    ; lifecycle
+    ; lifecycle= Lifecycle.from lifecycle
     ; qualifier
     ; ty
     ; internal_only
@@ -871,7 +872,7 @@ let create_obj ?lifecycle ~in_oss_since ?in_product_since
   {
     name
   ; description= descr
-  ; obj_lifecycle= lifecycle
+  ; obj_lifecycle= Lifecycle.from lifecycle
   ; messages= msgs
   ; contents
   ; doccomments

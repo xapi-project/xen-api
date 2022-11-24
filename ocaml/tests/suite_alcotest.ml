@@ -67,7 +67,7 @@ let () =
     @ Test_pvs_cache_storage.tests
     @ Test_extauth_plugin_ADpbis.tests
     @ Test_helpers.tests
-    @ Test_datamodel_utils.tests
+    @ Test_datamodel_lifecycle.tests
     @ Test_psr.tests
     @ Test_context.tests
     @ Test_session.tests

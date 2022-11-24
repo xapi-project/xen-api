@@ -159,24 +159,6 @@ val rpc_of_release : release -> Rpc.t
 
 val release_of_rpc : Rpc.t -> release
 
-type lifecycle_change =
-  | Prototyped
-  | Published
-  | Extended
-  | Changed
-  | Deprecated
-  | Removed
-
-type lifecycle_transition = lifecycle_change * string * string
-
-val rpc_of_lifecycle_change : lifecycle_change -> Rpc.t
-
-val lifecycle_change_of_rpc : Rpc.t -> lifecycle_change
-
-val rpc_of_lifecycle_transition : lifecycle_change * string * string -> Rpc.t
-
-val lifecycle_transition_of_rpc : Rpc.t -> lifecycle_change * string * string
-
 (** Model lifecycle of fields and messages, this restricts how can they change
     in the API *)
 module Lifecycle : sig
@@ -189,9 +171,29 @@ module Lifecycle : sig
     | Deprecated_s
     | Removed_s
 
-  val from : lifecycle_transition list -> state
-  (** [from transitions] create a state from [transitions] if the sequence is
-      valid, otherwise raises [Invalid_lifecycle] *)
+  type change =
+    | Prototyped
+    | Published
+    | Extended
+    | Changed
+    | Deprecated
+    | Removed
+
+  type transition = change * string * string
+
+  type t = private {state: state; transitions: transition list}
+
+  val rpc_of_transition : change * string * string -> Rpc.t
+
+  val transition_of_rpc : Rpc.t -> change * string * string
+
+  val string_of_change : change -> string
+
+  val string_of_state : state -> string
+
+  val from : transition list -> t
+  (** [from transitions] returns the lifecycle defined by [transitions] if the
+      sequence is valid, otherwise raises [Invalid_lifecycle]. *)
 end
 
 (** Messages are tagged with one of these indicating whether the message was
@@ -240,7 +242,7 @@ and message = {
   ; msg_pool_internal: bool  (** Only allow on "pool-login" sessions *)
   ; msg_db_only: bool  (** Do not expose through API *)
   ; msg_release: release
-  ; msg_lifecycle: lifecycle_transition list
+  ; msg_lifecycle: Lifecycle.t
   ; msg_has_effect: bool
         (** Whether the message appears in the custom operations *)
   ; msg_force_custom: qualifier option
@@ -262,7 +264,7 @@ and message = {
 
 and field = {
     release: release
-  ; lifecycle: lifecycle_transition list
+  ; lifecycle: Lifecycle.t
   ; field_persist: bool
   ; default_value: api_value option
   ; internal_only: bool
@@ -358,7 +360,7 @@ val db_logging_of_rpc : Rpc.t -> db_logging
 type obj = {
     name: string
   ; description: string
-  ; obj_lifecycle: lifecycle_transition list
+  ; obj_lifecycle: Lifecycle.t
   ; contents: content list
   ; messages: message list
   ; doccomments: (string * string) list
