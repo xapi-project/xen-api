@@ -994,8 +994,7 @@ let create ~__context ~uuid ~name_label ~name_description:_ ~hostname ~address
   let make_new_metrics_object ref =
     Db.Host_metrics.create ~__context ~ref
       ~uuid:(Uuidx.to_string (Uuidx.make ()))
-      ~live:false ~memory_total:0L ~memory_free:0L ~last_updated:Date.never
-      ~other_config:[]
+      ~live:false ~memory_total:0L ~last_updated:Date.never ~other_config:[]
   in
   let name_description = "Default install" and host = Ref.make () in
   let metrics = Ref.make () in

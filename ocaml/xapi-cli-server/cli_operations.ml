@@ -2754,13 +2754,13 @@ let vm_create printer rpc session_id params =
       ~hVM_boot_params:[] ~hVM_shadow_multiplier:1. ~platform:[] ~pCI_bus:""
       ~other_config:[] ~xenstore_data:[] ~recommendations:""
       ~ha_always_run:false ~ha_restart_priority:"" ~tags:[]
-      ~protection_policy:Ref.null ~is_snapshot_from_vmpp:false
-      ~snapshot_schedule:Ref.null ~is_vmss_snapshot:false ~appliance:Ref.null
-      ~start_delay:0L ~shutdown_delay:0L ~order:0L ~suspend_SR:Ref.null
-      ~suspend_VDI:Ref.null ~version:0L ~generation_id:""
-      ~hardware_platform_version:0L ~has_vendor_device:false ~reference_label:""
-      ~domain_type:`unspecified ~nVRAM:[] ~last_booted_record:""
-      ~last_boot_CPU_flags:[] ~power_state:`Halted
+      ~protection_policy:Ref.null ~snapshot_schedule:Ref.null
+      ~is_vmss_snapshot:false ~appliance:Ref.null ~start_delay:0L
+      ~shutdown_delay:0L ~order:0L ~suspend_SR:Ref.null ~suspend_VDI:Ref.null
+      ~version:0L ~generation_id:"" ~hardware_platform_version:0L
+      ~has_vendor_device:false ~reference_label:"" ~domain_type:`unspecified
+      ~nVRAM:[] ~last_booted_record:"" ~last_boot_CPU_flags:[]
+      ~power_state:`Halted
   in
   let uuid = Client.VM.get_uuid ~rpc ~session_id ~self:vm in
   printer (Cli_printer.PList [uuid])

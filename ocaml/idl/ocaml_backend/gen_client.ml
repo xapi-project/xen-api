@@ -89,7 +89,7 @@ let client_api ~sync api =
 let ctor_fields (obj : obj) =
   List.filter
     (function {DT.qualifier= DT.StaticRO | DT.RW; _} -> true | _ -> false)
-    (DU.fields_of_obj obj)
+    (DU.active_fields_of_obj obj)
 
 (* Compute a message parameter list from a message suitable for the client (only!) *)
 let args_of_message ?(expand_record = true) (obj : obj)
