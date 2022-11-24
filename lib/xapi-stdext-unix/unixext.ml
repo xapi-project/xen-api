@@ -180,14 +180,14 @@ let atomic_write_to_file fname perms f =
 
 
 (** Atomically write a string to a file *)
-let write_bytes_to_file fname b =
-  atomic_write_to_file fname 0o644 (fun fd ->
+let write_bytes_to_file ?(perms=0o644) fname b =
+  atomic_write_to_file fname perms (fun fd ->
       let len = Bytes.length b in
       let written = Unix.write fd b 0 len in
       if written <> len then (failwith "Short write occured!"))
 
-let write_string_to_file fname s =
-  write_bytes_to_file fname (Bytes.unsafe_of_string s)
+let write_string_to_file ?(perms=0o644) fname s =
+  write_bytes_to_file fname ~perms (Bytes.unsafe_of_string s)
 
 let execv_get_output cmd args =
   let (pipe_exit, pipe_entrance) = Unix.pipe () in
