@@ -3,6 +3,7 @@
  - Use a dune version with fixed metadata generation 
  - threads, unix: avoid using C functions deprecated in OCaml 5
  - Avoid warnings and add the check to detect them to the CI
+ - zerocheck: remove wrong, unused code. It was dangerous to leave it available
 
 ## v4.20.0 (17-Nov-2022)
  - date: consolidate the types into a single t
