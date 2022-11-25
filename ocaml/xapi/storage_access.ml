@@ -594,7 +594,8 @@ module SMAPIv1 = struct
 
     let attach _ =
       failwith
-        "We'll never get here: attach is implemented in Storage_impl.Wrapper"
+        "We'll never get here: attach is implemented in \
+         Storage_smapiv1_wrapper.Wrapper"
 
     let activate _context ~dbg ~dp ~sr ~vdi =
       try
@@ -1203,7 +1204,9 @@ let start_smapiv1_servers () =
     (fun ty ->
       let path = !Storage_interface.default_path ^ ".d/" ^ ty in
       let queue_name = !Storage_interface.queue_name ^ "." ^ ty in
-      let module S = Storage_interface.Server (SMAPIv1) () in
+      let module S =
+        Storage_interface.Server (Storage_smapiv1_wrapper.Wrapper (SMAPIv1)) ()
+      in
       let s = Xcp_service.make ~path ~queue_name ~rpc_fn:S.process () in
       let (_ : Thread.t) =
         Thread.create (fun () -> Xcp_service.serve_forever s) ()

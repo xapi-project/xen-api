@@ -1,5 +1,5 @@
 (*
- * Copyright (C) 2011 Citrix Systems Inc.
+ * Copyright (C) Citrix Systems Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published
@@ -436,14 +436,15 @@ functor
               (Internal_error "Storage_access.No_VDI") as e
             when op = Vdi_automaton.Deactivate || op = Vdi_automaton.Detach ->
               error
-                "Storage_impl: caught exception %s while doing %s . Continuing \
-                 as if succesful, being optimistic"
+                "Storage_smapiv1_wrapper: caught exception %s while doing %s . \
+                 Continuing as if succesful, being optimistic"
                 (Printexc.to_string e)
                 (Vdi_automaton.string_of_op op) ;
               vdi_t
           | e ->
               error
-                "Storage_impl: dp:%s sr:%s vdi:%s op:%s error:%s backtrace:%s"
+                "Storage_smapiv1_wrapper: dp:%s sr:%s vdi:%s op:%s error:%s \
+                 backtrace:%s"
                 dp (s_of_sr sr) (s_of_vdi vdi)
                 (Vdi_automaton.string_of_op op)
                 (Printexc.to_string e)
@@ -1320,18 +1321,3 @@ let initialise () =
   ) else
     info "No storage state is persisted in %s; creating blank database"
       !host_state_path
-
-module Local_domain_socket = struct
-  let path = Filename.concat "/var/lib/xcp" "storage"
-
-  (* receives external requests on Constants.sm_uri *)
-  let xmlrpc_handler process req bio _ =
-    let body = Http_svr.read_body req bio in
-    let s = Buf_io.fd_of bio in
-    let rpc = Xmlrpc.call_of_string body in
-    (* Printf.fprintf stderr "Request: %s %s\n%!" rpc.Rpc.name (Rpc.to_string (List.hd rpc.Rpc.params)); *)
-    let result = process rpc in
-    (* Printf.fprintf stderr "Response: %s\n%!" (Rpc.to_string result.Rpc.contents); *)
-    let str = Xmlrpc.string_of_response result in
-    Http_svr.response_str req s str
-end

@@ -503,4 +503,19 @@ module Mux = struct
   end
 end
 
-module Server = Storage_interface.Server (Storage_impl.Wrapper (Mux)) ()
+module Server = Storage_interface.Server (Mux) ()
+
+module Local_domain_socket = struct
+  let path = Filename.concat "/var/lib/xcp" "storage"
+
+  (* receives external requests on Constants.sm_uri *)
+  let xmlrpc_handler process req bio _ =
+    let body = Http_svr.read_body req bio in
+    let s = Buf_io.fd_of bio in
+    let rpc = Xmlrpc.call_of_string body in
+    (* Printf.fprintf stderr "Request: %s %s\n%!" rpc.Rpc.name (Rpc.to_string (List.hd rpc.Rpc.params)); *)
+    let result = process rpc in
+    (* Printf.fprintf stderr "Response: %s\n%!" (Rpc.to_string result.Rpc.contents); *)
+    let str = Xmlrpc.string_of_response result in
+    Http_svr.response_str req s str
+end

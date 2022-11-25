@@ -177,7 +177,7 @@ let post_handler (req : Http.Request.t) s _ =
       | "" :: services :: "plugin" :: name :: _ when services = _services ->
           http_proxy_to_plugin req s name
       | [""; services; "SM"] when services = _services ->
-          Storage_impl.Local_domain_socket.xmlrpc_handler
+          Storage_mux.Local_domain_socket.xmlrpc_handler
             Storage_mux.Server.process req (Buf_io.of_fd s) ()
       | _ ->
           Http_svr.headers s (Http.http_404_missing ~version:"1.0" ()) ;
