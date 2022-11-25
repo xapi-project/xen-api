@@ -17,7 +17,6 @@ open Printf
 open Xenops_utils
 open Xenstore
 open Cancel_utils
-open Xenops_helpers
 open Device_common
 open Xenops_task
 
@@ -805,10 +804,9 @@ let numa_hierarchy =
   let open Xenctrlext in
   let open Topology in
   Lazy.from_fun (fun () ->
-      let distances = Xenctrlext.(with_xc numainfo).distances in
-      let cpu_to_node =
-        Xenctrlext.(with_xc cputopoinfo) |> Array.map (fun t -> t.node)
-      in
+      let xcext = get_handle () in
+      let distances = (numainfo xcext).distances in
+      let cpu_to_node = cputopoinfo xcext |> Array.map (fun t -> t.node) in
       NUMA.make ~distances ~cpu_to_node
   )
 
@@ -818,8 +816,9 @@ let numa_resources = ref None
 
 let numa_init () =
   if !Xenopsd.numa_placement then (
+    let xcext = Xenctrlext.get_handle () in
     let host = Lazy.force numa_hierarchy in
-    let mem = Xenctrlext.(with_xc numainfo).memory in
+    let mem = (Xenctrlext.numainfo xcext).memory in
     D.debug "Host NUMA information: %s"
       (Fmt.to_to_string Topology.NUMA.pp_dump host) ;
     Array.iteri
@@ -835,10 +834,9 @@ let numa_placement domid ~vcpus ~memory =
   let open Topology in
   let hint =
     with_lock numa_mutex (fun () ->
+        let xcext = get_handle () in
         let host = Lazy.force numa_hierarchy in
-        let numa_meminfo =
-          Xenctrlext.(with_xc numainfo).memory |> Array.to_list
-        in
+        let numa_meminfo = (numainfo xcext).memory |> Array.to_list in
         let nodes =
           ListLabels.map2
             (NUMA.nodes host |> List.of_seq)
@@ -862,11 +860,10 @@ let numa_placement domid ~vcpus ~memory =
       D.debug "NUMA-aware placement failed for domid %d" domid
   | Some soft_affinity ->
       let cpua = CPUSet.to_mask soft_affinity in
-      Xenops_helpers.with_xc (fun xc ->
-          for i = 0 to vcpus - 1 do
-            Xenctrlext.vcpu_setaffinity_soft xc domid i cpua
-          done
-      )
+      let xcext = get_handle () in
+      for i = 0 to vcpus - 1 do
+        Xenctrlext.vcpu_setaffinity_soft xcext domid i cpua
+      done
 
 let build_pre ~xc ~xs ~vcpus ~memory ~has_hard_affinity domid =
   let open Memory in
@@ -903,7 +900,8 @@ let build_pre ~xc ~xs ~vcpus ~memory ~has_hard_affinity domid =
   maybe
     (fun mode ->
       log_reraise (Printf.sprintf "domain_set_timer_mode %d" mode) (fun () ->
-          Xenctrlext.domain_set_timer_mode xc domid mode
+          let xcext = Xenctrlext.get_handle () in
+          Xenctrlext.domain_set_timer_mode xcext domid mode
       )
     )
     timer_mode ;
@@ -1850,14 +1848,16 @@ let suspend (task : Xenops_task.task_handle) ~xc ~xs ~domain_type ~is_uefi ~dm
 
 let send_s3resume ~xc domid =
   let uuid = get_uuid ~xc domid in
+  let xcext = Xenctrlext.get_handle () in
   debug "VM = %s; domid = %d; send_s3resume" (Uuidx.to_string uuid) domid ;
-  Xenctrlext.domain_send_s3resume xc domid
+  Xenctrlext.domain_send_s3resume xcext domid
 
 let soft_reset ~xc ~xs domid =
   let uuid = get_uuid ~xc domid in
+  let xcext = Xenctrlext.get_handle () in
   debug "VM = %s; domid = %d; soft_reset" (Uuidx.to_string uuid) domid ;
   pause ~xc domid ;
-  Xenctrlext.domain_soft_reset xc domid ;
+  Xenctrlext.domain_soft_reset xcext domid ;
   let dom_path = xs.Xs.getdomainpath domid in
   let store_mfn_s = xs.Xs.read (dom_path ^ "/store/ring-ref") in
   let store_mfn = Nativeint.of_string store_mfn_s in
@@ -1865,7 +1865,7 @@ let soft_reset ~xc ~xs domid =
   xs.Xs.introduce domid store_mfn store_port ;
   xs.Xs.write (dom_path ^ "/store/port") (string_of_int store_port) ;
   xs.Xs.write (dom_path ^ "/console/port") (string_of_int console_port) ;
-  Xenctrlext.domain_update_channels xc domid store_port console_port ;
+  Xenctrlext.domain_update_channels xcext domid store_port console_port ;
   (* reset PV features and disengage balloon driver *)
   List.iter
     (fun p -> log_exn_rm ~xs (dom_path ^ "/control/feature-" ^ p))

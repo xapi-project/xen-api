@@ -12,7 +12,27 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Xenctrl
+type handle
+
+type domid = Xenctrl.domid
+
+external interface_open : unit -> handle = "stub_xenctrlext_interface_open"
+
+let handle = ref None
+
+let get_handle () =
+  match !handle with
+  | Some h ->
+      h
+  | None ->
+      let h =
+        try interface_open ()
+        with e ->
+          let msg = Printexc.to_string e in
+          failwith ("failed to open xenctrlext: " ^ msg)
+      in
+      handle := Some h ;
+      h
 
 external get_boot_cpufeatures :
   handle -> int32 * int32 * int32 * int32 * int32 * int32 * int32 * int32
