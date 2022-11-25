@@ -69,11 +69,11 @@ val atomic_write_to_file : string -> Unix.file_perm -> (Unix.file_descr -> 'a) -
 
 (** [write_string_to_file fname contents] creates a file with path [fname]
     with the string [contents] as its contents, atomically *)
-val write_string_to_file : string -> string -> unit
+val write_string_to_file : ?perms:Unix.file_perm -> string -> string -> unit
 
 (** [write_string_to_file fname contents] creates a file with path [fname]
     with the buffer [contents] as its contents, atomically *)
-val write_bytes_to_file : string -> bytes -> unit
+val write_bytes_to_file : ?perms:Unix.file_perm -> string -> bytes -> unit
 val execv_get_output : string -> string array -> int * Unix.file_descr
 val copy_file : ?limit:int64 -> Unix.file_descr -> Unix.file_descr -> int64
 
