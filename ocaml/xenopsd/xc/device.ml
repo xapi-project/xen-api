@@ -1165,17 +1165,18 @@ module PCI = struct
     lor ((pci.dev land 0x1f) lsl 3)
     lor (pci.fn land 0x7)
 
-  let _quarantine xc pci quarantine =
+  let _quarantine pci quarantine =
     if !Xenopsd.pci_quarantine then
       let pci_bdf = encode_bdf pci in
       let domid = Xenctrlext.domid_quarantine () in
+      let xcext = Xenctrlext.get_handle () in
       try
         match quarantine with
         | true ->
-            Xenctrlext.assign_device xc domid pci_bdf 0 ;
+            Xenctrlext.assign_device xcext domid pci_bdf 0 ;
             true
         | false ->
-            Xenctrlext.deassign_device xc domid pci_bdf ;
+            Xenctrlext.deassign_device xcext domid pci_bdf ;
             true
       with
       | Xenctrlext.Unix_error (Unix.ESRCH, _) ->
@@ -1187,9 +1188,9 @@ module PCI = struct
     else
       true
 
-  let quarantine xc pci = _quarantine xc pci true
+  let quarantine pci = _quarantine pci true
 
-  let dequarantine xc pci = _quarantine xc pci false
+  let dequarantine pci = _quarantine pci false
 
   let _pci_add ~xc ~xs ~hvm domid {host; guest= _, guest_addr; qmp_add} =
     let open Xenops_interface.Pci in
@@ -1253,19 +1254,20 @@ module PCI = struct
             Xenctrl.domain_iomem_permission xc domid scan_start scan_size true
     in
     List.iteri apply_io_permission addresses ;
+    let xcext = Xenctrlext.get_handle () in
     ( if irq > 0 then
-        Xenctrlext.physdev_map_pirq xc domid irq |> fun x ->
+        Xenctrlext.physdev_map_pirq xcext domid irq |> fun x ->
         Xenctrl.domain_irq_permission xc domid x true
     ) ;
-    ignore (quarantine xc host) ;
-    Xenctrlext.assign_device xc domid (encode_bdf host)
+    ignore (quarantine host) ;
+    Xenctrlext.assign_device xcext domid (encode_bdf host)
       _xen_domctl_dev_rdm_relaxed
 
   let add ~xc ~xs ~hvm pcidevs domid =
     let host_addr {host; guest= _; _} = host in
     try
       if !Xenopsd.use_old_pci_add || not hvm then (
-        List.iter (fun x -> ignore (quarantine xc (host_addr x))) pcidevs ;
+        List.iter (fun x -> ignore (quarantine (host_addr x))) pcidevs ;
         add_xl (List.map host_addr pcidevs) domid
       ) else
         List.iter (_pci_add ~xc ~xs ~hvm domid) pcidevs ;

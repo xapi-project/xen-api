@@ -1280,12 +1280,13 @@ module VM = struct
 
   let mkints n = List.init n Fun.id
 
-  let generate_create_info ~xc ~xs:_ vm persistent =
+  let generate_create_info ~xs:_ vm persistent =
     let ty = match persistent.VmExtra.ty with Some ty -> ty | None -> vm.ty in
     let hvm = match ty with HVM _ | PVinPVH _ -> true | PV _ -> false in
     (* XXX add per-vcpu information to the platform data *)
     (* VCPU configuration *)
-    let pcpus = Xenctrlext.get_max_nr_cpus xc in
+    let xcext = Xenctrlext.get_handle () in
+    let pcpus = Xenctrlext.get_max_nr_cpus xcext in
     let all_pcpus = mkints pcpus in
     let all_vcpus = mkints vm.vcpu_max in
     let masks =
@@ -1524,9 +1525,7 @@ module VM = struct
 
                         (domain_config, persistent)
                   in
-                  let create_info =
-                    generate_create_info ~xc ~xs vm persistent
-                  in
+                  let create_info = generate_create_info ~xs vm persistent in
                   let domid =
                     Domain.make ~xc ~xs create_info vm.vcpu_max domain_config
                       (uuid_of_vm vm) final_id no_sharept
@@ -3387,8 +3386,7 @@ module PCI = struct
   let dequarantine (pci : Pci.address) =
     let fail msg = raise (Xenopsd_error (Internal_error msg)) in
     let addr = Pci.string_of_address pci in
-    with_xc_and_xs @@ fun xc _xs ->
-    match Device.PCI.dequarantine xc pci with
+    match Device.PCI.dequarantine pci with
     | true ->
         debug "PCI %s dequarantine - success" addr
     | false ->

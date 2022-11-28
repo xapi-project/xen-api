@@ -34,7 +34,7 @@
 #include <caml/unixsupport.h>
 #include <caml/bigarray.h>
 
-#define _H(__h) ((xc_interface *)(__h))
+#define _H(__h) (*((xc_interface **)Data_custom_val(__h)))
 #define _D(__d) ((uint32_t)Int_val(__d))
 
 /* From xenctrl_stubs */
@@ -49,6 +49,21 @@
 #define Some_val(v) Field(v, 0)
 #define Is_some(v) Is_block(v)
 #endif
+
+static void stub_xenctrlext_finalize(value v)
+{
+	xc_interface_close(_H(v));
+}
+
+static struct custom_operations xenctrlext_ops = {
+	.identifier  = "xapi-project.xenctrlext",
+	.finalize    = stub_xenctrlext_finalize,
+	.compare     = custom_compare_default,     /* Can't compare     */
+	.hash        = custom_hash_default,        /* Can't hash        */
+	.serialize   = custom_serialize_default,   /* Can't serialize   */
+	.deserialize = custom_deserialize_default, /* Can't deserialize */
+	.compare_ext = custom_compare_ext_default, /* Can't compare     */
+};
 
 static void raise_unix_errno_msg(int err_code, const char *err_msg)
 {
@@ -80,6 +95,25 @@ static void failwith_xc(xc_interface *xch)
                 snprintf(error_str, sizeof(error_str), "Unable to open XC interface");
         }
         raise_unix_errno_msg(real_errno, error_str);
+}
+
+CAMLprim value stub_xenctrlext_interface_open(void)
+{
+	CAMLparam0();
+	CAMLlocal1(result);
+	xc_interface *xch;
+
+	caml_enter_blocking_section();
+	xch = xc_interface_open(NULL, NULL, 0);
+	caml_leave_blocking_section();
+
+	if ( !xch )
+		failwith_xc(xch);
+
+	result = caml_alloc_custom(&xenctrlext_ops, sizeof(xch), 0, 1);
+	_H(result) = xch;
+
+	CAMLreturn(result);
 }
 
 CAMLprim value stub_xenctrlext_get_runstate_info(value xch, value domid)

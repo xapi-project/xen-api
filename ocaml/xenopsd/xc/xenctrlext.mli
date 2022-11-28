@@ -12,7 +12,13 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Xenctrl
+type handle
+
+type domid = Xenctrl.domid
+
+external interface_open : unit -> handle = "stub_xenctrlext_interface_open"
+
+val get_handle : unit -> handle
 
 external get_boot_cpufeatures :
   handle -> int32 * int32 * int32 * int32 * int32 * int32 * int32 * int32

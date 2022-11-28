@@ -256,7 +256,7 @@ module PCI : sig
 
   val list : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> (int * address) list
 
-  val dequarantine : Xenctrl.handle -> Xenops_interface.Pci.address -> bool
+  val dequarantine : Xenops_interface.Pci.address -> bool
 end
 
 module Vfs : sig
