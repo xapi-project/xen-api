@@ -210,6 +210,15 @@ let response_method_not_implemented ?req s =
   in
   response_error_html ?version s "501" "Method not implemented" [] body
 
+let response_redirect ?req s dest =
+  let version = Option.fold ~none:"1.1" ~some:get_return_version req in
+  let location = (Http.Hdr.location, dest) in
+  let res =
+    Http.Response.make ~version ~headers:[location] ~body:"" "301"
+      "Moved Permanently"
+  in
+  Unixext.really_write_string s (Http.Response.to_wire_string res)
+
 let response_file ?mime_content_type s file =
   let size = (Unix.LargeFile.stat file).Unix.LargeFile.st_size in
   let mime_header =

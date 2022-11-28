@@ -225,6 +225,8 @@ module Hdr : sig
   val content_disposition : string
 
   val accept : string
+
+  val location : string
 end
 
 val output_http : Unix.file_descr -> string list -> unit

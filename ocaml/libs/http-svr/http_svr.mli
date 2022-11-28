@@ -119,6 +119,8 @@ val response_internal_error :
 val response_method_not_implemented :
   ?req:Http.Request.t -> Unix.file_descr -> unit
 
+val response_redirect : ?req:Http.Request.t -> Unix.file_descr -> string -> unit
+
 val response_file :
   ?mime_content_type:string -> Unix.file_descr -> string -> unit
 
