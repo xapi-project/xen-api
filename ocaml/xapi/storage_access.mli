@@ -99,10 +99,6 @@ val deactivate_and_detach :
 (** [deactivate_and_detach __context vbd domid] idempotent function which ensures
     that any attached or activated VDI gets properly deactivated and detached. *)
 
-val is_attached : __context:Context.t -> vbd:API.ref_VBD -> domid:int -> bool
-(** [is_attached __context vbd] returns true if the [vbd] has an attached
-    or activated datapath. *)
-
 val on_vdi :
      __context:Context.t
   -> vbd:API.ref_VBD

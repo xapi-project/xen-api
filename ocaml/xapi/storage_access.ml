@@ -1699,24 +1699,6 @@ let of_vbd ~__context ~vbd ~domid =
   , Storage_interface.Vdi.of_string location
   )
 
-(** [is_attached __context vbd] returns true if the [vbd] has an attached
-    or activated datapath. *)
-let is_attached ~__context ~vbd ~domid =
-  transform_storage_exn (fun () ->
-      let rpc, dbg, _dp, sr, vdi = of_vbd ~__context ~vbd ~domid in
-      let open Vdi_automaton in
-      let module C = Storage_interface.StorageAPI (Idl.Exn.GenClient (struct
-        let rpc = rpc
-      end)) in
-      try
-        let x = C.DP.stat_vdi dbg sr vdi () in
-        x.superstate <> Detached
-      with e ->
-        error "Unable to query state of VDI: %s, %s" (s_of_vdi vdi)
-          (Printexc.to_string e) ;
-        false
-  )
-
 (** [on_vdi __context vbd domid f] calls [f rpc dp sr vdi] which is
     useful for executing Storage_interface.Client.VDI functions  *)
 let on_vdi ~__context ~vbd ~domid f =
