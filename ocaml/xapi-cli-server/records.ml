@@ -1444,6 +1444,15 @@ let pool_record rpc session_id pool =
               ~value:(Stdlib.bool_of_string s)
           )
           ()
+      ; make_field ~name:"migration-compression"
+          ~get:(fun () ->
+            (x ()).API.pool_migration_compression |> string_of_bool
+          )
+          ~set:(fun x ->
+            Client.Pool.set_migration_compression ~rpc ~session_id ~self:pool
+              ~value:(bool_of_string x)
+          )
+          ()
       ]
   }
 

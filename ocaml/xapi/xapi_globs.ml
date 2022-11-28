@@ -924,8 +924,6 @@ let repository_gpgkey_name = ref ""
 
 let repository_gpgcheck = ref true
 
-let migration_compression = ref false
-
 let ignore_vtpm_unimplemented = ref false
 
 let evacuation_batch_size = ref 10
@@ -1379,11 +1377,6 @@ let other_options =
     , Arg.Set_int message_limit
     , (fun () -> string_of_int !message_limit)
     , "Maximum number of messages kept before deleting oldest ones."
-    )
-  ; ( "migration-compression"
-    , Arg.Set migration_compression
-    , (fun () -> string_of_bool !migration_compression)
-    , "Use compression during VM migration when no API option provided."
     )
   ; ( "evacuation-batch-size"
     , Arg.Set_int evacuation_batch_size
