@@ -7,15 +7,15 @@ license: "LGPL-2.1-only WITH OCaml-LGPL-linking-exception"
 homepage: "https://github.com/xapi-project/stdext"
 bug-reports: "https://github.com/xapi-project/stdext/issues"
 depends: [
+  "dune" {>= "2.7"}
   "ocaml"
-  "dune" {>= "1.11"}
   "base-unix"
   "fd-send-recv" {>= "2.0.0"}
   "odoc" {with-doc}
   "xapi-stdext-pervasives" {= version}
 ]
 build: [
-  ["dune" "subst"] {pinned}
+  ["dune" "subst"] {dev}
   [
     "dune"
     "build"

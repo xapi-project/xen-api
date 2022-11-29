@@ -46,9 +46,9 @@ CAMLprim value stub_stdext_unix_write(value fd, value buf, value vofs, value vle
 	    uerror("write/posix_memalign", Nothing);
 
       memmove (iobuf, &Byte(buf, ofs), numbytes);
-      enter_blocking_section();
+      caml_enter_blocking_section();
       ret = write(Int_val(fd), iobuf, numbytes);
-      leave_blocking_section();
+      caml_leave_blocking_section();
 	  free(iobuf);
 
       if (ret == -1) {

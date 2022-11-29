@@ -13,7 +13,7 @@
  *)
 (** A collection of extensions to the [Unix] module. *)
 
-external _exit : int -> unit = "unix_exit"
+val _exit : int -> unit
 val unlink_safe : string -> unit
 val mkdir_safe : string -> Unix.file_perm -> unit
 val mkdir_rec : string -> Unix.file_perm -> unit

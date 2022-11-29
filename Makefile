@@ -17,6 +17,9 @@ clean:
 test:
 	dune runtest --profile=$(PROFILE)
 
+check:
+	dune build @check
+
 # requires odoc
 doc:
 	dune build @doc --profile=$(PROFILE)
