@@ -1,8 +1,8 @@
 XenServer.NET
 =============
 
-XenServer.NET is a complete SDK for XenServer, exposing the XenServer API
-as .NET classes. It is written in C#.
+XenServer.NET is a complete SDK for XenServer, exposing the XenServer
+API as .NET classes. It is written in C#.
 
 XenServer.NET includes a class for every API class, and a method for each API
 call, so API documentation and examples written for other languages will apply

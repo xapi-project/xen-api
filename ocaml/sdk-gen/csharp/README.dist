@@ -57,7 +57,7 @@ Downloads
 ---------
 
 This archive contains the following folders that are relevant to .NET developers:
-- XenServer.NET\bin: contains the ready compiled binaries
+- XenServer.NET: contains the ready compiled binaries in the form of a NuGet package.
 - XenServer.NET\src: contains the source code shipped as a Visual Studio project.
 - XenServer.NET\samples: contains the examples shipped as a Visual studio solution.
 
@@ -67,24 +67,25 @@ Getting Started
 
 Extract the contents of this archive.
 
-A. To use the compiled binaries in your code:
-  1. Copy XenServer.dll and Newtonsoft.Json.CH.dll
-     from the bin folder into your own workspace.
-  2. In Visual Studio, add references to all DLLs from your own program.
-     Project > Add Reference > Browse.
-  3. You should now be ready to compile against XenServer.NET.
+A. To build the source code:
+  1. Open the project XenServer.csproj in Visual Studio.
+  2. You should now be ready to build the source code.
 
-B. To build the source code:
-  1. Copy Newtonsoft.Json.CH.dll and LICENSE.Newtonsoft.Json.txt from the bin
-     folder into the source code folder at the same level as the project file
-     XenServer.csproj
-  2. Open the project XenServer.csproj in Visual Studio.
-  3. You should now be ready to build the source code.
+B. To use the NuGet package in your code (offline):
+  1. Add the location of the package as a NuGet source:
+
+  ```pwsh
+  nuget sources Add -Name "Offline Package" -Source "/full/path/to/package/directory" 
+  ```
+
+  2. Install the package
+
+  ```pwsh
+  nuget install XenServer.NET
+  ```
 
 C. To run the examples:
-  1. Copy XenServer.dll and Newtonsoft.Json.CH.dll
-     from the bin folder into the samples folder at the same level as the
-     project file XenSdkSample.csproj.
+  1. Follow steps B.1 and B.2
   2. Open XenSdkSample.sln inside Visual Studio (2019 or greater).
   3. You should now be ready to compile the solution and run the examples.
      The solution project is a console application expecting the parameters

@@ -1,10 +1,10 @@
-Citrix Hypervisor PowerShell Module
+XenServer PowerShell Module
 ===================================
 
-The Citrix Hypervisor PowerShell Module is a complete SDK for Citrix Hypervisor,
-exposing the Citrix Hypervisor API as Windows PowerShell cmdlets.
+The XenServer PowerShell Module is a complete SDK for XenServer,
+exposing the XenServer API as Windows PowerShell cmdlets.
 
-The Citrix Hypervisor PowerShell Module includes a cmdlet for each API call,
+The XenServer PowerShell Module includes a cmdlet for each API call,
 so API documentation and examples written for other languages will apply equally
 well to PowerShell. In particular, the SDK Guide and the Management API Guide
 are ideal for developers wishing to use this module.
@@ -20,18 +20,18 @@ under the BSD 2-Clause license.
 Reference
 ---------
 
-For Citrix Hypervisor documentation see https://docs.citrix.com/en-us/citrix-hypervisor/
+For XenServer documentation see https://docs.citrix.com/en-us/citrix-hypervisor/
 
-The Citrix Hypervisor Management API Reference is available at
+The XenServer Management API Reference is available at
 https://developer-docs.citrix.com/projects/citrix-hypervisor-management-api/en/latest/
 
-The Citrix Hypervisor Software Development Kit Guide is available at
+The XenServer Software Development Kit Guide is available at
 https://developer-docs.citrix.com/projects/citrix-hypervisor-sdk/en/latest/
 
 For community content, blogs, and downloads, visit
 https://www.citrix.com/community/citrix-developer/
 
-To network with other developers using Citrix Hypervisor visit
+To network with other developers using XenServer visit
 https://discussions.citrix.com/forum/101-hypervisor-formerly-xenserver/
 
 
@@ -44,12 +44,16 @@ This library requires .NET 6.0 and PowerShell 7.2.
 Dependencies
 ------------
 
-The Citrix Hypervisor PowerShell Module is dependent upon the following libraries:
+The XenServer PowerShell Module is dependent upon the following libraries:
 
 - Newtonsoft JSON.NET by James Newton-King (see https://www.newtonsoft.com/).
   JSON.NET is licensed under the MIT license; see LICENSE.Newtonsoft.Json.txt
   for details. A patched version of the library (Newtonsoft.Json.CH.dll) is
-  shipped with the Citrix Hypervisor PowerShell Module.
+  shipped with the XenServer PowerShell Module.
+
+- XenServer.NET by Citrix Systems, Inc.
+  XenServer.NET is a complete SDK for XenServer, exposing the XenServer
+  API as .NET classes. It is written in C#. 
 
 
 Folder Structure
@@ -57,9 +61,9 @@ Folder Structure
 
 This archive contains the following folders that are relevant to PowerShell users:
 
-- XenServerPowerShell\XenServerPSModule: this is the Citrix Hypervisor PowerShell
+- XenServerPowerShell\XenServerPSModule: this is the XenServer PowerShell
   Module
-- XenServerPowerShell\src: contains the C# source code for the Citrix Hypervisor
+- XenServerPowerShell\src: contains the C# source code for the XenServer
   cmdlets shipped as a Visual Studio project.
 - XenServerPowerShell\samples: contains the sample scripts accompanying the module.
 
@@ -68,14 +72,6 @@ Getting Started
 ---------------
 
 1.  Unzip the contents of this archive.
-
-    Note that, if you have downloaded this zip file using Internet Explorer, it
-    is likely that it will have been marked as "blocked" during the download. To
-    import the module successfully you will need to unblock this zip file before
-    unzipping it.
-
-    To unblock the zip file, right-click on it and launch the Properties dialog.
-    Click the "Unblock" button, then the Apply or OK button.
 
 2.  Navigate to the extracted XenServer\XenServerPowerShell directory and copy
     the whole folder XenServerPSModule into your PowerShell modules directory,
@@ -105,21 +101,21 @@ Getting Started
     inconvenient. You probably want to change it to RemoteSigned, as above.
 
     If the current policy is Unrestricted or RemoteSigned, it is compatible with
-    the Citrix Hypervisor PowerShell Module, so there is nothing to do.
+    the XenServer PowerShell Module, so there is nothing to do.
 
 5.  Exit the privileged instance of PowerShell.
 
 6.  Open a PowerShell prompt as a regular user (click Start > Windows PowerShell)
-    and import the Citrix Hypervisor PowerShell Module:
+    and import the XenServer PowerShell Module:
 
         PS> Import-Module XenServerPSModule
 
-7.  If you wish to load specific environment settings when the Citrix Hypervisor
+7.  If you wish to load specific environment settings when the XenServer
     PowerShell Module is loaded, create the file XenServerProfile.ps1 and put it
     in $env:UserProfile\Documents\WindowsPowerShell for per-user configuration
     or $env:windir\system32\WindowsPowerShell\v1.0 for system-wide configuration.
 
-8.  For an overview of the Citrix Hypervisor PowerShell Module type:
+8.  For an overview of the XenServer PowerShell Module type:
 
         PS> Get-Help about_XenServer
 
@@ -141,15 +137,11 @@ Getting Started
 Building and Debugging the Source Code
 --------------------------------------
 
-1. Copy Newtonsoft.Json.CH.dll and XenServer.dll from the XenServerPSModule 
-   folder into the source code folder at the same level as the project 
-   file XenServerPowerShell.csproj.
+1. Open the project XenServerPowerShell.csproj in Visual Studio (2019 or greater).
 
-2. Open the project XenServerPowerShell.csproj in Visual Studio (2013 or greater).
+2. You should now be ready to build the source code.
 
-3. You should now be ready to build the source code.
-
-4. If in Debug mode, clicking Start will launch a PowerShell prompt as an
+3. If in Debug mode, clicking Start will launch a PowerShell prompt as an
    external process, and import the compiled XenServerPowerShell.dll as a module
    (without, however, processing the scripts, types, and formats shipped within
    the XenServerPSModule). You should now be ready to debug the cmdlets.
