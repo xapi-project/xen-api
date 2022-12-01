@@ -122,6 +122,8 @@ module Hdr = struct
   let content_disposition = "content-disposition"
 
   let accept = "accept"
+
+  let location = "location"
 end
 
 let output_http fd headers =
