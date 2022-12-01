@@ -1,4 +1,4 @@
-#! /usr/bin/python
+#! /usr/bin/python3
 #
 # Copyright (C) 2022 Citrix Systems R&D Ltd.
 #
@@ -12,7 +12,6 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU Lesser General Public License for more details.
 
-from __future__ import print_function
 import os
 import stat
 import socket
@@ -24,7 +23,7 @@ import ctypes
 import ctypes.util
 import struct
 from resource import getrlimit, RLIMIT_CORE, RLIMIT_FSIZE, setrlimit
-from urlparse import urlparse
+from urllib.parse import urlparse
 
 CLONE_NEWNS  = 0x00020000 # mount namespace
 CLONE_NEWNET = 0x40000000 # network namespace
@@ -137,7 +136,7 @@ def main(argv):
     tpm_args = []
 
     swtpm_pid_full = os.path.join(tpm_dir, "swtpm-%d.pid" % domid)
-    open(swtpm_pid_full, 'wa').close()
+    open(swtpm_pid_full, 'wb').close()
     os.chown(swtpm_pid_full, uid, uid)
 
     if depriv:
@@ -150,7 +149,7 @@ def main(argv):
 
             urandom = os.path.join(dev_dir, "urandom")
             if not os.path.exists(urandom):
-                os.mknod(urandom, 0666 | stat.S_IFCHR, os.makedev(1, 9))
+                os.mknod(urandom, 0o666 | stat.S_IFCHR, os.makedev(1, 9))
 
             if os.path.exists(os.path.join(tpm_dir, ".lock")):
                 os.chown(os.path.join(tpm_dir, ".lock"), uid, uid)
@@ -187,7 +186,9 @@ def main(argv):
                "--pid", "file=%s" % swtpm_pid,
                "-t"] + tpm_args
 
-    swtpm = subprocess.Popen(tpm_args,executable=tpm_exe, preexec_fn=prepare_exec(), env=tpm_env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    swtpm = subprocess.Popen(tpm_args,executable=tpm_exe, preexec_fn=prepare_exec(),
+                             pass_fds=(sock.fileno(),), env=tpm_env,
+                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     print("Exec: %s %s" % (tpm_exe, " ".join(tpm_args)))
 
     sys.stdout.flush()
