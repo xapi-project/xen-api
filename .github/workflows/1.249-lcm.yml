@@ -1,10 +1,5 @@
 name: Build and test (1.249-lcm, scheduled)
 
-on:
-  schedule:
-    # run every Monday, this refreshes the cache
-    - cron: '13 2 * * 1'
-
 jobs:
   python-test:
     name: Python tests

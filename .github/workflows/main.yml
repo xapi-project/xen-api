@@ -3,9 +3,6 @@ name: Build and test
 on:
   push:
   pull_request:
-  schedule:
-    # run daily, this refreshes the cache
-    - cron: '13 2 * * *'
 
 jobs:
   python-test:
