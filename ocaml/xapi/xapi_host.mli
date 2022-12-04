@@ -140,7 +140,7 @@ val ha_release_resources : __context:Context.t -> host:'a -> unit
 
 val ha_wait_for_shutdown_via_statefile : __context:'a -> host:'b -> unit
 
-val ha_xapi_healthcheck : __context:'a -> bool
+val ha_xapi_healthcheck : __context:Context.t -> bool
 
 val preconfigure_ha :
      __context:Context.t

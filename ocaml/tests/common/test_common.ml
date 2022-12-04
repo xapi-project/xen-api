@@ -204,7 +204,7 @@ let make_host2 ~__context ?(ref = Ref.make ()) ?(uuid = make_uuid ())
     ~display:`enabled ~virtual_hardware_platform_versions:[]
     ~control_domain:Ref.null ~updates_requiring_reboot:[] ~iscsi_iqn:""
     ~multipathing:false ~uefi_certificates:"" ~editions:[] ~pending_guidances:[]
-    ~tls_verification_enabled
+    ~tls_verification_enabled ~ha_healthcheck_timestamp:Date.never
     ~last_software_update:(Xapi_host.get_servertime ~__context ~host:ref) ;
   ref
 
