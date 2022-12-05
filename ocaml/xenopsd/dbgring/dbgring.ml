@@ -24,10 +24,8 @@ let open_ring0 () =
   Unix.close fd ; intf
 
 let open_ringU domid mfn =
-  let xc = Xenctrl.interface_open () in
-  Xapi_stdext_pervasives.Pervasiveext.finally
-    (fun () -> Xenctrl.map_foreign_range xc domid (Xenmmap.getpagesize ()) mfn)
-    (fun () -> Xenctrl.interface_close xc)
+  Xenctrl.with_intf @@ fun xc ->
+  Xenctrl.map_foreign_range xc domid (Xenmmap.getpagesize ()) mfn
 
 let open_ring domid mfn =
   if domid = 0 then

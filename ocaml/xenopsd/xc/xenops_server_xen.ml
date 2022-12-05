@@ -5196,10 +5196,7 @@ let look_for_xen () =
       exit 1
 
 let look_for_xenctrl () =
-  try
-    let xc = Xenctrl.interface_open () in
-    debug "xenctrl interface is available" ;
-    Xenctrl.interface_close xc
+  try Xenctrl.with_intf @@ fun _xc -> debug "xenctrl interface is available"
   with e ->
     error "I failed to open the low-level xen control interface (xenctrl)" ;
     error "The raw error was: %s" (Printexc.to_string e) ;
