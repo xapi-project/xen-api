@@ -78,11 +78,13 @@ module Make (Debug: DEBUG) = struct
       let c = IntMap.merge (fun _ a b -> if domain_looks_different a b then Some () else None) a b in
       List.map fst (IntMap.bindings c)
 
+    let with_xc_and_xs f =
+      Xenctrl.with_intf (fun xc -> with_xs (fun xs -> f xc xs))
+
     let watch_xenstore () =
-      let xc = Xenctrl.interface_open () in
       try
-        with_xs
-          (fun xs ->
+        with_xc_and_xs
+          (fun xc xs ->
              let domains = ref IntMap.empty in
              let watches = ref IntSet.empty in
              let uuids = ref IntMap.empty in
@@ -159,7 +161,6 @@ module Make (Debug: DEBUG) = struct
           )
       with e ->
         debug "Caught exception attempting to watch xenstore: %s" (Printexc.to_string e);
-        Xenctrl.interface_close xc;
         raise e
 
     let rec create_watcher_thread () =
