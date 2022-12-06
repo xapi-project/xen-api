@@ -93,9 +93,11 @@ let select_host __context guest validate_host hosts =
   let validate_host uuid =
     validate_host (Db.Host.get_by_uuid ~__context ~uuid)
   in
+  let pool = Helpers.get_pool ~__context in
+  let master_bias = Db.Pool.get_coordinator_bias ~__context ~self:pool in
   let host =
     select_host_from_summary pool_summary affinity_host_ids validate_host
-      random_fn
+      master_bias random_fn
   in
   match host with
   | Some host ->
