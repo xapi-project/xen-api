@@ -93,7 +93,7 @@ let send_file (uri_base : string) (dir : string) (req : Request.t)
     match req.Request.host with
     | Some host ->
         (* Redirect towards HTTPS *)
-        let path = String.concat "" [uri_base; req.Request.uri] in
+        let path = req.Request.uri in
         let dest = Uri.make ~scheme:"https" ~host ~path () |> Uri.to_string in
         Http_svr.response_redirect ~req s dest
     | None ->
