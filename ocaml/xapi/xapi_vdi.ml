@@ -804,7 +804,7 @@ let snapshot_and_clone call_f ~__context ~vdi ~driver_params =
     let open Storage_interface in
     let vdi_info =
       {
-        (Storage_access.vdi_info_of_vdi_rec __context vdi_rec) with
+        (Storage_smapiv1.vdi_info_of_vdi_rec __context vdi_rec) with
         sm_config= driver_params
       }
     in

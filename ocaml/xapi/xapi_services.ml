@@ -196,7 +196,7 @@ let put_handler (req : Http.Request.t) s _ =
           http_proxy_to_plugin req s name
       | [""; services; "SM"; "data"; sr; vdi] when services = _services ->
           let vdi, _ =
-            Storage_access.find_vdi ~__context
+            Storage_smapiv1.find_vdi ~__context
               (Storage_interface.Sr.of_string sr)
               (Storage_interface.Vdi.of_string vdi)
           in

@@ -1321,3 +1321,7 @@ let initialise () =
   ) else
     info "No storage state is persisted in %s; creating blank database"
       !host_state_path
+
+module Impl = Wrapper (Storage_smapiv1.SMAPIv1)
+
+module Server = Storage_interface.Server (Impl) ()
