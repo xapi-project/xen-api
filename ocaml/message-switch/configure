@@ -1,3 +1,0 @@
-#!/bin/sh
-
-exec dune exec --profile=release ./configure.exe -- $* >config.mk
