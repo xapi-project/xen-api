@@ -381,6 +381,32 @@ end = struct
     else
       cmp
 
+  let rec list_dedup cmp =
+    let rec loop acc = function
+      | [] ->
+          List.rev acc
+      | [item] ->
+          loop (item :: acc) []
+      | a :: b :: rest when cmp a b = 0 ->
+          loop (a :: acc) rest
+      | a :: rest ->
+          loop (a :: acc) rest
+    in
+    loop []
+
+  let remove_outdated changes =
+    (* When several lifecycles transitions for the same entity, keep the most
+       latest change one and drop the rest *)
+    changes
+    |> List.sort (fun ((_, nam_a, _, _) as a) ((_, nam_b, _, _) as b) ->
+           let cmp = String.compare nam_a nam_b in
+           if cmp <> 0 then
+             cmp
+           else
+             -compare_changes a b
+       )
+    |> list_dedup (fun (_, a, _, _) (_, b, _, _) -> String.compare a b)
+
   let release_info releases objs =
     let changes_in_release rel =
       let search_obj obj =
@@ -403,6 +429,7 @@ end = struct
               )
             )
             changes
+          |> remove_outdated
         in
         let changes_for_msg m =
           let changes =
@@ -425,6 +452,7 @@ end = struct
               )
             )
             changes
+          |> remove_outdated
         in
         (* Don't include implicit messages *)
         let msgs = List.filter (fun m -> m.msg_tag = Custom) obj.messages in
@@ -453,6 +481,7 @@ end = struct
               )
             )
             changes
+          |> remove_outdated
         in
         let rec flatten_contents contents =
           List.fold_left
