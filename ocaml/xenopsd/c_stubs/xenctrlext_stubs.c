@@ -79,24 +79,14 @@ static void raise_unix_errno_msg(int err_code, const char *err_msg)
 
 static void failwith_xc(xc_interface *xch)
 {
-        static char error_str[XC_MAX_ERROR_MSG_LEN + 6];
-        int real_errno = -1;
-        if (xch) {
-                const xc_error *error = xc_get_last_error(xch);
-                if (error->code == XC_ERROR_NONE) {
-                        real_errno = errno;
-                        snprintf(error_str, sizeof(error_str), "%d: %s", errno, strerror(errno));
-                } else {
-                        real_errno = error->code;
-                        snprintf(error_str, sizeof(error_str), "%d: %s: %s",
-                                 error->code,
-                                 xc_error_code_to_desc(error->code),
-                                 error->message);
-                }
-        } else {
-                snprintf(error_str, sizeof(error_str), "Unable to open XC interface");
-        }
-        raise_unix_errno_msg(real_errno, error_str);
+    static char error_str[XC_MAX_ERROR_MSG_LEN + 6];
+    int real_errno = errno;
+    if (xch) {
+        snprintf(error_str, sizeof(error_str), "%d: %s", errno, strerror(errno));
+    } else {
+        snprintf(error_str, sizeof(error_str), "Unable to open XC interface");
+    }
+    raise_unix_errno_msg(real_errno, error_str);
 }
 
 CAMLprim value stub_xenctrlext_interface_open(value unused)
