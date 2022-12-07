@@ -32,19 +32,18 @@ CAMLprim value stub_XA_mh_authorize(value username, value password){
     CAMLparam2(username, password);
     CAMLlocal1(ret);
     ret = Val_unit;
-    
+
     char *c_username = strdup(String_val(username));
     char *c_password = strdup(String_val(password));
     const char *error = NULL;
     int rc;
-    
+
     caml_enter_blocking_section();
     rc = XA_mh_authorize(c_username, c_password, &error);
-    caml_leave_blocking_section();
-    
     free(c_username);
     free(c_password);
-    
+    caml_leave_blocking_section();
+
     if (rc != XA_SUCCESS)
         caml_failwith(error ? error : "Unknown error");
     CAMLreturn(ret);
@@ -54,19 +53,18 @@ CAMLprim value stub_XA_mh_chpasswd(value username, value new_password){
     CAMLparam2(username, new_password);
     CAMLlocal1(ret);
     ret = Val_unit;
-    
+
     char *c_username = strdup(String_val(username));
     char *c_new_password = strdup(String_val(new_password));
     const char *error = NULL;
     int rc;
-    
+
     caml_enter_blocking_section();
     rc = XA_mh_chpasswd (c_username, c_new_password, &error);
-    caml_leave_blocking_section();
-    
     free(c_username);
     free(c_new_password);
-    
+    caml_leave_blocking_section();
+
     if (rc != XA_SUCCESS)
         caml_failwith(error ? error : "Unknown error");
     CAMLreturn(ret);
