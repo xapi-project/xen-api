@@ -528,12 +528,30 @@ module StorageAPI (R : RPC) = struct
       let allow_leak_p = Param.mk ~name:"allow_leak" Types.bool in
       declare "DP.destroy"
         [
-          "[DP.destroy dbg id]: frees any resources associated with [id] and \
-           destroys it."
+          "[DP.destroy dbg id allow_leak]: frees any resources associated with \
+           [id] and destroys it."
         ; "This will typically do any needed VDI.detach, VDI.deactivate \
            cleanup."
         ]
         (dbg_p @-> dp_p @-> allow_leak_p @-> returning unit_p err)
+
+    let destroy2 =
+      let allow_leak_p = Param.mk ~name:"allow_leak" Types.bool in
+      declare "DP.destroy2"
+        [
+          "[DP.destroy2 dbg id sr vdi vm allow_leak]: frees any resources \
+           associated with [id] and destroys it."
+        ; "This will typically do any needed VDI.detach, VDI.deactivate \
+           cleanup."
+        ]
+        (dbg_p
+        @-> dp_p
+        @-> sr_p
+        @-> vdi_p
+        @-> vm_p
+        @-> allow_leak_p
+        @-> returning unit_p err
+        )
 
     let attach_info =
       let backend_p = Param.mk ~name:"backend" backend in
@@ -1118,6 +1136,16 @@ module type Server_impl = sig
 
     val destroy : context -> dbg:debug_info -> dp:dp -> allow_leak:bool -> unit
 
+    val destroy2 :
+         context
+      -> dbg:debug_info
+      -> dp:dp
+      -> sr:sr
+      -> vdi:vdi
+      -> vm:vm
+      -> allow_leak:bool
+      -> unit
+
     val attach_info :
       context -> dbg:debug_info -> sr:sr -> vdi:vdi -> dp:dp -> backend
 
@@ -1423,6 +1451,9 @@ module Server (Impl : Server_impl) () = struct
     S.DP.create (fun dbg id -> Impl.DP.create () ~dbg ~id) ;
     S.DP.destroy (fun dbg dp allow_leak ->
         Impl.DP.destroy () ~dbg ~dp ~allow_leak
+    ) ;
+    S.DP.destroy2 (fun dbg dp sr vdi vm allow_leak ->
+        Impl.DP.destroy2 () ~dbg ~dp ~sr ~vdi ~vm ~allow_leak
     ) ;
     S.DP.attach_info (fun dbg sr vdi dp ->
         Impl.DP.attach_info () ~dbg ~sr ~vdi ~dp

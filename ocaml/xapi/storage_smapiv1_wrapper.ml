@@ -1016,8 +1016,7 @@ functor
         ) ;
         failure
 
-      let destroy context ~dbg ~dp ~allow_leak =
-        info "DP.destroy dbg:%s dp:%s allow_leak:%b" dbg dp allow_leak ;
+      let destroy' context ~dbg ~dp ~allow_leak =
         let failures =
           Host.list !Host.host
           |> List.filter_map (fun (sr, sr_t) ->
@@ -1033,6 +1032,15 @@ functor
         | _ :: _, true ->
             info "Forgetting leaked datapath: dp: %s" dp ;
             ()
+
+      let destroy _context ~dbg:_ ~dp:_ ~allow_leak:_ =
+        (* This is no longer called. The mux redirects it to DP.destroy2. *)
+        assert false
+
+      let destroy2 context ~dbg ~dp ~sr ~vdi ~vm ~allow_leak =
+        info "DP.destroy2 dbg:%s dp:%s sr:%s vdi:%s vm:%s allow_leak:%b" dbg dp
+          (s_of_sr sr) (s_of_vdi vdi) (s_of_vm vm) allow_leak ;
+        destroy' context ~dbg ~dp ~allow_leak
 
       let diagnostics _context () =
         let srs = Host.list !Host.host in

@@ -1461,6 +1461,30 @@ let bind ~volume_script_dir =
     Deferred.Result.return () |> wrap
   in
   S.VDI.set_persistent vdi_set_persistent_impl ;
+  let dp_destroy2 dbg _dp sr vdi' vm' _allow_leak =
+    (let vdi = Storage_interface.Vdi.string_of vdi' in
+     let domain = Storage_interface.Vm.string_of vm' in
+     Attached_SRs.find sr >>>= fun sr ->
+     (* Discover the URIs using Volume.stat *)
+     stat ~dbg ~sr ~vdi >>>= fun response ->
+     ( match
+         List.Assoc.find response.Xapi_storage.Control.keys _clone_on_boot_key
+           ~equal:String.equal
+       with
+     | None ->
+         return (Ok response)
+     | Some temporary ->
+         stat ~dbg ~sr ~vdi:temporary
+     )
+     >>>= fun response ->
+     choose_datapath domain response >>>= fun (rpc, _datapath, uri, domain) ->
+     return_data_rpc (fun () -> Datapath_client.deactivate rpc dbg uri domain)
+     >>>= fun () ->
+     return_data_rpc (fun () -> Datapath_client.detach rpc dbg uri domain)
+    )
+    |> wrap
+  in
+  S.DP.destroy2 dp_destroy2 ;
   let u _ = failwith "Unimplemented" in
   S.get_by_name u ;
   S.VDI.compose u ;

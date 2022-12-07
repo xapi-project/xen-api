@@ -175,17 +175,7 @@ module SMAPIv1 : Server_impl = struct
       "No diagnostics are available for SMAPIv1 plugins"
   end
 
-  module DP = struct
-    let create _context ~dbg:_ ~id:_ = assert false
-
-    let destroy _context ~dbg:_ ~dp:_ = assert false
-
-    let diagnostics _context () = assert false
-
-    let attach_info _context ~dbg:_ ~sr:_ ~vdi:_ ~dp:_ = assert false
-
-    let stat_vdi _context ~dbg:_ ~sr:_ ~vdi:_ = assert false
-  end
+  module DP = Storage_skeleton.DP
 
   module SR = struct
     include Storage_skeleton.SR

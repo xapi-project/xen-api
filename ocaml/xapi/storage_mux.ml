@@ -201,17 +201,26 @@ module Mux = struct
   module DP = struct
     let create _context ~dbg:_ ~id = id
 
-    let destroy _context ~dbg ~dp ~allow_leak =
-      info "DP.destroy dbg:%s dp:%s allow_leak:%b" dbg dp allow_leak ;
-      let sr : Sr.t =
-        let open DP_info in
-        match read dp with Some x -> x.sr | None -> failwith "DP not found"
-      in
+    let destroy2 _context ~dbg ~dp ~sr ~vdi ~vm ~allow_leak =
+      info "DP.destroy2 dbg:%s dp:%s sr:%s vdi:%s vm:%s allow_leak:%b" dbg dp
+        (s_of_sr sr) (s_of_vdi vdi) (s_of_vm vm) allow_leak ;
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
-      C.DP.destroy dbg dp allow_leak ;
+      C.DP.destroy2 dbg dp sr vdi vm allow_leak ;
       DP_info.delete dp
+
+    let destroy _context ~dbg ~dp ~allow_leak =
+      info "DP.destroy dbg:%s dp:%s allow_leak:%b" dbg dp allow_leak ;
+      let sr, vdi, vm =
+        let open DP_info in
+        match read dp with
+        | Some x ->
+            (x.sr, x.vdi, x.vm)
+        | None ->
+            failwith "DP not found"
+      in
+      destroy2 _context ~dbg ~dp ~sr ~vdi ~vm ~allow_leak
 
     let diagnostics () = Storage_smapiv1_wrapper.Impl.DP.diagnostics ()
 
