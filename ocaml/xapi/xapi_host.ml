@@ -1369,7 +1369,7 @@ let apply_edition_internal  ~__context ~host ~edition ~additional =
 let apply_edition ~__context ~host ~edition ~force =
   (* if HA is enabled do not allow the edition to be changed *)
   let pool = Helpers.get_pool ~__context in
-  if Db.Pool.get_ha_enabled ~__context ~self:pool then
+  if Db.Pool.get_ha_enabled ~__context ~self:pool && edition <> Db.Host.get_edition ~__context ~self:host then
     raise (Api_errors.Server_error (Api_errors.ha_is_enabled, []))
   else
     let additional = if force then ["force", "true"] else [] in
