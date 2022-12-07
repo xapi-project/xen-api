@@ -14,21 +14,22 @@
 /*
  */
 
-#include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
-#include <caml/mlvalues.h>
-#include <caml/memory.h>
 #include <caml/alloc.h>
+#include <caml/callback.h>
 #include <caml/custom.h>
 #include <caml/fail.h>
-#include <caml/callback.h>
+#include <caml/memory.h>
+#include <caml/mlvalues.h>
 #include <caml/signals.h>
 
 #include "xa_auth.h"
 
-CAMLprim value stub_XA_mh_authorize(value username, value password){
+CAMLprim value stub_XA_mh_authorize(value username, value password)
+{
     CAMLparam2(username, password);
     CAMLlocal1(ret);
     ret = Val_unit;
@@ -44,12 +45,13 @@ CAMLprim value stub_XA_mh_authorize(value username, value password){
     free(c_password);
     caml_leave_blocking_section();
 
-    if (rc != XA_SUCCESS)
+    if ( rc != XA_SUCCESS )
         caml_failwith(error ? error : "Unknown error");
     CAMLreturn(ret);
 }
 
-CAMLprim value stub_XA_mh_chpasswd(value username, value new_password){
+CAMLprim value stub_XA_mh_chpasswd(value username, value new_password)
+{
     CAMLparam2(username, new_password);
     CAMLlocal1(ret);
     ret = Val_unit;
@@ -60,12 +62,12 @@ CAMLprim value stub_XA_mh_chpasswd(value username, value new_password){
     int rc;
 
     caml_enter_blocking_section();
-    rc = XA_mh_chpasswd (c_username, c_new_password, &error);
+    rc = XA_mh_chpasswd(c_username, c_new_password, &error);
     free(c_username);
     free(c_new_password);
     caml_leave_blocking_section();
 
-    if (rc != XA_SUCCESS)
+    if ( rc != XA_SUCCESS )
         caml_failwith(error ? error : "Unknown error");
     CAMLreturn(ret);
 }
@@ -79,4 +81,3 @@ CAMLprim value stub_XA_mh_chpasswd(value username, value new_password){
  * indent-tabs-mode: nil
  * End:
  */
-

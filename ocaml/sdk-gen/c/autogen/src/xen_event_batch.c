@@ -32,31 +32,28 @@
 #include <xen/api/xen_common.h>
 #include <xen/api/xen_event_batch.h>
 
-
-static const struct_member xen_event_batch_struct_members [] = {
+static const struct_member xen_event_batch_struct_members[] = {
     { .key = "events",
-        .type = &xen_event_record_set_abstract_type_,
-        .offset = offsetof(xen_event_batch, events)},
+      .type = &xen_event_record_set_abstract_type_,
+      .offset = offsetof(xen_event_batch, events) },
     { .key = "valid_ref_counts",
-        .type = &abstract_type_string_int_map,
-        .offset = offsetof(xen_event_batch, valid_ref_counts)},
+      .type = &abstract_type_string_int_map,
+      .offset = offsetof(xen_event_batch, valid_ref_counts) },
     { .key = "token",
-        .type = &abstract_type_string,
-        .offset = offsetof(xen_event_batch, token)},
+      .type = &abstract_type_string,
+      .offset = offsetof(xen_event_batch, token) },
 };
 
-const abstract_type xen_event_batch_abstract_type_ = {
-    .XEN_API_TYPE = STRUCT,
-    .struct_size = sizeof (xen_event_batch),
-    .member_count =
-    sizeof (xen_event_batch_struct_members) / sizeof (struct_member),
-    .members = xen_event_batch_struct_members
-};
+const abstract_type xen_event_batch_abstract_type_
+    = { .XEN_API_TYPE = STRUCT,
+        .struct_size = sizeof(xen_event_batch),
+        .member_count
+        = sizeof(xen_event_batch_struct_members) / sizeof(struct_member),
+        .members = xen_event_batch_struct_members };
 
-void
-xen_event_batch_free(xen_event_batch *batch)
+void xen_event_batch_free(xen_event_batch *batch)
 {
-    if (batch == NULL)
+    if ( batch == NULL )
     {
         return;
     }
@@ -66,17 +63,15 @@ xen_event_batch_free(xen_event_batch *batch)
     free(batch);
 }
 
-bool
-xen_event_from(xen_session *session, struct xen_event_batch **result, struct xen_string_set *classes, char *token, double timeout)
+bool xen_event_from(xen_session *session, struct xen_event_batch **result,
+                    struct xen_string_set *classes, char *token,
+                    double timeout)
 {
-    abstract_value param_values[] = {
-        { .type = &abstract_type_string_set,
-            .u.set_val = (arbitrary_set *) classes},
-        { .type = &abstract_type_string,
-            .u.string_val = token},
-        { .type = &abstract_type_float,
-            .u.float_val = timeout}
-    };
+    abstract_value param_values[]
+        = { { .type = &abstract_type_string_set,
+              .u.set_val = (arbitrary_set *)classes },
+            { .type = &abstract_type_string, .u.string_val = token },
+            { .type = &abstract_type_float, .u.float_val = timeout } };
     abstract_type result_type = xen_event_batch_abstract_type_;
     *result = NULL;
     XEN_CALL_("event.from");

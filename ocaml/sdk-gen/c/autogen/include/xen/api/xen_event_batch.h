@@ -28,7 +28,6 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-
 #ifndef XEN_EVENT_BATCH_H
 #define XEN_EVENT_BATCH_H
 
@@ -40,7 +39,8 @@
  *
  */
 
-typedef struct xen_event_batch {
+typedef struct xen_event_batch
+{
     xen_event_record_set *events;
     xen_string_int_map *valid_ref_counts;
     char *token;
@@ -50,14 +50,14 @@ typedef struct xen_event_batch {
  * Free the given xen_event_batch, and all referenced values. The
  * given batch must have been allocated by this library.
  */
-extern void
-xen_event_batch_free(xen_event_batch *batch);
-
+extern void xen_event_batch_free(xen_event_batch *batch);
 
 /**
  * Blocking call which returns a (possibly empty) batch of events.
  */
-extern bool
-xen_event_from(xen_session *session, struct xen_event_batch **result, struct xen_string_set *classes, char *token, double timeout);
+extern bool xen_event_from(xen_session *session,
+                           struct xen_event_batch **result,
+                           struct xen_string_set *classes, char *token,
+                           double timeout);
 
 #endif

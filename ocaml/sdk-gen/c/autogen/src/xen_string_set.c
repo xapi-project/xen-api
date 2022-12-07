@@ -1,19 +1,19 @@
 /*
  * Copyright (c) Citrix Systems, Inc.
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
- * 
+ *
  *   1) Redistributions of source code must retain the above copyright
  *      notice, this list of conditions and the following disclaimer.
- * 
+ *
  *   2) Redistributions in binary form must reproduce the above
  *      copyright notice, this list of conditions and the following
  *      disclaimer in the documentation and/or other materials
  *      provided with the distribution.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
  * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
@@ -31,27 +31,24 @@
 #include "xen_internal.h"
 #include <xen/api/xen_string_set.h>
 
-
-xen_string_set *
-xen_string_set_alloc(size_t size)
+xen_string_set *xen_string_set_alloc(size_t size)
 {
-    xen_string_set *result = calloc(1, sizeof(xen_string_set) +
-                                    size * sizeof(char *));
+    xen_string_set *result
+        = calloc(1, sizeof(xen_string_set) + size * sizeof(char *));
     result->size = size;
     return result;
 }
 
-void
-xen_string_set_free(xen_string_set *set)
+void xen_string_set_free(xen_string_set *set)
 {
-    if (set == NULL)
+    if ( set == NULL )
     {
         return;
     }
     size_t n = set->size;
-    for (size_t i = 0; i < n; i++)
+    for ( size_t i = 0; i < n; i++ )
     {
-       free(set->contents[i]);
+        free(set->contents[i]);
     }
 
     free(set);

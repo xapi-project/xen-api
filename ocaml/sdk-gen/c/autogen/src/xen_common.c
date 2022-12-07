@@ -37,17 +37,16 @@
 #include <string.h>
 #include <time.h>
 
+#include <libxml/debugXML.h>
 #include <libxml/parser.h>
 #include <libxml/parserInternals.h>
 #include <libxml/tree.h>
 #include <libxml/xmlsave.h>
 #include <libxml/xmlstring.h>
 #include <libxml/xpath.h>
-#include <libxml/debugXML.h>
 
 #include "xen/api/xen_common.h"
 #include "xen/api/xen_host.h"
-#include "xen_internal.h"
 #include "xen/api/xen_int_float_map.h"
 #include "xen/api/xen_int_int_map.h"
 #include "xen/api/xen_int_string_set_map.h"
@@ -55,6 +54,7 @@
 #include "xen/api/xen_string_string_map.h"
 #include "xen/api/xen_string_string_set_map.h"
 #include "xen/api/xen_string_string_string_map_map.h"
+#include "xen_internal.h"
 
 /*
  * Whether to ignore missing structure entries.  This is not something we
@@ -63,10 +63,8 @@
  */
 #define PERMISSIVE 1
 
-
 static xmlXPathCompExprPtr responsePath = NULL;
 static xmlXPathCompExprPtr faultPath = NULL;
-
 
 typedef struct
 {
@@ -74,12 +72,10 @@ typedef struct
     void *contents[];
 } arbitrary_map;
 
-
 typedef struct
 {
     void *handle;
 } arbitrary_record;
-
 
 typedef struct
 {
@@ -91,72 +87,51 @@ typedef struct
     } u;
 } arbitrary_record_opt;
 
+static char *make_body(const char *, abstract_value[], int);
 
-static char *
-make_body(const char *, abstract_value [], int);
+static void parse_result(xen_session *, const char *, const abstract_type *,
+                         void *);
 
-static void
-parse_result(xen_session *, const char *, const abstract_type *, void *);
+static void add_value(xmlNode *, const char *, const char *);
+static void add_param(xmlNode *, const char *, const char *);
 
-static void
-add_value(xmlNode *, const char *, const char *);
-static void
-add_param(xmlNode *, const char *, const char *);
+static xmlNode *add_param_struct(xmlNode *);
+static xmlNode *add_param_array(xmlNode *params_node);
+static xmlNode *add_struct_array(xmlNode *, const char *);
+static xmlNode *add_nested_struct(xmlNode *, const char *);
+static void add_struct_member(xmlNode *, const char *, const char *,
+                              const char *);
+static void add_unnamed_value(xmlNode *, const char *, const char *,
+                              const char *);
 
-static xmlNode *
-add_param_struct(xmlNode *);
-static xmlNode *
-add_param_array(xmlNode *params_node);
-static xmlNode *
-add_struct_array(xmlNode *, const char *);
-static xmlNode *
-add_nested_struct(xmlNode *, const char *);
-static void
-add_struct_member(xmlNode *, const char *, const char *, const char *);
-static void
-add_unnamed_value(xmlNode *, const char *, const char *, const char *);
+static void add_struct_value(const struct abstract_type *, void *,
+                             void (*)(xmlNode *, const char *, const char *,
+                                      const char *),
+                             const char *, xmlNode *);
 
-static void
-add_struct_value(const struct abstract_type *, void *,
-                 void (*)(xmlNode *, const char *, const char *,
-                          const char *),
-                 const char *, xmlNode *);
+static xmlNode *add_container(xmlNode *parent, const char *name);
 
-static xmlNode *
-add_container(xmlNode *parent, const char *name);
+static void call_raw(xen_session *, const char *, abstract_value[], int,
+                     const abstract_type *, void *);
 
-static void
-call_raw(xen_session *, const char *, abstract_value [], int,
-         const abstract_type *, void *);
-
-static void
-parse_structmap_value(xen_session *, xmlNode *, const abstract_type *,
-                      void *);
+static void parse_structmap_value(xen_session *, xmlNode *,
+                                  const abstract_type *, void *);
 
 static size_t size_of_member(const abstract_type *);
 
-static const char *
-get_val_as_string(const struct abstract_type *, void *);
+static const char *get_val_as_string(const struct abstract_type *, void *);
 
-static void
-set_api_version(xen_session *);
+static void set_api_version(xen_session *);
 
-
-void
-xen_init(void)
+void xen_init(void)
 {
-    responsePath =
-        xmlXPathCompile(
-            BAD_CAST(
-                "/methodResponse/params/param/value/struct/member/value"));
-    faultPath =
-        xmlXPathCompile(
-            BAD_CAST("/methodResponse/fault/value/struct/member/value"));
+    responsePath = xmlXPathCompile(
+        BAD_CAST("/methodResponse/params/param/value/struct/member/value"));
+    faultPath = xmlXPathCompile(
+        BAD_CAST("/methodResponse/fault/value/struct/member/value"));
 }
 
-
-void
-xen_fini(void)
+void xen_fini(void)
 {
     xmlXPathFreeCompExpr(responsePath);
     xmlXPathFreeCompExpr(faultPath);
@@ -164,11 +139,9 @@ xen_fini(void)
     faultPath = NULL;
 }
 
-
-void
-xen_session_record_free(xen_session_record *record)
+void xen_session_record_free(xen_session_record *record)
 {
-    if (record == NULL)
+    if ( record == NULL )
     {
         return;
     }
@@ -178,21 +151,16 @@ xen_session_record_free(xen_session_record *record)
     free(record);
 }
 
-
-xen_session *
-xen_session_login_with_password(xen_call_func call_func, void *handle,
-                                const char *uname, const char *pwd,
-                                xen_api_version version)
+xen_session *xen_session_login_with_password(xen_call_func call_func,
+                                             void *handle, const char *uname,
+                                             const char *pwd,
+                                             xen_api_version version)
 {
-    abstract_value params[] =
-        {
+    abstract_value params[]
+        = { { .type = &abstract_type_string, .u.string_val = uname },
+            { .type = &abstract_type_string, .u.string_val = pwd },
             { .type = &abstract_type_string,
-              .u.string_val = uname },
-            { .type = &abstract_type_string,
-              .u.string_val = pwd },
-            { .type = &abstract_type_string,
-              .u.string_val = xen_api_version_to_string(version) }
-        };
+              .u.string_val = xen_api_version_to_string(version) } };
 
     xen_session *session = malloc(sizeof(xen_session));
     session->call_func = call_func;
@@ -206,15 +174,14 @@ xen_session_login_with_password(xen_call_func call_func, void *handle,
     call_raw(session, "session.login_with_password", params, 3,
              &abstract_type_string, &session->session_id);
 
-    if (!session->ok &&
-        session->error_description_count == 4 &&
-        session->error_description != NULL &&
-        !strcmp(session->error_description[0],
-                "MESSAGE_PARAMETER_COUNT_MISMATCH"))
+    if ( !session->ok && session->error_description_count == 4
+         && session->error_description != NULL
+         && !strcmp(session->error_description[0],
+                    "MESSAGE_PARAMETER_COUNT_MISMATCH") )
     {
         // We're calling an API 1.1 host.
 
-        for (int i = 0; i < session->error_description_count; i++)
+        for ( int i = 0; i < session->error_description_count; i++ )
         {
             free(session->error_description[i]);
         }
@@ -228,7 +195,7 @@ xen_session_login_with_password(xen_call_func call_func, void *handle,
                  &abstract_type_string, &session->session_id);
     }
 
-    if (session->ok)
+    if ( session->ok )
     {
         set_api_version(session);
     }
@@ -236,18 +203,13 @@ xen_session_login_with_password(xen_call_func call_func, void *handle,
     return session;
 }
 
-
-xen_session *
-xen_session_slave_local_login_with_password(xen_call_func call_func, void *handle,
-                                            const char *uname, const char *pwd)
+xen_session *xen_session_slave_local_login_with_password(
+    xen_call_func call_func, void *handle, const char *uname, const char *pwd)
 {
-    abstract_value params[] =
-        {
-            { .type = &abstract_type_string,
-              .u.string_val = uname },
-            { .type = &abstract_type_string,
-              .u.string_val = pwd },
-        };
+    abstract_value params[] = {
+        { .type = &abstract_type_string, .u.string_val = uname },
+        { .type = &abstract_type_string, .u.string_val = pwd },
+    };
 
     xen_session *session = malloc(sizeof(xen_session));
     session->call_func = call_func;
@@ -260,24 +222,22 @@ xen_session_slave_local_login_with_password(xen_call_func call_func, void *handl
     call_raw(session, "session.slave_local_login_with_password", params, 2,
              &abstract_type_string, &session->session_id);
 
-    if (session->ok)
+    if ( session->ok )
     {
-        //assume the latest api version
+        // assume the latest api version
         session->api_version = xen_api_latest_version;
     }
 
     return session;
 }
 
-
-void
-set_api_version(xen_session *session)
+void set_api_version(xen_session *session)
 {
     int64_t major_version = (int64_t)0;
     int64_t minor_version = (int64_t)1;
 
     xen_host host;
-    if (!xen_session_get_this_host(session, &host, session))
+    if ( !xen_session_get_this_host(session, &host, session) )
     {
         session->api_version = xen_api_unknown_version;
         return;
@@ -285,22 +245,19 @@ set_api_version(xen_session *session)
 
     xen_host_get_api_version_major(session, &major_version, host);
     xen_host_get_api_version_minor(session, &minor_version, host);
-    session->api_version = xen_api_version_from_int(major_version, minor_version);
+    session->api_version
+        = xen_api_version_from_int(major_version, minor_version);
     xen_host_free(host);
 }
 
-
-void
-xen_session_logout(xen_session *session)
+void xen_session_logout(xen_session *session)
 {
-    abstract_value params[] =
-        {
-        };
+    abstract_value params[] = {};
     xen_call_(session, "session.logout", params, 0, NULL, NULL);
 
-    if (session->error_description != NULL)
+    if ( session->error_description != NULL )
     {
-        for (int i = 0; i < session->error_description_count; i++)
+        for ( int i = 0; i < session->error_description_count; i++ )
         {
             free(session->error_description[i]);
         }
@@ -311,18 +268,14 @@ xen_session_logout(xen_session *session)
     free(session);
 }
 
-
-void
-xen_session_local_logout(xen_session *session)
+void xen_session_local_logout(xen_session *session)
 {
-    abstract_value params[] =
-        {
-        };
+    abstract_value params[] = {};
     xen_call_(session, "session.local_logout", params, 0, NULL, NULL);
 
-    if (session->error_description != NULL)
+    if ( session->error_description != NULL )
     {
-        for (int i = 0; i < session->error_description_count; i++)
+        for ( int i = 0; i < session->error_description_count; i++ )
         {
             free(session->error_description[i]);
         }
@@ -333,59 +286,48 @@ xen_session_local_logout(xen_session *session)
     free(session);
 }
 
-
-bool
- xen_session_get_all_subject_identifiers(xen_session *session, struct xen_string_set **result)
+bool xen_session_get_all_subject_identifiers(xen_session *session,
+                                             struct xen_string_set **result)
 {
-    abstract_value params[] =
-        {
-        };
+    abstract_value params[] = {};
 
     abstract_type result_type = abstract_type_string_set;
 
     *result = NULL;
-    xen_call_(session, "session.get_all_subject_identifiers", params, 0, &result_type, result);
+    xen_call_(session, "session.get_all_subject_identifiers", params, 0,
+              &result_type, result);
     return session->ok;
 }
 
-
-bool
-xen_session_get_all_subject_identifiers_async(xen_session *session, xen_task *result)
+bool xen_session_get_all_subject_identifiers_async(xen_session *session,
+                                                   xen_task *result)
 {
-    abstract_value params[] =
-        {
-        };
+    abstract_value params[] = {};
 
     abstract_type result_type = abstract_type_string;
 
     *result = NULL;
-    xen_call_(session, "Async.session.get_all_subject_identifiers", params, 0, &result_type, result);
+    xen_call_(session, "Async.session.get_all_subject_identifiers", params, 0,
+              &result_type, result);
     return session->ok;
 }
 
-
-bool
-xen_session_logout_subject_identifier(xen_session *session, const char *subject_identifier)
+bool xen_session_logout_subject_identifier(xen_session *session,
+                                           const char *subject_identifier)
 {
-    abstract_value params[] =
-        {
-            { .type = &abstract_type_string,
-              .u.string_val = subject_identifier }
-        };
+    abstract_value params[] = { { .type = &abstract_type_string,
+                                  .u.string_val = subject_identifier } };
 
-    xen_call_(session, "session.logout_subject_identifier", params, 1, NULL, NULL);
+    xen_call_(session, "session.logout_subject_identifier", params, 1, NULL,
+              NULL);
     return session->ok;
 }
 
-
-bool
-xen_session_logout_subject_identifier_async(xen_session *session, xen_task *result, const char *subject_identifier)
+bool xen_session_logout_subject_identifier_async(
+    xen_session *session, xen_task *result, const char *subject_identifier)
 {
-    abstract_value param_values[] =
-        {
-            { .type = &abstract_type_string,
-              .u.string_val = subject_identifier }
-        };
+    abstract_value param_values[] = { { .type = &abstract_type_string,
+                                        .u.string_val = subject_identifier } };
 
     abstract_type result_type = abstract_type_string;
 
@@ -394,13 +336,11 @@ xen_session_logout_subject_identifier_async(xen_session *session, xen_task *resu
     return session->ok;
 }
 
-
-void
-xen_session_clear_error(xen_session *session)
+void xen_session_clear_error(xen_session *session)
 {
-    if (session->error_description != NULL)
+    if ( session->error_description != NULL )
     {
-        for (int i = 0; i < session->error_description_count; i++)
+        for ( int i = 0; i < session->error_description_count; i++ )
         {
             free(session->error_description[i]);
         }
@@ -411,106 +351,78 @@ xen_session_clear_error(xen_session *session)
     session->ok = true;
 }
 
-
-bool
-xen_session_get_uuid(xen_session *session, char **result,
-                     xen_session *self_session)
+bool xen_session_get_uuid(xen_session *session, char **result,
+                          xen_session *self_session)
 {
-    abstract_value params[] =
-        {
-            { .type = &abstract_type_string,
-              .u.string_val = self_session->session_id }
-        };
+    abstract_value params[] = { { .type = &abstract_type_string,
+                                  .u.string_val = self_session->session_id } };
 
-    xen_call_(session, "session.get_uuid", params, 1,
-              &abstract_type_string, result);
+    xen_call_(session, "session.get_uuid", params, 1, &abstract_type_string,
+              result);
     return session->ok;
 }
 
-
-bool
-xen_session_get_this_host(xen_session *session, xen_host *result,
-                          xen_session *self_session)
+bool xen_session_get_this_host(xen_session *session, xen_host *result,
+                               xen_session *self_session)
 {
-    abstract_value params[] =
-        {
-            { .type = &abstract_type_string,
-              .u.string_val = self_session->session_id }
-        };
+    abstract_value params[] = { { .type = &abstract_type_string,
+                                  .u.string_val = self_session->session_id } };
 
     xen_call_(session, "session.get_this_host", params, 1,
               &abstract_type_string, result);
     return session->ok;
 }
 
-
-bool
-xen_session_get_this_user(xen_session *session, char **result,
-                          xen_session *self_session)
+bool xen_session_get_this_user(xen_session *session, char **result,
+                               xen_session *self_session)
 {
-    abstract_value params[] =
-        {
-            { .type = &abstract_type_string,
-              .u.string_val = self_session->session_id }
-        };
+    abstract_value params[] = { { .type = &abstract_type_string,
+                                  .u.string_val = self_session->session_id } };
 
     xen_call_(session, "session.get_this_user", params, 1,
               &abstract_type_string, result);
     return session->ok;
 }
 
-
-bool
-xen_session_get_last_active(xen_session *session, time_t *result,
-                            xen_session *self_session)
+bool xen_session_get_last_active(xen_session *session, time_t *result,
+                                 xen_session *self_session)
 {
-    abstract_value params[] =
-        {
-            { .type = &abstract_type_string,
-              .u.string_val = self_session->session_id }
-        };
+    abstract_value params[] = { { .type = &abstract_type_string,
+                                  .u.string_val = self_session->session_id } };
 
     xen_call_(session, "session.get_last_active", params, 1,
               &abstract_type_datetime, result);
     return session->ok;
 }
 
+static const struct_member xen_session_record_struct_members[] = {
+    { .key = "uuid",
+      .type = &abstract_type_string,
+      .offset = offsetof(xen_session_record, uuid) },
+    { .key = "this_host",
+      .type = &abstract_type_ref,
+      .offset = offsetof(xen_session_record, this_host) },
+    { .key = "this_user",
+      .type = &abstract_type_string,
+      .offset = offsetof(xen_session_record, this_user) },
+    { .key = "last_active",
+      .type = &abstract_type_datetime,
+      .offset = offsetof(xen_session_record, last_active) },
+};
 
-static const struct_member xen_session_record_struct_members[] =
-    {
-        { .key = "uuid",
-          .type = &abstract_type_string,
-          .offset = offsetof(xen_session_record, uuid) },
-        { .key = "this_host",
-          .type = &abstract_type_ref,
-          .offset = offsetof(xen_session_record, this_host) },
-        { .key = "this_user",
-          .type = &abstract_type_string,
-          .offset = offsetof(xen_session_record, this_user) },
-        { .key = "last_active",
-          .type = &abstract_type_datetime,
-          .offset = offsetof(xen_session_record, last_active) },
-    };
+const abstract_type xen_session_record_abstract_type_
+    = { .XEN_API_TYPE = STRUCT,
+        .struct_size = sizeof(xen_session_record),
+        .member_count
+        = sizeof(xen_session_record_struct_members) / sizeof(struct_member),
+        .members = xen_session_record_struct_members };
 
-const abstract_type xen_session_record_abstract_type_ =
-    {
-       .XEN_API_TYPE = STRUCT,
-       .struct_size = sizeof(xen_session_record),
-       .member_count =
-           sizeof(xen_session_record_struct_members) / sizeof(struct_member),
-       .members = xen_session_record_struct_members
-    };
-
-
-bool
-xen_session_get_record(xen_session *session, xen_session_record **result,
-                       xen_session *self_session)
+bool xen_session_get_record(xen_session *session, xen_session_record **result,
+                            xen_session *self_session)
 {
-    abstract_value param_values[] =
-        {
-            { .type = &abstract_type_string,
-              .u.string_val = self_session->session_id }
-        };
+    abstract_value param_values[]
+        = { { .type = &abstract_type_string,
+              .u.string_val = self_session->session_id } };
 
     abstract_type result_type = xen_session_record_abstract_type_;
 
@@ -520,128 +432,101 @@ xen_session_get_record(xen_session *session, xen_session_record **result,
     return session->ok;
 }
 
-
 #define X "%02x"
 #define UUID_FORMAT X X X X "-" X X "-" X X "-" X X "-" X X X X X X
 
-
-bool
-xen_uuid_string_to_bytes(char *uuid, char **bytes)
+bool xen_uuid_string_to_bytes(char *uuid, char **bytes)
 {
     unsigned int buf[16];
 
     *bytes = NULL;
 
-    if (strlen(uuid) != 36)
+    if ( strlen(uuid) != 36 )
         return false;
 
-    if (16 != sscanf(uuid, UUID_FORMAT,
-                     buf + 0, buf + 1, buf + 2, buf + 3,
-                     buf + 4, buf + 5,
-                     buf + 6, buf + 7,
-                     buf + 8, buf + 9,
-                     buf + 10, buf + 11, buf + 12, buf + 13, buf + 14,
-                       buf + 15))
+    if ( 16
+         != sscanf(uuid, UUID_FORMAT, buf + 0, buf + 1, buf + 2, buf + 3,
+                   buf + 4, buf + 5, buf + 6, buf + 7, buf + 8, buf + 9,
+                   buf + 10, buf + 11, buf + 12, buf + 13, buf + 14,
+                   buf + 15) )
     {
         return false;
     }
 
     *bytes = malloc(16);
-    if (*bytes == NULL)
+    if ( *bytes == NULL )
         return false;
 
-    for (int i = 0; i < 16; i++) {
+    for ( int i = 0; i < 16; i++ )
+    {
         (*bytes)[i] = (char)buf[i];
     }
 
     return true;
 }
 
-
-bool
-xen_uuid_bytes_to_string(char *bytes, char **uuid)
+bool xen_uuid_bytes_to_string(char *bytes, char **uuid)
 {
     *uuid = malloc(37);
-    if (*uuid == NULL)
+    if ( *uuid == NULL )
         return false;
 
-    sprintf(*uuid, UUID_FORMAT,
-            bytes[0], bytes[1], bytes[2], bytes[3],
-            bytes[4], bytes[5],
-            bytes[6], bytes[7],
-            bytes[8], bytes[9],
+    sprintf(*uuid, UUID_FORMAT, bytes[0], bytes[1], bytes[2], bytes[3],
+            bytes[4], bytes[5], bytes[6], bytes[7], bytes[8], bytes[9],
             bytes[10], bytes[11], bytes[12], bytes[13], bytes[14], bytes[15]);
 
     return true;
 }
 
-
 #undef UUID_FORMAT
 #undef X
 
+void xen_uuid_free(char *uuid) { free(uuid); }
 
-void
-xen_uuid_free(char *uuid)
-{
-    free(uuid);
-}
-
-
-void
-xen_uuid_bytes_free(char *bytes)
-{
-    free(bytes);
-}
-
+void xen_uuid_bytes_free(char *bytes) { free(bytes); }
 
 /**
  * @param value A pointer to the correct location as per the given
  * result_type.  Will be populated if the call succeeds.  In that case, and if
  * value is a char **, the char * itself must be freed by the caller.
  */
-void
-xen_call_(xen_session *s, const char *method_name,
-          abstract_value params[], int param_count,
-          const abstract_type *result_type, void *value)
+void xen_call_(xen_session *s, const char *method_name,
+               abstract_value params[], int param_count,
+               const abstract_type *result_type, void *value)
 {
-    if (!s->ok)
+    if ( !s->ok )
     {
         return;
     }
 
-    abstract_value *full_params =
-        malloc(sizeof(abstract_value) * (param_count + 1));
+    abstract_value *full_params
+        = malloc(sizeof(abstract_value) * (param_count + 1));
 
     full_params[0].type = &abstract_type_string;
     full_params[0].u.string_val = s->session_id;
 
     memcpy(full_params + 1, params, param_count * sizeof(abstract_value));
 
-    call_raw(s, method_name, full_params, param_count + 1, result_type,
-             value);
+    call_raw(s, method_name, full_params, param_count + 1, result_type, value);
 
     free(full_params);
 }
 
-
-static bool
-bufferAdd(const void *data, size_t len, void *buffer)
+static bool bufferAdd(const void *data, size_t len, void *buffer)
 {
     return 0 == xmlBufferAdd((xmlBufferPtr)buffer, data, len);
 }
 
-
-static void
-call_raw(xen_session *s, const char *method_name,
-         abstract_value params[], int param_count,
-         const abstract_type *result_type, void *value)
+static void call_raw(xen_session *s, const char *method_name,
+                     abstract_value params[], int param_count,
+                     const abstract_type *result_type, void *value)
 {
     xmlBufferPtr buffer = xmlBufferCreate();
     char *body = make_body(method_name, params, param_count);
-    int error_code =
-        s->call_func(body, strlen(body), s->handle, buffer, &bufferAdd);
+    int error_code
+        = s->call_func(body, strlen(body), s->handle, buffer, &bufferAdd);
     free(body);
-    if (error_code)
+    if ( error_code )
     {
         char **strings = malloc(2 * sizeof(char *));
 
@@ -660,10 +545,9 @@ call_raw(xen_session *s, const char *method_name,
     xmlBufferFree(buffer);
 }
 
-
 static void server_error(xen_session *session, const char *error_string)
 {
-    if (!session->ok)
+    if ( !session->ok )
     {
         /* Don't wipe out the earlier error message with this one. */
         return;
@@ -679,24 +563,16 @@ static void server_error(xen_session *session, const char *error_string)
     session->error_description_count = 2;
 }
 
-
 static bool is_node(xmlNode *n, char *type)
 {
-    return
-        n->type == XML_ELEMENT_NODE &&
-        0 == strcmp((char *)n->name, type);
+    return n->type == XML_ELEMENT_NODE && 0 == strcmp((char *)n->name, type);
 }
-
 
 static bool is_container_node(xmlNode *n, char *type)
 {
-    return
-        is_node(n, type) &&
-        n->children != NULL &&
-        n->children == n->last &&
-        n->children->type == XML_ELEMENT_NODE;
+    return is_node(n, type) && n->children != NULL && n->children == n->last
+           && n->children->type == XML_ELEMENT_NODE;
 }
-
 
 /**
  * @return The contents of the given value, or NULL if this is not a node with
@@ -709,27 +585,23 @@ static xmlChar *string_from_value(xmlNode *n, char *type)
       allows <value>XYZ</value> where XYZ is to be interpreted as a string.
     */
 
-    if (is_container_node(n, "value") &&
-        0 == strcmp((char *)n->children->name, type))
+    if ( is_container_node(n, "value")
+         && 0 == strcmp((char *)n->children->name, type) )
     {
-        return
-            n->children->children == NULL ?
-                xmlStrdup(BAD_CAST("")) :
-                xmlNodeGetContent(n->children->children);
+        return n->children->children == NULL
+                   ? xmlStrdup(BAD_CAST(""))
+                   : xmlNodeGetContent(n->children->children);
     }
-    else if (0 == strcmp(type, "string") && is_node(n, "value"))
+    else if ( 0 == strcmp(type, "string") && is_node(n, "value") )
     {
-        return
-            n->children == NULL ?
-                xmlStrdup(BAD_CAST("")) :
-                xmlNodeGetContent(n->children);
+        return n->children == NULL ? xmlStrdup(BAD_CAST(""))
+                                   : xmlNodeGetContent(n->children);
     }
     else
     {
         return NULL;
     }
 }
-
 
 /**
  * Find the name node that is a child of the given one, and return its
@@ -740,9 +612,9 @@ static xmlChar *string_from_name(xmlNode *n)
 {
     xmlNode *cur = n->children;
 
-    while (cur != NULL)
+    while ( cur != NULL )
     {
-        if (0 == strcmp((char *)cur->name, "name"))
+        if ( 0 == strcmp((char *)cur->name, "name") )
         {
             return xmlNodeGetContent(cur);
         }
@@ -752,15 +624,14 @@ static xmlChar *string_from_name(xmlNode *n)
     return NULL;
 }
 
-
 static int count_children(xmlNode *n, const char *name)
 {
     int result = 0;
     xmlNode *cur = n->children;
 
-    while (cur != NULL)
+    while ( cur != NULL )
     {
-        if (0 == strcmp((char *)cur->name, name))
+        if ( 0 == strcmp((char *)cur->name, name) )
         {
             result++;
         }
@@ -770,41 +641,39 @@ static int count_children(xmlNode *n, const char *name)
     return result;
 }
 
-
 static void destring(xen_session *s, xmlChar *name, const abstract_type *type,
                      void *value)
 {
-    switch (type->XEN_API_TYPE)
+    switch ( type->XEN_API_TYPE )
     {
-        case STRING:
-        {
-            *((char **)value) = xen_strdup_((const char *)name);
-            break;
-        }
-        case INT:
-        {
-            *((int64_t *)value) = atoll((const char *)name);
-            break;
-        }
-        case FLOAT:
-        {
-            *((double *)value) = atof((const char *)name);
-            break;
-        }
-        case ENUM:
-        {
-            *((int *)value) = type->enum_demarshaller(s, (const char *)name);
-            break;
-        }
-        default:
-        {
-            char buf[256];
-            snprintf(buf, sizeof (buf), "Invalid Map key type: %s", name);
-            server_error(s, buf);
-        }
+    case STRING:
+    {
+        *((char **)value) = xen_strdup_((const char *)name);
+        break;
+    }
+    case INT:
+    {
+        *((int64_t *)value) = atoll((const char *)name);
+        break;
+    }
+    case FLOAT:
+    {
+        *((double *)value) = atof((const char *)name);
+        break;
+    }
+    case ENUM:
+    {
+        *((int *)value) = type->enum_demarshaller(s, (const char *)name);
+        break;
+    }
+    default:
+    {
+        char buf[256];
+        snprintf(buf, sizeof(buf), "Invalid Map key type: %s", name);
+        server_error(s, buf);
+    }
     }
 }
-
 
 /**
  * result_type : STRING   => value : char **, the char * is yours.
@@ -821,13 +690,12 @@ static void destring(xen_session *s, xmlChar *name, const abstract_type *type,
  * result_type : STRUCT   => value : void **, the void * is yours.
  */
 static void parse_into(xen_session *s, xmlNode *value_node,
-                       const abstract_type *result_type, void *value,
-                       int slot)
+                       const abstract_type *result_type, void *value, int slot)
 {
-    if (result_type == NULL)
+    if ( result_type == NULL )
     {
         xmlChar *string = string_from_value(value_node, "string");
-        if (string == NULL || strcmp((char *)string, ""))
+        if ( string == NULL || strcmp((char *)string, "") )
         {
             server_error(s,
                          "Expected Void from the server, but didn't get it");
@@ -840,12 +708,12 @@ static void parse_into(xen_session *s, xmlNode *value_node,
         return;
     }
 
-    switch (result_type->XEN_API_TYPE)
+    switch ( result_type->XEN_API_TYPE )
     {
     case STRING:
     {
         xmlChar *string = string_from_value(value_node, "string");
-        if (string == NULL)
+        if ( string == NULL )
         {
             server_error(
                 s, "Expected a String from the server, but didn't get one");
@@ -861,7 +729,7 @@ static void parse_into(xen_session *s, xmlNode *value_node,
     case ENUM:
     {
         xmlChar *string = string_from_value(value_node, "string");
-        if (string == NULL)
+        if ( string == NULL )
         {
 #if PERMISSIVE
             fprintf(stderr,
@@ -874,8 +742,8 @@ static void parse_into(xen_session *s, xmlNode *value_node,
         }
         else
         {
-            ((int *)value)[slot] =
-                result_type->enum_demarshaller(s, (const char *)string);
+            ((int *)value)[slot]
+                = result_type->enum_demarshaller(s, (const char *)string);
             free(string);
         }
     }
@@ -884,7 +752,7 @@ static void parse_into(xen_session *s, xmlNode *value_node,
     case INT:
     {
         xmlChar *string = string_from_value(value_node, "string");
-        if (string == NULL)
+        if ( string == NULL )
         {
             server_error(
                 s, "Expected an Int from the server, but didn't get one");
@@ -900,7 +768,7 @@ static void parse_into(xen_session *s, xmlNode *value_node,
     case FLOAT:
     {
         xmlChar *string = string_from_value(value_node, "double");
-        if (string == NULL)
+        if ( string == NULL )
         {
 #if PERMISSIVE
             fprintf(stderr,
@@ -922,7 +790,7 @@ static void parse_into(xen_session *s, xmlNode *value_node,
     case BOOL:
     {
         xmlChar *string = string_from_value(value_node, "boolean");
-        if (string == NULL)
+        if ( string == NULL )
         {
 #if PERMISSIVE
             fprintf(stderr,
@@ -944,11 +812,11 @@ static void parse_into(xen_session *s, xmlNode *value_node,
     case DATETIME:
     {
         xmlChar *string = string_from_value(value_node, "dateTime.iso8601");
-        if (string == NULL)
+        if ( string == NULL )
         {
             // Workaround for xapi's broken event.timestamp field.
             string = string_from_value(value_node, "string");
-            if (string == NULL)
+            if ( string == NULL )
             {
                 server_error(
                     s,
@@ -973,11 +841,10 @@ static void parse_into(xen_session *s, xmlNode *value_node,
 
     case SET:
     {
-        if (!is_container_node(value_node, "value") ||
-            !is_container_node(value_node->children, "array"))
+        if ( !is_container_node(value_node, "value")
+             || !is_container_node(value_node->children, "array") )
         {
-            server_error(s,
-                         "Expected Set from the server, but didn't get it");
+            server_error(s, "Expected Set from the server, but didn't get it");
         }
         else
         {
@@ -987,15 +854,15 @@ static void parse_into(xen_session *s, xmlNode *value_node,
             const abstract_type *member_type = result_type->child;
             size_t member_size = size_of_member(member_type);
 
-            arbitrary_set *set =
-                calloc(1, sizeof(arbitrary_set) + member_size * n);
+            arbitrary_set *set
+                = calloc(1, sizeof(arbitrary_set) + member_size * n);
             set->size = n;
             int i = 0;
             xmlNode *cur = data_node->children;
 
-            while (cur != NULL)
+            while ( cur != NULL )
             {
-                if (0 == strcmp((char *)cur->name, "value"))
+                if ( 0 == strcmp((char *)cur->name, "value") )
                 {
                     parse_into(s, cur, member_type, set->contents, i);
                     i++;
@@ -1010,12 +877,11 @@ static void parse_into(xen_session *s, xmlNode *value_node,
 
     case MAP:
     {
-        if (!is_container_node(value_node, "value") ||
-            value_node->children->type != XML_ELEMENT_NODE ||
-            0 != strcmp((char *)value_node->children->name, "struct"))
+        if ( !is_container_node(value_node, "value")
+             || value_node->children->type != XML_ELEMENT_NODE
+             || 0 != strcmp((char *)value_node->children->name, "struct") )
         {
-            server_error(s,
-                         "Expected Map from the server, but didn't get it");
+            server_error(s, "Expected Map from the server, but didn't get it");
         }
         else
         {
@@ -1027,17 +893,17 @@ static void parse_into(xen_session *s, xmlNode *value_node,
             const struct struct_member *key_member = result_type->members;
             const struct struct_member *val_member = result_type->members + 1;
 
-            arbitrary_map *map =
-                calloc(1, sizeof(arbitrary_map) + struct_size * n);
+            arbitrary_map *map
+                = calloc(1, sizeof(arbitrary_map) + struct_size * n);
             map->size = n;
             int i = 0;
             xmlNode *cur = struct_node->children;
 
-            while (cur != NULL)
+            while ( cur != NULL )
             {
-                if (0 == strcmp((char *)cur->name, "member"))
+                if ( 0 == strcmp((char *)cur->name, "member") )
                 {
-                    if (cur->children == NULL || cur->last == cur->children)
+                    if ( cur->children == NULL || cur->last == cur->children )
                     {
                         server_error(s, "Malformed Map");
                         free(map);
@@ -1045,7 +911,7 @@ static void parse_into(xen_session *s, xmlNode *value_node,
                     }
 
                     xmlChar *name = string_from_name(cur);
-                    if (name == NULL)
+                    if ( name == NULL )
                     {
                         server_error(s, "Malformed Map");
                         free(map);
@@ -1053,21 +919,20 @@ static void parse_into(xen_session *s, xmlNode *value_node,
                     }
 
                     destring(s, name, key_member->type,
-                             ((void *)(map + 1)) +
-                             (i * struct_size) +
-                             key_member->offset);
+                             ((void *)(map + 1)) + (i * struct_size)
+                                 + key_member->offset);
                     xmlFree(name);
-                    if (!s->ok)
+                    if ( !s->ok )
                     {
                         free(map);
                         return;
                     }
 
                     parse_structmap_value(s, cur, val_member->type,
-                                          ((void *)(map + 1)) +
-                                          (i * struct_size) +
-                                          val_member->offset);
-                    if (!s->ok)
+                                          ((void *)(map + 1))
+                                              + (i * struct_size)
+                                              + val_member->offset);
+                    if ( !s->ok )
                     {
                         free(map);
                         return;
@@ -1084,13 +949,12 @@ static void parse_into(xen_session *s, xmlNode *value_node,
 
     case STRUCT:
     {
-        if (!is_container_node(value_node, "value") ||
-            value_node->children->type != XML_ELEMENT_NODE ||
-            0 != strcmp((char *)value_node->children->name, "struct") ||
-            value_node->children->children == NULL)
+        if ( !is_container_node(value_node, "value")
+             || value_node->children->type != XML_ELEMENT_NODE
+             || 0 != strcmp((char *)value_node->children->name, "struct")
+             || value_node->children->children == NULL )
         {
-            server_error(s,
-                         "Expected Map from the server, but didn't get it");
+            server_error(s, "Expected Map from the server, but didn't get it");
         }
         else
         {
@@ -1101,15 +965,15 @@ static void parse_into(xen_session *s, xmlNode *value_node,
 
             size_t member_count = result_type->member_count;
 
-            const struct_member **checklist =
-                malloc(sizeof(const struct_member *) * member_count);
+            const struct_member **checklist
+                = malloc(sizeof(const struct_member *) * member_count);
             int seen_count = 0;
 
-            while (cur != NULL)
+            while ( cur != NULL )
             {
-                if (0 == strcmp((char *)cur->name, "member"))
+                if ( 0 == strcmp((char *)cur->name, "member") )
                 {
-                    if (cur->children == NULL || cur->last == cur->children)
+                    if ( cur->children == NULL || cur->last == cur->children )
                     {
                         server_error(s, "Malformed Struct");
                         free(result);
@@ -1118,7 +982,7 @@ static void parse_into(xen_session *s, xmlNode *value_node,
                     }
 
                     xmlChar *name = string_from_name(cur);
-                    if (name == NULL)
+                    if ( name == NULL )
                     {
                         server_error(s, "Malformed Struct");
                         free(result);
@@ -1126,11 +990,11 @@ static void parse_into(xen_session *s, xmlNode *value_node,
                         return;
                     }
 
-                    for (size_t i = 0; i < member_count; i++)
+                    for ( size_t i = 0; i < member_count; i++ )
                     {
                         const struct_member *mem = result_type->members + i;
 
-                        if (0 == strcmp((char *)name, mem->key))
+                        if ( 0 == strcmp((char *)name, mem->key) )
                         {
                             parse_structmap_value(s, cur, mem->type,
                                                   result + mem->offset);
@@ -1146,7 +1010,7 @@ static void parse_into(xen_session *s, xmlNode *value_node,
 
                     xmlFree(name);
 
-                    if (!s->ok)
+                    if ( !s->ok )
                     {
                         free(result);
                         free(checklist);
@@ -1157,28 +1021,27 @@ static void parse_into(xen_session *s, xmlNode *value_node,
             }
 
             /* Check that we've filled all fields. */
-            for (size_t i = 0; i < member_count; i++)
+            for ( size_t i = 0; i < member_count; i++ )
             {
                 const struct_member *mem = result_type->members + i;
                 int j;
 
-                for (j = 0; j < seen_count; j++)
+                for ( j = 0; j < seen_count; j++ )
                 {
-                    if (checklist[j] == mem)
+                    if ( checklist[j] == mem )
                     {
                         break;
                     }
                 }
 
-                if (j == seen_count)
+                if ( j == seen_count )
                 {
 #if PERMISSIVE
                     fprintf(stderr,
                             "Struct did not contain expected field %s.\n",
                             mem->key);
 #else
-                    server_error_2(s,
-                                   "Struct did not contain expected field",
+                    server_error_2(s, "Struct did not contain expected field",
                                    mem->key);
                     free(result);
                     free(checklist);
@@ -1195,8 +1058,8 @@ static void parse_into(xen_session *s, xmlNode *value_node,
 
     case REF:
     {
-        arbitrary_record_opt *record_opt =
-            calloc(1, sizeof(arbitrary_record_opt));
+        arbitrary_record_opt *record_opt
+            = calloc(1, sizeof(arbitrary_record_opt));
 
         record_opt->is_record = false;
         parse_into(s, value_node, &abstract_type_string,
@@ -1211,36 +1074,34 @@ static void parse_into(xen_session *s, xmlNode *value_node,
     }
 }
 
-
 static size_t size_of_member(const abstract_type *type)
 {
-    switch (type->XEN_API_TYPE)
+    switch ( type->XEN_API_TYPE )
     {
-        case STRING:
-            return sizeof(char *);
-        case INT:
-            return sizeof(int64_t);
-        case ENUM:
-            return sizeof(int);
-        case REF:
-            return sizeof(arbitrary_record_opt *);
-        case STRUCT:
-        case SET:
-            return type->struct_size;
-        default:
-            assert(false);
+    case STRING:
+        return sizeof(char *);
+    case INT:
+        return sizeof(int64_t);
+    case ENUM:
+        return sizeof(int);
+    case REF:
+        return sizeof(arbitrary_record_opt *);
+    case STRUCT:
+    case SET:
+        return type->struct_size;
+    default:
+        assert(false);
     }
 }
-
 
 static void parse_structmap_value(xen_session *s, xmlNode *n,
                                   const abstract_type *type, void *value)
 {
     xmlNode *cur = n->children;
 
-    while (cur != NULL)
+    while ( cur != NULL )
     {
-        if (0 == strcmp((char *)cur->name, "value"))
+        if ( 0 == strcmp((char *)cur->name, "value") )
         {
             parse_into(s, cur, type, value, 0);
             return;
@@ -1251,18 +1112,16 @@ static void parse_structmap_value(xen_session *s, xmlNode *n,
     server_error(s, "Missing value in Map/Struct");
 }
 
-
 static void parse_fault(xen_session *session, xmlXPathContextPtr xpathCtx)
 {
     xmlXPathObjectPtr xpathObj = xmlXPathCompiledEval(faultPath, xpathCtx);
-    if (xpathObj == NULL)
+    if ( xpathObj == NULL )
     {
         server_error(session, "Method response is neither result nor fault");
         return;
     }
 
-    if (xpathObj->type != XPATH_NODESET ||
-        xpathObj->nodesetval->nodeNr != 2)
+    if ( xpathObj->type != XPATH_NODESET || xpathObj->nodesetval->nodeNr != 2 )
     {
         xmlXPathFreeObject(xpathObj);
         server_error(session, "Method response is neither result nor fault");
@@ -1273,11 +1132,11 @@ static void parse_fault(xen_session *session, xmlXPathContextPtr xpathCtx)
     xmlNode *fault_node1 = xpathObj->nodesetval->nodeTab[1];
 
     xmlChar *fault_code_str = string_from_value(fault_node0, "int");
-    if (fault_code_str == NULL)
+    if ( fault_code_str == NULL )
     {
         fault_code_str = string_from_value(fault_node0, "i4");
     }
-    if (fault_code_str == NULL)
+    if ( fault_code_str == NULL )
     {
         xmlXPathFreeObject(xpathObj);
         server_error(session, "Fault code is malformed");
@@ -1285,7 +1144,7 @@ static void parse_fault(xen_session *session, xmlXPathContextPtr xpathCtx)
     }
 
     xmlChar *fault_string_str = string_from_value(fault_node1, "string");
-    if (fault_string_str == NULL)
+    if ( fault_string_str == NULL )
     {
         xmlFree(fault_code_str);
         xmlXPathFreeObject(xpathObj);
@@ -1308,18 +1167,15 @@ static void parse_fault(xen_session *session, xmlXPathContextPtr xpathCtx)
     xmlXPathFreeObject(xpathObj);
 }
 
-
 static void parse_failure(xen_session *session, xmlNode *node)
 {
-    abstract_type error_description_type =
-        { .XEN_API_TYPE = SET,
-          .child = &abstract_type_string };
+    abstract_type error_description_type
+        = { .XEN_API_TYPE = SET, .child = &abstract_type_string };
     arbitrary_set *error_descriptions;
 
-    parse_into(session, node, &error_description_type, &error_descriptions,
-               0);
+    parse_into(session, node, &error_description_type, &error_descriptions, 0);
 
-    if (session->ok)
+    if ( session->ok )
     {
         session->ok = false;
 
@@ -1327,7 +1183,7 @@ static void parse_failure(xen_session *session, xmlNode *node)
         int n = error_descriptions->size;
 
         char **strings = malloc(n * sizeof(char *));
-        for (int i = 0; i < n; i++)
+        for ( int i = 0; i < n; i++ )
         {
             strings[i] = c[i];
         }
@@ -1339,33 +1195,31 @@ static void parse_failure(xen_session *session, xmlNode *node)
     free(error_descriptions);
 }
 
-
 /**
  * Parameters as for xen_call_() above.
  */
 static void parse_result(xen_session *session, const char *result,
                          const abstract_type *result_type, void *value)
 {
-    xmlDocPtr doc =
-        xmlReadMemory(result, strlen(result), "", NULL, XML_PARSE_NONET);
+    xmlDocPtr doc
+        = xmlReadMemory(result, strlen(result), "", NULL, XML_PARSE_NONET);
 
-    if (doc == NULL)
+    if ( doc == NULL )
     {
         server_error(session, "Couldn't parse the server response");
         return;
     }
 
     xmlXPathContextPtr xpathCtx = xmlXPathNewContext(doc);
-    if (xpathCtx == NULL)
+    if ( xpathCtx == NULL )
     {
         xmlFreeDoc(doc);
         server_error(session, "Couldn't create XPath context");
         return;
     }
 
-    xmlXPathObjectPtr xpathObj =
-        xmlXPathCompiledEval(responsePath, xpathCtx);
-    if (xpathObj == NULL)
+    xmlXPathObjectPtr xpathObj = xmlXPathCompiledEval(responsePath, xpathCtx);
+    if ( xpathObj == NULL )
     {
         parse_fault(session, xpathCtx);
 
@@ -1374,8 +1228,7 @@ static void parse_result(xen_session *session, const char *result,
         return;
     }
 
-    if  (xpathObj->type != XPATH_NODESET ||
-         xpathObj->nodesetval->nodeNr != 2)
+    if ( xpathObj->type != XPATH_NODESET || xpathObj->nodesetval->nodeNr != 2 )
     {
         parse_fault(session, xpathCtx);
 
@@ -1389,7 +1242,7 @@ static void parse_result(xen_session *session, const char *result,
     xmlNode *node1 = xpathObj->nodesetval->nodeTab[1];
 
     xmlChar *status_code = string_from_value(node0, "string");
-    if (status_code == NULL)
+    if ( status_code == NULL )
     {
         xmlXPathFreeObject(xpathObj);
         xmlXPathFreeContext(xpathCtx);
@@ -1398,7 +1251,7 @@ static void parse_result(xen_session *session, const char *result,
         return;
     }
 
-    if (strcmp((char *)status_code, "Success"))
+    if ( strcmp((char *)status_code, "Success") )
     {
         parse_failure(session, node1);
 
@@ -1417,23 +1270,22 @@ static void parse_result(xen_session *session, const char *result,
     xmlFreeDoc(doc);
 }
 
-
-static void
-make_body_add_type(enum abstract_typename XEN_API_TYPE, abstract_value *v,
-                   xmlNode *params_node)
+static void make_body_add_type(enum abstract_typename XEN_API_TYPE,
+                               abstract_value *v, xmlNode *params_node)
 {
     char buf[20];
     char *encoded = NULL;
-    switch (XEN_API_TYPE)
+    switch ( XEN_API_TYPE )
     {
     case STRING:
-      encoded = (char *)xmlEncodeEntitiesReentrant(NULL, (xmlChar*)v->u.string_val);
-      add_param(params_node, "string", encoded);
-      free(encoded);
-      break;
+        encoded = (char *)xmlEncodeEntitiesReentrant(
+            NULL, (xmlChar *)v->u.string_val);
+        add_param(params_node, "string", encoded);
+        free(encoded);
+        break;
 
     case INT:
-        snprintf(buf, sizeof(buf), "%"PRId64, v->u.int_val);
+        snprintf(buf, sizeof(buf), "%" PRId64, v->u.int_val);
         add_param(params_node, "string", buf);
         break;
 
@@ -1463,12 +1315,11 @@ make_body_add_type(enum abstract_typename XEN_API_TYPE, abstract_value *v,
 
         xmlNode *data_node = add_param_array(params_node);
 
-        for (size_t i = 0; i < set_val->size; i++)
+        for ( size_t i = 0; i < set_val->size; i++ )
         {
-            void *member_value = (char *)set_val->contents +
-                                 (i * member_size);
-            add_struct_value(member_type, member_value,
-                            add_unnamed_value, NULL, data_node);
+            void *member_value = (char *)set_val->contents + (i * member_size);
+            add_struct_value(member_type, member_value, add_unnamed_value,
+                             NULL, data_node);
         }
     }
     break;
@@ -1479,7 +1330,7 @@ make_body_add_type(enum abstract_typename XEN_API_TYPE, abstract_value *v,
 
         xmlNode *struct_node = add_param_struct(params_node);
 
-        for (size_t i = 0; i < member_count; i++)
+        for ( size_t i = 0; i < member_count; i++ )
         {
             const struct struct_member *mem = v->type->members + i;
             const char *key = mem->key;
@@ -1496,26 +1347,29 @@ make_body_add_type(enum abstract_typename XEN_API_TYPE, abstract_value *v,
         const struct struct_member *member = v->type->members;
         arbitrary_map *map_val = v->u.struct_val;
         xmlNode *param_node = add_param_struct(params_node);
-        for (size_t i = 0; i < map_val->size; i++) {
+        for ( size_t i = 0; i < map_val->size; i++ )
+        {
             enum abstract_typename typename_key = member[0].type->XEN_API_TYPE;
             enum abstract_typename typename_val = member[1].type->XEN_API_TYPE;
             int offset_key = member[0].offset;
             int offset_val = member[1].offset;
             int struct_size = v->type->struct_size;
 
-            switch (typename_key) {
-            case STRING: {
-                char **addr = (void *)(map_val + 1) +
-                             (i * struct_size) +
-                             offset_key;
+            switch ( typename_key )
+            {
+            case STRING:
+            {
+                char **addr
+                    = (void *)(map_val + 1) + (i * struct_size) + offset_key;
                 char *key = *addr;
 
-                switch (typename_val) {
-                case STRING: {
+                switch ( typename_val )
+                {
+                case STRING:
+                {
                     char *val;
-                    addr = (void *)(map_val + 1) +
-                           (i * struct_size) +
-                           offset_val;
+                    addr = (void *)(map_val + 1) + (i * struct_size)
+                           + offset_val;
                     val = *addr;
                     add_struct_member(param_node, key, "string", val);
                     break;
@@ -1532,37 +1386,34 @@ make_body_add_type(enum abstract_typename XEN_API_TYPE, abstract_value *v,
     }
     break;
 
-
     default:
         assert(false);
     }
 }
 
-
-static char *
-make_body(const char *method_name, abstract_value params[], int param_count)
+static char *make_body(const char *method_name, abstract_value params[],
+                       int param_count)
 {
     xmlDocPtr doc = xmlNewDoc(BAD_CAST "1.0");
     xmlNode *methodCall = xmlNewNode(NULL, BAD_CAST "methodCall");
     xmlDocSetRootElement(doc, methodCall);
 
-    xmlNewChild(methodCall, NULL, BAD_CAST "methodName",
-                BAD_CAST method_name);
+    xmlNewChild(methodCall, NULL, BAD_CAST "methodName", BAD_CAST method_name);
 
-    xmlNode *params_node =
-        xmlNewChild(methodCall, NULL, BAD_CAST "params", NULL);
+    xmlNode *params_node
+        = xmlNewChild(methodCall, NULL, BAD_CAST "params", NULL);
 
-    for (int p = 0; p < param_count; p++)
+    for ( int p = 0; p < param_count; p++ )
     {
         abstract_value *v = params + p;
         make_body_add_type(v->type->XEN_API_TYPE, v, params_node);
     }
 
     xmlBufferPtr buffer = xmlBufferCreate();
-    xmlSaveCtxtPtr save_ctxt =
-        xmlSaveToBuffer(buffer, NULL, XML_SAVE_NO_XHTML);
+    xmlSaveCtxtPtr save_ctxt
+        = xmlSaveToBuffer(buffer, NULL, XML_SAVE_NO_XHTML);
 
-    if (xmlSaveDoc(save_ctxt, doc) == -1)
+    if ( xmlSaveDoc(save_ctxt, doc) == -1 )
     {
         return NULL;
     }
@@ -1574,235 +1425,223 @@ make_body(const char *method_name, abstract_value params[], int param_count)
     return (char *)content;
 }
 
-
-static void
-add_struct_value(const struct abstract_type *type, void *value,
-                 void (*adder)(xmlNode *node, const char *key,
-                               const char *type, const char *val),
-                 const char *key, xmlNode *node)
+static void add_struct_value(const struct abstract_type *type, void *value,
+                             void (*adder)(xmlNode *node, const char *key,
+                                           const char *type, const char *val),
+                             const char *key, xmlNode *node)
 {
-    switch (type->XEN_API_TYPE)
+    switch ( type->XEN_API_TYPE )
     {
-        case REF:
-        case STRING:
-        case INT:
-        case ENUM:
-        {
-            const char *val_as_string = get_val_as_string(type, value);
-            adder(node, key, "string", val_as_string);
-            free((char*)val_as_string);
-        }
-        break;
+    case REF:
+    case STRING:
+    case INT:
+    case ENUM:
+    {
+        const char *val_as_string = get_val_as_string(type, value);
+        adder(node, key, "string", val_as_string);
+        free((char *)val_as_string);
+    }
+    break;
 
-        case FLOAT:
-        {
-            char buf[20];
-            double val = *(double *)value;
-            snprintf(buf, sizeof(buf), "%lf", val);
-            adder(node, key, "double", buf);
-        }
-        break;
+    case FLOAT:
+    {
+        char buf[20];
+        double val = *(double *)value;
+        snprintf(buf, sizeof(buf), "%lf", val);
+        adder(node, key, "double", buf);
+    }
+    break;
 
-        case BOOL:
-        {
-            bool val = *(bool *)value;
-            adder(node, key, "boolean", val ? "1" : "0");
-        }
-        break;
+    case BOOL:
+    {
+        bool val = *(bool *)value;
+        adder(node, key, "boolean", val ? "1" : "0");
+    }
+    break;
 
-        case SET:
-        {
-            const struct abstract_type *member_type = type->child;
-            size_t member_size = size_of_member(member_type);
-            arbitrary_set *set_val = *(arbitrary_set **)value;
+    case SET:
+    {
+        const struct abstract_type *member_type = type->child;
+        size_t member_size = size_of_member(member_type);
+        arbitrary_set *set_val = *(arbitrary_set **)value;
 
-            if (set_val != NULL)
+        if ( set_val != NULL )
+        {
+            xmlNode *data_node = add_struct_array(node, key);
+
+            for ( size_t i = 0; i < set_val->size; i++ )
             {
-                xmlNode *data_node = add_struct_array(node, key);
-
-                for (size_t i = 0; i < set_val->size; i++)
-                {
-                    void *member_value = (char *)set_val->contents +
-                                         (i * member_size);
-                    add_struct_value(member_type, member_value,
-                                     add_unnamed_value, NULL, data_node);
-                }
+                void *member_value
+                    = (char *)set_val->contents + (i * member_size);
+                add_struct_value(member_type, member_value, add_unnamed_value,
+                                 NULL, data_node);
             }
         }
-        break;
+    }
+    break;
 
-        case STRUCT:
-        {
-            assert(false);
+    case STRUCT:
+    {
+        assert(false);
         /* XXX Nested structures aren't supported yet, but
            fortunately we don't need them, because we don't have
            any "deep create" calls.  This will need to be
            fixed. */
-        }
-        break;
-
-        case MAP:
-        {
-            size_t member_size = type->struct_size;
-            const struct abstract_type *l_type = type->members[0].type;
-            const struct abstract_type *r_type = type->members[1].type;
-            int l_offset = type->members[0].offset;
-            int r_offset = type->members[1].offset;
-
-            arbitrary_map *map_val = *(arbitrary_map **)value;
-
-            if (map_val != NULL)
-            {
-                xmlNode *struct_node = add_nested_struct(node, key);
-
-                for (size_t i = 0; i < map_val->size; i++)
-                {
-                    void *contents = (void *)map_val->contents;
-                    void *l_value = contents + (i * member_size) + l_offset;
-                    void *r_value = contents + (i * member_size) + r_offset;
-
-                    const char *l_value_as_string =
-                        get_val_as_string(l_type, l_value);
-                    add_struct_value(r_type, r_value, add_struct_member,
-                                     l_value_as_string, struct_node);
-
-                    free((char*)l_value_as_string);
-                }
-            }
-        }
-        break;
-
-        case DATETIME:
-        {
-            char buf[255];
-            struct tm *tm = gmtime((time_t*)value);
-            strftime(buf, sizeof(buf), "%Y%m%dT%H:%M:%S", tm);
-            adder(node, key, "string", buf);
-        }
-        break;
-
-        default:
-            assert(false);
     }
-}
+    break;
 
-
-static const char *
-get_val_as_string(const struct abstract_type *type, void *value)
-{
-    switch (type->XEN_API_TYPE)
+    case MAP:
     {
-        case REF:
-        {
-            char *buf = NULL;
-            arbitrary_record_opt *val = *(arbitrary_record_opt **)value;
+        size_t member_size = type->struct_size;
+        const struct abstract_type *l_type = type->members[0].type;
+        const struct abstract_type *r_type = type->members[1].type;
+        int l_offset = type->members[0].offset;
+        int r_offset = type->members[1].offset;
 
-            if (val != NULL)
+        arbitrary_map *map_val = *(arbitrary_map **)value;
+
+        if ( map_val != NULL )
+        {
+            xmlNode *struct_node = add_nested_struct(node, key);
+
+            for ( size_t i = 0; i < map_val->size; i++ )
             {
-                if (val->is_record)
-                {
-                    buf = (char *)malloc(strlen(val->u.record->handle) + 1);
-                    strcpy(buf, val->u.record->handle);
-                }
-                else
-                {
-                    if(val->u.handle!=NULL) {
-                         buf = (char *)malloc(strlen(val->u.handle) + 1);
-                         strcpy(buf, val->u.handle);
-                    }
-                }
+                void *contents = (void *)map_val->contents;
+                void *l_value = contents + (i * member_size) + l_offset;
+                void *r_value = contents + (i * member_size) + r_offset;
+
+                const char *l_value_as_string
+                    = get_val_as_string(l_type, l_value);
+                add_struct_value(r_type, r_value, add_struct_member,
+                                 l_value_as_string, struct_node);
+
+                free((char *)l_value_as_string);
             }
-
-            return buf;
         }
+    }
+    break;
 
-        case STRING:
-        {
-            xmlChar *encoded_value = *(xmlChar **)value;
-            xmlParserCtxtPtr ctxt = xmlCreateDocParserCtxt(encoded_value);
-            char *res = (char*)xmlStringDecodeEntities(ctxt, encoded_value, 1, 0, 0, 0);
-            xmlFreeParserCtxt(ctxt);
-            return res;
-        }
+    case DATETIME:
+    {
+        char buf[255];
+        struct tm *tm = gmtime((time_t *)value);
+        strftime(buf, sizeof(buf), "%Y%m%dT%H:%M:%S", tm);
+        adder(node, key, "string", buf);
+    }
+    break;
 
-        case INT:
-        {
-	    int str_len = sizeof(char) * 20;
-            char *buf = (char *)malloc(str_len);
-            int64_t val = *(int64_t *)value;
-            snprintf(buf, str_len, "%"PRId64, val);
-            return buf;
-        }
-
-        case ENUM:
-        {
-            int val = *(int *)value;
-            char *buf = (char *)malloc(strlen(type->enum_marshaller(val)) + 1);
-            strcpy(buf, type->enum_marshaller(val));
-            return buf;
-        }
-
-        default:
-            assert(false);
-            break;
+    default:
+        assert(false);
     }
 }
 
+static const char *get_val_as_string(const struct abstract_type *type,
+                                     void *value)
+{
+    switch ( type->XEN_API_TYPE )
+    {
+    case REF:
+    {
+        char *buf = NULL;
+        arbitrary_record_opt *val = *(arbitrary_record_opt **)value;
 
-static xmlNode *
-add_container(xmlNode *parent, const char *name)
+        if ( val != NULL )
+        {
+            if ( val->is_record )
+            {
+                buf = (char *)malloc(strlen(val->u.record->handle) + 1);
+                strcpy(buf, val->u.record->handle);
+            }
+            else
+            {
+                if ( val->u.handle != NULL )
+                {
+                    buf = (char *)malloc(strlen(val->u.handle) + 1);
+                    strcpy(buf, val->u.handle);
+                }
+            }
+        }
+
+        return buf;
+    }
+
+    case STRING:
+    {
+        xmlChar *encoded_value = *(xmlChar **)value;
+        xmlParserCtxtPtr ctxt = xmlCreateDocParserCtxt(encoded_value);
+        char *res
+            = (char *)xmlStringDecodeEntities(ctxt, encoded_value, 1, 0, 0, 0);
+        xmlFreeParserCtxt(ctxt);
+        return res;
+    }
+
+    case INT:
+    {
+        int str_len = sizeof(char) * 20;
+        char *buf = (char *)malloc(str_len);
+        int64_t val = *(int64_t *)value;
+        snprintf(buf, str_len, "%" PRId64, val);
+        return buf;
+    }
+
+    case ENUM:
+    {
+        int val = *(int *)value;
+        char *buf = (char *)malloc(strlen(type->enum_marshaller(val)) + 1);
+        strcpy(buf, type->enum_marshaller(val));
+        return buf;
+    }
+
+    default:
+        assert(false);
+        break;
+    }
+}
+
+static xmlNode *add_container(xmlNode *parent, const char *name)
 {
     return xmlNewChild(parent, NULL, BAD_CAST name, NULL);
 }
 
-
-static void
-add_param(xmlNode *params_node, const char *type, const char *value)
+static void add_param(xmlNode *params_node, const char *type,
+                      const char *value)
 {
     xmlNode *param_node = add_container(params_node, "param");
     add_value(param_node, type, value);
 }
 
-
-static void
-add_value(xmlNode *parent, const char *type, const char *value)
+static void add_value(xmlNode *parent, const char *type, const char *value)
 {
     xmlNode *value_node = add_container(parent, "value");
     xmlNewChild(value_node, NULL, BAD_CAST type, BAD_CAST value);
 }
 
-
-static void
-add_unnamed_value(xmlNode *parent, const char *name, const char *type,
-                  const char *value)
+static void add_unnamed_value(xmlNode *parent, const char *name,
+                              const char *type, const char *value)
 {
     (void)name;
     add_value(parent, type, value);
 }
 
-
-static xmlNode *
-add_param_struct(xmlNode *params_node)
+static xmlNode *add_param_struct(xmlNode *params_node)
 {
     xmlNode *param_node = add_container(params_node, "param");
-    xmlNode *value_node = add_container(param_node,  "value");
+    xmlNode *value_node = add_container(param_node, "value");
 
     return xmlNewChild(value_node, NULL, BAD_CAST "struct", NULL);
 }
 
-static xmlNode *
-add_param_array(xmlNode *params_node)
+static xmlNode *add_param_array(xmlNode *params_node)
 {
     xmlNode *param_node = add_container(params_node, "param");
-    xmlNode *value_node = add_container(param_node,  "value");
-    xmlNode *array_node = add_container(value_node,  "array");
+    xmlNode *value_node = add_container(param_node, "value");
+    xmlNode *array_node = add_container(value_node, "array");
 
     return add_container(array_node, "data");
 }
 
-static void
-add_struct_member(xmlNode *struct_node, const char *name, const char *type,
-                  const char *value)
+static void add_struct_member(xmlNode *struct_node, const char *name,
+                              const char *type, const char *value)
 {
     xmlNode *member_node = add_container(struct_node, "member");
 
@@ -1811,23 +1650,19 @@ add_struct_member(xmlNode *struct_node, const char *name, const char *type,
     add_value(member_node, type, value);
 }
 
-
-static xmlNode *
-add_struct_array(xmlNode *struct_node, const char *name)
+static xmlNode *add_struct_array(xmlNode *struct_node, const char *name)
 {
     xmlNode *member_node = add_container(struct_node, "member");
 
     xmlNewChild(member_node, NULL, BAD_CAST "name", BAD_CAST name);
 
     xmlNode *value_node = add_container(member_node, "value");
-    xmlNode *array_node = add_container(value_node,  "array");
+    xmlNode *array_node = add_container(value_node, "array");
 
-    return add_container(array_node,  "data");
+    return add_container(array_node, "data");
 }
 
-
-static xmlNode *
-add_nested_struct(xmlNode *struct_node, const char *name)
+static xmlNode *add_nested_struct(xmlNode *struct_node, const char *name)
 {
     xmlNode *member_node = add_container(struct_node, "member");
 
@@ -1838,32 +1673,28 @@ add_nested_struct(xmlNode *struct_node, const char *name)
     return add_container(value_node, "struct");
 }
 
-
 int xen_enum_lookup_(const char *str, const char **lookup_table, int n)
 {
-    if (str != NULL)
+    if ( str != NULL )
     {
-        for (int i = 0; i < n; i++)
+        for ( int i = 0; i < n; i++ )
         {
-            if (0 == strcmp(str, lookup_table[i]))
+            if ( 0 == strcmp(str, lookup_table[i]) )
             {
                 return i;
             }
         }
     }
 
-    return n - 1;  /* lookup_table[n - 1] is always "undefined". */
+    return n - 1; /* lookup_table[n - 1] is always "undefined". */
 }
 
-
-char *
-xen_strdup_(const char *in)
+char *xen_strdup_(const char *in)
 {
     char *result = malloc(strlen(in) + 1);
     strcpy(result, in);
     return result;
 }
-
 
 const abstract_type abstract_type_string = { .XEN_API_TYPE = STRING };
 const abstract_type abstract_type_int = { .XEN_API_TYPE = INT };
@@ -1872,186 +1703,109 @@ const abstract_type abstract_type_bool = { .XEN_API_TYPE = BOOL };
 const abstract_type abstract_type_datetime = { .XEN_API_TYPE = DATETIME };
 const abstract_type abstract_type_ref = { .XEN_API_TYPE = REF };
 
-const abstract_type abstract_type_string_set =
-{
-    .XEN_API_TYPE = SET,
-    .child = &abstract_type_string
-};
+const abstract_type abstract_type_string_set
+    = { .XEN_API_TYPE = SET, .child = &abstract_type_string };
 
-const abstract_type abstract_type_string_set_set =
-{
-    .XEN_API_TYPE = SET,
-    .child = &abstract_type_string_set
-};
+const abstract_type abstract_type_string_set_set
+    = { .XEN_API_TYPE = SET, .child = &abstract_type_string_set };
 
-const abstract_type abstract_type_int_set =
-{
-    .XEN_API_TYPE = SET,
-    .child = &abstract_type_int
-};
+const abstract_type abstract_type_int_set
+    = { .XEN_API_TYPE = SET, .child = &abstract_type_int };
 
-const abstract_type abstract_type_ref_set =
-{
-    .XEN_API_TYPE = SET,
-    .child = &abstract_type_ref
-};
-
+const abstract_type abstract_type_ref_set
+    = { .XEN_API_TYPE = SET, .child = &abstract_type_ref };
 
 typedef struct xen_string_ref_map_contents
 {
-  char *key;
-  struct arbitrary_record_opt *val;
+    char *key;
+    struct arbitrary_record_opt *val;
 } xen_string_ref_map_contents;
 
-static const struct struct_member string_ref_members[] =
-{
-    {
-        .type = &abstract_type_string,
-        .offset = offsetof(xen_string_ref_map_contents, key)
-    },
-    {
-        .type = &abstract_type_ref,
-        .offset = offsetof(xen_string_ref_map_contents, val)
-    }
-};
+static const struct struct_member string_ref_members[]
+    = { { .type = &abstract_type_string,
+          .offset = offsetof(xen_string_ref_map_contents, key) },
+        { .type = &abstract_type_ref,
+          .offset = offsetof(xen_string_ref_map_contents, val) } };
 
-const abstract_type abstract_type_string_ref_map =
-{
-    .XEN_API_TYPE = MAP,
-    .struct_size = sizeof(xen_string_ref_map_contents),
-    .members = string_ref_members
-};
+const abstract_type abstract_type_string_ref_map
+    = { .XEN_API_TYPE = MAP,
+        .struct_size = sizeof(xen_string_ref_map_contents),
+        .members = string_ref_members };
 
-static const struct struct_member string_int_members[] =
-{
-    {
-        .type = &abstract_type_string,
-        .offset = offsetof(xen_string_int_map_contents, key)
-    },
-    {
-        .type = &abstract_type_int,
-        .offset = offsetof(xen_string_int_map_contents, val)
-    }
-};
+static const struct struct_member string_int_members[]
+    = { { .type = &abstract_type_string,
+          .offset = offsetof(xen_string_int_map_contents, key) },
+        { .type = &abstract_type_int,
+          .offset = offsetof(xen_string_int_map_contents, val) } };
 
-const abstract_type abstract_type_string_int_map =
-{
-    .XEN_API_TYPE = MAP,
-    .struct_size = sizeof(xen_string_int_map_contents),
-    .members = string_int_members
-};
+const abstract_type abstract_type_string_int_map
+    = { .XEN_API_TYPE = MAP,
+        .struct_size = sizeof(xen_string_int_map_contents),
+        .members = string_int_members };
 
-static const struct struct_member string_string_members[] =
-{
-    {
-        .type = &abstract_type_string,
-        .offset = offsetof(xen_string_string_map_contents, key)
-    },
-    {
-        .type = &abstract_type_string,
-        .offset = offsetof(xen_string_string_map_contents, val)
-    }
-};
+static const struct struct_member string_string_members[]
+    = { { .type = &abstract_type_string,
+          .offset = offsetof(xen_string_string_map_contents, key) },
+        { .type = &abstract_type_string,
+          .offset = offsetof(xen_string_string_map_contents, val) } };
 
-const abstract_type abstract_type_string_string_map =
-{
-    .XEN_API_TYPE = MAP,
-    .struct_size = sizeof(xen_string_string_map_contents),
-    .members = string_string_members
-};
+const abstract_type abstract_type_string_string_map
+    = { .XEN_API_TYPE = MAP,
+        .struct_size = sizeof(xen_string_string_map_contents),
+        .members = string_string_members };
 
-static struct struct_member int_float_members[] =
-{
-    {
-        .type = &abstract_type_int,
-        .offset = offsetof(xen_int_float_map_contents, key)
-    },
-    {
-        .type = &abstract_type_float,
-        .offset = offsetof(xen_int_float_map_contents, val)
-    }
-};
+static struct struct_member int_float_members[]
+    = { { .type = &abstract_type_int,
+          .offset = offsetof(xen_int_float_map_contents, key) },
+        { .type = &abstract_type_float,
+          .offset = offsetof(xen_int_float_map_contents, val) } };
 
-const abstract_type abstract_type_int_float_map =
-{
-    .XEN_API_TYPE = MAP,
-    .struct_size = sizeof(xen_int_float_map_contents),
-    .members = int_float_members
-};
+const abstract_type abstract_type_int_float_map
+    = { .XEN_API_TYPE = MAP,
+        .struct_size = sizeof(xen_int_float_map_contents),
+        .members = int_float_members };
 
-static struct struct_member int_int_members[] =
-{
-    {
-        .type = &abstract_type_int,
-        .offset = offsetof(xen_int_int_map_contents, key)
-    },
-    {
-        .type = &abstract_type_int,
-        .offset = offsetof(xen_int_int_map_contents, val)
-    }
-};
+static struct struct_member int_int_members[]
+    = { { .type = &abstract_type_int,
+          .offset = offsetof(xen_int_int_map_contents, key) },
+        { .type = &abstract_type_int,
+          .offset = offsetof(xen_int_int_map_contents, val) } };
 
-const abstract_type abstract_type_int_int_map =
-{
-    .XEN_API_TYPE = MAP,
-    .struct_size = sizeof(xen_int_int_map_contents),
-    .members = int_int_members
-};
+const abstract_type abstract_type_int_int_map
+    = { .XEN_API_TYPE = MAP,
+        .struct_size = sizeof(xen_int_int_map_contents),
+        .members = int_int_members };
 
-static struct struct_member int_string_set_members[] =
-{
-    {
-        .type = &abstract_type_int,
-        .offset = offsetof(xen_int_string_set_map_contents, key)
-    },
-    {
-        .type = &abstract_type_string_set,
-        .offset = offsetof(xen_int_string_set_map_contents, val)
-    }
-};
+static struct struct_member int_string_set_members[]
+    = { { .type = &abstract_type_int,
+          .offset = offsetof(xen_int_string_set_map_contents, key) },
+        { .type = &abstract_type_string_set,
+          .offset = offsetof(xen_int_string_set_map_contents, val) } };
 
-const abstract_type abstract_type_int_string_set_map =
-{
-    .XEN_API_TYPE = MAP,
-    .struct_size = sizeof(xen_int_string_set_map_contents),
-    .members = int_string_set_members
-};
+const abstract_type abstract_type_int_string_set_map
+    = { .XEN_API_TYPE = MAP,
+        .struct_size = sizeof(xen_int_string_set_map_contents),
+        .members = int_string_set_members };
 
-static struct struct_member string_string_set_members[] =
-{
-    {
-        .type = &abstract_type_string,
-        .offset = offsetof(xen_string_string_set_map_contents, key)
-    },
-    {
-        .type = &abstract_type_string_set,
-        .offset = offsetof(xen_string_string_set_map_contents, val)
-    }
-};
+static struct struct_member string_string_set_members[]
+    = { { .type = &abstract_type_string,
+          .offset = offsetof(xen_string_string_set_map_contents, key) },
+        { .type = &abstract_type_string_set,
+          .offset = offsetof(xen_string_string_set_map_contents, val) } };
 
-const abstract_type abstract_type_string_string_set_map =
-{
-    .XEN_API_TYPE = MAP,
-    .struct_size = sizeof(xen_string_string_set_map_contents),
-    .members = string_string_set_members
-};
+const abstract_type abstract_type_string_string_set_map
+    = { .XEN_API_TYPE = MAP,
+        .struct_size = sizeof(xen_string_string_set_map_contents),
+        .members = string_string_set_members };
 
-static struct struct_member string_string_string_map_members[] =
-{
-    {
-        .type = &abstract_type_string,
-        .offset = offsetof(xen_string_string_string_map_map_contents, key)
-    },
-    {
-        .type = &abstract_type_string_string_map,
-        .offset = offsetof(xen_string_string_string_map_map_contents, val)
-    }
-};
+static struct struct_member string_string_string_map_members[]
+    = { { .type = &abstract_type_string,
+          .offset = offsetof(xen_string_string_string_map_map_contents, key) },
+        { .type = &abstract_type_string_string_map,
+          .offset
+          = offsetof(xen_string_string_string_map_map_contents, val) } };
 
-const abstract_type abstract_type_string_string_string_map_map =
-{
-    .XEN_API_TYPE = MAP,
-    .struct_size = sizeof(xen_string_string_string_map_map_contents),
-    .members = string_string_string_map_members
-};
-
+const abstract_type abstract_type_string_string_string_map_map
+    = { .XEN_API_TYPE = MAP,
+        .struct_size = sizeof(xen_string_string_string_map_map_contents),
+        .members = string_string_string_map_members };

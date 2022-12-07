@@ -1,19 +1,19 @@
 /*
  * Copyright (c) Citrix Systems, Inc.
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
- * 
+ *
  *   1) Redistributions of source code must retain the above copyright
  *      notice, this list of conditions and the following disclaimer.
- * 
+ *
  *   2) Redistributions in binary form must reproduce the above
  *      copyright notice, this list of conditions and the following
  *      disclaimer in the documentation and/or other materials
  *      provided with the distribution.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
  * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
@@ -31,9 +31,7 @@
 #ifndef XEN_INT_SET_H
 #define XEN_INT_SET_H
 
-
 #include "xen_common.h"
-
 
 typedef struct xen_int_set
 {
@@ -41,19 +39,15 @@ typedef struct xen_int_set
     int contents[];
 } xen_int_set;
 
-
 /**
  * Allocate a xen_int_set of the given size.
  */
-extern xen_int_set *
-xen_int_set_alloc(size_t size);
+extern xen_int_set *xen_int_set_alloc(size_t size);
 
 /**
  * Free the given xen_int_set.  The given set must have been allocated
  * by this library.
  */
-extern void
-xen_int_set_free(xen_int_set *set);
-
+extern void xen_int_set_free(xen_int_set *set);
 
 #endif
