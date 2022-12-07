@@ -86,7 +86,7 @@ CAMLprim value stub_init(value in_fd, value out_fd)
      we might get on setting the flag.
   */
   flags = fcntl(c_out_fd, F_GETFL, NULL);
-  if (flags > 0 && !(flags & O_DIRECT))
+  if (flags >= 0 && !(flags & O_DIRECT))
     fcntl(c_out_fd, F_SETFL, flags | O_DIRECT);
 #endif
 
@@ -141,7 +141,7 @@ CAMLprim value stub_direct_copy(value handle, value len){
 
   rc = TRIED_AND_FAILED;
   bytes = 0;
-  
+
   remaining = c_len;
   while (remaining > 0) {
     ssize_t bread;
