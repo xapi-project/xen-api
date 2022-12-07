@@ -19,6 +19,8 @@ let prototyped_of_field = function
       Some "22.27.0"
   | "host", "last_software_update" ->
       Some "22.20.0"
+  | "pool", "migration_compression" ->
+      Some "22.32.0-next"
   | _ ->
       None
 

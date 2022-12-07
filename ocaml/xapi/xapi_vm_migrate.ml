@@ -80,7 +80,7 @@ let get_bool_option key values =
 
 (** Decide whether to use stream compression during migration based on
 options passed to the API, localhost, and destination *)
-let use_compression options src dst =
+let use_compression ~__context options src dst =
   debug "%s: options=%s" __FUNCTION__
     (String.concat ", "
        (List.map (fun (k, v) -> Printf.sprintf "%s:%s" k v) options)
@@ -91,7 +91,8 @@ let use_compression options src dst =
   | None, true ->
       false (* don't use for local migration *)
   | None, _ ->
-      !Xapi_globs.migration_compression
+      let pool = Helpers.get_pool ~__context in
+      Db.Pool.get_migration_compression ~__context ~self:pool
 
 let remote_of_dest ~__context dest =
   let maybe_set_https url =
@@ -391,7 +392,7 @@ let pool_migrate ~__context ~vm ~host ~options =
           ~self:network ~host
   in
   let compress =
-    use_compression options (Helpers.get_localhost ~__context) host
+    use_compression ~__context options (Helpers.get_localhost ~__context) host
   in
   debug "%s using stream compression=%b" __FUNCTION__ compress ;
   let ip = Http.Url.maybe_wrap_IPv6_literal address in
@@ -1160,7 +1161,9 @@ let migrate_send' ~__context ~vm ~dest ~live:_ ~vdi_map ~vif_map ~vgpu_map
   (* Copy mode means we don't destroy the VM on the source host. We also don't
      	   copy over the RRDs/messages *)
   let copy = try bool_of_string (List.assoc "copy" options) with _ -> false in
-  let compress = use_compression options localhost remote.dest_host in
+  let compress =
+    use_compression ~__context options localhost remote.dest_host
+  in
   debug "%s using stream compression=%b" __FUNCTION__ compress ;
 
   (* The first thing to do is to create mirrors of all the disks on the remote.

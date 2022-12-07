@@ -1,7 +1,7 @@
 let hash x = Digest.string x |> Digest.to_hex
 
 (* BEWARE: if this changes, check that schema has been bumped accordingly *)
-let last_known_schema_hash = "39db2a6a38076fdb59070df945072b81"
+let last_known_schema_hash = "6d806eaf5515ca87daf909d3407a228f"
 
 let current_schema_hash : string =
   let open Datamodel_types in

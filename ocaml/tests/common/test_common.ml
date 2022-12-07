@@ -284,8 +284,8 @@ let make_pool ~__context ~master ?(name_label = "") ?(name_description = "")
     ?(uefi_certificates = "") ?(repositories = [])
     ?(client_certificate_auth_enabled = false)
     ?(client_certificate_auth_name = "") ?(repository_proxy_url = "")
-    ?(repository_proxy_username = "") ?(repository_proxy_password = Ref.null) ()
-    =
+    ?(repository_proxy_username = "") ?(repository_proxy_password = Ref.null)
+    ?(migration_compression = false) () =
   let pool_ref = Ref.make () in
   Db.Pool.create ~__context ~ref:pool_ref ~uuid:(make_uuid ()) ~name_label
     ~name_description ~master ~default_SR ~suspend_image_SR ~crash_dump_SR
@@ -299,7 +299,8 @@ let make_pool ~__context ~master ?(name_label = "") ?(name_description = "")
     ~live_patching_disabled ~uefi_certificates ~is_psr_pending:false
     ~tls_verification_enabled:false ~repositories
     ~client_certificate_auth_enabled ~client_certificate_auth_name
-    ~repository_proxy_url ~repository_proxy_username ~repository_proxy_password ;
+    ~repository_proxy_url ~repository_proxy_username ~repository_proxy_password
+    ~migration_compression ;
   pool_ref
 
 let default_sm_features =

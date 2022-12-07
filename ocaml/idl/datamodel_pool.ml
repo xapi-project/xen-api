@@ -1322,6 +1322,10 @@ let t =
             ~default_value:(Some (VRef null_ref)) "repository_proxy_password"
             "Password for the authentication of the proxy used in syncing with \
              the enabled repositories"
+        ; field ~qualifier:RW ~lifecycle:[] ~ty:Bool
+            ~default_value:(Some (VBool false)) "migration_compression"
+            "Default behaviour during migration, True if stream compression \
+             should be used"
         ]
       )
     ()
