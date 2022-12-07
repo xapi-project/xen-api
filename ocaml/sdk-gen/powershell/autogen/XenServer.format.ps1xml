@@ -44,7 +44,7 @@
                                 <Label>URL</Label>
                             </ListItem>
                             <ListItem>
-                                <PropertyName>uuid</PropertyName>
+                                <PropertyName>opaque_ref</PropertyName>
                                 <Label>Reference</Label>
                             </ListItem>
                             <ListItem>

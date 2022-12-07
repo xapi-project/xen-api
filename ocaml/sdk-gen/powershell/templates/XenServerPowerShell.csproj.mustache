@@ -1,11 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
+    <Version>0.0.0</Version>
     <TargetFramework>net6.0</TargetFramework>
     <OutputType>Library</OutputType>
-    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <GenerateAssemblyInfo>True</GenerateAssemblyInfo>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)|$(OS)' == 'Debug|AnyCPU|Windows_NT'">
-    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <TreatWarningsAsErrors>True</TreatWarningsAsErrors>
     <StartAction>Program</StartAction>
     <StartProgram>C:\Program Files\PowerShell\7\pwsh.exe</StartProgram>
     <StartArguments>-NoLogo -NoExit -Command "Import-Module '.\XenServerPowerShell.dll'"</StartArguments>
