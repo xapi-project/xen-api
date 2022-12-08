@@ -95,7 +95,7 @@ let determine_ethtool_settings properties oc =
   let advertise =
     let is_hex x =
       try Scanf.sscanf x "0x%x%!" (fun _ -> true)
-      with Stdlib.Scanf.Scan_failure _ -> false
+      with Scanf.Scan_failure _ -> false
     in
     match assoc_opt "ethtool-advertise" oc with
     | Some value when is_hex value ->
