@@ -4,18 +4,8 @@
  (package xapi-xenopsd-xc)
  (libraries
    dune-build-info
-   xapi-xenopsd
-   xenctrl
-   xenstore
-   xenstore.unix
-   xenstore_transport
-   xenstore_transport.unix
-   threads
-   xapi-idl.xen
-   rpclib.core
-   uutf
-   xapi-log
-   rpclib.json
-   xapi-stdext-pervasives
+   io-page-unix
+   xen-gnt
+   xen-gnt-unix
  )
 )

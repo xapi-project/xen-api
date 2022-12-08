@@ -11,27 +11,30 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-open Xenops_utils
 
 let xenstored_proc_port = "/proc/xen/xsd_port"
 
 let xenstored_proc_kva = "/proc/xen/xsd_kva"
 
+let gnttab = Gnt.Gnttab.interface_open ()
+
 let open_ring0 () =
   let fd = Unix.openfile xenstored_proc_kva [Unix.O_RDWR] 0o600 in
-  let sz = Xenmmap.getpagesize () in
-  let intf = Xenmmap.mmap fd Xenmmap.RDWR Xenmmap.SHARED sz 0 in
-  Unix.close fd ; intf
+  let sz = Io_page.page_size in
+  let intf = Unix.map_file fd Bigarray.char Bigarray.c_layout true [|sz|]
+  in
+  Unix.close fd ;Bigarray.reshape_1 intf sz |> Cstruct.of_bigarray
 
-let open_ringU domid mfn =
-  Xenctrl.with_intf @@ fun xc ->
-  Xenctrl.map_foreign_range xc domid (Xenmmap.getpagesize ()) mfn
+let open_ringU domid =
+  let mapping = Gnt.(Gnttab.map_exn gnttab { domid; ref = xenstore } true) in
+  mapping |> Gnt.Gnttab.Local_mapping.to_buf |> Io_page.to_cstruct
 
-let open_ring domid mfn =
+
+let open_ring domid =
   if domid = 0 then
     open_ring0 ()
   else
-    open_ringU domid mfn
+    open_ringU domid
 
 let hexify s =
   let hexseq_of_char c = Printf.sprintf "%02x" (Char.code c) in
@@ -73,14 +76,13 @@ let int_from_page ss n =
   int_of_string ("0x" ^ b2 ^ b1) mod ring_size
 
 let _ =
-  let domid, mfn =
-    try (int_of_string Sys.argv.(1), Nativeint.of_string Sys.argv.(2))
-    with _ -> (0, Nativeint.zero)
-  in
-  let sz = Xenmmap.getpagesize () - 1024 - 512 in
-  let intf = open_ring domid mfn in
-  let s = Xenmmap.read intf 0 sz in
+  let domid = try int_of_string Sys.argv.(1) with _ -> 0 in
+  let sz = Io_page.page_size - 1024 - 512 in
+  let intf = open_ring domid in
+  let s = Cstruct.copy intf 0 sz in
   let ss = hexify s in
+(* TODO: this should use mirage/shared-memory-ring to read the various fields
+   from the ring instead of reimplementing the fetching here *)
   let req_cons = int_from_page ss (4 * ring_size) in
   let req_prod = int_from_page ss (8 + (4 * ring_size)) in
   let rsp_cons = ring_size + int_from_page ss (16 + (4 * ring_size)) in
