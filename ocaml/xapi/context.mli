@@ -28,6 +28,7 @@ val make :
   -> ?database:Db_ref.t
   -> ?task_in_database:bool
   -> ?task_description:string
+  -> ?persistent_task:bool
   -> ?origin:origin
   -> string
   -> t
@@ -121,6 +122,7 @@ val __make_task :
    -> ?description:string
    -> ?session_id:API.ref_session
    -> ?subtask_of:API.ref_task
+   -> ?persistent:bool
    -> string
    -> API.ref_task * API.ref_task Uuidx.t
   )

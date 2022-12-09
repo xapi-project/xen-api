@@ -22,7 +22,7 @@ type t = API.ref_task
 
 (* creates a new task *)
 let make ~__context ~http_other_config ?(description = "") ?session_id
-    ?subtask_of label : t * t Uuidx.t =
+    ?subtask_of ?(persistent = false) label : t * t Uuidx.t =
   let uuid = Uuidx.make () in
   let uuid_str = Uuidx.to_string uuid in
   let ref = Ref.make () in
@@ -34,15 +34,16 @@ let make ~__context ~http_other_config ?(description = "") ?session_id
     | _e ->
         Ref.null
   in
+  let status = if persistent then `persistent else `pending in
   let (_ : unit) =
     Db_actions.DB_Action.Task.create ~ref ~__context
       ~created:(Date.of_float (Unix.time ()))
       ~finished:(Date.of_float 0.0) ~current_operations:[] ~_type:"<none/>"
       ~session:(Option.value ~default:Ref.null session_id)
-      ~resident_on:!Xapi_globs.localhost_ref ~status:`pending ~result:""
-      ~progress:0. ~error_info:[] ~allowed_operations:[]
-      ~name_description:description ~name_label:label ~stunnelpid:(-1L)
-      ~forwarded:false ~forwarded_to:Ref.null ~uuid:uuid_str ~externalpid:(-1L)
+      ~resident_on:!Xapi_globs.localhost_ref ~status ~result:"" ~progress:0.
+      ~error_info:[] ~allowed_operations:[] ~name_description:description
+      ~name_label:label ~stunnelpid:(-1L) ~forwarded:false
+      ~forwarded_to:Ref.null ~uuid:uuid_str ~externalpid:(-1L)
       ~subtask_of:subtaskid_of
       ~other_config:(List.map (fun (k, v) -> ("http:" ^ k, v)) http_other_config)
       ~backtrace:(Sexplib.Sexp.to_string Backtrace.(sexp_of_t empty))

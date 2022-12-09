@@ -162,11 +162,11 @@ let do_dispatch ?session_id ?forward_op ?self:_ supports_async called_fn_name
 
 (* in the following functions, it is our responsibility to complete any tasks we create *)
 let exec_with_new_task ?http_other_config ?quiet ?subtask_of ?session_id
-    ?task_in_database ?task_description ?origin task_name f =
+    ?task_in_database ?task_description ?persistent_task ?origin task_name f =
   exec_with_context
     ~__context:
       (Context.make ?http_other_config ?quiet ?subtask_of ?session_id
-         ?task_in_database ?task_description ?origin task_name
+         ?task_in_database ?task_description ?persistent_task ?origin task_name
       ) ~need_complete:true (fun ~__context -> f __context
   )
 

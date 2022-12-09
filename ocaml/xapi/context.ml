@@ -126,6 +126,7 @@ let __make_task =
       ?description:_
       ?session_id:_
       ?subtask_of:_
+      ?persistent:_
       _
     -> (Ref.null, Uuidx.null)
   )
@@ -251,13 +252,14 @@ let from_forwarded_task ?(http_other_config = []) ?session_id
 
 let make ?(http_other_config = []) ?(quiet = false) ?subtask_of ?session_id
     ?(database = default_database ()) ?(task_in_database = false)
-    ?task_description ?(origin = Internal) task_name =
+    ?task_description ?persistent_task ?(origin = Internal) task_name =
   (* create a real or a dummy task *)
   let client = _client_of_origin origin in
   let task_id, task_uuid =
     if task_in_database then
       !__make_task ~__context:(get_initial ()) ~http_other_config
-        ?description:task_description ?session_id ?subtask_of task_name
+        ?description:task_description ?session_id ?subtask_of
+        ?persistent:persistent_task task_name
     else
       (Ref.make_dummy task_name, Uuidx.null)
   in

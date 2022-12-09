@@ -19,6 +19,7 @@ val exec_with_new_task :
   -> ?session_id:API.ref_session
   -> ?task_in_database:bool
   -> ?task_description:string
+  -> ?persistent_task:bool
   -> ?origin:Context.origin
   -> string
   -> (Context.t -> 'a)
