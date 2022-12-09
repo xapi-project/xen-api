@@ -3207,8 +3207,8 @@ end
 (* XXX: PR-1255: we also want to only listen for events on VMs and fields we care about *)
 let events_from_xapi () =
   let open Event_types in
-  Server_helpers.exec_with_new_task ~task_in_database:true "xapi events"
-    (fun __context ->
+  Server_helpers.exec_with_new_task ~task_in_database:true ~persistent_task:true
+    "xapi events" (fun __context ->
       let task = Context.get_task_id __context |> Ref.string_of in
       let localhost = Helpers.get_localhost ~__context in
       let token = ref "" in
