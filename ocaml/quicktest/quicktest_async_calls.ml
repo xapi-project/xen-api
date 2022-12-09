@@ -40,6 +40,8 @@ let async_test rpc session_id sr_info () =
                "cancelling"
            | `cancelled ->
                "cancelled"
+           | `persistent ->
+               "persistent"
            )
            result
         ) ;
@@ -54,7 +56,7 @@ let async_test rpc session_id sr_info () =
           Client.Client.VDI.destroy ~rpc ~session_id ~self
       | `cancelled ->
           ()
-      | `cancelling | `pending ->
+      | `cancelling | `pending | `persistent ->
           Alcotest.fail "Task should be finished!"
   )
 

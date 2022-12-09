@@ -376,6 +376,8 @@ let remote_metadata_export_import ~__context ~rpc ~session_id ~remote_address
                       (field_type_error, [Printexc.to_string parse_error])
                   )
             )
+          | `persistent ->
+              failwith "this is a persistent task, which will not complete"
         )
         (fun () -> Client.Task.destroy ~rpc ~session_id ~self:remote_task)
   )

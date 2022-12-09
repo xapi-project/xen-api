@@ -262,6 +262,7 @@ module Task = struct
         ; ("failure", "task has failed")
         ; ("cancelling", "task is being cancelled")
         ; ("cancelled", "task has been cancelled")
+        ; ("persistent", "task will never complete or expire")
         ]
       )
 

@@ -562,6 +562,8 @@ let task_status_type_to_string s =
       "cancelling"
   | `cancelled ->
       "cancelled"
+  | `persistent ->
+      "persistent"
 
 let protocol_to_string = function
   | `vt100 ->

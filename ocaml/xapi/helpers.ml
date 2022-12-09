@@ -1837,6 +1837,8 @@ end = struct
               )
         )
       )
+      | `persistent ->
+          fail "this is a persistent task, which will not complete"
     in
     res
 end

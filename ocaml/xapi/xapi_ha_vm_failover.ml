@@ -47,6 +47,8 @@ let result_of_task ~__context self : task_result option =
           | code :: params ->
               Error (Api_errors.Server_error (code, params))
           )
+    | `persistent ->
+        Some (Error (Failure "Persistent task"))
   with e ->
     (* cannot fetch task status, maybe task got destroyed *)
     Backtrace.is_important e ; Some (Error e)

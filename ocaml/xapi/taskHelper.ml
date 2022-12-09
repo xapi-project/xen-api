@@ -173,6 +173,8 @@ let status_to_string = function
       "cancelling"
   | `cancelled ->
       "cancelled"
+  | `persistent ->
+      "persistent"
 
 let status_is_completed task_status =
   task_status = `success || task_status = `failure || task_status = `cancelled

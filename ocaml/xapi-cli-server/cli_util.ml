@@ -84,6 +84,8 @@ let result_from_task rpc session_id remote_task =
         )
   | `pending ->
       failwith "wait_for_task_completion failed; task is still pending"
+  | `persistent ->
+      failwith "this is a persistent task, which will never complete"
   | `success ->
       ()
   | `failure ->
