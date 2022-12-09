@@ -256,7 +256,8 @@ let probation_pending_tasks = Hashtbl.create 53
 
 let timeout_tasks ~__context =
   let all_tasks =
-    Db.Task.get_internal_records_where ~__context ~expr:Db_filter_types.True
+    Db.Task.get_internal_records_where ~__context
+      ~expr:Db_filter_types.(Not (Eq (Field "status", Literal "persistent")))
   in
   let oldest_completed_time =
     Unix.time () -. !Xapi_globs.completed_task_timeout
