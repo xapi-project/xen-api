@@ -20,7 +20,7 @@ let prototyped_of_field = function
   | "host", "last_software_update" ->
       Some "22.20.0"
   | "pool", "migration_compression" ->
-      Some "22.32.0-next"
+      Some "22.33.0"
   | _ ->
       None
 
