@@ -1963,6 +1963,16 @@ let vm_record rpc session_id vm =
               ~value:(Record_util.string_to_on_normal_exit x)
           )
           ()
+      ; make_field ~name:"actions-after-softreboot"
+          ~get:(fun () ->
+            Record_util.on_softreboot_behaviour_to_string
+              (x ()).API.vM_actions_after_softreboot
+          )
+          ~set:(fun x ->
+            Client.VM.set_actions_after_softreboot ~rpc ~session_id ~self:vm
+              ~value:(Record_util.string_to_on_softreboot_behaviour x)
+          )
+          ()
       ; make_field ~name:"actions-after-reboot"
           ~get:(fun () ->
             Record_util.on_normal_exit_to_string

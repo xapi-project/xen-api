@@ -367,6 +367,7 @@ let copy_vm_record ?snapshot_info_record ~__context ~vm ~disk_op ~new_name
     ~vCPUs_max:all.Db_actions.vM_VCPUs_max
     ~vCPUs_at_startup:all.Db_actions.vM_VCPUs_at_startup
     ~vCPUs_params:all.Db_actions.vM_VCPUs_params
+    ~actions_after_softreboot:all.Db_actions.vM_actions_after_softreboot
     ~actions_after_shutdown:all.Db_actions.vM_actions_after_shutdown
     ~actions_after_reboot:all.Db_actions.vM_actions_after_reboot
     ~actions_after_crash:all.Db_actions.vM_actions_after_crash

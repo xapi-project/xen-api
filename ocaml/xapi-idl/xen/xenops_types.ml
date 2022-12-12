@@ -134,7 +134,8 @@ module Vm = struct
 
   type id = string [@@deriving rpcty, sexp]
 
-  type action = Coredump | Shutdown | Start | Pause [@@deriving rpcty, sexp]
+  type action = Coredump | Shutdown | Start | Pause | Softreboot
+  [@@deriving rpcty, sexp]
 
   type scheduler_params = {
       priority: (int * int) option  (** weight, cap *)
@@ -161,6 +162,7 @@ module Vm = struct
     ; on_crash: action list
     ; on_shutdown: action list
     ; on_reboot: action list
+    ; on_softreboot: action list [@default [Softreboot]]
     ; pci_msitranslate: bool
     ; pci_power_mgmt: bool
     ; has_vendor_device: bool [@default false]
