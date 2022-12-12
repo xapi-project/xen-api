@@ -3207,10 +3207,9 @@ end
 (* XXX: PR-1255: we also want to only listen for events on VMs and fields we care about *)
 let events_from_xapi () =
   let open Event_types in
-  Server_helpers.exec_with_new_task ~task_in_database:true "xapi events"
-    (fun __context ->
-      let task = Context.get_task_id __context |> Ref.string_of in
+  Server_helpers.exec_with_new_task "xapi events" (fun __context ->
       let localhost = Helpers.get_localhost ~__context in
+      let localhost' = Ref.string_of localhost in
       let token = ref "" in
       let stop = ref false in
       while not !stop do
@@ -3223,8 +3222,8 @@ let events_from_xapi () =
                       injection" ;
                    try
                      let _ =
-                       XenAPI.Event.inject ~rpc ~session_id ~_class:"task"
-                         ~_ref:task
+                       XenAPI.Event.inject ~rpc ~session_id ~_class:"host"
+                         ~_ref:localhost'
                      in
                      ()
                    with e ->
@@ -3252,7 +3251,7 @@ let events_from_xapi () =
                 error "events_from_xapi: extra items in the cache: [ %s ]"
                   (String.concat "; " (StringSet.elements extra_in_cache)) ;
               let classes =
-                Printf.sprintf "task/%s" task
+                Printf.sprintf "host/%s" localhost'
                 :: List.map
                      (fun x -> Printf.sprintf "VM/%s" (Ref.string_of x))
                      resident_VMs
@@ -3310,7 +3309,7 @@ let events_from_xapi () =
                             raise e
                           )
                       )
-                    | {ty= "task"; reference= t; _} when t = task ->
+                    | {ty= "host"; reference= t; _} when t = localhost' ->
                         debug
                           "Woken event thread: updating list of event \
                            subscriptions" ;
