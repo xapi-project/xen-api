@@ -1102,6 +1102,10 @@ let assert_is_valid_cidr kind field cidr =
   if parse_cidr kind cidr = None then
     raise Api_errors.(Server_error (invalid_cidr_address_specified, [field]))
 
+let assert_is_valid_ip_addr kind field address =
+  if (not (is_valid_ip kind address)) && parse_cidr kind address = None then
+    raise Api_errors.(Server_error (invalid_ip_address_specified, [field]))
+
 (** Return true if the MAC is in the right format XX:XX:XX:XX:XX:XX *)
 let is_valid_MAC mac =
   let l = String.split_on_char ':' mac in
