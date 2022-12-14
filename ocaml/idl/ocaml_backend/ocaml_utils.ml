@@ -26,21 +26,19 @@ let escape x =
 (** Escape enum names to make them readable polymorphic variant type
     constructors. *)
 let constructor_of string =
-  let remove_non_alphanum = function
-    | ('A' .. 'Z' | 'a' .. 'z' | '0' .. '9' | '_') as c ->
-        String.make 1 c
+  let is_valid_for_name = function
+    | 'A' .. 'Z' | 'a' .. 'z' | '0' .. '9' | '_' ->
+        true
     | _ ->
-        ""
+        false
   in
-  let string = if List.mem string keywords then "_" ^ string else string in
-  let list =
-    match Xapi_stdext_std.Xstringext.String.explode string with
-    | '0' .. '9' :: _ as list ->
-        "`_" :: List.map remove_non_alphanum list
-    | list ->
-        "`" :: List.map remove_non_alphanum list
+  let prefix =
+    if List.mem string keywords || Astring.Char.Ascii.is_digit string.[0] then
+      "`_"
+    else
+      "`"
   in
-  String.concat "" list
+  prefix ^ Astring.String.filter is_valid_for_name string
 
 (* generates: vM *)
 let ocaml_of_record_name x = escape (String.uncapitalize_ascii x)

@@ -520,7 +520,7 @@ and get_all_records_method classname =
       ; internal= ["closed"; "debug"]
       ; internal_deprecated_since= None
       }
-  ; msg_lifecycle= []
+  ; msg_lifecycle= Lifecycle.from []
   ; msg_has_effect= false
   ; msg_tag= Custom
   ; msg_obj_name= classname
@@ -811,7 +811,8 @@ and gen_save_changes_to_field out_chan exposed_class_name fr =
 
 and ctor_call classname =
   let fields =
-    Datamodel_utils.fields_of_obj (Dm_api.get_obj_by_name api ~objname:classname)
+    Datamodel_utils.active_fields_of_obj
+      (Dm_api.get_obj_by_name api ~objname:classname)
   in
   let fields2 =
     List.filter

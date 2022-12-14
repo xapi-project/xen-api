@@ -14,16 +14,14 @@ let product_brand () = Inventory.lookup ~default:"" "PRODUCT_BRAND"
 
 let build_number () = Inventory.lookup ~default:"" "BUILD_NUMBER"
 
-let git_id = ""
-
 let hostname = "localhost"
 
 let date = Xapi_build_info.date
 
-let version, xapi_version_major, xapi_version_minor =
+let version, xapi_version_major, xapi_version_minor, git_id =
   match Build_info.V1.version () with
   | None ->
-      ("0.0.dev", 0, 0)
+      ("0.0.dev", 0, 0, "dev")
   | Some v -> (
       let str = Build_info.V1.Version.to_string v in
       let version =
@@ -33,10 +31,10 @@ let version, xapi_version_major, xapi_version_minor =
           str
       in
       try
-        let maj, min =
-          Scanf.sscanf version "%d.%d.%s" (fun maj min _rest -> (maj, min))
+        let maj, min, git_id =
+          Scanf.sscanf version "%d.%d.%s" (fun maj min rest -> (maj, min, rest))
         in
-        (version, maj, min)
+        (version, maj, min, git_id)
       with _ ->
         failwith
           (Printf.sprintf

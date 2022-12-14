@@ -405,7 +405,7 @@ let operation (obj : obj) (x : message) =
   in
   let all =
     let all_list =
-      if not (DU.has_been_removed x.DT.msg_lifecycle) then
+      if not (x.DT.msg_lifecycle.state = Removed_s) then
         comments
         @ name_default_params
         @ unmarshall_code

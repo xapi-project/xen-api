@@ -18,11 +18,12 @@ let cluster_operation =
       ]
     )
 
-let lifecycle = [(Prototyped, rel_kolkata, ""); (Published, rel_lima, "")]
+let lifecycle =
+  [(Lifecycle.Prototyped, rel_kolkata, ""); (Published, rel_lima, "")]
 
 let lifecycle_timeout =
   [
-    (Prototyped, rel_kolkata, "the unit is milliseconds")
+    (Lifecycle.Prototyped, rel_kolkata, "the unit is milliseconds")
   ; (Changed, rel_lima, "the unit is now seconds")
   ; (Published, rel_lima, "")
   ]

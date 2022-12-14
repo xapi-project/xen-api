@@ -523,7 +523,7 @@ and print_params_constructor message obj classname =
     \        #endregion\n"
     (qualified_class_name classname)
     ( if is_real_constructor message then
-        gen_fields (DU.fields_of_obj obj)
+        gen_fields (DU.active_fields_of_obj obj)
     else
       gen_constructor_params message.msg_params
     )
@@ -615,7 +615,7 @@ and gen_make_record obj classname =
     \                Record = new %s(HashTable);\n\
     \            }\n"
     (qualified_class_name classname)
-    (gen_record_fields (DU.fields_of_obj obj))
+    (gen_record_fields (DU.active_fields_of_obj obj))
     (qualified_class_name classname)
 
 and gen_record_fields fields =
@@ -668,8 +668,8 @@ and gen_make_fields message obj =
     \            else if (HashTable != null)\n\
     \            {%s\n\
     \            }"
-    (explode_record_fields message (DU.fields_of_obj obj))
-    (explode_hashtable_fields message (DU.fields_of_obj obj))
+    (explode_record_fields message (DU.active_fields_of_obj obj))
+    (explode_hashtable_fields message (DU.active_fields_of_obj obj))
 
 and explode_record_fields message fields =
   let print_map tl hd =

@@ -14,6 +14,7 @@
 (** Data Model and Message Specification for Xen Management Tools *)
 
 open Datamodel_types
+open Lifecycle
 open Datamodel_common
 open Datamodel_roles
 
@@ -175,9 +176,8 @@ module Session = struct
 
   let t =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303
-      ~internal_deprecated_since:None ~persist:PersistNothing
-      ~gen_constructor_destructor:false ~name:_session ~descr:"A session"
-      ~gen_events:false ~doccomments:[]
+      ~persist:PersistNothing ~gen_constructor_destructor:false ~name:_session
+      ~descr:"A session" ~gen_events:false ~doccomments:[]
       ~messages_default_allowed_roles:_R_POOL_ADMIN
       ~messages:
         [
@@ -365,8 +365,7 @@ module Task = struct
 
   let t =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303
-      ~internal_deprecated_since:None ~persist:PersistNothing
-      ~gen_constructor_destructor:false ~name:_task
+      ~persist:PersistNothing ~gen_constructor_destructor:false ~name:_task
       ~descr:"A long-running asynchronous task" ~gen_events:true ~doccomments:[]
       ~messages_default_allowed_roles:_R_POOL_OP
       ~messages:
@@ -462,10 +461,20 @@ let iobandwidth =
   [
     field ~persist:false ~qualifier:DynamicRO ~ty:Float "read_kbs"
       "Read bandwidth (KiB/s)"
-      ~lifecycle:[(Published, rel_rio, ""); (Removed, rel_tampa, msg)]
+      ~lifecycle:
+        [
+          (Published, rel_rio, "")
+        ; (Deprecated, rel_tampa, "Dummy transition")
+        ; (Removed, rel_tampa, msg)
+        ]
   ; field ~persist:false ~qualifier:DynamicRO ~ty:Float "write_kbs"
       "Write bandwidth (KiB/s)"
-      ~lifecycle:[(Published, rel_rio, ""); (Removed, rel_tampa, msg)]
+      ~lifecycle:
+        [
+          (Published, rel_rio, "")
+        ; (Deprecated, rel_tampa, "Dummy transition")
+        ; (Removed, rel_tampa, msg)
+        ]
   ]
 
 (** Human users *)
@@ -473,9 +482,8 @@ module User = struct
   let t =
     (* DEPRECATED in favor of subject *)
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303
-      ~internal_deprecated_since:None ~persist:PersistEverything
-      ~gen_constructor_destructor:true ~name:_user ~descr:"A user of the system"
-      ~gen_events:false
+      ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_user
+      ~descr:"A user of the system" ~gen_events:false
       ~lifecycle:
         [
           (Published, rel_rio, "A user of the system")
@@ -521,8 +529,8 @@ module Host_crashdump = struct
 
   let t =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:None
-      ~internal_deprecated_since:None ~persist:PersistEverything
-      ~gen_constructor_destructor:false ~name:_host_crashdump ~gen_events:true
+      ~persist:PersistEverything ~gen_constructor_destructor:false
+      ~name:_host_crashdump ~gen_events:true
       ~descr:"Represents a host crash dump" ~doccomments:[]
       ~messages_default_allowed_roles:_R_POOL_OP ~messages:[destroy; upload]
       ~contents:
@@ -670,8 +678,8 @@ module Pool_update = struct
 
   let t =
     create_obj ~in_db:true ~in_product_since:rel_ely ~in_oss_since:None
-      ~internal_deprecated_since:None ~persist:PersistEverything
-      ~gen_constructor_destructor:false ~gen_events:true ~name:_pool_update
+      ~persist:PersistEverything ~gen_constructor_destructor:false
+      ~gen_events:true ~name:_pool_update
       ~descr:"Pool-wide updates to the host software" ~doccomments:[]
       ~messages_default_allowed_roles:_R_POOL_OP
       ~messages:
@@ -926,10 +934,10 @@ module Host_metrics = struct
 
   let t =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303
-      ~internal_deprecated_since:None ~persist:PersistEverything
-      ~gen_constructor_destructor:false ~name:_host_metrics
-      ~descr:"The metrics associated with a host" ~gen_events:true
-      ~doccomments:[] ~messages_default_allowed_roles:_R_POOL_OP ~messages:[]
+      ~persist:PersistEverything ~gen_constructor_destructor:false
+      ~name:_host_metrics ~descr:"The metrics associated with a host"
+      ~gen_events:true ~doccomments:[]
+      ~messages_default_allowed_roles:_R_POOL_OP ~messages:[]
       ~contents:
         [
           uid _host_metrics
@@ -950,9 +958,8 @@ end
 module Host_cpu = struct
   let t =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303
-      ~internal_deprecated_since:None ~persist:PersistEverything
-      ~gen_constructor_destructor:false ~name:_hostcpu ~descr:"A physical CPU"
-      ~gen_events:true
+      ~persist:PersistEverything ~gen_constructor_destructor:false
+      ~name:_hostcpu ~descr:"A physical CPU" ~gen_events:true
       ~lifecycle:
         [
           (Published, rel_rio, "A physical CPU")
@@ -1224,9 +1231,8 @@ module Network = struct
   (** A virtual network *)
   let t =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303
-      ~internal_deprecated_since:None ~persist:PersistEverything
-      ~gen_constructor_destructor:true ~name:_network ~descr:"A virtual network"
-      ~gen_events:true ~doccomments:[]
+      ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_network
+      ~descr:"A virtual network" ~gen_events:true ~doccomments:[]
       ~messages_default_allowed_roles:
         _R_VM_ADMIN (* vm admins can create/destroy networks without PIFs *)
       ~doc_tags:[Networking]
@@ -1753,8 +1759,7 @@ module PIF = struct
 
   let t =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303
-      ~internal_deprecated_since:None ~persist:PersistEverything
-      ~gen_constructor_destructor:false ~name:_pif
+      ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_pif
       ~descr:
         "A physical network interface (note separate VLANs are represented as \
          several PIFs)"
@@ -1934,8 +1939,8 @@ end
 module PIF_metrics = struct
   let t =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303
-      ~internal_deprecated_since:None ~persist:PersistEverything
-      ~gen_constructor_destructor:false ~name:_pif_metrics
+      ~persist:PersistEverything ~gen_constructor_destructor:false
+      ~name:_pif_metrics
       ~descr:"The metrics associated with a physical network interface"
       ~gen_events:true ~doccomments:[]
       ~messages_default_allowed_roles:_R_POOL_OP ~doc_tags:[Networking]
@@ -2051,10 +2056,9 @@ module Bond = struct
 
   let t =
     create_obj ~in_db:true ~in_product_since:rel_miami ~in_oss_since:None
-      ~internal_deprecated_since:None ~persist:PersistEverything
-      ~gen_constructor_destructor:false ~name:_bond ~descr:"" ~gen_events:true
-      ~doccomments:[] ~messages_default_allowed_roles:_R_POOL_OP
-      ~doc_tags:[Networking]
+      ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_bond
+      ~descr:"" ~gen_events:true ~doccomments:[]
+      ~messages_default_allowed_roles:_R_POOL_OP ~doc_tags:[Networking]
       ~messages:[create; destroy; set_mode; set_property]
       ~contents:
         [
@@ -2158,9 +2162,8 @@ module VLAN = struct
 
   let t =
     create_obj ~in_db:true ~in_product_since:rel_miami ~in_oss_since:None
-      ~internal_deprecated_since:None ~persist:PersistEverything
-      ~gen_constructor_destructor:false ~name:_vlan ~descr:"A VLAN mux/demux"
-      ~gen_events:true ~doccomments:[]
+      ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_vlan
+      ~descr:"A VLAN mux/demux" ~gen_events:true ~doccomments:[]
       ~messages_default_allowed_roles:_R_POOL_OP ~doc_tags:[Networking]
       ~messages:[pool_introduce; create; destroy]
       ~contents:
@@ -2308,8 +2311,7 @@ module PBD = struct
 
   let t =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303
-      ~internal_deprecated_since:None ~persist:PersistEverything
-      ~gen_constructor_destructor:true ~name:_pbd
+      ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_pbd
       ~descr:"The physical block devices through which hosts access SRs"
       ~gen_events:true ~doccomments:[]
       ~messages_default_allowed_roles:_R_POOL_OP
@@ -2625,8 +2627,7 @@ module VIF = struct
   (** A virtual network interface *)
   let t =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303
-      ~internal_deprecated_since:None ~persist:PersistEverything
-      ~gen_constructor_destructor:true ~name:_vif
+      ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_vif
       ~descr:"A virtual network interface" ~gen_events:true ~doccomments:[]
       ~messages_default_allowed_roles:_R_VM_ADMIN ~doc_tags:[Networking]
       ~messages:
@@ -2672,6 +2673,7 @@ module VIF = struct
               ~lifecycle:
                 [
                   (Published, rel_rio, "")
+                ; (Deprecated, rel_tampa, "Dummy transition")
                 ; (Removed, rel_tampa, "Disabled in favour of RRDs")
                 ]
               "metrics" "metrics associated with this VIF"
@@ -2730,6 +2732,7 @@ module VIF_metrics = struct
           , rel_rio
           , "The metrics associated with a virtual network device"
           )
+        ; (Deprecated, rel_tampa, "Dummy transition")
         ; (Removed, rel_tampa, "Disabled in favour of RRDs")
         ]
       ~in_db:true ~in_oss_since:oss_since_303 ~persist:PersistNothing
@@ -2754,10 +2757,10 @@ end
 module Data_source = struct
   let t =
     create_obj ~in_db:false ~in_product_since:rel_orlando ~in_oss_since:None
-      ~internal_deprecated_since:None ~persist:PersistNothing
-      ~gen_constructor_destructor:false ~name:_data_source
-      ~descr:"Data sources for logging in RRDs" ~gen_events:false
-      ~doccomments:[] ~messages_default_allowed_roles:_R_POOL_ADMIN ~messages:[]
+      ~persist:PersistNothing ~gen_constructor_destructor:false
+      ~name:_data_source ~descr:"Data sources for logging in RRDs"
+      ~gen_events:false ~doccomments:[]
+      ~messages_default_allowed_roles:_R_POOL_ADMIN ~messages:[]
       ~contents:
         [
           namespace ~name:"name" ~contents:(names oss_since_303 DynamicRO) ()
@@ -3312,9 +3315,8 @@ module SR = struct
   (** A storage repository. Note we overide default create/destroy methods with our own here... *)
   let t =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303
-      ~internal_deprecated_since:None ~persist:PersistEverything
-      ~gen_constructor_destructor:false ~name:_sr ~descr:"A storage repository"
-      ~gen_events:true ~doccomments:[]
+      ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_sr
+      ~descr:"A storage repository" ~gen_events:true ~doccomments:[]
       ~messages_default_allowed_roles:_R_POOL_OP
       ~messages:
         [
@@ -3420,8 +3422,7 @@ module SM = struct
 
   let t =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:None
-      ~internal_deprecated_since:None ~persist:PersistEverything
-      ~gen_constructor_destructor:false ~name:_sm
+      ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_sm
       ~descr:"A storage manager plugin" ~gen_events:true ~doccomments:[]
       ~messages_default_allowed_roles:_R_POOL_OP ~messages:[]
       ~contents:
@@ -3502,8 +3503,7 @@ module LVHD = struct
 
   let t =
     create_obj ~in_db:true ~in_product_since:rel_dundee ~in_oss_since:None
-      ~internal_deprecated_since:None ~persist:PersistEverything
-      ~gen_constructor_destructor:false ~name:_lvhd
+      ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_lvhd
       ~descr:"LVHD SR specific operations" ~gen_events:true ~doccomments:[]
       ~messages_default_allowed_roles:_R_POOL_ADMIN
       ~messages:[enable_thin_provisioning] ~contents:[uid _lvhd] ()
@@ -3659,6 +3659,7 @@ module VDI = struct
       ~lifecycle:
         [
           (Published, rel_rio, "")
+        ; (Deprecated, rel_inverness, "Dummy transition")
         ; ( Removed
           , rel_inverness
           , "Online VDI resize is not supported by any of the storage backends."
@@ -4334,9 +4335,8 @@ module VDI = struct
   (** A virtual disk *)
   let t =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303
-      ~internal_deprecated_since:None ~persist:PersistEverything
-      ~gen_constructor_destructor:true ~name:_vdi ~descr:"A virtual disk image"
-      ~gen_events:true ~doccomments:[]
+      ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_vdi
+      ~descr:"A virtual disk image" ~gen_events:true ~doccomments:[]
       ~messages_default_allowed_roles:_R_VM_ADMIN
       ~messages:
         [
@@ -4639,8 +4639,7 @@ module VBD = struct
   (** A virtual disk interface *)
   let t =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303
-      ~internal_deprecated_since:None ~persist:PersistEverything
-      ~gen_constructor_destructor:true ~name:_vbd
+      ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_vbd
       ~descr:"A virtual block device" ~gen_events:true ~doccomments:[]
       ~messages_default_allowed_roles:_R_VM_ADMIN
       ~messages:
@@ -4701,6 +4700,7 @@ module VBD = struct
               ~lifecycle:
                 [
                   (Published, rel_rio, "")
+                ; (Deprecated, rel_tampa, "Dummy transition")
                 ; (Removed, rel_tampa, "Disabled in favour of RRDs")
                 ]
               "metrics" "metrics associated with this VBD"
@@ -4718,6 +4718,7 @@ module VBD_metrics = struct
           , rel_rio
           , "The metrics associated with a virtual block device"
           )
+        ; (Deprecated, rel_tampa, "Dummy transition")
         ; (Removed, rel_tampa, "Disabled in favour of RRD")
         ]
       ~in_db:true ~in_oss_since:oss_since_303 ~persist:PersistNothing
@@ -4733,6 +4734,7 @@ module VBD_metrics = struct
             ~lifecycle:
               [
                 (Published, rel_rio, "")
+              ; (Deprecated, rel_tampa, "Dummy transition")
               ; (Removed, rel_tampa, "Disabled in favour of RRD")
               ]
             "last_updated" "Time at which this information was last updated"
@@ -4740,6 +4742,7 @@ module VBD_metrics = struct
             ~lifecycle:
               [
                 (Published, rel_orlando, "")
+              ; (Deprecated, rel_tampa, "Dummy transition")
               ; (Removed, rel_tampa, "Disabled in favour of RRD")
               ]
             ~default_value:(Some (VMap []))
@@ -4843,8 +4846,7 @@ module Auth = struct
 
   let t =
     create_obj ~in_db:false ~in_product_since:rel_george ~in_oss_since:None
-      ~internal_deprecated_since:None ~persist:PersistNothing
-      ~gen_constructor_destructor:false ~name:_auth
+      ~persist:PersistNothing ~gen_constructor_destructor:false ~name:_auth
       ~descr:"Management of remote authentication services" ~gen_events:false
       ~doccomments:[] ~messages_default_allowed_roles:_R_READ_ONLY
       ~messages:
@@ -4903,8 +4905,7 @@ module Subject = struct
   (* a subject is a user/group that can log in xapi *)
   let t =
     create_obj ~in_db:true ~in_product_since:rel_george ~in_oss_since:None
-      ~internal_deprecated_since:None ~persist:PersistEverything
-      ~gen_constructor_destructor:true ~name:_subject
+      ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_subject
       ~descr:"A user or group that can log in xapi" ~gen_events:true
       ~doccomments:[] ~messages_default_allowed_roles:_R_POOL_ADMIN
       ~messages:[add_to_roles; remove_from_roles; get_permissions_name_label]
@@ -5027,9 +5028,8 @@ module Console = struct
   (** A virtual console device *)
   let t =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303
-      ~internal_deprecated_since:None ~persist:PersistEverything
-      ~gen_constructor_destructor:true ~name:_console ~descr:"A console"
-      ~gen_events:true ~doccomments:[]
+      ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_console
+      ~descr:"A console" ~gen_events:true ~doccomments:[]
       ~messages_default_allowed_roles:_R_VM_ADMIN ~messages:[]
       ~contents:
         [
@@ -5067,6 +5067,7 @@ module VM_metrics = struct
         ~lifecycle:
           [
             (Published, rel_rio, "")
+          ; (Deprecated, rel_tampa, "Dummy transition")
           ; (Removed, rel_tampa, "Disabled in favour of RRDs")
           ]
     ; field ~qualifier:DynamicRO
@@ -5082,9 +5083,9 @@ module VM_metrics = struct
 
   let t =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303
-      ~internal_deprecated_since:None ~persist:PersistEverything
-      ~gen_constructor_destructor:false ~name:_vm_metrics
-      ~descr:"The metrics associated with a VM" ~gen_events:true ~doccomments:[]
+      ~persist:PersistEverything ~gen_constructor_destructor:false
+      ~name:_vm_metrics ~descr:"The metrics associated with a VM"
+      ~gen_events:true ~doccomments:[]
       ~messages_default_allowed_roles:_R_VM_ADMIN ~messages:[]
       ~contents:
         [
@@ -5141,8 +5142,8 @@ module VM_guest_metrics = struct
      Other things don't need to persist, so we specify these on a per-field basis *)
   let t =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303
-      ~internal_deprecated_since:None ~persist:PersistEverything
-      ~gen_constructor_destructor:false ~name:_vm_guest_metrics
+      ~persist:PersistEverything ~gen_constructor_destructor:false
+      ~name:_vm_guest_metrics
       ~descr:
         "The metrics reported by the guest (as opposed to inferred from \
          outside)"
@@ -5177,6 +5178,7 @@ module VM_guest_metrics = struct
             ~lifecycle:
               [
                 (Published, rel_rio, "free/used/total")
+              ; (Deprecated, rel_george, "Dummy transition")
               ; ( Removed
                 , rel_george
                 , "Disabled in favour of the RRDs, to improve scalability"
@@ -5190,6 +5192,7 @@ module VM_guest_metrics = struct
             ~lifecycle:
               [
                 (Published, rel_rio, "Disk configuration/free space")
+              ; (Deprecated, rel_orlando, "Dummy transition")
               ; (Removed, rel_orlando, "No data")
               ]
             "disks" "This field exists but has no data."
@@ -5254,6 +5257,7 @@ module VMPP = struct
   let removed =
     [
       (Published, rel_cowley, "")
+    ; (Deprecated, rel_clearwater, "Dummy transition")
     ; (Removed, rel_clearwater, "The VMPR feature was removed")
     ]
 
@@ -5934,9 +5938,8 @@ module VM_appliance = struct
 
   let t =
     create_obj ~in_db:true ~in_product_since:rel_boston ~in_oss_since:None
-      ~internal_deprecated_since:None ~persist:PersistEverything
-      ~gen_constructor_destructor:true ~name:_vm_appliance ~descr:"VM appliance"
-      ~gen_events:true ~doccomments:[]
+      ~persist:PersistEverything ~gen_constructor_destructor:true
+      ~name:_vm_appliance ~descr:"VM appliance" ~gen_events:true ~doccomments:[]
       ~messages_default_allowed_roles:_R_POOL_OP
       ~messages:
         [
@@ -5990,9 +5993,8 @@ module DR_task = struct
 
   let t =
     create_obj ~in_db:true ~in_product_since:rel_boston ~in_oss_since:None
-      ~internal_deprecated_since:None ~persist:PersistEverything
-      ~gen_constructor_destructor:false ~name:_dr_task ~descr:"DR task"
-      ~gen_events:true ~doccomments:[]
+      ~persist:PersistEverything ~gen_constructor_destructor:false
+      ~name:_dr_task ~descr:"DR task" ~gen_events:true ~doccomments:[]
       ~messages_default_allowed_roles:_R_POOL_OP ~messages:[create; destroy]
       ~contents:
         [
@@ -6124,7 +6126,7 @@ module Event = struct
 
   let t =
     {
-      obj_lifecycle= [(Published, rel_rio, "")]
+      obj_lifecycle= Lifecycle.from [(Published, rel_rio, "")]
     ; name= _event
     ; gen_events= false
     ; description= "Asynchronous event registration and handling"
@@ -6202,8 +6204,7 @@ module Blob = struct
 
   let t =
     create_obj ~in_db:true ~in_product_since:rel_orlando ~in_oss_since:None
-      ~internal_deprecated_since:None ~persist:PersistEverything
-      ~gen_constructor_destructor:false ~name:_blob
+      ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_blob
       ~descr:"A placeholder for a binary blob" ~gen_events:true ~doccomments:[]
       ~messages_default_allowed_roles:_R_POOL_OP ~messages:[create; destroy]
       ~contents:
@@ -6396,8 +6397,7 @@ module Secret = struct
     create_obj ~descr:"A secret" ~doccomments:[]
       ~gen_constructor_destructor:true ~gen_events:false ~in_db:true
       ~in_oss_since:None ~in_product_since:rel_midnight_ride
-      ~internal_deprecated_since:None ~messages:[introduce]
-      ~messages_default_allowed_roles:_R_POOL_OP
+      ~messages:[introduce] ~messages_default_allowed_roles:_R_POOL_OP
       ~implicit_messages_allowed_roles:_R_POOL_OP ~name:_secret
       ~persist:PersistEverything
       ~contents:
@@ -6415,7 +6415,7 @@ end
 (*
 
 let alert =
-  create_obj ~in_product_since:rel_miami ~in_oss_since:None ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_alert ~descr:"Notification information"
+  create_obj ~in_product_since:rel_miami ~in_oss_since:None ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_alert ~descr:"Notification information"
     ~gen_events:true
     ~doccomments:[]
     ~messages: []
@@ -7886,14 +7886,16 @@ let all_relations =
 
 let update_lifecycles =
   let replace_prototyped p ls =
-    (Prototyped, p, "")
-    :: List.filter (function Prototyped, _, _ -> false | _ -> true) ls
+    Lifecycle.from
+      ((Prototyped, p, "")
+      :: List.filter (function Prototyped, _, _ -> false | _ -> true) ls
+      )
   in
   let replace_obj_lifecycle obj =
     let obj_lifecycle =
       match Datamodel_lifecycle.prototyped_of_class obj.name with
       | Some p ->
-          replace_prototyped p obj.obj_lifecycle
+          replace_prototyped p obj.obj_lifecycle.transitions
       | None ->
           obj.obj_lifecycle
     in
@@ -7906,7 +7908,7 @@ let update_lifecycles =
           (obj_name, Escaping.escape_id fld.full_name)
       with
       | Some p ->
-          replace_prototyped p fld.lifecycle
+          replace_prototyped p fld.lifecycle.transitions
       | None ->
           fld.lifecycle
     in
@@ -7919,7 +7921,7 @@ let update_lifecycles =
           (msg.msg_obj_name, msg.msg_name)
       with
       | Some p ->
-          replace_prototyped p msg.msg_lifecycle
+          replace_prototyped p msg.msg_lifecycle.transitions
       | None ->
           msg.msg_lifecycle
     in
@@ -8393,3 +8395,31 @@ let extra_permissions =
     (Task.extra_permission_task_destroy_any, _R_POOL_OP)
     (* only POOL_OP can destroy any tasks *)
   ]
+
+module StringMap = Map.Make (String)
+
+type obj_states = {
+    obj_state: Lifecycle.state
+  ; msg_states: Lifecycle.state StringMap.t
+  ; fld_states: Lifecycle.state StringMap.t
+}
+
+let all_lifecycles =
+  let get_msg_state {msg_name; msg_lifecycle= {state; _}; _} =
+    Seq.return (msg_name, state)
+  in
+  let rec get_content_states obj_name = function
+    | Field {full_name; lifecycle= {state; _}; _} ->
+        let fld_name = String.concat "__" full_name in
+        Seq.return (fld_name, state)
+    | Namespace (_, contents) ->
+        List.to_seq contents |> Seq.concat_map (get_content_states obj_name)
+  in
+  let map_with f ls = List.to_seq ls |> Seq.concat_map f |> StringMap.of_seq in
+  Dm_api.objects_of_api all_api
+  |> map_with (fun {name; obj_lifecycle= {state; _}; messages; contents; _} ->
+         let msg_states = map_with get_msg_state messages in
+         let fld_states = map_with (get_content_states name) contents in
+         let fld_states = StringMap.add "_ref" state fld_states in
+         Seq.return (name, {obj_state= state; msg_states; fld_states})
+     )

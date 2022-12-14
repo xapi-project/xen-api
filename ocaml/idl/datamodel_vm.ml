@@ -4,6 +4,21 @@ open Datamodel_common
 open Datamodel_roles
 open Datamodel_types
 
+let vmpp_removed =
+  [
+    (Lifecycle.Published, rel_cowley, "")
+  ; (Deprecated, rel_clearwater, "Dummy transition")
+  ; (Removed, rel_clearwater, "The VMPR feature was removed")
+  ]
+
+(* Removing a one-to-many field is quite difficult, leave vmpp reference
+   deprecated only *)
+let vmpp_deprecated =
+  [
+    (Lifecycle.Published, rel_cowley, "")
+  ; (Deprecated, rel_clearwater, "The VMPR feature was removed")
+  ]
+
 let pv =
   [
     field "bootloader" "name of or path to bootloader"
@@ -276,6 +291,7 @@ let snapshot_with_quiesce =
     ~lifecycle:
       [
         (Published, rel_orlando, "")
+      ; (Deprecated, rel_quebec, "Dummy transition")
       ; (Removed, rel_quebec, "VSS support has been removed")
       ]
     ~doc:
@@ -1380,8 +1396,7 @@ let copy_bios_strings =
     ~allowed_roles:_R_VM_ADMIN ()
 
 let set_protection_policy =
-  call ~name:"set_protection_policy" ~in_oss_since:None
-    ~in_product_since:rel_orlando
+  call ~name:"set_protection_policy" ~in_oss_since:None ~lifecycle:vmpp_removed
     ~doc:"Set the value of the protection_policy field"
     ~params:[(Ref _vm, "self", "The VM"); (Ref _vmpp, "value", "The value")]
     ~flags:[`Session] ~allowed_roles:_R_POOL_OP ()
@@ -1658,8 +1673,7 @@ let set_NVRAM_EFI_variables =
 (** VM (or 'guest') configuration: *)
 let t =
   create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303
-    ~internal_deprecated_since:None ~persist:PersistEverything
-    ~gen_constructor_destructor:true ~name:_vm
+    ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_vm
     ~descr:"A virtual machine (or 'guest')." ~gen_events:true
     ~doccomments:
       [
@@ -1991,21 +2005,12 @@ let t =
             ~ty:(Map (String, String))
             "bios_strings" "BIOS strings"
         ; field ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:StaticRO
-            ~lifecycle:
-              [
-                (Published, rel_cowley, "")
-              ; (Deprecated, rel_clearwater, "The VMPR feature was removed")
-              ]
-            ~default_value:(Some (VRef null_ref)) ~ty:(Ref _vmpp)
-            "protection_policy"
+            ~lifecycle:vmpp_deprecated ~default_value:(Some (VRef null_ref))
+            ~ty:(Ref _vmpp) "protection_policy"
             "Ref pointing to a protection policy for this VM"
         ; field ~writer_roles:_R_POOL_OP ~qualifier:StaticRO
-            ~lifecycle:
-              [
-                (Published, rel_cowley, "")
-              ; (Deprecated, rel_clearwater, "The VMPR feature was removed")
-              ]
-            ~default_value:(Some (VBool false)) ~ty:Bool "is_snapshot_from_vmpp"
+            ~lifecycle:vmpp_removed ~default_value:(Some (VBool false)) ~ty:Bool
+            "is_snapshot_from_vmpp"
             "true if this snapshot was created by the protection policy"
         ; field ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:StaticRO
             ~in_product_since:rel_falcon ~default_value:(Some (VRef null_ref))

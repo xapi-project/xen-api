@@ -111,18 +111,27 @@ end = struct
         string_of_default y
 
   let of_lifecycle lc =
-    `List
-      (List.map
-         (fun (t, r, d) ->
-           `Assoc
-             [
-               ("transition", `String (string_of_lifecycle_transition t))
-             ; ("release", `String r)
-             ; ("description", `String d)
-             ]
-         )
-         lc
-      )
+    `Assoc
+      [
+        ("state", `String Lifecycle.(string_of_state lc.state))
+      ; ( "transitions"
+        , `List
+            (List.map
+               (fun (t, r, d) ->
+                 `Assoc
+                   [
+                     ( "transition"
+                     , `String
+                         (String.lowercase_ascii (Lifecycle.string_of_change t))
+                     )
+                   ; ("release", `String r)
+                   ; ("description", `String d)
+                   ]
+               )
+               lc.transitions
+            )
+        )
+      ]
 
   let fields_of_obj_with_enums obj =
     let rec flatten_contents contents =
@@ -231,7 +240,7 @@ end = struct
             let ctor_fields =
               List.filter
                 (function {qualifier= StaticRO | RW; _} -> true | _ -> false)
-                (fields_of_obj obj)
+                (all_fields_of_obj obj)
               |> List.map (fun f ->
                      String.concat "_" f.full_name
                      ^ if f.default_value = None then "*" else ""
@@ -295,7 +304,10 @@ end = struct
                    ; ("type", `String "&lt;object record&gt;")
                    ; ("qualifier", `String (string_of_qualifier DynamicRO))
                    ; ("tag", `String "")
-                   ; ("lifecycle", of_lifecycle [(Published, rel_boston, "")])
+                   ; ( "lifecycle"
+                     , of_lifecycle
+                         (Lifecycle.from [(Published, rel_boston, "")])
+                     )
                    ]
                ]
              else
@@ -326,13 +338,18 @@ end = struct
   let of_change (t, n, l, s) =
     `Assoc
       [
-        ("transition", `String (string_of_lifecycle_transition t ^ " " ^ s))
+        ( "transition"
+        , `String
+            (String.lowercase_ascii (Lifecycle.string_of_change t) ^ " " ^ s)
+        )
       ; ("name", `String n)
       ; ("log", `String l)
       ]
 
   let compare_changes (a_t, a_n, _, a_k) (b_t, b_n, _, b_k) =
     let int_of_transition = function
+      | Lifecycle.Prototyped ->
+          -10
       | Published ->
           0
       | Extended ->
@@ -343,8 +360,6 @@ end = struct
           30
       | Removed ->
           40
-      | Prototyped ->
-          50
     in
     let int_of_kind = function
       | "class" ->
@@ -366,20 +381,46 @@ end = struct
     else
       cmp
 
+  let rec list_dedup cmp =
+    let rec loop acc = function
+      | [] ->
+          List.rev acc
+      | [item] ->
+          loop (item :: acc) []
+      | a :: b :: rest when cmp a b = 0 ->
+          loop (a :: acc) rest
+      | a :: rest ->
+          loop (a :: acc) rest
+    in
+    loop []
+
+  let remove_outdated changes =
+    (* When several lifecycles transitions for the same entity, keep the most
+       latest change one and drop the rest *)
+    changes
+    |> List.sort (fun ((_, nam_a, _, _) as a) ((_, nam_b, _, _) as b) ->
+           let cmp = String.compare nam_a nam_b in
+           if cmp <> 0 then
+             cmp
+           else
+             -compare_changes a b
+       )
+    |> list_dedup (fun (_, a, _, _) (_, b, _, _) -> String.compare a b)
+
   let release_info releases objs =
     let changes_in_release rel =
       let search_obj obj =
         let changes =
           List.filter
             (fun (_, release, _) -> release = code_name_of_release rel)
-            obj.obj_lifecycle
+            obj.obj_lifecycle.transitions
         in
         let obj_changes =
           List.map
             (fun (transition, _release, doc) ->
               ( transition
               , obj.name
-              , ( if doc = "" && transition = Published then
+              , ( if doc = "" && transition = Lifecycle.Published then
                     obj.description
                 else
                   doc
@@ -388,6 +429,7 @@ end = struct
               )
             )
             changes
+          |> remove_outdated
         in
         let changes_for_msg m =
           let changes =
@@ -395,17 +437,22 @@ end = struct
               (fun (_transition, release, _doc) ->
                 release = code_name_of_release rel
               )
-              m.msg_lifecycle
+              m.msg_lifecycle.transitions
           in
           List.map
             (fun (transition, _release, doc) ->
               ( transition
               , obj.name ^ "." ^ m.msg_name
-              , (if doc = "" && transition = Published then m.msg_doc else doc)
+              , ( if doc = "" && transition = Lifecycle.Published then
+                    m.msg_doc
+                else
+                  doc
+                )
               , "message"
               )
             )
             changes
+          |> remove_outdated
         in
         (* Don't include implicit messages *)
         let msgs = List.filter (fun m -> m.msg_tag = Custom) obj.messages in
@@ -418,14 +465,14 @@ end = struct
               (fun (_transition, release, _doc) ->
                 release = code_name_of_release rel
               )
-              f.lifecycle
+              f.lifecycle.transitions
           in
           let field_name = String.concat "_" f.full_name in
           List.map
             (fun (transition, _release, doc) ->
               ( transition
               , obj.name ^ "." ^ field_name
-              , ( if doc = "" && transition = Published then
+              , ( if doc = "" && transition = Lifecycle.Published then
                     f.field_description
                 else
                   doc
@@ -434,6 +481,7 @@ end = struct
               )
             )
             changes
+          |> remove_outdated
         in
         let rec flatten_contents contents =
           List.fold_left
@@ -452,7 +500,7 @@ end = struct
         let event_snapshot_change =
           if obj.name = "event" && rel.code_name = Some rel_boston then
             [
-              ( Published
+              ( Lifecycle.Published
               , "event.snapshot"
               , "The record of the database object that was added, changed or \
                  deleted"
@@ -583,16 +631,20 @@ let get_versions_from api =
   let classes = Dm_api.objects_of_api api in
   let rec from_field = function
     | Field fld ->
-        fld.lifecycle
+        fld.lifecycle.transitions
     | Namespace (_, nms) ->
         List.concat_map from_field nms
   in
-  let from_message {msg_lifecycle; _} = msg_lifecycle in
+  let from_message {msg_lifecycle= {transitions; _}; _} = transitions in
   let versions_from_class (cls : obj) =
     let field_lifecycles = List.concat_map from_field cls.contents in
     let message_lifecycles = List.concat_map from_message cls.messages in
     List.concat
-      [cls.Datamodel_types.obj_lifecycle; field_lifecycles; message_lifecycles]
+      [
+        cls.Datamodel_types.obj_lifecycle.transitions
+      ; field_lifecycles
+      ; message_lifecycles
+      ]
   in
   let is_named_release name =
     List.exists

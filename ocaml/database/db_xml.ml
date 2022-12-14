@@ -13,9 +13,7 @@
  *)
 open Db_cache_types
 
-module R = Debug.Make (struct let name = "redo_log" end)
-
-module D = Debug.Make (struct let name = "database" end)
+module D = Debug.Make (struct let name = __MODULE__ end)
 
 (** Functions to marshall/unmarshall the database as XML *)
 
@@ -120,6 +118,78 @@ module To = struct
 end
 
 module From = struct
+  let schema_vsn_of_manifest manifest =
+    let get_vsn schema = int_of_string (List.assoc schema manifest) in
+    (get_vsn _schema_major_vsn, get_vsn _schema_minor_vsn)
+
+  let deser_row tags table tblname schema =
+    let get_tags key tags = List.partition (fun ((_, k), _) -> k = key) tags in
+    let get_int64 tag =
+      match tag with [(_, s)] -> Int64.of_string s | _ -> 0L
+    in
+
+    let ref_l, rest = get_tags "ref" tags in
+    let ctime_l, rest = get_tags "__ctime" rest in
+    let mtime_l, rest = get_tags "__mtime" rest in
+
+    let rf =
+      match ref_l with
+      | (_, ref) :: _ ->
+          ref (* Pick up the first ref and ignore others *)
+      | [] ->
+          raise (Unmarshall_error "Row does not have ref attribute")
+    in
+    let ctime = get_int64 ctime_l in
+    let mtime = get_int64 mtime_l in
+
+    let lifecycle_state_of ~obj fld =
+      let open Datamodel in
+      let {fld_states; _} = StringMap.find obj all_lifecycles in
+      StringMap.find fld fld_states
+    in
+
+    let row =
+      List.fold_left
+        (fun row ((_, k), v) ->
+          let table_schema =
+            Schema.Database.find tblname schema.Schema.database
+          in
+          try
+            let do_not_load =
+              try lifecycle_state_of ~obj:tblname k = Removed_s
+              with Not_found ->
+                D.warn "no lifetime information about %s.%s, ignoring" tblname k ;
+                false
+            in
+            if do_not_load then (
+              D.info
+                {|dropping column "%s.%s": it has been removed from the datamodel|}
+                tblname k ;
+              row
+            ) else
+              let column_schema = Schema.Table.find k table_schema in
+              let value =
+                Schema.Value.unmarshal column_schema.Schema.Column.ty
+                  (Xml_spaces.unprotect v)
+              in
+              let empty = column_schema.Schema.Column.empty in
+              Row.update mtime k empty
+                (fun _ -> value)
+                (Row.add ctime k value row)
+          with Not_found ->
+            (* This means there's an unexpected field, fail since no field
+               should ever be deleted, instead they should change their
+               lifecycle state to Removed *)
+            let exc =
+              Unmarshall_error
+                (Printf.sprintf "Unexpected column in table %s: %s" tblname k)
+            in
+            raise exc
+        )
+        Row.empty rest
+    in
+    Table.update mtime rf Row.empty (fun _ -> row) (Table.add ctime rf row table)
+
   let database schema (input : Xmlm.input) =
     let tags = Stack.create () in
     let maybe_return f accu =
@@ -131,93 +201,21 @@ module From = struct
       else
         f accu
     in
-    let schema_vsn_of_manifest manifest =
-      let major_vsn = int_of_string (List.assoc _schema_major_vsn manifest) in
-      let minor_vsn = int_of_string (List.assoc _schema_minor_vsn manifest) in
-      (major_vsn, minor_vsn)
-    in
-    let rec f ((tableset, table, tblname, manifest) as acc) =
+    let rec deser ((tableset, table, tblname, manifest) as acc) =
       match Xmlm.input input with
       (* On reading a start tag... *)
       | `El_start (tag : Xmlm.tag) -> (
           Stack.push tag tags ;
           match tag with
           | (_, ("database" | "manifest")), _ ->
-              f acc
+              deser acc
           | (_, "table"), [((_, "name"), tblname)] ->
-              f (tableset, Table.empty, tblname, manifest)
+              deser (tableset, Table.empty, tblname, manifest)
           | (_, "row"), rest ->
-              let ref_l, rest =
-                List.partition (fun ((_, k), _) -> k = "ref") rest
-              in
-
-              let ctime_l, rest =
-                List.partition (fun ((_, k), _) -> k = "__ctime") rest
-              in
-              let mtime_l, rest =
-                List.partition (fun ((_, k), _) -> k = "__mtime") rest
-              in
-              let rf =
-                match ref_l with
-                | (_, ref) :: _ ->
-                    ref (* Pick up the first ref and ignore others *)
-                | [] ->
-                    raise (Unmarshall_error "Row does not have ref atrribute")
-              in
-              let ctime =
-                match ctime_l with
-                | [(_, ctime_s)] ->
-                    Int64.of_string ctime_s
-                | _ ->
-                    0L
-              in
-              let mtime =
-                match mtime_l with
-                | [(_, mtime_s)] ->
-                    Int64.of_string mtime_s
-                | _ ->
-                    0L
-              in
-              let row =
-                List.fold_left
-                  (fun row ((_, k), v) ->
-                    let table_schema =
-                      Schema.Database.find tblname schema.Schema.database
-                    in
-                    try
-                      let column_schema = Schema.Table.find k table_schema in
-                      let value =
-                        Schema.Value.unmarshal column_schema.Schema.Column.ty
-                          (Xml_spaces.unprotect v)
-                      in
-                      let empty = column_schema.Schema.Column.empty in
-                      Row.update mtime k empty
-                        (fun _ -> value)
-                        (Row.add ctime k value row)
-                    with Not_found ->
-                      (* This means there's an unexpected field, so we should normally fail. However, fields
-                         								 * present in Tech Preview releases are permitted to disappear on upgrade, so suppress
-                         								 * such errors on such upgrades. *)
-                      let exc =
-                        Unmarshall_error
-                          (Printf.sprintf "Unexpected column in table %s: %s"
-                             tblname k
-                          )
-                      in
-                      raise exc
-                  )
-                  Row.empty rest
-              in
-              f
-                ( tableset
-                , Table.update mtime rf Row.empty
-                    (fun _ -> row)
-                    (Table.add ctime rf row table)
-                , tblname
-                , manifest
-                )
+              let table = deser_row rest table tblname schema in
+              deser (tableset, table, tblname, manifest)
           | (_, "pair"), [((_, "key"), k); ((_, "value"), v)] ->
-              f (tableset, table, tblname, (k, v) :: manifest)
+              deser (tableset, table, tblname, (k, v) :: manifest)
           | (_, name), _ ->
               raise (Unmarshall_error (Printf.sprintf "Unexpected tag: %s" name))
         )
@@ -226,17 +224,17 @@ module From = struct
           let tag = Stack.pop tags in
           match tag with
           | (_, ("database" | "manifest" | "row" | "pair")), _ ->
-              maybe_return f acc
+              maybe_return deser acc
           | (_, "table"), [((_, "name"), name)] ->
-              maybe_return f
+              maybe_return deser
                 (TableSet.add 0L name table tableset, Table.empty, "", manifest)
           | (_, name), _ ->
               raise (Unmarshall_error (Printf.sprintf "Unexpected tag: %s" name))
         )
       | _ ->
-          f acc
+          deser acc
     in
-    let ts, _, _, manifest = f (TableSet.empty, Table.empty, "", []) in
+    let ts, _, _, manifest = deser (TableSet.empty, Table.empty, "", []) in
     let g = Int64.of_string (List.assoc _generation_count manifest) in
     let major_vsn, minor_vsn = schema_vsn_of_manifest manifest in
     let manifest = Manifest.make major_vsn minor_vsn g in

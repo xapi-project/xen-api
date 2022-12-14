@@ -3,14 +3,12 @@ module D = Debug.Make (struct let name = "vm_evacuation" end)
 open D
 
 let estimate_evacuate_timeout ~__context ~host =
-  let mref = Db.Host.get_metrics ~__context ~self:host in
-  let metrics = Db.Host_metrics.get_record ~__context ~self:mref in
   let memory_used =
-    Int64.sub metrics.API.host_metrics_memory_total
-      metrics.API.host_metrics_memory_free
+    Db.Host.get_resident_VMs ~__context ~self:host
+    |> List.map (fun self -> Db.VM.get_memory_static_max ~__context ~self)
+    |> List.fold_left Int64.add 0L
   in
-  (* Conservative estimation based on 1000Mbps link, and the memory usage of
-     Dom0 (which is not going to be transferred) is an intentional surplus *)
+  (* Conservative estimation based on 1000Mbps link, ignores unused memory on each VM *)
   let t = Int64.to_float memory_used *. 8. /. (1000. *. 1024. *. 1024.) in
   max 240. t
 

@@ -55,7 +55,7 @@ let rec gen_test_type highapi ty =
 and gen_record_type highapi record =
   let obj_name = OU.ocaml_of_record_name record in
   let all_fields =
-    DU.fields_of_obj (Dm_api.get_obj_by_name highapi ~objname:record)
+    DU.active_fields_of_obj (Dm_api.get_obj_by_name highapi ~objname:record)
   in
   let field fld = OU.ocaml_of_record_field (obj_name :: fld.DT.full_name) in
   let map_fields fn =

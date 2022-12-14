@@ -293,7 +293,6 @@ let make_vif table ~preserve_power_state __context self =
         (if preserve_power_state then vif.API.vIF_currently_attached else false)
     ; API.vIF_network= lookup table (Ref.string_of vif.API.vIF_network)
     ; API.vIF_VM= lookup table (Ref.string_of vif.API.vIF_VM)
-    ; API.vIF_metrics= Ref.null
     ; API.vIF_current_operations= []
     ; API.vIF_allowed_operations= []
     }
@@ -333,7 +332,6 @@ let make_vbd table ~preserve_power_state __context self =
         (if preserve_power_state then vbd.API.vBD_currently_attached else false)
     ; API.vBD_VDI= lookup table (Ref.string_of vbd.API.vBD_VDI)
     ; API.vBD_VM= lookup table (Ref.string_of vbd.API.vBD_VM)
-    ; API.vBD_metrics= Ref.null
     ; API.vBD_current_operations= []
     ; API.vBD_allowed_operations= []
     }

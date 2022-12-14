@@ -19,10 +19,6 @@ open D
 
 let name = "xenopsd"
 
-let major_version = 0
-
-let minor_version = 9
-
 let sockets_path = ref Xenops_interface.default_sockets_dir
 
 let persist = ref true
@@ -407,7 +403,7 @@ let doc =
 let configure ?(specific_options = []) ?(specific_essential_paths = [])
     ?(specific_nonessential_paths = []) () =
   Debug.set_facility Syslog.Local5 ;
-  debug "xenopsd version %d.%d starting" major_version minor_version ;
+  debug "xenopsd version %s starting" Xapi_version.version ;
   let options = options @ specific_options in
   let resources =
     Resources.make_resources

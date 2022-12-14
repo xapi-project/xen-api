@@ -233,25 +233,11 @@ let destroy ~__context ~self =
   ) ;
   let vbds = Db.VM.get_VBDs ~__context ~self in
   List.iter
-    (fun vbd ->
-      ( try
-          let metrics = Db.VBD.get_metrics ~__context ~self:vbd in
-          Db.VBD_metrics.destroy ~__context ~self:metrics
-        with _ -> ()
-      ) ;
-      try Db.VBD.destroy ~__context ~self:vbd with _ -> ()
-    )
+    (fun vbd -> try Db.VBD.destroy ~__context ~self:vbd with _ -> ())
     vbds ;
   let vifs = Db.VM.get_VIFs ~__context ~self in
   List.iter
-    (fun vif ->
-      ( try
-          let metrics = Db.VIF.get_metrics ~__context ~self:vif in
-          Db.VIF_metrics.destroy ~__context ~self:metrics
-        with _ -> ()
-      ) ;
-      try Db.VIF.destroy ~__context ~self:vif with _ -> ()
-    )
+    (fun vif -> try Db.VIF.destroy ~__context ~self:vif with _ -> ())
     vifs ;
   let vgpus = Db.VM.get_VGPUs ~__context ~self in
   List.iter
@@ -1316,11 +1302,6 @@ let copy_metrics ~__context ~vm =
          ~some:(fun x -> x.Db_actions.vM_metrics_VCPUs_number)
          m
       )
-    ~vCPUs_utilisation:
-      (Option.fold ~none:[(0L, 0.)]
-         ~some:(fun x -> x.Db_actions.vM_metrics_VCPUs_utilisation)
-         m
-      )
     ~vCPUs_CPU:
       (Option.fold ~none:[] ~some:(fun x -> x.Db_actions.vM_metrics_VCPUs_CPU) m)
     ~vCPUs_params:
@@ -1384,8 +1365,6 @@ let copy_guest_metrics ~__context ~vm =
       ~os_version:all.API.vM_guest_metrics_os_version
       ~pV_drivers_version:all.API.vM_guest_metrics_PV_drivers_version
       ~pV_drivers_up_to_date:all.API.vM_guest_metrics_PV_drivers_up_to_date
-      ~memory:all.API.vM_guest_metrics_memory
-      ~disks:all.API.vM_guest_metrics_disks
       ~networks:all.API.vM_guest_metrics_networks
       ~pV_drivers_detected:all.API.vM_guest_metrics_PV_drivers_detected
       ~other:all.API.vM_guest_metrics_other

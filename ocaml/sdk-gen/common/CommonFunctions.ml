@@ -150,9 +150,11 @@ let get_published_release_for_param releases =
   in
   match filtered with [] -> "" | hd :: _ -> hd
 
-let get_prototyped_release lifecycle = lifecycle_matcher Prototyped lifecycle
+let get_prototyped_release lifecycle =
+  lifecycle_matcher Lifecycle.Prototyped lifecycle
 
-let get_published_release lifecycle = lifecycle_matcher Published lifecycle
+let get_published_release lifecycle =
+  lifecycle_matcher Lifecycle.Published lifecycle
 
 let get_release_branding codename =
   try
@@ -188,7 +190,7 @@ let collate l =
   collator [] [] l
 
 let gen_param_groups message params =
-  let expRelease = get_prototyped_release message.msg_lifecycle in
+  let expRelease = get_prototyped_release message.msg_lifecycle.transitions in
   let paramGroups = group_params_per_release params in
   let overloadGroups = List.map List.concat (collate paramGroups) in
   let filter_self_param message params =
@@ -222,9 +224,9 @@ let gen_param_groups message params =
 (*** XML documentation ***)
 
 and get_published_info_message message cls =
-  let classRelease = get_published_release cls.obj_lifecycle in
-  let msgRelease = get_published_release message.msg_lifecycle in
-  let expRel = get_prototyped_release message.msg_lifecycle in
+  let classRelease = get_published_release cls.obj_lifecycle.transitions in
+  let msgRelease = get_published_release message.msg_lifecycle.transitions in
+  let expRel = get_prototyped_release message.msg_lifecycle.transitions in
   if msgRelease = "" && expRel <> "" then
     sprintf "Experimental. First published in %s." (get_release_branding expRel)
   else
@@ -245,7 +247,7 @@ and get_deprecated_info_message message =
       sprintf "Deprecated since %s." (get_release_branding x)
 
 and get_published_info_param message param =
-  let msgRelease = get_published_release message.msg_lifecycle in
+  let msgRelease = get_published_release message.msg_lifecycle.transitions in
   let paramRelease =
     get_published_release_for_param param.param_release.internal
   in
@@ -255,13 +257,13 @@ and get_published_info_param message param =
     ""
 
 and get_published_info_class cls =
-  let clsRelease = get_published_release cls.obj_lifecycle in
+  let clsRelease = get_published_release cls.obj_lifecycle.transitions in
   sprintf "First published in %s." (get_release_branding clsRelease)
 
 and get_published_info_field field cls =
-  let clsRelease = get_published_release cls.obj_lifecycle in
-  let fieldRelease = get_published_release field.lifecycle in
-  let expRel = get_prototyped_release field.lifecycle in
+  let clsRelease = get_published_release cls.obj_lifecycle.transitions in
+  let fieldRelease = get_published_release field.lifecycle.transitions in
+  let expRel = get_prototyped_release field.lifecycle.transitions in
   if fieldRelease = "" && expRel <> "" then
     sprintf "Experimental. First published in %s." (get_release_branding expRel)
   else if compare_versions fieldRelease clsRelease > 0 then

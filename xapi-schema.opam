@@ -11,21 +11,9 @@ build: [
 depends: [
   "ocaml"
   "dune"
-  "alcotest" {with-test}
-  "gzip"
-  "http-svr"
-  "ocaml-migrate-parsetree"
-  "ppx_deriving_rpc"
-  "rpclib"
-  "base-threads"
-  "uuid"
-  "xapi-schema"
+  "ppx_sexp_conv"
+  "sexpr"
   "xapi-stdext-encodings"
-  "xapi-stdext-pervasives"
-  "xapi-stdext-std"
-  "xapi-stdext-threads"
-  "xapi-stdext-unix"
-  "xapi-idl"
 ]
 synopsis: "The xapi toolstack daemon which implements the XenAPI"
 description: """

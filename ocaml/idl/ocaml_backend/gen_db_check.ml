@@ -19,7 +19,6 @@ module OU = Ocaml_utils
 module Client = Gen_client
 module DT = Datamodel_types
 module DU = Datamodel_utils
-module DM = Datamodel
 open DT
 
 (* Names of the modules we're going to use to perform the db operations *)
@@ -66,7 +65,9 @@ let db_check api : O.Module.t =
   let check_refs (obj : obj) =
     (* List all the fields of the object which are references AND stored in
        this table *)
-    let fields = List.filter field_in_this_table (DU.fields_of_obj obj) in
+    let fields =
+      List.filter field_in_this_table (DU.active_fields_of_obj obj)
+    in
     let fields =
       List.filter (function {DT.ty= Ref _; _} -> true | _ -> false) fields
     in

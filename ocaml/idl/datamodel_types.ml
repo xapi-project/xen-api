@@ -444,15 +444,122 @@ type release = {
 }
 [@@deriving rpc]
 
-type lifecycle_change =
-  | Prototyped
-  | Published
-  | Extended
-  | Changed
-  | Deprecated
-  | Removed
+module Lifecycle = struct
+  type state =
+    | Unreleased_s
+    | Prototyped_s
+    | Published_s
+    | Deprecated_s
+    | Removed_s
+  [@@deriving rpc]
 
-and lifecycle_transition = lifecycle_change * string * string [@@deriving rpc]
+  type change =
+    | Prototyped
+    | Published
+    | Extended
+    | Changed
+    | Deprecated
+    | Removed
+  [@@deriving rpc]
+
+  type transition = change * string * string [@@deriving rpc]
+
+  type t = {state: state; transitions: transition list} [@@deriving rpc]
+
+  exception Invalid of string
+
+  type ('state, 'change) automaton = {
+      initial: 'state
+    ; next: 'change -> 'state -> 'state
+  }
+
+  let raise_invalid msg = raise (Invalid msg)
+
+  let string_of_state s = Rpc.string_of_rpc (rpc_of_state s)
+
+  let string_of_change c = Rpc.string_of_rpc (rpc_of_change c)
+
+  let raise_invalid_next ~from ~into =
+    raise_invalid
+      (Printf.sprintf "Invalid transition %s from %s" (string_of_change into)
+         (string_of_state from)
+      )
+
+  (* lifecycle automaton, rules:
+     - Unreleased is the initial state
+     - Extended and Changed do not change the state
+     - Objects cannot be Changed nor Extended before being prototyped or after
+       being deprecated
+     - The rest of the changes are not idempotent, they cannot be applied twice
+       in a row
+     - Objects can only be removed when are prototyped or deprecated
+  *)
+  let automaton =
+    {
+      initial= Unreleased_s
+    ; next=
+        (function
+        | (Prototyped as into), _, _ -> (
+            function
+            | Unreleased_s ->
+                Prototyped_s
+            | from ->
+                raise_invalid_next ~from ~into
+          )
+        | (Published as into), _, _ -> (
+            function
+            | Unreleased_s | Prototyped_s ->
+                Published_s
+            | from ->
+                raise_invalid_next ~from ~into
+          )
+        | (Extended as into), _, _ -> (
+            function
+            | Prototyped_s ->
+                Prototyped_s
+            | Published_s ->
+                Published_s
+            | from ->
+                raise_invalid_next ~from ~into
+          )
+        | (Changed as into), _, _ -> (
+            function
+            | Prototyped_s ->
+                Prototyped_s
+            | Published_s ->
+                Published_s
+            | from ->
+                raise_invalid_next ~from ~into
+          )
+        | (Deprecated as into), _, _ -> (
+            function
+            | Published_s ->
+                Deprecated_s
+            | from ->
+                raise_invalid_next ~from ~into
+          )
+        | (Removed as into), _, _ -> (
+            function
+            | Prototyped_s | Deprecated_s ->
+                Removed_s
+            | from ->
+                raise_invalid_next ~from ~into
+          )
+        )
+    }
+
+  let from : transition list -> t = function
+    | [] ->
+        {state= Unreleased_s; transitions= []}
+    | transitions ->
+        let rec loop from = function
+          | [] ->
+              {state= from; transitions}
+          | into :: rest ->
+              loop (automaton.next into from) rest
+        in
+        loop automaton.initial transitions
+end
 
 (** Messages are tagged with one of these indicating whether the message was
     specified explicitly in the datamodel, or is one of the automatically
@@ -503,7 +610,7 @@ and message = {
     msg_db_only: bool
   ; (* this is a db_* only message; not exposed through api *)
     msg_release: release
-  ; msg_lifecycle: lifecycle_transition list
+  ; msg_lifecycle: Lifecycle.t
   ; msg_has_effect: bool
   ; (* if true it appears in the custom operations *)
     msg_force_custom: qualifier option
@@ -523,7 +630,7 @@ and message = {
 
 and field = {
     release: release
-  ; lifecycle: lifecycle_transition list
+  ; lifecycle: Lifecycle.t
   ; field_persist: bool
   ; default_value: api_value option
   ; internal_only: bool
@@ -562,7 +669,7 @@ let default_message =
       ; opensource= []
       ; internal_deprecated_since= None
       }
-  ; msg_lifecycle= []
+  ; msg_lifecycle= Lifecycle.from []
   ; msg_has_effect= true
   ; msg_force_custom= None
   ; msg_no_current_operations= false
@@ -599,7 +706,7 @@ type db_logging = Log_destroy [@@deriving rpc]
 type obj = {
     name: string
   ; description: string
-  ; obj_lifecycle: lifecycle_transition list
+  ; obj_lifecycle: Lifecycle.t
   ; contents: content list
   ; messages: message list
   ; doccomments: (string * string) list

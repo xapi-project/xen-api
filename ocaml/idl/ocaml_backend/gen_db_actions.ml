@@ -71,9 +71,10 @@ let dm_to_string tys : O.Module.t =
       | DT.DateTime ->
           "Date.to_string"
       | DT.Enum (_name, cs) ->
-          let aux (c, _) = OU.constructor_of c ^ " -> \"" ^ c ^ "\"" in
-          "fun v -> match v with\n      "
-          ^ String.concat "\n    | " (List.map aux cs)
+          let aux (c, _) =
+            Printf.sprintf {|| %s -> "%s"|} (OU.constructor_of c) c
+          in
+          String.concat "\n    " ("function" :: List.map aux cs)
       | DT.Float ->
           "Printf.sprintf \"%0.18g\""
       | DT.Int ->
@@ -176,7 +177,7 @@ let args_of_message (obj : obj) ({msg_tag= tag; _} as msg) =
           if x <> obj.DT.name then failwith "args_of_message" ;
           (* Client constructor takes all object fields regardless of qualifier
              	       but excluding Set(Ref _) types *)
-          let fields = DU.fields_of_obj obj in
+          let fields = DU.active_fields_of_obj obj in
           let fields = List.filter field_in_this_table fields in
           List.map Client.param_of_field fields
       | _ ->
@@ -213,8 +214,7 @@ let read_set_ref obj other full_name =
     [
       Printf.sprintf "if not(DB.is_valid_ref __t %s)" Client._self
     ; Printf.sprintf
-        "then raise (Api_errors.Server_error(Api_errors.handle_invalid, [ %s \
-         ]))"
+        "then raise Api_errors.(Server_error (handle_invalid, [ %s ])"
         Client._self
     ; Printf.sprintf "else List.map %s.%s (DB.read_set_ref __t " _string_to_dm
         (OU.alias_of_ty (DT.Ref other))
@@ -280,20 +280,17 @@ let db_action api : O.Module.t =
   let expr_arg = O.Named (expr, "Db_filter_types.expr") in
   let get_refs_where (obj : obj) =
     let tbl = Escaping.escape_obj obj.DT.name in
+    let body =
+      [
+        Printf.sprintf "let refs = (DB.find_refs_with_filter __t \"%s\" %s) in"
+          tbl expr
+      ; "List.map Ref.of_string refs"
+      ]
+    in
     O.Let.make ~name:"get_refs_where"
       ~params:[Gen_common.context_arg; expr_arg]
       ~ty:(OU.alias_of_ty (Ref obj.DT.name) ^ " list")
-      ~body:
-        (open_db_module
-        @ [
-            "let refs = (DB.find_refs_with_filter __t \""
-            ^ tbl
-            ^ "\" "
-            ^ expr
-            ^ ") in"
-          ; "List.map Ref.of_string refs"
-          ]
-        )
+      ~body:(List.concat [open_db_module; body])
       ()
   in
   let get_record_aux_fn_body ?(m = "API.") (obj : obj) (all_fields : field list)
@@ -327,7 +324,9 @@ let db_action api : O.Module.t =
     String.concat "\n" mk_rec
   in
   let get_record_aux_fn (obj : obj) =
-    let record_fields = List.filter client_side_field (DU.fields_of_obj obj) in
+    let record_fields =
+      List.filter client_side_field (DU.active_fields_of_obj obj)
+    in
     O.Let.make ~name:"get_record'"
       ~params:
         [
@@ -339,7 +338,7 @@ let db_action api : O.Module.t =
       ()
   in
   let get_record_internal_aux_fn (obj : obj) =
-    let record_fields = DU.fields_of_obj obj in
+    let record_fields = DU.active_fields_of_obj obj in
     O.Let.make ~name:"get_record_internal'"
       ~params:
         [
@@ -450,8 +449,9 @@ let db_action api : O.Module.t =
             (Escaping.escape_obj obj.DT.name)
             Client._self
       | FromObject Make ->
-          let fields = List.filter field_in_this_table (DU.fields_of_obj obj) in
-          (*	  let fields = db_fields_of_obj obj in *)
+          let fields =
+            List.filter field_in_this_table (DU.active_fields_of_obj obj)
+          in
           let kvs =
             List.map
               (fun fld ->

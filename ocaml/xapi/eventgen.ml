@@ -58,7 +58,7 @@ let compute_object_references_to_follow (obj_name : string) =
          | _ ->
              []
          )
-       (Datamodel_utils.fields_of_obj obj)
+       (Datamodel_utils.active_fields_of_obj obj)
     )
 
 let obj_references_table : (string, (string * string) list) Hashtbl.t =

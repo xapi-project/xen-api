@@ -39,9 +39,9 @@ let network_stats =
 
 let t =
   create_obj ~in_db:false ~in_product_since:Datamodel_types.rel_stockholm
-    ~in_oss_since:None ~internal_deprecated_since:None ~persist:PersistNothing
-    ~gen_constructor_destructor:false ~name:_diagnostics
-    ~descr:"A set of functions for diagnostic purpose" ~gen_events:false
-    ~doccomments:[] ~messages_default_allowed_roles:Datamodel_roles._R_POOL_OP
+    ~in_oss_since:None ~persist:PersistNothing ~gen_constructor_destructor:false
+    ~name:_diagnostics ~descr:"A set of functions for diagnostic purpose"
+    ~gen_events:false ~doccomments:[]
+    ~messages_default_allowed_roles:Datamodel_roles._R_POOL_OP
     ~messages:[gc_compact; gc_stats; db_stats; network_stats]
     ~contents:[] ()

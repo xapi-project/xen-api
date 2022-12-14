@@ -2880,9 +2880,11 @@ functor
           (host_uuid ~__context host) ;
         Local.VM.copy_bios_strings ~__context ~vm ~host
 
-      let set_protection_policy ~__context ~self ~value =
-        info "VM.set_protection_policy: self = '%s'; " (vm_uuid ~__context self) ;
-        Local.VM.set_protection_policy ~__context ~self ~value
+      let set_protection_policy ~__context ~self:_ ~value:_ =
+        raise
+          Api_errors.(
+            Server_error (not_implemented, ["VM.set_protection_policy"])
+          )
 
       let set_snapshot_schedule ~__context ~self ~value =
         info "VM.set_snapshot_schedule: self = '%s'; " (vm_uuid ~__context self) ;

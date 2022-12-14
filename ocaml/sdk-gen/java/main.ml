@@ -1104,9 +1104,7 @@ let populate_releases templdir class_dir =
 let gen_get_all_records_test classes templdir sample_dir =
   let class_records =
     classes
-    |> List.filter (fun {obj_lifecycle; _} ->
-           not (List.exists (fun (x, _, _) -> x = Removed) obj_lifecycle)
-       )
+    |> List.filter (fun {obj_lifecycle; _} -> obj_lifecycle.state <> Removed_s)
     |> List.filter (fun {messages; _} ->
            List.exists (fun x -> x.msg_name = "get_all_records") messages
        )

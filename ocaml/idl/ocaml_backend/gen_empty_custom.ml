@@ -123,7 +123,7 @@ let gen_debug_module name_override result_type_override body_override api :
   let obj (obj : obj) =
     let messages =
       List.filter
-        (fun x -> not (DU.has_been_removed x.DT.msg_lifecycle))
+        (fun x -> not (x.DT.msg_lifecycle.state = Removed_s))
         obj.messages
     in
     let fields = List.map (fun x -> O.Module.Let (operation obj x)) messages in

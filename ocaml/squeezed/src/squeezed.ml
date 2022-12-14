@@ -19,10 +19,6 @@ open D
 
 let name = "squeezed"
 
-let major_version = 0
-
-let minor_version = 10
-
 let balance_check_interval = ref 10.
 
 let options =
@@ -107,7 +103,7 @@ let bind () =
 
 let _ =
   Debug.set_facility Syslog.Local5 ;
-  debug "squeezed version %d.%d starting" major_version minor_version ;
+  debug "squeezed version %s starting" Xapi_version.version ;
   configure ~options () ;
   bind () ;
   let server =

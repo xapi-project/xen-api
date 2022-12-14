@@ -40,8 +40,6 @@ let vm_memory_tmp : (string, Int64.t) Hashtbl.t = Hashtbl.create 100
 (* A cache for host's free/total memory. *)
 let host_memory_m : Mutex.t = Mutex.create ()
 
-let host_memory_free_cached : Int64.t ref = ref Int64.zero
-
 let host_memory_total_cached : Int64.t ref = ref Int64.zero
 
 (* A cache mapping VM uuids to PVS_proxy status. *)
@@ -87,10 +85,7 @@ let clear_cache () =
   safe_clear ~cache:bonds_links_up_cached ~tmp:bonds_links_up_tmp
     ~lock:bonds_links_up_cached_m ;
   safe_clear ~cache:vm_memory_cached ~tmp:vm_memory_tmp ~lock:vm_memory_cached_m ;
-  with_lock host_memory_m (fun _ ->
-      host_memory_free_cached := Int64.zero ;
-      host_memory_total_cached := Int64.zero
-  )
+  with_lock host_memory_m (fun _ -> host_memory_total_cached := Int64.zero)
 
 (* Helper map functions. *)
 let transfer_map ?(except = []) ~source ~target () =

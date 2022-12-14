@@ -28,17 +28,15 @@ let replace_version version =
   try Scanf.sscanf version "%s@-next" (fun v -> v <> current_version)
   with _ -> false
 
-let update_prototyped l =
-  match
-    (Datamodel_common.get_prototyped l, Datamodel_common.get_published l)
-  with
-  | None, None ->
+let update_prototyped {Lifecycle.state; transitions} =
+  match (state, Datamodel_common.get_prototyped transitions) with
+  | Unreleased_s, _ ->
       (* New element in the datamodel: add version once known *)
       Some (current_version ^ "-next")
-  | Some v, _ when replace_version v ->
+  | _, Some v when replace_version v ->
       (* Set version for previously found new element *)
       Some current_version
-  | Some v, _ when is_version v ->
+  | _, Some v when is_version v ->
       (* Preserve established prototype version *)
       Some v
   | _ ->
