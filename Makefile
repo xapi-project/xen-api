@@ -69,7 +69,6 @@ sdk:
 	cp -r _build/default/ocaml/sdk-gen/csharp/autogen/* $(XAPISDK)/csharp
 	cp -r _build/default/ocaml/sdk-gen/java/autogen/* $(XAPISDK)/java
 	cp -r _build/default/ocaml/sdk-gen/powershell/autogen/* $(XAPISDK)/powershell
-	cp -r ocaml/sdk-gen/python/samples $(XAPISDK)/python
 	cp scripts/examples/python/XenAPI/XenAPI.py $(XAPISDK)/python
 	sh ocaml/sdk-gen/windows-line-endings.sh $(XAPISDK)/csharp
 	sh ocaml/sdk-gen/windows-line-endings.sh $(XAPISDK)/powershell

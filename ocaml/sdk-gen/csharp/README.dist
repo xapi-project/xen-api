@@ -12,10 +12,6 @@ are ideal for developers wishing to use XenServer.NET.
 XenServer.NET is free software. You can redistribute and modify it under the
 terms of the BSD 2-Clause license. See LICENSE.txt for details.
 
-This library is accompanied by pedagogical examples. These do not form
-part of this library, and are licensed for redistribution and modification
-under the BSD 2-Clause license.
-
 
 Reference
 ---------
@@ -27,6 +23,9 @@ https://developer-docs.citrix.com/projects/citrix-hypervisor-management-api/en/l
 
 The XenServer Software Development Kit Guide is available at
 https://developer-docs.citrix.com/projects/citrix-hypervisor-sdk/en/latest/
+
+A number of examples to help you get started with the SDK is available at
+https://github.com/xenserver/xenserver-samples
 
 For community content, blogs, and downloads, visit
 https://www.citrix.com/community/citrix-developer/
@@ -59,7 +58,6 @@ Downloads
 This archive contains the following folders that are relevant to .NET developers:
 - XenServer.NET: contains the ready compiled binaries in the form of a NuGet package.
 - XenServer.NET\src: contains the source code shipped as a Visual Studio project.
-- XenServer.NET\samples: contains the examples shipped as a Visual studio solution.
 
 
 Getting Started
@@ -83,10 +81,3 @@ B. To use the NuGet package in your code (offline):
   ```pwsh
   nuget install XenServer.NET
   ```
-
-C. To run the examples:
-  1. Follow steps B.1 and B.2
-  2. Open XenSdkSample.sln inside Visual Studio (2019 or greater).
-  3. You should now be ready to compile the solution and run the examples.
-     The solution project is a console application expecting the parameters
-     <host> <username> <password> to be passed to its Main method.

@@ -12,11 +12,6 @@ are ideal for developers wishing to use XenServerJava.
 XenServerJava is free software. You can redistribute and modify it under the
 terms of the BSD 2-Clause license. See LICENSE for details.
 
-This library is accompanied by a number of test programs that can be used as
-pedagogical examples. These are shipped as a separate package
-(com.citrix.hypervisor.xen-api-samples) and are licensed for redistribution and
-modification under the BSD 2-Clause license.
-
 
 Reference
 ---------
@@ -28,6 +23,9 @@ https://developer-docs.citrix.com/projects/citrix-hypervisor-management-api/en/l
 
 The Citrix Hypervisor Software Development Kit Guide is available at
 https://developer-docs.citrix.com/projects/citrix-hypervisor-sdk/en/latest/
+
+A number of examples to help you get started with the SDK is available at
+https://github.com/xenserver/xenserver-samples
 
 For community content, blogs, and downloads, visit
 https://www.citrix.com/community/citrix-developer/

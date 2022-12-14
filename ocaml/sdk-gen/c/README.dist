@@ -12,13 +12,6 @@ for developers wishing to use libxenserver.
 libxenserver is free software. You can redistribute and modify it under the
 terms of the BSD 2-Clause license. See COPYING for details.
 
-This library is accompanied by a number of test programs that can be used as
-pedagogical examples. These do not form part of this library, and are licensed
-for redistribution and modification under the BSD 2-Clause license. libxenserver
-comes with the usual complexities inherent with programming in C, and it is
-recommended that you study these examples carefully to understand the approach
-to error reporting and memory management taken by this library.
-
 
 Reference
 ---------
@@ -31,6 +24,9 @@ https://developer-docs.citrix.com/projects/citrix-hypervisor-management-api/en/l
 The Citrix Hypervisor Software Development Kit Guide is available at
 https://developer-docs.citrix.com/projects/citrix-hypervisor-sdk/en/latest/
 
+A number of examples to help you get started with the SDK is available at
+https://github.com/xenserver/xenserver-samples
+
 For community content, blogs, and downloads, visit
 https://www.citrix.com/community/citrix-developer/
 
@@ -41,19 +37,12 @@ https://discussions.citrix.com/forum/101-hypervisor-formerly-xenserver/
 Dependencies
 ------------
 
-This library is dependent upon libxml2-devel, the XML toolkit from the GNOME
-project, by Daniel Veillard, et al.  This can be obtained from http://xmlsoft.org/.
+This library is dependent upon the XML toolkit from the GNOME project, by Daniel
+Veillard, et al. This can be obtained from http://xmlsoft.org/. It is packaged
+as libxml2-devel on CentOS and libxml2-dev on Debian.
 
-The test programs are dependent also upon libcurl-devel, by Daniel Stenberg, et al.
-This can be downloaded from http://curl.haxx.se/. You may choose to use
-libcurl3 in your application, just as we have for the test programs, though
-it is not required to do so, and you may use a different network layer if you
-prefer.
-
-On Debian, these are packaged as libxml2-dev and libcurl3-dev.
-
-(Note that libxml2 depends on libiconv, which may not be installed by default
-on all systems.)
+(Note that libxml2 depends on libiconv, which may not be installed by default on
+all systems).
 
 
 Folder structure
@@ -61,19 +50,11 @@ Folder structure
 
 This archive contains the following folders that are relevant to C developers:
 - libxenserver/bin: contains the compiled binaries
-- libxenserver/src: contains the source code and tests.
+- libxenserver/src: contains the source code.
 
 
 Compiling from source
 ---------------------
 
 To build, simply type "make" in the libxenserver/src directory.
-To build on Windows with cygwin type "make CYGWIN=1"
-
-To run any of the tests, for example the test_vm_ops, do
-
-./test/test_vm_ops <url> <sr-name> <username> <password>
-
-The <url> should be of the form: https://hostname.domain/
-
-You can obtain a suitable <sr-name> by typing in "xe sr-list" on the host.
+To build on Windows with cygwin type "make CYGWIN=1".

@@ -32,12 +32,9 @@ DESTDIR=/usr/local
 
 ifeq ($(CYGWIN), 1)
 	CYGWIN_LIBXML = -L/bin -lxml2-2
-	CYGWIN_CURL = -L/bin -lcurl-4
 	POS_FLAG = -U__STRICT_ANSI__
-	TEST_LDFLAGS = -L . libxenserver.so $(CYGWIN_CURL)
 else
 	POS_FLAG = -fPIC
-	TEST_LDFLAGS = -L . -lxenserver
 endif
 
 CFLAGS = -g -Iinclude \
@@ -62,8 +59,6 @@ LIBXENAPI_HDRS_INT = $(wildcard include/*.h)
 LIBXENAPI_HDRS = $(wildcard include/xen/api/*.h)
 LIBXENAPI_OBJS = $(patsubst %.c, %.o, $(wildcard src/*.c))
 
-TEST_PROGRAMS = $(patsubst %.c, %, $(wildcard test/*.c))
-
 %.o: %.c %.h
 	$(CC) -o $@ $<
 
@@ -79,12 +74,7 @@ libxenserver.so.{{API_VERSION_MAJOR}}.{{API_VERSION_MINOR}}: $(LIBXENAPI_OBJS)
 libxenserver.a: $(LIBXENAPI_OBJS)
 	$(AR) rcs libxenserver.a $^
 
-test/%: test/%.o libxenserver.so
-	$(CC) -o $@ $< $(TEST_LDFLAGS) $(LDFLAGS)
-
 build: libxenserver.so libxenserver.a
-
-all: $(TEST_PROGRAMS)
 
 install: libxenserver.so libxenserver.a
 	$(INSTALL_DIR) $(DESTDIR)/include/xen/api
@@ -100,13 +90,10 @@ install: libxenserver.so libxenserver.a
 	    $(INSTALL_DATA) $$i $(DESTDIR)/include/xen/api; \
 	done
 
-clean: cleantests
+clean:
 	rm -f `find -name *.o`
 	rm -f libxenserver.so*
 	rm -f libxenserver.a
 
-cleantests:
-	rm -f $(TEST_PROGRAMS)
-
-.PHONY: clean cleantests build all install
-.DEFAULT_GOAL := all
+.PHONY: clean build install
+.DEFAULT_GOAL := build
