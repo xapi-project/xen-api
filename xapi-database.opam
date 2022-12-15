@@ -19,6 +19,7 @@ depends: [
   "rpclib"
   "base-threads"
   "uuid"
+  "xapi-datamodel"
   "xapi-schema"
   "xapi-stdext-encodings"
   "xapi-stdext-pervasives"
