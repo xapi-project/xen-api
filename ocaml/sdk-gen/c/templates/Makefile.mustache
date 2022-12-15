@@ -55,7 +55,6 @@ SHLIB_CFLAGS ?= -shared
 INSTALL_DIR  = install -d -m0755 -p
 INSTALL_DATA = install -m0644 -p
 
-LIBXENAPI_HDRS_INT = $(wildcard include/*.h)
 LIBXENAPI_HDRS = $(wildcard include/xen/api/*.h)
 LIBXENAPI_OBJS = $(patsubst %.c, %.o, $(wildcard src/*.c))
 
@@ -69,23 +68,23 @@ libxenserver.so.{{API_VERSION_MAJOR}}: libxenserver.so.{{API_VERSION_MAJOR}}.{{A
 	ln -sf $< $@
 
 libxenserver.so.{{API_VERSION_MAJOR}}.{{API_VERSION_MINOR}}: $(LIBXENAPI_OBJS)
-	$(CC) $(CFLAGS) $(LDFLAGS) -Wl,$(SONAME_LDFLAG) -Wl,libxenserver.so.{{API_VERSION_MAJOR}} $(SHLIB_CFLAGS) -o $@ $^
+	$(CC) $(CFLAGS) $(LDFLAGS) -Wl,$(SONAME_LDFLAG),libxenserver.so.{{API_VERSION_MAJOR}} $(SHLIB_CFLAGS) -o $@ $^
 
 libxenserver.a: $(LIBXENAPI_OBJS)
 	$(AR) rcs libxenserver.a $^
 
 build: libxenserver.so libxenserver.a
 
-install: libxenserver.so libxenserver.a
+install: build
 	$(INSTALL_DIR) $(DESTDIR)/include/xen/api
 	$(INSTALL_DIR) $(DESTDIR)/lib
 	$(INSTALL_DATA) libxenserver.so.{{API_VERSION_MAJOR}}.{{API_VERSION_MINOR}} $(DESTDIR)/lib
 	ln -sf libxenserver.so.{{API_VERSION_MAJOR}}.{{API_VERSION_MINOR}} $(DESTDIR)/lib/libxenserver.so.{{API_VERSION_MAJOR}}
 	ln -sf libxenserver.so.{{API_VERSION_MAJOR}} $(DESTDIR)/lib/libxenserver.so
+ifeq ($(CYGWIN), 1)
+	ln -sf libxenserver.so $(DESTDIR)/lib/libxenserver.dll
+endif
 	$(INSTALL_DATA) libxenserver.a $(DESTDIR)/lib
-	for i in $(LIBXENAPI_HDRS_INT); do \
-	    $(INSTALL_DATA) $$i $(DESTDIR)/include/; \
-	done
 	for i in $(LIBXENAPI_HDRS); do \
 	    $(INSTALL_DATA) $$i $(DESTDIR)/include/xen/api; \
 	done
