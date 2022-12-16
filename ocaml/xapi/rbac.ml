@@ -12,8 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Stdext.Listext
-
 module D = Debug.Make (struct let name = "rbac" end)
 
 open D
@@ -127,10 +125,10 @@ let permission_of_action ?args ~keys _action =
           let key_name =
             List.find
               (fun key_name ->
-                if String.ends_with ~suffix:"*" key_name then
+                if Astring.String.is_suffix ~affix:"*" key_name then
                   (* resolve wildcards at the end *)
-                  String.starts_with
-                    ~prefix:(String.sub key_name 0 (String.length key_name - 1))
+                  Astring.String.is_prefix
+                    ~affix:(String.sub key_name 0 (String.length key_name - 1))
                     key_name_in_args
                 else (* no wildcards to resolve *)
                   key_name = key_name_in_args
