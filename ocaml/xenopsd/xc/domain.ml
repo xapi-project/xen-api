@@ -600,7 +600,7 @@ let shutdown_wait_for_ack (t : Xenops_task.task_handle) ~timeout ~xc ~xs domid
     | true, `pvh ->
         true (* PVH guests are also always enlightened *)
     | true, `hvm ->
-        Xenctrl.hvm_check_pvdriver xc domid (* checks for HVM_CALLBACK_IRQ *)
+        Xenctrl.hvm_param_get xc domid HVM_PARAM_CALLBACK_IRQ <> 0L
     | true, `pv ->
         failwith "Internal error, should never happen"
   in
