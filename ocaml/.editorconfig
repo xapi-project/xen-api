@@ -1,0 +1,20 @@
+# See ./CODING_STYLE
+root = true
+
+[*]
+end_of_line = lf
+indent_style = space
+charset = utf-8
+max_line_length = 79
+trim_trailing_whitespace = true
+insert_final_newline = true
+
+# Makefiles must use tabs, otherwise they don't work
+[{Makefile,*.mk,Makefile.rules}]
+indent_style = tabs
+
+[*.{c,h}]
+indent_size = 4
+
+[*.{ml,mli}]
+indent_size = 2

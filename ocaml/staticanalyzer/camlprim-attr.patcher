@@ -1,0 +1,5 @@
+<<<< see doc/cil.tex for format
+#define CAMLprim
+==== use a section attribute, because other attributes can't be attached to definitions directly
+#define CAMLprim __attribute__((section("goblint-ocaml-cstub")))
+>>>> we need to be able to recognize CAMLprim in the analysis, but we work on preprocessed source code, so we need to introduce an attribute here

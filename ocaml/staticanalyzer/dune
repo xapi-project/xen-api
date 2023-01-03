@@ -1,0 +1,12 @@
+(executable
+  (name lintcstubs)
+  (libraries lintcstubs_analysis goblint.sites.dune)
+  (flags :standard -linkall)
+)
+
+; TODO: copy $(ocamlc -where) to a destpatch,
+; then run on caml/misc.h or all files this:
+; perl -I$(opam var lib)/perl5 ~/goblint-cil/lib/perl5/patcher
+; --patch=camlprim-attr.patcher --dest=destpatch --ufile caml/misc.h --verbose
+; --mode=GNUCC -I$(ocamlc -where)
+; TODO: perl5/patcher is not shipped and needs a patch (PR opened for latter)
