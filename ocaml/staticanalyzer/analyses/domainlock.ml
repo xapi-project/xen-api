@@ -59,9 +59,16 @@ module DomainLock = struct
       (* TODO: this should be tri or 4-state: known held, known notheld, and
          unknown, or known to be called from both *)
       let lockset = ctx.ask Queries.MustLockset in
-      let lock = get ctx |> LockDomain.Addr.to_var |> Option.get in
+      let mutex = get ctx in
+      let lock = mutex |> LockDomain.Addr.to_var |> Option.get in
       ignore (Pretty.printf "lockset: %a\n" Queries.LS.pretty lockset);
       Queries.LS.mem (lock, `NoOffset) lockset
+
+  let protects ctx global =
+      let mutex = get ctx in
+      let must_be = ctx.ask Queries.(MustBeProtectedBy {mutex;global;write=false}) in
+      ignore (Pretty.printf "protects(_TODO_): %b\n"  must_be);
+      must_be
 end
 
 module CStubs = struct
@@ -132,7 +139,8 @@ struct
     ctx.local
     | _ ->
       let () = arglist |> List.iter @@ fun arg ->
-      if has_ocaml_value arg && not @@ DomainLock.is_held ctx then
+      (* TODO: need a varinfo from an exp *)
+      if has_ocaml_value arg && not @@ DomainLock.protects ctx arg then
         Messages.error ~category:Messages.Category.Race
           "DomainLock: Call using OCaml value after domain lock has been released: %s(... %a ...)"
           f.vname Cil.d_exp arg
