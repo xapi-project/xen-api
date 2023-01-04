@@ -13,6 +13,7 @@
    message-switch-unix
    mtime
    mtime.clock.os
+   polly
    ppx_sexp_conv.runtime-lib
    re
    rpclib.core
