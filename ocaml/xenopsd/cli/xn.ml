@@ -1214,7 +1214,7 @@ let raw_console_proxy sockaddr =
         (fun () -> Unix.close s)
     with
     | Unix.Unix_error (_, _, _) when !delay <= long_connection_retry_timeout ->
-        ignore (Unix.select [] [] [] !delay) ;
+        Thread.delay !delay ;
         delay := !delay *. 2. ;
         keep_connection ()
     | e ->
