@@ -8,6 +8,7 @@
   (libraries
     cohttp
     message-switch-core
+    polly
     rpclib.core
     rpclib.json
     threads.posix
