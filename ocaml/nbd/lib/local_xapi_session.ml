@@ -24,7 +24,7 @@ let wait_for_xapi_and_login () =
           ~version:"1.0" ~originator:"xapi-nbd"
       )
       (fun e ->
-        Lwt_log.warning_f
+        Lwt_log.notice_f
           "Failed to log in via xapi's Unix domain socket: %s; retrying in %f \
            seconds"
           (Printexc.to_string e) Consts.wait_for_xapi_retry_delay_seconds
@@ -40,7 +40,7 @@ let wait_for_xapi_and_login () =
       Printf.sprintf
         "Failed to log in via xapi's Unix domain socket in %f seconds" timeout_s
     in
-    Lwt_log.fatal msg >>= fun () -> Lwt.fail_with msg
+    Lwt_log.error msg >>= fun () -> Lwt.fail_with msg
   in
   Lwt_log.notice_f
     "Will try to log in via xapi's Unix domain socket for %f seconds"
