@@ -599,6 +599,14 @@ module Attached_SRs = struct
     Hashtbl.remove !sr_table key ;
     return (Ok ())
 
+  let list () =
+    let srs =
+      Hashtbl.fold !sr_table
+        ~f:(fun ~key ~data:_ ac -> Storage_interface.Sr.of_string key :: ac)
+        ~init:[]
+    in
+    return (Ok srs)
+
   let reload path =
     state_path := Some path ;
     Sys.is_file ~follow_symlinks:true path >>= function
@@ -1485,12 +1493,17 @@ let bind ~volume_script_dir =
     |> wrap
   in
   S.DP.destroy2 dp_destroy2 ;
+  let sr_list _dbg =
+    Attached_SRs.list () >>>= (fun srs -> Deferred.Result.return srs) |> wrap
+  in
+  S.SR.list sr_list ;
+  (* SR.reset is a no op in SMAPIv3 *)
+  S.SR.reset (fun _ _ -> Deferred.Result.return () |> wrap) ;
   let u name _ = failwith ("Unimplemented: " ^ name) in
   S.get_by_name (u "get_by_name") ;
   S.VDI.compose (u "VDI.compose") ;
   S.VDI.get_by_name (u "VDI.get_by_name") ;
   S.DATA.MIRROR.receive_start (u "DATA.MIRROR.receive_start") ;
-  S.SR.reset (u "SR.reset") ;
   S.UPDATES.get (u "UPDATES.get") ;
   S.SR.update_snapshot_info_dest (u "SR.update_snapshot_info_dest") ;
   S.VDI.data_destroy (u "VDI.data_destroy") ;
@@ -1511,7 +1524,6 @@ let bind ~volume_script_dir =
   S.VDI.disable_cbt (u "VDI.disable_cbt") ;
   S.DP.attach_info (u "DP.attach_info") ;
   S.TASK.cancel (u "TASK.cancel") ;
-  S.SR.list (u "SR.list") ;
   S.VDI.attach (u "VDI.attach") ;
   S.VDI.attach2 (u "VDI.attach2") ;
   S.VDI.activate (u "VDI.activate") ;
