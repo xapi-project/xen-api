@@ -463,14 +463,6 @@ let main_loop ifd ofd permitted_filenames =
   marshal_protocol ofd ;
   let exit_code = ref None in
   while !exit_code = None do
-    (* Wait for input asynchronously so that we can check the status
-       of Stunnel every now and then, for better debug/dignosis.
-    *)
-    while
-      match Unix.select [ifd] [] [] 5.0 with _ :: _, _, _ -> false | _ -> true
-    do
-      ()
-    done ;
     let cmd = try unmarshal ifd with e -> handle_unmarshal_failure e ifd in
     debug "Read: %s\n%!" (string_of_message cmd) ;
     flush stderr ;
@@ -585,35 +577,47 @@ let main_loop ifd ofd permitted_filenames =
                 ) else if !final then
                   finished := true
                 else
-                  let r, _, _ =
-                    Unix.select [Unix.stdin; fd] [] [] heartbeat_interval
-                  in
-                  let now = Unix.time () in
-                  if now -. !last_heartbeat >= heartbeat_interval then (
-                    heartbeat_fun () ;
-                    last_heartbeat := now
-                  ) ;
-                  if List.mem Unix.stdin r then (
-                    let b =
-                      Unix.read Unix.stdin buf_remote !buf_remote_end
-                        (block - !buf_remote_end)
-                    in
-                    let i = ref !buf_remote_end in
-                    while
-                      !i < !buf_remote_end + b
-                      && Char.code (Bytes.get buf_remote !i) <> 0x1d
-                    do
-                      incr i
-                    done ;
-                    if !i < !buf_remote_end + b then final := true ;
-                    buf_remote_end := !i
-                  ) ;
-                  if List.mem fd r then
-                    let b =
-                      Unix.read fd buf_local !buf_local_end
-                        (block - !buf_local_end)
-                    in
-                    buf_local_end := !buf_local_end + b
+                  let epoll = Polly.create () in
+                  List.iter
+                    (fun fd -> Polly.add epoll fd Polly.Events.inp)
+                    [Unix.stdin; fd] ;
+                  Fun.protect
+                    ~finally:(fun () -> Polly.close epoll)
+                    (fun () ->
+                      ignore
+                      (* Multiply by 1000 as polly's timeout is in milliseconds *)
+                      @@ Polly.wait epoll 2
+                           (int_of_float (heartbeat_interval *. 1000.))
+                           (fun _ file_desc _ ->
+                             let now = Unix.time () in
+                             if now -. !last_heartbeat >= heartbeat_interval
+                             then (
+                               heartbeat_fun () ;
+                               last_heartbeat := now
+                             ) ;
+                             if Unix.stdin = file_desc then (
+                               let b =
+                                 Unix.read Unix.stdin buf_remote !buf_remote_end
+                                   (block - !buf_remote_end)
+                               in
+                               let i = ref !buf_remote_end in
+                               while
+                                 !i < !buf_remote_end + b
+                                 && Char.code (Bytes.get buf_remote !i) <> 0x1d
+                               do
+                                 incr i
+                               done ;
+                               if !i < !buf_remote_end + b then final := true ;
+                               buf_remote_end := !i
+                             ) ;
+                             if fd = file_desc then
+                               let b =
+                                 Unix.read fd buf_local !buf_local_end
+                                   (block - !buf_local_end)
+                               in
+                               buf_local_end := !buf_local_end + b
+                           )
+                    )
               done ;
               marshal ofd (Response OK)
           | 404 ->
