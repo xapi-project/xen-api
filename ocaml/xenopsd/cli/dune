@@ -9,6 +9,7 @@
       astring
       cmdliner
       dune-build-info
+      polly
       re
       result
       rpclib.core
