@@ -391,7 +391,7 @@ let rec retry f = function
     try f ()
     with Stunnel_initialisation_failed ->
       (* Leave a few seconds between each attempt *)
-      ignore (Unix.select [] [] [] 3.) ;
+      Thread.delay 3. ;
       retry f (n - 1)
   )
 

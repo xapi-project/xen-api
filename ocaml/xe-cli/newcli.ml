@@ -633,7 +633,7 @@ let main_loop ifd ofd permitted_filenames =
           with
           | Unix.Unix_error (_, _, _)
             when !delay <= long_connection_retry_timeout ->
-              ignore (Unix.select [] [] [] !delay) ;
+              Unix.sleepf !delay ;
               delay := !delay *. 2. ;
               keep_connection ()
           | e ->

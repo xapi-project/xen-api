@@ -581,7 +581,7 @@ let make_host ~verbose ~xc =
       1024L
     <> 0L
   do
-    ignore (Unix.select [] [] [] 0.25)
+    Thread.delay 0.25
   done ;
 
   (* Some VMs are considered by us (but not by xen) to have an
@@ -857,7 +857,7 @@ let io ~xc ~verbose =
       (fun domid kib ->
         execute_action ~xc {Squeeze.action_domid= domid; new_target_kib= kib}
       )
-  ; wait= (fun delay -> ignore (Unix.select [] [] [] delay))
+  ; wait= (fun delay -> Thread.delay delay)
   ; execute_action= (fun action -> execute_action ~xc action)
   ; target_host_free_mem_kib
   ; free_memory_tolerance_kib
