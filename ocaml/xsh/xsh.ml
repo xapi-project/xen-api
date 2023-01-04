@@ -60,12 +60,25 @@ let proxy (ain : Unix.file_descr) (aout : Unix.file_descr) (bin : Unixfd.t)
         (if can_write a' then [bout] else [])
         @ if can_write b' then [aout] else []
       in
-      let r, w, _ = Unix.select r w [] (-1.0) in
-      (* Do the writing before the reading *)
-      List.iter
-        (fun fd -> if aout = fd then write_from b' a' else write_from a' b')
-        w ;
-      List.iter (fun fd -> if ain = fd then read_into a' else read_into b') r
+      let epoll = Polly.create () in
+      List.iter (fun fd -> Polly.add epoll fd Polly.Events.inp) r ;
+      List.iter (fun fd -> Polly.add epoll fd Polly.Events.out) w ;
+      Fun.protect
+        ~finally:(fun () -> Polly.close epoll)
+        (fun () ->
+          ignore
+          @@ Polly.wait epoll 4 (-1) (fun _ fd _ ->
+                 (* Note: only one fd is handled *)
+                 if aout = fd then
+                   write_from b' a'
+                 else if bout = fd then
+                   write_from a' b'
+                 else if ain = fd then
+                   read_into a'
+                 else
+                   read_into b'
+             )
+        )
     done
   with _ -> (
     (try Unix.clear_nonblock ain with _ -> ()) ;
