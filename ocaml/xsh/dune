@@ -5,6 +5,7 @@
   (package xapi)
   (libraries
     dune-build-info
+    polly
     stunnel
     safe-resources
     xapi-consts
