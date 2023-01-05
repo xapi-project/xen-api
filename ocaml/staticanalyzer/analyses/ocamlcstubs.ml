@@ -27,7 +27,7 @@ module DomainLock = struct
 
   let runtime_lock = AddrOf (Cil.var runtime_lock_var)
 
-  let must_be_held ctx name =
+  let must_be_held ctx what name =
     let lockset = ctx.ask Queries.MustLockset in
     if tracing () then
       tracel "OCaml domain lock must be held, current lockset is %a"
@@ -37,7 +37,7 @@ module DomainLock = struct
          a better warning message: is the lock maybe held on some paths, or
          surely not held? *)
       Messages.error ~category:Messages.Category.Race
-        "DomainLock: must be held when calling OCaml runtime function %s" name ;
+        "DomainLock: must be held when %s %s" what name ;
     ctx.local
 
   let must_be_protected_by ctx write (arg : varinfo) =
@@ -61,11 +61,27 @@ module DomainLock = struct
         arg.vname write must ;
     (* sometimes the must above answers true even if the domain lock is not
        held? *)
-    must_be_held ctx arg.vname ;
+    must_be_held ctx "dereferencing OCaml value" arg.vname ;
     (* TODO: this should say accessing OCaml value,
        not runtime function *)
     ctx.local
 end
+
+let size_of_word = SizeOf voidPtrType
+
+let plus1 exp = constFoldBinOp true PlusA exp (kinteger IULong 1) ulongType
+
+let plus_word exp = constFoldBinOp true PlusA exp size_of_word ulongType
+
+let caml_alloc count =
+  LibraryDesc.Calloc {count= plus1 count; size= size_of_word}
+
+(* uninit return *)
+let caml_malloc count =
+  LibraryDesc.Malloc
+    (constFoldBinOp true Mult (plus1 count) size_of_word ulongType)
+
+(* TODO: mark values as not null *)
 
 let ocaml_runtime_functions : (string * LibraryDesc.t) list =
   LibraryDsl.
@@ -84,7 +100,49 @@ let ocaml_runtime_functions : (string * LibraryDesc.t) list =
       , special [] @@ Unlock DomainLock.runtime_lock
       )
       (* TODO: more functions here *)
+    ; ("caml_failwith", special [drop "message" [r]] Abort)
+    ; ("caml_raise_with_string", special [drop "tag" []; drop "msg" [r]] Abort)
+    ; ("caml_raise_out_of_memory", special [] Abort)
+    ; ("caml_invalid_argument", special [drop "msg" [r]] Abort)
+    ; ( "caml_alloc_custom"
+      , special
+          [drop "ops" [r]; __ "sizeof" []; drop "n" []; drop "m" []]
+          caml_alloc
+      )
+    ; ("caml_alloc", special [__ "sizeof" []; drop "tag" []] caml_alloc)
+    ; ("caml_alloc_tuple", special [__ "sizeof" []] caml_alloc)
+    ; ("caml_alloc_small", special [__ "sizeof" []; drop "tag" []] caml_malloc)
+    ; ( "caml_copy_int64"
+      , special [drop "int" []]
+        @@ Calloc
+             {
+               count= constFoldBinOp true PlusA size_of_word (integer 8) uintType
+             ; size= one
+             }
+      )
+    ; ( "caml_copy_int32"
+      , special [drop "int" []]
+        @@ Calloc
+             {
+               count= constFoldBinOp true PlusA size_of_word (integer 4) uintType
+             ; size= one
+             }
+      )
+    ; ( "caml_copy_nativeint"
+      , special [drop "int" []] @@ Calloc {count= integer 2; size= size_of_word}
+      )
+    ; ( "caml_copy_string"
+      , unknown [drop "str" [r]] (* TODO: allocates string length *)
+      )
+    ; ("caml_modify", unknown [drop "dest" [w]; drop "src" []])
+    ; ("caml_named_value", unknown [drop "name" [r]])
+      (* TODO: also extra padding at end *)
+    ; ( "caml_alloc_string"
+      , special [__ "size_bytes" []] @@ fun size -> Malloc (plus_word size)
+      )
     ]
+
+let cstubs = ref []
 
 module Cstub = struct
   let is_cstub_entry_svar svar =
@@ -94,6 +152,7 @@ module Cstub = struct
     *)
     let is =
       ContextUtil.has_attribute "section" "goblint-ocaml-cstub" svar.vattr
+      || List.mem svar.vname !cstubs
     in
     if tracing () then
       tracel "function %s is an OCaml C stub: %b" svar.vname is ;
@@ -122,7 +181,7 @@ module Cstub = struct
     ctx.local
 
   let call_caml_runtime ctx f _arglist =
-    DomainLock.must_be_held ctx f.vname ;
+    DomainLock.must_be_held ctx "calling OCaml runtime function" f.vname ;
     ctx.local
 end
 
@@ -174,6 +233,34 @@ let ocaml_value_derefs_of_exp exp =
   let (_ : exp) = visitCilExpr visitor exp in
   !values
 
+class init_visitor ask (acc : Lval.CilLval.t list ref) =
+  object
+    inherit nopCilVisitor
+
+    method! vinit _ _ =
+      function
+      | SingleInit e ->
+          let typ = typeOf e in
+          if tracing () then
+            tracel "initializer %a (type %a)" Cil.d_exp e Cil.d_type typ ;
+          if isFunctionType typ then (
+            let lvals = ask Queries.(MayPointTo e) in
+            if tracing () then
+              tracel "initializer %a may point to %a" Cil.d_exp e
+                Queries.LS.pretty lvals ;
+            acc := List.rev_append (Queries.LS.elements lvals) !acc
+          ) ;
+          SkipChildren
+      | CompoundInit _ ->
+          DoChildren
+  end
+
+let rec function_ptrs_of_init acc = function
+  | SingleInit e ->
+      e :: acc
+  | CompoundInit (_, lst) ->
+      lst |> List.map snd |> List.fold_left function_ptrs_of_init acc
+
 module Spec : Analyses.MCPSpec = struct
   let name () = "ocamlcstubs"
 
@@ -209,8 +296,45 @@ module Spec : Analyses.MCPSpec = struct
         ctx.local
     | "caml_alloc_custom" ->
         let local = Cstub.call_caml_runtime ctx f arglist in
+        (* the argument may not be an immediate pointer to a global,
+           query the points-to analyses on where it actually points to *)
+        let custom_ops = ctx.ask Queries.(MayPointTo (List.nth arglist 0)) in
+        if tracing () then
+          tracel "caml_alloc_custom points to %a" Queries.LS.pretty custom_ops ;
+        let () =
+          if not @@ Queries.LS.is_top custom_ops then (
+            (* it points somewhere, all the function pointers in that struct's
+               initializer should be treated as C stubs
+               therefore this should be a separate analysis that just determines
+               whether it is a C stub or not that runs before this one....
+               this may be a global, but not necessarily
+            *)
+            custom_ops
+            |> Queries.LS.iter @@ function
+               | {vinit= {init= None}; _}, _ ->
+                   ()
+               | {vinit= {init= Some init}; _}, _ ->
+                   let funptrs =
+                     init
+                     |> function_ptrs_of_init []
+                     |> List.map @@ fun exp -> ctx.ask (Queries.MayPointTo exp)
+                   in
+                   if tracing () then
+                     tracel "found function pointers: %a"
+                       (Pretty.d_list "," Queries.LS.pretty)
+                       funptrs ;
+                   funptrs
+                   |> List.iter @@ fun funptr ->
+                      let new_stubs =
+                        funptr
+                        |> Queries.LS.elements
+                        |> List.map (fun (fn, _) -> fn.vname)
+                      in
+                      cstubs := List.rev_append new_stubs !cstubs
+          )
+        in
         (* TODO: find functions in struct and register as C stub roots... *)
-        ()
+        local
     | n when String.starts_with n "caml_" ->
         (* call into OCaml runtime system, must hold domain lock *)
         Cstub.call_caml_runtime ctx f arglist
@@ -236,6 +360,18 @@ end
 
 let () =
   LibraryFunctions.register_library_functions ocaml_runtime_functions ;
+  (* have to declare dependencies on analyses that can provide answers to
+     the [ctx.ask Queries] and that generate the [Events] we need
+  *)
   MCP.register_analysis
-    ~dep:[AccessAnalysis.Spec.name ()]
+    ~dep:
+      [
+        AccessAnalysis.Spec.name () (* for Events.Access *)
+      ; MutexAnalysis.Spec.name
+          () (* for Queries.{MustLockset, MustBeProtectedBy} *)
+      ; (let module M = (val Base.get_main ()) in
+        M.name ()
+        )
+        (* for Queries.MayPointTo *)
+      ]
     (module Spec : MCPSpec)

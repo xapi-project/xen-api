@@ -60,7 +60,7 @@ let with_goblint_tmpdir f =
     Errors/warnings are reported immediately on standard output channels,
     but additional formats can be requested.
 
-    [--g2html] can be used on the CLI to request html output.
+    [--html] can be used on the CLI to request html output to [result/]
     [--enable gobview --set save_run DIR] can be used to request [gobview]
     output into [DIR]
 
