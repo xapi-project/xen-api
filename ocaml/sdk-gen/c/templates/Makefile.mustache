@@ -32,12 +32,9 @@ DESTDIR=/usr/local
 
 ifeq ($(CYGWIN), 1)
 	CYGWIN_LIBXML = -L/bin -lxml2-2
-	CYGWIN_CURL = -L/bin -lcurl-4
 	POS_FLAG = -U__STRICT_ANSI__
-	TEST_LDFLAGS = -L . libxenserver.so $(CYGWIN_CURL)
 else
 	POS_FLAG = -fPIC
-	TEST_LDFLAGS = -L . -lxenserver
 endif
 
 CFLAGS = -g -Iinclude \
@@ -58,11 +55,8 @@ SHLIB_CFLAGS ?= -shared
 INSTALL_DIR  = install -d -m0755 -p
 INSTALL_DATA = install -m0644 -p
 
-LIBXENAPI_HDRS_INT = $(wildcard include/*.h)
 LIBXENAPI_HDRS = $(wildcard include/xen/api/*.h)
 LIBXENAPI_OBJS = $(patsubst %.c, %.o, $(wildcard src/*.c))
-
-TEST_PROGRAMS = $(patsubst %.c, %, $(wildcard test/*.c))
 
 %.o: %.c %.h
 	$(CC) -o $@ $<
@@ -74,39 +68,31 @@ libxenserver.so.{{API_VERSION_MAJOR}}: libxenserver.so.{{API_VERSION_MAJOR}}.{{A
 	ln -sf $< $@
 
 libxenserver.so.{{API_VERSION_MAJOR}}.{{API_VERSION_MINOR}}: $(LIBXENAPI_OBJS)
-	$(CC) $(CFLAGS) $(LDFLAGS) -Wl,$(SONAME_LDFLAG) -Wl,libxenserver.so.{{API_VERSION_MAJOR}} $(SHLIB_CFLAGS) -o $@ $^
+	$(CC) $(CFLAGS) $(LDFLAGS) -Wl,$(SONAME_LDFLAG),libxenserver.so.{{API_VERSION_MAJOR}} $(SHLIB_CFLAGS) -o $@ $^
 
 libxenserver.a: $(LIBXENAPI_OBJS)
 	$(AR) rcs libxenserver.a $^
 
-test/%: test/%.o libxenserver.so
-	$(CC) -o $@ $< $(TEST_LDFLAGS) $(LDFLAGS)
-
 build: libxenserver.so libxenserver.a
 
-all: $(TEST_PROGRAMS)
-
-install: libxenserver.so libxenserver.a
+install: build
 	$(INSTALL_DIR) $(DESTDIR)/include/xen/api
 	$(INSTALL_DIR) $(DESTDIR)/lib
 	$(INSTALL_DATA) libxenserver.so.{{API_VERSION_MAJOR}}.{{API_VERSION_MINOR}} $(DESTDIR)/lib
 	ln -sf libxenserver.so.{{API_VERSION_MAJOR}}.{{API_VERSION_MINOR}} $(DESTDIR)/lib/libxenserver.so.{{API_VERSION_MAJOR}}
 	ln -sf libxenserver.so.{{API_VERSION_MAJOR}} $(DESTDIR)/lib/libxenserver.so
+ifeq ($(CYGWIN), 1)
+	ln -sf libxenserver.so $(DESTDIR)/lib/libxenserver.dll
+endif
 	$(INSTALL_DATA) libxenserver.a $(DESTDIR)/lib
-	for i in $(LIBXENAPI_HDRS_INT); do \
-	    $(INSTALL_DATA) $$i $(DESTDIR)/include/; \
-	done
 	for i in $(LIBXENAPI_HDRS); do \
 	    $(INSTALL_DATA) $$i $(DESTDIR)/include/xen/api; \
 	done
 
-clean: cleantests
+clean:
 	rm -f `find -name *.o`
 	rm -f libxenserver.so*
 	rm -f libxenserver.a
 
-cleantests:
-	rm -f $(TEST_PROGRAMS)
-
-.PHONY: clean cleantests build all install
-.DEFAULT_GOAL := all
+.PHONY: clean build install
+.DEFAULT_GOAL := build

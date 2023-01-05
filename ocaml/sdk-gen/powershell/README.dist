@@ -12,10 +12,6 @@ are ideal for developers wishing to use this module.
 This module is free software. You can redistribute and modify it under the
 terms of the BSD 2-Clause license. See LICENSE.txt for details.
 
-This library is accompanied by pedagogical examples. These do not form
-part of this library, and are licensed for redistribution and modification
-under the BSD 2-Clause license.
-
 
 Reference
 ---------
@@ -27,6 +23,9 @@ https://developer-docs.citrix.com/projects/citrix-hypervisor-management-api/en/l
 
 The XenServer Software Development Kit Guide is available at
 https://developer-docs.citrix.com/projects/citrix-hypervisor-sdk/en/latest/
+
+A number of examples to help you get started with the SDK is available at
+https://github.com/xenserver/xenserver-samples
 
 For community content, blogs, and downloads, visit
 https://www.citrix.com/community/citrix-developer/
@@ -65,7 +64,6 @@ This archive contains the following folders that are relevant to PowerShell user
   Module
 - XenServerPowerShell\src: contains the C# source code for the XenServer
   cmdlets shipped as a Visual Studio project.
-- XenServerPowerShell\samples: contains the sample scripts accompanying the module.
 
 
 Getting Started
