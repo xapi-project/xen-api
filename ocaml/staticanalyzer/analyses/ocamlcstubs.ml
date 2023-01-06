@@ -368,7 +368,8 @@ let dep =
     M.name ()
     )
     (* for Queries.MayPointTo *)
-  ; ThreadEscape.Spec.name () (* without everything that gets its address taken is considered global *)
+  ; ThreadEscape.Spec.name ()
+    (* without everything that gets its address taken is considered global *)
   ]
 
 let () =

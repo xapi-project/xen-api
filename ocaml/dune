@@ -21,6 +21,7 @@
             --set ana.activated "[\"ocamlcstubs\"]"
             --sarif -I %{ocaml_where} -I staticanalyzer/destpatch/gcc_11
             -I auth -I ctypes
+            ; --enable dbg.debug --enable dbg.verbose
             %{cstubs})))))
  )
 
