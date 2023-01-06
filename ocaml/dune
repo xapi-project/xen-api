@@ -1,0 +1,29 @@
+(rule
+  (with-stdout-to ctypesdir (run dirname %{lib:ctypes:cstubs_internals.h}))
+)
+
+(rule
+  (targets xapi.sarif lintcstubs.stdout)
+  (deps
+    (:auth (glob_files auth/*.h))
+    (:cstubs (glob_files_rec *_stubs.c)))
+
+  ; enable only errors from our analyses
+  (action
+    (progn
+      (run rm -f goblint.sarif)
+      (run ln -s %{read-lines:ctypesdir} ctypes)
+      (with-stdout-to lintcstubs.stdout (run staticanalyzer/lintcstubs.exe -o xapi.sarif --disable warn.info
+               --disable warn.behavior
+           --disable warn.warning --disable warn.unsound --disable warn.imprecise --set ana.activated
+               "[\"base\",\"mallocWrapper\",\"escape\",\"mutex\",\"mutexEvents\",\"access\",\"ocamlcstubs\"]"
+               --sarif -I %{ocaml_where} -I staticanalyzer/destpatch/gcc_11
+               -I auth -I ctypes
+               %{cstubs}))))
+ )
+
+(rule
+ (alias analyze)
+ (deps lintcstubs.stdout)
+ (action (diff xapi.stdout.reference %{deps}))
+)

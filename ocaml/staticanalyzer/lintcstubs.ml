@@ -89,7 +89,7 @@ let main () =
   enable_tracing_if_needed () ;
   let file = with_goblint_tmpdir Maingoblint.preprocess_parse_merge in
   set_entrypoints file ;
-  AutoTune.chooseConfig file ;
+  (* AutoTune.chooseConfig file ; *)
   file |> Maingoblint.do_analyze @@ Analyses.empty_increment_data () ;
   report_results ()
 

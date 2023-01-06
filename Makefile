@@ -23,6 +23,9 @@ check:
 clean:
 	dune clean
 
+analyze:
+	dune build --profile=$(PROFILE) ocaml/xapi.sarif
+
 lint:
 	dune build @python
 	pylint --disable=line-too-long,too-few-public-methods,unused-argument,no-self-use,invalid-name,broad-except,protected-access,redefined-builtin,too-many-lines,wildcard-import,too-many-branches,too-many-arguments,unused-wildcard-import,raising-format-tuple,too-many-statements,duplicate-code _build/default/xapi-storage/python/xapi/storage/api/v5/*.py
@@ -31,6 +34,7 @@ lint:
 test:
 	dune runtest --profile=$(PROFILE) --no-buffer -j $(JOBS)
 	dune build @runtest-python --profile=$(PROFILE)
+	dune build @analyze --profile=$(PROFILE)
 
 stresstest:
 	dune build @stresstest --profile=$(PROFILE) --no-buffer -j $(JOBS)

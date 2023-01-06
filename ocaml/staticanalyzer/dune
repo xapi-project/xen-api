@@ -1,7 +1,8 @@
 (executable
-  (name lintcstubs)
+  (public_name lintcstubs)
   (libraries lintcstubs_analysis goblint.sites.dune)
   (flags :standard -linkall)
+  (package xapi-lintcstubs)
 )
 
 ; TODO: copy $(ocamlc -where) to a destpatch,

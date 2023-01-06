@@ -1,0 +1,14 @@
+opam-version: "2.0"
+homepage: "https://github.com/xapi-project/xen-api"
+bug-reports: "https://github.com/xapi-project/xen-api/issues"
+dev-repo: "git+https://github.com/xapi-project/xen-api.git"
+build: [
+  ["dune" "build" "-p" name "-j" jobs ]
+  ["dune" "runtest" "-p" name "-j" jobs] {with-test}
+]
+depends: [
+  "ocaml"
+  "dune" {build & >= "3.0"}
+  "goblint"
+]
+synopsis: "OCaml C stub static analyzer"
