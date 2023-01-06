@@ -1,5 +1,11 @@
 open Goblint_lib
 
+let rec activate name =
+  let id = MCPRegistry.find_id name in
+  let deps = (MCPRegistry.find_spec id).dep in
+  List.iter activate deps ;
+  GobConfig.set_auto "ana.activated[+]" name
+
 (** [set_default_flags ()] initializes goblint with flags suitable for parsing OCaml C stubs *)
 let set_default_flags () =
   (* all the flag names are documented in the JSON schema at:
@@ -20,7 +26,7 @@ let set_default_flags () =
 
      [ana.activated]: List of activated analyses
   *)
-  set_auto "ana.activated[+]" @@ Lintcstubs_analysis.Ocamlcstubs.Spec.name () ;
+  activate @@ Lintcstubs_analysis.Ocamlcstubs.Spec.name () ;
 
   (* do not disable multithreaded analysis, even though there are no thread
      creations in sight: we want to treat stubs as multi-threaded
@@ -83,9 +89,9 @@ let report_results () =
  *)
 let main () =
   Cilfacade.init () ;
-  set_default_flags () ;
   (* for now we use goblint's CLI *)
   Maingoblint.parse_arguments () ;
+  set_default_flags () ;
   enable_tracing_if_needed () ;
   let file = with_goblint_tmpdir Maingoblint.preprocess_parse_merge in
   set_entrypoints file ;

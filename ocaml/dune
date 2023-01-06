@@ -15,8 +15,8 @@
       (run ln -s %{read-lines:ctypesdir} ctypes)
       (with-stdout-to lintcstubs.stdout (run staticanalyzer/lintcstubs.exe -o xapi.sarif --disable warn.info
                --disable warn.behavior
-           --disable warn.warning --disable warn.unsound --disable warn.imprecise --set ana.activated
-               "[\"base\",\"mallocWrapper\",\"escape\",\"mutex\",\"mutexEvents\",\"access\",\"ocamlcstubs\"]"
+           --disable warn.warning --disable warn.unsound --disable warn.imprecise
+           --set ana.activated "[\"ocamlcstubs\"]"
                --sarif -I %{ocaml_where} -I staticanalyzer/destpatch/gcc_11
                -I auth -I ctypes
                %{cstubs}))))

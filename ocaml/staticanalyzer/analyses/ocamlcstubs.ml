@@ -358,20 +358,20 @@ module Spec : Analyses.MCPSpec = struct
         ctx.local
 end
 
+let dep =
+  [
+    AccessAnalysis.Spec.name () (* for Events.Access *)
+  ; MutexAnalysis.Spec.name
+      () (* for Queries.{MustLockset, MustBeProtectedBy} *)
+  ; (let module M = (val Base.get_main ()) in
+    M.name ()
+    )
+    (* for Queries.MayPointTo *)
+  ]
+
 let () =
   LibraryFunctions.register_library_functions ocaml_runtime_functions ;
   (* have to declare dependencies on analyses that can provide answers to
      the [ctx.ask Queries] and that generate the [Events] we need
   *)
-  MCP.register_analysis
-    ~dep:
-      [
-        AccessAnalysis.Spec.name () (* for Events.Access *)
-      ; MutexAnalysis.Spec.name
-          () (* for Queries.{MustLockset, MustBeProtectedBy} *)
-      ; (let module M = (val Base.get_main ()) in
-        M.name ()
-        )
-        (* for Queries.MayPointTo *)
-      ]
-    (module Spec : MCPSpec)
+  MCP.register_analysis ~dep (module Spec : MCPSpec)
