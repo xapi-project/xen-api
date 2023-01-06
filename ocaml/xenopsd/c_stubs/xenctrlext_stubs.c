@@ -292,7 +292,7 @@ CAMLprim value stub_xenctrlext_deassign_device(value xch, value domid,
     CAMLparam3(xch, domid, machine_sbdf);
     xc_interface* xc = _H(xch);
     caml_enter_blocking_section();
-    int retval = xc_deassign_device(_H(xch), _D(domid), Int_val(machine_sbdf));
+    int retval = xc_deassign_device(xc, _D(domid), Int_val(machine_sbdf));
     caml_leave_blocking_section();
     if ( retval )
         failwith_xc(_H(xch));
