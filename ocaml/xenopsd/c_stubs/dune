@@ -2,6 +2,7 @@
  (name c_stubs)
  (public_name xapi-xenopsd.c_stubs)
  (wrapped false)
+ (modules sockopt)
  (foreign_stubs
   (language c)
   (names sockopt_stubs)
@@ -13,6 +14,7 @@
  (public_name xapi-xenopsd-xc.c_stubs)
  (wrapped false)
  (libraries xenctrl)
+ (modules tuntap xenctrlext)
  (foreign_stubs
   (language c)
   (names tuntap_stubs xenctrlext_stubs)

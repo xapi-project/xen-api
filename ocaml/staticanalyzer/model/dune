@@ -1,0 +1,10 @@
+; check that the model compiles with usual compiler
+(library
+  (name modeltest)
+  (foreign_stubs
+    (language c)
+    (include_dirs include)
+    (names runtime.model)
+   )
+  (package xapi-lintcstubs)
+)

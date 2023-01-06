@@ -87,7 +87,7 @@ jobs:
 
       - uses: github/codeql-actions/upload-sarif@v2
       - with:
-        sarif_file: _build/default/ocaml/xapi.sarif
+        sarif_file: _build/default/xapi.sarif
 
       - name: Run tests
         run: opam exec -- make test

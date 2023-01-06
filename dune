@@ -13,3 +13,67 @@
 (executable
   (name configure)
   (libraries dune-configurator findlib cmdliner unix))
+
+
+(rule
+  (with-stdout-to ctypesdir (run dirname %{lib:ctypes:cstubs_internals.h}))
+)
+
+; This is a single invocation but it is very quick (<0.2s),
+; no need to parallelize, also output can be cached.
+; Only depend on ML files that contain C stubs though,
+; and these .ml also don't require preprocessing for easier use
+(rule
+  (deps
+    ocaml/staticanalyzer/arity/lintcstubs_arity.exe
+    (:mlfiles
+      (glob_files ocaml/auth/*.ml)
+      (glob_files ocaml/libs/log/*.ml)
+      (glob_files ocaml/vhd-tool/src/channels.ml)
+      (glob_files ocaml/xenopsd/c_stubs/*.ml)
+      (glob_files ocaml/xxhash/lib/*.ml)
+      (glob_files unixpwd/src/*.ml)
+    ))
+  (action
+   (with-stdout-to primitives.h
+     (run ocaml/staticanalyzer/arity/lintcstubs_arity.exe %{mlfiles})
+   ))
+)
+
+; once we upgrade to Dune 3.x we can use glob_files_rec here
+(rule
+  (targets xapi.sarif lintcstubs.stdout)
+  (deps
+    (:headers (glob_files ocaml/auth/*.h) (glob_files unixpwd/c/*.h) primitives.h)
+    (:runtime_model ocaml/staticanalyzer/model/runtime.model.c)
+    (:cstubs
+     (glob_files ocaml/auth/*.c)
+     (glob_files ocaml/libs/log/*.c)
+     (glob_files ocaml/vhd-tool/src/*.c)
+     (glob_files ocaml/xenopsd/c_stubs/*.c)
+     (glob_files unixpwd/c/*.c)))
+
+  ; enable only errors from our analyses
+  ; so that the paths in the .sarif will be correct a chdir is needed
+  ; --disable warn.warning --disable warn.unsound --disable warn.imprecise
+  (action
+    (progn
+      (run rm -f goblint.sarif)
+      (run ln -s %{read-lines:ctypesdir} ctypes)
+      (with-stdout-to lintcstubs.stdout
+        (run ocaml/staticanalyzer/lintcstubs.exe -o xapi.sarif --disable warn.info
+            --disable warn.behavior
+            --set ana.activated "[\"ocamlcstubs\",\"escape\"]"
+            --sarif -I %{ocaml_where}
+            -I ocaml/auth -I ctypes -I unixpwd/c
+            %{runtime_model}
+            primitives.h
+            %{cstubs}))))
+ )
+            ; --enable dbg.debug --enable dbg.verbose
+
+(rule
+ (alias analyze)
+ (deps lintcstubs.stdout)
+ (action (diff xapi.stdout.reference %{deps}))
+)

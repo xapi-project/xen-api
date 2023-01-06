@@ -1,13 +1,20 @@
 (library
+  (name channel_stubs)
+  (modules channels)
   (foreign_stubs
     (language c)
     (names direct_copy_stubs)
   )
+)
+
+(library
   (name local_lib)
   (wrapped false)
+  (modules (:standard \ channels))
   (libraries
     astring
     bigarray-compat
+    channel_stubs
     cohttp
     cohttp-lwt
     cstruct

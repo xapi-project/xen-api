@@ -83,6 +83,7 @@ let caml_malloc count =
 
 (* TODO: mark values as not null *)
 
+(* TODO: use .c models instead *)
 let ocaml_runtime_functions : (string * LibraryDesc.t) list =
   LibraryDsl.
     [
@@ -99,47 +100,7 @@ let ocaml_runtime_functions : (string * LibraryDesc.t) list =
     ; ( "caml_enter_blocking_section"
       , special [] @@ Unlock DomainLock.runtime_lock
       )
-      (* TODO: more functions here *)
-    ; ("caml_failwith", special [drop "message" [r]] Abort)
-    ; ("caml_raise_with_string", special [drop "tag" []; drop "msg" [r]] Abort)
-    ; ("caml_raise_out_of_memory", special [] Abort)
-    ; ("caml_invalid_argument", special [drop "msg" [r]] Abort)
-    ; ( "caml_alloc_custom"
-      , special
-          [drop "ops" [r]; __ "sizeof" []; drop "n" []; drop "m" []]
-          caml_alloc
-      )
-    ; ("caml_alloc", special [__ "sizeof" []; drop "tag" []] caml_alloc)
-    ; ("caml_alloc_tuple", special [__ "sizeof" []] caml_alloc)
-    ; ("caml_alloc_small", special [__ "sizeof" []; drop "tag" []] caml_malloc)
-    ; ( "caml_copy_int64"
-      , special [drop "int" []]
-        @@ Calloc
-             {
-               count= constFoldBinOp true PlusA size_of_word (integer 8) uintType
-             ; size= one
-             }
-      )
-    ; ( "caml_copy_int32"
-      , special [drop "int" []]
-        @@ Calloc
-             {
-               count= constFoldBinOp true PlusA size_of_word (integer 4) uintType
-             ; size= one
-             }
-      )
-    ; ( "caml_copy_nativeint"
-      , special [drop "int" []] @@ Calloc {count= integer 2; size= size_of_word}
-      )
-    ; ( "caml_copy_string"
-      , unknown [drop "str" [r]] (* TODO: allocates string length *)
-      )
-    ; ("caml_modify", unknown [drop "dest" [w]; drop "src" []])
     ; ("caml_named_value", unknown [drop "name" [r]])
-      (* TODO: also extra padding at end *)
-    ; ( "caml_alloc_string"
-      , special [__ "size_bytes" []] @@ fun size -> Malloc (plus_word size)
-      )
     ]
 
 let cstubs = ref []
@@ -292,6 +253,9 @@ module Spec : Analyses.MCPSpec = struct
     if tracing () then
       tracel "special(%s)" f.vname ;
     match f.vname with
+    | "caml_stat_free" ->
+        (* does not require runtime lock to be held! *)
+        ctx.local
     | "caml_leave_blocking_section" ->
         ctx.local
     | "caml_alloc_custom" ->
@@ -360,7 +324,9 @@ end
 
 let dep =
   [
-    AccessAnalysis.Spec.name () (* for Events.Access *)
+    ThreadEscape.Spec.name ()
+    (* without everything that gets its address taken is considered global *)
+  ; AccessAnalysis.Spec.name () (* for Events.Access *)
   ; MutexAnalysis.Spec.name
       () (* for Queries.{MustLockset, MustBeProtectedBy} *)
   ; MutexEventsAnalysis.Spec.name () (* for Events.Lock *)
@@ -368,8 +334,6 @@ let dep =
     M.name ()
     )
     (* for Queries.MayPointTo *)
-  ; ThreadEscape.Spec.name ()
-    (* without everything that gets its address taken is considered global *)
   ]
 
 let () =

@@ -1,0 +1,16 @@
+(executable
+  (public_name lintcstubs_genmain)
+  (libraries compiler-libs.common)
+  (package xapi-lintcstubs)
+)
+
+(cram (deps %{bin:lintcstubs_genmain}))
+
+(rule
+  (alias runtest)
+  (deps
+    (:cmt (glob_files %{ocaml_where}/*.cmt))
+    (:linter %{bin:lintcstubs_genmain})
+   )
+  (action (run %{linter} %{cmt}))
+)

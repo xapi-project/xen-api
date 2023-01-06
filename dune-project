@@ -1,3 +1,4 @@
-(lang dune 3.0)
+(lang dune 2.8)
+(cram enable)
 
 (formatting (enabled_for ocaml))

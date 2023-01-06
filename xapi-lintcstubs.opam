@@ -7,7 +7,7 @@ build: [
   ["dune" "runtest" "-p" name "-j" jobs] {with-test}
 ]
 depends: [
-  "ocaml"
+  "ocaml" {>= "4.08"}
   "dune" {build & >= "3.0"}
   "goblint"
 ]
