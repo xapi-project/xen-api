@@ -3,7 +3,7 @@
 )
 
 (rule
-  (targets xapi.sarif lintcstubs.stdout)
+  (targets xapi.sarif lintcstubs.stdout lintcstubs.stderr)
   (deps
     (:auth (glob_files auth/*.h))
     (:cstubs (glob_files_rec *_stubs.c)))
@@ -13,13 +13,15 @@
     (progn
       (run rm -f goblint.sarif)
       (run ln -s %{read-lines:ctypesdir} ctypes)
-      (with-stdout-to lintcstubs.stdout (run staticanalyzer/lintcstubs.exe -o xapi.sarif --disable warn.info
-               --disable warn.behavior
-           --disable warn.warning --disable warn.unsound --disable warn.imprecise
-           --set ana.activated "[\"ocamlcstubs\"]"
-               --sarif -I %{ocaml_where} -I staticanalyzer/destpatch/gcc_11
-               -I auth -I ctypes
-               %{cstubs}))))
+      (with-stdout-to lintcstubs.stdout
+      (with-stderr-to lintcstubs.stderr
+        (run staticanalyzer/lintcstubs.exe -o xapi.sarif --disable warn.info
+            --disable warn.behavior
+            --disable warn.warning --disable warn.unsound --disable warn.imprecise
+            --set ana.activated "[\"ocamlcstubs\"]"
+            --sarif -I %{ocaml_where} -I staticanalyzer/destpatch/gcc_11
+            -I auth -I ctypes
+            %{cstubs})))))
  )
 
 (rule

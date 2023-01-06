@@ -363,10 +363,12 @@ let dep =
     AccessAnalysis.Spec.name () (* for Events.Access *)
   ; MutexAnalysis.Spec.name
       () (* for Queries.{MustLockset, MustBeProtectedBy} *)
+  ; MutexEventsAnalysis.Spec.name () (* for Events.Lock *)
   ; (let module M = (val Base.get_main ()) in
     M.name ()
     )
     (* for Queries.MayPointTo *)
+  ; ThreadEscape.Spec.name () (* without everything that gets its address taken is considered global *)
   ]
 
 let () =
