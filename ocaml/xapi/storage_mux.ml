@@ -28,6 +28,8 @@ let s_of_sr = Sr.string_of
 
 let s_of_vdi = Vdi.string_of
 
+let s_of_vm = Vm.string_of
+
 type plugin = {
     processor: processor
   ; backend_domain: string
@@ -197,9 +199,21 @@ module Mux = struct
   end
 
   module DP = struct
-    (* We'll never get here, because DP is implemented in
-       Storage_impl.Wrapper(Impl), and it never calls Impl.DP *)
     include Storage_skeleton.DP
+
+    let create _context ~dbg:_ ~id = id
+
+    let destroy _context ~dbg ~dp ~allow_leak =
+      info "DP.destroy dbg:%s dp:%s allow_leak:%b" dbg dp allow_leak ;
+      let sr : Sr.t =
+        let open DP_info in
+        match read dp with Some x -> x.sr | None -> failwith "DP not found"
+      in
+      let module C = StorageAPI (Idl.Exn.GenClient (struct
+        let rpc = of_sr sr
+      end)) in
+      C.DP.destroy dbg dp allow_leak ;
+      DP_info.delete dp
   end
 
   module SR = struct
@@ -268,7 +282,12 @@ module Mux = struct
          )
         )
 
-    let reset () ~dbg:_ ~sr:_ = assert false
+    let reset () ~dbg ~sr =
+      info "SR.reset dbg:%s sr:%s" dbg (s_of_sr sr) ;
+      let module C = StorageAPI (Idl.Exn.GenClient (struct
+        let rpc = of_sr sr
+      end)) in
+      C.SR.reset dbg sr
 
     let update_snapshot_info_src () = Storage_migrate.update_snapshot_info_src
 
@@ -357,30 +376,79 @@ module Mux = struct
       end)) in
       C.VDI.epoch_begin dbg sr vdi vm persistent
 
-    (* We need to include this to satisfy the SMAPIv2 signature *)
-    let attach () ~dbg:_ ~dp:_ ~sr:_ ~vdi:_ ~read_write:_ =
-      failwith
-        "We'll never get here: attach is implemented in Storage_impl.Wrapper"
+    let attach () ~dbg ~dp ~sr ~vdi ~read_write =
+      let module C = StorageAPI (Idl.Exn.GenClient (struct
+        let rpc = of_sr sr
+      end)) in
+      let vm = Vm.of_string "0" in
+      DP_info.write dp DP_info.{sr; vdi; vm} ;
+      let backend = C.VDI.attach3 dbg dp sr vdi vm read_write in
+      (* VDI.attach2 should be used instead, VDI.attach is only kept for
+         backwards-compatibility, because older xapis call Remote.VDI.attach during SXM.
+         However, they ignore the return value, so in practice it does not matter what
+         we return from here. *)
+      let xendisks, blockdevs, files, _nbds =
+        Storage_interface.implementations_of_backend backend
+      in
+      let response params =
+        (* We've thrown o_direct info away from the SMAPIv1 info during the conversion to SMAPIv3 attach info *)
+        (* The removal of these fields does not break read caching info propagation for SMAPIv1
+         * (REQ-49), because we put this information into the VDI's sm_config elsewhere,
+         * and XenCenter looks at the relevant sm_config keys. *)
+        {params; xenstore_data= []; o_direct= true; o_direct_reason= ""}
+      in
+      (* If Nbd is returned, then XenDisk must also be returned from attach2 *)
+      match (xendisks, files, blockdevs) with
+      | xendisk :: _, _, _ ->
+          response xendisk.Storage_interface.params
+      | _, file :: _, _ ->
+          response file.Storage_interface.path
+      | _, _, blockdev :: _ ->
+          response blockdev.Storage_interface.path
+      | [], [], [] ->
+          raise
+            (Storage_interface.Storage_error
+               (Backend_error
+                  ( Api_errors.internal_error
+                  , [
+                      "No File, BlockDev, or XenDisk implementation in \
+                       Datapath.attach response: "
+                      ^ (Storage_interface.(rpc_of backend) backend
+                        |> Jsonrpc.to_string
+                        )
+                    ]
+                  )
+               )
+            )
 
     let attach2 () ~dbg ~dp ~sr ~vdi ~read_write =
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
-      C.VDI.attach2 dbg dp sr vdi read_write
+      let vm = Vm.of_string "0" in
+      DP_info.write dp DP_info.{sr; vdi; vm} ;
+      C.VDI.attach3 dbg dp sr vdi vm read_write
 
     let attach3 () ~dbg ~dp ~sr ~vdi ~vm ~read_write =
+      info "VDI.attach3 dbg:%s dp:%s sr:%s vdi:%s vm:%s read_write:%b" dbg dp
+        (s_of_sr sr) (s_of_vdi vdi) (s_of_vm vm) read_write ;
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
+      DP_info.write dp DP_info.{sr; vdi; vm} ;
       C.VDI.attach3 dbg dp sr vdi vm read_write
 
     let activate () ~dbg ~dp ~sr ~vdi =
+      info "VDI.activate dbg:%s dp:%s sr:%s vdi:%s " dbg dp (s_of_sr sr)
+        (s_of_vdi vdi) ;
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
       C.VDI.activate dbg dp sr vdi
 
     let activate3 () ~dbg ~dp ~sr ~vdi ~vm =
+      info "VDI.activate3 dbg:%s dp:%s sr:%s vdi:%s vm:%s" dbg dp (s_of_sr sr)
+        (s_of_vdi vdi) (s_of_vm vm) ;
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
@@ -396,7 +464,8 @@ module Mux = struct
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
-      C.VDI.detach dbg dp sr vdi vm
+      C.VDI.detach dbg dp sr vdi vm ;
+      DP_info.delete dp
 
     let epoch_end () ~dbg ~sr ~vdi ~vm =
       let module C = StorageAPI (Idl.Exn.GenClient (struct
