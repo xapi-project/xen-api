@@ -12,6 +12,8 @@
  * GNU Lesser General Public License for more details.
  *)
 
+module Unixext = Xapi_stdext_unix.Unixext
+
 module D = Debug.Make (struct let name = "mux" end)
 
 open D
@@ -149,6 +151,49 @@ module Mux = struct
           end)) in
           C.Query.diagnostics dbg
       )
+  end
+
+  module DP_info = struct
+    type t = {sr: Sr.t; vdi: Vdi.t; vm: Vm.t} [@@deriving rpcty]
+
+    let storage_dp_path = "/var/run/nonpersistent/xapi/storage-dps"
+
+    let m = Mutex.create ()
+
+    let filename_of dp = Xapi_stdext_std.Xstringext.String.replace "/" "-" dp
+
+    let write dp info =
+      let filename = filename_of dp in
+      let data = Rpcmarshal.marshal t.Rpc.Types.ty info |> Jsonrpc.to_string in
+      with_lock m (fun () ->
+          Unixext.mkdir_rec storage_dp_path 0o600 ;
+          Unixext.write_string_to_file
+            (Filename.concat storage_dp_path filename)
+            data
+      )
+
+    let read dp : t option =
+      try
+        with_lock m (fun () ->
+            let x =
+              let path = Filename.concat storage_dp_path (filename_of dp) in
+              path |> Unixext.string_of_file |> Jsonrpc.of_string
+            in
+            match Rpcmarshal.unmarshal t.Rpc.Types.ty x with
+            | Ok x ->
+                Some x
+            | Error (`Msg m) ->
+                failwith (Printf.sprintf "Failed to unmarshal: %s" m)
+        )
+      with _ -> None
+
+    let delete dp =
+      try
+        with_lock m (fun () ->
+            let path = Filename.concat storage_dp_path (filename_of dp) in
+            Unix.unlink path
+        )
+      with _ -> ()
   end
 
   module DP = struct
