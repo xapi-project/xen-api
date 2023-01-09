@@ -38,7 +38,7 @@
 int __VERIFIER_nondet_int(void);
 #define STUB __attribute__((goblint_stub))
 
-void caml_failed_assert(char *msg, char *os, int n) STUB
+STUB void caml_failed_assert(char *msg, char *os, int n)
 {
     /* always fail assertion when called by CAMLassert */
     assert(!msg);
@@ -53,12 +53,11 @@ void caml_failed_assert(char *msg, char *os, int n) STUB
  * may not necessarily terminate, e.g. if there is an exception handler */
 CAMLnoreturn_start void __caml_exception_raised() CAMLnoreturn_end STUB;
 
-#define __access_Val(v)                                                       \
-    do                                                                        \
-    {                                                                         \
-        if ( !Is_block(v) )                                                   \
-            (void)Tag_val(v);                                                 \
-    } while ( 0 )
+STUB void __access_Val(value v)
+{
+    if ( !Is_block(v) )
+        (void)Tag_val(v);
+}
 
 static header_t __atoms[Num_tags];
 
@@ -67,7 +66,7 @@ static header_t __atoms[Num_tags];
  * (except with a trylock, but that is not modeled either)
  */
 
-value caml_alloc_atom(tag_t tag) STUB
+STUB value caml_alloc_atom(tag_t tag)
 {
     assert(tag < Num_tags);
     header_t *hp = &__atoms[tag];
@@ -85,7 +84,7 @@ static struct
 
 static int __custom_ops_running;
 
-static void __caml_maybe_run_finalizer(void) STUB
+STUB static void __caml_maybe_run_finalizer(void)
 {
     const struct custom_operations *ops = a_custom_op.ops;
     value v = a_custom_op.v;
@@ -140,7 +139,7 @@ static void __caml_maybe_run_finalizer(void) STUB
     __custom_ops_running = 0;
 }
 
-static void __caml_move(value arg, volatile value *dest) STUB
+STUB static void __caml_move(value arg, volatile value *dest)
 {
     if ( !Is_block(arg) )
         return;
@@ -165,7 +164,7 @@ static void __caml_move(value arg, volatile value *dest) STUB
 #endif
 
 /* anything can happen, including more allocations, etc. */
-static void __caml_maybe_run_gc(void) STUB
+STUB void __caml_maybe_run_gc(void)
 {
     if ( !__VERIFIER_nondet_int() )
         return;
@@ -192,7 +191,7 @@ static void __caml_maybe_run_gc(void) STUB
     __caml_maybe_run_finalizer();
 }
 
-value caml_alloc_shr(mlsize_t wosize, tag_t tag) STUB
+STUB value caml_alloc_shr(mlsize_t wosize, tag_t tag)
 {
     /* See https://v2.ocaml.org/manual/intfc.html#sss:c-simple-allocation
      * have to use Atom(t) for 0 sized blocks */
@@ -210,7 +209,7 @@ value caml_alloc_shr(mlsize_t wosize, tag_t tag) STUB
     return Val_hp(p);
 }
 
-value caml_alloc_small(mlsize_t wosize, tag_t tag) STUB
+STUB value caml_alloc_small(mlsize_t wosize, tag_t tag)
 {
     assert(wosize <= Max_young_wosize);
     /* alloc_small is just an optimization,
@@ -218,7 +217,7 @@ value caml_alloc_small(mlsize_t wosize, tag_t tag) STUB
     return caml_alloc_shr(wosize, tag);
 }
 
-value caml_alloc(mlsize_t wosize, tag_t tag) STUB
+STUB value caml_alloc(mlsize_t wosize, tag_t tag)
 {
     unsigned i;
     value p = caml_alloc_shr(wosize, tag);
@@ -232,10 +231,10 @@ value caml_alloc(mlsize_t wosize, tag_t tag) STUB
 
 #if OCAML_VERSION < 50000
 value caml_alloc_custom(struct custom_operations *ops, uintnat size,
-                        mlsize_t mem, mlsize_t max) STUB
+STUB                         mlsize_t mem, mlsize_t max)
 #else
 value caml_alloc_custom(const struct custom_operations * ops, uintnat size,
-                        mlsize_t mem, mlsize_t max) STUB
+STUB                         mlsize_t mem, mlsize_t max)
 #endif
 {
     assert(!!ops);
@@ -253,9 +252,9 @@ value caml_alloc_custom(const struct custom_operations * ops, uintnat size,
     return result;
 }
 
-value caml_alloc_tuple(mlsize_t wosize) STUB { return caml_alloc(wosize, 0); }
+STUB value caml_alloc_tuple(mlsize_t wosize) { return caml_alloc(wosize, 0); }
 
-value caml_alloc_string(mlsize_t len) STUB
+STUB value caml_alloc_string(mlsize_t len)
 {
     /* Sys.max_string_length */
     assert(len < Bsize_wsize(Max_wosize));
@@ -270,20 +269,21 @@ value caml_alloc_string(mlsize_t len) STUB
     return Val_hp(result);
 }
 
-value caml_alloc_initialized_string(mlsize_t len, const char *p) STUB
+STUB value caml_alloc_initialized_string(mlsize_t len, const char *p)
 {
     value result = caml_alloc_string(len);
     memcpy(Bytes_val(result), p, len);
     return result;
 }
 
-value caml_copy_string(const char *s) STUB
+STUB value caml_copy_string(const char *s)
 {
     assert(!!s);
     return caml_alloc_initialized_string(strlen(s), s);
 }
 
-value caml_copy_double(double f) STUB
+
+STUB value caml_copy_double(double f)
 {
     value v = caml_alloc_small(Double_wosize, Double_tag);
     Store_double_val(v, f);
@@ -299,21 +299,21 @@ static struct custom_operations default_ops = { "default",
                                                 custom_compare_ext_default,
                                                 custom_fixed_length_default };
 
-value caml_copy_int32(int32_t i) STUB
+STUB value caml_copy_int32(int32_t i)
 {
     value v = caml_alloc_custom(&default_ops, sizeof(i), 0, 1);
     Int32_val(v) = i;
     return v;
 }
 
-value caml_copy_int64(int64_t i) STUB
+STUB value caml_copy_int64(int64_t i)
 {
     value v = caml_alloc_custom(&default_ops, sizeof(i), 0, 1);
     Int64_val(v) = i;
     return v;
 }
 
-value caml_copy_nativeint(intnat i) STUB
+STUB value caml_copy_nativeint(intnat i)
 {
     value v = caml_alloc_custom(&default_ops, sizeof(i), 0, 1);
     Nativeint_val(v) = i;
@@ -323,10 +323,10 @@ value caml_copy_nativeint(intnat i) STUB
 /* constness is different causing a compile error with 5.0,
  * unless we use the correct definition */
 #if OCAML_VERSION < 50000
-value caml_alloc_array(value (*funct)(char const *), char const **array) STUB
+STUB value caml_alloc_array(value (*funct)(char const *), char const **array)
 #else
 value caml_alloc_array (value (*funct) (char const *),
-                        char const * const * array) STUB
+STUB                         char const * const * array)
 #endif
 {
     CAMLparam0();
@@ -346,15 +346,15 @@ value caml_alloc_array (value (*funct) (char const *),
 }
 
 #if OCAML_VERSION < 50000
-value caml_copy_string_array(char const **arr) STUB
+STUB value caml_copy_string_array(char const **arr)
 #else
-value caml_copy_string_array (char const * const* arr) STUB
+STUB value caml_copy_string_array (char const * const* arr)
 #endif
 {
     return caml_alloc_array(caml_copy_string, arr);
 }
 
-value caml_alloc_float_array(mlsize_t n) STUB
+STUB value caml_alloc_float_array(mlsize_t n)
 {
     /* no flat float array */
     return caml_alloc(n, 0);
@@ -364,14 +364,14 @@ value caml_alloc_float_array(mlsize_t n) STUB
 #define Tag_some 0
 #endif
 
-value caml_alloc_some(value v) STUB
+STUB value caml_alloc_some(value v)
 {
     value r = caml_alloc_small(1, Tag_some);
     Field(r, 0) = v;
     return r;
 }
 
-void caml_raise_with_arg(value exn, value arg) STUB
+STUB void caml_raise_with_arg(value exn, value arg)
 {
     assert(Is_block(exn));
     __access_Val(exn);
@@ -379,7 +379,7 @@ void caml_raise_with_arg(value exn, value arg) STUB
     __caml_exception_raised();
 }
 
-void caml_raise_with_string(value exn, const char *s) STUB
+STUB void caml_raise_with_string(value exn, const char *s)
 {
     CAMLparam1(exn);
     CAMLlocal1(str);
@@ -390,24 +390,24 @@ void caml_raise_with_string(value exn, const char *s) STUB
 
 static value __exn_Failure, __exn_Invalid_arg, __exn_Unix_error;
 
-void caml_failwith(const char *msg) STUB
+STUB void caml_failwith(const char *msg)
 {
     caml_raise_with_string(__exn_Failure, msg);
 }
 
-void caml_invalid_argument(const char *msg) STUB
+STUB void caml_invalid_argument(const char *msg)
 {
     caml_raise_with_string(__exn_Invalid_arg, msg);
 }
 
-void caml_raise_constant(value exn) STUB
+STUB void caml_raise_constant(value exn)
 {
     assert(Is_block(exn));
     __access_Val(exn);
     __caml_exception_raised();
 }
 
-void caml_raise_with_args(value exn, int nargs, value arg[]) STUB
+STUB void caml_raise_with_args(value exn, int nargs, value arg[])
 {
     int i;
     assert(Is_block(exn));
@@ -418,7 +418,7 @@ void caml_raise_with_args(value exn, int nargs, value arg[]) STUB
     __caml_exception_raised();
 }
 
-void caml_unix_error(int errcode, const char *cmdname, value arg) STUB
+STUB void caml_unix_error(int errcode, const char *cmdname, value arg)
 {
     CAMLparam1(arg);
     CAMLlocal1(str);
@@ -428,7 +428,7 @@ void caml_unix_error(int errcode, const char *cmdname, value arg) STUB
     CAMLnoreturn;
 }
 
-void caml_uerror(const char *cmdname, value arg) STUB
+STUB void caml_uerror(const char *cmdname, value arg)
 {
     caml_unix_error(errno, cmdname, arg);
 }
@@ -438,7 +438,7 @@ pthread_mutex_t __VERIFIER_ocaml_runtime_lock = PTHREAD_MUTEX_INITIALIZER;
 
 void __caml_run_other_thread(void);
 
-static void *__caml_maybe_call_gc(void *arg) STUB
+STUB static void *__caml_maybe_call_gc(void *arg)
 {
     (void)arg;
     int rc;
@@ -452,7 +452,7 @@ static void *__caml_maybe_call_gc(void *arg) STUB
     return NULL;
 }
 
-static void __caml_maybe_run_another_thread(void) STUB
+STUB static void __caml_maybe_run_another_thread(void)
 {
     pthread_attr_t attr;
     pthread_t thread;
@@ -466,7 +466,7 @@ static void __caml_maybe_run_another_thread(void) STUB
     __goblint_assume(!rc);
 }
 
-void caml_enter_blocking_section(void) STUB
+STUB void caml_enter_blocking_section(void)
 {
     int rc;
     __caml_maybe_run_another_thread();
@@ -474,7 +474,7 @@ void caml_enter_blocking_section(void) STUB
     __goblint_assume(!rc);
 }
 
-void caml_leave_blocking_section(void) STUB
+STUB void caml_leave_blocking_section(void)
 {
     int rc;
     __caml_maybe_run_another_thread();
@@ -482,7 +482,7 @@ void caml_leave_blocking_section(void) STUB
     __goblint_assume(!rc);
 }
 
-caml_stat_block caml_stat_alloc(asize_t s) STUB
+STUB caml_stat_block caml_stat_alloc(asize_t s)
 {
     char* p = malloc(s + 2);
     if (!p)
@@ -492,10 +492,38 @@ caml_stat_block caml_stat_alloc(asize_t s) STUB
 
 /* only this and caml_enter_blocking_section can be called without runtime lock
  * held! (the caml_stat_alloc_noexn too, but not implemented here) */
-void caml_stat_free(caml_stat_block b) STUB
+STUB void caml_stat_free(caml_stat_block b)
 {
     assert(b);
     char* p = (b - 2);
     assert(p);
     free(p);
+}
+
+/* see sv-comp.c, the use of uninitialized value here is on purpose */
+STUB int32_t __VERIFIER_nondet_int32(void)
+{ int32_t val; return val; }
+
+STUB int64_t __VERIFIER_nondet_int64(void)
+{ int64_t val; return val; }
+
+STUB value __VERIFIER_nondet_value(void)
+{ value val; return val; }
+
+static int __in_noalloc;
+
+STUB int caml_noalloc_begin(void)
+{
+    __in_noalloc++;
+}
+
+STUB int caml_noalloc_end(int *noalloc)
+{
+    --__in_noalloc;
+    __goblint_assert(__in_noalloc == *noalloc);
+}
+
+STUB int caml_alloc_point_here(void)
+{
+    __goblint_assert(!__in_noalloc);
 }

@@ -10,73 +10,7 @@
     resolved types and type immediacy information from the compiler itself.
  *)
 
-let tool_name = Sys.executable_name
-
-let usage_msg = Printf.sprintf "%s [FILE.cmt...]" tool_name
-
-(** [args_of_type typ] returns the sequence of arguments for the function type [typ].
-
-    Type aliases are not expanded, and we only recurse on right hand side of
-    the type arrow.
-    @see <https://v2.ocaml.org/manual/intfc.html#ss:c-prim-decl> examples in the manual.
- *)
-let rec args_of_type =
-  let open Typedtree in
-  function
-  | {ctyp_desc= Ttyp_arrow (_, t1, t2); _} ->
-      fun () -> Seq.Cons (t1, args_of_type t2)
-  | t ->
-      Seq.return t
-
-let has_attr name lst =
-  (* typedtree attributes are the same as in parsetree *)
-  let open Parsetree in
-  Option.is_some (lst |> List.find_opt @@ fun attr -> attr.attr_name.txt = name)
-
-let ctype_of_ocaml ~is_unboxed =
-  let open Typedtree in
-  function
-  | {ctyp_desc= Ttyp_constr (path, _, _); ctyp_attributes; _}
-    when is_unboxed
-         || has_attr "unboxed" ctyp_attributes
-         || has_attr "untagged" ctyp_attributes ->
-      let is_predef = Path.same path in
-      if is_predef Predef.path_float then
-        "double"
-      else if is_predef Predef.path_int32 then
-        "int32"
-      else if is_predef Predef.path_int64 then
-        "int64"
-      else if is_predef Predef.path_nativeint then
-        "intnat"
-      else if is_predef Predef.path_int then
-        "intnat"
-      else
-        invalid_arg
-        @@ Format.asprintf "unknown type name for unboxed: %a" Path.print path
-  | {ctyp_attributes= []; _} ->
-      "value"
-  | {ctyp_attributes= attrs; _} ->
-      let attrnames = attrs |> List.map @@ fun a -> a.Parsetree.attr_name.txt in
-      invalid_arg
-      @@ Printf.sprintf "unknown attributes: %s" (String.concat ", " attrnames)
-
-(** [print_c_prototype ~arity bytename nativename] prints C prototypes for
-    calls to user defined primitives implemented by [bytename]
-    (in bytecode mode) and [nativename] (in native code mode).
-    [arity] is the number of arguments, when <= 5 [bytename] and [nativename]
-    are the same.
-
-    Does not support unboxed or untagged calls (filtered out by caller).
-*)
-let print_c_prototype ~arity bytename nativename =
-  let args = List.init arity @@ fun _ -> "value" in
-  let str_of_args args = String.concat ", " @@ List.rev args in
-  Printf.printf "CAMLprim value %s(%s);\n" nativename @@ str_of_args args ;
-  if arity <= 5 then
-    assert (bytename = nativename)
-  else
-    Printf.printf "CAMLprim value %s(value *argv, int argn);\n" bytename
+let usage_msg = Printf.sprintf "%s [FILE.cmt...]" Sys.executable_name
 
 (** [warning loc fmt] prints a warning at source location [loc],
     with message format defined by [fmt].
@@ -84,80 +18,116 @@ let print_c_prototype ~arity bytename nativename =
 let warning loc =
   Printf.ksprintf @@ fun msg -> Location.prerr_warning loc (Preprocessor msg)
 
-(** [no_attrs typ] returns true if there are no attributes on the type
-    (components).
+(** [nondet ctype] is a generator for [ctype].
+    See [sv-comp.c] in [goblint], these are the nondeterministic value
+    generators used in static verifier competitions, and supported by various
+    static analyzers
+ *)
+let nondet typ = "__VERIFIER_nondet_" ^ typ
 
-  @see <https://v2.ocaml.org/api/compilerlibref/Parsetree.html#2_Typeexpressions>
-*)
-let rec no_attrs =
-  let open Parsetree in
-  function
-  | {ptyp_attributes= _ :: _; _} ->
-      false
-  | {ptyp_desc= Ptyp_arrow (_, t1, t2); _} ->
-      no_attrs t1 && no_attrs t2
-  | _ ->
-      true
+let print_nondet_prototype t =
+  let open Primitives_of_cmt in
+  let ctype = ctype_of_native_arg t in
+  Printf.printf "%s %s(void);" ctype (nondet ctype)
 
-      (* TODO: gen*)
-let str_of_native_repr =
-  let open Primitive in
+let gen_of_native_arg args =
+  let open Primitives_of_cmt in
   function
-  | Same_as_ocaml_repr ->
-      "value"
-  | Unboxed_float ->
-      "double"
-  | Unboxed_integer Pnativeint ->
-      "intnat"
-  | Unboxed_integer Pint32 ->
-      "int32_t"
-  | Unboxed_integer Pint64 ->
-      "int64_t"
-  | Untagged_int ->
-      "intnat"
+  (* TODO: we could do more analysis on the type for value to determine whether
+     it is an integer or not, what tag it can have, etc. *)
+  | (Value | Double | Int32 | Int64 | Intnat) as arg ->
+      nondet @@ ctype_of_native_arg arg ^ "()"
+  | Bytecode_argv ->
+      Printf.sprintf "value[]{%s}"
+      @@ String.concat ", "
+      @@ List.map ctype_of_native_arg args
+  | Bytecode_argn ->
+      List.length args |> string_of_int
+
+module StringSet = Set.Make(String)
+let calls = ref StringSet.empty
+
+let print_call ~noalloc res name args =
+  let open Printf in
+  if not @@ StringSet.mem name !calls then begin
+    calls := StringSet.add name !calls;
+    printf "static void __call_%s(void) {\n" name ;
+    if noalloc then
+      printf "\tCAMLnoalloc;\n" ;
+    printf "\t%s res = %s(%s);\n" (Primitives_of_cmt.ctype_of_native_arg res) name
+    @@ String.concat ", "
+    @@ List.map (gen_of_native_arg args) args ;
+    if res = Value then
+      printf "\t__access_Val(res);\n"
+    (* check that the value is valid *)
+    (* TODO: could insert more assertions based on actual type *)
+    else
+      printf "\t(void)res;\n" ;
+    (*  suppress unused value warning *)
+    print_endline "}"
+  end
+
+let print_c_prototype ~noalloc res name args =
+  let open Primitives_of_cmt in
+  Printf.printf "CAMLprim %s %s(%s);\n" (ctype_of_native_arg res) name
+  @@ String.concat ",\n  "
+  @@ List.map ctype_of_native_arg args ;
+  print_call ~noalloc res name args
+
+let print_c_prototype_arity arity byte_name =
+  let open Primitives_of_cmt in
+  print_c_prototype Value byte_name @@ List.init arity (fun _ -> Value)
 
 let primitive_description desc =
-  let open Primitive in
-  if native_name_is_external desc then (
-    (* only process primitives defined by the user (not the compiler) *)
-    Printf.printf "void __call_%s(void) { %s result = %s(%s); }\n"
-      (native_name desc)
-      (str_of_native_repr desc.prim_native_repr_res)
-      (native_name desc)
-    @@ String.concat ", "
-    @@ List.map str_of_native_repr desc.prim_native_repr_args ;
-    let bytecode_args =
-      String.concat ", " @@ List.init desc.prim_arity @@ fun _ -> "__VERIFIER_nondet_value()"
-    in
-    (* only output bytecode call if different *)
-    if desc.prim_arity > 5 then
-      Printf.printf
-        "void __call_%s(void) { value argv[%d] = {%s}; value result =\n\
-        \        %s(argv, %d);}\n"
-        desc.prim_name desc.prim_arity bytecode_args desc.prim_name
-        desc.prim_arity
-    else if
-      List.exists (( <> ) Same_as_ocaml_repr) desc.prim_native_repr_args
-      || desc.prim_native_repr_res <> Same_as_ocaml_repr
-    then
-      Printf.printf "void __call_%s(void) { value result = %s(%s);}\n"
-        desc.prim_name desc.prim_name bytecode_args
-  )
+  let open Primitives_of_cmt in
+  (* print native first *)
+  let noalloc = not desc.alloc in
+  print_c_prototype ~noalloc desc.native_result desc.native_name
+    desc.native_args ;
+  (* if the bytecode one is different, print it *)
+  if desc.native_name <> desc.byte_name then
+    if desc.arity <= 5 then
+      print_c_prototype_arity ~noalloc desc.arity desc.byte_name
+    else
+      print_c_prototype ~noalloc Value desc.byte_name
+        [Bytecode_argv; Bytecode_argn]
+  else
+    (* according to https://v2.ocaml.org/manual/intfc.html#ss:c-prim-impl
+       if the primitive takes more than 5 arguments then bytecode and native
+       mode implementations must be different *)
+    assert (desc.arity <= 5);
+  print_endline ""
 
-(** [value_description _ mc] is invoked by the TAST iterator for
-    value descriptions.
-    Recursively iterate until we find a [primitive_coercion].
-*)
-let rec value_description _ vd =
-  let open Typedtree in
-  let open Types in
-  match vd.val_val.val_kind with
-  | Val_prim prim ->
-      primitive_description prim
-  | _ ->
-      ()
+let print_call_all () =
+  (* TODO: could use Format module *)
+  print_endline "static void* __call__all(void* arg) {" ;
+  print_endline "\t(void)arg;";
+  print_endline "\tcaml_leave_blocking_section();";
+  (* some of these may raise exceptions, so use a nondet to choose which one to
+     call, to ensure they are all seen as called *)
+  print_endline "\tswitch(__VERIFIER_nondet_int()) {" ;
+  let () =
+    !calls
+    |> StringSet.elements |> List.iteri @@ fun i name ->
+       Printf.printf "\tcase %d: __call_%s(); break;\n" i name
+  in
+  print_endline "\tdefault: __caml_maybe_run_gc(); break;" ;
+  print_endline "\t}" ;
+  print_endline "\tcaml_enter_blocking_section();";
+  print_endline "}";
 
-let verifier_section = "goblint-ocaml-cstub"
+  print_endline "";
+  print_endline "#include <pthread.h>";
+  print_endline "int main(void)";
+  print_endline "{";
+  print_endline "\tpthread_t thread;";
+  print_endline "\tint rc = pthread_create(&thread, NULL, __call__all, NULL);";
+  print_endline "\t__goblint_assume(!rc);"; (* don't model thread creation failure *)
+  print_endline "\t(void)__call__all(NULL);";
+  print_endline "\trc = pthread_join(thread, NULL);";
+  print_endline "\t__goblint_assume(!rc);"; (* don't model thread creation failure *)
+  print_endline "\treturn 0;";
+  print_endline "}"
 
 let () =
   let files =
@@ -167,22 +137,42 @@ let () =
     !lst
   in
 
-  print_endline {|#include  "primitives.h"|} ;
-  try
-    files
-    |> List.iter @@ fun path ->
-       let open Tast_iterator in
-       path
-       (* have to parse the implementation, because the .mli may hide that it
-          is a C stub by defining a 'val name ...' instead of 'external name ...'. *)
-       |> Cmt_format.read_cmt
-       |> function
-       | Cmt_format.{cmt_annots= Implementation typedtree; _} ->
-           let iterator = {default_iterator with value_description} in
-           iterator.structure iterator typedtree
-       | _ ->
-           invalid_arg "not a .cmt file (missing implementation)"
-  with e ->
-    (* if there are any syntax errors, or other exceptions escaping from
-       compiler-libs this will report them properly *)
-    Location.report_exception Format.err_formatter e
+  print_endline {|#include "primitives.h"|} ;
+  print_endline {|#include <goblint.h>|};
+  print_endline {|#include "caml/threads.h"|};
+  Printf.printf {|
+#ifndef CAMLnoalloc
+/* GC status assertions.
+
+   CAMLnoalloc at the start of a block means that the GC must not be
+   invoked during the block. */
+#if defined(__GNUC__) && defined(DEBUG)
+int caml_noalloc_begin(void);
+void caml_noalloc_end(int*);
+void caml_alloc_point_here(void);
+#define CAMLnoalloc                          \
+  int caml__noalloc                          \
+  __attribute__((cleanup(caml_noalloc_end),unused)) \
+    = caml_noalloc_begin()
+#define CAMLalloc_point_here (caml_alloc_point_here())
+#else
+#define CAMLnoalloc
+#define CAMLalloc_point_here ((void)0)
+#endif
+#endif
+    |};
+
+  let () =
+    (* TODO: put in a header *)
+    Printf.printf "int __VERIFIER_nondet_int(void);\n";
+    Printf.printf "void __access_Val(value);\n";
+    Primitives_of_cmt.[Value; Double; Int32; Int64; Intnat]
+    |> List.iter @@ fun t -> print_nondet_prototype t
+  in
+  print_endline "void __caml_maybe_run_gc(void);";
+  Primitives_of_cmt.with_report_exceptions @@ fun () ->
+  let () = files
+  |> List.iter @@ fun path ->
+      Primitives_of_cmt.iter_primitives_exn ~path primitive_description;
+  in
+  print_call_all ();

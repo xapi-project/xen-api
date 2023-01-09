@@ -20,6 +20,7 @@
 )
 
 ; This is a single invocation but it is very quick (<0.2s),
+; although depends on the machine sometimes can be ~1.5s too
 ; no need to parallelize, also output can be cached.
 ; Only depend on ML files that contain C stubs though,
 ; and these .ml also don't require preprocessing for easier use
@@ -40,35 +41,59 @@
    ))
 )
 
+(rule
+  (deps
+    ocaml/staticanalyzer/genmain/lintcstubs_genmain.exe
+    (:cmtfiles
+      (glob_files ocaml/auth/.pam.objs/byte/*.cmt)
+      (glob_files ocaml/libs/log/.log.objs/byte/*.cmt)
+      (glob_files ocaml/vhd-tool/src/.channel_stubs.objs/byte/*.cmt)
+      (glob_files ocaml/xenopsd/c_stubs/.xc_stubs.objs/byte/*.cmt)
+      (glob_files ocaml/xenopsd/c_stubs/.c_stubs.objs/byte/*.cmt)
+      (glob_files ocaml/xxhash/stubs/.xxhash_bindings.objs/byte/*.cmt)
+      (glob_files ocaml/xxhash/lib/.xxhash.objs/byte/*.cmt)
+      (glob_files unixpwd/src/.unixpwd.objs/byte/*.cmt)
+    )
+   )
+  (action
+    (with-stdout-to primitives.model.c
+      (run ocaml/staticanalyzer/genmain/lintcstubs_genmain.exe %{cmtfiles})
+     )
+   )
+)
+
 ; once we upgrade to Dune 3.x we can use glob_files_rec here
 (rule
   (targets xapi.sarif lintcstubs.stdout)
   (deps
     (:headers (glob_files ocaml/auth/*.h) (glob_files unixpwd/c/*.h) primitives.h)
     (:runtime_model ocaml/staticanalyzer/model/runtime.model.c)
+    (:primitives_model primitives.model.c)
     (:cstubs
      (glob_files ocaml/auth/*.c)
      (glob_files ocaml/libs/log/*.c)
      (glob_files ocaml/vhd-tool/src/*.c)
      (glob_files ocaml/xenopsd/c_stubs/*.c)
-     (glob_files unixpwd/c/*.c)))
+     (glob_files unixpwd/c/unix*.c)))
 
   ; enable only errors from our analyses
   ; so that the paths in the .sarif will be correct a chdir is needed
-  ; --disable warn.warning --disable warn.unsound --disable warn.imprecise
+            ; --disable warn.warning
   (action
     (progn
       (run rm -f goblint.sarif)
       (run ln -s %{read-lines:ctypesdir} ctypes)
       (with-stdout-to lintcstubs.stdout
         (run ocaml/staticanalyzer/lintcstubs.exe -o xapi.sarif --disable warn.info
+            --disable warn.unsound --disable warn.imprecise
+            --disable warn.deadcode
             --disable warn.behavior
             --set ana.activated "[\"ocamlcstubs\",\"escape\"]"
             --sarif -I %{ocaml_where}
             -I ocaml/auth -I ctypes -I unixpwd/c
-            %{runtime_model}
-            primitives.h
-            %{cstubs}))))
+            %{runtime_model} %{primitives_model}
+            %{cstubs}
+           ))))
  )
             ; --enable dbg.debug --enable dbg.verbose
 

@@ -88,7 +88,7 @@ static void failwith_xc(xc_interface *xch)
     raise_unix_errno_msg(real_errno, error_str);
 }
 
-CAMLprim value stub_xenctrlext_interface_open(void)
+CAMLprim value stub_xenctrlext_interface_open(value _unused)
 {
     CAMLparam0();
     CAMLlocal1(result);

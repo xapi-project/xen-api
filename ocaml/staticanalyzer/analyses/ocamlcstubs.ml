@@ -21,18 +21,31 @@ module DomainLock = struct
       it should instead be configurable to use per-domain locks (e.g. N threads with M domains)
   *)
   let runtime_lock_var =
-    Goblintutil.create_var @@ makeGlobalVar "[OCaml runtime lock]" intType
+    let g = ref None in
+    fun () ->
+    match !g with
+    | Some v -> v
+    | None ->
+        let k = "__VERIFIER_ocaml_runtime_lock" in
+        match VarQuery.varqueries_from_names !Cilfacade.current_file [k] with
+        | [VarQuery.Global v], _ ->
+            g := Some v;
+            v
+        | _ ->
+            let v = Goblintutil.create_var @@ makeGlobalVar k intType in
+            g := Some v;
+            v
 
-  let runtime_lock_event = LockDomain.Addr.from_var runtime_lock_var
+  let runtime_lock_event () = LockDomain.Addr.from_var @@ runtime_lock_var ()
 
-  let runtime_lock = AddrOf (Cil.var runtime_lock_var)
+  let runtime_lock () = AddrOf (Cil.var @@ runtime_lock_var ())
 
   let must_be_held ctx what name =
     let lockset = ctx.ask Queries.MustLockset in
     if tracing () then
       tracel "OCaml domain lock must be held, current lockset is %a"
         Queries.LS.pretty lockset ;
-    if not @@ Queries.LS.mem (runtime_lock_var, `NoOffset) lockset then
+    if not @@ Queries.LS.mem (runtime_lock_var (), `NoOffset) lockset then
       (* we could use something similar to MayLocks to track may lock and give
          a better warning message: is the lock maybe held on some paths, or
          surely not held? *)
@@ -48,7 +61,7 @@ module DomainLock = struct
     let must =
       ctx.ask
         Queries.(
-          MustBeProtectedBy {mutex= runtime_lock_event; write; global= arg}
+          MustBeProtectedBy {mutex= runtime_lock_event (); write; global= arg}
         )
     in
     if not must then
@@ -81,28 +94,6 @@ let caml_malloc count =
   LibraryDesc.Malloc
     (constFoldBinOp true Mult (plus1 count) size_of_word ulongType)
 
-(* TODO: mark values as not null *)
-
-(* TODO: use .c models instead *)
-let ocaml_runtime_functions : (string * LibraryDesc.t) list =
-  LibraryDsl.
-    [
-      ( "caml_leave_blocking_section"
-      , special []
-        @@ Lock
-             {
-               lock= DomainLock.runtime_lock
-             ; try_= false
-             ; write= true
-             ; return_on_success= true
-             }
-      )
-    ; ( "caml_enter_blocking_section"
-      , special [] @@ Unlock DomainLock.runtime_lock
-      )
-    ; ("caml_named_value", unknown [drop "name" [r]])
-    ]
-
 let cstubs = ref []
 
 module Cstub = struct
@@ -128,17 +119,12 @@ module Cstub = struct
   let is_cstub_entry _ctx f = is_cstub_entry_svar f.svar
 
   let enter_cstub ctx _ =
-    (* TODO: one CAMLprim can call another one, e.g. common in bytecode impl
-        that calls native,
-        so this should be a trylock, or there should be an outer function
-          locking and calling this.
-       For now take the lock here
-    *)
-    ctx.emit (Events.Lock (DomainLock.runtime_lock_event, true)) ;
     ctx.local
 
-  let leave_cstub ctx _ =
-    ctx.emit (Events.Unlock DomainLock.runtime_lock_event) ;
+  let leave_cstub ctx f =
+    (* runtime lock must be held when exiting the C stub, because it'll return
+     to OCaml code *)
+    DomainLock.must_be_held ctx "exiting C stub" f.vname ;
     ctx.local
 
   let call_caml_runtime ctx f _arglist =
@@ -244,7 +230,7 @@ module Spec : Analyses.MCPSpec = struct
 
   let return ctx _ (f : fundec) =
     if Cstub.is_cstub_entry ctx f then
-      Cstub.leave_cstub ctx f
+      Cstub.leave_cstub ctx f.svar
     else
       ctx.local
 
@@ -337,7 +323,7 @@ let dep =
   ]
 
 let () =
-  LibraryFunctions.register_library_functions ocaml_runtime_functions ;
+  (*LibraryFunctions.register_library_functions ocaml_runtime_functions ;*)
   (* have to declare dependencies on analyses that can provide answers to
      the [ctx.ask Queries] and that generate the [Events] we need
   *)

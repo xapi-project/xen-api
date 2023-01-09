@@ -1,16 +1,18 @@
 (library
   (name channel_stubs)
-  (modules channels)
+  (modules channels iO)
   (foreign_stubs
     (language c)
     (names direct_copy_stubs)
   )
+  (libraries cstruct io-page.unix lwt lwt.unix lwt_ssl)
+  (wrapped false)
 )
 
 (library
   (name local_lib)
   (wrapped false)
-  (modules (:standard \ channels))
+  (modules (:standard \ channels iO))
   (libraries
     astring
     bigarray-compat

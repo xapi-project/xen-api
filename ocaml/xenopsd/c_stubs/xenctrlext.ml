@@ -112,7 +112,7 @@ module Xenforeignmemory = struct
 
   type prot = {read: bool; write: bool; exec: bool}
 
-  external acquire : Xentoollog.handle option -> handle
+  external acquire : Xentoollog.handle option -> int -> handle
     = "stub_xenforeignmemory_open"
 
   external release : handle -> unit = "stub_xenforeignmemory_close"

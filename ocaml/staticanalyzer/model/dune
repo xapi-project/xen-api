@@ -4,6 +4,7 @@
   (foreign_stubs
     (language c)
     (include_dirs include)
+    (flags (:standard -Wno-attributes))
     (names runtime.model)
    )
   (package xapi-lintcstubs)
