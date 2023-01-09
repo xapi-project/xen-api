@@ -435,7 +435,7 @@ module Categorisation = struct
         Alcotest.(check int64)
           "same ints"
           (Int64.of_int expected_result)
-          (Vm_placement.definite_host_category
+          (Vm_placement.definite_host_category ~master_bias:true
              (mock_slave a s_min d_min d_max s_max)
           )
       )
@@ -466,7 +466,7 @@ module Categorisation = struct
         Alcotest.(check int64)
           "same ints"
           (Int64.of_int expected_result)
-          (Vm_placement.definite_host_category
+          (Vm_placement.definite_host_category ~master_bias:true
              (mock_master a s_min d_min d_max s_max)
           )
       )
@@ -497,7 +497,7 @@ module Categorisation = struct
         Alcotest.(check int64)
           "same ints"
           (Int64.of_int expected_result)
-          (Vm_placement.probable_host_category
+          (Vm_placement.probable_host_category ~master_bias:true
              (mock_slave a s_min d_min d_max s_max)
           )
       )
@@ -528,7 +528,7 @@ module Categorisation = struct
         Alcotest.(check int64)
           "same ints"
           (Int64.of_int expected_result)
-          (Vm_placement.probable_host_category
+          (Vm_placement.probable_host_category ~master_bias:true
              (mock_master a s_min d_min d_max s_max)
           )
       )

@@ -205,10 +205,11 @@ let compression_ratio_resolution = 1000L
     against the pool master. The derived category function assigns the pool master
     a value v' = (v - 1) / 2, where v is the value assigned by the original category
     function. *)
-let bias_away_from_pool_master : host_category -> host_category =
- fun host_category host ->
+let bias_away_from_pool_master :
+    host_category -> master_bias:bool -> host_category =
+ fun host_category ~master_bias host ->
   let value = host_category host in
-  if host.HSS.is_pool_master then (value -- 1L) // 2L else value
+  if host.HSS.is_pool_master && master_bias then (value -- 1L) // 2L else value
 
 (** The {b definite} host category. Includes:
     {ul
@@ -218,11 +219,11 @@ let bias_away_from_pool_master : host_category -> host_category =
     	{- slaves: (available_memory - Σ memory_static_max)}
     	{- master: (available_memory - Σ memory_static_max - 1) / 2}}
 *)
-let definite_host_category : host_category =
+let definite_host_category ~master_bias : host_category =
   let unbiased_category host =
     host.HSS.memory_available_sum -- host.HSS.memory_static_max_sum
   in
-  bias_away_from_pool_master unbiased_category
+  bias_away_from_pool_master ~master_bias unbiased_category
 
 (** The {b probable} host category. Includes the union of:
     {ul
@@ -234,11 +235,11 @@ let definite_host_category : host_category =
     	{- slaves: (available_memory - Σ memory_dynamic_max)}
     	{- master: (available_memory - Σ memory_dynamic_max - 1) / 2}}
 *)
-let probable_host_category : host_category =
+let probable_host_category ~master_bias : host_category =
   let unbiased_category host =
     host.HSS.memory_available_sum -- host.HSS.memory_dynamic_max_sum
   in
-  bias_away_from_pool_master unbiased_category
+  bias_away_from_pool_master ~master_bias unbiased_category
 
 (** The {b possible} host category. Includes the union of:
     {ul
@@ -322,13 +323,13 @@ let select_host_from_categories categories hosts validate_host
   in
   select hosts categories
 
-let select_host_from_summary pool affinity_host_ids validate_host
+let select_host_from_summary pool affinity_host_ids validate_host master_bias
     generate_random_value =
   select_host_from_categories
     [
       affinity_host_category affinity_host_ids
-    ; definite_host_category
-    ; probable_host_category
+    ; definite_host_category ~master_bias
+    ; probable_host_category ~master_bias
     ; possible_host_category
     ]
     pool.PSS.hosts validate_host generate_random_value

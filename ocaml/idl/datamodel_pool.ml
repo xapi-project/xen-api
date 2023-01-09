@@ -1327,6 +1327,10 @@ let t =
             ~default_value:(Some (VBool false)) "migration_compression"
             "Default behaviour during migration, True if stream compression \
              should be used"
+        ; field ~qualifier:RW ~ty:Bool ~default_value:(Some (VBool true))
+            "coordinator_bias"
+            "true if bias against pool master when scheduling vms is enabled, \
+             false otherwise"
         ]
       )
     ()

@@ -1453,6 +1453,13 @@ let pool_record rpc session_id pool =
               ~value:(bool_of_string x)
           )
           ()
+      ; make_field ~name:"coordinator-bias"
+          ~get:(fun () -> (x ()).API.pool_coordinator_bias |> string_of_bool)
+          ~set:(fun x ->
+            Client.Pool.set_coordinator_bias ~rpc ~session_id ~self:pool
+              ~value:(bool_of_string x)
+          )
+          ()
       ]
   }
 
