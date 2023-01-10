@@ -23,6 +23,8 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
+      # we could just use the upstream repo here, but I want to ensure
+      # that we're able to run the static analyzer locally too
       - name: Pull configuration from xs-opam
         run: |
           curl --fail --silent https://raw.githubusercontent.com/edwintorok/xs-opam/master/tools/xs-opam-ci.env | cut -f2 -d " " > .env
@@ -59,10 +61,10 @@ jobs:
       - name: Configure
         run: opam exec -- ./configure --xapi_version="$XAPI_VERSION"
 
-# - name: Run static analyzer
-#   run: opam exec -- make analyze
-#
-# - name: Upload SARIF report
-#   uses: github/codeql-action/upload-sarif@v2
-#   with:
-#     sarif_file: _build/default/xapi.sarif
+      - name: Run static analyzer
+        run: opam exec -- make analyze
+
+      - name: Upload SARIF report
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: _build/default/xapi.sarif
