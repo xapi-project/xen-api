@@ -219,56 +219,93 @@ module Mux = struct
   module SR = struct
     include Storage_skeleton.SR
 
+    let device_config_str device_config =
+      let censor_key = ["password"] in
+      String.concat "; "
+        (List.map
+           (fun (k, v) ->
+             let v' =
+               if
+                 List.exists
+                   (fun censored -> Astring.String.is_infix ~affix:censored k)
+                   censor_key
+               then
+                 "(omitted)"
+               else
+                 v
+             in
+             k ^ ":" ^ v'
+           )
+           device_config
+        )
+
     let create () ~dbg ~sr ~name_label ~name_description ~device_config
         ~physical_size =
+      info
+        "SR.create dbg:%s sr:%s name_label:%s name_description:%s \
+         device_config:[%s] physical_size:%Ld"
+        dbg (s_of_sr sr) name_label name_description
+        (device_config_str device_config)
+        physical_size ;
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
       C.SR.create dbg sr name_label name_description device_config physical_size
 
     let attach () ~dbg ~sr ~device_config =
+      info "SR.attach dbg:%s sr:%s device_config:[%s]" dbg (s_of_sr sr)
+        (device_config_str device_config) ;
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
       C.SR.attach dbg sr device_config
 
     let set_name_label () ~dbg ~sr ~new_name_label =
+      info "SR.set_name_label dbg:%s sr:%s new_name_label:%s" dbg (s_of_sr sr)
+        new_name_label ;
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
       C.SR.set_name_label dbg sr new_name_label
 
     let set_name_description () ~dbg ~sr ~new_name_description =
+      info "SR.set_name_description dbg:%s sr:%s new_name_description:%s" dbg
+        (s_of_sr sr) new_name_description ;
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
       C.SR.set_name_description dbg sr new_name_description
 
     let detach () ~dbg ~sr =
+      info "SR.detach dbg:%s sr:%s" dbg (s_of_sr sr) ;
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
       C.SR.detach dbg sr
 
     let destroy () ~dbg ~sr =
+      info "SR.destroy dbg:%s sr:%s" dbg (s_of_sr sr) ;
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
       C.SR.destroy dbg sr
 
     let stat () ~dbg ~sr =
+      info "SR.stat dbg:%s sr:%s" dbg (s_of_sr sr) ;
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
       C.SR.stat dbg sr
 
     let scan () ~dbg ~sr =
+      info "SR.scan dbg:%s sr:%s" dbg (s_of_sr sr) ;
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
       C.SR.scan dbg sr
 
     let list () ~dbg =
+      info "SR.list dbg:%s" dbg ;
       List.fold_left
         (fun acc (_, list) ->
           match list with SMSuccess l -> l @ acc | _ -> acc
@@ -289,35 +326,73 @@ module Mux = struct
       end)) in
       C.SR.reset dbg sr
 
-    let update_snapshot_info_src () = Storage_migrate.update_snapshot_info_src
+    let update_snapshot_info_src () ~dbg ~sr ~vdi ~url ~dest ~dest_vdi
+        ~snapshot_pairs =
+      info
+        "SR.update_snapshot_info_src dbg:%s sr:%s vdi:%s url:%s dest:%s \
+         dest_vdi:%s snapshot_pairs:%s"
+        dbg (s_of_sr sr) (s_of_vdi vdi) url (s_of_sr dest) (s_of_vdi dest_vdi)
+        (List.map
+           (fun (local_snapshot, dest_snapshot) ->
+             Printf.sprintf "local:%s, dest:%s" (s_of_vdi local_snapshot)
+               (s_of_vdi dest_snapshot)
+           )
+           snapshot_pairs
+        |> String.concat "; "
+        |> Printf.sprintf "[%s]"
+        ) ;
+      Storage_migrate.update_snapshot_info_src ~dbg ~sr ~vdi ~url ~dest
+        ~dest_vdi ~snapshot_pairs
 
     let update_snapshot_info_dest () ~dbg ~sr ~vdi ~src_vdi ~snapshot_pairs =
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
+      info
+        "SR.update_snapshot_info_dest dbg:%s sr:%s vdi:%s ~src_vdi:%s \
+         snapshot_pairs:%s"
+        dbg (s_of_sr sr) (s_of_vdi vdi) (s_of_vdi src_vdi.vdi)
+        (List.map
+           (fun (local_snapshot, src_snapshot_info) ->
+             Printf.sprintf "local:%s, src:%s" (s_of_vdi local_snapshot)
+               (s_of_vdi src_snapshot_info.vdi)
+           )
+           snapshot_pairs
+        |> String.concat "; "
+        |> Printf.sprintf "[%s]"
+        ) ;
       C.SR.update_snapshot_info_dest dbg sr vdi src_vdi snapshot_pairs
   end
 
   module VDI = struct
     let create () ~dbg ~sr ~vdi_info =
+      info "VDI.create dbg:%s sr:%s vdi_info:%s" dbg (s_of_sr sr)
+        (string_of_vdi_info vdi_info) ;
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
       C.VDI.create dbg sr vdi_info
 
     let set_name_label () ~dbg ~sr ~vdi ~new_name_label =
+      info "VDI.set_name_label dbg:%s sr:%s vdi:%s new_name_label:%s" dbg
+        (s_of_sr sr) (s_of_vdi vdi) new_name_label ;
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
       C.VDI.set_name_label dbg sr vdi new_name_label
 
     let set_name_description () ~dbg ~sr ~vdi ~new_name_description =
+      info
+        "VDI.set_name_description dbg:%s sr:%s vdi:%s new_name_description:%s"
+        dbg (s_of_sr sr) (s_of_vdi vdi) new_name_description ;
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
       C.VDI.set_name_description dbg sr vdi new_name_description
 
     let snapshot () ~dbg ~sr ~vdi_info =
+      info "VDI.snapshot dbg:%s sr:%s vdi_info:%s" dbg (s_of_sr sr)
+        (string_of_vdi_info vdi_info) ;
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
@@ -335,48 +410,64 @@ module Mux = struct
         )
 
     let clone () ~dbg ~sr ~vdi_info =
+      info "VDI.clone dbg:%s sr:%s vdi_info:%s" dbg (s_of_sr sr)
+        (string_of_vdi_info vdi_info) ;
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
       C.VDI.clone dbg sr vdi_info
 
     let resize () ~dbg ~sr ~vdi ~new_size =
+      info "VDI.resize dbg:%s sr:%s vdi:%s new_size:%Ld" dbg (s_of_sr sr)
+        (s_of_vdi vdi) new_size ;
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
       C.VDI.resize dbg sr vdi new_size
 
     let destroy () ~dbg ~sr ~vdi =
+      info "VDI.destroy dbg:%s sr:%s vdi:%s" dbg (s_of_sr sr) (s_of_vdi vdi) ;
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
       C.VDI.destroy dbg sr vdi
 
     let stat () ~dbg ~sr ~vdi =
+      info "VDI.stat dbg:%s sr:%s vdi:%s" dbg (s_of_sr sr) (s_of_vdi vdi) ;
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
       C.VDI.stat dbg sr vdi
 
     let introduce () ~dbg ~sr ~uuid ~sm_config ~location =
+      info "VDI.introduce dbg:%s sr:%s uuid:%s sm_config:%s location:%s" dbg
+        (s_of_sr sr) uuid
+        (String.concat ", " (List.map (fun (k, v) -> k ^ ":" ^ v) sm_config))
+        location ;
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
       C.VDI.introduce dbg sr uuid sm_config location
 
     let set_persistent () ~dbg ~sr ~vdi ~persistent =
+      info "VDI.set_persistent dbg:%s sr:%s vdi:%s persistent:%b" dbg
+        (s_of_sr sr) (s_of_vdi vdi) persistent ;
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
       C.VDI.set_persistent dbg sr vdi persistent
 
     let epoch_begin () ~dbg ~sr ~vdi ~vm ~persistent =
+      info "VDI.epoch_begin dbg:%s sr:%s vdi:%s vm:%s persistent:%b" dbg
+        (s_of_sr sr) (s_of_vdi vdi) (s_of_vm vm) persistent ;
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
       C.VDI.epoch_begin dbg sr vdi vm persistent
 
     let attach () ~dbg ~dp ~sr ~vdi ~read_write =
+      info "VDI.attach dbg:%s dp:%s sr:%s vdi:%s read_write:%b" dbg dp
+        (s_of_sr sr) (s_of_vdi vdi) read_write ;
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
@@ -422,6 +513,8 @@ module Mux = struct
             )
 
     let attach2 () ~dbg ~dp ~sr ~vdi ~read_write =
+      info "VDI.attach2 dbg:%s dp:%s sr:%s vdi:%s read_write:%b" dbg dp
+        (s_of_sr sr) (s_of_vdi vdi) read_write ;
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
@@ -455,12 +548,16 @@ module Mux = struct
       C.VDI.activate3 dbg dp sr vdi vm
 
     let deactivate () ~dbg ~dp ~sr ~vdi ~vm =
+      info "VDI.deactivate dbg:%s dp:%s sr:%s vdi:%s vm:%s" dbg dp (s_of_sr sr)
+        (s_of_vdi vdi) (s_of_vm vm) ;
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
       C.VDI.deactivate dbg dp sr vdi vm
 
     let detach () ~dbg ~dp ~sr ~vdi ~vm =
+      info "VDI.detach dbg:%s dp:%s sr:%s vdi:%s vm:%s" dbg dp (s_of_sr sr)
+        (s_of_vdi vdi) (s_of_vm vm) ;
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
@@ -468,72 +565,91 @@ module Mux = struct
       DP_info.delete dp
 
     let epoch_end () ~dbg ~sr ~vdi ~vm =
+      info "VDI.epoch_end dbg:%s sr:%s vdi:%s vm:%s" dbg (s_of_sr sr)
+        (s_of_vdi vdi) (s_of_vm vm) ;
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
       C.VDI.epoch_end dbg sr vdi vm
 
     let get_by_name () ~dbg ~sr ~name =
+      info "VDI.get_by_name dbg:%s sr:%s name:%s" dbg (s_of_sr sr) name ;
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
       C.VDI.get_by_name dbg sr name
 
     let set_content_id () ~dbg ~sr ~vdi ~content_id =
+      info "VDI.set_content_id dbg:%s sr:%s vdi:%s content_id:%s" dbg
+        (s_of_sr sr) (s_of_vdi vdi) content_id ;
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
       C.VDI.set_content_id dbg sr vdi content_id
 
     let similar_content () ~dbg ~sr ~vdi =
+      info "VDI.similar_content dbg:%s sr:%s vdi:%s" dbg (s_of_sr sr)
+        (s_of_vdi vdi) ;
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
       C.VDI.similar_content dbg sr vdi
 
     let compose () ~dbg ~sr ~vdi1 ~vdi2 =
+      info "VDI.compose dbg:%s sr:%s vdi1:%s vdi2:%s" dbg (s_of_sr sr)
+        (s_of_vdi vdi1) (s_of_vdi vdi2) ;
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
       C.VDI.compose dbg sr vdi1 vdi2
 
     let add_to_sm_config () ~dbg ~sr ~vdi ~key ~value =
+      info "VDI.add_to_sm_config dbg:%s sr:%s vdi:%s key:%s value:%s" dbg
+        (s_of_sr sr) (s_of_vdi vdi) key value ;
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
       C.VDI.add_to_sm_config dbg sr vdi key value
 
     let remove_from_sm_config () ~dbg ~sr ~vdi ~key =
+      info "VDI.remove_from_sm_config dbg:%s sr:%s vdi:%s key:%s" dbg
+        (s_of_sr sr) (s_of_vdi vdi) key ;
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
       C.VDI.remove_from_sm_config dbg sr vdi key
 
     let get_url () ~dbg ~sr ~vdi =
+      info "VDI.get_url dbg:%s sr:%s vdi:%s" dbg (s_of_sr sr) (s_of_vdi vdi) ;
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
       C.VDI.get_url dbg sr vdi
 
     let enable_cbt () ~dbg ~sr ~vdi =
+      info "VDI.enable_cbt dbg:%s sr:%s vdi:%s" dbg (s_of_sr sr) (s_of_vdi vdi) ;
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
       C.VDI.enable_cbt dbg sr vdi
 
     let disable_cbt () ~dbg ~sr ~vdi =
+      info "VDI.disable_cbt dbg:%s sr:%s vdi:%s" dbg (s_of_sr sr) (s_of_vdi vdi) ;
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
       C.VDI.disable_cbt dbg sr vdi
 
     let data_destroy () ~dbg ~sr ~vdi =
+      info "VDI.data_destroy dbg:%s sr:%s vdi:%s" dbg (s_of_sr sr) (s_of_vdi vdi) ;
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
       C.VDI.data_destroy dbg sr vdi
 
     let list_changed_blocks () ~dbg ~sr ~vdi_from ~vdi_to =
+      info "VDI.list_changed_blocks dbg:%s sr:%s vdi_from:%s vdi_to:%s" dbg
+        (s_of_sr sr) (s_of_vdi vdi_from) (s_of_vdi vdi_to) ;
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
