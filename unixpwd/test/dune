@@ -4,6 +4,7 @@
   (libraries
     unixpwd_stubs
     unixpwd
+    unix
   )
 )
 
