@@ -5,7 +5,7 @@
     (language c)
     (names direct_copy_stubs)
   )
-  (libraries cstruct io-page.unix lwt lwt.unix lwt_ssl)
+  (libraries cstruct io-page lwt lwt.unix lwt_ssl)
   (wrapped false)
 )
 
