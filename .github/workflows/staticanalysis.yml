@@ -1,6 +1,7 @@
 name: Run OCaml C stub static analyzer on XAPI's C stubs
 
 on:
+  push:
   pull_request:
     branches:
       - master
