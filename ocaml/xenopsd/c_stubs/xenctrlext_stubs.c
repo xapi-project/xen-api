@@ -279,9 +279,8 @@ CAMLprim value stub_xenctrlext_assign_device(value xch, value domid,
                                              value machine_sbdf, value flag)
 {
     CAMLparam4(xch, domid, machine_sbdf, flag);
-    xc_interface* xc = _H(xch);
     caml_enter_blocking_section();
-    int retval = xc_assign_device(xc, _D(domid), Int_val(machine_sbdf),
+    int retval = xc_assign_device(_H(xch), _D(domid), Int_val(machine_sbdf),
                                   Int_val(flag));
     caml_leave_blocking_section();
     if ( retval )
