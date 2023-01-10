@@ -86,7 +86,7 @@ jobs:
         run: opam exec -- make analyze
 
       - name: Upload SARIF
-        uses: github/codeql-actions/upload-sarif@v2
+        uses: github/codeql-action/upload-sarif@v2
         with:
           sarif_file: _build/default/xapi.sarif
 
