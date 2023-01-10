@@ -16,5 +16,13 @@ depends: [
   "lwt_ssl"
   "xenctrl"
   "io-page"
+  "conf-pam"
+]
+depexts: [
+  ["hwdata" "libxxhash-dev" "libxxhash0"] {os-distribution = "debian"}
+  ["hwdata" "libxxhash-dev" "libxxhash0"] {os-distribution = "ubuntu"}
+  ["hwdata" "xxhash-devel" "xxhash-libs"] {os-distribution = "centos"}
+  ["hwdata" "xxhash-devel" "xxhash-libs"] {os-distribution = "fedora"}
+  ["hwdata" "xxhash-dev" "xxhash"] {os-distribution = "alpine"}
 ]
 synopsis: "OCaml C stub static analyzer"
