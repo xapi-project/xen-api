@@ -443,9 +443,9 @@ CAMLprim value stub_xenctrlext_cputopoinfo(value xch)
 	CAMLreturn(result);
 }
 
-CAMLprim value stub_xenforeignmemory_open(value logger, value open_flags)
+CAMLprim value stub_xenforeignmemory_open(value logger)
 {
-        CAMLparam2(logger, open_flags);
+        CAMLparam1(logger);
         struct xentoollog_logger *log_handle = NULL;
         struct xenforeignmemory_handle *fmem;
         CAMLlocal1(result);
@@ -458,7 +458,7 @@ CAMLprim value stub_xenforeignmemory_open(value logger, value open_flags)
         // handle fails the ocaml GC will collect this abstract tag
         result = caml_alloc(1, Abstract_tag);
 
-        fmem = xenforeignmemory_open(log_handle, Int_val(open_flags));
+        fmem = xenforeignmemory_open(log_handle, 0);
 
         if(fmem == NULL) {
                 caml_failwith("Error when opening foreign memory handle");
