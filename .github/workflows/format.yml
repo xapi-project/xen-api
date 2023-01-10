@@ -14,7 +14,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Pull configuration from xs-opam
         run: |
@@ -22,13 +22,15 @@ jobs:
 
       - name: Load environment file
         id: dotenv
-        uses: falti/dotenv-action@v0.2.7
+        uses: falti/dotenv-action@v1.0.2
 
       - name: Use ocaml
-        uses: avsm/setup-ocaml@v1
+        uses: ocaml/setup-ocaml@v2
         with:
-          ocaml-version: ${{ steps.dotenv.outputs.ocaml_version_full }}
-          opam-repository: ${{ steps.dotenv.outputs.repository }}
+          ocaml-compiler: ${{ steps.dotenv.outputs.ocaml_version_full }}
+          opam-repositories: |
+            xs-opam: ${{ steps.dotenv.outputs.repository }}
+          dune-cache: true
 
       - name: Install ocamlformat
         run: |

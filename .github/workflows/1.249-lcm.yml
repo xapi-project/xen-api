@@ -15,7 +15,7 @@ jobs:
         test: ["", "-3"]
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           ref: '1.249-lcm'
 
@@ -30,7 +30,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           ref: '1.249-lcm'
 
@@ -40,16 +40,16 @@ jobs:
 
       - name: Load environment file
         id: dotenv
-        uses: falti/dotenv-action@v0.2.7
+        uses: falti/dotenv-action@v1.0.2
 
       - name: Retrieve date for cache key (year-week)
         id: cache-key
-        run: echo "::set-output name=date::$(/bin/date -u "+%Y%W")"
+        run: echo "date=$(/bin/date -u "+%Y%W")" >> $GITHUB_OUTPUT
         shell: bash
 
       - name: Restore opam cache
         id: opam-cache
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: "~/.opam"
           # invalidate cache every week, gets built using a scheduled job

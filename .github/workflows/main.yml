@@ -17,7 +17,7 @@ jobs:
         test: ["", "-3"]
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Run python tests
         run: bash ./.github/python-nosetests${{ matrix.test }}.sh
 
@@ -47,16 +47,16 @@ jobs:
 
       - name: Load environment file
         id: dotenv
-        uses: falti/dotenv-action@v0.2.7
+        uses: falti/dotenv-action@v1.0.2
 
       - name: Retrieve date for cache key
         id: cache-key
-        run: echo "::set-output name=date::$(/bin/date -u "+%Y%m%d")"
+        run: echo "date=$(/bin/date -u "+%Y%m%d")" >> $GITHUB_OUTPUT
         shell: bash
 
       - name: Restore opam cache
         id: opam-cache
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: "~/.opam"
           # invalidate cache daily, gets built daily using a scheduled job
@@ -111,7 +111,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Generate empty configuration for make to be happy
         run: touch config.mk

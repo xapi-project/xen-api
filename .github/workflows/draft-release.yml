@@ -21,7 +21,7 @@ jobs:
 
       - name: Load environment file
         id: dotenv
-        uses: falti/dotenv-action@v0.2.8
+        uses: falti/dotenv-action@v1.0.2
 
       - name: Use python 
         uses: actions/setup-python@v4
@@ -35,7 +35,7 @@ jobs:
 
       - name: Restore opam cache
         id: opam-cache
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: "~/.opam"
           # invalidate cache daily, gets built daily using a scheduled job
