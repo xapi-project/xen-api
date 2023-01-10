@@ -33,7 +33,8 @@ jobs:
         uses: avsm/setup-ocaml@v2
         with:
           ocaml-compiler: ${{ steps.dotenv.outputs.ocaml_version_full }}
-          opam-repositories: ${{ steps.dotenv.outputs.repository }}
+          opam-repositories: |
+            default: ${{ steps.dotenv.outputs.repository }}
           dune-cache: true
 
       - name: Install dependencies for static analyzer
