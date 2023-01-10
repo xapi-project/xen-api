@@ -9,7 +9,7 @@ on:
       - '*-lcm'
 
 jobs:
-  ocaml-format:
+  staticanalyzer:
     name: Ocaml files
     runs-on: ubuntu-22.04
     env:
