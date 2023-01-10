@@ -79,9 +79,6 @@ jobs:
       - name: Configure
         run: opam exec -- ./configure --xapi_version="$XAPI_VERSION"
 
-      - name: Build
-        run: opam exec -- make
-
       - name: Run static analyzer
         run: opam exec -- make analyze
 
@@ -89,6 +86,9 @@ jobs:
         uses: github/codeql-action/upload-sarif@v2
         with:
           sarif_file: _build/default/xapi.sarif
+
+      - name: Build
+        run: opam exec -- make
 
       - name: Run tests
         run: opam exec -- make test
