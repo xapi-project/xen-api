@@ -54,13 +54,13 @@ jobs:
         run: echo "::set-output name=date::$(/bin/date -u "+%Y%m%d")"
         shell: bash
 
-      - name: Restore opam cache
-        id: opam-cache
-        uses: actions/cache@v2
-        with:
-          path: "~/.opam"
-          # invalidate cache daily, gets built daily using a scheduled job
-          key: ${{ steps.cache-key.outputs.date }}
+      #- name: Restore opam cache
+        #  id: opam-cache
+        #uses: actions/cache@v2
+        #with:
+#  path: "~/.opam"
+#          # invalidate cache daily, gets built daily using a scheduled job
+#          key: ${{ steps.cache-key.outputs.date }}
 
       - name: Use ocaml
         uses: avsm/setup-ocaml@v1
