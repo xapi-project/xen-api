@@ -24,7 +24,7 @@ clean:
 	dune clean
 
 analyze:
-	dune build --profile=$(PROFILE) ocaml/xapi.sarif
+	dune build --profile=$(PROFILE) xapi.sarif
 
 lint:
 	dune build @python
