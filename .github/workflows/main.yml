@@ -25,7 +25,7 @@ jobs:
     name: Ocaml tests
     runs-on: ubuntu-20.04
     env:
-      package: "xapi-cli-protocol xapi-client xapi-consts xapi-database xapi-datamodel xapi-types xapi xe xen-api-sdk xen-api-client xen-api-client-lwt xen-api-client-async xapi-rrdd xapi-rrdd-plugin xapi-rrd-transport xapi-rrd-transport-utils rrd-transport rrdd-plugin rrdd-plugins rrddump gzip http-svr pciutil safe-resources sexpr stunnel uuid xapi-compression xml-light2 zstd vhd-tool xapi-networkd xapi-squeezed xapi-xenopsd xapi-xenopsd-cli xapi-xenopsd-simulator xapi-xenopsd-xc message-switch message-switch-async message-switch-cli message-switch-core message-switch-lwt message-switch-unix xapi-idl forkexec xapi-forkexecd xapi-storage xapi-storage-script xapi-storage-cli wsproxy xapi-nbd varstored-guard xapi-log xapi-open-uri xapi-lintcstubs"
+      package: "xapi-cli-protocol xapi-client xapi-consts xapi-database xapi-datamodel xapi-types xapi xe xen-api-sdk xen-api-client xen-api-client-lwt xen-api-client-async xapi-rrdd xapi-rrdd-plugin xapi-rrd-transport xapi-rrd-transport-utils rrd-transport rrdd-plugin rrdd-plugins rrddump gzip http-svr pciutil safe-resources sexpr stunnel uuid xapi-compression xml-light2 zstd vhd-tool xapi-networkd xapi-squeezed xapi-xenopsd xapi-xenopsd-cli xapi-xenopsd-simulator xapi-xenopsd-xc message-switch message-switch-async message-switch-cli message-switch-core message-switch-lwt message-switch-unix xapi-idl forkexec xapi-forkexecd xapi-storage xapi-storage-script xapi-storage-cli wsproxy xapi-nbd varstored-guard xapi-log xapi-open-uri"
       XAPI_VERSION: "v0.0.0-${{ github.sha }}"
 
     steps:
@@ -43,7 +43,7 @@ jobs:
 
       - name: Pull configuration from xs-opam
         run: |
-          curl --fail --silent https://raw.githubusercontent.com/edwintorok/xs-opam/master/tools/xs-opam-ci.env | cut -f2 -d " " > .env
+          curl --fail --silent https://raw.githubusercontent.com/xapi-project/xs-opam/master/tools/xs-opam-ci.env | cut -f2 -d " " > .env
 
       - name: Load environment file
         id: dotenv
@@ -54,13 +54,13 @@ jobs:
         run: echo "::set-output name=date::$(/bin/date -u "+%Y%m%d")"
         shell: bash
 
-      #- name: Restore opam cache
-        #  id: opam-cache
-        #uses: actions/cache@v2
-        #with:
-#  path: "~/.opam"
-#          # invalidate cache daily, gets built daily using a scheduled job
-#          key: ${{ steps.cache-key.outputs.date }}
+      - name: Restore opam cache
+        id: opam-cache
+        uses: actions/cache@v2
+        with:
+          path: "~/.opam"
+          # invalidate cache daily, gets built daily using a scheduled job
+          key: ${{ steps.cache-key.outputs.date }}
 
       - name: Use ocaml
         uses: avsm/setup-ocaml@v1
@@ -78,14 +78,6 @@ jobs:
 
       - name: Configure
         run: opam exec -- ./configure --xapi_version="$XAPI_VERSION"
-
-      - name: Run static analyzer
-        run: opam exec -- make analyze
-
-      - name: Upload SARIF
-        uses: github/codeql-action/upload-sarif@v2
-        with:
-          sarif_file: _build/default/xapi.sarif
 
       - name: Build
         run: opam exec -- make
