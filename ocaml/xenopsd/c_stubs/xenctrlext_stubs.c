@@ -112,14 +112,16 @@ CAMLprim value stub_xenctrlext_get_runstate_info(value xch, value domid)
     CAMLparam2(xch, domid);
 #if defined(XENCTRL_HAS_GET_RUNSTATE_INFO)
     CAMLlocal1(result);
+    xc_interface *xc = _H(xch);
     xc_runstate_info_t info;
     int retval;
 
     caml_enter_blocking_section();
-    retval = xc_get_runstate_info(_H(xch), _D(domid), &info);
+    /* TODO: analyzer doesn't find it due to old mock */
+    retval = xc_get_runstate_info(xc, _D(domid), &info);
     caml_leave_blocking_section();
     if ( retval < 0 )
-        failwith_xc(_H(xch));
+        failwith_xc(xc);
 
     /* Store
        0 : state (int32)
@@ -149,14 +151,15 @@ CAMLprim value stub_xenctrlext_get_boot_cpufeatures(value xch)
     CAMLparam1(xch);
 #if defined(XENCTRL_HAS_GET_CPUFEATURES)
     CAMLlocal1(v);
+    xc_interface *xc = _H(xch);
     uint32_t a, b, c, d, e, f, g, h;
     int ret;
 
     caml_enter_blocking_section();
-    ret = xc_get_boot_cpufeatures(_H(xch), &a, &b, &c, &d, &e, &f, &g, &h);
+    ret = xc_get_boot_cpufeatures(xc, &a, &b, &c, &d, &e, &f, &g, &h);
     caml_leave_blocking_section();
     if ( ret < 0 )
-        failwith_xc(_H(xch));
+        failwith_xc(xc);
 
     v = caml_alloc_tuple(8);
     Store_field(v, 0, caml_copy_int32(a));
@@ -197,7 +200,7 @@ CAMLprim value stub_xenctrlext_domain_get_acpi_s_state(value xch, value domid)
     ret = xc_get_hvm_param(xc, _D(domid), HVM_PARAM_ACPI_S_STATE, &v);
     caml_leave_blocking_section();
     if ( ret != 0 )
-        failwith_xc(_H(xch));
+        failwith_xc(xc);
 
     CAMLreturn(Val_int(v));
 }

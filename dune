@@ -83,6 +83,7 @@
     (progn
       (run rm -f goblint.sarif)
       (run ln -s %{read-lines:ctypesdir} ctypes)
+      (with-stderr-to lintcstubs.stderr
       (with-stdout-to lintcstubs.stdout
         (run ocaml/staticanalyzer/lintcstubs.exe -o xapi.sarif --disable warn.info
             --disable warn.unsound --disable warn.imprecise
@@ -93,10 +94,10 @@
             -I ocaml/auth -I ctypes -I unixpwd/c
             %{runtime_model} %{primitives_model}
             %{cstubs}
-           ))))
+           )))))
  )
             ; --enable dbg.debug --enable dbg.verbose
-
+; TODO: show stderr too
 (rule
  (alias analyze)
  (deps lintcstubs.stdout)
