@@ -4,7 +4,7 @@
  (package xapi-xenopsd-xc)
  (libraries
    dune-build-info
-   io-page-unix
+   io-page
    xen-gnt
    xen-gnt-unix
  )
