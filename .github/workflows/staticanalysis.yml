@@ -31,14 +31,14 @@ jobs:
         uses: avsm/setup-ocaml@v2
         with:
           ocaml-version: ${{ steps.dotenv.outputs.ocaml_version_full }}
-          opam-repository: ${{ steps.dotenv.outputs.repository }}
+          opam-repositories: ${{ steps.dotenv.outputs.repository }}
           dune-cache: true
 
       - name: Install dependencies for static analyzer
         run: |
           opam update
           opam pin add xapi-lintcstubs . --no-action
-          opam install --deps-only ${{env.package}}
+          opam install --deps-only ${{ env.package }}
 
       - name: Run static analyzer
         run: opam exec -- make analyze
