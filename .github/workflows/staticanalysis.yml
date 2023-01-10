@@ -15,6 +15,9 @@ jobs:
     env:
       package: "xapi-lintcstubs"
       XAPI_VERSION: "v0.0.0-${{ github.sha }}"
+      # required for dune cache to work inside opam for now, otherwise it
+      # gets EXDEV and considers it a cache miss
+      DUNE_CACHE_STORAGE_MODE: copy
 
     steps:
       - name: Checkout code
