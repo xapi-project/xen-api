@@ -26,6 +26,8 @@ jobs:
       - name: Load environment file
         id: dotenv
         uses: falti/dotenv-action@v1.0.2
+        with:
+          log-variables: true
 
       - name: Use ocaml
         uses: avsm/setup-ocaml@v2
