@@ -30,7 +30,7 @@ jobs:
       - name: Use ocaml
         uses: avsm/setup-ocaml@v2
         with:
-          ocaml-version: ${{ steps.dotenv.outputs.ocaml_version_full }}
+          ocaml-compiler: ${{ steps.dotenv.outputs.ocaml_version_full }}
           opam-repositories: ${{ steps.dotenv.outputs.repository }}
           dune-cache: true
 
