@@ -320,14 +320,8 @@ let read_frame_header buf =
   let prefix = Bytes.sub_string buf 0 frame_header_length in
   try Scanf.sscanf prefix "FRAME %012d" (fun x -> Some x) with _ -> None
 
-let set_socket_timeout fd t =
-  try Unix.(setsockopt_float fd SO_RCVTIMEO t)
-  with Unix.Unix_error (Unix.ENOTSOCK, _, _) ->
-    (* In the unit tests, the fd comes from a pipe... ignore *)
-    ()
-
 let read_http_request_header ~read_timeout ~total_timeout ~max_length fd =
-  Option.iter (fun t -> set_socket_timeout fd t) read_timeout ;
+  Unixext.with_socket_timeout fd read_timeout @@ fun () ->
   let buf = Bytes.create (Option.value ~default:1024 max_length) in
   let deadline =
     Option.map
@@ -372,7 +366,6 @@ let read_http_request_header ~read_timeout ~total_timeout ~max_length fd =
         check_timeout_and_read 0 length ;
         (true, length)
   in
-  set_socket_timeout fd 0. ;
   (frame, Bytes.sub_string buf 0 headers_length, proxy)
 
 let read_http_response_header buf fd =

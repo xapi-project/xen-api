@@ -1062,3 +1062,18 @@ module Daemon = struct
       true
     with Unix.Unix_error _ -> false
 end
+
+let set_socket_timeout fd t =
+  try Unix.(setsockopt_float fd SO_RCVTIMEO t)
+  with Unix.Unix_error (Unix.ENOTSOCK, _, _) ->
+    (* In the unit tests, the fd comes from a pipe... ignore *)
+    ()
+
+let with_socket_timeout fd timeout_opt f =
+  match timeout_opt with
+  | Some t ->
+      if t < 1e-6 then invalid_arg (Printf.sprintf "Timeout too short: %g" t) ;
+      let finally () = set_socket_timeout fd 0. in
+      set_socket_timeout fd t ; Fun.protect ~finally f
+  | None ->
+      f ()
