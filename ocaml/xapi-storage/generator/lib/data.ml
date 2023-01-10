@@ -124,7 +124,7 @@ module Datapath (R : RPC) = struct
       ; "activated readonly multiple times, including on multiple independent "
       ; "hosts. It is not permitted for a volume to be activated both readonly "
       ; "and read-write concurrently. Implementations shall declare the "
-      ; "ATTACH_READONLY feature for this method to be supported. Once a "
+      ; "VDI_ATTACH_READONLY feature for this method to be supported. Once a "
       ; "volume is activated readonly it is required that all readonly "
       ; "activations are deactivated before any read-write activation is "
       ; "attempted. This function is idempotent and in all other respects "
