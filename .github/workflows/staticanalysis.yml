@@ -36,11 +36,11 @@ jobs:
           opam-repositories: |
             default: ${{ steps.dotenv.outputs.repository }}
           dune-cache: true
+          opam-local-packages: ${{ env.package }}.opam
 
       - name: Install dependencies for static analyzer
         run: |
           opam update
-          opam pin add xapi-lintcstubs . --no-action
           opam install --deps-only ${{ env.package }}
 
         # The checkout action performs a shallow, this triggers dune to set the
