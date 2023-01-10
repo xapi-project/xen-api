@@ -199,8 +199,6 @@ module Mux = struct
   end
 
   module DP = struct
-    include Storage_skeleton.DP
-
     let create _context ~dbg:_ ~id = id
 
     let destroy _context ~dbg ~dp ~allow_leak =
@@ -214,6 +212,12 @@ module Mux = struct
       end)) in
       C.DP.destroy dbg dp allow_leak ;
       DP_info.delete dp
+
+    let diagnostics () = Storage_smapiv1_wrapper.Impl.DP.diagnostics ()
+
+    let attach_info () = Storage_smapiv1_wrapper.Impl.DP.attach_info ()
+
+    let stat_vdi () = Storage_smapiv1_wrapper.Impl.DP.stat_vdi ()
   end
 
   module SR = struct
@@ -718,19 +722,8 @@ module Mux = struct
         (Hashtbl.find plugins sr).backend_domain
   end
 
-  module TASK = struct
-    let stat () ~dbg:_ ~task:_ = assert false
-
-    let cancel () ~dbg:_ ~task:_ = assert false
-
-    let destroy () ~dbg:_ ~task:_ = assert false
-
-    let list () ~dbg:_ = assert false
-  end
-
-  module UPDATES = struct
-    let get () ~dbg:_ ~from:_ ~timeout:_ = assert false
-  end
+  module TASK = Storage_smapiv1_wrapper.Impl.TASK
+  module UPDATES = Storage_smapiv1_wrapper.Impl.UPDATES
 end
 
 module Server = Storage_interface.Server (Mux) ()
