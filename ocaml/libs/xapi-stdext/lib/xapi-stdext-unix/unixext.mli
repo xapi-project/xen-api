@@ -146,6 +146,8 @@ val try_read_string : ?limit:int -> Unix.file_descr -> string
 
 exception Timeout
 
+val with_socket_timeout : Unix.file_descr -> float option -> (unit -> 'a) -> 'a
+
 val time_limited_write : Unix.file_descr -> int -> bytes -> float -> unit
 
 val time_limited_write_substring :
