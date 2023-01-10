@@ -15,5 +15,6 @@ depends: [
   "xentoollog"
   "lwt_ssl"
   "xenctrl"
+  "io-page"
 ]
 synopsis: "OCaml C stub static analyzer"
