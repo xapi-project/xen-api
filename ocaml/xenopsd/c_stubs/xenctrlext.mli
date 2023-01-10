@@ -93,7 +93,7 @@ module Xenforeignmemory : sig
 
   type prot = {read: bool; write: bool; exec: bool}
 
-  val acquire : Xentoollog.handle option -> int -> handle
+  val acquire : Xentoollog.handle option -> handle
 
   val release : handle -> unit
 
