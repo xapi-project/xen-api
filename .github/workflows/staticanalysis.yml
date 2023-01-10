@@ -43,6 +43,18 @@ jobs:
           opam pin add xapi-lintcstubs . --no-action
           opam install --deps-only ${{ env.package }}
 
+        # The checkout action performs a shallow, this triggers dune to set the
+        # version to <hash>-dirty. Work around this dune behaviour and tag the
+        # commit so a proper version is always picked up
+      - name: Tag current commit
+        run: |
+          git config user.name "Dune workaround"
+          git config user.email "<>"
+          git tag -am "workaround for dune" "$XAPI_VERSION"
+
+      - name: Configure
+        run: opam exec -- ./configure --xapi_version="$XAPI_VERSION"
+
       - name: Run static analyzer
         run: opam exec -- make analyze
 
