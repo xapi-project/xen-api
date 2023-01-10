@@ -14,6 +14,7 @@ jobs:
     runs-on: ubuntu-22.04
     env:
       package: "xapi-lintcstubs"
+      XAPI_VERSION: "v0.0.0-${{ github.sha }}"
 
     steps:
       - name: Checkout code
