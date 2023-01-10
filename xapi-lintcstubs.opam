@@ -9,5 +9,11 @@ build: [
 depends: [
   "ocaml" {>= "4.08"}
   "goblint" {>= "2.1.0"}
+  # for building the .cmt files, TODO: restructure libs such that C stubs
+  # have less deps
+  "xapi-stdext-pervasives"
+  "xentoollog"
+  "lwt_ssl"
+  "xenctrl"
 ]
 synopsis: "OCaml C stub static analyzer"
