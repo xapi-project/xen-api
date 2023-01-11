@@ -179,7 +179,7 @@ let main port certfile _ =
   let () =
     Lwt_main.run
       (Lwt.catch t (fun e ->
-           Lwt_log.fatal_f "Caught unexpected exception: %s"
+           Lwt_log.error_f "Caught unexpected exception: %s"
              (Printexc.to_string e)
            >>= fun () -> Lwt.fail e
        )
