@@ -6,6 +6,10 @@ let rec activate name =
   List.iter activate deps ;
   GobConfig.set_auto "ana.activated[+]" name
 
+let find_stub_source ~stubdirs name =
+  stubdirs |> List.map (fun dir -> Fpath.append dir name)
+  |> List.find_all (fun path -> path |> Fpath.to_string |> Sys.file_exists)
+
 (** [set_default_flags ()] initializes goblint with flags suitable for parsing OCaml C stubs *)
 let set_default_flags () =
   (* all the flag names are documented in the JSON schema at:
@@ -34,7 +38,21 @@ let set_default_flags () =
      [ana.autotune.activated]: List of activated tuning options. By default all
      are activated.
   *)
-  set_auto "ana.autotune.activated[-]" "singleThreaded"
+  set_auto "ana.autotune.activated[-]" "singleThreaded";
+
+  (* OCaml runtime model - needed so we know what locks/unlocks the runtime
+     lock
+  *)
+  let stubdirs = List.map Fpath.v Goblint_sites.lib_stub_src in
+  match find_stub_source ~stubdirs Fpath.(v "ocaml_runtime.model.c") with
+  | [] ->
+      Fmt.failwith "OCaml runtime model not found in %a"
+        Fmt.Dump.(list Fpath.pp) stubdirs
+  | [one] ->
+    set_auto "files[+]" @@ Fpath.to_string one
+  | (_ :: _) as l ->
+      Fmt.failwith "Multiple runtime models found: %a"
+        Fmt.Dump.(list Fpath.pp) l
 
 (** [enable_tracing_if_needed ()] enables tracing messages in our analyses
   if enabled on the CLI with [dbg.trace].

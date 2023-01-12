@@ -5,7 +5,13 @@
     (language c)
     (include_dirs include)
     (flags (:standard -Wno-attributes))
-    (names runtime.model)
+    (names ocaml_runtime.model)
    )
   (package xapi-lintcstubs)
+)
+
+(install
+ (section (site (goblint lib_stub_src)))
+ (files ocaml_runtime.model.c)
+ (package xapi-lintcstubs)
 )

@@ -66,8 +66,9 @@
 (rule
   (targets xapi.sarif lintcstubs.stdout)
   (deps
+    (package xapi-lintcstubs)
     (:headers (glob_files ocaml/auth/*.h) (glob_files unixpwd/c/*.h) primitives.h)
-    (:runtime_model ocaml/staticanalyzer/model/runtime.model.c)
+    (:runtime_model ocaml/staticanalyzer/model/ocaml_runtime.model.c)
     (:primitives_model primitives.model.c)
     (:cstubs
      (glob_files ocaml/auth/*.c)
@@ -91,7 +92,7 @@
             --set ana.activated "[\"ocamlcstubs\",\"escape\"]"
             --sarif -I %{ocaml_where}
             -I ocaml/auth -I ctypes -I unixpwd/c
-            %{runtime_model} %{primitives_model}
+            %{primitives_model}
             %{cstubs}
            ))))
  )
