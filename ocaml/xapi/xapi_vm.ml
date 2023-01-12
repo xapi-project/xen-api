@@ -691,7 +691,7 @@ let destroy ~__context ~self =
   let uuid = Db.VM.get_uuid ~__context ~self in
   log_and_ignore_exn (fun () -> Rrdd.remove_rrd uuid) ;
   List.iter
-    (fun self -> Db.VTPM.destroy ~__context ~self)
+    (fun self -> Xapi_vtpm.destroy ~__context ~self)
     (Db.VM.get_VTPMs ~__context ~self) ;
   destroy ~__context ~self
 
