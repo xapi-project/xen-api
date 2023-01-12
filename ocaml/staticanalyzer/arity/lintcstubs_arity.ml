@@ -45,7 +45,8 @@ let value_description _ vd =
       *)
       let args =
         if arity <= 5 then
-          List.init arity @@ fun _ -> "value"
+          (* List.init would require OCaml 4.06 *)
+          Array.make arity "value" |> Array.to_list
         else
           ["value *argv"; "int argn"]
       in

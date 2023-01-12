@@ -23,18 +23,20 @@ module DomainLock = struct
   let runtime_lock_var =
     let g = ref None in
     fun () ->
-    match !g with
-    | Some v -> v
-    | None ->
-        let k = "__VERIFIER_ocaml_runtime_lock" in
-        match VarQuery.varqueries_from_names !Cilfacade.current_file [k] with
-        | [VarQuery.Global v], _ ->
-            g := Some v;
-            v
-        | _ ->
-            let v = Goblintutil.create_var @@ makeGlobalVar k intType in
-            g := Some v;
-            v
+      match !g with
+      | Some v ->
+          v
+      | None -> (
+          let k = "__VERIFIER_ocaml_runtime_lock" in
+          match VarQuery.varqueries_from_names !Cilfacade.current_file [k] with
+          | [VarQuery.Global v], _ ->
+              g := Some v ;
+              v
+          | _ ->
+              let v = Goblintutil.create_var @@ makeGlobalVar k intType in
+              g := Some v ;
+              v
+        )
 
   let runtime_lock_event () = LockDomain.Addr.from_var @@ runtime_lock_var ()
 
@@ -118,12 +120,11 @@ module Cstub = struct
 
   let is_cstub_entry _ctx f = is_cstub_entry_svar f.svar
 
-  let enter_cstub ctx _ =
-    ctx.local
+  let enter_cstub ctx _ = ctx.local
 
   let leave_cstub ctx f =
     (* runtime lock must be held when exiting the C stub, because it'll return
-     to OCaml code *)
+       to OCaml code *)
     DomainLock.must_be_held ctx "exiting C stub" f.vname ;
     ctx.local
 
@@ -313,8 +314,8 @@ let dep =
     ThreadEscape.Spec.name ()
     (* without everything that gets its address taken is considered global *)
   ; AccessAnalysis.Spec.name () (* for Events.Access *)
-  ; MutexAnalysis.Spec.name
-      () (* for Queries.{MustLockset, MustBeProtectedBy} *)
+  ; MutexAnalysis.Spec.name ()
+    (* for Queries.{MustLockset, MustBeProtectedBy} *)
   ; MutexEventsAnalysis.Spec.name () (* for Events.Lock *)
   ; (let module M = (val Base.get_main ()) in
     M.name ()
