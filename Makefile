@@ -88,6 +88,7 @@ doc-json:
 
 format:
 	dune build @fmt --auto-promote
+	git ls-files '*.c' '*.h' | xargs clang-format -i
 
 .PHONY: quality-gate
 quality-gate:
