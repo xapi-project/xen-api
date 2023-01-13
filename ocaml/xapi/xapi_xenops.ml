@@ -339,12 +339,17 @@ let rtc_timeoffset_of_vm ~__context (vm, vm_t) vbds =
 
 (* /boot/ contains potentially sensitive files like xen-initrd, so we will only*)
 (* allow directly booting guests from the subfolder /boot/guest/ *)
-let allowed_dom0_directory_for_boot_files = "/boot/guest/"
+let allowed_dom0_directories_for_boot_files =
+  ["/boot/guest/"; "/var/lib/xcp/guest"]
 
 let is_boot_file_whitelisted filename =
   let safe_str str = not (String.has_substr str "..") in
   (* make sure the script prefix is the allowed dom0 directory *)
-  String.startswith allowed_dom0_directory_for_boot_files filename
+  List.exists
+    (fun allowed_dom0_directory_for_boot_files ->
+      String.startswith allowed_dom0_directory_for_boot_files filename
+    )
+    allowed_dom0_directories_for_boot_files
   (* avoid ..-style attacks and other weird things *)
   && safe_str filename
 
