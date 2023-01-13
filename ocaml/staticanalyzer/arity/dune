@@ -1,0 +1,12 @@
+(executable
+  (public_name lintcstubs_arity)
+  (libraries compiler-libs.common)
+  (package xapi-lintcstubs)
+)
+
+(cram (deps %{bin:lintcstubs_arity}))
+
+; Given a checkout of the OCaml source code the following can be used to check
+; whether we covered most C stub declarations.
+; It is expected to print some warnings, but must not fail:
+; dune exec ./lintcstubs_arity.exe ~/git/ocaml/otherlibs/**/*.ml ~/git/ocaml/stdlib/**/*.ml
