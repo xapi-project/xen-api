@@ -1,0 +1,28 @@
+opam-version: "2.0"
+homepage: "https://github.com/xapi-project/xen-api"
+bug-reports: "https://github.com/xapi-project/xen-api/issues"
+dev-repo: "git+https://github.com/xapi-project/xen-api.git"
+build: [
+  ["dune" "build" "-p" name "-j" jobs ]
+  ["dune" "runtest" "-p" name "-j" jobs] {with-test}
+]
+depends: [
+  "ocaml" {>= "4.08"}
+  "goblint" {>= "2.1.0"}
+  # for building the .cmt files, TODO: restructure libs such that C stubs
+  # have less deps
+  "xapi-stdext-pervasives"
+  "xentoollog"
+  "lwt_ssl"
+  "xenctrl"
+  "io-page"
+  "conf-pam"
+]
+depexts: [
+  ["hwdata" "libxxhash-dev" "libxxhash0"] {os-distribution = "debian"}
+  ["hwdata" "libxxhash-dev" "libxxhash0"] {os-distribution = "ubuntu"}
+  ["hwdata" "xxhash-devel" "xxhash-libs"] {os-distribution = "centos"}
+  ["hwdata" "xxhash-devel" "xxhash-libs"] {os-distribution = "fedora"}
+  ["hwdata" "xxhash-dev" "xxhash"] {os-distribution = "alpine"}
+]
+synopsis: "OCaml C stub static analyzer"

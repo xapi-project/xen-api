@@ -6,7 +6,7 @@ JOBS = $(shell getconf _NPROCESSORS_ONLN)
 PROFILE=release
 OPTMANDIR ?= $(OPTDIR)/man/man1/
 
-.PHONY: build clean test doc python format install uninstall
+.PHONY: build clean test test-analyze doc python format install uninstall
 
 # if we have XAPI_VERSION set then set it in dune-project so we use that version number instead of the one obtained from git
 # this is typically used when we're not building from a git repo
@@ -23,6 +23,9 @@ check:
 clean:
 	dune clean
 
+analyze:
+	dune build --profile=$(PROFILE) xapi.sarif
+
 lint:
 	dune build @python
 	pylint --disable=line-too-long,too-few-public-methods,unused-argument,no-self-use,invalid-name,broad-except,protected-access,redefined-builtin,too-many-lines,wildcard-import,too-many-branches,too-many-arguments,unused-wildcard-import,raising-format-tuple,too-many-statements,duplicate-code _build/default/xapi-storage/python/xapi/storage/api/v5/*.py
@@ -31,6 +34,10 @@ lint:
 test:
 	dune runtest --profile=$(PROFILE) --no-buffer -j $(JOBS)
 	dune build @runtest-python --profile=$(PROFILE)
+	dune build @analyze --profile=$(PROFILE)
+
+test-analyze:
+	dune build @analyze --profile=$(PROFILE)
 
 stresstest:
 	dune build @stresstest --profile=$(PROFILE) --no-buffer -j $(JOBS)
