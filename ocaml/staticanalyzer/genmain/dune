@@ -1,0 +1,46 @@
+; compiler-libs has unstable API, ensure only one module uses it to simplify
+; maintenance
+(library
+  (name primitives_of_cmt)
+  (modules primitives_of_cmt)
+  (libraries compiler-libs.common)
+  )
+
+(executable
+  (public_name lintcstubs_genmain)
+  (modules lintcstubs_genmain)
+  (libraries primitives_of_cmt)
+  (package xapi-lintcstubs)
+)
+
+(cram (deps %{bin:lintcstubs_genmain}))
+
+(rule
+  (target genmain_test.model.c)
+  (deps
+    (:cmt (glob_files %{ocaml_where}/*.cmt))
+    (:linter %{bin:lintcstubs_genmain})
+   )
+  (action (with-stdout-to %{target} (run %{linter} %{cmt})))
+)
+
+(rule
+  (deps
+    (:linter ../arity/lintcstubs_arity.exe)
+    (:mlfiles (glob_files %{ocaml_where}/*.ml)))
+  (action
+   (with-stdout-to primitives.h
+     (run %{linter} %{mlfiles})
+   )))
+
+; check that the model compiles with usual compiler
+(library
+  (name genmain_test)
+   (modules)
+  (foreign_stubs
+    (language c)
+    (names genmain_test.model)
+    (include_dirs ../model/include)
+   )
+  (package xapi-lintcstubs)
+)
