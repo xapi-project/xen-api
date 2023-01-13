@@ -1,0 +1,9 @@
+BasedOnStyle: GNU
+IndentWidth: 4
+
+# override GNU to match Xen ../../CODING_STYLE more closely
+AlwaysBreakAfterDefinitionReturnType: None
+AlwaysBreakAfterReturnType: None
+SpacesInConditionalStatement: true
+SpaceBeforeParens: ControlStatements
+BreakBeforeBraces: Allman
