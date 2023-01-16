@@ -1,0 +1,21 @@
+FROM docker.io/ocaml/opam:centos-7-ocaml-4.13
+RUN sudo yum install -y epel-release centos-release-xen
+RUN sudo yum install -y etcd /usr/sbin/ip
+ENV DUNE_CACHE=enabled DUNE_CACHE_STORAGE_MODE=copy
+# TODO: eventually remove default repo, but for now we need it as an easy way
+#RUN opam repository add xs-opam https://github.com/xapi-project/xs-opam.git
+RUN opam repository add xs-opam https://github.com/edwintorok/xs-opam.git
+# have to rm default otherwise it'll try to fetch inconsistent set of packagees
+RUN opam repository remove default
+WORKDIR xapi
+
+# first yes is to install depext plugin
+# pinning is way too slow (it will do a git clone every time or rsync),
+# so as a workaround install depext of xs-toolstack (which might be slightly
+# out of date with the .opam files here though)
+
+#  xen-devel is not in CentOS
+RUN opam --yes depext --yes xs-toolstack
+# this can be done without pinning, and we'll use dune to build next
+#RUN opam install -y --deps-only .
+RUN opam install -y --deps-only xapi
