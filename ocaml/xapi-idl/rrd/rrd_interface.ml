@@ -90,6 +90,8 @@ type rrd_errors =
   | Invalid_protocol of string
       (** Thrown by protocol_of_string if string does not match plugin protocol *)
   | Rrdd_internal_error of string  (** Internal Rrdd error *)
+  | Datasource_missing of string
+      (** The requested datasource is not present in the host *)
 [@@deriving rpcty]
 
 exception Rrdd_error of rrd_errors
