@@ -1,20 +1,3 @@
-# syntax=docker/dockerfile:1
-FROM busybox:latest as xs-opam-repository
-ADD --link --chown=1000 [ "https://github.com/edwintorok/xs-opam/archive/refs/heads/master.tar.gz", "xs-opam.tar.gz" ]
-RUN tar xzf xs-opam.tar.gz && rm -f xs-opam.tar.gz
-FROM docker.io/ocaml/opam:centos-7-ocaml-4.13 as opam-repos
-COPY --link --from=xs-opam-repository [ "xs-opam-master", "xs-opam-master" ]
-RUN  'opam' 'repository' 'add' 'xs-opam' 'xs-opam-master'
-RUN  'opam' 'repository' 'remove' 'default'
-FROM opam-repos as depexts-gen
-RUN opam depext -l xs-toolstack >depexts.pkgs
-RUN ls -la
-FROM docker.io/ocaml/opam:centos-7-ocaml-4.13 as depexts-install
-COPY --link --from=xs-opam-repository [ "xs-opam-master", "xs-opam-master" ]
-COPY --link --from=depexts-gen [ "/home/opam/depexts.pkgs", "depexts.pkgs" ]
-RUN sudo xargs yum install -y <depexts.pkgs
-COPY --link --from=opam-repos [ "/home/opam/.opam", "/home/opam/.opam" ]
-FROM depexts-install
-COPY --link [ ".", "xapi-src" ]
-RUN --mount=type=cache,target=/home/opam/.opam/download-cache,uid=1000,gid=1000,sharing=locked --mount=type=cache,target=/home/opam/.cache/dune,uid=1000,gid=1000,sharing=shared 'opam' 'pin' 'add' '--yes' '--no-action' 'xapi-src'
-RUN --mount=type=cache,target=/home/opam/.opam/download-cache,uid=1000,gid=1000,sharing=locked --mount=type=cache,target=/home/opam/.cache/dune,uid=1000,gid=1000,sharing=shared 'opam' 'install' '--deps-only' 'xapi'
+FROM docker.io/ocaml/opam:centos-7-ocaml-4.13 as depext-gen
+RUN opam repository set-url default https://github.com/edwintorok/xs-opam.git#4ba8b16c8f24d8a50578e50c1de35e9bf42a7a55 && \
+  opam depext -l xs-toolstack >depexts.packages
