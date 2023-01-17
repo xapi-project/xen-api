@@ -43,14 +43,50 @@ let opam_depext pkg = run ~cache_dirs:(yum_cache :: opam_cache) @@ Cmd.(v "opam"
 let opam_install args = run ~cache_dirs:opam_cache @@ Cmd.(v "opam" % "install" %% of_list args)
 
 let opam_pin_add pkgs = run
-  ~cache_dirs:opam_cache Cmd.(v "opam" % "pin" % "add" % "--yes" % "--debug" % "--no-action" %% of_list pkgs)
+  ~cache_dirs:opam_cache Cmd.(v "opam" % "pin" % "add" % "--yes" % "--no-action" %% of_list pkgs)
 
 let work_dir = "xapi"
+
+let stage_xs_opam_repo = "xs-opam-repository"
+let stage_opam_repos = "opam-repos"
+let stage_depexts_gen = "depexts-gen"
+let stage_depexts_install = "depexts-install"
+
+let xs_opam_src = "xs-opam-master"
+let depexts_file = "depexts.pkgs"
+let src_dst = "xapi-src"
 
 let containerfile =
   Dockerfile.(
    parser_directive (`Syntax "docker/dockerfile:1") @@@
-  [ from from_str
+   [ from ~alias:stage_xs_opam_repo "busybox:latest"
+   ; add ~link:true ~chown:(string_of_int uid) ~src:[Printf.sprintf "https://github.com/%s/xs-opam/archive/refs/heads/master.tar.gz" xs_opam_fork] ~dst:"xs-opam.tar.gz" ()
+   ; run "tar xzf xs-opam.tar.gz && rm -f xs-opam.tar.gz"
+
+   ; from ~alias:stage_opam_repos from_str
+   ; copy ~link:true ~from:stage_xs_opam_repo ~src:[xs_opam_src] ~dst:xs_opam_src ()
+   ; opam_repository_add xs_opam_src
+   ; opam_repository_rm "default"
+
+   (* avoid having to reinstall packages if the package list doesn't actually change *)
+   ; from ~alias:stage_depexts_gen stage_opam_repos
+   ; run "opam depext -l %s >%s" depext_package depexts_file
+   ; run "ls -la"
+
+   ; from ~alias:stage_depexts_install from_str
+   ; copy ~link:true ~from:stage_xs_opam_repo ~src:[xs_opam_src] ~dst:xs_opam_src ()
+   ; copy ~link:true ~from:stage_depexts_gen ~src:[Filename.concat "/home/opam" depexts_file] ~dst:depexts_file ()
+   ; run "sudo xargs yum install -y <%s" depexts_file
+   ; copy ~link:true ~from:stage_opam_repos ~src:["/home/opam/.opam"] ~dst:"/home/opam/.opam" ()
+
+   ; from stage_depexts_install
+   ; copy ~link:true ~src:["."] ~dst:src_dst ()
+   ; opam_pin_add [src_dst]
+   ; opam_install ["--deps-only"; deps_package]
+   ]
+  )
+
+(*    from from_str
   ; env ["DUNE_CACHE", "enabled"; "DUNE_CACHE_STORAGE_MODE", "copy"]
   ; workdir "%s" work_dir
   ; yum_install repo_packages
@@ -66,6 +102,11 @@ let containerfile =
   ; opam_install ["--deps-only"; deps_package]
   ]
   )
+*)
 
 let () =
   Dockerfile.string_of_t containerfile |> print_endline
+
+  (* TODO: "stand up a VM or container with dependencies and then just run opam
+     pin/etc commands inside of it" then we can use this method with VMs as
+     well *)
