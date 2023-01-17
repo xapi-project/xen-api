@@ -10,8 +10,8 @@
   (package xapi-lintcstubs)
 )
 
-(install
- (section (site (goblint lib_stub_src)))
- (files ocaml_runtime.model.c)
- (package xapi-lintcstubs)
-)
+;(install
+; (section (site (goblint lib_stub_src)))
+; (files ocaml_runtime.model.c)
+; (package xapi-lintcstubs)
+;)

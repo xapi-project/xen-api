@@ -1,0 +1,15 @@
+# syntax=docker/dockerfile:1
+FROM docker.io/ocaml/opam:centos-7-ocaml-4.13
+ENV DUNE_CACHE="enabled" DUNE_CACHE_STORAGE_MODE="copy"
+WORKDIR xapi
+RUN --mount=type=cache,target=/var/cache/yum,uid=0,gid=0,sharing=locked 'sudo' 'yum' 'install' '-y' 'epel-release' 'centos-release-xen'
+RUN --mount=type=cache,target=/var/cache/yum,uid=0,gid=0,sharing=locked 'sudo' 'yum' 'install' '-y' 'etcd' '/usr/sbin/ip' 'strace'
+ADD --link [ "https://github.com/edwintorok/xs-opam/archive/refs/heads/master.tar.gz", "xs-opam.tar.gz" ]
+RUN sudo tar xzf xs-opam.tar.gz && sudo rm xs-opam.tar.gz
+RUN  'opam' 'repository' 'add' 'xs-opam' 'xs-opam-master'
+RUN  'opam' 'repository' 'remove' 'default'
+RUN --mount=type=cache,target=/var/cache/yum,uid=0,gid=0,sharing=locked --mount=type=cache,target=/home/opam/.opam/download-cache,uid=1000,gid=1000,sharing=locked --mount=type=cache,target=/home/opam/.cache/dune,uid=1000,gid=1000,sharing=shared 'opam' '--yes' 'depext' '--yes' 'xs-toolstack'
+RUN --mount=type=cache,target=/home/opam/.opam/download-cache,uid=1000,gid=1000,sharing=locked --mount=type=cache,target=/home/opam/.cache/dune,uid=1000,gid=1000,sharing=shared 'opam' 'install' 'polly'
+COPY [ ".", "xapi" ]
+RUN --mount=type=cache,target=/home/opam/.opam/download-cache,uid=1000,gid=1000,sharing=locked --mount=type=cache,target=/home/opam/.cache/dune,uid=1000,gid=1000,sharing=shared 'opam' 'pin' 'add' '--yes' '--debug' '--no-action' 'xapi/'
+RUN --mount=type=cache,target=/home/opam/.opam/download-cache,uid=1000,gid=1000,sharing=locked --mount=type=cache,target=/home/opam/.cache/dune,uid=1000,gid=1000,sharing=shared 'opam' 'install' '--deps-only' 'xapi'

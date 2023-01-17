@@ -1,0 +1,22 @@
+(executable
+  (name cpd_gen)
+  (libraries bos dockerfile))
+
+(copy_files ../../*.opam)
+(rule
+  (target Containerfile)
+  (deps (:opam_files (glob_files *.opam)))
+  (action (with-stdout-to %{target} (run ./cpd_gen.exe %{opam_files})))
+  (mode promote)
+  )
+
+(rule
+  (alias docker-build)
+  (deps (:containerfile Containerfile) (glob_files *.opam) (universe))
+  (action
+    (chdir %{project_root}
+           (setenv DOCKER_BUILDKIT 1
+                   (setenv BUILDKIT_PROGRESS plain
+                  (setenv PROGRESS_NO_TRUNC 1
+                   (run docker build -t cpd  -f %{containerfile} .))))))
+)
