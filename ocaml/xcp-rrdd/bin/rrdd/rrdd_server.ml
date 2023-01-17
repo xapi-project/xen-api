@@ -12,9 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-(* The framework requires type 'context' to be defined. *)
-type context = unit
-
 let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
 open Rrdd_shared
