@@ -16,6 +16,3 @@ WORKDIR xapi
 
 #  xen-devel is not in CentOS
 RUN opam --yes depext --yes xs-toolstack
-# this can be done without pinning, and we'll use dune to build next
-#RUN opam install -y --deps-only .
-RUN opam install -y --deps-only xapi
