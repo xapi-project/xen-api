@@ -1,5 +1,5 @@
 #!/bin/sh
-set -eu
+set -eux
 
 # container-pool-dev
 IMAGE=cpd
@@ -14,11 +14,17 @@ podman build \
     -f scripts/container-pool-dev/Containerfile \
     ../../
 
-podman run \
-    --name="${IMAGE}-run" \
+echo "Running"
+# TODO: if changed, restart?
+
+CONTAINER="${IMAGE}-run"
+podman inspect -t container "${CONTAINER}" || podman run \
+    --name="${CONTAINER}" \
     --userns=keep-id \
-    "${IMAGE}" \
     -v "${HOME}/.cache/dune:/home/opam/.cache/dune:rw,z" \
     -v "${HOME}/.opam/download-cache:/home/opam/.opam/download-cache:rw,z" \
     -v "$(pwd):/home/opam/xapi:rw,z" \
-    opam install -y --deps-only xapi
+    --init \
+    "${IMAGE}" sh -c "sleep 1d"&
+podman start "${CONTAINER}"
+podman exec "${CONTAINER}" opam install -y --deps-only xapi
