@@ -1,4 +1,0 @@
-FROM ocaml/opam:centos-7-ocaml-4.13
-COPY repository.tar.gz .
-RUN tar xzf repository.tar.gz && opam repository set-url default ./xs-opam
-RUN opam depext -l xs-toolstack >depext.packages

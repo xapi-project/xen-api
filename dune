@@ -103,3 +103,41 @@
  (deps lintcstubs.stdout)
  (action (diff xapi.stdout.reference %{deps}))
 )
+
+; this takes a few seconds, so only done upon request
+(rule
+  ; external dependency, not cachable by dune
+  (alias opam-update)
+  (deps (universe))
+  (action
+    (run opam update -R %{env:REPOSITORY=xs-opam}))
+)
+
+; make the opam repository contents available as a file where dune can see it
+; when this changes we potentially need to recompute the lock files
+(rule
+  (target repository.tar.gz)
+  ; quick hardlink if possible, otherwise copy where dune can see it
+  (action (bash
+            "ln %{env:HOME=}/.opam/repo/%{env:REPOSITORY=xs-opam}.tar.gz %{target} \
+            || cp %{env:HOME=}/.opam/repo/%{env:REPOSITORY=xs-opam}.tar.gz %{target}"
+            )))
+
+; generate opam monorepo lockfile
+; Useful documentation:
+; * https://ocaml.org/p/opam-monorepo/0.3.5/doc/workflows.html
+; * https://ocaml.org/p/opam-monorepo/0.3.5/doc/lock.html
+; * https://ocaml.org/p/opam-monorepo/0.3.5/doc/opam-provided.html
+
+; TODO: check os-family on centos
+(rule
+  (target xapi.opam.locked)
+  (deps repository.tar.gz (:opam_files (glob_files *.opam)))
+  (action (run opam monorepo lock
+                --ocaml-version=%{ocaml_version}
+                --opam-provided=[%{read-lines:conf.opam-provided}]
+                --add-global-opam-vars=[[arch,x86_64],[os-distribution,centos],[os-family,centos],[os-version,7]]
+                -l %{target}
+                %{opam_files}))
+  (mode promote)
+)

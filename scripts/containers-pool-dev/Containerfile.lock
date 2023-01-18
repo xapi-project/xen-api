@@ -1,0 +1,22 @@
+FROM ocaml/opam:centos-7-ocaml-4.13
+# TODO: download and dune cache mounts here
+RUN opam install --yes opam-lock
+ARG repository
+ARG commit
+# TODO: generate from common ocaml code
+# depext apparently doesn't work if we remove the default repo
+# remove packages/xs-extra because they point to master.tar.gz which may not
+# match the branch we're on
+
+# clone repo, includes commit hash to ensure we don't use an old cached value
+RUN mkdir -p xs-opam && cd xs-opam && git init && git remote add origin ${repository} && git fetch origin ${commit} && git reset --hard ${commit}
+RUN rm -rf xs-opam/packages/xs-extra \
+    && opam repository set-url default ./xs-opam \
+    # TODO: name these based on hash?
+    && opam depext -l xs-toolstack >depext.packages
+
+RUN sudo yum install -y $(cat depext.packages)
+COPY --chown=1000:1000 *.opam opamfiles/
+RUN opam pin add --yes --no-action opamfiles/
+# TODO: should be a RUN, not a build, so we can cache/reuse more easily
+RUN opam install --deps-only xapi

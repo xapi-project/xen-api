@@ -1,24 +1,10 @@
-(** Source and container configuration *)
-module Config = struct
-  (** list of opam repositories (must be already configured in local 'opam') *)
-  let opam_repositories = ["xs-opam"]
+open Containergen
 
-  (** package to use for system dependency resolution *)
-  let depext_package = "xs-toolstack"
+let () =
+  Generate.stdout
+  @@ Opam.depext ~repository:Sys.argv.(1) ~commit:Sys.argv.(2) ()
 
-  let distro = "centos-7"
-
-  let ocaml_major, ocaml_minor = (4, 13)
-end
-
-module Opam = struct
-  open Config
-
-  let from_str =
-    Printf.sprintf "docker.io/ocaml/opam:%s-ocaml-%d.%d" distro ocaml_major
-      ocaml_minor
-end
-
+(*
 module Repository = struct
   let opam_repository = Sys.argv.(1)
 
@@ -158,3 +144,4 @@ let () =
      pin/etc commands inside of it" then we can use this method with VMs as
      well *)
   *)
+*)
