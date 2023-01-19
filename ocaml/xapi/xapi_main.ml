@@ -31,7 +31,7 @@ let _ =
       Debug.disable m
     )
     !Xapi_globs.disable_logging_for ;
-  Unixext.pidfile_write "/var/run/xapi.pid" ;
+  Unixext.pidfile_write !Xcp_service.pidfile;
   (* chdir to /var/lib/xcp/debug so that's where xapi coredumps go
      (in the unlikely event that there are any ;) *)
   Unixext.mkdir_rec (Filename.concat "/var/lib/xcp" "debug") 0o700 ;
