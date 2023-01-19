@@ -48,7 +48,7 @@ let () =
             (Command.v Cmd.(v "touch" % "workspace/dune-workspace")
             ::
             (Command.v Cmd.(v "ln" % "-s" % "xapi/dune-project" % "workspace/dune-project"))
-            :: Dune.build ~release:true ~watch:true
+            :: Dune.build ~release:true
                  ~source:Fpath.(v ".")
                  ~target:Fpath.(workspace / "xapi")
                  ()

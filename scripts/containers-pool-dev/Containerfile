@@ -16,4 +16,4 @@ RUN 'opam' 'remove' 'sexplib'
 RUN --mount=type=bind,rw,target=workspace/xapi,source=. --mount=type=cache,target=/home/opam/.cache/dune,sharing=shared,uid=1000,gid=1000 --mount=type=cache,target=/home/opam/workspace/xapi/_build,sharing=shared,uid=1000,gid=1000 'touch' 'workspace/dune-workspace' && \
   'ln' '-s' 'xapi/dune-project' 'workspace/dune-project' && \
   'cd' 'workspace/xapi' && \
-  'opam' 'exec' '--' 'dune' 'build' '--watch' '--profile=release' 'xapi.install'
+  'opam' 'exec' '--' 'dune' 'build' '--profile=release' 'xapi.install'
