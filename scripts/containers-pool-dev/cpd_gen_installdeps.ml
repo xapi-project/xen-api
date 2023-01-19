@@ -7,7 +7,7 @@ let cwd = OS.Dir.current () |> Rresult.R.error_msg_to_invalid_arg
 
 let () =
   (* TODO: include lockfile digest in name *)
-  let dir = Fpath.(v "xapi" / "") in
+  let workspace = Fpath.(v "workspace") in
   (* we read the arg from a file in dune, so get a single arg with spaces *)
   let split = String.split_on_char ' ' in
   let packages = OS.Arg.(parse ~pos:string ()) |> List.concat_map split in
@@ -32,22 +32,25 @@ let () =
                   % "git+https://github.com/edwintorok/xs-opam"
                 )
             ]
+        ; Command.run [Command.v Cmd.(v "mkdir" % "-p" % "workspace")]
           (* one layer for installing OS packages *)
         ; Dockerfile.copy ~chown:"1000:1000" ~src:["xapi.opam.locked"]
-            ~dst:Fpath.(dir / "" |> to_string)
+            ~dst:Fpath.(workspace / "xapi.opam.locked" |> to_string)
             ()
-        ; Command.run (Opam.monorepo_pull Fpath.(home // dir))
+        ; Command.run (Opam.monorepo_pull Fpath.(home // workspace))
         ; Command.run
             [
               Opam.install ~ignore_pin_depends:true ~deps_only:true ~locked:true
-                [Fpath.(dir / "xapi.opam.locked" |> to_string)]
+                [Fpath.(workspace / "xapi.opam.locked" |> to_string)]
             ]
-        ; Command.run [Command.v Cmd.(v "mkdir" % "-p" % "workspace")]
         ; Command.run
-          [ (* FIXME: use correct path in monorepo pull *)
-            Command.v Cmd.(v "mv" % p Fpath.(home // dir / "duniverse") % p Fpath.(home / "workspace" / "duniverse"))
-          ; Command.v Cmd.(v "touch" % "workspace/dune-workspace")
-          ; Dune.build ~source:Fpath.(v ".") ~target:Fpath.(home / "workspace" / "xapi")]
+            [
+              Command.v Cmd.(v "touch" % "workspace/dune-workspace")
+            ; Dune.build ~release:true
+                ~source:Fpath.(v ".")
+                ~target:Fpath.(workspace / "xapi")
+                ()
+            ]
         ]
   )
   |> Generate.stdout
