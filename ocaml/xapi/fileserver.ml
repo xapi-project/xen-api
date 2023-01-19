@@ -78,26 +78,27 @@ let response_file s file_path =
   in
   Http_svr.response_file ~mime_content_type s file_path
 
+let is_external_http req s =
+  (not (Context.is_unix_socket s)) && Context._client_of_rq req = None
+
 let access_forbidden req s =
   (* Reject external non-TLS requests (depending on config) *)
-  !Xapi_globs.website_https_only
-  && (not (Context.is_unix_socket s))
-  && Context._client_of_rq req = None
+  !Xapi_globs.website_https_only && is_external_http req s
 
 let send_file (uri_base : string) (dir : string) (req : Request.t)
     (bio : Buf_io.t) _ =
   let uri_base_len = String.length uri_base in
   let s = Buf_io.fd_of bio in
   Buf_io.assert_buffer_empty bio ;
-  if access_forbidden req s then
-    match req.Request.host with
-    | Some host ->
-        (* Redirect towards HTTPS *)
-        let path = String.concat "" [uri_base; req.Request.uri] in
-        let dest = Uri.make ~scheme:"https" ~host ~path () |> Uri.to_string in
-        Http_svr.response_redirect ~req s dest
-    | None ->
-        Http_svr.response_forbidden ~req s
+  let is_external_http = is_external_http req s in
+  if is_external_http && !Xapi_globs.website_https_only then
+    Http_svr.response_forbidden ~req s
+  else if is_external_http && Option.is_some req.Request.host then
+    (* Redirect towards HTTPS *)
+    let host = Option.get req.Request.host in
+    let path = req.Request.uri in
+    let dest = Uri.make ~scheme:"https" ~host ~path () |> Uri.to_string in
+    Http_svr.response_redirect ~req s dest
   else
     let uri = req.Request.uri in
     try
