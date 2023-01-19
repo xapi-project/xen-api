@@ -24,7 +24,7 @@ depends: [
   "base_bigstring" {= "v0.15.0" & ?vendor}
   "base_quickcheck" {= "v0.15.0" & ?vendor}
   "batteries" {= "3.6.0"}
-  "bigarray-compat" {= "1.1.0" & ?vendor}
+  "bigarray-compat" {= "1.1.0"}
   "bigstringaf" {= "0.9.0" & ?vendor}
   "bin_prot" {= "v0.15.0" & ?vendor}
   "bos" {= "0.2.1"}
@@ -207,7 +207,7 @@ depends: [
   "splittable_random" {= "v0.15.0" & ?vendor}
   "ssl" {= "0.5.13" & ?vendor}
   "stdio" {= "v0.15.0" & ?vendor}
-  "stdlib-shims" {= "0.3.0" & ?vendor}
+  "stdlib-shims" {= "0.3.0"}
   "stdune" {= "3.4.1" & ?vendor}
   "stringext" {= "1.6.0" & ?vendor}
   "systemd" {= "1.2"}
@@ -470,10 +470,6 @@ pin-depends: [
   [
     "base_quickcheck.v0.15.0"
     "https://ocaml.janestreet.com/ocaml-core/v0.15/files/base_quickcheck-v0.15.0.tar.gz"
-  ]
-  [
-    "bigarray-compat.1.1.0"
-    "https://github.com/mirage/bigarray-compat/releases/download/v1.1.0/bigarray-compat-1.1.0.tbz"
   ]
   [
     "bigstringaf.0.9.0"
@@ -1033,10 +1029,6 @@ pin-depends: [
     "https://ocaml.janestreet.com/ocaml-core/v0.15/files/stdio-v0.15.0.tar.gz"
   ]
   [
-    "stdlib-shims.0.3.0"
-    "https://github.com/ocaml/stdlib-shims/releases/download/0.3.0/stdlib-shims-0.3.0.tbz"
-  ]
-  [
     "stdune.3.4.1"
     "https://github.com/ocaml/dune/releases/download/3.4.1/dune-3.4.1.tbz"
   ]
@@ -1171,7 +1163,7 @@ pin-depends: [
 ]
 x-opam-monorepo-cli-args: [
   "--ocaml-version=4.13.1"
-  "--opam-provided=[afl-persistent,astring,batteries,bos,cmdliner,ctypes,fmt,fpath,jsonm,logs,mtime,num,ocamlfind,ounit,pci,ptime,rresult,systemd,uuidm,uutf,xenctrl,xmlm,zarith]"
+  "--opam-provided=[afl-persistent,astring,batteries,bigarray-compat,bos,cmdliner,ctypes,fmt,fpath,jsonm,logs,mtime,num,ocamlfind,ounit,pci,ptime,rresult,systemd,stdlib-shims,uuidm,uutf,xenctrl,xmlm,zarith]"
   "--add-global-opam-vars=[[arch,x86_64],[os-distribution,centos],[os-family,centos],[os-version,7]]"
   "-l"
   "xapi.opam.locked"
@@ -1458,14 +1450,6 @@ x-opam-monorepo-duniverse-dirs: [
     [
       "sha256=fd00f9668395874ff3b1d7ef566d14efc02fa7dd34123eb25d59355be94b2329"
       "sha512=69a7ef300ba10a9ccb1e25b1cfdb0a0abf9ca976864a52a22f0e1fae1e5d1cbeb99498c086230b839ee9da4d0fd71e63686e126ca42221537f3fdb6f6c5aae95"
-    ]
-  ]
-  [
-    "https://github.com/mirage/bigarray-compat/releases/download/v1.1.0/bigarray-compat-1.1.0.tbz"
-    "bigarray-compat"
-    [
-      "sha256=434469a48d5c84e80d621b13d95eb067f8138c1650a1fd5ae6009a19b93718d5"
-      "sha512=7be283fd957ee168ce1e62835d22114da405e4b7da9619b4f2030a832d45ca210a0c8f1d1c57c92e224f3512308a8a0f0923b94f44b6f582acbe0e7728d179d4"
     ]
   ]
   [
@@ -1791,14 +1775,6 @@ x-opam-monorepo-duniverse-dirs: [
     [
       "sha256=83eb3e4300aa9b1dc7820749010f4362ea83524742130524d78c20ce99ca747c"
       "sha512=92b05cf92c389fa8c753f2acca837b15dd05a4a2e8e2bec7a269d2e14c35b1a786d394258376648f80b4b99250ba1900cfe68230b8385aeac153149d9ce56099"
-    ]
-  ]
-  [
-    "https://github.com/ocaml/stdlib-shims/releases/download/0.3.0/stdlib-shims-0.3.0.tbz"
-    "stdlib-shims"
-    [
-      "sha256=babf72d3917b86f707885f0c5528e36c63fccb698f4b46cf2bab5c7ccdd6d84a"
-      "sha512=1151d7edc8923516e9a36995a3f8938d323aaade759ad349ed15d6d8501db61ffbe63277e97c4d86149cf371306ac23df0f581ec7e02611f58335126e1870980"
     ]
   ]
   [
@@ -2337,6 +2313,7 @@ x-opam-monorepo-opam-provided: [
   "afl-persistent"
   "astring"
   "batteries"
+  "bigarray-compat"
   "bos"
   "cmdliner"
   "ctypes"
@@ -2351,6 +2328,7 @@ x-opam-monorepo-opam-provided: [
   "pci"
   "ptime"
   "rresult"
+  "stdlib-shims"
   "systemd"
   "uuidm"
   "uutf"

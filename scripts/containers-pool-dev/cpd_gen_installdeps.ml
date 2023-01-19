@@ -22,7 +22,7 @@ let () =
             ]
           (* TODO: git hash based *)
         ; Command.run
-            [ Command.v Cmd.(v "echo" % "TODO: commit hash ")
+            [ Command.v Cmd.(v "echo" % "TODO: commit hash 2")
             ; Command.v
                 Cmd.(
                   v "opam"

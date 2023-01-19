@@ -4,7 +4,7 @@ ENV DUNE_CACHE="enabled" DUNE_CACHE_STORAGE_MODE="copy"
 RUN --mount=type=cache,target=/home/opam/.cache/dune,sharing=shared,uid=1000,gid=1000 --mount=type=cache,target=/home/opam/.opam/download-cache,sharing=locked,uid=1000,gid=1000 'opam' 'install' 'opam-monorepo'
 RUN --mount=type=cache,target=/var/cache/yum,sharing=locked,uid=0,gid=0 'sudo' 'yum' 'install' '-y' 'epel-release' 'centos-release-xen' && \
   'sudo' 'yum' 'install' '-y' 'autoconf' 'gcc' 'gmp' 'gmp-devel' 'hwdata' 'kernel-headers' 'libffi-devel' 'libnl3' 'libnl3-devel' 'openssl-devel' 'pam-devel' 'pciutils-devel' 'perl-ExtUtils-MakeMaker' 'pkgconfig' 'python2' 'systemd-devel' 'which' 'xen-devel' 'xxhash-devel' 'xxhash-libs'
-RUN 'echo' 'TODO: commit hash ' && \
+RUN 'echo' 'TODO: commit hash 2' && \
   'opam' 'repository' 'set-url' 'default' 'git+https://github.com/edwintorok/xs-opam'
 RUN 'mkdir' '-p' 'workspace'
 COPY --chown=1000:1000 [ "xapi.opam.locked", "workspace/xapi.opam.locked" ]
