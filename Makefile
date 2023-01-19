@@ -6,7 +6,7 @@ JOBS = $(shell getconf _NPROCESSORS_ONLN)
 PROFILE=release
 OPTMANDIR ?= $(OPTDIR)/man/man1/
 
-.PHONY: build clean test doc python format install uninstall lock monorepo-deps
+.PHONY: build clean test doc python format install uninstall lock monorepo-deps pool
 
 # if we have XAPI_VERSION set then set it in dune-project so we use that version number instead of the one obtained from git
 # this is typically used when we're not building from a git repo
@@ -229,7 +229,6 @@ compile_flags.txt: Makefile
 
 lock:
 	dune build xapi.opam.locked
-	opam lock $(shell tr ',' ' ' <conf.opam-provided)
 
 pool:
 	dune build scripts/containers-pool-dev/Containerfile

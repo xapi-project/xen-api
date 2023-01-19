@@ -187,7 +187,7 @@ module Dune = struct
       ~target:Fpath.(home / ".cache" / "dune")
       cmd
 
-  let build ?(release = false) ~source ~target () =
+  let build ?(watch=false) ?(release = false) ~source ~target () =
     [
       Command.v Cmd.(v "cd" % p target)
     ; with_dune
@@ -201,6 +201,7 @@ module Dune = struct
              % "--"
              % "dune"
              % "build"
+             %% on watch (v "--watch")
              %% on release (v "--profile=release")
              % "xapi.install"
            )

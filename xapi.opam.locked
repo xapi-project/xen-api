@@ -618,7 +618,7 @@ pin-depends: [
   ]
   [
     "ezxenstore.0.4.2"
-    "https://github.com/xapi-project/ezxenstore/archive/v0.4.2.tar.gz"
+    "git+https://github.com/xapi-project/ezxenstore.git#63f45df76fb667e05f5c929ae98a43cfdd967012"
   ]
   [
     "fd-send-recv.2.0.1"
@@ -1875,11 +1875,8 @@ x-opam-monorepo-duniverse-dirs: [
     ["md5=a8dd8e015afc44e8b7d65a9ef62d8fcd"]
   ]
   [
-    "https://github.com/xapi-project/ezxenstore/archive/v0.4.2.tar.gz"
+    "git+https://github.com/xapi-project/ezxenstore.git#63f45df76fb667e05f5c929ae98a43cfdd967012"
     "ezxenstore"
-    [
-      "sha256=709ba936f8b1a3c76e31c655752294287f215601b3238204688818676c6e7d97"
-    ]
   ]
   [
     "https://github.com/xapi-project/nbd/releases/download/6.0.1/nbd-6.0.1.tbz"
