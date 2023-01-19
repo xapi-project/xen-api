@@ -17,7 +17,6 @@
     xenstore
     xenstore.unix
     xenstore_transport
-    xenstore_transport.unix
     rpclib
     xapi-idl
     xapi-idl.memory

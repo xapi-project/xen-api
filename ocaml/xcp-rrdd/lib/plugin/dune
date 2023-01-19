@@ -17,7 +17,7 @@
     rrd-transport.lib
     xapi-idl.rrd
     xapi-log
-    xenstore_transport.unix
+    xenstore_transport
     xenstore.unix
   )
 )
@@ -53,7 +53,7 @@
     threads.posix
     xapi-idl.rrd.interface
     xapi-log
-    xenstore_transport.unix
+    xenstore_transport
   )
 )
 

@@ -70,7 +70,7 @@
     xenctrl
     xenstore
     xenstore.unix
-    xenstore_transport.unix
+    xenstore_transport
   )
 )
 

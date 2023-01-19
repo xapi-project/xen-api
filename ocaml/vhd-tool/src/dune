@@ -43,7 +43,6 @@
     xenstore.client
     xenstore.unix
     xenstore_transport
-    xenstore_transport.unix
   )
   (preprocess (pps ppx_deriving_rpc ppx_cstruct))
 )

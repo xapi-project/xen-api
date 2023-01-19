@@ -51,7 +51,7 @@
   xenctrl
   xentoollog
   xenstore
-  xenstore_transport.unix
+  xenstore_transport
  )
 
  (preprocess
@@ -75,7 +75,7 @@
   xapi-stdext-unix
   xapi-xenopsd
   xenctrl
-  xenstore_transport.unix
+  xenstore_transport
   xenopsd_xc
  )
 )
@@ -94,7 +94,7 @@
   xapi-stdext-unix
   xenctrl
   xenopsd_xc
-  xenstore_transport.unix
+  xenstore_transport
  )
 )
 
@@ -132,7 +132,7 @@
   xapi-xenopsd
   xenctrl
   xenopsd_xc
-  xenstore_transport.unix
+  xenstore_transport
  )
 
 )

@@ -8,7 +8,7 @@
     xapi-idl.rrd
     xapi-rrd
     xenstore.unix
-    xenstore_transport.unix
+    xenstore_transport
   )
 )
 

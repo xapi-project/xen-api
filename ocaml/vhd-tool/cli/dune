@@ -19,7 +19,7 @@
     vhd-format-lwt
     xapi-idl
     xapi-log
-    xenstore_transport.unix
+    xenstore_transport
   )
 )
 

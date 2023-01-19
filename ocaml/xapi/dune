@@ -145,7 +145,7 @@
     xapi-stdext-unix
     xapi-stdext-zerocheck
     xapi-xenopsd
-    xenstore_transport.unix
+    xenstore_transport
     xml-light2
     xmlm
     xxhash
