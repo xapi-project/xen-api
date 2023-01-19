@@ -204,6 +204,7 @@ module Dune = struct
              %% on watch (v "--watch")
              %% on release (v "--profile=release")
              % "xapi.install"
+             % "xe.install"
            )
     ]
 end

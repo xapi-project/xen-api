@@ -53,6 +53,6 @@ let () =
                  ~target:Fpath.(workspace / "xapi")
                  ()
             )
-        ]
+    ]
   )
   |> Generate.stdout

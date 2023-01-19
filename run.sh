@@ -1,4 +1,5 @@
 #!/bin/sh
+# docker run -v /dev/log:/dev/log -v $(pwd)/run.sh:/home/opam/run.sh -it --rm cpd
 set -eu
 DIRS="/var/lib/xcp /var/run/nonpersistent /etc/xensource"
 sudo mkdir -p $DIRS
