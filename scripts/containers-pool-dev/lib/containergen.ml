@@ -67,6 +67,11 @@ module Command : sig
   @see <https://docs.docker.com/engine/reference/builder/#run---mounttypetmpfs>
   *)
 
+  (** [with_bind ~source ~target]
+
+  *)
+  val with_bind: source:Fpath.t -> target:Fpath.t -> t -> t
+
   val v : ?stdin:Fpath.t -> ?stdout:Fpath.t -> Cmd.t -> t
   (** [v ?stdin ?stdout cmd] is [cmd] with standard input and output optionally
       redirected to [stdin] and [stdout] files.
@@ -118,6 +123,11 @@ end = struct
       ]
 
   let with_tmpfs = with_mount "tmpfs" []
+
+  let with_bind ~source ~target cmd =
+    (* writes are discarded, but needed for _build *)
+    with_mount "bind,rw" ~target
+      ["source", Some Fpath.(to_string source)] cmd
 
   let redirect dir path =
     Option.map (fun p -> dir ^ Fpath.to_string p) path |> Option.to_list
@@ -177,8 +187,15 @@ end
 module Dune = struct
   let with_dune cmd =
     Command.with_cache ~uidgid:Config.container_uidgid
-      ~target:Fpath.(home // v ".cache/dune")
+      ~target:Fpath.(home /  ".cache" / "dune")
       cmd
+
+  let build ~source ~target =
+    with_dune @@ Command.with_bind ~source ~target @@
+    Command.with_cache ~uidgid:Config.container_uidgid
+      ~target:Fpath.(target / "_build")
+    @@
+    Command.v Cmd.(v "opam" % "exec" % "--" % "dune" % "build" % "--root" % p Fpath.(parent target)  % "xapi.install")
 end
 
 module Opam = struct

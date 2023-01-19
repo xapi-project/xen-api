@@ -1,6 +1,8 @@
 open Containergen
 open Bos
 
+let source = OS.Arg.(opt ["source"] ~absent:None @@ some path |> Option.get)
+
 let () =
   (* TODO: include lockfile digest in name *)
   let dir = Fpath.(v "xapi" / "") in
@@ -38,6 +40,10 @@ let () =
               Opam.install ~ignore_pin_depends:true ~deps_only:true ~locked:true
                 [Fpath.(dir / "xapi.opam.locked" |> to_string)]
             ]
+        ; Command.run [Command.v Cmd.(v "mkdir" % "-p" % "workspace")]
+        ; Command.run
+          [ Command.v Cmd.(v "touch" % "workspace/dune-workspace")
+          ; Dune.build ~source ~target:Fpath.(home / "workspace" / "xapi")]
         ]
   )
   |> Generate.stdout

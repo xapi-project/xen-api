@@ -12,3 +12,6 @@ RUN --mount=type=cache,target=/home/opam/.cache/duniverse,sharing=shared,uid=100
   'opam' 'monorepo' 'pull' '-r' '/home/opam/xapi/' && \
   'rsync' '-a' '--whole-file' '--no-compress' '/home/opam/xapi/duniverse/' '/home/opam/.cache/duniverse/'
 RUN --mount=type=cache,target=/home/opam/.cache/dune,sharing=shared,uid=1000,gid=1000 --mount=type=cache,target=/home/opam/.opam/download-cache,sharing=locked,uid=1000,gid=1000 'opam' 'install' '--ignore-pin-depends' '--deps-only' 'xapi/xapi.opam.locked' '--locked'
+RUN 'mkdir' '-p' 'workspace'
+RUN --mount=type=bind,rw,target=/home/opam/workspace/xapi,source=../.. --mount=type=cache,target=/home/opam/.cache/dune,sharing=shared,uid=1000,gid=1000 --mount=type=cache,target=/home/opam/workspace/xapi/_build,sharing=shared,uid=1000,gid=1000 'touch' 'workspace/dune-workspace' && \
+  'opam' 'exec' '--' 'dune' 'build' '--root' '/home/opam/workspace/' 'xapi.install'
