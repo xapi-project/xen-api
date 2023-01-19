@@ -7,6 +7,6 @@
     logs
     threads
     uuidm
-    xenstore_transport.unix
+    xenstore_transport
     xenstore.unix)
 )
