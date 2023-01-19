@@ -44,43 +44,21 @@
                           (system "git ls-remote %{read-lines:xs-opam.url} refs/heads/master | cut -f1"))
 ))
 
-(rule
- (target Containerfile.depext)
- (action (with-stdout-to %{target}
-                         (run ./cpd_gen_depext.exe
-                                        %{read-lines:xs-opam.url}
-                                        %{read-lines:xs-opam.commit}
-                                        )))
-)
 
 (copy_files ../../*.opam)
-
-(rule
-  (target Containerfile.depexts)
-  (action (with-stdout-to %{target} (run ./cpd_gen_installdeps.exe %{read-lines:xs-opam.url}
-                                         %{read-lines:xs-opam.commit} %{read-lines:depext.packages})))
-)
-
-; pin opam packages inside container for dependency resolution purposes,
-; without source code to avoid taking ages to pin due to git clone/rsync
-(rule
-  (target xapi.opam.locked)
-  (deps container_cli Containerfile.depexts (glob_files *.opam))
-  (action (progn
-            (system "./container_cli build -t cpd-depexts -f Containerfile.depexts .")
-             (with-stdout-to %{target} (system "./container_cli run cpd-lock cat opamfiles/xapi.opam.locked"))
-          ))
-)
-
-(executables
-  (names cpd_gen_depext cpd_gen_installdeps)
-  (libraries containergen))
+(copy_files ../../*.opam.locked)
 
 (rule
   (target Containerfile)
-  (action (with-stdout-to %{target} (run ./cpd_gen_depext.exe %{read-lines:xs-opam.repo.url}#%{read-lines:xs-opam-repository.commit})))
+  (deps cpd_gen_installdeps.exe xapi.opam.locked depext.packages)
+  (action (with-stdout-to %{target} (run ./cpd_gen_installdeps.exe %{read-lines:depext.packages})))
   (mode promote)
-  )
+)
+
+
+(executables
+  (names cpd_gen_installdeps)
+  (libraries containergen))
 
 (rule
   (alias docker-build)
@@ -95,7 +73,7 @@
 
 (rule
   (alias podman-build)
-  (deps (:containerfile Containerfile) (glob_files *.opam) (universe))
+  (deps (:containerfile Containerfile) (universe))
   (action
     (chdir %{project_root}
                    (run echo podman build -t cpd  -f %{containerfile} .))))

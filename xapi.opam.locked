@@ -241,7 +241,7 @@ depends: [
   "xapi-test-utils" {= "1.4.0" & ?vendor}
   "xen-gnt" {= "4.0.1" & ?vendor}
   "xen-gnt-unix" {= "4.0.1" & ?vendor}
-  "xenctrl" {= "master" & ?vendor}
+  "xenctrl" {= "master"}
   "xenstore" {= "2.2.0" & ?vendor}
   "xenstore_transport" {= "1.3.0" & ?vendor}
   "xentoollog" {= "master" & ?vendor}
@@ -1149,10 +1149,6 @@ pin-depends: [
     "https://github.com/mirage/ocaml-gnt/releases/download/v4.0.1/xen-gnt-4.0.1.tbz"
   ]
   [
-    "xenctrl.master"
-    "https://github.com/xapi-project/xenctrl/archive/master.tar.gz"
-  ]
-  [
     "xenstore.2.2.0"
     "https://github.com/mirage/ocaml-xenstore/releases/download/v2.2.0/xenstore-2.2.0.tbz"
   ]
@@ -1175,7 +1171,7 @@ pin-depends: [
 ]
 x-opam-monorepo-cli-args: [
   "--ocaml-version=4.13.1"
-  "--opam-provided=[afl-persistent,astring,batteries,bos,cmdliner,ctypes,fmt,fpath,jsonm,logs,mtime,num,ocamlfind,pci,ptime,rresult,systemd,uuidm,uutf,xmlm,zarith]"
+  "--opam-provided=[afl-persistent,astring,batteries,bos,cmdliner,ctypes,fmt,fpath,jsonm,logs,mtime,num,ocamlfind,ounit,pci,ptime,rresult,systemd,uuidm,uutf,xenctrl,xmlm,zarith]"
   "--add-global-opam-vars=[[arch,x86_64],[os-distribution,centos],[os-family,centos],[os-version,7]]"
   "-l"
   "xapi.opam.locked"
@@ -2354,12 +2350,14 @@ x-opam-monorepo-opam-provided: [
   "mtime"
   "num"
   "ocamlfind"
+  "ounit"
   "pci"
   "ptime"
   "rresult"
   "systemd"
   "uuidm"
   "uutf"
+  "xenctrl"
   "xmlm"
   "zarith"
 ]

@@ -229,6 +229,7 @@ compile_flags.txt: Makefile
 
 lock:
 	dune build xapi.opam.locked
+	opam lock $(shell tr ',' ' ' <conf.opam-provided)
 
 monorepo-pull:
 	opam monorepo depext
