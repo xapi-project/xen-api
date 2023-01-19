@@ -188,22 +188,23 @@ module Dune = struct
       cmd
 
   let build ?(release = false) ~source ~target () =
-    with_dune
-    @@ Command.with_bind ~source ~target
-    @@ Command.with_cache ~uidgid:Config.container_uidgid
-         ~target:Fpath.(target / "_build")
-    @@ Command.v
-         Cmd.(
-           v "opam"
-           % "exec"
-           % "--"
-           % "dune"
-           % "build"
-           % "--root"
-           % p Fpath.(parent target)
-           %% on release (v "--profile=release")
-           % p Fpath.(base target / "xapi.install")
-         )
+    [
+      Command.v Cmd.(v "cd" % p target)
+    ; with_dune
+      @@ Command.with_bind ~source ~target
+      @@ Command.with_cache ~uidgid:Config.container_uidgid
+           ~target:Fpath.(home // target / "_build")
+      @@ Command.v
+           Cmd.(
+             v "opam"
+             % "exec"
+             % "--"
+             % "dune"
+             % "build"
+             %% on release (v "--profile=release")
+             % "xapi.install"
+           )
+    ]
 end
 
 module Opam = struct

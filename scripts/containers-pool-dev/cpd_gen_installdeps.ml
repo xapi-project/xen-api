@@ -44,13 +44,14 @@ let () =
                 [Fpath.(workspace / "xapi.opam.locked" |> to_string)]
             ]
         ; Command.run
-            [
-              Command.v Cmd.(v "touch" % "workspace/dune-workspace")
-            ; Dune.build ~release:true
-                ~source:Fpath.(v ".")
-                ~target:Fpath.(workspace / "xapi")
-                ()
-            ]
+            (Command.v Cmd.(v "touch" % "workspace/dune-workspace")
+            ::
+            (Command.v Cmd.(v "ln" % "-s" % "xapi/dune-project" % "workspace/dune-project"))
+            :: Dune.build ~release:true
+                 ~source:Fpath.(v ".")
+                 ~target:Fpath.(workspace / "xapi")
+                 ()
+            )
         ]
   )
   |> Generate.stdout
