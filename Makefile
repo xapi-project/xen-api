@@ -231,6 +231,13 @@ lock:
 	dune build xapi.opam.locked
 	opam lock $(shell tr ',' ' ' <conf.opam-provided)
 
+pool:
+	dune build scripts/containers-pool-dev/Containerfile
+	scripts/containers-pool-dev/detect_container_cli.sh >container_cli
+	chmod +x container_cli
+	cp scripts/containers-pool-dev/Containerfile .
+	./container_cli build -t cpd -f Containerfile .
+
 monorepo-pull:
 	opam monorepo depext
 	opam install --ignore-pin-depends --deps-only ./ --locked

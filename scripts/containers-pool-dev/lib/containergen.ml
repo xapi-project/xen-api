@@ -177,8 +177,6 @@ end = struct
     in
     [
       with_cache (rsync ~src:cache_target ~dst:target)
-    ; with_cache Cmd.(v "ls" % "-l" % p cache_target)
-    ; with_cache Cmd.(v "ls" % "-l" % p target)
     ; with_cache cmd
     ; with_cache (rsync ~src:target ~dst:cache_target)
     ]
@@ -195,7 +193,8 @@ module Dune = struct
     Command.with_cache ~uidgid:Config.container_uidgid
       ~target:Fpath.(target / "_build")
     @@
-    Command.v Cmd.(v "opam" % "exec" % "--" % "dune" % "build" % "--root" % p Fpath.(parent target)  % "xapi.install")
+    Command.v Cmd.(v "opam" % "exec" % "--" % "dune" % "build" % "--verbose" % "--root" % p
+      Fpath.(parent target)  % p Fpath.(base target / "xapi.install"))
 end
 
 module Opam = struct

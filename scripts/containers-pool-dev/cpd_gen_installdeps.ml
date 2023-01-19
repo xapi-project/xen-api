@@ -3,6 +3,8 @@ open Bos
 
 let source = OS.Arg.(opt ["source"] ~absent:None @@ some path |> Option.get)
 
+let cwd = OS.Dir.current () |> Rresult.R.error_msg_to_invalid_arg
+
 let () =
   (* TODO: include lockfile digest in name *)
   let dir = Fpath.(v "xapi" / "") in
@@ -42,8 +44,10 @@ let () =
             ]
         ; Command.run [Command.v Cmd.(v "mkdir" % "-p" % "workspace")]
         ; Command.run
-          [ Command.v Cmd.(v "touch" % "workspace/dune-workspace")
-          ; Dune.build ~source ~target:Fpath.(home / "workspace" / "xapi")]
+          [ (* FIXME: use correct path in monorepo pull *)
+            Command.v Cmd.(v "mv" % p Fpath.(home // dir / "duniverse") % p Fpath.(home / "workspace" / "duniverse"))
+          ; Command.v Cmd.(v "touch" % "workspace/dune-workspace")
+          ; Dune.build ~source:Fpath.(v ".") ~target:Fpath.(home / "workspace" / "xapi")]
         ]
   )
   |> Generate.stdout

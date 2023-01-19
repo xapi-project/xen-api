@@ -51,7 +51,7 @@
 (rule
   (target Containerfile)
   (deps cpd_gen_installdeps.exe xapi.opam.locked depext.packages)
-  (action (with-stdout-to %{target} (run ./cpd_gen_installdeps.exe --source %{project_root} %{read-lines:depext.packages})))
+  (action (with-stdout-to %{target} (run ./cpd_gen_installdeps.exe --source %{project_root}/../../ %{read-lines:depext.packages})))
   (mode promote)
 )
 

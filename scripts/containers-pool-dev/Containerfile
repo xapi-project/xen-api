@@ -7,11 +7,10 @@ RUN --mount=type=cache,target=/var/cache/yum,sharing=locked,uid=0,gid=0 'sudo' '
 RUN 'opam' 'repository' 'set-url' 'default' 'git+https://github.com/edwintorok/xs-opam'
 COPY --chown=1000:1000 [ "xapi.opam.locked", "xapi/" ]
 RUN --mount=type=cache,target=/home/opam/.cache/duniverse,sharing=shared,uid=1000,gid=1000 'rsync' '-a' '--whole-file' '--no-compress' '/home/opam/.cache/duniverse/' '/home/opam/xapi/duniverse/' && \
-  'ls' '-l' '/home/opam/.cache/duniverse' && \
-  'ls' '-l' '/home/opam/xapi/duniverse' && \
   'opam' 'monorepo' 'pull' '-r' '/home/opam/xapi/' && \
   'rsync' '-a' '--whole-file' '--no-compress' '/home/opam/xapi/duniverse/' '/home/opam/.cache/duniverse/'
 RUN --mount=type=cache,target=/home/opam/.cache/dune,sharing=shared,uid=1000,gid=1000 --mount=type=cache,target=/home/opam/.opam/download-cache,sharing=locked,uid=1000,gid=1000 'opam' 'install' '--ignore-pin-depends' '--deps-only' 'xapi/xapi.opam.locked' '--locked'
 RUN 'mkdir' '-p' 'workspace'
-RUN --mount=type=bind,rw,target=/home/opam/workspace/xapi,source=../.. --mount=type=cache,target=/home/opam/.cache/dune,sharing=shared,uid=1000,gid=1000 --mount=type=cache,target=/home/opam/workspace/xapi/_build,sharing=shared,uid=1000,gid=1000 'touch' 'workspace/dune-workspace' && \
-  'opam' 'exec' '--' 'dune' 'build' '--root' '/home/opam/workspace/' 'xapi.install'
+RUN --mount=type=bind,rw,target=/home/opam/workspace/xapi,source=. --mount=type=cache,target=/home/opam/.cache/dune,sharing=shared,uid=1000,gid=1000 --mount=type=cache,target=/home/opam/workspace/xapi/_build,sharing=shared,uid=1000,gid=1000 'mv' '/home/opam/xapi/duniverse' '/home/opam/workspace/duniverse' && \
+  'touch' 'workspace/dune-workspace' && \
+  'opam' 'exec' '--' 'dune' 'build' '--verbose' '--root' '/home/opam/workspace/' 'xapi/xapi.install'
