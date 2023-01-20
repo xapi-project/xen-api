@@ -230,15 +230,18 @@ compile_flags.txt: Makefile
 lock:
 	dune build xapi.opam.locked
 
-container_cli: scripts/containers-pool-dev/detect_container_cli.sh
+container_cli: scripts/monorepo-container/detect_container_cli.sh
 	$< >$@.tmp
 	chmod +x $@.tmp
 	mv $@.tmp $@
 
 pool: container_cli
-	dune build scripts/containers-pool-dev/Containerfile
-	cp scripts/containers-pool-dev/Containerfile .
-	./container_cli build -t cpd -f Containerfile .
+	dune build scripts/devpool/Containerfile --no-buffer
+	cp _build/default/scripts/devpool/Containerfile .
+	./container_cli build --build-arg GITDESCRIBE=$(git describe --dirty) -t cpd -f Containerfile .
+
+pool-run:
+	./container_cli run --rm -it -v /dev/log:/dev/log -v $(shell pwd)/run.sh:/home/opam/run.sh:z cpd sh /home/opam/run.sh
 
 monorepo-pull: container_cli scripts/containers-pool-dev/Containerfile.tools xapi.opam.locked
 	dune build scripts/containers-pool-dev/Containerfile.tools

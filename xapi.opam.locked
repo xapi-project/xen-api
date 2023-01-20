@@ -69,6 +69,8 @@ depends: [
   "cstruct-unix" {= "6.0.1" & ?vendor}
   "ctypes" {= "0.20.1"}
   "ctypes-foreign" {= "0.18.0"}
+  "dockerfile" {= "8.1.0" & ?vendor}
+  "dockerfile-opam" {= "8.1.0" & ?vendor}
   "domain-name" {= "0.4.0" & ?vendor}
   "dune" {= "3.4.1"}
   "dune-build-info" {= "3.4.1" & ?vendor}
@@ -101,7 +103,7 @@ depends: [
   "jsonrpc" {= "1.15.0-4.14" & ?vendor}
   "jst-config" {= "v0.15.1" & ?vendor}
   "logs" {= "0.7.0"}
-  "lwt" {= "5.6.1" & ?vendor}
+  "lwt" {= "5.6.1"}
   "lwt-dllist" {= "1.0.1" & ?vendor}
   "lwt_log" {= "1.1.1" & ?vendor}
   "lwt_ssl" {= "1.1.3" & ?vendor}
@@ -135,10 +137,11 @@ depends: [
   "ocaml-migrate-parsetree" {= "2.4.0" & ?vendor}
   "ocaml-options-vanilla" {= "1"}
   "ocaml-syntax-shims" {= "1.0.0" & ?vendor}
+  "ocaml-version" {= "3.5.0" & ?vendor}
   "ocaml_intrinsics" {= "v0.15.2" & ?vendor}
   "ocamlbuild" {= "0.14.1"}
   "ocamlfind" {= "1.9.3"}
-  "ocplib-endian" {= "1.2" & ?vendor}
+  "ocplib-endian" {= "1.2"}
   "ordering" {= "3.4.1" & ?vendor}
   "ounit" {= "2.2.6"}
   "ounit2" {= "2.2.6" & ?vendor}
@@ -573,6 +576,14 @@ pin-depends: [
     "https://github.com/mirage/ocaml-cstruct/releases/download/v6.0.1/cstruct-v6.0.1.tbz"
   ]
   [
+    "dockerfile.8.1.0"
+    "https://github.com/ocurrent/ocaml-dockerfile/releases/download/v8.1.0/dockerfile-8.1.0.tbz"
+  ]
+  [
+    "dockerfile-opam.8.1.0"
+    "https://github.com/ocurrent/ocaml-dockerfile/releases/download/v8.1.0/dockerfile-8.1.0.tbz"
+  ]
+  [
     "domain-name.0.4.0"
     "https://github.com/hannesm/domain-name/releases/download/v0.4.0/domain-name-0.4.0.tbz"
   ]
@@ -676,7 +687,6 @@ pin-depends: [
     "jst-config.v0.15.1"
     "https://github.com/janestreet/jst-config/archive/refs/tags/v0.15.1.tar.gz"
   ]
-  ["lwt.5.6.1" "https://github.com/ocsigen/lwt/archive/5.6.1.tar.gz"]
   [
     "lwt-dllist.1.0.1"
     "https://github.com/mirage/lwt-dllist/releases/download/v1.0.1/lwt-dllist-v1.0.1.tbz"
@@ -772,12 +782,12 @@ pin-depends: [
     "https://github.com/ocaml-ppx/ocaml-syntax-shims/releases/download/1.0.0/ocaml-syntax-shims-1.0.0.tbz"
   ]
   [
-    "ocaml_intrinsics.v0.15.2"
-    "https://github.com/janestreet/ocaml_intrinsics/archive/refs/tags/v0.15.2.tar.gz"
+    "ocaml-version.3.5.0"
+    "https://github.com/ocurrent/ocaml-version/releases/download/v3.5.0/ocaml-version-3.5.0.tbz"
   ]
   [
-    "ocplib-endian.1.2"
-    "https://github.com/OCamlPro/ocplib-endian/archive/refs/tags/1.2.tar.gz"
+    "ocaml_intrinsics.v0.15.2"
+    "https://github.com/janestreet/ocaml_intrinsics/archive/refs/tags/v0.15.2.tar.gz"
   ]
   [
     "ordering.3.4.1"
@@ -1163,8 +1173,9 @@ pin-depends: [
 ]
 x-opam-monorepo-cli-args: [
   "--ocaml-version=4.13.1"
-  "--opam-provided=[afl-persistent,astring,batteries,bigarray-compat,bos,cmdliner,ctypes,fmt,fpath,jsonm,logs,mtime,num,ocamlfind,ounit,pci,ptime,rresult,systemd,stdlib-shims,uuidm,uutf,xenctrl,xmlm,zarith]"
+  "--opam-provided=[afl-persistent,astring,batteries,bigarray-compat,bos,cmdliner,ctypes,fmt,fpath,jsonm,logs,mtime,num,ocamlfind,ounit,pci,ptime,rresult,systemd,stdlib-shims,uuidm,uutf,xenctrl,xmlm,zarith,lwt,ocplib-endian]"
   "--add-global-opam-vars=[[arch,x86_64],[os-distribution,centos],[os-family,centos],[os-version,7]]"
+  "-v"
   "-l"
   "xapi.opam.locked"
   "forkexec.opam"
@@ -1176,6 +1187,7 @@ x-opam-monorepo-cli-args: [
   "message-switch-lwt.opam"
   "message-switch-unix.opam"
   "message-switch.opam"
+  "monorepo-container.opam"
   "pciutil.opam"
   "rrd-transport.opam"
   "rrd2csv.opam"
@@ -1232,14 +1244,6 @@ x-opam-monorepo-duniverse-dirs: [
     [
       "md5=a7bfa27c3ddd2d29c27173de09293149"
       "sha512=49766ea38c57734918debd6218d95c62f11eb12a6fd3ef5f6a2c60344cea7c274436a46fab1e48abbe0d3f125f31705d2005ab7cae9e56d5f41778c1d2943d65"
-    ]
-  ]
-  [
-    "https://github.com/OCamlPro/ocplib-endian/archive/refs/tags/1.2.tar.gz"
-    "ocplib-endian"
-    [
-      "md5=8d5492eeb7c6815ade72a7415ea30949"
-      "sha512=2e70be5f3d6e377485c60664a0e235c3b9b24a8d6b6a03895d092c6e40d53810bfe1f292ee69e5181ce6daa8a582bfe3d59f3af889f417134f658812be5b8b85"
     ]
   ]
   [
@@ -1778,17 +1782,25 @@ x-opam-monorepo-duniverse-dirs: [
     ]
   ]
   [
-    "https://github.com/ocsigen/lwt/archive/5.6.1.tar.gz"
-    "lwt"
-    [
-      "md5=279024789a0ec84a9d97d98bad847f97"
-      "sha512=698875bd3bfcd5baa47eb48e412f442d289f9972421321541860ebe110b9af1949c3fbc253768495726ec547fe4ba25483cd97ff39bc668496fba95b2ed9edd8"
-    ]
-  ]
-  [
     "https://github.com/ocsigen/lwt_ssl/archive/1.1.3.tar.gz"
     "lwt_ssl"
     ["md5=b18414b2ef71ededa07666dfc467f10a"]
+  ]
+  [
+    "https://github.com/ocurrent/ocaml-dockerfile/releases/download/v8.1.0/dockerfile-8.1.0.tbz"
+    "ocaml-dockerfile"
+    [
+      "sha256=7d01e40d0f128160dd3ad078221ea42c306720fd2c65e941c456895e21e7b227"
+      "sha512=92a402c09c65b01ed2faf7687c24721b7baa54e623e2b85401c8816f6afbeb3aec0cc0c2cb4282ca8377f7552aac834573c6b0deb16832a0c50984063256ce9b"
+    ]
+  ]
+  [
+    "https://github.com/ocurrent/ocaml-version/releases/download/v3.5.0/ocaml-version-3.5.0.tbz"
+    "ocaml-version"
+    [
+      "sha256=d63ca1c3970d6b14057f7176bfdae623e6c0176287c6a6e8b78cf50e2f7f635b"
+      "sha512=7b5f475897b1c560c81d322ca77b80099025102ec4163b410518e32dce0d6decf7c2ef671f795932bc173741b20bb442e07b182583423d2c990c632c921be5df"
+    ]
   ]
   [
     "https://github.com/rgrinberg/ocaml-mustache/archive/v3.1.0.zip"
@@ -2321,9 +2333,11 @@ x-opam-monorepo-opam-provided: [
   "fpath"
   "jsonm"
   "logs"
+  "lwt"
   "mtime"
   "num"
   "ocamlfind"
+  "ocplib-endian"
   "ounit"
   "pci"
   "ptime"
@@ -2346,6 +2360,7 @@ x-opam-monorepo-root-packages: [
   "message-switch-core"
   "message-switch-lwt"
   "message-switch-unix"
+  "monorepo-container"
   "pciutil"
   "rrd-transport"
   "rrd2csv"

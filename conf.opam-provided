@@ -1,1 +1,1 @@
-afl-persistent,astring,batteries,bigarray-compat,bos,cmdliner,ctypes,fmt,fpath,jsonm,logs,mtime,num,ocamlfind,ounit,pci,ptime,rresult,systemd,stdlib-shims,uuidm,uutf,xenctrl,xmlm,zarith
+afl-persistent,astring,batteries,bigarray-compat,bos,cmdliner,ctypes,fmt,fpath,jsonm,logs,mtime,num,ocamlfind,ounit,pci,ptime,rresult,systemd,stdlib-shims,uuidm,uutf,xenctrl,xmlm,zarith,lwt,ocplib-endian

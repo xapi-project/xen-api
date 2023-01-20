@@ -45,20 +45,45 @@
 ))
 
 
-(copy_files ../../*.opam)
-(copy_files ../../*.opam.locked)
+;(rule
+;  (target xapi.opam.locked.depends)
+;  (deps xapi.opam.locked)
+ ; (action (with-stdout-to %{target} (run opam show -f depends --just-file ./%{deps})))
+;)
 
 (rule
-  (target Containerfile.tools)
-  (deps cpd_gen_tools.exe)
-  (action (with-stdout-to %{target} (run ./cpd_gen_tools.exe)))
-  (mode promote)
+  (target xapi.opam.locked.depends.opamprovided)
+  (deps xapi.opam.locked.depends)
+  (action (with-stdout-to %{target} (run grep -v '?vendor' %{deps})))
+)
+
+(rule
+  (target xapi.opam.locked.depends.opam.digest)
+  (deps xapi.opam.locked.depends.opamprovided)
+  (action (with-stdout-to %{target} (run sha256sum %{deps})))
+)
+
+(rule
+  (target source.version)
+  (deps (universe))
+  (action (with-stdout-to %{target} (run git describe --dirty)))
 )
 
 (rule
   (target Containerfile)
-  (deps cpd_gen_installdeps.exe xapi.opam.locked depext.packages)
-  (action (with-stdout-to %{target} (run ./cpd_gen_installdeps.exe --source %{project_root}/../../ %{read-lines:depext.packages})))
+  (deps (:generator cpd_gen_installdeps.exe)
+        (:lockfile xapi.opam.locked)
+        xapi.opam.locked.depends.opam.digest
+        source.version
+        depext.packages)
+  (action (with-stdout-to %{target}
+   (run %{generator}
+        --lockfile %{lockfile}
+        --opam-deps-id %{read-lines:xapi.opam.locked.depends.opam.digest}
+        --repository %{read-lines:xs-opam.url}
+        --gitdescribe %{read-lines:source.version}
+        %{read-lines:depext.packages}
+        )))
   (mode promote)
 )
 

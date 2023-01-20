@@ -1,0 +1,11 @@
+(executable
+ (name monorepo_container)
+ (public_name monorepo-container)
+ (libraries dockerfile dockerfile-opam bos bos.setup)
+ (package monorepo-container)
+)
+
+(rule
+ (target container_cli)
+ (action (with-stdout-to %{target} (run ./detect_container_cli.sh)))
+)

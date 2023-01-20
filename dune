@@ -129,14 +129,29 @@
 ; * https://ocaml.org/p/opam-monorepo/0.3.5/doc/lock.html
 ; * https://ocaml.org/p/opam-monorepo/0.3.5/doc/opam-provided.html
 
+(rule
+ (target opam-repolist)
+ (deps (universe))
+ (action (with-stdout-to %{target} (run opam repo list --short)))
+)
+
+; the package versions of opam-provided dependencies
+; 'lwt' needs to be 'opam-provided' because it changes exists_if for logs.lwt
 ; TODO: check os-family on centos
 (rule
   (target xapi.opam.locked)
-  (deps repository.tar.gz (:opam_files (glob_files *.opam)))
+  (deps repository.tar.gz
+    ;    (:opam_files xapi.opam xe.opam message-switch.opam message-switch-cli.opam
+    ;                                   forkexec.opam xapi-forkexecd.opam
+    ;                                   xapi-networkd.opam)
+        (:opam_files (glob_files *.opam))
+        (glob_files *.opam) dune
+        opam-repolist)
   (action (run opam monorepo lock
                 --ocaml-version=%{ocaml_version}
                 --opam-provided=[%{read-lines:conf.opam-provided}]
                 --add-global-opam-vars=[[arch,x86_64],[os-distribution,centos],[os-family,centos],[os-version,7]]
+                -v
                 -l %{target}
                 %{opam_files}))
   (mode promote)

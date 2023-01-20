@@ -1,0 +1,30 @@
+(rule
+  (targets stable.distro future.distro)
+  (action (run ./xsdistro.exe))
+)
+
+(executable
+ (name xsdistro)
+ (libraries dockerfile-opam bos.setup)
+)
+
+(rule
+  (target repositories)
+  (deps (universe))
+  ;(action (with-stdout-to %{target} (run opam repo list --short)))
+  (action (with-stdout-to %{target} (echo xs-opam=git+https://github.com/edwintorok/xs-opam)))
+)
+
+(rule
+  (target Containerfile)
+  (action (with-stdout-to %{target} (run %{bin:monorepo-container}
+                --distro %{read-lines:stable.distro}
+                --lockfile %{dep:../../xapi.opam.locked}
+                --repositories %{read-lines:repositories}
+                --debug
+                xapi.install xe.install message-switch.install
+                message-switch-cli.install forkexec.install
+                xapi-forkexecd.install xapi-networkd.install
+                xapi-squeezed.install
+           )))
+)

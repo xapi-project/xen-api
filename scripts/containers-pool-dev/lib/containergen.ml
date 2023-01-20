@@ -205,20 +205,19 @@ end = struct
           List.fold_left StringSet.union first.uniqueid
           @@ List.map (fun t -> t.uniqueid) rest
         in
+        let cmd_unique =
+          if StringSet.is_empty uniqueids then
+            Cmd.empty
+          else
+            Cmd.(v "true" %% of_list (StringSet.elements uniqueids))
+        in
         let cmds =
           {first with mounts}
+          :: (v cmd_unique)
           :: List.map (fun t -> {t with mounts= StringSet.empty}) rest
         in
-        let cmds =
-          (* make uniqueid part of the RUN command in a way that it doesn't
-             affect the layer or the output, except for invaliding the layer
-             cache as needed *)
-          if StringSet.is_empty uniqueids then
-            cmds
-          else
-            v Cmd.(v "true" %% of_list (StringSet.elements uniqueids)) :: cmds
-        in
         cmds
+        |> List.filter (fun x -> not @@ Cmd.is_empty x.cmd)
         |> List.map to_run
         |> List.fold_left Dockerfile.( @@ ) Dockerfile.empty
         |> Dockerfile.crunch
@@ -255,12 +254,9 @@ module Dune = struct
   let with_dune cmd =
     (* only cache what we know to be individual files and sharable between all
        containers. *)
-    let cache_path = Fpath.(home / ".cache" / "dune" / "db") in
     Command.with_cache ~uidgid:Config.container_uidgid
-      ~target:Fpath.(cache_path / "files")
-    @@ Command.with_cache ~uidgid:Config.container_uidgid
-         ~target:Fpath.(cache_path / "meta")
-         cmd
+      ~target:Fpath.(home / ".cache" / "dune")
+    cmd
 
   let workspace = Fpath.(home / "workspace")
 
@@ -280,15 +276,13 @@ module Dune = struct
        would've existed on the host as cache id.
     *)
     let id = Fpath.(source / "_build" |> to_string) in
-    [
-      Command.v Cmd.(v "mkdir" % "-p" % p workspace)
-    ; Command.v Cmd.(v "touch" % p Fpath.(workspace / "dune-workspace"))
+    [ Command.v Cmd.(v "touch" % p Fpath.(workspace / "dune-workspace"))
     ; Command.v Cmd.(v "cd" % p target)
     ; with_dune
       @@ Command.with_bind ~uniqueid ~source ~target
       @@ Command.with_cache ~id ~sharing:Locked ~uidgid:Config.container_uidgid
            ~target:Fpath.(workspace / "_build")
-      @@ Command.with_tmpfs ~target:Fpath.(v "/tmp")
+      (*@@ Command.with_tmpfs ~target:Fpath.(v "/tmp") *)
       @@ Command.v
            Cmd.(
              v "opam"
@@ -298,9 +292,9 @@ module Dune = struct
              % "build"
              % "--cache"
              % "enabled"
-             (* they are both caches, so hopefully hardlinkable *)
              % "--cache-storage-mode"
-             % "hardlink"
+             (* too many EXDEV failures for now with all the cache mounts *)
+             % "copy"
              %% on watch (v "--watch")
              %% on release (v "--profile=release")
              %% of_list build_targets
@@ -342,10 +336,11 @@ module Opam = struct
 
   let install ?(ignore_pin_depends = false) ?(deps_only = false)
       ?(locked = false) packages =
-    Command.with_tmpfs ~target:Fpath.(v "/tmp")
-    @@
+    (* Command.with_tmpfs ~target:Fpath.(v "/tmp") *)
+    (* @@
     Command.with_tmpfs ~target:Fpath.(switch_path / ".opam-switch" / "build")
-    @@ with_opam_download_cache
+    *)
+    with_opam_download_cache
     @@ Command.v
          Cmd.(
            opam

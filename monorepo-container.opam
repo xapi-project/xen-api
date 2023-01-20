@@ -1,0 +1,21 @@
+opam-version: "2.0"
+maintainer: "xen-api@lists.xen.org"
+authors: "xen-api@lists.xen.org"
+homepage: "https://xapi-project.github.io/"
+bug-reports: "https://github.com/xapi-project/xen-api.git"
+dev-repo: "git+https://github.com/xapi-project/xen-api.git"
+build: [[ "dune" "build" "-p" name "-j" jobs ]]
+
+depends: [
+  "ocaml"
+  "dune"
+  "dockerfile"
+  "dockerfile-opam"
+]
+synopsis: "Build containers out of monorepos"
+description: """
+Tool for building containers out of monorepos"""
+url {
+  src:
+    "https://github.com/xapi-project/xen-api/archive/master.tar.gz"
+}
