@@ -17,4 +17,3 @@ RUN --mount=type=bind,rw,target=workspace/xapi,source=. --mount=type=cache,targe
   'ln' '-s' 'xapi/dune-project' 'workspace/dune-project' && \
   'cd' 'workspace/xapi' && \
   'opam' 'exec' '--' 'dune' 'build' '--profile=release' 'xapi.install' 'xe.install'
-VOLUME [ "/home/opam/workspace/xapi/_build" ]

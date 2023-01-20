@@ -230,14 +230,17 @@ compile_flags.txt: Makefile
 lock:
 	dune build xapi.opam.locked
 
-pool:
+container_cli: scripts/containers-pool-dev/detect_container_cli.sh
+	$< >$@.tmp
+	chmod +x $@.tmp
+	mv $@.tmp $@
+
+pool: container_cli
 	dune build scripts/containers-pool-dev/Containerfile
-	scripts/containers-pool-dev/detect_container_cli.sh >container_cli
-	chmod +x container_cli
 	cp scripts/containers-pool-dev/Containerfile .
 	./container_cli build -t cpd -f Containerfile .
 
-monorepo-pull:
-	opam monorepo depext
-	opam install --ignore-pin-depends --deps-only ./ --locked
-	opam monorepo pull
+monorepo-pull: container_cli scripts/containers-pool-dev/Containerfile.tools xapi.opam.locked
+	dune build scripts/containers-pool-dev/Containerfile.tools
+	./container_cli build -t cpd-tools -f scripts/containers-pool-dev/Containerfile.tools scripts/containers-pool-dev
+	./container_cli run --rm -v ~/.opam/download-cache:/home/opam/.opam/download-cache:rw,z -v $(shell pwd):/host:rw,z cpd-tools sh -c 'cd /host && opam monorepo pull'

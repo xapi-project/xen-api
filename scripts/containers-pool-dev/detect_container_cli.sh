@@ -7,4 +7,4 @@ if [ -z "${CLI}" ]; then
     CLI="${HOSTEXEC} $($HOSTEXEC command -v docker podman | head -n1)"
 fi
 echo "export DOCKER_BUILDKIT=1 BUILDKIT_PROGRESS=plain PROGRESS_NO_TRUNC=1"
-echo "exec ${CLI} \$@"
+echo "exec ${CLI} \"\$@\""

@@ -49,6 +49,13 @@
 (copy_files ../../*.opam.locked)
 
 (rule
+  (target Containerfile.tools)
+  (deps cpd_gen_tools.exe)
+  (action (with-stdout-to %{target} (run ./cpd_gen_tools.exe)))
+  (mode promote)
+)
+
+(rule
   (target Containerfile)
   (deps cpd_gen_installdeps.exe xapi.opam.locked depext.packages)
   (action (with-stdout-to %{target} (run ./cpd_gen_installdeps.exe --source %{project_root}/../../ %{read-lines:depext.packages})))
@@ -57,7 +64,7 @@
 
 
 (executables
-  (names cpd_gen_installdeps)
+  (names cpd_gen_installdeps cpd_gen_tools)
   (libraries containergen))
 
 (rule

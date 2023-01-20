@@ -42,7 +42,22 @@ module Command : sig
     -> target:Fpath.t
     -> t
     -> t
-  (** [with_cache ?id ?sharing ?from ?source ?uidgid ?mode ~target cmd]
+  (** [with_cache ?id ?sharing ?from ?source ?uidgid ?mode ~target cmd] foo
+
+    @param id caches with the same id are shared across all (possibly
+      unrelated) container builds. Defaults to [target] if not specified.
+      The cache may have individual files GCed, don't store any state here.
+
+    @param target the path inside the container where the cache is mounted.
+      The container builder will typically use a directory on the host to store
+      this, and start cleaning it up if it goes above a certain size.
+
+    @from which build stage to initialize the cache with, default is empty directory
+    @source path inside [from], defaults to its root
+
+    @mode file mode for cache, default 0755
+
+    @uidgid UID and GID for the cahe dir, defaults to 0,0
 
     @see <https://docs.docker.com/engine/reference/builder/#run---mounttypecache>
    *)
@@ -62,19 +77,41 @@ module Command : sig
    *)
 
   val with_tmpfs : target:Fpath.t -> t -> t
-  (** [with_tmpfs ~target cmd]
+  (** [with_tmpfs ~target cmd] mounts a temporary RAM filesystem inside the
+      container.
+      By default there is no upper limit imposed by the container builder,
+      and the contents is lost after the RUN command.
+
+  @param target path inside container
 
   @see <https://docs.docker.com/engine/reference/builder/#run---mounttypetmpfs>
   *)
 
-  val with_bind : source:Fpath.t -> target:Fpath.t -> t -> t
-  (** [with_bind ~source ~target]
+  val with_bind : uniqueid:string -> source:Fpath.t -> target:Fpath.t -> t -> t
+  (** [with_bind ~uniqueid ~source ~target cmd] mounts the [source] from the host inside the
+      container. By default this is a read-only mount.
 
+      (RW mounts are possible, but writes would be discarded, which would be
+      confusing)
+      The mount is only available for the duration of the [cmd], and not
+      available when the container is running, i.e. its contents is not
+      committed into the container's layers.
+      This is useful if [source] is large or changes frequently.
+
+      Because the contents of [source] is not copied into the container anymore
+      it means that the container builder is no longer aware when it changes,
+      and a [uniqueid] must be supplied, e.g. based on [git describe].
+
+  @param uniqueid is embedded into the RUN command
+  @param source path on the host that will be mounted
+  @param target path inside container
+
+  @see <https://docs.docker.com/engine/reference/builder/#run---mounttypebind>
   *)
 
   val v : ?stdin:Fpath.t -> ?stdout:Fpath.t -> Cmd.t -> t
   (** [v ?stdin ?stdout cmd] is [cmd] with standard input and output optionally
-      redirected to [stdin] and [stdout] files.
+      redirected to [stdin] and [stdout] files inside the container.
    *)
 
   val run : t list -> Dockerfile.t
@@ -89,15 +126,17 @@ end = struct
   type t = {
       mounts: StringSet.t
     ; cmd: Cmd.t
+    ; uniqueid: StringSet.t
     ; stdin: Fpath.t option
     ; stdout: Fpath.t option
   }
 
-  let v ?stdin ?stdout cmd = {mounts= StringSet.empty; cmd; stdin; stdout}
+  let v ?stdin ?stdout cmd =
+    {mounts= StringSet.empty; cmd; stdin; stdout; uniqueid= StringSet.empty}
 
   let string_of_locking = function Shared -> "shared" | Locked -> "locked"
 
-  let with_mount typ ~target options cmd =
+  let with_mount ?uniqueid typ ~target options cmd =
     let string_of_kv (k, v) =
       v |> Option.map @@ fun v -> Printf.sprintf "%s=%s" k v
     in
@@ -107,7 +146,17 @@ end = struct
       |> String.concat ","
       |> Printf.sprintf "--mount=type=%s,%s" typ
     in
-    {cmd with mounts= StringSet.add mount cmd.mounts}
+    {
+      cmd with
+      mounts= StringSet.add mount cmd.mounts
+    ; uniqueid=
+        ( match uniqueid with
+        | None ->
+            cmd.uniqueid
+        | Some u ->
+            StringSet.add u cmd.uniqueid
+        )
+    }
 
   let with_cache ?id ?(sharing = Shared) ?from ?source ?uidgid ?mode =
     (* there is also 'ro' but not useful for us *)
@@ -124,9 +173,10 @@ end = struct
 
   let with_tmpfs = with_mount "tmpfs" []
 
-  let with_bind ~source ~target cmd =
-    (* writes are discarded, but needed for _build *)
-    with_mount "bind,rw" ~target [("source", Some Fpath.(to_string source))] cmd
+  let with_bind ~uniqueid ~source ~target cmd =
+    with_mount "bind" ~uniqueid ~target
+      [("source", Some Fpath.(to_string source))]
+      cmd
 
   let redirect dir path =
     Option.map (fun p -> dir ^ Fpath.to_string p) path |> Option.to_list
@@ -151,8 +201,24 @@ end = struct
           List.fold_left StringSet.union first.mounts
           @@ List.map (fun t -> t.mounts) rest
         in
-        {first with mounts}
-        :: List.map (fun t -> {t with mounts= StringSet.empty}) rest
+        let uniqueids =
+          List.fold_left StringSet.union first.uniqueid
+          @@ List.map (fun t -> t.uniqueid) rest
+        in
+        let cmds =
+          {first with mounts}
+          :: List.map (fun t -> {t with mounts= StringSet.empty}) rest
+        in
+        let cmds =
+          (* make uniqueid part of the RUN command in a way that it doesn't
+             affect the layer or the output, except for invaliding the layer
+             cache as needed *)
+          if StringSet.is_empty uniqueids then
+            cmds
+          else
+            v Cmd.(v "true" %% of_list (StringSet.elements uniqueids)) :: cmds
+        in
+        cmds
         |> List.map to_run
         |> List.fold_left Dockerfile.( @@ ) Dockerfile.empty
         |> Dockerfile.crunch
@@ -182,18 +248,47 @@ end = struct
 end
 
 module Dune = struct
-  let with_dune cmd =
-    Command.with_cache ~uidgid:Config.container_uidgid
-      ~target:Fpath.(home / ".cache" / "dune")
-      cmd
+  (** [with_dune cmd] mounts a dune cache during build.
 
-  let build ?(watch=false) ?(release = false) ~source ~target () =
+    These are individual files that can be GCed at will.
+   *)
+  let with_dune cmd =
+    (* only cache what we know to be individual files and sharable between all
+       containers. *)
+    let cache_path = Fpath.(home / ".cache" / "dune" / "db") in
+    Command.with_cache ~uidgid:Config.container_uidgid
+      ~target:Fpath.(cache_path / "files")
+    @@ Command.with_cache ~uidgid:Config.container_uidgid
+         ~target:Fpath.(cache_path / "meta")
+         cmd
+
+  let workspace = Fpath.(home / "workspace")
+
+  (** [build ?watch ?release ~source build_targets]
+    Performs a dune build containing source code in [source], mounted inside the container at [target].
+
+    Creates a dune workspace, and mounts the sourcecode in a subdir,
+    such that the [_build] directory will be a sibling, allowing [source] to be
+    a read-only mount.
+
+  *)
+  let build ?(watch = false) ?(release = false) ~uniqueid ~source build_targets
+      =
+    let target = Fpath.(workspace / "source") in
+    (* the _build is unique to the source we are building,
+       shouldn't be shared with other containers, use the _build path that
+       would've existed on the host as cache id.
+    *)
+    let id = Fpath.(source / "_build" |> to_string) in
     [
-      Command.v Cmd.(v "cd" % p target)
+      Command.v Cmd.(v "mkdir" % "-p" % p workspace)
+    ; Command.v Cmd.(v "touch" % p Fpath.(workspace / "dune-workspace"))
+    ; Command.v Cmd.(v "cd" % p target)
     ; with_dune
-      @@ Command.with_bind ~source ~target
-      @@ Command.with_cache ~uidgid:Config.container_uidgid
-           ~target:Fpath.(home // target / "_build")
+      @@ Command.with_bind ~uniqueid ~source ~target
+      @@ Command.with_cache ~id ~sharing:Locked ~uidgid:Config.container_uidgid
+           ~target:Fpath.(workspace / "_build")
+      @@ Command.with_tmpfs ~target:Fpath.(v "/tmp")
       @@ Command.v
            Cmd.(
              v "opam"
@@ -201,10 +296,14 @@ module Dune = struct
              % "--"
              % "dune"
              % "build"
+             % "--cache"
+             % "enabled"
+             (* they are both caches, so hopefully hardlinkable *)
+             % "--cache-storage-mode"
+             % "hardlink"
              %% on watch (v "--watch")
              %% on release (v "--profile=release")
-             % "xapi.install"
-             % "xe.install"
+             %% of_list build_targets
            )
     ]
 end
@@ -220,7 +319,14 @@ module Opam = struct
             Printf.sprintf "docker.io/ocaml/opam:%s-ocaml-%d.%d" distro
               ocaml_major ocaml_minor
             |> Dockerfile.from ?alias
+            (* for [opam] builds, sometimes we need to build a dune package
+               if it is in the middle of the dependency tree of a non-dune
+               package
+            *)
           ; env [("DUNE_CACHE", "enabled"); ("DUNE_CACHE_STORAGE_MODE", "copy")]
+          (* needs to exist, otherwise when mounting the cache the parent dirs
+           will be created with wrong permissions *)
+          ; run "mkdir -p %s/.cache/dune/db" (Fpath.to_string home)
           ]
     )
 
@@ -231,9 +337,15 @@ module Opam = struct
     @@ Command.with_cache ~sharing ~target ~uidgid:Config.container_uidgid
     @@ cmd
 
+
+  let switch_path = Fpath.(home / ".opam" / Printf.sprintf "%d.%d" Config.ocaml_major Config.ocaml_minor)
+
   let install ?(ignore_pin_depends = false) ?(deps_only = false)
       ?(locked = false) packages =
-    with_opam_download_cache
+    Command.with_tmpfs ~target:Fpath.(v "/tmp")
+    @@
+    Command.with_tmpfs ~target:Fpath.(switch_path / ".opam-switch" / "build")
+    @@ with_opam_download_cache
     @@ Command.v
          Cmd.(
            opam
@@ -244,12 +356,20 @@ module Opam = struct
            %% on locked (v "--locked")
          )
 
-  let monorepo_pull dir =
-    if not (Fpath.is_abs dir) then invalid_arg (Fpath.to_string dir) ;
-    Command.with_committed_cache
-      ~target:Fpath.(dir / "duniverse")
-      ~uidgid:Config.container_uidgid
-    @@ Cmd.(opam % "monorepo" % "pull" % "-r" % p dir)
+  let install_deps ~uniqueid ~lockfile =
+    let target = Fpath.(Dune.workspace / basename lockfile) in
+    Command.with_bind ~uniqueid ~source:lockfile ~target
+    @@
+    install ~ignore_pin_depends:true ~deps_only:true ~locked:true
+      [Fpath.to_string target]
+
+  let monorepo_pull ~uniqueid ~lockfile =
+    let target = Fpath.(Dune.workspace / basename lockfile) in
+    Command.with_bind ~uniqueid ~source:lockfile ~target
+    @@
+    with_opam_download_cache
+    @@
+    Command.v Cmd.(opam % "monorepo" % "pull" % "-r" % p Dune.workspace % "-l" % p target)
 end
 
 module Yum = struct
