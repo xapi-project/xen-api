@@ -10,11 +10,13 @@ sudo chown 1000:1000 /etc/xensource-inventory
 cat >/etc/xensource-inventory <<EOF
 INSTALLATION_UUID=$(uuidgen)
 CONTROL_DOMAIN_UUID=$(uuidgen)
-MANAGEMENT_INTERFACE=eth0
+MANAGEMENT_INTERFACE=$(find /sys/class/net -name 'e*' -1d | head -n1)
 EOF
 
+sudo touch /etc/xensource/pool.conf
 sudo chown  1000:1000 /etc/xensource/pool.conf
 echo master >/etc/xensource/pool.conf
+
 sudo mkdir -p /var/run/message-switch
 sudo chown 1000:1000 /var/run/message-switch
 sudo mkdir -p /var/xapi

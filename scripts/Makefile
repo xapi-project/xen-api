@@ -25,6 +25,7 @@ install:
 	mkdir -p $(DESTDIR)$(SITE_DIR)
 	mkdir -p $(DESTDIR)$(SITE3_DIR)
 	mkdir -p $(DESTDIR)/etc/systemd/system/stunnel@xapi.service.d/
+	mkdir -p $(DESTIDR)/etc/xapi.d
 	$(IPROG) base-path $(DESTDIR)/etc/xapi.d
 	$(IPROG) sm_diagnostics $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) xn_diagnostics $(DESTDIR)$(LIBEXECDIR)

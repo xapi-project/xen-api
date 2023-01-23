@@ -185,7 +185,7 @@ module Mount = struct
     (* TODO: does podman need z or Z here? *)
     (* TODO: rw means discard writes, still RO from host's perspective,
      needed for config.mk *)
-    {mount_type= "bind,rw"; options}
+    {mount_type= "bind,z,rw"; options}
 
   let tmpfs = {mount_type= "tmpfs"; options= StringMap.empty}
 
@@ -343,6 +343,7 @@ let with_build_cache ~id = with_cache ~id ~user:true
 let with_ro_mount ~uniqueid ~host_source ~target t =
   let open Layer in
   let mount =
+    (* TODO: build arg doesn't actually take effect here *)
     v Cmd.(noop % uniqueid) |> with_mount ~target @@ Mount.(bind_ro host_source)
   in
   mount ++ t
@@ -447,7 +448,7 @@ let monorepo_pull ~lockfile =
      )
 
 let dune_build ?(release = false) ~argname ~source_build_id targets =
-  let uniqueid = "${" ^ argname ^ "}" in
+  let uniqueid = "__${" ^ argname ^ "}" in
   let target = Fpath.(dune_workspace / "source_ro") in
   let prefix = Fpath.(Layer.home / "prefix") in
   with_ro_mount ~uniqueid ~host_source:Fpath.(v ".") ~target
