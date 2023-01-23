@@ -15,28 +15,26 @@
 open V6_interface
 open Xcp_client
 
-let retry_econnrefused f =
-  let rec loop retry =
-    let result =
-      try Some (f ())
-      with Unix.Unix_error ((Unix.ECONNREFUSED | Unix.ENOENT), _, _) ->
-        Thread.delay 1. ; None
-    in
-    match result with
-    | Some x ->
-        x
-    | None ->
-        if retry then loop false else raise (V6_error V6d_failure)
-  in
-  loop true
-
 let json_url () = "file:" ^ json_path
 
 let xml_url () = "file:" ^ xml_path
 
+let known_present = ref false
+
+let ensure_queue_present () =
+  let t = get_ok @@ Message_switch_unix.Protocol_unix.Client.connect ~switch:!Xcp_client.switch_path () in
+  match Message_switch_unix.Protocol_unix.Client.list ~t ~prefix:!queue_name ~filter:`Alive () with
+  | Ok _ -> ()
+  | _ ->
+      D.warning "Cannot find v6 queue %s in message_switch" !queue_name;
+      raise (V6_error V6d_failure)
+
+
 let rpc call =
-  if !use_switch then
+  if !use_switch then begin
+    ensure_queue_present ();
     json_switch_rpc !queue_name call
+  end
   else
     xml_http_rpc ~srcstr:"xapi" ~dststr:"v6d" xml_url call
 
