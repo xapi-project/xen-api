@@ -185,7 +185,7 @@ install: build doc sdk doc-json
 	install -m 755 _build/install/default/bin/wsproxy $(DESTDIR)$(LIBEXECDIR)/wsproxy
 # dune can install libraries and several other files into the right locations
 	dune install --destdir=$(DESTDIR) --prefix=$(PREFIX) --libdir=$(LIBDIR) --mandir=$(MANDIR) \
-		xapi-client xapi-database xapi-consts xapi-cli-protocol xapi-datamodel xapi-types \
+		xapi-client xapi-database xapi-schema xapi-consts xapi-cli-protocol xapi-datamodel xapi-types \
 		xen-api-client xen-api-client-lwt xen-api-client-async rrdd-plugin rrd-transport \
 		gzip http-svr pciutil sexpr stunnel uuid xml-light2 zstd xapi-compression safe-resources \
 		message-switch message-switch-async message-switch-cli message-switch-core message-switch-lwt \
@@ -207,7 +207,7 @@ install: build doc sdk doc-json
 uninstall:
 	# only removes what was installed with `dune install`
 	dune uninstall --destdir=$(DESTDIR) --prefix=$(PREFIX) --libdir=$(LIBDIR) --mandir=$(MANDIR) \
-		xapi-client xapi-database xapi-consts xapi-cli-protocol xapi-datamodel xapi-types \
+		xapi-client xapi-database xapi-schema xapi-consts xapi-cli-protocol xapi-datamodel xapi-types \
 		xen-api-client xen-api-client-lwt xen-api-client-async rrdd-plugin rrd-transport \
 		gzip http-svr pciutil sexpr stunnel uuid xml-light2 zstd xapi-compression safe-resources \
 		message-switch message-switch-async message-switch-cli message-switch-core message-switch-lwt \
