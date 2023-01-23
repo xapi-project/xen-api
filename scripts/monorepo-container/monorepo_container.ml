@@ -555,6 +555,7 @@ let main =
           (* install opam provided packages, these change rarely *)
         ; installer t.all_depexts
           (* install depexts for duniverse+local packages, avoids recompiling opam packages if this changes *)
+        ; installer ["etcd"; "/usr/sbin/ip"]
         ; Layer.arg argname
         ; Stage.copy_from ~from:duniverse_stage ~source:duniverse_path
             ~target:duniverse_path

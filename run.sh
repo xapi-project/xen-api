@@ -36,4 +36,4 @@ prefix/sbin/forkexecd &
 prefix/bin/xapi-networkd&
 prefix/bin/squeezed&
 export OCAMLRUNPARAM=b
-prefix/bin/xapi -daemon false -pidfile /tmp/xapi.pid -nowatchdog -use-switch false
+prefix/bin/xapi -daemon false -pidfile /tmp/xapi.pid -nowatchdog

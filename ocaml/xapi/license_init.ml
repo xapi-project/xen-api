@@ -31,7 +31,6 @@ let initialise_host_editions ~__context ~host =
 (* xapi calls this function upon startup *)
 let initialise ~__context ~host =
   let module V6_client = (val !v6client : V6clientS) in
-  initialise_host_editions ~__context ~host ;
   let set_licensing edition features additional =
     debug "Setting license to %s" edition ;
     Db.Host.set_edition ~__context ~self:host ~value:edition ;
@@ -39,6 +38,7 @@ let initialise ~__context ~host =
     Xapi_host.copy_license_to_db ~__context ~host ~features ~additional
   in
   try
+    initialise_host_editions ~__context ~host ;
     let edition = Db.Host.get_edition ~__context ~self:host in
     Xapi_host.apply_edition_internal ~__context ~host ~edition
       ~additional:[("force", "true")]

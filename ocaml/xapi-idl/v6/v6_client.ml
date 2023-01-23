@@ -22,13 +22,14 @@ let xml_url () = "file:" ^ xml_path
 let known_present = ref false
 
 let ensure_queue_present () =
+  if !known_present then ()
+  else
   let t = get_ok @@ Message_switch_unix.Protocol_unix.Client.connect ~switch:!Xcp_client.switch_path () in
   match Message_switch_unix.Protocol_unix.Client.list ~t ~prefix:!queue_name ~filter:`Alive () with
-  | Ok _ -> ()
+  | Ok lst when List.mem !queue_name lst -> known_present := true
   | _ ->
-      D.warning "Cannot find v6 queue %s in message_switch" !queue_name;
+      D.warn "Cannot find v6 queue %s in message_switch" !queue_name;
       raise (V6_error V6d_failure)
-
 
 let rpc call =
   if !use_switch then begin

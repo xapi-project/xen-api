@@ -241,7 +241,8 @@ let rec monitor dbg () =
                       (0, Duplex_unknown)
                   in
                   let pci_bus_path = Sysfs.get_pcibuspath dev in
-                  let vendor_id, device_id = Sysfs.get_pci_ids dev in
+                  let vendor_id, device_id = try Sysfs.get_pci_ids dev with _
+                  -> "1af4","1041" (* FIXME: these are virtio *) in
                   let nb_links = 1 in
                   let links_up = if carrier then 1 else 0 in
                   let interfaces = [dev] in
