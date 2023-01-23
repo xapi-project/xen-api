@@ -1354,6 +1354,8 @@ module Bridge = struct
                 [parent]
             | _, bond_iface :: _ ->
                 Linux_bonding.get_bond_slaves bond_iface
+            | [], [] when physical_ifaces = [] ->
+                [name]
             | [], [] ->
                 physical_ifaces
           )
@@ -1480,7 +1482,7 @@ module PVS_proxy = struct
             [Dict [("site_uuid", Rpcmarshal.marshal Rpc.Types.string.ty uuid)]]
         ; is_notification= false
         }
-      
+
     in
 
     let _ = do_call call in
