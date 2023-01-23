@@ -174,6 +174,35 @@ module Session = struct
       ~in_product_since:rel_george ~in_oss_since:None ~allowed_roles:_R_POOL_OP
       ()
 
+  let get_all_records =
+    call ~name:"get_all_records" ~lifecycle:[] ~params:[] ~flags:[`Session]
+      ~result:
+        ( Map (Ref _session, Record _session)
+        , "A function used in records.ml to autogenerate CLI commands"
+        )
+      ~allowed_roles:_R_READ_ONLY ()
+
+  let count_sessions =
+    call ~name:"count_sessions" ~lifecycle:[] ~params:[] ~flags:[`Session]
+      ~result:(Int, "The number of sessions that exist in the database")
+      ~allowed_roles:_R_READ_ONLY ()
+
+  let group_by_originator =
+    call ~name:"group_by_originator" ~lifecycle:[] ~params:[] ~flags:[`Session]
+      ~result:
+        ( Map (String, Int)
+        , "The number of sessions that have the same originator"
+        )
+      ~allowed_roles:_R_READ_ONLY ()
+
+  let group_by_login_ip =
+    call ~name:"group_by_login_ip" ~lifecycle:[] ~params:[] ~flags:[`Session]
+      ~result:
+        ( Map (String, Int)
+        , "The number of sessions that have the same last login ip"
+        )
+      ~allowed_roles:_R_READ_ONLY ()
+
   let t =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303
       ~persist:PersistNothing ~gen_constructor_destructor:false ~name:_session
@@ -191,6 +220,10 @@ module Session = struct
         ; local_logout
         ; get_all_subject_identifiers
         ; logout_subject_identifier
+        ; get_all_records
+        ; count_sessions
+        ; group_by_originator
+        ; group_by_login_ip
         ]
       ~contents:
         [
@@ -247,6 +280,10 @@ module Session = struct
             ~default_value:(Some (VBool false)) ~ty:Bool "client_certificate"
             "indicates whether this session was authenticated using a client \
              certificate"
+        ; field ~lifecycle:[] ~qualifier:DynamicRO ~ty:String "creation_ip"
+            "The ip address used to create the session"
+        ; field ~lifecycle:[] ~qualifier:DynamicRO ~ty:String "last_login_ip"
+            "The ip address used to last log in to the session"
         ]
       ()
 end

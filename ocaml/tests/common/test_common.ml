@@ -504,11 +504,12 @@ let make_session ~__context ?(ref = Ref.make ()) ?(uuid = make_uuid ())
     ?(is_local_superuser = false) ?(subject = Ref.null)
     ?(validation_time = API.Date.never) ?(auth_user_sid = "")
     ?(auth_user_name = "") ?(rbac_permissions = []) ?(parent = Ref.null)
-    ?(originator = "test") ?(client_certificate = false) () =
+    ?(originator = "test") ?(client_certificate = false)
+    ?(creation_ip = "127.0.0.1") ?(last_login_ip = "127.0.0.1") () =
   Db.Session.create ~__context ~ref ~uuid ~this_host ~this_user ~last_active
     ~pool ~other_config ~is_local_superuser ~subject ~validation_time
     ~auth_user_sid ~auth_user_name ~rbac_permissions ~parent ~originator
-    ~client_certificate ;
+    ~client_certificate ~creation_ip ~last_login_ip ;
   ref
 
 (** Returns a [(rpc, session_id)] pair that can be passed to the

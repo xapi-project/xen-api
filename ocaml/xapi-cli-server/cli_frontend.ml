@@ -3098,6 +3098,33 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; flags= []
       }
     )
+  ; ( "session-count"
+    , {
+        reqd= []
+      ; optn= []
+      ; help= "Calculate the number of sessions on Xapi"
+      ; implementation= No_fd Cli_operations.session_count
+      ; flags= []
+      }
+    )
+  ; ( "session-groupby-originator"
+    , {
+        reqd= []
+      ; optn= []
+      ; help= "Calculate the number of sessions on Xapi per originator"
+      ; implementation= No_fd Cli_operations.session_groupby_originator
+      ; flags= []
+      }
+    )
+  ; ( "session-groupby-login-ip"
+    , {
+        reqd= []
+      ; optn= []
+      ; help= "Calculate the number of sessions on Xapi per login ip"
+      ; implementation= No_fd Cli_operations.session_groupby_login_ip
+      ; flags= []
+      }
+    )
   ; ( "host-get-server-certificate"
     , {
         reqd= []

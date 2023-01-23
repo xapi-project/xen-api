@@ -104,5 +104,15 @@ val record_login_failure :
 
 val get_failed_login_stats : unit -> string option
 
-val get_total_sessions : unit -> Int64.t
 (** Retrieves the amount of sessions opened since the last time xapi was started *)
+
+val get_total_sessions : unit -> Int64.t
+
+val get_all_records :
+  __context:Context.t -> ([`session] API.Ref.t * API.session_t) list
+
+val count_sessions : __context:Context.t -> int64
+
+val group_by_originator : __context:Context.t -> (string * int64) list
+
+val group_by_login_ip : __context:Context.t -> (string * int64) list

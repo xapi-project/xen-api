@@ -533,8 +533,8 @@ let make_param_funs getallrecs getbyuuid record class_name def_filters
   in
   let list printer rpc session_id params : unit =
     with_specified_database rpc session_id params (fun session_id ->
-        let all = getallrecs ~rpc ~session_id ~expr:"true" in
         let all_recs =
+          let all = getallrecs ~rpc ~session_id ~expr:"true" in
           List.map
             (fun (r, x) ->
               let record = record rpc session_id r in
@@ -543,6 +543,7 @@ let make_param_funs getallrecs getbyuuid record class_name def_filters
             )
             all
         in
+
         (* Filter on everything on the cmd line except params=... *)
         let filter_params =
           List.filter
@@ -1093,6 +1094,22 @@ let gen_cmds rpc session_id =
     ; Client.Subject.(
         mk get_all_records_where get_by_uuid subject_record "subject" []
           ["uuid"; "subject-identifier"; "other-config"; "roles"]
+          rpc session_id
+      )
+    ; Client.Session.(
+        mk
+          (fun ~rpc ~session_id ~expr:_ -> get_all_records ~rpc ~session_id)
+          get_by_uuid session_record "session" []
+          [
+            "uuid"
+          ; "this_host"
+          ; "this_user"
+          ; "last_active"
+          ; "subject"
+          ; "validation_time"
+          ; "auth_user_name"
+          ; "originator"
+          ]
           rpc session_id
       )
     ; Client.Role.(
@@ -7260,6 +7277,24 @@ let session_subject_identifier_logout_all _printer rpc session_id _params =
         ~subject_identifier
     )
     subject_identifiers
+
+let session_count printer rpc session_id _params =
+  let count = Client.Session.count_sessions ~rpc ~session_id in
+  printer (Cli_printer.PMsg (Int64.to_string count))
+
+let session_groupby_originator printer rpc session_id _params =
+  let mapping = Client.Session.group_by_originator ~rpc ~session_id in
+  printer
+    (Cli_printer.PTable
+       (List.map (fun (a, b) -> [(a, Int64.to_string b)]) mapping)
+    )
+
+let session_groupby_login_ip printer rpc session_id _params =
+  let mapping = Client.Session.group_by_login_ip ~rpc ~session_id in
+  printer
+    (Cli_printer.PTable
+       (List.map (fun (a, b) -> [(a, Int64.to_string b)]) mapping)
+    )
 
 let secret_create printer rpc session_id params =
   let value = List.assoc "value" params in

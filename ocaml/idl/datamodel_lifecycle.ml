@@ -20,11 +20,15 @@ let prototyped_of_field = function
   | "host", "last_software_update" ->
       Some "22.20.0"
   | "VM", "actions__after_softreboot" ->
-      Some "23.1.0"
+      Some "22.35.0"
   | "pool", "coordinator_bias" ->
       Some "22.37.0"
   | "pool", "migration_compression" ->
       Some "22.33.0"
+  | "session", "last_login_ip" ->
+      Some "23.1.0-next"
+  | "session", "creation_ip" ->
+      Some "23.1.0-next"
   | _ ->
       None
 
@@ -47,5 +51,13 @@ let prototyped_of_message = function
       Some "22.27.0"
   | "pool", "set_https_only" ->
       Some "22.27.0"
+  | "session", "group_by_login_ip" ->
+      Some "23.1.0-next"
+  | "session", "group_by_originator" ->
+      Some "23.1.0"
+  | "session", "count_sessions" ->
+      Some "23.1.0"
+  | "session", "get_all_records" ->
+      Some "23.1.0"
   | _ ->
       None

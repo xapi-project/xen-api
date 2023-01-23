@@ -400,6 +400,13 @@ let is_subject_suspended ~__context ~cache subject_identifier =
     debug "Subject identifier %s is suspended" subject_identifier ;
   (is_suspended, subject_name)
 
+let set_login_ip ~__context ~session =
+  let ip =
+    Context.get_client_ip __context |> Option.value ~default:"unavailable"
+  in
+  Db.Session.set_last_login_ip ~__context ~self:session ~value:ip ;
+  debug "updated last login ip for session %s, sid %s " (trackid session) ip
+
 let destroy_db_session ~__context ~self =
   Xapi_event.on_session_deleted self ;
   (* unregister from the event system *)
@@ -545,7 +552,8 @@ let revalidate_external_session ~__context ~session =
                       ~value:subject_in_intersection ;
                     debug "updated subject for session %s, sid %s "
                       (trackid session) authenticated_user_sid
-                  )
+                  ) ;
+                  set_login_ip ~__context ~session
                 with Not_found ->
                   (* subject ref for intersection's sid does not exist in our metadata!!! *)
                   (* this should never happen, it's an internal metadata inconsistency between steps 2b and 2c *)
@@ -614,6 +622,9 @@ let login_no_password_common ~__context ~uname ~originator ~host ~pool
     let session_id = Ref.make () in
     let uuid = Uuidx.to_string (Uuidx.make ()) in
     let user = Ref.null in
+    let ip_address =
+      Context.get_client_ip __context |> Option.value ~default:"unavilable"
+    in
     (* always return a null reference to the deprecated user object *)
     let parent = try Context.get_session_id __context with _ -> Ref.null in
     (*match uname with   (* the user object is deprecated in favor of subject *)
@@ -627,18 +638,17 @@ let login_no_password_common ~__context ~uname ~originator ~host ~pool
     (* CP-982: create tracking id in log files to link username to actions *)
     info
       "Session.create %s pool=%b uname=%s originator=%s is_local_superuser=%b \
-       auth_user_sid=%s parent=%s"
+       auth_user_sid=%s parent=%s ip_address=%s"
       (trackid session_id) pool
       (match uname with None -> "" | Some u -> u)
-      originator is_local_superuser auth_user_sid (trackid parent) ;
+      originator is_local_superuser auth_user_sid (trackid parent) ip_address ;
     Db.Session.create ~__context ~ref:session_id ~uuid ~this_user:user
       ~this_host:host ~pool
       ~last_active:(Date.of_float (Unix.time ()))
       ~other_config:[] ~subject ~is_local_superuser ~auth_user_sid
       ~validation_time:(Date.of_float (Unix.time ()))
-      ~auth_user_name ~rbac_permissions ~parent ~originator ~client_certificate ;
-    if not pool then
-      Atomic.incr total_sessions ;
+      ~auth_user_name ~rbac_permissions ~parent ~originator ~client_certificate
+      ~creation_ip:ip_address ~last_login_ip:ip_address ;
     Ref.string_of session_id
   in
   let session_id =
@@ -716,7 +726,9 @@ let slave_local_login_with_password ~__context ~uname ~pwd =
             )
       ) ;
       debug "Add session to local storage" ;
-      Xapi_local_session.create ~__context ~pool:false
+      let session = Xapi_local_session.create ~__context ~pool:false in
+      set_login_ip ~__context ~session ;
+      session
   )
 
 (* CP-714: Modify session.login_with_password to first try local super-user login; and then call into external auth plugin if this is enabled *)
@@ -1337,3 +1349,73 @@ let create_from_db_file ~__context ~filename =
   in
   let db_ref = Some (Db_ref.in_memory (ref (ref db))) in
   create_readonly_session ~__context ~uname:"db-from-file" ~db_ref
+
+let get_all_records ~__context =
+  let get_api_record ~self =
+    {
+      API.session_auth_user_name= Db.Session.get_auth_user_name ~__context ~self
+    ; API.session_auth_user_sid= Db.Session.get_auth_user_sid ~__context ~self
+    ; API.session_client_certificate=
+        Db.Session.get_client_certificate ~__context ~self
+    ; API.session_is_local_superuser=
+        Db.Session.get_is_local_superuser ~__context ~self
+    ; API.session_last_active= Db.Session.get_last_active ~__context ~self
+    ; API.session_originator= Db.Session.get_originator ~__context ~self
+    ; API.session_other_config= Db.Session.get_other_config ~__context ~self
+    ; API.session_parent= Db.Session.get_parent ~__context ~self
+    ; API.session_pool= Db.Session.get_pool ~__context ~self
+    ; API.session_rbac_permissions=
+        Db.Session.get_rbac_permissions ~__context ~self
+    ; API.session_subject= Db.Session.get_subject ~__context ~self
+    ; API.session_tasks= Db.Session.get_tasks ~__context ~self
+    ; API.session_this_host= Db.Session.get_this_host ~__context ~self
+    ; API.session_this_user= Db.Session.get_this_user ~__context ~self
+    ; API.session_uuid= Db.Session.get_uuid ~__context ~self
+    ; API.session_validation_time=
+        Db.Session.get_validation_time ~__context ~self
+    ; API.session_creation_ip= Db.Session.get_creation_ip ~__context ~self
+    ; API.session_last_login_ip= Db.Session.get_last_login_ip ~__context ~self
+    }
+  in
+  Db.Session.get_all ~__context
+  |> List.map (fun session -> (Ref.make (), get_api_record ~self:session))
+
+let count_sessions ~__context =
+  Db.Session.get_all ~__context |> List.length |> Int64.of_int
+
+let group_by_originator ~__context =
+  let one = Int64.of_int 1 in
+  Db.Session.get_all ~__context
+  |> List.map (fun self -> Db.Session.get_originator ~__context ~self)
+  |> List.sort String.compare
+  |> List.fold_left
+       (fun (acc : (string * Int64.t) list) orig ->
+         match acc with
+         | [] ->
+             (orig, one) :: acc
+         | (o, _) :: _ when o <> orig ->
+             (orig, one) :: acc
+         | (_, value) :: _ ->
+             let acc' = List.tl acc in
+             (orig, Int64.add value one) :: acc'
+       )
+       []
+  |> List.sort (fun (_, v1) (_, v2) -> Int64.compare v1 v2)
+
+let group_by_login_ip ~__context =
+  let one = Int64.of_int 1 in
+  Db.Session.get_all ~__context
+  |> List.map (fun self -> Db.Session.get_last_login_ip ~__context ~self)
+  |> List.sort String.compare
+  |> List.fold_left
+       (fun (acc : (string * Int64.t) list) ip ->
+         match acc with
+         | [] ->
+             (ip, one) :: acc
+         | (o, _) :: _ when o <> ip ->
+             (ip, one) :: acc
+         | (_, value) :: _ ->
+             let acc' = List.tl acc in
+             (ip, Int64.add value one) :: acc'
+       )
+       []

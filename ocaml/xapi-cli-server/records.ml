@@ -1627,6 +1627,98 @@ let subject_record rpc session_id subject =
       ]
   }
 
+let session_record rpc session_id session =
+  let _ref = ref session in
+  let empty_record =
+    ToGet (fun () -> Client.Session.get_record ~rpc ~session_id ~self:!_ref)
+  in
+  let record = ref empty_record in
+  let x () = lzy_get record in
+  {
+    setref=
+      (fun r ->
+        _ref := r ;
+        record := empty_record
+      )
+  ; setrefrec=
+      (fun (a, b) ->
+        _ref := a ;
+        record := Got b
+      )
+  ; record= x
+  ; getref= (fun () -> !_ref)
+  ; fields=
+      [
+        make_field ~name:"uuid" ~get:(fun () -> (x ()).API.session_uuid) ()
+      ; make_field ~name:"this_host"
+          ~get:(fun () -> get_uuid_from_ref (x ()).API.session_this_host)
+          ()
+      ; make_field ~name:"this_user"
+          ~get:(fun () -> get_uuid_from_ref (x ()).API.session_this_user)
+          ()
+      ; make_field ~name:"subject"
+          ~get:(fun () -> get_uuid_from_ref (x ()).API.session_subject)
+          ()
+      ; make_field ~name:"parent"
+          ~get:(fun () -> get_uuid_from_ref (x ()).API.session_parent)
+          ()
+      ; make_field ~name:"pool"
+          ~get:(fun () -> (x ()).API.session_pool |> string_of_bool)
+          ()
+      ; make_field ~name:"last_active"
+          ~get:(fun () -> (x ()).API.session_last_active |> Date.to_string)
+          ()
+      ; make_field ~name:"validation_time"
+          ~get:(fun () -> (x ()).API.session_validation_time |> Date.to_string)
+          ()
+      ; make_field ~name:"is_local_superuser"
+          ~get:(fun () ->
+            (x ()).API.session_is_local_superuser |> string_of_bool
+          )
+          ()
+      ; make_field ~name:"other_config"
+          ~get:(fun () ->
+            (x ()).API.session_other_config
+            |> List.map (fun (k, v) -> Printf.sprintf "%s:%s" k v)
+            |> String.concat ","
+            |> fun value -> if value = "" then "NULL" else value
+          )
+          ()
+      ; make_field ~name:"auth_user_sid"
+          ~get:(fun () ->
+            (x ()).API.session_auth_user_sid |> fun value ->
+            if value = "" then "NULL" else value
+          )
+          ()
+      ; make_field ~name:"auth_user_name"
+          ~get:(fun () ->
+            (x ()).API.session_auth_user_name |> fun value ->
+            if value = "" then "NULL" else value
+          )
+          ()
+      ; make_field ~name:"rbac_permissions"
+          ~get:(fun () ->
+            (x ()).API.session_rbac_permissions |> String.concat ","
+            |> fun value -> if value = "" then "NULL" else value
+          )
+          ()
+      ; make_field ~name:"originator"
+          ~get:(fun () -> (x ()).API.session_originator)
+          ()
+      ; make_field ~name:"client_certificate"
+          ~get:(fun () ->
+            (x ()).API.session_client_certificate |> string_of_bool
+          )
+          ()
+      ; make_field ~name:"creation_ip"
+          ~get:(fun () -> (x ()).API.session_creation_ip)
+          ()
+      ; make_field ~name:"last_login_ip"
+          ~get:(fun () -> (x ()).API.session_last_login_ip)
+          ()
+      ]
+  }
+
 let role_record rpc session_id role =
   let _ref = ref role in
   let empty_record =
