@@ -12,6 +12,8 @@ INSTALLATION_UUID=$(uuidgen)
 CONTROL_DOMAIN_UUID=$(uuidgen)
 MANAGEMENT_INTERFACE=eth0
 EOF
+
+sudo chown  1000:1000 /etc/xensource/pool.conf
 echo master >/etc/xensource/pool.conf
 sudo mkdir -p /var/run/message-switch
 sudo chown 1000:1000 /var/run/message-switch
@@ -33,4 +35,5 @@ sleep 1
 prefix/sbin/forkexecd &
 prefix/bin/xapi-networkd&
 prefix/bin/squeezed&
+export OCAMLRUNPARAM=b
 prefix/bin/xapi -daemon false -pidfile /tmp/xapi.pid -nowatchdog

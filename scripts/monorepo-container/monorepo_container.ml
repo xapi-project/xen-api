@@ -183,7 +183,9 @@ module Mount = struct
           options
     in
     (* TODO: does podman need z or Z here? *)
-    {mount_type= "bind"; options}
+    (* TODO: rw means discard writes, still RO from host's perspective,
+     needed for config.mk *)
+    {mount_type= "bind,rw"; options}
 
   let tmpfs = {mount_type= "tmpfs"; options= StringMap.empty}
 
@@ -447,6 +449,7 @@ let monorepo_pull ~lockfile =
 let dune_build ?(release = false) ~argname ~source_build_id targets =
   let uniqueid = "${" ^ argname ^ "}" in
   let target = Fpath.(dune_workspace / "source_ro") in
+  let prefix = Fpath.(Layer.home / "prefix") in
   with_ro_mount ~uniqueid ~host_source:Fpath.(v ".") ~target
   @@ with_build_cache ~id:source_build_id
        ~target:Fpath.(dune_workspace / "_build")
@@ -456,6 +459,8 @@ let dune_build ?(release = false) ~argname ~source_build_id targets =
          [
            v Cmd.(v "touch" % p Fpath.(dune_workspace / "dune-workspace"))
          ; v Cmd.(v "cd" % p target)
+         (* FIXME: xapi specific *)
+         ; v Cmd.(v "./configure" % "--prefix" % p prefix)
          ; v
              Cmd.(
                opam_container
@@ -487,6 +492,7 @@ let dune_build ?(release = false) ~argname ~source_build_id targets =
                   |> of_values Fpath.to_string
                   )
              )
+        ; v Cmd.(v "sudo" % "make" % "-C" % "scripts" % "install" % "DESTDIR=/")
          ; v Cmd.(v "cp" % p Fpath.(v "run.sh") % p Fpath.(home / "prefix" / "run.sh"))
          ]
      )

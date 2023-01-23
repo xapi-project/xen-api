@@ -247,7 +247,13 @@ let with_thread_associated ?client desc f x =
   ThreadLocalTable.add tasks {desc; client} ;
   let result =
     Backtrace.with_backtraces (fun () ->
-        try f x with e -> Backtrace.is_important e ; raise e
+        try f x with e ->
+          let bt = Printexc.get_raw_backtrace () in
+          Backtrace.is_important e ;
+          output_log "backtrace" Syslog.Err "error"
+          (Printf.sprintf "WORKAROUND, here is the actual stacktrace: %s"
+          (Printexc.raw_backtrace_to_string bt));
+          raise e
     )
   in
   ThreadLocalTable.remove tasks ;
