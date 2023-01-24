@@ -111,6 +111,30 @@ end = struct
         ; sprintf "cert = %s" pool_cert
         ]
       ; cipher_options
+        [ "[default]" (* workaround for old stunnel *)
+        ; sprintf "sni = xapi:*"
+        ; sprintf "cert = %s" cert
+        ]
+      ; ( match client_auth_name with
+        | None ->
+            (* No client certificate auth: forward to xapi on port 80
+               for authentication by username+password or session/token. *)
+            ["connect = 80"]
+        | Some name ->
+            (* Verify the client certificate wrt the stored CA certs and name.
+               Connect to xapi's dedicated unix socket if the cert is accepted,
+               and no further auth is needed. Otherwise, redirect to port 80
+               as above. *)
+            [
+              Printf.sprintf "connect = %s"
+                Xapi_globs.unix_domain_socket_clientcert
+            ; "redirect = 80"
+            ; "verifyChain = yes"
+            ; Printf.sprintf "CAfile = %s" !Xapi_globs.stunnel_bundle_path
+            ; Printf.sprintf "checkHost = %s" name
+            ]
+        )
+      ; cipher_options
       ]
       |> List.concat
       |> String.concat "\n"

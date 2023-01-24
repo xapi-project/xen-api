@@ -185,7 +185,7 @@ module Sysfs = struct
         (List.mem "xen-backend"
            (Astring.String.cuts ~empty:false ~sep:"/" driver_link)
         )
-    with _ -> false
+    with _ -> String.starts_with ~prefix:"e" name (* HACK for docker *)
 
   (* device types are defined in linux/if_arp.h *)
   let is_ether_device name =
