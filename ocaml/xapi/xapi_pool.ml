@@ -1369,7 +1369,7 @@ let update_non_vm_metadata ~__context ~rpc ~session_id =
 
 let assert_pooling_licensed ~__context =
   if not (Pool_features.is_enabled ~__context Features.Pooling) then
-    raise (Api_errors.Server_error (Api_errors.license_restriction, []))
+    raise (Api_errors.Server_error (Api_errors.license_restriction, ["Pooling"]))
 
 let certificate_install ~__context ~name ~cert =
   let open Certificates in

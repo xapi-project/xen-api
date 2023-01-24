@@ -185,7 +185,7 @@ module Mount = struct
     (* TODO: does podman need z or Z here? *)
     (* TODO: rw means discard writes, still RO from host's perspective,
      needed for config.mk *)
-    {mount_type= "bind,z,rw"; options}
+    {mount_type= "bind,rw"; options}
 
   let tmpfs = {mount_type= "tmpfs"; options= StringMap.empty}
 
@@ -393,11 +393,11 @@ let symlink ~link_source ~link_target =
   in
   Layer.v Cmd.(v "ln" % "-sf" % p link_source % p link_target)
 
+let link_target = Fpath.(v ".opam" / "download-cache")
+let link_source = Fpath.(v ".cache" / "opam" / "download-cache")
 let opam_install ?(repositories = []) packages =
   with_user_cache
   @@
-  let link_source = Fpath.(v ".cache" / "opam" / "download-cache") in
-  let link_target = Fpath.(v ".opam" / "download-cache") in
   let repo_cmds =
     match repositories with
     | [] ->
@@ -433,8 +433,8 @@ let monorepo_pull ~lockfile =
   @@ with_user_cache
   @@ Layer.(
        of_list
-         [
-           v
+         [ v Cmd.(v "mkdir" % "-p" % p link_source)
+           ;  v
              Cmd.(
                opam_container
                % "monorepo"
@@ -556,7 +556,7 @@ let main =
           (* install opam provided packages, these change rarely *)
         ; installer t.all_depexts
           (* install depexts for duniverse+local packages, avoids recompiling opam packages if this changes *)
-        ; installer ["etcd"; "/usr/sbin/ip"]
+        ; installer ["etcd"; "/usr/sbin/ip"; "stunnel"; "strace"; "openssl"]
         ; Layer.arg argname
         ; Stage.copy_from ~from:duniverse_stage ~source:duniverse_path
             ~target:duniverse_path

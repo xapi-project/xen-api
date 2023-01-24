@@ -2,35 +2,24 @@
 # docker run -v /dev/log:/dev/log -v $(pwd)/run.sh:/home/opam/run.sh -it --rm cpd
 set -eux
 DIRS="/var/lib/xcp /var/run/nonpersistent /etc/xensource"
-sudo mkdir -p $DIRS
-for d in $DIRS; do sudo chown 1000:1000 $d; done
+mkdir -p $DIRS
 echo "$(uuidgen)/$(uuidgen)/$(uuidgen)" >/etc/xensource/ptoken
-sudo touch /etc/xensource-inventory
-sudo chown 1000:1000 /etc/xensource-inventory
 cat >/etc/xensource-inventory <<EOF
 INSTALLATION_UUID=$(uuidgen)
 CONTROL_DOMAIN_UUID=$(uuidgen)
-MANAGEMENT_INTERFACE=$(find /sys/class/net -name 'e*' -1d | head -n1)
+MANAGEMENT_INTERFACE=$(basename $(find /sys/class/net -name 'e*' | head -n1))
+MANAGEMENT_ADDRESS_TYPE=IPv4
 EOF
 
-sudo touch /etc/xensource/pool.conf
-sudo chown  1000:1000 /etc/xensource/pool.conf
 echo master >/etc/xensource/pool.conf
 
-sudo mkdir -p /var/run/message-switch
-sudo chown 1000:1000 /var/run/message-switch
-sudo mkdir -p /var/xapi
-sudo chown 1000:1000 /var/xapi
+mkdir -p /var/run/message-switch
+mkdir -p /var/xapi
 
-sudo touch /etc/xapi-networkd.conf
-sudo chown 1000:1000 /etc/xapi-networkd.conf
 echo network-conf=/etc/xcp/network.conf >/etc/xapi-networkd.conf
 
-sudo mkdir  -p /etc/xcp
-sudo touch /etc/xcp/network.conf
-sudo chown 1000:1000 /etc/xcp/network.conf
+mkdir  -p /etc/xcp
 echo bridge >/etc/xcp/network.conf
-
 
 prefix/sbin/message-switch &
 sleep 1

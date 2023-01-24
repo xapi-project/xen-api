@@ -240,8 +240,11 @@ pool: container_cli
 	cp _build/default/scripts/devpool/Containerfile .
 	./container_cli build --build-arg GITDESCRIBE=$(git describe --dirty) -t cpd -f Containerfile .
 
+DOCKER_NETWORK=xapi-test-pool
 pool-run:
-	./container_cli run --rm -it -v /dev/log:/dev/log -v $(shell pwd)/run.sh:/home/opam/run.sh:z cpd sh /home/opam/run.sh
+	./container_cli network inspect $(DOCKER_NETWORK) || ./container_cli network create $(DOCKER_NETWORK)
+	./container_cli run -d --network=$(DOCKER_NETWORK) --rm -it -v /dev/log:/dev/log -v $(shell pwd)/run.sh:/home/opam/run.sh:z cpd sudo sh /home/opam/run.sh
+	./container_cli run --network=$(DOCKER_NETWORK) --rm -it -v /dev/log:/dev/log -v $(shell pwd)/run.sh:/home/opam/run.sh:z cpd sudo sh /home/opam/run.sh
 
 monorepo-pull: container_cli scripts/containers-pool-dev/Containerfile.tools xapi.opam.locked
 	dune build scripts/containers-pool-dev/Containerfile.tools
