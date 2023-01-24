@@ -207,7 +207,7 @@ let config_file ?(accept = None) config host port =
          ]
        ; ( match config with
          | None ->
-             []
+             ["sni="]
          | Some {sni; verify; cert_bundle_path} ->
              [
                ""

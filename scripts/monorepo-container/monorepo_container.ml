@@ -448,7 +448,7 @@ let monorepo_pull ~lockfile =
      )
 
 let dune_build ?(release = false) ~argname ~source_build_id targets =
-  let uniqueid = "__${" ^ argname ^ "}" in
+  let uniqueid = "____${" ^ argname ^ "}" in
   let target = Fpath.(dune_workspace / "source_ro") in
   let prefix = Fpath.(Layer.home / "prefix") in
   with_ro_mount ~uniqueid ~host_source:Fpath.(v ".") ~target
