@@ -111,7 +111,7 @@ end = struct
         ; sprintf "cert = %s" pool_cert
         ]
       ; cipher_options
-        [ "[default]" (* workaround for old stunnel *)
+      ;  [ "[default]" (* workaround for old stunnel *)
         ; sprintf "sni = xapi:*"
         ; sprintf "cert = %s" cert
         ]
