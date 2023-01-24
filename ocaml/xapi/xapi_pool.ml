@@ -553,6 +553,7 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
         (Api_errors.Server_error
            (Api_errors.pool_hosts_not_homogeneous, ["Software version differs"])
         ) ;
+    (* TODO: without Xen, accept empty *)
     (* Check CPUs *)
     let my_cpu_vendor =
       Db.Host.get_cpu_info ~__context ~self:me |> List.assoc "vendor"

@@ -4,14 +4,21 @@ set -eux
 DIRS="/var/lib/xcp /var/run/nonpersistent /etc/xensource"
 mkdir -p $DIRS
 echo "$(uuidgen)/$(uuidgen)/$(uuidgen)" >/etc/xensource/ptoken
+MANAGEMENT_INTERFACE=$(basename $(find /sys/class/net -name 'e*' | head -n1))
 cat >/etc/xensource-inventory <<EOF
 INSTALLATION_UUID=$(uuidgen)
 CONTROL_DOMAIN_UUID=$(uuidgen)
-MANAGEMENT_INTERFACE=$(basename $(find /sys/class/net -name 'e*' | head -n1))
+MANAGEMENT_INTERFACE=${MANAGEMENT_INTERFACE}
 MANAGEMENT_ADDRESS_TYPE=IPv4
 EOF
 
 echo master >/etc/xensource/pool.conf
+
+cat >/opt/xensource/libexec/bfs-interfaces <<EOF
+#!/bin/sh
+echo "${MANAGEMENT_INTERFACE}"
+EOF
+chmod +x /opt/xensource/libexec/bfs-interfaces
 
 mkdir -p /var/run/message-switch
 mkdir -p /var/xapi
