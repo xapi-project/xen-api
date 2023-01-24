@@ -207,14 +207,14 @@ let config_file ?(accept = None) config host port =
          ]
        ; ( match config with
          | None ->
-             ["sni="]
+             []
          | Some {sni; verify; cert_bundle_path} ->
              [
                ""
              ; "# use SNI to request a specific cert. CAfile contains"
              ; "# public certs of all hosts in the pool and must contain"
              ; "# the cert of the server we connect to"
-             ; "sni=" ^ (match sni with None -> "" | Some s ->  s)
+             ; (match sni with None -> "" | Some s ->  "sni = " ^ s)
              ; ( match verify with
                | VerifyPeer ->
                    ""
