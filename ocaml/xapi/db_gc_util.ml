@@ -246,6 +246,21 @@ let gc_certificates ~__context =
      )
   |> List.iter (fun (cert, _) -> Db.Certificate.destroy ~__context ~self:cert)
 
+let gc_vtpms ~__context =
+  Db.VTPM.get_all ~__context
+  |> List.iter (fun vtpm ->
+         let is_valid =
+           valid_ref __context (Db.VTPM.get_VM ~__context ~self:vtpm)
+         in
+
+         if not is_valid then (
+           let contents = Db.VTPM.get_contents ~__context ~self:vtpm in
+           if contents <> Ref.null then
+             Db.Secret.destroy ~__context ~self:contents ;
+           Db.VTPM.destroy ~__context ~self:vtpm
+         )
+     )
+
 let probation_pending_tasks = Hashtbl.create 53
 
 let timeout_tasks ~__context =
@@ -605,6 +620,7 @@ let gc_subtask_list =
   ; ("PVS servers", gc_PVS_servers)
   ; ("PVS cache storage", gc_PVS_cache_storage)
   ; ("Certificates", gc_certificates)
+  ; ("VTPMs", gc_vtpms)
   ; (* timeout_alerts; *)
     (* CA-29253: wake up all blocked clients *)
     ("Heartbeat", Xapi_event.heartbeat)
