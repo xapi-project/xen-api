@@ -168,7 +168,8 @@ let query_result_of_sr_driver_info x =
   }
 
 type attach_info = {
-    params: string
+    params: string option
+  ; params_nbd: string
   ; o_direct: bool
   ; o_direct_reason: string
   ; xenstore_data: (string * string) list
