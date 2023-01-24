@@ -10,7 +10,7 @@ regen_bundle () {
   BUNDLE="$2"
 
   mkdir -p "$CERTS_DIR"
-  CERTS=$(find "$CERTS_DIR" -name '*.pem')
+  CERTS=$(find "$CERTS_DIR" -not -name '*.new.pem' -name '*.pem')
 
   rm -f "$BUNDLE.tmp"
   touch "$BUNDLE.tmp"
