@@ -214,7 +214,7 @@ let config_file ?(accept = None) config host port =
              ; "# use SNI to request a specific cert. CAfile contains"
              ; "# public certs of all hosts in the pool and must contain"
              ; "# the cert of the server we connect to"
-             ; (match sni with None -> "" | Some s -> sprintf "sni = %s" s)
+             ; "sni=" ^ (match sni with None -> "" | Some s ->  s)
              ; ( match verify with
                | VerifyPeer ->
                    ""
@@ -344,6 +344,7 @@ let attempt_one_connect ?(use_fork_exec_helper = true)
         Option.iter (fun s -> Unixfd.safe_close s) sock_of_stunnel ;
         (* Catch the occasional initialisation failure of stunnel: *)
         try
+          D.debug "stunnel client config: %s" config;
           let len = String.length config in
           let n =
             Unix.write Unixfd.(!config_in) (Bytes.of_string config) 0 len
