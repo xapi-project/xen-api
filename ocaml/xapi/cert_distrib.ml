@@ -457,7 +457,10 @@ let ( (get_local_ca_certs : unit -> WireProtocol.certificate_file list)
      * executed on [path] *)
     Sys.readdir path
     |> Array.to_list
-    |> List.filter (Fun.flip Filename.check_suffix "pem")
+    |> List.filter (fun x ->
+           Filename.check_suffix x "pem"
+           && not (Filename.check_suffix x "new.pem")
+       )
     |> List.map (fun filename ->
            let path = Filename.concat path filename in
            let content = string_of_file path in
