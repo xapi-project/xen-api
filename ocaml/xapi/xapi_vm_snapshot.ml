@@ -169,27 +169,23 @@ let checkpoint ~__context ~vm ~new_name =
 
 (* The following code have to run on the master as it manipulates the DB cache directly. *)
 let copy_vm_fields ~__context ~metadata ~dst ~do_not_copy ~overrides =
-  if not (Pool_role.is_master ()) then
-    raise
-      Api_errors.(
-        Server_error
-          ( internal_error
-          , ["copy_vm_fields: Aborting because the host is not master"]
-          )
-      ) ;
+  ( if not (Pool_role.is_master ()) then
+      let msg = "copy_vm_fields: Aborting because the host is not master" in
+      raise Api_errors.(Server_error (internal_error, [msg]))
+  ) ;
   debug "copying metadata into %s" (Ref.string_of dst) ;
   let db = Context.database_of __context in
   let module DB = (val Db_cache.get db : Db_interface.DB_ACCESS) in
   List.iter
     (fun (key, value) ->
-      let value =
-        if List.mem_assoc key overrides then
-          List.assoc key overrides
-        else
-          value
-      in
+      let value = Option.value ~default:value (List.assoc_opt key overrides) in
       if not (List.mem key do_not_copy) then
-        DB.write_field db Db_names.vm (Ref.string_of dst) key value
+        try DB.write_field db Db_names.vm (Ref.string_of dst) key value
+        with Db_exn.DBCache_NotFound ("missing column", _, name) ->
+          warn
+            "%s: ignoring field '%s'. VM records do not contain it. The \
+             snapshot was probably created before the field was removed."
+            __FUNCTION__ name
     )
     metadata
 
@@ -405,6 +401,8 @@ let do_not_copy =
     "power_state"
   ; (* Attached PCIs should not revert from snapshot *)
     "attached_PCIs"
+  ; (* These fields have been removed from the database and cannot be loaded *)
+    "is_snapshot_from_vmpp"
   ]
 
 let overrides = [(Db_names.ha_always_run, "false")]
