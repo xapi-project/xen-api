@@ -1,5 +1,7 @@
 XenServer PowerShell Module
-===================================
+===========================
+
+Copyright (c) 2013-2023 Cloud Software Group, Inc. All Rights Reserved.
 
 The XenServer PowerShell Module is a complete SDK for XenServer,
 exposing the XenServer API as Windows PowerShell cmdlets.
@@ -50,7 +52,7 @@ The XenServer PowerShell Module is dependent upon the following libraries:
   for details. A patched version of the library (Newtonsoft.Json.CH.dll) is
   shipped with the XenServer PowerShell Module.
 
-- XenServer.NET by Citrix Systems, Inc.
+- XenServer.NET by Cloud Software Group, Inc.
   XenServer.NET is a complete SDK for XenServer, exposing the XenServer
   API as .NET classes. It is written in C#. 
 

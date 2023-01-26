@@ -1,6 +1,5 @@
 #
-# Copyright (c) Citrix Systems, Inc.
-# All rights reserved.
+# Copyright (c) Cloud Software Group, Inc.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -37,8 +36,8 @@ GUID = 'D695A8B9-039A-443C-99A4-0D48D7C6AD76'
 
 #Copyright
 Author = ''
-CompanyName = 'Citrix Systems, Inc'
-Copyright = 'Copyright (c) Citrix Systems, Inc. All rights reserved.'
+CompanyName = 'Cloud Software Group, Inc'
+Copyright = 'Copyright (c) 2013-2023 Cloud Software Group, Inc. All rights reserved.'
 
 # Requirements
 PowerShellVersion = '7.2'

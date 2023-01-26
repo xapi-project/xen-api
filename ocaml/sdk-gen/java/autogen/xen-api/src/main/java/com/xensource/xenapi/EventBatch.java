@@ -1,6 +1,5 @@
 /*
- * Copyright (c) Citrix Systems, Inc.
- * All rights reserved.
+ * Copyright (c) Cloud Software Group, Inc.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -35,7 +34,7 @@ import java.util.Set;
 /**
  * Class used to map the output of Event.from().
  *
- * @author Citrix Systems, Inc.
+ * @author Cloud Software Group, Inc.
  */
 public class EventBatch
 {
