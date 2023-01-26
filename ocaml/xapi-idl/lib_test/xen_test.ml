@@ -22,9 +22,9 @@ let old_vm_t =
    \"memory_static_max\": 268435456, \"memory_dynamic_max\": 268435456, \
    \"memory_dynamic_min\": 134217728, \"vcpu_max\": 1, \"vcpus\": 1, \
    \"scheduler_params\": {\"priority\": [256, 0], \"affinity\": []}, \
-   \"on_crash\": [\"Shutdown\"], \"on_shutdown\": [\"Shutdown\"], \
-   \"on_reboot\": [\"Start\"], \"pci_msitranslate\": true, \"pci_power_mgmt\": \
-   false}"
+   \"on_softreboot\": [\"Shutdown\"], \"on_crash\": [\"Shutdown\"], \
+   \"on_shutdown\": [\"Shutdown\"], \"on_reboot\": [\"Start\"], \
+   \"pci_msitranslate\": true, \"pci_power_mgmt\": false}"
 
 let test_upgrade_rules () =
   let old_json = old_vm_t in

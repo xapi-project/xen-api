@@ -1120,7 +1120,7 @@ module MD = struct
     |> List.map (fun pusb -> of_vusb ~__context ~vm ~pusb)
 
   let of_vm ~__context (vmref, vm) vbds pci_passthrough vgpu =
-    let on_crash_behaviour = function
+    let on_action_behaviour = function
       | `preserve ->
           [Vm.Pause]
       | `coredump_and_restart ->
@@ -1131,13 +1131,10 @@ module MD = struct
           [Vm.Start]
       | `destroy ->
           [Vm.Shutdown]
+      | `soft_reboot ->
+          [Vm.Softreboot]
     in
-    let on_normal_exit_behaviour = function
-      | `restart ->
-          [Vm.Start]
-      | `destroy ->
-          [Vm.Shutdown]
-    in
+
     let open Vm in
     let scheduler_params =
       (* vcpu <-> pcpu affinity settings are stored here.
@@ -1321,9 +1318,10 @@ module MD = struct
     ; vcpu_max= Int64.to_int vm.API.vM_VCPUs_max
     ; vcpus= Int64.to_int vm.API.vM_VCPUs_at_startup
     ; scheduler_params
-    ; on_crash= on_crash_behaviour vm.API.vM_actions_after_crash
-    ; on_shutdown= on_normal_exit_behaviour vm.API.vM_actions_after_shutdown
-    ; on_reboot= on_normal_exit_behaviour vm.API.vM_actions_after_reboot
+    ; on_crash= on_action_behaviour vm.API.vM_actions_after_crash
+    ; on_shutdown= on_action_behaviour vm.API.vM_actions_after_shutdown
+    ; on_reboot= on_action_behaviour vm.API.vM_actions_after_reboot
+    ; on_softreboot= on_action_behaviour vm.API.vM_actions_after_softreboot
     ; pci_msitranslate
     ; pci_power_mgmt= false
     ; has_vendor_device= vm.API.vM_has_vendor_device

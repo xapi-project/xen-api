@@ -98,6 +98,17 @@ let on_crash_behaviour =
       ]
     )
 
+let on_softreboot_behavior =
+  Enum
+    ( "on_softreboot_behavior"
+    , [
+        ("soft_reboot", "perform soft-reboot")
+      ; ("destroy", "destroy the VM state")
+      ; ("restart", "restart the VM")
+      ; ("preserve", "leave the VM paused")
+      ]
+    )
+
 let on_normal_exit_behaviour =
   Enum
     ( "on_normal_exit"
@@ -118,8 +129,13 @@ let vcpus =
 let actions =
   let crash = field ~qualifier:StaticRO ~ty:on_crash_behaviour in
   let normal = field ~ty:on_normal_exit_behaviour in
+  let soft =
+    field ~qualifier:RW ~lifecycle:[] ~ty:on_softreboot_behavior
+      ~default_value:(Some (VEnum "soft_reboot"))
+  in
   [
-    normal "after_shutdown" "action to take after the guest has shutdown itself"
+    soft "after_softreboot" "action to take after soft reboot"
+  ; normal "after_shutdown" "action to take after the guest has shutdown itself"
   ; normal "after_reboot" "action to take after the guest has rebooted itself"
   ; crash "after_crash" "action to take if the guest crashes"
   ]

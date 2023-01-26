@@ -158,6 +158,7 @@ val create :
   -> vCPUs_params:(string * string) list
   -> vCPUs_max:int64
   -> vCPUs_at_startup:int64
+  -> actions_after_softreboot:[< `soft_reboot | `destroy | `preserve | `restart]
   -> actions_after_shutdown:[< `destroy | `restart]
   -> actions_after_reboot:[< `destroy | `restart]
   -> actions_after_crash:
