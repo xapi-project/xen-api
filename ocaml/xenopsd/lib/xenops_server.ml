@@ -136,7 +136,6 @@ type atomic =
   | VM_set_shadow_multiplier of (Vm.id * float)
   | VM_set_memory_dynamic_range of (Vm.id * int64 * int64)
   | VM_pause of Vm.id
-  | VM_softreboot of Vm.id
   | VM_unpause of Vm.id
   | VM_request_rdp of (Vm.id * bool)
   | VM_run_script of (Vm.id * string)
@@ -2123,9 +2122,6 @@ let rec perform_atomic ~progress_callback ?subtask:_ ?result (op : atomic)
   | VM_delay (id, t) ->
       debug "VM %s: waiting for %.2f before next VM action" id t ;
       Thread.delay t
-  | VM_softreboot id ->
-      debug "VM.soft_reset %s" id ;
-      B.VM.soft_reset t (VM_DB.read_exn id)
 
 and queue_atomic_int ~progress_callback dbg id op =
   let task =
@@ -2321,8 +2317,7 @@ and trigger_cleanup_after_failure_atom op t =
   | VM_s3resume id
   | VM_save (id, _, _, _)
   | VM_restore (id, _, _)
-  | VM_delay (id, _)
-  | VM_softreboot id ->
+  | VM_delay (id, _) ->
       immediate_operation dbg id (VM_check_state id)
   | Best_effort op ->
       trigger_cleanup_after_failure_atom op t
@@ -2860,7 +2855,7 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
               warn "VM %s has unexpectedly suspended" id ;
               [Vm.Shutdown]
           | Some Needs_softreset ->
-              vm.Vm.on_softreboot
+              B.VM.soft_reset t vm ; []
           | None ->
               debug "VM %s is not requesting any attention" id ;
               []
@@ -2881,8 +2876,6 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
               delay @ [VM_reboot (id, None)]
           | Vm.Pause ->
               [Atomic (VM_pause id)]
-          | Vm.Softreboot ->
-              [Atomic (VM_softreboot id)]
         in
         let operations = List.concat (List.map operations_of_action actions) in
         List.iter (fun x -> perform_exn x t) operations ;

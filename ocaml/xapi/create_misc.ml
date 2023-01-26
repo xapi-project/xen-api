@@ -295,18 +295,17 @@ and create_domain_zero_record ~__context ~domain_zero_ref (host_info : host_info
     ~hVM_boot_policy:"" ~hVM_boot_params:[] ~hVM_shadow_multiplier:1.
     ~platform:[] ~pCI_bus:"" ~pV_args:"" ~pV_ramdisk:"" ~pV_kernel:""
     ~pV_bootloader:"" ~pV_bootloader_args:"" ~pV_legacy_args:""
-    ~actions_after_softreboot:`soft_reboot ~actions_after_crash:`destroy
-    ~actions_after_reboot:`destroy ~actions_after_shutdown:`destroy
-    ~allowed_operations:[] ~current_operations:[] ~blocked_operations:[]
-    ~power_state:`Running ~vCPUs_max:(Int64.of_int vcpus)
-    ~vCPUs_at_startup:(Int64.of_int vcpus) ~vCPUs_params:[] ~memory_overhead:0L
-    ~memory_static_min:memory.static_min ~memory_dynamic_min:memory.dynamic_min
-    ~memory_target:memory.target ~memory_static_max:memory.static_max
-    ~memory_dynamic_max:memory.dynamic_max ~resident_on:localhost
-    ~scheduled_to_be_resident_on:Ref.null ~affinity:localhost
-    ~suspend_VDI:Ref.null ~domid:0L ~domarch ~is_control_domain:true
-    ~is_a_template:false ~is_default_template:false ~is_a_snapshot:false
-    ~snapshot_time:Date.never ~snapshot_of:Ref.null
+    ~actions_after_crash:`destroy ~actions_after_reboot:`destroy
+    ~actions_after_shutdown:`destroy ~allowed_operations:[]
+    ~current_operations:[] ~blocked_operations:[] ~power_state:`Running
+    ~vCPUs_max:(Int64.of_int vcpus) ~vCPUs_at_startup:(Int64.of_int vcpus)
+    ~vCPUs_params:[] ~memory_overhead:0L ~memory_static_min:memory.static_min
+    ~memory_dynamic_min:memory.dynamic_min ~memory_target:memory.target
+    ~memory_static_max:memory.static_max ~memory_dynamic_max:memory.dynamic_max
+    ~resident_on:localhost ~scheduled_to_be_resident_on:Ref.null
+    ~affinity:localhost ~suspend_VDI:Ref.null ~domid:0L ~domarch
+    ~is_control_domain:true ~is_a_template:false ~is_default_template:false
+    ~is_a_snapshot:false ~snapshot_time:Date.never ~snapshot_of:Ref.null
     ~transportable_snapshot_id:"" ~snapshot_info:[] ~snapshot_metadata:""
     ~parent:Ref.null ~other_config:[] ~blobs:[] ~xenstore_data:[] ~tags:[]
     ~user_version:1L ~ha_restart_priority:"" ~ha_always_run:false

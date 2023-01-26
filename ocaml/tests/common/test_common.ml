@@ -128,7 +128,6 @@ let make_vm ~__context ?(name_label = "name_label")
     ?(memory_static_max = 1000L) ?(memory_dynamic_max = 500L)
     ?(memory_dynamic_min = 500L) ?(memory_static_min = 0L) ?(vCPUs_params = [])
     ?(vCPUs_max = 1L) ?(vCPUs_at_startup = 1L)
-    ?(actions_after_softreboot = `soft_reboot)
     ?(actions_after_shutdown = `destroy) ?(actions_after_reboot = `restart)
     ?(actions_after_crash = `destroy) ?(pV_bootloader = "") ?(pV_kernel = "")
     ?(pV_ramdisk = "") ?(pV_args = "") ?(pV_bootloader_args = "")
@@ -148,17 +147,16 @@ let make_vm ~__context ?(name_label = "name_label")
   Xapi_vm.create ~__context ~name_label ~name_description ~user_version
     ~is_a_template ~affinity ~memory_target ~memory_static_max
     ~memory_dynamic_max ~memory_dynamic_min ~memory_static_min ~vCPUs_params
-    ~vCPUs_max ~vCPUs_at_startup ~actions_after_softreboot
-    ~actions_after_shutdown ~actions_after_reboot ~actions_after_crash
-    ~pV_bootloader ~pV_kernel ~pV_ramdisk ~pV_args ~pV_bootloader_args
-    ~pV_legacy_args ~hVM_boot_policy ~hVM_boot_params ~hVM_shadow_multiplier
-    ~platform ~nVRAM ~pCI_bus ~other_config ~xenstore_data ~recommendations
-    ~ha_always_run ~ha_restart_priority ~tags ~blocked_operations
-    ~protection_policy ~appliance ~start_delay ~shutdown_delay ~order
-    ~suspend_SR ~suspend_VDI ~snapshot_schedule ~is_vmss_snapshot ~version
-    ~generation_id ~hardware_platform_version ~has_vendor_device
-    ~reference_label ~domain_type ~last_booted_record ~last_boot_CPU_flags
-    ~power_state
+    ~vCPUs_max ~vCPUs_at_startup ~actions_after_shutdown ~actions_after_reboot
+    ~actions_after_crash ~pV_bootloader ~pV_kernel ~pV_ramdisk ~pV_args
+    ~pV_bootloader_args ~pV_legacy_args ~hVM_boot_policy ~hVM_boot_params
+    ~hVM_shadow_multiplier ~platform ~nVRAM ~pCI_bus ~other_config
+    ~xenstore_data ~recommendations ~ha_always_run ~ha_restart_priority ~tags
+    ~blocked_operations ~protection_policy ~appliance ~start_delay
+    ~shutdown_delay ~order ~suspend_SR ~suspend_VDI ~snapshot_schedule
+    ~is_vmss_snapshot ~version ~generation_id ~hardware_platform_version
+    ~has_vendor_device ~reference_label ~domain_type ~last_booted_record
+    ~last_boot_CPU_flags ~power_state
 
 let make_host ~__context ?(uuid = make_uuid ()) ?(name_label = "host")
     ?(name_description = "description") ?(hostname = "localhost")

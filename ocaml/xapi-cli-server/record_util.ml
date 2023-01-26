@@ -628,37 +628,6 @@ let string_to_on_crash_behaviour s =
            )
         )
 
-let on_softreboot_behaviour_to_string x =
-  match x with
-  | `destroy ->
-      "Destroy"
-  | `restart ->
-      "Restart"
-  | `preserve ->
-      "Preserve"
-  | `soft_reboot ->
-      "Soft reboot"
-
-let string_to_on_softreboot_behaviour s =
-  match String.lowercase_ascii s with
-  | "destroy" ->
-      `destroy
-  | "restart" ->
-      `restart
-  | "preserve" ->
-      `preserve
-  | "soft_reboot" ->
-      `soft_reboot
-  | _ ->
-      raise
-        (Record_failure
-           ("Expected 'destroy', 'coredump_and_destroy',"
-           ^ "'restart', 'coredump_and_restart', 'preserve', 'soft_reboot' or \
-              'rename_restart', got "
-           ^ s
-           )
-        )
-
 let host_display_to_string h =
   match h with
   | `enabled ->

@@ -671,7 +671,6 @@ let add' _copts x () =
             ; on_crash= [Vm.Shutdown]
             ; on_shutdown= [Vm.Shutdown]
             ; on_reboot= [Vm.Start]
-            ; on_softreboot= [Vm.Softreboot]
             ; pci_msitranslate
             ; pci_power_mgmt
             ; has_vendor_device

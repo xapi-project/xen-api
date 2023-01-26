@@ -585,16 +585,16 @@ let resume_on ~__context ~vm ~host ~start_paused ~force =
 let create ~__context ~name_label ~name_description ~power_state ~user_version
     ~is_a_template ~suspend_VDI ~affinity ~memory_target ~memory_static_max
     ~memory_dynamic_max ~memory_dynamic_min ~memory_static_min ~vCPUs_params
-    ~vCPUs_max ~vCPUs_at_startup ~actions_after_softreboot
-    ~actions_after_shutdown ~actions_after_reboot ~actions_after_crash
-    ~pV_bootloader ~pV_kernel ~pV_ramdisk ~pV_args ~pV_bootloader_args
-    ~pV_legacy_args ~hVM_boot_policy ~hVM_boot_params ~hVM_shadow_multiplier
-    ~platform ~pCI_bus ~other_config ~last_boot_CPU_flags ~last_booted_record
-    ~recommendations ~xenstore_data ~ha_always_run ~ha_restart_priority ~tags
-    ~blocked_operations:_ ~protection_policy:_ ~snapshot_schedule:_
-    ~is_vmss_snapshot:_ ~appliance ~start_delay ~shutdown_delay ~order
-    ~suspend_SR ~version ~generation_id ~hardware_platform_version
-    ~has_vendor_device ~reference_label ~domain_type ~nVRAM : API.ref_VM =
+    ~vCPUs_max ~vCPUs_at_startup ~actions_after_shutdown ~actions_after_reboot
+    ~actions_after_crash ~pV_bootloader ~pV_kernel ~pV_ramdisk ~pV_args
+    ~pV_bootloader_args ~pV_legacy_args ~hVM_boot_policy ~hVM_boot_params
+    ~hVM_shadow_multiplier ~platform ~pCI_bus ~other_config ~last_boot_CPU_flags
+    ~last_booted_record ~recommendations ~xenstore_data ~ha_always_run
+    ~ha_restart_priority ~tags ~blocked_operations:_ ~protection_policy:_
+    ~snapshot_schedule:_ ~is_vmss_snapshot:_ ~appliance ~start_delay
+    ~shutdown_delay ~order ~suspend_SR ~version ~generation_id
+    ~hardware_platform_version ~has_vendor_device ~reference_label ~domain_type
+    ~nVRAM : API.ref_VM =
   if has_vendor_device then
     Pool_features.assert_enabled ~__context
       ~f:Features.PCI_device_for_auto_update ;
@@ -662,19 +662,19 @@ let create ~__context ~name_label ~name_description ~power_state ~user_version
     ~scheduled_to_be_resident_on ~affinity ~memory_overhead:0L
     ~memory_static_max ~memory_dynamic_max ~memory_target ~memory_dynamic_min
     ~memory_static_min ~vCPUs_params ~vCPUs_at_startup ~vCPUs_max
-    ~actions_after_softreboot ~actions_after_shutdown ~actions_after_reboot
-    ~actions_after_crash ~hVM_boot_policy ~hVM_boot_params
-    ~hVM_shadow_multiplier ~suspend_VDI:_suspend_VDI ~platform ~nVRAM ~pV_kernel
-    ~pV_ramdisk ~pV_args ~pV_bootloader ~pV_bootloader_args ~pV_legacy_args
-    ~pCI_bus ~other_config ~domid:(-1L) ~domarch:""
-    ~last_boot_CPU_flags:_last_boot_CPU_flags ~is_control_domain:false ~metrics
-    ~guest_metrics:Ref.null ~last_booted_record:_last_booted_record
-    ~xenstore_data ~recommendations ~blobs:[] ~ha_restart_priority
-    ~ha_always_run ~tags ~bios_strings:[] ~protection_policy:Ref.null
-    ~snapshot_schedule:Ref.null ~is_vmss_snapshot:false ~appliance ~start_delay
-    ~shutdown_delay ~order ~suspend_SR ~version ~generation_id
-    ~hardware_platform_version ~has_vendor_device ~requires_reboot:false
-    ~reference_label ~domain_type ~pending_guidances:[] ;
+    ~actions_after_shutdown ~actions_after_reboot ~actions_after_crash
+    ~hVM_boot_policy ~hVM_boot_params ~hVM_shadow_multiplier
+    ~suspend_VDI:_suspend_VDI ~platform ~nVRAM ~pV_kernel ~pV_ramdisk ~pV_args
+    ~pV_bootloader ~pV_bootloader_args ~pV_legacy_args ~pCI_bus ~other_config
+    ~domid:(-1L) ~domarch:"" ~last_boot_CPU_flags:_last_boot_CPU_flags
+    ~is_control_domain:false ~metrics ~guest_metrics:Ref.null
+    ~last_booted_record:_last_booted_record ~xenstore_data ~recommendations
+    ~blobs:[] ~ha_restart_priority ~ha_always_run ~tags ~bios_strings:[]
+    ~protection_policy:Ref.null ~snapshot_schedule:Ref.null
+    ~is_vmss_snapshot:false ~appliance ~start_delay ~shutdown_delay ~order
+    ~suspend_SR ~version ~generation_id ~hardware_platform_version
+    ~has_vendor_device ~requires_reboot:false ~reference_label ~domain_type
+    ~pending_guidances:[] ;
   Xapi_vm_lifecycle.update_allowed_operations ~__context ~self:vm_ref ;
   update_memory_overhead ~__context ~vm:vm_ref ;
   update_vm_virtual_hardware_platform_version ~__context ~vm:vm_ref ;

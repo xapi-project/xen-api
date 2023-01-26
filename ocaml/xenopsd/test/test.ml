@@ -253,7 +253,6 @@ let create_vm vmid =
   ; on_crash= [Vm.Shutdown]
   ; on_shutdown= [Vm.Shutdown]
   ; on_reboot= [Vm.Start]
-  ; on_softreboot= [Vm.Softreboot]
   ; pci_msitranslate= true
   ; pci_power_mgmt= false
   ; has_vendor_device= false
@@ -974,7 +973,7 @@ let barrier_ordering () =
 let test_ca351823 () =
   let open Suspend_image.Xenops_record in
   let s =
-    {|((time 20210219T17:16:27Z)(word_size 64)(vm_str "((id 434d1235-c58b-99f4-f652-c79d57e50719)(name vm-generic-linux)(ssidref 0)(xsdata((vm-data \"\")))(platformdata((featureset 17cbfbff-f7fa3223-2d93fbff-00000023-00000001-000007ab-00000000-00000000-00001000-9c000400)(generation-id \"\")(timeoffset 0)(usb true)(usb_tablet true)(device-model qemu-upstream-compat)(acpi 1)(apic true)(pae true)(hpet true)(vga std)(videoram 8)(nx true)(viridian false)(device_id 0001)))(bios_strings((bios-vendor Xen)(bios-version \"\")(system-manufacturer Xen)(system-product-name \"HVM domU\")(system-version \"\")(system-serial-number \"\")(hp-rombios \"\")(oem-1 Xen)(oem-2 MS_VM_CERT/SHA1/bdbeb6e0a816d43fa6d3fe8aaef04c2bad9d3e3d)))(ty(HVM((hap true)(shadow_multiplier 1)(timeoffset 0)(video_mib 8)(video Standard_VGA)(acpi true)(serial(pty))(keymap())(vnc_ip())(pci_emulations())(pci_passthrough false)(boot_order c)(qemu_disk_cmdline false)(qemu_stubdom false))))(suppress_spurious_page_faults false)(machine_address_size())(memory_static_max 4294967296)(memory_dynamic_max 4294967296)(memory_dynamic_min 4294967296)(vcpu_max 2)(vcpus 2)(scheduler_params((priority((256 0)))(affinity())))(on_softreboot(Pause))(on_crash(Pause))(on_shutdown(Shutdown))(on_reboot(Start))(pci_msitranslate true)(pci_power_mgmt false)(has_vendor_device false))")(xs_subtree()))|}
+    {|((time 20210219T17:16:27Z)(word_size 64)(vm_str "((id 434d1235-c58b-99f4-f652-c79d57e50719)(name vm-generic-linux)(ssidref 0)(xsdata((vm-data \"\")))(platformdata((featureset 17cbfbff-f7fa3223-2d93fbff-00000023-00000001-000007ab-00000000-00000000-00001000-9c000400)(generation-id \"\")(timeoffset 0)(usb true)(usb_tablet true)(device-model qemu-upstream-compat)(acpi 1)(apic true)(pae true)(hpet true)(vga std)(videoram 8)(nx true)(viridian false)(device_id 0001)))(bios_strings((bios-vendor Xen)(bios-version \"\")(system-manufacturer Xen)(system-product-name \"HVM domU\")(system-version \"\")(system-serial-number \"\")(hp-rombios \"\")(oem-1 Xen)(oem-2 MS_VM_CERT/SHA1/bdbeb6e0a816d43fa6d3fe8aaef04c2bad9d3e3d)))(ty(HVM((hap true)(shadow_multiplier 1)(timeoffset 0)(video_mib 8)(video Standard_VGA)(acpi true)(serial(pty))(keymap())(vnc_ip())(pci_emulations())(pci_passthrough false)(boot_order c)(qemu_disk_cmdline false)(qemu_stubdom false))))(suppress_spurious_page_faults false)(machine_address_size())(memory_static_max 4294967296)(memory_dynamic_max 4294967296)(memory_dynamic_min 4294967296)(vcpu_max 2)(vcpus 2)(scheduler_params((priority((256 0)))(affinity())))(on_crash(Pause))(on_shutdown(Shutdown))(on_reboot(Start))(pci_msitranslate true)(pci_power_mgmt false)(has_vendor_device false))")(xs_subtree()))|}
   in
   match of_string s with
   | Ok _ ->
