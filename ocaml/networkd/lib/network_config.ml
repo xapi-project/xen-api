@@ -56,9 +56,26 @@ let read_management_conf () =
     in
     debug "Firstboot file management.conf has: %s"
       (String.concat "; " (List.map (fun (k, v) -> k ^ "=" ^ v) args)) ;
-    let device = List.assoc "LABEL" args in
-    let vlan =
-      if List.mem_assoc "VLAN" args then Some (List.assoc "VLAN" args) else None
+    let vlan = List.assoc_opt "VLAN" args in
+    let bond_mode =
+      Option.value ~default:"" (List.assoc_opt "BOND_MODE" args)
+    in
+    let bond_members =
+      String.split_on_char ',' (List.assoc "BOND_MEMBERS" args)
+    in
+    let device =
+      (* Take 1st member of bond *)
+      match (bond_mode, bond_members) with
+      | "", _ | _, [] -> (
+        match List.assoc_opt "LABEL" args with
+        | Some x ->
+            x
+        | None ->
+            error "%s: missing LABEL in %s" __FUNCTION__ management_conf ;
+            raise Read_error
+      )
+      | _, hd :: _ ->
+          hd
     in
     Inventory.reread_inventory () ;
     let bridge_name =
