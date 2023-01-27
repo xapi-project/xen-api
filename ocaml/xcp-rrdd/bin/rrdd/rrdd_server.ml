@@ -12,9 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-(* The framework requires type 'context' to be defined. *)
-type context = unit
-
 let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
 open Rrdd_shared
@@ -342,33 +339,46 @@ let send_host_rrd_to_master master_address =
   | None ->
       ()
 
+let fail_missing name = raise (Rrdd_error (Datasource_missing name))
+
 (** {add_ds rrdi ds_name} creates a new time series (rrd) in {rrdi} with the
     name {ds_name}. The operation fails if rrdi does not contain any live
     datasource with the name {ds_name} *)
 let add_ds ~rrdi ~ds_name =
-  let open Ds in
-  let ds = List.find (fun ds -> ds.ds_name = ds_name) rrdi.dss in
+  match List.find_opt (fun ds -> ds.Ds.ds_name = ds_name) rrdi.dss with
+  | None ->
+      fail_missing ds_name
+  | Some ds ->
+      let now = Unix.gettimeofday () in
+      Rrd.rrd_add_ds rrdi.rrd now
+        (Rrd.ds_create ds.ds_name ds.ds_type ~mrhb:300.0 Rrd.VT_Unknown)
+
+let add rrds uuid domid ds_name rrdi =
+  let rrd = add_ds ~rrdi ~ds_name in
+  Hashtbl.replace rrds uuid {rrd; dss= rrdi.dss; domid}
+
+let forget rrds ~uuid ~ds_name rrdi =
+  Hashtbl.replace rrds uuid {rrdi with rrd= Rrd.rrd_remove_ds rrdi.rrd ds_name}
+
+let query ds_name rrdi =
   let now = Unix.gettimeofday () in
-  Rrd.rrd_add_ds rrdi.rrd now
-    (Rrd.ds_create ds.ds_name ds.ds_type ~mrhb:300.0 Rrd.VT_Unknown)
+  Rrd.query_named_ds rrdi.rrd now ds_name Rrd.CF_Average
 
 let add_host_ds (ds_name : string) : unit =
   with_lock mutex (fun () ->
-      match !host_rrd with
-      | None ->
-          ()
-      | Some rrdi ->
-          let rrd = add_ds ~rrdi ~ds_name in
-          host_rrd := Some {rrdi with rrd}
+      let add rrdi =
+        let rrd = add_ds ~rrdi ~ds_name in
+        host_rrd := Some {rrdi with rrd}
+      in
+      Option.iter add !host_rrd
   )
 
 let forget_host_ds (ds_name : string) : unit =
   with_lock mutex (fun () ->
-      match !host_rrd with
-      | None ->
-          ()
-      | Some rrdi ->
-          host_rrd := Some {rrdi with rrd= Rrd.rrd_remove_ds rrdi.rrd ds_name}
+      let forget rrdi =
+        host_rrd := Some {rrdi with rrd= Rrd.rrd_remove_ds rrdi.rrd ds_name}
+      in
+      Option.iter forget !host_rrd
   )
 
 let query_possible_dss rrdi =
@@ -434,17 +444,16 @@ let query_possible_dss rrdi =
 
 let query_possible_host_dss () : Data_source.t list =
   with_lock mutex (fun () ->
-      match !host_rrd with None -> [] | Some rrdi -> query_possible_dss rrdi
+      Option.fold ~some:query_possible_dss ~none:[] !host_rrd
   )
 
 let query_host_ds (ds_name : string) : float =
-  let now = Unix.gettimeofday () in
   with_lock mutex (fun () ->
       match !host_rrd with
       | None ->
-          failwith "No data source!"
+          fail_missing "No host datasource!"
       | Some rrdi ->
-          Rrd.query_named_ds rrdi.rrd now ds_name Rrd.CF_Average
+          query ds_name rrdi
   )
 
 (** {add_vm_ds vm_uuid domid ds_name} enables collection of the data produced by
@@ -454,30 +463,32 @@ let query_host_ds (ds_name : string) : float =
     {ds_name}. *)
 let add_vm_ds (vm_uuid : string) (domid : int) (ds_name : string) : unit =
   with_lock mutex (fun () ->
-      let rrdi = Hashtbl.find vm_rrds vm_uuid in
-      let rrd = add_ds ~rrdi ~ds_name in
-      Hashtbl.replace vm_rrds vm_uuid {rrd; dss= rrdi.dss; domid}
+      match Hashtbl.find_opt vm_rrds vm_uuid with
+      | None ->
+          fail_missing (Printf.sprintf "VM: %s" vm_uuid)
+      | Some rrdi ->
+          add vm_rrds vm_uuid domid ds_name rrdi
   )
 
 let forget_vm_ds (vm_uuid : string) (ds_name : string) : unit =
   with_lock mutex (fun () ->
-      let rrdi = Hashtbl.find vm_rrds vm_uuid in
-      let rrd = rrdi.rrd in
-      Hashtbl.replace vm_rrds vm_uuid
-        {rrdi with rrd= Rrd.rrd_remove_ds rrd ds_name}
+      Hashtbl.find_opt vm_rrds vm_uuid
+      |> Option.iter (forget vm_rrds ~uuid:vm_uuid ~ds_name)
   )
 
 let query_possible_vm_dss (vm_uuid : string) : Data_source.t list =
   with_lock mutex (fun () ->
-      let rrdi = Hashtbl.find vm_rrds vm_uuid in
-      query_possible_dss rrdi
+      Hashtbl.find_opt vm_rrds vm_uuid
+      |> Option.fold ~some:query_possible_dss ~none:[]
   )
 
 let query_vm_ds (vm_uuid : string) (ds_name : string) : float =
-  let now = Unix.gettimeofday () in
   with_lock mutex (fun () ->
-      let rrdi = Hashtbl.find vm_rrds vm_uuid in
-      Rrd.query_named_ds rrdi.rrd now ds_name Rrd.CF_Average
+      match Hashtbl.find_opt vm_rrds vm_uuid with
+      | None ->
+          fail_missing (Printf.sprintf "VM: %s" vm_uuid)
+      | Some rrdi ->
+          query ds_name rrdi
   )
 
 (** {add_sr_ds sr_uuid domid ds_name} enables collection of the data produced by
@@ -487,32 +498,32 @@ let query_vm_ds (vm_uuid : string) (ds_name : string) : float =
     {ds_name}. *)
 let add_sr_ds (sr_uuid : string) (ds_name : string) : unit =
   with_lock mutex (fun () ->
-      let rrdi = Hashtbl.find sr_rrds sr_uuid in
-      let rrd = add_ds ~rrdi ~ds_name in
-      Hashtbl.replace sr_rrds sr_uuid {rrd; dss= rrdi.dss; domid= 0}
+      match Hashtbl.find_opt sr_rrds sr_uuid with
+      | None ->
+          fail_missing (Printf.sprintf "SR: %s" sr_uuid)
+      | Some rrdi ->
+          add sr_rrds sr_uuid 0 ds_name rrdi
   )
 
 let forget_sr_ds (sr_uuid : string) (ds_name : string) : unit =
   with_lock mutex (fun () ->
-      let rrdi = Hashtbl.find sr_rrds sr_uuid in
-      let rrd = rrdi.rrd in
-      Hashtbl.replace sr_rrds sr_uuid
-        {rrdi with rrd= Rrd.rrd_remove_ds rrd ds_name}
+      Hashtbl.find_opt sr_rrds sr_uuid
+      |> Option.iter (forget sr_rrds ~uuid:sr_uuid ~ds_name)
   )
 
 let query_possible_sr_dss (sr_uuid : string) : Data_source.t list =
   with_lock mutex (fun () ->
-      try
-        let rrdi = Hashtbl.find sr_rrds sr_uuid in
-        query_possible_dss rrdi
-      with Not_found -> []
+      Hashtbl.find_opt sr_rrds sr_uuid
+      |> Option.fold ~some:query_possible_dss ~none:[]
   )
 
 let query_sr_ds (sr_uuid : string) (ds_name : string) : float =
-  let now = Unix.gettimeofday () in
   with_lock mutex (fun () ->
-      let rrdi = Hashtbl.find sr_rrds sr_uuid in
-      Rrd.query_named_ds rrdi.rrd now ds_name Rrd.CF_Average
+      match Hashtbl.find_opt sr_rrds sr_uuid with
+      | None ->
+          fail_missing (Printf.sprintf "SR: %s" sr_uuid)
+      | Some rrdi ->
+          query ds_name rrdi
   )
 
 let update_use_min_max (value : bool) : unit =
