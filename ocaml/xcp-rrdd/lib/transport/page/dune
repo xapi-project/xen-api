@@ -5,7 +5,7 @@
   (libraries
     bigarray-compat
     cstruct
-    io-page.unix
+    io-page
     rrd_transport_lib
     threads.posix
     xen-gnt

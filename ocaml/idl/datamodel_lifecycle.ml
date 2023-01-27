@@ -20,9 +20,9 @@ let prototyped_of_field = function
   | "host", "last_software_update" ->
       Some "22.20.0"
   | "VM", "actions__after_softreboot" ->
-      Some "22.34.0-next"
+      Some "22.37.0-next"
   | "pool", "coordinator_bias" ->
-      Some "22.34.0-next"
+      Some "22.37.0"
   | "pool", "migration_compression" ->
       Some "22.33.0"
   | _ ->

@@ -154,7 +154,8 @@ let with_xapi ~cache f =
 let rec wait_connectable path =
   let* res =
     Lwt_result.catch
-      (Conduit_lwt_unix.connect ~ctx:Conduit_lwt_unix.default_ctx
+      (Conduit_lwt_unix.connect
+         ~ctx:(Lazy.force Conduit_lwt_unix.default_ctx)
          (`Unix_domain_socket (`File path))
       )
   in
