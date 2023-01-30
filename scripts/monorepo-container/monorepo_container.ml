@@ -1,8 +1,11 @@
 open Bos_setup
 
-let opam_host = Cmd.(v "opam" % "--cli=2.1")
+let make_cmd str =
+  Cmd.of_string str |> R.error_msg_to_invalid_arg
 
-let opam_container = Cmd.(v "opam-2.1" % "--cli=2.1")
+let opam_host = make_cmd "opam --cli=2.1"
+
+let opam_container = make_cmd "opam-2.1 --cli=2.1"
 
 let with_temp_switchdir f =
   OS.Dir.with_tmp "_opam_monorepo_container.%s" f () |> R.join
@@ -22,7 +25,7 @@ let out_string_lines cmd =
   |> OS.Cmd.to_lines
   |> R.map @@ List.concat_map @@ String.cuts ~rev:false ~empty:false ~sep:" "
 
-  (* we run the query on the host which may be different from the container *)
+(* we run the query on the host which may be different from the container *)
 let env =
   let add = String.Map.of_list
   [
@@ -151,139 +154,7 @@ let build_targets =
 
 module Config = struct let container_uid, container_gid = (1000, 1000) end
 
-module Mount = struct
-  module StringMap = Map.Make (String)
-
-  type t = {mount_type: string; options: string StringMap.t}
-
-  let cache ?id ~user () =
-    let options =
-      if user then
-        List.to_seq
-          [
-            ("uid", string_of_int Config.container_uid)
-          ; ("gid", string_of_int Config.container_gid)
-          ]
-        |> StringMap.of_seq
-      else
-        StringMap.empty
-    in
-    let options =
-      match id with None -> options | Some id -> StringMap.add "id" id options
-    in
-    {mount_type= "cache"; options}
-
-  let bind_ro ?from source =
-    let options = StringMap.singleton "source" Fpath.(to_string source) in
-    let options =
-      match from with
-      | Some from ->
-          StringMap.add "from" from options
-      | None ->
-          options
-    in
-    (* TODO: does podman need z or Z here? *)
-    (* TODO: rw means discard writes, still RO from host's perspective,
-     needed for config.mk *)
-    {mount_type= "bind,rw"; options}
-
-  let tmpfs = {mount_type= "tmpfs"; options= StringMap.empty}
-
-  let to_string (target, t) =
-    StringMap.add "target" Fpath.(to_string target) t.options
-    |> StringMap.to_seq
-    |> Seq.map (fun (k, v) -> Printf.sprintf "%s=%s" k v)
-    |> List.of_seq
-    |> String.concat ~sep:","
-    |> Printf.sprintf "--mount=type=%s,%s" t.mount_type
-end
-
-module Layer = struct
-  module PathMap = Map.Make (Fpath)
-
-  type t = {
-      mounts: Mount.t PathMap.t
-    ; first: Cmd.t
-    ; run_as_root: bool
-    ; rest: Dockerfile.t list
-  }
-
-  let empty =
-    {mounts= PathMap.empty; first= Cmd.empty; rest= []; run_as_root= false}
-
-  let noop = Cmd.(v ":")
-
-  let of_dockerfile t = {empty with rest= [t]}
-
-  let to_dockerfile t =
-    let mounts =
-      t.mounts
-      |> PathMap.to_seq
-      |> Seq.map Mount.to_string
-      |> List.of_seq
-      |> String.concat ~sep:" "
-    in
-    let first_cmd =
-      Cmd.to_string (if Cmd.is_empty t.first then noop else t.first)
-    in
-    let run_cmds =
-      Dockerfile.(run "%s %s" mounts first_cmd @@@ t.rest |> crunch)
-    in
-    if t.run_as_root then
-      Dockerfile.(user "root" @@@ [run_cmds; user "opam"])
-    else if Cmd.is_empty t.first then (
-      if not (PathMap.is_empty t.mounts) then
-        invalid_arg "mounts cannot be combined with non RUN commands" ;
-      Dockerfile.(empty @@@ t.rest |> crunch)
-    ) else
-      run_cmds
-
-  let merge_mount path existing next =
-    let existing_str = Mount.to_string (path, existing)
-    and next_str = Mount.to_string (path, next) in
-    if String.equal existing_str next_str then
-      Some existing
-    else
-      Fmt.invalid_arg
-        "Path %a mounted multiple times with different options:\n\
-        \        %s <> %s" Fpath.pp path existing_str next_str
-
-  let home = Fpath.(v "/home" / "opam")
-
-  let with_mount ~target m t =
-    let new_mount = PathMap.singleton Fpath.(home // target |> normalize) m in
-    {t with mounts= PathMap.union merge_mount t.mounts new_mount}
-
-  let v cmd = {empty with first= cmd}
-
-  let arg ?default x = x |> Dockerfile.arg ?default |> of_dockerfile
-
-  let env lst = lst |> Dockerfile.env |> of_dockerfile
-
-  let dockerfile_of_cmd cmd = Dockerfile.run "%s" Cmd.(to_string cmd)
-
-  let ( ++ ) a b =
-    {
-      mounts= PathMap.union merge_mount a.mounts b.mounts
-    ; first= a.first
-    ; rest=
-        List.concat
-          [
-            a.rest
-          ; ( if Cmd.is_empty b.first then
-                []
-            else
-              [dockerfile_of_cmd b.first]
-            )
-          ; b.rest
-          ]
-    ; run_as_root= a.run_as_root || b.run_as_root (* TODO: reject incompat *)
-    }
-
-  let of_list = function [] -> empty | hd :: tl -> List.fold_left ( ++ ) hd tl
-
-  let with_run_as_root t = {t with run_as_root= true}
-end
+let home = Fpath.(v "/home" / "opam")
 
 module Stage = struct
   type t = {alias: string option; dockerfile: Dockerfile.t}
@@ -294,7 +165,7 @@ module Stage = struct
     ; dockerfile=
         Dockerfile.(
           from ?alias ?tag ?platform from_image
-          @@@ List.map Layer.to_dockerfile lst
+          @@@ lst
         )
     }
 
@@ -304,17 +175,11 @@ module Stage = struct
      apparently a buildah bug fixed very recently but not released yet
   *)
   let with_ro_mount ~from ~source ~target t =
-    let open Layer in
-    t
-    |> with_mount ~target
-       @@ Mount.(
-            bind_ro ~from:(from.alias |> Option.get) Fpath.(home // source)
-          )
+    let mount = Dockerfile.Mount.bind ~from_source:(from.alias, Fpath.(home // source |> to_string)) target in
+    Dockerfile.with_mounts [mount] [t]
 
   let copy_from ~from ~source ~target =
-    let open Layer in
-    Layer.of_dockerfile
-    @@ Dockerfile.copy ~from:(Option.get from.alias)
+    Dockerfile.copy ~from:(Option.get from.alias)
          ~src:[Fpath.(home // source |> to_string)]
          ~dst:Fpath.(home // target |> to_string)
          ()
@@ -330,54 +195,23 @@ module Containerfile = struct
     |> print_endline
 end
 
-let with_cache ~target ~user ?id t =
-  t |> Layer.with_mount ~target @@ Mount.(cache ?id ~user ())
+let with_user_cache = Dockerfile_opam.with_user_cache
+let with_build_cache ~id ~target t =
+  Dockerfile.with_mounts [Dockerfile.Mount.cache ~uid:Config.container_uid ~gid:Config.container_gid ~id Fpath.(to_string target)] [t]
 
-let with_root_cache =
-  with_cache ~user:false ~target:Fpath.(v "/" / "var" / "cache")
-
-let with_user_cache = with_cache ~user:true ~target:Fpath.(v ".cache")
-
-let with_build_cache ~id = with_cache ~id ~user:true
-
-let with_ro_mount ~uniqueid ~host_source ~target t =
-  let open Layer in
+let with_writediscard_mount ~uniqueid:_ ~host_source ~target t =
   let mount =
-    (* TODO: build arg doesn't actually take effect here *)
-    v Cmd.(noop % uniqueid) |> with_mount ~target @@ Mount.(bind_ro host_source)
+    Dockerfile.Mount.bind ~from_source:(None, Fpath.to_string host_source)
+    (* rw here means that writes are permitted, but do not take effect on the host *)
+    (Fpath.(to_string target) ^ ",rw")
   in
-  mount ++ t
+  Dockerfile.with_mounts [mount]
+    (* TODO: build arg doesn't actually take effect here?? *)
+    [ t
+    ]
 
-let yum_install packages =
-  with_root_cache
-  @@
-  Layer.v Cmd.(v "sudo" % "yum" % "install" % "-y" %% of_list packages)
-
-let installer_of_package_manager =
-  let open Dockerfile_opam in
-  let linux f packages =
-    f (format_of_string "%s") Cmd.(of_list packages |> to_string)
-    |> Layer.of_dockerfile
-    |> with_root_cache
-    |> Layer.with_run_as_root
-  in
-  let windows f packages = packages |> f |> Layer.of_dockerfile in
-  (* TODO: our own so we can sudo, avoid yum clean, etc. *)
-  function
-  | `Apk ->
-      linux Linux.Apk.install
-  | `Apt ->
-      linux Linux.Apt.install
-  | `Yum ->
-      yum_install
-  | `Zypper ->
-      linux Linux.Zypper.install
-  | `Pacman ->
-      linux Linux.Pacman.install
-  | `Cygwin ->
-      windows Windows.Cygwin.install
-  | `Windows ->
-      windows Windows.Winget.install
+let installer_of_distro distro =
+  Dockerfile_opam.distro_install ~cache:true ~switch_user:true distro
 
 let cmd_run cmd = Dockerfile.run "%s" Cmd.(to_string cmd)
 
@@ -391,36 +225,36 @@ let symlink ~link_source ~link_target =
   let link_source =
     Fpath.relativize ~root:Fpath.(parent link_target) link_source |> Option.get
   in
-  Layer.v Cmd.(v "ln" % "-sf" % p link_source % p link_target)
+  Cmd.(v "ln" % "-sf" % p link_source % p link_target)
 
 let link_target = Fpath.(v ".opam" / "download-cache")
 let link_source = Fpath.(v ".cache" / "opam" / "download-cache")
+
+let of_list = function
+  | [] -> Dockerfile.empty
+  | hd :: tl -> Dockerfile.(hd @@@ tl)
+
 let opam_install ?(repositories = []) packages =
   with_user_cache
   @@
   let repo_cmds =
     match repositories with
     | [] ->
-        Layer.empty
+        []
     | repos ->
         Cmd.(opam_container % "repo" % "remove" % "default")
         :: (repos
            |> List.map @@ fun (name, url) ->
               Cmd.(opam_container % "repo" % "add" % name % url)
            )
-        |> List.map Layer.v
-        |> Layer.of_list
   in
-  Layer.(
-    of_list
       [
-        v Cmd.(v "rm" % p link_target % "-rf")
-      ; v Cmd.(v "mkdir" % "-p" % p link_source)
-      ; symlink ~link_source ~link_target
-      ; repo_cmds
-      ; v Cmd.(opam_container % "install" %% of_list packages)
+        cmd_run Cmd.(v "rm" % p link_target % "-rf")
+      ; cmd_run Cmd.(v "mkdir" % "-p" % p link_source)
+      ; cmd_run (symlink ~link_source ~link_target)
+      ; repo_cmds |> List.map cmd_run |> of_list
+      ; cmd_run Cmd.(opam_container % "install" %% of_list packages)
       ]
-  )
 
 let dune_workspace = Fpath.v "workspace"
 
@@ -429,13 +263,10 @@ let monorepo_pull ~lockfile =
   let digest = Digest.file Fpath.(to_string lockfile) |> Digest.to_hex in
   (* could use COPY, but that is based on timestamps,
      which won't work well with caching, a digest is more reliable *)
-  with_ro_mount ~uniqueid:digest ~host_source:lockfile ~target:lockfile_dst
+  with_writediscard_mount ~uniqueid:digest ~host_source:lockfile ~target:lockfile_dst
   @@ with_user_cache
-  @@ Layer.(
-       of_list
-         [ v Cmd.(v "mkdir" % "-p" % p link_source)
-           ;  v
-             Cmd.(
+  @@ [ cmd_run Cmd.(v "mkdir" % "-p" % p link_source)
+           ;  cmd_run Cmd.(
                opam_container
                % "monorepo"
                % "pull"
@@ -445,24 +276,21 @@ let monorepo_pull ~lockfile =
                % p lockfile_dst
              )
          ]
-     )
 
 let dune_build ?(release = false) ~argname ~source_build_id targets =
-  let uniqueid = "______FIXME___${" ^ argname ^ "}" in
+  let uniqueid = "${" ^ argname ^ "}" in
   let target = Fpath.(dune_workspace / "source_ro") in
-  let prefix = Fpath.(Layer.home / "prefix") in
-  with_ro_mount ~uniqueid ~host_source:Fpath.(v ".") ~target
+  let prefix = Fpath.(home / "prefix") in
+  with_writediscard_mount ~uniqueid ~host_source:Fpath.(v ".") ~target
   @@ with_build_cache ~id:source_build_id
        ~target:Fpath.(dune_workspace / "_build")
   @@ with_user_cache
-  @@ Layer.(
-       of_list
-         [
-           v Cmd.(v "touch" % p Fpath.(dune_workspace / "dune-workspace"))
-         ; v Cmd.(v "cd" % p target)
+         [ Dockerfile.run ": %s" uniqueid
+         ;  cmd_run Cmd.(v "touch" % p Fpath.(dune_workspace / "dune-workspace"))
+         ; cmd_run Cmd.(v "cd" % p target)
          (* FIXME: xapi specific *)
-         ; v Cmd.(v "./configure" % "--prefix" % p prefix)
-         ; v
+         ; cmd_run Cmd.(v "./configure" % "--prefix" % p prefix)
+         ; cmd_run
              Cmd.(
                opam_container
                % "exec"
@@ -478,7 +306,7 @@ let dune_build ?(release = false) ~argname ~source_build_id targets =
                        targets
                     )
              )
-         ; v
+         ; cmd_run
              Cmd.(
                opam_container
                % "exec"
@@ -493,10 +321,9 @@ let dune_build ?(release = false) ~argname ~source_build_id targets =
                   |> of_values Fpath.to_string
                   )
              )
-        ; v Cmd.(v "sudo" % "make" % "-C" % "scripts" % "install" % "DESTDIR=/")
-         ; v Cmd.(v "cp" % p Fpath.(v "run.sh") % p Fpath.(home / "prefix" / "run.sh"))
+        ; cmd_run Cmd.(v "sudo" % "make" % "-C" % "scripts" % "install" % "DESTDIR=/")
+         ; cmd_run Cmd.(v "cp" % p Fpath.(v "run.sh") % p Fpath.(home / "prefix" / "run.sh"))
          ]
-     )
 
 let duniverse_path = Fpath.(dune_workspace / "duniverse")
 
@@ -506,12 +333,11 @@ let dockerfile_duniverse_stage ~image ~lockfile =
      Run monorepo pull in that layer, and then copy it over.
   *)
   Stage.v ~alias:"duniverse" image
-    Layer.
-      [
+      Dockerfile.[
         (* TODO: hardlink doesn't quite yet work yet, EXDEV *)
         env [("DUNE_CACHE", "enabled"); ("DUNE_CACHE_STORAGE_MODE", "copy")]
       ; opam_install ["opam-monorepo"]
-      ; v Cmd.(v "mkdir" % "-p" % p dune_workspace)
+      ; run "mkdir -p %s" Fpath.(to_string dune_workspace)
       ; monorepo_pull ~lockfile
       ]
 
@@ -522,8 +348,7 @@ let main =
   lockfile_result >>= fun lockfile ->
   let installer =
     distro
-    |> Dockerfile_opam.Distro.package_manager
-    |> installer_of_package_manager
+    |> installer_of_distro
   in
   let image = container_image_of_distro distro in
   let duniverse_stage = dockerfile_duniverse_stage ~image ~lockfile in
@@ -535,31 +360,25 @@ let main =
   let main_stage =
     (* layers ordered from least likely to change to most likely *)
     Stage.v image
-      Layer.
+      Dockerfile.
         [
           (* package that installs additional repos must be separate *)
-          v
-            Cmd.(
-              v "sudo"
-              % "yum"
-              % "install"
-              % "-y"
-              % "epel-release"
-              % "centos-release-xen"
-            )
+          (* TODO: only for centos *)
+          installer ["epel-release"; "centos-release-xen"]
         ; installer t.opam_depexts
           (* minimal system deps just for opam packages *)
         ; env [("DUNE_CACHE", "enabled"); ("DUNE_CACHE_STORAGE_MODE", "copy")]
-        ; v Cmd.(v "mkdir" % "-p" % p dune_workspace)
+        ; cmd_run Cmd.(v "mkdir" % "-p" % p dune_workspace)
           (* TODO: might need storage mode copy if we get EXDEV from the cache *)
         ; opam_install ?repositories t.opam_packages
           (* install opam provided packages, these change rarely *)
         ; installer t.all_depexts
           (* install depexts for duniverse+local packages, avoids recompiling opam packages if this changes *)
         ; installer ["etcd"; "/usr/sbin/ip"; "stunnel"; "strace"; "openssl"]
-        ; Layer.arg argname
+        ; Dockerfile.arg argname
         ; Stage.copy_from ~from:duniverse_stage ~source:duniverse_path
             ~target:duniverse_path
+        ; Dockerfile.run "mkdir -p /home/opam/workspace/source_ro /home/opam/workspace/_build"
         ; dune_build ~argname ~release:true ~source_build_id build_targets
         ]
 
