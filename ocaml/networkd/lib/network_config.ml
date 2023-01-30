@@ -61,7 +61,11 @@ let read_management_conf () =
       Option.value ~default:"" (List.assoc_opt "BOND_MODE" args)
     in
     let bond_members =
-      String.split_on_char ',' (List.assoc "BOND_MEMBERS" args)
+      match List.assoc_opt "BOND_MEMBERS" args with
+      | None ->
+          []
+      | Some x ->
+          String.split_on_char ',' x
     in
     let device =
       (* Take 1st member of bond *)
