@@ -35,7 +35,16 @@ let generate_master_stats ~__context =
         ~units:"tasks" ()
     )
   in
-  [session_count_ds; task_count_ds]
+  let total_session_count = Xapi_session.get_total_sessions () in
+  let total_session_count_ds =
+    ( Rrd.Host
+    , Ds.ds_make ~name:"pool_total_session_count"
+        ~description:"Total number of sessions"
+        ~value:(Rrd.VT_Int64 total_session_count) ~ty:Rrd.Derive ~default:true
+        ~min:0.0 ~units:"sessions" ()
+    )
+  in
+  [session_count_ds; task_count_ds; total_session_count_ds]
 
 let gc_debug = ref true
 
