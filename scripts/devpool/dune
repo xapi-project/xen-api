@@ -18,7 +18,7 @@
 (rule
   (target Containerfile)
   (action (with-stdout-to %{target} (run %{bin:monorepo-container}
-                --distro %{read-lines:stable.distro}
+                --distro %{read-lines:future.distro}
                 --lockfile %{dep:../../xapi.opam.locked}
                 --repositories %{read-lines:repositories}
                 --debug

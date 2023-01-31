@@ -4,7 +4,11 @@ open Bos_setup
 let distros =
   [
     ("stable", `CentOS `V7)
-    (* the currently supported distro of the XAPI project *)
+    (* the currently supported distro of the XAPI project,
+       unfortunately systemd doesn't work in a container here, too
+       old.
+       Would need CentOS 8.
+     *)
   ; ("future", `Fedora `Latest)
     (* for future-proofing, the very latest RPM based *)
   ]

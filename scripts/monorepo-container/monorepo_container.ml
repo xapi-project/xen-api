@@ -32,7 +32,7 @@ let env =
      "OPAMVAR_arch", "x86_64"
      ; "OPAMVAR_os_family", "centos"
      ; "OPAMVAR_os_distribution", "centos"
-     ; "OPAMVAR_os_version", "7"
+     ; "OPAMVAR_os_version", "8"
   ]
   in
   OS.Env.current () |> R.failwith_error_msg
@@ -362,10 +362,8 @@ let main =
     Stage.v image
       Dockerfile.
         [
-          (* package that installs additional repos must be separate *)
-          (* TODO: only for centos *)
-          installer ["epel-release"; "centos-release-xen"]
-        ; installer t.opam_depexts
+        (*; installer ["epel-release"; "centos-release-xen"] *)
+          installer t.opam_depexts
           (* minimal system deps just for opam packages *)
         ; env [("DUNE_CACHE", "enabled"); ("DUNE_CACHE_STORAGE_MODE", "copy")]
         ; cmd_run Cmd.(v "mkdir" % "-p" % p dune_workspace)
