@@ -90,10 +90,6 @@ let api_members = ref []
 
 let rec main () =
   render_file
-    ("Proxy.mustache", "Proxy.cs")
-    (gen_proxy CommonFunctions.XmlRpc)
-    templdir destdir ;
-  render_file
     ("JsonRpcClient.mustache", "JsonRpcClient.cs")
     (gen_proxy CommonFunctions.JsonRpc)
     templdir destdir ;
@@ -182,7 +178,7 @@ and process_relations ((oneClass, oneField), (manyClass, manyField)) =
 
 and gen_relations_by_type out_chan manyClass relations =
   let print format = fprintf out_chan format in
-  print "            relations.Add(typeof(Proxy_%s), new Relation[] {\n"
+  print "            relations.Add(typeof(%s), new Relation[] {\n"
     (exposed_class_name manyClass) ;
 
   List.iter (gen_relation out_chan) relations ;
@@ -347,18 +343,7 @@ and gen_class out_chan cls =
     \        }\n"
     exposed_class_name exposed_class_name ;
 
-  print
-    "\n\
-    \        /// <summary>\n\
-    \        /// Creates a new %s from a Proxy_%s.\n\
-    \        /// </summary>\n\
-    \        /// <param name=\"proxy\"></param>\n\
-    \        public %s(Proxy_%s proxy)\n\
-    \        {\n\
-    \            UpdateFrom(proxy);\n\
-    \        }\n\n\
-    \        #endregion\n\n"
-    exposed_class_name exposed_class_name exposed_class_name exposed_class_name ;
+  print "\n        #endregion\n\n" ;
 
   print
     "        /// <summary>\n\
@@ -371,15 +356,10 @@ and gen_class out_chan cls =
 
   List.iter (gen_updatefrom_line out_chan) contents ;
 
-  print
-    "        }\n\n        internal void UpdateFrom(Proxy_%s proxy)\n        {\n"
-    exposed_class_name ;
-
-  List.iter (gen_constructor_line out_chan) contents ;
+  print "        }\n\n" ;
 
   print
-    "        }\n\n\
-    \        /// <summary>\n\
+    "        /// <summary>\n\
     \        /// Given a Hashtable with field-value pairs, it updates the \
      fields of this %s\n\
     \        /// with the values listed in the Hashtable. Note that only the \
@@ -395,16 +375,6 @@ and gen_class out_chan cls =
   List.iter (gen_hashtable_constructor_line out_chan) contents ;
 
   print "        }\n\n" ;
-
-  print
-    "        public Proxy_%s ToProxy()\n\
-    \        {\n\
-    \            Proxy_%s result_ = new Proxy_%s();\n"
-    exposed_class_name exposed_class_name exposed_class_name ;
-
-  List.iter (gen_to_proxy_line out_chan) contents ;
-
-  print "            return result_;\n        }\n\n" ;
 
   let is_current_ops = function
     | Field f ->

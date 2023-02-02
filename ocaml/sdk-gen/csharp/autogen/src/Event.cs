@@ -41,45 +41,24 @@ namespace XenAPI
         {
         }
 
-        internal Event(Proxy_Event proxy)
-        {
-            UpdateFrom(proxy);
-        }
-
-        internal void UpdateFrom(Proxy_Event proxy)
-        {
-            id = long.Parse(proxy.id);
-        }
-
         public override void UpdateFrom(Event update)
         {
             id = update.id;
         }
 
-        internal Proxy_Event ToProxy()
-        {
-            Proxy_Event result = new Proxy_Event();
-            result.id = id.ToString();
-            return result;
-        }
-
         public override string SaveChanges(Session session, string opaqueRef, Event serverObject)
         {
-            Event server = serverObject;
             if (opaqueRef == null)
             {
-                Proxy_Event p = this.ToProxy();
                 throw new InvalidOperationException("There is no constructor available for this type; you cannot directly create one on the server.");
             }
-            else
-            {
-                if (!_id.Equals(server._id))
-                {
-                    Event.set_id(session, opaqueRef, _id);
-                }
+            
+            Event server = serverObject;
 
-                return null;
-            }
+            if (!_id.Equals(server._id))
+                set_id(session, opaqueRef, _id);
+
+            return null;
         }
 
         public static Event get_record(Session session, string _event)
@@ -110,11 +89,6 @@ namespace XenAPI
         public static void unregister(Session session, string[] _classes)
         {
             session.JsonRpcClient.event_unregister(session.opaque_ref, _classes);
-        }
-
-        public static Proxy_Event[] next(Session session)
-        {
-            throw new NotImplementedException();
         }
 
         public static IEventCollection from(Session session, string[] _classes, string _token, double _timeout)
@@ -152,13 +126,6 @@ namespace XenAPI
     {
         public Event[] events;
         public Dictionary<string, int> valid_ref_counts;
-        public string token;
-    }
-
-    public class Events : IEventCollection
-    {
-        public Proxy_Event[] events;
-        public Object valid_ref_counts;
         public string token;
     }
 

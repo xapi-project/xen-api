@@ -261,16 +261,6 @@ namespace XenAPI
             return result;
         }
 
-        internal static List<Message> Proxy_MessageArrayToMessageList(Proxy_Message[] input)
-        {
-            List<Message> result = new List<Message>();
-            foreach (Proxy_Message pm in input)
-            {
-                result.Add(new Message(pm));
-            }
-            return result;
-        }
-
         internal static Object EnumParseDefault(Type t, string s)
         {
             try
