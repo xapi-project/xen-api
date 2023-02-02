@@ -2,16 +2,16 @@
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
     <modelVersion>4.0.0</modelVersion>
-    <groupId>com.citrix.hypervisor</groupId>
+    <groupId>com.xenserver</groupId>
     <artifactId>xen-api</artifactId>
     <version>${revision}</version>
     <packaging>jar</packaging>
-    <name>Citrix Hypervisor Java SDK</name>
-    <description>Mavenized build of the Citrix Hypervisor SDK for Java.</description>
+    <name>XenServer Java SDK</name>
+    <description>Mavenized build of the XenServer SDK for Java.</description>
     <url>https://www.citrix.com/community/citrix-developer/citrix-hypervisor-developer</url>
     <organization>
-        <name>Citrix Systems, Inc.</name>
-        <url>https://www.citrix.com</url>
+        <name>Cloud Software Group, Inc.</name>
+        <url>https://www.cloud.com</url>
     </organization>
     <licenses>
         <license>
@@ -39,7 +39,7 @@
     </mailingLists>
     <developers>
         <developer>
-            <name>Citrix Systems, Inc.</name>
+            <name>Cloud Software Group, Inc.</name>
             <email>xen-api@lists.xenproject.org</email>
         </developer>
     </developers>

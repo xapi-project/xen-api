@@ -16,7 +16,7 @@ README files. The (patched) third party libraries required for the compilation
 of the C# and PowerShell source code can be obtained from
 [xenserver/dotnet-packages](https://github.com/xenserver/dotnet-packages)
 
-The repository [xenserver-samples](https://github.com/xenserver/xenserver-samples)
+The repository [xenserver/xenserver-samples](https://github.com/xenserver/xenserver-samples)
 contains a number of examples for each of the five programming languages to help
 you get started with the SDK.
 
