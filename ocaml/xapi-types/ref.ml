@@ -46,6 +46,22 @@ let is_real = function Real _ -> true | _ -> false
 
 let is_dummy = function Dummy _ -> true | _ -> false
 
+let compare (a : 'a t) (b : 'a t) =
+  match (a, b) with
+  | Real a, Real b ->
+      String.compare a b
+  | Dummy (a1, a2), Dummy (b1, b2) ->
+      let c = String.compare a1 b1 in
+      if c = 0 then String.compare a2 b2 else c
+  | Other a, Other b ->
+      String.compare a b
+  | Null, Null ->
+      0
+  | Null, _ | Other _, _ | Dummy _, _ ->
+      -1
+  | Real _, _ ->
+      1
+
 let string_of = function
   | Real uuid ->
       ref_prefix ^ uuid

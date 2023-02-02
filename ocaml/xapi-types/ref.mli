@@ -20,6 +20,10 @@ val make : unit -> 'a t
 
 val null : 'a t
 
+val compare : 'a t -> 'a t -> int
+(** [compare a b] returns [0] if [a] and [b] are equal, a negative integer if
+    [a] is less than [b], and a positive integer if [a] is greater than [b]. *)
+
 val string_of : 'a t -> string
 
 val to_option : 'a t -> 'a t option
