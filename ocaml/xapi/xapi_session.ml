@@ -23,6 +23,10 @@ open D
 
 let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
+let total_sessions = Atomic.make 0
+
+let get_total_sessions () = Atomic.get total_sessions |> Int64.of_int
+
 module Date = Xapi_stdext_date.Date
 module Listext = Xapi_stdext_std.Listext
 open Client
@@ -633,6 +637,8 @@ let login_no_password_common ~__context ~uname ~originator ~host ~pool
       ~other_config:[] ~subject ~is_local_superuser ~auth_user_sid
       ~validation_time:(Date.of_float (Unix.time ()))
       ~auth_user_name ~rbac_permissions ~parent ~originator ~client_certificate ;
+    if not pool then
+      Atomic.incr total_sessions ;
     Ref.string_of session_id
   in
   let session_id =
