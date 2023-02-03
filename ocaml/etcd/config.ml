@@ -1,7 +1,12 @@
-open Ezjsonm
-(* has convenience combinators for building both JSON and Yaml *)
-
 type name = Name : string -> name
+
+let string s = `String s
+
+let int i = `Float (float_of_int i)
+
+let int64 i = `Float (Int64.to_float i)
+
+let bool b = `Bool b
 
 let path p = p |> Fpath.to_string |> string
 
@@ -27,13 +32,14 @@ let kv_string key value kvlist =
   |> String.concat ","
   |> string
 
-module StringMap = Map.Make(String)
+module StringMap = Map.Make (String)
 
 (** ETCD configuration *)
-type t = value StringMap.t
+type t = Yaml.value StringMap.t
 
 (** [default] is the default configuration that can be extended using the functions in this module. *)
-let default = StringMap.singleton "proxy" @@ string "off" (* v2 only *)
+let default = StringMap.singleton "proxy" @@ string "off"
+(* v2 only *)
 
 let field key valuetyp value t : t = StringMap.add key (valuetyp value) t
 
@@ -147,11 +153,11 @@ let transport_security ~cert_file ~key_file ~client_cert_auth ~trusted_ca_file
   |> field "trusted-ca-file" path trusted_ca_file
   |> field "auto-tls" bool auto_tls
 
-let fieldmap t =
-  t |> StringMap.bindings |> dict
+let fieldmap t = `O (t |> StringMap.bindings)
+
+(* TODO: document *)
 
 (** [client_transport_security transport_security t] *)
-(* TODO: document *)
 let client_transport_security = field "client-transport-security" fieldmap
 
 (* TODO: document *)

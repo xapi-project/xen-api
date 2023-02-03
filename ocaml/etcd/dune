@@ -1,4 +1,4 @@
 (library
   (name xapi_etcd)
-  (libraries yaml fpath uri ezjsonm ipaddr)
+  (libraries yaml fpath uri ipaddr)
 )
