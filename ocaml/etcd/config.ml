@@ -27,13 +27,15 @@ let kv_string key value kvlist =
   |> String.concat ","
   |> string
 
+module StringMap = Map.Make(String)
+
 (** ETCD configuration *)
-type t = (string * value) list
+type t = value StringMap.t
 
 (** [default] is the default configuration that can be extended using the functions in this module. *)
-let default = [("proxy", string "off") (* v2 only *)]
+let default = StringMap.singleton "proxy" @@ string "off" (* v2 only *)
 
-let field key valuetyp value t : t = (key, valuetyp value) :: t
+let field key valuetyp value t : t = StringMap.add key (valuetyp value) t
 
 let name_yaml (Name n) = string n
 
@@ -138,22 +140,24 @@ type transport_security = t
 *)
 let transport_security ~cert_file ~key_file ~client_cert_auth ~trusted_ca_file
     ~auto_tls =
-  []
+  StringMap.empty
   |> field "cert_file" path cert_file
   |> field "key-file" path key_file
   |> field "client-cert-auth" bool client_cert_auth
   |> field "trusted-ca-file" path trusted_ca_file
   |> field "auto-tls" bool auto_tls
 
-(* TODO: document *)
+let fieldmap t =
+  t |> StringMap.bindings |> dict
 
 (** [client_transport_security transport_security t] *)
-let client_transport_security = field "client-transport-security" dict
+(* TODO: document *)
+let client_transport_security = field "client-transport-security" fieldmap
 
 (* TODO: document *)
 
 (** [peer_transport_security transport_security t] *)
-let peer_transport_security = field "peer-transport-security" dict
+let peer_transport_security = field "peer-transport-security" fieldmap
 
 (** [debug enable t] Enable debug-level logging for etcd.*)
 let debug = field "debug" bool
@@ -183,4 +187,4 @@ let log_package_levels =
 let force_new_cluster = field "force-new-cluster" bool
 
 (** [to_string config] returns a Yaml representation of [config]. *)
-let to_string t = t |> dict |> Yaml.to_string_exn
+let to_string t = t |> fieldmap |> Yaml.to_string_exn
