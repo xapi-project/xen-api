@@ -2340,6 +2340,34 @@ let vm_record rpc session_id vm =
               (xgm ())
           )
           ()
+      ; make_field ~name:"memory"
+          ~get:(fun () ->
+            Option.fold ~none:nid
+              ~some:(fun m ->
+                Record_util.s2sm_to_string "; " m.API.vM_guest_metrics_memory
+              )
+              (xgm ())
+          )
+          ~get_map:(fun () ->
+            Option.fold ~none:[]
+              ~some:(fun m -> m.API.vM_guest_metrics_memory)
+              (xgm ())
+          )
+          ()
+      ; make_field ~name:"disks"
+          ~get:(fun () ->
+            Option.fold ~none:nid
+              ~some:(fun m ->
+                Record_util.s2sm_to_string "; " m.API.vM_guest_metrics_disks
+              )
+              (xgm ())
+          )
+          ~get_map:(fun () ->
+            Option.fold ~none:[]
+              ~some:(fun m -> m.API.vM_guest_metrics_disks)
+              (xgm ())
+          )
+          ()
       ; make_field ~name:"VBDs"
           ~get:(fun () -> get_uuids_from_refs (x ()).API.vM_VBDs)
           ~get_set:(fun () -> List.map get_uuid_from_ref (x ()).API.vM_VBDs)
@@ -3004,6 +3032,13 @@ let host_record rpc session_id host =
           ~get:(fun () ->
             Option.fold ~none:nid
               ~some:(fun m -> Int64.to_string m.API.host_metrics_memory_total)
+              (xm ())
+          )
+          ()
+      ; make_field ~name:"memory-free"
+          ~get:(fun () ->
+            Option.fold ~none:nid
+              ~some:(fun m -> Int64.to_string m.API.host_metrics_memory_free)
               (xm ())
           )
           ()

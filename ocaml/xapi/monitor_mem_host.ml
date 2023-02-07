@@ -61,16 +61,20 @@ let get_changes rrd_files =
          rrd_files
       )
   in
+  let free_bytes = List.assoc_opt "memory_free_kib" named_dss in
   let total_bytes = List.assoc_opt "memory_total_kib" named_dss in
   (* Check if anything has changed since our last reading. *)
-  match total_bytes with
-  | Some total when !Mcache.host_memory_total_cached <> total ->
-      Some total
+  match (free_bytes, total_bytes) with
+  | Some free, Some total
+    when !Mcache.host_memory_free_cached <> free
+         || !Mcache.host_memory_total_cached <> total ->
+      Some (free, total)
   | _ ->
       None
 
-let set_changes total_bytes =
+let set_changes (free_bytes, total_bytes) =
   Mtxext.execute Mcache.host_memory_m (fun _ ->
+      Mcache.host_memory_free_cached := free_bytes ;
       Mcache.host_memory_total_cached := total_bytes
   )
 
@@ -85,12 +89,13 @@ let update rrd_files =
       match changes with
       | None ->
           ()
-      | Some total -> (
+      | Some ((free, total) as c) -> (
         try
           let host = Helpers.get_localhost ~__context in
           let metrics = Db.Host.get_metrics ~__context ~self:host in
           Db.Host_metrics.set_memory_total ~__context ~self:metrics ~value:total ;
-          set_changes total
+          Db.Host_metrics.set_memory_free ~__context ~self:metrics ~value:free ;
+          set_changes c
         with e ->
           error "Unable to update host memory metrics: %s" (Printexc.to_string e)
       )

@@ -272,8 +272,8 @@ let ensure_vm_metrics_records_exist __context =
         let m = Ref.make () in
         let uuid = Uuidx.to_string (Uuidx.make ()) in
         Db.VM_metrics.create ~__context ~ref:m ~uuid ~vCPUs_number:0L
-          ~memory_actual:0L ~vCPUs_CPU:[] ~vCPUs_params:[] ~vCPUs_flags:[]
-          ~start_time:Xapi_stdext_date.Date.never
+          ~vCPUs_utilisation:[] ~memory_actual:0L ~vCPUs_CPU:[] ~vCPUs_params:[]
+          ~vCPUs_flags:[] ~start_time:Xapi_stdext_date.Date.never
           ~install_time:Xapi_stdext_date.Date.never ~state:[]
           ~last_updated:(Xapi_stdext_date.Date.of_float 0.)
           ~other_config:[] ~hvm:false ~nested_virt:false ~nomigrate:false

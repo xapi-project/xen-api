@@ -755,8 +755,7 @@ and gen_save_changes_to_field out_chan exposed_class_name fr =
 
 and ctor_call classname =
   let fields =
-    Datamodel_utils.active_fields_of_obj
-      (Dm_api.get_obj_by_name api ~objname:classname)
+    Datamodel_utils.fields_of_obj (Dm_api.get_obj_by_name api ~objname:classname)
   in
   let fields2 =
     List.filter

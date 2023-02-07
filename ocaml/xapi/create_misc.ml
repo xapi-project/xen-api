@@ -184,6 +184,9 @@ let read_localhost_info ~__context =
   ; hypervisor= Option.map (fun s -> s.hypervisor) stat
   }
 
+(** [mkints n] creates a list [1; 2; .. ; n] *)
+let rec mkints = function 0 -> [] | n -> mkints (n - 1) @ [n]
+
 (** Ensures that the database has all the necessary records for domain
     zero, and that the records are up-to-date. Includes the following:
 
@@ -312,11 +315,11 @@ and create_domain_zero_record ~__context ~domain_zero_ref (host_info : host_info
     ~user_version:1L ~ha_restart_priority:"" ~ha_always_run:false
     ~recommendations:"" ~last_boot_CPU_flags:[] ~last_booted_record:""
     ~guest_metrics:Ref.null ~metrics ~bios_strings:[]
-    ~protection_policy:Ref.null ~snapshot_schedule:Ref.null
-    ~is_vmss_snapshot:false ~appliance:Ref.null ~start_delay:0L
-    ~shutdown_delay:0L ~order:0L ~suspend_SR:Ref.null ~version:0L
-    ~generation_id:"" ~hardware_platform_version:0L ~has_vendor_device:false
-    ~requires_reboot:false ~reference_label:""
+    ~protection_policy:Ref.null ~is_snapshot_from_vmpp:false
+    ~snapshot_schedule:Ref.null ~is_vmss_snapshot:false ~appliance:Ref.null
+    ~start_delay:0L ~shutdown_delay:0L ~order:0L ~suspend_SR:Ref.null
+    ~version:0L ~generation_id:"" ~hardware_platform_version:0L
+    ~has_vendor_device:false ~requires_reboot:false ~reference_label:""
     ~domain_type:Xapi_globs.domain_zero_domain_type ~nVRAM:[]
     ~pending_guidances:[] ;
   ensure_domain_zero_metrics_record ~__context ~domain_zero_ref host_info ;
@@ -367,11 +370,12 @@ and create_domain_zero_metrics_record ~__context ~domain_zero_metrics_ref
     ~memory_constraints ~vcpus : unit =
   Db.VM_metrics.create ~__context ~ref:domain_zero_metrics_ref
     ~uuid:(Uuidx.to_string (Uuidx.make ()))
-    ~memory_actual:memory_constraints.target ~vCPUs_number:(Int64.of_int vcpus)
-    ~vCPUs_CPU:[] ~vCPUs_params:[] ~vCPUs_flags:[] ~state:[]
-    ~start_time:Date.never ~install_time:Date.never ~last_updated:Date.never
-    ~other_config:[] ~hvm:false ~nomigrate:false ~nested_virt:false
-    ~current_domain_type:Xapi_globs.domain_zero_domain_type
+    ~memory_actual:memory_constraints.target
+    ~vCPUs_utilisation:(List.map (fun x -> (Int64.of_int x, 0.)) (mkints vcpus))
+    ~vCPUs_number:(Int64.of_int vcpus) ~vCPUs_CPU:[] ~vCPUs_params:[]
+    ~vCPUs_flags:[] ~state:[] ~start_time:Date.never ~install_time:Date.never
+    ~last_updated:Date.never ~other_config:[] ~hvm:false ~nomigrate:false
+    ~nested_virt:false ~current_domain_type:Xapi_globs.domain_zero_domain_type
 
 and update_domain_zero_record ~__context ~domain_zero_ref (host_info : host_info)
     : unit =
@@ -406,7 +410,9 @@ and update_domain_zero_metrics_record ~__context ~domain_zero_ref =
   let cpus' = Int64.of_int cpus in
   Db.VM_metrics.set_current_domain_type ~__context ~self:metrics
     ~value:Xapi_globs.domain_zero_domain_type ;
-  Db.VM_metrics.set_VCPUs_number ~__context ~self:metrics ~value:cpus'
+  Db.VM_metrics.set_VCPUs_number ~__context ~self:metrics ~value:cpus' ;
+  Db.VM_metrics.set_VCPUs_utilisation ~__context ~self:metrics
+    ~value:(List.map (fun x -> (Int64.of_int x, 0.)) (mkints cpus))
 
 and create_domain_zero_memory_constraints (_ : host_info) :
     Vm_memory_constraints.t =

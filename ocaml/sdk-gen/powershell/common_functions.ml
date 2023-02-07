@@ -199,7 +199,7 @@ and cut_msg_name message_name fn_type =
 
 (* True if an object has a uuid (and therefore should have a get_by_uuid message *)
 and has_uuid x =
-  let all_fields = DU.active_fields_of_obj x in
+  let all_fields = DU.fields_of_obj x in
   List.filter (fun fld -> fld.full_name = ["uuid"]) all_fields <> []
 
 and has_name x = DU.obj_has_get_by_name_label x

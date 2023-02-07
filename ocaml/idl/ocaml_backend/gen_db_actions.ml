@@ -177,7 +177,7 @@ let args_of_message (obj : obj) ({msg_tag= tag; _} as msg) =
           if x <> obj.DT.name then failwith "args_of_message" ;
           (* Client constructor takes all object fields regardless of qualifier
              	       but excluding Set(Ref _) types *)
-          let fields = DU.active_fields_of_obj obj in
+          let fields = DU.fields_of_obj obj in
           let fields = List.filter field_in_this_table fields in
           List.map Client.param_of_field fields
       | _ ->
@@ -324,9 +324,7 @@ let db_action api : O.Module.t =
     String.concat "\n" mk_rec
   in
   let get_record_aux_fn (obj : obj) =
-    let record_fields =
-      List.filter client_side_field (DU.active_fields_of_obj obj)
-    in
+    let record_fields = List.filter client_side_field (DU.fields_of_obj obj) in
     O.Let.make ~name:"get_record'"
       ~params:
         [
@@ -338,7 +336,7 @@ let db_action api : O.Module.t =
       ()
   in
   let get_record_internal_aux_fn (obj : obj) =
-    let record_fields = DU.active_fields_of_obj obj in
+    let record_fields = DU.fields_of_obj obj in
     O.Let.make ~name:"get_record_internal'"
       ~params:
         [
@@ -449,9 +447,8 @@ let db_action api : O.Module.t =
             (Escaping.escape_obj obj.DT.name)
             Client._self
       | FromObject Make ->
-          let fields =
-            List.filter field_in_this_table (DU.active_fields_of_obj obj)
-          in
+          let fields = List.filter field_in_this_table (DU.fields_of_obj obj) in
+          (*	  let fields = db_fields_of_obj obj in *)
           let kvs =
             List.map
               (fun fld ->

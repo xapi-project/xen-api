@@ -120,8 +120,7 @@ let gen_record_type ~with_module highapi tys =
     | DT.Record record :: t ->
         let obj_name = OU.ocaml_of_record_name record in
         let all_fields =
-          DU.active_fields_of_obj
-            (Dm_api.get_obj_by_name highapi ~objname:record)
+          DU.fields_of_obj (Dm_api.get_obj_by_name highapi ~objname:record)
         in
         let field fld =
           OU.ocaml_of_record_field (obj_name :: fld.DT.full_name)
@@ -297,8 +296,7 @@ let toposort_types highapi types =
           true
       | DT.Record record ->
           let all_fields =
-            DU.active_fields_of_obj
-              (Dm_api.get_obj_by_name highapi ~objname:record)
+            DU.fields_of_obj (Dm_api.get_obj_by_name highapi ~objname:record)
           in
           List.exists (fun fld -> references name fld.DT.ty) all_fields
       | DT.Option ty ->

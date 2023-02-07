@@ -189,6 +189,7 @@ val create :
   -> tags:string list
   -> blocked_operations:'a
   -> protection_policy:[`VMPP] Ref.t
+  -> is_snapshot_from_vmpp:bool
   -> snapshot_schedule:[`VMSS] Ref.t
   -> is_vmss_snapshot:bool
   -> appliance:API.ref_VM_appliance
