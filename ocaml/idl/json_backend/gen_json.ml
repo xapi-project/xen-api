@@ -240,7 +240,7 @@ end = struct
             let ctor_fields =
               List.filter
                 (function {qualifier= StaticRO | RW; _} -> true | _ -> false)
-                (all_fields_of_obj obj)
+                (fields_of_obj obj)
               |> List.map (fun f ->
                      String.concat "_" f.full_name
                      ^ if f.default_value = None then "*" else ""

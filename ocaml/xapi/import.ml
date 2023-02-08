@@ -805,6 +805,8 @@ module GuestMetrics : HandlerTools = struct
       ~pV_drivers_version:gm_record.API.vM_guest_metrics_PV_drivers_version
       ~pV_drivers_up_to_date:
         gm_record.API.vM_guest_metrics_PV_drivers_up_to_date
+      ~memory:gm_record.API.vM_guest_metrics_memory
+      ~disks:gm_record.API.vM_guest_metrics_disks
       ~networks:gm_record.API.vM_guest_metrics_networks
       ~pV_drivers_detected:gm_record.API.vM_guest_metrics_PV_drivers_detected
       ~other:gm_record.API.vM_guest_metrics_other

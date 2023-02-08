@@ -459,16 +459,16 @@ end
 let iobandwidth =
   let msg = "Disabled and replaced by RRDs" in
   [
-    field ~persist:false ~qualifier:DynamicRO ~ty:Float "read_kbs"
-      "Read bandwidth (KiB/s)"
+    field ~persist:false ~qualifier:DynamicRO ~ty:Float
+      ~default_value:(Some (VFloat 0.)) "read_kbs" "Read bandwidth (KiB/s)"
       ~lifecycle:
         [
           (Published, rel_rio, "")
         ; (Deprecated, rel_tampa, "Dummy transition")
         ; (Removed, rel_tampa, msg)
         ]
-  ; field ~persist:false ~qualifier:DynamicRO ~ty:Float "write_kbs"
-      "Write bandwidth (KiB/s)"
+  ; field ~persist:false ~qualifier:DynamicRO ~ty:Float
+      ~default_value:(Some (VFloat 0.)) "write_kbs" "Write bandwidth (KiB/s)"
       ~lifecycle:
         [
           (Published, rel_rio, "")
@@ -922,7 +922,7 @@ module Host_metrics = struct
     [
       field ~qualifier:DynamicRO "total" "Total host memory (bytes)"
         ~doc_tags:[Memory]
-    ; field "free" "Free host memory (bytes)"
+    ; field "free" "Free host memory (bytes)" ~default_value:(Some (VInt 0L))
         ~lifecycle:
           [
             (Published, rel_rio, "")
@@ -2670,6 +2670,7 @@ module VIF = struct
         @ [namespace ~name:"qos" ~contents:(qos "VIF") ()]
         @ [
             field ~qualifier:DynamicRO ~ty:(Ref _vif_metrics)
+              ~default_value:(Some (VRef null_ref))
               ~lifecycle:
                 [
                   (Published, rel_rio, "")
@@ -4697,6 +4698,7 @@ module VBD = struct
         @ [namespace ~name:"qos" ~contents:(qos "VBD") ()]
         @ [
             field ~qualifier:DynamicRO ~ty:(Ref _vbd_metrics)
+              ~default_value:(Some (VRef null_ref))
               ~lifecycle:
                 [
                   (Published, rel_rio, "")
@@ -4731,6 +4733,7 @@ module VBD_metrics = struct
           uid _vbd_metrics
         ; namespace ~name:"io" ~contents:iobandwidth ()
         ; field ~qualifier:DynamicRO ~ty:DateTime
+            ~default_value:(Some (VDateTime Date.never))
             ~lifecycle:
               [
                 (Published, rel_rio, "")
@@ -5064,6 +5067,7 @@ module VM_metrics = struct
         ~ty:(Map (Int, Float))
         ~persist:false "utilisation"
         "Utilisation for all of guest's current VCPUs"
+        ~default_value:(Some (VMap []))
         ~lifecycle:
           [
             (Published, rel_rio, "")
@@ -5175,6 +5179,7 @@ module VM_guest_metrics = struct
             "Logically equivalent to PV_drivers_detected"
         ; field ~qualifier:DynamicRO
             ~ty:(Map (String, String))
+            ~default_value:(Some (VMap []))
             ~lifecycle:
               [
                 (Published, rel_rio, "free/used/total")
@@ -5189,6 +5194,7 @@ module VM_guest_metrics = struct
              memory_internal_free RRD data-sources instead."
         ; field ~qualifier:DynamicRO
             ~ty:(Map (String, String))
+            ~default_value:(Some (VMap []))
             ~lifecycle:
               [
                 (Published, rel_rio, "Disk configuration/free space")

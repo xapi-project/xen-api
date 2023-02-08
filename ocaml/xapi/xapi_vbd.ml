@@ -295,6 +295,11 @@ let create ~__context ~vM ~vDI ~device ~userdevice ~bootable ~mode ~_type
           (* Make people aware that non-shared disks make VMs not agile *)
           if not empty then
             assert_doesnt_make_vm_non_agile ~__context ~vm:vM ~vdi:vDI ;
+          let metrics = Ref.make ()
+          and metrics_uuid = Uuidx.to_string (Uuidx.make ()) in
+          Db.VBD_metrics.create ~__context ~ref:metrics ~uuid:metrics_uuid
+            ~io_read_kbs:0. ~io_write_kbs:0. ~last_updated:(Date.of_float 0.)
+            ~other_config:[] ;
           (* Enable the SM driver to specify a VBD backend kind for the VDI *)
           let other_config =
             try
@@ -310,7 +315,7 @@ let create ~__context ~vM ~vDI ~device ~userdevice ~bootable ~mode ~_type
             ~unpluggable ~empty ~reserved:false ~qos_algorithm_type
             ~qos_algorithm_params ~qos_supported_algorithms:[]
             ~currently_attached:_currently_attached ~status_code:Int64.zero
-            ~status_detail:"" ~runtime_properties:[] ~other_config ;
+            ~status_detail:"" ~runtime_properties:[] ~other_config ~metrics ;
           update_allowed_operations ~__context ~self:ref ;
           ref
       )

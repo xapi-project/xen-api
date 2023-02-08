@@ -284,7 +284,7 @@ let print_field_table_of_obj printer ~is_class_deprecated ~is_class_removed x =
         )
     in
     x
-    |> Datamodel_utils.all_fields_of_obj
+    |> Datamodel_utils.fields_of_obj
     |> List.sort (fun x y ->
            compare_case_ins
              (Datamodel_utils.wire_name_of_field x)

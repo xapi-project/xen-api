@@ -20,9 +20,6 @@ let of_datamodel () =
     match fs with
     | [] ->
         acc
-    | Datamodel_types.(Field {lifecycle= {state; _}; _}) :: fs
-      when state = Removed_s ->
-        flatten_fields fs acc
     | Datamodel_types.Field f :: fs ->
         flatten_fields fs (f :: acc)
     | Datamodel_types.Namespace (_, internal_fs) :: fs ->

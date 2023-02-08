@@ -117,6 +117,8 @@ let gc_VBDs ~__context =
         Db.VBD.set_empty ~__context ~self ~value:true ;
         debug "VBD corresponds to CD. Record preserved but set to empty"
       ) else
+        let metrics = Db.VBD.get_metrics ~__context ~self in
+        (try Db.VBD_metrics.destroy ~__context ~self:metrics with _ -> ()) ;
         Db.VBD.destroy ~__context ~self
     )
 
@@ -130,7 +132,11 @@ let gc_VIFs ~__context =
   gc_connector ~__context Db.VIF.get_all Db.VIF.get_record
     (fun x -> valid_ref __context x.vIF_VM)
     (fun x -> valid_ref __context x.vIF_network)
-    (fun ~__context ~self -> Db.VIF.destroy ~__context ~self)
+    (fun ~__context ~self ->
+      let metrics = Db.VIF.get_metrics ~__context ~self in
+      (try Db.VIF_metrics.destroy ~__context ~self:metrics with _ -> ()) ;
+      Db.VIF.destroy ~__context ~self
+    )
 
 let gc_PBDs ~__context =
   gc_connector ~__context Db.PBD.get_all Db.PBD.get_record
