@@ -13,7 +13,7 @@ let () =
   Arg.parse [] anon_fun usage_msg ;
   let the_domid = Option.get !domid in
 
-  let handle = Xfm.acquire None in
+  let handle = Xfm.acquire () in
   defer (fun () -> Xfm.release handle) @@ fun () ->
   let prot = {Xfm.read= true; write= true; exec= false} in
   let tpm_addr = 0x110000L in

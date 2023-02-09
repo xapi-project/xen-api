@@ -20,7 +20,6 @@
 #include <unistd.h>
 #include <xenctrl.h>
 #include <xenforeignmemory.h>
-#include <xentoollog.h>
 
 #include <sys/mman.h>
 
@@ -40,7 +39,6 @@
 /* From xenctrl_stubs */
 #define ERROR_STRLEN 1024
 
-#define Xtl_val(x)(*((struct xentoollog_logger **) Data_custom_val(x)))
 #define Xfm_val(x)(*((struct xenforeignmemory_handle **) Data_abstract_val(x)))
 #define Addr_val(x)(*((void **) Data_abstract_val(x)))
 
@@ -443,22 +441,18 @@ CAMLprim value stub_xenctrlext_cputopoinfo(value xch)
 	CAMLreturn(result);
 }
 
-CAMLprim value stub_xenforeignmemory_open(value logger)
+CAMLprim value stub_xenforeignmemory_open(value unit)
 {
-        CAMLparam1(logger);
-        struct xentoollog_logger *log_handle = NULL;
+        CAMLparam1(unit);
         struct xenforeignmemory_handle *fmem;
         CAMLlocal1(result);
-
-        if(Is_some(logger)) {
-                log_handle = Xtl_val(Some_val(logger));
-        }
 
         // allocate memory to store the result, if the call to get the xfm
         // handle fails the ocaml GC will collect this abstract tag
         result = caml_alloc(1, Abstract_tag);
 
-        fmem = xenforeignmemory_open(log_handle, 0);
+        // use NULL instead of a xentoollog handle as those bindings are flawed
+        fmem = xenforeignmemory_open(NULL, 0);
 
         if(fmem == NULL) {
                 caml_failwith("Error when opening foreign memory handle");
