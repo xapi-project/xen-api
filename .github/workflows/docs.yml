@@ -22,7 +22,7 @@ jobs:
 
       - name: Load environment file
         id: dotenv
-        uses: falti/dotenv-action@v1.0.2
+        uses: falti/dotenv-action@v1
 
       - name: Use ocaml
         uses: ocaml/setup-ocaml@v2
@@ -30,11 +30,9 @@ jobs:
           ocaml-compiler: ${{ steps.dotenv.outputs.ocaml_version_full }}
           opam-repositories: |
             xs-opam: ${{ steps.dotenv.outputs.repository }}
-          dune-cache: true
 
       - name: Install dependencies
-        run: |
-          opam install . --deps-only --with-doc -v
+        run: opam pin list --short | xargs opam install --deps-only -v
 
       - name: Generate xapi-storage docs
         run: |
