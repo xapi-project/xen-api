@@ -12,16 +12,24 @@
    GNU Lesser General Public License for more details.
  *)
 
-(** Don't allow unless VTPM is enabled as an experimental feature *)
-let assert_not_restricted ~__context =
+(** Report the state of the feature flag but ignore any restrictions.
+    CP-40650: we remove any restriction to the feature *)
+
+module D = Debug.Make (struct let name = __MODULE__ end)
+
+open D
+
+let log_feature_flag ~__context =
   let pool = Helpers.get_pool ~__context in
   let restrictions = Db.Pool.get_restrictions ~__context ~self:pool in
   let feature = "restrict_vtpm" in
   match List.assoc_opt feature restrictions with
   | Some "false" ->
-      ()
-  | _ ->
-      raise Api_errors.(Server_error (feature_restricted, [feature]))
+      info "%s: %s=false (unrestricted)" __FUNCTION__ feature
+  | Some flag ->
+      info "%s: %s=%s (ignored)" __FUNCTION__ feature flag
+  | None ->
+      info "%s: %s is undefined" __FUNCTION__ feature
 
 (** The state in the xapi backend is only up-to-date when the VMs are halted *)
 let assert_no_fencing ~__context ~persistence_backend =
@@ -69,7 +77,7 @@ let get_contents ~__context ?from () =
 
 let create ~__context ~vM ~is_unique =
   let persistence_backend = `xapi in
-  assert_not_restricted ~__context ;
+  log_feature_flag ~__context ;
   assert_no_fencing ~__context ~persistence_backend ;
   assert_no_vtpm_associated ~__context vM ;
   Xapi_vm_lifecycle.assert_initial_power_state_is ~__context ~self:vM
