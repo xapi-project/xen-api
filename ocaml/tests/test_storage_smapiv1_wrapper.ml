@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Storage_impl
+open Storage_smapiv1_wrapper
 open Vdi
 
 let state_pp fmt state =

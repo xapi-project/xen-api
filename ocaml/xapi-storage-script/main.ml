@@ -599,6 +599,14 @@ module Attached_SRs = struct
     Hashtbl.remove !sr_table key ;
     return (Ok ())
 
+  let list () =
+    let srs =
+      Hashtbl.fold !sr_table
+        ~f:(fun ~key ~data:_ ac -> Storage_interface.Sr.of_string key :: ac)
+        ~init:[]
+    in
+    return (Ok srs)
+
   let reload path =
     state_path := Some path ;
     Sys.is_file ~follow_symlinks:true path >>= function
@@ -1461,46 +1469,74 @@ let bind ~volume_script_dir =
     Deferred.Result.return () |> wrap
   in
   S.VDI.set_persistent vdi_set_persistent_impl ;
-  let u _ = failwith "Unimplemented" in
-  S.get_by_name u ;
-  S.VDI.compose u ;
-  S.VDI.get_by_name u ;
-  S.DATA.MIRROR.receive_start u ;
-  S.SR.reset u ;
-  S.UPDATES.get u ;
-  S.SR.update_snapshot_info_dest u ;
-  S.VDI.data_destroy u ;
-  S.DATA.MIRROR.list u ;
-  S.TASK.stat u ;
-  S.VDI.remove_from_sm_config u ;
-  S.DP.diagnostics u ;
-  S.TASK.destroy u ;
-  S.VDI.list_changed_blocks u ;
-  S.DP.destroy u ;
-  S.VDI.add_to_sm_config u ;
-  S.VDI.similar_content u ;
-  S.DATA.copy u ;
-  S.DP.stat_vdi u ;
-  S.DATA.MIRROR.receive_finalize u ;
-  S.DP.create u ;
-  S.VDI.set_content_id u ;
-  S.VDI.disable_cbt u ;
-  S.DP.attach_info u ;
-  S.TASK.cancel u ;
-  S.SR.list u ;
-  S.VDI.attach u ;
-  S.VDI.attach2 u ;
-  S.VDI.activate u ;
-  S.DATA.MIRROR.stat u ;
-  S.TASK.list u ;
-  S.VDI.get_url u ;
-  S.VDI.enable_cbt u ;
-  S.DATA.MIRROR.start u ;
-  S.Policy.get_backend_vm u ;
-  S.DATA.copy_into u ;
-  S.DATA.MIRROR.receive_cancel u ;
-  S.SR.update_snapshot_info_src u ;
-  S.DATA.MIRROR.stop u ;
+  let dp_destroy2 dbg _dp sr vdi' vm' _allow_leak =
+    (let vdi = Storage_interface.Vdi.string_of vdi' in
+     let domain = Storage_interface.Vm.string_of vm' in
+     Attached_SRs.find sr >>>= fun sr ->
+     (* Discover the URIs using Volume.stat *)
+     stat ~dbg ~sr ~vdi >>>= fun response ->
+     ( match
+         List.Assoc.find response.Xapi_storage.Control.keys _clone_on_boot_key
+           ~equal:String.equal
+       with
+     | None ->
+         return (Ok response)
+     | Some temporary ->
+         stat ~dbg ~sr ~vdi:temporary
+     )
+     >>>= fun response ->
+     choose_datapath domain response >>>= fun (rpc, _datapath, uri, domain) ->
+     return_data_rpc (fun () -> Datapath_client.deactivate rpc dbg uri domain)
+     >>>= fun () ->
+     return_data_rpc (fun () -> Datapath_client.detach rpc dbg uri domain)
+    )
+    |> wrap
+  in
+  S.DP.destroy2 dp_destroy2 ;
+  let sr_list _dbg =
+    Attached_SRs.list () >>>= (fun srs -> Deferred.Result.return srs) |> wrap
+  in
+  S.SR.list sr_list ;
+  (* SR.reset is a no op in SMAPIv3 *)
+  S.SR.reset (fun _ _ -> Deferred.Result.return () |> wrap) ;
+  let u name _ = failwith ("Unimplemented: " ^ name) in
+  S.get_by_name (u "get_by_name") ;
+  S.VDI.compose (u "VDI.compose") ;
+  S.VDI.get_by_name (u "VDI.get_by_name") ;
+  S.DATA.MIRROR.receive_start (u "DATA.MIRROR.receive_start") ;
+  S.UPDATES.get (u "UPDATES.get") ;
+  S.SR.update_snapshot_info_dest (u "SR.update_snapshot_info_dest") ;
+  S.VDI.data_destroy (u "VDI.data_destroy") ;
+  S.DATA.MIRROR.list (u "DATA.MIRROR.list") ;
+  S.TASK.stat (u "TASK.stat") ;
+  S.VDI.remove_from_sm_config (u "VDI.remove_from_sm_config") ;
+  S.DP.diagnostics (u "DP.diagnostics") ;
+  S.TASK.destroy (u "TASK.destroy") ;
+  S.VDI.list_changed_blocks (u "VDI.list_changed_blocks") ;
+  S.DP.destroy (u "DP.destroy") ;
+  S.VDI.add_to_sm_config (u "VDI.add_to_sm_config") ;
+  S.VDI.similar_content (u "VDI.similar_content") ;
+  S.DATA.copy (u "DATA.copy") ;
+  S.DP.stat_vdi (u "DP.stat_vdi") ;
+  S.DATA.MIRROR.receive_finalize (u "DATA.MIRROR.receive_finalize") ;
+  S.DP.create (u "DP.create") ;
+  S.VDI.set_content_id (u "VDI.set_content_id") ;
+  S.VDI.disable_cbt (u "VDI.disable_cbt") ;
+  S.DP.attach_info (u "DP.attach_info") ;
+  S.TASK.cancel (u "TASK.cancel") ;
+  S.VDI.attach (u "VDI.attach") ;
+  S.VDI.attach2 (u "VDI.attach2") ;
+  S.VDI.activate (u "VDI.activate") ;
+  S.DATA.MIRROR.stat (u "DATA.MIRROR.stat") ;
+  S.TASK.list (u "TASK.list") ;
+  S.VDI.get_url (u "VDI.get_url") ;
+  S.VDI.enable_cbt (u "VDI.enable_cbt") ;
+  S.DATA.MIRROR.start (u "DATA.MIRROR.start") ;
+  S.Policy.get_backend_vm (u "Policy.get_backend_vm") ;
+  S.DATA.copy_into (u "DATA.copy_into") ;
+  S.DATA.MIRROR.receive_cancel (u "DATA.MIRROR.receive_cancel") ;
+  S.SR.update_snapshot_info_src (u "SR.update_snapshot_info_src") ;
+  S.DATA.MIRROR.stop (u "DATA.MIRROR.stop") ;
   Rpc_async.server S.implementation
 
 let process_smapiv2_requests server txt =

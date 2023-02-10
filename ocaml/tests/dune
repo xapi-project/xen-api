@@ -5,7 +5,7 @@
     (:standard \ test_daemon_manager test_vdi_cbt test_event test_clustering
       test_cluster_host test_cluster test_pusb test_network_sriov
       test_vm_placement test_vm_helpers test_repository test_repository_helpers
-      test_livepatch test_rpm test_updateinfo test_storage_impl test_storage_quicktest))
+      test_livepatch test_rpm test_updateinfo test_storage_smapiv1_wrapper test_storage_quicktest))
   (libraries
     alcotest
     angstrom
@@ -91,9 +91,9 @@
   (preprocess (pps ppx_deriving_rpc ppx_sexp_conv))
 )
 (test
-(name test_storage_impl) 
+(name test_storage_smapiv1_wrapper) 
 (package xapi)
-(modules test_storage_impl)
+(modules test_storage_smapiv1_wrapper)
 (libraries alcotest xapi_internal fmt))
 
 (test

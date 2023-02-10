@@ -13,7 +13,7 @@
  *)
 
 module Cb = Crowbar
-open Storage_impl
+open Storage_smapiv1_wrapper
 
 let dpvs_cb_t =
   let one_dpvs =

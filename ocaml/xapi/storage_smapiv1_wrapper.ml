@@ -1,5 +1,5 @@
 (*
- * Copyright (C) 2011 Citrix Systems Inc.
+ * Copyright (C) Citrix Systems Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published
@@ -436,14 +436,15 @@ functor
               (Internal_error "Storage_access.No_VDI") as e
             when op = Vdi_automaton.Deactivate || op = Vdi_automaton.Detach ->
               error
-                "Storage_impl: caught exception %s while doing %s . Continuing \
-                 as if succesful, being optimistic"
+                "Storage_smapiv1_wrapper: caught exception %s while doing %s . \
+                 Continuing as if succesful, being optimistic"
                 (Printexc.to_string e)
                 (Vdi_automaton.string_of_op op) ;
               vdi_t
           | e ->
               error
-                "Storage_impl: dp:%s sr:%s vdi:%s op:%s error:%s backtrace:%s"
+                "Storage_smapiv1_wrapper: dp:%s sr:%s vdi:%s op:%s error:%s \
+                 backtrace:%s"
                 dp (s_of_sr sr) (s_of_vdi vdi)
                 (Vdi_automaton.string_of_op op)
                 (Printexc.to_string e)
@@ -1015,8 +1016,7 @@ functor
         ) ;
         failure
 
-      let destroy context ~dbg ~dp ~allow_leak =
-        info "DP.destroy dbg:%s dp:%s allow_leak:%b" dbg dp allow_leak ;
+      let destroy' context ~dbg ~dp ~allow_leak =
         let failures =
           Host.list !Host.host
           |> List.filter_map (fun (sr, sr_t) ->
@@ -1032,6 +1032,15 @@ functor
         | _ :: _, true ->
             info "Forgetting leaked datapath: dp: %s" dp ;
             ()
+
+      let destroy _context ~dbg:_ ~dp:_ ~allow_leak:_ =
+        (* This is no longer called. The mux redirects it to DP.destroy2. *)
+        assert false
+
+      let destroy2 context ~dbg ~dp ~sr ~vdi ~vm ~allow_leak =
+        info "DP.destroy2 dbg:%s dp:%s sr:%s vdi:%s vm:%s allow_leak:%b" dbg dp
+          (s_of_sr sr) (s_of_vdi vdi) (s_of_vm vm) allow_leak ;
+        destroy' context ~dbg ~dp ~allow_leak
 
       let diagnostics _context () =
         let srs = Host.list !Host.host in
@@ -1321,17 +1330,6 @@ let initialise () =
     info "No storage state is persisted in %s; creating blank database"
       !host_state_path
 
-module Local_domain_socket = struct
-  let path = Filename.concat "/var/lib/xcp" "storage"
+module Impl = Wrapper (Storage_smapiv1.SMAPIv1)
 
-  (* receives external requests on Constants.sm_uri *)
-  let xmlrpc_handler process req bio _ =
-    let body = Http_svr.read_body req bio in
-    let s = Buf_io.fd_of bio in
-    let rpc = Xmlrpc.call_of_string body in
-    (* Printf.fprintf stderr "Request: %s %s\n%!" rpc.Rpc.name (Rpc.to_string (List.hd rpc.Rpc.params)); *)
-    let result = process rpc in
-    (* Printf.fprintf stderr "Response: %s\n%!" (Rpc.to_string result.Rpc.contents); *)
-    let str = Xmlrpc.string_of_response result in
-    Http_svr.response_str req s str
-end
+module Server = Storage_interface.Server (Impl) ()
