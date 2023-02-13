@@ -48,10 +48,22 @@ type t = {
   ; origin: origin
   ; database: Db_ref.t
   ; dbg: string
+  ; mutable tracing: Tracing.t
   ; client: (http_t * Ipaddr.t) option
   ; mutable test_rpc: (Rpc.call -> Rpc.response) option
   ; mutable test_clusterd_rpc: (Rpc.call -> Rpc.response) option
 }
+
+let complete_tracing __context =
+  ( match Tracing.finish __context.tracing with
+  | Ok () ->
+      ()
+  | Error e ->
+      R.warn "Failed to complete tracing: %s" (Printexc.to_string e)
+  ) ;
+  __context.tracing <- Tracing.empty
+
+let tracing_of __context = __context.tracing
 
 let get_session_id x =
   match x.session_id with
@@ -109,6 +121,7 @@ let get_initial () =
   ; origin= Internal
   ; database= default_database ()
   ; dbg= "initial_task"
+  ; tracing= Tracing.empty
   ; client= None
   ; test_rpc= None
   ; test_clusterd_rpc= None
@@ -134,6 +147,11 @@ let __destroy_task : (__context:t -> API.ref_task -> unit) ref =
   ref (fun ~__context:_ _ -> ())
 
 let string_of_task __context = __context.dbg
+
+let string_of_task_and_tracing __context =
+  match Tracing.json_of_t __context.tracing with
+  | None -> __context.dbg
+  | Some tracing -> __context.dbg ^ "\n" ^ tracing
 
 let check_for_foreign_database ~__context =
   match __context.session_id with
@@ -237,6 +255,17 @@ let from_forwarded_task ?(http_other_config = []) ?session_id
   let dbg = make_dbg http_other_config task_name task_id in
   info "task %s forwarded%s" dbg
     (trackid_of_session ~with_brackets:true ~prefix:" " session_id) ;
+  let tracing =
+    let open Tracing in
+    (* Set parent based on trace context from forwarded call instead! *)
+    let parent = empty in
+    match start ~name:task_name ~parent with
+    | Ok x ->
+        x
+    | Error e ->
+        R.warn "Failed to start tracing: %s" (Printexc.to_string e) ;
+        None
+  in
   {
     session_id
   ; task_id
@@ -244,6 +273,7 @@ let from_forwarded_task ?(http_other_config = []) ?session_id
   ; origin
   ; database= default_database ()
   ; dbg
+  ; tracing
   ; client
   ; test_rpc= None
   ; test_clusterd_rpc= None
@@ -282,6 +312,18 @@ let make ?(http_other_config = []) ?(quiet = false) ?subtask_of ?session_id
             " by task " ^ make_dbg [] "" subtask_of
         )
   ) ;
+  let tracing =
+    let open Tracing in
+    (* Set parent based on incoming trace context instead! *)
+    let parent = empty in
+    match start ~name:task_name ~parent with
+    | Ok x ->
+        R.debug "Started trace: %s" (string_of_t x) ;
+        x
+    | Error e ->
+        R.warn "Failed to start tracing: %s" (Printexc.to_string e) ;
+        None
+  in
   {
     session_id
   ; database
@@ -289,6 +331,7 @@ let make ?(http_other_config = []) ?(quiet = false) ?subtask_of ?session_id
   ; origin
   ; forwarded_task= false
   ; dbg
+  ; tracing
   ; client
   ; test_rpc= None
   ; test_clusterd_rpc= None
@@ -298,7 +341,20 @@ let make_subcontext ~__context ?task_in_database task_name =
   let session_id = __context.session_id in
   let subtask_of = __context.task_id in
   let subcontext = make ~subtask_of ?session_id ?task_in_database task_name in
-  {subcontext with client= __context.client}
+  let tracing =
+    let open Tracing in
+    let parent = __context.tracing in
+    if null parent then
+      empty
+    else (* only create a tracing if we're part of a tree *)
+      match Tracing.start ~name:task_name ~parent with
+      | Ok x ->
+          x
+      | Error e ->
+          R.warn "Failed to start tracing: %s" (Printexc.to_string e) ;
+          None
+  in
+  {subcontext with client= __context.client; tracing}
 
 let get_http_other_config http_req =
   let http_other_config_hdr = "x-http-other-config-" in
@@ -361,3 +417,15 @@ let get_client_ip context =
 
 let get_user_agent context =
   match context.origin with Internal -> None | Http (rq, _) -> rq.user_agent
+
+let with_tracing context name f =
+  let parent = context.tracing in
+  match Tracing.start ~name ~parent with
+  | Ok span_context ->
+      let new_context = {context with tracing= span_context} in
+      let result = f new_context in
+      let _ = Tracing.finish span_context in
+      result
+  | Error e ->
+      R.warn "Failed to start tracing: %s" (Printexc.to_string e) ;
+      f context

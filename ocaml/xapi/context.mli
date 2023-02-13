@@ -76,6 +76,8 @@ val forwarded_task : t -> bool
 
 val string_of_task : t -> string
 
+val string_of_task_and_tracing : t -> string
+
 val task_in_database : t -> bool
 (** [task_in_database __context] indicates if [get_task_id __context] corresponds to a task stored in database or
     to a dummy task. *)
@@ -139,3 +141,9 @@ val get_client : t -> string option
 val get_client_ip : t -> string option
 
 val get_user_agent : t -> string option
+
+val complete_tracing : t -> unit
+
+val tracing_of : t -> Tracing.t
+
+val with_tracing : t -> string -> (t -> 'a) -> 'a

@@ -1,0 +1,25 @@
+opam-version: "2.0"
+maintainer: "xen-api@lists.xen.org"
+authors: "xen-api@lists.xen.org"
+homepage: "https://xapi-project.github.io/"
+bug-reports: "https://github.com/xapi-project/xen-api.git"
+dev-repo: "git+https://github.com/xapi-project/xen-api.git"
+build: [[ "dune" "build" "-p" name "-j" jobs ]]
+
+available: [ os = "linux" ]
+depends: [
+  "ocaml"
+  "dune"
+  "cohttp"
+  "rpclib"
+  "xapi-idl"
+  "xapi-stdext-unix"
+]
+synopsis: "Library required by xapi"
+description: """
+These libraries are provided for backwards compatibility only.
+No new code should use these libraries."""
+url {
+  src:
+    "https://github.com/xapi-project/xen-api/archive/master.tar.gz"
+}
