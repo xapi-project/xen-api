@@ -94,7 +94,7 @@ let populate_db backend =
     The db connections must have been parsed from db.conf file and initialised before this fn is called.
     Also this function depends on being able to call API functions through the external interface.
 *)
-let start_database_engine () =
+let start_database_engine ~__context () =
   let t = Db_backend.make () in
   populate_db t ;
   Db_ref.update_database t
@@ -104,7 +104,7 @@ let start_database_engine () =
   debug "Performing initial DB GC" ;
   Db_gc.single_pass () ;
   (* Make sure all 'my' database records exist and are up to date *)
-  Dbsync.setup () ;
+  Dbsync.setup ~__context ;
   ignore (Db_gc.start_db_gc_thread ()) ;
   debug "Finished populating db cache" ;
   Xapi_ha.on_database_engine_ready () ;
@@ -1070,7 +1070,7 @@ let server_init () =
                running etc.) -- see CA-11087 *)
             ( "starting up database engine"
             , [Startup.OnlyMaster]
-            , start_database_engine
+            , start_database_engine ~__context
             )
           ; ( "hi-level database upgrade"
             , [Startup.OnlyMaster]
@@ -1103,7 +1103,7 @@ let server_init () =
             , Remote_requests.handle_requests
             )
           ] ;
-        match Pool_role.get_role () with
+        ( match Pool_role.get_role () with
         | Pool_role.Master ->
             ()
         | Pool_role.Broken ->
@@ -1157,7 +1157,7 @@ let server_init () =
                     , Storage_access.start_smapiv1_servers
                     )
                   ] ;
-                Dbsync.setup ()
+                Dbsync.setup ~__context
               with _ ->
                 debug
                   "Failure in slave dbsync; slave will pause and then restart \
@@ -1169,9 +1169,7 @@ let server_init () =
             Master_connection.restart_on_connection_timeout := true ;
             Master_connection.on_database_connection_established :=
               fun () -> on_master_restart ~__context
-    ) ;
-    Server_helpers.exec_with_new_task "server_init" ~task_in_database:true
-      (fun __context ->
+        ) ;
         Startup.run ~__context
           [
             ("Checking emergency network reset", [], check_network_reset)
@@ -1240,7 +1238,7 @@ let server_init () =
                	 table happens to be right) *)
             ( "Best-effort bring up of physical and sriov NICs"
             , [Startup.NoExnRaising]
-            , Xapi_pif.start_of_day_best_effort_bring_up
+            , Xapi_pif.start_of_day_best_effort_bring_up ~__context
             )
           ; ( "updating the vswitch controller"
             , []

@@ -262,7 +262,7 @@ val calculate_pifs_required_at_start_of_day :
     interfaces required by storage NICs etc. (these interface are not filtered out at the moment).
 *)
 
-val start_of_day_best_effort_bring_up : unit -> unit
+val start_of_day_best_effort_bring_up : __context:Context.t -> unit -> unit
 (** Attempt to bring up (plug) the required PIFs when the host starts up.
  *  Uses {!calculate_pifs_required_at_start_of_day}. *)
 
