@@ -188,6 +188,7 @@ let sync ~__context ~self ~token ~token_id =
           ; "--download-metadata"
           ; "--delete"
           ; "--plugins"
+          ; "--newest-only"
           ; Printf.sprintf "--repoid=%s" repo_name
           ]
         in
