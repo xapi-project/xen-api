@@ -118,4 +118,8 @@ module Task : functor (Interface : INTERFACE) -> sig
      Useful for asynchronous tasks that we don't wait for.
   *)
   val destroy_on_finish : task_handle -> unit
+
+  val tracing : task_handle -> string option
+
+  val set_tracing : task_handle -> string option -> unit
 end

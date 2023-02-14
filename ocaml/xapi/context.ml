@@ -148,6 +148,13 @@ let __destroy_task : (__context:t -> API.ref_task -> unit) ref =
 
 let string_of_task __context = __context.dbg
 
+let string_of_task_and_tracing __context =
+  match Tracing.t_to_string_opt __context.tracing with
+  | None ->
+      __context.dbg
+  | Some tracing ->
+      __context.dbg ^ "\x00" ^ tracing
+
 let check_for_foreign_database ~__context =
   match __context.session_id with
   | Some sid -> (
