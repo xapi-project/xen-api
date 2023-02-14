@@ -139,3 +139,9 @@ val get_client : t -> string option
 val get_client_ip : t -> string option
 
 val get_user_agent : t -> string option
+
+val complete_tracing : t -> unit
+
+val tracing_of : t -> Tracing.t
+
+val with_tracing : t -> string -> (t -> 'a) -> 'a
