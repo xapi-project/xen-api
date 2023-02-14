@@ -336,6 +336,7 @@
     base-unix
     (odoc :with-doc)
     (xapi-stdext-pervasives (= :version))
+    (mtime :with-test)
   )
 )
 
