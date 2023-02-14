@@ -2376,18 +2376,24 @@ let migrate_receive ~__context ~host ~network ~options =
       | _ ->
           failwith "No IP address on PIF"
   ) ;
+  (* Set the scheme to HTTP and let the migration source host decide whether to
+     switch to HTTPS instead, to avoid problems with source hosts that are not
+     able to do HTTPS migrations yet. *)
+  let scheme = "http" in
+
   let sm_url =
-    Printf.sprintf "http://%s/services/SM?session_id=%s" ip new_session_id
+    Printf.sprintf "%s://%s/services/SM?session_id=%s" scheme ip new_session_id
   in
   let xenops_url =
-    Printf.sprintf "http://%s/services/xenops?session_id=%s" ip new_session_id
+    Printf.sprintf "%s://%s/services/xenops?session_id=%s" scheme ip
+      new_session_id
   in
   let master_address =
     try Pool_role.get_master_address ()
     with Pool_role.This_host_is_a_master ->
       Option.get (Helpers.get_management_ip_addr ~__context)
   in
-  let master_url = Printf.sprintf "http://%s/" master_address in
+  let master_url = Printf.sprintf "%s://%s/" scheme master_address in
   [
     (Xapi_vm_migrate._sm, sm_url)
   ; (Xapi_vm_migrate._host, Ref.string_of host)
