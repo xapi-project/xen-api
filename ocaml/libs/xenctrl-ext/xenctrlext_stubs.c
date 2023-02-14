@@ -265,30 +265,36 @@ CAMLprim value stub_xenctrlext_physdev_map_pirq(value xch_val,
     CAMLreturn(Val_int(pirq));
 }                               /* ocaml here would be int -> int */
 
-CAMLprim value stub_xenctrlext_assign_device(value xch_val, value domid,
-                                             value machine_sbdf,
-                                             value flag)
+CAMLprim value stub_xenctrlext_assign_device(value xch_val,
+                                             value domid_val,
+                                             value machine_sbdf_val,
+                                             value flag_val)
 {
-    CAMLparam4(xch_val, domid, machine_sbdf, flag);
+    CAMLparam4(xch_val, domid_val, machine_sbdf_val, flag_val);
     xc_interface *xch = xch_of_val(xch_val);
+    int domid, machine_sbdf, flag;
+    domid = Int_val(domid_val);
+    machine_sbdf = Int_val(machine_sbdf_val);
+    flag = Int_val(flag_val);
     caml_release_runtime_system();
-    int retval =
-        xc_assign_device(xch, Int_val(domid), Int_val(machine_sbdf),
-                         Int_val(flag));
+    int retval = xc_assign_device(xch, domid, machine_sbdf, flag);
     caml_acquire_runtime_system();
     if (retval)
         failwith_xc(xch);
     CAMLreturn(Val_unit);
 }
 
-CAMLprim value stub_xenctrlext_deassign_device(value xch_val, value domid,
-                                               value machine_sbdf)
+CAMLprim value stub_xenctrlext_deassign_device(value xch_val,
+                                               value domid_val,
+                                               value machine_sbdf_val)
 {
-    CAMLparam3(xch_val, domid, machine_sbdf);
+    CAMLparam3(xch_val, domid_val, machine_sbdf_val);
     xc_interface *xc = xch_of_val(xch_val);
+    int domid, machine_sbdf;
+    domid = Int_val(domid_val);
+    machine_sbdf = Int_val(machine_sbdf_val);
     caml_release_runtime_system();
-    int retval =
-        xc_deassign_device(xc, Int_val(domid), Int_val(machine_sbdf));
+    int retval = xc_deassign_device(xc, domid, machine_sbdf);
     caml_acquire_runtime_system();
     if (retval)
         failwith_xc(xc);
@@ -302,12 +308,13 @@ CAMLprim value stub_xenctrlext_domid_quarantine(value unit)
 }
 
 CAMLprim value stub_xenctrlext_domain_soft_reset(value xch_val,
-                                                 value domid)
+                                                 value domid_val)
 {
-    CAMLparam2(xch_val, domid);
+    CAMLparam2(xch_val, domid_val);
+    int domid = Int_val(domid_val);
     xc_interface *xc = xch_of_val(xch_val);
     caml_release_runtime_system();
-    int retval = xc_domain_soft_reset(xc, Int_val(domid));
+    int retval = xc_domain_soft_reset(xc, domid);
     caml_acquire_runtime_system();
     if (retval)
         failwith_xc(xc);
