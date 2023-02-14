@@ -27,11 +27,14 @@ let network_conf = ref "/etc/xcp/network.conf"
 
 let config : config_t ref = ref Network_config.empty_config
 
+let write_lock = ref false
+
 let backend_kind = ref Openvswitch
 
 let write_config () =
-  try Network_config.write_config !config
-  with Network_config.Write_error -> ()
+  if not !write_lock then
+    try Network_config.write_config !config
+    with Network_config.Write_error -> ()
 
 let read_config () =
   try
@@ -58,7 +61,13 @@ let on_shutdown signal =
 
 let on_timer () = write_config ()
 
-let clear_state () = config := Network_config.empty_config
+let clear_state () =
+  write_lock := true ;
+  config := Network_config.empty_config
+
+let sync_state () =
+  write_lock := false ;
+  write_config ()
 
 let reset_state () = config := Network_config.read_management_conf ()
 

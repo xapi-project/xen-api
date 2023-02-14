@@ -174,6 +174,7 @@ let bind () =
   let open Network_server in
   S.clear_state clear_state ;
   S.reset_state reset_state ;
+  S.sync_state sync_state ;
   S.set_gateway_interface set_gateway_interface ;
   S.set_dns_interface set_dns_interface ;
   S.Interface.get_all Interface.get_all ;
