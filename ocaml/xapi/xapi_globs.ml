@@ -781,6 +781,8 @@ let web_dir = ref "/opt/xensource/www"
 
 let website_https_only = ref true
 
+let migration_https_only = ref false
+
 let cluster_stack_root = ref "/usr/libexec/xapi/cluster-stack"
 
 let cluster_stack_default = ref "xhad"
@@ -1093,6 +1095,11 @@ let other_options =
     , (fun () -> string_of_bool !relax_xsm_sr_check)
     , "allow storage migration when SRs have been mirrored out-of-band (and \
        have matching SR uuids)"
+    )
+  ; ( "migration-https-only"
+    , Arg.Set migration_https_only
+    , (fun () -> string_of_bool !migration_https_only)
+    , "Exclusively use HTTPS for VM migration"
     )
   ; gen_list_option "disable-logging-for"
       "space-separated list of modules to suppress logging from"
