@@ -709,7 +709,7 @@ let refresh_local_vdi_activations ~__context =
     let i_locked_it = List.mem localhost hosts in
     let all = List.fold_left ( && ) true in
     let someone_leaked_it =
-      all (List.map (fun h -> not (List.mem h hosts)) all_hosts)
+      hosts <> [] && all (List.map (fun h -> not (List.mem h hosts)) all_hosts)
     in
     if i_locked_it || someone_leaked_it then (
       info "Unlocking VDI %s (because %s)" (Ref.string_of vdi_ref)
