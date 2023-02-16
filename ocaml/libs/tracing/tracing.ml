@@ -11,79 +11,69 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-type config = Undetermined | Disabled | Url of string
-
-let tracing_config = ref Undetermined
-
-let url_file = "/etc/xapi-tracing-url"
-
-module Http = struct
-  module Request = Cohttp.Request.Make (Cohttp_posix_io.Buffered_IO)
-  module Response = Cohttp.Response.Make (Cohttp_posix_io.Buffered_IO)
-
-  let get_user_agent () = Sys.argv.(0)
-
-  let post ~url ~route ~body : (string, exn) result =
-    try
-      let uri = Printf.sprintf "%s%s" url route in
-      let uri' = Uri.of_string uri in
-      Open_uri.with_open_uri uri' (fun fd ->
-          let headers =
-            Cohttp.Header.of_list
-              [
-                ("User-agent", get_user_agent ())
-              ; ("content-type", "application/body")
-              ; ("content-length", string_of_int (String.length body))
-              ]
-          in
-          let request =
-            Cohttp.Request.make ~meth:`POST ~version:`HTTP_1_1 ~headers uri'
-          in
-          let ic = Unix.in_channel_of_descr fd in
-          let oc = Unix.out_channel_of_descr fd in
-          Request.write
-            (fun writer -> Request.write_body writer body)
-            request oc ;
-          match Response.read ic with
-          | `Eof ->
-              Ok ""
-          | `Invalid x ->
-              Error (Failure ("invalid read: " ^ x))
-          | `Ok response ->
-              let body = Buffer.create 16 in
-              let reader = Response.make_body_reader response ic in
-              let rec loop () =
-                match Response.read_body_chunk reader with
-                | Cohttp.Transfer.Chunk x ->
-                    Buffer.add_string body x ; loop ()
-                | Cohttp.Transfer.Final_chunk x ->
-                    Buffer.add_string body x
-                | Cohttp.Transfer.Done ->
-                    ()
-              in
-              loop () ;
-              Ok (Buffer.contents body)
-      )
-    with e -> Error e
+module SpanContext = struct
+  type t = {trace_id: string; span_id: string} [@@deriving rpcty]
 end
 
-type span_context = {
-    uber_trace_id: string [@key "uber-trace-id"]
-  ; traceparent: string [@key "traceparent"]
-}
-[@@deriving rpcty]
+module Span = struct
+  type t = {
+      span_context: SpanContext.t
+    ; span_parent: t option
+    ; span_name: string
+    ; span_begin_time: float
+    ; mutable span_end_time: float option
+    ; mutable tags: (string * string) list
+  }
+  [@@deriving rpcty]
 
-type blob = {span_context: span_context; stamp: float; operation_name: string}
-[@@deriving rpcty]
+  let generate_id n = String.init n (fun _ -> "0123456789abcdef".[Random.int 16])
+
+  let start ?(tags = []) ~name ~parent () =
+    let trace_id =
+      match parent with
+      | None ->
+          generate_id 32
+      | Some span_parent ->
+          span_parent.span_context.trace_id
+    in
+    let span_id = generate_id 16 in
+    let span_context : SpanContext.t = {trace_id; span_id} in
+    let span_parent = parent in
+    let span_name = name in
+    let span_begin_time = Unix.gettimeofday () in
+    let span_end_time = None in
+    {span_context; span_parent; span_name; span_begin_time; span_end_time; tags}
+
+  let finish ?(tags = []) ~span () =
+    span.span_end_time <- Some (Unix.gettimeofday ()) ;
+    match (span.tags, tags) with
+    | _, [] ->
+        ()
+    | [], new_tags ->
+        span.tags <- new_tags
+    | orig_tags, new_tags ->
+        span.tags <- orig_tags @ new_tags
+
+  let lock = Mutex.create ()
+
+end
+
+let spans = Hashtbl.create 100
+
+let add_to_spans ~(span : Span.t) =
+  Xapi_stdext_threads.Threadext.Mutex.execute Span.lock (fun () ->
+      let key = span.span_context.trace_id in
+      match Hashtbl.find_opt spans key with
+      | None ->
+          Hashtbl.add spans key [span]
+      | Some span_list ->
+          if List.length span_list < 1000 then
+            Hashtbl.replace spans key (span :: span_list)
+  )
+
+type blob = Span.t [@@deriving rpcty]
 
 type t = blob option [@@deriving rpcty]
-
-type start_span_body = {operation_name: string; parent: t} [@@deriving rpcty]
-
-let start_span_json ~operation_name ~parent : string =
-  {operation_name; parent}
-  |> Rpcmarshal.marshal start_span_body.Rpc.Types.ty
-  |> Jsonrpc.to_string
 
 let blob_json x : string =
   Rpcmarshal.marshal blob.Rpc.Types.ty x |> Jsonrpc.to_string
@@ -103,40 +93,8 @@ let empty : t = None
 let null = function None -> true | Some _ -> false
 
 let start ~name ~parent : (t, exn) result =
-  let call url =
-    let body = start_span_json ~operation_name:name ~parent in
-    match Http.post ~url ~body ~route:"/start-span" with
-    | Ok x ->
-        Ok (t_of_string x)
-    | Error _ as e ->
-        e
-  in
-  match !tracing_config with
-  | Disabled ->
-      Ok None
-  | Undetermined -> (
-    try
-      let url =
-        Xapi_stdext_unix.Unixext.string_of_file url_file |> String.trim
-      in
-      tracing_config := Url url ;
-      call url
-    with e ->
-      tracing_config := Disabled ;
-      Error e
-  )
-  | Url url ->
-      call url
+  let span = Span.start ~name ~parent () in
+  add_to_spans ~span ; Ok (Some span)
 
 let finish x : (unit, exn) result =
-  match (x, !tracing_config) with
-  | Some blob, Url url -> (
-      let body = blob_json blob in
-      match Http.post ~url ~route:"/finish-span" ~body with
-      | Ok x ->
-          Ok ()
-      | Error _ as e ->
-          e
-    )
-  | _ ->
-      Ok ()
+  match x with None -> Ok () | Some span -> Span.finish ~span () ; Ok ()
