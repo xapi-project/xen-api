@@ -82,7 +82,7 @@ let s_of_vm = Storage_interface.Vm.string_of
 
 let vm_of_s = Storage_interface.Vm.of_string
 
-module D = Debug.Make (struct let name = "storage_impl" end)
+module D = Debug.Make (struct let name = __MODULE__ end)
 
 open D
 
