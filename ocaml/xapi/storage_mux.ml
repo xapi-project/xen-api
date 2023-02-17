@@ -317,13 +317,23 @@ module Mux = struct
       end)) in
       C.SR.scan dbg sr
 
+    module SRSet = Set.Make (struct
+      type t = Storage_interface.Sr.t
+
+      let compare = compare
+    end)
+
     let list () ~dbg =
       info "SR.list dbg:%s" dbg ;
       List.fold_left
         (fun acc (_, list) ->
-          match list with SMSuccess l -> l @ acc | _ -> acc
+          match list with
+          | SMSuccess l ->
+              List.fold_left (fun srs sr -> SRSet.add sr srs) acc l
+          | _ ->
+              acc
         )
-        []
+        SRSet.empty
         (multicast (fun sr _rpc ->
              let module C = StorageAPI (Idl.Exn.GenClient (struct
                let rpc = of_sr sr
@@ -331,6 +341,7 @@ module Mux = struct
              C.SR.list dbg
          )
         )
+      |> SRSet.elements
 
     let reset () ~dbg ~sr =
       info "SR.reset dbg:%s sr:%s" dbg (s_of_sr sr) ;
