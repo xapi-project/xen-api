@@ -10,7 +10,7 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
-*)
+ *)
 
 (** Parse a .ml file, extract all 'external ...' primitives,
     and print prototypes of bytecode C functions based on their number of arguments.

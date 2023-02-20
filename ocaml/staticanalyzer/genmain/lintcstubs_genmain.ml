@@ -10,7 +10,7 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
-*)
+ *)
 
 (** Load a .cmt file which contains a Typedtree,
     and use it to extract primitives along with the shapes of their arguments,
