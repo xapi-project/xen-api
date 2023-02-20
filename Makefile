@@ -81,6 +81,7 @@ doc-json:
 
 format:
 	dune build @fmt --auto-promote
+	git ls-files '*.c' '*.h' | xargs clang-format -i
 
 .PHONY: quality-gate
 quality-gate:
@@ -213,3 +214,10 @@ uninstall:
 		message-switch message-switch-async message-switch-cli message-switch-core message-switch-lwt \
 		message-switch-unix xapi-idl forkexec xapi-forkexecd xapi-storage xapi-storage-script xapi-log \
 		xapi-open-uri
+
+compile_flags.txt: Makefile
+	(ocamlc -config-var ocamlc_cflags;\
+	ocamlc -config-var ocamlc_cppflags;\
+	echo -I$(shell ocamlc -where);\
+	echo -Wall -Wextra -Wstrict-prototypes -D_FORTIFY_SOURCE=2\
+	) | xargs -n1 echo >$@
