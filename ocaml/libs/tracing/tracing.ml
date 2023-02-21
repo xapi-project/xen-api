@@ -55,7 +55,6 @@ module Span = struct
         span.tags <- orig_tags @ new_tags
 
   let lock = Mutex.create ()
-
 end
 
 let spans = Hashtbl.create 100
@@ -96,3 +95,50 @@ let start ~name ~parent : (t, exn) result =
 
 let finish x : (unit, exn) result =
   match x with None -> Ok () | Some span -> Span.finish ~span () ; Ok ()
+
+module Export = struct
+  module Content = struct
+    module Json = struct
+      module Zipkinv2 = struct
+        module ZipkinSpan = struct
+          type localEndpoint = {serviceName: string} [@@deriving rpcty]
+
+          type t = {
+              id: string
+            ; traceId: string
+            ; parentId: string option
+            ; name: string
+            ; timestamp: int
+            ; duration: int
+            ; kind: string
+            ; localEndpoint: localEndpoint
+            ; tags: (string * string) list
+          }
+          [@@deriving rpcty]
+
+          let json_of_t s =
+            Rpcmarshal.marshal t.Rpc.Types.ty s |> Jsonrpc.to_string
+        end
+
+        let zipkin_span_of_span : Span.t -> ZipkinSpan.t =
+         fun s ->
+          {
+            id= s.span_context.span_id
+          ; traceId= s.span_context.trace_id
+          ; parentId=
+              Option.map (fun x -> x.Span.span_context.span_id) s.span_parent
+          ; name= s.span_name
+          ; timestamp= int_of_float (s.span_begin_time *. 1000000.)
+          ; duration=
+              Option.value s.span_end_time
+                ~default:(Unix.gettimeofday () *. 1000000.)
+              -. (s.span_begin_time *. 1000000.)
+              |> int_of_float
+          ; kind= "SERVER"
+          ; localEndpoint= {serviceName= "xapi"}
+          ; tags= s.tags
+          }
+      end
+    end
+  end
+end
