@@ -1976,13 +1976,19 @@ end = struct
   let rmrf ?(rm_top = true) path =
     let ( // ) = Filename.concat in
     let rec rm rm_top path =
-      let st = Unix.lstat path in
-      match st.Unix.st_kind with
-      | Unix.S_DIR ->
-          Sys.readdir path |> Array.iter (fun file -> rm true (path // file)) ;
-          if rm_top then Unix.rmdir path
-      | _ ->
-          Unix.unlink path
+      match Unix.lstat path with
+      | exception Unix.Unix_error (Unix.ENOENT, _, _) ->
+          () (*noop*)
+      | exception e ->
+          raise e
+      | st -> (
+        match st.Unix.st_kind with
+        | Unix.S_DIR ->
+            Sys.readdir path |> Array.iter (fun file -> rm true (path // file)) ;
+            if rm_top then Unix.rmdir path
+        | _ ->
+            Unix.unlink path
+      )
     in
     try rm rm_top path
     with e ->
