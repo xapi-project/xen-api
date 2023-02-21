@@ -140,3 +140,48 @@ let get_tracer ~name =
       Tracer.create ~name ~provider
   | None ->
       warn "No provider found" ; Tracer.no_op
+
+module Export = struct
+  module Content = struct
+    module Json = struct
+      module Zipkinv2 = struct
+        module ZipkinSpan = struct
+          type localEndpoint = {serviceName: string} [@@deriving rpcty]
+
+          type t = {
+              id: string
+            ; traceId: string
+            ; parentId: string option
+            ; name: string
+            ; timestamp: int
+            ; duration: int
+            ; kind: string
+            ; localEndpoint: localEndpoint
+            ; tags: (string * string) list
+          }
+          [@@deriving rpcty]
+
+          let json_of_t s =
+            Rpcmarshal.marshal t.Rpc.Types.ty s |> Jsonrpc.to_string
+        end
+
+        let zipkin_span_of_span : Span.t -> ZipkinSpan.t =
+         fun s ->
+          {
+            id= s.context.span_id
+          ; traceId= s.context.trace_id
+          ; parentId= Option.map (fun x -> x.Span.context.span_id) s.parent
+          ; name= s.name
+          ; timestamp= int_of_float (s.begin_time *. 1000000.)
+          ; duration=
+              Option.value s.end_time ~default:(Unix.gettimeofday () *. 1000000.)
+              -. (s.begin_time *. 1000000.)
+              |> int_of_float
+          ; kind= "SERVER"
+          ; localEndpoint= {serviceName= "xapi"}
+          ; tags= s.tags
+          }
+      end
+    end
+  end
+end
