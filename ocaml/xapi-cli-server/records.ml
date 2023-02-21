@@ -1460,6 +1460,9 @@ let pool_record rpc session_id pool =
               ~value:(bool_of_string x)
           )
           ()
+      ; make_field ~name:"last-update-sync"
+          ~get:(fun () -> Date.to_string (x ()).API.pool_last_update_sync)
+          ()
       ]
   }
 

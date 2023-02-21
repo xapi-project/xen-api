@@ -47,7 +47,7 @@ let create_pool_record ~__context =
       ~client_certificate_auth_enabled:false ~client_certificate_auth_name:""
       ~repository_proxy_url:"" ~repository_proxy_username:""
       ~repository_proxy_password:Ref.null ~migration_compression:false
-      ~coordinator_bias:true
+      ~coordinator_bias:true ~last_update_sync:Xapi_stdext_date.Date.epoch
 
 let set_master_ip ~__context =
   let ip =
