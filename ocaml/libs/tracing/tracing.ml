@@ -13,8 +13,8 @@
  *)
 module Span = struct
   type t = {
-      trace_id: int
-    ; span_id: int
+      trace_id: string
+    ; span_id: string
     ; span_parent: t option
     ; span_name: string
     ; span_begin_time: float
@@ -23,18 +23,21 @@ module Span = struct
   }
   [@@deriving rpcty]
 
+  let generate_id () =
+    String.init 16 (fun _ -> "0123456789abcdef".[Random.int 16])
+
   let start ?(tags = []) ~name ~parent () =
     let trace_id =
       match parent with
       | None ->
-          Random.int 1073741823
+          generate_id ()
       | Some span_parent ->
           span_parent.trace_id
     in
-    let span_id = Random.int 1073741823 in
+    let span_id = generate_id () in
     let span_parent = parent in
     let span_name = name in
-    let span_begin_time = Unix.time () in
+    let span_begin_time = Unix.gettimeofday () in
     let span_end_time = None in
     {
       trace_id
@@ -47,7 +50,7 @@ module Span = struct
     }
 
   let finish ?(tags = []) ~span () =
-    span.span_end_time <- Some (Unix.time ()) ;
+    span.span_end_time <- Some (Unix.gettimeofday ()) ;
     match (span.tags, tags) with
     | _, [] ->
         ()
@@ -55,14 +58,20 @@ module Span = struct
         span.tags <- new_tags
     | orig_tags, new_tags ->
         span.tags <- orig_tags @ new_tags
+
+  let lock = Mutex.create ()
+
+  let since spans =
+    Xapi_stdext_threads.Threadext.Mutex.execute lock (fun () ->
+        let copy = Hashtbl.copy spans in
+        Hashtbl.clear spans ; copy
+    )
 end
 
 let spans = Hashtbl.create 100
 
-let m = Mutex.create ()
-
 let add_to_spans ~(span : Span.t) =
-  Xapi_stdext_threads.Threadext.Mutex.execute m (fun () ->
+  Xapi_stdext_threads.Threadext.Mutex.execute Span.lock (fun () ->
       let key = span.trace_id in
       match Hashtbl.find_opt spans key with
       | None ->
@@ -99,3 +108,50 @@ let start ~name ~parent : (t, exn) result =
 
 let finish x : (unit, exn) result =
   match x with None -> Ok () | Some span -> Span.finish ~span () ; Ok ()
+
+module Export = struct
+  module Content = struct
+    module Json = struct
+      module Zipkinv2 = struct
+        module ZipkinSpan = struct
+          type localEndpoint = {serviceName: string} [@@deriving rpcty]
+
+          type t = {
+              id: string
+            ; traceId: string
+            ; parentId: string option
+            ; name: string
+            ; timestamp: int
+            ; duration: int
+            ; kind: string
+            ; localEndpoint: localEndpoint
+            ; tags: (string * string) list
+          }
+          [@@deriving rpcty]
+
+          let json_of_t s =
+            Rpcmarshal.marshal t.Rpc.Types.ty s |> Jsonrpc.to_string
+        end
+
+        let zipkin_span_of_span : Span.t -> ZipkinSpan.t =
+         fun s ->
+          {
+            id= s.span_id
+          ; traceId= s.trace_id
+          ; parentId= Option.map (fun x -> x.Span.span_id) s.span_parent
+          ; name= s.span_name
+          ; timestamp= int_of_float (s.span_begin_time *. 1000000.)
+          ; duration=
+              (Option.value s.span_end_time ~default:(Unix.gettimeofday () *. 1000000.)
+              -. (s.span_begin_time *. 1000000.)) |> int_of_float
+          ; kind= "SERVER"
+          ; localEndpoint= {serviceName= "xapi"}
+          ; tags= s.tags
+          }
+
+        let content_of (span : Span.t) =
+          ZipkinSpan.json_of_t (zipkin_span_of_span span)
+      end
+    end
+  end
+end
