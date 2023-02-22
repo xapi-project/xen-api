@@ -2675,6 +2675,22 @@ let ( let@ ) f x = f x
 
 let ( // ) = Filename.concat
 
+let really_read_uefi_certificates_from_disk ~__context ~host:_ from_path =
+  let certs_files = Sys.readdir from_path |> Array.map (( // ) from_path) in
+  let@ temp_file, with_temp_out_ch =
+    Helpers.with_temp_out_ch_of_temp_file ~mode:[Open_binary]
+      "pool-uefi-certificates" "tar"
+  in
+  if Array.length certs_files > 0 then (
+    let@ temp_out_ch = with_temp_out_ch in
+    Tar_unix.Archive.create
+      (certs_files |> Array.to_list)
+      (temp_out_ch |> Unix.descr_of_out_channel) ;
+    debug "UEFI tar file %s populated from directory %s" temp_file from_path
+  ) else
+    debug "UEFI tar file %s empty from directory %s" temp_file from_path ;
+  temp_file |> Unixext.string_of_file |> Base64.encode_string
+
 let really_write_uefi_certificates_to_disk ~__context ~host:_ ~value =
   match value with
   | "" ->
@@ -2743,7 +2759,16 @@ let write_uefi_certificates_to_disk ~__context ~host =
         with_valid_symlink ~from_path:!Xapi_globs.varstore_dir
           ~to_path:!Xapi_globs.default_auth_dir
       in
-      check_valid_uefi_certs_in path
+      check_valid_uefi_certs_in path ;
+      if Pool_role.is_master () then
+        let disk_uefi_certs_tar =
+          really_read_uefi_certificates_from_disk ~__context ~host
+            !Xapi_globs.varstore_dir
+        in
+        (* synchronize read-only field with contents in disk *)
+        Db.Pool.set_uefi_certificates ~__context
+          ~self:(Helpers.get_pool ~__context)
+          ~value:disk_uefi_certs_tar
   | true ->
       let@ path = with_empty_dir !Xapi_globs.varstore_dir in
       (* get from pool for consistent results across hosts *)

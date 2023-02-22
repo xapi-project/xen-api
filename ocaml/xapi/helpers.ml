@@ -1955,6 +1955,18 @@ end = struct
     Xapi_psr_util.load_psr_pool_secrets ()
 end
 
+let ( let@ ) f x = f x
+
+let with_temp_out_ch ch f = finally (fun () -> f ch) (fun () -> close_out ch)
+
+let with_temp_file ?mode prefix suffix f =
+  let path, channel = Filename.open_temp_file ?mode prefix suffix in
+  finally (fun () -> f (path, channel)) (fun () -> Unix.unlink path)
+
+let with_temp_out_ch_of_temp_file ?mode prefix suffix f =
+  let@ path, channel = with_temp_file ?mode prefix suffix in
+  f (path, channel |> with_temp_out_ch)
+
 module FileSys : sig
   (* bash-like interface for manipulating files *)
   type path = string
