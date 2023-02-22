@@ -951,6 +951,8 @@ let winbind_allow_kerberos_auth_fallback = ref false
 
 let winbind_keep_configuration = ref false
 
+let winbind_ldap_query_subject_timeout = ref 20.
+
 let tdb_tool = ref "/usr/bin/tdbtool"
 
 let sqlite3 = ref "/usr/bin/sqlite3"
@@ -1334,6 +1336,11 @@ let other_options =
     , (fun () -> string_of_bool !winbind_keep_configuration)
     , "Whether to clear winbind configuration when join domain failed or leave \
        domain"
+    )
+  ; ( "winbind_ldap_query_subject_timeout"
+    , Arg.Set_float winbind_ldap_query_subject_timeout
+    , (fun () -> string_of_float !winbind_ldap_query_subject_timeout)
+    , "Timeout to perform ldap query for subject information"
     )
   ; ( "website-https-only"
     , Arg.Set website_https_only
