@@ -1311,7 +1311,7 @@ let bind ~volume_script_dir =
     |> wrap
   in
   S.VDI.attach3 vdi_attach3_impl ;
-  let vdi_activate3_impl dbg _dp sr vdi' vm' =
+  let vdi_activate_common dbg sr vdi' vm' readonly =
     (let vdi = Storage_interface.Vdi.string_of vdi' in
      let domain = Storage_interface.Vm.string_of vm' in
      Attached_SRs.find sr >>>= fun sr ->
@@ -1329,11 +1329,23 @@ let bind ~volume_script_dir =
      )
      >>>= fun response ->
      choose_datapath domain response >>>= fun (rpc, _datapath, uri, domain) ->
-     return_data_rpc (fun () -> Datapath_client.activate rpc dbg uri domain)
+     return_data_rpc (fun () ->
+         if readonly then
+           Datapath_client.activate_readonly rpc dbg uri domain
+         else
+           Datapath_client.activate rpc dbg uri domain
+     )
     )
     |> wrap
   in
+  let vdi_activate3_impl dbg _dp sr vdi' vm' =
+    vdi_activate_common dbg sr vdi' vm' false
+  in
   S.VDI.activate3 vdi_activate3_impl ;
+  let vdi_activate_readonly_impl dbg _dp sr vdi' vm' =
+    vdi_activate_common dbg sr vdi' vm' true
+  in
+  S.VDI.activate_readonly vdi_activate_readonly_impl ;
   let vdi_deactivate_impl dbg _dp sr vdi' vm' =
     (let vdi = Storage_interface.Vdi.string_of vdi' in
      let domain = Storage_interface.Vm.string_of vm' in

@@ -674,6 +674,8 @@ functor
             )
         )
 
+      let activate_readonly = activate3
+
       let activate context ~dbg ~dp ~sr ~vdi =
         info "VDI.activate dbg:%s dp:%s sr:%s vdi:%s " dbg dp (s_of_sr sr)
           (s_of_vdi vdi) ;

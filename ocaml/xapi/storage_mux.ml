@@ -586,7 +586,30 @@ module Mux = struct
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
-      C.VDI.activate3 dbg dp sr vdi vm
+      let read_write =
+        let open DP_info in
+        match read dp with
+        | Some x ->
+            x.read_write
+        | None ->
+            failwith "DP not found"
+      in
+      if (not read_write) && sr_has_capability sr Smint.Vdi_activate_readonly
+      then (
+        info "The VDI was attached read-only: calling activate_readonly" ;
+        C.VDI.activate_readonly dbg dp sr vdi vm
+      ) else (
+        info "The VDI was attached read/write: calling activate3" ;
+        C.VDI.activate3 dbg dp sr vdi vm
+      )
+
+    let activate_readonly () ~dbg ~dp ~sr ~vdi ~vm =
+      info "VDI.activate_readonly dbg:%s dp:%s sr:%s vdi:%s vm:%s" dbg dp
+        (s_of_sr sr) (s_of_vdi vdi) (s_of_vm vm) ;
+      let module C = StorageAPI (Idl.Exn.GenClient (struct
+        let rpc = of_sr sr
+      end)) in
+      C.VDI.activate_readonly dbg dp sr vdi vm
 
     let deactivate () ~dbg ~dp ~sr ~vdi ~vm =
       info "VDI.deactivate dbg:%s dp:%s sr:%s vdi:%s vm:%s" dbg dp (s_of_sr sr)
