@@ -172,7 +172,8 @@ module Mux = struct
   end
 
   module DP_info = struct
-    type t = {sr: Sr.t; vdi: Vdi.t; vm: Vm.t} [@@deriving rpcty]
+    type t = {sr: Sr.t; vdi: Vdi.t; vm: Vm.t; read_write: bool [@default true]}
+    [@@deriving rpcty]
 
     let storage_dp_path = "/var/run/nonpersistent/xapi/storage-dps"
 
@@ -512,7 +513,7 @@ module Mux = struct
         let rpc = of_sr sr
       end)) in
       let vm = Vm.of_string "0" in
-      DP_info.write dp DP_info.{sr; vdi; vm} ;
+      DP_info.write dp DP_info.{sr; vdi; vm; read_write} ;
       let backend = C.VDI.attach3 dbg dp sr vdi vm read_write in
       (* VDI.attach2 should be used instead, VDI.attach is only kept for
          backwards-compatibility, because older xapis call Remote.VDI.attach during SXM.
@@ -559,7 +560,7 @@ module Mux = struct
         let rpc = of_sr sr
       end)) in
       let vm = Vm.of_string "0" in
-      DP_info.write dp DP_info.{sr; vdi; vm} ;
+      DP_info.write dp DP_info.{sr; vdi; vm; read_write} ;
       C.VDI.attach3 dbg dp sr vdi vm read_write
 
     let attach3 () ~dbg ~dp ~sr ~vdi ~vm ~read_write =
@@ -568,7 +569,7 @@ module Mux = struct
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
-      DP_info.write dp DP_info.{sr; vdi; vm} ;
+      DP_info.write dp DP_info.{sr; vdi; vm; read_write} ;
       C.VDI.attach3 dbg dp sr vdi vm read_write
 
     let activate () ~dbg ~dp ~sr ~vdi =
