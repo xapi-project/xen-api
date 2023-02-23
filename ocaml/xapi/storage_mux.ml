@@ -34,6 +34,7 @@ type plugin = {
     processor: processor
   ; backend_domain: string
   ; query_result: query_result
+  ; features: Smint.feature list
 }
 
 let plugins : (sr, plugin) Hashtbl.t = Hashtbl.create 10
@@ -48,8 +49,16 @@ let debug_printer rpc call =
 
 let register sr rpc d info =
   with_lock m (fun () ->
+      let features =
+        Smint.parse_capability_int64_features info.Storage_interface.features
+      in
       Hashtbl.replace plugins sr
-        {processor= debug_printer rpc; backend_domain= d; query_result= info} ;
+        {
+          processor= debug_printer rpc
+        ; backend_domain= d
+        ; query_result= info
+        ; features
+        } ;
       debug "register SR %s (currently-registered = [ %s ])" (s_of_sr sr)
         (String.concat ", "
            (Hashtbl.fold (fun sr _ acc -> s_of_sr sr :: acc) plugins [])
@@ -68,6 +77,13 @@ let unregister sr =
 let query_result_of_sr sr =
   try with_lock m (fun () -> Some (Hashtbl.find plugins sr).query_result)
   with _ -> None
+
+let sr_has_capability sr capability =
+  try
+    with_lock m (fun () ->
+        Smint.has_capability capability (Hashtbl.find plugins sr).features
+    )
+  with _ -> false
 
 (* This is the policy: *)
 let of_sr sr =
