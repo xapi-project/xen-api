@@ -3397,7 +3397,6 @@ let sync_updates ~__context ~self ~force ~token ~token_id =
    * But the 'configure_repositories' and 'sync_updates' may do the change.
    *)
   let enabled = Repository_helpers.get_enabled_repositories ~__context in
-  let pool = Helpers.get_pool ~__context in
   match force with
   | true ->
       Xapi_pool_helpers.with_pool_operation ~__context ~self
@@ -3410,17 +3409,19 @@ let sync_updates ~__context ~self ~force ~token ~token_id =
              sync ~__context ~self:x ~token ~token_id ;
              create_pool_repository ~__context ~self:x
          ) ;
-      Db.Pool.set_last_update_sync ~__context ~self:pool ~value:(Date.now ()) ;
-      set_available_updates ~__context
+      let checksum = set_available_updates ~__context in
+      Db.Pool.set_last_update_sync ~__context ~self ~value:(Date.now ()) ;
+      checksum
   | false ->
       with_reposync_lock @@ fun () ->
       enabled |> List.iter (fun x -> sync ~__context ~self:x ~token ~token_id) ;
-      Db.Pool.set_last_update_sync ~__context ~self:pool ~value:(Date.now ()) ;
       Xapi_pool_helpers.with_pool_operation ~__context ~self
         ~doc:"pool.sync_updates" ~op:`sync_updates
       @@ fun () ->
       List.iter (fun x -> create_pool_repository ~__context ~self:x) enabled ;
-      set_available_updates ~__context
+      let checksum = set_available_updates ~__context in
+      Db.Pool.set_last_update_sync ~__context ~self ~value:(Date.now ()) ;
+      checksum
 
 let check_update_readiness ~__context ~self:_ ~requires_reboot =
   (* Pool license check *)
