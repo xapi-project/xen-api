@@ -164,6 +164,7 @@ type atomic =
       (** takes suspend data, plus optionally vGPU state data *)
   | VM_restore of (Vm.id * data * data option)
       (** takes suspend data, plus optionally vGPU state data *)
+  | VM_fast_resume of Vm.id
   | VM_delay of (Vm.id * float)  (** used to suppress fast reboot loops *)
   | VM_rename of (Vm.id * Vm.id * rename_when)
   | VM_import_metadata of (Vm.id * Metadata.t)
@@ -279,6 +280,8 @@ let rec name_of_atomic = function
       "VM_save"
   | VM_restore _ ->
       "VM_restore"
+  | VM_fast_resume _ ->
+      "VM_fast_resume"
   | VM_delay _ ->
       "VM_delay"
   | VM_rename _ ->
@@ -2377,6 +2380,9 @@ let rec perform_atomic ~progress_callback ?result (op : atomic)
       let extras = [] in
       B.VM.restore t progress_callback (VM_DB.read_exn id) vbds vifs data
         vgpu_data extras
+  | VM_fast_resume id ->
+      debug "VM.fast_resume %s" id ;
+      B.VM.resume t (VM_DB.read_exn id)
   | VM_delay (id, t) ->
       debug "VM %s: waiting for %.2f before next VM action" id t ;
       Thread.delay t
@@ -2669,6 +2675,7 @@ and trigger_cleanup_after_failure_atom op t =
   | VM_s3resume id
   | VM_save (id, _, _, _)
   | VM_restore (id, _, _)
+  | VM_fast_resume id
   | VM_delay (id, _)
   | VM_softreboot id ->
       immediate_operation dbg id (VM_check_state id)
@@ -3828,6 +3835,8 @@ module VM = struct
 
   let resume _ dbg id disk = queue_operation dbg id (VM_resume (id, Disk disk))
 
+  let fast_resume _ dbg id = queue_operation dbg id (Atomic (VM_fast_resume id))
+
   let s3suspend _ dbg id = queue_operation dbg id (Atomic (VM_s3suspend id))
 
   let s3resume _ dbg id = queue_operation dbg id (Atomic (VM_s3resume id))
@@ -4409,6 +4418,7 @@ let _ =
   Server.VM.reboot (VM.reboot ()) ;
   Server.VM.suspend (VM.suspend ()) ;
   Server.VM.resume (VM.resume ()) ;
+  Server.VM.fast_resume (VM.fast_resume ()) ;
   Server.VM.s3suspend (VM.s3suspend ()) ;
   Server.VM.s3resume (VM.s3resume ()) ;
   Server.VM.export_metadata (VM.export_metadata ()) ;

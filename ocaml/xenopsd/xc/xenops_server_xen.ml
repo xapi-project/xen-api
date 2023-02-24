@@ -3021,6 +3021,26 @@ module VM = struct
         Domain.shutdown ~xc ~xs di.Xenctrl.domid Domain.S3Suspend
     )
 
+  let resume t vm =
+    on_domain t vm (fun xc xs task vm di ->
+        let domid = di.Xenctrl.domid in
+        let qemu_domid = this_domid ~xs in
+        let domain_type =
+          match get_domain_type ~xs di with
+          | Vm.Domain_HVM ->
+              `hvm
+          | Vm.Domain_PV ->
+              `pv
+          | Vm.Domain_PVinPVH ->
+              `pvh
+          | Vm.Domain_PVH ->
+              `pvh
+          | Vm.Domain_undefined ->
+              failwith "undefined domain type: cannot resume"
+        in
+        Domain.resume task ~xc ~xs ~qemu_domid ~domain_type domid
+    )
+
   let s3resume t vm =
     (* XXX: TODO: monitor the guest's response; track the s3 state *)
     on_domain t vm (fun xc _xs _task _vm di ->
