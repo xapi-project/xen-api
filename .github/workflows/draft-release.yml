@@ -31,11 +31,11 @@ jobs:
           make python
 
       - name: Draft Release ${{ github.ref_name }}
-        id: create_release
-        uses: softprops/action-gh-release@v1
-        with:
-          files: |
-            scripts/examples/python/dist/*
-          fail_on_unmatched_files: true
-          draft: true
-          generate_release_notes: true
+        run: gh release create ${{ github.ref_name }} --draft --generate-notes
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  
+      - name: Upload artifacts
+        run: gh release upload ${{ github.ref_name }} scripts/examples/python/dist/* 
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
