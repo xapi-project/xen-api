@@ -114,6 +114,8 @@ module VDI = struct
 
   let activate3 ctx ~dbg ~dp ~sr ~vdi ~vm = u "VDI.activate3"
 
+  let activate_readonly ctx ~dbg ~dp ~sr ~vdi ~vm = u "VDI.activate_readonly"
+
   let deactivate ctx ~dbg ~dp ~sr ~vdi ~vm = u "VDI.deactivate"
 
   let detach ctx ~dbg ~dp ~sr ~vdi ~vm = u "VDI.detach"

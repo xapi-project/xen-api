@@ -587,6 +587,8 @@ module SMAPIv1 : Server_impl = struct
     let activate3 context ~dbg ~dp ~sr ~vdi ~vm:_ =
       activate context ~dbg ~dp ~sr ~vdi
 
+    let activate_readonly = activate3
+
     let deactivate _context ~dbg ~dp ~sr ~vdi ~vm:_ =
       try
         for_vdi ~dbg ~sr ~vdi "VDI.deactivate"

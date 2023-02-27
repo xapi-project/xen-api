@@ -34,6 +34,7 @@ type plugin = {
     processor: processor
   ; backend_domain: string
   ; query_result: query_result
+  ; features: Smint.feature list
 }
 
 let plugins : (sr, plugin) Hashtbl.t = Hashtbl.create 10
@@ -48,8 +49,16 @@ let debug_printer rpc call =
 
 let register sr rpc d info =
   with_lock m (fun () ->
+      let features =
+        Smint.parse_capability_int64_features info.Storage_interface.features
+      in
       Hashtbl.replace plugins sr
-        {processor= debug_printer rpc; backend_domain= d; query_result= info} ;
+        {
+          processor= debug_printer rpc
+        ; backend_domain= d
+        ; query_result= info
+        ; features
+        } ;
       debug "register SR %s (currently-registered = [ %s ])" (s_of_sr sr)
         (String.concat ", "
            (Hashtbl.fold (fun sr _ acc -> s_of_sr sr :: acc) plugins [])
@@ -68,6 +77,13 @@ let unregister sr =
 let query_result_of_sr sr =
   try with_lock m (fun () -> Some (Hashtbl.find plugins sr).query_result)
   with _ -> None
+
+let sr_has_capability sr capability =
+  try
+    with_lock m (fun () ->
+        Smint.has_capability capability (Hashtbl.find plugins sr).features
+    )
+  with _ -> false
 
 (* This is the policy: *)
 let of_sr sr =
@@ -156,7 +172,8 @@ module Mux = struct
   end
 
   module DP_info = struct
-    type t = {sr: Sr.t; vdi: Vdi.t; vm: Vm.t} [@@deriving rpcty]
+    type t = {sr: Sr.t; vdi: Vdi.t; vm: Vm.t; read_write: bool [@default true]}
+    [@@deriving rpcty]
 
     let storage_dp_path = "/var/run/nonpersistent/xapi/storage-dps"
 
@@ -496,7 +513,7 @@ module Mux = struct
         let rpc = of_sr sr
       end)) in
       let vm = Vm.of_string "0" in
-      DP_info.write dp DP_info.{sr; vdi; vm} ;
+      DP_info.write dp DP_info.{sr; vdi; vm; read_write} ;
       let backend = C.VDI.attach3 dbg dp sr vdi vm read_write in
       (* VDI.attach2 should be used instead, VDI.attach is only kept for
          backwards-compatibility, because older xapis call Remote.VDI.attach during SXM.
@@ -543,7 +560,7 @@ module Mux = struct
         let rpc = of_sr sr
       end)) in
       let vm = Vm.of_string "0" in
-      DP_info.write dp DP_info.{sr; vdi; vm} ;
+      DP_info.write dp DP_info.{sr; vdi; vm; read_write} ;
       C.VDI.attach3 dbg dp sr vdi vm read_write
 
     let attach3 () ~dbg ~dp ~sr ~vdi ~vm ~read_write =
@@ -552,7 +569,7 @@ module Mux = struct
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
-      DP_info.write dp DP_info.{sr; vdi; vm} ;
+      DP_info.write dp DP_info.{sr; vdi; vm; read_write} ;
       C.VDI.attach3 dbg dp sr vdi vm read_write
 
     let activate () ~dbg ~dp ~sr ~vdi =
@@ -569,7 +586,30 @@ module Mux = struct
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
-      C.VDI.activate3 dbg dp sr vdi vm
+      let read_write =
+        let open DP_info in
+        match read dp with
+        | Some x ->
+            x.read_write
+        | None ->
+            failwith "DP not found"
+      in
+      if (not read_write) && sr_has_capability sr Smint.Vdi_activate_readonly
+      then (
+        info "The VDI was attached read-only: calling activate_readonly" ;
+        C.VDI.activate_readonly dbg dp sr vdi vm
+      ) else (
+        info "The VDI was attached read/write: calling activate3" ;
+        C.VDI.activate3 dbg dp sr vdi vm
+      )
+
+    let activate_readonly () ~dbg ~dp ~sr ~vdi ~vm =
+      info "VDI.activate_readonly dbg:%s dp:%s sr:%s vdi:%s vm:%s" dbg dp
+        (s_of_sr sr) (s_of_vdi vdi) (s_of_vm vm) ;
+      let module C = StorageAPI (Idl.Exn.GenClient (struct
+        let rpc = of_sr sr
+      end)) in
+      C.VDI.activate_readonly dbg dp sr vdi vm
 
     let deactivate () ~dbg ~dp ~sr ~vdi ~vm =
       info "VDI.deactivate dbg:%s dp:%s sr:%s vdi:%s vm:%s" dbg dp (s_of_sr sr)
