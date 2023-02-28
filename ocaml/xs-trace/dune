@@ -1,0 +1,10 @@
+(executable
+  (modes byte exe)
+  (name xs_trace)
+  (public_name xs-trace)
+  (package xapi)
+  (libraries
+    tracing
+    xapi-stdext-unix
+  )
+)
