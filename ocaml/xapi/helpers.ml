@@ -1959,6 +1959,8 @@ module FileSys : sig
   (* bash-like interface for manipulating files *)
   type path = string
 
+  val realpathm : path -> path
+
   val rmrf : ?rm_top:bool -> path -> unit
 
   val mv : src:path -> dest:path -> unit
@@ -1968,6 +1970,8 @@ module FileSys : sig
   val redirect : string -> fname:path -> unit
 end = struct
   type path = string
+
+  let realpathm path = try Unix.readlink path with _ -> path
 
   let rmrf ?(rm_top = true) path =
     let ( // ) = Filename.concat in
