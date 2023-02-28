@@ -81,3 +81,11 @@ val string_of_t : t -> string
 val json_of_t : t -> string option
 
 val enable_span_garbage_collector : ?timeout:float -> unit -> unit
+
+module Export : sig
+  module Destination : sig
+    module Http : sig
+      val export : span_json:string -> url:string -> (string, exn) result
+    end
+  end
+end
