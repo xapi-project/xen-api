@@ -15,6 +15,14 @@ module SpanContext = struct
   type t = {trace_id: string; span_id: string} [@@deriving rpcty]
 end
 
+let url_file = "/etc/xapi-tracing-url"
+
+let trace_log_dir = "/var/log/dt/zipkinv2/json"
+
+module D = Debug.Make (struct let name = "tracing" end)
+
+open D
+
 module Span = struct
   type t = {
       span_context: SpanContext.t
@@ -53,22 +61,30 @@ module Span = struct
         span.tags <- new_tags
     | orig_tags, new_tags ->
         span.tags <- orig_tags @ new_tags
-
-  let lock = Mutex.create ()
 end
 
-let spans = Hashtbl.create 100
+module Spans = struct
+  let lock = Mutex.create ()
 
-let add_to_spans ~(span : Span.t) =
-  Xapi_stdext_threads.Threadext.Mutex.execute Span.lock (fun () ->
-      let key = span.span_context.trace_id in
-      match Hashtbl.find_opt spans key with
-      | None ->
-          Hashtbl.add spans key [span]
-      | Some span_list ->
-          if List.length span_list < 1000 then
-            Hashtbl.replace spans key (span :: span_list)
-  )
+  let spans = Hashtbl.create 100
+
+  let add_to_spans ~(span : Span.t) =
+    Xapi_stdext_threads.Threadext.Mutex.execute lock (fun () ->
+        let key = span.span_context.trace_id in
+        match Hashtbl.find_opt spans key with
+        | None ->
+            Hashtbl.add spans key [span]
+        | Some span_list ->
+            if List.length span_list < 1000 then
+              Hashtbl.replace spans key (span :: span_list)
+    )
+
+  let since () =
+    Xapi_stdext_threads.Threadext.Mutex.execute lock (fun () ->
+        let copy = Hashtbl.copy spans in
+        Hashtbl.clear spans ; copy
+    )
+end
 
 type blob = Span.t [@@deriving rpcty]
 
@@ -91,7 +107,7 @@ let is_empty = function None -> true | Some _ -> false
 
 let start ~name ~parent : (t, exn) result =
   let span = Span.start ~name ~parent () in
-  add_to_spans ~span ; Ok (Some span)
+  Spans.add_to_spans ~span ; Ok (Some span)
 
 let finish x : (unit, exn) result =
   match x with None -> Ok () | Some span -> Span.finish ~span () ; Ok ()
@@ -116,8 +132,10 @@ module Export = struct
           }
           [@@deriving rpcty]
 
-          let json_of_t s =
-            Rpcmarshal.marshal t.Rpc.Types.ty s |> Jsonrpc.to_string
+          type t_list = t list [@@deriving rpcty]
+
+          let json_of_t_list s =
+            Rpcmarshal.marshal t_list.Rpc.Types.ty s |> Jsonrpc.to_string
         end
 
         let zipkin_span_of_span : Span.t -> ZipkinSpan.t =
@@ -130,15 +148,151 @@ module Export = struct
           ; name= s.span_name
           ; timestamp= int_of_float (s.span_begin_time *. 1000000.)
           ; duration=
-              Option.value s.span_end_time
-                ~default:(Unix.gettimeofday () *. 1000000.)
-              -. (s.span_begin_time *. 1000000.)
+              Option.value s.span_end_time ~default:(Unix.gettimeofday ())
+              -. s.span_begin_time
+              |> ( *. ) 1000000.
               |> int_of_float
           ; kind= "SERVER"
           ; localEndpoint= {serviceName= "xapi"}
           ; tags= s.tags
           }
+
+        let content_of (spans : Span.t list) =
+          List.map zipkin_span_of_span spans |> ZipkinSpan.json_of_t_list
       end
     end
+  end
+
+  module Destination = struct
+    module File = struct
+      let export ~trace_id ~span_json : (string, exn) result =
+        try
+          (* TODO: *)
+          let host_id = "myhostid" in
+          let timestamp = Unix.gettimeofday () |> string_of_float in
+          let microsec = String.sub timestamp 6 (String.length timestamp - 6) in
+          let unix_time = float_of_string timestamp |> Unix.localtime in
+          let date =
+            Printf.sprintf "%d%d%d-%d%d%d-%s" unix_time.tm_year unix_time.tm_mon
+              unix_time.tm_mday unix_time.tm_hour unix_time.tm_min
+              unix_time.tm_sec microsec
+          in
+          let file =
+            String.concat "/" [trace_log_dir; trace_id; "xapi"; host_id; date]
+            ^ ".json"
+          in
+          Xapi_stdext_unix.Unixext.mkdir_rec (Filename.dirname file) 0o700 ;
+          Xapi_stdext_unix.Unixext.write_string_to_file file span_json ;
+          (* TODO: Ensure file is only written when trace is complete *)
+          Ok ""
+        with e -> Error e
+    end
+
+    module Http = struct
+      module Request = Cohttp.Request.Make (Cohttp_posix_io.Buffered_IO)
+      module Response = Cohttp.Response.Make (Cohttp_posix_io.Buffered_IO)
+
+      let export ~span_json ~url : (string, exn) result =
+        try
+          let body = span_json in
+          let uri = Uri.of_string url in
+          let headers =
+            Cohttp.Header.of_list
+              [
+                ("accepts", "application/json")
+              ; ("content-type", "application/json")
+              ; ("content-length", string_of_int (String.length body))
+              ]
+          in
+          Open_uri.with_open_uri uri (fun fd ->
+              let request =
+                Cohttp.Request.make ~meth:`POST ~version:`HTTP_1_1 ~headers uri
+              in
+              let ic = Unix.in_channel_of_descr fd in
+              let oc = Unix.out_channel_of_descr fd in
+              Request.write
+                (fun writer -> Request.write_body writer body)
+                request oc ;
+              Unix.shutdown fd Unix.SHUTDOWN_SEND ;
+              match try Response.read ic with _ -> `Eof with
+              | `Eof ->
+                  Ok ""
+              | `Invalid x ->
+                  Error (Failure ("invalid read: " ^ x))
+              | `Ok response ->
+                  let body = Buffer.create 128 in
+                  let reader = Response.make_body_reader response ic in
+                  let rec loop () =
+                    match Response.read_body_chunk reader with
+                    | Cohttp.Transfer.Chunk x ->
+                        Buffer.add_string body x ; loop ()
+                    | Cohttp.Transfer.Final_chunk x ->
+                        Buffer.add_string body x
+                    | Cohttp.Transfer.Done ->
+                        ()
+                  in
+                  loop () ;
+                  Ok (Buffer.contents body)
+          )
+        with e -> Error e
+    end
+
+    let export_to_http_server () =
+      debug "Tracing: About to export to http server" ;
+      let url =
+        Xapi_stdext_unix.Unixext.string_of_file url_file |> String.trim
+      in
+      let span_list = Spans.since () in
+      try
+        Hashtbl.iter
+          (fun _ span_list ->
+            let zipkin_spans = Content.Json.Zipkinv2.content_of span_list in
+            match Http.export ~span_json:zipkin_spans ~url with
+            | Ok _ ->
+                ()
+            | Error e ->
+                raise e
+          )
+          span_list ;
+        Ok ()
+      with e -> Error e
+
+    let _export_to_logs () =
+      debug "Tracing: About to export to dom0 logs" ;
+      let span_list = Spans.since () in
+      try
+        Hashtbl.iter
+          (fun trace_id span_list ->
+            let zipkin_spans = Content.Json.Zipkinv2.content_of span_list in
+            match File.export ~trace_id ~span_json:zipkin_spans with
+            | Ok _ ->
+                ()
+            | Error e ->
+                raise e
+          )
+          span_list ;
+        Ok ()
+      with e -> Error e
+
+    let _ =
+      Thread.create
+        (fun () ->
+          while true do
+            debug "Tracing: Waiting 30s before exporting spans" ;
+            Thread.delay 30. ;
+            let export_span =
+              Span.start ~name:"export_to_http_server" ~parent:None ()
+            in
+            match export_to_http_server () with
+            | Ok () ->
+                Span.finish ~span:export_span ()
+            | Error e ->
+                debug "Tracing: ERROR %s" (Printexc.to_string e) ;
+                Span.finish ~span:export_span
+                  ~tags:[("exception.message", Printexc.to_string e)]
+                  ()
+          done
+        )
+        ()
   end
 end
