@@ -3590,16 +3590,11 @@ let disable_repository_proxy ~__context ~self =
 let set_uefi_certificates ~__context ~self ~value =
   match !Xapi_globs.override_uefi_certs with
   | false ->
-      raise
-        Api_errors.(
-          Server_error
-            ( Api_errors.operation_not_allowed
-            , [
-                "Setting UEFI certificates is not possible when \
-                 override_uefi_certs is false"
-              ]
-            )
-        )
+      let msg =
+        "Setting UEFI certificates is not possible when override_uefi_certs is \
+         false"
+      in
+      raise Api_errors.(Server_error (operation_not_allowed, [msg]))
   | true ->
       Db.Pool.set_uefi_certificates ~__context ~self ~value ;
       Helpers.call_api_functions ~__context (fun rpc session_id ->
