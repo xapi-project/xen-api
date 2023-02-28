@@ -3588,14 +3588,22 @@ let disable_repository_proxy ~__context ~self =
     )
 
 let set_uefi_certificates ~__context ~self ~value =
-  Db.Pool.set_uefi_certificates ~__context ~self ~value ;
-  Helpers.call_api_functions ~__context (fun rpc session_id ->
-      List.iter
-        (fun host ->
-          Client.Host.write_uefi_certificates_to_disk ~rpc ~session_id ~host
-        )
-        (Db.Host.get_all ~__context)
-  )
+  match !Xapi_globs.override_uefi_certs with
+  | false ->
+      let msg =
+        "Setting UEFI certificates is not possible when override_uefi_certs is \
+         false"
+      in
+      raise Api_errors.(Server_error (operation_not_allowed, [msg]))
+  | true ->
+      Db.Pool.set_uefi_certificates ~__context ~self ~value ;
+      Helpers.call_api_functions ~__context (fun rpc session_id ->
+          List.iter
+            (fun host ->
+              Client.Host.write_uefi_certificates_to_disk ~rpc ~session_id ~host
+            )
+            (Db.Host.get_all ~__context)
+      )
 
 let set_https_only ~__context ~self:_ ~value =
   Helpers.call_api_functions ~__context (fun rpc session_id ->

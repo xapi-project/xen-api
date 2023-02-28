@@ -1959,9 +1959,23 @@ end = struct
     Xapi_psr_util.load_psr_pool_secrets ()
 end
 
+let ( let@ ) f x = f x
+
+let with_temp_out_ch ch f = finally (fun () -> f ch) (fun () -> close_out ch)
+
+let with_temp_file ?mode prefix suffix f =
+  let path, channel = Filename.open_temp_file ?mode prefix suffix in
+  finally (fun () -> f (path, channel)) (fun () -> Unix.unlink path)
+
+let with_temp_out_ch_of_temp_file ?mode prefix suffix f =
+  let@ path, channel = with_temp_file ?mode prefix suffix in
+  f (path, channel |> with_temp_out_ch)
+
 module FileSys : sig
   (* bash-like interface for manipulating files *)
   type path = string
+
+  val realpathm : path -> path
 
   val rmrf : ?rm_top:bool -> path -> unit
 
@@ -1973,16 +1987,24 @@ module FileSys : sig
 end = struct
   type path = string
 
+  let realpathm path = try Unix.readlink path with _ -> path
+
   let rmrf ?(rm_top = true) path =
     let ( // ) = Filename.concat in
     let rec rm rm_top path =
-      let st = Unix.lstat path in
-      match st.Unix.st_kind with
-      | Unix.S_DIR ->
-          Sys.readdir path |> Array.iter (fun file -> rm true (path // file)) ;
-          if rm_top then Unix.rmdir path
-      | _ ->
-          Unix.unlink path
+      match Unix.lstat path with
+      | exception Unix.Unix_error (Unix.ENOENT, _, _) ->
+          () (*noop*)
+      | exception e ->
+          raise e
+      | st -> (
+        match st.Unix.st_kind with
+        | Unix.S_DIR ->
+            Sys.readdir path |> Array.iter (fun file -> rm true (path // file)) ;
+            if rm_top then Unix.rmdir path
+        | _ ->
+            Unix.unlink path
+      )
     in
     try rm rm_top path
     with e ->

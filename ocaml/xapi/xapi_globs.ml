@@ -844,7 +844,11 @@ let nbd_client_manager_script =
 
 let varstore_rm = ref "/usr/bin/varstore-rm"
 
-let varstore_dir = ref "/usr/share/varstored"
+let varstore_dir = ref "/var/lib/varstored"
+
+let default_auth_dir = ref "/usr/share/varstored"
+
+let override_uefi_certs = ref false
 
 let disable_logging_for = ref []
 
@@ -1394,6 +1398,12 @@ let other_options =
     , Arg.Set ignore_vtpm_unimplemented
     , (fun () -> string_of_bool !ignore_vtpm_unimplemented)
     , "Do not raise errors on use-cases where VTPM codepaths are not finished."
+    )
+  ; ( "override-uefi-certs"
+    , Arg.Set override_uefi_certs
+    , (fun () -> string_of_bool !override_uefi_certs)
+    , "Enable (true) or Disable (false) overriding location for varstored UEFI \
+       certificates"
     )
   ]
 

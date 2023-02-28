@@ -868,6 +868,19 @@ let remove_legacy_ssl_support =
       )
   }
 
+let empty_pool_uefi_certificates =
+  {
+    description=
+      "empty contents of pool.uefi_certificates, as they are now provided in \
+       RPMs"
+  ; version= (fun _ -> true)
+  ; fn=
+      (fun ~__context ->
+        let pool = Helpers.get_pool ~__context in
+        Db.Pool.set_uefi_certificates ~__context ~self:pool ~value:""
+      )
+  }
+
 let rules =
   [
     upgrade_domain_type
@@ -896,6 +909,7 @@ let rules =
   ; upgrade_cluster_timeouts
   ; upgrade_secrets
   ; remove_legacy_ssl_support
+  ; empty_pool_uefi_certificates
   ]
 
 (* Maybe upgrade most recent db *)
