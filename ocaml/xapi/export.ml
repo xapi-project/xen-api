@@ -117,6 +117,10 @@ let rec update_table ~__context ~include_snapshots ~preserve_power_state
              add proxy.API.pVS_proxy_site
            )
        ) ;
+    (* add VTPMs that belong to this VM *)
+    vm.API.vM_VTPMs
+    |> List.iter (fun ref -> if Db.is_valid_ref __context ref then add ref) ;
+
     (* If we need to include snapshots, update the table for VMs in the 'snapshots' field *)
     if include_snapshots then
       List.iter
@@ -211,11 +215,6 @@ let make_vm ?(with_snapshot_metadata = false) ~preserve_power_state table
     __context self =
   let vm = Db.VM.get_record ~__context ~self in
   let vM_VTPMs = filter table (List.map Ref.string_of vm.API.vM_VTPMs) in
-  (* disallow exports and cross-pool migrations of VMs with VTPMs *)
-  ( if vM_VTPMs <> [] then
-      let message = "Exporting VM metadata with VTPMs attached" in
-      Helpers.maybe_raise_vtpm_unimplemented __FUNCTION__ message
-  ) ;
   let vm =
     {
       vm with
@@ -467,6 +466,27 @@ let make_pvs_sites table __context self =
   ; snapshot= API.rpc_of_pVS_site_t site
   }
 
+let make_vtpm table __context self =
+  debug "exporting vtpm %s" (Ref.string_of self) ;
+  let lookup' ref = lookup table (Ref.string_of ref) in
+  let vtpm = Db.VTPM.get_record ~__context ~self in
+  let secret = Xapi_vtpm.get_contents ~__context ~self in
+  (* we are using a hand-crafted record that we serialise. The default
+     API type does not include the value of the VTPM *)
+  let vtpm' =
+    {
+      vTPM'_VM= lookup' vtpm.vTPM_VM
+    ; vTPM'_is_unique= vtpm.vTPM_is_unique
+    ; vTPM'_is_protected= vtpm.vTPM_is_protected
+    ; vTPM'_content= secret
+    }
+  in
+  {
+    cls= Datamodel_common._vtpm
+  ; id= Ref.string_of (lookup' self)
+  ; snapshot= rpc_of_vtpm' vtpm'
+  }
+
 let make_all ~with_snapshot_metadata ~preserve_power_state table __context =
   let filter table rs =
     List.filter (fun x -> lookup table (Ref.string_of x) <> Ref.null) rs
@@ -532,6 +552,11 @@ let make_all ~with_snapshot_metadata ~preserve_power_state table __context =
       (make_pvs_sites table __context)
       (filter table (Db.PVS_site.get_all ~__context))
   in
+  let vtpms =
+    List.map
+      (make_vtpm table __context)
+      (filter table (Db.VTPM.get_all ~__context))
+  in
   List.concat
     [
       hosts
@@ -547,6 +572,7 @@ let make_all ~with_snapshot_metadata ~preserve_power_state table __context =
     ; gpu_groups
     ; pvs_proxies
     ; pvs_sites
+    ; vtpms
     ]
 
 (* on normal export, do not include snapshot metadata;
