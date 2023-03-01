@@ -8,8 +8,8 @@ dev-repo: "git+https://github.com/xapi-project/ezxenstore.git"
 build: [[ "dune" "build" "-p" name "-j" jobs ]]
 depends: [
   "ocaml"
-  "dune" {build & >= "1.4"}
-  "cmdliner"
+  "dune" {>= "1.4"}
+  "cmdliner" {with-test & >= "1.1.0"}
   "logs"
   "uuidm"
   "xenctrl"
