@@ -2760,12 +2760,14 @@ let write_uefi_certificates_to_disk ~__context ~host =
           ~to_path:!Xapi_globs.default_auth_dir
       in
       check_valid_uefi_certs_in path ;
+      let disk_uefi_certs_tar =
+        really_read_uefi_certificates_from_disk ~__context ~host
+          !Xapi_globs.varstore_dir
+      in
+      (* synchronize both host & pool read-only fields with contents in disk *)
+      Db.Host.set_uefi_certificates ~__context ~self:host
+        ~value:disk_uefi_certs_tar ;
       if Pool_role.is_master () then
-        let disk_uefi_certs_tar =
-          really_read_uefi_certificates_from_disk ~__context ~host
-            !Xapi_globs.varstore_dir
-        in
-        (* synchronize read-only field with contents in disk *)
         Db.Pool.set_uefi_certificates ~__context
           ~self:(Helpers.get_pool ~__context)
           ~value:disk_uefi_certs_tar
