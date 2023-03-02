@@ -21,6 +21,8 @@ let prototyped_of_field = function
       Some "22.20.0"
   | "VM", "actions__after_softreboot" ->
       Some "23.1.0"
+  | "pool", "last_update_sync" ->
+      Some "23.3.0-next"
   | "pool", "coordinator_bias" ->
       Some "22.37.0"
   | "pool", "migration_compression" ->

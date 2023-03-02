@@ -1331,6 +1331,9 @@ let t =
             "coordinator_bias"
             "true if bias against pool master when scheduling vms is enabled, \
              false otherwise"
+        ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:DateTime
+            ~default_value:(Some (VDateTime Date.epoch)) "last_update_sync"
+            "time of the last update sychronization"
         ]
       )
     ()

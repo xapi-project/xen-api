@@ -3409,7 +3409,9 @@ let sync_updates ~__context ~self ~force ~token ~token_id =
              sync ~__context ~self:x ~token ~token_id ;
              create_pool_repository ~__context ~self:x
          ) ;
-      set_available_updates ~__context
+      let checksum = set_available_updates ~__context in
+      Db.Pool.set_last_update_sync ~__context ~self ~value:(Date.now ()) ;
+      checksum
   | false ->
       with_reposync_lock @@ fun () ->
       enabled |> List.iter (fun x -> sync ~__context ~self:x ~token ~token_id) ;
@@ -3417,7 +3419,9 @@ let sync_updates ~__context ~self ~force ~token ~token_id =
         ~doc:"pool.sync_updates" ~op:`sync_updates
       @@ fun () ->
       List.iter (fun x -> create_pool_repository ~__context ~self:x) enabled ;
-      set_available_updates ~__context
+      let checksum = set_available_updates ~__context in
+      Db.Pool.set_last_update_sync ~__context ~self ~value:(Date.now ()) ;
+      checksum
 
 let check_update_readiness ~__context ~self:_ ~requires_reboot =
   (* Pool license check *)
