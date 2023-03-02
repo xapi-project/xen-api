@@ -1380,6 +1380,9 @@ let t =
             "telemetry_next_collection"
             "The earliest timestamp (in UTC) when the next round of telemetry \
              collection can be carried out"
+        ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:DateTime
+            ~default_value:(Some (VDateTime Date.epoch)) "last_update_sync"
+            "time of the last update sychronization"
         ]
       )
     ()

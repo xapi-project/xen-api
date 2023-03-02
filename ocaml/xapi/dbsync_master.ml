@@ -50,6 +50,7 @@ let create_pool_record ~__context =
       ~coordinator_bias:true ~telemetry_uuid:Ref.null
       ~telemetry_frequency:`weekly
       ~telemetry_next_collection:Xapi_stdext_date.Date.epoch
+      ~last_update_sync:Xapi_stdext_date.Date.epoch
 
 let set_master_ip ~__context =
   let ip =

@@ -1471,6 +1471,9 @@ let pool_record rpc session_id pool =
             (x ()).API.pool_telemetry_next_collection |> Date.to_string
           )
           ()
+      ; make_field ~name:"last-update-sync"
+          ~get:(fun () -> Date.to_string (x ()).API.pool_last_update_sync)
+          ()
       ]
   }
 
