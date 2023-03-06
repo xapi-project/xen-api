@@ -1037,7 +1037,8 @@ let create ~__context ~uuid ~name_label ~name_description:_ ~hostname ~address
       )
     ~control_domain:Ref.null ~updates_requiring_reboot:[] ~iscsi_iqn:""
     ~multipathing:false ~uefi_certificates:"" ~editions:[] ~pending_guidances:[]
-    ~tls_verification_enabled ~last_software_update:Date.never ;
+    ~tls_verification_enabled ~last_software_update:Date.never
+    ~recommended_guidances:[] ;
   (* If the host we're creating is us, make sure its set to live *)
   Db.Host_metrics.set_last_updated ~__context ~self:metrics
     ~value:(Date.of_float (Unix.gettimeofday ())) ;
@@ -2904,14 +2905,97 @@ let apply_updates ~__context ~self ~hash =
   in
   Db.Host.set_last_software_update ~__context ~self
     ~value:(get_servertime ~__context ~host:self) ;
-  Repository.apply_immediate_guidances ~__context ~host:self ~guidances ;
   (* The warnings may not be returned to async caller if this happens
    * on the coordinator host and the 'restartToolstack' is required.
    *)
-  warnings
+  List.map
+    (fun g ->
+      [
+        Api_errors.updates_require_recommended_guidance
+      ; Updateinfo.Guidance.to_string g
+      ]
+    )
+    guidances
+  @ warnings
 
 let set_https_only ~__context ~self ~value =
   let state = match value with true -> "close" | false -> "open" in
   ignore
   @@ Helpers.call_script !Xapi_globs.firewall_port_config_script [state; "80"] ;
   Db.Host.set_https_only ~__context ~self ~value
+
+let restart_device_models_for_recommended_guidances ~__context ~host =
+  (* Restart device models of all running HVM VMs on the host by doing
+   * local migrations if it is required by recommended guidances. *)
+  Repository_helpers.do_with_device_models ~__context ~host
+    ~vm_with_recommended_guidances:true
+  @@ fun (ref, record) ->
+  match
+    (record.API.vM_power_state, Helpers.has_qemu_currently ~__context ~self:ref)
+  with
+  | `Running, true ->
+      Xapi_vm_migrate.pool_migrate ~__context ~vm:ref ~host
+        ~options:[("live", "true")] ;
+      None
+  | `Paused, true ->
+      error "VM 'ref=%s' is paused, can't restart device models for it"
+        (Ref.string_of ref) ;
+      Some ref
+  | _ ->
+      (* No device models are running for this VM *)
+      None
+
+let apply_recommended_guidances ~__context ~self =
+  try
+    let open Repository_helpers in
+    let open Updateinfo in
+    let open Updateinfo.Guidance in
+    let host_update_guidances =
+      Db.Host.get_recommended_guidances ~__context ~self
+    in
+    let host_guidances =
+      List.map
+        (fun ug ->
+          match ug with
+          | `reboot_host ->
+              Guidance.RebootHost
+          | `reboot_host_on_livepatch_failure ->
+              Guidance.RebootHostOnLivePatchFailure
+          | `restart_toolstack ->
+              Guidance.RestartToolstack
+          | `restart_device_model ->
+              Guidance.RestartDeviceModel
+        )
+        host_update_guidances
+    in
+    match host_guidances with
+    | [] ->
+        (* try to restart device models for vm recommended_guidances*)
+        restart_device_models_for_recommended_guidances ~__context ~host:self
+    | [RebootHost] ->
+        reboot ~__context ~host:self
+    | [EvacuateHost] ->
+        (* EvacuatHost should have been done before applying updates by XAPI users.
+         * Here only the guidances to be applied after applying updates are handled,
+         * nothing need to be done for EvacuatHost.
+         *)
+        ()
+    | [RestartToolstack] ->
+        (* try to restart device models for vm recommended_guidances*)
+        restart_device_models_for_recommended_guidances ~__context ~host:self ;
+        restart_agent ~__context ~host:self
+    | l when GuidanceSet.eq_set1 l ->
+        (* EvacuateHost and RestartToolstack *)
+        restart_agent ~__context ~host:self
+    | l ->
+        let host' = Ref.string_of self in
+        error
+          "Found wrong guidance(s) after applying updates on host ref='%s': %s"
+          host'
+          (String.concat ";" (List.map Guidance.to_string l)) ;
+        raise Api_errors.(Server_error (apply_guidance_failed, [host']))
+  with e ->
+    let host' = Ref.string_of self in
+    error "applying recommended guidances on host ref='%s' failed: %s" host'
+      (ExnHelper.string_of_exn e) ;
+    raise Api_errors.(Server_error (apply_guidance_failed, [host']))

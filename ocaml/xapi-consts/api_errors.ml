@@ -1280,6 +1280,9 @@ let dynamic_memory_control_unavailable = "DYNAMIC_MEMORY_CONTROL_UNAVAILABLE"
 
 let apply_livepatch_failed = "APPLY_LIVEPATCH_FAILED"
 
+let updates_require_recommended_guidance =
+  "UPDATES_REQUIRE_RECOMMENDED_GUIDANCE"
+
 let update_guidance_changed = "UPDATE_GUIDANCE_CHANGED"
 
 (* VTPMs *)
