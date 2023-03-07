@@ -12,4 +12,5 @@
 <files>@ETCDIR@/stunnel/xapi-stunnel-ca-bundle.pem</files>
 <command label="xapi_cert">cat @ETCXENDIR@/xapi-ssl.pem | @BINDIR@/openssl x509 -text</command>
 <command label="xapi_pool_cert">cat @ETCXENDIR@/xapi-pool-tls.pem | @BINDIR@/openssl x509 -text</command>
+<directory label="tracing">/var/log/dt</directory>
 </collect>
