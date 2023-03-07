@@ -229,15 +229,14 @@ module Mux = struct
 
     let destroy _context ~dbg ~dp ~allow_leak =
       info "DP.destroy dbg:%s dp:%s allow_leak:%b" dbg dp allow_leak ;
-      let sr, vdi, vm =
-        let open DP_info in
-        match read dp with
-        | Some x ->
-            (x.sr, x.vdi, x.vm)
-        | None ->
-            failwith "DP not found"
-      in
-      destroy2 _context ~dbg ~dp ~sr ~vdi ~vm ~allow_leak
+      let open DP_info in
+      match read dp with
+      | Some {sr; vdi; vm; _} ->
+          destroy2 _context ~dbg ~dp ~sr ~vdi ~vm ~allow_leak
+      | None ->
+          info
+            "dp %s is not associated with a locally attached VDI; nothing to do"
+            dp
 
     let diagnostics () = Storage_smapiv1_wrapper.Impl.DP.diagnostics ()
 
