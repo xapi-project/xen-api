@@ -1350,9 +1350,14 @@ let t =
             ~default_value:(Some (VString "")) "repository_proxy_username"
             "Username for the authentication of the proxy used in syncing with \
              the enabled repositories"
-        ; field ~in_product_since:"21.3.0" ~internal_only:true
-            ~qualifier:DynamicRO ~ty:(Ref _secret)
-            ~default_value:(Some (VRef null_ref)) "repository_proxy_password"
+        ; field ~qualifier:DynamicRO
+            ~lifecycle:
+              [
+                (Published, "21.3.0", "")
+              ; (Changed, rel_next, "Changed internal_only to false")
+              ]
+            ~ty:(Ref _secret) ~default_value:(Some (VRef null_ref))
+            "repository_proxy_password"
             "Password for the authentication of the proxy used in syncing with \
              the enabled repositories"
         ; field ~qualifier:RW ~lifecycle:[] ~ty:Bool
