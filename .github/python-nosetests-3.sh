@@ -8,5 +8,5 @@ sudo apt-get update
 sudo apt-get install -y python3-mock python3-nose
 pip3 install mock
 
-nosetests3 scripts scripts/examples scripts/examples/python
+nosetests3 scripts
 PYTHONPATH=scripts/plugins python3 -m unittest -v test_extauth_hook_AD
