@@ -8,8 +8,10 @@ import shutil
 import sys
 import unittest
 import mock
-from nose.tools import nottest
 
+def nottest(obj):
+    obj.__test__ = False
+    return obj
 
 sys.path.append("./scripts/examples/python")
 sys.modules["xcp"] = mock.Mock()
