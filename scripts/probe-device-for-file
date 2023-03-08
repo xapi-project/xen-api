@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 # (c) Anil Madhavapeddy, Citrix Systems Inc, 2008
 # Checks for the existence of a file on a device
 
@@ -41,7 +41,7 @@ def stderr_redirected(to=os.devnull):
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
-       print "Usage: %s <device> <file>" % sys.argv[0]
+       print("Usage: %s <device> <file>" % sys.argv[0])
        sys.exit(2)
     device = sys.argv[1]
     file = sys.argv[2]
