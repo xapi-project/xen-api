@@ -514,6 +514,15 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; flags= []
       }
     )
+  ; ( "pool-reset-telemetry-uuid"
+    , {
+        reqd= []
+      ; optn= []
+      ; help= "Assign a new UUID for the pool's telemetry data."
+      ; implementation= No_fd Cli_operations.pool_reset_telemetry_uuid
+      ; flags= []
+      }
+    )
   ; ( "host-is-in-emergency-mode"
     , {
         reqd= []
