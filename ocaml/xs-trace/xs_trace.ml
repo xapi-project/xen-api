@@ -7,15 +7,16 @@ let _ =
   let origin = Sys.argv.(2) in
   let url = Sys.argv.(3) in
   let rec export_file orig =
-    if Sys.is_directory orig then (
+    if Sys.is_directory orig then
       let files = Sys.readdir orig in
       let file_paths = Array.map (fun file -> orig ^ "/" ^ file) files in
-      Array.iter export_file file_paths ;
-    ) else
+      Array.iter export_file file_paths
+    else
       let span_json = Xapi_stdext_unix.Unixext.string_of_file orig in
       let result = Tracing.Export.Destination.Http.export ~span_json ~url in
       match result with
-      | Ok _ -> ()
+      | Ok _ ->
+          ()
       | Error err ->
           Printf.eprintf "Error: %s" (Printexc.to_string err) ;
           exit 1
@@ -29,6 +30,6 @@ let _ =
       Sys.rmdir orig
     ) else
       Sys.remove orig
-    in
+  in
   if action = "mv" then
     remove_all origin
