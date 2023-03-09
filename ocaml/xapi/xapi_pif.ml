@@ -1111,5 +1111,6 @@ let start_of_day_best_effort_bring_up () =
             )
             pif
         )
-        (calculate_pifs_required_at_start_of_day ~__context)
+        (calculate_pifs_required_at_start_of_day ~__context) ;
+      Net.sync_state ()
   )
