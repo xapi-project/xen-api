@@ -18,6 +18,10 @@ type status = {
   ; active_state: string
 }
 
+module StringMap = Map.Make (String)
+
+type 'a string_map = 'a StringMap.t
+
 let systemctl = "/usr/bin/systemctl"
 
 let action ~service action =
@@ -26,41 +30,78 @@ let action ~service action =
   in
   ()
 
-let default_env = ["PATH=" ^ String.concat ":" Forkhelpers.default_path]
+let default_env =
+  StringMap.singleton "PATH" @@ String.concat ":" Forkhelpers.default_path
 
 let run_path = "/run/systemd/system/"
 
-let start_transient ?(env = Array.of_list default_env) ?(properties = [])
-    ~service cmd args =
+(* see https://www.freedesktop.org/software/systemd/man/systemd.syntax.html#Quoting
+   Neither [Filename.quote] or [String.escaped] would produce correct results
+*)
+let systemd_quote s =
+  let b = Buffer.create (String.length s) in
+  Buffer.add_char b '\'' ;
+  let () =
+    s
+    |> String.iter @@ function
+       | '\\' ->
+           Buffer.add_string b {|\\|}
+       | '\'' ->
+           (* these hex escapes work regardless what outer quotes are used *)
+           Buffer.add_string b {|\x27|}
+       | '"' ->
+           Buffer.add_string b {|\x22|}
+       | c when Astring.Char.Ascii.is_print c ->
+           Buffer.add_char b c
+       | _ ->
+           invalid_arg ("Values can only contain printable characters: " ^ s)
+  in
+  Buffer.add_char b '\'' ; Buffer.contents b
+
+let env_pair (k, v) = Printf.sprintf "%s=%s" k v
+
+let environment env =
+  env
+  |> StringMap.bindings
+  |> List.map env_pair
+  |> List.map (fun v -> ("Environment", [v]))
+(* we could build just a single environment line, but might be too long and
+   difficult to debug *)
+
+let build_properties env base properties =
+  "[Service]"
+  :: (List.concat [environment env; base; properties]
+     |> List.map (fun (k, v) ->
+            String.concat ""
+              [k; "="; List.map systemd_quote v |> String.concat " "]
+        )
+     )
+
+let start_transient ?(env = default_env) ?(properties = []) ~service cmd args =
   let syslog_key = service in
   let service = syslog_key ^ ".service" in
   let destination = Filename.concat run_path service in
-  properties
-  |> List.append
-       [
-         ( "Environment"
-         , env |> Array.to_list |> List.map Filename.quote |> String.concat " "
-         )
-       ; ("SyslogIdentifier", syslog_key)
-       ; ("SyslogLevel", "debug")
-       ; ("StandardOutput", "syslog")
-       ; ("StandardError", "inherit")
-       ; ("StartLimitInterval", "0") (* no rate-limit, for bootstorms *)
-       ; ("ExecStart", String.concat " " (cmd :: List.map Filename.quote args))
-       ; ("Type", "simple")
-         (* our systemd is too old, and doesn't support 'exec' *)
-       ; ("Restart", "no")
-         (* can't restart the device-model, it would've lost all state already *)
-       ; ("Slice", "system.slice")
-       ; ("TimeoutStopSec", "10")
-       ]
-  |> List.map (fun (k, v) -> k ^ "=" ^ v)
+  build_properties env
+    [
+      ("SyslogIdentifier", [syslog_key])
+    ; ("SyslogLevel", ["debug"])
+    ; ("StandardOutput", ["syslog"])
+    ; ("StandardError", ["inherit"])
+    ; ("StartLimitInterval", ["0"]) (* no rate-limit, for bootstorms *)
+    ; ("ExecStart", cmd :: args)
+    ; ("Type", ["simple"])
+      (* our systemd is too old, and doesn't support 'exec' *)
+    ; ("Restart", ["no"])
+      (* can't restart the device-model, it would've lost all state already *)
+    ; ("Slice", ["system.slice"])
+    ; ("TimeoutStopSec", ["10"])
+    ]
+    properties
   |> List.append
        [
          "[Unit]"
        ; "Description=transient unit for " ^ syslog_key
        ; "DefaultDependencies=no" (* lifecycle tied to domain, not systemd *)
-       ; "[Service]"
        ]
   |> String.concat "\n"
   |> Xapi_stdext_unix.Unixext.write_string_to_file destination ;
