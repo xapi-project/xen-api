@@ -58,7 +58,11 @@ let inventory_lookup k =
   Xapi_inventory.inventory_filename := "/etc/xensource-inventory" ;
   Xapi_inventory.lookup k
 
-let localhost_uuid = inventory_lookup Xapi_inventory._installation_uuid
+let localhost_uuid =
+  if Unix.geteuid () = 0 then
+    inventory_lookup Xapi_inventory._installation_uuid
+  else
+    Uuidm.nil |> Uuidm.to_string
 
 module Test = struct
   let assert_raises_match exception_match fn =
