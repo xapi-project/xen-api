@@ -40,3 +40,9 @@
  (alias runtest)
  (action (run ./quicktest.exe -skip-xapi -- list))
 )
+
+(rule
+ (alias runtest-systemd-user)
+ (deps ./quicktest.exe ../forkexecd/src/fe_main.exe)
+ (action (run ./systemd_user_test.sh))
+)
