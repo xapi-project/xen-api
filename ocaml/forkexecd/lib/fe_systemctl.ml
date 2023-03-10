@@ -24,10 +24,20 @@ type 'a string_map = 'a StringMap.t
 
 let systemctl = "/usr/bin/systemctl"
 
-let action ~service action =
-  let _, _stderr =
-    Forkhelpers.execute_command_get_output systemctl [action; service]
+let test_mode = ref false
+
+let execute_command_get_output cmd args =
+  (* for systemctl --user to work it needs env vars *)
+  let env, args =
+    if !test_mode then
+      (Some (Unix.environment ()), "--user" :: args)
+    else
+      (None, args)
   in
+  Forkhelpers.execute_command_get_output ?env cmd args
+
+let action ?(args = []) ~service action =
+  let _, _ = execute_command_get_output systemctl (action :: service :: args) in
   ()
 
 let default_env =
@@ -107,6 +117,28 @@ let start_transient ?(env = default_env) ?(properties = []) ~service cmd args =
   |> Xapi_stdext_unix.Unixext.write_string_to_file destination ;
   action ~service "start"
 
+let unit_path () =
+  if !test_mode then
+    let home = Sys.getenv_opt "HOME" |> Option.value ~default:"/root" in
+    Filename.concat home ".config/systemd/user"
+  else
+    "/etc/systemd/system"
+
+let drop_in_path service =
+  Printf.sprintf "%s/%s.service.d/10-xapi.conf" (unit_path ()) service
+
+let set_properties ?(env = StringMap.empty) ?(properties = []) ~service () =
+  let path = drop_in_path service in
+  Xapi_stdext_unix.Unixext.mkdir_rec (Filename.dirname path) 0o700 ;
+  build_properties env [] properties
+  |> String.concat "\n"
+  |> Xapi_stdext_unix.Unixext.write_string_to_file ~perms:0o600 path ;
+  let _, _ = execute_command_get_output systemctl ["daemon-reload"] in
+  ()
+
+let start_templated ~template ~instance =
+  action ~service:(Printf.sprintf "%s@%s" template instance) "start"
+
 let show ~service =
   let result = "Result" in
   let exec_main_pid = "ExecMainPID" in
@@ -116,7 +148,7 @@ let show ~service =
     [result; exec_main_pid; exec_main_status; active_state] |> String.concat ","
     |> fun properties ->
     ["show"; "-p"; properties; service]
-    |> Forkhelpers.execute_command_get_output systemctl
+    |> execute_command_get_output systemctl
     |> fst
     |> Astring.String.cuts ~sep:"\n"
     |> List.to_seq
@@ -145,6 +177,9 @@ let stop ~service =
   ) ;
   let destination = Filename.concat run_path (service ^ ".service") in
   Xapi_stdext_unix.Unixext.unlink_safe destination ;
+  let dropin = drop_in_path service in
+  Xapi_stdext_unix.Unixext.unlink_safe dropin ;
+  let () = try Unix.rmdir (Filename.dirname dropin) with _ -> () in
   status
 
 let is_active ~service =
@@ -176,3 +211,5 @@ let start_transient ?env ?properties ~service cmd args =
       with _ -> ()
     ) ;
     raise e
+
+let set_test () = test_mode := true
