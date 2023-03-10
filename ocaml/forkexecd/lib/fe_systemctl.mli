@@ -11,6 +11,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
+(** systemd service status *)
 type status = {
     result: string
   ; exec_main_pid: int
@@ -18,9 +19,12 @@ type status = {
   ; active_state: string
 }
 
+(** key -> value map *)
+type 'a string_map = 'a Map.Make(String).t
+
 val start_transient :
-     ?env:string array
-  -> ?properties:(string * string) list
+     ?env:string string_map
+  -> ?properties:(string * string list) list
   -> service:string
   -> string
   -> string list
