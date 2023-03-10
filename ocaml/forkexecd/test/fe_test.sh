@@ -13,7 +13,7 @@ cleanup () {
     kill $MAIN
 }
 trap cleanup EXIT
-for _ in $(seq 1 10); do
-    test -S ${SOCKET} || sleep 1
+for _ in $(seq 1 100); do
+    test -S ${SOCKET} || sleep 0.1
 done
 echo "" | ./fe_test.exe 16
