@@ -7,11 +7,19 @@ let set_socket_path path = Xs_transport.xenstored_socket := path
 let test socket =
   set_socket_path socket;
   let open Xenstore in
-  let result = 
-    with_xs (fun xs ->
+  try
+    let result =
+      with_xs (fun xs ->
         xs.write "/foo" "bar";
         xs.read "/foo")
-  in if result="bar" then `Ok 0 else `Error (false,"argh")
+    in
+    if result = "bar" then
+      `Ok 0
+    else
+      `Error (false, "argh")
+  with Xs_transport.Could_not_find_xenstore ->
+    (* Do not fail on systems that don't have xenstore running *)
+    `Ok 0
 
 let socket =
   let doc = "Set the path to the xenstored socket" in
@@ -22,11 +30,8 @@ let cmd =
   let man = [
     `P "Requires a running xenstored to work. See github.com:mirage/ocaml-xenstore-server"
   ] in
-  Term.(ret (const test $ socket)),
-  Term.info "test_ezxenstore" ~doc ~man
+  Cmd.v
+    (Cmd.info "test_ezxenstore" ~doc ~man)
+    Term.(ret (const test $ socket))
 
-let () = match Term.eval cmd with `Ok x -> exit x | _ -> exit 1
-
-
-
-
+let () = exit (Cmd.eval' cmd)
