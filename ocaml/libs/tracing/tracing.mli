@@ -14,7 +14,27 @@
 
 (* Basic types *)
 
-type blob
+module SpanContext : sig
+  type t
+
+  val to_traceparent : t -> string
+
+  val of_traceparent : string -> t option
+end
+
+module Span : sig
+  type t
+
+  val get_span_context : t -> SpanContext.t
+end
+
+module Tracer : sig
+  type t
+
+  val span_of_span_context : SpanContext.t -> string -> Span.t
+end
+
+type blob = Span.t
 
 type t = blob option
 

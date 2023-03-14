@@ -11,10 +11,6 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-module SpanContext = struct
-  type t = {trace_id: string; span_id: string} [@@deriving rpcty]
-end
-
 let url_file = "/etc/xapi-tracing-url"
 
 let trace_log_dir = "/var/log/dt/zipkinv2/json"
@@ -22,6 +18,20 @@ let trace_log_dir = "/var/log/dt/zipkinv2/json"
 module D = Debug.Make (struct let name = "tracing" end)
 
 open D
+
+module SpanContext = struct
+  type t = {trace_id: string; span_id: string} [@@deriving rpcty]
+
+  let to_traceparent t = Printf.sprintf "00-%s-%s-00" t.trace_id t.span_id
+
+  let of_traceparent traceparent =
+    let elements = String.split_on_char '-' traceparent in
+    match elements with
+    | ["00"; trace_id; span_id; "00"] ->
+        Some {trace_id; span_id}
+    | _ ->
+        None
+end
 
 module Span = struct
   type t = {
@@ -33,6 +43,8 @@ module Span = struct
     ; mutable tags: (string * string) list
   }
   [@@deriving rpcty]
+
+  let get_span_context t = t.span_context
 
   let generate_id n = String.init n (fun _ -> "0123456789abcdef".[Random.int 16])
 
@@ -61,6 +73,21 @@ module Span = struct
         span.tags <- new_tags
     | orig_tags, new_tags ->
         span.tags <- orig_tags @ new_tags
+end
+
+module Tracer = struct
+  type t = string [@@deriving rpcty]
+  (* So the module exists, type will need to be changed*)
+
+  let span_of_span_context span_context span_name : Span.t =
+    {
+      span_context
+    ; span_name
+    ; span_parent= None
+    ; span_begin_time= Unix.gettimeofday ()
+    ; span_end_time= None
+    ; tags= []
+    }
 end
 
 module Spans = struct
