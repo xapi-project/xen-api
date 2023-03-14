@@ -327,6 +327,41 @@ module TracerProviders = struct
                 }
             }
           ~name
+
+  let set ?status ?tags ?endpoints ?filters ?processors ~name_label () =
+    Xapi_stdext_threads.Threadext.Mutex.execute lock (fun () ->
+        let provider : TracerProvider.t =
+          match Hashtbl.find_opt tracer_providers name_label with
+          | Some provider ->
+              let config = provider.config in
+              let enabled = Option.value ~default:config.enabled status in
+              let tags = Option.value ~default:config.tags tags in
+              let endpoints =
+                Option.fold ~none:config.endpoints
+                  ~some:(List.map endpoint_of_string)
+                  endpoints
+              in
+              let filters = Option.value ~default:config.filters filters in
+              let processors =
+                Option.value ~default:config.processors processors
+              in
+              let config =
+                {config with enabled; tags; endpoints; filters; processors}
+              in
+              let tracers =
+                List.map
+                  (fun tracer : Tracer.t -> {tracer with provider= ref config})
+                  provider.tracers
+              in
+              {config; tracers}
+          | None ->
+              failwith
+                (Printf.sprintf "The TracerProvider : %s does not exist"
+                   name_label
+                )
+        in
+        Hashtbl.replace tracer_providers name_label provider
+    )
 end
 
 type blob = Span.t [@@deriving rpcty]

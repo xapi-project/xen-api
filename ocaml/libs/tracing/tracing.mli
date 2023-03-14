@@ -61,6 +61,16 @@ module TracerProviders : sig
     -> filters:string list
     -> unit
 
+  val set :
+       ?status:bool
+    -> ?tags:(string * string) list
+    -> ?endpoints:string list
+    -> ?filters:string list
+    -> ?processors:string list
+    -> name_label:string
+    -> unit
+    -> unit
+
   val get_default : unit -> (TracerProvider.t, exn) result
 
   val get_default_tracer : name:string -> Tracer.t
