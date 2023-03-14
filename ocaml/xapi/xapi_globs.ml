@@ -1202,18 +1202,17 @@ let other_options =
       (fun s -> s)
       disable_dbsync_for
   ; gen_list_option "tracing-default-endpoints"
-      "space-separated list of endpoints strings for the default tracer \
-       provider"
+      "comma-separated list of endpoint strings for the default tracer provider"
       (fun s -> s)
       (fun s -> s)
       tracing_default_endpoints
   ; gen_list_option "tracing-default-filters"
-      "space-separated list of filters strings for the default tracer provider"
+      "comma-separated list of filter strings for the default tracer provider"
       (fun s -> s)
       (fun s -> s)
       tracing_default_filters
   ; gen_list_option "tracing-default-processors"
-      "space-separated list of processors strings for the default tracer \
+      "comma-separated list of processor strings for the default tracer \
        provider"
       (fun s -> s)
       (fun s -> s)

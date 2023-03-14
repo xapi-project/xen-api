@@ -637,6 +637,14 @@ functor
           Ref.string_of repository
       with _ -> "invalid"
 
+    let tracing_uuid ~__context tracing =
+      try
+        if Pool_role.is_master () then
+          Db.Tracing.get_uuid ~__context ~self:tracing
+        else
+          Ref.string_of tracing
+      with _ -> "invalid"
+
     module Session = struct
       include Local.Session
 
@@ -6483,5 +6491,106 @@ functor
             Client.Repository.apply_livepatch ~rpc ~session_id ~host ~component
               ~base_build_id ~base_version ~base_release ~to_version ~to_release
         )
+    end
+
+    module Tracing = struct
+      let do_trace_op_on ~__context ~self ~local_fn ~client_fn ~db_fn =
+        let localhost = Helpers.get_localhost ~__context in
+        if Helpers.is_pool_master ~__context ~host:localhost then (
+          db_fn () ;
+          (* Option.iter
+             (fun status -> Db.Tracing.set_status ~__context ~self ~value:status)
+             status ; *)
+          let hosts =
+            match Db.Tracing.get_hosts ~__context ~self with
+            | [] ->
+                Db.Host.get_all ~__context
+            | hosts ->
+                hosts
+          in
+          let hosts, local = List.partition (( <> ) localhost) hosts in
+          List.iter
+            (fun host -> do_op_on ~__context ~local_fn ~host client_fn)
+            hosts ;
+          List.iter (fun _ -> local_fn ~__context) local
+        ) else
+          local_fn ~__context ;
+        ()
+
+      let set_status ~__context ~self ~status =
+        info "Tracing.set_status: self=%s status=%B"
+          (tracing_uuid ~__context self)
+          status ;
+        let local_fn = Local.Tracing.set_status ~self ~status in
+        let client_fn session_id rpc =
+          Client.Tracing.set_status ~rpc ~session_id ~self ~status
+        in
+        let db_fn () = Db.Tracing.set_status ~__context ~self ~value:status in
+        do_trace_op_on ~__context ~self ~local_fn ~client_fn ~db_fn
+
+      let set_tags ~__context ~self ~tags =
+        let pool =
+          Db.Pool.get_uuid ~__context ~self:(Helpers.get_pool ~__context)
+        in
+        let tags = ("pool", pool) :: tags in
+        info "Tracing.set_tags: self=%s tags=%s"
+          (tracing_uuid ~__context self)
+          (List.map (fun (k, v) -> k ^ ":" ^ v) tags |> String.concat ",") ;
+        let local_fn = Local.Tracing.set_tags ~self ~tags in
+        let client_fn session_id rpc =
+          Client.Tracing.set_tags ~rpc ~session_id ~self ~tags
+        in
+        let db_fn () = Db.Tracing.set_tags ~__context ~self ~value:tags in
+        do_trace_op_on ~__context ~self ~local_fn ~client_fn ~db_fn
+
+      let set_endpoints ~__context ~self ~endpoints =
+        info "Tracing.set_endpoints: self=%s endpoints=%s"
+          (tracing_uuid ~__context self)
+          (endpoints |> String.concat ",") ;
+        let local_fn = Local.Tracing.set_endpoints ~self ~endpoints in
+        let client_fn session_id rpc =
+          Client.Tracing.set_endpoints ~rpc ~session_id ~self ~endpoints
+        in
+        let db_fn () =
+          Db.Tracing.set_endpoints ~__context ~self ~value:endpoints
+        in
+        do_trace_op_on ~__context ~self ~local_fn ~client_fn ~db_fn
+
+      let set_components ~__context ~self ~components =
+        info "Tracing.set_components: self=%s components=%s"
+          (tracing_uuid ~__context self)
+          (components |> String.concat ",") ;
+        let local_fn = Local.Tracing.set_components ~self ~components in
+        let client_fn session_id rpc =
+          Client.Tracing.set_components ~rpc ~session_id ~self ~components
+        in
+        let db_fn () =
+          Db.Tracing.set_components ~__context ~self ~value:components
+        in
+        do_trace_op_on ~__context ~self ~local_fn ~client_fn ~db_fn
+
+      let set_filters ~__context ~self ~filters =
+        info "Tracing.set_filters: self=%s filters=%s"
+          (tracing_uuid ~__context self)
+          (filters |> String.concat ",") ;
+        let local_fn = Local.Tracing.set_filters ~self ~filters in
+        let client_fn session_id rpc =
+          Client.Tracing.set_filters ~rpc ~session_id ~self ~filters
+        in
+        let db_fn () = Db.Tracing.set_filters ~__context ~self ~value:filters in
+        do_trace_op_on ~__context ~self ~local_fn ~client_fn ~db_fn
+
+      let set_processors ~__context ~self ~processors =
+        info "Tracing.set_processors: self=%s processors=%s"
+          (tracing_uuid ~__context self)
+          (processors |> String.concat ",") ;
+        let local_fn = Local.Tracing.set_processors ~self ~processors in
+        let client_fn session_id rpc =
+          Client.Tracing.set_processors ~rpc ~session_id ~self ~processors
+        in
+        let db_fn () =
+          Db.Tracing.set_processors ~__context ~self ~value:processors
+        in
+        do_trace_op_on ~__context ~self ~local_fn ~client_fn ~db_fn
     end
   end

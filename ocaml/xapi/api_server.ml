@@ -128,6 +128,7 @@ module Actions = struct
   module Certificate = Certificates
   module Diagnostics = Xapi_diagnostics
   module Repository = Repository
+  module Tracing = Xapi_tracing
 end
 
 (** Use the server functor to make an XML-RPC dispatcher. *)
