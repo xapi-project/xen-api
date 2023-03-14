@@ -388,7 +388,8 @@ let update_pif_addresses ~__context =
 let make_rpc ~__context rpc : Rpc.response =
   let subtask_of = Ref.string_of (Context.get_task_id __context) in
   let open Xmlrpc_client in
-  let http = xmlrpc ~subtask_of ~version:"1.1" "/" in
+  let tracing = Context.set_client_span __context in
+  let http = xmlrpc ~subtask_of ~version:"1.1" "/" ~tracing in
   let transport =
     if Pool_role.is_master () then
       Unix Xapi_globs.unix_domain_socket
@@ -410,7 +411,8 @@ let make_timeboxed_rpc ~__context timeout rpc : Rpc.response =
        * associated with the task. To avoid conflating the stunnel with any real resources
        * the task has acquired we make a new one specifically for the stunnel pid *)
       let open Xmlrpc_client in
-      let http = xmlrpc ~subtask_of ~version:"1.1" "/" in
+      let tracing = Context.set_client_span __context in
+      let http = xmlrpc ~subtask_of ~version:"1.1" ~tracing "/" in
       let task_id = Context.get_task_id __context in
       let cancel () =
         let resources =
