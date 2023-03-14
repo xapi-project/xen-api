@@ -1813,12 +1813,14 @@ let with_tracing ~name ~task f =
   let name = "xenopsd." ^ name in
   let context = Xenops_task.tracing task in
   let parent : Tracing.t = Option.bind context Tracing.t_of_string in
-  match Tracing.start ~name ~parent with
-  | Ok span_context ->
-      let sub_context = Tracing.json_of_t span_context in
+  let tracer = Tracing.TracerProviders.get_default_tracer ~name in
+  let span = Tracing.Tracer.start ~tracer ~name ~parent in
+  match span with
+  | Ok span ->
+      let sub_context = Tracing.json_of_t span in
       Xenops_task.set_tracing task sub_context ;
       let result = f () in
-      let _ = Tracing.finish span_context in
+      let _ = Tracing.Tracer.finish span in
       Xenops_task.set_tracing task context ;
       result
   | Error e ->

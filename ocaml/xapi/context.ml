@@ -55,7 +55,7 @@ type t = {
 }
 
 let complete_tracing __context =
-  ( match Tracing.finish __context.tracing with
+  ( match Tracing.Tracer.finish __context.tracing with
   | Ok () ->
       ()
   | Error e ->
@@ -247,7 +247,8 @@ let tracing_of_origin (origin : origin) task_name =
   match origin with
   | Http (req, _) ->
       let traceparent_opt = req.Http.Request.traceparent in
-      R.debug "Received traceparent header (tracing_of_origin) = %s" (Option.value ~default:"None" traceparent_opt);
+      R.debug "Received traceparent header (tracing_of_origin) = %s"
+        (Option.value ~default:"None" traceparent_opt) ;
       let* traceparent = traceparent_opt in
       let* span_context = SpanContext.of_traceparent traceparent in
       let span = Tracer.span_of_span_context span_context task_name in
@@ -274,7 +275,9 @@ let from_forwarded_task ?(http_other_config = []) ?session_id
   let tracing =
     let open Tracing in
     let parent = tracing_of_origin origin task_name in
-    match start ~name:task_name ~parent with
+    let tracer = TracerProviders.get_default_tracer ~name:task_name in
+    let span = Tracer.start ~tracer ~name:task_name ~parent in
+    match span with
     | Ok x ->
         x
     | Error e ->
@@ -330,7 +333,9 @@ let make ?(http_other_config = []) ?(quiet = false) ?subtask_of ?session_id
   let tracing =
     let open Tracing in
     let parent = tracing_of_origin origin task_name in
-    match start ~name:task_name ~parent with
+    let tracer = TracerProviders.get_default_tracer ~name:task_name in
+    let span = Tracer.start ~tracer ~name:task_name ~parent in
+    match span with
     | Ok x ->
         R.debug "Started trace: %s" (string_of_t x) ;
         x
@@ -361,7 +366,9 @@ let make_subcontext ~__context ?task_in_database task_name =
     if null parent then
       empty
     else (* only create a tracing if we're part of a tree *)
-      match Tracing.start ~name:task_name ~parent with
+      let tracer = TracerProviders.get_default_tracer ~name:task_name in
+      let span = Tracer.start ~tracer ~name:task_name ~parent in
+      match span with
       | Ok x ->
           x
       | Error e ->
@@ -433,12 +440,15 @@ let get_user_agent context =
   match context.origin with Internal -> None | Http (rq, _) -> rq.user_agent
 
 let with_tracing context name f =
+  let open Tracing in
   let parent = context.tracing in
-  match Tracing.start ~name ~parent with
+  let tracer = TracerProviders.get_default_tracer ~name in
+  let span = Tracer.start ~tracer ~name ~parent in
+  match span with
   | Ok span_context ->
       let new_context = {context with tracing= span_context} in
       let result = f new_context in
-      let _ = Tracing.finish span_context in
+      let _ = Tracing.Tracer.finish span_context in
       result
   | Error e ->
       R.warn "Failed to start tracing: %s" (Printexc.to_string e) ;

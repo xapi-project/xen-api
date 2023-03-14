@@ -409,7 +409,8 @@ let make_rpc ~__context rpc : Rpc.response =
       )
       (Context.tracing_of __context)
   in
-  debug "Setting traceparent header (make_rpc) = %s" (Option.value ~default:"None" traceparent) ;
+  debug "Setting traceparent header (make_rpc) = %s"
+    (Option.value ~default:"None" traceparent) ;
   let http = {http with traceparent} in
   XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"xapi" ~transport ~http rpc
 

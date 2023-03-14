@@ -369,10 +369,12 @@ let with_tracing ~name ~dbg f =
         (dbg, Tracing.empty)
   in
   let name = "SM." ^ name in
-  match Tracing.start ~name ~parent with
+  let tracer = Tracing.TracerProviders.get_default_tracer ~name in
+  let span = Tracing.Tracer.start ~tracer ~name ~parent in
+  match span with
   | Ok span_context ->
       let result = f dbg in
-      let _ = Tracing.finish span_context in
+      let _ = Tracing.Tracer.finish span_context in
       result
   | Error e ->
       D.warn "Failed to start tracing: %s" (Printexc.to_string e) ;
