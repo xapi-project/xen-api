@@ -924,6 +924,12 @@ let rpm_cmd = ref "/usr/bin/rpm"
 
 let rpm_gpgkey_dir = ref "/etc/pki/rpm-gpg"
 
+let tracing_default_endpoints = ref ["bugtool"]
+
+let tracing_default_filters = ref []
+
+let tracing_default_processors = ref []
+
 let repository_gpgkey_name = ref ""
 
 let repository_gpgcheck = ref true
@@ -1195,6 +1201,23 @@ let other_options =
       (fun s -> s)
       (fun s -> s)
       disable_dbsync_for
+  ; gen_list_option "tracing-default-endpoints"
+      "space-separated list of endpoints strings for the default tracer \
+       provider"
+      (fun s -> s)
+      (fun s -> s)
+      tracing_default_endpoints
+  ; gen_list_option "tracing-default-filters"
+      "space-separated list of filters strings for the default tracer provider"
+      (fun s -> s)
+      (fun s -> s)
+      tracing_default_filters
+  ; gen_list_option "tracing-default-processors"
+      "space-separated list of processors strings for the default tracer \
+       provider"
+      (fun s -> s)
+      (fun s -> s)
+      tracing_default_processors
   ; ( "xenopsd-queues"
     , Arg.String (fun x -> xenopsd_queues := String.split ',' x)
     , (fun () -> String.concat "," !xenopsd_queues)

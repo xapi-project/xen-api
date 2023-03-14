@@ -19,6 +19,10 @@ module D = Debug.Make (struct let name = "tracing" end)
 
 open D
 
+type endpoint = Bugtool | Url of string [@@deriving rpcty]
+
+let endpoint_of_string = function "bugtool" -> Bugtool | url -> Url url
+
 module SpanContext = struct
   type t = {trace_id: string; span_id: string} [@@deriving rpcty]
 
@@ -75,21 +79,6 @@ module Span = struct
         span.tags <- orig_tags @ new_tags
 end
 
-module Tracer = struct
-  type t = string [@@deriving rpcty]
-  (* So the module exists, type will need to be changed*)
-
-  let span_of_span_context span_context span_name : Span.t =
-    {
-      span_context
-    ; span_name
-    ; span_parent= None
-    ; span_begin_time= Unix.gettimeofday ()
-    ; span_end_time= None
-    ; tags= []
-    }
-end
-
 module Spans = struct
   let lock = Mutex.create ()
 
@@ -113,6 +102,151 @@ module Spans = struct
     )
 end
 
+type provider_config_t = {
+    name_label: string
+  ; tags: (string * string) list
+  ; endpoints: endpoint list
+  ; filters: string list
+  ; processors: string list
+  ; enabled: bool
+}
+[@@deriving rpcty]
+
+module Tracer = struct
+  type t = {name: string; provider: provider_config_t ref}
+
+  let create ~name ~provider = {name; provider}
+
+  let span_of_span_context span_context span_name : Span.t =
+    {
+      span_context
+    ; span_name
+    ; span_parent= None
+    ; span_begin_time= Unix.gettimeofday ()
+    ; span_end_time= None
+    ; tags= []
+    }
+
+  let get_empty name =
+    warn "Tracer of name %s was not found" name ;
+    let provider =
+      ref
+        {
+          name_label= ""
+        ; tags= []
+        ; endpoints= []
+        ; filters= []
+        ; processors= []
+        ; enabled= false
+        }
+    in
+    {name= ""; provider}
+
+  let start ~tracer:t ~name ~parent : (Span.t option, exn) result =
+    let provider = !(t.provider) in
+    (* Do not start span if the TracerProvider is diabled*)
+    if not provider.enabled then
+      Ok None
+    else
+      let tags = provider.tags in
+      let span = Span.start ~tags ~name ~parent () in
+      Spans.add_to_spans ~span ; Ok (Some span)
+
+  let finish x : (unit, exn) result =
+    match x with None -> Ok () | Some span -> Span.finish ~span () ; Ok ()
+end
+
+module TracerProvider = struct
+  type t = {tracers: Tracer.t list; config: provider_config_t}
+
+  let find_tracer ~provider:t ~name =
+    match
+      List.filter (fun (tracer : Tracer.t) -> tracer.name = name) t.tracers
+    with
+    | [tracer] ->
+        tracer
+    | _ ->
+        Tracer.get_empty name
+end
+
+module TracerProviders = struct
+  let lock = Mutex.create ()
+
+  let tracer_providers = Hashtbl.create 100
+
+  let find_or_create_tracer ~provider ~name =
+    match
+      List.filter
+        (fun tracer -> tracer.Tracer.name = name)
+        provider.TracerProvider.tracers
+    with
+    | provider :: _ ->
+        provider
+    | _ ->
+        Xapi_stdext_threads.Threadext.Mutex.execute lock (fun () ->
+            let label = provider.TracerProvider.config.name_label in
+            let tracer =
+              Tracer.create ~name ~provider:(ref provider.TracerProvider.config)
+            in
+            let provider =
+              {provider with tracers= tracer :: provider.TracerProvider.tracers}
+            in
+            Hashtbl.replace tracer_providers label provider ;
+            tracer
+        )
+
+  let set_default ~tags ~endpoints ~processors ~filters =
+    let endpoints = List.map endpoint_of_string endpoints in
+    let default : TracerProvider.t =
+      {
+        tracers= []
+      ; config=
+          {
+            name_label= "default"
+          ; tags= ("provider", "default") :: tags
+          ; endpoints
+          ; filters
+          ; processors
+          ; enabled= true
+          }
+      }
+    in
+    Xapi_stdext_threads.Threadext.Mutex.execute lock (fun () ->
+        Hashtbl.replace tracer_providers "default" default
+    )
+
+  let get_default () =
+    try
+      Xapi_stdext_threads.Threadext.Mutex.execute lock (fun () ->
+          let provider = Hashtbl.find tracer_providers "default" in
+          Ok provider
+      )
+    with e -> Error e
+
+  let get_default_tracer ~name =
+    let default = get_default () in
+    match default with
+    | Ok provider ->
+        find_or_create_tracer ~provider ~name
+    | Error e ->
+        warn "Error fetching default provider: %s " (Printexc.to_string e) ;
+        find_or_create_tracer
+          ~provider:
+            {
+              tracers= []
+            ; config=
+                {
+                  name_label= ""
+                ; tags= []
+                ; endpoints= []
+                ; filters= []
+                ; processors= []
+                ; enabled= false
+                }
+            }
+          ~name
+end
+
 type blob = Span.t [@@deriving rpcty]
 
 type t = blob option [@@deriving rpcty]
@@ -131,13 +265,6 @@ let t_of_string x : t =
 let empty : t = None
 
 let is_empty = function None -> true | Some _ -> false
-
-let start ~name ~parent : (t, exn) result =
-  let span = Span.start ~name ~parent () in
-  Spans.add_to_spans ~span ; Ok (Some span)
-
-let finish x : (unit, exn) result =
-  match x with None -> Ok () | Some span -> Span.finish ~span () ; Ok ()
 
 module Export = struct
   module Content = struct
@@ -165,8 +292,13 @@ module Export = struct
             Rpcmarshal.marshal t_list.Rpc.Types.ty s |> Jsonrpc.to_string
         end
 
-        let zipkin_span_of_span : Span.t -> ZipkinSpan.t =
-         fun s ->
+        let zipkin_span_of_span (s : Span.t) : ZipkinSpan.t =
+          let tags =
+            List.assoc_opt "host" s.tags
+            |> Option.fold ~none:s.tags ~some:(fun uuid ->
+                   ("instance", uuid) :: s.tags
+               )
+          in
           {
             id= s.span_context.span_id
           ; traceId= s.span_context.trace_id
@@ -181,7 +313,7 @@ module Export = struct
               |> int_of_float
           ; kind= "SERVER"
           ; localEndpoint= {serviceName= "xapi"}
-          ; tags= s.tags
+          ; tags
           }
 
         let content_of (spans : Span.t list) =

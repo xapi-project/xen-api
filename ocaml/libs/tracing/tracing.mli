@@ -32,6 +32,36 @@ module Tracer : sig
   type t
 
   val span_of_span_context : SpanContext.t -> string -> Span.t
+
+  val start :
+       tracer:t
+    -> name:string
+    -> parent:Span.t option
+    -> (Span.t option, exn) result
+
+  val finish : Span.t option -> (unit, exn) result
+end
+
+module TracerProvider : sig
+  type t
+
+  val find_tracer : provider:t -> name:string -> Tracer.t
+end
+
+module TracerProviders : sig
+  val find_or_create_tracer :
+    provider:TracerProvider.t -> name:string -> Tracer.t
+
+  val set_default :
+       tags:(string * string) list
+    -> endpoints:string list
+    -> processors:string list
+    -> filters:string list
+    -> unit
+
+  val get_default : unit -> (TracerProvider.t, exn) result
+
+  val get_default_tracer : name:string -> Tracer.t
 end
 
 type blob = Span.t
@@ -47,7 +77,3 @@ val t_of_string : string -> t
 val t_to_string_opt : t -> string option
 
 (* Create spans *)
-
-val start : name:string -> parent:t -> (t, exn) result
-
-val finish : t -> (unit, exn) result
