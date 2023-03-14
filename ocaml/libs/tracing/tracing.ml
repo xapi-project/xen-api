@@ -19,10 +19,23 @@ module D = Debug.Make (struct let name = "tracing" end)
 
 open D
 
+module SpanContext = struct
+  type t = {trace_id: string; span_id: string} [@@deriving rpcty]
+
+  let to_traceparent t = Printf.sprintf "00-%s-%s-00" t.trace_id t.span_id
+
+  let of_traceparent traceparent =
+    let elements = String.split_on_char '-' traceparent in
+    match elements with
+    | ["00"; trace_id; span_id; "00"] ->
+        Some {trace_id; span_id}
+    | _ ->
+        None
+end
+
 module Span = struct
   type t = {
-      trace_id: string
-    ; span_id: string
+      span_context: SpanContext.t
     ; span_parent: t option
     ; span_name: string
     ; span_begin_time: float
@@ -31,31 +44,25 @@ module Span = struct
   }
   [@@deriving rpcty]
 
-  let generate_id () =
-    String.init 16 (fun _ -> "0123456789abcdef".[Random.int 16])
+  let get_span_context t = t.span_context
+
+  let generate_id n = String.init n (fun _ -> "0123456789abcdef".[Random.int 16])
 
   let start ?(tags = []) ~name ~parent () =
     let trace_id =
       match parent with
       | None ->
-          generate_id ()
+          generate_id 32
       | Some span_parent ->
-          span_parent.trace_id
+          span_parent.span_context.trace_id
     in
-    let span_id = generate_id () in
+    let span_id = generate_id 16 in
+    let span_context : SpanContext.t = {trace_id; span_id} in
     let span_parent = parent in
     let span_name = name in
     let span_begin_time = Unix.gettimeofday () in
     let span_end_time = None in
-    {
-      trace_id
-    ; span_id
-    ; span_parent
-    ; span_name
-    ; span_begin_time
-    ; span_end_time
-    ; tags
-    }
+    {span_context; span_parent; span_name; span_begin_time; span_end_time; tags}
 
   let finish ?(tags = []) ~span () =
     span.span_end_time <- Some (Unix.gettimeofday ()) ;
@@ -68,6 +75,21 @@ module Span = struct
         span.tags <- orig_tags @ new_tags
 end
 
+module Tracer = struct
+  type t = string [@@deriving rpcty]
+  (* So the module exists, type will need to be changed*)
+
+  let span_of_span_context span_context span_name : Span.t =
+    {
+      span_context
+    ; span_name
+    ; span_parent= None
+    ; span_begin_time= Unix.gettimeofday ()
+    ; span_end_time= None
+    ; tags= []
+    }
+end
+
 module Spans = struct
   let lock = Mutex.create ()
 
@@ -75,7 +97,7 @@ module Spans = struct
 
   let add_to_spans ~(span : Span.t) =
     Xapi_stdext_threads.Threadext.Mutex.execute lock (fun () ->
-        let key = span.trace_id in
+        let key = span.span_context.trace_id in
         match Hashtbl.find_opt spans key with
         | None ->
             Hashtbl.add spans key [span]
@@ -148,9 +170,10 @@ module Export = struct
         let zipkin_span_of_span : Span.t -> ZipkinSpan.t =
          fun s ->
           {
-            id= s.span_id
-          ; traceId= s.trace_id
-          ; parentId= Option.map (fun x -> x.Span.span_id) s.span_parent
+            id= s.span_context.span_id
+          ; traceId= s.span_context.trace_id
+          ; parentId=
+              Option.map (fun x -> x.Span.span_context.span_id) s.span_parent
           ; name= s.span_name
           ; timestamp= int_of_float (s.span_begin_time *. 1000000.)
           ; duration=

@@ -400,6 +400,17 @@ let make_rpc ~__context rpc : Rpc.response =
         , !Constants.https_port
         )
   in
+
+  let traceparent =
+    Option.map
+      (fun context ->
+        Tracing.Span.get_span_context context
+        |> Tracing.SpanContext.to_traceparent
+      )
+      (Context.tracing_of __context)
+  in
+  debug "Setting traceparent header (make_rpc) = %s" (Option.value ~default:"None" traceparent) ;
+  let http = {http with traceparent} in
   XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"xapi" ~transport ~http rpc
 
 let make_timeboxed_rpc ~__context timeout rpc : Rpc.response =

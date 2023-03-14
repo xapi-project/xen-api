@@ -180,9 +180,18 @@ let pingable ip () =
 
 let queryable ~__context transport () =
   let open Xmlrpc_client in
+  let http = xmlrpc ~version:"1.0" "/" in
+  let traceparent =
+    let open Tracing in
+    Option.map
+      (fun span -> Span.get_span_context span |> SpanContext.to_traceparent)
+      (Context.tracing_of __context)
+  in
+  debug "Setting traceparent header (make_rpc) = %s"
+    (Option.value ~default:"None" traceparent) ;
+  let http = {http with traceparent} in
   let rpc =
-    XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"remote_smapiv2" ~transport
-      ~http:(xmlrpc ~version:"1.0" "/")
+    XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"remote_smapiv2" ~transport ~http
   in
   let listMethods = Rpc.call "system.listMethods" [] in
   try
