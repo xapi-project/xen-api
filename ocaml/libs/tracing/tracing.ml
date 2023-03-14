@@ -215,7 +215,8 @@ module Export = struct
               Request.write
                 (fun writer -> Request.write_body writer body)
                 request oc ;
-              match Response.read ic with
+              Unix.shutdown fd Unix.SHUTDOWN_SEND ;
+              match try Response.read ic with _ -> `Eof with
               | `Eof ->
                   Ok ""
               | `Invalid x ->
