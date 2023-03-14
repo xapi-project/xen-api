@@ -20,6 +20,12 @@ module Span : sig
   val to_string : t -> string
 end
 
+module Spans : sig
+  val set_max_spans : int -> unit
+
+  val set_max_traces : int -> unit
+end
+
 module Tracer : sig
   type t
 
@@ -30,6 +36,8 @@ module Tracer : sig
     -> (Span.t option, exn) result
 
   val finish : Span.t option -> (Span.t option, exn) result
+
+  val assert_finished : Span.t option -> bool
 end
 
 module TracerProvider : sig
