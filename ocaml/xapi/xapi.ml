@@ -1420,6 +1420,13 @@ let server_init () =
                 Xapi_host.write_uefi_certificates_to_disk ~__context
                   ~host:(Helpers.get_localhost ~__context)
             )
+          ; ( "Set default TracerProvider intance on host"
+            , [Startup.NoExnRaising]
+            , fun () ->
+                Xapi_tracing.set_default ~__context
+                  ~pool:(Helpers.get_pool ~__context)
+                  ~host:(Helpers.get_localhost ~__context)
+            )
           ] ;
         debug "startup: startup sequence finished"
     ) ;
