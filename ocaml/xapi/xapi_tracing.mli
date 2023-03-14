@@ -14,3 +14,24 @@
 
 val set_default :
   __context:Context.t -> pool:API.ref_pool -> host:API.ref_host -> unit
+
+val set_status :
+  __context:Context.t -> self:API.ref_Tracing -> status:bool -> unit
+
+val set_tags :
+     __context:Context.t
+  -> self:API.ref_Tracing
+  -> tags:(string * string) list
+  -> unit
+
+val set_endpoints :
+  __context:Context.t -> self:API.ref_Tracing -> endpoints:string list -> unit
+
+val set_components :
+  __context:Context.t -> self:API.ref_Tracing -> components:string list -> unit
+
+val set_filters :
+  __context:Context.t -> self:API.ref_Tracing -> filters:string list -> unit
+
+val set_processors :
+  __context:Context.t -> self:API.ref_Tracing -> processors:string list -> unit
