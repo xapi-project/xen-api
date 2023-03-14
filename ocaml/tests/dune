@@ -42,6 +42,7 @@
     xapi-stdext-threads
     xapi-stdext-unix
     xapi-test-utils
+    xapi-tracing
     xapi-types
     xapi-stdext-pervasives
     xapi-xenopsd
@@ -83,6 +84,7 @@
     xapi-idl.xen
     xapi_internal
     xapi-test-utils
+    xapi-tracing
     xapi-types
     xapi-stdext-threads
     xml-light2
