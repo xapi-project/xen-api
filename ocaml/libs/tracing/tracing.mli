@@ -40,6 +40,8 @@ module Tracer : sig
     -> (Span.t option, exn) result
 
   val finish : Span.t option -> (unit, exn) result
+
+  val assert_finished : Span.t option -> bool
 end
 
 module TracerProvider : sig
@@ -76,4 +78,4 @@ val t_of_string : string -> t
 
 val t_to_string_opt : t -> string option
 
-(* Create spans *)
+val enable_span_garbage_collector : ?timeout:float -> unit -> unit
