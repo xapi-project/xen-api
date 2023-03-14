@@ -388,7 +388,9 @@ let update_pif_addresses ~__context =
 let make_rpc ~__context rpc : Rpc.response =
   let subtask_of = Ref.string_of (Context.get_task_id __context) in
   let open Xmlrpc_client in
-  let http = xmlrpc ~subtask_of ~version:"1.1" "/" in
+  let http =
+    xmlrpc ~subtask_of ~version:"1.1" "/" ~tracing:(Context.tracing_of __context)
+  in
   let transport =
     if Pool_role.is_master () then
       Unix Xapi_globs.unix_domain_socket

@@ -241,6 +241,21 @@ let make_dbg http_other_config task_name task_id =
       (if task_name = "" then "" else " ")
       (Ref.really_pretty_and_small task_id)
 
+let tracing_of_origin (origin : origin) task_name =
+  let open Tracing in
+  let ( let* ) = Option.bind in
+  match origin with
+  | Http (req, _) ->
+      let traceparent_opt = req.Http.Request.traceparent in
+      R.debug "Received traceparent header (tracing_of_origin) = %s"
+        (Option.value ~default:"None" traceparent_opt) ;
+      let* traceparent = traceparent_opt in
+      let* span_context = SpanContext.of_traceparent traceparent in
+      let span = Tracer.span_of_span_context span_context task_name in
+      Some span
+  | _ ->
+      empty
+
 (** constructors *)
 
 let from_forwarded_task ?(http_other_config = []) ?session_id
@@ -259,8 +274,7 @@ let from_forwarded_task ?(http_other_config = []) ?session_id
     (trackid_of_session ~with_brackets:true ~prefix:" " session_id) ;
   let tracing =
     let open Tracing in
-    (* Set parent based on trace context from forwarded call instead! *)
-    let parent = empty in
+    let parent = tracing_of_origin origin task_name in
     match start ~name:task_name ~parent with
     | Ok x ->
         x
@@ -316,8 +330,7 @@ let make ?(http_other_config = []) ?(quiet = false) ?subtask_of ?session_id
   ) ;
   let tracing =
     let open Tracing in
-    (* Set parent based on incoming trace context instead! *)
-    let parent = empty in
+    let parent = tracing_of_origin origin task_name in
     match start ~name:task_name ~parent with
     | Ok x ->
         R.debug "Started trace: %s"

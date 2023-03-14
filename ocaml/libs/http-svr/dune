@@ -27,6 +27,7 @@
     xapi-stdext-threads
     xapi-stdext-unix
     xml-light2
+    tracing
   )
 )
 
