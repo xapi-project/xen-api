@@ -72,7 +72,7 @@ vtpm-fields () {
   A=$(git grep -hc "vTPM'_.*:" ocaml/xapi/importexport.ml)
   B=$(git grep -hc '; field' ocaml/idl/datamodel_vtpm.ml)
   case "$A/$B" in
-    4/6)
+    5/6)
       echo "OK found $A/$B VTPM fields in importexport.ml datamodel_vtpm.ml"
       ;;
     *)

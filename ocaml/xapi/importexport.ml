@@ -53,6 +53,7 @@ let rpc_of_version x =
 
 type vtpm' = {
     vTPM'_VM: API.ref_VM
+  ; vTPM'_uuid: string
   ; vTPM'_is_unique: bool
   ; vTPM'_is_protected: bool
   ; vTPM'_content: string

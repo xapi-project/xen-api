@@ -476,6 +476,7 @@ let make_vtpm table __context self =
   let vtpm' =
     {
       vTPM'_VM= lookup' vtpm.vTPM_VM
+    ; vTPM'_uuid= vtpm.vTPM_uuid
     ; vTPM'_is_unique= vtpm.vTPM_is_unique
     ; vTPM'_is_protected= vtpm.vTPM_is_protected
     ; vTPM'_content= secret

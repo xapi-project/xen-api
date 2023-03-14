@@ -1845,15 +1845,33 @@ module VTPM : HandlerTools = struct
 
   type precheck_t = Import of vtpm'
 
+  let fail fmt =
+    Printf.kprintf
+      (fun msg -> raise Api_errors.(Server_error (import_error_generic, [msg])))
+      fmt
+
+  let colliding ~__context ~uuid =
+    try
+      ignore (Db.VTPM.get_by_uuid ~__context ~uuid) ;
+      true
+    with Not_found -> false
+
   (* Compare the state of the database with the metadata to be imported.
      Returns a result which signals what we should do to import the
      metadata. *)
 
-  (** expected case *)
-  let precheck __context _config _rpc _session _state obj =
+  let precheck __context config _rpc _session _state obj =
     let vtpm' = vtpm'_of_rpc obj.snapshot in
     debug "%s: importing VTPM" __FUNCTION__ ;
-    Import vtpm'
+    match config.full_restore with
+    | false ->
+        Import vtpm'
+    | true ->
+        let uuid = vtpm'.vTPM'_uuid in
+        if colliding ~__context ~uuid then
+          fail "A VTPM with UUID %s already exists" uuid
+        else
+          Import vtpm'
 
   (* Handle the result of the precheck function, but don't create any
      database objects.  Add objects to the state table if necessary, to
@@ -1867,8 +1885,8 @@ module VTPM : HandlerTools = struct
   (* Handle the result of the check function, creating database objects
      if necessary.  For certain combinations of result and object type,
      this can be aliased to handle_dry_run. *)
-  let handle __context _config _rpc _session state _obj = function
-    | Import vtpm' ->
+  let handle __context config _rpc _session state _obj = function
+    | Import vtpm' -> (
         debug "%s: importing VTPM" __FUNCTION__ ;
         let vm =
           log_reraise
@@ -1881,7 +1899,16 @@ module VTPM : HandlerTools = struct
         (* there is no API to set the protected field *)
         Db.VTPM.set_is_protected ~__context ~self
           ~value:vtpm'.vTPM'_is_protected ;
-        Xapi_vtpm.set_contents ~__context ~self ~contents:vtpm'.vTPM'_content
+        Xapi_vtpm.set_contents ~__context ~self ~contents:vtpm'.vTPM'_content ;
+        match config.full_restore with
+        | false ->
+            (* we get a new UUID *)
+            ()
+        | true ->
+            (* we restore the UUID; precheck made sure this is not
+               colliding *)
+            Db.VTPM.set_uuid ~__context ~self ~value:vtpm'.vTPM'_uuid
+      )
 end
 
 (** Create a handler for each object type. *)
