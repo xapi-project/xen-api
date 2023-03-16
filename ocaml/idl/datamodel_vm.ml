@@ -1616,6 +1616,8 @@ let operations =
         ; ("metadata_export", "exporting VM metadata to a network stream")
         ; ("reverting", "Reverting the VM to a previous snapshotted state")
         ; ("destroy", "refers to the act of uninstalling the VM")
+        ; ("create_vtpm", "Creating and adding a VTPM to this VM")
+        ; ("destroy_vtpm", "Removing a VTPM from this VM")
         ]
     )
 

@@ -96,6 +96,8 @@ let allowed_power_states ~__context ~vmr ~(op : API.vm_operations) =
   | `update_allowed_operations
   | `query_services ->
       all_power_states
+  | `create_vtpm | `destroy_vtpm ->
+      [`Halted]
 
 (** check if [op] can be done when [vmr] is in [power_state], when no other operation is in progress *)
 let is_allowed_sequentially ~__context ~vmr ~power_state ~op =
@@ -768,6 +770,8 @@ let update_allowed_operations ~__context ~self =
       ; `changing_shadow_memory
       ; `changing_dynamic_range
       ; `changing_NVRAM
+      ; `create_vtpm
+      ; `destroy_vtpm
       ]
   in
   (* FIXME: need to be able to deal with rolling-upgrade for orlando as well *)
