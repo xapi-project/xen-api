@@ -3609,3 +3609,55 @@ let set_https_only ~__context ~self:_ ~value =
         )
         (Db.Host.get_all ~__context)
   )
+
+let configure_update_sync ~__context ~self ~update_sync_frequency
+    ~update_sync_day ~update_sync_hour =
+  ( match update_sync_frequency with
+  | `daily when update_sync_day <> 1L ->
+      error
+        "For daily schedule, cannot set the day when update sync will run to \
+         an integer other than 1" ;
+      raise
+        Api_errors.(
+          Server_error
+            (invalid_update_sync_day, [Int64.to_string update_sync_day])
+        )
+  | `weekly
+    when update_sync_day < -7L || update_sync_day = 0L || update_sync_day > 7L
+    ->
+      error
+        "For weekly schedule, cannot set the day when update sync will run to \
+         an integer out of range: -7 ~ -1, 1 ~ 7" ;
+      raise
+        Api_errors.(
+          Server_error
+            (invalid_update_sync_day, [Int64.to_string update_sync_day])
+        )
+  | `monthly
+    when update_sync_day < -28L || update_sync_day = 0L || update_sync_day > 28L
+    ->
+      error
+        "For monthly schedule, cannot set the day when update sync will run to \
+         an integer out of range: -28 ~ -1, 1 ~ 28" ;
+      raise
+        Api_errors.(
+          Server_error
+            (invalid_update_sync_day, [Int64.to_string update_sync_day])
+        )
+  | _ ->
+      ()
+  ) ;
+  if update_sync_hour < 0L || update_sync_hour > 23L then (
+    error
+      "Cannot set the hour when update sync will run to an integer out of \
+       range: 0 ~ 23" ;
+    raise
+      Api_errors.(
+        Server_error
+          (invalid_update_sync_hour, [Int64.to_string update_sync_hour])
+      )
+  ) ;
+  Db.Pool.set_update_sync_frequency ~__context ~self
+    ~value:update_sync_frequency ;
+  Db.Pool.set_update_sync_day ~__context ~self ~value:update_sync_day ;
+  Db.Pool.set_update_sync_hour ~__context ~self ~value:update_sync_hour

@@ -390,3 +390,11 @@ val set_uefi_certificates :
 
 val set_https_only :
   __context:Context.t -> self:API.ref_pool -> value:bool -> unit
+
+val configure_update_sync :
+     __context:Context.t
+  -> self:API.ref_pool
+  -> update_sync_frequency:API.update_sync_frequency
+  -> update_sync_day:int64
+  -> update_sync_hour:int64
+  -> unit
