@@ -53,31 +53,48 @@ let set_contents =
       ]
     ~hide_from_docs:true ~allowed_roles:_R_LOCAL_ROOT_ONLY ()
 
+let operations =
+  Enum
+    ( "vtpm_operations"
+    , [
+        ("destroy", "Destroy a VTPM")
+        (* these are undocumented, so don't have ops for them
+           ; ("get_contents", "Read data from a VTPM")
+           ; ("set_contents", "Write to the VTPM, overwriting existing content")
+        *)
+      ]
+    )
+
 let t =
   create_obj ~in_db:true ~in_oss_since:oss_since_303 ~persist:PersistEverything
     ~lifecycle:[] ~gen_constructor_destructor:false ~name:_vtpm
     ~descr:"A virtual TPM device" ~gen_events:true ~doccomments:[]
     ~messages_default_allowed_roles:_R_POOL_ADMIN
     ~contents:
-      [
-        uid _vtpm
-      ; field ~qualifier:StaticRO ~ty:(Ref _vm) "VM"
-          "The virtual machine the TPM is attached to"
-      ; field ~qualifier:DynamicRO ~ty:(Ref _vm) "backend"
-          ~default_value:(Some (VRef null_ref))
-          "The domain where the backend is located (unused)"
-      ; field ~qualifier:DynamicRO ~ty:persistence_backend
-          ~default_value:(Some (VEnum "xapi")) ~lifecycle:[]
-          "persistence_backend" "The backend where the vTPM is persisted"
-      ; field ~qualifier:StaticRO ~ty:Bool ~default_value:(Some (VBool false))
-          ~lifecycle:[] "is_unique"
-          "Whether the contents are never copied, satisfying the TPM spec"
-      ; field ~qualifier:DynamicRO ~ty:Bool ~default_value:(Some (VBool false))
-          ~lifecycle:[] "is_protected"
-          "Whether the contents of the VTPM are secured according to the TPM \
-           spec"
-      ; field ~qualifier:DynamicRO ~ty:(Ref _secret) ~internal_only:true
-          ~lifecycle:[] "contents" "The contents of the TPM"
-      ]
+      (List.concat
+         [
+           [uid _vtpm]
+         ; allowed_and_current_operations operations
+         ; [
+             field ~qualifier:StaticRO ~ty:(Ref _vm) "VM"
+               "The virtual machine the TPM is attached to"
+           ; field ~qualifier:DynamicRO ~ty:(Ref _vm) "backend"
+               ~default_value:(Some (VRef null_ref))
+               "The domain where the backend is located (unused)"
+           ; field ~qualifier:DynamicRO ~ty:persistence_backend
+               ~default_value:(Some (VEnum "xapi")) ~lifecycle:[]
+               "persistence_backend" "The backend where the vTPM is persisted"
+           ; field ~qualifier:StaticRO ~ty:Bool
+               ~default_value:(Some (VBool false)) ~lifecycle:[] "is_unique"
+               "Whether the contents are never copied, satisfying the TPM spec"
+           ; field ~qualifier:DynamicRO ~ty:Bool
+               ~default_value:(Some (VBool false)) ~lifecycle:[] "is_protected"
+               "Whether the contents of the VTPM are secured according to the \
+                TPM spec"
+           ; field ~qualifier:DynamicRO ~ty:(Ref _secret) ~internal_only:true
+               ~lifecycle:[] "contents" "The contents of the TPM"
+           ]
+         ]
+      )
     ~messages:[create; destroy; get_contents; set_contents]
     ()
