@@ -1,0 +1,5 @@
+(test
+  (name main)
+  (deps main.exe)
+  (libraries ezxenstore)
+)
