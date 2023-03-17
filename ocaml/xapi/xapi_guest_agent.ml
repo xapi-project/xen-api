@@ -72,7 +72,7 @@ let memory = [("data/meminfo_free", "free"); ("data/meminfo_total", "total")]
 
 let device_id = [("data/device_id", "device_id")]
 
-let extend base str = Printf.sprintf "%s/%s" base str
+let ( // ) = Filename.concat
 
 (* This function is passed the 'attr' node and a function it can use to
  * find the directory listing of sub-nodes. It will return a map where the
@@ -100,18 +100,14 @@ let extend base str = Printf.sprintf "%s/%s" base str
 let networks path vif_type (list : string -> string list) =
   (* Find all ipv6 addresses under a path. *)
   let find_ipv6 path prefix =
-    List.map
-      (fun str -> (extend (extend path str) "addr", extend prefix str))
-      (list path)
+    List.map (fun str -> (path // str // "addr", prefix // str)) (list path)
   in
   (* Find the ipv4 address under a path, and the ipv6 addresses if they exist. *)
   let find_all_ips path prefix =
-    let ipv4 = (extend path "ip", extend prefix "ip") in
-    let ipv4_with_idx = (extend path "ip", extend prefix "ipv4/0") in
+    let ipv4 = (path // "ip", prefix // "ip") in
+    let ipv4_with_idx = (path // "ip", prefix // "ipv4" // "0") in
     if List.mem "ipv6" (list path) then
-      ipv4
-      :: ipv4_with_idx
-      :: find_ipv6 (extend path "ipv6") (extend prefix "ipv6")
+      ipv4 :: ipv4_with_idx :: find_ipv6 (path // "ipv6") (prefix // "ipv6")
     else
       [ipv4; ipv4_with_idx]
   in
@@ -134,7 +130,7 @@ let networks path vif_type (list : string -> string list) =
         | prefix :: rest ->
             if Astring.String.is_prefix ~affix:prefix eth then
               let n = string_after_prefix ~prefix eth in
-              Some (extend path eth, n)
+              Some (path // eth, n)
             else
               extract rest eth
       in
@@ -151,7 +147,7 @@ let networks path vif_type (list : string -> string list) =
       [] (list path)
   in
   let find_vifs vif_path =
-    let extract_vif acc vif_id = (extend vif_path vif_id, vif_id) :: acc in
+    let extract_vif acc vif_id = (vif_path // vif_id, vif_id) :: acc in
     List.fold_left extract_vif [] (list vif_path)
   in
   let cmp a b =
@@ -167,13 +163,13 @@ let networks path vif_type (list : string -> string list) =
     (*  vif_path: attr/vif/0 *)
     (*  vif_id: 0 *)
     let extract_ip_ver vif_id acc ip_ver =
-      let ip_addr_ids = list (extend vif_path ip_ver) in
+      let ip_addr_ids = list (vif_path // ip_ver) in
       let extract_ip_addr vif_id ip_ver acc ip_addr_id =
         let key_left = Printf.sprintf "%s/%s/%s" vif_path ip_ver ip_addr_id in
         let key_right = Printf.sprintf "%s/%s/%s" vif_id ip_ver ip_addr_id in
         match acc with
         | [] when ip_ver = "ipv4" ->
-            [(key_left, extend vif_id "ip"); (key_left, key_right)]
+            [(key_left, vif_id // "ip"); (key_left, key_right)]
         | _ ->
             (key_left, key_right) :: acc
       in
@@ -192,7 +188,7 @@ let networks path vif_type (list : string -> string list) =
     in
     List.fold_left (extract_ip_ver vif_id) [] ip_vers
   in
-  match find_vifs (extend path vif_type) with
+  match find_vifs (path // vif_type) with
   | [] ->
       path
       |> find_eths
