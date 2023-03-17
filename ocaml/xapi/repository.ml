@@ -732,7 +732,7 @@ let set_pending_guidances ~__context ~host ~guidances =
        | RestartDeviceModel ->
            set_pending_restart_device_models ~__context ~host
        | g ->
-           warn "Unsupported pending guidance %s, ignore it."
+           warn "Unsupported pending guidance %s, ignoring it."
              (Guidance.to_string g)
        )
 
@@ -749,7 +749,7 @@ let set_recommended_guidances ~__context ~host ~guidances =
        | RestartDeviceModel ->
            set_recommended_restart_device_models ~__context ~host
        | g ->
-           warn "Unsupported recommended guidance %s, ignore it."
+           warn "Unsupported recommended guidance %s, ignoring it."
              (Guidance.to_string g)
        )
 

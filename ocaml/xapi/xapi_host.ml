@@ -2928,7 +2928,7 @@ let restart_device_models_for_recommended_guidances ~__context ~host =
   (* Restart device models of all running HVM VMs on the host by doing
    * local migrations if it is required by recommended guidances. *)
   Repository_helpers.do_with_device_models ~__context ~host
-    ~vm_with_recommended_guidances:true
+    ~only_vm_with_recommended_guidances:true
   @@ fun (ref, record) ->
   match
     (record.API.vM_power_state, Helpers.has_qemu_currently ~__context ~self:ref)
