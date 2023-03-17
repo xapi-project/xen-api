@@ -248,6 +248,15 @@ module RPC_API (R : RPC) = struct
       ]
       (rem_addr_opt_p @-> unit_p @-> returning unit_p rrd_err)
 
+  let save_rrds =
+    declare "save_rrds"
+      [
+        "Backs up RRD data to disk on localhost. This should be done \
+         periodically to ensure"
+      ; "that if the host crashes we don't lose too much data."
+      ]
+      (unit_p @-> returning unit_p rrd_err)
+
   let archive_rrd =
     declare "archive_rrd"
       [
