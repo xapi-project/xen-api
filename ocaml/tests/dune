@@ -5,8 +5,9 @@
   (modules
     (:standard \ test_daemon_manager test_vdi_cbt test_event test_clustering
       test_cluster_host test_cluster test_pusb test_network_sriov
+      test_client test_valid_ref_list suite_alcotest_server
       test_vm_placement test_vm_helpers test_repository test_repository_helpers
-      test_ref
+      test_ref test_vm_group
       test_livepatch test_rpm test_updateinfo test_storage_smapiv1_wrapper test_storage_quicktest test_observer
       test_pool_periodic_update_sync test_pkg_mgr))
   (libraries
@@ -30,7 +31,6 @@
     threads.posix
     uuid
     xapi-backtrace
-    xapi-client
     xapi_cli_server
     xapi-consts
     xapi_database
@@ -40,7 +40,6 @@
     xapi-idl.xen.interface
     xapi-idl.xen.interface.types
     xapi_internal
-    xapi_internal_server
     xapi-log
     xapi-stdext-date
     xapi-stdext-std
@@ -57,6 +56,25 @@
     (source_tree test_data)
   )
 )
+
+(test
+  (name suite_alcotest_server)
+  (package xapi)
+  (modules suite_alcotest_server test_client test_valid_ref_list test_vm_group)
+  (libraries
+    alcotest
+    httpsvr
+    tests_common
+    xapi-client
+    http_lib
+    xapi-log
+    xapi-stdext-date
+    xapi-types
+    xapi_internal
+    xapi_internal_server
+  )
+)
+
 
 (tests
   (names test_vm_helpers test_vm_placement test_network_sriov test_vdi_cbt
@@ -89,7 +107,6 @@
     xapi-idl.storage.interface
     xapi-idl.xen
     xapi_internal
-    xapi_internal_server
     xapi-test-utils
     xapi-tracing
     xapi-types

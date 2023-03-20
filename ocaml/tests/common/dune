@@ -21,7 +21,6 @@
     xapi-idl.network
     xapi-idl.xen.interface
     xapi_internal
-    xapi_internal_server
     xapi-inventory
     xapi-log
     xapi-test-utils
