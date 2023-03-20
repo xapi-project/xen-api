@@ -23,4 +23,4 @@
   xapi-types
   xen-api-client-lwt
  )
- (preprocess (pps ppx_deriving_rpc)))
+ (preprocess (per_module ((pps ppx_deriving_rpc) Varstored_interface))))

@@ -33,7 +33,6 @@
     xapi-stdext-unix
     xmlm
   )
-  (preprocess (pps ppx_deriving_rpc))
 )
 
 (executable
