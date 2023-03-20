@@ -103,3 +103,55 @@ Documentation needs to be part of a package, according to the above that will
 be the [xapi] package.
 For now we don't want to take over XAPI's index, so we'll link to the
 appropriate sections of this design from individual modules' documentation.
+
+{2 Licensing}
+
+The metastore will be a core part of XAPI, providing a core piece of
+functionality, and should thus be under the same license as XAPI itself.
+
+{1 Types}
+
+{2 Unique identifiers}
+
+The database module uses strings, XAPI uses {!module:Ref}.
+However we don't necessarily want to introduce a dependency on [xapi-types],
+since that one is quite slow to build due to having to regenerate whenever the
+IDL/API changes.
+And putting the metastore in [xapi-types] isn't right either, because that is
+used by the XAPI client (in fact that library should be changed to be a
+subpackage of the xapi client).
+
+Use {!module:Uuidm} for unique identifiers, that is the correct type to use
+anyway (eventually we may change the DB to support them natively, for now XAPI
+will convert to and from string as needed).
+
+{1 Testing}
+
+{2 Structured fuzzing}
+
+Mathematical properties can be tested with quickcheck-style fuzzing.
+This is available in OCaml through a variety of libraries:
+
+- [crowbar]
+- [monolith]
+- [qcstm]
+- [qcheck-stm] intended as a replacement of [qcstm] and can run parallel tests now
+- [qcheck-lin] for checking linearizability
+
+For pros/cons of each see this post on the OCaml forum:
+https://discuss.ocaml.org/t/ann-qcheck-lin-and-qcheck-stm-0-1-0/10933/2?u=edwin
+
+XAPI currently has {!module:Crowbar} available in [xs-opam], therefore that is
+used for now.
+However oxenstored also had a [monolith] based test-suite, and
+[qcheck-stm]/[qcheck-lin] looks promising too.
+
+Examples of properties that should be checked this way:
+
+- argument of {!Map.Make} satisfying {!Map.OrderedType} total order
+  requirement. The {!Ref} module had a bug, which prompted adding this test for
+  the {!Id} module too.
+
+{1 API reference}
+
+{!modules: Xapi_metastore.Id}

@@ -10,6 +10,7 @@
 
 (library
   (name xapi_metastore)
+  (public_name xapi-database.metastore)
   (modes best)
   (libraries forkexec (re_export fmt) fpath ipaddr rresult uri uuidm rpclib.core
              (re_export result) rpclib.json)

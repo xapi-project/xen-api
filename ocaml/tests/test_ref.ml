@@ -47,8 +47,11 @@ module Make (T : Map.OrderedType) = struct
       Crowbar.failf "a %a b. b %a a. Not connected, expected (a < b || b < a)"
         pp_compare_result a_b pp_compare_result b_a
 
-  let add_tests gen =
+  let add_tests prefix gen =
     let open Crowbar in
+    let add_test ~name params cmd =
+      add_test ~name:(prefix ^ ": " ^ name) params cmd
+    in
     add_test ~name:"total order: deterministic" [gen; gen] test_deterministic ;
     add_test ~name:"total order: reflexive" [gen] test_reflexive ;
     add_test ~name:"total order: antisymmetric" [gen; gen] test_antisymmetric ;
@@ -95,6 +98,8 @@ module R = struct
     |> Crowbar.with_printer dump
 end
 
-module M = Make (R)
-
-let () = M.add_tests R.gen
+let () =
+  let module M = Make (R) in
+  M.add_tests "Ref" R.gen ;
+  let module M = Make (Xapi_metastore.Id) in
+  M.add_tests "Id" uuidm
