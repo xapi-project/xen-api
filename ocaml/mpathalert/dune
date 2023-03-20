@@ -5,7 +5,7 @@
   (package xapi)
   (libraries
     dune-build-info
-    http-svr
+    http_lib
     threads.posix
     uuid
     xapi-client

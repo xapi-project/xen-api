@@ -139,7 +139,7 @@ let assert_credentials_ok realm ?(http_action = realm) ?(fn = Rbac.nofn)
   else
     match
       ( ref_param_of_req req _session_id
-      , SecretString.of_request req
+      , Helpers.secret_string_of_request req
       , req.Http.Request.auth
       )
     with
@@ -195,7 +195,7 @@ let with_context ?(dummy = false) label (req : Request.t) (s : Unix.file_descr)
       else
         match
           ( ref_param_of_req req _session_id
-          , SecretString.of_request req
+          , Helpers.secret_string_of_request req
           , req.Http.Request.auth
           )
         with

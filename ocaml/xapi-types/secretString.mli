@@ -32,10 +32,8 @@ val t_of_rpc : Rpc.t -> t
 val rpc_of_t : t -> Rpc.t
 (** [rpc_of_t secret] serializes [secret]. Should be used with caution! *)
 
-val of_request : Http.Request.t -> t option
-
-val with_cookie : t -> Http.Request.t -> Http.Request.t
-(** [with_cookies secret request] adds a cookie containing [secret] to [request] *)
+val with_cookie : t -> (string * string) list -> (string * string) list
+(** [with_cookie secret cookies] adds the [secret] as a cookie to [cookies] *)
 
 val write_to_file : string -> t -> unit
 (** [write_to_file path secret] should be used with caution! *)

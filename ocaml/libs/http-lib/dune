@@ -1,15 +1,15 @@
 (library
-  (name httpsvr)
-  (public_name http-svr)
+  (name http_lib)
+  (public_name http-lib)
+  (modes best)
   (wrapped false)
-  (modules (:standard \ http_test radix_tree_test test_client test_server))
-  (preprocess (pps ppx_deriving_rpc))
+  (modules (:standard \ http_svr http_proxy server_io http_test radix_tree_test test_client test_server))
+  (preprocess (per_module ((pps ppx_deriving_rpc) Http)))
   (libraries
     astring
     base64
     mtime
     mtime.clock.os
-    polly
     rpclib.core
     rpclib.json
     rpclib.xml
@@ -30,13 +30,29 @@
   )
 )
 
+(library
+  (name httpsvr)
+  (wrapped false)
+  (modules http_svr http_proxy server_io)
+  (libraries
+    astring
+    http_lib
+    polly
+    threads.posix
+    xapi-log
+    xapi-stdext-pervasives
+    xapi-stdext-threads
+    xapi-stdext-unix
+  )
+)
+
 (executable
   (modes byte exe)
   (name http_test)
   (modules http_test)
   (libraries
     dune-build-info
-    http-svr
+    http_lib
     ounit2
   )
 )
@@ -44,10 +60,10 @@
 (test
   (name radix_tree_test)
   (modules radix_tree_test)
-  (package http-svr)
+  (package http-lib)
   (libraries
     dune-build-info
-    http-svr
+    http_lib
   )
 )
 
@@ -57,7 +73,7 @@
   (modules test_client)
   (libraries
     dune-build-info
-    http-svr
+    http_lib
     ounit2
     safe-resources
     stunnel
@@ -73,7 +89,8 @@
   (modules test_server)
   (libraries
     dune-build-info
-    http-svr
+    http_lib
+    httpsvr
     ounit2
     safe-resources
     threads.posix
@@ -84,7 +101,7 @@
 
 (rule
   (alias runtest)
-  (package http-svr)
+  (package http-lib)
   (deps
     (:x http_test.exe)
   )
@@ -93,7 +110,7 @@
 
 (rule
   (alias runtest)
-  (package http-svr)
+  (package xapi)
   (deps
     test_client.exe
     test_server.exe

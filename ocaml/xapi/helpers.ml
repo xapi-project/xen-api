@@ -438,6 +438,20 @@ let make_timeboxed_rpc ~__context timeout rpc : Rpc.response =
       result
   )
 
+let pool_secret = "pool_secret"
+
+let secret_string_of_request req =
+  Option.map SecretString.of_string
+  @@
+  match List.assoc_opt pool_secret req.Http.Request.cookie with
+  | Some _ as r ->
+      r
+  | None ->
+      List.assoc_opt pool_secret req.Http.Request.query
+
+let with_cookie t request =
+  {request with Http.Request.cookie= SecretString.with_cookie t []}
+
 let make_remote_rpc_of_url ~verify_cert ~srcstr ~dststr (url, pool_secret) call
     =
   let open Xmlrpc_client in
@@ -449,7 +463,7 @@ let make_remote_rpc_of_url ~verify_cert ~srcstr ~dststr (url, pool_secret) call
   let http =
     match pool_secret with
     | Some pool_secret ->
-        SecretString.with_cookie pool_secret http
+        with_cookie pool_secret http
     | None ->
         http
   in
