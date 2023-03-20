@@ -152,6 +152,13 @@ Examples of properties that should be checked this way:
   requirement. The {!Ref} module had a bug, which prompted adding this test for
   the {!Id} module too.
 
+{2 Rpclib auto-generated tests}
+
+[rpclib] supports auto-generating testcases to check upgradability from older
+versions of the data structure (generated test data is committed into
+repository, and as the data structure evolves that old data should still be
+deserializable)
+
 {1 API reference}
 
 {!modules: Xapi_metastore.Id}
