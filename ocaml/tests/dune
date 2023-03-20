@@ -38,6 +38,7 @@
     xapi-idl.xen.interface
     xapi-idl.xen.interface.types
     xapi_internal
+    xapi_internal_server
     xapi-log
     xapi-stdext-date
     xapi-stdext-std
@@ -84,6 +85,7 @@
     xapi-idl.storage.interface
     xapi-idl.xen
     xapi_internal
+    xapi_internal_server
     xapi-test-utils
     xapi-types
     xapi-stdext-threads
