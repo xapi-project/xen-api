@@ -58,7 +58,7 @@
   (name xapi_internal)
   (wrapped false)
   (modes best)
-  (modules (:standard \ xapi_main))
+  (modules (:standard \ xapi_main server api_server xapi))
   (libraries
     angstrom
     astring
@@ -171,6 +171,41 @@
     System_domains Xapi_psr Xapi_services Xapi_udhcpd)))
 )
 
+(library
+  (name xapi_internal_server)
+  (modes best)
+  (wrapped false)
+  (modules server api_server xapi)
+  (libraries
+    forkexec
+    http_lib
+    httpsvr
+    rpclib.core
+    rpclib.json
+    rpclib.xml
+    stunnel
+    threads.posix
+    xapi-backtrace
+    xapi-client
+    xapi-consts
+    xapi-datamodel
+    xapi-idl
+    xapi-inventory
+    xapi-log
+    xapi-stdext-date
+    xapi-stdext-encodings
+    xapi-stdext-pervasives
+    xapi-stdext-std
+    xapi-stdext-threads
+    xapi-stdext-unix
+    xapi-types
+    xapi_aux
+    xapi-consts.xapi_version
+    xapi_cli_server
+    xapi_database
+    xapi_internal)
+)
+
 (executable
   (modes exe)
   (name xapi_main)
@@ -179,6 +214,7 @@
   (modules xapi_main)
   (libraries
     xapi_internal
+    xapi_internal_server
     xapi-idl
     xapi-log
     xapi-stdext-unix
