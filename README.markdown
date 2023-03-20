@@ -58,7 +58,7 @@ To build xen-api from source, we recommend using [opam](https://opam.ocaml.org/d
 6) Install all the Packages.
 
     ```bash
-    PACKAGES="xapi-cli-protocol xapi-client xapi-consts xapi-datamodel xapi-types xapi xe xen-api-sdk xen-api-client xen-api-client-lwt xen-api-client-async xapi-rrdd xapi-rrdd-plugin xapi-rrd-transport xapi-rrd-transport-utils rrd-transport rrdd-plugin rrdd-plugins rrddump gzip http-lib pciutil safe-resources sexpr stunnel uuid xapi-compression xml-light2 zstd vhd-tool xs-toolstack"
+    PACKAGES="xapi-cli-protocol xapi-client xapi-consts xapi-datamodel xapi-types xapi xe xen-api-sdk xen-api-client xen-api-client-lwt xen-api-client-async xapi-rrdd xapi-rrdd-plugin xapi-rrd-transport xapi-rrd-transport-utils rrd-transport rrdd-plugin rrdd-plugins rrddump http-lib pciutil safe-resources sexpr stunnel uuid xml-light2 vhd-tool xs-toolstack"
 
     # NOT needed with opam>=2.1.0) Install all the dependencies (Including OS):
     opam --yes depext --yes -u $PACKAGES # The first '--yes' is to install depext itself

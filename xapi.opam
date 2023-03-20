@@ -62,7 +62,6 @@ depends: [
   "xapi-inventory"
   "xml-light2"
   "yojson"
-  "zstd"
 ]
 depexts: [
   ["hwdata" "libxxhash-dev" "libxxhash0"] {os-distribution = "debian"}
