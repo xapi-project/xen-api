@@ -1,5 +1,6 @@
 (library
  (name xenopsd_xc)
+ (modes best)
  (modules :standard \
           xenops_xc_main
           memory_breakdown

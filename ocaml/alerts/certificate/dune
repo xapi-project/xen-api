@@ -1,6 +1,7 @@
 (library
   (name certificate_check)
   (modules certificate_check)
+  (modes best)
   (libraries
     astring
     xapi-expiry-alerts

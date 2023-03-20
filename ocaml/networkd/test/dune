@@ -1,5 +1,6 @@
 (executable
  (name network_test)
+ (modes exe)
  (libraries
   alcotest
   astring

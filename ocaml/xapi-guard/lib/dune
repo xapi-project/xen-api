@@ -1,7 +1,8 @@
 (library
  (name xapi_guard_server)
  (modules server_interface)
- (libraries
+ (modes best)
+(libraries
   cohttp
   cohttp-lwt
   cohttp-lwt-unix

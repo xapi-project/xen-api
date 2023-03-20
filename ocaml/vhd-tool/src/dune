@@ -1,4 +1,5 @@
 (library
+  (modes best)
   (foreign_stubs
     (language c)
     (names direct_copy_stubs)
