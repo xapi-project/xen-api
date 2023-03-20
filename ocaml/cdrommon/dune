@@ -5,9 +5,6 @@
   (package xapi)
   (libraries
     cdrom
-    threads
-    unix
-    xapi-stdext-unix
   )
 )
 

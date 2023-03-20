@@ -14,16 +14,13 @@
 let oldnotify = ref false
 
 let disc_inserted name =
-  let args = [|"xe"; "host-notify"; "type=cdrom"; "params=inserted:" ^ name|] in
-  let ret = Xapi_stdext_unix.Unixext.spawnvp args.(0) args in
+  let cmd =
+    Filename.quote_command "xe"
+      ["host-notify"; "type=cdrom"; "params=inserted:" ^ name]
+  in
+  let ret = Sys.command cmd in
   (* check if we got an error, and record the fact *)
-  match ret with
-  | Unix.WEXITED 0 ->
-      oldnotify := false
-  | Unix.WEXITED _ ->
-      oldnotify := true
-  | _ ->
-      oldnotify := true
+  match ret with 0 -> oldnotify := false | _ -> oldnotify := true
 
 let disc_removed (_ : string) =
   (* we don't need to do anything *)
@@ -63,6 +60,5 @@ let () =
     Printf.eprintf "usage: %s <cdrompath>\n" Sys.argv.(0) ;
     exit 1
   ) ;
-  Xapi_stdext_unix.Unixext.daemonize () ;
   (* check every 2 seconds *)
   check 2 Sys.argv.(1)
