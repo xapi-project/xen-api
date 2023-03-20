@@ -58,7 +58,7 @@ structural-equality () {
 }
 
 vtpm-unimplemented () {
-  N=8
+  N=6
   VTPM=$(git grep -r --count 'maybe_raise_vtpm_unimplemented' -- **/*.ml | cut -d ':' -f 2 | paste -sd+ - | bc)
   if [ "$VTPM" -eq "$N" ]; then
     echo "OK found $VTPM usages of vtpm unimplemented errors"
@@ -68,8 +68,24 @@ vtpm-unimplemented () {
   fi
 }
 
+vtpm-fields () {
+  A=$(git grep -hc "vTPM'_.*:" ocaml/xapi/importexport.ml)
+  B=$(git grep -hc '; field' ocaml/idl/datamodel_vtpm.ml)
+  case "$A/$B" in
+    5/6)
+      echo "OK found $A/$B VTPM fields in importexport.ml datamodel_vtpm.ml"
+      ;;
+    *)
+      echo "ERROR have VTPM fields changed? Check importexport.ml" 1>&2
+      exit 1
+      ;;
+  esac
+}
+
 list-hd
 verify-cert
 mli-files
 structural-equality
 vtpm-unimplemented
+vtpm-fields
+
