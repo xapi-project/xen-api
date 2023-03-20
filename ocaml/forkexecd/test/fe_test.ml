@@ -110,7 +110,7 @@ let test_delay () =
   let exe = Printf.sprintf "/proc/%d/exe" (Unix.getpid ()) in
   let args = ["sleep"] in
   try
-    Forkhelpers.execute_command_get_output ~timeout:4.0 exe args |> ignore ;
+    Forkhelpers.execute_command_get_output ~timeout:0.1 exe args |> ignore ;
     failwith "Failed to timeout"
   with
   | Forkhelpers.Subprocess_timeout ->
@@ -233,7 +233,7 @@ let slave = function
              pid (List.length filtered) ls
           )
 
-let sleep () = Unix.sleep 5 ; Printf.printf "Ok\n"
+let sleep () = Unix.sleep 1 ; Printf.printf "Ok\n"
 
 let usage () =
   Printf.printf "Usage:\n" ;
