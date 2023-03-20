@@ -370,7 +370,7 @@ let with_tracing ~name ~dbg f =
   in
   let name = "SM." ^ name in
   let tracer = Tracing.TracerProviders.get_default_tracer ~name in
-  let span = Tracing.Tracer.start ~tracer ~name ~parent in
+  let span = Tracing.Tracer.start ~tracer ~name ~parent () in
   match span with
   | Ok span_context ->
       let result = f dbg in

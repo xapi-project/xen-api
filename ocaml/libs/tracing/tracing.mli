@@ -14,6 +14,12 @@
 
 (* Basic types *)
 
+module SpanKind : sig
+  type t = Server | Consumer | Client | Producer | Internal
+
+  val to_string : t -> string
+end
+
 module SpanContext : sig
   type t
 
@@ -26,6 +32,8 @@ module Span : sig
   type t
 
   val get_span_context : t -> SpanContext.t
+
+  val set_span_kind : t -> SpanKind.t -> unit
 end
 
 module Tracer : sig
@@ -34,9 +42,11 @@ module Tracer : sig
   val span_of_span_context : SpanContext.t -> string -> Span.t
 
   val start :
-       tracer:t
+       ?kind:SpanKind.t
+    -> tracer:t
     -> name:string
     -> parent:Span.t option
+    -> unit
     -> (Span.t option, exn) result
 
   val finish : Span.t option -> (unit, exn) result
