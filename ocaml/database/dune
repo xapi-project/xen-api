@@ -16,7 +16,7 @@
     xapi-stdext-encodings
   )
   (wrapped false)
-  (preprocess (pps ppx_sexp_conv))
+  (preprocess (per_module ((pps ppx_sexp_conv) Schema)))
 )
 
 (library
@@ -50,7 +50,10 @@
     xml-light2
     xmlm
   )
-  (preprocess (pps ppx_deriving_rpc))
+  (preprocess
+    (per_module
+     ((pps ppx_deriving_rpc)
+      Db_cache_types Db_filter_types Db_rpc_common_v2 Db_secret_string)))
 )
 
 (executable

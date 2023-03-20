@@ -39,6 +39,9 @@
     xenstore_transport
     xenstore_transport.unix
   )
-  (preprocess (pps ppx_deriving_rpc ppx_cstruct))
+  (preprocess
+    (per_module
+     ((pps ppx_deriving_rpc) Nbd_input Image)
+     ((pps ppx_cstruct) Chunked)))
 )
 

@@ -20,7 +20,7 @@
   xenstore_transport.unix
  )
  (preprocess
-  (pps ppx_deriving_rpc ppx_sexp_conv)
+  (per_module ((pps ppx_deriving_rpc) Test))
  )
 )
 

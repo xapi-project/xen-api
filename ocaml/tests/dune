@@ -52,7 +52,6 @@
     xapi-xenopsd
     xml-light2
   )
-  (preprocess (pps ppx_deriving_rpc ppx_sexp_conv))
   (deps
     (source_tree test_data)
   )

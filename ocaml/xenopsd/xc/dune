@@ -57,7 +57,9 @@
  )
 
  (preprocess
-  (pps ppx_deriving_rpc ppx_sexp_conv)
+   (per_module
+    ((pps ppx_deriving_rpc) Device Device_common Domain Xenops_server_xen)
+   )
  )
  (wrapped false)
 )

@@ -162,7 +162,13 @@
     yojson
     zstd
   )
-  (preprocess (pps ppx_deriving_rpc ppx_sexp_conv ppx_deriving.ord))
+  (preprocess (per_module
+   ((pps ppx_sexp_conv) Cert_distrib)
+   ((pps ppx_deriving.ord) Xapi_observer_components)
+   ((pps ppx_deriving_rpc)
+    Config_file_sync Extauth_plugin_ADwinbind Importexport Sparse_dd_wrapper
+    Storage_migrate Storage_mux Storage_smapiv1_wrapper Stream_vdi
+    System_domains Xapi_psr Xapi_services Xapi_udhcpd)))
 )
 
 (executable

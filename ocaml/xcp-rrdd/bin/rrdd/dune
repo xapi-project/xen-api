@@ -33,7 +33,6 @@
     xmlm
     yojson
   )
-  (preprocess (pps ppx_deriving_rpc))
 )
 
 (executable

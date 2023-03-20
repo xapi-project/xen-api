@@ -10,6 +10,5 @@
     xapi-idl.rrd
     xapi-rrd
   )
-  (preprocess (pps ppx_deriving_rpc))
 )
 
