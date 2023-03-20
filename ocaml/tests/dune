@@ -107,7 +107,13 @@
 (name test_ref)
 (package xapi)
 (modules test_ref)
-(libraries xapi_internal crowbar))
+(libraries
+   crowbar
+   fmt
+   uuidm
+   xapi-types
+   xapi_internal
+))
 
 (rule
   (alias runtest)
