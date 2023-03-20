@@ -1,4 +1,5 @@
-(lang dune 3.0)
+(lang dune 3.7)
+
 (formatting (enabled_for ocaml))
 (using menhir 2.0)
 
