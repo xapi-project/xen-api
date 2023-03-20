@@ -23,6 +23,22 @@ type endpoint = Bugtool | Url of string [@@deriving rpcty]
 
 let endpoint_of_string = function "bugtool" -> Bugtool | url -> Url url
 
+module SpanKind = struct
+  type t = Server | Consumer | Client | Producer | Internal [@@deriving rpcty]
+
+  let to_string = function
+    | Server ->
+        "SERVER"
+    | Consumer ->
+        "CONSUMER"
+    | Client ->
+        "CLIENT"
+    | Producer ->
+        "PRODUCER"
+    | Internal ->
+        "INTERNAL"
+end
+
 module SpanContext = struct
   type t = {trace_id: string; span_id: string} [@@deriving rpcty]
 
@@ -42,6 +58,7 @@ module Span = struct
       span_context: SpanContext.t
     ; span_parent: t option
     ; span_name: string
+    ; mutable span_kind: SpanKind.t
     ; span_begin_time: float
     ; mutable span_end_time: float option
     ; mutable tags: (string * string) list
@@ -50,9 +67,11 @@ module Span = struct
 
   let get_span_context t = t.span_context
 
+  let set_span_kind span kind = span.span_kind <- kind
+
   let generate_id n = String.init n (fun _ -> "0123456789abcdef".[Random.int 16])
 
-  let start ?(tags = []) ~name ~parent () =
+  let start ?(tags = []) ~name ~parent ~kind () =
     let trace_id =
       match parent with
       | None ->
@@ -64,9 +83,18 @@ module Span = struct
     let span_context : SpanContext.t = {trace_id; span_id} in
     let span_parent = parent in
     let span_name = name in
+    let span_kind = kind in
     let span_begin_time = Unix.gettimeofday () in
     let span_end_time = None in
-    {span_context; span_parent; span_name; span_begin_time; span_end_time; tags}
+    {
+      span_context
+    ; span_parent
+    ; span_name
+    ; span_kind
+    ; span_begin_time
+    ; span_end_time
+    ; tags
+    }
 
   let finish ?(tags = []) ~span () =
     span.span_end_time <- Some (Unix.gettimeofday ()) ;
@@ -194,6 +222,7 @@ module Tracer = struct
       span_context
     ; span_name
     ; span_parent= None
+    ; span_kind= SpanKind.Client (* This will be the span of the client call*)
     ; span_begin_time= Unix.gettimeofday ()
     ; span_end_time= None
     ; tags= []
@@ -214,14 +243,15 @@ module Tracer = struct
     in
     {name= ""; provider}
 
-  let start ~tracer:t ~name ~parent : (Span.t option, exn) result =
+  let start ?(kind = SpanKind.Internal) ~tracer:t ~name ~parent () :
+      (Span.t option, exn) result =
     let provider = !(t.provider) in
     (* Do not start span if the TracerProvider is diabled*)
     if not provider.enabled then
       Ok None
     else
       let tags = provider.tags in
-      let span = Span.start ~tags ~name ~parent () in
+      let span = Span.start ~tags ~name ~parent ~kind () in
       Spans.add_to_spans ~span ; Ok (Some span)
 
   let finish x : (unit, exn) result =
@@ -396,13 +426,19 @@ module Export = struct
             ; name: string
             ; timestamp: int
             ; duration: int
-            ; kind: string
+            ; kind: string option
             ; localEndpoint: localEndpoint
             ; tags: (string * string) list
           }
           [@@deriving rpcty]
 
           type t_list = t list [@@deriving rpcty]
+
+          let kind_to_zipkin_kind = function
+            | SpanKind.Internal ->
+                None
+            | k ->
+                Some k
 
           let json_of_t_list s =
             Rpcmarshal.marshal t_list.Rpc.Types.ty s |> Jsonrpc.to_string
@@ -427,7 +463,9 @@ module Export = struct
               -. s.span_begin_time
               |> ( *. ) 1000000.
               |> int_of_float
-          ; kind= "SERVER"
+          ; kind=
+              Option.map SpanKind.to_string
+                (ZipkinSpan.kind_to_zipkin_kind s.span_kind)
           ; localEndpoint= {serviceName= "xapi"}
           ; tags
           }
@@ -555,7 +593,8 @@ module Export = struct
             debug "Tracing: Waiting 30s before exporting spans" ;
             Thread.delay 30. ;
             let export_span =
-              Span.start ~name:"export_to_http_server" ~parent:None ()
+              Span.start ~name:"export_to_http_server" ~parent:None
+                ~kind:SpanKind.Client ()
             in
             match export_to_http_server () with
             | Ok () ->

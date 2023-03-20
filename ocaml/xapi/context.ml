@@ -276,7 +276,10 @@ let from_forwarded_task ?(http_other_config = []) ?session_id
     let open Tracing in
     let parent = tracing_of_origin origin task_name in
     let tracer = TracerProviders.get_default_tracer ~name:task_name in
-    let span = Tracer.start ~tracer ~name:task_name ~parent in
+    let kind =
+      match parent with None -> SpanKind.Internal | Some _ -> SpanKind.Server
+    in
+    let span = Tracer.start ~kind ~tracer ~name:task_name ~parent () in
     match span with
     | Ok x ->
         x
@@ -334,7 +337,10 @@ let make ?(http_other_config = []) ?(quiet = false) ?subtask_of ?session_id
     let open Tracing in
     let parent = tracing_of_origin origin task_name in
     let tracer = TracerProviders.get_default_tracer ~name:task_name in
-    let span = Tracer.start ~tracer ~name:task_name ~parent in
+    let kind =
+      match parent with None -> SpanKind.Internal | Some _ -> SpanKind.Server
+    in
+    let span = Tracer.start ~kind ~tracer ~name:task_name ~parent () in
     match span with
     | Ok x ->
         R.debug "Started trace: %s"
@@ -368,7 +374,7 @@ let make_subcontext ~__context ?task_in_database task_name =
       empty
     else (* only create a tracing if we're part of a tree *)
       let tracer = TracerProviders.get_default_tracer ~name:task_name in
-      let span = Tracer.start ~tracer ~name:task_name ~parent in
+      let span = Tracer.start ~tracer ~name:task_name ~parent () in
       match span with
       | Ok x ->
           x
@@ -444,7 +450,7 @@ let with_tracing context name f =
   let open Tracing in
   let parent = context.tracing in
   let tracer = TracerProviders.get_default_tracer ~name in
-  let span = Tracer.start ~tracer ~name ~parent in
+  let span = Tracer.start ~tracer ~name ~parent () in
   match span with
   | Ok span_context ->
       let new_context = {context with tracing= span_context} in

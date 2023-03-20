@@ -53,7 +53,10 @@ let xmlrpc ?frame ?version ?keep_alive ?task_id ?cookie ?length ?auth
   let traceparent =
     let open Tracing in
     Option.map
-      (fun span -> Span.get_span_context span |> SpanContext.to_traceparent)
+      (fun span ->
+        let _ = Span.set_span_kind span SpanKind.Client in
+        Span.get_span_context span |> SpanContext.to_traceparent
+      )
       tracing
   in
   debug "Setting traceparent header = %s"
