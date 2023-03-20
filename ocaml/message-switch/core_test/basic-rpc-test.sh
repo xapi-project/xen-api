@@ -3,7 +3,7 @@ set -e
 
 SPATH=${TMPDIR:-/tmp}/sock_s
 SWITCHPATH=${TMPDIR:-/tmp}/switch_s
-SECS=0.1
+SECS=${SECS:-0.1}
 
 rm -rf "${SWITCHPATH}" && mkdir -p "${SWITCHPATH}"
 
