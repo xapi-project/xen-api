@@ -402,10 +402,11 @@ let make_rpc ~__context rpc : Rpc.response =
   in
 
   let traceparent =
+    let open Tracing in
     Option.map
-      (fun context ->
-        Tracing.Span.get_span_context context
-        |> Tracing.SpanContext.to_traceparent
+      (fun span ->
+        let _ = Span.set_span_kind span SpanKind.Client in
+        Span.get_span_context span |> SpanContext.to_traceparent
       )
       (Context.tracing_of __context)
   in

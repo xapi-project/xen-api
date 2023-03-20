@@ -17,10 +17,10 @@ let hashtable_test : bool =
   enable_span_garbage_collector ~timeout:3. () ;
   let task_name = "test_task" in
   let tracer = TracerProviders.get_default_tracer ~name:task_name in
-  let span0 = Tracer.start ~tracer ~name:task_name ~parent:None in
-  let span1 = Tracer.start ~tracer ~name:task_name ~parent:None in
-  let span2 = Tracer.start ~tracer ~name:task_name ~parent:None in
-  let span3 = Tracer.start ~tracer ~name:task_name ~parent:None in
+  let span0 = Tracer.start ~tracer ~name:task_name ~parent:None () in
+  let span1 = Tracer.start ~tracer ~name:task_name ~parent:None () in
+  let span2 = Tracer.start ~tracer ~name:task_name ~parent:None () in
+  let span3 = Tracer.start ~tracer ~name:task_name ~parent:None () in
   try
     List.iter
       (fun s ->

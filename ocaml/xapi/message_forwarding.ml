@@ -62,10 +62,11 @@ let remote_rpc_no_retry _context hostname (task_opt : API.ref_task option) xml =
     xmlrpc ?task_id:(Option.map Ref.string_of task_opt) ~version:"1.0" "/"
   in
   let traceparent =
+    let open Tracing in
     Option.map
-      (fun context ->
-        Tracing.Span.get_span_context context
-        |> Tracing.SpanContext.to_traceparent
+      (fun span ->
+        let _ = Span.set_span_kind span SpanKind.Client in
+        Span.get_span_context span |> SpanContext.to_traceparent
       )
       (Context.tracing_of _context)
   in
@@ -90,10 +91,11 @@ let remote_rpc_retry _context hostname (task_opt : API.ref_task option) xml =
     xmlrpc ?task_id:(Option.map Ref.string_of task_opt) ~version:"1.1" "/"
   in
   let traceparent =
+    let open Tracing in
     Option.map
-      (fun context ->
-        Tracing.Span.get_span_context context
-        |> Tracing.SpanContext.to_traceparent
+      (fun span ->
+        let _ = Span.set_span_kind span SpanKind.Client in
+        Span.get_span_context span |> SpanContext.to_traceparent
       )
       (Context.tracing_of _context)
   in
