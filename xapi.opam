@@ -58,7 +58,6 @@ depends: [
   "xapi-stdext-zerocheck"
   "xapi-test-utils" {with-test}
   "xapi-types"
-  "xapi-xenopsd"
   "xapi-idl"
   "xapi-inventory"
   "xml-light2"

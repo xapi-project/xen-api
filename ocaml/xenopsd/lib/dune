@@ -1,6 +1,5 @@
 (library
  (name xenopsd)
- (public_name xapi-xenopsd)
  (wrapped false)
  (libraries
    astring

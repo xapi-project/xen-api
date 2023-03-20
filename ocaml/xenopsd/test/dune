@@ -1,7 +1,7 @@
 (test
  (name test)
  (modes exe)
- (package xapi-xenopsd)
+ (package xapi-xenopsd-xc)
  (libraries
   alcotest
   dune-build-info
@@ -14,7 +14,7 @@
   xapi-idl.xen.interface.types
   xapi-log
   xapi-stdext-pervasives
-  xapi-xenopsd
+  xenopsd
   xenstore_transport.unix
  )
  (preprocess
@@ -24,7 +24,7 @@
 
 (rule
   (alias runtest)
-  (package xapi-xenopsd)
+  (package xapi-xenopsd-xc)
   (deps
     (:x ../lib/xenopsd.cmxs)
   )
