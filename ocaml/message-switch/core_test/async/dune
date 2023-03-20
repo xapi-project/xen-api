@@ -1,5 +1,5 @@
 (executables
-  (modes byte exe)
+  (modes exe)
   (names
     client_async_main
     server_async_main

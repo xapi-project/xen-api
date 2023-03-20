@@ -1,5 +1,5 @@
 (executable
-  (modes byte exe)
+  (modes exe)
   (name gen_csharp_binding)
   (modules Gen_csharp_binding)
   (libraries
@@ -13,7 +13,7 @@
 )
 
 (executable
-  (modes byte exe)
+  (modes exe)
   (name friendly_error_names)
   (modules Friendly_error_names)
   (libraries
