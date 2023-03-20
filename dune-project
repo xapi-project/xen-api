@@ -1,3 +1,3 @@
-(lang dune 2.0)
+(lang dune 3.7)
 
 (formatting (enabled_for ocaml))
