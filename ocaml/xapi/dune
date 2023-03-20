@@ -56,6 +56,7 @@
 
 (library
   (name xapi_internal)
+  (modes best)
   (wrapped false)
   (modules (:standard \ xapi_main))
   (libraries

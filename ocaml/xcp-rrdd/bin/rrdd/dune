@@ -1,5 +1,6 @@
 (library
   (name rrdd_libs_internal)
+  (modes best)
   (wrapped false)
   (modules (:standard \ xcp_rrdd))
   (libraries

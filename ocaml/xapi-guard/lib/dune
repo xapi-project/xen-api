@@ -1,5 +1,6 @@
 (library
  (name xapi_guard)
+  (modes best)
  (libraries
   cohttp
   cohttp-lwt

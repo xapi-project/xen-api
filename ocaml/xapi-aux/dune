@@ -1,5 +1,6 @@
 (library
   (name xapi_aux)
+  (modes best)
   (libraries
     astring
     cstruct
