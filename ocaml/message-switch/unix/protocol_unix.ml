@@ -100,7 +100,7 @@ module IO = struct
         | Unix.Unix_error ((Unix.ECONNREFUSED | Unix.ENOENT), _cmd, _) ->
             Unix.close fd ;
             (* wait for the server to start *)
-            Thread.delay 5.
+            Thread.delay 0.5
         | e ->
             Unix.close fd ; raise e
       done ;
