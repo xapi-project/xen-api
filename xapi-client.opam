@@ -10,7 +10,7 @@ build: [
 ]
 depends: [
   "ocaml"
-  "dune" {build & >= "1.4"}
+  "dune" {build & >= "3.7"}
   "mtime"
   "sexpr"
   "base-threads"
