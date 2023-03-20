@@ -6,6 +6,7 @@
    dune-build-info
    xenopsd
    xenctrl
+   xenmmap
    xenstore
    xenstore.unix
    xenstore_transport

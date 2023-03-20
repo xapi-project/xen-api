@@ -88,6 +88,7 @@
     xapi-test-utils
     xapi-types
     xapi-stdext-threads
+    xapi-stdext-unix
     xml-light2
     yojson
   )
@@ -98,21 +99,27 @@
 (modes exe)
 (package xapi)
 (modules test_storage_smapiv1_wrapper)
-(libraries alcotest xapi_internal fmt))
+(libraries alcotest xapi_internal fmt xapi-idl.storage.interface xapi-idl.storage.interface.types))
 
 (test
 (name test_storage_quicktest)
 (modes exe)
 (package xapi)
 (modules test_storage_quicktest)
-(libraries xapi_internal crowbar))
+(libraries xapi_internal crowbar xapi-idl.storage.interface.types))
 
 (test
 (name test_ref)
 (modes exe)
 (package xapi)
 (modules test_ref)
-(libraries xapi_internal crowbar))
+(libraries
+   crowbar
+   fmt
+   uuidm
+   xapi-types
+   xapi_internal
+))
 
 (rule
   (alias runtest)

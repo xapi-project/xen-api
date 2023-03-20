@@ -49,6 +49,7 @@
     ezxenstore.watch
     forkexec
     http_lib
+    httpsvr
     inotify
     rpclib.core
     rpclib.json

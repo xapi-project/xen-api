@@ -8,6 +8,7 @@
     xapi-stdext-threads
     xapi-stdext-pervasives
     xapi-stdext-unix
+    xapi_version
     astring
     dune-build-info
     rpclib.core
