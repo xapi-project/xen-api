@@ -31,7 +31,6 @@ depends: [
   "mtime"
   "ocaml-migrate-parsetree"
   "pci"
-  "pciutil"
   "ppx_deriving_rpc"
   "ppx_sexp_conv"
   "rpclib"
