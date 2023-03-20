@@ -1,0 +1,105 @@
+{0 XAPI metadata storage design}
+
+{1 Documentation syntax}
+
+This file is a .mld file which contains [odoc] documentation syntax
+(everything that would be acceptable in a documentation comment [(** *)]).
+
+For convenience the syntax documentation can be found here:
+https://ocaml.github.io/odoc/odoc_for_authors.html
+https://ocaml.github.io/odoc/ocamldoc_differences.html#reference-syntax
+
+The documentation can be built during development with:
+{v
+$ dune build @doc-private
+v}
+
+Output can be found in [_build/default/_doc/_html].
+Once a package is installed with 'opam' then documentation can be built with:
+{v
+$ odig doc xapi
+v}
+
+{1 Build and module organization}
+
+{2 Opam package}
+
+We have several opam packages in the XAPI monorepo, however the following
+guidelines can be used to determine which library should go where:
+
+{ul
+{- executables installed in Dom0 need to be part of a package
+  - multiple executables {b can} be part of the same package
+}
+{- libraries used outside of the monorepo (e.g. XAPI client) need to have a package
+  - although a single package {b can} contain multiple libraries if subpackages
+    are used in public_name with '.'
+}
+{- all dependencies of public libraries must themselves be public libraries}
+{- libraries used only by executables (or shared by executables only) should be
+  private libraries
+}
+}
+
+The metadata store is {b only} used by XAPI (anything else that needs the
+metadata store should talk to the metadata store using its native protocol and
+just query XAPI for the local URL), so therefore it should be part of the XAPI
+package.
+
+Note that the current layout of opam packages and public libraries is not ideal
+(we have too many of them). Ideally it should be simplified to have only the
+following as public:
+
+- separate processes may want to have a separate package if they already do
+(e.g. xenopsd)
+- clients for XAPI's external and internal API have to be public libraries
+- libraries shared between several public libraries need to be themselves
+  public, but preferably they can be added as a sub-package into an existing library.
+- clients for other services, e.g. [forkexecd]
+
+{2 Dune library}
+
+The metadata store should be a library, and we may eventually want to make
+XAPI's database use it.
+To avoid circular dependencies and startup ordering problems this library
+should be linkable from the [xapi_database] library, which is an internal
+library. Therefore this should be an internal library too.
+
+To detect cyclic dependencies early on add a dependency from [xapi_database]
+to [xapi_metastore]
+
+{2 External dependencies}
+
+Where possible we should use external libraries for common types that are
+widely known in the ecosystem.
+We currently use strings in too many places, however a more granular type for
+specific strings can make the code less error-prone and the API easier to
+understand and use. In particular the following libraries are desirable:
+
+- fmt: {!module:Fmt} for declaring pretty printers and debugging dump printers
+- fpath: {!module:Fpath} for file system paths
+- ipaddr: {!module:Ipaddr}
+- logs: {!module:Logs} provides lower overhead logging, and is already
+  integrated with [xapi-logs]
+- rresult: {!module:Rresult} for the [('a, [> `Msg of string]) result]
+  convention and combinators (although {!module:Result} is now part of the stdlib)
+- uri: {!module:Uri}
+- uuidm: {!module:Uuidm}
+
+{2 Serialization}
+
+There are many ways to serialize OCaml records (including by hand), XAPI
+extensively uses [rpclib] and its [ppx] deriver, so this library will use that too.
+
+(Other possibilities: [sexplib] which is used by xapi too, or [ppx_fields_conv])
+
+It is possible to do ppx preprocessing per module instead of the entire library
+by using
+[(preprocess (per_module ((pps ppx_deriving_rpc) Module1 ... ModuleN)))].
+
+{2 Generated documentation}
+
+Documentation needs to be part of a package, according to the above that will
+be the [xapi] package.
+For now we don't want to take over XAPI's index, so we'll link to the
+appropriate sections of this design from individual modules' documentation.
