@@ -58,7 +58,7 @@
   (name xapi_internal)
   (modes best)
   (wrapped false)
-  (modules (:standard \ xapi_main server api_server xapi))
+  (modules (:standard \ xapi_main api_server server xapi))
   (libraries
     angstrom
     astring
