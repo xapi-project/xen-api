@@ -900,7 +900,7 @@ let create ~__context ~uuid ~name_label ~name_description ~hostname ~address
   make_new_metrics_object metrics ;
   let host_is_us = uuid = Helpers.get_localhost_uuid () in
   Db.Host.create ~__context ~ref:host ~current_operations:[]
-    ~allowed_operations:[]
+    ~allowed_operations:[] ~https_only:false
     ~software_version:(Xapi_globs.software_version ())
     ~enabled:false ~aPI_version_major:Datamodel_common.api_version_major
     ~aPI_version_minor:Datamodel_common.api_version_minor
@@ -2376,18 +2376,24 @@ let migrate_receive ~__context ~host ~network ~options =
       | _ ->
           failwith "No IP address on PIF"
   ) ;
+  (* Set the scheme to HTTP and let the migration source host decide whether to
+     switch to HTTPS instead, to avoid problems with source hosts that are not
+     able to do HTTPS migrations yet. *)
+  let scheme = "http" in
+
   let sm_url =
-    Printf.sprintf "http://%s/services/SM?session_id=%s" ip new_session_id
+    Printf.sprintf "%s://%s/services/SM?session_id=%s" scheme ip new_session_id
   in
   let xenops_url =
-    Printf.sprintf "http://%s/services/xenops?session_id=%s" ip new_session_id
+    Printf.sprintf "%s://%s/services/xenops?session_id=%s" scheme ip
+      new_session_id
   in
   let master_address =
     try Pool_role.get_master_address ()
     with Pool_role.This_host_is_a_master ->
       Option.get (Helpers.get_management_ip_addr ~__context)
   in
-  let master_url = Printf.sprintf "http://%s/" master_address in
+  let master_url = Printf.sprintf "%s://%s/" scheme master_address in
   [
     (Xapi_vm_migrate._sm, sm_url)
   ; (Xapi_vm_migrate._host, Ref.string_of host)
@@ -2509,3 +2515,9 @@ let notify_send_new_pool_secret ~__context ~host ~old_ps ~new_ps =
 
 let cleanup_pool_secret ~__context ~host ~old_ps ~new_ps =
   Xapi_psr.cleanup ~__context ~old_ps ~new_ps
+
+let set_https_only ~__context ~self ~value =
+  let state = match value with true -> "close" | false -> "open" in
+  ignore
+  @@ Helpers.call_script !Xapi_globs.firewall_port_config_script [state; "80"] ;
+  Db.Host.set_https_only ~__context ~self ~value

@@ -903,6 +903,12 @@ functor
       let rotate_secret ~__context =
         info "Pool.rotate_secret: pool = '%s'" (current_pool_uuid ~__context) ;
         Local.Pool.rotate_secret ~__context
+
+      let set_https_only ~__context ~self ~value =
+        info "Pool.set_https_only: pool='%s' value='%B'"
+          (pool_uuid ~__context self)
+          value ;
+        Local.Pool.set_https_only ~__context ~self ~value
     end
 
     module VM = struct
@@ -3664,6 +3670,14 @@ functor
         let local_fn = Local.Host.cleanup_pool_secret ~host ~old_ps ~new_ps in
         do_op_on ~__context ~host ~local_fn (fun session_id rpc ->
             Client.Host.cleanup_pool_secret rpc session_id host old_ps new_ps
+        )
+
+      let set_https_only ~__context ~self ~value =
+        let uuid = host_uuid ~__context self in
+        info "Host.set_https_only: self = %s ; value = %b" uuid value ;
+        let local_fn = Local.Host.set_https_only ~self ~value in
+        do_op_on ~local_fn ~__context ~host:self (fun session_id rpc ->
+            Client.Host.set_https_only ~rpc ~session_id ~self ~value
         )
     end
 

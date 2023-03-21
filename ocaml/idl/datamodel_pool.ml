@@ -647,6 +647,24 @@ open Datamodel_types
     ~allowed_roles:_R_POOL_ADMIN
     ()
 
+let set_https_only =
+  call ~name:"set_https_only"
+    ~doc:
+      "updates all the host firewalls in the pool to open or close port 80 \
+       depending on the value"
+    ~lifecycle:[Published, rel_yangtze_https, ""]
+    ~params:
+      [
+        (Ref _pool, "self", "The pool")
+      ; ( Bool
+        , "value"
+        , "true - http port 80 will be blocked, false - http port 80 will be \
+           open for the hosts in the pool"
+        )
+      ]
+    ~allowed_roles:_R_POOL_OP ()
+
+
   (** A pool class *)
   let t =
     create_obj
@@ -721,6 +739,7 @@ open Datamodel_types
         ; add_to_guest_agent_config
         ; remove_from_guest_agent_config
         ; rotate_secret
+        ; set_https_only
         ]
       ~contents:
         ([uid ~in_oss_since:None _pool] @

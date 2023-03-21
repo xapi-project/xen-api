@@ -499,3 +499,6 @@ val cleanup_pool_secret :
   -> old_ps:SecretString.t
   -> new_ps:SecretString.t
   -> unit
+
+val set_https_only :
+  __context:Context.t -> self:API.ref_host -> value:bool -> unit

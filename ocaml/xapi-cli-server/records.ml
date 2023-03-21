@@ -1375,6 +1375,20 @@ let pool_record rpc session_id pool =
       ; make_field ~name:"uefi-certificates" ~hidden:true
           ~get:(fun () -> (x ()).API.pool_uefi_certificates)
           ()
+      ; make_field ~name:"https-only"
+          ~get:(fun () ->
+            Client.Host.get_all ~rpc ~session_id
+            |> List.map (fun h ->
+                   Client.Host.get_https_only ~rpc ~session_id ~self:h
+               )
+            |> List.fold_left ( && ) true
+            |> string_of_bool
+          )
+          ~set:(fun s ->
+            Client.Pool.set_https_only ~rpc ~session_id ~self:pool
+              ~value:(Stdlib.bool_of_string s)
+          )
+          ()
       ]
   }
 
@@ -2932,6 +2946,13 @@ let host_record rpc session_id host =
           ()
       ; make_field ~name:"hostname" ~get:(fun () -> (x ()).API.host_hostname) ()
       ; make_field ~name:"address" ~get:(fun () -> (x ()).API.host_address) ()
+      ; make_field ~name:"https-only"
+          ~get:(fun () -> string_of_bool (x ()).API.host_https_only)
+          ~set:(fun s ->
+            Client.Host.set_https_only ~rpc ~session_id ~self:host
+              ~value:(Stdlib.bool_of_string s)
+          )
+          ()
       ; make_field ~name:"supported-bootloaders"
           ~get:(fun () ->
             String.concat "; " (x ()).API.host_supported_bootloaders
