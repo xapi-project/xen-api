@@ -21,6 +21,7 @@ let () =
         [
           ("Quicktest_example", Quicktest_example.tests ())
         ; ("Quicktest_fe_systemctl", Quicktest_fe_systemctl.tests ())
+        ; ("Quicktest_etcd", Quicktest_etcd.tests ())
         ; ("cbt", Quicktest_cbt.tests ())
         ; ("event", Quicktest_event.tests ())
         ; ("import_raw_vdi", Quicktest_import_raw_vdi.tests ())

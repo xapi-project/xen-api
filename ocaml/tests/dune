@@ -5,7 +5,7 @@
     (:standard \ test_daemon_manager test_vdi_cbt test_event test_clustering
       test_cluster_host test_cluster test_pusb test_network_sriov
       test_vm_placement test_vm_helpers test_repository test_repository_helpers
-      test_ref test_metastore_properties
+      test_ref test_metastore_properties test_metastore_config gen_metastore_config
       test_livepatch test_rpm test_updateinfo test_storage_smapiv1_wrapper test_storage_quicktest))
   (libraries
     alcotest
@@ -130,5 +130,21 @@
 (modules test_metastore_properties)
  (preprocess (pps ppx_deriving_rpc))
 (libraries xapi_metastore crowbar rpclib.core rresult))
+
+; run  'dune exec ./gen_metastore_config.exe' to generate tests
+; cannot use a dune alias here because it needs to be run in the source dir
+(executable
+  (name gen_metastore_config)
+  (modules gen_metastore_config)
+  (libraries xapi_metastore rpclib.core fpath)
+)
+
+(test
+(name test_metastore_config)
+(package xapi)
+(modules test_metastore_config)
+(deps
+  (source_tree test_metastore_random_configs))
+(libraries xapi_metastore alcotest rpclib.core fpath rresult))
 
 (env (_ (env-vars (XAPI_TEST 1))))

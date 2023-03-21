@@ -174,7 +174,81 @@ Use {!module:Uuidm} for unique identifiers, that is the correct type to use
 anyway (eventually we may change the DB to support them natively, for now XAPI
 will convert to and from string as needed).
 
-{2 Type representation}
+{2 Configuration}
+
+{3 Storage}
+
+The configuration must not be stored in the XAPI database, to prevent cyclic
+startup dependency.
+In the [xapi_metastore] library the configuration storage should be abstract
+(i.e. configuration should be supplied by the user of the library, where it is
+stored is not the library's concern).
+
+Then in XAPI we should have a {!module:Xapi_metastore_config} module that
+stores the configuration. The {!module:Localdb} is already used to store
+configuration about the database itself (e.g. {!val:Constants.redo_log_enabled})
+
+{3 Contents}
+
+Depends on the metastore backend, currently [etcd].
+Conceptually the following kind of configuration is stored:
+
+{ul
+ {- configuration global to the entire pool (called "cluster" in [etcd]) that
+      cannot be changed safely while the pool is running:
+
+    - various timeout values
+    - quotas
+
+ }
+ {- configuration local to a member, changing these usually requires no
+ coordination:
+
+    - the local port that clients connect on
+    - the local ip:port on which the member listens on, which may be different to
+      the ip:port advertised to other members (e.g. if [stunnel] or another
+      proxy is used)
+    - the local TLS certificate used (as long as the existing CA configured on
+      other members already trusts it)
+
+ }
+ {- configuration about membership:
+
+    - advertised member ip:port used for communication between metastore nodes
+    - a list of all other metastore nodes for bootstrapping purposes
+    - TLS CA configuration for member to member communication
+ }
+}
+
+Note that the number of metastore cluster members do not necessarily have to match the
+number of XAPI members: some XAPI members may run a simple etcd client only
+that connects to some of the other nodes.
+
+Some of this configuration is stored by etcd itself through a two-phase update
+protocol (these can be managed via [etcdctl member] commands), but others
+require management by XAPI: e.g. changing the advertised URL may also require a
+local member restart if the local listen port is also changed.
+And changing TLS configuration will require a rolling restart managed by XAPI.
+
+For changing some of the other values creating a new etcd cluster and
+transfering data over might be the most robust way, {b and} would also allow us
+to support upgrades easily. Although live clients will need to be carefully
+redirected from one node to the other, while the other is running in mirror
+mode.
+
+It is important that the "live" configuration is read from the live metastore
+cluster and diffed against the live configuration, and {b not} XAPI's notion of
+what that configuration should be.
+Although if the cluster is not live at the moment then a bootstrap
+configuration will need to be supplied.
+But note that this configuration may only be used for bootstrapping by [etcd],
+and even if present and changed in a config file, and doing a cold start of the
+cluster it will use the configuration stored in etcd itself and ignore the
+configuration stored in its configuration file.
+And there may be no way to change some of this configuration, short of force
+overwriting the cluster configuration or creating a brand new cluster.
+
+{3 Type representation}
 
 The end result is an [EnvironmentFile] with several lines consisting of key-value pairs.
 Keys cannot be duplicates, so a map (or Hashtable if using {!val:Hashtbl.replace}) would be a natural representation.

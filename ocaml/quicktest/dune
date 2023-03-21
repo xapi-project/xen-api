@@ -12,6 +12,8 @@
     http-svr
     mtime
     mtime.clock.os
+    fpath
+    logs
     result
     rresult
     rpclib.core
@@ -23,6 +25,8 @@
     xapi-consts
     xapi-datamodel
     xapi_internal
+    xapi_metastore
+    logs.fmt
     xapi-types
     xapi-stdext-date
     xapi-stdext-pervasives

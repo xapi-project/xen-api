@@ -33,9 +33,7 @@ let uri ~ip ~port =
 
 type path = Fpath.t
 
-let typ_of_path =
-  Serialization.using ~aname:"path" Fpath.to_string Fpath.v
-    Rpc.Types.string.Rpc.Types.ty
+let typ_of_path = Serialization.typ_of_path
 
 type initial_cluster_state = New | Existing [@@deriving rpcty]
 
