@@ -11,14 +11,11 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-
 module D = Debug.Make (struct let name = "tracing" end)
 
 open D
 
 type endpoint = Bugtool | Url of Uri.t
-
-let url_file = "/etc/xapi-tracing-url"
 
 let ok_none = Ok None
 
@@ -213,6 +210,8 @@ module TracerProvider = struct
     ; enabled: bool
     ; service_name: string
   }
+
+  let endpoints_of t = t.endpoints
 end
 
 module Tracer = struct
@@ -274,10 +273,17 @@ let get_tracer ~name =
   | None ->
       warn "No provider found" ; Tracer.no_op
 
+let get_tracer_providers () =
+  Hashtbl.fold (fun _ provider acc -> provider :: acc) tracer_providers []
+
 let enable_span_garbage_collector ?(timeout = 86400.) () =
   Spans.GC.initialise_thread ~timeout
 
 module Export = struct
+  let export_interval = ref 30.
+
+  let set_export_interval t = export_interval := t
+
   module Content = struct
     module Json = struct
       module Zipkinv2 = struct
@@ -358,7 +364,6 @@ module Export = struct
       let export ~span_json ~url : (string, exn) result =
         try
           let body = span_json in
-          let uri = Uri.of_string url in
           let headers =
             Cohttp.Header.of_list
               [
@@ -367,9 +372,9 @@ module Export = struct
               ; ("content-length", string_of_int (String.length body))
               ]
           in
-          Open_uri.with_open_uri uri (fun fd ->
+          Open_uri.with_open_uri url (fun fd ->
               let request =
-                Cohttp.Request.make ~meth:`POST ~version:`HTTP_1_1 ~headers uri
+                Cohttp.Request.make ~meth:`POST ~version:`HTTP_1_1 ~headers url
               in
               let ic = Unix.in_channel_of_descr fd in
               let oc = Unix.out_channel_of_descr fd in
@@ -400,57 +405,43 @@ module Export = struct
         with e -> Error e
     end
 
-    let export_to_http_server () =
-      debug "Tracing: About to export to http server" ;
-      let url =
-        Xapi_stdext_unix.Unixext.string_of_file url_file |> String.trim
-      in
-      let span_list = Spans.since () in
+    let export_to_endpoint span_list endpoint =
       try
-        Hashtbl.iter
-          (fun _ span_list ->
-            let zipkin_spans = Content.Json.Zipkinv2.content_of span_list in
-            match Http.export ~span_json:zipkin_spans ~url with
-            | Ok _ ->
-                ()
-            | Error e ->
-                raise e
-          )
-          span_list ;
-        Ok ()
-      with e -> Error e
-
-    let export_to_logs () =
-      debug "Tracing: About to export to dom0 logs" ;
-      let span_list = Spans.since () in
-      try
+        debug "Tracing: About to export" ;
         Hashtbl.iter
           (fun trace_id span_list ->
             let zipkin_spans = Content.Json.Zipkinv2.content_of span_list in
             match
-              File.export ~trace_id ~span_json:zipkin_spans
-                ~path:!File.trace_log_dir
+              match endpoint with
+              | Url url ->
+                  Http.export ~span_json:zipkin_spans ~url
+              | Bugtool ->
+                  File.export ~trace_id ~span_json:zipkin_spans
+                    ~path:!File.trace_log_dir
             with
             | Ok _ ->
                 ()
             | Error e ->
                 raise e
           )
-          span_list ;
-        Ok ()
-      with e -> Error e
+          span_list
+      with e -> debug "Tracing: ERROR %s" (Printexc.to_string e)
 
     let main () =
+      enable_span_garbage_collector () ;
       Thread.create
         (fun () ->
           while true do
-            debug "Tracing: Waiting 30s before exporting spans" ;
-            Thread.delay 30. ;
-            match export_to_http_server () with
-            | Ok () ->
-                ()
-            | Error e ->
-                debug "Tracing: Export ERROR %s" (Printexc.to_string e)
+            debug "Tracing: Waiting %d seconds before exporting spans"
+              (int_of_float !export_interval) ;
+            Thread.delay !export_interval ;
+            let span_list = Spans.since () in
+            get_tracer_providers ()
+            |> List.iter (fun x ->
+                   if x.TracerProvider.enabled then
+                     TracerProvider.endpoints_of x
+                     |> List.iter (export_to_endpoint span_list)
+               )
           done
         )
         ()

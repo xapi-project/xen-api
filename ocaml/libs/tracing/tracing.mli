@@ -46,4 +46,16 @@ end
 
 val get_tracer : name:string -> Tracer.t
 
+module Export : sig
+  val set_export_interval : float -> unit
+
+  module Destination : sig
+    module File : sig
+      val set_trace_log_dir : string -> unit
+
+      val set_host_id : string -> unit
+    end
+  end
+end
+
 val main : unit -> Thread.t
