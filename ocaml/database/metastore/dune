@@ -12,9 +12,9 @@
   (name xapi_metastore)
   (public_name xapi-database.metastore)
   (modes best)
-  (libraries forkexec (re_export fmt) fpath ipaddr rresult uri uuidm rpclib.core
-             (re_export result) rpclib.json)
-  (preprocess (per_module ((pps ppx_deriving_rpc) Serialization)))
+  (libraries astring forkexec (re_export fmt) fpath ipaddr rresult uri uuidm rpclib.core
+             (re_export result) rpclib.json mtime)
+  (preprocess (per_module ((pps ppx_deriving_rpc) Serialization Config_field)))
 )
 
 (documentation

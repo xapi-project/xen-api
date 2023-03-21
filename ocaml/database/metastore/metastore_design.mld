@@ -174,6 +174,76 @@ Use {!module:Uuidm} for unique identifiers, that is the correct type to use
 anyway (eventually we may change the DB to support them natively, for now XAPI
 will convert to and from string as needed).
 
+{2 Type representation}
+
+The end result is an [EnvironmentFile] with several lines consisting of key-value pairs.
+Keys cannot be duplicates, so a map (or Hashtable if using {!val:Hashtbl.replace}) would be a natural representation.
+An immutable representation is preferred to make manipulation easier.
+
+The configuration has to be changed at runtime for adding and removing pool
+members, thus some form of configuration "diffing" will be required.
+
+Although the values will eventually be strings, each key usually has a well
+defined type (an integer, a URL, etc.), so a typed representation would be
+ideal.
+
+We also need to be able to serialize and deserialize the configuration, and to
+allow the admin to override almost arbitrary fields "other-config" style
+(i.e. with key-value pairs where both are strings).
+
+Arbitrary changes to fields are not supported, there are only a very small
+number of fields (related to pool membership) that can be changed at runtime,
+everything else requires either a local or global restart of the metadata
+service.
+
+A few possibilities:
+ - store as a {!type:string Map.Make(String).t} internally, but don't expose
+   this type outside the configuration module and have typed field constructors
+   or field definitions. This was my initial implementation attempt.
+
+ - use the {!module:Hmap} module which allows heterogeneous maps with values of
+   different types, where a given key ensures that the returned values is
+   always of the same type (the type is encoded in the key, but the type parameter can
+   be hidden as well)
+
+ - use an OCaml record type, and a PPX to generate serializers/deserializers.
+   And then perform the "diffing" on this serialized type representation.
+   XAPI uses {!module:Rpclib} and its associated ppx [@@deriving rpcty], so
+   that seems like a natural choice.
+   It supports overriding keys with {!val:Rpc.struct_extend}
+
+The internal implementation should not be exposed, and we should avoid
+"leaking" the choice through the abstractiony,
+e.g. when using a record providing a "field"
+value for each field may not be feasible, but providing a [set_field_foo] API
+would be.
+
+Although going the record route we need to duplicate fields in many places:
+- in record field
+- in the [make] constructor
+- in field getters
+- in field setters
+
+Whereas treating the field as a first class type, and having generic
+set/get APIs (like with lenses) reduced the amount of duplication,
+and makes the code clearer and more concise.
+
+Although expressing constraints (such as requiring certain fields to be
+present) becomes more difficult.
+
+{3 Result types}
+
+We follow the {!Rresult} convention of defining an [result] type in the module,
+however we use the [`Msg of string] convention that {!Rresult} and
+{!Rpcmarshal} uses (no custom error type).
+
+To ensure some consistency we declare an open variant [[>`Msg of string]]
+constraint on the error type, this saves us from having to write
+[('a, [> error]) result] on each function signature,
+and it also saves us from having to define the [open_error] helper to transform
+a [('a, error) result] into an [('a, [> error]) result] which is needed when
+composing with different error results (e.g. the one from {!Rresult.exn_trap}).
+
 {1 Testing}
 
 {2 Structured fuzzing}
