@@ -299,23 +299,27 @@ let infer_vgpu_map ~__context ?remote vm =
       try Db.VM.get_VGPUs ~__context ~self:vm |> List.map f |> List.concat
       with e -> raise (VGPU_mapping (Printexc.to_string e))
     )
-  | Some {rpc; session} -> (
+  | Some {rpc; session; _} -> (
+      let session_id = session in
       let f vgpu =
-        let vgpu = XenAPI.VGPU.get_record rpc session vgpu in
+        (* avoid using get_record, allows to cross-pool migration to versions
+           that may have removed fields in the vgpu record *)
+        let pci = XenAPI.VGPU.get_PCI ~rpc ~session_id ~self:vgpu in
         let pf () =
-          vgpu.API.vGPU_scheduled_to_be_resident_on |> fun self ->
+          XenAPI.VGPU.get_scheduled_to_be_resident_on ~rpc ~session_id
+            ~self:vgpu
+          |> fun self ->
           XenAPI.PGPU.get_PCI rpc session self |> fun self ->
           XenAPI.PCI.get_pci_id rpc session self
           |> Xenops_interface.Pci.address_of_string
         in
         let vf () =
-          vgpu.API.vGPU_PCI |> fun self ->
-          XenAPI.PCI.get_pci_id rpc session self
+          XenAPI.PCI.get_pci_id ~rpc ~session_id ~self:pci
           |> Xenops_interface.Pci.address_of_string
         in
-        let pf_device = vgpu.API.vGPU_device in
+        let pf_device = XenAPI.VGPU.get_device ~rpc ~session_id ~self:vgpu in
         let vf_device = vf_device_of pf_device in
-        if vgpu.API.vGPU_PCI <> API.Ref.null then
+        if pci <> API.Ref.null then
           [(pf_device, pf ()); (vf_device, vf ())]
         else
           [(pf_device, pf ())]
@@ -1377,17 +1381,22 @@ let migrate_send' ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~vgpu_map
         in
         List.map
           (fun vif ->
-            let vifr =
-              XenAPI.VIF.get_record ~rpc:remote.rpc ~session_id:remote.session
+            (* Avoid using get_record to allow judicious field removals in the future *)
+            let network =
+              XenAPI.VIF.get_network ~rpc:remote.rpc ~session_id:remote.session
+                ~self:vif
+            in
+            let device =
+              XenAPI.VIF.get_device ~rpc:remote.rpc ~session_id:remote.session
                 ~self:vif
             in
             let bridge =
               Xenops_interface.Network.Local
                 (XenAPI.Network.get_bridge ~rpc:remote.rpc
-                   ~session_id:remote.session ~self:vifr.API.vIF_network
+                   ~session_id:remote.session ~self:network
                 )
             in
-            (vifr.API.vIF_device, bridge)
+            (device, bridge)
           )
           vifs
       in
