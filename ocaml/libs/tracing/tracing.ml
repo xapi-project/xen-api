@@ -11,10 +11,6 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-let url_file = "/etc/xapi-tracing-url"
-
-let trace_log_dir = "/var/log/dt/zipkinv2/json"
-
 module D = Debug.Make (struct let name = "tracing" end)
 
 open D
@@ -275,12 +271,17 @@ module TracerProvider = struct
         tracer
     | _ ->
         Tracer.get_empty name
+
+  let endpoints_of t = t.config.endpoints
 end
 
 module TracerProviders = struct
   let lock = Mutex.create ()
 
   let tracer_providers = Hashtbl.create 100
+
+  let get_tracer_providers () =
+    Hashtbl.fold (fun _ provider acc -> provider :: acc) tracer_providers []
 
   let find_or_create_tracer ~provider ~name =
     match
@@ -478,7 +479,9 @@ module Export = struct
 
   module Destination = struct
     module File = struct
-      let export ~trace_id ~span_json : (string, exn) result =
+      let trace_log_dir = "/var/log/dt/zipkinv2/json"
+
+      let export ~trace_id ~span_json ~path : (string, exn) result =
         try
           (* TODO: *)
           let host_id = "myhostid" in
@@ -491,8 +494,7 @@ module Export = struct
               unix_time.tm_sec microsec
           in
           let file =
-            String.concat "/" [trace_log_dir; trace_id; "xapi"; host_id; date]
-            ^ ".json"
+            String.concat "/" [path; trace_id; "xapi"; host_id; date] ^ ".json"
           in
           Xapi_stdext_unix.Unixext.mkdir_rec (Filename.dirname file) 0o700 ;
           Xapi_stdext_unix.Unixext.write_string_to_file file span_json ;
@@ -549,42 +551,37 @@ module Export = struct
         with e -> Error e
     end
 
-    let export_to_http_server () =
-      debug "Tracing: About to export to http server" ;
-      let url =
-        Xapi_stdext_unix.Unixext.string_of_file url_file |> String.trim
+    let export_to_endpoint endpoint =
+      let export_span =
+        Span.start ~name:"exporting_spans" ~parent:None ~kind:SpanKind.Internal
+          ()
       in
-      let span_list = Spans.since () in
       try
-        Hashtbl.iter
-          (fun _ span_list ->
-            let zipkin_spans = Content.Json.Zipkinv2.content_of span_list in
-            match Http.export ~span_json:zipkin_spans ~url with
-            | Ok _ ->
-                ()
-            | Error e ->
-                raise e
-          )
-          span_list ;
-        Ok ()
-      with e -> Error e
-
-    let _export_to_logs () =
-      debug "Tracing: About to export to dom0 logs" ;
-      let span_list = Spans.since () in
-      try
+        debug "Tracing: About to export" ;
+        let span_list = Spans.since () in
         Hashtbl.iter
           (fun trace_id span_list ->
             let zipkin_spans = Content.Json.Zipkinv2.content_of span_list in
-            match File.export ~trace_id ~span_json:zipkin_spans with
+            match
+              match endpoint with
+              | Url url ->
+                  Http.export ~span_json:zipkin_spans ~url
+              | Bugtool ->
+                  File.export ~trace_id ~span_json:zipkin_spans
+                    ~path:File.trace_log_dir
+            with
             | Ok _ ->
                 ()
             | Error e ->
                 raise e
           )
           span_list ;
-        Ok ()
-      with e -> Error e
+        Span.finish ~span:export_span ()
+      with e ->
+        debug "Tracing: ERROR %s" (Printexc.to_string e) ;
+        Span.finish ~span:export_span
+          ~tags:[("exception.message", Printexc.to_string e)]
+          ()
 
     let _ =
       Thread.create
@@ -592,18 +589,10 @@ module Export = struct
           while true do
             debug "Tracing: Waiting 30s before exporting spans" ;
             Thread.delay 30. ;
-            let export_span =
-              Span.start ~name:"export_to_http_server" ~parent:None
-                ~kind:SpanKind.Client ()
-            in
-            match export_to_http_server () with
-            | Ok () ->
-                Span.finish ~span:export_span ()
-            | Error e ->
-                debug "Tracing: ERROR %s" (Printexc.to_string e) ;
-                Span.finish ~span:export_span
-                  ~tags:[("exception.message", Printexc.to_string e)]
-                  ()
+            TracerProviders.get_tracer_providers ()
+            |> List.iter (fun x ->
+                   TracerProvider.endpoints_of x |> List.iter export_to_endpoint
+               )
           done
         )
         ()
