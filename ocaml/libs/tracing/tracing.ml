@@ -485,13 +485,19 @@ module Export = struct
         try
           (* TODO: *)
           let host_id = "myhostid" in
-          let timestamp = Unix.gettimeofday () |> string_of_float in
-          let microsec = String.sub timestamp 6 (String.length timestamp - 6) in
-          let unix_time = float_of_string timestamp |> Unix.localtime in
+          let timestamp = Unix.gettimeofday () in
+          let timestamp_ms =
+            timestamp *. 1000000. |> int_of_float |> string_of_int
+          in
+          let microsec =
+            String.sub timestamp_ms 6 (String.length timestamp_ms - 6)
+          in
+          let unix_time = timestamp |> Unix.localtime in
           let date =
-            Printf.sprintf "%d%d%d-%d%d%d-%s" unix_time.tm_year unix_time.tm_mon
-              unix_time.tm_mday unix_time.tm_hour unix_time.tm_min
-              unix_time.tm_sec microsec
+            Printf.sprintf "%d%02d%d-%d%d%d-%s"
+              (Int.rem unix_time.tm_year 100)
+              (unix_time.tm_mon + 1) unix_time.tm_mday unix_time.tm_hour
+              unix_time.tm_min unix_time.tm_sec microsec
           in
           let file =
             String.concat "/" [path; trace_id; "xapi"; host_id; date] ^ ".json"
