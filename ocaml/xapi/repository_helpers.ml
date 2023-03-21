@@ -1077,17 +1077,9 @@ let prune_updateinfo_for_livepatches livepatches updateinfo =
   in
   {updateinfo with livepatches= lps}
 
-let do_with_device_models ~__context
-    ?(only_vm_with_recommended_guidances = false) ~host f =
+let do_with_device_models ~__context ~host f =
   (* Call f with device models of all running HVM VMs on the host *)
   Db.Host.get_resident_VMs ~__context ~self:host
-  |> List.filter (fun self ->
-         if only_vm_with_recommended_guidances then
-           List.mem `restart_device_model
-             (Db.VM.get_recommended_guidances ~__context ~self)
-         else
-           true
-     )
   |> List.map (fun self -> (self, Db.VM.get_record ~__context ~self))
   |> List.filter (fun (_, record) -> not record.API.vM_is_control_domain)
   |> List.filter_map f
