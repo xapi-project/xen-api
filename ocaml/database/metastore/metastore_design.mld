@@ -1,5 +1,54 @@
 {0 XAPI metadata storage design}
 
+{1 Purpose}
+
+The initial purpose of the XAPI metadata storage is to provide robust storage
+for [vTPM] devices.
+XAPI itself is not suitable for this because by default its database is not
+crash-proof (it is purely in-memory, unless the redo-log is enabled),
+and making it crash-proof (redo-log) requires shared storage which may not be
+easily available everywhere.
+Also it should be more acceptable to add upstream support in [swtpm] for a well established
+protocol (e.g. [etcd]) than a custom one used only by XAPI without well defined
+consistency guarantees.
+
+For scalability and robustness more than one metadata storage node may be used,
+running either on member local storage, or using shared storage as needed and
+available.
+
+However in the future the UEFI NVRAM storage should also use this as a backend,
+and eventually the entire XAPI database may use this metastore as a backend
+(at least when the redolog is enabled).
+Currently the UEFI variable storage depends on XAPI master availability,
+and master toolstack restart may temporarily interrupt guest's ability to boot
+or modify UEFI variables on *other* hosts, effectively making it a single point
+of failure (and we do expect XAPI to go down during hotfix installation for
+example).
+Having a separate daemon as a backend for UEFI variable storage would make this
+more robust, especially if that storage is designed to withstand the loss of
+one node.
+
+It would also simplify integrating any other daemon that needs to run on many
+hosts in the cluster but does not provide its own configuration manager
+compatible with XAPI (e.g. `corosync`, where `pacemaker`'s decision making on
+configuration, membership management, and fencing is inconsistent with XAPI's
+model): they can talk to etcd directly (with suitable ACLs in place).
+
+Initially however we would only use etcd on a single node, because
+automatically managing and scaling etcd configuration up and down risks
+introducing a situation where it will refuse to start up again (if we lose more
+than half of quorum nodes), whereas if we do have shared storage then we can
+withstand the loss of any number of nodes.
+If IP addresses change (e.g. due to DHCP or other events) then the etcd cluster
+may not be start again, and would have to use its disaster recovery mode to
+start up a second cluster (by design, it is not safe to try to force change IP
+addresses on the old cluster). This would need some careful consideration on
+how this interacts with the already existing XAPI master/member recovery API
+calls.
+(But obviously the shared storage becomes the single point of failure then)
+Running more than one etcd node (when shared storage is available) is purely a
+performance optimization.
+
 {1 Documentation syntax}
 
 This file is a .mld file which contains [odoc] documentation syntax
