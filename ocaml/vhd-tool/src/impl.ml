@@ -829,9 +829,10 @@ let retry common retries f =
 
 (** [make_stream common source relative_to source_format destination_format]
     returns a lazy stream of extents to copy. [source_format] determines the
-    way in which the [source] and [relative_to] strings sould be interpreted
+    way in which the [source] and [relative_to] strings should be interpreted
     and how their data and metadata can be accessed. If [relative_to] is
-    specified, then the changes from it will will be returned. *)
+    specified, then the changes from it will will be returned.
+    [destination_format] specifies the format of the returned data stream. *)
 let make_stream common source relative_to source_format destination_format =
   match (source_format, destination_format) with
   | "nbdhybrid", "raw" -> (
@@ -943,6 +944,12 @@ let make_stream common source relative_to source_format destination_format =
   | _, _ ->
       assert false
 
+(** [write_stream common s destination destination_protocol prezeroed progress
+     tar_filename_prefix ssl_legacy good_ciphersuites legacy_ciphersuites]
+    writes the data stream [s] to [destination], using the specified
+    [destination_protocol]. The endpoint (destination) determines where we
+    write the data to, and the [destination_protocol] determines how we send
+    the data. *)
 let write_stream common s destination destination_protocol prezeroed progress
     tar_filename_prefix good_ciphersuites verify_cert =
   endpoint_of_string destination >>= fun endpoint ->
