@@ -521,8 +521,8 @@ let _ =
   in
   let t =
     stream_t >>= fun s ->
-    Impl.write_stream common s destination (Some "none") None !prezeroed
-      progress None !good_ciphersuites verify_cert
+    Impl.write_stream common s destination None !prezeroed progress None
+      !good_ciphersuites verify_cert
   in
   if destination_format = "vhd" then
     with_paused_tapdisk dest (fun () -> Lwt_main.run t)

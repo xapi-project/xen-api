@@ -943,8 +943,8 @@ let make_stream common source relative_to source_format destination_format =
   | _, _ ->
       assert false
 
-let write_stream common s destination _source_protocol destination_protocol
-    prezeroed progress tar_filename_prefix good_ciphersuites verify_cert =
+let write_stream common s destination destination_protocol prezeroed progress
+    tar_filename_prefix good_ciphersuites verify_cert =
   endpoint_of_string destination >>= fun endpoint ->
   let use_ssl = match endpoint with Https _ -> true | _ -> false in
   ( match endpoint with
@@ -1129,9 +1129,9 @@ let stream_t common args ?(progress = no_progress_bar) () =
     args.StreamCommon.source_format args.StreamCommon.destination_format
   >>= fun s ->
   write_stream common s args.StreamCommon.destination
-    args.StreamCommon.source_protocol args.StreamCommon.destination_protocol
-    args.StreamCommon.prezeroed progress args.StreamCommon.tar_filename_prefix
-    args.StreamCommon.good_ciphersuites args.StreamCommon.verify_cert
+    args.StreamCommon.destination_protocol args.StreamCommon.prezeroed progress
+    args.StreamCommon.tar_filename_prefix args.StreamCommon.good_ciphersuites
+    args.StreamCommon.verify_cert
 
 let stream common args =
   try
