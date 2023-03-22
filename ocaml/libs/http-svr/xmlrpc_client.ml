@@ -54,6 +54,7 @@ let xmlrpc ?frame ?version ?keep_alive ?task_id ?cookie ?length ?auth
     let open Tracing in
     Option.map
       (fun span ->
+        let _ = Span.set_span_kind span SpanKind.Client in
         Span.get_span_context span |> SpanContext.to_traceparent
       )
       tracing
