@@ -2970,20 +2970,7 @@ let apply_recommended_guidances ~__context ~self =
           host'
           (String.concat ";"
              (List.map Guidance.to_string
-                (List.map
-                   (fun ug ->
-                     match ug with
-                     | `reboot_host ->
-                         Guidance.RebootHost
-                     | `reboot_host_on_livepatch_failure ->
-                         Guidance.RebootHostOnLivePatchFailure
-                     | `restart_toolstack ->
-                         Guidance.RestartToolstack
-                     | `restart_device_model ->
-                         Guidance.RestartDeviceModel
-                   )
-                   l
-                )
+                (List.map Guidance.of_update_guidance l)
              )
           ) ;
         raise Api_errors.(Server_error (apply_guidance_failed, [host']))

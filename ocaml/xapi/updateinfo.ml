@@ -53,6 +53,16 @@ module Guidance = struct
     | _ ->
         error "Unknown node in <absolute|recommended_guidance>" ;
         raise Api_errors.(Server_error (invalid_updateinfo_xml, []))
+
+  let of_update_guidance = function
+    | `reboot_host ->
+        RebootHost
+    | `reboot_host_on_livepatch_failure ->
+        RebootHostOnLivePatchFailure
+    | `restart_toolstack ->
+        RestartToolstack
+    | `restart_device_model ->
+        RestartDeviceModel
 end
 
 module Applicability = struct
