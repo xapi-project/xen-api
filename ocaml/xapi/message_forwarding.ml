@@ -59,20 +59,12 @@ let remote_rpc_no_retry _context hostname (task_opt : API.ref_task option) xml =
       )
   in
   let http =
-    xmlrpc ?task_id:(Option.map Ref.string_of task_opt) ~version:"1.0" "/"
+    xmlrpc
+      ?task_id:(Option.map Ref.string_of task_opt)
+      ~version:"1.0"
+      ~tracing:(Context.tracing_of _context)
+      "/"
   in
-  let traceparent =
-    let open Tracing in
-    Option.map
-      (fun span ->
-        let _ = Span.set_span_kind span SpanKind.Client in
-        Span.get_span_context span |> SpanContext.to_traceparent
-      )
-      (Context.tracing_of _context)
-  in
-  debug "Setting traceparent header (remote_rpc_no_retry) = %s"
-    (Option.value ~default:"None" traceparent) ;
-  let http = {http with traceparent} in
   XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"dst_xapi" ~transport ~http xml
 
 (* Use HTTP 1.1, use the stunnel cache and pre-verify the connection *)
@@ -88,20 +80,12 @@ let remote_rpc_retry _context hostname (task_opt : API.ref_task option) xml =
       )
   in
   let http =
-    xmlrpc ?task_id:(Option.map Ref.string_of task_opt) ~version:"1.1" "/"
+    xmlrpc
+      ?task_id:(Option.map Ref.string_of task_opt)
+      ~version:"1.1"
+      ~tracing:(Context.tracing_of _context)
+      "/"
   in
-  let traceparent =
-    let open Tracing in
-    Option.map
-      (fun span ->
-        let _ = Span.set_span_kind span SpanKind.Client in
-        Span.get_span_context span |> SpanContext.to_traceparent
-      )
-      (Context.tracing_of _context)
-  in
-  debug "Setting traceparent header (remote_rpc_no_retry) = %s"
-    (Option.value ~default:"None" traceparent) ;
-  let http = {http with traceparent} in
   XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"dst_xapi" ~transport ~http xml
 
 let call_slave_with_session remote_rpc_fn __context host

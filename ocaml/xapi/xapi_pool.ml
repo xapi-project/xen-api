@@ -3283,21 +3283,11 @@ let perform ~local_fn ~__context ~host op =
     let open Xmlrpc_client in
     let verify_cert = Some Stunnel.pool (* verify! *) in
     let task_id = Option.map Ref.string_of task_opt in
-    let http = xmlrpc ?task_id ~version:"1.0" "/" in
+    let http =
+      xmlrpc ?task_id ~version:"1.0" ~tracing:(Context.tracing_of __context) "/"
+    in
     let port = !Constants.https_port in
     let transport = SSL (SSL.make ~verify_cert ?task_id (), hostname, port) in
-    let traceparent =
-      let open Tracing in
-      Option.map
-        (fun span ->
-          let _ = Span.set_span_kind span SpanKind.Client in
-          Span.get_span_context span |> SpanContext.to_traceparent
-        )
-        (Context.tracing_of __context)
-    in
-    debug "Setting traceparent header (pool.perform) = %s"
-      (Option.value ~default:"None" traceparent) ;
-    let http = {http with traceparent} in
     XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"dst_xapi" ~transport ~http xml
   in
   let open Message_forwarding in
