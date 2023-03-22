@@ -84,8 +84,8 @@ let run ~__context tasks =
             ignore
               (Thread.create
                  (fun tsk_fct ->
-                   Server_helpers.exec_with_subtask tsk_name (fun ~__context ->
-                       thread_exn_wrapper tsk_name tsk_fct
+                   Server_helpers.exec_with_subtask ~__context tsk_name
+                     (fun ~__context -> thread_exn_wrapper tsk_name tsk_fct
                    )
                  )
                  tsk_fct
