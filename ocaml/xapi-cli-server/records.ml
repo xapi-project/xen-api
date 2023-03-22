@@ -1460,6 +1460,17 @@ let pool_record rpc session_id pool =
               ~value:(bool_of_string x)
           )
           ()
+      ; make_field ~name:"telemetry-frequency"
+          ~get:(fun () ->
+            (x ()).API.pool_telemetry_frequency
+            |> Record_util.telemetry_frequency_to_string
+          )
+          ()
+      ; make_field ~name:"telemetry-next-collection"
+          ~get:(fun () ->
+            (x ()).API.pool_telemetry_next_collection |> Date.to_string
+          )
+          ()
       ]
   }
 
