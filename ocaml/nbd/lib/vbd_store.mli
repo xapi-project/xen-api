@@ -14,7 +14,7 @@
 *)
 
 module Make : functor
-  (Config : sig
+  (_ : sig
      val vbd_list_dir : string
 
      val vbd_list_file_name : string

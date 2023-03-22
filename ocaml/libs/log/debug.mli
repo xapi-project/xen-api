@@ -81,7 +81,7 @@ module type DEBUG = sig
   val log_and_ignore_exn : (unit -> unit) -> unit
 end
 
-module Make : functor (Brand : BRAND) -> DEBUG
+module Make : functor (_ : BRAND) -> DEBUG
 
 (** {3 Utility functions for the test code} *)
 

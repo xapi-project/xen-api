@@ -116,7 +116,7 @@ end
 
 (** Functions useful for writing a single-purpose rrdd plugin daemon. *)
 module Process : functor
-  (N : sig
+  (_ : sig
      val name : string
    end)
   -> sig
