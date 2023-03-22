@@ -2926,28 +2926,25 @@ let try_restart_device_models_for_recommended_guidances ~__context ~host =
    * local migrations if it is required by recommended guidances. *)
   Repository_helpers.do_with_device_models ~__context ~host
   @@ fun (ref, record) ->
-  if
-    List.mem `restart_device_model
-      (Db.VM.get_recommended_guidances ~__context ~self:ref)
-  then
-    match
-      ( record.API.vM_power_state
-      , Helpers.has_qemu_currently ~__context ~self:ref
-      )
-    with
-    | `Running, true ->
-        Xapi_vm_migrate.pool_migrate ~__context ~vm:ref ~host
-          ~options:[("live", "true")] ;
-        None
-    | `Paused, true ->
-        error "VM 'ref=%s' is paused, can't restart device models for it"
-          (Ref.string_of ref) ;
-        Some ref
-    | _ ->
-        (* No device models are running for this VM *)
-        None
-  else
-    None
+  match
+    ( List.mem `restart_device_model
+        (Db.VM.get_recommended_guidances ~__context ~self:ref)
+    , record.API.vM_power_state
+    , Helpers.has_qemu_currently ~__context ~self:ref
+    )
+  with
+  | true, `Running, true ->
+      Xapi_vm_migrate.pool_migrate ~__context ~vm:ref ~host
+        ~options:[("live", "true")] ;
+      None
+  | true, `Paused, true ->
+      error "VM 'ref=%s' is paused, can't restart device models for it"
+        (Ref.string_of ref) ;
+      Some ref
+  | _ ->
+      (* No `restart_device_model as recommended guidance for this VM or no
+       * device models are running for this VM *)
+      None
 
 let apply_recommended_guidances ~__context ~self =
   try
