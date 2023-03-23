@@ -817,7 +817,7 @@ let web_dir = ref "/opt/xensource/www"
 
 let website_https_only = ref true
 
-let migration_https_only = ref false
+let migration_https_only = ref true
 
 let cluster_stack_root = ref "/usr/libexec/xapi/cluster-stack"
 
