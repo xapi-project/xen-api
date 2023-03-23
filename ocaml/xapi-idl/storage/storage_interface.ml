@@ -883,6 +883,12 @@ module StorageAPI (R : RPC) = struct
       declare "VDI.activate3" []
         (dbg_p @-> dp_p @-> sr_p @-> vdi_p @-> vm_p @-> returning unit_p err)
 
+    (** [activate_readonly task dp sr vdi] signals the desire to immediately use [vdi].
+        This client must have called [attach] on the [vdi] first. *)
+    let activate_readonly =
+      declare "VDI.activate_readonly" []
+        (dbg_p @-> dp_p @-> sr_p @-> vdi_p @-> vm_p @-> returning unit_p err)
+
     (** [deactivate task dp sr vdi] signals that this client has stopped reading
         (and writing) [vdi]. *)
     let deactivate =
@@ -1309,6 +1315,9 @@ module type Server_impl = sig
     val activate3 :
       context -> dbg:debug_info -> dp:dp -> sr:sr -> vdi:vdi -> vm:vm -> unit
 
+    val activate_readonly :
+      context -> dbg:debug_info -> dp:dp -> sr:sr -> vdi:vdi -> vm:vm -> unit
+
     val deactivate :
       context -> dbg:debug_info -> dp:dp -> sr:sr -> vdi:vdi -> vm:vm -> unit
 
@@ -1529,6 +1538,9 @@ module Server (Impl : Server_impl) () = struct
     S.VDI.activate (fun dbg dp sr vdi -> Impl.VDI.activate () ~dbg ~dp ~sr ~vdi) ;
     S.VDI.activate3 (fun dbg dp sr vdi vm ->
         Impl.VDI.activate3 () ~dbg ~dp ~sr ~vdi ~vm
+    ) ;
+    S.VDI.activate_readonly (fun dbg dp sr vdi vm ->
+        Impl.VDI.activate_readonly () ~dbg ~dp ~sr ~vdi ~vm
     ) ;
     S.VDI.deactivate (fun dbg dp sr vdi vm ->
         Impl.VDI.deactivate () ~dbg ~dp ~sr ~vdi ~vm

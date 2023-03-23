@@ -82,7 +82,7 @@ let s_of_vm = Storage_interface.Vm.string_of
 
 let vm_of_s = Storage_interface.Vm.of_string
 
-module D = Debug.Make (struct let name = "storage_impl" end)
+module D = Debug.Make (struct let name = __MODULE__ end)
 
 open D
 
@@ -673,6 +673,8 @@ functor
                   )
             )
         )
+
+      let activate_readonly = activate3
 
       let activate context ~dbg ~dp ~sr ~vdi =
         info "VDI.activate dbg:%s dp:%s sr:%s vdi:%s " dbg dp (s_of_sr sr)

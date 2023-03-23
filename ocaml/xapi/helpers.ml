@@ -658,18 +658,21 @@ let rolling_upgrade_in_progress ~__context =
       (Db.Pool.get_other_config ~__context ~self:pool)
   with _ -> false
 
-let check_domain_type : API.domain_type -> [`hvm | `pv_in_pvh | `pv] = function
+let check_domain_type : API.domain_type -> [`hvm | `pv_in_pvh | `pv | `pvh] =
+  function
   | `hvm ->
       `hvm
   | `pv_in_pvh ->
       `pv_in_pvh
   | `pv ->
       `pv
+  | `pvh ->
+      `pvh
   | `unspecified ->
       raise
         Api_errors.(Server_error (internal_error, ["unspecified domain type"]))
 
-let domain_type ~__context ~self : [`hvm | `pv_in_pvh | `pv] =
+let domain_type ~__context ~self : [`hvm | `pv_in_pvh | `pv | `pvh] =
   let vm = Db.VM.get_record ~__context ~self in
   match vm.API.vM_power_state with
   | `Paused | `Running | `Suspended ->
@@ -719,15 +722,15 @@ let boot_method_of_vm ~__context ~vm =
   match (check_domain_type vm.API.vM_domain_type, direct_boot) with
   | `hvm, _ ->
       Hvmloader (hvmloader_options ())
-  | `pv, true | `pv_in_pvh, true ->
+  | `pv, true | `pv_in_pvh, true | `pvh, true ->
       Direct (direct_options ())
-  | `pv, false | `pv_in_pvh, false ->
+  | `pv, false | `pv_in_pvh, false | `pvh, false ->
       Indirect (indirect_options ())
 
 let needs_qemu_from_domain_type = function
   | `hvm ->
       true
-  | `pv_in_pvh | `pv | `unspecified ->
+  | `pv_in_pvh | `pv | `pvh | `unspecified ->
       false
 
 let will_have_qemu_from_record (x : API.vM_t) =
@@ -1101,6 +1104,10 @@ let parse_cidr kind cidr =
 let assert_is_valid_cidr kind field cidr =
   if parse_cidr kind cidr = None then
     raise Api_errors.(Server_error (invalid_cidr_address_specified, [field]))
+
+let assert_is_valid_ip_addr kind field address =
+  if (not (is_valid_ip kind address)) && parse_cidr kind address = None then
+    raise Api_errors.(Server_error (invalid_ip_address_specified, [field]))
 
 (** Return true if the MAC is in the right format XX:XX:XX:XX:XX:XX *)
 let is_valid_MAC mac =
@@ -1955,9 +1962,23 @@ end = struct
     Xapi_psr_util.load_psr_pool_secrets ()
 end
 
+let ( let@ ) f x = f x
+
+let with_temp_out_ch ch f = finally (fun () -> f ch) (fun () -> close_out ch)
+
+let with_temp_file ?mode prefix suffix f =
+  let path, channel = Filename.open_temp_file ?mode prefix suffix in
+  finally (fun () -> f (path, channel)) (fun () -> Unix.unlink path)
+
+let with_temp_out_ch_of_temp_file ?mode prefix suffix f =
+  let@ path, channel = with_temp_file ?mode prefix suffix in
+  f (path, channel |> with_temp_out_ch)
+
 module FileSys : sig
   (* bash-like interface for manipulating files *)
   type path = string
+
+  val realpathm : path -> path
 
   val rmrf : ?rm_top:bool -> path -> unit
 
@@ -1969,16 +1990,24 @@ module FileSys : sig
 end = struct
   type path = string
 
+  let realpathm path = try Unix.readlink path with _ -> path
+
   let rmrf ?(rm_top = true) path =
     let ( // ) = Filename.concat in
     let rec rm rm_top path =
-      let st = Unix.lstat path in
-      match st.Unix.st_kind with
-      | Unix.S_DIR ->
-          Sys.readdir path |> Array.iter (fun file -> rm true (path // file)) ;
-          if rm_top then Unix.rmdir path
-      | _ ->
-          Unix.unlink path
+      match Unix.lstat path with
+      | exception Unix.Unix_error (Unix.ENOENT, _, _) ->
+          () (*noop*)
+      | exception e ->
+          raise e
+      | st -> (
+        match st.Unix.st_kind with
+        | Unix.S_DIR ->
+            Sys.readdir path |> Array.iter (fun file -> rm true (path // file)) ;
+            if rm_top then Unix.rmdir path
+        | _ ->
+            Unix.unlink path
+      )
     in
     try rm rm_top path
     with e ->

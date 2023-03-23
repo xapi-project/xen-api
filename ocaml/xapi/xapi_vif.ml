@@ -118,16 +118,16 @@ let set_locking_mode ~__context ~self ~value =
     (fun () -> Db.VIF.set_locking_mode ~__context ~self ~value)
 
 let set_ipv4_allowed ~__context ~self ~value =
-  let setified_value = Listext.setify value in
-  change_locking_config ~__context ~self ~licence_check:(setified_value <> [])
+  let addr_set = Listext.setify value in
+  change_locking_config ~__context ~self ~licence_check:(addr_set <> [])
     (fun () ->
-      List.iter (Helpers.assert_is_valid_ip `ipv4 "ipv4_allowed") setified_value ;
-      Db.VIF.set_ipv4_allowed ~__context ~self ~value:setified_value
+      List.iter (Helpers.assert_is_valid_ip_addr `ipv4 "ipv4_allowed") addr_set ;
+      Db.VIF.set_ipv4_allowed ~__context ~self ~value:addr_set
   )
 
 let add_ipv4_allowed ~__context ~self ~value =
   change_locking_config ~__context ~self ~licence_check:true (fun () ->
-      Helpers.assert_is_valid_ip `ipv4 "ipv4_allowed" value ;
+      Helpers.assert_is_valid_ip_addr `ipv4 "ipv4_allowed" value ;
       Db.VIF.add_ipv4_allowed ~__context ~self ~value
   )
 
@@ -137,16 +137,16 @@ let remove_ipv4_allowed ~__context ~self ~value =
   )
 
 let set_ipv6_allowed ~__context ~self ~value =
-  let setified_value = Listext.setify value in
-  change_locking_config ~__context ~self ~licence_check:(setified_value <> [])
+  let addr_set = Listext.setify value in
+  change_locking_config ~__context ~self ~licence_check:(addr_set <> [])
     (fun () ->
-      List.iter (Helpers.assert_is_valid_ip `ipv6 "ipv6_allowed") setified_value ;
-      Db.VIF.set_ipv6_allowed ~__context ~self ~value:setified_value
+      List.iter (Helpers.assert_is_valid_ip_addr `ipv6 "ipv6_allowed") addr_set ;
+      Db.VIF.set_ipv6_allowed ~__context ~self ~value:addr_set
   )
 
 let add_ipv6_allowed ~__context ~self ~value =
   change_locking_config ~__context ~self ~licence_check:true (fun () ->
-      Helpers.assert_is_valid_ip `ipv6 "ipv6_allowed" value ;
+      Helpers.assert_is_valid_ip_addr `ipv6 "ipv6_allowed" value ;
       Db.VIF.add_ipv6_allowed ~__context ~self ~value
   )
 

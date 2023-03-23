@@ -1090,6 +1090,16 @@ functor
           (pool_uuid ~__context self)
           value ;
         Local.Pool.set_https_only ~__context ~self ~value
+
+      let set_telemetry_next_collection ~__context ~self ~value =
+        info "%s: pool='%s' value='%s'" __FUNCTION__
+          (pool_uuid ~__context self)
+          (Xapi_stdext_date.Date.to_string value) ;
+        Local.Pool.set_telemetry_next_collection ~__context ~self ~value
+
+      let reset_telemetry_uuid ~__context ~self =
+        info "%s: pool='%s'" __FUNCTION__ (pool_uuid ~__context self) ;
+        Local.Pool.reset_telemetry_uuid ~__context ~self
     end
 
     module VM = struct

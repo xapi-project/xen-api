@@ -1285,3 +1285,6 @@ let update_guidance_changed = "UPDATE_GUIDANCE_CHANGED"
 (* VTPMs *)
 
 let vtpm_max_amount_reached = "VTPM_MAX_AMOUNT_REACHED"
+
+(* Telemetry *)
+let telemetry_next_collection_too_late = "TELEMETRY_NEXT_COLLECTION_TOO_LATE"

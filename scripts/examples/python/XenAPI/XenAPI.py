@@ -55,10 +55,16 @@
 # --------------------------------------------------------------------
 
 import gettext
-import six.moves.xmlrpc_client as xmlrpclib
-import six.moves.http_client as httplib
 import socket
 import sys
+
+if sys.version_info[0] == 2:
+    import httplib as httplib
+    import xmlrpclib as xmlrpclib
+else:
+    import http.client as httplib
+    import xmlrpc.client as xmlrpclib
+
 
 translation = gettext.translation('xen-xm', fallback = True)
 

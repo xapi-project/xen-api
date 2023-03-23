@@ -571,6 +571,14 @@ let protocol_to_string = function
   | `rdp ->
       "RDP"
 
+let telemetry_frequency_to_string = function
+  | `daily ->
+      "daily"
+  | `weekly ->
+      "weekly"
+  | `monthly ->
+      "monthly"
+
 let task_allowed_operations_to_string s =
   match s with `cancel -> "Cancel" | `destroy -> "Destroy"
 
@@ -987,6 +995,8 @@ let domain_type_to_string = function
       "pv"
   | `pv_in_pvh ->
       "pv-in-pvh"
+  | `pvh ->
+      "pvh"
   | `unspecified ->
       "unspecified"
 
@@ -998,6 +1008,8 @@ let domain_type_of_string x =
       `pv
   | "pv-in-pvh" ->
       `pv_in_pvh
+  | "pvh" ->
+      `pvh
   | s ->
       raise (Record_failure ("Invalid domain type. Got " ^ s))
 

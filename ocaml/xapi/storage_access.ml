@@ -256,39 +256,48 @@ let on_xapi_start ~__context =
     (Listext.List.intersect running_smapiv2_drivers (List.map fst existing))
 
 let bind ~__context ~pbd =
-  (* Start the VM if necessary, record its uuid *)
+  let dbg = Context.string_of_task __context in
   let driver = System_domains.storage_driver_domain_of_pbd ~__context ~pbd in
-  if Db.VM.get_power_state ~__context ~self:driver = `Halted then (
-    info "PBD %s driver domain %s is offline: starting" (Ref.string_of pbd)
-      (Ref.string_of driver) ;
-    try
-      Helpers.call_api_functions ~__context (fun rpc session_id ->
-          XenAPI.VM.start ~rpc ~session_id ~vm:driver ~start_paused:false
-            ~force:false
-      )
-    with
-    | Api_errors.Server_error (code, params)
-    when code = Api_errors.vm_bad_power_state
-    ->
-      error "Caught VM_BAD_POWER_STATE [ %s ]" (String.concat "; " params)
-    (* ignore for now *)
-  ) ;
   let uuid = Db.VM.get_uuid ~__context ~self:driver in
   let sr = Db.PBD.get_SR ~__context ~self:pbd in
   let ty = Db.SR.get_type ~__context ~self:sr in
-  let sr = Db.SR.get_uuid ~__context ~self:sr in
+  let sr_uuid = Db.SR.get_uuid ~__context ~self:sr in
   let queue_name = !Storage_interface.queue_name ^ "." ^ ty in
   let uri () = Storage_interface.uri () ^ ".d/" ^ ty in
   let rpc = external_rpc queue_name uri in
-  let service = make_service uuid ty in
-  System_domains.register_service service queue_name ;
+  (* This is a Client directly to the SR backend, below the Mux *)
   let module Client = Storage_interface.StorageAPI (Idl.Exn.GenClient (struct
     let rpc = rpc
   end)) in
-  let dbg = Context.string_of_task __context in
-  let info = Client.Query.query dbg in
-  Storage_mux.register (Storage_interface.Sr.of_string sr) rpc uuid info ;
-  info
+  (* Start the VM if necessary, record its uuid *)
+  try
+    if Db.VM.get_power_state ~__context ~self:driver = `Halted then (
+      info "PBD %s driver domain %s is offline: starting" (Ref.string_of pbd)
+        (Ref.string_of driver) ;
+      try
+        Helpers.call_api_functions ~__context (fun rpc session_id ->
+            XenAPI.VM.start ~rpc ~session_id ~vm:driver ~start_paused:false
+              ~force:false
+        )
+      with
+      | Api_errors.Server_error (code, params)
+      when code = Api_errors.vm_bad_power_state
+      ->
+        error "Caught VM_BAD_POWER_STATE [ %s ]" (String.concat "; " params)
+      (* ignore for now *)
+    ) ;
+    let service = make_service uuid ty in
+    System_domains.register_service service queue_name ;
+    let info = Client.Query.query dbg in
+    Storage_mux.register (Storage_interface.Sr.of_string sr_uuid) rpc uuid info ;
+    info
+  with e ->
+    error
+      "Service implementing SR %s has failed. Performing emergency reset of SR \
+       state"
+      sr_uuid ;
+    Client.SR.reset dbg (Storage_interface.Sr.of_string sr_uuid) ;
+    raise e
 
 let unbind ~__context ~pbd =
   let driver = System_domains.storage_driver_domain_of_pbd ~__context ~pbd in
@@ -636,6 +645,21 @@ let dp_destroy ~__context dp allow_leak =
 (* Set my PBD.currently_attached fields in the Pool database to match the local one *)
 let resynchronise_pbds ~__context ~pbds =
   let dbg = Context.get_task_id __context in
+  List.iter
+    (fun self ->
+      try
+        let (_ : query_result) = bind ~__context ~pbd:self in
+        ()
+      with
+      | Db_exn.DBCache_NotFound (_, ("PBD" | "SR"), _) as e ->
+          debug "Ignoring PBD/SR that got deleted before we resynchronised: %s"
+            (Printexc.to_string e)
+      | _ ->
+          (* A driver domain would have failed to start.
+             This will result in an unplugged PBD. *)
+          ()
+    )
+    pbds ;
   let srs = Client.SR.list (Ref.string_of dbg) in
   debug "Currently-attached SRs: [ %s ]"
     (String.concat "; " (List.map s_of_sr srs)) ;
@@ -649,20 +673,7 @@ let resynchronise_pbds ~__context ~pbds =
         let value = List.mem sr srs in
         debug "Setting PBD %s currently_attached <- %b" (Ref.string_of self)
           value ;
-        try
-          ( if value then
-              let (_ : query_result) = bind ~__context ~pbd:self in
-              ()
-          ) ;
-          Db.PBD.set_currently_attached ~__context ~self ~value
-        with _ ->
-          (* Unchecked this will block the dbsync code *)
-          error
-            "Service implementing SR %s has failed. Performing emergency reset \
-             of SR state"
-            sr_uuid ;
-          Client.SR.reset (Ref.string_of dbg) sr ;
-          Db.PBD.set_currently_attached ~__context ~self ~value:false
+        Db.PBD.set_currently_attached ~__context ~self ~value
       with Db_exn.DBCache_NotFound (_, ("PBD" | "SR"), _) as e ->
         debug "Ignoring PBD/SR that got deleted before we resynchronised: %s"
           (Printexc.to_string e)
@@ -709,7 +720,7 @@ let refresh_local_vdi_activations ~__context =
     let i_locked_it = List.mem localhost hosts in
     let all = List.fold_left ( && ) true in
     let someone_leaked_it =
-      all (List.map (fun h -> not (List.mem h hosts)) all_hosts)
+      hosts <> [] && all (List.map (fun h -> not (List.mem h hosts)) all_hosts)
     in
     if i_locked_it || someone_leaked_it then (
       info "Unlocking VDI %s (because %s)" (Ref.string_of vdi_ref)
