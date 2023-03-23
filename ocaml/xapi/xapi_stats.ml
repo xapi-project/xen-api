@@ -41,7 +41,7 @@ let generate_master_stats ~__context =
     , Ds.ds_make ~name:"pool_session_creation_rate"
         ~description:"Number of sessions created per second"
         ~value:(Rrd.VT_Int64 total_session_count) ~ty:Rrd.Derive ~default:true
-        ~min:0.0 ~units:"sessions per second" ()
+        ~min:0.0 ~units:"sessions/s" ()
     )
   in
   [session_count_ds; task_count_ds; session_count_change_ds]
