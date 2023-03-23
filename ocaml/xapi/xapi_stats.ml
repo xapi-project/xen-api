@@ -36,15 +36,15 @@ let generate_master_stats ~__context =
     )
   in
   let total_session_count = Xapi_session.get_total_sessions () in
-  let total_session_count_ds =
+  let session_count_change_ds =
     ( Rrd.Host
-    , Ds.ds_make ~name:"pool_total_session_count"
-        ~description:"Total number of sessions"
+    , Ds.ds_make ~name:"pool_session_creation_rate"
+        ~description:"Number of sessions created per second"
         ~value:(Rrd.VT_Int64 total_session_count) ~ty:Rrd.Derive ~default:true
-        ~min:0.0 ~units:"sessions" ()
+        ~min:0.0 ~units:"sessions per second" ()
     )
   in
-  [session_count_ds; task_count_ds; total_session_count_ds]
+  [session_count_ds; task_count_ds; session_count_change_ds]
 
 let gc_debug = ref true
 
