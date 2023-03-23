@@ -1323,3 +1323,16 @@ let prune_updateinfo_for_livepatches livepatches updateinfo =
     List.filter (fun x -> LivePatchSet.mem x livepatches) updateinfo.livepatches
   in
   {updateinfo with livepatches= lps}
+
+let do_with_device_models ~__context ~host f =
+  (* Call f with device models of all running HVM VMs on the host *)
+  Db.Host.get_resident_VMs ~__context ~self:host
+  |> List.map (fun self -> (self, Db.VM.get_record ~__context ~self))
+  |> List.filter (fun (_, record) -> not record.API.vM_is_control_domain)
+  |> List.filter_map f
+  |> function
+  | [] ->
+      ()
+  | _ :: _ ->
+      let host' = Ref.string_of host in
+      raise Api_errors.(Server_error (cannot_restart_device_model, [host']))

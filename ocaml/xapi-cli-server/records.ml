@@ -2576,6 +2576,12 @@ let vm_record rpc session_id vm =
       ; make_field ~name:"vtpms"
           ~get:(fun () -> get_uuids_from_refs (x ()).API.vM_VTPMs)
           ()
+      ; make_field ~name:"recommended-guidances"
+          ~get:(fun () ->
+            map_and_concat Record_util.update_guidance_to_string
+              (x ()).API.vM_recommended_guidances
+          )
+          ()
       ]
   }
 
@@ -3213,6 +3219,12 @@ let host_record rpc session_id host =
           ()
       ; make_field ~name:"last-software-update"
           ~get:(fun () -> Date.to_string (x ()).API.host_last_software_update)
+          ()
+      ; make_field ~name:"recommended-guidances"
+          ~get:(fun () ->
+            map_and_concat Record_util.update_guidance_to_string
+              (x ()).API.host_recommended_guidances
+          )
           ()
       ]
   }

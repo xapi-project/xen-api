@@ -7648,6 +7648,16 @@ let host_apply_updates _printer rpc session_id params =
        params ["hash"]
     )
 
+let host_apply_recommended_guidances _printer rpc session_id params =
+  ignore
+    (do_host_op rpc session_id ~multiple:false
+       (fun _ host ->
+         let host = host.getref () in
+         Client.Host.apply_recommended_guidances ~rpc ~session_id ~self:host
+       )
+       params []
+    )
+
 module SDN_controller = struct
   let introduce printer rpc session_id params =
     let port =
