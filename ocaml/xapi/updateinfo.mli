@@ -28,6 +28,13 @@ module Guidance : sig
   val to_string : t -> string
 
   val of_string : string -> t
+
+  val of_update_guidance :
+       [< `reboot_host
+       | `reboot_host_on_livepatch_failure
+       | `restart_device_model
+       | `restart_toolstack ]
+    -> t
 end
 
 (** The applicability of metadata for one update in updateinfo *)

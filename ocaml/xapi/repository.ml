@@ -688,97 +688,26 @@ let apply_livepatch ~__context ~host:_ ~component ~base_build_id ~base_version
       error "%s" msg ;
       raise Api_errors.(Server_error (internal_error, [msg]))
 
-let do_with_device_models ~__context ~host ~action_label:_ f =
-  (* Call f with device models of all running HVM VMs on the host *)
-  Db.Host.get_resident_VMs ~__context ~self:host
-  |> List.map (fun self -> (self, Db.VM.get_record ~__context ~self))
-  |> List.filter (fun (_, record) -> not record.API.vM_is_control_domain)
-  |> List.filter_map f
-  |> function
-  | [] ->
-      ()
-  | _ :: _ ->
-      let host' = Ref.string_of host in
-      raise Api_errors.(Server_error (cannot_restart_device_model, [host']))
-
-let set_pending_restart_device_models ~__context ~host =
+let set_restart_device_models ~__context ~host ~kind =
   (* Set pending restart device models of all running HVM VMs on the host *)
-  do_with_device_models ~__context ~host ~action_label:"set pending restart"
-  @@ fun (ref, record) ->
+  do_with_device_models ~__context ~host @@ fun (ref, record) ->
   match
     (record.API.vM_power_state, Helpers.has_qemu_currently ~__context ~self:ref)
   with
-  | `Running, true | `Paused, true ->
-      Db.VM.add_pending_guidances ~__context ~self:ref
-        ~value:`restart_device_model ;
-      None
+  | `Running, true | `Paused, true -> (
+    match kind with
+    | Guidance.Absolute ->
+        Db.VM.add_pending_guidances ~__context ~self:ref
+          ~value:`restart_device_model ;
+        None
+    | Guidance.Recommended ->
+        Db.VM.add_recommended_guidances ~__context ~self:ref
+          ~value:`restart_device_model ;
+        None
+  )
   | _ ->
       (* No device models are running for this VM *)
       None
-
-let restart_device_models ~__context ~host =
-  (* Restart device models of all running HVM VMs on the host by doing
-   * local migrations. *)
-  do_with_device_models ~__context ~host ~action_label:"restart"
-  @@ fun (ref, record) ->
-  match
-    (record.API.vM_power_state, Helpers.has_qemu_currently ~__context ~self:ref)
-  with
-  | `Running, true ->
-      Helpers.call_api_functions ~__context (fun rpc session_id ->
-          Client.Client.VM.pool_migrate ~rpc ~session_id ~vm:ref ~host
-            ~options:[("live", "true")]
-      ) ;
-      None
-  | `Paused, true ->
-      error "VM 'ref=%s' is paused, can't restart device models for it"
-        (Ref.string_of ref) ;
-      Some ref
-  | _ ->
-      (* No device models are running for this VM *)
-      None
-
-let apply_immediate_guidances ~__context ~host ~guidances =
-  (* This function runs on coordinator host *)
-  try
-    let open Client in
-    Helpers.call_api_functions ~__context (fun rpc session_id ->
-        let open Guidance in
-        match guidances with
-        | [] ->
-            ()
-        | [RebootHost] ->
-            Client.Host.reboot ~rpc ~session_id ~host
-        | [EvacuateHost] ->
-            (* EvacuatHost should be done before applying updates by XAPI users.
-             * Here only the guidances to be applied after applying updates are handled.
-             *)
-            ()
-        | [RestartDeviceModel] ->
-            restart_device_models ~__context ~host
-        | [RestartToolstack] ->
-            Client.Host.restart_agent ~rpc ~session_id ~host
-        | l when GuidanceSet.eq_set1 l ->
-            (* EvacuateHost and RestartToolstack *)
-            Client.Host.restart_agent ~rpc ~session_id ~host
-        | l when GuidanceSet.eq_set2 l ->
-            (* RestartDeviceModel and RestartToolstack *)
-            restart_device_models ~__context ~host ;
-            Client.Host.restart_agent ~rpc ~session_id ~host
-        | l ->
-            let host' = Ref.string_of host in
-            error
-              "Found wrong guidance(s) after applying updates on host \
-               ref='%s': %s"
-              host'
-              (String.concat ";" (List.map Guidance.to_string l)) ;
-            raise Api_errors.(Server_error (apply_guidance_failed, [host']))
-    )
-  with e ->
-    let host' = Ref.string_of host in
-    error "applying immediate guidances on host ref='%s' failed: %s" host'
-      (ExnHelper.string_of_exn e) ;
-    raise Api_errors.(Server_error (apply_guidance_failed, [host']))
 
 let set_pending_guidances ~__context ~host ~guidances =
   let open Guidance in
@@ -794,9 +723,26 @@ let set_pending_guidances ~__context ~host ~guidances =
            Db.Host.add_pending_guidances ~__context ~self:host
              ~value:`restart_toolstack
        | RestartDeviceModel ->
-           set_pending_restart_device_models ~__context ~host
+           set_restart_device_models ~__context ~host ~kind:Absolute
        | g ->
-           warn "Unsupported pending guidance %s, ignore it."
+           warn "Unsupported pending guidance %s, ignoring it."
+             (Guidance.to_string g)
+       )
+
+let set_recommended_guidances ~__context ~host ~guidances =
+  let open Guidance in
+  guidances
+  |> List.iter (function
+       | RebootHost ->
+           Db.Host.add_recommended_guidances ~__context ~self:host
+             ~value:`reboot_host
+       | RestartToolstack ->
+           Db.Host.add_recommended_guidances ~__context ~self:host
+             ~value:`restart_toolstack
+       | RestartDeviceModel ->
+           set_restart_device_models ~__context ~host ~kind:Recommended
+       | g ->
+           warn "Unsupported recommended guidance %s, ignoring it."
              (Guidance.to_string g)
        )
 
@@ -834,10 +780,6 @@ let apply_livepatches' ~__context ~host ~livepatches =
 let apply_updates' ~__context ~host ~updates_info ~livepatches ~acc_rpm_updates
     =
   (* This function runs on coordinator host *)
-  let expected_immediate_guidances =
-    eval_guidances ~updates_info ~updates:acc_rpm_updates ~kind:Recommended
-      ~livepatches ~failed_livepatches:[]
-  in
   (* Install RPM updates firstly *)
   Helpers.call_api_functions ~__context (fun rpc session_id ->
       Client.Client.Repository.apply ~rpc ~session_id ~host
@@ -861,15 +803,15 @@ let apply_updates' ~__context ~host ~updates_info ~livepatches ~acc_rpm_updates
         )
       ]
       ) ;
-  (* Evaluate immediate/pending guidances *)
-  let immediate_guidances, pending_guidances =
-    let immediate_guidances' =
+  (* Evaluate recommended/pending guidances *)
+  let recommended_guidances, pending_guidances =
+    let recommended_guidances' =
       eval_guidances ~updates_info ~updates:acc_rpm_updates ~kind:Recommended
         ~livepatches:successful_livepatches ~failed_livepatches
     in
     let pending_guidances' =
       List.filter
-        (fun g -> not (List.mem g immediate_guidances'))
+        (fun g -> not (List.mem g recommended_guidances'))
         (eval_guidances ~updates_info ~updates:acc_rpm_updates ~kind:Absolute
            ~livepatches:[] ~failed_livepatches:[]
         )
@@ -879,7 +821,7 @@ let apply_updates' ~__context ~host ~updates_info ~livepatches ~acc_rpm_updates
         (* No livepatch should be applicable now *)
         Db.Host.remove_pending_guidances ~__context ~self:host
           ~value:`reboot_host_on_livepatch_failure ;
-        (immediate_guidances', pending_guidances')
+        (recommended_guidances', pending_guidances')
     | _ :: _ ->
         (* There is(are) livepatch failure(s):
          * the host should not be rebooted, and
@@ -887,38 +829,26 @@ let apply_updates' ~__context ~host ~updates_info ~livepatches ~acc_rpm_updates
          *)
         ( List.filter
             (fun g -> not (g = Guidance.RebootHost))
-            immediate_guidances'
+            recommended_guidances'
         , Guidance.RebootHostOnLivePatchFailure :: pending_guidances'
         )
   in
   List.iter
-    (fun g -> debug "immediate_guidance: %s" (Guidance.to_string g))
-    immediate_guidances ;
+    (fun g -> debug "recommended_guidance: %s" (Guidance.to_string g))
+    recommended_guidances ;
   List.iter
     (fun g -> debug "pending_guidance: %s" (Guidance.to_string g))
     pending_guidances ;
-  GuidanceSet.assert_valid_guidances immediate_guidances ;
+  GuidanceSet.assert_valid_guidances recommended_guidances ;
+  set_recommended_guidances ~__context ~host ~guidances:recommended_guidances ;
   set_pending_guidances ~__context ~host ~guidances:pending_guidances ;
-  let warnings =
-    List.map
+  ( recommended_guidances
+  , List.map
       (fun (lp, _) ->
         [Api_errors.apply_livepatch_failed; LivePatch.to_string lp]
       )
       failed_livepatches
-  in
-  match
-    GuidanceSet.equal
-      (GuidanceSet.of_list expected_immediate_guidances)
-      (GuidanceSet.of_list immediate_guidances)
-  with
-  | true ->
-      (immediate_guidances, warnings)
-  | false ->
-      let return_of_immediate_guidances =
-        immediate_guidances |> List.map Guidance.to_string |> String.concat ";"
-        |> fun s -> [Api_errors.update_guidance_changed; s]
-      in
-      (immediate_guidances, return_of_immediate_guidances :: warnings)
+  )
 
 let apply_updates ~__context ~host ~hash =
   (* This function runs on coordinator host *)

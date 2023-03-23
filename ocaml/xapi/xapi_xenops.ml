@@ -3510,7 +3510,9 @@ let set_resident_on ~__context ~self =
   !trigger_xenapi_reregister () ;
   (* Any future XenAPI updates will trigger events, but we might have missed one so: *)
   Xenopsd_metadata.update ~__context ~self ;
-  Db.VM.remove_pending_guidances ~__context ~self ~value:`restart_device_model
+  Db.VM.remove_pending_guidances ~__context ~self ~value:`restart_device_model ;
+  Db.VM.remove_recommended_guidances ~__context ~self
+    ~value:`restart_device_model
 
 let update_debug_info __context t =
   let task = Context.get_task_id __context in
