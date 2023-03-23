@@ -29,7 +29,7 @@ lint:
 	pycodestyle --ignore=E501 _build/default/xapi-storage/python/xapi/storage/api/v5/*.py
 
 test:
-	dune runtest --profile=$(PROFILE) --no-buffer -j $(JOBS)
+	dune runtest --profile=$(PROFILE) --error-reporting=twice -j $(JOBS)
 	dune build @runtest-python --profile=$(PROFILE)
 
 stresstest:
