@@ -111,7 +111,7 @@ let vendor = Map_check.(field "vendor" string)
 let get_flags_for_vm ~__context vm cpu_info =
   let features_field, features_field_boot =
     match Helpers.domain_type ~__context ~self:vm with
-    | `hvm | `pv_in_pvh ->
+    | `hvm | `pv_in_pvh | `pvh ->
         (features_hvm, features_hvm_host)
     | `pv ->
         (features_pv, features_pv_host)
@@ -156,7 +156,7 @@ let next_boot_cpu_features ~__context ~vm =
       Db.VM.get_domain_type ~__context ~self:vm |> Helpers.check_domain_type
     in
     match domain_type with
-    | `hvm | `pv_in_pvh ->
+    | `hvm | `pv_in_pvh | `pvh ->
         (features_hvm, features_hvm_host)
     | `pv ->
         (features_pv, features_pv_host)

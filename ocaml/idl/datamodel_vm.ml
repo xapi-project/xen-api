@@ -1647,6 +1647,7 @@ let domain_type =
         ("hvm", "HVM; Fully Virtualised")
       ; ("pv", "PV: Paravirtualised")
       ; ("pv_in_pvh", "PV inside a PVH container")
+      ; ("pvh", "PVH")
       ; ("unspecified", "Not specified or unknown domain type")
       ]
     )
