@@ -269,3 +269,308 @@ let apply_guest_agent_config ~__context =
         (Printexc.to_string e)
   in
   call_fn_on_slaves_then_master ~__context f
+
+module PeriodicUpdateSync = struct
+  let periodic_update_sync_task_name = "Periodic update synchronization"
+
+  let seconds_random_within_an_hour () =
+    let secs_of_an_hour = 60 * 60 in
+    let secs_random = Random.int secs_of_an_hour in
+    debug "[PeriodicUpdateSync] seconds_random_within_an_hour: %d" secs_random ;
+    secs_random
+
+  let weekday_int_to_str ~weekday_int =
+    match weekday_int with
+    | 0 ->
+        "Sunday"
+    | 1 ->
+        "Monday"
+    | 2 ->
+        "Tuesday"
+    | 3 ->
+        "Wednesday"
+    | 4 ->
+        "Thursday"
+    | 5 ->
+        "Friday"
+    | 6 ->
+        "Saturday"
+    | _ ->
+        "Wrong weekday number, it should be 0 to 6, where 0 is Sunday"
+
+  let frequency_to_str ~frequency =
+    match frequency with
+    | `daily ->
+        "daily"
+    | `monthly ->
+        "monthly"
+    | `weekly ->
+        "weekly"
+
+  let periodic_update_sync_delay ~__context ~first_run =
+    let frequency =
+      Db.Pool.get_update_sync_frequency ~__context
+        ~self:(Helpers.get_pool ~__context)
+    in
+    let day_configed =
+      Db.Pool.get_update_sync_day ~__context ~self:(Helpers.get_pool ~__context)
+    in
+    let hour_configed =
+      Db.Pool.get_update_sync_hour ~__context ~self:(Helpers.get_pool ~__context)
+    in
+    debug
+      "[PeriodicUpdateSync] periodic_update_sync_delay first_run=%B: \
+       frequency=%s, day_configed=%Ld, hour_configed=%Ld"
+      first_run
+      (frequency_to_str ~frequency)
+      day_configed hour_configed ;
+    let day_configed_int = Int64.to_int day_configed in
+    let hour_configed_int = Int64.to_int hour_configed in
+    let secs_now = Unix.time () in
+    let tm_now = Unix.gmtime secs_now in
+    let secs_random_within_an_hour = seconds_random_within_an_hour () in
+    match frequency with
+    | `daily ->
+        let execute_next_day =
+          if not first_run then
+            true
+          else if hour_configed_int <= tm_now.Unix.tm_hour then
+            true
+          else
+            false
+        in
+        let secs_passed_today =
+          (tm_now.Unix.tm_hour * 60 * 60)
+          + (tm_now.Unix.tm_min * 60)
+          + tm_now.Unix.tm_sec
+        in
+        let secs_of_day_configed = hour_configed_int * 60 * 60 in
+        let secs_configed_with_random =
+          secs_of_day_configed + secs_random_within_an_hour
+        in
+        debug
+          "[PeriodicUpdateSync] periodic_update_sync_delay daily, \
+           execute_next_day=%B"
+          execute_next_day ;
+
+        if execute_next_day then
+          Int.to_float
+            (secs_configed_with_random - secs_passed_today + (24 * 60 * 60))
+        else
+          Int.to_float (secs_configed_with_random - secs_passed_today)
+    | `weekly ->
+        (* day_configed_int: -7..-1, 1..7 -> weekday_configed: 0..6, to align
+           with tm_now.Unix.tm_wday, where Sunday is 0 *)
+        let weekday_configed =
+          if day_configed_int > 0 then
+            day_configed_int - 1
+          else
+            7 + day_configed_int
+        in
+
+        let execute_next_week =
+          if not first_run then
+            true
+          else if
+            weekday_configed < tm_now.Unix.tm_wday
+            || weekday_configed = tm_now.Unix.tm_wday
+               && hour_configed_int <= tm_now.Unix.tm_hour
+          then
+            true
+          else
+            false
+        in
+
+        let secs_passed_this_week =
+          (tm_now.Unix.tm_wday * 24 * 60 * 60)
+          + (tm_now.Unix.tm_hour * 60 * 60)
+          + (tm_now.Unix.tm_min * 60)
+          + tm_now.Unix.tm_sec
+        in
+
+        let secs_configed =
+          (weekday_configed * 24 * 60 * 60) + (hour_configed_int * 60 * 60)
+        in
+
+        let secs_configed_with_random =
+          secs_configed + secs_random_within_an_hour
+        in
+
+        let weekday_str = weekday_int_to_str ~weekday_int:weekday_configed in
+        debug
+          "[PeriodicUpdateSync] periodic_update_sync_delay weekly, \
+           execute_next_week=%B on %s"
+          execute_next_week weekday_str ;
+
+        if execute_next_week then
+          Int.to_float
+            (secs_configed_with_random
+            - secs_passed_this_week
+            + (7 * 24 * 60 * 60)
+            )
+        else
+          Int.to_float (secs_configed_with_random - secs_passed_this_week)
+    | `monthly ->
+        let monthday_this_month =
+          if day_configed_int > 0 then
+            day_configed_int
+          else
+            let year_next_month, month_next =
+              if tm_now.Unix.tm_mon = 12 then
+                (tm_now.Unix.tm_year + 1, 1)
+              else
+                (tm_now.Unix.tm_year, tm_now.Unix.tm_mon + 1)
+            in
+
+            let smallest_secs_next_month, _ =
+              Unix.mktime
+                {
+                  tm_year= year_next_month
+                ; tm_mon= month_next
+                ; tm_mday= 1
+                ; tm_hour= 0
+                ; tm_min= 0
+                ; tm_sec= 0
+                ; tm_wday= 0
+                ; tm_yday= 0
+                ; tm_isdst= false
+                }
+            in
+
+            let secs_configed =
+              Float.to_int smallest_secs_next_month
+              + (day_configed_int * 24 * 60 * 60)
+              + (hour_configed_int * 60 * 60)
+            in
+            let tm_configed = Unix.gmtime (Int.to_float secs_configed) in
+            tm_configed.Unix.tm_mday
+        in
+        let execute_next_month =
+          if not first_run then
+            true
+          else if
+            monthday_this_month < tm_now.Unix.tm_mday
+            || monthday_this_month = tm_now.Unix.tm_mday
+               && hour_configed_int <= tm_now.Unix.tm_hour
+          then
+            true
+          else
+            false
+        in
+        let month_next_run, year_next_run =
+          if execute_next_month then
+            if tm_now.Unix.tm_mon = 12 then
+              (1, tm_now.Unix.tm_year + 1)
+            else
+              (tm_now.Unix.tm_mon + 1, tm_now.Unix.tm_year)
+          else
+            (tm_now.Unix.tm_mon, tm_now.Unix.tm_year)
+        in
+        let monthday_next_run =
+          if day_configed_int > 0 then
+            day_configed_int
+          else if not execute_next_month then
+            monthday_this_month
+          else
+            let year_2_months_later, month_next_next =
+              if tm_now.Unix.tm_mon = 12 then
+                (tm_now.Unix.tm_year + 1, 2)
+              else if tm_now.Unix.tm_mon = 11 then
+                (tm_now.Unix.tm_year + 1, 1)
+              else
+                (tm_now.Unix.tm_year, tm_now.Unix.tm_mon + 2)
+            in
+
+            let smallest_secs_2_months_later, _ =
+              Unix.mktime
+                {
+                  tm_year= year_2_months_later
+                ; tm_mon= month_next_next
+                ; tm_mday= 1
+                ; tm_hour= 0
+                ; tm_min= 0
+                ; tm_sec= 0
+                ; tm_wday= 0
+                ; tm_yday= 0
+                ; tm_isdst= false
+                }
+            in
+
+            let secs_configed =
+              Float.to_int smallest_secs_2_months_later
+              + (day_configed_int * 24 * 60 * 60)
+              + (hour_configed_int * 60 * 60)
+            in
+            let tm_configed = Unix.gmtime (Int.to_float secs_configed) in
+            tm_configed.Unix.tm_mday
+        in
+        let min_random = secs_random_within_an_hour / 60 in
+        let sec_random = secs_random_within_an_hour mod 60 in
+        let secs_next_run, _ =
+          Unix.mktime
+            {
+              tm_year= year_next_run
+            ; tm_mon= month_next_run
+            ; tm_mday= monthday_next_run
+            ; tm_hour= hour_configed_int
+            ; tm_min= min_random
+            ; tm_sec= sec_random
+            ; tm_wday= 0
+            ; tm_yday= 0
+            ; tm_isdst= false
+            }
+        in
+        debug
+          "[PeriodicUpdateSync] periodic_update_sync_delay monthly, \
+           execute_next_month=%B year_next_run=%d month_next_run=%d \
+           monthday_next_run=%d"
+          execute_next_month (year_next_run + 1900) (month_next_run + 1)
+          monthday_next_run ;
+        secs_next_run -. secs_now
+
+  let update_sync_delay ~__context ~first_run =
+    if Xapi_fist.update_sync_every_ten_minutes () then (
+      debug "[PeriodicUpdateSync] fist update_sync_delay: 10 minutes" ;
+      600.0
+    ) else
+      let delay = periodic_update_sync_delay ~__context ~first_run in
+      debug "[PeriodicUpdateSync] delay for next update sync: %f seconds" delay ;
+      delay
+
+  let rec periodic_update_sync () =
+    Server_helpers.exec_with_new_task "periodic_update_sync" (fun __context ->
+        Xapi_periodic_scheduler.add_to_queue periodic_update_sync_task_name
+          Xapi_periodic_scheduler.OneShot
+          (update_sync_delay ~__context ~first_run:false)
+          periodic_update_sync ;
+        Helpers.call_api_functions ~__context (fun rpc session_id ->
+            let rec sync_updates_with_retry failed_times =
+              if failed_times < 4 then
+                if failed_times > 0 then
+                  debug
+                    "[PeriodicUpdateSync] retry as pool.sync_updates failed, \
+                     number of retries: %d"
+                    failed_times ;
+              try
+                ignore
+                  (Client.Pool.sync_updates ~rpc ~session_id
+                     ~self:(Helpers.get_pool ~__context)
+                     ~force:false ~token:"" ~token_id:""
+                  )
+              with _ -> sync_updates_with_retry (failed_times + 1)
+            in
+            sync_updates_with_retry 0
+        )
+    )
+
+  let set_enabled ~__context ~value =
+    debug "[PeriodicUpdateSync] set_enabled: %B" value ;
+    if value then (
+      Xapi_periodic_scheduler.remove_from_queue periodic_update_sync_task_name ;
+      Xapi_periodic_scheduler.add_to_queue periodic_update_sync_task_name
+        Xapi_periodic_scheduler.OneShot
+        (update_sync_delay ~__context ~first_run:true)
+        periodic_update_sync
+    ) else
+      Xapi_periodic_scheduler.remove_from_queue periodic_update_sync_task_name
+end

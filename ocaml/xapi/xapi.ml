@@ -1216,7 +1216,7 @@ let server_init () =
             )
           ; ( "Registering periodic functions"
             , []
-            , Xapi_periodic_scheduler_init.register
+            , fun () -> Xapi_periodic_scheduler_init.register ~__context
             )
           ; ("executing startup scripts", [Startup.NoExnRaising], startup_script)
           ; ( "considering executing on-master-start script"

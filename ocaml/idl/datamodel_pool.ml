@@ -1040,7 +1040,7 @@ let update_sync_frequency =
 
 let configure_update_sync =
   call ~name:"configure_update_sync"
-    ~doc:"Config scheduled job to sync update from remote CDN" ~lifecycle:[]
+    ~doc:"Config periodic update synchronizaiton from remote CDN" ~lifecycle:[]
     ~params:
       [
         (Ref _pool, "self", "The pool")
@@ -1053,13 +1053,29 @@ let configure_update_sync =
         , "update_sync_day"
         , "Which day of one period the update sychronization is scheduled. For \
            'daily' schedule, it should be 1. For 'weekly' schedule, -7..-1 and \
-           1..7, where 1 and -7 is Sunday. For 'monthly' schedule, -28..-1 and \
-           1..28, this ensure that the day exist in every month. For negative \
-           number, it means the day count down from the end of the period."
+           1..7, where 1 or -7 is Sunday. For 'monthly' schedule, -28..-1 and \
+           1..28, this ensures that the day exists in every month. For \
+           negative number, it means counting down from the end of the period, \
+           which follows Python style. For example, -1 with 'monthly' schedule \
+           means the last day of each month."
         )
       ; ( Int
         , "update_sync_hour"
         , "Which hour of day the update sychronization is scheduled, 0..23"
+        )
+      ]
+    ~allowed_roles:_R_POOL_OP ()
+
+let set_update_sync_enabled =
+  call ~name:"set_update_sync_enabled" ~lifecycle:[]
+    ~doc:
+      "enable or disable periodic update synchronization depending on the value"
+    ~params:
+      [
+        (Ref _pool, "self", "The pool")
+      ; ( Bool
+        , "value"
+        , "true - enable periodic update synchronization, false - disable it"
         )
       ]
     ~allowed_roles:_R_POOL_OP ()
@@ -1147,6 +1163,7 @@ let t =
       ; set_uefi_certificates
       ; set_https_only
       ; configure_update_sync
+      ; set_update_sync_enabled
       ]
     ~contents:
       ([uid ~in_oss_since:None _pool]

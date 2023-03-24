@@ -17,7 +17,7 @@ module D = Debug.Make (struct let name = "backgroundscheduler" end)
 
 open D
 
-let register () =
+let register ~__context =
   debug "Registering periodic calls" ;
   let master = Pool_role.is_master () in
   (* blob/message/rrd file syncing - sync once a day *)
@@ -113,4 +113,10 @@ let register () =
         "Period alert if TLS verification emergency disabled" (fun __context ->
           Xapi_host.alert_if_tls_verification_was_emergency_disabled ~__context
       )
-  )
+  ) ;
+  if
+    master
+    && Db.Pool.get_update_sync_enabled ~__context
+         ~self:(Helpers.get_pool ~__context)
+  then
+    Xapi_pool_helpers.PeriodicUpdateSync.set_enabled ~__context ~value:true

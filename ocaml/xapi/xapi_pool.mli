@@ -398,3 +398,6 @@ val configure_update_sync :
   -> update_sync_day:int64
   -> update_sync_hour:int64
   -> unit
+
+val set_update_sync_enabled :
+  __context:Context.t -> self:API.ref_pool -> value:bool -> unit

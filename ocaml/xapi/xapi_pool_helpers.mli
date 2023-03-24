@@ -62,3 +62,7 @@ val get_master_slaves_list : __context:Context.t -> [`host] Ref.t list
 val get_slaves_list : __context:Context.t -> [`host] Ref.t list
 
 val apply_guest_agent_config : __context:Context.t -> unit
+
+module PeriodicUpdateSync : sig
+  val set_enabled : __context:Context.t -> value:bool -> unit
+end
