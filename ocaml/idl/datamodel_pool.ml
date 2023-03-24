@@ -1046,16 +1046,16 @@ let configure_update_sync =
         (Ref _pool, "self", "The pool")
       ; ( update_sync_frequency
         , "update_sync_frequency"
-        , "of type Enum ('daily', 'weekly', 'monthly') to record the frequency \
-           of the scheduled update synchronization"
+        , "The frequency at which updates are synced from remote CDN: daily, \
+           weekly, or monthly."
         )
       ; ( Int
         , "update_sync_day"
-        , "which day of one period the update sychronization is scheduled"
+        , "Which day of one period the update sychronization is scheduled"
         )
       ; ( Int
         , "update_sync_hour"
-        , "which hour of day the update sychronization is scheduled"
+        , "Which hour of day the update sychronization is scheduled"
         )
       ]
     ~allowed_roles:_R_POOL_OP ()
