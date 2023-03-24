@@ -1949,6 +1949,13 @@ let _ =
   error Api_errors.vtpm_max_amount_reached ["amount"]
     ~doc:"The VM cannot be associated with more VTPMs." () ;
 
+  error Api_errors.telemetry_next_collection_too_late ["timestamp"]
+    ~doc:
+      "The next scheduled telemetry data collection is too far into the \
+       future. Pick a timestamp within two telemetry intervals starting from \
+       now."
+    () ;
+
   message
     (fst Api_messages.ha_pool_overcommitted)
     ~doc:

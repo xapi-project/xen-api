@@ -1829,6 +1829,10 @@ let pool_disable_repository_proxy _printer rpc session_id params =
   let pool = get_pool_with_default rpc session_id params "uuid" in
   Client.Pool.disable_repository_proxy ~rpc ~session_id ~self:pool
 
+let pool_reset_telemetry_uuid _printer rpc session_id params =
+  let pool = get_pool_with_default rpc session_id params "uuid" in
+  Client.Pool.reset_telemetry_uuid ~rpc ~session_id ~self:pool
+
 let vdi_type_of_string = function
   | "system" ->
       `system
