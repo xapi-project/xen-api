@@ -1201,3 +1201,6 @@ let xen_incompatible = "XEN_INCOMPATIBLE"
 let designate_new_master_in_progress = "DESIGNATE_NEW_MASTER_IN_PROGRESS"
 
 let pool_secret_rotation_pending = "POOL_SECRET_ROTATION_PENDING"
+
+(* FIPS/CC_PREPARATIONS *)
+let illegal_in_fips_mode = "ILLEGAL_IN_FIPS_MODE"
