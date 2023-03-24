@@ -2994,8 +2994,30 @@ let apply_updates ~__context ~self ~hash =
    *)
   warnings
 
+let cc_prep () =
+  let cc = "CC_PREPARATIONS" in
+  Xapi_inventory.lookup ~default:"false" cc |> String.lowercase_ascii
+  |> function
+  | "true" ->
+      true
+  | "false" ->
+      false
+  | other ->
+      D.warn "%s: %s=%s (assuming true)" __MODULE__ cc other ;
+      true
+
 let set_https_only ~__context ~self ~value =
   let state = match value with true -> "close" | false -> "open" in
-  ignore
-  @@ Helpers.call_script !Xapi_globs.firewall_port_config_script [state; "80"] ;
-  Db.Host.set_https_only ~__context ~self ~value
+  match cc_prep () with
+  | false ->
+      ignore
+      @@ Helpers.call_script
+           !Xapi_globs.firewall_port_config_script
+           [state; "80"] ;
+      Db.Host.set_https_only ~__context ~self ~value
+  | true when value = Db.Host.get_https_only ~__context ~self ->
+      (* the new value is the same as the old value *)
+      ()
+  | true ->
+      (* it is illegal changing the firewall/https config in CC/FIPS mode *)
+      raise (Api_errors.Server_error (Api_errors.illegal_in_fips_mode, []))
