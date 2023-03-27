@@ -122,12 +122,11 @@ type build_pv_info = {cmdline: string; ramdisk: string option}
 [@@deriving rpcty]
 
 type build_pvh_info = {
-    cmdline: string
-  ; (* cmdline for the kernel (image) *)
-    pv_shim: bool [@default true]
+    cmdline: string  (** cmdline for the kernel (image) *)
+  ; pv_shim: bool [@default true]
   ; modules: (string * string option) list
-  ; (* list of modules plus optional cmdlines *)
-    shadow_multiplier: float
+        (** list of modules plus optional cmdlines *)
+  ; shadow_multiplier: float
   ; video_mib: int
 }
 [@@deriving rpcty]
@@ -139,15 +138,11 @@ type builder_spec_info =
 [@@deriving rpcty]
 
 type build_info = {
-    memory_max: int64
-  ; (* memory max in kilobytes *)
-    memory_target: int64
-  ; (* memory target in kilobytes *)
-    kernel: string
-  ; (* in hvm case, point to hvmloader *)
-    vcpus: int
-  ; (* vcpus max *)
-    priv: builder_spec_info
+    memory_max: int64  (** memory max in kilobytes *)
+  ; memory_target: int64  (** memory target in kilobytes *)
+  ; kernel: string  (** in hvm case, point to hvmloader *)
+  ; vcpus: int  (** vcpus max *)
+  ; priv: builder_spec_info
   ; has_hard_affinity: bool [@default false]
 }
 [@@deriving rpcty]
@@ -159,9 +154,7 @@ let allowed_xsdata_prefixes = ["vm-data"; "FIST"]
 let filtered_xsdata =
   (* disallowed by default; allowed only if it has one of a set of prefixes *)
   let is_allowed path dir = Astring.String.is_prefix ~affix:(dir ^ "/") path in
-  let allowed (x, _) =
-    List.fold_left ( || ) false (List.map (is_allowed x) allowed_xsdata_prefixes)
-  in
+  let allowed (x, _) = List.exists (is_allowed x) allowed_xsdata_prefixes in
   List.filter allowed
 
 exception Suspend_image_failure
@@ -957,8 +950,6 @@ let xenguest_args_hvm ~domid ~store_port ~store_domid ~console_port
     ~console_domid ~memory ~kernel ~vgpus =
   ["-mode"; "hvm_build"; "-image"; kernel]
   @ (vgpus |> function
-     | [Xenops_interface.Vgpu.{implementation= Nvidia _; _}] ->
-         ["-vgpu"]
      | Xenops_interface.Vgpu.{implementation= Nvidia _; _} :: _ ->
          ["-vgpu"]
      | _ ->

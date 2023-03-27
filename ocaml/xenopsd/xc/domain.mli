@@ -103,12 +103,11 @@ val typ_of_build_pv_info : build_pv_info Rpc.Types.typ
 val build_pv_info : build_pv_info Rpc.Types.def
 
 type build_pvh_info = {
-    cmdline: string
-  ; (* cmdline for the kernel (image) *)
-    pv_shim: bool  (** whether the domain will be run with a PV shim *)
+    cmdline: string  (** cmdline for the kernel (image) *)
+  ; pv_shim: bool  (** whether the domain will be run with a PV shim *)
   ; modules: (string * string option) list
-  ; (* list of modules plus optional cmdlines *)
-    shadow_multiplier: float
+        (** list of modules plus optional cmdlines *)
+  ; shadow_multiplier: float
   ; video_mib: int
 }
 
@@ -126,15 +125,11 @@ val typ_of_builder_spec_info : builder_spec_info Rpc.Types.typ
 val builder_spec_info : builder_spec_info Rpc.Types.def
 
 type build_info = {
-    memory_max: int64
-  ; (* memory max in kilobytes *)
-    memory_target: int64
-  ; (* memory target in kilobytes *)
-    kernel: string
-  ; (* in hvm case, point to hvmloader *)
-    vcpus: int
-  ; (* vcpus max *)
-    priv: builder_spec_info
+    memory_max: int64  (** memory max in kilobytes *)
+  ; memory_target: int64  (** memory target in kilobytes *)
+  ; kernel: string  (** image to load. In HVM case, point to hvmloader *)
+  ; vcpus: int  (** vcpus max *)
+  ; priv: builder_spec_info
   ; has_hard_affinity: bool
 }
 

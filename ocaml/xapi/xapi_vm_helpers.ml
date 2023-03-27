@@ -319,7 +319,7 @@ let validate_actions_after_crash ~__context ~self ~value =
     match Helpers.domain_type ~__context ~self with
     | `hvm | `pv_in_pvh | `pvh ->
         value_not_supported fld v
-          "cannot invoke a coredump of an HVM or PV-in-PVH domain"
+          "cannot invoke a coredump of an HVM, PVH or PV-in-PVH domain"
     | `pv ->
         ()
   in

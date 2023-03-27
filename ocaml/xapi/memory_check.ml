@@ -19,6 +19,8 @@ let ( +++ ) = Int64.add
 
 let ( --- ) = Int64.sub
 
+let ( /// ) = Int64.div
+
 (** Calculates the amounts of 'normal' and 'shadow' host memory needed
     to run the given guest with the given amount of guest memory. *)
 let vm_compute_required_memory vm_record guest_memory_kib =
@@ -192,17 +194,15 @@ let host_compute_free_memory_with_policy ~__context summary policy =
 *)
 let host_compute_free_memory_with_maximum_compression ?(dump_stats = false)
     ~__context ~host ignore_scheduled_vm =
-  (*
-		Compute host free memory from what is actually running. Don't rely on
-		reported free memory, since this is an asychronously-computed metric
-		that's liable to change or be out of date.
-	*)
+  (* Compute host free memory from what is actually running. Don't rely on
+     reported free memory, since this is an asychronously-computed metric
+     that's liable to change or be out of date.
+  *)
   let summary = get_host_memory_summary ~__context ~host in
-  (*
-		When we're considering starting ourselves, and the host has reserved
-		resources ready for us, then we need to make sure we don't count these
-		reserved resources twice.
-	*)
+  (* When we're considering starting ourselves, and the host has reserved
+     resources ready for us, then we need to make sure we don't count these
+     reserved resources twice.
+  *)
   let summary =
     {
       summary with
@@ -221,7 +221,7 @@ let host_compute_free_memory_with_maximum_compression ?(dump_stats = false)
     (* consider ballooning *)
   in
   if dump_stats then (
-    let mib x = Int64.div (Int64.div x 1024L) 1024L in
+    let mib x = x /// 1024L /// 1024L in
     debug "Memory_check: total host memory: %Ld (%Ld MiB)"
       summary.host_maximum_guest_memory_bytes
       (mib summary.host_maximum_guest_memory_bytes) ;
