@@ -105,7 +105,8 @@ val build_pv_info : build_pv_info Rpc.Types.def
 type build_pvh_info = {
     cmdline: string
   ; (* cmdline for the kernel (image) *)
-    modules: (string * string option) list
+    pv_shim: bool  (** whether the domain will be run with a PV shim *)
+  ; modules: (string * string option) list
   ; (* list of modules plus optional cmdlines *)
     shadow_multiplier: float
   ; video_mib: int

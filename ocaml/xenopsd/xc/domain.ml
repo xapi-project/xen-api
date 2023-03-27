@@ -124,7 +124,8 @@ type build_pv_info = {cmdline: string; ramdisk: string option}
 type build_pvh_info = {
     cmdline: string
   ; (* cmdline for the kernel (image) *)
-    modules: (string * string option) list
+    pv_shim: bool [@default true]
+  ; modules: (string * string option) list
   ; (* list of modules plus optional cmdlines *)
     shadow_multiplier: float
   ; video_mib: int
@@ -1148,11 +1149,12 @@ let build (task : Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domid
           xenguest task xenguest_path domid uuid args
         in
         (store_mfn, store_port, console_mfn, console_port, [], `pv)
-    | BuildPVH pvhinfo ->
-        let shadow_multiplier = pvhinfo.shadow_multiplier in
-        let video_mib = pvhinfo.video_mib in
+    | BuildPVH {cmdline; pv_shim; modules; shadow_multiplier; video_mib} ->
+        let full_config =
+          if pv_shim then Memory.PVinPVH.full_config else Memory.HVM.full_config
+        in
         let memory =
-          Memory.PVinPVH.full_config static_max_mib video_mib target_mib vcpus
+          full_config static_max_mib video_mib target_mib vcpus
             shadow_multiplier
         in
         maybe_ca_140252_workaround ~xc ~vcpus domid ;
@@ -1162,8 +1164,7 @@ let build (task : Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domid
         let store_mfn, console_mfn =
           let args =
             xenguest_args_pvh ~domid ~store_port ~store_domid ~console_port
-              ~console_domid ~memory ~kernel ~cmdline:pvhinfo.cmdline
-              ~modules:pvhinfo.modules
+              ~console_domid ~memory ~kernel ~cmdline ~modules
             @ force_arg
             @ extras
           in
@@ -1568,10 +1569,12 @@ let restore (task : Xenops_task.task_handle) ~xc ~xs ~dm ~store_domid
             shadow_multiplier
         in
         (memory, [], `pv)
-    | BuildPVH pvhinfo ->
-        let shadow_multiplier = pvhinfo.shadow_multiplier in
+    | BuildPVH {pv_shim; shadow_multiplier; _} ->
+        let full_config =
+          if pv_shim then Memory.PVinPVH.full_config else Memory.HVM.full_config
+        in
         let memory =
-          Memory.PVinPVH.full_config static_max_mib video_mib target_mib vcpus
+          full_config static_max_mib video_mib target_mib vcpus
             shadow_multiplier
         in
         let vm_stuff = [("rtc/timeoffset", timeoffset)] in

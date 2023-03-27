@@ -29,12 +29,10 @@ let vm_compute_required_memory vm_record guest_memory_kib =
   (* unused in this function *)
   let multiplier, full_config =
     match Helpers.check_domain_type vm_record.API.vM_domain_type with
-    | `hvm ->
+    | `hvm | `pvh ->
         (vm_record.API.vM_HVM_shadow_multiplier, Memory.HVM.full_config)
     | `pv_in_pvh ->
         (vm_record.API.vM_HVM_shadow_multiplier, Memory.PVinPVH.full_config)
-    | `pvh ->
-        (vm_record.API.vM_HVM_shadow_multiplier, Memory.HVM.full_config)
     | `pv ->
         (Memory.Linux.shadow_multiplier_default, Memory.Linux.full_config)
   in
