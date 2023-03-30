@@ -3612,8 +3612,8 @@ let set_https_only ~__context ~self:_ ~value =
 
 let configure_update_sync ~__context ~self ~update_sync_frequency
     ~update_sync_day ~update_sync_hour =
-  ( match update_sync_frequency with
-  | `daily when update_sync_day <> 1L ->
+  ( match (update_sync_frequency, update_sync_day) with
+  | `daily, d when d <> 1L ->
       error
         "For daily schedule, cannot set the day when update sync will run to \
          an integer other than 1" ;
@@ -3622,9 +3622,7 @@ let configure_update_sync ~__context ~self ~update_sync_frequency
           Server_error
             (invalid_update_sync_day, [Int64.to_string update_sync_day])
         )
-  | `weekly
-    when update_sync_day < -7L || update_sync_day = 0L || update_sync_day > 7L
-    ->
+  | `weekly, d when d < -7L || d = 0L || d > 7L ->
       error
         "For weekly schedule, cannot set the day when update sync will run to \
          an integer out of range: -7 ~ -1, 1 ~ 7" ;
@@ -3633,9 +3631,7 @@ let configure_update_sync ~__context ~self ~update_sync_frequency
           Server_error
             (invalid_update_sync_day, [Int64.to_string update_sync_day])
         )
-  | `monthly
-    when update_sync_day < -28L || update_sync_day = 0L || update_sync_day > 28L
-    ->
+  | `monthly, d when d < -28L || d = 0L || d > 28L ->
       error
         "For monthly schedule, cannot set the day when update sync will run to \
          an integer out of range: -28 ~ -1, 1 ~ 28" ;

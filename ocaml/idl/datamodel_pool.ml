@@ -1040,7 +1040,7 @@ let update_sync_frequency =
 
 let configure_update_sync =
   call ~name:"configure_update_sync"
-    ~doc:"config scheduled job to sync update from remote CDN" ~lifecycle:[]
+    ~doc:"Config scheduled job to sync update from remote CDN" ~lifecycle:[]
     ~params:
       [
         (Ref _pool, "self", "The pool")
@@ -1051,11 +1051,15 @@ let configure_update_sync =
         )
       ; ( Int
         , "update_sync_day"
-        , "Which day of one period the update sychronization is scheduled"
+        , "Which day of one period the update sychronization is scheduled. For \
+           'daily' schedule, it should be 1. For 'weekly' schedule, -7..-1 and \
+           1..7, where 1 and -7 is Sunday. For 'monthly' schedule, -28..-1 and \
+           1..28, this ensure that the day exist in every month. For negative \
+           number, it means the day count down from the end of the period."
         )
       ; ( Int
         , "update_sync_hour"
-        , "Which hour of day the update sychronization is scheduled"
+        , "Which hour of day the update sychronization is scheduled, 0..23"
         )
       ]
     ~allowed_roles:_R_POOL_OP ()
@@ -1373,16 +1377,17 @@ let t =
             "time of the last update sychronization"
         ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:update_sync_frequency
             ~default_value:(Some (VEnum "daily")) "update_sync_frequency"
-            "frequency of the scheduled update synchronization"
+            "The frequency at which updates are synced from remote CDN: daily, \
+             weekly, or monthly."
         ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:Int "update_sync_day"
             ~default_value:(Some (VInt 1L))
-            "which day of one period the update sychronization is scheduled"
+            "Which day of one period the update sychronization is scheduled"
         ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:Int "update_sync_hour"
             ~default_value:(Some (VInt 0L))
-            "which hour of day the update sychronization is scheduled"
+            "Which hour of day the update sychronization is scheduled"
         ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:Bool
             ~default_value:(Some (VBool false)) "update_sync_enabled"
-            "if scheduled update sychronization is enabled or not"
+            "If scheduled update sychronization is enabled or not"
         ]
       )
     ()
