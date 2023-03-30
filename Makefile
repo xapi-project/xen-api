@@ -35,6 +35,10 @@ test:
 stresstest:
 	dune build @stresstest --profile=$(PROFILE) --no-buffer -j $(JOBS)
 
+# check that the IDL hash is current
+schema:
+	dune runtest ocaml/idl
+
 doc:
 	dune build --profile=$(PROFILE) ocaml/idl/datamodel_main.exe
 	dune build --profile=$(PROFILE) -f @ocaml/doc/jsapigen

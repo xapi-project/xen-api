@@ -5827,7 +5827,6 @@ functor
     end
 
     (* whatever *)
-    module VTPM = Local.VTPM
     module Console = Local.Console
     module User = Local.User
     module Blob = Local.Blob
@@ -5838,6 +5837,19 @@ functor
     module Secret = Local.Secret
 
     module PCI = struct end
+
+    module VTPM = struct
+      let create ~__context ~vM ~is_unique =
+        VM.with_vm_operation ~__context ~self:vM ~doc:"VTPM.create"
+          ~op:`create_vtpm
+        @@ fun () -> Local.VTPM.create ~__context ~vM ~is_unique
+
+      let destroy = Local.VTPM.destroy
+
+      let get_contents = Local.VTPM.get_contents
+
+      let set_contents = Local.VTPM.set_contents
+    end
 
     module PGPU = struct
       include Local.PGPU
