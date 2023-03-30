@@ -30,6 +30,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections;
+using System.Linq;
 
 
 namespace XenAPI
@@ -45,7 +46,7 @@ namespace XenAPI
         /// <returns></returns>
         public static object convertStruct(Type t, Hashtable table)
         {
-            return t.GetConstructor(new Type[] {typeof(Hashtable)}).Invoke(new object[] {table});
+            return t.GetConstructor(new Type[] { typeof(Hashtable) }).Invoke(new object[] { table });
         }
 
         public static Type GetXenAPIType(string name)
@@ -55,31 +56,30 @@ namespace XenAPI
 
         public static bool ParseBool(Hashtable table, string key)
         {
-            var val = table[key];
-            return val == null ? false : (bool)table[key];
+            bool.TryParse((string)table[key], out var result);
+            return result;
         }
 
         public static DateTime ParseDateTime(Hashtable table, string key)
         {
-            var val = table[key];
-            return val == null ? DateTime.MinValue : (DateTime)table[key];
+            DateTime.TryParse((string)table[key], out var result);
+            return result;
         }
 
         public static double ParseDouble(Hashtable table, string key)
         {
-            var val = table[key];
-            return val == null ? 0.0 : (double)table[key];
+            double.TryParse((string)table[key], out var result);
+            return result;
         }
 
         public static Hashtable ParseHashTable(Hashtable table, string key)
         {
-            return (Hashtable)table[key];
+            return ParseSxpDict((string)table[key]);
         }
 
         public static long ParseLong(Hashtable table, string key)
         {
-            long result;
-            long.TryParse((string)table[key], out result);
+            long.TryParse((string)table[key], out var result);
             return result;
         }
 
@@ -90,14 +90,12 @@ namespace XenAPI
 
         public static string[] ParseStringArray(Hashtable table, string key)
         {
-            var val = (object[])table[key];
-            return val == null ? new string[0] : Array.ConvertAll(val, o => o.ToString());
+            return ParseSxpList((string)table[key]).ToArray();
         }
 
         public static long[] ParseLongArray(Hashtable table, string key)
         {
-            var val = (object[])table[key];
-            return val == null ? new long[0] : Array.ConvertAll(val, o => long.Parse(o.ToString()));
+            return ParseSxpList((string)table[key]).Select(long.Parse).ToArray();
         }
 
         public static XenRef<T> ParseRef<T>(Hashtable table, string key) where T : XenObject<T>
@@ -108,14 +106,86 @@ namespace XenAPI
 
         public static List<XenRef<T>> ParseSetRef<T>(Hashtable table, string key) where T : XenObject<T>
         {
-            var rs = (object[])table[key];
-            return rs == null ? null : XenRef<T>.Create(rs);
+            return ParseSxpList((string)table[key]).Select(XenRef<T>.Create).ToList();
         }
 
-        public static Dictionary<XenRef<T>, T> ParseMapRefRecord<T, U>(Hashtable table, string key) where T : XenObject<T>
+
+        private static Hashtable ParseSxpDict(string p)
         {
-            Hashtable map = ParseHashTable(table, key);
-            return map == null ? null : XenRef<T>.Create<U>(map);
+            var result = new Hashtable();
+
+            using (var enumerator = Tokenize(p).GetEnumerator())
+            {
+                if (!enumerator.MoveNext())
+                    return result;
+
+                while (enumerator.MoveNext())
+                {
+                    if (enumerator.Current == ")")
+                        break;
+
+                    enumerator.MoveNext();
+                    var key = enumerator.Current;
+                    enumerator.MoveNext();
+                    var value = enumerator.Current;
+                    enumerator.MoveNext();
+
+                    result[key] = value;
+                }
+
+                return result;
+            }
+        }
+
+        private static List<string> ParseSxpList(string p)
+        {
+            var result = new List<string>();
+
+            foreach (var token in Tokenize(p))
+            {
+                if (token == "(" || token == ")")
+                    continue;
+
+                result.Add(token);
+            }
+
+            return result;
+        }
+
+        private static IEnumerable<string> Tokenize(string str)
+        {
+            bool inStr = false;
+            int j = 0;
+
+            for (int i = 0; i < str.Length; i++)
+            {
+                switch (str[i])
+                {
+                    case '(':
+                        if (!inStr)
+                            yield return "(";
+                        break;
+                    case ')':
+                        if (!inStr)
+                            yield return ")";
+                        break;
+
+                    case '\'':
+                    case '"':
+                        if (!inStr)
+                        {
+                            inStr = true;
+                            j = i;
+                        }
+                        else if (str[i - 1] != '\\')
+                        {
+                            inStr = false;
+                            yield return str.Substring(j + 1, i - j - 1).Replace("\\\"", "\"").Replace("\\\'", "\'");
+                        }
+
+                        break;
+                }
+            }
         }
     }
 }
