@@ -2988,6 +2988,15 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; flags= []
       }
     )
+  ; ( "pool-configure-update-sync"
+    , {
+        reqd= ["update-sync-frequency"; "update-sync-day"; "update-sync-hour"]
+      ; optn= []
+      ; help= "Configure the scheduled update synchronization from remote CDN"
+      ; implementation= No_fd Cli_operations.pool_configure_update_sync
+      ; flags= []
+      }
+    )
   ; ( "host-ha-xapi-healthcheck"
     , {
         reqd= []

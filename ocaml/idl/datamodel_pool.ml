@@ -1024,6 +1024,46 @@ let set_uefi_certificates =
       ]
     ~allowed_roles:_R_POOL_ADMIN ()
 
+let update_sync_frequency =
+  Enum
+    ( "update_sync_frequency"
+    , [
+        ("daily", "Indicates the pool update synchronization is scheduled daily")
+      ; ( "weekly"
+        , "Indicates the pool update synchronization is scheduled weekly"
+        )
+      ; ( "monthly"
+        , "Indicates the pool update synchronization is scheduled monthly"
+        )
+      ]
+    )
+
+let configure_update_sync =
+  call ~name:"configure_update_sync"
+    ~doc:"Config scheduled job to sync update from remote CDN" ~lifecycle:[]
+    ~params:
+      [
+        (Ref _pool, "self", "The pool")
+      ; ( update_sync_frequency
+        , "update_sync_frequency"
+        , "The frequency at which updates are synced from remote CDN: daily, \
+           weekly, or monthly."
+        )
+      ; ( Int
+        , "update_sync_day"
+        , "Which day of one period the update sychronization is scheduled. For \
+           'daily' schedule, it should be 1. For 'weekly' schedule, -7..-1 and \
+           1..7, where 1 and -7 is Sunday. For 'monthly' schedule, -28..-1 and \
+           1..28, this ensure that the day exist in every month. For negative \
+           number, it means the day count down from the end of the period."
+        )
+      ; ( Int
+        , "update_sync_hour"
+        , "Which hour of day the update sychronization is scheduled, 0..23"
+        )
+      ]
+    ~allowed_roles:_R_POOL_OP ()
+
 (** A pool class *)
 let t =
   create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:None
@@ -1106,6 +1146,7 @@ let t =
       ; disable_repository_proxy
       ; set_uefi_certificates
       ; set_https_only
+      ; configure_update_sync
       ]
     ~contents:
       ([uid ~in_oss_since:None _pool]
@@ -1334,6 +1375,19 @@ let t =
         ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:DateTime
             ~default_value:(Some (VDateTime Date.epoch)) "last_update_sync"
             "time of the last update sychronization"
+        ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:update_sync_frequency
+            ~default_value:(Some (VEnum "daily")) "update_sync_frequency"
+            "The frequency at which updates are synced from remote CDN: daily, \
+             weekly, or monthly."
+        ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:Int "update_sync_day"
+            ~default_value:(Some (VInt 1L))
+            "Which day of one period the update sychronization is scheduled"
+        ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:Int "update_sync_hour"
+            ~default_value:(Some (VInt 0L))
+            "Which hour of day the update sychronization is scheduled"
+        ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:Bool
+            ~default_value:(Some (VBool false)) "update_sync_enabled"
+            "If scheduled update sychronization is enabled or not"
         ]
       )
     ()

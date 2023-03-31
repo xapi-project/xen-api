@@ -1824,6 +1824,51 @@ let pool_disable_repository_proxy _printer rpc session_id params =
   let pool = get_pool_with_default rpc session_id params "uuid" in
   Client.Pool.disable_repository_proxy ~rpc ~session_id ~self:pool
 
+let pool_configure_update_sync _printer rpc session_id params =
+  let pool = get_pool_with_default rpc session_id params "uuid" in
+  let frequency =
+    Record_util.update_sync_frequency_of_string
+      (List.assoc "update-sync-frequency" params)
+  in
+  let day = List.assoc "update-sync-day" params in
+  let day_int =
+    try Int64.of_string day
+    with _ ->
+      failwith
+        "Failed to parse parameter 'update-sync-day': expecting an integer"
+  in
+  let hour = List.assoc "update-sync-hour" params in
+  let hour_int =
+    try Int64.of_string hour
+    with _ ->
+      failwith
+        "Failed to parse parameter 'update-sync-hour': expecting an integer"
+  in
+  ( match (frequency, day_int) with
+  | `daily, d when d <> 1L ->
+      failwith
+        "For daily schedule, cannot set the day when update sync will run to \
+         an integer other than 1.\n"
+  | `weekly, d when d < -7L || d = 0L || d > 7L ->
+      failwith
+        "For weekly schedule, cannot set the day when update sync will run to \
+         an integer out of range: -7 ~ -1, 1 ~ 7.\n"
+  | `monthly, d when d < -28L || d = 0L || d > 28L ->
+      failwith
+        "For monthly schedule, cannot set the day when update sync will run to \
+         an integer out of range: -28 ~ -1, 1 ~ 28.\n"
+  | _ ->
+      ()
+  ) ;
+  if hour_int < 0L || hour_int > 23L then
+    failwith
+      "Cannot set the hour when update sync will run to an integer out of \
+       range: 0 ~ 23.\n"
+  else
+    Client.Pool.configure_update_sync ~rpc ~session_id ~self:pool
+      ~update_sync_frequency:frequency ~update_sync_day:day_int
+      ~update_sync_hour:hour_int
+
 let vdi_type_of_string = function
   | "system" ->
       `system
