@@ -6498,9 +6498,6 @@ functor
         let localhost = Helpers.get_localhost ~__context in
         if Helpers.is_pool_master ~__context ~host:localhost then (
           db_fn () ;
-          (* Option.iter
-             (fun status -> Db.Tracing.set_status ~__context ~self ~value:status)
-             status ; *)
           let hosts =
             match Db.Tracing.get_hosts ~__context ~self with
             | [] ->
@@ -6518,7 +6515,7 @@ functor
         ()
 
       let set_status ~__context ~self ~status =
-        info "Tracing.set_status: self=%s status=%B"
+        info "%s: self=%s status=%B" __FUNCTION__
           (tracing_uuid ~__context self)
           status ;
         let local_fn = Local.Tracing.set_status ~self ~status in
@@ -6533,7 +6530,7 @@ functor
           Db.Pool.get_uuid ~__context ~self:(Helpers.get_pool ~__context)
         in
         let tags = ("pool", pool) :: tags in
-        info "Tracing.set_tags: self=%s tags=%s"
+        info "%s: self=%s tags=%s" __FUNCTION__
           (tracing_uuid ~__context self)
           (List.map (fun (k, v) -> k ^ ":" ^ v) tags |> String.concat ",") ;
         let local_fn = Local.Tracing.set_tags ~self ~tags in
@@ -6544,9 +6541,7 @@ functor
         do_trace_op_on ~__context ~self ~local_fn ~client_fn ~db_fn
 
       let set_endpoints ~__context ~self ~endpoints =
-        info "Tracing.set_endpoints: self=%s endpoints=%s"
-          (tracing_uuid ~__context self)
-          (endpoints |> String.concat ",") ;
+        info "%s: self=%s" __FUNCTION__ (tracing_uuid ~__context self) ;
         let local_fn = Local.Tracing.set_endpoints ~self ~endpoints in
         let client_fn session_id rpc =
           Client.Tracing.set_endpoints ~rpc ~session_id ~self ~endpoints
@@ -6557,7 +6552,7 @@ functor
         do_trace_op_on ~__context ~self ~local_fn ~client_fn ~db_fn
 
       let set_components ~__context ~self ~components =
-        info "Tracing.set_components: self=%s components=%s"
+        info "%s: self=%s components=%s" __FUNCTION__
           (tracing_uuid ~__context self)
           (components |> String.concat ",") ;
         let local_fn = Local.Tracing.set_components ~self ~components in
@@ -6570,7 +6565,7 @@ functor
         do_trace_op_on ~__context ~self ~local_fn ~client_fn ~db_fn
 
       let set_filters ~__context ~self ~filters =
-        info "Tracing.set_filters: self=%s filters=%s"
+        info "%s: self=%s filters=%s" __FUNCTION__
           (tracing_uuid ~__context self)
           (filters |> String.concat ",") ;
         let local_fn = Local.Tracing.set_filters ~self ~filters in
@@ -6581,7 +6576,7 @@ functor
         do_trace_op_on ~__context ~self ~local_fn ~client_fn ~db_fn
 
       let set_processors ~__context ~self ~processors =
-        info "Tracing.set_processors: self=%s processors=%s"
+        info "%s: self=%s processors=%s" __FUNCTION__
           (tracing_uuid ~__context self)
           (processors |> String.concat ",") ;
         let local_fn = Local.Tracing.set_processors ~self ~processors in

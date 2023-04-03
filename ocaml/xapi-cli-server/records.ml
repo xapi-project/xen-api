@@ -5268,92 +5268,66 @@ let tracing_record rpc session_id tracing =
         make_field ~name:"uuid" ~get:(fun () -> (x ()).API.tracing_uuid) ()
       ; make_field ~name:"hosts"
           ~get:(fun () ->
-            List.map get_uuid_from_ref (x ()).API.tracing_hosts
-            |> String.concat ","
-            |> fun s -> if s = "" then "all" else ""
+            map_and_concat
+              (fun host -> get_uuid_from_ref host |> fun host -> host ^ ";")
+              (x ()).API.tracing_hosts
           )
           ()
       ; make_field ~name:"name_label"
           ~get:(fun () -> (x ()).API.tracing_name_label)
           ()
       ; make_field ~name:"tags"
-          ~get:(fun () ->
-            List.map
-              (fun (k, v) -> Printf.sprintf "%s : %s" k v)
-              (x ()).API.tracing_tags
-            |> String.concat ","
-            |> fun s -> if s = "" then "none" else s
-          )
-          ~set:(fun s ->
-            String.split_on_char ',' s
-            |> List.filter_map (fun kv ->
-                   match String.split_on_char ':' kv with
-                   | [k; _] when List.mem k ["host"; "pool"; "host name"] ->
-                       None (* Reserved Tags*)
-                   | [k; v] ->
-                       Some (k, v)
-                   | _ ->
-                       None
-               )
-            |> fun tags ->
+          ~get:(fun () -> Record_util.s2sm_to_string ";" (x ()).API.tracing_tags)
+          ~get_map:(fun () -> (x ()).API.tracing_tags)
+          ~set_map:(fun s ->
+            let tags =
+              List.filter
+                (fun (k, _) -> not (List.mem k ["host"; "pool"; "host name"]))
+                s
+            in
             Client.Tracing.set_tags ~rpc ~session_id ~self:tracing ~tags
           )
           ()
       ; make_field ~name:"endpoints"
-          ~get:(fun () ->
-            (x ()).API.tracing_endpoints |> String.concat ", " |> fun s ->
-            if s = "" then "none" else s
-          )
+          ~get:(fun () -> (x ()).API.tracing_endpoints |> String.concat ";")
           ~set:(fun s ->
-            String.split_on_char ',' s |> List.filter (( <> ) "none")
+            String.split_on_char ';' s |> List.filter (( <> ) "none")
             |> fun endpoints ->
             Client.Tracing.set_endpoints ~rpc ~session_id ~self:tracing
               ~endpoints
           )
           ()
       ; make_field ~name:"components"
-          ~get:(fun () ->
-            (x ()).API.tracing_components |> String.concat ", " |> fun s ->
-            if s = "" then "all" else s
-          )
+          ~get:(fun () -> (x ()).API.tracing_components |> String.concat ";")
           ~set:(fun s ->
-            String.split_on_char ',' s |> List.filter (( <> ) "all")
+            String.split_on_char ';' s |> List.filter (( <> ) "all")
             |> fun components ->
             Client.Tracing.set_components ~rpc ~session_id ~self:tracing
               ~components
           )
           ()
       ; make_field ~name:"filters"
-          ~get:(fun () ->
-            (x ()).API.tracing_filters |> String.concat ", " |> fun s ->
-            if s = "" then "all" else s
-          )
+          ~get:(fun () -> (x ()).API.tracing_filters |> String.concat ";")
           ~set:(fun s ->
-            String.split_on_char ',' s |> List.filter (( <> ) "all")
+            String.split_on_char ';' s |> List.filter (( <> ) "all")
             |> fun filters ->
             Client.Tracing.set_filters ~rpc ~session_id ~self:tracing ~filters
           )
           ()
       ; make_field ~name:"processors"
-          ~get:(fun () ->
-            (x ()).API.tracing_processors |> String.concat ", " |> fun s ->
-            if s = "" then "none" else s
-          )
+          ~get:(fun () -> (x ()).API.tracing_processors |> String.concat ";")
           ~set:(fun s ->
-            String.split_on_char ',' s |> List.filter (( <> ) "none")
+            String.split_on_char ';' s |> List.filter (( <> ) "none")
             |> fun processors ->
             Client.Tracing.set_processors ~rpc ~session_id ~self:tracing
               ~processors
           )
           ()
       ; make_field ~name:"status"
-          ~get:(fun () ->
-            (x ()).API.tracing_status |> fun b ->
-            if b then "enabled" else "disabled"
-          )
+          ~get:(fun () -> (x ()).API.tracing_status |> string_of_bool)
           ~set:(fun s ->
-            s = "enabled" |> fun status ->
-            Client.Tracing.set_status ~rpc ~session_id ~self:tracing ~status
+            Client.Tracing.set_status ~rpc ~session_id ~self:tracing
+              ~status:(bool_of_string s)
           )
           ()
       ]
