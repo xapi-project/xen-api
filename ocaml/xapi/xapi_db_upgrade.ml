@@ -106,6 +106,11 @@ let jura =
   , Datamodel_common.jura_release_schema_minor_vsn
   )
 
+let yangtze =
+  ( Datamodel_common.yangtze_release_schema_major_vsn
+  , Datamodel_common.yangtze_release_schema_minor_vsn
+  )
+
 (* This is to support upgrade from Dundee tech-preview versions *)
 let vsn_with_meaningful_has_vendor_device =
   ( Datamodel_common.meaningful_vm_has_vendor_device_schema_major_vsn
