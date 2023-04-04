@@ -56,6 +56,8 @@ module Pkg : sig
   val lte : Epoch.t -> string -> string -> Epoch.t -> string -> string -> bool
 
   val gte : Epoch.t -> string -> string -> Epoch.t -> string -> string -> bool
+
+  val parse_epoch_version_release : string -> Epoch.t * string * string
 end
 
 val get_latest_version_release :

@@ -1,0 +1,22 @@
+
+================================================================================
+ Package             Arch   Version
+                               Repository                                  Size
+================================================================================
+Installing:
+ xenserver-telemetry noarch 1.0.1-71.2.g8c48473.xs8
+                               local-bd74070c-897f-d2bc-654a-a3f87d47f6b6 7.3 k
+     replacing  python-monotonic.noarch 0.1-1.xs8
+Updating:
+ amd-microcode       noarch 20220930-2.xs8
+                               local-bd74070c-897f-d2bc-654a-a3f87d47f6b6  43 k
+Installing for dependencies:
+ python2-bitarray    x86_64 0.8.3-2.xs8
+                               local-bd74070c-897f-d2bc-654a-a3f87d47f6b6  57 k
+
+Transaction Summary
+================================================================================
+Install  1 Package (+1 Dependent package)
+Upgrade  1 Package
+
+

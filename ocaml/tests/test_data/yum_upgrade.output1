@@ -1,0 +1,28 @@
+Failed to set locale, defaulting to C
+
+================================================================================
+ Package Arch   Version       Repository                                   Size
+================================================================================
+Updating:
+ amd-microcode
+         noarch 20220930-2.xs8
+                              remote-399dcec8-9ee7-0fb1-b1c9-f70fde0d1edb  44 k
+ device-mapper-multipath-libs
+         x86_64 0.4.9-136.xs8 remote-399dcec8-9ee7-0fb1-b1c9-f70fde0d1edb 263 k
+ qemu    x86_64 2:4.2.1-5.2.1.xs8
+                              remote-399dcec8-9ee7-0fb1-b1c9-f70fde0d1edb  16 M
+ qemu-dp x86_64 2:7.0.0-3.xs8 remote-399dcec8-9ee7-0fb1-b1c9-f70fde0d1edb 3.9 M
+Installing for dependencies:
+ libfdt  x86_64 1.6.0-1.xs8   remote-399dcec8-9ee7-0fb1-b1c9-f70fde0d1edb  27 k
+ microsemi-aacraid
+         x86_64 1.2.1.60001-1.xs8
+                              remote-399dcec8-9ee7-0fb1-b1c9-f70fde0d1edb  83 k
+
+Transaction Summary
+================================================================================
+Install              ( 2 Dependent packages)
+Upgrade  6 Packages
+
+Exiting on user command
+Your transaction was saved, rerun it with:
+ yum load-transaction /tmp/yum_save_tx.2023-04-03.04-59.z6T4rI.yumtx

@@ -3210,6 +3210,242 @@ module PruneUpdateInfoForLivepatches = Generic.MakeStateless (struct
       ]
 end)
 
+module ParseOutputOfYumUpgradeDryRun = Generic.MakeStateless (struct
+  module Io = struct
+    type input_t = string
+
+    type output_t = ((Pkg.t * string) list * string option, string) result
+
+    let string_of_input_t s = s
+
+    let string_of_output_t =
+      Fmt.(
+        str "%a"
+          Dump.(
+            result
+              ~ok:
+                (pair
+                   (list (pair (record @@ fields_of_pkg) string))
+                   (option string)
+                )
+              ~error:string
+          )
+      )
+  end
+
+  let transform input = YumUpgradeOutput.parse_output_of_dry_run input
+
+  let output1 =
+    Xapi_stdext_unix.Unixext.string_of_file "test_data/yum_upgrade.output1"
+
+  let output2 =
+    Xapi_stdext_unix.Unixext.string_of_file "test_data/yum_upgrade.output2"
+
+  let output3 =
+    Xapi_stdext_unix.Unixext.string_of_file "test_data/yum_upgrade.output3"
+
+  let output4 =
+    Xapi_stdext_unix.Unixext.string_of_file "test_data/yum_upgrade.output4"
+
+  let output5 =
+    Xapi_stdext_unix.Unixext.string_of_file "test_data/yum_upgrade.output5"
+
+  let tests =
+    `QuickAndAutoDocumented
+      [
+        ("", Ok ([], None))
+      ; ("A\n", Ok ([], None))
+      ; ( output1
+        , Ok
+            ( [
+                ( Pkg.
+                    {
+                      name= "amd-microcode"
+                    ; epoch= None
+                    ; version= "20220930"
+                    ; release= "2.xs8"
+                    ; arch= "noarch"
+                    }
+                  
+                , "remote-399dcec8-9ee7-0fb1-b1c9-f70fde0d1edb"
+                )
+              ; ( Pkg.
+                    {
+                      name= "device-mapper-multipath-libs"
+                    ; epoch= None
+                    ; version= "0.4.9"
+                    ; release= "136.xs8"
+                    ; arch= "x86_64"
+                    }
+                  
+                , "remote-399dcec8-9ee7-0fb1-b1c9-f70fde0d1edb"
+                )
+              ; ( Pkg.
+                    {
+                      name= "libfdt"
+                    ; epoch= None
+                    ; version= "1.6.0"
+                    ; release= "1.xs8"
+                    ; arch= "x86_64"
+                    }
+                  
+                , "remote-399dcec8-9ee7-0fb1-b1c9-f70fde0d1edb"
+                )
+              ; ( Pkg.
+                    {
+                      name= "microsemi-aacraid"
+                    ; epoch= None
+                    ; version= "1.2.1.60001"
+                    ; release= "1.xs8"
+                    ; arch= "x86_64"
+                    }
+                  
+                , "remote-399dcec8-9ee7-0fb1-b1c9-f70fde0d1edb"
+                )
+              ; ( Pkg.
+                    {
+                      name= "qemu"
+                    ; epoch= Some 2
+                    ; version= "4.2.1"
+                    ; release= "5.2.1.xs8"
+                    ; arch= "x86_64"
+                    }
+                  
+                , "remote-399dcec8-9ee7-0fb1-b1c9-f70fde0d1edb"
+                )
+              ; ( Pkg.
+                    {
+                      name= "qemu-dp"
+                    ; epoch= Some 2
+                    ; version= "7.0.0"
+                    ; release= "3.xs8"
+                    ; arch= "x86_64"
+                    }
+                  
+                , "remote-399dcec8-9ee7-0fb1-b1c9-f70fde0d1edb"
+                )
+              ]
+            , Some "/tmp/yum_save_tx.2023-04-03.04-59.z6T4rI.yumtx"
+            )
+        )
+      ; ( output2
+        , Ok
+            ( [
+                ( Pkg.
+                    {
+                      name= "curl"
+                    ; epoch= None
+                    ; version= "7.61.1"
+                    ; release= "30.el8"
+                    ; arch= "x86_64"
+                    }
+                  
+                , "baseos"
+                )
+              ; ( Pkg.
+                    {
+                      name= "distribution-gpg-keys"
+                    ; epoch= None
+                    ; version= "1.85"
+                    ; release= "1.el8"
+                    ; arch= "noarch"
+                    }
+                  
+                , "epel"
+                )
+              ; ( Pkg.
+                    {
+                      name= "openssl"
+                    ; epoch= Some 1
+                    ; version= "1.1.1k"
+                    ; release= "9.el8"
+                    ; arch= "x86_64"
+                    }
+                  
+                , "baseos"
+                )
+              ; ( Pkg.
+                    {
+                      name= "util-linux"
+                    ; epoch= None
+                    ; version= "2.32.1"
+                    ; release= "41.el8"
+                    ; arch= "x86_64"
+                    }
+                  
+                , "baseos"
+                )
+              ]
+            , None
+            )
+        )
+      ; ( output3
+        , Ok
+            ( [
+                ( Pkg.
+                    {
+                      name= "xenserver-telemetry"
+                    ; epoch= None
+                    ; version= "1.0.1"
+                    ; release= "31.2.g8c48473.xs8"
+                    ; arch= "noarch"
+                    }
+                  
+                , "local-bd74070c-897f-d2bc-654a-a3f87d47f6b6"
+                )
+              ]
+            , None
+            )
+        )
+      ; ( output4
+        , Error
+            "Can't parse output from yum upgrade (dry run): : Error: \
+             xenserver-telemetry conflicts with \
+             python2-bitarray-0.8.3-2.xs8.x86_64"
+        )
+      ; ( output5
+        , Ok
+            ( [
+                ( Pkg.
+                    {
+                      name= "amd-microcode"
+                    ; epoch= None
+                    ; version= "20220930"
+                    ; release= "2.xs8"
+                    ; arch= "noarch"
+                    }
+                  
+                , "local-bd74070c-897f-d2bc-654a-a3f87d47f6b6"
+                )
+              ; ( Pkg.
+                    {
+                      name= "python2-bitarray"
+                    ; epoch= None
+                    ; version= "0.8.3"
+                    ; release= "2.xs8"
+                    ; arch= "x86_64"
+                    }
+                  
+                , "local-bd74070c-897f-d2bc-654a-a3f87d47f6b6"
+                )
+              ; ( Pkg.
+                    {
+                      name= "xenserver-telemetry"
+                    ; epoch= None
+                    ; version= "1.0.1"
+                    ; release= "71.2.g8c48473.xs8"
+                    ; arch= "noarch"
+                    }
+                  
+                , "local-bd74070c-897f-d2bc-654a-a3f87d47f6b6"
+                )
+              ]
+            , None
+            )
+        )
+      ]
+end)
+
 let tests =
   make_suite "repository_helpers_"
     [
@@ -3224,6 +3460,9 @@ let tests =
     ; ("resort_guidances", GuidanceSetResortGuidancesTest.tests)
     ; ("prune_accumulative_updates", PruneAccumulativeUpdates.tests)
     ; ("prune_updateinfo_for_livepatches", PruneUpdateInfoForLivepatches.tests)
+    ; ( "parse_output_of_yum_upgrade_dry_run"
+      , ParseOutputOfYumUpgradeDryRun.tests
+      )
     ]
 
 let () = Alcotest.run "Repository Helpers" tests

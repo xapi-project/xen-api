@@ -515,7 +515,9 @@ let get_host_updates_in_json ~__context ~installed =
           Livepatch.get_applied_livepatches () |> List.map Livepatch.to_json
         in
         (* (pkg, repo) list *)
-        let latest_updates = get_updates_from_repoquery repositories in
+        let latest_updates =
+          get_updates_from_yum_upgrade_dry_run repositories
+        in
         List.iter (fun r -> clean_yum_cache r) repositories ;
         let latest_updates_in_json =
           validate_latest_updates ~latest_updates ~accumulative_updates
