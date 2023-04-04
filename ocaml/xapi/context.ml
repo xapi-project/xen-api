@@ -155,6 +155,14 @@ let string_of_task_and_tracing __context =
   | Some tracing ->
       __context.dbg ^ "\x00" ^ tracing
 
+let tracing_of_dbg dbg =
+  match String.index_opt dbg '\x00' with
+  | Some i ->
+      let tracing = String.sub dbg (i + 1) (String.length dbg - i - 1) in
+      (String.sub dbg 0 i, Tracing.t_of_string tracing)
+  | None ->
+      (dbg, Tracing.empty)
+
 let check_for_foreign_database ~__context =
   match __context.session_id with
   | Some sid -> (
