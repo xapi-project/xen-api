@@ -241,7 +241,7 @@ let stream_vhd filename =
       | Fragment.Batmap x ->
         Printf.printf "batmap\n%!"
       | Fragment.Block (offset, buffer) ->
-        Printf.printf "Block %Ld (len %d)\n%!" offset (Cstruct.len buffer)
+        Printf.printf "Block %Ld (len %d)\n%!" offset (Cstruct.length buffer)
 	end;*)
       tl () >>= fun x ->
       loop x in

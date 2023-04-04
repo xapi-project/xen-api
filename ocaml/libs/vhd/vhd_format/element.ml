@@ -27,9 +27,9 @@ let to_string = function
     Printf.sprintf "%Ld sectors copied starting at offset %Ld" len offset
   | `Sectors x ->
     let text = String.escaped (Cstruct.to_string (Cstruct.sub x 0 16)) in
-    if Cstruct.len x = sector_size
+    if Cstruct.length x = sector_size
     then Printf.sprintf "1 sector \"%s...\"" text
-    else Printf.sprintf "%d sectors \"%s...\"" (Cstruct.len x / sector_size) text
+    else Printf.sprintf "%d sectors \"%s...\"" (Cstruct.length x / sector_size) text
   | `Empty 1L ->
     "1 empty sector"
   | `Empty x ->
@@ -37,6 +37,6 @@ let to_string = function
 
 let len = function
   | `Copy(_, _, len) -> len
-  | `Sectors x -> Int64.of_int (Cstruct.len x / sector_size)
+  | `Sectors x -> Int64.of_int (Cstruct.length x / sector_size)
   | `Empty x -> x
 

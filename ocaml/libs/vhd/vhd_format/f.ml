@@ -23,14 +23,14 @@ exception Cstruct_differ
 let cstruct_equal a b =
   let check_contents a b =
     try
-      for i = 0 to Cstruct.len a - 1 do
+      for i = 0 to Cstruct.length a - 1 do
         let a' = Cstruct.get_char a i in
         let b' = Cstruct.get_char b i in
         if a' <> b' then raise Cstruct_differ
       done;
       true
     with _ -> false in
-  (Cstruct.len a = (Cstruct.len b)) && (check_contents a b)
+  (Cstruct.length a = (Cstruct.length b)) && (check_contents a b)
 
 exception Invalid_sector of int64 * int64
 
@@ -202,7 +202,7 @@ module Checksum = struct
   (* TODO: use the optimised mirage version *)
   let of_cstruct m =
     let rec inner n cur =
-      if n=Cstruct.len m then cur else
+      if n=Cstruct.length m then cur else
         inner (n+1) (Int32.add cur (Int32.of_int (Cstruct.get_uint8 m n)))
     in 
     Int32.lognot (inner 0 0l)
@@ -571,7 +571,7 @@ module Parent_locator = struct
     | Platform_code.MacX ->
       (* Interpret as a NULL-terminated string *)
       let rec find_string from =
-        if Cstruct.len t.platform_data <= from
+        if Cstruct.length t.platform_data <= from
         then t.platform_data
         else
           if Cstruct.get_uint8 t.platform_data from = 0
@@ -909,7 +909,7 @@ module BAT = struct
     roundup_sector size_needed
 
   let of_buffer (header: Header.t) (data: Cstruct.t) =
-    for i = 0 to (Cstruct.len data) / 4 - 1 do
+    for i = 0 to (Cstruct.length data) / 4 - 1 do
       Cstruct.BE.set_uint32 data (i * 4) unused
     done;
     { max_table_entries = header.Header.max_table_entries; data; highest_value = -1l; }
@@ -919,7 +919,7 @@ module BAT = struct
     for i = 0 to length t - 1 do
       if get t i <> unused then used := (i, get t i) :: !used
     done;
-    Printf.sprintf "(%d rounded to %d)[ %s ] with highest_value = %ld" (length t) (Cstruct.len t.data / 4) (String.concat "; " (List.map (fun (i, x) -> Printf.sprintf "(%d, %lx)" i x) (List.rev !used))) t.highest_value
+    Printf.sprintf "(%d rounded to %d)[ %s ] with highest_value = %ld" (length t) (Cstruct.length t.data / 4) (String.concat "; " (List.map (fun (i, x) -> Printf.sprintf "(%d, %lx)" i x) (List.rev !used))) t.highest_value
 
   let unmarshal (buf: Cstruct.t) (header: Header.t) =
     let t = {
@@ -933,7 +933,7 @@ module BAT = struct
     t
 
   let marshal (buf: Cstruct.t) (t: t) =
-    Cstruct.blit t.data 0 buf 0 (Cstruct.len t.data)
+    Cstruct.blit t.data 0 buf 0 (Cstruct.length t.data)
   
   let dump t =
     Printf.printf "BAT\n";
@@ -990,7 +990,7 @@ module Batmap_header = struct
     R.ok { offset; size_in_sectors; major_version; minor_version; checksum; marker }
 
   let marshal (buf: Cstruct.t) (t: t) =
-    for i = 0 to Cstruct.len buf - 1 do
+    for i = 0 to Cstruct.length buf - 1 do
       Cstruct.set_uint8 buf i 0
     done;
     set_header_offset buf t.offset;
@@ -1096,12 +1096,12 @@ module Bitmap_cache = struct
     all_ones: Cstruct.t;
   }
   let all_ones size =
-    if size = Cstruct.len sector_all_ones
+    if size = Cstruct.length sector_all_ones
     then sector_all_ones
     else constant size 0xff
 
   let all_zeroes size =
-    if size = Cstruct.len sector_all_zeroes
+    if size = Cstruct.length sector_all_zeroes
     then sector_all_zeroes
     else constant size 0x0
  
@@ -1117,10 +1117,10 @@ module Sector = struct
   type t = Cstruct.t
 
   let dump t =
-    if Cstruct.len t = 0
+    if Cstruct.length t = 0
     then Printf.printf "Empty sector\n"
     else
-      for i=0 to Cstruct.len t - 1 do
+      for i=0 to Cstruct.length t - 1 do
         if (i mod 16 = 15) then
           Printf.printf "%02x\n" (Cstruct.get_uint8 t i)
         else
@@ -1510,11 +1510,11 @@ module From_file = functor(F: S.FILE) -> struct
     let sector_start = (offset lsr sector_shift) lsl sector_shift in
     let current = Memory.alloc sector_size in
     really_read fd sector_start current >>= fun () ->
-    let adjusted_len = offset ++ (of_int (Cstruct.len buffer)) -- sector_start in
+    let adjusted_len = offset ++ (of_int (Cstruct.length buffer)) -- sector_start in
     let write_this_time = max adjusted_len 512L in
     let remaining_to_write = adjusted_len -- write_this_time in
 
-    let useful_bytes_to_write = Stdlib.min (Cstruct.len buffer) (to_int (write_this_time -- offset ++ sector_start)) in
+    let useful_bytes_to_write = Stdlib.min (Cstruct.length buffer) (to_int (write_this_time -- offset ++ sector_start)) in
     Cstruct.blit buffer 0 current (to_int (offset -- sector_start)) useful_bytes_to_write;
     really_write fd sector_start current >>= fun () ->
     if remaining_to_write <= 0L
@@ -1864,12 +1864,12 @@ module From_file = functor(F: S.FILE) -> struct
       | [] -> return ()
       | b :: bs ->
         really_write t offset b >>= fun () ->
-        write_physical t (Int64.(add offset (of_int (Cstruct.len b))), bs)
+        write_physical t (Int64.(add offset (of_int (Cstruct.length b))), bs)
 
     let count_sectors bufs =
       let rec loop acc = function
       | [] -> acc
-      | b :: bs -> loop (Cstruct.len b / sector_size + acc) bs in
+      | b :: bs -> loop (Cstruct.length b / sector_size + acc) bs in
       loop 0 bufs
 
     (* quantise the (offset, buffer) into within-block chunks *)
@@ -1884,7 +1884,7 @@ module From_file = functor(F: S.FILE) -> struct
         List.rev acc
       | b :: bs ->
         let remaining_this_block = block_size_in_sectors - sector in
-        let available = Cstruct.len b / sector_size in
+        let available = Cstruct.length b / sector_size in
         if available = 0
         then loop acc (offset, bufs) (block, sector) bs
         else if available < remaining_this_block

@@ -30,10 +30,10 @@ let complete name offset op fd buffer =
   if !debug_io
   then Printf.fprintf stderr "%s offset=%s buffer = [%s](%d)\n%!"
     name (match offset with Some x -> Int64.to_string x | None -> "None")
-    (if Cstruct.len buffer > 16
+    (if Cstruct.length buffer > 16
      then (String.escaped (Cstruct.to_string (Cstruct.sub buffer 0 13))) ^ "..."
      else (String.escaped (Cstruct.to_string buffer)))
-    (Cstruct.len buffer);
+    (Cstruct.length buffer);
   if n = 0 && len <> 0
   then fail End_of_file
   else return ()
@@ -82,7 +82,7 @@ module Fd = struct
     (* All reads and writes should be sector-aligned *)
     assert_sector_aligned offset;
     assert_sector_aligned (Int64.of_int buf.Cstruct.off);
-    assert_sector_aligned (Int64.of_int (Cstruct.len buf));
+    assert_sector_aligned (Int64.of_int (Cstruct.length buf));
 
     Lwt_mutex.with_lock lock
       (fun () ->
@@ -91,14 +91,14 @@ module Fd = struct
           complete "read" (Some offset) Lwt_bytes.read fd buf
         ) (function
         | Unix.Unix_error(Unix.EINVAL, "read", "") as e ->
-          Printf.fprintf stderr "really_read offset = %Ld len = %d: EINVAL (alignment?)\n%!" offset (Cstruct.len buf);
+          Printf.fprintf stderr "really_read offset = %Ld len = %d: EINVAL (alignment?)\n%!" offset (Cstruct.length buf);
           fail e
         | End_of_file as e ->
-          Printf.fprintf stderr "really_read offset = %Ld len = %d: End_of_file\n%!" offset (Cstruct.len buf);
+          Printf.fprintf stderr "really_read offset = %Ld len = %d: End_of_file\n%!" offset (Cstruct.length buf);
           fail e
         | e ->
           Printf.fprintf stderr "really_read offset = %Ld len = %d: %s\n%!"
-            offset (Cstruct.len buf) (Printexc.to_string e);
+            offset (Cstruct.length buf) (Printexc.to_string e);
           fail e
         )
       )
@@ -107,7 +107,7 @@ module Fd = struct
     (* All reads and writes should be sector-aligned *)
     assert_sector_aligned offset;
     assert_sector_aligned (Int64.of_int buf.Cstruct.off);
-    assert_sector_aligned (Int64.of_int (Cstruct.len buf));
+    assert_sector_aligned (Int64.of_int (Cstruct.length buf));
 
     Lwt_mutex.with_lock lock
       (fun () ->
@@ -116,14 +116,14 @@ module Fd = struct
           complete "write" (Some offset) Lwt_bytes.write fd buf
         ) (function
         | Unix.Unix_error(Unix.EINVAL, "write", "") as e ->
-          Printf.fprintf stderr "really_write offset = %Ld len = %d: EINVAL (alignment?)\n%!" offset (Cstruct.len buf);
+          Printf.fprintf stderr "really_write offset = %Ld len = %d: EINVAL (alignment?)\n%!" offset (Cstruct.length buf);
           fail e
         | End_of_file as e ->
-          Printf.fprintf stderr "really_write offset = %Ld len = %d: End_of_file\n%!" offset (Cstruct.len buf);
+          Printf.fprintf stderr "really_write offset = %Ld len = %d: End_of_file\n%!" offset (Cstruct.length buf);
           fail e
         | e ->
           Printf.fprintf stderr "really_write offset = %Ld len = %d: %s\n%!"
-            offset (Cstruct.len buf) (Printexc.to_string e);
+            offset (Cstruct.length buf) (Printexc.to_string e);
           fail e
         )
       )

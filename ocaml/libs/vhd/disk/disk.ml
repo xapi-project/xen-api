@@ -53,8 +53,8 @@ let print_ocaml out t =
   Printf.fprintf out "  let t = ref Disk.empty in\n";
   Int64Map.iter
     (fun ofs cstr ->
-      let buf = Bytes.make (Cstruct.len cstr) '\000' in
-      Cstruct.blit_to_bytes cstr 0 buf 0 (Cstruct.len cstr);
+      let buf = Bytes.make (Cstruct.length cstr) '\000' in
+      Cstruct.blit_to_bytes cstr 0 buf 0 (Cstruct.length cstr);
       Printf.fprintf out "  t := Disk.write_string !t %LdL \"%s\";\n"
         ofs (buf |> Bytes.to_string |> String.escaped)
     ) t;

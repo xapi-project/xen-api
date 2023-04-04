@@ -116,7 +116,7 @@ let check_raw_stream_contents t expected =
       return (Int64.(add offset len))
     | `Sectors data ->
       let rec loop offset remaining =
-        if Cstruct.len remaining = 0
+        if Cstruct.length remaining = 0
         then return offset
         else
           (* the sector [offset] should be in the contents list *)
@@ -149,12 +149,12 @@ let verify t contents =
         | `Empty y -> return (Int64.(add offset (mul y 512L)))
         | `Sectors data ->
           IO.really_write fd offset data >>= fun () ->
-          return (Int64.(add offset (of_int (Cstruct.len data))))
+          return (Int64.(add offset (of_int (Cstruct.length data))))
         | `Copy(fd', offset', len') ->
           let buf = Memory.alloc (Int64.to_int len' * 512) in
           IO.really_read fd' (Int64.mul offset' 512L) buf >>= fun () ->
           IO.really_write fd offset buf >>= fun () ->
-          return (Int64.(add offset (of_int (Cstruct.len buf))))
+          return (Int64.(add offset (of_int (Cstruct.length buf))))
       ) 0L stream.elements in
 
     (* Stream the contents as a fresh vhd *)
