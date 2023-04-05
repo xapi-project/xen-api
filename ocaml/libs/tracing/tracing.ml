@@ -37,6 +37,16 @@ let ok_none = Ok None
 
 module SpanContext = struct
   type t = {trace_id: string; span_id: string} [@@deriving rpcty]
+
+  let to_traceparent t = Printf.sprintf "00-%s-%s-00" t.trace_id t.span_id
+
+  let of_traceparent traceparent =
+    let elements = String.split_on_char '-' traceparent in
+    match elements with
+    | ["00"; trace_id; span_id; "00"] ->
+        Some {trace_id; span_id}
+    | _ ->
+        None
 end
 
 module Span = struct
@@ -50,6 +60,8 @@ module Span = struct
     ; tags: (string * string) list
   }
   [@@deriving rpcty]
+
+  let get_context t = t.context
 
   let generate_id n = String.init n (fun _ -> "0123456789abcdef".[Random.int 16])
 
@@ -251,6 +263,17 @@ module Tracer = struct
       }
     in
     {name= ""; provider}
+
+  let span_of_span_context context name : Span.t =
+    {
+      context
+    ; name
+    ; parent= None
+    ; span_kind= SpanKind.Client (* This will be the span of the client call*)
+    ; begin_time= Unix.gettimeofday ()
+    ; end_time= None
+    ; tags= []
+    }
 
   let start ~tracer:t ?(span_kind = SpanKind.Internal) ~name ~parent () :
       (Span.t option, exn) result =

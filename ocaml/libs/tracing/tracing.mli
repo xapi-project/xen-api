@@ -18,8 +18,18 @@ module SpanKind : sig
   val to_string : t -> string
 end
 
+module SpanContext : sig
+  type t
+
+  val to_traceparent : t -> string
+
+  val of_traceparent : string -> t option
+end
+
 module Span : sig
   type t
+
+  val get_context : t -> SpanContext.t
 
   val of_string : string -> t option
 
@@ -36,6 +46,8 @@ end
 
 module Tracer : sig
   type t
+
+  val span_of_span_context : SpanContext.t -> string -> Span.t
 
   val start :
        tracer:t
