@@ -37,3 +37,5 @@ module TracerProvider : sig
 end
 
 val get_tracer : name:string -> Tracer.t
+
+val main : unit -> Thread.t

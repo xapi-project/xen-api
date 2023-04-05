@@ -18,6 +18,8 @@ open D
 
 type endpoint = Bugtool | Url of Uri.t
 
+let url_file = "/etc/xapi-tracing-url"
+
 let ok_none = Ok None
 
 module SpanContext = struct
@@ -77,6 +79,12 @@ module Spans = struct
         | Some span_list ->
             if List.length span_list < 1000 then
               Hashtbl.replace spans key (span :: span_list)
+    )
+
+  let since () =
+    Xapi_stdext_threads.Threadext.Mutex.execute lock (fun () ->
+        let copy = Hashtbl.copy spans in
+        Hashtbl.clear spans ; copy
     )
 end
 
@@ -161,8 +169,10 @@ module Export = struct
           }
           [@@deriving rpcty]
 
-          let json_of_t s =
-            Rpcmarshal.marshal t.Rpc.Types.ty s |> Jsonrpc.to_string
+          type t_list = t list [@@deriving rpcty]
+
+          let json_of_t_list s =
+            Rpcmarshal.marshal t_list.Rpc.Types.ty s |> Jsonrpc.to_string
         end
 
         let zipkin_span_of_span : Span.t -> ZipkinSpan.t =
@@ -175,13 +185,105 @@ module Export = struct
           ; timestamp= int_of_float (s.begin_time *. 1000000.)
           ; duration=
               Option.value s.end_time ~default:(Unix.gettimeofday () *. 1000000.)
-              -. (s.begin_time *. 1000000.)
+              -. s.begin_time
+              |> ( *. ) 1000000.
               |> int_of_float
           ; kind= "SERVER"
           ; localEndpoint= {serviceName= "xapi"}
           ; tags= s.tags
           }
+
+        let content_of (spans : Span.t list) =
+          List.map zipkin_span_of_span spans |> ZipkinSpan.json_of_t_list
       end
     end
   end
+
+  module Destination = struct
+    module Http = struct
+      module Request = Cohttp.Request.Make (Cohttp_posix_io.Buffered_IO)
+      module Response = Cohttp.Response.Make (Cohttp_posix_io.Buffered_IO)
+
+      let export ~span_json ~url : (string, exn) result =
+        try
+          let body = span_json in
+          let uri = Uri.of_string url in
+          let headers =
+            Cohttp.Header.of_list
+              [
+                ("accepts", "application/json")
+              ; ("content-type", "application/json")
+              ; ("content-length", string_of_int (String.length body))
+              ]
+          in
+          Open_uri.with_open_uri uri (fun fd ->
+              let request =
+                Cohttp.Request.make ~meth:`POST ~version:`HTTP_1_1 ~headers uri
+              in
+              let ic = Unix.in_channel_of_descr fd in
+              let oc = Unix.out_channel_of_descr fd in
+              Request.write
+                (fun writer -> Request.write_body writer body)
+                request oc ;
+              Unix.shutdown fd Unix.SHUTDOWN_SEND ;
+              match try Response.read ic with _ -> `Eof with
+              | `Eof ->
+                  Ok ""
+              | `Invalid x ->
+                  Error (Failure ("invalid read: " ^ x))
+              | `Ok response ->
+                  let body = Buffer.create 128 in
+                  let reader = Response.make_body_reader response ic in
+                  let rec loop () =
+                    match Response.read_body_chunk reader with
+                    | Cohttp.Transfer.Chunk x ->
+                        Buffer.add_string body x ; loop ()
+                    | Cohttp.Transfer.Final_chunk x ->
+                        Buffer.add_string body x
+                    | Cohttp.Transfer.Done ->
+                        ()
+                  in
+                  loop () ;
+                  Ok (Buffer.contents body)
+          )
+        with e -> Error e
+    end
+
+    let export_to_http_server () =
+      debug "Tracing: About to export to http server" ;
+      let url =
+        Xapi_stdext_unix.Unixext.string_of_file url_file |> String.trim
+      in
+      let span_list = Spans.since () in
+      try
+        Hashtbl.iter
+          (fun _ span_list ->
+            let zipkin_spans = Content.Json.Zipkinv2.content_of span_list in
+            match Http.export ~span_json:zipkin_spans ~url with
+            | Ok _ ->
+                ()
+            | Error e ->
+                raise e
+          )
+          span_list ;
+        Ok ()
+      with e -> Error e
+
+    let main () =
+      Thread.create
+        (fun () ->
+          while true do
+            debug "Tracing: Waiting 30s before exporting spans" ;
+            Thread.delay 30. ;
+            match export_to_http_server () with
+            | Ok () ->
+                ()
+            | Error e ->
+                debug "Tracing: Export ERROR %s" (Printexc.to_string e)
+          done
+        )
+        ()
+  end
 end
+
+let main = Export.Destination.main
