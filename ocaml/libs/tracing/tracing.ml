@@ -33,6 +33,12 @@ module SpanKind = struct
         "INTERNAL"
 end
 
+let endpoint_of_string = function
+  | "bugtool" ->
+      Bugtool
+  | url ->
+      Url (Uri.of_string url)
+
 let ok_none = Ok None
 
 module Status = struct
@@ -373,6 +379,52 @@ let lock = Mutex.create ()
 
 let tracer_providers = Hashtbl.create 100
 
+let set ?enabled ?tags ?endpoints ?filters ?processors ~uuid () =
+  Xapi_stdext_threads.Threadext.Mutex.execute lock (fun () ->
+      let provider =
+        match Hashtbl.find_opt tracer_providers uuid with
+        | Some (provider : TracerProvider.t) ->
+            let enabled = Option.value ~default:provider.enabled enabled in
+            let tags = Option.value ~default:provider.tags tags in
+            let endpoints =
+              Option.fold ~none:provider.endpoints
+                ~some:(List.map endpoint_of_string)
+                endpoints
+            in
+            let filters = Option.value ~default:provider.filters filters in
+            let processors =
+              Option.value ~default:provider.processors processors
+            in
+            {provider with enabled; tags; endpoints; filters; processors}
+        | None ->
+            failwith
+              (Printf.sprintf "The TracerProvider : %s does not exist" uuid)
+      in
+      Hashtbl.replace tracer_providers uuid provider
+  )
+
+let create ~enabled ~tags ~endpoints ~filters ~processors ~service_name
+    ~name_label ~uuid =
+  let endpoints = List.map endpoint_of_string endpoints in
+  let provider : TracerProvider.t =
+    {name_label; tags; endpoints; filters; processors; service_name; enabled}
+  in
+  Xapi_stdext_threads.Threadext.Mutex.execute lock (fun () ->
+      match Hashtbl.find_opt tracer_providers uuid with
+      | None ->
+          Hashtbl.add tracer_providers uuid provider
+      | Some _ ->
+          failwith "Tracing : TracerProvider already exists"
+  )
+
+let destroy ~uuid =
+  Xapi_stdext_threads.Threadext.Mutex.execute lock (fun () ->
+      Hashtbl.remove tracer_providers uuid
+  )
+
+let get_tracer_providers () =
+  Hashtbl.fold (fun _ provider acc -> provider :: acc) tracer_providers []
+
 let get_tracer ~name =
   let providers =
     Xapi_stdext_threads.Threadext.Mutex.execute lock (fun () ->
@@ -386,9 +438,6 @@ let get_tracer ~name =
       Tracer.create ~name ~provider
   | None ->
       warn "No provider found" ; Tracer.no_op
-
-let get_tracer_providers () =
-  Hashtbl.fold (fun _ provider acc -> provider :: acc) tracer_providers []
 
 let enable_span_garbage_collector ?(timeout = 86400.) () =
   Spans.GC.initialise_thread ~timeout

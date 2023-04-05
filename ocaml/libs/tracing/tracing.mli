@@ -73,6 +73,29 @@ module TracerProvider : sig
   type t
 end
 
+val set :
+     ?enabled:bool
+  -> ?tags:(string * string) list
+  -> ?endpoints:string list
+  -> ?filters:string list
+  -> ?processors:string list
+  -> uuid:string
+  -> unit
+  -> unit
+
+val create :
+     enabled:bool
+  -> tags:(string * string) list
+  -> endpoints:string list
+  -> filters:string list
+  -> processors:string list
+  -> service_name:string
+  -> name_label:string
+  -> uuid:string
+  -> unit
+
+val destroy : uuid:string -> unit
+
 val get_tracer : name:string -> Tracer.t
 
 module Export : sig
