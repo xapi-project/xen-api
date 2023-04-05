@@ -11,6 +11,15 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
+
+module D = Debug.Make (struct let name = "tracing" end)
+
+open D
+
+type endpoint = Bugtool | Url of Uri.t
+
+let ok_none = Ok None
+
 module SpanContext = struct
   type t = {trace_id: string; span_id: string} [@@deriving rpcty]
 end
@@ -71,10 +80,63 @@ module Spans = struct
     )
 end
 
+module TracerProvider = struct
+  type t = {
+      name_label: string
+    ; tags: (string * string) list
+    ; endpoints: endpoint list
+    ; filters: string list
+    ; processors: string list
+    ; enabled: bool
+    ; service_name: string
+  }
+end
+
 module Tracer = struct
-  let start ~name ~parent : (Span.t option, exn) result =
-    let span = Span.start ~name ~parent () in
-    Spans.add_to_spans ~span ; Ok (Some span)
+  type t = {name: string; provider: TracerProvider.t}
+
+  let create ~name ~provider = {name; provider}
+
+  let no_op =
+    let provider : TracerProvider.t =
+      {
+        name_label= ""
+      ; tags= []
+      ; endpoints= []
+      ; filters= []
+      ; processors= []
+      ; enabled= false
+      ; service_name= ""
+      }
+    in
+    {name= ""; provider}
+
+  let start ~tracer:t ~name ~parent : (Span.t option, exn) result =
+    (* Do not start span if the TracerProvider is diabled*)
+    if not t.provider.enabled then
+      ok_none
+    else
+      let tags = t.provider.tags in
+      let span = Span.start ~tags ~name ~parent () in
+      Spans.add_to_spans ~span ; Ok (Some span)
 
   let finish span = Ok (Option.map (fun span -> Span.finish ~span ()) span)
 end
+
+let lock = Mutex.create ()
+
+let tracer_providers = Hashtbl.create 100
+
+let get_tracer ~name =
+  let providers =
+    Xapi_stdext_threads.Threadext.Mutex.execute lock (fun () ->
+        Hashtbl.fold (fun _k v acc -> v :: acc) tracer_providers []
+    )
+  in
+  match
+    List.find_opt (fun provider -> provider.TracerProvider.enabled) providers
+  with
+  | Some provider ->
+      Tracer.create ~name ~provider
+  | None ->
+      warn "No provider found" ; Tracer.no_op
