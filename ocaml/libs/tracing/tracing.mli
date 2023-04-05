@@ -53,7 +53,7 @@ end
 module Tracer : sig
   type t
 
-  val span_of_span_context : SpanContext.t -> string -> Span.t
+  val span_of_span_context : t -> SpanContext.t -> string -> Span.t
 
   val start :
        tracer:t

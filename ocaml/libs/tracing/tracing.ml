@@ -63,6 +63,7 @@ module Span = struct
     ; status: Status.t
     ; parent: t option
     ; name: string
+    ; service_name: string
     ; begin_time: float
     ; end_time: float option
     ; tags: (string * string) list
@@ -73,7 +74,7 @@ module Span = struct
 
   let generate_id n = String.init n (fun _ -> "0123456789abcdef".[Random.int 16])
 
-  let start ?(tags = []) ~name ~parent ~span_kind () =
+  let start ?(tags = []) ~name ~parent ~span_kind ~service_name () =
     let trace_id =
       match parent with
       | None ->
@@ -87,7 +88,17 @@ module Span = struct
     let begin_time = Unix.gettimeofday () in
     let end_time = None in
     let status : Status.t = {status_code= Status.Unset; description= None} in
-    {context; span_kind; status; parent; name; begin_time; end_time; tags}
+    {
+      context
+    ; span_kind
+    ; status
+    ; parent
+    ; name
+    ; service_name
+    ; begin_time
+    ; end_time
+    ; tags
+    }
 
   let finish ?(tags = []) ~span () =
     {span with end_time= Some (Unix.gettimeofday ()); tags= span.tags @ tags}
@@ -312,11 +323,12 @@ module Tracer = struct
     in
     {name= ""; provider}
 
-  let span_of_span_context context name : Span.t =
+  let span_of_span_context t context name : Span.t =
     {
       context
     ; status= {status_code= Status.Unset; description= None}
     ; name
+    ; service_name= t.provider.service_name
     ; parent= None
     ; span_kind= SpanKind.Client (* This will be the span of the client call*)
     ; begin_time= Unix.gettimeofday ()
@@ -331,7 +343,10 @@ module Tracer = struct
       ok_none
     else
       let tags = t.provider.tags in
-      let span = Span.start ~tags ~name ~parent ~span_kind () in
+      let span =
+        Span.start ~tags ~name ~parent ~span_kind
+          ~service_name:t.provider.service_name ()
+      in
       Spans.add_to_spans ~span ; Ok (Some span)
 
   let finish ?error span =
@@ -416,6 +431,7 @@ module Export = struct
 
         let zipkin_span_of_span : Span.t -> ZipkinSpan.t =
          fun s ->
+          let serviceName = s.service_name in
           {
             id= s.context.span_id
           ; traceId= s.context.trace_id
@@ -430,7 +446,7 @@ module Export = struct
           ; kind=
               Option.map SpanKind.to_string
                 (ZipkinSpan.kind_to_zipkin_kind s.span_kind)
-          ; localEndpoint= {serviceName= "xapi"}
+          ; localEndpoint= {serviceName}
           ; tags= s.tags
           }
 
