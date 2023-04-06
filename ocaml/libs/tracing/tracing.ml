@@ -76,6 +76,13 @@ module Span = struct
   }
   [@@deriving rpcty]
 
+  let compare span1 span2 =
+    SpanContext.(
+      String.compare
+        (to_traceparent span1.context)
+        (to_traceparent span2.context)
+    )
+
   let get_context t = t.context
 
   let generate_id n = String.init n (fun _ -> "0123456789abcdef".[Random.int 16])
@@ -105,6 +112,8 @@ module Span = struct
     ; end_time
     ; tags
     }
+
+  let get_tag t tag = snd (List.find (fun s -> fst s = tag) t.tags)
 
   let finish ?(tags = []) ~span () =
     {span with end_time= Some (Unix.gettimeofday ()); tags= span.tags @ tags}
@@ -173,6 +182,8 @@ module Spans = struct
 
   let finished_spans = Hashtbl.create 100
 
+  let span_hashtbl_is_empty () = Hashtbl.length spans = 0
+
   let add_to_spans ~(span : Span.t) =
     let key = span.context.trace_id in
     Xapi_stdext_threads.Threadext.Mutex.execute lock (fun () ->
@@ -237,6 +248,8 @@ module Spans = struct
         Hashtbl.clear finished_spans ;
         copy
     )
+
+  let dump () = Hashtbl.(copy spans, Hashtbl.copy finished_spans)
 
   module GC = struct
     let lock = Mutex.create ()
@@ -361,8 +374,8 @@ module Tracer = struct
          (fun span ->
            let span =
              match error with
-             | Some exn ->
-                 Span.set_error span exn
+             | Some exn_t ->
+                 Span.set_error span exn_t
              | None ->
                  Span.set_ok span
            in
@@ -372,7 +385,9 @@ module Tracer = struct
          span
       )
 
-  let assert_finished x = Spans.assert_finished x
+  let span_is_finished x = Spans.span_is_finished x
+
+  let span_hashtbl_is_empty () = Spans.span_hashtbl_is_empty ()
 end
 
 let lock = Mutex.create ()

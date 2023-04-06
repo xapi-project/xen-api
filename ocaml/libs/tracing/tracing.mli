@@ -35,6 +35,8 @@ end
 module Span : sig
   type t
 
+  val compare : t -> t -> int
+
   val get_context : t -> SpanContext.t
 
   val of_string : string -> t option
@@ -42,12 +44,17 @@ module Span : sig
   val to_string : t -> string
 
   val set_span_kind : t -> SpanKind.t -> t
+
+  val get_tag : t -> string -> string
 end
 
 module Spans : sig
   val set_max_spans : int -> unit
 
   val set_max_traces : int -> unit
+
+  val dump :
+    unit -> (string, Span.t list) Hashtbl.t * (string, Span.t list) Hashtbl.t
 end
 
 module Tracer : sig
@@ -66,7 +73,9 @@ module Tracer : sig
   val finish :
     ?error:exn * string -> Span.t option -> (Span.t option, exn) result
 
-  val assert_finished : Span.t option -> bool
+  val span_is_finished : Span.t option -> bool
+
+  val span_hashtbl_is_empty : unit -> bool
 end
 
 module TracerProvider : sig
