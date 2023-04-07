@@ -65,4 +65,30 @@ val apply_guest_agent_config : __context:Context.t -> unit
 
 module PeriodicUpdateSync : sig
   val set_enabled : __context:Context.t -> value:bool -> unit
+
+  (* below for UT only *)
+  val seconds_random_within_an_hour : unit -> int
+
+  val daily_update_sync_delay :
+       first_run:bool
+    -> tm_now:Unix.tm
+    -> hour_configed_int:int
+    -> secs_random_within_an_hour:int
+    -> float
+
+  val weekly_update_sync_delay :
+       first_run:bool
+    -> tm_now:Unix.tm
+    -> hour_configed_int:int
+    -> day_configed_int:int
+    -> secs_random_within_an_hour:int
+    -> float
+
+  val monthly_update_sync_delay :
+       first_run:bool
+    -> tm_now:Unix.tm
+    -> hour_configed_int:int
+    -> day_configed_int:int
+    -> secs_random_within_an_hour:int
+    -> float
 end

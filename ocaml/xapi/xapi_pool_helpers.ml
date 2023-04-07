@@ -307,6 +307,201 @@ module PeriodicUpdateSync = struct
     | `weekly ->
         "weekly"
 
+  let daily_update_sync_delay ~first_run ~tm_now ~hour_configed_int
+      ~secs_random_within_an_hour =
+    let execute_next_day =
+      if not first_run then
+        true
+      else if hour_configed_int <= tm_now.Unix.tm_hour then
+        true
+      else
+        false
+    in
+    let secs_passed_today =
+      (tm_now.Unix.tm_hour * 60 * 60)
+      + (tm_now.Unix.tm_min * 60)
+      + tm_now.Unix.tm_sec
+    in
+    let secs_of_day_configed = hour_configed_int * 60 * 60 in
+    let secs_configed_with_random =
+      secs_of_day_configed + secs_random_within_an_hour
+    in
+    debug "[PeriodicUpdateSync] daily_update_sync_delay, execute_next_day=%B"
+      execute_next_day ;
+
+    if execute_next_day then
+      Int.to_float
+        (secs_configed_with_random - secs_passed_today + (24 * 60 * 60))
+    else
+      Int.to_float (secs_configed_with_random - secs_passed_today)
+
+  let weekly_update_sync_delay ~first_run ~tm_now ~hour_configed_int
+      ~day_configed_int ~secs_random_within_an_hour =
+    (* day_configed_int: -7..-1, 1..7 -> weekday_configed: 0..6, to align
+       with tm_now.Unix.tm_wday, where Sunday is 0 *)
+    let weekday_configed =
+      if day_configed_int > 0 then
+        day_configed_int - 1
+      else
+        7 + day_configed_int
+    in
+
+    let execute_next_week =
+      if not first_run then
+        true
+      else if
+        weekday_configed < tm_now.Unix.tm_wday
+        || weekday_configed = tm_now.Unix.tm_wday
+           && hour_configed_int <= tm_now.Unix.tm_hour
+      then
+        true
+      else
+        false
+    in
+
+    let secs_passed_this_week =
+      (tm_now.Unix.tm_wday * 24 * 60 * 60)
+      + (tm_now.Unix.tm_hour * 60 * 60)
+      + (tm_now.Unix.tm_min * 60)
+      + tm_now.Unix.tm_sec
+    in
+
+    let secs_configed =
+      (weekday_configed * 24 * 60 * 60) + (hour_configed_int * 60 * 60)
+    in
+
+    let secs_configed_with_random =
+      secs_configed + secs_random_within_an_hour
+    in
+
+    let weekday_str = weekday_int_to_str ~weekday_int:weekday_configed in
+    debug
+      "[PeriodicUpdateSync] weekly_update_sync_delay, execute_next_week=%B on \
+       %s"
+      execute_next_week weekday_str ;
+
+    if execute_next_week then
+      Int.to_float
+        (secs_configed_with_random - secs_passed_this_week + (7 * 24 * 60 * 60))
+    else
+      Int.to_float (secs_configed_with_random - secs_passed_this_week)
+
+  let time_in_seconds_from_date_time ~tm_year ~tm_mon ~tm_mday ~tm_hour ~tm_min
+      ~tm_sec =
+    let tz = try Unix.getenv "TZ" with _ -> "" in
+    Unix.putenv "TZ" "UTC" ;
+    let seconds, _ =
+      Unix.mktime
+        {
+          tm_year
+        ; tm_mon
+        ; tm_mday
+        ; tm_hour
+        ; tm_min
+        ; tm_sec
+        ; tm_wday= 0
+        ; tm_yday= 0
+        ; tm_isdst= false
+        }
+    in
+    Unix.putenv "TZ" tz ; seconds
+
+  let monthly_update_sync_delay ~first_run ~tm_now ~hour_configed_int
+      ~day_configed_int ~secs_random_within_an_hour =
+    let monthday_this_month =
+      if day_configed_int > 0 then
+        day_configed_int
+      else
+        let year_next_month, month_next =
+          if tm_now.Unix.tm_mon = 11 then
+            (tm_now.Unix.tm_year + 1, 0)
+          else
+            (tm_now.Unix.tm_year, tm_now.Unix.tm_mon + 1)
+        in
+
+        let smallest_secs_next_month =
+          time_in_seconds_from_date_time ~tm_year:year_next_month
+            ~tm_mon:month_next ~tm_mday:1 ~tm_hour:0 ~tm_min:0 ~tm_sec:0
+        in
+
+        let secs_configed =
+          smallest_secs_next_month
+          +. Int.to_float (day_configed_int * 24 * 60 * 60)
+          +. Int.to_float (hour_configed_int * 60 * 60)
+        in
+        let tm_configed = Unix.gmtime secs_configed in
+        tm_configed.Unix.tm_mday
+    in
+    let execute_next_month =
+      if not first_run then
+        true
+      else if
+        monthday_this_month < tm_now.Unix.tm_mday
+        || monthday_this_month = tm_now.Unix.tm_mday
+           && hour_configed_int <= tm_now.Unix.tm_hour
+      then
+        true
+      else
+        false
+    in
+    let year_next_run, month_next_run =
+      if execute_next_month then
+        if tm_now.Unix.tm_mon = 11 then
+          (tm_now.Unix.tm_year + 1, 0)
+        else
+          (tm_now.Unix.tm_year, tm_now.Unix.tm_mon + 1)
+      else
+        (tm_now.Unix.tm_year, tm_now.Unix.tm_mon)
+    in
+    let monthday_next_run =
+      if day_configed_int > 0 then
+        day_configed_int
+      else if not execute_next_month then
+        monthday_this_month
+      else
+        let year_2_months_later, month_next_next =
+          if tm_now.Unix.tm_mon = 11 then
+            (tm_now.Unix.tm_year + 1, 1)
+          else if tm_now.Unix.tm_mon = 10 then
+            (tm_now.Unix.tm_year + 1, 0)
+          else
+            (tm_now.Unix.tm_year, tm_now.Unix.tm_mon + 2)
+        in
+
+        let smallest_secs_2_months_later =
+          time_in_seconds_from_date_time ~tm_year:year_2_months_later
+            ~tm_mon:month_next_next ~tm_mday:1 ~tm_hour:0 ~tm_min:0 ~tm_sec:0
+        in
+
+        let secs_configed =
+          Float.to_int smallest_secs_2_months_later
+          + (day_configed_int * 24 * 60 * 60)
+          + (hour_configed_int * 60 * 60)
+        in
+        let tm_configed = Unix.gmtime (Int.to_float secs_configed) in
+        tm_configed.Unix.tm_mday
+    in
+    let secs_configed_next_run =
+      time_in_seconds_from_date_time ~tm_year:year_next_run
+        ~tm_mon:month_next_run ~tm_mday:monthday_next_run
+        ~tm_hour:hour_configed_int ~tm_min:0 ~tm_sec:0
+    in
+    let secs_next_run =
+      secs_configed_next_run +. Int.to_float secs_random_within_an_hour
+    in
+    let secs_now =
+      time_in_seconds_from_date_time ~tm_year:tm_now.Unix.tm_year
+        ~tm_mon:tm_now.Unix.tm_mon ~tm_mday:tm_now.Unix.tm_mday
+        ~tm_hour:tm_now.Unix.tm_hour ~tm_min:tm_now.Unix.tm_min
+        ~tm_sec:tm_now.Unix.tm_sec
+    in
+    debug
+      "[PeriodicUpdateSync] monthly_update_sync_delay, execute_next_month=%B \
+       year_next_run=%d month_next_run=%d monthday_next_run=%d"
+      execute_next_month (year_next_run + 1900) (month_next_run + 1)
+      monthday_next_run ;
+    secs_next_run -. secs_now
+
   let periodic_update_sync_delay ~__context ~first_run =
     let frequency =
       Db.Pool.get_update_sync_frequency ~__context
@@ -319,7 +514,7 @@ module PeriodicUpdateSync = struct
       Db.Pool.get_update_sync_hour ~__context ~self:(Helpers.get_pool ~__context)
     in
     debug
-      "[PeriodicUpdateSync] periodic_update_sync_delay first_run=%B: \
+      "[PeriodicUpdateSync] periodic_update_sync_delay, first_run=%B: \
        frequency=%s, day_configed=%Ld, hour_configed=%Ld"
       first_run
       (frequency_to_str ~frequency)
@@ -331,202 +526,14 @@ module PeriodicUpdateSync = struct
     let secs_random_within_an_hour = seconds_random_within_an_hour () in
     match frequency with
     | `daily ->
-        let execute_next_day =
-          if not first_run then
-            true
-          else if hour_configed_int <= tm_now.Unix.tm_hour then
-            true
-          else
-            false
-        in
-        let secs_passed_today =
-          (tm_now.Unix.tm_hour * 60 * 60)
-          + (tm_now.Unix.tm_min * 60)
-          + tm_now.Unix.tm_sec
-        in
-        let secs_of_day_configed = hour_configed_int * 60 * 60 in
-        let secs_configed_with_random =
-          secs_of_day_configed + secs_random_within_an_hour
-        in
-        debug
-          "[PeriodicUpdateSync] periodic_update_sync_delay daily, \
-           execute_next_day=%B"
-          execute_next_day ;
-
-        if execute_next_day then
-          Int.to_float
-            (secs_configed_with_random - secs_passed_today + (24 * 60 * 60))
-        else
-          Int.to_float (secs_configed_with_random - secs_passed_today)
+        daily_update_sync_delay ~first_run ~tm_now ~hour_configed_int
+          ~secs_random_within_an_hour
     | `weekly ->
-        (* day_configed_int: -7..-1, 1..7 -> weekday_configed: 0..6, to align
-           with tm_now.Unix.tm_wday, where Sunday is 0 *)
-        let weekday_configed =
-          if day_configed_int > 0 then
-            day_configed_int - 1
-          else
-            7 + day_configed_int
-        in
-
-        let execute_next_week =
-          if not first_run then
-            true
-          else if
-            weekday_configed < tm_now.Unix.tm_wday
-            || weekday_configed = tm_now.Unix.tm_wday
-               && hour_configed_int <= tm_now.Unix.tm_hour
-          then
-            true
-          else
-            false
-        in
-
-        let secs_passed_this_week =
-          (tm_now.Unix.tm_wday * 24 * 60 * 60)
-          + (tm_now.Unix.tm_hour * 60 * 60)
-          + (tm_now.Unix.tm_min * 60)
-          + tm_now.Unix.tm_sec
-        in
-
-        let secs_configed =
-          (weekday_configed * 24 * 60 * 60) + (hour_configed_int * 60 * 60)
-        in
-
-        let secs_configed_with_random =
-          secs_configed + secs_random_within_an_hour
-        in
-
-        let weekday_str = weekday_int_to_str ~weekday_int:weekday_configed in
-        debug
-          "[PeriodicUpdateSync] periodic_update_sync_delay weekly, \
-           execute_next_week=%B on %s"
-          execute_next_week weekday_str ;
-
-        if execute_next_week then
-          Int.to_float
-            (secs_configed_with_random
-            - secs_passed_this_week
-            + (7 * 24 * 60 * 60)
-            )
-        else
-          Int.to_float (secs_configed_with_random - secs_passed_this_week)
+        weekly_update_sync_delay ~first_run ~tm_now ~hour_configed_int
+          ~day_configed_int ~secs_random_within_an_hour
     | `monthly ->
-        let monthday_this_month =
-          if day_configed_int > 0 then
-            day_configed_int
-          else
-            let year_next_month, month_next =
-              if tm_now.Unix.tm_mon = 12 then
-                (tm_now.Unix.tm_year + 1, 1)
-              else
-                (tm_now.Unix.tm_year, tm_now.Unix.tm_mon + 1)
-            in
-
-            let smallest_secs_next_month, _ =
-              Unix.mktime
-                {
-                  tm_year= year_next_month
-                ; tm_mon= month_next
-                ; tm_mday= 1
-                ; tm_hour= 0
-                ; tm_min= 0
-                ; tm_sec= 0
-                ; tm_wday= 0
-                ; tm_yday= 0
-                ; tm_isdst= false
-                }
-            in
-
-            let secs_configed =
-              Float.to_int smallest_secs_next_month
-              + (day_configed_int * 24 * 60 * 60)
-              + (hour_configed_int * 60 * 60)
-            in
-            let tm_configed = Unix.gmtime (Int.to_float secs_configed) in
-            tm_configed.Unix.tm_mday
-        in
-        let execute_next_month =
-          if not first_run then
-            true
-          else if
-            monthday_this_month < tm_now.Unix.tm_mday
-            || monthday_this_month = tm_now.Unix.tm_mday
-               && hour_configed_int <= tm_now.Unix.tm_hour
-          then
-            true
-          else
-            false
-        in
-        let month_next_run, year_next_run =
-          if execute_next_month then
-            if tm_now.Unix.tm_mon = 12 then
-              (1, tm_now.Unix.tm_year + 1)
-            else
-              (tm_now.Unix.tm_mon + 1, tm_now.Unix.tm_year)
-          else
-            (tm_now.Unix.tm_mon, tm_now.Unix.tm_year)
-        in
-        let monthday_next_run =
-          if day_configed_int > 0 then
-            day_configed_int
-          else if not execute_next_month then
-            monthday_this_month
-          else
-            let year_2_months_later, month_next_next =
-              if tm_now.Unix.tm_mon = 12 then
-                (tm_now.Unix.tm_year + 1, 2)
-              else if tm_now.Unix.tm_mon = 11 then
-                (tm_now.Unix.tm_year + 1, 1)
-              else
-                (tm_now.Unix.tm_year, tm_now.Unix.tm_mon + 2)
-            in
-
-            let smallest_secs_2_months_later, _ =
-              Unix.mktime
-                {
-                  tm_year= year_2_months_later
-                ; tm_mon= month_next_next
-                ; tm_mday= 1
-                ; tm_hour= 0
-                ; tm_min= 0
-                ; tm_sec= 0
-                ; tm_wday= 0
-                ; tm_yday= 0
-                ; tm_isdst= false
-                }
-            in
-
-            let secs_configed =
-              Float.to_int smallest_secs_2_months_later
-              + (day_configed_int * 24 * 60 * 60)
-              + (hour_configed_int * 60 * 60)
-            in
-            let tm_configed = Unix.gmtime (Int.to_float secs_configed) in
-            tm_configed.Unix.tm_mday
-        in
-        let min_random = secs_random_within_an_hour / 60 in
-        let sec_random = secs_random_within_an_hour mod 60 in
-        let secs_next_run, _ =
-          Unix.mktime
-            {
-              tm_year= year_next_run
-            ; tm_mon= month_next_run
-            ; tm_mday= monthday_next_run
-            ; tm_hour= hour_configed_int
-            ; tm_min= min_random
-            ; tm_sec= sec_random
-            ; tm_wday= 0
-            ; tm_yday= 0
-            ; tm_isdst= false
-            }
-        in
-        debug
-          "[PeriodicUpdateSync] periodic_update_sync_delay monthly, \
-           execute_next_month=%B year_next_run=%d month_next_run=%d \
-           monthday_next_run=%d"
-          execute_next_month (year_next_run + 1900) (month_next_run + 1)
-          monthday_next_run ;
-        secs_next_run -. secs_now
+        monthly_update_sync_delay ~first_run ~tm_now ~hour_configed_int
+          ~day_configed_int ~secs_random_within_an_hour
 
   let update_sync_delay ~__context ~first_run =
     if Xapi_fist.update_sync_every_ten_minutes () then (
