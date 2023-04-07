@@ -274,10 +274,13 @@ module PeriodicUpdateSync = struct
   let periodic_update_sync_task_name = "Periodic update synchronization"
 
   let seconds_random_within_an_hour () =
-    let secs_of_an_hour = 60 * 60 in
-    let secs_random = Random.int secs_of_an_hour in
-    debug "[PeriodicUpdateSync] seconds_random_within_an_hour: %d" secs_random ;
-    secs_random
+    if Xapi_fist.disable_periodic_update_sync_sec_randomness () then
+      0
+    else
+      let secs_of_an_hour = 60 * 60 in
+      let secs_random = Random.int secs_of_an_hour in
+      debug "[PeriodicUpdateSync] seconds_random_within_an_hour: %d" secs_random ;
+      secs_random
 
   let weekday_int_to_str ~weekday_int =
     match weekday_int with
@@ -524,31 +527,26 @@ module PeriodicUpdateSync = struct
     let secs_now = Unix.time () in
     let tm_now = Unix.gmtime secs_now in
     let secs_random_within_an_hour = seconds_random_within_an_hour () in
-    match frequency with
-    | `daily ->
-        daily_update_sync_delay ~first_run ~tm_now ~hour_configed_int
-          ~secs_random_within_an_hour
-    | `weekly ->
-        weekly_update_sync_delay ~first_run ~tm_now ~hour_configed_int
-          ~day_configed_int ~secs_random_within_an_hour
-    | `monthly ->
-        monthly_update_sync_delay ~first_run ~tm_now ~hour_configed_int
-          ~day_configed_int ~secs_random_within_an_hour
-
-  let update_sync_delay ~__context ~first_run =
-    if Xapi_fist.update_sync_every_ten_minutes () then (
-      debug "[PeriodicUpdateSync] fist update_sync_delay: 10 minutes" ;
-      600.0
-    ) else
-      let delay = periodic_update_sync_delay ~__context ~first_run in
-      debug "[PeriodicUpdateSync] delay for next update sync: %f seconds" delay ;
-      delay
+    let delay =
+      match frequency with
+      | `daily ->
+          daily_update_sync_delay ~first_run ~tm_now ~hour_configed_int
+            ~secs_random_within_an_hour
+      | `weekly ->
+          weekly_update_sync_delay ~first_run ~tm_now ~hour_configed_int
+            ~day_configed_int ~secs_random_within_an_hour
+      | `monthly ->
+          monthly_update_sync_delay ~first_run ~tm_now ~hour_configed_int
+            ~day_configed_int ~secs_random_within_an_hour
+    in
+    debug "[PeriodicUpdateSync] delay for next update sync: %f seconds" delay ;
+    delay
 
   let rec periodic_update_sync () =
     Server_helpers.exec_with_new_task "periodic_update_sync" (fun __context ->
         Xapi_periodic_scheduler.add_to_queue periodic_update_sync_task_name
           Xapi_periodic_scheduler.OneShot
-          (update_sync_delay ~__context ~first_run:false)
+          (periodic_update_sync_delay ~__context ~first_run:false)
           periodic_update_sync ;
         Helpers.call_api_functions ~__context (fun rpc session_id ->
             let rec sync_updates_with_retry failed_times =
@@ -576,7 +574,7 @@ module PeriodicUpdateSync = struct
       Xapi_periodic_scheduler.remove_from_queue periodic_update_sync_task_name ;
       Xapi_periodic_scheduler.add_to_queue periodic_update_sync_task_name
         Xapi_periodic_scheduler.OneShot
-        (update_sync_delay ~__context ~first_run:true)
+        (periodic_update_sync_delay ~__context ~first_run:true)
         periodic_update_sync
     ) else
       Xapi_periodic_scheduler.remove_from_queue periodic_update_sync_task_name
