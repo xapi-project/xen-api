@@ -340,14 +340,9 @@ module PeriodicUpdateSync = struct
 
   let weekly_update_sync_delay ~first_run ~tm_now ~hour_configed_int
       ~day_configed_int ~secs_random_within_an_hour =
-    (* day_configed_int: -7..-1, 1..7 -> weekday_configed: 0..6, to align
+    (* day_configed_int: 1..7 -> weekday_configed: 0..6, to align
        with tm_now.Unix.tm_wday, where Sunday is 0 *)
-    let weekday_configed =
-      if day_configed_int > 0 then
-        day_configed_int - 1
-      else
-        7 + day_configed_int
-    in
+    let weekday_configed = day_configed_int - 1 in
 
     let execute_next_week =
       if not first_run then

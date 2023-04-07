@@ -1052,12 +1052,12 @@ let configure_update_sync =
       ; ( Int
         , "update_sync_day"
         , "Which day of one period the update sychronization is scheduled. For \
-           'daily' schedule, it should be 1. For 'weekly' schedule, -7..-1 and \
-           1..7, where 1 or -7 is Sunday. For 'monthly' schedule, -28..-1 and \
-           1..28, this ensures that the day exists in every month. For \
-           negative number, it means counting down from the end of the period, \
-           which follows Python style. For example, -1 with 'monthly' schedule \
-           means the last day of each month."
+           'daily' schedule, it should be 1. For 'weekly' schedule, 1..7, \
+           where 1 is Sunday. For 'monthly' schedule, -28..-1 and 1..28, this \
+           ensures that the day exists in every month. For negative number, it \
+           means counting down from the end of the month, which follows Python \
+           style. For example, -1 with 'monthly' schedule means the last day \
+           of each month."
         )
       ; ( Int
         , "update_sync_hour"

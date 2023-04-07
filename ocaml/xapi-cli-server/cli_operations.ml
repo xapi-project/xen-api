@@ -1849,10 +1849,10 @@ let pool_configure_update_sync _printer rpc session_id params =
       failwith
         "For daily schedule, cannot set the day when update sync will run to \
          an integer other than 1.\n"
-  | `weekly, d when d < -7L || d = 0L || d > 7L ->
+  | `weekly, d when d < 1L || d > 7L ->
       failwith
         "For weekly schedule, cannot set the day when update sync will run to \
-         an integer out of range: -7 ~ -1, 1 ~ 7.\n"
+         an integer out of range: 1 ~ 7.\n"
   | `monthly, d when d < -28L || d = 0L || d > 28L ->
       failwith
         "For monthly schedule, cannot set the day when update sync will run to \

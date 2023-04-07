@@ -3622,10 +3622,10 @@ let configure_update_sync ~__context ~self ~update_sync_frequency
           Server_error
             (invalid_update_sync_day, [Int64.to_string update_sync_day])
         )
-  | `weekly, d when d < -7L || d = 0L || d > 7L ->
+  | `weekly, d when d < 1L || d > 7L ->
       error
         "For weekly schedule, cannot set the day when update sync will run to \
-         an integer out of range: -7 ~ -1, 1 ~ 7" ;
+         an integer out of range: 1 ~ 7" ;
       raise
         Api_errors.(
           Server_error
