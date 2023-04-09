@@ -1393,7 +1393,7 @@ let t =
             ~default_value:(Some (VDateTime Date.epoch)) "last_update_sync"
             "time of the last update sychronization"
         ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:update_sync_frequency
-            ~default_value:(Some (VEnum "daily")) "update_sync_frequency"
+            ~default_value:(Some (VEnum "weekly")) "update_sync_frequency"
             "The frequency at which updates are synced from remote CDN: daily, \
              weekly, or monthly."
         ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:Int "update_sync_day"
