@@ -3028,8 +3028,9 @@ let set_https_only ~__context ~self ~value =
       raise (Api_errors.Server_error (Api_errors.illegal_in_fips_mode, []))
 
 let try_restart_device_models_for_recommended_guidances ~__context ~host =
-  (* Restart device models of all running HVM VMs on the host by doing
-   * local migrations if it is required by recommended guidances. *)
+  (* This function runs on master host: restart device models of all running
+   * HVM VMs on the host by doing local migrations if it is required by
+   * recommended guidances. *)
   Repository_helpers.do_with_device_models ~__context ~host
   @@ fun (ref, record) ->
   match
@@ -3040,8 +3041,10 @@ let try_restart_device_models_for_recommended_guidances ~__context ~host =
     )
   with
   | true, `Running, true ->
-      Xapi_vm_migrate.pool_migrate ~__context ~vm:ref ~host
-        ~options:[("live", "true")] ;
+      Helpers.call_api_functions ~__context (fun rpc session_id ->
+          Client.Client.VM.pool_migrate ~rpc ~session_id ~vm:ref ~host
+            ~options:[("live", "true")]
+      ) ;
       None
   | true, `Paused, true ->
       error "VM 'ref=%s' is paused, can't restart device models for it"
@@ -3053,6 +3056,7 @@ let try_restart_device_models_for_recommended_guidances ~__context ~host =
       None
 
 let apply_recommended_guidances ~__context ~self =
+  (* This function runs on master host *)
   try
     let open Updateinfo in
     Db.Host.get_recommended_guidances ~__context ~self |> function
@@ -3060,11 +3064,15 @@ let apply_recommended_guidances ~__context ~self =
         try_restart_device_models_for_recommended_guidances ~__context
           ~host:self
     | [`reboot_host] ->
-        reboot ~__context ~host:self
+        Helpers.call_api_functions ~__context (fun rpc session_id ->
+            Client.Client.Host.reboot ~rpc ~session_id ~host:self
+        )
     | [`restart_toolstack] ->
         try_restart_device_models_for_recommended_guidances ~__context
           ~host:self ;
-        restart_agent ~__context ~host:self
+        Helpers.call_api_functions ~__context (fun rpc session_id ->
+            Client.Client.Host.restart_agent ~rpc ~session_id ~host:self
+        )
     | l ->
         let host' = Ref.string_of self in
         error
