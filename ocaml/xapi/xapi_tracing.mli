@@ -12,6 +12,8 @@
  * GNU Lesser General Public License for more details.
  *)
 
+val initialise : __context:Context.t -> unit
+
 val create :
      __context:Context.t
   -> name_label:string

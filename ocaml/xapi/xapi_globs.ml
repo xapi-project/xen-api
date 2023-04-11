@@ -978,6 +978,16 @@ let conn_limit_unix = ref 1024
 
 let conn_limit_clientcert = ref 800
 
+let tracing_default_endpoints = ref ["bugtool"]
+
+let tracing_default_filters = ref []
+
+let tracing_default_processors = ref []
+
+let trace_log_dir = ref "/var/log/dt/zipkinv2/json"
+
+let export_timeout = ref 30.
+
 let xapi_globs_spec =
   [
     ( "master_connection_reset_timeout"
@@ -1057,6 +1067,7 @@ let xapi_globs_spec =
   ; ("conn_limit_tcp", Int conn_limit_tcp)
   ; ("conn_limit_unix", Int conn_limit_unix)
   ; ("conn_limit_clientcert", Int conn_limit_clientcert)
+  ; ("export_timeout", Float export_timeout)
   ]
 
 let options_of_xapi_globs_spec =
@@ -1195,6 +1206,22 @@ let other_options =
       (fun s -> s)
       (fun s -> s)
       disable_dbsync_for
+  ; gen_list_option "tracing-default-endpoints"
+      "comma-separated list of endpoint strings for the default tracer provider"
+      (fun s -> s)
+      (fun s -> s)
+      tracing_default_endpoints
+  ; gen_list_option "tracing-default-filters"
+      "comma-separated list of filter strings for the default tracer provider"
+      (fun s -> s)
+      (fun s -> s)
+      tracing_default_filters
+  ; gen_list_option "tracing-default-processors"
+      "comma-separated list of processor strings for the default tracer \
+       provider"
+      (fun s -> s)
+      (fun s -> s)
+      tracing_default_processors
   ; ( "xenopsd-queues"
     , Arg.String (fun x -> xenopsd_queues := String.split ',' x)
     , (fun () -> String.concat "," !xenopsd_queues)
@@ -1402,6 +1429,12 @@ let other_options =
   ; ( "override-uefi-certs"
     , Arg.Set override_uefi_certs
     , (fun () -> string_of_bool !override_uefi_certs)
+    , "Enable (true) or Disable (false) overriding location for varstored UEFI \
+       certificates"
+    )
+  ; ( "export_timeout"
+    , Arg.Set_float export_timeout
+    , (fun () -> string_of_float !export_timeout)
     , "Enable (true) or Disable (false) overriding location for varstored UEFI \
        certificates"
     )
@@ -1661,6 +1694,10 @@ module Resources = struct
     ; ( "trusted-certs-dir"
       , trusted_certs_dir
       , "Directory containing certs of other trusted entities"
+      )
+    ; ( "trace-log-dir"
+      , trace_log_dir
+      , "Directory for storing traces exported to logs"
       )
     ]
 

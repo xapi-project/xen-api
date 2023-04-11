@@ -1422,6 +1422,10 @@ let server_init () =
                 Xapi_host.write_uefi_certificates_to_disk ~__context
                   ~host:(Helpers.get_localhost ~__context)
             )
+          ; ( "Initialise Tracing"
+            , [Startup.NoExnRaising]
+            , fun () -> Xapi_tracing.initialise ~__context
+            )
           ] ;
         debug "startup: startup sequence finished"
     ) ;
