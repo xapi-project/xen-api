@@ -1310,6 +1310,11 @@ let gen_cmds rpc session_id =
         mk get_all_records_where get_by_uuid vtpm_record "vtpm" []
           ["uuid"; "vm"; "profile"] rpc session_id
       )
+    ; Client.Tracing.(
+        mk get_all_records_where get_by_uuid tracing_record "tracing" []
+          ["uuid"; "name_label"; "endpoints"; "status"]
+          rpc session_id
+      )
     ]
 
 let message_create (_ : printer) rpc session_id params =
@@ -7871,4 +7876,57 @@ module VTPM = struct
     fail_without_force params ;
     let ref = Client.VTPM.get_by_uuid ~rpc ~session_id ~uuid in
     Client.VTPM.destroy ~rpc ~session_id ~self:ref
+end
+
+module Tracing = struct
+  let create _printer rpc session_id params =
+    let name_label = List.assoc "name-label" params in
+    let hosts =
+      List.assoc_opt "hosts" params
+      |> Option.fold ~none:[] ~some:(fun hosts ->
+             List.map
+               (fun uuid -> Client.Host.get_by_uuid ~rpc ~session_id ~uuid)
+               (String.split_on_char ';' hosts)
+         )
+    in
+    let status =
+      List.assoc_opt "status" params
+      |> Option.fold ~none:false ~some:(fun s ->
+             try Stdlib.bool_of_string s with _ -> false
+         )
+    in
+    let tags =
+      List.assoc_opt "tags" params
+      |> Option.fold ~none:["bugtool"] ~some:(String.split_on_char ';')
+      |> List.filter_map (fun kv ->
+             match String.split_on_char ':' kv with
+             | [k; v] ->
+                 Some (k, v)
+             | _ ->
+                 None
+         )
+    in
+    let endpoints =
+      List.assoc_opt "endpoints" params
+      |> Option.fold ~none:["bugtool"] ~some:(String.split_on_char ';')
+    in
+    let components =
+      List.assoc_opt "components" params
+      |> Option.fold ~none:["bugtool"] ~some:(String.split_on_char ';')
+    in
+    let filters =
+      List.assoc_opt "filters" params
+      |> Option.fold ~none:["bugtool"] ~some:(String.split_on_char ';')
+    in
+    let processors =
+      List.assoc_opt "processors" params
+      |> Option.fold ~none:["bugtool"] ~some:(String.split_on_char ';')
+    in
+    Client.Tracing.create ~rpc ~session_id ~name_label ~hosts ~status ~tags
+      ~endpoints ~components ~filters ~processors
+
+  let destroy _printer rpc session_id params =
+    let uuid = List.assoc "uuid" params in
+    let self = Client.Tracing.get_by_uuid ~rpc ~session_id ~uuid in
+    Client.Tracing.destroy ~rpc ~session_id ~self
 end

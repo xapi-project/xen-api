@@ -5242,3 +5242,102 @@ let vtpm_record rpc session_id vtpm =
           ()
       ]
   }
+
+let tracing_record rpc session_id tracing =
+  let _ref = ref tracing in
+  let empty_record =
+    ToGet (fun () -> Client.Tracing.get_record ~rpc ~session_id ~self:!_ref)
+  in
+  let record = ref empty_record in
+  let x () = lzy_get record in
+  {
+    setref=
+      (fun r ->
+        _ref := r ;
+        record := empty_record
+      )
+  ; setrefrec=
+      (fun (a, b) ->
+        _ref := a ;
+        record := Got b
+      )
+  ; record= x
+  ; getref= (fun () -> !_ref)
+  ; fields=
+      [
+        make_field ~name:"uuid" ~get:(fun () -> (x ()).API.tracing_uuid) ()
+      ; make_field ~name:"hosts"
+          ~get:(fun () ->
+            map_and_concat
+              (fun host -> get_uuid_from_ref host |> fun host -> host ^ ";")
+              (x ()).API.tracing_hosts
+          )
+          ~set:(fun s ->
+            let hosts =
+              String.split_on_char ';' s
+              |> List.map (fun uuid ->
+                     Client.Host.get_by_uuid ~rpc ~session_id ~uuid
+                 )
+            in
+            Client.Tracing.set_hosts ~rpc ~session_id ~self:tracing ~hosts
+          )
+          ()
+      ; make_field ~name:"name_label"
+          ~get:(fun () -> (x ()).API.tracing_name_label)
+          ()
+      ; make_field ~name:"tags"
+          ~get:(fun () -> Record_util.s2sm_to_string ";" (x ()).API.tracing_tags)
+          ~get_map:(fun () -> (x ()).API.tracing_tags)
+          ~set_map:(fun s ->
+            let tags =
+              List.filter
+                (fun (k, _) -> not (List.mem k ["host"; "pool"; "host name"]))
+                s
+            in
+            Client.Tracing.set_tags ~rpc ~session_id ~self:tracing ~tags
+          )
+          ()
+      ; make_field ~name:"endpoints"
+          ~get:(fun () -> (x ()).API.tracing_endpoints |> String.concat ";")
+          ~set:(fun s ->
+            String.split_on_char ';' s |> List.filter (( <> ) "none")
+            |> fun endpoints ->
+            Client.Tracing.set_endpoints ~rpc ~session_id ~self:tracing
+              ~endpoints
+          )
+          ()
+      ; make_field ~name:"components"
+          ~get:(fun () -> (x ()).API.tracing_components |> String.concat ";")
+          ~set:(fun s ->
+            String.split_on_char ';' s |> List.filter (( <> ) "all")
+            |> fun components ->
+            Client.Tracing.set_components ~rpc ~session_id ~self:tracing
+              ~components
+          )
+          ()
+      ; make_field ~name:"filters"
+          ~get:(fun () -> (x ()).API.tracing_filters |> String.concat ";")
+          ~set:(fun s ->
+            String.split_on_char ';' s |> List.filter (( <> ) "all")
+            |> fun filters ->
+            Client.Tracing.set_filters ~rpc ~session_id ~self:tracing ~filters
+          )
+          ()
+      ; make_field ~name:"processors"
+          ~get:(fun () -> (x ()).API.tracing_processors |> String.concat ";")
+          ~set:(fun s ->
+            String.split_on_char ';' s |> List.filter (( <> ) "none")
+            |> fun processors ->
+            Client.Tracing.set_processors ~rpc ~session_id ~self:tracing
+              ~processors
+          )
+          ()
+      ; make_field ~name:"status"
+          ~get:(fun () -> (x ()).API.tracing_status |> string_of_bool)
+          ~set:(fun s ->
+            Client.Tracing.set_status ~rpc ~session_id ~self:tracing
+              ~status:(bool_of_string s)
+          )
+          ()
+      ]
+  }

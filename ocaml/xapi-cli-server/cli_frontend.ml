@@ -3597,6 +3597,33 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; flags= []
       }
     )
+  ; ( "tracing-create"
+    , {
+        reqd= ["name-label"]
+      ; optn=
+          [
+            "hosts"
+          ; "status"
+          ; "tags"
+          ; "endpoints"
+          ; "components"
+          ; "filters"
+          ; "processors"
+          ]
+      ; help= "Create a new TracerProvider."
+      ; implementation= No_fd Cli_operations.Tracing.create
+      ; flags= []
+      }
+    )
+  ; ( "tracing-destroy"
+    , {
+        reqd= ["uuid"]
+      ; optn= []
+      ; help= "Destroy a TracerProvider"
+      ; implementation= No_fd Cli_operations.Tracing.destroy
+      ; flags= []
+      }
+    )
   ]
 
 let cmdtable : (string, cmd_spec) Hashtbl.t = Hashtbl.create 50
