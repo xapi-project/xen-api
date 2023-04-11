@@ -1,10 +1,30 @@
 let prototyped_of_class = function
+  | "Tracing" ->
+      Some "23.8.0-next"
   | "VTPM" ->
       Some "22.26.0"
   | _ ->
       None
 
 let prototyped_of_field = function
+  | "Tracing", "status" ->
+      Some "23.8.0-next"
+  | "Tracing", "processors" ->
+      Some "23.8.0-next"
+  | "Tracing", "filters" ->
+      Some "23.8.0-next"
+  | "Tracing", "components" ->
+      Some "23.8.0-next"
+  | "Tracing", "endpoints" ->
+      Some "23.8.0-next"
+  | "Tracing", "tags" ->
+      Some "23.8.0-next"
+  | "Tracing", "name_label" ->
+      Some "23.8.0-next"
+  | "Tracing", "hosts" ->
+      Some "23.8.0-next"
+  | "Tracing", "uuid" ->
+      Some "23.8.0-next"
   | "Repository", "gpgkey_path" ->
       Some "22.12.0"
   | "VTPM", "contents" ->
@@ -35,6 +55,24 @@ let prototyped_of_field = function
       None
 
 let prototyped_of_message = function
+  | "Tracing", "set_processors" ->
+      Some "23.8.0-next"
+  | "Tracing", "set_filters" ->
+      Some "23.8.0-next"
+  | "Tracing", "set_components" ->
+      Some "23.8.0-next"
+  | "Tracing", "set_endpoints" ->
+      Some "23.8.0-next"
+  | "Tracing", "set_tags" ->
+      Some "23.8.0-next"
+  | "Tracing", "set_status" ->
+      Some "23.8.0-next"
+  | "Tracing", "set_hosts" ->
+      Some "23.8.0-next"
+  | "Tracing", "destroy" ->
+      Some "23.8.0-next"
+  | "Tracing", "create" ->
+      Some "23.8.0-next"
   | "Repository", "apply_livepatch" ->
       Some "22.20.0"
   | "Repository", "set_gpgkey_path" ->

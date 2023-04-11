@@ -629,6 +629,14 @@ functor
           Ref.string_of repository
       with _ -> "invalid"
 
+    let tracing_uuid ~__context tracing =
+      try
+        if Pool_role.is_master () then
+          Db.Tracing.get_uuid ~__context ~self:tracing
+        else
+          Ref.string_of tracing
+      with _ -> "invalid"
+
     module Session = struct
       include Local.Session
 
@@ -6463,5 +6471,201 @@ functor
             Client.Repository.apply_livepatch ~rpc ~session_id ~host ~component
               ~base_build_id ~base_version ~base_release ~to_version ~to_release
         )
+    end
+
+    module Tracing = struct
+      let do_trace_op_on ~__context ~self ~local_fn ~client_fn ~db_fn =
+        let localhost = Helpers.get_localhost ~__context in
+        if Helpers.is_pool_master ~__context ~host:localhost then (
+          let hosts =
+            match Db.Tracing.get_hosts ~__context ~self with
+            | [] ->
+                Db.Host.get_all ~__context
+            | hosts ->
+                hosts
+          in
+          let hosts, local = List.partition (( <> ) localhost) hosts in
+          List.iter
+            (fun host -> do_op_on ~__context ~local_fn ~host client_fn)
+            hosts ;
+          List.iter (fun _ -> local_fn ~__context) local ;
+          db_fn ()
+        ) else
+          local_fn ~__context ;
+        ()
+
+      let create ~__context ~name_label ~hosts ~status ~tags ~endpoints
+          ~components ~filters ~processors =
+        let local_fn =
+          Local.Tracing.create ~name_label ~hosts ~status ~tags ~endpoints
+            ~components ~filters ~processors
+        in
+        let client_fn session_id rpc =
+          Client.Tracing.create ~rpc ~session_id ~name_label ~hosts ~status
+            ~tags ~endpoints ~components ~filters ~processors
+        in
+        let ref = Ref.make () in
+        let uuid = Uuidx.to_string (Uuidx.make ()) in
+        let localhost = Helpers.get_localhost ~__context in
+        if Helpers.is_pool_master ~__context ~host:localhost then (
+          let hosts =
+            match hosts with [] -> Db.Host.get_all ~__context | hosts -> hosts
+          in
+          let hosts, local = List.partition (( <> ) localhost) hosts in
+          List.iter
+            (fun host -> do_op_on ~__context ~local_fn ~host client_fn)
+            hosts ;
+          List.iter (fun _ -> local_fn ~__context) local ;
+          Db.Tracing.create ~__context ~ref ~uuid ~name_label ~hosts ~status
+            ~tags ~endpoints ~components ~filters ~processors
+        ) else
+          local_fn ~__context ;
+        ()
+
+      let destroy ~__context ~self =
+        let local_fn = Local.Tracing.destroy ~self in
+        let client_fn session_id rpc =
+          Client.Tracing.destroy ~rpc ~session_id ~self
+        in
+        let db_fn () = Db.Tracing.destroy ~__context ~self in
+        do_trace_op_on ~__context ~self ~local_fn ~client_fn ~db_fn
+
+      let set_hosts ~__context ~self ~hosts =
+        let new_host_strings = List.map (host_uuid ~__context) hosts in
+        let old_host_strings =
+          List.map (host_uuid ~__context) (Db.Tracing.get_hosts ~__context ~self)
+        in
+        info "%s: self=%s hosts=%s" __FUNCTION__
+          (tracing_uuid ~__context self)
+          (String.concat ";" new_host_strings) ;
+        let old_host_strings = List.sort String.compare old_host_strings in
+        let new_host_strings = List.sort String.compare new_host_strings in
+        let rec diff acc old_list new_list =
+          match (old_list, new_list) with
+          | [], [] ->
+              acc
+          | to_remove, [] ->
+              (fst acc, to_remove @ snd acc)
+          | [], to_add ->
+              (to_add @ fst acc, snd acc)
+          | hd1 :: old_list, hd2 :: new_list ->
+              if hd2 = hd1 then
+                diff acc old_list new_list
+              else if String.compare hd1 hd2 = 1 then
+                diff (fst acc, hd2 :: snd acc) (hd1 :: old_list) new_list
+              else
+                diff (hd1 :: fst acc, snd acc) old_list (hd2 :: new_list)
+        in
+        let to_add, to_remove =
+          diff ([], []) old_host_strings new_host_strings
+        in
+        let to_add =
+          List.map (fun uuid -> Db.Host.get_by_uuid ~__context ~uuid) to_add
+        in
+        let to_remove =
+          List.map (fun uuid -> Db.Host.get_by_uuid ~__context ~uuid) to_remove
+        in
+        List.iter
+          (fun host ->
+            do_op_on ~local_fn:(Local.Tracing.destroy ~self) ~__context ~host
+              (fun session_id rpc ->
+                Client.Tracing.destroy ~rpc ~session_id ~self
+            )
+          )
+          to_remove ;
+
+        let name_label = Db.Tracing.get_name_label ~__context ~self in
+        let status = Db.Tracing.get_status ~__context ~self in
+        let tags = Db.Tracing.get_tags ~__context ~self in
+        let endpoints = Db.Tracing.get_endpoints ~__context ~self in
+        let components = Db.Tracing.get_components ~__context ~self in
+        let filters = Db.Tracing.get_filters ~__context ~self in
+        let processors = Db.Tracing.get_processors ~__context ~self in
+        List.iter
+          (fun host ->
+            do_op_on
+              ~local_fn:
+                (Local.Tracing.create ~name_label ~hosts ~status ~tags
+                   ~endpoints ~components ~filters ~processors
+                ) ~__context ~host (fun session_id rpc ->
+                Client.Tracing.create ~rpc ~session_id ~name_label ~hosts
+                  ~status ~tags ~endpoints ~components ~filters ~processors
+            )
+          )
+          to_add
+
+      let set_status ~__context ~self ~status =
+        info "%s: self=%s status=%B" __FUNCTION__
+          (tracing_uuid ~__context self)
+          status ;
+        let local_fn = Local.Tracing.set_status ~self ~status in
+        let client_fn session_id rpc =
+          Client.Tracing.set_status ~rpc ~session_id ~self ~status
+        in
+        let db_fn () = Db.Tracing.set_status ~__context ~self ~value:status in
+        do_trace_op_on ~__context ~self ~local_fn ~client_fn ~db_fn
+
+      let set_tags ~__context ~self ~tags =
+        (* Tags will be kept out of the logs *)
+        let pool =
+          Db.Pool.get_uuid ~__context ~self:(Helpers.get_pool ~__context)
+        in
+        let tags = ("pool", pool) :: tags in
+        info "%s: self=%s" __FUNCTION__ (tracing_uuid ~__context self) ;
+        let local_fn = Local.Tracing.set_tags ~self ~tags in
+        let client_fn session_id rpc =
+          Client.Tracing.set_tags ~rpc ~session_id ~self ~tags
+        in
+        let db_fn () = Db.Tracing.set_tags ~__context ~self ~value:tags in
+        do_trace_op_on ~__context ~self ~local_fn ~client_fn ~db_fn
+
+      let set_endpoints ~__context ~self ~endpoints =
+        (* endpoints will be kept out of the logs *)
+        info "%s: self=%s" __FUNCTION__ (tracing_uuid ~__context self) ;
+        let local_fn = Local.Tracing.set_endpoints ~self ~endpoints in
+        let client_fn session_id rpc =
+          Client.Tracing.set_endpoints ~rpc ~session_id ~self ~endpoints
+        in
+        let db_fn () =
+          Db.Tracing.set_endpoints ~__context ~self ~value:endpoints
+        in
+        do_trace_op_on ~__context ~self ~local_fn ~client_fn ~db_fn
+
+      let set_components ~__context ~self ~components =
+        info "%s: self=%s components=%s" __FUNCTION__
+          (tracing_uuid ~__context self)
+          (components |> String.concat ",") ;
+        let local_fn = Local.Tracing.set_components ~self ~components in
+        let client_fn session_id rpc =
+          Client.Tracing.set_components ~rpc ~session_id ~self ~components
+        in
+        let db_fn () =
+          Db.Tracing.set_components ~__context ~self ~value:components
+        in
+        do_trace_op_on ~__context ~self ~local_fn ~client_fn ~db_fn
+
+      let set_filters ~__context ~self ~filters =
+        info "%s: self=%s filters=%s" __FUNCTION__
+          (tracing_uuid ~__context self)
+          (filters |> String.concat ",") ;
+        let local_fn = Local.Tracing.set_filters ~self ~filters in
+        let client_fn session_id rpc =
+          Client.Tracing.set_filters ~rpc ~session_id ~self ~filters
+        in
+        let db_fn () = Db.Tracing.set_filters ~__context ~self ~value:filters in
+        do_trace_op_on ~__context ~self ~local_fn ~client_fn ~db_fn
+
+      let set_processors ~__context ~self ~processors =
+        info "%s: self=%s processors=%s" __FUNCTION__
+          (tracing_uuid ~__context self)
+          (processors |> String.concat ",") ;
+        let local_fn = Local.Tracing.set_processors ~self ~processors in
+        let client_fn session_id rpc =
+          Client.Tracing.set_processors ~rpc ~session_id ~self ~processors
+        in
+        let db_fn () =
+          Db.Tracing.set_processors ~__context ~self ~value:processors
+        in
+        do_trace_op_on ~__context ~self ~local_fn ~client_fn ~db_fn
     end
   end
