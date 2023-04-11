@@ -7810,6 +7810,7 @@ let all_system =
   ; Datamodel_certificate.t
   ; Datamodel_diagnostics.t
   ; Datamodel_repository.t
+  ; Datamodel_observer.t
   ]
 
 (* If the relation is one-to-many, the "many" nodes (one edge each) must come before the "one" node (many edges) *)
@@ -8042,6 +8043,7 @@ let expose_get_all_messages_for =
   ; _certificate
   ; _repository
   ; _vtpm
+  ; _observer
   ]
 
 let no_task_id_for = [_task; (* _alert; *) _event]
