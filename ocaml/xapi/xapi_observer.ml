@@ -91,6 +91,38 @@ let unregister ~__context ~self ~host:_ =
 
 let destroy ~__context ~self = Db.Observer.destroy ~__context ~self
 
+let set_trace_log_dir dir = ()
+
+let set_export_interval interval = ()
+
+let set_max_spans spans = ()
+
+let set_max_traces traces = ()
+
+let set_host_id host_id = ()
+
+let init () = ()
+
+let load ~__context =
+  let all = Db.Observer.get_all ~__context in
+  List.iter
+    (fun self ->
+      let host = Helpers.get_localhost ~__context in
+      let hosts = Db.Observer.get_hosts ~__context ~self in
+      if hosts = [] || List.mem host hosts then
+        register ~__context ~self ~host
+    )
+    all
+
+let initialise ~__context =
+  init () ;
+  load ~__context ;
+  set_trace_log_dir !Xapi_globs.trace_log_dir ;
+  set_export_interval !Xapi_globs.export_interval ;
+  set_max_spans !Xapi_globs.max_spans ;
+  set_max_traces !Xapi_globs.max_traces ;
+  set_host_id (Helpers.get_localhost_uuid ())
+
 let set_hosts ~__context ~self ~value =
   assert_valid_hosts ~__context value ;
   Db.Observer.set_hosts ~__context ~self ~value

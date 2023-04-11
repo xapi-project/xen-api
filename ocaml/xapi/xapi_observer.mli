@@ -15,7 +15,7 @@
 val observed_hosts_of :
   __context:Context.t -> API.ref_host list -> API.ref_host list
 
-(** Xapi_observer.create is responsible for creating an observer and registering it in all hosts *)
+val initialise : __context:Context.t -> unit
 
 val create :
      __context:Context.t

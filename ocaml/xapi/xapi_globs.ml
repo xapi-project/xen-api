@@ -980,6 +980,14 @@ let conn_limit_unix = ref 1024
 
 let conn_limit_clientcert = ref 800
 
+let trace_log_dir = ref "/var/log/dt/zipkinv2/json"
+
+let export_interval = ref 30.
+
+let max_spans = ref 1000
+
+let max_traces = ref 10000
+
 let xapi_globs_spec =
   [
     ( "master_connection_reset_timeout"
@@ -1059,6 +1067,9 @@ let xapi_globs_spec =
   ; ("conn_limit_tcp", Int conn_limit_tcp)
   ; ("conn_limit_unix", Int conn_limit_unix)
   ; ("conn_limit_clientcert", Int conn_limit_clientcert)
+  ; ("export_interval", Float export_interval)
+  ; ("max_spans", Int max_spans)
+  ; ("max_traces", Int max_traces)
   ]
 
 let options_of_xapi_globs_spec =
@@ -1412,6 +1423,21 @@ let other_options =
     , (fun () -> string_of_int !server_cert_group_id)
     , "The group id of server ssl certificate file."
     )
+  ; ( "export-interval"
+    , Arg.Set_float export_interval
+    , (fun () -> string_of_float !export_interval)
+    , "The interval for exports in Tracing"
+    )
+  ; ( "max-spans"
+    , Arg.Set_int max_spans
+    , (fun () -> string_of_int !max_spans)
+    , "The maximum amount of spans that can be in a trace in Tracing"
+    )
+  ; ( "max-traces"
+    , Arg.Set_int max_traces
+    , (fun () -> string_of_int !max_traces)
+    , "The maximum number of active traces going on in Tracing"
+    )
   ]
 
 (* The options can be set with the variable xapiflags in /etc/sysconfig/xapi.
@@ -1668,6 +1694,10 @@ module Resources = struct
     ; ( "trusted-certs-dir"
       , trusted_certs_dir
       , "Directory containing certs of other trusted entities"
+      )
+    ; ( "trace-log-dir"
+      , trace_log_dir
+      , "Directory for storing traces exported to logs"
       )
     ]
 
