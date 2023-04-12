@@ -1014,7 +1014,7 @@ module Winbind = struct
       let prefix = String.sub hostname 0 len in
       let suffix = random_string len in
       let netbios_name = Printf.sprintf "%s-%s" prefix suffix in
-      warn "hostname length exceed limit, use '%s' instead" netbios_name ;
+      info "hostname exceeds allowed length, using '%s' instead" netbios_name ;
       netbios_name
     ) else
       hostname
