@@ -1828,7 +1828,13 @@ module VTPM : HandlerTools = struct
     try
       ignore (Db.VTPM.get_by_uuid ~__context ~uuid) ;
       true
-    with Not_found -> false
+    with
+    | Not_found ->
+        false
+    | e ->
+        debug "%s: VTPM %s not found: %s" __FUNCTION__ uuid
+          (Printexc.to_string e) ;
+        false
 
   (* Compare the state of the database with the metadata to be imported.
      Returns a result which signals what we should do to import the
