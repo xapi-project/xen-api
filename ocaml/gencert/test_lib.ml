@@ -28,7 +28,7 @@ let load_test_data file =
   ^ file
   ^ ".pem"
 
-let valid_private_keys = ["pkey_rsa_2048"; "pkey_rsa_4096"]
+let valid_private_keys = ["pkey_rsa_2048"; "pkey_rsa_4096"; "pkey_rsa_modulus"]
 
 (* ( file_name, error_type, error_message list ) *)
 let invalid_private_keys =
