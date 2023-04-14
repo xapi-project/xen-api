@@ -55,11 +55,14 @@ let push_sr_rrd (sr_uuid : string) (path : string) : unit =
       else
         path
     in
-    let rrd = rrd_of_gzip path in
-    debug "Pushing RRD for SR uuid=%s locally" sr_uuid ;
-    with_lock mutex (fun _ ->
-        Hashtbl.replace sr_rrds sr_uuid {rrd; dss= []; domid= 0}
-    )
+    match rrd_of_gzip path with
+    | Some rrd ->
+        debug "Pushing RRD for SR uuid=%s locally" sr_uuid ;
+        with_lock mutex (fun _ ->
+            Hashtbl.replace sr_rrds sr_uuid {rrd; dss= []; domid= 0}
+        )
+    | None ->
+        ()
   with _ -> ()
 
 let has_vm_rrd (vm_uuid : string) =
@@ -162,12 +165,14 @@ let backup_rrds (remote_address : string option) () : unit =
     )
   done
 
-(* Load an RRD from the local filesystem. Will return an RRD or throw an
-   exception. *)
-let load_rrd_from_local_filesystem uuid =
+let get_rrd ~uuid =
   debug "Loading RRD from local filesystem for object uuid=%s" uuid ;
-  let path = Rrdd_libs.Constants.rrd_location ^ "/" ^ uuid in
-  rrd_of_gzip path
+  let path = Filename.concat Rrdd_libs.Constants.rrd_location uuid in
+  match rrd_of_gzip path with
+  | Some rrd ->
+      rrd
+  | None ->
+      failwith "File not present in the filesystem"
 
 module Deprecated = struct
   (* DEPRECATED *)
@@ -215,7 +220,7 @@ module Deprecated = struct
     try
       let rrd =
         try
-          let rrd = load_rrd_from_local_filesystem uuid in
+          let rrd = get_rrd ~uuid in
           debug
             "RRD loaded from local filesystem for object uuid=%s (deprecation \
              warning: timescale %d is ignored)."
@@ -251,22 +256,16 @@ module Deprecated = struct
     with _ -> ()
 end
 
-let get_rrd ~vm_uuid =
-  let path = Filename.concat Rrdd_libs.Constants.rrd_location vm_uuid in
-  rrd_of_gzip path
-
-let push_rrd_local vm_uuid domid : unit =
+let push_rrd_local uuid domid : unit =
   try
-    let rrd = get_rrd ~vm_uuid in
-    debug "Pushing RRD for VM uuid=%s locally" vm_uuid ;
-    with_lock mutex (fun _ ->
-        Hashtbl.replace vm_rrds vm_uuid {rrd; dss= []; domid}
-    )
+    let rrd = get_rrd ~uuid in
+    debug "Pushing RRD for VM uuid=%s locally" uuid ;
+    with_lock mutex (fun _ -> Hashtbl.replace vm_rrds uuid {rrd; dss= []; domid})
   with _ -> ()
 
-let push_rrd_remote vm_uuid member_address : unit =
+let push_rrd_remote uuid member_address : unit =
   try
-    let rrd = get_rrd ~vm_uuid in
+    let rrd = get_rrd ~uuid in
     let transport =
       let open Xmlrpc_client in
       SSL
@@ -275,10 +274,9 @@ let push_rrd_remote vm_uuid member_address : unit =
         , !Rrdd_shared.https_port
         )
     in
-    debug "Pushing RRD for VM uuid=%s to another pool member with %s" vm_uuid
+    debug "Pushing RRD for VM uuid=%s to another pool member with %s" uuid
       (Xmlrpc_client.string_of_transport transport) ;
-    send_rrd ~transport ~to_archive:false ~uuid:vm_uuid ~rrd:(Rrd.copy_rrd rrd)
-      ()
+    send_rrd ~transport ~to_archive:false ~uuid ~rrd:(Rrd.copy_rrd rrd) ()
   with _ -> ()
 
 (** Remove an RRD from the local filesystem, if it exists. *)
