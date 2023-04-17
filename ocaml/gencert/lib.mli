@@ -17,6 +17,7 @@ val install_server_certificate :
   -> pem_leaf:string
   -> pkcs8_private_key:string
   -> server_cert_path:string
+  -> cert_gid:int
   -> (X509.Certificate.t, [> `Msg of string * string list]) Result.result
 (** [install_server_certificate pem_chain pem_leaf pkcs8_private_key
      server_cert_path] writes a PKCS12 containing [pkcs8_private_key],

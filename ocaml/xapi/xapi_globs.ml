@@ -749,6 +749,9 @@ let pool_secret_path = ref (Filename.concat "/etc/xensource" "ptoken")
 (* Path to server ssl certificate *)
 let server_cert_path = ref (Filename.concat "/etc/xensource" "xapi-ssl.pem")
 
+(* The group id of server ssl certificate file *)
+let server_cert_group_id = ref (-1)
+
 (* Path to server certificate used for host-to-host TLS connections *)
 let server_cert_internal_path =
   ref (Filename.concat "/etc/xensource" "xapi-pool-tls.pem")
@@ -1404,6 +1407,11 @@ let other_options =
     , (fun () -> string_of_bool !override_uefi_certs)
     , "Enable (true) or Disable (false) overriding location for varstored UEFI \
        certificates"
+    )
+  ; ( "server-cert-group-id"
+    , Arg.Set_int server_cert_group_id
+    , (fun () -> string_of_int !server_cert_group_id)
+    , "The group id of server ssl certificate file."
     )
   ]
 
