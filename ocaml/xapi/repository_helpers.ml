@@ -20,6 +20,7 @@ module UpdateIdSet = Set.Make (String)
 open Rpm
 open Updateinfo
 module LivePatchSet = Set.Make (LivePatch)
+module RpmFullNameSet = Set.Make (String)
 
 let exposing_pool_repo_mutex = Mutex.create ()
 
@@ -922,19 +923,49 @@ let get_updates_from_yum_upgrade_dry_run repositories =
   in
   match Forkhelpers.execute_command_get_output !Xapi_globs.yum_cmd params with
   | _, _ ->
-      []
+      Some []
   | exception Forkhelpers.Spawn_internal_error (stderr, _, Unix.WEXITED 1) -> (
       stderr |> YumUpgradeOutput.parse_output_of_dry_run |> function
       | Ok (pkgs, Some txn_file) ->
           Unixext.unlink_safe txn_file ;
-          pkgs
+          Some pkgs
       | Ok (pkgs, None) ->
-          pkgs
+          Some pkgs
       | Error msg ->
-          raise Api_errors.(Server_error (internal_error, [msg]))
+          error "%s" msg ; None
     )
   | exception e ->
-      raise e
+      error "%s" (ExnHelper.string_of_exn e) ;
+      None
+
+let get_latest_updates_from_redundancy ~fail_on_error ~pkgs ~fallback_pkgs =
+  let err = "Failed to parse output of 'yum upgrade (dry run)' correctly" in
+  let get_latest_updates_from_redundancy' ~fail_on_error ~pkgs ~fallback_pkgs =
+    let to_set l =
+      List.map (fun (pkg, _) -> Rpm.Pkg.to_fullname pkg) l
+      |> RpmFullNameSet.of_list
+    in
+    let is_subset l' l'' = RpmFullNameSet.subset (to_set l') (to_set l'') in
+    match (fail_on_error, is_subset pkgs fallback_pkgs) with
+    | _, true ->
+        debug "Use 'yum upgrade (dry run)'" ;
+        pkgs
+    | true, false ->
+        raise Api_errors.(Server_error (internal_error, [err]))
+    | false, false ->
+        (* falling back *)
+        warn "%s" err ; fallback_pkgs
+  in
+  match (fail_on_error, pkgs) with
+  | true, None ->
+      raise Api_errors.(Server_error (internal_error, [err]))
+  | false, None ->
+      (* falling back *)
+      warn "%s" err ; fallback_pkgs
+  | _, Some pkgs' ->
+      debug "Checking both 'yum upgrade' and 'repoquery' ..." ;
+      get_latest_updates_from_redundancy' ~fail_on_error ~pkgs:pkgs'
+        ~fallback_pkgs
 
 let validate_latest_updates ~latest_updates ~accumulative_updates =
   List.map

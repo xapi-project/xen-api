@@ -3446,6 +3446,258 @@ module ParseOutputOfYumUpgradeDryRun = Generic.MakeStateless (struct
       ]
 end)
 
+module GetLatestUpdatesFromRedundancy = Generic.MakeStateless (struct
+  module Io = struct
+    type input_t = bool * ((Pkg.t * string) list option * (Pkg.t * string) list)
+
+    type output_t = ((Pkg.t * string) list, exn) result
+
+    let string_of_input_t =
+      Fmt.(
+        str "%a"
+          Dump.(
+            pair bool
+              (pair
+                 (option (list (pair (record @@ fields_of_pkg) string)))
+                 (list (pair (record @@ fields_of_pkg) string))
+              )
+          )
+      )
+
+    let string_of_output_t = function
+      | Ok pkgs ->
+          Fmt.(
+            str "%a" Dump.(list (pair (record @@ fields_of_pkg) string)) pkgs
+          )
+      | Error e ->
+          Fmt.(str "%a" exn) e
+  end
+
+  let transform (fail_on_error, (l1, l2)) =
+    try
+      Ok
+        (get_latest_updates_from_redundancy ~fail_on_error ~pkgs:l1
+           ~fallback_pkgs:l2
+        )
+    with e -> Error e
+
+  let e =
+    Api_errors.(
+      Server_error
+        ( internal_error
+        , ["Failed to parse output of 'yum upgrade (dry run)' correctly"]
+        )
+    )
+
+  let tests =
+    `QuickAndAutoDocumented
+      [
+        ((false, (None, [])), Ok [])
+      ; ((true, (None, [])), Error e)
+      ; ((true, (Some [], [])), Ok [])
+      ; (* Unexpected extra pkgs from 'yum upgrade', raise error *)
+        ( ( true
+          , ( Some
+                [
+                  ( Pkg.
+                      {
+                        name= "amd-microcode"
+                      ; epoch= None
+                      ; version= "20220930"
+                      ; release= "2.xs8"
+                      ; arch= "noarch"
+                      }
+                    
+                  , "local-bd74070c-897f-d2bc-654a-a3f87d47f6b6"
+                  )
+                ; ( Pkg.
+                      {
+                        name= "python2-bitarray"
+                      ; epoch= None
+                      ; version= "0.8.3"
+                      ; release= "2.xs8"
+                      ; arch= "x86_64"
+                      }
+                    
+                  , "local-bd74070c-897f-d2bc-654a-a3f87d47f6b6"
+                  )
+                ]
+            , []
+            )
+          )
+        , Error e
+        )
+      ; (* Unexpected extra pkgs from 'yum upgrade', falling back *)
+        ( ( false
+          , ( Some
+                [
+                  ( Pkg.
+                      {
+                        name= "amd-microcode"
+                      ; epoch= None
+                      ; version= "20220930"
+                      ; release= "2.xs8"
+                      ; arch= "noarch"
+                      }
+                    
+                  , "local-bd74070c-897f-d2bc-654a-a3f87d47f6b6"
+                  )
+                ; ( Pkg.
+                      {
+                        name= "python2-bitarray"
+                      ; epoch= None
+                      ; version= "0.8.3"
+                      ; release= "2.xs8"
+                      ; arch= "x86_64"
+                      }
+                    
+                  , "local-bd74070c-897f-d2bc-654a-a3f87d47f6b6"
+                  )
+                ]
+            , []
+            )
+          )
+        , Ok []
+        )
+      ; (* Same results, use 'yum upgrade' *)
+        ( ( true
+          , ( Some
+                [
+                  ( Pkg.
+                      {
+                        name= "amd-microcode"
+                      ; epoch= None
+                      ; version= "20220930"
+                      ; release= "2.xs8"
+                      ; arch= "noarch"
+                      }
+                    
+                  , "local-bd74070c-897f-d2bc-654a-a3f87d47f6b6"
+                  )
+                ; ( Pkg.
+                      {
+                        name= "python2-bitarray"
+                      ; epoch= None
+                      ; version= "0.8.3"
+                      ; release= "2.xs8"
+                      ; arch= "x86_64"
+                      }
+                    
+                  , "local-bd74070c-897f-d2bc-654a-a3f87d47f6b6"
+                  )
+                ]
+            , [
+                ( Pkg.
+                    {
+                      name= "amd-microcode"
+                    ; epoch= None
+                    ; version= "20220930"
+                    ; release= "2.xs8"
+                    ; arch= "noarch"
+                    }
+                  
+                , "local-bd74070c-897f-d2bc-654a-a3f87d47f6b6"
+                )
+              ; ( Pkg.
+                    {
+                      name= "python2-bitarray"
+                    ; epoch= None
+                    ; version= "0.8.3"
+                    ; release= "2.xs8"
+                    ; arch= "x86_64"
+                    }
+                  
+                , "local-bd74070c-897f-d2bc-654a-a3f87d47f6b6"
+                )
+              ]
+            )
+          )
+        , Ok
+            [
+              ( Pkg.
+                  {
+                    name= "amd-microcode"
+                  ; epoch= None
+                  ; version= "20220930"
+                  ; release= "2.xs8"
+                  ; arch= "noarch"
+                  }
+                
+              , "local-bd74070c-897f-d2bc-654a-a3f87d47f6b6"
+              )
+            ; ( Pkg.
+                  {
+                    name= "python2-bitarray"
+                  ; epoch= None
+                  ; version= "0.8.3"
+                  ; release= "2.xs8"
+                  ; arch= "x86_64"
+                  }
+                
+              , "local-bd74070c-897f-d2bc-654a-a3f87d47f6b6"
+              )
+            ]
+        )
+      ; (* is a subset; use 'yum upgrade' *)
+        ( ( false
+          , ( Some
+                [
+                  ( Pkg.
+                      {
+                        name= "amd-microcode"
+                      ; epoch= None
+                      ; version= "20220930"
+                      ; release= "2.xs8"
+                      ; arch= "noarch"
+                      }
+                    
+                  , "local-bd74070c-897f-d2bc-654a-a3f87d47f6b6"
+                  )
+                ]
+            , [
+                ( Pkg.
+                    {
+                      name= "amd-microcode"
+                    ; epoch= None
+                    ; version= "20220930"
+                    ; release= "2.xs8"
+                    ; arch= "noarch"
+                    }
+                  
+                , "local-bd74070c-897f-d2bc-654a-a3f87d47f6b6"
+                )
+              ; ( Pkg.
+                    {
+                      name= "python2-bitarray"
+                    ; epoch= None
+                    ; version= "0.8.3"
+                    ; release= "2.xs8"
+                    ; arch= "x86_64"
+                    }
+                  
+                , "local-bd74070c-897f-d2bc-654a-a3f87d47f6b6"
+                )
+              ]
+            )
+          )
+        , Ok
+            [
+              ( Pkg.
+                  {
+                    name= "amd-microcode"
+                  ; epoch= None
+                  ; version= "20220930"
+                  ; release= "2.xs8"
+                  ; arch= "noarch"
+                  }
+                
+              , "local-bd74070c-897f-d2bc-654a-a3f87d47f6b6"
+              )
+            ]
+        )
+      ]
+end)
+
 let tests =
   make_suite "repository_helpers_"
     [
@@ -3462,6 +3714,9 @@ let tests =
     ; ("prune_updateinfo_for_livepatches", PruneUpdateInfoForLivepatches.tests)
     ; ( "parse_output_of_yum_upgrade_dry_run"
       , ParseOutputOfYumUpgradeDryRun.tests
+      )
+    ; ( "get_latest_updates_from_redundancy"
+      , GetLatestUpdatesFromRedundancy.tests
       )
     ]
 
