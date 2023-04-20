@@ -737,8 +737,22 @@ let restrict_to ~domain dns =
 
 let reconfigure_ipv6 ~__context ~self ~mode ~iPv6 ~gateway ~dNS =
   Xapi_pif_helpers.assert_pif_is_managed ~__context ~self ;
-  assert_no_protection_enabled ~__context ~self ;
-  assert_no_clustering_enabled_on ~__context ~self ;
+  (* If HA or clustering is enabled, we are at risk of fencing if the IP
+     address, netmask or gateway changes. This may happen if we switch to
+     DHCP mode, or if we change a static configuration. Only changing DNS
+     servers in static mode is allowed. *)
+  let current = Db.PIF.get_record ~__context ~self in
+  if
+    not
+      (mode = `Static
+      && current.API.pIF_ipv6_configuration_mode = mode
+      && current.API.pIF_IPv6 = [iPv6]
+      && current.API.pIF_ipv6_gateway = gateway
+      )
+  then (
+    assert_no_protection_enabled ~__context ~self ;
+    assert_no_clustering_enabled_on ~__context ~self
+  ) ;
   if gateway <> "" then
     Helpers.assert_is_valid_ip `ipv6 "gateway" gateway ;
   (* If we have an IPv6 address, check that it is valid and a prefix length is specified *)
@@ -781,8 +795,23 @@ let reconfigure_ipv6 ~__context ~self ~mode ~iPv6 ~gateway ~dNS =
 
 let reconfigure_ip ~__context ~self ~mode ~iP ~netmask ~gateway ~dNS =
   Xapi_pif_helpers.assert_pif_is_managed ~__context ~self ;
-  assert_no_protection_enabled ~__context ~self ;
-  assert_no_clustering_enabled_on ~__context ~self ;
+  (* If HA or clustering is enabled, we are at risk of fencing if the IP
+     address, netmask or gateway changes. This may happen if we switch to
+     DHCP mode, or if we change a static configuration. Only changing DNS
+     servers in static mode is allowed. *)
+  let current = Db.PIF.get_record ~__context ~self in
+  if
+    not
+      (mode = `Static
+      && current.API.pIF_ip_configuration_mode = mode
+      && current.API.pIF_IP = iP
+      && current.API.pIF_netmask = netmask
+      && current.API.pIF_gateway = gateway
+      )
+  then (
+    assert_no_protection_enabled ~__context ~self ;
+    assert_no_clustering_enabled_on ~__context ~self
+  ) ;
   if mode = `Static then (
     (* require these parameters if mode is static *)
     Helpers.assert_is_valid_ip `ipv4 "IP" iP ;
