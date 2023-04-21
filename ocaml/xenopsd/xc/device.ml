@@ -500,8 +500,9 @@ module Vbd_Common = struct
 
     (* We don't watch for error nodes *)
     let (_ : bool) =
-      cancellable_watch (Device x) [shutdown_done ~xs x] [] task ~xs
-        ~timeout:!Xenopsd.hotplug_timeout ()
+      cancellable_watch (Device x)
+        [shutdown_done ~xs x]
+        [] task ~xs ~timeout:!Xenopsd.hotplug_timeout ()
     in
     Generic.rm_device_state ~xs x ;
     debug "Device.Vbd.hard_shutdown complete"
@@ -1884,7 +1885,6 @@ module Vusb = struct
                   driver= "usb-host"
                 ; device= USB {USB.id; params= Some {bus; hostbus; hostport}}
                 }
-              
           )
         in
         qmp_send_cmd domid cmd |> ignore
@@ -3048,7 +3048,6 @@ module Backend = struct
                         ; medium_filename= path
                         ; medium_format= Some "raw"
                         }
-                      
                     in
 
                     let cmd = Qmp.(Blockdev_change_medium medium) in
@@ -3116,7 +3115,6 @@ module Backend = struct
                       driver= VCPU.Driver.(string_of QEMU32_I386_CPU)
                     ; device= VCPU {VCPU.id; socket_id; core_id; thread_id}
                     }
-                  
               )
             |> ignore
         | false ->
@@ -3503,7 +3501,6 @@ module Backend = struct
                   common.argv @ misc @ disks' @ pv_device pv_device_addr @ none
               ; fd_map= common.fd_map
               }
-            
         | _, fds, argv ->
             Dm_Common.
               {
@@ -3511,7 +3508,6 @@ module Backend = struct
                   common.argv @ misc @ disks' @ pv_device pv_device_addr @ argv
               ; fd_map= common.fd_map @ fds
               }
-            
 
       let after_suspend_image ~xs ~qemu_domid ~vtpm domid =
         (* device model not needed anymore after suspend image has been created *)

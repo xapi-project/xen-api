@@ -1220,7 +1220,6 @@ let consolidate_updates_of_host ~repository_name ~updates_info host
           ; version= u.Update.new_version
           ; release= u.Update.new_release
           }
-        
       )
       latest_updates
   in
@@ -1261,7 +1260,6 @@ let consolidate_updates_of_host ~repository_name ~updates_info host
       ; update_ids= UpdateIdSet.elements upd_ids
       ; livepatches= lps
       }
-    
   in
 
   (host_updates, upd_ids)
@@ -1278,8 +1276,7 @@ let append_by_key l k v =
         else
           (acc_vals_of_k, (x, y) :: acc_others)
       )
-      ([v], [])
-      l
+      ([v], []) l
   in
   (k, vals) :: others
 

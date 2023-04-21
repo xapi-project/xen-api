@@ -153,7 +153,6 @@ let test_clusterd_rpc ~__context call =
       if ndead = nall - 1 then
         Rpc.
           {success= true; contents= Rpc.rpc_of_unit (); is_notification= false}
-        
       else
         let err =
           Cluster_interface.InternalError "Remaining hosts are not all alive"

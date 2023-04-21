@@ -47,8 +47,7 @@ let pv_drivers_version =
   ; (* linux + windows -- added in Miami Beta2 *)
     ("attr/PVAddons/BuildVersion", "build")
   ; (* windows *)
-    ("attr/PVAddons/Application", "application")
-    (* linux *)
+    ("attr/PVAddons/Application", "application") (* linux *)
   ]
 
 (* A fixed set of standard keys placed in the os_version map. *)
@@ -66,8 +65,7 @@ let os_version =
   ; (* linux + windows *)
     ("attr/os/spmajor", "spmajor")
   ; (* windows *)
-    ("attr/os/spminor", "spminor")
-    (* windows *)
+    ("attr/os/spminor", "spminor") (* windows *)
   ]
 
 let memory = [("data/meminfo_free", "free"); ("data/meminfo_total", "total")]

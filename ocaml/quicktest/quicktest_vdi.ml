@@ -14,7 +14,6 @@ let vdi_create_destroy rpc session_id sr_info () =
       ; (7L ** mib) +* 1L
       ; (8L ** mib) +* 1L
       ]
-    
   in
 
   List.iter

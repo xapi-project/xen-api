@@ -307,7 +307,6 @@ let rpc_fn call =
               [Rpc.Dict [("debug_info", debug_info); ("metadata", metadata)]]
           ; is_notification= false
           }
-        
     | "query", [debug_info; unit_p] ->
         debug "Upgrading query" ;
         Rpc.
@@ -316,7 +315,6 @@ let rpc_fn call =
           ; params= [Rpc.Dict [("debug_info", debug_info); ("unit", unit_p)]]
           ; is_notification= false
           }
-        
     | _ ->
         call
   in

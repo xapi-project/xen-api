@@ -91,7 +91,6 @@ let device_frontend device =
     ; other= NONE
     ; acl= [(device.backend.domid, READ)]
     }
-  
 
 let device_backend device =
   Xs_protocol.ACL.
@@ -100,7 +99,6 @@ let device_backend device =
     ; other= NONE
     ; acl= [(device.frontend.domid, READ)]
     }
-  
 
 let hotplug device =
   Xs_protocol.ACL.{owner= device.backend.domid; other= NONE; acl= []}

@@ -102,7 +102,6 @@ let gpu_err =
             Some (Internal_error (Printexc.to_string exn))
         )
     }
-  
 
 (** Functor to autogenerate API calls *)
 module RPC_API (R : RPC) = struct
@@ -122,7 +121,6 @@ module RPC_API (R : RPC) = struct
           ]
       ; version= (1, 0, 0)
       }
-    
 
   let implementation = implement description
 

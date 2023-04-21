@@ -28,8 +28,7 @@ let monitor_whitelist =
   ref
     [
       "eth"
-    ; "vif"
-      (* This includes "tap" owing to the use of standardise_name below *)
+    ; "vif" (* This includes "tap" owing to the use of standardise_name below *)
     ]
 
 let xapi_rpc xml =

@@ -114,8 +114,9 @@ let set_locking_mode ~__context ~self ~value =
   if effective_locking_mode = `locked then
     Helpers.assert_vswitch_controller_not_active ~__context ;
   change_locking_config ~__context ~self
-    ~licence_check:(effective_locking_mode = `locked)
-    (fun () -> Db.VIF.set_locking_mode ~__context ~self ~value)
+    ~licence_check:(effective_locking_mode = `locked) (fun () ->
+      Db.VIF.set_locking_mode ~__context ~self ~value
+  )
 
 let set_ipv4_allowed ~__context ~self ~value =
   let addr_set = Listext.setify value in

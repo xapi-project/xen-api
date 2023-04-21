@@ -42,16 +42,14 @@ let t =
       [
         uid _certificate ~lifecycle
       ; field ~qualifier:DynamicRO
-          ~lifecycle:
-            [(Published, "1.294.0", "")]
+          ~lifecycle:[(Published, "1.294.0", "")]
             (* Any cert records existing before the introduction of the 'name' field
              * have no name, because they are of type 'host' *)
           ~ty:String "name" ~default_value:(Some (VString ""))
           "The name of the certificate, only present on certificates of type \
            'ca'"
       ; field ~qualifier:DynamicRO
-          ~lifecycle:
-            [(Published, "1.294.0", "")]
+          ~lifecycle:[(Published, "1.294.0", "")]
             (* Any cert records existing before the introduction of the 'host' field
              * are of type host *)
           ~ty:certificate_type "type" ~default_value:(Some (VEnum "host"))

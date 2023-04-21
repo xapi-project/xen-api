@@ -68,8 +68,7 @@ let timescales =
     ; (* 120 values of interval 12 steps (1 min) = 2 hours *)
       (168, 720)
     ; (* 168 values of interval 720 steps (1 hr) = 1 week *)
-      (366, 17280)
-      (* 366 values of interval 17280 steps (1 day) = 1 yr *)
+      (366, 17280) (* 366 values of interval 17280 steps (1 day) = 1 yr *)
     ]
 
 let use_min_max = ref false
