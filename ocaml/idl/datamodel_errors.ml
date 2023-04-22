@@ -1947,10 +1947,6 @@ let _ =
     ~doc:"Requires recommended guidance after applying updates." () ;
   error Api_errors.update_guidance_changed ["guidance"]
     ~doc:"Guidance for the update has changed" () ;
-  error Api_errors.invalid_update_sync_day ["day"]
-    ~doc:"The day when update sync will run is invalid." () ;
-  error Api_errors.invalid_update_sync_hour ["hour"]
-    ~doc:"The hour when update sync will run is invalid." () ;
 
   error Api_errors.vtpm_max_amount_reached ["amount"]
     ~doc:"The VM cannot be associated with more VTPMs." () ;

@@ -48,8 +48,6 @@ let create_pool_record ~__context =
       ~repository_proxy_url:"" ~repository_proxy_username:""
       ~repository_proxy_password:Ref.null ~migration_compression:false
       ~coordinator_bias:true ~last_update_sync:Xapi_stdext_date.Date.epoch
-      ~update_sync_frequency:`daily ~update_sync_day:1L ~update_sync_hour:0L
-      ~update_sync_enabled:false
 
 let set_master_ip ~__context =
   let ip =
