@@ -353,3 +353,31 @@ let failed_login_attempts = addMessage "FAILED_LOGIN_ATTEMPTS" 3L
 
 let tls_verification_emergency_disabled =
   addMessage "TLS_VERIFICATION_EMERGENCY_DISABLED" 3L
+
+exception InvalidMessagePrio of int64
+
+let css_expiring prio =
+  let prio_str =
+    match prio with
+    | 1L ->
+        "CRITICAL"
+    | 2L ->
+        "MAJOR"
+    | 3L ->
+        "WARNING"
+    | 4L ->
+        "MINOR"
+    | 5L ->
+        "INFORMATIONAL"
+    | _ ->
+        raise (InvalidMessagePrio prio)
+  in
+  addMessage (Printf.sprintf "CSS_EXPIRING_PRIO_%s" prio_str) prio
+
+let css_expiring_prio_critical = css_expiring 1L
+
+let css_expiring_prio_major = css_expiring 2L
+
+let css_expiring_prio_warning = css_expiring 3L
+
+let css_expired = addMessage "CSS_EXPIRED" 1L
