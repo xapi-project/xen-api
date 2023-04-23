@@ -28,8 +28,7 @@ module Message = struct
   type kind = Request of string | Response of message_id
   [@@deriving rpc, sexp]
 
-  type t = {payload: string; (* switch to Rpc.t *)
-                             kind: kind}
+  type t = {payload: string (* switch to Rpc.t *); kind: kind}
   [@@deriving rpc, sexp]
 end
 

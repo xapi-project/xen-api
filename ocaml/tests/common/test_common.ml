@@ -499,7 +499,6 @@ let make_pool_update ~__context ?(ref = Ref.make ()) ?(uuid = make_uuid ())
       ; after_apply_guidance
       ; enforce_homogeneity
       }
-    
   in
 
   Xapi_pool_update.create_update_record ~__context ~update:ref ~update_info ~vdi ;

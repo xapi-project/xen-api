@@ -391,8 +391,7 @@ let has_to_audit action =
             "http/post_remote_db_access"
           ; (* spam *)
             "host.tickle_heartbeat"
-          ; "host_tickle_heartbeat"
-            (* spam *)
+          ; "host_tickle_heartbeat" (* spam *)
           ]
        )
 

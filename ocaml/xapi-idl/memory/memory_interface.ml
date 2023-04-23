@@ -102,7 +102,6 @@ let err =
             Some (Internal_error (Printexc.to_string exn))
         )
     }
-  
 
 (** An uninterpreted string associated with the operation. *)
 type debug_info = string [@@deriving rpcty]
@@ -128,7 +127,6 @@ module API (R : RPC) = struct
           ]
       ; version= (1, 0, 0)
       }
-    
 
   let implementation = implement description
 

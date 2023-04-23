@@ -5114,15 +5114,12 @@ functor
         ensure_vdi_not_on_running_vm ~__context ~self ;
         let local_fn = Local.VDI.set_on_boot ~self ~value in
         let sr = Db.VDI.get_SR ~__context ~self in
-        with_sr_andor_vdi ~__context
-          ~sr:(sr, `vdi_set_on_boot)
-          ~vdi:(self, `set_on_boot)
-          ~doc:"VDI.set_on_boot"
-          (fun () ->
+        with_sr_andor_vdi ~__context ~sr:(sr, `vdi_set_on_boot)
+          ~vdi:(self, `set_on_boot) ~doc:"VDI.set_on_boot" (fun () ->
             forward_vdi_op ~local_fn ~__context ~self (fun session_id rpc ->
                 Client.VDI.set_on_boot ~rpc ~session_id ~self ~value
             )
-          )
+        )
 
       let set_allow_caching ~__context ~self ~value =
         ensure_vdi_not_on_running_vm ~__context ~self ;
@@ -5145,9 +5142,7 @@ functor
             ~_type ~sharable ~read_only ~other_config ~xenstore_data ~sm_config
             ~tags
         in
-        with_sr_andor_vdi ~__context
-          ~sr:(sR, `vdi_create)
-          ~doc:"VDI.create"
+        with_sr_andor_vdi ~__context ~sr:(sR, `vdi_create) ~doc:"VDI.create"
           (fun () ->
             SR.forward_sr_op ~local_fn ~__context ~self:sR
               (fun session_id rpc ->
@@ -5155,7 +5150,7 @@ functor
                   ~sR ~virtual_size ~_type ~sharable ~read_only ~other_config
                   ~xenstore_data ~sm_config ~tags
             )
-          )
+        )
 
       (* Hidden call used in pool join only *)
       let pool_introduce = Local.VDI.pool_introduce
@@ -5190,10 +5185,8 @@ functor
             ~sm_config ~managed ~virtual_size ~physical_utilisation
             ~metadata_of_pool ~is_a_snapshot ~snapshot_time ~snapshot_of
         in
-        with_sr_andor_vdi ~__context
-          ~sr:(sR, `vdi_introduce)
-          ~doc:"VDI.introduce"
-          (fun () ->
+        with_sr_andor_vdi ~__context ~sr:(sR, `vdi_introduce)
+          ~doc:"VDI.introduce" (fun () ->
             SR.forward_sr_op ~local_fn ~__context ~self:sR
               (fun session_id rpc ->
                 Client.VDI.introduce ~rpc ~session_id ~uuid ~name_label
@@ -5202,69 +5195,57 @@ functor
                   ~virtual_size ~physical_utilisation ~metadata_of_pool
                   ~is_a_snapshot ~snapshot_time ~snapshot_of
             )
-          )
+        )
 
       let update ~__context ~vdi =
         let local_fn = Local.VDI.update ~vdi in
         let sr = Db.VDI.get_SR ~__context ~self:vdi in
-        with_sr_andor_vdi ~__context
-          ~vdi:(vdi, `update)
-          ~doc:"VDI.update"
+        with_sr_andor_vdi ~__context ~vdi:(vdi, `update) ~doc:"VDI.update"
           (fun () ->
             SR.forward_sr_op ~local_fn ~__context ~self:sr
               (fun session_id rpc -> Client.VDI.update ~rpc ~session_id ~vdi
             )
-          )
+        )
 
       let forget ~__context ~vdi =
         info "VDI.forget: VDI = '%s'" (vdi_uuid ~__context vdi) ;
-        with_sr_andor_vdi ~__context
-          ~vdi:(vdi, `forget)
-          ~doc:"VDI.forget"
-          (fun () -> Local.VDI.forget ~__context ~vdi)
+        with_sr_andor_vdi ~__context ~vdi:(vdi, `forget) ~doc:"VDI.forget"
+          (fun () -> Local.VDI.forget ~__context ~vdi
+        )
 
       let destroy ~__context ~self =
         info "VDI.destroy: VDI = '%s'" (vdi_uuid ~__context self) ;
         let local_fn = Local.VDI.destroy ~self in
         let sR = Db.VDI.get_SR ~__context ~self in
-        with_sr_andor_vdi ~__context
-          ~sr:(sR, `vdi_destroy)
-          ~vdi:(self, `destroy)
-          ~doc:"VDI.destroy"
-          (fun () ->
+        with_sr_andor_vdi ~__context ~sr:(sR, `vdi_destroy)
+          ~vdi:(self, `destroy) ~doc:"VDI.destroy" (fun () ->
             forward_vdi_op ~local_fn ~__context ~self (fun session_id rpc ->
                 Client.VDI.destroy ~rpc ~session_id ~self
             )
-          )
+        )
 
       (* !! FIXME - Depends on what we're doing here... *)
       let snapshot ~__context ~vdi ~driver_params =
         info "VDI.snapshot: VDI = '%s'" (vdi_uuid ~__context vdi) ;
         let local_fn = Local.VDI.snapshot ~vdi ~driver_params in
         let sR = Db.VDI.get_SR ~__context ~self:vdi in
-        with_sr_andor_vdi ~__context
-          ~sr:(sR, `vdi_snapshot)
-          ~vdi:(vdi, `snapshot)
-          ~doc:"VDI.snapshot"
-          (fun () ->
+        with_sr_andor_vdi ~__context ~sr:(sR, `vdi_snapshot)
+          ~vdi:(vdi, `snapshot) ~doc:"VDI.snapshot" (fun () ->
             forward_vdi_op ~local_fn ~__context ~self:vdi (fun session_id rpc ->
                 Client.VDI.snapshot ~rpc ~session_id ~vdi ~driver_params
             )
-          )
+        )
 
       let clone ~__context ~vdi ~driver_params =
         info "VDI.clone: VDI = '%s'" (vdi_uuid ~__context vdi) ;
         let local_fn = Local.VDI.clone ~vdi ~driver_params in
         let sR = Db.VDI.get_SR ~__context ~self:vdi in
-        with_sr_andor_vdi ~__context
-          ~sr:(sR, `vdi_clone)
-          ~vdi:(vdi, `clone)
-          ~doc:"VDI.clone"
-          (fun () ->
+        with_sr_andor_vdi ~__context ~sr:(sR, `vdi_clone) ~vdi:(vdi, `clone)
+          ~doc:"VDI.clone" (fun () ->
             forward_vdi_op ~local_fn ~__context ~self:vdi (fun session_id rpc ->
                 Client.VDI.clone ~rpc ~session_id ~vdi ~driver_params
             )
-          )
+        )
 
       let copy ~__context ~vdi ~sr ~base_vdi ~into_vdi =
         info "VDI.copy: VDI = '%s'; SR = '%s'; base_vdi = '%s'; into_vdi = '%s'"
@@ -5287,9 +5268,7 @@ functor
           Helpers.try_internal_async ~__context API.ref_VDI_of_rpc async_op
             sync_op
         in
-        with_sr_andor_vdi ~__context
-          ~vdi:(vdi, `copy)
-          ~doc:"VDI.copy"
+        with_sr_andor_vdi ~__context ~vdi:(vdi, `copy) ~doc:"VDI.copy"
           (fun () ->
             try
               SR.forward_sr_multiple_op ~local_fn ~__context ~srs:[src_sr; sr]
@@ -5297,7 +5276,7 @@ functor
             with Not_found ->
               SR.forward_sr_multiple_op ~local_fn ~__context ~srs:[src_sr]
                 ~prefer_slaves:true op
-          )
+        )
 
       let pool_migrate ~__context ~vdi ~sr ~options =
         let vbds =
@@ -5355,15 +5334,13 @@ functor
             in
             VM.reserve_memory_for_vm ~__context ~vm ~host ~snapshot
               ~host_op:`vm_migrate (fun () ->
-                with_sr_andor_vdi ~__context
-                  ~vdi:(vdi, `mirror)
-                  ~doc:"VDI.mirror"
-                  (fun () ->
+                with_sr_andor_vdi ~__context ~vdi:(vdi, `mirror)
+                  ~doc:"VDI.mirror" (fun () ->
                     do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
                         Client.VDI.pool_migrate ~rpc ~session_id ~vdi ~sr
                           ~options
                     )
-                  )
+                )
             )
         )
 
@@ -5371,41 +5348,34 @@ functor
         info "VDI.resize: VDI = '%s'; size = %Ld" (vdi_uuid ~__context vdi) size ;
         let local_fn = Local.VDI.resize ~vdi ~size in
         let sR = Db.VDI.get_SR ~__context ~self:vdi in
-        with_sr_andor_vdi ~__context
-          ~sr:(sR, `vdi_resize)
-          ~vdi:(vdi, `resize)
-          ~doc:"VDI.resize"
-          (fun () ->
+        with_sr_andor_vdi ~__context ~sr:(sR, `vdi_resize) ~vdi:(vdi, `resize)
+          ~doc:"VDI.resize" (fun () ->
             forward_vdi_op ~local_fn ~__context ~self:vdi (fun session_id rpc ->
                 Client.VDI.resize ~rpc ~session_id ~vdi ~size
             )
-          )
+        )
 
       let generate_config ~__context ~host ~vdi =
         info "VDI.generate_config: VDI = '%s'; host = '%s'"
           (vdi_uuid ~__context vdi)
           (host_uuid ~__context host) ;
         let local_fn = Local.VDI.generate_config ~host ~vdi in
-        with_sr_andor_vdi ~__context
-          ~vdi:(vdi, `generate_config)
-          ~doc:"VDI.generate_config"
-          (fun () ->
+        with_sr_andor_vdi ~__context ~vdi:(vdi, `generate_config)
+          ~doc:"VDI.generate_config" (fun () ->
             do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
                 Client.VDI.generate_config ~rpc ~session_id ~host ~vdi
             )
-          )
+        )
 
       let force_unlock ~__context ~vdi =
         info "VDI.force_unlock: VDI = '%s'" (vdi_uuid ~__context vdi) ;
         let local_fn = Local.VDI.force_unlock ~vdi in
-        with_sr_andor_vdi ~__context
-          ~vdi:(vdi, `force_unlock)
-          ~doc:"VDI.force_unlock"
-          (fun () ->
+        with_sr_andor_vdi ~__context ~vdi:(vdi, `force_unlock)
+          ~doc:"VDI.force_unlock" (fun () ->
             forward_vdi_op ~local_fn ~__context ~self:vdi (fun session_id rpc ->
                 Client.VDI.force_unlock ~rpc ~session_id ~vdi
             )
-          )
+        )
 
       let checksum ~__context ~self =
         VM.forward_to_access_srs_and ~local_fn:(Local.VDI.checksum ~self)
@@ -5417,29 +5387,23 @@ functor
         info "VDI.enable_cbt: VDI = '%s'" (vdi_uuid ~__context self) ;
         let local_fn = Local.VDI.enable_cbt ~self in
         let sR = Db.VDI.get_SR ~__context ~self in
-        with_sr_andor_vdi ~__context
-          ~sr:(sR, `vdi_enable_cbt)
-          ~vdi:(self, `enable_cbt)
-          ~doc:"VDI.enable_cbt"
-          (fun () ->
+        with_sr_andor_vdi ~__context ~sr:(sR, `vdi_enable_cbt)
+          ~vdi:(self, `enable_cbt) ~doc:"VDI.enable_cbt" (fun () ->
             forward_vdi_op ~local_fn ~__context ~self (fun session_id rpc ->
                 Client.VDI.enable_cbt ~rpc ~session_id ~self
             )
-          )
+        )
 
       let disable_cbt ~__context ~self =
         info "VDI.disable_cbt: VDI = '%s'" (vdi_uuid ~__context self) ;
         let local_fn = Local.VDI.disable_cbt ~self in
         let sR = Db.VDI.get_SR ~__context ~self in
-        with_sr_andor_vdi ~__context
-          ~sr:(sR, `vdi_disable_cbt)
-          ~vdi:(self, `disable_cbt)
-          ~doc:"VDI.disable_cbt"
-          (fun () ->
+        with_sr_andor_vdi ~__context ~sr:(sR, `vdi_disable_cbt)
+          ~vdi:(self, `disable_cbt) ~doc:"VDI.disable_cbt" (fun () ->
             forward_vdi_op ~local_fn ~__context ~self (fun session_id rpc ->
                 Client.VDI.disable_cbt ~rpc ~session_id ~self
             )
-          )
+        )
 
       let set_cbt_enabled ~__context ~self ~value =
         info "VDI.set_cbt_enabled: VDI = '%s'; value = '%b'"
@@ -5452,15 +5416,12 @@ functor
         info "VDI.data_destroy: VDI = '%s'" (vdi_uuid ~__context self) ;
         let local_fn = Local.VDI.data_destroy ~self in
         let sR = Db.VDI.get_SR ~__context ~self in
-        with_sr_andor_vdi ~__context
-          ~sr:(sR, `vdi_data_destroy)
-          ~vdi:(self, `data_destroy)
-          ~doc:"VDI.data_destroy"
-          (fun () ->
+        with_sr_andor_vdi ~__context ~sr:(sR, `vdi_data_destroy)
+          ~vdi:(self, `data_destroy) ~doc:"VDI.data_destroy" (fun () ->
             forward_vdi_op ~local_fn ~__context ~self (fun session_id rpc ->
                 Client.VDI.data_destroy ~rpc ~session_id ~self
             )
-          )
+        )
 
       let list_changed_blocks ~__context ~vdi_from ~vdi_to =
         info "VDI.list_changed_blocks: vdi_from  = '%s'; vdi_to = '%s'"
@@ -5468,17 +5429,15 @@ functor
           (vdi_uuid ~__context vdi_to) ;
         let local_fn = Local.VDI.list_changed_blocks ~vdi_from ~vdi_to in
         let vdi_to_sr = Db.VDI.get_SR ~__context ~self:vdi_to in
-        with_sr_andor_vdi ~__context
-          ~sr:(vdi_to_sr, `vdi_list_changed_blocks)
-          ~vdi:(vdi_to, `list_changed_blocks)
-          ~doc:"VDI.list_changed_blocks"
+        with_sr_andor_vdi ~__context ~sr:(vdi_to_sr, `vdi_list_changed_blocks)
+          ~vdi:(vdi_to, `list_changed_blocks) ~doc:"VDI.list_changed_blocks"
           (fun () ->
             forward_vdi_op ~local_fn ~__context ~self:vdi_to
               (fun session_id rpc ->
                 Client.VDI.list_changed_blocks ~rpc ~session_id ~vdi_from
                   ~vdi_to
             )
-          )
+        )
 
       let get_nbd_info ~__context ~self =
         info "VDI.get_nbd_info: vdi  = '%s'" (vdi_uuid ~__context self) ;

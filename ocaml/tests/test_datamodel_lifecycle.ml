@@ -50,7 +50,6 @@ module SuccessfulLifecycleCreation = Generic.MakeStateless (struct
           , Removed_s
           )
         ]
-      
 end)
 
 module FailingLifecycleCreation = Generic.MakeStateless (struct
@@ -92,7 +91,6 @@ module FailingLifecycleCreation = Generic.MakeStateless (struct
           , Invalid "Invalid transition Published from Removed_s"
           )
         ]
-      
 end)
 
 let tests =

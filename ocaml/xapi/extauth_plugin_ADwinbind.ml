@@ -1145,8 +1145,7 @@ module RotateMachinePassword = struct
          ; Printf.sprintf "%s={" realm
          ; Printf.sprintf "kpasswd_server=%s" kdc_fqdn
          ; Printf.sprintf "kdc=%s" kdc_fqdn
-         ; "}"
-           (* include winbind generated configure if exists *)
+         ; "}" (* include winbind generated configure if exists *)
          ]
         @ include_item
         @ [""] (* Empty line at the end *)
@@ -1361,7 +1360,6 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
         ; account_locked= false
         ; password_expired= false
         }
-      
     in
 
     let* {

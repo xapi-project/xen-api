@@ -291,7 +291,6 @@ module State = struct
     | sr :: rest ->
         Storage_interface.
           (Sr.of_string sr, Vdi.of_string (String.concat "/" rest))
-        
     | _ ->
         failwith "Bad id"
 
@@ -305,7 +304,6 @@ module State = struct
     | op :: sr :: rest when op = "copy" ->
         Storage_interface.
           (Sr.of_string sr, Vdi.of_string (String.concat "/" rest))
-        
     | _ ->
         failwith "Bad id"
 end
@@ -506,7 +504,6 @@ let copy' ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi ~verify_dest =
             ; remote_url= url
             ; verify_dest
             }
-          
       ) ;
     SMPERF.debug "mirror.copy: copy initiated local_vdi:%s dest_vdi:%s"
       (Storage_interface.Vdi.string_of vdi)
@@ -666,7 +663,6 @@ let start' ~task ~dbg ~sr ~vdi ~dp ~url ~dest ~verify_dest =
       ; failed= false
       ; watchdog= None
       }
-    
   in
 
   State.add id (State.Send_op alm) ;
@@ -761,7 +757,6 @@ let start' ~task ~dbg ~sr ~vdi ~dp ~url ~dest ~verify_dest =
         ; failed= false
         ; watchdog= None
         }
-      
     in
 
     State.add id (State.Send_op alm) ;
@@ -1044,7 +1039,6 @@ let receive_start ~dbg ~sr ~vdi_info ~id ~similar =
             ; parent_vdi= parent.vdi
             ; remote_vdi= vdi_info.vdi
             }
-          
       ) ;
     let nearest_content_id = Option.map (fun x -> x.content_id) nearest in
     Mirror.Vhd_mirror

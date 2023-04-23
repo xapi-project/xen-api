@@ -871,8 +871,7 @@ let rec create_or_get_host_on_master __context rpc session_id (host_ref, host) :
           ~external_auth_configuration:host.API.host_external_auth_configuration
           ~license_params:host.API.host_license_params
           ~edition:host.API.host_edition
-          ~license_server:
-            host.API.host_license_server
+          ~license_server:host.API.host_license_server
             (* CA-51925: local_cache_sr can only be written by Host.enable_local_caching_sr but this API
                				 * call is forwarded to the host in question. Since, during a pool-join, the host is offline,
                				 * we need an alternative way of preserving the value of the local_cache_sr field, so it's

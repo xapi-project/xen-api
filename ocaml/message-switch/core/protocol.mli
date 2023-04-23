@@ -32,8 +32,7 @@ val timeout : float
 module Message : sig
   type kind = Request of string | Response of message_id [@@deriving sexp]
 
-  type t = {payload: string; (* switch to Rpc.t *)
-                             kind: kind} [@@deriving sexp]
+  type t = {payload: string (* switch to Rpc.t *); kind: kind} [@@deriving sexp]
 
   val t_of_rpc : Rpc.t -> t
 

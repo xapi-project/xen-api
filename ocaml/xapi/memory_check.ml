@@ -97,8 +97,7 @@ let vm_compute_used_memory ~__context policy vm_ref =
     let vm_record = Db.VM.get_record ~__context ~self:vm_ref in
     let memory_required =
       choose_memory_required ~policy
-        ~memory_dynamic_min:
-          vm_record.API.vM_memory_dynamic_min
+        ~memory_dynamic_min:vm_record.API.vM_memory_dynamic_min
           (* ToDo: Is vm_main_record or vm_boot_record the right thing for dynamic_max? *)
         ~memory_dynamic_max:vm_record.API.vM_memory_dynamic_max
         ~memory_static_max:vm_record.API.vM_memory_static_max

@@ -540,7 +540,6 @@ let builder_of_vm ~__context (vmref, vm) timeoffset pci_passthrough vgpu =
   match
     Helpers.
       (check_domain_type vm.API.vM_domain_type, boot_method_of_vm ~__context ~vm)
-    
   with
   | `hvm, Helpers.Hvmloader _ ->
       HVM (make_hvmloader_boot_record ())
@@ -671,8 +670,8 @@ module MD = struct
     let backend_kind_keys = other_config_keys Xapi_globs.vbd_backend_key in
     let poll_duration_keys =
       in_range ~min:0 ~max:max_int
-        ~fallback:
-          0 (* if user provides invalid integer, use 0 = disable polling *)
+        ~fallback:0
+          (* if user provides invalid integer, use 0 = disable polling *)
         (other_config_keys Xapi_globs.vbd_polling_duration_key
            ~default:
              (Some (string_of_int !Xapi_globs.default_vbd3_polling_duration))

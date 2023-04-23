@@ -180,8 +180,7 @@ let get_boot_record =
        CPU hotplug"
     ~result:(Record _vm, "A record describing the VM")
     ~params:[(Ref _vm, "self", "The VM whose boot-time state to return")]
-    ~errs:[]
-    ~flags:[`Session] (* no async *)
+    ~errs:[] ~flags:[`Session] (* no async *)
     ~allowed_roles:_R_READ_ONLY ()
 
 let get_data_sources =
@@ -941,8 +940,7 @@ let suspend =
     ~doc:
       "Suspend the specified VM to disk.  This can only be called when the \
        specified VM is in the Running state."
-    ~params:
-      [(Ref _vm, "vm", "The VM to suspend")]
+    ~params:[(Ref _vm, "vm", "The VM to suspend")]
       (*	    Bool, "live", "If set to true, perform a live hibernate; otherwise suspend the VM before commencing hibernate" *)
     ~errs:
       [
@@ -958,8 +956,8 @@ let suspend =
 let csvm =
   call ~name:"csvm" ~in_product_since:rel_rio
     ~doc:"undocumented. internal use only. This call is deprecated."
-    ~params:[(Ref _vm, "vm", "")] ~result:(Ref _vm, "")
-    ~errs:(errnames_of_call clone) ~hide_from_docs:true
+    ~params:[(Ref _vm, "vm", "")]
+    ~result:(Ref _vm, "") ~errs:(errnames_of_call clone) ~hide_from_docs:true
     ~internal_deprecated_since:rel_miami ~allowed_roles:_R_VM_ADMIN ()
 
 (* VM.UnHibernate *)

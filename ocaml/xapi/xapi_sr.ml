@@ -321,7 +321,6 @@ let probe_ext =
       ; sr_stat_clustered= clustered
       ; sr_stat_health= to_xenapi_sr_health health
       }
-    
   in
 
   let to_xenapi_probe_result
@@ -333,7 +332,6 @@ let probe_ext =
       ; probe_result_sr= Option.map to_xenapi_sr_stat sr
       ; probe_result_extra_info= extra_info
       }
-    
   in
 
   call_probe ~f:(function

@@ -88,12 +88,13 @@ let test_create_unmanaged_pif () =
   let vlan_network = make_network ~__context ~bridge:"xapi0" () in
   let tagged_PIF = make_pif ~__context ~network ~host ~managed:false () in
   assert_raises_api_error Api_errors.pif_unmanaged
-    ~args:[Ref.string_of tagged_PIF] (fun () ->
+    ~args:[Ref.string_of tagged_PIF]
+    (fun () ->
       let (_ : [`VLAN] Ref.t) =
         Xapi_vlan.create ~__context ~tagged_PIF ~tag ~network:vlan_network
       in
       ()
-  )
+    )
 
 let test_create_network_already_connected () =
   let __context = make_test_database () in
@@ -102,12 +103,13 @@ let test_create_network_already_connected () =
   let network = make_network ~__context () in
   let tagged_PIF = make_pif ~__context ~network ~host () in
   assert_raises_api_error Api_errors.network_already_connected
-    ~args:[Ref.string_of host; Ref.string_of tagged_PIF] (fun () ->
+    ~args:[Ref.string_of host; Ref.string_of tagged_PIF]
+    (fun () ->
       let (_ : [`VLAN] Ref.t) =
         Xapi_vlan.create ~__context ~tagged_PIF ~tag ~network
       in
       ()
-  )
+    )
 
 let test_create_pif_is_bond_slave () =
   let __context = make_test_database () in
@@ -120,12 +122,13 @@ let test_create_pif_is_bond_slave () =
   in
   let vlan_network = make_network ~__context ~bridge:"xapi0" () in
   assert_raises_api_error Api_errors.cannot_add_vlan_to_bond_slave
-    ~args:[Ref.string_of tagged_PIF] (fun () ->
+    ~args:[Ref.string_of tagged_PIF]
+    (fun () ->
       let (_ : [`VLAN] Ref.t) =
         Xapi_vlan.create ~__context ~tagged_PIF ~tag ~network:vlan_network
       in
       ()
-  )
+    )
 
 let test_create_pif_is_vlan_master () =
   let __context = make_test_database () in
@@ -136,14 +139,15 @@ let test_create_pif_is_vlan_master () =
     create_vlan_pif ~__context ~host ~vlan:1L ~pif:physical_PIF ()
   in
   assert_raises_api_error Api_errors.pif_is_vlan
-    ~args:[Ref.string_of untagged_PIF] (fun () ->
+    ~args:[Ref.string_of untagged_PIF]
+    (fun () ->
       let tag = 3201L in
       let (_ : [`VLAN] Ref.t) =
         Xapi_vlan.create ~__context ~tagged_PIF:untagged_PIF ~tag
           ~network:vlan_network2
       in
       ()
-  )
+    )
 
 let test_create_pif_is_vlan_master_on_sriov () =
   let __context = make_test_database () in
@@ -155,14 +159,15 @@ let test_create_pif_is_vlan_master_on_sriov () =
     create_vlan_pif ~__context ~host ~vlan:1L ~pif:sriov_logical_PIF ()
   in
   assert_raises_api_error Api_errors.pif_is_vlan
-    ~args:[Ref.string_of untagged_PIF] (fun () ->
+    ~args:[Ref.string_of untagged_PIF]
+    (fun () ->
       let tag = 3201L in
       let (_ : [`VLAN] Ref.t) =
         Xapi_vlan.create ~__context ~tagged_PIF:untagged_PIF ~tag
           ~network:vlan_network2
       in
       ()
-  )
+    )
 
 let test_create_invalid_tag () =
   let __context = make_test_database () in
@@ -172,21 +177,23 @@ let test_create_invalid_tag () =
   let vlan_network = make_network ~__context ~bridge:"xapi0" () in
   let tagged_PIF = make_pif ~__context ~network ~host () in
   assert_raises_api_error Api_errors.vlan_tag_invalid
-    ~args:[Int64.to_string tag] (fun () ->
+    ~args:[Int64.to_string tag]
+    (fun () ->
       let (_ : [`VLAN] Ref.t) =
         Xapi_vlan.create ~__context ~tagged_PIF ~tag ~network:vlan_network
       in
       ()
-  ) ;
+    ) ;
   let new_tag = 4095L in
   assert_raises_api_error Api_errors.vlan_tag_invalid
-    ~args:[Int64.to_string new_tag] (fun () ->
+    ~args:[Int64.to_string new_tag]
+    (fun () ->
       let (_ : [`VLAN] Ref.t) =
         Xapi_vlan.create ~__context ~tagged_PIF ~tag:new_tag
           ~network:vlan_network
       in
       ()
-  )
+    )
 
 let test_create_vlan_already_exists () =
   let __context = make_test_database () in
@@ -218,12 +225,13 @@ let test_create_pif_is_tunnel_access () =
     create_tunnel_pif ~__context ~host ~pif:transport_PIF ()
   in
   assert_raises_api_error Api_errors.is_tunnel_access_pif
-    ~args:[Ref.string_of tagged_PIF] (fun () ->
+    ~args:[Ref.string_of tagged_PIF]
+    (fun () ->
       let (_ : [`VLAN] Ref.t) =
         Xapi_vlan.create ~__context ~tagged_PIF ~tag ~network:vlan_network
       in
       ()
-  )
+    )
 
 let test_gc_vlan () =
   let __context = make_test_database () in
@@ -264,13 +272,14 @@ let test_create_sriov_vlan_into_non_sriov_vlan_network () =
     create_sriov_pif ~__context ~pif:physical_PIF ()
   in
   assert_raises_api_error Api_errors.network_incompatible_with_vlan_on_sriov
-    ~args:[Ref.string_of vlan_network] (fun () ->
+    ~args:[Ref.string_of vlan_network]
+    (fun () ->
       let tag = 3201L in
       let (_ : [`VLAN] Ref.t) =
         Xapi_vlan.create ~__context ~tagged_PIF ~tag ~network:vlan_network
       in
       ()
-  )
+    )
 
 let test_create_non_sriov_vlan_into_sriov_vlan_network () =
   let __context = make_test_database () in
@@ -288,13 +297,14 @@ let test_create_non_sriov_vlan_into_sriov_vlan_network () =
     create_physical_pif ~__context ~host ()
   in
   assert_raises_api_error Api_errors.network_incompatible_with_vlan_on_bridge
-    ~args:[Ref.string_of vlan_network] (fun () ->
+    ~args:[Ref.string_of vlan_network]
+    (fun () ->
       let tag = 3201L in
       let (_ : [`VLAN] Ref.t) =
         Xapi_vlan.create ~__context ~tagged_PIF ~tag ~network:vlan_network
       in
       ()
-  )
+    )
 
 let test_create_sriov_vlan_into_sriov_vlan_network_with_different_type_pci_device
     () =
@@ -318,13 +328,14 @@ let test_create_sriov_vlan_into_sriov_vlan_network_with_different_type_pci_devic
     create_sriov_pif ~__context ~pif:physical_PIF ()
   in
   assert_raises_api_error Api_errors.network_has_incompatible_vlan_on_sriov_pifs
-    ~args:[Ref.string_of tagged_PIF; Ref.string_of vlan_network] (fun () ->
+    ~args:[Ref.string_of tagged_PIF; Ref.string_of vlan_network]
+    (fun () ->
       let tag = 3201L in
       let (_ : [`VLAN] Ref.t) =
         Xapi_vlan.create ~__context ~tagged_PIF ~tag ~network:vlan_network
       in
       ()
-  )
+    )
 
 let test =
   [

@@ -71,8 +71,8 @@ let make_iscsi session_id pool network =
         Client.VDI.create ~rpc ~session_id ~name_label:storage_vdi_label
           ~name_description:"" ~sR:defaultsr ~virtual_size:sr_disk_size
           ~_type:`user ~sharable:false ~read_only:false
-          ~other_config:[(oc_key, pool.key)] ~xenstore_data:[] ~sm_config:[]
-          ~tags:[]
+          ~other_config:[(oc_key, pool.key)]
+          ~xenstore_data:[] ~sm_config:[] ~tags:[]
       in
       let userdevice = Printf.sprintf "%d" (i + 1) in
       ignore
@@ -90,9 +90,11 @@ let make_iscsi session_id pool network =
     Client.VM.set_HVM_boot_policy ~rpc ~session_id ~self:newvm ~value:"" ;
     let (_ : API.ref_VIF) =
       Client.VIF.create ~rpc ~session_id ~device:"0" ~network ~vM:newvm ~mAC:""
-        ~mTU:1500L ~other_config:[(oc_key, pool.key)] ~currently_attached:false
-        ~qos_algorithm_type:"" ~qos_algorithm_params:[]
-        ~locking_mode:`network_default ~ipv4_allowed:[] ~ipv6_allowed:[]
+        ~mTU:1500L
+        ~other_config:[(oc_key, pool.key)]
+        ~currently_attached:false ~qos_algorithm_type:""
+        ~qos_algorithm_params:[] ~locking_mode:`network_default ~ipv4_allowed:[]
+        ~ipv6_allowed:[]
     in
     Client.VM.add_to_other_config ~rpc ~session_id ~self:newvm ~key:oc_key
       ~value:pool.key ;
