@@ -2,14 +2,20 @@
 #
 # unittest for usb_scan.py
 
-from collections import Mapping, Container, Iterable
+try:
+    from collections.abc import Mapping, Container, Iterable
+except ImportError: # python2
+    from collections import Mapping, Container, Iterable
 import mock
-from nose.tools import nottest
 import os
 import shutil
 import sys
 import tempfile
 import unittest
+
+def nottest(obj):
+    obj.__test__ = False
+    return obj
 
 sys.modules["xcp"] = mock.Mock()
 sys.modules["xcp.logger"] = mock.Mock()

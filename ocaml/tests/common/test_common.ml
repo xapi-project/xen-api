@@ -289,6 +289,8 @@ let make_pool ~__context ~master ?(name_label = "") ?(name_description = "")
     ?(client_certificate_auth_name = "") ?(repository_proxy_url = "")
     ?(repository_proxy_username = "") ?(repository_proxy_password = Ref.null)
     ?(migration_compression = false) ?(coordinator_bias = true)
+    ?(telemetry_uuid = Ref.null) ?(telemetry_frequency = `weekly)
+    ?(telemetry_next_collection = API.Date.never)
     ?(last_update_sync = API.Date.epoch) () =
   let pool_ref = Ref.make () in
   Db.Pool.create ~__context ~ref:pool_ref ~uuid:(make_uuid ()) ~name_label
@@ -304,7 +306,8 @@ let make_pool ~__context ~master ?(name_label = "") ?(name_description = "")
     ~tls_verification_enabled:false ~repositories
     ~client_certificate_auth_enabled ~client_certificate_auth_name
     ~repository_proxy_url ~repository_proxy_username ~repository_proxy_password
-    ~migration_compression ~coordinator_bias ~last_update_sync ;
+    ~migration_compression ~coordinator_bias ~telemetry_uuid
+    ~telemetry_frequency ~telemetry_next_collection ~last_update_sync ;
   pool_ref
 
 let default_sm_features =

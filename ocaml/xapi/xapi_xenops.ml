@@ -339,12 +339,17 @@ let rtc_timeoffset_of_vm ~__context (vm, vm_t) vbds =
 
 (* /boot/ contains potentially sensitive files like xen-initrd, so we will only*)
 (* allow directly booting guests from the subfolder /boot/guest/ *)
-let allowed_dom0_directory_for_boot_files = "/boot/guest/"
+let allowed_dom0_directories_for_boot_files =
+  ["/boot/guest/"; "/var/lib/xcp/guest"]
 
 let is_boot_file_whitelisted filename =
   let safe_str str = not (String.has_substr str "..") in
   (* make sure the script prefix is the allowed dom0 directory *)
-  String.startswith allowed_dom0_directory_for_boot_files filename
+  List.exists
+    (fun allowed_dom0_directory_for_boot_files ->
+      String.startswith allowed_dom0_directory_for_boot_files filename
+    )
+    allowed_dom0_directories_for_boot_files
   (* avoid ..-style attacks and other weird things *)
   && safe_str filename
 
@@ -547,6 +552,10 @@ let builder_of_vm ~__context (vmref, vm) timeoffset pci_passthrough vgpu =
       PVinPVH (make_direct_boot_record options)
   | `pv_in_pvh, Helpers.Indirect options ->
       PVinPVH (make_indirect_boot_record options)
+  | `pvh, Helpers.Direct options ->
+      PVH (make_direct_boot_record options)
+  | `pvh, Helpers.Indirect options ->
+      PVH (make_indirect_boot_record options)
   | _ ->
       raise
         Api_errors.(
@@ -572,7 +581,7 @@ module MD = struct
       match vm.API.vM_domain_type with
       | `hvm ->
           true
-      | `pv_in_pvh | `pv | `unspecified ->
+      | `pv_in_pvh | `pv | `pvh | `unspecified ->
           false
     in
     let device_number = Device_number.of_string hvm vbd.API.vBD_userdevice in
@@ -2047,6 +2056,8 @@ let update_vm ~__context id =
                     update `pv
                 | Domain_PVinPVH ->
                     update `pv_in_pvh
+                | Domain_PVH ->
+                    update `pvh
                 | Domain_undefined ->
                     if power_state <> `Halted then
                       debug

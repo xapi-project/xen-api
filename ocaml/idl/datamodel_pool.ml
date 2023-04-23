@@ -47,6 +47,16 @@ let operations =
       ]
     )
 
+let telemetry_frequency =
+  Enum
+    ( "telemetry_frequency"
+    , [
+        ("daily", "Run telemetry task daily")
+      ; ("weekly", "Run telemetry task weekly")
+      ; ("monthly", "Run telemetry task monthly")
+      ]
+    )
+
 let enable_ha =
   call ~in_product_since:rel_miami ~name:"enable_ha" ~in_oss_since:None
     ~versioned_params:
@@ -1024,6 +1034,26 @@ let set_uefi_certificates =
       ]
     ~allowed_roles:_R_POOL_ADMIN ()
 
+let set_telemetry_next_collection =
+  call ~name:"set_telemetry_next_collection" ~lifecycle:[]
+    ~doc:"Set the timestamp for the next telemetry data collection."
+    ~params:
+      [
+        (Ref _pool, "self", "The pool")
+      ; ( DateTime
+        , "value"
+        , "The earliest timestamp (in UTC) when the next round of telemetry \
+           collection can be carried out."
+        )
+      ]
+    ~allowed_roles:_R_POOL_ADMIN ()
+
+let reset_telemetry_uuid =
+  call ~name:"reset_telemetry_uuid" ~lifecycle:[]
+    ~doc:"Assign a new UUID to telemetry data."
+    ~params:[(Ref _pool, "self", "The pool")]
+    ~allowed_roles:_R_POOL_ADMIN ()
+
 (** A pool class *)
 let t =
   create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:None
@@ -1106,6 +1136,8 @@ let t =
       ; disable_repository_proxy
       ; set_uefi_certificates
       ; set_https_only
+      ; set_telemetry_next_collection
+      ; reset_telemetry_uuid
       ]
     ~contents:
       ([uid ~in_oss_since:None _pool]
@@ -1318,9 +1350,14 @@ let t =
             ~default_value:(Some (VString "")) "repository_proxy_username"
             "Username for the authentication of the proxy used in syncing with \
              the enabled repositories"
-        ; field ~in_product_since:"21.3.0" ~internal_only:true
-            ~qualifier:DynamicRO ~ty:(Ref _secret)
-            ~default_value:(Some (VRef null_ref)) "repository_proxy_password"
+        ; field ~qualifier:DynamicRO
+            ~lifecycle:
+              [
+                (Published, "21.3.0", "")
+              ; (Changed, rel_next, "Changed internal_only to false")
+              ]
+            ~ty:(Ref _secret) ~default_value:(Some (VRef null_ref))
+            "repository_proxy_password"
             "Password for the authentication of the proxy used in syncing with \
              the enabled repositories"
         ; field ~qualifier:RW ~lifecycle:[] ~ty:Bool
@@ -1331,6 +1368,17 @@ let t =
             "coordinator_bias"
             "true if bias against pool master when scheduling vms is enabled, \
              false otherwise"
+        ; field ~lifecycle:[] ~qualifier:DynamicRO ~ty:(Ref _secret)
+            ~default_value:(Some (VRef null_ref)) "telemetry_uuid"
+            "The UUID of the pool for identification of telemetry data"
+        ; field ~lifecycle:[] ~qualifier:DynamicRO ~ty:telemetry_frequency
+            ~default_value:(Some (VEnum "weekly")) "telemetry_frequency"
+            "How often the telemetry collection will be carried out"
+        ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:DateTime
+            ~default_value:(Some (VDateTime Date.epoch))
+            "telemetry_next_collection"
+            "The earliest timestamp (in UTC) when the next round of telemetry \
+             collection can be carried out"
         ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:DateTime
             ~default_value:(Some (VDateTime Date.epoch)) "last_update_sync"
             "time of the last update sychronization"

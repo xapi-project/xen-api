@@ -25,25 +25,6 @@ val start : unit -> unit
 (** once [start ()] returns the storage service is listening for requests on
     its unix domain socket. *)
 
-val find_vdi :
-     __context:Context.t
-  -> Storage_interface.sr
-  -> Storage_interface.vdi
-  -> API.ref_VDI * API.vDI_t
-(** [find_vdi __context sr vdi] returns the XenAPI VDI ref associated
-    	with (sr, vdi) *)
-
-val find_content :
-     __context:Context.t
-  -> ?sr:Storage_interface.sr
-  -> Storage_interface.content_id
-  -> API.ref_VDI * API.vDI_t
-(** [find_content __context ?sr content_id] returns the XenAPI VDI ref associated
-    with [content_id] *)
-
-val vdi_info_of_vdi_rec : Context.t -> API.vDI_t -> Storage_interface.vdi_info
-(** [vdi_info_of_vdi_rec __context vdi_rec] constructs a vdi_info record from information in the given VDI database record. *)
-
 val bind :
   __context:Context.t -> pbd:API.ref_PBD -> Storage_interface.query_result
 (** [bind __context pbd] causes the storage_access module to choose the most
@@ -98,10 +79,6 @@ val deactivate_and_detach :
   __context:Context.t -> vbd:API.ref_VBD -> domid:int -> unit
 (** [deactivate_and_detach __context vbd domid] idempotent function which ensures
     that any attached or activated VDI gets properly deactivated and detached. *)
-
-val is_attached : __context:Context.t -> vbd:API.ref_VBD -> domid:int -> bool
-(** [is_attached __context vbd] returns true if the [vbd] has an attached
-    or activated datapath. *)
 
 val on_vdi :
      __context:Context.t

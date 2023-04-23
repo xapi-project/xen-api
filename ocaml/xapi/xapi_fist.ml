@@ -110,6 +110,9 @@ let delay_xenopsd_event_threads () = fistpoint "delay_xenopsd_event_threads"
 
 let pause_after_cert_exchange () = fistpoint "pause_after_cert_exchange"
 
+let fail_on_error_in_yum_upgrade_dry_run () =
+  fistpoint "fail_on_error_in_yum_upgrade_dry_run"
+
 let hang_psr psr_checkpoint =
   ( match psr_checkpoint with
   | `backup ->

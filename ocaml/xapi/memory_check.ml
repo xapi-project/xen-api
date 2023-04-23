@@ -33,6 +33,8 @@ let vm_compute_required_memory vm_record guest_memory_kib =
         (vm_record.API.vM_HVM_shadow_multiplier, Memory.HVM.full_config)
     | `pv_in_pvh ->
         (vm_record.API.vM_HVM_shadow_multiplier, Memory.PVinPVH.full_config)
+    | `pvh ->
+        (vm_record.API.vM_HVM_shadow_multiplier, Memory.HVM.full_config)
     | `pv ->
         (Memory.Linux.shadow_multiplier_default, Memory.Linux.full_config)
   in
@@ -53,13 +55,6 @@ type accounting_policy =
   | Dynamic_min
       (** use dynamic_min: liberal: assumes that guests always co-operate. *)
 
-let default_policy ~__context =
-  match Pool_features.is_enabled ~__context Features.DMC with
-  | true ->
-      Dynamic_min
-  | false ->
-      Dynamic_max
-
 (** Common logic of vm_compute_start_memory and vm_compute_used_memory *)
 let choose_memory_required ~policy ~memory_dynamic_min ~memory_dynamic_max
     ~memory_static_max =
@@ -78,8 +73,7 @@ let choose_memory_required ~policy ~memory_dynamic_min ~memory_dynamic_max
     ballooning is not enabled or if the VM is an HVM guest, this function returns
     values derived from the VM's static memory maximum (since currently HVM guests
     are not able to start in a pre-ballooned state). *)
-let vm_compute_start_memory ~__context ?(policy = default_policy ~__context)
-    vm_record =
+let vm_compute_start_memory ~__context ?(policy = Dynamic_min) vm_record =
   if Xapi_fist.disable_memory_checks () then
     (0L, 0L)
   else
@@ -216,8 +210,7 @@ let host_compute_free_memory_with_maximum_compression ?(dump_stats = false)
     }
   in
   let host_mem_available =
-    host_compute_free_memory_with_policy ~__context summary
-      (default_policy ~__context)
+    host_compute_free_memory_with_policy ~__context summary Dynamic_min
     (* consider ballooning *)
   in
   if dump_stats then (
@@ -255,7 +248,7 @@ let vm_compute_memory_overhead ~vm_record =
   let vcpu_count = Int64.to_int vm_record.API.vM_VCPUs_max in
   let model =
     match Helpers.check_domain_type vm_record.API.vM_domain_type with
-    | `hvm ->
+    | `hvm | `pvh ->
         Memory.HVM.overhead_mib
     | `pv_in_pvh ->
         Memory.PVinPVH.overhead_mib

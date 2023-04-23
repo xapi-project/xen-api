@@ -3592,14 +3592,22 @@ let disable_repository_proxy ~__context ~self =
     )
 
 let set_uefi_certificates ~__context ~self ~value =
-  Db.Pool.set_uefi_certificates ~__context ~self ~value ;
-  Helpers.call_api_functions ~__context (fun rpc session_id ->
-      List.iter
-        (fun host ->
-          Client.Host.write_uefi_certificates_to_disk ~rpc ~session_id ~host
-        )
-        (Db.Host.get_all ~__context)
-  )
+  match !Xapi_globs.override_uefi_certs with
+  | false ->
+      let msg =
+        "Setting UEFI certificates is not possible when override_uefi_certs is \
+         false"
+      in
+      raise Api_errors.(Server_error (operation_not_allowed, [msg]))
+  | true ->
+      Db.Pool.set_uefi_certificates ~__context ~self ~value ;
+      Helpers.call_api_functions ~__context (fun rpc session_id ->
+          List.iter
+            (fun host ->
+              Client.Host.write_uefi_certificates_to_disk ~rpc ~session_id ~host
+            )
+            (Db.Host.get_all ~__context)
+      )
 
 let set_https_only ~__context ~self:_ ~value =
   Helpers.call_api_functions ~__context (fun rpc session_id ->
@@ -3608,4 +3616,47 @@ let set_https_only ~__context ~self:_ ~value =
           Client.Host.set_https_only ~rpc ~session_id ~self:host ~value
         )
         (Db.Host.get_all ~__context)
+  )
+
+let set_telemetry_next_collection ~__context ~self ~value =
+  let max_days =
+    match Db.Pool.get_telemetry_frequency ~__context ~self with
+    | `daily ->
+        2
+    | `weekly ->
+        14
+    | `monthly ->
+        62
+  in
+  let dt_of_max_sched, dt_of_value =
+    match
+      ( Ptime.Span.of_int_s (max_days * 24 * 3600)
+        |> Ptime.add_span (Ptime_clock.now ())
+      , value |> Date.to_ptime
+      )
+    with
+    | Some dt1, dt2 ->
+        (dt1, dt2)
+    | _ | (exception _) ->
+        let err_msg = "Can't parse date and time for telemetry collection." in
+        raise Api_errors.(Server_error (internal_error, [err_msg]))
+  in
+  let ts = Date.to_string value in
+  match Ptime.is_later dt_of_value ~than:dt_of_max_sched with
+  | true ->
+      raise Api_errors.(Server_error (telemetry_next_collection_too_late, [ts]))
+  | false ->
+      debug "Set the next telemetry collection to %s" ts ;
+      Db.Pool.set_telemetry_next_collection ~__context ~self ~value
+
+let reset_telemetry_uuid ~__context ~self =
+  debug "Creating new telemetry UUID" ;
+  let old_ref = Db.Pool.get_telemetry_uuid ~__context ~self in
+  let uuid = Uuidx.to_string (Uuidx.make ()) in
+  let ref = Xapi_secret.create ~__context ~value:uuid ~other_config:[] in
+  Db.Pool.set_telemetry_uuid ~__context ~self ~value:ref ;
+  if old_ref <> Ref.null then
+    debug "Destroying old telemetry UUID" ;
+  Xapi_stdext_pervasives.Pervasiveext.ignore_exn (fun _ ->
+      Db.Secret.destroy ~__context ~self:old_ref
   )

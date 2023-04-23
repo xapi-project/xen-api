@@ -47,6 +47,15 @@ module Pkg : sig
 
   val to_epoch_ver_rel_json : t -> Yojson.Basic.t
 
+  (* <op> epoch1 version1 release1 epoch2 version2 release2
+   * Compare two RPM versions in form of <epoch>:<version>-<release>.
+   * lt: return true only if <epoch1>:<version1>-<release1> is older than <epoch2>:<version2>-<release2>
+   * gt: return true only if <epoch1>:<version1>-<release1> is newer than <epoch2>:<version2>-<release2>
+   * eq: return true only if <epoch1>:<version1>-<release1> is same as <epoch2>:<version2>-<release2>
+   * lte: lt || eq
+   * gte: gt || eq
+   *)
+
   val lt : Epoch.t -> string -> string -> Epoch.t -> string -> string -> bool
 
   val gt : Epoch.t -> string -> string -> Epoch.t -> string -> string -> bool
@@ -56,6 +65,8 @@ module Pkg : sig
   val lte : Epoch.t -> string -> string -> Epoch.t -> string -> string -> bool
 
   val gte : Epoch.t -> string -> string -> Epoch.t -> string -> string -> bool
+
+  val parse_epoch_version_release : string -> Epoch.t * string * string
 end
 
 val get_latest_version_release :

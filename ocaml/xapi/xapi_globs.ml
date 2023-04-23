@@ -817,7 +817,7 @@ let web_dir = ref "/opt/xensource/www"
 
 let website_https_only = ref true
 
-let migration_https_only = ref false
+let migration_https_only = ref true
 
 let cluster_stack_root = ref "/usr/libexec/xapi/cluster-stack"
 
@@ -844,7 +844,11 @@ let nbd_client_manager_script =
 
 let varstore_rm = ref "/usr/bin/varstore-rm"
 
-let varstore_dir = ref "/usr/share/varstored"
+let varstore_dir = ref "/var/lib/varstored"
+
+let default_auth_dir = ref "/usr/share/varstored"
+
+let override_uefi_certs = ref false
 
 let disable_logging_for = ref []
 
@@ -950,6 +954,8 @@ let winbind_kerberos_encryption_type = ref Kerberos_encryption_types.Winbind.All
 let winbind_allow_kerberos_auth_fallback = ref false
 
 let winbind_keep_configuration = ref false
+
+let winbind_ldap_query_subject_timeout = ref 20.
 
 let tdb_tool = ref "/usr/bin/tdbtool"
 
@@ -1335,6 +1341,11 @@ let other_options =
     , "Whether to clear winbind configuration when join domain failed or leave \
        domain"
     )
+  ; ( "winbind_ldap_query_subject_timeout"
+    , Arg.Set_float winbind_ldap_query_subject_timeout
+    , (fun () -> string_of_float !winbind_ldap_query_subject_timeout)
+    , "Timeout to perform ldap query for subject information"
+    )
   ; ( "website-https-only"
     , Arg.Set website_https_only
     , (fun () -> string_of_bool !website_https_only)
@@ -1387,6 +1398,12 @@ let other_options =
     , Arg.Set ignore_vtpm_unimplemented
     , (fun () -> string_of_bool !ignore_vtpm_unimplemented)
     , "Do not raise errors on use-cases where VTPM codepaths are not finished."
+    )
+  ; ( "override-uefi-certs"
+    , Arg.Set override_uefi_certs
+    , (fun () -> string_of_bool !override_uefi_certs)
+    , "Enable (true) or Disable (false) overriding location for varstored UEFI \
+       certificates"
     )
   ]
 

@@ -29,6 +29,9 @@ let assert_not_already_present ~__context site host =
     api_error E.pvs_cache_storage_already_present [str site; str host]
 
 let create ~__context ~host ~sR ~site ~size =
+  Helpers.assert_is_valid_ref ~__context ~name:"host" ~ref:host ;
+  Helpers.assert_is_valid_ref ~__context ~name:"SR" ~ref:sR ;
+  Helpers.assert_is_valid_ref ~__context ~name:"site" ~ref:site ;
   assert_not_already_present ~__context site host ;
   let cache_storage = Ref.make () in
   let uuid = Uuidx.(to_string (make ())) in

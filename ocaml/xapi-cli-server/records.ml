@@ -1460,6 +1460,17 @@ let pool_record rpc session_id pool =
               ~value:(bool_of_string x)
           )
           ()
+      ; make_field ~name:"telemetry-frequency"
+          ~get:(fun () ->
+            (x ()).API.pool_telemetry_frequency
+            |> Record_util.telemetry_frequency_to_string
+          )
+          ()
+      ; make_field ~name:"telemetry-next-collection"
+          ~get:(fun () ->
+            (x ()).API.pool_telemetry_next_collection |> Date.to_string
+          )
+          ()
       ; make_field ~name:"last-update-sync"
           ~get:(fun () -> Date.to_string (x ()).API.pool_last_update_sync)
           ()
@@ -5243,6 +5254,16 @@ let vtpm_record rpc session_id vtpm =
           ()
       ; make_field ~name:"is_protected"
           ~get:(fun () -> string_of_bool (x ()).API.vTPM_is_protected)
+          ()
+      ; make_field ~name:"allowed-operations"
+          ~get:(fun () ->
+            map_and_concat Record_util.vtpm_operation_to_string
+              (x ()).API.vTPM_allowed_operations
+          )
+          ~get_set:(fun () ->
+            List.map Record_util.vtpm_operation_to_string
+              (x ()).API.vTPM_allowed_operations
+          )
           ()
       ]
   }

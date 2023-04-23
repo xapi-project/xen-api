@@ -336,12 +336,17 @@ module Interface_API (R : RPC) = struct
 
   let clear_state =
     declare "clear_state"
-      ["Clear configuration state"]
+      ["Clear configuration state then lock the writing of the state to disk"]
       (unit_p @-> returning unit_p err)
 
   let reset_state =
     declare "reset_state"
       ["Reset configuration state"]
+      (unit_p @-> returning unit_p err)
+
+  let sync_state =
+    declare "sync_state"
+      ["Allow for the config state to be written to disk then perform a write"]
       (unit_p @-> returning unit_p err)
 
   let set_gateway_interface =

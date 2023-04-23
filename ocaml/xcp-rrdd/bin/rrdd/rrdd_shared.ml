@@ -100,11 +100,13 @@ let rrd_of_gzip path =
     with _ -> false
   in
   if gz_exists then
-    Xapi_stdext_unix.Unixext.with_file gz_path [Unix.O_RDONLY] 0o0 (fun fd ->
-        Gzip.Default.decompress_passive fd rrd_of_fd
-    )
-  else (* If this fails, let the exception propagate *)
-    Xapi_stdext_unix.Unixext.with_file path [Unix.O_RDONLY] 0 rrd_of_fd
+    Some
+      (Xapi_stdext_unix.Unixext.with_file gz_path [Unix.O_RDONLY] 0o0 (fun fd ->
+           Gzip.Default.decompress_passive fd rrd_of_fd
+       )
+      )
+  else
+    None
 
 (* Send rrds to a remote host. If the host is on another pool, you must pass the
    session_id parameter, and optionally the __context. *)

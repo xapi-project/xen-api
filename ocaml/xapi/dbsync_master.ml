@@ -47,7 +47,10 @@ let create_pool_record ~__context =
       ~client_certificate_auth_enabled:false ~client_certificate_auth_name:""
       ~repository_proxy_url:"" ~repository_proxy_username:""
       ~repository_proxy_password:Ref.null ~migration_compression:false
-      ~coordinator_bias:true ~last_update_sync:Xapi_stdext_date.Date.epoch
+      ~coordinator_bias:true ~telemetry_uuid:Ref.null
+      ~telemetry_frequency:`weekly
+      ~telemetry_next_collection:Xapi_stdext_date.Date.epoch
+      ~last_update_sync:Xapi_stdext_date.Date.epoch
 
 let set_master_ip ~__context =
   let ip =
@@ -287,6 +290,41 @@ let ensure_vm_metrics_records_exist_noexn __context =
   Helpers.log_exn_continue "ensuring VM_metrics flags exist"
     ensure_vm_metrics_records_exist __context
 
+let setup_telemetry ~__context =
+  let pool = Helpers.get_pool ~__context in
+  let ref = Db.Pool.get_telemetry_uuid ~__context ~self:pool in
+  if ref = Ref.null then
+    Helpers.log_exn_continue "Setting up telemetry"
+      (fun () ->
+        Helpers.call_api_functions ~__context (fun rpc session_id ->
+            Client.Pool.reset_telemetry_uuid ~rpc ~session_id ~self:pool
+        ) ;
+        (* An exception will result in leaving the next collection as default *)
+        let interval_hours =
+          match Db.Pool.get_telemetry_frequency ~__context ~self:pool with
+          | `daily ->
+              1 * 24
+          | `weekly ->
+              7 * 24
+          | `monthly ->
+              30 * 24
+        in
+        let value =
+          let open Ptime in
+          (* A quiescent period (1 day) plus a random hour within a telemetry interval *)
+          Span.of_int_s (3600 * 24)
+          |> Span.add (Span.of_int_s (Random.int (interval_hours * 3600)))
+          |> add_span (Ptime_clock.now ())
+          |> Option.get
+          |> Xapi_stdext_date.Date.of_ptime
+        in
+        Helpers.call_api_functions ~__context (fun rpc session_id ->
+            Client.Pool.set_telemetry_next_collection ~rpc ~session_id
+              ~self:pool ~value
+        )
+      )
+      ()
+
 (* Update the database to reflect current state. Called for both start of day and after
    an agent restart. *)
 let update_env __context =
@@ -297,6 +335,7 @@ let update_env __context =
   set_master_pool_reference ~__context ;
   set_master_ip ~__context ;
   set_master_live ~__context ;
+  setup_telemetry ~__context ;
   (* CA-15449: when we restore from backup we end up with Hosts being forgotten and VMs
      marked as running with dangling resident_on references. We delete the control domains
      and reset the rest to Halted. *)

@@ -1616,6 +1616,7 @@ let operations =
         ; ("metadata_export", "exporting VM metadata to a network stream")
         ; ("reverting", "Reverting the VM to a previous snapshotted state")
         ; ("destroy", "refers to the act of uninstalling the VM")
+        ; ("create_vtpm", "Creating and adding a VTPM to this VM")
         ]
     )
 
@@ -1647,6 +1648,7 @@ let domain_type =
         ("hvm", "HVM; Fully Virtualised")
       ; ("pv", "PV: Paravirtualised")
       ; ("pv_in_pvh", "PV inside a PVH container")
+      ; ("pvh", "PVH")
       ; ("unspecified", "Not specified or unknown domain type")
       ]
     )

@@ -156,6 +156,20 @@ let test_domainify_uname =
   |> List.map @@ fun (inp, exp) ->
      (Printf.sprintf "%s -> %s" inp exp, `Quick, check inp exp)
 
+let test_build_netbios_name =
+  let open Extauth_plugin_ADwinbind.Winbind in
+  let check localhost_name exp () =
+    let msg = Printf.sprintf "%s -> %s" localhost_name exp in
+    let ac = build_netbios_name localhost_name in
+    Alcotest.(check string) msg exp ac
+  in
+  let matrix =
+    [({|HOSTNAME|}, {|HOSTNAME|}); ({|HOSTNAME.domain.net|}, {|HOSTNAME|})]
+  in
+  matrix
+  |> List.map @@ fun (inp, exp) ->
+     (Printf.sprintf "%s -> %s" inp exp, `Quick, check inp exp)
+
 let test_ldap_escape =
   let open Extauth_plugin_ADwinbind.Ldap in
   let check str exp () =
@@ -491,6 +505,7 @@ let tests =
   ; ("ADwinbind:test_range", Range.tests)
   ; ("ADwinbind:test_parse_value_from_pbis", ParseValueFromPbis.tests)
   ; ("ADwinbind:test_domainify_uname", test_domainify_uname)
+  ; ("ADwinbind:test_build_netbios_name", test_build_netbios_name)
   ; ("ADwinbind:test_ldap_escape", test_ldap_escape)
   ; ("ADwinbind:test_parse_wbinfo_uid_info", test_parse_wbinfo_uid_info)
   ; ("ADwinbind:test_parse_ldap_stdout", test_parse_ldap_stdout)

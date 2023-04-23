@@ -307,7 +307,8 @@ module Ldap = struct
     let domain_krb5_cfg = krb5_conf_path ~domain_netbios in
     [|Printf.sprintf "KRB5_CONFIG=%s" domain_krb5_cfg|]
 
-  let query_user ?(log_output = Helpers.On_failure) sid domain_netbios kdc =
+  let query_user ?(log_output = Helpers.On_failure) ?timeout sid domain_netbios
+      kdc =
     let env = env_of_krb5 domain_netbios in
     (* msDS-UserPasswordExpiryTimeComputed not in the default attrs list, define it explictly here *)
     let attrs =
@@ -340,7 +341,7 @@ module Ldap = struct
           @ attrs
         in
         let stdout =
-          Helpers.call_script ~env ~log_output !Xapi_globs.net_cmd args
+          Helpers.call_script ~env ~log_output !Xapi_globs.net_cmd ?timeout args
         in
         Ok stdout
       with _ -> Error (generic_ex "ldap query user info from sid failed")
@@ -990,17 +991,32 @@ module Winbind = struct
     in
     String.init len (fun _ -> random_char ())
 
-  let build_netbios_name () =
+  let build_netbios_name localhost_name =
     (* Winbind follow https://docs.microsoft.com/en-US/troubleshoot/windows-server/identity/naming-conventions-for-computer-domain-site-ou#domain-names to limit netbios length to 15
      * Compress the hostname if exceed the length *)
-    let hostname = get_localhost_name () in
-    if String.length hostname > max_netbios_name_length then
+
+    (* The localhost_name may be FQDN, need to extract hostname from it, see XSI-1407
+     * hostname always be the first part of FQDN *)
+    let hostname =
+      Domain_name.of_string localhost_name
+      |> Result.map (fun x -> Domain_name.get_label x 0)
+      |> Result.join
+      |> function
+      | Error _ ->
+          raise
+            (generic_ex "Failed to extract hostname from FQDN %s" localhost_name)
+      | Ok x ->
+          x
+    in
+    if String.length hostname > max_netbios_name_length then (
       (* format hostname to prefix-random each with 7 chars *)
       let len = 7 in
       let prefix = String.sub hostname 0 len in
       let suffix = random_string len in
-      Printf.sprintf "%s-%s" prefix suffix
-    else
+      let netbios_name = Printf.sprintf "%s-%s" prefix suffix in
+      info "hostname exceeds allowed length, using '%s' instead" netbios_name ;
+      netbios_name
+    ) else
       hostname
 end
 
@@ -1216,7 +1232,7 @@ let build_netbios_name ~config_params =
       else
         name
   | None ->
-      Winbind.build_netbios_name ()
+      get_localhost_name () |> Winbind.build_netbios_name
 
 let build_dns_hostname_option ~config_params =
   let key = "dns-hostname" in
@@ -1360,7 +1376,8 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
       match ClosestKdc.from_db domain with
       | Some _ -> (
           let closest_kdc = closest_kdc_of_domain domain in
-          match Ldap.query_user sid domain_netbios closest_kdc with
+          let timeout = !Xapi_globs.winbind_ldap_query_subject_timeout in
+          match Ldap.query_user sid domain_netbios closest_kdc ~timeout with
           | Ok user ->
               Ok user
           | _ ->

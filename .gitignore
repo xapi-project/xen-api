@@ -3,6 +3,7 @@ _build/
 .merlin
 *.install
 *.swp
+compile_flags.txt
 
 # tests
 xapi-db.xml
