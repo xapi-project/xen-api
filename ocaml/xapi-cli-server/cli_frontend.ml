@@ -2997,6 +2997,21 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; flags= []
       }
     )
+  ; ( "pool-configure-update-sync"
+    , {
+        reqd= ["update-sync-frequency"; "update-sync-day"]
+      ; optn= []
+      ; help=
+          "Configure periodic update synchronization from remote CDN. \
+           'update_sync_frequenc': the frequency at which updates are synced \
+           from remote CDN: daily or weekly. 'update_sync_day': which day of \
+           one period the update sychronization is scheduled. For 'daily' \
+           schedule, it should be 0. For 'weekly' schedule, 0..6, where 0 is \
+           Sunday."
+      ; implementation= No_fd Cli_operations.pool_configure_update_sync
+      ; flags= []
+      }
+    )
   ; ( "host-ha-xapi-healthcheck"
     , {
         reqd= []

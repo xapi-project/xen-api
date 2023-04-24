@@ -10,7 +10,7 @@ open Datamodel_roles
               to leave a gap for potential hotfixes needing to increment the schema version.*)
 let schema_major_vsn = 5
 
-let schema_minor_vsn = 764
+let schema_minor_vsn = 765
 
 (* Historical schema versions just in case this is useful later *)
 let rio_schema_major_vsn = 5

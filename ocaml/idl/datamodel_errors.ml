@@ -1954,6 +1954,9 @@ let _ =
        now."
     () ;
 
+  error Api_errors.invalid_update_sync_day ["day"]
+    ~doc:"The day when update sync will run is invalid." () ;
+
   message
     (fst Api_messages.ha_pool_overcommitted)
     ~doc:

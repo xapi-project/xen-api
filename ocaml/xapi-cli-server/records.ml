@@ -1474,6 +1474,18 @@ let pool_record rpc session_id pool =
       ; make_field ~name:"last-update-sync"
           ~get:(fun () -> Date.to_string (x ()).API.pool_last_update_sync)
           ()
+      ; make_field ~name:"update-sync-frequency"
+          ~get:(fun () ->
+            Record_util.update_sync_frequency_to_string
+              (x ()).API.pool_update_sync_frequency
+          )
+          ()
+      ; make_field ~name:"update-sync-day"
+          ~get:(fun () -> Int64.to_string (x ()).API.pool_update_sync_day)
+          ()
+      ; make_field ~name:"update-sync-enabled"
+          ~get:(fun () -> (x ()).API.pool_update_sync_enabled |> string_of_bool)
+          ()
       ]
   }
 

@@ -1829,6 +1829,34 @@ let pool_reset_telemetry_uuid _printer rpc session_id params =
   let pool = get_pool_with_default rpc session_id params "uuid" in
   Client.Pool.reset_telemetry_uuid ~rpc ~session_id ~self:pool
 
+let pool_configure_update_sync _printer rpc session_id params =
+  let pool = get_pool_with_default rpc session_id params "uuid" in
+  let frequency =
+    Record_util.update_sync_frequency_of_string
+      (List.assoc "update-sync-frequency" params)
+  in
+  let day = List.assoc "update-sync-day" params in
+  let day_int =
+    try Int64.of_string day
+    with _ ->
+      failwith
+        "Failed to parse parameter 'update-sync-day': expecting an integer"
+  in
+  ( match (frequency, day_int) with
+  | `daily, d when d <> 0L ->
+      failwith
+        "For daily schedule, cannot set the day when update sync will run to \
+         an integer other than 0.\n"
+  | `weekly, d when d < 0L || d > 6L ->
+      failwith
+        "For weekly schedule, cannot set the day when update sync will run to \
+         an integer out of range: 0 ~ 6.\n"
+  | _ ->
+      ()
+  ) ;
+  Client.Pool.configure_update_sync ~rpc ~session_id ~self:pool
+    ~update_sync_frequency:frequency ~update_sync_day:day_int
+
 let vdi_type_of_string = function
   | "system" ->
       `system

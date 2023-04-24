@@ -1100,6 +1100,17 @@ functor
       let reset_telemetry_uuid ~__context ~self =
         info "%s: pool='%s'" __FUNCTION__ (pool_uuid ~__context self) ;
         Local.Pool.reset_telemetry_uuid ~__context ~self
+
+      let configure_update_sync ~__context ~self ~update_sync_frequency
+          ~update_sync_day =
+        info
+          "Pool.configure_update_sync: pool='%s' update_sync_frequency='%s' \
+           update_sync_day=%Ld"
+          (pool_uuid ~__context self)
+          (Record_util.update_sync_frequency_to_string update_sync_frequency)
+          update_sync_day ;
+        Local.Pool.configure_update_sync ~__context ~self ~update_sync_frequency
+          ~update_sync_day
     end
 
     module VM = struct
