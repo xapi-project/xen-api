@@ -49,8 +49,7 @@ module M = struct
           let writer = Writer.create fd in
           return (fd, reader, writer)
       | Error e ->
-          Socket.shutdown s `Both ;
-          raise e
+          Socket.shutdown s `Both ; raise e
     in
     let rec retry delay =
       Monitor.try_with ~extract_exn:true connect >>= function

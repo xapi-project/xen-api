@@ -237,7 +237,8 @@ module Op = struct
         Message_switch_core.Protocol.origin
         * string
         * int64
-        * Message_switch_core.Protocol.Message.t (* origin * queue * id * body *)
+        * Message_switch_core.Protocol.Message.t
+      (* origin * queue * id * body *)
   [@@deriving sexp]
 
   let of_cstruct x =

@@ -195,8 +195,7 @@ let gen_module api : O.Module.t =
         OU.alias_of_ty task
     in
     O.Let.make
-      ~name:
-        x.msg_name
+      ~name:x.msg_name
         (* Plus ~rpc:(xml -> xml) function (alternative to using functor) *)
       ~params:(_rpc :: args) ~ty:return_type
       ~body:

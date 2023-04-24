@@ -235,28 +235,6 @@ let upgrade_wlb_configuration =
       )
   }
 
-let upgrade_vm_memory_for_dmc =
-  {
-    description= "Upgrading VM memory fields to disable DMC"
-  ; version= (fun _ -> true)
-  ; fn=
-      (fun ~__context ->
-        debug
-          "Upgrading VM.memory_dynamic_{min,max} in guest and control domains." ;
-        let module VMC = Vm_memory_constraints.Vm_memory_constraints in
-        let update_vm (vm, vm_rec) =
-          if vm_rec.API.vM_is_control_domain then
-            Xapi_vm_helpers.enforce_memory_constraints_always ~__context ~vm
-          else if vm_rec.API.vM_power_state = `Halted then
-            (* Note this will also transform templates *)
-            Xapi_vm_helpers.enforce_memory_constraints_for_dmc ~__context ~vm
-          else
-            ()
-        in
-        List.iter update_vm (Db.VM.get_all_records ~__context)
-      )
-  }
-
 (* GEORGE OEM -> BODIE/MNR *)
 let upgrade_bios_strings =
   {
@@ -888,7 +866,6 @@ let rules =
   ; update_mail_min_priority
   ; upgrade_vm_memory_overheads
   ; upgrade_wlb_configuration
-  ; upgrade_vm_memory_for_dmc
   ; upgrade_bios_strings
   ; update_snapshots
   ; upgrade_guest_installer_network

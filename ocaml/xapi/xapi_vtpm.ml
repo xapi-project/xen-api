@@ -49,11 +49,12 @@ let introduce ~__context ~vM ~persistence_backend ~contents ~is_unique =
   let uuid = Uuidx.(to_string (make ())) in
   let backend = Ref.null in
   Db.VTPM.create ~__context ~ref ~uuid ~vM ~backend ~persistence_backend
-    ~is_unique ~is_protected:false ~contents ;
+    ~is_unique ~is_protected:false ~allowed_operations:[] ~current_operations:[]
+    ~contents ;
   ref
 
 (** Contents from unique vtpms cannot be copied! *)
-let get_contents ~__context ?from () =
+let copy_or_create_contents ~__context ?from () =
   let create () = Xapi_secret.create ~__context ~value:"" ~other_config:[] in
   let copy ref =
     let contents = Db.VTPM.get_contents ~__context ~self:ref in
@@ -74,14 +75,14 @@ let create ~__context ~vM ~is_unique =
   assert_no_vtpm_associated ~__context vM ;
   Xapi_vm_lifecycle.assert_initial_power_state_is ~__context ~self:vM
     ~expected:`Halted ;
-  let contents = get_contents ~__context () in
+  let contents = copy_or_create_contents ~__context () in
   introduce ~__context ~vM ~persistence_backend ~contents ~is_unique
 
 let copy ~__context ~vM ref =
   let vtpm = Db.VTPM.get_record ~__context ~self:ref in
   let persistence_backend = vtpm.vTPM_persistence_backend in
   let is_unique = vtpm.vTPM_is_unique in
-  let contents = get_contents ~__context ~from:ref () in
+  let contents = copy_or_create_contents ~__context ~from:ref () in
   introduce ~__context ~vM ~persistence_backend ~contents ~is_unique
 
 let destroy ~__context ~self =
@@ -107,3 +108,5 @@ let set_contents ~__context ~self ~contents =
   let secret = Xapi_secret.create ~__context ~value:contents ~other_config:[] in
   Db.VTPM.set_contents ~__context ~self ~value:secret ;
   Db.Secret.destroy ~__context ~self:previous_secret
+
+let update_allowed_operations = Xapi_vm_lifecycle.vtpm_update_allowed_operations

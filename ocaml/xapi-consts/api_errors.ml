@@ -1276,8 +1276,6 @@ let invalid_repository_proxy_url = "INVALID_REPOSITORY_PROXY_URL"
 
 let invalid_repository_proxy_credential = "INVALID_REPOSITORY_PROXY_CREDENTIAL"
 
-let dynamic_memory_control_unavailable = "DYNAMIC_MEMORY_CONTROL_UNAVAILABLE"
-
 let apply_livepatch_failed = "APPLY_LIVEPATCH_FAILED"
 
 let update_guidance_changed = "UPDATE_GUIDANCE_CHANGED"
@@ -1288,3 +1286,6 @@ let vtpm_max_amount_reached = "VTPM_MAX_AMOUNT_REACHED"
 
 (* Telemetry *)
 let telemetry_next_collection_too_late = "TELEMETRY_NEXT_COLLECTION_TOO_LATE"
+
+(* FIPS/CC_PREPARATIONS *)
+let illegal_in_fips_mode = "ILLEGAL_IN_FIPS_MODE"

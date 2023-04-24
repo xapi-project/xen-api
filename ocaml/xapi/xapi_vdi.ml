@@ -1145,12 +1145,10 @@ let copy ~__context ~vdi ~sr ~base_vdi ~into_vdi =
                 ~name_label:src.API.vDI_name_label
                 ~name_description:src.API.vDI_name_description ~sR:sr
                 ~virtual_size:src.API.vDI_virtual_size ~_type:src.API.vDI_type
-                ~sharable:
-                  src.API.vDI_sharable
+                ~sharable:src.API.vDI_sharable
                   (* CA-64962: Always create a RW VDI such that copy operation works with RO source VDI as well *)
                 ~read_only:false ~other_config:src.API.vDI_other_config
-                ~xenstore_data:
-                  src.API.vDI_xenstore_data
+                ~xenstore_data:src.API.vDI_xenstore_data
                   (* The SM layer stores things like locks (!) here, don't clone a locked lock *)
                 ~sm_config:[] ~tags:src.API.vDI_tags
             in
@@ -1532,7 +1530,6 @@ let _get_nbd_info ~__context ~self ~get_server_certificate =
                ; vdi_nbd_server_info_cert= cert
                ; vdi_nbd_server_info_subject= subject
                }
-             
            in
 
            ips

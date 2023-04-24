@@ -14,12 +14,16 @@ import time
 import fcntl
 import json
 import re
+from datetime import datetime, timedelta
 
 
 LOGGER = logging.getLogger("nbd_client_manager")
 LOGGER.setLevel(logging.DEBUG)
 
 LOCK_FILE = '/var/run/nonpersistent/nbd_client_manager'
+
+# Don't wait more than 10 minutes for the NBD device
+MAX_DEVICE_WAIT_MINUTES = 10
 
 
 class NbdDeviceNotFound(Exception):
@@ -123,7 +127,14 @@ def _find_unused_nbd_device():
 
 
 def _wait_for_nbd_device(nbd_device, connected):
+    deadline = datetime.now() + timedelta(minutes=MAX_DEVICE_WAIT_MINUTES)
+
     while _is_nbd_device_connected(nbd_device=nbd_device) != connected:
+        if datetime.now() > deadline:
+            raise Exception(
+                "Timed out waiting for connection state of device %s to be %s"
+                % (nbd_device, connected))
+
         LOGGER.debug(
             'Connection status of NBD device %s not yet %s, waiting',
             nbd_device,
@@ -197,12 +208,11 @@ def disconnect_nbd_device(nbd_device):
     This function is idempotent: calling it on an already disconnected device
     does nothing.
     """
-    with FILE_LOCK:
-        if _is_nbd_device_connected(nbd_device=nbd_device):
-            _remove_persistent_connect_info(nbd_device)
-            cmd = ['nbd-client', '-disconnect', nbd_device]
-            _call(cmd)
-            _wait_for_nbd_device(nbd_device=nbd_device, connected=False)
+    if _is_nbd_device_connected(nbd_device=nbd_device):
+        _remove_persistent_connect_info(nbd_device)
+        cmd = ['nbd-client', '-disconnect', nbd_device]
+        _call(cmd)
+        _wait_for_nbd_device(nbd_device=nbd_device, connected=False)
 
 
 def _connect_cli(args):

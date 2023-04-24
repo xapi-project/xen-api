@@ -52,7 +52,6 @@ let xapi_rpc call =
           ; contents= API.rpc_of_string_to_string_map !nvram_contents
           ; is_notification= false
           }
-        
   | "VM.set_NVRAM_EFI_variables", [session_id_rpc; vm_rpc; contents] ->
       expect_session_id session_id_rpc ;
       expect_vm vm_rpc ;

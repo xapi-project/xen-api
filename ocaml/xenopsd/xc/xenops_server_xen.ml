@@ -210,7 +210,6 @@ module DB = struct
               x
           )
       }
-    
 
   let revision_of vm persistent = persistent |> revise_profile_qemu_trad vm
 end
@@ -1278,7 +1277,6 @@ module VM = struct
         last_start_time= 0.0
       ; profile= profile_of ~vm
       }
-    
     |> rpc_of VmExtra.persistent_t
     |> Jsonrpc.to_string
 
@@ -1445,7 +1443,6 @@ module VM = struct
                     ; pci_power_mgmt= vm.Vm.pci_power_mgmt
                     ; platformdata= vm.Vm.platformdata
                     }
-                  
                 in
 
                 Some VmExtra.{persistent}
@@ -1526,7 +1523,6 @@ module VM = struct
                         let persistent =
                           VmExtra.
                             {persistent with domain_config= Some domain_config}
-                          
                         in
 
                         (domain_config, persistent)
@@ -2116,7 +2112,6 @@ module VM = struct
                     ; shadow_multiplier= 1.
                     ; video_mib= 0
                     }
-                  
               in
 
               (make_build_info !Resources.pvinpvh_xen builder_spec_info, "")
@@ -2150,7 +2145,6 @@ module VM = struct
                         ; shadow_multiplier= 1.
                         ; video_mib= 0
                         }
-                      
                   in
 
                   (make_build_info !Resources.pvinpvh_xen builder_spec_info, "")
@@ -2171,7 +2165,6 @@ module VM = struct
                     ; shadow_multiplier= 1.
                     ; video_mib= 0
                     }
-                  
               in
 
               (make_build_info direct.kernel builder_spec_info, "")
@@ -2233,7 +2226,6 @@ module VM = struct
                       ; ty= Some vm.ty
                       }
                   }
-                
           )
         in
         ()
@@ -2341,7 +2333,6 @@ module VM = struct
                         xen_platform= Some (xen_platform_of ~vm ~vmextra:d)
                       }
                   }
-                
             | _ ->
                 d
           in
@@ -2649,7 +2640,6 @@ module VM = struct
                             suspend_memory_bytes= Memory.bytes_of_pages pages
                           }
                       }
-                    
               )
             in
             ()
@@ -3434,7 +3424,6 @@ module PCI = struct
         let device =
           Device.PCI.
             {host= pci.address; guest= (index, guest_pci); qmp_add= advertise}
-          
         in
 
         Device.PCI.add ~xc ~xs ~hvm [device] frontend_domid
@@ -3619,7 +3608,6 @@ module VBD = struct
                     ; BlockDevice {path= ""}
                     ]
                 }
-              
           }
       | Some (Local path) ->
           {
@@ -3633,7 +3621,6 @@ module VBD = struct
                     ; BlockDevice {path}
                     ]
                 }
-              
           }
       | Some (VDI path) ->
           let sr, vdi = Storage.get_disk_by_name task path in
@@ -3869,7 +3856,6 @@ module VBD = struct
                                   (vbd.Vbd.id, q) :: vm_t.persistent.qemu_vbds
                               }
                           }
-                        
                   )
                 in
                 ()
@@ -3981,7 +3967,6 @@ module VBD = struct
                                      persistent.qemu_vbds
                                }
                            }
-                         
                        ) else
                          vm_t
                    )
@@ -4454,7 +4439,6 @@ module VIF = struct
                                        vm_t.persistent.qemu_vifs
                                  }
                              }
-                           
                        | _, _ ->
                            vm_t
                      else
@@ -4522,7 +4506,6 @@ module VIF = struct
                                     persistent.qemu_vifs
                               }
                           }
-                        
                   | _, _ ->
                       Some vm_t
                 else
@@ -5160,7 +5143,13 @@ module Actions = struct
     in
     match Astring.String.cuts ~empty:false ~sep:"/" path with
     | "local"
-      :: "domain" :: domid :: "backend" :: kind :: frontend :: devid :: key ->
+      :: "domain"
+      :: domid
+      :: "backend"
+      :: kind
+      :: frontend
+      :: devid
+      :: key ->
         debug
           "Watch on backend domid: %s kind: %s -> frontend domid: %s devid: %s"
           domid kind frontend devid ;

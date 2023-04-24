@@ -284,7 +284,8 @@ let hello =
 
 let ping_slave =
   call ~flags:[`Session] ~name:"is_slave" ~in_oss_since:None
-    ~in_product_since:rel_rio ~params:[(Ref _host, "host", "")]
+    ~in_product_since:rel_rio
+    ~params:[(Ref _host, "host", "")]
     ~doc:"Internal use only"
     ~result:
       ( Bool

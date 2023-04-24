@@ -147,8 +147,10 @@ let many_to_many =
   in
   let database = {Schema.Database.tables= [foo_table; bar_table]} in
   let many_to_many =
-    Schema.ForeignMap.add "foo" [("bars", "bar", "foos")]
-      (Schema.ForeignMap.add "bar" [("foos", "foo", "bars")]
+    Schema.ForeignMap.add "foo"
+      [("bars", "bar", "foos")]
+      (Schema.ForeignMap.add "bar"
+         [("foos", "foo", "bars")]
          Schema.ForeignMap.empty
       )
   in

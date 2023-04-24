@@ -32,7 +32,8 @@ let verify_libxc_v2_record fd =
   ) ;
   let pid =
     Forkhelpers.safe_close_and_exec None (Some Unix.stdout) (Some Unix.stderr)
-      [(fd_uuid, fd)] path args
+      [(fd_uuid, fd)]
+      path args
   in
   match Forkhelpers.waitpid pid with
   | _, Unix.WEXITED 0 ->

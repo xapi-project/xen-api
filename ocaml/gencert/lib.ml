@@ -125,7 +125,7 @@ let validate_certificate kind pem now private_key =
     )
 
 let install_server_certificate ~pem_chain ~pem_leaf ~pkcs8_private_key
-    ~server_cert_path =
+    ~server_cert_path ~cert_gid =
   let now = Ptime_clock.now () in
   validate_private_key pkcs8_private_key >>= fun priv ->
   validate_certificate Leaf pem_leaf now priv >>= fun cert ->
@@ -139,6 +139,6 @@ let install_server_certificate ~pem_chain ~pem_leaf ~pkcs8_private_key
   >>= fun server_cert_components ->
   server_cert_components
   |> String.concat "\n\n"
-  |> Selfcert.write_certs server_cert_path
+  |> Selfcert.write_certs server_cert_path cert_gid
   |> R.reword_error (function `Msg msg -> `Msg (internal_error, [msg]))
   >>= fun () -> R.ok cert

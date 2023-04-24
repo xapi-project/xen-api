@@ -52,7 +52,6 @@ let test_update_existing_snapshot () =
       ; is_a_snapshot= true
       ; snapshot_of= Storage_interface.Vdi.of_string vdi_uuid
       }
-    
   in
 
   (* attempt to reproduce the issue by updating the snapshot *)
@@ -88,7 +87,6 @@ let test_update_new_vdi_and_snapshot () =
         vdi= Storage_interface.Vdi.of_string vdi_uuid
       ; uuid= Some vdi_uuid
       }
-    
   in
 
   let vdi_snapshot_sr_record =
@@ -100,7 +98,6 @@ let test_update_new_vdi_and_snapshot () =
       ; snapshot_of= Storage_interface.Vdi.of_string vdi_uuid
       ; is_a_snapshot= true
       }
-    
   in
 
   (* attempt to reproduce the issue by creating the snapshot before the VDI *)
@@ -131,7 +128,6 @@ let test_sharable_field_updated_for_existing_vdi () =
       ; uuid= Some vdi_uuid
       ; sharable= true
       }
-    
   in
 
   (* When we call this function from our SR.scan XenAPI call for example, it should
@@ -156,7 +152,6 @@ let test_sharable_field_correct_for_new_vdi () =
       ; uuid= Some vdi_uuid
       ; sharable= true
       }
-    
   in
 
   (* When we call this function from our SR.scan XenAPI call for example, it should

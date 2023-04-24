@@ -335,7 +335,8 @@ let copy_vm_record ?snapshot_info_record ~__context ~vm ~disk_op ~new_name
   (* create a new VM *)
   Db.VM.create ~__context ~ref ~uuid:(Uuidx.to_string uuid)
     ~power_state:new_power_state ~allowed_operations:[] ~blocked_operations:[]
-    ~name_label:new_name ~current_operations:[(task_id, current_op)]
+    ~name_label:new_name
+    ~current_operations:[(task_id, current_op)]
     ~name_description:all.Db_actions.vM_name_description
     ~user_version:all.Db_actions.vM_user_version
     ~is_a_template:(is_a_snapshot || all.Db_actions.vM_is_a_template)

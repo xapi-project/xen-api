@@ -26,7 +26,6 @@ let fields_of_pkg =
     ; field "release" (fun (r : Pkg.t) -> r.release) string
     ; field "arch" (fun (r : Pkg.t) -> r.arch) string
     ]
-  
 
 let fields_of_update =
   Fmt.Dump.
@@ -46,7 +45,6 @@ let fields_of_update =
     ; field "update_id" (fun (r : Update.t) -> r.update_id) (option string)
     ; field "repository" (fun (r : Update.t) -> r.repository) string
     ]
-  
 
 module UpdateOfJsonTest = Generic.MakeStateless (struct
   module Io = struct
@@ -99,7 +97,6 @@ module UpdateOfJsonTest = Generic.MakeStateless (struct
               ; update_id= Some "UPDATE-0000"
               ; repository= "regular"
               }
-            
         )
       ; (* No old version, old release and updateId *)
         ( {|
@@ -128,7 +125,6 @@ module UpdateOfJsonTest = Generic.MakeStateless (struct
               ; update_id= None
               ; repository= "regular"
               }
-            
         )
       ; (* Missing arch *)
         ( {|
@@ -187,7 +183,6 @@ module UpdateOfJsonTest = Generic.MakeStateless (struct
               ; update_id= Some "UPDATE-0000"
               ; repository= "regular"
               }
-            
         )
       ]
 end)
@@ -303,7 +298,6 @@ let fields_of_updateinfo =
         )
         (list string)
     ]
-  
 
 module AssertUrlIsValid = Generic.MakeStateless (struct
   module Io = struct
@@ -542,7 +536,6 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
             )
             string
         ]
-      
 
     let string_of_input_t = Fmt.(str "%a" Dump.(record @@ fields_of_input))
 
@@ -586,7 +579,6 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                 ; update_id= Some "UPDATE-0000"
                 ; repository= "regular"
                 }
-              
           ; upd_ids_of_livepatches= []
           ; upd_ids_of_failed_livepatches= []
           }
@@ -611,7 +603,6 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                     ; livepatch_guidance= None
                     ; livepatches= []
                     }
-                  
                 )
               ; ( "UPDATE-0001"
                 , UpdateInfo.
@@ -628,7 +619,6 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                     ; livepatch_guidance= None
                     ; livepatches= []
                     }
-                  
                 )
               ]
           ; update=
@@ -646,7 +636,6 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                     Some "UPDATE-0002" (* This ID can't be found in above *)
                 ; repository= "regular"
                 }
-              
           ; upd_ids_of_livepatches= []
           ; upd_ids_of_failed_livepatches= []
           }
@@ -671,7 +660,6 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                     ; livepatch_guidance= None
                     ; livepatches= []
                     }
-                  
                 )
               ]
           ; update=
@@ -688,7 +676,6 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                 ; update_id= None (* This is None *)
                 ; repository= "regular"
                 }
-              
           ; upd_ids_of_livepatches= []
           ; upd_ids_of_failed_livepatches= []
           }
@@ -713,7 +700,6 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                     ; livepatch_guidance= None
                     ; livepatches= []
                     }
-                  
                 )
               ; ( "UPDATE-0001"
                 , UpdateInfo.
@@ -730,7 +716,6 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                     ; livepatch_guidance= None
                     ; livepatches= []
                     }
-                  
                 )
               ]
           ; update=
@@ -747,7 +732,6 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                 ; update_id= Some "UPDATE-0001"
                 ; repository= "regular"
                 }
-              
           ; upd_ids_of_livepatches= []
           ; upd_ids_of_failed_livepatches= []
           }
@@ -772,7 +756,6 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                     ; livepatch_guidance= None
                     ; livepatches= []
                     }
-                  
                 )
               ; ( "UPDATE-0001"
                 , UpdateInfo.
@@ -795,7 +778,6 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                             ; version= "0.2.1"
                             ; release= "29.el7"
                             }
-                          
                         ]
                     ; spec_info= "special info"
                     ; url= "https://update.details.info"
@@ -803,7 +785,6 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                     ; livepatch_guidance= None
                     ; livepatches= []
                     }
-                  
                 )
               ]
           ; update=
@@ -820,7 +801,6 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                 ; update_id= Some "UPDATE-0001"
                 ; repository= "regular"
                 }
-              
           ; upd_ids_of_livepatches= []
           ; upd_ids_of_failed_livepatches= []
           }
@@ -845,7 +825,6 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                     ; livepatch_guidance= None
                     ; livepatches= []
                     }
-                  
                 )
               ; ( "UPDATE-0001"
                 , UpdateInfo.
@@ -868,7 +847,6 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                             ; version= "0.2.1"
                             ; release= "29.el7"
                             }
-                          
                         ; Applicability.
                             {
                               name= "xsconsole"
@@ -880,7 +858,6 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                             ; version= "0.2.1"
                             ; release= "29.el7"
                             }
-                          
                         ]
                     ; spec_info= "special info"
                     ; url= "https://update.details.info"
@@ -888,7 +865,6 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                     ; livepatch_guidance= None
                     ; livepatches= []
                     }
-                  
                 )
               ]
           ; update=
@@ -905,7 +881,6 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                 ; update_id= Some "UPDATE-0001"
                 ; repository= "regular"
                 }
-              
           ; upd_ids_of_livepatches= []
           ; upd_ids_of_failed_livepatches= []
           }
@@ -930,7 +905,6 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                     ; livepatch_guidance= None
                     ; livepatches= []
                     }
-                  
                 )
               ; ( "UPDATE-0001"
                 , UpdateInfo.
@@ -953,7 +927,6 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                             ; version= "0.2.0"
                             ; release= "29.el7"
                             }
-                          
                         ]
                     ; spec_info= "special info"
                     ; url= "https://update.details.info"
@@ -961,7 +934,6 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                     ; livepatch_guidance= None
                     ; livepatches= []
                     }
-                  
                 )
               ]
           ; update=
@@ -978,7 +950,6 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                 ; update_id= Some "UPDATE-0001"
                 ; repository= "regular"
                 }
-              
           ; upd_ids_of_livepatches= []
           ; upd_ids_of_failed_livepatches= []
           }
@@ -1003,7 +974,6 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                     ; livepatch_guidance= None
                     ; livepatches= []
                     }
-                  
                 )
               ; ( "UPDATE-0001"
                 , UpdateInfo.
@@ -1025,7 +995,6 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                             ; version= "0.2.1"
                             ; release= "29.el7"
                             }
-                          
                         ]
                     ; spec_info= "special info"
                     ; url= "https://update.details.info"
@@ -1033,7 +1002,6 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                     ; livepatch_guidance= None
                     ; livepatches= []
                     }
-                  
                 )
               ]
           ; update=
@@ -1050,7 +1018,6 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                 ; update_id= Some "UPDATE-0001"
                 ; repository= "regular"
                 }
-              
           ; upd_ids_of_livepatches= []
           ; upd_ids_of_failed_livepatches= []
           }
@@ -1075,7 +1042,6 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                     ; livepatch_guidance= None
                     ; livepatches= []
                     }
-                  
                 )
               ; ( "UPDATE-0001"
                 , UpdateInfo.
@@ -1098,7 +1064,6 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                             ; version= "0.2.1"
                             ; release= "29.el7"
                             }
-                          
                         ; Applicability.
                             {
                               name= "xsconsole"
@@ -1110,7 +1075,6 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                             ; version= "0.1.1"
                             ; release= "29.el7"
                             }
-                          
                         ]
                     ; spec_info= "special info"
                     ; url= "https://update.details.info"
@@ -1118,7 +1082,6 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                     ; livepatch_guidance= None
                     ; livepatches= []
                     }
-                  
                 )
               ]
           ; update=
@@ -1135,7 +1098,6 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                 ; update_id= Some "UPDATE-0001"
                 ; repository= "regular"
                 }
-              
           ; upd_ids_of_livepatches= []
           ; upd_ids_of_failed_livepatches= []
           }
@@ -1170,7 +1132,6 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                             ; to_version= "4.13.4"
                             ; to_release= "10.23.xs8"
                             }
-                          
                         ; LivePatch.
                             {
                               component= Livepatch.Xen
@@ -1181,10 +1142,8 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                             ; to_version= "4.13.4"
                             ; to_release= "10.23.xs8"
                             }
-                          
                         ]
                     }
-                  
                 )
               ]
           ; update=
@@ -1201,7 +1160,6 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                 ; update_id= Some "UPDATE-0000"
                 ; repository= "regular"
                 }
-              
           ; upd_ids_of_livepatches= ["UPDATE-0000"]
           ; upd_ids_of_failed_livepatches= []
           }
@@ -1236,10 +1194,8 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                             ; to_version= "4.13.4"
                             ; to_release= "10.23.xs8"
                             }
-                          
                         ]
                     }
-                  
                 )
               ]
           ; update=
@@ -1256,7 +1212,6 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                 ; update_id= Some "UPDATE-0000"
                 ; repository= "regular"
                 }
-              
           ; upd_ids_of_livepatches= ["UPDATE-0000"]
           ; upd_ids_of_failed_livepatches= []
           }
@@ -1293,10 +1248,8 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                             ; to_version= "4.19.19"
                             ; to_release= "8.0.21.xs8"
                             }
-                          
                         ]
                     }
-                  
                 )
               ; ( "UPDATE-0001"
                 , UpdateInfo.
@@ -1323,10 +1276,8 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                             ; to_version= "4.19.19"
                             ; to_release= "8.0.22.xs8"
                             }
-                          
                         ]
                     }
-                  
                 )
               ]
           ; update=
@@ -1343,7 +1294,6 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                 ; update_id= Some "UPDATE-0001"
                 ; repository= "regular"
                 }
-              
           ; upd_ids_of_livepatches= ["UPDATE-0000"]
           ; upd_ids_of_failed_livepatches= []
           }
@@ -1378,10 +1328,8 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                             ; to_version= "4.19.19"
                             ; to_release= "8.0.21.xs8"
                             }
-                          
                         ]
                     }
-                  
                 )
               ; ( "UPDATE-0001"
                 , UpdateInfo.
@@ -1408,7 +1356,6 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                             ; to_version= "4.19.19"
                             ; to_release= "8.0.22.xs8"
                             }
-                          
                         ; LivePatch.
                             {
                               component= Livepatch.Xen
@@ -1419,10 +1366,8 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                             ; to_version= "4.19.19"
                             ; to_release= "8.0.22.xs8"
                             }
-                          
                         ]
                     }
-                  
                 )
               ]
           ; update=
@@ -1439,7 +1384,6 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                 ; update_id= Some "UPDATE-0001"
                 ; repository= "regular"
                 }
-              
           ; upd_ids_of_livepatches= ["UPDATE-0001"]
           ; upd_ids_of_failed_livepatches= []
           }
@@ -1474,10 +1418,8 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                             ; to_version= "4.19.19"
                             ; to_release= "8.0.21.xs8"
                             }
-                          
                         ]
                     }
-                  
                 )
               ; ( "UPDATE-0001"
                 , UpdateInfo.
@@ -1494,7 +1436,6 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                     ; livepatch_guidance= None
                     ; livepatches= []
                     }
-                  
                 )
               ]
           ; update=
@@ -1511,7 +1452,6 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                 ; update_id= Some "UPDATE-0001"
                 ; repository= "regular"
                 }
-              
           ; upd_ids_of_livepatches= ["UPDATE-0000"]
           ; upd_ids_of_failed_livepatches= []
           }
@@ -1546,10 +1486,8 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                             ; to_version= "4.19.19"
                             ; to_release= "8.0.21.xs8"
                             }
-                          
                         ]
                     }
-                  
                 )
               ; ( "UPDATE-0001"
                 , UpdateInfo.
@@ -1566,7 +1504,6 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                     ; livepatch_guidance= None
                     ; livepatches= []
                     }
-                  
                 )
               ]
           ; update=
@@ -1583,7 +1520,6 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                 ; update_id= Some "UPDATE-0001"
                 ; repository= "regular"
                 }
-              
           ; upd_ids_of_livepatches= ["UPDATE-0000"]
           ; upd_ids_of_failed_livepatches= []
           }
@@ -1618,7 +1554,6 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                             ; to_version= "4.13.4"
                             ; to_release= "10.25.xs8"
                             }
-                          
                         ; LivePatch.
                             {
                               component= Livepatch.Kernel
@@ -1629,10 +1564,8 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                             ; to_version= "4.19.19"
                             ; to_release= "8.0.21.xs8"
                             }
-                          
                         ]
                     }
-                  
                 )
               ; ( "UPDATE-0001"
                 , UpdateInfo.
@@ -1659,10 +1592,8 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                             ; to_version= "4.19.19"
                             ; to_release= "8.0.22.xs8"
                             }
-                          
                         ]
                     }
-                  
                 )
               ]
           ; update=
@@ -1679,7 +1610,6 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                 ; update_id= Some "UPDATE-0001"
                 ; repository= "regular"
                 }
-              
           ; upd_ids_of_livepatches= ["UPDATE-0000"]
           ; upd_ids_of_failed_livepatches= ["UPDATE-0001"]
           }
@@ -1732,7 +1662,6 @@ module GetUpdateInJson = Generic.MakeStateless (struct
                   ; release= "29.el7"
                   ; arch= "x86_64"
                   }
-                
               )
             ; ( "libpath-utils.noarch"
               , Pkg.
@@ -1743,7 +1672,6 @@ module GetUpdateInJson = Generic.MakeStateless (struct
                   ; release= "29.el7"
                   ; arch= "noarch"
                   }
-                
               )
             ]
           , ( Pkg.
@@ -1754,7 +1682,6 @@ module GetUpdateInJson = Generic.MakeStateless (struct
                 ; release= "1.el7"
                 ; arch= "noarch"
                 }
-              
             , (None, "epel")
             )
             (* repository name is "epel" *)
@@ -1775,7 +1702,6 @@ module GetUpdateInJson = Generic.MakeStateless (struct
                 ; release= "9.el7"
                 ; arch= "x86_64"
                 }
-              
             , (None, "local-regular")
             )
           )
@@ -1808,7 +1734,6 @@ module GetUpdateInJson = Generic.MakeStateless (struct
                   ; release= "29.el7"
                   ; arch= "x86_64"
                   }
-                
               )
             ; ( "libpath-utils.noarch"
               , Pkg.
@@ -1819,7 +1744,6 @@ module GetUpdateInJson = Generic.MakeStateless (struct
                   ; release= "29.el7"
                   ; arch= "noarch"
                   }
-                
               )
             ]
           , ( Pkg.
@@ -1830,7 +1754,6 @@ module GetUpdateInJson = Generic.MakeStateless (struct
                 ; release= "9.el7"
                 ; arch= "x86_64"
                 }
-              
             , (None, "local-regular")
             )
           )
@@ -1871,7 +1794,6 @@ module GetUpdateInJson = Generic.MakeStateless (struct
                   ; release= "29.el7"
                   ; arch= "x86_64"
                   }
-                
               )
             ; ( "libpath-utils.noarch"
               , Pkg.
@@ -1882,7 +1804,6 @@ module GetUpdateInJson = Generic.MakeStateless (struct
                   ; release= "29.el7"
                   ; arch= "noarch"
                   }
-                
               )
             ]
           , ( Pkg.
@@ -1893,7 +1814,6 @@ module GetUpdateInJson = Generic.MakeStateless (struct
                 ; release= "9.el7"
                 ; arch= "x86_64"
                 }
-              
             , (Some "UPDATE-01", "local-regular")
             )
           )
@@ -1934,7 +1854,6 @@ module GetUpdateInJson = Generic.MakeStateless (struct
                   ; release= "29.el7"
                   ; arch= "x86_64"
                   }
-                
               )
             ; ( "libpath-utils.noarch"
               , Pkg.
@@ -1945,7 +1864,6 @@ module GetUpdateInJson = Generic.MakeStateless (struct
                   ; release= "29.el7"
                   ; arch= "noarch"
                   }
-                
               )
             ]
           , ( Pkg.
@@ -1956,7 +1874,6 @@ module GetUpdateInJson = Generic.MakeStateless (struct
                 ; release= "9.el7"
                 ; arch= "x86_64"
                 }
-              
             , (None, "local-regular")
             )
           )
@@ -2018,7 +1935,6 @@ module ConsolidateUpdatesOfHost = Generic.MakeStateless (struct
       ; livepatch_guidance= None
       ; livepatches= []
       }
-    
 
   let updates_info =
     [
@@ -2593,7 +2509,6 @@ module ParseUpdateInfoList = Generic.MakeStateless (struct
                   ; release= "7.el7"
                   ; arch= "noarch"
                   }
-                
               , "UPDATE-0000"
               )
             ; ( Pkg.
@@ -2604,7 +2519,6 @@ module ParseUpdateInfoList = Generic.MakeStateless (struct
                   ; release= "7.el7"
                   ; arch= "noarch"
                   }
-                
               , "UPDATE-0001"
               )
             ]
@@ -2619,7 +2533,6 @@ module ParseUpdateInfoList = Generic.MakeStateless (struct
                 ; release= "7.el7"
                 ; arch= "x86_64"
                 }
-              
             , "UPDATE-0002"
             )
           ; ( Pkg.
@@ -2630,7 +2543,6 @@ module ParseUpdateInfoList = Generic.MakeStateless (struct
                 ; release= "7.el7"
                 ; arch= "noarch"
                 }
-              
             , "UPDATE-0000"
             )
           ; ( Pkg.
@@ -2641,7 +2553,6 @@ module ParseUpdateInfoList = Generic.MakeStateless (struct
                 ; release= "7.el7"
                 ; arch= "noarch"
                 }
-              
             , "UPDATE-0001"
             )
           ]
@@ -2655,7 +2566,6 @@ module ParseUpdateInfoList = Generic.MakeStateless (struct
                   ; release= "7.el7"
                   ; arch= "x86_64"
                   }
-                
               , "UPDATE-0000"
               )
             ; ( Pkg.
@@ -2666,7 +2576,6 @@ module ParseUpdateInfoList = Generic.MakeStateless (struct
                   ; release= "7.el7"
                   ; arch= "noarch"
                   }
-                
               , "UPDATE-0001"
               )
             ]
@@ -2681,7 +2590,6 @@ module ParseUpdateInfoList = Generic.MakeStateless (struct
                 ; release= "7.el7"
                 ; arch= "x86_64"
                 }
-              
             , "UPDATE-0002"
             )
           ; ( Pkg.
@@ -2692,7 +2600,6 @@ module ParseUpdateInfoList = Generic.MakeStateless (struct
                 ; release= "7.el7"
                 ; arch= "x86_64"
                 }
-              
             , "UPDATE-0000"
             )
           ; ( Pkg.
@@ -2703,7 +2610,6 @@ module ParseUpdateInfoList = Generic.MakeStateless (struct
                 ; release= "7.el7"
                 ; arch= "noarch"
                 }
-              
             , "UPDATE-0001"
             )
           ]
@@ -2717,7 +2623,6 @@ module ParseUpdateInfoList = Generic.MakeStateless (struct
                   ; release= "7.el7"
                   ; arch= "x86_64"
                   }
-                
               , "UPDATE-0000"
               )
             ; ( Pkg.
@@ -2728,7 +2633,6 @@ module ParseUpdateInfoList = Generic.MakeStateless (struct
                   ; release= "7.el7"
                   ; arch= "noarch"
                   }
-                
               , "UPDATE-0001"
               )
             ]
@@ -2743,7 +2647,6 @@ module ParseUpdateInfoList = Generic.MakeStateless (struct
                 ; release= "7.el7"
                 ; arch= "x86_64"
                 }
-              
             , "UPDATE-0002"
             )
           ; ( Pkg.
@@ -2754,7 +2657,6 @@ module ParseUpdateInfoList = Generic.MakeStateless (struct
                 ; release= "7.el7"
                 ; arch= "x86_64"
                 }
-              
             , "UPDATE-0000"
             )
           ; ( Pkg.
@@ -2765,7 +2667,6 @@ module ParseUpdateInfoList = Generic.MakeStateless (struct
                 ; release= "7.el7"
                 ; arch= "noarch"
                 }
-              
             , "UPDATE-0001"
             )
           ]
@@ -2866,7 +2767,6 @@ module PruneAccumulativeUpdates = Generic.MakeStateless (struct
           ; release= "1.0.0.xs8"
           ; arch= "x86_64"
           }
-        
       )
     ; ( "libpath-utils.noarch"
       , Pkg.
@@ -2877,7 +2777,6 @@ module PruneAccumulativeUpdates = Generic.MakeStateless (struct
           ; release= "1.0.0.xs8"
           ; arch= "noarch"
           }
-        
       )
     ; ( "qemu-dp.x86_64"
       , Pkg.
@@ -2888,7 +2787,6 @@ module PruneAccumulativeUpdates = Generic.MakeStateless (struct
           ; release= "2.0.11.xs8"
           ; arch= "x86_64"
           }
-        
       )
     ]
 
@@ -2911,7 +2809,6 @@ module PruneAccumulativeUpdates = Generic.MakeStateless (struct
                   ; release= "1.0.0.xs8"
                   ; arch= "x86_64"
                   }
-                
               , "UPDATE-00"
               )
             ; ( Pkg.
@@ -2922,7 +2819,6 @@ module PruneAccumulativeUpdates = Generic.MakeStateless (struct
                   ; release= "1.0.0.xs8"
                   ; arch= "x86_64"
                   }
-                
               , "UPDATE-03"
               )
             ]
@@ -2936,7 +2832,6 @@ module PruneAccumulativeUpdates = Generic.MakeStateless (struct
                   ; release= "1.0.0.xs8"
                   ; arch= "x86_64"
                   }
-                
               , "regular"
               )
             ]
@@ -2956,7 +2851,6 @@ module PruneAccumulativeUpdates = Generic.MakeStateless (struct
                   ; release= "1.0.0.xs8"
                   ; arch= "x86_64"
                   }
-                
               , "UPDATE-00"
               )
             ; ( Pkg.
@@ -2967,7 +2861,6 @@ module PruneAccumulativeUpdates = Generic.MakeStateless (struct
                   ; release= "1.0.0.xs8"
                   ; arch= "x86_64"
                   }
-                
               , "UPDATE-04"
               )
             ]
@@ -2981,7 +2874,6 @@ module PruneAccumulativeUpdates = Generic.MakeStateless (struct
                   ; release= "1.0.0.xs8"
                   ; arch= "x86_64"
                   }
-                
               , "regular"
               )
             ]
@@ -2996,7 +2888,6 @@ module PruneAccumulativeUpdates = Generic.MakeStateless (struct
                 ; release= "1.0.0.xs8"
                 ; arch= "x86_64"
                 }
-              
             , Some "UPDATE-04"
             , "regular"
             )
@@ -3014,7 +2905,6 @@ module PruneAccumulativeUpdates = Generic.MakeStateless (struct
                   ; release= "1.0.0.xs8"
                   ; arch= "x86_64"
                   }
-                
               , "UPDATE-04"
               )
             ; ( Pkg.
@@ -3025,7 +2915,6 @@ module PruneAccumulativeUpdates = Generic.MakeStateless (struct
                   ; release= "1.0.0.xs8"
                   ; arch= "x86_64"
                   }
-                
               , "UPDATE-05"
               )
             ]
@@ -3039,7 +2928,6 @@ module PruneAccumulativeUpdates = Generic.MakeStateless (struct
                   ; release= "1.0.0.xs8"
                   ; arch= "x86_64"
                   }
-                
               , "regular"
               )
             ]
@@ -3054,7 +2942,6 @@ module PruneAccumulativeUpdates = Generic.MakeStateless (struct
                 ; release= "1.0.0.xs8"
                 ; arch= "x86_64"
                 }
-              
             , Some "UPDATE-04"
             , "regular"
             )
@@ -3066,7 +2953,6 @@ module PruneAccumulativeUpdates = Generic.MakeStateless (struct
                 ; release= "1.0.0.xs8"
                 ; arch= "x86_64"
                 }
-              
             , Some "UPDATE-05"
             , "regular"
             )
@@ -3084,7 +2970,6 @@ module PruneAccumulativeUpdates = Generic.MakeStateless (struct
                   ; release= "1.0.0.xs8"
                   ; arch= "x86_64"
                   }
-                
               , "UPDATE-06"
               )
             ; ( Pkg.
@@ -3095,7 +2980,6 @@ module PruneAccumulativeUpdates = Generic.MakeStateless (struct
                   ; release= "1.0.0.xs8"
                   ; arch= "x86_64"
                   }
-                
               , "UPDATE-05"
               )
             ]
@@ -3109,7 +2993,6 @@ module PruneAccumulativeUpdates = Generic.MakeStateless (struct
                   ; release= "1.0.0.xs8"
                   ; arch= "x86_64"
                   }
-                
               , "regular"
               )
             ]
@@ -3124,7 +3007,6 @@ module PruneAccumulativeUpdates = Generic.MakeStateless (struct
                 ; release= "1.0.0.xs8"
                 ; arch= "x86_64"
                 }
-              
             , Some "UPDATE-05"
             , "regular"
             )
@@ -3164,7 +3046,6 @@ module PruneUpdateInfoForLivepatches = Generic.MakeStateless (struct
       ; to_version= "4.13.4"
       ; to_release= "10.25.xs8"
       }
-    
 
   let lp1 =
     LivePatch.
@@ -3176,7 +3057,6 @@ module PruneUpdateInfoForLivepatches = Generic.MakeStateless (struct
       ; to_version= "4.13.4"
       ; to_release= "8.0.21.xs8"
       }
-    
 
   let updateinfo =
     UpdateInfo.
@@ -3193,7 +3073,6 @@ module PruneUpdateInfoForLivepatches = Generic.MakeStateless (struct
       ; livepatch_guidance= None
       ; livepatches= []
       }
-    
 
   let tests =
     `QuickAndAutoDocumented
@@ -3206,6 +3085,466 @@ module PruneUpdateInfoForLivepatches = Generic.MakeStateless (struct
         )
       ; ( ([], {updateinfo with livepatches= [lp0; lp1]})
         , {updateinfo with livepatches= []}
+        )
+      ]
+end)
+
+module ParseOutputOfYumUpgradeDryRun = Generic.MakeStateless (struct
+  module Io = struct
+    type input_t = string
+
+    type output_t = ((Pkg.t * string) list * string option, string) result
+
+    let string_of_input_t s = s
+
+    let string_of_output_t =
+      Fmt.(
+        str "%a"
+          Dump.(
+            result
+              ~ok:
+                (pair
+                   (list (pair (record @@ fields_of_pkg) string))
+                   (option string)
+                )
+              ~error:string
+          )
+      )
+  end
+
+  let transform input = YumUpgradeOutput.parse_output_of_dry_run input
+
+  let output1 =
+    Xapi_stdext_unix.Unixext.string_of_file "test_data/yum_upgrade.output1"
+
+  let output2 =
+    Xapi_stdext_unix.Unixext.string_of_file "test_data/yum_upgrade.output2"
+
+  let output3 =
+    Xapi_stdext_unix.Unixext.string_of_file "test_data/yum_upgrade.output3"
+
+  let output4 =
+    Xapi_stdext_unix.Unixext.string_of_file "test_data/yum_upgrade.output4"
+
+  let output5 =
+    Xapi_stdext_unix.Unixext.string_of_file "test_data/yum_upgrade.output5"
+
+  let tests =
+    `QuickAndAutoDocumented
+      [
+        ("", Ok ([], None))
+      ; ("A\n", Ok ([], None))
+      ; ( output1
+        , Ok
+            ( [
+                ( Pkg.
+                    {
+                      name= "amd-microcode"
+                    ; epoch= None
+                    ; version= "20220930"
+                    ; release= "2.xs8"
+                    ; arch= "noarch"
+                    }
+                , "remote-399dcec8-9ee7-0fb1-b1c9-f70fde0d1edb"
+                )
+              ; ( Pkg.
+                    {
+                      name= "device-mapper-multipath-libs"
+                    ; epoch= None
+                    ; version= "0.4.9"
+                    ; release= "136.xs8"
+                    ; arch= "x86_64"
+                    }
+                , "remote-399dcec8-9ee7-0fb1-b1c9-f70fde0d1edb"
+                )
+              ; ( Pkg.
+                    {
+                      name= "libfdt"
+                    ; epoch= None
+                    ; version= "1.6.0"
+                    ; release= "1.xs8"
+                    ; arch= "x86_64"
+                    }
+                , "remote-399dcec8-9ee7-0fb1-b1c9-f70fde0d1edb"
+                )
+              ; ( Pkg.
+                    {
+                      name= "microsemi-aacraid"
+                    ; epoch= None
+                    ; version= "1.2.1.60001"
+                    ; release= "1.xs8"
+                    ; arch= "x86_64"
+                    }
+                , "remote-399dcec8-9ee7-0fb1-b1c9-f70fde0d1edb"
+                )
+              ; ( Pkg.
+                    {
+                      name= "qemu"
+                    ; epoch= Some 2
+                    ; version= "4.2.1"
+                    ; release= "5.2.1.xs8"
+                    ; arch= "x86_64"
+                    }
+                , "remote-399dcec8-9ee7-0fb1-b1c9-f70fde0d1edb"
+                )
+              ; ( Pkg.
+                    {
+                      name= "qemu-dp"
+                    ; epoch= Some 2
+                    ; version= "7.0.0"
+                    ; release= "3.xs8"
+                    ; arch= "x86_64"
+                    }
+                , "remote-399dcec8-9ee7-0fb1-b1c9-f70fde0d1edb"
+                )
+              ]
+            , Some "/tmp/yum_save_tx.2023-04-03.04-59.z6T4rI.yumtx"
+            )
+        )
+      ; ( output2
+        , Ok
+            ( [
+                ( Pkg.
+                    {
+                      name= "curl"
+                    ; epoch= None
+                    ; version= "7.61.1"
+                    ; release= "30.el8"
+                    ; arch= "x86_64"
+                    }
+                , "baseos"
+                )
+              ; ( Pkg.
+                    {
+                      name= "distribution-gpg-keys"
+                    ; epoch= None
+                    ; version= "1.85"
+                    ; release= "1.el8"
+                    ; arch= "noarch"
+                    }
+                , "epel"
+                )
+              ; ( Pkg.
+                    {
+                      name= "openssl"
+                    ; epoch= Some 1
+                    ; version= "1.1.1k"
+                    ; release= "9.el8"
+                    ; arch= "x86_64"
+                    }
+                , "baseos"
+                )
+              ; ( Pkg.
+                    {
+                      name= "util-linux"
+                    ; epoch= None
+                    ; version= "2.32.1"
+                    ; release= "41.el8"
+                    ; arch= "x86_64"
+                    }
+                , "baseos"
+                )
+              ]
+            , None
+            )
+        )
+      ; ( output3
+        , Ok
+            ( [
+                ( Pkg.
+                    {
+                      name= "xenserver-telemetry"
+                    ; epoch= None
+                    ; version= "1.0.1"
+                    ; release= "31.2.g8c48473.xs8"
+                    ; arch= "noarch"
+                    }
+                , "local-bd74070c-897f-d2bc-654a-a3f87d47f6b6"
+                )
+              ]
+            , None
+            )
+        )
+      ; ( output4
+        , Error
+            "Can't parse output from yum upgrade (dry run): : Error: \
+             xenserver-telemetry conflicts with \
+             python2-bitarray-0.8.3-2.xs8.x86_64"
+        )
+      ; ( output5
+        , Ok
+            ( [
+                ( Pkg.
+                    {
+                      name= "amd-microcode"
+                    ; epoch= None
+                    ; version= "20220930"
+                    ; release= "2.xs8"
+                    ; arch= "noarch"
+                    }
+                , "local-bd74070c-897f-d2bc-654a-a3f87d47f6b6"
+                )
+              ; ( Pkg.
+                    {
+                      name= "python2-bitarray"
+                    ; epoch= None
+                    ; version= "0.8.3"
+                    ; release= "2.xs8"
+                    ; arch= "x86_64"
+                    }
+                , "local-bd74070c-897f-d2bc-654a-a3f87d47f6b6"
+                )
+              ; ( Pkg.
+                    {
+                      name= "xenserver-telemetry"
+                    ; epoch= None
+                    ; version= "1.0.1"
+                    ; release= "71.2.g8c48473.xs8"
+                    ; arch= "noarch"
+                    }
+                , "local-bd74070c-897f-d2bc-654a-a3f87d47f6b6"
+                )
+              ]
+            , None
+            )
+        )
+      ]
+end)
+
+module GetLatestUpdatesFromRedundancy = Generic.MakeStateless (struct
+  module Io = struct
+    type input_t = bool * ((Pkg.t * string) list option * (Pkg.t * string) list)
+
+    type output_t = ((Pkg.t * string) list, exn) result
+
+    let string_of_input_t =
+      Fmt.(
+        str "%a"
+          Dump.(
+            pair bool
+              (pair
+                 (option (list (pair (record @@ fields_of_pkg) string)))
+                 (list (pair (record @@ fields_of_pkg) string))
+              )
+          )
+      )
+
+    let string_of_output_t = function
+      | Ok pkgs ->
+          Fmt.(
+            str "%a" Dump.(list (pair (record @@ fields_of_pkg) string)) pkgs
+          )
+      | Error e ->
+          Fmt.(str "%a" exn) e
+  end
+
+  let transform (fail_on_error, (l1, l2)) =
+    try
+      Ok
+        (get_latest_updates_from_redundancy ~fail_on_error ~pkgs:l1
+           ~fallback_pkgs:l2
+        )
+    with e -> Error e
+
+  let e =
+    Api_errors.(
+      Server_error
+        ( internal_error
+        , ["Failed to parse output of 'yum upgrade (dry run)' correctly"]
+        )
+    )
+
+  let tests =
+    `QuickAndAutoDocumented
+      [
+        ((false, (None, [])), Ok [])
+      ; ((true, (None, [])), Error e)
+      ; ((true, (Some [], [])), Ok [])
+      ; (* Unexpected extra pkgs from 'yum upgrade', raise error *)
+        ( ( true
+          , ( Some
+                [
+                  ( Pkg.
+                      {
+                        name= "amd-microcode"
+                      ; epoch= None
+                      ; version= "20220930"
+                      ; release= "2.xs8"
+                      ; arch= "noarch"
+                      }
+                  , "local-bd74070c-897f-d2bc-654a-a3f87d47f6b6"
+                  )
+                ; ( Pkg.
+                      {
+                        name= "python2-bitarray"
+                      ; epoch= None
+                      ; version= "0.8.3"
+                      ; release= "2.xs8"
+                      ; arch= "x86_64"
+                      }
+                  , "local-bd74070c-897f-d2bc-654a-a3f87d47f6b6"
+                  )
+                ]
+            , []
+            )
+          )
+        , Error e
+        )
+      ; (* Unexpected extra pkgs from 'yum upgrade', falling back *)
+        ( ( false
+          , ( Some
+                [
+                  ( Pkg.
+                      {
+                        name= "amd-microcode"
+                      ; epoch= None
+                      ; version= "20220930"
+                      ; release= "2.xs8"
+                      ; arch= "noarch"
+                      }
+                  , "local-bd74070c-897f-d2bc-654a-a3f87d47f6b6"
+                  )
+                ; ( Pkg.
+                      {
+                        name= "python2-bitarray"
+                      ; epoch= None
+                      ; version= "0.8.3"
+                      ; release= "2.xs8"
+                      ; arch= "x86_64"
+                      }
+                  , "local-bd74070c-897f-d2bc-654a-a3f87d47f6b6"
+                  )
+                ]
+            , []
+            )
+          )
+        , Ok []
+        )
+      ; (* Same results, use 'yum upgrade' *)
+        ( ( true
+          , ( Some
+                [
+                  ( Pkg.
+                      {
+                        name= "amd-microcode"
+                      ; epoch= None
+                      ; version= "20220930"
+                      ; release= "2.xs8"
+                      ; arch= "noarch"
+                      }
+                  , "local-bd74070c-897f-d2bc-654a-a3f87d47f6b6"
+                  )
+                ; ( Pkg.
+                      {
+                        name= "python2-bitarray"
+                      ; epoch= None
+                      ; version= "0.8.3"
+                      ; release= "2.xs8"
+                      ; arch= "x86_64"
+                      }
+                  , "local-bd74070c-897f-d2bc-654a-a3f87d47f6b6"
+                  )
+                ]
+            , [
+                ( Pkg.
+                    {
+                      name= "amd-microcode"
+                    ; epoch= None
+                    ; version= "20220930"
+                    ; release= "2.xs8"
+                    ; arch= "noarch"
+                    }
+                , "local-bd74070c-897f-d2bc-654a-a3f87d47f6b6"
+                )
+              ; ( Pkg.
+                    {
+                      name= "python2-bitarray"
+                    ; epoch= None
+                    ; version= "0.8.3"
+                    ; release= "2.xs8"
+                    ; arch= "x86_64"
+                    }
+                , "local-bd74070c-897f-d2bc-654a-a3f87d47f6b6"
+                )
+              ]
+            )
+          )
+        , Ok
+            [
+              ( Pkg.
+                  {
+                    name= "amd-microcode"
+                  ; epoch= None
+                  ; version= "20220930"
+                  ; release= "2.xs8"
+                  ; arch= "noarch"
+                  }
+              , "local-bd74070c-897f-d2bc-654a-a3f87d47f6b6"
+              )
+            ; ( Pkg.
+                  {
+                    name= "python2-bitarray"
+                  ; epoch= None
+                  ; version= "0.8.3"
+                  ; release= "2.xs8"
+                  ; arch= "x86_64"
+                  }
+              , "local-bd74070c-897f-d2bc-654a-a3f87d47f6b6"
+              )
+            ]
+        )
+      ; (* is a subset; use 'yum upgrade' *)
+        ( ( false
+          , ( Some
+                [
+                  ( Pkg.
+                      {
+                        name= "amd-microcode"
+                      ; epoch= None
+                      ; version= "20220930"
+                      ; release= "2.xs8"
+                      ; arch= "noarch"
+                      }
+                  , "local-bd74070c-897f-d2bc-654a-a3f87d47f6b6"
+                  )
+                ]
+            , [
+                ( Pkg.
+                    {
+                      name= "amd-microcode"
+                    ; epoch= None
+                    ; version= "20220930"
+                    ; release= "2.xs8"
+                    ; arch= "noarch"
+                    }
+                , "local-bd74070c-897f-d2bc-654a-a3f87d47f6b6"
+                )
+              ; ( Pkg.
+                    {
+                      name= "python2-bitarray"
+                    ; epoch= None
+                    ; version= "0.8.3"
+                    ; release= "2.xs8"
+                    ; arch= "x86_64"
+                    }
+                , "local-bd74070c-897f-d2bc-654a-a3f87d47f6b6"
+                )
+              ]
+            )
+          )
+        , Ok
+            [
+              ( Pkg.
+                  {
+                    name= "amd-microcode"
+                  ; epoch= None
+                  ; version= "20220930"
+                  ; release= "2.xs8"
+                  ; arch= "noarch"
+                  }
+              , "local-bd74070c-897f-d2bc-654a-a3f87d47f6b6"
+              )
+            ]
         )
       ]
 end)
@@ -3224,6 +3563,12 @@ let tests =
     ; ("resort_guidances", GuidanceSetResortGuidancesTest.tests)
     ; ("prune_accumulative_updates", PruneAccumulativeUpdates.tests)
     ; ("prune_updateinfo_for_livepatches", PruneUpdateInfoForLivepatches.tests)
+    ; ( "parse_output_of_yum_upgrade_dry_run"
+      , ParseOutputOfYumUpgradeDryRun.tests
+      )
+    ; ( "get_latest_updates_from_redundancy"
+      , GetLatestUpdatesFromRedundancy.tests
+      )
     ]
 
 let () = Alcotest.run "Repository Helpers" tests

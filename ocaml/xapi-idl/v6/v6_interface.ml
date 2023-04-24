@@ -126,7 +126,6 @@ let err =
             Some (Internal_error (Printexc.to_string exn))
         )
     }
-  
 
 (** functor to autogenerate code using PPX *)
 module RPC_API (R : RPC) = struct
@@ -145,7 +144,6 @@ module RPC_API (R : RPC) = struct
           ]
       ; version= (1, 0, 0)
       }
-    
 
   (* define implementation *)
   let implementation = implement description

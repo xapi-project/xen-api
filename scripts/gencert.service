@@ -6,8 +6,8 @@ After=forkexecd.service
 [Service]
 User=root
 Type=oneshot
-ExecStart=/opt/xensource/libexec/gencert /etc/xensource/xapi-pool-tls.pem xapi:pool
-ExecStart=/opt/xensource/libexec/gencert /etc/xensource/xapi-ssl.pem default
+ExecStart=/opt/xensource/libexec/gencert /etc/xensource/xapi-pool-tls.pem -1 xapi:pool
+ExecStart=/opt/xensource/libexec/gencert /etc/xensource/xapi-ssl.pem -1 default
 RemainAfterExit=yes
 
 [Install]

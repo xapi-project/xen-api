@@ -55,7 +55,8 @@ let initialise session_id template pool =
     Array.init networks_to_create (fun i ->
         Client.Network.create ~rpc ~session_id
           ~name_label:(Printf.sprintf "perftestnet%d" i)
-          ~name_description:"" ~mTU:1500L ~other_config:[(oc_key, pool.key)]
+          ~name_description:"" ~mTU:1500L
+          ~other_config:[(oc_key, pool.key)]
           ~bridge:"" ~managed:true ~tags:[]
     )
   in
@@ -66,9 +67,10 @@ let initialise session_id template pool =
         let net = networks.(get_network_num_from_interface pool i) in
         Client.VIF.create ~rpc ~session_id ~device:(string_of_int i)
           ~network:net ~vM:template ~mAC:"" ~mTU:1500L
-          ~other_config:[(oc_key, pool.key)] ~qos_algorithm_type:""
-          ~qos_algorithm_params:[] ~locking_mode:`network_default
-          ~ipv4_allowed:[] ~ipv6_allowed:[] ~currently_attached:false
+          ~other_config:[(oc_key, pool.key)]
+          ~qos_algorithm_type:"" ~qos_algorithm_params:[]
+          ~locking_mode:`network_default ~ipv4_allowed:[] ~ipv6_allowed:[]
+          ~currently_attached:false
     )
   in
   (* Create a disk for local storage *)
@@ -80,14 +82,16 @@ let initialise session_id template pool =
     Client.VDI.create ~rpc ~session_id ~name_label:"SDK storage"
       ~name_description:"" ~sR:defaultsr ~virtual_size:sr_disk_size ~_type:`user
       ~sharable:false ~read_only:false ~xenstore_data:[]
-      ~other_config:[(oc_key, pool.key)] ~sm_config:[] ~tags:[]
+      ~other_config:[(oc_key, pool.key)]
+      ~sm_config:[] ~tags:[]
   in
   let (_ : API.ref_VBD) =
     Client.VBD.create ~rpc ~session_id ~vM:template ~vDI:newdisk
       ~userdevice:sr_disk_device ~bootable:false ~mode:`RW ~_type:`Disk
       ~unpluggable:true ~empty:false ~qos_algorithm_type:""
-      ~qos_algorithm_params:[] ~other_config:[(oc_key, pool.key)] ~device:""
-      ~currently_attached:false
+      ~qos_algorithm_params:[]
+      ~other_config:[(oc_key, pool.key)]
+      ~device:"" ~currently_attached:false
   in
   debug "Setting up xenstore keys" ;
   (* Set up the various xenstore keys *)
@@ -517,8 +521,8 @@ let create_sdk_pool session_id sdkname pool_name key ipbase =
   let xml =
     try
       Client.SR.probe ~rpc:poolrpc ~session_id:poolses ~host:master
-        ~device_config:[("target", iscsi_vm_ip)] ~sm_config:[]
-        ~_type:"lvmoiscsi"
+        ~device_config:[("target", iscsi_vm_ip)]
+        ~sm_config:[] ~_type:"lvmoiscsi"
     with Api_errors.Server_error ("SR_BACKEND_FAILURE_96", [xml; _]) -> xml
   in
   let iqns = parse_sr_probe_for_iqn xml in
@@ -735,9 +739,9 @@ let create_pool session_id _ pool_name key _ =
         [|
            Client.SR.create ~rpc ~session_id ~_type:"ext"
              ~name_label:"Local vhd" ~name_description:""
-             ~device_config:[("device", "/dev/sda3")] ~host
-             ~physical_size:Scenario.sr_disk_size ~shared:true ~sm_config:[]
-             ~content_type:""
+             ~device_config:[("device", "/dev/sda3")]
+             ~host ~physical_size:Scenario.sr_disk_size ~shared:true
+             ~sm_config:[] ~content_type:""
         |]
     | l ->
         Array.of_list l

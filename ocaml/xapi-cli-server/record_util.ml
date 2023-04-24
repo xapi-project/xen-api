@@ -131,6 +131,7 @@ let vm_operation_table =
   ; (`power_state_reset, "power_state_reset")
   ; (`csvm, "csvm")
   ; (`call_plugin, "call_plugin")
+  ; (`create_vtpm, "create_vtpm")
   ]
 
 let vm_operation_to_string x =
@@ -1012,6 +1013,9 @@ let domain_type_of_string x =
       `pvh
   | s ->
       raise (Record_failure ("Invalid domain type. Got " ^ s))
+
+let vtpm_operation_to_string (op : API.vtpm_operations) =
+  match op with `destroy -> "destroy"
 
 (** Parse a string which might have a units suffix on the end *)
 let bytes_of_string field x =

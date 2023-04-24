@@ -1489,7 +1489,6 @@ module PVS_proxy = struct
             [Dict [("site_uuid", Rpcmarshal.marshal Rpc.Types.string.ty uuid)]]
         ; is_notification= false
         }
-      
     in
 
     let _ = do_call call in

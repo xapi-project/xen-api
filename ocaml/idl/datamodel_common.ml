@@ -10,7 +10,7 @@ open Datamodel_roles
               to leave a gap for potential hotfixes needing to increment the schema version.*)
 let schema_major_vsn = 5
 
-let schema_minor_vsn = 761
+let schema_minor_vsn = 762
 
 (* Historical schema versions just in case this is useful later *)
 let rio_schema_major_vsn = 5
@@ -648,7 +648,7 @@ let field ?(in_oss_since = Some "3.0.3") ?in_product_since
     ?(qualifier = RW) ?(ty = String) ?(effect = false) ?(default_value = None)
     ?(persist = true) ?(map_keys_roles = [])
     ?(* list of (key_name,(writer_roles)) for a map field *)
-    lifecycle ?(doc_tags = []) name desc =
+     lifecycle ?(doc_tags = []) name desc =
   (* in_product_since currently defaults to 'Some rel_rio', for backwards compatibility.
      	 * This should eventually become 'None'. *)
   let in_product_since =
@@ -713,8 +713,8 @@ let field ?(in_oss_since = Some "3.0.3") ?in_product_since
 let uid ?(in_oss_since = Some "3.0.3") ?(reader_roles = None) ?lifecycle
     _refname =
   field ~in_oss_since ?lifecycle ~qualifier:DynamicRO ~ty:String
-    ~writer_roles:
-      _R_POOL_ADMIN (* only the system should be able to create/modify uuids *)
+    ~writer_roles:_R_POOL_ADMIN
+      (* only the system should be able to create/modify uuids *)
     ~reader_roles "uuid" "Unique identifier/object reference"
 
 let allowed_and_current_operations ?(writer_roles = None) ?(reader_roles = None)
@@ -777,11 +777,11 @@ let create_obj ?lifecycle ~in_oss_since ?in_product_since
     ?(contents_default_writer_roles = None)
     ?(implicit_messages_allowed_roles = _R_ALL)
     ?((* used in implicit obj msgs (get_all, etc) *)
-    force_custom_actions = None)
+      force_custom_actions = None)
     ~(* None,Some(RW),Some(StaticRO) *)
-    messages_default_allowed_roles ?(doc_tags = [])
+     messages_default_allowed_roles ?(doc_tags = [])
     ?(* To specify lifecycle for automatic messages (e.g. constructor) when different to object lifecycle. *)
-    db_logging () =
+     db_logging () =
   let contents_default_writer_roles =
     if contents_default_writer_roles = None then
       messages_default_allowed_roles

@@ -25,6 +25,9 @@ module Winbind : sig
 
   (* init winbind service *)
   val init_service : __context:Context.t -> unit
+
+  (* build NETBIOS name from localhost name *)
+  val build_netbios_name : string -> string
 end
 
 module AuthADWinbind : sig

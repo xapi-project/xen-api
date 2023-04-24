@@ -16,8 +16,10 @@ let protect_char = '%'
 
 type change =
   | No_change
-  | Replace of char * char (* replace 2 chars by 2 other chars                         *)
-  | Compress of char (* replace 2 chars by 1 char                                *)
+  | Replace of
+      char * char (* replace 2 chars by 2 other chars                         *)
+  | Compress of
+      char (* replace 2 chars by 1 char                                *)
   | Expand of char * char
 
 (* replace the first char of 2 chars by 2 chars             *)
