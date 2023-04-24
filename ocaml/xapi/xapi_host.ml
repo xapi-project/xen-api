@@ -1602,6 +1602,7 @@ let _new_host_cert ~dbg ~path : X509.Certificate.t =
   let ips = [ip] in
   let valid_for_days = !Xapi_globs.cert_expiration_days in
   Gencertlib.Selfcert.host ~name:cn ~dns_names ~ips ~valid_for_days path
+    !Xapi_globs.server_cert_group_id
 
 let reset_server_certificate ~__context ~host =
   let dbg = Context.string_of_task __context in

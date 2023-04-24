@@ -49,10 +49,12 @@ let () = Mirage_crypto_rng_unix.initialize ()
  extension would be ".pem". It attempts to do that atomically by
  writing to a temporary file in the same directory first and renaming
  the file at the end *)
-let write_certs path pkcs12 =
+let write_certs path cert_gid pkcs12 =
   let f () =
-    UX.atomic_write_to_file path 0o400 @@ fun fd ->
-    UX.really_write fd pkcs12 0 (String.length pkcs12)
+    ( UX.atomic_write_to_file path (if cert_gid >= 0 then 0o440 else 0o400)
+    @@ fun fd -> UX.really_write fd pkcs12 0 (String.length pkcs12)
+    ) ;
+    Unix.chown path (-1) cert_gid
   in
   R.trap_exn f () |> R.error_exn_trap_to_msg
 
@@ -134,12 +136,12 @@ let selfsign' issuer extensions key_length expiration =
   in
   Ok (cert, pkcs12)
 
-let selfsign issuer extensions key_length expiration certfile =
+let selfsign issuer extensions key_length expiration certfile cert_gid =
   let* cert, pkcs12 = selfsign' issuer extensions key_length expiration in
-  let* () = write_certs certfile pkcs12 in
+  let* () = write_certs certfile cert_gid pkcs12 in
   Ok cert
 
-let host ~name ~dns_names ~ips ?valid_from ~valid_for_days pemfile =
+let host ~name ~dns_names ~ips ?valid_from ~valid_for_days pemfile cert_gid =
   let valid_from = valid_from' valid_from in
   let res =
     let* expiration = expire_in_days ~valid_from valid_for_days in
@@ -152,13 +154,13 @@ let host ~name ~dns_names ~ips ?valid_from ~valid_for_days pemfile =
     let extensions = sans dns_names ips in
     (* make sure name is part of alt_names because CN is deprecated and
        that there are no duplicates *)
-    selfsign issuer extensions key_length expiration pemfile
+    selfsign issuer extensions key_length expiration pemfile cert_gid
   in
   R.failwith_error_msg res
 
 let serial_stamp () = Unix.gettimeofday () |> string_of_float
 
-let xapi_pool ?valid_from ~valid_for_days ~uuid pemfile =
+let xapi_pool ?valid_from ~valid_for_days ~uuid pemfile cert_gid =
   let valid_from = valid_from' valid_from in
   let res =
     let* expiration = expire_in_days ~valid_from valid_for_days in
@@ -173,7 +175,7 @@ let xapi_pool ?valid_from ~valid_for_days ~uuid pemfile =
     in
     let extensions = X509.Extension.empty in
     let* (c : X509.Certificate.t) =
-      selfsign issuer extensions key_length expiration pemfile
+      selfsign issuer extensions key_length expiration pemfile cert_gid
     in
     Ok c
   in
