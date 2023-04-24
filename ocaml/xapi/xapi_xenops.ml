@@ -218,50 +218,6 @@ let int = find int_of_string
 let bool platformdata default key =
   Vm_platform.is_true ~key ~platformdata ~default
 
-let nvram_uefi_of_vm vm =
-  let open Xenops_types.Nvram_uefi_variables in
-  let on_field name f t =
-    match List.assoc name vm.API.vM_NVRAM with
-    | v ->
-        f v t
-    | exception Not_found ->
-        t
-  in
-  let add_on_boot =
-    on_field "EFI-variables-on-boot" (fun str t ->
-        match str with
-        | "persist" ->
-            {t with on_boot= Persist}
-        | "reset" ->
-            {t with on_boot= Reset}
-        | bad ->
-            raise
-              Api_errors.(
-                Server_error
-                  (invalid_value, ["NVRAM['EFI-variables-on-boot']"; bad])
-              )
-    )
-  in
-  let add_backend =
-    on_field "EFI-variables-backend" (fun backend t -> {t with backend})
-  in
-  default_t |> add_on_boot |> add_backend
-
-let firmware_of_vm vm =
-  let open Xenops_types.Vm in
-  match List.assoc "firmware" vm.API.vM_HVM_boot_params with
-  | "bios" ->
-      Bios
-  | "uefi" ->
-      Uefi (nvram_uefi_of_vm vm)
-  | bad ->
-      raise
-        Api_errors.(
-          Server_error (invalid_value, ["HVM-boot-params['firmware']"; bad])
-        )
-  | exception Not_found ->
-      default_firmware
-
 let varstore_rm_with_sandbox ~__context ~vm_uuid f =
   let dbg = Context.string_of_task __context in
   let domid = 0 in
@@ -462,7 +418,7 @@ let builder_of_vm ~__context (vmref, vm) timeoffset pci_passthrough vgpu =
         )
     ; qemu_disk_cmdline= bool vm.API.vM_platform false "qemu_disk_cmdline"
     ; qemu_stubdom= false (* Obsolete: implementation removed *)
-    ; firmware= firmware_of_vm vm
+    ; firmware= Xapi_xenops_firmware.firmware_of_vm vm
     ; tpm= tpm_of_vm ()
     }
   in
@@ -1216,7 +1172,7 @@ module MD = struct
       in
       {priority; affinity}
     in
-    let firmware = firmware_of_vm vm in
+    let firmware = Xapi_xenops_firmware.firmware_of_vm vm in
     let platformdata =
       Vm_platform.sanity_check ~platformdata:vm.API.vM_platform ~firmware
         ~vcpu_max:vm.API.vM_VCPUs_max

@@ -1284,6 +1284,8 @@ let update_guidance_changed = "UPDATE_GUIDANCE_CHANGED"
 
 let vtpm_max_amount_reached = "VTPM_MAX_AMOUNT_REACHED"
 
+let vtpm_blocked_on_bios = "VTPM_BLOCKED_ON_BIOS"
+
 (* Telemetry *)
 let telemetry_next_collection_too_late = "TELEMETRY_NEXT_COLLECTION_TOO_LATE"
 

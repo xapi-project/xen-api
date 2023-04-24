@@ -44,6 +44,15 @@ let assert_no_vtpm_associated ~__context vm =
       let amount = List.length vtpms |> Int.to_string in
       raise Api_errors.(Server_error (vtpm_max_amount_reached, [amount]))
 
+(** Don't allow VTPM creation on BIOS VMs *)
+let assert_not_bios ~__context vm =
+  let vm_record = Db.VM.get_record ~__context ~self:vm in
+    match Xapi_xenops_firmware.firmware_of_vm vm_record with
+      | Bios ->
+          raise Api_errors.(Server_error (vtpm_blocked_on_bios, []))
+      | Uefi _ ->
+          ()
+
 let introduce ~__context ~vM ~persistence_backend ~contents ~is_unique =
   let ref = Ref.make () in
   let uuid = Uuidx.(to_string (make ())) in
@@ -73,6 +82,7 @@ let create ~__context ~vM ~is_unique =
   assert_not_restricted ~__context ;
   assert_no_fencing ~__context ~persistence_backend ;
   assert_no_vtpm_associated ~__context vM ;
+  assert_not_bios ~__context vM ;
   Xapi_vm_lifecycle.assert_initial_power_state_is ~__context ~self:vM
     ~expected:`Halted ;
   let contents = copy_or_create_contents ~__context () in

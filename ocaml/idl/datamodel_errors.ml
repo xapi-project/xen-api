@@ -1944,6 +1944,8 @@ let _ =
 
   error Api_errors.vtpm_max_amount_reached ["amount"]
     ~doc:"The VM cannot be associated with more VTPMs." () ;
+  error Api_errors.vtpm_blocked_on_bios []
+    ~doc:"VTPMs cannot be created on BIOS booted VMs" () ;
 
   error Api_errors.telemetry_next_collection_too_late ["timestamp"]
     ~doc:

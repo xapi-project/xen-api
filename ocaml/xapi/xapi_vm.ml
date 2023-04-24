@@ -306,7 +306,7 @@ let start ~__context ~vm ~start_paused ~force =
   ) ;
   let pool = Helpers.get_pool ~__context in
   let default_value =
-    match Xapi_xenops.firmware_of_vm vmr with
+    match Xapi_xenops_firmware.firmware_of_vm vmr with
     | Bios ->
         Vm_platform.fallback_device_model_default_value
     | Uefi _ ->
