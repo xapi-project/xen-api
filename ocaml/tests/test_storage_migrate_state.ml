@@ -42,7 +42,6 @@ let sample_send_state =
     ; failed= false
     ; watchdog= None
     }
-  
 
 let sample_receive_state =
   Storage_migrate.State.Receive_state.
@@ -54,7 +53,6 @@ let sample_receive_state =
     ; parent_vdi= Storage_interface.Vdi.of_string "parent_vdi"
     ; remote_vdi= Storage_interface.Vdi.of_string "remote_vdi"
     }
-  
 
 let sample_copy_state =
   Storage_migrate.State.Copy_state.
@@ -67,7 +65,6 @@ let sample_copy_state =
     ; remote_url= "remote_url"
     ; verify_dest= true
     }
-  
 
 module MapOf = Generic.MakeStateful (struct
   module Io = struct

@@ -51,10 +51,7 @@ let init_stunnel_path () =
       | [] ->
           raise Stunnel_binary_missing
       | p :: ps -> (
-        try
-          Unix.access p [Unix.X_OK] ;
-          p
-        with _ -> choose ps
+        try Unix.access p [Unix.X_OK] ; p with _ -> choose ps
       )
     in
     let path = choose choices in

@@ -301,7 +301,6 @@ let err =
             Some (Internal_error (Printexc.to_string exn))
         )
     }
-  
 
 (** {2 API functions} *)
 
@@ -323,7 +322,6 @@ module Interface_API (R : RPC) = struct
           ]
       ; version= (1, 0, 0)
       }
-    
 
   let implementation = implement description
 

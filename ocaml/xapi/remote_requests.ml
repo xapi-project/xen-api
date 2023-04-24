@@ -200,7 +200,8 @@ let send_test_post ~__context ~host ~port ~body =
     let result = ref "" in
     let verify_cert = Stunnel_client.pool () in
     let request =
-      Xapi_http.http_request ~keep_alive:false ~body ~headers:[("Host", host)]
+      Xapi_http.http_request ~keep_alive:false ~body
+        ~headers:[("Host", host)]
         Http.Post "/"
     in
     perform_request ~__context ~timeout:30.0 ~verify_cert ~host

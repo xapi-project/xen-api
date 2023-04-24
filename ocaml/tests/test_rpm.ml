@@ -24,7 +24,6 @@ let fields_of_pkg =
     ; field "release" (fun (r : Pkg.t) -> r.release) string
     ; field "arch" (fun (r : Pkg.t) -> r.arch) string
     ]
-  
 
 module PkgOfFullnameTest = Generic.MakeStateless (struct
   module Io = struct
@@ -91,7 +90,6 @@ module PkgOfFullnameTest = Generic.MakeStateless (struct
                  ; release= "29.el7"
                  ; arch= "noarch"
                  }
-               
             )
         )
       ; ( Io.Line "libpath-utils-0.2.1-29.el7.x86_64"
@@ -105,7 +103,6 @@ module PkgOfFullnameTest = Generic.MakeStateless (struct
                  ; release= "29.el7"
                  ; arch= "x86_64"
                  }
-               
             )
         )
       ; ( Io.Line "libpath-utils-2:0.2.1-29.el7.x86_64"
@@ -119,7 +116,6 @@ module PkgOfFullnameTest = Generic.MakeStateless (struct
                  ; release= "29.el7"
                  ; arch= "x86_64"
                  }
-               
             )
         )
       ; ( Io.Line "libpath-utils-(none):0.2.1-29.el7.x86_64"
@@ -133,7 +129,6 @@ module PkgOfFullnameTest = Generic.MakeStateless (struct
                  ; release= "29.el7"
                  ; arch= "x86_64"
                  }
-               
             )
         )
       ; (Io.Line "libpath-utils-:0.2.1-29.el7.x86_64", Ok None)

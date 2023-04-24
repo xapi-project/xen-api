@@ -85,7 +85,6 @@ module Task (R : RPC) = struct
             ]
         ; version= (1, 0, 0)
         }
-      
 end
 
 module T = Task (Codegen.Gen ())

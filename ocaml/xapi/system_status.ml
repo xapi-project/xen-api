@@ -61,7 +61,8 @@ let send_via_fd __context s entries output =
     let result =
       with_logfile_fd "get-system-status" (fun log_fd ->
           let pid =
-            safe_close_and_exec None (Some log_fd) (Some log_fd) [(s_uuid, s)]
+            safe_close_and_exec None (Some log_fd) (Some log_fd)
+              [(s_uuid, s)]
               xen_bugtool params
           in
           waitpid_fail_if_bad_exit pid

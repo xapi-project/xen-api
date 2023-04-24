@@ -137,7 +137,6 @@ let metadata_of_site ~__context ~site ~vdi ~proxies =
           ; first_port= Int64.to_int rc.API.pVS_server_first_port
           ; last_port= Int64.to_int rc.API.pVS_server_last_port
           }
-        
       )
       site_rc.API.pVS_site_servers
   in
@@ -153,7 +152,6 @@ let metadata_of_site ~__context ~site ~vdi ~proxies =
           ; interface= proxy_port_name rc
           ; prepopulate= false
           }
-        
       )
       proxies
   in
@@ -166,7 +164,6 @@ let metadata_of_site ~__context ~site ~vdi ~proxies =
     ; clients
     ; vdi
     }
-  
 
 let configure_proxy_m = Mutex.create ()
 

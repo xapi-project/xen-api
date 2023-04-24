@@ -22,9 +22,9 @@ type t = {
 
 type err =
   | (* Line input is > 1024 chars *)
-      Too_long
+    Too_long
   | (* EOF found, with no newline *)
-      No_newline
+    No_newline
 
 exception Timeout (* Waited too long for data to appear *)
 

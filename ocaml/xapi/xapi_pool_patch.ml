@@ -80,7 +80,6 @@ let pool_patch_upload_handler (req : Http.Request.t) s _ =
                       ("task_id", Ref.string_of subtask) :: strip req.query
                       |> add_sr
                   }
-                
               in
 
               let vdi_opt =

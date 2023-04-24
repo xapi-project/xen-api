@@ -1286,7 +1286,8 @@ let copy_metrics ~__context ~vm =
          m
       )
     ~vCPUs_utilisation:
-      (Option.fold ~none:[(0L, 0.)]
+      (Option.fold
+         ~none:[(0L, 0.)]
          ~some:(fun x -> x.Db_actions.vM_metrics_VCPUs_utilisation)
          m
       )

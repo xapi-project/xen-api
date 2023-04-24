@@ -282,14 +282,12 @@ let requirements_of_mode = function
           ; default_value= Some "tcpudp_ports"
           ; is_valid_value= (fun str -> List.mem str ["src_mac"; "tcpudp_ports"])
           }
-        
       ; Map_check.
           {
             key= "lacp-time"
           ; default_value= Some "slow"
           ; is_valid_value= (fun str -> List.mem str ["fast"; "slow"])
           }
-        
       ; Map_check.
           {
             key= "lacp-aggregation-key"
@@ -302,14 +300,12 @@ let requirements_of_mode = function
                 with _ -> false
               )
           }
-        
       ; Map_check.
           {
             key= "lacp-fallback-ab"
           ; default_value= Some "true"
           ; is_valid_value= (fun str -> List.mem str ["true"; "false"])
           }
-        
       ]
   | _ ->
       []

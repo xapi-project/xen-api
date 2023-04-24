@@ -601,7 +601,6 @@ module AssertVMIsCompatible = Generic.MakeStateful (struct
                 (cpu_info_vendor_key, "Abacus")
               ; (cpu_info_features_key, features_hvm)
               ]
-            
           )
         , Ok ()
         )
@@ -614,7 +613,6 @@ module AssertVMIsCompatible = Generic.MakeStateful (struct
                 , "cafecafe-cafecafe-cafecafe-cafecafe-cafecafe-cafecafe-cafecafe-cafecafe-cafecafe-cafecafe-cafecafe-cafecafe-cafecafe-cafecafe-cafecafe"
                 )
               ]
-            
           )
         , Error
             Api_errors.(
@@ -634,7 +632,6 @@ module AssertVMIsCompatible = Generic.MakeStateful (struct
                 (cpu_info_vendor_key, "Napier's Bones")
               ; (cpu_info_features_key, features_hvm)
               ]
-            
           )
         , Error
             Api_errors.(
@@ -655,7 +652,6 @@ module AssertVMIsCompatible = Generic.MakeStateful (struct
                 (cpu_info_vendor_key, "Abacus")
               ; (cpu_info_features_key, features_pv)
               ]
-            
           )
         , Ok ()
         )
@@ -668,7 +664,6 @@ module AssertVMIsCompatible = Generic.MakeStateful (struct
                 , "cafecafe-cafecafe-cafecafe-cafecafe-cafecafe-cafecafe-cafecafe-cafecafe-cafecafe-cafecafe-cafecafe-cafecafe-cafecafe-cafecafe-cafecafe"
                 )
               ]
-            
           )
         , Error
             Api_errors.(
@@ -688,7 +683,6 @@ module AssertVMIsCompatible = Generic.MakeStateful (struct
                 (cpu_info_vendor_key, "Napier's Bones")
               ; (cpu_info_features_key, features_pv)
               ]
-            
           )
         , Error
             Api_errors.(
@@ -711,7 +705,6 @@ module AssertVMIsCompatible = Generic.MakeStateful (struct
                 , "feedface-feedface-feedface-feedface-feedface-00000810-feedface-feedface-feedface-feedface-feedface-feedface-feedface-feedface-feedface"
                 )
               ]
-            
           )
         , Ok ()
         )
@@ -724,7 +717,6 @@ module AssertVMIsCompatible = Generic.MakeStateful (struct
                 , "feedface-feedface-feedface-feedface-feedface-00000811-feedface-feedface-feedface-feedface-feedface-feedface-feedface-feedface-feedface"
                 )
               ]
-            
           )
         , Error
             Api_errors.(

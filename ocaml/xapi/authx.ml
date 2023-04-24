@@ -232,8 +232,7 @@ module AuthX : Auth_signature.AUTH_MODULE = struct
           (* comma-separated list of subjects that are contained in this subject *)
           (*("contains-byname", List.nth infolist 3);*)
           (* fields required in xen_center: *)
-          ("subject-is-group", "true")
-          (* fields required in xapi_session: *)
+          ("subject-is-group", "true") (* fields required in xapi_session: *)
         ]
     | _ ->
         raise Not_found

@@ -147,8 +147,7 @@ let process_request conn_id queues session request trace =
           ; output= None
           ; message= Ack (name, id)
           ; processing_time= None
-          }
-         ;
+          } ;
       return (Some (Q.ack queues (name, id)), Out.Ack)
   | Some session, In.Transfer {In.from; timeout; queues= names} ->
       let time = Int64.add (ns ()) (Int64.of_float (timeout *. 1e9)) in
@@ -188,7 +187,6 @@ let process_request conn_id queues session request trace =
               ; message= Message (id, m)
               ; processing_time
               }
-            
         )
         transfer.Out.messages ;
       return (None, Out.Transfer transfer)
@@ -207,8 +205,7 @@ let process_request conn_id queues session request trace =
               ; output= None
               ; message= Message (id, data)
               ; processing_time= None
-              }
-             ;
+              } ;
           return (Some op, Out.Send (Some id))
     )
   | Some _session, In.Shutdown ->

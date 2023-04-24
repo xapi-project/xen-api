@@ -22,7 +22,6 @@ let test_clusterd_rpc ~__context call =
   | "create", _ ->
       Rpc.
         {success= true; contents= Rpc.String test_token; is_notification= false}
-      
   | ("enable" | "disable" | "destroy" | "leave" | "set-tls-verification"), _ ->
       Rpc.{success= true; contents= Rpc.Null; is_notification= false}
   | "diagnostics", _ ->
@@ -145,7 +144,6 @@ let test_create_cleanup () =
                 Cluster_interface.(InternalError "Cluster.create failed")
           ; is_notification= false
           }
-        
     | _, _ ->
         Rpc.{success= true; contents= Rpc.Null; is_notification= false}
   in
