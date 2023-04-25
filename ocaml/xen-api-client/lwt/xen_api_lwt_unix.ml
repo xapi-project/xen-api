@@ -66,6 +66,8 @@ module Lwt_unix_IO = struct
     ( match Uri.scheme uri with
     | Some "file" ->
         return (Unix.PF_UNIX, Unix.ADDR_UNIX (Uri.path uri), false)
+    | Some "http+unix" ->
+        return (Unix.PF_UNIX, Unix.ADDR_UNIX (Uri.host_with_default uri), false)
     | Some "http" | Some "https" ->
         Uri_util.sockaddr_of_uri uri >|= fun (sockaddr, ssl) ->
         (Unix.domain_of_sockaddr sockaddr, sockaddr, ssl)
