@@ -5231,8 +5231,11 @@ let vtpm_record rpc session_id vtpm =
   ; fields=
       [
         make_field ~name:"uuid" ~get:(fun () -> (x ()).API.vTPM_uuid) ()
-      ; make_field ~name:"vm"
+      ; make_field ~name:"vm-uuid"
           ~get:(fun () -> get_uuid_from_ref (x ()).API.vTPM_VM)
+          ()
+      ; make_field ~name:"vm-name-label"
+          ~get:(fun () -> get_name_from_ref (x ()).API.vTPM_VM)
           ()
       ; make_field ~name:"is_unique"
           ~get:(fun () -> string_of_bool (x ()).API.vTPM_is_unique)
