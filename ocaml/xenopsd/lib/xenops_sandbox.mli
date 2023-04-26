@@ -21,25 +21,6 @@ module Chroot : sig
   val create_dir : within:t -> int -> Path.t -> unit
   (** [create_dir ~within perm path] Creates the directory with path [path] inside
       the chroot [within] with its owner and group ids and permissions [perm]*)
-
-  val of_domid :
-       base:string
-    -> base_uid:(unit -> int)
-    -> base_gid:(unit -> int)
-    -> daemon:string
-    -> domid:int
-    -> vm_uuid:string
-    -> t
-  (** [of_domid ~base ~base_uid ~base_gid ~daemon ~domid ~vm_uuid] describes a chroot for specified
-     daemon and domain *)
-
-  val create : t -> Path.t list -> unit
-  (** [create chroot paths] Creates the specified chroot with appropriate
-      permissions, and ensures that all [paths] are owned by the chrooted
-      daemon and rw- *)
-
-  val destroy : t -> unit
-  (** [destroy chroot] Deletes the chroot *)
 end
 
 module type SANDBOX = sig

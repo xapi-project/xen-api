@@ -42,10 +42,16 @@ module Chroot : sig
     -> domid:int
     -> vm_uuid:string
     -> t
+  (** [of_domid ~base ~base_uid ~base_gid ~daemon ~domid ~vm_uuid] describes
+      a chroot for specified daemon and domain, with the correct permissions *)
 
   val create : t -> Path.t list -> unit
+  (** [create chroot paths] Creates the specified chroot with appropriate
+      permissions, and ensures that all [paths] are owned by the chrooted
+      daemon and rw- *)
 
   val destroy : t -> unit
+  (** [destroy chroot] Deletes the chroot *)
 end = struct
   type t = {root: string; uid: int; gid: int}
 
