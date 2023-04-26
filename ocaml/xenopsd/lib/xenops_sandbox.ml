@@ -141,9 +141,9 @@ module type GUARD = sig
 
   val base_gid : unit -> int
 
-  val create : string -> vm_uuid:Uuidm.t -> domid:int -> path:string -> unit
+  val create : string -> vm_uuid:Uuidm.t -> gid:int -> path:string -> unit
 
-  val destroy : string -> domid:int -> path:string -> unit
+  val destroy : string -> gid:int -> path:string -> unit
 end
 
 module Guard (G : GUARD) : SANDBOX = struct
@@ -168,7 +168,7 @@ module Guard (G : GUARD) : SANDBOX = struct
       | None ->
           failwith (Printf.sprintf "Invalid VM uuid %s" vm_uuid)
     in
-    G.create dbg ~vm_uuid ~domid:chroot.gid ~path:absolute_socket_path ;
+    G.create dbg ~vm_uuid ~gid:chroot.gid ~path:absolute_socket_path ;
     (chroot, Chroot.chroot_path_inside socket_path)
 
   let create ~domid ~vm_uuid path =
@@ -191,7 +191,7 @@ module Guard (G : GUARD) : SANDBOX = struct
         Chroot.absolute_path_outside chroot socket_path
       in
       Xenops_utils.best_effort "Stop listening on deprivileged socket"
-        (fun () -> G.destroy dbg ~domid:gid ~path:absolute_socket_path
+        (fun () -> G.destroy dbg ~gid ~path:absolute_socket_path
       ) ;
       Chroot.destroy chroot
     ) else
@@ -208,11 +208,11 @@ module Varstored : GUARD = struct
 
   let base_gid () = (Unix.getpwnam "qemu_base").Unix.pw_gid
 
-  let create dbg ~vm_uuid ~domid ~path =
-    Varstore_privileged_client.Client.varstore_create dbg vm_uuid domid path
+  let create dbg ~vm_uuid ~gid ~path =
+    Varstore_privileged_client.Client.varstore_create dbg vm_uuid gid path
 
-  let destroy dbg ~domid ~path =
-    Varstore_privileged_client.Client.varstore_destroy dbg domid path
+  let destroy dbg ~gid ~path =
+    Varstore_privileged_client.Client.varstore_destroy dbg gid path
 end
 
 module Swtpm : GUARD = struct
@@ -227,11 +227,11 @@ module Swtpm : GUARD = struct
   (* swtpm runas only supports a uid, so use uid = gid *)
   let base_gid () = base_uid ()
 
-  let create dbg ~vm_uuid ~domid ~path =
-    Varstore_privileged_client.Client.vtpm_create dbg vm_uuid domid path
+  let create dbg ~vm_uuid ~gid ~path =
+    Varstore_privileged_client.Client.vtpm_create dbg vm_uuid gid path
 
-  let destroy dbg ~domid ~path =
-    Varstore_privileged_client.Client.vtpm_destroy dbg domid path
+  let destroy dbg ~gid ~path =
+    Varstore_privileged_client.Client.vtpm_destroy dbg gid path
 end
 
 module Varstore_guard = Guard (Varstored)
