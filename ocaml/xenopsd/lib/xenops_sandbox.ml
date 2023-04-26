@@ -43,15 +43,7 @@ module Chroot : sig
     -> vm_uuid:string
     -> t
 
-  val create :
-       base:string
-    -> base_uid:(unit -> int)
-    -> base_gid:(unit -> int)
-    -> daemon:string
-    -> domid:int
-    -> vm_uuid:string
-    -> Path.t list
-    -> t
+  val create : t -> Path.t list -> unit
 
   val destroy : t -> unit
 end = struct
@@ -98,8 +90,7 @@ end = struct
     let gid = base_gid () + domid in
     {root; uid; gid}
 
-  let create ~base ~base_uid ~base_gid ~daemon ~domid ~vm_uuid paths =
-    let chroot = of_domid ~base ~base_uid ~base_gid ~daemon ~domid ~vm_uuid in
+  let create chroot paths =
     try
       Xenops_utils.Unixext.mkdir_rec chroot.root 0o755 ;
       (* we want parent dir to be 0o755 and this dir 0o750 *)
@@ -107,8 +98,7 @@ end = struct
       (* the chrooted daemon will have r-x permissions *)
       Unix.chown chroot.root 0 chroot.gid ;
       D.debug "Created chroot %s" chroot.root ;
-      List.iter (create_dir ~within:chroot 0o600) paths ;
-      chroot
+      List.iter (create_dir ~within:chroot 0o600) paths
     with e ->
       Backtrace.is_important e ;
       D.warn "Failed to create chroot at %s for UID %d: %s" chroot.root
@@ -160,10 +150,8 @@ module Guard (G : GUARD) : SANDBOX = struct
       ~base_gid:G.base_gid ~daemon ~domid ~vm_uuid
 
   let start dbg ~vm_uuid ~domid ~paths =
-    let chroot =
-      Chroot.create ~base:G.base_directory ~base_uid:G.base_uid
-        ~base_gid:G.base_gid ~daemon ~domid ~vm_uuid paths
-    in
+    let chroot = chroot ~domid ~vm_uuid in
+    Chroot.create chroot paths ;
     let absolute_socket_path =
       Chroot.absolute_path_outside chroot socket_path
     in
@@ -178,10 +166,8 @@ module Guard (G : GUARD) : SANDBOX = struct
     (chroot, Chroot.chroot_path_inside socket_path)
 
   let create ~domid ~vm_uuid path =
-    let chroot =
-      Chroot.create ~base:G.base_directory ~base_uid:G.base_uid
-        ~base_gid:G.base_gid ~daemon ~domid ~vm_uuid [path]
-    in
+    let chroot = chroot ~domid ~vm_uuid in
+    Chroot.create chroot [path] ;
     Chroot.absolute_path_outside chroot path
 
   let read ~domid path ~vm_uuid =

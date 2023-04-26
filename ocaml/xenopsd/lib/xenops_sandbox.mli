@@ -33,18 +33,10 @@ module Chroot : sig
   (** [of_domid ~base ~base_uid ~base_gid ~daemon ~domid ~vm_uuid] describes a chroot for specified
      daemon and domain *)
 
-  val create :
-       base:string
-    -> base_uid:(unit -> int)
-    -> base_gid:(unit -> int)
-    -> daemon:string
-    -> domid:int
-    -> vm_uuid:string
-    -> Path.t list
-    -> t
-  (** [create ~base ~base_uid ~base_gid ~daemon ~domid paths] Creates the specified chroot with
-      appropriate permissions on directory [base], and ensures that all [paths]
-      are owned by the chrooted daemon and rw- *)
+  val create : t -> Path.t list -> unit
+  (** [create chroot paths] Creates the specified chroot with appropriate
+      permissions, and ensures that all [paths] are owned by the chrooted
+      daemon and rw- *)
 
   val destroy : t -> unit
   (** [destroy chroot] Deletes the chroot *)
