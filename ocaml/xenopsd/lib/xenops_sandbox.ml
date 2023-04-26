@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-module D = Debug.Make (struct let name = "xenops_sandbox" end)
+module D = Debug.Make (struct let name = __MODULE__ end)
 
 module Chroot : sig
   (* can access fields, but can only be created through of_domid and create *)
@@ -45,10 +45,10 @@ module Chroot : sig
   (** [of_domid ~base ~base_uid ~base_gid ~daemon ~domid ~vm_uuid] describes
       a chroot for specified daemon and domain, with the correct permissions *)
 
-  val create : t -> Path.t list -> unit
-  (** [create chroot paths] Creates the specified chroot with appropriate
-      permissions, and ensures that all [paths] are owned by the chrooted
-      daemon and rw- *)
+  val create : clean:bool -> t -> Path.t list -> unit
+  (** [create ~clean chroot paths] Creates the specified chroot with
+      appropriate permissions, ensures that all [paths] are owned by the
+      chrooted daemon and rw-. Deletes an existing chroot when clean is true *)
 
   val destroy : t -> unit
   (** [destroy chroot] Deletes the chroot *)
@@ -96,7 +96,19 @@ end = struct
     let gid = base_gid () + domid in
     {root; uid; gid}
 
-  let create chroot paths =
+  let destroy chroot =
+    Xenops_utils.best_effort (Printf.sprintf "removing chroot %s" chroot.root)
+      (fun () -> Xenops_utils.FileFS.rmtree chroot.root
+    )
+
+  let create ~clean chroot paths =
+    if Sys.file_exists chroot.root then
+      if clean then (
+        D.info "%s cleaning up existing chroot %s" __FUNCTION__ chroot.root ;
+        destroy chroot
+      ) else
+        D.info "%s: root %s already exists, continuing anyway" __FUNCTION__
+          chroot.root ;
     try
       Xenops_utils.Unixext.mkdir_rec chroot.root 0o755 ;
       (* we want parent dir to be 0o755 and this dir 0o750 *)
@@ -107,14 +119,9 @@ end = struct
       List.iter (create_dir ~within:chroot 0o600) paths
     with e ->
       Backtrace.is_important e ;
-      D.warn "Failed to create chroot at %s for UID %d: %s" chroot.root
+      D.error "Failed to create chroot at %s for UID %d: %s" chroot.root
         chroot.uid (Printexc.to_string e) ;
       raise e
-
-  let destroy chroot =
-    Xenops_utils.best_effort (Printf.sprintf "removing chroot %s" chroot.root)
-      (fun () -> Xenops_utils.FileFS.rmtree chroot.root
-    )
 end
 
 module type SANDBOX = sig
@@ -157,7 +164,7 @@ module Guard (G : GUARD) : SANDBOX = struct
 
   let start dbg ~vm_uuid ~domid ~paths =
     let chroot = chroot ~domid ~vm_uuid in
-    Chroot.create chroot paths ;
+    Chroot.create ~clean:true chroot paths ;
     let absolute_socket_path =
       Chroot.absolute_path_outside chroot socket_path
     in
@@ -173,7 +180,7 @@ module Guard (G : GUARD) : SANDBOX = struct
 
   let create ~domid ~vm_uuid path =
     let chroot = chroot ~domid ~vm_uuid in
-    Chroot.create chroot [path] ;
+    Chroot.create ~clean:false chroot [path] ;
     Chroot.absolute_path_outside chroot path
 
   let read ~domid path ~vm_uuid =
