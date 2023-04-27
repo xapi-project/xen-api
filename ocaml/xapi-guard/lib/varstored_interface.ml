@@ -27,8 +27,6 @@ type nvram = (string * string) list [@@deriving rpcty]
 
 let originator = "varstored-guard"
 
-let version = "0.1"
-
 type session = [`session] Ref.t
 
 type rpc = call -> response Lwt.t
