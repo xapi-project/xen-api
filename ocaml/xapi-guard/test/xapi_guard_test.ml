@@ -73,8 +73,8 @@ let () =
 let with_rpc f switch () =
   Lwt_io.with_temp_dir ~prefix:"xapi_guard" @@ fun tmp ->
   let cache =
-    SessionCache.create_rpc xapi_rpc ~uname:"root" ~pwd:"" ~version:""
-      ~originator:"" ()
+    SessionCache.create_rpc xapi_rpc ~uname:"root" ~pwd:""
+      ~version:Xapi_version.version ~originator:"test" ()
   in
   (Lwt_switch.add_hook (Some switch) @@ fun () -> SessionCache.destroy cache) ;
   let path = Filename.concat tmp "socket" in
