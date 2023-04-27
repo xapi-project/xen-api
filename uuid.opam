@@ -9,7 +9,7 @@ build: [
   ["dune" "runtest" "-p" name "-j" jobs] {with-test}
 ]
 
-available: [ os = "linux" ]
+available: [ os = "linux" | os = "macos" ]
 depends: [
   "ocaml"
   "dune"
