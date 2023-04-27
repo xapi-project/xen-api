@@ -82,7 +82,7 @@ module Make (IO : IO) = struct
 
   let counter = ref 0
 
-  let one_attempt t (ic, oc) request =
+  let one_attempt ?(meth = `POST) t (ic, oc) request =
     let body = request in
 
     let headers =
@@ -93,9 +93,7 @@ module Make (IO : IO) = struct
         ; ("connection", "keep-alive")
         ]
     in
-    let request =
-      Cohttp.Request.make ~meth:`POST ~version:`HTTP_1_1 ~headers t.uri
-    in
+    let request = Cohttp.Request.make ~meth ~version:`HTTP_1_1 ~headers t.uri in
     Request.write (fun writer -> Request.write_body writer body) request oc
     >>= fun () ->
     Response.read ic >>= function
@@ -153,7 +151,7 @@ module Make (IO : IO) = struct
     let ideal_time = float_of_int next_n *. ideal_interval in
     max 0. (ideal_time -. time_so_far)
 
-  let rpc ?(timeout = 30.) t req =
+  let rpc ?(timeout = 30.) ?meth t req =
     let is_finished = function
       | Ok _ ->
           true
@@ -172,6 +170,6 @@ module Make (IO : IO) = struct
         | Error e ->
             disconnect t >>= fun () -> return (Error e)
         | Ok io ->
-            one_attempt t io req
+            one_attempt ?meth t io req
     )
 end

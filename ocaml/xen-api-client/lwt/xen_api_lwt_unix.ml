@@ -128,12 +128,11 @@ let exn_to_string = function
   | e ->
       Printexc.to_string e
 
-let do_it uri string =
-  let uri = Uri.of_string uri in
+let do_it ?meth uri string =
   let connection = M.make uri in
   Lwt.finalize
     (fun () ->
-      M.rpc connection string >>= fun result ->
+      M.rpc ?meth connection string >>= fun result ->
       match result with
       | Ok x ->
           return x
@@ -149,6 +148,7 @@ let do_it uri string =
 
 let make ?(timeout = 30.) uri call =
   let string = Xmlrpc.string_of_call call in
+  let uri = Uri.of_string uri in
   do_it uri string >>= fun result ->
   Lwt.return (Xmlrpc.response_of_string result)
 
