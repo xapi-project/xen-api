@@ -1,7 +1,7 @@
 (library
- (name xapi_idl_varstore_deprivileged)
- (public_name xapi-idl.varstore.deprivileged)
- (modules (:standard \ varstore_deprivileged_cli))
+ (name xapi_idl_guard_varstored)
+ (public_name xapi-idl.guard.varstored)
+ (modules (:standard \ varstored_cli))
  (libraries
    rpclib.core
    threads
@@ -9,13 +9,12 @@
    xapi-idl.xen.interface
    xcp
  )
- (wrapped false)
  (preprocess (pps ppx_deriving_rpc)))
 
 (executable
- (name varstore_deprivileged_cli)
+ (name varstored_cli)
  (modes exe)
- (modules varstore_deprivileged_cli)
+ (modules varstored_cli)
  (libraries
    cmdliner
    dune-build-info
@@ -23,11 +22,11 @@
    rpclib.core
    rpclib.markdown
    xapi-idl
-   xapi-idl.varstore.deprivileged
+   xapi-idl.guard.varstored
  ))
 
 (rule
  (alias runtest)
- (deps varstore_deprivileged_cli.exe)
+ (deps varstored_cli.exe)
  (package xapi-idl)
  (action (run %{deps} --help=plain)))

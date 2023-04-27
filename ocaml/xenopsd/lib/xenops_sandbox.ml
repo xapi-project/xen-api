@@ -209,10 +209,10 @@ module Varstored : GUARD = struct
   let base_gid () = (Unix.getpwnam "qemu_base").Unix.pw_gid
 
   let create dbg ~vm_uuid ~gid ~path =
-    Varstore_privileged_client.Client.varstore_create dbg vm_uuid gid path
+    Xapi_idl_guard_privileged.Client.varstore_create dbg vm_uuid gid path
 
   let destroy dbg ~gid ~path =
-    Varstore_privileged_client.Client.varstore_destroy dbg gid path
+    Xapi_idl_guard_privileged.Client.varstore_destroy dbg gid path
 end
 
 module Swtpm : GUARD = struct
@@ -228,10 +228,10 @@ module Swtpm : GUARD = struct
   let base_gid () = base_uid ()
 
   let create dbg ~vm_uuid ~gid ~path =
-    Varstore_privileged_client.Client.vtpm_create dbg vm_uuid gid path
+    Xapi_idl_guard_privileged.Client.vtpm_create dbg vm_uuid gid path
 
   let destroy dbg ~gid ~path =
-    Varstore_privileged_client.Client.vtpm_destroy dbg gid path
+    Xapi_idl_guard_privileged.Client.vtpm_destroy dbg gid path
 end
 
 module Varstore_guard = Guard (Varstored)

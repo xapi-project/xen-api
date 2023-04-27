@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-module Cmds = Varstore_deprivileged_interface.RPC_API (Cmdlinergen.Gen ())
+module Cmds = Xapi_idl_guard_varstored.Interface.RPC_API (Cmdlinergen.Gen ())
 
 open! Cmdliner
 
@@ -30,7 +30,7 @@ let cli () =
     next
   in
   let path =
-    let doc = "Path to deprivileged socket in /var/run/xen" in
+    let doc = "Path to deprivileged varstored socket in /var/run/xen" in
     Arg.(required & opt (some file) None & info ["socket"] ~doc ~docv:"SOCKET")
   in
   let cmdline_gen () =
