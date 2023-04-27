@@ -68,7 +68,6 @@ let localhost_connection_args () : connection_args =
       ( Http {host= "127.0.0.1"; auth= None; port= None; ssl= false}
       , {uri= Constants.sm_uri; query_params= []}
       )
-    
   in
 
   {url; pool_secret= Some (Xapi_globs.pool_secret ()); verify_cert= None}
@@ -87,7 +86,6 @@ let intra_pool_connection_args_of_ip ip : connection_args =
           }
       , {uri= Constants.sm_uri; query_params= []}
       )
-    
   in
 
   {

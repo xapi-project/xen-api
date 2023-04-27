@@ -1,5 +1,5 @@
 /*
- * (c) Citrix 
+ * (c) Citrix
  *
  * This could be replaced by https://github.com/mirage/ocaml-tuntap
  * if more features are required.
@@ -11,12 +11,14 @@
 #include <sys/ioctl.h>
 #include <linux/if_tun.h>
 #include <fcntl.h>
+#include <errno.h>
 
-
+#include <caml/alloc.h>
 #include <caml/mlvalues.h>
 #include <caml/fail.h>
 #include <caml/callback.h>
 #include <caml/memory.h>
+#include <caml/unixsupport.h>
 
 #define PATH_NET_TUN "/dev/net/tun"
 
@@ -26,6 +28,7 @@
 CAMLprim value stub_tap_open(value ocaml_ifname)
 {
     CAMLparam1(ocaml_ifname);
+    CAMLlocal1(path_net_tun);
     unsigned int features;
     struct ifreq ifr;
     const char *ifname = String_val(ocaml_ifname);
@@ -41,20 +44,23 @@ CAMLprim value stub_tap_open(value ocaml_ifname)
     }
     strncpy(ifr.ifr_name, ifname, IFNAMSIZ);
 
+    path_net_tun = caml_copy_string(PATH_NET_TUN);
     int fd = open(PATH_NET_TUN, O_RDWR);
     if (fd < 0) {
-        caml_failwith("open(" PATH_NET_TUN ") failed in " __FILE__);
+        uerror("open", path_net_tun);
     }
 
     if (ioctl(fd, TUNGETFEATURES, &features) == -1) {
+        int saved_errno = errno;
         close(fd);
-        caml_failwith("TUNGETFEATURES failed in " __FILE__);
+        unix_error(saved_errno, "ioctl/TUNGETFEATURES", path_net_tun);
     }
 
     ifr.ifr_flags = IFF_TAP | IFF_NO_PI | (features & IFF_ONE_QUEUE);
     if (ioctl(fd, TUNSETIFF, (void *) &ifr) != 0) {
+        int saved_errno = errno;
         close(fd);
-        caml_failwith("ioctl failed in " __FILE__);
+        unix_error(saved_errno,"ioctl/TUNSETIFF", path_net_tun);
     }
 
     fcntl(fd, F_SETFL, O_NONBLOCK);

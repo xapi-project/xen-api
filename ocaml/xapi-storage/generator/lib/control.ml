@@ -23,7 +23,6 @@ let errors =
     ; raiser= (fun e -> Sr_error e)
     ; matcher= (function Sr_error e -> Some e | _ -> None)
     }
-  
 
 type health =
   | Healthy of string  (** Storage is fully available *)
@@ -468,7 +467,6 @@ module Sr (R : RPC) = struct
         ; description= ["A list of volumes"]
         ; ty= Array typ_of_volume
         }
-      
 
   let probe =
     let probe_result_p =

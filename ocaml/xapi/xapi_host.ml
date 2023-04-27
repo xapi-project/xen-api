@@ -1020,8 +1020,9 @@ let create ~__context ~uuid ~name_label ~name_description:_ ~hostname ~address
     ~aPI_version_vendor_implementation:
       Datamodel_common.api_version_vendor_implementation ~name_description
     ~name_label ~uuid ~other_config:[] ~capabilities:[]
-    ~cpu_configuration:[] (* !!! FIXME hard coding *) ~cpu_info:[] ~chipset_info
-    ~memory_overhead:0L ~sched_policy:"credit" (* !!! FIXME hard coding *)
+    ~cpu_configuration:[] (* !!! FIXME hard coding *)
+    ~cpu_info:[] ~chipset_info ~memory_overhead:0L
+    ~sched_policy:"credit" (* !!! FIXME hard coding *)
     ~supported_bootloaders:(List.map fst Xapi_globs.supported_bootloaders)
     ~suspend_image_sr:Ref.null ~crash_dump_sr:Ref.null ~logging:[] ~hostname
     ~address ~metrics ~license_params ~boot_free_mem:0L ~ha_statefiles:[]
@@ -1603,6 +1604,7 @@ let _new_host_cert ~dbg ~path : X509.Certificate.t =
   let ips = [ip] in
   let valid_for_days = !Xapi_globs.cert_expiration_days in
   Gencertlib.Selfcert.host ~name:cn ~dns_names ~ips ~valid_for_days path
+    !Xapi_globs.server_cert_group_id
 
 let reset_server_certificate ~__context ~host =
   let dbg = Context.string_of_task __context in
@@ -2673,26 +2675,47 @@ let with_temp_file_contents ~contents f =
     )
     (fun () -> Sys.remove filename)
 
-let write_uefi_certificates_to_disk ~__context ~host:_ =
-  if
-    Sys.file_exists !Xapi_globs.varstore_dir
-    && Sys.is_directory !Xapi_globs.varstore_dir
-  then
-    match
-      Base64.decode
-        (Db.Pool.get_uefi_certificates ~__context
-           ~self:(Helpers.get_pool ~__context)
-        )
-    with
+let ( let@ ) f x = f x
+
+let ( // ) = Filename.concat
+
+let really_read_uefi_certificates_from_disk ~__context ~host:_ from_path =
+  let certs_files = Sys.readdir from_path |> Array.map (( // ) from_path) in
+  let@ temp_file, with_temp_out_ch =
+    Helpers.with_temp_out_ch_of_temp_file ~mode:[Open_binary]
+      "pool-uefi-certificates" "tar"
+  in
+  if Array.length certs_files > 0 then (
+    let@ temp_out_ch = with_temp_out_ch in
+    Tar_unix.Archive.create
+      (certs_files |> Array.to_list)
+      (temp_out_ch |> Unix.descr_of_out_channel) ;
+    debug "UEFI tar file %s populated from directory %s" temp_file from_path
+  ) else
+    debug "UEFI tar file %s empty from directory %s" temp_file from_path ;
+  temp_file |> Unixext.string_of_file |> Base64.encode_string
+
+let really_write_uefi_certificates_to_disk ~__context ~host:_ ~value =
+  match value with
+  | "" ->
+      (* from an existing directory *)
+      Sys.readdir !Xapi_globs.default_auth_dir
+      |> Array.iter (fun file ->
+             let src = !Xapi_globs.default_auth_dir // file in
+             let dst = !Xapi_globs.varstore_dir // file in
+             let@ src_fd = Unixext.with_file src [Unix.O_RDONLY] 0o400 in
+             let@ dst_fd =
+               Unixext.with_file dst
+                 [Unix.O_WRONLY; Unix.O_CREAT; Unix.O_TRUNC]
+                 0o644
+             in
+             debug "override_uefi_certs: copy_file %s->%s" src dst ;
+             ignore (Unixext.copy_file src_fd dst_fd)
+         )
+  | base64_value -> (
+    (* from an existing base64 tar file *)
+    match Base64.decode base64_value with
     | Ok contents ->
-        (* Remove existing certs before extracting xapi ones
-         * to avoid a extract override issue. *)
-        List.iter
-          (fun name ->
-            let path = Filename.concat !Xapi_globs.varstore_dir name in
-            Unixext.unlink_safe path
-          )
-          ["KEK.auth"; "db.auth"] ;
         (* No uefi certificates, nothing to do. *)
         if contents <> "" then (
           with_temp_file_contents ~contents
@@ -2703,14 +2726,77 @@ let write_uefi_certificates_to_disk ~__context ~host:_ =
     | Error _ ->
         debug
           "UEFI tar file was not extracted: it was not base64-encoded correctly"
+  )
+
+let write_uefi_certificates_to_disk ~__context ~host =
+  let with_valid_symlink ~from_path ~to_path fn =
+    debug "override_uefi_certs: with_valid_symlink %s->%s" from_path to_path ;
+    if Helpers.FileSys.realpathm from_path <> to_path then (
+      Helpers.FileSys.rmrf ~rm_top:true from_path ;
+      Unix.symlink to_path from_path
+    ) ;
+    fn from_path
+  in
+  let with_empty_dir path fn =
+    debug "override_uefi_certs: with_empty_dir %s" path ;
+    Helpers.FileSys.rmrf ~rm_top:false path ;
+    Unixext.mkdir_rec path 0o755 ;
+    fn path
+  in
+  let check_valid_uefi_certs_in path =
+    let uefi_certs_in_disk = path |> Helpers.FileSys.realpathm |> Sys.readdir in
+    (* check expected uefi certificates are present *)
+    ["KEK.auth"; "db.auth"]
+    |> List.iter (fun cert ->
+           let log_of found =
+             (if found then info else error)
+               "check_valid_uefi_certs: %s %s in %s"
+               (if found then "found" else "missing")
+               cert path
+           in
+           uefi_certs_in_disk |> Array.mem cert |> log_of
+       )
+  in
+  match !Xapi_globs.override_uefi_certs with
+  | false ->
+      let@ path =
+        with_valid_symlink ~from_path:!Xapi_globs.varstore_dir
+          ~to_path:!Xapi_globs.default_auth_dir
+      in
+      check_valid_uefi_certs_in path ;
+      let disk_uefi_certs_tar =
+        really_read_uefi_certificates_from_disk ~__context ~host
+          !Xapi_globs.varstore_dir
+      in
+      (* synchronize both host & pool read-only fields with contents in disk *)
+      Db.Host.set_uefi_certificates ~__context ~self:host
+        ~value:disk_uefi_certs_tar ;
+      if Pool_role.is_master () then
+        Db.Pool.set_uefi_certificates ~__context
+          ~self:(Helpers.get_pool ~__context)
+          ~value:disk_uefi_certs_tar
+  | true ->
+      let@ path = with_empty_dir !Xapi_globs.varstore_dir in
+      (* get from pool for consistent results across hosts *)
+      let pool_uefi_certs =
+        Db.Pool.get_uefi_certificates ~__context
+          ~self:(Helpers.get_pool ~__context)
+      in
+      really_write_uefi_certificates_to_disk ~__context ~host
+        ~value:pool_uefi_certs ;
+      check_valid_uefi_certs_in path
 
 let set_uefi_certificates ~__context ~host ~value =
-  Db.Host.set_uefi_certificates ~__context ~self:host ~value ;
-  Helpers.call_api_functions ~__context (fun rpc session_id ->
-      Client.Client.Pool.set_uefi_certificates ~rpc ~session_id
-        ~self:(Helpers.get_pool ~__context)
-        ~value
-  )
+  match !Xapi_globs.override_uefi_certs with
+  | false ->
+      raise Api_errors.(Server_error (Api_errors.operation_not_allowed, [""]))
+  | true ->
+      Db.Host.set_uefi_certificates ~__context ~self:host ~value ;
+      Helpers.call_api_functions ~__context (fun rpc session_id ->
+          Client.Client.Pool.set_uefi_certificates ~rpc ~session_id
+            ~self:(Helpers.get_pool ~__context)
+            ~value
+      )
 
 let set_iscsi_iqn ~__context ~host ~value =
   if value = "" then
@@ -2915,11 +3001,33 @@ let apply_updates ~__context ~self ~hash =
     guidances
   @ warnings
 
+let cc_prep () =
+  let cc = "CC_PREPARATIONS" in
+  Xapi_inventory.lookup ~default:"false" cc |> String.lowercase_ascii
+  |> function
+  | "true" ->
+      true
+  | "false" ->
+      false
+  | other ->
+      D.warn "%s: %s=%s (assuming true)" __MODULE__ cc other ;
+      true
+
 let set_https_only ~__context ~self ~value =
   let state = match value with true -> "close" | false -> "open" in
-  ignore
-  @@ Helpers.call_script !Xapi_globs.firewall_port_config_script [state; "80"] ;
-  Db.Host.set_https_only ~__context ~self ~value
+  match cc_prep () with
+  | false ->
+      ignore
+      @@ Helpers.call_script
+           !Xapi_globs.firewall_port_config_script
+           [state; "80"] ;
+      Db.Host.set_https_only ~__context ~self ~value
+  | true when value = Db.Host.get_https_only ~__context ~self ->
+      (* the new value is the same as the old value *)
+      ()
+  | true ->
+      (* it is illegal changing the firewall/https config in CC/FIPS mode *)
+      raise (Api_errors.Server_error (Api_errors.illegal_in_fips_mode, []))
 
 let try_restart_device_models_for_recommended_guidances ~__context ~host =
   (* Restart device models of all running HVM VMs on the host by doing

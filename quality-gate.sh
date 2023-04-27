@@ -3,7 +3,7 @@
 set -e
 
 list-hd () {
-  N=329
+  N=328
   LIST_HD=$(git grep -r --count 'List.hd' -- **/*.ml | cut -d ':' -f 2 | paste -sd+ - | bc)
   if [ "$LIST_HD" -eq "$N" ]; then
     echo "OK counted $LIST_HD List.hd usages"
@@ -25,7 +25,7 @@ verify-cert () {
 }
 
 mli-files () {
-  N=510
+  N=514
   # do not count ml files from the tests in ocaml/{tests/perftest/quicktest}
   MLIS=$(git ls-files -- '**/*.mli' | grep -vE "ocaml/tests|ocaml/perftest|ocaml/quicktest" | xargs -I {} sh -c "echo {} | cut -f 1 -d '.'" \;)
   MLS=$(git  ls-files -- '**/*.ml'  | grep -vE "ocaml/tests|ocaml/perftest|ocaml/quicktest" | xargs -I {} sh -c "echo {} | cut -f 1 -d '.'" \;)
@@ -58,7 +58,7 @@ structural-equality () {
 }
 
 vtpm-unimplemented () {
-  N=8
+  N=6
   VTPM=$(git grep -r --count 'maybe_raise_vtpm_unimplemented' -- **/*.ml | cut -d ':' -f 2 | paste -sd+ - | bc)
   if [ "$VTPM" -eq "$N" ]; then
     echo "OK found $VTPM usages of vtpm unimplemented errors"
@@ -68,8 +68,24 @@ vtpm-unimplemented () {
   fi
 }
 
+vtpm-fields () {
+  A=$(git grep -hc "vTPM'_.*:" ocaml/xapi/importexport.ml)
+  B=$(git grep -hc ' field' ocaml/idl/datamodel_vtpm.ml)
+  case "$A/$B" in
+    5/6)
+      echo "OK found $A/$B VTPM fields in importexport.ml datamodel_vtpm.ml"
+      ;;
+    *)
+      echo "ERROR have VTPM fields changed? $A/$B - check importexport.ml" 1>&2
+      exit 1
+      ;;
+  esac
+}
+
 list-hd
 verify-cert
 mli-files
 structural-equality
 vtpm-unimplemented
+vtpm-fields
+

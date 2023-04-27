@@ -8,29 +8,39 @@ let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 (* A handler for unarchiving RRDs. Only called on pool master. *)
 let unarchive_rrd_handler (req : Http.Request.t) (s : Unix.file_descr) _ =
   debug "unarchive_rrd_handler: start" ;
-  let query = req.Http.Request.query in
-  let uuid = List.assoc "uuid" query in
-  let path = Rrdd_libs.Constants.rrd_location ^ "/" ^ uuid in
-  let rrd = rrd_of_gzip path in
-  let header_content =
-    Http.http_200_ok ~version:"1.0" ~keep_alive:false ()
-    @ ["Access-Control-Allow-Origin: *"]
+  let unarchive () =
+    let ( let* ) = Option.bind in
+    let* uuid = List.assoc_opt "uuid" req.Http.Request.query in
+    let path = Rrdd_libs.Constants.rrd_location ^ "/" ^ uuid in
+    rrd_of_gzip path
   in
-  Http_svr.headers s header_content ;
-  Rrd_unix.to_fd rrd s
+  match unarchive () with
+  | None ->
+      Http_svr.headers s (Http.http_404_missing ())
+  | Some rrd ->
+      let header_content =
+        Http.http_200_ok ~version:"1.0" ~keep_alive:false ()
+        @ ["Access-Control-Allow-Origin: *"]
+      in
+      Http_svr.headers s header_content ;
+      Rrd_unix.to_fd rrd s
 
-(* A handler for putting a VM's RRD data into the Http response. The rrdd
-   assumes that it has RRD for the vm_uuid, since xapi confirmed this with rrdd
-   over XMLRPC before forwarding the HTTP request --- see rrdd_proxy in xapi. *)
+(* A handler for putting a VM's RRD data into the Http response. *)
 let get_vm_rrd_handler (req : Http.Request.t) (s : Unix.file_descr) _ =
-  debug "get_vm_rrd_handler: start" ;
-  let query = req.Http.Request.query in
-  let vm_uuid = List.assoc "uuid" query in
-  let rrd =
-    with_lock mutex (fun () -> Rrd.copy_rrd (Hashtbl.find vm_rrds vm_uuid).rrd)
+  let get () =
+    let ( let* ) = Option.bind in
+    let* vm_uuid = List.assoc_opt "uuid" req.Http.Request.query in
+    let* old_rrd =
+      with_lock mutex (fun () -> Hashtbl.find_opt vm_rrds vm_uuid)
+    in
+    Some (Rrd.copy_rrd old_rrd.rrd)
   in
-  Http_svr.headers s (Http.http_200_ok ~version:"1.0" ~keep_alive:false ()) ;
-  Rrd_unix.to_fd rrd s
+  match get () with
+  | None ->
+      Http_svr.headers s (Http.http_404_missing ())
+  | Some rrd ->
+      Http_svr.headers s (Http.http_200_ok ~version:"1.0" ~keep_alive:false ()) ;
+      Rrd_unix.to_fd rrd s
 
 (* A handler for putting the host's RRD data into the Http response. *)
 let get_host_rrd_handler (req : Http.Request.t) (s : Unix.file_descr) _ =

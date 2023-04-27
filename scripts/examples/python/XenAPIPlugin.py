@@ -5,8 +5,13 @@
 from __future__ import print_function
 
 import sys
-import six.moves.xmlrpc_client as xmlrpclib
+
 import XenAPI
+
+if sys.version_info[0] == 2:
+    import xmlrpclib as xmlrpclib
+else:
+    import xmlrpc.client as xmlrpclib
 
 class Failure(Exception):
     """Provide compatibilty with plugins written against XenServer 5.5 API"""

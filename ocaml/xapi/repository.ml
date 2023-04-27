@@ -515,8 +515,23 @@ let get_host_updates_in_json ~__context ~installed =
         let applied_livepatches_in_json =
           Livepatch.get_applied_livepatches () |> List.map Livepatch.to_json
         in
-        (* (pkg, repo) list *)
-        let latest_updates = get_updates_from_repoquery repositories in
+        (* (pkg: Rpm.Pkg.t, repo: string) list *)
+        let latest_updates' =
+          get_updates_from_yum_upgrade_dry_run repositories
+        in
+        let latest_updates'' = get_updates_from_repoquery repositories in
+        (* To ensure the updating function will not strand, use redundant
+         * functions to get the update/installation list.
+         * Falling back to use "repoquery" when
+         * 1. parsing output of "yum upgrade (dry run)" fails, or
+         * 2. the list from "yum upgrade (dry run)" is not a subset of the
+         *    one from "repoquery".
+         *)
+        let fail_on_error = Xapi_fist.fail_on_error_in_yum_upgrade_dry_run () in
+        let latest_updates =
+          get_latest_updates_from_redundancy ~fail_on_error
+            ~pkgs:latest_updates' ~fallback_pkgs:latest_updates''
+        in
         List.iter (fun r -> clean_yum_cache r) repositories ;
         let latest_updates_in_json =
           validate_latest_updates ~latest_updates ~accumulative_updates

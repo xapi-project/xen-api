@@ -75,8 +75,8 @@ module Datapath (R : RPC) = struct
 
   let open_ =
     let persistent =
-      Param.mk (* Inherit the description from the type *) ~name:"persistent"
-        persistent
+      Param.mk (* Inherit the description from the type *)
+        ~name:"persistent" persistent
     in
     declare "open"
       [
@@ -90,8 +90,8 @@ module Datapath (R : RPC) = struct
 
   let attach =
     let backend =
-      Param.mk (* Inherit the description from the type *) ~name:"backend"
-        backend
+      Param.mk (* Inherit the description from the type *)
+        ~name:"backend" backend
     in
     declare "attach"
       [
@@ -124,7 +124,7 @@ module Datapath (R : RPC) = struct
       ; "activated readonly multiple times, including on multiple independent "
       ; "hosts. It is not permitted for a volume to be activated both readonly "
       ; "and read-write concurrently. Implementations shall declare the "
-      ; "VDI_ATTACH_READONLY feature for this method to be supported. Once a "
+      ; "VDI_ACTIVATE_READONLY feature for this method to be supported. Once a "
       ; "volume is activated readonly it is required that all readonly "
       ; "activations are deactivated before any read-write activation is "
       ; "attempted. This function is idempotent and in all other respects "
@@ -209,7 +209,6 @@ Volumes must be attached via the following sequence of calls:
             ]
         ; version= (5, 0, 0)
         }
-      
 end
 
 module Data (R : RPC) = struct
@@ -360,7 +359,6 @@ To mirror a VDI a sequence of these API calls is required:
             ]
         ; version= (5, 0, 0)
         }
-      
 end
 
 module DPCode = Datapath (Codegen.Gen ())

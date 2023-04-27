@@ -43,7 +43,6 @@ let destroy =
     ~errs:
       Api_errors.
         [cluster_stack_in_use; clustering_disabled; cluster_host_is_last]
-      
     ()
 
 let force_destroy =

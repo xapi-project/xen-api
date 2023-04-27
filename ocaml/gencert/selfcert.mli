@@ -16,7 +16,7 @@ val fist_path : string
 (** Path to a file; if this file exists, newly created certificates will
 be backdated to 2008-07-01 and any [valid_from] ignored *)
 
-val write_certs : string -> string -> (unit, [> Rresult.R.msg]) result
+val write_certs : string -> int -> string -> (unit, [> Rresult.R.msg]) result
 (** [write_certs path pkcs12] writes [pkcs12] to [path] atomically.
 [pkcs12] should contain a components of a PKCS12 Certificate *)
 
@@ -27,6 +27,7 @@ val host :
   -> ?valid_from:Ptime.t (* default: now *)
   -> valid_for_days:int
   -> string
+  -> int
   -> X509.Certificate.t
 (** [host name dns_names ip path] creates (atomically) a PEM file at
     [path] with [name] as CN, and the following SANs: [dns_names] + [ip] *)
@@ -36,6 +37,7 @@ val xapi_pool :
   -> valid_for_days:int
   -> uuid:string
   -> string
+  -> int
   -> X509.Certificate.t
 (** [xapi_pool uuid path] creates (atomically) a PEM file at [path] with
     [uuid] as CN *)

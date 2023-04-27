@@ -68,8 +68,7 @@ let timescales =
     ; (* 120 values of interval 12 steps (1 min) = 2 hours *)
       (168, 720)
     ; (* 168 values of interval 720 steps (1 hr) = 1 week *)
-      (366, 17280)
-      (* 366 values of interval 17280 steps (1 day) = 1 yr *)
+      (366, 17280) (* 366 values of interval 17280 steps (1 day) = 1 yr *)
     ]
 
 let use_min_max = ref false
@@ -100,11 +99,13 @@ let rrd_of_gzip path =
     with _ -> false
   in
   if gz_exists then
-    Xapi_stdext_unix.Unixext.with_file gz_path [Unix.O_RDONLY] 0o0 (fun fd ->
-        Gzip.Default.decompress_passive fd rrd_of_fd
-    )
-  else (* If this fails, let the exception propagate *)
-    Xapi_stdext_unix.Unixext.with_file path [Unix.O_RDONLY] 0 rrd_of_fd
+    Some
+      (Xapi_stdext_unix.Unixext.with_file gz_path [Unix.O_RDONLY] 0o0 (fun fd ->
+           Gzip.Default.decompress_passive fd rrd_of_fd
+       )
+      )
+  else
+    None
 
 (* Send rrds to a remote host. If the host is on another pool, you must pass the
    session_id parameter, and optionally the __context. *)

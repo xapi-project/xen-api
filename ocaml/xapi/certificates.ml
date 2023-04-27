@@ -436,6 +436,7 @@ let install_server_certificate ~pem_chain ~pem_leaf ~pkcs8_private_key ~path =
   let installation =
     Gencertlib.Lib.install_server_certificate ~pem_chain ~pem_leaf
       ~pkcs8_private_key ~server_cert_path:path
+      ~cert_gid:!Xapi_globs.server_cert_group_id
   in
   match installation with
   | Ok cert ->

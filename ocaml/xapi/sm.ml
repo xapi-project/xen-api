@@ -334,7 +334,8 @@ let vdi_list_changed_blocks dconf driver sr ~vdi_from ~vdi_to =
   srmaster_only dconf ;
   let call =
     Sm_exec.make_call ~sr_ref:sr ~vdi_ref:vdi_from dconf
-      "vdi_list_changed_blocks" [Ref.string_of vdi_to]
+      "vdi_list_changed_blocks"
+      [Ref.string_of vdi_to]
   in
   Sm_exec.parse_string (Sm_exec.exec_xmlrpc (driver_filename driver) call)
 

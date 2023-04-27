@@ -41,7 +41,7 @@ let generate_cert_or_fail ~generator ~path =
     exit 1
   )
 
-let main ~dbg ~path ~sni () =
+let main ~dbg ~path ~cert_gid ~sni () =
   let valid_for_days = 365 * 10 in
   let init_inventory () = Inventory.inventory_filename := inventory in
   init_inventory () ;
@@ -60,12 +60,13 @@ let main ~dbg ~path ~sni () =
         let ips = [ip] in
         let (_ : X509.Certificate.t) =
           Gencertlib.Selfcert.host ~name ~dns_names ~ips ~valid_for_days path
+            cert_gid
         in
         ()
     | SNI.Xapi_pool ->
         let uuid = Inventory.lookup Inventory._installation_uuid in
         let (_ : X509.Certificate.t) =
-          Gencertlib.Selfcert.xapi_pool ~valid_for_days ~uuid path
+          Gencertlib.Selfcert.xapi_pool ~valid_for_days ~uuid path cert_gid
         in
         ()
   in
@@ -77,13 +78,13 @@ let () =
   (* if necessary use Unix.localtime to debug *)
   D.debug "%s" dbg ;
   match Sys.argv with
-  | [|_; path; _|] when Sys.file_exists path ->
+  | [|_; path; _; _|] when Sys.file_exists path ->
       D.info "file already exists at path (%s) - doing nothing" path ;
       exit 0
-  | [|_; path; sni|] -> (
+  | [|_; path; cert_gid; sni|] -> (
     match SNI.of_string sni with
     | Some sni ->
-        main ~dbg ~path ~sni ()
+        main ~dbg ~path ~cert_gid:(int_of_string cert_gid) ~sni ()
     | None ->
         D.error "SNI must be default or xapi:pool, but got '%s'" sni ;
         exit 1
