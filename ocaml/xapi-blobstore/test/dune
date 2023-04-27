@@ -1,0 +1,12 @@
+(executable
+ (name xapi_blobstore_test)
+ (libraries
+   xapi_blobstore_core
+   alcotest
+   threads.posix
+ )
+)
+
+(rule
+ (alias runtest)
+ (action (run ./xapi_blobstore_test.exe --verbose)))
