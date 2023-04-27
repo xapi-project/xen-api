@@ -25,9 +25,13 @@ let sockets = Hashtbl.create 127
 
 let log_fds () =
   let count stream = Lwt_stream.fold (fun _ n -> n + 1) stream 0 in
-  let* fds = Lwt_unix.files_of_directory "/proc/self/fd" |> count in
-  D.info "file descriptors in use: %d" fds ;
-  Lwt.return_unit
+  let* has = Lwt_unix.file_exists "/proc/self/fd" in
+  if has then (
+    let* fds = Lwt_unix.files_of_directory "/proc/self/fd" |> count in
+    D.info "file descriptors in use: %d" fds ;
+    Lwt.return_unit
+  ) else
+    Lwt.return_unit
 
 module Persistent = struct
   type args = {

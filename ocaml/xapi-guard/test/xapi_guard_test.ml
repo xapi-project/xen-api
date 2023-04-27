@@ -142,7 +142,11 @@ let bad_params_tests =
     ]
   )
 
-let linux_count_fds () = Sys.readdir "/proc/self/fd" |> Array.length
+let linux_count_fds () =
+  if Sys.file_exists "/proc/self/fd" then
+    Sys.readdir "/proc/self/fd" |> Array.length
+  else
+    0
 
 let test_shutdown _ () =
   let _fd0 = linux_count_fds () in
