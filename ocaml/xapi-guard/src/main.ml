@@ -81,7 +81,7 @@ let cache =
   Xen_api_lwt_unix.(
     SessionCache.create_uri ~switch:Varstored_interface.shutdown
       ~target:uri_local_json ~uname:"root" ~pwd:""
-      ~version:Varstored_interface.version
+      ~version:Xapi_version.version
       ~originator:Varstored_interface.originator ()
   )
 

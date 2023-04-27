@@ -156,6 +156,7 @@ let make ?(timeout = 30.) uri call =
 
 let make_json ?(timeout = 30.) uri call =
   let string = Jsonrpc.string_of_call call in
+  let uri = Uri.of_string uri in
   do_it uri string >>= fun result ->
   Lwt.return (Jsonrpc.response_of_string result)
 
@@ -177,8 +178,8 @@ module SessionCache = struct
     ; timeout: float option
   }
 
-  let make_rpc ?timeout target =
-    let uri = Uri.with_path target "/jsonrpc" in
+  let make_rpc ?timeout destination =
+    let uri = Uri.with_path destination "/jsonrpc" in
     make_json ?timeout @@ Uri.to_string @@ uri
 
   let create_rpc ?timeout rpc ~uname ~pwd ~version ~originator () =
@@ -219,7 +220,7 @@ module SessionCache = struct
     t
 
   let with_session t f =
-    let rec retry n =
+    let rec retry limit =
       (* we want to use the same session for multiple API calls concurrently *)
       let* session = Lwt_pool.use t.session_pool Lwt.return in
       Lwt.catch
@@ -229,16 +230,16 @@ module SessionCache = struct
             when code = Api_errors.session_invalid ->
               session.valid <- false ;
               (* the [check] function above will cause Lwt_pool to dispose of this *)
-              if n > 0 then
-                retry (n - 1)
+              if limit > 0 then
+                retry (limit - 1)
               else
                 Lwt.fail e
           | Api_errors.Server_error (code, [master]) as e
             when code = Api_errors.host_is_slave ->
               (* can happen with HA *)
               t.rpc <- make_rpc ?timeout:t.timeout @@ uri_ip_json master ;
-              if n > 0 then
-                retry (n - 1)
+              if limit > 0 then
+                retry (limit - 1)
               else
                 Lwt.fail e
           | e ->
