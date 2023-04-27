@@ -37,7 +37,10 @@ let main () =
   in
   let* vms = SessionCache.with_session t @@ VM.get_all_records in
   List.iter
-    (fun (_vm, vm_rec) -> Printf.printf "VM %s\n" vm_rec.API.vM_name_label)
+    (fun (_vm, vm_rec) ->
+      let kind = if vm_rec.API.vM_is_a_template then "Template" else "VM" in
+      Printf.printf "%s %s\n" kind vm_rec.API.vM_name_label
+    )
     vms ;
   Lwt.return_unit
 

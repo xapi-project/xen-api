@@ -52,8 +52,10 @@ let main () =
     in
     let b = Cohttp.Auth.string_of_credential (`Basic (!username, !password)) in
     let headers = Cohttp.Header.of_list [("authorization", b)] in
-
-    Client.call ~headers `GET uri >>= fun (res, body) ->
+    let ssl_ctx = Ssl.create_context Ssl.TLSv1_2 Ssl.Client_context in
+    let* ctx = Conduit_lwt_unix.init ~ssl_ctx () in
+    let ctx = Cohttp_lwt_unix.Net.init ~ctx () in
+    Client.call ~ctx ~headers `GET uri >>= fun (res, body) ->
     let headers = Response.headers res in
     Cohttp.Header.iter (fun k v -> Printf.eprintf "%s: %s\n%!" k v) headers ;
     Cohttp_lwt.Body.to_string body >>= fun s ->
