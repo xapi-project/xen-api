@@ -88,8 +88,8 @@ let with_rpc f switch () =
     (fun () ->
       (* not strictly necessary to login/logout here - since we only get dummy sessions *)
       let* session_id =
-        Session.login_with_password ~rpc ~uname:"root" ~pwd:"" ~version:"0.0"
-          ~originator:"test"
+        Session.login_with_password ~rpc ~uname:"root" ~pwd:""
+          ~version:Xapi_version.version ~originator:"test"
       in
       let logout () = Session.logout ~rpc ~session_id in
       Lwt.finalize logout @@ f ~rpc ~session_id
