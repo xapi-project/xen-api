@@ -8,6 +8,7 @@
    logs
    logs.fmt
    logs.lwt
+   uuidm
  )
 )
 
