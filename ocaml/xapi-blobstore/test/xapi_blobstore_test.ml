@@ -72,7 +72,7 @@ module Make (KV : Types.KVLwt) = struct
     Alcotest.testable
       Fmt.(using KV.Value.to_string string)
       (fun a b -> String.equal (KV.Value.to_string a) (KV.Value.to_string b))
-      
+
   let pp_value = Fmt.(using KV.Value.to_string string)
 
   let test_put_get_kv config key testval () =
@@ -113,9 +113,16 @@ module Make (KV : Types.KVLwt) = struct
   let simplify s =
     match Astring.String.cut ~sep:"__" s with None -> s | Some (_, s) -> s
 
+  let test_case name speed f =
+    let f switch () =
+      (* needed such that logs go to correct output file between tests *)
+      Lwt_switch.add_hook (Some switch) Lwt_io.flush_all ;
+      f switch ()
+    in
+    Alcotest_lwt.test_case name speed f
+
   let tests make_test_config =
     let config = make_test_config () in
-    let open Alcotest_lwt in
     ( KV.name
     , [
         test_case "connect/disconnect" `Quick @@ test_conn_disconn config
@@ -140,8 +147,7 @@ let lwt_reporter () =
     )
   in
   let app, app_flush = buf_fmt ~like:Fmt.stdout in
-  (* use stdout for better integration with alcotest: stderr would be immediately shown, stdout would only be shown if test fails *)
-  let dst, dst_flush = buf_fmt ~like:Fmt.stdout in
+  let dst, dst_flush = buf_fmt ~like:Fmt.stderr in
   let reporter = Logs_fmt.reporter ~app ~dst () in
   let report src level ~over k msgf =
     let k () =
@@ -150,8 +156,7 @@ let lwt_reporter () =
         | Logs.App ->
             Lwt_io.write Lwt_io.stdout (app_flush ())
         | _ ->
-            Lwt_io.write Lwt_io.stdout (dst_flush ())
-        (* note stdout instead of stderr *)
+            Lwt_io.write Lwt_io.stderr (dst_flush ())
       in
       let unblock () = over () ; Lwt.return_unit in
       Lwt.finalize write unblock |> Lwt.ignore_result ;
