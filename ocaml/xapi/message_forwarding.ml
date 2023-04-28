@@ -1111,6 +1111,12 @@ functor
           update_sync_day ;
         Local.Pool.configure_update_sync ~__context ~self ~update_sync_frequency
           ~update_sync_day
+
+      let set_update_sync_enabled ~__context ~self ~value =
+        info "Pool.set_update_sync_enabled: pool='%s' value='%B'"
+          (pool_uuid ~__context self)
+          value ;
+        Local.Pool.set_update_sync_enabled ~__context ~self ~value
     end
 
     module VM = struct

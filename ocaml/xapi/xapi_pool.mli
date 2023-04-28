@@ -405,3 +405,6 @@ val configure_update_sync :
   -> update_sync_frequency:API.update_sync_frequency
   -> update_sync_day:int64
   -> unit
+
+val set_update_sync_enabled :
+  __context:Context.t -> self:API.ref_pool -> value:bool -> unit

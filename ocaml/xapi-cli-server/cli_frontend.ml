@@ -3012,6 +3012,17 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; flags= []
       }
     )
+  ; ( "pool-set-update-sync-enabled"
+    , {
+        reqd= ["value"]
+      ; optn= []
+      ; help=
+          "Enable or disable periodic update synchronization depending on the \
+           value"
+      ; implementation= No_fd Cli_operations.pool_set_update_sync_enabled
+      ; flags= []
+      }
+    )
   ; ( "host-ha-xapi-healthcheck"
     , {
         reqd= []

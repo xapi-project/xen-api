@@ -1857,6 +1857,11 @@ let pool_configure_update_sync _printer rpc session_id params =
   Client.Pool.configure_update_sync ~rpc ~session_id ~self:pool
     ~update_sync_frequency:frequency ~update_sync_day:day_int
 
+let pool_set_update_sync_enabled _printer rpc session_id params =
+  let pool = get_pool_with_default rpc session_id params "uuid" in
+  let value = get_bool_param params "value" in
+  Client.Pool.set_update_sync_enabled ~rpc ~session_id ~self:pool ~value
+
 let vdi_type_of_string = function
   | "system" ->
       `system

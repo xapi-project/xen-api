@@ -113,6 +113,9 @@ let pause_after_cert_exchange () = fistpoint "pause_after_cert_exchange"
 let fail_on_error_in_yum_upgrade_dry_run () =
   fistpoint "fail_on_error_in_yum_upgrade_dry_run"
 
+let disable_periodic_update_sync_sec_randomness () =
+  fistpoint "disable_periodic_update_sync_sec_randomness"
+
 let hang_psr psr_checkpoint =
   ( match psr_checkpoint with
   | `backup ->

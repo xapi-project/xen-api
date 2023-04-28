@@ -62,3 +62,34 @@ val get_master_slaves_list : __context:Context.t -> [`host] Ref.t list
 val get_slaves_list : __context:Context.t -> [`host] Ref.t list
 
 val apply_guest_agent_config : __context:Context.t -> unit
+
+module PeriodicUpdateSync : sig
+  val set_enabled : __context:Context.t -> value:bool -> unit
+
+  (* below for UT only *)
+  val next_scheduled_datetime :
+       delay:float
+    -> utc_now:Ptime.t
+    -> tz_offset_s:int
+    -> int * int * int * int * int * int
+
+  val utc_start_of_next_scheduled_day :
+       utc_now:Ptime.t
+    -> tz_offset_s:int
+    -> frequency:[< `daily | `weekly]
+    -> day_configed_int:int
+    -> Ptime.t
+
+  val update_sync_delay_for_next_schedule_internal :
+       utc_now:Ptime.t
+    -> utc_start_of_next_sched_day:Ptime.t
+    -> seconds_in_a_day:float
+    -> float
+
+  exception UpdateSync_RetryNumExceeded of int
+
+  val seconds_random_within_a_day : unit -> float
+
+  val update_sync_delay_for_retry :
+    num_of_retries_for_last_scheduled_update_sync:int -> float
+end

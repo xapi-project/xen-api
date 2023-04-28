@@ -3686,4 +3686,11 @@ let configure_update_sync ~__context ~self ~update_sync_frequency
   ) ;
   Db.Pool.set_update_sync_frequency ~__context ~self
     ~value:update_sync_frequency ;
-  Db.Pool.set_update_sync_day ~__context ~self ~value:update_sync_day
+  Db.Pool.set_update_sync_day ~__context ~self ~value:update_sync_day ;
+  if Db.Pool.get_update_sync_enabled ~__context ~self then
+    (* re-schedule periodic update sync with new configuration immediately *)
+    Xapi_pool_helpers.PeriodicUpdateSync.set_enabled ~__context ~value:true
+
+let set_update_sync_enabled ~__context ~self ~value =
+  Db.Pool.set_update_sync_enabled ~__context ~self ~value ;
+  Xapi_pool_helpers.PeriodicUpdateSync.set_enabled ~__context ~value

@@ -1086,6 +1086,20 @@ let configure_update_sync =
       ]
     ~allowed_roles:_R_POOL_OP ()
 
+let set_update_sync_enabled =
+  call ~name:"set_update_sync_enabled" ~lifecycle:[]
+    ~doc:
+      "enable or disable periodic update synchronization depending on the value"
+    ~params:
+      [
+        (Ref _pool, "self", "The pool")
+      ; ( Bool
+        , "value"
+        , "true - enable periodic update synchronization, false - disable it"
+        )
+      ]
+    ~allowed_roles:_R_POOL_OP ()
+
 (** A pool class *)
 let t =
   create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:None
@@ -1171,6 +1185,7 @@ let t =
       ; set_telemetry_next_collection
       ; reset_telemetry_uuid
       ; configure_update_sync
+      ; set_update_sync_enabled
       ]
     ~contents:
       ([uid ~in_oss_since:None _pool]
