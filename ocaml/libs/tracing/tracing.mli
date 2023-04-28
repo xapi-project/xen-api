@@ -29,9 +29,13 @@ end
 module SpanContext : sig
   type t
 
+  val is_valid : t -> bool
+
   val to_traceparent : t -> string
 
-  val of_traceparent : string -> t option
+  val of_traceparent : ?tracestate:string -> string -> t option
+
+  val to_tracestate : t -> string option
 end
 
 module Span : sig
@@ -56,7 +60,7 @@ module Spans : sig
   val set_max_traces : int -> unit
 
   val dump :
-    unit -> (string, Span.t list) Hashtbl.t * (string, Span.t list) Hashtbl.t
+    unit -> (bytes, Span.t list) Hashtbl.t * (bytes, Span.t list) Hashtbl.t
 end
 
 module Tracer : sig

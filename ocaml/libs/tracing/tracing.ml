@@ -66,15 +66,90 @@ module SpanEvent = struct
 end
 
 module SpanContext = struct
-  type t = {trace_id: string; span_id: string} [@@deriving rpcty]
+  type t = {
+      trace_id: bytes
+    ; span_id: bytes
+    ; trace_flags: char
+    ; tracestate: (string * string) list
+    ; is_remote: bool
+  }
 
-  let to_traceparent t = Printf.sprintf "00-%s-%s-00" t.trace_id t.span_id
+  let bytes_to_hex b =
+    Bytes.fold_right (fun c acc -> String.make 1 c ^ acc) b ""
 
-  let of_traceparent traceparent =
+  let hex_to_bytes h = String.to_seq h |> Bytes.of_seq
+
+  let is_valid t = t.span_id <> Bytes.empty || t.trace_id <> Bytes.empty
+
+  let get_span_id t = bytes_to_hex t.span_id
+
+  let get_trace_id t = bytes_to_hex t.trace_id
+
+  let generate_id n =
+    Bytes.map
+      (fun _ -> Random.int32 (Int32.of_int 255) |> Int32.to_int |> Char.chr)
+      (Bytes.create n)
+
+  let rec create sampled parent =
+    let span_id = generate_id 8 in
+    match parent with
+    | None ->
+        let trace_id = generate_id 16 in
+        let trace_flags = if sampled then '\x01' else '\x00' in
+        let t =
+          {trace_id; span_id; trace_flags; tracestate= []; is_remote= false}
+        in
+        if is_valid t then t else create sampled None
+    | Some parent ->
+        let trace_id = parent.trace_id in
+        let trace_flags = parent.trace_flags in
+        let tracestate = parent.tracestate in
+        let is_remote = false in
+        let t = {trace_id; span_id; trace_flags; tracestate; is_remote} in
+        if is_valid t then t else create sampled (Some parent)
+
+  let encode_flags f =
+    Hex.of_char f |> fun (a, b) -> String.make 1 a ^ String.make 1 b
+
+  let decode_flags f =
+    try "0x" ^ f |> int_of_string |> char_of_int with _ -> '\x00'
+
+  let to_traceparent t =
+    Printf.sprintf "00-%s-%s-%s" (get_trace_id t) (get_span_id t)
+      (encode_flags t.trace_flags)
+
+  let to_tracestate t =
+    match
+      t.tracestate |> List.map (fun (k, v) -> k ^ "=" ^ v) |> String.concat ","
+    with
+    | "" ->
+        None
+    | tracestate ->
+        Some tracestate
+
+  let of_traceparent ?tracestate traceparent =
+    let tracestate =
+      Option.fold ~none:[]
+        ~some:(fun s ->
+          String.split_on_char ',' s
+          |> List.filter_map (fun kv ->
+                 match String.split_on_char '=' kv with
+                 | [k; v] ->
+                     Some (k, v)
+                 | _ ->
+                     None
+             )
+        )
+        tracestate
+    in
     let elements = String.split_on_char '-' traceparent in
     match elements with
-    | ["00"; trace_id; span_id; "00"] ->
-        Some {trace_id; span_id}
+    | ["00"; trace_id; span_id; flags] ->
+        let trace_flags = decode_flags flags in
+        let is_remote = true in
+        let trace_id = hex_to_bytes trace_id in
+        let span_id = hex_to_bytes span_id in
+        Some {trace_id; span_id; trace_flags; tracestate; is_remote}
     | _ ->
         None
 end
@@ -88,7 +163,7 @@ module Span = struct
       context: SpanContext.t
     ; span_kind: SpanKind.t
     ; status: Status.t
-    ; parent: t option
+    ; parent: SpanContext.t option
     ; name: string
     ; begin_time: float
     ; end_time: float option
@@ -106,18 +181,15 @@ module Span = struct
 
   let get_context t = t.context
 
-  let generate_id n = String.init n (fun _ -> "0123456789abcdef".[Random.int 16])
-
   let start ?(attributes = Attributes.empty) ~name ~parent ~span_kind () =
-    let trace_id =
-      match parent with
-      | None ->
-          generate_id 32
-      | Some span_parent ->
-          span_parent.context.trace_id
-    in
-    let span_id = generate_id 16 in
-    let context : SpanContext.t = {trace_id; span_id} in
+    let parent = Option.map (fun s -> s.context) parent in
+    Option.iter
+      (fun parent ->
+        if not (SpanContext.is_valid parent) then
+          failwith "Tracing: parent span has invalid context"
+      )
+      parent ;
+    let context = SpanContext.create true parent in
     (* Using gettimeofday over Mtime as it is better for sharing timestamps between the systems *)
     let begin_time = Unix.gettimeofday () in
     let end_time = None in
@@ -304,7 +376,7 @@ module Spans = struct
                     in
                     if elapsed > !span_timeout *. 1000000. then (
                       debug "Tracing: Span %s timed out, forcibly finishing now"
-                        span.Span.context.span_id ;
+                        (SpanContext.get_span_id span.Span.context) ;
                       let span =
                         Span.finish ~span
                           ~attributes:
@@ -558,9 +630,9 @@ module Export = struct
               s.events
           in
           {
-            id= s.context.span_id
-          ; traceId= s.context.trace_id
-          ; parentId= Option.map (fun x -> x.Span.context.span_id) s.parent
+            id= SpanContext.get_span_id s.Span.context
+          ; traceId= SpanContext.get_trace_id s.Span.context
+          ; parentId= Option.map SpanContext.get_span_id s.parent
           ; name= s.name
           ; timestamp= int_of_float (s.begin_time *. 1000000.)
           ; duration=
@@ -662,6 +734,7 @@ module Export = struct
               | Url url ->
                   Http.export ~span_json:zipkin_spans ~url
               | Bugtool ->
+                  let trace_id = SpanContext.bytes_to_hex trace_id in
                   File.export ~trace_id ~span_json:zipkin_spans
                     ~path:!File.trace_log_dir
             with
