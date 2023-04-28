@@ -6,7 +6,7 @@
       test_cluster_host test_cluster test_pusb test_network_sriov
       test_vm_placement test_vm_helpers test_repository test_repository_helpers
       test_ref
-      test_livepatch test_rpm test_updateinfo test_storage_smapiv1_wrapper test_storage_quicktest))
+      test_livepatch test_rpm test_updateinfo test_storage_smapiv1_wrapper test_storage_quicktest test_tracing))
   (libraries
     alcotest
     angstrom
@@ -43,6 +43,7 @@
     xapi-stdext-threads
     xapi-stdext-unix
     xapi-test-utils
+    xapi-tracing
     xapi-types
     xapi-stdext-pervasives
     xapi-xenopsd
@@ -84,6 +85,7 @@
     xapi-idl.xen
     xapi_internal
     xapi-test-utils
+    xapi-tracing
     xapi-types
     xapi-stdext-threads
     xml-light2
@@ -108,6 +110,12 @@
 (package xapi)
 (modules test_ref)
 (libraries xapi_internal crowbar))
+
+(test
+(name test_tracing)
+(package xapi)
+(modules test_tracing)
+(libraries alcotest tracing))
 
 (rule
   (alias runtest)
