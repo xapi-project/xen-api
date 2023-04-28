@@ -9,9 +9,19 @@
    logs.fmt
    logs.lwt
    uuidm
+   qcheck-alcotest
+   qcheck-stm.stm
+   qcheck-stm.sequential
+   qcheck-lin.lin
+   (select spec_concurrent.ml from
+    (qcheck-stm.domain qcheck-lin.domain -> spec_concurrent.domain.ml)
+    (qcheck-stm.thread qcheck-lin.thread -> spec_concurrent.thread.ml)
+   )
  )
 )
 
 (rule
- (alias runtest)
- (action (run ./xapi_blobstore_test.exe)))
+  (alias runtest)
+  (package xapi)
+  (action (run ./xapi_blobstore_test.exe))
+)
