@@ -1,15 +1,12 @@
 PROFILE=release
+SETUPTOOLS_SCM_PRETEND_VERSION ?= ""
 
 .PHONY: build clean
 
-build: setup.py
-	pip wheel -w dist --no-deps .
-	python setup.py sdist
-
-setup.py:
-	dune build --profile=$(PROFILE) ./setuppy_gen.exe
-	dune exec --profile=$(PROFILE) -- ./setuppy_gen.exe
+build:
+	SETUPTOOLS_SCM_PRETEND_VERSION=$(XAPI_VERSION) python -m build --wheel .
+	SETUPTOOLS_SCM_PRETEND_VERSION=$(XAPI_VERSION) python -m build --sdist .
 
 clean:
 	dune clean
-	rm -rf setup.py dist/ build/ XenAPI.egg-info/
+	rm -rf dist/ build/ XenAPI.egg-info/

@@ -35,37 +35,6 @@ module SRSet = Set.Make (struct
   let compare = Stdlib.compare
 end)
 
-let is_dmc_compatible_vmr ~__context ~vmr =
-  let module C = Xapi_vm_memory_constraints.Vm_memory_constraints in
-  let constraints = C.extract ~vm_record:vmr in
-  Pool_features.is_enabled ~__context Features.DMC
-  || C.are_valid_and_pinned_at_static_max ~constraints
-
-let is_dmc_compatible ~__context ~vm =
-  let vmr = Db.VM.get_record ~__context ~self:vm in
-  is_dmc_compatible_vmr ~__context ~vmr
-
-let assert_dmc_compatible ~__context ~vm =
-  if not @@ is_dmc_compatible ~__context ~vm then
-    raise
-      Api_errors.(
-        Server_error (dynamic_memory_control_unavailable, [Ref.string_of vm])
-      )
-
-let enforce_memory_constraints_always ~__context ~vm =
-  let module C = Xapi_vm_memory_constraints.Vm_memory_constraints in
-  let constraints = C.get ~__context ~vm_ref:vm in
-  let constraints = C.reset_to_safe_defaults ~constraints in
-  C.set ~__context ~vm_ref:vm ~constraints
-
-let enforce_memory_constraints_for_dmc ~__context ~vm =
-  let module C = Xapi_vm_memory_constraints.Vm_memory_constraints in
-  if not @@ is_dmc_compatible ~__context ~vm then (
-    info "VM %s requires unavailable DMC, updating memory settings"
-      (Ref.string_of vm) ;
-    enforce_memory_constraints_always ~__context ~vm
-  )
-
 let compute_memory_overhead ~__context ~vm =
   let vm_record = Db.VM.get_record ~__context ~self:vm in
   Memory_check.vm_compute_memory_overhead ~vm_record
@@ -317,7 +286,7 @@ let validate_actions_after_crash ~__context ~self ~value =
   let fld = "VM.actions_after_crash" in
   let hvm_cannot_coredump v =
     match Helpers.domain_type ~__context ~self with
-    | `hvm | `pv_in_pvh ->
+    | `hvm | `pv_in_pvh | `pvh ->
         value_not_supported fld v
           "cannot invoke a coredump of an HVM or PV-in-PVH domain"
     | `pv ->
@@ -638,7 +607,7 @@ let assert_enough_memory_available ~__context ~self ~host ~snapshot =
   in
   let policy =
     match Helpers.check_domain_type snapshot.API.vM_domain_type with
-    | `hvm | `pv ->
+    | `hvm | `pv | `pvh ->
         Memory_check.Dynamic_min
     | `pv_in_pvh ->
         Memory_check.Static_max
@@ -752,7 +721,7 @@ let assert_can_boot_here ~__context ~self ~host ~snapshot ~do_cpuid_check
   assert_usbs_available ~__context ~self ~host ;
   assert_netsriov_available ~__context ~self ~host ;
   ( match Helpers.domain_type ~__context ~self with
-  | `hvm | `pv_in_pvh ->
+  | `hvm | `pv_in_pvh | `pvh ->
       assert_host_supports_hvm ~__context ~self ~host
   | `pv ->
       ()
@@ -1317,7 +1286,8 @@ let copy_metrics ~__context ~vm =
          m
       )
     ~vCPUs_utilisation:
-      (Option.fold ~none:[(0L, 0.)]
+      (Option.fold
+         ~none:[(0L, 0.)]
          ~some:(fun x -> x.Db_actions.vM_metrics_VCPUs_utilisation)
          m
       )

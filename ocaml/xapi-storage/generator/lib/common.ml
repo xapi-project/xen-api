@@ -14,7 +14,6 @@ let error =
     ; raiser= (function e -> DataExn e)
     ; matcher= (function DataExn e -> Some e | _ -> None)
     }
-  
 
 let dbg =
   Param.mk ~name:"dbg"

@@ -46,6 +46,20 @@ let rpc_of_version x =
     ; (_export_vsn, Rpc.Int (Int64.of_int Xapi_globs.export_vsn))
     ]
 
+(* manually define a type for VTPM that includes its content. We
+   deliberately only capture the essence to facilitate moving to a
+   different backend at a later point rather than preserving the entire
+   structure. *)
+
+type vtpm' = {
+    vTPM'_VM: API.ref_VM
+  ; vTPM'_uuid: string
+  ; vTPM'_is_unique: bool
+  ; vTPM'_is_protected: bool
+  ; vTPM'_content: string
+}
+[@@deriving rpc]
+
 exception Failure of string
 
 let find kvpairs where x =

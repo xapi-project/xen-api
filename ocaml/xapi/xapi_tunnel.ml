@@ -58,8 +58,9 @@ let create_internal ~__context ~transport_PIF ~network ~host ~protocol =
     ~properties:[] ~capabilities:[] ~pCI:Ref.null ;
   Db.Tunnel.create ~__context ~ref:tunnel
     ~uuid:(Uuidx.to_string (Uuidx.make ()))
-    ~access_PIF ~transport_PIF ~status:[("active", "false")] ~other_config:[]
-    ~protocol ;
+    ~access_PIF ~transport_PIF
+    ~status:[("active", "false")]
+    ~other_config:[] ~protocol ;
   (tunnel, access_PIF)
 
 let create ~__context ~transport_PIF ~network ~protocol =

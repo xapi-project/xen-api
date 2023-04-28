@@ -1233,8 +1233,8 @@ module Network = struct
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303
       ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_network
       ~descr:"A virtual network" ~gen_events:true ~doccomments:[]
-      ~messages_default_allowed_roles:
-        _R_VM_ADMIN (* vm admins can create/destroy networks without PIFs *)
+      ~messages_default_allowed_roles:_R_VM_ADMIN
+        (* vm admins can create/destroy networks without PIFs *)
       ~doc_tags:[Networking]
       ~messages:
         [
@@ -2800,8 +2800,8 @@ module Sr_stat = struct
       ~name:_sr_stat
       ~descr:"A set of high-level properties associated with an SR."
       ~gen_events:false ~messages:[] ~doccomments:[]
-      ~messages_default_allowed_roles:
-        (Some []) (* No messages, so no roles allowed to use them *)
+      ~messages_default_allowed_roles:(Some [])
+        (* No messages, so no roles allowed to use them *)
       ~contents:
         [
           field ~qualifier:DynamicRO ~lifecycle ~ty:(Option String) "uuid"
@@ -2837,8 +2837,8 @@ module Probe_result = struct
          Result elements and properties can change dynamically based on \
          changes to the the SR.probe input-parameters or the target."
       ~gen_events:false ~messages:[] ~doccomments:[]
-      ~messages_default_allowed_roles:
-        (Some []) (* No messages, so no roles allowed to use them *)
+      ~messages_default_allowed_roles:(Some [])
+        (* No messages, so no roles allowed to use them *)
       ~contents:
         [
           field ~qualifier:DynamicRO ~lifecycle
@@ -3507,7 +3507,9 @@ module LVHD = struct
       ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_lvhd
       ~descr:"LVHD SR specific operations" ~gen_events:true ~doccomments:[]
       ~messages_default_allowed_roles:_R_POOL_ADMIN
-      ~messages:[enable_thin_provisioning] ~contents:[uid _lvhd] ()
+      ~messages:[enable_thin_provisioning]
+      ~contents:[uid _lvhd]
+      ()
 end
 
 (* --- rws: removed this after talking to Andy and Julian
@@ -3535,8 +3537,8 @@ module Vdi_nbd_server_info = struct
         "Details for connecting to a VDI using the Network Block Device \
          protocol"
       ~gen_events:false ~messages:[] ~doccomments:[]
-      ~messages_default_allowed_roles:
-        (Some []) (* No messages, so no roles allowed to use them *)
+      ~messages_default_allowed_roles:(Some [])
+        (* No messages, so no roles allowed to use them *)
       ~contents:
         [
           (* uid _vdi_nbd_server_info; The uuid is not needed here and only adds inconvenience. *)
@@ -4926,7 +4928,7 @@ module Subject = struct
           field ~in_product_since:rel_midnight_ride
             ~default_value:
               (Some (VSet [VRef ("OpaqueRef:" ^ Constants.rbac_pool_admin_uuid)])
-              )
+            )
               (* pool-admin, according to rbac_static.ml, used during upgrade from pre-rbac xapis *)
             ~ignore_foreign_key:true ~qualifier:DynamicRO ~ty:(Set (Ref _role))
             "roles" "the roles associated with this subject"
@@ -4979,9 +4981,9 @@ module Role = struct
       ~in_oss_since:None ~internal_deprecated_since:None
       ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_role
       ~descr:"A set of permissions associated with a subject" ~gen_events:true
-      ~force_custom_actions:
-        (Some StaticRO) (* force custom actions for getters *) ~doccomments:[]
-      ~messages_default_allowed_roles:_R_POOL_ADMIN
+      ~force_custom_actions:(Some StaticRO)
+        (* force custom actions for getters *)
+      ~doccomments:[] ~messages_default_allowed_roles:_R_POOL_ADMIN
       ~messages:
         [
           get_permissions

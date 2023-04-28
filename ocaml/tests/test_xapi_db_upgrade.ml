@@ -16,52 +16,6 @@ module T = Test_common
 module X = Xapi_db_upgrade
 module Date = Xapi_stdext_date.Date
 
-let upgrade_vm_memory_for_dmc () =
-  (* disable DMC for unit tests *)
-  let features = Features.(List.filter (( <> ) DMC) all_features) in
-  let __context = T.make_test_database ~features () in
-  let self = List.hd (Db.VM.get_all ~__context) in
-  (* Set control domain's dynamic_min <> dynamic_max <> target *)
-  Db.VM.set_memory_dynamic_min ~__context ~self ~value:1L ;
-  Db.VM.set_memory_target ~__context ~self ~value:2L ;
-  Db.VM.set_memory_dynamic_max ~__context ~self ~value:3L ;
-  (* Apply the upgrade rule *)
-  X.upgrade_vm_memory_for_dmc.fn ~__context ;
-  let r = Db.VM.get_record ~__context ~self in
-  Alcotest.(check int64)
-    "upgrade_vm_memory_for_dmc: control domain memory_dynamic_min <> \
-     memory_target"
-    r.API.vM_memory_dynamic_min r.API.vM_memory_target ;
-  Alcotest.(check int64)
-    "upgrade_vm_memory_for_dmc: control domain memory_dynamic_max <> \
-     memory_target"
-    r.API.vM_memory_dynamic_max r.API.vM_memory_target ;
-  (* Make this a non-control domain and change all memory fields *)
-  Db.VM.set_is_control_domain ~__context ~self ~value:false ;
-  Db.VM.set_memory_static_min ~__context ~self ~value:5L ;
-  Db.VM.set_memory_dynamic_min ~__context ~self ~value:1L ;
-  Db.VM.set_memory_target ~__context ~self ~value:2L ;
-  Db.VM.set_memory_dynamic_max ~__context ~self ~value:3L ;
-  Db.VM.set_memory_static_max ~__context ~self ~value:4L ;
-  Db.VM.set_power_state ~__context ~self ~value:`Halted ;
-  (* Apply the upgrade rule *)
-  X.upgrade_vm_memory_for_dmc.fn ~__context ;
-  let r = Db.VM.get_record ~__context ~self in
-  if not @@ Pool_features.is_enabled ~__context Features.DMC then (
-    Alcotest.(check int64)
-      "upgrade_vm_memory_for_dmc: memory_dynamic_max <> memory_static_max"
-      r.API.vM_memory_dynamic_max r.API.vM_memory_static_max ;
-    Alcotest.(check int64)
-      "upgrade_vm_memory_for_dmc: memory_target <> memory_static_max"
-      r.API.vM_memory_target r.API.vM_memory_static_max ;
-    Alcotest.(check int64)
-      "upgrade_vm_memory_for_dmc: memory_dynamic_min <> memory_static_max"
-      r.API.vM_memory_dynamic_min r.API.vM_memory_static_max ;
-    Alcotest.(check bool)
-      "upgrade_vm_memory_for_dmc: memory_static_min > memory_static_max" true
-      (r.API.vM_memory_static_min <= r.API.vM_memory_static_max)
-  )
-
 let upgrade_bios () =
   let tmp_filename =
     Filename.(concat (get_temp_dir_name ()) "previousInventory")
@@ -136,8 +90,7 @@ let remove_restricted_pbd_keys () =
 
 let test =
   [
-    ("upgrade_vm_memory_for_dmc", `Quick, upgrade_vm_memory_for_dmc)
-  ; ("upgrade_bios", `Quick, upgrade_bios)
+    ("upgrade_bios", `Quick, upgrade_bios)
   ; ("update_snapshots", `Quick, update_snapshots)
   ; ("remove_restricted_pbd_keys", `Quick, remove_restricted_pbd_keys)
   ]

@@ -25,7 +25,6 @@ let fields_of_pkg =
     ; field "release" (fun (r : Pkg.t) -> r.release) string
     ; field "arch" (fun (r : Pkg.t) -> r.arch) string
     ]
-  
 
 module ApplicabilityEval = Generic.MakeStateless (struct
   module Io = struct
@@ -58,7 +57,6 @@ module ApplicabilityEval = Generic.MakeStateless (struct
           ; version= v2
           ; release= r2
           }
-        
       in
 
       Ok (Applicability.eval ~epoch:e1 ~version:v1 ~release:r1 ~applicability)
@@ -339,7 +337,6 @@ module UpdateInfoMetaDataOfXml = Generic.MakeStateless (struct
           field "checksum" (fun (r : RepoMetaData.t) -> r.checksum) string
         ; field "location" (fun (r : RepoMetaData.t) -> r.location) string
         ]
-      
 
     let string_of_output_t =
       Fmt.(str "%a" Dump.(result ~ok:(record @@ fields) ~error:exn))
@@ -415,7 +412,6 @@ module UpdateInfoMetaDataOfXml = Generic.MakeStateless (struct
         , Ok
             RepoMetaData.
               {checksum= "123abc"; location= "repodata/123abc.xml.gz"}
-            
         )
       ]
 end)
@@ -453,7 +449,6 @@ let fields_of_updateinfo =
         )
         (list string)
     ]
-  
 
 module UpdateInfoOfXml = Generic.MakeStateless (struct
   module Io = struct
@@ -569,7 +564,6 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                   ; livepatch_guidance= None
                   ; livepatches= []
                   }
-                
               )
             ]
         )
@@ -629,7 +623,6 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                   ; livepatch_guidance= None
                   ; livepatches= []
                   }
-                
               )
             ]
         )
@@ -673,7 +666,6 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                   ; livepatch_guidance= None
                   ; livepatches= []
                   }
-                
               )
             ; ( "UPDATE-0001"
               , UpdateInfo.
@@ -690,7 +682,6 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                   ; livepatch_guidance= None
                   ; livepatches= []
                   }
-                
               )
             ]
         )
@@ -748,7 +739,6 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                           ; version= "10.1.0"
                           ; release= "25"
                           }
-                        
                       ; Applicability.
                           {
                             name= "xsconsole"
@@ -758,7 +748,6 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                           ; version= "10.1.0"
                           ; release= "25"
                           }
-                        
                       ]
                   ; spec_info= "special information"
                   ; url= "https://update.details.info"
@@ -766,7 +755,6 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                   ; livepatch_guidance= None
                   ; livepatches= []
                   }
-                
               )
             ]
         )
@@ -816,7 +804,6 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                           ; to_version= "4.19.19"
                           ; to_release= "8.0.21.xs8"
                           }
-                        
                       ; LivePatch.
                           {
                             component= Kernel
@@ -827,10 +814,8 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                           ; to_version= "4.19.19"
                           ; to_release= "8.0.21.xs8"
                           }
-                        
                       ]
                   }
-                
               )
             ]
         )
@@ -868,7 +853,6 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                   ; livepatch_guidance= Some Guidance.RestartDeviceModel
                   ; livepatches= []
                   }
-                
               )
             ]
         )
@@ -918,10 +902,8 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                           ; to_version= "4.19.19"
                           ; to_release= "8.0.21.xs8"
                           }
-                        
                       ]
                   }
-                
               )
             ]
         )
@@ -961,7 +943,6 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                   ; livepatch_guidance= Some Guidance.RestartToolstack
                   ; livepatches= []
                   }
-                
               )
             ]
         )

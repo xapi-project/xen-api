@@ -43,7 +43,8 @@ let run_vhd_tool progress_cb args s s' _path =
       match
         with_logfile_fd "vhd-tool" (fun log_fd ->
             let pid =
-              safe_close_and_exec None (Some pipe_write) (Some log_fd) [(s', s)]
+              safe_close_and_exec None (Some pipe_write) (Some log_fd)
+                [(s', s)]
                 vhd_tool args
             in
             close pipe_write ;

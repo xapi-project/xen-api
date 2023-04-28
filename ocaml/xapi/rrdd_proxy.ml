@@ -98,7 +98,7 @@ let get_vm_rrd_forwarder (req : Http.Request.t) (s : Unix.file_descr) _ =
           let localhost_uuid = Helpers.get_localhost_uuid () in
           let vm_ref = Db.VM.get_by_uuid ~__context ~uuid:vm_uuid in
           let owner = Db.VM.get_resident_on ~__context ~self:vm_ref in
-          let owner_uuid = Ref.string_of owner in
+          let owner_uuid = Db.Host.get_uuid ~__context ~self:owner in
           let is_owner_localhost = owner_uuid = localhost_uuid in
           if is_owner_localhost then
             if is_master then

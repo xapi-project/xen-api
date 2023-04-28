@@ -131,6 +131,7 @@ let vm_operation_table =
   ; (`power_state_reset, "power_state_reset")
   ; (`csvm, "csvm")
   ; (`call_plugin, "call_plugin")
+  ; (`create_vtpm, "create_vtpm")
   ]
 
 let vm_operation_to_string x =
@@ -571,6 +572,14 @@ let protocol_to_string = function
   | `rdp ->
       "RDP"
 
+let telemetry_frequency_to_string = function
+  | `daily ->
+      "daily"
+  | `weekly ->
+      "weekly"
+  | `monthly ->
+      "monthly"
+
 let task_allowed_operations_to_string s =
   match s with `cancel -> "Cancel" | `destroy -> "Destroy"
 
@@ -987,6 +996,8 @@ let domain_type_to_string = function
       "pv"
   | `pv_in_pvh ->
       "pv-in-pvh"
+  | `pvh ->
+      "pvh"
   | `unspecified ->
       "unspecified"
 
@@ -998,8 +1009,13 @@ let domain_type_of_string x =
       `pv
   | "pv-in-pvh" ->
       `pv_in_pvh
+  | "pvh" ->
+      `pvh
   | s ->
       raise (Record_failure ("Invalid domain type. Got " ^ s))
+
+let vtpm_operation_to_string (op : API.vtpm_operations) =
+  match op with `destroy -> "destroy"
 
 (** Parse a string which might have a units suffix on the end *)
 let bytes_of_string field x =

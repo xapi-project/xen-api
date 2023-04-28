@@ -58,7 +58,6 @@ let test_volume =
     ; uri= ["uri1"]
     ; keys= []
     }
-  
 
 (** Check that we successfully parse the responses and
     that the content of the parsed responses is correct. *)
@@ -127,7 +126,9 @@ let sr_server () =
       Alcotest.(check string)
         "Sr.attach dbg" "OpaqueRef:65d6b084-07f3-0985-2478-64e989653b23" dbg ;
       Alcotest.(check (list (pair string string)))
-        "Sr.attach configuration" [("a", "b"); ("c", "d")] configuration ;
+        "Sr.attach configuration"
+        [("a", "b"); ("c", "d")]
+        configuration ;
       "attach_response"
   ) ;
   Sr.detach (fun dbg sr ->
@@ -247,8 +248,7 @@ let test_client_server =
        in *)
     [
       ("SR.attach", `Quick, attach)
-    ; ("SR.ls", `Quick, ls)
-      (* ; "SR.set_name", `Quick, set_name *)
+    ; ("SR.ls", `Quick, ls) (* ; "SR.set_name", `Quick, set_name *)
     ]
   in
 

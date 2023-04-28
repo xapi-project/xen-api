@@ -187,7 +187,6 @@ let find_and_update ~__context vgpu_type =
             vGPU_type_vendor_name= vgpu_type.vendor_name
           ; vGPU_type_model_name= vgpu_type.model_name
           }
-        
       in
 
       Some (vgpu_type_ref, new_rc)
@@ -671,7 +670,6 @@ module Vendor_nvidia = struct
                   )
                   (* don't use SRIOV *)
               }
-            
           in
 
           let file_path = whitelist in

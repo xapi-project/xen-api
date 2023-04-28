@@ -490,8 +490,7 @@ let shutdown_agent =
        unrecoverable data loss may occur. The caller is responsible for \
        ensuring that there are no operations in progress when this method is \
        called."
-    ~params:[]
-    ~flags:[`Session] (* no async *)
+    ~params:[] ~flags:[`Session] (* no async *)
     ~allowed_roles:_R_POOL_OP ()
 
 let dmesg =
@@ -679,8 +678,7 @@ let call_extension =
       ; (String, "call", "Rpc call for the extension")
       ]
     ~result:(String, "Result from the extension")
-    ~allowed_roles:_R_POOL_ADMIN
-    ~flags:[`Session] (* no async *)
+    ~allowed_roles:_R_POOL_ADMIN ~flags:[`Session] (* no async *)
     ()
 
 let enable_binary_storage =
@@ -2066,14 +2064,15 @@ let t =
             "indicates whether the host is configured to output its console to \
              a physical display device"
         ; field ~qualifier:DynamicRO ~in_product_since:rel_cream
-            ~default_value:(Some (VSet [VInt 0L]))
-            ~ty:(Set Int) "virtual_hardware_platform_versions"
+            ~default_value:(Some (VSet [VInt 0L])) ~ty:(Set Int)
+            "virtual_hardware_platform_versions"
             "The set of versions of the virtual hardware platform that the \
              host can offer to its guests"
         ; field ~qualifier:DynamicRO ~default_value:(Some (VRef null_ref))
             ~in_product_since:rel_ely ~ty:(Ref _vm) "control_domain"
             "The control domain (domain 0)"
-        ; field ~qualifier:DynamicRO ~lifecycle:[(Published, rel_ely, "")]
+        ; field ~qualifier:DynamicRO
+            ~lifecycle:[(Published, rel_ely, "")]
             ~ty:(Set (Ref _pool_update)) ~ignore_foreign_key:true
             "updates_requiring_reboot" "List of updates which require reboot"
         ; field ~qualifier:DynamicRO

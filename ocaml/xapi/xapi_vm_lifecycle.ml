@@ -96,6 +96,8 @@ let allowed_power_states ~__context ~vmr ~(op : API.vm_operations) =
   | `update_allowed_operations
   | `query_services ->
       all_power_states
+  | `create_vtpm ->
+      [`Halted]
 
 (** check if [op] can be done when [vmr] is in [power_state], when no other operation is in progress *)
 let is_allowed_sequentially ~__context ~vmr ~power_state ~op =
@@ -159,7 +161,7 @@ let has_definitely_booted_pv ~vmmr =
     match r.Db_actions.vM_metrics_current_domain_type with
     | `hvm | `unspecified ->
         false
-    | `pv | `pv_in_pvh ->
+    | `pv | `pv_in_pvh | `pvh ->
         true
   )
 
@@ -716,6 +718,17 @@ let check_operation_error ~__context ~ref =
             None
       )
     in
+    (* We can only add a VTPM if there is none already *)
+    let current_error =
+      check current_error (fun () ->
+          match op with
+          | `create_vtpm when vmr.Db_actions.vM_VTPMs <> [] ->
+              let count = List.length vmr.Db_actions.vM_VTPMs in
+              Some (Api_errors.vtpm_max_amount_reached, [string_of_int count])
+          | _ ->
+              None
+      )
+    in
     current_error
 
 let get_operation_error ~__context ~self ~op ~strict =
@@ -727,6 +740,14 @@ let assert_operation_valid ~__context ~self ~op ~strict =
       ()
   | Some (a, b) ->
       raise (Api_errors.Server_error (a, b))
+
+(* can't put this into xapi_vtpm because it creates a cycle *)
+let vtpm_update_allowed_operations ~__context ~self =
+  let vm = Db.VTPM.get_VM ~__context ~self in
+  let state = Db.VM.get_power_state ~__context ~self:vm in
+  let ops = [`destroy] in
+  let allowed = match state with `Halted -> ops | _ -> [] in
+  Db.VTPM.set_allowed_operations ~__context ~self ~value:allowed
 
 let update_allowed_operations ~__context ~self =
   let check_operation_error = check_operation_error ~__context ~ref:self in
@@ -768,6 +789,7 @@ let update_allowed_operations ~__context ~self =
       ; `changing_shadow_memory
       ; `changing_dynamic_range
       ; `changing_NVRAM
+      ; `create_vtpm
       ]
   in
   (* FIXME: need to be able to deal with rolling-upgrade for orlando as well *)
@@ -783,7 +805,11 @@ let update_allowed_operations ~__context ~self =
   let appliance = Db.VM.get_appliance ~__context ~self in
   if Db.is_valid_ref __context appliance then
     Xapi_vm_appliance_lifecycle.update_allowed_operations ~__context
-      ~self:appliance
+      ~self:appliance ;
+  (* Update VTPMs' allowed_operations *)
+  Db.VM.get_VTPMs ~__context ~self
+  |> List.filter (Db.is_valid_ref __context)
+  |> List.iter @@ fun self -> vtpm_update_allowed_operations ~__context ~self
 
 let checkpoint_in_progress ~__context ~vm =
   Xapi_stdext_std.Listext.List.setify

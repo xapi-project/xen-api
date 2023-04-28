@@ -68,8 +68,9 @@ let update_rrds =
         ~expected_vm_rrds:[] ~expected_sr_rrds:[] ~expected_host_dss:[]
     )
   ; ( "Single host update"
-    , update_rrds_test ~dss:[(Host, ds_a)] ~uuid_domids:[] ~paused_vms:[]
-        ~expected_vm_rrds:[] ~expected_sr_rrds:[]
+    , update_rrds_test
+        ~dss:[(Host, ds_a)]
+        ~uuid_domids:[] ~paused_vms:[] ~expected_vm_rrds:[] ~expected_sr_rrds:[]
         ~expected_host_dss:[("host", [ds_a])]
     )
   ; ( "Multiple host updates"
@@ -79,8 +80,10 @@ let update_rrds =
         ~expected_host_dss:[("host", [ds_a; ds_b])]
     )
   ; ( "Single non-resident VM update"
-    , update_rrds_test ~dss:[(VM "a", ds_a)] ~uuid_domids:[] ~paused_vms:[]
-        ~expected_vm_rrds:[] ~expected_sr_rrds:[] ~expected_host_dss:[]
+    , update_rrds_test
+        ~dss:[(VM "a", ds_a)]
+        ~uuid_domids:[] ~paused_vms:[] ~expected_vm_rrds:[] ~expected_sr_rrds:[]
+        ~expected_host_dss:[]
     )
   ; ( "Multiple non-resident VM updates"
     , update_rrds_test
@@ -89,7 +92,9 @@ let update_rrds =
         ~expected_host_dss:[]
     )
   ; ( "Single resident VM update"
-    , update_rrds_test ~dss:[(VM "a", ds_a)] ~uuid_domids:[("a", 1)]
+    , update_rrds_test
+        ~dss:[(VM "a", ds_a)]
+        ~uuid_domids:[("a", 1)]
         ~paused_vms:[]
         ~expected_vm_rrds:[("a", [ds_a])]
         ~expected_sr_rrds:[] ~expected_host_dss:[]
@@ -97,14 +102,16 @@ let update_rrds =
   ; ( "Multiple resident VM updates"
     , update_rrds_test
         ~dss:[(VM "a", ds_a); (VM "b", ds_a); (VM "b", ds_b)]
-        ~uuid_domids:[("a", 1); ("b", 1)] ~paused_vms:[]
+        ~uuid_domids:[("a", 1); ("b", 1)]
+        ~paused_vms:[]
         ~expected_vm_rrds:[("a", [ds_a]); ("b", [ds_a; ds_b])]
         ~expected_sr_rrds:[] ~expected_host_dss:[]
     )
   ; ( "Multiple resident and non-resident VM updates"
     , update_rrds_test
         ~dss:[(VM "a", ds_a); (VM "b", ds_a); (VM "c", ds_a)]
-        ~uuid_domids:[("a", 1); ("b", 1)] ~paused_vms:[]
+        ~uuid_domids:[("a", 1); ("b", 1)]
+        ~paused_vms:[]
         ~expected_vm_rrds:[("a", [ds_a]); ("b", [ds_a])]
         ~expected_sr_rrds:[] ~expected_host_dss:[]
     )

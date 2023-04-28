@@ -432,7 +432,7 @@ let print_vm id =
     )
     | HVM {boot_order= b; _} ->
         [(_builder, quote "hvm"); (_boot, quote b)]
-    | PVinPVH _ ->
+    | PVinPVH _ | PVH _ ->
         failwith "unimplemented"
   in
   let name = [(_name, quote vm_t.name)] in

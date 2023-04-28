@@ -70,9 +70,7 @@ type 'a handler =
 (* try and do f (unit -> unit), ignore exceptions *)
 let best_effort f = try f () with _ -> ()
 
-let headers s headers =
-  output_http s headers ;
-  output_http s [""]
+let headers s headers = output_http s headers ; output_http s [""]
 
 (* let response s hdrs length f =
    output_http s hdrs;
@@ -255,8 +253,9 @@ let respond_to_options req s =
         ("Access-Control-Allow-Origin", "*")
       ; ("Access-Control-Allow-Headers", access_control_allow_headers)
       ; ("Access-Control-Allow-Methods", "PUT")
-      ] s 0L (fun _ -> ()
-  )
+      ]
+    s 0L
+    (fun _ -> ())
 
 (** If no handler matches the request then call this callback *)
 let default_callback req bio _ =

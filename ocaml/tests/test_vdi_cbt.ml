@@ -31,7 +31,6 @@ let register_smapiv2_server (module S : Storage_interface.Server_impl) sr_ref =
       ; configuration= []
       ; required_cluster_stack= []
       }
-    
   in
 
   Storage_mux.register sr_ref rpc "" dummy_query_result
@@ -385,7 +384,6 @@ let test_get_nbd_info =
           ; vdi_nbd_server_info_subject= host2_subject
           }
         ]
-      
     in
 
     assert_same_infos expected nbd_info

@@ -35,6 +35,10 @@ test:
 stresstest:
 	dune build @stresstest --profile=$(PROFILE) --no-buffer -j $(JOBS)
 
+# check that the IDL hash is current
+schema:
+	dune runtest ocaml/idl
+
 doc:
 	dune build --profile=$(PROFILE) ocaml/idl/datamodel_main.exe
 	dune build --profile=$(PROFILE) -f @ocaml/doc/jsapigen
@@ -213,3 +217,10 @@ uninstall:
 		message-switch message-switch-async message-switch-cli message-switch-core message-switch-lwt \
 		message-switch-unix xapi-idl forkexec xapi-forkexecd xapi-storage xapi-storage-script xapi-log \
 		xapi-open-uri
+
+compile_flags.txt: Makefile
+	(ocamlc -config-var ocamlc_cflags;\
+	ocamlc -config-var ocamlc_cppflags;\
+	echo -I$(shell ocamlc -where);\
+	echo -Wall -Wextra -Wstrict-prototypes -D_FORTIFY_SOURCE=2\
+	) | xargs -n1 echo >$@
