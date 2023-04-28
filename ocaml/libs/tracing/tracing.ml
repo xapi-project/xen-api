@@ -54,6 +54,11 @@ module Status = struct
   [@@deriving rpcty]
 end
 
+module SpanEvent = struct
+  type t = {name: string; time: float; attributes: (string * string) list}
+  [@@deriving rpcty]
+end
+
 module SpanContext = struct
   type t = {trace_id: string; span_id: string} [@@deriving rpcty]
 
@@ -83,6 +88,7 @@ module Span = struct
     ; begin_time: float
     ; end_time: float option
     ; links: SpanLink.t list
+    ; events: SpanEvent.t list
     ; attributes: (string * string) list
   }
   [@@deriving rpcty]
@@ -113,6 +119,7 @@ module Span = struct
     let end_time = None in
     let status : Status.t = {status_code= Status.Unset; description= None} in
     let links = [] in
+    let events = [] in
     {
       context
     ; span_kind
@@ -122,6 +129,7 @@ module Span = struct
     ; begin_time
     ; end_time
     ; links
+    ; events
     ; attributes
     }
 
@@ -139,6 +147,10 @@ module Span = struct
   let add_link span context attributes =
     let link : SpanLink.t = {context; attributes} in
     {span with links= link :: span.links}
+
+  let add_event span name attributes =
+    let event : SpanEvent.t = {name; time= Unix.gettimeofday (); attributes} in
+    {span with events= event :: span.events}
 
   let set_error span exn_t =
     match exn_t with
@@ -362,6 +374,7 @@ module Tracer = struct
     ; begin_time= Unix.gettimeofday ()
     ; end_time= None
     ; links= []
+    ; events= []
     ; attributes= []
     }
 

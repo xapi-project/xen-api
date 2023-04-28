@@ -45,6 +45,8 @@ module Span : sig
 
   val add_link : t -> SpanContext.t -> (string * string) list -> t
 
+  val add_event : t -> string -> (string * string) list -> t
+
   val set_span_kind : t -> SpanKind.t -> t
 
   val get_tag : t -> string -> string
