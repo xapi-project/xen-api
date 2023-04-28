@@ -68,6 +68,11 @@ module SpanContext = struct
         None
 end
 
+module SpanLink = struct
+  type t = {context: SpanContext.t; attributes: (string * string) list}
+  [@@deriving rpcty]
+end
+
 module Span = struct
   type t = {
       context: SpanContext.t
@@ -77,6 +82,7 @@ module Span = struct
     ; name: string
     ; begin_time: float
     ; end_time: float option
+    ; links: SpanLink.t list
     ; attributes: (string * string) list
   }
   [@@deriving rpcty]
@@ -106,7 +112,18 @@ module Span = struct
     let begin_time = Unix.gettimeofday () in
     let end_time = None in
     let status : Status.t = {status_code= Status.Unset; description= None} in
-    {context; span_kind; status; parent; name; begin_time; end_time; attributes}
+    let links = [] in
+    {
+      context
+    ; span_kind
+    ; status
+    ; parent
+    ; name
+    ; begin_time
+    ; end_time
+    ; links
+    ; attributes
+    }
 
   let get_tag t tag = snd (List.find (fun s -> fst s = tag) t.attributes)
 
@@ -118,6 +135,10 @@ module Span = struct
     }
 
   let set_span_kind span span_kind = {span with span_kind}
+
+  let add_link span context attributes =
+    let link : SpanLink.t = {context; attributes} in
+    {span with links= link :: span.links}
 
   let set_error span exn_t =
     match exn_t with
@@ -340,6 +361,7 @@ module Tracer = struct
     ; span_kind= SpanKind.Client (* This will be the span of the client call*)
     ; begin_time= Unix.gettimeofday ()
     ; end_time= None
+    ; links= []
     ; attributes= []
     }
 
