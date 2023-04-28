@@ -29,9 +29,13 @@ end
 module SpanContext : sig
   type t
 
+  val is_valid : t -> bool
+
   val to_traceparent : t -> string
 
-  val of_traceparent : string -> t option
+  val of_traceparent : ?tracestate:string -> string -> t option
+
+  val to_tracestate : t -> string option
 end
 
 module Span : sig

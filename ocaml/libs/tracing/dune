@@ -9,6 +9,7 @@
     rpclib.json
     xapi-idl
     xapi-stdext-unix
+    hex
   )
   (preprocess (pps ppx_deriving_rpc))
 )
