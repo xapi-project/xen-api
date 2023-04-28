@@ -3,10 +3,14 @@
  (libraries
    xapi_blobstore_core
    alcotest
+   alcotest-lwt
    threads.posix
+   logs
+   logs.fmt
+   logs.lwt
  )
 )
 
 (rule
  (alias runtest)
- (action (run ./xapi_blobstore_test.exe --verbose)))
+ (action (run ./xapi_blobstore_test.exe)))
