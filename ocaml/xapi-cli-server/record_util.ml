@@ -1134,22 +1134,3 @@ let mac_from_int_array macs =
 
 (* generate a random mac that is locally administered *)
 let random_mac_local () = mac_from_int_array (Array.make 6 (Random.int 0x100))
-
-let update_sync_frequency_to_string = function
-  | `daily ->
-      "daily"
-  | `weekly ->
-      "weekly"
-  | `monthly ->
-      "monthly"
-
-let update_sync_frequency_of_string s =
-  match String.lowercase_ascii s with
-  | "daily" ->
-      `daily
-  | "weekly" ->
-      `weekly
-  | "monthly" ->
-      `monthly
-  | _ ->
-      raise (Record_failure ("Expected 'daily', 'weekly', 'monthly', got " ^ s))
