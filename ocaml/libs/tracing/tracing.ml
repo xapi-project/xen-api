@@ -100,6 +100,8 @@ module SpanContext = struct
 
   let generate_trace_id () = generate_span_id () ^ generate_span_id ()
 
+  let is_sampled t = Char.code t.trace_flags mod 2 <> 1
+
   let rec create sampled parent =
     let span_id = generate_span_id () in
     let trace_flags = if sampled then '\x01' else '\x00' in
@@ -182,9 +184,10 @@ module Span = struct
 
   let get_context t = t.context
 
-  let start ?(attributes = Attributes.empty) ~name ~parent ~span_kind () =
+  let start ?(sampled = true) ?(attributes = Attributes.empty) ~name ~parent
+      ~span_kind () =
     let parent = Option.map (fun s -> s.context) parent in
-    let context = SpanContext.create true parent in
+    let context = SpanContext.create sampled parent in
     (* Using gettimeofday over Mtime as it is better for sharing timestamps between the systems *)
     let begin_time = Unix.gettimeofday () in
     let end_time = None in
@@ -318,15 +321,18 @@ module Spans = struct
 
   let add_to_finished span =
     let key = span.Span.context.trace_id in
-    Xapi_stdext_threads.Threadext.Mutex.execute lock (fun () ->
-        match Hashtbl.find_opt finished_spans key with
-        | None ->
-            if Hashtbl.length finished_spans < !max_traces then
-              Hashtbl.add finished_spans key [span]
-        | Some span_list ->
-            if List.length span_list < !max_spans then
-              Hashtbl.replace finished_spans key (span :: span_list)
-    )
+    if SpanContext.is_sampled span.Span.context then
+      ()
+    else
+      Xapi_stdext_threads.Threadext.Mutex.execute lock (fun () ->
+          match Hashtbl.find_opt finished_spans key with
+          | None ->
+              if Hashtbl.length finished_spans < !max_traces then
+                Hashtbl.add finished_spans key [span]
+          | Some span_list ->
+              if List.length span_list < !max_spans then
+                Hashtbl.replace finished_spans key (span :: span_list)
+      )
 
   let mark_finished span = Option.iter add_to_finished (remove_from_spans span)
 
@@ -345,9 +351,18 @@ module Spans = struct
   (** since copies the existing finished spans and then clears the existing spans as to only export them once  *)
   let since () =
     Xapi_stdext_threads.Threadext.Mutex.execute lock (fun () ->
-        let copy = Hashtbl.copy finished_spans in
-        Hashtbl.clear finished_spans ;
-        copy
+        let finished_traces = Hashtbl.create 100 in
+        Hashtbl.filter_map_inplace
+          (fun trace_id spans ->
+            match spans with
+            | root :: _ when root.Span.parent = None ->
+                Hashtbl.add finished_traces trace_id spans ;
+                None
+            | _ ->
+                Some spans
+          )
+          finished_spans ;
+        finished_traces
     )
 
   let dump () = Hashtbl.(copy spans, Hashtbl.copy finished_spans)
