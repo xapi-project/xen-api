@@ -4033,6 +4033,73 @@ module Diagnostics = struct
     }
 end
 
+module Observer = struct
+  let create _ dbg uuid name_label attributes endpoints enabled =
+    debug "Observer.create : dbg=%s" dbg ;
+    Debug.with_thread_associated dbg
+      (fun () ->
+        Tracing.create ~uuid ~name_label ~tags:attributes ~filters:[]
+          ~processors:[] ~endpoints ~enabled ~service_name:"xenopsd"
+      )
+      ()
+
+  let destroy _ dbg uuid =
+    debug "Observer.destroy : dbg=%s" dbg ;
+    Debug.with_thread_associated dbg (fun () -> Tracing.destroy ~uuid) ()
+
+  let set_enabled _ dbg uuid enabled =
+    debug "Observer.set_enabled : dbg=%s" dbg ;
+    Debug.with_thread_associated dbg
+      (fun () -> Tracing.set ~uuid ~enabled ())
+      ()
+
+  let set_attributes _ dbg uuid attributes =
+    debug "Observer.set_attributes : dbg=%s" dbg ;
+    Debug.with_thread_associated dbg
+      (fun () -> Tracing.set ~uuid ~tags:attributes ())
+      ()
+
+  let set_endpoints _ dbg uuid endpoints =
+    debug "Observer.set_endpoint : dbg=%s" dbg ;
+    Debug.with_thread_associated dbg
+      (fun () -> Tracing.set ~uuid ~endpoints ())
+      ()
+
+  let init _ dbg =
+    debug "Observer.init : dbg=%s" dbg ;
+    Debug.with_thread_associated dbg (fun () -> ignore @@ Tracing.main ()) ()
+
+  let set_trace_log_dir _ dbg dir =
+    debug "Observer.set_trace_log_dir : dbg=%s" dbg ;
+    Debug.with_thread_associated dbg
+      (fun () -> Tracing.Export.Destination.File.set_trace_log_dir dir)
+      ()
+
+  let set_export_interval _ dbg interval =
+    debug "Observer.set_export_interval : dbg=%s" dbg ;
+    Debug.with_thread_associated dbg
+      (fun () -> Tracing.Export.set_export_interval interval)
+      ()
+
+  let set_max_spans _ dbg spans =
+    debug "Observer.set_max_spans : dbg=%s" dbg ;
+    Debug.with_thread_associated dbg
+      (fun () -> Tracing.Spans.set_max_spans spans)
+      ()
+
+  let set_max_traces _ dbg traces =
+    debug "Observer.set_max_traces : dbg=%s" dbg ;
+    Debug.with_thread_associated dbg
+      (fun () -> Tracing.Spans.set_max_traces traces)
+      ()
+
+  let set_host_id _ dbg host_id =
+    debug "Observer.set_host_id : dbg=%s" dbg ;
+    Debug.with_thread_associated dbg
+      (fun () -> Tracing.Export.Destination.File.set_host_id host_id)
+      ()
+end
+
 let get_diagnostics _ _ () =
   Diagnostics.make () |> rpc_of Diagnostics.t |> Jsonrpc.to_string
 
@@ -4123,4 +4190,15 @@ let _ =
   Server.UPDATES.remove_barrier (UPDATES.remove_barrier ()) ;
   Server.UPDATES.refresh_vm (UPDATES.refresh_vm ()) ;
   Server.DEBUG.trigger (DEBUG.trigger ()) ;
-  Server.DEBUG.shutdown (DEBUG.shutdown ())
+  Server.DEBUG.shutdown (DEBUG.shutdown ()) ;
+  Server.Observer.create (Observer.create ()) ;
+  Server.Observer.destroy (Observer.destroy ()) ;
+  Server.Observer.set_enabled (Observer.set_enabled ()) ;
+  Server.Observer.set_attributes (Observer.set_attributes ()) ;
+  Server.Observer.set_endpoints (Observer.set_endpoints ()) ;
+  Server.Observer.init (Observer.init ()) ;
+  Server.Observer.set_trace_log_dir (Observer.set_trace_log_dir ()) ;
+  Server.Observer.set_export_interval (Observer.set_export_interval ()) ;
+  Server.Observer.set_max_spans (Observer.set_max_spans ()) ;
+  Server.Observer.set_max_traces (Observer.set_max_traces ()) ;
+  Server.Observer.set_host_id (Observer.set_host_id ())

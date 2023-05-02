@@ -4445,3 +4445,60 @@ let vusb_unplug ~__context ~self =
             ]
           )
       )
+
+module Observer = struct
+  let create ~__context ~uuid ~name_label ~attributes ~endpoints ~enabled =
+    let module Client = (val make_client (default_xenopsd ()) : XENOPS) in
+    let dbg = Context.string_of_task __context in
+    Client.Observer.create dbg uuid name_label attributes endpoints enabled
+
+  let destroy ~__context ~uuid =
+    let module Client = (val make_client (default_xenopsd ()) : XENOPS) in
+    let dbg = Context.string_of_task __context in
+    Client.Observer.destroy dbg uuid
+
+  let set_enabled ~__context ~uuid ~enabled =
+    let module Client = (val make_client (default_xenopsd ()) : XENOPS) in
+    let dbg = Context.string_of_task __context in
+    Client.Observer.set_enabled dbg uuid enabled
+
+  let set_attributes ~__context ~uuid ~attributes =
+    let module Client = (val make_client (default_xenopsd ()) : XENOPS) in
+    let dbg = Context.string_of_task __context in
+    Client.Observer.set_attributes dbg uuid attributes
+
+  let set_endpoints ~__context ~uuid ~endpoints =
+    let module Client = (val make_client (default_xenopsd ()) : XENOPS) in
+    let dbg = Context.string_of_task __context in
+    Client.Observer.set_endpoints dbg uuid endpoints
+
+  let init ~__context =
+    let module Client = (val make_client (default_xenopsd ()) : XENOPS) in
+    let dbg = Context.string_of_task __context in
+    Client.Observer.init dbg
+
+  let set_trace_log_dir ~__context ~dir =
+    let module Client = (val make_client (default_xenopsd ()) : XENOPS) in
+    let dbg = Context.string_of_task __context in
+    Client.Observer.set_trace_log_dir dbg dir
+
+  let set_export_interval ~__context ~interval =
+    let module Client = (val make_client (default_xenopsd ()) : XENOPS) in
+    let dbg = Context.string_of_task __context in
+    Client.Observer.set_export_interval dbg interval
+
+  let set_max_spans ~__context ~spans =
+    let module Client = (val make_client (default_xenopsd ()) : XENOPS) in
+    let dbg = Context.string_of_task __context in
+    Client.Observer.set_max_spans dbg spans
+
+  let set_max_traces ~__context ~traces =
+    let module Client = (val make_client (default_xenopsd ()) : XENOPS) in
+    let dbg = Context.string_of_task __context in
+    Client.Observer.set_max_traces dbg traces
+
+  let set_host_id ~__context ~host_id =
+    let module Client = (val make_client (default_xenopsd ()) : XENOPS) in
+    let dbg = Context.string_of_task __context in
+    Client.Observer.set_host_id dbg host_id
+end
