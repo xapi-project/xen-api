@@ -54,6 +54,15 @@ let assert_valid_endpoints endpoints =
     )
     endpoints
 
+let assert_valid_attributes attributes =
+  List.iter
+    (fun (k, v) ->
+      if not (Tracing.validate_attribute (k, v)) then
+        let kv = Printf.sprintf "%s:%s" k v in
+        raise Api_errors.(Server_error (invalid_value, ["attributes"; kv]))
+    )
+    attributes
+
 let register ~__context ~self ~host =
   let pool = Helpers.get_pool ~__context in
   let host_label = Db.Host.get_name_label ~__context ~self:host in
@@ -80,6 +89,7 @@ let create ~__context ~name_label ~name_description ~hosts ~attributes
   assert_valid_components components ;
   assert_valid_endpoints endpoints ;
   assert_valid_hosts ~__context hosts ;
+  assert_valid_attributes attributes ;
   let ref = Ref.make () in
   let uuid = Uuidx.to_string (Uuidx.make ()) in
   Db.Observer.create ~__context ~ref ~uuid ~name_label ~name_description ~hosts
@@ -148,6 +158,7 @@ let set_enabled ~__context ~self ~value =
   do_set_op ~__context ~self ~observation_fn ~db_fn
 
 let set_attributes ~__context ~self ~value =
+  assert_valid_attributes value ;
   let uuid = Db.Observer.get_uuid ~__context ~self in
   let observation_fn () = Tracing.set ~uuid ~tags:value () in
   let db_fn () = Db.Observer.set_attributes ~__context ~self ~value in
