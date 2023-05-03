@@ -6,6 +6,7 @@
     dune-build-info
     lwt
     lwt.unix
+    uri
     xapi-consts
     xapi-types
     xen-api-client
@@ -38,9 +39,11 @@
     cohttp
     cohttp-lwt
     cohttp-lwt-unix
+    conduit-lwt-unix
     dune-build-info
     lwt
     lwt.unix
+    ssl
     uri
     xapi-consts
     xapi-rrd
