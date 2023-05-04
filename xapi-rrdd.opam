@@ -14,7 +14,6 @@ depends: [
   "dune-build-info"
   "astring"
   "gzip"
-  "http-svr"
   "inotify"
   "io-page"
   "mtime"

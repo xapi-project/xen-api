@@ -8,6 +8,7 @@
     stunnel
     safe-resources
     xapi-consts
+    xapi-log
   )
 )
 

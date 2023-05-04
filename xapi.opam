@@ -22,8 +22,8 @@ depends: [
   "domain-name"
   "ezxenstore"
   "fmt" {with-test}
-  "http-svr"
   "ipaddr"
+  "http-lib"
   "mirage-crypto" {with-test}
   "mirage-crypto-pk"
   "mirage-crypto-rng" {with-test}
@@ -49,7 +49,6 @@ depends: [
   "xapi-client"
   "xapi-cli-protocol"
   "xapi-consts"
-  "xapi-database"
   "xapi-datamodel"
   "xapi-stdext-date"
   "xapi-stdext-pervasives"

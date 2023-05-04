@@ -13,6 +13,7 @@
  *)
 
 open Xen_api_lwt_unix
+open Lwt.Syntax
 
 let uri = ref "http://127.0.0.1/jsonrpc"
 
@@ -29,19 +30,19 @@ let exn_to_string = function
       Printexc.to_string e
 
 let main () =
-  let rpc = if !json then make_json !uri else make !uri in
-  Session.login_with_password ~rpc ~uname:!username ~pwd:!password
-    ~version:"1.0" ~originator:"list_vms"
-  >>= fun session_id ->
-  Lwt.finalize
-    (fun () ->
-      VM.get_all_records ~rpc ~session_id >>= fun vms ->
-      List.iter
-        (fun (_vm, vm_rec) -> Printf.printf "VM %s\n" vm_rec.API.vM_name_label)
-        vms ;
-      return ()
+  Lwt_switch.with_switch @@ fun switch ->
+  let t =
+    SessionCache.create_uri ~switch ~target:(Uri.of_string !uri)
+      ~uname:!username ~pwd:!password ~version:"1.0" ~originator:"list_vms" ()
+  in
+  let* vms = SessionCache.with_session t @@ VM.get_all_records in
+  List.iter
+    (fun (_vm, vm_rec) ->
+      let kind = if vm_rec.API.vM_is_a_template then "Template" else "VM" in
+      Printf.printf "%s %s\n" kind vm_rec.API.vM_name_label
     )
-    (fun () -> Session.logout ~rpc ~session_id)
+    vms ;
+  Lwt.return_unit
 
 let _ =
   Arg.parse
@@ -57,10 +58,6 @@ let _ =
     ; ( "-pw"
       , Arg.Set_string password
       , Printf.sprintf "Password to log in with (default %s)" !password
-      )
-    ; ( "-j"
-      , Arg.Set json
-      , Printf.sprintf "Use jsonrpc rather than xmlrpc (default %b)" !json
       )
     ]
     (fun x -> Printf.fprintf stderr "Ignoring argument: %s\n" x)

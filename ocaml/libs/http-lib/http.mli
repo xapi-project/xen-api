@@ -32,6 +32,8 @@ exception Timeout
 
 exception Too_large
 
+exception Client_requested_size_over_limit
+
 type authorization = Basic of string * string | UnknownAuth of string
 
 val make_frame_header : string -> string

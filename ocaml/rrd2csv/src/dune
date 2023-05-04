@@ -5,7 +5,7 @@
   (package rrd2csv)
   (libraries
     dune-build-info
-    http-svr
+    http_lib
     threads.posix
     xapi-idl.rrd
     xapi-client

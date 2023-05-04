@@ -12,6 +12,7 @@
     forkexec
     lwt
     lwt.unix
+    ssl
     tapctl
     threads.posix
     uri
