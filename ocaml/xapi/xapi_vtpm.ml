@@ -12,6 +12,10 @@
    GNU Lesser General Public License for more details.
  *)
 
+module D = Debug.Make (struct let name = __MODULE__ end)
+
+open D
+
 (** Don't allow unless VTPM is enabled as an experimental feature *)
 let assert_not_restricted ~__context =
   let pool = Helpers.get_pool ~__context in
@@ -82,6 +86,7 @@ let copy ~__context ~vM ref =
   let vtpm = Db.VTPM.get_record ~__context ~self:ref in
   let persistence_backend = vtpm.vTPM_persistence_backend in
   let is_unique = vtpm.vTPM_is_unique in
+  debug "%s VTPM %s is_unique=%b" __FUNCTION__ (Ref.string_of ref) is_unique ;
   let contents = copy_or_create_contents ~__context ~from:ref () in
   introduce ~__context ~vM ~persistence_backend ~contents ~is_unique
 

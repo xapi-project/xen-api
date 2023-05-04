@@ -397,6 +397,7 @@ let do_not_copy =
   ; "VIFs"
   ; "VGPUs"
   ; "VUSBs"
+  ; "VTPMs"
   ; (* Stateful fields that will be reset anyway *)
     "power_state"
   ; (* Attached PCIs should not revert from snapshot *)
@@ -478,6 +479,35 @@ let revert_vm_fields ~__context ~snapshot ~vm =
     ~overrides ;
   TaskHelper.set_progress ~__context 0.1
 
+(* See CP-40528. A snapshot is a VM record that contains the record of
+   the VM at snapshot time in snapshot_metadata, including its VTPM.
+   Most data is restored from snapshot_metadata. At the time the
+   snapshot is taken, a copy of the VTPM is taken and this is part of
+   the VM record. We want to use a copy of this VTPM. We need to make a
+   copy because a snapshot can be restored multiple times and we have to
+   ensure the VTPM of the snapshot remains unaltered. *)
+
+let update_vtpm ~__context ~snapshot ~vm =
+  debug "%s for VM %s (1/2)" __FUNCTION__ (Ref.string_of vm) ;
+  let vtpms = Db.VM.get_VTPMs ~__context ~self:vm in
+  (* destroy current VTPM, but don't fail if it doesn't exist *)
+  List.iter
+    (fun vtpm ->
+      if Db.is_valid_ref __context vtpm then
+        Xapi_vtpm.destroy ~__context ~self:vtpm
+    )
+    vtpms ;
+  (* assign copy of snapshot VTPM to VM *)
+  let _vtpms =
+    Db.VM.get_VTPMs ~__context ~self:snapshot
+    |> List.map (fun vtpm -> Xapi_vtpm.copy ~__context ~vM:vm vtpm)
+  in
+  (* A restored VTPM has a different UUID than the one that took the
+     snapshot from. But there is no easy way to maintain it. In
+     particular, the current VM could have a different number of VTPMs
+     than the snapshot. So code can't rely on this anyway. *)
+  debug "%s for VM %s (2/2)" __FUNCTION__ (Ref.string_of vm)
+
 let revert ~__context ~snapshot ~vm =
   debug "Reverting %s to %s" (Ref.string_of vm) (Ref.string_of snapshot) ;
   (* This is destructive and relatively fast. There's no point advertising cancel since it
@@ -489,6 +519,7 @@ let revert ~__context ~snapshot ~vm =
     update_guest_metrics ~__context ~snapshot ~vm ;
     update_metrics ~__context ~snapshot ~vm ;
     update_parent ~__context ~snapshot ~vm ;
+    update_vtpm ~__context ~snapshot ~vm ;
     TaskHelper.set_progress ~__context 1. ;
     Xapi_vm_lifecycle.force_state_reset ~__context ~self:vm ~value:power_state ;
     debug "VM.revert done"
