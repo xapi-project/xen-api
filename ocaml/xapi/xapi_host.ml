@@ -2976,6 +2976,7 @@ let get_host_updates_handler (req : Http.Request.t) s _ =
 
 let apply_updates ~__context ~self ~hash =
   (* This function runs on master host *)
+  Helpers.assert_we_are_master ~__context ;
   Pool_features.assert_enabled ~__context ~f:Features.Updates ;
   let guidances, warnings =
     Xapi_pool_helpers.with_pool_operation ~__context
@@ -3033,6 +3034,7 @@ let try_restart_device_models_for_recommended_guidances ~__context ~host =
   (* This function runs on master host: restart device models of all running
    * HVM VMs on the host by doing local migrations if it is required by
    * recommended guidances. *)
+  Helpers.assert_we_are_master ~__context ;
   Repository_helpers.do_with_device_models ~__context ~host
   @@ fun (ref, record) ->
   match
@@ -3059,6 +3061,7 @@ let try_restart_device_models_for_recommended_guidances ~__context ~host =
 
 let apply_recommended_guidances ~__context ~self =
   (* This function runs on master host *)
+  Helpers.assert_we_are_master ~__context ;
   try
     let open Updateinfo in
     Db.Host.get_recommended_guidances ~__context ~self |> function
