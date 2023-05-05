@@ -548,4 +548,4 @@ val set_https_only :
   __context:Context.t -> self:API.ref_host -> value:bool -> unit
 
 val apply_recommended_guidances :
-  __context:Context.t -> self:API.ref_host -> unit
+  __context:Context.t -> host:API.ref_host -> unit

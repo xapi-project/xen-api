@@ -3059,27 +3059,25 @@ let try_restart_device_models_for_recommended_guidances ~__context ~host =
        * device models are running for this VM *)
       None
 
-let apply_recommended_guidances ~__context ~self =
+let apply_recommended_guidances ~__context ~host =
   (* This function runs on master host *)
   Helpers.assert_we_are_master ~__context ;
   try
     let open Updateinfo in
-    Db.Host.get_recommended_guidances ~__context ~self |> function
+    Db.Host.get_recommended_guidances ~__context ~self:host |> function
     | [] ->
-        try_restart_device_models_for_recommended_guidances ~__context
-          ~host:self
+        try_restart_device_models_for_recommended_guidances ~__context ~host
     | [`reboot_host] ->
         Helpers.call_api_functions ~__context (fun rpc session_id ->
-            Client.Client.Host.reboot ~rpc ~session_id ~host:self
+            Client.Client.Host.reboot ~rpc ~session_id ~host
         )
     | [`restart_toolstack] ->
-        try_restart_device_models_for_recommended_guidances ~__context
-          ~host:self ;
+        try_restart_device_models_for_recommended_guidances ~__context ~host ;
         Helpers.call_api_functions ~__context (fun rpc session_id ->
-            Client.Client.Host.restart_agent ~rpc ~session_id ~host:self
+            Client.Client.Host.restart_agent ~rpc ~session_id ~host
         )
     | l ->
-        let host' = Ref.string_of self in
+        let host' = Ref.string_of host in
         error
           "Found wrong guidance(s) when applying recommended guidances on host \
            ref='%s': %s"
@@ -3091,7 +3089,7 @@ let apply_recommended_guidances ~__context ~self =
           ) ;
         raise Api_errors.(Server_error (apply_guidance_failed, [host']))
   with e ->
-    let host' = Ref.string_of self in
+    let host' = Ref.string_of host in
     error "applying recommended guidances on host ref='%s' failed: %s" host'
       (ExnHelper.string_of_exn e) ;
     raise Api_errors.(Server_error (apply_guidance_failed, [host']))

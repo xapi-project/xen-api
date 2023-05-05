@@ -7641,7 +7641,7 @@ let host_apply_recommended_guidances _printer rpc session_id params =
     (do_host_op rpc session_id ~multiple:false
        (fun _ host ->
          let host = host.getref () in
-         Client.Host.apply_recommended_guidances ~rpc ~session_id ~self:host
+         Client.Host.apply_recommended_guidances ~rpc ~session_id ~host
        )
        params []
     )
