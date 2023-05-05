@@ -387,7 +387,8 @@ let rolling_upgrade_script_hook = ref "xapi-rolling-upgrade"
 let domain_join_cli_cmd = ref "/opt/pbis/bin/domainjoin-cli"
 
 (* Sets IQN and restarts iSCSI daemon if required *)
-let set_iSCSI_initiator_script =  ref "/opt/xensource/libexec/set-iscsi-initiator"
+let set_iSCSI_initiator_script =
+  ref "/opt/xensource/libexec/set-iscsi-initiator"
 
 (* sqlite3 database PBIS used to store domain information *)
 let pbis_db_path = "/var/lib/pbis/db/registry.db"
@@ -1337,8 +1338,10 @@ module Resources = struct
       , Constants.generate_ssl_cert
       , "script to generate SSL certificates to be used by XAPI"
       )
-    ; ( "set-iscsi-initiator", set_iSCSI_initiator_script
-      , "Path to set-iscsi-initiator script")
+    ; ( "set-iscsi-initiator"
+      , set_iSCSI_initiator_script
+      , "Path to set-iscsi-initiator script"
+      )
     ]
 
   let nonessential_executables =
