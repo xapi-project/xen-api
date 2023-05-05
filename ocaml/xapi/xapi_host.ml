@@ -3071,7 +3071,8 @@ let apply_recommended_guidances ~__context ~host =
         let local_fn = reboot ~host in
         Xapi_host_helpers.with_host_operation ~__context ~self:host
           ~doc:"Host.reboot" ~op:`reboot (fun () ->
-            Message_forwarding.do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
+            Message_forwarding.do_op_on ~local_fn ~__context ~host
+              (fun session_id rpc ->
                 Client.Client.Host.reboot ~rpc ~session_id ~host
             )
         )
@@ -3080,7 +3081,8 @@ let apply_recommended_guidances ~__context ~host =
         let local_fn = restart_agent ~host in
         Xapi_host_helpers.with_host_operation ~__context ~self:host
           ~doc:"Host.reboot" ~op:`reboot (fun () ->
-            Message_forwarding.do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
+            Message_forwarding.do_op_on ~local_fn ~__context ~host
+              (fun session_id rpc ->
                 Client.Client.Host.restart_agent ~rpc ~session_id ~host
             )
         )
