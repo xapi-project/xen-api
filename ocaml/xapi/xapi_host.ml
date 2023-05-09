@@ -3068,19 +3068,12 @@ let apply_recommended_guidances ~__context ~host =
     | [] ->
         try_restart_device_models_for_recommended_guidances ~__context ~host
     | [`reboot_host] ->
-        let local_fn = reboot ~host in
-        Xapi_host_helpers.with_host_operation ~__context ~self:host
-          ~doc:"Host.reboot" ~op:`reboot (fun () ->
-            Message_forwarding.do_op_on ~local_fn ~__context ~host
-              (fun session_id rpc ->
-                Client.Client.Host.reboot ~rpc ~session_id ~host
-            )
+        Helpers.call_api_functions ~__context (fun rpc session_id ->
+            Client.Client.Host.reboot ~rpc ~session_id ~host
         )
     | [`restart_toolstack] ->
         try_restart_device_models_for_recommended_guidances ~__context ~host ;
-        let local_fn = restart_agent ~host in
-        Message_forwarding.do_op_on ~local_fn ~__context ~host
-          (fun session_id rpc ->
+        Helpers.call_api_functions ~__context (fun rpc session_id ->
             Client.Client.Host.restart_agent ~rpc ~session_id ~host
         )
     | l ->
