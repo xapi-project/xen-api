@@ -495,34 +495,6 @@ module RPC_API (R : RPC) = struct
           (uid_p @-> returning float_p rrd_err)
     end
 
-    module Interdomain = struct
-      let iduid_p =
-        Param.mk ~name:"uid" ~description:["Interdomain ID"] interdomain_uid
-
-      let register =
-        declare "Plugin.Interdomain.register"
-          [
-            "[Plugin.Interdomain.register uid info protocol] registers an"
-          ; "interdomain plugin. [uid] is the unique identifier of the"
-          ; "plugin, containing both a name and the frontend domain id."
-          ; "[info] contains both the desired sampling frequency and"
-          ; "a list of the grant references of the shared pages. [protocol]"
-          ; "is V1 or V2, and the return value is the time until the next"
-          ; "reading"
-          ]
-          (iduid_p @-> info_p @-> protocol_p @-> returning float_p rrd_err)
-
-      let deregister =
-        declare "Plugin.Interdomain.deregister"
-          ["Deregisters a plugin by uid."]
-          (iduid_p @-> returning unit_p rrd_err)
-
-      let next_reading =
-        declare "Plugin.Interdomain.next_reading"
-          ["Returns the number of seconds before the next reading."]
-          (iduid_p @-> returning float_p rrd_err)
-    end
-
     let register =
       let freq_p =
         Param.mk ~name:"frequency"

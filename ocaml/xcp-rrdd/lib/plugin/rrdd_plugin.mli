@@ -55,10 +55,6 @@ module Reporter : sig
         (** [Local pages] Specifies that we will be reporting data to an rrdd
         				process in the same domain as this process, and we will be sharing
         				[pages] with this process. *)
-    | Interdomain of (int * int)
-        (** [Interdomain (domid, pages)] specifies that we will be reporting data to
-        				an rrdd process in domain [domid], and we will be sharing [pages] with
-        				this domain. *)
 
   (** Abstract type of stats reporters. *)
   type t

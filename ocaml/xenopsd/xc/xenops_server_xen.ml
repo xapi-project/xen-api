@@ -5124,27 +5124,6 @@ module Actions = struct
             qemu_disappeared di xc xs ;
             Updates.add (Dynamic.Vm id) internal_updates
     in
-    let register_rrd_plugin ~domid ~name ~grant_refs ~protocol =
-      debug
-        "Registering RRD plugin: frontend_domid = %d, name = %s, refs = [%s]"
-        domid name
-        (List.map string_of_int grant_refs |> String.concat ";") ;
-      let uid = {Rrd_interface.name; frontend_domid= domid} in
-      let info =
-        {
-          Rrd_interface.frequency= Rrd.Five_Seconds
-        ; shared_page_refs= grant_refs
-        }
-      in
-      let (_ : float) = RRDD.Plugin.Interdomain.register uid info protocol in
-      ()
-    in
-    let deregister_rrd_plugin ~domid ~name =
-      debug "Deregistering RRD plugin: frontend_domid = %d, name = %s" domid
-        name ;
-      let uid = {Rrd_interface.name; frontend_domid= domid} in
-      RRDD.Plugin.Interdomain.deregister uid
-    in
     match Astring.String.cuts ~empty:false ~sep:"/" path with
     | "local"
       :: "domain"
@@ -5164,41 +5143,6 @@ module Actions = struct
           maybe_update_pv_drivers_detected ~xc ~xs (int_of_string frontend) path
     | "local" :: "domain" :: frontend :: "device" :: _ ->
         look_for_different_devices (int_of_string frontend)
-    | ["local"; "domain"; domid; "rrd"; name; "ready"] -> (
-        debug "Watch picked up an RRD plugin: domid = %s, name = %s" domid name ;
-        try
-          let grant_refs_path =
-            Printf.sprintf "/local/domain/%s/rrd/%s/grantrefs" domid name
-          in
-          let protocol_path =
-            Printf.sprintf "/local/domain/%s/rrd/%s/protocol" domid name
-          in
-          let grant_refs =
-            xs.Xs.read grant_refs_path
-            |> Astring.String.cuts ~sep:","
-            |> List.map int_of_string
-          in
-          let protocol =
-            xs.Xs.read protocol_path |> Rrd_interface.protocol_of_string
-          in
-          register_rrd_plugin ~domid:(int_of_string domid) ~name ~grant_refs
-            ~protocol
-        with e ->
-          debug "Failed to register RRD plugin: caught %s" (Printexc.to_string e)
-      )
-    | ["local"; "domain"; domid; "rrd"; name; "shutdown"] ->
-        let value =
-          try Some (xs.Xs.read path) with Xs_protocol.Enoent _ -> None
-        in
-        if value = Some "true" then (
-          debug "RRD plugin has announced shutdown: domid = %s, name = %s" domid
-            name ;
-          safe_rm xs (Printf.sprintf "local/domain/%s/rrd/%s" domid name) ;
-          try deregister_rrd_plugin ~domid:(int_of_string domid) ~name
-          with e ->
-            debug "Failed to deregister RRD plugin: caught %s"
-              (Printexc.to_string e)
-        )
     | ["local"; "domain"; domid; "qemu-pid-signal"] ->
         fire_event_on_qemu domid
     | "local" :: "domain" :: domid :: _ ->

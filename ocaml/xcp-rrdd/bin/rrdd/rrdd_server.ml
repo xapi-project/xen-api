@@ -744,27 +744,6 @@ module Plugin = struct
       Rrd_reader.FileReader.create (get_path_internal ~uid) protocol
   end)
 
-  module Interdomain = Make (struct
-    (* name, frontend domid *)
-    type uid = Rrd_interface.interdomain_uid
-
-    (* sampling frequency, list of grant refs *)
-    type info = Rrd_interface.interdomain_info
-
-    let string_of_uid ~(uid : uid) : string =
-      Printf.sprintf "%s:domid%d" uid.Rrd_interface.name
-        uid.Rrd_interface.frontend_domid
-
-    let make_reader ~(uid : uid) ~(info : info)
-        ~(protocol : Rrd_protocol.protocol) =
-      Rrd_reader.PageReader.create
-        {
-          Rrd_reader.frontend_domid= uid.Rrd_interface.frontend_domid
-        ; Rrd_reader.shared_page_refs= info.Rrd_interface.shared_page_refs
-        }
-        protocol
-  end)
-
   (* Kept for backwards compatibility. *)
   let next_reading = Local.next_reading
 
@@ -774,8 +753,7 @@ module Plugin = struct
   let deregister = Local.deregister
 
   (* Read, parse, and combine metrics from all registered plugins. *)
-  let read_stats () : (Rrd.ds_owner * Ds.ds) list =
-    List.rev_append (Local.read_stats ()) (Interdomain.read_stats ())
+  let read_stats () : (Rrd.ds_owner * Ds.ds) list = Local.read_stats ()
 end
 
 module HA = struct
