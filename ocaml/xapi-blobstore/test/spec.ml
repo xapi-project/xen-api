@@ -221,8 +221,8 @@ module MakeSTM (KV : Types.KVDirect) (C : Config with type config = KV.config) :
           SizedMap.remove k state
     )
 
-  let precond _cmd (i, _state) =
-    i <= 8 (* small number of commands due to potential exponential blowup *)
+  let precond _cmd (i, _state) = i <= 8
+  (* small number of commands due to potential exponential blowup *)
 
   let postcond cmd ((i, state) : state) res =
     match (cmd, res) with
