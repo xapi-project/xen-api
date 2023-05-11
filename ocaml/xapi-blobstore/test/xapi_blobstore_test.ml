@@ -1,6 +1,13 @@
 open Xapi_blobstore_core
 open Lwt.Syntax
 
+let clean_name name =
+  let prefix = "Dune__exe__" in
+  if String.starts_with ~prefix name then
+    let prefixlen = String.length prefix in
+    String.sub name prefixlen (String.length name - prefixlen)
+  else name
+
 module Direct2Lwt (D : Types.KVDirect) :
   Types.KVLwt
     with type t = D.t
@@ -123,7 +130,7 @@ module Make (KV : Types.KVLwt) = struct
 
   let tests make_test_config =
     let config = make_test_config () in
-    ( KV.name
+    ( clean_name KV.name
     , [
         test_case "connect/disconnect" `Quick @@ test_conn_disconn config
       ; test_case "multiple connect/disconnect" `Slow
@@ -181,13 +188,13 @@ let tests =
   in
   let make_qtests sut =
     let name, qtests = Spec.tests ~count:10 sut in
-    ( name
+    ( clean_name name
     , qtests
       |> List.map @@ fun qtest ->
          let name, speed, f =
            qtest |> QCheck_alcotest.to_alcotest ~verbose:true
          in
-         Alcotest_lwt.test_case_sync name speed f
+         Alcotest_lwt.test_case_sync (clean_name name) speed f
     )
   in
   direct_modules
