@@ -101,6 +101,55 @@ let serve_forever_lwt_callback rpc_fn path _ req body =
       in
       Cohttp_lwt_unix.Server.respond_string ~status:`Method_not_allowed ~body ()
 
+let serve_forever_lwt_callback_vtpm backend _path _ req body =
+  let uri = Cohttp.Request.uri req in
+  let module VB = VTPM_backend in
+  (* TODO: some logging *)
+  match (Cohttp.Request.meth req, Uri.path uri) with
+  | `GET, "/" ->
+      (* swtpm doesn't have to use this, it is added for completeness/debugging purposes *)
+      let* keys = VB.list backend in
+      let body =
+        `Tuple (keys |> List.map @@ fun k -> `String (VB.Key.to_string k))
+        |> Yojson.Safe.to_string
+      in
+      let headers =
+        Cohttp.Header.of_list [("Content-Type", "application/json")]
+      in
+      Cohttp_lwt_unix.Server.respond_string ~headers ~status:`OK ~body ()
+  | `GET, key -> (
+      let* value_opt = VB.get backend (VB.Key.of_string_exn key) in
+      match value_opt with
+      | None ->
+          Cohttp_lwt_unix.Server.respond_not_found ~uri ()
+      | Some value ->
+          let headers =
+            Cohttp.Header.of_list [("Content-Type", "application/octet-stream")]
+          in
+          Cohttp_lwt_unix.Server.respond_string ~headers ~status:`OK
+            ~body:(VB.Value.to_string value) ()
+    )
+  | `PUT, key when key <> "/" ->
+      let* body = Cohttp_lwt.Body.to_string body in
+      let* () =
+        VTPM_backend.put backend (VB.Key.of_string_exn key)
+          (VB.Value.of_string_exn body)
+      in
+      Cohttp_lwt_unix.Server.respond ~status:`No_content
+        ~body:Cohttp_lwt.Body.empty ()
+  | `DELETE, key when key <> "/" ->
+      let* () = VB.delete backend (VB.Key.of_string_exn key) in
+      Cohttp_lwt_unix.Server.respond ~status:`No_content
+        ~body:Cohttp_lwt.Body.empty ()
+  | _, _ ->
+      let body =
+        "Not allowed"
+        |> Rpc.rpc_of_string
+        |> Rpc.failure
+        |> Xmlrpc.string_of_response
+      in
+      Cohttp_lwt_unix.Server.respond_string ~status:`Method_not_allowed ~body ()
+
 (* Create a restricted RPC function and socket for a specific VM *)
 let make_server_rpcfn ~cache path vm_uuid =
   let module Server =
@@ -135,3 +184,8 @@ let make_server_rpcfn ~cache path vm_uuid =
   Server.get_by_uuid get_by_uuid ;
   serve_forever_lwt_callback (Rpc_lwt.server Server.implementation) path
   |> serve_forever_lwt path
+
+(* TODO: spawn this through the varstore interface *)
+let make_server_vtpm_rest ~cache path vtpm_uuid =
+  let* backend = VTPM_backend.(connect {cache; vtpm_uuid}) in
+  serve_forever_lwt_callback_vtpm backend path |> serve_forever_lwt path

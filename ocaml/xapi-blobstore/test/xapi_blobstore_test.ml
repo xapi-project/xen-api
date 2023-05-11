@@ -186,14 +186,26 @@ let make_lwt (type config) (module M : Types.KVLwt with type config = config)
     (make_test_config : unit -> config) =
   ((module M : Types.KVLwt with type config = config), make_test_config)
 
+let shutdown = Lwt_switch.create ()
+
+(* logout sessions *)
+let () = Lwt_main.at_exit (fun () -> Lwt_switch.turn_off shutdown)
+
+let cache =
+  Lazy.from_fun @@ fun () ->
+  let target = Uri.make ~host:(Sys.getenv "TEST_BOX") ~scheme:"https" () in
+  let uname = Sys.getenv "TEST_UNAME" in
+  let pwd = Sys.getenv "TEST_PWD" in
+  (* TODO: use version from dune configurator *)
+  Xen_api_lwt_unix.SessionCache.create_uri ~switch:shutdown ~target ~uname ~pwd
+    ~originator:"test" ~version:"0.1" ()
+
 let make_setget_config () =
   (* TODO: look up or create this instead *)
   Xapi_blobstore_setget.
     {
-      vtpm= Uuidm.of_string (Sys.getenv "TEST_VTPM") |> Option.get
-    ; target= Uri.make ~host:(Sys.getenv "TEST_BOX") ~scheme:"https" ()
-    ; uname= Sys.getenv "TEST_UNAME"
-    ; pwd= Sys.getenv "TEST_PWD"
+      cache= Lazy.force cache
+    ; vtpm_uuid= Sys.getenv "TEST_VTPM" |> Uuidm.of_string |> Option.get
     }
   
 

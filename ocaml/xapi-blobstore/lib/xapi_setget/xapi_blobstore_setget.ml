@@ -12,22 +12,12 @@ let max_data_size = 256 * 1024
 
 module IO = Lwt
 
-type config = {vtpm: Uuidm.t; target: Uri.t; uname: string; pwd: string}
+type config = {vtpm_uuid: Uuidm.t; cache: Xen_api_lwt_unix.SessionCache.t}
 
-let pp_config =
-  Fmt.Dump.(
-    record
-      [
-        field "vtpm" (fun t -> t.vtpm) Uuidm.pp
-      ; field "target" (fun t -> t.target) Uri.pp
-      ; field "uname" (fun t -> t.uname) Fmt.string
-      ; field "length(pwd)" (fun t -> t.pwd |> String.length) Fmt.int
-      ]
-  )
+let pp_config = Fmt.Dump.(record [field "vtpm" (fun t -> t.vtpm_uuid) Uuidm.pp])
 
 type t = {
     cache: Xen_api_lwt_unix.SessionCache.t
-  ; uri: Uri.t
   ; vtpm: API.ref_VTPM
   ; lock: Lwt_mutex.t
 }
@@ -36,33 +26,13 @@ type t = {
 
 let name = __MODULE__
 
-let version = "0.1" (* TODO: from dune-build-info *)
-
 let call t f = Xen_api_lwt_unix.SessionCache.with_session t.cache f
 
-let shutdown = Lwt_switch.create ()
-
-(* logout sessions *)
-let () = Lwt_main.at_exit (fun () -> Lwt_switch.turn_off shutdown)
-
-let cache = ref None
-
-let get_or_create_cache config =
-  match !cache with
-  | Some c -> c
-  | None ->
-    let c = Xen_api_lwt_unix.SessionCache.create_uri ~switch:shutdown
-      ~target:config.target ~uname:config.uname ~pwd:config.pwd ~version
-      ~originator:name () in
-    cache := Some c;
-    c
-
-let connect config =
-  let cache = get_or_create_cache config in
-  let t =
-    {cache; vtpm= Ref.null; uri= config.target; lock= Lwt_mutex.create ()}
+let connect (config : config) =
+  let t = {cache= config.cache; vtpm= Ref.null; lock= Lwt_mutex.create ()} in
+  let+ vtpm =
+    call t @@ VTPM.get_by_uuid ~uuid:(Uuidm.to_string config.vtpm_uuid)
   in
-  let+ vtpm = call t @@ VTPM.get_by_uuid ~uuid:(Uuidm.to_string config.vtpm) in
   {t with vtpm}
 
 let disconnect _t = Lwt.return_unit
@@ -71,27 +41,39 @@ let disconnect _t = Lwt.return_unit
    serialize using Pbrt for now since this is all binary *)
 module M = Map.Make (Key)
 
-
-
 let serialize t =
-  let alist = List.of_seq (
-    t |> M.to_seq |> Seq.map @@ fun (k, v) ->
-    (* we pass it through XAPI APIs, had to encode *)
-    k |> Key.to_string |> Base64.encode_string, `String (Value.to_string v |> Base64.encode_string)
-  ) in
+  let alist =
+    List.of_seq
+      (t
+      |> M.to_seq
+      |> Seq.map @@ fun (k, v) ->
+         (* we pass it through XAPI APIs, had to encode *)
+         ( k |> Key.to_string |> Base64.encode_string
+         , `String (Value.to_string v |> Base64.encode_string)
+         )
+      )
+  in
   `Assoc alist |> Yojson.Safe.to_string
 
 let deserialize t =
-  if String.length t = 0 then M.empty
+  if String.length t = 0 then
+    M.empty
   else
-  match t |> Yojson.Safe.from_string with
-  | `Assoc alist ->
-    M.of_seq (
-      alist |> List.to_seq |> Seq.map @@ fun (k, v) ->
-      k |> Base64.decode_exn |> Key.of_string_exn,
-      v |> Yojson.Safe.Util.to_string |> Base64.decode_exn |> Value.of_string_exn
-    )
-  | _ -> invalid_arg "malformed JSON"
+    match t |> Yojson.Safe.from_string with
+    | `Assoc alist ->
+        M.of_seq
+          (alist
+          |> List.to_seq
+          |> Seq.map @@ fun (k, v) ->
+             ( k |> Base64.decode_exn |> Key.of_string_exn
+             , v
+               |> Yojson.Safe.Util.to_string
+               |> Base64.decode_exn
+               |> Value.of_string_exn
+             )
+          )
+    | _ ->
+        invalid_arg "malformed JSON"
 
 let list t =
   let+ serialized = call t @@ VTPM.get_contents ~self:t.vtpm in
