@@ -73,7 +73,15 @@ let compare_snapid_chunks s1 s2 =
 let checkpoint ~__context ~vm ~new_name =
   Xapi_vmss.show_task_in_xencenter ~__context ~vm ;
   let power_state = Db.VM.get_power_state ~__context ~self:vm in
+  let vtpms = Db.VM.get_VTPMs ~__context ~self:vm in
   let snapshot_info = ref [] in
+  ( match (power_state, vtpms) with
+  | `Running, _ :: _ ->
+      let message = "VM.checkpoint of running VM with VTPM" in
+      Helpers.maybe_raise_vtpm_unimplemented __FUNCTION__ message
+  | _ ->
+      ()
+  ) ;
   (* live-suspend the VM if the VM is running *)
   ( if power_state = `Running then
       try
