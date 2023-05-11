@@ -6,7 +6,8 @@ let clean_name name =
   if String.starts_with ~prefix name then
     let prefixlen = String.length prefix in
     String.sub name prefixlen (String.length name - prefixlen)
-  else name
+  else
+    name
 
 module Direct2Lwt (D : Types.KVDirect) :
   Types.KVLwt
