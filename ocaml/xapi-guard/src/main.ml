@@ -80,8 +80,7 @@ let safe_unlink path =
 let cache =
   Xen_api_lwt_unix.(
     SessionCache.create_uri ~switch:Varstored_interface.shutdown
-      ~target:uri_local_json ~uname:"root" ~pwd:""
-      ~version:Xapi_version.version
+      ~target:uri_local_json ~uname:"root" ~pwd:"" ~version:Xapi_version.version
       ~originator:Varstored_interface.originator ()
   )
 
@@ -141,34 +140,11 @@ let depriv_destroy dbg gid path =
       D.debug "[%s] stopped server for gid %d and removed socket" dbg gid ;
       Lwt.return_unit
 
-let vtpm_set_contents dbg vtpm_uuid contents =
-  let open Xen_api_lwt_unix in
-  let open Lwt.Syntax in
-  let uuid = Uuidm.to_string vtpm_uuid in
-  D.debug "[%s] saving vTPM contents for %s" dbg uuid ;
-  ret
-  @@ let* self =
-       Varstored_interface.with_xapi ~cache @@ VTPM.get_by_uuid ~uuid
-     in
-     Varstored_interface.with_xapi ~cache @@ VTPM.set_contents ~self ~contents
-
-let vtpm_get_contents _dbg vtpm_uuid =
-  let open Xen_api_lwt_unix in
-  let open Lwt.Syntax in
-  let uuid = Uuidm.to_string vtpm_uuid in
-  ret
-  @@ let* self =
-       Varstored_interface.with_xapi ~cache @@ VTPM.get_by_uuid ~uuid
-     in
-     Varstored_interface.with_xapi ~cache @@ VTPM.get_contents ~self
-
 let rpc_fn =
   let module Server = Varstore_privileged_interface.RPC_API (Rpc_lwt.GenServer ()) in
   (* bind APIs *)
   Server.create depriv_create ;
   Server.destroy depriv_destroy ;
-  Server.vtpm_set_contents vtpm_set_contents ;
-  Server.vtpm_get_contents vtpm_get_contents ;
   Rpc_lwt.server Server.implementation
 
 let process body =

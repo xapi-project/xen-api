@@ -53,36 +53,13 @@ let () =
 let with_xapi ~cache f =
   Lwt_unix.with_timeout 120. (fun () -> SessionCache.with_session cache f)
 
-let serve_forever_lwt rpc_fn path =
+module VTPM_backend = Xapi_blobstore_setget
+
+let serve_forever_lwt path callback =
   let conn_closed _ = () in
   let on_exn e =
     log_backtrace () ;
     warn "Exception: %s" (Printexc.to_string e)
-  in
-  let callback _ req body =
-    let uri = Cohttp.Request.uri req in
-    match (Cohttp.Request.meth req, Uri.path uri) with
-    | `POST, _ ->
-        let* body = Cohttp_lwt.Body.to_string body in
-        let* response =
-          Dorpc.wrap_rpc err (fun () ->
-              let call = Xmlrpc.call_of_string body in
-              (* Do not log the request, it will contain NVRAM *)
-              D.debug "Received request on %s, method %s" path call.Rpc.name ;
-              rpc_fn call
-          )
-        in
-        let body = response |> Xmlrpc.string_of_response in
-        Cohttp_lwt_unix.Server.respond_string ~status:`OK ~body ()
-    | _, _ ->
-        let body =
-          "Not allowed"
-          |> Rpc.rpc_of_string
-          |> Rpc.failure
-          |> Xmlrpc.string_of_response
-        in
-        Cohttp_lwt_unix.Server.respond_string ~status:`Method_not_allowed ~body
-          ()
   in
   let stop, do_stop = Lwt.task () in
   let server = Cohttp_lwt_unix.Server.make ~callback ~conn_closed () in
@@ -99,6 +76,30 @@ let serve_forever_lwt rpc_fn path =
   in
   Lwt_switch.add_hook (Some shutdown) cleanup ;
   Lwt.return cleanup
+
+let serve_forever_lwt_callback rpc_fn path _ req body =
+  let uri = Cohttp.Request.uri req in
+  match (Cohttp.Request.meth req, Uri.path uri) with
+  | `POST, _ ->
+      let* body = Cohttp_lwt.Body.to_string body in
+      let* response =
+        Dorpc.wrap_rpc err (fun () ->
+            let call = Xmlrpc.call_of_string body in
+            (* Do not log the request, it will contain NVRAM *)
+            D.debug "Received request on %s, method %s" path call.Rpc.name ;
+            rpc_fn call
+        )
+      in
+      let body = response |> Xmlrpc.string_of_response in
+      Cohttp_lwt_unix.Server.respond_string ~status:`OK ~body ()
+  | _, _ ->
+      let body =
+        "Not allowed"
+        |> Rpc.rpc_of_string
+        |> Rpc.failure
+        |> Xmlrpc.string_of_response
+      in
+      Cohttp_lwt_unix.Server.respond_string ~status:`Method_not_allowed ~body ()
 
 (* Create a restricted RPC function and socket for a specific VM *)
 let make_server_rpcfn ~cache path vm_uuid =
@@ -132,4 +133,5 @@ let make_server_rpcfn ~cache path vm_uuid =
   Server.session_login dummy_login ;
   Server.session_logout dummy_logout ;
   Server.get_by_uuid get_by_uuid ;
-  serve_forever_lwt (Rpc_lwt.server Server.implementation) path
+  serve_forever_lwt_callback (Rpc_lwt.server Server.implementation) path
+  |> serve_forever_lwt path

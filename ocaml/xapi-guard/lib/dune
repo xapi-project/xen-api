@@ -14,6 +14,8 @@
   uri
   xapi-backtrace
   xapi-consts
+  xapi_blobstore_core
+  xapi_blobstore_setget
   xapi-idl
   xapi-idl.varstore.deprivileged
   xapi-idl.varstore.privileged
