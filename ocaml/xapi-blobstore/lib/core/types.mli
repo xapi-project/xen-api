@@ -126,6 +126,7 @@ module type S = sig
     This may be temporarily exceeded when executing concurrent {!val:put} calls,
     however when all {!val:put} calls finish the number of keys will be <= max_key_count.
   *)
+
   (*@ ensures max_key_count > 0 *)
 
   val max_data_size : int
@@ -138,6 +139,7 @@ module type S = sig
     [String.length (Key.to_string k) + String.length (Value.to_string v)].
     If this would be too much for the backend (e.g. due to encoding or other overheads) then it should lower [max_data_size] accordingly.
   *)
+
   (*@ ensures max_data_size > 0 *)
 
   (*@ function kv_length(k: Key.t) (v: Value.t) = String.length (Key.to_string k) + String.length (Value.to_string v) *)
@@ -149,6 +151,7 @@ module type S = sig
       @param key the {!type:Key.t} to look up.
       @return [Some value] if [key] is present with [value], otherwise [None]
   *)
+
   (*@ r = get t k
       pure
       ensures r = t.view k *)
@@ -161,6 +164,7 @@ module type S = sig
     @param value the {!type:Value.t} to set
     @return a resolved [io] promise when the key has been set
   *)
+
   (*@
     put t key value
     requires Set.fold (fun k acc -> kv_length k (view k) + acc) keys (kv_length key value) <= max_data_size
@@ -178,6 +182,7 @@ module type S = sig
     @param key the {!type:Key.t} to delete
     @return a resolved [io] promise when the key has been deleted
   *)
+
   (*@
     delete t key
     modifies t
