@@ -49,6 +49,7 @@ module Make (KV : Types.KVLwt) = struct
   open Logs_lwt
 
   let test_conn_disconn config _ () =
+    let config = Lazy.force config in
     let* () = debug (fun m -> m "Connecting to %a" KV.pp_config config) in
     let* t = KV.connect config in
 
@@ -66,6 +67,7 @@ module Make (KV : Types.KVLwt) = struct
     |> Lwt_list.iter_p @@ fun _ -> test_conn_disconn config () ()
 
   let test_par_get config _ () =
+    let config = Lazy.force config in
     let* t = KV.connect config in
     let key = KV.Key.of_string_exn "foo" in
     let* () =
@@ -84,6 +86,7 @@ module Make (KV : Types.KVLwt) = struct
   let pp_value = Fmt.(using KV.Value.to_string string)
 
   let test_put_get_kv config key testval () =
+    let config = Lazy.force config in
     let* t = KV.connect config in
     let* actual = KV.get t key in
     let* () =
@@ -130,7 +133,7 @@ module Make (KV : Types.KVLwt) = struct
     Alcotest_lwt.test_case name speed f
 
   let tests make_test_config =
-    let config = make_test_config () in
+    let config = Lazy.from_fun make_test_config in
     ( clean_name KV.name
     , [
         test_case "connect/disconnect" `Quick @@ test_conn_disconn config
@@ -174,18 +177,40 @@ let lwt_reporter () =
   in
   {Logs.report}
 
+let make_direct (type config)
+    (module M : Types.KVDirect with type config = config)
+    (make_test_config : unit -> config) =
+  ((module M : Types.KVDirect with type config = config), make_test_config)
+
+let make_lwt (type config) (module M : Types.KVLwt with type config = config)
+    (make_test_config : unit -> config) =
+  ((module M : Types.KVLwt with type config = config), make_test_config)
+
+let make_setget_config () =
+  (* TODO: look up or create this instead *)
+  Xapi_blobstore_setget.
+    {
+      vtpm= Uuidm.of_string (Sys.getenv "TEST_VTPM") |> Option.get
+    ; target= Uri.make ~host:(Sys.getenv "TEST_BOX") ~scheme:"https" ()
+    ; uname= Sys.getenv "TEST_UNAME"
+    ; pwd= Sys.getenv "TEST_PWD"
+    }
+  
+
 let tests =
-  let make_direct (type config)
-      (module M : Types.KVDirect with type config = config)
-      (make_test_config : unit -> config) =
-    ((module M : Types.KVDirect with type config = config), make_test_config)
-  in
   let direct_modules = [make_direct (module Safe_table) Fun.id] in
+  let lwt_modules =
+    [make_lwt (module Xapi_blobstore_setget) make_setget_config]
+  in
+  let make_smoketest_lwt (type config)
+      ((module SUT : Types.KVLwt with type config = config), make_test_config) =
+    let module M = Make (SUT) in
+    M.tests make_test_config
+  in
   let make_smoketest (type config)
       ((module SUT : Types.KVDirect with type config = config), make_test_config)
       =
-    let module M = Make (Direct2Lwt (SUT)) in
-    M.tests make_test_config
+    make_smoketest_lwt ((module Direct2Lwt (SUT)), make_test_config)
   in
   let make_qtests sut =
     let name, qtests = Spec.tests ~count:10 sut in
@@ -198,8 +223,12 @@ let tests =
          Alcotest_lwt.test_case_sync (clean_name name) speed f
     )
   in
-  direct_modules
-  |> List.concat_map @@ fun sut -> [make_smoketest sut; make_qtests sut]
+  List.concat
+    [
+      direct_modules
+      |> List.concat_map (fun sut -> [make_smoketest sut; make_qtests sut])
+    ; lwt_modules |> List.concat_map (fun sut -> [make_smoketest_lwt sut])
+    ]
 
 let () =
   Logs.set_reporter @@ lwt_reporter () ;

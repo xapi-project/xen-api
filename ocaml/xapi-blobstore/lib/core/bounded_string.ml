@@ -14,4 +14,6 @@ struct
       Fmt.invalid_arg "String too long: %d > %d" n max_length
 
   let to_string s = s
+
+  let compare = String.compare
 end

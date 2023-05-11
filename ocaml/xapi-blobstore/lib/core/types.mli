@@ -19,28 +19,30 @@
     For testing purposes a functor is provided that turns a direct implementation into an Lwt one.
 *)
 module type IO = sig
-    type +'a t
-    (** concurrency monad *)
+  (** concurrency monad *)
+  type +'a t
 end
+
 module type BoundedString = sig
-    (** the type for a string with a maximum length. May be stored encoded in a backend specific way. *)
-    type t
-    (*@
-        ephemeral
-        mutable model keys: Key.t set
-        mutable model view: Key.t -> Value.t option
-        invariant forall k: Key.t. not (Set.mem k keys) -> view k = None
-        invariant forall k: Key.t. view k = None -> not (Set.mem k keys)
-        invariant Set.cardinal keys <= max_key_count
-        invariant Set.fold (fun k acc -> kv_length k (view k) + acc) keys 0 <= max_data_size
-    *)
-  
-    val max_length : int
-    (** [max_length] is the maximum length of [t], inclusive. *)
-    (*@ ensures max_length > 0 *)
-  
-    val of_string_exn : string -> t
-    (** [of_string_exn s] creates a {!type:t} value, performing any encoding as necessary.
+  (** the type for a string with a maximum length. May be stored encoded in a backend specific way. *)
+  type t
+  (*@
+      ephemeral
+      mutable model keys: Key.t set
+      mutable model view: Key.t -> Value.t option
+      invariant forall k: Key.t. not (Set.mem k keys) -> view k = None
+      invariant forall k: Key.t. view k = None -> not (Set.mem k keys)
+      invariant Set.cardinal keys <= max_key_count
+      invariant Set.fold (fun k acc -> kv_length k (view k) + acc) keys 0 <= max_data_size
+  *)
+
+  val max_length : int
+  (** [max_length] is the maximum length of [t], inclusive. *)
+
+  (*@ ensures max_length > 0 *)
+
+  val of_string_exn : string -> t
+  (** [of_string_exn s] creates a {!type:t} value, performing any encoding as necessary.
   
     It may contain arbitrary byte values.
     Backends mustn't assume that keys are valid ASCII, or UTF-8 and perform their own encoding/decoding if necessary.
@@ -48,32 +50,38 @@ module type BoundedString = sig
   
     @raises Invalid_argument if [s] is longer than {!val:max_length}
     *)
-    (*@ t = of_string_exn s
-        checks (String.length s < max_length)
-    *)
-  
-    val to_string : t -> string
-    (** [to_string t] returns [t] as a string, performing any decoding as necessary. *)
-    (*@ ensures forall s. String.length s <= max_length -> String.equal s (to_string (of_string_exn s)) *)
-  end
+
+  (*@ t = of_string_exn s
+      checks (String.length s < max_length)
+  *)
+
+  val to_string : t -> string
+  (** [to_string t] returns [t] as a string, performing any decoding as necessary. *)
+
+  (*@ ensures forall s. String.length s <= max_length -> String.equal s (to_string (of_string_exn s)) *)
+
+  val compare : t -> t -> int
+  (** [compare a b] is a total order on {!type:t}. *)
+end
 
 (** Connection instance to a backend *)
 module type Connection = sig
-    module IO: IO
-    type config
-    (** connection configuration *)
-    
-    type t
-    (** connection instance *)
-    
-    val name: string
-    (** [name] the backend's name. It is recommended to use __MODULE__ for this. *)
-    
-    val pp_config: config Fmt.t
-    (** [pp formatter config] pretty prints [config] on [formatter] for debugging purposes. *)
+  module IO : IO
 
-    val connect: config -> t IO.t
-    (** [connect config] establishes a connection to the backend.
+  (** connection configuration *)
+  type config
+
+  (** connection instance *)
+  type t
+
+  val name : string
+  (** [name] the backend's name. It is recommended to use __MODULE__ for this. *)
+
+  val pp_config : config Fmt.t
+  (** [pp formatter config] pretty prints [config] on [formatter] for debugging purposes. *)
+
+  val connect : config -> t IO.t
+  (** [connect config] establishes a connection to the backend.
         
         When the connection is no longer needed then {!val:disconnect} should be called.
         If a connection cannot be established then either the {!mod:IO} monad's builtin failure mechanism is used,
@@ -82,14 +90,14 @@ module type Connection = sig
         @param config backend specific configuration (e.g. VM UUID)
         @return an {!type:IO.t} promise for a backend {!type:t} connection
     *)
-    
-    val disconnect: t -> unit IO.t
-    (** [disconnect t] closes the connection to [t] and releases any resources.
+
+  val disconnect : t -> unit IO.t
+  (** [disconnect t] closes the connection to [t] and releases any resources.
     
         It is an error to use [t] after [disconnect] has been called.
         In particular if [disconnect] fails it mustn't be called again.
     *)
-    (*@ consumes t *)
+  (*@ consumes t *)
 end
 
 (** Key-value store.

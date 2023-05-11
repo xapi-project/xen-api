@@ -2,6 +2,7 @@
  (name xapi_blobstore_test)
  (libraries
    xapi_blobstore_core
+   xapi_blobstore_setget
    alcotest
    alcotest-lwt
    threads.posix

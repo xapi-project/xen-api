@@ -1,0 +1,14 @@
+(library
+ (name xapi_blobstore_setget)
+ (libraries
+  xapi_blobstore_core
+  xen_api_client_lwt
+  xapi-client
+  xapi-types
+  xapi-consts
+  rpclib.core
+  fmt
+  lwt
+  base64
+  uuidm
+  uri))
