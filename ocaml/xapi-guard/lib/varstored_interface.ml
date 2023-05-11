@@ -99,6 +99,95 @@ let serve_forever_lwt_callback rpc_fn path _ req body =
       in
       Cohttp_lwt_unix.Server.respond_string ~status:`Method_not_allowed ~body ()
 
+(* The TPM has 3 kinds of states *)
+type state = {
+    permall: string  (** permanent storage *)
+  ; savestate: string  (** for ACPI S3 *)
+  ; volatilestate: string  (** for snapshot/migration/etc. *)
+}
+
+let split_char = ' '
+
+let join_string = String.make 1 split_char
+
+let deserialize t =
+  match String.split_on_char split_char t with
+  | [permall] ->
+      (* backwards compat with reading tpm2-00.permall *)
+      {permall; savestate= ""; volatilestate= ""}
+  | [permall; savestate; volatilestate] ->
+      {permall; savestate; volatilestate}
+  | splits ->
+      Fmt.failwith "Invalid state: too many splits %d" (List.length splits)
+
+let serialize t =
+  (* it is assumed that swtpm has already base64 encoded this *)
+  String.concat join_string [t.permall; t.savestate; t.volatilestate]
+
+let lookup_key key t =
+  match key with
+  | "/tpm2-00.permall" ->
+      t.permall
+  | "/tpm2-00.savestate" ->
+      t.savestate
+  | "/tpm2-00.volatilestate" ->
+      t.volatilestate
+  | s ->
+      Fmt.invalid_arg "Unknown TPM state key: %s" s
+
+let update_key key state t =
+  if String.contains state split_char then
+    Fmt.invalid_arg
+      "State to be stored (%d bytes) contained forbidden separator: %c"
+      (String.length state) split_char ;
+  match key with
+  | "/tpm2-00.permall" ->
+      {t with permall= state}
+  | "/tpm2-00.savestate" ->
+      {t with savestate= state}
+  | "/tpm2-00.volatilestate" ->
+      {t with volatilestate= state}
+  | s ->
+      Fmt.invalid_arg "Unknown TPM state key: %s" s
+
+let empty = ""
+
+let serve_forever_lwt_callback_vtpm ~cache mutex vtpm _path _ req body =
+  let uri = Cohttp.Request.uri req in
+  (* in case the connection is interrupted/etc. we may still have pending operations,
+     so use a per vTPM mutex to ensure we really only have 1 pending operation at a time for a vTPM
+  *)
+  Lwt_mutex.with_lock mutex @@ fun () ->
+  (* TODO: some logging *)
+  match (Cohttp.Request.meth req, Uri.path uri) with
+  | `GET, key when key <> "/" ->
+      let* contents = with_xapi ~cache @@ VTPM.get_contents ~self:vtpm in
+      let body = contents |> deserialize |> lookup_key key in
+      let headers =
+        Cohttp.Header.of_list [("Content-Type", "application/octet-stream")]
+      in
+      Cohttp_lwt_unix.Server.respond_string ~headers ~status:`OK ~body ()
+  | `PUT, key when key <> "/" ->
+      let* body = Cohttp_lwt.Body.to_string body in
+      let* contents = with_xapi ~cache @@ VTPM.get_contents ~self:vtpm in
+      let contents =
+        contents |> deserialize |> update_key key body |> serialize
+      in
+      let* () = with_xapi ~cache @@ VTPM.set_contents ~self:vtpm ~contents in
+      Cohttp_lwt_unix.Server.respond ~status:`No_content
+        ~body:Cohttp_lwt.Body.empty ()
+  | `DELETE, key when key <> "/" ->
+      let* contents = with_xapi ~cache @@ VTPM.get_contents ~self:vtpm in
+      let contents =
+        contents |> deserialize |> update_key key empty |> serialize
+      in
+      let* () = with_xapi ~cache @@ VTPM.set_contents ~self:vtpm ~contents in
+      Cohttp_lwt_unix.Server.respond ~status:`No_content
+        ~body:Cohttp_lwt.Body.empty ()
+  | _, _ ->
+      let body = "Not allowed" in
+      Cohttp_lwt_unix.Server.respond_string ~status:`Method_not_allowed ~body ()
+
 (* Create a restricted RPC function and socket for a specific VM *)
 let make_server_rpcfn ~cache path vm_uuid =
   let module Server =
@@ -132,4 +221,13 @@ let make_server_rpcfn ~cache path vm_uuid =
   Server.session_logout dummy_logout ;
   Server.get_by_uuid get_by_uuid ;
   serve_forever_lwt_callback (Rpc_lwt.server Server.implementation) path
+  |> serve_forever_lwt path
+
+(* TODO: spawn this through the varstore interface *)
+let make_server_vtpm_rest ~cache path vtpm_uuid =
+  let* vtpm =
+    with_xapi ~cache @@ VTPM.get_by_uuid ~uuid:(Uuidm.to_string vtpm_uuid)
+  in
+  let mutex = Lwt_mutex.create () in
+  serve_forever_lwt_callback_vtpm ~cache mutex vtpm path
   |> serve_forever_lwt path
