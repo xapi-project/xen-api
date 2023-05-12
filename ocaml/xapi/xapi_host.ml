@@ -3059,7 +3059,7 @@ let try_restart_device_models_for_recommended_guidances ~__context ~host =
        * device models are running for this VM *)
       None
 
-let apply_recommended_guidances ~__context ~host =
+let apply_recommended_guidances ~__context ~self:host =
   (* This function runs on master host *)
   Helpers.assert_we_are_master ~__context ;
   try

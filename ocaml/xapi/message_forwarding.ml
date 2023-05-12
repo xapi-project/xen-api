@@ -3982,10 +3982,10 @@ functor
             Client.Host.set_https_only ~rpc ~session_id ~self ~value
         )
 
-      let apply_recommended_guidances ~__context ~host =
-        let uuid = host_uuid ~__context host in
+      let apply_recommended_guidances ~__context ~self =
+        let uuid = host_uuid ~__context self in
         info "Host.apply_recommended_guidances: host = %s" uuid ;
-        Local.Host.apply_recommended_guidances ~__context ~host
+        Local.Host.apply_recommended_guidances ~__context ~self
     end
 
     module Host_crashdump = struct

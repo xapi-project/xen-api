@@ -1755,7 +1755,7 @@ let apply_recommended_guidances =
     ~params:
       [
         ( Ref _host
-        , "host"
+        , "self"
         , "The host whose recommended guidances will be applied"
         )
       ]
