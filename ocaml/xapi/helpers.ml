@@ -798,11 +798,10 @@ let is_pool_master ~__context ~host =
   host_id = master_id
 
 let assert_we_are_master ~__context =
-  let host = get_localhost ~__context in
-  if not (is_pool_master ~__context ~host) then
+  if not (is_pool_master ~__context ~host:(get_localhost ~__context)) then
     raise
       Api_errors.(
-        Server_error (host_is_slave, [Db.Host.get_address ~__context ~self:host])
+        Server_error (host_is_slave, [Pool_role.get_master_address ()])
       )
 
 (* Host version compare helpers *)
