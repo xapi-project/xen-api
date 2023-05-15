@@ -2985,6 +2985,7 @@ let get_host_updates_handler (req : Http.Request.t) s _ =
 
 let apply_updates ~__context ~self ~hash =
   (* This function runs on master host *)
+  Helpers.assert_we_are_master ~__context ;
   Pool_features.assert_enabled ~__context ~f:Features.Updates ;
   let guidances, warnings =
     Xapi_pool_helpers.with_pool_operation ~__context
@@ -3039,8 +3040,10 @@ let set_https_only ~__context ~self ~value =
       raise (Api_errors.Server_error (Api_errors.illegal_in_fips_mode, []))
 
 let try_restart_device_models_for_recommended_guidances ~__context ~host =
-  (* Restart device models of all running HVM VMs on the host by doing
-   * local migrations if it is required by recommended guidances. *)
+  (* This function runs on master host: restart device models of all running
+   * HVM VMs on the host by doing local migrations if it is required by
+   * recommended guidances. *)
+  Helpers.assert_we_are_master ~__context ;
   Repository_helpers.do_with_device_models ~__context ~host
   @@ fun (ref, record) ->
   match
@@ -3051,8 +3054,10 @@ let try_restart_device_models_for_recommended_guidances ~__context ~host =
     )
   with
   | true, `Running, true ->
-      Xapi_vm_migrate.pool_migrate ~__context ~vm:ref ~host
-        ~options:[("live", "true")] ;
+      Helpers.call_api_functions ~__context (fun rpc session_id ->
+          Client.Client.VM.pool_migrate ~rpc ~session_id ~vm:ref ~host
+            ~options:[("live", "true")]
+      ) ;
       None
   | true, `Paused, true ->
       error "VM 'ref=%s' is paused, can't restart device models for it"
@@ -3063,21 +3068,25 @@ let try_restart_device_models_for_recommended_guidances ~__context ~host =
        * device models are running for this VM *)
       None
 
-let apply_recommended_guidances ~__context ~self =
+let apply_recommended_guidances ~__context ~self:host =
+  (* This function runs on master host *)
+  Helpers.assert_we_are_master ~__context ;
   try
     let open Updateinfo in
-    Db.Host.get_recommended_guidances ~__context ~self |> function
+    Db.Host.get_recommended_guidances ~__context ~self:host |> function
     | [] ->
-        try_restart_device_models_for_recommended_guidances ~__context
-          ~host:self
+        try_restart_device_models_for_recommended_guidances ~__context ~host
     | [`reboot_host] ->
-        reboot ~__context ~host:self
+        Helpers.call_api_functions ~__context (fun rpc session_id ->
+            Client.Client.Host.reboot ~rpc ~session_id ~host
+        )
     | [`restart_toolstack] ->
-        try_restart_device_models_for_recommended_guidances ~__context
-          ~host:self ;
-        restart_agent ~__context ~host:self
+        try_restart_device_models_for_recommended_guidances ~__context ~host ;
+        Helpers.call_api_functions ~__context (fun rpc session_id ->
+            Client.Client.Host.restart_agent ~rpc ~session_id ~host
+        )
     | l ->
-        let host' = Ref.string_of self in
+        let host' = Ref.string_of host in
         error
           "Found wrong guidance(s) when applying recommended guidances on host \
            ref='%s': %s"
@@ -3089,7 +3098,7 @@ let apply_recommended_guidances ~__context ~self =
           ) ;
         raise Api_errors.(Server_error (apply_guidance_failed, [host']))
   with e ->
-    let host' = Ref.string_of self in
+    let host' = Ref.string_of host in
     error "applying recommended guidances on host ref='%s' failed: %s" host'
       (ExnHelper.string_of_exn e) ;
     raise Api_errors.(Server_error (apply_guidance_failed, [host']))
