@@ -45,20 +45,6 @@ module XML : sig
   val is_forbidden_control_character : uchar -> bool
 end
 
-(** {2 Character Codecs} *)
-
-module type CHARACTER_DECODER = sig
-  (** Decodes a single character embedded within a string. Given a string
-      	 *  and an index into that string, returns a tuple (value, width) where:
-      	 *    value = the value of the character at the given index; and
-      	 *    width = the width of the character at the given index, in bytes.
-      	 *  Raises an appropriate error if the character is invalid. *)
-  val decode_character : string -> int -> uchar * int
-end
-
-module UTF8_CODEC (UCS_validator : UCS_VALIDATOR) : sig
-  include CHARACTER_DECODER
-end
 (** {2 String Validators} *)
 
 (** Provides functionality for validating and processing
@@ -76,7 +62,7 @@ module type STRING_VALIDATOR = sig
 
 end
 
-module String_validator (Decoder : CHARACTER_DECODER) : STRING_VALIDATOR
+module String_validator (Decoder : UCS_VALIDATOR) : STRING_VALIDATOR
 
 (** Represents a validation error as a tuple [(i,e)], where:
  *    [i] = the index of the first non-compliant character;

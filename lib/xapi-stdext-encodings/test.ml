@@ -32,75 +32,24 @@ module Lenient_UCS_validator : E.UCS_VALIDATOR = struct
   let validate _ = ()
 end
 
-(* === Mock character decoders ============================================= *)
+(* === Mock character validators ============================================= *)
 
-(** A character decoder that logs every index it is called with. *)
-module Logged_character_decoder (W : WIDTH_GENERATOR) = struct
 
-  (** The indices already supplied to the decoder. *)
-  let indices = ref ([] : int list)
-
-  (** Clears the list of indices. *)
-  let reset () = indices := []
-
-  (** Records the given index in the list of indices. *)
-  let decode_character string index =
-    let width = W.next () in
-    for index = index to index + width - 1 do
-      ignore (string.[index])
-    done;
-    indices := (index :: !indices);
-    0, width
-
+(** A validator that succeeds for all characters. *)
+module Universal_character_validator = struct
+  let validate _ = ()
 end
 
-module Logged_1_byte_character_decoder = Logged_character_decoder
-    (struct let next () = 1 end)
-module Logged_2_byte_character_decoder = Logged_character_decoder
-    (struct let next () = 2 end)
-module Logged_n_byte_character_decoder = Logged_character_decoder
-    (struct let last = ref 0 let next () = incr last; !last end)
-
-(** A decoder that succeeds for all characters. *)
-module Universal_character_decoder = struct
-  let decode_character _ _ = (0, 1)
-end
-
-(** A decoder that fails for all characters. *)
-module Failing_character_decoder = struct
-  let decode_character _ _ = raise Decode_error
+(** A validator that fails for all characters. *)
+module Failing_character_validator = struct
+  let validate _ =  raise Decode_error
 end
 
 (** A decoder that succeeds for all characters except the letter 'F'. *)
-module Selective_character_decoder = struct
-  let decode_character string index =
-    if string.[index] = 'F' then raise Decode_error else (0, 1)
+module Selective_character_validator = struct
+  let validate uchar =
+    if uchar = Char.code 'F' then raise Decode_error
 end
-
-(* === Mock codecs ========================================================= *)
-
-module Lenient_UTF8_codec = E.UTF8_CODEC (Lenient_UCS_validator)
-
-(* === Mock string validators ============================================== *)
-
-module Logged_1_byte_character_string_validator = E.String_validator
-    (Logged_1_byte_character_decoder)
-module Logged_2_byte_character_string_validator = E.String_validator
-    (Logged_2_byte_character_decoder)
-module Logged_n_byte_character_string_validator = E.String_validator
-    (Logged_n_byte_character_decoder)
-
-(** A validator that accepts all strings. *)
-module Universal_string_validator = E.String_validator
-    (Universal_character_decoder)
-
-(** A validator that rejects all strings. *)
-module Failing_string_validator = E.String_validator
-    (Failing_character_decoder)
-
-(** A validator that rejects strings containing the character 'F'. *)
-module Selective_string_validator = E.String_validator
-    (Selective_character_decoder)
 
 (* === Test helpers ======================================================== *)
 
@@ -117,88 +66,8 @@ let assert_raises_match exception_match fn =
     then raise failure
     else ()
 
-(* === Tests =============================================================== *)
 
-module String_validator = struct
-
-  let test_is_valid () =
-    assert_true  (Universal_string_validator.is_valid ""         );
-    assert_true  (Universal_string_validator.is_valid "123456789");
-    assert_true  (Selective_string_validator.is_valid ""         );
-    assert_true  (Selective_string_validator.is_valid "123456789");
-    assert_false (Selective_string_validator.is_valid "F23456789");
-    assert_false (Selective_string_validator.is_valid "1234F6789");
-    assert_false (Selective_string_validator.is_valid "12345678F");
-    assert_false (Selective_string_validator.is_valid "FFFFFFFFF")
-
-  let test_longest_valid_prefix () =
-        Alcotest.(check string) "prefix" (Universal_string_validator.longest_valid_prefix ""         ) ""         ;
-        Alcotest.(check string) "prefix" (Universal_string_validator.longest_valid_prefix "123456789") "123456789";
-        Alcotest.(check string) "prefix" (Selective_string_validator.longest_valid_prefix ""         ) ""         ;
-        Alcotest.(check string) "prefix" (Selective_string_validator.longest_valid_prefix "123456789") "123456789";
-        Alcotest.(check string) "prefix" (Selective_string_validator.longest_valid_prefix "F23456789") ""         ;
-        Alcotest.(check string) "prefix" (Selective_string_validator.longest_valid_prefix "1234F6789") "1234"     ;
-        Alcotest.(check string) "prefix" (Selective_string_validator.longest_valid_prefix "12345678F") "12345678" ;
-        Alcotest.(check string) "prefix" (Selective_string_validator.longest_valid_prefix "FFFFFFFFF") ""
-
-  let test_validate_with_1_byte_characters () =
-        Logged_1_byte_character_decoder.reset ();
-        Logged_1_byte_character_string_validator.validate "0123456789";
-        Alcotest.(check (list int)) "indices" !Logged_1_byte_character_decoder.indices [9;8;7;6;5;4;3;2;1;0]
-
-  let test_validate_with_2_byte_characters () =
-        Logged_2_byte_character_decoder.reset ();
-        Logged_2_byte_character_string_validator.validate "0123456789";
-        Alcotest.(check (list int)) "indices" !Logged_2_byte_character_decoder.indices [8;6;4;2;0]
-
-  let test_validate_with_n_byte_characters () =
-        Logged_n_byte_character_decoder.reset ();
-        Logged_n_byte_character_string_validator.validate "0123456789";
-        check_indices !Logged_n_byte_character_decoder.indices [6;3;1;0]
-
-  (** Tests that validation does not fail for an empty string. *)
-  let test_validate_with_empty_string () =
-        Logged_1_byte_character_decoder.reset ();
-        Logged_1_byte_character_string_validator.validate "";
-        check_indices !Logged_1_byte_character_decoder.indices []
-
-  let test_validate_with_incomplete_string () =
-        Logged_2_byte_character_decoder.reset ();
-        Alcotest.check_raises
-      "Validation fails correctly for an incomplete string"
- E.String_incomplete
-          (fun () -> Logged_2_byte_character_string_validator.validate "0")
-
-  let test_validate_with_failing_decoders () =
-        Failing_string_validator.validate "";
-        assert_raises_match
-          (function E.Validation_error (0, Decode_error) -> true | _ -> false)
-          (fun () -> Selective_string_validator.validate "F");
-        assert_raises_match
-          (function E.Validation_error (0, Decode_error) -> true | _ -> false)
-          (fun () -> Selective_string_validator.validate "F12345678");
-        assert_raises_match
-          (function E.Validation_error (4, Decode_error) -> true | _ -> false)
-          (fun () -> Selective_string_validator.validate "0123F5678");
-        assert_raises_match
-          (function E.Validation_error (8, Decode_error) -> true | _ -> false)
-          (fun () -> Selective_string_validator.validate "01234567F");
-        assert_raises_match
-          (function E.Validation_error (0, Decode_error) -> true | _ -> false)
-          (fun () -> Selective_string_validator.validate "FFFFFFFFF")
-
-  let tests =
-    [ "test_is_valid", `Quick, test_is_valid
-    ; "test_longest_valid_prefix", `Quick, test_longest_valid_prefix
-    ; "test_validate_with_1_byte_characters", `Quick, test_validate_with_1_byte_characters
-    ; "test_validate_with_2_byte_characters", `Quick, test_validate_with_2_byte_characters
-    ; "test_validate_with_n_byte_characters", `Quick, test_validate_with_n_byte_characters
-    ; "test_validate_with_empty_string", `Quick, test_validate_with_empty_string
-    ; "test_validate_with_incomplete_string", `Quick, test_validate_with_incomplete_string
-    ; "test_validate_with_failing_decoders", `Quick, test_validate_with_failing_decoders
-    ]
-
-end
+(* === Mock codecs ========================================================= *)
 
 module UCS = struct
   (* === Unicode Functions === *)
@@ -258,6 +127,116 @@ module UCS = struct
     [ "test_is_non_character", `Quick, test_is_non_character
     ; "test_is_out_of_range", `Quick, test_is_out_of_range
     ; "test_is_surrogate", `Quick, test_is_surrogate
+    ]
+
+end
+
+module Lenient_UTF8_codec = struct
+  let decode_header_byte byte =
+    if byte land 0b10000000 = 0b00000000 then (byte               , 1) else
+    if byte land 0b11100000 = 0b11000000 then (byte land 0b0011111, 2) else
+    if byte land 0b11110000 = 0b11100000 then (byte land 0b0001111, 3) else
+    if byte land 0b11111000 = 0b11110000 then (byte land 0b0000111, 4) else
+      raise E.UTF8_header_byte_invalid
+
+  let decode_continuation_byte byte =
+    if byte land 0b11000000 = 0b10000000 then byte land 0b00111111 else
+      raise E.UTF8_continuation_byte_invalid
+
+  let width_required_for_ucs_value value =
+    if value < 0x000080 (* 1 lsl  7 *) then 1 else
+    if value < 0x000800 (* 1 lsl 11 *) then 2 else
+    if value < 0x010000 (* 1 lsl 16 *) then 3 else 4
+
+  let decode_character string index =
+    let value, width = decode_header_byte (Char.code string.[index]) in
+    let value = if width = 1 then value
+      else begin
+        let value = ref value in
+        for index = index + 1 to index + width - 1 do
+          let chunk = decode_continuation_byte (Char.code string.[index]) in
+          value := (!value lsl 6) lor chunk
+        done;
+        if width > (width_required_for_ucs_value !value)
+        then raise E.UTF8_encoding_not_canonical;
+        !value
+      end in
+    (value, width)
+end
+
+(* === Mock string validators ============================================== *)
+
+(** A validator that accepts all strings. *)
+module Universal_string_validator = E.String_validator
+    (Universal_character_validator)
+
+(** A validator that rejects all strings. *)
+module Failing_string_validator = E.String_validator
+    (Failing_character_validator)
+
+(** A validator that rejects strings containing the character 'F'. *)
+module Selective_string_validator = E.String_validator
+    (Selective_character_validator)
+
+(* === Tests =============================================================== *)
+
+module String_validator = struct
+
+  let test_is_valid () =
+    assert_true  (Universal_string_validator.is_valid ""         );
+    assert_true  (Universal_string_validator.is_valid "123456789");
+    assert_true  (Selective_string_validator.is_valid ""         );
+    assert_true  (Selective_string_validator.is_valid "123456789");
+    assert_false (Selective_string_validator.is_valid "F23456789");
+    assert_false (Selective_string_validator.is_valid "1234F6789");
+    assert_false (Selective_string_validator.is_valid "12345678F");
+    assert_false (Selective_string_validator.is_valid "FFFFFFFFF")
+
+  let test_longest_valid_prefix () =
+        Alcotest.(check string) "prefix" (Universal_string_validator.longest_valid_prefix ""         ) ""         ;
+        Alcotest.(check string) "prefix" (Universal_string_validator.longest_valid_prefix "123456789") "123456789";
+        Alcotest.(check string) "prefix" (Selective_string_validator.longest_valid_prefix ""         ) ""         ;
+        Alcotest.(check string) "prefix" (Selective_string_validator.longest_valid_prefix "123456789") "123456789";
+        Alcotest.(check string) "prefix" (Selective_string_validator.longest_valid_prefix "F23456789") ""         ;
+        Alcotest.(check string) "prefix" (Selective_string_validator.longest_valid_prefix "1234F6789") "1234"     ;
+        Alcotest.(check string) "prefix" (Selective_string_validator.longest_valid_prefix "12345678F") "12345678" ;
+        Alcotest.(check string) "prefix" (Selective_string_validator.longest_valid_prefix "FFFFFFFFF") ""
+
+
+  (** Tests that validation does not fail for an empty string. *)
+  let test_validate_with_empty_string () =
+      E.UTF8_XML.validate ""
+
+  let test_validate_with_incomplete_string () =
+        Alcotest.check_raises
+      "Validation fails correctly for an incomplete string"
+ E.String_incomplete
+          (fun () -> E.UTF8_XML.validate "\xc2")
+
+  let test_validate_with_failing_decoders () =
+        Failing_string_validator.validate "";
+        assert_raises_match
+          (function E.Validation_error (0, Decode_error) -> true | _ -> false)
+          (fun () -> Selective_string_validator.validate "F");
+        assert_raises_match
+          (function E.Validation_error (0, Decode_error) -> true | _ -> false)
+          (fun () -> Selective_string_validator.validate "F12345678");
+        assert_raises_match
+          (function E.Validation_error (4, Decode_error) -> true | _ -> false)
+          (fun () -> Selective_string_validator.validate "0123F5678");
+        assert_raises_match
+          (function E.Validation_error (8, Decode_error) -> true | _ -> false)
+          (fun () -> Selective_string_validator.validate "01234567F");
+        assert_raises_match
+          (function E.Validation_error (0, Decode_error) -> true | _ -> false)
+          (fun () -> Selective_string_validator.validate "FFFFFFFFF")
+
+  let tests =
+    [ "test_is_valid", `Quick, test_is_valid
+    ; "test_longest_valid_prefix", `Quick, test_longest_valid_prefix
+    ; "test_validate_with_empty_string", `Quick, test_validate_with_empty_string
+    ; "test_validate_with_incomplete_string", `Quick, test_validate_with_incomplete_string
+    ; "test_validate_with_failing_decoders", `Quick, test_validate_with_failing_decoders
     ]
 
 end

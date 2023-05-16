@@ -88,10 +88,6 @@ end
 
 (* ==== Character Codecs ==== *)
 
-module type CHARACTER_DECODER = sig
-  val decode_character : string -> int -> uchar * int
-end
-
 module UTF8_CODEC (UCS_validator : UCS_VALIDATOR) = struct
   (* === Decoding === *)
 
@@ -144,13 +140,14 @@ end
 
 exception Validation_error of int * exn
 
-module String_validator (Decoder : CHARACTER_DECODER) : STRING_VALIDATOR = struct
+module String_validator (Validator : UCS_VALIDATOR) : STRING_VALIDATOR = struct
+  include UTF8_CODEC(Validator)
 
   let validate string =
     let index = ref 0 and length = String.length string in
     begin try
         while !index < length do
-          let _, width = Decoder.decode_character string !index in
+          let _, width = decode_character string !index in
           index := !index + width
         done;
       with
@@ -167,5 +164,5 @@ module String_validator (Decoder : CHARACTER_DECODER) : STRING_VALIDATOR = struc
 
 end
 
-module UTF8     = String_validator (    UTF8_codec)
-module UTF8_XML = String_validator (XML_UTF8_codec)
+module UTF8     = String_validator (UTF8_UCS_validator)
+module UTF8_XML = String_validator (XML_UTF8_UCS_validator)
