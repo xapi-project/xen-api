@@ -57,6 +57,8 @@ module Attributes = struct
   include Map.Make (String)
 
   let of_list list = List.to_seq list |> of_seq
+
+  let to_assoc_list attr = to_seq attr |> List.of_seq
 end
 
 module SpanEvent = struct
@@ -214,6 +216,8 @@ module Spans = struct
 
   let span_hashtbl_is_empty () = Hashtbl.length spans = 0
 
+  let finished_span_hashtbl_is_empty () = Hashtbl.length finished_spans = 0
+
   let add_to_spans ~(span : Span.t) =
     let key = span.context.trace_id in
     Xapi_stdext_threads.Threadext.Mutex.execute lock (fun () ->
@@ -345,7 +349,13 @@ module TracerProvider = struct
     ; enabled: bool
   }
 
-  let endpoints_of t = t.endpoints
+  let get_name_label t = t.name_label
+
+  let get_attributes t = Attributes.to_assoc_list t.attributes
+
+  let get_endpoints t = t.endpoints
+
+  let get_enabled t = t.enabled
 end
 
 module Tracer = struct
@@ -408,6 +418,9 @@ module Tracer = struct
   let span_is_finished x = Spans.span_is_finished x
 
   let span_hashtbl_is_empty () = Spans.span_hashtbl_is_empty ()
+
+  let finished_span_hashtbl_is_empty () =
+    Spans.finished_span_hashtbl_is_empty ()
 end
 
 let lock = Mutex.create ()
@@ -660,6 +673,13 @@ module Export = struct
           span_list
       with e -> debug "Tracing: ERROR %s" (Printexc.to_string e)
 
+    let flush_spans () =
+      let span_list = Spans.since () in
+      get_tracer_providers ()
+      |> List.filter (fun x -> x.TracerProvider.enabled)
+      |> List.concat_map (fun x -> TracerProvider.get_endpoints x)
+      |> List.iter (export_to_endpoint span_list)
+
     let main () =
       enable_span_garbage_collector () ;
       Thread.create
@@ -668,13 +688,7 @@ module Export = struct
             debug "Tracing: Waiting %d seconds before exporting spans"
               (int_of_float !export_interval) ;
             Thread.delay !export_interval ;
-            let span_list = Spans.since () in
-            get_tracer_providers ()
-            |> List.iter (fun x ->
-                   if x.TracerProvider.enabled then
-                     TracerProvider.endpoints_of x
-                     |> List.iter (export_to_endpoint span_list)
-               )
+            flush_spans ()
           done
         )
         ()
