@@ -22,7 +22,6 @@ exception String_incomplete
 
 module Int = struct
   include Int
-  let to_int (x:int) = x
   let of_int (x:int) = x
 end
 
@@ -30,12 +29,8 @@ type uchar = int
 
 (* === Utility Functions === *)
 
-let ( +++ ) = Int.add
-let ( --- ) = Int.sub
-let ( &&& ) = Int.logand
 let ( ||| ) = Int.logor
 let ( <<< ) = Int.shift_left
-let ( >>> ) = Int.shift_right_logical
 
 (* === Unicode Functions === *)
 
@@ -97,16 +92,7 @@ module type CHARACTER_DECODER = sig
   val decode_character : string -> int -> uchar * int
 end
 
-module type CHARACTER_ENCODER = sig
-  val encode_character : uchar -> string
-end
-
 module UTF8_CODEC (UCS_validator : UCS_VALIDATOR) = struct
-  let width_required_for_ucs_value value =
-    if value < 0x000080 (* 1 lsl  7 *) then 1 else
-    if value < 0x000800 (* 1 lsl 11 *) then 2 else
-    if value < 0x010000 (* 1 lsl 16 *) then 3 else 4
-
   (* === Decoding === *)
 
   let decode_header_byte byte =
@@ -119,6 +105,11 @@ module UTF8_CODEC (UCS_validator : UCS_VALIDATOR) = struct
   let decode_continuation_byte byte =
     if byte land 0b11000000 = 0b10000000 then byte land 0b00111111 else
       raise UTF8_continuation_byte_invalid
+
+  let width_required_for_ucs_value value =
+    if value < 0x000080 (* 1 lsl  7 *) then 1 else
+    if value < 0x000800 (* 1 lsl 11 *) then 2 else
+    if value < 0x010000 (* 1 lsl 16 *) then 3 else 4
 
   let decode_character string index =
     let value, width = decode_header_byte (Char.code string.[index]) in
@@ -135,35 +126,6 @@ module UTF8_CODEC (UCS_validator : UCS_VALIDATOR) = struct
       end in
     UCS_validator.validate value;
     (value, width)
-
-  (* === Encoding === *)
-
-  let encode_header_byte width value =
-    match width with
-    | 1 -> value
-    | 2 -> value ||| 0b11000000
-    | 3 -> value ||| 0b11100000
-    | 4 -> value ||| 0b11110000
-    | _ -> raise UCS_value_out_of_range
-
-  let encode_continuation_byte value =
-    ((value &&& 0b00111111) ||| 0b10000000, value >>> 6)
-
-  let encode_character value =
-    UCS_validator.validate value;
-    let width = width_required_for_ucs_value value in
-    let b = Bytes.make width ' ' in
-    (* Start by encoding the continuation bytes in reverse order. *)
-    let rec encode_continuation_bytes remainder index =
-      if index = 0 then remainder else
-        let byte, remainder = encode_continuation_byte remainder in
-        Bytes.set b index @@ Char.chr (Int.to_int byte);
-        encode_continuation_bytes remainder (index - 1) in
-    let remainder = encode_continuation_bytes value (width - 1) in
-    (* Finish by encoding the header byte. *)
-    let byte = encode_header_byte width remainder in
-    Bytes.set b 0 @@ Char.chr (Int.to_int byte);
-    Bytes.unsafe_to_string b
 
 end
 

@@ -34,42 +34,9 @@ module type UCS_VALIDATOR = sig
   val validate : uchar -> unit
 end
 
-(** Accepts all values within the UCS character value range
- *  except those which are invalid for all UTF-8 documents. *)
-module UTF8_UCS_validator : UCS_VALIDATOR
-
 (** Accepts all values within the UCS character value range except
  *  those which are invalid for all UTF-8-encoded XML documents. *)
 module XML_UTF8_UCS_validator : UCS_VALIDATOR
-
-module UCS : sig
-  val min_value : uchar
-  val max_value : uchar
-
-  (** Returns true if and only if the given value corresponds to a UCS
-      	 *  non-character. Such non-characters are forbidden for use in open
-      	 *  interchange of Unicode text data, and include the following:
-      	 *    1. values from 0xFDD0 to 0xFDEF; and
-      	 *    2. values 0xnFFFE and 0xnFFFF, where (0x0 <= n <= 0x10).
-      	 *  See the Unicode 5.0 Standard, section 16.7 for further details. *)
-  val is_non_character : uchar -> bool
-
-  (** Returns true if and only if the given value lies outside the
-      	 *  entire UCS range. *)
-  val is_out_of_range : uchar -> bool
-
-  (** Returns true if and only if the given value corresponds to a UCS
-      	 *  surrogate code point, only for use in UTF-16 encoded strings.
-      	 *  See the Unicode 5.0 Standard, section 16.6 for further details. *)
-  val is_surrogate : uchar -> bool
-end
-
-val (+++) : uchar -> uchar -> uchar
-val (---) : uchar -> uchar -> uchar
-val (&&&) : uchar -> uchar -> uchar
-val (|||) : uchar -> uchar -> uchar
-val (<<<) : uchar -> int -> uchar
-val (>>>) : uchar -> int -> uchar
 
 module XML : sig
   (** Returns true if and only if the given value corresponds to
@@ -79,14 +46,6 @@ module XML : sig
 end
 
 (** {2 Character Codecs} *)
-
-module type CHARACTER_ENCODER = sig
-
-  (** Encodes a single character value, returning a string containing
-      	 *  the character. Raises an error if the character value is invalid. *)
-  val encode_character : uchar -> string
-
-end
 
 module type CHARACTER_DECODER = sig
   (** Decodes a single character embedded within a string. Given a string
@@ -98,68 +57,8 @@ module type CHARACTER_DECODER = sig
 end
 
 module UTF8_CODEC (UCS_validator : UCS_VALIDATOR) : sig
-  (** Given a valid UCS value, returns the canonical
-      	 *  number of bytes required to encode the value. *)
-  val width_required_for_ucs_value : uchar -> int
-
-  (** {3 Decoding} *)
-
-  (** Decodes a header byte, returning a tuple (v, w) where:
-      	 *  v = the (partial) value contained within the byte; and
-      	 *  w = the total width of the encoded character, in bytes. *)
-  val decode_header_byte : int -> int * int
-
-  (** Decodes a continuation byte, returning the
-      	 *  6-bit-wide value contained within the byte. *)
-  val decode_continuation_byte : int -> int
-
-  (** Decodes a single character embedded within a string. Given a string
-      	 *  and an index into that string, returns a tuple (value, width) where:
-      	 *    value = the value of the character at the given index; and
-      	 *    width = the width of the character at the given index, in bytes.
-      	 *  Raises an appropriate error if the character is invalid. *)
-  val decode_character : string -> int -> uchar * int
-
-  (** {3 Encoding} *)
-
-  (** Encodes a header byte for the given parameters, where:
-      	 *  width = the total width of the encoded character, in bytes;
-      	 *  value = the most significant bits of the original UCS value. *)
-  val encode_header_byte : int -> uchar -> uchar	
-
-  (** Encodes a continuation byte from the given UCS
-      	 *  remainder value, returning a tuple (b, r), where:
-      	 *  b = the continuation byte;
-      	 *  r = a new UCS remainder value. *)
-  val encode_continuation_byte : uchar -> uchar * uchar
-
-  (** Encodes a single character value, returning a string containing
-      	 *  the character. Raises an error if the character value is invalid. *)
-  val encode_character : uchar -> string
+  include CHARACTER_DECODER
 end
-
-module UTF8_codec : sig
-  val width_required_for_ucs_value : uchar -> int
-  val decode_header_byte : int -> int * int
-  val decode_continuation_byte : int -> int
-  val decode_character : string -> int -> uchar * int
-
-  val encode_header_byte : int -> uchar -> uchar
-  val encode_continuation_byte : uchar -> uchar * uchar
-  val encode_character : uchar -> string
-end
-
-module XML_UTF8_codec : sig
-  val width_required_for_ucs_value : uchar -> int
-  val decode_header_byte : int -> int * int
-  val decode_continuation_byte : int -> int
-  val decode_character : string -> int -> uchar * int
-
-  val encode_header_byte : int -> uchar -> uchar
-  val encode_continuation_byte : uchar -> uchar * uchar
-  val encode_character : uchar -> string
-end
-
 (** {2 String Validators} *)
 
 (** Provides functionality for validating and processing

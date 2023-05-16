@@ -13,7 +13,7 @@
  *)
 module E = Xapi_stdext_encodings.Encodings
 (* Pull in the infix operators from Encodings used in this test *)
-let (---), (+++), (<<<) = E.( (---), (+++), (<<<) )
+let (---), (+++), (<<<) = Int.sub, Int.add, Int.shift_left
 
 (* === Mock exceptions  ==================================================== *)
 
@@ -200,7 +200,20 @@ module String_validator = struct
 
 end
 
-module UCS = struct include E.UCS
+module UCS = struct
+  (* === Unicode Functions === *)
+  let min_value = 0x000000
+  let max_value = 0x1fffff
+
+  let is_non_character value = false
+                               || (0xfdd0 <= value && value <= 0xfdef) (* case 1 *)
+                               || (Int.logand 0xfffe value = 0xfffe) (* case 2 *)
+
+  let is_out_of_range value =
+    value < min_value || value > max_value
+
+  let is_surrogate value =
+    (0xd800 <= value && value <= 0xdfff)
 
   (** A list of UCS non-characters values, including:
       a. non-characters within the basic multilingual plane;
@@ -265,32 +278,6 @@ module XML = struct include E.XML
 
 end
 
-module UTF8_UCS_validator = struct include E.UTF8_UCS_validator
-
-  let test_validate () =
-        let value = ref (UCS.min_value --- 1) in
-        while !value <= (UCS.max_value +++ 1) do
-          if UCS.is_out_of_range !value
-          then Alcotest.check_raises "should fail"
-              E.UCS_value_out_of_range
-              (fun () -> validate !value)
-          else
-          if UCS.is_non_character !value
-          || UCS.is_surrogate     !value
-          then Alcotest.check_raises "should fail"
-              E.UCS_value_prohibited_in_UTF8
-              (fun () -> validate !value)
-          else
-            validate !value;
-          value := !value +++ 1
-        done
-
-  let tests =
-    [ "test_vaidate", `Quick, test_validate
-    ]
-
-end
-
 (** Tests the XML-specific UTF-8 UCS validation function. *)
 module XML_UTF8_UCS_validator = struct include E.XML_UTF8_UCS_validator
 
@@ -320,7 +307,7 @@ module XML_UTF8_UCS_validator = struct include E.XML_UTF8_UCS_validator
 
 end
 
-module UTF8_codec = struct include E.UTF8_codec
+module UTF8_codec = struct
 
   (** A list of canonical encoding widths of UCS values,
       represented by tuples of the form (v, w), where:
@@ -333,6 +320,11 @@ module UTF8_codec = struct include E.UTF8_codec
       (1 <<< 11, 3); ((1 <<< 16) --- 1, 3);
       (1 <<< 16, 4); ((1 <<< 21) --- 1, 4);
     ]
+    
+  let width_required_for_ucs_value value =
+    if value < 0x000080 (* 1 lsl  7 *) then 1 else
+    if value < 0x000800 (* 1 lsl 11 *) then 2 else
+    if value < 0x010000 (* 1 lsl 16 *) then 3 else 4
 
   let test_width_required_for_ucs_value () =
         List.iter
@@ -370,19 +362,6 @@ module UTF8_codec = struct include E.UTF8_codec
       0b11111110; 0b11111111;
     ]
 
-  let test_decode_header_byte_when_valid () =
-        List.iter
-          (fun (b, (v, w)) ->
-             Alcotest.(check (pair int int)) "same ints" (decode_header_byte b) (v, w))
-          valid_header_byte_decodings
-
-  let test_decode_header_byte_when_invalid () =
-        List.iter
-          (fun b ->
-             Alcotest.check_raises "should fail" E.UTF8_header_byte_invalid
-               (fun () -> decode_header_byte b |> ignore))
-          invalid_header_bytes
-
   (** A list of valid continuation byte decodings, represented
       by tuples of the form (b, v), where:
       b = a valid continuation byte; and
@@ -406,19 +385,6 @@ module UTF8_codec = struct include E.UTF8_codec
       0b11111100; 0b11111101;
       0b11111111; 0b11111110;
     ]
-
-  let test_decode_continuation_byte_when_valid () =
-        List.iter
-          (fun (byte, value) ->
-             Alcotest.(check int) "same ints" (decode_continuation_byte byte) value)
-          valid_continuation_byte_decodings
-
-  let test_decode_continuation_byte_when_invalid () =
-        List.iter
-          (fun byte ->
-             Alcotest.check_raises "should fail" E.UTF8_continuation_byte_invalid
-               (fun () -> decode_continuation_byte byte |> ignore))
-          invalid_continuation_bytes
 
   (** A list of valid character decodings represented by
       tuples of the form (s, (v, w)), where:
@@ -479,39 +445,10 @@ module UTF8_codec = struct include E.UTF8_codec
                (fun () -> Lenient_UTF8_codec.decode_character string 0 |> ignore))
           overlong_character_encodings
 
-  (** Encodes a valid UCS value and then decodes it again, testing:
-      a. that the encoded width is canonical for the given value.
-      b. that the decoded value is identical to the original value. *)
-  let test_encode_decode_cycle_for_value value =
-    let string = Lenient_UTF8_codec.encode_character value in
-    let decoded_value, decoded_width =
-      Lenient_UTF8_codec.decode_character string 0 in
-    let width = E.UTF8_codec.width_required_for_ucs_value value in
-    if (value <> decoded_value) then Alcotest.fail
-        (Printf.sprintf
-           "expected value %06x but decoded value %06x\n"
-           value decoded_value);
-    if (width <> decoded_width) then Alcotest.fail
-        (Printf.sprintf
-           "expected width %i but decoded width %i\n"
-           width decoded_width)
-
-  let test_encode_decode_cycle () =
-        let value = ref UCS.min_value in
-        while !value <= UCS.max_value do
-          test_encode_decode_cycle_for_value !value;
-          value := Int.add !value 1;
-        done
-
   let tests =
     [ "test_width_required_for_ucs_value", `Quick, test_width_required_for_ucs_value
-    ; "test_decode_header_byte_when_valid", `Quick, test_decode_header_byte_when_valid
-    ; "test_decode_header_byte_when_invalid", `Quick, test_decode_header_byte_when_invalid
-    ; "test_decode_continuation_byte_when_valid", `Quick, test_decode_continuation_byte_when_valid
-    ; "test_decode_continuation_byte_when_invalid", `Quick, test_decode_continuation_byte_when_invalid
     ; "test_decode_character_when_valid", `Quick, test_decode_character_when_valid
     ; "test_decode_character_when_overlong", `Quick, test_decode_character_when_overlong
-    ; "test_encode_decode_cycle", `Quick, test_encode_decode_cycle
     ]
 
 end
@@ -523,7 +460,6 @@ let () =
       "UCS", UCS.tests
     ; "XML", XML.tests
     ; "String_validator", String_validator.tests
-    ; "UTF8_UCS_validator", UTF8_UCS_validator.tests
     ; "XML_UTF8_UCS_validator", XML_UTF8_UCS_validator.tests
     ; "UTF8_codec", UTF8_codec.tests
     ]
