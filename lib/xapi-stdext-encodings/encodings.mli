@@ -25,13 +25,12 @@ exception UTF8_continuation_byte_invalid
 exception UTF8_encoding_not_canonical
 exception String_incomplete
 
-type uchar = int
 
 (** {2 UCS Validators} *)
 
 (** Validates UCS character values. *)
 module type UCS_VALIDATOR = sig
-  val validate : uchar -> unit
+  val validate : Uchar.t -> unit
 end
 
 (** Accepts all values within the UCS character value range except
@@ -42,7 +41,7 @@ module XML : sig
   (** Returns true if and only if the given value corresponds to
       	 *  a forbidden control character as defined in section 2.2 of
       	 *  the XML specification, version 1.0. *)
-  val is_forbidden_control_character : uchar -> bool
+  val is_forbidden_control_character : Uchar.t -> bool
 end
 
 (** {2 String Validators} *)

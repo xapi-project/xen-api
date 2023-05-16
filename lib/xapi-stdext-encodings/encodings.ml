@@ -20,40 +20,20 @@ exception UTF8_continuation_byte_invalid
 exception UTF8_encoding_not_canonical
 exception String_incomplete
 
-module Int = struct
-  include Int
-  let of_int (x:int) = x
-end
-
-type uchar = int
-
-(* === Utility Functions === *)
-
-let ( ||| ) = Int.logor
-let ( <<< ) = Int.shift_left
-
 (* === Unicode Functions === *)
 
 module UCS = struct
-
-  let min_value = 0x000000
-  let max_value = 0x1fffff
 
   let is_non_character value = false
                                || (0xfdd0 <= value && value <= 0xfdef) (* case 1 *)
                                || (Int.logand 0xfffe value = 0xfffe) (* case 2 *)
 
-  let is_out_of_range value =
-    value < min_value || value > max_value
-
-  let is_surrogate value =
-    (0xd800 <= value && value <= 0xdfff)
-
 end
 
 module XML = struct
 
-  let is_forbidden_control_character value = value < 0x20
+  let is_forbidden_control_character value = let value = Uchar.to_int value in
+                                             value < 0x20
                                              && value <> 0x09
                                              && value <> 0x0a
                                              && value <> 0x0d
@@ -64,16 +44,14 @@ end
 
 module type UCS_VALIDATOR = sig
 
-  val validate : uchar -> unit
+  val validate : Uchar.t -> unit
 
 end
 
 module UTF8_UCS_validator : UCS_VALIDATOR = struct
 
   let validate value =
-    if UCS.is_out_of_range  value then raise UCS_value_out_of_range;
-    if UCS.is_non_character value then raise UCS_value_prohibited_in_UTF8;
-    if UCS.is_surrogate     value then raise UCS_value_prohibited_in_UTF8
+    if UCS.is_non_character (Uchar.to_int value) then raise UCS_value_prohibited_in_UTF8
 
 end
 
@@ -91,37 +69,31 @@ end
 module UTF8_CODEC (UCS_validator : UCS_VALIDATOR) = struct
   (* === Decoding === *)
 
-  let decode_header_byte byte =
-    if byte land 0b10000000 = 0b00000000 then (byte               , 1) else
-    if byte land 0b11100000 = 0b11000000 then (byte land 0b0011111, 2) else
-    if byte land 0b11110000 = 0b11100000 then (byte land 0b0001111, 3) else
-    if byte land 0b11111000 = 0b11110000 then (byte land 0b0000111, 4) else
-      raise UTF8_header_byte_invalid
-
   let decode_continuation_byte byte =
     if byte land 0b11000000 = 0b10000000 then byte land 0b00111111 else
       raise UTF8_continuation_byte_invalid
 
-  let width_required_for_ucs_value value =
-    if value < 0x000080 (* 1 lsl  7 *) then 1 else
-    if value < 0x000800 (* 1 lsl 11 *) then 2 else
-    if value < 0x010000 (* 1 lsl 16 *) then 3 else 4
+  let rec decode_continuation_bytes string last value index =
+    if index <= last then
+      let chunk = decode_continuation_byte (Char.code string.[index]) in
+      let value = (value lsl 6) lor chunk in
+      decode_continuation_bytes string last value (index + 1)
+    else value
 
-  let decode_character string index =
-    let value, width = decode_header_byte (Char.code string.[index]) in
-    let value = if width = 1 then (Int.of_int value)
-      else begin
-        let value = ref (Int.of_int value) in
-        for index = index + 1 to index + width - 1 do
-          let chunk = decode_continuation_byte (Char.code string.[index]) in
-          value := (!value <<< 6) ||| (Int.of_int chunk)
-        done;
-        if width > (width_required_for_ucs_value !value)
-        then raise UTF8_encoding_not_canonical;
-        !value
-      end in
-    UCS_validator.validate value;
-    (value, width)
+  let validate_character string index =
+    let value, width =
+      let byte = Char.code string.[index] in
+      if byte land 0b10000000 = 0b00000000 then (byte               , 1) else
+      if byte land 0b11100000 = 0b11000000 then (byte land 0b0011111, 2) else
+      if byte land 0b11110000 = 0b11100000 then (byte land 0b0001111, 3) else
+      if byte land 0b11111000 = 0b11110000 then (byte land 0b0000111, 4) else
+        raise UTF8_header_byte_invalid
+    in
+    let value = if width = 1 then value
+      else decode_continuation_bytes string (index+width-1) value (index+1)
+    in
+    UCS_validator.validate (Uchar.unsafe_of_int value);
+    width
 
 end
 
@@ -143,17 +115,19 @@ exception Validation_error of int * exn
 module String_validator (Validator : UCS_VALIDATOR) : STRING_VALIDATOR = struct
   include UTF8_CODEC(Validator)
 
-  let validate string =
-    let index = ref 0 and length = String.length string in
-    begin try
-        while !index < length do
-          let _, width = decode_character string !index in
-          index := !index + width
-        done;
+  let rec validate_aux string length index =
+    if index = length then ()
+    else
+    let width =
+      try validate_character string index
       with
       | Invalid_argument _ -> raise String_incomplete
-      | error -> raise (Validation_error (!index, error))
-    end; assert (!index = length)
+      | error -> raise (Validation_error (index, error))
+    in
+    validate_aux string length (index + width)
+
+  let validate string =
+    validate_aux string (String.length string) 0
 
   let is_valid string =
     try validate string; true with _ -> false

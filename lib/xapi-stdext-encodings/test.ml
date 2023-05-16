@@ -45,10 +45,10 @@ module Failing_character_validator = struct
   let validate _ =  raise Decode_error
 end
 
-(** A decoder that succeeds for all characters except the letter 'F'. *)
+(** A validator that succeeds for all characters except the letter 'F'. *)
 module Selective_character_validator = struct
   let validate uchar =
-    if uchar = Char.code 'F' then raise Decode_error
+    if Uchar.equal uchar (Uchar.of_char 'F') then raise Decode_error
 end
 
 (* === Test helpers ======================================================== *)
@@ -72,7 +72,7 @@ let assert_raises_match exception_match fn =
 module UCS = struct
   (* === Unicode Functions === *)
   let min_value = 0x000000
-  let max_value = 0x1fffff
+  let max_value = 0x10ffff (* used to be 0x1fffff, but this changed and Unicode won't allocate larger than 0x10ffff *)
 
   let is_non_character value = false
                                || (0xfdd0 <= value && value <= 0xfdef) (* case 1 *)
@@ -244,12 +244,12 @@ end
 module XML = struct include E.XML
 
   let test_is_forbidden_control_character () =
-        assert_true  (is_forbidden_control_character (0x00));
-        assert_true  (is_forbidden_control_character (0x19));
-        assert_false (is_forbidden_control_character (0x09));
-        assert_false (is_forbidden_control_character (0x0a));
-        assert_false (is_forbidden_control_character (0x0d));
-        assert_false (is_forbidden_control_character (0x20))
+        assert_true  (is_forbidden_control_character (Uchar.of_int 0x00));
+        assert_true  (is_forbidden_control_character (Uchar.of_int 0x19));
+        assert_false (is_forbidden_control_character (Uchar.of_int 0x09));
+        assert_false (is_forbidden_control_character (Uchar.of_int 0x0a));
+        assert_false (is_forbidden_control_character (Uchar.of_int 0x0d));
+        assert_false (is_forbidden_control_character (Uchar.of_int 0x20))
 
   let tests =
       [ "test_is_forbidden_control_character", `Quick, test_is_forbidden_control_character
@@ -259,6 +259,14 @@ end
 
 (** Tests the XML-specific UTF-8 UCS validation function. *)
 module XML_UTF8_UCS_validator = struct include E.XML_UTF8_UCS_validator
+  let validate uchar =
+    if Uchar.is_valid uchar then validate @@ Uchar.of_int uchar
+    else
+      if uchar < Uchar.to_int Uchar.min
+      || uchar > Uchar.to_int Uchar.max then
+       raise E.UCS_value_out_of_range
+      else
+        raise E.UCS_value_prohibited_in_UTF8
 
   let test_validate () =
         let value = ref (UCS.min_value --- 1) in
@@ -272,7 +280,7 @@ module XML_UTF8_UCS_validator = struct include E.XML_UTF8_UCS_validator
           then Alcotest.check_raises "should fail" E.UCS_value_prohibited_in_UTF8
               (fun () -> validate !value)
           else
-          if XML.is_forbidden_control_character !value
+          if Uchar.is_valid !value && XML.is_forbidden_control_character (Uchar.of_int !value)
           then Alcotest.check_raises "should fail" E.UCS_value_prohibited_in_XML
               (fun () -> validate !value)
           else
