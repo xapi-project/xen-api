@@ -115,13 +115,6 @@ module List = struct
     | _ ->
         invalid_arg "remove"
 
-  let extract i l =
-    match rev_chop i l with
-    | rfr, h :: t ->
-        (h, rev_append rfr t)
-    | _ ->
-        invalid_arg "extract"
-
   let insert i e l =
     match rev_chop i l with rfr, ba -> rev_append rfr (e :: ba)
 
@@ -157,58 +150,6 @@ module List = struct
           aux (e :: h :: accu) e t
     in
     aux [] e l
-
-  let randomize l =
-    let extract_rand l = extract (Random.int (length l)) l in
-    let rec aux accu = function
-      | [] ->
-          accu
-      | l ->
-          (fun (h, t) -> aux (h :: accu) t) (extract_rand l)
-    in
-    aux [] l
-
-  let rec distribute e = function
-    | h :: t as l ->
-        (e :: l) :: map (fun x -> h :: x) (distribute e t)
-    | [] ->
-        [[e]]
-
-  let rec permute = function
-    | e :: rest ->
-        flatten (map (distribute e) (permute rest))
-    | [] ->
-        [[]]
-
-  let rec aux_rle_eq eq l2 x n = function
-    | [] ->
-        rev ((x, n) :: l2)
-    | h :: t when eq x h ->
-        aux_rle_eq eq l2 x (n + 1) t
-    | h :: t ->
-        aux_rle_eq eq ((x, n) :: l2) h 1 t
-
-  let rle_eq eq l = match l with [] -> [] | h :: t -> aux_rle_eq eq [] h 1 t
-
-  let rle l = rle_eq ( = ) l
-
-  let unrle l =
-    let rec aux2 accu i c =
-      match i with
-      | 0 ->
-          accu
-      | i when i > 0 ->
-          aux2 (c :: accu) (i - 1) c
-      | _ ->
-          invalid_arg "unrle"
-    in
-    let rec aux accu = function
-      | [] ->
-          rev accu
-      | (i, c) :: t ->
-          aux (aux2 accu i c) t
-    in
-    aux [] l
 
   let inner fold_left2 base f l1 l2 g =
     fold_left2 (fun accu e1 e2 -> g accu (f e1 e2)) base l1 l2

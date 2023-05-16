@@ -16,27 +16,6 @@ val finally : (unit -> 'a) -> (unit -> unit) -> 'a
 (** [finally f g] returns [f ()] guaranteeing to run clean-up actions
     [g ()] even if [f ()] throws an exception. *)
 
-val maybe_with_default : 'b -> ('a -> 'b) -> 'a option -> 'b
-  [@@ocaml.deprecated "Replace with Option.fold"]
-(** [maybe_with_default d f v] is Some [f c] if [v] is [Some c] and [d]
-    otherwise. *)
-
-val may : ('a -> 'b) -> 'a option -> 'b option
-  [@@ocaml.deprecated "Replace with Option.map"]
-(** [may f v] is Some [f c] if [v] is [Some c] and None otherwise. *)
-
-val default : 'a -> 'a option -> 'a
-  [@@ocaml.deprecated "Replace with Option.value"]
-(** [default d v] is [c] if [o] is [Some c] and d otherwise. *)
-
-val maybe : ('a -> unit) -> 'a option -> unit
-  [@@ocaml.deprecated "Replace with Option.iter"]
-(** [maybe f v] is [f c] if [v] is [Some c] and [()] otherwise. *)
-
-val reraise_if : bool -> (unit -> unit) -> unit
-  [@@ocaml.deprecated "Use ignore_exn instead"]
-(** [reraise_if bool fct] runs [fct ()]. If [not bool] ignores raised exceptions *)
-
 val ignore_exn : (unit -> unit) -> unit
 
 val ignore_int : int -> unit
@@ -50,8 +29,3 @@ val ignore_string : string -> unit
 val ignore_float : float -> unit
 
 val ignore_bool : bool -> unit
-
-val ( ++ ) : ('b -> 'c) -> ('a -> 'b) -> 'a -> 'c
-  [@@ocaml.deprecated "Not a standard idiom. Define it locally if needed."]
-val ( $ ) : ('a -> 'b) -> 'a -> 'b
-  [@@ocaml.deprecated "Not right-associative. Replace with @@"]

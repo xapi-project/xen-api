@@ -39,19 +39,9 @@ let finally fct clean_f =
   in
   clean_f () ; result
 
-let maybe_with_default d f v = Option.fold ~none:d ~some:f v
-
-let may f v = Option.map f v
-
-let default d v = Option.value ~default:d v
-
-let maybe f v = Option.iter f v
 
 (** execute fct ignoring exceptions *)
 let ignore_exn fct = try fct () with _ -> ()
-
-(** if not bool ignore exceptions raised by fct () *)
-let reraise_if bool fct = if bool then fct () else ignore_exn fct
 
 (* non polymorphic ignore function *)
 let ignore_int v =
@@ -77,10 +67,3 @@ let ignore_float v =
 let ignore_bool v =
   let (_ : bool) = v in
   ()
-
-(* To avoid some parens: *)
-(* composition of functions: *)
-let ( ++ ) f g x = f (g x)
-
-(* and application *)
-let ( $ ) f a = f a

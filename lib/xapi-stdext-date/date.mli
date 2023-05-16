@@ -79,14 +79,8 @@ val of_string : string -> t
 val never : t
 (** Same as {!epoch} *)
 
-val assert_utc : t -> unit
-  [@@deprecated
-    "assertions performed inside constructors, so this fn does nothing"]
-(** Raises an Invalid_argument exception if the given date is not a UTC date.
-    A UTC date is an ISO 8601 strings that ends with the character 'Z' *)
-
-(** Deprecated alias for {!t} *)
 type iso8601 = t
-
 (** Deprecated alias for {!t} *)
+
 type rfc822 = t
+(** Deprecated alias for {!t} *)

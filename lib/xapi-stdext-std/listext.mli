@@ -120,20 +120,6 @@ module List : sig
   (** {1 Run-length encoded lists}
       There are no known users of these functions. *)
 
-  val rle : 'a list -> ('a * int) list
-    [@@deprecated
-      "No known users, consider creating a proper datatype, this kind of list \
-       might be confused with association lists"]
-  (** Run-length encodes the given list using polimorphic equality *)
-
-  val unrle : (int * 'a) list -> 'a list
-    [@@deprecated "No known users"]
-  (** Decode a run-length encoded list. *)
-
-  val rle_eq : ('a -> 'a -> bool) -> 'a list -> ('a * int) list
-    [@@deprecated "No known users"]
-  (** [rle_eq eq l] run-length encodes [l] using [eq] *)
-
   (** {1 Generative functions}
       These are usually useful for coding challenges like Advent of Code.*)
 
@@ -147,16 +133,6 @@ module List : sig
 
   val between_tr : 'a -> 'a list -> 'a list
   (** Tail-recursive {!between}. *)
-
-  val randomize : 'a list -> 'a list [@@deprecated "Not used"]
-  (** Generate a random permutation of the given list. *)
-
-  val distribute : 'a -> 'a list -> 'a list list [@@deprecated "Not used"]
-  (** Distribute the given element over the given list, returning a list of
-      lists with the new element in each position. *)
-
-  val permute : 'a list -> 'a list list [@@deprecated "Not used"]
-  (** Generate all permutations of the given list. *)
 
   val inner :
        (('a -> 'b -> 'c -> 'd) -> 'e -> 'f -> 'g -> 'h)

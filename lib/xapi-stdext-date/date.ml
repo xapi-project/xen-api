@@ -149,8 +149,6 @@ let epoch = of_ptime Ptime.epoch
 
 let eq x y = x = y
 
-let assert_utc _ = ()
-
 let never = epoch
 
 let of_string = of_iso8601
