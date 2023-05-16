@@ -50,27 +50,36 @@ module type UCS_VALIDATOR = sig
 
 end
 
-module UTF8_UCS_validator : UCS_VALIDATOR = struct
+module UTF8_UCS_validator = struct
 
   let validate value =
     if (UCS.is_non_character[@inlined]) (Uchar.to_int value) then raise UCS_value_prohibited_in_UTF8
+    [@@inline]
 
 end
 
-module XML_UTF8_UCS_validator : UCS_VALIDATOR = struct
+module XML_UTF8_UCS_validator = struct
 
   let validate value =
-    UTF8_UCS_validator.validate value;
+    (UTF8_UCS_validator.validate[@inlined]) value;
     if (XML.is_forbidden_control_character[@inlined]) value
     then raise UCS_value_prohibited_in_XML
 
 end
 
-(* ==== Character Codecs ==== *)
+(* === String Validators === *)
 
-module UTF8_CODEC (UCS_validator : UCS_VALIDATOR) = struct
-  (* === Decoding === *)
+module type STRING_VALIDATOR = sig
 
+  val is_valid : string -> bool
+  val validate : string -> unit
+  val longest_valid_prefix : string -> string
+
+end
+
+exception Validation_error of int * exn
+
+module String_validator (UCS_validator : UCS_VALIDATOR) : STRING_VALIDATOR = struct
   let decode_continuation_byte byte =
     if byte land 0b11000000 = 0b10000000 then byte land 0b00111111 else
       raise UTF8_continuation_byte_invalid
@@ -99,25 +108,8 @@ module UTF8_CODEC (UCS_validator : UCS_VALIDATOR) = struct
     width
     [@@inline]
 
-end
-
-module     UTF8_codec = UTF8_CODEC (    UTF8_UCS_validator)
-module XML_UTF8_codec = UTF8_CODEC (XML_UTF8_UCS_validator)
-
-(* === String Validators === *)
-
-module type STRING_VALIDATOR = sig
-
-  val is_valid : string -> bool
-  val validate : string -> unit
-  val longest_valid_prefix : string -> string
-
-end
-
-exception Validation_error of int * exn
-
-module String_validator (Validator : UCS_VALIDATOR) : STRING_VALIDATOR = struct
-  include UTF8_CODEC(Validator)
+  let raise_validation_error index error = raise (Validation_error(index, error))
+  [@@inline never][@@local never][@@specialise never]
 
   let rec validate_aux string length index =
     if index = length then ()
@@ -126,7 +118,7 @@ module String_validator (Validator : UCS_VALIDATOR) : STRING_VALIDATOR = struct
       try (validate_character[@inlined]) string index
       with
       | Invalid_argument _ -> raise String_incomplete
-      | error -> raise (Validation_error (index, error))
+      | error -> raise_validation_error index error
     in
     validate_aux string length (index + width)
 
@@ -142,5 +134,4 @@ module String_validator (Validator : UCS_VALIDATOR) : STRING_VALIDATOR = struct
 
 end
 
-module UTF8     = String_validator (UTF8_UCS_validator)
 module UTF8_XML = String_validator (XML_UTF8_UCS_validator)

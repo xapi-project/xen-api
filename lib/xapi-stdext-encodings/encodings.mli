@@ -69,15 +69,6 @@ module String_validator (Decoder : UCS_VALIDATOR) : STRING_VALIDATOR
 exception Validation_error of int * exn
 
 (** Provides functions for validating and processing
- *  strings according to the UTF-8 character encoding.
- *
- *  Validly-encoded strings must satisfy RFC 3629.
- *
- *  For further information, see:
- *  http://www.rfc.net/rfc3629.html *)
-module UTF8 : STRING_VALIDATOR
-
-(** Provides functions for validating and processing
  *  strings according to the UTF-8 character encoding,
  *  with certain additional restrictions on UCS values
  *  imposed by the XML specification.
