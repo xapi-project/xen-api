@@ -27,6 +27,7 @@ module UCS = struct
   let is_non_character value = false
                                || (0xfdd0 <= value && value <= 0xfdef) (* case 1 *)
                                || (Int.logand 0xfffe value = 0xfffe) (* case 2 *)
+                               [@@inline]
 
 end
 
@@ -37,6 +38,7 @@ module XML = struct
                                              && value <> 0x09
                                              && value <> 0x0a
                                              && value <> 0x0d
+                                             [@@inline]
 
 end
 
@@ -44,14 +46,14 @@ end
 
 module type UCS_VALIDATOR = sig
 
-  val validate : Uchar.t -> unit
+  val validate : Uchar.t -> unit [@@inline]
 
 end
 
 module UTF8_UCS_validator : UCS_VALIDATOR = struct
 
   let validate value =
-    if UCS.is_non_character (Uchar.to_int value) then raise UCS_value_prohibited_in_UTF8
+    if (UCS.is_non_character[@inlined]) (Uchar.to_int value) then raise UCS_value_prohibited_in_UTF8
 
 end
 
@@ -59,7 +61,7 @@ module XML_UTF8_UCS_validator : UCS_VALIDATOR = struct
 
   let validate value =
     UTF8_UCS_validator.validate value;
-    if XML.is_forbidden_control_character value
+    if (XML.is_forbidden_control_character[@inlined]) value
     then raise UCS_value_prohibited_in_XML
 
 end
@@ -72,10 +74,11 @@ module UTF8_CODEC (UCS_validator : UCS_VALIDATOR) = struct
   let decode_continuation_byte byte =
     if byte land 0b11000000 = 0b10000000 then byte land 0b00111111 else
       raise UTF8_continuation_byte_invalid
+    [@@inline]
 
   let rec decode_continuation_bytes string last value index =
     if index <= last then
-      let chunk = decode_continuation_byte (Char.code string.[index]) in
+      let chunk = (decode_continuation_byte[@inlined]) (Char.code string.[index]) in
       let value = (value lsl 6) lor chunk in
       decode_continuation_bytes string last value (index + 1)
     else value
@@ -94,6 +97,7 @@ module UTF8_CODEC (UCS_validator : UCS_VALIDATOR) = struct
     in
     UCS_validator.validate (Uchar.unsafe_of_int value);
     width
+    [@@inline]
 
 end
 
@@ -119,7 +123,7 @@ module String_validator (Validator : UCS_VALIDATOR) : STRING_VALIDATOR = struct
     if index = length then ()
     else
     let width =
-      try validate_character string index
+      try (validate_character[@inlined]) string index
       with
       | Invalid_argument _ -> raise String_incomplete
       | error -> raise (Validation_error (index, error))
