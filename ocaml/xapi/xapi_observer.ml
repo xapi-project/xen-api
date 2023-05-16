@@ -119,6 +119,8 @@ let get_forwarder c =
   in
   (module Forwarder : ObserverInterface)
 
+module StringSet = Set.Make (String)
+
 let observed_hosts_of ~__context hosts =
   match hosts with [] -> Db.Host.get_all ~__context | hosts -> hosts
 
@@ -354,5 +356,19 @@ let set_endpoints ~__context ~self ~value =
 
 let set_components ~__context ~self ~value =
   assert_valid_components value ;
-  Db.Observer.set_components ~__context ~self ~value
-(* Will implement later, this function will set / unset providers on veraious components *)
+  let db_fn () = Db.Observer.set_components ~__context ~self ~value in
+  let host = Helpers.get_localhost ~__context in
+  let current = Db.Observer.get_components ~__context ~self in
+  let new_components = StringSet.of_list (observed_components_of value) in
+  let old_components = StringSet.of_list (observed_components_of current) in
+  let to_add = StringSet.diff new_components old_components in
+  let to_remove = StringSet.diff old_components new_components in
+  let observation_fn () =
+    StringSet.iter
+      (fun unreg -> unregister_components ~__context ~self [unreg])
+      to_remove ;
+    StringSet.iter
+      (fun reg -> register_components ~__context ~self ~host [reg])
+      to_add
+  in
+  do_set_op ~__context ~self ~observation_fn ~db_fn
