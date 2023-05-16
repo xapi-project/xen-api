@@ -208,7 +208,7 @@ let make_host2 ~__context ?(ref = Ref.make ()) ?(uuid = make_uuid ())
     ~multipathing:false ~uefi_certificates:"" ~editions:[] ~pending_guidances:[]
     ~tls_verification_enabled
     ~last_software_update:(Xapi_host.get_servertime ~__context ~host:ref)
-    ~recommended_guidances:[] ;
+    ~recommended_guidances:[] ~up_to_date:`unknown ;
   ref
 
 let make_pif ~__context ~network ~host ?(device = "eth0")

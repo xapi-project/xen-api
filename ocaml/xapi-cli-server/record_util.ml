@@ -208,6 +208,14 @@ let update_guidance_to_string = function
   | `restart_device_model ->
       "restart_device_model"
 
+let up_to_date_state_to_string = function
+  | `yes ->
+      "yes"
+  | `no ->
+      "no"
+  | `unknown ->
+      "unknown"
+
 let vdi_operation_to_string : API.vdi_operations -> string = function
   | `clone ->
       "clone"

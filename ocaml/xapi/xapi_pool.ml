@@ -1562,6 +1562,7 @@ let join_common ~__context ~master_address ~master_username ~master_password
             "Unable to set the write the new pool certificates to the disk : %s"
             (ExnHelper.string_of_exn e)
       ) ;
+      Db.Host.set_up_to_date ~__context ~self:me ~value:`unknown ;
       (* this is where we try and sync up as much state as we can
          with the master. This is "best effort" rather than
          critical; if we fail part way through this then we carry
@@ -3344,7 +3345,6 @@ let set_repositories ~__context ~self ~value =
     (fun x ->
       if not (List.mem x existings) then (
         Db.Repository.set_hash ~__context ~self:x ~value:"" ;
-        Db.Repository.set_up_to_date ~__context ~self:x ~value:false ;
         Repository.reset_updates_in_cache ()
       )
     )
@@ -3360,7 +3360,6 @@ let add_repository ~__context ~self ~value =
   if not (List.mem value existings) then (
     Db.Pool.add_repositories ~__context ~self ~value ;
     Db.Repository.set_hash ~__context ~self:value ~value:"" ;
-    Db.Repository.set_up_to_date ~__context ~self:value ~value:false ;
     Repository.reset_updates_in_cache ()
   )
 

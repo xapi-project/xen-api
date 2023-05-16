@@ -3238,6 +3238,11 @@ let host_record rpc session_id host =
               (x ()).API.host_recommended_guidances
           )
           ()
+      ; make_field ~name:"up-to-date"
+          ~get:(fun () ->
+            Record_util.up_to_date_state_to_string (x ()).API.host_up_to_date
+          )
+          ()
       ]
   }
 
@@ -5222,9 +5227,6 @@ let repository_record rpc session_id repository =
           ~get:(fun () -> string_of_bool (x ()).API.repository_update)
           ()
       ; make_field ~name:"hash" ~get:(fun () -> (x ()).API.repository_hash) ()
-      ; make_field ~name:"up-to-date"
-          ~get:(fun () -> string_of_bool (x ()).API.repository_up_to_date)
-          ()
       ; make_field ~name:"gpgkey-path"
           ~get:(fun () -> (x ()).API.repository_gpgkey_path)
           ~set:(fun x ->

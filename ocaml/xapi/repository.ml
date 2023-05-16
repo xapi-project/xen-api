@@ -250,47 +250,6 @@ let http_get_host_updates_in_json ~__context ~host ~installed =
     )
     (fun () -> Xapi_session.destroy_db_session ~__context ~self:host_session_id)
 
-let group_host_updates_by_repository ~__context enabled host updates_of_host =
-  (* Return updates grouped by repository. Example:
-   * [ ("repo-00", [u0, u1]);
-   *   ("repo-01", [u3, u4]);
-   *   ... ...
-   * ]
-   *)
-  match Yojson.Basic.Util.member "updates" updates_of_host with
-  | `List updates ->
-      List.fold_left
-        (fun acc update ->
-          let upd = Update.of_json update in
-          match
-            Db.Repository.get_by_uuid ~__context ~uuid:upd.Update.repository
-          with
-          | repository when List.mem repository enabled ->
-              append_by_key acc repository upd
-          | repository when not (List.mem repository enabled) ->
-              let msg =
-                Printf.sprintf "Found update (%s) from a disabled repository"
-                  (Update.to_string upd)
-              in
-              raise Api_errors.(Server_error (internal_error, [msg]))
-          | _ | (exception _) ->
-              let msg =
-                Printf.sprintf "Found update (%s) from an unmanaged repository"
-                  (Update.to_string upd)
-              in
-              raise Api_errors.(Server_error (internal_error, [msg]))
-        )
-        [] updates
-  | _ ->
-      let host' = Ref.string_of host in
-      error "Invalid updates from host ref='%s': No 'updates'" host' ;
-      raise Api_errors.(Server_error (get_host_updates_failed, [host']))
-  | exception e ->
-      let host' = Ref.string_of host in
-      error "Invalid updates from host ref='%s': %s" host'
-        (ExnHelper.string_of_exn e) ;
-      raise Api_errors.(Server_error (get_host_updates_failed, [host']))
-
 let parse_updateinfo ~__context ~self ~check =
   let repo_name = get_remote_repository_name ~__context ~self in
   let repo_dir = Filename.concat !Xapi_globs.local_pool_repo_dir repo_name in
@@ -333,92 +292,69 @@ let get_hosts_updates ~__context =
       Helpers.run_in_parallel ~funs ~capacity:capacity_in_parallel
   )
 
-let get_applied_livepatches_of_hosts hosts_updates =
-  List.map
-    (fun (h, updates_of_host) ->
-      let applied_livepatches =
-        get_list_from_updates_of_host "applied_livepatches" updates_of_host
-        |> List.map Livepatch.of_json
-      in
-      (h, applied_livepatches)
-    )
-    hosts_updates
+let get_applied_livepatches_of_host updates_of_host =
+  get_list_from_updates_of_host "applied_livepatches" updates_of_host
+  |> List.map Livepatch.of_json
 
-(* Group updates by repository for each host *)
-let get_updates_of_hosts ~__context enabled_repositories hosts_updates =
-  List.map
-    (fun (h, updates_of_host) ->
-      group_host_updates_by_repository ~__context enabled_repositories h
-        updates_of_host
-    )
-    hosts_updates
-
-let is_livepatchable ~__context repository applied_livepatches_of_hosts =
+let is_livepatchable ~__context repository applied_livepatches_of_host =
   let updates_info =
     parse_updateinfo ~__context ~self:repository ~check:false
   in
   List.exists
-    (fun (_, applied_livepatches) ->
-      List.exists
-        (fun lp ->
-          get_accumulative_livepatches ~since:lp ~updates_info |> function
-          | [] ->
-              false
-          | _ ->
-              true
-        )
-        applied_livepatches
+    (fun lp ->
+      get_accumulative_livepatches ~since:lp ~updates_info |> function
+      | [] ->
+          false
+      | _ ->
+          true
     )
-    applied_livepatches_of_hosts
+    applied_livepatches_of_host
 
 let set_available_updates ~__context =
   ignore (get_single_enabled_update_repository ~__context) ;
   let enabled = get_enabled_repositories ~__context in
   let hosts_updates = get_hosts_updates ~__context in
-  let applied_livepatches_of_hosts =
-    get_applied_livepatches_of_hosts hosts_updates
-  in
-  let updates_of_hosts =
-    get_updates_of_hosts ~__context enabled hosts_updates
-  in
-  (* Group updates by repository for all hosts *)
-  let updates_by_repository =
-    List.fold_left
-      (fun acc l ->
-        List.fold_left (fun acc' (x, y) -> append_by_key acc' x y) acc l
-      )
-      [] updates_of_hosts
-  in
+  List.iter
+    (fun (h, updates_of_host) ->
+      let host_pkg_updates_available =
+        match get_list_from_updates_of_host "updates" updates_of_host with
+        | [] ->
+            false
+        | _ ->
+            true
+      in
+      let up_to_date =
+        match host_pkg_updates_available with
+        | true ->
+            false
+        | false ->
+            (* No RPM packages to be updated.
+             * Find out if there are available livepatches from a update repo
+             *)
+            let update_repo =
+              get_singleton
+                (List.filter
+                   (fun repo -> Db.Repository.get_update ~__context ~self:repo)
+                   enabled
+                )
+            in
+            not
+              (is_livepatchable ~__context update_repo
+                 (get_applied_livepatches_of_host updates_of_host)
+              )
+      in
+      let up_to_date_state =
+        match up_to_date with true -> `yes | false -> `no
+      in
+      Db.Host.set_up_to_date ~__context ~self:h ~value:up_to_date_state
+    )
+    hosts_updates ;
   let checksums =
     List.filter_map
       (fun repository ->
-        let pkg_updates_available =
-          match List.assoc_opt repository updates_by_repository with
-          | Some (_ :: _) ->
-              true
-          | _ ->
-              false
-        in
         let is_update_repo =
           Db.Repository.get_update ~__context ~self:repository
         in
-        let up_to_date =
-          match (pkg_updates_available, is_update_repo) with
-          | true, _ ->
-              false
-          | false, false ->
-              true
-          | false, true ->
-              (* No RPM packages to be updated.
-               * Find out if there are available livepatches from a update repo
-               *)
-              not
-                (is_livepatchable ~__context repository
-                   applied_livepatches_of_hosts
-                )
-        in
-        Db.Repository.set_up_to_date ~__context ~self:repository
-          ~value:up_to_date ;
         if is_update_repo then (
           let repo_name =
             get_remote_repository_name ~__context ~self:repository
