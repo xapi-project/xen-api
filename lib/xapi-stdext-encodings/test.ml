@@ -50,7 +50,7 @@ module Logged_character_decoder (W : WIDTH_GENERATOR) = struct
       ignore (string.[index])
     done;
     indices := (index :: !indices);
-    0l, width
+    0, width
 
 end
 
@@ -63,7 +63,7 @@ module Logged_n_byte_character_decoder = Logged_character_decoder
 
 (** A decoder that succeeds for all characters. *)
 module Universal_character_decoder = struct
-  let decode_character _ _ = (0l, 1)
+  let decode_character _ _ = (0, 1)
 end
 
 (** A decoder that fails for all characters. *)
@@ -74,7 +74,7 @@ end
 (** A decoder that succeeds for all characters except the letter 'F'. *)
 module Selective_character_decoder = struct
   let decode_character string index =
-    if string.[index] = 'F' then raise Decode_error else (0l, 1)
+    if string.[index] = 'F' then raise Decode_error else (0, 1)
 end
 
 (* === Mock codecs ========================================================= *)
@@ -207,9 +207,9 @@ module UCS = struct include E.UCS
       b. non-characters at the end of the basic multilingual plane;
       c. non-characters at the end of the private use area. *)
   let non_characters = [
-    0x00fdd0l; 0x00fdefl; (* case a. *)
-    0x00fffel; 0x00ffffl; (* case b. *)
-    0x1ffffel; 0x1fffffl; (* case c. *)
+    0x00fdd0; 0x00fdef; (* case a. *)
+    0x00fffe; 0x00ffff; (* case b. *)
+    0x1ffffe; 0x1fffff; (* case c. *)
   ]
 
   (** A list of UCS character values located immediately before or
@@ -218,9 +218,9 @@ module UCS = struct include E.UCS
       b. non-characters at the end of the basic multilingual plane;
       c. non-characters at the end of the private use area. *)
   let valid_characters_next_to_non_characters = [
-    0x00fdcfl; 0x00fdf0l; (* case a. *)
-    0x00fffdl; 0x010000l; (* case b. *)
-    0x1ffffdl; 0x200000l; (* case c. *)
+    0x00fdcf; 0x00fdf0; (* case a. *)
+    0x00fffd; 0x010000; (* case b. *)
+    0x1ffffd; 0x200000; (* case c. *)
   ]
 
   let test_is_non_character () =
@@ -230,16 +230,16 @@ module UCS = struct include E.UCS
           valid_characters_next_to_non_characters
 
   let test_is_out_of_range () =
-        assert_true  (is_out_of_range (min_value --- 1l));
+        assert_true  (is_out_of_range (min_value --- 1));
         assert_false (is_out_of_range (min_value));
         assert_false (is_out_of_range (max_value));
-        assert_true  (is_out_of_range (max_value +++ 1l))
+        assert_true  (is_out_of_range (max_value +++ 1))
 
   let test_is_surrogate () =
-        assert_false (is_surrogate (0xd7ffl));
-        assert_true  (is_surrogate (0xd800l));
-        assert_true  (is_surrogate (0xdfffl));
-        assert_false (is_surrogate (0xe000l))
+        assert_false (is_surrogate (0xd7ff));
+        assert_true  (is_surrogate (0xd800));
+        assert_true  (is_surrogate (0xdfff));
+        assert_false (is_surrogate (0xe000))
 
   let tests =
     [ "test_is_non_character", `Quick, test_is_non_character
@@ -252,12 +252,12 @@ end
 module XML = struct include E.XML
 
   let test_is_forbidden_control_character () =
-        assert_true  (is_forbidden_control_character (0x00l));
-        assert_true  (is_forbidden_control_character (0x19l));
-        assert_false (is_forbidden_control_character (0x09l));
-        assert_false (is_forbidden_control_character (0x0al));
-        assert_false (is_forbidden_control_character (0x0dl));
-        assert_false (is_forbidden_control_character (0x20l))
+        assert_true  (is_forbidden_control_character (0x00));
+        assert_true  (is_forbidden_control_character (0x19));
+        assert_false (is_forbidden_control_character (0x09));
+        assert_false (is_forbidden_control_character (0x0a));
+        assert_false (is_forbidden_control_character (0x0d));
+        assert_false (is_forbidden_control_character (0x20))
 
   let tests =
       [ "test_is_forbidden_control_character", `Quick, test_is_forbidden_control_character
@@ -268,8 +268,8 @@ end
 module UTF8_UCS_validator = struct include E.UTF8_UCS_validator
 
   let test_validate () =
-        let value = ref (UCS.min_value --- 1l) in
-        while !value <= (UCS.max_value +++ 1l) do
+        let value = ref (UCS.min_value --- 1) in
+        while !value <= (UCS.max_value +++ 1) do
           if UCS.is_out_of_range !value
           then Alcotest.check_raises "should fail"
               E.UCS_value_out_of_range
@@ -282,7 +282,7 @@ module UTF8_UCS_validator = struct include E.UTF8_UCS_validator
               (fun () -> validate !value)
           else
             validate !value;
-          value := !value +++ 1l
+          value := !value +++ 1
         done
 
   let tests =
@@ -295,8 +295,8 @@ end
 module XML_UTF8_UCS_validator = struct include E.XML_UTF8_UCS_validator
 
   let test_validate () =
-        let value = ref (UCS.min_value --- 1l) in
-        while !value <= (UCS.max_value +++ 1l) do
+        let value = ref (UCS.min_value --- 1) in
+        while !value <= (UCS.max_value +++ 1) do
           if UCS.is_out_of_range !value
           then Alcotest.check_raises "should fail" E.UCS_value_out_of_range
               (fun () -> validate !value)
@@ -311,7 +311,7 @@ module XML_UTF8_UCS_validator = struct include E.XML_UTF8_UCS_validator
               (fun () -> validate !value)
           else
             validate !value;
-          value := !value +++ 1l
+          value := !value +++ 1
         done
 
   let tests =
@@ -328,10 +328,10 @@ module UTF8_codec = struct include E.UTF8_codec
       w = the width of the encoded character, in bytes. *)
   let valid_ucs_value_widths =
     [
-      (1l       , 1); ((1l <<<  7) --- 1l, 1);
-      (1l <<<  7, 2); ((1l <<< 11) --- 1l, 2);
-      (1l <<< 11, 3); ((1l <<< 16) --- 1l, 3);
-      (1l <<< 16, 4); ((1l <<< 21) --- 1l, 4);
+      (1       , 1); ((1 <<<  7) --- 1, 1);
+      (1 <<<  7, 2); ((1 <<< 11) --- 1, 2);
+      (1 <<< 11, 3); ((1 <<< 16) --- 1, 3);
+      (1 <<< 16, 4); ((1 <<< 21) --- 1, 4);
     ]
 
   let test_width_required_for_ucs_value () =
@@ -436,26 +436,27 @@ module UTF8_codec = struct include E.UTF8_codec
   let valid_character_decodings = [
     (*               7654321   *)
     (* 0b0xxxxxxx                                  *)  (* 00000000000000xxxxxxx   *)
-    "\x00"             (* 0b00000000                                  *), (0b000000000000000000000l, 1);
-    "\x7f"             (* 0b01111111                                  *), (0b000000000000001111111l, 1);
+    "\x00"             (* 0b00000000                                  *), (0b000000000000000000000, 1);
+    "\x7f"             (* 0b01111111                                  *), (0b000000000000001111111, 1);
     (*           10987654321   *)
     (* 0b110xxxsx 0b10xxxxxx                       *)  (* 0000000000xxxsxxxxxxx   *)
-    "\xc2\x80"         (* 0b11000010 0b10000000                       *), (0b000000000000010000000l, 2);
-    "\xdf\xbf"         (* 0b11011111 0b10111111                       *), (0b000000000011111111111l, 2);
+    "\xc2\x80"         (* 0b11000010 0b10000000                       *), (0b000000000000010000000, 2);
+    "\xdf\xbf"         (* 0b11011111 0b10111111                       *), (0b000000000011111111111, 2);
     (*      6543210987654321   *)
     (* 0b1110xxxx 0b10sxxxxx 0b10xxxxxx            *)  (*      xxxxsxxxxxxxxxxx   *)
-    "\xe0\xa0\x80"     (* 0b11100000 0b10100000 0b10000000            *), (0b000000000100000000000l, 3);
-    "\xef\xbf\xbf"     (* 0b11101111 0b10111111 0b10111111            *), (0b000001111111111111111l, 3);
+    "\xe0\xa0\x80"     (* 0b11100000 0b10100000 0b10000000            *), (0b000000000100000000000, 3);
+    "\xef\xbf\xbf"     (* 0b11101111 0b10111111 0b10111111            *), (0b000001111111111111111, 3);
     (* 109876543210987654321   *)
     (* 0b11110xxx 0b10xsxxxx 0b10xxxxxx 0b10xxxxxx *)  (* xxxxsxxxxxxxxxxxxxxxx   *)
-    "\xf0\x90\x80\x80" (* 0b11110000 0b10010000 0b10000000 0b10000000 *), (0b000010000000000000000l, 4);
-    "\xf7\xbf\xbf\xbf" (* 0b11110111 0b10111111 0b10111111 0b10111111 *), (0b111111111111111111111l, 4);
+    "\xf0\x90\x80\x80" (* 0b11110000 0b10010000 0b10000000 0b10000000 *), (0b000010000000000000000, 4);
+    "\xf7\xbf\xbf\xbf" (* 0b11110111 0b10111111 0b10111111 0b10111111 *), (0b111111111111111111111, 4);
   ]
 
+  let uchar = Alcotest.int
   let test_decode_character_when_valid () =
         List.iter
           (fun (string, (value, width)) ->
-             Alcotest.(check (pair int32 int)) "same pair"
+             Alcotest.(check (pair uchar int)) "same pair"
                (Lenient_UTF8_codec.decode_character string 0)
                (value, width))
           valid_character_decodings
@@ -488,7 +489,7 @@ module UTF8_codec = struct include E.UTF8_codec
     let width = E.UTF8_codec.width_required_for_ucs_value value in
     if (value <> decoded_value) then Alcotest.fail
         (Printf.sprintf
-           "expected value %06lx but decoded value %06lx\n"
+           "expected value %06x but decoded value %06x\n"
            value decoded_value);
     if (width <> decoded_width) then Alcotest.fail
         (Printf.sprintf
@@ -499,7 +500,7 @@ module UTF8_codec = struct include E.UTF8_codec
         let value = ref UCS.min_value in
         while !value <= UCS.max_value do
           test_encode_decode_cycle_for_value !value;
-          value := Int32.add !value 1l;
+          value := Int.add !value 1;
         done
 
   let tests =

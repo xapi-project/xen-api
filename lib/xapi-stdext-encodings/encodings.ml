@@ -20,40 +20,48 @@ exception UTF8_continuation_byte_invalid
 exception UTF8_encoding_not_canonical
 exception String_incomplete
 
+module Int = struct
+  include Int
+  let to_int (x:int) = x
+  let of_int (x:int) = x
+end
+
+type uchar = int
+
 (* === Utility Functions === *)
 
-let ( +++ ) = Int32.add
-let ( --- ) = Int32.sub
-let ( &&& ) = Int32.logand
-let ( ||| ) = Int32.logor
-let ( <<< ) = Int32.shift_left
-let ( >>> ) = Int32.shift_right_logical
+let ( +++ ) = Int.add
+let ( --- ) = Int.sub
+let ( &&& ) = Int.logand
+let ( ||| ) = Int.logor
+let ( <<< ) = Int.shift_left
+let ( >>> ) = Int.shift_right_logical
 
 (* === Unicode Functions === *)
 
 module UCS = struct
 
-  let min_value = 0x000000l
-  let max_value = 0x1fffffl
+  let min_value = 0x000000
+  let max_value = 0x1fffff
 
   let is_non_character value = false
-                               || (0xfdd0l <= value && value <= 0xfdefl) (* case 1 *)
-                               || (Int32.logand 0xfffel value = 0xfffel) (* case 2 *)
+                               || (0xfdd0 <= value && value <= 0xfdef) (* case 1 *)
+                               || (Int.logand 0xfffe value = 0xfffe) (* case 2 *)
 
   let is_out_of_range value =
     value < min_value || value > max_value
 
   let is_surrogate value =
-    (0xd800l <= value && value <= 0xdfffl)
+    (0xd800 <= value && value <= 0xdfff)
 
 end
 
 module XML = struct
 
-  let is_forbidden_control_character value = value < 0x20l
-                                             && value <> 0x09l
-                                             && value <> 0x0al
-                                             && value <> 0x0dl
+  let is_forbidden_control_character value = value < 0x20
+                                             && value <> 0x09
+                                             && value <> 0x0a
+                                             && value <> 0x0d
 
 end
 
@@ -61,7 +69,7 @@ end
 
 module type UCS_VALIDATOR = sig
 
-  val validate : int32 -> unit
+  val validate : uchar -> unit
 
 end
 
@@ -86,18 +94,18 @@ end
 (* ==== Character Codecs ==== *)
 
 module type CHARACTER_DECODER = sig
-  val decode_character : string -> int -> int32 * int
+  val decode_character : string -> int -> uchar * int
 end
 
 module type CHARACTER_ENCODER = sig
-  val encode_character : int32 -> string
+  val encode_character : uchar -> string
 end
 
 module UTF8_CODEC (UCS_validator : UCS_VALIDATOR) = struct
   let width_required_for_ucs_value value =
-    if value < 0x000080l (* 1 lsl  7 *) then 1 else
-    if value < 0x000800l (* 1 lsl 11 *) then 2 else
-    if value < 0x010000l (* 1 lsl 16 *) then 3 else 4
+    if value < 0x000080 (* 1 lsl  7 *) then 1 else
+    if value < 0x000800 (* 1 lsl 11 *) then 2 else
+    if value < 0x010000 (* 1 lsl 16 *) then 3 else 4
 
   (* === Decoding === *)
 
@@ -114,12 +122,12 @@ module UTF8_CODEC (UCS_validator : UCS_VALIDATOR) = struct
 
   let decode_character string index =
     let value, width = decode_header_byte (Char.code string.[index]) in
-    let value = if width = 1 then (Int32.of_int value)
+    let value = if width = 1 then (Int.of_int value)
       else begin
-        let value = ref (Int32.of_int value) in
+        let value = ref (Int.of_int value) in
         for index = index + 1 to index + width - 1 do
           let chunk = decode_continuation_byte (Char.code string.[index]) in
-          value := (!value <<< 6) ||| (Int32.of_int chunk)
+          value := (!value <<< 6) ||| (Int.of_int chunk)
         done;
         if width > (width_required_for_ucs_value !value)
         then raise UTF8_encoding_not_canonical;
@@ -133,13 +141,13 @@ module UTF8_CODEC (UCS_validator : UCS_VALIDATOR) = struct
   let encode_header_byte width value =
     match width with
     | 1 -> value
-    | 2 -> value ||| 0b11000000l
-    | 3 -> value ||| 0b11100000l
-    | 4 -> value ||| 0b11110000l
+    | 2 -> value ||| 0b11000000
+    | 3 -> value ||| 0b11100000
+    | 4 -> value ||| 0b11110000
     | _ -> raise UCS_value_out_of_range
 
   let encode_continuation_byte value =
-    ((value &&& 0b00111111l) ||| 0b10000000l, value >>> 6)
+    ((value &&& 0b00111111) ||| 0b10000000, value >>> 6)
 
   let encode_character value =
     UCS_validator.validate value;
@@ -149,12 +157,12 @@ module UTF8_CODEC (UCS_validator : UCS_VALIDATOR) = struct
     let rec encode_continuation_bytes remainder index =
       if index = 0 then remainder else
         let byte, remainder = encode_continuation_byte remainder in
-        Bytes.set b index @@ Char.chr (Int32.to_int byte);
+        Bytes.set b index @@ Char.chr (Int.to_int byte);
         encode_continuation_bytes remainder (index - 1) in
     let remainder = encode_continuation_bytes value (width - 1) in
     (* Finish by encoding the header byte. *)
     let byte = encode_header_byte width remainder in
-    Bytes.set b 0 @@ Char.chr (Int32.to_int byte);
+    Bytes.set b 0 @@ Char.chr (Int.to_int byte);
     Bytes.unsafe_to_string b
 
 end
