@@ -92,21 +92,26 @@ module String_validator (UCS_validator : UCS_VALIDATOR) : STRING_VALIDATOR = str
       decode_continuation_bytes string last value (index + 1)
     else value
 
-  let validate_character string index =
+  let validate_character_utf8 string byte index =
     let value, width =
-      let byte = Char.code string.[index] in
-      if byte land 0b10000000 = 0b00000000 then (byte               , 1) else
       if byte land 0b11100000 = 0b11000000 then (byte land 0b0011111, 2) else
       if byte land 0b11110000 = 0b11100000 then (byte land 0b0001111, 3) else
       if byte land 0b11111000 = 0b11110000 then (byte land 0b0000111, 4) else
         raise UTF8_header_byte_invalid
     in
-    let value = if width = 1 then value
-      else decode_continuation_bytes string (index+width-1) value (index+1)
+    let value = decode_continuation_bytes string (index+width-1) value (index+1)
     in
     UCS_validator.validate (Uchar.unsafe_of_int value);
     width
-    [@@inline]
+    [@@inline never][@@local never][@@specialise never]
+
+  let validate_character string index =
+    let byte = Char.code string.[index] in
+    if byte land 0b10000000 = 0b00000000 then begin
+      UCS_validator.validate (Uchar.unsafe_of_int byte);
+      1
+    end else validate_character_utf8 string byte index
+  [@@inline]
 
   let raise_validation_error index error = raise (Validation_error(index, error))
   [@@inline never][@@local never][@@specialise never]
