@@ -272,16 +272,16 @@ end
 
 module XML = struct include E.XML
 
-  let test_is_forbidden_control_character () =
-        assert_true  (is_forbidden_control_character (Uchar.of_int 0x00));
-        assert_true  (is_forbidden_control_character (Uchar.of_int 0x19));
-        assert_false (is_forbidden_control_character (Uchar.of_int 0x09));
-        assert_false (is_forbidden_control_character (Uchar.of_int 0x0a));
-        assert_false (is_forbidden_control_character (Uchar.of_int 0x0d));
-        assert_false (is_forbidden_control_character (Uchar.of_int 0x20))
+  let test_is_illegal_control_character () =
+        assert_true  (is_illegal_control_character (Uchar.of_int 0x00));
+        assert_true  (is_illegal_control_character (Uchar.of_int 0x19));
+        assert_false (is_illegal_control_character (Uchar.of_int 0x09));
+        assert_false (is_illegal_control_character (Uchar.of_int 0x0a));
+        assert_false (is_illegal_control_character (Uchar.of_int 0x0d));
+        assert_false (is_illegal_control_character (Uchar.of_int 0x20))
 
   let tests =
-      [ "test_is_forbidden_control_character", `Quick, test_is_forbidden_control_character
+      [ "test_is_illegal_control_character", `Quick, test_is_illegal_control_character
       ]
 
 end
@@ -309,7 +309,7 @@ module XML_UTF8_UCS_validator = struct include E.XML_UTF8_UCS_validator
           then Alcotest.check_raises "should fail" E.UCS_value_prohibited_in_UTF8
               (fun () -> validate !value)
           else
-          if Uchar.is_valid !value && XML.is_forbidden_control_character (Uchar.of_int !value)
+          if Uchar.is_valid !value && XML.is_illegal_control_character (Uchar.of_int !value)
           then Alcotest.check_raises "should fail" E.UCS_value_prohibited_in_XML
               (fun () -> validate !value)
           else

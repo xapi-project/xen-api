@@ -39,9 +39,9 @@ module XML_UTF8_UCS_validator : UCS_VALIDATOR
 
 module XML : sig
   (** Returns true if and only if the given value corresponds to
-      	 *  a forbidden control character as defined in section 2.2 of
+      	 *  a illegal control character as defined in section 2.2 of
       	 *  the XML specification, version 1.0. *)
-  val is_forbidden_control_character : Uchar.t -> bool
+  val is_illegal_control_character : Uchar.t -> bool
 end
 
 (** {2 String Validators} *)

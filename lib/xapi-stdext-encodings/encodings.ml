@@ -33,7 +33,7 @@ end
 
 module XML = struct
 
-  let is_forbidden_control_character value = let value = Uchar.to_int value in
+  let is_illegal_control_character value = let value = Uchar.to_int value in
                                              value < 0x20
                                              && value <> 0x09
                                              && value <> 0x0a
@@ -62,7 +62,7 @@ module XML_UTF8_UCS_validator = struct
 
   let validate value =
     (UTF8_UCS_validator.validate[@inlined]) value;
-    if (XML.is_forbidden_control_character[@inlined]) value
+    if (XML.is_illegal_control_character[@inlined]) value
     then raise UCS_value_prohibited_in_XML
 
 end
