@@ -1,0 +1,6 @@
+(library
+ (name vhd_format)
+ (public_name vhd-format)
+ (flags :standard -w -32-34-37)
+ (libraries stdlib-shims cstruct io-page rresult uuidm)
+ (preprocess (pps ppx_cstruct)))
