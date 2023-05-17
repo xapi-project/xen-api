@@ -2316,7 +2316,7 @@ module From_file = functor(F: S.FILE) -> struct
 
 
   (* Create a VHD stream from data on t, using `include_block` guide us which blocks have data *)
-  let vhd_from_raw t include_block =
+  let vhd_from_raw t find_data_blocks =
     let open Raw in
 
     (* The physical disk layout will be:
@@ -2346,40 +2346,40 @@ module From_file = functor(F: S.FILE) -> struct
 
     let sizeof_data = 1 lsl (header.Header.block_size_sectors_shift + sector_shift) in
 
+    let blocks = header.Header.max_table_entries in
+
+    find_data_blocks ~blocks ~block_size:(Int64.of_int sizeof_data)
+    >>= fun data_block_indices ->
+
+    (* Fill up the BAT *)
+
     (* Calculate where the first data block will go. Note the sizeof_bat is already
        rounded up to the next sector boundary. *)
     let first_block = Int64.(table_offset ++ (of_int sizeof_bat)) in
-    let next_byte = ref first_block in
-    let blocks = header.Header.max_table_entries in
-    let rec loop i =
-      if i = blocks
-      then return ()
-      else
-        include_block header i
-        >>= function
-        | true ->
-          BAT.set bat i (Int64.(to_int32(!next_byte lsr sector_shift)));
-          next_byte := Int64.(!next_byte ++ (of_int sizeof_bitmap) ++ (of_int sizeof_data));
-          loop (i+1)
-        | false ->
-          loop (i+1) in
-    loop 0
-    >>= fun () ->
+    (* A data block contains a bitmap plus data *)
+    let size_of_data_block = Int64.of_int (sizeof_bitmap + sizeof_data) in
+    let rec set_next_bat_entry next_byte = function
+      | [] -> ()
+      | i :: next_indices ->
+          (* A BAT entry contains an absolute sector offset in four bytes *)
+          BAT.set bat i (Int64.(to_int32(next_byte lsr sector_shift))) ;
+          let next_byte' = Int64.(next_byte ++ size_of_data_block) in
+          set_next_bat_entry next_byte' next_indices
+    in
+    set_next_bat_entry first_block data_block_indices ;
 
-    let write_sectors buf _from andthen =
+    (* Fill up the data blocks *)
+
+    let write_sectors buf andthen =
       return(Cons(`Sectors buf, andthen)) in
-    let rec block i andthen =
-      if i >= blocks
-      then andthen ()
-      else
-        include_block header i
-        >>= function
-        | true ->
+
+    let rec block andthen = function 
+      | [] -> andthen ()
+      | i :: next_indices ->
           let length = Int64.(shift_left 1L header.Header.block_size_sectors_shift) in
           let sector = Int64.(shift_left (of_int i) header.Header.block_size_sectors_shift) in
-          return (Cons(`Sectors bitmap, fun () -> return (Cons(`Copy(t.Raw.handle, sector, length), fun () -> block (i+1) andthen))))
-        | false ->
-          block (i + 1) andthen in
+          return (Cons(`Sectors bitmap, fun () -> return (Cons(`Copy(t.Raw.handle, sector, length), fun () -> block andthen next_indices))))
+    in
 
     assert(Footer.sizeof = 512);
     assert(Header.sizeof = 1024);
@@ -2388,14 +2388,14 @@ module From_file = functor(F: S.FILE) -> struct
     let (_: Footer.t) = Footer.marshal buf footer in
     coalesce_request None (return (Cons(`Sectors(Cstruct.sub buf 0 Footer.sizeof), fun () ->
       let (_: Header.t) = Header.marshal buf header in
-      write_sectors (Cstruct.sub buf 0 Header.sizeof) 0 (fun () ->
+      write_sectors (Cstruct.sub buf 0 Header.sizeof) (fun () ->
         return(Cons(`Empty 1L, fun () ->
           BAT.marshal buf bat;
-          write_sectors (Cstruct.sub buf 0 sizeof_bat) 0 (fun () ->
+          write_sectors (Cstruct.sub buf 0 sizeof_bat) (fun () ->
             let (_: Footer.t) = Footer.marshal buf footer in
-            block 0 (fun () ->
+            block (fun () ->
               return(Cons(`Sectors(Cstruct.sub buf 0 Footer.sizeof), fun () -> return End))
-            )
+            ) data_block_indices
           )
        ))
      )
@@ -2408,15 +2408,28 @@ module From_file = functor(F: S.FILE) -> struct
      open Raw
 
      let vhd t =
-       let include_block header i =
-         let length = Int64.(shift_left 1L (sector_shift + header.Header.block_size_sectors_shift)) in
-         let offset = Int64.(shift_left (of_int i) (sector_shift + header.Header.block_size_sectors_shift)) in
+       let include_block block_size index =
          (* is the next data byte in the next block? *)
+         let offset = Int64.(mul block_size (of_int index)) in
          F.lseek_data t.Raw.handle offset
          >>= fun data ->
-         return (Int64.add offset length > data)
+         return Int64.(add offset block_size > data)
        in
-       vhd_from_raw t include_block
+       let find_data_blocks ~blocks ~block_size =
+         let rec loop index acc =
+           if index < blocks then
+             include_block block_size index
+             >>= function
+             | true ->
+               loop (index + 1) (index :: acc)
+             | false ->
+               loop (index + 1) acc
+           else
+             return (List.rev acc)
+         in
+         loop 0 []
+       in
+       vhd_from_raw t find_data_blocks
 
      let raw t =
        F.get_file_size t.filename >>= fun bytes ->
@@ -2451,5 +2464,9 @@ module From_file = functor(F: S.FILE) -> struct
        copy 0L (bytes lsr sector_shift)
        >>= fun elements ->
        return { size; elements }
+   end
+
+   module Hybrid_raw_input = struct
+     let vhd = vhd_from_raw
    end
 end

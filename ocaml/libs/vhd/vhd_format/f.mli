@@ -507,5 +507,7 @@ module From_file : functor (F : S.FILE) -> sig
     val vhd : fd Raw.t -> fd stream t
   end
 
+  module Hybrid_raw_input : sig
+    val vhd : fd Raw.t -> (blocks:int -> block_size:Int64.t -> int list F.t) -> fd stream t
+  end
 end
-
