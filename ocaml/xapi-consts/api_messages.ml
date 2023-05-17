@@ -372,12 +372,12 @@ let updates_feature_expiring prio =
     | _ ->
         raise (InvalidMessagePrio prio)
   in
-  addMessage (Printf.sprintf "UPDATES_FEATURE_EXPIRING_PRIO_%s" prio_str) prio
+  addMessage (Printf.sprintf "UPDATES_FEATURE_EXPIRING_%s" prio_str) prio
 
-let updates_feature_expiring_prio_critical = updates_feature_expiring 1L
+let updates_feature_expiring_critical = updates_feature_expiring 1L
 
-let updates_feature_expiring_prio_major = updates_feature_expiring 2L
+let updates_feature_expiring_major = updates_feature_expiring 2L
 
-let updates_feature_expiring_prio_warning = updates_feature_expiring 3L
+let updates_feature_expiring_warning = updates_feature_expiring 3L
 
 let updates_feature_expired = addMessage "UPDATES_FEATURE_EXPIRED" 1L
