@@ -61,8 +61,6 @@ module type STRING_VALIDATOR = sig
 
 end
 
-module String_validator (Decoder : UCS_VALIDATOR) : STRING_VALIDATOR
-
 (** Represents a validation error as a tuple [(i,e)], where:
  *    [i] = the index of the first non-compliant character;
  *    [e] = the reason for non-compliance. *)

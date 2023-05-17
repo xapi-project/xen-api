@@ -79,7 +79,9 @@ end
 
 exception Validation_error of int * exn
 
-module String_validator (UCS_validator : UCS_VALIDATOR) : STRING_VALIDATOR = struct
+module UTF8_XML : STRING_VALIDATOR = struct
+  let validate = XML_UTF8_UCS_validator.validate
+
   let decode_continuation_byte byte =
     if byte land 0b11000000 = 0b10000000 then byte land 0b00111111 else
       raise UTF8_continuation_byte_invalid
@@ -101,15 +103,15 @@ module String_validator (UCS_validator : UCS_VALIDATOR) : STRING_VALIDATOR = str
     in
     let value = decode_continuation_bytes string (index+width-1) value (index+1)
     in
-    UCS_validator.validate (Uchar.unsafe_of_int value);
+    validate (Uchar.unsafe_of_int value);
     width
     [@@inline never][@@local never][@@specialise never]
     
-  let validate_byte byte = UCS_validator.validate (Uchar.unsafe_of_int byte)[@@inline]
+  let validate_byte byte = validate (Uchar.unsafe_of_int byte)[@@inline]
   
   let validate_character_utf8 string byte index =
     if byte land 0b10000000 = 0b00000000 then begin
-      UCS_validator.validate (Uchar.unsafe_of_int byte);
+      validate (Uchar.unsafe_of_int byte);
       1
     end else validate_character_long_utf8 string byte index
     [@@inline]
@@ -154,5 +156,3 @@ module String_validator (UCS_validator : UCS_VALIDATOR) : STRING_VALIDATOR = str
     with Validation_error (index, _) -> String.sub string 0 index
 
 end
-
-module UTF8_XML = String_validator (XML_UTF8_UCS_validator)

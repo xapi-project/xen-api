@@ -165,17 +165,46 @@ module Lenient_UTF8_codec = struct
 end
 
 (* === Mock string validators ============================================== *)
+module Mock_String_validator(Validator: E.UCS_VALIDATOR) : E.STRING_VALIDATOR = struct
+    (* no longer a functor in Encodings for performance reasons,
+       so modify the original string passed as argument instead replacing
+       characters that would be invalid with a known invalid XML char: 0x0B.
+    *)
+
+  let transform str =
+      let b = Buffer.create (String.length str) in
+      let rec loop pos =
+          if pos < String.length str then
+          let value, width = Lenient_UTF8_codec.decode_character str pos in
+          let () = try
+              let u = Uchar.of_int value in
+              Validator.validate u;
+              Buffer.add_utf_8_uchar b u
+          with _ -> Buffer.add_char b '\x0B'
+          in
+          loop (pos + width)
+      in
+      loop 0;
+      Buffer.contents b
+
+  let is_valid str = E.UTF8_XML.is_valid (transform str)
+  let validate str =
+      try E.UTF8_XML.validate (transform str)
+      with E.Validation_error(pos, _) ->
+          raise (E.Validation_error(pos, Decode_error))
+  let longest_valid_prefix str = E.UTF8_XML.longest_valid_prefix (transform str)
+end
 
 (** A validator that accepts all strings. *)
-module Universal_string_validator = E.String_validator
+module Universal_string_validator = Mock_String_validator
     (Universal_character_validator)
 
 (** A validator that rejects all strings. *)
-module Failing_string_validator = E.String_validator
+module Failing_string_validator = Mock_String_validator
     (Failing_character_validator)
 
 (** A validator that rejects strings containing the character 'F'. *)
-module Selective_string_validator = E.String_validator
+module Selective_string_validator = Mock_String_validator
     (Selective_character_validator)
 
 (* === Tests =============================================================== *)
