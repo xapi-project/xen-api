@@ -5797,7 +5797,10 @@ functor
           ~op:`create_vtpm
         @@ fun () -> Local.VTPM.create ~__context ~vM ~is_unique
 
-      let destroy = Local.VTPM.destroy
+      let destroy ~__context ~self =
+        let vm = Db.VTPM.get_VM ~__context ~self in
+        Local.VTPM.destroy ~__context ~self ;
+        Xapi_vm_lifecycle.update_allowed_operations ~__context ~self:vm
 
       let get_contents = Local.VTPM.get_contents
 

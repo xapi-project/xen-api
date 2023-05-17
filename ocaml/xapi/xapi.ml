@@ -1291,10 +1291,6 @@ let server_init () =
             , []
             , fun () -> Create_misc.create_pool_cpuinfo ~__context
             )
-          ; ( "writing init complete"
-            , []
-            , fun () -> Helpers.touch_file !Xapi_globs.init_complete
-            )
           ; (*      "Synchronising HA state with Pool", [ Startup.NoExnRaising ], Xapi_ha.synchronise_ha_state_with_pool; *)
             ("Starting DR redo-logs", [Startup.OnlyMaster], start_dr_redo_logs)
           ; ( "Starting SR physical utilisation scanning"
@@ -1421,6 +1417,10 @@ let server_init () =
             , fun () ->
                 Xapi_host.write_uefi_certificates_to_disk ~__context
                   ~host:(Helpers.get_localhost ~__context)
+            )
+          ; ( "writing init complete"
+            , []
+            , fun () -> Helpers.touch_file !Xapi_globs.init_complete
             )
           ] ;
         debug "startup: startup sequence finished"

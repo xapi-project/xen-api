@@ -29,10 +29,13 @@ let start_local (module D : Debug.DEBUG) ~reporter ~uid ~neg_shift ~page_count
         wait_until_next_reading
           (module D)
           ~neg_shift ~uid ~protocol ~overdue_count:!overdue_count ;
-      let payload =
-        Rrd_protocol.{timestamp= Utils.now (); datasources= dss_f ()}
-      in
-      writer.Rrd_writer_functor.write_payload payload ;
+      if page_count > 0 then
+        let payload =
+          Rrd_protocol.{timestamp= Utils.now (); datasources= dss_f ()}
+        in
+        writer.Rrd_writer_functor.write_payload payload
+      else
+        D.debug "page_count is 0: skipping payload write" ;
       Thread.delay 0.003
     in
     let cleanup () =

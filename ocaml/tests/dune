@@ -14,7 +14,7 @@
     cstruct
     dune-build-info
     fmt
-    http-svr
+    http_lib
     ipaddr
     mirage-crypto
     pam
@@ -30,7 +30,7 @@
     xapi-client
     xapi_cli_server
     xapi-consts
-    xapi-database
+    xapi_database
     xapi-datamodel
     xapi-idl
     xapi-idl.storage.interface
@@ -77,7 +77,7 @@
     xapi-client
     xapi_cli_server
     xapi-consts
-    xapi-database
+    xapi_database
     xapi-idl
     xapi-idl.cluster
     xapi-idl.storage

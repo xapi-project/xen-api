@@ -61,7 +61,7 @@ let socket sockaddr =
   Lwt_unix.socket family Unix.SOCK_STREAM 0
 
 let start_upload ~chunked ~uri =
-  Util.sockaddr_of_uri uri >>= fun (sockaddr, use_ssl) ->
+  Uri_util.sockaddr_of_uri uri >>= fun (sockaddr, use_ssl) ->
   let sock = socket sockaddr in
   Lwt.catch
     (fun () -> Lwt_unix.connect sock sockaddr)
