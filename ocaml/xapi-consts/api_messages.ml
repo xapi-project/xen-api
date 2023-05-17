@@ -356,7 +356,7 @@ let tls_verification_emergency_disabled =
 
 exception InvalidMessagePrio of int64
 
-let css_expiring prio =
+let updates_feature_expiring prio =
   let prio_str =
     match prio with
     | 1L ->
@@ -372,12 +372,12 @@ let css_expiring prio =
     | _ ->
         raise (InvalidMessagePrio prio)
   in
-  addMessage (Printf.sprintf "CSS_EXPIRING_PRIO_%s" prio_str) prio
+  addMessage (Printf.sprintf "UPDATES_FEATURE_EXPIRING_PRIO_%s" prio_str) prio
 
-let css_expiring_prio_critical = css_expiring 1L
+let updates_feature_expiring_prio_critical = updates_feature_expiring 1L
 
-let css_expiring_prio_major = css_expiring 2L
+let updates_feature_expiring_prio_major = updates_feature_expiring 2L
 
-let css_expiring_prio_warning = css_expiring 3L
+let updates_feature_expiring_prio_warning = updates_feature_expiring 3L
 
-let css_expired = addMessage "CSS_EXPIRED" 1L
+let updates_feature_expired = addMessage "UPDATES_FEATURE_EXPIRED" 1L
