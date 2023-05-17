@@ -669,9 +669,8 @@ module MD = struct
     in
     let backend_kind_keys = other_config_keys Xapi_globs.vbd_backend_key in
     let poll_duration_keys =
-      in_range ~min:0 ~max:max_int
-        ~fallback:0
-          (* if user provides invalid integer, use 0 = disable polling *)
+      in_range ~min:0 ~max:max_int ~fallback:0
+        (* if user provides invalid integer, use 0 = disable polling *)
         (other_config_keys Xapi_globs.vbd_polling_duration_key
            ~default:
              (Some (string_of_int !Xapi_globs.default_vbd3_polling_duration))

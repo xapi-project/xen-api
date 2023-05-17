@@ -8,16 +8,18 @@ build: [
   ["dune" "build" "-p" name "-j" jobs]
   ["dune" "runtest" "-p" name "-j" jobs] {with-test}
 ]
-available: [ os = "linux" ]
+available: [ os = "linux" | os = "macos" ]
 depends: [
   "ocaml"
   "dune"
   "astring"
   "base64" {>= "3.1.0"}
   "rpclib"
+  "safe-resources"
   "sha"
   "stunnel"
   "uuid"
+  "xapi-backtrace"
   "xapi-idl"
   "xapi-log"
   "xapi-stdext-date"
@@ -25,7 +27,7 @@ depends: [
   "xapi-stdext-threads"
   "xapi-stdext-unix"
   "xml-light2"
-  "ounit" {with-test & >= "2.0.0"}
+  "ounit2" {with-test & >= "2.0.0"}
 ]
 synopsis: "Library required by xapi"
 description: """

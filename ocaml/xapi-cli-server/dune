@@ -3,7 +3,8 @@
   (libraries
     astring
     base64
-    http-svr
+    http_lib
+    httpsvr
     rpclib.core
     rpclib.xml
     re
@@ -15,7 +16,7 @@
     threads.posix
     xapi-backtrace
     xapi-consts
-    xapi-database
+    xapi_database
     xapi-datamodel
     xapi-log
     xapi-types

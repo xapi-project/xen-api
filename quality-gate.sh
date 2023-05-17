@@ -14,7 +14,7 @@ list-hd () {
 }
 
 verify-cert () {
-  N=13
+  N=14
   NONE=$(git grep -r --count 'verify_cert:None' -- **/*.ml | cut -d ':' -f 2 | paste -sd+ - | bc)
   if [ "$NONE" -eq "$N" ]; then
     echo "OK counted $NONE usages of verify_cert:None"
@@ -58,7 +58,7 @@ structural-equality () {
 }
 
 vtpm-unimplemented () {
-  N=6
+  N=7
   VTPM=$(git grep -r --count 'maybe_raise_vtpm_unimplemented' -- **/*.ml | cut -d ':' -f 2 | paste -sd+ - | bc)
   if [ "$VTPM" -eq "$N" ]; then
     echo "OK found $VTPM usages of vtpm unimplemented errors"

@@ -71,7 +71,7 @@
     gencertlib
     gzip
     hex
-    http-svr
+    http_lib
     ipaddr
     message-switch-core
     message-switch-unix
@@ -114,7 +114,7 @@
     xapi-client
     xapi-cli-protocol
     xapi_cli_server
-    xapi-database
+    xapi_database
     xapi-datamodel
     xapi-idl
     xapi-idl.cluster

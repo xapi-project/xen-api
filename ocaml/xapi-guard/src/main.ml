@@ -25,9 +25,13 @@ let sockets = Hashtbl.create 127
 
 let log_fds () =
   let count stream = Lwt_stream.fold (fun _ n -> n + 1) stream 0 in
-  let* fds = Lwt_unix.files_of_directory "/proc/self/fd" |> count in
-  D.info "file descriptors in use: %d" fds ;
-  Lwt.return_unit
+  let* has = Lwt_unix.file_exists "/proc/self/fd" in
+  if has then (
+    let* fds = Lwt_unix.files_of_directory "/proc/self/fd" |> count in
+    D.info "file descriptors in use: %d" fds ;
+    Lwt.return_unit
+  ) else
+    Lwt.return_unit
 
 module Persistent = struct
   type args = {
@@ -73,17 +77,18 @@ let safe_unlink path =
       | Unix.Unix_error (Unix.ENOENT, _, _) -> Lwt.return_unit | e -> Lwt.fail e
       )
 
-(* make_json doesn't work here *)
-let rpc = Xen_api_lwt_unix.make "file:///var/lib/xcp/xapi"
-
 let cache =
-  SessionCache.create ~rpc ~login:Varstored_interface.login
-    ~logout:Varstored_interface.logout
+  Xen_api_lwt_unix.(
+    SessionCache.create_uri ~switch:Varstored_interface.shutdown
+      ~target:uri_local_json ~uname:"root" ~pwd:""
+      ~version:Varstored_interface.version
+      ~originator:Varstored_interface.originator ()
+  )
 
 let () =
   Lwt_switch.add_hook (Some Varstored_interface.shutdown) (fun () ->
       D.debug "Cleaning up cache at exit" ;
-      SessionCache.destroy cache
+      Xen_api_lwt_unix.SessionCache.destroy cache
   )
 
 let listen_for_vm {Persistent.vm_uuid; path; gid} =

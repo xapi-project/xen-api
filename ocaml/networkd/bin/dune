@@ -18,7 +18,7 @@
   astring
   dune-build-info
   forkexec
-  http-svr
+  http_lib
   integers
   netlink
   networklibs
