@@ -187,11 +187,13 @@ let console_progress_bar total_work =
 let machine_progress_bar total_work =
   let last_percent = ref (-1) in
   fun work_done ->
-    let new_percent = Int64.(to_int (div (mul work_done 100L) total_work)) in
-    if new_percent <= 100 && !last_percent <> new_percent then (
-      Printf.printf "%03d%!" new_percent ;
-      last_percent := new_percent
-    )
+    if total_work > 0L then
+      let new_percent = Int64.(to_int (div (mul work_done 100L) total_work)) in
+      if new_percent <= 100 && !last_percent <> new_percent then (
+        Printf.printf "%03d%!" new_percent ;
+        last_percent := new_percent
+      ) else
+        ()
 
 let no_progress_bar _ _ = ()
 
