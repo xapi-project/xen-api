@@ -119,4 +119,6 @@ module Export : sig
   end
 end
 
+val validate_attribute : string * string -> bool
+
 val main : unit -> Thread.t

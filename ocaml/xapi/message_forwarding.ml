@@ -629,6 +629,14 @@ functor
           Ref.string_of repository
       with _ -> "invalid"
 
+    let observer_uuid ~__context observer =
+      try
+        if Pool_role.is_master () then
+          Db.Observer.get_uuid ~__context ~self:observer
+        else
+          Ref.string_of observer
+      with _ -> "invalid"
+
     module Session = struct
       include Local.Session
 
@@ -6431,5 +6439,129 @@ functor
             Client.Repository.apply_livepatch ~rpc ~session_id ~host ~component
               ~base_build_id ~base_version ~base_release ~to_version ~to_release
         )
+    end
+
+    module Observer = struct
+      module RefSet = Set.Make (struct
+        type t = [`host] Ref.t
+
+        let compare = Ref.compare
+      end)
+
+      let create ~__context ~name_label ~name_description ~hosts ~attributes
+          ~endpoints ~components ~enabled =
+        info "Observer.create: name_label=%s" name_label ;
+        let self =
+          Local.Observer.create ~__context ~name_label ~name_description ~hosts
+            ~attributes ~endpoints ~components ~enabled
+        in
+        let local_fn =
+          Local.Observer.register ~self ~host:(Helpers.get_localhost ~__context)
+        in
+        Xapi_observer.observed_hosts_of ~__context hosts
+        |> List.iter (fun host ->
+               do_op_on ~__context ~host ~local_fn (fun session_id rpc ->
+                   Client.Observer.register ~rpc ~session_id ~self ~host
+               )
+           ) ;
+        self
+
+      let register ~__context ~self ~host =
+        info "Observer.register: self=%s" (observer_uuid ~__context self) ;
+        let local_fn = Local.Observer.register ~self ~host in
+        let client_fn session_id rpc =
+          Client.Observer.register ~rpc ~session_id ~self ~host
+        in
+        do_op_on ~__context ~host ~local_fn client_fn
+
+      let unregister ~__context ~self ~host =
+        info "Observer.unregister: self=%s" (observer_uuid ~__context self) ;
+        let local_fn = Local.Observer.unregister ~self ~host in
+        let client_fn session_id rpc =
+          Client.Observer.unregister ~rpc ~session_id ~self ~host
+        in
+        do_op_on ~__context ~host ~local_fn client_fn
+
+      let destroy ~__context ~self =
+        info "Observer.destroy: self=%s" (observer_uuid ~__context self) ;
+        let hosts = Db.Observer.get_hosts ~__context ~self in
+        let local_fn =
+          Local.Observer.register ~self ~host:(Helpers.get_localhost ~__context)
+        in
+        Xapi_observer.observed_hosts_of ~__context hosts
+        |> List.iter (fun host ->
+               do_op_on ~__context ~host ~local_fn (fun session_id rpc ->
+                   Client.Observer.unregister ~rpc ~session_id ~self ~host
+               )
+           ) ;
+        Local.Observer.destroy ~__context ~self
+
+      let set_hosts ~__context ~self ~value =
+        let uuid = observer_uuid ~__context self in
+        info "Observer.set_hosts: self=%s value=%s" uuid
+          (String.concat ";" (List.map (host_uuid ~__context) value)) ;
+        Local.Observer.set_hosts ~__context ~self ~value ;
+        let new_hosts =
+          RefSet.of_list (Xapi_observer.observed_hosts_of ~__context value)
+        in
+        let old_hosts =
+          RefSet.of_list
+            (Xapi_observer.observed_hosts_of ~__context
+               (Db.Observer.get_hosts ~__context ~self)
+            )
+        in
+        let to_add = RefSet.diff new_hosts old_hosts in
+        let to_remove = RefSet.diff old_hosts new_hosts in
+        let localhost = Helpers.get_localhost ~__context in
+        let local_fn = Local.Observer.unregister ~self ~host:localhost in
+        RefSet.iter
+          (fun host ->
+            do_op_on ~__context ~host ~local_fn (fun session_id rpc ->
+                Client.Observer.unregister ~rpc ~session_id ~self ~host
+            )
+          )
+          to_remove ;
+        let local_fn = Local.Observer.register ~self ~host:localhost in
+        RefSet.iter
+          (fun host ->
+            do_op_on ~__context ~host ~local_fn (fun session_id rpc ->
+                Client.Observer.register ~rpc ~session_id ~self ~host
+            )
+          )
+          to_add
+
+      let set_enabled ~__context ~self ~value =
+        info "Observer.set_enabled: self=%s value=%B"
+          (observer_uuid ~__context self)
+          value ;
+        let fn ~rpc ~session_id ~host:_ =
+          Client.Observer.set_enabled ~rpc ~session_id ~self ~value
+        in
+        Xapi_pool_helpers.call_fn_on_slaves_then_master ~__context fn
+
+      let set_attributes ~__context ~self ~value =
+        (* attributes will be kept out of the logs *)
+        info "Observer.set_attributes: self=%s" (observer_uuid ~__context self) ;
+        let fn ~rpc ~session_id ~host:_ =
+          Client.Observer.set_attributes ~rpc ~session_id ~self ~value
+        in
+        Xapi_pool_helpers.call_fn_on_slaves_then_master ~__context fn
+
+      let set_endpoints ~__context ~self ~value =
+        (* endpoints will be kept out of the logs *)
+        info "Observer.set_endpoints: self=%s" (observer_uuid ~__context self) ;
+        let fn ~rpc ~session_id ~host:_ =
+          Client.Observer.set_endpoints ~rpc ~session_id ~self ~value
+        in
+        Xapi_pool_helpers.call_fn_on_slaves_then_master ~__context fn
+
+      let set_components ~__context ~self ~value =
+        info "Observer.set_components: self=%s value=%s"
+          (observer_uuid ~__context self)
+          (value |> String.concat ",") ;
+        let fn ~rpc ~session_id ~host:_ =
+          Client.Observer.set_components ~rpc ~session_id ~self ~value
+        in
+        Xapi_pool_helpers.call_fn_on_slaves_then_master ~__context fn
     end
   end

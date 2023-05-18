@@ -144,6 +144,7 @@
     xapi-stdext-threads
     xapi-stdext-unix
     xapi-stdext-zerocheck
+    xapi-tracing
     xapi-xenopsd
     xenstore_transport.unix
     xml-light2

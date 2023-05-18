@@ -303,6 +303,8 @@ let _diagnostics = "Diagnostics"
 
 let _repository = "Repository"
 
+let _observer = "Observer"
+
 let update_guidances =
   Enum
     ( "update_guidances"

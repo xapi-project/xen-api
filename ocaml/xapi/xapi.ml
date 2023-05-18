@@ -1232,6 +1232,10 @@ let server_init () =
             , [Startup.OnlyMaster]
             , Create_networks.create_networks_localhost
             )
+          ; ( "Initialise Observability"
+            , [Startup.NoExnRaising]
+            , fun () -> Xapi_observer.initialise ~__context
+            )
           ; (* CA-22417: bring up all non-bond slaves so that the SM backends can use storage NIC IP addresses (if the routing
                	 table happens to be right) *)
             ( "Best-effort bring up of physical and sriov NICs"
