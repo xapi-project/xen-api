@@ -837,12 +837,20 @@ let retry common retries f =
     [destination_format] specifies the format of the returned data stream. *)
 let make_stream common source relative_to source_format destination_format =
   match (source_format, destination_format) with
-  | "nbdhybrid", "raw" -> (
+  | "nbdhybrid", _ -> (
     match split ~limit:4 ~sep:':' source with
-    | [raw; nbd_server; export_name; size] ->
+    | [raw; nbd_server; export_name; size] -> (
         let size = Int64.of_string size in
-        Vhd_format_lwt.IO.openfile raw false >>= fun raw ->
-        Nbd_input.raw raw nbd_server export_name size
+        match destination_format with
+        | "raw" ->
+            Vhd_format_lwt.IO.openfile raw false >>= fun raw ->
+            Nbd_input.raw raw nbd_server export_name size
+        | "vhd" ->
+            Raw_IO.openfile raw false >>= fun raw ->
+            Nbd_input.vhd raw nbd_server export_name size
+        | _ ->
+            assert false
+      )
     | _ ->
         fail
           (Failure
