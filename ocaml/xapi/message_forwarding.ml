@@ -58,8 +58,11 @@ let remote_rpc_no_retry _context hostname (task_opt : API.ref_task option) xml =
       , !Constants.https_port
       )
   in
+  let tracing = Context.set_client_span _context in
   let http =
-    xmlrpc ?task_id:(Option.map Ref.string_of task_opt) ~version:"1.0" "/"
+    xmlrpc
+      ?task_id:(Option.map Ref.string_of task_opt)
+      ~version:"1.0" ~tracing "/"
   in
   XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"dst_xapi" ~transport ~http xml
 
@@ -75,8 +78,11 @@ let remote_rpc_retry _context hostname (task_opt : API.ref_task option) xml =
       , !Constants.https_port
       )
   in
+  let tracing = Context.set_client_span _context in
   let http =
-    xmlrpc ?task_id:(Option.map Ref.string_of task_opt) ~version:"1.1" "/"
+    xmlrpc
+      ?task_id:(Option.map Ref.string_of task_opt)
+      ~version:"1.1" ~tracing "/"
   in
   XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"dst_xapi" ~transport ~http xml
 

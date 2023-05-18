@@ -48,10 +48,40 @@ type t = {
   ; origin: origin
   ; database: Db_ref.t
   ; dbg: string
+  ; mutable tracing: Tracing.Span.t option
   ; client: (http_t * Ipaddr.t) option
   ; mutable test_rpc: (Rpc.call -> Rpc.response) option
   ; mutable test_clusterd_rpc: (Rpc.call -> Rpc.response) option
 }
+
+let complete_tracing __context =
+  ( match Tracing.Tracer.finish __context.tracing with
+  | Ok _ ->
+      ()
+  | Error e ->
+      R.warn "Failed to complete tracing: %s" (Printexc.to_string e)
+  ) ;
+  __context.tracing <- None
+
+let complete_tracing_with_exn __context error =
+  ( match Tracing.Tracer.finish ~error __context.tracing with
+  | Ok _ ->
+      ()
+  | Error e ->
+      R.warn "Failed to complete tracing: %s" (Printexc.to_string e)
+  ) ;
+  __context.tracing <- None
+
+let tracing_of __context = __context.tracing
+
+let set_client_span __context =
+  let span =
+    Option.map
+      (fun span -> Tracing.Span.set_span_kind span Tracing.SpanKind.Client)
+      __context.tracing
+  in
+  __context.tracing <- span ;
+  span
 
 let get_session_id x =
   match x.session_id with
@@ -109,6 +139,7 @@ let get_initial () =
   ; origin= Internal
   ; database= default_database ()
   ; dbg= "initial_task"
+  ; tracing= None
   ; client= None
   ; test_rpc= None
   ; test_clusterd_rpc= None
@@ -221,6 +252,24 @@ let make_dbg http_other_config task_name task_id =
       (if task_name = "" then "" else " ")
       (Ref.really_pretty_and_small task_id)
 
+let tracing_of_origin tracer (origin : origin) task_name =
+  let open Tracing in
+  let ( let* ) = Option.bind in
+  let parent =
+    match origin with
+    | Http (req, _) ->
+        let* traceparent = req.Http.Request.traceparent in
+        let* span_context = SpanContext.of_traceparent traceparent in
+        let span = Tracer.span_of_span_context tracer span_context task_name in
+        Some span
+    | _ ->
+        None
+  in
+  let span_kind =
+    Option.fold ~none:SpanKind.Internal ~some:(fun _ -> SpanKind.Server) parent
+  in
+  (parent, span_kind)
+
 (** constructors *)
 
 let from_forwarded_task ?(http_other_config = []) ?session_id
@@ -237,6 +286,17 @@ let from_forwarded_task ?(http_other_config = []) ?session_id
   let dbg = make_dbg http_other_config task_name task_id in
   info "task %s forwarded%s" dbg
     (trackid_of_session ~with_brackets:true ~prefix:" " session_id) ;
+  let tracing =
+    let open Tracing in
+    let tracer = get_tracer ~name:task_name in
+    let parent, span_kind = tracing_of_origin tracer origin task_name in
+    match Tracer.start ~span_kind ~tracer ~name:task_name ~parent () with
+    | Ok x ->
+        x
+    | Error e ->
+        R.warn "Failed to start tracing: %s" (Printexc.to_string e) ;
+        None
+  in
   {
     session_id
   ; task_id
@@ -244,6 +304,7 @@ let from_forwarded_task ?(http_other_config = []) ?session_id
   ; origin
   ; database= default_database ()
   ; dbg
+  ; tracing
   ; client
   ; test_rpc= None
   ; test_clusterd_rpc= None
@@ -282,6 +343,17 @@ let make ?(http_other_config = []) ?(quiet = false) ?subtask_of ?session_id
             " by task " ^ make_dbg [] "" subtask_of
         )
   ) ;
+  let tracing =
+    let open Tracing in
+    let tracer = get_tracer ~name:task_name in
+    let parent, span_kind = tracing_of_origin tracer origin task_name in
+    match Tracer.start ~span_kind ~tracer ~name:task_name ~parent () with
+    | Ok x ->
+        x
+    | Error e ->
+        R.warn "Failed to start tracing: %s" (Printexc.to_string e) ;
+        None
+  in
   {
     session_id
   ; database
@@ -289,6 +361,7 @@ let make ?(http_other_config = []) ?(quiet = false) ?subtask_of ?session_id
   ; origin
   ; forwarded_task= false
   ; dbg
+  ; tracing
   ; client
   ; test_rpc= None
   ; test_clusterd_rpc= None
@@ -298,7 +371,20 @@ let make_subcontext ~__context ?task_in_database task_name =
   let session_id = __context.session_id in
   let subtask_of = __context.task_id in
   let subcontext = make ~subtask_of ?session_id ?task_in_database task_name in
-  {subcontext with client= __context.client}
+  let tracing =
+    let open Tracing in
+    Option.bind __context.tracing (fun parent ->
+        let parent = Some parent in
+        let tracer = get_tracer ~name:task_name in
+        match Tracer.start ~tracer ~name:task_name ~parent () with
+        | Ok x ->
+            x
+        | Error e ->
+            R.warn "Failed to start tracing: %s" (Printexc.to_string e) ;
+            None
+    )
+  in
+  {subcontext with client= __context.client; tracing}
 
 let get_http_other_config http_req =
   let http_other_config_hdr = "x-http-other-config-" in
@@ -361,3 +447,17 @@ let get_client_ip context =
 
 let get_user_agent context =
   match context.origin with Internal -> None | Http (rq, _) -> rq.user_agent
+
+let with_tracing context name f =
+  let open Tracing in
+  let parent = context.tracing in
+  let tracer = get_tracer ~name in
+  match Tracer.start ~tracer ~name ~parent () with
+  | Ok span ->
+      let new_context = {context with tracing= span} in
+      let result = f new_context in
+      let _ = Tracer.finish span in
+      result
+  | Error e ->
+      R.warn "Failed to start tracing: %s" (Printexc.to_string e) ;
+      f context

@@ -3282,7 +3282,8 @@ let perform ~local_fn ~__context ~host op =
     let open Xmlrpc_client in
     let verify_cert = Some Stunnel.pool (* verify! *) in
     let task_id = Option.map Ref.string_of task_opt in
-    let http = xmlrpc ?task_id ~version:"1.0" "/" in
+    let tracing = Context.set_client_span __context in
+    let http = xmlrpc ?task_id ~version:"1.0" ~tracing "/" in
     let port = !Constants.https_port in
     let transport = SSL (SSL.make ~verify_cert ?task_id (), hostname, port) in
     XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"dst_xapi" ~transport ~http xml

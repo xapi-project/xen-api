@@ -90,6 +90,7 @@ module Request : sig
     ; mutable close: bool
     ; additional_headers: (string * string) list
     ; body: string option
+    ; traceparent: string option
   }
 
   val rpc_of_t : t -> Rpc.t
@@ -112,6 +113,7 @@ module Request : sig
     -> ?content_type:string
     -> ?host:string
     -> ?query:(string * string) list
+    -> ?traceparent:string
     -> user_agent:string
     -> method_t
     -> string
@@ -229,6 +231,8 @@ module Hdr : sig
   val accept : string
 
   val location : string
+
+  val traceparent : string
 end
 
 val output_http : Unix.file_descr -> string list -> unit
