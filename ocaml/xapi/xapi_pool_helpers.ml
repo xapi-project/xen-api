@@ -321,19 +321,17 @@ module PeriodicUpdateSync = struct
         let one_day_span = Ptime.Span.of_d_ps (1, 0L) |> Option.get in
         Ptime.add_span utc_start_of_today one_day_span |> Option.get
     | `weekly ->
-        let weekday = Ptime.weekday ~tz_offset_s utc_now in
-        let weekday_num = weekday_to_int weekday in
-        let span =
-          match weekday_num < day_configed_int with
+        let days =
+          let today_wday =
+            Ptime.weekday ~tz_offset_s utc_now |> weekday_to_int
+          in
+          match today_wday < day_configed_int with
           | true ->
-              (* schedule this week *)
-              Ptime.Span.of_d_ps (day_configed_int - weekday_num, 0L)
-              |> Option.get
+              day_configed_int - today_wday
           | false ->
-              (* schedule next week *)
-              Ptime.Span.of_d_ps (day_configed_int + 7 - weekday_num, 0L)
-              |> Option.get
+              day_configed_int + 7 - today_wday
         in
+        let span = Ptime.Span.of_d_ps (days, 0L) |> Option.get in
         Ptime.add_span utc_start_of_today span |> Option.get
 
   let next_scheduled_datetime ~delay ~utc_now ~tz_offset_s =
@@ -390,19 +388,17 @@ module PeriodicUpdateSync = struct
 
   let update_sync_delay_for_retry ~num_of_retries_for_last_scheduled_update_sync
       =
+    let secs_of_an_hour = 60. *. 60. in
     let delay =
       match num_of_retries_for_last_scheduled_update_sync with
       | 1 ->
           (* a random time between 1 hour and 2 hours *)
-          let secs_of_an_hour = 60. *. 60. in
           secs_of_an_hour +. Random.float secs_of_an_hour
       | 2 ->
           (* a random time between 1 hour and 3 hours *)
-          let secs_of_an_hour = 60. *. 60. in
           secs_of_an_hour +. (Random.float 2. *. secs_of_an_hour)
       | 3 ->
           (* a random time between 1 hour and 5 hours *)
-          let secs_of_an_hour = 60. *. 60. in
           secs_of_an_hour +. (Random.float 4. *. secs_of_an_hour)
       | n ->
           raise (UpdateSync_RetryNumExceeded n)

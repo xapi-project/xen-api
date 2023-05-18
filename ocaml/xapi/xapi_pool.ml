@@ -3692,5 +3692,5 @@ let configure_update_sync ~__context ~self ~update_sync_frequency
     Xapi_pool_helpers.PeriodicUpdateSync.set_enabled ~__context ~value:true
 
 let set_update_sync_enabled ~__context ~self ~value =
-  Db.Pool.set_update_sync_enabled ~__context ~self ~value ;
-  Xapi_pool_helpers.PeriodicUpdateSync.set_enabled ~__context ~value
+  Xapi_pool_helpers.PeriodicUpdateSync.set_enabled ~__context ~value ;
+  Db.Pool.set_update_sync_enabled ~__context ~self ~value
