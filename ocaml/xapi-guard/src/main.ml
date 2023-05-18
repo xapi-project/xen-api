@@ -211,6 +211,7 @@ let make_message_switch_server () =
 let main log_level =
   Debug.set_level log_level ;
   Debug.set_facility Syslog.Local5 ;
+  Debug.init_logs () ;
 
   let old_hook = !Lwt.async_exception_hook in
   (Lwt.async_exception_hook :=
