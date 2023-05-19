@@ -666,6 +666,14 @@ let assert_enough_pcpus ~__context ~self ~host ?remote () =
             (host_not_enough_pcpus, List.map Int64.to_string [vcpus; pcpus])
         )
 
+let assert_no_legacy_vgpu ~__context ~vm =
+  Db.VM.get_VGPUs ~__context ~self:vm
+  |> List.map (fun self -> Db.VGPU.get_type ~__context ~self)
+  |> List.iter (fun self -> Xapi_vgpu_type.assert_not_legacy ~__context ~self)
+
+let assert_no_legacy_hardware ~__context ~vm =
+  assert_no_legacy_vgpu ~__context ~vm
+
 (** Checks to see if a VM can boot on a particular host, throws an error if not.
  * Criteria:
     - The host must support the VM's required Virtual Hardware Platform version.
@@ -692,6 +700,7 @@ let assert_can_boot_here ~__context ~self ~host ~snapshot ~do_cpuid_check
     ?(do_sr_check = true) ?(do_memory_check = true) () =
   debug "Checking whether VM %s can run on host %s" (Ref.string_of self)
     (Ref.string_of host) ;
+  assert_no_legacy_hardware ~__context ~vm:self ;
   validate_basic_parameters ~__context ~self ~snapshot ;
   assert_host_is_live ~__context ~host ;
   assert_matches_control_domain_affinity ~__context ~self ~host ;
@@ -716,6 +725,7 @@ let assert_can_boot_here ~__context ~self ~host ~snapshot ~do_cpuid_check
   if vm_needs_iommu ~__context ~self then
     assert_host_has_iommu ~__context ~host ;
   (* Assumption: a VM can have only one vGPU *)
+  assert_no_legacy_vgpu ~__context ~vm:self ;
   if has_non_allocated_vgpus ~__context ~self then
     assert_gpus_available ~__context ~self ~host ;
   assert_usbs_available ~__context ~self ~host ;

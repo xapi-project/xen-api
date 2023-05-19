@@ -1684,6 +1684,7 @@ let migration_type ~__context ~remote =
 
 let assert_can_migrate ~__context ~vm ~dest ~live:_ ~vdi_map ~vif_map ~options
     ~vgpu_map =
+  Xapi_vm_helpers.assert_no_legacy_hardware ~__context ~vm ;
   assert_licensed_storage_motion ~__context ;
   let remote = remote_of_dest ~__context dest in
   let force =

@@ -456,6 +456,9 @@ let xapi_extensions_root = ref "/etc/xapi.d/extensions"
 
 let host_operations_miami = [`evacuate; `provision]
 
+(* Whether still support intel gvt-g vGPU *)
+let gvt_g_supported = ref true
+
 let rpu_allowed_vm_operations =
   [
     `assert_operation_valid
@@ -1225,6 +1228,11 @@ let other_options =
     , Arg.Set_string gvt_g_whitelist
     , (fun () -> !gvt_g_whitelist)
     , "path to the GVT-g whitelist file"
+    )
+  ; ( "gvt-g-supported"
+    , Arg.Set gvt_g_supported
+    , (fun () -> string_of_bool !gvt_g_supported)
+    , "indicates that this server still support intel gvt_g vGPU"
     )
   ; ( "mxgpu-whitelist"
     , Arg.Set_string mxgpu_whitelist
