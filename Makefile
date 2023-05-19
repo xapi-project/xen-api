@@ -138,6 +138,7 @@ install: build doc sdk doc-json
 # xcp-rrdd
 	install -D _build/install/default/bin/xcp-rrdd $(DESTDIR)/usr/sbin/xcp-rrdd
 	install -D _build/install/default/bin/rrddump $(DESTDIR)/usr/bin/rrddump
+	install -D -m 644 ocaml/xcp-rrdd/scripts/rrdd/rrdd.py $(DESTDIR)/usr/lib/python2.7/site-packages
 # rrd-transport
 	install -D _build/install/default/bin/rrdreader $(DESTDIR)/usr/bin/rrdreader
 	install -D _build/install/default/bin/rrdwriter $(DESTDIR)/usr/bin/rrdwriter
