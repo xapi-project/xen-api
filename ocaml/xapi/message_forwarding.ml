@@ -6492,7 +6492,8 @@ functor
         info "Observer.destroy: self=%s" (observer_uuid ~__context self) ;
         let hosts = Db.Observer.get_hosts ~__context ~self in
         let local_fn =
-          Local.Observer.register ~self ~host:(Helpers.get_localhost ~__context)
+          Local.Observer.unregister ~self
+            ~host:(Helpers.get_localhost ~__context)
         in
         Xapi_observer.observed_hosts_of ~__context hosts
         |> List.iter (fun host ->
@@ -6540,24 +6541,36 @@ functor
         info "Observer.set_enabled: self=%s value=%B"
           (observer_uuid ~__context self)
           value ;
-        let fn ~rpc ~session_id ~host:_ =
+        let client_fn session_id rpc =
           Client.Observer.set_enabled ~rpc ~session_id ~self ~value
+        in
+        let local_fn = Local.Observer.set_enabled ~self ~value in
+        let fn ~rpc:_ ~session_id:_ ~host =
+          do_op_on ~__context ~host ~local_fn client_fn
         in
         Xapi_pool_helpers.call_fn_on_slaves_then_master ~__context fn
 
       let set_attributes ~__context ~self ~value =
         (* attributes will be kept out of the logs *)
         info "Observer.set_attributes: self=%s" (observer_uuid ~__context self) ;
-        let fn ~rpc ~session_id ~host:_ =
+        let client_fn session_id rpc =
           Client.Observer.set_attributes ~rpc ~session_id ~self ~value
+        in
+        let local_fn = Local.Observer.set_attributes ~self ~value in
+        let fn ~rpc:_ ~session_id:_ ~host =
+          do_op_on ~__context ~host ~local_fn client_fn
         in
         Xapi_pool_helpers.call_fn_on_slaves_then_master ~__context fn
 
       let set_endpoints ~__context ~self ~value =
         (* endpoints will be kept out of the logs *)
         info "Observer.set_endpoints: self=%s" (observer_uuid ~__context self) ;
-        let fn ~rpc ~session_id ~host:_ =
+        let client_fn session_id rpc =
           Client.Observer.set_endpoints ~rpc ~session_id ~self ~value
+        in
+        let local_fn = Local.Observer.set_endpoints ~self ~value in
+        let fn ~rpc:_ ~session_id:_ ~host =
+          do_op_on ~__context ~host ~local_fn client_fn
         in
         Xapi_pool_helpers.call_fn_on_slaves_then_master ~__context fn
 
@@ -6565,8 +6578,12 @@ functor
         info "Observer.set_components: self=%s value=%s"
           (observer_uuid ~__context self)
           (value |> String.concat ",") ;
-        let fn ~rpc ~session_id ~host:_ =
+        let client_fn session_id rpc =
           Client.Observer.set_components ~rpc ~session_id ~self ~value
+        in
+        let local_fn = Local.Observer.set_components ~self ~value in
+        let fn ~rpc:_ ~session_id:_ ~host =
+          do_op_on ~__context ~host ~local_fn client_fn
         in
         Xapi_pool_helpers.call_fn_on_slaves_then_master ~__context fn
     end
