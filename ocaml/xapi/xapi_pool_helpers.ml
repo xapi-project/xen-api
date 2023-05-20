@@ -408,66 +408,21 @@ module PeriodicUpdateSync = struct
     print_next_schedule ~delay ~utc_now ~tz_offset_s ;
     delay
 
-  let rec update_sync ~num_of_retries_for_last_scheduled_update_sync =
+  let rec update_sync () =
     Server_helpers.exec_with_new_task "periodic_update_sync" (fun __context ->
         Helpers.call_api_functions ~__context (fun rpc session_id ->
-            if num_of_retries_for_last_scheduled_update_sync > 0 then
-              debug "[PeriodicUpdateSync] number of retries: %d"
-                num_of_retries_for_last_scheduled_update_sync ;
-            try
-              ignore
-                (Client.Pool.sync_updates ~rpc ~session_id
-                   ~self:(Helpers.get_pool ~__context)
-                   ~force:false ~token:"" ~token_id:""
-                ) ;
-              Xapi_periodic_scheduler.add_to_queue
-                periodic_update_sync_task_name Xapi_periodic_scheduler.OneShot
-                (update_sync_delay_for_next_schedule ~__context) (fun () ->
-                  update_sync ~num_of_retries_for_last_scheduled_update_sync:0
-              )
-            with _ ->
-              (* retry at most 3 times for each scheduled update sync *)
-              if num_of_retries_for_last_scheduled_update_sync < 3 then
-                try
-                  let num_str =
-                    match num_of_retries_for_last_scheduled_update_sync + 1 with
-                    | 1 ->
-                        "first"
-                    | 2 ->
-                        "second"
-                    | 3 ->
-                        "third"
-                    | n ->
-                        raise (UpdateSync_RetryNumExceeded n)
-                  in
-                  debug
-                    "[PeriodicUpdateSync] pool.sync_updates failed, will retry \
-                     the %s time"
-                    num_str ;
-
-                  Xapi_periodic_scheduler.add_to_queue
-                    periodic_update_sync_task_name
-                    Xapi_periodic_scheduler.OneShot
-                    (update_sync_delay_for_retry
-                       ~num_of_retries_for_last_scheduled_update_sync:
-                         (num_of_retries_for_last_scheduled_update_sync + 1)
-                    )
-                    (fun () ->
-                      update_sync
-                        ~num_of_retries_for_last_scheduled_update_sync:
-                          (num_of_retries_for_last_scheduled_update_sync + 1)
-                    )
-                with UpdateSync_RetryNumExceeded n ->
-                  error
-                    "number of update sync retries error: %d, only retry 3 \
-                     times"
-                    n
-              else (* stop retrying, schedule update sync in the next period *)
-                Xapi_periodic_scheduler.add_to_queue
-                  periodic_update_sync_task_name Xapi_periodic_scheduler.OneShot
-                  (update_sync_delay_for_next_schedule ~__context) (fun () ->
-                    update_sync ~num_of_retries_for_last_scheduled_update_sync:0
-                )
+            ( try
+                ignore
+                  (Client.Pool.sync_updates ~rpc ~session_id
+                     ~self:(Helpers.get_pool ~__context)
+                     ~force:false ~token:"" ~token_id:""
+                  )
+              with _ -> warn "Periodic update sync failed"
+            ) ;
+            Xapi_periodic_scheduler.add_to_queue periodic_update_sync_task_name
+              Xapi_periodic_scheduler.OneShot
+              (update_sync_delay_for_next_schedule ~__context)
+              update_sync
         )
     )
 
@@ -477,9 +432,8 @@ module PeriodicUpdateSync = struct
       Xapi_periodic_scheduler.remove_from_queue periodic_update_sync_task_name ;
       Xapi_periodic_scheduler.add_to_queue periodic_update_sync_task_name
         Xapi_periodic_scheduler.OneShot
-        (update_sync_delay_for_next_schedule ~__context) (fun () ->
-          update_sync ~num_of_retries_for_last_scheduled_update_sync:0
-      )
+        (update_sync_delay_for_next_schedule ~__context)
+        update_sync
     ) else
       Xapi_periodic_scheduler.remove_from_queue periodic_update_sync_task_name
 end
