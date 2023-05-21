@@ -119,4 +119,4 @@ let register ~__context =
     && Db.Pool.get_update_sync_enabled ~__context
          ~self:(Helpers.get_pool ~__context)
   then
-    Xapi_pool_helpers.PeriodicUpdateSync.set_enabled ~__context ~value:true
+    Pool_periodic_update_sync.set_enabled ~__context ~value:true
