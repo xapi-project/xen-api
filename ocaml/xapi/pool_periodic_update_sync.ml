@@ -30,13 +30,7 @@ let seconds_random_within_a_day () =
     secs_random
 
 let frequency_to_str ~frequency =
-  match frequency with
-  | `daily ->
-      "daily"
-  | `monthly ->
-      "monthly"
-  | `weekly ->
-      "weekly"
+  match frequency with `daily -> "daily" | `weekly -> "weekly"
 
 let weekday_to_int = function
   | `Sun ->
