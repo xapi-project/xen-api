@@ -331,13 +331,21 @@ let update_getty () =
 let set_gateway ~__context ~pif ~bridge =
   let dbg = Context.string_of_task __context in
   try
-    if Net.Interface.exists dbg bridge then
-      match Net.Interface.get_ipv4_gateway dbg bridge with
+    if Net.Interface.exists dbg bridge then (
+      ( match Net.Interface.get_ipv4_gateway dbg bridge with
       | Some addr ->
           Db.PIF.set_gateway ~__context ~self:pif
             ~value:(Unix.string_of_inet_addr addr)
       | None ->
           ()
+      ) ;
+      match Net.Interface.get_ipv6_gateway dbg bridge with
+      | Some addr ->
+          Db.PIF.set_ipv6_gateway ~__context ~self:pif
+            ~value:(Unix.string_of_inet_addr addr)
+      | None ->
+          ()
+    )
   with _ ->
     warn "Unable to get the gateway of PIF %s (%s)" (Ref.string_of pif) bridge
 

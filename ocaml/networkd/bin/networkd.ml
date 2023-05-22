@@ -185,6 +185,7 @@ let bind () =
   S.Interface.set_ipv4_conf Interface.set_ipv4_conf ;
   S.Interface.get_ipv4_gateway Interface.get_ipv4_gateway ;
   S.Interface.get_ipv6_addr Interface.get_ipv6_addr ;
+  S.Interface.get_ipv6_gateway Interface.get_ipv6_gateway ;
   S.Interface.get_dns Interface.get_dns ;
   S.Interface.get_mtu Interface.get_mtu ;
   S.Interface.get_capabilities Interface.get_capabilities ;

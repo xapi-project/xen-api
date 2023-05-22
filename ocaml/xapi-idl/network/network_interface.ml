@@ -433,6 +433,16 @@ module Interface_API (R : RPC) = struct
       declare "Interface.get_ipv6_addr" ["Get IPv6 address"]
         (debug_info_p @-> iface_name_p @-> returning result err)
 
+    let get_ipv6_gateway =
+      let module T = struct
+        type _inet_addr_opt_t = Unix.inet_addr option [@@deriving rpcty]
+      end in
+      let result =
+        Param.mk ~description:["gateway address if exists"] T._inet_addr_opt_t
+      in
+      declare "Interface.get_ipv6_gateway" ["Get IPv6 gateway"]
+        (debug_info_p @-> iface_name_p @-> returning result err)
+
     let get_dns =
       let module T = struct
         type _dns_info_t = Unix.inet_addr list * string list [@@deriving rpcty]
