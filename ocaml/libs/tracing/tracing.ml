@@ -143,6 +143,7 @@ module Span = struct
             ("exception.message", msg)
           ; ("exception.stacktrace", stacktrace)
           ; ("exception.type", exn_type)
+          ; ("error", "true")
           ]
         in
         match span.status.status_code with
