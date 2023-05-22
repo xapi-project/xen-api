@@ -19,6 +19,8 @@ open Client
 
 let periodic_update_sync_task_name = "Periodic update synchronization"
 
+let update_sync_minimum_interval = 60. *. 60. *. 2.
+
 exception UpdateSync_RetryNumExceeded of int
 
 let seconds_random_within_a_day () =
@@ -94,7 +96,10 @@ let update_sync_delay_for_next_schedule_internal ~utc_now
   let utc_next_schedule =
     Ptime.add_span utc_start_of_next_sched_day random_span |> Option.get
   in
-  Ptime.diff utc_next_schedule utc_now |> Ptime.Span.to_float_s
+  let calc_delay =
+    Ptime.diff utc_next_schedule utc_now |> Ptime.Span.to_float_s
+  in
+  Float.max calc_delay update_sync_minimum_interval
 
 let update_sync_delay_for_next_schedule ~__context =
   let frequency =
