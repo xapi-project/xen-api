@@ -153,8 +153,17 @@ let assert_valid_endpoints endpoints =
         true
     | url -> (
       try
-        let _ = Uri.of_string url in
-        true
+        let uri = Uri.of_string url in
+        let scheme = Uri.scheme uri in
+        let host = Uri.host uri in
+        (scheme = Some "http" || scheme = Some "https")
+        &&
+        match host with
+        | Some host ->
+            Result.is_ok (Ipaddr.of_string host)
+            || Result.is_ok (Domain_name.of_string host)
+        | _ ->
+            false
       with _ -> false
     )
   in
