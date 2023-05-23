@@ -21,7 +21,9 @@ module D = Debug.Make (struct let name = "varstored-guard" end)
 
 let ret v = Lwt.bind v Lwt.return_ok |> Rpc_lwt.T.put
 
-let sockets = Hashtbl.create 127
+type ty = Varstored | Swtpm [@@deriving rpcty]
+
+let ty_to_string = function Varstored -> "Varstored" | Swtpm -> "Swtpm"
 
 let log_fds () =
   let count stream = Lwt_stream.fold (fun _ n -> n + 1) stream 0 in
@@ -38,6 +40,7 @@ module Persistent = struct
       vm_uuid: Varstore_privileged_interface.Uuidm.t
     ; path: string
     ; gid: int
+    ; typ: ty
   }
   [@@deriving rpcty]
 
@@ -62,12 +65,17 @@ module Persistent = struct
       Lwt.return_nil
 end
 
+let sockets = Hashtbl.create 127
+
 let recover_path = "/run/nonpersistent/varstored-guard-active.json"
 
 let store_args sockets =
-  Hashtbl.fold
-    (fun path (_, (vm_uuid, gid)) acc -> {Persistent.vm_uuid; path; gid} :: acc)
-    sockets []
+  sockets
+  |> Hashtbl.to_seq
+  |> Seq.map (fun (path, (_, (vm_uuid, gid, typ))) ->
+         Persistent.{vm_uuid; path; gid; typ}
+     )
+  |> List.of_seq
   |> Persistent.saveto recover_path
 
 let safe_unlink path =
@@ -90,23 +98,31 @@ let () =
       Xen_api_lwt_unix.SessionCache.destroy cache
   )
 
-let listen_for_vm {Persistent.vm_uuid; path; gid} =
+let listen_for_vm {Persistent.vm_uuid; path; gid; typ} =
+  let make_server =
+    match typ with
+    | Varstored ->
+        make_server_varstored
+    | Swtpm ->
+        make_server_vtpm_rest
+  in
   let vm_uuid_str = Uuidm.to_string vm_uuid in
-  D.debug "resume: listening on socket %s for VM %s" path vm_uuid_str ;
+  D.debug "%s: listening for %s on socket %s for VM %s" __FUNCTION__
+    (ty_to_string typ) path vm_uuid_str ;
   let* () = safe_unlink path in
-  let* stop_server = make_server_rpcfn ~cache path vm_uuid_str in
+  let* stop_server = make_server ~cache path vm_uuid_str in
   let* () = log_fds () in
-  Hashtbl.add sockets path (stop_server, (vm_uuid, gid)) ;
+  Hashtbl.add sockets path (stop_server, (vm_uuid, gid, typ)) ;
   let* () = Lwt_unix.chmod path 0o660 in
   Lwt_unix.chown path 0 gid
 
 let resume () =
   let* vms = Persistent.loadfrom recover_path in
   let+ () = Lwt_list.iter_p listen_for_vm vms in
-  D.debug "resume completed"
+  D.debug "%s: completed" __FUNCTION__
 
 (* caller here is trusted (xenopsd through message-switch *)
-let depriv_create dbg vm_uuid gid path =
+let depriv_varstored_create dbg vm_uuid gid path =
   if Hashtbl.mem sockets path then
     Lwt.return_error
       (Varstore_privileged_interface.InternalError
@@ -118,11 +134,11 @@ let depriv_create dbg vm_uuid gid path =
     @@
     ( D.debug "[%s] creating deprivileged socket at %s, owned by group %d" dbg
         path gid ;
-      let* () = listen_for_vm {Persistent.path; vm_uuid; gid} in
+      let* () = listen_for_vm {Persistent.path; vm_uuid; gid; typ= Varstored} in
       store_args sockets
     )
 
-let depriv_destroy dbg gid path =
+let depriv_varstored_destroy dbg gid path =
   D.debug "[%s] stopping server for gid %d and path %s" dbg gid path ;
   ret
   @@
@@ -139,6 +155,48 @@ let depriv_destroy dbg gid path =
       let* () = Lwt.finalize stop_server finally in
       D.debug "[%s] stopped server for gid %d and removed socket" dbg gid ;
       Lwt.return_unit
+
+let depriv_swtpm_create dbg vm_uuid gid path =
+  if Hashtbl.mem sockets path then
+    Lwt.return_error
+      (Varstore_privileged_interface.InternalError
+         (Printf.sprintf "Path %s is already in use" path)
+      )
+    |> Rpc_lwt.T.put
+  else
+    ret
+    @@
+    ( D.debug "[%s] creating deprivileged socket at %s, owned by group %d" dbg
+        path gid ;
+      let* () = listen_for_vm {Persistent.path; vm_uuid; gid; typ= Swtpm} in
+      store_args sockets
+    )
+
+let depriv_swtpm_destroy dbg gid path =
+  D.debug "[%s] stopping server for gid %d and path %s" dbg gid path ;
+  ret
+  @@
+  match Hashtbl.find_opt sockets path with
+  | None ->
+      D.warn "[%s] asked to swtpm stop server for path %s, but it doesn't exist"
+        dbg path ;
+      Lwt.return_unit
+  | Some (stop_server, (_, _, Swtpm)) ->
+      let finally () =
+        let+ () = safe_unlink path in
+        Hashtbl.remove sockets path
+      in
+      let* () = Lwt.finalize stop_server finally in
+      D.debug "[%s] stopped swtpm server for gid %d and removed socket" dbg gid ;
+      Lwt.return_unit
+  | Some _ ->
+      D.warn
+        "[%s] asked to stop swtpm server for path %s, but it's not an swtpm \
+         server"
+        dbg path ;
+      Lwt.return_unit
+
+(* TODO: these 2 APIs need to be updated to go through the generic interface *)
 
 let vtpm_set_contents dbg vtpm_uuid contents =
   let open Xen_api_lwt_unix in
@@ -164,8 +222,10 @@ let vtpm_get_contents _dbg vtpm_uuid =
 let rpc_fn =
   let module Server = Varstore_privileged_interface.RPC_API (Rpc_lwt.GenServer ()) in
   (* bind APIs *)
-  Server.create depriv_create ;
-  Server.destroy depriv_destroy ;
+  Server.varstore_create depriv_varstored_create ;
+  Server.varstore_destroy depriv_varstored_destroy ;
+  Server.vtpm_create depriv_swtpm_create ;
+  Server.vtpm_destroy depriv_swtpm_destroy ;
   Server.vtpm_set_contents vtpm_set_contents ;
   Server.vtpm_get_contents vtpm_get_contents ;
   Rpc_lwt.server Server.implementation

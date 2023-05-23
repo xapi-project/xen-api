@@ -202,10 +202,10 @@ module Varstored : GUARD = struct
   let base_directory = "/var/run/xen"
 
   let create dbg ~vm_uuid ~domid ~path =
-    Varstore_privileged_client.Client.create dbg vm_uuid domid path
+    Varstore_privileged_client.Client.varstore_create dbg vm_uuid domid path
 
   let destroy dbg ~domid ~path =
-    Varstore_privileged_client.Client.destroy dbg domid path
+    Varstore_privileged_client.Client.varstore_destroy dbg domid path
 end
 
 module Swtpm : GUARD = struct
@@ -216,10 +216,10 @@ module Swtpm : GUARD = struct
   let base_directory = "/var/lib/xcp/run"
 
   let create dbg ~vm_uuid ~domid ~path =
-    Varstore_privileged_client.Client.create dbg vm_uuid domid path
+    Varstore_privileged_client.Client.vtpm_create dbg vm_uuid domid path
 
   let destroy dbg ~domid ~path =
-    Varstore_privileged_client.Client.destroy dbg domid path
+    Varstore_privileged_client.Client.vtpm_destroy dbg domid path
 end
 
 module Varstore_guard = Guard (Varstored)

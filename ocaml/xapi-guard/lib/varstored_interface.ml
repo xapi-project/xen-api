@@ -189,7 +189,7 @@ let serve_forever_lwt_callback_vtpm ~cache mutex vtpm _path _ req body =
       Cohttp_lwt_unix.Server.respond_string ~status:`Method_not_allowed ~body ()
 
 (* Create a restricted RPC function and socket for a specific VM *)
-let make_server_rpcfn ~cache path vm_uuid =
+let make_server_varstored ~cache path vm_uuid =
   let module Server =
     Varstore_deprivileged_interface.RPC_API (Rpc_lwt.GenServer ()) in
   let* vm = with_xapi ~cache @@ VM.get_by_uuid ~uuid:vm_uuid in
@@ -223,11 +223,21 @@ let make_server_rpcfn ~cache path vm_uuid =
   serve_forever_lwt_callback (Rpc_lwt.server Server.implementation) path
   |> serve_forever_lwt path
 
-(* TODO: spawn this through the varstore interface *)
-let make_server_vtpm_rest ~cache path vtpm_uuid =
-  let* vtpm =
-    with_xapi ~cache @@ VTPM.get_by_uuid ~uuid:(Uuidm.to_string vtpm_uuid)
+let make_server_vtpm_rest ~cache path vm_uuid =
+  let vtpm_server uuid =
+    let* vtpm = with_xapi ~cache @@ VTPM.get_by_uuid ~uuid in
+    let mutex = Lwt_mutex.create () in
+    serve_forever_lwt_callback_vtpm ~cache mutex vtpm path
+    |> serve_forever_lwt path
   in
-  let mutex = Lwt_mutex.create () in
-  serve_forever_lwt_callback_vtpm ~cache mutex vtpm path
-  |> serve_forever_lwt path
+  let* vm = with_xapi ~cache @@ Xen_api_lwt_unix.VM.get_by_uuid ~uuid:vm_uuid in
+  let* vTPMs = with_xapi ~cache @@ Xen_api_lwt_unix.VM.get_VTPMs ~self:vm in
+  match vTPMs with
+  | [] ->
+      D.warn
+        "%s: asked to start swtpm server in socket, but no vtpms associated!"
+        __FUNCTION__ ;
+      Lwt.return Lwt.return
+  | self :: _ ->
+      let* uuid = with_xapi ~cache @@ Xen_api_lwt_unix.VTPM.get_uuid ~self in
+      vtpm_server uuid
