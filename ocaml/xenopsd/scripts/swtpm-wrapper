@@ -73,6 +73,9 @@ def make_socket(fname):
     return sock
 
 def check_state_needs_init(fname):
+    if fname is None:
+        return False
+    print("Checking TPM state %s" % fname)
 
     if not os.path.exists(fname):
         return True
@@ -127,6 +130,10 @@ def main(argv):
         pass
     elif (tpm_state_scheme == "file"):
         pass
+    elif (tpm_state_scheme == "http" or tpm_state_scheme == "unix+http"):
+        tpm_state_file = None
+        tpm_args = ["--seccomp","action=none"] # TODO: due to curl syscalls
+        tpm_file = None
     else:
         sys.exit("Unknown state scheme  %s\n" % tpm_state_scheme)
 
@@ -134,6 +141,8 @@ def main(argv):
     tpm_env["LD_LIBRARY_PATH"] = "/usr/lib:"
 
     if needs_init or check_state_needs_init(tpm_state_file):
+        if tpm_file is None:
+            sys.exit("Unsupported scheme for TPM initialization: %s" % tpm_state_scheme)
         print('Initial manufacture')
         tpm_exe = '/usr/bin/swtpm_setup'
         tpm_args = ["swtpm_setup", "--tpm2", "--tpm-state", tpm_state, "--createek", "--create-ek-cert", "--create-platform-cert", "--lock-nvram", "--not-overwrite"]
@@ -162,7 +171,8 @@ def main(argv):
 
             if os.path.exists(os.path.join(tpm_dir, ".lock")):
                 os.chown(os.path.join(tpm_dir, ".lock"), uid, uid)
-            os.chown(tpm_file, uid, uid)
+            if tpm_file:
+                os.chown(tpm_file, uid, uid)
 
             if (tpm_state_scheme != "file"):
                 os.chown(tpm_dir, uid, uid)
