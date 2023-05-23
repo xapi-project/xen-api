@@ -531,6 +531,8 @@ module Vgpu = struct
 end
 
 module SystemdDaemonMgmt (D : DAEMONPIDPATH) = struct
+  let name = D.name
+
   (* backward compat: for daemons running during an update *)
   module Compat = DaemonMgmt (D)
 
@@ -668,7 +670,7 @@ module Swtpm = struct
   let pidfile_path domid = Printf.sprintf "swtpm-%d.pid" domid
 
   module D = SystemdDaemonMgmt (struct
-    let name = "swtpm-wrapper"
+    let name = "swtpm"
 
     let pid_location = Pid.File pidfile_path
   end)
@@ -691,6 +693,13 @@ module Swtpm = struct
     ) else
       debug "vTPM state for domid %d is empty: not restoring" domid
 
+  let check_state_needs_init task vtpm_uuid =
+    let dbg = Xenops_task.get_dbg task in
+    let contents =
+      Varstore_privileged_client.Client.vtpm_get_contents dbg vtpm_uuid
+    in
+    String.length contents = 0
+
   let start ~xs ~vtpm_uuid ~index task domid =
     debug "Preparing to start swtpm-wrapper to provide a vTPM (domid=%d)" domid ;
     let name = "swtpm" in
@@ -698,26 +707,60 @@ module Swtpm = struct
     let pid_filename = pidfile_path domid in
     let vm_uuid = Xenops_helpers.uuid_of_domid ~xs domid |> Uuidx.to_string in
 
-    let chroot, _socket_path =
+    let chroot, socket_path =
       Xenops_sandbox.Swtpm_guard.start (Xenops_task.get_dbg task) ~vm_uuid
         ~domid ~paths:[]
     in
     let tpm_root =
       Xenops_sandbox.Chroot.(absolute_path_outside chroot Path.root)
     in
-    (* the uri here is relative to the chroot path, if chrooting is disabled then
-       swtpm-wrapper should modify the uri accordingly.
-       There are two modes in dictated by dir:// and file://.  The latter indicates
-       a linear file storage, and allows further permissions to be restricted.
-       xenopsd needs to be in charge of choosing the scheme according to the backend
+    (* the uri here is relative to the chroot path,
+       if chrooting is disabled then swtpm-wrapper should chdir accordingly.
+       There are three modes: dir://, file:// and unix+http://.
+       file:// indicates a linear file storage, and allows further permissions to be restricted.
+       xenopsd needs to be in charge of choosing the scheme according to the backend.
+
+       unix+http is the new backend, and dir:// is used during initial
+       manufacture.
     *)
-    let state_uri =
-      Filename.concat "dir://"
-      @@ Xenops_sandbox.Chroot.chroot_path_inside state_path
+    let args needs_init =
+      let state_uri =
+        if needs_init then
+          "dir://." (* exactly 2 //, we can't create this with Uri *)
+        else
+          (* drop leading / so that the URI works both inside and outside a
+             chroot *)
+          let host = String.sub socket_path 1 (String.length socket_path - 1) in
+          Uri.make ~scheme:"unix+http" ~host () |> Uri.to_string
+      in
+      Fe_argv.Add.many
+        [string_of_int domid; tpm_root; state_uri; string_of_bool needs_init]
+      |> Fe_argv.run
+      |> snd
+      |> Fe_argv.argv
     in
-    let args = Fe_argv.Add.many [string_of_int domid; tpm_root; state_uri] in
-    let args = Fe_argv.run args |> snd |> Fe_argv.argv in
+    (* fetch it here instead of swtpm-wrapper: better error reporting,
+       swtpm-wrapper runs as a service and getting the exact error back is
+       difficult. *)
+    let needs_init = check_state_needs_init task vtpm_uuid in
     let timeout_seconds = !Xenopsd.swtpm_ready_timeout in
+    if needs_init then (
+      debug "vTPM %s is empty, needs to be created" (Uuidm.to_string vtpm_uuid) ;
+      let key = Printf.sprintf "%s-%d" (Filename.basename exec_path) domid in
+      let stdout, stderr =
+        Forkhelpers.execute_command_get_output
+          ~syslog_stdout:(Forkhelpers.Syslog_WithKey key)
+          ~timeout:timeout_seconds exec_path (args true)
+      in
+      debug "vTPM create (stdout): %s" stdout ;
+      debug "vTPM create (stderr): %s" stderr ;
+      let state_file = Filename.concat tpm_root "tpm2-00.permall" in
+      let state = Unixext.string_of_file state_file |> Base64.encode_exn in
+      let dbg = Xenops_task.get_dbg task in
+      debug "storing newly manufactured vTPM state" ;
+      Varstore_privileged_client.Client.vtpm_set_contents dbg vtpm_uuid state ;
+      Unixext.unlink_safe state_file
+    ) ;
     let execute = D.start_daemon in
     let service =
       {
@@ -726,7 +769,7 @@ module Swtpm = struct
       ; exec_path
       ; pid_filename
       ; chroot
-      ; args
+      ; args= args false
       ; execute
       ; timeout_seconds
       }

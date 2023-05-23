@@ -95,16 +95,17 @@ def check_state_needs_init(fname):
 def main(argv):
     print("Arguments: %s" % " ".join(argv[1:]))
 
-    if len(argv) < 4:
+    if len(argv) < 5:
         sys.exit("Not enough arguments.")
 
     domid = int(argv[1])
     tpm_dir = argv[2]
     tpm_state = argv[3]
+    needs_init = argv[4] == "true"
     tpm_path = tpm_dir
     depriv = True
 
-    for arg in argv[4:]:
+    for arg in argv[5:]:
         if arg == "--priv":
             depriv = False
         else:
@@ -114,26 +115,34 @@ def main(argv):
     tpm_state_scheme = parsed.scheme
     tpm_state_file = parsed.path.lstrip('/')
     tpm_file = os.path.join(tpm_dir, tpm_state_file)
+    tpm_args = []
+
+    # ensure that paths work regardless of whether we are in the chroot or not:
+    # we'll only use relative paths
+    os.chdir(tpm_dir)
 
     if (tpm_state_scheme == "dir"):
-        tpm_uri = tpm_dir
+        tpm_state_file = "tpm2-00.permall"
+        tpm_file = os.path.join(tpm_dir, tpm_state_file)
+        pass
     elif (tpm_state_scheme == "file"):
-        tpm_uri = tpm_state_scheme + "://" + tpm_file
+        pass
     else:
         sys.exit("Unknown state scheme  %s\n" % tpm_state_scheme)
 
     tpm_env = dict(os.environ)
     tpm_env["LD_LIBRARY_PATH"] = "/usr/lib:"
 
-    if check_state_needs_init(tpm_file):
-        # Initial manufacture
+    if needs_init or check_state_needs_init(tpm_state_file):
+        print('Initial manufacture')
         tpm_exe = '/usr/bin/swtpm_setup'
-        tpm_args = ["swtpm_setup", "--tpm2", "--tpm-state", tpm_uri, "--createek", "--create-ek-cert", "--create-platform-cert", "--lock-nvram", "--not-overwrite"]
-        subprocess.check_call(tpm_args, executable=tpm_exe, env=tpm_env)
+        tpm_args = ["swtpm_setup", "--tpm2", "--tpm-state", tpm_state, "--createek", "--create-ek-cert", "--create-platform-cert", "--lock-nvram", "--not-overwrite"]
+        print('Running %s' % tpm_args)
+        prepare_exec()
+        os.execve(tpm_exe, tpm_args, tpm_env)
 
     tpm_exe = '/usr/bin/swtpm'
     uid = pwd.getpwnam('swtpm_base').pw_uid + domid
-    tpm_args = []
 
     swtpm_pid_full = os.path.join(tpm_dir, "swtpm-%d.pid" % domid)
     open(swtpm_pid_full, 'wb').close()
@@ -166,7 +175,6 @@ def main(argv):
             return
 
         tpm_path = '/'
-        tpm_uri = tpm_state
 
     swtpm_sock = os.path.join(tpm_dir, "swtpm-sock")
     swtpm_pid = os.path.join(tpm_path, "swtpm-%d.pid" % domid)
@@ -176,7 +184,7 @@ def main(argv):
     if (tpm_state_scheme == "dir"):
         state_param = "dir=%s" % tpm_path
     else:
-        state_param = "backend-uri=%s" % tpm_uri
+        state_param = "backend-uri=%s" % tpm_state
 
     tpm_args = ["swtpm-%d" % domid, "socket",
                "--tpm2",
