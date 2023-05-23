@@ -186,21 +186,12 @@ def main(argv):
                "--pid", "file=%s" % swtpm_pid,
                "-t"] + tpm_args
 
-    swtpm = subprocess.Popen(tpm_args,executable=tpm_exe, preexec_fn=prepare_exec(),
-                             pass_fds=(sock.fileno(),), env=tpm_env,
-                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+
     print("Exec: %s %s" % (tpm_exe, " ".join(tpm_args)))
-
-    sys.stdout.flush()
-    sys.stderr.flush()
-    sock.close()
-
-    # Redirect output from SWTPM to logger
-    os.dup2(swtpm.stdout.fileno(), 0)
-    swtpm.stdout.close()
-
-    os.execvp('logger', ['logger', '-p', 'daemon.info', '-t',
-                         'swtpm-%d[%d]' % (domid, swtpm.pid)])
+    # by default sockets are CLOEXEC
+    os.set_inheritable(sock.fileno(), True)
+    prepare_exec()
+    os.execve(tpm_exe, tpm_args, tpm_env)
 
 if __name__ == '__main__':
     raise SystemExit(main(sys.argv))
