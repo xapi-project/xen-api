@@ -91,3 +91,6 @@ exception Not_a_device
 
 val of_device : context -> string -> t
 (** Given a path to a device, return the corresponding tap information *)
+
+val find : context -> pid:int -> minor:int -> t
+(** Find tap given a tapdisk pid and a minor number *)
