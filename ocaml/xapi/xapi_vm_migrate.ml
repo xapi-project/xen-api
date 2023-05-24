@@ -111,10 +111,10 @@ let remote_of_dest ~__context dest =
   let rpc =
     match Db.Host.get_uuid ~__context ~self:dest_host with
     | _ ->
-        Helpers.make_remote_rpc remote_master_ip
+        Helpers.make_remote_rpc ~__context remote_master_ip
     | exception _ ->
         (* host unknown - this is a cross-pool migration *)
-        Helpers.make_remote_rpc ~verify_cert:None remote_master_ip
+        Helpers.make_remote_rpc ~__context ~verify_cert:None remote_master_ip
   in
   let sm_url =
     let url = List.assoc _sm dest in

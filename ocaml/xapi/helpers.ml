@@ -473,12 +473,13 @@ let make_remote_rpc_of_url ~verify_cert ~srcstr ~dststr (url, pool_secret) call
   XMLRPC_protocol.rpc ~transport ~srcstr ~dststr ~http call
 
 (* This one uses rpc-light *)
-let make_remote_rpc ?(verify_cert = Stunnel_client.pool ()) remote_address xml =
+let make_remote_rpc ?(verify_cert = Stunnel_client.pool ()) ~__context remote_address xml =
   let open Xmlrpc_client in
   let transport =
     SSL (SSL.make ~verify_cert (), remote_address, !Constants.https_port)
   in
-  let http = xmlrpc ~version:"1.0" "/" in
+  let tracing = Context.tracing_of __context in
+  let http = xmlrpc ~version:"1.0" ~tracing "/" in
   XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"remote_xapi" ~transport ~http xml
 
 (* Helper type for an object which may or may not be in the local database. *)
