@@ -1756,15 +1756,16 @@ let assert_can_migrate ~__context ~vm ~dest ~live:_ ~vdi_map ~vif_map ~options
              , [Ref.string_of vm; Ref.string_of remote.dest_host]
              )
           ) ;
+      let power_state = Db.VM.get_power_state ~__context ~self:vm in
       (* VTPMs can't be exported currently, which will make the migration fail *)
-      ( if Db.VM.get_VTPMs ~__context ~self:vm <> [] then
+      ( if power_state <> `Halted && Db.VM.get_VTPMs ~__context ~self:vm <> []
+      then
           let message = "Cross-pool VM migration with VTPMs attached" in
           Helpers.maybe_raise_vtpm_unimplemented __FUNCTION__ message
       ) ;
       (* Check VDIs are not migrating to or from an SR which doesn't have required_sr_operations *)
       assert_sr_support_operations ~__context ~vdi_map ~remote
         ~ops:required_sr_operations ;
-      let power_state = Db.VM.get_power_state ~__context ~self:vm in
       (* The copy mode is only allow on stopped VM *)
       if (not force) && copy && power_state <> `Halted then
         raise
