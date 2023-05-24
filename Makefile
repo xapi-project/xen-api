@@ -138,6 +138,8 @@ install: build doc sdk doc-json
 # xcp-rrdd
 	install -D _build/install/default/bin/xcp-rrdd $(DESTDIR)/usr/sbin/xcp-rrdd
 	install -D _build/install/default/bin/rrddump $(DESTDIR)/usr/bin/rrddump
+# rrd-cli
+	install -D _build/install/default/bin/rrd-cli $(DESTDIR)/usr/bin/rrd-cli
 # rrd-transport
 	install -D _build/install/default/bin/rrdreader $(DESTDIR)/usr/bin/rrdreader
 	install -D _build/install/default/bin/rrdwriter $(DESTDIR)/usr/bin/rrdwriter

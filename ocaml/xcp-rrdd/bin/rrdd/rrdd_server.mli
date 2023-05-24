@@ -12,6 +12,8 @@ val send_host_rrd_to_master : string -> unit
 
 val backup_rrds : string option -> unit -> unit
 
+val save_rrds : unit -> unit
+
 val archive_rrd : string -> string option -> unit
 
 val archive_sr_rrd : string -> string
