@@ -31,6 +31,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using System.Net.Security;
 using Newtonsoft.Json;
 
 
@@ -121,7 +122,8 @@ namespace XenAPI
                     Expect100Continue = session.JsonRpcClient.Expect100Continue,
                     AllowAutoRedirect = session.JsonRpcClient.AllowAutoRedirect,
                     PreAuthenticate = session.JsonRpcClient.PreAuthenticate,
-                    Cookies = session.JsonRpcClient.Cookies
+                    Cookies = session.JsonRpcClient.Cookies,
+                    ServerCertificateValidationCallback = session.JsonRpcClient.ServerCertificateValidationCallback
                 };
             }
             CopyADFromSession(session);
@@ -239,6 +241,12 @@ namespace XenAPI
         {
             get => JsonRpcClient?.ConnectionGroupName;
             set => JsonRpcClient.ConnectionGroupName = value;
+        }
+
+        public RemoteCertificateValidationCallback ServerCertificateValidationCallback
+        {
+            get => JsonRpcClient?.ServerCertificateValidationCallback;
+            set => JsonRpcClient.ServerCertificateValidationCallback = value;
         }
 
         public ICredentials Credentials => JsonRpcClient?.WebProxy?.Credentials;

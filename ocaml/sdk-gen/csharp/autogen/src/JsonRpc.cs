@@ -31,6 +31,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Net;
+using System.Net.Security;
 using System.Threading;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -179,6 +180,7 @@ namespace XenAPI
         public bool AllowAutoRedirect { get; set; }
         public bool PreAuthenticate { get; set; }
         public CookieContainer Cookies { get; set; }
+        public RemoteCertificateValidationCallback ServerCertificateValidationCallback { get; set; }
 
         public string Url { get; private set; }
 
@@ -212,6 +214,7 @@ namespace XenAPI
             webRequest.PreAuthenticate = PreAuthenticate;
             webRequest.AllowWriteStreamBuffering = true;
             webRequest.CookieContainer = Cookies ?? webRequest.CookieContainer ?? new CookieContainer();
+            webRequest.ServerCertificateValidationCallback = ServerCertificateValidationCallback ?? ServicePointManager.ServerCertificateValidationCallback;
 
             // for performance reasons it's preferable to deserialize directly
             // from the Stream rather than allocating strings inbetween
