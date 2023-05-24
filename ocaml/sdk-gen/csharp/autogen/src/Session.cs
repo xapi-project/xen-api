@@ -130,12 +130,9 @@ namespace XenAPI
 
         #endregion
 
-        // Used after VDI.open_database
-        public static Session get_record(Session session, string _session)
+        private static string GetUrl(string hostname, int port)
         {
-            Session newSession = new Session(session.Url) {opaque_ref = _session};
-            newSession.SetAPIVersion();
-            return newSession;
+            return string.Format("{0}://{1}:{2}", port == 8080 || port == 80 ? "http" : "https", hostname, port);
         }
 
         private void SetupSessionDetails()
@@ -143,6 +140,18 @@ namespace XenAPI
             SetAPIVersion();
             SetADDetails();
             SetRbacPermissions();
+        }
+
+        private void SetAPIVersion()
+        {
+            Dictionary<XenRef<Pool>, Pool> pools = Pool.get_all_records(this);
+
+            if (pools.Values.Count > 0)
+            {
+                var pool = pools.Values.First();
+                Host host = Host.get_record(this, pool.master);
+                APIVersion = Helper.GetAPIVersion(host.API_version_major, host.API_version_minor);
+            }
         }
 
         private void CopyADFromSession(Session session)
@@ -206,17 +215,6 @@ namespace XenAPI
             }
         }
 
-        /// <summary>
-        /// Retrieves the current users details from the UserDetails map. These values are only updated when a new session is created.
-        /// </summary>
-        public virtual UserDetails CurrentUserDetails
-        {
-            get
-            {
-                return UserSid == null ? null : UserDetails.Sid_To_UserDetails[UserSid];
-            }
-        }
-
         public override void UpdateFrom(Session update)
         {
             throw new Exception("The method or operation is not implemented.");
@@ -227,38 +225,24 @@ namespace XenAPI
             throw new Exception("The method or operation is not implemented.");
         }
 
+        #region Properties
+
+        /// <summary>
+        /// Retrieves the current users details from the UserDetails map. These values are only updated when a new session is created.
+        /// </summary>
+        public virtual UserDetails CurrentUserDetails => UserSid == null ? null : UserDetails.Sid_To_UserDetails[UserSid];
+
         public JsonRpcClient JsonRpcClient { get; private set; }
 
-        public string Url
-        {
-            get
-            {
-                return JsonRpcClient.Url;
-            }
-        }
+        public string Url => JsonRpcClient.Url;
 
         public string ConnectionGroupName
         {
-            get
-            {
-                return JsonRpcClient?.ConnectionGroupName;
-            }
-            set
-            {
-                JsonRpcClient.ConnectionGroupName = value;
-            }
+            get => JsonRpcClient?.ConnectionGroupName;
+            set => JsonRpcClient.ConnectionGroupName = value;
         }
 
-        public ICredentials Credentials
-        {
-            get
-            {
-                if (JsonRpcClient != null)
-                    return JsonRpcClient.WebProxy == null ? null : JsonRpcClient.WebProxy.Credentials;
-
-                return null;
-            }
-        }
+        public ICredentials Credentials => JsonRpcClient?.WebProxy?.Credentials;
 
         /// <summary>
         /// Always true before API version 1.6.
@@ -291,9 +275,15 @@ namespace XenAPI
         /// instead use Permissions. This list should only be used for UI purposes.
         /// </summary>
         [JsonConverter(typeof(XenRefListConverter<Role>))]
-        public List<Role> Roles
+        public List<Role> Roles => roles;
+
+        #endregion
+
+        public static Session get_record(Session session, string _session)
         {
-            get { return roles; }
+            Session newSession = new Session(session.Url) { opaque_ref = _session };
+            newSession.SetAPIVersion();
+            return newSession;
         }
 
         public void login_with_password(string username, string password)
@@ -349,18 +339,6 @@ namespace XenAPI
         public void login_with_password(string username, string password, API_Version version)
         {
             login_with_password(username, password, Helper.APIVersionString(version));
-        }
-
-        private void SetAPIVersion()
-        {
-            Dictionary<XenRef<Pool>, Pool> pools = Pool.get_all_records(this);
-
-            if (pools.Values.Count > 0)
-            {
-                var pool = pools.Values.First();
-                Host host = Host.get_record(this, pool.master);
-                APIVersion = Helper.GetAPIVersion(host.API_version_major, host.API_version_minor);
-            }
         }
 
         public void slave_local_login_with_password(string username, string password)
@@ -595,10 +573,5 @@ namespace XenAPI
         }
 
         #endregion
-
-        private static string GetUrl(string hostname, int port)
-        {
-            return string.Format("{0}://{1}:{2}", port == 8080 || port == 80 ? "http" : "https", hostname, port);
-        }
     }
 }
