@@ -62,7 +62,6 @@ namespace XenAPI
         {
             JsonRpcClient = new JsonRpcClient(url)
             {
-                ConnectionGroupName = ConnectionGroupName,
                 Timeout = timeout,
                 KeepAlive = true,
                 UserAgent = UserAgent,
@@ -114,10 +113,10 @@ namespace XenAPI
                 JsonRpcClient = new JsonRpcClient(session.Url)
                 {
                     JsonRpcVersion = session.JsonRpcClient.JsonRpcVersion,
-                    Timeout = timeout,
-                    KeepAlive = session.JsonRpcClient.KeepAlive,
                     UserAgent = session.JsonRpcClient.UserAgent,
+                    KeepAlive = session.JsonRpcClient.KeepAlive,
                     WebProxy = session.JsonRpcClient.WebProxy,
+                    Timeout = timeout,
                     ProtocolVersion = session.JsonRpcClient.ProtocolVersion,
                     Expect100Continue = session.JsonRpcClient.Expect100Continue,
                     AllowAutoRedirect = session.JsonRpcClient.AllowAutoRedirect,
