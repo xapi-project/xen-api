@@ -147,9 +147,28 @@ let now () = of_ptime (Ptime_clock.now ())
 
 let epoch = of_ptime Ptime.epoch
 
-let eq x y = x = y
+let is_earlier ~than t = Ptime.is_earlier ~than:(to_ptime than) (to_ptime t)
 
-let assert_utc _ = ()
+let is_later ~than t = Ptime.is_later ~than:(to_ptime than) (to_ptime t)
+
+let diff a b = Ptime.diff (to_ptime a) (to_ptime b)
+
+let compare_print_tz a b =
+  match (a, b) with
+  | Empty, Empty ->
+      0
+  | TZ a_s, TZ b_s ->
+      String.compare a_s b_s
+  | Empty, TZ _ ->
+      -1
+  | TZ _, Empty ->
+      1
+
+let compare ((_, _, a_z) as a) ((_, _, b_z) as b) =
+  let ( <?> ) a b = if a = 0 then b else a in
+  Ptime.compare (to_ptime a) (to_ptime b) <?> compare_print_tz a_z b_z
+
+let eq x y = compare x y = 0
 
 let never = epoch
 

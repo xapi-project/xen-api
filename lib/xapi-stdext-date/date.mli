@@ -15,6 +15,8 @@
 (** date-time with support for keeping timezone for ISO 8601 conversion *)
 type t
 
+(** Conversions *)
+
 val of_ptime : Ptime.t -> t
 (** Convert ptime to time in UTC *)
 
@@ -26,7 +28,7 @@ val of_unix_time : float -> t
 (** Convert calendar time [x] (as returned by e.g. Unix.time), to time in UTC *)
 
 val to_unix_time : t -> float
-(** Convert date/time to a unix timestamp: the number of seconds since 
+(** Convert date/time to a unix timestamp: the number of seconds since
     00:00:00 UTC, 1 Jan 1970. Assumes the underlying {!t} is in UTC *)
 
 val to_rfc822 : t -> string
@@ -53,8 +55,25 @@ val localtime : unit -> t
 (** Count the number of seconds passed since 00:00:00 UTC, 1 Jan 1970, in local
     time *)
 
+(** Comparisons *)
+
 val eq : t -> t -> bool
 (** [eq a b] returns whether [a] and [b] are equal *)
+
+val compare : t -> t -> int
+(** [compare a b] returns -1 if [a] is earlier than [b], 1 if [a] is later than
+    [b] or the ordering of the timezone printer *)
+
+val is_earlier : than:t -> t -> bool
+(** [is_earlier ~than a] returns whether the timestamp [a] happens before
+    [than] *)
+
+val is_later : than:t -> t -> bool
+(** [is_later ~than a] returns whether the timestamp [a] happens after [than]
+    *)
+
+val diff : t -> t -> Ptime.Span.t
+(** [diff a b] returns the span of time corresponding to [a - b] *)
 
 (** Deprecated bindings, these will be removed in a future release: *)
 
@@ -79,14 +98,8 @@ val of_string : string -> t
 val never : t
 (** Same as {!epoch} *)
 
-val assert_utc : t -> unit
-  [@@deprecated
-    "assertions performed inside constructors, so this fn does nothing"]
-(** Raises an Invalid_argument exception if the given date is not a UTC date.
-    A UTC date is an ISO 8601 strings that ends with the character 'Z' *)
-
-(** Deprecated alias for {!t} *)
 type iso8601 = t
-
 (** Deprecated alias for {!t} *)
+
 type rfc822 = t
+(** Deprecated alias for {!t} *)
