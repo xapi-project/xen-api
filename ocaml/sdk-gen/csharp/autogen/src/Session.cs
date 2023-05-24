@@ -59,6 +59,7 @@ namespace XenAPI
 
         #region Constructors
 
+        [Obsolete("Use Session(string url) { Timeout = ... }; instead.")]
         public Session(int timeout, string url)
         {
             JsonRpcClient = new JsonRpcClient(url)
@@ -73,17 +74,26 @@ namespace XenAPI
         }
 
         public Session(string url)
-            : this(STANDARD_TIMEOUT, url)
         {
+            JsonRpcClient = new JsonRpcClient(url)
+            {
+                Timeout = STANDARD_TIMEOUT,
+                KeepAlive = true,
+                UserAgent = UserAgent,
+                WebProxy = Proxy,
+                JsonRpcVersion = JsonRpcVersion.v2,
+                AllowAutoRedirect = true
+            };
         }
 
+        [Obsolete("Use Session(string host, int port) { Timeout = ... }; instead.")]
         public Session(int timeout, string host, int port)
             : this(timeout, GetUrl(host, port))
         {
         }
 
         public Session(string host, int port)
-            : this(STANDARD_TIMEOUT, host, port)
+            : this(GetUrl(host, port))
         {
         }
 
@@ -101,6 +111,7 @@ namespace XenAPI
         /// </summary>
         /// <param name="session"></param>
         /// <param name="timeout"></param>
+        [Obsolete("Use Session(Session session) { Timeout = ... }; instead.")]
         public Session(Session session, int timeout)
         {
             opaque_ref = session.opaque_ref;
@@ -118,6 +129,40 @@ namespace XenAPI
                     KeepAlive = session.JsonRpcClient.KeepAlive,
                     WebProxy = session.JsonRpcClient.WebProxy,
                     Timeout = timeout,
+                    ProtocolVersion = session.JsonRpcClient.ProtocolVersion,
+                    Expect100Continue = session.JsonRpcClient.Expect100Continue,
+                    AllowAutoRedirect = session.JsonRpcClient.AllowAutoRedirect,
+                    PreAuthenticate = session.JsonRpcClient.PreAuthenticate,
+                    Cookies = session.JsonRpcClient.Cookies,
+                    ServerCertificateValidationCallback = session.JsonRpcClient.ServerCertificateValidationCallback
+                };
+            }
+            CopyADFromSession(session);
+        }
+
+        /// <summary>
+        /// Create a new Session instance, using the given instance. The connection details
+        /// and Xen-API session handle will be copied from the given instance, but a new
+        /// connection will be created. Use this if you want a duplicate connection to a host,
+        /// for example when you need to cancel an operation that is blocking the primary connection.
+        /// </summary>
+        public Session(Session session)
+        {
+            opaque_ref = session.opaque_ref;
+            APIVersion = session.APIVersion;
+
+            //in the following do not copy over the ConnectionGroupName
+
+            if (session.JsonRpcClient != null &&
+                (APIVersion == API_Version.API_2_6 || APIVersion >= API_Version.API_2_8))
+            {
+                JsonRpcClient = new JsonRpcClient(session.Url)
+                {
+                    JsonRpcVersion = session.JsonRpcClient.JsonRpcVersion,
+                    UserAgent = session.JsonRpcClient.UserAgent,
+                    KeepAlive = session.JsonRpcClient.KeepAlive,
+                    WebProxy = session.JsonRpcClient.WebProxy,
+                    Timeout = session.JsonRpcClient.Timeout,
                     ProtocolVersion = session.JsonRpcClient.ProtocolVersion,
                     Expect100Continue = session.JsonRpcClient.Expect100Continue,
                     AllowAutoRedirect = session.JsonRpcClient.AllowAutoRedirect,
@@ -241,6 +286,12 @@ namespace XenAPI
         {
             get => JsonRpcClient?.ConnectionGroupName;
             set => JsonRpcClient.ConnectionGroupName = value;
+        }
+
+        public int Timeout
+        {
+            get => JsonRpcClient?.Timeout ?? STANDARD_TIMEOUT;
+            set => JsonRpcClient.Timeout = value;
         }
 
         public RemoteCertificateValidationCallback ServerCertificateValidationCallback
