@@ -33,6 +33,8 @@ val tapdev_of_rpc : Rpc.t -> tapdev
 
 val rpc_of_tapdev : tapdev -> Rpc.t
 
+val tapdev_of : pid:int -> minor:int -> tapdev
+
 val get_minor : tapdev -> int
 
 val get_tapdisk_pid : tapdev -> int
