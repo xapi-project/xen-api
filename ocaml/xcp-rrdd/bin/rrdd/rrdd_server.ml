@@ -165,6 +165,8 @@ let backup_rrds (remote_address : string option) () : unit =
     )
   done
 
+let save_rrds = backup_rrds None
+
 let get_rrd ~uuid =
   debug "Loading RRD from local filesystem for object uuid=%s" uuid ;
   let path = Filename.concat Rrdd_libs.Constants.rrd_location uuid in

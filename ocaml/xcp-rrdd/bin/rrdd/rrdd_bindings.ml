@@ -13,6 +13,8 @@ module type RRDD_IMPLEMENTATION = sig
 
   val backup_rrds : string option -> unit -> unit
 
+  val save_rrds : unit -> unit
+
   val archive_rrd : string -> string option -> unit
 
   val archive_sr_rrd : string -> string
@@ -111,6 +113,7 @@ module Make (Impl : RRDD_IMPLEMENTATION) = struct
     Server.migrate_rrd Impl.migrate_rrd ;
     Server.send_host_rrd_to_master Impl.send_host_rrd_to_master ;
     Server.backup_rrds Impl.backup_rrds ;
+    Server.save_rrds Impl.save_rrds ;
     Server.archive_rrd Impl.archive_rrd ;
     Server.archive_sr_rrd Impl.archive_sr_rrd ;
     Server.push_sr_rrd Impl.push_sr_rrd ;
