@@ -67,6 +67,7 @@ def prepare_exec():
 def make_socket(fname):
 
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    print("Binding socket to %s" % fname)
     sock.bind(fname)
     sock.listen(1)
 
@@ -145,7 +146,7 @@ def main(argv):
             sys.exit("Unsupported scheme for TPM initialization: %s" % tpm_state_scheme)
         print('Initial manufacture')
         tpm_exe = '/usr/bin/swtpm_setup'
-        tpm_args = ["swtpm_setup", "--tpm2", "--tpm-state", tpm_state, "--createek", "--create-ek-cert", "--create-platform-cert", "--lock-nvram", "--not-overwrite"]
+        tpm_args = ["swtpm_setup", "--tpm2", "--tpm-state", tpm_dir, "--createek", "--create-ek-cert", "--create-platform-cert", "--lock-nvram", "--not-overwrite"]
         print('Running %s' % tpm_args)
         prepare_exec()
         os.execve(tpm_exe, tpm_args, tpm_env)
