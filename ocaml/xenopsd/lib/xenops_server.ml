@@ -162,6 +162,113 @@ type atomic =
 
 let string_of_atomic x = x |> rpc_of atomic |> Jsonrpc.to_string
 
+let rec name_of_atomic = function
+  | VBD_eject _ ->
+      "VBD_eject"
+  | VIF_plug _ ->
+      "VIF_plug"
+  | VIF_unplug _ ->
+      "VIF_unplug"
+  | VIF_move _ ->
+      "VIF_move"
+  | VIF_set_carrier _ ->
+      "VIF_set_carrier"
+  | VIF_set_locking_mode _ ->
+      "VIF_set_locking_mode"
+  | VIF_set_pvs_proxy _ ->
+      "VIF_set_pvs_proxy"
+  | VIF_set_ipv4_configuration _ ->
+      "VIF_set_ipv4_configuration"
+  | VIF_set_ipv6_configuration _ ->
+      "VIF_set_ipv6_configuration"
+  | VIF_set_active _ ->
+      "VIF_set_active"
+  | VM_hook_script_stable _ ->
+      "VM_hook_script_stable"
+  | VM_hook_script _ ->
+      "VM_hook_script"
+  | VBD_plug _ ->
+      "VBD_plug"
+  | VBD_epoch_begin _ ->
+      "VBD_epoch_begin"
+  | VBD_epoch_end _ ->
+      "VBD_epoch_end"
+  | VBD_set_qos _ ->
+      "VBD_set_qos"
+  | VBD_unplug _ ->
+      "VBD_unplug"
+  | VBD_insert _ ->
+      "VBD_insert"
+  | VBD_set_active _ ->
+      "VBD_set_active"
+  | VM_remove _ ->
+      "VM_remove"
+  | PCI_plug _ ->
+      "PCI_plug"
+  | PCI_unplug _ ->
+      "PCI_unplug"
+  | PCI_dequarantine _ ->
+      "PCI_dequarantine"
+  | VUSB_plug _ ->
+      "VUSB_plug"
+  | VUSB_unplug _ ->
+      "VUSB_unplug"
+  | VGPU_set_active _ ->
+      "VGPU_set_active"
+  | VGPU_start _ ->
+      "VGPU_start"
+  | VM_set_xsdata _ ->
+      "VM_set_xsdata"
+  | VM_set_vcpus _ ->
+      "VM_set_vcpus"
+  | VM_set_shadow_multiplier _ ->
+      "VM_set_shadow_multiplier"
+  | VM_set_memory_dynamic_range _ ->
+      "VM_set_memory_dynamic_range"
+  | VM_pause _ ->
+      "VM_pause"
+  | VM_softreboot _ ->
+      "VM_softreboot"
+  | VM_unpause _ ->
+      "VM_unpause"
+  | VM_request_rdp _ ->
+      "VM_request_rdp"
+  | VM_run_script _ ->
+      "VM_run_script"
+  | VM_set_domain_action_request _ ->
+      "VM_set_domain_action_request"
+  | VM_create_device_model _ ->
+      "VM_create_device_model"
+  | VM_destroy_device_model _ ->
+      "VM_destroy_device_model"
+  | VM_destroy _ ->
+      "VM_destroy"
+  | VM_create _ ->
+      "VM_create"
+  | VM_build _ ->
+      "VM_build"
+  | VM_shutdown_domain _ ->
+      "VM_shutdown_domain"
+  | VM_s3suspend _ ->
+      "VM_s3suspend"
+  | VM_s3resume _ ->
+      "VM_s3resume"
+  | VM_save _ ->
+      "VM_save"
+  | VM_restore _ ->
+      "VM_restore"
+  | VM_delay _ ->
+      "VM_delay"
+  | VM_rename _ ->
+      "VM_rename"
+  | VM_import_metadata _ ->
+      "VM_import_metadata"
+  | Parallel (_, _, atomics) ->
+      Printf.sprintf "Parallel (%s)"
+        (String.concat " | " (List.map name_of_atomic atomics))
+  | Best_effort atomic ->
+      Printf.sprintf "Best_effort (%s)" (name_of_atomic atomic)
+
 type vm_migrate_op = {
     vmm_id: Vm.id
   ; vmm_vdi_map: (string * string) list
@@ -209,6 +316,48 @@ type operation =
 [@@deriving rpcty]
 
 let string_of_operation x = x |> rpc_of operation |> Jsonrpc.to_string
+
+let name_of_operation = function
+  | VM_start _ ->
+      "VM_start"
+  | VM_poweroff _ ->
+      "VM_poweroff"
+  | VM_shutdown _ ->
+      "VM_shutdown"
+  | VM_reboot _ ->
+      "VM_reboot"
+  | VM_suspend _ ->
+      "VM_suspend"
+  | VM_resume _ ->
+      "VM_resume"
+  | VM_restore_vifs _ ->
+      "VM_restore_vifs"
+  | VM_restore_devices _ ->
+      "VM_restore_devices"
+  | VM_migrate _ ->
+      "VM_migrate"
+  | VM_receive_memory _ ->
+      "VM_receive_memory"
+  | VBD_hotplug _ ->
+      "VBD_hotplug"
+  | VBD_hotunplug _ ->
+      "VBD_hotunplug"
+  | VIF_hotplug _ ->
+      "VIF_hotplug"
+  | VIF_hotunplug _ ->
+      "VIF_hotunplug"
+  | VM_check_state _ ->
+      "VM_check_state"
+  | PCI_check_state _ ->
+      "PCI_check_state"
+  | VBD_check_state _ ->
+      "VBD_check_state"
+  | VIF_check_state _ ->
+      "VIF_check_state"
+  | VUSB_check_state _ ->
+      "VUSB_check_state"
+  | Atomic atomic ->
+      Printf.sprintf "Atomic (%s)" (name_of_atomic atomic)
 
 module TASK = struct
   open Xenops_task
@@ -1678,9 +1827,34 @@ let rec atomics_of_operation = function
   | _ ->
       []
 
+let with_tracing ~name ~task f =
+  let open Tracing in
+  let context = Xenops_task.tracing task in
+  let parent = Option.bind context Span.of_string in
+  let tracer = get_tracer ~name in
+  match Tracer.start ~tracer ~name ~parent () with
+  | Ok span -> (
+      let sub_context = Option.map Span.to_string span in
+      Xenops_task.set_tracing task sub_context ;
+      try
+        let result = f () in
+        ignore @@ Tracer.finish span ;
+        Xenops_task.set_tracing task context ;
+        result
+      with exn ->
+        let backtrace = Printexc.get_backtrace () in
+        let error = (exn, backtrace) in
+        ignore @@ Tracer.finish span ~error ;
+        raise exn
+    )
+  | Error e ->
+      warn "Failed to start tracing: %s" (Printexc.to_string e) ;
+      f ()
+
 let rec perform_atomic ~progress_callback ?subtask:_ ?result (op : atomic)
     (t : Xenops_task.task_handle) : unit =
   let module B = (val get_backend () : S) in
+  with_tracing ~name:(name_of_atomic op) ~task:t @@ fun () ->
   Xenops_task.check_cancelling t ;
   match op with
   | Best_effort atom -> (
@@ -1696,10 +1870,11 @@ let rec perform_atomic ~progress_callback ?subtask:_ ?result (op : atomic)
           (Xenops_task.id_of_handle t)
           (List.length atoms) description
       in
+      let with_tracing = parallel_id_with_tracing parallel_id t in
       debug "begin_%s" parallel_id ;
       let task_list =
         queue_atomics_and_wait ~progress_callback ~max_parallel_atoms:10
-          parallel_id parallel_id atoms
+          with_tracing parallel_id atoms
       in
       debug "end_%s" parallel_id ;
       (* make sure that we destroy all the parallel tasks that finished *)
@@ -2355,6 +2530,7 @@ and trigger_cleanup_after_failure_atom op t =
 and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
     : unit =
   let module B = (val get_backend () : S) in
+  with_tracing ~name:(name_of_operation op) ~task:t @@ fun () ->
   let one = function
     | VM_start (id, force) -> (
         debug "VM.start %s (force=%b)" id force ;
@@ -3626,18 +3802,16 @@ module VM = struct
     Debug.with_thread_associated dbg
       (fun () ->
         let id, md = parse_metadata s in
+        let op = Atomic (VM_import_metadata (id, md)) in
         (* We allow a higher-level toolstack to replace the metadata of a
            running VM. Any changes will take place on next reboot.
            The metadata update will be queued so that ongoing operations
            do not see unexpected state changes. *)
         if DB.exists id then
-          let _ =
-            queue_operation_and_wait dbg id
-              (Atomic (VM_import_metadata (id, md)))
-          in
-          id
+          ignore (queue_operation_and_wait dbg id op)
         else
-          import_metadata id md
+          immediate_operation dbg id op ;
+        id
       )
       ()
 
@@ -3859,6 +4033,73 @@ module Diagnostics = struct
     }
 end
 
+module Observer = struct
+  let create _ dbg uuid name_label attributes endpoints enabled =
+    debug "Observer.create : dbg=%s" dbg ;
+    Debug.with_thread_associated dbg
+      (fun () ->
+        Tracing.create ~uuid ~name_label ~tags:attributes ~filters:[]
+          ~processors:[] ~endpoints ~enabled ~service_name:"xenopsd"
+      )
+      ()
+
+  let destroy _ dbg uuid =
+    debug "Observer.destroy : dbg=%s" dbg ;
+    Debug.with_thread_associated dbg (fun () -> Tracing.destroy ~uuid) ()
+
+  let set_enabled _ dbg uuid enabled =
+    debug "Observer.set_enabled : dbg=%s" dbg ;
+    Debug.with_thread_associated dbg
+      (fun () -> Tracing.set ~uuid ~enabled ())
+      ()
+
+  let set_attributes _ dbg uuid attributes =
+    debug "Observer.set_attributes : dbg=%s" dbg ;
+    Debug.with_thread_associated dbg
+      (fun () -> Tracing.set ~uuid ~tags:attributes ())
+      ()
+
+  let set_endpoints _ dbg uuid endpoints =
+    debug "Observer.set_endpoint : dbg=%s" dbg ;
+    Debug.with_thread_associated dbg
+      (fun () -> Tracing.set ~uuid ~endpoints ())
+      ()
+
+  let init _ dbg =
+    debug "Observer.init : dbg=%s" dbg ;
+    Debug.with_thread_associated dbg (fun () -> ignore @@ Tracing.main ()) ()
+
+  let set_trace_log_dir _ dbg dir =
+    debug "Observer.set_trace_log_dir : dbg=%s" dbg ;
+    Debug.with_thread_associated dbg
+      (fun () -> Tracing.Export.Destination.File.set_trace_log_dir dir)
+      ()
+
+  let set_export_interval _ dbg interval =
+    debug "Observer.set_export_interval : dbg=%s" dbg ;
+    Debug.with_thread_associated dbg
+      (fun () -> Tracing.Export.set_export_interval interval)
+      ()
+
+  let set_max_spans _ dbg spans =
+    debug "Observer.set_max_spans : dbg=%s" dbg ;
+    Debug.with_thread_associated dbg
+      (fun () -> Tracing.Spans.set_max_spans spans)
+      ()
+
+  let set_max_traces _ dbg traces =
+    debug "Observer.set_max_traces : dbg=%s" dbg ;
+    Debug.with_thread_associated dbg
+      (fun () -> Tracing.Spans.set_max_traces traces)
+      ()
+
+  let set_host_id _ dbg host_id =
+    debug "Observer.set_host_id : dbg=%s" dbg ;
+    Debug.with_thread_associated dbg
+      (fun () -> Tracing.Export.Destination.File.set_host_id host_id)
+      ()
+end
+
 let get_diagnostics _ _ () =
   Diagnostics.make () |> rpc_of Diagnostics.t |> Jsonrpc.to_string
 
@@ -3949,4 +4190,15 @@ let _ =
   Server.UPDATES.remove_barrier (UPDATES.remove_barrier ()) ;
   Server.UPDATES.refresh_vm (UPDATES.refresh_vm ()) ;
   Server.DEBUG.trigger (DEBUG.trigger ()) ;
-  Server.DEBUG.shutdown (DEBUG.shutdown ())
+  Server.DEBUG.shutdown (DEBUG.shutdown ()) ;
+  Server.Observer.create (Observer.create ()) ;
+  Server.Observer.destroy (Observer.destroy ()) ;
+  Server.Observer.set_enabled (Observer.set_enabled ()) ;
+  Server.Observer.set_attributes (Observer.set_attributes ()) ;
+  Server.Observer.set_endpoints (Observer.set_endpoints ()) ;
+  Server.Observer.init (Observer.init ()) ;
+  Server.Observer.set_trace_log_dir (Observer.set_trace_log_dir ()) ;
+  Server.Observer.set_export_interval (Observer.set_export_interval ()) ;
+  Server.Observer.set_max_spans (Observer.set_max_spans ()) ;
+  Server.Observer.set_max_traces (Observer.set_max_traces ()) ;
+  Server.Observer.set_host_id (Observer.set_host_id ())
