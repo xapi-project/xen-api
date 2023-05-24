@@ -20,40 +20,25 @@ exception UTF8_continuation_byte_invalid
 exception UTF8_encoding_not_canonical
 exception String_incomplete
 
-(* === Utility Functions === *)
-
-let ( +++ ) = Int32.add
-let ( --- ) = Int32.sub
-let ( &&& ) = Int32.logand
-let ( ||| ) = Int32.logor
-let ( <<< ) = Int32.shift_left
-let ( >>> ) = Int32.shift_right_logical
-
 (* === Unicode Functions === *)
 
 module UCS = struct
 
-  let min_value = 0x000000l
-  let max_value = 0x1fffffl
-
   let is_non_character value = false
-                               || (0xfdd0l <= value && value <= 0xfdefl) (* case 1 *)
-                               || (Int32.logand 0xfffel value = 0xfffel) (* case 2 *)
-
-  let is_out_of_range value =
-    value < min_value || value > max_value
-
-  let is_surrogate value =
-    (0xd800l <= value && value <= 0xdfffl)
+                               || (0xfdd0 <= value && value <= 0xfdef) (* case 1 *)
+                               || (Int.logand 0xfffe value = 0xfffe) (* case 2 *)
+                               [@@inline]
 
 end
 
 module XML = struct
 
-  let is_forbidden_control_character value = value < 0x20l
-                                             && value <> 0x09l
-                                             && value <> 0x0al
-                                             && value <> 0x0dl
+  let is_illegal_control_character value = let value = Uchar.to_int value in
+                                             value < 0x20
+                                             && value <> 0x09
+                                             && value <> 0x0a
+                                             && value <> 0x0d
+                                             [@@inline]
 
 end
 
@@ -61,106 +46,26 @@ end
 
 module type UCS_VALIDATOR = sig
 
-  val validate : int32 -> unit
+  val validate : Uchar.t -> unit [@@inline]
 
 end
 
-module UTF8_UCS_validator : UCS_VALIDATOR = struct
+module UTF8_UCS_validator = struct
 
   let validate value =
-    if UCS.is_out_of_range  value then raise UCS_value_out_of_range;
-    if UCS.is_non_character value then raise UCS_value_prohibited_in_UTF8;
-    if UCS.is_surrogate     value then raise UCS_value_prohibited_in_UTF8
+    if (UCS.is_non_character[@inlined]) (Uchar.to_int value) then raise UCS_value_prohibited_in_UTF8
+    [@@inline]
 
 end
 
-module XML_UTF8_UCS_validator : UCS_VALIDATOR = struct
+module XML_UTF8_UCS_validator = struct
 
   let validate value =
-    UTF8_UCS_validator.validate value;
-    if XML.is_forbidden_control_character value
+    (UTF8_UCS_validator.validate[@inlined]) value;
+    if (XML.is_illegal_control_character[@inlined]) value
     then raise UCS_value_prohibited_in_XML
 
 end
-
-(* ==== Character Codecs ==== *)
-
-module type CHARACTER_DECODER = sig
-  val decode_character : string -> int -> int32 * int
-end
-
-module type CHARACTER_ENCODER = sig
-  val encode_character : int32 -> string
-end
-
-module UTF8_CODEC (UCS_validator : UCS_VALIDATOR) = struct
-  let width_required_for_ucs_value value =
-    if value < 0x000080l (* 1 lsl  7 *) then 1 else
-    if value < 0x000800l (* 1 lsl 11 *) then 2 else
-    if value < 0x010000l (* 1 lsl 16 *) then 3 else 4
-
-  (* === Decoding === *)
-
-  let decode_header_byte byte =
-    if byte land 0b10000000 = 0b00000000 then (byte               , 1) else
-    if byte land 0b11100000 = 0b11000000 then (byte land 0b0011111, 2) else
-    if byte land 0b11110000 = 0b11100000 then (byte land 0b0001111, 3) else
-    if byte land 0b11111000 = 0b11110000 then (byte land 0b0000111, 4) else
-      raise UTF8_header_byte_invalid
-
-  let decode_continuation_byte byte =
-    if byte land 0b11000000 = 0b10000000 then byte land 0b00111111 else
-      raise UTF8_continuation_byte_invalid
-
-  let decode_character string index =
-    let value, width = decode_header_byte (Char.code string.[index]) in
-    let value = if width = 1 then (Int32.of_int value)
-      else begin
-        let value = ref (Int32.of_int value) in
-        for index = index + 1 to index + width - 1 do
-          let chunk = decode_continuation_byte (Char.code string.[index]) in
-          value := (!value <<< 6) ||| (Int32.of_int chunk)
-        done;
-        if width > (width_required_for_ucs_value !value)
-        then raise UTF8_encoding_not_canonical;
-        !value
-      end in
-    UCS_validator.validate value;
-    (value, width)
-
-  (* === Encoding === *)
-
-  let encode_header_byte width value =
-    match width with
-    | 1 -> value
-    | 2 -> value ||| 0b11000000l
-    | 3 -> value ||| 0b11100000l
-    | 4 -> value ||| 0b11110000l
-    | _ -> raise UCS_value_out_of_range
-
-  let encode_continuation_byte value =
-    ((value &&& 0b00111111l) ||| 0b10000000l, value >>> 6)
-
-  let encode_character value =
-    UCS_validator.validate value;
-    let width = width_required_for_ucs_value value in
-    let b = Bytes.make width ' ' in
-    (* Start by encoding the continuation bytes in reverse order. *)
-    let rec encode_continuation_bytes remainder index =
-      if index = 0 then remainder else
-        let byte, remainder = encode_continuation_byte remainder in
-        Bytes.set b index @@ Char.chr (Int32.to_int byte);
-        encode_continuation_bytes remainder (index - 1) in
-    let remainder = encode_continuation_bytes value (width - 1) in
-    (* Finish by encoding the header byte. *)
-    let byte = encode_header_byte width remainder in
-    Bytes.set b 0 @@ Char.chr (Int32.to_int byte);
-    Bytes.unsafe_to_string b
-
-end
-
-module     UTF8_codec = UTF8_CODEC (    UTF8_UCS_validator)
-module XML_UTF8_codec = UTF8_CODEC (XML_UTF8_UCS_validator)
 
 (* === String Validators === *)
 
@@ -174,19 +79,74 @@ end
 
 exception Validation_error of int * exn
 
-module String_validator (Decoder : CHARACTER_DECODER) : STRING_VALIDATOR = struct
+module UTF8_XML : STRING_VALIDATOR = struct
 
-  let validate string =
-    let index = ref 0 and length = String.length string in
-    begin try
-        while !index < length do
-          let _, width = Decoder.decode_character string !index in
-          index := !index + width
-        done;
+  let decode_continuation_byte byte =
+    if byte land 0b11000000 = 0b10000000 then byte land 0b00111111 else
+      raise UTF8_continuation_byte_invalid
+
+  let rec decode_continuation_bytes string last value index =
+    if index <= last then
+      let chunk = decode_continuation_byte (Char.code string.[index]) in
+      let value = (value lsl 6) lor chunk in
+      decode_continuation_bytes string last value (index + 1)
+    else value
+
+  let validate_character_utf8 string byte index =
+    let value, width =
+      if byte land 0b10000000 = 0b00000000 then (byte,                1) else
+      if byte land 0b11100000 = 0b11000000 then (byte land 0b0011111, 2) else
+      if byte land 0b11110000 = 0b11100000 then (byte land 0b0001111, 3) else
+      if byte land 0b11111000 = 0b11110000 then (byte land 0b0000111, 4) else
+        raise UTF8_header_byte_invalid
+    in
+    let value =
+        if width = 1 then value
+        else decode_continuation_bytes string (index+width-1) value (index+1)
+    in
+    XML_UTF8_UCS_validator.validate (Uchar.unsafe_of_int value);
+    width
+    
+  let rec validate_aux string length index =
+    if index = length then ()
+    else
+    let width =
+      try
+            let byte = string.[index] |> Char.code in
+            validate_character_utf8 string byte index
       with
       | Invalid_argument _ -> raise String_incomplete
-      | error -> raise (Validation_error (!index, error))
-    end; assert (!index = length)
+      | error -> raise (Validation_error(index, error))
+    in
+    validate_aux string length (index + width)
+
+  let validate string =
+    validate_aux string (String.length string) 0
+
+  let rec validate_with_fastpath string stop pos =
+    if pos < stop then
+        (* the compiler is smart enough to optimize the 'int32' away here,
+           and not allocate *)
+        let i32 = String.get_int32_ne string pos |> Int32.to_int in
+        (* test that for all bytes 0x20 <= byte < 0x80.
+         If any is <0x20 it would cause a negative value to appear in that byte,
+         which we can detect if we use 0x80 as a mask.
+         Byte >= 0x80 can be similarly detected with a mask of 0x80 on each byte.
+         We don't want to see a 0x80 from either of these, hence we bitwise or the 2 values together.
+       *)
+        if (i32 lor (i32 - 0x20_20_20_20)) land 0x80_80_80_80 = 0 then
+            validate_with_fastpath string stop (pos + 4)
+        else (* when the condition doesn't hold fall back to full UTF8 decoder *)
+            validate_aux string (String.length string) pos
+    else
+        validate_aux string (String.length string) pos
+
+  let validate_with_fastpath string =
+      validate_with_fastpath string (String.length string - 3) 0
+
+  let validate =
+     if Sys.word_size = 64 then validate_with_fastpath
+     else validate
 
   let is_valid string =
     try validate string; true with _ -> false
@@ -196,6 +156,3 @@ module String_validator (Decoder : CHARACTER_DECODER) : STRING_VALIDATOR = struc
     with Validation_error (index, _) -> String.sub string 0 index
 
 end
-
-module UTF8     = String_validator (    UTF8_codec)
-module UTF8_XML = String_validator (XML_UTF8_codec)
