@@ -1163,7 +1163,7 @@ module VM = struct
           Memory.Linux.overhead_mib
       | Some (PVinPVH _) ->
           Memory.PVinPVH.overhead_mib
-      | Some (HVM _ | PVH _ (* TODO: pvh *)) ->
+      | Some (HVM _ | PVH _) ->
           Memory.HVM.overhead_mib
       | None ->
           failwith
@@ -2100,6 +2100,7 @@ module VM = struct
                   Domain.
                     {
                       cmdline= pvinpvh_xen_cmdline
+                    ; pv_shim= true
                     ; modules=
                         (direct.kernel, Some direct.cmdline)
                         ::
@@ -2131,6 +2132,7 @@ module VM = struct
                       Domain.
                         {
                           cmdline= pvinpvh_xen_cmdline
+                        ; pv_shim= true
                         ; modules=
                             ( b.Bootloader.kernel_path
                             , Some b.Bootloader.kernel_args
@@ -2155,6 +2157,7 @@ module VM = struct
                   Domain.
                     {
                       cmdline= direct.cmdline
+                    ; pv_shim= false
                     ; modules=
                         ( match direct.ramdisk with
                         | Some r ->
@@ -2183,6 +2186,7 @@ module VM = struct
                     Domain.BuildPVH
                       {
                         Domain.cmdline= b.Bootloader.kernel_args
+                      ; pv_shim= false
                       ; modules=
                           ( b.Bootloader.kernel_path
                           , Some b.Bootloader.kernel_args
