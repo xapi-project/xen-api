@@ -547,16 +547,6 @@ and gen_updatefrom_line out_chan content =
   | Namespace (_, c) ->
       List.iter (gen_updatefrom_line out_chan) c
 
-and gen_to_proxy_line out_chan content =
-  let print format = fprintf out_chan format in
-
-  match content with
-  | Field fr ->
-      print "            result_.%s = %s;\n" (full_name fr)
-        (convert_to_proxy (full_name fr) fr.ty)
-  | Namespace (_, c) ->
-      List.iter (gen_to_proxy_line out_chan) c
-
 and gen_overloads generator message =
   match message.msg_params with
   | [] ->
@@ -571,7 +561,7 @@ and gen_exposed_method cls msg curParams =
   let exposed_ret_type = exposed_type_opt msg.msg_result in
   let paramSignature = exposed_params msg classname curParams in
   let paramsDoc = get_params_doc msg classname curParams in
-  let jsonCallParams = exposed_call_params ~json:true msg classname curParams in
+  let jsonCallParams = exposed_call_params msg classname curParams in
   let publishInfo = get_published_info_message msg cls in
   let deprecatedInfo = get_deprecated_info_message msg in
   let deprecatedAttribute = get_deprecated_attribute msg in
@@ -675,19 +665,14 @@ and exposed_param p =
     (internal_type p.param_type)
     (String.lowercase_ascii p.param_name)
 
-and exposed_call_params ~json message classname params =
-  let exposed_call_param json p =
+and exposed_call_params message classname params =
+  let exposed_call_param p =
     let pName = String.lowercase_ascii p.param_name in
-    if json then
-      sprintf "_%s" pName
-    else
-      convert_to_proxy (sprintf "_%s" pName) p.param_type
+    sprintf "_%s" pName
   in
-  let exposedParams = List.map (exposed_call_param json) params in
+  let exposedParams = List.map exposed_call_param params in
   let name = String.lowercase_ascii classname in
-  let refParam =
-    if json then sprintf "_%s" name else sprintf "_%s ?? \"\"" name
-  in
+  let refParam = sprintf "_%s" name in
   let exposedParams =
     if is_method_static message then
       exposedParams
@@ -803,39 +788,16 @@ and gen_exposed_field out_chan cls content =
   | Namespace (_, c) ->
       List.iter (gen_exposed_field out_chan cls) c
 
-(* ------------------- category: proxy classes *)
 and gen_proxy protocol =
   let all_methods =
     classes |> List.map gen_proxy_class_methods |> List.concat
   in
   match protocol with
-  | CommonFunctions.XmlRpc ->
-      let rec collate_fields content =
-        match content with
-        | Field f ->
-            [f]
-        | Namespace (_, c) ->
-            List.map collate_fields c |> List.concat
-      in
-      let proxy_field x =
-        `O
-          [
-            ("proxy_field_name", `String (full_name x))
-          ; ("proxy_field_type", `String (proxy_type x.ty))
-          ]
-      in
-      let json_class {name; contents; _} =
-        let all_fields = contents |> List.map collate_fields |> List.concat in
-        `O
-          [
-            ("proxy_class_name", `String (exposed_class_name name))
-          ; ("proxy_class_fields", `A (List.map proxy_field all_fields))
-          ]
-      in
-      `O [("proxy_classes", `A (List.map json_class classes))]
   | CommonFunctions.JsonRpc ->
       let json_method x = `O [("client_method", `String x)] in
       `O [("client_methods", `A (List.map json_method all_methods))]
+  | _ ->
+      raise Unknown_wire_protocol
 
 and gen_proxy_class_methods {name; messages; _} =
   let gen_message_overloads name message =
@@ -862,10 +824,10 @@ and gen_proxy_class_methods {name; messages; _} =
 and gen_proxy_method classname message params =
   let proxy_msg_name = proxy_msg_name classname message in
   let paramsJsonWithTypes =
-    proxy_params ~with_types:true ~json:true message classname params
+    proxy_params ~with_types:true message classname params
   in
   let paramsJsonNoTypes =
-    proxy_params ~with_types:false ~json:true message classname params
+    proxy_params ~with_types:false message classname params
   in
   let return_word =
     match message.msg_result with Some (_, _) -> "return " | None -> ""
@@ -915,18 +877,13 @@ and gen_proxy_method classname message params =
   in
   sync ^ async
 
-and proxy_params ~with_types ~json message classname params =
+and proxy_params ~with_types message classname params =
   let refParam =
-    if json then
-      sprintf
-        (if with_types then "string _%s" else "_%s ?? \"\"")
-        (String.lowercase_ascii classname)
-    else
-      sprintf
-        (if with_types then "string _%s" else "_%s")
-        (String.lowercase_ascii classname)
+    sprintf
+      (if with_types then "string _%s" else "_%s ?? \"\"")
+      (String.lowercase_ascii classname)
   in
-  let args = List.map (proxy_param ~with_types ~json) params in
+  let args = List.map (proxy_param ~with_types) params in
   let args = if is_method_static message then args else refParam :: args in
   let args =
     if message.msg_session then
@@ -936,25 +893,19 @@ and proxy_params ~with_types ~json message classname params =
   in
   String.concat ", " args
 
-and proxy_param ~with_types ~json p =
-  if json then
-    if with_types then
-      let exposed_type_json = function
-        | Ref _ ->
-            "string"
-        | x ->
-            exposed_type x
-      in
-      sprintf "%s _%s"
-        (exposed_type_json p.param_type)
-        (String.lowercase_ascii p.param_name)
-    else
-      json_param p
-  else if with_types then
-    sprintf "%s _%s" (proxy_type p.param_type)
+and proxy_param ~with_types p =
+  if with_types then
+    let exposed_type_json = function
+      | Ref _ ->
+          "string"
+      | x ->
+          exposed_type x
+    in
+    sprintf "%s _%s"
+      (exposed_type_json p.param_type)
       (String.lowercase_ascii p.param_name)
   else
-    sprintf "_%s" (String.lowercase_ascii p.param_name)
+    json_param p
 
 (* ------------------- category: enums *)
 and gen_enum = function
@@ -1045,28 +996,6 @@ and gen_map_conversion out_chan = function
         \                }\n\
         \            }\n\
         \            return result;\n\
-        \        }\n\n\
-        \        internal static Hashtable \
-         convert_to_proxy_%s_%s(Dictionary<%s, %s> table)\n\
-        \        {\n\
-        \            var result = new Hashtable();\n\
-        \            if (table != null)\n\
-        \            {\n\
-        \                foreach (%s key in table.Keys)\n\
-        \                {\n\
-        \                    try\n\
-        \                    {\n\
-        \                        %s k = %s;\n\
-        \                        %s v = %s;\n\
-        \                        result[k] = v;\n\
-        \                    }\n\
-        \                    catch\n\
-        \                    {\n\
-        \                        // continue\n\
-        \                    }\n\
-        \                }\n\
-        \            }\n\
-        \            return result;\n\
         \        }\n\n"
         el er
         (sanitise_function_name el_literal)
@@ -1075,55 +1004,11 @@ and gen_map_conversion out_chan = function
         (simple_convert_from_proxy "key" l)
         er
         (convert_from_proxy_hashtable_value "table[key]" r)
-        (sanitise_function_name el_literal)
-        (sanitise_function_name er_literal)
-        el er el (proxy_type l) (convert_to_proxy "key" l) (proxy_type r)
-        (convert_to_proxy "table[key]" r)
   (***)
   | _ ->
       assert false
 
 (* ------------------- category: utility *)
-and proxy_type_opt = function
-  | Some (typ, _) ->
-      proxy_type typ
-  | None ->
-      "string"
-
-and proxy_type = function
-  | SecretString | String ->
-      "string"
-  | Int ->
-      "string"
-  | Float ->
-      "double"
-  | Bool ->
-      "bool"
-  | DateTime ->
-      "DateTime"
-  | Ref _ ->
-      "string"
-  | Set (Record name) ->
-      "Proxy_" ^ exposed_class_name name ^ "[]"
-  | Set (Set String) ->
-      "string[][]"
-  | Set _ ->
-      "string[]"
-  | Enum _ ->
-      "string"
-  | Map _ ->
-      "Object"
-  | Record name ->
-      "Proxy_" ^ exposed_class_name name
-  | Option Float ->
-      "double?"
-  | Option Bool ->
-      "bool?"
-  | Option DateTime ->
-      "DateTime?"
-  | Option x ->
-      proxy_type x
-
 and exposed_type_opt = function
   | Some (typ, _) ->
       exposed_type typ
@@ -1338,78 +1223,6 @@ and simple_convert_from_proxy thing ty =
         (exposed_class_name name)
   | Set Int ->
       sprintf "Helper.StringArrayToLongArray(%s)" thing
-  | x ->
-      eprintf "%s" (Types.to_string x) ;
-      assert false
-
-and convert_to_proxy thing ty =
-  match ty with
-  | Int ->
-      sprintf "%s.ToString()" thing
-  | Bool | Float | DateTime ->
-      thing
-  | Ref _ ->
-      sprintf "%s ?? \"\"" thing
-  | SecretString | String ->
-      sprintf "%s ?? \"\"" thing
-  | Enum (name, _) ->
-      sprintf "%s_helper.ToString(%s)" name thing
-  | Set (Ref _) ->
-      sprintf "%s == null ? new string[] {} : Helper.RefListToStringArray(%s)"
-        thing thing
-  | Set String ->
-      thing
-  | Set Int ->
-      sprintf "%s == null ? new string[] {} : Helper.LongArrayToStringArray(%s)"
-        thing thing
-  | Set (Enum (_, _)) ->
-      sprintf
-        "%s == null ? new string[] {} : Helper.ObjectListToStringArray(%s)"
-        thing thing
-  | Map (u, v) as x ->
-      maps := TypeSet.add x !maps ;
-      sprintf "%s(%s)"
-        (sanitise_function_name
-           (sprintf "Maps.convert_to_proxy_%s_%s"
-              (exposed_type_as_literal u)
-              (exposed_type_as_literal v)
-           )
-        )
-        thing
-  | Record _ ->
-      sprintf "%s.ToProxy()" thing
-  | Option Int ->
-      sprintf "%s == null ? null : %s.ToString()" thing thing
-  | Option Bool
-  | Option Float
-  | Option DateTime
-  | Option (Ref _)
-  | Option String ->
-      thing
-  | Option (Enum (name, _)) ->
-      sprintf "%s == null ? null : %s_helper.ToString(%s)" thing name thing
-  | Option (Set (Ref _)) ->
-      sprintf "%s == null ? null : Helper.RefListToStringArray(%s)" thing thing
-  | Option (Set String) ->
-      thing
-  | Option (Set Int) ->
-      sprintf "%s == null ? null : Helper.LongArrayToStringArray(%s)" thing
-        thing
-  | Option (Set (Enum (_, _))) ->
-      sprintf "%s == null ? null : Helper.ObjectListToStringArray(%s)" thing
-        thing
-  | Option (Map (u, v) as x) ->
-      maps := TypeSet.add x !maps ;
-      sprintf "%s == null ? null : %s(%s)" thing
-        (sanitise_function_name
-           (sprintf "Maps.convert_to_proxy_%s_%s"
-              (exposed_type_as_literal u)
-              (exposed_type_as_literal v)
-           )
-        )
-        thing
-  | Option (Record _) ->
-      sprintf "%s == null ? null : %s.ToProxy()" thing thing
   | x ->
       eprintf "%s" (Types.to_string x) ;
       assert false
