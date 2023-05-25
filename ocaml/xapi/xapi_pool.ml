@@ -3663,15 +3663,6 @@ let reset_telemetry_uuid ~__context ~self =
 let configure_update_sync ~__context ~self ~update_sync_frequency
     ~update_sync_day =
   ( match (update_sync_frequency, update_sync_day) with
-  | `daily, d when d <> 0L ->
-      error
-        "For daily schedule, cannot set the day when update sync will run to \
-         an integer other than 0" ;
-      raise
-        Api_errors.(
-          Server_error
-            (invalid_update_sync_day, [Int64.to_string update_sync_day])
-        )
   | `weekly, d when d < 0L || d > 6L ->
       error
         "For weekly schedule, cannot set the day when update sync will run to \
@@ -3686,7 +3677,12 @@ let configure_update_sync ~__context ~self ~update_sync_frequency
   ) ;
   Db.Pool.set_update_sync_frequency ~__context ~self
     ~value:update_sync_frequency ;
-  Db.Pool.set_update_sync_day ~__context ~self ~value:update_sync_day ;
+  ( match update_sync_frequency with
+  | `daily ->
+      Db.Pool.set_update_sync_day ~__context ~self ~value:0L
+  | _ ->
+      Db.Pool.set_update_sync_day ~__context ~self ~value:update_sync_day
+  ) ;
   if Db.Pool.get_update_sync_enabled ~__context ~self then
     (* re-schedule periodic update sync with new configuration immediately *)
     Pool_periodic_update_sync.set_enabled ~__context ~value:true

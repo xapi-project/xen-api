@@ -1080,8 +1080,9 @@ let configure_update_sync =
       ; ( Int
         , "update_sync_day"
         , "Which day of one period the update sychronization is scheduled. For \
-           'daily' schedule, it should be 0. For 'weekly' schedule, 0..6, \
-           where 0 is Sunday."
+           'daily' schedule, the value of the parameter is ignored, \
+           update_sync_day of the pool will be set to the default value 0. For \
+           'weekly' schedule, 0..6, where 0 is Sunday."
         )
       ]
     ~allowed_roles:_R_POOL_OP ()

@@ -1,5 +1,5 @@
 (*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
+ * Copyright (C) Citrix Systems Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published
@@ -16,6 +16,8 @@ module D = Debug.Make (struct let name = "pool_periodic_update_sync" end)
 
 open D
 open Client
+
+let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
 let periodic_update_sync_task_name = "Periodic update synchronization"
 
@@ -99,6 +101,7 @@ let update_sync_delay_for_next_schedule_internal ~utc_now
   let calc_delay =
     Ptime.diff utc_next_schedule utc_now |> Ptime.Span.to_float_s
   in
+  (* Make the minimum interval between 2 runs to 2 hours to avoid too close schedules *)
   Float.max calc_delay update_sync_minimum_interval
 
 let update_sync_delay_for_next_schedule ~__context =
@@ -132,41 +135,48 @@ let update_sync_delay_for_next_schedule ~__context =
 let rec update_sync () =
   Server_helpers.exec_with_new_task "periodic_update_sync" (fun __context ->
       Helpers.call_api_functions ~__context (fun rpc session_id ->
-          ( try
-              ignore
-                (Client.Pool.sync_updates ~rpc ~session_id
-                   ~self:(Helpers.get_pool ~__context)
-                   ~force:false ~token:"" ~token_id:""
-                )
-            with _ ->
-              warn "Periodic update sync failed" ;
-              let frequency =
-                Db.Pool.get_update_sync_frequency ~__context
-                  ~self:(Helpers.get_pool ~__context)
-              in
-              let now =
-                Ptime_clock.now ()
-                |> Xapi_stdext_date.Date.of_ptime
-                |> Xapi_stdext_date.Date.to_string
-              in
-              Xapi_alert.add ~msg:Api_messages.periodic_update_sync_failed
-                ~cls:`Pool
-                ~obj_uuid:
-                  (Db.Pool.get_uuid ~__context
+          finally
+            (fun () ->
+              try
+                ignore
+                  (Client.Pool.sync_updates ~rpc ~session_id
                      ~self:(Helpers.get_pool ~__context)
+                     ~force:false ~token:"" ~token_id:""
                   )
-                ~body:
-                  ("<body><message>Periodic update sync("
-                  ^ frequency_to_str ~frequency
-                  ^ ") failed.</message><date>"
-                  ^ now
-                  ^ "</date></body>"
-                  )
-          ) ;
-          Xapi_periodic_scheduler.add_to_queue periodic_update_sync_task_name
-            Xapi_periodic_scheduler.OneShot
-            (update_sync_delay_for_next_schedule ~__context)
-            update_sync
+              with e ->
+                let exc = Printexc.to_string e in
+                warn "Periodic update sync failed with exception %s" exc ;
+                let frequency =
+                  Db.Pool.get_update_sync_frequency ~__context
+                    ~self:(Helpers.get_pool ~__context)
+                in
+                let now =
+                  Ptime_clock.now ()
+                  |> Xapi_stdext_date.Date.of_ptime
+                  |> Xapi_stdext_date.Date.to_string
+                in
+                Xapi_alert.add ~msg:Api_messages.periodic_update_sync_failed
+                  ~cls:`Pool
+                  ~obj_uuid:
+                    (Db.Pool.get_uuid ~__context
+                       ~self:(Helpers.get_pool ~__context)
+                    )
+                  ~body:
+                    ("<body><message>Periodic update sync("
+                    ^ frequency_to_str ~frequency
+                    ^ ") failed.</message><exception>"
+                    ^ exc
+                    ^ "</exception><date>"
+                    ^ now
+                    ^ "</date></body>"
+                    )
+            )
+            (fun () ->
+              Xapi_periodic_scheduler.add_to_queue
+                periodic_update_sync_task_name Xapi_periodic_scheduler.OneShot
+                (update_sync_delay_for_next_schedule ~__context)
+                update_sync
+            )
       )
   )
 
