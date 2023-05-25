@@ -983,6 +983,8 @@ let conn_limit_unix = ref 1024
 
 let conn_limit_clientcert = ref 800
 
+let prefer_nbd_attach = ref false
+
 let xapi_globs_spec =
   [
     ( "master_connection_reset_timeout"
@@ -1419,6 +1421,11 @@ let other_options =
     , Arg.Set_int server_cert_group_id
     , (fun () -> string_of_int !server_cert_group_id)
     , "The group id of server ssl certificate file."
+    )
+  ; ( "prefer-nbd-attach"
+    , Arg.Set prefer_nbd_attach
+    , (fun () -> string_of_bool !prefer_nbd_attach)
+    , "Use NBD to attach disks to the control domain."
     )
   ]
 

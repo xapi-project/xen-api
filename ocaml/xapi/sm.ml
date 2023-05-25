@@ -193,14 +193,7 @@ let vdi_attach dconf driver sr vdi writable =
       [sprintf "%b" writable]
   in
   let result = Sm_exec.exec_xmlrpc (driver_filename driver) call in
-  try Sm_exec.parse_attach_result result
-  with _ ->
-    {
-      params= Sm_exec.parse_attach_result_legacy result
-    ; o_direct= true
-    ; o_direct_reason= ""
-    ; xenstore_data= []
-    }
+  Sm_exec.parse_attach_result result
 
 let vdi_detach dconf driver sr vdi =
   debug "vdi_detach" driver
