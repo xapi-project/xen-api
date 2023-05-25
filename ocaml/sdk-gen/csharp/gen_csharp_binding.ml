@@ -376,7 +376,7 @@ and gen_class out_chan cls =
         \        {\n\
         \            %s\n\n\
         \            if (!ignoreCurrentOperations && \
-         !Helper.AreEqual2(this.current_operations, other.current_operations))\n\
+         !Helper.AreEqual2(current_operations, other.current_operations))\n\
         \                return false;\n\n\
         \            return " exposed_class_name check_refs
   ) ;
@@ -530,11 +530,7 @@ and gen_hashtable_constructor_line out_chan content =
 and gen_equals_condition content =
   match content with
   | Field fr ->
-      "Helper.AreEqual2(this._"
-      ^ full_name fr
-      ^ ", other._"
-      ^ full_name fr
-      ^ ")"
+      sprintf "Helper.AreEqual2(_%s, other._%s)" (full_name fr) (full_name fr)
   | Namespace (_, c) ->
       String.concat " &&\n                " (List.map gen_equals_condition c)
 
@@ -975,9 +971,8 @@ and gen_map_conversion out_chan = function
       print
         "\n\
         \        internal static Dictionary<%s, %s> \
-         convert_from_proxy_%s_%s(Object o)\n\
+         ToDictionary_%s_%s(Hashtable table)\n\
         \        {\n\
-        \            Hashtable table = (Hashtable)o;\n\
         \            Dictionary<%s, %s> result = new Dictionary<%s, %s>();\n\
         \            if (table != null)\n\
         \            {\n\
@@ -1152,7 +1147,7 @@ and convert_from_hashtable fname ty =
       maps := TypeSet.add x !maps ;
       sprintf "%s(Marshalling.ParseHashTable(table, %s))"
         (sanitise_function_name
-           (sprintf "Maps.convert_from_proxy_%s_%s"
+           (sprintf "Maps.ToDictionary_%s_%s"
               (exposed_type_as_literal u)
               (exposed_type_as_literal v)
            )
@@ -1210,7 +1205,7 @@ and simple_convert_from_proxy thing ty =
       maps := TypeSet.add x !maps ;
       sprintf "%s(%s)"
         (sanitise_function_name
-           (sprintf "Maps.convert_from_proxy_%s_%s"
+           (sprintf "Maps.ToDictionary_%s_%s"
               (exposed_type_as_literal u)
               (exposed_type_as_literal v)
            )
