@@ -91,7 +91,6 @@ module Span = struct
     ; events: SpanEvent.t list
     ; attributes: (string * string) list
   }
-  [@@deriving rpcty]
 
   let compare span1 span2 =
     SpanContext.(
@@ -191,13 +190,6 @@ module Span = struct
         {span with status= {status_code; description}}
     | _ ->
         span
-
-  let to_string s = Rpcmarshal.marshal t.Rpc.Types.ty s |> Jsonrpc.to_string
-
-  let of_string s =
-    Jsonrpc.of_string s
-    |> Rpcmarshal.unmarshal t.Rpc.Types.ty
-    |> Result.to_option
 end
 
 module Spans = struct

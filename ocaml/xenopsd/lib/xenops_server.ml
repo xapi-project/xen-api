@@ -1830,11 +1830,20 @@ let rec atomics_of_operation = function
 let with_tracing ~name ~task f =
   let open Tracing in
   let context = Xenops_task.tracing task in
-  let parent = Option.bind context Span.of_string in
+  let spancontext = Option.bind context SpanContext.of_traceparent in
+  let parent =
+    Option.map (fun tp -> Tracer.span_of_span_context tp name) spancontext
+  in
   let tracer = get_tracer ~name in
   match Tracer.start ~tracer ~name ~parent () with
   | Ok span -> (
-      let sub_context = Option.map Span.to_string span in
+      let sub_context =
+        Option.map
+          (fun span ->
+            Tracing.Span.get_context span |> Tracing.SpanContext.to_traceparent
+          )
+          span
+      in
       Xenops_task.set_tracing task sub_context ;
       try
         let result = f () in
@@ -3636,9 +3645,7 @@ module VM = struct
     Debug.with_thread_associated dbg
       (fun () ->
         debug "traceparent: %s" (Option.value ~default:"(none)" traceparent) ;
-        let tracing =
-          Option.bind traceparent (tracing_of_traceparent "receive_memory")
-        in
+        let tracing = traceparent in
         let id, final_id =
           (* The URI is /service/xenops/memory/id *)
           let bits = Astring.String.cuts ~sep:"/" (Uri.path uri) in

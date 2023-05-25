@@ -39,10 +39,6 @@ module Span : sig
 
   val get_context : t -> SpanContext.t
 
-  val of_string : string -> t option
-
-  val to_string : t -> string
-
   val add_link : t -> SpanContext.t -> (string * string) list -> t
 
   val add_event : t -> string -> (string * string) list -> t

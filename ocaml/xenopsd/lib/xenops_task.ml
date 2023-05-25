@@ -77,29 +77,13 @@ let parallel_id_with_tracing parallel_id t =
   | None ->
       parallel_id
 
-let traceparent_of_task t =
-  let ( let* ) = Option.bind in
-  let* tracing = Xenops_task.tracing t in
-  let* span = Tracing.Span.of_string tracing in
-  Tracing.Span.get_context span
-  |> Tracing.SpanContext.to_traceparent
-  |> Option.some
-
 let dbg_with_traceparent_of_task t =
   Option.fold ~none:(Xenops_task.get_dbg t)
     ~some:(fun traceparent -> Xenops_task.get_dbg t ^ "\x00" ^ traceparent)
-    (traceparent_of_task t)
+    (Xenops_task.tracing t)
 
 let traceparent_header_of_task t =
   Option.map
     (fun traceparent -> ("traceparent", traceparent))
-    (traceparent_of_task t)
+    (Xenops_task.tracing t)
   |> Option.to_list
-
-let tracing_of_traceparent name traceparent =
-  let open Tracing in
-  match Tracing.SpanContext.of_traceparent traceparent with
-  | None ->
-      None
-  | Some context ->
-      Some (Tracing.Tracer.span_of_span_context context name |> Span.to_string)

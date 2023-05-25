@@ -169,15 +169,22 @@ let string_of_task __context = __context.dbg
 let string_of_task_and_tracing __context =
   Option.fold ~none:__context.dbg
     ~some:(fun span ->
-      let s = Tracing.Span.to_string span in
+      let s =
+        Tracing.Span.get_context span |> Tracing.SpanContext.to_traceparent
+      in
       __context.dbg ^ "\x00" ^ s
     )
     __context.tracing
 
 let tracing_of_dbg dbg =
+  let open Tracing in
   match String.split_on_char '\x00' dbg with
-  | [dbg; tracing] ->
-      (dbg, Tracing.Span.of_string tracing)
+  | [dbg; traceparent] ->
+      let spancontext = SpanContext.of_traceparent traceparent in
+      let span =
+        Option.map (fun tp -> Tracer.span_of_span_context tp dbg) spancontext
+      in
+      (dbg, span)
   | _ ->
       (dbg, None)
 
