@@ -17,7 +17,7 @@ module type SIZE = sig
   (** evaluated on first [execute] *)
 end
 
-module Make (Size : SIZE) : sig
+module Make (_ : SIZE) : sig
   (** [execute f] up to [Size.n ()] in parallel. *)
 
   val execute : (unit -> 'a) -> 'a

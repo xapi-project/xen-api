@@ -60,6 +60,6 @@
 (rule
  (alias runtest)
  (deps (:x rrd_cli.exe))
- (package xapi-idl)
+ (package xapi-rrdd)
  (action (run %{x} --help=plain)))
 

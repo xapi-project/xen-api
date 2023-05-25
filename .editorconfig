@@ -11,7 +11,7 @@ insert_final_newline = true
 
 # Makefiles must use tabs, otherwise they don't work
 [Makefile]
-indent_style = tabs
+indent_style = tab
 
 [*.{c,h}]
 indent_size = 4

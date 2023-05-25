@@ -381,7 +381,7 @@ end = struct
     else
       cmp
 
-  let rec list_dedup cmp =
+  let list_dedup cmp =
     let rec loop acc = function
       | [] ->
           List.rev acc
