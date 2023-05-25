@@ -73,6 +73,8 @@ type driver = Vhd | Aio
 
 let string_of_driver = function Vhd -> "vhd" | Aio -> "aio"
 
+let tapdev_of ~pid ~minor = {minor; tapdisk_pid= pid}
+
 (* DUMMY MODE FUNCTIONS *)
 
 let get_minor tapdev = tapdev.minor
