@@ -532,3 +532,10 @@ let of_device ctx path =
       t
   | _ ->
       raise Not_found
+
+let find ctx ~pid ~minor =
+  match list ~t:{minor; tapdisk_pid= pid} ctx with
+  | [t] ->
+      t
+  | _ ->
+      raise Not_found
