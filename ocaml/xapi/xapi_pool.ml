@@ -1456,7 +1456,9 @@ let join_common ~__context ~master_address ~master_username ~master_password
 
   (* Certificate exchange done, we must switch to verified pool connections as
      soon as possible *)
-  let rpc = rpc ~__context ~verify_cert:(Stunnel_client.pool ()) master_address in
+  let rpc =
+    rpc ~__context ~verify_cert:(Stunnel_client.pool ()) master_address
+  in
   let session_id =
     try
       Client.Session.login_with_password ~rpc ~uname:master_username

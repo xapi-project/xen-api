@@ -473,7 +473,8 @@ let make_remote_rpc_of_url ~verify_cert ~srcstr ~dststr (url, pool_secret) call
   XMLRPC_protocol.rpc ~transport ~srcstr ~dststr ~http call
 
 (* This one uses rpc-light *)
-let make_remote_rpc ?(verify_cert = Stunnel_client.pool ()) ~__context remote_address xml =
+let make_remote_rpc ?(verify_cert = Stunnel_client.pool ()) ~__context
+    remote_address xml =
   let open Xmlrpc_client in
   let transport =
     SSL (SSL.make ~verify_cert (), remote_address, !Constants.https_port)

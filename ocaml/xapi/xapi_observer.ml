@@ -55,8 +55,8 @@ end
 module Observer : ObserverInterface = struct
   let create ~__context ~uuid ~name_label ~attributes ~endpoints ~enabled =
     debug "Observer.create %s" uuid ;
-    Tracing.create ~uuid ~name_label ~tags:attributes ~endpoints ~processors:[]
-      ~filters:[] ~enabled ~service_name:"xapi"
+    Tracing.create ~uuid ~name_label ~attributes ~endpoints ~enabled
+      ~service_name:"xapi"
 
   let destroy ~__context ~uuid =
     debug "Observer.destroy %s" uuid ;
@@ -68,7 +68,7 @@ module Observer : ObserverInterface = struct
 
   let set_attributes ~__context ~uuid ~attributes =
     debug "Observer.set_attributes %s" uuid ;
-    Tracing.set ~uuid ~tags:attributes ()
+    Tracing.set ~uuid ~attributes ()
 
   let set_endpoints ~__context ~uuid ~endpoints =
     debug "Observer.set_endpoints %s" uuid ;

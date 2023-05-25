@@ -78,7 +78,7 @@ module Span = struct
     ; service_name: string
     ; begin_time: float
     ; end_time: float option
-    ; tags: (string * string) list
+    ; attributes: (string * string) list
   }
   [@@deriving rpcty]
 
@@ -93,7 +93,7 @@ module Span = struct
 
   let generate_id n = String.init n (fun _ -> "0123456789abcdef".[Random.int 16])
 
-  let start ?(tags = []) ~name ~parent ~span_kind ~service_name () =
+  let start ?(attributes = []) ~name ~parent ~span_kind ~service_name () =
     let trace_id =
       match parent with
       | None ->
@@ -116,13 +116,17 @@ module Span = struct
     ; service_name
     ; begin_time
     ; end_time
-    ; tags
+    ; attributes
     }
 
-  let get_tag t tag = snd (List.find (fun s -> fst s = tag) t.tags)
+  let get_tag t tag = snd (List.find (fun s -> fst s = tag) t.attributes)
 
-  let finish ?(tags = []) ~span () =
-    {span with end_time= Some (Unix.gettimeofday ()); tags= span.tags @ tags}
+  let finish ?(attributes = []) ~span () =
+    {
+      span with
+      end_time= Some (Unix.gettimeofday ())
+    ; attributes= span.attributes @ attributes
+    }
 
   let set_span_kind span span_kind = {span with span_kind}
 
@@ -138,7 +142,7 @@ module Span = struct
             )
         in
         let status_code = Status.Error in
-        let exn_tags =
+        let exn_attributes =
           [
             ("exception.message", msg)
           ; ("exception.stacktrace", stacktrace)
@@ -151,7 +155,7 @@ module Span = struct
             {
               span with
               status= {status_code; description}
-            ; tags= span.tags @ exn_tags
+            ; attributes= span.attributes @ exn_attributes
             }
         | _ ->
             span
@@ -280,7 +284,7 @@ module Spans = struct
                         span.Span.context.span_id ;
                       let span =
                         Span.finish ~span
-                          ~tags:
+                          ~attributes:
                             [
                               ( "gc_inactive_span_timeout"
                               , string_of_float elapsed
@@ -319,10 +323,8 @@ end
 module TracerProvider = struct
   type t = {
       name_label: string
-    ; tags: (string * string) list
+    ; attributes: (string * string) list
     ; endpoints: endpoint list
-    ; filters: string list
-    ; processors: string list
     ; enabled: bool
     ; service_name: string
   }
@@ -339,10 +341,8 @@ module Tracer = struct
     let provider : TracerProvider.t =
       {
         name_label= ""
-      ; tags= []
+      ; attributes= []
       ; endpoints= []
-      ; filters= []
-      ; processors= []
       ; enabled= false
       ; service_name= ""
       }
@@ -359,7 +359,7 @@ module Tracer = struct
     ; span_kind= SpanKind.Client (* This will be the span of the client call*)
     ; begin_time= Unix.gettimeofday ()
     ; end_time= None
-    ; tags= []
+    ; attributes= []
     }
 
   let start ~tracer:t ?(span_kind = SpanKind.Internal) ~name ~parent () :
@@ -368,9 +368,9 @@ module Tracer = struct
     if not t.provider.enabled then
       ok_none
     else
-      let tags = t.provider.tags in
+      let attributes = t.provider.attributes in
       let span =
-        Span.start ~tags ~name ~parent ~span_kind
+        Span.start ~attributes ~name ~parent ~span_kind
           ~service_name:t.provider.service_name ()
       in
       Spans.add_to_spans ~span ; Ok (Some span)
@@ -401,23 +401,21 @@ let lock = Mutex.create ()
 
 let tracer_providers = Hashtbl.create 100
 
-let set ?enabled ?tags ?endpoints ?filters ?processors ~uuid () =
+let set ?enabled ?attributes ?endpoints ~uuid () =
   Xapi_stdext_threads.Threadext.Mutex.execute lock (fun () ->
       let provider =
         match Hashtbl.find_opt tracer_providers uuid with
         | Some (provider : TracerProvider.t) ->
             let enabled = Option.value ~default:provider.enabled enabled in
-            let tags = Option.value ~default:provider.tags tags in
+            let attributes =
+              Option.value ~default:provider.attributes attributes
+            in
             let endpoints =
               Option.fold ~none:provider.endpoints
                 ~some:(List.map endpoint_of_string)
                 endpoints
             in
-            let filters = Option.value ~default:provider.filters filters in
-            let processors =
-              Option.value ~default:provider.processors processors
-            in
-            {provider with enabled; tags; endpoints; filters; processors}
+            {provider with enabled; attributes; endpoints}
         | None ->
             failwith
               (Printf.sprintf "The TracerProvider : %s does not exist" uuid)
@@ -425,11 +423,10 @@ let set ?enabled ?tags ?endpoints ?filters ?processors ~uuid () =
       Hashtbl.replace tracer_providers uuid provider
   )
 
-let create ~enabled ~tags ~endpoints ~filters ~processors ~service_name
-    ~name_label ~uuid =
+let create ~enabled ~attributes ~endpoints ~service_name ~name_label ~uuid =
   let endpoints = List.map endpoint_of_string endpoints in
   let provider : TracerProvider.t =
-    {name_label; tags; endpoints; filters; processors; service_name; enabled}
+    {name_label; attributes; endpoints; service_name; enabled}
   in
   Xapi_stdext_threads.Threadext.Mutex.execute lock (fun () ->
       match Hashtbl.find_opt tracer_providers uuid with
@@ -518,7 +515,7 @@ module Export = struct
               Option.map SpanKind.to_string
                 (ZipkinSpan.kind_to_zipkin_kind s.span_kind)
           ; localEndpoint= {serviceName}
-          ; tags= s.tags
+          ; tags= s.attributes
           }
 
         let content_of (spans : Span.t list) =

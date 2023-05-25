@@ -84,20 +84,16 @@ end
 
 val set :
      ?enabled:bool
-  -> ?tags:(string * string) list
+  -> ?attributes:(string * string) list
   -> ?endpoints:string list
-  -> ?filters:string list
-  -> ?processors:string list
   -> uuid:string
   -> unit
   -> unit
 
 val create :
      enabled:bool
-  -> tags:(string * string) list
+  -> attributes:(string * string) list
   -> endpoints:string list
-  -> filters:string list
-  -> processors:string list
   -> service_name:string
   -> name_label:string
   -> uuid:string

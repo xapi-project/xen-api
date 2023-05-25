@@ -4042,8 +4042,8 @@ module Observer = struct
     debug "Observer.create : dbg=%s" dbg ;
     Debug.with_thread_associated dbg
       (fun () ->
-        Tracing.create ~uuid ~name_label ~tags:attributes ~filters:[]
-          ~processors:[] ~endpoints ~enabled ~service_name:"xenopsd"
+        Tracing.create ~uuid ~name_label ~attributes ~endpoints ~enabled
+          ~service_name:"xenopsd"
       )
       ()
 
@@ -4060,7 +4060,7 @@ module Observer = struct
   let set_attributes _ dbg uuid attributes =
     debug "Observer.set_attributes : dbg=%s" dbg ;
     Debug.with_thread_associated dbg
-      (fun () -> Tracing.set ~uuid ~tags:attributes ())
+      (fun () -> Tracing.set ~uuid ~attributes ())
       ()
 
   let set_endpoints _ dbg uuid endpoints =
