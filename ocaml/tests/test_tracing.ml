@@ -21,7 +21,7 @@ let () = Printexc.record_backtrace true
 
 let _ =
   create ~enabled:false ~name_label:"default" ~uuid:"123" ~attributes:[]
-    ~endpoints:["bugtool"] ~service_name:"xapi" ;
+    ~endpoints:["bugtool"] ;
   main ()
 
 let start_test_span () =

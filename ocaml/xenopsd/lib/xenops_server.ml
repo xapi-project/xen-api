@@ -4043,7 +4043,6 @@ module Observer = struct
     Debug.with_thread_associated dbg
       (fun () ->
         Tracing.create ~uuid ~name_label ~attributes ~endpoints ~enabled
-          ~service_name:"xenopsd"
       )
       ()
 
@@ -4100,7 +4099,7 @@ module Observer = struct
   let set_host_id _ dbg host_id =
     debug "Observer.set_host_id : dbg=%s" dbg ;
     Debug.with_thread_associated dbg
-      (fun () -> Tracing.Export.Destination.File.set_host_id host_id)
+      (fun () -> Tracing.Export.set_host_id host_id)
       ()
 end
 

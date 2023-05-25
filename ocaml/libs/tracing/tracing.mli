@@ -60,7 +60,7 @@ end
 module Tracer : sig
   type t
 
-  val span_of_span_context : t -> SpanContext.t -> string -> Span.t
+  val span_of_span_context : SpanContext.t -> string -> Span.t
 
   val start :
        tracer:t
@@ -94,7 +94,6 @@ val create :
      enabled:bool
   -> attributes:(string * string) list
   -> endpoints:string list
-  -> service_name:string
   -> name_label:string
   -> uuid:string
   -> unit
@@ -106,11 +105,13 @@ val get_tracer : name:string -> Tracer.t
 module Export : sig
   val set_export_interval : float -> unit
 
+  val set_host_id : string -> unit
+
+  val set_service_name : string -> unit
+
   module Destination : sig
     module File : sig
       val set_trace_log_dir : string -> unit
-
-      val set_host_id : string -> unit
     end
   end
 end

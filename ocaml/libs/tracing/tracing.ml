@@ -75,7 +75,6 @@ module Span = struct
     ; status: Status.t
     ; parent: t option
     ; name: string
-    ; service_name: string
     ; begin_time: float
     ; end_time: float option
     ; attributes: (string * string) list
@@ -93,7 +92,7 @@ module Span = struct
 
   let generate_id n = String.init n (fun _ -> "0123456789abcdef".[Random.int 16])
 
-  let start ?(attributes = []) ~name ~parent ~span_kind ~service_name () =
+  let start ?(attributes = []) ~name ~parent ~span_kind () =
     let trace_id =
       match parent with
       | None ->
@@ -107,17 +106,7 @@ module Span = struct
     let begin_time = Unix.gettimeofday () in
     let end_time = None in
     let status : Status.t = {status_code= Status.Unset; description= None} in
-    {
-      context
-    ; span_kind
-    ; status
-    ; parent
-    ; name
-    ; service_name
-    ; begin_time
-    ; end_time
-    ; attributes
-    }
+    {context; span_kind; status; parent; name; begin_time; end_time; attributes}
 
   let get_tag t tag = snd (List.find (fun s -> fst s = tag) t.attributes)
 
@@ -326,7 +315,6 @@ module TracerProvider = struct
     ; attributes: (string * string) list
     ; endpoints: endpoint list
     ; enabled: bool
-    ; service_name: string
   }
 
   let endpoints_of t = t.endpoints
@@ -339,22 +327,15 @@ module Tracer = struct
 
   let no_op =
     let provider : TracerProvider.t =
-      {
-        name_label= ""
-      ; attributes= []
-      ; endpoints= []
-      ; enabled= false
-      ; service_name= ""
-      }
+      {name_label= ""; attributes= []; endpoints= []; enabled= false}
     in
     {name= ""; provider}
 
-  let span_of_span_context t context name : Span.t =
+  let span_of_span_context context name : Span.t =
     {
       context
     ; status= {status_code= Status.Unset; description= None}
     ; name
-    ; service_name= t.provider.service_name
     ; parent= None
     ; span_kind= SpanKind.Client (* This will be the span of the client call*)
     ; begin_time= Unix.gettimeofday ()
@@ -369,10 +350,7 @@ module Tracer = struct
       ok_none
     else
       let attributes = t.provider.attributes in
-      let span =
-        Span.start ~attributes ~name ~parent ~span_kind
-          ~service_name:t.provider.service_name ()
-      in
+      let span = Span.start ~attributes ~name ~parent ~span_kind () in
       Spans.add_to_spans ~span ; Ok (Some span)
 
   let finish ?error span =
@@ -423,10 +401,10 @@ let set ?enabled ?attributes ?endpoints ~uuid () =
       Hashtbl.replace tracer_providers uuid provider
   )
 
-let create ~enabled ~attributes ~endpoints ~service_name ~name_label ~uuid =
+let create ~enabled ~attributes ~endpoints ~name_label ~uuid =
   let endpoints = List.map endpoint_of_string endpoints in
   let provider : TracerProvider.t =
-    {name_label; attributes; endpoints; service_name; enabled}
+    {name_label; attributes; endpoints; enabled}
   in
   Xapi_stdext_threads.Threadext.Mutex.execute lock (fun () ->
       match Hashtbl.find_opt tracer_providers uuid with
@@ -466,6 +444,22 @@ module Export = struct
 
   let set_export_interval t = export_interval := t
 
+  let host_id = ref "localhost"
+
+  let set_host_id id = host_id := id
+
+  let service_name = ref None
+
+  let set_service_name name = service_name := Some name
+
+  let get_service_name () =
+    match !service_name with
+    | None ->
+        warn "service name not yet set!" ;
+        "unknown"
+    | Some name ->
+        name
+
   module Content = struct
     module Json = struct
       module Zipkinv2 = struct
@@ -499,7 +493,7 @@ module Export = struct
 
         let zipkin_span_of_span : Span.t -> ZipkinSpan.t =
          fun s ->
-          let serviceName = s.service_name in
+          let serviceName = get_service_name () in
           {
             id= s.context.span_id
           ; traceId= s.context.trace_id
@@ -528,11 +522,7 @@ module Export = struct
     module File = struct
       let trace_log_dir = ref "/var/log/dt/zipkinv2/json"
 
-      let host_id = ref "localhost"
-
       let set_trace_log_dir dir = trace_log_dir := dir
-
-      let set_host_id id = host_id := id
 
       let export ~trace_id ~span_json ~path : (string, exn) result =
         try
