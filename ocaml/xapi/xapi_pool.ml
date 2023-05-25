@@ -2029,6 +2029,7 @@ let designate_new_master ~__context ~host:_ =
     let pool = Helpers.get_pool ~__context in
     if Db.Pool.get_ha_enabled ~__context ~self:pool then
       raise (Api_errors.Server_error (Api_errors.ha_is_enabled, [])) ;
+    Db.Pool.set_last_update_sync ~__context ~self:pool ~value:Date.epoch ;
     (* Only the master can sync the *current* database; only the master
        knows the current generation count etc. *)
     Helpers.call_api_functions ~__context (fun rpc session_id ->
