@@ -417,6 +417,7 @@ let pool_migrate ~__context ~vm ~host ~options =
      ) ;
   Xapi_xenops.Events_from_xenopsd.with_suppressed queue_name dbg vm_uuid
     (fun () ->
+      let dbg = Context.string_of_task_and_tracing __context in
       try
         Xapi_network.with_networks_attached_for_vm ~__context ~vm ~host
           (fun () ->
