@@ -2634,6 +2634,7 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
         (* image to the destination. *)
         Redirector.alias ~tag:id ~alias:new_src_id ;
         let id' =
+          let dbg = dbg_with_traceparent_of_task t in
           Remote.VM.import_metadata dbg
             (Re.replace_string regexp ~by:new_dest_id
                (export_metadata vmm.vmm_vdi_map vmm.vmm_vif_map
@@ -2696,11 +2697,13 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
               in
               let headers =
                 Cohttp.Header.of_list
-                  [
-                    Cohttp.Cookie.Cookie_hdr.serialize cookies
-                  ; ("Connection", "keep-alive")
-                  ; ("User-agent", "xenopsd")
-                  ]
+                  ([
+                     Cohttp.Cookie.Cookie_hdr.serialize cookies
+                   ; ("Connection", "keep-alive")
+                   ; ("User-agent", "xenopsd")
+                   ]
+                  @ traceparent_header_of_task t
+                  )
               in
               let request =
                 Cohttp.Request.make ~meth:`PUT ~version:`HTTP_1_1 ~headers url
