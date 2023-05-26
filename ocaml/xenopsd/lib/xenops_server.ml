@@ -3628,7 +3628,6 @@ module VM = struct
     Cohttp.Response.make ~version:`HTTP_1_1 ~status:`Not_found ~headers ()
 
   let receive_memory uri cookies traceparent s context : unit =
-    let module Request = Cohttp.Request.Make (Cohttp_posix_io.Unbuffered_IO) in
     let module Response = Cohttp.Response.Make (Cohttp_posix_io.Unbuffered_IO) in
     let dbg = List.assoc "dbg" cookies in
     let memory_limit = List.assoc "memory_limit" cookies |> Int64.of_string in
@@ -3679,7 +3678,6 @@ module VM = struct
   (* This is modelled closely on receive_memory and there is significant scope
      for refactoring. *)
   let receive_vgpu uri cookies _traceparent s context : unit =
-    let module Request = Cohttp.Request.Make (Cohttp_posix_io.Unbuffered_IO) in
     let module Response = Cohttp.Response.Make (Cohttp_posix_io.Unbuffered_IO) in
     let dbg = List.assoc "dbg" cookies in
     Debug.with_thread_associated dbg
@@ -3750,7 +3748,6 @@ module VM = struct
   (* This handler /service/xenops/migrate-mem/id  receives a connection for
      VM memory. *)
   let receive_mem uri cookies _traceparent socket context : unit =
-    let module Request = Cohttp.Request.Make (Cohttp_posix_io.Unbuffered_IO) in
     let module Response = Cohttp.Response.Make (Cohttp_posix_io.Unbuffered_IO) in
     let dbg = List.assoc "dbg" cookies in
     Debug.with_thread_associated dbg
