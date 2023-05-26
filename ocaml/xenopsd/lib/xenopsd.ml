@@ -356,8 +356,11 @@ let handle_received_fd this_connection =
       let do_receive fn =
         let context = {Xenops_server.transferred_fd= Some received_fd} in
         let uri = Uri.of_string req.Xenops_migrate.Forwarded_http_request.uri in
-        fn uri req.Xenops_migrate.Forwarded_http_request.cookie this_connection
-          context
+        let traceparent =
+          req.Xenops_migrate.Forwarded_http_request.traceparent
+        in
+        fn uri req.Xenops_migrate.Forwarded_http_request.cookie traceparent
+          this_connection context
       in
       let uri = req.Xenops_migrate.Forwarded_http_request.uri in
       if has_prefix uri memory_prefix then

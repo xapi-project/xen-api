@@ -3242,9 +3242,9 @@ let uses_mxgpu id =
     )
     (VGPU_DB.ids id)
 
-let queue_operation_int dbg id op =
+let queue_operation_int ?tracing dbg id op =
   let task =
-    Xenops_task.add tasks dbg
+    Xenops_task.add ?tracing tasks dbg
       (let r = ref None in
        fun t -> perform ~result:r op t ; !r
       )
@@ -3253,8 +3253,8 @@ let queue_operation_int dbg id op =
   Redirector.push Redirector.default tag (op, task) ;
   task
 
-let queue_operation dbg id op =
-  let task = queue_operation_int dbg id op in
+let queue_operation ?tracing dbg id op =
+  let task = queue_operation_int ?tracing dbg id op in
   Xenops_task.id_of_handle task
 
 let queue_operation_and_wait dbg id op =
@@ -3627,7 +3627,7 @@ module VM = struct
     let headers = Cohttp.Header.of_list [("User-agent", "xenopsd")] in
     Cohttp.Response.make ~version:`HTTP_1_1 ~status:`Not_found ~headers ()
 
-  let receive_memory uri cookies s context : unit =
+  let receive_memory uri cookies traceparent s context : unit =
     let module Request = Cohttp.Request.Make (Cohttp_posix_io.Unbuffered_IO) in
     let module Response = Cohttp.Response.Make (Cohttp_posix_io.Unbuffered_IO) in
     let dbg = List.assoc "dbg" cookies in
@@ -3636,6 +3636,10 @@ module VM = struct
     let compressed_memory = get_compression cookies in
     Debug.with_thread_associated dbg
       (fun () ->
+        debug "traceparent: %s" (Option.value ~default:"(none)" traceparent) ;
+        let tracing =
+          Option.bind traceparent (tracing_of_traceparent "receive_memory")
+        in
         let id, final_id =
           (* The URI is /service/xenops/memory/id *)
           let bits = Astring.String.cuts ~sep:"/" (Uri.path uri) in
@@ -3663,7 +3667,7 @@ module VM = struct
                 ; vmr_compressed= compressed_memory
                 }
             in
-            let task = Some (queue_operation dbg id op) in
+            let task = Some (queue_operation ?tracing dbg id op) in
             Option.iter
               (fun t -> t |> Xenops_client.wait_for_task dbg |> ignore)
               task
@@ -3674,7 +3678,7 @@ module VM = struct
 
   (* This is modelled closely on receive_memory and there is significant scope
      for refactoring. *)
-  let receive_vgpu uri cookies s context : unit =
+  let receive_vgpu uri cookies _traceparent s context : unit =
     let module Request = Cohttp.Request.Make (Cohttp_posix_io.Unbuffered_IO) in
     let module Response = Cohttp.Response.Make (Cohttp_posix_io.Unbuffered_IO) in
     let dbg = List.assoc "dbg" cookies in
@@ -3745,7 +3749,7 @@ module VM = struct
 
   (* This handler /service/xenops/migrate-mem/id  receives a connection for
      VM memory. *)
-  let receive_mem uri cookies socket context : unit =
+  let receive_mem uri cookies _traceparent socket context : unit =
     let module Request = Cohttp.Request.Make (Cohttp_posix_io.Unbuffered_IO) in
     let module Response = Cohttp.Response.Make (Cohttp_posix_io.Unbuffered_IO) in
     let dbg = List.assoc "dbg" cookies in

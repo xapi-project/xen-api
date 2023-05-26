@@ -96,3 +96,14 @@ let traceparent_header_of_task t =
     (traceparent_of_task t)
   |> Option.to_list
 
+let tracing_of_traceparent name traceparent =
+  let open Tracing in
+  let tracer = get_tracer ~name in
+  match Tracing.SpanContext.of_traceparent traceparent with
+  | None ->
+      None
+  | Some context ->
+      Some
+        (Tracing.Tracer.span_of_span_context tracer context name
+        |> Span.to_string
+        )
