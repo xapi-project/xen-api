@@ -101,8 +101,11 @@ let update_sync_delay_for_next_schedule_internal ~utc_now
   let calc_delay =
     Ptime.diff utc_next_schedule utc_now |> Ptime.Span.to_float_s
   in
-  (* Make the minimum interval between 2 runs to 2 hours to avoid too close schedules *)
-  Float.max calc_delay update_sync_minimum_interval
+  if Xapi_fist.disable_periodic_update_sync_sec_randomness () then
+    calc_delay
+  else
+    (* Make the minimum interval between 2 runs to 2 hours to avoid too close schedules *)
+    Float.max calc_delay update_sync_minimum_interval
 
 let update_sync_delay_for_next_schedule ~__context =
   let frequency =
