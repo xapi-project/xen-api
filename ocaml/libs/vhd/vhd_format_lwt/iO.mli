@@ -14,9 +14,8 @@
 
 (** Lwt file I/O *)
 
-val debug_io: bool ref
+val debug_io : bool ref
 
-include Vhd_format.S.FILE
-  with type 'a t = 'a Lwt.t
+include Vhd_format.S.FILE with type 'a t = 'a Lwt.t
 
-val to_file_descr: fd -> Lwt_unix.file_descr
+val to_file_descr : fd -> Lwt_unix.file_descr
