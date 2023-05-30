@@ -993,6 +993,9 @@ let max_traces = ref 10000
 
 let prefer_nbd_attach = ref false
 
+(** 1 MiB *)
+let max_observer_file_size = ref (1 lsl 20)
+
 let xapi_globs_spec =
   [
     ( "master_connection_reset_timeout"
@@ -1075,6 +1078,7 @@ let xapi_globs_spec =
   ; ("export_interval", Float export_interval)
   ; ("max_spans", Int max_spans)
   ; ("max_traces", Int max_traces)
+  ; ("max_observer_file_size", Int max_observer_file_size)
   ]
 
 let options_of_xapi_globs_spec =
@@ -1452,6 +1456,11 @@ let other_options =
     , Arg.Set prefer_nbd_attach
     , (fun () -> string_of_bool !prefer_nbd_attach)
     , "Use NBD to attach disks to the control domain."
+    )
+  ; ( "observer-max-file-size"
+    , Arg.Set_int max_observer_file_size
+    , (fun () -> string_of_int !max_observer_file_size)
+    , "The maximum size of log files for saving spans"
     )
   ]
 

@@ -111,6 +111,8 @@ module Export : sig
 
   module Destination : sig
     module File : sig
+      val set_max_file_size : int -> unit
+
       val set_trace_log_dir : string -> unit
     end
   end

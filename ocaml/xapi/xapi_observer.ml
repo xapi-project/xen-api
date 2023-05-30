@@ -49,6 +49,8 @@ module type ObserverInterface = sig
 
   val set_max_traces : __context:Context.t -> traces:int -> unit
 
+  val set_max_file_size : __context:Context.t -> file_size:int -> unit
+
   val set_host_id : __context:Context.t -> host_id:string -> unit
 end
 
@@ -92,6 +94,10 @@ module Observer : ObserverInterface = struct
   let set_max_traces ~__context ~traces =
     debug "Observer.set_max_traces" ;
     Tracing.Spans.set_max_traces traces
+
+  let set_max_file_size ~__context ~file_size =
+    debug "Observer.set_max_file_size" ;
+    Tracing.Export.Destination.File.set_max_file_size file_size
 
   let set_host_id ~__context ~host_id =
     debug "Observer.set_host_id" ;
@@ -269,6 +275,14 @@ let set_max_traces ~__context traces =
     )
     supported_components
 
+let set_max_file_size ~__context file_size =
+  List.iter
+    (fun c ->
+      let module Forwarder = (val get_forwarder c : ObserverInterface) in
+      Forwarder.set_max_file_size ~__context ~file_size
+    )
+    supported_components
+
 let set_host_id ~__context host_id =
   List.iter
     (fun c ->
@@ -302,6 +316,7 @@ let initialise ~__context =
   set_export_interval ~__context !Xapi_globs.export_interval ;
   set_max_spans ~__context !Xapi_globs.max_spans ;
   set_max_traces ~__context !Xapi_globs.max_traces ;
+  set_max_file_size ~__context !Xapi_globs.max_observer_file_size ;
   set_host_id ~__context (Helpers.get_localhost_uuid ()) ;
   Tracing.Export.set_service_name "xapi" ;
   init ~__context

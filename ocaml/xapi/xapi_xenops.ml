@@ -4474,6 +4474,11 @@ module Observer = struct
     let dbg = Context.string_of_task __context in
     Client.Observer.set_max_traces dbg traces
 
+  let set_max_file_size ~__context ~file_size =
+    let module Client = (val make_client (default_xenopsd ()) : XENOPS) in
+    let dbg = Context.string_of_task __context in
+    Client.Observer.set_max_file_size dbg file_size
+
   let set_host_id ~__context ~host_id =
     let module Client = (val make_client (default_xenopsd ()) : XENOPS) in
     let dbg = Context.string_of_task __context in
