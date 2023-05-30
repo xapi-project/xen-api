@@ -501,7 +501,9 @@ module Export = struct
     module Json = struct
       module Zipkinv2 = struct
         module ZipkinSpan = struct
-          type localEndpoint = {serviceName: string} [@@deriving rpcty]
+          type zipkinEndpoint = {serviceName: string} [@@deriving rpcty]
+
+          type annotation = {timestamp: int; value: string} [@@deriving rpcty]
 
           type t = {
               id: string
@@ -511,7 +513,8 @@ module Export = struct
             ; timestamp: int
             ; duration: int
             ; kind: string option
-            ; localEndpoint: localEndpoint
+            ; localEndpoint: zipkinEndpoint
+            ; annotations: annotation list
             ; tags: (string * string) list
           }
           [@@deriving rpcty]
@@ -528,9 +531,19 @@ module Export = struct
             Rpcmarshal.marshal t_list.Rpc.Types.ty s |> Jsonrpc.to_string
         end
 
-        let zipkin_span_of_span : Span.t -> ZipkinSpan.t =
-         fun s ->
+        let zipkin_span_of_span (s : Span.t) : ZipkinSpan.t =
           let serviceName = get_service_name () in
+          let annotations =
+            List.map
+              (fun event : ZipkinSpan.annotation ->
+                let timestamp =
+                  int_of_float (event.SpanEvent.time *. 1000000.)
+                in
+                let value = event.SpanEvent.name in
+                {timestamp; value}
+              )
+              s.events
+          in
           {
             id= s.context.span_id
           ; traceId= s.context.trace_id
@@ -546,6 +559,7 @@ module Export = struct
               Option.map SpanKind.to_string
                 (ZipkinSpan.kind_to_zipkin_kind s.span_kind)
           ; localEndpoint= {serviceName}
+          ; annotations
           ; tags=
               Attributes.fold (fun k v tags -> (k, v) :: tags) s.attributes []
           }
