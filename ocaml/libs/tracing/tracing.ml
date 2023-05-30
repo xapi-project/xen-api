@@ -51,12 +51,16 @@ module Status = struct
   type status_code = Unset | Ok | Error [@@deriving rpcty]
 
   type t = {status_code: status_code; description: string option}
-  [@@deriving rpcty]
+end
+
+module Attributes = struct
+  include Map.Make (String)
+
+  let of_list list = List.to_seq list |> of_seq
 end
 
 module SpanEvent = struct
-  type t = {name: string; time: float; attributes: (string * string) list}
-  [@@deriving rpcty]
+  type t = {name: string; time: float; attributes: string Attributes.t}
 end
 
 module SpanContext = struct
@@ -75,7 +79,6 @@ end
 
 module SpanLink = struct
   type t = {context: SpanContext.t; attributes: (string * string) list}
-  [@@deriving rpcty]
 end
 
 module Span = struct
@@ -89,7 +92,7 @@ module Span = struct
     ; end_time: float option
     ; links: SpanLink.t list
     ; events: SpanEvent.t list
-    ; attributes: (string * string) list
+    ; attributes: string Attributes.t
   }
 
   let compare span1 span2 =
@@ -103,7 +106,7 @@ module Span = struct
 
   let generate_id n = String.init n (fun _ -> "0123456789abcdef".[Random.int 16])
 
-  let start ?(attributes = []) ~name ~parent ~span_kind () =
+  let start ?(attributes = Attributes.empty) ~name ~parent ~span_kind () =
     let trace_id =
       match parent with
       | None ->
@@ -132,14 +135,13 @@ module Span = struct
     ; attributes
     }
 
-  let get_tag t tag = snd (List.find (fun s -> fst s = tag) t.attributes)
+  let get_tag t tag = Attributes.find tag t.attributes
 
-  let finish ?(attributes = []) ~span () =
-    {
-      span with
-      end_time= Some (Unix.gettimeofday ())
-    ; attributes= span.attributes @ attributes
-    }
+  let finish ?(attributes = Attributes.empty) ~span () =
+    let attributes =
+      Attributes.union (fun _k a _b -> Some a) attributes span.attributes
+    in
+    {span with end_time= Some (Unix.gettimeofday ()); attributes}
 
   let set_span_kind span span_kind = {span with span_kind}
 
@@ -148,6 +150,7 @@ module Span = struct
     {span with links= link :: span.links}
 
   let add_event span name attributes =
+    let attributes = Attributes.of_list attributes in
     let event : SpanEvent.t = {name; time= Unix.gettimeofday (); attributes} in
     {span with events= event :: span.events}
 
@@ -173,11 +176,13 @@ module Span = struct
         in
         match span.status.status_code with
         | Unset ->
-            {
-              span with
-              status= {status_code; description}
-            ; attributes= span.attributes @ exn_attributes
-            }
+            let attributes =
+              Attributes.union
+                (fun _k a _b -> Some a)
+                span.attributes
+                (Attributes.of_list exn_attributes)
+            in
+            {span with status= {status_code; description}; attributes}
         | _ ->
             span
       )
@@ -299,11 +304,9 @@ module Spans = struct
                       let span =
                         Span.finish ~span
                           ~attributes:
-                            [
-                              ( "gc_inactive_span_timeout"
-                              , string_of_float elapsed
-                              )
-                            ]
+                            (Attributes.singleton "gc_inactive_span_timeout"
+                               (string_of_float elapsed)
+                            )
                           ()
                       in
                       add_to_finished span ; None
@@ -337,7 +340,7 @@ end
 module TracerProvider = struct
   type t = {
       name_label: string
-    ; attributes: (string * string) list
+    ; attributes: string Attributes.t
     ; endpoints: endpoint list
     ; enabled: bool
   }
@@ -352,7 +355,12 @@ module Tracer = struct
 
   let no_op =
     let provider : TracerProvider.t =
-      {name_label= ""; attributes= []; endpoints= []; enabled= false}
+      {
+        name_label= ""
+      ; attributes= Attributes.empty
+      ; endpoints= []
+      ; enabled= false
+      }
     in
     {name= ""; provider}
 
@@ -367,7 +375,7 @@ module Tracer = struct
     ; end_time= None
     ; links= []
     ; events= []
-    ; attributes= []
+    ; attributes= Attributes.empty
     }
 
   let start ~tracer:t ?(span_kind = SpanKind.Internal) ~name ~parent () :
@@ -412,8 +420,9 @@ let set ?enabled ?attributes ?endpoints ~uuid () =
         match Hashtbl.find_opt tracer_providers uuid with
         | Some (provider : TracerProvider.t) ->
             let enabled = Option.value ~default:provider.enabled enabled in
-            let attributes =
-              Option.value ~default:provider.attributes attributes
+            let attributes : string Attributes.t =
+              Option.fold ~none:provider.attributes ~some:Attributes.of_list
+                attributes
             in
             let endpoints =
               Option.fold ~none:provider.endpoints
@@ -430,6 +439,7 @@ let set ?enabled ?attributes ?endpoints ~uuid () =
 
 let create ~enabled ~attributes ~endpoints ~name_label ~uuid =
   let endpoints = List.map endpoint_of_string endpoints in
+  let attributes = Attributes.of_list attributes in
   let provider : TracerProvider.t =
     {name_label; attributes; endpoints; enabled}
   in
@@ -536,7 +546,8 @@ module Export = struct
               Option.map SpanKind.to_string
                 (ZipkinSpan.kind_to_zipkin_kind s.span_kind)
           ; localEndpoint= {serviceName}
-          ; tags= s.attributes
+          ; tags=
+              Attributes.fold (fun k v tags -> (k, v) :: tags) s.attributes []
           }
 
         let content_of (spans : Span.t list) =
