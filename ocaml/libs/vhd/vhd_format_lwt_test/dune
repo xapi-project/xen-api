@@ -1,12 +1,5 @@
-(executable
+(test
  (name parse_test)
+ (package vhd-format-lwt)
  (libraries cstruct disk io-page lwt lwt.unix ounit2 vhd-format
    vhd_format_lwt))
-
-(alias
- (name runtest)
- (package vhd-format-lwt)
- (deps
-  (:< parse_test.exe))
- (action
-  (run %{<})))
