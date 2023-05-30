@@ -531,8 +531,6 @@ module Vgpu = struct
 end
 
 module SystemdDaemonMgmt (D : DAEMONPIDPATH) = struct
-  let name = D.name
-
   (* backward compat: for daemons running during an update *)
   module Compat = DaemonMgmt (D)
 
@@ -677,19 +675,12 @@ module Swtpm = struct
 
   let xs_path ~domid = Device_common.get_private_path domid ^ "/vtpm"
 
-  let state_path =
-    (* for easier compat with dir:// mode, but can be anything.
-       If we implement VDI state storage this could be a block device
-    *)
-    Xenops_sandbox.Chroot.Path.of_string ~relative:"tpm2-00.permall"
-
-  let restore _dbg ~domid ~vm_uuid ~vtpm_uuid:_ state =
+  let restore dbg ~domid ~vtpm_uuid state =
     if String.length state > 0 then (
-      let path = Xenops_sandbox.Swtpm_guard.create ~domid ~vm_uuid state_path in
+      Varstore_privileged_client.Client.vtpm_set_contents dbg vtpm_uuid state ;
       debug "Restored vTPM for domid %d: %d bytes, digest %s" domid
         (String.length state)
-        (state |> Digest.string |> Digest.to_hex) ;
-      Unixext.write_string_to_file path state
+        (state |> Digest.string |> Digest.to_hex)
     ) else
       debug "vTPM state for domid %d is empty: not restoring" domid
 
@@ -775,19 +766,6 @@ module Swtpm = struct
       }
     in
 
-    let dbg = Xenops_task.get_dbg task in
-    let state =
-      Varstore_privileged_client.Client.vtpm_get_contents dbg vtpm_uuid
-      |> Base64.decode_exn
-    in
-
-    let abs_path =
-      Xenops_sandbox.Chroot.absolute_path_outside chroot state_path
-    in
-    if Sys.file_exists abs_path then
-      debug "Not restoring vTPM: %s already exists" abs_path
-    else
-      restore dbg ~domid ~vm_uuid ~vtpm_uuid state ;
     let vtpm_path = xs_path ~domid in
 
     xs.Xs.write
@@ -800,23 +778,15 @@ module Swtpm = struct
       absolute_path_outside chroot (Path.of_string ~relative:"swtpm-sock")
     )
 
-  let suspend _dbg ~xs ~domid ~vm_uuid ~vtpm_uuid:_ =
+  let suspend dbg ~xs ~domid ~vtpm_uuid =
     D.stop ~xs domid ;
-    Xenops_sandbox.Swtpm_guard.read ~domid ~vm_uuid state_path
+    Varstore_privileged_client.Client.vtpm_get_contents dbg vtpm_uuid
 
   let stop dbg ~xs ~domid ~vm_uuid ~vtpm_uuid =
     debug "About to stop vTPM (%s) for domain %d (%s)"
       (Uuidm.to_string vtpm_uuid)
       domid vm_uuid ;
-    let contents = suspend dbg ~xs ~domid ~vm_uuid ~vtpm_uuid in
-    let length = String.length contents in
-    if length > 0 then (
-      debug "Storing vTPM state of %d bytes" length ;
-      Varstore_privileged_client.Client.vtpm_set_contents dbg vtpm_uuid
-        (Base64.encode_string contents)
-    ) else
-      debug "vTPM state is empty: not storing" ;
-    (* needed to save contents before wiping the chroot *)
+    D.stop ~xs domid ;
     Xenops_sandbox.Swtpm_guard.stop dbg ~domid ~vm_uuid
 end
 

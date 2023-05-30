@@ -126,7 +126,6 @@ module Swtpm : sig
   val restore :
        string
     -> domid:int
-    -> vm_uuid:string
     -> vtpm_uuid:Varstore_privileged_interface.Uuidm.t
     -> string
     -> unit
@@ -135,7 +134,6 @@ module Swtpm : sig
        string
     -> xs:Xenstore.Xs.xsh
     -> domid:int
-    -> vm_uuid:string
     -> vtpm_uuid:Varstore_privileged_interface.Uuidm.t
     -> string
 

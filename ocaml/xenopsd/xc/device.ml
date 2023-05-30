@@ -3855,22 +3855,21 @@ module Dm = struct
 
   let suspend_vtpm (task : Xenops_task.task_handle) ~xs domid ~vtpm =
     debug "Called Dm.suspend_vtpm (domid=%d)" domid ;
-    let vm_uuid = Uuidx.to_string (Xenops_helpers.uuid_of_domid ~xs domid) in
     let dbg = Xenops_task.get_dbg task in
     Option.map
       (fun (Xenops_interface.Vm.Vtpm vtpm_uuid) ->
-        Service.Swtpm.suspend dbg ~xs ~domid ~vm_uuid ~vtpm_uuid
+        Service.Swtpm.suspend dbg ~xs ~domid ~vtpm_uuid
       )
       vtpm
     |> Option.to_list
 
-  let restore_vtpm (task : Xenops_task.task_handle) ~xs ~contents ~vtpm domid =
+  let restore_vtpm (task : Xenops_task.task_handle) ~xs:_ ~contents ~vtpm domid
+      =
     debug "Called Dm.restore_vtpm (domid=%d)" domid ;
-    let vm_uuid = Uuidx.to_string (Xenops_helpers.uuid_of_domid ~xs domid) in
     let dbg = Xenops_task.get_dbg task in
     Option.iter
       (fun (Xenops_interface.Vm.Vtpm vtpm_uuid) ->
-        Service.Swtpm.restore dbg ~domid ~vm_uuid ~vtpm_uuid contents
+        Service.Swtpm.restore dbg ~domid ~vtpm_uuid contents
       )
       vtpm
 end
