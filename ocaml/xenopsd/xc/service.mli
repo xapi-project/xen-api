@@ -123,9 +123,21 @@ module Swtpm : sig
     -> Xenctrl.domid
     -> string
 
-  val restore : domid:int -> vm_uuid:string -> string -> unit
+  val restore :
+       string
+    -> domid:int
+    -> vm_uuid:string
+    -> vtpm_uuid:Varstore_privileged_interface.Uuidm.t
+    -> string
+    -> unit
 
-  val suspend : xs:Xenstore.Xs.xsh -> domid:int -> vm_uuid:string -> string
+  val suspend :
+       string
+    -> xs:Xenstore.Xs.xsh
+    -> domid:int
+    -> vm_uuid:string
+    -> vtpm_uuid:Varstore_privileged_interface.Uuidm.t
+    -> string
 
   val stop :
        string

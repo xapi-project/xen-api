@@ -681,7 +681,7 @@ module Swtpm = struct
     *)
     Xenops_sandbox.Chroot.Path.of_string ~relative:"tpm2-00.permall"
 
-  let restore ~domid ~vm_uuid state =
+  let restore _dbg ~domid ~vm_uuid ~vtpm_uuid:_ state =
     if String.length state > 0 then (
       let path = Xenops_sandbox.Swtpm_guard.create ~domid ~vm_uuid state_path in
       debug "Restored vTPM for domid %d: %d bytes, digest %s" domid
@@ -744,7 +744,7 @@ module Swtpm = struct
     if Sys.file_exists abs_path then
       debug "Not restoring vTPM: %s already exists" abs_path
     else
-      restore ~domid ~vm_uuid state ;
+      restore dbg ~domid ~vm_uuid ~vtpm_uuid state ;
     let vtpm_path = xs_path ~domid in
 
     xs.Xs.write
@@ -757,7 +757,7 @@ module Swtpm = struct
       absolute_path_outside chroot (Path.of_string ~relative:"swtpm-sock")
     )
 
-  let suspend ~xs ~domid ~vm_uuid =
+  let suspend _dbg ~xs ~domid ~vm_uuid ~vtpm_uuid:_ =
     D.stop ~xs domid ;
     Xenops_sandbox.Swtpm_guard.read ~domid ~vm_uuid state_path
 
@@ -765,7 +765,7 @@ module Swtpm = struct
     debug "About to stop vTPM (%s) for domain %d (%s)"
       (Uuidm.to_string vtpm_uuid)
       domid vm_uuid ;
-    let contents = suspend ~xs ~domid ~vm_uuid in
+    let contents = suspend dbg ~xs ~domid ~vm_uuid ~vtpm_uuid in
     let length = String.length contents in
     if length > 0 then (
       debug "Storing vTPM state of %d bytes" length ;
