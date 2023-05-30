@@ -35,10 +35,18 @@ module Chroot : sig
   val create_dir : within:t -> int -> Path.t -> unit
 
   val of_domid :
-    base:string -> daemon:string -> domid:int -> vm_uuid:string -> t
+       base:string
+    -> base_uid:(unit -> int)
+    -> base_gid:(unit -> int)
+    -> daemon:string
+    -> domid:int
+    -> vm_uuid:string
+    -> t
 
   val create :
        base:string
+    -> base_uid:(unit -> int)
+    -> base_gid:(unit -> int)
     -> daemon:string
     -> domid:int
     -> vm_uuid:string
@@ -75,11 +83,7 @@ end = struct
       (fun fd -> Unix.fchown fd within.uid within.gid
     )
 
-  let qemu_base_uid () = (Unix.getpwnam "qemu_base").Unix.pw_uid
-
-  let qemu_base_gid () = (Unix.getpwnam "qemu_base").Unix.pw_gid
-
-  let of_domid ~base ~daemon ~domid ~vm_uuid =
+  let of_domid ~base ~base_uid ~base_gid ~daemon ~domid ~vm_uuid =
     let root =
       let dir =
         if domid = 0 then
@@ -90,12 +94,12 @@ end = struct
       Filename.concat base dir
     in
     (* per VM uid/gid as for QEMU *)
-    let uid = qemu_base_uid () + domid in
-    let gid = qemu_base_gid () + domid in
+    let uid = base_uid () + domid in
+    let gid = base_gid () + domid in
     {root; uid; gid}
 
-  let create ~base ~daemon ~domid ~vm_uuid paths =
-    let chroot = of_domid ~base ~daemon ~domid ~vm_uuid in
+  let create ~base ~base_uid ~base_gid ~daemon ~domid ~vm_uuid paths =
+    let chroot = of_domid ~base ~base_uid ~base_gid ~daemon ~domid ~vm_uuid in
     try
       Xenops_utils.Unixext.mkdir_rec chroot.root 0o755 ;
       (* we want parent dir to be 0o755 and this dir 0o750 *)
@@ -137,6 +141,10 @@ module type GUARD = sig
 
   val base_directory : string
 
+  val base_uid : unit -> int
+
+  val base_gid : unit -> int
+
   val create : string -> vm_uuid:Uuidm.t -> domid:int -> path:string -> unit
 
   val destroy : string -> domid:int -> path:string -> unit
@@ -148,11 +156,13 @@ module Guard (G : GUARD) : SANDBOX = struct
   let socket_path = Chroot.Path.of_string ~relative:"xapi-depriv-socket"
 
   let chroot ~domid ~vm_uuid =
-    Chroot.of_domid ~base:G.base_directory ~daemon ~domid ~vm_uuid
+    Chroot.of_domid ~base:G.base_directory ~base_uid:G.base_uid
+      ~base_gid:G.base_gid ~daemon ~domid ~vm_uuid
 
   let start dbg ~vm_uuid ~domid ~paths =
     let chroot =
-      Chroot.create ~base:G.base_directory ~daemon ~domid ~vm_uuid paths
+      Chroot.create ~base:G.base_directory ~base_uid:G.base_uid
+        ~base_gid:G.base_gid ~daemon ~domid ~vm_uuid paths
     in
     let absolute_socket_path =
       Chroot.absolute_path_outside chroot socket_path
@@ -169,7 +179,8 @@ module Guard (G : GUARD) : SANDBOX = struct
 
   let create ~domid ~vm_uuid path =
     let chroot =
-      Chroot.create ~base:G.base_directory ~daemon ~domid ~vm_uuid [path]
+      Chroot.create ~base:G.base_directory ~base_uid:G.base_uid
+        ~base_gid:G.base_gid ~daemon ~domid ~vm_uuid [path]
     in
     Chroot.absolute_path_outside chroot path
 
@@ -201,6 +212,10 @@ module Varstored : GUARD = struct
 
   let base_directory = "/var/run/xen"
 
+  let base_uid () = (Unix.getpwnam "qemu_base").Unix.pw_uid
+
+  let base_gid () = (Unix.getpwnam "qemu_base").Unix.pw_gid
+
   let create dbg ~vm_uuid ~domid ~path =
     Varstore_privileged_client.Client.varstore_create dbg vm_uuid domid path
 
@@ -214,6 +229,11 @@ module Swtpm : GUARD = struct
   (* swtpm cannot run on /var/run because it's mounted using nodev and access
      is needed to /dev/urandom *)
   let base_directory = "/var/lib/xcp/run"
+
+  let base_uid () = (Unix.getpwnam "swtpm_base").Unix.pw_uid
+
+  (* swtpm runas only supports a uid, so use uid = gid *)
+  let base_gid () = base_uid ()
 
   let create dbg ~vm_uuid ~domid ~path =
     Varstore_privileged_client.Client.vtpm_create dbg vm_uuid domid path
