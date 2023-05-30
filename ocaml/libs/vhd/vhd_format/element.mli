@@ -13,17 +13,14 @@
  *)
 
 (** A disk can be streamed as a sequence of elements *)
-type 'a t = [
-  | `Copy of ('a * int64 * int64)
-  (** [Copy (t, offset, len)] copies [len] sectors from sector [offset]
+type 'a t =
+  [ `Copy of 'a * int64 * int64
+    (** [Copy (t, offset, len)] copies [len] sectors from sector [offset]
       from the file [t] *)
-  | `Sectors of Cstruct.t
-  (** a new sector (e.g. for metadata) *)
-  | `Empty of int64
-  (** empty space in sectors *)
-]
+  | `Sectors of Cstruct.t  (** a new sector (e.g. for metadata) *)
+  | `Empty of int64  (** empty space in sectors *) ]
 
-val to_string: 'a t -> string
+val to_string : 'a t -> string
 
-val len: 'a t -> int64
+val len : 'a t -> int64
 (** [len t] is the length of [t] in sectors *)

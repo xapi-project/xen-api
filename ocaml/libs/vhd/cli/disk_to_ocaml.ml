@@ -14,16 +14,13 @@
 
 open Lwt
 
-let main filename =
-  Disk.of_file filename >|=
-  Disk.print_ocaml stdout
+let main filename = Disk.of_file filename >|= Disk.print_ocaml stdout
 
 let _ =
-  if Array.length Sys.argv <> 2 then begin
-    Printf.fprintf stderr "Usage:\n";
-    Printf.fprintf stderr "  %s <disk filename>\n" Sys.argv.(0);
-    exit 1;
-  end;
+  if Array.length Sys.argv <> 2 then (
+    Printf.fprintf stderr "Usage:\n" ;
+    Printf.fprintf stderr "  %s <disk filename>\n" Sys.argv.(0) ;
+    exit 1
+  ) ;
   let filename = Sys.argv.(1) in
-  Lwt_main.run(main filename)
-
+  Lwt_main.run (main filename)
