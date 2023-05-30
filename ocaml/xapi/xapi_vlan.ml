@@ -30,19 +30,19 @@ let pool_introduce ~__context ~tagged_PIF ~untagged_PIF ~tag ~other_config =
   (* Ensure that the untagged PIF shares PIF_metrics of tagged PIF.
    * This is useful for the VLANs created in pool.join for management network.
    *)
-  let metrics = Db.PIF.get_metrics ~__context ~self:untagged_PIF in
-  let metrics_of_tagged_pif = Db.PIF.get_metrics ~__context ~self:tagged_PIF in
-  if metrics <> metrics_of_tagged_pif then (
+  let untagged_pif_metrics = Db.PIF.get_metrics ~__context ~self:untagged_PIF in
+  let tagged_pif_metrics = Db.PIF.get_metrics ~__context ~self:tagged_PIF in
+  if untagged_pif_metrics <> tagged_pif_metrics then (
     debug
       "Set PIF_metrics (%s) of VLAN untagged PIF (%s) to the one (%s) of VLAN \
        tagged PIF (%s)"
-      (Ref.string_of metrics)
+      (Ref.string_of untagged_pif_metrics)
       (Ref.string_of untagged_PIF)
-      (Ref.string_of metrics_of_tagged_pif)
+      (Ref.string_of tagged_pif_metrics)
       (Ref.string_of tagged_PIF) ;
-    Db.PIF.set_metrics ~__context ~self:untagged_PIF
-      ~value:metrics_of_tagged_pif ;
-    if metrics <> Ref.null then Db.PIF_metrics.destroy ~__context ~self:metrics
+    Db.PIF.set_metrics ~__context ~self:untagged_PIF ~value:tagged_pif_metrics ;
+    if untagged_pif_metrics <> Ref.null then
+      Db.PIF_metrics.destroy ~__context ~self:untagged_pif_metrics
   ) ;
   vlan
 
