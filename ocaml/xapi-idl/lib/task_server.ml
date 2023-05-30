@@ -126,13 +126,14 @@ functor
     let id_of_handle task_handle = task_handle.id
 
     (* [add dbg f] creates a fresh [t], registers and returns it *)
-    let add tasks dbg (f : task_handle -> Interface.Task.async_result option) =
+    let add ?tracing tasks dbg
+        (f : task_handle -> Interface.Task.async_result option) =
       let dbg, tracing =
         match String.split_on_char '\x00' dbg with
-        | [dbg; tracing] ->
-            (dbg, Some tracing)
+        | [dbg; tracing'] ->
+            (dbg, Some tracing')
         | _ ->
-            (dbg, None)
+            (dbg, tracing)
       in
       let t =
         {
