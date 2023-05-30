@@ -92,8 +92,7 @@ let print_next_schedule ~delay ~utc_now ~tz_offset_s =
      %d:%d:%d "
     y m d hh mm ss
 
-let update_sync_delay_for_next_schedule_internal ~utc_now
-    ~utc_start_of_next_sched_day ~seconds_in_a_day =
+let calc_delay ~utc_now ~utc_start_of_next_sched_day ~seconds_in_a_day =
   let random_span = Ptime.Span.of_float_s seconds_in_a_day |> Option.get in
   let utc_next_schedule =
     Ptime.add_span utc_start_of_next_sched_day random_span |> Option.get
@@ -129,17 +128,16 @@ let update_sync_delay_for_next_schedule ~__context =
       ~day_configed_int
   in
   let delay =
-    update_sync_delay_for_next_schedule_internal ~utc_now
-      ~utc_start_of_next_sched_day ~seconds_in_a_day
+    calc_delay ~utc_now ~utc_start_of_next_sched_day ~seconds_in_a_day
   in
   print_next_schedule ~delay ~utc_now ~tz_offset_s ;
   delay
 
 let rec update_sync () =
   Server_helpers.exec_with_new_task "periodic_update_sync" (fun __context ->
-      Helpers.call_api_functions ~__context (fun rpc session_id ->
-          finally
-            (fun () ->
+      finally
+        (fun () ->
+          Helpers.call_api_functions ~__context (fun rpc session_id ->
               try
                 ignore
                   (Client.Pool.sync_updates ~rpc ~session_id
@@ -173,14 +171,14 @@ let rec update_sync () =
                     ^ now
                     ^ "</date></body>"
                     )
-            )
-            (fun () ->
-              Xapi_periodic_scheduler.add_to_queue
-                periodic_update_sync_task_name Xapi_periodic_scheduler.OneShot
-                (update_sync_delay_for_next_schedule ~__context)
-                update_sync
-            )
-      )
+          )
+        )
+        (fun () ->
+          Xapi_periodic_scheduler.add_to_queue periodic_update_sync_task_name
+            Xapi_periodic_scheduler.OneShot
+            (update_sync_delay_for_next_schedule ~__context)
+            update_sync
+        )
   )
 
 let set_enabled ~__context ~value =

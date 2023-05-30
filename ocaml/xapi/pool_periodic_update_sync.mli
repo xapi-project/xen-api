@@ -14,7 +14,8 @@
 
 val set_enabled : __context:Context.t -> value:bool -> unit
 
-(* below for UT only *)
+(* Below exposed only for ease of testing *)
+
 val next_scheduled_datetime :
      delay:float
   -> utc_now:Ptime.t
@@ -28,7 +29,7 @@ val utc_start_of_next_scheduled_day :
   -> day_configed_int:int
   -> Ptime.t
 
-val update_sync_delay_for_next_schedule_internal :
+val calc_delay :
      utc_now:Ptime.t
   -> utc_start_of_next_sched_day:Ptime.t
   -> seconds_in_a_day:float

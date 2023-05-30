@@ -3672,6 +3672,8 @@ let configure_update_sync ~__context ~self ~update_sync_frequency
           Server_error
             (invalid_update_sync_day, [Int64.to_string update_sync_day])
         )
+  | `daily, _ ->
+      ()
   | _ ->
       ()
   ) ;
@@ -3680,7 +3682,7 @@ let configure_update_sync ~__context ~self ~update_sync_frequency
   ( match update_sync_frequency with
   | `daily ->
       Db.Pool.set_update_sync_day ~__context ~self ~value:0L
-  | _ ->
+  | `weekly ->
       Db.Pool.set_update_sync_day ~__context ~self ~value:update_sync_day
   ) ;
   if Db.Pool.get_update_sync_enabled ~__context ~self then

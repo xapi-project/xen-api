@@ -187,8 +187,7 @@ module TestUpdateSyncDelay = struct
     let seconds_in_a_day = 0. in
     let delay = (2. *. 24. *. 60. *. 60.) -. 1. in
     let res =
-      update_sync_delay_for_next_schedule_internal ~utc_now
-        ~utc_start_of_next_sched_day ~seconds_in_a_day
+      calc_delay ~utc_now ~utc_start_of_next_sched_day ~seconds_in_a_day
     in
     Alcotest.(check (float Float.epsilon))
       "test_update_sync_delay_for_next_schedule_internal_1, seconds_in_a_day 0"
@@ -205,8 +204,7 @@ module TestUpdateSyncDelay = struct
     let seconds_in_a_day = 66. in
     let delay = (2. *. 24. *. 60. *. 60.) -. 1. +. 66. in
     let res =
-      update_sync_delay_for_next_schedule_internal ~utc_now
-        ~utc_start_of_next_sched_day ~seconds_in_a_day
+      calc_delay ~utc_now ~utc_start_of_next_sched_day ~seconds_in_a_day
     in
     Alcotest.(check (float Float.epsilon))
       "test_update_sync_delay_for_next_schedule_internal_2, seconds_in_a_day \
@@ -224,8 +222,7 @@ module TestUpdateSyncDelay = struct
     let seconds_in_a_day = 66. in
     let delay = (5. *. 24. *. 60. *. 60.) -. 1. +. 66. in
     let res =
-      update_sync_delay_for_next_schedule_internal ~utc_now
-        ~utc_start_of_next_sched_day ~seconds_in_a_day
+      calc_delay ~utc_now ~utc_start_of_next_sched_day ~seconds_in_a_day
     in
     Alcotest.(check (float Float.epsilon))
       "test_update_sync_delay_for_next_schedule_internal_3, next month" delay
@@ -266,15 +263,15 @@ module TestUpdateSyncDelay = struct
       , `Quick
       , test_utc_start_of_next_scheduled_day_6
       )
-    ; ( "update_sync_delay_for_next_schedule_internal, random seconds 0"
+    ; ( "calc_delay, random seconds 0"
       , `Quick
       , test_update_sync_delay_for_next_schedule_internal_1
       )
-    ; ( "update_sync_delay_for_next_schedule_internal, random seconds not 0"
+    ; ( "calc_delay, random seconds not 0"
       , `Quick
       , test_update_sync_delay_for_next_schedule_internal_2
       )
-    ; ( "update_sync_delay_for_next_schedule_internal, next month"
+    ; ( "calc_delay, next month"
       , `Quick
       , test_update_sync_delay_for_next_schedule_internal_3
       )

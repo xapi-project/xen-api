@@ -1079,10 +1079,11 @@ let configure_update_sync =
         )
       ; ( Int
         , "update_sync_day"
-        , "Which day of one period the update sychronization is scheduled. For \
-           'daily' schedule, the value of the parameter is ignored, \
-           update_sync_day of the pool will be set to the default value 0. For \
-           'weekly' schedule, 0..6, where 0 is Sunday."
+        , "Which day of one period the update sychronization is scheduled, \
+           based on pool's local timezone. For 'daily' schedule, the value of \
+           the parameter is ignored, update_sync_day of the pool will be set \
+           to the default value 0. For 'weekly' schedule, 0..6, where 0 is \
+           Sunday."
         )
       ]
     ~allowed_roles:_R_POOL_OP ()
@@ -1437,7 +1438,8 @@ let t =
              or weekly."
         ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:Int "update_sync_day"
             ~default_value:(Some (VInt 0L))
-            "Which day of one period the update sychronization is scheduled"
+            "Which day of one period the update sychronization is scheduled, \
+             based on pool's local timezone"
         ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:Bool
             ~default_value:(Some (VBool false)) "update_sync_enabled"
             "If periodic update sychronization is enabled or not"
