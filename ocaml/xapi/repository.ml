@@ -615,44 +615,44 @@ let get_repository_handler (req : Http.Request.t) s _ =
 let get_pool_updates_in_json ~__context ~hosts =
   try
     let repository = get_single_enabled_update_repository ~__context in
-    if Hashtbl.length updates_in_cache > 0 then
-      let repository_name = get_repository_name ~__context ~self:repository in
-      let updates_info =
-        parse_updateinfo ~__context ~self:repository ~check:true
-      in
-      let updates_of_hosts, ids_of_updates =
-        Hashtbl.fold
-          (fun host updates_of_host (acc1, acc2) ->
-            if List.mem host hosts then
-              let updates_of_host, upd_ids =
-                consolidate_updates_of_host ~repository_name ~updates_info
-                  (Ref.string_of host) updates_of_host
-              in
-              (updates_of_host :: acc1, UpdateIdSet.union upd_ids acc2)
-            else
-              (acc1, acc2)
-          )
-          updates_in_cache ([], UpdateIdSet.empty)
-      in
-      let lps =
-        updates_of_hosts
-        |> List.map (fun x -> x.HostUpdates.livepatches)
-        |> List.concat
-        |> LivePatchSet.of_list
-      in
-      let updateinfo_list =
-        UpdateIdSet.elements ids_of_updates
-        |> List.map (fun upd_id -> List.assoc upd_id updates_info)
-        |> List.map (prune_updateinfo_for_livepatches lps)
-      in
-      `Assoc
-        [
-          ("hosts", `List (List.map HostUpdates.to_json updates_of_hosts))
-        ; ("updates", `List (List.map UpdateInfo.to_json updateinfo_list))
-        ; ("hash", `String (Db.Repository.get_hash ~__context ~self:repository))
-        ]
-    else
-      raise Api_errors.(Server_error (updates_require_sync, []))
+    if Hashtbl.length updates_in_cache = 0 then
+      set_available_updates ~__context |> ignore ;
+
+    let repository_name = get_repository_name ~__context ~self:repository in
+    let updates_info =
+      parse_updateinfo ~__context ~self:repository ~check:true
+    in
+    let updates_of_hosts, ids_of_updates =
+      Hashtbl.fold
+        (fun host updates_of_host (acc1, acc2) ->
+          if List.mem host hosts then
+            let updates_of_host, upd_ids =
+              consolidate_updates_of_host ~repository_name ~updates_info
+                (Ref.string_of host) updates_of_host
+            in
+            (updates_of_host :: acc1, UpdateIdSet.union upd_ids acc2)
+          else
+            (acc1, acc2)
+        )
+        updates_in_cache ([], UpdateIdSet.empty)
+    in
+    let lps =
+      updates_of_hosts
+      |> List.map (fun x -> x.HostUpdates.livepatches)
+      |> List.concat
+      |> LivePatchSet.of_list
+    in
+    let updateinfo_list =
+      UpdateIdSet.elements ids_of_updates
+      |> List.map (fun upd_id -> List.assoc upd_id updates_info)
+      |> List.map (prune_updateinfo_for_livepatches lps)
+    in
+    `Assoc
+      [
+        ("hosts", `List (List.map HostUpdates.to_json updates_of_hosts))
+      ; ("updates", `List (List.map UpdateInfo.to_json updateinfo_list))
+      ; ("hash", `String (Db.Repository.get_hash ~__context ~self:repository))
+      ]
   with
   | Api_errors.(Server_error (code, _)) as e
     when code <> Api_errors.internal_error ->
