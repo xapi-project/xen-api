@@ -14,7 +14,14 @@
 
 let home = Sys.getenv_opt "HOME" |> Option.value ~default:"/root"
 
-let dest = home ^ "/.config/systemd/user/xapi-envtest@.service"
+let dest =
+  let dir =
+    if Unix.getuid () = 0 then
+      "/run/systemd/system"
+    else
+      Filename.concat home ".config/systemd/user"
+  in
+  Filename.concat dir "xapi-envtest@.service"
 
 let get_temp_file prefix suffix =
   (* /tmp visible to systemd may not match /tmp visible to test
