@@ -29,6 +29,7 @@
   threads.posix
   uuid
   uuidm
+  uri
   xapi-backtrace
   xapi-idl
   xapi-idl.memory

@@ -6,6 +6,7 @@
   cohttp-lwt
   cohttp-lwt-unix
   conduit-lwt-unix
+  fmt
   lwt
   lwt.unix
   result
