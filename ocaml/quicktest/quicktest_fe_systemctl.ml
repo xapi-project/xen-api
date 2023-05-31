@@ -41,7 +41,8 @@ let unit =
     envout
 
 let init () =
-  Fe_systemctl.set_test () ;
+  if Unix.geteuid () <> 0 then
+    Fe_systemctl.set_test () ;
   let parent = Filename.dirname dest in
   Xapi_stdext_unix.Unixext.mkdir_rec parent 0o700 ;
   Xapi_stdext_unix.Unixext.write_string_to_file dest unit ;
