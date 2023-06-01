@@ -37,7 +37,6 @@ depends: [
   "xapi-stdext-pervasives"
   "xapi-stdext-threads"
   "xapi-stdext-unix"
-  "xenctrl"
   "xenstore_transport" {with-test}
   "xmlm"
   "zstd"

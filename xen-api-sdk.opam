@@ -1,6 +1,6 @@
 opam-version: "2.0"
 name: "xen-api-sdk"
-synopsis: "Xen API SDK generation code."
+synopsis: "Xen API SDK generation code"
 maintainer: "xen-api@lists.xen.org"
 authors: [ "xen-api@lists.xen.org" ]
 license: "BSD 2-Clause"
