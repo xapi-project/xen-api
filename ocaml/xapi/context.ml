@@ -279,11 +279,21 @@ let tracing_of_origin (origin : origin) task_name =
   let ( let* ) = Option.bind in
   let parent =
     match origin with
-    | Http (req, _) ->
-        let* traceparent = req.Http.Request.traceparent in
-        let* span_context = SpanContext.of_traceparent traceparent in
-        let span = Tracer.span_of_span_context span_context task_name in
-        Some span
+    | Http (req, _) -> (
+        let tracestate = req.Http.Request.tracestate in
+        let traceparent = req.Http.Request.traceparent in
+        match (traceparent, tracestate) with
+        | None, _ ->
+            None
+        | Some traceparent, None ->
+            let* span_context = SpanContext.of_traceparent traceparent in
+            Some (Tracer.span_of_span_context span_context task_name)
+        | Some traceparent, Some tracestate ->
+            let* span_context =
+              SpanContext.of_traceparent ~tracestate traceparent
+            in
+            Some (Tracer.span_of_span_context span_context task_name)
+      )
     | _ ->
         None
   in

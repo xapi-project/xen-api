@@ -128,6 +128,8 @@ module Hdr = struct
   let location = "location"
 
   let traceparent = "traceparent"
+
+  let tracestate = "tracestate"
 end
 
 let output_http fd headers =
@@ -559,6 +561,7 @@ module Request = struct
     ; additional_headers: (string * string) list
     ; body: string option
     ; traceparent: string option
+    ; tracestate: string option
   }
   [@@deriving rpc]
 
@@ -583,11 +586,12 @@ module Request = struct
     ; additional_headers= []
     ; body= None
     ; traceparent= None
+    ; tracestate= None
     }
 
   let make ?(frame = false) ?(version = "1.1") ?(keep_alive = true) ?accept
       ?cookie ?length ?auth ?subtask_of ?body ?(headers = []) ?content_type
-      ?host ?(query = []) ?traceparent ~user_agent meth path =
+      ?host ?(query = []) ?traceparent ?tracestate ~user_agent meth path =
     {
       empty with
       version
@@ -607,6 +611,7 @@ module Request = struct
     ; accept
     ; query
     ; traceparent
+    ; tracestate
     }
 
   let get_version x = x.version
@@ -639,6 +644,7 @@ module Request = struct
             ; additional_headers= []
             ; body= None
             ; traceparent= None
+            ; tracestate= None
             }
         | None ->
             error "Failed to parse: %s" x ;
@@ -655,7 +661,7 @@ module Request = struct
       "{ frame = %b; method = %s; uri = %s; query = [ %s ]; content_length = [ \
        %s ]; transfer encoding = %s; version = %s; cookie = [ %s ]; task = %s; \
        subtask_of = %s; content-type = %s; host = %s; user_agent = %s; \
-       traceparent = %s }"
+       traceparent = %s; tracestate=%s }"
       x.frame (string_of_method_t x.m) x.uri (kvpairs x.query)
       (Option.fold ~none:"" ~some:Int64.to_string x.content_length)
       (Option.value ~default:"" x.transfer_encoding)
@@ -666,6 +672,7 @@ module Request = struct
       (Option.value ~default:"" x.host)
       (Option.value ~default:"" x.user_agent)
       (Option.value ~default:"" x.traceparent)
+      (Option.value ~default:"" x.tracestate)
 
   let to_header_list x =
     let kvpairs x =
@@ -720,6 +727,11 @@ module Request = struct
         ~some:(fun x -> [Hdr.traceparent ^ ": " ^ x])
         x.traceparent
     in
+    let tracestate =
+      Option.fold ~none:[]
+        ~some:(fun x -> [Hdr.tracestate ^ ": " ^ x])
+        x.tracestate
+    in
     let close =
       [(Hdr.connection ^ ": " ^ if x.close then "close" else "keep-alive")]
     in
@@ -738,6 +750,7 @@ module Request = struct
     @ host
     @ user_agent
     @ traceparent
+    @ tracestate
     @ close
     @ List.map (fun (k, v) -> k ^ ":" ^ v) x.additional_headers
 

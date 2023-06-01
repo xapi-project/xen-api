@@ -91,6 +91,7 @@ module Request : sig
     ; additional_headers: (string * string) list
     ; body: string option
     ; traceparent: string option
+    ; tracestate: string option
   }
 
   val rpc_of_t : t -> Rpc.t
@@ -114,6 +115,7 @@ module Request : sig
     -> ?host:string
     -> ?query:(string * string) list
     -> ?traceparent:string
+    -> ?tracestate:string
     -> user_agent:string
     -> method_t
     -> string
@@ -233,6 +235,8 @@ module Hdr : sig
   val location : string
 
   val traceparent : string
+
+  val tracestate : string
 end
 
 val output_http : Unix.file_descr -> string list -> unit
