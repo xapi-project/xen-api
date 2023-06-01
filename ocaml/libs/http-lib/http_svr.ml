@@ -401,6 +401,8 @@ let request_of_bio_exn ~proxy_seen ~read_timeout ~total_timeout ~max_length bio
                        {req with user_agent= Some v}
                    | k when k = Http.Hdr.traceparent ->
                        {req with traceparent= Some v}
+                   | k when k = Http.Hdr.tracestate ->
+                       {req with tracestate= Some v}
                    | k when k = Http.Hdr.connection && lowercase v = "close" ->
                        {req with close= true}
                    | k
