@@ -41,23 +41,6 @@
 )
 
 (library
-  (name rrdd_plugin_interdomain)
-  (public_name rrdd-plugin.interdomain)
-  (flags (:standard -bin-annot))
-  (wrapped false)
-  (modules reporter_interdomain)
-  (libraries
-    rrdd-plugin.base
-    rrd-transport.lib
-    rrd-transport.page
-    threads.posix
-    xapi-idl.rrd.interface
-    xapi-log
-    xenstore_transport.unix
-  )
-)
-
-(library
   (name rrdd_plugin)
   (public_name rrdd-plugin)
   (flags (:standard -bin-annot))
@@ -66,7 +49,6 @@
   (libraries
     rrdd-plugin.base
     rrdd-plugin.local
-    rrdd-plugin.interdomain
     rrd-transport
     threads.posix
     xapi-idl.rrd

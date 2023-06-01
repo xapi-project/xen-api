@@ -75,18 +75,6 @@ module Plugin : sig
 
     val next_reading : string -> float
   end
-
-  module Interdomain : sig
-    val register :
-         Rrd_interface.interdomain_uid
-      -> Rrd_interface.interdomain_info
-      -> Rrd_interface.plugin_protocol
-      -> float
-
-    val deregister : Rrd_interface.interdomain_uid -> unit
-
-    val next_reading : Rrd_interface.interdomain_uid -> float
-  end
 end
 
 module HA : sig

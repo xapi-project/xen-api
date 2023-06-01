@@ -1,5 +1,6 @@
 (test
   (name test_rrdd_monitor)
+  (modes exe)
   (package xapi-rrdd)
   (libraries
     alcotest

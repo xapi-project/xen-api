@@ -1,5 +1,5 @@
 (executable
-  (modes byte exe)
+  (modes exe)
   (name event_listen)
   (public_name event_listen)
   (package xapi)

@@ -1,5 +1,6 @@
 (test
  (name test)
+ (modes exe)
  (package xapi-xenopsd)
  (libraries
   alcotest

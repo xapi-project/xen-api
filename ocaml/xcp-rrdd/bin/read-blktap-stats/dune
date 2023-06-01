@@ -1,5 +1,5 @@
 (executable
-  (modes byte exe)
+  (modes exe)
   (name read_blktap_stats)
   (package rrdd-plugins)
   (public_name xcp-rrdd-read-blktap-stats)

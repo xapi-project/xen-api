@@ -16,6 +16,7 @@
 
 (executable
  (name network_cli)
+ (modes exe)
  (modules network_cli)
  (libraries
    cmdliner

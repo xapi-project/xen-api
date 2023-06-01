@@ -18,6 +18,4 @@ type writer = Rrd_writer_functor.writer = {
 }
 
 include Rrd_file_writer
-include Rrd_page_writer
 module FileWriter = Rrd_file_writer
-module PageWriter = Rrd_page_writer

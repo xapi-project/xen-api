@@ -47,6 +47,7 @@
  (public_name rrd-cli)
  (package xapi-rrdd)
  (modules rrd_cli)
+ (modes exe)
  (libraries
    cmdliner
    dune-build-info

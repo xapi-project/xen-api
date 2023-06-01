@@ -58,9 +58,8 @@ module Utils = Utils
 module Reporter = struct
   include Reporter
   include Reporter_local
-  include Reporter_interdomain
 
-  type target = Local of int | Interdomain of (int * int)
+  type target = Local of int
 
   let start (module D : Debug.DEBUG) ~uid ~neg_shift ~target ~protocol ~dss_f =
     match target with
@@ -68,10 +67,6 @@ module Reporter = struct
         start_local
           (module D)
           ~reporter:None ~uid ~neg_shift ~page_count ~protocol ~dss_f
-    | Interdomain (backend_domid, page_count) ->
-        start_interdomain
-          (module D)
-          ~reporter:None ~uid ~backend_domid ~page_count ~protocol ~dss_f
 
   let start_async (module D : Debug.DEBUG) ~uid ~neg_shift ~target ~protocol
       ~dss_f =
@@ -85,11 +80,6 @@ module Reporter = struct
                 (module D)
                 ~reporter:(Some reporter) ~uid ~neg_shift ~page_count ~protocol
                 ~dss_f
-          | Interdomain (backend_domid, page_count) ->
-              start_interdomain
-                (module D)
-                ~reporter:(Some reporter) ~uid ~backend_domid ~page_count
-                ~protocol ~dss_f
         )
         ()
     in
