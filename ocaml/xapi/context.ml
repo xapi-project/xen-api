@@ -169,15 +169,22 @@ let string_of_task __context = __context.dbg
 let string_of_task_and_tracing __context =
   Option.fold ~none:__context.dbg
     ~some:(fun span ->
-      let s = Tracing.Span.to_string span in
+      let s =
+        Tracing.Span.get_context span |> Tracing.SpanContext.to_traceparent
+      in
       __context.dbg ^ "\x00" ^ s
     )
     __context.tracing
 
 let tracing_of_dbg dbg =
+  let open Tracing in
   match String.split_on_char '\x00' dbg with
-  | [dbg; tracing] ->
-      (dbg, Tracing.Span.of_string tracing)
+  | [dbg; traceparent] ->
+      let spancontext = SpanContext.of_traceparent traceparent in
+      let span =
+        Option.map (fun tp -> Tracer.span_of_span_context tp dbg) spancontext
+      in
+      (dbg, span)
   | _ ->
       (dbg, None)
 
@@ -267,7 +274,7 @@ let make_dbg http_other_config task_name task_id =
       (if task_name = "" then "" else " ")
       (Ref.really_pretty_and_small task_id)
 
-let tracing_of_origin tracer (origin : origin) task_name =
+let tracing_of_origin (origin : origin) task_name =
   let open Tracing in
   let ( let* ) = Option.bind in
   let parent =
@@ -275,7 +282,7 @@ let tracing_of_origin tracer (origin : origin) task_name =
     | Http (req, _) ->
         let* traceparent = req.Http.Request.traceparent in
         let* span_context = SpanContext.of_traceparent traceparent in
-        let span = Tracer.span_of_span_context tracer span_context task_name in
+        let span = Tracer.span_of_span_context span_context task_name in
         Some span
     | _ ->
         None
@@ -304,7 +311,7 @@ let from_forwarded_task ?(http_other_config = []) ?session_id
   let tracing =
     let open Tracing in
     let tracer = get_tracer ~name:task_name in
-    let parent, span_kind = tracing_of_origin tracer origin task_name in
+    let parent, span_kind = tracing_of_origin origin task_name in
     match Tracer.start ~span_kind ~tracer ~name:task_name ~parent () with
     | Ok x ->
         x
@@ -361,7 +368,7 @@ let make ?(http_other_config = []) ?(quiet = false) ?subtask_of ?session_id
   let tracing =
     let open Tracing in
     let tracer = get_tracer ~name:task_name in
-    let parent, span_kind = tracing_of_origin tracer origin task_name in
+    let parent, span_kind = tracing_of_origin origin task_name in
     match Tracer.start ~span_kind ~tracer ~name:task_name ~parent () with
     | Ok x ->
         x

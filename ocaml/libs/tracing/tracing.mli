@@ -39,9 +39,9 @@ module Span : sig
 
   val get_context : t -> SpanContext.t
 
-  val of_string : string -> t option
+  val add_link : t -> SpanContext.t -> (string * string) list -> t
 
-  val to_string : t -> string
+  val add_event : t -> string -> (string * string) list -> t
 
   val set_span_kind : t -> SpanKind.t -> t
 
@@ -60,7 +60,7 @@ end
 module Tracer : sig
   type t
 
-  val span_of_span_context : t -> SpanContext.t -> string -> Span.t
+  val span_of_span_context : SpanContext.t -> string -> Span.t
 
   val start :
        tracer:t
@@ -84,21 +84,16 @@ end
 
 val set :
      ?enabled:bool
-  -> ?tags:(string * string) list
+  -> ?attributes:(string * string) list
   -> ?endpoints:string list
-  -> ?filters:string list
-  -> ?processors:string list
   -> uuid:string
   -> unit
   -> unit
 
 val create :
      enabled:bool
-  -> tags:(string * string) list
+  -> attributes:(string * string) list
   -> endpoints:string list
-  -> filters:string list
-  -> processors:string list
-  -> service_name:string
   -> name_label:string
   -> uuid:string
   -> unit
@@ -110,11 +105,13 @@ val get_tracer : name:string -> Tracer.t
 module Export : sig
   val set_export_interval : float -> unit
 
+  val set_host_id : string -> unit
+
+  val set_service_name : string -> unit
+
   module Destination : sig
     module File : sig
       val set_trace_log_dir : string -> unit
-
-      val set_host_id : string -> unit
     end
   end
 end

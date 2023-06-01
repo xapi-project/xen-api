@@ -55,8 +55,7 @@ end
 module Observer : ObserverInterface = struct
   let create ~__context ~uuid ~name_label ~attributes ~endpoints ~enabled =
     debug "Observer.create %s" uuid ;
-    Tracing.create ~uuid ~name_label ~tags:attributes ~endpoints ~processors:[]
-      ~filters:[] ~enabled ~service_name:"xapi"
+    Tracing.create ~uuid ~name_label ~attributes ~endpoints ~enabled
 
   let destroy ~__context ~uuid =
     debug "Observer.destroy %s" uuid ;
@@ -68,7 +67,7 @@ module Observer : ObserverInterface = struct
 
   let set_attributes ~__context ~uuid ~attributes =
     debug "Observer.set_attributes %s" uuid ;
-    Tracing.set ~uuid ~tags:attributes ()
+    Tracing.set ~uuid ~attributes ()
 
   let set_endpoints ~__context ~uuid ~endpoints =
     debug "Observer.set_endpoints %s" uuid ;
@@ -96,7 +95,7 @@ module Observer : ObserverInterface = struct
 
   let set_host_id ~__context ~host_id =
     debug "Observer.set_host_id" ;
-    Tracing.Export.Destination.File.set_host_id host_id
+    Tracing.Export.set_host_id host_id
 end
 
 let supported_components = ["xapi"; "xenopsd"]
@@ -153,8 +152,17 @@ let assert_valid_endpoints endpoints =
         true
     | url -> (
       try
-        let _ = Uri.of_string url in
-        true
+        let uri = Uri.of_string url in
+        let scheme = Uri.scheme uri in
+        let host = Uri.host uri in
+        (scheme = Some "http" || scheme = Some "https")
+        &&
+        match host with
+        | Some host ->
+            Result.is_ok (Ipaddr.of_string host)
+            || Result.is_ok (Domain_name.of_string host)
+        | _ ->
+            false
       with _ -> false
     )
   in
@@ -289,13 +297,14 @@ let load ~__context =
     all
 
 let initialise ~__context =
-  init ~__context ;
   load ~__context ;
   set_trace_log_dir ~__context !Xapi_globs.trace_log_dir ;
   set_export_interval ~__context !Xapi_globs.export_interval ;
   set_max_spans ~__context !Xapi_globs.max_spans ;
   set_max_traces ~__context !Xapi_globs.max_traces ;
-  set_host_id ~__context (Helpers.get_localhost_uuid ())
+  set_host_id ~__context (Helpers.get_localhost_uuid ()) ;
+  Tracing.Export.set_service_name "xapi" ;
+  init ~__context
 
 let set_hosts ~__context ~self ~value =
   assert_valid_hosts ~__context value ;
