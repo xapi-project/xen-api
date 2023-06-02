@@ -461,6 +461,8 @@ module Configuration = struct
 
   let set_initiator_name iqn =
     let hostname = Unix.gethostname () in
+    (* CA-377454 - robustness, create dir if necessary *)
+    Unixext.mkdir_rec "/var/lock/sm/iscsiadm" 0o700 ;
     let args = make_set_initiator_args iqn hostname in
     ignore (Helpers.call_script !Xapi_globs.set_iSCSI_initiator_script args)
 

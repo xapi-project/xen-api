@@ -13,12 +13,12 @@
  (name networkd)
  (public_name xapi-networkd)
  (package xapi-networkd)
- (modes byte exe)
+ (modes exe)
  (libraries
   astring
   dune-build-info
   forkexec
-  http-svr
+  http_lib
   integers
   netlink
   networklibs

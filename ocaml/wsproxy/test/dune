@@ -1,5 +1,6 @@
 (test
   (name wsproxy_tests)
+  (modes exe)
   (package wsproxy)
   (libraries ounit2 qcheck-core wslib)
 )

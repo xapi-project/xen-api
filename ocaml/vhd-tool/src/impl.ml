@@ -187,11 +187,13 @@ let console_progress_bar total_work =
 let machine_progress_bar total_work =
   let last_percent = ref (-1) in
   fun work_done ->
-    let new_percent = Int64.(to_int (div (mul work_done 100L) total_work)) in
-    if new_percent <= 100 && !last_percent <> new_percent then (
-      Printf.printf "%03d%!" new_percent ;
-      last_percent := new_percent
-    )
+    if total_work > 0L then
+      let new_percent = Int64.(to_int (div (mul work_done 100L) total_work)) in
+      if new_percent <= 100 && !last_percent <> new_percent then (
+        Printf.printf "%03d%!" new_percent ;
+        last_percent := new_percent
+      ) else
+        ()
 
 let no_progress_bar _ _ = ()
 
@@ -829,17 +831,26 @@ let retry common retries f =
 
 (** [make_stream common source relative_to source_format destination_format]
     returns a lazy stream of extents to copy. [source_format] determines the
-    way in which the [source] and [relative_to] strings sould be interpreted
+    way in which the [source] and [relative_to] strings should be interpreted
     and how their data and metadata can be accessed. If [relative_to] is
-    specified, then the changes from it will will be returned. *)
+    specified, then the changes from it will will be returned.
+    [destination_format] specifies the format of the returned data stream. *)
 let make_stream common source relative_to source_format destination_format =
   match (source_format, destination_format) with
-  | "nbdhybrid", "raw" -> (
+  | "nbdhybrid", _ -> (
     match split ~limit:4 ~sep:':' source with
-    | [raw; nbd_server; export_name; size] ->
+    | [raw; nbd_server; export_name; size] -> (
         let size = Int64.of_string size in
-        Vhd_format_lwt.IO.openfile raw false >>= fun raw ->
-        Nbd_input.raw raw nbd_server export_name size
+        match destination_format with
+        | "raw" ->
+            Vhd_format_lwt.IO.openfile raw false >>= fun raw ->
+            Nbd_input.raw raw nbd_server export_name size
+        | "vhd" ->
+            Raw_IO.openfile raw false >>= fun raw ->
+            Nbd_input.vhd raw nbd_server export_name size
+        | _ ->
+            assert false
+      )
     | _ ->
         fail
           (Failure
@@ -943,8 +954,14 @@ let make_stream common source relative_to source_format destination_format =
   | _, _ ->
       assert false
 
-let write_stream common s destination _source_protocol destination_protocol
-    prezeroed progress tar_filename_prefix good_ciphersuites verify_cert =
+(** [write_stream common s destination destination_protocol prezeroed progress
+     tar_filename_prefix ssl_legacy good_ciphersuites legacy_ciphersuites]
+    writes the data stream [s] to [destination], using the specified
+    [destination_protocol]. The endpoint (destination) determines where we
+    write the data to, and the [destination_protocol] determines how we send
+    the data. *)
+let write_stream common s destination destination_protocol prezeroed progress
+    tar_filename_prefix good_ciphersuites verify_cert =
   endpoint_of_string destination >>= fun endpoint ->
   let use_ssl = match endpoint with Https _ -> true | _ -> false in
   ( match endpoint with
@@ -1129,9 +1146,9 @@ let stream_t common args ?(progress = no_progress_bar) () =
     args.StreamCommon.source_format args.StreamCommon.destination_format
   >>= fun s ->
   write_stream common s args.StreamCommon.destination
-    args.StreamCommon.source_protocol args.StreamCommon.destination_protocol
-    args.StreamCommon.prezeroed progress args.StreamCommon.tar_filename_prefix
-    args.StreamCommon.good_ciphersuites args.StreamCommon.verify_cert
+    args.StreamCommon.destination_protocol args.StreamCommon.prezeroed progress
+    args.StreamCommon.tar_filename_prefix args.StreamCommon.good_ciphersuites
+    args.StreamCommon.verify_cert
 
 let stream common args =
   try

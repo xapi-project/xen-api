@@ -14,7 +14,7 @@ list-hd () {
 }
 
 verify-cert () {
-  N=13
+  N=14
   NONE=$(git grep -r --count 'verify_cert:None' -- **/*.ml | cut -d ':' -f 2 | paste -sd+ - | bc)
   if [ "$NONE" -eq "$N" ]; then
     echo "OK counted $NONE usages of verify_cert:None"
@@ -25,7 +25,7 @@ verify-cert () {
 }
 
 mli-files () {
-  N=514
+  N=519
   # do not count ml files from the tests in ocaml/{tests/perftest/quicktest}
   MLIS=$(git ls-files -- '**/*.mli' | grep -vE "ocaml/tests|ocaml/perftest|ocaml/quicktest" | xargs -I {} sh -c "echo {} | cut -f 1 -d '.'" \;)
   MLS=$(git  ls-files -- '**/*.ml'  | grep -vE "ocaml/tests|ocaml/perftest|ocaml/quicktest" | xargs -I {} sh -c "echo {} | cut -f 1 -d '.'" \;)
@@ -40,7 +40,7 @@ mli-files () {
 }
 
 structural-equality () {
-  N=7
+  N=9
   EQ=$(git grep -r --count ' == ' -- '**/*.ml' ':!ocaml/sdk-gen/**/*.ml' | cut -d ':' -f 2 | paste -sd+ - | bc)
   if [ "$EQ" -eq "$N" ]; then
     echo "OK counted $EQ usages of ' == '"
@@ -58,7 +58,7 @@ structural-equality () {
 }
 
 vtpm-unimplemented () {
-  N=6
+  N=7
   VTPM=$(git grep -r --count 'maybe_raise_vtpm_unimplemented' -- **/*.ml | cut -d ':' -f 2 | paste -sd+ - | bc)
   if [ "$VTPM" -eq "$N" ]; then
     echo "OK found $VTPM usages of vtpm unimplemented errors"

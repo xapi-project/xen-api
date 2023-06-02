@@ -60,6 +60,7 @@
 )
 (executable
  (name xenops_xc_main)
+ (modes exe)
  (public_name xenopsd-xc)
  (package xapi-xenopsd-xc)
  (modules xenops_xc_main)
@@ -81,6 +82,7 @@
 
 (executable
  (name memory_breakdown)
+ (modes exe)
  (modules memory_breakdown)
  (libraries
   astring
@@ -99,6 +101,7 @@
 
 (executable
  (name memory_summary)
+ (modes exe)
  (modules memory_summary)
  (libraries
   dune-build-info
@@ -111,6 +114,7 @@
 
 (executable
  (name domain_sethandle)
+ (modes exe)
  (modules domain_sethandle)
  (libraries
   cmdliner
@@ -121,6 +125,7 @@
 
 (executable
  (name cancel_utils_test)
+ (modes exe)
  (modules cancel_utils_test)
  (libraries
   cmdliner

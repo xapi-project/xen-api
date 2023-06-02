@@ -603,6 +603,8 @@ let vgpu_type_not_enabled = "VGPU_TYPE_NOT_ENABLED"
 
 let vgpu_type_not_supported = "VGPU_TYPE_NOT_SUPPORTED"
 
+let vgpu_type_no_longer_supported = "VGPU_TYPE_NO_LONGER_SUPPORTED"
+
 let vgpu_type_not_compatible_with_running_type =
   "VGPU_TYPE_NOT_COMPATIBLE_WITH_RUNNING_TYPE"
 

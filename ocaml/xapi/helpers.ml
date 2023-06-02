@@ -331,13 +331,21 @@ let update_getty () =
 let set_gateway ~__context ~pif ~bridge =
   let dbg = Context.string_of_task __context in
   try
-    if Net.Interface.exists dbg bridge then
-      match Net.Interface.get_ipv4_gateway dbg bridge with
+    if Net.Interface.exists dbg bridge then (
+      ( match Net.Interface.get_ipv4_gateway dbg bridge with
       | Some addr ->
           Db.PIF.set_gateway ~__context ~self:pif
             ~value:(Unix.string_of_inet_addr addr)
       | None ->
           ()
+      ) ;
+      match Net.Interface.get_ipv6_gateway dbg bridge with
+      | Some addr ->
+          Db.PIF.set_ipv6_gateway ~__context ~self:pif
+            ~value:(Unix.string_of_inet_addr addr)
+      | None ->
+          ()
+    )
   with _ ->
     warn "Unable to get the gateway of PIF %s (%s)" (Ref.string_of pif) bridge
 
@@ -438,6 +446,20 @@ let make_timeboxed_rpc ~__context timeout rpc : Rpc.response =
       result
   )
 
+let pool_secret = "pool_secret"
+
+let secret_string_of_request req =
+  Option.map SecretString.of_string
+  @@
+  match List.assoc_opt pool_secret req.Http.Request.cookie with
+  | Some _ as r ->
+      r
+  | None ->
+      List.assoc_opt pool_secret req.Http.Request.query
+
+let with_cookie t request =
+  {request with Http.Request.cookie= SecretString.with_cookie t []}
+
 let make_remote_rpc_of_url ~verify_cert ~srcstr ~dststr (url, pool_secret) call
     =
   let open Xmlrpc_client in
@@ -449,7 +471,7 @@ let make_remote_rpc_of_url ~verify_cert ~srcstr ~dststr (url, pool_secret) call
   let http =
     match pool_secret with
     | Some pool_secret ->
-        SecretString.with_cookie pool_secret http
+        with_cookie pool_secret http
     | None ->
         http
   in

@@ -5,7 +5,6 @@
   (libraries
     (re_export rrd_transport_lib)
     (re_export rrd_transport_file)
-    (re_export rrd_transport_page)
   )
 )
 

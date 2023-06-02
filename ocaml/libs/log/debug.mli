@@ -20,7 +20,8 @@ val init_logs : unit -> unit
 
 (** {2 Associate a task to the current actions} *)
 
-val with_thread_associated : ?client:string -> string -> ('a -> 'b) -> 'a -> 'b
+val with_thread_associated :
+  ?client:string -> ?quiet:bool -> string -> ('a -> 'b) -> 'a -> 'b
 (** Do an action with a task name associated with the current thread *)
 
 (** {2 Associate a name to the current thread} *)
@@ -80,7 +81,7 @@ module type DEBUG = sig
   val log_and_ignore_exn : (unit -> unit) -> unit
 end
 
-module Make : functor (Brand : BRAND) -> DEBUG
+module Make : functor (_ : BRAND) -> DEBUG
 
 (** {3 Utility functions for the test code} *)
 

@@ -14,6 +14,7 @@
 
 open Xen_api
 open Lwt
+open Lwt.Syntax
 
 module Lwt_unix_IO = struct
   type 'a t = 'a Lwt.t
@@ -66,8 +67,10 @@ module Lwt_unix_IO = struct
     ( match Uri.scheme uri with
     | Some "file" ->
         return (Unix.PF_UNIX, Unix.ADDR_UNIX (Uri.path uri), false)
+    | Some "http+unix" ->
+        return (Unix.PF_UNIX, Unix.ADDR_UNIX (Uri.host_with_default uri), false)
     | Some "http" | Some "https" ->
-        Util.sockaddr_of_uri uri >|= fun (sockaddr, ssl) ->
+        Uri_util.sockaddr_of_uri uri >|= fun (sockaddr, ssl) ->
         (Unix.domain_of_sockaddr sockaddr, sockaddr, ssl)
     | Some x ->
         fail (Unsupported_scheme x)
@@ -156,5 +159,91 @@ let make_json ?(timeout = 30.) uri call =
   do_it uri string >>= fun result ->
   Lwt.return (Jsonrpc.response_of_string result)
 
+let uri_local_json =
+  Uri.make ~scheme:"http+unix" ~host:"/var/lib/xcp/xapi" ~path:"/jsonrpc" ()
+
+(* TODO: https *)
+let uri_ip_json ip = Uri.make ~scheme:"https" ~host:ip ~path:"/jsonrpc" ()
+
 module Client = Client.ClientF (Lwt)
 include Client
+
+module SessionCache = struct
+  type session = {session_id: API.ref_session; mutable valid: bool}
+
+  type t = {
+      session_pool: session Lwt_pool.t
+    ; mutable rpc: Rpc.call -> Rpc.response Lwt.t
+    ; timeout: float option
+  }
+
+  let make_rpc ?timeout target =
+    let uri = Uri.with_path target "/jsonrpc" in
+    make_json ?timeout @@ Uri.to_string @@ uri
+
+  let create_rpc ?timeout rpc ~uname ~pwd ~version ~originator () =
+    let acquire () =
+      let+ session_id =
+        Session.login_with_password ~rpc ~uname ~pwd ~version ~originator
+      in
+      {session_id; valid= true}
+    in
+    let dispose t =
+      if t.valid then
+        Lwt.catch
+          (fun () -> Session.logout ~rpc ~session_id:t.session_id)
+          (function
+            | Api_errors.Server_error (code, _)
+              when code = Api_errors.session_invalid ->
+                (* ignore logout failures on invalid sessions: these may have been GCed *)
+                Lwt.return_unit
+            | e ->
+                Lwt.fail e
+            )
+      else
+        Lwt.return_unit
+    in
+    let check t is_ok = is_ok t.valid in
+    let validate t = Lwt.return t.valid in
+    let session_pool = Lwt_pool.create 1 ~validate ~dispose ~check acquire in
+    (* Try acquiring one session to give error messages early *)
+    {rpc; session_pool; timeout}
+
+  let destroy t = Lwt_pool.clear t.session_pool
+
+  let create_uri ?timeout ~switch ~target ~uname ~pwd ~version ~originator () =
+    let t =
+      create_rpc (make_rpc ?timeout target) ~uname ~pwd ~version ~originator ()
+    in
+    Lwt_switch.add_hook (Some switch) (fun () -> destroy t) ;
+    t
+
+  let with_session t f =
+    let rec retry n =
+      (* we want to use the same session for multiple API calls concurrently *)
+      let* session = Lwt_pool.use t.session_pool Lwt.return in
+      Lwt.catch
+        (fun () -> f ~rpc:t.rpc ~session_id:session.session_id)
+        (function
+          | Api_errors.Server_error (code, _) as e
+            when code = Api_errors.session_invalid ->
+              session.valid <- false ;
+              (* the [check] function above will cause Lwt_pool to dispose of this *)
+              if n > 0 then
+                retry (n - 1)
+              else
+                Lwt.fail e
+          | Api_errors.Server_error (code, [master]) as e
+            when code = Api_errors.host_is_slave ->
+              (* can happen with HA *)
+              t.rpc <- make_rpc ?timeout:t.timeout @@ uri_ip_json master ;
+              if n > 0 then
+                retry (n - 1)
+              else
+                Lwt.fail e
+          | e ->
+              Lwt.fail e
+          )
+    in
+    retry 2
+end

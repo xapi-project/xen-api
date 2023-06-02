@@ -44,7 +44,10 @@
 
 (executable
  (name rrd_cli)
+ (public_name rrd-cli)
+ (package xapi-rrdd)
  (modules rrd_cli)
+ (modes exe)
  (libraries
    cmdliner
    dune-build-info
@@ -58,6 +61,6 @@
 (rule
  (alias runtest)
  (deps (:x rrd_cli.exe))
- (package xapi-idl)
+ (package xapi-rrdd)
  (action (run %{x} --help=plain)))
 

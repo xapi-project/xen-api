@@ -14,7 +14,7 @@
 
 let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
-module D = Debug.Make (struct let name = "xapi" end)
+module D = Debug.Make (struct let name = "xapi_vgpu_type" end)
 
 open D
 
@@ -1069,7 +1069,7 @@ let find_or_create_supported_types ~__context ~pci =
     match vendor_id with
     | x when x = Nvidia.vendor_id ->
         Nvidia.find_or_create_supported_types
-    | x when x = Intel.vendor_id ->
+    | x when x = Intel.vendor_id && !Xapi_globs.gvt_g_supported ->
         Intel.find_or_create_supported_types
     | x when x = AMD.vendor_id ->
         AMD.find_or_create_supported_types
@@ -1090,3 +1090,14 @@ let requires_passthrough ~__context ~self =
       None
 
 (* Does not require any passthrough *)
+
+let assert_not_legacy ~__context ~self =
+  let legacy =
+    (not !Xapi_globs.gvt_g_supported)
+    && Db.VGPU_type.get_implementation ~__context ~self = `gvt_g
+  in
+  if legacy then
+    let vendor = Db.VGPU_type.get_vendor_name ~__context ~self in
+    let model = Db.VGPU_type.get_model_name ~__context ~self in
+    let msg = [Printf.sprintf "%s: %s" vendor model] in
+    raise Api_errors.(Server_error (vgpu_type_no_longer_supported, msg))

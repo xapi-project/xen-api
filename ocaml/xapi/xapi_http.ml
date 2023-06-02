@@ -139,15 +139,15 @@ let assert_credentials_ok realm ?(http_action = realm) ?(fn = Rbac.nofn)
   else
     match
       ( ref_param_of_req req _session_id
-      , SecretString.of_request req
+      , Helpers.secret_string_of_request req
       , req.Http.Request.auth
       )
     with
     | Some session_id, _, _ ->
         let subtask_of = ref_param_of_req req "subtask_of" in
         (* Session ref has been passed in - check that it's OK *)
-        Server_helpers.exec_with_new_task ?subtask_of "xapi_http_session_check"
-          (fun __context ->
+        Server_helpers.exec_with_new_task ~quiet:true ?subtask_of
+          "xapi_http_session_check" (fun __context ->
             ( try validate_session __context session_id realm
               with _ -> raise (Http.Unauthorised realm)
             ) ;
@@ -195,7 +195,7 @@ let with_context ?(dummy = false) label (req : Request.t) (s : Unix.file_descr)
       else
         match
           ( ref_param_of_req req _session_id
-          , SecretString.of_request req
+          , Helpers.secret_string_of_request req
           , req.Http.Request.auth
           )
         with

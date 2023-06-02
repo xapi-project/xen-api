@@ -15,6 +15,7 @@
 
 (executable
  (name v6_cli)
+ (modes exe)
  (modules v6_cli)
  (libraries
    cmdliner

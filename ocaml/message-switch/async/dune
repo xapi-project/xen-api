@@ -8,6 +8,7 @@
     base
     cohttp-async
     core
+    core_unix
     core_kernel
     message-switch-core
   )

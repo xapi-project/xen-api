@@ -1,5 +1,6 @@
 (test
   (name suite_alcotest)
+  (modes exe)
   (package xapi)
   (modules
     (:standard \ test_daemon_manager test_vdi_cbt test_event test_clustering
@@ -15,7 +16,7 @@
     cstruct
     dune-build-info
     fmt
-    http-svr
+    http_lib
     ipaddr
     mirage-crypto
     pam
@@ -31,7 +32,7 @@
     xapi-client
     xapi_cli_server
     xapi-consts
-    xapi-database
+    xapi_database
     xapi-datamodel
     xapi-idl
     xapi-idl.storage.interface
@@ -60,6 +61,7 @@
     test_clustering test_pusb test_daemon_manager test_repository test_repository_helpers
     test_livepatch test_rpm test_updateinfo test_pool_periodic_update_sync)
   (package xapi)
+  (modes exe)
   (modules test_vm_helpers test_vm_placement test_network_sriov test_vdi_cbt
     test_event test_clustering test_cluster_host test_cluster test_pusb
     test_daemon_manager test_repository test_repository_helpers test_livepatch test_rpm
@@ -77,7 +79,7 @@
     xapi-client
     xapi_cli_server
     xapi-consts
-    xapi-database
+    xapi_database
     xapi-idl
     xapi-idl.cluster
     xapi-idl.storage
@@ -94,18 +96,21 @@
 )
 (test
 (name test_storage_smapiv1_wrapper)
+(modes exe)
 (package xapi)
 (modules test_storage_smapiv1_wrapper)
 (libraries alcotest xapi_internal fmt))
 
 (test
 (name test_storage_quicktest)
+(modes exe)
 (package xapi)
 (modules test_storage_quicktest)
 (libraries xapi_internal crowbar))
 
 (test
 (name test_ref)
+(modes exe)
 (package xapi)
 (modules test_ref)
 (libraries xapi_internal crowbar))

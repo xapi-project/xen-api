@@ -74,8 +74,6 @@ exception Socket_not_found
 
 val stop : socket -> unit
 
-exception Client_requested_size_over_limit
-
 module Chunked : sig
   type t
 

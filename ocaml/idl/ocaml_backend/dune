@@ -1,7 +1,8 @@
 (executable
-  (modes byte exe)
+  (modes exe)
   (name gen_api_main)
   (libraries
+    astring
     dune-build-info
     sexpr
     uuid
