@@ -1843,14 +1843,10 @@ let pool_configure_update_sync _printer rpc session_id params =
         "Failed to parse parameter 'update-sync-day': expecting an integer"
   in
   ( match (frequency, day_int) with
-  | `daily, d when d <> 0L ->
-      failwith
-        "For daily schedule, cannot set the day when update sync will run to \
-         an integer other than 0.\n"
   | `weekly, d when d < 0L || d > 6L ->
       failwith
         "For weekly schedule, cannot set the day when update sync will run to \
-         an integer out of range: 0 ~ 6.\n"
+         an integer out of range: 0 ~ 6."
   | _ ->
       ()
   ) ;

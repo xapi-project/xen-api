@@ -3672,8 +3672,10 @@ let configure_update_sync ~__context ~self ~update_sync_frequency
           Server_error
             (invalid_update_sync_day, [Int64.to_string update_sync_day])
         )
-  | `daily, _ ->
-      ()
+  | `daily, d when d <> 0L ->
+      warn
+        "For 'daily' schedule, the value of update_sync_day is ignored, \
+         update_sync_day of the pool will be set to the default value 0."
   | _ ->
       ()
   ) ;

@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-module D = Debug.Make (struct let name = "pool_periodic_update_sync" end)
+module D = Debug.Make (struct let name = __MODULE__ end)
 
 open D
 open Client
@@ -21,7 +21,11 @@ let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
 let periodic_update_sync_task_name = "Periodic update synchronization"
 
-let update_sync_minimum_interval = 60. *. 60. *. 2.
+let secs_per_hour = 60. *. 60.
+
+let update_sync_minimum_interval = 2. *. secs_per_hour
+
+let secs_per_day = 24. *. secs_per_hour
 
 exception UpdateSync_RetryNumExceeded of int
 
@@ -29,8 +33,7 @@ let seconds_random_within_a_day () =
   if Xapi_fist.disable_periodic_update_sync_sec_randomness () then
     0.
   else
-    let secs_of_a_day = 24. *. 60. *. 60. in
-    let secs_random = Random.float secs_of_a_day in
+    let secs_random = Random.float secs_per_day in
     secs_random
 
 let frequency_to_str ~frequency =
@@ -92,8 +95,8 @@ let print_next_schedule ~delay ~utc_now ~tz_offset_s =
      %d:%d:%d "
     y m d hh mm ss
 
-let calc_delay ~utc_now ~utc_start_of_next_sched_day ~seconds_in_a_day =
-  let random_span = Ptime.Span.of_float_s seconds_in_a_day |> Option.get in
+let calc_delay ~utc_now ~utc_start_of_next_sched_day ~extra_seconds =
+  let random_span = Ptime.Span.of_float_s extra_seconds |> Option.get in
   let utc_next_schedule =
     Ptime.add_span utc_start_of_next_sched_day random_span |> Option.get
   in
@@ -122,14 +125,12 @@ let update_sync_delay_for_next_schedule ~__context =
   let day_configed_int = Int64.to_int day_configed in
   let utc_now = Ptime_clock.now () in
   let tz_offset_s = Ptime_clock.current_tz_offset_s () |> Option.get in
-  let seconds_in_a_day = seconds_random_within_a_day () in
+  let extra_seconds = seconds_random_within_a_day () in
   let utc_start_of_next_sched_day =
     utc_start_of_next_scheduled_day ~utc_now ~tz_offset_s ~frequency
       ~day_configed_int
   in
-  let delay =
-    calc_delay ~utc_now ~utc_start_of_next_sched_day ~seconds_in_a_day
-  in
+  let delay = calc_delay ~utc_now ~utc_start_of_next_sched_day ~extra_seconds in
   print_next_schedule ~delay ~utc_now ~tz_offset_s ;
   delay
 

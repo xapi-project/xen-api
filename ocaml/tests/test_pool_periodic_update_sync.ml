@@ -184,13 +184,11 @@ module TestUpdateSyncDelay = struct
     let utc_start_of_next_sched_day =
       Ptime.of_date_time ((2023, 5, 6), ((0, 0, 0), tz_offset_s)) |> Option.get
     in
-    let seconds_in_a_day = 0. in
+    let extra_seconds = 0. in
     let delay = (2. *. 24. *. 60. *. 60.) -. 1. in
-    let res =
-      calc_delay ~utc_now ~utc_start_of_next_sched_day ~seconds_in_a_day
-    in
+    let res = calc_delay ~utc_now ~utc_start_of_next_sched_day ~extra_seconds in
     Alcotest.(check (float Float.epsilon))
-      "test_update_sync_delay_for_next_schedule_internal_1, seconds_in_a_day 0"
+      "test_update_sync_delay_for_next_schedule_internal_1, extra_seconds 0"
       delay res
 
   let test_update_sync_delay_for_next_schedule_internal_2 () =
@@ -201,14 +199,11 @@ module TestUpdateSyncDelay = struct
     let utc_start_of_next_sched_day =
       Ptime.of_date_time ((2023, 5, 6), ((0, 0, 0), tz_offset_s)) |> Option.get
     in
-    let seconds_in_a_day = 66. in
+    let extra_seconds = 66. in
     let delay = (2. *. 24. *. 60. *. 60.) -. 1. +. 66. in
-    let res =
-      calc_delay ~utc_now ~utc_start_of_next_sched_day ~seconds_in_a_day
-    in
+    let res = calc_delay ~utc_now ~utc_start_of_next_sched_day ~extra_seconds in
     Alcotest.(check (float Float.epsilon))
-      "test_update_sync_delay_for_next_schedule_internal_2, seconds_in_a_day \
-       not 0"
+      "test_update_sync_delay_for_next_schedule_internal_2, extra_seconds not 0"
       delay res
 
   let test_update_sync_delay_for_next_schedule_internal_3 () =
@@ -219,11 +214,9 @@ module TestUpdateSyncDelay = struct
     let utc_start_of_next_sched_day =
       Ptime.of_date_time ((2023, 5, 4), ((0, 0, 0), tz_offset_s)) |> Option.get
     in
-    let seconds_in_a_day = 66. in
+    let extra_seconds = 66. in
     let delay = (5. *. 24. *. 60. *. 60.) -. 1. +. 66. in
-    let res =
-      calc_delay ~utc_now ~utc_start_of_next_sched_day ~seconds_in_a_day
-    in
+    let res = calc_delay ~utc_now ~utc_start_of_next_sched_day ~extra_seconds in
     Alcotest.(check (float Float.epsilon))
       "test_update_sync_delay_for_next_schedule_internal_3, next month" delay
       res

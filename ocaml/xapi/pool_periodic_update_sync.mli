@@ -32,7 +32,7 @@ val utc_start_of_next_scheduled_day :
 val calc_delay :
      utc_now:Ptime.t
   -> utc_start_of_next_sched_day:Ptime.t
-  -> seconds_in_a_day:float
+  -> extra_seconds:float
   -> float
 
 exception UpdateSync_RetryNumExceeded of int
