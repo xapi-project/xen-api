@@ -1,5 +1,5 @@
 (executable
-  (modes byte exe)
+  (modes exe)
   (name xsh)
   (public_name xsh)
   (package xapi)
@@ -8,6 +8,7 @@
     stunnel
     safe-resources
     xapi-consts
+    xapi-log
   )
 )
 

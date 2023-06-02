@@ -13,6 +13,7 @@ depends: [
   "rpclib-lwt"
   "xapi-idl"
   "xen-api-client-lwt"
+  "alcotest-lwt" {with-test}
 ]
 synopsis: "Supervising daemon for varstored daemons"
 description: ""

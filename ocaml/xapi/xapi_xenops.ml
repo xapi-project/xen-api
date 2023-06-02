@@ -346,9 +346,7 @@ let is_boot_file_whitelisted filename =
   let safe_str str = not (String.has_substr str "..") in
   (* make sure the script prefix is the allowed dom0 directory *)
   List.exists
-    (fun allowed_dom0_directory_for_boot_files ->
-      String.startswith allowed_dom0_directory_for_boot_files filename
-    )
+    (fun allowed -> String.starts_with ~prefix:allowed filename)
     allowed_dom0_directories_for_boot_files
   (* avoid ..-style attacks and other weird things *)
   && safe_str filename
@@ -491,48 +489,29 @@ let builder_of_vm ~__context (vmref, vm) timeoffset pci_passthrough vgpu =
     {
       boot= Direct {kernel= k; cmdline= ka; ramdisk= initrd}
     ; framebuffer= bool vm.API.vM_platform false "pvfb"
-    ; framebuffer_ip= None
-    ; (* None PR-1255 *)
-      vncterm=
-        ( match List.mem_assoc "disable_pv_vnc" vm.API.vM_other_config with
-        | true ->
-            false
-        | false ->
-            true
-        )
+    ; framebuffer_ip= None (* None PR-1255 *)
+    ; vncterm= not (List.mem_assoc "disable_pv_vnc" vm.API.vM_other_config)
     ; vncterm_ip= None (*None PR-1255*)
     ; pci_passthrough= List.mem_assoc "pci" vm.API.vM_other_config
     }
   in
   let make_indirect_boot_record
-      {
-        Helpers.bootloader= b
-      ; extra_args= e
-      ; legacy_args= l
-      ; pv_bootloader_args= p
-      ; vdis
-      } =
+      {Helpers.bootloader; extra_args; legacy_args; pv_bootloader_args= p; vdis}
+      =
     {
       boot=
         Indirect
           {
-            bootloader= b
-          ; extra_args= e
-          ; legacy_args= l
+            bootloader
+          ; extra_args
+          ; legacy_args
           ; bootloader_args= p
           ; devices=
               List.filter_map (fun x -> disk_of_vdi ~__context ~self:x) vdis
           }
     ; framebuffer= bool vm.API.vM_platform false "pvfb"
-    ; framebuffer_ip= None
-    ; (* None PR-1255 *)
-      vncterm=
-        ( match List.mem_assoc "disable_pv_vnc" vm.API.vM_other_config with
-        | true ->
-            false
-        | false ->
-            true
-        )
+    ; framebuffer_ip= None (* None PR-1255 *)
+    ; vncterm= not (List.mem_assoc "disable_pv_vnc" vm.API.vM_other_config)
     ; vncterm_ip= None (*None PR-1255*)
     ; pci_passthrough= List.mem_assoc "pci" vm.API.vM_other_config
     }
@@ -556,10 +535,8 @@ let builder_of_vm ~__context (vmref, vm) timeoffset pci_passthrough vgpu =
   | `pvh, Helpers.Indirect options ->
       PVH (make_indirect_boot_record options)
   | _ ->
-      raise
-        Api_errors.(
-          Server_error (internal_error, ["invalid boot configuration"])
-        )
+      let msg = "invalid boot configuration" in
+      raise Api_errors.(Server_error (internal_error, [msg]))
 
 let list_net_sriov_vf_pcis ~__context ~vm =
   vm.API.vM_VIFs
@@ -669,9 +646,8 @@ module MD = struct
     in
     let backend_kind_keys = other_config_keys Xapi_globs.vbd_backend_key in
     let poll_duration_keys =
-      in_range ~min:0 ~max:max_int
-        ~fallback:0
-          (* if user provides invalid integer, use 0 = disable polling *)
+      in_range ~min:0 ~max:max_int ~fallback:0
+        (* if user provides invalid integer, use 0 = disable polling *)
         (other_config_keys Xapi_globs.vbd_polling_duration_key
            ~default:
              (Some (string_of_int !Xapi_globs.default_vbd3_polling_duration))

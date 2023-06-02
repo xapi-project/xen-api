@@ -430,6 +430,8 @@ let _ =
   error Api_errors.vgpu_type_not_supported
     ["type"; "supported_types"]
     ~doc:"VGPU type is not one of the PGPU's supported types." () ;
+  error Api_errors.vgpu_type_no_longer_supported ["type"]
+    ~doc:"VGPU type is no longer supported" () ;
   error Api_errors.vgpu_type_not_compatible_with_running_type
     ["pgpu"; "type"; "running_type"]
     ~doc:

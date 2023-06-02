@@ -37,17 +37,17 @@ let get_extents_json ~extent_reader ~server ~export_name ~offset ~length =
       |]
     )
 
+let is_empty e =
+  let has_flag flag = Int32.logand e.flags flag = flag in
+  (* We assume the destination is prezeroed, so we do not have to copy zeroed extents *)
+  has_flag flag_hole || has_flag flag_zero
+
+let assert_integer_sectors b =
+  if Int64.rem b 512L <> 0L then failwith "Expecting sector aligned extents"
+
 let raw ?(extent_reader = "/opt/xensource/libexec/get_nbd_extents.py") raw
     server export_name size =
   let to_sectors b = Int64.div b 512L in
-  let is_empty e =
-    let has_flag flag = Int32.logand e.flags flag = flag in
-    (* We assume the destination is prezeroed, so we do not have to copy zeroed extents *)
-    has_flag flag_hole || has_flag flag_zero
-  in
-  let assert_integer_sectors b =
-    if Int64.rem b 512L <> 0L then failwith "Expecting sector aligned extents"
-  in
   let rec operations extents offset acc =
     match extents with
     | e :: es ->
@@ -103,3 +103,65 @@ let raw ?(extent_reader = "/opt/xensource/libexec/get_nbd_extents.py") raw
   block [] 0L >>= fun elements ->
   let size = Vhd_format.F.{total= size; metadata= 0L; empty= 0L; copy= 0L} in
   Lwt.return F.{elements; size}
+
+let vhd ?(extent_reader = "/opt/xensource/libexec/get_nbd_extents.py") raw
+    server export_name size =
+  (* All units are bytes *)
+  let open Int64 in
+  (* Get extents directly from the NBD server through a helper program.
+     Each extent has a length and flags that indicate whether or not there is data. *)
+  let rec read_extents extents offset =
+    if offset > size then
+      Lwt.fail_with
+        (Printf.sprintf "Nbd_input.vhd finished with offset=%Ld <> size=%Ld"
+           offset size
+        )
+    else if offset = size then
+      Lwt.return (List.rev extents)
+    else
+      let length = min (sub size offset) max_query_length in
+      get_extents_json ~extent_reader ~server ~export_name ~offset ~length
+      >>= fun extents_json ->
+      let new_extents = extent_list_of_rpc (Jsonrpc.of_string extents_json) in
+      read_extents (List.rev_append new_extents extents) (add offset length)
+  in
+  read_extents [] 0L >>= fun extents ->
+  let find_data_blocks ~blocks:_ ~block_size =
+    (* Given a list of extents and a VHD block size, return a list of block indices
+       for all blocks that contain data. *)
+    let add_new i l =
+      (* Add i to list l, unless the list's head is already equal to i *)
+      match l with [] -> [i] | j :: _ when i = j -> l | _ -> i :: l
+    in
+    let next_offset offset e =
+      assert_integer_sectors e.length ;
+      add offset e.length
+    in
+    let rec loop offset acc = function
+      | [] ->
+          List.rev acc
+      | e :: es when is_empty e ->
+          (* Empty extent: move on to the next *)
+          loop (next_offset offset e) acc es
+      | e :: es ->
+          (* If the extent is non-empty, then determine which blocks this extent falls
+             into and add those to the list. *)
+          let offset' = next_offset offset e in
+          let acc' =
+            let first_block = div offset block_size |> to_int in
+            let last_block = div (sub offset' 1L) block_size |> to_int in
+            let rec add_blocks i acc' =
+              if i <= last_block then
+                add_blocks (i + 1) (add_new i acc')
+              else
+                acc'
+            in
+            add_blocks first_block acc
+          in
+          loop offset' acc' es
+    in
+    Lwt.return (loop 0L [] extents)
+  in
+  (* Use ocaml-vhd to create a sparse VHD stream from the raw input and
+     data block info. *)
+  F.Hybrid_raw_input.vhd raw find_data_blocks

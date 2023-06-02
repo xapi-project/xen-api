@@ -1,5 +1,5 @@
 (executables
-  (modes byte exe)
+  (modes exe)
   (names main sparse_dd get_vhd_vsize)
   (package vhd-tool)
   (public_names vhd-tool sparse_dd get_vhd_vsize)
@@ -12,6 +12,7 @@
     forkexec
     lwt
     lwt.unix
+    ssl
     tapctl
     threads.posix
     uri

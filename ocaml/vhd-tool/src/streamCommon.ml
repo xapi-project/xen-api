@@ -40,7 +40,7 @@ let string_of_protocol = function
   | NoProtocol ->
       "none"
 
-let supported_formats = ["raw"; "vhd"; "hybrid"]
+let supported_formats = ["raw"; "vhd"; "hybrid"; "nbdhybrid"]
 
 let require name arg =
   match arg with

@@ -44,14 +44,14 @@ let localhost_handler rpc session_id vdi (req : Http.Request.t)
             (Ref.string_of task_id) (Ref.string_of vdi)
             (Importexport.Format.to_string format)
             content_type filename ;
-          let copy base_path path =
+          let copy base_path path size =
             try
               debug "Copying VDI contents..." ;
               Vhd_tool_wrapper.send ?relative_to:base_path
                 (Vhd_tool_wrapper.update_task_progress __context)
                 "none"
                 (Importexport.Format.to_string format)
-                s path "" ;
+                s path size "" ;
               debug "Copying VDI complete."
             with Unix.Unix_error (Unix.EIO, _, _) ->
               raise
@@ -74,29 +74,27 @@ let localhost_handler rpc session_id vdi (req : Http.Request.t)
             Http_svr.headers s headers ;
             match format with
             | Raw | Vhd ->
-                ( if format = Vhd then
-                    let size = Db.VDI.get_virtual_size ~__context ~self:vdi in
-                    if size > Constants.max_vhd_size then
-                      raise
-                        (Api_errors.Server_error
-                           ( Api_errors.vdi_too_large
-                           , [
-                               Ref.string_of vdi
-                             ; Int64.to_string Constants.max_vhd_size
-                             ]
-                           )
-                        )
-                ) ;
+                let size = Db.VDI.get_virtual_size ~__context ~self:vdi in
+                if format = Vhd && size > Constants.max_vhd_size then
+                  raise
+                    (Api_errors.Server_error
+                       ( Api_errors.vdi_too_large
+                       , [
+                           Ref.string_of vdi
+                         ; Int64.to_string Constants.max_vhd_size
+                         ]
+                       )
+                    ) ;
                 Sm_fs_ops.with_block_attached_device __context rpc session_id
                   vdi `RO (fun path ->
                     match Importexport.base_vdi_of_req ~__context req with
                     | Some base_vdi ->
                         Sm_fs_ops.with_block_attached_device __context rpc
                           session_id base_vdi `RO (fun base_path ->
-                            copy (Some base_path) path
+                            copy (Some base_path) path size
                         )
                     | None ->
-                        copy None path
+                        copy None path size
                 )
             | Tar ->
                 (* We need to keep refreshing the session to avoid session timeout *)

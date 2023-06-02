@@ -29,7 +29,7 @@ lint:
 	pycodestyle --ignore=E501 _build/default/xapi-storage/python/xapi/storage/api/v5/*.py
 
 test:
-	dune runtest --profile=$(PROFILE) --no-buffer -j $(JOBS)
+	dune runtest --profile=$(PROFILE) --error-reporting=twice -j $(JOBS)
 	dune build @runtest-python --profile=$(PROFILE)
 
 stresstest:
@@ -138,6 +138,9 @@ install: build doc sdk doc-json
 # xcp-rrdd
 	install -D _build/install/default/bin/xcp-rrdd $(DESTDIR)/usr/sbin/xcp-rrdd
 	install -D _build/install/default/bin/rrddump $(DESTDIR)/usr/bin/rrddump
+	install -D -m 644 ocaml/xcp-rrdd/scripts/rrdd/rrdd.py $(DESTDIR)/usr/lib/python2.7/site-packages
+# rrd-cli
+	install -D _build/install/default/bin/rrd-cli $(DESTDIR)/usr/bin/rrd-cli
 # rrd-transport
 	install -D _build/install/default/bin/rrdreader $(DESTDIR)/usr/bin/rrdreader
 	install -D _build/install/default/bin/rrdwriter $(DESTDIR)/usr/bin/rrdwriter
@@ -189,9 +192,9 @@ install: build doc sdk doc-json
 	install -m 755 _build/install/default/bin/wsproxy $(DESTDIR)$(LIBEXECDIR)/wsproxy
 # dune can install libraries and several other files into the right locations
 	dune install --destdir=$(DESTDIR) --prefix=$(PREFIX) --libdir=$(LIBDIR) --mandir=$(MANDIR) \
-		xapi-client xapi-database xapi-schema xapi-consts xapi-cli-protocol xapi-datamodel xapi-types \
+		xapi-client xapi-schema xapi-consts xapi-cli-protocol xapi-datamodel xapi-types \
 		xen-api-client xen-api-client-lwt xen-api-client-async rrdd-plugin rrd-transport \
-		gzip http-svr pciutil sexpr stunnel uuid xml-light2 zstd xapi-compression safe-resources \
+		gzip http-lib pciutil sexpr stunnel uuid xml-light2 zstd xapi-compression safe-resources \
 		message-switch message-switch-async message-switch-cli message-switch-core message-switch-lwt \
 		message-switch-unix xapi-idl forkexec xapi-forkexecd xapi-storage xapi-storage-script xapi-storage-cli \
 		xapi-nbd varstored-guard xapi-log xapi-open-uri
@@ -211,9 +214,9 @@ install: build doc sdk doc-json
 uninstall:
 	# only removes what was installed with `dune install`
 	dune uninstall --destdir=$(DESTDIR) --prefix=$(PREFIX) --libdir=$(LIBDIR) --mandir=$(MANDIR) \
-		xapi-client xapi-database xapi-schema xapi-consts xapi-cli-protocol xapi-datamodel xapi-types \
+		xapi-client xapi-schema xapi-consts xapi-cli-protocol xapi-datamodel xapi-types \
 		xen-api-client xen-api-client-lwt xen-api-client-async rrdd-plugin rrd-transport \
-		gzip http-svr pciutil sexpr stunnel uuid xml-light2 zstd xapi-compression safe-resources \
+		gzip http-lib pciutil sexpr stunnel uuid xml-light2 zstd xapi-compression safe-resources \
 		message-switch message-switch-async message-switch-cli message-switch-core message-switch-lwt \
 		message-switch-unix xapi-idl forkexec xapi-forkexecd xapi-storage xapi-storage-script xapi-log \
 		xapi-open-uri

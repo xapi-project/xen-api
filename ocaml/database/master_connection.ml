@@ -220,7 +220,7 @@ let do_db_xml_rpc_persistent_with_reopen ~host:_ ~path (req : string) :
       let req_string = req in
       let length = String.length req_string in
       if length > Db_globs.http_limit_max_rpc_size then
-        raise Http_svr.Client_requested_size_over_limit ;
+        raise Http.Client_requested_size_over_limit ;
       (* The pool_secret is added here and checked by the Xapi_http.add_handler RBAC code. *)
       let open Xmlrpc_client in
       let request =
@@ -255,11 +255,11 @@ let do_db_xml_rpc_persistent_with_reopen ~host:_ ~path (req : string) :
                 Unixfd.(!fd)
           )
     with
-    | Http_svr.Client_requested_size_over_limit ->
+    | Http.Client_requested_size_over_limit ->
         error "Content length larger than known limit (%d)."
           Db_globs.http_limit_max_rpc_size ;
         debug "Re-raising exception to caller." ;
-        raise Http_svr.Client_requested_size_over_limit
+        raise Http.Client_requested_size_over_limit
     (* TODO: This http exception handler caused CA-36936 and can probably be removed now that there's backoff delay in the generic handler _ below *)
     | Http_client.Http_error (http_code, err_msg) ->
         error

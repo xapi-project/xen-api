@@ -132,3 +132,44 @@ let with_vbds rpc session_id __context vm vdis mode f =
             !vbds
       )
     )
+
+module NbdClient = struct
+  let print_fork_error f =
+    try f ()
+    with Forkhelpers.Spawn_internal_error (stderr, stdout, status) as e -> (
+      match status with
+      | Unix.WEXITED n ->
+          error "Forkhelpers.Spawn_internal_error(%s, %s, WEXITED %d)" stderr
+            stdout n ;
+          raise e
+      | Unix.WSIGNALED n ->
+          error "Forkhelpers.Spawn_internal_error(%s, %s, WSIGNALED %d)" stderr
+            stdout n ;
+          raise e
+      | Unix.WSTOPPED n ->
+          error "Forkhelpers.Spawn_internal_error(%s, %s, WSTOPPED %d)" stderr
+            stdout n ;
+          raise e
+    )
+
+  let run_command cmd args =
+    debug "running %s %s" cmd (String.concat " " args) ;
+    let stdout, _ =
+      print_fork_error (fun () ->
+          Forkhelpers.execute_command_get_output cmd args
+      )
+    in
+    stdout
+
+  let start_nbd_client ~unix_socket_path ~export_name =
+    run_command
+      !Xapi_globs.nbd_client_manager_script
+      ["connect"; "--path"; unix_socket_path; "--exportname"; export_name]
+    |> String.trim
+
+  let stop_nbd_client ~nbd_device =
+    run_command
+      !Xapi_globs.nbd_client_manager_script
+      ["disconnect"; "--device"; nbd_device]
+    |> ignore
+end

@@ -14,6 +14,7 @@
 
 (executable
  (name xapi_gzip)
+ (modes exe)
  (modules xapi_gzip)
  ; don't install this
  ; (public_name xapi-gzip)

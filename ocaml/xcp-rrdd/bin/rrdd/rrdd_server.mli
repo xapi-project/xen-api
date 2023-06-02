@@ -12,6 +12,8 @@ val send_host_rrd_to_master : string -> unit
 
 val backup_rrds : string option -> unit -> unit
 
+val save_rrds : unit -> unit
+
 val archive_rrd : string -> string option -> unit
 
 val archive_sr_rrd : string -> string
@@ -72,18 +74,6 @@ module Plugin : sig
     val deregister : string -> unit
 
     val next_reading : string -> float
-  end
-
-  module Interdomain : sig
-    val register :
-         Rrd_interface.interdomain_uid
-      -> Rrd_interface.interdomain_info
-      -> Rrd_interface.plugin_protocol
-      -> float
-
-    val deregister : Rrd_interface.interdomain_uid -> unit
-
-    val next_reading : Rrd_interface.interdomain_uid -> float
   end
 end
 

@@ -1329,6 +1329,7 @@ functor
       let allocate_vm_to_host ~__context ~vm ~host ~snapshot ?host_op () =
         info "Reserve resources for VM %s on host %s" (Ref.string_of vm)
           (Ref.string_of host) ;
+        Xapi_vm_helpers.assert_no_legacy_hardware ~__context ~vm ;
         ( match host_op with
         | Some x ->
             let task_id = Ref.string_of (Context.get_task_id __context) in
@@ -1768,6 +1769,7 @@ functor
 
       let start ~__context ~vm ~start_paused ~force =
         info "VM.start: VM = '%s'" (vm_uuid ~__context vm) ;
+        Xapi_vm_helpers.assert_no_legacy_hardware ~__context ~vm ;
         let local_fn = Local.VM.start ~vm ~start_paused ~force in
         let host =
           with_vm_operation ~__context ~self:vm ~doc:"VM.start" ~op:`start
@@ -2274,6 +2276,7 @@ functor
       (* Like start.. resume on any suitable host *)
       let resume ~__context ~vm ~start_paused ~force =
         info "VM.resume: VM = '%s'" (vm_uuid ~__context vm) ;
+        Xapi_vm_helpers.assert_no_legacy_hardware ~__context ~vm ;
         let local_fn = Local.VM.resume ~vm ~start_paused ~force in
         let host =
           with_vm_operation ~__context ~self:vm ~doc:"VM.resume" ~op:`resume
@@ -2314,6 +2317,7 @@ functor
         info "VM.resume_on: VM = '%s'; host = '%s'" (vm_uuid ~__context vm)
           (host_uuid ~__context host) ;
         let local_fn = Local.VM.resume_on ~vm ~host ~start_paused ~force in
+        Xapi_vm_helpers.assert_no_legacy_hardware ~__context ~vm ;
         with_vm_operation ~__context ~self:vm ~doc:"VM.resume_on" ~op:`resume_on
           (fun () ->
             with_vbds_marked ~__context ~vm ~doc:"VM.resume_on" ~op:`attach
@@ -5802,7 +5806,10 @@ functor
           ~op:`create_vtpm
         @@ fun () -> Local.VTPM.create ~__context ~vM ~is_unique
 
-      let destroy = Local.VTPM.destroy
+      let destroy ~__context ~self =
+        let vm = Db.VTPM.get_VM ~__context ~self in
+        Local.VTPM.destroy ~__context ~self ;
+        Xapi_vm_lifecycle.update_allowed_operations ~__context ~self:vm
 
       let get_contents = Local.VTPM.get_contents
 

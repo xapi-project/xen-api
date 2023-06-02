@@ -41,6 +41,29 @@ let get_nbd_device path =
   else
     None
 
+let image_behind_nbd_device image =
+  match image with
+  | Some (`Nbd (path, _)) ->
+      (* The nbd server path exposed by tapdisk can lead us to the actual image
+         file below. Following the symlink gives a path like
+            `/run/blktap-control/nbd<pid>.<minor>`,
+         containing the tapdisk pid and minor number. Using this information,
+         we can get the file path from tap-ctl.
+      *)
+      let default _ _ = image in
+      let filename = Unix.realpath path |> Filename.basename in
+      Scanf.ksscanf filename default "nbd%d.%d" (fun pid minor ->
+          match Tapctl.find (Tapctl.create ()) ~pid ~minor with
+          | _, _, Some ("vhd", vhd) ->
+              Some (`Vhd vhd)
+          | _, _, Some ("aio", vhd) ->
+              Some (`Raw vhd)
+          | _, _, _ | (exception _) ->
+              image
+      )
+  | _ ->
+      image
+
 let of_device path =
   match Tapctl.of_device (Tapctl.create ()) path with
   | _, _, Some ("vhd", vhd) ->
@@ -50,7 +73,7 @@ let of_device path =
   | _, _, _ ->
       None
   | exception Tapctl.Not_blktap ->
-      get_nbd_device path
+      get_nbd_device path |> image_behind_nbd_device
   | exception Tapctl.Not_a_device ->
       None
   | exception _ ->

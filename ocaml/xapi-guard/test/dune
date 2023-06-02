@@ -1,5 +1,6 @@
 (test
  (name xapi_guard_test)
+ (modes exe)
  (libraries
   alcotest
   alcotest-lwt

@@ -14,7 +14,7 @@ let cmdline_gen () =
   List.map (fun t -> t Rrd_client.rpc) (Cmds.implementation ())
 
 let cli =
-  Xcp_service.cli ~name:"rrd_cli" ~doc ~version:Cmds.description.version
+  Xcp_service.cli ~name:"rrd-cli" ~doc ~version:Cmds.description.version
     ~cmdline_gen
 
 let () = Xcp_service.eval_cmdline cli

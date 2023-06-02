@@ -456,6 +456,9 @@ let xapi_extensions_root = ref "/etc/xapi.d/extensions"
 
 let host_operations_miami = [`evacuate; `provision]
 
+(* Whether still support intel gvt-g vGPU *)
+let gvt_g_supported = ref true
+
 let rpu_allowed_vm_operations =
   [
     `assert_operation_valid
@@ -980,6 +983,8 @@ let conn_limit_unix = ref 1024
 
 let conn_limit_clientcert = ref 800
 
+let prefer_nbd_attach = ref false
+
 let xapi_globs_spec =
   [
     ( "master_connection_reset_timeout"
@@ -1226,6 +1231,11 @@ let other_options =
     , (fun () -> !gvt_g_whitelist)
     , "path to the GVT-g whitelist file"
     )
+  ; ( "gvt-g-supported"
+    , Arg.Set gvt_g_supported
+    , (fun () -> string_of_bool !gvt_g_supported)
+    , "indicates that this server still support intel gvt_g vGPU"
+    )
   ; ( "mxgpu-whitelist"
     , Arg.Set_string mxgpu_whitelist
     , (fun () -> !mxgpu_whitelist)
@@ -1411,6 +1421,11 @@ let other_options =
     , Arg.Set_int server_cert_group_id
     , (fun () -> string_of_int !server_cert_group_id)
     , "The group id of server ssl certificate file."
+    )
+  ; ( "prefer-nbd-attach"
+    , Arg.Set prefer_nbd_attach
+    , (fun () -> string_of_bool !prefer_nbd_attach)
+    , "Use NBD to attach disks to the control domain."
     )
   ]
 

@@ -2,7 +2,7 @@
   (name daily_license_check)
   (modules daily_license_check)
   (libraries
-    http-svr
+    http_lib
     xapi-consts
     xapi-client
     xapi-types
@@ -11,7 +11,7 @@
 )
 
 (executable
-  (modes byte exe)
+  (modes exe)
   (name daily_license_check_main)
   (public_name daily-license-check)
   (package xapi)
@@ -19,7 +19,7 @@
   (libraries
     daily_license_check
     dune-build-info
-    http-svr
+    http_lib
     xapi-client
     xapi-types
     xapi-stdext-date

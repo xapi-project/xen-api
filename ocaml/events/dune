@@ -1,11 +1,11 @@
 (executable
-  (modes byte exe)
+  (modes exe)
   (name event_listen)
   (public_name event_listen)
   (package xapi)
   (libraries
     dune-build-info
-    http-svr
+    http_lib
     xapi-client
     xapi-types
   )
