@@ -208,11 +208,16 @@ def disconnect_nbd_device(nbd_device):
     This function is idempotent: calling it on an already disconnected device
     does nothing.
     """
-    if _is_nbd_device_connected(nbd_device=nbd_device):
-        _remove_persistent_connect_info(nbd_device)
-        cmd = ['nbd-client', '-disconnect', nbd_device]
-        _call(cmd)
-        _wait_for_nbd_device(nbd_device=nbd_device, connected=False)
+    try:
+        if _is_nbd_device_connected(nbd_device=nbd_device):
+            _remove_persistent_connect_info(nbd_device)
+            cmd = ['nbd-client', '-disconnect', nbd_device]
+            _call(cmd)
+            _wait_for_nbd_device(nbd_device=nbd_device, connected=False)
+    except NbdDeviceNotFound:
+        # Device gone, no-op
+        pass
+
 
 
 def _connect_cli(args):

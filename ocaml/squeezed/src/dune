@@ -1,5 +1,5 @@
 (executable
- (modes byte exe)
+ (modes exe)
  (name squeezed)
  (public_name squeezed)
  (package xapi-squeezed)

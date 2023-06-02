@@ -25,7 +25,7 @@
 )
 
 (executable
-  (modes byte exe)
+  (modes exe)
   (name datamodel_main)
   (modules datamodel_main dot_backend dtd_backend markdown_backend)
   (libraries
@@ -39,6 +39,7 @@
 
 (test
   (name schematest)
+  (modes exe)
   (modules schematest)
   (libraries
     dune-build-info
@@ -50,7 +51,7 @@
 )
 
 (executable
-  (modes byte exe)
+  (modes exe)
   (name gen_lifecycle)
   (public_name gen_lifecycle)
   (package xapi-datamodel)

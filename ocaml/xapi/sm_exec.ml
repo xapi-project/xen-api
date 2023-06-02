@@ -486,7 +486,11 @@ let parse_unit (xml : Xml.xml) = XMLRPC.From.nil xml
 let parse_attach_result (xml : Xml.xml) =
   rethrow_parse_failures (Xml.to_string_fmt xml) (fun () ->
       let info = XMLRPC.From.structure xml in
-      let params = XMLRPC.From.string (safe_assoc "params" info) in
+      let params =
+        try Some (XMLRPC.From.string (safe_assoc "params" info))
+        with Backend_missing_field _ -> None
+      in
+      let params_nbd = XMLRPC.From.string (safe_assoc "params_nbd" info) in
       let o_direct =
         try XMLRPC.From.boolean (safe_assoc "o_direct" info) with _ -> true
       in
@@ -501,10 +505,8 @@ let parse_attach_result (xml : Xml.xml) =
             (XMLRPC.From.structure (safe_assoc "xenstore_data" info))
         with _ -> []
       in
-      {params; o_direct; o_direct_reason; xenstore_data}
+      {params; params_nbd; o_direct; o_direct_reason; xenstore_data}
   )
-
-let parse_attach_result_legacy (xml : Xml.xml) = parse_string xml
 
 let parse_sr_get_driver_info driver (xml : Xml.xml) =
   let info = XMLRPC.From.structure xml in

@@ -1,5 +1,5 @@
 (executables
-  (modes byte exe)
+  (modes exe)
   (names
     link_test_main
     client_main

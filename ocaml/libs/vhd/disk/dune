@@ -1,0 +1,3 @@
+(library
+ (name disk)
+ (libraries cstruct lwt lwt.unix))

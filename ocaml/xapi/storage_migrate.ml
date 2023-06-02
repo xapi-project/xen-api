@@ -323,12 +323,12 @@ module Local = StorageAPI (Idl.Exn.GenClient (struct
 end))
 
 let tapdisk_of_attach_info (backend : Storage_interface.backend) =
-  let xendisks, _, _, _ =
+  let _, blockdevices, _, nbds =
     Storage_interface.implementations_of_backend backend
   in
-  match xendisks with
-  | xendisk :: _ -> (
-      let path = xendisk.Storage_interface.params in
+  match (blockdevices, nbds) with
+  | blockdevice :: _, _ -> (
+      let path = blockdevice.Storage_interface.path in
       try
         match Tapctl.of_device (Tapctl.create ()) path with
         | tapdev, _, _ ->
@@ -344,8 +344,19 @@ let tapdisk_of_attach_info (backend : Storage_interface.backend) =
           debug "Device %s has an unknown driver" path ;
           None
     )
-  | [] ->
-      debug "No XenDisk implementation in backend: %s"
+  | _, nbd :: _ -> (
+    try
+      let path, _ = Storage_interface.parse_nbd_uri nbd in
+      let filename = Unix.realpath path |> Filename.basename in
+      Scanf.sscanf filename "nbd%d.%d" (fun pid minor ->
+          Some (Tapctl.tapdev_of ~pid ~minor)
+      )
+    with _ ->
+      debug "No tapdisk found for NBD backend: %s" nbd.Storage_interface.uri ;
+      None
+  )
+  | _ ->
+      debug "No tapdisk found for backend: %s"
         (Storage_interface.(rpc_of backend) backend |> Rpc.to_string) ;
       None
 
@@ -360,23 +371,32 @@ let with_activated_disk ~dbg ~sr ~vdi ~dp f =
   in
   finally
     (fun () ->
-      let path =
+      let path_and_nbd =
         Option.map
           (fun (vdi, backend) ->
-            let _, blockdevs, files, _ =
+            let _xendisks, blockdevs, files, nbds =
               Storage_interface.implementations_of_backend backend
             in
-            match (blockdevs, files) with
-            | {path} :: _, _ | _, {path} :: _ ->
+            match (files, blockdevs, nbds) with
+            | {path} :: _, _, _ | _, {path} :: _, _ ->
                 Local.VDI.activate3 dbg dp sr vdi (vm_of_s "0") ;
-                path
-            | [], [] ->
+                (path, false)
+            | _, _, nbd :: _ ->
+                Local.VDI.activate3 dbg dp sr vdi (vm_of_s "0") ;
+                let unix_socket_path, export_name =
+                  Storage_interface.parse_nbd_uri nbd
+                in
+                ( Attach_helpers.NbdClient.start_nbd_client ~unix_socket_path
+                    ~export_name
+                , true
+                )
+            | [], [], [] ->
                 raise
                   (Storage_interface.Storage_error
                      (Backend_error
                         ( Api_errors.internal_error
                         , [
-                            "No BlockDevice or File implementation in \
+                            "No File, BlockDevice or Nbd implementation in \
                              Datapath.attach response: "
                             ^ (Storage_interface.(rpc_of backend) backend
                               |> Jsonrpc.to_string
@@ -389,8 +409,16 @@ let with_activated_disk ~dbg ~sr ~vdi ~dp f =
           attached_vdi
       in
       finally
-        (fun () -> f path)
+        (fun () -> f (Option.map (function path, _ -> path) path_and_nbd))
         (fun () ->
+          Option.iter
+            (function
+              | path, true ->
+                  Attach_helpers.NbdClient.stop_nbd_client ~nbd_device:path
+              | _ ->
+                  ()
+              )
+            path_and_nbd ;
           Option.iter
             (fun vdi -> Local.VDI.deactivate dbg dp sr vdi (vm_of_s "0"))
             vdi

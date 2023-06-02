@@ -22,4 +22,4 @@ module type COMPRESSOR = sig
   val decompress_passive : Unix.file_descr -> (Unix.file_descr -> 'a) -> 'a
 end
 
-module Make : functor (Algorithm : ALGORITHM) -> COMPRESSOR
+module Make : functor (_ : ALGORITHM) -> COMPRESSOR

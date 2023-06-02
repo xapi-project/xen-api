@@ -24,7 +24,7 @@
 )
 
 (executable
-  (modes byte exe)
+  (modes exe)
   (name gencert)
   (public_name gencert)
   (package xapi)
@@ -43,6 +43,7 @@
 (test
   (name test_lib)
   (package xapi)
+  (modes exe)
   (modules test_lib test_pem)
   (libraries
     alcotest

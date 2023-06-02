@@ -21,9 +21,9 @@
         </license>
     </licenses>
     <scm>
-        <connection>https://github.com/xapi-project/xen-api-sdk</connection>
-        <developerConnection>https://github.com/xapi-project/xen-api-sdk</developerConnection>
-        <url>https://github.com/xapi-project/xen-api-sdk</url>
+        <connection>https://github.com/xapi-project/xen-api</connection>
+        <developerConnection>https://github.com/xapi-project/xen-api</developerConnection>
+        <url>https://github.com/xapi-project/xen-api</url>
     </scm>
     <mailingLists>
         <mailingList>
@@ -45,7 +45,7 @@
     </developers>
     <issueManagement>
         <system>GitHub</system>
-        <url>https://github.com/xapi-project/xen-api-sdk/issues</url>
+        <url>https://github.com/xapi-project/xen-api/issues</url>
     </issueManagement>
     <properties>
         <revision>1.0.0-SNAPSHOT</revision>
@@ -94,11 +94,15 @@
         <pluginManagement>
             <plugins>
                 <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-compiler-plugin</artifactId>
+                    <version>3.11.0</version>
                     <configuration>
-                        <compilerArgument>-Xlint:unchecked</compilerArgument>
-                        <source>1.8</source>
-                        <target>1.8</target>
+                        <release>11</release>
+                        <compilerArgs>
+                            <arg>-Xlint:deprecation</arg>
+                            <arg>-Xlint:unchecked</arg>
+                        </compilerArgs>
                     </configuration>
                 </plugin>
             </plugins>

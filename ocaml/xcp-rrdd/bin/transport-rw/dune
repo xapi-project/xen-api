@@ -1,5 +1,5 @@
 (executables
-  (modes byte exe)
+  (modes exe)
   (names reader writer)
   (public_names rrdreader rrdwriter)
   (package xapi-rrd-transport-utils)

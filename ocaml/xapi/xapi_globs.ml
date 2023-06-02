@@ -456,6 +456,9 @@ let xapi_extensions_root = ref "/etc/xapi.d/extensions"
 
 let host_operations_miami = [`evacuate; `provision]
 
+(* Whether still support intel gvt-g vGPU *)
+let gvt_g_supported = ref true
+
 let rpu_allowed_vm_operations =
   [
     `assert_operation_valid
@@ -988,6 +991,8 @@ let max_spans = ref 1000
 
 let max_traces = ref 10000
 
+let prefer_nbd_attach = ref false
+
 let xapi_globs_spec =
   [
     ( "master_connection_reset_timeout"
@@ -1237,6 +1242,11 @@ let other_options =
     , (fun () -> !gvt_g_whitelist)
     , "path to the GVT-g whitelist file"
     )
+  ; ( "gvt-g-supported"
+    , Arg.Set gvt_g_supported
+    , (fun () -> string_of_bool !gvt_g_supported)
+    , "indicates that this server still support intel gvt_g vGPU"
+    )
   ; ( "mxgpu-whitelist"
     , Arg.Set_string mxgpu_whitelist
     , (fun () -> !mxgpu_whitelist)
@@ -1437,6 +1447,11 @@ let other_options =
     , Arg.Set_int max_traces
     , (fun () -> string_of_int !max_traces)
     , "The maximum number of active traces going on in Tracing"
+    )
+  ; ( "prefer-nbd-attach"
+    , Arg.Set prefer_nbd_attach
+    , (fun () -> string_of_bool !prefer_nbd_attach)
+    , "Use NBD to attach disks to the control domain."
     )
   ]
 

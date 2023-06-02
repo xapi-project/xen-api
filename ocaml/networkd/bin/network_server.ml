@@ -454,6 +454,24 @@ module Interface = struct
       )
       ()
 
+  let get_ipv6_gateway dbg name =
+    Debug.with_thread_associated dbg
+      (fun () ->
+        let output = Ip.route_show ~version:Ip.V6 name in
+        try
+          let line =
+            List.find
+              (fun s -> Astring.String.is_prefix ~affix:"default via" s)
+              (Astring.String.cuts ~empty:false ~sep:"\n" output)
+          in
+          let addr =
+            List.nth (Astring.String.cuts ~empty:false ~sep:" " line) 2
+          in
+          Some (Unix.inet_addr_of_string addr)
+        with Not_found -> None
+      )
+      ()
+
   let set_ipv6_gateway _ dbg ~name ~address =
     Debug.with_thread_associated dbg
       (fun () ->
