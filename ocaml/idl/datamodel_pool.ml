@@ -1061,7 +1061,7 @@ let update_sync_frequency =
     , [
         ("daily", "The update synchronizations happen every day")
       ; ( "weekly"
-        , "Indicates the pool update synchronization is scheduled weekly"
+        , "The update synchronizations happen every week on the chosen day"
         )
       ]
     )
