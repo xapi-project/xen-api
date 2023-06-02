@@ -1103,9 +1103,8 @@ functor
 
       let configure_update_sync ~__context ~self ~update_sync_frequency
           ~update_sync_day =
-        info
-          "%s: pool='%s' update_sync_frequency='%s' update_sync_day=%Ld"
-           __FUNCTION__
+        info "%s: pool='%s' update_sync_frequency='%s' update_sync_day=%Ld"
+          __FUNCTION__
           (pool_uuid ~__context self)
           (Record_util.update_sync_frequency_to_string update_sync_frequency)
           update_sync_day ;
