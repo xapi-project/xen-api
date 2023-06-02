@@ -1059,7 +1059,7 @@ let update_sync_frequency =
   Enum
     ( "update_sync_frequency"
     , [
-        ("daily", "Indicates the pool update synchronization is scheduled daily")
+        ("daily", "The update synchronizations happen every day")
       ; ( "weekly"
         , "Indicates the pool update synchronization is scheduled weekly"
         )
