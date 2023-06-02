@@ -1075,13 +1075,13 @@ let configure_update_sync =
       ; ( update_sync_frequency
         , "update_sync_frequency"
         , "The frequency at which updates are synchronized from a remote CDN: \
-            daily or weekly."
+           daily or weekly."
         )
       ; ( Int
         , "update_sync_day"
-        , "The day of the week the update synchronization will happen, \
-           based on pool's local timezone. Valid values are 0 to 6, 0 being \
-           Sunday. For 'daily' schedule, the value is ignored."
+        , "The day of the week the update synchronization will happen, based \
+           on pool's local timezone. Valid values are 0 to 6, 0 being Sunday. \
+           For 'daily' schedule, the value is ignored."
         )
       ]
     ~allowed_roles:_R_POOL_OP ()
@@ -1432,14 +1432,13 @@ let t =
             "time of the last update sychronization"
         ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:update_sync_frequency
             ~default_value:(Some (VEnum "weekly")) "update_sync_frequency"
-            "The frequency at which updates are synchronized from a remote CDN: \
-             daily or weekly."
+            "The frequency at which updates are synchronized from a remote \
+             CDN: daily or weekly."
         ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:Int "update_sync_day"
             ~default_value:(Some (VInt 0L))
-            "The day of the week the update synchronizations will be scheduled, \
-             based on pool's local timezone. Ignored when update_sync_frequency \
-             is daily"
-             based on pool's local timezone"
+            "The day of the week the update synchronizations will be \
+             scheduled, based on pool's local timezone. Ignored when \
+             update_sync_frequency is daily"
         ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:Bool
             ~default_value:(Some (VBool false)) "update_sync_enabled"
             "Whether periodic update synchronization is enabled or not"
