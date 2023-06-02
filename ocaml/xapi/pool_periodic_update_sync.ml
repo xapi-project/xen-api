@@ -62,29 +62,25 @@ let weekday_to_int = function
   | `Sat ->
       6
 
-let utc_start_of_next_scheduled_day ~utc_now ~tz_offset_s ~frequency
-    ~day_configed_int =
-  let y, m, d = fst (Ptime.to_date_time ~tz_offset_s utc_now) in
-  let utc_start_of_today =
+let day_of_next_sync ~now ~tz_offset_s ~frequency =
+  let y, m, d = fst (Ptime.to_date_time ~tz_offset_s now) in
+  let beginning_of_day =
     Ptime.of_date_time ((y, m, d), ((0, 0, 0), tz_offset_s)) |> Option.get
   in
+  let delay_of d = Ptime.Span.of_d_ps (d, 0L) |> Option.get in
 
-  match frequency with
-  | `daily ->
-      (* schedule in the next day *)
-      let one_day_span = Ptime.Span.of_d_ps (1, 0L) |> Option.get in
-      Ptime.add_span utc_start_of_today one_day_span |> Option.get
-  | `weekly ->
-      let days =
-        let today_wday = Ptime.weekday ~tz_offset_s utc_now |> weekday_to_int in
-        match today_wday < day_configed_int with
-        | true ->
-            day_configed_int - today_wday
-        | false ->
-            day_configed_int + 7 - today_wday
-      in
-      let span = Ptime.Span.of_d_ps (days, 0L) |> Option.get in
-      Ptime.add_span utc_start_of_today span |> Option.get
+  let days =
+    match frequency with
+    | Daily ->
+        1
+    | Weekly configured_day ->
+        let today = Ptime.weekday ~tz_offset_s now |> weekday_to_int in
+        if today < configured_day then
+          configured_day - today (* 1 to 6 days *)
+        else
+          configured_day - today + 7 (* 1 to 7 days *)
+  in
+  Ptime.add_span beginning_of_day (delay_of days) |> Option.get
 
 let next_scheduled_datetime ~delay ~utc_now ~tz_offset_s =
   let span = Ptime.Span.of_float_s delay |> Option.get in
