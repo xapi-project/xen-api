@@ -1442,7 +1442,7 @@ let t =
              based on pool's local timezone"
         ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:Bool
             ~default_value:(Some (VBool false)) "update_sync_enabled"
-            "If periodic update sychronization is enabled or not"
+            "Whether periodic update synchronization is enabled or not"
         ]
       )
     ()
