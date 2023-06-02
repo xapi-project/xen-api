@@ -3002,12 +3002,12 @@ let rec cmdtable_data : (string * cmd_spec) list =
         reqd= ["update-sync-frequency"; "update-sync-day"]
       ; optn= []
       ; help=
-          "Configure periodic update synchronization from remote CDN. \
-           'update_sync_frequenc': the frequency at which updates are synced \
-           from remote CDN: daily or weekly. 'update_sync_day': which day of \
-           one period the update sychronization is scheduled. For 'daily' \
-           schedule, it should be 0. For 'weekly' schedule, 0..6, where 0 is \
-           Sunday."
+          "Configure periodic update synchronization from a remote CDN. \
+           'update_sync_frequency': the frequency the synchronizations happen \
+           from a remote CDN: daily or weekly. 'update_sync_day': which day of \
+           the week the synchronizations will be scheduled in. For 'daily' \
+           schedule, the value is ignored. For 'weekly' schedule, valid values are \
+           0 to 6, where 0 is Sunday."
       ; implementation= No_fd Cli_operations.pool_configure_update_sync
       ; flags= []
       }
