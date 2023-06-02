@@ -66,7 +66,7 @@ let low_mem_emergency_pool = 1L ** mib
 let xen_max_offset_kib domain_type =
   let maxmem_mib =
     match domain_type with
-    | `hvm ->
+    | `hvm | `pvh ->
         Memory.HVM.xen_max_offset_mib
     | `pv_in_pvh ->
         Memory.PVinPVH.xen_max_offset_mib
@@ -79,7 +79,7 @@ let xen_max_offset_kib domain_type =
 module Domain = struct
   type per_domain = {
       path: string
-    ; domain_type: [`hvm | `pv_in_pvh | `pv]
+    ; domain_type: [`hvm | `pvh | `pv_in_pvh | `pv]
     ; mutable maxmem: int64
     ; keys: (string, string option) Hashtbl.t
   }
@@ -103,6 +103,8 @@ module Domain = struct
           `pv
       | "pv-in-pvh" ->
           `pv_in_pvh
+      | "pvh" ->
+          `pvh
       | _ ->
           failwith "undefined domain_type"
     with _ ->
@@ -613,7 +615,7 @@ let make_host ~verbose ~xc =
              in
              let memory_shadow_kib =
                match domain_type with
-               | `hvm | `pv_in_pvh -> (
+               | `hvm | `pvh | `pv_in_pvh -> (
                  try
                    Memory.kib_of_mib
                      (Int64.of_int

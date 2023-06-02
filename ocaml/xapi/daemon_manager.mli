@@ -29,7 +29,7 @@ module type DAEMON = sig
   (** Function which will stop the daemon. *)
 end
 
-module Make : functor (D : DAEMON) -> sig
+module Make : functor (_ : DAEMON) -> sig
   val with_daemon_stopped : ?timeout:float -> (unit -> 'a) -> 'a
   (** If the daemon is running, stop it while [f] runs and restart it once [f]
       	    has returned. If multiple threads call [with_daemon_stopped] in parallel,

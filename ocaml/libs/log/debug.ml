@@ -243,7 +243,7 @@ let log_backtrace_internal ?level ?msg e _bt =
 
 let log_backtrace e bt = log_backtrace_internal e bt
 
-let with_thread_associated ?client desc f x =
+let with_thread_associated ?client ?(quiet = false) desc f x =
   ThreadLocalTable.add tasks {desc; client} ;
   let result =
     Backtrace.with_backtraces (fun () ->
@@ -257,11 +257,13 @@ let with_thread_associated ?client desc f x =
   | `Error (exn, bt) ->
       (* This function is a top-level exception handler typically used on fresh
          threads. This is the last chance to do something with the backtrace *)
-      output_log "backtrace" Syslog.Err "error"
-        (Printf.sprintf "%s failed with exception %s" desc
-           (Printexc.to_string exn)
-        ) ;
-      log_backtrace_exn exn bt ;
+      if not quiet then (
+        output_log "backtrace" Syslog.Err "error"
+          (Printf.sprintf "%s failed with exception %s" desc
+             (Printexc.to_string exn)
+          ) ;
+        log_backtrace_exn exn bt
+      ) ;
       raise exn
 
 let with_thread_named name f x =

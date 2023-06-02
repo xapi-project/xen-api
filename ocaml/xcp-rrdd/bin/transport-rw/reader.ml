@@ -46,36 +46,7 @@ let read_file_cmd =
   , Cmd.info "file" ~doc ~man
   )
 
-let read_page_cmd =
-  let domid =
-    let doc = "The remote domid which is writing to shared memory" in
-    Arg.(required & pos 0 (some int) None & info [] ~docv:"DOMID" ~doc)
-  in
-  let grantref =
-    let doc =
-      "The grant reference of the shared page which will be read from"
-    in
-    Arg.(required & pos 1 (some int) None & info [] ~docv:"GRANTREF" ~doc)
-  in
-  let protocol =
-    let doc = "The protocol to use to read the rrd data" in
-    Arg.(required & pos 2 (some string) None & info [] ~docv:"PROTOCOL" ~doc)
-  in
-  let doc = "read from a page of shared memory" in
-  let man =
-    [
-      `S "DESCRIPTION"
-    ; `P
-        "Read rrd data from a page of shared memory, using the specified \
-         protocol"
-    ]
-    @ help_secs
-  in
-  ( Term.(const Reader_commands.read_page $ domid $ grantref $ protocol)
-  , Cmd.info "page" ~doc ~man
-  )
-
-let cmds = List.map (fun (t, i) -> Cmd.v i t) [read_file_cmd; read_page_cmd]
+let cmds = List.map (fun (t, i) -> Cmd.v i t) [read_file_cmd]
 
 let () =
   let default = Term.(ret (const (fun _ -> `Help (`Pager, None)) $ const ())) in

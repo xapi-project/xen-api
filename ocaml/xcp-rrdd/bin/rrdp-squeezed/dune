@@ -1,5 +1,5 @@
 (executable
-  (modes byte exe)
+  (modes exe)
   (name rrdp_squeezed)
   (package rrdd-plugins)
   (public_name xcp-rrdd-squeezed)

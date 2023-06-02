@@ -72,7 +72,10 @@ let () =
 
 let with_rpc f switch () =
   Lwt_io.with_temp_dir ~prefix:"xapi_guard" @@ fun tmp ->
-  let cache = SessionCache.create ~rpc:xapi_rpc ~login ~logout in
+  let cache =
+    SessionCache.create_rpc xapi_rpc ~uname:"root" ~pwd:"" ~version:""
+      ~originator:"" ()
+  in
   (Lwt_switch.add_hook (Some switch) @@ fun () -> SessionCache.destroy cache) ;
   let path = Filename.concat tmp "socket" in
   (* Create an internal server on 'path', the socket that varstored/swtpm would connect to *)
@@ -142,7 +145,11 @@ let bad_params_tests =
     ]
   )
 
-let linux_count_fds () = Sys.readdir "/proc/self/fd" |> Array.length
+let linux_count_fds () =
+  if Sys.file_exists "/proc/self/fd" then
+    Sys.readdir "/proc/self/fd" |> Array.length
+  else
+    0
 
 let test_shutdown _ () =
   let _fd0 = linux_count_fds () in

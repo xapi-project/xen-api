@@ -57,9 +57,11 @@ let check ~intra_pool_only ~session_id ~action =
               ~self:session_id
               ~value:(Xapi_stdext_date.Date.of_float (Unix.time ()))
         with
-        | Db_exn.DBCache_NotFound (_, tblname, reference) ->
-            debug "Session check failed: missing reference; tbl = %s, ref = %s"
-              tblname reference ;
+        | Db_exn.DBCache_NotFound (_, _, reference) ->
+            info
+              "Session check failed: the client used an illegal or expired \
+               session ref '%s'"
+              reference ;
             raise
               (Api_errors.Server_error (Api_errors.session_invalid, [reference]))
         | Non_master_login_on_slave ->

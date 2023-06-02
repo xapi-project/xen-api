@@ -18,6 +18,4 @@ type reader = Rrd_reader_functor.reader = {
 }
 
 include Rrd_file_reader
-include Rrd_page_reader
 module FileReader = Rrd_file_reader
-module PageReader = Rrd_page_reader

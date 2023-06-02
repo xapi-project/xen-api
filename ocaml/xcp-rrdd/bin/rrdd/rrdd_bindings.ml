@@ -13,6 +13,8 @@ module type RRDD_IMPLEMENTATION = sig
 
   val backup_rrds : string option -> unit -> unit
 
+  val save_rrds : unit -> unit
+
   val archive_rrd : string -> string option -> unit
 
   val archive_sr_rrd : string -> string
@@ -73,17 +75,6 @@ module type RRDD_IMPLEMENTATION = sig
 
       val next_reading : string -> float
     end
-
-    module Interdomain : sig
-      open Rrd_interface
-
-      val register :
-        interdomain_uid -> interdomain_info -> plugin_protocol -> float
-
-      val deregister : interdomain_uid -> unit
-
-      val next_reading : interdomain_uid -> float
-    end
   end
 
   module HA : sig
@@ -111,6 +102,7 @@ module Make (Impl : RRDD_IMPLEMENTATION) = struct
     Server.migrate_rrd Impl.migrate_rrd ;
     Server.send_host_rrd_to_master Impl.send_host_rrd_to_master ;
     Server.backup_rrds Impl.backup_rrds ;
+    Server.save_rrds Impl.save_rrds ;
     Server.archive_rrd Impl.archive_rrd ;
     Server.archive_sr_rrd Impl.archive_sr_rrd ;
     Server.push_sr_rrd Impl.push_sr_rrd ;
@@ -137,9 +129,6 @@ module Make (Impl : RRDD_IMPLEMENTATION) = struct
     Server.Plugin.Local.register Impl.Plugin.Local.register ;
     Server.Plugin.Local.deregister Impl.Plugin.Local.deregister ;
     Server.Plugin.Local.next_reading Impl.Plugin.Local.next_reading ;
-    Server.Plugin.Interdomain.register Impl.Plugin.Interdomain.register ;
-    Server.Plugin.Interdomain.deregister Impl.Plugin.Interdomain.deregister ;
-    Server.Plugin.Interdomain.next_reading Impl.Plugin.Interdomain.next_reading ;
     Server.Plugin.register Impl.Plugin.register ;
     Server.Plugin.deregister Impl.Plugin.deregister ;
     Server.Plugin.next_reading Impl.Plugin.next_reading ;

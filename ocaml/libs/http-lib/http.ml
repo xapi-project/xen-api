@@ -30,6 +30,8 @@ exception Timeout
 
 exception Too_large
 
+exception Client_requested_size_over_limit
+
 module D = Debug.Make (struct let name = "http" end)
 
 open D

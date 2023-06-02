@@ -5230,6 +5230,12 @@ let vtpm_record rpc session_id vtpm =
   in
   let record = ref empty_record in
   let x () = lzy_get record in
+  let secret () =
+    let str = Client.VTPM.get_contents ~rpc ~session_id ~self:!_ref in
+    Printf.sprintf "MD5=%s size=%d bytes"
+      Digest.(string str |> to_hex)
+      (String.length str)
+  in
   {
     setref=
       (fun r ->
@@ -5252,6 +5258,7 @@ let vtpm_record rpc session_id vtpm =
       ; make_field ~name:"vm-name-label"
           ~get:(fun () -> get_name_from_ref (x ()).API.vTPM_VM)
           ()
+      ; make_field ~name:"secret" ~get:secret ()
       ; make_field ~name:"is_unique"
           ~get:(fun () -> string_of_bool (x ()).API.vTPM_is_unique)
           ()

@@ -14,6 +14,7 @@
 
 (executable
  (name memory_cli)
+ (modes exe)
  (modules memory_cli)
  (libraries
    cmdliner

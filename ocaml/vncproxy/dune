@@ -1,11 +1,11 @@
 (executable
-  (modes byte exe)
+  (modes exe)
   (name vncproxy)
   (public_name vncproxy)
   (package xapi)
   (libraries
     dune-build-info
-    http-svr
+    http_lib
     stunnel
     xapi-client
     xapi-consts

@@ -1,5 +1,5 @@
 (executable
- (modes byte exe)
+ (modes exe)
  (name fe_main)
  (libraries
    astring

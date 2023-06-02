@@ -1,11 +1,12 @@
 (executable
-  (modes byte exe)
+  (modes exe)
   (name list_vms)
   (modules list_vms)
   (libraries
     dune-build-info
     lwt
     lwt.unix
+    uri
     xapi-consts
     xapi-types
     xen-api-client
@@ -14,7 +15,7 @@
 )
 
 (executable
-  (modes byte exe)
+  (modes exe)
   (name upload_disk)
   (modules upload_disk)
   (libraries
@@ -31,16 +32,18 @@
 )
 
 (executable
-  (modes byte exe)
+  (modes exe)
   (name watch_metrics)
   (modules watch_metrics)
   (libraries
     cohttp
     cohttp-lwt
     cohttp-lwt-unix
+    conduit-lwt-unix
     dune-build-info
     lwt
     lwt.unix
+    ssl
     uri
     xapi-consts
     xapi-rrd
