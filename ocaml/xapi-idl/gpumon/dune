@@ -15,6 +15,7 @@
 
 (executable
  (name gpumon_cli)
+ (modes exe)
  (public_name gpumon-cli)
  (package xapi-idl)
  (modules gpumon_cli)

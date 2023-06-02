@@ -37,18 +37,13 @@ let _ =
       ( "-mode"
       , Arg.String
           (function
-          | "local" ->
-              mode := Rrdd_plugin.Reporter.Local 1
-          | "interdomain" ->
-              mode := Rrdd_plugin.Reporter.Interdomain (0, 1)
-          | x ->
-              invalid_arg x
+          | "local" -> mode := Rrdd_plugin.Reporter.Local 1 | x -> invalid_arg x
           )
-      , "Switch between local and interdomain mode"
+      , "mode, currently only local mode"
       )
     ]
     (fun _ -> ())
-    (Printf.sprintf "Usage: %s -mode [local|interdomain]" Sys.executable_name) ;
+    (Printf.sprintf "Usage: %s -mode [local]" Sys.executable_name) ;
   Process.initialise () ;
   Process.main_loop ~neg_shift:0.5 ~target:!mode ~protocol:Rrd_interface.V2
     ~dss_f:generate_dummy_dss

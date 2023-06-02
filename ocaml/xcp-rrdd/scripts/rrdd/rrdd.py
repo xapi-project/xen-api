@@ -45,13 +45,14 @@
 # --------------------------------------------------------------------
 
 import httplib
-import md5
 import os
-import simplejson as json
+import json
 import socket
+from struct import pack
 import sys
 import time
 import xmlrpclib
+from zlib import crc32
 
 class Failure(Exception):
   def __init__(self, details):
@@ -132,8 +133,8 @@ class Dispatcher:
 class DataSource:
   class Type:
     ABSOLUTE = "absolute"
-    RATE = "rate"
-    ABSOLUTE_TO_RATE = "absolute_to_rate"
+    DERIVE = "derive"
+    GAUGE = "gauge"
   class ValueType:
     FLOAT = "float"
     INT64 = "int64"
@@ -162,6 +163,24 @@ class DataSource:
             "value_type": self.value_ty, "min": self.min_val,
             "max": self.max_val}}
 
+  @property
+  def metadata(self):
+      """
+      V2 metadata
+      """
+      return {
+          self.name: {
+              "description": self.description,
+              "owner": self.owner,
+              "value_type": self.value_ty,
+              "type": self.ty,
+              "default": "true",
+              "units": self.units,
+              "min": self.min_val,
+              "max": self.max_val
+          }
+      }
+
 class API:
   def __init__(self, plugin_id, frequency = "Five_Seconds"):
     self.uid = plugin_id
@@ -170,6 +189,10 @@ class API:
     self.frequency_in_seconds = self.frequency_to_seconds(frequency)
     p = Proxy("http://_var_xapi_xcp-rrdd/", transport = UDSTransport())
     self.dispatcher = Dispatcher(p.request, None).Plugin
+    self.packers = {
+        DataSource.ValueType.FLOAT: lambda x: pack(">d", x),
+        DataSource.ValueType.INT64: lambda x: pack(">Q", x)
+    }
 
   def lazy_complete_init(self):
     """This part of API initialisation can fail, since it relies on the
@@ -180,7 +203,7 @@ class API:
     self.path = self.dispatcher.get_path({"uid": self.uid})
     base_path = os.path.dirname(self.path)
     if not os.path.exists(base_path): os.makedirs(base_path)
-    self.dest = open(self.path, "w")
+    self.dest = open(self.path, "wb")
 
   def __del__(self):
     self.deregister()
@@ -250,22 +273,38 @@ class API:
     """Write all datasources specified (via set_datasource) since the last
     call to this function. The datasources are written together with the
     relevant metadata into the file agreed with rrdd."""
-    timestamp = int(time.time())
+    timestamp = long(time.time())
+    data_values = []
     combined = dict()
-    for ds in self.datasources:
-      combined = dict(combined.items() + ds.to_dict().items())
-    payload = {"timestamp": timestamp, "datasources": combined}
-    payload_json = json.dumps(payload, sort_keys = True, indent = 2)
-    payload_pretty = '\n'.join([l.rstrip() for l in payload_json.splitlines()])
-    m = md5.new()
-    m.update(payload_pretty)
-    output = ""
-    output += self.header
-    output += "%08X\n" % len(payload_pretty)
-    output += m.hexdigest() + "\n"
-    output += payload_pretty
+    data_checksum = crc32(pack(">Q", timestamp)) & 0xffffffff
+
+    for ds in sorted(self.datasources, key=lambda source: source.name):
+        value = self.pack_data(ds)
+        data_values.append(value)
+        data_checksum = crc32(value, data_checksum) & 0xffffffff
+        combined.update(ds.metadata)
+
+    metadata = {"datasources": combined}
+    metadata_json = json.dumps(metadata, sort_keys = True)
+    metadata_checksum = crc32(metadata_json) & 0xffffffff
+
     self.dest.seek(0)
-    self.dest.write(output)
+    self.dest.write('DATASOURCES'.encode())
+    self.dest.write(pack(">LLLQ",
+                         data_checksum,
+                         metadata_checksum,
+                         len(self.datasources),
+                         timestamp))
+    for val in data_values:
+        # This is already big endian encoded
+        self.dest.write(val)
+
+    self.dest.write(pack(">L", len(metadata_json)))
+    self.dest.write(metadata_json.encode())
     self.dest.flush()
     self.datasources = []
     time.sleep(0.003) # wait a bit to ensure wait_until_next_reading will block
+
+  def pack_data(self, ds):
+      packer = self.packers.get(ds.value_ty)
+      return packer(ds.value)

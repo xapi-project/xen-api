@@ -27,6 +27,24 @@ let pool_introduce ~__context ~tagged_PIF ~untagged_PIF ~tag ~other_config =
   in
   (* Untagged PIF going to be VLAN_master_of above VLAN *)
   Db.PIF.set_VLAN_master_of ~__context ~self:untagged_PIF ~value:vlan ;
+  (* Ensure that the untagged PIF shares PIF_metrics of tagged PIF.
+   * This is useful for the VLANs created in pool.join for management network.
+   *)
+  let untagged_pif_metrics = Db.PIF.get_metrics ~__context ~self:untagged_PIF in
+  let tagged_pif_metrics = Db.PIF.get_metrics ~__context ~self:tagged_PIF in
+  if untagged_pif_metrics <> tagged_pif_metrics then (
+    debug
+      "%s: Set PIF_metrics (%s) of VLAN untagged PIF (%s) to the one (%s) of \
+       VLAN tagged PIF (%s)"
+      __FUNCTION__
+      (Ref.string_of untagged_pif_metrics)
+      (Ref.string_of untagged_PIF)
+      (Ref.string_of tagged_pif_metrics)
+      (Ref.string_of tagged_PIF) ;
+    Db.PIF.set_metrics ~__context ~self:untagged_PIF ~value:tagged_pif_metrics ;
+    if untagged_pif_metrics <> Ref.null then
+      Db.PIF_metrics.destroy ~__context ~self:untagged_pif_metrics
+  ) ;
   vlan
 
 let create_internal ~__context ~host ~tagged_PIF ~tag ~network ~device =

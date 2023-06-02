@@ -157,7 +157,7 @@
 )
 
 (executable
-  (modes byte exe)
+  (modes exe)
   (name xapi_main)
   (public_name xapi)
   (package xapi)

@@ -12,20 +12,23 @@
  * GNU Lesser General Public License for more details.
  *)
 
-exception
-  Duplicate_key of
-    (*class*) string * (*field*) string * (*uuid*) string * (*key*) string
+(** class * field * uuid * key *)
+exception Duplicate_key of string * string * string * string
 
+(** message * class * key *)
 exception DBCache_NotFound of string * string * string
 
+(** class * field * key *)
 exception Uniqueness_constraint_violation of string * string * string
 
+(** class * field * value *)
 exception Integrity_violation of string * string * string
 
-exception
-  Read_missing_uuid of (*class*) string * (*ref*) string * (*uuid*) string
+(** class * _ * uuid *)
+exception Read_missing_uuid of string * string * string
 
-exception Too_many_values of (*class*) string * (*ref*) string * (*uuid*) string
+(** class * _ * uuid *)
+exception Too_many_values of string * string * string
 
 exception Remote_db_server_returned_unknown_exception
 
@@ -34,5 +37,3 @@ exception Remote_db_server_returned_bad_message
 exception Empty_key_in_map
 
 exception Invalid_value
-
-(* Non utf8 *)

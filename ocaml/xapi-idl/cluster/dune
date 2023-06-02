@@ -16,6 +16,7 @@
 
 (executable
  (name cluster_cli)
+ (modes exe)
  (modules cluster_cli)
  (libraries
    cmdliner

@@ -48,6 +48,7 @@
 
 (test
  (name storage_test)
+ (modes exe)
  (modules storage_test)
  (package xapi-idl)
  (libraries
@@ -62,6 +63,7 @@
 
 (test
  (name suite)
+ (modes exe)
  (modules suite vdi_automaton_test)
  (libraries
    alcotest

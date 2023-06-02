@@ -48,7 +48,7 @@
 )
 
 (executable
-  (modes byte exe)
+  (modes exe)
   (name http_test)
   (modules http_test)
   (libraries
@@ -60,6 +60,7 @@
 
 (test
   (name radix_tree_test)
+  (modes exe)
   (modules radix_tree_test)
   (package http-lib)
   (libraries
@@ -69,7 +70,7 @@
 )
 
 (executable
-  (modes byte exe)
+  (modes exe)
   (name test_client)
   (modules test_client)
   (libraries
@@ -85,7 +86,7 @@
 )
 
 (executable
-  (modes byte exe)
+  (modes exe)
   (name test_server)
   (modules test_server)
   (libraries
