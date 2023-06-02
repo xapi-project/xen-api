@@ -16,7 +16,14 @@ module D = Debug.Make (struct let name = __MODULE__ end)
 
 open D
 open Client
+type frequency = Daily | Weekly of int
 
+let frequency_of_freq_and_day freq day =
+   match (freq, Int64.to_int day) with
+  | `daily, _ ->
+      Daily
+  | `weekly, d ->
+      Weekly d
 let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
 let periodic_update_sync_task_name = "Periodic update synchronization"
