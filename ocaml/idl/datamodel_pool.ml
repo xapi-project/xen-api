@@ -1436,7 +1436,9 @@ let t =
              daily or weekly."
         ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:Int "update_sync_day"
             ~default_value:(Some (VInt 0L))
-            "Which day of one period the update sychronization is scheduled, \
+            "The day of the week the update synchronizations will be scheduled, \
+             based on pool's local timezone. Ignored when update_sync_frequency \
+             is daily"
              based on pool's local timezone"
         ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:Bool
             ~default_value:(Some (VBool false)) "update_sync_enabled"
