@@ -177,21 +177,16 @@ let rec update_sync () =
                     )
           )
         )
-        (fun () ->
-          Xapi_periodic_scheduler.add_to_queue periodic_update_sync_task_name
-            Xapi_periodic_scheduler.OneShot
-            (update_sync_delay_for_next_schedule ~__context)
-            update_sync
-        )
+        (add_to_queue ~__context)
   )
 
+and add_to_queue ~__context () =
+  let open Xapi_periodic_scheduler in
+  add_to_queue periodic_update_task_name OneShot
+    (seconds_until_next_schedule ~__context)
+    update_sync
+
 let set_enabled ~__context ~value =
-  debug "[PeriodicUpdateSync] set_enabled: %B" value ;
-  if value then (
-    Xapi_periodic_scheduler.remove_from_queue periodic_update_sync_task_name ;
-    Xapi_periodic_scheduler.add_to_queue periodic_update_sync_task_name
-      Xapi_periodic_scheduler.OneShot
-      (update_sync_delay_for_next_schedule ~__context)
-      update_sync
-  ) else
-    Xapi_periodic_scheduler.remove_from_queue periodic_update_sync_task_name
+  Xapi_periodic_scheduler.remove_from_queue periodic_update_task_name ;
+  if value then
+    add_to_queue ~__context ()
