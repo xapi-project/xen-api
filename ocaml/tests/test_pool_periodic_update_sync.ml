@@ -17,7 +17,9 @@ open Pool_periodic_update_sync
 
 module TestUpdateSyncDelay = struct
   let utc_offset_s = 0 (* UTC timezone for test *)
+
   let utc8_offset_s = 8 * 60 * 60 (* UTC +8 timezone for test *)
+
   let utc_1_offset_s = -1 * 60 * 60 (* UTC -1 timezone for test *)
 
   let test_day_of_next_sync_1 tz_offset_s =
@@ -154,123 +156,123 @@ module TestUpdateSyncDelay = struct
     [
       ( "day_of_next_sync daily, UTC TZ"
       , `Quick
-      , (fun () -> test_day_of_next_sync_1 utc_offset_s)
+      , fun () -> test_day_of_next_sync_1 utc_offset_s
       )
     ; ( "day_of_next_sync daily, UTC +8 TZ"
       , `Quick
-      , (fun () -> test_day_of_next_sync_1 utc8_offset_s)
+      , fun () -> test_day_of_next_sync_1 utc8_offset_s
       )
     ; ( "day_of_next_sync daily, UTC -1 TZ"
       , `Quick
-      , (fun () -> test_day_of_next_sync_1 utc_1_offset_s)
+      , fun () -> test_day_of_next_sync_1 utc_1_offset_s
       )
     ; ( "day_of_next_sync daily, end of month, UTC TZ"
       , `Quick
-      , (fun () -> test_day_of_next_sync_2 utc_offset_s)
+      , fun () -> test_day_of_next_sync_2 utc_offset_s
       )
     ; ( "day_of_next_sync daily, end of month, UTC +8 TZ"
       , `Quick
-      , (fun () -> test_day_of_next_sync_2 utc8_offset_s)
+      , fun () -> test_day_of_next_sync_2 utc8_offset_s
       )
     ; ( "day_of_next_sync daily, end of month, UTC -1 TZ"
       , `Quick
-      , (fun () -> test_day_of_next_sync_2 utc_1_offset_s)
+      , fun () -> test_day_of_next_sync_2 utc_1_offset_s
       )
     ; ( "day_of_next_sync daily, end of year, UTC TZ"
       , `Quick
-      , (fun () -> test_day_of_next_sync_3 utc_offset_s)
+      , fun () -> test_day_of_next_sync_3 utc_offset_s
       )
     ; ( "day_of_next_sync daily, end of year, UTC +8 TZ"
       , `Quick
-      , (fun () -> test_day_of_next_sync_3 utc8_offset_s)
+      , fun () -> test_day_of_next_sync_3 utc8_offset_s
       )
     ; ( "day_of_next_sync daily, end of year, UTC -1 TZ"
       , `Quick
-      , (fun () -> test_day_of_next_sync_3 utc_1_offset_s)
+      , fun () -> test_day_of_next_sync_3 utc_1_offset_s
       )
     ; ( "day_of_next_sync weekly, this week, UTC TZ"
       , `Quick
-      , (fun () -> test_day_of_next_sync_4 utc_offset_s)
+      , fun () -> test_day_of_next_sync_4 utc_offset_s
       )
     ; ( "day_of_next_sync weekly, this week, UTC +8 TZ"
       , `Quick
-      , (fun () -> test_day_of_next_sync_4 utc8_offset_s)
+      , fun () -> test_day_of_next_sync_4 utc8_offset_s
       )
     ; ( "day_of_next_sync weekly, this week, UTC -1 TZ"
       , `Quick
-      , (fun () -> test_day_of_next_sync_4 utc_1_offset_s)
+      , fun () -> test_day_of_next_sync_4 utc_1_offset_s
       )
     ; ( "day_of_next_sync weekly, next week, UTC TZ"
       , `Quick
-      , (fun () -> test_day_of_next_sync_5 utc_offset_s)
+      , fun () -> test_day_of_next_sync_5 utc_offset_s
       )
     ; ( "day_of_next_sync weekly, next week, UTC +8 TZ"
       , `Quick
-      , (fun () -> test_day_of_next_sync_5 utc8_offset_s)
+      , fun () -> test_day_of_next_sync_5 utc8_offset_s
       )
     ; ( "day_of_next_sync weekly, next week, UTC -1 TZ"
       , `Quick
-      , (fun () -> test_day_of_next_sync_5 utc_1_offset_s)
+      , fun () -> test_day_of_next_sync_5 utc_1_offset_s
       )
     ; ( "day_of_next_sync weekly, next week, 2, UTC TZ"
       , `Quick
-      , (fun () -> test_day_of_next_sync_6 utc_offset_s)
+      , fun () -> test_day_of_next_sync_6 utc_offset_s
       )
     ; ( "day_of_next_sync weekly, next week, 2, UTC +8 TZ"
       , `Quick
-      , (fun () -> test_day_of_next_sync_6 utc8_offset_s)
+      , fun () -> test_day_of_next_sync_6 utc8_offset_s
       )
     ; ( "day_of_next_sync weekly, next week, 2, UTC -1 TZ"
       , `Quick
-      , (fun () -> test_day_of_next_sync_6 utc_1_offset_s)
+      , fun () -> test_day_of_next_sync_6 utc_1_offset_s
       )
     ; ( "calc_delay, more than 2 hours, UTC TZ"
       , `Quick
-      , (fun () -> test_time_until_next_sync_1 utc_offset_s)
+      , fun () -> test_time_until_next_sync_1 utc_offset_s
       )
     ; ( "calc_delay, more than 2 hours, UTC +8 TZ"
       , `Quick
-      , (fun () -> test_time_until_next_sync_1 utc8_offset_s)
+      , fun () -> test_time_until_next_sync_1 utc8_offset_s
       )
     ; ( "calc_delay, more than 2 hours, UTC -1 TZ"
       , `Quick
-      , (fun () -> test_time_until_next_sync_1 utc_1_offset_s)
+      , fun () -> test_time_until_next_sync_1 utc_1_offset_s
       )
     ; ( "calc_delay, 2 hours and 1 sec, UTC TZ"
       , `Quick
-      , (fun () -> test_time_until_next_sync_2 utc_offset_s)
+      , fun () -> test_time_until_next_sync_2 utc_offset_s
       )
     ; ( "calc_delay, 2 hours and 1 sec, UTC +8 TZ"
       , `Quick
-      , (fun () -> test_time_until_next_sync_2 utc8_offset_s)
+      , fun () -> test_time_until_next_sync_2 utc8_offset_s
       )
     ; ( "calc_delay, 2 hours and 1 sec, UTC -1 TZ"
       , `Quick
-      , (fun () -> test_time_until_next_sync_2 utc_1_offset_s)
+      , fun () -> test_time_until_next_sync_2 utc_1_offset_s
       )
     ; ( "calc_delay, next month, UTC TZ"
       , `Quick
-      , (fun () -> test_time_until_next_sync_3 utc_offset_s)
+      , fun () -> test_time_until_next_sync_3 utc_offset_s
       )
     ; ( "calc_delay, next month, UTC +8 TZ"
       , `Quick
-      , (fun () -> test_time_until_next_sync_3 utc8_offset_s)
+      , fun () -> test_time_until_next_sync_3 utc8_offset_s
       )
     ; ( "calc_delay, next month, UTC -1 TZ"
       , `Quick
-      , (fun () -> test_time_until_next_sync_3 utc_1_offset_s)
+      , fun () -> test_time_until_next_sync_3 utc_1_offset_s
       )
     ; ( "calc_delay, less than 2 hours, UTC TZ"
       , `Quick
-      , (fun () -> test_time_until_next_sync_4 utc_offset_s)
+      , fun () -> test_time_until_next_sync_4 utc_offset_s
       )
     ; ( "calc_delay, less than 2 hours, UTC +8 TZ"
       , `Quick
-      , (fun () -> test_time_until_next_sync_4 utc8_offset_s)
+      , fun () -> test_time_until_next_sync_4 utc8_offset_s
       )
     ; ( "calc_delay, less than 2 hours, UTC -1 TZ"
       , `Quick
-      , (fun () -> test_time_until_next_sync_4 utc_1_offset_s)
+      , fun () -> test_time_until_next_sync_4 utc_1_offset_s
       )
     ]
 end
