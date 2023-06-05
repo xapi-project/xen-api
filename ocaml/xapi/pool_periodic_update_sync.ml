@@ -131,26 +131,18 @@ let rec update_sync () =
                   Db.Pool.get_update_sync_frequency ~__context
                     ~self:(Helpers.get_pool ~__context)
                 in
-                let now =
-                  Ptime_clock.now ()
-                  |> Xapi_stdext_date.Date.of_ptime
-                  |> Xapi_stdext_date.Date.to_string
+                let now = Xapi_stdext_date.Date.(now () |> to_string) in
+                let body =
+                  Printf.sprintf
+                    "<body><message>Periodic update sync \
+                     failed.</message><exception>%s</exception><date>%s</date></body>"
+                    exc now
+                in
+                let obj_uuid =
+                  Db.Pool.get_uuid ~__context ~self:(Helpers.get_pool ~__context)
                 in
                 Xapi_alert.add ~msg:Api_messages.periodic_update_sync_failed
-                  ~cls:`Pool
-                  ~obj_uuid:
-                    (Db.Pool.get_uuid ~__context
-                       ~self:(Helpers.get_pool ~__context)
-                    )
-                  ~body:
-                    ("<body><message>Periodic update sync("
-                    ^ frequency_to_str ~frequency
-                    ^ ") failed.</message><exception>"
-                    ^ exc
-                    ^ "</exception><date>"
-                    ^ now
-                    ^ "</date></body>"
-                    )
+                  ~cls:`Pool ~obj_uuid ~body
           )
         )
         (add_to_queue ~__context)
