@@ -132,6 +132,18 @@ module SpanContext = struct
     | tracestate ->
         Some tracestate
 
+  let tracestate_get key t = List.assoc_opt key t.tracestate
+
+  let tracestate_delete key t =
+    let tracestate = List.filter (fun (k, _) -> k <> key) t.tracestate in
+    {t with tracestate}
+
+  let tracestate_replace key value t =
+    let tracestate =
+      (key, value) :: List.filter (fun (k, _) -> k <> key) t.tracestate
+    in
+    {t with tracestate}
+
   let of_traceparent ?tracestate traceparent =
     let tracestate =
       Option.fold ~none:[]
