@@ -81,7 +81,7 @@ let day_of_next_sync ~now ~tz_offset_s ~frequency =
   in
   Ptime.add_span beginning_of_day (delay_of days) |> Option.get
 
-let time_until_next_sync ~now ~next_sync =
+let time_until_next_sync_internal ~now ~next_sync =
   let delay = Ptime.diff next_sync now in
   if Xapi_fist.disable_periodic_update_sync_sec_randomness () then
     delay
@@ -89,6 +89,22 @@ let time_until_next_sync ~now ~next_sync =
     delay
   else (* Enforce a minimum of 2 hours between schedules *)
     update_sync_minimum_interval
+
+let time_until_next_sync ~now ~next_sync =
+  match Xapi_fist.set_periodic_update_sync_delay () with
+  | None ->
+      time_until_next_sync_internal ~now ~next_sync
+  | Some delay -> (
+    try
+      let seconds = int_of_string (String.trim delay) in
+      Ptime.Span.of_int_s seconds
+    with _ ->
+      debug
+        "[PeriodicUpdateSync] failed to interpret periodic update sync delay: \
+         \"%s\""
+        delay ;
+      time_until_next_sync_internal ~now ~next_sync
+  )
 
 let seconds_until_next_schedule ~__context =
   let frequency =
