@@ -82,21 +82,6 @@ let day_of_next_sync ~now ~tz_offset_s ~frequency =
   in
   Ptime.add_span beginning_of_day (delay_of days) |> Option.get
 
-let next_scheduled_datetime ~delay ~utc_now ~tz_offset_s =
-  let span = Ptime.Span.of_float_s delay |> Option.get in
-  let target = Ptime.add_span utc_now span |> Option.get in
-  let (y, m, d), ((hh, mm, ss), _) = Ptime.to_date_time ~tz_offset_s target in
-  (y, m, d, hh, mm, ss)
-
-let print_next_schedule ~delay ~utc_now ~tz_offset_s =
-  debug "[PeriodicUpdateSync] delay for next update sync: %f seconds" delay ;
-  let y, m, d, hh, mm, ss =
-    next_scheduled_datetime ~delay ~utc_now ~tz_offset_s
-  in
-  debug
-    "[PeriodicUpdateSync] next update sync scheduled at pool time: %d-%d-%d, \
-     %d:%d:%d "
-    y m d hh mm ss
 
 let calc_delay ~utc_now ~utc_start_of_next_sched_day ~extra_seconds =
   let random_span = Ptime.Span.of_float_s extra_seconds |> Option.get in
