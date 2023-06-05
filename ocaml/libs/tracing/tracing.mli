@@ -12,6 +12,8 @@
  * GNU Lesser General Public License for more details.
  *)
 
+type endpoint = Bugtool | Url of Uri.t
+
 module SpanKind : sig
   type t = Server | Consumer | Client | Producer | Internal
 
@@ -76,10 +78,20 @@ module Tracer : sig
   val span_is_finished : Span.t option -> bool
 
   val span_hashtbl_is_empty : unit -> bool
+
+  val finished_span_hashtbl_is_empty : unit -> bool
 end
 
 module TracerProvider : sig
   type t
+
+  val get_name_label : t -> string
+
+  val get_attributes : t -> (string * string) list
+
+  val get_endpoints : t -> endpoint list
+
+  val get_enabled : t -> bool
 end
 
 val set :
@@ -100,6 +112,8 @@ val create :
 
 val destroy : uuid:string -> unit
 
+val get_tracer_providers : unit -> TracerProvider.t list
+
 val get_tracer : name:string -> Tracer.t
 
 module Export : sig
@@ -113,6 +127,8 @@ module Export : sig
     module File : sig
       val set_trace_log_dir : string -> unit
     end
+
+    val flush_spans : unit -> unit
   end
 end
 

@@ -7,7 +7,7 @@
       test_cluster_host test_cluster test_pusb test_network_sriov
       test_vm_placement test_vm_helpers test_repository test_repository_helpers
       test_ref
-      test_livepatch test_rpm test_updateinfo test_storage_smapiv1_wrapper test_storage_quicktest test_tracing))
+      test_livepatch test_rpm test_updateinfo test_storage_smapiv1_wrapper test_storage_quicktest test_observer))
   (libraries
     alcotest
     angstrom
@@ -117,10 +117,10 @@
 (libraries xapi_internal crowbar))
 
 (test
-(name test_tracing)
+(name test_observer)
 (package xapi)
-(modules test_tracing)
-(libraries alcotest tracing))
+(modules test_observer)
+(libraries alcotest tracing xapi_internal tests_common yojson))
 
 (rule
   (alias runtest)
