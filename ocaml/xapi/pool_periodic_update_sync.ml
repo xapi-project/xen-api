@@ -127,10 +127,6 @@ let rec update_sync () =
               with e ->
                 let exc = Printexc.to_string e in
                 warn "Periodic update sync failed with exception %s" exc ;
-                let frequency =
-                  Db.Pool.get_update_sync_frequency ~__context
-                    ~self:(Helpers.get_pool ~__context)
-                in
                 let now = Xapi_stdext_date.Date.(now () |> to_string) in
                 let body =
                   Printf.sprintf
