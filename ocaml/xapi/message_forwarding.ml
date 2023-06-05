@@ -1112,7 +1112,7 @@ functor
           ~update_sync_day
 
       let set_update_sync_enabled ~__context ~self ~value =
-        info "Pool.set_update_sync_enabled: pool='%s' value='%B'"
+        info "%s: pool='%s' value='%B'" __FUNCTION__
           (pool_uuid ~__context self)
           value ;
         Local.Pool.set_update_sync_enabled ~__context ~self ~value

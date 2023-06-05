@@ -1957,7 +1957,7 @@ let _ =
     () ;
 
   error Api_errors.invalid_update_sync_day ["day"]
-    ~doc:"The day when update sync will run is invalid." () ;
+    ~doc:"Invalid day of the week chosen for weekly update sync." () ;
 
   message
     (fst Api_messages.ha_pool_overcommitted)

@@ -1831,27 +1831,30 @@ let pool_reset_telemetry_uuid _printer rpc session_id params =
 
 let pool_configure_update_sync _printer rpc session_id params =
   let pool = get_pool_with_default rpc session_id params "uuid" in
-  let frequency =
+  let update_sync_frequency =
     Record_util.update_sync_frequency_of_string
       (List.assoc "update-sync-frequency" params)
   in
-  let day = List.assoc "update-sync-day" params in
-  let day_int =
-    try Int64.of_string day
-    with _ ->
-      failwith
-        "Failed to parse parameter 'update-sync-day': expecting an integer"
+  let day = List.assoc_opt "update-sync-day" params in
+  let update_sync_day =
+    match (update_sync_frequency, day) with
+    | `daily, _ ->
+        0L
+    | `weekly, d ->
+        let invalid_day_msg =
+          "Invalid value for day picked, must be an integer from 0 to 6.\n"
+        in
+        let day_int =
+          try Option.(map Int64.of_string d |> get)
+          with _ -> failwith invalid_day_msg
+        in
+        if day_int < 0L || day_int > 6L then
+          failwith invalid_day_msg
+        else
+          day_int
   in
-  ( match (frequency, day_int) with
-  | `weekly, d when d < 0L || d > 6L ->
-      failwith
-        "For weekly schedule, cannot set the day when update sync will run to \
-         an integer out of range: 0 ~ 6."
-  | _ ->
-      ()
-  ) ;
   Client.Pool.configure_update_sync ~rpc ~session_id ~self:pool
-    ~update_sync_frequency:frequency ~update_sync_day:day_int
+    ~update_sync_frequency ~update_sync_day
 
 let pool_set_update_sync_enabled _printer rpc session_id params =
   let pool = get_pool_with_default rpc session_id params "uuid" in

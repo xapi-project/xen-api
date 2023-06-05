@@ -1068,7 +1068,10 @@ let update_sync_frequency =
 
 let configure_update_sync =
   call ~name:"configure_update_sync"
-    ~doc:"Config periodic update synchronizaiton from remote CDN" ~lifecycle:[]
+    ~doc:
+      "Configure periodic update synchronizaiton to sync updates from a remote \
+       CDN"
+    ~lifecycle:[]
     ~params:
       [
         (Ref _pool, "self", "The pool")

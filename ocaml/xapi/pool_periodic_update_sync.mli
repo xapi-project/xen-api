@@ -16,25 +16,17 @@ val set_enabled : __context:Context.t -> value:bool -> unit
 
 (* Below exposed only for ease of testing *)
 
-val next_scheduled_datetime :
-     delay:float
-  -> utc_now:Ptime.t
-  -> tz_offset_s:int
-  -> int * int * int * int * int * int
+type frequency = Daily | Weekly of int
 
-val utc_start_of_next_scheduled_day :
-     utc_now:Ptime.t
+val day_of_next_sync :
+     now:Ptime.t
   -> tz_offset_s:int
-  -> frequency:[< `daily | `weekly]
-  -> day_configed_int:int
+  -> frequency:frequency
   -> Ptime.t
 
-val calc_delay :
-     utc_now:Ptime.t
-  -> utc_start_of_next_sched_day:Ptime.t
-  -> extra_seconds:float
-  -> float
+val time_until_next_sync :
+     now:Ptime.t
+  -> next_sync:Ptime.t
+  -> Ptime.span
 
-exception UpdateSync_RetryNumExceeded of int
-
-val seconds_random_within_a_day : unit -> float
+val random_delay : unit -> Ptime.span

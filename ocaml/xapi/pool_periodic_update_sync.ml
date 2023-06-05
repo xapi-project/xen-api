@@ -24,24 +24,22 @@ let frequency_of_freq_and_day freq day =
       Daily
   | `weekly, d ->
       Weekly d
+
 let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
 let periodic_update_sync_task_name = "Periodic update synchronization"
 
-let secs_per_hour = 60. *. 60.
+let secs_per_hour = 60 * 60
 
-let update_sync_minimum_interval = 2. *. secs_per_hour
+let update_sync_minimum_interval = Ptime.Span.of_int_s (2 * secs_per_hour)
 
-let secs_per_day = 24. *. secs_per_hour
+let secs_per_day = 24 * secs_per_hour
 
-exception UpdateSync_RetryNumExceeded of int
-
-let seconds_random_within_a_day () =
+let random_delay () =
   if Xapi_fist.disable_periodic_update_sync_sec_randomness () then
-    0.
+    Ptime.Span.zero
   else
-    let secs_random = Random.float secs_per_day in
-    secs_random
+    Ptime.Span.of_int_s (Random.int secs_per_day)
 
 let frequency_to_str ~frequency =
   match frequency with `daily -> "daily" | `weekly -> "weekly"
@@ -82,44 +80,36 @@ let day_of_next_sync ~now ~tz_offset_s ~frequency =
   in
   Ptime.add_span beginning_of_day (delay_of days) |> Option.get
 
-
-let calc_delay ~utc_now ~utc_start_of_next_sched_day ~extra_seconds =
-  let random_span = Ptime.Span.of_float_s extra_seconds |> Option.get in
-  let utc_next_schedule =
-    Ptime.add_span utc_start_of_next_sched_day random_span |> Option.get
-  in
-  let calc_delay =
-    Ptime.diff utc_next_schedule utc_now |> Ptime.Span.to_float_s
-  in
+let time_until_next_sync ~now ~next_sync =
+  let delay = Ptime.diff next_sync now in
   if Xapi_fist.disable_periodic_update_sync_sec_randomness () then
-    calc_delay
-  else
-    (* Make the minimum interval between 2 runs to 2 hours to avoid too close schedules *)
-    Float.max calc_delay update_sync_minimum_interval
+    delay
+  else if Ptime.Span.compare delay update_sync_minimum_interval > 0 then
+    delay
+  else (* Enforce a minimum of 2 hours between schedules *)
+    update_sync_minimum_interval
 
-let update_sync_delay_for_next_schedule ~__context =
+let seconds_until_next_schedule ~__context =
   let frequency =
     Db.Pool.get_update_sync_frequency ~__context
       ~self:(Helpers.get_pool ~__context)
   in
-  let day_configed =
+  let day_of_week =
     Db.Pool.get_update_sync_day ~__context ~self:(Helpers.get_pool ~__context)
   in
   debug
-    "[PeriodicUpdateSync] update_sync_delay_for_next_schedule, frequency=%s, \
+    "[PeriodicUpdateSync] seconds_until_next_schedule, frequency=%s, \
      day_configed=%Ld"
     (frequency_to_str ~frequency)
-    day_configed ;
-  let day_configed_int = Int64.to_int day_configed in
-  let utc_now = Ptime_clock.now () in
+    day_of_week ;
+  let frequency = frequency_of_freq_and_day frequency day_of_week in
+  let now = Ptime_clock.now () in
   let tz_offset_s = Ptime_clock.current_tz_offset_s () |> Option.get in
-  let extra_seconds = seconds_random_within_a_day () in
-  let utc_start_of_next_sched_day =
-    utc_start_of_next_scheduled_day ~utc_now ~tz_offset_s ~frequency
-      ~day_configed_int
-  in
-  let delay = calc_delay ~utc_now ~utc_start_of_next_sched_day ~extra_seconds in
-  print_next_schedule ~delay ~utc_now ~tz_offset_s ;
+  let delay = random_delay () in
+  let next_day = day_of_next_sync ~now ~tz_offset_s ~frequency in
+  let next_sync = Ptime.add_span next_day delay |> Option.get in
+  let delay = time_until_next_sync ~now ~next_sync |> Ptime.Span.to_float_s in
+  debug "[PeriodicUpdateSync] delay for next update sync: %f seconds" delay ;
   delay
 
 let rec update_sync () =
@@ -167,11 +157,11 @@ let rec update_sync () =
 
 and add_to_queue ~__context () =
   let open Xapi_periodic_scheduler in
-  add_to_queue periodic_update_task_name OneShot
+  add_to_queue periodic_update_sync_task_name OneShot
     (seconds_until_next_schedule ~__context)
     update_sync
 
 let set_enabled ~__context ~value =
-  Xapi_periodic_scheduler.remove_from_queue periodic_update_task_name ;
+  Xapi_periodic_scheduler.remove_from_queue periodic_update_sync_task_name ;
   if value then
     add_to_queue ~__context ()
