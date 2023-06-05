@@ -36,6 +36,12 @@ module SpanContext : sig
   val of_traceparent : ?tracestate:string -> string -> t option
 
   val to_tracestate : t -> string option
+
+  val tracestate_get : string -> t -> string option
+
+  val tracestate_delete : string -> t -> t
+
+  val tracestate_replace : string -> string -> t -> t
 end
 
 module Span : sig
