@@ -23,9 +23,7 @@ module TestUpdateSyncDelay = struct
       Ptime.of_date_time ((2023, 5, 4), ((13, 14, 15), tz_offset_s))
       |> Option.get
     in
-    let res =
-      day_of_next_sync ~now ~tz_offset_s ~frequency:Daily
-    in
+    let res = day_of_next_sync ~now ~tz_offset_s ~frequency:Daily in
     let next_sync =
       Ptime.of_date_time ((2023, 5, 5), ((0, 0, 0), tz_offset_s)) |> Option.get
     in
@@ -38,9 +36,7 @@ module TestUpdateSyncDelay = struct
       Ptime.of_date_time ((2023, 5, 31), ((13, 14, 15), tz_offset_s))
       |> Option.get
     in
-    let res =
-      day_of_next_sync ~now ~tz_offset_s ~frequency:Daily
-    in
+    let res = day_of_next_sync ~now ~tz_offset_s ~frequency:Daily in
     let next_sync =
       Ptime.of_date_time ((2023, 6, 1), ((0, 0, 0), tz_offset_s)) |> Option.get
     in
@@ -53,9 +49,7 @@ module TestUpdateSyncDelay = struct
       Ptime.of_date_time ((2023, 12, 31), ((13, 14, 15), tz_offset_s))
       |> Option.get
     in
-    let res =
-      day_of_next_sync ~now ~tz_offset_s ~frequency:Daily
-    in
+    let res = day_of_next_sync ~now ~tz_offset_s ~frequency:Daily in
     let next_sync =
       Ptime.of_date_time ((2024, 1, 1), ((0, 0, 0), tz_offset_s)) |> Option.get
     in
@@ -68,9 +62,7 @@ module TestUpdateSyncDelay = struct
       Ptime.of_date_time ((2023, 5, 4), ((13, 14, 15), tz_offset_s))
       |> Option.get
     in
-    let res =
-      day_of_next_sync ~now ~tz_offset_s ~frequency:(Weekly 6)
-    in
+    let res = day_of_next_sync ~now ~tz_offset_s ~frequency:(Weekly 6) in
     let next_sync =
       Ptime.of_date_time ((2023, 5, 6), ((0, 0, 0), tz_offset_s)) |> Option.get
     in
@@ -83,9 +75,7 @@ module TestUpdateSyncDelay = struct
       Ptime.of_date_time ((2023, 5, 4), ((13, 14, 15), tz_offset_s))
       |> Option.get
     in
-    let res =
-      day_of_next_sync ~now ~tz_offset_s ~frequency:(Weekly 1)
-    in
+    let res = day_of_next_sync ~now ~tz_offset_s ~frequency:(Weekly 1) in
     let next_sync =
       Ptime.of_date_time ((2023, 5, 8), ((0, 0, 0), tz_offset_s)) |> Option.get
     in
@@ -98,9 +88,7 @@ module TestUpdateSyncDelay = struct
       Ptime.of_date_time ((2023, 5, 4), ((13, 14, 15), tz_offset_s))
       |> Option.get
     in
-    let res =
-      day_of_next_sync ~now ~tz_offset_s ~frequency:(Weekly 4)
-    in
+    let res = day_of_next_sync ~now ~tz_offset_s ~frequency:(Weekly 4) in
     let next_sync =
       Ptime.of_date_time ((2023, 5, 11), ((0, 0, 0), tz_offset_s)) |> Option.get
     in
@@ -118,8 +106,8 @@ module TestUpdateSyncDelay = struct
     let delay = (2. *. 24. *. 60. *. 60.) -. 1. in
     let res = time_until_next_sync ~now ~next_sync in
     Alcotest.(check (float Float.epsilon))
-      "test_time_until_next_sync_1"
-      delay (Ptime.Span.to_float_s res)
+      "test_time_until_next_sync_1" delay
+      (Ptime.Span.to_float_s res)
 
   let test_time_until_next_sync_2 () =
     let now =
@@ -131,8 +119,8 @@ module TestUpdateSyncDelay = struct
     let delay = (2. *. 24. *. 60. *. 60.) -. 1. +. 66. in
     let res = time_until_next_sync ~now ~next_sync in
     Alcotest.(check (float Float.epsilon))
-      "test_time_until_next_sync_2"
-      delay (Ptime.Span.to_float_s res)
+      "test_time_until_next_sync_2" delay
+      (Ptime.Span.to_float_s res)
 
   let test_time_until_next_sync_3 () =
     let now =
@@ -149,42 +137,15 @@ module TestUpdateSyncDelay = struct
 
   let test =
     [
-      ( "day_of_next_sync daily"
-      , `Quick
-      , test_day_of_next_sync_1
-      )
-    ; ( "day_of_next_sync daily, end of month"
-      , `Quick
-      , test_day_of_next_sync_2
-      )
-    ; ( "day_of_next_sync daily, end of year"
-      , `Quick
-      , test_day_of_next_sync_3
-      )
-    ; ( "day_of_next_sync weekly, this week"
-      , `Quick
-      , test_day_of_next_sync_4
-      )
-    ; ( "day_of_next_sync weekly, next week"
-      , `Quick
-      , test_day_of_next_sync_5
-      )
-    ; ( "day_of_next_sync weekly, next week, 2"
-      , `Quick
-      , test_day_of_next_sync_6
-      )
-    ; ( "calc_delay, without random delay"
-      , `Quick
-      , test_time_until_next_sync_1
-      )
-    ; ( "calc_delay, with random delay"
-      , `Quick
-      , test_time_until_next_sync_2
-      )
-    ; ( "calc_delay, next month"
-      , `Quick
-      , test_time_until_next_sync_3
-      )
+      ("day_of_next_sync daily", `Quick, test_day_of_next_sync_1)
+    ; ("day_of_next_sync daily, end of month", `Quick, test_day_of_next_sync_2)
+    ; ("day_of_next_sync daily, end of year", `Quick, test_day_of_next_sync_3)
+    ; ("day_of_next_sync weekly, this week", `Quick, test_day_of_next_sync_4)
+    ; ("day_of_next_sync weekly, next week", `Quick, test_day_of_next_sync_5)
+    ; ("day_of_next_sync weekly, next week, 2", `Quick, test_day_of_next_sync_6)
+    ; ("calc_delay, without random delay", `Quick, test_time_until_next_sync_1)
+    ; ("calc_delay, with random delay", `Quick, test_time_until_next_sync_2)
+    ; ("calc_delay, next month", `Quick, test_time_until_next_sync_3)
     ]
 end
 

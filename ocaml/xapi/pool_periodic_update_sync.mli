@@ -19,14 +19,8 @@ val set_enabled : __context:Context.t -> value:bool -> unit
 type frequency = Daily | Weekly of int
 
 val day_of_next_sync :
-     now:Ptime.t
-  -> tz_offset_s:int
-  -> frequency:frequency
-  -> Ptime.t
+  now:Ptime.t -> tz_offset_s:int -> frequency:frequency -> Ptime.t
 
-val time_until_next_sync :
-     now:Ptime.t
-  -> next_sync:Ptime.t
-  -> Ptime.span
+val time_until_next_sync : now:Ptime.t -> next_sync:Ptime.t -> Ptime.span
 
 val random_delay : unit -> Ptime.span
