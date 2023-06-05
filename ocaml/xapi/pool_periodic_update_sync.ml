@@ -130,6 +130,7 @@ let seconds_until_next_schedule ~__context =
   delay
 
 let rec update_sync () =
+  debug "[PeriodicUpdateSync] periodic update synchronization start..." ;
   Server_helpers.exec_with_new_task "periodic_update_sync" (fun __context ->
       finally
         (fun () ->
