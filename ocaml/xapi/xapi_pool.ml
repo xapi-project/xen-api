@@ -3659,3 +3659,36 @@ let reset_telemetry_uuid ~__context ~self =
   Xapi_stdext_pervasives.Pervasiveext.ignore_exn (fun _ ->
       Db.Secret.destroy ~__context ~self:old_ref
   )
+
+let configure_update_sync ~__context ~self ~update_sync_frequency
+    ~update_sync_day =
+  let day =
+    match (update_sync_frequency, update_sync_day) with
+    | `weekly, d when d < 0L || d > 6L ->
+        error
+          "For weekly schedule, cannot set the day when update sync will run \
+           to an integer out of range: 0 ~ 6" ;
+        raise
+          Api_errors.(
+            Server_error
+              (invalid_update_sync_day, [Int64.to_string update_sync_day])
+          )
+    | `daily, d ->
+        if d <> 0L then
+          warn
+            "For 'daily' schedule, the value of update_sync_day is ignored, \
+             update_sync_day of the pool will be set to the default value 0." ;
+        0L
+    | `weekly, d ->
+        d
+  in
+  Db.Pool.set_update_sync_frequency ~__context ~self
+    ~value:update_sync_frequency ;
+  Db.Pool.set_update_sync_day ~__context ~self ~value:day ;
+  if Db.Pool.get_update_sync_enabled ~__context ~self then
+    (* re-schedule periodic update sync with new configuration immediately *)
+    Pool_periodic_update_sync.set_enabled ~__context ~value:true
+
+let set_update_sync_enabled ~__context ~self ~value =
+  Pool_periodic_update_sync.set_enabled ~__context ~value ;
+  Db.Pool.set_update_sync_enabled ~__context ~self ~value
