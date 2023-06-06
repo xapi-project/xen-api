@@ -4103,6 +4103,12 @@ module Observer = struct
       (fun () -> Tracing.Spans.set_max_traces traces)
       ()
 
+  let set_max_file_size _ dbg file_size =
+    debug "Observer.set_max_file_size : dbg=%s" dbg ;
+    Debug.with_thread_associated dbg
+      (fun () -> Tracing.Export.Destination.File.set_max_file_size file_size)
+      ()
+
   let set_host_id _ dbg host_id =
     debug "Observer.set_host_id : dbg=%s" dbg ;
     Debug.with_thread_associated dbg
@@ -4211,4 +4217,5 @@ let _ =
   Server.Observer.set_export_interval (Observer.set_export_interval ()) ;
   Server.Observer.set_max_spans (Observer.set_max_spans ()) ;
   Server.Observer.set_max_traces (Observer.set_max_traces ()) ;
+  Server.Observer.set_max_file_size (Observer.set_max_file_size ()) ;
   Server.Observer.set_host_id (Observer.set_host_id ())

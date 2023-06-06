@@ -587,29 +587,75 @@ module Export = struct
     module File = struct
       let trace_log_dir = ref "/var/log/dt/zipkinv2/json"
 
+      let max_file_size = ref (1 lsl 20)
+
       let set_trace_log_dir dir = trace_log_dir := dir
 
-      let export ~trace_id ~span_json ~path : (string, exn) result =
-        try
-          let date = Ptime_clock.now () |> Ptime.to_rfc3339 ~frac_s:6 in
-          let file =
-            path
-            ^ String.concat "-" [trace_id; "xapi"; !host_id; date]
-            ^ ".json"
-          in
-          Xapi_stdext_unix.Unixext.mkdir_rec (Filename.dirname file) 0o700 ;
-          Xapi_stdext_unix.Unixext.write_string_to_file file span_json ;
-          Ok ""
-        with e -> Error e
+      let set_max_file_size size = max_file_size := size
+
+      let file_name = ref None
+
+      let file_stream = ref None
+
+      let lock = Mutex.create ()
+
+      let new_file_name () =
+        let date = Ptime_clock.now () |> Ptime.to_rfc3339 ~frac_s:6 in
+        let ( // ) = Filename.concat in
+        let name =
+          !trace_log_dir
+          // String.concat "-" [get_service_name (); !host_id; date]
+          ^ ".json"
+        in
+        file_name := Some name ;
+        name
+
+      let open_stream file_name =
+        Xapi_stdext_unix.Unixext.mkdir_rec (Filename.dirname file_name) 0o700 ;
+        file_stream :=
+          Some (Unix.openfile file_name [O_WRONLY; O_CREAT; O_APPEND] 0o700)
+
+      let close_stream () =
+        Option.iter (fun stream -> Unix.close stream) !file_stream ;
+        file_stream := None
+
+      let check () =
+        match (!file_stream, !file_name) with
+        | Some file_stream, _
+          when (Unix.fstat file_stream).st_size >= !max_file_size ->
+            close_stream () ;
+            new_file_name () |> open_stream
+        | None, None ->
+            new_file_name () |> open_stream
+        | None, Some file_name ->
+            open_stream file_name
+        | _ ->
+            (* We have an open fd which points to a file under the limit*)
+            ()
+
+      let write str =
+        Option.iter
+          (fun stream ->
+            let content = Bytes.of_string (str ^ "\n") in
+            ignore @@ Unix.write stream content 0 (Bytes.length content)
+          )
+          !file_stream
+
+      let export json = try check () ; write json ; Ok () with e -> Error e
+
+      let with_stream f =
+        Xapi_stdext_threads.Threadext.Mutex.execute lock (fun () ->
+            f export ; close_stream ()
+        )
     end
 
     module Http = struct
       module Request = Cohttp.Request.Make (Cohttp_posix_io.Buffered_IO)
       module Response = Cohttp.Response.Make (Cohttp_posix_io.Buffered_IO)
 
-      let export ~span_json ~url : (string, exn) result =
+      let export ~url json =
         try
-          let body = span_json in
+          let body = json in
           let headers =
             Cohttp.Header.of_list
               [
@@ -630,7 +676,7 @@ module Export = struct
               Unix.shutdown fd Unix.SHUTDOWN_SEND ;
               match try Response.read ic with _ -> `Eof with
               | `Eof ->
-                  Ok ""
+                  Ok ()
               | `Invalid x ->
                   Error (Failure ("invalid read: " ^ x))
               | `Ok response ->
@@ -645,33 +691,34 @@ module Export = struct
                     | Cohttp.Transfer.Done ->
                         ()
                   in
-                  loop () ;
-                  Ok (Buffer.contents body)
+                  loop () ; Ok ()
           )
         with e -> Error e
     end
 
-    let export_to_endpoint span_list endpoint =
+    let export_to_endpoint traces endpoint =
+      debug "Tracing: About to export" ;
       try
-        debug "Tracing: About to export" ;
-        Hashtbl.iter
-          (fun trace_id span_list ->
-            let zipkin_spans = Content.Json.Zipkinv2.content_of span_list in
-            match
+        File.with_stream (fun file_export ->
+            let export =
               match endpoint with
               | Url url ->
-                  Http.export ~span_json:zipkin_spans ~url
+                  Http.export ~url
               | Bugtool ->
-                  File.export ~trace_id ~span_json:zipkin_spans
-                    ~path:!File.trace_log_dir
-            with
-            | Ok _ ->
-                ()
-            | Error e ->
-                raise e
-          )
-          span_list
-      with e -> debug "Tracing: ERROR %s" (Printexc.to_string e)
+                  file_export
+            in
+            Ok ()
+            |> Hashtbl.fold
+                 (fun _ spans result ->
+                   Content.Json.Zipkinv2.content_of spans
+                   |> export
+                   |> Result.fold ~ok:(fun () -> result) ~error:Result.error
+                 )
+                 traces
+            |> Result.iter_error raise
+        )
+      with exn ->
+        debug "Tracing : unable to export span : %s" (Printexc.to_string exn)
 
     let flush_spans () =
       let span_list = Spans.since () in

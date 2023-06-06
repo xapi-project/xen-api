@@ -1167,5 +1167,9 @@ module XenopsAPI (R : RPC) = struct
     let set_max_spans =
       declare "Observer.set_max_spans" []
         (debug_info_p @-> int_p @-> returning unit_p err)
+
+    let set_max_file_size =
+      declare "Observer.set_max_file_size" []
+        (debug_info_p @-> int_p @-> returning unit_p err)
   end
 end
