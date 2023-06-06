@@ -51,6 +51,12 @@ let endpoint_of_string = function
   | url ->
       Url (Uri.of_string url)
 
+let endpoint_to_string = function
+  | Bugtool ->
+      "bugtool"
+  | Url url ->
+      Uri.to_string url
+
 let ok_none = Ok None
 
 module Status = struct
@@ -394,13 +400,18 @@ module Tracer = struct
     ; attributes= Attributes.empty
     }
 
-  let start ~tracer:t ?(span_kind = SpanKind.Internal) ~name ~parent () :
-      (Span.t option, exn) result =
+  let start ~tracer:t ?(attributes = []) ?(span_kind = SpanKind.Internal) ~name
+      ~parent () : (Span.t option, exn) result =
     (* Do not start span if the TracerProvider is diabled*)
     if not t.provider.enabled then
       ok_none
     else
-      let attributes = t.provider.attributes in
+      let attributes = Attributes.of_list attributes in
+      let attributes =
+        Attributes.union
+          (fun _k a _b -> Some a)
+          attributes t.provider.attributes
+      in
       let span = Span.start ~attributes ~name ~parent ~span_kind () in
       Spans.add_to_spans ~span ; Ok (Some span)
 
@@ -495,12 +506,12 @@ let get_tracer ~name =
 let enable_span_garbage_collector ?(timeout = 86400.) () =
   Spans.GC.initialise_thread ~timeout
 
-let with_tracing ?(parent = None) ~name f =
+let with_tracing ?(attributes = []) ?(parent = None) ~name f =
   if not !observe then
     f None
   else
     let tracer = get_tracer ~name in
-    match Tracer.start ~tracer ~name ~parent () with
+    match Tracer.start ~tracer ~attributes ~name ~parent () with
     | Ok span -> (
       try
         let result = f span in
@@ -726,7 +737,10 @@ module Export = struct
     let export_to_endpoint parent traces endpoint =
       debug "Tracing: About to export" ;
       try
-        let@ parent = with_tracing ~parent ~name:"Tracing.export_to_endpoint" in
+        let attributes = [("export.endpoint", endpoint_to_string endpoint)] in
+        let@ parent =
+          with_tracing ~parent ~attributes ~name:"Tracing.export_to_endpoint"
+        in
         File.with_stream (fun file_export ->
             let export, name =
               match endpoint with
@@ -738,7 +752,10 @@ module Export = struct
             Ok ()
             |> Hashtbl.fold
                  (fun _ spans result ->
-                   let@ _ = with_tracing ~parent ~name in
+                   let attributes =
+                     [("export.span.count", List.length spans |> string_of_int)]
+                   in
+                   let@ _ = with_tracing ~parent ~attributes ~name in
                    Content.Json.Zipkinv2.content_of spans
                    |> export
                    |> Result.fold ~ok:(fun () -> result) ~error:Result.error
@@ -751,7 +768,12 @@ module Export = struct
 
     let flush_spans () =
       let span_list = Spans.since () in
-      let@ parent = with_tracing ~parent:None ~name:"Tracing.flush_spans" in
+      let attributes =
+        [("export.traces.count", Hashtbl.length span_list |> string_of_int)]
+      in
+      let@ parent =
+        with_tracing ~parent:None ~attributes ~name:"Tracing.flush_spans"
+      in
       get_tracer_providers ()
       |> List.filter (fun x -> x.TracerProvider.enabled)
       |> List.concat_map (fun x -> TracerProvider.get_endpoints x)

@@ -66,6 +66,7 @@ module Tracer : sig
 
   val start :
        tracer:t
+    -> ?attributes:(string * string) list
     -> ?span_kind:SpanKind.t
     -> name:string
     -> parent:Span.t option
