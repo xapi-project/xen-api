@@ -1957,6 +1957,9 @@ let _ =
   error Api_errors.invalid_update_sync_day ["day"]
     ~doc:"Invalid day of the week chosen for weekly update sync." () ;
 
+  error Api_errors.require_master_restart_toolstack []
+    ~doc:"A toolstack restart on master is required before this operation." () ;
+
   message
     (fst Api_messages.ha_pool_overcommitted)
     ~doc:

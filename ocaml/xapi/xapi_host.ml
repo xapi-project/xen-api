@@ -2978,6 +2978,14 @@ let apply_updates ~__context ~self ~hash =
   (* This function runs on master host *)
   Helpers.assert_we_are_master ~__context ;
   Pool_features.assert_enabled ~__context ~f:Features.Updates ;
+  if not (Helpers.is_pool_master ~__context ~host:self) then
+    if
+      List.mem `restart_toolstack
+        (Db.Host.get_recommended_guidances ~__context
+           ~self:(Helpers.get_master ~__context)
+        )
+    then
+      raise Api_errors.(Server_error (require_master_restart_toolstack, [])) ;
   let guidances, warnings =
     Xapi_pool_helpers.with_pool_operation ~__context
       ~self:(Helpers.get_pool ~__context)
