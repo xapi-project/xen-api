@@ -25,7 +25,7 @@ module TestDayOfNextSync = struct
   let ptime = Alcotest.testable Ptime.pp Ptime.equal
 
   type test_case = {
-      name: string
+      description: string
     ; now: Ptime.date * time_without_tz
     ; frequency: frequency
     ; expected: Ptime.date * time_without_tz
@@ -34,53 +34,54 @@ module TestDayOfNextSync = struct
   let test_cases =
     [
       {
-        name= "daily"
+        description= "daily"
       ; now= ((2023, 5, 4), (13, 14, 15))
       ; frequency= Daily
       ; expected= ((2023, 5, 5), (0, 0, 0))
       }
     ; {
-        name= "daily, end of month"
+        description= "daily, end of month"
       ; now= ((2023, 5, 31), (13, 14, 15))
       ; frequency= Daily
       ; expected= ((2023, 6, 1), (0, 0, 0))
       }
     ; {
-        name= "daily, end of year"
+        description= "daily, end of year"
       ; now= ((2023, 12, 31), (13, 14, 15))
       ; frequency= Daily
       ; expected= ((2024, 1, 1), (0, 0, 0))
       }
     ; {
-        name= "weekly, this week"
+        description= "weekly, this week"
       ; now= ((2023, 5, 4), (13, 14, 15))
       ; frequency= Weekly 6
       ; expected= ((2023, 5, 6), (0, 0, 0))
       }
     ; {
-        name= "weekly, different day of next week"
+        description= "weekly, different day of next week"
       ; now= ((2023, 5, 4), (13, 14, 15))
       ; frequency= Weekly 1
       ; expected= ((2023, 5, 8), (0, 0, 0))
       }
     ; {
-        name= "weekly, same day of next week"
+        description= "weekly, same day of next week"
       ; now= ((2023, 5, 4), (13, 14, 15))
       ; frequency= Weekly 4
       ; expected= ((2023, 5, 11), (0, 0, 0))
       }
     ]
 
-  let test {name; now= d_a, t_a; frequency; expected= d_b, t_b} tz_offset_s () =
+  let test {description; now= d_a, t_a; frequency; expected= d_b, t_b}
+      tz_offset_s () =
     let expected = of_date_time_tz d_b t_b tz_offset_s in
     let now = of_date_time_tz d_a t_a tz_offset_s in
     let actual = day_of_next_sync ~now ~tz_offset_s ~frequency in
-    Alcotest.check ptime name expected actual
+    Alcotest.check ptime description expected actual
 
-  let tests_for_each_tz_from_test_case ({name; _} as test_case) =
+  let tests_for_each_tz_from_test_case ({description; _} as test_case) =
     let test_from_tz (tz, tz_name) =
-      let name = Printf.sprintf "%s, %s" name tz_name in
-      (name, `Quick, test {test_case with name} tz)
+      let description = Printf.sprintf "%s, %s" description tz_name in
+      (description, `Quick, test {test_case with description} tz)
     in
     List.map test_from_tz timezones
 
@@ -91,7 +92,7 @@ module TestTimeUntilNextSync = struct
   let ptime_span = Alcotest.testable Ptime.Span.pp Ptime.Span.equal
 
   type test_case = {
-      name: string
+      description: string
     ; now: Ptime.date * time_without_tz
     ; next_sync: Ptime.date * time_without_tz
     ; expected: int
@@ -100,47 +101,48 @@ module TestTimeUntilNextSync = struct
   let test_cases =
     [
       {
-        name= "same month, more than 2 hours"
+        description= "same month, more than 2 hours"
       ; now= ((2023, 5, 4), (0, 0, 1))
       ; next_sync= ((2023, 5, 6), (0, 0, 0))
       ; expected= (2 * 24 * 60 * 60) - 1
       }
     ; {
-        name= "different month, more than 2 hours"
+        description= "different month, more than 2 hours"
       ; now= ((2023, 4, 29), (0, 0, 1))
       ; next_sync= ((2023, 5, 4), (0, 1, 6))
       ; expected= (5 * 24 * 60 * 60) - 1 + 60 + 6
       }
     ; {
-        name= "2 hours and 1 second"
+        description= "2 hours and 1 second"
       ; now= ((2023, 5, 4), (23, 0, 1))
       ; next_sync= ((2023, 5, 5), (1, 0, 2))
       ; expected= (2 * 60 * 60) + 1
       }
     ; {
-        name= "2 hours"
+        description= "2 hours"
       ; now= ((2023, 5, 4), (23, 0, 1))
       ; next_sync= ((2023, 5, 5), (1, 0, 1))
       ; expected= 2 * 60 * 60
       }
     ; {
-        name= "1 hour and 59 second"
+        description= "1 hour and 59 second"
       ; now= ((2023, 5, 4), (23, 0, 1))
       ; next_sync= ((2023, 5, 5), (1, 0, 0))
       ; expected= 2 * 60 * 60
       }
     ]
 
-  let test {name; now= d_a, t_a; next_sync= d_b, t_b; expected} tz_offset_s () =
+  let test {description; now= d_a, t_a; next_sync= d_b, t_b; expected}
+      tz_offset_s () =
     let next_sync = of_date_time_tz d_b t_b tz_offset_s in
     let now = of_date_time_tz d_a t_a tz_offset_s in
     let actual = time_until_next_sync ~now ~next_sync in
-    Alcotest.check ptime_span name (Ptime.Span.of_int_s expected) actual
+    Alcotest.check ptime_span description (Ptime.Span.of_int_s expected) actual
 
-  let tests_for_each_tz_from_test_case ({name; _} as test_case) =
+  let tests_for_each_tz_from_test_case ({description; _} as test_case) =
     let test_from_tz (tz, tz_name) =
-      let name = Printf.sprintf "%s, %s" name tz_name in
-      (name, `Quick, test {test_case with name} tz)
+      let description = Printf.sprintf "%s, %s" description tz_name in
+      (description, `Quick, test {test_case with description} tz)
     in
     List.map test_from_tz timezones
 

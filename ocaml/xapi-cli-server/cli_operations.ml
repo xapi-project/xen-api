@@ -1842,7 +1842,7 @@ let pool_configure_update_sync _printer rpc session_id params =
         0L
     | `weekly, d ->
         let invalid_day_msg =
-          "Invalid value for day picked, must be an integer from 0 to 6.\n"
+          "Invalid value for day picked, must be an integer from 0 to 6"
         in
         let day_int =
           try Option.(map Int64.of_string d |> get)
