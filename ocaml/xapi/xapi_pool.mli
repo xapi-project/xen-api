@@ -398,3 +398,13 @@ val set_telemetry_next_collection :
   -> unit
 
 val reset_telemetry_uuid : __context:Context.t -> self:API.ref_pool -> unit
+
+val configure_update_sync :
+     __context:Context.t
+  -> self:API.ref_pool
+  -> update_sync_frequency:API.update_sync_frequency
+  -> update_sync_day:int64
+  -> unit
+
+val set_update_sync_enabled :
+  __context:Context.t -> self:API.ref_pool -> value:bool -> unit

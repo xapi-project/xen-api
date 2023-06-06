@@ -1114,6 +1114,22 @@ functor
       let reset_telemetry_uuid ~__context ~self =
         info "%s: pool='%s'" __FUNCTION__ (pool_uuid ~__context self) ;
         Local.Pool.reset_telemetry_uuid ~__context ~self
+
+      let configure_update_sync ~__context ~self ~update_sync_frequency
+          ~update_sync_day =
+        info "%s: pool='%s' update_sync_frequency='%s' update_sync_day=%Ld"
+          __FUNCTION__
+          (pool_uuid ~__context self)
+          (Record_util.update_sync_frequency_to_string update_sync_frequency)
+          update_sync_day ;
+        Local.Pool.configure_update_sync ~__context ~self ~update_sync_frequency
+          ~update_sync_day
+
+      let set_update_sync_enabled ~__context ~self ~value =
+        info "%s: pool='%s' value='%B'" __FUNCTION__
+          (pool_uuid ~__context self)
+          value ;
+        Local.Pool.set_update_sync_enabled ~__context ~self ~value
     end
 
     module VM = struct
