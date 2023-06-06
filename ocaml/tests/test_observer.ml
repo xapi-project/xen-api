@@ -26,7 +26,8 @@ let trace_log_dir ?(test_name = "") () =
 
 let () =
   Export.Destination.File.set_trace_log_dir (trace_log_dir ()) ;
-  Export.set_service_name "unit_tests"
+  Export.set_service_name "unit_tests" ;
+  set_observe false
 
 module Xapi_DB = struct
   let assert_num_observers ~__context x =

@@ -134,6 +134,8 @@ module Export : sig
   end
 end
 
+val set_observe : bool -> unit
+
 val validate_attribute : string * string -> bool
 
 val main : unit -> Thread.t
