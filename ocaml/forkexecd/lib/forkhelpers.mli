@@ -14,7 +14,7 @@
 
 (** Functions to execute processes, pass file descriptors around and return results *)
 
-(** The low-level Unix.fork(), Unix.exec*() functions and friends are not safe to 
+(** The low-level Unix.fork(), Unix.exec*() functions and friends are not safe to
     call in multithreaded programs for two reasons:
     + parallel threads opening new file descriptors will have these descriptors captured
       by a fork(). This leads to annoying glitches like (for example) attempts to 'umount'
@@ -25,7 +25,7 @@
 
     Additionally Unix.fork(), Unix.exec*() are very low-level primitives. When we call
     these functions what we actually want to do is run some separate process with certain
-    file-descriptors, optionally returning results. 
+    file-descriptors, optionally returning results.
 
     	The interface in this module
     + is higher-level than Unix.fork(), Unix.exec*()
@@ -49,7 +49,7 @@ val execute_command_get_output :
   -> string list
   -> string * string
 (** [execute_command_get_output cmd args] runs [cmd args] and returns (stdout, stderr)
-    	on success (exit 0). On failure this raises 
+    	on success (exit 0). On failure this raises
     [Spawn_internal_error(stderr, stdout, Unix.process_status)] *)
 
 val execute_command_get_output_send_stdin :
@@ -61,7 +61,7 @@ val execute_command_get_output_send_stdin :
   -> string
   -> string * string
 (** [execute_command_get_output cmd args stdin] runs [cmd args], passes in the string [stdin] and returns (stdout, stderr)
-    	on success (exit 0). On failure this raises 
+    	on success (exit 0). On failure this raises
     [Spawn_internal_error(stderr, stdout, Unix.process_status)] *)
 
 (** Thrown by [execute_command_get_output] if the subprocess exits with a non-zero exit code *)
@@ -115,8 +115,8 @@ val dontwaitpid : pidty -> unit
     	process will not persist as a zombie. *)
 
 val waitpid_fail_if_bad_exit : pidty -> unit
-(** [waitpid_fail_if_bad_exit p] calls waitpid on [p] and throws [Subprocess_failed x] if the 
-    	process exits with non-zero code x and [Subprocess_killed x] if the process is killed by a 
+(** [waitpid_fail_if_bad_exit p] calls waitpid on [p] and throws [Subprocess_failed x] if the
+    	process exits with non-zero code x and [Subprocess_killed x] if the process is killed by a
     	signal and exits with non-zero code x. *)
 
 (** Result returned by {!with_logfile_fd}. *)

@@ -1,8 +1,8 @@
 (library
   (name zstd)
-  (public_name zstd)
+  (modes best)
   (libraries
-    (re_export xapi-compression)
+    (re_export xapi_compression)
   )
 )
 

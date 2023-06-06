@@ -1,5 +1,6 @@
 (library
   (name CommonFunctions)
+  (modes best)
   (wrapped false)
   (libraries
     astring

@@ -1,5 +1,6 @@
 (library
  (name xenopsd_xc)
+ (modes best)
  (modules :standard \
           xenops_xc_main
           memory_breakdown
@@ -28,6 +29,7 @@
   threads.posix
   uuid
   uuidm
+  uri
   xapi-backtrace
   xapi-idl
   xapi-idl.memory
@@ -45,16 +47,18 @@
   xapi-stdext-std
   xapi-stdext-threads
   xapi-stdext-unix
-  xapi-xenopsd
-  xapi-xenopsd.c_stubs
-  xapi-xenopsd-xc.c_stubs
+  xenopsd
+  c_stubs
+  xc_stubs
   xenctrl
   xenstore
   xenstore_transport.unix
  )
 
  (preprocess
-  (pps ppx_deriving_rpc ppx_sexp_conv)
+   (per_module
+    ((pps ppx_deriving_rpc) Device Device_common Domain Xenops_server_xen)
+   )
  )
  (wrapped false)
 )
@@ -73,7 +77,7 @@
   xapi-idl.xen.interface
   xapi-inventory
   xapi-stdext-unix
-  xapi-xenopsd
+  xenopsd
   xenctrl
   xenstore_transport.unix
   xenopsd_xc
@@ -107,7 +111,7 @@
   dune-build-info
   xapi-stdext-date
   xapi-stdext-unix
-  xapi-xenopsd
+  xenopsd
   xenctrl
  )
 )
@@ -133,7 +137,7 @@
   ezxenstore.core
   threads.posix
   xapi-idl.xen.interface
-  xapi-xenopsd
+  xenopsd
   xenctrl
   xenopsd_xc
   xenstore_transport.unix

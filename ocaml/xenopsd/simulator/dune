@@ -5,7 +5,7 @@
  (libraries
    dune-build-info
    xapi-idl.xen.interface
-   xapi-xenopsd
+   xenopsd
  )
 )
 

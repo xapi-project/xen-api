@@ -13,7 +13,6 @@ depends: [
   "dune"
   "dune-build-info"
   "astring"
-  "gzip"
   "inotify"
   "io-page"
   "mtime"

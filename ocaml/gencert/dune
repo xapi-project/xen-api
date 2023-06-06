@@ -2,6 +2,7 @@
   (name gencertlib)
   (wrapped true)
   (modules lib selfcert pem)
+  (modes best)
   (libraries
     angstrom
     astring

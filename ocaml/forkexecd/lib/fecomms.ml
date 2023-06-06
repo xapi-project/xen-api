@@ -6,10 +6,13 @@ let open_unix_domain_sock () = Unix.socket Unix.PF_UNIX Unix.SOCK_STREAM 0
 let open_unix_domain_sock_server path =
   Unixext.mkdir_rec (Filename.dirname path) 0o755 ;
   Unixext.unlink_safe path ;
+  let listening = path ^ ".listening" in
+  Unixext.unlink_safe listening ;
   let sock = open_unix_domain_sock () in
   try
     Unix.bind sock (Unix.ADDR_UNIX path) ;
     Unix.listen sock 5 ;
+    Unixext.touch_file listening;
     sock
   with e -> Unix.close sock ; raise e
 

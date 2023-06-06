@@ -16,11 +16,12 @@
     xapi-stdext-encodings
   )
   (wrapped false)
-  (preprocess (pps ppx_sexp_conv))
+  (preprocess (per_module ((pps ppx_sexp_conv) Schema)))
 )
 
 (library
   (name xapi_database)
+  (modes best)
   (modules
     (:standard \ database_server_main db_cache_test db_names db_exn
       block_device_io string_marshall_helper string_unmarshall_helper schema
@@ -49,7 +50,10 @@
     xmlm
   )
   (wrapped false)
-  (preprocess (pps ppx_deriving_rpc))
+  (preprocess
+    (per_module
+     ((pps ppx_deriving_rpc)
+      Db_cache_types Db_filter_types Db_rpc_common_v2 Db_secret_string)))
 )
 
 (executable

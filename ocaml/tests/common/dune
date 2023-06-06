@@ -1,5 +1,6 @@
 (library
   (name tests_common)
+  (modes best)
   (modules :standard)
   (wrapped false)
   (libraries

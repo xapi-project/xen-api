@@ -23,7 +23,7 @@
       xapi-idl.xen.interface.types
       xapi-stdext-pervasives
   )
-  (preprocess (pps ppx_deriving_rpc))
+  (preprocess (per_module ((pps ppx_deriving_rpc) Common Xn_cfg_types)))
 )
 
 (rule

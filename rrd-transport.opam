@@ -10,7 +10,7 @@ build: [
 ]
 depends: [
   "ocaml"
-  "dune" {build & >= "1.0+beta10"}
+  "dune" {build & >= "3.7"}
   "cstruct"
   "crc"
   "astring"

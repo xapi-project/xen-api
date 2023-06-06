@@ -5,8 +5,7 @@ let () =
   Debug.log_to_stdout () ;
   Alcotest.run "Base suite"
     ([
-       ("Test_valid_ref_list", Test_valid_ref_list.test)
-     ; ("Test_sdn_controller", Test_sdn_controller.test)
+       ("Test_sdn_controller", Test_sdn_controller.test)
      ; ("Test_pci_helpers", Test_pci_helpers.test)
      ; ("Test_vdi_allowed_operations", Test_vdi_allowed_operations.test)
      ; ("Test_sr_allowed_operations", Test_sr_allowed_operations.test)
@@ -27,7 +26,6 @@ let () =
      ; ( "Test_clustering_allowed_operations"
        , Test_clustering_allowed_operations.test
        )
-     ; ("Test_client", Test_client.test)
      ; ("Test_ca91480", Test_ca91480.test)
      ; ("Test_pgpu", Test_pgpu.test)
      ; ("Test_gpu_group", Test_gpu_group.test)

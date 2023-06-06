@@ -10,6 +10,7 @@
   rpclib.core
   uri
   uuid
+  xapi_version
   xapi_guard
   xapi-log
   xapi-types

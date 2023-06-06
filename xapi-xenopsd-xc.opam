@@ -41,7 +41,6 @@ depends: [
   "xapi-stdext-std"
   "xapi-stdext-threads"
   "xapi-stdext-unix"
-  "xapi-xenopsd"
   "xenctrl"
   "xenstore"
   "xenstore_transport"

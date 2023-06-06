@@ -4,8 +4,9 @@
  (package xapi-xenopsd-xc)
  (libraries
    dune-build-info
-   xapi-xenopsd
+   xenopsd
    xenctrl
+   xenmmap
    xenstore
    xenstore.unix
    xenstore_transport

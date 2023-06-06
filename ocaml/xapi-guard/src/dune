@@ -12,6 +12,7 @@
    rpclib.json
    rpclib-lwt
    uuidm
+   xapi_version
    xapi_guard
    xapi-idl
    xapi-idl.varstore.privileged

@@ -56,8 +56,9 @@
 
 (library
   (name xapi_internal)
+  (modes best)
   (wrapped false)
-  (modules (:standard \ xapi_main))
+  (modules (:standard \ xapi_main api_server server xapi))
   (libraries
     angstrom
     astring
@@ -72,6 +73,7 @@
     gzip
     hex
     http_lib
+    httpsvr
     ipaddr
     message-switch-core
     message-switch-unix
@@ -83,6 +85,7 @@
     pciutil
     pci
     ptime
+    ptime.clock.os
     rpclib.core
     rpclib.json
     rpclib.xml
@@ -144,7 +147,7 @@
     xapi-stdext-threads
     xapi-stdext-unix
     xapi-stdext-zerocheck
-    xapi-xenopsd
+    xenopsd
     xenstore_transport.unix
     xml-light2
     xmlm
@@ -152,7 +155,46 @@
     yojson
     zstd
   )
-  (preprocess (pps ppx_deriving_rpc ppx_sexp_conv))
+  (preprocess (per_module
+   ((pps ppx_sexp_conv) Cert_distrib)
+   ((pps ppx_deriving_rpc)
+    Config_file_sync Extauth_plugin_ADwinbind Importexport Sparse_dd_wrapper
+    Storage_migrate Storage_mux Storage_smapiv1_wrapper Stream_vdi
+    System_domains Xapi_psr Xapi_services Xapi_udhcpd)))
+)
+
+(library
+  (name xapi_internal_server)
+  (modes best)
+  (wrapped false)
+  (modules server api_server xapi)
+  (libraries
+    forkexec
+    http_lib
+    httpsvr
+    rpclib.core
+    rpclib.json
+    rpclib.xml
+    stunnel
+    threads.posix
+    xapi-backtrace
+    xapi-client
+    xapi-consts
+    xapi-datamodel
+    xapi-idl
+    xapi-inventory
+    xapi-log
+    xapi-stdext-date
+    xapi-stdext-encodings
+    xapi-stdext-pervasives
+    xapi-stdext-std
+    xapi-stdext-threads
+    xapi-stdext-unix
+    xapi-types
+    xapi_aux
+    xapi_cli_server
+    xapi_database
+    xapi_internal)
 )
 
 (executable
@@ -163,6 +205,7 @@
   (modules xapi_main)
   (libraries
     xapi_internal
+    xapi_internal_server
     xapi-idl
     xapi-log
     xapi-stdext-unix

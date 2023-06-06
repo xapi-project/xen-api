@@ -24,6 +24,6 @@
     xapi-idl
   )
   (wrapped false)
-  (preprocess (pps ppx_deriving_rpc))
+  (preprocess (per_module ((pps ppx_deriving_rpc) API Event_types Features SecretString)))
 )
 

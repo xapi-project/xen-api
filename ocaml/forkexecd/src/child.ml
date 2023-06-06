@@ -133,6 +133,7 @@ let handle_sigchld comms_sock args pid _signum =
     (* If the expected child has died (it should be the only child!) write its
        		   exit status to the socket and exit. *)
     report_child_exit comms_sock args child_pid status ;
+    Unix.shutdown comms_sock SHUTDOWN_ALL;
     Unix.close comms_sock ;
     exit 0
   )
@@ -278,6 +279,7 @@ let run state comms_sock fd_sock fd_sock_path =
       match Unix.waitpid [Unix.WNOHANG] result with
       | pid, status when pid = result ->
           report_child_exit comms_sock args result status ;
+          Unix.shutdown comms_sock SHUTDOWN_ALL;
           Unix.close comms_sock ;
           exit 0
       | _ ->
@@ -302,6 +304,7 @@ let run state comms_sock fd_sock fd_sock_path =
           let rec wait_for_dontwaitpid () =
             match Fecomms.read_raw_rpc comms_sock with
             | Fe.Dontwaitpid ->
+                Unix.shutdown comms_sock SHUTDOWN_ALL;
                 Unix.close comms_sock ; exit 0
             | _ ->
                 wait_for_dontwaitpid ()
@@ -311,6 +314,7 @@ let run state comms_sock fd_sock fd_sock_path =
   with
   | Cancelled ->
       debug "Cancelling" ;
+      Unix.shutdown comms_sock SHUTDOWN_ALL;
       Unix.close comms_sock ;
       Unix.close fd_sock ;
       Xapi_stdext_unix.Unixext.unlink_safe fd_sock_path ;

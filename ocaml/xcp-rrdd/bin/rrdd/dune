@@ -1,5 +1,6 @@
 (library
   (name rrdd_libs_internal)
+  (modes best)
   (wrapped false)
   (modules (:standard \ xcp_rrdd))
   (libraries
@@ -32,7 +33,6 @@
     xapi-stdext-unix
     xmlm
   )
-  (preprocess (pps ppx_deriving_rpc))
 )
 
 (executable
@@ -48,6 +48,7 @@
     ezxenstore.watch
     forkexec
     http_lib
+    httpsvr
     inotify
     rpclib.core
     rpclib.json
