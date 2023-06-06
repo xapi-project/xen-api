@@ -28,6 +28,8 @@ open D
 
 let my_connection : Stunnel.t option ref = ref None
 
+let delay = Scheduler.PipeDelay.make ()
+
 exception Uninitialised
 
 let is_slave : (unit -> bool) ref =
@@ -315,7 +317,9 @@ let do_db_xml_rpc_persistent_with_reopen ~host:_ ~path (req : string) :
           ) ;
         debug "Sleeping %f seconds before retrying master connection..."
           !backoff_delay ;
-        Thread.delay !backoff_delay ;
+        let timed_out = Scheduler.PipeDelay.wait delay !backoff_delay in
+        if not timed_out then
+          debug "%s: Wake up and retry connecting" __FUNCTION__ ;
         update_backoff_delay () ;
         try open_secure_connection () with _ -> ()
         (* oh well, maybe nextime... *)
