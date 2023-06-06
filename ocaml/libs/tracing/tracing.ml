@@ -737,10 +737,6 @@ module Export = struct
     let export_to_endpoint parent traces endpoint =
       debug "Tracing: About to export" ;
       try
-        let attributes = [("export.endpoint", endpoint_to_string endpoint)] in
-        let@ parent =
-          with_tracing ~parent ~attributes ~name:"Tracing.export_to_endpoint"
-        in
         File.with_stream (fun file_export ->
             let export, name =
               match endpoint with
@@ -749,18 +745,18 @@ module Export = struct
               | Bugtool ->
                   (file_export, "Tracing.File.export")
             in
-            Ok ()
-            |> Hashtbl.fold
-                 (fun _ spans result ->
-                   let attributes =
-                     [("export.span.count", List.length spans |> string_of_int)]
-                   in
-                   let@ _ = with_tracing ~parent ~attributes ~name in
-                   Content.Json.Zipkinv2.content_of spans
-                   |> export
-                   |> Result.fold ~ok:(fun () -> result) ~error:Result.error
-                 )
-                 traces
+            let all_spans =
+              Hashtbl.fold (fun _ spans acc -> spans @ acc) traces []
+            in
+            let attributes =
+              [
+                ("export.span.count", List.length all_spans |> string_of_int)
+              ; ("export.endpoint", endpoint_to_string endpoint)
+              ]
+            in
+            let@ _ = with_tracing ~parent ~attributes ~name in
+            Content.Json.Zipkinv2.content_of all_spans
+            |> export
             |> Result.iter_error raise
         )
       with exn ->
