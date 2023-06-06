@@ -118,7 +118,7 @@ module TestTimeUntilNextSync = struct
       ; expected= (2 * 60 * 60) + 1
       }
     ; {
-        name= "2 hours and 1 second"
+        name= "2 hours"
       ; now= ((2023, 5, 4), (23, 0, 1))
       ; next_sync= ((2023, 5, 5), (1, 0, 1))
       ; expected= 2 * 60 * 60
