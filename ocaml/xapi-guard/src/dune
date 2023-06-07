@@ -1,6 +1,7 @@
 (executable
  (name main)
  (libraries
+   astring
    cmdliner
    dune-build-info
    lwt

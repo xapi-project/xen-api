@@ -37,11 +37,12 @@ let get_static_device reason =
   R.debug "Found %d VDIs matching [%s]" (List.length vdis) reason ;
   match vdis with [] -> None | hd :: _ -> hd.Static_vdis_list.path
 
-(* Make sure we have plenty of room for the database *)
-let minimum_vdi_size =
+let mib megabytes =
   let ( ** ) = Int64.mul in
-  let mib = 1024L ** 1024L in
-  256L ** mib
+  Int64.of_int megabytes ** 1024L ** 1024L
+
+(* Make sure we have plenty of room for the database *)
+let minimum_vdi_size, recommended_vdi_size = (mib 256, mib 4096)
 
 let redo_log_sm_config = [("type", "raw")]
 

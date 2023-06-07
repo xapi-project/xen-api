@@ -243,6 +243,7 @@ val restore :
   -> extras:string list
   -> build_info
   -> manager_path:string
+  -> vtpm:Xenops_interface.Vm.tpm option
   -> domid
   -> Unix.file_descr
   -> Unix.file_descr option

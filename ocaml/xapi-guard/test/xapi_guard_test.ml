@@ -78,9 +78,9 @@ let with_rpc f switch () =
   in
   (Lwt_switch.add_hook (Some switch) @@ fun () -> SessionCache.destroy cache) ;
   let path = Filename.concat tmp "socket" in
-  (* Create an internal server on 'path', the socket that varstored/swtpm would connect to *)
-  let* stop_server = make_server_rpcfn ~cache path vm_uuid in
-  (* rpc simulates what varstored/swtpm would do *)
+  (* Create an internal server on 'path', the socket that varstored would connect to *)
+  let* stop_server = make_server_varstored ~cache path vm_uuid in
+  (* rpc simulates what varstored would do *)
   let uri = Uri.make ~scheme:"file" ~path () |> Uri.to_string in
   D.debug "Connecting to %s" uri ;
   let rpc = Xen_api_lwt_unix.make uri in
@@ -88,8 +88,8 @@ let with_rpc f switch () =
     (fun () ->
       (* not strictly necessary to login/logout here - since we only get dummy sessions *)
       let* session_id =
-        Session.login_with_password ~rpc ~uname:"root" ~pwd:"" ~version:"0.0"
-          ~originator:"test"
+        Session.login_with_password ~rpc ~uname:"root" ~pwd:""
+          ~version:Xapi_version.version ~originator:"test"
       in
       let logout () = Session.logout ~rpc ~session_id in
       Lwt.finalize logout @@ f ~rpc ~session_id

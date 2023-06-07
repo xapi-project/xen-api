@@ -23,18 +23,26 @@ module Chroot : sig
       the chroot [within] with its owner and group ids and permissions [perm]*)
 
   val of_domid :
-    base:string -> daemon:string -> domid:int -> vm_uuid:string -> t
-  (** [of_domid ~base ~daemon ~domid ~vm_uuid] describes a chroot for specified
+       base:string
+    -> base_uid:(unit -> int)
+    -> base_gid:(unit -> int)
+    -> daemon:string
+    -> domid:int
+    -> vm_uuid:string
+    -> t
+  (** [of_domid ~base ~base_uid ~base_gid ~daemon ~domid ~vm_uuid] describes a chroot for specified
      daemon and domain *)
 
   val create :
        base:string
+    -> base_uid:(unit -> int)
+    -> base_gid:(unit -> int)
     -> daemon:string
     -> domid:int
     -> vm_uuid:string
     -> Path.t list
     -> t
-  (** [create ~base ~daemon ~domid paths] Creates the specified chroot with
+  (** [create ~base ~base_uid ~base_gid ~daemon ~domid paths] Creates the specified chroot with
       appropriate permissions on directory [base], and ensures that all [paths]
       are owned by the chrooted daemon and rw- *)
 
