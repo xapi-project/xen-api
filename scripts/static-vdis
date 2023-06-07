@@ -220,12 +220,23 @@ def doexec(args, inputtext=None):
     rc = proc.returncode
     return (rc,stdout,stderr)
 
+
+def connect_smapiv1_nbd(params_nbd):
+    path, export = parse_nbd_uri(params_nbd)
+    return connect_nbd(path, export)
+
+
 def call_backend_attach(driver, config):
     args = map(lambda arg: arg.encode('utf8'), [driver, config])
     xml = doexec(args)
     if xml[0] != 0:
         raise Exception("SM_BACKEND_FAILURE(%d, %s, %s)" % xml)
     xmlrpc = xmlrpclib.loads(xml[1])
+
+    if 'params_nbd' in xmlrpc[0][0]:
+        # Prefer NBD if available
+        return connect_smapiv1_nbd(xmlrpc[0][0]['params_nbd'])
+
     try:
     	path = xmlrpc[0][0]['params']
     except:
