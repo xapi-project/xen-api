@@ -51,6 +51,16 @@ type edition = {
 }
 [@@deriving rpcty]
 
+(** Record representing version *)
+type version = {
+    dbv: string  (** Date-Based Version *)
+  ; preview: bool  (** In preview phase or not *)
+}
+[@@deriving rpcty]
+
+let assoc_list_of_version version =
+  [("dbv", version.dbv); ("preview", string_of_bool version.preview)]
+
 (** List of edition records *)
 type edition_list = edition list [@@deriving rpcty]
 
@@ -179,7 +189,10 @@ module RPC_API (R : RPC) = struct
       (debug_info_p @-> returning edition_list_p err)
 
   let get_version =
-    let result_p = Param.mk ~description:["String of version."] Types.string in
-    declare "get_version" ["Returns version"]
+    let result_p =
+      Param.mk ~description:["Version record information"] version
+    in
+    declare "get_version"
+      ["Returns version record information"]
       (debug_info_p @-> returning result_p err)
 end
