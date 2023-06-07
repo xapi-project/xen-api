@@ -23,6 +23,12 @@ let attribute_key_regex =
 let validate_attribute (key, value) =
   Re.execp attribute_key_regex key && String.length value <= 4095
 
+let observe = ref true
+
+let set_observe mode = observe := mode
+
+let ( let@ ) f x = f x
+
 module SpanKind = struct
   type t = Server | Consumer | Client | Producer | Internal [@@deriving rpcty]
 
@@ -44,6 +50,12 @@ let endpoint_of_string = function
       Bugtool
   | url ->
       Url (Uri.of_string url)
+
+let endpoint_to_string = function
+  | Bugtool ->
+      "bugtool"
+  | Url url ->
+      Uri.to_string url
 
 let ok_none = Ok None
 
@@ -388,13 +400,18 @@ module Tracer = struct
     ; attributes= Attributes.empty
     }
 
-  let start ~tracer:t ?(span_kind = SpanKind.Internal) ~name ~parent () :
-      (Span.t option, exn) result =
+  let start ~tracer:t ?(attributes = []) ?(span_kind = SpanKind.Internal) ~name
+      ~parent () : (Span.t option, exn) result =
     (* Do not start span if the TracerProvider is diabled*)
     if not t.provider.enabled then
       ok_none
     else
-      let attributes = t.provider.attributes in
+      let attributes = Attributes.of_list attributes in
+      let attributes =
+        Attributes.union
+          (fun _k a _b -> Some a)
+          attributes t.provider.attributes
+      in
       let span = Span.start ~attributes ~name ~parent ~span_kind () in
       Spans.add_to_spans ~span ; Ok (Some span)
 
@@ -488,6 +505,27 @@ let get_tracer ~name =
 
 let enable_span_garbage_collector ?(timeout = 86400.) () =
   Spans.GC.initialise_thread ~timeout
+
+let with_tracing ?(attributes = []) ?(parent = None) ~name f =
+  if not !observe then
+    f None
+  else
+    let tracer = get_tracer ~name in
+    match Tracer.start ~tracer ~attributes ~name ~parent () with
+    | Ok span -> (
+      try
+        let result = f span in
+        ignore @@ Tracer.finish span ;
+        result
+      with exn ->
+        let backtrace = Printexc.get_backtrace () in
+        let error = (exn, backtrace) in
+        ignore @@ Tracer.finish span ~error ;
+        raise exn
+    )
+    | Error e ->
+        warn "Failed to start tracing: %s" (Printexc.to_string e) ;
+        f None
 
 module Export = struct
   let export_interval = ref 30.
@@ -696,25 +734,29 @@ module Export = struct
         with e -> Error e
     end
 
-    let export_to_endpoint traces endpoint =
+    let export_to_endpoint parent traces endpoint =
       debug "Tracing: About to export" ;
       try
         File.with_stream (fun file_export ->
-            let export =
+            let export, name =
               match endpoint with
               | Url url ->
-                  Http.export ~url
+                  (Http.export ~url, "Tracing.Http.export")
               | Bugtool ->
-                  file_export
+                  (file_export, "Tracing.File.export")
             in
-            Ok ()
-            |> Hashtbl.fold
-                 (fun _ spans result ->
-                   Content.Json.Zipkinv2.content_of spans
-                   |> export
-                   |> Result.fold ~ok:(fun () -> result) ~error:Result.error
-                 )
-                 traces
+            let all_spans =
+              Hashtbl.fold (fun _ spans acc -> spans @ acc) traces []
+            in
+            let attributes =
+              [
+                ("export.span.count", List.length all_spans |> string_of_int)
+              ; ("export.endpoint", endpoint_to_string endpoint)
+              ]
+            in
+            let@ _ = with_tracing ~parent ~attributes ~name in
+            Content.Json.Zipkinv2.content_of all_spans
+            |> export
             |> Result.iter_error raise
         )
       with exn ->
@@ -722,10 +764,16 @@ module Export = struct
 
     let flush_spans () =
       let span_list = Spans.since () in
+      let attributes =
+        [("export.traces.count", Hashtbl.length span_list |> string_of_int)]
+      in
+      let@ parent =
+        with_tracing ~parent:None ~attributes ~name:"Tracing.flush_spans"
+      in
       get_tracer_providers ()
       |> List.filter (fun x -> x.TracerProvider.enabled)
       |> List.concat_map (fun x -> TracerProvider.get_endpoints x)
-      |> List.iter (export_to_endpoint span_list)
+      |> List.iter (export_to_endpoint parent span_list)
 
     let main () =
       enable_span_garbage_collector () ;

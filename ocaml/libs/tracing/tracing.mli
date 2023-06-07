@@ -66,6 +66,7 @@ module Tracer : sig
 
   val start :
        tracer:t
+    -> ?attributes:(string * string) list
     -> ?span_kind:SpanKind.t
     -> name:string
     -> parent:Span.t option
@@ -133,6 +134,8 @@ module Export : sig
     val flush_spans : unit -> unit
   end
 end
+
+val set_observe : bool -> unit
 
 val validate_attribute : string * string -> bool
 
