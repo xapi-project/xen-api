@@ -319,7 +319,8 @@ let do_db_xml_rpc_persistent_with_reopen ~host:_ ~path (req : string) :
           !backoff_delay ;
         let timed_out = Scheduler.PipeDelay.wait delay !backoff_delay in
         if not timed_out then
-          debug "%s: Wake up and retry connecting" __FUNCTION__ ;
+          debug "%s: Sleep interrupted, retrying master connection now"
+            __FUNCTION__ ;
         update_backoff_delay () ;
         try open_secure_connection () with _ -> ()
         (* oh well, maybe nextime... *)
