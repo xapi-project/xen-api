@@ -1,10 +1,24 @@
 let prototyped_of_class = function
+  | "Observer" ->
+      Some "23.13.0-next"
   | "VTPM" ->
       Some "22.26.0"
   | _ ->
       None
 
 let prototyped_of_field = function
+  | "Observer", "enabled" ->
+      Some "23.13.0-next"
+  | "Observer", "components" ->
+      Some "23.13.0-next"
+  | "Observer", "endpoints" ->
+      Some "23.13.0-next"
+  | "Observer", "attributes" ->
+      Some "23.13.0-next"
+  | "Observer", "hosts" ->
+      Some "23.13.0-next"
+  | "Observer", "uuid" ->
+      Some "23.13.0-next"
   | "Repository", "gpgkey_path" ->
       Some "22.12.0"
   | "VTPM", "contents" ->
@@ -35,6 +49,20 @@ let prototyped_of_field = function
       None
 
 let prototyped_of_message = function
+  | "Observer", "set_components" ->
+      Some "23.13.0-next"
+  | "Observer", "set_endpoints" ->
+      Some "23.13.0-next"
+  | "Observer", "set_attributes" ->
+      Some "23.13.0-next"
+  | "Observer", "set_enabled" ->
+      Some "23.13.0-next"
+  | "Observer", "set_hosts" ->
+      Some "23.13.0-next"
+  | "Observer", "unregister" ->
+      Some "23.13.0-next"
+  | "Observer", "register" ->
+      Some "23.13.0-next"
   | "Repository", "apply_livepatch" ->
       Some "22.20.0"
   | "Repository", "set_gpgkey_path" ->
