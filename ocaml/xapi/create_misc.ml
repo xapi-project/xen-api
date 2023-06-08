@@ -545,15 +545,12 @@ let make_software_version ~__context host_info =
   let option_to_list k o = match o with None -> [] | Some x -> [(k, x)] in
   let v6_version =
     (* Best-effort attempt to read the date-based version from v6d *)
-    try
-      match V6_client.get_version "make_software_version" with
-      | "" ->
-          []
-      | dbv ->
-          [("dbv", dbv)]
-    with
-    | Api_errors.Server_error (code, []) when code = Api_errors.v6d_failure ->
-      []
+    match V6_client.get_version "make_software_version" with
+    | l ->
+        l
+    | exception Api_errors.Server_error (code, [])
+      when code = Api_errors.v6d_failure ->
+        []
   in
   Xapi_globs.software_version ()
   @ v6_version
