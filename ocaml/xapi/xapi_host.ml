@@ -1039,7 +1039,7 @@ let create ~__context ~uuid ~name_label ~name_description:_ ~hostname ~address
     ~control_domain:Ref.null ~updates_requiring_reboot:[] ~iscsi_iqn:""
     ~multipathing:false ~uefi_certificates:"" ~editions:[] ~pending_guidances:[]
     ~tls_verification_enabled ~last_software_update:Date.never
-    ~recommended_guidances:[] ~up_to_date:`unknown ;
+    ~recommended_guidances:[] ~latest_synced_updates_applied:`unknown ;
   (* If the host we're creating is us, make sure its set to live *)
   Db.Host_metrics.set_last_updated ~__context ~self:metrics
     ~value:(Date.of_float (Unix.gettimeofday ())) ;
@@ -2992,7 +2992,7 @@ let apply_updates ~__context ~self ~hash =
   in
   Db.Host.set_last_software_update ~__context ~self
     ~value:(get_servertime ~__context ~host:self) ;
-  Db.Host.set_up_to_date ~__context ~self ~value:`yes ;
+  Db.Host.set_latest_synced_updates_applied ~__context ~self ~value:`yes ;
   List.map
     (fun g ->
       [

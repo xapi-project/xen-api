@@ -3238,9 +3238,10 @@ let host_record rpc session_id host =
               (x ()).API.host_recommended_guidances
           )
           ()
-      ; make_field ~name:"up-to-date"
+      ; make_field ~name:"latest-synced-updates-applied"
           ~get:(fun () ->
-            Record_util.up_to_date_state_to_string (x ()).API.host_up_to_date
+            Record_util.latest_synced_updates_applied_state_to_string
+              (x ()).API.host_latest_synced_updates_applied
           )
           ()
       ]

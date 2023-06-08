@@ -316,18 +316,9 @@ let set_available_updates ~__context =
   let hosts_updates = get_hosts_updates ~__context in
   List.iter
     (fun (h, updates_of_host) ->
-      let host_pkg_updates_available =
+      let latest_synced_updates_applied =
         match get_list_from_updates_of_host "updates" updates_of_host with
-        | [] ->
-            false
-        | _ ->
-            true
-      in
-      let up_to_date =
-        match host_pkg_updates_available with
-        | true ->
-            false
-        | false ->
+        | [] -> (
             (* No RPM packages to be updated.
              * Find out if there are available livepatches from a update repo
              *)
@@ -338,15 +329,17 @@ let set_available_updates ~__context =
                    enabled
                 )
             in
-            not
-              (is_livepatchable ~__context update_repo
-                 (get_applied_livepatches_of_host updates_of_host)
-              )
+            let livepatchable =
+              is_livepatchable ~__context update_repo
+                (get_applied_livepatches_of_host updates_of_host)
+            in
+            match livepatchable with true -> `no | false -> `yes
+          )
+        | _ ->
+            `no
       in
-      let up_to_date_state =
-        match up_to_date with true -> `yes | false -> `no
-      in
-      Db.Host.set_up_to_date ~__context ~self:h ~value:up_to_date_state
+      Db.Host.set_latest_synced_updates_applied ~__context ~self:h
+        ~value:latest_synced_updates_applied
     )
     hosts_updates ;
   let checksums =

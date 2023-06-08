@@ -208,7 +208,7 @@ let update_guidance_to_string = function
   | `restart_device_model ->
       "restart_device_model"
 
-let up_to_date_state_to_string = function
+let latest_synced_updates_applied_state_to_string = function
   | `yes ->
       "yes"
   | `no ->

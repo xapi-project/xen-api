@@ -1761,9 +1761,9 @@ let apply_recommended_guidances =
       ]
     ~allowed_roles:_R_POOL_OP ()
 
-let up_to_date_state =
+let latest_synced_updates_applied_state =
   Enum
-    ( "up_to_date_state"
+    ( "latest_synced_updates_applied_state"
     , [
         ( "yes"
         , "The host is up to date with the latest updates synced from remote \
@@ -2138,8 +2138,10 @@ let t =
         ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:(Set update_guidances)
             "recommended_guidances" ~default_value:(Some (VSet []))
             "The set of recommended guidances after applying updates"
-        ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:up_to_date_state
-            "up_to_date" ~default_value:(Some (VEnum "unknown"))
+        ; field ~qualifier:DynamicRO ~lifecycle:[]
+            ~ty:latest_synced_updates_applied_state
+            "latest_synced_updates_applied"
+            ~default_value:(Some (VEnum "unknown"))
             "Default as 'unknown', 'yes' if the host is up to date with \
              updates synced from remote CDN, otherwise 'no'"
         ]
