@@ -50,21 +50,22 @@ let with_open_uri' uri f =
           )
   )
   | Some "https" -> (
-    match (Uri.host uri, Uri.port uri) with
-    | Some host, Some port ->
-        Stunnel.with_connect host port (fun s ->
-            f Safe_resources.Unixfd.(!(s.Stunnel.fd))
-        )
-    | Some host, None ->
-        Stunnel.with_connect host !Constants.https_port (fun s ->
-            f Safe_resources.Unixfd.(!(s.Stunnel.fd))
-        )
-    | _, _ ->
-        failwith
-          (Printf.sprintf "Failed to parse host and port from URI: %s"
-             (Uri.to_string uri)
-          )
-  )
+      let process (s : Stunnel.t) =
+        finally
+          (fun () -> f Safe_resources.Unixfd.(!(s.Stunnel.fd)))
+          (fun () -> Stunnel.disconnect s)
+      in
+      match (Uri.host uri, Uri.port uri) with
+      | Some host, Some port ->
+          Stunnel.with_connect host port process
+      | Some host, None ->
+          Stunnel.with_connect host !Constants.https_port process
+      | _, _ ->
+          failwith
+            (Printf.sprintf "Failed to parse host and port from URI: %s"
+               (Uri.to_string uri)
+            )
+    )
   | Some "file" ->
       let filename = Uri.path_and_query uri in
       let sockaddr = Unix.ADDR_UNIX filename in
