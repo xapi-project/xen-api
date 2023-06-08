@@ -72,7 +72,8 @@ module Task : functor (Interface : INTERFACE) -> sig
   (* [add tasks dbg f] adds a new task with debug string [dbg] that will execute
      [f] when run *)
   val add :
-       tasks
+       ?tracing:string
+    -> tasks
     -> string
     -> (task_handle -> Interface.Task.async_result option)
     -> task_handle
@@ -118,4 +119,8 @@ module Task : functor (Interface : INTERFACE) -> sig
      Useful for asynchronous tasks that we don't wait for.
   *)
   val destroy_on_finish : task_handle -> unit
+
+  val tracing : task_handle -> string option
+
+  val set_tracing : task_handle -> string option -> unit
 end

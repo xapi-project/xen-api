@@ -36,8 +36,8 @@ let no_exn f x =
   try ignore (f x)
   with exn -> debug "Ignoring exception: %s" (ExnHelper.string_of_exn exn)
 
-let rpc ~verify_cert host_address xml =
-  try Helpers.make_remote_rpc ~verify_cert host_address xml
+let rpc ~__context ~verify_cert host_address xml =
+  try Helpers.make_remote_rpc ~__context ~verify_cert host_address xml
   with Xmlrpc_client.Connection_reset ->
     raise
       (Api_errors.Server_error
@@ -1417,7 +1417,7 @@ let join_common ~__context ~master_address ~master_username ~master_password
     ~force =
   assert_pooling_licensed ~__context ;
   let new_pool_secret = ref (SecretString.of_string "") in
-  let unverified_rpc = rpc ~verify_cert:None master_address in
+  let unverified_rpc = rpc ~__context ~verify_cert:None master_address in
   let me = Helpers.get_localhost ~__context in
   let session_id =
     try
@@ -1456,7 +1456,9 @@ let join_common ~__context ~master_address ~master_username ~master_password
 
   (* Certificate exchange done, we must switch to verified pool connections as
      soon as possible *)
-  let rpc = rpc ~verify_cert:(Stunnel_client.pool ()) master_address in
+  let rpc =
+    rpc ~__context ~verify_cert:(Stunnel_client.pool ()) master_address
+  in
   let session_id =
     try
       Client.Session.login_with_password ~rpc ~uname:master_username
@@ -3281,7 +3283,8 @@ let perform ~local_fn ~__context ~host op =
     let open Xmlrpc_client in
     let verify_cert = Some Stunnel.pool (* verify! *) in
     let task_id = Option.map Ref.string_of task_opt in
-    let http = xmlrpc ?task_id ~version:"1.0" "/" in
+    let tracing = Context.set_client_span __context in
+    let http = xmlrpc ?task_id ~version:"1.0" ~tracing "/" in
     let port = !Constants.https_port in
     let transport = SSL (SSL.make ~verify_cert ?task_id (), hostname, port) in
     XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"dst_xapi" ~transport ~http xml

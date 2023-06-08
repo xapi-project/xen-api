@@ -34,6 +34,8 @@ let typ_of_rpc_t =
     ; of_rpc= (fun x -> Ok x)
     }
 
+type dict = (string * string) list [@@deriving rpcty]
+
 module TypeCombinators = struct
   let option ?name ?(description = []) d =
     let open Rpc.Types in
@@ -1096,5 +1098,78 @@ module XenopsAPI (R : RPC) = struct
     let shutdown =
       declare "DEBUG.shutdown" []
         (debug_info_p @-> unit_p @-> returning unit_p err)
+  end
+
+  module Observer = struct
+    open TypeCombinators
+
+    let endpoints_p = Param.mk ~name:"endpoints" (list Types.string)
+
+    let bool_p = Param.mk ~name:"bool" Types.bool
+
+    let uuid_p = Param.mk ~name:"uuid" Types.string
+
+    let name_label_p = Param.mk ~name:"name_label" Types.string
+
+    let dict_p = Param.mk ~name:"dict" dict
+
+    let string_p = Param.mk ~name:"string" Types.string
+
+    let int_p = Param.mk ~name:"int" Types.int
+
+    let float_p = Param.mk ~name:"float" Types.float
+
+    let create =
+      declare "Observer.create" []
+        (debug_info_p
+        @-> uuid_p
+        @-> name_label_p
+        @-> dict_p
+        @-> endpoints_p
+        @-> bool_p
+        @-> returning unit_p err
+        )
+
+    let destroy =
+      declare "Observer.destroy" []
+        (debug_info_p @-> uuid_p @-> returning unit_p err)
+
+    let set_enabled =
+      declare "Observer.set_enabled" []
+        (debug_info_p @-> uuid_p @-> bool_p @-> returning unit_p err)
+
+    let set_attributes =
+      declare "Observer.set_attributes" []
+        (debug_info_p @-> uuid_p @-> dict_p @-> returning unit_p err)
+
+    let set_endpoints =
+      declare "Observer.set_endpoints" []
+        (debug_info_p @-> uuid_p @-> endpoints_p @-> returning unit_p err)
+
+    let init = declare "Observer.init" [] (debug_info_p @-> returning unit_p err)
+
+    let set_trace_log_dir =
+      declare "Observer.set_trace_log_dir" []
+        (debug_info_p @-> string_p @-> returning unit_p err)
+
+    let set_export_interval =
+      declare "Observer.set_export_interval" []
+        (debug_info_p @-> float_p @-> returning unit_p err)
+
+    let set_host_id =
+      declare "Observer.set_host_id" []
+        (debug_info_p @-> string_p @-> returning unit_p err)
+
+    let set_max_traces =
+      declare "Observer.set_max_traces" []
+        (debug_info_p @-> int_p @-> returning unit_p err)
+
+    let set_max_spans =
+      declare "Observer.set_max_spans" []
+        (debug_info_p @-> int_p @-> returning unit_p err)
+
+    let set_max_file_size =
+      declare "Observer.set_max_file_size" []
+        (debug_info_p @-> int_p @-> returning unit_p err)
   end
 end

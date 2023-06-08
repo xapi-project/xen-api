@@ -18,6 +18,20 @@ module D = Debug.Make (struct let name = "mux" end)
 
 open D
 
+let with_tracing ~name ~dbg f =
+  let dbg, parent = Context.tracing_of_dbg dbg in
+  let name = "SMAPIv2." ^ name in
+  let tracer = Tracing.get_tracer ~name in
+  let span = Tracing.Tracer.start ~tracer ~name ~parent () in
+  match span with
+  | Ok span_context ->
+      let result = f dbg in
+      let _ = Tracing.Tracer.finish span_context in
+      result
+  | Error e ->
+      D.warn "Failed to start tracing: %s" (Printexc.to_string e) ;
+      f dbg
+
 type processor = Rpc.call -> Rpc.response
 
 let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
@@ -167,6 +181,7 @@ module Mux = struct
           let module C = StorageAPI (Idl.Exn.GenClient (struct
             let rpc = of_sr sr
           end)) in
+          with_tracing ~name:"Query.diagnostics" ~dbg @@ fun dbg ->
           C.Query.diagnostics dbg
       )
   end
@@ -224,12 +239,14 @@ module Mux = struct
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
+      with_tracing ~name:"DP.destroy2" ~dbg @@ fun dbg ->
       C.DP.destroy2 dbg dp sr vdi vm allow_leak ;
       DP_info.delete dp
 
     let destroy _context ~dbg ~dp ~allow_leak =
       info "DP.destroy dbg:%s dp:%s allow_leak:%b" dbg dp allow_leak ;
       let open DP_info in
+      with_tracing ~name:"DP.destroy" ~dbg @@ fun dbg ->
       match read dp with
       | Some {sr; vdi; vm; _} ->
           destroy2 _context ~dbg ~dp ~sr ~vdi ~vm ~allow_leak
@@ -279,6 +296,7 @@ module Mux = struct
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
+      with_tracing ~name:"SR.create" ~dbg @@ fun dbg ->
       C.SR.create dbg sr name_label name_description device_config physical_size
 
     let attach () ~dbg ~sr ~device_config =
@@ -287,6 +305,7 @@ module Mux = struct
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
+      with_tracing ~name:"SR.attach" ~dbg @@ fun dbg ->
       C.SR.attach dbg sr device_config
 
     let set_name_label () ~dbg ~sr ~new_name_label =
@@ -295,6 +314,7 @@ module Mux = struct
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
+      with_tracing ~name:"SR.set_name_label" ~dbg @@ fun dbg ->
       C.SR.set_name_label dbg sr new_name_label
 
     let set_name_description () ~dbg ~sr ~new_name_description =
@@ -303,6 +323,7 @@ module Mux = struct
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
+      with_tracing ~name:"SR.set_name_description" ~dbg @@ fun dbg ->
       C.SR.set_name_description dbg sr new_name_description
 
     let detach () ~dbg ~sr =
@@ -310,28 +331,28 @@ module Mux = struct
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
-      C.SR.detach dbg sr
+      with_tracing ~name:"SR.detach" ~dbg @@ fun dbg -> C.SR.detach dbg sr
 
     let destroy () ~dbg ~sr =
       info "SR.destroy dbg:%s sr:%s" dbg (s_of_sr sr) ;
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
-      C.SR.destroy dbg sr
+      with_tracing ~name:"SR.destroy" ~dbg @@ fun dbg -> C.SR.destroy dbg sr
 
     let stat () ~dbg ~sr =
       info "SR.stat dbg:%s sr:%s" dbg (s_of_sr sr) ;
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
-      C.SR.stat dbg sr
+      with_tracing ~name:"SR.stat" ~dbg @@ fun dbg -> C.SR.stat dbg sr
 
     let scan () ~dbg ~sr =
       info "SR.scan dbg:%s sr:%s" dbg (s_of_sr sr) ;
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
-      C.SR.scan dbg sr
+      with_tracing ~name:"SR.scan" ~dbg @@ fun dbg -> C.SR.scan dbg sr
 
     module SRSet = Set.Make (struct
       type t = Storage_interface.Sr.t
@@ -354,7 +375,7 @@ module Mux = struct
              let module C = StorageAPI (Idl.Exn.GenClient (struct
                let rpc = of_sr sr
              end)) in
-             C.SR.list dbg
+             with_tracing ~name:"SR.list" ~dbg @@ fun dbg -> C.SR.list dbg
          )
         )
       |> SRSet.elements
@@ -364,7 +385,7 @@ module Mux = struct
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
-      C.SR.reset dbg sr
+      with_tracing ~name:"SR.reset" ~dbg @@ fun dbg -> C.SR.reset dbg sr
 
     let update_snapshot_info_src () ~dbg ~sr ~vdi ~url ~dest ~dest_vdi
         ~snapshot_pairs =
@@ -381,6 +402,7 @@ module Mux = struct
         |> String.concat "; "
         |> Printf.sprintf "[%s]"
         ) ;
+      with_tracing ~name:"SR.update_snapshot_info_src" ~dbg @@ fun dbg ->
       Storage_migrate.update_snapshot_info_src ~dbg ~sr ~vdi ~url ~dest
         ~dest_vdi ~snapshot_pairs
 
@@ -401,6 +423,7 @@ module Mux = struct
         |> String.concat "; "
         |> Printf.sprintf "[%s]"
         ) ;
+      with_tracing ~name:"SR.update_snapshot_info_dest" ~dbg @@ fun dbg ->
       C.SR.update_snapshot_info_dest dbg sr vdi src_vdi snapshot_pairs
   end
 
@@ -411,6 +434,7 @@ module Mux = struct
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
+      with_tracing ~name:"VDI.create" ~dbg @@ fun dbg ->
       C.VDI.create dbg sr vdi_info
 
     let set_name_label () ~dbg ~sr ~vdi ~new_name_label =
@@ -419,6 +443,7 @@ module Mux = struct
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
+      with_tracing ~name:"VDI.set_name_label" ~dbg @@ fun dbg ->
       C.VDI.set_name_label dbg sr vdi new_name_label
 
     let set_name_description () ~dbg ~sr ~vdi ~new_name_description =
@@ -428,6 +453,7 @@ module Mux = struct
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
+      with_tracing ~name:"VDI.set_name_description" ~dbg @@ fun dbg ->
       C.VDI.set_name_description dbg sr vdi new_name_description
 
     let snapshot () ~dbg ~sr ~vdi_info =
@@ -436,7 +462,9 @@ module Mux = struct
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
-      try C.VDI.snapshot dbg sr vdi_info
+      try
+        with_tracing ~name:"VDI.snapshot" ~dbg @@ fun dbg ->
+        C.VDI.snapshot dbg sr vdi_info
       with Storage_interface.Storage_error (Activated_on_another_host uuid) ->
         Server_helpers.exec_with_new_task "smapiv2.snapshot.activated"
           ~subtask_of:(Ref.of_string dbg) (fun __context ->
@@ -455,6 +483,7 @@ module Mux = struct
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
+      with_tracing ~name:"VDI.clone" ~dbg @@ fun dbg ->
       C.VDI.clone dbg sr vdi_info
 
     let resize () ~dbg ~sr ~vdi ~new_size =
@@ -463,6 +492,7 @@ module Mux = struct
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
+      with_tracing ~name:"VDI.resize" ~dbg @@ fun dbg ->
       C.VDI.resize dbg sr vdi new_size
 
     let destroy () ~dbg ~sr ~vdi =
@@ -470,6 +500,7 @@ module Mux = struct
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
+      with_tracing ~name:"VDI.destroy" ~dbg @@ fun dbg ->
       C.VDI.destroy dbg sr vdi
 
     let stat () ~dbg ~sr ~vdi =
@@ -477,7 +508,7 @@ module Mux = struct
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
-      C.VDI.stat dbg sr vdi
+      with_tracing ~name:"VDI.stat" ~dbg @@ fun dbg -> C.VDI.stat dbg sr vdi
 
     let introduce () ~dbg ~sr ~uuid ~sm_config ~location =
       info "VDI.introduce dbg:%s sr:%s uuid:%s sm_config:%s location:%s" dbg
@@ -487,6 +518,7 @@ module Mux = struct
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
+      with_tracing ~name:"VDI.introduce" ~dbg @@ fun dbg ->
       C.VDI.introduce dbg sr uuid sm_config location
 
     let set_persistent () ~dbg ~sr ~vdi ~persistent =
@@ -495,6 +527,7 @@ module Mux = struct
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
+      with_tracing ~name:"VDI.set_persistent" ~dbg @@ fun dbg ->
       C.VDI.set_persistent dbg sr vdi persistent
 
     let epoch_begin () ~dbg ~sr ~vdi ~vm ~persistent =
@@ -503,6 +536,7 @@ module Mux = struct
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
+      with_tracing ~name:"VDI.epoch_begin" ~dbg @@ fun dbg ->
       C.VDI.epoch_begin dbg sr vdi vm persistent
 
     let attach () ~dbg ~dp ~sr ~vdi ~read_write =
@@ -513,6 +547,7 @@ module Mux = struct
       end)) in
       let vm = Vm.of_string "0" in
       DP_info.write dp DP_info.{sr; vdi; vm; read_write} ;
+      with_tracing ~name:"VDI.attach" ~dbg @@ fun dbg ->
       let backend = C.VDI.attach3 dbg dp sr vdi vm read_write in
       (* VDI.attach2 should be used instead, VDI.attach is only kept for
          backwards-compatibility, because older xapis call Remote.VDI.attach during SXM.
@@ -560,6 +595,7 @@ module Mux = struct
       end)) in
       let vm = Vm.of_string "0" in
       DP_info.write dp DP_info.{sr; vdi; vm; read_write} ;
+      with_tracing ~name:"VDI.attach2" ~dbg @@ fun dbg ->
       C.VDI.attach3 dbg dp sr vdi vm read_write
 
     let attach3 () ~dbg ~dp ~sr ~vdi ~vm ~read_write =
@@ -568,6 +604,7 @@ module Mux = struct
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
+      with_tracing ~name:"VDI.attach3" ~dbg @@ fun dbg ->
       DP_info.write dp DP_info.{sr; vdi; vm; read_write} ;
       C.VDI.attach3 dbg dp sr vdi vm read_write
 
@@ -577,6 +614,7 @@ module Mux = struct
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
+      with_tracing ~name:"VDI.activate" ~dbg @@ fun dbg ->
       C.VDI.activate dbg dp sr vdi
 
     let activate3 () ~dbg ~dp ~sr ~vdi ~vm =
@@ -593,6 +631,7 @@ module Mux = struct
         | None ->
             failwith "DP not found"
       in
+      with_tracing ~name:"VDI.activate3" ~dbg @@ fun dbg ->
       if (not read_write) && sr_has_capability sr Smint.Vdi_activate_readonly
       then (
         info "The VDI was attached read-only: calling activate_readonly" ;
@@ -608,6 +647,7 @@ module Mux = struct
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
+      with_tracing ~name:"VDI.activate_readonly" ~dbg @@ fun dbg ->
       C.VDI.activate_readonly dbg dp sr vdi vm
 
     let deactivate () ~dbg ~dp ~sr ~vdi ~vm =
@@ -616,6 +656,7 @@ module Mux = struct
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
+      with_tracing ~name:"VDI.deativate" ~dbg @@ fun dbg ->
       C.VDI.deactivate dbg dp sr vdi vm
 
     let detach () ~dbg ~dp ~sr ~vdi ~vm =
@@ -624,6 +665,7 @@ module Mux = struct
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
+      with_tracing ~name:"VDI.detach" ~dbg @@ fun dbg ->
       C.VDI.detach dbg dp sr vdi vm ;
       DP_info.delete dp
 
@@ -633,6 +675,7 @@ module Mux = struct
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
+      with_tracing ~name:"VDI.epoch_end" ~dbg @@ fun dbg ->
       C.VDI.epoch_end dbg sr vdi vm
 
     let get_by_name () ~dbg ~sr ~name =
@@ -640,6 +683,7 @@ module Mux = struct
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
+      with_tracing ~name:"VDI.get_by_name" ~dbg @@ fun dbg ->
       C.VDI.get_by_name dbg sr name
 
     let set_content_id () ~dbg ~sr ~vdi ~content_id =
@@ -648,6 +692,7 @@ module Mux = struct
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
+      with_tracing ~name:"VDI.set_content_id" ~dbg @@ fun dbg ->
       C.VDI.set_content_id dbg sr vdi content_id
 
     let similar_content () ~dbg ~sr ~vdi =
@@ -656,6 +701,7 @@ module Mux = struct
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
+      with_tracing ~name:"VDI.similar_content" ~dbg @@ fun dbg ->
       C.VDI.similar_content dbg sr vdi
 
     let compose () ~dbg ~sr ~vdi1 ~vdi2 =
@@ -664,6 +710,7 @@ module Mux = struct
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
+      with_tracing ~name:"VDI.compose" ~dbg @@ fun dbg ->
       C.VDI.compose dbg sr vdi1 vdi2
 
     let add_to_sm_config () ~dbg ~sr ~vdi ~key ~value =
@@ -672,6 +719,7 @@ module Mux = struct
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
+      with_tracing ~name:"VDI.add_to_sm_config" ~dbg @@ fun dbg ->
       C.VDI.add_to_sm_config dbg sr vdi key value
 
     let remove_from_sm_config () ~dbg ~sr ~vdi ~key =
@@ -680,6 +728,7 @@ module Mux = struct
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
+      with_tracing ~name:"VDI.remove_from_sm_config" ~dbg @@ fun dbg ->
       C.VDI.remove_from_sm_config dbg sr vdi key
 
     let get_url () ~dbg ~sr ~vdi =
@@ -687,6 +736,7 @@ module Mux = struct
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
+      with_tracing ~name:"VDI.get_url" ~dbg @@ fun dbg ->
       C.VDI.get_url dbg sr vdi
 
     let enable_cbt () ~dbg ~sr ~vdi =
@@ -694,6 +744,7 @@ module Mux = struct
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
+      with_tracing ~name:"VDI.enabled_cbt" ~dbg @@ fun dbg ->
       C.VDI.enable_cbt dbg sr vdi
 
     let disable_cbt () ~dbg ~sr ~vdi =
@@ -701,6 +752,7 @@ module Mux = struct
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
+      with_tracing ~name:"VDI.disable_cbt" ~dbg @@ fun dbg ->
       C.VDI.disable_cbt dbg sr vdi
 
     let data_destroy () ~dbg ~sr ~vdi =
@@ -708,6 +760,7 @@ module Mux = struct
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
+      with_tracing ~name:"VDI.data_destroy" ~dbg @@ fun dbg ->
       C.VDI.data_destroy dbg sr vdi
 
     let list_changed_blocks () ~dbg ~sr ~vdi_from ~vdi_to =
@@ -716,6 +769,7 @@ module Mux = struct
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
+      with_tracing ~name:"VDI.list_changed_blocks" ~dbg @@ fun dbg ->
       C.VDI.list_changed_blocks dbg sr vdi_from vdi_to
   end
 
@@ -724,6 +778,7 @@ module Mux = struct
        SR/VDI -- for a particular SR and VDI
        content_id -- for a particular content *)
     let open Xapi_stdext_std.Xstringext in
+    with_tracing ~name:"get_by_name" ~dbg @@ fun dbg ->
     match List.filter (fun x -> x <> "") (String.split ~limit:2 '/' name) with
     | [sr; name] ->
         let sr = Storage_interface.Sr.of_string sr in

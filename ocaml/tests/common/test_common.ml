@@ -652,3 +652,10 @@ let make_cluster_and_hosts ~__context extra_hosts =
     make_cluster_host ~__context ~cluster ~host ~pIF ()
   in
   (cluster, cluster_host :: List.mapi build_cluster_host extra_hosts)
+
+let make_observer ~__context ?(ref = Ref.make ()) ?(uuid = make_uuid ())
+    ?(name_label = "") ?(name_description = "") ?(hosts = []) ?(enabled = false)
+    ?(attributes = []) ?(endpoints = []) ?(components = []) () =
+  Db.Observer.create ~__context ~ref ~uuid ~name_label ~name_description ~hosts
+    ~attributes ~endpoints ~components ~enabled ;
+  ref

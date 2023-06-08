@@ -3597,6 +3597,34 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; flags= []
       }
     )
+  ; ( "observer-create"
+    , {
+        reqd= ["name-label"]
+      ; optn=
+          [
+            "host-uuids"
+          ; "name-description"
+          ; "enabled"
+          ; "attributes"
+          ; "endpoints"
+          ; "components"
+          ]
+      ; help=
+          "Create a new observer (A High level object that manages data \
+           creation and export in the Toolstack)"
+      ; implementation= No_fd Cli_operations.Observer.create
+      ; flags= []
+      }
+    )
+  ; ( "observer-destroy"
+    , {
+        reqd= ["uuid"]
+      ; optn= []
+      ; help= "Destroy a provider"
+      ; implementation= No_fd Cli_operations.Observer.destroy
+      ; flags= []
+      }
+    )
   ]
 
 let cmdtable : (string, cmd_spec) Hashtbl.t = Hashtbl.create 50

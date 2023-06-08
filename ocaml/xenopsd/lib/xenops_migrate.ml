@@ -95,6 +95,7 @@ module Forwarded_http_request = struct
   type t = {
       uri: string
     ; query: (string * string) list
+    ; traceparent: string option
     ; cookie: (string * string) list
     ; body: string option
   }

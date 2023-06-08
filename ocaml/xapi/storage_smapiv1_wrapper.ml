@@ -1019,6 +1019,7 @@ functor
         failure
 
       let destroy' context ~dbg ~dp ~allow_leak =
+        info "DP.destroy dbg:%s dp:%s allow_leak:%b" dbg dp allow_leak ;
         let failures =
           Host.list !Host.host
           |> List.filter_map (fun (sr, sr_t) ->
