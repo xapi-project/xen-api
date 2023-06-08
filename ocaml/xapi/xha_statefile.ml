@@ -36,7 +36,7 @@ let minimum_size =
   and maximum_number_of_hosts = 64L in
   global_section_size ++ (maximum_number_of_hosts ** host_section_size)
 
-let assert_sr_can_host_statefile ~__context ~sr ~cluster_stack =
+let check_sr_can_host_statefile ~__context ~sr ~cluster_stack =
   (* Check that each host has a PBD to this SR *)
   let pbds = Db.SR.get_PBDs ~__context ~self:sr in
   let connected_hosts =
@@ -89,7 +89,7 @@ let assert_sr_can_host_statefile ~__context ~sr ~cluster_stack =
              ]
            )
         )
-  | (_, sm) :: _ ->
+  | (_, sm) :: _ -> (
       if
         (not (List.mem_assoc "VDI_GENERATE_CONFIG" sm.Db_actions.sM_features))
         && not (List.mem_assoc "VDI_ATTACH_OFFLINE" sm.Db_actions.sM_features)
@@ -97,7 +97,46 @@ let assert_sr_can_host_statefile ~__context ~sr ~cluster_stack =
         raise
           (Api_errors.Server_error
              (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
+          ) ;
+      let size = minimum_size in
+      match
+        List.filter
+          (fun self ->
+            true
+            && Db.VDI.get_type ~__context ~self = `ha_statefile
+            && Db.VDI.get_virtual_size ~__context ~self >= size
           )
+          (Db.SR.get_VDIs ~__context ~self:sr)
+      with
+      | x :: _ ->
+          debug "Would re-use existing statefile: %s"
+            (Db.VDI.get_uuid ~__context ~self:x) ;
+          Some x
+      | [] ->
+          debug
+            "no suitable existing statefile found; would have to create a \
+             fresh one" ;
+          let free_space =
+            Int64.sub
+              (Db.SR.get_physical_size ~__context ~self:sr)
+              (Db.SR.get_physical_utilisation ~__context ~self:sr)
+          in
+          if free_space < minimum_size then (
+            info "SR %s has %Ld free space, needed %Ld" (Ref.string_of sr)
+              free_space minimum_size ;
+            raise
+              (Api_errors.Server_error
+                 (Api_errors.sr_source_space_insufficient, [Ref.string_of sr])
+              )
+          ) else
+            None
+    )
+
+let assert_sr_can_host_statefile ~__context ~sr ~cluster_stack =
+  let (_ : 'a option) =
+    check_sr_can_host_statefile ~__context ~sr ~cluster_stack
+  in
+  ()
 
 let list_srs_which_can_host_statefile ~__context ~cluster_stack =
   List.filter
@@ -126,21 +165,11 @@ let create ~__context ~sr ~cluster_stack =
     when using LVM-based SRs the VDI could be deleted on the master but the slaves would still
     have access to stale data. *)
 let find_or_create ~__context ~sr ~cluster_stack =
-  assert_sr_can_host_statefile ~__context ~sr ~cluster_stack ;
-  let size = minimum_size in
-  match
-    List.filter
-      (fun self ->
-        true
-        && Db.VDI.get_type ~__context ~self = `ha_statefile
-        && Db.VDI.get_virtual_size ~__context ~self >= size
-      )
-      (Db.SR.get_VDIs ~__context ~self:sr)
-  with
-  | x :: _ ->
+  match check_sr_can_host_statefile ~__context ~sr ~cluster_stack with
+  | Some x ->
       info "re-using existing statefile: %s" (Db.VDI.get_uuid ~__context ~self:x) ;
       x
-  | [] ->
+  | None ->
       info "no suitable existing statefile found; creating a fresh one" ;
       create ~__context ~sr ~cluster_stack
 
