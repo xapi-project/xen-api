@@ -13,14 +13,8 @@
             <value>
               <struct>
                 <member>
-                  <name>dbv</name>
-                  <value>dbv</value>
-                </member>
-                <member>
-                  <name>preview</name>
-                  <value>
-                    <boolean>1</boolean>
-                  </value>
+                  <name>string_pair_lst</name>
+                  <value>string_pair_lst</value>
                 </member>
               </struct>
             </value>
