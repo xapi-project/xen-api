@@ -30,5 +30,5 @@
 (rule
  (alias runtest)
  (deps xapiguard_cli.exe)
- (package xapi-idl)
+ (package varstored-guard)
  (action (run %{deps} --help=plain)))
