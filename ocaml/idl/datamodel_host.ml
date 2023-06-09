@@ -1761,6 +1761,24 @@ let apply_recommended_guidances =
       ]
     ~allowed_roles:_R_POOL_OP ()
 
+let latest_synced_updates_applied_state =
+  Enum
+    ( "latest_synced_updates_applied_state"
+    , [
+        ( "yes"
+        , "The host is up to date with the latest updates synced from remote \
+           CDN"
+        )
+      ; ( "no"
+        , "The host is outdated with the latest updates synced from remote CDN"
+        )
+      ; ( "unknown"
+        , "If the host is up to date with the latest updates synced from \
+           remote CDN is unknown"
+        )
+      ]
+    )
+
 (** Hosts *)
 let t =
   create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303
@@ -2120,6 +2138,12 @@ let t =
         ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:(Set update_guidances)
             "recommended_guidances" ~default_value:(Some (VSet []))
             "The set of recommended guidances after applying updates"
+        ; field ~qualifier:DynamicRO ~lifecycle:[]
+            ~ty:latest_synced_updates_applied_state
+            "latest_synced_updates_applied"
+            ~default_value:(Some (VEnum "unknown"))
+            "Default as 'unknown', 'yes' if the host is up to date with \
+             updates synced from remote CDN, otherwise 'no'"
         ]
       )
     ()
