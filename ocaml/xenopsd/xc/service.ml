@@ -677,7 +677,7 @@ module Swtpm = struct
 
   let restore dbg ~domid ~vtpm_uuid state =
     if String.length state > 0 then (
-      Varstore_privileged_client.Client.vtpm_set_contents dbg vtpm_uuid state ;
+      Xapi_idl_guard_privileged.Client.vtpm_set_contents dbg vtpm_uuid state ;
       debug "Restored vTPM for domid %d: %d bytes, digest %s" domid
         (String.length state)
         (state |> Digest.string |> Digest.to_hex)
@@ -687,7 +687,7 @@ module Swtpm = struct
   let check_state_needs_init task vtpm_uuid =
     let dbg = Xenops_task.get_dbg task in
     let contents =
-      Varstore_privileged_client.Client.vtpm_get_contents dbg vtpm_uuid
+      Xapi_idl_guard_privileged.Client.vtpm_get_contents dbg vtpm_uuid
     in
     String.length contents = 0
 
@@ -749,7 +749,7 @@ module Swtpm = struct
       let state = Unixext.string_of_file state_file |> Base64.encode_exn in
       let dbg = Xenops_task.get_dbg task in
       debug "storing newly manufactured vTPM state" ;
-      Varstore_privileged_client.Client.vtpm_set_contents dbg vtpm_uuid state ;
+      Xapi_idl_guard_privileged.Client.vtpm_set_contents dbg vtpm_uuid state ;
       Unixext.unlink_safe state_file
     ) ;
     let execute = D.start_daemon in
@@ -780,7 +780,7 @@ module Swtpm = struct
 
   let suspend dbg ~xs ~domid ~vtpm_uuid =
     D.stop ~xs domid ;
-    Varstore_privileged_client.Client.vtpm_get_contents dbg vtpm_uuid
+    Xapi_idl_guard_privileged.Client.vtpm_get_contents dbg vtpm_uuid
 
   let stop dbg ~xs ~domid ~vm_uuid ~vtpm_uuid =
     debug "About to stop vTPM (%s) for domain %d (%s)"

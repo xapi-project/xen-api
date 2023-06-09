@@ -11,6 +11,7 @@
   uri
   uuid
   xapi_guard
+  xapi_guard_server
   xapi-log
   xapi-types
   xen-api-client-lwt)

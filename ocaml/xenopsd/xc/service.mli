@@ -117,7 +117,7 @@ end
 module Swtpm : sig
   val start :
        xs:Xenstore.Xs.xsh
-    -> vtpm_uuid:Varstore_privileged_interface.Uuidm.t
+    -> vtpm_uuid:Xapi_idl_guard_privileged.Interface.Uuidm.t
     -> index:int
     -> Xenops_task.Xenops_task.task_handle
     -> Xenctrl.domid
@@ -126,7 +126,7 @@ module Swtpm : sig
   val restore :
        string
     -> domid:int
-    -> vtpm_uuid:Varstore_privileged_interface.Uuidm.t
+    -> vtpm_uuid:Xapi_idl_guard_privileged.Interface.Uuidm.t
     -> string
     -> unit
 
@@ -134,7 +134,7 @@ module Swtpm : sig
        string
     -> xs:Xenstore.Xs.xsh
     -> domid:int
-    -> vtpm_uuid:Varstore_privileged_interface.Uuidm.t
+    -> vtpm_uuid:Xapi_idl_guard_privileged.Interface.Uuidm.t
     -> string
 
   val stop :
@@ -142,6 +142,6 @@ module Swtpm : sig
     -> xs:Xenstore.Xs.xsh
     -> domid:int
     -> vm_uuid:string
-    -> vtpm_uuid:Varstore_privileged_interface.Uuidm.t
+    -> vtpm_uuid:Xapi_idl_guard_privileged.Interface.Uuidm.t
     -> unit
 end

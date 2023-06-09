@@ -14,8 +14,9 @@
  *)
 
 open Xapi_guard
-open Varstored_interface
 open Lwt.Syntax
+open Xapi_guard_server
+module SessionCache = Xen_api_lwt_unix.SessionCache
 
 module D = Debug.Make (struct let name = "varstored-guard" end)
 
@@ -37,7 +38,7 @@ let log_fds () =
 
 module Persistent = struct
   type args = {
-      vm_uuid: Varstore_privileged_interface.Uuidm.t
+      vm_uuid: Xapi_idl_guard_privileged.Interface.Uuidm.t
     ; path: string
     ; gid: int
     ; typ: ty
@@ -87,13 +88,13 @@ let safe_unlink path =
 
 let cache =
   Xen_api_lwt_unix.(
-    SessionCache.create_uri ~switch:Varstored_interface.shutdown
+    SessionCache.create_uri ~switch:Server_interface.shutdown
       ~target:uri_local_json ~uname:"root" ~pwd:"" ~version:Xapi_version.version
-      ~originator:Varstored_interface.originator ()
+      ~originator:Server_interface.originator ()
   )
 
 let () =
-  Lwt_switch.add_hook (Some Varstored_interface.shutdown) (fun () ->
+  Lwt_switch.add_hook (Some Server_interface.shutdown) (fun () ->
       D.debug "Cleaning up cache at exit" ;
       Xen_api_lwt_unix.SessionCache.destroy cache
   )
@@ -102,9 +103,9 @@ let listen_for_vm {Persistent.vm_uuid; path; gid; typ} =
   let make_server =
     match typ with
     | Varstored ->
-        make_server_varstored
+        Server_interface.make_server_varstored
     | Swtpm ->
-        make_server_vtpm_rest
+        Server_interface.make_server_vtpm_rest
   in
   let vm_uuid_str = Uuidm.to_string vm_uuid in
   D.debug "%s: listening for %s on socket %s for VM %s" __FUNCTION__
@@ -121,11 +122,11 @@ let resume () =
   let+ () = Lwt_list.iter_p listen_for_vm vms in
   D.debug "%s: completed" __FUNCTION__
 
-(* caller here is trusted (xenopsd through message-switch *)
+(* caller here is trusted (xenopsd through message-switch) *)
 let depriv_varstored_create dbg vm_uuid gid path =
   if Hashtbl.mem sockets path then
     Lwt.return_error
-      (Varstore_privileged_interface.InternalError
+      (Xapi_idl_guard_privileged.Interface.InternalError
          (Printf.sprintf "Path %s is already in use" path)
       )
     |> Rpc_lwt.T.put
@@ -159,7 +160,7 @@ let depriv_varstored_destroy dbg gid path =
 let depriv_swtpm_create dbg vm_uuid gid path =
   if Hashtbl.mem sockets path then
     Lwt.return_error
-      (Varstore_privileged_interface.InternalError
+      (Xapi_idl_guard_privileged.Interface.InternalError
          (Printf.sprintf "Path %s is already in use" path)
       )
     |> Rpc_lwt.T.put
@@ -204,23 +205,20 @@ let vtpm_set_contents dbg vtpm_uuid contents =
   let uuid = Uuidm.to_string vtpm_uuid in
   D.debug "[%s] saving vTPM contents for %s" dbg uuid ;
   ret
-  @@ let* self =
-       Varstored_interface.with_xapi ~cache @@ VTPM.get_by_uuid ~uuid
-     in
-     Varstored_interface.with_xapi ~cache @@ VTPM.set_contents ~self ~contents
+  @@ let* self = Server_interface.with_xapi ~cache @@ VTPM.get_by_uuid ~uuid in
+     Server_interface.with_xapi ~cache @@ VTPM.set_contents ~self ~contents
 
 let vtpm_get_contents _dbg vtpm_uuid =
   let open Xen_api_lwt_unix in
   let open Lwt.Syntax in
   let uuid = Uuidm.to_string vtpm_uuid in
   ret
-  @@ let* self =
-       Varstored_interface.with_xapi ~cache @@ VTPM.get_by_uuid ~uuid
-     in
-     Varstored_interface.with_xapi ~cache @@ VTPM.get_contents ~self
+  @@ let* self = Server_interface.with_xapi ~cache @@ VTPM.get_by_uuid ~uuid in
+     Server_interface.with_xapi ~cache @@ VTPM.get_contents ~self
 
 let rpc_fn =
-  let module Server = Varstore_privileged_interface.RPC_API (Rpc_lwt.GenServer ()) in
+  let module Server =
+    Xapi_idl_guard_privileged.Interface.RPC_API (Rpc_lwt.GenServer ()) in
   (* bind APIs *)
   Server.varstore_create depriv_varstored_create ;
   Server.varstore_destroy depriv_varstored_destroy ;
@@ -232,7 +230,7 @@ let rpc_fn =
 
 let process body =
   let+ response =
-    Dorpc.wrap_rpc Varstore_privileged_interface.E.error (fun () ->
+    Dorpc.wrap_rpc Xapi_idl_guard_privileged.Interface.E.error (fun () ->
         let call = Jsonrpc.call_of_string body in
         D.debug "Received request from message-switch, method %s" call.Rpc.name ;
         rpc_fn call
@@ -245,11 +243,11 @@ let make_message_switch_server () =
   let wait_server, server_stopped = Lwt.task () in
   let* result =
     Server.listen ~process ~switch:!Xcp_client.switch_path
-      ~queue:Varstore_privileged_interface.queue_name ()
+      ~queue:Xapi_idl_guard_privileged.Interface.queue_name ()
   in
   match Server.error_to_msg result with
   | Ok t ->
-      Lwt_switch.add_hook (Some shutdown) (fun () ->
+      Lwt_switch.add_hook (Some Server_interface.shutdown) (fun () ->
           D.debug "Stopping message-switch queue server" ;
           let+ () = Server.shutdown ~t () in
           Lwt.wakeup server_stopped ()

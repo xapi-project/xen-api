@@ -1,6 +1,6 @@
 (library
- (name xapi_idl_varstore_privileged)
- (public_name xapi-idl.varstore.privileged)
+ (name xapi_idl_guard_privileged)
+ (public_name xapi-idl.guard.privileged)
  (modules (:standard \ xapiguard_cli))
  (libraries
    result
@@ -9,7 +9,6 @@
    uuidm
    xcp
  )
- (wrapped false)
  (preprocess (pps ppx_deriving_rpc)))
 
 (executable
@@ -24,11 +23,11 @@
    rpclib.core
    rpclib.markdown
    xapi-idl
-   xapi-idl.varstore.privileged
+   xapi-idl.guard.privileged
  ))
 
 (rule
  (alias runtest)
  (deps xapiguard_cli.exe)
- (package xapi-idl)
+ (package varstored-guard)
  (action (run %{deps} --help=plain)))

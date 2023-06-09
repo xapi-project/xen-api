@@ -81,7 +81,7 @@ let serve_forever_lwt_callback rpc_fn path _ req body =
   | `POST, _ ->
       let* body = Cohttp_lwt.Body.to_string body in
       let* response =
-        Dorpc.wrap_rpc err (fun () ->
+        Xapi_guard.Dorpc.wrap_rpc err (fun () ->
             let call = Xmlrpc.call_of_string body in
             (* Do not log the request, it will contain NVRAM *)
             D.debug "Received request on %s, method %s" path call.Rpc.name ;
@@ -191,7 +191,7 @@ let serve_forever_lwt_callback_vtpm ~cache mutex vtpm _path _ req body =
 (* Create a restricted RPC function and socket for a specific VM *)
 let make_server_varstored ~cache path vm_uuid =
   let module Server =
-    Varstore_deprivileged_interface.RPC_API (Rpc_lwt.GenServer ()) in
+    Xapi_idl_guard_varstored.Interface.RPC_API (Rpc_lwt.GenServer ()) in
   let* vm = with_xapi ~cache @@ VM.get_by_uuid ~uuid:vm_uuid in
   let ret v =
     (* TODO: maybe map XAPI exceptions *)

@@ -12,12 +12,12 @@
  * GNU Lesser General Public License for more details.
  *)
 
-(** Varstored is deprivileged and should not have full access to XAPI. This
-    interface provides a way to spawn a new listening socket restricted to a
-    small number of API calls targeting only 1 VM. Xenopsd is a client of this
-    interface and calls it through message-switch. A new privileged daemon
-    (varstored-socket-deprivd) implements the interface and spawns the listening
-    sockets. *)
+(** Varstored and SWTPM are deprivileged and should not have full access to
+    XAPI. This interface provides a way to spawn a new listening socket
+    restricted to a small number of API calls targeting only 1 VM. Xenopsd is
+    a client of this interface and calls it through message-switch. A new
+    privileged daemon (guard-socket-deprivd) implements the interface and
+    spawns the listening sockets. *)
 
 open Rpc
 open Idl
