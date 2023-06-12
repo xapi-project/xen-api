@@ -2122,6 +2122,7 @@ let is_slave ~__context ~host:_ =
   debug
     "About to kick the database connection to make sure it's still working..." ;
   let (_ : bool) =
+    Scheduler.PipeDelay.signal Master_connection.delay ;
     Db.is_valid_ref __context
       (Ref.of_string
          "Pool.is_slave checking to see if the database connection is up"
