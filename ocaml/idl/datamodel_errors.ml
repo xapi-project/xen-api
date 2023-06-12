@@ -1958,7 +1958,10 @@ let _ =
     ~doc:"Invalid day of the week chosen for weekly update sync." () ;
 
   error Api_errors.require_toolstack_coordinator_restart []
-    ~doc:"A toolstack restart on the coordinator is required before this operation." () ;
+    ~doc:
+      "A toolstack restart on the coordinator is required before this \
+       operation."
+    () ;
 
   message
     (fst Api_messages.ha_pool_overcommitted)
