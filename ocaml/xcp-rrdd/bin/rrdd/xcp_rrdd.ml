@@ -762,7 +762,11 @@ let do_monitor_write xc writers =
       let stats = List.rev_append plugins_stats dom0_stats in
       Rrdd_stats.print_snapshot () ;
       let uuid_domids = List.map (fun (_, u, i) -> (u, i)) domains in
-      Rrdd_monitor.update_rrds timestamp stats uuid_domids my_paused_vms
+      Rrdd_monitor.update_rrds timestamp stats uuid_domids my_paused_vms ;
+
+      (* Dump to /dev/shm/metrics/host-dss *)
+      Rrdd_server.Plugin.get_path "host-dss"
+      |> Rrdd_server.dump_host_dss_to_file
   )
 
 let monitor_write_loop writers =
