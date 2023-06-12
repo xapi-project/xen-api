@@ -633,8 +633,6 @@ module Export = struct
 
       let file_name = ref None
 
-      let file_stream = ref None
-
       let lock = Mutex.create ()
 
       let new_file_name () =
@@ -648,43 +646,32 @@ module Export = struct
         file_name := Some name ;
         name
 
-      let open_stream file_name =
-        Xapi_stdext_unix.Unixext.mkdir_rec (Filename.dirname file_name) 0o700 ;
-        file_stream :=
-          Some (Unix.openfile file_name [O_WRONLY; O_CREAT; O_APPEND] 0o700)
+      let with_fd file_name =
+        Xapi_stdext_unix.Unixext.with_file file_name
+          [O_WRONLY; O_CREAT; O_APPEND]
+          0o700
 
-      let close_stream () =
-        Option.iter (fun stream -> Unix.close stream) !file_stream ;
-        file_stream := None
+      let write fd str =
+        let content = str ^ "\n" in
+        ignore @@ Unix.write_substring fd content 0 (String.length content)
 
-      let check () =
-        match (!file_stream, !file_name) with
-        | Some file_stream, _
-          when (Unix.fstat file_stream).st_size >= !max_file_size ->
-            close_stream () ;
-            new_file_name () |> open_stream
-        | None, None ->
-            new_file_name () |> open_stream
-        | None, Some file_name ->
-            open_stream file_name
-        | _ ->
-            (* We have an open fd which points to a file under the limit*)
-            ()
-
-      let write str =
-        Option.iter
-          (fun stream ->
-            let content = Bytes.of_string (str ^ "\n") in
-            ignore @@ Unix.write stream content 0 (Bytes.length content)
-          )
-          !file_stream
-
-      let export json = try check () ; write json ; Ok () with e -> Error e
+      let export json =
+        try
+          let file_name =
+            match !file_name with None -> new_file_name () | Some x -> x
+          in
+          Xapi_stdext_unix.Unixext.mkdir_rec (Filename.dirname file_name) 0o700 ;
+          let@ fd = file_name |> with_fd in
+          write fd json ;
+          if (Unix.fstat fd).st_size >= !max_file_size then (
+            debug "Tracing: Rotating file %s > %d" file_name !max_file_size ;
+            ignore @@ new_file_name ()
+          ) ;
+          Ok ()
+        with e -> Error e
 
       let with_stream f =
-        Xapi_stdext_threads.Threadext.Mutex.execute lock (fun () ->
-            f export ; close_stream ()
-        )
+        Xapi_stdext_threads.Threadext.Mutex.execute lock (fun () -> f export)
     end
 
     module Http = struct
