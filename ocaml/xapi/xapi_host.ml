@@ -2974,12 +2974,12 @@ let get_host_updates_handler (req : Http.Request.t) s _ =
       Unixext.really_write_string s json_str |> ignore
   )
 
-let is_toolstack_requires_restart ~__context self =
+let is_toolstack_restart_required ~__context self =
   Db.Host.get_recommended_guidances ~__context ~self
   |> List.mem `restart_toolstack
 
 let assert_master_does_not_requires_restart_toolstack ~__context =
-  if Helpers.get_master ~__context |> is_toolstack_requires_restart ~__context
+  if Helpers.get_master ~__context |> is_toolstack_restart_required ~__context
   then
     raise Api_errors.(Server_error (require_toolstack_coordinator_restart, []))
 
