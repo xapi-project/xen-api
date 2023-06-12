@@ -49,10 +49,11 @@ type redo_log = {
 val is_enabled : redo_log -> bool
 (** Returns [true] iff writing deltas to the block device is enabled. *)
 
-val enable : redo_log -> string -> unit
+val enable : Db_cache_types.Database.t option -> redo_log -> string -> unit
 (** Enables writing deltas to the block device. Subsequent modifications to the database will be persisted to the block device. Takes a static-VDI reason as argument to select the device to use. *)
 
-val enable_block : redo_log -> string -> unit
+val enable_block :
+  Db_cache_types.Database.t option -> redo_log -> string -> unit
 (** Enables writing deltas to the block device. Subsequent modifications to the database will be persisted to the block device. Takes a path as argument to select the device to use. *)
 
 val disable : redo_log -> unit

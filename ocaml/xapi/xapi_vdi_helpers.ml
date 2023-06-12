@@ -145,7 +145,9 @@ let enable_database_replication ~__context ~get_vdi_callback =
         in
         let device = Db.VBD.get_device ~__context ~self:vbd in
         try
-          Redo_log.enable_block log ("/dev/" ^ device) ;
+          Redo_log.enable_block
+            (Some (Context.database_of __context |> Db_ref.get_database))
+            log ("/dev/" ^ device) ;
           Hashtbl.add metadata_replication vdi (vbd, log) ;
           let vbd_uuid = Db.VBD.get_uuid ~__context ~self:vbd in
           Db.VDI.set_metadata_latest ~__context ~self:vdi ~value:true ;
@@ -200,7 +202,7 @@ let database_ref_of_vdi ~__context ~vdi =
         ~state_change_callback:None ~read_only:true
     in
     debug "Enabling redo_log with device reason [%s]" device ;
-    Redo_log.enable_block log device ;
+    Redo_log.enable_block None log device ;
     let db = Database.make (Datamodel_schema.of_datamodel ()) in
     let db_ref = Db_ref.in_memory (ref (ref db)) in
     Redo_log_usage.read_from_redo_log log Xapi_globs.foreign_metadata_db db_ref ;

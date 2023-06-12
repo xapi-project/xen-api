@@ -888,6 +888,26 @@ let flush_db_to_redo_log db log =
     write_db_to_fd log ;
   !(log.currently_accessible)
 
+let flush_db_exn db log =
+  match (db, log.read_only) with
+  | None, true ->
+      () (* no-op *)
+  | Some db, false ->
+      R.debug "Flushing database on redo log enable" ;
+      if not (flush_db_to_redo_log db log) then
+        raise (RedoLogFailure "Cannot connect to redo log")
+  | None, false ->
+      (* can happen during startup when we want to replay redo log *)
+      R.debug "No database provided, but redo-log is not readonly"
+  | Some _, true ->
+      invalid_arg
+        "Database provided during Redo_log.enable, but the redo log is \
+         read-only!"
+
+let enable db log reason = enable log reason ; flush_db_exn db log
+
+let enable_block db log path = enable_block log path ; flush_db_exn db log
+
 (* Write the given database to all active redo_logs *)
 let flush_db_to_all_active_redo_logs db =
   R.info "Flushing database to all active redo-logs" ;
