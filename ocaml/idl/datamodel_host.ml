@@ -1701,7 +1701,7 @@ let apply_updates =
     ~doc:"apply updates from current enabled repository on a host"
     ~params:
       [
-        (Ref _host, "self", "The host where updates will be applied")
+        (Ref _host, "host", "The host where updates will be applied")
       ; ( String
         , "hash"
         , "The hash of updateinfo to be applied which is returned by previous \

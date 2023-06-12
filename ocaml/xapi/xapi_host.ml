@@ -2974,18 +2974,22 @@ let get_host_updates_handler (req : Http.Request.t) s _ =
       Unixext.really_write_string s json_str |> ignore
   )
 
-let apply_updates ~__context ~self ~hash =
+let is_toolstack_requires_restart ~__context host =
+  Db.Host.get_recommended_guidances ~__context ~self:host
+  |> List.mem `restart_toolstack
+
+let assert_master_does_not_requires_restart_toolstack ~__context =
+  if Helpers.get_master ~__context |> is_toolstack_requires_restart ~__context
+  then
+    raise Api_errors.(Server_error (require_master_restart_toolstack, []))
+
+let apply_updates ~__context ~host ~hash =
   (* This function runs on master host *)
   Helpers.assert_we_are_master ~__context ;
   Pool_features.assert_enabled ~__context ~f:Features.Updates ;
-  if not (Helpers.is_pool_master ~__context ~host:self) then
-    if
-      List.mem `restart_toolstack
-        (Db.Host.get_recommended_guidances ~__context
-           ~self:(Helpers.get_master ~__context)
-        )
-    then
-      raise Api_errors.(Server_error (require_master_restart_toolstack, [])) ;
+  if not (Helpers.is_pool_master ~__context ~host) then
+    assert_master_does_not_requires_restart_toolstack ~__context ;
+
   let guidances, warnings =
     Xapi_pool_helpers.with_pool_operation ~__context
       ~self:(Helpers.get_pool ~__context)
@@ -2994,13 +2998,13 @@ let apply_updates ~__context ~self ~hash =
     let pool = Helpers.get_pool ~__context in
     if Db.Pool.get_ha_enabled ~__context ~self:pool then
       raise Api_errors.(Server_error (ha_is_enabled, [])) ;
-    Xapi_host_helpers.with_host_operation ~__context ~self
+    Xapi_host_helpers.with_host_operation ~__context ~self:host
       ~doc:"Host.apply_updates" ~op:`apply_updates
-    @@ fun () -> Repository.apply_updates ~__context ~host:self ~hash
+    @@ fun () -> Repository.apply_updates ~__context ~host ~hash
   in
-  Db.Host.set_last_software_update ~__context ~self
-    ~value:(get_servertime ~__context ~host:self) ;
-  Db.Host.set_latest_synced_updates_applied ~__context ~self ~value:`yes ;
+  Db.Host.set_last_software_update ~__context ~self:host
+    ~value:(get_servertime ~__context ~host) ;
+  Db.Host.set_latest_synced_updates_applied ~__context ~self:host ~value:`yes ;
   List.map
     (fun g ->
       [

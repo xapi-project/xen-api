@@ -3989,10 +3989,10 @@ functor
         info "Host.emergency_reenable_tls_verification" ;
         Local.Host.emergency_reenable_tls_verification ~__context
 
-      let apply_updates ~__context ~self ~hash =
-        let uuid = host_uuid ~__context self in
+      let apply_updates ~__context ~host ~hash =
+        let uuid = host_uuid ~__context host in
         info "Host.apply_updates: host = '%s'; hash = '%s'" uuid hash ;
-        Local.Host.apply_updates ~__context ~self ~hash
+        Local.Host.apply_updates ~__context ~host ~hash
 
       let set_https_only ~__context ~self ~value =
         let uuid = host_uuid ~__context self in
