@@ -49,7 +49,7 @@ let redo_log_sm_config = [("type", "raw")]
 (* ---------------------------------------------------- *)
 (* Encapsulate the state of a single redo_log instance. *)
 
-type redo_log = {
+type redo_log_conf = {
     name: string
   ; marker: string
   ; read_only: bool
@@ -65,8 +65,10 @@ type redo_log = {
   ; num_dying_processes: int ref
 }
 
+type 'a redo_log = redo_log_conf
+
 module RedoLogSet = Set.Make (struct
-  type t = redo_log
+  type t = redo_log_conf
 
   let compare log1 log2 = compare log1.marker log2.marker
 end)
@@ -799,6 +801,9 @@ let create ~name ~state_change_callback ~read_only =
       all_redo_logs := RedoLogSet.add instance !all_redo_logs
   ) ;
   instance
+
+let create_rw = create ~read_only:false
+let create_ro = create ~read_only:true
 
 let delete log =
   shutdown log ;

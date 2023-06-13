@@ -57,7 +57,7 @@ let assert_managed ~__context ~vdi =
 let redo_log_lifecycle_mutex = Mutex.create ()
 
 let metadata_replication :
-    (API.ref_VDI, API.ref_VBD * Redo_log.redo_log) Hashtbl.t =
+    (API.ref_VDI, API.ref_VBD * [`RW] Redo_log.redo_log) Hashtbl.t =
   Hashtbl.create Xapi_globs.redo_log_max_instances
 
 let get_master_dom0 ~__context =
@@ -141,7 +141,7 @@ let enable_database_replication ~__context ~get_vdi_callback =
         (* Enable redo_log and point it at the new device *)
         let log_name = Printf.sprintf "DR redo log for VDI %s" vdi_uuid in
         let log =
-          Redo_log.create ~name:log_name ~state_change_callback ~read_only:false
+          Redo_log.create_rw ~name:log_name ~state_change_callback
         in
         let device = Db.VBD.get_device ~__context ~self:vbd in
         try
@@ -198,8 +198,8 @@ let database_open_mutex = Mutex.create ()
 let database_ref_of_vdi ~__context ~vdi =
   let database_ref_of_device device =
     let log =
-      Redo_log.create ~name:"Foreign database redo log"
-        ~state_change_callback:None ~read_only:true
+      Redo_log.create_ro ~name:"Foreign database redo log"
+        ~state_change_callback:None
     in
     debug "Enabling redo_log with device reason [%s]" device ;
     Redo_log.enable_block None log device ;

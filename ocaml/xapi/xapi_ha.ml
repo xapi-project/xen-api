@@ -36,8 +36,7 @@ open Xha_scripts
 
 (* Create a redo_log instance to use for HA. *)
 let ha_redo_log =
-  Redo_log.create ~name:"HA redo log" ~state_change_callback:None
-    ~read_only:false
+  Redo_log.create_rw ~name:"HA redo log" ~state_change_callback:None
 
 (*********************************************************************************************)
 (* Interface with the low-level HA subsystem                                                 *)
