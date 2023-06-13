@@ -85,12 +85,12 @@ let ready_to_write = ref true
 
 let is_enabled log = !(log.enabled)
 
-let enable log vdi_reason =
+let enable_existing log vdi_reason =
   R.info "Enabling use of redo log" ;
   log.device := get_static_device vdi_reason ;
   log.enabled := true
 
-let enable_block log path =
+let enable_block_existing log path =
   R.info "Enabling use of redo log" ;
   log.device := Some path ;
   log.enabled := true
@@ -803,6 +803,7 @@ let create ~name ~state_change_callback ~read_only =
   instance
 
 let create_rw = create ~read_only:false
+
 let create_ro = create ~read_only:true
 
 let delete log =
@@ -894,19 +895,18 @@ let flush_db_to_redo_log db log =
   !(log.currently_accessible)
 
 let flush_db_exn db log =
-  assert (not log.read_only); (* phantom type parameter ensures this only gets called with RW *)
-  match db with
-  | Some db ->
-      R.debug "Flushing database on redo log enable" ;
-      if not (flush_db_to_redo_log db log) then
-        raise (RedoLogFailure "Cannot connect to redo log")
-  | None ->
-      (* can happen during startup when we want to replay redo log *)
-      R.debug "No database provided, but redo-log is not readonly"
+  assert (not log.read_only) ;
+  (* phantom type parameter ensures this only gets called with RW *)
+  R.debug "Flushing database on redo log enable" ;
+  if not (flush_db_to_redo_log db log) then
+    raise (RedoLogFailure "Cannot connect to redo log")
 
-let enable db log reason = enable log reason ; flush_db_exn db log
+let enable_and_flush db log reason =
+  enable_existing log reason ; flush_db_exn db log
 
-let enable_block db log path = enable_block log path ; flush_db_exn db log
+let enable_block_and_flush db log path =
+  enable_block_existing log path ;
+  flush_db_exn db log
 
 (* Write the given database to all active redo_logs *)
 let flush_db_to_all_active_redo_logs db =

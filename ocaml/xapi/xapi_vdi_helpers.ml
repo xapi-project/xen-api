@@ -140,13 +140,11 @@ let enable_database_replication ~__context ~get_vdi_callback =
         in
         (* Enable redo_log and point it at the new device *)
         let log_name = Printf.sprintf "DR redo log for VDI %s" vdi_uuid in
-        let log =
-          Redo_log.create_rw ~name:log_name ~state_change_callback
-        in
+        let log = Redo_log.create_rw ~name:log_name ~state_change_callback in
         let device = Db.VBD.get_device ~__context ~self:vbd in
         try
-          Redo_log.enable_block
-            (Some (Context.database_of __context |> Db_ref.get_database))
+          Redo_log.enable_block_and_flush
+            (Context.database_of __context |> Db_ref.get_database)
             log ("/dev/" ^ device) ;
           Hashtbl.add metadata_replication vdi (vbd, log) ;
           let vbd_uuid = Db.VBD.get_uuid ~__context ~self:vbd in
@@ -202,7 +200,7 @@ let database_ref_of_vdi ~__context ~vdi =
         ~state_change_callback:None
     in
     debug "Enabling redo_log with device reason [%s]" device ;
-    Redo_log.enable_block None log device ;
+    Redo_log.enable_block_existing log device ;
     let db = Database.make (Datamodel_schema.of_datamodel ()) in
     let db_ref = Db_ref.in_memory (ref (ref db)) in
     Redo_log_usage.read_from_redo_log log Xapi_globs.foreign_metadata_db db_ref ;

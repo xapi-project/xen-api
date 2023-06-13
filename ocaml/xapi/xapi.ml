@@ -486,7 +486,7 @@ let start_redo_log () =
     then (
       debug "Redo log was enabled when shutting down, so restarting it" ;
       (* enable the use of the redo log *)
-      Redo_log.enable None Xapi_ha.ha_redo_log
+      Redo_log.enable_existing Xapi_ha.ha_redo_log
         Xapi_globs.gen_metadata_vdi_reason ;
       debug "Attempting to extract a database from a metadata VDI" ;
       (* read from redo log and store results in a staging file for use in the
