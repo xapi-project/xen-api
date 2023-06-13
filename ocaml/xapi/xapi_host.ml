@@ -2981,7 +2981,7 @@ let is_toolstack_restart_required ~__context self =
 let assert_master_does_not_requires_restart_toolstack ~__context =
   if Helpers.get_master ~__context |> is_toolstack_restart_required ~__context
   then
-    raise Api_errors.(Server_error (require_toolstack_coordinator_restart, []))
+    raise Api_errors.(Server_error (coordinator_requires_toolstack_restart, []))
 
 let apply_updates ~__context ~self ~hash =
   (* This function runs on master host *)

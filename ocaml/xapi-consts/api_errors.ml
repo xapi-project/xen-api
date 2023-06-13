@@ -1285,8 +1285,8 @@ let update_guidance_changed = "UPDATE_GUIDANCE_CHANGED"
 
 let invalid_update_sync_day = "INVALID_UPDATE_SYNC_DAY"
 
-let require_toolstack_coordinator_restart =
-  "REQUIRE_TOOLSTACK_COORDINATOR_RESTART"
+let coordinator_requires_toolstack_restart =
+  "COORDINATOR_REQUIRES_TOOLSTACK_RESTART"
 
 (* VTPMs *)
 

@@ -1957,7 +1957,7 @@ let _ =
   error Api_errors.invalid_update_sync_day ["day"]
     ~doc:"Invalid day of the week chosen for weekly update sync." () ;
 
-  error Api_errors.require_toolstack_coordinator_restart []
+  error Api_errors.coordinator_requires_toolstack_restart []
     ~doc:
       "A toolstack restart on the coordinator is required before this \
        operation."
