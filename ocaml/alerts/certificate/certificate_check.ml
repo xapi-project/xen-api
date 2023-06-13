@@ -1,12 +1,11 @@
+module XenAPI = Client.Client
+
 type cert =
   | CA of API.ref_Certificate * API.datetime
   | Host of API.ref_host * API.datetime
   | Internal of API.ref_host * API.datetime
 
-module XenAPI = Client.Client
-module Date = Xapi_stdext_date.Date
-
-let get_certificate_attributes rpc session_id =
+let get_certificates rpc session_id =
   XenAPI.Certificate.get_all_records ~rpc ~session_id
   |> List.map @@ fun (cert_ref, certificate) ->
      match certificate.API.certificate_type with
@@ -23,98 +22,69 @@ let get_certificate_attributes rpc session_id =
      | `ca ->
          CA (cert_ref, certificate.API.certificate_not_after)
 
-let expired_message = function
+let certificate_description = function
   | Host _ ->
-      "The TLS server certificate has expired."
+      "TLS server certificate"
   | Internal _ ->
-      "The internal TLS server certificate has expired."
+      "internal TLS server certificate"
   | CA _ ->
-      "The CA pool certificate has expired"
+      "CA pool certificate"
 
-let expiring_message = function
+let expired_message_id = function
   | Host _ ->
-      "The TLS server certificate is expiring soon."
+      Api_messages.host_server_certificate_expired
   | Internal _ ->
-      "The internal TLS server certificate is expiring soon."
+      Api_messages.host_internal_certificate_expired
   | CA _ ->
-      "The CA pool certificate is expiring soon"
+      Api_messages.pool_ca_certificate_expired
 
-let get_expiry = function
-  | Host (_, exp) | Internal (_, exp) | CA (_, exp) ->
-      exp
+let expiring_conditions = function
+  | Host _ ->
+      [
+        (7, Api_messages.host_server_certificate_expiring_07)
+      ; (14, Api_messages.host_server_certificate_expiring_14)
+      ; (30, Api_messages.host_server_certificate_expiring_30)
+      ]
+  | Internal _ ->
+      [
+        (7, Api_messages.host_internal_certificate_expiring_07)
+      ; (14, Api_messages.host_internal_certificate_expiring_14)
+      ; (30, Api_messages.host_internal_certificate_expiring_30)
+      ]
+  | CA _ ->
+      [
+        (7, Api_messages.pool_ca_certificate_expiring_07)
+      ; (14, Api_messages.pool_ca_certificate_expiring_14)
+      ; (30, Api_messages.pool_ca_certificate_expiring_30)
+      ]
 
-let get_attrs_body_and_name body days cert =
-  let expiring = expiring_message cert in
-  let expired = expired_message cert in
-  match (days, cert) with
-  | days, _ when days > 30 ->
-      (cert, None)
-  | days, Host _ when days < 0 ->
-      (cert, Some (body expired, Api_messages.host_server_certificate_expired))
-  | days, Host _ when days < 8 ->
-      ( cert
-      , Some (body expiring, Api_messages.host_server_certificate_expiring_07)
-      )
-  | days, Host _ when days < 15 ->
-      ( cert
-      , Some (body expiring, Api_messages.host_server_certificate_expiring_14)
-      )
-  | _, Host _ ->
-      ( cert
-      , Some (body expiring, Api_messages.host_server_certificate_expiring_30)
-      )
-  | days, CA _ when days < 0 ->
-      (cert, Some (body expired, Api_messages.pool_ca_certificate_expired))
-  | days, CA _ when days < 8 ->
-      (cert, Some (body expiring, Api_messages.pool_ca_certificate_expiring_07))
-  | days, CA _ when days < 15 ->
-      (cert, Some (body expiring, Api_messages.pool_ca_certificate_expiring_14))
-  | _, CA _ ->
-      (cert, Some (body expiring, Api_messages.pool_ca_certificate_expiring_30))
-  | days, Internal _ when days < 0 ->
-      (cert, Some (body expired, Api_messages.host_internal_certificate_expired))
-  | days, Internal _ when days < 8 ->
-      ( cert
-      , Some (body expiring, Api_messages.host_internal_certificate_expiring_07)
-      )
-  | days, Internal _ when days < 15 ->
-      ( cert
-      , Some (body expiring, Api_messages.host_internal_certificate_expiring_14)
-      )
-  | _, Internal _ ->
-      ( cert
-      , Some (body expiring, Api_messages.host_internal_certificate_expiring_30)
-      )
+let alert_message_cls = function
+  | Host _ ->
+      `Host
+  | Internal _ ->
+      `Host
+  | CA _ ->
+      `Certificate
 
-let generate_alert = Lib.generate_alert get_expiry get_attrs_body_and_name
+let alert_message_obj_uuid rpc session_id cert =
+  match cert with
+  | Host (host, _) | Internal (host, _) ->
+      XenAPI.Host.get_uuid ~rpc ~session_id ~self:host
+  | CA (cert, _) ->
+      XenAPI.Certificate.get_uuid ~rpc ~session_id ~self:cert
 
-module AlertSource = struct
-  type t = cert
+let alert_for_certificate rpc session_id cert =
+  let alert_obj_description = certificate_description cert in
+  let expired_message_id = expired_message_id cert in
+  let expiring_conditions = expiring_conditions cert in
+  let expiry =
+    match cert with Host (_, exp) | Internal (_, exp) | CA (_, exp) -> exp
+  in
+  let msg_cls = alert_message_cls cert in
+  let msg_obj_uuid = alert_message_obj_uuid rpc session_id cert in
+  Expiry_alert.update ~rpc ~session_id ~alert_obj_description
+    ~expired_message_id ~expiring_conditions ~expiry ~msg_cls ~msg_obj_uuid
 
-  let get_expiry = get_expiry
-
-  let get_attrs_body_and_name = get_attrs_body_and_name
-
-  let filter_possible_messages (_ref, record) =
-    let expiring_or_expired name =
-      let matching affix = Astring.String.is_prefix ~affix name in
-      matching Api_messages.host_server_certificate_expiring
-      || matching (fst Api_messages.host_server_certificate_expired)
-      || matching Api_messages.pool_ca_certificate_expiring
-      || matching (fst Api_messages.pool_ca_certificate_expired)
-      || matching Api_messages.host_internal_certificate_expiring
-      || matching (fst Api_messages.host_internal_certificate_expired)
-    in
-    expiring_or_expired record.API.message_name
-
-  let get_item = get_certificate_attributes
-
-  let get_cls_and_uuid ~rpc ~session_id cert =
-    match cert with
-    | Host (host, _) | Internal (host, _) ->
-        (`Host, XenAPI.Host.get_uuid ~rpc ~session_id ~self:host)
-    | CA (cert, _) ->
-        (`Certificate, XenAPI.Certificate.get_uuid ~rpc ~session_id ~self:cert)
-end
-
-include Lib.Make (AlertSource)
+let alert rpc session_id =
+  get_certificates rpc session_id
+  |> List.iter (alert_for_certificate rpc session_id)

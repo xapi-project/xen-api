@@ -1,6 +1,6 @@
 opam-version: "2.0"
 maintainer: "xen-api@lists.xen.org"
-authors: [ "Pau Ruiz Safont" ]
+authors: [ "Pau Ruiz Safont" "Gang Ji" ]
 license: "LGPL-2.1-only WITH OCaml-LGPL-linking-exception"
 homepage: "https://github.com/xapi-project/xen-api"
 dev-repo: "git+https://github.com/xapi-project/xen-api.git"
@@ -23,7 +23,7 @@ depends: [
   "alcotest" {with-test}
 ]
 synopsis:
-  "Xen-API client library for remotely-controlling a xapi host"
+  "Xen-API client library for sending expiry alerts and removing outdated ones"
 url {
   src: "https://github.com/xapi-project/xen-api/archive/master.tar.gz"
 }
