@@ -1,3 +1,6 @@
+## v1.9.2 (13-Jun-2023)
+* CA-378301: Avoid memory leaks when writing XML
+
 ## v1.9.1 (28-Oct-2022)
 * CA-371780: Remove quadratic cost in ds_update_name
 
