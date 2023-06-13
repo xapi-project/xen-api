@@ -99,15 +99,11 @@ let check_sr_can_host_statefile ~__context ~sr ~cluster_stack =
              (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
           ) ;
       let size = minimum_size in
-      match
-        List.filter
-          (fun self ->
-            true
-            && Db.VDI.get_type ~__context ~self = `ha_statefile
-            && Db.VDI.get_virtual_size ~__context ~self >= size
-          )
-          (Db.SR.get_VDIs ~__context ~self:sr)
-      with
+      let ha_fits self =
+        Db.VDI.get_type ~__context ~self = `ha_statefile
+        && Db.VDI.get_virtual_size ~__context ~self >= size
+      in
+      match List.filter ha_fits (Db.SR.get_VDIs ~__context ~self:sr) with
       | x :: _ ->
           debug "Would re-use existing statefile: %s"
             (Db.VDI.get_uuid ~__context ~self:x) ;
