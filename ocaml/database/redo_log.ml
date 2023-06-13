@@ -894,20 +894,15 @@ let flush_db_to_redo_log db log =
   !(log.currently_accessible)
 
 let flush_db_exn db log =
-  match (db, log.read_only) with
-  | None, true ->
-      () (* no-op *)
-  | Some db, false ->
+  assert (not log.read_only); (* phantom type parameter ensures this only gets called with RW *)
+  match db with
+  | Some db ->
       R.debug "Flushing database on redo log enable" ;
       if not (flush_db_to_redo_log db log) then
         raise (RedoLogFailure "Cannot connect to redo log")
-  | None, false ->
+  | None ->
       (* can happen during startup when we want to replay redo log *)
       R.debug "No database provided, but redo-log is not readonly"
-  | Some _, true ->
-      invalid_arg
-        "Database provided during Redo_log.enable, but the redo log is \
-         read-only!"
 
 let enable db log reason = enable log reason ; flush_db_exn db log
 
