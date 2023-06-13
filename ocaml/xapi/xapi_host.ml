@@ -2974,10 +2974,22 @@ let get_host_updates_handler (req : Http.Request.t) s _ =
       Unixext.really_write_string s json_str |> ignore
   )
 
+let is_toolstack_restart_required ~__context self =
+  Db.Host.get_recommended_guidances ~__context ~self
+  |> List.mem `restart_toolstack
+
+let assert_master_does_not_requires_restart_toolstack ~__context =
+  if Helpers.get_master ~__context |> is_toolstack_restart_required ~__context
+  then
+    raise Api_errors.(Server_error (coordinator_requires_toolstack_restart, []))
+
 let apply_updates ~__context ~self ~hash =
   (* This function runs on master host *)
   Helpers.assert_we_are_master ~__context ;
   Pool_features.assert_enabled ~__context ~f:Features.Updates ;
+  if not (Helpers.is_pool_master ~__context ~host:self) then
+    assert_master_does_not_requires_restart_toolstack ~__context ;
+
   let guidances, warnings =
     Xapi_pool_helpers.with_pool_operation ~__context
       ~self:(Helpers.get_pool ~__context)
