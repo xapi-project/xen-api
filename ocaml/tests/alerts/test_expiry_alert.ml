@@ -16,12 +16,16 @@ open Expiry_alert
 
 let date_of = Xapi_stdext_date.Date.of_string
 
-let host_server_cert_expiring_conditions =
-  [
-    (7, Api_messages.host_server_certificate_expiring_07)
-  ; (14, Api_messages.host_server_certificate_expiring_14)
-  ; (30, Api_messages.host_server_certificate_expiring_30)
-  ]
+let test_expired = ("TEST_EXPIRED", 1L)
+
+let test_expiring_07 = ("TEST_EXPIRING_30", 2L)
+
+let test_expiring_14 = ("TEST_EXPIRING_30", 3L)
+
+let test_expiring_30 = ("TEST_EXPIRING_30", 4L)
+
+let test_expiring_conditions =
+  [(7, test_expiring_07); (14, test_expiring_14); (30, test_expiring_30)]
 
 module TestGenerateAlert = struct
   type test_case = {
@@ -50,8 +54,8 @@ module TestGenerateAlert = struct
         description= "no alert, 31 days left"
       ; check_time= "20230612T17:00:00Z"
       ; expire_time= "20230713T17:00:00Z"
-      ; expired_message_id= Api_messages.host_server_certificate_expired
-      ; expiring_conditions= host_server_cert_expiring_conditions
+      ; expired_message_id= test_expired
+      ; expiring_conditions= test_expiring_conditions
       ; alert_obj_description= "TLS server certificate"
       ; expected= None
       }
@@ -59,8 +63,8 @@ module TestGenerateAlert = struct
         description= "no alert, 30 days and 1 second left"
       ; check_time= "20230612T17:00:00Z"
       ; expire_time= "20230712T17:00:01Z"
-      ; expired_message_id= Api_messages.host_server_certificate_expired
-      ; expiring_conditions= host_server_cert_expiring_conditions
+      ; expired_message_id= test_expired
+      ; expiring_conditions= test_expiring_conditions
       ; alert_obj_description= "TLS server certificate"
       ; expected= None
       }
@@ -68,91 +72,82 @@ module TestGenerateAlert = struct
         description= "expiring alert, 30 days left"
       ; check_time= "20230612T17:00:00Z"
       ; expire_time= "20230712T17:00:00Z"
-      ; expired_message_id= Api_messages.host_server_certificate_expired
-      ; expiring_conditions= host_server_cert_expiring_conditions
+      ; expired_message_id= test_expired
+      ; expiring_conditions= test_expiring_conditions
       ; alert_obj_description= "TLS server certificate"
-      ; expected=
-          Some (expiring_result Api_messages.host_server_certificate_expiring_30)
+      ; expected= Some (expiring_result test_expiring_30)
       }
     ; {
         description= "expiring alert, 14 days and 1 second left"
       ; check_time= "20230612T17:00:00Z"
       ; expire_time= "20230626T17:00:01Z"
-      ; expired_message_id= Api_messages.host_server_certificate_expired
-      ; expiring_conditions= host_server_cert_expiring_conditions
+      ; expired_message_id= test_expired
+      ; expiring_conditions= test_expiring_conditions
       ; alert_obj_description= "TLS server certificate"
-      ; expected=
-          Some (expiring_result Api_messages.host_server_certificate_expiring_30)
+      ; expected= Some (expiring_result test_expiring_30)
       }
     ; {
         description= "expiring alert, 14 days left"
       ; check_time= "20230612T17:00:00Z"
       ; expire_time= "20230626T17:00:00Z"
-      ; expired_message_id= Api_messages.host_server_certificate_expired
-      ; expiring_conditions= host_server_cert_expiring_conditions
+      ; expired_message_id= test_expired
+      ; expiring_conditions= test_expiring_conditions
       ; alert_obj_description= "TLS server certificate"
-      ; expected=
-          Some (expiring_result Api_messages.host_server_certificate_expiring_14)
+      ; expected= Some (expiring_result test_expiring_14)
       }
     ; {
         description= "expiring alert, 7 days and 1 second left"
       ; check_time= "20230612T17:00:00Z"
       ; expire_time= "20230619T17:00:01Z"
-      ; expired_message_id= Api_messages.host_server_certificate_expired
-      ; expiring_conditions= host_server_cert_expiring_conditions
+      ; expired_message_id= test_expired
+      ; expiring_conditions= test_expiring_conditions
       ; alert_obj_description= "TLS server certificate"
-      ; expected=
-          Some (expiring_result Api_messages.host_server_certificate_expiring_14)
+      ; expected= Some (expiring_result test_expiring_14)
       }
     ; {
         description= "expiring alert, 7 days left"
       ; check_time= "20230612T17:00:00Z"
       ; expire_time= "20230619T17:00:00Z"
-      ; expired_message_id= Api_messages.host_server_certificate_expired
-      ; expiring_conditions= host_server_cert_expiring_conditions
+      ; expired_message_id= test_expired
+      ; expiring_conditions= test_expiring_conditions
       ; alert_obj_description= "TLS server certificate"
-      ; expected=
-          Some (expiring_result Api_messages.host_server_certificate_expiring_07)
+      ; expected= Some (expiring_result test_expiring_07)
       }
     ; {
         description= "expiring alert, 1 second left"
       ; check_time= "20230612T17:00:00Z"
       ; expire_time= "20230612T17:00:01Z"
-      ; expired_message_id= Api_messages.host_server_certificate_expired
-      ; expiring_conditions= host_server_cert_expiring_conditions
+      ; expired_message_id= test_expired
+      ; expiring_conditions= test_expiring_conditions
       ; alert_obj_description= "TLS server certificate"
-      ; expected=
-          Some (expiring_result Api_messages.host_server_certificate_expiring_07)
+      ; expected= Some (expiring_result test_expiring_07)
       }
     ; {
         description= "expired alert, 0 days left"
       ; check_time= "20230612T17:00:00Z"
       ; expire_time= "20230612T17:00:00Z"
-      ; expired_message_id= Api_messages.host_server_certificate_expired
-      ; expiring_conditions= host_server_cert_expiring_conditions
+      ; expired_message_id= test_expired
+      ; expiring_conditions= test_expiring_conditions
       ; alert_obj_description= "TLS server certificate"
-      ; expected=
-          Some (expired_result Api_messages.host_server_certificate_expired)
+      ; expected= Some (expired_result test_expired)
       }
     ; {
         description= "expired alert, 1 second passed"
       ; check_time= "20230612T17:00:01Z"
       ; expire_time= "20230612T17:00:00Z"
-      ; expired_message_id= Api_messages.host_server_certificate_expired
-      ; expiring_conditions= host_server_cert_expiring_conditions
+      ; expired_message_id= test_expired
+      ; expiring_conditions= test_expiring_conditions
       ; alert_obj_description= "TLS server certificate"
-      ; expected=
-          Some (expired_result Api_messages.host_server_certificate_expired)
+      ; expected= Some (expired_result test_expired)
       }
     ; {
         description= "expired alert, 1 day passed"
       ; check_time= "20230612T17:00:00Z"
       ; expire_time= "20230611T17:00:00Z"
-      ; expired_message_id= Api_messages.host_server_certificate_expired
-      ; expiring_conditions= host_server_cert_expiring_conditions
+      ; expired_message_id= test_expired
+      ; expiring_conditions= test_expiring_conditions
       ; alert_obj_description= "TLS server certificate"
-      ; expected=
-          Some (expired_result Api_messages.host_server_certificate_expired)
+      ; expected= Some (expired_result test_expired)
       }
     ]
 
@@ -170,7 +165,7 @@ module TestGenerateAlert = struct
       ; alert_obj_description
       ; expected
       } () =
-    let now = Xapi_stdext_date.Date.to_float (date_of check_time) in
+    let now = date_of check_time in
     let expiry = date_of expire_time in
     let actual =
       generate_alert now expiry expired_message_id expiring_conditions
@@ -210,13 +205,10 @@ module TestUpdateMessageInternal = struct
     [
       {
         description= "no existing messages"
-      ; expired_message_id= Api_messages.host_server_certificate_expired
-      ; expiring_conditions= host_server_cert_expiring_conditions
+      ; expired_message_id= test_expired
+      ; expiring_conditions= test_expiring_conditions
       ; msg_obj_uuid= "uuid1"
-      ; alert=
-          ( "msg_body"
-          , (fst Api_messages.host_server_certificate_expiring_30, 3L)
-          )
+      ; alert= ("msg_body", (fst test_expiring_30, 3L))
       ; all_msgs_properties= []
       ; expected_outdated_msg_refs= []
       ; expected_create_new_msg= true
@@ -225,10 +217,10 @@ module TestUpdateMessageInternal = struct
         description=
           "no related messages: both message_name and message_obj_uuid do not \
            match"
-      ; expired_message_id= Api_messages.host_server_certificate_expired
-      ; expiring_conditions= host_server_cert_expiring_conditions
+      ; expired_message_id= test_expired
+      ; expiring_conditions= test_expiring_conditions
       ; msg_obj_uuid= "msg_obj_uuid"
-      ; alert= ("msg_body", Api_messages.host_server_certificate_expiring_30)
+      ; alert= ("msg_body", test_expiring_30)
       ; all_msgs_properties=
           [
             ( "msg_ref1"
@@ -244,19 +236,19 @@ module TestUpdateMessageInternal = struct
     ; {
         description=
           "no related messages: message_name match, message_obj_uuid different"
-      ; expired_message_id= Api_messages.host_server_certificate_expired
-      ; expiring_conditions= host_server_cert_expiring_conditions
+      ; expired_message_id= test_expired
+      ; expiring_conditions= test_expiring_conditions
       ; msg_obj_uuid= "uuid1"
-      ; alert= ("msg_body", Api_messages.host_server_certificate_expiring_30)
+      ; alert= ("msg_body", test_expiring_30)
       ; all_msgs_properties=
           [
             ( "msg_ref1"
             , ("other_msg_name1", "other_msg_body1", 3L, "other_msg_obj_uuid1")
             )
           ; ( "msg_ref2"
-            , ( fst Api_messages.host_server_certificate_expired
+            , ( fst test_expired
               , "other_msg_body2"
-              , snd Api_messages.host_server_certificate_expired
+              , snd test_expired
               , "other_msg_obj_uuid2"
               )
             )
@@ -268,10 +260,10 @@ module TestUpdateMessageInternal = struct
         description=
           "no related messages: message_name do not match, message_obj_uuid \
            equal"
-      ; expired_message_id= Api_messages.host_server_certificate_expired
-      ; expiring_conditions= host_server_cert_expiring_conditions
+      ; expired_message_id= test_expired
+      ; expiring_conditions= test_expiring_conditions
       ; msg_obj_uuid= "msg_obj_uuid"
-      ; alert= ("msg_body", Api_messages.host_server_certificate_expiring_30)
+      ; alert= ("msg_body", test_expiring_30)
       ; all_msgs_properties=
           [
             ( "msg_ref1"
@@ -286,19 +278,19 @@ module TestUpdateMessageInternal = struct
       }
     ; {
         description= "have outdated message"
-      ; expired_message_id= Api_messages.host_server_certificate_expired
-      ; expiring_conditions= host_server_cert_expiring_conditions
+      ; expired_message_id= test_expired
+      ; expiring_conditions= test_expiring_conditions
       ; msg_obj_uuid= "msg_obj_uuid"
-      ; alert= ("msg_body", Api_messages.host_server_certificate_expiring_14)
+      ; alert= ("msg_body", test_expiring_14)
       ; all_msgs_properties=
           [
             ( "msg_ref1"
             , ("other_msg_name1", "other_msg_body1", 3L, "msg_obj_uuid")
             )
           ; ( "msg_ref2"
-            , ( fst Api_messages.host_server_certificate_expiring_30
+            , ( fst test_expiring_30
               , "other_msg_body2"
-              , snd Api_messages.host_server_certificate_expiring_30
+              , snd test_expiring_30
               , "msg_obj_uuid"
               )
             )
@@ -308,19 +300,19 @@ module TestUpdateMessageInternal = struct
       }
     ; {
         description= "already have the required message"
-      ; expired_message_id= Api_messages.host_server_certificate_expired
-      ; expiring_conditions= host_server_cert_expiring_conditions
+      ; expired_message_id= test_expired
+      ; expiring_conditions= test_expiring_conditions
       ; msg_obj_uuid= "msg_obj_uuid"
-      ; alert= ("msg_body", Api_messages.host_server_certificate_expiring_14)
+      ; alert= ("msg_body", test_expiring_14)
       ; all_msgs_properties=
           [
             ( "msg_ref1"
             , ("other_msg_name1", "other_msg_body1", 3L, "msg_obj_uuid")
             )
           ; ( "msg_ref2"
-            , ( fst Api_messages.host_server_certificate_expiring_14
+            , ( fst test_expiring_14
               , "msg_body"
-              , snd Api_messages.host_server_certificate_expiring_14
+              , snd test_expiring_14
               , "msg_obj_uuid"
               )
             )

@@ -42,7 +42,9 @@ let expiring_message obj = Printf.sprintf "The %s is expiring soon." obj
 
 let generate_alert now expiry expired_message_id expiring_conditions
     alert_obj_description =
-  let remaining_days = days_until_expiry now (Date.to_float expiry) in
+  let remaining_days =
+    days_until_expiry (Date.to_float now) (Date.to_float expiry)
+  in
   let sorted_alert_conditions =
     List.sort
       (fun (remaining_days_a, _) (remaining_days_b, _) ->
@@ -110,7 +112,7 @@ let update_message rpc session_id expired_message_id expiring_conditions msg_cls
 
 let update ~rpc ~session_id ~alert_obj_description ~expired_message_id
     ~expiring_conditions ~expiry ~msg_cls ~msg_obj_uuid =
-  let now = Unix.time () in
+  let now = Date.of_float (Unix.time ()) in
   let alert =
     generate_alert now expiry expired_message_id expiring_conditions
       alert_obj_description

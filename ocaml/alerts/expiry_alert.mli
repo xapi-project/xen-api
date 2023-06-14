@@ -41,7 +41,7 @@ val expired_message : string -> string
 val expiring_message : string -> string
 
 val generate_alert :
-     float
+     Xapi_stdext_date.Date.t
   -> Xapi_stdext_date.Date.t
   -> 'a
   -> (int * 'a) list
