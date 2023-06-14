@@ -112,7 +112,7 @@ let update_message rpc session_id expired_message_id expiring_conditions msg_cls
 
 let update ~rpc ~session_id ~alert_obj_description ~expired_message_id
     ~expiring_conditions ~expiry ~msg_cls ~msg_obj_uuid =
-  let now = Date.of_float (Unix.time ()) in
+  let now = Date.now () in
   let alert =
     generate_alert now expiry expired_message_id expiring_conditions
       alert_obj_description
