@@ -18,9 +18,9 @@ let date_of = Xapi_stdext_date.Date.of_string
 
 let test_expired = ("TEST_EXPIRED", 1L)
 
-let test_expiring_07 = ("TEST_EXPIRING_30", 2L)
+let test_expiring_07 = ("TEST_EXPIRING_07", 2L)
 
-let test_expiring_14 = ("TEST_EXPIRING_30", 3L)
+let test_expiring_14 = ("TEST_EXPIRING_14", 3L)
 
 let test_expiring_30 = ("TEST_EXPIRING_30", 4L)
 
