@@ -54,7 +54,7 @@ CAMLprim value stub_blkgetsize64(value filename){
   int rc = NOT_IMPLEMENTED;
   const char *filename_c = strdup(String_val(filename));
 
-  enter_blocking_section();
+  caml_enter_blocking_section();
   fd = open(filename_c, O_RDONLY, 0);
   if (fd >= 0) {
 #if defined(BLKGETSIZE64)
@@ -70,7 +70,7 @@ CAMLprim value stub_blkgetsize64(value filename){
 #endif
     close(fd);
   }
-  leave_blocking_section();
+  caml_leave_blocking_section();
   free((void*)filename_c);
 
   if (fd == -1) uerror("open", filename);
