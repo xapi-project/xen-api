@@ -57,21 +57,13 @@ let parse_layout fd =
         debug "Read header <%s>" (string_of_header h) ;
         debug "Dummy-processing record..." ;
         match h with
-        | Xenops, len ->
-            Io.read fd (Io.int_of_int64_exn len) |> ignore ;
-            aux (h :: acc)
         | Libxc, _ ->
             verify_libxc_v2_record fd ;
             aux (h :: acc)
-        | Qemu_trad, len ->
-            Io.read fd (Io.int_of_int64_exn len) |> ignore ;
-            aux (h :: acc)
-        | Varstored, len ->
-            Io.read fd (Io.int_of_int64_exn len) |> ignore ;
-            aux (h :: acc)
-        | Swtpm0, len ->
-            Io.read fd (Io.int_of_int64_exn len) |> ignore ;
-            aux (h :: acc)
+        | Xenops, len
+        | Qemu_trad, len
+        | Varstored, len
+        | Swtpm0, len
         | Swtpm, len ->
             Io.read fd (Io.int_of_int64_exn len) |> ignore ;
             aux (h :: acc)
