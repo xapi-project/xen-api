@@ -42,7 +42,7 @@ module Xenops_record = struct
   [@@deriving sexp]
 
   let make ?vm_str ?xs_subtree () =
-    let time = Xapi_stdext_date.Date.(to_string (of_float (Unix.time ()))) in
+    let time = Xapi_stdext_date.Date.(to_string (now ())) in
     let word_size = Sys.word_size in
     {word_size; time; vm_str; xs_subtree}
 
@@ -62,6 +62,7 @@ type header_type =
   | Qemu_xen
   | Demu
   | Varstored
+  | Swtpm0
   | Swtpm
   | End_of_image
 
@@ -85,6 +86,8 @@ let header_type_of_int64 = function
   | 0x0f11L ->
       Ok Varstored
   | 0x0f12L ->
+      Ok Swtpm0
+  | 0x0f13L ->
       Ok Swtpm
   | 0xffffL ->
       Ok End_of_image
@@ -108,8 +111,10 @@ let int64_of_header_type = function
       0x0f10L
   | Varstored ->
       0x0f11L
-  | Swtpm ->
+  | Swtpm0 ->
       0x0f12L
+  | Swtpm ->
+      0x0f13L
   | End_of_image ->
       0xffffL
 
@@ -134,6 +139,8 @@ let string_of_header h =
       s "vGPU save record (record length=%Ld)" len
   | Varstored, len ->
       s "varstored save record (record length=%Ld)" len
+  | Swtpm0, len ->
+      s "swtpm0 save record (record length=%Ld)" len
   | Swtpm, len ->
       s "swtpm save record (record length=%Ld)" len
   | End_of_image, _ ->

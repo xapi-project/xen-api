@@ -1393,6 +1393,14 @@ let restore_common (task : Xenops_task.task_handle) ~xc ~xs
                 debug "Read varstored record contents (domid=%d)" domid ;
                 Device.Dm.restore_varstored task ~xs ~efivars domid ;
                 process_header fd res
+            | Swtpm0, len ->
+                debug "Read swtpm0 record header (domid=%d length=%Ld)" domid
+                  len ;
+                let raw_contents = Io.read fd (Io.int_of_int64_exn len) in
+                let contents = Base64.encode_string raw_contents in
+                debug "Read swtpm0 record contents (domid=%d)" domid ;
+                Device.Dm.restore_vtpm task ~xs ~contents ~vtpm domid ;
+                process_header fd res
             | Swtpm, len ->
                 debug "Read swtpm record header (domid=%d length=%Ld)" domid len ;
                 let contents = Io.read fd (Io.int_of_int64_exn len) in
