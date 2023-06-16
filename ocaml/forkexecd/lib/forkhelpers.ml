@@ -62,12 +62,9 @@ let waitpid (sock, pid) =
 
 let waitpid_nohang ((sock, _) as x) =
   Unix.set_nonblock sock ;
-  let r =
-    try waitpid x
-    with Unix.(Unix_error ((EAGAIN | EWOULDBLOCK), _, _)) ->
-      (0, Unix.WEXITED 0)
-  in
-  Unix.clear_nonblock sock ; r
+  try waitpid x
+  with Unix.(Unix_error ((EAGAIN | EWOULDBLOCK), _, _)) ->
+    Unix.clear_nonblock sock ; (0, Unix.WEXITED 0)
 
 let dontwaitpid (sock, _pid) =
   ( try
