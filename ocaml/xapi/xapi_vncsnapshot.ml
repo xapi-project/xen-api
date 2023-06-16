@@ -46,8 +46,9 @@ let vncsnapshot_handler (req : Request.t) s _ =
                 ; tmp
                 ]
             in
+            let hsts_time = !Xapi_globs.hsts_max_age in
             waitpid_fail_if_bad_exit pid ;
-            Http_svr.response_file s tmp
+            Http_svr.response_file ~hsts_time s tmp
           )
           (fun () -> try Unix.unlink tmp with _ -> ())
       with e ->

@@ -820,6 +820,8 @@ let sm_dir = ref "/opt/xensource/sm"
 
 let web_dir = ref "/opt/xensource/www"
 
+let hsts_max_age = ref (-1)
+
 let website_https_only = ref true
 
 let migration_https_only = ref true
@@ -1372,6 +1374,12 @@ let other_options =
     , Arg.Set_float winbind_ldap_query_subject_timeout
     , (fun () -> string_of_float !winbind_ldap_query_subject_timeout)
     , "Timeout to perform ldap query for subject information"
+    )
+  ; ( "hsts_max_age"
+    , Arg.Set_int hsts_max_age
+    , (fun () -> string_of_int !hsts_max_age)
+    , "number of seconds after the reception of the STS header field, during \
+       which the UA as a known HSTS Host (default = -1 means HSTS is disabled)"
     )
   ; ( "website-https-only"
     , Arg.Set website_https_only
