@@ -2924,7 +2924,9 @@ let enable_redo_log ~__context ~sr =
   (* enable the new redo log, unless HA is enabled (which means a redo log
      	 * is already in use) *)
   if not (Db.Pool.get_ha_enabled ~__context ~self:pool) then (
-    Redo_log.enable Xapi_ha.ha_redo_log Xapi_globs.gen_metadata_vdi_reason ;
+    Redo_log.enable_and_flush
+      (Context.database_of __context |> Db_ref.get_database)
+      Xapi_ha.ha_redo_log Xapi_globs.gen_metadata_vdi_reason ;
     Localdb.put Constants.redo_log_enabled "true"
   ) ;
   info "The redo log is now enabled"

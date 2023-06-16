@@ -49,7 +49,7 @@ let redo_log_sm_config = [("type", "raw")]
 (* ---------------------------------------------------- *)
 (* Encapsulate the state of a single redo_log instance. *)
 
-type redo_log = {
+type redo_log_conf = {
     name: string
   ; marker: string
   ; read_only: bool
@@ -65,8 +65,10 @@ type redo_log = {
   ; num_dying_processes: int ref
 }
 
+type 'a redo_log = redo_log_conf
+
 module RedoLogSet = Set.Make (struct
-  type t = redo_log
+  type t = redo_log_conf
 
   let compare log1 log2 = compare log1.marker log2.marker
 end)
@@ -83,12 +85,12 @@ let ready_to_write = ref true
 
 let is_enabled log = !(log.enabled)
 
-let enable log vdi_reason =
+let enable_existing log vdi_reason =
   R.info "Enabling use of redo log" ;
   log.device := get_static_device vdi_reason ;
   log.enabled := true
 
-let enable_block log path =
+let enable_block_existing log path =
   R.info "Enabling use of redo log" ;
   log.device := Some path ;
   log.enabled := true
@@ -364,34 +366,6 @@ let rec read_read_response sock fn_db fn_delta expected_gen_count
   | e ->
       raise
         (CommunicationsProblem ("unrecognised read response prefix [" ^ e ^ "]"))
-
-let action_empty sock _datasockpath =
-  R.debug "Performing empty" ;
-  (* Compute desired response time *)
-  let latest_response_time =
-    get_latest_response_time !Db_globs.redo_log_max_block_time_empty
-  in
-  (* Empty *)
-  let str = Bytes.of_string "empty_____" in
-  Unixext.time_limited_write sock (Bytes.length str) str latest_response_time ;
-  (* Read response *)
-  let response_length = 10 in
-  let response =
-    Unixext.time_limited_read sock response_length latest_response_time
-  in
-  match response with
-  | "empty|ack_" ->
-      ()
-  | "empty|nack" ->
-      (* Read the error message *)
-      let error = read_length_and_string sock latest_response_time in
-      R.warn "Emptying was unsuccessful: [%s]" error ;
-      if error = Block_device_io_errors.timeout_error_msg then
-        raise Unixext.Timeout
-      else
-        raise (RedoLogFailure error)
-  | e ->
-      raise (CommunicationsProblem ("unrecognised empty response [" ^ e ^ "]"))
 
 let action_read fn_db fn_delta sock datasockpath =
   R.debug "Performing read" ;
@@ -800,6 +774,10 @@ let create ~name ~state_change_callback ~read_only =
   ) ;
   instance
 
+let create_rw = create ~read_only:false
+
+let create_ro = create ~read_only:true
+
 let delete log =
   shutdown log ;
   disable log ;
@@ -871,10 +849,6 @@ let apply fn_db fn_delta log =
       (fun () -> ready_to_write := true)
   )
 
-let empty log =
-  if is_enabled log then
-    connect_and_perform_action action_empty "invalidate the redo log" log
-
 (** ------------------------------------------------ *)
 
 (** Functions which operate on all active redo_logs. *)
@@ -887,6 +861,20 @@ let flush_db_to_redo_log db log =
     (Db_cache_types.Manifest.generation (Db_cache_types.Database.manifest db))
     write_db_to_fd log ;
   !(log.currently_accessible)
+
+let flush_db_exn db log =
+  assert (not log.read_only) ;
+  (* phantom type parameter ensures this only gets called with RW *)
+  R.debug "Flushing database on redo log enable" ;
+  if not (flush_db_to_redo_log db log) then
+    raise (RedoLogFailure "Cannot connect to redo log")
+
+let enable_and_flush db log reason =
+  enable_existing log reason ; flush_db_exn db log
+
+let enable_block_and_flush db log path =
+  enable_block_existing log path ;
+  flush_db_exn db log
 
 (* Write the given database to all active redo_logs *)
 let flush_db_to_all_active_redo_logs db =
