@@ -40,7 +40,8 @@ type header_type =
   | Qemu_xen
   | Demu
   | Varstored
-  | Swtpm
+  | Swtpm0 (* binary stream *)
+  | Swtpm (* base64 with space separators stream *)
   | End_of_image
 
 type format = Structured | Legacy
