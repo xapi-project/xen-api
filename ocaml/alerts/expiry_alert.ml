@@ -58,8 +58,9 @@ let related_messages msg_obj_uuid related_message_name_list all_msgs =
     all_msgs
 
 let message_body msg expiry =
+  let valid_till = Date.of_float (Date.to_float expiry -. 1.) in
   Printf.sprintf "<body><message>%s</message><date>%s</date></body>" msg
-    (Date.to_string expiry)
+    (Date.to_string valid_till)
 
 let expired_message obj = Printf.sprintf "The %s has expired." obj
 

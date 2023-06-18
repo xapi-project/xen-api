@@ -1,4 +1,5 @@
 module XenAPI = Client.Client
+module Date = Xapi_stdext_date.Date
 
 type cert =
   | CA of API.ref_Certificate * API.datetime
@@ -60,6 +61,10 @@ let alert_message_cls_and_obj_uuid rpc session_id cert =
   | CA (cert, _) ->
       (`Certificate, XenAPI.Certificate.get_uuid ~rpc ~session_id ~self:cert)
 
+let get_expiry = function
+  | Host (_, valid_till) | Internal (_, valid_till) | CA (_, valid_till) ->
+      Date.of_float (Date.to_float valid_till +. 1.)
+
 let certificates_to_expiry_message_info_list rpc session_id certificates =
   List.map
     (fun cert ->
@@ -70,9 +75,7 @@ let certificates_to_expiry_message_info_list rpc session_id certificates =
       let message_sent_on_remaining_days_list =
         message_sent_on_remaining_days_list cert
       in
-      let expiry =
-        match cert with Host (_, exp) | Internal (_, exp) | CA (_, exp) -> exp
-      in
+      let expiry = get_expiry cert in
       Expiry_alert.
         {
           message_cls
@@ -88,3 +91,5 @@ let alert rpc session_id =
   get_certificates rpc session_id
   |> certificates_to_expiry_message_info_list rpc session_id
   |> Expiry_alert.alert ~rpc ~session_id
+
+let generate_alert = Expiry_alert.generate_alert
