@@ -15,6 +15,31 @@
 module XenAPI = Client.Client
 module Date = Xapi_stdext_date.Date
 
+type message_name_t = string
+
+type message_priority_t = int64
+
+type message_id_t = message_name_t * message_priority_t
+
+type remaining_days_t = int
+
+type expiry_messaging_info_t = {
+    message_cls:
+      [ `Certificate
+      | `Host
+      | `PVS_proxy
+      | `Pool
+      | `SR
+      | `VDI
+      | `VM
+      | `VMPP
+      | `VMSS ]
+  ; message_obj_uuid: string
+  ; obj_description: string
+  ; message_sent_on_remaining_days_list: (remaining_days_t * message_id_t) list
+  ; expiry: Xapi_stdext_date.Date.t (* when the obj will expire *)
+}
+
 let seconds_per_day = 3600. *. 24.
 
 let days_until_expiry epoch expiry =
@@ -40,34 +65,42 @@ let expired_message obj = Printf.sprintf "The %s has expired." obj
 
 let expiring_message obj = Printf.sprintf "The %s is expiring soon." obj
 
-let generate_alert now expiry expired_message_id expiring_conditions
-    alert_obj_description =
+let generate_alert now obj_description message_sent_on_remaining_days_list
+    expiry =
   let remaining_days =
     days_until_expiry (Date.to_float now) (Date.to_float expiry)
   in
-  let sorted_alert_conditions =
-    List.sort
-      (fun (remaining_days_a, _) (remaining_days_b, _) ->
-        remaining_days_a - remaining_days_b
-      )
-      ((0, expired_message_id) :: expiring_conditions)
+  let rec get_most_critical = function
+    | [], con_critical ->
+        con_critical
+    | ((days_curr, _) as con_curr) :: cons, None ->
+        if remaining_days <= float_of_int days_curr then
+          get_most_critical (cons, Some con_curr)
+        else
+          get_most_critical (cons, None)
+    | ( ((days_curr, _) as con_curr) :: cons
+      , (Some (days_critical, _) as con_critical) ) ->
+        if
+          remaining_days <= float_of_int days_curr && days_curr <= days_critical
+        then
+          get_most_critical (cons, Some con_curr)
+        else
+          get_most_critical (cons, con_critical)
   in
-  let matched_condition =
-    List.find_opt
-      (fun (days, _) -> remaining_days <= float_of_int days)
-      sorted_alert_conditions
+  let critical_condition =
+    get_most_critical (message_sent_on_remaining_days_list, None)
   in
-  match matched_condition with
+  match critical_condition with
   | None ->
       None
-  | Some (days, expired_message_id) when days = 0 ->
-      let expired = expired_message alert_obj_description in
+  | Some (days, expired_message_id) when days <= 0 ->
+      let expired = expired_message obj_description in
       Some (message_body expired expiry, expired_message_id)
   | Some (_, expiring_message_id) ->
-      let expiring = expiring_message alert_obj_description in
+      let expiring = expiring_message obj_description in
       Some (message_body expiring expiry, expiring_message_id)
 
-let messages_require_update related_msgs alert =
+let messages_require_update alert related_msgs =
   let msg_body, (msg_name, msg_prio) = alert in
   let is_outdated (_ref, record) =
     record.API.message_body <> msg_body
@@ -77,50 +110,58 @@ let messages_require_update related_msgs alert =
   let outdated, current = List.partition is_outdated related_msgs in
   (outdated, current = [])
 
-let update_message_internal expired_message_id expiring_conditions msg_obj_uuid
-    alert all_msgs =
-  let expiring_msg_name_list =
-    List.map (fun (_, (msg_name, _)) -> msg_name) expiring_conditions
-  in
-  let expired_expiring_msg_name_list =
-    fst expired_message_id :: expiring_msg_name_list
-  in
-  let related_msgs =
-    related_messages msg_obj_uuid expired_expiring_msg_name_list all_msgs
-  in
-  let outdated_msgs, create_new_msg =
-    messages_require_update related_msgs alert
-  in
-  (outdated_msgs, create_new_msg)
+let update_message_internal message_name_list msg_obj_uuid alert all_msgs =
+  all_msgs
+  |> related_messages msg_obj_uuid message_name_list
+  |> messages_require_update alert
 
-let update_message rpc session_id expired_message_id expiring_conditions msg_cls
-    msg_obj_uuid alert all_msgs =
+let update_message rpc session_id msg_name_list msg_cls msg_obj_uuid alert
+    all_msgs =
   let outdated_msgs, create_new_msg =
-    update_message_internal expired_message_id expiring_conditions msg_obj_uuid
-      alert all_msgs
+    all_msgs |> update_message_internal msg_name_list msg_obj_uuid alert
   in
   List.iter
     (fun (self, _) -> XenAPI.Message.destroy ~rpc ~session_id ~self)
     outdated_msgs ;
   if create_new_msg then
     let body, (name, priority) = alert in
-    let (_ : [> `message] API.Ref.t) =
-      XenAPI.Message.create ~rpc ~session_id ~name ~priority ~cls:msg_cls
-        ~obj_uuid:msg_obj_uuid ~body
-    in
-    ()
+    XenAPI.Message.create ~rpc ~session_id ~name ~priority ~cls:msg_cls
+      ~obj_uuid:msg_obj_uuid ~body
+    |> ignore
 
-let update ~rpc ~session_id ~alert_obj_description ~expired_message_id
-    ~expiring_conditions ~expiry ~msg_cls ~msg_obj_uuid =
+let alert ~rpc ~session_id expiry_messaging_info_list =
   let now = Date.now () in
-  let alert =
-    generate_alert now expiry expired_message_id expiring_conditions
-      alert_obj_description
+  let alert_message_info_list =
+    List.filter_map
+      (fun {
+             message_cls
+           ; message_obj_uuid
+           ; obj_description
+           ; message_sent_on_remaining_days_list
+           ; expiry
+           } ->
+        let alert =
+          generate_alert now obj_description message_sent_on_remaining_days_list
+            expiry
+        in
+        match alert with
+        | Some alert ->
+            let msg_name_list =
+              List.map
+                (fun (_, (msg_name, _)) -> msg_name)
+                message_sent_on_remaining_days_list
+            in
+            Some (alert, msg_name_list, message_cls, message_obj_uuid)
+        | None ->
+            None
+      )
+      expiry_messaging_info_list
   in
-  match alert with
-  | Some alert ->
-      all_messages rpc session_id
-      |> update_message rpc session_id expired_message_id expiring_conditions
-           msg_cls msg_obj_uuid alert
-  | None ->
-      ()
+  if List.length alert_message_info_list > 0 then
+    let all_msgs = all_messages rpc session_id in
+    List.iter
+      (fun (alert, msg_name_list, message_cls, message_obj_uuid) ->
+        update_message rpc session_id msg_name_list message_cls message_obj_uuid
+          alert all_msgs
+      )
+      alert_message_info_list

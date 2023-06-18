@@ -30,61 +30,61 @@ let certificate_description = function
   | CA _ ->
       "CA pool certificate"
 
-let expired_message_id = function
-  | Host _ ->
-      Api_messages.host_server_certificate_expired
-  | Internal _ ->
-      Api_messages.host_internal_certificate_expired
-  | CA _ ->
-      Api_messages.pool_ca_certificate_expired
-
-let expiring_conditions = function
+let message_sent_on_remaining_days_list = function
   | Host _ ->
       [
-        (7, Api_messages.host_server_certificate_expiring_07)
+        (0, Api_messages.host_server_certificate_expired)
+      ; (7, Api_messages.host_server_certificate_expiring_07)
       ; (14, Api_messages.host_server_certificate_expiring_14)
       ; (30, Api_messages.host_server_certificate_expiring_30)
       ]
   | Internal _ ->
       [
-        (7, Api_messages.host_internal_certificate_expiring_07)
+        (0, Api_messages.host_internal_certificate_expired)
+      ; (7, Api_messages.host_internal_certificate_expiring_07)
       ; (14, Api_messages.host_internal_certificate_expiring_14)
       ; (30, Api_messages.host_internal_certificate_expiring_30)
       ]
   | CA _ ->
       [
-        (7, Api_messages.pool_ca_certificate_expiring_07)
+        (0, Api_messages.pool_ca_certificate_expired)
+      ; (7, Api_messages.pool_ca_certificate_expiring_07)
       ; (14, Api_messages.pool_ca_certificate_expiring_14)
       ; (30, Api_messages.pool_ca_certificate_expiring_30)
       ]
 
-let alert_message_cls = function
-  | Host _ ->
-      `Host
-  | Internal _ ->
-      `Host
-  | CA _ ->
-      `Certificate
-
-let alert_message_obj_uuid rpc session_id cert =
+let alert_message_cls_and_obj_uuid rpc session_id cert =
   match cert with
   | Host (host, _) | Internal (host, _) ->
-      XenAPI.Host.get_uuid ~rpc ~session_id ~self:host
+      (`Host, XenAPI.Host.get_uuid ~rpc ~session_id ~self:host)
   | CA (cert, _) ->
-      XenAPI.Certificate.get_uuid ~rpc ~session_id ~self:cert
+      (`Certificate, XenAPI.Certificate.get_uuid ~rpc ~session_id ~self:cert)
 
-let alert_for_certificate rpc session_id cert =
-  let alert_obj_description = certificate_description cert in
-  let expired_message_id = expired_message_id cert in
-  let expiring_conditions = expiring_conditions cert in
-  let expiry =
-    match cert with Host (_, exp) | Internal (_, exp) | CA (_, exp) -> exp
-  in
-  let msg_cls = alert_message_cls cert in
-  let msg_obj_uuid = alert_message_obj_uuid rpc session_id cert in
-  Expiry_alert.update ~rpc ~session_id ~alert_obj_description
-    ~expired_message_id ~expiring_conditions ~expiry ~msg_cls ~msg_obj_uuid
+let certificates_to_expiry_message_info_list rpc session_id certificates =
+  List.map
+    (fun cert ->
+      let message_cls, message_obj_uuid =
+        alert_message_cls_and_obj_uuid rpc session_id cert
+      in
+      let obj_description = certificate_description cert in
+      let message_sent_on_remaining_days_list =
+        message_sent_on_remaining_days_list cert
+      in
+      let expiry =
+        match cert with Host (_, exp) | Internal (_, exp) | CA (_, exp) -> exp
+      in
+      Expiry_alert.
+        {
+          message_cls
+        ; message_obj_uuid
+        ; obj_description
+        ; message_sent_on_remaining_days_list
+        ; expiry
+        }
+    )
+    certificates
 
 let alert rpc session_id =
   get_certificates rpc session_id
-  |> List.iter (alert_for_certificate rpc session_id)
+  |> certificates_to_expiry_message_info_list rpc session_id
+  |> Expiry_alert.alert ~rpc ~session_id
