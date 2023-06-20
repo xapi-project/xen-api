@@ -28,6 +28,8 @@ val query_possible_host_dss : unit -> Data_source.t list
 
 val query_host_ds : string -> float
 
+val dump_host_dss_to_file : string -> unit
+
 val add_vm_ds : string -> int -> string -> unit
 
 val forget_vm_ds : string -> string -> unit
