@@ -51,9 +51,8 @@ let all_messages rpc session_id =
 let related_messages msg_obj_uuid related_message_name_list all_msgs =
   List.filter
     (fun (_ref, record) ->
-      let related name = List.mem name related_message_name_list in
       record.API.message_obj_uuid = msg_obj_uuid
-      && related record.API.message_name
+      && List.mem record.API.message_name related_message_name_list
     )
     all_msgs
 
