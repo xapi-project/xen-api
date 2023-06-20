@@ -157,7 +157,7 @@ let alert ~rpc ~session_id expiry_messaging_info_list =
       )
       expiry_messaging_info_list
   in
-  if List.length alert_message_info_list > 0 then
+  if alert_message_info_list <> [] then
     let all_msgs = all_messages rpc session_id in
     List.iter
       (fun (alert, msg_name_list, message_cls, message_obj_uuid) ->
