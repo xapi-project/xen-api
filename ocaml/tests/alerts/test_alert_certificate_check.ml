@@ -69,11 +69,9 @@ let certificate_samples =
 let gen check_time datetime =
   let cert = Host (Ref.null, datetime) in
   let obj_des = certificate_description cert in
-  let message_sent_on_remaining_days_list =
-    message_sent_on_remaining_days_list cert
-  in
+  let msg_sent_on_remaining_days_list = msg_sent_on_remaining_days_list cert in
   let expiry = get_expiry cert in
-  generate_alert check_time obj_des message_sent_on_remaining_days_list expiry
+  generate_alert check_time obj_des msg_sent_on_remaining_days_list expiry
 
 let test_alerts (datetime, expected) () =
   let result = gen check_time datetime in

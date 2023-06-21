@@ -31,7 +31,7 @@ let certificate_description = function
   | CA _ ->
       "CA pool certificate"
 
-let message_sent_on_remaining_days_list = function
+let msg_sent_on_remaining_days_list = function
   | Host _ ->
       [
         (0, Api_messages.host_server_certificate_expired)
@@ -68,20 +68,18 @@ let get_expiry = function
 let certificates_to_expiry_message_info_list rpc session_id certificates =
   List.map
     (fun cert ->
-      let message_cls, message_obj_uuid =
-        alert_message_cls_and_obj_uuid rpc session_id cert
-      in
+      let cls, obj_uuid = alert_message_cls_and_obj_uuid rpc session_id cert in
       let obj_description = certificate_description cert in
-      let message_sent_on_remaining_days_list =
-        message_sent_on_remaining_days_list cert
+      let msg_sent_on_remaining_days_list =
+        msg_sent_on_remaining_days_list cert
       in
       let expiry = get_expiry cert in
       Expiry_alert.
         {
-          message_cls
-        ; message_obj_uuid
+          cls
+        ; obj_uuid
         ; obj_description
-        ; message_sent_on_remaining_days_list
+        ; msg_sent_on_remaining_days_list
         ; expiry
         }
     )

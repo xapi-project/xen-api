@@ -24,7 +24,7 @@ type message_id_t = message_name_t * message_priority_t
 type remaining_days_t = int
 
 type expiry_messaging_info_t = {
-    message_cls:
+    cls:
       [ `Certificate
       | `Host
       | `PVS_proxy
@@ -34,9 +34,9 @@ type expiry_messaging_info_t = {
       | `VM
       | `VMPP
       | `VMSS ]
-  ; message_obj_uuid: string
+  ; obj_uuid: string
   ; obj_description: string
-  ; message_sent_on_remaining_days_list: (remaining_days_t * message_id_t) list
+  ; msg_sent_on_remaining_days_list: (remaining_days_t * message_id_t) list
   ; expiry: Xapi_stdext_date.Date.t (* when the obj will expire *)
 }
 
@@ -65,8 +65,7 @@ let expired_message obj = Printf.sprintf "The %s has expired." obj
 
 let expiring_message obj = Printf.sprintf "The %s is expiring soon." obj
 
-let generate_alert now obj_description message_sent_on_remaining_days_list
-    expiry =
+let generate_alert now obj_description msg_sent_on_remaining_days_list expiry =
   let remaining_days =
     days_until_expiry (Date.to_float now) (Date.to_float expiry)
   in
@@ -88,7 +87,7 @@ let generate_alert now obj_description message_sent_on_remaining_days_list
           get_most_critical (cons, con_critical)
   in
   let critical_condition =
-    get_most_critical (message_sent_on_remaining_days_list, None)
+    get_most_critical (msg_sent_on_remaining_days_list, None)
   in
   match critical_condition with
   | None ->
@@ -134,14 +133,14 @@ let alert ~rpc ~session_id expiry_messaging_info_list =
   let alert_message_info_list =
     List.filter_map
       (fun {
-             message_cls
-           ; message_obj_uuid
+             cls
+           ; obj_uuid
            ; obj_description
-           ; message_sent_on_remaining_days_list
+           ; msg_sent_on_remaining_days_list
            ; expiry
            } ->
         let alert =
-          generate_alert now obj_description message_sent_on_remaining_days_list
+          generate_alert now obj_description msg_sent_on_remaining_days_list
             expiry
         in
         match alert with
@@ -149,9 +148,9 @@ let alert ~rpc ~session_id expiry_messaging_info_list =
             let msg_name_list =
               List.map
                 (fun (_, (msg_name, _)) -> msg_name)
-                message_sent_on_remaining_days_list
+                msg_sent_on_remaining_days_list
             in
-            Some (alert, msg_name_list, message_cls, message_obj_uuid)
+            Some (alert, msg_name_list, cls, obj_uuid)
         | None ->
             None
       )
@@ -160,8 +159,7 @@ let alert ~rpc ~session_id expiry_messaging_info_list =
   if alert_message_info_list <> [] then
     let all_msgs = all_messages rpc session_id in
     List.iter
-      (fun (alert, msg_name_list, message_cls, message_obj_uuid) ->
-        update_message rpc session_id msg_name_list message_cls message_obj_uuid
-          alert all_msgs
+      (fun (alert, msg_name_list, cls, obj_uuid) ->
+        update_message rpc session_id msg_name_list cls obj_uuid alert all_msgs
       )
       alert_message_info_list

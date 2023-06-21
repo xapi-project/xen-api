@@ -23,7 +23,7 @@ type cert =
 
 val certificate_description : cert -> string
 
-val message_sent_on_remaining_days_list : cert -> (int * (string * int64)) list
+val msg_sent_on_remaining_days_list : cert -> (int * (string * int64)) list
 
 val get_expiry : cert -> Xapi_stdext_date.Date.t
 

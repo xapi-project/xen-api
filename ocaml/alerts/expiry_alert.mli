@@ -22,7 +22,7 @@ type message_id_t = message_name_t * message_priority_t
 type remaining_days_t = int
 
 type expiry_messaging_info_t = {
-    message_cls:
+    cls:
       [ `Certificate
       | `Host
       | `PVS_proxy
@@ -33,10 +33,10 @@ type expiry_messaging_info_t = {
       | `VMPP
       | `VMSS ]
         (* parameter "cls" of XenAPI.Message.create *)
-  ; message_obj_uuid: string (* parameter "obj_uuid" of XenAPI.Message.create *)
+  ; obj_uuid: string (* parameter "obj_uuid" of XenAPI.Message.create *)
   ; obj_description: string
         (* description of the obj which would expire, which will be used in the body of generated message, take host server certificate for example: "TLS server certificate" *)
-  ; message_sent_on_remaining_days_list: (remaining_days_t * message_id_t) list
+  ; msg_sent_on_remaining_days_list: (remaining_days_t * message_id_t) list
         (* for example:
          *   [
          *     (0, Api_messages.host_server_certificate_expired)
