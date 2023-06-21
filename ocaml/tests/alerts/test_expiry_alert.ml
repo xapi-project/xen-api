@@ -198,7 +198,7 @@ module TestUpdateMessageInternal = struct
     ; all_msgs_properties:
         (message_ref * (string * string * int64 * string)) list
     ; expected_outdated_msg_refs: message_ref list
-    ; expected_create_new_msg: bool
+    ; expected_current_msg_refs: message_ref list
   }
 
   let test_cases =
@@ -210,7 +210,7 @@ module TestUpdateMessageInternal = struct
       ; alert= ("msg_body", (fst test_expiring_30, 3L))
       ; all_msgs_properties= []
       ; expected_outdated_msg_refs= []
-      ; expected_create_new_msg= true
+      ; expected_current_msg_refs= []
       }
     ; {
         description=
@@ -229,7 +229,7 @@ module TestUpdateMessageInternal = struct
             )
           ]
       ; expected_outdated_msg_refs= []
-      ; expected_create_new_msg= true
+      ; expected_current_msg_refs= []
       }
     ; {
         description=
@@ -251,7 +251,7 @@ module TestUpdateMessageInternal = struct
             )
           ]
       ; expected_outdated_msg_refs= []
-      ; expected_create_new_msg= true
+      ; expected_current_msg_refs= []
       }
     ; {
         description=
@@ -270,7 +270,7 @@ module TestUpdateMessageInternal = struct
             )
           ]
       ; expected_outdated_msg_refs= []
-      ; expected_create_new_msg= true
+      ; expected_current_msg_refs= []
       }
     ; {
         description= "have outdated message"
@@ -291,7 +291,7 @@ module TestUpdateMessageInternal = struct
             )
           ]
       ; expected_outdated_msg_refs= ["msg_ref2"]
-      ; expected_create_new_msg= true
+      ; expected_current_msg_refs= []
       }
     ; {
         description= "already have the required message"
@@ -312,7 +312,7 @@ module TestUpdateMessageInternal = struct
             )
           ]
       ; expected_outdated_msg_refs= []
-      ; expected_create_new_msg= false
+      ; expected_current_msg_refs= ["msg_ref2"]
       }
     ]
 
@@ -330,7 +330,7 @@ module TestUpdateMessageInternal = struct
   let api_message_t = Alcotest.testable pp_api_message_t eq_api_message_t
 
   let verify description expected actual =
-    Alcotest.(check @@ pair (list api_message_t) bool)
+    Alcotest.(check @@ pair (list api_message_t) (list api_message_t))
       description expected actual
 
   let testing
@@ -341,7 +341,7 @@ module TestUpdateMessageInternal = struct
       ; alert
       ; all_msgs_properties
       ; expected_outdated_msg_refs
-      ; expected_create_new_msg
+      ; expected_current_msg_refs
       } () =
     let all_msgs =
       List.map
@@ -368,7 +368,7 @@ module TestUpdateMessageInternal = struct
     let actual =
       update_message_internal msg_name_list msg_obj_uuid alert all_msgs
     in
-    let expected_outdated_msgs =
+    let refs_to_msgs refs =
       List.map
         (fun ref ->
           ( ref
@@ -383,9 +383,11 @@ module TestUpdateMessageInternal = struct
             }
           )
         )
-        expected_outdated_msg_refs
+        refs
     in
-    verify description (expected_outdated_msgs, expected_create_new_msg) actual
+    let expected_outdated_msgs = refs_to_msgs expected_outdated_msg_refs in
+    let expected_current_msgs = refs_to_msgs expected_current_msg_refs in
+    verify description (expected_outdated_msgs, expected_current_msgs) actual
 
   let test_from_test_case ({description; _} as test_case) =
     (description, `Quick, testing test_case)

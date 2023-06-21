@@ -48,14 +48,6 @@ let days_until_expiry epoch expiry =
 let all_messages rpc session_id =
   XenAPI.Message.get_all_records ~rpc ~session_id
 
-let related_messages msg_obj_uuid related_message_name_list all_msgs =
-  List.filter
-    (fun (_ref, record) ->
-      record.API.message_obj_uuid = msg_obj_uuid
-      && List.mem record.API.message_name related_message_name_list
-    )
-    all_msgs
-
 let message_body msg expiry =
   Printf.sprintf "<body><message>%s</message><date>%s</date></body>" msg
     (Date.to_string expiry)
@@ -86,34 +78,18 @@ let generate_alert now obj_description msg_sent_on_remaining_days_list expiry =
       let expiring = expiring_message obj_description in
       Some (message_body expiring expiry, expiring_message_id)
 
-let messages_require_update alert related_msgs =
+let update_message_internal msg_name_list msg_obj_uuid alert all_msgs =
   let msg_body, (msg_name, msg_prio) = alert in
-  let is_outdated (_ref, record) =
-    record.API.message_body <> msg_body
-    || record.API.message_name <> msg_name
-    || record.API.message_priority <> msg_prio
-  in
-  let outdated, current = List.partition is_outdated related_msgs in
-  (outdated, current = [])
-
-let update_message_internal message_name_list msg_obj_uuid alert all_msgs =
   all_msgs
-  |> related_messages msg_obj_uuid message_name_list
-  |> messages_require_update alert
-
-let update_message rpc session_id msg_name_list msg_cls msg_obj_uuid alert
-    all_msgs =
-  let outdated_msgs, create_new_msg =
-    all_msgs |> update_message_internal msg_name_list msg_obj_uuid alert
-  in
-  List.iter
-    (fun (self, _) -> XenAPI.Message.destroy ~rpc ~session_id ~self)
-    outdated_msgs ;
-  if create_new_msg then
-    let body, (name, priority) = alert in
-    XenAPI.Message.create ~rpc ~session_id ~name ~priority ~cls:msg_cls
-      ~obj_uuid:msg_obj_uuid ~body
-    |> ignore
+  |> List.filter (fun (_ref, record) ->
+         record.API.message_obj_uuid = msg_obj_uuid
+         && List.mem record.API.message_name msg_name_list
+     )
+  |> List.partition (fun (_ref, record) ->
+         record.API.message_body <> msg_body
+         || record.API.message_name <> msg_name
+         || record.API.message_priority <> msg_prio
+     )
 
 let alert ~rpc ~session_id expiry_messaging_info_list =
   let now = Date.now () in
@@ -147,6 +123,15 @@ let alert ~rpc ~session_id expiry_messaging_info_list =
     let all_msgs = all_messages rpc session_id in
     List.iter
       (fun (alert, msg_name_list, cls, obj_uuid) ->
-        update_message rpc session_id msg_name_list cls obj_uuid alert all_msgs
+        all_msgs |> update_message_internal msg_name_list obj_uuid alert
+        |> fun (outdated, current) ->
+        List.iter
+          (fun (self, _) -> XenAPI.Message.destroy ~rpc ~session_id ~self)
+          outdated ;
+        if current == [] then
+          let body, (name, priority) = alert in
+          XenAPI.Message.create ~rpc ~session_id ~name ~priority ~cls ~obj_uuid
+            ~body
+          |> ignore
       )
       alert_message_info_list

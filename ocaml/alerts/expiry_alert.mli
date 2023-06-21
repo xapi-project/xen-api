@@ -82,4 +82,4 @@ val update_message_internal :
   -> string
   -> string * (string * int64)
   -> ('c * API.message_t) list
-  -> ('c * API.message_t) list * bool
+  -> ('c * API.message_t) list * ('c * API.message_t) list
