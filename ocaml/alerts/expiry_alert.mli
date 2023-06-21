@@ -52,7 +52,8 @@ type expiry_messaging_info_t = {
          * sent, and when it has expired, message "host_server_certificate_expired"
          * should be sent.
          *)
-  ; expiry: Xapi_stdext_date.Date.t (* when the obj will expire *)
+  ; expiry: Xapi_stdext_date.Date.t
+        (* the last second when the obj is valid, it will expire in the next second *)
 }
 
 val alert :

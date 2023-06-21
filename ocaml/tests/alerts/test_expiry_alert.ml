@@ -72,17 +72,17 @@ module TestGenerateAlert = struct
       ; expected= None
       }
     ; {
-        description= "expiring alert, 30 days left"
+        description= "no alert, 30 days left"
       ; check_time= "20230612T17:00:00Z"
       ; expire_time= "20230712T17:00:00Z"
       ; message_sent_on_remaining_days_list
       ; obj_description= "TLS server certificate"
-      ; expected= Some (expiring_result test_expiring_30)
+      ; expected= None
       }
     ; {
-        description= "expiring alert, 14 days and 1 second left"
-      ; check_time= "20230612T17:00:00Z"
-      ; expire_time= "20230626T17:00:01Z"
+        description= "expiring alert, 1 second less than 30 days left"
+      ; check_time= "20230612T17:00:01Z"
+      ; expire_time= "20230712T17:00:00Z"
       ; message_sent_on_remaining_days_list
       ; obj_description= "TLS server certificate"
       ; expected= Some (expiring_result test_expiring_30)
@@ -93,12 +93,12 @@ module TestGenerateAlert = struct
       ; expire_time= "20230626T17:00:00Z"
       ; message_sent_on_remaining_days_list
       ; obj_description= "TLS server certificate"
-      ; expected= Some (expiring_result test_expiring_14)
+      ; expected= Some (expiring_result test_expiring_30)
       }
     ; {
-        description= "expiring alert, 7 days and 1 second left"
-      ; check_time= "20230612T17:00:00Z"
-      ; expire_time= "20230619T17:00:01Z"
+        description= "expiring alert, 1 second less than 14 days left"
+      ; check_time= "20230612T17:00:01Z"
+      ; expire_time= "20230626T17:00:00Z"
       ; message_sent_on_remaining_days_list
       ; obj_description= "TLS server certificate"
       ; expected= Some (expiring_result test_expiring_14)
@@ -106,6 +106,14 @@ module TestGenerateAlert = struct
     ; {
         description= "expiring alert, 7 days left"
       ; check_time= "20230612T17:00:00Z"
+      ; expire_time= "20230619T17:00:00Z"
+      ; message_sent_on_remaining_days_list
+      ; obj_description= "TLS server certificate"
+      ; expected= Some (expiring_result test_expiring_14)
+      }
+    ; {
+        description= "expiring alert, 1 second less than 7 days left"
+      ; check_time= "20230612T17:00:01Z"
       ; expire_time= "20230619T17:00:00Z"
       ; message_sent_on_remaining_days_list
       ; obj_description= "TLS server certificate"
@@ -120,12 +128,12 @@ module TestGenerateAlert = struct
       ; expected= Some (expiring_result test_expiring_07)
       }
     ; {
-        description= "expired alert, 0 days left"
+        description= "expiring alert, 0 second left"
       ; check_time= "20230612T17:00:00Z"
       ; expire_time= "20230612T17:00:00Z"
       ; message_sent_on_remaining_days_list
       ; obj_description= "TLS server certificate"
-      ; expected= Some (expired_result test_expired)
+      ; expected= Some (expiring_result test_expiring_07)
       }
     ; {
         description= "expired alert, 1 second passed"

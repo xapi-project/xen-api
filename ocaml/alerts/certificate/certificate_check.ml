@@ -62,8 +62,8 @@ let alert_message_cls_and_obj_uuid rpc session_id cert =
       (`Certificate, XenAPI.Certificate.get_uuid ~rpc ~session_id ~self:cert)
 
 let get_expiry = function
-  | Host (_, valid_till) | Internal (_, valid_till) | CA (_, valid_till) ->
-      Date.of_float (Date.to_float valid_till +. 1.)
+  | Host (_, exp) | Internal (_, exp) | CA (_, exp) ->
+      exp
 
 let certificates_to_expiry_message_info_list rpc session_id certificates =
   List.map

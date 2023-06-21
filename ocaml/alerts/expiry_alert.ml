@@ -57,9 +57,8 @@ let related_messages msg_obj_uuid related_message_name_list all_msgs =
     all_msgs
 
 let message_body msg expiry =
-  let valid_till = Date.of_float (Date.to_float expiry -. 1.) in
   Printf.sprintf "<body><message>%s</message><date>%s</date></body>" msg
-    (Date.to_string valid_till)
+    (Date.to_string expiry)
 
 let expired_message obj = Printf.sprintf "The %s has expired." obj
 
@@ -74,7 +73,7 @@ let generate_alert now obj_description msg_sent_on_remaining_days_list expiry =
   in
   let critical_condition =
     List.find_opt
-      (fun (days, _) -> remaining_days <= float_of_int days)
+      (fun (days, _) -> remaining_days < float_of_int days)
       sorted_alert_conditions
   in
   match critical_condition with
