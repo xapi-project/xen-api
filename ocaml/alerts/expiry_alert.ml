@@ -93,45 +93,37 @@ let update_message_internal msg_name_list msg_obj_uuid alert all_msgs =
 
 let alert ~rpc ~session_id expiry_messaging_info_list =
   let now = Date.now () in
-  let alert_message_info_list =
-    List.filter_map
-      (fun {
-             cls
-           ; obj_uuid
-           ; obj_description
-           ; msg_sent_on_remaining_days_list
-           ; expiry
-           } ->
-        let alert =
-          generate_alert now obj_description msg_sent_on_remaining_days_list
-            expiry
-        in
-        match alert with
-        | Some alert ->
-            let msg_name_list =
-              List.map
-                (fun (_, (msg_name, _)) -> msg_name)
-                msg_sent_on_remaining_days_list
-            in
-            Some (alert, msg_name_list, cls, obj_uuid)
-        | None ->
-            None
-      )
-      expiry_messaging_info_list
-  in
-  if alert_message_info_list <> [] then
-    let all_msgs = all_messages rpc session_id in
-    List.iter
-      (fun (alert, msg_name_list, cls, obj_uuid) ->
-        all_msgs |> update_message_internal msg_name_list obj_uuid alert
-        |> fun (outdated, current) ->
-        List.iter
-          (fun (self, _) -> XenAPI.Message.destroy ~rpc ~session_id ~self)
-          outdated ;
-        if current == [] then
-          let body, (name, priority) = alert in
-          XenAPI.Message.create ~rpc ~session_id ~name ~priority ~cls ~obj_uuid
-            ~body
-          |> ignore
-      )
-      alert_message_info_list
+  let all_msgs = all_messages rpc session_id in
+  List.iter
+    (fun {
+           cls
+         ; obj_uuid
+         ; obj_description
+         ; msg_sent_on_remaining_days_list
+         ; expiry
+         } ->
+      let alert =
+        generate_alert now obj_description msg_sent_on_remaining_days_list
+          expiry
+      in
+      match alert with
+      | Some alert ->
+          let msg_name_list =
+            List.map
+              (fun (_, (msg_name, _)) -> msg_name)
+              msg_sent_on_remaining_days_list
+          in
+          all_msgs |> update_message_internal msg_name_list obj_uuid alert
+          |> fun (outdated, current) ->
+          List.iter
+            (fun (self, _) -> XenAPI.Message.destroy ~rpc ~session_id ~self)
+            outdated ;
+          if current = [] then
+            let body, (name, priority) = alert in
+            XenAPI.Message.create ~rpc ~session_id ~name ~priority ~cls
+              ~obj_uuid ~body
+            |> ignore
+      | None ->
+          ()
+    )
+    expiry_messaging_info_list
