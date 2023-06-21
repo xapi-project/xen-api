@@ -4,6 +4,7 @@
  (package xapi-xenopsd)
  (libraries
   alcotest
+  cpuid
   dune-build-info
   fmt
   result
@@ -14,6 +15,7 @@
   xapi-idl.xen.interface.types
   xapi-log
   xapi-stdext-pervasives
+  xapi-test-utils
   xapi-xenopsd
   xenstore_transport.unix
  )
