@@ -69,25 +69,13 @@ let generate_alert now obj_description msg_sent_on_remaining_days_list expiry =
   let remaining_days =
     days_until_expiry (Date.to_float now) (Date.to_float expiry)
   in
-  let rec get_most_critical = function
-    | [], con_critical ->
-        con_critical
-    | ((days_curr, _) as con_curr) :: cons, None ->
-        if remaining_days <= float_of_int days_curr then
-          get_most_critical (cons, Some con_curr)
-        else
-          get_most_critical (cons, None)
-    | ( ((days_curr, _) as con_curr) :: cons
-      , (Some (days_critical, _) as con_critical) ) ->
-        if
-          remaining_days <= float_of_int days_curr && days_curr <= days_critical
-        then
-          get_most_critical (cons, Some con_curr)
-        else
-          get_most_critical (cons, con_critical)
+  let sorted_alert_conditions =
+    List.sort (fun (a, _) (b, _) -> compare a b) msg_sent_on_remaining_days_list
   in
   let critical_condition =
-    get_most_critical (msg_sent_on_remaining_days_list, None)
+    List.find_opt
+      (fun (days, _) -> remaining_days <= float_of_int days)
+      sorted_alert_conditions
   in
   match critical_condition with
   | None ->
