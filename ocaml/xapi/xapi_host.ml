@@ -421,16 +421,26 @@ let assert_can_evacuate ~__context ~host =
 
 (* New Orlando style function which returns a Map *)
 let get_vms_which_prevent_evacuation ~__context ~self =
+  let __FUNCTION__ = "get_vms_which_prevent_evacuation" in
   let plans = compute_evacuation_plan_no_wlb ~__context ~host:self in
-  Hashtbl.fold
-    (fun vm plan acc ->
-      match plan with
-      | Error (code, params) ->
-          (vm, code :: params) :: acc
-      | _ ->
-          acc
-    )
-    plans []
+  let vms =
+    Hashtbl.fold
+      (fun vm plan acc ->
+        match plan with
+        | Error (code, params) ->
+            (vm, code :: params) :: acc
+        | _ ->
+            acc
+      )
+      plans []
+  in
+  let log (vm, reasons) =
+    debug "%s: VM %s preventing evacuation of host %s: %s" __FUNCTION__
+      (Db.VM.get_uuid ~__context ~self:vm)
+      (Db.Host.get_uuid ~__context ~self)
+      (String.concat "; " reasons)
+  in
+  List.iter log vms ; vms
 
 let compute_evacuation_plan_wlb ~__context ~self =
   (* We treat xapi as primary when it comes to "hard" errors, i.e. those that aren't down to memory constraints.  These are things like
