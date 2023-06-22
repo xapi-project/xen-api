@@ -2527,7 +2527,10 @@ let migrate_receive ~__context ~host ~network ~options:_ =
         let configuration_mode =
           Db.PIF.get_ipv6_configuration_mode ~__context ~self:pif
         in
-        match Db.PIF.get_IPv6 ~__context ~self:pif with
+        let valid_ipv6s =
+          List.filter (fun ipv6 -> not (String.starts_with "fe80::" ipv6)) (Db.PIF.get_IPv6 ~__context ~self:pif)
+        in
+        match valid_ipv6s with
         | [] ->
             ("", configuration_mode)
         | ip :: _ ->
