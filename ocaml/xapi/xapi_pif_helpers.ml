@@ -262,4 +262,9 @@ let get_primary_address ~__context ~pif =
     match Db.PIF.get_IP ~__context ~self:pif with "" -> None | ip -> Some ip
   )
   | `IPv6 ->
-      List.nth_opt (Db.PIF.get_IPv6 ~__context ~self:pif) 0
+      let valid_ipv6s =
+        List.filter
+          (fun ipv6 -> not (String.starts_with ~prefix:"fe80::" ipv6))
+          (Db.PIF.get_IPv6 ~__context ~self:pif)
+      in
+      List.nth_opt valid_ipv6s 0
