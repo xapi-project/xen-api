@@ -111,8 +111,10 @@ val waitpid : pidty -> int * Unix.process_status
 (** [waitpid p] returns the (pid, Unix.process_status) *)
 
 val waitpid_nohang : pidty -> int * Unix.process_status
-(** [waitpid_nohang p] returns the (pid, Unix.process_status) if the process has already
-    	quit or (0, Unix.WEXITTED 0) if the process is still running. *)
+(** [waitpid_nohang p] returns the (pid, Unix.process_status) if the
+    process has already quit or (0, Unix.WEXITTED 0) if the process is
+    still running.  If the process is finished, the socket is closed
+    and not otherwise. *)
 
 val dontwaitpid : pidty -> unit
 (** [dontwaitpid p]: signals the caller's desire to never call waitpid. Note that the final

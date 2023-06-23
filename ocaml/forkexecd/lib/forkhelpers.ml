@@ -21,6 +21,8 @@
 
 (* XXX: this is a work in progress *)
 
+module D = Debug.Make (struct let name = __MODULE__ end)
+
 let default_path = ["/sbin"; "/usr/sbin"; "/bin"; "/usr/bin"]
 
 let default_path_env_pair = [|"PATH=" ^ String.concat ":" default_path|]
@@ -72,14 +74,47 @@ let waitpid (sock, pid) =
       in
       failwith msg
 
-let waitpid_nohang ((sock, _) as x) =
+(* [waitpid_nohang] reports the status of a socket to a process. The
+   intention is to make this non-blocking. If the process is finished,
+   the socket is closed and not otherwise. *)
+let waitpid_nohang (sock, pid) =
+  let verbose = false in
+  if verbose then D.debug "%s pid=%d" __FUNCTION__ pid ;
+  let fail fmt = Printf.kprintf failwith fmt in
   Unix.set_nonblock sock ;
-  let r =
-    try waitpid x
-    with Unix.(Unix_error ((EAGAIN | EWOULDBLOCK), _, _)) ->
-      (0, Unix.WEXITED 0)
-  in
-  Unix.clear_nonblock sock ; r
+  match Fecomms.read_raw_rpc sock with
+  | Ok Fe.(Finished (WEXITED n)) ->
+      if verbose then D.debug "%s pid=%d WEXITED" __FUNCTION__ pid ;
+      Unix.close sock ;
+      (pid, Unix.WEXITED n)
+  | Ok Fe.(Finished (WSIGNALED n)) ->
+      if verbose then D.debug "%s pid=%d WSIGNALED" __FUNCTION__ pid ;
+      Unix.close sock ;
+      (pid, Unix.WSIGNALED n)
+  | Ok Fe.(Finished (WSTOPPED n)) ->
+      if verbose then D.debug "%s pid=%d WSTOPPED" __FUNCTION__ pid ;
+      Unix.close sock ;
+      (pid, Unix.WSTOPPED n)
+  | Ok status ->
+      Unix.clear_nonblock sock ;
+      fail "%s: unexpected status received (%s)" __FUNCTION__
+        (Fe.ferpc_to_string status)
+  | Error msg ->
+      D.debug "%s pid=%d %s" __FUNCTION__ pid msg ;
+      Unix.clear_nonblock sock ;
+      fail "%s: error happened when trying to read the status. %s" __FUNCTION__
+        msg
+  (* it's a bit crazy that we have Result.t and exceptions from
+     read_raw_rpc *)
+  | exception Unix.(Unix_error ((EAGAIN | EWOULDBLOCK), _, _)) ->
+      if verbose then D.debug "%s pid=%d EAGAIN EWOULDBLOCK" __FUNCTION__ pid ;
+      Unix.clear_nonblock sock ;
+      (0, Unix.WEXITED 0) (* this a convention, see MLI *)
+  | exception exn ->
+      D.debug "%s pid=%d %s" __FUNCTION__ pid (Printexc.to_string exn) ;
+      Unix.clear_nonblock sock ;
+      fail "%s: error happened when trying to read the status. %s" __FUNCTION__
+        (Printexc.to_string exn)
 
 let dontwaitpid (sock, _pid) =
   ( try
