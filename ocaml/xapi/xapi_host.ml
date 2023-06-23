@@ -451,10 +451,10 @@ let get_vms_which_prevent_evacuation ~__context ~self =
   let vms =
     get_vms_which_prevent_evacuation_internal ~__context ~self ~ignore_ha:false
   in
-
   let log (vm, reasons) =
     debug "%s: VM %s preventing evacuation of host %s: %s" __FUNCTION__
-      (Ref.string_of vm) (Ref.string_of self)
+      (Db.VM.get_uuid ~__context ~self:vm)
+      (Db.Host.get_uuid ~__context ~self)
       (String.concat "; " reasons)
   in
   List.iter log vms ; vms
