@@ -110,9 +110,13 @@ val safe_close_and_exec :
 val waitpid : pidty -> int * Unix.process_status
 (** [waitpid p] returns the (pid, Unix.process_status) *)
 
-val waitpid_nohang : pidty -> int * Unix.process_status
-(** [waitpid_nohang p] returns the (pid, Unix.process_status) if the process has already
-    	quit or (0, Unix.WEXITTED 0) if the process is still running. *)
+val waitpid_nohang : ?close:bool -> pidty -> int * Unix.process_status
+(** [waitpid_nohang p] returns the (pid, Unix.process_status) if the
+    process has already quit or (PID, Unix.WEXITTED 0) if the process is
+    still running.  If the process is finished, the socket is closed by
+    default and not otherwise. The [close] option can be used to never
+    close the socket such that this is left to the caller, which is a
+    cleaner protocol. *)
 
 val dontwaitpid : pidty -> unit
 (** [dontwaitpid p]: signals the caller's desire to never call waitpid. Note that the final

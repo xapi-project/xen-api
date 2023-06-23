@@ -72,14 +72,32 @@ let waitpid (sock, pid) =
       in
       failwith msg
 
-let waitpid_nohang ((sock, _) as x) =
-  Unix.set_nonblock sock ;
-  let r =
-    try waitpid x
-    with Unix.(Unix_error ((EAGAIN | EWOULDBLOCK), _, _)) ->
-      (0, Unix.WEXITED 0)
-  in
-  Unix.clear_nonblock sock ; r
+(* [waitpid_nohang] reports the status of a socket to a process. The
+   intention is to make this non-blocking. If the process is finished,
+   the socket is closed by default and not otherwise. The [close] option
+   can be used to never close the socket such that this is left to the
+   caller, which is a cleaner protocol. *)
+let waitpid_nohang ?(close = true) (sock, pid) =
+  let fail fmt = Printf.kprintf failwith fmt in
+  match Fecomms.read_raw_rpc sock with
+  | Ok Fe.(Finished (WEXITED n)) ->
+      if close then Unix.close sock ;
+      (pid, Unix.WEXITED n)
+  | Ok Fe.(Finished (WSIGNALED n)) ->
+      if close then Unix.close sock ;
+      (pid, Unix.WSIGNALED n)
+  | Ok Fe.(Finished (WSTOPPED n)) ->
+      if close then Unix.close sock ;
+      (pid, Unix.WSTOPPED n)
+  | Ok status ->
+      fail "%s: unexpected status received (%s)" __FUNCTION__
+        (Fe.ferpc_to_string status)
+  | Error msg ->
+      fail "%s: error happened when trying to read the status. %s" __FUNCTION__
+        msg
+  | exception exn ->
+      fail "%s: error happened when trying to read the status. %s" __FUNCTION__
+        (Printexc.to_string exn)
 
 let dontwaitpid (sock, _pid) =
   ( try
