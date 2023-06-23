@@ -1,0 +1,9 @@
+(library
+  (name cohttp_posix)
+  (public_name cohttp-posix)
+  (libraries
+    cohttp
+    unix
+  )
+  (wrapped false)
+)
