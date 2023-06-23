@@ -37,11 +37,9 @@ let transform_exception f x =
 let id_of frontend vbd = Printf.sprintf "vbd/%s/%s" frontend (snd vbd)
 
 let get_dbg task =
-  match Xenops_task.tracing task with
-  | None ->
-      Xenops_task.get_dbg task
-  | Some tracing ->
-      Xenops_task.get_dbg task ^ "\x00" ^ tracing
+  Debuginfo.make ~log:(Xenops_task.get_dbg task)
+    ~tracing:(Xenops_task.tracing task)
+  |> Debuginfo.to_string
 
 let epoch_begin task sr vdi domid persistent =
   transform_exception

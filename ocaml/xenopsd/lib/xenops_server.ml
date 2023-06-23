@@ -1829,26 +1829,15 @@ let rec atomics_of_operation = function
 
 let with_tracing ~name ~task f =
   let open Tracing in
-  let context = Xenops_task.tracing task in
-  let spancontext = Option.bind context SpanContext.of_traceparent in
-  let parent =
-    Option.map (fun tp -> Tracer.span_of_span_context tp name) spancontext
-  in
+  let parent = Xenops_task.tracing task in
   let tracer = get_tracer ~name in
   match Tracer.start ~tracer ~name ~parent () with
   | Ok span -> (
-      let sub_context =
-        Option.map
-          (fun span ->
-            Tracing.Span.get_context span |> Tracing.SpanContext.to_traceparent
-          )
-          span
-      in
-      Xenops_task.set_tracing task sub_context ;
+      Xenops_task.set_tracing task span ;
       try
         let result = f () in
         ignore @@ Tracer.finish span ;
-        Xenops_task.set_tracing task context ;
+        Xenops_task.set_tracing task parent ;
         result
       with exn ->
         let backtrace = Printexc.get_backtrace () in
@@ -3251,9 +3240,9 @@ let uses_mxgpu id =
     )
     (VGPU_DB.ids id)
 
-let queue_operation_int ?tracing dbg id op =
+let queue_operation_int ?traceparent dbg id op =
   let task =
-    Xenops_task.add ?tracing tasks dbg
+    Xenops_task.add ?traceparent tasks dbg
       (let r = ref None in
        fun t -> perform ~result:r op t ; !r
       )
@@ -3262,8 +3251,8 @@ let queue_operation_int ?tracing dbg id op =
   Redirector.push Redirector.default tag (op, task) ;
   task
 
-let queue_operation ?tracing dbg id op =
-  let task = queue_operation_int ?tracing dbg id op in
+let queue_operation ?traceparent dbg id op =
+  let task = queue_operation_int ?traceparent dbg id op in
   Xenops_task.id_of_handle task
 
 let queue_operation_and_wait dbg id op =
@@ -3645,7 +3634,6 @@ module VM = struct
     Debug.with_thread_associated dbg
       (fun () ->
         debug "traceparent: %s" (Option.value ~default:"(none)" traceparent) ;
-        let tracing = traceparent in
         let id, final_id =
           (* The URI is /service/xenops/memory/id *)
           let bits = Astring.String.cuts ~sep:"/" (Uri.path uri) in
@@ -3673,7 +3661,7 @@ module VM = struct
                 ; vmr_compressed= compressed_memory
                 }
             in
-            let task = Some (queue_operation ?tracing dbg id op) in
+            let task = Some (queue_operation ?traceparent dbg id op) in
             Option.iter
               (fun t -> t |> Xenops_client.wait_for_task dbg |> ignore)
               task

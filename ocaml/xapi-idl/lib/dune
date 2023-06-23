@@ -53,6 +53,7 @@
    sexplib0
    threads.posix
    xapi-backtrace
+   xapi-idl
    xapi-log
    xapi-stdext-pervasives
    xapi-stdext-threads
