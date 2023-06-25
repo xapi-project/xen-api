@@ -418,6 +418,8 @@ module UpdateInfo = struct
     ; update_type: string
     ; livepatch_guidance: Guidance.t option
     ; livepatches: LivePatch.t list
+    ; issued: Xapi_stdext_date.Date.t
+    ; severity: string
   }
 
   let guidance_to_string o =
@@ -434,6 +436,8 @@ module UpdateInfo = struct
       ; ("type", `String ui.update_type)
       ; ("recommended-guidance", `String (guidance_to_string ui.rec_guidance))
       ; ("absolute-guidance", `String (guidance_to_string ui.abs_guidance))
+      ; ("issued", `String (Xapi_stdext_date.Date.to_string ui.issued))
+      ; ("severity", `String ui.severity)
       ]
     in
     match ui.livepatches with
@@ -477,6 +481,8 @@ module UpdateInfo = struct
     ; update_type= ""
     ; livepatch_guidance= None
     ; livepatches= []
+    ; issued= Xapi_stdext_date.Date.epoch
+    ; severity= ""
     }
 
   let assert_valid_updateinfo = function
@@ -558,6 +564,28 @@ module UpdateInfo = struct
                           }
                       | Xml.Element ("livepatches", _, livepatches) ->
                           {acc with livepatches= LivePatch.of_xml livepatches}
+                      | Xml.Element ("issued", attr, _) ->
+                          let issued =
+                            match List.assoc_opt "date" attr with
+                            | Some date -> (
+                              try
+                                Xapi_stdext_date.Date.of_string
+                                  (Scanf.sscanf date
+                                     "%04d-%02d-%02d %02d:%02d:%02d"
+                                     (fun y mon d h m s ->
+                                       Printf.sprintf
+                                         "%04i%02i%02iT%02i:%02i:%02iZ" y mon d
+                                         h m s
+                                   )
+                                  )
+                              with _ -> Xapi_stdext_date.Date.epoch
+                            )
+                            | None ->
+                                Xapi_stdext_date.Date.epoch
+                          in
+                          {acc with issued}
+                      | Xml.Element ("severity", _, [Xml.PCData v]) ->
+                          {acc with severity= v}
                       | _ ->
                           acc
                     )

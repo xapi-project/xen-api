@@ -111,6 +111,8 @@ module UpdateInfo : sig
     ; update_type: string
     ; livepatch_guidance: Guidance.t option
     ; livepatches: LivePatch.t list
+    ; issued: Xapi_stdext_date.Date.t
+    ; severity: string
   }
 
   val to_json : t -> Yojson.Basic.t
