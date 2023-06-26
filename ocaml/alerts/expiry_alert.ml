@@ -91,23 +91,22 @@ let alert ~rpc ~session_id expiry_messaging_info_list =
   let all_msgs = all_messages rpc session_id in
   List.iter
     (fun {cls; obj_uuid; obj_description; alert_conditions; expiry} ->
-      let alert = generate_alert now obj_description alert_conditions expiry in
-      match alert with
-      | Some alert ->
-          let msg_name_list =
-            List.map (fun (_, (msg_name, _)) -> msg_name) alert_conditions
-          in
-          all_msgs |> filter_messages msg_name_list obj_uuid alert
-          |> fun (outdated, current) ->
-          List.iter
-            (fun (self, _) -> XenAPI.Message.destroy ~rpc ~session_id ~self)
-            outdated ;
-          if current = [] then
-            let body, (name, priority) = alert in
-            XenAPI.Message.create ~rpc ~session_id ~name ~priority ~cls
-              ~obj_uuid ~body
-            |> ignore
-      | None ->
-          ()
+      generate_alert now obj_description alert_conditions expiry
+      |> Option.map (fun alert ->
+             let msg_name_list =
+               List.map (fun (_, (msg_name, _)) -> msg_name) alert_conditions
+             in
+             all_msgs |> filter_messages msg_name_list obj_uuid alert
+             |> fun (outdated, current) ->
+             List.iter
+               (fun (self, _) -> XenAPI.Message.destroy ~rpc ~session_id ~self)
+               outdated ;
+             if current = [] then
+               let body, (name, priority) = alert in
+               XenAPI.Message.create ~rpc ~session_id ~name ~priority ~cls
+                 ~obj_uuid ~body
+               |> ignore
+         )
+      |> ignore
     )
     expiry_messaging_info_list
