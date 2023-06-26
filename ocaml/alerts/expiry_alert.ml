@@ -23,7 +23,7 @@ type message_id_t = message_name_t * message_priority_t
 
 type remaining_days_t = int
 
-type expiry_messaging_info_t = {
+type raw_alert_t = {
     cls:
       [ `Certificate
       | `Host
@@ -86,7 +86,7 @@ let filter_messages msg_name_list msg_obj_uuid alert all_msgs =
          || record.API.message_priority <> msg_prio
      )
 
-let alert ~rpc ~session_id expiry_messaging_info_list =
+let alert ~rpc ~session_id raw_alerts =
   let now = Date.now () in
   let all_msgs = all_messages rpc session_id in
   List.iter
@@ -109,4 +109,4 @@ let alert ~rpc ~session_id expiry_messaging_info_list =
          )
       |> ignore
     )
-    expiry_messaging_info_list
+    raw_alerts

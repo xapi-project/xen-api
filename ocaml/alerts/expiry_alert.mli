@@ -21,7 +21,7 @@ type message_id_t = message_name_t * message_priority_t
 
 type remaining_days_t = int
 
-type expiry_messaging_info_t = {
+type raw_alert_t = {
     cls:
       [ `Certificate
       | `Host
@@ -59,7 +59,7 @@ type expiry_messaging_info_t = {
 val alert :
      rpc:(Rpc.call -> Rpc.response)
   -> session_id:[< `session] Ref.t
-  -> expiry_messaging_info_t list
+  -> raw_alert_t list
   -> unit
 
 (* Below exposed only for ease of testing *)
