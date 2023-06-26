@@ -36,7 +36,7 @@ type expiry_messaging_info_t = {
   ; obj_uuid: string (* parameter "obj_uuid" of XenAPI.Message.create *)
   ; obj_description: string
         (* description of the obj which would expire, which will be used in the body of generated message, take host server certificate for example: "TLS server certificate" *)
-  ; msg_sent_on_remaining_days_list: (remaining_days_t * message_id_t) list
+  ; alert_conditions: (remaining_days_t * message_id_t) list
         (* for example:
          *   [
          *     (0, Api_messages.host_server_certificate_expired)

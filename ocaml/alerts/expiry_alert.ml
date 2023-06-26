@@ -36,7 +36,7 @@ type expiry_messaging_info_t = {
       | `VMSS ]
   ; obj_uuid: string
   ; obj_description: string
-  ; msg_sent_on_remaining_days_list: (remaining_days_t * message_id_t) list
+  ; alert_conditions: (remaining_days_t * message_id_t) list
   ; expiry: Xapi_stdext_date.Date.t (* when the obj will expire *)
 }
 
@@ -56,11 +56,11 @@ let expired_message obj = Printf.sprintf "The %s has expired." obj
 
 let expiring_message obj = Printf.sprintf "The %s is expiring soon." obj
 
-let generate_alert now obj_description msg_sent_on_remaining_days_list expiry =
+let generate_alert now obj_description alert_conditions expiry =
   let remaining_days =
     days_until_expiry (Date.to_float now) (Date.to_float expiry)
   in
-  msg_sent_on_remaining_days_list
+  alert_conditions
   |> List.sort (fun (a, _) (b, _) -> compare a b)
   |> List.find_opt (fun (days, _) -> remaining_days < float_of_int days)
   |> function
@@ -90,23 +90,12 @@ let alert ~rpc ~session_id expiry_messaging_info_list =
   let now = Date.now () in
   let all_msgs = all_messages rpc session_id in
   List.iter
-    (fun {
-           cls
-         ; obj_uuid
-         ; obj_description
-         ; msg_sent_on_remaining_days_list
-         ; expiry
-         } ->
-      let alert =
-        generate_alert now obj_description msg_sent_on_remaining_days_list
-          expiry
-      in
+    (fun {cls; obj_uuid; obj_description; alert_conditions; expiry} ->
+      let alert = generate_alert now obj_description alert_conditions expiry in
       match alert with
       | Some alert ->
           let msg_name_list =
-            List.map
-              (fun (_, (msg_name, _)) -> msg_name)
-              msg_sent_on_remaining_days_list
+            List.map (fun (_, (msg_name, _)) -> msg_name) alert_conditions
           in
           all_msgs |> update_message_internal msg_name_list obj_uuid alert
           |> fun (outdated, current) ->
