@@ -77,7 +77,7 @@ val generate_alert :
   -> Xapi_stdext_date.Date.t
   -> (message_name_t * message_id_t) option
 
-val update_message_internal :
+val filter_messages :
      string list
   -> string
   -> string * (string * int64)

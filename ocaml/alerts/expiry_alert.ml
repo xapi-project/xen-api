@@ -73,7 +73,7 @@ let generate_alert now obj_description alert_conditions expiry =
       let expiring = expiring_message obj_description in
       Some (message_body expiring expiry, expiring_message_id)
 
-let update_message_internal msg_name_list msg_obj_uuid alert all_msgs =
+let filter_messages msg_name_list msg_obj_uuid alert all_msgs =
   let msg_body, (msg_name, msg_prio) = alert in
   all_msgs
   |> List.filter (fun (_ref, record) ->
@@ -97,7 +97,7 @@ let alert ~rpc ~session_id expiry_messaging_info_list =
           let msg_name_list =
             List.map (fun (_, (msg_name, _)) -> msg_name) alert_conditions
           in
-          all_msgs |> update_message_internal msg_name_list obj_uuid alert
+          all_msgs |> filter_messages msg_name_list obj_uuid alert
           |> fun (outdated, current) ->
           List.iter
             (fun (self, _) -> XenAPI.Message.destroy ~rpc ~session_id ~self)

@@ -365,9 +365,7 @@ module TestUpdateMessageInternal = struct
         (fun (_, (msg_name, _)) -> msg_name)
         message_sent_on_remaining_days_list
     in
-    let actual =
-      update_message_internal msg_name_list msg_obj_uuid alert all_msgs
-    in
+    let actual = filter_messages msg_name_list msg_obj_uuid alert all_msgs in
     let refs_to_msgs refs =
       List.map
         (fun ref ->
