@@ -60,18 +60,18 @@ let generate_alert now obj_description msg_sent_on_remaining_days_list expiry =
   let remaining_days =
     days_until_expiry (Date.to_float now) (Date.to_float expiry)
   in
-msg_sent_on_remaining_days_list
-|> List.sort (fun (a, _) (b, _) -> compare a b)
-|> List.find_opt (fun (days, _) -> remaining_days < float_of_int days)
-|> function
-| None ->
-    None
-| Some (days, expired_message_id) when days <= 0 ->
-    let expired = expired_message obj_description in
-    Some (message_body expired expiry, expired_message_id)
-| Some (_, expiring_message_id) ->
-    let expiring = expiring_message obj_description in
-    Some (message_body expiring expiry, expiring_message_id)
+  msg_sent_on_remaining_days_list
+  |> List.sort (fun (a, _) (b, _) -> compare a b)
+  |> List.find_opt (fun (days, _) -> remaining_days < float_of_int days)
+  |> function
+  | None ->
+      None
+  | Some (days, expired_message_id) when days <= 0 ->
+      let expired = expired_message obj_description in
+      Some (message_body expired expiry, expired_message_id)
+  | Some (_, expiring_message_id) ->
+      let expiring = expiring_message obj_description in
+      Some (message_body expiring expiry, expiring_message_id)
 
 let update_message_internal msg_name_list msg_obj_uuid alert all_msgs =
   let msg_body, (msg_name, msg_prio) = alert in
