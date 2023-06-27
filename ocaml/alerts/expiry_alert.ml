@@ -15,15 +15,15 @@
 module XenAPI = Client.Client
 module Date = Xapi_stdext_date.Date
 
-type message_name_t = string
+type message_name = string
 
-type message_priority_t = int64
+type message_priority = int64
 
-type message_id_t = message_name_t * message_priority_t
+type message_id = message_name * message_priority
 
-type remaining_days_t = int
+type remaining_days = int
 
-type raw_alert_t = {
+type raw_alert = {
     cls:
       [ `Certificate
       | `Host
@@ -36,7 +36,7 @@ type raw_alert_t = {
       | `VMSS ]
   ; obj_uuid: string
   ; obj_description: string
-  ; alert_conditions: (remaining_days_t * message_id_t) list
+  ; alert_conditions: (remaining_days * message_id) list
   ; expiry: Xapi_stdext_date.Date.t (* when the obj will expire *)
 }
 

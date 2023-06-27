@@ -37,8 +37,7 @@ module TestGenerateAlert = struct
       description: string
     ; check_time: string
     ; expire_time: string
-    ; message_sent_on_remaining_days_list:
-        (remaining_days_t * message_id_t) list
+    ; message_sent_on_remaining_days_list: (remaining_days * message_id) list
     ; obj_description: string
     ; expected:
         (string -> Xapi_stdext_date.Date.t -> (string * (string * int64)) option)
@@ -316,21 +315,21 @@ module TestUpdateMessageInternal = struct
       }
     ]
 
-  let eq_api_message_t (a_ref, _a_record) (b_ref, _b_record) = a_ref = b_ref
+  let eq_api_message (a_ref, _a_record) (b_ref, _b_record) = a_ref = b_ref
 
-  let string_of_message_t (ref, record) =
+  let string_of_message (ref, record) =
     Printf.sprintf
       "Message Ref: %s, message_name: %s, message_priority: %Ld, message_body: \
        %s, message_obj_uuid: %s"
       ref record.API.message_name record.API.message_priority
       record.API.message_body record.API.message_obj_uuid
 
-  let pp_api_message_t = Fmt.of_to_string string_of_message_t
+  let pp_api_message = Fmt.of_to_string string_of_message
 
-  let api_message_t = Alcotest.testable pp_api_message_t eq_api_message_t
+  let api_message = Alcotest.testable pp_api_message eq_api_message
 
   let verify description expected actual =
-    Alcotest.(check @@ pair (list api_message_t) (list api_message_t))
+    Alcotest.(check @@ pair (list api_message) (list api_message))
       description expected actual
 
   let testing

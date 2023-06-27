@@ -12,16 +12,16 @@
  * GNU Lesser General Public License for more details.
  *)
 
-type message_name_t = string
+type message_name = string
 
-type message_priority_t = int64
+type message_priority = int64
 
-(* message_id_t is the type of mesage defined in Api_messages *)
-type message_id_t = message_name_t * message_priority_t
+(* message_id is the type of mesage defined in Api_messages *)
+type message_id = message_name * message_priority
 
-type remaining_days_t = int
+type remaining_days = int
 
-type raw_alert_t = {
+type raw_alert = {
     cls:
       [ `Certificate
       | `Host
@@ -36,7 +36,7 @@ type raw_alert_t = {
   ; obj_uuid: string (* parameter "obj_uuid" of XenAPI.Message.create *)
   ; obj_description: string
         (* description of the obj which would expire, which will be used in the body of generated message, take host server certificate for example: "TLS server certificate" *)
-  ; alert_conditions: (remaining_days_t * message_id_t) list
+  ; alert_conditions: (remaining_days * message_id) list
         (* for example:
          *   [
          *     (0, Api_messages.host_server_certificate_expired)
@@ -59,7 +59,7 @@ type raw_alert_t = {
 val alert :
      rpc:(Rpc.call -> Rpc.response)
   -> session_id:[< `session] Ref.t
-  -> raw_alert_t list
+  -> raw_alert list
   -> unit
 
 (* Below exposed only for ease of testing *)
@@ -73,9 +73,9 @@ val expiring_message : string -> string
 val generate_alert :
      Xapi_stdext_date.Date.t
   -> string
-  -> (remaining_days_t * message_id_t) list
+  -> (remaining_days * message_id) list
   -> Xapi_stdext_date.Date.t
-  -> (message_name_t * message_id_t) option
+  -> (message_name * message_id) option
 
 val filter_messages :
      string list
