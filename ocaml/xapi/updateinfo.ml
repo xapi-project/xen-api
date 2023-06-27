@@ -578,7 +578,11 @@ module UpdateInfo = struct
                                          h m s
                                    )
                                   )
-                              with _ -> Xapi_stdext_date.Date.epoch
+                              with e ->
+                                (* The error should not block update. Ingore it
+                                   and set "issued" as epoch. *)
+                                warn "%s" (ExnHelper.string_of_exn e) ;
+                                Xapi_stdext_date.Date.epoch
                             )
                             | None ->
                                 Xapi_stdext_date.Date.epoch
