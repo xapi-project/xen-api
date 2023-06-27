@@ -70,7 +70,7 @@ val expired_message : string -> string
 
 val expiring_message : string -> string
 
-val generate_alert :
+val maybe_generate_alert :
      Xapi_stdext_date.Date.t
   -> string
   -> (remaining_days * message_id) list

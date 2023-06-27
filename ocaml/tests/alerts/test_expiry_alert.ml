@@ -167,7 +167,9 @@ module TestGenerateAlert = struct
       } () =
     let now = date_of check_time in
     let expiry = date_of expire_time in
-    let actual = generate_alert now obj_description alert_conditions expiry in
+    let actual =
+      maybe_generate_alert now obj_description alert_conditions expiry
+    in
     let expected_res =
       match expected with
       | None ->

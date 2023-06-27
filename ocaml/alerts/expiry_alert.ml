@@ -56,7 +56,7 @@ let expired_message obj = Printf.sprintf "The %s has expired." obj
 
 let expiring_message obj = Printf.sprintf "The %s is expiring soon." obj
 
-let generate_alert now obj_description alert_conditions expiry =
+let maybe_generate_alert now obj_description alert_conditions expiry =
   let remaining_days =
     days_until_expiry (Date.to_float now) (Date.to_float expiry)
   in
@@ -91,7 +91,7 @@ let alert ~rpc ~session_id raw_alerts =
   let all_msgs = all_messages rpc session_id in
   List.iter
     (fun {cls; obj_uuid; obj_description; alert_conditions; expiry} ->
-      generate_alert now obj_description alert_conditions expiry
+      maybe_generate_alert now obj_description alert_conditions expiry
       |> Option.map (fun alert ->
              let msg_name_list =
                List.map (fun (_, (msg_name, _)) -> msg_name) alert_conditions

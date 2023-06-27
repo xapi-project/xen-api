@@ -81,4 +81,4 @@ let alert rpc session_id =
   |> certificates_to_expiry_message_info_list rpc session_id
   |> Expiry_alert.alert ~rpc ~session_id
 
-let generate_alert = Expiry_alert.generate_alert
+let maybe_generate_alert = Expiry_alert.maybe_generate_alert

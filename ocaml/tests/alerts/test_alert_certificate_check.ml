@@ -71,7 +71,7 @@ let gen check_time datetime =
   let obj_des = certificate_description cert in
   let alert_conditions = alert_conditions cert in
   let expiry = get_expiry cert in
-  generate_alert check_time obj_des alert_conditions expiry
+  maybe_generate_alert check_time obj_des alert_conditions expiry
 
 let test_alerts (datetime, expected) () =
   let result = gen check_time datetime in

@@ -27,7 +27,7 @@ val alert_conditions : cert -> (int * (string * int64)) list
 
 val get_expiry : cert -> Xapi_stdext_date.Date.t
 
-val generate_alert :
+val maybe_generate_alert :
      Xapi_stdext_date.Date.t
   -> string
   -> (int * (string * int64)) list
