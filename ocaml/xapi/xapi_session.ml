@@ -255,7 +255,7 @@ let local_superuser = "root"
 
 let xapi_internal_originator = "xapi"
 
-let serialize_auth = Mutex.create ()
+let serialize_auth = Locking_helpers.Named_mutex.create "serialize_auth"
 
 let wipe_string_contents str =
   for i = 0 to Bytes.length str - 1 do
@@ -272,13 +272,13 @@ let wipe_params_after_fn params fn =
   with e -> wipe params ; raise e
 
 let do_external_auth ~__context uname pwd =
-  with_lock serialize_auth (fun () ->
+  Locking_helpers.Named_mutex.execute ~__context serialize_auth (fun () ->
       (Ext_auth.d ()).authenticate_username_password uname
         (Bytes.unsafe_to_string pwd)
   )
 
 let do_local_auth ~__context uname pwd =
-  with_lock serialize_auth (fun () ->
+  Locking_helpers.Named_mutex.execute ~__context serialize_auth (fun () ->
       try Pam.authenticate uname (Bytes.unsafe_to_string pwd)
       with Failure msg ->
         raise
@@ -288,7 +288,7 @@ let do_local_auth ~__context uname pwd =
   )
 
 let do_local_change_password ~__context uname newpwd =
-  with_lock serialize_auth (fun () ->
+  Locking_helpers.Named_mutex.execute ~__context serialize_auth (fun () ->
       Pam.change_password uname (Bytes.unsafe_to_string newpwd)
   )
 
