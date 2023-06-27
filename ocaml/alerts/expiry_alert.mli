@@ -35,7 +35,10 @@ type raw_alert = {
         (* parameter "cls" of XenAPI.Message.create *)
   ; obj_uuid: string (* parameter "obj_uuid" of XenAPI.Message.create *)
   ; obj_description: string
-        (* description of the obj which would expire, which will be used in the body of generated message, take host server certificate for example: "TLS server certificate" *)
+        (* description of the obj which would expire, which will be used in the body of
+         * generated message, take host server certificate for example: "TLS server
+         * certificate"
+         *)
   ; alert_conditions: (remaining_days * message_id) list
         (* for example:
          *   [
@@ -61,6 +64,8 @@ val alert :
   -> session_id:[< `session] Ref.t
   -> raw_alert list
   -> unit
+(** Update XenAPI messages as expiry alert: remove outdated messages and send a message
+    when it has not been sent yet *)
 
 (* Below exposed only for ease of testing *)
 
@@ -75,7 +80,10 @@ val maybe_generate_alert :
   -> string
   -> (remaining_days * message_id) list
   -> Xapi_stdext_date.Date.t
-  -> (message_name * message_id) option
+  -> (string * message_id) option
+(** An inner function exposed only for ease of testing, it returns None if there is no
+    need for an expiry alert as it is not expiring or expired yet, otherwise an "alert"
+    is returned in the form of (message_body, message_id) *)
 
 val filter_messages :
      string list
@@ -83,3 +91,8 @@ val filter_messages :
   -> string * (string * int64)
   -> ('c * API.message_t) list
   -> ('c * API.message_t) list * ('c * API.message_t) list
+(** An inner function exposed only for ease of testing, it filters all of the existing
+    XenAPI messages and returns the filtered messages in the form: (outdated, current),
+    where "outdated" is a list of outdated XenAPI messages which need to be removed,
+    "current" is a list of one element which is an XenAPI message exactly the same as
+    the alert needs to be sent *)
