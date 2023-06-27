@@ -1,0 +1,7 @@
+(library
+ (name cpuid)
+ (libraries
+   xapi-log
+ )
+ (wrapped false)
+)
