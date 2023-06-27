@@ -603,7 +603,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                     ; livepatch_guidance= None
                     ; livepatches= []
                     ; issued= Xapi_stdext_date.Date.epoch
-                    ; severity= "None"
+                    ; severity= Severity.None
                     }
                 )
               ; ( "UPDATE-0001"
@@ -621,7 +621,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                     ; livepatch_guidance= None
                     ; livepatches= []
                     ; issued= Xapi_stdext_date.Date.epoch
-                    ; severity= "None"
+                    ; severity= Severity.None
                     }
                 )
               ]
@@ -664,7 +664,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                     ; livepatch_guidance= None
                     ; livepatches= []
                     ; issued= Xapi_stdext_date.Date.epoch
-                    ; severity= "None"
+                    ; severity= Severity.None
                     }
                 )
               ]
@@ -706,7 +706,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                     ; livepatch_guidance= None
                     ; livepatches= []
                     ; issued= Xapi_stdext_date.Date.epoch
-                    ; severity= "None"
+                    ; severity= Severity.None
                     }
                 )
               ; ( "UPDATE-0001"
@@ -724,7 +724,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                     ; livepatch_guidance= None
                     ; livepatches= []
                     ; issued= Xapi_stdext_date.Date.epoch
-                    ; severity= "None"
+                    ; severity= Severity.None
                     }
                 )
               ]
@@ -766,7 +766,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                     ; livepatch_guidance= None
                     ; livepatches= []
                     ; issued= Xapi_stdext_date.Date.epoch
-                    ; severity= "None"
+                    ; severity= Severity.None
                     }
                 )
               ; ( "UPDATE-0001"
@@ -797,7 +797,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                     ; livepatch_guidance= None
                     ; livepatches= []
                     ; issued= Xapi_stdext_date.Date.epoch
-                    ; severity= "None"
+                    ; severity= Severity.None
                     }
                 )
               ]
@@ -839,7 +839,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                     ; livepatch_guidance= None
                     ; livepatches= []
                     ; issued= Xapi_stdext_date.Date.epoch
-                    ; severity= "None"
+                    ; severity= Severity.None
                     }
                 )
               ; ( "UPDATE-0001"
@@ -881,7 +881,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                     ; livepatch_guidance= None
                     ; livepatches= []
                     ; issued= Xapi_stdext_date.Date.epoch
-                    ; severity= "None"
+                    ; severity= Severity.None
                     }
                 )
               ]
@@ -923,7 +923,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                     ; livepatch_guidance= None
                     ; livepatches= []
                     ; issued= Xapi_stdext_date.Date.epoch
-                    ; severity= "None"
+                    ; severity= Severity.None
                     }
                 )
               ; ( "UPDATE-0001"
@@ -954,7 +954,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                     ; livepatch_guidance= None
                     ; livepatches= []
                     ; issued= Xapi_stdext_date.Date.epoch
-                    ; severity= "None"
+                    ; severity= Severity.None
                     }
                 )
               ]
@@ -996,7 +996,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                     ; livepatch_guidance= None
                     ; livepatches= []
                     ; issued= Xapi_stdext_date.Date.epoch
-                    ; severity= "None"
+                    ; severity= Severity.None
                     }
                 )
               ; ( "UPDATE-0001"
@@ -1026,7 +1026,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                     ; livepatch_guidance= None
                     ; livepatches= []
                     ; issued= Xapi_stdext_date.Date.epoch
-                    ; severity= "None"
+                    ; severity= Severity.None
                     }
                 )
               ]
@@ -1068,7 +1068,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                     ; livepatch_guidance= None
                     ; livepatches= []
                     ; issued= Xapi_stdext_date.Date.epoch
-                    ; severity= "None"
+                    ; severity= Severity.None
                     }
                 )
               ; ( "UPDATE-0001"
@@ -1110,7 +1110,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                     ; livepatch_guidance= None
                     ; livepatches= []
                     ; issued= Xapi_stdext_date.Date.epoch
-                    ; severity= "None"
+                    ; severity= Severity.None
                     }
                 )
               ]
@@ -1174,7 +1174,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                             }
                         ]
                     ; issued= Xapi_stdext_date.Date.epoch
-                    ; severity= "None"
+                    ; severity= Severity.None
                     }
                 )
               ]
@@ -1228,7 +1228,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                             }
                         ]
                     ; issued= Xapi_stdext_date.Date.epoch
-                    ; severity= "None"
+                    ; severity= Severity.None
                     }
                 )
               ]
@@ -1284,7 +1284,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                             }
                         ]
                     ; issued= Xapi_stdext_date.Date.epoch
-                    ; severity= "None"
+                    ; severity= Severity.None
                     }
                 )
               ; ( "UPDATE-0001"
@@ -1314,7 +1314,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                             }
                         ]
                     ; issued= Xapi_stdext_date.Date.epoch
-                    ; severity= "None"
+                    ; severity= Severity.None
                     }
                 )
               ]
@@ -1368,7 +1368,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                             }
                         ]
                     ; issued= Xapi_stdext_date.Date.epoch
-                    ; severity= "None"
+                    ; severity= Severity.None
                     }
                 )
               ; ( "UPDATE-0001"
@@ -1408,7 +1408,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                             }
                         ]
                     ; issued= Xapi_stdext_date.Date.epoch
-                    ; severity= "None"
+                    ; severity= Severity.None
                     }
                 )
               ]
@@ -1462,7 +1462,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                             }
                         ]
                     ; issued= Xapi_stdext_date.Date.epoch
-                    ; severity= "None"
+                    ; severity= Severity.None
                     }
                 )
               ; ( "UPDATE-0001"
@@ -1480,7 +1480,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                     ; livepatch_guidance= None
                     ; livepatches= []
                     ; issued= Xapi_stdext_date.Date.epoch
-                    ; severity= "None"
+                    ; severity= Severity.None
                     }
                 )
               ]
@@ -1534,7 +1534,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                             }
                         ]
                     ; issued= Xapi_stdext_date.Date.epoch
-                    ; severity= "None"
+                    ; severity= Severity.None
                     }
                 )
               ; ( "UPDATE-0001"
@@ -1552,7 +1552,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                     ; livepatch_guidance= None
                     ; livepatches= []
                     ; issued= Xapi_stdext_date.Date.epoch
-                    ; severity= "None"
+                    ; severity= Severity.None
                     }
                 )
               ]
@@ -1616,7 +1616,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                             }
                         ]
                     ; issued= Xapi_stdext_date.Date.epoch
-                    ; severity= "None"
+                    ; severity= Severity.None
                     }
                 )
               ; ( "UPDATE-0001"
@@ -1646,7 +1646,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                             }
                         ]
                     ; issued= Xapi_stdext_date.Date.epoch
-                    ; severity= "None"
+                    ; severity= Severity.None
                     }
                 )
               ]
@@ -1989,7 +1989,7 @@ module ConsolidateUpdatesOfHost = Generic.MakeStateless (struct
       ; livepatch_guidance= None
       ; livepatches= []
       ; issued= Xapi_stdext_date.Date.epoch
-      ; severity= "None"
+      ; severity= Severity.None
       }
 
   let updates_info =
@@ -3129,7 +3129,7 @@ module PruneUpdateInfoForLivepatches = Generic.MakeStateless (struct
       ; livepatch_guidance= None
       ; livepatches= []
       ; issued= Xapi_stdext_date.Date.epoch
-      ; severity= "None"
+      ; severity= Severity.None
       }
 
   let tests =

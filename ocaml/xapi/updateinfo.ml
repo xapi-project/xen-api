@@ -405,6 +405,21 @@ module LivePatch = struct
          )
 end
 
+module Severity = struct
+  type t = None | High
+
+  let to_string = function None -> "None" | High -> "High"
+
+  let of_string = function
+    | "None" ->
+        None
+    | "High" ->
+        High
+    | _ ->
+        error "Unknown severity in updateinfo" ;
+        raise Api_errors.(Server_error (invalid_updateinfo_xml, []))
+end
+
 module UpdateInfo = struct
   type t = {
       id: string
@@ -419,7 +434,7 @@ module UpdateInfo = struct
     ; livepatch_guidance: Guidance.t option
     ; livepatches: LivePatch.t list
     ; issued: Xapi_stdext_date.Date.t
-    ; severity: string
+    ; severity: Severity.t
   }
 
   let guidance_to_string o =
@@ -437,7 +452,7 @@ module UpdateInfo = struct
       ; ("recommended-guidance", `String (guidance_to_string ui.rec_guidance))
       ; ("absolute-guidance", `String (guidance_to_string ui.abs_guidance))
       ; ("issued", `String (Xapi_stdext_date.Date.to_string ui.issued))
-      ; ("severity", `String ui.severity)
+      ; ("severity", `String (Severity.to_string ui.severity))
       ]
     in
     match ui.livepatches with
@@ -482,7 +497,7 @@ module UpdateInfo = struct
     ; livepatch_guidance= None
     ; livepatches= []
     ; issued= Xapi_stdext_date.Date.epoch
-    ; severity= ""
+    ; severity= Severity.None
     }
 
   let assert_valid_updateinfo = function
@@ -589,7 +604,7 @@ module UpdateInfo = struct
                           in
                           {acc with issued}
                       | Xml.Element ("severity", _, [Xml.PCData v]) ->
-                          {acc with severity= v}
+                          {acc with severity= Severity.of_string v}
                       | _ ->
                           acc
                     )

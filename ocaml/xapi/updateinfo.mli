@@ -97,6 +97,14 @@ module LivePatch : sig
   val of_xml : Xml.xml list -> t list
 end
 
+module Severity : sig
+  type t = None | High
+
+  val to_string : t -> string
+
+  val of_string : string -> t
+end
+
 (** The metadata of one update in updateinfo *)
 module UpdateInfo : sig
   type t = {
@@ -112,7 +120,7 @@ module UpdateInfo : sig
     ; livepatch_guidance: Guidance.t option
     ; livepatches: LivePatch.t list
     ; issued: Xapi_stdext_date.Date.t
-    ; severity: string
+    ; severity: Severity.t
   }
 
   val to_json : t -> Yojson.Basic.t
