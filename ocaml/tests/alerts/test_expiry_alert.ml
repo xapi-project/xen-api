@@ -24,7 +24,7 @@ let test_expiring_14 = ("TEST_EXPIRING_14", 3L)
 
 let test_expiring_30 = ("TEST_EXPIRING_30", 4L)
 
-let message_sent_on_remaining_days_list =
+let alert_conditions =
   [
     (7, test_expiring_07)
   ; (0, test_expired)
@@ -37,7 +37,7 @@ module TestGenerateAlert = struct
       description: string
     ; check_time: string
     ; expire_time: string
-    ; message_sent_on_remaining_days_list: (remaining_days * message_id) list
+    ; alert_conditions: (remaining_days * message_id) list
     ; obj_description: string
     ; expected:
         (string -> Xapi_stdext_date.Date.t -> (string * (string * int64)) option)
@@ -58,7 +58,7 @@ module TestGenerateAlert = struct
         description= "no alert, 31 days left"
       ; check_time= "20230612T17:00:00Z"
       ; expire_time= "20230713T17:00:00Z"
-      ; message_sent_on_remaining_days_list
+      ; alert_conditions
       ; obj_description= "TLS server certificate"
       ; expected= None
       }
@@ -66,7 +66,7 @@ module TestGenerateAlert = struct
         description= "no alert, 30 days and 1 second left"
       ; check_time= "20230612T17:00:00Z"
       ; expire_time= "20230712T17:00:01Z"
-      ; message_sent_on_remaining_days_list
+      ; alert_conditions
       ; obj_description= "TLS server certificate"
       ; expected= None
       }
@@ -74,7 +74,7 @@ module TestGenerateAlert = struct
         description= "no alert, 30 days left"
       ; check_time= "20230612T17:00:00Z"
       ; expire_time= "20230712T17:00:00Z"
-      ; message_sent_on_remaining_days_list
+      ; alert_conditions
       ; obj_description= "TLS server certificate"
       ; expected= None
       }
@@ -82,7 +82,7 @@ module TestGenerateAlert = struct
         description= "expiring alert, 1 second less than 30 days left"
       ; check_time= "20230612T17:00:01Z"
       ; expire_time= "20230712T17:00:00Z"
-      ; message_sent_on_remaining_days_list
+      ; alert_conditions
       ; obj_description= "TLS server certificate"
       ; expected= Some (expiring_result test_expiring_30)
       }
@@ -90,7 +90,7 @@ module TestGenerateAlert = struct
         description= "expiring alert, 14 days left"
       ; check_time= "20230612T17:00:00Z"
       ; expire_time= "20230626T17:00:00Z"
-      ; message_sent_on_remaining_days_list
+      ; alert_conditions
       ; obj_description= "TLS server certificate"
       ; expected= Some (expiring_result test_expiring_30)
       }
@@ -98,7 +98,7 @@ module TestGenerateAlert = struct
         description= "expiring alert, 1 second less than 14 days left"
       ; check_time= "20230612T17:00:01Z"
       ; expire_time= "20230626T17:00:00Z"
-      ; message_sent_on_remaining_days_list
+      ; alert_conditions
       ; obj_description= "TLS server certificate"
       ; expected= Some (expiring_result test_expiring_14)
       }
@@ -106,7 +106,7 @@ module TestGenerateAlert = struct
         description= "expiring alert, 7 days left"
       ; check_time= "20230612T17:00:00Z"
       ; expire_time= "20230619T17:00:00Z"
-      ; message_sent_on_remaining_days_list
+      ; alert_conditions
       ; obj_description= "TLS server certificate"
       ; expected= Some (expiring_result test_expiring_14)
       }
@@ -114,7 +114,7 @@ module TestGenerateAlert = struct
         description= "expiring alert, 1 second less than 7 days left"
       ; check_time= "20230612T17:00:01Z"
       ; expire_time= "20230619T17:00:00Z"
-      ; message_sent_on_remaining_days_list
+      ; alert_conditions
       ; obj_description= "TLS server certificate"
       ; expected= Some (expiring_result test_expiring_07)
       }
@@ -122,7 +122,7 @@ module TestGenerateAlert = struct
         description= "expiring alert, 1 second left"
       ; check_time= "20230612T17:00:00Z"
       ; expire_time= "20230612T17:00:01Z"
-      ; message_sent_on_remaining_days_list
+      ; alert_conditions
       ; obj_description= "TLS server certificate"
       ; expected= Some (expiring_result test_expiring_07)
       }
@@ -130,7 +130,7 @@ module TestGenerateAlert = struct
         description= "expiring alert, 0 second left"
       ; check_time= "20230612T17:00:00Z"
       ; expire_time= "20230612T17:00:00Z"
-      ; message_sent_on_remaining_days_list
+      ; alert_conditions
       ; obj_description= "TLS server certificate"
       ; expected= Some (expiring_result test_expiring_07)
       }
@@ -138,7 +138,7 @@ module TestGenerateAlert = struct
         description= "expired alert, 1 second passed"
       ; check_time= "20230612T17:00:01Z"
       ; expire_time= "20230612T17:00:00Z"
-      ; message_sent_on_remaining_days_list
+      ; alert_conditions
       ; obj_description= "TLS server certificate"
       ; expected= Some (expired_result test_expired)
       }
@@ -146,7 +146,7 @@ module TestGenerateAlert = struct
         description= "expired alert, 1 day passed"
       ; check_time= "20230612T17:00:00Z"
       ; expire_time= "20230611T17:00:00Z"
-      ; message_sent_on_remaining_days_list
+      ; alert_conditions
       ; obj_description= "TLS server certificate"
       ; expected= Some (expired_result test_expired)
       }
@@ -161,16 +161,13 @@ module TestGenerateAlert = struct
         description
       ; check_time
       ; expire_time
-      ; message_sent_on_remaining_days_list
+      ; alert_conditions
       ; obj_description
       ; expected
       } () =
     let now = date_of check_time in
     let expiry = date_of expire_time in
-    let actual =
-      generate_alert now obj_description message_sent_on_remaining_days_list
-        expiry
-    in
+    let actual = generate_alert now obj_description alert_conditions expiry in
     let expected_res =
       match expected with
       | None ->
@@ -191,7 +188,7 @@ module TestUpdateMessageInternal = struct
 
   type test_case = {
       description: string
-    ; message_sent_on_remaining_days_list: (int * (string * int64)) list
+    ; alert_conditions: (int * (string * int64)) list
     ; msg_obj_uuid: string
     ; alert: string * (string * int64)
     ; all_msgs_properties:
@@ -204,7 +201,7 @@ module TestUpdateMessageInternal = struct
     [
       {
         description= "no existing messages"
-      ; message_sent_on_remaining_days_list
+      ; alert_conditions
       ; msg_obj_uuid= "uuid1"
       ; alert= ("msg_body", (fst test_expiring_30, 3L))
       ; all_msgs_properties= []
@@ -215,7 +212,7 @@ module TestUpdateMessageInternal = struct
         description=
           "no related messages: both message_name and message_obj_uuid do not \
            match"
-      ; message_sent_on_remaining_days_list
+      ; alert_conditions
       ; msg_obj_uuid= "msg_obj_uuid"
       ; alert= ("msg_body", test_expiring_30)
       ; all_msgs_properties=
@@ -233,7 +230,7 @@ module TestUpdateMessageInternal = struct
     ; {
         description=
           "no related messages: message_name match, message_obj_uuid different"
-      ; message_sent_on_remaining_days_list
+      ; alert_conditions
       ; msg_obj_uuid= "uuid1"
       ; alert= ("msg_body", test_expiring_30)
       ; all_msgs_properties=
@@ -256,7 +253,7 @@ module TestUpdateMessageInternal = struct
         description=
           "no related messages: message_name do not match, message_obj_uuid \
            equal"
-      ; message_sent_on_remaining_days_list
+      ; alert_conditions
       ; msg_obj_uuid= "msg_obj_uuid"
       ; alert= ("msg_body", test_expiring_30)
       ; all_msgs_properties=
@@ -273,7 +270,7 @@ module TestUpdateMessageInternal = struct
       }
     ; {
         description= "have outdated message"
-      ; message_sent_on_remaining_days_list
+      ; alert_conditions
       ; msg_obj_uuid= "msg_obj_uuid"
       ; alert= ("msg_body", test_expiring_14)
       ; all_msgs_properties=
@@ -294,7 +291,7 @@ module TestUpdateMessageInternal = struct
       }
     ; {
         description= "already have the required message"
-      ; message_sent_on_remaining_days_list
+      ; alert_conditions
       ; msg_obj_uuid= "msg_obj_uuid"
       ; alert= ("msg_body", test_expiring_14)
       ; all_msgs_properties=
@@ -335,7 +332,7 @@ module TestUpdateMessageInternal = struct
   let testing
       {
         description
-      ; message_sent_on_remaining_days_list
+      ; alert_conditions
       ; msg_obj_uuid
       ; alert
       ; all_msgs_properties
@@ -360,9 +357,7 @@ module TestUpdateMessageInternal = struct
         all_msgs_properties
     in
     let msg_name_list =
-      List.map
-        (fun (_, (msg_name, _)) -> msg_name)
-        message_sent_on_remaining_days_list
+      List.map (fun (_, (msg_name, _)) -> msg_name) alert_conditions
     in
     let actual = filter_messages msg_name_list msg_obj_uuid alert all_msgs in
     let refs_to_msgs refs =
