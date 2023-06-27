@@ -50,6 +50,10 @@ module HOST = struct
   let send_debug_keys _ = ()
 
   let update_guest_agent_features _ = ()
+
+  let combine_cpu_policies _ _ = CPU_policy.of_string `host ""
+
+  let is_compatible _ _ = false
 end
 
 module VM = struct

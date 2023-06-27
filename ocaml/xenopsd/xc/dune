@@ -9,6 +9,7 @@
  (libraries
   astring
   base64
+  cpuid
   ezxenstore.core
   ezxenstore.watch
   fd-send-recv

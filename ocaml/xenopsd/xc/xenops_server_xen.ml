@@ -1121,6 +1121,27 @@ module HOST = struct
               features
         )
     )
+
+  let combine_cpu_policies policy1 policy2 =
+    let open Cpuid in
+    intersect
+      (policy1 |> CPU_policy.to_string |> features_of_string)
+      (policy2 |> CPU_policy.to_string |> features_of_string)
+    |> string_of_features
+    |> CPU_policy.of_string `host
+
+  let is_compatible vm_policy host_policy =
+    let open Cpuid in
+    let vm = vm_policy |> CPU_policy.to_string |> features_of_string in
+    let host = host_policy |> CPU_policy.to_string |> features_of_string in
+    let vm' = zero_extend vm (Array.length host) in
+    let compatible = is_subset vm' host in
+    if not compatible then
+      info
+        "The VM's CPU policy is not compatible with the target host's. The \
+         host is missing: %s"
+        (diff vm' host |> string_of_features) ;
+    compatible
 end
 
 let dB_m = Mutex.create ()

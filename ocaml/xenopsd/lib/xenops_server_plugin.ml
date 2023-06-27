@@ -64,6 +64,11 @@ module type S = sig
     val send_debug_keys : string -> unit
 
     val update_guest_agent_features : Host.guest_agent_feature list -> unit
+
+    val combine_cpu_policies :
+      [`host] CPU_policy.t -> [`host] CPU_policy.t -> [`host] CPU_policy.t
+
+    val is_compatible : [`vm] CPU_policy.t -> [`host] CPU_policy.t -> bool
   end
 
   module VM : sig
