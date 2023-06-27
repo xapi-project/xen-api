@@ -1,3 +1,4 @@
+from __future__ import print_function
 from xapi import success, Rpc_light_failure, InternalError, UnmarshalException, TypeError, is_long, UnknownMethod
 import xapi
 import sys
@@ -656,8 +657,8 @@ class Volume_commandline():
             request = self._parse_create()
             use_json = 'json' in request and request['json']
             results = self.dispatcher.create(request)
-            print json.dumps(results)
-        except Exception, e:
+            print(json.dumps(results))
+        except Exception as e:
             if use_json:
                 xapi.handle_exception(e)
             else:
@@ -669,8 +670,8 @@ class Volume_commandline():
             request = self._parse_snapshot()
             use_json = 'json' in request and request['json']
             results = self.dispatcher.snapshot(request)
-            print json.dumps(results)
-        except Exception, e:
+            print(json.dumps(results))
+        except Exception as e:
             if use_json:
                 xapi.handle_exception(e)
             else:
@@ -682,8 +683,8 @@ class Volume_commandline():
             request = self._parse_clone()
             use_json = 'json' in request and request['json']
             results = self.dispatcher.clone(request)
-            print json.dumps(results)
-        except Exception, e:
+            print(json.dumps(results))
+        except Exception as e:
             if use_json:
                 xapi.handle_exception(e)
             else:
@@ -695,8 +696,8 @@ class Volume_commandline():
             request = self._parse_destroy()
             use_json = 'json' in request and request['json']
             results = self.dispatcher.destroy(request)
-            print json.dumps(results)
-        except Exception, e:
+            print(json.dumps(results))
+        except Exception as e:
             if use_json:
                 xapi.handle_exception(e)
             else:
@@ -708,8 +709,8 @@ class Volume_commandline():
             request = self._parse_set_name()
             use_json = 'json' in request and request['json']
             results = self.dispatcher.set_name(request)
-            print json.dumps(results)
-        except Exception, e:
+            print(json.dumps(results))
+        except Exception as e:
             if use_json:
                 xapi.handle_exception(e)
             else:
@@ -721,8 +722,8 @@ class Volume_commandline():
             request = self._parse_set_description()
             use_json = 'json' in request and request['json']
             results = self.dispatcher.set_description(request)
-            print json.dumps(results)
-        except Exception, e:
+            print(json.dumps(results))
+        except Exception as e:
             if use_json:
                 xapi.handle_exception(e)
             else:
@@ -734,8 +735,8 @@ class Volume_commandline():
             request = self._parse_set()
             use_json = 'json' in request and request['json']
             results = self.dispatcher.set(request)
-            print json.dumps(results)
-        except Exception, e:
+            print(json.dumps(results))
+        except Exception as e:
             if use_json:
                 xapi.handle_exception(e)
             else:
@@ -747,8 +748,8 @@ class Volume_commandline():
             request = self._parse_unset()
             use_json = 'json' in request and request['json']
             results = self.dispatcher.unset(request)
-            print json.dumps(results)
-        except Exception, e:
+            print(json.dumps(results))
+        except Exception as e:
             if use_json:
                 xapi.handle_exception(e)
             else:
@@ -760,8 +761,8 @@ class Volume_commandline():
             request = self._parse_resize()
             use_json = 'json' in request and request['json']
             results = self.dispatcher.resize(request)
-            print json.dumps(results)
-        except Exception, e:
+            print(json.dumps(results))
+        except Exception as e:
             if use_json:
                 xapi.handle_exception(e)
             else:
@@ -773,8 +774,8 @@ class Volume_commandline():
             request = self._parse_stat()
             use_json = 'json' in request and request['json']
             results = self.dispatcher.stat(request)
-            print json.dumps(results)
-        except Exception, e:
+            print(json.dumps(results))
+        except Exception as e:
             if use_json:
                 xapi.handle_exception(e)
             else:
@@ -1267,8 +1268,8 @@ class SR_commandline():
             request = self._parse_probe()
             use_json = 'json' in request and request['json']
             results = self.dispatcher.probe(request)
-            print json.dumps(results)
-        except Exception, e:
+            print(json.dumps(results))
+        except Exception as e:
             if use_json:
                 xapi.handle_exception(e)
             else:
@@ -1280,8 +1281,8 @@ class SR_commandline():
             request = self._parse_create()
             use_json = 'json' in request and request['json']
             results = self.dispatcher.create(request)
-            print json.dumps(results)
-        except Exception, e:
+            print(json.dumps(results))
+        except Exception as e:
             if use_json:
                 xapi.handle_exception(e)
             else:
@@ -1293,8 +1294,8 @@ class SR_commandline():
             request = self._parse_attach()
             use_json = 'json' in request and request['json']
             results = self.dispatcher.attach(request)
-            print json.dumps(results)
-        except Exception, e:
+            print(json.dumps(results))
+        except Exception as e:
             if use_json:
                 xapi.handle_exception(e)
             else:
@@ -1306,8 +1307,8 @@ class SR_commandline():
             request = self._parse_detach()
             use_json = 'json' in request and request['json']
             results = self.dispatcher.detach(request)
-            print json.dumps(results)
-        except Exception, e:
+            print(json.dumps(results))
+        except Exception as e:
             if use_json:
                 xapi.handle_exception(e)
             else:
@@ -1319,8 +1320,8 @@ class SR_commandline():
             request = self._parse_destroy()
             use_json = 'json' in request and request['json']
             results = self.dispatcher.destroy(request)
-            print json.dumps(results)
-        except Exception, e:
+            print(json.dumps(results))
+        except Exception as e:
             if use_json:
                 xapi.handle_exception(e)
             else:
@@ -1332,8 +1333,8 @@ class SR_commandline():
             request = self._parse_stat()
             use_json = 'json' in request and request['json']
             results = self.dispatcher.stat(request)
-            print json.dumps(results)
-        except Exception, e:
+            print(json.dumps(results))
+        except Exception as e:
             if use_json:
                 xapi.handle_exception(e)
             else:
@@ -1345,8 +1346,8 @@ class SR_commandline():
             request = self._parse_set_name()
             use_json = 'json' in request and request['json']
             results = self.dispatcher.set_name(request)
-            print json.dumps(results)
-        except Exception, e:
+            print(json.dumps(results))
+        except Exception as e:
             if use_json:
                 xapi.handle_exception(e)
             else:
@@ -1358,8 +1359,8 @@ class SR_commandline():
             request = self._parse_set_description()
             use_json = 'json' in request and request['json']
             results = self.dispatcher.set_description(request)
-            print json.dumps(results)
-        except Exception, e:
+            print(json.dumps(results))
+        except Exception as e:
             if use_json:
                 xapi.handle_exception(e)
             else:
@@ -1371,8 +1372,8 @@ class SR_commandline():
             request = self._parse_ls()
             use_json = 'json' in request and request['json']
             results = self.dispatcher.ls(request)
-            print json.dumps(results)
-        except Exception, e:
+            print(json.dumps(results))
+        except Exception as e:
             if use_json:
                 xapi.handle_exception(e)
             else:
@@ -1391,7 +1392,7 @@ class volume_server_dispatcher:
             elif method.startswith("SR") and self.SR:
                 return self.SR._dispatch(method, params)
             raise UnknownMethod(method)
-        except Exception, e:
+        except Exception as e:
             logging.info("caught %s" % e)
             traceback.print_exc()
             try:
