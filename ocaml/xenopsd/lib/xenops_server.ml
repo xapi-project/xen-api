@@ -1417,23 +1417,17 @@ let import_metadata id md =
        give it a featureset that contains all features that this host has
        to offer. *)
     if not (List.mem_assoc "featureset" platformdata) then (
-      let string_of_features features =
-        Array.map (Printf.sprintf "%08Lx") features
-        |> Array.to_list
-        |> String.concat "-"
-      in
       let fs =
         let stat = B.HOST.stat () in
-        ( match md.Metadata.vm.Vm.ty with
+        match md.Metadata.vm.Vm.ty with
         | HVM _ | PVinPVH _ | PVH _ ->
             Host.(stat.cpu_info.features_hvm)
         | PV _ ->
             Host.(stat.cpu_info.features_pv)
-        )
-        |> string_of_features
       in
-      debug "Setting Platformdata:featureset=%s" fs ;
-      ("featureset", fs) :: platformdata
+      let fs' = CPU_policy.to_string fs in
+      debug "Setting Platformdata:featureset=%s" fs' ;
+      ("featureset", fs') :: platformdata
     ) else
       platformdata
   in

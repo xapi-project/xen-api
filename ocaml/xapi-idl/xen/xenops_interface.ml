@@ -512,11 +512,11 @@ module Host = struct
     ; model: string
     ; stepping: string
     ; flags: string
-    ; features: int64 array
-    ; features_pv: int64 array
-    ; features_hvm: int64 array
-    ; features_pv_host: int64 array
-    ; features_hvm_host: int64 array
+    ; features: host_cpu_policy
+    ; features_pv: host_cpu_policy
+    ; features_hvm: host_cpu_policy
+    ; features_pv_host: host_cpu_policy
+    ; features_hvm_host: host_cpu_policy
   }
   [@@deriving rpcty]
 
