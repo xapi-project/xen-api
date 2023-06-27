@@ -210,7 +210,7 @@ def link_send(sock, m):
 def link_recv(reader):
     status = reader.readline()
     if not(status.startswith("HTTP/1.1 200 OK")):
-        raise (Bad_status(status))
+        raise Bad_status(status)
     content_length = None
     eoh = False
     while not eoh:
