@@ -128,6 +128,8 @@ module Hdr = struct
   let location = "location"
 
   let traceparent = "traceparent"
+
+  let hsts = "strict-transport-security"
 end
 
 let output_http fd headers =

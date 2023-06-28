@@ -233,6 +233,9 @@ module Hdr : sig
   val location : string
 
   val traceparent : string
+
+  val hsts : string
+  (** Header used for HTTP Strict Transport Security *)
 end
 
 val output_http : Unix.file_descr -> string list -> unit

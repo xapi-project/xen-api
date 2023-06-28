@@ -120,7 +120,11 @@ val response_method_not_implemented :
 val response_redirect : ?req:Http.Request.t -> Unix.file_descr -> string -> unit
 
 val response_file :
-  ?mime_content_type:string -> Unix.file_descr -> string -> unit
+     ?mime_content_type:string
+  -> hsts_time:int
+  -> Unix.file_descr
+  -> string
+  -> unit
 
 val respond_to_options : Http.Request.t -> Unix.file_descr -> unit
 
