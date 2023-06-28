@@ -750,8 +750,12 @@ let apply_updates' ~__context ~host ~updates_info ~livepatches ~acc_rpm_updates
   (* Evaluate recommended/pending guidances *)
   let recommended_guidances, pending_guidances =
     let recommended_guidances' =
-      eval_guidances ~updates_info ~updates:acc_rpm_updates ~kind:Recommended
-        ~livepatches:successful_livepatches ~failed_livepatches
+      (* EvacuateHost will be applied before applying updates *)
+      List.filter
+        (fun g -> not (g = Guidance.EvacuateHost))
+        (eval_guidances ~updates_info ~updates:acc_rpm_updates ~kind:Recommended
+           ~livepatches:successful_livepatches ~failed_livepatches
+        )
     in
     let pending_guidances' =
       List.filter
