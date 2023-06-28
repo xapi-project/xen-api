@@ -1,0 +1,11 @@
+(library
+  (name expiry_alert)
+  (public_name xapi-expiry-alerts)
+  (libraries
+    astring
+    xapi-client
+    xapi-consts
+    xapi-types
+    xapi-stdext-date
+  )
+)
