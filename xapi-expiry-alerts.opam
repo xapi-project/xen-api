@@ -1,0 +1,29 @@
+opam-version: "2.0"
+maintainer: "xen-api@lists.xen.org"
+authors: [ "Pau Ruiz Safont" "Gang Ji" ]
+license: "LGPL-2.1-only WITH OCaml-LGPL-linking-exception"
+homepage: "https://github.com/xapi-project/xen-api"
+dev-repo: "git+https://github.com/xapi-project/xen-api.git"
+bug-reports: "https://github.com/xapi-project/xen-api/issues"
+tags: [
+  "org:xapi-project"
+]
+build: [
+  ["dune" "build" "-p" name "-j" jobs]
+  ["dune" "runtest" "-p" name "-j" jobs] {with-test}
+]
+depends: [
+  "ocaml"
+  "dune"
+  "astring"
+  "xapi-client"
+  "xapi-consts"
+  "xapi-types"
+  "xapi-stdext-date"
+  "alcotest" {with-test}
+]
+synopsis:
+  "Xen-API client library for sending expiry alerts and removing outdated ones"
+url {
+  src: "https://github.com/xapi-project/xen-api/archive/master.tar.gz"
+}
