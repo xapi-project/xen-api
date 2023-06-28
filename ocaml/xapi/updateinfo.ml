@@ -603,8 +603,13 @@ module UpdateInfo = struct
                                 Xapi_stdext_date.Date.epoch
                           in
                           {acc with issued}
-                      | Xml.Element ("severity", _, [Xml.PCData v]) ->
-                          {acc with severity= Severity.of_string v}
+                      | Xml.Element ("severity", _, [Xml.PCData v]) -> (
+                        try {acc with severity= Severity.of_string v}
+                        with e ->
+                          (* The error should not block update. Ingore it. *)
+                          warn "%s" (ExnHelper.string_of_exn e) ;
+                          acc
+                      )
                       | _ ->
                           acc
                     )
