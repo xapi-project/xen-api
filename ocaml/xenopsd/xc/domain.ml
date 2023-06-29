@@ -1271,7 +1271,7 @@ let consume_qemu_record fd limit domid uuid =
 let restore_common (task : Xenops_task.task_handle) ~xc ~xs
     ~(dm : Device.Profile.t) ~domain_type ~store_port ~store_domid:_
     ~console_port ~console_domid:_ ~no_incr_generationid:_ ~vcpus:_ ~extras
-    manager_path domid main_fd vgpu_fd =
+    ~vtpm manager_path domid main_fd vgpu_fd =
   let module DD = Debug.Make (struct let name = "mig64" end) in
   let open DD in
   let uuid = get_uuid ~xc domid in
@@ -1393,11 +1393,19 @@ let restore_common (task : Xenops_task.task_handle) ~xc ~xs
                 debug "Read varstored record contents (domid=%d)" domid ;
                 Device.Dm.restore_varstored task ~xs ~efivars domid ;
                 process_header fd res
+            | Swtpm0, len ->
+                debug "Read swtpm0 record header (domid=%d length=%Ld)" domid
+                  len ;
+                let raw_contents = Io.read fd (Io.int_of_int64_exn len) in
+                let contents = Base64.encode_string raw_contents in
+                debug "Read swtpm0 record contents (domid=%d)" domid ;
+                Device.Dm.restore_vtpm task ~xs ~contents ~vtpm domid ;
+                process_header fd res
             | Swtpm, len ->
                 debug "Read swtpm record header (domid=%d length=%Ld)" domid len ;
                 let contents = Io.read fd (Io.int_of_int64_exn len) in
                 debug "Read swtpm record contents (domid=%d)" domid ;
-                Device.Dm.restore_vtpm task ~xs ~contents domid ;
+                Device.Dm.restore_vtpm task ~xs ~contents ~vtpm domid ;
                 process_header fd res
             | End_of_image, _ ->
                 debug "Read suspend image footer" ;
@@ -1531,7 +1539,7 @@ let restore_common (task : Xenops_task.task_handle) ~xc ~xs
 
 let restore (task : Xenops_task.task_handle) ~xc ~xs ~dm ~store_domid
     ~console_domid ~no_incr_generationid ~timeoffset ~extras info ~manager_path
-    domid fd vgpu_fd =
+    ~vtpm domid fd vgpu_fd =
   let static_max_kib = info.memory_max in
   let target_kib = info.memory_target in
   let vcpus = info.vcpus in
@@ -1578,7 +1586,7 @@ let restore (task : Xenops_task.task_handle) ~xc ~xs ~dm ~store_domid
   in
   let store_mfn, console_mfn =
     restore_common task ~xc ~xs ~dm ~domain_type ~store_port ~store_domid
-      ~console_port ~console_domid ~no_incr_generationid ~vcpus ~extras
+      ~console_port ~console_domid ~no_incr_generationid ~vcpus ~extras ~vtpm
       manager_path domid fd vgpu_fd
   in
   let local_stuff = console_keys console_port console_mfn in
@@ -1672,7 +1680,7 @@ let suspend_emu_manager ~(task : Xenops_task.task_handle) ~xc:_ ~xs ~domain_type
                   Device.Dm.suspend_varstored task ~xs domid ~vm_uuid
                 in
                 let (_ : string list) =
-                  Device.Dm.suspend_vtpms task ~xs domid ~vm_uuid ~vtpm
+                  Device.Dm.suspend_vtpm task ~xs domid ~vtpm
                 in
                 ()
             ) ;
@@ -1754,12 +1762,10 @@ let forall f l =
   let open Suspend_image.M in
   fold (fun x () -> f x) l ()
 
-let write_vtpms_record task ~xs ~vtpm domid main_fd =
+let write_vtpm_record task ~xs ~vtpm domid main_fd =
   let open Suspend_image in
   let open Suspend_image.M in
-  Device.Dm.suspend_vtpms task ~xs domid
-    ~vm_uuid:(Uuidx.to_string (Xenops_helpers.uuid_of_domid ~xs domid))
-    ~vtpm
+  Device.Dm.suspend_vtpm task ~xs domid ~vtpm
   |> forall @@ fun swtpm_record ->
      let swtpm_rec_len = String.length swtpm_record in
      debug "Writing swtpm record (domid=%d length=%d)" domid swtpm_rec_len ;
@@ -1804,7 +1810,7 @@ let suspend (task : Xenops_task.task_handle) ~xc ~xs ~domain_type ~is_uefi ~dm
     >>= fun () ->
     ( if is_uefi then
         write_varstored_record task ~xs domid main_fd >>= fun () ->
-        write_vtpms_record task ~xs ~vtpm domid main_fd
+        write_vtpm_record task ~xs ~vtpm domid main_fd
     else
       return ()
     )

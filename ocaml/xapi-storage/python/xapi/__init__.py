@@ -67,9 +67,9 @@ class XenAPIException(Exception):
     def __init__(self, code, params):
         Exception.__init__(self)
         if not isinstance(code, str) and not isinstance(code, unicode):
-            raise (TypeError("string", repr(code)))
+            raise TypeError("string", repr(code))
         if not isinstance(params, list):
-            raise (TypeError("list", repr(params)))
+            raise TypeError("list", repr(params))
         self.code = code
         self.params = params
 

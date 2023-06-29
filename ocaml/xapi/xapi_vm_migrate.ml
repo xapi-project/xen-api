@@ -111,10 +111,10 @@ let remote_of_dest ~__context dest =
   let rpc =
     match Db.Host.get_uuid ~__context ~self:dest_host with
     | _ ->
-        Helpers.make_remote_rpc remote_master_ip
+        Helpers.make_remote_rpc ~__context remote_master_ip
     | exception _ ->
         (* host unknown - this is a cross-pool migration *)
-        Helpers.make_remote_rpc ~verify_cert:None remote_master_ip
+        Helpers.make_remote_rpc ~__context ~verify_cert:None remote_master_ip
   in
   let sm_url =
     let url = List.assoc _sm dest in
@@ -417,6 +417,7 @@ let pool_migrate ~__context ~vm ~host ~options =
      ) ;
   Xapi_xenops.Events_from_xenopsd.with_suppressed queue_name dbg vm_uuid
     (fun () ->
+      let dbg = Context.string_of_task_and_tracing __context in
       try
         Xapi_network.with_networks_attached_for_vm ~__context ~vm ~host
           (fun () ->
@@ -1757,12 +1758,6 @@ let assert_can_migrate ~__context ~vm ~dest ~live:_ ~vdi_map ~vif_map ~options
              )
           ) ;
       let power_state = Db.VM.get_power_state ~__context ~self:vm in
-      (* VTPMs can't be exported currently, which will make the migration fail *)
-      ( if power_state <> `Halted && Db.VM.get_VTPMs ~__context ~self:vm <> []
-      then
-          let message = "Cross-pool VM migration with VTPMs attached" in
-          Helpers.maybe_raise_vtpm_unimplemented __FUNCTION__ message
-      ) ;
       (* Check VDIs are not migrating to or from an SR which doesn't have required_sr_operations *)
       assert_sr_support_operations ~__context ~vdi_map ~remote
         ~ops:required_sr_operations ;

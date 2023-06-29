@@ -36,8 +36,8 @@ let no_exn f x =
   try ignore (f x)
   with exn -> debug "Ignoring exception: %s" (ExnHelper.string_of_exn exn)
 
-let rpc ~verify_cert host_address xml =
-  try Helpers.make_remote_rpc ~verify_cert host_address xml
+let rpc ~__context ~verify_cert host_address xml =
+  try Helpers.make_remote_rpc ~__context ~verify_cert host_address xml
   with Xmlrpc_client.Connection_reset ->
     raise
       (Api_errors.Server_error
@@ -1417,7 +1417,7 @@ let join_common ~__context ~master_address ~master_username ~master_password
     ~force =
   assert_pooling_licensed ~__context ;
   let new_pool_secret = ref (SecretString.of_string "") in
-  let unverified_rpc = rpc ~verify_cert:None master_address in
+  let unverified_rpc = rpc ~__context ~verify_cert:None master_address in
   let me = Helpers.get_localhost ~__context in
   let session_id =
     try
@@ -1456,7 +1456,9 @@ let join_common ~__context ~master_address ~master_username ~master_password
 
   (* Certificate exchange done, we must switch to verified pool connections as
      soon as possible *)
-  let rpc = rpc ~verify_cert:(Stunnel_client.pool ()) master_address in
+  let rpc =
+    rpc ~__context ~verify_cert:(Stunnel_client.pool ()) master_address
+  in
   let session_id =
     try
       Client.Session.login_with_password ~rpc ~uname:master_username
@@ -2123,6 +2125,7 @@ let is_slave ~__context ~host:_ =
   debug
     "About to kick the database connection to make sure it's still working..." ;
   let (_ : bool) =
+    Scheduler.PipeDelay.signal Master_connection.delay ;
     Db.is_valid_ref __context
       (Ref.of_string
          "Pool.is_slave checking to see if the database connection is up"
@@ -2344,7 +2347,6 @@ let create_VLAN_from_PIF ~__context ~pif ~network ~vLAN =
 let enable_disable_m = Mutex.create ()
 
 let enable_ha ~__context ~heartbeat_srs ~configuration =
-  Helpers.assert_ha_vtpms_compatible ~__context ;
   if not (Helpers.pool_has_different_host_platform_versions ~__context) then
     with_lock enable_disable_m (fun () ->
         Xapi_ha.enable __context heartbeat_srs configuration
@@ -2856,7 +2858,7 @@ let create_redo_log_vdi ~__context ~sr =
       Client.VDI.create ~rpc ~session_id ~name_label:"Metadata redo-log"
         ~name_description:
           "Used when HA is disabled, while extra security is still desired"
-        ~sR:sr ~virtual_size:Redo_log.minimum_vdi_size ~_type:`redo_log
+        ~sR:sr ~virtual_size:Redo_log.recommended_vdi_size ~_type:`redo_log
         ~sharable:true ~read_only:false ~other_config:[] ~xenstore_data:[]
         ~sm_config:Redo_log.redo_log_sm_config ~tags:[]
   )
@@ -2925,7 +2927,9 @@ let enable_redo_log ~__context ~sr =
   (* enable the new redo log, unless HA is enabled (which means a redo log
      	 * is already in use) *)
   if not (Db.Pool.get_ha_enabled ~__context ~self:pool) then (
-    Redo_log.enable Xapi_ha.ha_redo_log Xapi_globs.gen_metadata_vdi_reason ;
+    Redo_log.enable_and_flush
+      (Context.database_of __context |> Db_ref.get_database)
+      Xapi_ha.ha_redo_log Xapi_globs.gen_metadata_vdi_reason ;
     Localdb.put Constants.redo_log_enabled "true"
   ) ;
   info "The redo log is now enabled"
@@ -3285,7 +3289,8 @@ let perform ~local_fn ~__context ~host op =
     let open Xmlrpc_client in
     let verify_cert = Some Stunnel.pool (* verify! *) in
     let task_id = Option.map Ref.string_of task_opt in
-    let http = xmlrpc ?task_id ~version:"1.0" "/" in
+    let tracing = Context.set_client_span __context in
+    let http = xmlrpc ?task_id ~version:"1.0" ~tracing "/" in
     let port = !Constants.https_port in
     let transport = SSL (SSL.make ~verify_cert ?task_id (), hostname, port) in
     XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"dst_xapi" ~transport ~http xml

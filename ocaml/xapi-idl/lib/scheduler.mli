@@ -47,3 +47,18 @@ val one_shot : t -> time -> string -> (unit -> unit) -> handle
 
 val cancel : t -> handle -> unit
 (** Cancel an item *)
+
+(** The PipeDelay module here implements simple cancellable delays. *)
+module PipeDelay : sig
+  type t
+
+  val make : unit -> t
+  (** Makes a PipeDelay.t *)
+
+  val wait : t -> float -> bool
+  (** Wait for the specified amount of time. Returns true if we waited the full
+      length of time, false if we were woken *)
+
+  val signal : t -> unit
+  (** Signal anyone currently waiting with the PipeDelay.t *)
+end

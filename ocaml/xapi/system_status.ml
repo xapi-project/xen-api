@@ -92,10 +92,12 @@ let send_via_cp __context s entries output =
   let () = debug "running %s" cmd in
   try
     let filename = String.rtrim (Helpers.get_process_output cmd) in
+    let hsts_time = !Xapi_globs.hsts_max_age in
     finally
       (fun () ->
         debug "bugball path: %s" filename ;
-        Http_svr.response_file ~mime_content_type:content_type s filename
+        Http_svr.response_file ~mime_content_type:content_type ~hsts_time s
+          filename
       )
       (fun () ->
         Helpers.log_exn_continue "deleting xen-bugtool output" Unix.unlink

@@ -1,0 +1,3 @@
+# Run at 20 minutes past the hour,
+# every hour, day-of-month, month, day-of-week
+20   *  *  *  * root /opt/xensource/libexec/xapi-tracing-log-trim.sh

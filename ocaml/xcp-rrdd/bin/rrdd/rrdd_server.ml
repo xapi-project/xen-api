@@ -456,6 +456,41 @@ let query_host_ds (ds_name : string) : float =
           query ds_name rrdi
   )
 
+(** Dump all latest data of host dss to file in json format so that any client
+    can read even if it's non-privileged user, such as NRPE. 
+    Especially, nan, infinity and neg_infinity will be converted to strings 
+    "NaN", "infinity" and "-infinity", the client needs to handle by itself.
+    *)
+let dump_host_dss_to_file (file : string) : unit =
+  let convert_value x =
+    match classify_float x with
+    | FP_nan ->
+        `String "NaN"
+    | FP_infinite ->
+        `String (if x > 0.0 then "infinity" else "-infinity")
+    | _ ->
+        `Float x
+  in
+  let json =
+    with_lock mutex (fun () ->
+        match !host_rrd with
+        | None ->
+            `Assoc []
+        | Some rrdi ->
+            `Assoc
+              (Rrd.ds_names rrdi.rrd
+              |> List.map (fun ds_name ->
+                     (ds_name, convert_value (query ds_name rrdi))
+                 )
+              )
+    )
+  in
+  Xapi_stdext_unix.Unixext.atomic_write_to_file file 0o644 (fun fd ->
+      let oc = Unix.out_channel_of_descr fd in
+      Yojson.Basic.to_channel ~std:true oc json ;
+      flush oc
+  )
+
 (** {add_vm_ds vm_uuid domid ds_name} enables collection of the data produced by
     the data sourced with name {ds_name} for the VM {vm_uuid} into a time series
     (rrd). Throws an exception if there are no time series related to {vm_uuid}

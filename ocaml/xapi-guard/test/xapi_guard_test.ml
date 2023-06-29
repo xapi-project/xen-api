@@ -1,5 +1,5 @@
-open Xapi_guard
-open Varstored_interface
+open Xapi_guard_server
+module SessionCache = Xen_api_lwt_unix.SessionCache
 open Alcotest_lwt
 open Lwt.Syntax
 open Xen_api_lwt_unix
@@ -73,14 +73,16 @@ let () =
 let with_rpc f switch () =
   Lwt_io.with_temp_dir ~prefix:"xapi_guard" @@ fun tmp ->
   let cache =
-    SessionCache.create_rpc xapi_rpc ~uname:"root" ~pwd:"" ~version:""
-      ~originator:"" ()
+    SessionCache.create_rpc xapi_rpc ~uname:"root" ~pwd:""
+      ~version:Xapi_version.version ~originator:"test" ()
   in
   (Lwt_switch.add_hook (Some switch) @@ fun () -> SessionCache.destroy cache) ;
   let path = Filename.concat tmp "socket" in
-  (* Create an internal server on 'path', the socket that varstored/swtpm would connect to *)
-  let* stop_server = make_server_rpcfn ~cache path vm_uuid in
-  (* rpc simulates what varstored/swtpm would do *)
+  (* Create an internal server on 'path', the socket that varstored would connect to *)
+  let* stop_server =
+    Server_interface.make_server_varstored ~cache path vm_uuid
+  in
+  (* rpc simulates what varstored would do *)
   let uri = Uri.make ~scheme:"file" ~path () |> Uri.to_string in
   D.debug "Connecting to %s" uri ;
   let rpc = Xen_api_lwt_unix.make uri in
@@ -88,8 +90,8 @@ let with_rpc f switch () =
     (fun () ->
       (* not strictly necessary to login/logout here - since we only get dummy sessions *)
       let* session_id =
-        Session.login_with_password ~rpc ~uname:"root" ~pwd:"" ~version:"0.0"
-          ~originator:"test"
+        Session.login_with_password ~rpc ~uname:"root" ~pwd:""
+          ~version:Xapi_version.version ~originator:"test"
       in
       let logout () = Session.logout ~rpc ~session_id in
       Lwt.finalize logout @@ f ~rpc ~session_id
@@ -154,8 +156,8 @@ let linux_count_fds () =
 let test_shutdown _ () =
   let _fd0 = linux_count_fds () in
   let noop ~rpc:_ ~session_id:_ () = Lwt.return_unit in
-  let* () = with_rpc noop Varstored_interface.shutdown () in
-  let* () = Lwt_switch.turn_off Varstored_interface.shutdown in
+  let* () = with_rpc noop Server_interface.shutdown () in
+  let* () = Lwt_switch.turn_off Server_interface.shutdown in
   let _fd1 = linux_count_fds () in
   (* Sometimes fd1 is lower than fd0, feel free to find the root cause and
      uncomment the test! *)

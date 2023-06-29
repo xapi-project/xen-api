@@ -17,7 +17,6 @@
     uri
     xapi-client
     xapi-consts
-    xapi-idl.varstore.privileged
     xapi-stdext-std
     xapi-types
     xen-api-client

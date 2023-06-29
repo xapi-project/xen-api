@@ -45,7 +45,7 @@ module Stats = struct
       name: string
     ; secs: int64 * int64
     ; images: Image.t list
-    ; tap: Tap.t
+    ; tap: Tap.t option
     ; nbd_mirror_failed: int
     ; reqs_outstanding: int
   }
@@ -318,13 +318,13 @@ module Dummy = struct
           list
     )
 
-  let stats t =
+  let stats _t =
     let open Stats in
     {
       name= "none"
     ; secs= (0L, 0L)
     ; images= []
-    ; tap= {Tap.minor= t.minor; reqs= (0L, 0L); kicks= (0L, 0L)}
+    ; tap= None
     ; nbd_mirror_failed= 0
     ; reqs_outstanding= 0
     }

@@ -57,15 +57,16 @@ let with_open_uri ?verify_cert uri f =
       let verify_cert =
         Option.value ~default:(Stunnel_client.pool ()) verify_cert
       in
+      let process (s : Stunnel.t) =
+        finally
+          (fun () -> f Safe_resources.Unixfd.(!(s.Stunnel.fd)))
+          (fun () -> Stunnel.disconnect s)
+      in
       match (Uri.host uri, Uri.port uri) with
       | Some host, Some port ->
-          Stunnel.with_connect ~verify_cert host port (fun s ->
-              f Safe_resources.Unixfd.(!(s.Stunnel.fd))
-          )
+          Stunnel.with_connect ~verify_cert host port process
       | Some host, None ->
-          Stunnel.with_connect ~verify_cert host !Constants.https_port (fun s ->
-              f Safe_resources.Unixfd.(!(s.Stunnel.fd))
-          )
+          Stunnel.with_connect ~verify_cert host !Constants.https_port process
       | _, _ ->
           failwith
             (Printf.sprintf "Failed to parse host and port from URI: %s"

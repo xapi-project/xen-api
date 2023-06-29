@@ -76,7 +76,8 @@ let response_file s file_path =
     let ext = Option.map String.lowercase_ascii (get_extension file_path) in
     Option.fold ~none:application_octet_stream ~some:mime_of_extension ext
   in
-  Http_svr.response_file ~mime_content_type s file_path
+  let hsts_time = !Xapi_globs.hsts_max_age in
+  Http_svr.response_file ~mime_content_type ~hsts_time s file_path
 
 let is_external_http req s =
   (not (Context.is_unix_socket s)) && Context._client_of_rq req = None
