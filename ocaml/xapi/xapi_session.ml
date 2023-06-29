@@ -271,13 +271,13 @@ let wipe_params_after_fn params fn =
     wipe params ; r
   with e -> wipe params ; raise e
 
-let do_external_auth uname pwd =
+let do_external_auth ~__context uname pwd =
   with_lock serialize_auth (fun () ->
       (Ext_auth.d ()).authenticate_username_password uname
         (Bytes.unsafe_to_string pwd)
   )
 
-let do_local_auth uname pwd =
+let do_local_auth ~__context uname pwd =
   with_lock serialize_auth (fun () ->
       try Pam.authenticate uname (Bytes.unsafe_to_string pwd)
       with Failure msg ->
@@ -287,7 +287,7 @@ let do_local_auth uname pwd =
           )
   )
 
-let do_local_change_password uname newpwd =
+let do_local_change_password ~__context uname newpwd =
   with_lock serialize_auth (fun () ->
       Pam.change_password uname (Bytes.unsafe_to_string newpwd)
   )
@@ -707,7 +707,7 @@ let slave_local_login_with_password ~__context ~uname ~pwd =
       if Context.preauth ~__context <> Some `root then (
         try
           (* CP696 - only tries to authenticate against LOCAL superuser account *)
-          do_local_auth uname pwd
+          do_local_auth ~__context uname pwd
         with Failure msg ->
           debug "Failed to authenticate user %s: %s" uname msg ;
           raise
@@ -785,7 +785,7 @@ let login_with_password ~__context ~uname ~pwd ~version:_ ~originator =
               (* makes local superuser = root only*)
               failwith ("Local superuser must be " ^ local_superuser)
             else (
-              do_local_auth uname pwd ;
+              do_local_auth ~__context uname pwd ;
               debug "Success: local auth, user %s from %s" uname
                 (Context.get_origin __context) ;
               login_no_password_common ~__context ~uname:(Some uname)
@@ -871,7 +871,9 @@ let login_with_password ~__context ~uname ~pwd ~version:_ ~originator =
                   (* so that we know that he/she exists there *)
                   let subject_identifier =
                     try
-                      let _subject_identifier = do_external_auth uname pwd in
+                      let _subject_identifier =
+                        do_external_auth ~__context uname pwd
+                      in
                       debug
                         "Successful external authentication user %s \
                          (subject_identifier, %s from %s)"
@@ -1152,7 +1154,7 @@ let change_password ~__context ~old_pwd ~new_pwd =
 	    raise (Api_errors.Server_error (Api_errors.session_authentication_failed,[uname;msg]))
 	end;
 *)
-          do_local_change_password uname new_pwd ;
+          do_local_change_password ~__context uname new_pwd ;
           info "Password changed successfully for user %s" uname ;
           info "Syncing password change across hosts in pool" ;
           (* tell all hosts (except me to sync new passwd file) *)
