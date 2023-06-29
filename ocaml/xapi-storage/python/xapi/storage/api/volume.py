@@ -6,6 +6,14 @@ import json
 import argparse
 import traceback
 import logging
+
+# pylint: disable=invalid-name,redefined-builtin,undefined-variable
+# pyright: reportUndefinedVariable=false
+if sys.version_info[0] > 2:
+    long = int
+    unicode = str
+    str = bytes
+
 class Sr_not_attached(Rpc_light_failure):
     def __init__(self, arg_0):
         Rpc_light_failure.__init__(self, "Sr_not_attached", [ arg_0 ])
@@ -467,17 +475,17 @@ class Volume_test:
     def create(self, dbg, sr, name, description, size):
         """Operations which operate on volumes (also known as Virtual Disk Images)"""
         result = {}
-        result["volume"] = { "key": "string", "uuid": None, "name": "string", "description": "string", "read_write": True, "virtual_size": 0L, "physical_utilisation": 0L, "uri": [ "string", "string" ], "keys": { "string": "string" } }
+        result["volume"] = { "key": "string", "uuid": None, "name": "string", "description": "string", "read_write": True, "virtual_size": long(0), "physical_utilisation": long(0), "uri": [ "string", "string" ], "keys": { "string": "string" } }
         return result
     def snapshot(self, dbg, sr, key):
         """Operations which operate on volumes (also known as Virtual Disk Images)"""
         result = {}
-        result["volume"] = { "key": "string", "uuid": None, "name": "string", "description": "string", "read_write": True, "virtual_size": 0L, "physical_utilisation": 0L, "uri": [ "string", "string" ], "keys": { "string": "string" } }
+        result["volume"] = { "key": "string", "uuid": None, "name": "string", "description": "string", "read_write": True, "virtual_size": long(0), "physical_utilisation": long(0), "uri": [ "string", "string" ], "keys": { "string": "string" } }
         return result
     def clone(self, dbg, sr, key):
         """Operations which operate on volumes (also known as Virtual Disk Images)"""
         result = {}
-        result["volume"] = { "key": "string", "uuid": None, "name": "string", "description": "string", "read_write": True, "virtual_size": 0L, "physical_utilisation": 0L, "uri": [ "string", "string" ], "keys": { "string": "string" } }
+        result["volume"] = { "key": "string", "uuid": None, "name": "string", "description": "string", "read_write": True, "virtual_size": long(0), "physical_utilisation": long(0), "uri": [ "string", "string" ], "keys": { "string": "string" } }
         return result
     def destroy(self, dbg, sr, key):
         """Operations which operate on volumes (also known as Virtual Disk Images)"""
@@ -506,7 +514,7 @@ class Volume_test:
     def stat(self, dbg, sr, key):
         """Operations which operate on volumes (also known as Virtual Disk Images)"""
         result = {}
-        result["volume"] = { "key": "string", "uuid": None, "name": "string", "description": "string", "read_write": True, "virtual_size": 0L, "physical_utilisation": 0L, "uri": [ "string", "string" ], "keys": { "string": "string" } }
+        result["volume"] = { "key": "string", "uuid": None, "name": "string", "description": "string", "read_write": True, "virtual_size": long(0), "physical_utilisation": long(0), "uri": [ "string", "string" ], "keys": { "string": "string" } }
         return result
 class Volume_commandline():
     """Parse command-line arguments and call an implementation."""
@@ -1107,7 +1115,7 @@ class SR_test:
     def probe(self, dbg, uri):
         """Operations which act on Storage Repositories"""
         result = {}
-        result["result"] = { "srs": [ { "sr": "string", "name": "string", "description": "string", "free_space": 0L, "total_space": 0L, "datasources": [ "string", "string" ], "clustered": True, "health": None }, { "sr": "string", "name": "string", "description": "string", "free_space": 0L, "total_space": 0L, "datasources": [ "string", "string" ], "clustered": True, "health": None } ], "uris": [ "string", "string" ] }
+        result["result"] = { "srs": [ { "sr": "string", "name": "string", "description": "string", "free_space": long(0), "total_space": long(0), "datasources": [ "string", "string" ], "clustered": True, "health": None }, { "sr": "string", "name": "string", "description": "string", "free_space": long(0), "total_space": long(0), "datasources": [ "string", "string" ], "clustered": True, "health": None } ], "uris": [ "string", "string" ] }
         return result
     def create(self, dbg, uri, name, description, configuration):
         """Operations which act on Storage Repositories"""
@@ -1129,7 +1137,7 @@ class SR_test:
     def stat(self, dbg, sr):
         """Operations which act on Storage Repositories"""
         result = {}
-        result["sr"] = { "sr": "string", "name": "string", "description": "string", "free_space": 0L, "total_space": 0L, "datasources": [ "string", "string" ], "clustered": True, "health": None }
+        result["sr"] = { "sr": "string", "name": "string", "description": "string", "free_space": long(0), "total_space": long(0), "datasources": [ "string", "string" ], "clustered": True, "health": None }
         return result
     def set_name(self, dbg, sr, new_name):
         """Operations which act on Storage Repositories"""
@@ -1142,7 +1150,7 @@ class SR_test:
     def ls(self, dbg, sr):
         """Operations which act on Storage Repositories"""
         result = {}
-        result["volumes"] = [ { "key": "string", "uuid": None, "name": "string", "description": "string", "read_write": True, "virtual_size": 0L, "physical_utilisation": 0L, "uri": [ "string", "string" ], "keys": { "string": "string" } }, { "key": "string", "uuid": None, "name": "string", "description": "string", "read_write": True, "virtual_size": 0L, "physical_utilisation": 0L, "uri": [ "string", "string" ], "keys": { "string": "string" } } ]
+        result["volumes"] = [ { "key": "string", "uuid": None, "name": "string", "description": "string", "read_write": True, "virtual_size": long(0), "physical_utilisation": long(0), "uri": [ "string", "string" ], "keys": { "string": "string" } }, { "key": "string", "uuid": None, "name": "string", "description": "string", "read_write": True, "virtual_size": long(0), "physical_utilisation": long(0), "uri": [ "string", "string" ], "keys": { "string": "string" } } ]
         return result
 class SR_commandline():
     """Parse command-line arguments and call an implementation."""
