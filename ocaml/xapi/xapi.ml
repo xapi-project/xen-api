@@ -165,12 +165,10 @@ let register_callback_fns () =
   in
   Xapi_cli.rpc_fun := Some fake_rpc ;
   let set_stunnelpid _task_opt pid =
-    Locking_helpers.Thread_state.acquired
-      (Locking_helpers.Process ("stunnel", pid))
-  in
-  let unset_stunnelpid _task_opt pid =
-    Locking_helpers.Thread_state.released
-      (Locking_helpers.Process ("stunnel", pid))
+    let resource = Locking_helpers.Process ("stunnel", pid) in
+    let waiting = Locking_helpers.Thread_state.waiting_for resource in
+    let acquired = Locking_helpers.Thread_state.acquired resource waiting in
+    fun () -> Locking_helpers.Thread_state.released resource acquired
   in
   let stunnel_destination_is_ok addr =
     Server_helpers.exec_with_new_task "check_stunnel_destination"
@@ -190,8 +188,7 @@ let register_callback_fns () =
             true
     )
   in
-  Xmlrpc_client.Internal.set_stunnelpid_callback := Some set_stunnelpid ;
-  Xmlrpc_client.Internal.unset_stunnelpid_callback := Some unset_stunnelpid ;
+  Xmlrpc_client.Internal.set_stunnelpid_callback set_stunnelpid ;
   Xmlrpc_client.Internal.destination_is_ok := Some stunnel_destination_is_ok ;
   TaskHelper.init ()
 

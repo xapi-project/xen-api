@@ -27,11 +27,9 @@ module E = Debug.Make (struct let name = "mscgen" end)
 let () = Debug.disable ~level:Syslog.Debug "mscgen"
 
 module Internal = struct
-  let set_stunnelpid_callback : (string option -> int -> unit) option ref =
-    ref None
+  let set_unset_stunnelpid_callback = ref None
 
-  let unset_stunnelpid_callback : (string option -> int -> unit) option ref =
-    ref None
+  let set_stunnelpid_callback set = set_unset_stunnelpid_callback := Some set
 
   let destination_is_ok : (string -> bool) option ref = ref None
 end
@@ -345,19 +343,12 @@ let with_transport ?(stunnel_wait_disconnect = true) transport f =
         host port ;
       (* Call the {,un}set_stunnelpid_callback hooks around the remote call *)
       let with_recorded_stunnelpid f =
-        ( match !Internal.set_stunnelpid_callback with
-        | Some f ->
-            f task_id s_pid
-        | _ ->
-            ()
-        ) ;
-        finally f (fun () ->
-            match !Internal.unset_stunnelpid_callback with
-            | Some f ->
-                f task_id s_pid
-            | _ ->
-                ()
-        )
+        match !Internal.set_unset_stunnelpid_callback with
+        | Some set ->
+            let unset = set task_id s_pid in
+            finally f unset
+        | None ->
+            f ()
       in
       with_recorded_stunnelpid (fun () ->
           finally

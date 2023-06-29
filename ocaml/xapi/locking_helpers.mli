@@ -22,16 +22,20 @@ val kill_resource : resource -> unit
 
 (** Records per-thread diagnostic information *)
 module Thread_state : sig
+  type waiting
+
+  type acquired
+
   val with_named_thread : string -> API.ref_task -> (unit -> 'a) -> 'a
   (** Called when a thread becomes associated with a particular task *)
 
-  val waiting_for : resource -> unit
+  val waiting_for : resource -> waiting
   (** Called when a thread is about to block waiting for a resource to be free *)
 
-  val acquired : resource -> unit
+  val acquired : resource -> waiting -> acquired
   (** Called when a thread acquires a resource *)
 
-  val released : resource -> unit
+  val released : resource -> acquired -> unit
   (** Called when a thread releases a resource *)
 
   val get_all_acquired_resources : unit -> resource list

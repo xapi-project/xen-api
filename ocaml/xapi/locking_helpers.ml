@@ -37,6 +37,10 @@ let kill_resource = function
       Unix.kill pid Sys.sigkill
 
 module Thread_state = struct
+  type waiting = unit
+
+  type acquired = unit
+
   type time = float
 
   type t = {
@@ -98,7 +102,7 @@ module Thread_state = struct
   let waiting_for resource =
     update (fun ts -> {ts with waiting_for= Some (resource, now ())})
 
-  let acquired resource =
+  let acquired resource (_ : unit) =
     update (fun ts ->
         {
           ts with
@@ -107,7 +111,7 @@ module Thread_state = struct
         }
     )
 
-  let released resource =
+  let released resource () =
     update (fun ts ->
         {
           ts with
@@ -217,9 +221,9 @@ module Named_mutex = struct
 
   let execute (x : t) f =
     let r = Lock x.name in
-    Thread_state.waiting_for r ;
+    let waiting = Thread_state.waiting_for r in
     with_lock x.m (fun () ->
-        Thread_state.acquired r ;
-        finally f (fun () -> Thread_state.released r)
+        let acquired = Thread_state.acquired r waiting in
+        finally f (fun () -> Thread_state.released r acquired)
     )
 end
