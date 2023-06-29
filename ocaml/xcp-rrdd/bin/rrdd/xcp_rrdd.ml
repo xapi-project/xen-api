@@ -347,6 +347,39 @@ let dss_loadavg () =
     )
   ]
 
+let dss_hostload xc domains =
+  let physinfo = Xenctrl.physinfo xc in
+  let pcpus = physinfo.Xenctrl.nr_cpus in
+  let rec sum acc n f =
+    match n with n when n >= 0 -> sum (acc + f n) (n - 1) f | _ -> acc
+  in
+  let load =
+    List.fold_left
+      (fun acc (dom, _, domid) ->
+        sum 0 dom.Xenctrl.max_vcpu_id (fun id ->
+            let vcpuinfo = Xenctrl.domain_get_vcpuinfo xc domid id in
+            if vcpuinfo.Xenctrl.online && not vcpuinfo.Xenctrl.blocked then
+              1
+            else
+              0
+        )
+        + acc
+      )
+      0 domains
+  in
+  let load_per_cpu = float_of_int load /. float_of_int pcpus in
+  [
+    ( Rrd.Host
+    , Ds.ds_make ~name:"hostload" ~units:"(fraction)"
+        ~description:
+          ("Host load per physical cpu, where load refers to "
+          ^ "the number of vCPU(s) in running or runnable status."
+          )
+        ~value:(Rrd.VT_Float load_per_cpu) ~min:0.0 ~ty:Rrd.Gauge ~default:true
+        ()
+    )
+  ]
+
 (*****************************************************)
 (* network related code                              *)
 (*****************************************************)
@@ -729,6 +762,7 @@ let dom0_stat_generators =
   ; ("pcpus", fun xc _ _ -> dss_pcpus xc)
   ; ("vcpus", fun xc _ domains -> dss_vcpus xc domains)
   ; ("loadavg", fun _ _ _ -> dss_loadavg ())
+  ; ("hostload", fun xc _ domains -> dss_hostload xc domains)
   ; ("netdev", fun _ _ domains -> dss_netdev domains)
   ; ("cache", fun _ timestamp _ -> dss_cache timestamp)
   ]
