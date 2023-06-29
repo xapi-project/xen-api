@@ -27,6 +27,7 @@ module Guidance : sig
 
   val to_string : t -> string
 
+  (* may fail *)
   val of_string : string -> t
 
   val of_update_guidance :
@@ -102,6 +103,7 @@ module Severity : sig
 
   val to_string : t -> string
 
+  (* may fail *)
   val of_string : string -> t
 end
 
