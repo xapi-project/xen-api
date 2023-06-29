@@ -106,18 +106,21 @@ let unlocked_gc () =
   (* Find the ones which are too old *)
   let now = Unix.gettimeofday () in
   Tbl.iter !stunnels (fun idx stunnel ->
-      let time = Hashtbl.find !times idx in
-      let idle = now -. time in
-      let age = now -. stunnel.Stunnel.connected_time in
-      if age > max_age then (
-        debug "Expiring stunnel id %s; age (%.2f) > limit (%.2f)"
-          (id_of_stunnel stunnel) age max_age ;
-        to_gc := idx :: !to_gc
-      ) else if idle > max_idle then (
-        debug "Expiring stunnel id %s; idle (%.2f) > limit (%.2f)"
-          (id_of_stunnel stunnel) age max_idle ;
-        to_gc := idx :: !to_gc
-      )
+      match Hashtbl.find_opt !times idx with
+      | Some time ->
+          let idle = now -. time in
+          let age = now -. stunnel.Stunnel.connected_time in
+          if age > max_age then (
+            debug "Expiring stunnel id %s; age (%.2f) > limit (%.2f)"
+              (id_of_stunnel stunnel) age max_age ;
+            to_gc := idx :: !to_gc
+          ) else if idle > max_idle then (
+            debug "Expiring stunnel id %s; idle (%.2f) > limit (%.2f)"
+              (id_of_stunnel stunnel) age max_idle ;
+            to_gc := idx :: !to_gc
+          )
+      | None ->
+          debug "%s: found no entry for idx=%d" __FUNCTION__ idx
   ) ;
   let num_remaining = List.length all_ids - List.length !to_gc in
   if num_remaining > max_stunnel then (

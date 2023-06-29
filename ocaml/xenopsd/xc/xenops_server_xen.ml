@@ -2718,8 +2718,8 @@ module VM = struct
                     Domain.restore task ~xc ~xs ~dm:(dm_of ~vm) ~store_domid
                       ~console_domid
                       ~no_incr_generationid (* XXX progress_callback *)
-                      ~timeoffset ~extras build_info ~manager_path domid fd
-                      vgpu_fd
+                      ~timeoffset ~extras build_info ~manager_path
+                      ~vtpm:(vtpm_of ~vm) domid fd vgpu_fd
                 )
               with e ->
                 error "VM %s: restore failed: %s" vm.Vm.id (Printexc.to_string e) ;

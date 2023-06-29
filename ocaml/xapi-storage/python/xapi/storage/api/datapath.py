@@ -9,7 +9,7 @@ class Unimplemented(Rpc_light_failure):
     def __init__(self, arg_0):
         Rpc_light_failure.__init__(self, "Unimplemented", [ arg_0 ])
         if not isinstance(arg_0, str) and not isinstance(arg_0, unicode):
-            raise (TypeError("string", repr(arg_0)))
+            raise TypeError("string", repr(arg_0))
         self.arg_0 = arg_0
 class Datapath_server_dispatcher:
     """Xapi will call the functions here on VM start/shutdown/suspend/resume/migrate. Every function is idempotent. Every function takes a domain parameter which allows the implementation to track how many domains are currently using the volume."""
@@ -19,133 +19,133 @@ class Datapath_server_dispatcher:
     def open(self, args):
         """type-check inputs, call implementation, type-check outputs and return"""
         if not isinstance(args, dict):
-            raise (UnmarshalException('arguments', 'dict', repr(args)))
+            raise UnmarshalException('arguments', 'dict', repr(args))
         if not('dbg' in args):
             raise UnmarshalException('argument missing', 'dbg', '')
         dbg = args["dbg"]
         if not isinstance(dbg, str) and not isinstance(dbg, unicode):
-            raise (TypeError("string", repr(dbg)))
+            raise TypeError("string", repr(dbg))
         if not('uri' in args):
             raise UnmarshalException('argument missing', 'uri', '')
         uri = args["uri"]
         if not isinstance(uri, str) and not isinstance(uri, unicode):
-            raise (TypeError("string", repr(uri)))
+            raise TypeError("string", repr(uri))
         if not('persistent' in args):
             raise UnmarshalException('argument missing', 'persistent', '')
         persistent = args["persistent"]
         if not isinstance(persistent, bool):
-            raise (TypeError("bool", repr(persistent)))
+            raise TypeError("bool", repr(persistent))
         results = self._impl.open(dbg, uri, persistent)
         return results
     def attach(self, args):
         """type-check inputs, call implementation, type-check outputs and return"""
         if not isinstance(args, dict):
-            raise (UnmarshalException('arguments', 'dict', repr(args)))
+            raise UnmarshalException('arguments', 'dict', repr(args))
         if not('dbg' in args):
             raise UnmarshalException('argument missing', 'dbg', '')
         dbg = args["dbg"]
         if not isinstance(dbg, str) and not isinstance(dbg, unicode):
-            raise (TypeError("string", repr(dbg)))
+            raise TypeError("string", repr(dbg))
         if not('uri' in args):
             raise UnmarshalException('argument missing', 'uri', '')
         uri = args["uri"]
         if not isinstance(uri, str) and not isinstance(uri, unicode):
-            raise (TypeError("string", repr(uri)))
+            raise TypeError("string", repr(uri))
         if not('domain' in args):
             raise UnmarshalException('argument missing', 'domain', '')
         domain = args["domain"]
         if not isinstance(domain, str) and not isinstance(domain, unicode):
-            raise (TypeError("string", repr(domain)))
+            raise TypeError("string", repr(domain))
         results = self._impl.attach(dbg, uri, domain)
         if not isinstance(results['domain_uuid'], str) and not isinstance(results['domain_uuid'], unicode):
-            raise (TypeError("string", repr(results['domain_uuid'])))
+            raise TypeError("string", repr(results['domain_uuid']))
         if results['implementation'][0] == 'Blkback':
             if not isinstance(results['implementation'][1], str) and not isinstance(results['implementation'][1], unicode):
-                raise (TypeError("string", repr(results['implementation'][1])))
+                raise TypeError("string", repr(results['implementation'][1]))
         elif results['implementation'][0] == 'Tapdisk3':
             if not isinstance(results['implementation'][1], str) and not isinstance(results['implementation'][1], unicode):
-                raise (TypeError("string", repr(results['implementation'][1])))
+                raise TypeError("string", repr(results['implementation'][1]))
         elif results['implementation'][0] == 'Qdisk':
             if not isinstance(results['implementation'][1], str) and not isinstance(results['implementation'][1], unicode):
-                raise (TypeError("string", repr(results['implementation'][1])))
+                raise TypeError("string", repr(results['implementation'][1]))
         return results
     def activate(self, args):
         """type-check inputs, call implementation, type-check outputs and return"""
         if not isinstance(args, dict):
-            raise (UnmarshalException('arguments', 'dict', repr(args)))
+            raise UnmarshalException('arguments', 'dict', repr(args))
         if not('dbg' in args):
             raise UnmarshalException('argument missing', 'dbg', '')
         dbg = args["dbg"]
         if not isinstance(dbg, str) and not isinstance(dbg, unicode):
-            raise (TypeError("string", repr(dbg)))
+            raise TypeError("string", repr(dbg))
         if not('uri' in args):
             raise UnmarshalException('argument missing', 'uri', '')
         uri = args["uri"]
         if not isinstance(uri, str) and not isinstance(uri, unicode):
-            raise (TypeError("string", repr(uri)))
+            raise TypeError("string", repr(uri))
         if not('domain' in args):
             raise UnmarshalException('argument missing', 'domain', '')
         domain = args["domain"]
         if not isinstance(domain, str) and not isinstance(domain, unicode):
-            raise (TypeError("string", repr(domain)))
+            raise TypeError("string", repr(domain))
         results = self._impl.activate(dbg, uri, domain)
         return results
     def deactivate(self, args):
         """type-check inputs, call implementation, type-check outputs and return"""
         if not isinstance(args, dict):
-            raise (UnmarshalException('arguments', 'dict', repr(args)))
+            raise UnmarshalException('arguments', 'dict', repr(args))
         if not('dbg' in args):
             raise UnmarshalException('argument missing', 'dbg', '')
         dbg = args["dbg"]
         if not isinstance(dbg, str) and not isinstance(dbg, unicode):
-            raise (TypeError("string", repr(dbg)))
+            raise TypeError("string", repr(dbg))
         if not('uri' in args):
             raise UnmarshalException('argument missing', 'uri', '')
         uri = args["uri"]
         if not isinstance(uri, str) and not isinstance(uri, unicode):
-            raise (TypeError("string", repr(uri)))
+            raise TypeError("string", repr(uri))
         if not('domain' in args):
             raise UnmarshalException('argument missing', 'domain', '')
         domain = args["domain"]
         if not isinstance(domain, str) and not isinstance(domain, unicode):
-            raise (TypeError("string", repr(domain)))
+            raise TypeError("string", repr(domain))
         results = self._impl.deactivate(dbg, uri, domain)
         return results
     def detach(self, args):
         """type-check inputs, call implementation, type-check outputs and return"""
         if not isinstance(args, dict):
-            raise (UnmarshalException('arguments', 'dict', repr(args)))
+            raise UnmarshalException('arguments', 'dict', repr(args))
         if not('dbg' in args):
             raise UnmarshalException('argument missing', 'dbg', '')
         dbg = args["dbg"]
         if not isinstance(dbg, str) and not isinstance(dbg, unicode):
-            raise (TypeError("string", repr(dbg)))
+            raise TypeError("string", repr(dbg))
         if not('uri' in args):
             raise UnmarshalException('argument missing', 'uri', '')
         uri = args["uri"]
         if not isinstance(uri, str) and not isinstance(uri, unicode):
-            raise (TypeError("string", repr(uri)))
+            raise TypeError("string", repr(uri))
         if not('domain' in args):
             raise UnmarshalException('argument missing', 'domain', '')
         domain = args["domain"]
         if not isinstance(domain, str) and not isinstance(domain, unicode):
-            raise (TypeError("string", repr(domain)))
+            raise TypeError("string", repr(domain))
         results = self._impl.detach(dbg, uri, domain)
         return results
     def close(self, args):
         """type-check inputs, call implementation, type-check outputs and return"""
         if not isinstance(args, dict):
-            raise (UnmarshalException('arguments', 'dict', repr(args)))
+            raise UnmarshalException('arguments', 'dict', repr(args))
         if not('dbg' in args):
             raise UnmarshalException('argument missing', 'dbg', '')
         dbg = args["dbg"]
         if not isinstance(dbg, str) and not isinstance(dbg, unicode):
-            raise (TypeError("string", repr(dbg)))
+            raise TypeError("string", repr(dbg))
         if not('uri' in args):
             raise UnmarshalException('argument missing', 'uri', '')
         uri = args["uri"]
         if not isinstance(uri, str) and not isinstance(uri, unicode):
-            raise (TypeError("string", repr(uri)))
+            raise TypeError("string", repr(uri))
         results = self._impl.close(dbg, uri)
         return results
     def _dispatch(self, method, params):

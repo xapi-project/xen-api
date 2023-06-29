@@ -179,7 +179,12 @@ module RPC_API (R : RPC) = struct
       (debug_info_p @-> returning edition_list_p err)
 
   let get_version =
-    let result_p = Param.mk ~description:["String of version."] Types.string in
-    declare "get_version" ["Returns version"]
+    let result_p =
+      Param.mk
+        ~description:["List of version-related string pairs"]
+        string_pair_lst
+    in
+    declare "get_version"
+      ["Gets list of version-related string pairs"]
       (debug_info_p @-> returning result_p err)
 end

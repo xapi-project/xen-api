@@ -9,7 +9,7 @@ class Unimplemented(Rpc_light_failure):
     def __init__(self, arg_0):
         Rpc_light_failure.__init__(self, "Unimplemented", [ arg_0 ])
         if not isinstance(arg_0, str) and not isinstance(arg_0, unicode):
-            raise (TypeError("string", repr(arg_0)))
+            raise TypeError("string", repr(arg_0))
         self.arg_0 = arg_0
 class Plugin_server_dispatcher:
     """Discover properties of this implementation. Every implementation  must support the query interface or it will not be recognised as  a storage plugin by xapi."""
@@ -19,74 +19,74 @@ class Plugin_server_dispatcher:
     def query(self, args):
         """type-check inputs, call implementation, type-check outputs and return"""
         if not isinstance(args, dict):
-            raise (UnmarshalException('arguments', 'dict', repr(args)))
+            raise UnmarshalException('arguments', 'dict', repr(args))
         if not('dbg' in args):
             raise UnmarshalException('argument missing', 'dbg', '')
         dbg = args["dbg"]
         if not isinstance(dbg, str) and not isinstance(dbg, unicode):
-            raise (TypeError("string", repr(dbg)))
+            raise TypeError("string", repr(dbg))
         results = self._impl.query(dbg)
         if not isinstance(results['plugin'], str) and not isinstance(results['plugin'], unicode):
-            raise (TypeError("string", repr(results['plugin'])))
+            raise TypeError("string", repr(results['plugin']))
         if not isinstance(results['name'], str) and not isinstance(results['name'], unicode):
-            raise (TypeError("string", repr(results['name'])))
+            raise TypeError("string", repr(results['name']))
         if not isinstance(results['description'], str) and not isinstance(results['description'], unicode):
-            raise (TypeError("string", repr(results['description'])))
+            raise TypeError("string", repr(results['description']))
         if not isinstance(results['vendor'], str) and not isinstance(results['vendor'], unicode):
-            raise (TypeError("string", repr(results['vendor'])))
+            raise TypeError("string", repr(results['vendor']))
         if not isinstance(results['copyright'], str) and not isinstance(results['copyright'], unicode):
-            raise (TypeError("string", repr(results['copyright'])))
+            raise TypeError("string", repr(results['copyright']))
         if not isinstance(results['version'], str) and not isinstance(results['version'], unicode):
-            raise (TypeError("string", repr(results['version'])))
+            raise TypeError("string", repr(results['version']))
         if not isinstance(results['required_api_version'], str) and not isinstance(results['required_api_version'], unicode):
-            raise (TypeError("string", repr(results['required_api_version'])))
+            raise TypeError("string", repr(results['required_api_version']))
         if not isinstance(results['features'], list):
-            raise (TypeError("string list", repr(results['features'])))
+            raise TypeError("string list", repr(results['features']))
         for tmp_1 in results['features']:
             if not isinstance(tmp_1, str) and not isinstance(tmp_1, unicode):
-                raise (TypeError("string", repr(tmp_1)))
+                raise TypeError("string", repr(tmp_1))
         if not isinstance(results['configuration'], dict):
-            raise (TypeError("(string * string) list", repr(results['configuration'])))
+            raise TypeError("(string * string) list", repr(results['configuration']))
         for tmp_2 in results['configuration'].keys():
             if not isinstance(tmp_2, str) and not isinstance(tmp_2, unicode):
-                raise (TypeError("string", repr(tmp_2)))
+                raise TypeError("string", repr(tmp_2))
         for tmp_2 in results['configuration'].values():
             if not isinstance(tmp_2, str) and not isinstance(tmp_2, unicode):
-                raise (TypeError("string", repr(tmp_2)))
+                raise TypeError("string", repr(tmp_2))
         if not isinstance(results['required_cluster_stack'], list):
-            raise (TypeError("string list", repr(results['required_cluster_stack'])))
+            raise TypeError("string list", repr(results['required_cluster_stack']))
         for tmp_3 in results['required_cluster_stack']:
             if not isinstance(tmp_3, str) and not isinstance(tmp_3, unicode):
-                raise (TypeError("string", repr(tmp_3)))
+                raise TypeError("string", repr(tmp_3))
         return results
     def ls(self, args):
         """type-check inputs, call implementation, type-check outputs and return"""
         if not isinstance(args, dict):
-            raise (UnmarshalException('arguments', 'dict', repr(args)))
+            raise UnmarshalException('arguments', 'dict', repr(args))
         if not('dbg' in args):
             raise UnmarshalException('argument missing', 'dbg', '')
         dbg = args["dbg"]
         if not isinstance(dbg, str) and not isinstance(dbg, unicode):
-            raise (TypeError("string", repr(dbg)))
+            raise TypeError("string", repr(dbg))
         results = self._impl.ls(dbg)
         if not isinstance(results, list):
-            raise (TypeError("string list", repr(results)))
+            raise TypeError("string list", repr(results))
         for tmp_4 in results:
             if not isinstance(tmp_4, str) and not isinstance(tmp_4, unicode):
-                raise (TypeError("string", repr(tmp_4)))
+                raise TypeError("string", repr(tmp_4))
         return results
     def diagnostics(self, args):
         """type-check inputs, call implementation, type-check outputs and return"""
         if not isinstance(args, dict):
-            raise (UnmarshalException('arguments', 'dict', repr(args)))
+            raise UnmarshalException('arguments', 'dict', repr(args))
         if not('dbg' in args):
             raise UnmarshalException('argument missing', 'dbg', '')
         dbg = args["dbg"]
         if not isinstance(dbg, str) and not isinstance(dbg, unicode):
-            raise (TypeError("string", repr(dbg)))
+            raise TypeError("string", repr(dbg))
         results = self._impl.diagnostics(dbg)
         if not isinstance(results, str) and not isinstance(results, unicode):
-            raise (TypeError("string", repr(results)))
+            raise TypeError("string", repr(results))
         return results
     def _dispatch(self, method, params):
         """type check inputs, call implementation, type check outputs and return"""

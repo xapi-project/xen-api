@@ -1,6 +1,7 @@
 (executable
  (name main)
  (libraries
+   astring
    cmdliner
    dune-build-info
    lwt
@@ -13,8 +14,9 @@
    rpclib-lwt
    uuidm
    xapi_guard
+   xapi_guard_server
    xapi-idl
-   xapi-idl.varstore.privileged
+   xapi-idl.guard.privileged
    xapi-log
    xapi-types
    xen-api-client-lwt)

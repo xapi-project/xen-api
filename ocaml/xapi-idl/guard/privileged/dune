@@ -1,7 +1,7 @@
 (library
- (name xapi_idl_varstore_privileged)
- (public_name xapi-idl.varstore.privileged)
- (modules (:standard \ varstore_privileged_cli))
+ (name xapi_idl_guard_privileged)
+ (public_name xapi-idl.guard.privileged)
+ (modules (:standard \ xapiguard_cli))
  (libraries
    result
    rpclib.core
@@ -9,13 +9,13 @@
    uuidm
    xcp
  )
- (wrapped false)
  (preprocess (pps ppx_deriving_rpc)))
 
 (executable
- (name varstore_privileged_cli)
+ (public_name xapiguard_cli)
  (modes exe)
- (modules varstore_privileged_cli)
+ (modules xapiguard_cli)
+ (package varstored-guard)
  (libraries
    cmdliner
    dune-build-info
@@ -23,11 +23,11 @@
    rpclib.core
    rpclib.markdown
    xapi-idl
-   xapi-idl.varstore.privileged
+   xapi-idl.guard.privileged
  ))
 
 (rule
  (alias runtest)
- (deps varstore_privileged_cli.exe)
- (package xapi-idl)
+ (deps xapiguard_cli.exe)
+ (package varstored-guard)
  (action (run %{deps} --help=plain)))

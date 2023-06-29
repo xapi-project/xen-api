@@ -35,17 +35,23 @@ module Chroot : sig
   val create_dir : within:t -> int -> Path.t -> unit
 
   val of_domid :
-    base:string -> daemon:string -> domid:int -> vm_uuid:string -> t
-
-  val create :
        base:string
+    -> base_uid:(unit -> int)
+    -> base_gid:(unit -> int)
     -> daemon:string
     -> domid:int
     -> vm_uuid:string
-    -> Path.t list
     -> t
+  (** [of_domid ~base ~base_uid ~base_gid ~daemon ~domid ~vm_uuid] describes
+      a chroot for specified daemon and domain, with the correct permissions *)
+
+  val create : t -> Path.t list -> unit
+  (** [create chroot paths] Creates the specified chroot with appropriate
+      permissions, and ensures that all [paths] are owned by the chrooted
+      daemon and rw- *)
 
   val destroy : t -> unit
+  (** [destroy chroot] Deletes the chroot *)
 end = struct
   type t = {root: string; uid: int; gid: int}
 
@@ -75,11 +81,7 @@ end = struct
       (fun fd -> Unix.fchown fd within.uid within.gid
     )
 
-  let qemu_base_uid () = (Unix.getpwnam "qemu_base").Unix.pw_uid
-
-  let qemu_base_gid () = (Unix.getpwnam "qemu_base").Unix.pw_gid
-
-  let of_domid ~base ~daemon ~domid ~vm_uuid =
+  let of_domid ~base ~base_uid ~base_gid ~daemon ~domid ~vm_uuid =
     let root =
       let dir =
         if domid = 0 then
@@ -90,12 +92,11 @@ end = struct
       Filename.concat base dir
     in
     (* per VM uid/gid as for QEMU *)
-    let uid = qemu_base_uid () + domid in
-    let gid = qemu_base_gid () + domid in
+    let uid = base_uid () + domid in
+    let gid = base_gid () + domid in
     {root; uid; gid}
 
-  let create ~base ~daemon ~domid ~vm_uuid paths =
-    let chroot = of_domid ~base ~daemon ~domid ~vm_uuid in
+  let create chroot paths =
     try
       Xenops_utils.Unixext.mkdir_rec chroot.root 0o755 ;
       (* we want parent dir to be 0o755 and this dir 0o750 *)
@@ -103,8 +104,7 @@ end = struct
       (* the chrooted daemon will have r-x permissions *)
       Unix.chown chroot.root 0 chroot.gid ;
       D.debug "Created chroot %s" chroot.root ;
-      List.iter (create_dir ~within:chroot 0o600) paths ;
-      chroot
+      List.iter (create_dir ~within:chroot 0o600) paths
     with e ->
       Backtrace.is_important e ;
       D.warn "Failed to create chroot at %s for UID %d: %s" chroot.root
@@ -137,9 +137,13 @@ module type GUARD = sig
 
   val base_directory : string
 
-  val create : string -> vm_uuid:Uuidm.t -> domid:int -> path:string -> unit
+  val base_uid : unit -> int
 
-  val destroy : string -> domid:int -> path:string -> unit
+  val base_gid : unit -> int
+
+  val create : string -> vm_uuid:Uuidm.t -> gid:int -> path:string -> unit
+
+  val destroy : string -> gid:int -> path:string -> unit
 end
 
 module Guard (G : GUARD) : SANDBOX = struct
@@ -148,12 +152,12 @@ module Guard (G : GUARD) : SANDBOX = struct
   let socket_path = Chroot.Path.of_string ~relative:"xapi-depriv-socket"
 
   let chroot ~domid ~vm_uuid =
-    Chroot.of_domid ~base:G.base_directory ~daemon ~domid ~vm_uuid
+    Chroot.of_domid ~base:G.base_directory ~base_uid:G.base_uid
+      ~base_gid:G.base_gid ~daemon ~domid ~vm_uuid
 
   let start dbg ~vm_uuid ~domid ~paths =
-    let chroot =
-      Chroot.create ~base:G.base_directory ~daemon ~domid ~vm_uuid paths
-    in
+    let chroot = chroot ~domid ~vm_uuid in
+    Chroot.create chroot paths ;
     let absolute_socket_path =
       Chroot.absolute_path_outside chroot socket_path
     in
@@ -164,13 +168,12 @@ module Guard (G : GUARD) : SANDBOX = struct
       | None ->
           failwith (Printf.sprintf "Invalid VM uuid %s" vm_uuid)
     in
-    G.create dbg ~vm_uuid ~domid:chroot.gid ~path:absolute_socket_path ;
+    G.create dbg ~vm_uuid ~gid:chroot.gid ~path:absolute_socket_path ;
     (chroot, Chroot.chroot_path_inside socket_path)
 
   let create ~domid ~vm_uuid path =
-    let chroot =
-      Chroot.create ~base:G.base_directory ~daemon ~domid ~vm_uuid [path]
-    in
+    let chroot = chroot ~domid ~vm_uuid in
+    Chroot.create chroot [path] ;
     Chroot.absolute_path_outside chroot path
 
   let read ~domid path ~vm_uuid =
@@ -188,7 +191,7 @@ module Guard (G : GUARD) : SANDBOX = struct
         Chroot.absolute_path_outside chroot socket_path
       in
       Xenops_utils.best_effort "Stop listening on deprivileged socket"
-        (fun () -> G.destroy dbg ~domid:gid ~path:absolute_socket_path
+        (fun () -> G.destroy dbg ~gid ~path:absolute_socket_path
       ) ;
       Chroot.destroy chroot
     ) else
@@ -201,11 +204,15 @@ module Varstored : GUARD = struct
 
   let base_directory = "/var/run/xen"
 
-  let create dbg ~vm_uuid ~domid ~path =
-    Varstore_privileged_client.Client.create dbg vm_uuid domid path
+  let base_uid () = (Unix.getpwnam "qemu_base").Unix.pw_uid
 
-  let destroy dbg ~domid ~path =
-    Varstore_privileged_client.Client.destroy dbg domid path
+  let base_gid () = (Unix.getpwnam "qemu_base").Unix.pw_gid
+
+  let create dbg ~vm_uuid ~gid ~path =
+    Xapi_idl_guard_privileged.Client.varstore_create dbg vm_uuid gid path
+
+  let destroy dbg ~gid ~path =
+    Xapi_idl_guard_privileged.Client.varstore_destroy dbg gid path
 end
 
 module Swtpm : GUARD = struct
@@ -215,11 +222,16 @@ module Swtpm : GUARD = struct
      is needed to /dev/urandom *)
   let base_directory = "/var/lib/xcp/run"
 
-  let create dbg ~vm_uuid ~domid ~path =
-    Varstore_privileged_client.Client.create dbg vm_uuid domid path
+  let base_uid () = (Unix.getpwnam "swtpm_base").Unix.pw_uid
 
-  let destroy dbg ~domid ~path =
-    Varstore_privileged_client.Client.destroy dbg domid path
+  (* swtpm runas only supports a uid, so use uid = gid *)
+  let base_gid () = base_uid ()
+
+  let create dbg ~vm_uuid ~gid ~path =
+    Xapi_idl_guard_privileged.Client.vtpm_create dbg vm_uuid gid path
+
+  let destroy dbg ~gid ~path =
+    Xapi_idl_guard_privileged.Client.vtpm_destroy dbg gid path
 end
 
 module Varstore_guard = Guard (Varstored)

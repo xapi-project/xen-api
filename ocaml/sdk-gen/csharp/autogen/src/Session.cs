@@ -31,6 +31,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using System.Net.Security;
 using Newtonsoft.Json;
 
 
@@ -58,11 +59,11 @@ namespace XenAPI
 
         #region Constructors
 
+        [Obsolete("Use Session(string url) { Timeout = ... }; instead.")]
         public Session(int timeout, string url)
         {
             JsonRpcClient = new JsonRpcClient(url)
             {
-                ConnectionGroupName = ConnectionGroupName,
                 Timeout = timeout,
                 KeepAlive = true,
                 UserAgent = UserAgent,
@@ -73,17 +74,26 @@ namespace XenAPI
         }
 
         public Session(string url)
-            : this(STANDARD_TIMEOUT, url)
         {
+            JsonRpcClient = new JsonRpcClient(url)
+            {
+                Timeout = STANDARD_TIMEOUT,
+                KeepAlive = true,
+                UserAgent = UserAgent,
+                WebProxy = Proxy,
+                JsonRpcVersion = JsonRpcVersion.v2,
+                AllowAutoRedirect = true
+            };
         }
 
+        [Obsolete("Use Session(string host, int port) { Timeout = ... }; instead.")]
         public Session(int timeout, string host, int port)
             : this(timeout, GetUrl(host, port))
         {
         }
 
         public Session(string host, int port)
-            : this(STANDARD_TIMEOUT, host, port)
+            : this(GetUrl(host, port))
         {
         }
 
@@ -101,6 +111,7 @@ namespace XenAPI
         /// </summary>
         /// <param name="session"></param>
         /// <param name="timeout"></param>
+        [Obsolete("Use Session(Session session) { Timeout = ... }; instead.")]
         public Session(Session session, int timeout)
         {
             opaque_ref = session.opaque_ref;
@@ -114,15 +125,50 @@ namespace XenAPI
                 JsonRpcClient = new JsonRpcClient(session.Url)
                 {
                     JsonRpcVersion = session.JsonRpcClient.JsonRpcVersion,
-                    Timeout = timeout,
-                    KeepAlive = session.JsonRpcClient.KeepAlive,
                     UserAgent = session.JsonRpcClient.UserAgent,
+                    KeepAlive = session.JsonRpcClient.KeepAlive,
                     WebProxy = session.JsonRpcClient.WebProxy,
+                    Timeout = timeout,
                     ProtocolVersion = session.JsonRpcClient.ProtocolVersion,
                     Expect100Continue = session.JsonRpcClient.Expect100Continue,
                     AllowAutoRedirect = session.JsonRpcClient.AllowAutoRedirect,
                     PreAuthenticate = session.JsonRpcClient.PreAuthenticate,
-                    Cookies = session.JsonRpcClient.Cookies
+                    Cookies = session.JsonRpcClient.Cookies,
+                    ServerCertificateValidationCallback = session.JsonRpcClient.ServerCertificateValidationCallback
+                };
+            }
+            CopyADFromSession(session);
+        }
+
+        /// <summary>
+        /// Create a new Session instance, using the given instance. The connection details
+        /// and Xen-API session handle will be copied from the given instance, but a new
+        /// connection will be created. Use this if you want a duplicate connection to a host,
+        /// for example when you need to cancel an operation that is blocking the primary connection.
+        /// </summary>
+        public Session(Session session)
+        {
+            opaque_ref = session.opaque_ref;
+            APIVersion = session.APIVersion;
+
+            //in the following do not copy over the ConnectionGroupName
+
+            if (session.JsonRpcClient != null &&
+                (APIVersion == API_Version.API_2_6 || APIVersion >= API_Version.API_2_8))
+            {
+                JsonRpcClient = new JsonRpcClient(session.Url)
+                {
+                    JsonRpcVersion = session.JsonRpcClient.JsonRpcVersion,
+                    UserAgent = session.JsonRpcClient.UserAgent,
+                    KeepAlive = session.JsonRpcClient.KeepAlive,
+                    WebProxy = session.JsonRpcClient.WebProxy,
+                    Timeout = session.JsonRpcClient.Timeout,
+                    ProtocolVersion = session.JsonRpcClient.ProtocolVersion,
+                    Expect100Continue = session.JsonRpcClient.Expect100Continue,
+                    AllowAutoRedirect = session.JsonRpcClient.AllowAutoRedirect,
+                    PreAuthenticate = session.JsonRpcClient.PreAuthenticate,
+                    Cookies = session.JsonRpcClient.Cookies,
+                    ServerCertificateValidationCallback = session.JsonRpcClient.ServerCertificateValidationCallback
                 };
             }
             CopyADFromSession(session);
@@ -130,12 +176,9 @@ namespace XenAPI
 
         #endregion
 
-        // Used after VDI.open_database
-        public static Session get_record(Session session, string _session)
+        private static string GetUrl(string hostname, int port)
         {
-            Session newSession = new Session(session.Url) {opaque_ref = _session};
-            newSession.SetAPIVersion();
-            return newSession;
+            return string.Format("{0}://{1}:{2}", port == 8080 || port == 80 ? "http" : "https", hostname, port);
         }
 
         private void SetupSessionDetails()
@@ -143,6 +186,18 @@ namespace XenAPI
             SetAPIVersion();
             SetADDetails();
             SetRbacPermissions();
+        }
+
+        private void SetAPIVersion()
+        {
+            Dictionary<XenRef<Pool>, Pool> pools = Pool.get_all_records(this);
+
+            if (pools.Values.Count > 0)
+            {
+                var pool = pools.Values.First();
+                Host host = Host.get_record(this, pool.master);
+                APIVersion = Helper.GetAPIVersion(host.API_version_major, host.API_version_minor);
+            }
         }
 
         private void CopyADFromSession(Session session)
@@ -206,17 +261,6 @@ namespace XenAPI
             }
         }
 
-        /// <summary>
-        /// Retrieves the current users details from the UserDetails map. These values are only updated when a new session is created.
-        /// </summary>
-        public virtual UserDetails CurrentUserDetails
-        {
-            get
-            {
-                return UserSid == null ? null : UserDetails.Sid_To_UserDetails[UserSid];
-            }
-        }
-
         public override void UpdateFrom(Session update)
         {
             throw new Exception("The method or operation is not implemented.");
@@ -227,38 +271,36 @@ namespace XenAPI
             throw new Exception("The method or operation is not implemented.");
         }
 
+        #region Properties
+
+        /// <summary>
+        /// Retrieves the current users details from the UserDetails map. These values are only updated when a new session is created.
+        /// </summary>
+        public virtual UserDetails CurrentUserDetails => UserSid == null ? null : UserDetails.Sid_To_UserDetails[UserSid];
+
         public JsonRpcClient JsonRpcClient { get; private set; }
 
-        public string Url
-        {
-            get
-            {
-                return JsonRpcClient.Url;
-            }
-        }
+        public string Url => JsonRpcClient.Url;
 
         public string ConnectionGroupName
         {
-            get
-            {
-                return JsonRpcClient?.ConnectionGroupName;
-            }
-            set
-            {
-                JsonRpcClient.ConnectionGroupName = value;
-            }
+            get => JsonRpcClient?.ConnectionGroupName;
+            set => JsonRpcClient.ConnectionGroupName = value;
         }
 
-        public ICredentials Credentials
+        public int Timeout
         {
-            get
-            {
-                if (JsonRpcClient != null)
-                    return JsonRpcClient.WebProxy == null ? null : JsonRpcClient.WebProxy.Credentials;
-
-                return null;
-            }
+            get => JsonRpcClient?.Timeout ?? STANDARD_TIMEOUT;
+            set => JsonRpcClient.Timeout = value;
         }
+
+        public RemoteCertificateValidationCallback ServerCertificateValidationCallback
+        {
+            get => JsonRpcClient?.ServerCertificateValidationCallback;
+            set => JsonRpcClient.ServerCertificateValidationCallback = value;
+        }
+
+        public ICredentials Credentials => JsonRpcClient?.WebProxy?.Credentials;
 
         /// <summary>
         /// Always true before API version 1.6.
@@ -291,9 +333,15 @@ namespace XenAPI
         /// instead use Permissions. This list should only be used for UI purposes.
         /// </summary>
         [JsonConverter(typeof(XenRefListConverter<Role>))]
-        public List<Role> Roles
+        public List<Role> Roles => roles;
+
+        #endregion
+
+        public static Session get_record(Session session, string _session)
         {
-            get { return roles; }
+            Session newSession = new Session(session.Url) { opaque_ref = _session };
+            newSession.SetAPIVersion();
+            return newSession;
         }
 
         public void login_with_password(string username, string password)
@@ -349,18 +397,6 @@ namespace XenAPI
         public void login_with_password(string username, string password, API_Version version)
         {
             login_with_password(username, password, Helper.APIVersionString(version));
-        }
-
-        private void SetAPIVersion()
-        {
-            Dictionary<XenRef<Pool>, Pool> pools = Pool.get_all_records(this);
-
-            if (pools.Values.Count > 0)
-            {
-                var pool = pools.Values.First();
-                Host host = Host.get_record(this, pool.master);
-                APIVersion = Helper.GetAPIVersion(host.API_version_major, host.API_version_minor);
-            }
         }
 
         public void slave_local_login_with_password(string username, string password)
@@ -595,10 +631,5 @@ namespace XenAPI
         }
 
         #endregion
-
-        private static string GetUrl(string hostname, int port)
-        {
-            return string.Format("{0}://{1}:{2}", port == 8080 || port == 80 ? "http" : "https", hostname, port);
-        }
     }
 }
