@@ -21,13 +21,29 @@ module D = Debug.Make (struct let name = "locking_helpers" end)
 
 open D
 
-type resource = Lock of string | Process of string * int
+type resource_kind = Lock of string | Process of (string * int)
 
-let string_of_resource = function
+let string_of_resource_kind = function
   | Lock x ->
       Printf.sprintf "Lock(%s)" x
   | Process (name, pid) ->
       Printf.sprintf "Process(%s, %d)" name pid
+
+type resource = {
+    kind: resource_kind
+  ; str: string
+  ; waiting_str: string
+  ; acquired_str: string
+}
+
+let make kind =
+  let str = string_of_resource_kind kind in
+  let name state = String.concat "" ["Thread_state."; state; "("; str; ")"] in
+  {kind; str; waiting_str= name "waiting_for"; acquired_str= "acquired"}
+
+let lock name = make (Lock name)
+
+let process (name, pid) = make (Process (name, pid))
 
 let kill_resource = function
   | Lock x ->
@@ -36,15 +52,15 @@ let kill_resource = function
       info "Sending SIGKILL to %s pid %d" name pid ;
       Unix.kill pid Sys.sigkill
 
-let lock name = Lock name
-
-let process (name, pid) = Process (name, pid)
+let kill_resource r = kill_resource r.kind
 
 let is_process name = function
-  | Lock _ ->
+  | {kind= Process (p, _); _} ->
+      p = name
+  | {kind= Lock _; _} ->
       false
-  | Process (name', _) ->
-      String.equal name name'
+
+let string_of_resource r = r.str
 
 module Thread_state = struct
   type waiting = (Tracing.Span.t option * Tracing.Span.t option) option
@@ -115,10 +131,7 @@ module Thread_state = struct
       | None ->
           None
       | Some _ -> (
-          let name =
-            String.concat ""
-              ["Thread_state.waiting_for("; string_of_resource resource; ")"]
-          in
+          let name = resource.waiting_str in
           let tracer = Tracing.get_tracer ~name in
           match Tracing.Tracer.start ~tracer ~name ~parent () with
           | Ok span ->
@@ -138,10 +151,7 @@ module Thread_state = struct
           None
       | Some (parent, span) -> (
           let (_ : (_, _) result) = Tracing.Tracer.finish span in
-          let name =
-            String.concat ""
-              ["Thread_state.acquired("; string_of_resource resource; ")"]
-          in
+          let name = resource.acquired_str in
           let tracer = Tracing.get_tracer ~name in
           match Tracing.Tracer.start ~tracer ~name ~parent () with
           | Ok span ->
@@ -201,9 +211,9 @@ module Thread_state = struct
     let resources_to_sll =
       List.map
         (function
-          | Lock x as y ->
+          | {kind= Lock x; _} as y ->
               (y, [["lock"]; [x]])
-          | Process (name, pid) as y ->
+          | {kind= Process (name, pid); _} as y ->
               (y, [["process"]; [name]; [string_of_int pid]])
           )
         all_resources
@@ -267,9 +277,9 @@ module Thread_state = struct
 end
 
 module Named_mutex = struct
-  type t = {name: string; m: Mutex.t}
+  type t = {name: string; m: Mutex.t; r: resource}
 
-  let create name = {name; m= Mutex.create ()}
+  let create name = {name; m= Mutex.create (); r= lock name}
 
   let execute ?__context ?parent (x : t) f =
     let parent =
@@ -279,10 +289,9 @@ module Named_mutex = struct
       | Some _ as p ->
           p
     in
-    let r = Lock x.name in
-    let waiting = Thread_state.waiting_for ?parent r in
+    let waiting = Thread_state.waiting_for ?parent x.r in
     with_lock x.m (fun () ->
-        let acquired = Thread_state.acquired r waiting in
-        finally f (fun () -> Thread_state.released r acquired)
+        let acquired = Thread_state.acquired x.r waiting in
+        finally f (fun () -> Thread_state.released x.r acquired)
     )
 end
