@@ -752,7 +752,7 @@ let apply_updates' ~__context ~host ~updates_info ~livepatches ~acc_rpm_updates
     let recommended_guidances' =
       (* EvacuateHost will be applied before applying updates *)
       List.filter
-        (fun g -> not (g = Guidance.EvacuateHost))
+        (fun g -> g <> Guidance.EvacuateHost)
         (eval_guidances ~updates_info ~updates:acc_rpm_updates ~kind:Recommended
            ~livepatches:successful_livepatches ~failed_livepatches
         )
@@ -775,9 +775,7 @@ let apply_updates' ~__context ~host ~updates_info ~livepatches ~acc_rpm_updates
          * the host should not be rebooted, and
          * an extra pending guidance 'RebootHostOnLivePatchFailure' should be set.
          *)
-        ( List.filter
-            (fun g -> not (g = Guidance.RebootHost))
-            recommended_guidances'
+        ( List.filter (fun g -> g <> Guidance.RebootHost) recommended_guidances'
         , Guidance.RebootHostOnLivePatchFailure :: pending_guidances'
         )
   in
