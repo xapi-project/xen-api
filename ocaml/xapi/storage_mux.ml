@@ -825,24 +825,41 @@ module Mux = struct
         raise (Storage_error (Vdi_does_not_exist name))
 
   module DATA = struct
-    let copy () = Storage_migrate.copy
+    let copy () ~dbg =
+      with_dbg ~name:"DATA.copy" ~dbg @@ fun dbg -> Storage_migrate.copy ~dbg
 
-    let copy_into () = Storage_migrate.copy_into
+    let copy_into () ~dbg =
+      with_dbg ~name:"DATA.copy_into" ~dbg @@ fun dbg ->
+      Storage_migrate.copy_into ~dbg
 
     module MIRROR = struct
-      let start () = Storage_migrate.start
+      let start () ~dbg =
+        with_dbg ~name:"DATA.MIRROR.start" ~dbg @@ fun dbg ->
+        Storage_migrate.start ~dbg
 
-      let stop () = Storage_migrate.stop
+      let stop () ~dbg =
+        with_dbg ~name:"DATA.MIRROR.stop" ~dbg @@ fun {log= dbg; _} ->
+        Storage_migrate.stop ~dbg
 
-      let list () = Storage_migrate.list
+      let list () ~dbg =
+        with_dbg ~name:"DATA.MIRROR.list" ~dbg @@ fun {log= dbg; _} ->
+        Storage_migrate.list ~dbg
 
-      let stat () = Storage_migrate.stat
+      let stat () ~dbg =
+        with_dbg ~name:"DATA.MIRROR.stat" ~dbg @@ fun {log= dbg; _} ->
+        Storage_migrate.stat ~dbg
 
-      let receive_start () = Storage_migrate.receive_start
+      let receive_start () ~dbg =
+        with_dbg ~name:"DATA.MIRROR.receive_start" ~dbg @@ fun {log= dbg; _} ->
+        Storage_migrate.receive_start ~dbg
 
-      let receive_finalize () = Storage_migrate.receive_finalize
+      let receive_finalize () ~dbg =
+        with_dbg ~name:"DATA.MIRROR.receive_finalize" ~dbg
+        @@ fun {log= dbg; _} -> Storage_migrate.receive_finalize ~dbg
 
-      let receive_cancel () = Storage_migrate.receive_cancel
+      let receive_cancel () ~dbg =
+        with_dbg ~name:"DATA.MIRROR.receive_cancel" ~dbg @@ fun {log= dbg; _} ->
+        Storage_migrate.receive_cancel ~dbg
     end
   end
 
