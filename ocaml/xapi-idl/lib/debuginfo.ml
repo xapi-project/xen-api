@@ -14,7 +14,7 @@
 
 type t = {log: string; tracing: Tracing.Span.t option}
 
-let separator = '\x00'
+let separator = '\n'
 
 let make ~log ~tracing = {log; tracing}
 
