@@ -1,3 +1,4 @@
+from __future__ import print_function
 from xapi import success, Rpc_light_failure, InternalError, UnmarshalException, TypeError, is_long, UnknownMethod
 import xapi
 import sys
@@ -173,8 +174,8 @@ class Plugin_commandline():
             request = self._parse_query()
             use_json = 'json' in request and request['json']
             results = self.dispatcher.query(request)
-            print json.dumps(results)
-        except Exception, e:
+            print(json.dumps(results))
+        except Exception as e:
             if use_json:
                 xapi.handle_exception(e)
             else:
@@ -186,8 +187,8 @@ class Plugin_commandline():
             request = self._parse_ls()
             use_json = 'json' in request and request['json']
             results = self.dispatcher.ls(request)
-            print json.dumps(results)
-        except Exception, e:
+            print(json.dumps(results))
+        except Exception as e:
             if use_json:
                 xapi.handle_exception(e)
             else:
@@ -199,8 +200,8 @@ class Plugin_commandline():
             request = self._parse_diagnostics()
             use_json = 'json' in request and request['json']
             results = self.dispatcher.diagnostics(request)
-            print json.dumps(results)
-        except Exception, e:
+            print(json.dumps(results))
+        except Exception as e:
             if use_json:
                 xapi.handle_exception(e)
             else:
@@ -216,7 +217,7 @@ class plugin_server_dispatcher:
             if method.startswith("Plugin") and self.Plugin:
                 return self.Plugin._dispatch(method, params)
             raise UnknownMethod(method)
-        except Exception, e:
+        except Exception as e:
             logging.info("caught %s" % e)
             traceback.print_exc()
             try:
