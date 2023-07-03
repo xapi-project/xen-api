@@ -38,7 +38,7 @@ jobs:
     name: Ocaml tests
     runs-on: ubuntu-20.04
     env:
-      package: "xapi-cli-protocol xapi-client xapi-consts xapi-datamodel xapi-types xapi xe xen-api-sdk xen-api-client xen-api-client-lwt xen-api-client-async xapi-rrdd xapi-rrdd-plugin xapi-rrd-transport xapi-rrd-transport-utils rrd-transport rrdd-plugin rrdd-plugins rrddump gzip http-lib pciutil safe-resources sexpr stunnel uuid xapi-compression xml-light2 zstd vhd-tool xapi-networkd xapi-squeezed xapi-xenopsd xapi-xenopsd-cli xapi-xenopsd-simulator xapi-xenopsd-xc message-switch message-switch-async message-switch-cli message-switch-core message-switch-lwt message-switch-unix xapi-idl forkexec xapi-forkexecd xapi-storage xapi-storage-script xapi-storage-cli wsproxy xapi-nbd varstored-guard xapi-log xapi-open-uri vhd-format vhd-format-lwt xapi-tracing"
+      package: "xapi-cli-protocol xapi-client xapi-consts xapi-datamodel xapi-types xapi xe xen-api-sdk xen-api-client xen-api-client-lwt xen-api-client-async xapi-rrdd xapi-rrdd-plugin xapi-rrd-transport xapi-rrd-transport-utils rrd-transport rrdd-plugin rrdd-plugins rrddump gzip http-lib pciutil safe-resources sexpr stunnel uuid xapi-compression xml-light2 zstd vhd-tool xapi-networkd xapi-squeezed xapi-xenopsd xapi-xenopsd-cli xapi-xenopsd-simulator xapi-xenopsd-xc message-switch message-switch-async message-switch-cli message-switch-core message-switch-lwt message-switch-unix xapi-idl forkexec xapi-forkexecd xapi-storage xapi-storage-script xapi-storage-cli wsproxy xapi-nbd varstored-guard xapi-log xapi-open-uri vhd-format vhd-format-lwt xapi-tracing xapi-expiry-alerts"
       XAPI_VERSION: "v0.0.0-${{ github.sha }}"
 
     steps:
