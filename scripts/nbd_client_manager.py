@@ -174,7 +174,8 @@ def connect_nbd(path, exportname):
         try:
             with FILE_LOCK:
                 nbd_device = _find_unused_nbd_device()
-                cmd = ['nbd-client', '-unix', path, nbd_device, '-name', exportname]
+                cmd = ['nbd-client', '-unix', path, nbd_device,
+                       '-timeout', '60', '-name', exportname]
                 _call(cmd)
                 _wait_for_nbd_device(nbd_device=nbd_device, connected=True)
                 _persist_connect_info(nbd_device, path, exportname)

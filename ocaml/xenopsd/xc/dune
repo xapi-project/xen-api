@@ -35,7 +35,7 @@
   xapi-idl.rrd
   xapi-idl.storage
   xapi-idl.storage.interface
-  xapi-idl.varstore.privileged
+  xapi-idl.guard.privileged
   xapi-idl.xen.interface
   xapi-idl.xen.interface.types
   xapi-log

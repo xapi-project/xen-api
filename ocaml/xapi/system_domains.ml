@@ -180,9 +180,10 @@ let pingable ip () =
 
 let queryable ~__context transport () =
   let open Xmlrpc_client in
+  let tracing = Context.set_client_span __context in
+  let http = xmlrpc ~version:"1.0" ~tracing "/" in
   let rpc =
-    XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"remote_smapiv2" ~transport
-      ~http:(xmlrpc ~version:"1.0" "/")
+    XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"remote_smapiv2" ~transport ~http
   in
   let listMethods = Rpc.call "system.listMethods" [] in
   try

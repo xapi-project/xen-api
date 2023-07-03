@@ -540,20 +540,20 @@ response:
 		def start(self, args):
 			"""type-check inputs, call implementation, type-check outputs and return"""
 			if type(args) <> type({}):
-				raise (UnmarshalException('arguments', 'dict', repr(args)))
+				raise UnmarshalException('arguments', 'dict', repr(args))
 			if not(args.has_key('dbg')):
 				raise UnmarshalException('argument missing', 'dbg', '')
 			dbg = args["dbg"]
 			if type(dbg) <> type(""):
-				raise (TypeError("string", repr(dbg)))
+				raise TypeError("string", repr(dbg))
 			if not(args.has_key('id')):
 				raise UnmarshalException('argument missing', 'id', '')
 			id = args["id"]
 			if type(id) <> type(""):
-				raise (TypeError("string", repr(id)))
+				raise TypeError("string", repr(id))
 			results = self._impl.start(dbg, id)
 			if type(results) <> type(""):
-				raise (TypeError("string", repr(results)))
+				raise TypeError("string", repr(results))
 			return results
 		def _dispatch(self, method, params):
 			"""type check inputs, call implementation, type check outputs and return"""

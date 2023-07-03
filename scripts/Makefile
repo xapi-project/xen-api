@@ -44,6 +44,7 @@ install:
 	$(IDATA) audit-logrotate $(DESTDIR)/etc/logrotate.d/audit
 	$(IDATA) xapi-logrotate.conf $(DESTDIR)$(ETCXENDIR)
 	$(IPROG) xapi-logrotate.sh $(DESTDIR)$(LIBEXECDIR)
+	$(IPROG) xapi-tracing-log-trim.sh $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) xapi-wait-init-complete $(DESTDIR)$(OPTDIR)/bin
 	$(IPROG) xapi-autostart-vms $(DESTDIR)$(OPTDIR)/bin
 	$(IPROG) udhcpd.skel $(DESTDIR)$(ETCXENDIR)/udhcpd.skel
@@ -155,6 +156,7 @@ install:
 	$(IPROG) certificate-refresh $(DESTDIR)/etc/cron.hourly/
 	mkdir -p $(DESTDIR)/etc/cron.d
 	$(IDATA) xapi-logrotate.cron $(DESTDIR)/etc/cron.d/xapi-logrotate.cron
+	$(IDATA) xapi-tracing-log-trim.cron $(DESTDIR)/etc/cron.d/xapi-tracing-log-trim.cron
 	mkdir -p $(DESTDIR)/opt/xensource/gpg
 # templates
 	$(IPROG) templates/debian $(DESTDIR)$(OPTDIR)/packages/post-install-scripts/debian-etch

@@ -1,0 +1,14 @@
+(library
+  (name tracing)
+  (public_name xapi-tracing)
+  (libraries
+    cohttp
+    ptime
+    ptime.clock.os
+    rpclib.core
+    rpclib.json
+    xapi-idl
+    xapi-stdext-unix
+  )
+  (preprocess (pps ppx_deriving_rpc))
+)

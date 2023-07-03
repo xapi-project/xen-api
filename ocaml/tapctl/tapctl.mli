@@ -23,7 +23,7 @@ module Stats : sig
       name: string
     ; secs: int64 * int64
     ; images: Image.t list
-    ; tap: Tap.t
+    ; tap: Tap.t option
     ; nbd_mirror_failed: int
     ; reqs_outstanding: int
   }

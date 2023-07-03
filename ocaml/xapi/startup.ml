@@ -84,18 +84,16 @@ let run ~__context tasks =
             ignore
               (Thread.create
                  (fun tsk_fct ->
-                   Server_helpers.exec_with_new_task
-                     ~subtask_of:(Context.get_task_id __context) tsk_name
-                     (fun __context -> thread_exn_wrapper tsk_name tsk_fct
+                   Server_helpers.exec_with_subtask ~__context tsk_name
+                     (fun ~__context -> thread_exn_wrapper tsk_name tsk_fct
                    )
                  )
                  tsk_fct
               )
           ) else (
             debug "task [%s]" tsk_name ;
-            Server_helpers.exec_with_new_task tsk_name
-              ~subtask_of:(Context.get_task_id __context) (fun __context ->
-                tsk_fct ()
+            Server_helpers.exec_with_subtask ~__context tsk_name
+              (fun ~__context -> tsk_fct ()
             )
           )
         )

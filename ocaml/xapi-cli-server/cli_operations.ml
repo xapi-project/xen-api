@@ -1311,6 +1311,18 @@ let gen_cmds rpc session_id =
           ["uuid"; "vm-uuid"; "profile"]
           rpc session_id
       )
+    ; Client.Observer.(
+        mk get_all_records_where get_by_uuid observer_record "observer" []
+          [
+            "uuid"
+          ; "name-label"
+          ; "name-description"
+          ; "host-uuids"
+          ; "endpoints"
+          ; "enabled"
+          ]
+          rpc session_id
+      )
     ]
 
 let message_create (_ : printer) rpc session_id params =
@@ -7914,4 +7926,56 @@ module VTPM = struct
     fail_without_force params ;
     let ref = Client.VTPM.get_by_uuid ~rpc ~session_id ~uuid in
     Client.VTPM.destroy ~rpc ~session_id ~self:ref
+end
+
+module Observer = struct
+  let create printer rpc session_id params =
+    let name_label = List.assoc "name-label" params in
+    let hosts =
+      List.assoc_opt "host-uuids" params
+      |> Option.fold ~none:[] ~some:(fun host_uuids ->
+             List.map
+               (fun uuid -> Client.Host.get_by_uuid ~rpc ~session_id ~uuid)
+               (String.split_on_char ',' host_uuids)
+         )
+    in
+    let name_description =
+      List.assoc_opt "name-description" params |> Option.value ~default:""
+    in
+    let enabled =
+      List.assoc_opt "enabled" params
+      |> Option.fold ~none:false ~some:(fun s ->
+             try Stdlib.bool_of_string s with _ -> false
+         )
+    in
+    let attributes =
+      List.assoc_opt "attributes" params
+      |> Option.fold ~none:[] ~some:(String.split_on_char ',')
+      |> List.filter_map (fun kv ->
+             match String.split_on_char ':' kv with
+             | [k; v] ->
+                 Some (k, v)
+             | _ ->
+                 None
+         )
+    in
+    let endpoints =
+      List.assoc_opt "endpoints" params
+      |> Option.fold ~none:["bugtool"] ~some:(String.split_on_char ',')
+    in
+    let components =
+      List.assoc_opt "components" params
+      |> Option.fold ~none:[] ~some:(String.split_on_char ',')
+    in
+    let observer =
+      Client.Observer.create ~rpc ~session_id ~name_label ~name_description
+        ~hosts ~attributes ~endpoints ~components ~enabled
+    in
+    let uuid = Client.Observer.get_uuid ~rpc ~session_id ~self:observer in
+    printer (Cli_printer.PList [uuid])
+
+  let destroy _printer rpc session_id params =
+    let uuid = List.assoc "uuid" params in
+    let self = Client.Observer.get_by_uuid ~rpc ~session_id ~uuid in
+    Client.Observer.destroy ~rpc ~session_id ~self
 end

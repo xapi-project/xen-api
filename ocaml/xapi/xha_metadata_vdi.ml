@@ -24,8 +24,8 @@ let create ~__context ~sr =
   Helpers.call_api_functions ~__context (fun rpc session_id ->
       Client.VDI.create ~rpc ~session_id ~name_label:"Metadata for HA"
         ~name_description:"Used for master failover" ~sR:sr
-        ~virtual_size:Redo_log.minimum_vdi_size ~_type:`redo_log ~sharable:true
-        ~read_only:false ~other_config:[] ~xenstore_data:[]
+        ~virtual_size:Redo_log.recommended_vdi_size ~_type:`redo_log
+        ~sharable:true ~read_only:false ~other_config:[] ~xenstore_data:[]
         ~sm_config:Redo_log.redo_log_sm_config ~tags:[]
   )
 

@@ -396,7 +396,8 @@ let update_pif_addresses ~__context =
 let make_rpc ~__context rpc : Rpc.response =
   let subtask_of = Ref.string_of (Context.get_task_id __context) in
   let open Xmlrpc_client in
-  let http = xmlrpc ~subtask_of ~version:"1.1" "/" in
+  let tracing = Context.set_client_span __context in
+  let http = xmlrpc ~subtask_of ~version:"1.1" "/" ~tracing in
   let transport =
     if Pool_role.is_master () then
       Unix Xapi_globs.unix_domain_socket
@@ -418,7 +419,8 @@ let make_timeboxed_rpc ~__context timeout rpc : Rpc.response =
        * associated with the task. To avoid conflating the stunnel with any real resources
        * the task has acquired we make a new one specifically for the stunnel pid *)
       let open Xmlrpc_client in
-      let http = xmlrpc ~subtask_of ~version:"1.1" "/" in
+      let tracing = Context.set_client_span __context in
+      let http = xmlrpc ~subtask_of ~version:"1.1" ~tracing "/" in
       let task_id = Context.get_task_id __context in
       let cancel () =
         let resources =
@@ -479,12 +481,14 @@ let make_remote_rpc_of_url ~verify_cert ~srcstr ~dststr (url, pool_secret) call
   XMLRPC_protocol.rpc ~transport ~srcstr ~dststr ~http call
 
 (* This one uses rpc-light *)
-let make_remote_rpc ?(verify_cert = Stunnel_client.pool ()) remote_address xml =
+let make_remote_rpc ?(verify_cert = Stunnel_client.pool ()) ~__context
+    remote_address xml =
   let open Xmlrpc_client in
   let transport =
     SSL (SSL.make ~verify_cert (), remote_address, !Constants.https_port)
   in
-  let http = xmlrpc ~version:"1.0" "/" in
+  let tracing = Context.tracing_of __context in
+  let http = xmlrpc ~version:"1.0" ~tracing "/" in
   XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"remote_xapi" ~transport ~http xml
 
 (* Helper type for an object which may or may not be in the local database. *)
@@ -936,13 +940,6 @@ let maybe_raise_vtpm_unimplemented func message =
     error {|%s: Functionality not implemented yet. "%s"|} func message ;
     raise Api_errors.(Server_error (not_implemented, [message]))
   )
-
-let assert_ha_vtpms_compatible ~__context =
-  let on_db = {|field "persistence_backend"="xapi"|} in
-  let vtpms_on_db = Db.VTPM.get_all_records_where ~__context ~expr:on_db in
-  if vtpms_on_db <> [] then
-    let message = "VTPM persistence when HA or clustering is enabled" in
-    maybe_raise_vtpm_unimplemented __FUNCTION__ message
 
 let assert_platform_version_is_same_on_master ~__context ~host ~self =
   if not (is_platform_version_same_on_master ~__context ~host) then

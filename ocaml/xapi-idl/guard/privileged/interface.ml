@@ -12,12 +12,12 @@
  * GNU Lesser General Public License for more details.
  *)
 
-(** Varstored is deprivileged and should not have full access to XAPI. This
-    interface provides a way to spawn a new listening socket restricted to a
-    small number of API calls targeting only 1 VM. Xenopsd is a client of this
-    interface and calls it through message-switch. A new privileged daemon
-    (varstored-socket-deprivd) implements the interface and spawns the listening
-    sockets. *)
+(** Varstored and SWTPM are deprivileged and should not have full access to
+    XAPI. This interface provides a way to spawn a new listening socket
+    restricted to a small number of API calls targeting only 1 VM. Xenopsd is
+    a client of this interface and calls it through message-switch. A new
+    privileged daemon (guard-socket-deprivd) implements the interface and
+    spawns the listening sockets. *)
 
 open Rpc
 open Idl
@@ -48,10 +48,7 @@ module RPC_API (R : RPC) = struct
         name= "Depriv"
       ; namespace= None
       ; description=
-          [
-            "Interface for creating a deprivileged XAPI socket for a specific \
-             VM."
-          ]
+          ["Interface for creating deprivileged sockets for a specific VM."]
       ; version= (1, 0, 0)
       }
 
@@ -75,18 +72,32 @@ module RPC_API (R : RPC) = struct
   (** each VM gets its own group id = qemu_base + domid *)
   let gid_p = Param.mk ~name:"gid" ~description:["socket group id"] Types.int
 
-  let create =
+  let varstore_create =
     let vm_uuid_p = Param.mk ~name:"vm_uuid" ~description:["VM UUID"] vm_uuid in
-    declare "create"
+    declare "varstore_create"
       [
-        "Create a deprivileged socket that only accepts API calls for a"
+        "Create a deprivileged varstore socket that only accepts API calls for a"
       ; "specific VM. The socket will be writable only to the specified group."
       ]
       (debug_info_p @-> vm_uuid_p @-> gid_p @-> path_p @-> returning unit_p err)
 
-  let destroy =
-    declare "destroy"
-      ["Stop listening on sockets for the specified group"]
+  let varstore_destroy =
+    declare "varstore_destroy"
+      ["Stop listening on varstore sockets for the specified group"]
+      (debug_info_p @-> gid_p @-> path_p @-> returning unit_p err)
+
+  let vtpm_create =
+    let vm_uuid_p = Param.mk ~name:"vm_uuid" ~description:["VM UUID"] vm_uuid in
+    declare "vtpm_create"
+      [
+        "Create a deprivileged vtpm socket that only accepts API calls for a"
+      ; "specific VM. The socket will be writable only to the specified group."
+      ]
+      (debug_info_p @-> vm_uuid_p @-> gid_p @-> path_p @-> returning unit_p err)
+
+  let vtpm_destroy =
+    declare "vtpm_destroy"
+      ["Stop listening on vtpm sockets for the specified group"]
       (debug_info_p @-> gid_p @-> path_p @-> returning unit_p err)
 
   let vtpm_uuid_p =

@@ -7,7 +7,7 @@
       test_cluster_host test_cluster test_pusb test_network_sriov
       test_vm_placement test_vm_helpers test_repository test_repository_helpers
       test_ref
-      test_livepatch test_rpm test_updateinfo test_storage_smapiv1_wrapper test_storage_quicktest
+      test_livepatch test_rpm test_updateinfo test_storage_smapiv1_wrapper test_storage_quicktest test_observer
       test_pool_periodic_update_sync))
   (libraries
     alcotest
@@ -45,6 +45,7 @@
     xapi-stdext-threads
     xapi-stdext-unix
     xapi-test-utils
+    xapi-tracing
     xapi-types
     xapi-stdext-pervasives
     xapi-xenopsd
@@ -87,6 +88,7 @@
     xapi-idl.xen
     xapi_internal
     xapi-test-utils
+    xapi-tracing
     xapi-types
     xapi-stdext-threads
     xml-light2
@@ -114,6 +116,12 @@
 (package xapi)
 (modules test_ref)
 (libraries xapi_internal crowbar))
+
+(test
+(name test_observer)
+(package xapi)
+(modules test_observer)
+(libraries alcotest tracing xapi_internal tests_common yojson))
 
 (rule
   (alias runtest)

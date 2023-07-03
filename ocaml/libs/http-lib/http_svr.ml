@@ -221,17 +221,24 @@ let response_redirect ?req s dest =
   in
   Unixext.really_write_string s (Http.Response.to_wire_string res)
 
-let response_file ?mime_content_type s file =
+let response_file ?mime_content_type ~hsts_time s file =
   let size = (Unix.LargeFile.stat file).Unix.LargeFile.st_size in
+  let keep_alive = [(Http.Hdr.connection, "keep-alive")] in
+  let hsts_header =
+    if hsts_time < 0 then
+      []
+    else
+      let max_age = "max-age=" ^ string_of_int hsts_time in
+      [(Http.Hdr.hsts, max_age)]
+  in
   let mime_header =
     Option.fold ~none:[]
       ~some:(fun ty -> [(Hdr.content_type, ty)])
       mime_content_type
   in
-  let keep_alive = (Http.Hdr.connection, "keep-alive") in
   let res =
     Http.Response.make ~version:"1.1"
-      ~headers:(keep_alive :: mime_header)
+      ~headers:(List.concat [keep_alive; hsts_header; mime_header])
       ~length:size "200" "OK"
   in
   Unixext.with_file file [Unix.O_RDONLY] 0 (fun f ->
@@ -399,6 +406,8 @@ let request_of_bio_exn ~proxy_seen ~read_timeout ~total_timeout ~max_length bio
                        {req with host= Some v}
                    | k when k = Http.Hdr.user_agent ->
                        {req with user_agent= Some v}
+                   | k when k = Http.Hdr.traceparent ->
+                       {req with traceparent= Some v}
                    | k when k = Http.Hdr.connection && lowercase v = "close" ->
                        {req with close= true}
                    | k

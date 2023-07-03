@@ -36,8 +36,7 @@ open Xha_scripts
 
 (* Create a redo_log instance to use for HA. *)
 let ha_redo_log =
-  Redo_log.create ~name:"HA redo log" ~state_change_callback:None
-    ~read_only:false
+  Redo_log.create_rw ~name:"HA redo log" ~state_change_callback:None
 
 (*********************************************************************************************)
 (* Interface with the low-level HA subsystem                                                 *)
@@ -926,7 +925,9 @@ let redo_log_ha_enabled_during_runtime __context =
     Redo_log.switch ha_redo_log Xapi_globs.ha_metadata_vdi_reason
   ) else (
     info "Switching on HA redo log." ;
-    Redo_log.enable ha_redo_log Xapi_globs.ha_metadata_vdi_reason
+    Redo_log.enable_and_flush
+      (Context.database_of __context |> Db_ref.get_database)
+      ha_redo_log Xapi_globs.ha_metadata_vdi_reason
     (* upon the first attempt to write a delta, it will realise that a DB flush
      * is necessary as the I/O process will not be running *)
   )
@@ -952,7 +953,7 @@ let redo_log_ha_enabled_at_startup () =
   (* If we are still the master, extract any HA metadata database so we can consider population from it *)
   if Pool_role.is_master () then (
     debug "HA is enabled, so enabling writing to redo-log" ;
-    Redo_log.enable ha_redo_log Xapi_globs.ha_metadata_vdi_reason ;
+    Redo_log.enable_existing ha_redo_log Xapi_globs.ha_metadata_vdi_reason ;
     (* enable the use of the redo log *)
     debug
       "This node is a master; attempting to extract a database from a metadata \

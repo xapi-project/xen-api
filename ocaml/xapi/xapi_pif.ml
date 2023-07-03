@@ -1121,25 +1121,22 @@ let calculate_pifs_required_at_start_of_day ~__context =
   in
   pifs @ sriov_pifs
 
-let start_of_day_best_effort_bring_up () =
-  Server_helpers.exec_with_new_task
-    "Bringing up managed physical and sriov PIFs" (fun __context ->
-      let dbg = Context.string_of_task __context in
-      debug "Configured network backend: %s"
-        (Network_interface.string_of_kind (Net.Bridge.get_kind dbg ())) ;
-      (* Clear the state of the network daemon, before refreshing it by plugging
-         * the most important PIFs (see above). *)
-      Net.clear_state () ;
-      List.iter
-        (fun (pif, pifr) ->
-          Helpers.log_exn_continue
-            (Printf.sprintf "error trying to bring up pif: %s" pifr.API.pIF_uuid)
-            (fun pif ->
-              debug "Best effort attempt to bring up PIF: %s" pifr.API.pIF_uuid ;
-              plug ~__context ~self:pif
-            )
-            pif
+let start_of_day_best_effort_bring_up ~__context () =
+  let dbg = Context.string_of_task __context in
+  debug "Configured network backend: %s"
+    (Network_interface.string_of_kind (Net.Bridge.get_kind dbg ())) ;
+  (* Clear the state of the network daemon, before refreshing it by plugging
+     * the most important PIFs (see above). *)
+  Net.clear_state () ;
+  List.iter
+    (fun (pif, pifr) ->
+      Helpers.log_exn_continue
+        (Printf.sprintf "error trying to bring up pif: %s" pifr.API.pIF_uuid)
+        (fun pif ->
+          debug "Best effort attempt to bring up PIF: %s" pifr.API.pIF_uuid ;
+          plug ~__context ~self:pif
         )
-        (calculate_pifs_required_at_start_of_day ~__context) ;
-      Net.sync_state ()
-  )
+        pif
+    )
+    (calculate_pifs_required_at_start_of_day ~__context) ;
+  Net.sync_state ()
