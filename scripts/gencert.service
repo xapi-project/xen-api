@@ -8,6 +8,8 @@ User=root
 Type=oneshot
 ExecStart=/opt/xensource/libexec/gencert /etc/xensource/xapi-pool-tls.pem -1 xapi:pool
 ExecStart=/opt/xensource/libexec/gencert /etc/xensource/xapi-ssl.pem -1 default
+ExecStartPost=/sbin/update-issue
+ExecStartPost=/usr/bin/killall -q -HUP -r .*getty
 RemainAfterExit=yes
 
 [Install]
