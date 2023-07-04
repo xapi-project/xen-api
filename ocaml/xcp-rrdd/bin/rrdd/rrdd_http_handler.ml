@@ -29,16 +29,7 @@ let unarchive_rrd_handler (req : Http.Request.t) (s : Unix.file_descr) _ =
     let path = Rrdd_libs.Constants.rrd_location ^ "/" ^ uuid in
     rrd_of_gzip path
   in
-  match unarchive () with
-  | None ->
-      Http_svr.headers s (Http.http_404_missing ())
-  | Some rrd ->
-      let header_content =
-        Http.http_200_ok ~version:"1.0" ~keep_alive:false ()
-        @ ["Access-Control-Allow-Origin: *"]
-      in
-      Http_svr.headers s header_content ;
-      Rrd_unix.to_fd rrd s
+  rrd_handler req s (unarchive ())
 
 (* A handler for putting a VM's RRD data into the Http response. *)
 let get_vm_rrd_handler (req : Http.Request.t) (s : Unix.file_descr) _ =
@@ -50,12 +41,7 @@ let get_vm_rrd_handler (req : Http.Request.t) (s : Unix.file_descr) _ =
     in
     Some (Rrd.copy_rrd old_rrd.rrd)
   in
-  match get () with
-  | None ->
-      Http_svr.headers s (Http.http_404_missing ())
-  | Some rrd ->
-      Http_svr.headers s (Http.http_200_ok ~version:"1.0" ~keep_alive:false ()) ;
-      Rrd_unix.to_fd rrd s
+  rrd_handler req s (get ())
 
 (* A handler for putting the host's RRD data into the Http response. *)
 let get_host_rrd_handler (req : Http.Request.t) (s : Unix.file_descr) _ =
@@ -87,8 +73,7 @@ let get_sr_rrd_handler (req : Http.Request.t) (s : Unix.file_descr) _ =
         Rrd.copy_rrd rrdi.rrd
     )
   in
-  Http_svr.headers s (Http.http_200_ok ~version:"1.0" ~keep_alive:false ()) ;
-  Rrd_unix.to_fd rrd s
+  rrd_handler req s (Some rrd)
 
 (* Get an XML/JSON document (as a string) representing the updates since the
    specified start time. *)
