@@ -33,11 +33,11 @@ module HOST = struct
         ; model= ""
         ; stepping= ""
         ; flags= ""
-        ; features= [||]
-        ; features_pv= [||]
-        ; features_hvm= [||]
-        ; features_pv_host= [||]
-        ; features_hvm_host= [||]
+        ; features= CPU_policy.of_string `host ""
+        ; features_pv= CPU_policy.of_string `host ""
+        ; features_hvm= CPU_policy.of_string `host ""
+        ; features_pv_host= CPU_policy.of_string `host ""
+        ; features_hvm_host= CPU_policy.of_string `host ""
         }
     ; hypervisor= {Host.version= ""; capabilities= ""}
     ; chipset_info= {iommu= false; hvm= false}
@@ -50,6 +50,10 @@ module HOST = struct
   let send_debug_keys _ = ()
 
   let update_guest_agent_features _ = ()
+
+  let combine_cpu_policies _ _ = CPU_policy.of_string `host ""
+
+  let is_compatible _ _ = false
 end
 
 module VM = struct

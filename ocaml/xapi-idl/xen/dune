@@ -26,6 +26,7 @@
    xapi-idl.xen.interface.types
    xapi-log
  )
+ (flags (:standard -w -27))
  (wrapped false)
  (preprocess (pps ppx_deriving_rpc ppx_sexp_conv)))
 

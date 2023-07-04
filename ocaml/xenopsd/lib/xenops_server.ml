@@ -1417,23 +1417,17 @@ let import_metadata id md =
        give it a featureset that contains all features that this host has
        to offer. *)
     if not (List.mem_assoc "featureset" platformdata) then (
-      let string_of_features features =
-        Array.map (Printf.sprintf "%08Lx") features
-        |> Array.to_list
-        |> String.concat "-"
-      in
       let fs =
         let stat = B.HOST.stat () in
-        ( match md.Metadata.vm.Vm.ty with
+        match md.Metadata.vm.Vm.ty with
         | HVM _ | PVinPVH _ | PVH _ ->
             Host.(stat.cpu_info.features_hvm)
         | PV _ ->
             Host.(stat.cpu_info.features_pv)
-        )
-        |> string_of_features
       in
-      debug "Setting Platformdata:featureset=%s" fs ;
-      ("featureset", fs) :: platformdata
+      let fs' = CPU_policy.to_string fs in
+      debug "Setting Platformdata:featureset=%s" fs' ;
+      ("featureset", fs') :: platformdata
     ) else
       platformdata
   in
@@ -3492,6 +3486,28 @@ module HOST = struct
         B.HOST.update_guest_agent_features features
       )
       ()
+
+  let combine_cpu_policies _ dbg policy1 policy2 =
+    Debug.with_thread_associated dbg
+      (fun () ->
+        debug "HOST.combine_cpu_policies %s %s"
+          (CPU_policy.to_string policy1)
+          (CPU_policy.to_string policy2) ;
+        let module B = (val get_backend () : S) in
+        B.HOST.combine_cpu_policies policy1 policy2
+      )
+      ()
+
+  let is_compatible _ dbg vm_policy host_policy =
+    Debug.with_thread_associated dbg
+      (fun () ->
+        debug "HOST.is_compatible %s %s"
+          (CPU_policy.to_string vm_policy)
+          (CPU_policy.to_string host_policy) ;
+        let module B = (val get_backend () : S) in
+        B.HOST.is_compatible vm_policy host_policy
+      )
+      ()
 end
 
 module VM = struct
@@ -4123,6 +4139,8 @@ let _ =
   Server.HOST.send_debug_keys (HOST.send_debug_keys ()) ;
   Server.HOST.set_worker_pool_size (HOST.set_worker_pool_size ()) ;
   Server.HOST.update_guest_agent_features (HOST.update_guest_agent_features ()) ;
+  Server.HOST.combine_cpu_policies (HOST.combine_cpu_policies ()) ;
+  Server.HOST.is_compatible (HOST.is_compatible ()) ;
   Server.VM.add (VM.add ()) ;
   Server.VM.remove (VM.remove ()) ;
   Server.VM.migrate (VM.migrate ()) ;
