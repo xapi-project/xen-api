@@ -8,10 +8,10 @@
     cohttp
     re.str
     rpclib
-    xapi-rrd
     uri
     uuid
     xmlm
+    xapi-rrd
     xapi-client
     xapi-types
   )
