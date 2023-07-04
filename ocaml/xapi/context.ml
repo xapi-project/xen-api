@@ -167,26 +167,12 @@ let __destroy_task : (__context:t -> API.ref_task -> unit) ref =
 let string_of_task __context = __context.dbg
 
 let string_of_task_and_tracing __context =
-  Option.fold ~none:__context.dbg
-    ~some:(fun span ->
-      let s =
-        Tracing.Span.get_context span |> Tracing.SpanContext.to_traceparent
-      in
-      __context.dbg ^ "\x00" ^ s
-    )
-    __context.tracing
+  Debuginfo.make ~log:__context.dbg ~tracing:__context.tracing
+  |> Debuginfo.to_string
 
-let tracing_of_dbg dbg =
-  let open Tracing in
-  match String.split_on_char '\x00' dbg with
-  | [dbg; traceparent] ->
-      let spancontext = SpanContext.of_traceparent traceparent in
-      let span =
-        Option.map (fun tp -> Tracer.span_of_span_context tp dbg) spancontext
-      in
-      (dbg, span)
-  | _ ->
-      (dbg, None)
+let tracing_of_dbg s =
+  let dbg = Debuginfo.of_string s in
+  (dbg.log, dbg.tracing)
 
 let check_for_foreign_database ~__context =
   match __context.session_id with

@@ -18,19 +18,26 @@ module D = Debug.Make (struct let name = "mux" end)
 
 open D
 
-let with_tracing ~name ~dbg f =
-  let dbg, parent = Context.tracing_of_dbg dbg in
-  let name = "SMAPIv2." ^ name in
-  let tracer = Tracing.get_tracer ~name in
-  let span = Tracing.Tracer.start ~tracer ~name ~parent () in
-  match span with
-  | Ok span_context ->
-      let result = f dbg in
-      let _ = Tracing.Tracer.finish span_context in
-      result
-  | Error e ->
-      D.warn "Failed to start tracing: %s" (Printexc.to_string e) ;
-      f dbg
+(* Sets the logging context based on `dbg`.
+   Also adds a new tracing span, linked to the parent span from `dbg`, if available. *)
+let with_dbg ~name ~dbg f =
+  let open Debuginfo in
+  let di = of_string dbg in
+  Debug.with_thread_associated di.log
+    (fun () ->
+      let name = "SMAPIv2." ^ name in
+      let tracer = Tracing.get_tracer ~name in
+      let span = Tracing.Tracer.start ~tracer ~name ~parent:di.tracing () in
+      match span with
+      | Ok span_context ->
+          let result = f {di with tracing= span_context} in
+          let _ = Tracing.Tracer.finish span_context in
+          result
+      | Error e ->
+          D.warn "Failed to start tracing: %s" (Printexc.to_string e) ;
+          f di
+    )
+    ()
 
 type processor = Rpc.call -> Rpc.response
 
@@ -181,8 +188,8 @@ module Mux = struct
           let module C = StorageAPI (Idl.Exn.GenClient (struct
             let rpc = of_sr sr
           end)) in
-          with_tracing ~name:"Query.diagnostics" ~dbg @@ fun dbg ->
-          C.Query.diagnostics dbg
+          with_dbg ~name:"Query.diagnostics" ~dbg @@ fun di ->
+          C.Query.diagnostics (Debuginfo.to_string di)
       )
   end
 
@@ -234,22 +241,23 @@ module Mux = struct
     let create _context ~dbg:_ ~id = id
 
     let destroy2 _context ~dbg ~dp ~sr ~vdi ~vm ~allow_leak =
+      with_dbg ~name:"DP.destroy2" ~dbg @@ fun di ->
       info "DP.destroy2 dbg:%s dp:%s sr:%s vdi:%s vm:%s allow_leak:%b" dbg dp
         (s_of_sr sr) (s_of_vdi vdi) (s_of_vm vm) allow_leak ;
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
-      with_tracing ~name:"DP.destroy2" ~dbg @@ fun dbg ->
-      C.DP.destroy2 dbg dp sr vdi vm allow_leak ;
+      C.DP.destroy2 (Debuginfo.to_string di) dp sr vdi vm allow_leak ;
       DP_info.delete dp
 
     let destroy _context ~dbg ~dp ~allow_leak =
+      with_dbg ~name:"DP.destroy" ~dbg @@ fun di ->
       info "DP.destroy dbg:%s dp:%s allow_leak:%b" dbg dp allow_leak ;
       let open DP_info in
-      with_tracing ~name:"DP.destroy" ~dbg @@ fun dbg ->
       match read dp with
       | Some {sr; vdi; vm; _} ->
-          destroy2 _context ~dbg ~dp ~sr ~vdi ~vm ~allow_leak
+          destroy2 _context ~dbg:(Debuginfo.to_string di) ~dp ~sr ~vdi ~vm
+            ~allow_leak
       | None ->
           info
             "dp %s is not associated with a locally attached VDI; nothing to do"
@@ -287,6 +295,7 @@ module Mux = struct
 
     let create () ~dbg ~sr ~name_label ~name_description ~device_config
         ~physical_size =
+      with_dbg ~name:"SR.create" ~dbg @@ fun di ->
       info
         "SR.create dbg:%s sr:%s name_label:%s name_description:%s \
          device_config:[%s] physical_size:%Ld"
@@ -296,63 +305,67 @@ module Mux = struct
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
-      with_tracing ~name:"SR.create" ~dbg @@ fun dbg ->
-      C.SR.create dbg sr name_label name_description device_config physical_size
+      C.SR.create (Debuginfo.to_string di) sr name_label name_description
+        device_config physical_size
 
     let attach () ~dbg ~sr ~device_config =
+      with_dbg ~name:"SR.attach" ~dbg @@ fun di ->
       info "SR.attach dbg:%s sr:%s device_config:[%s]" dbg (s_of_sr sr)
         (device_config_str device_config) ;
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
-      with_tracing ~name:"SR.attach" ~dbg @@ fun dbg ->
-      C.SR.attach dbg sr device_config
+      C.SR.attach (Debuginfo.to_string di) sr device_config
 
     let set_name_label () ~dbg ~sr ~new_name_label =
+      with_dbg ~name:"SR.set_name_label" ~dbg @@ fun di ->
       info "SR.set_name_label dbg:%s sr:%s new_name_label:%s" dbg (s_of_sr sr)
         new_name_label ;
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
-      with_tracing ~name:"SR.set_name_label" ~dbg @@ fun dbg ->
-      C.SR.set_name_label dbg sr new_name_label
+      C.SR.set_name_label (Debuginfo.to_string di) sr new_name_label
 
     let set_name_description () ~dbg ~sr ~new_name_description =
+      with_dbg ~name:"SR.set_name_description" ~dbg @@ fun di ->
       info "SR.set_name_description dbg:%s sr:%s new_name_description:%s" dbg
         (s_of_sr sr) new_name_description ;
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
-      with_tracing ~name:"SR.set_name_description" ~dbg @@ fun dbg ->
-      C.SR.set_name_description dbg sr new_name_description
+      C.SR.set_name_description (Debuginfo.to_string di) sr new_name_description
 
     let detach () ~dbg ~sr =
+      with_dbg ~name:"SR.detach" ~dbg @@ fun di ->
       info "SR.detach dbg:%s sr:%s" dbg (s_of_sr sr) ;
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
-      with_tracing ~name:"SR.detach" ~dbg @@ fun dbg -> C.SR.detach dbg sr
+      C.SR.detach (Debuginfo.to_string di) sr
 
     let destroy () ~dbg ~sr =
+      with_dbg ~name:"SR.destroy" ~dbg @@ fun di ->
       info "SR.destroy dbg:%s sr:%s" dbg (s_of_sr sr) ;
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
-      with_tracing ~name:"SR.destroy" ~dbg @@ fun dbg -> C.SR.destroy dbg sr
+      C.SR.destroy (Debuginfo.to_string di) sr
 
     let stat () ~dbg ~sr =
+      with_dbg ~name:"SR.stat" ~dbg @@ fun di ->
       info "SR.stat dbg:%s sr:%s" dbg (s_of_sr sr) ;
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
-      with_tracing ~name:"SR.stat" ~dbg @@ fun dbg -> C.SR.stat dbg sr
+      C.SR.stat (Debuginfo.to_string di) sr
 
     let scan () ~dbg ~sr =
+      with_dbg ~name:"SR.scan" ~dbg @@ fun di ->
       info "SR.scan dbg:%s sr:%s" dbg (s_of_sr sr) ;
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
-      with_tracing ~name:"SR.scan" ~dbg @@ fun dbg -> C.SR.scan dbg sr
+      C.SR.scan (Debuginfo.to_string di) sr
 
     module SRSet = Set.Make (struct
       type t = Storage_interface.Sr.t
@@ -361,6 +374,7 @@ module Mux = struct
     end)
 
     let list () ~dbg =
+      with_dbg ~name:"SR.list" ~dbg @@ fun di ->
       info "SR.list dbg:%s" dbg ;
       List.fold_left
         (fun acc (_, list) ->
@@ -375,20 +389,22 @@ module Mux = struct
              let module C = StorageAPI (Idl.Exn.GenClient (struct
                let rpc = of_sr sr
              end)) in
-             with_tracing ~name:"SR.list" ~dbg @@ fun dbg -> C.SR.list dbg
+             C.SR.list (Debuginfo.to_string di)
          )
         )
       |> SRSet.elements
 
     let reset () ~dbg ~sr =
+      with_dbg ~name:"SR.reset" ~dbg @@ fun di ->
       info "SR.reset dbg:%s sr:%s" dbg (s_of_sr sr) ;
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
-      with_tracing ~name:"SR.reset" ~dbg @@ fun dbg -> C.SR.reset dbg sr
+      C.SR.reset (Debuginfo.to_string di) sr
 
     let update_snapshot_info_src () ~dbg ~sr ~vdi ~url ~dest ~dest_vdi
         ~snapshot_pairs =
+      with_dbg ~name:"SR.update_snapshot_info_src" ~dbg @@ fun di ->
       info
         "SR.update_snapshot_info_src dbg:%s sr:%s vdi:%s url:%s dest:%s \
          dest_vdi:%s snapshot_pairs:%s"
@@ -402,11 +418,11 @@ module Mux = struct
         |> String.concat "; "
         |> Printf.sprintf "[%s]"
         ) ;
-      with_tracing ~name:"SR.update_snapshot_info_src" ~dbg @@ fun dbg ->
-      Storage_migrate.update_snapshot_info_src ~dbg ~sr ~vdi ~url ~dest
-        ~dest_vdi ~snapshot_pairs
+      Storage_migrate.update_snapshot_info_src ~dbg:(Debuginfo.to_string di) ~sr
+        ~vdi ~url ~dest ~dest_vdi ~snapshot_pairs
 
     let update_snapshot_info_dest () ~dbg ~sr ~vdi ~src_vdi ~snapshot_pairs =
+      with_dbg ~name:"SR.update_snapshot_info_dest" ~dbg @@ fun di ->
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
@@ -423,48 +439,48 @@ module Mux = struct
         |> String.concat "; "
         |> Printf.sprintf "[%s]"
         ) ;
-      with_tracing ~name:"SR.update_snapshot_info_dest" ~dbg @@ fun dbg ->
-      C.SR.update_snapshot_info_dest dbg sr vdi src_vdi snapshot_pairs
+      C.SR.update_snapshot_info_dest (Debuginfo.to_string di) sr vdi src_vdi
+        snapshot_pairs
   end
 
   module VDI = struct
     let create () ~dbg ~sr ~vdi_info =
+      with_dbg ~name:"VDI.create" ~dbg @@ fun di ->
       info "VDI.create dbg:%s sr:%s vdi_info:%s" dbg (s_of_sr sr)
         (string_of_vdi_info vdi_info) ;
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
-      with_tracing ~name:"VDI.create" ~dbg @@ fun dbg ->
-      C.VDI.create dbg sr vdi_info
+      C.VDI.create (Debuginfo.to_string di) sr vdi_info
 
     let set_name_label () ~dbg ~sr ~vdi ~new_name_label =
+      with_dbg ~name:"VDI.set_name_label" ~dbg @@ fun di ->
       info "VDI.set_name_label dbg:%s sr:%s vdi:%s new_name_label:%s" dbg
         (s_of_sr sr) (s_of_vdi vdi) new_name_label ;
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
-      with_tracing ~name:"VDI.set_name_label" ~dbg @@ fun dbg ->
-      C.VDI.set_name_label dbg sr vdi new_name_label
+      C.VDI.set_name_label (Debuginfo.to_string di) sr vdi new_name_label
 
     let set_name_description () ~dbg ~sr ~vdi ~new_name_description =
+      with_dbg ~name:"VDI.set_name_description" ~dbg @@ fun di ->
       info
         "VDI.set_name_description dbg:%s sr:%s vdi:%s new_name_description:%s"
         dbg (s_of_sr sr) (s_of_vdi vdi) new_name_description ;
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
-      with_tracing ~name:"VDI.set_name_description" ~dbg @@ fun dbg ->
-      C.VDI.set_name_description dbg sr vdi new_name_description
+      C.VDI.set_name_description (Debuginfo.to_string di) sr vdi
+        new_name_description
 
     let snapshot () ~dbg ~sr ~vdi_info =
+      with_dbg ~name:"VDI.snapshot" ~dbg @@ fun di ->
       info "VDI.snapshot dbg:%s sr:%s vdi_info:%s" dbg (s_of_sr sr)
         (string_of_vdi_info vdi_info) ;
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
-      try
-        with_tracing ~name:"VDI.snapshot" ~dbg @@ fun dbg ->
-        C.VDI.snapshot dbg sr vdi_info
+      try C.VDI.snapshot (Debuginfo.to_string di) sr vdi_info
       with Storage_interface.Storage_error (Activated_on_another_host uuid) ->
         Server_helpers.exec_with_new_task "smapiv2.snapshot.activated"
           ~subtask_of:(Ref.of_string dbg) (fun __context ->
@@ -478,39 +494,41 @@ module Mux = struct
         )
 
     let clone () ~dbg ~sr ~vdi_info =
+      with_dbg ~name:"VDI.clone" ~dbg @@ fun di ->
       info "VDI.clone dbg:%s sr:%s vdi_info:%s" dbg (s_of_sr sr)
         (string_of_vdi_info vdi_info) ;
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
-      with_tracing ~name:"VDI.clone" ~dbg @@ fun dbg ->
-      C.VDI.clone dbg sr vdi_info
+      C.VDI.clone (Debuginfo.to_string di) sr vdi_info
 
     let resize () ~dbg ~sr ~vdi ~new_size =
+      with_dbg ~name:"VDI.resize" ~dbg @@ fun di ->
       info "VDI.resize dbg:%s sr:%s vdi:%s new_size:%Ld" dbg (s_of_sr sr)
         (s_of_vdi vdi) new_size ;
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
-      with_tracing ~name:"VDI.resize" ~dbg @@ fun dbg ->
-      C.VDI.resize dbg sr vdi new_size
+      C.VDI.resize (Debuginfo.to_string di) sr vdi new_size
 
     let destroy () ~dbg ~sr ~vdi =
+      with_dbg ~name:"VDI.destroy" ~dbg @@ fun di ->
       info "VDI.destroy dbg:%s sr:%s vdi:%s" dbg (s_of_sr sr) (s_of_vdi vdi) ;
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
-      with_tracing ~name:"VDI.destroy" ~dbg @@ fun dbg ->
-      C.VDI.destroy dbg sr vdi
+      C.VDI.destroy (Debuginfo.to_string di) sr vdi
 
     let stat () ~dbg ~sr ~vdi =
+      with_dbg ~name:"VDI.stat" ~dbg @@ fun di ->
       info "VDI.stat dbg:%s sr:%s vdi:%s" dbg (s_of_sr sr) (s_of_vdi vdi) ;
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
-      with_tracing ~name:"VDI.stat" ~dbg @@ fun dbg -> C.VDI.stat dbg sr vdi
+      C.VDI.stat (Debuginfo.to_string di) sr vdi
 
     let introduce () ~dbg ~sr ~uuid ~sm_config ~location =
+      with_dbg ~name:"VDI.introduce" ~dbg @@ fun di ->
       info "VDI.introduce dbg:%s sr:%s uuid:%s sm_config:%s location:%s" dbg
         (s_of_sr sr) uuid
         (String.concat ", " (List.map (fun (k, v) -> k ^ ":" ^ v) sm_config))
@@ -518,28 +536,28 @@ module Mux = struct
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
-      with_tracing ~name:"VDI.introduce" ~dbg @@ fun dbg ->
-      C.VDI.introduce dbg sr uuid sm_config location
+      C.VDI.introduce (Debuginfo.to_string di) sr uuid sm_config location
 
     let set_persistent () ~dbg ~sr ~vdi ~persistent =
+      with_dbg ~name:"VDI.set_persistent" ~dbg @@ fun di ->
       info "VDI.set_persistent dbg:%s sr:%s vdi:%s persistent:%b" dbg
         (s_of_sr sr) (s_of_vdi vdi) persistent ;
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
-      with_tracing ~name:"VDI.set_persistent" ~dbg @@ fun dbg ->
-      C.VDI.set_persistent dbg sr vdi persistent
+      C.VDI.set_persistent (Debuginfo.to_string di) sr vdi persistent
 
     let epoch_begin () ~dbg ~sr ~vdi ~vm ~persistent =
+      with_dbg ~name:"VDI.epoch_begin" ~dbg @@ fun di ->
       info "VDI.epoch_begin dbg:%s sr:%s vdi:%s vm:%s persistent:%b" dbg
         (s_of_sr sr) (s_of_vdi vdi) (s_of_vm vm) persistent ;
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
-      with_tracing ~name:"VDI.epoch_begin" ~dbg @@ fun dbg ->
-      C.VDI.epoch_begin dbg sr vdi vm persistent
+      C.VDI.epoch_begin (Debuginfo.to_string di) sr vdi vm persistent
 
     let attach () ~dbg ~dp ~sr ~vdi ~read_write =
+      with_dbg ~name:"VDI.attach" ~dbg @@ fun di ->
       info "VDI.attach dbg:%s dp:%s sr:%s vdi:%s read_write:%b" dbg dp
         (s_of_sr sr) (s_of_vdi vdi) read_write ;
       let module C = StorageAPI (Idl.Exn.GenClient (struct
@@ -547,8 +565,9 @@ module Mux = struct
       end)) in
       let vm = Vm.of_string "0" in
       DP_info.write dp DP_info.{sr; vdi; vm; read_write} ;
-      with_tracing ~name:"VDI.attach" ~dbg @@ fun dbg ->
-      let backend = C.VDI.attach3 dbg dp sr vdi vm read_write in
+      let backend =
+        C.VDI.attach3 (Debuginfo.to_string di) dp sr vdi vm read_write
+      in
       (* VDI.attach2 should be used instead, VDI.attach is only kept for
          backwards-compatibility, because older xapis call Remote.VDI.attach during SXM.
          However, they ignore the return value, so in practice it does not matter what
@@ -588,6 +607,7 @@ module Mux = struct
             )
 
     let attach2 () ~dbg ~dp ~sr ~vdi ~read_write =
+      with_dbg ~name:"VDI.attach2" ~dbg @@ fun di ->
       info "VDI.attach2 dbg:%s dp:%s sr:%s vdi:%s read_write:%b" dbg dp
         (s_of_sr sr) (s_of_vdi vdi) read_write ;
       let module C = StorageAPI (Idl.Exn.GenClient (struct
@@ -595,29 +615,29 @@ module Mux = struct
       end)) in
       let vm = Vm.of_string "0" in
       DP_info.write dp DP_info.{sr; vdi; vm; read_write} ;
-      with_tracing ~name:"VDI.attach2" ~dbg @@ fun dbg ->
-      C.VDI.attach3 dbg dp sr vdi vm read_write
+      C.VDI.attach3 (Debuginfo.to_string di) dp sr vdi vm read_write
 
     let attach3 () ~dbg ~dp ~sr ~vdi ~vm ~read_write =
-      info "VDI.attach3 dbg:%s dp:%s sr:%s vdi:%s vm:%s read_write:%b" dbg dp
-        (s_of_sr sr) (s_of_vdi vdi) (s_of_vm vm) read_write ;
+      with_dbg ~name:"VDI.attach3" ~dbg @@ fun di ->
+      info "VDI.attach3 dbg:%s dp:%s sr:%s vdi:%s vm:%s read_write:%b"
+        di.Debuginfo.log dp (s_of_sr sr) (s_of_vdi vdi) (s_of_vm vm) read_write ;
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
-      with_tracing ~name:"VDI.attach3" ~dbg @@ fun dbg ->
       DP_info.write dp DP_info.{sr; vdi; vm; read_write} ;
-      C.VDI.attach3 dbg dp sr vdi vm read_write
+      C.VDI.attach3 (Debuginfo.to_string di) dp sr vdi vm read_write
 
     let activate () ~dbg ~dp ~sr ~vdi =
+      with_dbg ~name:"VDI.activate" ~dbg @@ fun di ->
       info "VDI.activate dbg:%s dp:%s sr:%s vdi:%s " dbg dp (s_of_sr sr)
         (s_of_vdi vdi) ;
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
-      with_tracing ~name:"VDI.activate" ~dbg @@ fun dbg ->
-      C.VDI.activate dbg dp sr vdi
+      C.VDI.activate (Debuginfo.to_string di) dp sr vdi
 
     let activate3 () ~dbg ~dp ~sr ~vdi ~vm =
+      with_dbg ~name:"VDI.activate3" ~dbg @@ fun di ->
       info "VDI.activate3 dbg:%s dp:%s sr:%s vdi:%s vm:%s" dbg dp (s_of_sr sr)
         (s_of_vdi vdi) (s_of_vm vm) ;
       let module C = StorageAPI (Idl.Exn.GenClient (struct
@@ -631,146 +651,145 @@ module Mux = struct
         | None ->
             failwith "DP not found"
       in
-      with_tracing ~name:"VDI.activate3" ~dbg @@ fun dbg ->
       if (not read_write) && sr_has_capability sr Smint.Vdi_activate_readonly
       then (
         info "The VDI was attached read-only: calling activate_readonly" ;
-        C.VDI.activate_readonly dbg dp sr vdi vm
+        C.VDI.activate_readonly (Debuginfo.to_string di) dp sr vdi vm
       ) else (
         info "The VDI was attached read/write: calling activate3" ;
-        C.VDI.activate3 dbg dp sr vdi vm
+        C.VDI.activate3 (Debuginfo.to_string di) dp sr vdi vm
       )
 
     let activate_readonly () ~dbg ~dp ~sr ~vdi ~vm =
+      with_dbg ~name:"VDI.activate_readonly" ~dbg @@ fun di ->
       info "VDI.activate_readonly dbg:%s dp:%s sr:%s vdi:%s vm:%s" dbg dp
         (s_of_sr sr) (s_of_vdi vdi) (s_of_vm vm) ;
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
-      with_tracing ~name:"VDI.activate_readonly" ~dbg @@ fun dbg ->
-      C.VDI.activate_readonly dbg dp sr vdi vm
+      C.VDI.activate_readonly (Debuginfo.to_string di) dp sr vdi vm
 
     let deactivate () ~dbg ~dp ~sr ~vdi ~vm =
+      with_dbg ~name:"VDI.deativate" ~dbg @@ fun di ->
       info "VDI.deactivate dbg:%s dp:%s sr:%s vdi:%s vm:%s" dbg dp (s_of_sr sr)
         (s_of_vdi vdi) (s_of_vm vm) ;
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
-      with_tracing ~name:"VDI.deativate" ~dbg @@ fun dbg ->
-      C.VDI.deactivate dbg dp sr vdi vm
+      C.VDI.deactivate (Debuginfo.to_string di) dp sr vdi vm
 
     let detach () ~dbg ~dp ~sr ~vdi ~vm =
+      with_dbg ~name:"VDI.detach" ~dbg @@ fun di ->
       info "VDI.detach dbg:%s dp:%s sr:%s vdi:%s vm:%s" dbg dp (s_of_sr sr)
         (s_of_vdi vdi) (s_of_vm vm) ;
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
-      with_tracing ~name:"VDI.detach" ~dbg @@ fun dbg ->
-      C.VDI.detach dbg dp sr vdi vm ;
+      C.VDI.detach (Debuginfo.to_string di) dp sr vdi vm ;
       DP_info.delete dp
 
     let epoch_end () ~dbg ~sr ~vdi ~vm =
+      with_dbg ~name:"VDI.epoch_end" ~dbg @@ fun di ->
       info "VDI.epoch_end dbg:%s sr:%s vdi:%s vm:%s" dbg (s_of_sr sr)
         (s_of_vdi vdi) (s_of_vm vm) ;
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
-      with_tracing ~name:"VDI.epoch_end" ~dbg @@ fun dbg ->
-      C.VDI.epoch_end dbg sr vdi vm
+      C.VDI.epoch_end (Debuginfo.to_string di) sr vdi vm
 
     let get_by_name () ~dbg ~sr ~name =
+      with_dbg ~name:"VDI.get_by_name" ~dbg @@ fun di ->
       info "VDI.get_by_name dbg:%s sr:%s name:%s" dbg (s_of_sr sr) name ;
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
-      with_tracing ~name:"VDI.get_by_name" ~dbg @@ fun dbg ->
-      C.VDI.get_by_name dbg sr name
+      C.VDI.get_by_name (Debuginfo.to_string di) sr name
 
     let set_content_id () ~dbg ~sr ~vdi ~content_id =
+      with_dbg ~name:"VDI.set_content_id" ~dbg @@ fun di ->
       info "VDI.set_content_id dbg:%s sr:%s vdi:%s content_id:%s" dbg
         (s_of_sr sr) (s_of_vdi vdi) content_id ;
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
-      with_tracing ~name:"VDI.set_content_id" ~dbg @@ fun dbg ->
-      C.VDI.set_content_id dbg sr vdi content_id
+      C.VDI.set_content_id (Debuginfo.to_string di) sr vdi content_id
 
     let similar_content () ~dbg ~sr ~vdi =
+      with_dbg ~name:"VDI.similar_content" ~dbg @@ fun di ->
       info "VDI.similar_content dbg:%s sr:%s vdi:%s" dbg (s_of_sr sr)
         (s_of_vdi vdi) ;
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
-      with_tracing ~name:"VDI.similar_content" ~dbg @@ fun dbg ->
-      C.VDI.similar_content dbg sr vdi
+      C.VDI.similar_content (Debuginfo.to_string di) sr vdi
 
     let compose () ~dbg ~sr ~vdi1 ~vdi2 =
+      with_dbg ~name:"VDI.compose" ~dbg @@ fun di ->
       info "VDI.compose dbg:%s sr:%s vdi1:%s vdi2:%s" dbg (s_of_sr sr)
         (s_of_vdi vdi1) (s_of_vdi vdi2) ;
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
-      with_tracing ~name:"VDI.compose" ~dbg @@ fun dbg ->
-      C.VDI.compose dbg sr vdi1 vdi2
+      C.VDI.compose (Debuginfo.to_string di) sr vdi1 vdi2
 
     let add_to_sm_config () ~dbg ~sr ~vdi ~key ~value =
+      with_dbg ~name:"VDI.add_to_sm_config" ~dbg @@ fun di ->
       info "VDI.add_to_sm_config dbg:%s sr:%s vdi:%s key:%s value:%s" dbg
         (s_of_sr sr) (s_of_vdi vdi) key value ;
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
-      with_tracing ~name:"VDI.add_to_sm_config" ~dbg @@ fun dbg ->
-      C.VDI.add_to_sm_config dbg sr vdi key value
+      C.VDI.add_to_sm_config (Debuginfo.to_string di) sr vdi key value
 
     let remove_from_sm_config () ~dbg ~sr ~vdi ~key =
+      with_dbg ~name:"VDI.remove_from_sm_config" ~dbg @@ fun di ->
       info "VDI.remove_from_sm_config dbg:%s sr:%s vdi:%s key:%s" dbg
         (s_of_sr sr) (s_of_vdi vdi) key ;
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
-      with_tracing ~name:"VDI.remove_from_sm_config" ~dbg @@ fun dbg ->
-      C.VDI.remove_from_sm_config dbg sr vdi key
+      C.VDI.remove_from_sm_config (Debuginfo.to_string di) sr vdi key
 
     let get_url () ~dbg ~sr ~vdi =
+      with_dbg ~name:"VDI.get_url" ~dbg @@ fun di ->
       info "VDI.get_url dbg:%s sr:%s vdi:%s" dbg (s_of_sr sr) (s_of_vdi vdi) ;
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
-      with_tracing ~name:"VDI.get_url" ~dbg @@ fun dbg ->
-      C.VDI.get_url dbg sr vdi
+      C.VDI.get_url (Debuginfo.to_string di) sr vdi
 
     let enable_cbt () ~dbg ~sr ~vdi =
+      with_dbg ~name:"VDI.enabled_cbt" ~dbg @@ fun di ->
       info "VDI.enable_cbt dbg:%s sr:%s vdi:%s" dbg (s_of_sr sr) (s_of_vdi vdi) ;
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
-      with_tracing ~name:"VDI.enabled_cbt" ~dbg @@ fun dbg ->
-      C.VDI.enable_cbt dbg sr vdi
+      C.VDI.enable_cbt (Debuginfo.to_string di) sr vdi
 
     let disable_cbt () ~dbg ~sr ~vdi =
+      with_dbg ~name:"VDI.disable_cbt" ~dbg @@ fun di ->
       info "VDI.disable_cbt dbg:%s sr:%s vdi:%s" dbg (s_of_sr sr) (s_of_vdi vdi) ;
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
-      with_tracing ~name:"VDI.disable_cbt" ~dbg @@ fun dbg ->
-      C.VDI.disable_cbt dbg sr vdi
+      C.VDI.disable_cbt (Debuginfo.to_string di) sr vdi
 
     let data_destroy () ~dbg ~sr ~vdi =
+      with_dbg ~name:"VDI.data_destroy" ~dbg @@ fun di ->
       info "VDI.data_destroy dbg:%s sr:%s vdi:%s" dbg (s_of_sr sr) (s_of_vdi vdi) ;
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
-      with_tracing ~name:"VDI.data_destroy" ~dbg @@ fun dbg ->
-      C.VDI.data_destroy dbg sr vdi
+      C.VDI.data_destroy (Debuginfo.to_string di) sr vdi
 
     let list_changed_blocks () ~dbg ~sr ~vdi_from ~vdi_to =
+      with_dbg ~name:"VDI.list_changed_blocks" ~dbg @@ fun di ->
       info "VDI.list_changed_blocks dbg:%s sr:%s vdi_from:%s vdi_to:%s" dbg
         (s_of_sr sr) (s_of_vdi vdi_from) (s_of_vdi vdi_to) ;
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
-      with_tracing ~name:"VDI.list_changed_blocks" ~dbg @@ fun dbg ->
-      C.VDI.list_changed_blocks dbg sr vdi_from vdi_to
+      C.VDI.list_changed_blocks (Debuginfo.to_string di) sr vdi_from vdi_to
   end
 
   let get_by_name () ~dbg ~name =
@@ -778,14 +797,14 @@ module Mux = struct
        SR/VDI -- for a particular SR and VDI
        content_id -- for a particular content *)
     let open Xapi_stdext_std.Xstringext in
-    with_tracing ~name:"get_by_name" ~dbg @@ fun dbg ->
+    with_dbg ~name:"get_by_name" ~dbg @@ fun di ->
     match List.filter (fun x -> x <> "") (String.split ~limit:2 '/' name) with
     | [sr; name] ->
         let sr = Storage_interface.Sr.of_string sr in
         let module C = StorageAPI (Idl.Exn.GenClient (struct
           let rpc = of_sr sr
         end)) in
-        (sr, C.VDI.get_by_name dbg sr name)
+        (sr, C.VDI.get_by_name (Debuginfo.to_string di) sr name)
     | [name] -> (
       match
         success_or choose
@@ -793,7 +812,7 @@ module Mux = struct
                let module C = StorageAPI (Idl.Exn.GenClient (struct
                  let rpc = of_sr sr
                end)) in
-               (sr, C.VDI.get_by_name dbg sr name)
+               (sr, C.VDI.get_by_name (Debuginfo.to_string di) sr name)
            )
           )
       with
@@ -806,24 +825,41 @@ module Mux = struct
         raise (Storage_error (Vdi_does_not_exist name))
 
   module DATA = struct
-    let copy () = Storage_migrate.copy
+    let copy () ~dbg =
+      with_dbg ~name:"DATA.copy" ~dbg @@ fun dbg -> Storage_migrate.copy ~dbg
 
-    let copy_into () = Storage_migrate.copy_into
+    let copy_into () ~dbg =
+      with_dbg ~name:"DATA.copy_into" ~dbg @@ fun dbg ->
+      Storage_migrate.copy_into ~dbg
 
     module MIRROR = struct
-      let start () = Storage_migrate.start
+      let start () ~dbg =
+        with_dbg ~name:"DATA.MIRROR.start" ~dbg @@ fun dbg ->
+        Storage_migrate.start ~dbg
 
-      let stop () = Storage_migrate.stop
+      let stop () ~dbg =
+        with_dbg ~name:"DATA.MIRROR.stop" ~dbg @@ fun {log= dbg; _} ->
+        Storage_migrate.stop ~dbg
 
-      let list () = Storage_migrate.list
+      let list () ~dbg =
+        with_dbg ~name:"DATA.MIRROR.list" ~dbg @@ fun {log= dbg; _} ->
+        Storage_migrate.list ~dbg
 
-      let stat () = Storage_migrate.stat
+      let stat () ~dbg =
+        with_dbg ~name:"DATA.MIRROR.stat" ~dbg @@ fun {log= dbg; _} ->
+        Storage_migrate.stat ~dbg
 
-      let receive_start () = Storage_migrate.receive_start
+      let receive_start () ~dbg =
+        with_dbg ~name:"DATA.MIRROR.receive_start" ~dbg @@ fun {log= dbg; _} ->
+        Storage_migrate.receive_start ~dbg
 
-      let receive_finalize () = Storage_migrate.receive_finalize
+      let receive_finalize () ~dbg =
+        with_dbg ~name:"DATA.MIRROR.receive_finalize" ~dbg
+        @@ fun {log= dbg; _} -> Storage_migrate.receive_finalize ~dbg
 
-      let receive_cancel () = Storage_migrate.receive_cancel
+      let receive_cancel () ~dbg =
+        with_dbg ~name:"DATA.MIRROR.receive_cancel" ~dbg @@ fun {log= dbg; _} ->
+        Storage_migrate.receive_cancel ~dbg
     end
   end
 

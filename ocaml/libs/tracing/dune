@@ -3,11 +3,14 @@
   (public_name xapi-tracing)
   (libraries
     cohttp
+    cohttp-posix
     ptime
     ptime.clock.os
     rpclib.core
     rpclib.json
-    xapi-idl
+    xapi-log
+    xapi-open-uri
+    xapi-stdext-threads
     xapi-stdext-unix
   )
   (preprocess (pps ppx_deriving_rpc))
