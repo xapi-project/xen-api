@@ -5,6 +5,21 @@ open Rrdd_shared
 
 let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
+let rrd_handler (req : Http.Request.t) (s : Unix.file_descr) = function
+  | None ->
+      Http_svr.headers s (Http.http_404_missing ())
+  | Some rrd ->
+      let json = List.mem_assoc "json" req.Http.Request.query in
+      let headers =
+        List.concat
+          [
+            Http.http_200_ok ~version:"1.0" ~keep_alive:false ()
+          ; (if json then [] else [Http.Hdr.content_type ^ ": text/xml"])
+          ; ["Access-Control-Allow-Origin: *"]
+          ]
+      in
+      Http_svr.headers s headers ; Rrd_unix.to_fd ~json rrd s
+
 (* A handler for unarchiving RRDs. Only called on pool master. *)
 let unarchive_rrd_handler (req : Http.Request.t) (s : Unix.file_descr) _ =
   debug "unarchive_rrd_handler: start" ;
@@ -44,8 +59,6 @@ let get_vm_rrd_handler (req : Http.Request.t) (s : Unix.file_descr) _ =
 
 (* A handler for putting the host's RRD data into the Http response. *)
 let get_host_rrd_handler (req : Http.Request.t) (s : Unix.file_descr) _ =
-  debug "get_host_rrd_handler: start" ;
-  let query = req.Http.Request.query in
   let rrd =
     with_lock mutex (fun _ ->
         debug "Received request for Host RRD." ;
@@ -58,11 +71,7 @@ let get_host_rrd_handler (req : Http.Request.t) (s : Unix.file_descr) _ =
           )
     )
   in
-  Http_svr.headers s
-    (Http.http_200_ok ~version:"1.0" ~keep_alive:false ()
-    @ ["Access-Control-Allow-Origin: *"]
-    ) ;
-  Rrd_unix.to_fd ~json:(List.mem_assoc "json" query) rrd s
+  rrd_handler req s (Some rrd)
 
 (* A handler for putting the SR's RRD data into the Http response. *)
 let get_sr_rrd_handler (req : Http.Request.t) (s : Unix.file_descr) _ =
