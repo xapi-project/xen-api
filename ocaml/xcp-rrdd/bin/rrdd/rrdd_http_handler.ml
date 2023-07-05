@@ -5,6 +5,12 @@ open Rrdd_shared
 
 let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
+let mime_json = Printf.sprintf "%s: application/json" Http.Hdr.content_type
+
+let mime_xml = Printf.sprintf "%s: text/xml" Http.Hdr.content_type
+
+let content_type json = if json then mime_json else mime_xml
+
 let rrd_handler (req : Http.Request.t) (s : Unix.file_descr) = function
   | None ->
       Http_svr.headers s (Http.http_404_missing ())
@@ -14,8 +20,7 @@ let rrd_handler (req : Http.Request.t) (s : Unix.file_descr) = function
         List.concat
           [
             Http.http_200_ok ~version:"1.0" ~keep_alive:false ()
-          ; (if json then [] else [Http.Hdr.content_type ^ ": text/xml"])
-          ; ["Access-Control-Allow-Origin: *"]
+          ; [content_type json; "Access-Control-Allow-Origin: *"]
           ]
       in
       Http_svr.headers s headers ; Rrd_unix.to_fd ~json rrd s
@@ -164,18 +169,16 @@ let get_rrd_updates_handler (req : Http.Request.t) (s : Unix.file_descr) _ =
     get_host_stats ~json ~start ~interval ~cfopt ~is_host ~vm_uuid ~sr_uuid ()
   in
   let headers =
-    Http.http_200_ok_with_content
-      (Int64.of_int (String.length reply))
-      ~version:"1.1" ~keep_alive:true ()
-  in
-  let headers =
-    if json then headers else headers @ [Http.Hdr.content_type ^ ": text/xml"]
-  in
-  let headers =
-    headers
-    @ [
-        "Access-Control-Allow-Origin: *"
-      ; "Access-Control-Allow-Headers: X-Requested-With"
+    List.concat
+      [
+        Http.http_200_ok_with_content
+          (Int64.of_int (String.length reply))
+          ~version:"1.1" ~keep_alive:true ()
+      ; [
+          content_type json
+        ; "Access-Control-Allow-Origin: *"
+        ; "Access-Control-Allow-Headers: X-Requested-With"
+        ]
       ]
   in
   Http_svr.headers s headers ;
