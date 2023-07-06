@@ -12,12 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-exception InvalidFeatureString of string
-
-val string_of_features : int64 array -> string
-
-val features_of_string : string -> int64 array
-
 val next_boot_cpu_features : __context:Context.t -> vm:[`VM] API.Ref.t -> string
 
 val assert_vm_is_compatible :
@@ -28,35 +22,21 @@ val assert_vm_is_compatible :
   -> unit
   -> unit
 
-val extend : int64 array -> int64 array -> int64 array
-
-val zero_extend : int64 array -> int -> int64 array
-
-val intersect : int64 array -> int64 array -> int64 array
-
-val diff : int64 array -> int64 array -> int64 array
-
-val is_equal : int64 array -> int64 array -> bool
-
-val is_subset : int64 array -> int64 array -> bool
-
-val is_strict_subset : int64 array -> int64 array -> bool
-
 val vendor : string Map_check.field
 
 val cpu_count : int Map_check.field
 
 val socket_count : int Map_check.field
 
-val features : int64 array Map_check.field
+val features : [`vm] Xenops_interface.CPU_policy.t Map_check.field
 
-val features_pv : int64 array Map_check.field
+val features_pv : [`host] Xenops_interface.CPU_policy.t Map_check.field
 
-val features_hvm : int64 array Map_check.field
+val features_hvm : [`host] Xenops_interface.CPU_policy.t Map_check.field
 
-val features_pv_host : int64 array Map_check.field
+val features_pv_host : [`host] Xenops_interface.CPU_policy.t Map_check.field
 
-val features_hvm_host : int64 array Map_check.field
+val features_hvm_host : [`host] Xenops_interface.CPU_policy.t Map_check.field
 
 val get_host_cpu_info :
      __context:Context.t
