@@ -512,7 +512,7 @@ let increase_backoff_delay log =
       !(log.backoff_delay) * Db_globs.redo_log_exponentiation_base ;
   if !(log.backoff_delay) > Db_globs.redo_log_maximum_backoff_delay then
     log.backoff_delay := Db_globs.redo_log_maximum_backoff_delay ;
-  R.debug "Bumped backoff delay to %d seconds" !(log.backoff_delay)
+  D.debug "Bumped backoff delay to %d seconds" !(log.backoff_delay)
 
 let set_time_of_last_failure log =
   let now = Unix.gettimeofday () in
@@ -525,17 +525,17 @@ let reset_time_of_last_failure log =
 
 let maybe_retry f log =
   let now = Unix.gettimeofday () in
-  R.debug
+  D.debug
     "Considering whether to attempt to flush the DB... (backoff %d secs, time \
      since last failure %.1f secs)"
     !(log.backoff_delay)
     (now -. !(log.time_of_last_failure)) ;
   if now -. !(log.time_of_last_failure) >= float_of_int !(log.backoff_delay)
   then (
-    R.debug "It's time for an attempt to reconnect and flush the DB." ;
+    D.debug "It's time for an attempt to reconnect and flush the DB." ;
     f ()
   ) else
-    R.debug "No; we'll wait a bit longer before trying again."
+    D.debug "No; we'll wait a bit longer before trying again."
 
 (* -------------------------------------------------------------------- *)
 (* Functions relating to the lifecycle of the block device I/O process. *)
@@ -560,18 +560,18 @@ let shutdown log =
           ) ;
           (* Terminate the child process *)
           let ipid = Forkhelpers.getpid p in
-          R.info "Killing I/O process with pid %d" ipid ;
+          D.info "Killing I/O process with pid %d" ipid ;
           Unix.kill ipid Sys.sigkill ;
           (* Wait for the process to die. This is done in a separate thread in case it does not respond to the signal immediately. *)
           ignore
             (Thread.create
                (fun () ->
-                 R.debug "Waiting for I/O process with pid %d to die..." ipid ;
+                 D.debug "Waiting for I/O process with pid %d to die..." ipid ;
                  with_lock log.dying_processes_mutex (fun () ->
                      log.num_dying_processes := !(log.num_dying_processes) + 1
                  ) ;
                  ignore (Forkhelpers.waitpid p) ;
-                 R.debug "Finished waiting for process with pid %d" ipid ;
+                 D.debug "Finished waiting for process with pid %d" ipid ;
                  with_lock log.dying_processes_mutex (fun () ->
                      log.num_dying_processes := !(log.num_dying_processes) - 1
                  )
@@ -583,12 +583,12 @@ let shutdown log =
           (* Attempt to remove the sockets *)
           List.iter
             (fun sockpath ->
-              R.debug "Removing socket %s" sockpath ;
+              D.debug "Removing socket %s" sockpath ;
               Unixext.unlink_safe sockpath
             )
             [ctrlsockpath; datasockpath]
     with e ->
-      R.error "Caught %s: while shutting down connection to I/O process"
+      D.error "Caught %s: while shutting down connection to I/O process"
         (Printexc.to_string e) ;
       ()
     (* ignore any errors *)
