@@ -622,7 +622,7 @@ let append_livepatch_guidances ~updates_info ~upd_ids_of_livepatches guidances =
     upd_ids_of_livepatches guidances
 
 let eval_guidances ~updates_info ~updates ~kind ~livepatches ~failed_livepatches
-    =
+    ~previous_guidances =
   let extract_upd_ids lps =
     List.fold_left
       (fun acc (_, lps) ->
@@ -634,6 +634,11 @@ let eval_guidances ~updates_info ~updates ~kind ~livepatches ~failed_livepatches
   in
   let upd_ids_of_livepatches = extract_upd_ids livepatches in
   let upd_ids_of_failed_livepatches = extract_upd_ids failed_livepatches in
+  let initial_gs =
+    List.fold_left
+      (fun acc g -> GuidanceSet.add (Guidance.of_update_guidance g) acc)
+      GuidanceSet.empty previous_guidances
+  in
   List.fold_left
     (fun acc u ->
       match
@@ -645,7 +650,7 @@ let eval_guidances ~updates_info ~updates ~kind ~livepatches ~failed_livepatches
       | None ->
           acc
     )
-    GuidanceSet.empty updates
+    initial_gs updates
   |> append_livepatch_guidances ~updates_info ~upd_ids_of_livepatches
   |> GuidanceSet.resort_guidances ~kind
   |> GuidanceSet.elements
@@ -1235,11 +1240,11 @@ let consolidate_updates_of_host ~repository_name ~updates_info host
   in
   let rec_guidances =
     eval_guidances ~updates_info ~updates ~kind:Recommended ~livepatches
-      ~failed_livepatches:[]
+      ~failed_livepatches:[] ~previous_guidances:[]
   in
   let abs_guidances =
     eval_guidances ~updates_info ~updates ~kind:Absolute ~livepatches:[]
-      ~failed_livepatches:[]
+      ~failed_livepatches:[] ~previous_guidances:[]
     |> List.filter (fun g -> not (List.mem g rec_guidances))
   in
   let upd_ids_of_livepatches, lps =

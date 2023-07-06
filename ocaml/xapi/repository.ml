@@ -654,6 +654,10 @@ let set_restart_device_models ~__context ~host ~kind =
       None
 
 let set_pending_guidances ~__context ~host ~guidances =
+  let pending_guidances = Db.Host.get_pending_guidances ~__context ~self:host in
+  List.iter
+    (fun g -> Db.Host.remove_pending_guidances ~__context ~self:host ~value:g)
+    pending_guidances ;
   let open Guidance in
   guidances
   |> List.iter (function
@@ -674,6 +678,14 @@ let set_pending_guidances ~__context ~host ~guidances =
        )
 
 let set_recommended_guidances ~__context ~host ~guidances =
+  let recommended_guidances =
+    Db.Host.get_recommended_guidances ~__context ~self:host
+  in
+  List.iter
+    (fun g ->
+      Db.Host.remove_recommended_guidances ~__context ~self:host ~value:g
+    )
+    recommended_guidances ;
   let open Guidance in
   guidances
   |> List.iter (function
@@ -753,12 +765,15 @@ let apply_updates' ~__context ~host ~updates_info ~livepatches ~acc_rpm_updates
       (* EvacuateHost will be applied before applying updates *)
       eval_guidances ~updates_info ~updates:acc_rpm_updates ~kind:Recommended
         ~livepatches:successful_livepatches ~failed_livepatches
+        ~previous_guidances:
+          (Db.Host.get_recommended_guidances ~__context ~self:host)
       |> List.filter (fun g -> g <> Guidance.EvacuateHost)
     in
 
     let pending_guidances' =
       eval_guidances ~updates_info ~updates:acc_rpm_updates ~kind:Absolute
         ~livepatches:[] ~failed_livepatches:[]
+        ~previous_guidances:(Db.Host.get_pending_guidances ~__context ~self:host)
       |> List.filter (fun g -> not (List.mem g recommended_guidances'))
     in
     match failed_livepatches with
