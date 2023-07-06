@@ -231,7 +231,7 @@ def setup_cgroup(domid, pid):
 
 def mount(source, target, fs, flags=0):
     if ctypes.CDLL(ctypes.util.find_library("c"), use_errno=True
-                   ).mount(source, target, fs, flags) < 0:
+                   ).mount(source, target, fs, flags, None) < 0:
         log.error("Failed to mount {} ({}) to {} with flags {}: {}".
                   format(source, fs, target, flags,
                          os.strerror(ctypes.get_errno())))
