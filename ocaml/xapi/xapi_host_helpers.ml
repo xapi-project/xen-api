@@ -376,6 +376,8 @@ let consider_enabling_host_nolock ~__context =
       ~value:`restart_toolstack ;
     Db.Host.remove_recommended_guidances ~__context ~self:localhost
       ~value:`restart_toolstack ;
+    Db.Host.set_toolstack_restart_required_after_update ~__context
+      ~self:localhost ~value:false ;
     if !Xapi_globs.on_system_boot then (
       debug
         "Host.enabled: system has just restarted: setting localhost to enabled" ;

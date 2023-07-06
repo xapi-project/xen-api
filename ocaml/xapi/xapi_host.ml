@@ -1048,7 +1048,8 @@ let create ~__context ~uuid ~name_label ~name_description:_ ~hostname ~address
     ~control_domain:Ref.null ~updates_requiring_reboot:[] ~iscsi_iqn:""
     ~multipathing:false ~uefi_certificates:"" ~editions:[] ~pending_guidances:[]
     ~tls_verification_enabled ~last_software_update:Date.never
-    ~recommended_guidances:[] ~latest_synced_updates_applied:`unknown ;
+    ~recommended_guidances:[] ~latest_synced_updates_applied:`unknown
+    ~toolstack_restart_required_after_update:false ;
   (* If the host we're creating is us, make sure its set to live *)
   Db.Host_metrics.set_last_updated ~__context ~self:metrics
     ~value:(Date.of_float (Unix.gettimeofday ())) ;
@@ -2984,8 +2985,7 @@ let get_host_updates_handler (req : Http.Request.t) s _ =
   )
 
 let is_toolstack_restart_required ~__context self =
-  Db.Host.get_recommended_guidances ~__context ~self
-  |> List.mem `restart_toolstack
+  Db.Host.get_toolstack_restart_required_after_update ~__context ~self
 
 let assert_master_does_not_requires_restart_toolstack ~__context =
   if Helpers.get_master ~__context |> is_toolstack_restart_required ~__context

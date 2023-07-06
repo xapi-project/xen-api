@@ -748,41 +748,52 @@ let apply_updates' ~__context ~host ~updates_info ~livepatches ~acc_rpm_updates
       ]
       ) ;
   (* Evaluate recommended/pending guidances *)
-  let recommended_guidances, pending_guidances =
-    let recommended_guidances' =
-      (* EvacuateHost will be applied before applying updates *)
-      eval_guidances ~updates_info ~updates:acc_rpm_updates ~kind:Recommended
-        ~livepatches:successful_livepatches ~failed_livepatches
-      |> List.filter (fun g -> g <> Guidance.EvacuateHost)
+  let recommended_guidances, toolstack_restart_required, pending_guidances =
+    let recommended_guidances', toolstack_restart_required' =
+      let gs, toolstack_restart_required'' =
+        eval_guidances ~updates_info ~updates:acc_rpm_updates ~kind:Recommended
+          ~livepatches:successful_livepatches ~failed_livepatches
+      in
+      ( List.filter
+          (fun g -> g <> Guidance.EvacuateHost)
+          gs (* EvacuateHost will be applied before applying updates *)
+      , toolstack_restart_required''
+      )
     in
 
     let pending_guidances' =
-      eval_guidances ~updates_info ~updates:acc_rpm_updates ~kind:Absolute
-        ~livepatches:[] ~failed_livepatches:[]
-      |> List.filter (fun g -> not (List.mem g recommended_guidances'))
+      let gs, _ =
+        eval_guidances ~updates_info ~updates:acc_rpm_updates ~kind:Absolute
+          ~livepatches:[] ~failed_livepatches:[]
+      in
+      List.filter (fun g -> not (List.mem g recommended_guidances')) gs
     in
     match failed_livepatches with
     | [] ->
         (* No livepatch should be applicable now *)
         Db.Host.remove_pending_guidances ~__context ~self:host
           ~value:`reboot_host_on_livepatch_failure ;
-        (recommended_guidances', pending_guidances')
+        (recommended_guidances', toolstack_restart_required', pending_guidances')
     | _ :: _ ->
         (* There is(are) livepatch failure(s):
          * the host should not be rebooted, and
          * an extra pending guidance 'RebootHostOnLivePatchFailure' should be set.
          *)
         ( List.filter (fun g -> g <> Guidance.RebootHost) recommended_guidances'
+        , toolstack_restart_required'
         , Guidance.RebootHostOnLivePatchFailure :: pending_guidances'
         )
   in
   List.iter
     (fun g -> debug "recommended_guidance: %s" (Guidance.to_string g))
     recommended_guidances ;
+  debug "toolstack_restart_required: %B" toolstack_restart_required ;
   List.iter
     (fun g -> debug "pending_guidance: %s" (Guidance.to_string g))
     pending_guidances ;
   GuidanceSet.assert_valid_guidances recommended_guidances ;
+  Db.Host.set_toolstack_restart_required_after_update ~__context ~self:host
+    ~value:toolstack_restart_required ;
   set_recommended_guidances ~__context ~host ~guidances:recommended_guidances ;
   set_pending_guidances ~__context ~host ~guidances:pending_guidances ;
   ( recommended_guidances

@@ -634,21 +634,24 @@ let eval_guidances ~updates_info ~updates ~kind ~livepatches ~failed_livepatches
   in
   let upd_ids_of_livepatches = extract_upd_ids livepatches in
   let upd_ids_of_failed_livepatches = extract_upd_ids failed_livepatches in
-  List.fold_left
-    (fun acc u ->
-      match
-        eval_guidance_for_one_update ~updates_info ~update:u ~kind
-          ~upd_ids_of_livepatches ~upd_ids_of_failed_livepatches
-      with
-      | Some g ->
-          GuidanceSet.add g acc
-      | None ->
-          acc
-    )
-    GuidanceSet.empty updates
-  |> append_livepatch_guidances ~updates_info ~upd_ids_of_livepatches
-  |> GuidanceSet.resort_guidances ~kind
-  |> GuidanceSet.elements
+  let gs =
+    List.fold_left
+      (fun acc u ->
+        match
+          eval_guidance_for_one_update ~updates_info ~update:u ~kind
+            ~upd_ids_of_livepatches ~upd_ids_of_failed_livepatches
+        with
+        | Some g ->
+            GuidanceSet.add g acc
+        | None ->
+            acc
+      )
+      GuidanceSet.empty updates
+    |> append_livepatch_guidances ~updates_info ~upd_ids_of_livepatches
+  in
+  ( gs |> GuidanceSet.resort_guidances ~kind |> GuidanceSet.elements
+  , GuidanceSet'.mem Guidance.RestartToolstack gs
+  )
 
 let repoquery_sep = ":|"
 
@@ -1233,14 +1236,16 @@ let consolidate_updates_of_host ~repository_name ~updates_info host
   let livepatches =
     retrieve_livepatches_from_updateinfo ~updates_info ~updates:updates_of_host
   in
-  let rec_guidances =
+  let rec_guidances, _ =
     eval_guidances ~updates_info ~updates ~kind:Recommended ~livepatches
       ~failed_livepatches:[]
   in
   let abs_guidances =
-    eval_guidances ~updates_info ~updates ~kind:Absolute ~livepatches:[]
-      ~failed_livepatches:[]
-    |> List.filter (fun g -> not (List.mem g rec_guidances))
+    let gs, _ =
+      eval_guidances ~updates_info ~updates ~kind:Absolute ~livepatches:[]
+        ~failed_livepatches:[]
+    in
+    List.filter (fun g -> not (List.mem g rec_guidances)) gs
   in
   let upd_ids_of_livepatches, lps =
     if List.mem Guidance.RebootHost rec_guidances then

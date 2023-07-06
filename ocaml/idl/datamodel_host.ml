@@ -2144,6 +2144,12 @@ let t =
             ~default_value:(Some (VEnum "unknown"))
             "Default as 'unknown', 'yes' if the host is up to date with \
              updates synced from remote CDN, otherwise 'no'"
+        ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:Bool
+            "toolstack_restart_required_after_update"
+            ~default_value:(Some (VBool false))
+            "True if this host has applied an update with RestartToolstack as \
+             one of its recommended guidance, set to False after Toolstack is \
+             restarted"
         ]
       )
     ()
