@@ -504,9 +504,9 @@ module Accept = struct
     else
       match (a.ty, b.ty) with
       | Some _, None | Some (_, Some _), Some (_, None) ->
-          1
-      | None, Some _ | Some (_, None), Some (_, Some _) ->
           -1
+      | None, Some _ | Some (_, None), Some (_, Some _) ->
+          1
       | None, None
       | Some (_, None), Some (_, None)
       | Some (_, Some _), Some (_, Some _) ->
