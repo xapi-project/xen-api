@@ -449,9 +449,7 @@ let read_http_response_header buf fd =
 module Accept = struct
   (* Constraint: we can't have ty = None but subty <> None *)
   type t = {
-      ty: string option
-    ; (* None means '*' *)
-      subty: string option
+      ty: (string * string option) option
     ; (* None means '*' *)
       q: int
           (* range 0 - 1000 *)
@@ -459,19 +457,21 @@ module Accept = struct
   }
 
   let string_of_t x =
-    Printf.sprintf "%s/%s;q=%.3f"
-      (Option.value ~default:"*" x.ty)
-      (Option.value ~default:"*" x.subty)
-      (float_of_int x.q /. 1000.)
+    let ty, subty =
+      match x.ty with
+      | None ->
+          ("*", "*")
+      | Some (ty, subty) ->
+          (ty, Option.value ~default:"*" subty)
+    in
+    Printf.sprintf "%s/%s;q=%.3f" ty subty (float_of_int x.q /. 1000.)
 
   let matches (ty, subty) = function
-    | {ty= Some ty'; subty= Some subty'; _} ->
+    | {ty= Some (ty', Some subty'); _} ->
         ty' = ty && subty' = subty
-    | {ty= Some ty'; subty= None; _} ->
+    | {ty= Some (ty', None); _} ->
         ty' = ty
-    | {ty= None; subty= Some _; _} ->
-        assert false
-    | {ty= None; subty= None; _} ->
+    | {ty= None; _} ->
         true
 
   (* compare [a] and [b] where both match some media type *)
@@ -481,26 +481,19 @@ module Accept = struct
       -c (* q factor (user-preference) overrides all else *)
     else
       match (a.ty, b.ty) with
-      | Some _, None ->
+      | Some _, None | Some (_, Some _), Some (_, None) ->
           1
-      | None, Some _ ->
+      | None, Some _ | Some (_, None), Some (_, Some _) ->
           -1
-      | _, _ -> (
-        match (a.subty, b.subty) with
-        | Some _, None ->
-            1
-        | None, Some _ ->
-            -1
-        | _, _ ->
-            0
-      )
+      | None, None
+      | Some (_, None), Some (_, None)
+      | Some (_, Some _), Some (_, Some _) ->
+          0
 
   let preferred_match media ts =
-    match List.filter (matches media) ts with
-    | [] ->
-        None
-    | xs ->
-        Some (List.hd (List.sort compare xs))
+    List.filter (matches media) ts
+    |> List.sort compare
+    |> Fun.flip List.nth_opt 0
 
   exception Parse_failure of string
 
@@ -508,14 +501,13 @@ module Accept = struct
     match Astring.String.cuts ~sep:";" x with
     | ty_subty :: params ->
         let ty_of_string = function "*" -> None | x -> Some x in
-        let ty, subty =
+        let ty =
           match Astring.String.cuts ~sep:"/" ty_subty with
           | [ty; subty] ->
-              (ty_of_string ty, ty_of_string subty)
+              Option.map (fun ty -> (ty, ty_of_string subty)) (ty_of_string ty)
           | _ ->
               raise (Parse_failure ty_subty)
         in
-        if ty = None && subty <> None then raise (Parse_failure x) ;
         let params =
           List.map
             (fun x ->
@@ -528,12 +520,13 @@ module Accept = struct
             params
         in
         let q =
-          if List.mem_assoc "q" params then
-            int_of_float (1000. *. float_of_string (List.assoc "q" params))
-          else
-            1000
+          match List.assoc_opt "q" params with
+          | Some q ->
+              int_of_float (1000. *. float_of_string q)
+          | None ->
+              1000
         in
-        {ty; subty; q}
+        {ty; q}
     | _ ->
         raise (Parse_failure x)
 

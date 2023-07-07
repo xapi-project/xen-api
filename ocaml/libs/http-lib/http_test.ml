@@ -16,23 +16,23 @@ open OUnit2
 open Http
 
 let test_accept_simple _ =
-  let t = Accept.t_of_string "application/json" in
-  assert_equal ~msg:"ty"
-    ~printer:(Option.value ~default:"None")
-    t.Accept.ty (Some "application") ;
-  assert_equal ~msg:"subty"
-    ~printer:(Option.value ~default:"None")
-    t.Accept.subty (Some "json") ;
-  assert (Accept.matches ("application", "json") t)
+  let actual = Accept.t_of_string "application/json" in
+  let expected = Accept.{ty= Some ("application", Some "json"); q= 1000} in
+  assert_equal ~msg:"ty" ~printer:Accept.string_of_t actual expected ;
+  assert (Accept.matches ("application", "json") actual)
 
 let test_accept_complex _ =
-  let ts =
+  let content_types =
     Accept.ts_of_string
       "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
   in
-  let m = Accept.preferred_match ("text", "html") ts in
-  assert ((Option.get m).Accept.ty = Some "text") ;
-  let m = Accept.preferred_match ("foo", "bar") ts in
+  let actual = Accept.preferred_match ("text", "html") content_types in
+  let expected = Some Accept.{ty= Some ("text", Some "html"); q= 1000} in
+  assert_equal ~msg:"ty"
+    ~printer:(Option.fold ~none:"None" ~some:Accept.string_of_t)
+    actual expected ;
+
+  let m = Accept.preferred_match ("foo", "bar") content_types in
   assert ((Option.get m).Accept.ty = None)
 
 let test_strings =

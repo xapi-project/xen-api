@@ -48,13 +48,7 @@ val read_http_request_header :
 val read_http_response_header : bytes -> Unix.file_descr -> int
 
 module Accept : sig
-  type t = {
-      (* None means '*' *)
-      ty: string option
-    ; (* None means '*' *)
-      subty: string option
-    ; q: int
-  }
+  type t = {ty: (string * string option) option  (** None means '*' *); q: int}
 
   exception Parse_failure of string
 
