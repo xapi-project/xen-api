@@ -52,6 +52,8 @@ module Accept : sig
 
   exception Parse_failure of string
 
+  val equal : t -> t -> bool
+
   val t_of_string : string -> t
 
   val ts_of_string : string -> t list
@@ -257,6 +259,8 @@ module Url : sig
   type data = {uri: string; query_params: (string * string) list}
 
   type t = scheme * data
+
+  val equal : t -> t -> bool
 
   val of_string : string -> t
 

@@ -220,6 +220,15 @@ let parse_uri x =
 type authorization = Basic of string * string | UnknownAuth of string
 [@@deriving rpc]
 
+let authorization_equal a b =
+  match (a, b) with
+  | Basic _, UnknownAuth _ | UnknownAuth _, Basic _ ->
+      false
+  | Basic (a_u, a_p), Basic (b_u, b_p) ->
+      String.equal a_u b_u && String.equal a_p b_p
+  | UnknownAuth a, UnknownAuth b ->
+      String.equal a b
+
 let authorization_of_string x =
   let basic = "Basic " in
   if Astring.String.is_prefix ~affix:basic x then
@@ -456,6 +465,20 @@ module Accept = struct
           (* We won't parse the more advanced stuff *)
   }
 
+  let equal_ty a b =
+    match (a, b) with
+    | None, None ->
+        true
+    | Some (a, None), Some (b, None) ->
+        String.equal a b
+    | Some (a, Some a_s), Some (b, Some b_s) when String.equal a b ->
+        String.equal a_s b_s
+    | _ ->
+        false
+
+  let equal {ty= a_ty; q= a_q} {ty= b_ty; q= b_q} =
+    Int.equal a_q b_q && equal_ty a_ty b_ty
+
   let string_of_t x =
     let ty, subty =
       match x.ty with
@@ -474,9 +497,8 @@ module Accept = struct
     | {ty= None; _} ->
         true
 
-  (* compare [a] and [b] where both match some media type *)
-  let compare (a : t) (b : t) =
-    let c = compare a.q b.q in
+  let compare_user_preference (a : t) (b : t) =
+    let c = Stdlib.compare a.q b.q in
     if c <> 0 then
       -c (* q factor (user-preference) overrides all else *)
     else
@@ -492,7 +514,7 @@ module Accept = struct
 
   let preferred_match media ts =
     List.filter (matches media) ts
-    |> List.sort compare
+    |> List.sort compare_user_preference
     |> Fun.flip List.nth_opt 0
 
   exception Parse_failure of string
@@ -882,6 +904,33 @@ module Url = struct
   type data = {uri: string; query_params: (string * string) list}
 
   type t = scheme * data
+
+  let file_equal a b = String.equal a.path b.path
+
+  let query_params_equal (ak, av) (bk, bv) =
+    String.equal ak bk && String.equal av bv
+
+  let data_equal a b =
+    String.equal a.uri b.uri
+    && List.equal query_params_equal a.query_params b.query_params
+
+  let http_equal a b =
+    a.ssl = b.ssl
+    && Option.equal Int.equal a.port b.port
+    && Option.equal authorization_equal a.auth b.auth
+    && String.equal a.host b.host
+
+  let scheme_equal a b =
+    match (a, b) with
+    | Http _, File _ | File _, Http _ ->
+        false
+    | Http a_h, Http b_h ->
+        http_equal a_h b_h
+    | File a_f, File b_f ->
+        file_equal a_f b_f
+
+  let equal (a_scheme, a_data) (b_scheme, b_data) =
+    scheme_equal a_scheme b_scheme && data_equal a_data b_data
 
   let of_string url =
     let sub_before c s = String.sub s 0 (String.index s c) in
