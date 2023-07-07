@@ -5,17 +5,41 @@ open Rrdd_shared
 
 let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
-let mime_json = Printf.sprintf "%s: application/json" Http.Hdr.content_type
+let content_hdr_of_mime mime =
+  Printf.sprintf "%s: %s" Http.Hdr.content_type mime
 
-let mime_xml = Printf.sprintf "%s: text/xml" Http.Hdr.content_type
+let mime_json = "application/json"
 
-let content_type json = if json then mime_json else mime_xml
+let content_json = content_hdr_of_mime mime_json
+
+let mime_xml = "text/xml"
+
+let content_xml = content_hdr_of_mime mime_xml
+
+let client_prefers_json req =
+  let module Accept = Http.Accept in
+  match req.Http.Request.accept with
+  | None ->
+      List.mem_assoc "json" req.Http.Request.query
+  | Some accept -> (
+      let accepted = Accept.of_string accept in
+      let negotiated = Accept.preferred ~from:[mime_json; mime_xml] accepted in
+      match negotiated with
+      | x :: _ when String.equal x mime_json ->
+          true
+      | [] ->
+          List.mem_assoc "json" req.Http.Request.query
+      | _ ->
+          false
+    )
+
+let content_type json = if json then content_json else content_xml
 
 let rrd_handler (req : Http.Request.t) (s : Unix.file_descr) = function
   | None ->
       Http_svr.headers s (Http.http_404_missing ())
   | Some rrd ->
-      let json = List.mem_assoc "json" req.Http.Request.query in
+      let json = client_prefers_json req in
       let headers =
         List.concat
           [
@@ -164,7 +188,7 @@ let get_rrd_updates_handler (req : Http.Request.t) (s : Unix.file_descr) _ =
     else
       "none"
   in
-  let json = List.mem_assoc "json" query in
+  let json = client_prefers_json req in
   let reply =
     get_host_stats ~json ~start ~interval ~cfopt ~is_host ~vm_uuid ~sr_uuid ()
   in
