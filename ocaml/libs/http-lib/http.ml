@@ -325,10 +325,6 @@ let read_up_to ?deadline ?max buf already_read marker fd =
       | _, Some l ->
           l - !b
     in
-    (*
-		Printf.fprintf stderr "b = %d; safe_to_read = %d\n" !b safe_to_read;
-		flush stderr;
-*)
     Option.iter (fun m -> if !b + safe_to_read > m then raise Too_large) max ;
     let n =
       if !b < already_read then
@@ -337,39 +333,19 @@ let read_up_to ?deadline ?max buf already_read marker fd =
         Unix.read fd buf !b safe_to_read
     in
     if n = 0 then raise End_of_file ;
-    (*
-		Printf.fprintf stderr "  n = %d\n" n;
-		flush stderr;
-*)
     for j = 0 to n - 1 do
-      (*
-			Printf.fprintf stderr "b = %d; marker = %s; n = %d; j = %d\n" !b (Scanner.to_string marker) n j;
-			flush stderr;
-*)
       Scanner.input marker (Bytes.get buf (!b + j)) ;
       if !header_len_value_at = None then (
         Scanner.input hl_marker (Bytes.get buf (!b + j)) ;
         if Scanner.matched hl_marker then
           header_len_value_at := Some (!b + j + 1)
-        (*
-					Printf.fprintf stderr "header_len_value_at = %d\n" (!b + j + 1);
-					flush stderr
-*)
       )
     done ;
     b := !b + n ;
-    (*
-		Printf.fprintf stderr "b = %d\n" !b;
-		flush stderr;
-*)
     match !header_len_value_at with
     | Some x when x + header_len_value_len <= !b ->
         (* We can now read the header len header *)
         let hlv = Bytes.sub_string buf x header_len_value_len in
-        (*
-				Printf.fprintf stderr "hlvn=[%s]" hlv;
-				flush stderr;
-*)
         header_len := Some (int_of_string hlv)
     | _ ->
         ()
@@ -479,7 +455,7 @@ module Accept = struct
   let equal {ty= a_ty; q= a_q} {ty= b_ty; q= b_q} =
     Int.equal a_q b_q && equal_ty a_ty b_ty
 
-  let string_of_t x =
+  let to_string x =
     let ty, subty =
       match x.ty with
       | None ->
@@ -489,11 +465,18 @@ module Accept = struct
     in
     Printf.sprintf "%s/%s;q=%.3f" ty subty (float_of_int x.q /. 1000.)
 
-  let matches (ty, subty) = function
+  let ( // ) = Filename.concat
+
+  let matches ty = function
     | {ty= Some (ty', Some subty'); _} ->
-        ty' = ty && subty' = subty
-    | {ty= Some (ty', None); _} ->
-        ty' = ty
+        String.equal (ty' // subty') ty
+    | {ty= Some (ty', None); _} -> (
+      match String.split_on_char '/' ty with
+      | [] ->
+          false
+      | ty :: _ ->
+          String.equal ty' ty
+    )
     | {ty= None; _} ->
         true
 
@@ -512,14 +495,31 @@ module Accept = struct
       | Some (_, Some _), Some (_, Some _) ->
           0
 
-  let preferred_match media ts =
-    List.filter (matches media) ts
-    |> List.sort compare_user_preference
-    |> Fun.flip List.nth_opt 0
+  let preferred ~from types =
+    let same_priority = function
+      | [] ->
+          None
+      | {q; _} :: _ as xs ->
+          Some (List.partition (fun y -> y.q = q) xs)
+    in
+    let rec loop xs =
+      (* Assumes elements are ordered from best to worst *)
+      match same_priority xs with
+      | None ->
+          []
+      | Some (best, others) -> (
+        match List.filter (fun a -> List.exists (matches a) best) from with
+        | [] ->
+            loop others
+        | negotiated_types ->
+            negotiated_types
+      )
+    in
+    loop (List.sort compare_user_preference types)
 
   exception Parse_failure of string
 
-  let t_of_string x =
+  let of_string_single x =
     match Astring.String.cuts ~sep:";" x with
     | ty_subty :: params ->
         let ty_of_string = function "*" -> None | x -> Some x in
@@ -552,7 +552,8 @@ module Accept = struct
     | _ ->
         raise (Parse_failure x)
 
-  let ts_of_string x = List.map t_of_string (Astring.String.cuts ~sep:"," x)
+  let of_string x =
+    List.map of_string_single (Astring.String.cuts ~empty:false ~sep:"," x)
 end
 
 module Request = struct

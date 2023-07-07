@@ -54,15 +54,15 @@ module Accept : sig
 
   val equal : t -> t -> bool
 
-  val t_of_string : string -> t
+  val of_string : string -> t list
 
-  val ts_of_string : string -> t list
+  val to_string : t -> string
 
-  val string_of_t : t -> string
+  val matches : string -> t -> bool
 
-  val matches : string * string -> t -> bool
-
-  val preferred_match : string * string -> t list -> t option
+  val preferred : from:string list -> t list -> string list
+  (** [preferred ~from accepted] returns the content types in [~from]
+      that are accepted by elements of [accepted] in priority order *)
 end
 
 (** Parsed form of the HTTP request line plus cookie info *)

@@ -16,32 +16,74 @@ module Accept = struct
   module Accept = Http.Accept
 
   let accept =
-    Alcotest.testable (Fmt.of_to_string Accept.string_of_t) Accept.equal
+    Alcotest.testable (Fmt.of_to_string Accept.to_string) Accept.equal
 
   let test_accept_simple () =
     let data = "application/json" in
-    let expected = Accept.{ty= Some ("application", Some "json"); q= 1000} in
-    let actual = Accept.t_of_string data in
-    Alcotest.check accept data expected actual
+    let expected = [Accept.{ty= Some ("application", Some "json"); q= 1000}] in
+    let actual = Accept.of_string data in
+    Alcotest.(check @@ list accept) data expected actual
 
   let test_accept_complex () =
     let data =
-      "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+      "application/xml;q=0.9,text/html,application/xhtml+xml,*/*;q=0.8"
     in
-    let expected = Some Accept.{ty= Some ("text", Some "html"); q= 1000} in
-    let content_types = Accept.ts_of_string data in
-    let actual = Accept.preferred_match ("text", "html") content_types in
-    Alcotest.(check @@ option accept) data expected actual ;
+    let expected = ["text/html"] in
+    let content_types = Accept.of_string data in
+    let actual = Accept.preferred ~from:["text/html"] content_types in
+    Alcotest.(check @@ list string) data expected actual ;
 
-    let expected = Some Accept.{ty= None; q= 800} in
-    let actual = Accept.preferred_match ("foo", "bar") content_types in
-    Alcotest.(check @@ option accept) data expected actual
+    let expected = ["foo/bar"] in
+    let actual = Accept.preferred ~from:["foo/bar"] content_types in
+    Alcotest.(check @@ list string) data expected actual
+
+  let preferred_tests =
+    let data =
+      [
+        ("Empty ~from", "application/json,text/html", [], [])
+      ; ("Empty list", "", ["text/xml"], [])
+      ; ("No matches", "application/json,text/html", ["text/xml"], [])
+      ; ( "Matches a single element"
+        , "application/json,text/*"
+        , ["text/xml"]
+        , ["text/xml"]
+        )
+      ; ( "Detects correctly a low-priority matching rule"
+        , "text/xml,*/*;q=0.8,text/html"
+        , ["application/json"]
+        , ["application/json"]
+        )
+      ; ( "Not all elements match"
+        , "text/html,application/json"
+        , ["text/xml"; "text/html"]
+        , ["text/html"]
+        )
+      ; ( "Multiple selection"
+        , "text/*"
+        , ["text/xml"; "text/html"]
+        , ["text/xml"; "text/html"]
+        )
+      ]
+    in
+    let test (name, data, from, expected) =
+      let test () =
+        let content_types = Accept.of_string data in
+        let actual = Accept.preferred ~from content_types in
+        Alcotest.(check @@ list string) data expected actual
+      in
+      ("Preferred: " ^ name, `Quick, test)
+    in
+    List.map test data
 
   let tests =
-    [
-      ("Simple", `Quick, test_accept_simple)
-    ; ("Complex", `Quick, test_accept_complex)
-    ]
+    List.concat
+      [
+        [
+          ("Simple", `Quick, test_accept_simple)
+        ; ("Complex", `Quick, test_accept_complex)
+        ]
+      ; preferred_tests
+      ]
 end
 
 module Radix = struct
