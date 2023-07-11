@@ -354,32 +354,4 @@ let failed_login_attempts = addMessage "FAILED_LOGIN_ATTEMPTS" 3L
 let tls_verification_emergency_disabled =
   addMessage "TLS_VERIFICATION_EMERGENCY_DISABLED" 3L
 
-exception InvalidMessagePrio of int64
-
-let updates_feature_expiring prio =
-  let prio_str =
-    match prio with
-    | 1L ->
-        "CRITICAL"
-    | 2L ->
-        "MAJOR"
-    | 3L ->
-        "WARNING"
-    | 4L ->
-        "MINOR"
-    | 5L ->
-        "INFORMATIONAL"
-    | _ ->
-        raise (InvalidMessagePrio prio)
-  in
-  addMessage (Printf.sprintf "UPDATES_FEATURE_EXPIRING_%s" prio_str) prio
-
-let updates_feature_expiring_critical = updates_feature_expiring 1L
-
-let updates_feature_expiring_major = updates_feature_expiring 2L
-
-let updates_feature_expiring_warning = updates_feature_expiring 3L
-
-let updates_feature_expired = addMessage "UPDATES_FEATURE_EXPIRED" 1L
-
 let periodic_update_sync_failed = addMessage "PERIODIC_UPDATE_SYNC_FAILED" 3L
