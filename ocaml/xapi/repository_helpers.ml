@@ -622,7 +622,7 @@ let append_livepatch_guidances ~updates_info ~upd_ids_of_livepatches guidances =
     upd_ids_of_livepatches guidances
 
 let eval_guidances ~updates_info ~updates ~kind ~livepatches ~failed_livepatches
-    ~unapplied_guidances =
+    =
   let extract_upd_ids lps =
     List.fold_left
       (fun acc (_, lps) ->
@@ -634,11 +634,6 @@ let eval_guidances ~updates_info ~updates ~kind ~livepatches ~failed_livepatches
   in
   let upd_ids_of_livepatches = extract_upd_ids livepatches in
   let upd_ids_of_failed_livepatches = extract_upd_ids failed_livepatches in
-  let initial_gs =
-    List.fold_left
-      (fun acc g -> GuidanceSet.add (Guidance.of_update_guidance g) acc)
-      GuidanceSet.empty unapplied_guidances
-  in
   List.fold_left
     (fun acc u ->
       match
@@ -650,10 +645,24 @@ let eval_guidances ~updates_info ~updates ~kind ~livepatches ~failed_livepatches
       | None ->
           acc
     )
-    initial_gs updates
+    GuidanceSet.empty updates
   |> append_livepatch_guidances ~updates_info ~upd_ids_of_livepatches
   |> GuidanceSet.resort_guidances ~kind
   |> GuidanceSet.elements
+
+let merge_with_unapplied_guidances ~__context ~host ~kind ~guidances =
+  let open GuidanceSet in
+  ( match kind with
+  | Guidance.Absolute ->
+      Db.Host.get_pending_guidances ~__context ~self:host
+  | Guidance.Recommended ->
+      Db.Host.get_recommended_guidances ~__context ~self:host
+  )
+  |> List.map (fun g -> Guidance.of_update_guidance g)
+  |> of_list
+  |> union (of_list guidances)
+  |> resort_guidances ~kind
+  |> elements
 
 let repoquery_sep = ":|"
 
@@ -1240,11 +1249,11 @@ let consolidate_updates_of_host ~repository_name ~updates_info host
   in
   let rec_guidances =
     eval_guidances ~updates_info ~updates ~kind:Recommended ~livepatches
-      ~failed_livepatches:[] ~unapplied_guidances:[]
+      ~failed_livepatches:[]
   in
   let abs_guidances =
     eval_guidances ~updates_info ~updates ~kind:Absolute ~livepatches:[]
-      ~failed_livepatches:[] ~unapplied_guidances:[]
+      ~failed_livepatches:[]
     |> List.filter (fun g -> not (List.mem g rec_guidances))
   in
   let upd_ids_of_livepatches, lps =
