@@ -641,12 +641,12 @@ let set_restart_device_models ~__context ~host ~kind =
   | `Running, true | `Paused, true -> (
     match kind with
     | Guidance.Absolute ->
-        Db.VM.add_pending_guidances ~__context ~self:ref
-          ~value:`restart_device_model ;
+        Db.VM.set_pending_guidances ~__context ~self:ref
+          ~value:[`restart_device_model] ;
         None
     | Guidance.Recommended ->
-        Db.VM.add_recommended_guidances ~__context ~self:ref
-          ~value:`restart_device_model ;
+        Db.VM.set_recommended_guidances ~__context ~self:ref
+          ~value:[`restart_device_model] ;
         None
   )
   | _ ->
