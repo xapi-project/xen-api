@@ -765,7 +765,7 @@ let apply_updates' ~__context ~host ~updates_info ~livepatches ~acc_rpm_updates
       (* EvacuateHost will be applied before applying updates *)
       eval_guidances ~updates_info ~updates:acc_rpm_updates ~kind:Recommended
         ~livepatches:successful_livepatches ~failed_livepatches
-        ~previous_guidances:
+        ~unapplied_guidances:
           (Db.Host.get_recommended_guidances ~__context ~self:host)
       |> List.filter (fun g -> g <> Guidance.EvacuateHost)
     in
@@ -773,7 +773,8 @@ let apply_updates' ~__context ~host ~updates_info ~livepatches ~acc_rpm_updates
     let pending_guidances' =
       eval_guidances ~updates_info ~updates:acc_rpm_updates ~kind:Absolute
         ~livepatches:[] ~failed_livepatches:[]
-        ~previous_guidances:(Db.Host.get_pending_guidances ~__context ~self:host)
+        ~unapplied_guidances:
+          (Db.Host.get_pending_guidances ~__context ~self:host)
       |> List.filter (fun g -> not (List.mem g recommended_guidances'))
     in
     match failed_livepatches with
