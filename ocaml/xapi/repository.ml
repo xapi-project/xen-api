@@ -654,53 +654,58 @@ let set_restart_device_models ~__context ~host ~kind =
       None
 
 let set_pending_guidances ~__context ~host ~guidances =
-  let pending_guidances = Db.Host.get_pending_guidances ~__context ~self:host in
-  List.iter
-    (fun g -> Db.Host.remove_pending_guidances ~__context ~self:host ~value:g)
-    pending_guidances ;
   let open Guidance in
   guidances
   |> List.iter (function
-       | RebootHost ->
-           Db.Host.add_pending_guidances ~__context ~self:host
-             ~value:`reboot_host
-       | RebootHostOnLivePatchFailure ->
-           Db.Host.add_pending_guidances ~__context ~self:host
-             ~value:`reboot_host_on_livepatch_failure
-       | RestartToolstack ->
-           Db.Host.add_pending_guidances ~__context ~self:host
-             ~value:`restart_toolstack
+       | RebootHost | RebootHostOnLivePatchFailure | RestartToolstack ->
+           ()
        | RestartDeviceModel ->
            set_restart_device_models ~__context ~host ~kind:Absolute
        | g ->
            warn "Unsupported pending guidance %s, ignoring it."
              (Guidance.to_string g)
-       )
+       ) ;
+  let gs =
+    List.filter_map
+      (function
+        | RebootHost ->
+            Some `reboot_host
+        | RebootHostOnLivePatchFailure ->
+            Some `reboot_host_on_livepatch_failure
+        | RestartToolstack ->
+            Some `restart_toolstack
+        | _ ->
+            None
+        )
+      guidances
+  in
+  Db.Host.set_pending_guidances ~__context ~self:host ~value:gs
 
 let set_recommended_guidances ~__context ~host ~guidances =
-  let recommended_guidances =
-    Db.Host.get_recommended_guidances ~__context ~self:host
-  in
-  List.iter
-    (fun g ->
-      Db.Host.remove_recommended_guidances ~__context ~self:host ~value:g
-    )
-    recommended_guidances ;
   let open Guidance in
   guidances
   |> List.iter (function
-       | RebootHost ->
-           Db.Host.add_recommended_guidances ~__context ~self:host
-             ~value:`reboot_host
-       | RestartToolstack ->
-           Db.Host.add_recommended_guidances ~__context ~self:host
-             ~value:`restart_toolstack
+       | RebootHost | RestartToolstack ->
+           ()
        | RestartDeviceModel ->
            set_restart_device_models ~__context ~host ~kind:Recommended
        | g ->
            warn "Unsupported recommended guidance %s, ignoring it."
              (Guidance.to_string g)
-       )
+       ) ;
+  let gs =
+    List.filter_map
+      (function
+        | RebootHost ->
+            Some `reboot_host
+        | RestartToolstack ->
+            Some `restart_toolstack
+        | _ ->
+            None
+        )
+      guidances
+  in
+  Db.Host.set_recommended_guidances ~__context ~self:host ~value:gs
 
 let apply_livepatches' ~__context ~host ~livepatches =
   List.partition_map
