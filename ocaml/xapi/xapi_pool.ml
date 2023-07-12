@@ -3404,7 +3404,7 @@ let sync_updates ~__context ~self ~force ~token ~token_id =
   finally
     (fun () ->
       Db.Pool.add_to_other_config ~__context ~self
-        ~key:"sync_with_yum_repo_in_progress" ~value:"true" ;
+        ~key:"sync_with_yum_repos_in_progress" ~value:"true" ;
       let enabled = Repository_helpers.get_enabled_repositories ~__context in
       match force with
       | true ->
@@ -3413,10 +3413,10 @@ let sync_updates ~__context ~self ~force ~token ~token_id =
           @@ fun () ->
           with_reposync_lock @@ fun () ->
           enabled
-          |> List.iter (fun x ->
-                 cleanup_pool_repo ~__context ~self:x ;
-                 sync ~__context ~self:x ~token ~token_id ;
-                 create_pool_repository ~__context ~self:x
+          |> List.iter (fun r ->
+                 cleanup_pool_repo ~__context ~self:r ;
+                 sync ~__context ~self:r ~token ~token_id ;
+                 create_pool_repository ~__context ~self:r
              ) ;
           let checksum = set_available_updates ~__context in
           Db.Pool.set_last_update_sync ~__context ~self ~value:(Date.now ()) ;
@@ -3424,18 +3424,18 @@ let sync_updates ~__context ~self ~force ~token ~token_id =
       | false ->
           with_reposync_lock @@ fun () ->
           enabled
-          |> List.iter (fun x -> sync ~__context ~self:x ~token ~token_id) ;
+          |> List.iter (fun r -> sync ~__context ~self:r ~token ~token_id) ;
           Xapi_pool_helpers.with_pool_operation ~__context ~self
             ~doc:"pool.sync_updates" ~op:`sync_updates
           @@ fun () ->
-          List.iter (fun x -> create_pool_repository ~__context ~self:x) enabled ;
+          List.iter (fun r -> create_pool_repository ~__context ~self:r) enabled ;
           let checksum = set_available_updates ~__context in
           Db.Pool.set_last_update_sync ~__context ~self ~value:(Date.now ()) ;
           checksum
     )
     (fun () ->
       Db.Pool.add_to_other_config ~__context ~self
-        ~key:"sync_with_yum_repo_in_progress" ~value:"false"
+        ~key:"sync_with_yum_repos_in_progress" ~value:"false"
     )
 
 let check_update_readiness ~__context ~self:_ ~requires_reboot =
