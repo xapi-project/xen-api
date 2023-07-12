@@ -54,8 +54,4 @@ let blob_location = Filename.concat "/var/lib/xcp" "blobs"
 (* Location of json dump for NRPE to read them *)
 let datasource_dump_file = "/dev/shm" // "host-metrics.json"
 
-let version_major = 1
-
-let version_minor = 0
-
-let rrdd_user_agent = Printf.sprintf "rrdd/%d.%d" version_major version_minor
+let rrdd_user_agent = "rrdd" // Xapi_version.version
