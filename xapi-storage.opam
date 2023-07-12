@@ -21,6 +21,10 @@ depends: [
   "xmlm"
   "cmdliner"
 ]
+# python 2.7 is not enough to ensure the availability of 'python' in these
+depexts: [
+  ["python"] {os-family = "debian"}
+]
 synopsis: "Code and documentation generator for the Xapi storage interface"
 url {
   src: "https://github.com/xapi-project/xen-api/archive/master.tar.gz"

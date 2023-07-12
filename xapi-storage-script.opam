@@ -26,6 +26,10 @@ depends: [
   "ppx_sexp_conv"
   "xapi-stdext-date"
 ]
+# python 2.7 is not enough to ensure the availability of 'python' in these
+depexts: [
+  ["python"] {os-family = "debian" & with-test}
+]
 synopsis: "A directory full of scripts can be a Xapi storage implementation"
 description: """
 This daemon watches a directory for subdirectories, and when a subdir
