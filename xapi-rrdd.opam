@@ -24,6 +24,7 @@ depends: [
   "ezxenstore"
   "uuid"
   "xapi-backtrace"
+  "xapi-consts"
   "xapi-idl"
   "xapi-rrd"
   "xapi-rrd-transport"
