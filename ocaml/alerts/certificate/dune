@@ -3,7 +3,6 @@
   (modules certificate_check)
   (libraries
     astring
-    xapi-expiry-alerts
     xapi-client
     xapi-consts
     xapi-types

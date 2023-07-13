@@ -5,6 +5,5 @@ let () =
   Alcotest.run "Alerts"
     [
       ("Test_daily_license_check", Test_daily_license_check.test)
-    ; ("Test_expiry_alert", Test_expiry_alert.test)
     ; ("Test_alert_certificate_check", Test_alert_certificate_check.test)
     ]

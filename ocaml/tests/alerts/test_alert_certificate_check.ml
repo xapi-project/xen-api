@@ -16,33 +16,30 @@ open Certificate_check
 
 let date_of = Xapi_stdext_date.Date.of_string
 
-let check_time = date_of "20200201T02:00:00Z"
+let check_time = Xapi_stdext_date.Date.to_float (date_of "20200201T02:00:00Z")
 
 let good_samples =
   [
     "20210202T02:00:00Z" (* +1 year*)
   ; "20200302T02:00:01Z" (* +30 days, +1 second *)
-  ; "20200302T02:00:00Z" (* +30 days *)
   ]
 
 let expiring_samples =
   [
-    ("20200302T01:59:59Z", Api_messages.host_server_certificate_expiring_30)
+    ("20200302T02:00:00Z", Api_messages.host_server_certificate_expiring_30)
   ; ("20200301T02:00:00Z", Api_messages.host_server_certificate_expiring_30)
-  ; ("20200215T02:00:00Z", Api_messages.host_server_certificate_expiring_30)
-  ; ("20200215T01:59:59Z", Api_messages.host_server_certificate_expiring_14)
-  ; ("20200208T02:00:00Z", Api_messages.host_server_certificate_expiring_14)
-  ; ("20200208T01:59:59Z", Api_messages.host_server_certificate_expiring_07)
+  ; ("20200215T02:00:00Z", Api_messages.host_server_certificate_expiring_14)
+  ; ("20200208T02:00:00Z", Api_messages.host_server_certificate_expiring_07)
   ; ("20200201T02:00:00Z", Api_messages.host_server_certificate_expiring_07)
   ]
 
 let expired_samples = ["20200102T02:00:00Z"; "20200201T01:59:59Z"]
 
-let format_good datestring = (date_of datestring, None)
+let format_good datestring = (date_of datestring, ("host", None))
 
 let _format (datestring, ppf, alert) =
   let fmt = Scanf.format_from_string ppf "%s" in
-  (date_of datestring, Some (Printf.sprintf fmt datestring, alert))
+  (date_of datestring, ("host", Some (Printf.sprintf fmt datestring, alert)))
 
 let format_expiring (datestring, alert) =
   let ppf =
@@ -68,14 +65,17 @@ let certificate_samples =
 
 let gen check_time datetime =
   let cert = Host (Ref.null, datetime) in
-  let obj_des = certificate_description cert in
-  let alert_conditions = alert_conditions cert in
-  let expiry = get_expiry cert in
-  maybe_generate_alert check_time obj_des alert_conditions expiry
+  match generate_alert check_time cert with
+  | CA _, x ->
+      ("pool", x)
+  | Host _, x ->
+      ("host", x)
+  | Internal _, x ->
+      ("internal", x)
 
-let test_alerts (datetime, expected) () =
-  let result = gen check_time datetime in
-  Alcotest.(check @@ option @@ pair string @@ pair string int64)
+let test_alerts (server_certificates, expected) () =
+  let result = gen check_time server_certificates in
+  Alcotest.(check @@ pair string @@ option @@ pair string @@ pair string int64)
     "certificate_expiry" expected result
 
 let test =
