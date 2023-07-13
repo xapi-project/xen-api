@@ -731,6 +731,15 @@ module VM : HandlerTools = struct
         Db.VM.set_suspend_SR ~__context ~self:vm ~value:Ref.null ;
       Db.VM.set_parent ~__context ~self:vm ~value:vm_record.API.vM_parent ;
       ( try
+          let vmm = lookup vm_record.API.vM_metrics state.table in
+          (* We have VM_metrics in the imported metadata, so use it, and destroy
+             the record created by VM.create_from_record above. *)
+          let replaced_vmm = Db.VM.get_metrics ~__context ~self:vm in
+          Db.VM.set_metrics ~__context ~self:vm ~value:vmm ;
+          Db.VM_metrics.destroy ~__context ~self:replaced_vmm
+        with _ -> ()
+      ) ;
+      ( try
           let gm = lookup vm_record.API.vM_guest_metrics state.table in
           Db.VM.set_guest_metrics ~__context ~self:vm ~value:gm
         with _ -> ()
@@ -803,6 +812,40 @@ module GuestMetrics : HandlerTools = struct
       ~can_use_hotplug_vbd:gm_record.API.vM_guest_metrics_can_use_hotplug_vbd
       ~can_use_hotplug_vif:gm_record.API.vM_guest_metrics_can_use_hotplug_vif ;
     state.table <- (x.cls, x.id, Ref.string_of gm) :: state.table
+end
+
+(** Create the VM metrics *)
+module Metrics : HandlerTools = struct
+  type precheck_t = OK
+
+  let precheck __context _config _rpc _session_id _state _x = OK
+
+  let handle_dry_run __context _config _rpc _session_id state x _precheck_result
+      =
+    let dummy_gm = Ref.make () in
+    state.table <- (x.cls, x.id, Ref.string_of dummy_gm) :: state.table
+
+  let handle __context _config _rpc _session_id state x _precheck_result =
+    let vmm_record = API.vM_metrics_t_of_rpc x.snapshot in
+    let vmm = Ref.make () in
+    Db.VM_metrics.create ~__context ~ref:vmm
+      ~uuid:(Uuidx.to_string (Uuidx.make ()))
+      ~memory_actual:vmm_record.API.vM_metrics_memory_actual
+      ~vCPUs_number:vmm_record.API.vM_metrics_VCPUs_number
+      ~vCPUs_utilisation:vmm_record.API.vM_metrics_VCPUs_utilisation
+      ~vCPUs_CPU:vmm_record.API.vM_metrics_VCPUs_CPU
+      ~vCPUs_params:vmm_record.API.vM_metrics_VCPUs_params
+      ~vCPUs_flags:vmm_record.API.vM_metrics_VCPUs_flags
+      ~state:vmm_record.API.vM_metrics_state
+      ~start_time:vmm_record.API.vM_metrics_start_time
+      ~install_time:vmm_record.API.vM_metrics_install_time
+      ~last_updated:vmm_record.API.vM_metrics_last_updated
+      ~other_config:vmm_record.API.vM_metrics_other_config
+      ~hvm:vmm_record.API.vM_metrics_hvm
+      ~nested_virt:vmm_record.API.vM_metrics_nested_virt
+      ~nomigrate:vmm_record.API.vM_metrics_nomigrate
+      ~current_domain_type:vmm_record.API.vM_metrics_current_domain_type ;
+    state.table <- (x.cls, x.id, Ref.string_of vmm) :: state.table
 end
 
 (** If we're restoring VM metadata only then lookup the SR by uuid. If we can't find
@@ -1910,6 +1953,7 @@ module HostHandler = MakeHandler (Host)
 module SRHandler = MakeHandler (SR)
 module VDIHandler = MakeHandler (VDI)
 module GuestMetricsHandler = MakeHandler (GuestMetrics)
+module MetricsHandler = MakeHandler (Metrics)
 module VMHandler = MakeHandler (VM)
 module NetworkHandler = MakeHandler (Net)
 module GPUGroupHandler = MakeHandler (GPUGroup)
@@ -1928,6 +1972,7 @@ let handlers =
   ; (Datamodel_common._sr, SRHandler.handle)
   ; (Datamodel_common._vdi, VDIHandler.handle)
   ; (Datamodel_common._vm_guest_metrics, GuestMetricsHandler.handle)
+  ; (Datamodel_common._vm_metrics, MetricsHandler.handle)
   ; (Datamodel_common._vm, VMHandler.handle)
   ; (Datamodel_common._network, NetworkHandler.handle)
   ; (Datamodel_common._gpu_group, GPUGroupHandler.handle)
