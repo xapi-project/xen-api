@@ -641,12 +641,12 @@ let set_restart_device_models ~__context ~host ~kind =
   | `Running, true | `Paused, true -> (
     match kind with
     | Guidance.Absolute ->
-        Db.VM.add_pending_guidances ~__context ~self:ref
-          ~value:`restart_device_model ;
+        Db.VM.set_pending_guidances ~__context ~self:ref
+          ~value:[`restart_device_model] ;
         None
     | Guidance.Recommended ->
-        Db.VM.add_recommended_guidances ~__context ~self:ref
-          ~value:`restart_device_model ;
+        Db.VM.set_recommended_guidances ~__context ~self:ref
+          ~value:[`restart_device_model] ;
         None
   )
   | _ ->
@@ -656,39 +656,46 @@ let set_restart_device_models ~__context ~host ~kind =
 let set_pending_guidances ~__context ~host ~guidances =
   let open Guidance in
   guidances
-  |> List.iter (function
-       | RebootHost ->
-           Db.Host.add_pending_guidances ~__context ~self:host
-             ~value:`reboot_host
-       | RebootHostOnLivePatchFailure ->
-           Db.Host.add_pending_guidances ~__context ~self:host
-             ~value:`reboot_host_on_livepatch_failure
-       | RestartToolstack ->
-           Db.Host.add_pending_guidances ~__context ~self:host
-             ~value:`restart_toolstack
-       | RestartDeviceModel ->
-           set_restart_device_models ~__context ~host ~kind:Absolute
-       | g ->
-           warn "Unsupported pending guidance %s, ignoring it."
-             (Guidance.to_string g)
+  |> List.fold_left
+       (fun acc g ->
+         match g with
+         | RebootHost ->
+             `reboot_host :: acc
+         | RebootHostOnLivePatchFailure ->
+             `reboot_host_on_livepatch_failure :: acc
+         | RestartToolstack ->
+             `restart_toolstack :: acc
+         | RestartDeviceModel ->
+             set_restart_device_models ~__context ~host ~kind:Absolute ;
+             acc
+         | g ->
+             warn "Unsupported pending guidance %s, ignoring it."
+               (Guidance.to_string g) ;
+             acc
        )
+       []
+  |> fun gs -> Db.Host.set_pending_guidances ~__context ~self:host ~value:gs
 
 let set_recommended_guidances ~__context ~host ~guidances =
   let open Guidance in
   guidances
-  |> List.iter (function
-       | RebootHost ->
-           Db.Host.add_recommended_guidances ~__context ~self:host
-             ~value:`reboot_host
-       | RestartToolstack ->
-           Db.Host.add_recommended_guidances ~__context ~self:host
-             ~value:`restart_toolstack
-       | RestartDeviceModel ->
-           set_restart_device_models ~__context ~host ~kind:Recommended
-       | g ->
-           warn "Unsupported recommended guidance %s, ignoring it."
-             (Guidance.to_string g)
+  |> List.fold_left
+       (fun acc g ->
+         match g with
+         | RebootHost ->
+             `reboot_host :: acc
+         | RestartToolstack ->
+             `restart_toolstack :: acc
+         | RestartDeviceModel ->
+             set_restart_device_models ~__context ~host ~kind:Absolute ;
+             acc
+         | g ->
+             warn "Unsupported recommended guidance %s, ignoring it."
+               (Guidance.to_string g) ;
+             acc
        )
+       []
+  |> fun gs -> Db.Host.set_recommended_guidances ~__context ~self:host ~value:gs
 
 let apply_livepatches' ~__context ~host ~livepatches =
   List.partition_map
@@ -749,18 +756,27 @@ let apply_updates' ~__context ~host ~updates_info ~livepatches ~acc_rpm_updates
       ) ;
   (* Evaluate recommended/pending guidances *)
   let recommended_guidances, pending_guidances =
-    let recommended_guidances' =
+    let new_recommended_gs =
       (* EvacuateHost will be applied before applying updates *)
       eval_guidances ~updates_info ~updates:acc_rpm_updates ~kind:Recommended
         ~livepatches:successful_livepatches ~failed_livepatches
       |> List.filter (fun g -> g <> Guidance.EvacuateHost)
     in
+    let recommended_guidances' =
+      merge_with_unapplied_guidances ~__context ~host ~kind:Recommended
+        ~guidances:new_recommended_gs
+    in
 
-    let pending_guidances' =
+    let new_pending_gs =
       eval_guidances ~updates_info ~updates:acc_rpm_updates ~kind:Absolute
         ~livepatches:[] ~failed_livepatches:[]
       |> List.filter (fun g -> not (List.mem g recommended_guidances'))
     in
+    let pending_guidances' =
+      merge_with_unapplied_guidances ~__context ~host ~kind:Absolute
+        ~guidances:new_pending_gs
+    in
+
     match failed_livepatches with
     | [] ->
         (* No livepatch should be applicable now *)
