@@ -60,7 +60,7 @@ jobs:
         uses: falti/dotenv-action@v1.0.4
 
       - name: Use ocaml
-        uses: ocaml/setup-ocaml@v2
+        uses: psafont/setup-ocaml@copy-cache
         with:
           ocaml-compiler: ${{ steps.dotenv.outputs.ocaml_version_full }}
           opam-repositories: |
