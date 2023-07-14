@@ -13,10 +13,8 @@
  *)
 module U = Unix
 module R = Rpc
-module B = Backtrace
-open Core
 open Async
-open Xapi_storage_script_types
+module Types = Xapi_storage_script_types
 
 module Plugin_client = Xapi_storage.Plugin.Plugin (Rpc_async.GenClient ())
 
@@ -43,7 +41,7 @@ let backend_backtrace_error name args backtrace =
   | ["Activated_on_another_host"; uuid] ->
       Errors.Activated_on_another_host uuid
   | _ ->
-      let backtrace = rpc_of_backtrace backtrace |> Jsonrpc.to_string in
+      let backtrace = Types.rpc_of_backtrace backtrace |> Jsonrpc.to_string in
       Errors.Backend_error_with_backtrace (name, backtrace :: args)
 
 let missing_uri () =
@@ -68,7 +66,7 @@ let return_rpc typ result =
       (* In practice we'll always get a successful RPC response here (Ok),
          but we still have to transform the Error to make the types match: *)
       let result =
-        Result.map_error result ~f:(fun err ->
+        Base.Result.map_error result ~f:(fun err ->
             backend_error "SCRIPT_RETURNED_RPC_ERROR"
               [Rpcmarshal.marshal typ err |> R.to_string]
         )
@@ -85,7 +83,7 @@ let return_rpc typ result =
       return
         (Error
            (backend_error "SCRIPT_FAILED"
-              ["Unexpected exception:" ^ Exn.to_string e]
+              ["Unexpected exception:" ^ Base.Exn.to_string e]
            )
         )
 
@@ -124,7 +122,19 @@ let pvs_version = "3.0"
 
 let supported_api_versions = [pvs_version; "5.0"]
 
-let api_max = List.fold_left ~f:String.max supported_api_versions ~init:""
+let string_min a b =
+  if String.compare a b <= 0 then
+    a
+  else
+    b
+
+let string_max a b =
+  if String.compare a b >= 0 then
+    a
+  else
+    b
+
+let api_max = List.fold_left string_max "" supported_api_versions
 
 let id x = x
 
@@ -143,7 +153,7 @@ end) : sig
   (** Module for making the inputs and outputs compatible with the old PVS
       version of the storage scripts. *)
 
-  type device_config = (Core.String.t, string) Core.List.Assoc.t
+  type device_config = (string * string) list
 
   val compat_out_volume : compat_out
   (** Add the missing [sharable] field to the Dict in [rpc], to ensure the
@@ -170,11 +180,11 @@ end) : sig
   (** Compatiblity for the old PVS version of SR.attach, which had signature
       [uri -> sr (=string)] *)
 end = struct
-  type device_config = (Core.String.t, string) Core.List.Assoc.t
+  type device_config = (string * string) list
 
   let with_pvs_version f rpc =
     match !V.version with
-    | Some v when String.(v = pvs_version) ->
+    | Some v when String.equal v pvs_version ->
         f rpc
     | _ ->
         rpc
@@ -206,7 +216,7 @@ end = struct
   let add_fields_to_record_list_output fields =
     with_pvs_version (function
       | R.Enum l ->
-          R.Enum (List.map ~f:(add_fields_to_dict fields) l)
+          R.Enum (List.map (add_fields_to_dict fields) l)
       | rpc ->
           rpc
       )
@@ -221,8 +231,8 @@ end = struct
       old PVS scripts *)
   let compat_uri device_config =
     match !V.version with
-    | Some version when String.(version = pvs_version) -> (
-      match List.Assoc.find ~equal:String.equal device_config "uri" with
+    | Some version when String.equal version pvs_version -> (
+      match List.assoc_opt "uri" device_config with
       | None ->
           return (Error (missing_uri ()))
       | Some uri ->
@@ -235,7 +245,7 @@ end = struct
     compat_uri device_config >>>= fun compat_in ->
     let compat_out =
       match !V.version with
-      | Some v when String.(v = pvs_version) -> (
+      | Some v when String.equal v pvs_version -> (
           function
           (* The PVS version will return nothing *)
           | R.Null ->
@@ -254,19 +264,18 @@ end
 
 let check_plugin_version_compatible query_result =
   let Xapi_storage.Plugin.{name; required_api_version; _} = query_result in
-  if String.(required_api_version <> api_max) then
+  if not (String.equal required_api_version api_max) then
     warn
       "Using deprecated SMAPIv3 API version %s, latest is %s. Update your %s \
        plugin!"
       required_api_version api_max name ;
-  if List.mem ~equal:String.equal supported_api_versions required_api_version
-  then
+  if List.mem required_api_version supported_api_versions then
     Deferred.Result.return ()
   else
     let msg =
       Printf.sprintf "%s requires unknown SMAPI API version %s, supported: %s"
         name required_api_version
-        (String.concat ~sep:"," supported_api_versions)
+        (String.concat "," supported_api_versions)
     in
     return (Error (Storage_interface.Errors.No_storage_plugin_for_sr msg))
 
@@ -323,23 +332,23 @@ let is_executable path =
 module Script = struct
   (** We cache (lowercase script name -> original script name) mapping for the
       scripts in the root directory of every registered plugin. *)
-  let name_mapping = String.Table.create ~size:4 ()
+  let name_mapping = Base.Hashtbl.create ~size:4 (module Base.String)
 
   let update_mapping ~script_dir =
     Sys.readdir script_dir >>| Array.to_list >>| fun files ->
     (* If there are multiple files which map to the same lowercase string, we
        just take the first one, instead of failing *)
     let mapping =
-      List.zip_exn files files
-      |> String.Caseless.Map.of_alist_reduce ~f:String.min
+      List.combine files files
+      |> Core.String.Caseless.Map.of_alist_reduce ~f:string_min
     in
-    Hashtbl.set name_mapping ~key:script_dir ~data:mapping
+    Base.Hashtbl.set name_mapping ~key:script_dir ~data:mapping
 
   let path ~script_dir ~script_name =
     let find () =
       let cached_script_name =
-        let ( >>?= ) = Option.( >>= ) in
-        Hashtbl.find name_mapping script_dir >>?= fun mapping ->
+        let ( let* ) = Option.bind in
+        let* mapping = Base.Hashtbl.find name_mapping script_dir in
         Core.String.Caseless.Map.find mapping script_name
       in
       let script_name = Option.value cached_script_name ~default:script_name in
@@ -378,10 +387,12 @@ let fork_exec_rpc :
       (R.response, Storage_interface.Errors.error) Deferred.Result.t =
     Process.create ~prog:script_name ~args:["--json"] () >>= function
     | Error e ->
-        error "%s failed: %s" script_name (Error.to_string_hum e) ;
+        error "%s failed: %s" script_name (Base.Error.to_string_hum e) ;
         return
           (Error
-             (backend_error "SCRIPT_FAILED" [script_name; Error.to_string_hum e])
+             (backend_error "SCRIPT_FAILED"
+                [script_name; Base.Error.to_string_hum e]
+             )
           )
     | Ok p -> (
         (* Send the request as json on stdin *)
@@ -415,7 +426,7 @@ let fork_exec_rpc :
         | Error (`Exit_non_zero code) -> (
           (* Expect an exception and backtrace on stdout *)
           match
-            Or_error.try_with (fun () ->
+            Base.Or_error.try_with (fun () ->
                 Jsonrpc.of_string output.Process.Output.stdout
             )
           with
@@ -437,7 +448,9 @@ let fork_exec_rpc :
                    )
                 )
           | Ok response -> (
-            match Or_error.try_with (fun () -> error_of_rpc response) with
+            match
+              Base.Or_error.try_with (fun () -> Types.error_of_rpc response)
+            with
             | Error _ ->
                 error "%s failed and printed bad error json: %s" script_name
                   output.Process.Output.stdout ;
@@ -478,7 +491,7 @@ let fork_exec_rpc :
           (* Parse the json on stdout. We get back a JSON-RPC
              value from the scripts, not a complete JSON-RPC response *)
           match
-            Or_error.try_with (fun () ->
+            Base.Or_error.try_with (fun () ->
                 Jsonrpc.of_string output.Process.Output.stdout
             )
           with
@@ -532,7 +545,9 @@ let fork_exec_rpc :
         error "%s is not executable" path ;
         return
           (Error
-             (backend_error "SCRIPT_NOT_EXECUTABLE" [path; Exn.to_string exn])
+             (backend_error "SCRIPT_NOT_EXECUTABLE"
+                [path; Base.Exn.to_string exn]
+             )
           )
     | Ok path ->
         invoke_script call path
@@ -547,38 +562,47 @@ let fork_exec_rpc :
   let rpc : R.call -> R.response Deferred.t =
    fun call ->
     script_rpc call >>= fun result ->
-    Result.map_error ~f:(fun e -> Fork_exec_error e) result
-    |> Result.ok_exn
+    Base.Result.map_error ~f:(fun e -> Fork_exec_error e) result
+    |> Base.Result.ok_exn
     |> return
   in
   rpc
 
+let string_of_sexp = Sexplib0.Sexp_conv.string_of_sexp
+
+let sexp_of_string = Sexplib0.Sexp_conv.sexp_of_string
+
+let list_of_sexp = Sexplib0.Sexp_conv.list_of_sexp
+
+let sexp_of_list = Sexplib0.Sexp_conv.sexp_of_list
+
 module Attached_SRs = struct
   type state = {sr: string; uids: string list} [@@deriving sexp]
 
-  let sr_table : state String.Table.t ref = ref (String.Table.create ())
+  let sr_table : (string, state) Base.Hashtbl.t ref =
+    ref (Base.Hashtbl.create (module Base.String))
 
   let state_path = ref None
 
   let add smapiv2 plugin uids =
     let key = Storage_interface.Sr.string_of smapiv2 in
-    Hashtbl.set !sr_table ~key ~data:{sr= plugin; uids} ;
+    Base.Hashtbl.set !sr_table ~key ~data:{sr= plugin; uids} ;
     ( match !state_path with
     | None ->
         return ()
     | Some path ->
         let contents =
-          String.Table.sexp_of_t sexp_of_state !sr_table
+          Core.String.Table.sexp_of_t sexp_of_state !sr_table
           |> Sexplib.Sexp.to_string
         in
         let dir = Filename.dirname path in
-        Unix.mkdir ~p:() dir >>= fun () -> Writer.save path ~contents
+        Async_unix.Unix.mkdir dir >>= fun () -> Async.Writer.save path ~contents
     )
     >>= fun () -> return (Ok ())
 
   let find smapiv2 =
     let key = Storage_interface.Sr.string_of smapiv2 in
-    match Hashtbl.find !sr_table key with
+    match Base.Hashtbl.find !sr_table key with
     | None ->
         let open Storage_interface in
         return (Error (Errors.Sr_not_attached key))
@@ -587,7 +611,7 @@ module Attached_SRs = struct
 
   let get_uids smapiv2 =
     let key = Storage_interface.Sr.string_of smapiv2 in
-    match Hashtbl.find !sr_table key with
+    match Base.Hashtbl.find !sr_table key with
     | None ->
         let open Storage_interface in
         return (Error (Errors.Sr_not_attached key))
@@ -596,12 +620,12 @@ module Attached_SRs = struct
 
   let remove smapiv2 =
     let key = Storage_interface.Sr.string_of smapiv2 in
-    Hashtbl.remove !sr_table key ;
+    Base.Hashtbl.remove !sr_table key ;
     return (Ok ())
 
   let list () =
     let srs =
-      Hashtbl.fold !sr_table
+      Base.Hashtbl.fold !sr_table
         ~f:(fun ~key ~data:_ ac -> Storage_interface.Sr.of_string key :: ac)
         ~init:[]
     in
@@ -609,7 +633,7 @@ module Attached_SRs = struct
 
   let reload path =
     state_path := Some path ;
-    Sys.is_file ~follow_symlinks:true path >>= function
+    Async.Sys.is_file ~follow_symlinks:true path >>= function
     | `No | `Unknown ->
         return ()
     | `Yes ->
@@ -617,12 +641,12 @@ module Attached_SRs = struct
         sr_table :=
           contents
           |> Sexplib.Sexp.of_string
-          |> String.Table.t_of_sexp state_of_sexp ;
+          |> Core.String.Table.t_of_sexp state_of_sexp ;
         return ()
 end
 
 module Datapath_plugins = struct
-  let table = String.Table.create ()
+  let table = Base.Hashtbl.create (module Base.String)
 
   let register ~datapath_root datapath_plugin_name =
     let result =
@@ -634,7 +658,7 @@ module Datapath_plugins = struct
       check_plugin_version_compatible response >>= function
       | Ok () ->
           info "Registered datapath plugin %s" datapath_plugin_name ;
-          Hashtbl.set table ~key:datapath_plugin_name
+          Base.Hashtbl.set table ~key:datapath_plugin_name
             ~data:(script_dir, response) ;
           return (Ok ())
       | Error e ->
@@ -651,23 +675,20 @@ module Datapath_plugins = struct
     result >>= fun _ -> return ()
 
   let unregister datapath_plugin_name =
-    Hashtbl.remove table datapath_plugin_name ;
+    Base.Hashtbl.remove table datapath_plugin_name ;
     return ()
 
   let supports_feature scheme feature =
-    match Hashtbl.find table scheme with
+    match Base.Hashtbl.find table scheme with
     | None ->
         false
     | Some (_script_dir, query_result) ->
-        List.mem query_result.Xapi_storage.Plugin.features feature
-          ~equal:String.equal
+        List.mem feature query_result.Xapi_storage.Plugin.features
 end
 
 let vdi_of_volume x =
   let find key ~default ~of_string =
-    match
-      List.Assoc.find x.Xapi_storage.Control.keys key ~equal:String.equal
-    with
+    match List.assoc_opt key x.Xapi_storage.Control.keys with
     | None ->
         default
     | Some v ->
@@ -701,7 +722,7 @@ let choose_datapath ?(persistent = true) domain response =
      to name the datapath plugin. *)
   let possible =
     List.filter_map
-      ~f:(fun x ->
+      (fun x ->
         let uri = Uri.of_string x in
         match Uri.scheme uri with
         | None ->
@@ -714,8 +735,8 @@ let choose_datapath ?(persistent = true) domain response =
   (* We can only use URIs whose schemes correspond to registered plugins *)
   let possible =
     List.filter_map
-      ~f:(fun (scheme, uri) ->
-        match Hashtbl.find Datapath_plugins.table scheme with
+      (fun (scheme, uri) ->
+        match Base.Hashtbl.find Datapath_plugins.table scheme with
         | Some (script_dir, _query_result) ->
             Some (script_dir, scheme, uri)
         | None ->
@@ -729,8 +750,8 @@ let choose_datapath ?(persistent = true) domain response =
       possible
     else
       let supports_nonpersistent, others =
-        List.partition_tf
-          ~f:(fun (_script_dir, scheme, _uri) ->
+        List.partition
+          (fun (_script_dir, scheme, _uri) ->
             Datapath_plugins.supports_feature scheme _nonpersistent
           )
           possible
@@ -770,8 +791,8 @@ let bind ~volume_script_dir =
      * Volume.set and Volume.unset *)
     (* TODO handle this properly? *)
     let missing =
-      Option.bind !version ~f:(fun v ->
-          if String.(v = pvs_version) then Some (R.rpc_of_unit ()) else None
+      Option.bind !version (fun v ->
+          if String.equal v pvs_version then Some (R.rpc_of_unit ()) else None
       )
     in
     return_volume_rpc (fun () ->
@@ -780,8 +801,8 @@ let bind ~volume_script_dir =
   in
   let unset ~dbg ~sr ~vdi ~key =
     let missing =
-      Option.bind !version ~f:(fun v ->
-          if String.(v = pvs_version) then Some (R.rpc_of_unit ()) else None
+      Option.bind !version (fun v ->
+          if String.equal v pvs_version then Some (R.rpc_of_unit ()) else None
       )
     in
     return_volume_rpc (fun () ->
@@ -806,8 +827,7 @@ let bind ~volume_script_dir =
     stat ~dbg ~sr ~vdi >>= fun response ->
     (* If we have a clone-on-boot volume then use that instead *)
     ( match
-        List.Assoc.find response.Xapi_storage.Control.keys _clone_on_boot_key
-          ~equal:String.equal
+        List.assoc_opt _clone_on_boot_key response.Xapi_storage.Control.keys
       with
     | None ->
         return (Ok response)
@@ -833,7 +853,7 @@ let bind ~volume_script_dir =
       (* Convert between the xapi-storage interface and the SMAPI *)
       let features =
         List.map
-          ~f:(function "VDI_DESTROY" -> "VDI_DELETE" | x -> x)
+          (function "VDI_DESTROY" -> "VDI_DELETE" | x -> x)
           response.Xapi_storage.Plugin.features
       in
       (* Look for executable scripts and automatically add capabilities *)
@@ -880,7 +900,7 @@ let bind ~volume_script_dir =
       (* If we have the ability to clone a disk then we can provide
          clone on boot. *)
       let features =
-        if List.mem features "VDI_CLONE" ~equal:String.equal then
+        if List.mem "VDI_CLONE" features then
           "VDI_RESET_ON_BOOT/2" :: features
         else
           features
@@ -934,7 +954,7 @@ let bind ~volume_script_dir =
                 let uid = Uri.path uri in
                 let uid =
                   if String.length uid > 1 then
-                    String.sub uid ~pos:1 ~len:(String.length uid - 1)
+                    String.sub uid 1 (String.length uid - 1)
                   else
                     uid
                 in
@@ -979,7 +999,7 @@ let bind ~volume_script_dir =
                     let uid = Uri.path uri in
                     let uid =
                       if String.length uid > 1 then
-                        String.sub uid ~pos:1 ~len:(String.length uid - 1)
+                        String.sub uid 1 (String.length uid - 1)
                       else
                         uid
                     in
@@ -1011,10 +1031,10 @@ let bind ~volume_script_dir =
         |> Jsonrpc.to_string
       in
       response
-      |> List.map ~f:(fun probe_result ->
+      |> List.map (fun probe_result ->
              let uuid =
-               List.Assoc.find probe_result.Xapi_storage.Control.configuration
-                 ~equal:String.equal "sr_uuid"
+               List.assoc_opt "sr_uuid"
+                 probe_result.Xapi_storage.Control.configuration
              in
              let open Deferred.Or_error in
              let smapiv2_probe ?sr_info () =
@@ -1064,7 +1084,8 @@ let bind ~volume_script_dir =
          )
       |> Deferred.Or_error.combine_errors
       |> Deferred.Result.map_error ~f:(fun err ->
-             backend_error "SCRIPT_FAILED" ["SR.probe"; Error.to_string_hum err]
+             backend_error "SCRIPT_FAILED"
+               ["SR.probe"; Base.Error.to_string_hum err]
          )
       >>>= fun results ->
       Deferred.Result.return (Storage_interface.Probe results)
@@ -1127,25 +1148,27 @@ let bind ~volume_script_dir =
            let response = Array.to_list response in
            (* Filter out volumes which are clone-on-boot transients *)
            let transients =
-             List.fold
-               ~f:(fun set x ->
+             List.fold_left
+               (fun set x ->
                  match
-                   List.Assoc.find x.Xapi_storage.Control.keys
-                     _clone_on_boot_key ~equal:String.equal
+                   List.assoc_opt _clone_on_boot_key x.Xapi_storage.Control.keys
                  with
                  | None ->
                      set
                  | Some transient ->
-                     Set.add set transient
+                     Base.Set.add set transient
                )
-               ~init:Core.String.Set.empty response
+               (Base.Set.empty (module Base.String))
+               response
            in
            let response =
              List.filter
-               ~f:(fun x -> not (Set.mem transients x.Xapi_storage.Control.key))
+               (fun x ->
+                 not (Base.Set.mem transients x.Xapi_storage.Control.key)
+               )
                response
            in
-           Deferred.Result.return (List.map ~f:vdi_of_volume response)
+           Deferred.Result.return (List.map vdi_of_volume response)
          )
     |> wrap
   in
@@ -1173,8 +1196,7 @@ let bind ~volume_script_dir =
      stat ~dbg ~sr ~vdi >>>= fun response ->
      (* Destroy any clone-on-boot volume that might exist *)
      ( match
-         List.Assoc.find response.Xapi_storage.Control.keys _clone_on_boot_key
-           ~equal:String.equal
+         List.assoc_opt _clone_on_boot_key response.Xapi_storage.Control.keys
        with
      | None ->
          return (Ok ())
@@ -1304,7 +1326,7 @@ let bind ~volume_script_dir =
      Deferred.Result.return
        {
          Storage_interface.implementations=
-           List.map ~f:convert_implementation
+           List.map convert_implementation
              response.Xapi_storage.Data.implementations
        }
     )
@@ -1319,8 +1341,7 @@ let bind ~volume_script_dir =
      stat ~dbg ~sr ~vdi >>>= fun response ->
      (* If we have a clone-on-boot volume then use that instead *)
      ( match
-         List.Assoc.find response.Xapi_storage.Control.keys _clone_on_boot_key
-           ~equal:String.equal
+         List.assoc_opt _clone_on_boot_key response.Xapi_storage.Control.keys
        with
      | None ->
          return (Ok response)
@@ -1353,8 +1374,7 @@ let bind ~volume_script_dir =
      (* Discover the URIs using Volume.stat *)
      stat ~dbg ~sr ~vdi >>>= fun response ->
      ( match
-         List.Assoc.find response.Xapi_storage.Control.keys _clone_on_boot_key
-           ~equal:String.equal
+         List.assoc_opt _clone_on_boot_key response.Xapi_storage.Control.keys
        with
      | None ->
          return (Ok response)
@@ -1375,8 +1395,7 @@ let bind ~volume_script_dir =
      (* Discover the URIs using Volume.stat *)
      stat ~dbg ~sr ~vdi >>>= fun response ->
      ( match
-         List.Assoc.find response.Xapi_storage.Control.keys _clone_on_boot_key
-           ~equal:String.equal
+         List.assoc_opt _clone_on_boot_key response.Xapi_storage.Control.keys
        with
      | None ->
          return (Ok response)
@@ -1433,8 +1452,7 @@ let bind ~volume_script_dir =
        (* We create a non-persistent disk here with Volume.clone, and store
           the name of the cloned disk in the metadata of the original. *)
        ( match
-           List.Assoc.find response.Xapi_storage.Control.keys _clone_on_boot_key
-             ~equal:String.equal
+           List.assoc_opt _clone_on_boot_key response.Xapi_storage.Control.keys
          with
        | None ->
            Deferred.Result.return ()
@@ -1463,8 +1481,7 @@ let bind ~volume_script_dir =
        return_data_rpc (fun () -> Datapath_client.close rpc dbg uri)
      else
        match
-         List.Assoc.find response.Xapi_storage.Control.keys _clone_on_boot_key
-           ~equal:String.equal
+         List.assoc_opt _clone_on_boot_key response.Xapi_storage.Control.keys
        with
        | None ->
            Deferred.Result.return ()
@@ -1488,8 +1505,7 @@ let bind ~volume_script_dir =
      (* Discover the URIs using Volume.stat *)
      stat ~dbg ~sr ~vdi >>>= fun response ->
      ( match
-         List.Assoc.find response.Xapi_storage.Control.keys _clone_on_boot_key
-           ~equal:String.equal
+         List.assoc_opt _clone_on_boot_key response.Xapi_storage.Control.keys
        with
      | None ->
          return (Ok response)
@@ -1557,7 +1573,7 @@ let process_smapiv2_requests server txt =
   Deferred.return (Jsonrpc.string_of_response response)
 
 (** Active servers, one per sub-directory of the volume_root_dir *)
-let servers = String.Table.create () ~size:4
+let servers = Base.Hashtbl.create ~size:4 (module Base.String)
 
 (* XXX: need a better error-handling strategy *)
 let get_ok = function
@@ -1575,11 +1591,11 @@ let rec diff a b =
   | [] ->
       []
   | a :: aa ->
-      if List.mem b a ~equal:String.( = ) then diff aa b else a :: diff aa b
+      if List.mem a b then diff aa b else a :: diff aa b
 
 let watch_volume_plugins ~volume_root ~switch_path ~pipe =
   let create volume_plugin_name =
-    if Hashtbl.mem servers volume_plugin_name then
+    if Base.Hashtbl.mem servers volume_plugin_name then
       return ()
     else (
       info "Adding %s" volume_plugin_name ;
@@ -1591,16 +1607,16 @@ let watch_volume_plugins ~volume_root ~switch_path ~pipe =
         ()
       >>= fun result ->
       let server = get_ok result in
-      Hashtbl.add_exn servers ~key:volume_plugin_name ~data:server ;
+      Base.Hashtbl.add_exn servers ~key:volume_plugin_name ~data:server ;
       return ()
     )
   in
   let destroy volume_plugin_name =
     info "Removing %s" volume_plugin_name ;
-    if Hashtbl.mem servers volume_plugin_name then (
-      let t = Hashtbl.find_exn servers volume_plugin_name in
+    if Base.Hashtbl.mem servers volume_plugin_name then (
+      let t = Base.Hashtbl.find_exn servers volume_plugin_name in
       Message_switch_async.Protocol_async.Server.shutdown ~t () >>= fun () ->
-      Hashtbl.remove servers volume_plugin_name ;
+      Base.Hashtbl.remove servers volume_plugin_name ;
       return ()
     ) else
       return ()
@@ -1608,10 +1624,9 @@ let watch_volume_plugins ~volume_root ~switch_path ~pipe =
   let sync () =
     Sys.readdir volume_root >>= fun names ->
     let needed : string list = Array.to_list names in
-    let got_already : string list = Hashtbl.keys servers in
-    Deferred.all_unit (List.map ~f:create (diff needed got_already))
-    >>= fun () ->
-    Deferred.all_unit (List.map ~f:destroy (diff got_already needed))
+    let got_already : string list = Base.Hashtbl.keys servers in
+    Deferred.all_unit (List.map create (diff needed got_already)) >>= fun () ->
+    Deferred.all_unit (List.map destroy (diff got_already needed))
   in
   sync () >>= fun () ->
   let open Async_inotify.Event in
@@ -1640,15 +1655,15 @@ let watch_datapath_plugins ~datapath_root ~pipe =
   let sync () =
     Sys.readdir datapath_root >>= fun names ->
     let needed : string list = Array.to_list names in
-    let got_already : string list = Hashtbl.keys servers in
+    let got_already : string list = Base.Hashtbl.keys servers in
     Deferred.all_unit
       (List.map
-         ~f:(Datapath_plugins.register ~datapath_root)
+         (Datapath_plugins.register ~datapath_root)
          (diff needed got_already)
       )
     >>= fun () ->
     Deferred.all_unit
-      (List.map ~f:Datapath_plugins.unregister (diff got_already needed))
+      (List.map Datapath_plugins.unregister (diff got_already needed))
   in
   sync () >>= fun () ->
   let open Async_inotify.Event in
@@ -1725,8 +1740,7 @@ let self_test_plugin ~root_dir plugin =
             Test.VDI.destroy rpc dbg sr vdi_info.vdi >>= fun () ->
             Test.SR.stat rpc dbg sr >>= fun _sr_info ->
             Test.SR.scan rpc dbg sr >>= fun _sr_list ->
-            if List.mem query_result.features "SR_PROBE" ~equal:String.equal
-            then
+            if List.mem "SR_PROBE" query_result.features then
               Test.SR.probe rpc dbg plugin device_config [] >>= fun _result ->
               return ()
             else
@@ -1774,15 +1788,15 @@ let main ~root_dir ~state_path ~switch_path =
         info "main thread shutdown cleanly" ;
         return ()
     | Error x ->
-        error "main thread failed with %s" (Exn.to_string x) ;
-        Clock.after (Time.Span.of_sec 5.) >>= fun () -> loop ()
+        error "main thread failed with %s" (Base.Exn.to_string x) ;
+        Clock.after (Core.Time.Span.of_sec 5.) >>= fun () -> loop ()
   in
   loop ()
 
 open Xcp_service
 
 let description =
-  String.concat ~sep:" "
+  String.concat " "
     [
       "Allow xapi storage adapters to be written as individual scripts."
     ; "To add a storage adapter, create a sub-directory in the --root directory"
@@ -1864,9 +1878,9 @@ let _ =
           info "main thread shutdown cleanly" ;
           return ()
       | Error x ->
-          error "main thread failed with %s" (Exn.to_string x) ;
-          Clock.after (Time.Span.of_sec 5.) >>= fun () -> loop ()
+          error "main thread failed with %s" (Base.Exn.to_string x) ;
+          Clock.after (Core.Time.Span.of_sec 5.) >>= fun () -> loop ()
     in
     loop ()
   in
-  never_returns (Scheduler.go ())
+  Core.never_returns (Scheduler.go ())
