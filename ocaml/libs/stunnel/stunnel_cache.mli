@@ -14,18 +14,17 @@
 
 (** Operate a small cache of stunnels so we can re-use them for repeated calls.
 
-    Caveats:
-   * stunnel donators should only donate stunnels which they knows are connected
-     to the main HTTP request loop in the server -- HTTP 1.1 should be used and 
-     the connection should be kept-alive.
+    Caveats: stunnel donators should only donate stunnels which they
+    knows are connected to the main HTTP request loop in the server --
+    HTTP 1.1 should be used and the connection should be kept-alive.
 *)
 
 val with_connect :
      ?use_fork_exec_helper:bool
   -> ?write_to_log:(string -> unit)
   -> verify_cert:Stunnel.verification_config option
-  -> string
-  -> int
+  -> host:string (** host *)
+  -> port:int (** port *)
   -> (Stunnel.t -> 'b)
   -> 'b
 (** Connects via stunnel (optionally via an external 'fork/exec helper') to
@@ -36,8 +35,8 @@ val add : Stunnel.t -> unit
 (** Adds a reusable stunnel to the cache *)
 
 val with_remove :
-     string
-  -> int
+     host:string (** host *)
+  -> port:int (** port *)
   -> Stunnel.verification_config option
   -> (Stunnel.t -> 'b)
   -> 'b option
