@@ -2,7 +2,7 @@ opam-version: "2.0"
 authors: "Dave Scott"
 homepage: "https://github.com/xapi-project/xcp-idl"
 bug-reports: "https://github.com/xapi-project/xcp-idl/issues"
-dev-repo: "git://github.com/xapi-project/xcp-idl"
+dev-repo: "https://github.com/xapi-project/xcp-idl.git"
 maintainer: "xen-api@lists.xen.org"
 tags: [ "org:xapi-project" ]
 build: [["dune" "build" "-p" name "-j" jobs]]
@@ -34,6 +34,7 @@ depends: [
   "xapi-stdext-date"
   "xapi-stdext-pervasives"
   "xapi-stdext-threads"
+  "xapi-tracing"
   "xapi-inventory"
   "xmlm"
 ]

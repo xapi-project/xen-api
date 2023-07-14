@@ -21,6 +21,7 @@ depends: [
   "uri"
   "uuid"
   "xapi-inventory"
+  "xapi-tracing"
   "xen-api-client-lwt"
 ]
 tags: [ "org:mirage" "org:xapi-project" ]

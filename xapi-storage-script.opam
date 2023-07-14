@@ -5,13 +5,13 @@ authors: [ "xen-api@lists.xen.org" ]
 license: "LGPL-2.1-only WITH OCaml-LGPL-linking-exception"
 homepage: "https://github.com/xapi-project/xen-api"
 bug-reports: "https://github.com/xapi-project/xen-api/issues"
-dev-repo: "git://github.com/xapi-project/xen-api"
+dev-repo: "https://github.com/xapi-project/xen-api.git"
 tags: [ "org:xapi-project" ]
 build: [[ "dune" "build" "-p" name "-j" jobs ]]
 depends: [
   "ocaml"
   "dune"
-  "conf-python-2-7" {with-test}
+  "conf-python-3" {with-test}
   "xapi-idl" {>= "0.10.0"}
   "xapi-storage"
   "async" {>= "v0.9.0"}
