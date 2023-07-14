@@ -173,7 +173,15 @@ let t =
           "SHA256 checksum of latest updateinfo.xml.gz in this repository if \
            its 'update' is true"
       ; field ~qualifier:DynamicRO
-          ~lifecycle:[(Published, "1.301.0", "")]
+          ~lifecycle:
+            [
+              (Published, "1.301.0", "")
+            ; (Deprecated, "23.12.0-next", "Dummy transition")
+            ; ( Removed
+              , "23.12.0-next"
+              , "The up_to_date field of repository was removed"
+              )
+            ]
           ~ty:Bool ~default_value:(Some (VBool false)) "up_to_date"
           "True if all hosts in pool is up to date with this repository"
       ; field ~qualifier:StaticRO ~lifecycle:[] ~ty:String

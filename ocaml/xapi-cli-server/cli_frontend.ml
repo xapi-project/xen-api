@@ -1036,6 +1036,15 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; flags= [Host_selectors]
       }
     )
+  ; ( "host-apply-recommended-guidances"
+    , {
+        reqd= []
+      ; optn= []
+      ; help= "Apply recommended guidances on a host."
+      ; implementation= No_fd Cli_operations.host_apply_recommended_guidances
+      ; flags= [Host_selectors]
+      }
+    )
   ; ( "patch-upload"
     , {
         reqd= ["file-name"]
@@ -2985,6 +2994,32 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; optn= []
       ; help= "Disable the redo log if in use, unless HA is enabled."
       ; implementation= No_fd Cli_operations.pool_disable_redo_log
+      ; flags= []
+      }
+    )
+  ; ( "pool-configure-update-sync"
+    , {
+        reqd= ["update-sync-frequency"; "update-sync-day"]
+      ; optn= []
+      ; help=
+          "Configure periodic update synchronization from a remote CDN. \
+           'update_sync_frequency': the frequency the synchronizations happen \
+           from a remote CDN: daily or weekly. 'update_sync_day': which day of \
+           the week the synchronizations will be scheduled in. For 'daily' \
+           schedule, the value is ignored. For 'weekly' schedule, valid values \
+           are 0 to 6, where 0 is Sunday."
+      ; implementation= No_fd Cli_operations.pool_configure_update_sync
+      ; flags= []
+      }
+    )
+  ; ( "pool-set-update-sync-enabled"
+    , {
+        reqd= ["value"]
+      ; optn= []
+      ; help=
+          "Enable or disable periodic update synchronization depending on the \
+           value"
+      ; implementation= No_fd Cli_operations.pool_set_update_sync_enabled
       ; flags= []
       }
     )

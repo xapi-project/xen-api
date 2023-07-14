@@ -527,18 +527,6 @@ let start =
       if is_ha_enabled then
         raise Api_errors.(Server_error (ha_is_enabled, []))
     in
-    let assert_we_are_master () =
-      if
-        not
-          (Helpers.is_pool_master ~__context
-             ~host:(Helpers.get_localhost ~__context)
-          )
-      then
-        raise
-          Api_errors.(
-            Server_error (host_is_slave, [Pool_role.get_master_address ()])
-          )
-    in
     let assert_all_hosts_alive () =
       let live_hosts = Helpers.get_live_hosts ~__context |> HostSet.of_list in
       let all_hosts_list =
@@ -564,7 +552,7 @@ let start =
           set_up_psr_pending_flag (fun () ->
               Pool_features.assert_enabled ~__context
                 ~f:Features.Pool_secret_rotation ;
-              assert_we_are_master () ;
+              Helpers.assert_we_are_master ~__context ;
               Assert.master_state_valid () ;
               let[@warning "-8"] (master :: members) =
                 assert_all_hosts_alive ()

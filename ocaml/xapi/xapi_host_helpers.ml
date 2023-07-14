@@ -374,11 +374,15 @@ let consider_enabling_host_nolock ~__context =
     let pool = Helpers.get_pool ~__context in
     Db.Host.remove_pending_guidances ~__context ~self:localhost
       ~value:`restart_toolstack ;
+    Db.Host.remove_recommended_guidances ~__context ~self:localhost
+      ~value:`restart_toolstack ;
     if !Xapi_globs.on_system_boot then (
       debug
         "Host.enabled: system has just restarted: setting localhost to enabled" ;
       Db.Host.set_enabled ~__context ~self:localhost ~value:true ;
       Db.Host.remove_pending_guidances ~__context ~self:localhost
+        ~value:`reboot_host ;
+      Db.Host.remove_recommended_guidances ~__context ~self:localhost
         ~value:`reboot_host ;
       Db.Host.remove_pending_guidances ~__context ~self:localhost
         ~value:`reboot_host_on_livepatch_failure ;

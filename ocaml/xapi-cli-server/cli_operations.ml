@@ -1841,6 +1841,38 @@ let pool_reset_telemetry_uuid _printer rpc session_id params =
   let pool = get_pool_with_default rpc session_id params "uuid" in
   Client.Pool.reset_telemetry_uuid ~rpc ~session_id ~self:pool
 
+let pool_configure_update_sync _printer rpc session_id params =
+  let pool = get_pool_with_default rpc session_id params "uuid" in
+  let update_sync_frequency =
+    Record_util.update_sync_frequency_of_string
+      (List.assoc "update-sync-frequency" params)
+  in
+  let day = List.assoc_opt "update-sync-day" params in
+  let update_sync_day =
+    match (update_sync_frequency, day) with
+    | `daily, _ ->
+        0L
+    | `weekly, d ->
+        let invalid_day_msg =
+          "Invalid value for day picked, must be an integer from 0 to 6"
+        in
+        let day_int =
+          try Option.(map Int64.of_string d |> get)
+          with _ -> failwith invalid_day_msg
+        in
+        if day_int < 0L || day_int > 6L then
+          failwith invalid_day_msg
+        else
+          day_int
+  in
+  Client.Pool.configure_update_sync ~rpc ~session_id ~self:pool
+    ~update_sync_frequency ~update_sync_day
+
+let pool_set_update_sync_enabled _printer rpc session_id params =
+  let pool = get_pool_with_default rpc session_id params "uuid" in
+  let value = get_bool_param params "value" in
+  Client.Pool.set_update_sync_enabled ~rpc ~session_id ~self:pool ~value
+
 let vdi_type_of_string = function
   | "system" ->
       `system
@@ -7646,6 +7678,16 @@ let host_apply_updates _printer rpc session_id params =
             )
        )
        params ["hash"]
+    )
+
+let host_apply_recommended_guidances _printer rpc session_id params =
+  ignore
+    (do_host_op rpc session_id ~multiple:false
+       (fun _ host ->
+         let host = host.getref () in
+         Client.Host.apply_recommended_guidances ~rpc ~session_id ~self:host
+       )
+       params []
     )
 
 module SDN_controller = struct

@@ -1055,6 +1055,54 @@ let reset_telemetry_uuid =
     ~params:[(Ref _pool, "self", "The pool")]
     ~allowed_roles:_R_POOL_ADMIN ()
 
+let update_sync_frequency =
+  Enum
+    ( "update_sync_frequency"
+    , [
+        ("daily", "The update synchronizations happen every day")
+      ; ( "weekly"
+        , "The update synchronizations happen every week on the chosen day"
+        )
+      ]
+    )
+
+let configure_update_sync =
+  call ~name:"configure_update_sync"
+    ~doc:
+      "Configure periodic update synchronization to sync updates from a remote \
+       CDN"
+    ~lifecycle:[]
+    ~params:
+      [
+        (Ref _pool, "self", "The pool")
+      ; ( update_sync_frequency
+        , "update_sync_frequency"
+        , "The frequency at which updates are synchronized from a remote CDN: \
+           daily or weekly."
+        )
+      ; ( Int
+        , "update_sync_day"
+        , "The day of the week the update synchronization will happen, based \
+           on pool's local timezone. Valid values are 0 to 6, 0 being Sunday. \
+           For 'daily' schedule, the value is ignored."
+        )
+      ]
+    ~allowed_roles:_R_POOL_OP ()
+
+let set_update_sync_enabled =
+  call ~name:"set_update_sync_enabled" ~lifecycle:[]
+    ~doc:
+      "enable or disable periodic update synchronization depending on the value"
+    ~params:
+      [
+        (Ref _pool, "self", "The pool")
+      ; ( Bool
+        , "value"
+        , "true - enable periodic update synchronization, false - disable it"
+        )
+      ]
+    ~allowed_roles:_R_POOL_OP ()
+
 (** A pool class *)
 let t =
   create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:None
@@ -1139,6 +1187,8 @@ let t =
       ; set_https_only
       ; set_telemetry_next_collection
       ; reset_telemetry_uuid
+      ; configure_update_sync
+      ; set_update_sync_enabled
       ]
     ~contents:
       ([uid ~in_oss_since:None _pool]
@@ -1380,6 +1430,21 @@ let t =
             "telemetry_next_collection"
             "The earliest timestamp (in UTC) when the next round of telemetry \
              collection can be carried out"
+        ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:DateTime
+            ~default_value:(Some (VDateTime Date.epoch)) "last_update_sync"
+            "time of the last update sychronization"
+        ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:update_sync_frequency
+            ~default_value:(Some (VEnum "weekly")) "update_sync_frequency"
+            "The frequency at which updates are synchronized from a remote \
+             CDN: daily or weekly."
+        ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:Int "update_sync_day"
+            ~default_value:(Some (VInt 0L))
+            "The day of the week the update synchronizations will be \
+             scheduled, based on pool's local timezone. Ignored when \
+             update_sync_frequency is daily"
+        ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:Bool
+            ~default_value:(Some (VBool false)) "update_sync_enabled"
+            "Whether periodic update synchronization is enabled or not"
         ]
       )
     ()

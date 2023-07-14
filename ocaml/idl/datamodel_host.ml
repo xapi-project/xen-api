@@ -1709,7 +1709,10 @@ let apply_updates =
         )
       ]
     ~result:
-      (Set (Set String), "The list of warnings happened in applying updates")
+      ( Set (Set String)
+      , "The list of results after applying updates, including livepatch apply \
+         failures and recommended guidances"
+      )
     ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
     ()
 
@@ -1742,6 +1745,39 @@ let set_https_only =
         )
       ]
     ~allowed_roles:_R_POOL_OP ()
+
+let apply_recommended_guidances =
+  call ~name:"apply_recommended_guidances"
+    ~doc:
+      "apply all recommended guidances both on the host and on all HVM VMs on \
+       the host after updates are applied on the host"
+    ~lifecycle:[]
+    ~params:
+      [
+        ( Ref _host
+        , "self"
+        , "The host whose recommended guidances will be applied"
+        )
+      ]
+    ~allowed_roles:_R_POOL_OP ()
+
+let latest_synced_updates_applied_state =
+  Enum
+    ( "latest_synced_updates_applied_state"
+    , [
+        ( "yes"
+        , "The host is up to date with the latest updates synced from remote \
+           CDN"
+        )
+      ; ( "no"
+        , "The host is outdated with the latest updates synced from remote CDN"
+        )
+      ; ( "unknown"
+        , "If the host is up to date with the latest updates synced from \
+           remote CDN is unknown"
+        )
+      ]
+    )
 
 (** Hosts *)
 let t =
@@ -1877,6 +1913,7 @@ let t =
       ; apply_updates
       ; copy_primary_host_certs
       ; set_https_only
+      ; apply_recommended_guidances
       ]
     ~contents:
       ([
@@ -2098,6 +2135,15 @@ let t =
         ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:Bool
             ~default_value:(Some (VBool false)) "https_only"
             "Reflects whether port 80 is open (false) or not (true)"
+        ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:(Set update_guidances)
+            "recommended_guidances" ~default_value:(Some (VSet []))
+            "The set of recommended guidances after applying updates"
+        ; field ~qualifier:DynamicRO ~lifecycle:[]
+            ~ty:latest_synced_updates_applied_state
+            "latest_synced_updates_applied"
+            ~default_value:(Some (VEnum "unknown"))
+            "Default as 'unknown', 'yes' if the host is up to date with \
+             updates synced from remote CDN, otherwise 'no'"
         ]
       )
     ()

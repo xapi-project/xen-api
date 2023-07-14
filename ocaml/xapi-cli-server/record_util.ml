@@ -208,6 +208,14 @@ let update_guidance_to_string = function
   | `restart_device_model ->
       "restart_device_model"
 
+let latest_synced_updates_applied_state_to_string = function
+  | `yes ->
+      "yes"
+  | `no ->
+      "no"
+  | `unknown ->
+      "unknown"
+
 let vdi_operation_to_string : API.vdi_operations -> string = function
   | `clone ->
       "clone"
@@ -1134,3 +1142,18 @@ let mac_from_int_array macs =
 
 (* generate a random mac that is locally administered *)
 let random_mac_local () = mac_from_int_array (Array.make 6 (Random.int 0x100))
+
+let update_sync_frequency_to_string = function
+  | `daily ->
+      "daily"
+  | `weekly ->
+      "weekly"
+
+let update_sync_frequency_of_string s =
+  match String.lowercase_ascii s with
+  | "daily" ->
+      `daily
+  | "weekly" ->
+      `weekly
+  | _ ->
+      raise (Record_failure ("Expected 'daily', 'weekly', got " ^ s))

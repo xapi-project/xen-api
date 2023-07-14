@@ -209,7 +209,8 @@ let make_host2 ~__context ?(ref = Ref.make ()) ?(uuid = make_uuid ())
     ~control_domain:Ref.null ~updates_requiring_reboot:[] ~iscsi_iqn:""
     ~multipathing:false ~uefi_certificates:"" ~editions:[] ~pending_guidances:[]
     ~tls_verification_enabled
-    ~last_software_update:(Xapi_host.get_servertime ~__context ~host:ref) ;
+    ~last_software_update:(Xapi_host.get_servertime ~__context ~host:ref)
+    ~recommended_guidances:[] ~latest_synced_updates_applied:`unknown ;
   ref
 
 let make_pif ~__context ~network ~host ?(device = "eth0")
@@ -291,7 +292,9 @@ let make_pool ~__context ~master ?(name_label = "") ?(name_description = "")
     ?(repository_proxy_username = "") ?(repository_proxy_password = Ref.null)
     ?(migration_compression = false) ?(coordinator_bias = true)
     ?(telemetry_uuid = Ref.null) ?(telemetry_frequency = `weekly)
-    ?(telemetry_next_collection = API.Date.never) () =
+    ?(telemetry_next_collection = API.Date.never)
+    ?(last_update_sync = API.Date.epoch) ?(update_sync_frequency = `daily)
+    ?(update_sync_day = 0L) ?(update_sync_enabled = false) () =
   let pool_ref = Ref.make () in
   Db.Pool.create ~__context ~ref:pool_ref ~uuid:(make_uuid ()) ~name_label
     ~name_description ~master ~default_SR ~suspend_image_SR ~crash_dump_SR
@@ -307,7 +310,8 @@ let make_pool ~__context ~master ?(name_label = "") ?(name_description = "")
     ~client_certificate_auth_enabled ~client_certificate_auth_name
     ~repository_proxy_url ~repository_proxy_username ~repository_proxy_password
     ~migration_compression ~coordinator_bias ~telemetry_uuid
-    ~telemetry_frequency ~telemetry_next_collection ;
+    ~telemetry_frequency ~telemetry_next_collection ~last_update_sync
+    ~update_sync_frequency ~update_sync_day ~update_sync_enabled ;
   pool_ref
 
 let default_sm_features =

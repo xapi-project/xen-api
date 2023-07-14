@@ -353,3 +353,5 @@ let failed_login_attempts = addMessage "FAILED_LOGIN_ATTEMPTS" 3L
 
 let tls_verification_emergency_disabled =
   addMessage "TLS_VERIFICATION_EMERGENCY_DISABLED" 3L
+
+let periodic_update_sync_failed = addMessage "PERIODIC_UPDATE_SYNC_FAILED" 3L

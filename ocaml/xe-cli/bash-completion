@@ -380,6 +380,13 @@ _xe()
                 set_completions "$vdis" "$val"
                 return 0
                 ;;
+
+            update-sync-frequency) # for pool-configure-update-sync
+                IFS=$'\n,'
+                set_completions 'daily,weekly' "$value"
+                return 0
+                ;;
+
             *)
                 snd=`echo ${param} | gawk -F- '{print $NF}'`
                 fst=`echo ${param} | gawk -F- '{printf "%s", $1; for (i=2; i<NF; i++) printf "-%s", $i}'`

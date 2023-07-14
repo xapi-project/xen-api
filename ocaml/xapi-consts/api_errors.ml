@@ -1270,8 +1270,6 @@ let apply_guidance_failed = "APPLY_GUIDANCE_FAILED"
 
 let updateinfo_hash_mismatch = "UPDATEINFO_HASH_MISMATCH"
 
-let updates_require_sync = "UPDATES_REQUIRE_SYNC"
-
 let cannot_restart_device_model = "CANNOT_RESTART_DEVICE_MODEL"
 
 let invalid_repository_proxy_url = "INVALID_REPOSITORY_PROXY_URL"
@@ -1280,7 +1278,12 @@ let invalid_repository_proxy_credential = "INVALID_REPOSITORY_PROXY_CREDENTIAL"
 
 let apply_livepatch_failed = "APPLY_LIVEPATCH_FAILED"
 
+let updates_require_recommended_guidance =
+  "UPDATES_REQUIRE_RECOMMENDED_GUIDANCE"
+
 let update_guidance_changed = "UPDATE_GUIDANCE_CHANGED"
+
+let invalid_update_sync_day = "INVALID_UPDATE_SYNC_DAY"
 
 (* VTPMs *)
 

@@ -68,12 +68,6 @@ val apply_updates :
   -> hash:string
   -> Updateinfo.Guidance.t list * string list list
 
-val apply_immediate_guidances :
-     __context:Context.t
-  -> host:[`host] API.Ref.t
-  -> guidances:Updateinfo.Guidance.t list
-  -> unit
-
 val set_available_updates : __context:Context.t -> string
 
 val reset_updates_in_cache : unit -> unit

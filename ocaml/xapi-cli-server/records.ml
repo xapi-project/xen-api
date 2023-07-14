@@ -1471,6 +1471,21 @@ let pool_record rpc session_id pool =
             (x ()).API.pool_telemetry_next_collection |> Date.to_string
           )
           ()
+      ; make_field ~name:"last-update-sync"
+          ~get:(fun () -> Date.to_string (x ()).API.pool_last_update_sync)
+          ()
+      ; make_field ~name:"update-sync-frequency"
+          ~get:(fun () ->
+            Record_util.update_sync_frequency_to_string
+              (x ()).API.pool_update_sync_frequency
+          )
+          ()
+      ; make_field ~name:"update-sync-day"
+          ~get:(fun () -> Int64.to_string (x ()).API.pool_update_sync_day)
+          ()
+      ; make_field ~name:"update-sync-enabled"
+          ~get:(fun () -> (x ()).API.pool_update_sync_enabled |> string_of_bool)
+          ()
       ]
   }
 
@@ -2573,6 +2588,12 @@ let vm_record rpc session_id vm =
       ; make_field ~name:"vtpms"
           ~get:(fun () -> get_uuids_from_refs (x ()).API.vM_VTPMs)
           ()
+      ; make_field ~name:"recommended-guidances"
+          ~get:(fun () ->
+            map_and_concat Record_util.update_guidance_to_string
+              (x ()).API.vM_recommended_guidances
+          )
+          ()
       ]
   }
 
@@ -3210,6 +3231,18 @@ let host_record rpc session_id host =
           ()
       ; make_field ~name:"last-software-update"
           ~get:(fun () -> Date.to_string (x ()).API.host_last_software_update)
+          ()
+      ; make_field ~name:"recommended-guidances"
+          ~get:(fun () ->
+            map_and_concat Record_util.update_guidance_to_string
+              (x ()).API.host_recommended_guidances
+          )
+          ()
+      ; make_field ~name:"latest-synced-updates-applied"
+          ~get:(fun () ->
+            Record_util.latest_synced_updates_applied_state_to_string
+              (x ()).API.host_latest_synced_updates_applied
+          )
           ()
       ]
   }
@@ -5195,9 +5228,6 @@ let repository_record rpc session_id repository =
           ~get:(fun () -> string_of_bool (x ()).API.repository_update)
           ()
       ; make_field ~name:"hash" ~get:(fun () -> (x ()).API.repository_hash) ()
-      ; make_field ~name:"up-to-date"
-          ~get:(fun () -> string_of_bool (x ()).API.repository_up_to_date)
-          ()
       ; make_field ~name:"gpgkey-path"
           ~get:(fun () -> (x ()).API.repository_gpgkey_path)
           ~set:(fun x ->
