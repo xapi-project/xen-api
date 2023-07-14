@@ -201,7 +201,7 @@ let add (x : Stunnel.t) =
 (** Returns an Stunnel.t for this endpoint (oldest first), raising Not_found
     if none can be found. First performs a garbage-collection, which discards
     expired stunnels if needed. *)
-let with_remove host port verified f =
+let with_remove ~host ~port verified f =
   let ep = {host; port; verified} in
   let get_id () =
     with_lock m (fun () ->
@@ -239,8 +239,9 @@ let flush () =
       info "Flushed!"
   )
 
-let with_connect ?use_fork_exec_helper ?write_to_log ~verify_cert host port f =
-  match with_remove host port verify_cert f with
+let with_connect ?use_fork_exec_helper ?write_to_log ~verify_cert ~host ~port f
+    =
+  match with_remove ~host ~port verify_cert f with
   | Some r ->
       r
   | None ->

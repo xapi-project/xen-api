@@ -71,7 +71,7 @@ let force_connection_reset () =
        		   host and port are fixed values. *)
     let rec purge_stunnels verify_cert =
       match
-        Stunnel_cache.with_remove host port verify_cert @@ fun st ->
+        Stunnel_cache.with_remove ~host ~port verify_cert @@ fun st ->
         try Stunnel.disconnect ~wait:false ~force:true st with _ -> ()
       with
       | None ->
