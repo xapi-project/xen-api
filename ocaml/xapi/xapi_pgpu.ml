@@ -139,92 +139,82 @@ let update_gpus ~__context =
     | `disabled | `enable_on_reboot ->
         false
   in
-  let rec find_or_create cur = function
-    | [] ->
-        cur
-    | pci :: remaining_pcis ->
-        let pci_addr = Some (Db.PCI.get_pci_id ~__context ~self:pci) in
-        let is_system_display_device = system_display_device = pci_addr in
-        let pgpu =
-          try
-            let rf, rc =
-              List.find (fun (_, rc) -> rc.API.pGPU_PCI = pci) existing_pgpus
-            in
-            let is_pci_hidden = sync_pci_hidden ~__context ~pgpu:rf ~pci in
-            (* Now we've determined whether the PCI is hidden, we can work out the
-               					 * list of supported VGPU types. *)
-            let supported_VGPU_types =
-              Xapi_vgpu_type.find_or_create_supported_types ~__context ~pci
-                ~is_system_display_device ~is_host_display_enabled
-                ~is_pci_hidden
-            in
-            let old_supported_VGPU_types =
-              Db.PGPU.get_supported_VGPU_types ~__context ~self:rf
-            in
-            let old_enabled_VGPU_types =
-              Db.PGPU.get_enabled_VGPU_types ~__context ~self:rf
-            in
-            (* Pick up any new supported vGPU configs on the host *)
-            Db.PGPU.set_supported_VGPU_types ~__context ~self:rf
-              ~value:supported_VGPU_types ;
-            (* Calculate the maximum capacities of the supported types. *)
-            let max_capacities =
-              calculate_max_capacities ~__context ~pCI:pci
-                ~size:(Db.PGPU.get_size ~__context ~self:rf)
-                ~supported_VGPU_types
-            in
-            Db.PGPU.set_supported_VGPU_max_capacities ~__context ~self:rf
-              ~value:max_capacities ;
-            (* Enable any new supported types. *)
-            let new_types_to_enable =
-              List.filter
-                (fun t -> not (List.mem t old_supported_VGPU_types))
-                supported_VGPU_types
-            in
-            (* Disable any types which are no longer supported. *)
-            let pruned_enabled_types =
-              List.filter
-                (fun t -> List.mem t supported_VGPU_types)
-                old_enabled_VGPU_types
-            in
-            Db.PGPU.set_enabled_VGPU_types ~__context ~self:rf
-              ~value:(pruned_enabled_types @ new_types_to_enable) ;
-            Db.PGPU.set_is_system_display_device ~__context ~self:rf
-              ~value:is_system_display_device ;
-            populate_compatibility_metadata ~__context ~pgpu:rf ~pgpu_pci:pci ;
-            (rf, rc)
-          with Not_found ->
-            (* If a new PCI has appeared then we know this is a system boot.
-               					 * We determine whether dom0 can access the device by looking in the
-               					 * boot config. *)
-            let is_pci_hidden = Pciops.is_pci_hidden ~__context pci in
-            let supported_VGPU_types =
-              Xapi_vgpu_type.find_or_create_supported_types ~__context ~pci
-                ~is_system_display_device ~is_host_display_enabled
-                ~is_pci_hidden
-            in
-            let dom0_access =
-              if is_pci_hidden then
-                `disabled
-              else
-                `enabled
-            in
-            let self =
-              create ~__context ~pCI:pci ~gPU_group:Ref.null ~host
-                ~other_config:[] ~supported_VGPU_types
-                ~size:Constants.pgpu_default_size ~dom0_access
-                ~is_system_display_device
-            in
-            let group = Xapi_gpu_group.find_or_create ~__context self in
-            Helpers.call_api_functions ~__context (fun rpc session_id ->
-                Client.Client.PGPU.set_GPU_group ~rpc ~session_id ~self
-                  ~value:group
-            ) ;
-            (self, Db.PGPU.get_record ~__context ~self)
-        in
-        find_or_create (pgpu :: cur) remaining_pcis
+  let find_or_create pci =
+    let pci_addr = Some (Db.PCI.get_pci_id ~__context ~self:pci) in
+    let is_system_display_device = system_display_device = pci_addr in
+    try
+      let rf, rc =
+        List.find (fun (_, rc) -> rc.API.pGPU_PCI = pci) existing_pgpus
+      in
+      let is_pci_hidden = sync_pci_hidden ~__context ~pgpu:rf ~pci in
+      (* Now we've determined whether the PCI is hidden, we can work out the
+         list of supported VGPU types. *)
+      let supported_VGPU_types =
+        Xapi_vgpu_type.find_or_create_supported_types ~__context ~pci
+          ~is_system_display_device ~is_host_display_enabled ~is_pci_hidden
+      in
+      let old_supported_VGPU_types =
+        Db.PGPU.get_supported_VGPU_types ~__context ~self:rf
+      in
+      let old_enabled_VGPU_types =
+        Db.PGPU.get_enabled_VGPU_types ~__context ~self:rf
+      in
+      (* Pick up any new supported vGPU configs on the host *)
+      Db.PGPU.set_supported_VGPU_types ~__context ~self:rf
+        ~value:supported_VGPU_types ;
+      (* Calculate the maximum capacities of the supported types. *)
+      let max_capacities =
+        calculate_max_capacities ~__context ~pCI:pci
+          ~size:(Db.PGPU.get_size ~__context ~self:rf)
+          ~supported_VGPU_types
+      in
+      Db.PGPU.set_supported_VGPU_max_capacities ~__context ~self:rf
+        ~value:max_capacities ;
+      (* Enable any new supported types. *)
+      let new_types_to_enable =
+        List.filter
+          (fun t -> not (List.mem t old_supported_VGPU_types))
+          supported_VGPU_types
+      in
+      (* Disable any types which are no longer supported. *)
+      let pruned_enabled_types =
+        List.filter
+          (fun t -> List.mem t supported_VGPU_types)
+          old_enabled_VGPU_types
+      in
+      Db.PGPU.set_enabled_VGPU_types ~__context ~self:rf
+        ~value:(pruned_enabled_types @ new_types_to_enable) ;
+      Db.PGPU.set_is_system_display_device ~__context ~self:rf
+        ~value:is_system_display_device ;
+      populate_compatibility_metadata ~__context ~pgpu:rf ~pgpu_pci:pci ;
+      (rf, rc)
+    with Not_found ->
+      (* If a new PCI has appeared then we know this is a system boot.
+         We determine whether dom0 can access the device by looking in the
+         boot config. *)
+      let is_pci_hidden = Pciops.is_pci_hidden ~__context pci in
+      let supported_VGPU_types =
+        Xapi_vgpu_type.find_or_create_supported_types ~__context ~pci
+          ~is_system_display_device ~is_host_display_enabled ~is_pci_hidden
+      in
+      let dom0_access =
+        if is_pci_hidden then
+          `disabled
+        else
+          `enabled
+      in
+      let self =
+        create ~__context ~pCI:pci ~gPU_group:Ref.null ~host ~other_config:[]
+          ~supported_VGPU_types ~size:Constants.pgpu_default_size ~dom0_access
+          ~is_system_display_device
+      in
+      let group = Xapi_gpu_group.find_or_create ~__context self in
+      Helpers.call_api_functions ~__context (fun rpc session_id ->
+          Client.Client.PGPU.set_GPU_group ~rpc ~session_id ~self ~value:group
+      ) ;
+      (self, Db.PGPU.get_record ~__context ~self)
   in
-  let current_pgpus = find_or_create [] pcis in
+  let current_pgpus = List.map find_or_create pcis in
   let obsolete_pgpus =
     Listext.List.set_difference existing_pgpus current_pgpus
   in

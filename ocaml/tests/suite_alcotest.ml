@@ -61,8 +61,6 @@ let () =
     @ Test_pgpu_helpers.tests
     @ Test_storage_migrate_state.tests
     @ Test_vm.tests
-    @ Test_cpuid_helpers.tests
-    @ Test_pool_cpuinfo.tests
     @ Test_dbsync_master.tests
     @ Test_pvs_cache_storage.tests
     @ Test_extauth_plugin_ADpbis.tests

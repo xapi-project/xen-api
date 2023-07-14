@@ -653,7 +653,13 @@ let stop ~dbg ~id =
   | None ->
       raise (Storage_interface.Storage_error (Does_not_exist ("mirror", id)))
 
-let start' ~task ~dbg ~sr ~vdi ~dp ~url ~dest ~verify_dest =
+let dbg_and_tracing_of_task task =
+  Debuginfo.make
+    ~log:(Storage_task.get_dbg task)
+    ~tracing:(Storage_task.tracing task)
+  |> Debuginfo.to_string
+
+let start' ~task ~dbg:_ ~sr ~vdi ~dp ~url ~dest ~verify_dest =
   debug "Mirror.start sr:%s vdi:%s url:%s dest:%s verify_dest:%B"
     (Storage_interface.Sr.string_of sr)
     (Storage_interface.Vdi.string_of vdi)
@@ -673,6 +679,7 @@ let start' ~task ~dbg ~sr ~vdi ~dp ~url ~dest ~verify_dest =
         (Storage_utils.connection_args_of_uri ~verify_dest url)
   end)) in
   (* Find the local VDI *)
+  let dbg = dbg_and_tracing_of_task task in
   let vdis = Local.SR.scan dbg sr in
   let local_vdi =
     try List.find (fun x -> x.vdi = vdi) vdis
@@ -829,7 +836,7 @@ let start' ~task ~dbg ~sr ~vdi ~dp ~url ~dest ~verify_dest =
      in
      inner ()
     ) ;
-    on_fail := (fun () -> stop ~dbg ~id) :: !on_fail ;
+    on_fail := (fun () -> Local.DATA.MIRROR.stop dbg id) :: !on_fail ;
     (* Copy the snapshot to the remote *)
     let new_parent =
       Storage_task.with_subtask task "copy" (fun () ->
@@ -1324,9 +1331,10 @@ let copy ~task ~dbg ~sr ~vdi ~dp:_ ~url ~dest ~verify_dest =
   | e ->
       raise (Storage_error (Internal_error (Printexc.to_string e)))
 
-let wrap ~dbg f =
+let with_task_and_thread ~dbg f =
   let task =
-    Storage_task.add tasks dbg (fun task ->
+    Storage_task.add tasks dbg.Debuginfo.log (fun task ->
+        Storage_task.set_tracing task dbg.Debuginfo.tracing ;
         try f task with
         | Storage_error (Backend_error (code, params))
         | Api_errors.Server_error (code, params) ->
@@ -1339,24 +1347,28 @@ let wrap ~dbg f =
   in
   let _ =
     Thread.create
-      (Debug.with_thread_associated ?client:None dbg (fun () ->
-           Storage_task.run task ;
-           signal (Storage_task.id_of_handle task)
-       )
+      (fun () ->
+        Storage_task.run task ;
+        signal (Storage_task.id_of_handle task)
       )
       ()
   in
   Storage_task.id_of_handle task
 
 let start ~dbg ~sr ~vdi ~dp ~url ~dest ~verify_dest =
-  wrap ~dbg (fun task -> start' ~task ~dbg ~sr ~vdi ~dp ~url ~dest ~verify_dest)
+  with_task_and_thread ~dbg (fun task ->
+      start' ~task ~dbg:dbg.Debuginfo.log ~sr ~vdi ~dp ~url ~dest ~verify_dest
+  )
 
 let copy ~dbg ~sr ~vdi ~dp ~url ~dest ~verify_dest =
-  wrap ~dbg (fun task -> copy ~task ~dbg ~sr ~vdi ~dp ~url ~dest ~verify_dest)
+  with_task_and_thread ~dbg (fun task ->
+      copy ~task ~dbg:dbg.Debuginfo.log ~sr ~vdi ~dp ~url ~dest ~verify_dest
+  )
 
 let copy_into ~dbg ~sr ~vdi ~url ~dest ~dest_vdi ~verify_dest =
-  wrap ~dbg (fun task ->
-      copy_into ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi ~verify_dest
+  with_task_and_thread ~dbg (fun task ->
+      copy_into ~task ~dbg:dbg.Debuginfo.log ~sr ~vdi ~url ~dest ~dest_vdi
+        ~verify_dest
   )
 
 (* The remote end of this call, SR.update_snapshot_info_dest, is implemented in

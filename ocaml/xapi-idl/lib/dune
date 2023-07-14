@@ -6,6 +6,7 @@
    astring
    cmdliner
    cohttp
+   cohttp-posix
    (re_export dune-build-info)
    fd-send-recv
    logs
@@ -23,6 +24,7 @@
    sexplib
    sexplib0
    threads.posix
+   tracing
    unix
    uri
    uuidm
@@ -51,6 +53,7 @@
    sexplib0
    threads.posix
    xapi-backtrace
+   xapi-idl
    xapi-log
    xapi-stdext-pervasives
    xapi-stdext-threads

@@ -7,6 +7,7 @@
     threads.posix
     xapi-log
     xapi-stdext-threads
+    xapi_version
   )
 )
 

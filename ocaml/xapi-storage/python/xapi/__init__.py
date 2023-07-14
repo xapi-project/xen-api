@@ -25,6 +25,7 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 
+from __future__ import print_function
 import sys
 import traceback
 import json
@@ -58,7 +59,7 @@ def handle_exception(e, code=None, params=None):
         "params": params,
         "backtrace": backtrace,
     }
-    print >>sys.stdout, json.dumps(results)
+    print(json.dumps(results), file=sys.stdout)
     sys.exit(1)
 
 

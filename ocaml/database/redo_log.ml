@@ -19,6 +19,13 @@ let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
 module R = Debug.Make (struct let name = "redo_log" end)
 
+(** By default, logging from redo_log is disabled in xapi.conf. To
+    get some logging to debug CA-379472, introduce a second loging
+    module*)
+module D = Debug.Make (struct
+  let name = "redo_debug"
+end)
+
 (* --------------------------------------- *)
 (* Functions relating to the redo log VDI. *)
 
@@ -86,17 +93,17 @@ let ready_to_write = ref true
 let is_enabled log = !(log.enabled)
 
 let enable_existing log vdi_reason =
-  R.info "Enabling use of redo log" ;
+  D.info "Enabling use of redo log" ;
   log.device := get_static_device vdi_reason ;
   log.enabled := true
 
 let enable_block_existing log path =
-  R.info "Enabling use of redo log" ;
+  D.info "Enabling use of redo log" ;
   log.device := Some path ;
   log.enabled := true
 
 let disable log =
-  R.info "Disabling use of redo log" ;
+  D.info "Disabling use of redo log" ;
   log.device := None ;
   log.enabled := false
 
@@ -107,7 +114,7 @@ let redo_log_events = Event.new_channel ()
 
 let cannot_connect_fn log =
   if !(log.currently_accessible) then (
-    R.debug "Signalling unable to access redo log" ;
+    D.debug "Signalling unable to access redo log" ;
     Event.sync (Event.send redo_log_events (log.name, false)) ;
     Option.iter (fun callback -> callback false) log.state_change_callback
   ) ;
@@ -115,7 +122,7 @@ let cannot_connect_fn log =
 
 let can_connect_fn log =
   if not !(log.currently_accessible) then (
-    R.debug "Signalling redo log is healthy" ;
+    D.debug "Signalling redo log is healthy" ;
     Event.sync (Event.send redo_log_events (log.name, true)) ;
     Option.iter (fun callback -> callback true) log.state_change_callback
   ) ;
@@ -244,7 +251,7 @@ let connect sockpath latest_response_time =
     let s = Unix.socket Unix.PF_UNIX Unix.SOCK_STREAM 0 in
     try
       Unix.connect s (Unix.ADDR_UNIX sockpath) ;
-      R.debug "Connected to I/O process via socket %s" sockpath ;
+      D.debug "Connected to I/O process via socket %s" sockpath ;
       s
     with Unix.Unix_error (a, b, _) ->
       (* It's probably the case that the process hasn't started yet. *)
@@ -255,7 +262,7 @@ let connect sockpath latest_response_time =
       let remaining = latest_response_time -. now in
       if attempt_delay < remaining then (
         (* Wait for a while then try again *)
-        R.debug
+        D.debug
           "Waiting to connect to I/O process via socket %s (error was %s: \
            %s)..."
           sockpath b (Unix.error_message a) ;
@@ -292,7 +299,7 @@ let read_length_and_string sock latest_response_time =
   str
 
 let read_database f gen_count sock latest_response_time datasockpath =
-  R.debug "Reading database with generation count %s"
+  D.debug "Reading database with generation count %s"
     (Generation.to_string gen_count) ;
   let expected_length = read_length sock latest_response_time in
   R.debug "Expecting to receive database of length %d" expected_length ;
@@ -311,7 +318,7 @@ let read_database f gen_count sock latest_response_time datasockpath =
     )
 
 let read_delta f gen_count sock latest_response_time =
-  R.debug "Reading delta with generation count %s"
+  D.debug "Reading delta with generation count %s"
     (Generation.to_string gen_count) ;
   let str = read_length_and_string sock latest_response_time in
   let entry = string_to_redo_log_entry str in
@@ -536,7 +543,7 @@ let maybe_retry f log =
 (* Close any existing socket and kill the corresponding process. *)
 let shutdown log =
   if is_enabled log then (
-    R.debug "Shutting down connection to I/O process for '%s'" log.name ;
+    D.debug "Shutting down connection to I/O process for '%s'" log.name ;
     try
       match !(log.pid) with
       | None ->
@@ -855,7 +862,7 @@ let apply fn_db fn_delta log =
 
 (* Flush the database to the given redo_log instance. *)
 let flush_db_to_redo_log db log =
-  R.info "Flushing database to redo_log [%s]" log.name ;
+  D.info "Flushing database to redo_log [%s]" log.name ;
   let write_db_to_fd out_fd = Db_xml.To.fd out_fd db in
   write_db
     (Db_cache_types.Manifest.generation (Db_cache_types.Database.manifest db))
@@ -865,7 +872,7 @@ let flush_db_to_redo_log db log =
 let flush_db_exn db log =
   assert (not log.read_only) ;
   (* phantom type parameter ensures this only gets called with RW *)
-  R.debug "Flushing database on redo log enable" ;
+  D.debug "Flushing database on redo log enable" ;
   if not (flush_db_to_redo_log db log) then
     raise (RedoLogFailure "Cannot connect to redo log")
 
@@ -878,7 +885,7 @@ let enable_block_and_flush db log path =
 
 (* Write the given database to all active redo_logs *)
 let flush_db_to_all_active_redo_logs db =
-  R.info "Flushing database to all active redo-logs" ;
+  D.info "Flushing database to all active redo-logs" ;
   with_active_redo_logs (fun log -> ignore (flush_db_to_redo_log db log))
 
 (* Write a delta to all active redo_logs *)

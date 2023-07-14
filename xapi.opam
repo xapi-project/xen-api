@@ -10,7 +10,7 @@ build: [
 ]
 depends: [
   "ocaml"
-  "dune" {build & >= "1.4"}
+  "dune"
   "alcotest" # needed to generate the quicktest binary
   "angstrom"
   "base64"
@@ -22,14 +22,15 @@ depends: [
   "domain-name"
   "ezxenstore"
   "fmt" {with-test}
+  "http-lib" {with-test} # the public library is only used for testing
   "ipaddr"
-  "http-lib"
   "mirage-crypto" {with-test}
   "mirage-crypto-pk"
   "mirage-crypto-rng" {with-test}
   "message-switch-unix"
   "mtime"
   "ocaml-migrate-parsetree"
+  "opentelemetry-client-ocurl"
   "pci"
   "pciutil"
   "ppx_deriving_rpc"
@@ -50,6 +51,7 @@ depends: [
   "xapi-cli-protocol"
   "xapi-consts"
   "xapi-datamodel"
+  "xapi-expiry-alerts"
   "xapi-stdext-date"
   "xapi-stdext-pervasives"
   "xapi-stdext-std"
@@ -57,6 +59,7 @@ depends: [
   "xapi-stdext-unix"
   "xapi-stdext-zerocheck"
   "xapi-test-utils" {with-test}
+  "xapi-tracing"
   "xapi-types"
   "xapi-xenopsd"
   "xapi-idl"

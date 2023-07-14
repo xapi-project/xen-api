@@ -246,11 +246,12 @@ let assert_can_migrate_vdis ~__context ~vdi_map =
 let assert_licensed_storage_motion ~__context =
   Pool_features.assert_enabled ~__context ~f:Features.Storage_motion
 
-let rec migrate_with_retries ~__context ~queue_name ~max ~try_no ~dbg ~vm_uuid
+let rec migrate_with_retries ~__context ~queue_name ~max ~try_no ~dbg:_ ~vm_uuid
     ~xenops_vdi_map ~xenops_vif_map ~xenops_vgpu_map ~xenops_url ~compress
     ~verify_cert =
   let open Xapi_xenops_queue in
   let module Client = (val make_client queue_name : XENOPS) in
+  let dbg = Context.string_of_task_and_tracing __context in
   let verify_dest = verify_cert <> None in
   let progress = ref "(none yet)" in
   let f () =
@@ -417,7 +418,6 @@ let pool_migrate ~__context ~vm ~host ~options =
      ) ;
   Xapi_xenops.Events_from_xenopsd.with_suppressed queue_name dbg vm_uuid
     (fun () ->
-      let dbg = Context.string_of_task_and_tracing __context in
       try
         Xapi_network.with_networks_attached_for_vm ~__context ~vm ~host
           (fun () ->
@@ -1336,7 +1336,7 @@ let migrate_send' ~__context ~vm ~dest ~live:_ ~vdi_map ~vif_map ~vgpu_map
   (* This is a good time to check our VDIs, because the vdi_map should be
      complete at this point; it should include all the VDIs in the all_vdis list. *)
   assert_can_migrate_vdis ~__context ~vdi_map ;
-  let dbg = Context.string_of_task __context in
+  let dbg = Context.string_of_task_and_tracing __context in
   let open Xapi_xenops_queue in
   let queue_name = queue_of_vm ~__context ~self:vm in
   let module XenopsAPI = (val make_client queue_name : XENOPS) in
@@ -1532,6 +1532,7 @@ let migrate_send' ~__context ~vm ~dest ~live:_ ~vdi_map ~vif_map ~vgpu_map
               let verify_cert =
                 if is_intra_pool then Stunnel_client.pool () else None
               in
+              let dbg = Context.string_of_task __context in
               migrate_with_retry ~__context ~queue_name ~dbg ~vm_uuid
                 ~xenops_vdi_map ~xenops_vif_map ~xenops_vgpu_map
                 ~xenops_url:remote.xenops_url ~compress ~verify_cert ;

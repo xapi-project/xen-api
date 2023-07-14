@@ -14,18 +14,16 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.11"]
+        docker-image:  # See https://hub.docker.com/_/python/tags for images
+          - python:2.7.18-alpine3.11
+          - python:3.11.4-alpine3.18
+    container: ${{ matrix.docker-image }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Use python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
-        with:
-          python-version: ${{ matrix.python-version }}
-
       - name: Install python 2 dependencies
-        if: ${{ matrix.python-version == 2.7 }}
+        if: ${{ startsWith(matrix.docker-image, 'python:2.7.18') }}
         run: pip install enum
 
       - name: Install dependencies
@@ -38,7 +36,6 @@ jobs:
     name: Ocaml tests
     runs-on: ubuntu-20.04
     env:
-      package: "xapi-cli-protocol xapi-client xapi-consts xapi-datamodel xapi-types xapi xe xen-api-sdk xen-api-client xen-api-client-lwt xen-api-client-async xapi-rrdd xapi-rrdd-plugin xapi-rrd-transport xapi-rrd-transport-utils rrd-transport rrdd-plugin rrdd-plugins rrddump gzip http-lib pciutil safe-resources sexpr stunnel uuid xapi-compression xml-light2 zstd vhd-tool xapi-networkd xapi-squeezed xapi-xenopsd xapi-xenopsd-cli xapi-xenopsd-simulator xapi-xenopsd-xc message-switch message-switch-async message-switch-cli message-switch-core message-switch-lwt message-switch-unix xapi-idl forkexec xapi-forkexecd xapi-storage xapi-storage-script xapi-storage-cli wsproxy xapi-nbd varstored-guard xapi-log xapi-open-uri vhd-format vhd-format-lwt xapi-tracing xapi-expiry-alerts"
       XAPI_VERSION: "v0.0.0-${{ github.sha }}"
 
     steps:
@@ -60,34 +57,18 @@ jobs:
 
       - name: Load environment file
         id: dotenv
-        uses: falti/dotenv-action@v1.0.2
-
-      - name: Retrieve date for cache key
-        id: cache-key
-        run: echo "date=$(/bin/date -u "+%Y%m%d")" >> $GITHUB_OUTPUT
-        shell: bash
-
-      - name: Restore opam cache
-        id: opam-cache
-        uses: actions/cache@v3
-        with:
-          path: "~/.opam"
-          # invalidate cache daily, gets built daily using a scheduled job
-          key: ${{ steps.cache-key.outputs.date }}
+        uses: falti/dotenv-action@v1.0.4
 
       - name: Use ocaml
-        uses: avsm/setup-ocaml@v1
+        uses: ocaml/setup-ocaml@v2
         with:
-          ocaml-version: ${{ steps.dotenv.outputs.ocaml_version_full }}
-          opam-repository: ${{ steps.dotenv.outputs.repository }}
+          ocaml-compiler: ${{ steps.dotenv.outputs.ocaml_version_full }}
+          opam-repositories: |
+            xs-opam: ${{ steps.dotenv.outputs.repository }}
+          dune-cache: true
 
       - name: Install dependencies
-        run: |
-          opam update
-          opam pin add . --no-action
-          opam depext -u ${{ env.package }}
-          opam upgrade
-          opam install ${{ env.package }} --deps-only --with-test -v
+        run: opam install . --deps-only --with-test -v
 
       - name: Configure
         run: opam exec -- ./configure --xapi_version="$XAPI_VERSION"

@@ -656,12 +656,12 @@ let get_since_for_events ~__context since =
               )
         | (last_in_memory, _, _) :: _ ->
             debug
-              "get_since_for_events: last_in_memory (%Ld) >= since (%Ld): \
-               Using slow message lookup"
-              last_in_memory since ;
+              "%s: cache (%Ld) is older than requested time (%Ld): Using slow \
+               message lookup"
+              __FUNCTION__ last_in_memory since ;
             None
         | _ ->
-            warn "get_since_for_events: no in_memory_cache!" ;
+            debug "%s: empty cache; Using slow message lookup" __FUNCTION__ ;
             None
     )
   in

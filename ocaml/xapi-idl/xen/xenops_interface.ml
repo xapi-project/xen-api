@@ -201,6 +201,53 @@ module Network = struct
   type ts = t list [@@deriving rpcty]
 end
 
+module CPU_policy : sig
+  type 'a t
+
+  val of_string : 'a -> string -> 'a t
+
+  val to_string : 'a t -> string
+
+  val vm : [`vm] t Rpc.Types.def
+
+  val host : [`host] t Rpc.Types.def
+
+  val typ_of : 'a -> 'a t Rpc.Types.typ
+end = struct
+  type 'a t = string [@@deriving rpc]
+
+  let of_string _ s = s
+
+  let to_string s = s
+
+  let typ_of a =
+    Rpc.Types.(
+      Abstract
+        {
+          aname= "CPU_policy.t"
+        ; test_data= []
+        ; rpc_of= rpc_of_t ()
+        ; of_rpc= (fun x -> Ok (t_of_rpc a x))
+        }
+    )
+
+  let vm =
+    Rpc.Types.
+      {name= "CPU_policy.vm"; description= ["VM CPU policy"]; ty= typ_of `vm}
+
+  let host =
+    Rpc.Types.
+      {
+        name= "CPU_policy.host"
+      ; description= ["Host CPU policy"]
+      ; ty= typ_of `host
+      }
+end
+
+type host_cpu_policy = [`host] CPU_policy.t
+
+let typ_of_host_cpu_policy = CPU_policy.typ_of `host
+
 module Pci = struct
   include Xcp_pci
 
@@ -465,11 +512,11 @@ module Host = struct
     ; model: string
     ; stepping: string
     ; flags: string
-    ; features: int64 array
-    ; features_pv: int64 array
-    ; features_hvm: int64 array
-    ; features_pv_host: int64 array
-    ; features_hvm_host: int64 array
+    ; features: host_cpu_policy
+    ; features_pv: host_cpu_policy
+    ; features_hvm: host_cpu_policy
+    ; features_pv_host: host_cpu_policy
+    ; features_hvm_host: host_cpu_policy
   }
   [@@deriving rpcty]
 
@@ -585,13 +632,6 @@ module XenopsAPI (R : RPC) = struct
       Param.mk ~description:["The list of features"] ~name:"features"
         Host.guest_agent_feature_list
 
-    type cpu_features_array = int64 array [@@deriving rpcty]
-
-    let cpu_features_array_p =
-      Param.mk
-        ~description:["An array containing the raw CPU feature flags"]
-        ~name:"features_array" cpu_features_array
-
     let stat =
       declare "HOST.stat"
         ["Get the state of the host"]
@@ -618,6 +658,37 @@ module XenopsAPI (R : RPC) = struct
     let update_guest_agent_features =
       declare "HOST.update_guest_agent_features" []
         (debug_info_p @-> feature_list_p @-> returning unit_p err)
+
+    let combine_cpu_policies =
+      let policy1_p =
+        Param.mk ~description:["CPU policy 1"] ~name:"policy1" CPU_policy.host
+      in
+      let policy2_p =
+        Param.mk ~description:["CPU policy 2"] ~name:"policy2" CPU_policy.host
+      in
+      let policy3_p =
+        Param.mk ~description:["Combined CPU policy"] ~name:"policy3"
+          CPU_policy.host
+      in
+      declare "HOST.combine_cpu_policies"
+        ["Combine CPU policy to get a common subset"]
+        (debug_info_p @-> policy1_p @-> policy2_p @-> returning policy3_p err)
+
+    let is_compatible =
+      let vm_policy_p =
+        Param.mk ~description:["VM CPU policy"] ~name:"vm_policy" CPU_policy.vm
+      in
+      let host_policy_p =
+        Param.mk ~description:["Host CPU policy"] ~name:"host_policy"
+          CPU_policy.host
+      in
+      declare "HOST.is_compatible"
+        ["Check whether a VM can live-migrate to or resume on a host"]
+        (debug_info_p
+        @-> vm_policy_p
+        @-> host_policy_p
+        @-> returning (Param.mk Types.bool) err
+        )
   end
 
   module VM = struct

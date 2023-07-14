@@ -55,6 +55,8 @@ let default_cpu_info =
   ; ("features_hvm_host", "")
   ]
 
+let cpu_policy_of_string = Xenops_interface.CPU_policy.of_string `host
+
 let make_localhost ~__context ?(features = Features.all_features) () =
   let host_info =
     {
@@ -83,11 +85,11 @@ let make_localhost ~__context ?(features = Features.all_features) () =
           ; model= ""
           ; stepping= ""
           ; flags= ""
-          ; features= [||]
-          ; features_pv= [||]
-          ; features_hvm= [||]
-          ; features_pv_host= [||]
-          ; features_hvm_host= [||]
+          ; features= cpu_policy_of_string ""
+          ; features_pv= cpu_policy_of_string ""
+          ; features_hvm= cpu_policy_of_string ""
+          ; features_pv_host= cpu_policy_of_string ""
+          ; features_hvm_host= cpu_policy_of_string ""
           }
     ; hypervisor= None
     ; chipset_info= None

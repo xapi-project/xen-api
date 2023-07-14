@@ -1,3 +1,4 @@
+from __future__ import print_function
 from xapi import success, Rpc_light_failure, InternalError, UnmarshalException, TypeError, is_long, UnknownMethod
 import xapi
 import sys
@@ -5,6 +6,14 @@ import json
 import argparse
 import traceback
 import logging
+
+# pylint: disable=invalid-name,redefined-builtin,undefined-variable
+# pyright: reportUndefinedVariable=false
+if sys.version_info[0] > 2:
+    long = int
+    unicode = str
+    str = bytes
+
 class Sr_not_attached(Rpc_light_failure):
     def __init__(self, arg_0):
         Rpc_light_failure.__init__(self, "Sr_not_attached", [ arg_0 ])
@@ -466,17 +475,17 @@ class Volume_test:
     def create(self, dbg, sr, name, description, size):
         """Operations which operate on volumes (also known as Virtual Disk Images)"""
         result = {}
-        result["volume"] = { "key": "string", "uuid": None, "name": "string", "description": "string", "read_write": True, "virtual_size": 0L, "physical_utilisation": 0L, "uri": [ "string", "string" ], "keys": { "string": "string" } }
+        result["volume"] = { "key": "string", "uuid": None, "name": "string", "description": "string", "read_write": True, "virtual_size": long(0), "physical_utilisation": long(0), "uri": [ "string", "string" ], "keys": { "string": "string" } }
         return result
     def snapshot(self, dbg, sr, key):
         """Operations which operate on volumes (also known as Virtual Disk Images)"""
         result = {}
-        result["volume"] = { "key": "string", "uuid": None, "name": "string", "description": "string", "read_write": True, "virtual_size": 0L, "physical_utilisation": 0L, "uri": [ "string", "string" ], "keys": { "string": "string" } }
+        result["volume"] = { "key": "string", "uuid": None, "name": "string", "description": "string", "read_write": True, "virtual_size": long(0), "physical_utilisation": long(0), "uri": [ "string", "string" ], "keys": { "string": "string" } }
         return result
     def clone(self, dbg, sr, key):
         """Operations which operate on volumes (also known as Virtual Disk Images)"""
         result = {}
-        result["volume"] = { "key": "string", "uuid": None, "name": "string", "description": "string", "read_write": True, "virtual_size": 0L, "physical_utilisation": 0L, "uri": [ "string", "string" ], "keys": { "string": "string" } }
+        result["volume"] = { "key": "string", "uuid": None, "name": "string", "description": "string", "read_write": True, "virtual_size": long(0), "physical_utilisation": long(0), "uri": [ "string", "string" ], "keys": { "string": "string" } }
         return result
     def destroy(self, dbg, sr, key):
         """Operations which operate on volumes (also known as Virtual Disk Images)"""
@@ -505,7 +514,7 @@ class Volume_test:
     def stat(self, dbg, sr, key):
         """Operations which operate on volumes (also known as Virtual Disk Images)"""
         result = {}
-        result["volume"] = { "key": "string", "uuid": None, "name": "string", "description": "string", "read_write": True, "virtual_size": 0L, "physical_utilisation": 0L, "uri": [ "string", "string" ], "keys": { "string": "string" } }
+        result["volume"] = { "key": "string", "uuid": None, "name": "string", "description": "string", "read_write": True, "virtual_size": long(0), "physical_utilisation": long(0), "uri": [ "string", "string" ], "keys": { "string": "string" } }
         return result
 class Volume_commandline():
     """Parse command-line arguments and call an implementation."""
@@ -656,8 +665,8 @@ class Volume_commandline():
             request = self._parse_create()
             use_json = 'json' in request and request['json']
             results = self.dispatcher.create(request)
-            print json.dumps(results)
-        except Exception, e:
+            print(json.dumps(results))
+        except Exception as e:
             if use_json:
                 xapi.handle_exception(e)
             else:
@@ -669,8 +678,8 @@ class Volume_commandline():
             request = self._parse_snapshot()
             use_json = 'json' in request and request['json']
             results = self.dispatcher.snapshot(request)
-            print json.dumps(results)
-        except Exception, e:
+            print(json.dumps(results))
+        except Exception as e:
             if use_json:
                 xapi.handle_exception(e)
             else:
@@ -682,8 +691,8 @@ class Volume_commandline():
             request = self._parse_clone()
             use_json = 'json' in request and request['json']
             results = self.dispatcher.clone(request)
-            print json.dumps(results)
-        except Exception, e:
+            print(json.dumps(results))
+        except Exception as e:
             if use_json:
                 xapi.handle_exception(e)
             else:
@@ -695,8 +704,8 @@ class Volume_commandline():
             request = self._parse_destroy()
             use_json = 'json' in request and request['json']
             results = self.dispatcher.destroy(request)
-            print json.dumps(results)
-        except Exception, e:
+            print(json.dumps(results))
+        except Exception as e:
             if use_json:
                 xapi.handle_exception(e)
             else:
@@ -708,8 +717,8 @@ class Volume_commandline():
             request = self._parse_set_name()
             use_json = 'json' in request and request['json']
             results = self.dispatcher.set_name(request)
-            print json.dumps(results)
-        except Exception, e:
+            print(json.dumps(results))
+        except Exception as e:
             if use_json:
                 xapi.handle_exception(e)
             else:
@@ -721,8 +730,8 @@ class Volume_commandline():
             request = self._parse_set_description()
             use_json = 'json' in request and request['json']
             results = self.dispatcher.set_description(request)
-            print json.dumps(results)
-        except Exception, e:
+            print(json.dumps(results))
+        except Exception as e:
             if use_json:
                 xapi.handle_exception(e)
             else:
@@ -734,8 +743,8 @@ class Volume_commandline():
             request = self._parse_set()
             use_json = 'json' in request and request['json']
             results = self.dispatcher.set(request)
-            print json.dumps(results)
-        except Exception, e:
+            print(json.dumps(results))
+        except Exception as e:
             if use_json:
                 xapi.handle_exception(e)
             else:
@@ -747,8 +756,8 @@ class Volume_commandline():
             request = self._parse_unset()
             use_json = 'json' in request and request['json']
             results = self.dispatcher.unset(request)
-            print json.dumps(results)
-        except Exception, e:
+            print(json.dumps(results))
+        except Exception as e:
             if use_json:
                 xapi.handle_exception(e)
             else:
@@ -760,8 +769,8 @@ class Volume_commandline():
             request = self._parse_resize()
             use_json = 'json' in request and request['json']
             results = self.dispatcher.resize(request)
-            print json.dumps(results)
-        except Exception, e:
+            print(json.dumps(results))
+        except Exception as e:
             if use_json:
                 xapi.handle_exception(e)
             else:
@@ -773,8 +782,8 @@ class Volume_commandline():
             request = self._parse_stat()
             use_json = 'json' in request and request['json']
             results = self.dispatcher.stat(request)
-            print json.dumps(results)
-        except Exception, e:
+            print(json.dumps(results))
+        except Exception as e:
             if use_json:
                 xapi.handle_exception(e)
             else:
@@ -1106,7 +1115,7 @@ class SR_test:
     def probe(self, dbg, uri):
         """Operations which act on Storage Repositories"""
         result = {}
-        result["result"] = { "srs": [ { "sr": "string", "name": "string", "description": "string", "free_space": 0L, "total_space": 0L, "datasources": [ "string", "string" ], "clustered": True, "health": None }, { "sr": "string", "name": "string", "description": "string", "free_space": 0L, "total_space": 0L, "datasources": [ "string", "string" ], "clustered": True, "health": None } ], "uris": [ "string", "string" ] }
+        result["result"] = { "srs": [ { "sr": "string", "name": "string", "description": "string", "free_space": long(0), "total_space": long(0), "datasources": [ "string", "string" ], "clustered": True, "health": None }, { "sr": "string", "name": "string", "description": "string", "free_space": long(0), "total_space": long(0), "datasources": [ "string", "string" ], "clustered": True, "health": None } ], "uris": [ "string", "string" ] }
         return result
     def create(self, dbg, uri, name, description, configuration):
         """Operations which act on Storage Repositories"""
@@ -1128,7 +1137,7 @@ class SR_test:
     def stat(self, dbg, sr):
         """Operations which act on Storage Repositories"""
         result = {}
-        result["sr"] = { "sr": "string", "name": "string", "description": "string", "free_space": 0L, "total_space": 0L, "datasources": [ "string", "string" ], "clustered": True, "health": None }
+        result["sr"] = { "sr": "string", "name": "string", "description": "string", "free_space": long(0), "total_space": long(0), "datasources": [ "string", "string" ], "clustered": True, "health": None }
         return result
     def set_name(self, dbg, sr, new_name):
         """Operations which act on Storage Repositories"""
@@ -1141,7 +1150,7 @@ class SR_test:
     def ls(self, dbg, sr):
         """Operations which act on Storage Repositories"""
         result = {}
-        result["volumes"] = [ { "key": "string", "uuid": None, "name": "string", "description": "string", "read_write": True, "virtual_size": 0L, "physical_utilisation": 0L, "uri": [ "string", "string" ], "keys": { "string": "string" } }, { "key": "string", "uuid": None, "name": "string", "description": "string", "read_write": True, "virtual_size": 0L, "physical_utilisation": 0L, "uri": [ "string", "string" ], "keys": { "string": "string" } } ]
+        result["volumes"] = [ { "key": "string", "uuid": None, "name": "string", "description": "string", "read_write": True, "virtual_size": long(0), "physical_utilisation": long(0), "uri": [ "string", "string" ], "keys": { "string": "string" } }, { "key": "string", "uuid": None, "name": "string", "description": "string", "read_write": True, "virtual_size": long(0), "physical_utilisation": long(0), "uri": [ "string", "string" ], "keys": { "string": "string" } } ]
         return result
 class SR_commandline():
     """Parse command-line arguments and call an implementation."""
@@ -1267,8 +1276,8 @@ class SR_commandline():
             request = self._parse_probe()
             use_json = 'json' in request and request['json']
             results = self.dispatcher.probe(request)
-            print json.dumps(results)
-        except Exception, e:
+            print(json.dumps(results))
+        except Exception as e:
             if use_json:
                 xapi.handle_exception(e)
             else:
@@ -1280,8 +1289,8 @@ class SR_commandline():
             request = self._parse_create()
             use_json = 'json' in request and request['json']
             results = self.dispatcher.create(request)
-            print json.dumps(results)
-        except Exception, e:
+            print(json.dumps(results))
+        except Exception as e:
             if use_json:
                 xapi.handle_exception(e)
             else:
@@ -1293,8 +1302,8 @@ class SR_commandline():
             request = self._parse_attach()
             use_json = 'json' in request and request['json']
             results = self.dispatcher.attach(request)
-            print json.dumps(results)
-        except Exception, e:
+            print(json.dumps(results))
+        except Exception as e:
             if use_json:
                 xapi.handle_exception(e)
             else:
@@ -1306,8 +1315,8 @@ class SR_commandline():
             request = self._parse_detach()
             use_json = 'json' in request and request['json']
             results = self.dispatcher.detach(request)
-            print json.dumps(results)
-        except Exception, e:
+            print(json.dumps(results))
+        except Exception as e:
             if use_json:
                 xapi.handle_exception(e)
             else:
@@ -1319,8 +1328,8 @@ class SR_commandline():
             request = self._parse_destroy()
             use_json = 'json' in request and request['json']
             results = self.dispatcher.destroy(request)
-            print json.dumps(results)
-        except Exception, e:
+            print(json.dumps(results))
+        except Exception as e:
             if use_json:
                 xapi.handle_exception(e)
             else:
@@ -1332,8 +1341,8 @@ class SR_commandline():
             request = self._parse_stat()
             use_json = 'json' in request and request['json']
             results = self.dispatcher.stat(request)
-            print json.dumps(results)
-        except Exception, e:
+            print(json.dumps(results))
+        except Exception as e:
             if use_json:
                 xapi.handle_exception(e)
             else:
@@ -1345,8 +1354,8 @@ class SR_commandline():
             request = self._parse_set_name()
             use_json = 'json' in request and request['json']
             results = self.dispatcher.set_name(request)
-            print json.dumps(results)
-        except Exception, e:
+            print(json.dumps(results))
+        except Exception as e:
             if use_json:
                 xapi.handle_exception(e)
             else:
@@ -1358,8 +1367,8 @@ class SR_commandline():
             request = self._parse_set_description()
             use_json = 'json' in request and request['json']
             results = self.dispatcher.set_description(request)
-            print json.dumps(results)
-        except Exception, e:
+            print(json.dumps(results))
+        except Exception as e:
             if use_json:
                 xapi.handle_exception(e)
             else:
@@ -1371,8 +1380,8 @@ class SR_commandline():
             request = self._parse_ls()
             use_json = 'json' in request and request['json']
             results = self.dispatcher.ls(request)
-            print json.dumps(results)
-        except Exception, e:
+            print(json.dumps(results))
+        except Exception as e:
             if use_json:
                 xapi.handle_exception(e)
             else:
@@ -1391,7 +1400,7 @@ class volume_server_dispatcher:
             elif method.startswith("SR") and self.SR:
                 return self.SR._dispatch(method, params)
             raise UnknownMethod(method)
-        except Exception, e:
+        except Exception as e:
             logging.info("caught %s" % e)
             traceback.print_exc()
             try:

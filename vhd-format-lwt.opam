@@ -1,13 +1,23 @@
 opam-version: "2.0"
+name: "vhd-format-lwt"
+synopsis: "Lwt interface to read/write VHD format data"
+description: """\
+A pure OCaml library to read and write
+[vhd](http://en.wikipedia.org/wiki/VHD_(file_format)) format data, plus a
+simple command-line tool which allows vhd files to be interrogated,
+manipulated, format-converted and streamed to and from files and remote
+servers.
+
+This package provides an Lwt compatible interface to the library."""
 maintainer: "dave@recoil.org"
 authors: ["Dave Scott" "Jon Ludlam"]
-tags: ["org:mirage" "org:xapi-project"]
 license: "LGPL-2.1-only WITH OCaml-LGPL-linking-exception"
+tags: ["org:mirage" "org:xapi-project"]
 homepage: "https://github.com/mirage/ocaml-vhd"
 doc: "https://mirage.github.io/ocaml-vhd/"
 bug-reports: "https://github.com/mirage/ocaml-vhd/issues"
 depends: [
-  "ocaml" {>= "4.02.3"}
+  "ocaml" {>= "4.02.3" & < "5.0.0"}
   "cstruct" {< "6.1.0"}
   "lwt" {>= "3.2.0"}
   "mirage-block" {>= "2.0.1"}
@@ -22,14 +32,8 @@ build: [
   ["dune" "runtest" "-p" name "-j" jobs] {with-test}
 ]
 depexts: ["linux-headers"] {os-distribution = "alpine"}
-dev-repo: "git+https://github.com/mirage/ocaml-vhd.git"
-synopsis: "Lwt interface to read/write VHD format data"
-description: """
-A pure OCaml library to read and write
-[vhd](http://en.wikipedia.org/wiki/VHD_(file_format)) format data, plus a
-simple command-line tool which allows vhd files to be interrogated,
-manipulated, format-converted and streamed to and from files and remote
-servers.
-
-This package provides an Lwt compatible interface to the library.
-"""
+dev-repo: "git+https://github.com/xapi-project/xen-api.git"
+url {
+  src:
+    "https://github.com/xapi-project/xen-api/archive/master.tar.gz"
+}
