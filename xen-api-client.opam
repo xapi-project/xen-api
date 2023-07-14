@@ -14,7 +14,7 @@ build: [
 ]
 depends: [
   "ocaml"
-  "dune" {"1.4"}
+  "dune" {>= "2.0"}
   "astring"
   "cohttp" {>= "0.22.0"}
   "re"

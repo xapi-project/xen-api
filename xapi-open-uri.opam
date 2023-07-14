@@ -11,8 +11,10 @@ build: [
 available: [ os = "linux" | os = "macos" ]
 depends: [
   "ocaml"
+  "cohttp"
   "dune"
   "stunnel"
+  "uri"
   "xapi-stdext-pervasives"
 ]
 synopsis: "Library required by xapi"

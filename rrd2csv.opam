@@ -13,7 +13,7 @@ build: [
 depends: [
   "ocaml"
   "dune"
-  "base-threads"
+  "http-lib"
   "xapi-client"
   "xapi-idl"
   "xapi-rrd"

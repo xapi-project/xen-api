@@ -4,14 +4,14 @@ maintainer: "xen-api@lists.xen.org"
 authors: "xen-api@lists.xen.org"
 homepage: "https://xapi-project.github.io/"
 bug-reports: "https://github.com/xapi-project/xen-api/issues"
-dev-repo: "git://github.com/xapi-project/xen-api.git"
+dev-repo: "https://github.com/xapi-project/xen-api.git"
 build: [
   ["dune" "build" "-p" name "-j" jobs]
 ]
 depends: [
   "ocaml"
   "dune"
-  "conf-python-2-7"
+  "conf-python-3"
   "ounit" {with-test}
   "alcotest" {with-test}
   "lwt" {with-test}
@@ -20,10 +20,6 @@ depends: [
   "rpclib"
   "xmlm"
   "cmdliner"
-]
-# python 2.7 is not enough to ensure the availability of 'python' in these
-depexts: [
-  ["python"] {os-family = "debian"}
 ]
 synopsis: "Code and documentation generator for the Xapi storage interface"
 url {
