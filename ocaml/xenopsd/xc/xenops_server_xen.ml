@@ -1035,6 +1035,9 @@ module HOST = struct
         let xen_capabilities = version_capabilities xc in
         let iommu = List.mem CAP_DirectIO p.capabilities in
         let hvm = List.mem CAP_HVM p.capabilities in
+        let features_to_policy x =
+          x |> Cpuid.string_of_features |> CPU_policy.of_string `host
+        in
         {
           Host.cpu_info=
             {
@@ -1047,11 +1050,11 @@ module HOST = struct
             ; model
             ; stepping
             ; flags
-            ; features
-            ; features_pv
-            ; features_hvm
-            ; features_hvm_host
-            ; features_pv_host
+            ; features= features_to_policy features
+            ; features_pv= features_to_policy features_pv
+            ; features_hvm= features_to_policy features_hvm
+            ; features_hvm_host= features_to_policy features_hvm_host
+            ; features_pv_host= features_to_policy features_pv_host
             }
         ; hypervisor=
             {Host.version= xen_version_string; capabilities= xen_capabilities}
@@ -1121,6 +1124,27 @@ module HOST = struct
               features
         )
     )
+
+  let combine_cpu_policies policy1 policy2 =
+    let open Cpuid in
+    intersect
+      (policy1 |> CPU_policy.to_string |> features_of_string)
+      (policy2 |> CPU_policy.to_string |> features_of_string)
+    |> string_of_features
+    |> CPU_policy.of_string `host
+
+  let is_compatible vm_policy host_policy =
+    let open Cpuid in
+    let vm = vm_policy |> CPU_policy.to_string |> features_of_string in
+    let host = host_policy |> CPU_policy.to_string |> features_of_string in
+    let vm' = zero_extend vm (Array.length host) in
+    let compatible = is_subset vm' host in
+    if not compatible then
+      info
+        "The VM's CPU policy is not compatible with the target host's. The \
+         host is missing: %s"
+        (diff vm' host |> string_of_features) ;
+    compatible
 end
 
 let dB_m = Mutex.create ()
@@ -3273,7 +3297,9 @@ module VM = struct
         let fs' =
           fs
           |> Featureset.of_string
-          |> Featureset.zero_pad host_featureset
+          |> Featureset.(
+               host_featureset |> CPU_policy.to_string |> of_string |> zero_pad
+             )
           |> snd
           |> Featureset.to_string
         in

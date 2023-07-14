@@ -13,6 +13,7 @@ depends: [
   "alcotest" {with-test}
   "base-threads"
   "forkexec"
+  "http-lib"
   "mtime"
   "netlink"
   "re"

@@ -1417,23 +1417,17 @@ let import_metadata id md =
        give it a featureset that contains all features that this host has
        to offer. *)
     if not (List.mem_assoc "featureset" platformdata) then (
-      let string_of_features features =
-        Array.map (Printf.sprintf "%08Lx") features
-        |> Array.to_list
-        |> String.concat "-"
-      in
       let fs =
         let stat = B.HOST.stat () in
-        ( match md.Metadata.vm.Vm.ty with
+        match md.Metadata.vm.Vm.ty with
         | HVM _ | PVinPVH _ | PVH _ ->
             Host.(stat.cpu_info.features_hvm)
         | PV _ ->
             Host.(stat.cpu_info.features_pv)
-        )
-        |> string_of_features
       in
-      debug "Setting Platformdata:featureset=%s" fs ;
-      ("featureset", fs) :: platformdata
+      let fs' = CPU_policy.to_string fs in
+      debug "Setting Platformdata:featureset=%s" fs' ;
+      ("featureset", fs') :: platformdata
     ) else
       platformdata
   in
@@ -1829,26 +1823,15 @@ let rec atomics_of_operation = function
 
 let with_tracing ~name ~task f =
   let open Tracing in
-  let context = Xenops_task.tracing task in
-  let spancontext = Option.bind context SpanContext.of_traceparent in
-  let parent =
-    Option.map (fun tp -> Tracer.span_of_span_context tp name) spancontext
-  in
+  let parent = Xenops_task.tracing task in
   let tracer = get_tracer ~name in
   match Tracer.start ~tracer ~name ~parent () with
   | Ok span -> (
-      let sub_context =
-        Option.map
-          (fun span ->
-            Tracing.Span.get_context span |> Tracing.SpanContext.to_traceparent
-          )
-          span
-      in
-      Xenops_task.set_tracing task sub_context ;
+      Xenops_task.set_tracing task span ;
       try
         let result = f () in
         ignore @@ Tracer.finish span ;
-        Xenops_task.set_tracing task context ;
+        Xenops_task.set_tracing task parent ;
         result
       with exn ->
         let backtrace = Printexc.get_backtrace () in
@@ -3251,9 +3234,9 @@ let uses_mxgpu id =
     )
     (VGPU_DB.ids id)
 
-let queue_operation_int ?tracing dbg id op =
+let queue_operation_int ?traceparent dbg id op =
   let task =
-    Xenops_task.add ?tracing tasks dbg
+    Xenops_task.add ?traceparent tasks dbg
       (let r = ref None in
        fun t -> perform ~result:r op t ; !r
       )
@@ -3262,8 +3245,8 @@ let queue_operation_int ?tracing dbg id op =
   Redirector.push Redirector.default tag (op, task) ;
   task
 
-let queue_operation ?tracing dbg id op =
-  let task = queue_operation_int ?tracing dbg id op in
+let queue_operation ?traceparent dbg id op =
+  let task = queue_operation_int ?traceparent dbg id op in
   Xenops_task.id_of_handle task
 
 let queue_operation_and_wait dbg id op =
@@ -3503,6 +3486,28 @@ module HOST = struct
         B.HOST.update_guest_agent_features features
       )
       ()
+
+  let combine_cpu_policies _ dbg policy1 policy2 =
+    Debug.with_thread_associated dbg
+      (fun () ->
+        debug "HOST.combine_cpu_policies %s %s"
+          (CPU_policy.to_string policy1)
+          (CPU_policy.to_string policy2) ;
+        let module B = (val get_backend () : S) in
+        B.HOST.combine_cpu_policies policy1 policy2
+      )
+      ()
+
+  let is_compatible _ dbg vm_policy host_policy =
+    Debug.with_thread_associated dbg
+      (fun () ->
+        debug "HOST.is_compatible %s %s"
+          (CPU_policy.to_string vm_policy)
+          (CPU_policy.to_string host_policy) ;
+        let module B = (val get_backend () : S) in
+        B.HOST.is_compatible vm_policy host_policy
+      )
+      ()
 end
 
 module VM = struct
@@ -3645,7 +3650,6 @@ module VM = struct
     Debug.with_thread_associated dbg
       (fun () ->
         debug "traceparent: %s" (Option.value ~default:"(none)" traceparent) ;
-        let tracing = traceparent in
         let id, final_id =
           (* The URI is /service/xenops/memory/id *)
           let bits = Astring.String.cuts ~sep:"/" (Uri.path uri) in
@@ -3673,7 +3677,7 @@ module VM = struct
                 ; vmr_compressed= compressed_memory
                 }
             in
-            let task = Some (queue_operation ?tracing dbg id op) in
+            let task = Some (queue_operation ?traceparent dbg id op) in
             Option.iter
               (fun t -> t |> Xenops_client.wait_for_task dbg |> ignore)
               task
@@ -4135,6 +4139,8 @@ let _ =
   Server.HOST.send_debug_keys (HOST.send_debug_keys ()) ;
   Server.HOST.set_worker_pool_size (HOST.set_worker_pool_size ()) ;
   Server.HOST.update_guest_agent_features (HOST.update_guest_agent_features ()) ;
+  Server.HOST.combine_cpu_policies (HOST.combine_cpu_policies ()) ;
+  Server.HOST.is_compatible (HOST.is_compatible ()) ;
   Server.VM.add (VM.add ()) ;
   Server.VM.remove (VM.remove ()) ;
   Server.VM.migrate (VM.migrate ()) ;

@@ -3,7 +3,7 @@ author: "dave.scott@eu.citrix.com"
 maintainer: "xen-api@lists.xen.org"
 homepage: "https://github.com/xapi-project/xen-api"
 bug-reports: "https://github.com/xapi-project/xen-api/issues"
-dev-repo: "git://github.com/xapi-project/xen-api.git"
+dev-repo: "https://github.com/xapi-project/xen-api.git"
 build: [
   ["dune" "build" "-p" name "-j" jobs]
   ["dune" "build" "-p" name "-j" jobs "@runtest"] {with-test}

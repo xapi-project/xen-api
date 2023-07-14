@@ -25,11 +25,11 @@ let get_certificates rpc session_id =
 
 let certificate_description = function
   | Host _ ->
-      "TLS server certificate"
+      "The TLS server certificate"
   | Internal _ ->
-      "internal TLS server certificate"
+      "The internal TLS server certificate"
   | CA _ ->
-      "CA pool certificate"
+      "The CA pool certificate"
 
 let alert_conditions = function
   | Host _ ->

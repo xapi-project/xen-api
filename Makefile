@@ -197,7 +197,7 @@ install: build doc sdk doc-json
 		gzip http-lib pciutil sexpr stunnel uuid xml-light2 zstd xapi-compression safe-resources \
 		message-switch message-switch-async message-switch-cli message-switch-core message-switch-lwt \
 		message-switch-unix xapi-idl forkexec xapi-forkexecd xapi-storage xapi-storage-script xapi-storage-cli \
-		xapi-nbd varstored-guard xapi-log xapi-open-uri xapi-tracing xapi-expiry-alerts
+		xapi-nbd varstored-guard xapi-log xapi-open-uri xapi-tracing xapi-expiry-alerts cohttp-posix
 	make -C _build/default/ocaml/xapi-storage/python
 	make -C _build/default/ocaml/xapi-storage/python install DESTDIR=$(DESTDIR)
 # docs
@@ -219,7 +219,7 @@ uninstall:
 		gzip http-lib pciutil sexpr stunnel uuid xml-light2 zstd xapi-compression safe-resources \
 		message-switch message-switch-async message-switch-cli message-switch-core message-switch-lwt \
 		message-switch-unix xapi-idl forkexec xapi-forkexecd xapi-storage xapi-storage-script xapi-log \
-		xapi-open-uri xapi-tracing xapi-expiry-alerts
+		xapi-open-uri xapi-tracing xapi-expiry-alerts cohttp-posix
 
 compile_flags.txt: Makefile
 	(ocamlc -config-var ocamlc_cflags;\

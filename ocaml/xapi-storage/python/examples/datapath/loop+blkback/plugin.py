@@ -15,6 +15,7 @@
 # along with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 
+from __future__ import print_function
 import os
 import sys
 
@@ -53,4 +54,4 @@ if __name__ == "__main__":
     else:
         cmds = ['Plugin.{}'.format(x) for x in dir(cmd) if not x.startswith('_')]
         for name in cmds:
-            print name
+            print(name)

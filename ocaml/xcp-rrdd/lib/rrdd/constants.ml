@@ -13,6 +13,8 @@
  *)
 (* constants which are global across all the tools *)
 
+let ( // ) = Filename.concat
+
 let get_vm_rrd = "vm_rrd"
 
 let get_vm_rrd_uri = "/" ^ get_vm_rrd
@@ -49,8 +51,7 @@ let rrd_location = Filename.concat "/var/lib/xcp" "blobs/rrds"
 (* Blob storage location. *)
 let blob_location = Filename.concat "/var/lib/xcp" "blobs"
 
-let version_major = 1
+(* Location of json dump for NRPE to read them *)
+let datasource_dump_file = "/dev/shm" // "host-metrics.json"
 
-let version_minor = 0
-
-let rrdd_user_agent = Printf.sprintf "rrdd/%d.%d" version_major version_minor
+let rrdd_user_agent = "rrdd" // Xapi_version.version

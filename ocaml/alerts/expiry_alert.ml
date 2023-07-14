@@ -52,9 +52,9 @@ let message_body msg expiry =
   Printf.sprintf "<body><message>%s</message><date>%s</date></body>" msg
     (Date.to_string expiry)
 
-let expired_message obj = Printf.sprintf "The %s has expired." obj
+let expired_message obj = Printf.sprintf "%s has expired." obj
 
-let expiring_message obj = Printf.sprintf "The %s is expiring soon." obj
+let expiring_message obj = Printf.sprintf "%s is expiring soon." obj
 
 let maybe_generate_alert now obj_description alert_conditions expiry =
   let remaining_days =

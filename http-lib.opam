@@ -26,6 +26,7 @@ depends: [
   "xapi-stdext-pervasives"
   "xapi-stdext-threads"
   "xapi-stdext-unix"
+  "xapi-tracing"
   "xml-light2"
   "ounit2" {with-test & >= "2.0.0"}
 ]

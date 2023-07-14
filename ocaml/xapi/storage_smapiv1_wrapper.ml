@@ -92,6 +92,27 @@ let indent x = "    " ^ x
 
 let string_of_date x = Date.to_string (Date.of_float x)
 
+(* Sets the logging context based on `dbg`.
+   Also adds a new tracing span, linked to the parent span from `dbg`, if available. *)
+let with_dbg ~name ~dbg f =
+  let open Debuginfo in
+  let di = of_string dbg in
+  Debug.with_thread_associated di.log
+    (fun () ->
+      let name = "SMAPIv1." ^ name in
+      let tracer = Tracing.get_tracer ~name in
+      let span = Tracing.Tracer.start ~tracer ~name ~parent:di.tracing () in
+      match span with
+      | Ok span_context ->
+          let result = f {di with tracing= span_context} in
+          let _ = Tracing.Tracer.finish span_context in
+          result
+      | Error e ->
+          D.warn "Failed to start tracing: %s" (Printexc.to_string e) ;
+          f di
+    )
+    ()
+
 let rpc_fns keyty valty =
   let rpc_of hashtbl =
     let v =
@@ -582,6 +603,7 @@ functor
         match failures with [] -> next () | f :: _ -> raise f
 
       let epoch_begin context ~dbg ~sr ~vdi ~vm ~persistent =
+        with_dbg ~name:"VDI.epoch_begin" ~dbg @@ fun {log= dbg; _} ->
         info "VDI.epoch_begin dbg:%s sr:%s vdi:%s vm:%s persistent:%b" dbg
           (s_of_sr sr) (s_of_vdi vdi) (s_of_vm vm) persistent ;
         with_vdi sr vdi (fun () ->
@@ -592,6 +614,7 @@ functor
         )
 
       let attach3 context ~dbg ~dp ~sr ~vdi ~vm ~read_write =
+        with_dbg ~name:"VDI.attach3" ~dbg @@ fun {log= dbg; _} ->
         info "VDI.attach3 dbg:%s dp:%s sr:%s vdi:%s vm:%s read_write:%b" dbg dp
           (s_of_sr sr) (s_of_vdi vdi) (s_of_vm vm) read_write ;
         with_vdi sr vdi (fun () ->
@@ -612,6 +635,7 @@ functor
         )
 
       let attach2 context ~dbg ~dp ~sr ~vdi ~read_write =
+        with_dbg ~name:"VDI.attach2" ~dbg @@ fun {log= dbg; _} ->
         info "VDI.attach2 dbg:%s dp:%s sr:%s vdi:%s read_write:%b" dbg dp
           (s_of_sr sr) (s_of_vdi vdi) read_write ;
         (*Support calls from older XAPI during migrate operation (dom 0 attach )*)
@@ -619,6 +643,7 @@ functor
         attach3 context ~dbg ~dp ~sr ~vdi ~vm ~read_write
 
       let attach context ~dbg ~dp ~sr ~vdi ~read_write =
+        with_dbg ~name:"VDI.attach" ~dbg @@ fun {log= dbg; _} ->
         info "VDI.attach dbg:%s dp:%s sr:%s vdi:%s read_write:%b" dbg dp
           (s_of_sr sr) (s_of_vdi vdi) read_write ;
         let vm = vm_of_s "0" in
@@ -662,6 +687,7 @@ functor
               )
 
       let activate3 context ~dbg ~dp ~sr ~vdi ~vm =
+        with_dbg ~name:"VDI.activate3" ~dbg @@ fun {log= dbg; _} ->
         info "VDI.activate3 dbg:%s dp:%s sr:%s vdi:%s vm:%s" dbg dp (s_of_sr sr)
           (s_of_vdi vdi) (s_of_vm vm) ;
         with_vdi sr vdi (fun () ->
@@ -677,6 +703,7 @@ functor
       let activate_readonly = activate3
 
       let activate context ~dbg ~dp ~sr ~vdi =
+        with_dbg ~name:"VDI.activate" ~dbg @@ fun {log= dbg; _} ->
         info "VDI.activate dbg:%s dp:%s sr:%s vdi:%s " dbg dp (s_of_sr sr)
           (s_of_vdi vdi) ;
         (*Support calls from older XAPI during migrate operation (dom 0 attach )*)
@@ -684,6 +711,7 @@ functor
         activate3 context ~dbg ~dp ~sr ~vdi ~vm
 
       let deactivate context ~dbg ~dp ~sr ~vdi ~vm =
+        with_dbg ~name:"VDI.deactivate" ~dbg @@ fun {log= dbg; _} ->
         info "VDI.deactivate dbg:%s dp:%s sr:%s vdi:%s vm:%s" dbg dp
           (s_of_sr sr) (s_of_vdi vdi) (s_of_vm vm) ;
         with_vdi sr vdi (fun () ->
@@ -697,6 +725,7 @@ functor
         )
 
       let detach context ~dbg ~dp ~sr ~vdi ~vm =
+        with_dbg ~name:"VDI.detach" ~dbg @@ fun {log= dbg; _} ->
         info "VDI.detach dbg:%s dp:%s sr:%s vdi:%s vm:%s" dbg dp (s_of_sr sr)
           (s_of_vdi vdi) (s_of_vm vm) ;
         with_vdi sr vdi (fun () ->
@@ -710,6 +739,7 @@ functor
         )
 
       let epoch_end context ~dbg ~sr ~vdi ~vm =
+        with_dbg ~name:"VDI.epoch_end" ~dbg @@ fun {log= dbg; _} ->
         info "VDI.epoch_end dbg:%s sr:%s vdi:%s vm:%s" dbg (s_of_sr sr)
           (s_of_vdi vdi) (s_of_vm vm) ;
         with_vdi sr vdi (fun () ->
@@ -719,6 +749,7 @@ functor
         )
 
       let create context ~dbg ~sr ~vdi_info =
+        with_dbg ~name:"VDI.create" ~dbg @@ fun {log= dbg; _} ->
         info "VDI.create dbg:%s sr:%s vdi_info:%s" dbg (s_of_sr sr)
           (string_of_vdi_info vdi_info) ;
         let result = Impl.VDI.create context ~dbg ~sr ~vdi_info in
@@ -743,6 +774,7 @@ functor
             result
 
       let snapshot_and_clone call_name call_f context ~dbg ~sr ~vdi_info =
+        with_dbg ~name:call_name ~dbg @@ fun {log= dbg; _} ->
         info "%s dbg:%s sr:%s vdi_info:%s" call_name dbg (s_of_sr sr)
           (string_of_vdi_info vdi_info) ;
         with_vdi sr vdi_info.vdi (fun () -> call_f context ~dbg ~sr ~vdi_info)
@@ -752,6 +784,7 @@ functor
       let clone = snapshot_and_clone "VDI.clone" Impl.VDI.clone
 
       let set_name_label context ~dbg ~sr ~vdi ~new_name_label =
+        with_dbg ~name:"VDI.set_name_label" ~dbg @@ fun {log= dbg; _} ->
         info "VDI.set_name_label dbg:%s sr:%s vdi:%s new_name_label:%s" dbg
           (s_of_sr sr) (s_of_vdi vdi) new_name_label ;
         with_vdi sr vdi (fun () ->
@@ -759,6 +792,7 @@ functor
         )
 
       let set_name_description context ~dbg ~sr ~vdi ~new_name_description =
+        with_dbg ~name:"VDI.set_name_description" ~dbg @@ fun {log= dbg; _} ->
         info
           "VDI.set_name_description dbg:%s sr:%s vdi:%s new_name_description:%s"
           dbg (s_of_sr sr) (s_of_vdi vdi) new_name_description ;
@@ -768,6 +802,7 @@ functor
         )
 
       let resize context ~dbg ~sr ~vdi ~new_size =
+        with_dbg ~name:"VDI.resize" ~dbg @@ fun {log= dbg; _} ->
         info "VDI.resize dbg:%s sr:%s vdi:%s new_size:%Ld" dbg (s_of_sr sr)
           (s_of_vdi vdi) new_size ;
         with_vdi sr vdi (fun () ->
@@ -775,6 +810,7 @@ functor
         )
 
       let destroy_and_data_destroy call_name call_f context ~dbg ~sr ~vdi =
+        with_dbg ~name:call_name ~dbg @@ fun {log= dbg; _} ->
         info "%s dbg:%s sr:%s vdi:%s" call_name dbg (s_of_sr sr) (s_of_vdi vdi) ;
 
         with_vdi sr vdi (fun () ->
@@ -789,10 +825,12 @@ functor
         destroy_and_data_destroy "VDI.data_destroy" Impl.VDI.data_destroy
 
       let stat context ~dbg ~sr ~vdi =
+        with_dbg ~name:"VDI.stat" ~dbg @@ fun {log= dbg; _} ->
         info "VDI.stat dbg:%s sr:%s vdi:%s" dbg (s_of_sr sr) (s_of_vdi vdi) ;
         Impl.VDI.stat context ~dbg ~sr ~vdi
 
       let introduce context ~dbg ~sr ~uuid ~sm_config ~location =
+        with_dbg ~name:"VDI.introduce" ~dbg @@ fun {log= dbg; _} ->
         info "VDI.introduce dbg:%s sr:%s uuid:%s sm_config:%s location:%s" dbg
           (s_of_sr sr) uuid
           (String.concat ", " (List.map (fun (k, v) -> k ^ ":" ^ v) sm_config))
@@ -800,6 +838,7 @@ functor
         Impl.VDI.introduce context ~dbg ~sr ~uuid ~sm_config ~location
 
       let set_persistent context ~dbg ~sr ~vdi ~persistent =
+        with_dbg ~name:"VDI.set_persistent" ~dbg @@ fun {log= dbg; _} ->
         info "VDI.set_persistent dbg:%s sr:%s vdi:%s persistent:%b" dbg
           (s_of_sr sr) (s_of_vdi vdi) persistent ;
         with_vdi sr vdi (fun () ->
@@ -807,49 +846,59 @@ functor
         )
 
       let get_by_name context ~dbg ~sr ~name =
+        with_dbg ~name:"VDI.get_by_name" ~dbg @@ fun {log= dbg; _} ->
         info "VDI.get_by_name dbg:%s sr:%s name:%s" dbg (s_of_sr sr) name ;
         Impl.VDI.get_by_name context ~dbg ~sr ~name
 
       let set_content_id context ~dbg ~sr ~vdi ~content_id =
+        with_dbg ~name:"VDI.set_content_id" ~dbg @@ fun {log= dbg; _} ->
         info "VDI.set_content_id dbg:%s sr:%s vdi:%s content_id:%s" dbg
           (s_of_sr sr) (s_of_vdi vdi) content_id ;
         Impl.VDI.set_content_id context ~dbg ~sr ~vdi ~content_id
 
       let similar_content context ~dbg ~sr ~vdi =
+        with_dbg ~name:"VDI.similar_content" ~dbg @@ fun {log= dbg; _} ->
         info "VDI.similar_content dbg:%s sr:%s vdi:%s" dbg (s_of_sr sr)
           (s_of_vdi vdi) ;
         Impl.VDI.similar_content context ~dbg ~sr ~vdi
 
       let compose context ~dbg ~sr ~vdi1 ~vdi2 =
+        with_dbg ~name:"VDI.compose" ~dbg @@ fun {log= dbg; _} ->
         info "VDI.compose dbg:%s sr:%s vdi1:%s vdi2:%s" dbg (s_of_sr sr)
           (s_of_vdi vdi1) (s_of_vdi vdi2) ;
         Impl.VDI.compose context ~dbg ~sr ~vdi1 ~vdi2
 
       let add_to_sm_config context ~dbg ~sr ~vdi ~key ~value =
+        with_dbg ~name:"VDI.add_to_sm_config" ~dbg @@ fun {log= dbg; _} ->
         info "VDI.add_to_sm_config dbg:%s sr:%s vdi:%s key:%s value:%s" dbg
           (s_of_sr sr) (s_of_vdi vdi) key value ;
         Impl.VDI.add_to_sm_config context ~dbg ~sr ~vdi ~key ~value
 
       let remove_from_sm_config context ~dbg ~sr ~vdi ~key =
+        with_dbg ~name:"VDI.remove_from_sm_config" ~dbg @@ fun {log= dbg; _} ->
         info "VDI.remove_from_sm_config dbg:%s sr:%s vdi:%s key:%s" dbg
           (s_of_sr sr) (s_of_vdi vdi) key ;
         Impl.VDI.remove_from_sm_config context ~dbg ~sr ~vdi ~key
 
       let get_url context ~dbg ~sr ~vdi =
+        with_dbg ~name:"VDI.get_url" ~dbg @@ fun {log= dbg; _} ->
         info "VDI.get_url dbg:%s sr:%s vdi:%s" dbg (s_of_sr sr) (s_of_vdi vdi) ;
         Impl.VDI.get_url context ~dbg ~sr ~vdi
 
       let enable_cbt context ~dbg ~sr ~vdi =
+        with_dbg ~name:"VDI.enabled_cbt" ~dbg @@ fun {log= dbg; _} ->
         info "VDI.enable_cbt dbg:%s sr:%s vdi:%s" dbg (s_of_sr sr) (s_of_vdi vdi) ;
         with_vdi sr vdi (fun () -> Impl.VDI.enable_cbt context ~dbg ~sr ~vdi)
 
       let disable_cbt context ~dbg ~sr ~vdi =
+        with_dbg ~name:"VDI.disable_cbt" ~dbg @@ fun {log= dbg; _} ->
         info "VDI.disable_cbt dbg:%s sr:%s vdi:%s" dbg (s_of_sr sr)
           (s_of_vdi vdi) ;
         with_vdi sr vdi (fun () -> Impl.VDI.disable_cbt context ~dbg ~sr ~vdi)
 
       (** The [sr] parameter is the SR of VDI [vdi_to]. *)
       let list_changed_blocks context ~dbg ~sr ~vdi_from ~vdi_to =
+        with_dbg ~name:"VDI.list_changed_blocks" ~dbg @@ fun {log= dbg; _} ->
         info "VDI.list_changed_blocks dbg:%s sr:%s vdi_from:%s vdi_to:%s" dbg
           (s_of_sr sr) (s_of_vdi vdi_from) (s_of_vdi vdi_to) ;
         with_vdi sr vdi_to (fun () ->
@@ -858,6 +907,7 @@ functor
     end
 
     let get_by_name context ~dbg ~name =
+      with_dbg ~name:"get_by_name" ~dbg @@ fun {log= dbg; _} ->
       debug "get_by_name dbg:%s name:%s" dbg name ;
       Impl.get_by_name context ~dbg ~name
 
@@ -1041,6 +1091,7 @@ functor
         assert false
 
       let destroy2 context ~dbg ~dp ~sr ~vdi ~vm ~allow_leak =
+        with_dbg ~name:"DP.destroy2" ~dbg @@ fun {log= dbg; _} ->
         info "DP.destroy2 dbg:%s dp:%s sr:%s vdi:%s vm:%s allow_leak:%b" dbg dp
           (s_of_sr sr) (s_of_vdi vdi) (s_of_vm vm) allow_leak ;
         destroy' context ~dbg ~dp ~allow_leak
@@ -1116,11 +1167,17 @@ functor
       let with_sr sr f = Storage_locks.with_instance_lock locks (s_of_sr sr) f
 
       let probe context ~dbg ~queue ~device_config ~sm_config =
+        with_dbg ~name:"SR.probe" ~dbg @@ fun {log= dbg; _} ->
+        info "SR.probe dbg:%s" dbg ;
         Impl.SR.probe context ~dbg ~queue ~device_config ~sm_config
 
-      let list _context ~dbg:_ = List.map fst (Host.list !Host.host)
+      let list _context ~dbg =
+        with_dbg ~name:"SR.list" ~dbg @@ fun {log= dbg; _} ->
+        info "SR.list dbg:%s" dbg ;
+        List.map fst (Host.list !Host.host)
 
       let stat context ~dbg ~sr =
+        with_dbg ~name:"SR.stat" ~dbg @@ fun {log= dbg; _} ->
         info "SR.stat dbg:%s sr:%s" dbg (s_of_sr sr) ;
         with_sr sr (fun () ->
             match Host.find sr !Host.host with
@@ -1131,6 +1188,7 @@ functor
         )
 
       let scan context ~dbg ~sr =
+        with_dbg ~name:"SR.scan" ~dbg @@ fun {log= dbg; _} ->
         info "SR.scan dbg:%s sr:%s" dbg (s_of_sr sr) ;
         with_sr sr (fun () ->
             match Host.find sr !Host.host with
@@ -1142,6 +1200,8 @@ functor
 
       let create context ~dbg ~sr ~name_label ~name_description ~device_config
           ~physical_size =
+        with_dbg ~name:"SR.create" ~dbg @@ fun {log= dbg; _} ->
+        info "SR.create dbg:%s sr:%s name_label:%s" dbg (s_of_sr sr) name_label ;
         with_sr sr (fun () ->
             match Host.find sr !Host.host with
             | None ->
@@ -1153,16 +1213,19 @@ functor
         )
 
       let set_name_label context ~dbg ~sr ~new_name_label =
+        with_dbg ~name:"SR.set_name_label" ~dbg @@ fun {log= dbg; _} ->
         info "SR.set_name_label dbg:%s sr:%s new_name_label:%s" dbg (s_of_sr sr)
           new_name_label ;
         Impl.SR.set_name_label context ~dbg ~sr ~new_name_label
 
       let set_name_description context ~dbg ~sr ~new_name_description =
+        with_dbg ~name:"SR.set_name_description" ~dbg @@ fun {log= dbg; _} ->
         info "SR.set_name_description dbg:%s sr:%s new_name_description:%s" dbg
           (s_of_sr sr) new_name_description ;
         Impl.SR.set_name_description context ~dbg ~sr ~new_name_description
 
       let attach context ~dbg ~sr ~device_config =
+        with_dbg ~name:"SR.attach" ~dbg @@ fun {log= dbg; _} ->
         let censor_key = ["password"] in
         let device_config_str =
           String.concat "; "
@@ -1234,10 +1297,12 @@ functor
         )
 
       let detach context ~dbg ~sr =
+        with_dbg ~name:"SR.detach" ~dbg @@ fun {log= dbg; _} ->
         info "SR.detach dbg:%s sr:%s" dbg (s_of_sr sr) ;
         detach_destroy_common context ~dbg ~sr Impl.SR.detach
 
       let reset _context ~dbg ~sr =
+        with_dbg ~name:"SR.reset" ~dbg @@ fun {log= dbg; _} ->
         info "SR.reset dbg:%s sr:%s" dbg (s_of_sr sr) ;
         with_sr sr (fun () ->
             Host.remove sr !Host.host ;
@@ -1246,11 +1311,14 @@ functor
         )
 
       let destroy context ~dbg ~sr =
+        with_dbg ~name:"SR.destroy" ~dbg @@ fun {log= dbg; _} ->
         info "SR.destroy dbg:%s sr:%s" dbg (s_of_sr sr) ;
         detach_destroy_common context ~dbg ~sr Impl.SR.destroy
 
       let update_snapshot_info_src context ~dbg ~sr ~vdi ~url ~dest ~dest_vdi
           ~snapshot_pairs =
+        with_dbg ~name:"SR.update_snapshot_info_src" ~dbg
+        @@ fun {log= dbg; _} ->
         info
           "SR.update_snapshot_info_src dbg:%s sr:%s vdi:%s url:%s dest:%s \
            dest_vdi:%s snapshot_pairs:%s"
@@ -1269,6 +1337,8 @@ functor
 
       let update_snapshot_info_dest context ~dbg ~sr ~vdi ~src_vdi
           ~snapshot_pairs =
+        with_dbg ~name:"SR.update_snapshot_info_dest" ~dbg
+        @@ fun {log= dbg; _} ->
         info
           "SR.update_snapshot_info_dest dbg:%s sr:%s vdi:%s ~src_vdi:%s \
            snapshot_pairs:%s"

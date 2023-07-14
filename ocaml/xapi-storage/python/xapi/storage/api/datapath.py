@@ -1,3 +1,4 @@
+from __future__ import print_function
 from xapi import success, Rpc_light_failure, InternalError, UnmarshalException, TypeError, is_long, UnknownMethod
 import xapi
 import sys
@@ -302,8 +303,8 @@ class Datapath_commandline():
             request = self._parse_open()
             use_json = 'json' in request and request['json']
             results = self.dispatcher.open(request)
-            print json.dumps(results)
-        except Exception, e:
+            print(json.dumps(results))
+        except Exception as e:
             if use_json:
                 xapi.handle_exception(e)
             else:
@@ -315,8 +316,8 @@ class Datapath_commandline():
             request = self._parse_attach()
             use_json = 'json' in request and request['json']
             results = self.dispatcher.attach(request)
-            print json.dumps(results)
-        except Exception, e:
+            print(json.dumps(results))
+        except Exception as e:
             if use_json:
                 xapi.handle_exception(e)
             else:
@@ -328,8 +329,8 @@ class Datapath_commandline():
             request = self._parse_activate()
             use_json = 'json' in request and request['json']
             results = self.dispatcher.activate(request)
-            print json.dumps(results)
-        except Exception, e:
+            print(json.dumps(results))
+        except Exception as e:
             if use_json:
                 xapi.handle_exception(e)
             else:
@@ -341,8 +342,8 @@ class Datapath_commandline():
             request = self._parse_deactivate()
             use_json = 'json' in request and request['json']
             results = self.dispatcher.deactivate(request)
-            print json.dumps(results)
-        except Exception, e:
+            print(json.dumps(results))
+        except Exception as e:
             if use_json:
                 xapi.handle_exception(e)
             else:
@@ -354,8 +355,8 @@ class Datapath_commandline():
             request = self._parse_detach()
             use_json = 'json' in request and request['json']
             results = self.dispatcher.detach(request)
-            print json.dumps(results)
-        except Exception, e:
+            print(json.dumps(results))
+        except Exception as e:
             if use_json:
                 xapi.handle_exception(e)
             else:
@@ -367,8 +368,8 @@ class Datapath_commandline():
             request = self._parse_close()
             use_json = 'json' in request and request['json']
             results = self.dispatcher.close(request)
-            print json.dumps(results)
-        except Exception, e:
+            print(json.dumps(results))
+        except Exception as e:
             if use_json:
                 xapi.handle_exception(e)
             else:
@@ -384,7 +385,7 @@ class datapath_server_dispatcher:
             if method.startswith("Datapath") and self.Datapath:
                 return self.Datapath._dispatch(method, params)
             raise UnknownMethod(method)
-        except Exception, e:
+        except Exception as e:
             logging.info("caught %s" % e)
             traceback.print_exc()
             try:

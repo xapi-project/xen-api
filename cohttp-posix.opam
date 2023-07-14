@@ -4,18 +4,13 @@ authors: "xen-api@lists.xen.org"
 homepage: "https://xapi-project.github.io/"
 bug-reports: "https://github.com/xapi-project/xen-api.git"
 dev-repo: "git+https://github.com/xapi-project/xen-api.git"
-build: [
-  ["dune" "build" "-p" name "-j" jobs]
-  ["dune" "runtest" "-p" name "-j" jobs] {with-test}
-]
-available: [ os = "linux" | os = "macos" ]
+build: [[ "dune" "build" "-p" name "-j" jobs ]]
+
+available: [ os = "linux" ]
 depends: [
   "ocaml"
-  "cohttp"
   "dune"
-  "stunnel"
-  "uri"
-  "xapi-stdext-pervasives"
+  "cohttp"
 ]
 synopsis: "Library required by xapi"
 description: """
