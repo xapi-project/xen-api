@@ -3385,6 +3385,18 @@ let remove_repository ~__context ~self ~value =
     (Db.Pool.get_repositories ~__context ~self) ;
   Db.Pool.remove_repositories ~__context ~self ~value
 
+let sync_with_yum_repos_in_progress = "sync_with_yum_repos_in_progress"
+
+let update_sync_status ~__context ~pool ~value =
+  if
+    List.mem_assoc sync_with_yum_repos_in_progress
+      (Db.Pool.get_other_config ~__context ~self:pool)
+  then
+    Db.Pool.remove_from_other_config ~__context ~self:pool
+      ~key:sync_with_yum_repos_in_progress ;
+  Db.Pool.add_to_other_config ~__context ~self:pool
+    ~key:sync_with_yum_repos_in_progress ~value
+
 let sync_updates ~__context ~self ~force ~token ~token_id =
   Pool_features.assert_enabled ~__context ~f:Features.Updates ;
   let open Repository in
@@ -3403,8 +3415,7 @@ let sync_updates ~__context ~self ~force ~token ~token_id =
    *)
   finally
     (fun () ->
-      Db.Pool.add_to_other_config ~__context ~self
-        ~key:"sync_with_yum_repos_in_progress" ~value:"true" ;
+      update_sync_status ~__context ~pool:self ~value:"true" ;
       let enabled = Repository_helpers.get_enabled_repositories ~__context in
       match force with
       | true ->
@@ -3433,10 +3444,7 @@ let sync_updates ~__context ~self ~force ~token ~token_id =
           Db.Pool.set_last_update_sync ~__context ~self ~value:(Date.now ()) ;
           checksum
     )
-    (fun () ->
-      Db.Pool.add_to_other_config ~__context ~self
-        ~key:"sync_with_yum_repos_in_progress" ~value:"false"
-    )
+    (fun () -> update_sync_status ~__context ~pool:self ~value:"false")
 
 let check_update_readiness ~__context ~self:_ ~requires_reboot =
   (* Pool license check *)
