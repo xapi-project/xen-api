@@ -1,0 +1,10 @@
+(library
+ (name lru)
+ (modules lru)
+ (libraries threads))
+
+; use "dune runtest ." to run only tests in this directory
+(test
+ (name lru_test)
+ (modules lru_test)
+ (libraries qcheck threads lru))
