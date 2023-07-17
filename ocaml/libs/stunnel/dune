@@ -3,6 +3,7 @@
   (public_name stunnel)
   (wrapped false)
   (libraries
+    lru
     astring
     forkexec
     safe-resources

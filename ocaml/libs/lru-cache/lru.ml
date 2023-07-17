@@ -213,31 +213,34 @@ module Unsafe = struct
   (** [remove] an entry based on this [key] *)
   let remove' t key = retrieve' t key |> ignore
 
-  (** [add] a new entry; we make sure no entry under this key already
-      exists. If the new entry exceeds the capacity of the table, [true]
+  (** [add] a new entry; do nothing if the entry exists. If the new
+      entry exceeds the capacity of the table, [true]
       is returned and [false] otherwise. It signals the caller to [trim]
       the table.*)
   let add' t key value =
-    remove' t key ;
-    let node = LL.node (key, value) in
-    Hashtbl.add t.table key node ;
-    t.entries <- t.entries + 1 ;
-    LL.append t.queue node ;
-    t.entries > t.cap
+    match lookup' t key with
+    | None ->
+        let node = LL.node (key, value) in
+        Hashtbl.add t.table key node ;
+        t.entries <- t.entries + 1 ;
+        LL.append t.queue node ;
+        t.entries > t.cap
+    | Some _ ->
+        t.entries > t.cap
 
   (** [lru] returns the least-recently-used key/value pair *)
   let lru' t = LL.first t.queue |> Option.map LL.value
 
   (** [drop_while] drops elements starting in least-recently-used order
-    while predicate [kill] is true. The predicate receives the key/value
+    while predicate [evict] is true. The predicate receives the key/value
     and a boolean that indicates if the cache is over capacity. If
-    [kill] returns true it can perform any finalisation on the value
+    [evict] returns true it can perform any finalisation on the value
     before it will be removed by [drop_while]. *)
 
-  let rec drop_while' t ~kill =
+  let rec drop_while' t ~evict =
     match lru' t with
-    | Some ((key, _) as kv) when kill kv (t.entries > t.cap) ->
-        remove' t key ; drop_while' t ~kill
+    | Some ((key, _) as kv) when evict kv (t.entries > t.cap) ->
+        remove' t key ; drop_while' t ~evict
     | Some _ ->
         ()
     | None ->
@@ -249,8 +252,8 @@ module Unsafe = struct
     [trim] does not provide it.  *)
 
   let trim' t =
-    let kill _ x = x in
-    drop_while' t ~kill
+    let evict _ x = x in
+    drop_while' t ~evict
 end
 
 (* Functions below are intended to be used by clients of this modules.

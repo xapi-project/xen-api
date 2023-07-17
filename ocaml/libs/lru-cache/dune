@@ -1,5 +1,6 @@
 (library
  (name lru)
+ (public_name lru)
  (modules lru)
  (libraries threads))
 

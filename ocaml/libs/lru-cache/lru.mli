@@ -38,18 +38,20 @@ val retrieve : ('a, 'b) t -> 'a -> 'b option
 (** [retireve] looks up an entry and removes it if it is found.*)
 
 val add : ('a, 'b) t -> 'a -> 'b -> bool
-(** [add] a new entry; an existing entry is first removed. Returns [true]
-   if the capacity of the cache is exceeded and should be [trim]'ed. *)
+(** [add] a new entry; if the entry already exists the entry is not
+    added. The reason is that we want to avoid removing entries without
+    clients being able to act on them. Returns [true] if the capacity of
+    the cache is exceeded and should be [trim]'ed. *)
 
-val drop_while : ('a, 'b) t -> kill:('a * 'b -> bool -> bool) -> unit
+val drop_while : ('a, 'b) t -> evict:('a * 'b -> bool -> bool) -> unit
 (** [drop_while] drops elements starting in least-recently-used
-    while predicate [kill] is true. The predicate receives the key/value
+    while predicate [evict] is true. The predicate receives the key/value
     and a boolean that indicates if the cache is over capacity. If
-    [kill] returns true it can perform any finalisation on the value
+    [evict] returns true it can perform any finalisation on the value
     before it will be removed by [drop_while]. [drop_while] can be used
     to clean the cache or to remove elements on any criteria.
 
-    The [kill] function must not call any of the functions of this API
+    The [evict] function must not call any of the functions of this API
     but decide purely on the value it is passed *)
 
 val trim : ('a, 'b) t -> unit

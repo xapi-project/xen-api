@@ -73,8 +73,8 @@ let length : QT.t =
 
 let drop : QT.t =
   QT.make ~name:__FUNCTION__ lru ~count @@ fun lru ->
-  let kill (_, _) _ = true in
-  LRU.drop_while ~kill lru ;
+  let evict (_, _) _ = true in
+  LRU.drop_while ~evict lru ;
   LRU.size lru = 0 && LRU.cap lru > 0
 
 (** add a new value but make room if the cache is full *)
