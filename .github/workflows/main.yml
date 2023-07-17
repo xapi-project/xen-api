@@ -36,7 +36,7 @@ jobs:
     name: Ocaml tests
     runs-on: ubuntu-20.04
     env:
-      XAPI_VERSION: "v0.0.0-${{ github.sha }}"
+      XAPI_VERSION: "v0.0.0"
 
     steps:
       - name: Checkout code
