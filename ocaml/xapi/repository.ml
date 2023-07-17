@@ -687,7 +687,7 @@ let set_recommended_guidances ~__context ~host ~guidances =
          | RestartToolstack ->
              `restart_toolstack :: acc
          | RestartDeviceModel ->
-             set_restart_device_models ~__context ~host ~kind:Absolute ;
+             set_restart_device_models ~__context ~host ~kind:Recommended ;
              acc
          | g ->
              warn "Unsupported recommended guidance %s, ignoring it."
