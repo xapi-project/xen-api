@@ -47,14 +47,13 @@
   )
 )
 
-(executable
-  (modes exe)
+(test
   (name http_test)
   (modules http_test)
   (libraries
+    alcotest
     dune-build-info
     http_lib
-    ounit2
   )
 )
 
@@ -99,15 +98,6 @@
     xapi-stdext-threads
     xapi-stdext-unix
   )
-)
-
-(rule
-  (alias runtest)
-  (package http-lib)
-  (deps
-    (:x http_test.exe)
-  )
-  (action (run %{x} -runner sequential -verbose true))
 )
 
 (rule

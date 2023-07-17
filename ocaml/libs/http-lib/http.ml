@@ -220,6 +220,15 @@ let parse_uri x =
 type authorization = Basic of string * string | UnknownAuth of string
 [@@deriving rpc]
 
+let authorization_equal a b =
+  match (a, b) with
+  | Basic _, UnknownAuth _ | UnknownAuth _, Basic _ ->
+      false
+  | Basic (a_u, a_p), Basic (b_u, b_p) ->
+      String.equal a_u b_u && String.equal a_p b_p
+  | UnknownAuth a, UnknownAuth b ->
+      String.equal a b
+
 let authorization_of_string x =
   let basic = "Basic " in
   if Astring.String.is_prefix ~affix:basic x then
@@ -316,10 +325,6 @@ let read_up_to ?deadline ?max buf already_read marker fd =
       | _, Some l ->
           l - !b
     in
-    (*
-		Printf.fprintf stderr "b = %d; safe_to_read = %d\n" !b safe_to_read;
-		flush stderr;
-*)
     Option.iter (fun m -> if !b + safe_to_read > m then raise Too_large) max ;
     let n =
       if !b < already_read then
@@ -328,39 +333,19 @@ let read_up_to ?deadline ?max buf already_read marker fd =
         Unix.read fd buf !b safe_to_read
     in
     if n = 0 then raise End_of_file ;
-    (*
-		Printf.fprintf stderr "  n = %d\n" n;
-		flush stderr;
-*)
     for j = 0 to n - 1 do
-      (*
-			Printf.fprintf stderr "b = %d; marker = %s; n = %d; j = %d\n" !b (Scanner.to_string marker) n j;
-			flush stderr;
-*)
       Scanner.input marker (Bytes.get buf (!b + j)) ;
       if !header_len_value_at = None then (
         Scanner.input hl_marker (Bytes.get buf (!b + j)) ;
         if Scanner.matched hl_marker then
           header_len_value_at := Some (!b + j + 1)
-        (*
-					Printf.fprintf stderr "header_len_value_at = %d\n" (!b + j + 1);
-					flush stderr
-*)
       )
     done ;
     b := !b + n ;
-    (*
-		Printf.fprintf stderr "b = %d\n" !b;
-		flush stderr;
-*)
     match !header_len_value_at with
     | Some x when x + header_len_value_len <= !b ->
         (* We can now read the header len header *)
         let hlv = Bytes.sub_string buf x header_len_value_len in
-        (*
-				Printf.fprintf stderr "hlvn=[%s]" hlv;
-				flush stderr;
-*)
         header_len := Some (int_of_string hlv)
     | _ ->
         ()
@@ -449,73 +434,102 @@ let read_http_response_header buf fd =
 module Accept = struct
   (* Constraint: we can't have ty = None but subty <> None *)
   type t = {
-      ty: string option
-    ; (* None means '*' *)
-      subty: string option
+      ty: (string * string option) option
     ; (* None means '*' *)
       q: int
           (* range 0 - 1000 *)
           (* We won't parse the more advanced stuff *)
   }
 
-  let string_of_t x =
-    Printf.sprintf "%s/%s;q=%.3f"
-      (Option.value ~default:"*" x.ty)
-      (Option.value ~default:"*" x.subty)
-      (float_of_int x.q /. 1000.)
+  let equal_ty a b =
+    match (a, b) with
+    | None, None ->
+        true
+    | Some (a, None), Some (b, None) ->
+        String.equal a b
+    | Some (a, Some a_s), Some (b, Some b_s) when String.equal a b ->
+        String.equal a_s b_s
+    | _ ->
+        false
 
-  let matches (ty, subty) = function
-    | {ty= Some ty'; subty= Some subty'; _} ->
-        ty' = ty && subty' = subty
-    | {ty= Some ty'; subty= None; _} ->
-        ty' = ty
-    | {ty= None; subty= Some _; _} ->
-        assert false
-    | {ty= None; subty= None; _} ->
+  let equal {ty= a_ty; q= a_q} {ty= b_ty; q= b_q} =
+    Int.equal a_q b_q && equal_ty a_ty b_ty
+
+  let to_string x =
+    let ty, subty =
+      match x.ty with
+      | None ->
+          ("*", "*")
+      | Some (ty, subty) ->
+          (ty, Option.value ~default:"*" subty)
+    in
+    Printf.sprintf "%s/%s;q=%.3f" ty subty (float_of_int x.q /. 1000.)
+
+  let ( // ) = Filename.concat
+
+  let matches ty = function
+    | {ty= Some (ty', Some subty'); _} ->
+        String.equal (ty' // subty') ty
+    | {ty= Some (ty', None); _} -> (
+      match String.split_on_char '/' ty with
+      | [] ->
+          false
+      | ty :: _ ->
+          String.equal ty' ty
+    )
+    | {ty= None; _} ->
         true
 
-  (* compare [a] and [b] where both match some media type *)
-  let compare (a : t) (b : t) =
-    let c = compare a.q b.q in
+  let compare_user_preference (a : t) (b : t) =
+    let c = Stdlib.compare a.q b.q in
     if c <> 0 then
       -c (* q factor (user-preference) overrides all else *)
     else
       match (a.ty, b.ty) with
-      | Some _, None ->
-          1
-      | None, Some _ ->
+      | Some _, None | Some (_, Some _), Some (_, None) ->
           -1
-      | _, _ -> (
-        match (a.subty, b.subty) with
-        | Some _, None ->
-            1
-        | None, Some _ ->
-            -1
-        | _, _ ->
-            0
-      )
+      | None, Some _ | Some (_, None), Some (_, Some _) ->
+          1
+      | None, None
+      | Some (_, None), Some (_, None)
+      | Some (_, Some _), Some (_, Some _) ->
+          0
 
-  let preferred_match media ts =
-    match List.filter (matches media) ts with
-    | [] ->
-        None
-    | xs ->
-        Some (List.hd (List.sort compare xs))
+  let preferred ~from types =
+    let same_priority = function
+      | [] ->
+          None
+      | {q; _} :: _ as xs ->
+          Some (List.partition (fun y -> y.q = q) xs)
+    in
+    let rec loop xs =
+      (* Assumes elements are ordered from best to worst *)
+      match same_priority xs with
+      | None ->
+          []
+      | Some (best, others) -> (
+        match List.filter (fun a -> List.exists (matches a) best) from with
+        | [] ->
+            loop others
+        | negotiated_types ->
+            negotiated_types
+      )
+    in
+    loop (List.sort compare_user_preference types)
 
   exception Parse_failure of string
 
-  let t_of_string x =
+  let of_string_single x =
     match Astring.String.cuts ~sep:";" x with
     | ty_subty :: params ->
         let ty_of_string = function "*" -> None | x -> Some x in
-        let ty, subty =
+        let ty =
           match Astring.String.cuts ~sep:"/" ty_subty with
           | [ty; subty] ->
-              (ty_of_string ty, ty_of_string subty)
+              Option.map (fun ty -> (ty, ty_of_string subty)) (ty_of_string ty)
           | _ ->
               raise (Parse_failure ty_subty)
         in
-        if ty = None && subty <> None then raise (Parse_failure x) ;
         let params =
           List.map
             (fun x ->
@@ -528,16 +542,18 @@ module Accept = struct
             params
         in
         let q =
-          if List.mem_assoc "q" params then
-            int_of_float (1000. *. float_of_string (List.assoc "q" params))
-          else
-            1000
+          match List.assoc_opt "q" params with
+          | Some q ->
+              int_of_float (1000. *. float_of_string q)
+          | None ->
+              1000
         in
-        {ty; subty; q}
+        {ty; q}
     | _ ->
         raise (Parse_failure x)
 
-  let ts_of_string x = List.map t_of_string (Astring.String.cuts ~sep:"," x)
+  let of_string x =
+    List.map of_string_single (Astring.String.cuts ~empty:false ~sep:"," x)
 end
 
 module Request = struct
@@ -889,6 +905,33 @@ module Url = struct
   type data = {uri: string; query_params: (string * string) list}
 
   type t = scheme * data
+
+  let file_equal a b = String.equal a.path b.path
+
+  let query_params_equal (ak, av) (bk, bv) =
+    String.equal ak bk && String.equal av bv
+
+  let data_equal a b =
+    String.equal a.uri b.uri
+    && List.equal query_params_equal a.query_params b.query_params
+
+  let http_equal a b =
+    a.ssl = b.ssl
+    && Option.equal Int.equal a.port b.port
+    && Option.equal authorization_equal a.auth b.auth
+    && String.equal a.host b.host
+
+  let scheme_equal a b =
+    match (a, b) with
+    | Http _, File _ | File _, Http _ ->
+        false
+    | Http a_h, Http b_h ->
+        http_equal a_h b_h
+    | File a_f, File b_f ->
+        file_equal a_f b_f
+
+  let equal (a_scheme, a_data) (b_scheme, b_data) =
+    scheme_equal a_scheme b_scheme && data_equal a_data b_data
 
   let of_string url =
     let sub_before c s = String.sub s 0 (String.index s c) in

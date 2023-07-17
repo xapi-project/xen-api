@@ -48,25 +48,21 @@ val read_http_request_header :
 val read_http_response_header : bytes -> Unix.file_descr -> int
 
 module Accept : sig
-  type t = {
-      (* None means '*' *)
-      ty: string option
-    ; (* None means '*' *)
-      subty: string option
-    ; q: int
-  }
+  type t = {ty: (string * string option) option  (** None means '*' *); q: int}
 
   exception Parse_failure of string
 
-  val t_of_string : string -> t
+  val equal : t -> t -> bool
 
-  val ts_of_string : string -> t list
+  val of_string : string -> t list
 
-  val string_of_t : t -> string
+  val to_string : t -> string
 
-  val matches : string * string -> t -> bool
+  val matches : string -> t -> bool
 
-  val preferred_match : string * string -> t list -> t option
+  val preferred : from:string list -> t list -> string list
+  (** [preferred ~from accepted] returns the content types in [~from]
+      that are accepted by elements of [accepted] in priority order *)
 end
 
 (** Parsed form of the HTTP request line plus cookie info *)
@@ -263,6 +259,8 @@ module Url : sig
   type data = {uri: string; query_params: (string * string) list}
 
   type t = scheme * data
+
+  val equal : t -> t -> bool
 
   val of_string : string -> t
 
