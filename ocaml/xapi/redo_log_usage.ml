@@ -11,7 +11,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-module R = Debug.Make (struct let name = "redo_log" end)
+module R = Debug.Make (struct let name = "redo_log_usage" end)
 
 exception NoGeneration
 
@@ -20,7 +20,7 @@ exception DeltaTooOld
 exception DatabaseWrongSize of int * int
 
 let read_from_redo_log log staging_path db_ref =
-  try
+  R.log_and_ignore_exn @@ fun () ->
     (* 1. Start the process with which we communicate to access the redo log *)
     R.debug "Starting redo log" ;
     Redo_log.startup log ;
@@ -111,12 +111,11 @@ let read_from_redo_log log staging_path db_ref =
         Xapi_stdext_unix.Unixext.write_string_to_file
           (staging_path ^ ".generation")
           (Generation.to_string generation)
-  with _ -> ()
 
 (* it's just a best effort. if we can't read from the log, then don't worry. *)
 
 let stop_using_redo_log log =
   R.debug "Stopping using redo log" ;
-  try Redo_log.shutdown log with _ -> ()
+  R.log_and_ignore_exn @@ fun () -> Redo_log.shutdown log
 
 (* best effort only *)
