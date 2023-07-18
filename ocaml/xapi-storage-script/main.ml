@@ -11,23 +11,265 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-module U = Unix
 module R = Rpc
 module Types = Xapi_storage_script_types
-module Plugin_client = Xapi_storage.Plugin.Plugin (Rpc_async.GenClient ())
-module Volume_client = Xapi_storage.Control.Volume (Rpc_async.GenClient ())
-module Sr_client = Xapi_storage.Control.Sr (Rpc_async.GenClient ())
-module Datapath_client = Xapi_storage.Data.Datapath (Rpc_async.GenClient ())
+module Plugin_client = Xapi_storage.Plugin.Plugin (Rpc_lwt.GenClient ())
+module Volume_client = Xapi_storage.Control.Volume (Rpc_lwt.GenClient ())
+module Sr_client = Xapi_storage.Control.Sr (Rpc_lwt.GenClient ())
+module Datapath_client = Xapi_storage.Data.Datapath (Rpc_lwt.GenClient ())
 
-let ( >>= ) = Async_kernel.( >>= )
+let ( >>= ) = Lwt.bind
 
-let ( >>| ) = Async_kernel.( >>| )
+let ( >>| ) = Fun.flip Lwt.map
 
-let ( >>>= ) = Async_kernel.Deferred.Result.( >>= )
+let ( >>>= ) = Lwt_result.bind
 
-let return = Async_kernel.return
+let return = Lwt_result.return
 
-module Deferred = Async_kernel.Deferred
+let fail = Lwt_result.fail
+
+let ( // ) = Filename.concat
+
+module Deferred = struct
+  let errorf fmt =
+    Printf.ksprintf (fun m -> Lwt.return (Base.Or_error.error_string m)) fmt
+
+  let combine_errors lst = Lwt.all lst >>| Base.Or_error.combine_errors
+
+  let try_with f = Lwt.try_bind f return fail
+end
+
+module Sys = struct
+  type file = Regular | Directory | Other | Missing | Unknown
+
+  let file_kind ~follow_symlinks path =
+    Lwt.try_bind
+      (fun () ->
+        ( if follow_symlinks then
+            Lwt_unix.LargeFile.stat
+          else
+            Lwt_unix.LargeFile.lstat
+        )
+          path
+      )
+      (function
+        | s -> (
+          match s.Unix.LargeFile.st_kind with
+          | Unix.S_REG ->
+              Lwt.return Regular
+          | Unix.S_DIR ->
+              Lwt.return Directory
+          | _ ->
+              Lwt.return Other
+        )
+        )
+      (function
+        | Unix.Unix_error (Unix.ENOENT, _, _) ->
+            Lwt.return Missing
+        | Unix.Unix_error ((Unix.EACCES | Unix.ELOOP), _, _) ->
+            Lwt.return Unknown
+        | e ->
+            Lwt.fail e
+        )
+
+  let access path modes =
+    Lwt.try_bind
+      (fun () -> Lwt_unix.access path modes)
+      return
+      (fun exn -> fail (`not_executable (path, exn)))
+
+  let assert_is_executable path =
+    file_kind ~follow_symlinks:true path >>= function
+    | Directory | Other | Missing | Unknown ->
+        fail (`missing path)
+    | Regular -> (
+        access path [Unix.X_OK] >>= function
+        | Error exn ->
+            fail exn
+        | Ok () ->
+            return ()
+      )
+
+  let read_file_contents path =
+    Lwt_io.(with_file ~mode:input ~flags:[O_RDONLY] ~perm:0o000 path read)
+
+  let save ~contents path =
+    Lwt_io.(with_file ~mode:output path (Fun.flip write contents))
+
+  let readdir path =
+    path |> Lwt_unix.files_of_directory |> Lwt_stream.to_list >>= fun listing ->
+    List.filter (function "." | ".." -> false | _ -> true) listing
+    |> Lwt.return
+
+  let rec mkdir_p ?(perm = 0o755) path =
+    file_kind ~follow_symlinks:false path >>= function
+    | Directory ->
+        Lwt.return_unit
+    | Regular | Other | Unknown ->
+        let msg =
+          Printf.sprintf
+            {|Could not create directory "%s": already exists and it's not a directory|}
+            path
+        in
+        Lwt.fail (Failure msg)
+    | Missing ->
+        let parent = Filename.dirname path in
+        mkdir_p ~perm parent >>= fun () -> Lwt_unix.mkdir path perm
+end
+
+module Signal = struct
+  type t = int
+
+  let to_string s = Fmt.(str "%a" Dump.signal s)
+end
+
+module Process : sig
+  module Output : sig
+    type exit_or_signal = Exit_non_zero of int | Signal of Signal.t
+
+    type t = {
+        exit_status: (unit, exit_or_signal) Result.t
+      ; stdout: string
+      ; stderr: string
+    }
+  end
+
+  val run : prog:string -> args:string list -> input:string -> Output.t Lwt.t
+  (** Runs a cli program, writes [input] into its stdin, then closing the fd,
+      and finally waits for the program to finish and returns the exit status,
+      its stdout and stderr. *)
+end = struct
+  module Output = struct
+    type exit_or_signal = Exit_non_zero of int | Signal of Signal.t
+
+    type t = {
+        exit_status: (unit, exit_or_signal) Result.t
+      ; stdout: string
+      ; stderr: string
+    }
+
+    let exit_or_signal_of_unix = function
+      | Unix.WEXITED 0 ->
+          Ok ()
+      | WEXITED n ->
+          Error (Exit_non_zero n)
+      | WSIGNALED n ->
+          Error (Signal n)
+      | WSTOPPED n ->
+          Error (Signal n)
+  end
+
+  let create ~prog ~args =
+    let args = Array.of_list (prog :: args) in
+    let cmd = (prog, args) in
+
+    Lwt_process.open_process_full cmd
+
+  let close chan () = Lwt_io.close chan
+
+  let send chan data =
+    Lwt.finalize (fun () -> Lwt_io.write chan data) (close chan)
+
+  let receive chan = Lwt.finalize (fun () -> Lwt_io.read chan) (close chan)
+
+  let run ~prog ~args ~input =
+    let p = create ~prog ~args in
+    let sender = send p#stdin input in
+    let receiver_out = receive p#stdout in
+    let receiver_err = receive p#stderr in
+    Lwt.catch
+      (fun () ->
+        let receiver = Lwt.both receiver_out receiver_err in
+        Lwt.both sender receiver >>= fun ((), (stdout, stderr)) ->
+        p#status >>= fun status ->
+        let exit_status = Output.exit_or_signal_of_unix status in
+        Lwt.return {Output.exit_status; stdout; stderr}
+      )
+      (function
+        | Lwt.Canceled as exn ->
+            Lwt.cancel receiver_out ; Lwt.cancel receiver_err ; Lwt.fail exn
+        | exn ->
+            Lwt.fail exn
+        )
+end
+
+module FileWatcher = struct
+  type move = Away of string | Into of string
+
+  type event =
+    | Created of string
+    | Unlinked of string
+    | Modified of string
+    | Moved of move
+    | Queue_overflow  (** Consumer is not reading fast enough, events missed *)
+
+  let create path =
+    Lwt_inotify.create () >>= fun desc ->
+    let watches = Hashtbl.create 32 in
+    let selectors =
+      Inotify.[S_Close; S_Create; S_Delete; S_Delete_self; S_Modify; S_Move]
+    in
+    Lwt_inotify.add_watch desc path selectors >>= fun watch ->
+    (* Deduplicate the watches by removing the previous one from inotify and
+       replacing it in the table *)
+    let maybe_remove =
+      if Hashtbl.mem watches watch then
+        Lwt_inotify.rm_watch desc watch
+      else
+        Lwt.return_unit
+    in
+    maybe_remove >>= fun () ->
+    Hashtbl.replace watches watch path ;
+    Lwt.return (watches, desc)
+
+  let rec read (watches, desc) =
+    Lwt_inotify.read desc >>= fun (wd, mask, _cookie, filename) ->
+    let overflowed =
+      Inotify.int_of_watch wd = -1 && mask = [Inotify.Q_overflow]
+    in
+    let watch_path = Hashtbl.find_opt watches wd in
+    match (overflowed, watch_path) with
+    | true, _ ->
+        Lwt.return [Queue_overflow]
+    | _, None ->
+        Lwt.return []
+    | _, Some base_path ->
+        let path =
+          match filename with
+          | None ->
+              base_path
+          | Some name ->
+              base_path // name
+        in
+
+        List.filter_map
+          (function
+            | Inotify.Access
+            | Attrib
+            | Isdir
+            | Open
+            | Close_nowrite
+            | Ignored
+            | Unmount ->
+                None
+            | Create ->
+                Some (Created path)
+            | Delete | Delete_self ->
+                Some (Unlinked path)
+            | Close_write | Modify | Move_self ->
+                Some (Modified path)
+            | Moved_from ->
+                Some (Moved (Away path))
+            | Moved_to ->
+                Some (Moved (Into path))
+            | Q_overflow ->
+                Some Queue_overflow
+            )
+          mask
+        |> Lwt.return
+end
+
+module Clock = struct let after ~seconds = Lwt_unix.sleep seconds end
 
 (** Functions for returning SMAPIv2 errors *)
 
@@ -59,36 +301,28 @@ let missing_uri () =
 (* fork_exec_rpc either raises a Fork_exec_error exception or
    returns a successful RPC response *)
 let return_rpc typ result =
-  (* Operator to unwrap the wrapped async return type of ocaml-rpc's Rpc_async *)
-  let ( >*= ) a b = a |> Rpc_async.T.get >>= b in
-  Async_kernel.Monitor.try_with ~extract_exn:true (fun () ->
+  Lwt.catch
+    (fun () ->
       (* We need to delay the evaluation of [result] until now, because
          when fork_exec_rpc is called by GenClient.declare, it
          might immediately raise a Fork_exec_error *)
-      result () >*= fun result ->
-      (* In practice we'll always get a successful RPC response here (Ok),
-         but we still have to transform the Error to make the types match: *)
-      let result =
-        Base.Result.map_error result ~f:(fun err ->
-            backend_error "SCRIPT_RETURNED_RPC_ERROR"
-              [Rpcmarshal.marshal typ err |> R.to_string]
+      Fun.flip Lwt.map
+        (Rpc_lwt.T.get (result ()))
+        (* In practice we'll always get a successful RPC response here (Ok),
+           but we still have to transform the Error to make the types match: *)
+        (Base.Result.map_error ~f:(fun err ->
+             backend_error "SCRIPT_RETURNED_RPC_ERROR"
+               [Rpcmarshal.marshal typ err |> R.to_string]
+         )
         )
-      in
-      return result
-  )
-  >>= function
-  | Ok result ->
-      return result
-  | Error (Fork_exec_error err) ->
-      return (Error err)
-  (* We should not get any other exception from fork_exec_rpc: *)
-  | Error e ->
-      return
-        (Error
-           (backend_error "SCRIPT_FAILED"
-              ["Unexpected exception:" ^ Base.Exn.to_string e]
-           )
-        )
+    )
+    (function
+      | Fork_exec_error err ->
+          fail err
+      | e ->
+          let msg = ["Unexpected exception:" ^ Base.Exn.to_string e] in
+          fail (backend_error "SCRIPT_FAILED" msg)
+      )
 
 let return_volume_rpc result =
   return_rpc Xapi_storage.Control.typ_of_exns result
@@ -97,30 +331,61 @@ let return_plugin_rpc result = return_rpc Xapi_storage.Common.typ_of_exnt result
 
 let return_data_rpc result = return_rpc Xapi_storage.Common.typ_of_exnt result
 
-let use_syslog = ref false
-
-let log level fmt =
-  Printf.ksprintf
-    (fun s ->
-      let module Writer = Async.Writer in
-      if !use_syslog then
-        (* FIXME: this is synchronous and will block other I/O.
-         * This should use Log_extended.Syslog, but that brings in Core's Syslog module
-         * which conflicts with ours *)
-        Syslog.log Syslog.Daemon level s
-      else
-        let w = Lazy.force Writer.stderr in
-        Writer.write w s ; Writer.newline w
+(* Reporter taken from
+   https://erratique.ch/software/logs/doc/Logs_lwt/index.html#report_ex
+   under ISC License *)
+let lwt_reporter () =
+  let buf_fmt ~like =
+    let b = Buffer.create 512 in
+    ( Fmt.with_buffer ~like b
+    , fun () ->
+        let m = Buffer.contents b in
+        Buffer.reset b ; m
     )
-    fmt
+  in
+  let app, app_flush = buf_fmt ~like:Fmt.stdout in
+  let dst, dst_flush = buf_fmt ~like:Fmt.stderr in
+  (* The default pretty-printer adds the binary name to the loglines, which
+     results in appearing twice per logline, override it instead *)
+  let pp_header =
+    let pf = Format.fprintf in
+    let pp_header ppf (l, h) =
+      if l = Logs.App then
+        match h with None -> () | Some h -> pf ppf "[%s] " h
+      else
+        match h with
+        | None ->
+            pf ppf "[%a] " Logs.pp_level l
+        | Some h ->
+            pf ppf "[%s] " h
+    in
+    pp_header
+  in
+  let reporter = Logs.format_reporter ~app ~dst ~pp_header () in
+  let report src level ~over k msgf =
+    let k () =
+      let write () =
+        match level with
+        | Logs.App ->
+            Lwt_io.write Lwt_io.stdout (app_flush ())
+        | _ ->
+            Lwt_io.write Lwt_io.stderr (dst_flush ())
+      in
+      let unblock () = over () |> Lwt.return in
+      Lwt.finalize write unblock |> Lwt.ignore_result ;
+      k ()
+    in
+    reporter.Logs.report src level ~over:(fun () -> ()) k msgf
+  in
+  {Logs.report}
 
-let debug fmt = log Syslog.Debug fmt
+let debug = Logs_lwt.debug
 
-let info fmt = log Syslog.Info fmt
+let info = Logs_lwt.info
 
-let warn fmt = log Syslog.Warning fmt
+let warn = Logs_lwt.warn
 
-let error fmt = log Syslog.Err fmt
+let error = Logs_lwt.err
 
 let pvs_version = "3.0"
 
@@ -162,13 +427,12 @@ end) : sig
     -> ( device_config * compat_in * compat_out
        , Storage_interface.Errors.error
        )
-       Deferred.Result.t
+       Lwt_result.t
   (** Compatiblity for the old PVS version of SR.create, which had signature
       [uri -> name -> desc -> config -> unit] *)
 
   val sr_attach :
-       device_config
-    -> (compat_in, Storage_interface.Errors.error) Deferred.Result.t
+    device_config -> (compat_in, Storage_interface.Errors.error) Lwt_result.t
   (** Compatiblity for the old PVS version of SR.attach, which had signature
       [uri -> sr (=string)] *)
 end = struct
@@ -226,12 +490,12 @@ end = struct
     | Some version when Base.String.(version = pvs_version) -> (
       match Base.List.Assoc.find ~equal:String.equal device_config "uri" with
       | None ->
-          return (Error (missing_uri ()))
+          fail (missing_uri ())
       | Some uri ->
-          return (Ok (add_param_to_input [("uri", R.String uri)]))
+          return (add_param_to_input [("uri", R.String uri)])
     )
     | _ ->
-        return (Ok id)
+        return id
 
   let sr_create device_config =
     compat_uri device_config >>>= fun compat_in ->
@@ -249,30 +513,36 @@ end = struct
       | _ ->
           id
     in
-    return (Ok (device_config, compat_in, compat_out))
+    return (device_config, compat_in, compat_out)
 
   let sr_attach = compat_uri
 end
 
 let check_plugin_version_compatible query_result =
   let Xapi_storage.Plugin.{name; required_api_version; _} = query_result in
-  if Base.String.(required_api_version <> api_max) then
-    warn
-      "Using deprecated SMAPIv3 API version %s, latest is %s. Update your %s \
-       plugin!"
-      required_api_version api_max name ;
+  ( if Base.String.(required_api_version <> api_max) then
+      warn (fun m ->
+          m
+            "Using deprecated SMAPIv3 API version %s, latest is %s. Update \
+             your %s plugin!"
+            required_api_version api_max name
+      )
+    else
+      Lwt.return_unit
+  )
+  >>= fun () ->
   if List.mem required_api_version supported_api_versions then
-    Deferred.Result.return ()
+    return ()
   else
     let msg =
       Printf.sprintf "%s requires unknown SMAPI API version %s, supported: %s"
         name required_api_version
         (String.concat "," supported_api_versions)
     in
-    return (Error (Storage_interface.Errors.No_storage_plugin_for_sr msg))
+    fail (Storage_interface.Errors.No_storage_plugin_for_sr msg)
 
 module RRD = struct
-  open Message_switch_async.Protocol_async
+  open Message_switch_lwt.Protocol_lwt
 
   let ( >>|= ) m f =
     m >>= function
@@ -288,13 +558,13 @@ module RRD = struct
   let switch_rpc queue_name string_of_call response_of_string call =
     Client.connect ~switch:queue_name () >>|= fun t ->
     Client.rpc ~t ~queue:queue_name ~body:(string_of_call call) () >>|= fun s ->
-    return (response_of_string s)
+    Lwt.return (response_of_string s)
 
   let rpc =
     switch_rpc !Rrd_interface.queue_name Jsonrpc.string_of_call
       Jsonrpc.response_of_string
 
-  module Client = Rrd_interface.RPC_API (Rpc_async.GenClient ())
+  module Client = Rrd_interface.RPC_API (Rpc_lwt.GenClient ())
 end
 
 let _nonpersistent = "NONPERSISTENT"
@@ -309,32 +579,20 @@ let _is_a_snapshot_key = "is_a_snapshot"
 
 let _snapshot_of_key = "snapshot_of"
 
-let is_executable path =
-  Async.Sys.is_file ~follow_symlinks:true path >>= function
-  | `No | `Unknown ->
-      return (Error (`missing path))
-  | `Yes -> (
-      Async.Unix.access path [`Exec] >>= function
-      | Error exn ->
-          return (Error (`not_executable (path, exn)))
-      | Ok () ->
-          return (Ok ())
-    )
-
 module Script = struct
   (** We cache (lowercase script name -> original script name) mapping for the
       scripts in the root directory of every registered plugin. *)
   let name_mapping = Base.Hashtbl.create ~size:4 (module Base.String)
 
   let update_mapping ~script_dir =
-    Async.Sys.readdir script_dir >>| Array.to_list >>| fun files ->
+    Sys.readdir script_dir >>= fun files ->
     (* If there are multiple files which map to the same lowercase string, we
        just take the first one, instead of failing *)
     let mapping =
       List.combine files files
       |> Base.Map.of_alist_reduce (module Base.String) ~f:Base.String.min
     in
-    Base.Hashtbl.set name_mapping ~key:script_dir ~data:mapping
+    return @@ Base.Hashtbl.set name_mapping ~key:script_dir ~data:mapping
 
   let path ~script_dir ~script_name =
     let find () =
@@ -344,14 +602,14 @@ module Script = struct
         Core.String.Caseless.Map.find mapping script_name
       in
       let script_name = Option.value cached_script_name ~default:script_name in
-      let path = Filename.concat script_dir script_name in
-      is_executable path >>| function Ok () -> Ok path | Error _ as e -> e
+      let path = script_dir // script_name in
+      Sys.assert_is_executable path >>>= fun () -> return path
     in
     find () >>= function
     | Ok path ->
-        return (Ok path)
+        return path
     | Error _ ->
-        update_mapping ~script_dir >>= fun () -> find ()
+        update_mapping ~script_dir >>>= fun () -> find ()
 end
 
 (** Call the script named after the RPC method in the [script_dir]
@@ -373,175 +631,143 @@ let fork_exec_rpc :
     -> ?compat_in:compat_in
     -> ?compat_out:compat_out
     -> R.call
-    -> R.response Deferred.t =
+    -> R.response Lwt.t =
  fun ~script_dir ?missing ?(compat_in = id) ?(compat_out = id) ->
   let invoke_script call script_name :
-      (R.response, Storage_interface.Errors.error) Deferred.Result.t =
-    Async.Process.create ~prog:script_name ~args:["--json"] () >>= function
-    | Error e ->
-        error "%s failed: %s" script_name (Base.Error.to_string_hum e) ;
-        return
-          (Error
-             (backend_error "SCRIPT_FAILED"
-                [script_name; Base.Error.to_string_hum e]
-             )
+      (R.response, Storage_interface.Errors.error) Lwt_result.t =
+    (* We pass just the args, not the complete JSON-RPC call.
+       Currently the Python code generated by rpclib requires all params to
+       be named - they will be converted into a name->value Python dict.
+       Rpclib currently puts all named params into a dict, so we expect
+       params to be a single Dict, if all the params are named. *)
+    ( match call.R.params with
+    | [(R.Dict _ as d)] ->
+        return d
+    | _ ->
+        fail
+          (backend_error "INCORRECT_PARAMETERS"
+             [
+               script_name
+             ; "All the call parameters should be named and should be in a RPC \
+                Dict"
+             ]
           )
-    | Ok p -> (
-        (* Send the request as json on stdin *)
-        let w = Async.Process.stdin p in
-        (* We pass just the args, not the complete JSON-RPC call.
-           Currently the Python code generated by rpclib requires all params to
-           be named - they will be converted into a name->value Python dict.
-           Rpclib currently puts all named params into a dict, so we expect
-           params to be a single Dict, if all the params are named. *)
-        ( match call.R.params with
-        | [(R.Dict _ as d)] ->
-            return (Ok d)
-        | _ ->
-            return
-              (Error
-                 (backend_error "INCORRECT_PARAMETERS"
-                    [
-                      script_name
-                    ; "All the call parameters should be named and should be \
-                       in a RPC Dict"
-                    ]
-                 )
-              )
+    )
+    >>>= fun args ->
+    let input = compat_in args |> Jsonrpc.to_string in
+    Process.run ~prog:script_name ~args:["--json"] ~input >>= fun output ->
+    let fail_because ~cause description =
+      fail
+        (backend_error "SCRIPT_FAILED"
+           [
+             script_name
+           ; description
+           ; cause
+           ; output.Process.Output.stdout
+           ; output.Process.Output.stdout
+           ]
         )
-        >>>= fun args ->
-        let args = compat_in args in
-        Async.Writer.write w (Jsonrpc.to_string args) ;
-        Async.Writer.close w >>= fun () ->
-        Async.Process.collect_output_and_wait p >>= fun output ->
-        match output.Async.Process.Output.exit_status with
-        | Error (`Exit_non_zero code) -> (
-          (* Expect an exception and backtrace on stdout *)
-          match
-            Base.Or_error.try_with (fun () ->
-                Jsonrpc.of_string output.Async.Process.Output.stdout
-            )
-          with
-          | Error _ ->
-              error "%s failed and printed bad error json: %s" script_name
-                output.Async.Process.Output.stdout ;
-              error "%s failed, stderr: %s" script_name
-                output.Async.Process.Output.stderr ;
-              return
-                (Error
-                   (backend_error "SCRIPT_FAILED"
-                      [
-                        script_name
-                      ; "non-zero exit and bad json on stdout"
-                      ; string_of_int code
-                      ; output.Async.Process.Output.stdout
-                      ; output.Async.Process.Output.stdout
-                      ]
-                   )
-                )
-          | Ok response -> (
-            match
-              Base.Or_error.try_with (fun () -> Types.error_of_rpc response)
-            with
-            | Error _ ->
-                error "%s failed and printed bad error json: %s" script_name
-                  output.Async.Process.Output.stdout ;
-                error "%s failed, stderr: %s" script_name
-                  output.Async.Process.Output.stderr ;
-                return
-                  (Error
-                     (backend_error "SCRIPT_FAILED"
-                        [
-                          script_name
-                        ; "non-zero exit and bad json on stdout"
-                        ; string_of_int code
-                        ; output.Async.Process.Output.stdout
-                        ; output.Async.Process.Output.stdout
-                        ]
-                     )
-                  )
-            | Ok x ->
-                return
-                  (Error (backend_backtrace_error x.code x.params x.backtrace))
+    in
+    match output.Process.Output.exit_status with
+    | Error (Exit_non_zero code) -> (
+      (* Expect an exception and backtrace on stdout *)
+      match
+        Base.Or_error.try_with (fun () ->
+            Jsonrpc.of_string output.Process.Output.stdout
+        )
+      with
+      | Error _ ->
+          error (fun m ->
+              m "%s failed and printed bad error json: %s" script_name
+                output.Process.Output.stdout
           )
-        )
-        | Error (`Signal signal) ->
-            error "%s caught a signal and failed" script_name ;
-            return
-              (Error
-                 (backend_error "SCRIPT_FAILED"
-                    [
-                      script_name
-                    ; "signalled"
-                    ; Async.Signal.to_string signal
-                    ; output.Async.Process.Output.stdout
-                    ; output.Async.Process.Output.stdout
-                    ]
-                 )
-              )
-        | Ok () -> (
-          (* Parse the json on stdout. We get back a JSON-RPC
-             value from the scripts, not a complete JSON-RPC response *)
-          match
-            Base.Or_error.try_with (fun () ->
-                Jsonrpc.of_string output.Async.Process.Output.stdout
+          >>= fun () ->
+          error (fun m ->
+              m "%s failed, stderr: %s" script_name output.Process.Output.stderr
+          )
+          >>= fun () ->
+          fail_because "non-zero exit and bad json on stdout"
+            ~cause:(string_of_int code)
+      | Ok response -> (
+        match
+          Base.Or_error.try_with (fun () -> Types.error_of_rpc response)
+        with
+        | Error _ ->
+            error (fun m ->
+                m "%s failed and printed bad error json: %s" script_name
+                  output.Process.Output.stdout
             )
-          with
-          | Error _ ->
-              error "%s succeeded but printed bad json: %s" script_name
-                output.Async.Process.Output.stdout ;
-              return
-                (Error
-                   (backend_error "SCRIPT_FAILED"
-                      [
-                        script_name
-                      ; "bad json on stdout"
-                      ; output.Async.Process.Output.stdout
-                      ]
-                   )
-                )
-          | Ok response ->
-              info "%s succeeded: %s" script_name
-                output.Async.Process.Output.stdout ;
-              let response = compat_out response in
-              let response = R.success response in
-              return (Ok response)
-        )
+            >>= fun () ->
+            error (fun m ->
+                m "%s failed, stderr: %s" script_name
+                  output.Process.Output.stderr
+            )
+            >>= fun () ->
+            fail_because "non-zero exit and bad json on stdout"
+              ~cause:(string_of_int code)
+        | Ok x ->
+            fail (backend_backtrace_error x.code x.params x.backtrace)
       )
+    )
+    | Error (Signal signal) ->
+        error (fun m -> m "%s caught a signal and failed" script_name)
+        >>= fun () -> fail_because "signalled" ~cause:(Signal.to_string signal)
+    | Ok () -> (
+      (* Parse the json on stdout. We get back a JSON-RPC
+         value from the scripts, not a complete JSON-RPC response *)
+      match
+        Base.Or_error.try_with (fun () ->
+            Jsonrpc.of_string output.Process.Output.stdout
+        )
+      with
+      | Error _ ->
+          error (fun m ->
+              m "%s succeeded but printed bad json: %s" script_name
+                output.Process.Output.stdout
+          )
+          >>= fun () ->
+          fail
+            (backend_error "SCRIPT_FAILED"
+               [script_name; "bad json on stdout"; output.Process.Output.stdout]
+            )
+      | Ok response ->
+          info (fun m ->
+              m "%s succeeded: %s" script_name output.Process.Output.stdout
+          )
+          >>= fun () ->
+          let response = compat_out response in
+          let response = R.success response in
+          return response
+    )
   in
   let script_rpc call :
-      (R.response, Storage_interface.Errors.error) Deferred.Result.t =
-    info "%s" (Jsonrpc.string_of_call call) ;
+      (R.response, Storage_interface.Errors.error) Lwt_result.t =
+    info (fun m -> m "%s" (Jsonrpc.string_of_call call)) >>= fun () ->
     Script.path ~script_dir ~script_name:call.R.name >>= function
     | Error (`missing path) -> (
-        error "%s is not a file" path ;
+        error (fun m -> m "%s is not a file" path) >>= fun () ->
         match missing with
         | None ->
-            return
-              (Error
-                 (backend_error "SCRIPT_MISSING"
-                    [
-                      path
-                    ; "Check whether the file exists and has correct \
-                       permissions"
-                    ]
-                 )
+            fail
+              (backend_error "SCRIPT_MISSING"
+                 [
+                   path
+                 ; "Check whether the file exists and has correct permissions"
+                 ]
               )
         | Some m ->
-            warn
-              "Deprecated: script '%s' is missing, treating as no-op. Update \
-               your plugin!"
-              path ;
-            return (Ok (R.success m))
+            warn (fun m ->
+                m
+                  "Deprecated: script '%s' is missing, treating as no-op. \
+                   Update your plugin!"
+                  path
+            )
+            >>= fun () -> return (R.success m)
       )
     | Error (`not_executable (path, exn)) ->
-        error "%s is not executable" path ;
-        return
-          (Error
-             (backend_error "SCRIPT_NOT_EXECUTABLE"
-                [path; Base.Exn.to_string exn]
-             )
-          )
+        error (fun m -> m "%s is not executable" path) >>= fun () ->
+        fail
+          (backend_error "SCRIPT_NOT_EXECUTABLE" [path; Base.Exn.to_string exn])
     | Ok path ->
         invoke_script call path
   in
@@ -552,12 +778,12 @@ let fork_exec_rpc :
      to unmarshal that error.
      Therefore we either return a successful RPC response, or raise
      Fork_exec_error with a suitable SMAPIv2 error if the call failed. *)
-  let rpc : R.call -> R.response Deferred.t =
+  let rpc : R.call -> R.response Lwt.t =
    fun call ->
     script_rpc call >>= fun result ->
     Base.Result.map_error ~f:(fun e -> Fork_exec_error e) result
     |> Base.Result.ok_exn
-    |> return
+    |> Lwt.return
   in
   rpc
 
@@ -582,39 +808,39 @@ module Attached_SRs = struct
     Base.Hashtbl.set !sr_table ~key ~data:{sr= plugin; uids} ;
     ( match !state_path with
     | None ->
-        return ()
+        Lwt.return_unit
     | Some path ->
         let contents =
           Core.String.Table.sexp_of_t sexp_of_state !sr_table
           |> Sexplib.Sexp.to_string
         in
         let dir = Filename.dirname path in
-        Async_unix.Unix.mkdir dir >>= fun () -> Async.Writer.save path ~contents
+        Sys.mkdir_p dir >>= fun () -> Sys.save path ~contents
     )
-    >>= fun () -> return (Ok ())
+    >>= fun () -> return ()
 
   let find smapiv2 =
     let key = Storage_interface.Sr.string_of smapiv2 in
     match Base.Hashtbl.find !sr_table key with
     | None ->
         let open Storage_interface in
-        return (Error (Errors.Sr_not_attached key))
+        fail (Errors.Sr_not_attached key)
     | Some {sr; _} ->
-        return (Ok sr)
+        return sr
 
   let get_uids smapiv2 =
     let key = Storage_interface.Sr.string_of smapiv2 in
     match Base.Hashtbl.find !sr_table key with
     | None ->
         let open Storage_interface in
-        return (Error (Errors.Sr_not_attached key))
+        fail (Errors.Sr_not_attached key)
     | Some {uids; _} ->
-        return (Ok uids)
+        return uids
 
   let remove smapiv2 =
     let key = Storage_interface.Sr.string_of smapiv2 in
     Base.Hashtbl.remove !sr_table key ;
-    return (Ok ())
+    return ()
 
   let list () =
     let srs =
@@ -622,20 +848,20 @@ module Attached_SRs = struct
         ~f:(fun ~key ~data:_ ac -> Storage_interface.Sr.of_string key :: ac)
         ~init:[]
     in
-    return (Ok srs)
+    return srs
 
   let reload path =
     state_path := Some path ;
-    Async.Sys.is_file ~follow_symlinks:true path >>= function
-    | `No | `Unknown ->
-        return ()
-    | `Yes ->
-        Async.Reader.file_contents path >>= fun contents ->
+    Sys.file_kind ~follow_symlinks:true path >>= function
+    | Regular ->
+        Sys.read_file_contents path >>= fun contents ->
         sr_table :=
           contents
           |> Sexplib.Sexp.of_string
           |> Core.String.Table.t_of_sexp state_of_sexp ;
-        return ()
+        Lwt.return_unit
+    | _ ->
+        Lwt.return_unit
 end
 
 module Datapath_plugins = struct
@@ -643,33 +869,36 @@ module Datapath_plugins = struct
 
   let register ~datapath_root datapath_plugin_name =
     let result =
-      let script_dir = Filename.concat datapath_root datapath_plugin_name in
+      let script_dir = datapath_root // datapath_plugin_name in
       return_plugin_rpc (fun () ->
           Plugin_client.query (fork_exec_rpc ~script_dir) "register"
       )
       >>>= fun response ->
       check_plugin_version_compatible response >>= function
       | Ok () ->
-          info "Registered datapath plugin %s" datapath_plugin_name ;
+          info (fun m -> m "Registered datapath plugin %s" datapath_plugin_name)
+          >>= fun () ->
           Base.Hashtbl.set table ~key:datapath_plugin_name
             ~data:(script_dir, response) ;
-          return (Ok ())
+          return ()
       | Error e ->
           let err_msg =
             Storage_interface.(rpc_of Errors.error) e |> Jsonrpc.to_string
           in
-          info "Failed to register datapath plugin %s: %s" datapath_plugin_name
-            err_msg ;
-          return (Error e)
+          info (fun m ->
+              m "Failed to register datapath plugin %s: %s" datapath_plugin_name
+                err_msg
+          )
+          >>= fun () -> fail e
     in
     (* We just do not register the plugin if we've encountered any error. In
        the future we might want to change that, so we keep the error result
        above. *)
-    result >>= fun _ -> return ()
+    result >>= fun _ -> Lwt.return_unit
 
   let unregister datapath_plugin_name =
     Base.Hashtbl.remove table datapath_plugin_name ;
-    return ()
+    Lwt.return_unit
 
   let supports_feature scheme feature =
     match Base.Hashtbl.find table scheme with
@@ -753,15 +982,15 @@ let choose_datapath ?(persistent = true) domain response =
   in
   match preference_order with
   | [] ->
-      return (Error (missing_uri ()))
+      fail (missing_uri ())
   | (script_dir, scheme, u) :: _us ->
-      return (Ok (fork_exec_rpc ~script_dir, scheme, u, domain))
+      return (fork_exec_rpc ~script_dir, scheme, u, domain)
 
 (* Bind the implementations *)
 let bind ~volume_script_dir =
   (* Each plugin has its own version, see the call to listen
      where `process` is partially applied. *)
-  let module S = Storage_interface.StorageAPI (Rpc_async.GenServer ()) in
+  let module S = Storage_interface.StorageAPI (Rpc_lwt.GenServer ()) in
   let version = ref None in
   let volume_rpc = fork_exec_rpc ~script_dir:volume_script_dir in
   let module Compat = Compat (struct let version = version end) in
@@ -803,35 +1032,32 @@ let bind ~volume_script_dir =
     )
   in
   let update_keys ~dbg ~sr ~key ~value response =
-    let open Deferred.Result.Monad_infix in
     match value with
     | None ->
-        Deferred.Result.return response
+        return response
     | Some value ->
         set ~dbg ~sr ~vdi:response.Xapi_storage.Control.key ~key ~value
-        >>= fun () ->
-        Deferred.Result.return
-          {response with keys= (key, value) :: response.keys}
+        >>>= fun () ->
+        return {response with keys= (key, value) :: response.keys}
   in
   let vdi_attach_common dbg sr vdi domain =
-    let open Deferred.Result.Monad_infix in
-    Attached_SRs.find sr >>= fun sr ->
+    Attached_SRs.find sr >>>= fun sr ->
     (* Discover the URIs using Volume.stat *)
-    stat ~dbg ~sr ~vdi >>= fun response ->
+    stat ~dbg ~sr ~vdi >>>= fun response ->
     (* If we have a clone-on-boot volume then use that instead *)
     ( match
         List.assoc_opt _clone_on_boot_key response.Xapi_storage.Control.keys
       with
     | None ->
-        return (Ok response)
+        return response
     | Some temporary ->
         stat ~dbg ~sr ~vdi:temporary
     )
-    >>= fun response ->
-    choose_datapath domain response >>= fun (rpc, _datapath, uri, domain) ->
+    >>>= fun response ->
+    choose_datapath domain response >>>= fun (rpc, _datapath, uri, domain) ->
     return_data_rpc (fun () -> Datapath_client.attach rpc dbg uri domain)
   in
-  let wrap th = Rpc_async.T.put th in
+  let wrap th = Rpc_lwt.T.put th in
   (* the actual API call for this plugin, sharing same version ref across all calls *)
   let query_impl dbg =
     let th =
@@ -852,7 +1078,7 @@ let bind ~volume_script_dir =
       (* Look for executable scripts and automatically add capabilities *)
       let rec loop acc = function
         | [] ->
-            return (Ok acc)
+            return acc
         | (script_name, capability) :: rest -> (
             Script.path ~script_dir:volume_script_dir ~script_name >>= function
             | Error _ ->
@@ -899,7 +1125,7 @@ let bind ~volume_script_dir =
           features
       in
       let name = response.Xapi_storage.Plugin.name in
-      Deferred.Result.return
+      return
         {
           Storage_interface.driver= response.Xapi_storage.Plugin.plugin
         ; name
@@ -919,9 +1145,8 @@ let bind ~volume_script_dir =
   S.Query.query query_impl ;
   let query_diagnostics_impl dbg =
     let th =
-      let open Deferred.Result.Monad_infix in
       return_plugin_rpc (fun () -> Plugin_client.diagnostics volume_rpc dbg)
-      >>= fun response -> Deferred.Result.return response
+      >>>= fun response -> return response
     in
     wrap th
   in
@@ -939,7 +1164,7 @@ let bind ~volume_script_dir =
       >>>= fun stat ->
       let rec loop acc = function
         | [] ->
-            return acc
+            Lwt.return acc
         | datasource :: datasources -> (
             let uri = Uri.of_string datasource in
             match Uri.scheme uri with
@@ -953,7 +1178,7 @@ let bind ~volume_script_dir =
                 in
                 RRD.Client.Plugin.Local.register RRD.rpc uid Rrd.Five_Seconds
                   Rrd_interface.V2
-                |> Rpc_async.T.get
+                |> Rpc_lwt.T.get
                 >>= function
                 | Ok _ ->
                     loop (uid :: acc) datasources
@@ -966,8 +1191,7 @@ let bind ~volume_script_dir =
       in
       loop [] stat.Xapi_storage.Control.datasources >>= fun uids ->
       (* associate the 'sr' from the plugin with the SR reference passed in *)
-      Attached_SRs.add sr attach_response uids >>>= fun () ->
-      Deferred.Result.return ()
+      Attached_SRs.add sr attach_response uids >>>= fun () -> return ()
     in
     wrap th
   in
@@ -977,14 +1201,14 @@ let bind ~volume_script_dir =
       Attached_SRs.find sr >>= function
       | Error _ ->
           (* ensure SR.detach is idempotent *)
-          Deferred.Result.return ()
+          return ()
       | Ok sr' ->
           return_volume_rpc (fun () -> Sr_client.detach volume_rpc dbg sr')
           >>>= fun response ->
           Attached_SRs.get_uids sr >>>= fun uids ->
           let rec loop = function
             | [] ->
-                return ()
+                Lwt.return_unit
             | datasource :: datasources -> (
                 let uri = Uri.of_string datasource in
                 match Uri.scheme uri with
@@ -997,7 +1221,7 @@ let bind ~volume_script_dir =
                         uid
                     in
                     RRD.Client.Plugin.Local.deregister RRD.rpc uid
-                    |> Rpc_async.T.get
+                    |> Rpc_lwt.T.get
                     >>= function
                     | Ok _ ->
                         loop datasources
@@ -1009,8 +1233,7 @@ let bind ~volume_script_dir =
               )
           in
           loop uids >>= fun () ->
-          let open Deferred.Result.Monad_infix in
-          Attached_SRs.remove sr >>= fun () -> Deferred.Result.return response
+          Attached_SRs.remove sr >>>= fun () -> return response
     in
     wrap th
   in
@@ -1029,7 +1252,6 @@ let bind ~volume_script_dir =
                List.assoc_opt "sr_uuid"
                  probe_result.Xapi_storage.Control.configuration
              in
-             let open Deferred.Or_error in
              let smapiv2_probe ?sr_info () =
                {
                  Storage_interface.configuration= probe_result.configuration
@@ -1045,7 +1267,8 @@ let bind ~volume_script_dir =
                )
              with
              | _, false, Some _uuid ->
-                 errorf "A configuration with a uuid cannot be incomplete: %a"
+                 Deferred.errorf
+                   "A configuration with a uuid cannot be incomplete: %a"
                    pp_probe_result probe_result
              | Some sr_stat, true, Some _uuid ->
                  let sr_info =
@@ -1068,20 +1291,20 @@ let bind ~volume_script_dir =
                  in
                  return (smapiv2_probe ~sr_info ())
              | Some _sr, _, None ->
-                 errorf "A configuration is not attachable without a uuid: %a"
+                 Deferred.errorf
+                   "A configuration is not attachable without a uuid: %a"
                    pp_probe_result probe_result
              | None, false, None ->
                  return (smapiv2_probe ())
              | None, true, _ ->
                  return (smapiv2_probe ())
          )
-      |> Deferred.Or_error.combine_errors
-      |> Deferred.Result.map_error ~f:(fun err ->
+      |> Deferred.combine_errors
+      |> Lwt_result.map_error (fun err ->
              backend_error "SCRIPT_FAILED"
                ["SR.probe"; Base.Error.to_string_hum err]
          )
-      >>>= fun results ->
-      Deferred.Result.return (Storage_interface.Probe results)
+      >>>= fun results -> return (Storage_interface.Probe results)
     in
     wrap th
   in
@@ -1096,7 +1319,7 @@ let bind ~volume_script_dir =
             (volume_rpc ~compat_in ~compat_out)
             dbg uuid device_config name_label description
       )
-      >>>= fun new_device_config -> Deferred.Result.return new_device_config
+      >>>= fun new_device_config -> return new_device_config
     in
     wrap th
   in
@@ -1161,7 +1384,7 @@ let bind ~volume_script_dir =
                )
                response
            in
-           Deferred.Result.return (List.map vdi_of_volume response)
+           return (List.map vdi_of_volume response)
          )
     |> wrap
   in
@@ -1178,7 +1401,7 @@ let bind ~volume_script_dir =
            )
            >>>= update_keys ~dbg ~sr ~key:_vdi_type_key
                   ~value:(match vdi_info.ty with "" -> None | s -> Some s)
-           >>>= fun response -> Deferred.Result.return (vdi_of_volume response)
+           >>>= fun response -> return (vdi_of_volume response)
          )
     |> wrap
   in
@@ -1192,7 +1415,7 @@ let bind ~volume_script_dir =
          List.assoc_opt _clone_on_boot_key response.Xapi_storage.Control.keys
        with
      | None ->
-         return (Ok ())
+         return ()
      | Some _temporary ->
          (* Destroy the temporary disk we made earlier *)
          destroy ~dbg ~sr ~vdi
@@ -1232,7 +1455,7 @@ let bind ~volume_script_dir =
              ; snapshot_of= Storage_interface.Vdi.of_string vdi
              }
            in
-           Deferred.Result.return response
+           return response
          )
     |> wrap
   in
@@ -1243,7 +1466,7 @@ let bind ~volume_script_dir =
            clone ~dbg ~sr
              ~vdi:
                (Storage_interface.Vdi.string_of vdi_info.Storage_interface.vdi)
-           >>>= fun response -> Deferred.Result.return (vdi_of_volume response)
+           >>>= fun response -> return (vdi_of_volume response)
          )
     |> wrap
   in
@@ -1278,7 +1501,7 @@ let bind ~volume_script_dir =
      >>>= fun () ->
      (* Now call Volume.stat to discover the size *)
      stat ~dbg ~sr ~vdi >>>= fun response ->
-     Deferred.Result.return response.Xapi_storage.Control.virtual_size
+     return response.Xapi_storage.Control.virtual_size
     )
     |> wrap
   in
@@ -1286,8 +1509,7 @@ let bind ~volume_script_dir =
   let vdi_stat_impl dbg sr vdi' =
     (let vdi = Storage_interface.Vdi.string_of vdi' in
      Attached_SRs.find sr >>>= fun sr ->
-     stat ~dbg ~sr ~vdi >>>= fun response ->
-     Deferred.Result.return (vdi_of_volume response)
+     stat ~dbg ~sr ~vdi >>>= fun response -> return (vdi_of_volume response)
     )
     |> wrap
   in
@@ -1297,7 +1519,7 @@ let bind ~volume_script_dir =
     >>>= (fun sr ->
            let vdi = location in
            stat ~dbg ~sr ~vdi >>>= fun response ->
-           Deferred.Result.return (vdi_of_volume response)
+           return (vdi_of_volume response)
          )
     |> wrap
   in
@@ -1316,7 +1538,7 @@ let bind ~volume_script_dir =
        | Nbd {uri} ->
            Nbd {uri}
      in
-     Deferred.Result.return
+     return
        {
          Storage_interface.implementations=
            List.map convert_implementation
@@ -1337,7 +1559,7 @@ let bind ~volume_script_dir =
          List.assoc_opt _clone_on_boot_key response.Xapi_storage.Control.keys
        with
      | None ->
-         return (Ok response)
+         return response
      | Some temporary ->
          stat ~dbg ~sr ~vdi:temporary
      )
@@ -1370,7 +1592,7 @@ let bind ~volume_script_dir =
          List.assoc_opt _clone_on_boot_key response.Xapi_storage.Control.keys
        with
      | None ->
-         return (Ok response)
+         return response
      | Some temporary ->
          stat ~dbg ~sr ~vdi:temporary
      )
@@ -1391,7 +1613,7 @@ let bind ~volume_script_dir =
          List.assoc_opt _clone_on_boot_key response.Xapi_storage.Control.keys
        with
      | None ->
-         return (Ok response)
+         return response
      | Some temporary ->
          stat ~dbg ~sr ~vdi:temporary
      )
@@ -1407,7 +1629,7 @@ let bind ~volume_script_dir =
     >>>= (fun sr ->
            return_volume_rpc (fun () -> Sr_client.stat volume_rpc dbg sr)
            >>>= fun response ->
-           Deferred.Result.return
+           return
              {
                Storage_interface.sr_uuid= response.Xapi_storage.Control.uuid
              ; name_label= response.Xapi_storage.Control.name
@@ -1448,7 +1670,7 @@ let bind ~volume_script_dir =
            List.assoc_opt _clone_on_boot_key response.Xapi_storage.Control.keys
          with
        | None ->
-           Deferred.Result.return ()
+           return ()
        | Some temporary ->
            (* Destroy the temporary disk we made earlier *)
            destroy ~dbg ~sr ~vdi:temporary
@@ -1458,7 +1680,7 @@ let bind ~volume_script_dir =
        set ~dbg ~sr ~vdi ~key:_clone_on_boot_key
          ~value:vdi'.Xapi_storage.Control.key
      else
-       Deferred.Result.return ()
+       return ()
     )
     |> wrap
   in
@@ -1477,19 +1699,16 @@ let bind ~volume_script_dir =
          List.assoc_opt _clone_on_boot_key response.Xapi_storage.Control.keys
        with
        | None ->
-           Deferred.Result.return ()
+           return ()
        | Some temporary ->
            (* Destroy the temporary disk we made earlier *)
            destroy ~dbg ~sr ~vdi:temporary >>>= fun () ->
-           unset ~dbg ~sr ~vdi ~key:_clone_on_boot_key >>>= fun () ->
-           Deferred.Result.return ()
+           unset ~dbg ~sr ~vdi ~key:_clone_on_boot_key >>>= fun () -> return ()
     )
     |> wrap
   in
   S.VDI.epoch_end vdi_epoch_end_impl ;
-  let vdi_set_persistent_impl _dbg _sr _vdi _persistent =
-    Deferred.Result.return () |> wrap
-  in
+  let vdi_set_persistent_impl _dbg _sr _vdi _persistent = return () |> wrap in
   S.VDI.set_persistent vdi_set_persistent_impl ;
   let dp_destroy2 dbg _dp sr vdi' vm' _allow_leak =
     (let vdi = Storage_interface.Vdi.string_of vdi' in
@@ -1501,7 +1720,7 @@ let bind ~volume_script_dir =
          List.assoc_opt _clone_on_boot_key response.Xapi_storage.Control.keys
        with
      | None ->
-         return (Ok response)
+         return response
      | Some temporary ->
          stat ~dbg ~sr ~vdi:temporary
      )
@@ -1515,11 +1734,11 @@ let bind ~volume_script_dir =
   in
   S.DP.destroy2 dp_destroy2 ;
   let sr_list _dbg =
-    Attached_SRs.list () >>>= (fun srs -> Deferred.Result.return srs) |> wrap
+    Attached_SRs.list () >>>= (fun srs -> return srs) |> wrap
   in
   S.SR.list sr_list ;
   (* SR.reset is a no op in SMAPIv3 *)
-  S.SR.reset (fun _ _ -> Deferred.Result.return () |> wrap) ;
+  S.SR.reset (fun _ _ -> return () |> wrap) ;
   let u name _ = failwith ("Unimplemented: " ^ name) in
   S.get_by_name (u "get_by_name") ;
   S.VDI.compose (u "VDI.compose") ;
@@ -1558,12 +1777,19 @@ let bind ~volume_script_dir =
   S.DATA.MIRROR.receive_cancel (u "DATA.MIRROR.receive_cancel") ;
   S.SR.update_snapshot_info_src (u "SR.update_snapshot_info_src") ;
   S.DATA.MIRROR.stop (u "DATA.MIRROR.stop") ;
-  Rpc_async.server S.implementation
+  Rpc_lwt.server S.implementation
 
 let process_smapiv2_requests server txt =
   let request = Jsonrpc.call_of_string txt in
-  server request >>= fun response ->
-  Deferred.return (Jsonrpc.string_of_response response)
+  let to_err e =
+    Storage_interface.(rpc_of Errors.error Errors.(Internal_error e))
+  in
+  Lwt.try_bind
+    (fun () -> server request)
+    (fun response -> Lwt.return (Jsonrpc.string_of_response response))
+    (fun exn ->
+      Printexc.to_string exn |> to_err |> Jsonrpc.to_string |> Lwt.return
+    )
 
 (** Active servers, one per sub-directory of the volume_root_dir *)
 let servers = Base.Hashtbl.create ~size:4 (module Base.String)
@@ -1586,14 +1812,41 @@ let rec diff a b =
   | a :: aa ->
       if List.mem a b then diff aa b else a :: diff aa b
 
-let watch_volume_plugins ~volume_root ~switch_path ~pipe =
+type action_file = Create of string | Delete of string
+
+type action_dir = Files of action_file list | Sync | Nothing
+
+let actions_from events =
+  List.fold_left
+    (fun acc event ->
+      match (event, acc) with
+      | FileWatcher.Queue_overflow, _ ->
+          Sync
+      | _, Sync ->
+          Sync
+      | (Moved (Away path) | Unlinked path), Nothing ->
+          Files [Delete path]
+      | (Moved (Away path) | Unlinked path), Files files ->
+          Files (Delete path :: files)
+      | (Moved (Into path) | Created path), Nothing ->
+          Files [Create path]
+      | (Moved (Into path) | Created path), Files files ->
+          Files (Create path :: files)
+      | Modified path, Nothing ->
+          Files [Create path; Delete path]
+      | Modified path, Files files ->
+          Files (Create path :: Delete path :: files)
+    )
+    Nothing events
+
+let watch_volume_plugins ~volume_root ~switch_path ~pipe () =
   let create volume_plugin_name =
     if Base.Hashtbl.mem servers volume_plugin_name then
-      return ()
-    else (
-      info "Adding %s" volume_plugin_name ;
-      let volume_script_dir = Filename.concat volume_root volume_plugin_name in
-      Message_switch_async.Protocol_async.Server.listen
+      Lwt.return_unit
+    else
+      info (fun m -> m "Adding %s" volume_plugin_name) >>= fun () ->
+      let volume_script_dir = volume_root // volume_plugin_name in
+      Message_switch_lwt.Protocol_lwt.Server.listen
         ~process:(process_smapiv2_requests (bind ~volume_script_dir))
         ~switch:switch_path
         ~queue:(Filename.basename volume_plugin_name)
@@ -1601,82 +1854,74 @@ let watch_volume_plugins ~volume_root ~switch_path ~pipe =
       >>= fun result ->
       let server = get_ok result in
       Base.Hashtbl.add_exn servers ~key:volume_plugin_name ~data:server ;
-      return ()
-    )
+      Lwt.return_unit
   in
   let destroy volume_plugin_name =
-    info "Removing %s" volume_plugin_name ;
+    info (fun m -> m "Removing %s" volume_plugin_name) >>= fun () ->
     if Base.Hashtbl.mem servers volume_plugin_name then (
       let t = Base.Hashtbl.find_exn servers volume_plugin_name in
-      Message_switch_async.Protocol_async.Server.shutdown ~t () >>= fun () ->
+      Message_switch_lwt.Protocol_lwt.Server.shutdown ~t () >>= fun () ->
       Base.Hashtbl.remove servers volume_plugin_name ;
-      return ()
+      Lwt.return_unit
     ) else
-      return ()
+      Lwt.return_unit
   in
   let sync () =
-    Async.Sys.readdir volume_root >>= fun names ->
-    let needed : string list = Array.to_list names in
+    Sys.readdir volume_root >>= fun needed ->
     let got_already : string list = Base.Hashtbl.keys servers in
-    Deferred.all_unit (List.map create (diff needed got_already)) >>= fun () ->
-    Deferred.all_unit (List.map destroy (diff got_already needed))
+    Lwt.join (List.map create (diff needed got_already)) >>= fun () ->
+    Lwt.join (List.map destroy (diff got_already needed))
   in
   sync () >>= fun () ->
-  let open Async_inotify.Event in
+  let resolve_file = function
+    | Create path ->
+        create (Filename.basename path)
+    | Delete path ->
+        destroy (Filename.basename path)
+  in
+  let resolve = function
+    | Sync ->
+        sync ()
+    | Nothing ->
+        Lwt.return_unit
+    | Files files ->
+        Lwt_list.iter_s resolve_file (List.rev files)
+  in
   let rec loop () =
-    (Async.Pipe.read pipe >>= function
-     | `Eof ->
-         info "Received EOF from inotify event pipe" ;
-         Async.Shutdown.exit 1
-     | `Ok (Created path) | `Ok (Moved (Into path)) ->
-         create (Filename.basename path)
-     | `Ok (Unlinked path) | `Ok (Moved (Away path)) ->
-         destroy (Filename.basename path)
-     | `Ok (Modified _) ->
-         return ()
-     | `Ok (Moved (Move (path_a, path_b))) ->
-         destroy (Filename.basename path_a) >>= fun () ->
-         create (Filename.basename path_b)
-     | `Ok Queue_overflow ->
-         sync ()
-    )
+    (FileWatcher.read pipe >>= fun events -> resolve (actions_from events))
     >>= fun () -> loop ()
   in
   loop ()
 
-let watch_datapath_plugins ~datapath_root ~pipe =
+let watch_datapath_plugins ~datapath_root ~pipe () =
   let sync () =
-    Async.Sys.readdir datapath_root >>= fun names ->
-    let needed : string list = Array.to_list names in
+    Sys.readdir datapath_root >>= fun needed ->
     let got_already : string list = Base.Hashtbl.keys servers in
-    Deferred.all_unit
+    Lwt.join
       (List.map
          (Datapath_plugins.register ~datapath_root)
          (diff needed got_already)
       )
     >>= fun () ->
-    Deferred.all_unit
-      (List.map Datapath_plugins.unregister (diff got_already needed))
+    Lwt.join (List.map Datapath_plugins.unregister (diff got_already needed))
   in
   sync () >>= fun () ->
-  let open Async_inotify.Event in
+  let resolve_file = function
+    | Create path ->
+        Datapath_plugins.register ~datapath_root (Filename.basename path)
+    | Delete path ->
+        Datapath_plugins.unregister (Filename.basename path)
+  in
+  let resolve = function
+    | Sync ->
+        sync ()
+    | Nothing ->
+        Lwt.return_unit
+    | Files files ->
+        Lwt_list.iter_s resolve_file (List.rev files)
+  in
   let rec loop () =
-    (Async.Pipe.read pipe >>= function
-     | `Eof ->
-         info "Received EOF from inotify event pipe" ;
-         Async.Shutdown.exit 1
-     | `Ok (Created path) | `Ok (Moved (Into path)) ->
-         Datapath_plugins.register ~datapath_root (Filename.basename path)
-     | `Ok (Unlinked path) | `Ok (Moved (Away path)) ->
-         Datapath_plugins.unregister (Filename.basename path)
-     | `Ok (Modified _) ->
-         return ()
-     | `Ok (Moved (Move (path_a, path_b))) ->
-         Datapath_plugins.unregister (Filename.basename path_a) >>= fun () ->
-         Datapath_plugins.register ~datapath_root (Filename.basename path_b)
-     | `Ok Queue_overflow ->
-         sync ()
-    )
+    (FileWatcher.read pipe >>= fun events -> resolve (actions_from events))
     >>= fun () -> loop ()
   in
   loop ()
@@ -1686,13 +1931,13 @@ let self_test_plugin ~root_dir plugin =
   let process = process_smapiv2_requests (bind ~volume_script_dir) in
   let rpc call =
     call |> Jsonrpc.string_of_call |> process >>= fun r ->
-    debug "RPC: %s" r ;
-    return (Jsonrpc.response_of_string r)
+    debug (fun m -> m "RPC: %s" r) >>= fun () ->
+    Lwt.return (Jsonrpc.response_of_string r)
   in
-  let module Test = Storage_interface.StorageAPI (Rpc_async.GenClient ()) in
+  let module Test = Storage_interface.StorageAPI (Rpc_lwt.GenClient ()) in
   let dbg = "debug" in
-  Async.Monitor.try_with (fun () ->
-      let open Rpc_async.ErrM in
+  Deferred.try_with (fun () ->
+      let open Rpc_lwt.ErrM in
       Test.Query.query rpc dbg
       >>= (fun query_result ->
             Test.Query.diagnostics rpc dbg >>= fun _msg ->
@@ -1739,52 +1984,50 @@ let self_test_plugin ~root_dir plugin =
             else
               return ()
           )
-      |> Rpc_async.T.get
+      |> Rpc_lwt.T.get
   )
   >>= function
   | Ok x ->
-      Async_kernel.Deferred.return x
-  | Error _y ->
-      failwith "self test failed"
+      Lwt.return x
+  | Error e ->
+      failwith (Printf.sprintf "self test failed with %s" (Printexc.to_string e))
 
-let self_test ~root_dir =
+let self_test ~root_dir : unit Lwt.t =
   ( self_test_plugin ~root_dir "org.xen.xapi.storage.dummy" >>>= fun () ->
     self_test_plugin ~root_dir "org.xen.xapi.storage.dummyv5"
   )
   >>= function
   | Ok () ->
-      info "test thread shutdown cleanly" ;
-      Async_unix.exit 0
+      info (fun m -> m "test thread shutdown cleanly") >>= fun () -> exit 0
   | Error x ->
-      error "test thread failed with %s"
-        (Storage_interface.(rpc_of Errors.error) x |> Jsonrpc.to_string) ;
-      Async_unix.exit 2
+      error (fun m ->
+          m "test thread failed with %s"
+            (Storage_interface.(rpc_of Errors.error) x |> Jsonrpc.to_string)
+      )
+      >>= fun () -> exit 2
 
 let main ~root_dir ~state_path ~switch_path =
   Attached_SRs.reload state_path >>= fun () ->
-  let datapath_root = Filename.concat root_dir "datapath" in
-  Async_inotify.create ~recursive:false ~watch_new_dirs:false datapath_root
-  >>= fun (_, _, datapath) ->
-  let volume_root = Filename.concat root_dir "volume" in
-  Async_inotify.create ~recursive:false ~watch_new_dirs:false volume_root
-  >>= fun (_, _, volume) ->
-  let rec loop () =
-    Async.Monitor.try_with (fun () ->
-        Deferred.all_unit
-          [
-            watch_volume_plugins ~volume_root ~switch_path ~pipe:volume
-          ; watch_datapath_plugins ~datapath_root ~pipe:datapath
-          ]
-    )
-    >>= function
+  let datapath_root = root_dir // "datapath" in
+  FileWatcher.create datapath_root >>= fun datapath ->
+  let volume_root = root_dir // "volume" in
+  FileWatcher.create volume_root >>= fun volume ->
+  let rec retry_loop ((name, promise) as thread) () =
+    Deferred.try_with promise >>= function
     | Ok () ->
-        info "main thread shutdown cleanly" ;
-        return ()
+        Lwt.return_unit
     | Error x ->
-        error "main thread failed with %s" (Base.Exn.to_string x) ;
-        Async.Clock.after (Core.Time.Span.of_sec 5.) >>= fun () -> loop ()
+        error (fun m -> m "%s thread failed with %s" name (Base.Exn.to_string x))
+        >>= fun () -> Clock.after ~seconds:5. >>= retry_loop thread
   in
-  loop ()
+  [
+    ( "volume plugins"
+    , watch_volume_plugins ~volume_root ~switch_path ~pipe:volume
+    )
+  ; ("datapath plugins", watch_datapath_plugins ~datapath_root ~pipe:datapath)
+  ]
+  |> List.map (fun thread -> retry_loop thread ())
+  |> Lwt.join
 
 open Xcp_service
 
@@ -1814,7 +2057,7 @@ let register_exn_pretty_printers () =
         assert false
     )
 
-let _ =
+let () =
   register_exn_pretty_printers () ;
   let root_dir = ref "/var/lib/xapi/storage-scripts" in
   let state_path = ref "/var/run/nonpersistent/xapi-storage-script/state.db" in
@@ -1827,7 +2070,7 @@ let _ =
            scripts, one sub-directory per queue name"
       ; essential= true
       ; path= root_dir
-      ; perms= [U.X_OK]
+      ; perms= [Unix.X_OK]
       }
     ; {
         Xcp_service.name= "state"
@@ -1852,28 +2095,16 @@ let _ =
   in
   configure2 ~name:"xapi-script-storage" ~version:Xapi_version.version
     ~doc:description ~resources ~options () ;
-  if !Xcp_service.daemon then (
+
+  Logs.set_reporter (lwt_reporter ()) ;
+  Logs.set_level ~all:true (Some Logs.Info) ;
+  if !Xcp_service.daemon then
     Xcp_service.maybe_daemonize () ;
-    use_syslog := true ;
-    info "Daemonisation successful."
-  ) ;
-  let (_ : unit Deferred.t) =
-    let rec loop () =
-      Async_kernel.Monitor.try_with (fun () ->
-          if !self_test_only then
-            self_test ~root_dir:!root_dir
-          else
-            main ~root_dir:!root_dir ~state_path:!state_path
-              ~switch_path:!Xcp_client.switch_path
-      )
-      >>= function
-      | Ok () ->
-          info "main thread shutdown cleanly" ;
-          return ()
-      | Error x ->
-          error "main thread failed with %s" (Base.Exn.to_string x) ;
-          Async.Clock.after (Core.Time.Span.of_sec 5.) >>= fun () -> loop ()
-    in
-    loop ()
+  let main =
+    if !self_test_only then
+      self_test ~root_dir:!root_dir
+    else
+      main ~root_dir:!root_dir ~state_path:!state_path
+        ~switch_path:!Xcp_client.switch_path
   in
-  Core.never_returns (Async.Scheduler.go ())
+  Lwt_main.run main
