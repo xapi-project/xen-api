@@ -171,27 +171,35 @@ let of_xml input =
     input
 
 let json_of_t t =
-  let buffer = Buffer.create 4096 in
-
-  let do_data row =
-    Printf.bprintf buffer "{t:%Ld,values:[%s]}" row.time
-      (String.concat "," (List.map Utils.f_to_s (Array.to_list row.row_data)))
+  let open Json in
+  let map_to_list f arr = Array.to_seq arr |> Seq.map f |> List.of_seq in
+  let data_record row =
+    record
+      [
+        ("t", int64 row.time)
+      ; ( "values"
+        , array (map_to_list (fun x -> string (Utils.f_to_s x)) row.row_data)
+        )
+      ]
   in
-
-  Printf.bprintf buffer "{meta: {start:%Ld,step:%Ld,end:%Ld,rows:%d,columns:%d,"
-    t.start_time t.step t.end_time (Array.length t.data) (Array.length t.legend) ;
-  Printf.bprintf buffer "legend:[%s]},"
-    (String.concat ","
-       (List.map (fun x -> "\"" ^ x ^ "\"") (Array.to_list t.legend))
-    ) ;
-  Printf.bprintf buffer "data:[" ;
-  for i = 0 to Array.length t.data - 2 do
-    do_data t.data.(i) ;
-    Printf.bprintf buffer "%s" ","
-  done ;
-  do_data t.data.(Array.length t.data - 1) ;
-  Printf.bprintf buffer "]}" ;
-  Buffer.contents buffer
+  let meta =
+    record
+      [
+        ( "meta"
+        , record
+            [
+              ("start", int64 t.start_time)
+            ; ("step", int64 t.step)
+            ; ("end", int64 t.end_time)
+            ; ("rows", int (Array.length t.data))
+            ; ("columns", int (Array.length t.legend))
+            ; ("legend", array (map_to_list string t.legend))
+            ; ("data", array (map_to_list data_record t.data))
+            ]
+        )
+      ]
+  in
+  Yojson.to_string meta
 
 (** Export data from a bunch of rrds. Specify a prefix per rrd to be
     put onto legend. Note that each rrd *must* have the same timestep
