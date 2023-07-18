@@ -47,22 +47,12 @@
   )
 )
 
-(test
-  (name http_test)
-  (modules http_test)
+(tests
+  (names http_test radix_tree_test)
+  (package http-lib)
+  (modules http_test radix_tree_test)
   (libraries
     alcotest
-    dune-build-info
-    http_lib
-  )
-)
-
-(test
-  (name radix_tree_test)
-  (modes exe)
-  (modules radix_tree_test)
-  (package http-lib)
-  (libraries
     dune-build-info
     http_lib
   )
