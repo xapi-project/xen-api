@@ -916,9 +916,15 @@ let xml_to_output rrd output =
     output
 
 module Json = struct
-  let string fmt = Printf.ksprintf (fun msg -> `String msg) fmt
+  let fmt fmt x = Printf.ksprintf (fun msg -> `String msg) fmt x
 
-  let float x = string "%.2f" x
+  let string x = fmt "%s" x
+
+  let float x = string (Utils.f_to_s x)
+
+  let int x = fmt "%d" x
+
+  let int64 x = fmt "%Ld" x
 
   let record xs = `Assoc xs
 
@@ -927,14 +933,14 @@ module Json = struct
   let datasource ds =
     record
       [
-        ("name", string "%s" ds.ds_name)
-      ; ("type", string "%s" (ds_type_to_string ds.ds_ty))
-      ; ("minimal_hearbeat", string "%s" (Utils.f_to_s ds.ds_mrhb))
-      ; ("min", string "%s" (Utils.f_to_s ds.ds_min))
-      ; ("max", string "%s" (Utils.f_to_s ds.ds_max))
-      ; ("last_ds", string "%s" (ds_value_to_string ds.ds_last))
-      ; ("value", string "%s" (Utils.f_to_s ds.ds_value))
-      ; ("unknown_sec", string "%d" (int_of_float ds.ds_unknown_sec))
+        ("name", string ds.ds_name)
+      ; ("type", string (ds_type_to_string ds.ds_ty))
+      ; ("minimal_hearbeat", float ds.ds_mrhb)
+      ; ("min", float ds.ds_min)
+      ; ("max", float ds.ds_max)
+      ; ("last_ds", string (ds_value_to_string ds.ds_last))
+      ; ("value", float ds.ds_value)
+      ; ("unknown_sec", float ds.ds_unknown_sec)
       ]
 
   let cdp x =
@@ -942,12 +948,11 @@ module Json = struct
       [
         ("primary_value", float 0.0)
       ; ("secondary_value", float 0.0)
-      ; ("value", string "%s" (Utils.f_to_s x.cdp_value))
-      ; ("unknown_datapoints", float @@ float_of_int x.cdp_unknown_pdps)
+      ; ("value", float x.cdp_value)
+      ; ("unknown_datapoints", int x.cdp_unknown_pdps)
       ]
 
-  let get rings rows row col =
-    Fring.peek rings.(col) (rows - row - 1) |> Utils.f_to_s |> string "%s"
+  let get rings rows row col = Fring.peek rings.(col) (rows - row - 1) |> float
 
   let database = function
     | [||] ->
@@ -966,9 +971,9 @@ module Json = struct
   let rra x =
     record
       [
-        ("cf", string "%s" (cf_type_to_string x.rra_cf))
-      ; ("pdp_per_row", string "%d" x.rra_pdp_cnt)
-      ; ("params", record [("xff", string "%s" (Utils.f_to_s x.rra_xff))])
+        ("cf", string (cf_type_to_string x.rra_cf))
+      ; ("pdp_per_row", int x.rra_pdp_cnt)
+      ; ("params", record [("xff", float x.rra_xff)])
       ; ( "cdp_prep"
         , record [("ds", array @@ List.map cdp @@ Array.to_list x.rra_cdps)]
         )
@@ -979,8 +984,8 @@ module Json = struct
     record
       [
         ("version", string "0003")
-      ; ("step", string "%Ld" x.timestep)
-      ; ("lastupdate", string "%s" (Utils.f_to_s x.last_updated))
+      ; ("step", int64 x.timestep)
+      ; ("lastupdate", float x.last_updated)
       ; ("ds", array @@ List.map datasource @@ Array.to_list x.rrd_dss)
       ; ("rra", array @@ List.map rra @@ Array.to_list x.rrd_rras)
       ]

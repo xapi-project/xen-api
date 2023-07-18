@@ -86,7 +86,7 @@ let rec setify = function
 let f_to_s f =
   match classify_float f with
   | FP_normal | FP_subnormal ->
-      Printf.sprintf "%0.4f" f
+      Printf.sprintf "%0.5g" f
   | FP_nan ->
       "NaN"
   | FP_infinite ->
