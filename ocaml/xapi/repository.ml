@@ -653,49 +653,40 @@ let set_restart_device_models ~__context ~host ~kind =
       (* No device models are running for this VM *)
       None
 
-let set_pending_guidances ~__context ~host ~guidances =
+let set_guidances ~__context ~host ~guidances ~db_set ~kind =
   let open Guidance in
   guidances
   |> List.fold_left
        (fun acc g ->
-         match g with
-         | RebootHost ->
+         match (g, kind) with
+         | RebootHost, _ ->
              `reboot_host :: acc
-         | RebootHostOnLivePatchFailure ->
-             `reboot_host_on_livepatch_failure :: acc
-         | RestartToolstack ->
+         | RestartToolstack, _ ->
              `restart_toolstack :: acc
-         | RestartDeviceModel ->
-             set_restart_device_models ~__context ~host ~kind:Absolute ;
+         | RestartDeviceModel, _ ->
+             set_restart_device_models ~__context ~host ~kind ;
              acc
-         | g ->
+         | RebootHostOnLivePatchFailure, Absolute ->
+             `reboot_host_on_livepatch_failure :: acc
+         | _, Absolute ->
              warn "Unsupported pending guidance %s, ignoring it."
                (Guidance.to_string g) ;
              acc
-       )
-       []
-  |> fun gs -> Db.Host.set_pending_guidances ~__context ~self:host ~value:gs
-
-let set_recommended_guidances ~__context ~host ~guidances =
-  let open Guidance in
-  guidances
-  |> List.fold_left
-       (fun acc g ->
-         match g with
-         | RebootHost ->
-             `reboot_host :: acc
-         | RestartToolstack ->
-             `restart_toolstack :: acc
-         | RestartDeviceModel ->
-             set_restart_device_models ~__context ~host ~kind:Absolute ;
-             acc
-         | g ->
+         | _, Recommended ->
              warn "Unsupported recommended guidance %s, ignoring it."
                (Guidance.to_string g) ;
              acc
        )
        []
-  |> fun gs -> Db.Host.set_recommended_guidances ~__context ~self:host ~value:gs
+  |> fun gs -> db_set ~__context ~self:host ~value:gs
+
+let set_pending_guidances ~__context ~host ~guidances =
+  set_guidances ~__context ~host ~guidances
+    ~db_set:Db.Host.set_pending_guidances ~kind:Absolute
+
+let set_recommended_guidances ~__context ~host ~guidances =
+  set_guidances ~__context ~host ~guidances
+    ~db_set:Db.Host.set_recommended_guidances ~kind:Recommended
 
 let apply_livepatches' ~__context ~host ~livepatches =
   List.partition_map
