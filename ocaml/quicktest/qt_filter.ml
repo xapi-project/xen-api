@@ -180,7 +180,20 @@ module SR = struct
            ~self:pool
         )
         ()
-    else
+    else if !A.sr <> "" then (
+      let sr =
+        Client.Client.SR.get_by_uuid ~rpc:!A.rpc ~session_id:!session_id
+          ~uuid:!A.sr
+      in
+      let local_srs =
+        list_srs_connected_to_localhost !A.rpc !session_id
+        |> List.map (fun sr_info -> sr_info.Qt.sr)
+      in
+      if not (List.mem sr local_srs) then
+        failwith
+          (Printf.sprintf "Specified sr %s is not available on the host" !A.sr) ;
+      only sr ()
+    ) else
       Lazy.force all_srs
 
   let random srs () =
