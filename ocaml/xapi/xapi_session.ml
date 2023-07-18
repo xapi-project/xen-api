@@ -257,6 +257,15 @@ let xapi_internal_originator = "xapi"
 
 let serialize_auth = Mutex.create ()
 
+let assert_username uname = 
+  match uname with
+  | "" ->
+      raise
+        Api_errors.(
+          Server_error
+            (session_authentication_failed, [""; "Username is required to login"])
+        )
+
 let wipe_string_contents str =
   for i = 0 to Bytes.length str - 1 do
     Bytes.set str i '\000'
@@ -766,6 +775,7 @@ let login_with_password ~__context ~uname ~pwd ~version:_ ~originator =
             ~auth_user_sid:"" ~auth_user_name:uname ~rbac_permissions
             ~db_ref:None ~client_certificate:true
       | None -> (
+          let () = assert_username uname in
           let () =
             if Pool_role.is_slave () then
               raise

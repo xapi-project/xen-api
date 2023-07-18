@@ -177,7 +177,7 @@ let _ =
     () ;
 
   (* Session errors *)
-  error Api_errors.session_authentication_failed []
+  error Api_errors.session_authentication_failed ["username"; "msg"]
     ~doc:
       "The credentials given by the user are incorrect, so access has been \
        denied, and you have not been issued a session handle."
