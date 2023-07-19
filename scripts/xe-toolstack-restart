@@ -27,7 +27,7 @@ echo "Executing $FILENAME"
 
 POOLCONF=`cat @ETCXENDIR@/pool.conf`
 if [ $POOLCONF == "master" ]; then MPATHALERT="mpathalert"; else MPATHALERT=""; fi
-SERVICES="perfmon xapi v6d xenopsd xenopsd-xc xenopsd-xenlight
+SERVICES="perfmon v6d xenopsd xenopsd-xc xenopsd-xenlight
   xenopsd-simulator xenopsd-libvirt xcp-rrdd-iostat xcp-rrdd-squeezed
   xcp-rrdd-xenpm xcp-rrdd-gpumon xcp-rrdd xcp-networkd squeezed forkexecd
   $MPATHALERT xapi-storage-script xapi-clusterd varstored-guard message-switch"
@@ -51,11 +51,13 @@ for svc in $SERVICES ; do
 		TO_RESTART="$svc $TO_RESTART"
 	fi
 done
+systemctl stop xapi
 systemctl stop ${TO_RESTART}
 
 set -e
 
 systemctl start ${TO_RESTART}
+systemctl start xapi
 
 rm -f $LOCKFILE
 echo "done."
