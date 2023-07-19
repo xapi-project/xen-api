@@ -569,7 +569,7 @@ let intra_pool_vdi_remap ~__context vm vdi_map =
     vdis_and_callbacks
 
 let inter_pool_metadata_transfer ~__context ~remote ~vm ~vdi_map ~vif_map
-    ~vgpu_map ~dry_run ~live ~copy =
+    ~vgpu_map ~dry_run ~live ~copy ~check_cpu =
   List.iter
     (fun vdi_record ->
       let vdi = vdi_record.local_vdi_reference in
@@ -605,7 +605,7 @@ let inter_pool_metadata_transfer ~__context ~remote ~vm ~vdi_map ~vif_map
     )
     vgpu_map ;
   let vm_export_import =
-    {Importexport.vm; dry_run; live; send_snapshots= not copy}
+    {Importexport.vm; dry_run; live; send_snapshots= not copy; check_cpu}
   in
   finally
     (fun () ->
@@ -1164,6 +1164,9 @@ let migrate_send' ~__context ~vm ~dest ~live:_ ~vdi_map ~vif_map ~vgpu_map
   let remote = remote_of_dest ~__context dest in
   (* Copy mode means we don't destroy the VM on the source host. We also don't
      	   copy over the RRDs/messages *)
+  let force =
+    try bool_of_string (List.assoc "force" options) with _ -> false
+  in
   let copy = try bool_of_string (List.assoc "copy" options) with _ -> false in
   let compress =
     use_compression ~__context options localhost remote.dest_host
@@ -1453,6 +1456,7 @@ let migrate_send' ~__context ~vm ~dest ~live:_ ~vdi_map ~vif_map ~vgpu_map
             in
             inter_pool_metadata_transfer ~__context ~remote ~vm ~vdi_map
               ~vif_map ~vgpu_map ~dry_run:false ~live:true ~copy
+              ~check_cpu:(not force)
           in
           let vm = List.hd vms in
           let () =
@@ -1787,12 +1791,6 @@ let assert_can_migrate ~__context ~vm ~dest ~live:_ ~vdi_map ~vif_map ~options
           (Api_errors.Server_error
              (Api_errors.host_disabled, [Ref.string_of remote.dest_host])
           ) ;
-      (* Check that the VM's required CPU features are available on the host *)
-      if not force then
-        Cpuid_helpers.assert_vm_is_compatible ~__context ~vm
-          ~host:remote.dest_host
-          ~remote:(remote.rpc, remote.session)
-          () ;
       (* Check that the destination has enough pCPUs *)
       Xapi_vm_helpers.assert_enough_pcpus ~__context ~self:vm
         ~host:remote.dest_host
@@ -1835,6 +1833,7 @@ let assert_can_migrate ~__context ~vm ~dest ~live:_ ~vdi_map ~vif_map ~options
           not
             (inter_pool_metadata_transfer ~__context ~remote ~vm ~vdi_map
                ~vif_map ~vgpu_map ~dry_run:true ~live:true ~copy
+               ~check_cpu:(not force)
             = []
             )
         then

@@ -50,6 +50,7 @@ type metadata_options = {
        	 * - If the migration is for real, we will expect the VM export code on the source host to have mapped the VDI locations onto their
        	 *   mirrored counterparts which are present on this host. *)
     live: bool
+  ; check_cpu: bool
   ; (* An optional src VDI -> destination VDI rewrite list *)
     vdi_map: (string * string) list
 }
@@ -74,6 +75,13 @@ type config = {
 
 let is_live config =
   match config.import_type with Metadata_import {live; _} -> live | _ -> false
+
+let needs_cpu_check config =
+  match config.import_type with
+  | Metadata_import {check_cpu; _} ->
+      check_cpu
+  | _ ->
+      false
 
 (** List of (datamodel classname * Reference in export * Reference in database) *)
 type table = (string * string * string) list
@@ -253,8 +261,8 @@ let assert_can_restore_backup ~__context rpc session_id (x : header) =
     import_vms
 
 let assert_can_live_import __context vm_record =
+  let host = Helpers.get_localhost ~__context in
   let assert_memory_available () =
-    let host = Helpers.get_localhost ~__context in
     let host_mem_available =
       Memory_check.host_compute_free_memory_with_maximum_compression ~__context
         ~host None
@@ -416,7 +424,7 @@ module VM : HandlerTools = struct
     | Skip
     | Clean_import of API.vM_t
 
-  let precheck __context config _rpc _session_id _state x =
+  let precheck __context config _rpc _session_id state x =
     let vm_record = get_vm_record x.snapshot in
     let is_default_template =
       vm_record.API.vM_is_default_template
@@ -500,6 +508,21 @@ module VM : HandlerTools = struct
       | Replace (_, vm_record) | Clean_import vm_record ->
           if is_live config then
             assert_can_live_import __context vm_record ;
+          ( if needs_cpu_check config then
+              let vmm_record =
+                find_in_export
+                  (Ref.string_of vm_record.API.vM_metrics)
+                  state.export
+                |> API.vM_metrics_t_of_rpc
+              in
+              let host = Helpers.get_localhost ~__context in
+              Cpuid_helpers.assert_vm_is_compatible ~__context
+                ~vm:
+                  (`import
+                    (vm_record, vmm_record.API.vM_metrics_current_domain_type)
+                    )
+                ~host
+          ) ;
           import_action
       | _ ->
           import_action
@@ -719,6 +742,15 @@ module VM : HandlerTools = struct
         Db.VM.set_suspend_SR ~__context ~self:vm ~value:Ref.null ;
       Db.VM.set_parent ~__context ~self:vm ~value:vm_record.API.vM_parent ;
       ( try
+          let vmm = lookup vm_record.API.vM_metrics state.table in
+          (* We have VM_metrics in the imported metadata, so use it, and destroy
+             the record created by VM.create_from_record above. *)
+          let replaced_vmm = Db.VM.get_metrics ~__context ~self:vm in
+          Db.VM.set_metrics ~__context ~self:vm ~value:vmm ;
+          Db.VM_metrics.destroy ~__context ~self:replaced_vmm
+        with _ -> ()
+      ) ;
+      ( try
           let gm = lookup vm_record.API.vM_guest_metrics state.table in
           Db.VM.set_guest_metrics ~__context ~self:vm ~value:gm
         with _ -> ()
@@ -790,6 +822,40 @@ module GuestMetrics : HandlerTools = struct
       ~can_use_hotplug_vbd:gm_record.API.vM_guest_metrics_can_use_hotplug_vbd
       ~can_use_hotplug_vif:gm_record.API.vM_guest_metrics_can_use_hotplug_vif ;
     state.table <- (x.cls, x.id, Ref.string_of gm) :: state.table
+end
+
+(** Create the VM metrics *)
+module Metrics : HandlerTools = struct
+  type precheck_t = OK
+
+  let precheck __context _config _rpc _session_id _state _x = OK
+
+  let handle_dry_run __context _config _rpc _session_id state x _precheck_result
+      =
+    let dummy_gm = Ref.make () in
+    state.table <- (x.cls, x.id, Ref.string_of dummy_gm) :: state.table
+
+  let handle __context _config _rpc _session_id state x _precheck_result =
+    let vmm_record = API.vM_metrics_t_of_rpc x.snapshot in
+    let vmm = Ref.make () in
+    Db.VM_metrics.create ~__context ~ref:vmm
+      ~uuid:(Uuidx.to_string (Uuidx.make ()))
+      ~memory_actual:vmm_record.API.vM_metrics_memory_actual
+      ~vCPUs_number:vmm_record.API.vM_metrics_VCPUs_number
+      ~vCPUs_utilisation:vmm_record.API.vM_metrics_VCPUs_utilisation
+      ~vCPUs_CPU:vmm_record.API.vM_metrics_VCPUs_CPU
+      ~vCPUs_params:vmm_record.API.vM_metrics_VCPUs_params
+      ~vCPUs_flags:vmm_record.API.vM_metrics_VCPUs_flags
+      ~state:vmm_record.API.vM_metrics_state
+      ~start_time:vmm_record.API.vM_metrics_start_time
+      ~install_time:vmm_record.API.vM_metrics_install_time
+      ~last_updated:vmm_record.API.vM_metrics_last_updated
+      ~other_config:vmm_record.API.vM_metrics_other_config
+      ~hvm:vmm_record.API.vM_metrics_hvm
+      ~nested_virt:vmm_record.API.vM_metrics_nested_virt
+      ~nomigrate:vmm_record.API.vM_metrics_nomigrate
+      ~current_domain_type:vmm_record.API.vM_metrics_current_domain_type ;
+    state.table <- (x.cls, x.id, Ref.string_of vmm) :: state.table
 end
 
 (** If we're restoring VM metadata only then lookup the SR by uuid. If we can't find
@@ -1897,6 +1963,7 @@ module HostHandler = MakeHandler (Host)
 module SRHandler = MakeHandler (SR)
 module VDIHandler = MakeHandler (VDI)
 module GuestMetricsHandler = MakeHandler (GuestMetrics)
+module MetricsHandler = MakeHandler (Metrics)
 module VMHandler = MakeHandler (VM)
 module NetworkHandler = MakeHandler (Net)
 module GPUGroupHandler = MakeHandler (GPUGroup)
@@ -1915,6 +1982,7 @@ let handlers =
   ; (Datamodel_common._sr, SRHandler.handle)
   ; (Datamodel_common._vdi, VDIHandler.handle)
   ; (Datamodel_common._vm_guest_metrics, GuestMetricsHandler.handle)
+  ; (Datamodel_common._vm_metrics, MetricsHandler.handle)
   ; (Datamodel_common._vm, VMHandler.handle)
   ; (Datamodel_common._network, NetworkHandler.handle)
   ; (Datamodel_common._gpu_group, GPUGroupHandler.handle)
@@ -2191,13 +2259,14 @@ let metadata_handler (req : Request.t) s _ =
           let force = find_query_flag req.Request.query "force" in
           let dry_run = find_query_flag req.Request.query "dry_run" in
           let live = find_query_flag req.Request.query "live" in
+          let check_cpu = find_query_flag req.Request.query "check_cpu" in
           let vdi_map = read_map_params "vdi" req.Request.query in
           info
             "VM.import_metadata: force = %b; full_restore = %b dry_run = %b; \
-             live = %b; vdi_map = [ %s ]"
-            force full_restore dry_run live
+             live = %b; check_cpu = %b; vdi_map = [ %s ]"
+            force full_restore dry_run live check_cpu
             (String.concat "; " (List.map (fun (a, b) -> a ^ "=" ^ b) vdi_map)) ;
-          let metadata_options = {dry_run; live; vdi_map} in
+          let metadata_options = {dry_run; live; vdi_map; check_cpu} in
           let config =
             {import_type= Metadata_import metadata_options; full_restore; force}
           in
