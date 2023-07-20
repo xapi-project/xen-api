@@ -11,7 +11,16 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-(** Schedule common background tasks. *)
 
-val register : __context:Context.t -> unit
-(** Register periodic calls, done by {!Xapi} on start-up. *)
+val set_enabled : __context:Context.t -> value:bool -> unit
+
+(* Below exposed only for ease of testing *)
+
+type frequency = Daily | Weekly of int
+
+val day_of_next_sync :
+  now:Ptime.t -> tz_offset_s:int -> frequency:frequency -> Ptime.t
+
+val time_until_next_sync : now:Ptime.t -> next_sync:Ptime.t -> Ptime.span
+
+val random_delay : unit -> Ptime.span

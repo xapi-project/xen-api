@@ -27,7 +27,15 @@ module Guidance : sig
 
   val to_string : t -> string
 
+  (* may fail *)
   val of_string : string -> t
+
+  val of_update_guidance :
+       [< `reboot_host
+       | `reboot_host_on_livepatch_failure
+       | `restart_device_model
+       | `restart_toolstack ]
+    -> t
 end
 
 (** The applicability of metadata for one update in updateinfo *)
@@ -90,6 +98,15 @@ module LivePatch : sig
   val of_xml : Xml.xml list -> t list
 end
 
+module Severity : sig
+  type t = None | High
+
+  val to_string : t -> string
+
+  (* may fail *)
+  val of_string : string -> t
+end
+
 (** The metadata of one update in updateinfo *)
 module UpdateInfo : sig
   type t = {
@@ -104,6 +121,8 @@ module UpdateInfo : sig
     ; update_type: string
     ; livepatch_guidance: Guidance.t option
     ; livepatches: LivePatch.t list
+    ; issued: Xapi_stdext_date.Date.t
+    ; severity: Severity.t
   }
 
   val to_json : t -> Yojson.Basic.t

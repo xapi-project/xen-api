@@ -29,12 +29,26 @@ let prototyped_of_field = function
       Some "22.26.0"
   | "VTPM", "persistence_backend" ->
       Some "22.26.0"
+  | "host", "latest_synced_updates_applied" ->
+      Some "23.16.2-next"
+  | "host", "recommended_guidances" ->
+      Some "23.16.2-next"
   | "host", "https_only" ->
       Some "22.27.0"
   | "host", "last_software_update" ->
       Some "22.20.0"
+  | "VM", "recommended_guidances" ->
+      Some "23.16.2-next"
   | "VM", "actions__after_softreboot" ->
       Some "23.1.0"
+  | "pool", "update_sync_enabled" ->
+      Some "23.16.2-next"
+  | "pool", "update_sync_day" ->
+      Some "23.16.2-next"
+  | "pool", "update_sync_frequency" ->
+      Some "23.16.2-next"
+  | "pool", "last_update_sync" ->
+      Some "23.16.2-next"
   | "pool", "telemetry_next_collection" ->
       Some "23.9.0"
   | "pool", "telemetry_frequency" ->
@@ -77,8 +91,14 @@ let prototyped_of_message = function
       Some "22.26.0"
   | "VTPM", "create" ->
       Some "22.26.0"
+  | "host", "apply_recommended_guidances" ->
+      Some "23.16.2-next"
   | "host", "set_https_only" ->
       Some "22.27.0"
+  | "pool", "set_update_sync_enabled" ->
+      Some "23.16.2-next"
+  | "pool", "configure_update_sync" ->
+      Some "23.16.2-next"
   | "pool", "reset_telemetry_uuid" ->
       Some "23.9.0"
   | "pool", "set_telemetry_next_collection" ->

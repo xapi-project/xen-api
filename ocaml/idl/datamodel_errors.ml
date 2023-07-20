@@ -1931,8 +1931,6 @@ let _ =
       "The hash of updateinfo doesn't match with current one. There may be \
        newer available updates."
     () ;
-  error Api_errors.updates_require_sync []
-    ~doc:"A call to pool.sync_updates is required before this operation." () ;
   error Api_errors.cannot_restart_device_model ["ref"]
     ~doc:"Cannot restart device models of paused VMs residing on the host." () ;
   error Api_errors.invalid_repository_proxy_url ["url"]
@@ -1941,6 +1939,8 @@ let _ =
     ~doc:"The repository proxy username/password is invalid." () ;
   error Api_errors.apply_livepatch_failed ["livepatch"]
     ~doc:"Failed to apply a livepatch." () ;
+  error Api_errors.updates_require_recommended_guidance ["recommended_guidance"]
+    ~doc:"Requires recommended guidance after applying updates." () ;
   error Api_errors.update_guidance_changed ["guidance"]
     ~doc:"Guidance for the update has changed" () ;
 
@@ -1953,6 +1953,9 @@ let _ =
        future. Pick a timestamp within two telemetry intervals starting from \
        now."
     () ;
+
+  error Api_errors.invalid_update_sync_day ["day"]
+    ~doc:"Invalid day of the week chosen for weekly update sync." () ;
 
   message
     (fst Api_messages.ha_pool_overcommitted)

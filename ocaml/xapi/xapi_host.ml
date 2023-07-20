@@ -1047,7 +1047,8 @@ let create ~__context ~uuid ~name_label ~name_description:_ ~hostname ~address
       )
     ~control_domain:Ref.null ~updates_requiring_reboot:[] ~iscsi_iqn:""
     ~multipathing:false ~uefi_certificates:"" ~editions:[] ~pending_guidances:[]
-    ~tls_verification_enabled ~last_software_update:Date.never ;
+    ~tls_verification_enabled ~last_software_update:Date.never
+    ~recommended_guidances:[] ~latest_synced_updates_applied:`unknown ;
   (* If the host we're creating is us, make sure its set to live *)
   Db.Host_metrics.set_last_updated ~__context ~self:metrics
     ~value:(Date.of_float (Unix.gettimeofday ())) ;
@@ -2984,6 +2985,7 @@ let get_host_updates_handler (req : Http.Request.t) s _ =
 
 let apply_updates ~__context ~self ~hash =
   (* This function runs on master host *)
+  Helpers.assert_we_are_master ~__context ;
   Pool_features.assert_enabled ~__context ~f:Features.Updates ;
   let guidances, warnings =
     Xapi_pool_helpers.with_pool_operation ~__context
@@ -2999,11 +3001,16 @@ let apply_updates ~__context ~self ~hash =
   in
   Db.Host.set_last_software_update ~__context ~self
     ~value:(get_servertime ~__context ~host:self) ;
-  Repository.apply_immediate_guidances ~__context ~host:self ~guidances ;
-  (* The warnings may not be returned to async caller if this happens
-   * on the coordinator host and the 'restartToolstack' is required.
-   *)
-  warnings
+  Db.Host.set_latest_synced_updates_applied ~__context ~self ~value:`yes ;
+  List.map
+    (fun g ->
+      [
+        Api_errors.updates_require_recommended_guidance
+      ; Updateinfo.Guidance.to_string g
+      ]
+    )
+    guidances
+  @ warnings
 
 let cc_prep () =
   let cc = "CC_PREPARATIONS" in
@@ -3032,3 +3039,67 @@ let set_https_only ~__context ~self ~value =
   | true ->
       (* it is illegal changing the firewall/https config in CC/FIPS mode *)
       raise (Api_errors.Server_error (Api_errors.illegal_in_fips_mode, []))
+
+let try_restart_device_models_for_recommended_guidances ~__context ~host =
+  (* This function runs on master host: restart device models of all running
+   * HVM VMs on the host by doing local migrations if it is required by
+   * recommended guidances. *)
+  Helpers.assert_we_are_master ~__context ;
+  Repository_helpers.do_with_device_models ~__context ~host
+  @@ fun (ref, record) ->
+  match
+    ( List.mem `restart_device_model
+        (Db.VM.get_recommended_guidances ~__context ~self:ref)
+    , record.API.vM_power_state
+    , Helpers.has_qemu_currently ~__context ~self:ref
+    )
+  with
+  | true, `Running, true ->
+      Helpers.call_api_functions ~__context (fun rpc session_id ->
+          Client.Client.VM.pool_migrate ~rpc ~session_id ~vm:ref ~host
+            ~options:[("live", "true")]
+      ) ;
+      None
+  | true, `Paused, true ->
+      error "VM 'ref=%s' is paused, can't restart device models for it"
+        (Ref.string_of ref) ;
+      Some ref
+  | _ ->
+      (* No `restart_device_model as recommended guidance for this VM or no
+       * device models are running for this VM *)
+      None
+
+let apply_recommended_guidances ~__context ~self:host =
+  (* This function runs on master host *)
+  Helpers.assert_we_are_master ~__context ;
+  try
+    let open Updateinfo in
+    Db.Host.get_recommended_guidances ~__context ~self:host |> function
+    | [] ->
+        try_restart_device_models_for_recommended_guidances ~__context ~host
+    | [`reboot_host] ->
+        Helpers.call_api_functions ~__context (fun rpc session_id ->
+            Client.Client.Host.reboot ~rpc ~session_id ~host
+        )
+    | [`restart_toolstack] ->
+        try_restart_device_models_for_recommended_guidances ~__context ~host ;
+        Helpers.call_api_functions ~__context (fun rpc session_id ->
+            Client.Client.Host.restart_agent ~rpc ~session_id ~host
+        )
+    | l ->
+        let host' = Ref.string_of host in
+        error
+          "Found wrong guidance(s) when applying recommended guidances on host \
+           ref='%s': %s"
+          host'
+          (String.concat ";"
+             (List.map Guidance.to_string
+                (List.map Guidance.of_update_guidance l)
+             )
+          ) ;
+        raise Api_errors.(Server_error (apply_guidance_failed, [host']))
+  with e ->
+    let host' = Ref.string_of host in
+    error "applying recommended guidances on host ref='%s' failed: %s" host'
+      (ExnHelper.string_of_exn e) ;
+    raise Api_errors.(Server_error (apply_guidance_failed, [host']))

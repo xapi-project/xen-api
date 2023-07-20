@@ -2141,6 +2141,9 @@ let t =
             ~ty:(Set update_guidances) "pending_guidances"
             ~default_value:(Some (VSet []))
             "The set of pending guidances after applying updates"
+        ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:(Set update_guidances)
+            "recommended_guidances" ~default_value:(Some (VSet []))
+            "The set of recommended guidances after applying updates"
         ]
       )
     ()
