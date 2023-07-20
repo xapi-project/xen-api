@@ -1127,7 +1127,14 @@ module HOST = struct
 
   let combine_cpu_policies policy1 policy2 =
     let open Cpuid in
-    intersect
+    let combine p1 p2 =
+      try Xenctrlext.combine_cpu_policies p1 p2
+      with Xenctrlext.Unix_error (Unix.ENOSYS, _) ->
+        debug
+          "xc_combine_cpu_policies: ENOSYS; fallback to OCaml implementation" ;
+        intersect p1 p2
+    in
+    combine
       (policy1 |> CPU_policy.to_string |> features_of_string)
       (policy2 |> CPU_policy.to_string |> features_of_string)
     |> string_of_features
@@ -1135,16 +1142,34 @@ module HOST = struct
 
   let is_compatible vm_policy host_policy =
     let open Cpuid in
+    let is_compatible' vm host =
+      let vm' = zero_extend vm (Array.length host) in
+      let compatible = is_subset vm' host in
+      if not compatible then
+        info
+          "The VM's CPU policy is not compatible with the target host's. The \
+           host is missing: %s"
+          (diff vm' host |> string_of_features) ;
+      compatible
+    in
+    let check v h =
+      try
+        match Xenctrlext.policy_is_compatible v h with
+        | None ->
+            true
+        | Some s ->
+            info
+              "The VM's CPU policy is not compatible with the target host's. \
+               The host is missing: %s"
+              s ;
+            false
+      with Xenctrlext.Unix_error (Unix.ENOSYS, _) ->
+        debug "policy_is_compatible: ENOSYS; fallback to OCaml implementation" ;
+        is_compatible' v h
+    in
     let vm = vm_policy |> CPU_policy.to_string |> features_of_string in
     let host = host_policy |> CPU_policy.to_string |> features_of_string in
-    let vm' = zero_extend vm (Array.length host) in
-    let compatible = is_subset vm' host in
-    if not compatible then
-      info
-        "The VM's CPU policy is not compatible with the target host's. The \
-         host is missing: %s"
-        (diff vm' host |> string_of_features) ;
-    compatible
+    check vm host
 end
 
 let dB_m = Mutex.create ()

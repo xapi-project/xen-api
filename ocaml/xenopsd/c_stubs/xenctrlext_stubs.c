@@ -452,6 +452,96 @@ CAMLprim value stub_xenctrlext_cputopoinfo(value xch_val)
 	CAMLreturn(result);
 }
 
+/*
+ * Convert an Ocaml int64 array to a C uint32_t array, zero extending as
+ * necessary.
+ */
+static void ocaml_int64_array_to_c_array(value o, uint32_t *c, mlsize_t c_len)
+{
+	mlsize_t i, o_len = caml_array_length(o);
+
+	for (i = 0; i < o_len; ++i)
+		c[i] = Int64_val(Field(o, i));
+	for (; i < c_len; ++i)
+		c[i] = 0;
+}
+
+#ifndef MAX
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
+#endif
+
+__attribute__((weak))
+void xc_combine_cpu_featuresets(
+	const uint32_t *p1, const uint32_t *p2, uint32_t *out, size_t len);
+
+/* int64 array (p1) -> int64 array (p2) -> int64 array (new) */
+CAMLprim value stub_xenctrlext_combine_cpu_featuresets(value p1, value p2)
+{
+	CAMLparam2(p1, p2);
+	CAMLlocal1(result);
+
+	mlsize_t p1_len = caml_array_length(p1);
+	mlsize_t p2_len = caml_array_length(p2);
+	mlsize_t len = MAX(p1_len, p2_len);
+	mlsize_t i;
+
+	uint32_t c_p1[len], c_p2[len], c_out[len];
+
+	if (!xc_combine_cpu_featuresets)
+		raise_unix_errno_msg(ENOSYS, "xc_combine_cpu_featuresets");
+
+	if (len == 0)
+		CAMLreturn(Atom(0));
+
+	ocaml_int64_array_to_c_array(p1, c_p1, len);
+	ocaml_int64_array_to_c_array(p2, c_p2, len);
+
+	xc_combine_cpu_featuresets(c_p1, c_p2, c_out, len);
+
+	/* Turn c_out back into an Ocaml int64 array. */
+	result = caml_alloc(len, 0);
+	for ( i = 0; i < len; ++i )
+		Store_field(result, i, caml_copy_int64(c_out[i]));
+
+	CAMLreturn(result);
+}
+
+__attribute__((weak))
+const char *xc_cpu_featuresets_are_compatible(
+	const uint32_t *vm, const uint32_t *host, size_t len, char err[128]);
+
+/* int64 array (vm) -> int64 array (host) -> string option (None on success, string on failure) */
+CAMLprim value stub_xenctrlext_featuresets_are_compatible(value vm, value host)
+{
+	CAMLparam2(vm, host);
+	CAMLlocal1(result);
+
+	mlsize_t vm_len = caml_array_length(vm);
+	mlsize_t host_len = caml_array_length(host);
+	mlsize_t len = MAX(vm_len, host_len);
+
+	uint32_t c_vm[len], c_host[len];
+	char msg[128];
+	const char *err;
+
+	if (!xc_cpu_featuresets_are_compatible)
+		raise_unix_errno_msg(ENOSYS, "xc_cpu_featuresets_are_compatible");
+
+	ocaml_int64_array_to_c_array(vm, c_vm, len);
+	ocaml_int64_array_to_c_array(host, c_host, len);
+
+	err = xc_cpu_featuresets_are_compatible(c_vm, c_host, len, msg);
+
+	if (!err)
+		result = Val_none;
+	else {
+		result = caml_alloc_small(1, Tag_some);
+		Store_field(result, 0, caml_copy_string(err));
+	}
+
+	CAMLreturn(result);
+}
+
 CAMLprim value stub_xenforeignmemory_open(value unit)
 {
         CAMLparam1(unit);
