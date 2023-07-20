@@ -1,16 +1,10 @@
 open Rrd
 
-(* Default alcotest checker fails when comparing NaNs and Infinities,
- * we need leeway to account for loss of precision during serialization. *)
-let float eps =
-  let same x y = Float.equal x y || Float.abs (x -. y) <= eps in
-  Alcotest.testable Fmt.float same
-
 (* pick between absolute or relative tolerance of a number *)
 let tolerance x = max 1e-4 (abs_float x *. 1e-12)
 
 let compare_float message x y =
-  Alcotest.check (float @@ tolerance x) message x y
+  Alcotest.(check @@ float @@ tolerance x) message x y
 
 let assert_ds_equal d1 d2 =
   Alcotest.(check string) __LOC__ d1.ds_name d2.ds_name ;
@@ -34,7 +28,8 @@ let assert_fring_equal f1 f2 =
   for i = 0 to Fring.length f1 - 1 do
     let peek1 = Fring.peek f1 i in
     let peek2 = Fring.peek f2 i in
-    Alcotest.check (float @@ tolerance peek1) "FRing value" peek1 peek2
+    let msg = Printf.sprintf "Fring value must match: %f, %f" peek1 peek2 in
+    Alcotest.(check @@ float @@ tolerance peek1) msg peek1 peek2
   done
 
 let assert_rra_equal a1 a2 =
