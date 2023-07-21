@@ -30,6 +30,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections;
+using System.Globalization;
 using System.Linq;
 
 
@@ -37,6 +38,14 @@ namespace XenAPI
 {
     public class Marshalling
     {
+        private static readonly string[] DateFormats =
+        {
+            "yyyyMMddTHH:mm:ssZ", //iso8601
+            "yyyy-MM-ddTHH:mm:ssZ", //iso8601
+            "yyyy-MM-dd", //non-iso
+            "yyyy.MMdd", //non-iso
+        };
+
         /// <summary>
         /// Takes a Hashtable, creates a new t, and populates the fields of
         /// that t with the values from the Hashtable.
@@ -56,31 +65,28 @@ namespace XenAPI
 
         public static bool ParseBool(Hashtable table, string key)
         {
-            bool.TryParse((string)table[key], out var result);
-            return result;
+            var val = table[key];
+            return val is bool boolVal ? boolVal : bool.Parse((string)val);
         }
 
         public static DateTime ParseDateTime(Hashtable table, string key)
         {
-            DateTime.TryParse((string)table[key], out var result);
-            return result;
+            var val = table[key];
+            return val is DateTime dateTimeVal
+                ? dateTimeVal
+                : DateTime.ParseExact((string)val, DateFormats, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal);
         }
 
         public static double ParseDouble(Hashtable table, string key)
         {
-            double.TryParse((string)table[key], out var result);
-            return result;
-        }
-
-        public static Hashtable ParseHashTable(Hashtable table, string key)
-        {
-            return ParseSxpDict((string)table[key]);
+            var val = table[key];
+            return val is double doubleVal ? doubleVal : double.Parse((string)val);
         }
 
         public static long ParseLong(Hashtable table, string key)
         {
-            long.TryParse((string)table[key], out var result);
-            return result;
+            var val = table[key];
+            return val is long longVal ? longVal : long.Parse((string)val);
         }
 
         public static string ParseString(Hashtable table, string key)
@@ -90,25 +96,36 @@ namespace XenAPI
 
         public static string[] ParseStringArray(Hashtable table, string key)
         {
-            return ParseSxpList((string)table[key]).ToArray();
+            var val = table[key];
+            return val is object[] array ? array.Cast<string>().ToArray() : ParseSxpList((string)val).ToArray();
         }
 
         public static long[] ParseLongArray(Hashtable table, string key)
         {
-            return ParseSxpList((string)table[key]).Select(long.Parse).ToArray();
+            var val = table[key];
+            return val is object[] array
+                ? array.Cast<long>().ToArray()
+                : ParseSxpList((string)table[key]).Select(long.Parse).ToArray();
         }
 
         public static XenRef<T> ParseRef<T>(Hashtable table, string key) where T : XenObject<T>
         {
-            var val = (string)table[key];
-            return val == null ? null : XenRef<T>.Create(val);
+            return table[key] is string val ? XenRef<T>.Create(val) : null;
         }
 
         public static List<XenRef<T>> ParseSetRef<T>(Hashtable table, string key) where T : XenObject<T>
         {
-            return ParseSxpList((string)table[key]).Select(XenRef<T>.Create).ToList();
+            var val = table[key];
+            return val is object[] array
+                ? array.Cast<XenRef<T>>().ToList()
+                : ParseSxpList((string)val).Select(XenRef<T>.Create).ToList();
         }
 
+        public static Hashtable ParseHashTable(Hashtable table, string key)
+        {
+            var val = table[key];
+            return val as Hashtable ?? ParseSxpDict((string)table[key]);
+        }
 
         private static Hashtable ParseSxpDict(string p)
         {
