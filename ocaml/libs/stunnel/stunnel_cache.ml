@@ -13,18 +13,6 @@ module D = Debug.Make (struct let name = __MODULE__ end)
 
 open D
 
-(** Criteria we (could) use to expire connections from the cache *)
-module Cap = struct
-  (** cache entries *)
-  let capacity = 70
-
-  (** seconds *)
-  let _age = 180. *. 60.
-
-  (** seconds *)
-  let _idle = 5. *. 60.
-end
-
 (** key into cache *)
 type key = {
     host: string
@@ -34,21 +22,37 @@ type key = {
 
 type value = {stunnel: Stunnel.t; created: float  (** Unix timestamp *)}
 
+(** Criteria we use to expire connections from the cache *)
+module Limit = struct
+  (** cache entries *)
+  let capacity = 70
+
+  (** seconds - time since stunnel was first created *)
+  let age = 180. *. 60.
+
+  (** seconds - time since added to cache *)
+  let idle = 5. *. 60.
+end
+
+(** We [evict] any entry exceeding cache capacity as well any entry
+    exceeding age or idle time. *)
+let evict (key, value) over_capacity =
+  let now = Unix.gettimeofday () in
+  let idle = now -. value.created in
+  let age = now -. value.stunnel.Stunnel.connected_time in
+  match over_capacity || idle > Limit.idle || age > Limit.age with
+  | true ->
+      debug "%s: evicting %s:%d from cache" __FUNCTION__ key.host key.port ;
+      Stunnel.disconnect value.stunnel ;
+      true (* signals to remove entry *)
+  | false ->
+      false (* signals to keep entry *)
+
 (** global stunnel cache *)
-let cache : (key, value) LRU.t = LRU.create Cap.capacity
+let cache : (key, value) LRU.t = LRU.create Limit.capacity
 
 (** drop entries until we are no longer exceeding capacity *)
-let trim cache =
-  let evict (k, v) = function
-    | true ->
-        debug "%s: expiring %s:%d from cache" __FUNCTION__ k.host k.port ;
-        Stunnel.disconnect v.stunnel ;
-        true
-    | false ->
-        debug "%s: cache holds %d entries" __FUNCTION__ (LRU.size cache) ;
-        false
-  in
-  LRU.drop_while cache ~evict
+let trim cache = LRU.drop_while cache ~evict
 
 (** drop entries until we are no longer exceeding capacity *)
 let gc () = trim cache
@@ -56,7 +60,7 @@ let gc () = trim cache
 (** remove all entries from the cache; closing connections *)
 let flush () =
   let evict (k, v) _ =
-    debug "%s: expiring %s:%d from cache" __FUNCTION__ k.host k.port ;
+    debug "%s: evicting %s:%d from cache" __FUNCTION__ k.host k.port ;
     Stunnel.disconnect v.stunnel ;
     true
   in
@@ -71,12 +75,12 @@ let add (stunnel : Stunnel.t) =
   in
   ( match LRU.lookup cache key with
   | Some v ->
-      info "%s: %s:%d already cached - removing old entry first" __FUNCTION__
+      warn "%s: %s:%d already cached - removing old entry first" __FUNCTION__
         key.host key.port ;
       Stunnel.disconnect v.stunnel ;
       LRU.remove cache key
   | None ->
-      debug "%s: %s:%d not already cached" __FUNCTION__ key.host key.port
+      ()
   ) ;
   match LRU.add cache key value with true -> trim cache | false -> ()
 
