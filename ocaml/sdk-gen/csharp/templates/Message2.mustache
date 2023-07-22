@@ -34,6 +34,14 @@ namespace XenAPI
     {
         public enum MessageType
         {
+            UPDATES_FEATURE_EXPIRED,
+            UPDATES_FEATURE_EXPIRING_WARNING,
+            UPDATES_FEATURE_EXPIRING_MAJOR,
+            UPDATES_FEATURE_EXPIRING_CRITICAL,
+            LEAF_COALESCE_START_MESSAGE,
+            LEAF_COALESCE_COMPLETED,
+            LEAF_COALESCE_FAILED,
+            POST_ATTACH_SCAN_FAILED,
 {{#message_types}}
             {{{message_type}}},
 {{/message_types}}
@@ -46,6 +54,22 @@ namespace XenAPI
             {
                 switch (this.name)
                 {
+                    case "UPDATES_FEATURE_EXPIRED":
+                        return MessageType.UPDATES_FEATURE_EXPIRED;
+                    case "UPDATES_FEATURE_EXPIRING_WARNING":
+                        return MessageType.UPDATES_FEATURE_EXPIRING_WARNING;
+                    case "UPDATES_FEATURE_EXPIRING_MAJOR":
+                        return MessageType.UPDATES_FEATURE_EXPIRING_MAJOR;
+                    case "UPDATES_FEATURE_EXPIRING_CRITICAL":
+                        return MessageType.UPDATES_FEATURE_EXPIRING_CRITICAL;
+                    case "LEAF_COALESCE_START_MESSAGE":
+                        return MessageType.LEAF_COALESCE_START_MESSAGE;
+                    case "LEAF_COALESCE_COMPLETED":
+                        return MessageType.LEAF_COALESCE_COMPLETED;
+                    case "LEAF_COALESCE_FAILED":
+                        return MessageType.LEAF_COALESCE_FAILED;
+                    case "POST_ATTACH_SCAN_FAILED":
+                        return MessageType.POST_ATTACH_SCAN_FAILED;
 {{#message_types}}
                     case "{{{message_type}}}":
                         return MessageType.{{{message_type}}};
