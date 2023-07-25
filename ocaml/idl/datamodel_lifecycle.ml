@@ -30,25 +30,25 @@ let prototyped_of_field = function
   | "VTPM", "persistence_backend" ->
       Some "22.26.0"
   | "host", "latest_synced_updates_applied" ->
-      Some "23.16.2-next"
+      Some "23.18.0"
   | "host", "recommended_guidances" ->
-      Some "23.16.2-next"
+      Some "23.18.0"
   | "host", "https_only" ->
       Some "22.27.0"
   | "host", "last_software_update" ->
       Some "22.20.0"
   | "VM", "recommended_guidances" ->
-      Some "23.16.2-next"
+      Some "23.18.0"
   | "VM", "actions__after_softreboot" ->
       Some "23.1.0"
   | "pool", "update_sync_enabled" ->
-      Some "23.16.2-next"
+      Some "23.18.0"
   | "pool", "update_sync_day" ->
-      Some "23.16.2-next"
+      Some "23.18.0"
   | "pool", "update_sync_frequency" ->
-      Some "23.16.2-next"
+      Some "23.18.0"
   | "pool", "last_update_sync" ->
-      Some "23.16.2-next"
+      Some "23.18.0"
   | "pool", "telemetry_next_collection" ->
       Some "23.9.0"
   | "pool", "telemetry_frequency" ->
@@ -92,13 +92,13 @@ let prototyped_of_message = function
   | "VTPM", "create" ->
       Some "22.26.0"
   | "host", "apply_recommended_guidances" ->
-      Some "23.16.2-next"
+      Some "23.18.0"
   | "host", "set_https_only" ->
       Some "22.27.0"
   | "pool", "set_update_sync_enabled" ->
-      Some "23.16.2-next"
+      Some "23.18.0"
   | "pool", "configure_update_sync" ->
-      Some "23.16.2-next"
+      Some "23.18.0"
   | "pool", "reset_telemetry_uuid" ->
       Some "23.9.0"
   | "pool", "set_telemetry_next_collection" ->
