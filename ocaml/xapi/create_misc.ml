@@ -737,15 +737,15 @@ let create_pool_cpuinfo ~__context =
   Db.Pool.set_cpu_info ~__context ~self:pool ~value:pool_cpuinfo ;
 
   let before =
-    getf ~default:(CPU_policy.of_string `host "") features_hvm old_cpuinfo
+    getf ~default:(CPU_policy.of_string `host "") features_hvm_host old_cpuinfo
   in
   let after =
-    getf ~default:(CPU_policy.of_string `host "") features_hvm pool_cpuinfo
+    getf ~default:(CPU_policy.of_string `host "") features_hvm_host pool_cpuinfo
   in
   if before <> after && before <> CPU_policy.of_string `host "" then
     info
-      "The pool-level CPU features have changed. Old features_hvm=%s. New \
-       features_hvm=%s."
+      "The pool-level CPU features have changed. Old features_hvm_host=%s. New \
+       features_hvm_host=%s."
       (CPU_policy.to_string before)
       (CPU_policy.to_string after)
 
