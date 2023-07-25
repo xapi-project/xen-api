@@ -49,7 +49,7 @@ let mib megabytes =
   Int64.of_int megabytes ** 1024L ** 1024L
 
 (* Make sure we have plenty of room for the database *)
-let minimum_vdi_size, recommended_vdi_size = (mib 256, mib 4096)
+let minimum_vdi_size = mib 4096
 
 let redo_log_sm_config = [("type", "raw")]
 
