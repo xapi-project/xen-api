@@ -286,16 +286,23 @@ let assert_memory_constraints ~__context ~vm platformdata =
 *)
 
 let update_platform_secureboot ~__context ~self platform =
-  match List.assoc "secureboot" platform with
-  | exception Not_found ->
-      platform
-  | "auto" ->
-      ( "secureboot"
-      , string_of_bool (Db.Pool.get_uefi_certificates ~__context ~self <> "")
-      )
-      :: List.remove_assoc "secureboot" platform
-  | _ ->
-      platform
+  let platform =
+    match List.assoc "secureboot" platform with
+    | exception Not_found ->
+        platform
+    | "auto" ->
+        ( "secureboot"
+        , string_of_bool (Db.Pool.get_uefi_certificates ~__context ~self <> "")
+        )
+        :: List.remove_assoc "secureboot" platform
+    | _ ->
+        platform
+  in
+  if !Xapi_globs.secureboot_enforce then
+    ("secureboot-enforce", "true")
+    :: List.remove_assoc "secureboot-enforce" platform
+  else
+    platform
 
 let start ~__context ~vm ~start_paused ~force =
   let vmr = Db.VM.get_record ~__context ~self:vm in

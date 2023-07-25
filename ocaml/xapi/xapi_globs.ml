@@ -998,6 +998,8 @@ let prefer_nbd_attach = ref false
 (** 1 MiB *)
 let max_observer_file_size = ref (1 lsl 20)
 
+let secureboot_enforce = ref false
+
 let xapi_globs_spec =
   [
     ( "master_connection_reset_timeout"
@@ -1469,6 +1471,11 @@ let other_options =
     , Arg.Set_int max_observer_file_size
     , (fun () -> string_of_int !max_observer_file_size)
     , "The maximum size of log files for saving spans"
+    )
+  ; ( "secureboot-enforce"
+    , Arg.Set secureboot_enforce
+    , (fun () -> string_of_bool !secureboot_enforce)
+    , "Do not start a VM with no SB certificates if secureboot is set to on"
     )
   ]
 
