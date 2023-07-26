@@ -7,7 +7,7 @@ on:
 jobs:
   ocaml:
     name: Docs
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     env:
       XAPI_VERSION: "v0.0.0-${{ github.sha }}"
       STORAGE_DOCDIR: .gh-pages-xapi-storage
@@ -23,6 +23,9 @@ jobs:
       - name: Load environment file
         id: dotenv
         uses: falti/dotenv-action@v1
+
+      - name: Update Ubuntu repositories
+        run: sudo apt-get update
 
       - name: Use ocaml
         uses: ocaml/setup-ocaml@v2

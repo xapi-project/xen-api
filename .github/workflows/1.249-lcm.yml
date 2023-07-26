@@ -55,6 +55,9 @@ jobs:
           # invalidate cache every week, gets built using a scheduled job
           key: ${{ steps.cache-key.outputs.date }}-1.249
 
+      - name: Update Ubuntu repositories
+        run: sudo apt-get update
+
       - name: Use ocaml
         uses: avsm/setup-ocaml@v1
         with:
