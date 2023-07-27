@@ -1194,6 +1194,7 @@ let migrate_send' ~__context ~vm ~dest ~live:_ ~vdi_map ~vif_map ~vgpu_map
      We look at the VDIs of the VM, the VDIs of all of the snapshots, and any
      suspend-image VDIs. *)
   let vm_uuid = Db.VM.get_uuid ~__context ~self:vm in
+  let power_state = Db.VM.get_power_state ~__context ~self:vm in
   let vbds = Db.VM.get_VBDs ~__context ~self:vm in
   let vifs = Db.VM.get_VIFs ~__context ~self:vm in
   let snapshots = Db.VM.get_snapshots ~__context ~self:vm in
@@ -1249,9 +1250,10 @@ let migrate_send' ~__context ~vm ~dest ~live:_ ~vdi_map ~vif_map ~vgpu_map
   in
   let suspends_vdis =
     List.fold_left
-      (fun acc vm ->
-        if Db.VM.get_power_state ~__context ~self:vm = `Suspended then
-          let vdi = Db.VM.get_suspend_VDI ~__context ~self:vm in
+      (fun acc vm_or_snapshot ->
+        if Db.VM.get_power_state ~__context ~self:vm_or_snapshot = `Suspended
+        then
+          let vdi = Db.VM.get_suspend_VDI ~__context ~self:vm_or_snapshot in
           let sr = Db.VDI.get_SR ~__context ~self:vdi in
           if
             is_intra_pool
@@ -1259,7 +1261,7 @@ let migrate_send' ~__context ~vm ~dest ~live:_ ~vdi_map ~vif_map ~vgpu_map
           then
             acc
           else
-            get_vdi_mirror __context vm vdi false :: acc
+            get_vdi_mirror __context vm_or_snapshot vdi false :: acc
         else
           acc
       )
@@ -1466,7 +1468,7 @@ let migrate_send' ~__context ~vm ~dest ~live:_ ~vdi_map ~vif_map ~vgpu_map
             in
             inter_pool_metadata_transfer ~__context ~remote ~vm ~vdi_map
               ~vif_map ~vgpu_map ~dry_run:false ~live:true ~copy
-              ~check_cpu:(not force)
+              ~check_cpu:((not force) && power_state <> `Halted)
           in
           let vm = List.hd vms in
           let () =
@@ -1863,7 +1865,7 @@ let assert_can_migrate ~__context ~vm ~dest ~live:_ ~vdi_map ~vif_map ~options
           not
             (inter_pool_metadata_transfer ~__context ~remote ~vm ~vdi_map
                ~vif_map ~vgpu_map ~dry_run:true ~live:true ~copy
-               ~check_cpu:(not force)
+               ~check_cpu:((not force) && power_state <> `Halted)
             = []
             )
         then
