@@ -50,6 +50,10 @@ start() {
 	    # clear out qemu coredumps/chroot dirs on system boot:
 	    rm -rf /var/xen/qemu/*
 	    #rm -f ${XAPI_BOOT_TIME_INFO_UPDATED}
+	    # clear out swtpm chroots on system boot. After boot, we
+	    # have no domains running and the domid counter is reset. We
+	    # want to avoid collisions with new domains. CA-375992
+	    rm -rf /var/lib/xcp/run/*
 	    echo
 	    exec "@OPTDIR@/bin/xapi" -nowatchdog ${xapiflags} \
 		-writereadyfile ${XAPI_STARTUP_COOKIE} -writeinitcomplete ${XAPI_INIT_COMPLETE_COOKIE} -onsystemboot
