@@ -266,6 +266,7 @@ let connect sockpath latest_response_time =
           "Waiting to connect to I/O process via socket %s (error was %s: \
            %s)..."
           sockpath b (Unix.error_message a) ;
+        D.debug "Remaining time for retries: %f" remaining ;
         Thread.delay attempt_delay ;
         attempt ()
       ) else
@@ -622,9 +623,9 @@ let startup log =
           ) ;
           match !(log.device) with
           | None ->
-              R.info "Could not find block device"
+              D.info "Could not find block device"
           | Some device ->
-              R.info "Using block device at %s" device ;
+              D.info "Using block device at %s" device ;
               (* Check that the block device exists *)
               Unix.access device [Unix.F_OK; Unix.R_OK] ;
 
@@ -637,13 +638,13 @@ let startup log =
                 in
                 (f "ctrl", f "data")
               in
-              R.info
+              D.info
                 "Starting I/O process with block device [%s], control socket \
                  [%s] and data socket [%s]"
                 device ctrlsockpath datasockpath ;
               let p = start_io_process device ctrlsockpath datasockpath in
               log.pid := Some (p, ctrlsockpath, datasockpath) ;
-              R.info "Block device I/O process has PID [%d]"
+              D.info "Block device I/O process has PID [%d]"
                 (Forkhelpers.getpid p)
         )
       ) ;
