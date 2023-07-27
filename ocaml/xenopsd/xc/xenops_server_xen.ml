@@ -2036,6 +2036,10 @@ module VM = struct
                   Device.Dm.Disabled
             in
             let parallel = List.assoc_opt "parallel" vm.Vm.platformdata in
+            (* During snapshot restores only the uuid in ~vm is up to date *)
+            let tpm =
+              match vtpm_of ~vm with None -> hvm_info.tpm | vtpm -> vtpm
+            in
             Some
               (make ~video_mib:hvm_info.video_mib ~firmware:hvm_info.firmware
                  ~video:hvm_info.video ~acpi:hvm_info.acpi
@@ -2043,8 +2047,7 @@ module VM = struct
                  ?vnc_ip:hvm_info.vnc_ip ~usb ~parallel
                  ~pci_emulations:hvm_info.pci_emulations
                  ~pci_passthrough:hvm_info.pci_passthrough
-                 ~boot_order:hvm_info.boot_order ~nics ~disks ~vgpus
-                 ~tpm:hvm_info.tpm ()
+                 ~boot_order:hvm_info.boot_order ~nics ~disks ~vgpus ~tpm ()
               )
       )
 
