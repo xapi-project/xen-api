@@ -760,11 +760,7 @@ module VUSB_DB = struct
       remove id
 end
 
-module StringMap = Map.Make (struct
-  type t = string
-
-  let compare = compare
-end)
+module StringMap = Map.Make (String)
 
 let push_with_coalesce should_keep item queue =
   (* [filter_with_memory p xs] returns elements [x \in xs] where [p (x_i,
@@ -2523,663 +2519,646 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
     : unit =
   let module B = (val get_backend () : S) in
   with_tracing ~name:(name_of_operation op) ~task:t @@ fun () ->
-  let one = function
-    | VM_start (id, force) -> (
-        debug "VM.start %s (force=%b)" id force ;
-        let power = (B.VM.get_state (VM_DB.read_exn id)).Vm.power_state in
-        match power with
-        | Running ->
-            info "VM %s is already running" id
-        | _ ->
-            perform_atomics (atomics_of_operation op) t ;
-            VM_DB.signal id
-      )
-    | VM_poweroff (id, _timeout) ->
-        debug "VM.poweroff %s" id ;
-        perform_atomics (atomics_of_operation op) t ;
-        VM_DB.signal id
-    | VM_reboot (id, _timeout) ->
-        debug "VM.reboot %s" id ;
-        rebooting id (fun () -> perform_atomics (atomics_of_operation op) t) ;
-        VM_DB.signal id
-    | VM_shutdown (id, _timeout) ->
-        debug "VM.shutdown %s" id ;
-        perform_atomics (atomics_of_operation op) t ;
-        VM_DB.signal id
-    | VM_suspend (id, _data) ->
-        debug "VM.suspend %s" id ;
-        perform_atomics (atomics_of_operation op) t ;
-        VM_DB.signal id
-    | VM_restore_vifs id ->
-        debug "VM_restore_vifs %s" id ;
-        perform_atomics (atomics_of_operation op) t
-    | VM_restore_devices (id, restore_vifs) ->
-        (* XXX: this is delayed due to the 'attach'/'activate' behaviour *)
-        debug "VM_restore_devices %s %b" id restore_vifs ;
-        perform_atomics (atomics_of_operation op) t
-    | VM_resume (id, _data) ->
-        debug "VM.resume %s" id ;
-        perform_atomics (atomics_of_operation op) t ;
-        VM_DB.signal id
-    | VBD_hotplug id ->
-        debug "VBD_hotplug %s.%s" (fst id) (snd id) ;
-        perform_atomics (atomics_of_operation op) t
-    | VBD_hotunplug (id, force) ->
-        debug "VBD_hotplug %s.%s %b" (fst id) (snd id) force ;
-        perform_atomics (atomics_of_operation op) t
-    | VIF_hotplug id ->
-        debug "VIF_hotplug %s.%s" (fst id) (snd id) ;
-        perform_atomics (atomics_of_operation op) t
-    | VIF_hotunplug (id, force) ->
-        debug "VIF_hotplug %s.%s %b" (fst id) (snd id) force ;
-        perform_atomics (atomics_of_operation op) t
-    | VM_migrate vmm ->
-        debug "VM.migrate %s -> %s" vmm.vmm_id vmm.vmm_url ;
-        let id = vmm.vmm_id in
-        let new_src_id = vmm.vmm_tmp_src_id in
-        let new_dest_id = vmm.vmm_tmp_dest_id in
-        let vm = VM_DB.read_exn id in
-        let dbg = (Xenops_task.to_interface_task t).Task.dbg in
-        let url = Uri.of_string vmm.vmm_url in
-        let compress_memory = vmm.vmm_compress in
-        let compress =
-          match compress_memory with
-          | true ->
-              Zstd.Fast.compress
-          | false ->
-              fun fd fn -> fn fd
-          (* do nothing *)
-        in
-        let compress_vgpu vgpu_fd f =
-          match vgpu_fd with
-          | Some (FD fd) when compress_memory ->
-              compress fd (fun fd -> f (Some (FD fd)))
-          | vgpu_fd ->
-              f vgpu_fd
-        in
-        debug "%s compress memory: %b" __FUNCTION__ compress_memory ;
-        let verify_cert =
-          (* Stunnel_client.pool (which xapi normally uses) is not right here,
-             because xenopsd does not get notified if certificate checking is
-             turned on or off in xapi. Xapi takes the global on/off switch into
-             account when setting `verify_dest`. *)
-          if vmm.vmm_verify_dest then Some Stunnel.pool else None
-        in
-        (* We need to perform version exchange here *)
-        let module B = (val get_backend () : S) in
-        B.VM.assert_can_save vm ;
-        let extra_args = B.VM.get_hook_args id in
-        Xenops_hooks.vm ~script:Xenops_hooks.VM_pre_migrate
-          ~reason:Xenops_hooks.reason__migrate_source ~id ~extra_args ;
-        let module Remote =
-        Xenops_interface.XenopsAPI (Idl.Exn.GenClient (struct
-          let rpc =
-            Xcp_client.xml_http_rpc ~srcstr:"xenops" ~dststr:"dst_xenops"
-              ~verify_cert (fun () -> vmm.vmm_url
-            )
-        end)) in
-        let regexp = Re.Pcre.regexp id in
-        debug "Destination domain will be built with uuid=%s" new_dest_id ;
-        debug "Original domain will be moved to uuid=%s" new_src_id ;
-        (* Redirect operations on new_src_id to our worker thread. *)
-        (* This is the id our domain will have when we've streamed its memory *)
-        (* image to the destination. *)
-        Redirector.alias ~tag:id ~alias:new_src_id ;
-        let id' =
-          let dbg = dbg_with_traceparent_of_task t in
-          Remote.VM.import_metadata dbg
-            (Re.replace_string regexp ~by:new_dest_id
-               (export_metadata vmm.vmm_vdi_map vmm.vmm_vif_map
-                  vmm.vmm_vgpu_pci_map id
-               )
-            )
-        in
-        debug "Received vm-id = %s" id' ;
-        let make_url snippet id_str =
-          Uri.make ?scheme:(Uri.scheme url) ?host:(Uri.host url)
-            ?port:(Uri.port url)
-            ~path:(Uri.path url ^ snippet ^ id_str)
-            ~query:(Uri.query url) ()
-        in
-        (* CA-78365: set the memory dynamic range to a single value to stop
-           ballooning. *)
-        let atomic =
-          VM_set_memory_dynamic_range
-            (id, vm.Vm.memory_dynamic_min, vm.Vm.memory_dynamic_min)
-        in
-        let (_ : unit) =
-          perform_atomic ~subtask:(string_of_atomic atomic)
-            ~progress_callback:(fun _ -> ())
-            atomic t
-        in
-        (* Waiting here is not essential but adds a degree of safety and
-           reducess unnecessary memory copying. *)
-        ( try B.VM.wait_ballooning t vm
-          with Xenopsd_error Ballooning_timeout_before_migration -> ()
-        ) ;
-        (* Find out the VM's current memory_limit: this will be used to allocate
-           memory on the receiver *)
-        let state = B.VM.get_state vm in
-        info "VM %s has memory_limit = %Ld" id state.Vm.memory_limit ;
-        let url = make_url "/migrate/vm/" new_dest_id in
-        let https = Uri.scheme url = Some "https" in
-        Open_uri.with_open_uri ~verify_cert url (fun vm_fd ->
-            let module Handshake = Xenops_migrate.Handshake in
-            let do_request fd extra_cookies url =
-              if not https then
-                Sockopt.set_sock_keepalives fd ;
-              let module Request =
-                Cohttp.Request.Make (Cohttp_posix_io.Unbuffered_IO) in
-              let cookies =
-                List.concat
+  match op with
+  | VM_start (id, force) -> (
+      debug "VM.start %s (force=%b)" id force ;
+      let power = (B.VM.get_state (VM_DB.read_exn id)).Vm.power_state in
+      match power with
+      | Running ->
+          info "VM %s is already running" id
+      | _ ->
+          perform_atomics (atomics_of_operation op) t ;
+          VM_DB.signal id
+    )
+  | VM_poweroff (id, _timeout) ->
+      debug "VM.poweroff %s" id ;
+      perform_atomics (atomics_of_operation op) t ;
+      VM_DB.signal id
+  | VM_reboot (id, _timeout) ->
+      debug "VM.reboot %s" id ;
+      rebooting id (fun () -> perform_atomics (atomics_of_operation op) t) ;
+      VM_DB.signal id
+  | VM_shutdown (id, _timeout) ->
+      debug "VM.shutdown %s" id ;
+      perform_atomics (atomics_of_operation op) t ;
+      VM_DB.signal id
+  | VM_suspend (id, _data) ->
+      debug "VM.suspend %s" id ;
+      perform_atomics (atomics_of_operation op) t ;
+      VM_DB.signal id
+  | VM_restore_vifs id ->
+      debug "VM_restore_vifs %s" id ;
+      perform_atomics (atomics_of_operation op) t
+  | VM_restore_devices (id, restore_vifs) ->
+      (* XXX: this is delayed due to the 'attach'/'activate' behaviour *)
+      debug "VM_restore_devices %s %b" id restore_vifs ;
+      perform_atomics (atomics_of_operation op) t
+  | VM_resume (id, _data) ->
+      debug "VM.resume %s" id ;
+      perform_atomics (atomics_of_operation op) t ;
+      VM_DB.signal id
+  | VBD_hotplug id ->
+      debug "VBD_hotplug %s.%s" (fst id) (snd id) ;
+      perform_atomics (atomics_of_operation op) t
+  | VBD_hotunplug (id, force) ->
+      debug "VBD_hotplug %s.%s %b" (fst id) (snd id) force ;
+      perform_atomics (atomics_of_operation op) t
+  | VIF_hotplug id ->
+      debug "VIF_hotplug %s.%s" (fst id) (snd id) ;
+      perform_atomics (atomics_of_operation op) t
+  | VIF_hotunplug (id, force) ->
+      debug "VIF_hotplug %s.%s %b" (fst id) (snd id) force ;
+      perform_atomics (atomics_of_operation op) t
+  | VM_migrate vmm ->
+      debug "VM.migrate %s -> %s" vmm.vmm_id vmm.vmm_url ;
+      let id = vmm.vmm_id in
+      let new_src_id = vmm.vmm_tmp_src_id in
+      let new_dest_id = vmm.vmm_tmp_dest_id in
+      let vm = VM_DB.read_exn id in
+      let dbg = (Xenops_task.to_interface_task t).Task.dbg in
+      let url = Uri.of_string vmm.vmm_url in
+      let compress_memory = vmm.vmm_compress in
+      let compress =
+        match compress_memory with
+        | true ->
+            Zstd.Fast.compress
+        | false ->
+            fun fd fn -> fn fd
+        (* do nothing *)
+      in
+      let compress_vgpu vgpu_fd f =
+        match vgpu_fd with
+        | Some (FD fd) when compress_memory ->
+            compress fd (fun fd -> f (Some (FD fd)))
+        | vgpu_fd ->
+            f vgpu_fd
+      in
+      debug "%s compress memory: %b" __FUNCTION__ compress_memory ;
+      let verify_cert =
+        (* Stunnel_client.pool (which xapi normally uses) is not right here,
+           because xenopsd does not get notified if certificate checking is
+           turned on or off in xapi. Xapi takes the global on/off switch into
+           account when setting `verify_dest`. *)
+        if vmm.vmm_verify_dest then Some Stunnel.pool else None
+      in
+      (* We need to perform version exchange here *)
+      let module B = (val get_backend () : S) in
+      B.VM.assert_can_save vm ;
+      let extra_args = B.VM.get_hook_args id in
+      Xenops_hooks.vm ~script:Xenops_hooks.VM_pre_migrate
+        ~reason:Xenops_hooks.reason__migrate_source ~id ~extra_args ;
+      let module Remote = Xenops_interface.XenopsAPI (Idl.Exn.GenClient (struct
+        let rpc =
+          Xcp_client.xml_http_rpc ~srcstr:"xenops" ~dststr:"dst_xenops"
+            ~verify_cert (fun () -> vmm.vmm_url
+          )
+      end)) in
+      let regexp = Re.Pcre.regexp id in
+      debug "Destination domain will be built with uuid=%s" new_dest_id ;
+      debug "Original domain will be moved to uuid=%s" new_src_id ;
+      (* Redirect operations on new_src_id to our worker thread. *)
+      (* This is the id our domain will have when we've streamed its memory *)
+      (* image to the destination. *)
+      Redirector.alias ~tag:id ~alias:new_src_id ;
+      let id' =
+        let dbg = dbg_with_traceparent_of_task t in
+        Remote.VM.import_metadata dbg
+          (Re.replace_string regexp ~by:new_dest_id
+             (export_metadata vmm.vmm_vdi_map vmm.vmm_vif_map
+                vmm.vmm_vgpu_pci_map id
+             )
+          )
+      in
+      debug "Received vm-id = %s" id' ;
+      let make_url snippet id_str =
+        Uri.make ?scheme:(Uri.scheme url) ?host:(Uri.host url)
+          ?port:(Uri.port url)
+          ~path:(Uri.path url ^ snippet ^ id_str)
+          ~query:(Uri.query url) ()
+      in
+      (* CA-78365: set the memory dynamic range to a single value to stop
+         ballooning. *)
+      let atomic =
+        VM_set_memory_dynamic_range
+          (id, vm.Vm.memory_dynamic_min, vm.Vm.memory_dynamic_min)
+      in
+      let (_ : unit) =
+        perform_atomic ~subtask:(string_of_atomic atomic)
+          ~progress_callback:(fun _ -> ())
+          atomic t
+      in
+      (* Waiting here is not essential but adds a degree of safety and
+         reducess unnecessary memory copying. *)
+      ( try B.VM.wait_ballooning t vm
+        with Xenopsd_error Ballooning_timeout_before_migration -> ()
+      ) ;
+      (* Find out the VM's current memory_limit: this will be used to allocate
+         memory on the receiver *)
+      let state = B.VM.get_state vm in
+      info "VM %s has memory_limit = %Ld" id state.Vm.memory_limit ;
+      let url = make_url "/migrate/vm/" new_dest_id in
+      let https = Uri.scheme url = Some "https" in
+      Open_uri.with_open_uri ~verify_cert url (fun vm_fd ->
+          let module Handshake = Xenops_migrate.Handshake in
+          let do_request fd extra_cookies url =
+            if not https then
+              Sockopt.set_sock_keepalives fd ;
+            let module Request =
+              Cohttp.Request.Make (Cohttp_posix_io.Unbuffered_IO) in
+            let cookies =
+              List.concat
+                [
                   [
-                    [
-                      ("instance_id", instance_id)
-                    ; ("final_id", id)
-                    ; ("dbg", dbg)
-                    ; (cookie_mem_migration, cookie_mem_migration_value)
-                    ]
-                  ; ( if compress_memory then
-                        [(cookie_mem_compression, cookie_mem_compression_value)]
-                    else
-                      []
-                    )
-                  ; extra_cookies
+                    ("instance_id", instance_id)
+                  ; ("final_id", id)
+                  ; ("dbg", dbg)
+                  ; (cookie_mem_migration, cookie_mem_migration_value)
                   ]
-              in
-              let headers =
-                Cohttp.Header.of_list
-                  ([
-                     Cohttp.Cookie.Cookie_hdr.serialize cookies
-                   ; ("Connection", "keep-alive")
-                   ; ("User-agent", "xenopsd")
-                   ]
-                  @ traceparent_header_of_task t
+                ; ( if compress_memory then
+                      [(cookie_mem_compression, cookie_mem_compression_value)]
+                  else
+                    []
                   )
-              in
-              let request =
-                Cohttp.Request.make ~meth:`PUT ~version:`HTTP_1_1 ~headers url
-              in
-              Request.write (fun _ -> ()) request fd
+                ; extra_cookies
+                ]
             in
-            do_request vm_fd
-              [("memory_limit", Int64.to_string state.Vm.memory_limit)]
-              url ;
-            let first_handshake () =
-              ( match Handshake.recv vm_fd with
-              | Handshake.Success ->
-                  ()
-              | Handshake.Error msg -> (
-                  error "cannot transmit vm to host: %s" msg ;
-                  match
-                    Rpcmarshal.unmarshal Errors.error.Rpc.Types.ty
-                      (Jsonrpc.of_string msg)
-                  with
-                  | Ok e ->
-                      raise (Xenopsd_error e)
-                  | Error _ ->
-                      raise (Xenopsd_error (Internal_error msg))
-                  | exception _ ->
-                      raise (Xenopsd_error (Internal_error msg))
+            let headers =
+              Cohttp.Header.of_list
+                ([
+                   Cohttp.Cookie.Cookie_hdr.serialize cookies
+                 ; ("Connection", "keep-alive")
+                 ; ("User-agent", "xenopsd")
+                 ]
+                @ traceparent_header_of_task t
                 )
-              ) ;
-              debug "VM.migrate: Synchronisation point 1"
             in
-            let final_handshake () =
-              Handshake.send vm_fd Handshake.Success ;
-              debug "VM.migrate: Synchronisation point 3" ;
-              match Handshake.recv vm_fd with
-              | Success ->
-                  debug "VM.migrate: Synchronisation point 4"
-              | Error msg ->
-                  (* at this point, the VM has already been transferred to
-                     the destination host. even though the destination host
-                     failed to respond successfully to our handshake, the VM
-                     should still be running correctly *)
-                  error
-                    "VM.migrate: Failed during Synchronisation point 4. msg: %s"
-                    msg ;
-                  raise (Xenopsd_error (Internal_error msg))
+            let request =
+              Cohttp.Request.make ~meth:`PUT ~version:`HTTP_1_1 ~headers url
             in
-            let save ?vgpu_fd () =
-              let url = make_url "/migrate/mem/" new_dest_id in
-              Open_uri.with_open_uri ~verify_cert url (fun mem_fd ->
-                  (* vm_fd: signaling channel, mem_fd: memory stream *)
-                  do_request mem_fd [] url ;
-                  Handshake.recv_success mem_fd ;
-                  debug "VM.migrate: Synchronisation point 1-mem" ;
-                  Handshake.send vm_fd Handshake.Success ;
-                  debug "VM.migrate: Synchronisation point 1-mem ACK" ;
-
-                  compress mem_fd @@ fun mem_fd ->
-                  compress_vgpu vgpu_fd @@ fun vgpu_fd ->
-                  perform_atomics
-                    [
-                      VM_save (id, [Live], FD mem_fd, vgpu_fd)
-                    ; VM_rename (id, new_src_id, Pre_migration)
-                    ]
-                    t ;
-                  debug "VM.migrate: Synchronisation point 2"
+            Request.write (fun _ -> ()) request fd
+          in
+          do_request vm_fd
+            [("memory_limit", Int64.to_string state.Vm.memory_limit)]
+            url ;
+          let first_handshake () =
+            ( match Handshake.recv vm_fd with
+            | Handshake.Success ->
+                ()
+            | Handshake.Error msg -> (
+                error "cannot transmit vm to host: %s" msg ;
+                match
+                  Rpcmarshal.unmarshal Errors.error.Rpc.Types.ty
+                    (Jsonrpc.of_string msg)
+                with
+                | Ok e ->
+                    raise (Xenopsd_error e)
+                | Error _ ->
+                    raise (Xenopsd_error (Internal_error msg))
+                | exception _ ->
+                    raise (Xenopsd_error (Internal_error msg))
               )
-            in
-            (* If we have a vGPU, kick off its migration process before starting
-               the main VM migration sequence. *)
-            match VGPU_DB.ids id with
-            | [] ->
-                first_handshake () ; save () ; final_handshake ()
-            | (_vm_id, dev_id) :: _ ->
-                let url =
-                  make_url "/migrate/vgpu/"
-                    (VGPU_DB.string_of_id (new_dest_id, dev_id))
-                in
-                Open_uri.with_open_uri ~verify_cert url (fun vgpu_fd ->
-                    if not https then
-                      Sockopt.set_sock_keepalives vgpu_fd ;
-                    do_request vgpu_fd [(cookie_vgpu_migration, "")] url ;
-                    Handshake.recv_success vgpu_fd ;
-                    debug "VM.migrate: Synchronisation point 1-vgpu" ;
-                    Handshake.send vm_fd Handshake.Success ;
-                    debug "VM.migrate: Synchronisation point 1-vgpu ACK" ;
-                    first_handshake () ;
-                    save ~vgpu_fd:(FD vgpu_fd) ()
-                ) ;
-                final_handshake ()
-        ) ;
-        (* cleanup tmp src VM *)
-        let atomics =
-          [
+            ) ;
+            debug "VM.migrate: Synchronisation point 1"
+          in
+          let final_handshake () =
+            Handshake.send vm_fd Handshake.Success ;
+            debug "VM.migrate: Synchronisation point 3" ;
+            match Handshake.recv vm_fd with
+            | Success ->
+                debug "VM.migrate: Synchronisation point 4"
+            | Error msg ->
+                (* at this point, the VM has already been transferred to
+                   the destination host. even though the destination host
+                   failed to respond successfully to our handshake, the VM
+                   should still be running correctly *)
+                error
+                  "VM.migrate: Failed during Synchronisation point 4. msg: %s"
+                  msg ;
+                raise (Xenopsd_error (Internal_error msg))
+          in
+          let save ?vgpu_fd () =
+            let url = make_url "/migrate/mem/" new_dest_id in
+            Open_uri.with_open_uri ~verify_cert url (fun mem_fd ->
+                (* vm_fd: signaling channel, mem_fd: memory stream *)
+                do_request mem_fd [] url ;
+                Handshake.recv_success mem_fd ;
+                debug "VM.migrate: Synchronisation point 1-mem" ;
+                Handshake.send vm_fd Handshake.Success ;
+                debug "VM.migrate: Synchronisation point 1-mem ACK" ;
+
+                compress mem_fd @@ fun mem_fd ->
+                compress_vgpu vgpu_fd @@ fun vgpu_fd ->
+                perform_atomics
+                  [
+                    VM_save (id, [Live], FD mem_fd, vgpu_fd)
+                  ; VM_rename (id, new_src_id, Pre_migration)
+                  ]
+                  t ;
+                debug "VM.migrate: Synchronisation point 2"
+            )
+          in
+          (* If we have a vGPU, kick off its migration process before starting
+             the main VM migration sequence. *)
+          match VGPU_DB.ids id with
+          | [] ->
+              first_handshake () ; save () ; final_handshake ()
+          | (_vm_id, dev_id) :: _ ->
+              let url =
+                make_url "/migrate/vgpu/"
+                  (VGPU_DB.string_of_id (new_dest_id, dev_id))
+              in
+              Open_uri.with_open_uri ~verify_cert url (fun vgpu_fd ->
+                  if not https then
+                    Sockopt.set_sock_keepalives vgpu_fd ;
+                  do_request vgpu_fd [(cookie_vgpu_migration, "")] url ;
+                  Handshake.recv_success vgpu_fd ;
+                  debug "VM.migrate: Synchronisation point 1-vgpu" ;
+                  Handshake.send vm_fd Handshake.Success ;
+                  debug "VM.migrate: Synchronisation point 1-vgpu ACK" ;
+                  first_handshake () ;
+                  save ~vgpu_fd:(FD vgpu_fd) ()
+              ) ;
+              final_handshake ()
+      ) ;
+      (* cleanup tmp src VM *)
+      let atomics =
+        [
+          VM_hook_script_stable
+            ( id
+            , Xenops_hooks.VM_pre_destroy
+            , Xenops_hooks.reason__suspend
+            , new_src_id
+            )
+        ]
+        @ atomics_of_operation (VM_shutdown (new_src_id, None))
+        @ [
             VM_hook_script_stable
               ( id
-              , Xenops_hooks.VM_pre_destroy
+              , Xenops_hooks.VM_post_destroy
               , Xenops_hooks.reason__suspend
               , new_src_id
               )
+          ; VM_remove new_src_id
           ]
-          @ atomics_of_operation (VM_shutdown (new_src_id, None))
-          @ [
-              VM_hook_script_stable
-                ( id
-                , Xenops_hooks.VM_post_destroy
-                , Xenops_hooks.reason__suspend
-                , new_src_id
-                )
-            ; VM_remove new_src_id
-            ]
-        in
-        perform_atomics atomics t
-    | VM_receive_memory
-        {
-          vmr_id= id
-        ; vmr_final_id= final_id
-        ; vmr_memory_limit= memory_limit
-        ; vmr_socket= s
-        ; vmr_handshake= handshake
-        ; vmr_compressed
-        } -> (
-        let decompress =
-          match vmr_compressed with
-          | true ->
-              Zstd.Fast.decompress_passive
-          | false ->
-              fun fd fn -> fn fd
-        in
-        let decompress_vgpu vgpu_info f =
-          match vgpu_info with
-          | Some info when vmr_compressed ->
-              decompress info.vgpu_fd (fun fd -> f (Some (FD fd)))
-          | Some info ->
-              f (Some (FD info.vgpu_fd))
-          | None ->
-              f None
-        in
+      in
+      perform_atomics atomics t
+  | VM_receive_memory
+      {
+        vmr_id= id
+      ; vmr_final_id= final_id
+      ; vmr_memory_limit= memory_limit
+      ; vmr_socket= s
+      ; vmr_handshake= handshake
+      ; vmr_compressed
+      } -> (
+      let decompress =
+        match vmr_compressed with
+        | true ->
+            Zstd.Fast.decompress_passive
+        | false ->
+            fun fd fn -> fn fd
+      in
+      let decompress_vgpu vgpu_info f =
+        match vgpu_info with
+        | Some info when vmr_compressed ->
+            decompress info.vgpu_fd (fun fd -> f (Some (FD fd)))
+        | Some info ->
+            f (Some (FD info.vgpu_fd))
+        | None ->
+            f None
+      in
 
-        if final_id <> id then
-          (* Note: In the localhost case, there are necessarily two worker
-             threads operating on the same VM. The first one is using tag
-             xxxxxxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxx and has tag
-             xxxxxxxxxxxx-xxxx-xxxx-xxxx-00000000 aliased to it (so actions
-             being queued against either will get queued on that worker thread).
-             The second worker thread has just started up at this point and has
-             tag xxxxxxxxxxxx-xxxx-xxxx-xxxx-00000001. The following line will
-             add a new alias of the original id to this second worker thread so
-             we end up with a situation where there are two worker threads that
-             can conceivably queue actions related to the original uuid
-             xxxxxxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxx. However, the alias is always
-             resolved first and hence in practice any further actions related to
-             the real uuid will be queued up on this worker thread's queue. *)
-          Redirector.alias ~tag:id ~alias:final_id ;
-        debug "VM.receive_memory: %s (compressed=%b)" id vmr_compressed ;
-        Sockopt.set_sock_keepalives s ;
-        let open Xenops_migrate in
-        (* set up the destination domain *)
-        debug "VM.receive_memory: creating domain and restoring VIFs" ;
-        finally
-          (fun () ->
-            (* If we have a vGPU, wait for the vgpu-1 ACK, which indicates that
-               the vgpu_receiver_sync entry for this vm id has already been
-               initialised by the parallel receive_vgpu thread in this receiving
-               host *)
-            ( match VGPU_DB.ids id with
-            | [] ->
-                ()
-            | _ ->
-                Handshake.recv_success s ;
-                debug "VM.receive_memory: Synchronisation point 1-vgpu ACK"
-                (* After this point, vgpu_receiver_sync is initialised by the
-                   corresponding receive_vgpu thread and therefore can be used
-                   by this VM_receive_memory thread *)
-            ) ;
-            ( try
-                let no_sharept =
-                  VGPU_DB.vgpus id |> List.exists is_no_sharept
-                in
-                debug "VM %s no_sharept=%b (%s)" id no_sharept __LOC__ ;
-                perform_atomics
-                  ([
-                     VM_create (id, Some memory_limit, Some final_id, no_sharept)
-                   ]
-                  @ (* Perform as many operations as possible on the destination
-                       domain before pausing the original domain *)
-                  atomics_of_operation (VM_restore_vifs id)
-                  )
-                  t ;
-                Handshake.send s Handshake.Success
-              with e ->
-                Backtrace.is_important e ;
-                let msg =
-                  match e with
-                  | Xenopsd_error error ->
-                      Rpcmarshal.marshal Errors.error.Rpc.Types.ty error
-                      |> Jsonrpc.to_string
-                  | _ ->
-                      Printexc.to_string e
-                in
-                Handshake.send s (Handshake.Error msg) ;
-                raise e
-            ) ;
-            debug "VM.receive_memory: Synchronisation point 1" ;
-            debug "VM.receive_memory: restoring VM" ;
-            try
-              (* Check if there is a separate vGPU data channel *)
-              let vgpu_info =
-                with_lock vgpu_receiver_sync_m (fun () ->
-                    Hashtbl.find_opt vgpu_receiver_sync id
-                )
-              in
-              let pcis = PCI_DB.pcis id |> pci_plug_order in
-              let receive_mem_fd id s =
-                debug
-                  "VM.receive_memory: using new handshake protocol for VM %s" id ;
-                Handshake.recv_success s ;
-                debug "VM.receive_memory: Synchronisation point 1-mem ACK" ;
-                with_lock mem_receiver_sync_m @@ fun () ->
-                match Hashtbl.find_opt mem_receiver_sync id with
-                | Some fd ->
-                    fd.mem_fd
-                | None ->
-                    error
-                      "VM.receive_memory: Failed to receive FD for VM memory \
-                       (id=%s)"
-                      id ;
-                    failwith __FUNCTION__
-              in
-              let vgpu_start_operations () =
-                match VGPU_DB.ids id with
-                | [] ->
-                    []
-                | vgpus ->
-                    let vgpus' = VGPU_DB.vgpus id in
-                    let pcis_sriov =
-                      List.filter (is_nvidia_sriov vgpus') pcis
-                    in
-                    List.concat
-                      [
-                        dequarantine_ops vgpus'
-                      ; List.map
-                          (fun pci -> PCI_plug (pci.Pci.id, false))
-                          pcis_sriov
-                      ; [VGPU_start (vgpus, true)]
-                      ]
-              in
-              let mem_fd =
-                match handshake with
-                | Some _ ->
-                    receive_mem_fd id s (* new handshake protocol *)
-                | None ->
-                    s
-                (* receiving memory on this connection *)
-              in
-              Sockopt.set_sock_keepalives mem_fd ;
-              decompress mem_fd @@ fun mem_fd ->
-              decompress_vgpu vgpu_info @@ fun vgpu_info ->
+      if final_id <> id then
+        (* Note: In the localhost case, there are necessarily two worker
+           threads operating on the same VM. The first one is using tag
+           xxxxxxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxx and has tag
+           xxxxxxxxxxxx-xxxx-xxxx-xxxx-00000000 aliased to it (so actions
+           being queued against either will get queued on that worker thread).
+           The second worker thread has just started up at this point and has
+           tag xxxxxxxxxxxx-xxxx-xxxx-xxxx-00000001. The following line will
+           add a new alias of the original id to this second worker thread so
+           we end up with a situation where there are two worker threads that
+           can conceivably queue actions related to the original uuid
+           xxxxxxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxx. However, the alias is always
+           resolved first and hence in practice any further actions related to
+           the real uuid will be queued up on this worker thread's queue. *)
+        Redirector.alias ~tag:id ~alias:final_id ;
+      debug "VM.receive_memory: %s (compressed=%b)" id vmr_compressed ;
+      Sockopt.set_sock_keepalives s ;
+      let open Xenops_migrate in
+      (* set up the destination domain *)
+      debug "VM.receive_memory: creating domain and restoring VIFs" ;
+      finally
+        (fun () ->
+          (* If we have a vGPU, wait for the vgpu-1 ACK, which indicates that
+             the vgpu_receiver_sync entry for this vm id has already been
+             initialised by the parallel receive_vgpu thread in this receiving
+             host *)
+          ( match VGPU_DB.ids id with
+          | [] ->
+              ()
+          | _ ->
+              Handshake.recv_success s ;
+              debug "VM.receive_memory: Synchronisation point 1-vgpu ACK"
+              (* After this point, vgpu_receiver_sync is initialised by the
+                 corresponding receive_vgpu thread and therefore can be used
+                 by this VM_receive_memory thread *)
+          ) ;
+          ( try
+              let no_sharept = VGPU_DB.vgpus id |> List.exists is_no_sharept in
+              debug "VM %s no_sharept=%b (%s)" id no_sharept __LOC__ ;
               perform_atomics
-                (List.concat
-                   [
-                     vgpu_start_operations ()
-                   ; [VM_restore (id, FD mem_fd, vgpu_info)]
-                   ]
+                ([VM_create (id, Some memory_limit, Some final_id, no_sharept)]
+                @ (* Perform as many operations as possible on the destination
+                     domain before pausing the original domain *)
+                atomics_of_operation (VM_restore_vifs id)
                 )
                 t ;
-              debug "VM.receive_memory: restore complete"
+              Handshake.send s Handshake.Success
             with e ->
               Backtrace.is_important e ;
-              Debug.log_backtrace e (Backtrace.get e) ;
-              debug "Caught %s during VM_restore: cleaning up VM state"
-                (Printexc.to_string e) ;
-              perform_atomics [VM_destroy id; VM_remove id] t
-          )
-          (fun () ->
-            (* Inform the vgpu and mem handler threads we are done *)
+              let msg =
+                match e with
+                | Xenopsd_error error ->
+                    Rpcmarshal.marshal Errors.error.Rpc.Types.ty error
+                    |> Jsonrpc.to_string
+                | _ ->
+                    Printexc.to_string e
+              in
+              Handshake.send s (Handshake.Error msg) ;
+              raise e
+          ) ;
+          debug "VM.receive_memory: Synchronisation point 1" ;
+          debug "VM.receive_memory: restoring VM" ;
+          try
+            (* Check if there is a separate vGPU data channel *)
             let vgpu_info =
               with_lock vgpu_receiver_sync_m (fun () ->
                   Hashtbl.find_opt vgpu_receiver_sync id
               )
             in
-            let mem_info =
-              with_lock mem_receiver_sync_m (fun () ->
-                  Hashtbl.find_opt mem_receiver_sync id
-              )
+            let pcis = PCI_DB.pcis id |> pci_plug_order in
+            let receive_mem_fd id s =
+              debug "VM.receive_memory: using new handshake protocol for VM %s"
+                id ;
+              Handshake.recv_success s ;
+              debug "VM.receive_memory: Synchronisation point 1-mem ACK" ;
+              with_lock mem_receiver_sync_m @@ fun () ->
+              match Hashtbl.find_opt mem_receiver_sync id with
+              | Some fd ->
+                  fd.mem_fd
+              | None ->
+                  error
+                    "VM.receive_memory: Failed to receive FD for VM memory \
+                     (id=%s)"
+                    id ;
+                  failwith __FUNCTION__
             in
-            Option.iter
-              (fun x -> Event.send x.vgpu_channel () |> Event.sync)
-              vgpu_info ;
-            Option.iter
-              (fun x -> Event.send x.mem_channel () |> Event.sync)
-              mem_info
-          ) ;
-        debug "VM.receive_memory: Synchronisation point 2" ;
-        try
-          (* Receive the all-clear to unpause *)
-          Handshake.recv_success s ;
-          debug "VM.receive_memory: Synchronisation point 3" ;
-          if final_id <> id then (
-            debug "VM.receive_memory: Renaming domain" ;
-            perform_atomics [VM_rename (id, final_id, Post_migration)] t
-          ) ;
-          debug "VM.receive_memory: restoring remaining devices and unpausing" ;
-          perform_atomics
-            (atomics_of_operation (VM_restore_devices (final_id, false))
-            @ [
-                VM_unpause final_id
-              ; VM_set_domain_action_request (final_id, None)
-              ; VM_hook_script
-                  ( final_id
-                  , Xenops_hooks.VM_post_migrate
-                  , Xenops_hooks.reason__migrate_dest
-                  )
-              ]
-            )
-            t ;
-          Handshake.send s Handshake.Success ;
-          debug "VM.receive_memory: Synchronisation point 4"
-        with e ->
-          finally
-            (fun () ->
-              Backtrace.is_important e ;
-              Debug.log_backtrace e (Backtrace.get e) ;
-              debug "Caught %s: cleaning up VM state" (Printexc.to_string e) ;
-              perform_atomics
-                (atomics_of_operation (VM_shutdown (id, None)) @ [VM_remove id])
-                t
-            )
-            (fun () -> Handshake.send s (Handshake.Error (Printexc.to_string e)))
-      )
-    | VM_check_state id ->
-        let vm = VM_DB.read_exn id in
-        let state = B.VM.get_state vm in
-        let run_time = Unix.gettimeofday () -. state.Vm.last_start_time in
-        let actions =
-          match B.VM.get_domain_action_request vm with
-          | Some Needs_reboot ->
-              vm.Vm.on_reboot
-          | Some Needs_poweroff ->
-              vm.Vm.on_shutdown
-          | Some Needs_crashdump ->
-              (* A VM which crashes too quickly should be shutdown *)
-              if run_time < 120. then (
-                warn
-                  "VM %s crashed too quickly after start (%.2f seconds); \
-                   shutting down"
-                  id run_time ;
-                vm.Vm.on_crash
-                |> List.map (function Vm.Start -> Vm.Shutdown | other -> other)
-              ) else
-                vm.Vm.on_crash
-          | Some Needs_suspend ->
-              warn "VM %s has unexpectedly suspended" id ;
-              [Vm.Shutdown]
-          | Some Needs_softreset ->
-              vm.Vm.on_softreboot
-          | None ->
-              debug "VM %s is not requesting any attention" id ;
-              []
-        in
-        let operations_of_action = function
-          | Vm.Coredump ->
-              []
-          | Vm.Shutdown ->
-              [VM_shutdown (id, None)]
-          | Vm.Start ->
-              let delay =
-                if run_time < B.VM.minimum_reboot_delay then (
-                  debug "VM %s rebooted too quickly; inserting delay" id ;
-                  [Atomic (VM_delay (id, 15.))]
-                ) else
+            let vgpu_start_operations () =
+              match VGPU_DB.ids id with
+              | [] ->
                   []
-              in
-              delay @ [VM_reboot (id, None)]
-          | Vm.Pause ->
-              [Atomic (VM_pause id)]
-          | Vm.Softreboot ->
-              [Atomic (VM_softreboot id)]
-        in
-        let operations = List.concat (List.map operations_of_action actions) in
-        List.iter (fun x -> perform_exn x t) operations ;
-        VM_DB.signal id
-    | PCI_check_state id ->
-        debug "PCI.check_state %s" (PCI_DB.string_of_id id) ;
-        let vif_t = PCI_DB.read_exn id in
-        let vm_state = B.VM.get_state (VM_DB.read_exn (PCI_DB.vm_of id)) in
-        let request =
-          if
-            vm_state.Vm.power_state = Running
-            || vm_state.Vm.power_state = Paused
-          then
-            B.PCI.get_device_action_request (VIF_DB.vm_of id) vif_t
-          else
-            Some Needs_unplug
-        in
-        let operations_of_request = function
-          | Needs_unplug ->
-              Some (Atomic (PCI_unplug id))
-          | Needs_set_qos ->
-              None
-        in
-        let operations =
-          List.filter_map operations_of_request (Option.to_list request)
-        in
-        List.iter (fun x -> perform_exn x t) operations
-    | VBD_check_state id ->
-        debug "VBD.check_state %s" (VBD_DB.string_of_id id) ;
-        let vbd_t = VBD_DB.read_exn id in
-        let vm_state = B.VM.get_state (VM_DB.read_exn (VBD_DB.vm_of id)) in
-        let request =
-          if
-            vm_state.Vm.power_state = Running
-            || vm_state.Vm.power_state = Paused
-          then
-            B.VBD.get_device_action_request (VBD_DB.vm_of id) vbd_t
-          else (
-            debug "VM %s is not running: VBD_unplug needed" (VBD_DB.vm_of id) ;
-            Some Needs_unplug
+              | vgpus ->
+                  let vgpus' = VGPU_DB.vgpus id in
+                  let pcis_sriov = List.filter (is_nvidia_sriov vgpus') pcis in
+                  List.concat
+                    [
+                      dequarantine_ops vgpus'
+                    ; List.map
+                        (fun pci -> PCI_plug (pci.Pci.id, false))
+                        pcis_sriov
+                    ; [VGPU_start (vgpus, true)]
+                    ]
+            in
+            let mem_fd =
+              match handshake with
+              | Some _ ->
+                  receive_mem_fd id s (* new handshake protocol *)
+              | None ->
+                  s
+              (* receiving memory on this connection *)
+            in
+            Sockopt.set_sock_keepalives mem_fd ;
+            decompress mem_fd @@ fun mem_fd ->
+            decompress_vgpu vgpu_info @@ fun vgpu_info ->
+            perform_atomics
+              (List.concat
+                 [
+                   vgpu_start_operations ()
+                 ; [VM_restore (id, FD mem_fd, vgpu_info)]
+                 ]
+              )
+              t ;
+            debug "VM.receive_memory: restore complete"
+          with e ->
+            Backtrace.is_important e ;
+            Debug.log_backtrace e (Backtrace.get e) ;
+            debug "Caught %s during VM_restore: cleaning up VM state"
+              (Printexc.to_string e) ;
+            perform_atomics [VM_destroy id; VM_remove id] t
+        )
+        (fun () ->
+          (* Inform the vgpu and mem handler threads we are done *)
+          let vgpu_info =
+            with_lock vgpu_receiver_sync_m (fun () ->
+                Hashtbl.find_opt vgpu_receiver_sync id
+            )
+          in
+          let mem_info =
+            with_lock mem_receiver_sync_m (fun () ->
+                Hashtbl.find_opt mem_receiver_sync id
+            )
+          in
+          Option.iter
+            (fun x -> Event.send x.vgpu_channel () |> Event.sync)
+            vgpu_info ;
+          Option.iter
+            (fun x -> Event.send x.mem_channel () |> Event.sync)
+            mem_info
+        ) ;
+      debug "VM.receive_memory: Synchronisation point 2" ;
+      try
+        (* Receive the all-clear to unpause *)
+        Handshake.recv_success s ;
+        debug "VM.receive_memory: Synchronisation point 3" ;
+        if final_id <> id then (
+          debug "VM.receive_memory: Renaming domain" ;
+          perform_atomics [VM_rename (id, final_id, Post_migration)] t
+        ) ;
+        debug "VM.receive_memory: restoring remaining devices and unpausing" ;
+        perform_atomics
+          (atomics_of_operation (VM_restore_devices (final_id, false))
+          @ [
+              VM_unpause final_id
+            ; VM_set_domain_action_request (final_id, None)
+            ; VM_hook_script
+                ( final_id
+                , Xenops_hooks.VM_post_migrate
+                , Xenops_hooks.reason__migrate_dest
+                )
+            ]
           )
-        in
-        let operations_of_request = function
-          | Needs_unplug ->
-              Some (Atomic (VBD_unplug (id, true)))
-          | Needs_set_qos ->
-              Some (Atomic (VBD_set_qos id))
-        in
-        let operations =
-          List.filter_map operations_of_request (Option.to_list request)
-        in
-        List.iter (fun x -> perform_exn x t) operations ;
-        (* Needed (eg) to reflect a spontaneously-ejected CD *)
-        VBD_DB.signal id
-    | VIF_check_state id ->
-        debug "VIF.check_state %s" (VIF_DB.string_of_id id) ;
-        let vif_t = VIF_DB.read_exn id in
-        let vm_state = B.VM.get_state (VM_DB.read_exn (VIF_DB.vm_of id)) in
-        let request =
-          if
-            vm_state.Vm.power_state = Running
-            || vm_state.Vm.power_state = Paused
-          then
-            B.VIF.get_device_action_request (VIF_DB.vm_of id) vif_t
-          else
-            Some Needs_unplug
-        in
-        let operations_of_request = function
-          | Needs_unplug ->
-              Some (Atomic (VIF_unplug (id, true)))
-          | Needs_set_qos ->
-              None
-        in
-        let operations =
-          List.filter_map operations_of_request (Option.to_list request)
-        in
-        List.iter (fun x -> perform_exn x t) operations
-    | VUSB_check_state id ->
-        debug "VUSB.check_state %s" (VUSB_DB.string_of_id id) ;
-        let vusb_t = VUSB_DB.read_exn id in
-        let vm_state = B.VM.get_state (VM_DB.read_exn (VUSB_DB.vm_of id)) in
-        let request =
-          if
-            vm_state.Vm.power_state = Running
-            || vm_state.Vm.power_state = Paused
-          then
-            B.VUSB.get_device_action_request (VUSB_DB.vm_of id) vusb_t
-          else (
-            debug "VM %s is not running: VUSB_unplug needed" (VUSB_DB.vm_of id) ;
-            Some Needs_unplug
+          t ;
+        Handshake.send s Handshake.Success ;
+        debug "VM.receive_memory: Synchronisation point 4"
+      with e ->
+        finally
+          (fun () ->
+            Backtrace.is_important e ;
+            Debug.log_backtrace e (Backtrace.get e) ;
+            debug "Caught %s: cleaning up VM state" (Printexc.to_string e) ;
+            perform_atomics
+              (atomics_of_operation (VM_shutdown (id, None)) @ [VM_remove id])
+              t
           )
-        in
-        let operations_of_request = function
-          | Needs_unplug ->
-              Some (Atomic (VUSB_unplug id))
-          | Needs_set_qos ->
-              None
-        in
-        let operations =
-          List.filter_map operations_of_request (Option.to_list request)
-        in
-        List.iter (fun x -> perform_exn x t) operations ;
-        VUSB_DB.signal id
-    | Atomic op ->
-        let progress_callback = progress_callback 0. 1. t in
-        perform_atomic ~progress_callback ?subtask ?result op t
-  in
-  one op
+          (fun () -> Handshake.send s (Handshake.Error (Printexc.to_string e)))
+    )
+  | VM_check_state id ->
+      let vm = VM_DB.read_exn id in
+      let state = B.VM.get_state vm in
+      let run_time = Unix.gettimeofday () -. state.Vm.last_start_time in
+      let actions =
+        match B.VM.get_domain_action_request vm with
+        | Some Needs_reboot ->
+            vm.Vm.on_reboot
+        | Some Needs_poweroff ->
+            vm.Vm.on_shutdown
+        | Some Needs_crashdump ->
+            (* A VM which crashes too quickly should be shutdown *)
+            if run_time < 120. then (
+              warn
+                "VM %s crashed too quickly after start (%.2f seconds); \
+                 shutting down"
+                id run_time ;
+              vm.Vm.on_crash
+              |> List.map (function Vm.Start -> Vm.Shutdown | other -> other)
+            ) else
+              vm.Vm.on_crash
+        | Some Needs_suspend ->
+            warn "VM %s has unexpectedly suspended" id ;
+            [Vm.Shutdown]
+        | Some Needs_softreset ->
+            vm.Vm.on_softreboot
+        | None ->
+            debug "VM %s is not requesting any attention" id ;
+            []
+      in
+      let operations_of_action = function
+        | Vm.Coredump ->
+            []
+        | Vm.Shutdown ->
+            [VM_shutdown (id, None)]
+        | Vm.Start ->
+            let delay =
+              if run_time < B.VM.minimum_reboot_delay then (
+                debug "VM %s rebooted too quickly; inserting delay" id ;
+                [Atomic (VM_delay (id, 15.))]
+              ) else
+                []
+            in
+            delay @ [VM_reboot (id, None)]
+        | Vm.Pause ->
+            [Atomic (VM_pause id)]
+        | Vm.Softreboot ->
+            [Atomic (VM_softreboot id)]
+      in
+      let operations = List.concat (List.map operations_of_action actions) in
+      List.iter (fun x -> perform_exn x t) operations ;
+      VM_DB.signal id
+  | PCI_check_state id ->
+      debug "PCI.check_state %s" (PCI_DB.string_of_id id) ;
+      let vif_t = PCI_DB.read_exn id in
+      let vm_state = B.VM.get_state (VM_DB.read_exn (PCI_DB.vm_of id)) in
+      let request =
+        if vm_state.Vm.power_state = Running || vm_state.Vm.power_state = Paused
+        then
+          B.PCI.get_device_action_request (VIF_DB.vm_of id) vif_t
+        else
+          Some Needs_unplug
+      in
+      let operations_of_request = function
+        | Needs_unplug ->
+            Some (Atomic (PCI_unplug id))
+        | Needs_set_qos ->
+            None
+      in
+      let operations =
+        List.filter_map operations_of_request (Option.to_list request)
+      in
+      List.iter (fun x -> perform_exn x t) operations
+  | VBD_check_state id ->
+      debug "VBD.check_state %s" (VBD_DB.string_of_id id) ;
+      let vbd_t = VBD_DB.read_exn id in
+      let vm_state = B.VM.get_state (VM_DB.read_exn (VBD_DB.vm_of id)) in
+      let request =
+        if vm_state.Vm.power_state = Running || vm_state.Vm.power_state = Paused
+        then
+          B.VBD.get_device_action_request (VBD_DB.vm_of id) vbd_t
+        else (
+          debug "VM %s is not running: VBD_unplug needed" (VBD_DB.vm_of id) ;
+          Some Needs_unplug
+        )
+      in
+      let operations_of_request = function
+        | Needs_unplug ->
+            Some (Atomic (VBD_unplug (id, true)))
+        | Needs_set_qos ->
+            Some (Atomic (VBD_set_qos id))
+      in
+      let operations =
+        List.filter_map operations_of_request (Option.to_list request)
+      in
+      List.iter (fun x -> perform_exn x t) operations ;
+      (* Needed (eg) to reflect a spontaneously-ejected CD *)
+      VBD_DB.signal id
+  | VIF_check_state id ->
+      debug "VIF.check_state %s" (VIF_DB.string_of_id id) ;
+      let vif_t = VIF_DB.read_exn id in
+      let vm_state = B.VM.get_state (VM_DB.read_exn (VIF_DB.vm_of id)) in
+      let request =
+        if vm_state.Vm.power_state = Running || vm_state.Vm.power_state = Paused
+        then
+          B.VIF.get_device_action_request (VIF_DB.vm_of id) vif_t
+        else
+          Some Needs_unplug
+      in
+      let operations_of_request = function
+        | Needs_unplug ->
+            Some (Atomic (VIF_unplug (id, true)))
+        | Needs_set_qos ->
+            None
+      in
+      let operations =
+        List.filter_map operations_of_request (Option.to_list request)
+      in
+      List.iter (fun x -> perform_exn x t) operations
+  | VUSB_check_state id ->
+      debug "VUSB.check_state %s" (VUSB_DB.string_of_id id) ;
+      let vusb_t = VUSB_DB.read_exn id in
+      let vm_state = B.VM.get_state (VM_DB.read_exn (VUSB_DB.vm_of id)) in
+      let request =
+        if vm_state.Vm.power_state = Running || vm_state.Vm.power_state = Paused
+        then
+          B.VUSB.get_device_action_request (VUSB_DB.vm_of id) vusb_t
+        else (
+          debug "VM %s is not running: VUSB_unplug needed" (VUSB_DB.vm_of id) ;
+          Some Needs_unplug
+        )
+      in
+      let operations_of_request = function
+        | Needs_unplug ->
+            Some (Atomic (VUSB_unplug id))
+        | Needs_set_qos ->
+            None
+      in
+      let operations =
+        List.filter_map operations_of_request (Option.to_list request)
+      in
+      List.iter (fun x -> perform_exn x t) operations ;
+      VUSB_DB.signal id
+  | Atomic op ->
+      let progress_callback = progress_callback 0. 1. t in
+      perform_atomic ~progress_callback ?subtask ?result op t
 
 and verify_power_state op =
   let module B = (val get_backend () : S) in

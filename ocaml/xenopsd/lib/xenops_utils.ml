@@ -61,10 +61,6 @@ module Socket = struct
   end
 end
 
-let all = List.fold_left ( && ) true
-
-let any = List.fold_left ( || ) false
-
 module type ITEM = sig
   type t
 
@@ -88,11 +84,7 @@ let set_root service_name =
 let get_root () =
   match !root with None -> failwith "Xenops_utils.root not set" | Some x -> x
 
-module StringMap = Map.Make (struct
-  type t = string
-
-  let compare = compare
-end)
+module StringMap = Map.Make (String)
 
 type 'a fs = Dir of 'a fs StringMap.t ref | Leaf of 'a
 
@@ -154,7 +146,7 @@ let dropnone x = List.filter_map (Option.map Fun.id) x
 module FileFS = struct
   (** A directory tree containiign files, each of which contain strings *)
 
-  let filename_of k = Printf.sprintf "%s/%s" (get_root ()) (String.concat "/" k)
+  let filename_of k = String.concat Filename.dir_sep (get_root () :: k)
 
   let paths_of k = List.map filename_of (prefixes_of k)
 
@@ -378,18 +370,21 @@ functor
 
     let get_path k = k |> I.key |> of_key
 
+    let path_to_string = String.concat Filename.dir_sep
+
     (* Non-thread-safe functions: avoid calling these directly *)
 
     let write (k : I.key) (x : t) =
       let module FS = (val get_fs_backend () : FS) in
       let path = get_path k in
-      debug "TypedTable: Writing %s" (String.concat "/" path) ;
+      debug "TypedTable: Writing %s" (path_to_string path) ;
       FS.write path (Rpcmarshal.marshal t.Rpc.Types.ty x)
 
     let delete (k : I.key) =
-      debug "TypedTable: Deleting %s" (k |> I.key |> of_key |> String.concat "/") ;
       let module FS = (val get_fs_backend () : FS) in
-      FS.rm (get_path k)
+      let path = get_path k in
+      debug "TypedTable: Deleting %s" (path_to_string path) ;
+      FS.rm path
 
     (* Thread-safe functions *)
 
@@ -412,11 +407,8 @@ functor
       | Some x ->
           x
       | None ->
-          raise
-            (Xenopsd_error
-               (Errors.Does_not_exist (I.namespace, I.key k |> String.concat "/")
-               )
-            )
+          let key = (I.namespace, I.key k |> path_to_string) in
+          raise (Xenopsd_error (Errors.Does_not_exist key))
 
     let exists (k : I.key) =
       let module FS = (val get_fs_backend () : FS) in

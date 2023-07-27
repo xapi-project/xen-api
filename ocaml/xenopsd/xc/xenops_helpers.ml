@@ -58,3 +58,9 @@ let domains_of_uuid ~xc uuid =
             )
     )
     (Xenctrl.domain_getinfolist xc 0)
+
+let domain_exists ~xc di =
+  try
+    ignore (Xenctrl.domain_getinfo xc di.Xenctrl.domid) ;
+    true
+  with _ -> false
