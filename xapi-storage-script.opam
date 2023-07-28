@@ -14,23 +14,19 @@ depends: [
   "ocaml"
   "dune"
   "conf-python-3" {with-test}
-  "xapi-idl" {>= "0.10.0"}
-  "xapi-storage"
-  "async" {>= "v0.9.0"}
-  "async_inotify"
-  "async_unix" {>= "112.24.00"}
-  "core"
+  "base"
+  "inotify"
+  "lwt"
+  "message-switch-lwt"
   "message-switch-unix"
-  "message-switch-async"
-  "rpclib"
-  "rpclib-async"
   "ppx_deriving_rpc"
   "ppx_sexp_conv"
+  "rpclib"
+  "rpclib-lwt"
+  "sexplib0"
+  "xapi-idl" {>= "0.10.0"}
   "xapi-stdext-date"
-]
-# python 2.7 is not enough to ensure the availability of 'python' in these
-depexts: [
-  ["python"] {os-family = "debian" & with-test}
+  "xapi-storage"
 ]
 synopsis: "A directory full of scripts can be a Xapi storage implementation"
 description: """

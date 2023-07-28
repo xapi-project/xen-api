@@ -31,10 +31,6 @@
 
 
 (package
-  (name xen-api-client-async)
-)
-
-(package
   (name xen-api-client)
 )
 
@@ -208,10 +204,6 @@
 
 (package
   (name pciutil)
-)
-
-(package
-  (name message-switch-async)
 )
 
 (package

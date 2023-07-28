@@ -16,11 +16,9 @@ depends: [
   "dune" {build & >= "1.4"}
   "odoc" {with-doc}
   "cmdliner"
-  "cohttp-async" {with-test}
   "cohttp-lwt-unix"
   "io-page" {>= "2.4.0"}
   "lwt_log"
-  "message-switch-async" {with-test}
   "message-switch-lwt"
   "message-switch-unix"
   "mirage-block-unix" {>= "2.4.0"}
