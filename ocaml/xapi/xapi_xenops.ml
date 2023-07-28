@@ -1122,10 +1122,10 @@ module MD = struct
     let open Vm in
     let scheduler_params =
       (* vcpu <-> pcpu affinity settings are stored here.
-         			   Format is either:
-         			   1,2,3         ::  all vCPUs receive this mask
-         			   1,2,3; 4,5,6  ::  vCPU n receives mask n. Unlisted vCPUs
-         			                     receive first mask *)
+         Format is either:
+         1,2,3         ::  all vCPUs receive this mask
+         1,2,3; 4,5,6  ::  vCPU n receives mask n. Unlisted vCPUs
+                           receive first mask *)
       let affinity =
         try
           List.map
@@ -1811,21 +1811,19 @@ module Events_from_xenopsd = struct
     let module Client = (val make_client queue_name : XENOPS) in
     Client.UPDATES.remove_barrier dbg id ;
     let t =
-      with_lock active_m (fun () ->
-          if not (Hashtbl.mem active id) then (
-            warn "Events_from_xenopsd.wakeup: unknown id %d" id ;
-            None
-          ) else
-            let t = Hashtbl.find active id in
-            Hashtbl.remove active id ; Some t
-      )
+      with_lock active_m @@ fun () ->
+      if not (Hashtbl.mem active id) then (
+        warn "Events_from_xenopsd.wakeup: unknown id %d" id ;
+        None
+      ) else
+        let t = Hashtbl.find active id in
+        Hashtbl.remove active id ; Some t
     in
     Option.iter
       (fun t ->
-        with_lock t.m (fun () ->
-            t.finished <- true ;
-            Condition.signal t.c
-        )
+        with_lock t.m @@ fun () ->
+        t.finished <- true ;
+        Condition.signal t.c
       )
       t
 
@@ -1892,12 +1890,7 @@ let update_vm ~__context id =
             a <> b
           in
           (* Helpers to create and update guest metrics when needed *)
-          let lookup state key =
-            if List.mem_assoc key state.Vm.guest_agent then
-              Some (List.assoc key state.Vm.guest_agent)
-            else
-              None
-          in
+          let lookup state key = List.assoc_opt key state.Vm.guest_agent in
           let list state dir =
             let dir =
               if dir.[0] = '/' then
@@ -3923,58 +3916,54 @@ let resume ~__context ~self ~start_paused ~force:_ =
   let dbg = Context.string_of_task_and_tracing __context in
   let queue_name = queue_of_vm ~__context ~self in
   let vm_id = id_of_vm ~__context ~self in
-  transform_xenops_exn ~__context ~vm:self queue_name (fun () ->
-      maybe_refresh_vm ~__context ~self ;
-      let vdi = Db.VM.get_suspend_VDI ~__context ~self in
-      if vdi = Ref.null then (
-        info "VM suspend VDI not found; Performing VM hard_shutdown" ;
-        Xapi_vm_lifecycle.force_state_reset ~__context ~self ~value:`Halted ;
-        raise
-          Api_errors.(
-            Server_error (vm_has_no_suspend_vdi, ["VM"; Ref.string_of self])
-          )
-      ) ;
-      let d = disk_of_vdi ~__context ~self:vdi |> Option.get in
-      let module Client = (val make_client queue_name : XENOPS) in
-      (* NB we don't set resident_on because we don't want to
-         			   modify the VM.power_state, {VBD,VIF}.currently_attached in the
-         			   failures cases. This means we must remove the metadata from
-         			   xenopsd on failure. *)
-      ( try
-          Events_from_xenopsd.with_suppressed queue_name dbg vm_id (fun () ->
-              debug "Sending VM %s configuration to xenopsd" (Ref.string_of self) ;
-              let id = Xenopsd_metadata.push ~__context ~self in
-              Xapi_network.with_networks_attached_for_vm ~__context ~vm:self
-                (fun () ->
-                  info "xenops: VM.resume %s from %s" id
-                    (d |> rpc_of disk |> Jsonrpc.to_string) ;
-                  Client.VM.resume dbg id d
-                  |> sync_with_task __context ~cancellable:false queue_name ;
-                  if not start_paused then (
-                    info "xenops: VM.unpause %s" id ;
-                    Client.VM.unpause dbg id
-                    |> sync_with_task __context ~cancellable:false queue_name
-                  )
-              )
-          )
-        with e ->
-          error "Caught exception resuming VM: %s" (string_of_exn e) ;
-          let id = id_of_vm ~__context ~self in
-          Xenopsd_metadata.delete ~__context id ;
-          raise e
-      ) ;
-      set_resident_on ~__context ~self ;
-      Db.VM.set_suspend_VDI ~__context ~self ~value:Ref.null ;
-      (* Clearing vGPU metadata should happen as late as possible
-       * to make sure we only do it on a successful resume
-       *)
-      Xapi_gpumon.clear_vgpu_metadata ~__context ~vm:self ;
-      Helpers.call_api_functions ~__context (fun rpc session_id ->
-          XenAPI.VDI.destroy ~rpc ~session_id ~self:vdi
-      ) ;
-      check_power_state_is ~__context ~self
-        ~expected:(if start_paused then `Paused else `Running)
-  )
+  transform_xenops_exn ~__context ~vm:self queue_name @@ fun () ->
+  maybe_refresh_vm ~__context ~self ;
+  let vdi = Db.VM.get_suspend_VDI ~__context ~self in
+  if vdi = Ref.null then (
+    info "VM suspend VDI not found; Performing VM hard_shutdown" ;
+    Xapi_vm_lifecycle.force_state_reset ~__context ~self ~value:`Halted ;
+    let err_content = ["VM"; Ref.string_of self] in
+    raise Api_errors.(Server_error (vm_has_no_suspend_vdi, err_content))
+  ) ;
+  let d = disk_of_vdi ~__context ~self:vdi |> Option.get in
+  let module Client = (val make_client queue_name : XENOPS) in
+  (* NB we don't set resident_on because we don't want to
+     modify the VM.power_state, {VBD,VIF}.currently_attached in the
+     failures cases. This means we must remove the metadata from
+     xenopsd on failure. *)
+  ( try
+      Events_from_xenopsd.with_suppressed queue_name dbg vm_id @@ fun () ->
+      debug "Sending VM %s configuration to xenopsd" (Ref.string_of self) ;
+      let id = Xenopsd_metadata.push ~__context ~self in
+
+      Xapi_network.with_networks_attached_for_vm ~__context ~vm:self
+      @@ fun () ->
+      info "%s: VM.resume %s from %s" __FUNCTION__ id
+        (d |> rpc_of disk |> Jsonrpc.to_string) ;
+      Client.VM.resume dbg id d
+      |> sync_with_task __context ~cancellable:false queue_name ;
+      if not start_paused then (
+        info "%s: VM.unpause %s" __FUNCTION__ id ;
+        Client.VM.unpause dbg id
+        |> sync_with_task __context ~cancellable:false queue_name
+      )
+    with e ->
+      error "Caught exception resuming VM: %s" (string_of_exn e) ;
+      let id = id_of_vm ~__context ~self in
+      Xenopsd_metadata.delete ~__context id ;
+      raise e
+  ) ;
+  set_resident_on ~__context ~self ;
+  Db.VM.set_suspend_VDI ~__context ~self ~value:Ref.null ;
+  (* Clearing vGPU metadata should happen as late as possible
+   * to make sure we only do it on a successful resume
+   *)
+  Xapi_gpumon.clear_vgpu_metadata ~__context ~vm:self ;
+  Helpers.call_api_functions ~__context (fun rpc session_id ->
+      XenAPI.VDI.destroy ~rpc ~session_id ~self:vdi
+  ) ;
+  check_power_state_is ~__context ~self
+    ~expected:(if start_paused then `Paused else `Running)
 
 let s3suspend ~__context ~self =
   let queue_name = queue_of_vm ~__context ~self in

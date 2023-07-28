@@ -3687,6 +3687,8 @@ module Dm = struct
 
   type action = Start | Restore
 
+  let action_to_string = function Start -> "Start" | Restore -> "Restore"
+
   let __start (task : Xenops_task.task_handle) ~xc ~xs ~dm
       ?(timeout = !Xenopsd.qemu_dm_ready_timeout) action info domid =
     let args =
@@ -3696,7 +3698,8 @@ module Dm = struct
       | Restore ->
           qemu_args ~xs ~dm info true domid
     in
-    debug "Device.Dm.start domid=%d args: [%s]" domid
+    debug "Device.Dm.start domid=%d action=%s qemu args: [%s]" domid
+      (action_to_string action)
       (String.concat " " args.argv) ;
     (* start vgpu emulation if appropriate *)
     let () =
@@ -3717,19 +3720,22 @@ module Dm = struct
 
     (* start swtpm-wrapper if appropriate and modify QEMU arguments as needed *)
     let tpmargs =
+      let mk_args vtpm_uuid =
+        let tpm_socket_path =
+          Service.Swtpm.start ~xs task domid ~vtpm_uuid ~index:0
+        in
+        [
+          "-chardev"
+        ; Printf.sprintf "socket,id=chrtpm,path=%s" tpm_socket_path
+        ; "-tpmdev"
+        ; "emulator,id=tpm0,chardev=chrtpm"
+        ; "-device"
+        ; "tpm-crb,tpmdev=tpm0"
+        ]
+      in
       match info.tpm with
       | Some (Vtpm vtpm_uuid) ->
-          let tpm_socket_path =
-            Service.Swtpm.start ~xs task domid ~vtpm_uuid ~index:0
-          in
-          [
-            "-chardev"
-          ; Printf.sprintf "socket,id=chrtpm,path=%s" tpm_socket_path
-          ; "-tpmdev"
-          ; "emulator,id=tpm0,chardev=chrtpm"
-          ; "-device"
-          ; "tpm-crb,tpmdev=tpm0"
-          ]
+          mk_args vtpm_uuid
       | None ->
           D.debug "VM domid %d has no vTPM" domid ;
           []

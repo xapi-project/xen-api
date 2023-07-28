@@ -104,23 +104,15 @@ let checkpoint ~__context ~vm ~new_name =
         in
         (* Check if SR has snapshot feature *)
         let sr_has_snapshot_feature sr =
-          if
-            not
-              Smint.(
-                has_capability Vdi_snapshot
-                  (Xapi_sr_operations.features_of_sr ~__context sr)
-              )
-          then
-            false
-          else
-            true
+          Smint.has_capability Vdi_snapshot
+            (Xapi_sr_operations.features_of_sr ~__context sr)
         in
         List.iter
           (fun sr ->
             if not (sr_has_snapshot_feature sr) then
               raise
-                (Api_errors.Server_error
-                   (Api_errors.sr_operation_not_supported, [Ref.string_of vm])
+                Api_errors.(
+                  Server_error (sr_operation_not_supported, [Ref.string_of vm])
                 )
           )
           sr_records ;
@@ -211,8 +203,8 @@ let safe_destroy_vusb ~__context ~rpc ~session_id vusb =
   if Db.is_valid_ref __context vusb then
     Client.VUSB.destroy ~rpc ~session_id ~self:vusb
 
-(* Copy the VBDs and VIFs from a source VM to a dest VM and then delete the old disks. *)
-(* This operation destroys the data of the dest VM.                                    *)
+(* Copy the VBDs and VIFs from a source VM to a dest VM and then delete the old
+   disks. This operation destroys the data of the dest VM. *)
 let update_vifs_vbds_vgpus_and_vusbs ~__context ~snapshot ~vm =
   let snap_VBDs = Db.VM.get_VBDs ~__context ~self:snapshot in
   let snap_VBDs_disk, snap_VBDs_CD =
@@ -240,7 +232,7 @@ let update_vifs_vbds_vgpus_and_vusbs ~__context ~snapshot ~vm =
     List.map (fun vbd -> Db.VBD.get_VDI ~__context ~self:vbd) vm_VBDs_disk
   in
   (* Filter out VM disks for which the snapshot does not have a corresponding
-     	 * disk - these disks will be left unattached after the revert is complete. *)
+     disk - these disks will be left unattached after the revert is complete. *)
   let vm_disks_with_snapshot =
     List.filter (fun vdi -> List.mem vdi snap_disks_snapshot_of) vm_disks
   in
@@ -271,10 +263,10 @@ let update_vifs_vbds_vgpus_and_vusbs ~__context ~snapshot ~vm =
       List.iter2
         (fun snap_disk (_, cloned_disk, _) ->
           (* For each snapshot disk which was just cloned:
-             				 * 1) Find the value of snapshot_of
-             				 * 2) Find all snapshots with the same snapshot_of
-             				 * 3) Update each of these snapshots so that their snapshot_of points
-             				 *    to the new cloned disk. *)
+             1) Find the value of snapshot_of
+             2) Find all snapshots with the same snapshot_of
+             3) Update each of these snapshots so that their snapshot_of points
+                to the new cloned disk. *)
           let open Db_filter_types in
           let snapshot_of = Db.VDI.get_snapshot_of ~__context ~self:snap_disk in
           let all_snaps_in_tree =

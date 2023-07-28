@@ -236,30 +236,23 @@ let uuid_of_string x =
 
 let uuid_of_vm vm = uuid_of_string vm.Vm.id
 
+let domid_of_di di = string_of_int di.Xenctrl.domid
+
 let di_of_uuid ~xc uuid =
-  let open Xenctrl in
   match Xenops_helpers.domains_of_uuid ~xc uuid with
   | [] ->
       None
   | [x] ->
       Some x
   | possible ->
-      let domid_list =
-        String.concat ", " (List.map (fun x -> string_of_int x.domid) possible)
-      in
+      let domid_list = String.concat ", " (List.map domid_of_di possible) in
       let uuid' = Uuidx.to_string uuid in
-      error
-        "VM %s: there are %d domains (%s) with the same uuid: one or more have \
-         leaked"
-        uuid' (List.length possible) domid_list ;
-      raise
-        (Xenopsd_error
-           (Internal_error
-              (Printf.sprintf "More than one domain with uuid (%s): %s" uuid'
-                 domid_list
-              )
-           )
-        )
+      let err_msg =
+        Printf.sprintf "More than one domain with uuid %s: (%s)" uuid'
+          domid_list
+      in
+      error "%s: %s" __FUNCTION__ err_msg ;
+      raise (Xenopsd_error (Internal_error err_msg))
   | exception Failure r ->
       raise (Xenopsd_error (Internal_error r))
 
@@ -268,28 +261,20 @@ let domid_of_uuid ~xs uuid =
      actually destroy a domain on suspend. Therefore we only rely on state in
      xenstore *)
   let dir = Printf.sprintf "/vm/%s/domains" (Uuidx.to_string uuid) in
-  try
-    match
-      xs.Xs.directory dir |> List.map int_of_string |> List.sort compare
-    with
-    | [] ->
-        None
-    | [x] ->
-        Some x
-    | xs ->
-        let domid_list = String.concat ", " (List.map string_of_int xs) in
-        error "More than 1 domain associated with a VM. This is no longer OK!" ;
-        raise
-          (Xenopsd_error
-             (Internal_error
-                (Printf.sprintf "More than one domain with uuid (%s): %s"
-                   (Uuidx.to_string uuid) domid_list
-                )
-             )
-          )
-  with _ ->
-    error "Failed to read %s: has this domain already been cleaned up?" dir ;
-    None
+  match xs.Xs.directory dir |> List.map int_of_string |> List.sort compare with
+  | [] ->
+      None
+  | [x] ->
+      Some x
+  | xs ->
+      let domid_list = String.concat ", " (List.map string_of_int xs) in
+      let uuid' = Uuidx.to_string uuid in
+      error "%s: More than one domain with uuid %s: (%s)" __FUNCTION__ uuid'
+        domid_list ;
+      None
+  | exception _ ->
+      warn "Failed to read %s: has this domain already been cleaned up?" dir ;
+      None
 
 let get_uuid ~xc domid = Domain.get_uuid ~xc domid
 
@@ -311,16 +296,11 @@ let params_of_backend backend =
         else
           ("backend-kind", backend_kind) :: xenstore_data
     | [] ->
-        raise
-          (Xenopsd_error
-             (Internal_error
-                ("Could not find XenDisk implementation: "
-                ^ (Storage_interface.(rpc_of backend) backend
-                  |> Jsonrpc.to_string
-                  )
-                )
-             )
-          )
+        let err_msg =
+          Printf.sprintf "Could not find XenDisk implementation: %s"
+            (Storage_interface.(rpc_of backend) backend |> Jsonrpc.to_string)
+        in
+        raise (Xenopsd_error (Internal_error err_msg))
   in
   let params, extra_keys =
     match (blockdevs, files, nbds, xendisks) with
@@ -331,16 +311,12 @@ let params_of_backend backend =
     | _, _, _, xendisk :: _ ->
         ("", [("qemu-params", xendisk.Storage_interface.params)])
     | _ ->
-        raise
-          (Xenopsd_error
-             (Internal_error
-                ("Could not find BlockDevice, File, or Nbd implementation: "
-                ^ (Storage_interface.(rpc_of backend) backend
-                  |> Jsonrpc.to_string
-                  )
-                )
-             )
-          )
+        let err_msg =
+          Printf.sprintf
+            "Could not find BlockDevice, File, or Nbd implementation: %s"
+            (Storage_interface.(rpc_of backend) backend |> Jsonrpc.to_string)
+        in
+        raise (Xenopsd_error (Internal_error err_msg))
   in
   (params, xenstore_data, extra_keys)
 
@@ -364,16 +340,14 @@ let create_vbd_frontend ~xc ~xs task frontend_domid vdi =
       | _, _, nbd :: _ ->
           Nbd nbd
       | [], [], [] ->
-          raise
-            (Xenopsd_error
-               (Internal_error
-                  ("Could not find File, BlockDevice, or Nbd implementation: "
-                  ^ (Storage_interface.(rpc_of backend) vdi.attach_info
-                    |> Jsonrpc.to_string
-                    )
-                  )
-               )
-            )
+          let err_msg =
+            Printf.sprintf
+              "Could not find BlockDevice, File, or Nbd implementation: %s"
+              (Storage_interface.(rpc_of backend) vdi.attach_info
+              |> Jsonrpc.to_string
+              )
+          in
+          raise (Xenopsd_error (Internal_error err_msg))
     )
   | Some backend_domid ->
       let params, xenstore_data, extra_keys =
@@ -1617,7 +1591,7 @@ module VM = struct
 
   let create = create_exn
 
-  let on_domain f (task : Xenops_task.task_handle) vm =
+  let on_domain (task : Xenops_task.task_handle) vm f =
     let uuid = uuid_of_vm vm in
     with_xc_and_xs (fun xc xs ->
         match di_of_uuid ~xc uuid with
@@ -1628,7 +1602,7 @@ module VM = struct
     )
 
   let on_domain_if_exists f (task : Xenops_task.task_handle) vm =
-    try on_domain f task vm
+    try on_domain task vm f
     with Xenopsd_error (Does_not_exist ("domain", _)) ->
       debug "Domain for VM %s does not exist: ignoring" vm.Vm.id
 
@@ -1798,28 +1772,27 @@ module VM = struct
           )
     )
 
-  let pause =
-    on_domain (fun xc _ _ _ di ->
+  let pause t vm =
+    on_domain t vm (fun xc _ _ _ di ->
         if di.Xenctrl.total_memory_pages = 0n then
           raise (Xenopsd_error Domain_not_built) ;
         Domain.pause ~xc di.Xenctrl.domid
     )
 
-  let unpause =
-    on_domain (fun xc _ _ _ di ->
+  let unpause t vm =
+    on_domain t vm (fun xc _ _ _ di ->
         if di.Xenctrl.total_memory_pages = 0n then
           raise (Xenopsd_error Domain_not_built) ;
         Domain.unpause ~xc di.Xenctrl.domid
     )
 
   let set_xsdata task vm xsdata =
-    on_domain
-      (fun _ xs _ _ di -> Domain.set_xsdata ~xs di.Xenctrl.domid xsdata)
-      task vm
+    on_domain task vm (fun _ xs _ _ di ->
+        Domain.set_xsdata ~xs di.Xenctrl.domid xsdata
+    )
 
   let set_vcpus task vm target =
-    on_domain
-      (fun _ xs _ _ di ->
+    on_domain task vm (fun _ xs _ _ di ->
         let domid = di.Xenctrl.domid in
         (* Returns the instantaneous CPU number from xenstore *)
         let current =
@@ -1839,12 +1812,10 @@ module VM = struct
               i = current to target - 1 do
             Device.Vcpu.set ~xs ~dm:(dm_of ~vm) ~devid:i domid true
           done
-      )
-      task vm
+    )
 
   let set_shadow_multiplier task vm target =
-    on_domain
-      (fun xc xs _ _ di ->
+    on_domain task vm (fun xc xs _ _ di ->
         if get_domain_type ~xs di = Vm.Domain_PV then
           raise
             (Xenopsd_error (Unimplemented "shadow_multiplier for PV domains")) ;
@@ -1879,20 +1850,17 @@ module VM = struct
         debug "VM = %s; domid = %d; shadow_allocation_setto %d MiB" vm.Vm.id
           domid newshadow ;
         Xenctrl.shadow_allocation_set xc domid newshadow
-      )
-      task vm
+    )
 
   let set_memory_dynamic_range task vm min max =
-    on_domain
-      (fun xc xs _ _ di ->
+    on_domain task vm (fun xc xs _ _ di ->
         let domid = di.Xenctrl.domid in
         Domain.set_memory_dynamic_range ~xc ~xs
           ~min:(Int64.to_int (Int64.div min 1024L))
           ~max:(Int64.to_int (Int64.div max 1024L))
           domid ;
         Mem.balance_memory (Xenops_task.get_dbg task)
-      )
-      task vm
+    )
 
   let qemu_device_of_vbd_frontend = function
     | Empty ->
@@ -2036,6 +2004,10 @@ module VM = struct
                   Device.Dm.Disabled
             in
             let parallel = List.assoc_opt "parallel" vm.Vm.platformdata in
+            (* During snapshot restores only the uuid in ~vm is up to date *)
+            let tpm =
+              match vtpm_of ~vm with None -> hvm_info.tpm | vtpm -> vtpm
+            in
             Some
               (make ~video_mib:hvm_info.video_mib ~firmware:hvm_info.firmware
                  ~video:hvm_info.video ~acpi:hvm_info.acpi
@@ -2043,8 +2015,7 @@ module VM = struct
                  ?vnc_ip:hvm_info.vnc_ip ~usb ~parallel
                  ~pci_emulations:hvm_info.pci_emulations
                  ~pci_passthrough:hvm_info.pci_passthrough
-                 ~boot_order:hvm_info.boot_order ~nics ~disks ~vgpus
-                 ~tpm:hvm_info.tpm ()
+                 ~boot_order:hvm_info.boot_order ~nics ~disks ~vgpus ~tpm ()
               )
       )
 
@@ -2338,7 +2309,7 @@ module VM = struct
       (fun () -> clean_memory_reservation task di.Xenctrl.domid)
 
   let build ?restore_fd:_ task vm vbds vifs vgpus vusbs extras force =
-    on_domain (build_domain vm vbds vifs vgpus vusbs extras force) task vm
+    on_domain task vm (build_domain vm vbds vifs vgpus vusbs extras force)
 
   let create_device_model_exn vbds vifs vgpus vusbs saved_state vmextra xc xs
       task vm di =
@@ -2373,37 +2344,34 @@ module VM = struct
 
   let create_device_model task vm vbds vifs vgpus vusbs saved_state =
     let _ =
-      DB.update_exn vm.Vm.id (fun d ->
-          let vmextra =
-            (* Fill in the xen-platform data, if it is not yet set *)
-            match d.VmExtra.persistent.xen_platform with
-            | None ->
-                VmExtra.
+      DB.update_exn vm.Vm.id @@ fun d ->
+      let vmextra =
+        (* Fill in the xen-platform data, if it is not yet set *)
+        match d.VmExtra.persistent.xen_platform with
+        | None ->
+            VmExtra.
+              {
+                persistent=
                   {
-                    persistent=
-                      {
-                        d.persistent with
-                        xen_platform= Some (xen_platform_of ~vm ~vmextra:d)
-                      }
+                    d.persistent with
+                    xen_platform= Some (xen_platform_of ~vm ~vmextra:d)
                   }
-            | _ ->
-                d
-          in
-          let () =
-            on_domain
-              (create_device_model_exn vbds vifs vgpus vusbs saved_state vmextra)
-              task vm
-          in
-          (* Ensure that the updated vmextra is written back to the DB *)
-          Some vmextra
-      )
+              }
+        | _ ->
+            d
+      in
+      let () =
+        on_domain task vm
+          (create_device_model_exn vbds vifs vgpus vusbs saved_state vmextra)
+      in
+      (* Ensure that the updated vmextra is written back to the DB *)
+      Some vmextra
     in
     ()
 
   let request_shutdown task vm reason ack_delay =
     let reason = shutdown_reason reason in
-    on_domain
-      (fun xc xs task _vm di ->
+    on_domain task vm (fun xc xs task _vm di ->
         let domain_type =
           match get_domain_type ~xs di with
           | Vm.Domain_HVM ->
@@ -2422,8 +2390,7 @@ module VM = struct
             domain_type reason ;
           true
         with Watch.Timeout _ -> false
-      )
-      task vm
+    )
 
   let wait_shutdown task vm _reason timeout =
     let is_vm_event = function
@@ -2437,7 +2404,7 @@ module VM = struct
           debug "OTHER EVENT" ; None
     in
     let vm_has_shutdown () =
-      on_domain (fun _ _ _ _ di -> di.Xenctrl.shutdown) task vm
+      on_domain task vm (fun _ _ _ _ di -> di.Xenctrl.shutdown)
     in
     Option.is_some
       (event_wait internal_updates task timeout is_vm_event vm_has_shutdown)
@@ -2528,8 +2495,7 @@ module VM = struct
       )
 
   let wait_ballooning task vm =
-    on_domain
-      (fun _ xs _ _ di ->
+    on_domain task vm (fun _ xs _ _ di ->
         let domid = di.Xenctrl.domid in
         let balloon_active_path =
           xs.Xs.getdomainpath domid ^ "/control/balloon-active"
@@ -2561,8 +2527,7 @@ module VM = struct
                    Ballooning_timeout_before_migration
                 )
           )
-      )
-      task vm
+    )
 
   let assert_can_save vm =
     with_xs (fun xs ->
@@ -2576,8 +2541,7 @@ module VM = struct
 
   let save task progress_callback vm flags data vgpu_data pre_suspend_callback =
     let flags' = List.map (function Live -> Domain.Live) flags in
-    on_domain
-      (fun xc xs (task : Xenops_task.task_handle) vm di ->
+    on_domain task vm (fun xc xs (task : Xenops_task.task_handle) vm di ->
         let domain_type =
           match get_domain_type ~xs di with
           | Vm.Domain_HVM ->
@@ -2697,8 +2661,7 @@ module VM = struct
             in
             ()
         )
-      )
-      task vm
+    )
 
   let inject_igmp_query domid vifs =
     let vif_names =
@@ -2719,107 +2682,91 @@ module VM = struct
     Forkhelpers.dontwaitpid pid
 
   let restore task _progress_callback vm _vbds vifs data vgpu_data extras =
-    on_domain
-      (fun xc xs task vm di ->
-        finally
-          (fun () ->
-            let domid = di.Xenctrl.domid in
-            let qemu_domid = this_domid ~xs in
-            let k = vm.Vm.id in
-            let vmextra = DB.read_exn k in
-            let build_info, timeoffset =
-              match vmextra.VmExtra.persistent with
-              | {VmExtra.build_info= None; _} ->
-                  error "VM = %s; No stored build_info: cannot safely restore"
-                    vm.Vm.id ;
-                  raise (Xenopsd_error (Does_not_exist ("build_info", vm.Vm.id)))
-              | {VmExtra.build_info= Some x; VmExtra.ty; _} ->
-                  let initial_target = get_initial_target ~xs domid in
-                  let timeoffset =
-                    match ty with
-                    | Some x -> (
-                      match x with
-                      | HVM hvm_info ->
-                          hvm_info.timeoffset
-                      | _ ->
-                          ""
-                    )
-                    | _ ->
-                        ""
-                  in
-                  ({x with Domain.memory_target= initial_target}, timeoffset)
+    on_domain task vm @@ fun xc xs task vm di ->
+    let do_restore () =
+      let domid = di.Xenctrl.domid in
+      let qemu_domid = this_domid ~xs in
+      let k = vm.Vm.id in
+      let vmextra = DB.read_exn k in
+      let build_info, timeoffset =
+        match vmextra.VmExtra.persistent with
+        | {VmExtra.build_info= None; _} ->
+            error "VM = %s; No stored build_info: cannot safely restore"
+              vm.Vm.id ;
+            raise (Xenopsd_error (Does_not_exist ("build_info", vm.Vm.id)))
+        | {VmExtra.build_info= Some x; VmExtra.ty; _} ->
+            let initial_target = get_initial_target ~xs domid in
+            let timeoffset =
+              match ty with
+              | Some (HVM hvm_info) ->
+                  hvm_info.timeoffset
+              | _ ->
+                  ""
             in
-            let no_incr_generationid = false in
-            ( try
-                with_data ~xc ~xs task data false (fun fd ->
-                    let vgpu_fd =
-                      match vgpu_data with
-                      | Some (FD vgpu_fd) ->
-                          Some vgpu_fd
-                      | Some disk when disk = data ->
-                          Some fd (* Don't open the file twice *)
-                      | Some _other_disk ->
-                          None (* We don't support this *)
-                      | None ->
-                          None
-                    in
-                    let manager_path = choose_emu_manager vm.Vm.platformdata in
-                    Domain.restore task ~xc ~xs ~dm:(dm_of ~vm) ~store_domid
-                      ~console_domid
-                      ~no_incr_generationid (* XXX progress_callback *)
-                      ~timeoffset ~extras build_info ~manager_path
-                      ~vtpm:(vtpm_of ~vm) domid fd vgpu_fd
-                )
-              with e ->
-                error "VM %s: restore failed: %s" vm.Vm.id (Printexc.to_string e) ;
-                (* As of xen-unstable.hg 779c0ef9682 libxenguest will destroy
-                   the domain on failure *)
-                ( if
-                  try
-                    ignore (Xenctrl.domain_getinfo xc di.Xenctrl.domid) ;
-                    false
-                  with _ -> true
-                then
-                    try
-                      debug
-                        "VM %s: libxenguest has destroyed domid %d; cleaning \
-                         up xenstore for consistency"
-                        vm.Vm.id di.Xenctrl.domid ;
-                      Domain.destroy task ~xc ~xs ~qemu_domid
-                        ~vtpm:(vtpm_of ~vm) ~dm:(dm_of ~vm) di.Xenctrl.domid
-                    with _ ->
-                      debug "Domain.destroy failed. Re-raising original error."
-                ) ;
-                raise e
-            ) ;
-            Int64.(
-              let min = to_int (div vm.Vm.memory_dynamic_min 1024L)
-              and max = to_int (div vm.Vm.memory_dynamic_max 1024L) in
-              Domain.set_memory_dynamic_range ~xc ~xs ~min ~max domid
-            ) ;
-            try inject_igmp_query domid vifs |> ignore
-            with e ->
-              error "VM %s: inject IGMP query failed: %s" vm.Vm.id
-                (Printexc.to_string e)
-          )
-          (fun () -> clean_memory_reservation task di.Xenctrl.domid)
-      )
-      task vm
+            ({x with Domain.memory_target= initial_target}, timeoffset)
+      in
+      let no_incr_generationid = false in
+      let vtpm = vtpm_of ~vm in
+      ( try
+          with_data ~xc ~xs task data false @@ fun fd ->
+          let vgpu_fd =
+            match vgpu_data with
+            | Some (FD vgpu_fd) ->
+                Some vgpu_fd
+            | Some disk when disk = data ->
+                Some fd (* Don't open the file twice *)
+            | Some _other_disk ->
+                None (* We don't support this *)
+            | None ->
+                None
+          in
+          let manager_path = choose_emu_manager vm.Vm.platformdata in
+          Domain.restore task ~xc ~xs ~dm:(dm_of ~vm) ~store_domid
+            ~console_domid ~no_incr_generationid (* XXX progress_callback *)
+            ~timeoffset ~extras build_info ~manager_path ~vtpm domid fd vgpu_fd
+        with e ->
+          error "VM %s: restore failed: %s" vm.Vm.id (Printexc.to_string e) ;
+          (* As of xen-unstable.hg 779c0ef9682 libxenguest will destroy
+             the domain on failure *)
+          ( if not (Xenops_helpers.domain_exists ~xc di) then
+              try
+                debug
+                  "VM %s: libxenguest has destroyed domid %d; cleaning up \
+                   xenstore for consistency"
+                  vm.Vm.id di.Xenctrl.domid ;
+                Domain.destroy task ~xc ~xs ~qemu_domid ~vtpm ~dm:(dm_of ~vm)
+                  di.Xenctrl.domid
+              with _ ->
+                debug "Domain.destroy failed. Re-raising original error."
+          ) ;
+          raise e
+      ) ;
+      Int64.(
+        let min = to_int (div vm.Vm.memory_dynamic_min 1024L)
+        and max = to_int (div vm.Vm.memory_dynamic_max 1024L) in
+        Domain.set_memory_dynamic_range ~xc ~xs ~min ~max domid
+      ) ;
+      try inject_igmp_query domid vifs |> ignore
+      with e ->
+        error "VM %s: inject IGMP query failed: %s" vm.Vm.id
+          (Printexc.to_string e)
+    in
+    finally do_restore (fun () -> clean_memory_reservation task di.Xenctrl.domid)
 
-  let s3suspend =
+  let s3suspend t vm =
     (* XXX: TODO: monitor the guest's response; track the s3 state *)
-    on_domain (fun xc xs _task _vm di ->
+    on_domain t vm (fun xc xs _task _vm di ->
         Domain.shutdown ~xc ~xs di.Xenctrl.domid Domain.S3Suspend
     )
 
-  let s3resume =
+  let s3resume t vm =
     (* XXX: TODO: monitor the guest's response; track the s3 state *)
-    on_domain (fun xc _xs _task _vm di ->
+    on_domain t vm (fun xc _xs _task _vm di ->
         Domain.send_s3resume ~xc di.Xenctrl.domid
     )
 
-  let soft_reset =
-    on_domain (fun xc xs _task _vm di ->
+  let soft_reset t vm =
+    on_domain t vm (fun xc xs _task _vm di ->
         Domain.soft_reset ~xc ~xs di.Xenctrl.domid
     )
 
