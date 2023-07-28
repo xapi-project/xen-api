@@ -62,10 +62,6 @@
 
 
 (package
-  (name xen-api-client-async)
-)
-
-(package
   (name xen-api-client)
   (synopsis "Xen-API client library for remotely-controlling a xapi host")
   (authors "David Scott" "Anil Madhavapeddy" "Jerome Maloberti" "John Else" "Jon Ludlam" "Thomas Sanders" "Mike McClurg")
@@ -517,10 +513,6 @@ This package provides an Lwt compatible interface to the library.")
 
 (package
   (name pciutil)
-)
-
-(package
-  (name message-switch-async)
 )
 
 (package
