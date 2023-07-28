@@ -23,8 +23,6 @@ module UpdateIdSet = Set.Make (String)
 
 let capacity_in_parallel = 16
 
-let reposync_mutex = Mutex.create ()
-
 (* The cache below is protected by pool's current_operations locking mechanism *)
 let updates_in_cache : (API.ref_host, Yojson.Basic.t) Hashtbl.t =
   Hashtbl.create 64
@@ -59,14 +57,6 @@ let forget ~__context ~self =
 let set_gpgkey_path ~__context ~self ~value =
   assert_gpgkey_path_is_valid value ;
   Db.Repository.set_gpgkey_path ~__context ~self ~value
-
-let with_reposync_lock f =
-  if Mutex.try_lock reposync_mutex then
-    Xapi_stdext_pervasives.Pervasiveext.finally
-      (fun () -> f ())
-      (fun () -> Mutex.unlock reposync_mutex)
-  else
-    raise Api_errors.(Server_error (reposync_in_progress, []))
 
 let cleanup_all_pool_repositories () =
   try
