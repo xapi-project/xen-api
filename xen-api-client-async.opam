@@ -24,7 +24,6 @@ depends: [
   "uri"
   "xen-api-client"
   "xmlm"
-  "ounit" {with-test}
 ]
 synopsis:
   "Xen-API client library for remotely-controlling a xapi host"

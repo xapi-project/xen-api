@@ -18,7 +18,6 @@ depends: [
   "inotify"
   "io-page"
   "mtime"
-  "ounit" {with-test}
   "ppx_deriving_rpc"
   "rpclib"
   "systemd"

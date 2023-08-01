@@ -1,6 +1,6 @@
-(executable
-  (modes exe)
+(test
   (name xen_api_test)
+  (package xen-api-client)
   (libraries
     dune-build-info
     rpclib.xml
@@ -11,13 +11,3 @@
     xen-api-client
   )
 )
-
-(rule
-  (alias runtest)
-  (deps
-    (:x xen_api_test.exe)
-  )
-  (package xen-api-client)
-  (action (run %{x}))
-)
-

@@ -19,7 +19,7 @@ depends: [
   "lwt" {>= "3.0.0"}
   "re"
   "uuid"
-  "ounit" {with-test}
+  "ounit2" {with-test}
   "qcheck" {with-test}
 ]
 tags: [ "org:xapi-project" ]

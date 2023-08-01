@@ -17,7 +17,7 @@ depends: [
   "yojson"
   "xapi-idl" {>= "1.0.0"}
   "xapi-rrd" {>= "1.0.0"}
-  "ounit" {with-test}
+  "ounit2" {with-test}
 ]
 synopsis: "Shared-memory protocols for exposing performance counters"
 description: """
