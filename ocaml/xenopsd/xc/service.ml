@@ -40,7 +40,7 @@ type t = {
   ; exec_path: string
   ; pid_filename: string
   ; chroot: Chroot.t
-  ; timeout_seconds: float
+  ; timeout_seconds: int
   ; args: string list
   ; execute:
       path:string -> args:string list -> domid:Xenctrl.domid -> unit -> string
@@ -112,8 +112,8 @@ let start_and_wait_for_readyness ~task ~service =
   with_inotify @@ fun notifd ->
   with_watch notifd service.chroot.root @@ fun _ ->
   with_monitor notifd @@ fun pollfd ->
-  let wait ~for_s ~service_name =
-    let start_time = Mtime_clock.elapsed () in
+  let wait ~amount ~service_name =
+    let from_time = Mtime_clock.counter () in
     let poll_period_ms = 1000 in
     let collect_watches acc (event, file) =
       match (acc, event, file) with
@@ -141,13 +141,10 @@ let start_and_wait_for_readyness ~task ~service =
                      fold_events ~init:!event collect_watches (Inotify.read fd)
              ) ;
 
-          let current_time = Mtime_clock.elapsed () in
-          let elapsed_time =
-            Mtime.Span.(to_s (abs_diff start_time current_time))
-          in
+          let elapsed = Mtime_clock.count from_time in
 
           match !event with
-          | Waiting when elapsed_time < for_s ->
+          | Waiting when Mtime.Span.compare elapsed amount < 0 ->
               poll_loop ()
           | Created ->
               Ok ()
@@ -183,9 +180,9 @@ let start_and_wait_for_readyness ~task ~service =
 
   Xenops_task.check_cancelling task ;
 
+  let amount = Mtime.Span.(service.timeout_seconds * s) in
   (* wait for pidfile to appear *)
-  Result.iter_error raise_e
-    (wait ~for_s:service.timeout_seconds ~service_name:syslog_key) ;
+  Result.iter_error raise_e (wait ~amount ~service_name:syslog_key) ;
 
   debug "Service %s initialized" syslog_key
 
@@ -741,8 +738,9 @@ module Swtpm = struct
       let _, _ =
         Forkhelpers.execute_command_get_output
           ~syslog_stdout:(Forkhelpers.Syslog_WithKey key)
-          ~redirect_stderr_to_stdout:true ~timeout:timeout_seconds exec_path
-          (args true)
+          ~redirect_stderr_to_stdout:true
+          ~timeout:(float_of_int timeout_seconds)
+          exec_path (args true)
       in
       let state_file = Filename.concat tpm_root "tpm2-00.permall" in
       let state = Unixext.string_of_file state_file |> Base64.encode_exn in

@@ -413,7 +413,8 @@ let exec_tap_ctl () =
            Some "performing map initialization"
        | Some c ->
            let span_since_last_update = Mtime_clock.count c in
-           if Mtime.Span.to_min span_since_last_update > 5. then
+           let five_minutes = Mtime.Span.(5 * min) in
+           if Mtime.Span.compare span_since_last_update five_minutes > 0 then
              Some "map was last updated over 5 minutes ago"
            else
              None

@@ -203,9 +203,11 @@ let restart_nolock () =
       ["udhcpd"; !Xapi_globs.udhcpd_conf]
   in
   let start = Mtime_clock.counter () in
+  let timeout = Mtime.Span.(30 * s) in
   let rec wait_for_pid n =
-    let now = Mtime_clock.count start in
-    if Mtime.Span.to_s now > 30.0 then failwith "Failed to start udhcpd" ;
+    let elapsed = Mtime_clock.count start in
+    if Mtime.Span.compare elapsed timeout > 0 then
+      failwith "Failed to start udhcpd" ;
     let pid =
       try Unixext.pidfile_read !Xapi_globs.udhcpd_pidfile with _ -> None
     in
