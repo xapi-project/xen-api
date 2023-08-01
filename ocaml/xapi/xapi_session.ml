@@ -257,14 +257,18 @@ let xapi_internal_originator = "xapi"
 
 let serialize_auth = Mutex.create ()
 
-let assert_username uname = 
+let assert_username uname =
   match uname with
   | "" ->
       raise
         Api_errors.(
           Server_error
-            (session_authentication_failed, [""; "Username is required to login"])
+            ( session_authentication_failed
+            , [""; "Username is required to login"]
+            )
         )
+  | _ ->
+      ()
 
 let wipe_string_contents str =
   for i = 0 to Bytes.length str - 1 do
