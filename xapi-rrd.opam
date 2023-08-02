@@ -13,7 +13,7 @@ build: [
   ["dune" "runtest" "-p" name "-j" jobs] {with-test}
 ]
 depends: [
-  "ocaml" {>= "4.05"}
+  "ocaml" {>= "4.14"}
   "dune" {>= "2.0.0"}
   "base-bigarray"
   "base-unix"
@@ -27,6 +27,7 @@ depends: [
   "crowbar" {with-test}
   "xapi-stdext-unix" {with-test}
 ]
+available: [arch != "ppc64"]
 synopsis: "RRD library for use with xapi"
 description: """
 Round-Robin Databases (RRDs) are constant-space datastructures
