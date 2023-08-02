@@ -176,9 +176,9 @@ let t =
           ~lifecycle:
             [
               (Published, "1.301.0", "")
-            ; (Deprecated, "23.12.0-next", "Dummy transition")
+            ; (Deprecated, "23.18.0", "Dummy transition")
             ; ( Removed
-              , "23.12.0-next"
+              , "23.18.0"
               , "The up_to_date field of repository was removed"
               )
             ]
