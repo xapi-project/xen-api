@@ -1,3 +1,6 @@
+## v1.10.0 (02-Aug-2023)
+* rrd_updates: use yojson instead of ad-hoc json serialization
+
 ## v1.9.2 (13-Jun-2023)
 * CA-378301: Avoid memory leaks when writing XML
 
