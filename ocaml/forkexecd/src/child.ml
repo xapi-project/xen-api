@@ -49,13 +49,16 @@ let handle_fd_sock fd_sock state =
 let handle_comms_sock comms_sock state =
   let call = Fecomms.read_raw_rpc comms_sock in
   match call with
-  | Fe.Cancel ->
+  | Ok Fe.Cancel ->
       debug "Cancel" ; raise Cancelled
-  | Fe.Exec ->
+  | Ok Fe.Exec ->
       debug "Exec" ;
       {state with finished= true}
-  | _ ->
-      debug "Ignoring unknown command" ;
+  | Ok status ->
+      debug "Ignoring unknown command %s" (Fe.ferpc_to_string status) ;
+      state
+  | Error err ->
+      warn "Unable to decode command: %s" err ;
       state
 
 let handle_comms_no_fd_sock2 comms_sock fd_sock state =
@@ -242,7 +245,9 @@ let run state comms_sock fd_sock fd_sock_path =
         in
         write_log () ; exit rc
     ) else (
-      Fecomms.write_raw_rpc comms_sock (Fe.Execed result) ;
+      ( try Fecomms.write_raw_rpc comms_sock (Fe.Execed result)
+        with Unix.Unix_error (Unix.EPIPE, _, _) -> raise Cancelled
+      ) ;
 
       List.iter (fun fd -> Unix.close fd) fds ;
 
@@ -266,15 +271,15 @@ let run state comms_sock fd_sock fd_sock_path =
         !in_childlogging ;
 
       (* At this point either:
-         			 * 1) lines_iter has received End_of_file, which means the child has
-         			 *    probably exited.
-         			 * 2) we weren't asked to log the child's stdout and it may still be
-         			 *    running in the background.
-         			 * We now temporarily block SIGCHLD to avoid a race. *)
+         1) lines_iter has received End_of_file, which means the child has
+            probably exited.
+         2) we weren't asked to log the child's stdout and it may still be
+            running in the background.
+         We now temporarily block SIGCHLD to avoid a race. *)
       let (_ : int list) = Unix.sigprocmask Unix.SIG_BLOCK [Sys.sigchld] in
 
       (* First test whether the child has exited - if it has then report this
-         			 * via the socket and exit. *)
+         * via the socket and exit. *)
       match Unix.waitpid [Unix.WNOHANG] result with
       | pid, status when pid = result ->
           report_child_exit comms_sock args result status ;
@@ -296,12 +301,12 @@ let run state comms_sock fd_sock fd_sock_path =
           in
 
           (* While the signal handler watches for the child to exit, we wait for the
-             			 * client to send us Dontwaitpid, which signals it won't ever want to
-             			 * waitpid the child. If this is received we can exit, and the child will
-             			 * continue with init as its parent. *)
+             client to send us Dontwaitpid, which signals it won't ever want to
+             waitpid the child. If this is received we can exit, and the child will
+             continue with init as its parent. *)
           let rec wait_for_dontwaitpid () =
             match Fecomms.read_raw_rpc comms_sock with
-            | Fe.Dontwaitpid ->
+            | Ok Fe.Dontwaitpid ->
                 Unix.close comms_sock ; exit 0
             | _ ->
                 wait_for_dontwaitpid ()

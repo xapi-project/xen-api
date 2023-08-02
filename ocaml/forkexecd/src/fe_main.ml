@@ -73,20 +73,25 @@ let _ =
       reset () ;
       let cmd = Fecomms.read_raw_rpc sock in
       match cmd with
-      | Fe.Setup s -> (
+      | Ok (Fe.Setup s) -> (
           let result =
             setup sock s.Fe.cmdargs s.Fe.id_to_fd_map s.Fe.syslog_stdout
               s.Fe.redirect_stderr_to_stdout s.Fe.env
           in
           match result with
           | Some response ->
-              Fecomms.write_raw_rpc sock (Fe.Setup_response response) ;
+              ( try Fecomms.write_raw_rpc sock (Fe.Setup_response response)
+                with Unix.Unix_error (Unix.EPIPE, _, _) -> ()
+              ) ;
               Unix.close sock
           | _ ->
               ()
         )
-      | _ ->
-          debug "Ignoring invalid message" ;
+      | Ok msg ->
+          debug "Ignoring invalid message (%s)" (Fe.ferpc_to_string msg) ;
+          Unix.close sock
+      | Error msg ->
+          debug "Ignoring invalid message (%s)" msg ;
           Unix.close sock
     with e -> debug "Caught exception at top level: %s" (Printexc.to_string e)
   done

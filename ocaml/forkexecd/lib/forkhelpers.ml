@@ -51,14 +51,24 @@ let waitpid (sock, pid) =
   let status = Fecomms.read_raw_rpc sock in
   Unix.close sock ;
   match status with
-  | Fe.Finished (Fe.WEXITED n) ->
+  | Ok Fe.(Finished (WEXITED n)) ->
       (pid, Unix.WEXITED n)
-  | Fe.Finished (Fe.WSIGNALED n) ->
+  | Ok Fe.(Finished (WSIGNALED n)) ->
       (pid, Unix.WSIGNALED n)
-  | Fe.Finished (Fe.WSTOPPED n) ->
+  | Ok Fe.(Finished (WSTOPPED n)) ->
       (pid, Unix.WSTOPPED n)
-  | _ ->
-      failwith ("This should never happen: Forkhelpers.waitpid " ^ __LOC__)
+  | Ok status ->
+      let msg =
+        Printf.sprintf "%s: unexpected status received (%s)" __FUNCTION__
+          (Fe.ferpc_to_string status)
+      in
+      failwith msg
+  | Error err ->
+      let msg =
+        Printf.sprintf "%s: error happened when trying to read the status. %s"
+          __FUNCTION__ err
+      in
+      failwith msg
 
 let waitpid_nohang ((sock, _) as x) =
   Unix.set_nonblock sock ;
@@ -72,8 +82,8 @@ let waitpid_nohang ((sock, _) as x) =
 let dontwaitpid (sock, _pid) =
   ( try
       (* Try to tell the child fe that we're not going to wait for it. If the
-         		 * other end of the pipe has been closed then this doesn't matter, as this
-         		 * means the child has already exited. *)
+         other end of the pipe has been closed then this doesn't matter, as this
+         means the child has already exited. *)
       Fecomms.write_raw_rpc sock Fe.Dontwaitpid
     with Unix.Unix_error (Unix.EPIPE, _, _) -> ()
   ) ;
@@ -203,10 +213,23 @@ let safe_close_and_exec ?env stdin stdout stderr
 
       let s =
         match response with
-        | Fe.Setup_response s ->
+        | Ok (Fe.Setup_response s) ->
             s
-        | _ ->
-            failwith "Failed to communicate with forking executioner"
+        | Ok status ->
+            let msg =
+              Printf.sprintf
+                "%s: Received unexpected reply from forking executioner (%s)"
+                __FUNCTION__
+                (Fe.ferpc_to_string status)
+            in
+            failwith msg
+        | Error err ->
+            let msg =
+              Printf.sprintf
+                "%s: Received invalid reply from forking executioner (%s)"
+                __FUNCTION__ err
+            in
+            failwith msg
       in
 
       let fd_sock = Fecomms.open_unix_domain_sock_client s.Fe.fd_sock_path in
@@ -226,13 +249,23 @@ let safe_close_and_exec ?env stdin stdout stderr
       List.iter (fun (uuid, srcfd) -> send_named_fd uuid srcfd) fds ;
       Fecomms.write_raw_rpc sock Fe.Exec ;
       match Fecomms.read_raw_rpc sock with
-      | Fe.Execed pid ->
+      | Ok (Fe.Execed pid) ->
           (sock, pid)
-      | _ ->
-          failwith
-            ("This should never happen: Forkhelpers.safe_close_and_exec "
-            ^ __LOC__
-            )
+      | Ok status ->
+          let msg =
+            Printf.sprintf
+              "%s: Received unexpected reply from forking executioner (%s)"
+              __FUNCTION__
+              (Fe.ferpc_to_string status)
+          in
+          failwith msg
+      | Error err ->
+          let msg =
+            Printf.sprintf
+              "%s: Received invalid reply from forking executioner (%s)"
+              __FUNCTION__ err
+          in
+          failwith msg
     )
     close_fds
 
