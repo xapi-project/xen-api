@@ -417,7 +417,8 @@ let tests () =
          )
   ; [("test_vdi_snapshot", `Slow, test_vdi_snapshot)]
     |> conn
-    |> sr SR.(all |> has_capabilities [Sr_capabilities.vdi_snapshot])
+    |> sr
+         SR.(all |> has_capabilities Sr_capabilities.[vdi_snapshot; vdi_update])
   ; [("test_vdi_clone", `Slow, test_vdi_clone)]
     |> conn
     |> sr
@@ -428,7 +429,8 @@ let tests () =
          )
   ; [("vdi_snapshot_in_pool", `Slow, vdi_snapshot_in_pool)]
     |> conn
-    |> sr SR.(all |> has_capabilities [Sr_capabilities.vdi_snapshot])
+    |> sr
+         SR.(all |> has_capabilities Sr_capabilities.[vdi_snapshot; vdi_update])
   ; [
       ( "vdi_create_destroy_plug_checksize"
       , `Slow
