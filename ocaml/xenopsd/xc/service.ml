@@ -738,13 +738,12 @@ module Swtpm = struct
     if needs_init then (
       debug "vTPM %s is empty, needs to be created" (Uuidm.to_string vtpm_uuid) ;
       let key = Printf.sprintf "%s-%d" (Filename.basename exec_path) domid in
-      let stdout, stderr =
+      let _, _ =
         Forkhelpers.execute_command_get_output
           ~syslog_stdout:(Forkhelpers.Syslog_WithKey key)
-          ~timeout:timeout_seconds exec_path (args true)
+          ~redirect_stderr_to_stdout:true ~timeout:timeout_seconds exec_path
+          (args true)
       in
-      debug "vTPM create (stdout): %s" stdout ;
-      debug "vTPM create (stderr): %s" stderr ;
       let state_file = Filename.concat tpm_root "tpm2-00.permall" in
       let state = Unixext.string_of_file state_file |> Base64.encode_exn in
       let dbg = Xenops_task.get_dbg task in
