@@ -12,6 +12,8 @@ let password = ref ""
 
 let host = ref ""
 
+let sr = ref ""
+
 let using_unix_domain_socket = ref true
 
 let http = Xmlrpc_client.xmlrpc ~version:"1.1" "/"
@@ -45,9 +47,15 @@ let parse () =
       )
     ; ( "-default-sr"
       , Arg.Unit (fun () -> use_default_sr := true)
-      , "Only run SR tests on the pool's default SR"
+      , "Only run SR tests on the pool's default SR, mutually exclusive with \
+         -sr"
       )
     ; ("-nocolour", Arg.Clear use_colour, "Don't use colour in the output")
+    ; ( "-sr"
+      , Arg.String (fun x -> sr := x)
+      , "Only run SR tests on the specified SR, mutually exclusive with \
+         -default-sr"
+      )
     ]
     (fun x ->
       match (!host, !username, !password) with
@@ -65,6 +73,8 @@ let parse () =
     "Perform some quick functional tests. The default is to test localhost \
      over a Unix socket. For remote server supply <hostname> <username> and \
      <password> arguments." ;
+  if !use_default_sr && !sr <> "" then
+    raise (Arg.Bad "-default-sr and -sr are mutually exclusive") ;
   if !host = "" then host := "localhost" ;
   if !username = "" then username := "root"
 
