@@ -157,6 +157,7 @@ let tests () =
                 ; `vdi_data_destroy
                 ; `vdi_snapshot
                 ]
+           |> has_capabilities [Sr_capabilities.vdi_update]
          )
   ; [("vdi_clone_copy_test", `Slow, vdi_clone_copy_test)]
     |> conn
@@ -165,6 +166,7 @@ let tests () =
            all
            |> allowed_operations
                 [`vdi_create; `vdi_destroy; `vdi_enable_cbt; `vdi_clone]
+           |> has_capabilities [Sr_capabilities.vdi_update]
          )
   ]
   |> List.concat
