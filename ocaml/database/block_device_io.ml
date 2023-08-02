@@ -194,13 +194,13 @@ let initialise_redo_log block_dev_fd target_response_time =
 (* May raise exceptions Unixext.Timeout or Unix.Unix_error *)
 let open_block_device block_dev target_response_time =
   (* Check that the block device exists and is writeable *)
-  R.debug "Checking block device..." ;
+  R.info "Checking block device..." ;
   ( try Unix.access block_dev [Unix.F_OK; Unix.W_OK; Unix.R_OK]
     with _ as e ->
       R.error "Block device %s does not exist or is unwriteable" block_dev ;
       raise e
   ) ;
-  R.debug "Opening block device for read/write" ;
+  R.info "Opening block device for read/write" ;
   (* O_DSYNC ensures that calls to Unix.write do not return until the data has been flushed to disk. *)
   let block_dev_fd =
     Unix.openfile block_dev [Unix.O_RDWR; Unix.O_DSYNC; Unix.O_NONBLOCK] 0o755
@@ -327,7 +327,7 @@ let accept_conn s latest_response_time =
   let timeout = latest_response_time -. now in
   (* Await an incoming connection... *)
   let ready_to_read, _, _ = Unix.select [s] [] [] timeout in
-  R.debug "Finished selecting" ;
+  R.info "Finished selecting" ;
   if List.mem s ready_to_read then
     (* We've received a connection. Accept it and return the socket. *)
     fst (Unix.accept s)
@@ -347,7 +347,7 @@ let transfer_data_from_sock_to_fd sock dest_fd available_space
     ignore_exn (fun () -> Unix.close s) ;
     (* Read all the data from the data channel, writing it straight into the block device, keeping track of accumulated length *)
     let total_length = ref 0 in
-    R.debug "Reading from data socket, writing to the block device..." ;
+    R.info "Reading from data socket, writing to the block device..." ;
     let bytes_read =
       finally
         (fun () ->
@@ -384,7 +384,7 @@ let transfer_database_to_sock sock db_fn target_response_time =
   (* Open the data channel *)
   let s = listen_on sock in
   let data_client = accept_conn s target_response_time in
-  R.debug "Accepted connection on data socket" ;
+  R.info "Accepted connection on data socket" ;
   ignore_exn (fun () -> Unix.close s) ;
   finally
     (fun () ->
@@ -857,9 +857,9 @@ let _ =
       let target_startup_response_time =
         start_of_startup +. !Db_globs.redo_log_max_startup_time
       in
-      R.debug "Awaiting incoming connections on %s..." !ctrlsock ;
+      R.info "Awaiting incoming connections on %s..." !ctrlsock ;
       let client = accept_conn s target_startup_response_time in
-      R.debug "Accepted a connection" ;
+      R.info "Accepted a connection" ;
       (* Open the block device *)
       try
         let block_dev_fd =
@@ -914,7 +914,7 @@ let _ =
                     (Printexc.to_string e) ;
                   stop := true
             done ;
-            R.debug "Stopping." ;
+            R.info "Stopping." ;
             ignore_exn (fun () -> Unix.close client)
           )
           (fun () ->
