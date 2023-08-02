@@ -301,7 +301,7 @@ end = struct
                          "The record of the database object that was added, \
                           changed or deleted"
                      )
-                   ; ("type", `String "&lt;object record&gt;")
+                   ; ("type", `String "<class> record")
                    ; ("qualifier", `String (string_of_qualifier DynamicRO))
                    ; ("tag", `String "")
                    ; ( "lifecycle"
