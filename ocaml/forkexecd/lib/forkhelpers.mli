@@ -44,6 +44,7 @@ val default_path : string list
 val execute_command_get_output :
      ?env:string array
   -> ?syslog_stdout:syslog_stdout_t
+  -> ?redirect_stderr_to_stdout:bool
   -> ?timeout:float
   -> string
   -> string list
@@ -55,6 +56,7 @@ val execute_command_get_output :
 val execute_command_get_output_send_stdin :
      ?env:string array
   -> ?syslog_stdout:syslog_stdout_t
+  -> ?redirect_stderr_to_stdout:bool
   -> ?timeout:float
   -> string
   -> string list

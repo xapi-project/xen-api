@@ -237,7 +237,7 @@ let safe_close_and_exec ?env stdin stdout stderr
     close_fds
 
 let execute_command_get_output_inner ?env ?stdin ?(syslog_stdout = NoSyslogging)
-    ?(timeout = -1.0) cmd args =
+    ?(redirect_stderr_to_stdout = false) ?(timeout = -1.0) cmd args =
   let to_close = ref [] in
   let close fd =
     if List.mem fd !to_close then (
@@ -262,7 +262,8 @@ let execute_command_get_output_inner ?env ?stdin ?(syslog_stdout = NoSyslogging)
                 let sock, pid =
                   safe_close_and_exec ?env
                     (Option.map (fun (_, fd, _) -> fd) stdinandpipes)
-                    (Some out_fd) (Some err_fd) [] ~syslog_stdout cmd args
+                    (Some out_fd) (Some err_fd) [] ~syslog_stdout
+                    ~redirect_stderr_to_stdout cmd args
                 in
                 Option.iter
                   (fun (str, _, wr) ->
@@ -292,11 +293,12 @@ let execute_command_get_output_inner ?env ?stdin ?(syslog_stdout = NoSyslogging)
     )
     (fun () -> List.iter Unix.close !to_close)
 
-let execute_command_get_output ?env ?(syslog_stdout = NoSyslogging) ?timeout cmd
-    args =
-  execute_command_get_output_inner ?env ?stdin:None ?timeout ~syslog_stdout cmd
-    args
+let execute_command_get_output ?env ?(syslog_stdout = NoSyslogging)
+    ?(redirect_stderr_to_stdout = false) ?timeout cmd args =
+  execute_command_get_output_inner ?env ?stdin:None ?timeout ~syslog_stdout
+    ~redirect_stderr_to_stdout cmd args
 
 let execute_command_get_output_send_stdin ?env ?(syslog_stdout = NoSyslogging)
-    ?timeout cmd args stdin =
-  execute_command_get_output_inner ?env ~stdin ~syslog_stdout ?timeout cmd args
+    ?(redirect_stderr_to_stdout = false) ?timeout cmd args stdin =
+  execute_command_get_output_inner ?env ~stdin ~syslog_stdout
+    ~redirect_stderr_to_stdout ?timeout cmd args
