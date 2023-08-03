@@ -112,17 +112,17 @@ let check_sr_can_host_statefile ~__context ~sr ~cluster_stack =
           debug
             "no suitable existing statefile found; would have to create a \
              fresh one" ;
-          let free_space =
-            Int64.sub
-              (Db.SR.get_physical_size ~__context ~self:sr)
-              (Db.SR.get_physical_utilisation ~__context ~self:sr)
-          in
+          let self = sr in
+          let size = Db.SR.get_physical_size ~__context ~self in
+          let utilisation = Db.SR.get_physical_utilisation ~__context ~self in
+          let free_space = Int64.sub size utilisation in
           if free_space < minimum_size then (
-            info "SR %s has %Ld free space, needed %Ld" (Ref.string_of sr)
-              free_space minimum_size ;
+            let sr = Ref.string_of sr in
+            info "%s: SR %s size=%Ld utilisation=%Ld free=%Ld needed=%Ld"
+              __FUNCTION__ sr size utilisation free_space minimum_size ;
             raise
               (Api_errors.Server_error
-                 (Api_errors.sr_source_space_insufficient, [Ref.string_of sr])
+                 (Api_errors.sr_source_space_insufficient, [sr])
               )
           ) else
             None
