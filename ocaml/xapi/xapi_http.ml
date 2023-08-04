@@ -261,7 +261,7 @@ let with_context ?(dummy = false) label (req : Request.t) (s : Unix.file_descr)
   with Http.Unauthorised _ as e ->
     let fail __context =
       TaskHelper.failed ~__context
-        (Api_errors.Server_error (Api_errors.session_authentication_failed, []))
+        (Api_errors.Server_error (Api_errors.session_authentication_failed, [uname, "Authentication required to access the resource"]))
     in
     debug
       "No authentication provided to http handler: returning 401 unauthorised" ;
