@@ -1,0 +1,70 @@
+name: Run OCaml C stub static analyzer on XAPI's C stubs
+
+on:
+  push:
+  pull_request:
+    branches:
+      - master
+      - 'feature/**'
+      - '*-lcm'
+
+jobs:
+  staticanalyzer:
+    name: Ocaml files
+    runs-on: ubuntu-22.04
+    env:
+      package: "xapi-lintcstubs"
+      XAPI_VERSION: "v0.0.0-${{ github.sha }}"
+      # required for dune cache to work inside opam for now, otherwise it
+      # gets EXDEV and considers it a cache miss
+      DUNE_CACHE_STORAGE_MODE: copy
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # we could just use the upstream repo here, but I want to ensure
+      # that we're able to run the static analyzer locally too
+      - name: Pull configuration from xs-opam
+        run: |
+          curl --fail --silent https://raw.githubusercontent.com/edwintorok/xs-opam/master/tools/xs-opam-ci.env | cut -f2 -d " " > .env
+
+      - name: Load environment file
+        id: dotenv
+        uses: falti/dotenv-action@v1.0.2
+        with:
+          log-variables: true
+
+      - name: Use ocaml
+        uses: avsm/setup-ocaml@v2
+        with:
+          ocaml-compiler: ${{ steps.dotenv.outputs.ocaml_version_full }}
+          opam-repositories: |
+            default: ${{ steps.dotenv.outputs.repository }}
+          dune-cache: true
+          opam-local-packages: ${{ env.package }}.opam
+
+      - name: Install dependencies for static analyzer
+        run: |
+          opam update
+          opam install --deps-only ${{ env.package }}
+
+        # The checkout action performs a shallow, this triggers dune to set the
+        # version to <hash>-dirty. Work around this dune behaviour and tag the
+        # commit so a proper version is always picked up
+      - name: Tag current commit
+        run: |
+          git config user.name "Dune workaround"
+          git config user.email "<>"
+          git tag -am "workaround for dune" "$XAPI_VERSION"
+
+      - name: Configure
+        run: opam exec -- ./configure --xapi_version="$XAPI_VERSION"
+
+      - name: Run static analyzer
+        run: opam exec -- make analyze
+
+      - name: Upload SARIF report
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: _build/default/xapi.sarif

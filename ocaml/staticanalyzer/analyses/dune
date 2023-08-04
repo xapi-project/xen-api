@@ -1,0 +1,5 @@
+(library
+  (name lintcstubs_analysis)
+  (flags (:standard -open Goblint_lib)); make it compatible to how it would look like if it was part of Goblint itself
+  (libraries goblint.lib)
+ )
