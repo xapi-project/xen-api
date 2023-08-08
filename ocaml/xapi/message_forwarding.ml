@@ -5778,7 +5778,7 @@ functor
                 Xapi_sr.maybe_push_sr_rrds ~__context ~sr ;
                 Xapi_sr.update ~__context ~sr
               in
-              Xapi_sr.scan_one ~__context ~callback:sr_scan_callback sr
+              sr_scan_callback ()
           )
 
       let unplug ~__context ~self =
