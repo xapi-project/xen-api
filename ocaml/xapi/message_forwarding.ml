@@ -5760,8 +5760,10 @@ functor
         ) ;
         (* We always plug the master PBD first and unplug it last. If this is the
          * first PBD plugged for this SR (proxy: the PBD being plugged is for the
-         * master) then we should perform an initial SR scan and perform some
-         * asynchronous start-of-day operations in the callback.
+         * master) then we should perform an initial SR scan. CA-379112
+         * changed the scan from asynchronous to synchronous as
+         * otherwise on return the xapi DB does not have the correct
+         * information.
          * Note the current context contains a completed real task and we should
          * not reuse it for what is effectively another call. *)
         if is_master_pbd then
