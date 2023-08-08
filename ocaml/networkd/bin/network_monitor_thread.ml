@@ -371,6 +371,20 @@ let clear_input fd =
   in
   Unix.set_nonblock fd ; loop () ; Unix.clear_nonblock fd
 
+(* Watch for changes in the network interfaces: whether the IP changes, and
+   whether the links go online or offline *)
+let relevant line =
+  let contains affix = Astring.String.is_infix ~affix in
+  let ignored =
+    [
+      ("ignore second line of a message", String.starts_with ~prefix:"    ")
+    ; ("no link-local addresses", contains "inet6 fe80")
+    ]
+  in
+  let allowed = [("IP changes", contains "inet")] in
+  let test (_name, fn) = fn line in
+  (not (List.exists test ignored)) && List.exists test allowed
+
 let rec ip_watcher () =
   let cmd = Network_utils.iproute2 in
   let args = ["monitor"; "address"] in
@@ -385,14 +399,9 @@ let rec ip_watcher () =
   Unix.close writeme ;
   let in_channel = Unix.in_channel_of_descr readme in
   let rec loop () =
-    let line = input_line in_channel in
-    (* Do not send events for link-local IPv6 addresses, and removed IPs *)
-    if
-      Astring.String.is_infix ~affix:"inet" line
-      && not (Astring.String.is_infix ~affix:"inet6 fe80" line)
-    then (
+    if relevant (input_line in_channel) then (
       (* Ignore changes for the next second, since they usually come in bursts,
-         * and signal only once. *)
+         and signal only once. *)
       Thread.delay 1. ;
       clear_input readme ;
       signal_networking_change ()
