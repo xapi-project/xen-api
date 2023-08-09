@@ -40,15 +40,13 @@ let dns_names () =
      )
   |> Astring.String.uniquify
 
-let ip_addr_of_string ip =
-  Ipaddr.of_string ip
-  |> Stdlib.Result.to_option
-  |> Option.map (function
-       | Ipaddr.V4 addr ->
-           Cstruct.of_string (Ipaddr.V4.to_octets addr)
-       | Ipaddr.V6 addr ->
-           Cstruct.of_string (Ipaddr.V6.to_octets addr)
-       )
+let ipaddr_to_cstruct = function
+  | Ipaddr.V4 addr ->
+      Cstruct.of_string (Ipaddr.V4.to_octets addr)
+  | Ipaddr.V6 addr ->
+      Cstruct.of_string (Ipaddr.V6.to_octets addr)
+
+let list_head lst = List.nth_opt lst 0
 
 let get_management_ip_addr ~dbg =
   let iface = Inventory.lookup Inventory._management_interface in
@@ -70,14 +68,10 @@ let get_management_ip_addr ~dbg =
             L.error "%s: %s" __FUNCTION__ msg ;
             raise (Unexpected_address_type msg)
       in
-      let addrs =
-        addrs
-        |> List.map (fun (addr, _) -> Unix.string_of_inet_addr addr)
-        |> (* Filter out link-local addresses *)
-        List.filter (fun addr -> String.sub addr 0 4 <> "fe80")
-        |> List.map (fun str ->
-               Option.map (fun bytes -> (str, bytes)) (ip_addr_of_string str)
-           )
-      in
-      Option.join (List.nth_opt addrs 0)
+      addrs
+      |> List.map (fun (addr, _) -> Ipaddr_unix.of_inet_addr addr)
+      (* Filter out link-local addresses *)
+      |> List.filter (fun addr -> Ipaddr.scope addr <> Ipaddr.Link)
+      |> List.map (fun ip -> (Ipaddr.to_string ip, ipaddr_to_cstruct ip))
+      |> list_head
   with _ -> None
