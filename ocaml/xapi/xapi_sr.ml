@@ -591,7 +591,11 @@ let update ~__context ~sr =
       Db.SR.set_physical_size ~__context ~self:sr ~value:sr_info.total_space ;
       Db.SR.set_physical_utilisation ~__context ~self:sr
         ~value:(Int64.sub sr_info.total_space sr_info.free_space) ;
-      Db.SR.set_clustered ~__context ~self:sr ~value:sr_info.clustered
+      Db.SR.set_clustered ~__context ~self:sr ~value:sr_info.clustered ;
+      info "%s: updated xapi DB for SR %s" __FUNCTION__
+        (Option.fold ~some:Fun.id ~none:sr_info.name_label
+           sr_info.Storage_interface.sr_uuid
+        )
   )
 
 let get_supported_types ~__context = Sm.supported_drivers ()
