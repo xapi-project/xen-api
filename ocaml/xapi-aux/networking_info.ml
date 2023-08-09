@@ -13,6 +13,8 @@
  *)
 module Net = Network_client.Client
 
+module L = Debug.Make (struct let name = __MODULE__ end)
+
 let get_hostname () = try Unix.gethostname () with _ -> ""
 
 exception Unexpected_address_type of string
@@ -64,10 +66,9 @@ let get_management_ip_addr ~dbg =
         | "ipv6" ->
             Net.Interface.get_ipv6_addr dbg iface
         | s ->
-            raise
-              (Unexpected_address_type
-                 (Printf.sprintf "Expected 'ipv4' or 'ipv6', got %s" s)
-              )
+            let msg = Printf.sprintf "Expected 'ipv4' or 'ipv6', got %s" s in
+            L.error "%s: %s" __FUNCTION__ msg ;
+            raise (Unexpected_address_type msg)
       in
       let addrs =
         addrs
