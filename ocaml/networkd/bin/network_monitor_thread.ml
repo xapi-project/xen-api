@@ -379,15 +379,20 @@ let relevant line =
     [
       ("ignore second line of a message", String.starts_with ~prefix:"    ")
     ; ("no link-local addresses", contains "inet6 fe80")
+    ; ( "ignore vif and tap devices"
+      , fun line -> contains " vif" line || contains " tap" line
+      )
     ]
   in
-  let allowed = [("IP changes", contains "inet")] in
+  let allowed =
+    [("IP changes", contains "inet"); ("state changes", contains " state ")]
+  in
   let test (_name, fn) = fn line in
   (not (List.exists test ignored)) && List.exists test allowed
 
 let rec ip_watcher () =
   let cmd = Network_utils.iproute2 in
-  let args = ["monitor"; "address"] in
+  let args = ["monitor"; "address"; "link"] in
   let readme, writeme = Unix.pipe () in
   with_lock watcher_m (fun () ->
       watcher_pid :=
