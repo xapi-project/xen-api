@@ -1241,7 +1241,7 @@ let migrate_send' ~__context ~vm ~dest ~live:_ ~vdi_map ~vif_map ~vgpu_map
   let suspends_vdis =
     List.fold_left
       (fun acc vm ->
-        if power_state = `Suspended then
+        if Db.VM.get_power_state ~__context ~self:vm = `Suspended then
           let vdi = Db.VM.get_suspend_VDI ~__context ~self:vm in
           let sr = Db.VDI.get_SR ~__context ~self:vdi in
           if
