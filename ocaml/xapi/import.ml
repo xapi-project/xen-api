@@ -50,7 +50,6 @@ type metadata_options = {
        	 * - If the migration is for real, we will expect the VM export code on the source host to have mapped the VDI locations onto their
        	 *   mirrored counterparts which are present on this host. *)
     live: bool
-  ; check_cpu: bool
   ; (* An optional src VDI -> destination VDI rewrite list *)
     vdi_map: (string * string) list
 }
@@ -75,13 +74,6 @@ type config = {
 
 let is_live config =
   match config.import_type with Metadata_import {live; _} -> live | _ -> false
-
-let needs_cpu_check config =
-  match config.import_type with
-  | Metadata_import {check_cpu; _} ->
-      check_cpu
-  | _ ->
-      false
 
 (** List of (datamodel classname * Reference in export * Reference in database) *)
 type table = (string * string * string) list
@@ -261,8 +253,8 @@ let assert_can_restore_backup ~__context rpc session_id (x : header) =
     import_vms
 
 let assert_can_live_import __context vm_record =
-  let host = Helpers.get_localhost ~__context in
   let assert_memory_available () =
+    let host = Helpers.get_localhost ~__context in
     let host_mem_available =
       Memory_check.host_compute_free_memory_with_maximum_compression ~__context
         ~host None
@@ -424,7 +416,7 @@ module VM : HandlerTools = struct
     | Skip
     | Clean_import of API.vM_t
 
-  let precheck __context config _rpc _session_id state x =
+  let precheck __context config _rpc _session_id _state x =
     let vm_record = get_vm_record x.snapshot in
     let is_default_template =
       vm_record.API.vM_is_default_template
@@ -508,21 +500,6 @@ module VM : HandlerTools = struct
       | Replace (_, vm_record) | Clean_import vm_record ->
           if is_live config then
             assert_can_live_import __context vm_record ;
-          ( if needs_cpu_check config then
-              let vmm_record =
-                find_in_export
-                  (Ref.string_of vm_record.API.vM_metrics)
-                  state.export
-                |> API.vM_metrics_t_of_rpc
-              in
-              let host = Helpers.get_localhost ~__context in
-              Cpuid_helpers.assert_vm_is_compatible ~__context
-                ~vm:
-                  (`import
-                    (vm_record, vmm_record.API.vM_metrics_current_domain_type)
-                    )
-                ~host
-          ) ;
           import_action
       | _ ->
           import_action
@@ -2259,14 +2236,13 @@ let metadata_handler (req : Request.t) s _ =
           let force = find_query_flag req.Request.query "force" in
           let dry_run = find_query_flag req.Request.query "dry_run" in
           let live = find_query_flag req.Request.query "live" in
-          let check_cpu = find_query_flag req.Request.query "check_cpu" in
           let vdi_map = read_map_params "vdi" req.Request.query in
           info
             "VM.import_metadata: force = %b; full_restore = %b dry_run = %b; \
-             live = %b; check_cpu = %b; vdi_map = [ %s ]"
-            force full_restore dry_run live check_cpu
+             live = %b; vdi_map = [ %s ]"
+            force full_restore dry_run live
             (String.concat "; " (List.map (fun (a, b) -> a ^ "=" ^ b) vdi_map)) ;
-          let metadata_options = {dry_run; live; vdi_map; check_cpu} in
+          let metadata_options = {dry_run; live; vdi_map} in
           let config =
             {import_type= Metadata_import metadata_options; full_restore; force}
           in

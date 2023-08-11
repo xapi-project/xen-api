@@ -45,9 +45,9 @@ let socket_count = Map_check.(field "socket_count" int)
 
 let vendor = Map_check.(field "vendor" string)
 
-let get_flags_for_vm ~__context domain_type cpu_info =
+let get_flags_for_vm ~__context vm cpu_info =
   let features_field =
-    match domain_type with
+    match Helpers.domain_type ~__context ~self:vm with
     | `hvm | `pv_in_pvh | `pvh ->
         features_hvm
     | `pv ->
@@ -77,51 +77,36 @@ let next_boot_cpu_features ~__context ~vm =
   Map_check.getf features_field_boot pool_cpu_info
   |> Xenops_interface.CPU_policy.to_string
 
-let get_host_cpu_info ~__context ~host ?remote () =
+let get_host_cpu_info ~__context ~vm:_ ~host ?remote () =
   match remote with
   | None ->
       Db.Host.get_cpu_info ~__context ~self:host
   | Some (rpc, session_id) ->
       Client.Client.Host.get_cpu_info ~rpc ~session_id ~self:host
 
-let get_host_compatibility_info ~__context ~domain_type ~host ?remote () =
-  get_host_cpu_info ~__context ~host ?remote ()
-  |> get_flags_for_vm ~__context domain_type
+let get_host_compatibility_info ~__context ~vm ~host ?remote () =
+  get_host_cpu_info ~__context ~vm ~host ?remote ()
+  |> get_flags_for_vm ~__context vm
 
 (* Compare the CPU on which the given VM was last booted to the CPU of the given host. *)
-let assert_vm_is_compatible ~__context ~vm ~host =
-  let vm_ref, vm_rec, domain_type =
-    match vm with
-    | `db self ->
-        ( self
-        , Db.VM.get_record ~__context ~self
-        , Helpers.domain_type ~__context ~self
-        )
-    | `import (vm_rec, dt) ->
-        (* Ref.null, because the VM to be imported does not yet have a ref *)
-        (Ref.null, vm_rec, Helpers.check_domain_type dt)
-  in
+let assert_vm_is_compatible ~__context ~vm ~host ?remote () =
   let fail msg =
     raise
       (Api_errors.Server_error
          ( Api_errors.vm_incompatible_with_this_host
-         , [Ref.string_of vm_ref; Ref.string_of host; msg]
+         , [Ref.string_of vm; Ref.string_of host; msg]
          )
       )
   in
-  if vm_rec.API.vM_power_state <> `Halted then (
-    let host_uuid = Db.Host.get_uuid ~__context ~self:host in
-    debug "Checking CPU compatibility of %s VM %s with host %s"
-      (Record_util.domain_type_to_string domain_type)
-      vm_rec.API.vM_uuid host_uuid ;
+  if Db.VM.get_power_state ~__context ~self:vm <> `Halted then
     let open Xapi_xenops_queue in
     let module Xenopsd = (val make_client (default_xenopsd ()) : XENOPS) in
     let dbg = Context.string_of_task __context in
     try
       let host_cpu_vendor, host_cpu_features =
-        get_host_compatibility_info ~__context ~domain_type ~host ()
+        get_host_compatibility_info ~__context ~vm ~host ?remote ()
       in
-      let vm_cpu_info = vm_rec.API.vM_last_boot_CPU_flags in
+      let vm_cpu_info = Db.VM.get_last_boot_CPU_flags ~__context ~self:vm in
       if List.mem_assoc cpu_info_vendor_key vm_cpu_info then (
         (* Check the VM was last booted on a CPU with the same vendor as this host's CPU. *)
         let vm_cpu_vendor = List.assoc cpu_info_vendor_key vm_cpu_info in
@@ -154,4 +139,3 @@ let assert_vm_is_compatible ~__context ~vm ~host =
       fail
         "Host does not have new leveling feature keys - not comparing VM's \
          flags"
-  )
