@@ -269,8 +269,10 @@ let connect sockpath latest_response_time =
         D.debug "Remaining time for retries: %f" remaining ;
         Thread.delay attempt_delay ;
         attempt ()
-      ) else
+      ) else (
+        D.debug "%s timeout reached" __FUNCTION__ ;
         raise Unixext.Timeout
+      )
   in
   attempt ()
 
@@ -542,7 +544,10 @@ let maybe_retry f log =
 (* Functions relating to the lifecycle of the block device I/O process. *)
 
 (* Close any existing socket and kill the corresponding process. *)
-let shutdown log =
+
+let shutdown_m = Mutex.create ()
+
+let shutdown' log =
   if is_enabled log then (
     D.debug "Shutting down connection to I/O process for '%s'" log.name ;
     try
@@ -594,6 +599,12 @@ let shutdown log =
       ()
     (* ignore any errors *)
   )
+
+let locked f =
+  let finally () = Mutex.unlock shutdown_m in
+  Mutex.lock shutdown_m ; Fun.protect ~finally f
+
+let shutdown log = locked @@ fun () -> shutdown' log
 
 let broken log =
   set_time_of_last_failure log ;
