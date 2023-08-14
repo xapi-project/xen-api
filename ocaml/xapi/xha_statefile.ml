@@ -29,34 +29,42 @@ open Client
 
 (** Return the minimum size of an HA statefile, as of
     XenServer HA state-file description vsn 1.3 *)
-let minimum_size =
+let minimum_statefile_size =
   let ( ** ) = Int64.mul and ( ++ ) = Int64.add in
   let global_section_size = 4096L
   and host_section_size = 4096L
   and maximum_number_of_hosts = 64L in
   global_section_size ++ (maximum_number_of_hosts ** host_section_size)
 
-let ha_fits_sr ~__context ~sr ~typ ~minimum_size =
+let round_to ~align n = Int64.(div (add n @@ sub align 1L) align |> mul align)
+
+(* SM doesn't actually allow us to create VDIs smaller than 4MiB, so we need to round up *)
+let minimum_sr_size =
+  [minimum_statefile_size; Redo_log.minimum_vdi_size]
+  |> List.map @@ round_to ~align:Int64.(shift_left 1L 22)
+  |> List.fold_left Int64.add Int64.zero
+
+let ha_fits_sr ~__context ~what ~sr ~typ ~minimum_size =
   let ha_fits self =
     Db.VDI.get_type ~__context ~self = typ
     && Db.VDI.get_virtual_size ~__context ~self >= minimum_size
   in
   match List.filter ha_fits (Db.SR.get_VDIs ~__context ~self:sr) with
   | x :: _ ->
-      debug "Would re-use existing statefile: %s"
+      debug "Would re-use existing %s: %s" what
         (Db.VDI.get_uuid ~__context ~self:x) ;
       Some x
   | [] ->
-      debug
-        "no suitable existing statefile found; would have to create a fresh one" ;
+      debug "no suitable existing %s found; would have to create a fresh one"
+        what ;
       let self = sr in
       let size = Db.SR.get_physical_size ~__context ~self in
       let utilisation = Db.SR.get_physical_utilisation ~__context ~self in
       let free_space = Int64.sub size utilisation in
-      if free_space < minimum_size then (
+      if free_space < minimum_sr_size then (
         let sr = Ref.string_of sr in
         info "%s: SR %s size=%Ld utilisation=%Ld free=%Ld needed=%Ld"
-          __FUNCTION__ sr size utilisation free_space minimum_size ;
+          __FUNCTION__ sr size utilisation free_space minimum_sr_size ;
         raise
           (Api_errors.Server_error
              (Api_errors.sr_source_space_insufficient, [sr])
@@ -126,11 +134,16 @@ let check_sr_can_host_statefile ~__context ~sr ~cluster_stack =
           (Api_errors.Server_error
              (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
           ) ;
-      ha_fits_sr ~__context ~sr ~minimum_size ~typ:`ha_statefile
+      ha_fits_sr ~__context ~what:"statefile" ~sr
+        ~minimum_size:minimum_statefile_size ~typ:`ha_statefile
 
 let assert_sr_can_host_statefile ~__context ~sr ~cluster_stack =
   let (_ : 'a option) =
     check_sr_can_host_statefile ~__context ~sr ~cluster_stack
+  in
+  let (_ : _ option) =
+    ha_fits_sr ~__context ~what:"redo-log" ~sr
+      ~minimum_size:Redo_log.minimum_vdi_size ~typ:`redo_log
   in
   ()
 
@@ -146,7 +159,7 @@ let list_srs_which_can_host_statefile ~__context ~cluster_stack =
 
 let create ~__context ~sr ~cluster_stack =
   assert_sr_can_host_statefile ~__context ~sr ~cluster_stack ;
-  let size = minimum_size in
+  let size = minimum_statefile_size in
   Helpers.call_api_functions ~__context (fun rpc session_id ->
       Client.VDI.create ~rpc ~session_id ~name_label:"Statefile for HA"
         ~name_description:"Used for storage heartbeating" ~sR:sr
