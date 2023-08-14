@@ -72,6 +72,9 @@
   <data name="DEVICE_DETACH_TIMEOUT" xml:space="preserve">
     <value>A timeout happened while attempting to detach a device {1} of type {0} from a VM</value>
   </data>
+  <data name="DYNAMIC_MEMORY_CONTROL_UNAVAILABLE" xml:space="preserve">
+    <value>The VM requires Dynamic Memory Control (DMC), which is unavailable</value>
+  </data>
   <data name="EVACUATE_NO_OTHER_HOSTS_FOR_MASTER" xml:space="preserve">
     <value>No other server available to nominate as coordinator.  Please add or enable some other servers.</value>
   </data>

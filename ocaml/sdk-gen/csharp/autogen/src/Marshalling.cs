@@ -30,12 +30,22 @@
 using System;
 using System.Collections.Generic;
 using System.Collections;
+using System.Globalization;
+using System.Linq;
 
 
 namespace XenAPI
 {
     public class Marshalling
     {
+        private static readonly string[] DateFormats =
+        {
+            "yyyyMMddTHH:mm:ssZ", //iso8601
+            "yyyy-MM-ddTHH:mm:ssZ", //iso8601
+            "yyyy-MM-dd", //non-iso
+            "yyyy.MMdd", //non-iso
+        };
+
         /// <summary>
         /// Takes a Hashtable, creates a new t, and populates the fields of
         /// that t with the values from the Hashtable.
@@ -45,7 +55,7 @@ namespace XenAPI
         /// <returns></returns>
         public static object convertStruct(Type t, Hashtable table)
         {
-            return t.GetConstructor(new Type[] {typeof(Hashtable)}).Invoke(new object[] {table});
+            return t.GetConstructor(new Type[] { typeof(Hashtable) }).Invoke(new object[] { table });
         }
 
         public static Type GetXenAPIType(string name)
@@ -56,31 +66,27 @@ namespace XenAPI
         public static bool ParseBool(Hashtable table, string key)
         {
             var val = table[key];
-            return val == null ? false : (bool)table[key];
+            return val is bool boolVal ? boolVal : bool.Parse((string)val);
         }
 
         public static DateTime ParseDateTime(Hashtable table, string key)
         {
             var val = table[key];
-            return val == null ? DateTime.MinValue : (DateTime)table[key];
+            return val is DateTime dateTimeVal
+                ? dateTimeVal
+                : DateTime.ParseExact((string)val, DateFormats, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal);
         }
 
         public static double ParseDouble(Hashtable table, string key)
         {
             var val = table[key];
-            return val == null ? 0.0 : (double)table[key];
-        }
-
-        public static Hashtable ParseHashTable(Hashtable table, string key)
-        {
-            return (Hashtable)table[key];
+            return val is double doubleVal ? doubleVal : double.Parse((string)val);
         }
 
         public static long ParseLong(Hashtable table, string key)
         {
-            long result;
-            long.TryParse((string)table[key], out result);
-            return result;
+            var val = table[key];
+            return val is long longVal ? longVal : long.Parse((string)val);
         }
 
         public static string ParseString(Hashtable table, string key)
@@ -90,32 +96,113 @@ namespace XenAPI
 
         public static string[] ParseStringArray(Hashtable table, string key)
         {
-            var val = (object[])table[key];
-            return val == null ? new string[0] : Array.ConvertAll(val, o => o.ToString());
+            var val = table[key];
+            return val is object[] array ? array.Cast<string>().ToArray() : ParseSxpList((string)val).ToArray();
         }
 
         public static long[] ParseLongArray(Hashtable table, string key)
         {
-            var val = (object[])table[key];
-            return val == null ? new long[0] : Array.ConvertAll(val, o => long.Parse(o.ToString()));
+            var val = table[key];
+            return val is object[] array
+                ? array.Cast<long>().ToArray()
+                : ParseSxpList((string)table[key]).Select(long.Parse).ToArray();
         }
 
         public static XenRef<T> ParseRef<T>(Hashtable table, string key) where T : XenObject<T>
         {
-            var val = (string)table[key];
-            return val == null ? null : XenRef<T>.Create(val);
+            return table[key] is string val ? XenRef<T>.Create(val) : null;
         }
 
         public static List<XenRef<T>> ParseSetRef<T>(Hashtable table, string key) where T : XenObject<T>
         {
-            var rs = (object[])table[key];
-            return rs == null ? null : XenRef<T>.Create(rs);
+            var val = table[key];
+            return val is object[] array
+                ? array.Cast<XenRef<T>>().ToList()
+                : ParseSxpList((string)val).Select(XenRef<T>.Create).ToList();
         }
 
-        public static Dictionary<XenRef<T>, T> ParseMapRefRecord<T, U>(Hashtable table, string key) where T : XenObject<T>
+        public static Hashtable ParseHashTable(Hashtable table, string key)
         {
-            Hashtable map = ParseHashTable(table, key);
-            return map == null ? null : XenRef<T>.Create<U>(map);
+            var val = table[key];
+            return val as Hashtable ?? ParseSxpDict((string)table[key]);
+        }
+
+        private static Hashtable ParseSxpDict(string p)
+        {
+            var result = new Hashtable();
+
+            using (var enumerator = Tokenize(p).GetEnumerator())
+            {
+                if (!enumerator.MoveNext())
+                    return result;
+
+                while (enumerator.MoveNext())
+                {
+                    if (enumerator.Current == ")")
+                        break;
+
+                    enumerator.MoveNext();
+                    var key = enumerator.Current;
+                    enumerator.MoveNext();
+                    var value = enumerator.Current;
+                    enumerator.MoveNext();
+
+                    result[key] = value;
+                }
+
+                return result;
+            }
+        }
+
+        private static List<string> ParseSxpList(string p)
+        {
+            var result = new List<string>();
+
+            foreach (var token in Tokenize(p))
+            {
+                if (token == "(" || token == ")")
+                    continue;
+
+                result.Add(token);
+            }
+
+            return result;
+        }
+
+        private static IEnumerable<string> Tokenize(string str)
+        {
+            bool inStr = false;
+            int j = 0;
+
+            for (int i = 0; i < str.Length; i++)
+            {
+                switch (str[i])
+                {
+                    case '(':
+                        if (!inStr)
+                            yield return "(";
+                        break;
+                    case ')':
+                        if (!inStr)
+                            yield return ")";
+                        break;
+
+                    case '\'':
+                    case '"':
+                        if (!inStr)
+                        {
+                            inStr = true;
+                            j = i;
+                        }
+                        else if (str[i - 1] != '\\')
+                        {
+                            inStr = false;
+                            yield return str.Substring(j + 1, i - j - 1).Replace("\\\"", "\"").Replace("\\\'", "\'");
+                        }
+
+                        break;
+                }
+            }
         }
     }
 }

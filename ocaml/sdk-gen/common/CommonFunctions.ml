@@ -5,6 +5,8 @@
 open Printf
 open Datamodel_types
 
+exception Unknown_wire_protocol
+
 type wireProtocol = XmlRpc | JsonRpc
 
 type rpm_version = {major: int; minor: int; micro: int}
