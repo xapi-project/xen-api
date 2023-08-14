@@ -36,6 +36,34 @@ let minimum_size =
   and maximum_number_of_hosts = 64L in
   global_section_size ++ (maximum_number_of_hosts ** host_section_size)
 
+let ha_fits_sr ~__context ~sr ~typ ~minimum_size =
+  let ha_fits self =
+    Db.VDI.get_type ~__context ~self = typ
+    && Db.VDI.get_virtual_size ~__context ~self >= minimum_size
+  in
+  match List.filter ha_fits (Db.SR.get_VDIs ~__context ~self:sr) with
+  | x :: _ ->
+      debug "Would re-use existing statefile: %s"
+        (Db.VDI.get_uuid ~__context ~self:x) ;
+      Some x
+  | [] ->
+      debug
+        "no suitable existing statefile found; would have to create a fresh one" ;
+      let self = sr in
+      let size = Db.SR.get_physical_size ~__context ~self in
+      let utilisation = Db.SR.get_physical_utilisation ~__context ~self in
+      let free_space = Int64.sub size utilisation in
+      if free_space < minimum_size then (
+        let sr = Ref.string_of sr in
+        info "%s: SR %s size=%Ld utilisation=%Ld free=%Ld needed=%Ld"
+          __FUNCTION__ sr size utilisation free_space minimum_size ;
+        raise
+          (Api_errors.Server_error
+             (Api_errors.sr_source_space_insufficient, [sr])
+          )
+      ) else
+        None
+
 let check_sr_can_host_statefile ~__context ~sr ~cluster_stack =
   (* Check that each host has a PBD to this SR *)
   let pbds = Db.SR.get_PBDs ~__context ~self:sr in
@@ -89,7 +117,7 @@ let check_sr_can_host_statefile ~__context ~sr ~cluster_stack =
              ]
            )
         )
-  | (_, sm) :: _ -> (
+  | (_, sm) :: _ ->
       if
         (not (List.mem_assoc "VDI_GENERATE_CONFIG" sm.Db_actions.sM_features))
         && not (List.mem_assoc "VDI_ATTACH_OFFLINE" sm.Db_actions.sM_features)
@@ -98,35 +126,7 @@ let check_sr_can_host_statefile ~__context ~sr ~cluster_stack =
           (Api_errors.Server_error
              (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
           ) ;
-      let size = minimum_size in
-      let ha_fits self =
-        Db.VDI.get_type ~__context ~self = `ha_statefile
-        && Db.VDI.get_virtual_size ~__context ~self >= size
-      in
-      match List.filter ha_fits (Db.SR.get_VDIs ~__context ~self:sr) with
-      | x :: _ ->
-          debug "Would re-use existing statefile: %s"
-            (Db.VDI.get_uuid ~__context ~self:x) ;
-          Some x
-      | [] ->
-          debug
-            "no suitable existing statefile found; would have to create a \
-             fresh one" ;
-          let self = sr in
-          let size = Db.SR.get_physical_size ~__context ~self in
-          let utilisation = Db.SR.get_physical_utilisation ~__context ~self in
-          let free_space = Int64.sub size utilisation in
-          if free_space < minimum_size then (
-            let sr = Ref.string_of sr in
-            info "%s: SR %s size=%Ld utilisation=%Ld free=%Ld needed=%Ld"
-              __FUNCTION__ sr size utilisation free_space minimum_size ;
-            raise
-              (Api_errors.Server_error
-                 (Api_errors.sr_source_space_insufficient, [sr])
-              )
-          ) else
-            None
-    )
+      ha_fits_sr ~__context ~sr ~minimum_size ~typ:`ha_statefile
 
 let assert_sr_can_host_statefile ~__context ~sr ~cluster_stack =
   let (_ : 'a option) =
