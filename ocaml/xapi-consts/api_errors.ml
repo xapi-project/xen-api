@@ -1237,8 +1237,6 @@ let repository_already_exists = "REPOSITORY_ALREADY_EXISTS"
 
 let repository_is_in_use = "REPOSITORY_IS_IN_USE"
 
-let reposync_in_progress = "REPOSYNC_IN_PROGRESS"
-
 let repository_cleanup_failed = "REPOSITORY_CLEANUP_FAILED"
 
 let no_repository_enabled = "NO_REPOSITORY_ENABLED"

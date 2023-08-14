@@ -1890,8 +1890,6 @@ let _ =
   error Api_errors.repository_already_exists ["ref"]
     ~doc:"The repository already exists." () ;
   error Api_errors.repository_is_in_use [] ~doc:"The repository is in use." () ;
-  error Api_errors.reposync_in_progress []
-    ~doc:"The pool is syncing with the enabled remote YUM repository." () ;
   error Api_errors.repository_cleanup_failed []
     ~doc:"Failed to clean up local repository on coordinator." () ;
   error Api_errors.no_repository_enabled []
