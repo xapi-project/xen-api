@@ -600,11 +600,10 @@ let shutdown' log =
     (* ignore any errors *)
   )
 
-let locked f =
-  let finally () = Mutex.unlock shutdown_m in
-  Mutex.lock shutdown_m ; Fun.protect ~finally f
-
-let shutdown log = locked @@ fun () -> shutdown' log
+let shutdown log =
+  Xapi_stdext_threads.Threadext.Mutex.execute shutdown_m (fun () ->
+      shutdown' log
+  )
 
 let broken log =
   set_time_of_last_failure log ;
