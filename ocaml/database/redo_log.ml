@@ -600,10 +600,7 @@ let shutdown' log =
     (* ignore any errors *)
   )
 
-let shutdown log =
-  Xapi_stdext_threads.Threadext.Mutex.execute shutdown_m (fun () ->
-      shutdown' log
-  )
+let shutdown log = with_lock shutdown_m (fun () -> shutdown' log)
 
 let broken log =
   set_time_of_last_failure log ;
