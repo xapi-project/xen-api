@@ -6,10 +6,17 @@ let future = Date.of_string "2020-09-22T15:03:13Z"
 
 let fail_login ~__context ~uname ~originator ~now () =
   try
+    let user_name = Option.get uname in
     Xapi_session._record_login_failure ~__context ~now ~uname ~originator
       ~record:`log_and_alert (fun () ->
         if Random.bool () then
-          raise Api_errors.(Server_error (session_authentication_failed, [uname, "Authentication failed"]))
+          raise
+            Api_errors.(
+              Server_error
+                ( session_authentication_failed
+                , [user_name; "Authentication failed"]
+                )
+            )
         else
           raise (Auth_signature.Auth_failure "Auth failure")
     )
