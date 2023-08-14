@@ -516,12 +516,18 @@ module VM : HandlerTools = struct
                 |> API.vM_metrics_t_of_rpc
               in
               let host = Helpers.get_localhost ~__context in
-              Cpuid_helpers.assert_vm_is_compatible ~__context
-                ~vm:
-                  (`import
-                    (vm_record, vmm_record.API.vM_metrics_current_domain_type)
-                    )
-                ~host
+              match
+                ( vm_record.API.vM_is_a_snapshot
+                , vmm_record.API.vM_metrics_current_domain_type
+                )
+              with
+              | true, `unspecified ->
+                  (* A snapshot which was taken from a shutdown VM. *)
+                  ()
+              | _, dt ->
+                  Cpuid_helpers.assert_vm_is_compatible ~__context
+                    ~vm:(`import (vm_record, dt))
+                    ~host
           ) ;
           import_action
       | _ ->
