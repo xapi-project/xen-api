@@ -29,8 +29,6 @@ val cleanup_all_pool_repositories : unit -> unit
 val cleanup_pool_repo :
   __context:Context.t -> self:[`Repository] API.Ref.t -> unit
 
-val with_reposync_lock : (unit -> 'a) -> 'a
-
 val sync :
      __context:Context.t
   -> self:[`Repository] API.Ref.t

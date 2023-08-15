@@ -3336,7 +3336,6 @@ let set_repositories ~__context ~self ~value =
   Xapi_pool_helpers.with_pool_operation ~__context ~self
     ~doc:"pool.set_repositories" ~op:`configure_repositories
   @@ fun () ->
-  Repository.with_reposync_lock @@ fun () ->
   let existings = Db.Pool.get_repositories ~__context ~self in
   (* To be removed *)
   List.iter
@@ -3362,7 +3361,6 @@ let add_repository ~__context ~self ~value =
   Xapi_pool_helpers.with_pool_operation ~__context ~self
     ~doc:"pool.add_repository" ~op:`configure_repositories
   @@ fun () ->
-  Repository.with_reposync_lock @@ fun () ->
   let existings = Db.Pool.get_repositories ~__context ~self in
   if not (List.mem value existings) then (
     Db.Pool.add_repositories ~__context ~self ~value ;
@@ -3374,7 +3372,6 @@ let remove_repository ~__context ~self ~value =
   Xapi_pool_helpers.with_pool_operation ~__context ~self
     ~doc:"pool.remove_repository" ~op:`configure_repositories
   @@ fun () ->
-  Repository.with_reposync_lock @@ fun () ->
   List.iter
     (fun x ->
       if x = value then (
@@ -3388,45 +3385,18 @@ let remove_repository ~__context ~self ~value =
 let sync_updates ~__context ~self ~force ~token ~token_id =
   Pool_features.assert_enabled ~__context ~f:Features.Updates ;
   let open Repository in
-  (* Two locks are used here:
-   * 1. with_pool_operation: this is used by following repository operations:
-   *    'configure_repositories', 'sync_updates', 'get_updates' and 'apply_updates'.
-   *
-   * 2. with_reposync_lock: this is used by 'configure_repositories' and 'sync_updates' only.
-   *    With this extra lock, 'sync_updates' could download the metadata and packages
-   *    from remote YUM repository without failing operations 'get_updates' and
-   *    'apply_updates'. Meanwhile this lock protects 'sync_updates' and 'configure_repositories'
-   *    from concurrent conflict between them.
-   *
-   * The 'get_updates' and 'apply_updates' don't modify the local pool repository.
-   * But the 'configure_repositories' and 'sync_updates' may do the change.
-   *)
-  let enabled = Repository_helpers.get_enabled_repositories ~__context in
-  match force with
-  | true ->
-      Xapi_pool_helpers.with_pool_operation ~__context ~self
-        ~doc:"pool.sync_updates" ~op:`sync_updates
-      @@ fun () ->
-      with_reposync_lock @@ fun () ->
-      enabled
-      |> List.iter (fun x ->
-             cleanup_pool_repo ~__context ~self:x ;
-             sync ~__context ~self:x ~token ~token_id ;
-             create_pool_repository ~__context ~self:x
-         ) ;
-      let checksum = set_available_updates ~__context in
-      Db.Pool.set_last_update_sync ~__context ~self ~value:(Date.now ()) ;
-      checksum
-  | false ->
-      with_reposync_lock @@ fun () ->
-      enabled |> List.iter (fun x -> sync ~__context ~self:x ~token ~token_id) ;
-      Xapi_pool_helpers.with_pool_operation ~__context ~self
-        ~doc:"pool.sync_updates" ~op:`sync_updates
-      @@ fun () ->
-      List.iter (fun x -> create_pool_repository ~__context ~self:x) enabled ;
-      let checksum = set_available_updates ~__context in
-      Db.Pool.set_last_update_sync ~__context ~self ~value:(Date.now ()) ;
-      checksum
+  Xapi_pool_helpers.with_pool_operation ~__context ~self
+    ~doc:"pool.sync_updates" ~op:`sync_updates
+  @@ fun () ->
+  Repository_helpers.get_enabled_repositories ~__context
+  |> List.iter (fun repo ->
+         if force then cleanup_pool_repo ~__context ~self:repo ;
+         sync ~__context ~self:repo ~token ~token_id ;
+         create_pool_repository ~__context ~self:repo
+     ) ;
+  let checksum = set_available_updates ~__context in
+  Db.Pool.set_last_update_sync ~__context ~self ~value:(Date.now ()) ;
+  checksum
 
 let check_update_readiness ~__context ~self:_ ~requires_reboot =
   (* Pool license check *)
