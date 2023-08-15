@@ -137,8 +137,7 @@ let rec update_table ~__context ~include_snapshots ~preserve_power_state
       && Db.is_valid_ref __context vdi
     then
       add_vdi vdi ;
-    (* Add also the metrics and guest metrics *)
-    add vm.API.vM_metrics ;
+    (* Add also the guest metrics *)
     add vm.API.vM_guest_metrics ;
     (* Add the hosts links *)
     add vm.API.vM_resident_on ;
@@ -261,7 +260,7 @@ let make_vm ?(with_snapshot_metadata = false) ~preserve_power_state table
     ; API.vM_resident_on= lookup table (Ref.string_of vm.API.vM_resident_on)
     ; API.vM_affinity= lookup table (Ref.string_of vm.API.vM_affinity)
     ; API.vM_consoles= []
-    ; API.vM_metrics= lookup table (Ref.string_of vm.API.vM_metrics)
+    ; API.vM_metrics= Ref.null
     ; API.vM_guest_metrics= lookup table (Ref.string_of vm.API.vM_guest_metrics)
     ; API.vM_protection_policy= Ref.null
     ; API.vM_bios_strings= vm.API.vM_bios_strings
@@ -272,15 +271,6 @@ let make_vm ?(with_snapshot_metadata = false) ~preserve_power_state table
     cls= Datamodel_common._vm
   ; id= Ref.string_of (lookup table (Ref.string_of self))
   ; snapshot= API.rpc_of_vM_t vm
-  }
-
-(** Convert a VM metrics reference to an obj *)
-let make_vmm table __context self =
-  let vmm = Db.VM_metrics.get_record ~__context ~self in
-  {
-    cls= Datamodel_common._vm_metrics
-  ; id= Ref.string_of (lookup table (Ref.string_of self))
-  ; snapshot= API.rpc_of_vM_metrics_t vmm
   }
 
 (** Convert a guest-metrics reference to an obj *)
@@ -512,10 +502,6 @@ let make_all ~with_snapshot_metadata ~preserve_power_state table __context =
       (make_vm ~with_snapshot_metadata ~preserve_power_state table __context)
       (filter table (Db.VM.get_all ~__context))
   in
-  let vmms =
-    List.map (make_vmm table __context)
-      (filter table (Db.VM_metrics.get_all ~__context))
-  in
   let gms =
     List.map (make_gm table __context)
       (filter table (Db.VM_guest_metrics.get_all ~__context))
@@ -576,7 +562,6 @@ let make_all ~with_snapshot_metadata ~preserve_power_state table __context =
     [
       hosts
     ; vms
-    ; vmms
     ; gms
     ; vbds
     ; vifs

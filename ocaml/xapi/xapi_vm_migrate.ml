@@ -569,7 +569,7 @@ let intra_pool_vdi_remap ~__context vm vdi_map =
     vdis_and_callbacks
 
 let inter_pool_metadata_transfer ~__context ~remote ~vm ~vdi_map ~vif_map
-    ~vgpu_map ~dry_run ~live ~copy ~check_cpu =
+    ~vgpu_map ~dry_run ~live ~copy =
   List.iter
     (fun vdi_record ->
       let vdi = vdi_record.local_vdi_reference in
@@ -605,7 +605,7 @@ let inter_pool_metadata_transfer ~__context ~remote ~vm ~vdi_map ~vif_map
     )
     vgpu_map ;
   let vm_export_import =
-    {Importexport.vm; dry_run; live; send_snapshots= not copy; check_cpu}
+    {Importexport.vm; dry_run; live; send_snapshots= not copy}
   in
   finally
     (fun () ->
@@ -1164,9 +1164,6 @@ let migrate_send' ~__context ~vm ~dest ~live:_ ~vdi_map ~vif_map ~vgpu_map
   let remote = remote_of_dest ~__context dest in
   (* Copy mode means we don't destroy the VM on the source host. We also don't
      	   copy over the RRDs/messages *)
-  let force =
-    try bool_of_string (List.assoc "force" options) with _ -> false
-  in
   let copy = try bool_of_string (List.assoc "copy" options) with _ -> false in
   let compress =
     use_compression ~__context options localhost remote.dest_host
@@ -1182,7 +1179,6 @@ let migrate_send' ~__context ~vm ~dest ~live:_ ~vdi_map ~vif_map ~vgpu_map
      We look at the VDIs of the VM, the VDIs of all of the snapshots, and any
      suspend-image VDIs. *)
   let vm_uuid = Db.VM.get_uuid ~__context ~self:vm in
-  let power_state = Db.VM.get_power_state ~__context ~self:vm in
   let vbds = Db.VM.get_VBDs ~__context ~self:vm in
   let vifs = Db.VM.get_VIFs ~__context ~self:vm in
   let snapshots = Db.VM.get_snapshots ~__context ~self:vm in
@@ -1457,7 +1453,6 @@ let migrate_send' ~__context ~vm ~dest ~live:_ ~vdi_map ~vif_map ~vgpu_map
             in
             inter_pool_metadata_transfer ~__context ~remote ~vm ~vdi_map
               ~vif_map ~vgpu_map ~dry_run:false ~live:true ~copy
-              ~check_cpu:((not force) && power_state <> `Halted)
           in
           let vm = List.hd vms in
           let () =
@@ -1792,6 +1787,12 @@ let assert_can_migrate ~__context ~vm ~dest ~live:_ ~vdi_map ~vif_map ~options
           (Api_errors.Server_error
              (Api_errors.host_disabled, [Ref.string_of remote.dest_host])
           ) ;
+      (* Check that the VM's required CPU features are available on the host *)
+      if not force then
+        Cpuid_helpers.assert_vm_is_compatible ~__context ~vm
+          ~host:remote.dest_host
+          ~remote:(remote.rpc, remote.session)
+          () ;
       (* Check that the destination has enough pCPUs *)
       Xapi_vm_helpers.assert_enough_pcpus ~__context ~self:vm
         ~host:remote.dest_host
@@ -1834,7 +1835,6 @@ let assert_can_migrate ~__context ~vm ~dest ~live:_ ~vdi_map ~vif_map ~options
           not
             (inter_pool_metadata_transfer ~__context ~remote ~vm ~vdi_map
                ~vif_map ~vgpu_map ~dry_run:true ~live:true ~copy
-               ~check_cpu:((not force) && power_state <> `Halted)
             = []
             )
         then
