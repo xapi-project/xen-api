@@ -546,7 +546,8 @@ let maybe_retry f log =
 
 (* Close any existing socket and kill the corresponding process. *)
 
-let shutdown' log =
+let shutdown log =
+  with_lock log.mutex @@ fun () ->
   if is_enabled log then (
     D.debug "Shutting down connection to I/O process for '%s'" log.name ;
     try
@@ -600,8 +601,6 @@ let shutdown' log =
     (* ignore any errors *)
   )
 
-let shutdown log = with_lock log.mutex (fun () -> shutdown' log)
-
 let broken log =
   set_time_of_last_failure log ;
   shutdown log ;
@@ -614,6 +613,7 @@ let healthy log =
 exception TooManyProcesses
 
 let startup log =
+  with_lock log.mutex @@ fun () ->
   if is_enabled log then (
     try
       ( match !(log.pid) with
