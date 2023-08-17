@@ -70,6 +70,7 @@ type redo_log_conf = {
   ; pid: (Forkhelpers.pidty * string * string) option ref
   ; dying_processes_mutex: Mutex.t
   ; num_dying_processes: int ref
+  ; mutex: Mutex.t  (** exclusive access to this configuration *)
 }
 
 type 'a redo_log = redo_log_conf
@@ -545,8 +546,6 @@ let maybe_retry f log =
 
 (* Close any existing socket and kill the corresponding process. *)
 
-let shutdown_m = Mutex.create ()
-
 let shutdown' log =
   if is_enabled log then (
     D.debug "Shutting down connection to I/O process for '%s'" log.name ;
@@ -601,7 +600,7 @@ let shutdown' log =
     (* ignore any errors *)
   )
 
-let shutdown log = with_lock shutdown_m (fun () -> shutdown' log)
+let shutdown log = with_lock log.mutex (fun () -> shutdown' log)
 
 let broken log =
   set_time_of_last_failure log ;
@@ -783,6 +782,7 @@ let create ~name ~state_change_callback ~read_only =
     ; pid= ref None
     ; dying_processes_mutex= Mutex.create ()
     ; num_dying_processes= ref 0
+    ; mutex= Mutex.create ()
     }
   in
   with_lock redo_log_creation_mutex (fun () ->
