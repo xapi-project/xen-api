@@ -632,48 +632,37 @@ let apply_livepatch ~__context ~host:_ ~component ~base_build_id ~base_version
       error "%s" msg ;
       raise Api_errors.(Server_error (internal_error, [msg]))
 
-let set_restart_device_models ~__context ~host ~kind =
+let set_restart_device_models ~__context ~host =
   (* Set pending restart device models of all running HVM VMs on the host *)
   do_with_device_models ~__context ~host @@ fun (ref, record) ->
   match
     (record.API.vM_power_state, Helpers.has_qemu_currently ~__context ~self:ref)
   with
-  | `Running, true | `Paused, true -> (
-    match kind with
-    | Guidance.Absolute ->
-        Db.VM.set_pending_guidances ~__context ~self:ref
-          ~value:[`restart_device_model] ;
-        None
-    | Guidance.Recommended ->
-        Db.VM.set_recommended_guidances ~__context ~self:ref
-          ~value:[`restart_device_model] ;
-        None
-  )
+  | `Running, true | `Paused, true ->
+      Db.VM.set_pending_guidances ~__context ~self:ref
+        ~value:[`restart_device_model] ;
+      None
   | _ ->
       (* No device models are running for this VM *)
       None
 
-let set_guidances ~__context ~host ~guidances ~db_set ~kind =
+let set_guidances ~__context ~host ~guidances ~db_set =
   let open Guidance in
   guidances
   |> List.fold_left
        (fun acc g ->
-         match (g, kind) with
-         | RebootHost, _ ->
+         match g with
+         | RebootHost ->
              `reboot_host :: acc
-         | RestartToolstack, _ ->
+         | RestartToolstack ->
              `restart_toolstack :: acc
-         | RestartDeviceModel, _ ->
-             set_restart_device_models ~__context ~host ~kind ;
+         | RestartDeviceModel ->
+             set_restart_device_models ~__context ~host ;
              acc
-         | RebootHostOnLivePatchFailure, Absolute ->
+         | RebootHostOnLivePatchFailure ->
              `reboot_host_on_livepatch_failure :: acc
-         | _, Absolute ->
+         | _ ->
              warn "Unsupported pending guidance %s, ignoring it."
-               (Guidance.to_string g) ;
-             acc
-         | _, Recommended ->
-             warn "Unsupported recommended guidance %s, ignoring it."
                (Guidance.to_string g) ;
              acc
        )
@@ -682,11 +671,7 @@ let set_guidances ~__context ~host ~guidances ~db_set ~kind =
 
 let set_pending_guidances ~__context ~host ~guidances =
   set_guidances ~__context ~host ~guidances
-    ~db_set:Db.Host.set_pending_guidances ~kind:Absolute
-
-let set_recommended_guidances ~__context ~host ~guidances =
-  set_guidances ~__context ~host ~guidances
-    ~db_set:Db.Host.set_recommended_guidances ~kind:Recommended
+    ~db_set:Db.Host.set_pending_guidances
 
 let apply_livepatches' ~__context ~host ~livepatches =
   List.partition_map
@@ -745,43 +730,33 @@ let apply_updates' ~__context ~host ~updates_info ~livepatches ~acc_rpm_updates
         )
       ]
       ) ;
-  (* Evaluate recommended/pending guidances *)
-  let recommended_guidances, pending_guidances =
-    let guidances =
+  (* Evaluate guidances *)
+  let guidances =
+    let guidances' =
       (* EvacuateHost will be applied before applying updates *)
       eval_guidances ~updates_info ~updates:acc_rpm_updates ~kind:Recommended
         ~livepatches:successful_livepatches ~failed_livepatches
       |> List.filter (fun g -> g <> Guidance.EvacuateHost)
+      |> fun l -> merge_with_unapplied_guidances ~__context ~host ~guidances:l
     in
-    let guidances' =
-      merge_with_unapplied_guidances ~__context ~host ~kind:Recommended
-        ~guidances
-    in
+    GuidanceSet.assert_valid_guidances guidances' ;
     match failed_livepatches with
     | [] ->
-        (* No livepatch should be applicable now *)
-        Db.Host.remove_pending_guidances ~__context ~self:host
-          ~value:`reboot_host_on_livepatch_failure ;
-        (guidances', guidances')
+        guidances'
     | _ :: _ ->
         (* There is(are) livepatch failure(s):
          * the host should not be rebooted, and
          * an extra pending guidance 'RebootHostOnLivePatchFailure' should be set.
          *)
-        ( List.filter (fun g -> g <> Guidance.RebootHost) guidances'
-        , Guidance.RebootHostOnLivePatchFailure :: guidances'
-        )
+        guidances'
+        |> List.filter (fun g -> g <> Guidance.RebootHost)
+        |> List.cons Guidance.RebootHostOnLivePatchFailure
   in
   List.iter
-    (fun g -> debug "recommended_guidance: %s" (Guidance.to_string g))
-    recommended_guidances ;
-  List.iter
     (fun g -> debug "pending_guidance: %s" (Guidance.to_string g))
-    pending_guidances ;
-  GuidanceSet.assert_valid_guidances recommended_guidances ;
-  set_recommended_guidances ~__context ~host ~guidances:recommended_guidances ;
-  set_pending_guidances ~__context ~host ~guidances:pending_guidances ;
-  ( recommended_guidances
+    guidances ;
+  set_pending_guidances ~__context ~host ~guidances ;
+  ( guidances
   , List.map
       (fun (lp, _) ->
         [Api_errors.apply_livepatch_failed; LivePatch.to_string lp]
