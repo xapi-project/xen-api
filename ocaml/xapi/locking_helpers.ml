@@ -274,12 +274,38 @@ module Thread_state = struct
     String.concat "\n" all
 
   let known_threads () = with_lock m (fun () -> IntMap.cardinal !thread_states)
+
+  let with_resource resource acquire f release arg =
+    let acquired = acquire resource arg in
+    match f () with
+    | r ->
+        release resource acquired ; r
+    | exception e ->
+        let bt = Printexc.get_raw_backtrace () in
+        D.log_and_ignore_exn (fun () -> release resource acquired) ;
+        Printexc.raise_with_backtrace e bt
 end
 
 module Named_mutex = struct
-  type t = {name: string; m: Mutex.t; r: resource}
+  type t = {
+      name: string
+    ; m: Mutex.t
+    ; r: resource
+    ; acquire: t -> Tracing.Span.t option -> Thread_state.acquired
+    ; release: t -> Thread_state.acquired -> unit
+  }
 
-  let create name = {name; m= Mutex.create (); r= lock name}
+  let create name =
+    let acquire t parent =
+      let waiting = Thread_state.waiting_for ?parent t.r in
+      Mutex.lock t.m ;
+      Thread_state.acquired t.r waiting
+    in
+    let release t waiting =
+      Mutex.unlock t.m ;
+      Thread_state.released t.r waiting
+    in
+    {name; m= Mutex.create (); r= lock name; acquire; release}
 
   let execute ?__context ?parent (x : t) f =
     let parent =
@@ -289,9 +315,5 @@ module Named_mutex = struct
       | Some _ as p ->
           p
     in
-    let waiting = Thread_state.waiting_for ?parent x.r in
-    with_lock x.m (fun () ->
-        let acquired = Thread_state.acquired x.r waiting in
-        finally f (fun () -> Thread_state.released x.r acquired)
-    )
+    Thread_state.with_resource x x.acquire f x.release parent
 end
