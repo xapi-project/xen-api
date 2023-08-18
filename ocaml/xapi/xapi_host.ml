@@ -3040,16 +3040,16 @@ let set_https_only ~__context ~self ~value =
       (* it is illegal changing the firewall/https config in CC/FIPS mode *)
       raise (Api_errors.Server_error (Api_errors.illegal_in_fips_mode, []))
 
-let try_restart_device_models_for_recommended_guidances ~__context ~host =
+let try_restart_device_models ~__context ~host =
   (* This function runs on master host: restart device models of all running
    * HVM VMs on the host by doing local migrations if it is required by
-   * recommended guidances. *)
+   * guidances. *)
   Helpers.assert_we_are_master ~__context ;
   Repository_helpers.do_with_device_models ~__context ~host
   @@ fun (ref, record) ->
   match
     ( List.mem `restart_device_model
-        (Db.VM.get_recommended_guidances ~__context ~self:ref)
+        (Db.VM.get_pending_guidances ~__context ~self:ref)
     , record.API.vM_power_state
     , Helpers.has_qemu_currently ~__context ~self:ref
     )
@@ -3065,7 +3065,7 @@ let try_restart_device_models_for_recommended_guidances ~__context ~host =
         (Ref.string_of ref) ;
       Some ref
   | _ ->
-      (* No `restart_device_model as recommended guidance for this VM or no
+      (* No `restart_device_model as guidance for this VM or no
        * device models are running for this VM *)
       None
 
@@ -3074,23 +3074,25 @@ let apply_recommended_guidances ~__context ~self:host =
   Helpers.assert_we_are_master ~__context ;
   try
     let open Updateinfo in
-    Db.Host.get_recommended_guidances ~__context ~self:host |> function
+    Db.Host.get_pending_guidances ~__context ~self:host
+    (* Ingore the guidance as this has to be handled by user *)
+    |> List.filter (fun g -> g <> `reboot_host_on_livepatch_failure)
+    |> function
     | [] ->
-        try_restart_device_models_for_recommended_guidances ~__context ~host
+        try_restart_device_models ~__context ~host
     | [`reboot_host] ->
         Helpers.call_api_functions ~__context (fun rpc session_id ->
             Client.Client.Host.reboot ~rpc ~session_id ~host
         )
     | [`restart_toolstack] ->
-        try_restart_device_models_for_recommended_guidances ~__context ~host ;
+        try_restart_device_models ~__context ~host ;
         Helpers.call_api_functions ~__context (fun rpc session_id ->
             Client.Client.Host.restart_agent ~rpc ~session_id ~host
         )
     | l ->
         let host' = Ref.string_of host in
         error
-          "Found wrong guidance(s) when applying recommended guidances on host \
-           ref='%s': %s"
+          "Found wrong guidance(s) when applying guidances on host ref='%s': %s"
           host'
           (String.concat ";"
              (List.map Guidance.to_string
@@ -3100,6 +3102,6 @@ let apply_recommended_guidances ~__context ~self:host =
         raise Api_errors.(Server_error (apply_guidance_failed, [host']))
   with e ->
     let host' = Ref.string_of host in
-    error "applying recommended guidances on host ref='%s' failed: %s" host'
+    error "applying guidances on host ref='%s' failed: %s" host'
       (ExnHelper.string_of_exn e) ;
     raise Api_errors.(Server_error (apply_guidance_failed, [host']))
