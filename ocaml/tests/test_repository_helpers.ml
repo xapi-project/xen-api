@@ -2755,7 +2755,8 @@ module GuidanceSetResortGuidancesTest = Generic.MakeStateless (struct
   let transform (kind, guidances) =
     guidances
     |> GuidanceSet.of_list
-    |> GuidanceSet.resort_guidances ~kind
+    |> GuidanceSet.resort_guidances
+         ~remove_evacuations:(kind = Guidance.Absolute)
     |> GuidanceSet.elements
 
   let tests =

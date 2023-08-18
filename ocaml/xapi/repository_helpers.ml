@@ -132,7 +132,7 @@ module GuidanceSet = struct
     ; (EvacuateHost, of_list [RestartDeviceModel])
     ]
 
-  let resort_guidances ~kind gs =
+  let resort_guidances ~remove_evacuations gs =
     let gs' =
       List.fold_left
         (fun acc (higher, lowers) ->
@@ -143,7 +143,10 @@ module GuidanceSet = struct
         )
         gs precedences
     in
-    match kind with Recommended -> gs' | Absolute -> remove EvacuateHost gs'
+    if remove_evacuations then
+      remove EvacuateHost gs'
+    else
+      gs'
 end
 
 let create_repository_record ~__context ~name_label ~name_description
@@ -647,7 +650,7 @@ let eval_guidances ~updates_info ~updates ~kind ~livepatches ~failed_livepatches
     )
     GuidanceSet.empty updates
   |> append_livepatch_guidances ~updates_info ~upd_ids_of_livepatches
-  |> GuidanceSet.resort_guidances ~kind
+  |> GuidanceSet.resort_guidances ~remove_evacuations:(kind = Guidance.Absolute)
   |> GuidanceSet.elements
 
 let merge_with_unapplied_guidances ~__context ~host ~guidances =
@@ -657,7 +660,7 @@ let merge_with_unapplied_guidances ~__context ~host ~guidances =
   |> List.filter (fun g -> g <> Guidance.RebootHostOnLivePatchFailure)
   |> of_list
   |> union (of_list guidances)
-  |> resort_guidances ~kind:Guidance.Recommended
+  |> resort_guidances ~remove_evacuations:false
   |> elements
 
 let repoquery_sep = ":|"
