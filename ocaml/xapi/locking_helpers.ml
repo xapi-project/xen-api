@@ -162,14 +162,30 @@ module Thread_state = struct
   type time = float
 
   type t = {
-      mutable acquired_resources: (resource * time) list
+      mutable last_acquired_resource: resource
+    ; mutable last_acquired_at: time
+    ; mutable acquired_resources_other: (resource * time) list
     ; mutable task: API.ref_task
     ; mutable name: string
     ; mutable waiting_for: resource
   }
 
+  let acquired_resources t =
+    if t.last_acquired_resource.kind = No_resource then
+      t.acquired_resources_other
+    else
+      (t.last_acquired_resource, t.last_acquired_at)
+      :: t.acquired_resources_other
+
   let make_empty () =
-    {acquired_resources= []; task= Ref.null; name= ""; waiting_for= none}
+    {
+      acquired_resources_other= []
+    ; last_acquired_resource= none
+    ; last_acquired_at= Float.nan
+    ; task= Ref.null
+    ; name= ""
+    ; waiting_for= none
+    }
 
   let thread_states = Thread_local_storage.make make_empty
 
@@ -181,12 +197,12 @@ module Thread_state = struct
     let snapshot = Thread_local_storage.snapshot thread_states in
     let all, _ = IntMap.partition (fun _ ts -> ts.task = task) snapshot in
     List.map fst
-      (IntMap.fold (fun _ ts acc -> ts.acquired_resources @ acc) all [])
+      (IntMap.fold (fun _ ts acc -> acquired_resources ts @ acc) all [])
 
   let get_all_acquired_resources () =
     let snapshot = Thread_local_storage.snapshot thread_states in
     List.map fst
-      (IntMap.fold (fun _ ts acc -> ts.acquired_resources @ acc) snapshot [])
+      (IntMap.fold (fun _ ts acc -> acquired_resources ts @ acc) snapshot [])
 
   let get_states () = Thread_local_storage.get thread_states
 
@@ -241,14 +257,22 @@ module Thread_state = struct
     in
     let ts = get_states () in
     ts.waiting_for <- none ;
-    ts.acquired_resources <- (resource, now ()) :: ts.acquired_resources ;
+    if ts.last_acquired_resource.kind <> No_resource then
+      ts.acquired_resources_other <-
+        (ts.last_acquired_resource, ts.last_acquired_at)
+        :: ts.acquired_resources_other ;
+    ts.last_acquired_resource <- resource ;
+    ts.last_acquired_at <- now () ;
     span
 
   let released resource span =
     let (_ : (_, _) result) = Tracing.Tracer.finish span in
     let ts = get_states () in
-    ts.acquired_resources <-
-      List.filter (fun (r, _) -> r <> resource) ts.acquired_resources
+    if ts.last_acquired_resource = resource then
+      ts.last_acquired_resource <- none
+    else
+      ts.acquired_resources_other <-
+        List.filter (fun (r, _) -> r <> resource) ts.acquired_resources_other
 
   let to_graphviz () =
     let t' = now () in
@@ -263,12 +287,12 @@ module Thread_state = struct
                (fun (r, t) ->
                  [string_of_resource r; Printf.sprintf "%.0f" (t' -. t)]
                )
-               ts.acquired_resources
+               (acquired_resources ts)
         )
         snapshot
     in
     let resources_of_ts ts =
-      List.map fst ts.acquired_resources
+      List.map fst (acquired_resources ts)
       @ if ts.waiting_for.kind = No_resource then [] else [ts.waiting_for]
     in
     let all_resources =
@@ -295,7 +319,7 @@ module Thread_state = struct
         (fun id ts acc ->
           List.map
             (fun (r, _) -> (id, List.assoc r resources_to_ids))
-            ts.acquired_resources
+            (acquired_resources ts)
           @ acc
         )
         snapshot []
