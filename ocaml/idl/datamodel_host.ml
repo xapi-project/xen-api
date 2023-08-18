@@ -2135,7 +2135,8 @@ let t =
         ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:Bool
             ~default_value:(Some (VBool false)) "https_only"
             "Reflects whether port 80 is open (false) or not (true)"
-        ; field ~qualifier:DynamicRO ~internal_only:true ~lifecycle:[]
+        ; field ~qualifier:DynamicRO ~internal_only:true
+            ~lifecycle:[(Prototyped, "23.18.0", ""); (Removed, "23.24.0", "")]
             ~ty:(Set update_guidances) "recommended_guidances"
             ~default_value:(Some (VSet []))
             "The set of recommended guidances after applying updates"
