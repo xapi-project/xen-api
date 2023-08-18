@@ -85,7 +85,7 @@ module Thread_local_storage = struct
     let self = Thread.self () in
     LiveThreads.replace t.tbl (Thread_key.of_thread self) v
 
-  let set t v = with_lock t set_unlocked v
+  let _set t v = with_lock t set_unlocked v
 
   let snapshot_unlocked t () =
     LiveThreads.fold
@@ -107,13 +107,24 @@ module D = Debug.Make (struct let name = "locking_helpers" end)
 
 open D
 
-type resource_kind = Lock of string | Process of (string * int)
+type resource_kind = No_resource | Lock of string | Process of string * int
 
 let string_of_resource_kind = function
+  | No_resource ->
+      ""
   | Lock x ->
       Printf.sprintf "Lock(%s)" x
   | Process (name, pid) ->
       Printf.sprintf "Process(%s, %d)" name pid
+
+let kill_resource = function
+  | No_resource ->
+      ()
+  | Lock x ->
+      debug "There is no way to forcibly remove Lock(%s)" x
+  | Process (name, pid) ->
+      info "Sending SIGKILL to %s pid %d" name pid ;
+      Unix.kill pid Sys.sigkill
 
 type resource = {
     kind: resource_kind
@@ -121,6 +132,8 @@ type resource = {
   ; waiting_str: string
   ; acquired_str: string
 }
+
+let none = {kind= No_resource; str= ""; waiting_str= ""; acquired_str= ""}
 
 let make kind =
   let str = string_of_resource_kind kind in
@@ -131,19 +144,12 @@ let lock name = make (Lock name)
 
 let process (name, pid) = make (Process (name, pid))
 
-let kill_resource = function
-  | Lock x ->
-      debug "There is no way to forcibly remove Lock(%s)" x
-  | Process (name, pid) ->
-      info "Sending SIGKILL to %s pid %d" name pid ;
-      Unix.kill pid Sys.sigkill
-
 let kill_resource r = kill_resource r.kind
 
 let is_process name = function
   | {kind= Process (p, _); _} ->
       p = name
-  | {kind= Lock _; _} ->
+  | {kind= No_resource | Lock _; _} ->
       false
 
 let string_of_resource r = r.str
@@ -156,16 +162,14 @@ module Thread_state = struct
   type time = float
 
   type t = {
-      acquired_resources: (resource * time) list
-    ; task: API.ref_task
-    ; name: string
-    ; waiting_for: (resource * time) option
+      mutable acquired_resources: (resource * time) list
+    ; mutable task: API.ref_task
+    ; mutable name: string
+    ; mutable waiting_for: resource
   }
 
-  let empty =
-    {acquired_resources= []; task= Ref.null; name= ""; waiting_for= None}
-
-  let make_empty () = empty
+  let make_empty () =
+    {acquired_resources= []; task= Ref.null; name= ""; waiting_for= none}
 
   let thread_states = Thread_local_storage.make make_empty
 
@@ -186,12 +190,19 @@ module Thread_state = struct
 
   let update f =
     let old = Thread_local_storage.get thread_states in
-    let ts = f old in
-    Thread_local_storage.set thread_states ts
+    f old
 
   let with_named_thread name task f =
-    update (fun ts -> {ts with name; task}) ;
-    finally f (fun () -> update (fun ts -> {ts with name= ""; task= Ref.null}))
+    update (fun ts ->
+        ts.name <- name ;
+        ts.task <- task
+    ) ;
+    finally f (fun () ->
+        update (fun ts ->
+            ts.name <- "" ;
+            ts.task <- Ref.null
+        )
+    )
 
   let now () = Unix.gettimeofday ()
 
@@ -211,7 +222,7 @@ module Thread_state = struct
               None
         )
     in
-    update (fun ts -> {ts with waiting_for= Some (resource, now ())}) ;
+    update (fun ts -> ts.waiting_for <- resource) ;
     span
 
   let acquired resource parent =
@@ -232,22 +243,16 @@ module Thread_state = struct
         )
     in
     update (fun ts ->
-        {
-          ts with
-          waiting_for= None
-        ; acquired_resources= (resource, now ()) :: ts.acquired_resources
-        }
+        ts.waiting_for <- none ;
+        ts.acquired_resources <- (resource, now ()) :: ts.acquired_resources
     ) ;
     span
 
   let released resource span =
     let (_ : (_, _) result) = Tracing.Tracer.finish span in
     update (fun ts ->
-        {
-          ts with
-          acquired_resources=
-            List.filter (fun (r, _) -> r <> resource) ts.acquired_resources
-        }
+        ts.acquired_resources <-
+          List.filter (fun (r, _) -> r <> resource) ts.acquired_resources
     )
 
   let to_graphviz () =
@@ -269,7 +274,7 @@ module Thread_state = struct
     in
     let resources_of_ts ts =
       List.map fst ts.acquired_resources
-      @ Option.fold ~none:[] ~some:(fun (r, _) -> [r]) ts.waiting_for
+      @ if ts.waiting_for.kind = No_resource then [] else [ts.waiting_for]
     in
     let all_resources =
       Xapi_stdext_std.Listext.List.setify
@@ -279,12 +284,14 @@ module Thread_state = struct
       List.combine all_resources (List.init (List.length all_resources) Fun.id)
     in
     let resources_to_sll =
-      List.map
+      List.filter_map
         (function
+          | {kind= No_resource; _} ->
+              None
           | {kind= Lock x; _} as y ->
-              (y, [["lock"]; [x]])
+              Some (y, [["lock"]; [x]])
           | {kind= Process (name, pid); _} as y ->
-              (y, [["process"]; [name]; [string_of_int pid]])
+              Some (y, [["process"]; [name]; [string_of_int pid]])
           )
         all_resources
     in
@@ -302,9 +309,9 @@ module Thread_state = struct
       IntMap.fold
         (fun id ts acc ->
           match ts.waiting_for with
-          | None ->
+          | {kind= No_resource; _} ->
               acc
-          | Some (r, _) ->
+          | r ->
               (id, List.assoc r resources_to_ids) :: acc
         )
         snapshot []
