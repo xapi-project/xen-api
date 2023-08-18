@@ -650,18 +650,14 @@ let eval_guidances ~updates_info ~updates ~kind ~livepatches ~failed_livepatches
   |> GuidanceSet.resort_guidances ~kind
   |> GuidanceSet.elements
 
-let merge_with_unapplied_guidances ~__context ~host ~kind ~guidances =
+let merge_with_unapplied_guidances ~__context ~host ~guidances =
   let open GuidanceSet in
-  ( match kind with
-  | Guidance.Absolute ->
-      Db.Host.get_pending_guidances ~__context ~self:host
-  | Guidance.Recommended ->
-      Db.Host.get_recommended_guidances ~__context ~self:host
-  )
+  Db.Host.get_pending_guidances ~__context ~self:host
   |> List.map (fun g -> Guidance.of_update_guidance g)
+  |> List.filter (fun g -> g <> Guidance.RebootHostOnLivePatchFailure)
   |> of_list
   |> union (of_list guidances)
-  |> resort_guidances ~kind
+  |> resort_guidances ~kind:Guidance.Recommended
   |> elements
 
 let repoquery_sep = ":|"
