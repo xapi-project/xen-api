@@ -188,20 +188,16 @@ module Thread_state = struct
     List.map fst
       (IntMap.fold (fun _ ts acc -> ts.acquired_resources @ acc) snapshot [])
 
-  let update f =
-    let old = Thread_local_storage.get thread_states in
-    f old
+  let get_states () = Thread_local_storage.get thread_states
 
   let with_named_thread name task f =
-    update (fun ts ->
-        ts.name <- name ;
-        ts.task <- task
-    ) ;
+    let ts = get_states () in
+    ts.name <- name ;
+    ts.task <- task ;
     finally f (fun () ->
-        update (fun ts ->
-            ts.name <- "" ;
-            ts.task <- Ref.null
-        )
+        let ts = get_states () in
+        ts.name <- "" ;
+        ts.task <- Ref.null
     )
 
   let now () = Unix.gettimeofday ()
@@ -222,7 +218,8 @@ module Thread_state = struct
               None
         )
     in
-    update (fun ts -> ts.waiting_for <- resource) ;
+    let ts = get_states () in
+    ts.waiting_for <- resource ;
     span
 
   let acquired resource parent =
@@ -242,18 +239,16 @@ module Thread_state = struct
               None
         )
     in
-    update (fun ts ->
-        ts.waiting_for <- none ;
-        ts.acquired_resources <- (resource, now ()) :: ts.acquired_resources
-    ) ;
+    let ts = get_states () in
+    ts.waiting_for <- none ;
+    ts.acquired_resources <- (resource, now ()) :: ts.acquired_resources ;
     span
 
   let released resource span =
     let (_ : (_, _) result) = Tracing.Tracer.finish span in
-    update (fun ts ->
-        ts.acquired_resources <-
-          List.filter (fun (r, _) -> r <> resource) ts.acquired_resources
-    )
+    let ts = get_states () in
+    ts.acquired_resources <-
+      List.filter (fun (r, _) -> r <> resource) ts.acquired_resources
 
   let to_graphviz () =
     let t' = now () in
