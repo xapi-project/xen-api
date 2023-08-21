@@ -155,10 +155,6 @@ let is_process name = function
 let string_of_resource r = r.str
 
 module Thread_state = struct
-  type waiting = (Tracing.Span.t option * Tracing.Span.t option) option
-
-  type acquired = Tracing.Span.t option
-
   type time = float
 
   type t = {
@@ -168,7 +164,13 @@ module Thread_state = struct
     ; mutable task: API.ref_task
     ; mutable name: string
     ; mutable waiting_for: resource
+    ; mutable parent: Tracing.Span.t option
+    ; mutable span: Tracing.Span.t option
   }
+
+  type waiting = t
+
+  type acquired = t
 
   let acquired_resources t =
     if t.last_acquired_resource.kind = No_resource then
@@ -185,6 +187,8 @@ module Thread_state = struct
     ; task= Ref.null
     ; name= ""
     ; waiting_for= none
+    ; parent= None
+    ; span= None
     }
 
   let thread_states = Thread_local_storage.make make_empty
@@ -219,43 +223,42 @@ module Thread_state = struct
   let now () = Unix.gettimeofday ()
 
   let waiting_for ?parent resource =
-    let span =
+    let ts = get_states () in
+    let () =
       match (parent : Tracing.Span.t option) with
       | None ->
-          None
+          ()
       | Some _ -> (
           let name = resource.waiting_str in
           let tracer = Tracing.get_tracer ~name in
           match Tracing.Tracer.start ~tracer ~name ~parent () with
           | Ok span ->
-              Some (parent, span)
+              ts.parent <- parent ;
+              ts.span <- span
           | Error e ->
-              D.warn "Failed to start tracing: %s" (Printexc.to_string e) ;
-              None
+              D.warn "Failed to start tracing: %s" (Printexc.to_string e)
         )
     in
-    let ts = get_states () in
     ts.waiting_for <- resource ;
-    span
+    ts
 
-  let acquired resource parent =
-    let span =
-      match parent with
+  let acquired resource ts =
+    let () =
+      match ts.parent with
       | None ->
-          None
-      | Some (parent, span) -> (
-          let (_ : Tracing.Span.t option) = Tracing.Tracer.finish span in
+          ()
+      | Some _ -> (
+          let (_ : Tracing.Span.t option) = Tracing.Tracer.finish ts.span in
           let name = resource.acquired_str in
           let tracer = Tracing.get_tracer ~name in
-          match Tracing.Tracer.start ~tracer ~name ~parent () with
+          match Tracing.Tracer.start ~tracer ~name ~parent:ts.parent () with
           | Ok span ->
-              span
+              ts.span <- span
           | Error e ->
               D.warn "Failed to start tracing: %s" (Printexc.to_string e) ;
-              None
+              ts.span <- None
         )
     in
-    let ts = get_states () in
     ts.waiting_for <- none ;
     if ts.last_acquired_resource.kind <> No_resource then
       ts.acquired_resources_other <-
@@ -263,12 +266,11 @@ module Thread_state = struct
         :: ts.acquired_resources_other ;
     ts.last_acquired_resource <- resource ;
     ts.last_acquired_at <- now () ;
-    span
+    ts
 
-  let released resource span =
-    let (_ : Tracing.Span.t option) = Tracing.Tracer.finish span in
-    let ts = get_states () in
-    if ts.last_acquired_resource = resource then
+  let released resource ts =
+    let (_ : Tracing.Span.t option) = Tracing.Tracer.finish ts.span in
+    if ts.last_acquired_resource == resource then
       ts.last_acquired_resource <- none
     else
       ts.acquired_resources_other <-
