@@ -5,6 +5,7 @@
     cstruct
     forkexec
     ipaddr
+    ipaddr.unix
     tar
     threads.posix
     xapi-consts

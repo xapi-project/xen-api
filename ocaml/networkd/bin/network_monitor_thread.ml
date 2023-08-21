@@ -31,7 +31,7 @@ let monitor_whitelist =
     ; "vif" (* This includes "tap" owing to the use of standardise_name below *)
     ]
 
-let xapi_rpc xml =
+let rpc xml =
   let open Xmlrpc_client in
   XMLRPC_protocol.rpc ~srcstr:"xcp-networkd" ~dststr:"xapi"
     ~transport:(Unix "/var/xapi/xapi")
@@ -42,8 +42,7 @@ let send_bond_change_alert _dev interfaces message =
   let ifaces = String.concat "+" (List.sort String.compare interfaces) in
   let module XenAPI = Client.Client in
   let session_id =
-    XenAPI.Session.login_with_password ~rpc:xapi_rpc ~uname:"" ~pwd:""
-      ~version:"1.4"
+    XenAPI.Session.login_with_password ~rpc ~uname:"" ~pwd:"" ~version:""
       ~originator:("xcp-networkd v" ^ Xapi_version.version)
   in
   Pervasiveext.finally
@@ -53,13 +52,13 @@ let send_bond_change_alert _dev interfaces message =
       try
         let name, priority = Api_messages.bond_status_changed in
         let (_ : API.ref_message) =
-          XenAPI.Message.create ~rpc:xapi_rpc ~session_id ~name ~priority
-            ~cls:`Host ~obj_uuid ~body
+          XenAPI.Message.create ~rpc ~session_id ~name ~priority ~cls:`Host
+            ~obj_uuid ~body
         in
         ()
       with _ -> warn "Exception sending a bond-status-change alert."
     )
-    (fun _ -> XenAPI.Session.logout ~rpc:xapi_rpc ~session_id)
+    (fun _ -> XenAPI.Session.logout ~rpc ~session_id)
 
 let check_for_changes ~(dev : string) ~(stat : Network_monitor.iface_stats) =
   let open Network_monitor in
@@ -350,15 +349,12 @@ let watcher_pid = ref None
 
 let signal_networking_change () =
   let module XenAPI = Client.Client in
-  let session =
-    XenAPI.Session.slave_local_login_with_password ~rpc:xapi_rpc ~uname:""
-      ~pwd:""
+  let session_id =
+    XenAPI.Session.slave_local_login_with_password ~rpc ~uname:"" ~pwd:""
   in
   Pervasiveext.finally
-    (fun () ->
-      XenAPI.Host.signal_networking_change ~rpc:xapi_rpc ~session_id:session
-    )
-    (fun () -> XenAPI.Session.local_logout ~rpc:xapi_rpc ~session_id:session)
+    (fun () -> XenAPI.Host.signal_networking_change ~rpc ~session_id)
+    (fun () -> XenAPI.Session.local_logout ~rpc ~session_id)
 
 (* Remove all outstanding reads on a file descriptor *)
 let clear_input fd =
@@ -371,9 +367,28 @@ let clear_input fd =
   in
   Unix.set_nonblock fd ; loop () ; Unix.clear_nonblock fd
 
+(* Watch for changes in the network interfaces: whether the IP changes, and
+   whether the links go online or offline *)
+let relevant line =
+  let contains affix = Astring.String.is_infix ~affix in
+  let ignored =
+    [
+      ("ignore second line of a message", String.starts_with ~prefix:"    ")
+    ; ("no link-local addresses", contains "inet6 fe80")
+    ; ( "ignore vif and tap devices"
+      , fun line -> contains " vif" line || contains " tap" line
+      )
+    ]
+  in
+  let allowed =
+    [("IP changes", contains "inet"); ("state changes", contains " state ")]
+  in
+  let test (_name, fn) = fn line in
+  (not (List.exists test ignored)) && List.exists test allowed
+
 let rec ip_watcher () =
   let cmd = Network_utils.iproute2 in
-  let args = ["monitor"; "address"] in
+  let args = ["monitor"; "address"; "link"] in
   let readme, writeme = Unix.pipe () in
   with_lock watcher_m (fun () ->
       watcher_pid :=
@@ -385,14 +400,9 @@ let rec ip_watcher () =
   Unix.close writeme ;
   let in_channel = Unix.in_channel_of_descr readme in
   let rec loop () =
-    let line = input_line in_channel in
-    (* Do not send events for link-local IPv6 addresses, and removed IPs *)
-    if
-      Astring.String.is_infix ~affix:"inet" line
-      && not (Astring.String.is_infix ~affix:"inet6 fe80" line)
-    then (
+    if relevant (input_line in_channel) then (
       (* Ignore changes for the next second, since they usually come in bursts,
-         * and signal only once. *)
+         and signal only once. *)
       Thread.delay 1. ;
       clear_input readme ;
       signal_networking_change ()
