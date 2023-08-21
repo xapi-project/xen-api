@@ -12,6 +12,7 @@
   (name xxhash_bindings)
   (libraries
     ctypes
+    ctypes.stubs
     integers
   )
   (modules xxhash_bindings)

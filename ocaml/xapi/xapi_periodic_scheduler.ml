@@ -85,7 +85,7 @@ let loop () =
           let sleep =
             Mtime.(span next.Ipq.time now)
             |> Mtime.Span.add (Clock.span 0.001)
-            |> Mtime.Span.to_s
+            |> Scheduler.span_to_s
           in
           try ignore (Delay.wait delay sleep)
           with e ->

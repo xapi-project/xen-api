@@ -80,7 +80,10 @@ type time = Delta of int
 
 (*type t = int64 * int [@@deriving rpc]*)
 
-let time_of_span span = span |> Mtime.Span.to_s |> ceil |> Int64.of_float
+let span_to_s span =
+  Mtime.Span.to_uint64_ns span |> Int64.to_float |> fun ns -> ns /. 1e9
+
+let time_of_span span = span_to_s span |> ceil |> Int64.of_float
 
 let mtime_sub time now = Mtime.Span.abs_diff time now |> time_of_span
 
@@ -160,7 +163,7 @@ let rec main_loop s =
     if Mtime.Span.compare sleep_until this > 0 then
       (* be careful that this is absolute difference,
          it is never negative! *)
-      Mtime.Span.(abs_diff sleep_until this |> to_s)
+      Mtime.Span.abs_diff sleep_until this |> span_to_s
     else
       0.
   in

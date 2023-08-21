@@ -61,8 +61,11 @@ let read_from_vdi ~session_id ~vdi f =
    using sleep instead of the event system. *)
 let wait_for_no_vbds_then_destroy ~rpc ~session_id self =
   let wait_for_no_vbds () =
-    let start = Mtime_clock.counter () in
-    let over () = Mtime_clock.count start |> Mtime.Span.to_s > 4.0 in
+    let from_start = Mtime_clock.counter () in
+    let over () =
+      let elapsed = Mtime_clock.(count from_start) in
+      Mtime.Span.(compare elapsed (4 * s) > 0)
+    in
     while (not (over ())) && Client.VDI.get_VBDs ~rpc ~session_id ~self <> [] do
       Unix.sleepf 0.1
     done

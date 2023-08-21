@@ -62,3 +62,9 @@ module PipeDelay : sig
   val signal : t -> unit
   (** Signal anyone currently waiting with the PipeDelay.t *)
 end
+
+val span_to_s : Mtime.Span.t -> float
+(** [span_to_s span] converts a time span into seconds, represented by a float.
+    When the span is longer than ~54 years it becomes unprecise, avoid whenever
+    possible, this is unavoidable when using Thread.wait functions and related.
+    *)

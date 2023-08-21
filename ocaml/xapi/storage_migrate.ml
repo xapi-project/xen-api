@@ -1113,9 +1113,11 @@ let receive_cancel ~dbg ~id =
     receive_state ;
   State.remove_receive_mirror id
 
-exception Timeout
+exception Timeout of Mtime.Span.t
 
-let reqs_outstanding_timeout = 150.0
+let reqs_outstanding_timeout = Mtime.Span.(150 * s)
+
+let pp_time () = Fmt.str "%a" Mtime.Span.pp
 
 (* Tapdisk should time out after 2 mins. We can wait a little longer *)
 
@@ -1123,7 +1125,6 @@ let pre_deactivate_hook ~dbg:_ ~dp:_ ~sr ~vdi =
   let open State.Send_state in
   let id = State.mirror_id_of (sr, vdi) in
   let start = Mtime_clock.counter () in
-  let get_delta () = Mtime_clock.count start |> Mtime.Span.to_s in
   State.find_active_local_mirror id
   |> Option.iter (fun s ->
          (* We used to pause here and then check the nbd_mirror_failed key. Now, we poll
@@ -1137,25 +1138,27 @@ let pre_deactivate_hook ~dbg:_ ~dp:_ ~sr ~vdi =
                let open Tapctl in
                let ctx = create () in
                let rec wait () =
-                 if get_delta () > reqs_outstanding_timeout then raise Timeout ;
+                 let elapsed = Mtime_clock.count start in
+                 if Mtime.Span.compare elapsed reqs_outstanding_timeout > 0 then
+                   raise (Timeout elapsed) ;
                  let st = stats ctx tapdev in
                  if st.Stats.reqs_outstanding > 0 then (
                    Thread.delay 1.0 ; wait ()
                  ) else
-                   st
+                   (st, elapsed)
                in
-               let st = wait () in
-               debug "Got final stats after waiting %f seconds" (get_delta ()) ;
+               let st, elapsed = wait () in
+               debug "Got final stats after waiting %a" pp_time elapsed ;
                if st.Stats.nbd_mirror_failed = 1 then (
                  error "tapdisk reports mirroring failed" ;
                  s.failed <- true
                )
          with
-         | Timeout ->
+         | Timeout elapsed ->
              error
-               "Timeout out after %f seconds waiting for tapdisk to complete \
-                all outstanding requests"
-               (get_delta ()) ;
+               "Timeout out after %a waiting for tapdisk to complete all \
+                outstanding requests"
+               pp_time elapsed ;
              s.failed <- true
          | e ->
              error "Caught exception while finally checking mirror state: %s"

@@ -13,7 +13,6 @@ build: [
 depends: [
   "ocaml"
   "dune"
-  "ounit2" {with-test}
   "astring"
   "base-threads"
   "base-unix"
