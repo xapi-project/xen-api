@@ -50,9 +50,13 @@ module Guidance = struct
         EvacuateHost
     | "RestartDeviceModel" ->
         RestartDeviceModel
-    | _ ->
-        error "Unknown node in <absolute|recommended_guidance>" ;
-        raise Api_errors.(Server_error (invalid_updateinfo_xml, []))
+    | g ->
+        warn
+          "Un-recognized guidance in \
+           <absolute|recommended|livepatch_guidance>: %s, fallback to \
+           RebootHost"
+          g ;
+        RebootHost
 
   let of_update_guidance = function
     | `reboot_host ->
@@ -544,33 +548,15 @@ module UpdateInfo = struct
                       | Xml.Element ("description", _, [Xml.PCData v]) ->
                           {acc with description= v}
                       | Xml.Element ("recommended_guidance", _, [Xml.PCData v])
-                        -> (
-                        try {acc with rec_guidance= Some (Guidance.of_string v)}
-                        with e ->
-                          (* The error should not block update. Ingore it. *)
-                          warn "%s" (ExnHelper.string_of_exn e) ;
-                          acc
-                      )
-                      | Xml.Element ("absolute_guidance", _, [Xml.PCData v])
-                        -> (
-                        try {acc with abs_guidance= Some (Guidance.of_string v)}
-                        with e ->
-                          (* The error should not block update. Ingore it. *)
-                          warn "%s" (ExnHelper.string_of_exn e) ;
-                          acc
-                      )
-                      | Xml.Element ("livepatch_guidance", _, [Xml.PCData v])
-                        -> (
-                        try
+                        ->
+                          {acc with rec_guidance= Some (Guidance.of_string v)}
+                      | Xml.Element ("absolute_guidance", _, [Xml.PCData v]) ->
+                          {acc with abs_guidance= Some (Guidance.of_string v)}
+                      | Xml.Element ("livepatch_guidance", _, [Xml.PCData v]) ->
                           {
                             acc with
                             livepatch_guidance= Some (Guidance.of_string v)
                           }
-                        with e ->
-                          (* The error should not block update. Ingore it. *)
-                          warn "%s" (ExnHelper.string_of_exn e) ;
-                          acc
-                      )
                       | Xml.Element ("guidance_applicabilities", _, apps) ->
                           {
                             acc with
