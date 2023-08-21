@@ -244,7 +244,7 @@ module Thread_state = struct
       | None ->
           None
       | Some (parent, span) -> (
-          let (_ : (_, _) result) = Tracing.Tracer.finish span in
+          let (_ : Tracing.Span.t option) = Tracing.Tracer.finish span in
           let name = resource.acquired_str in
           let tracer = Tracing.get_tracer ~name in
           match Tracing.Tracer.start ~tracer ~name ~parent () with
@@ -266,7 +266,7 @@ module Thread_state = struct
     span
 
   let released resource span =
-    let (_ : (_, _) result) = Tracing.Tracer.finish span in
+    let (_ : Tracing.Span.t option) = Tracing.Tracer.finish span in
     let ts = get_states () in
     if ts.last_acquired_resource = resource then
       ts.last_acquired_resource <- none

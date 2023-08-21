@@ -416,21 +416,19 @@ module Tracer = struct
       Spans.add_to_spans ~span ; Ok (Some span)
 
   let finish ?error span =
-    Ok
-      (Option.map
-         (fun span ->
-           let span =
-             match error with
-             | Some exn_t ->
-                 Span.set_error span exn_t
-             | None ->
-                 Span.set_ok span
-           in
-           let span = Span.finish ~span () in
-           Spans.mark_finished span ; span
-         )
-         span
-      )
+    match span with
+    | None ->
+        None
+    | Some span ->
+        let span =
+          match error with
+          | Some exn_t ->
+              Span.set_error span exn_t
+          | None ->
+              Span.set_ok span
+        in
+        let span = Span.finish ~span () in
+        Spans.mark_finished span ; Some span
 
   let span_is_finished x = Spans.span_is_finished x
 

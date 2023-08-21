@@ -55,21 +55,13 @@ type t = {
 }
 
 let complete_tracing __context =
-  ( match Tracing.Tracer.finish __context.tracing with
-  | Ok _ ->
-      ()
-  | Error e ->
-      R.warn "Failed to complete tracing: %s" (Printexc.to_string e)
-  ) ;
+  let (_ : Tracing.Span.t option) = Tracing.Tracer.finish __context.tracing in
   __context.tracing <- None
 
 let complete_tracing_with_exn __context error =
-  ( match Tracing.Tracer.finish ~error __context.tracing with
-  | Ok _ ->
-      ()
-  | Error e ->
-      R.warn "Failed to complete tracing: %s" (Printexc.to_string e)
-  ) ;
+  let (_ : Tracing.Span.t option) =
+    Tracing.Tracer.finish ~error __context.tracing
+  in
   __context.tracing <- None
 
 let tracing_of __context = __context.tracing
