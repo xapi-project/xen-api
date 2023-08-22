@@ -37,9 +37,9 @@ let kill_resource = function
       Unix.kill pid Sys.sigkill
 
 module Thread_state = struct
-  type waiting = unit
+  type waiting = (Tracing.Span.t option * Tracing.Span.t option) option
 
-  type acquired = unit
+  type acquired = Tracing.Span.t option
 
   type time = float
 
@@ -99,19 +99,59 @@ module Thread_state = struct
 
   let now () = Unix.gettimeofday ()
 
-  let waiting_for resource =
-    update (fun ts -> {ts with waiting_for= Some (resource, now ())})
+  let waiting_for ?parent resource =
+    let span =
+      match (parent : Tracing.Span.t option) with
+      | None ->
+          None
+      | Some _ -> (
+          let name =
+            String.concat ""
+              ["Thread_state.waiting_for("; string_of_resource resource; ")"]
+          in
+          let tracer = Tracing.get_tracer ~name in
+          match Tracing.Tracer.start ~tracer ~name ~parent () with
+          | Ok span ->
+              Some (parent, span)
+          | Error e ->
+              D.warn "Failed to start tracing: %s" (Printexc.to_string e) ;
+              None
+        )
+    in
+    update (fun ts -> {ts with waiting_for= Some (resource, now ())}) ;
+    span
 
-  let acquired resource (_ : unit) =
+  let acquired resource parent =
+    let span =
+      match parent with
+      | None ->
+          None
+      | Some (parent, span) -> (
+          let (_ : (_, _) result) = Tracing.Tracer.finish span in
+          let name =
+            String.concat ""
+              ["Thread_state.acquired("; string_of_resource resource; ")"]
+          in
+          let tracer = Tracing.get_tracer ~name in
+          match Tracing.Tracer.start ~tracer ~name ~parent () with
+          | Ok span ->
+              span
+          | Error e ->
+              D.warn "Failed to start tracing: %s" (Printexc.to_string e) ;
+              None
+        )
+    in
     update (fun ts ->
         {
           ts with
           waiting_for= None
         ; acquired_resources= (resource, now ()) :: ts.acquired_resources
         }
-    )
+    ) ;
+    span
 
-  let released resource () =
+  let released resource span =
+    let (_ : (_, _) result) = Tracing.Tracer.finish span in
     update (fun ts ->
         {
           ts with
@@ -219,9 +259,16 @@ module Named_mutex = struct
 
   let create name = {name; m= Mutex.create ()}
 
-  let execute (x : t) f =
+  let execute ?__context ?parent (x : t) f =
+    let parent =
+      match parent with
+      | None ->
+          Option.bind __context Context.tracing_of
+      | Some _ as p ->
+          p
+    in
     let r = Lock x.name in
-    let waiting = Thread_state.waiting_for r in
+    let waiting = Thread_state.waiting_for ?parent r in
     with_lock x.m (fun () ->
         let acquired = Thread_state.acquired r waiting in
         finally f (fun () -> Thread_state.released r acquired)
