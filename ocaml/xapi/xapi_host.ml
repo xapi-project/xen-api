@@ -986,7 +986,7 @@ let is_host_alive ~__context ~host =
 let create ~__context ~uuid ~name_label ~name_description:_ ~hostname ~address
     ~external_auth_type ~external_auth_service_name ~external_auth_configuration
     ~license_params ~edition ~license_server ~local_cache_sr ~chipset_info
-    ~ssl_legacy:_ =
+    ~ssl_legacy:_ ~last_software_update =
   (* fail-safe. We already test this on the joining host, but it's racy, so multiple concurrent
      pool-join might succeed. Note: we do it in this order to avoid a problem checking restrictions during
      the initial setup of the database *)
@@ -1047,8 +1047,8 @@ let create ~__context ~uuid ~name_label ~name_description:_ ~hostname ~address
       )
     ~control_domain:Ref.null ~updates_requiring_reboot:[] ~iscsi_iqn:""
     ~multipathing:false ~uefi_certificates:"" ~editions:[] ~pending_guidances:[]
-    ~tls_verification_enabled ~last_software_update:Date.never
-    ~recommended_guidances:[] ~latest_synced_updates_applied:`unknown ;
+    ~tls_verification_enabled ~last_software_update ~recommended_guidances:[]
+    ~latest_synced_updates_applied:`unknown ;
   (* If the host we're creating is us, make sure its set to live *)
   Db.Host_metrics.set_last_updated ~__context ~self:metrics
     ~value:(Date.of_float (Unix.gettimeofday ())) ;

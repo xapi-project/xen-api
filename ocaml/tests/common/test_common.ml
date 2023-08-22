@@ -168,12 +168,13 @@ let make_host ~__context ?(uuid = make_uuid ()) ?(name_label = "host")
     ?(address = "127.0.0.1") ?(external_auth_type = "")
     ?(external_auth_service_name = "") ?(external_auth_configuration = [])
     ?(license_params = []) ?(edition = "free") ?(license_server = [])
-    ?(local_cache_sr = Ref.null) ?(chipset_info = []) ?(ssl_legacy = false) () =
+    ?(local_cache_sr = Ref.null) ?(chipset_info = []) ?(ssl_legacy = false)
+    ?(last_software_update = Date.epoch) () =
   let host =
     Xapi_host.create ~__context ~uuid ~name_label ~name_description ~hostname
       ~address ~external_auth_type ~external_auth_service_name
       ~external_auth_configuration ~license_params ~edition ~license_server
-      ~local_cache_sr ~chipset_info ~ssl_legacy
+      ~local_cache_sr ~chipset_info ~ssl_legacy ~last_software_update
   in
   Db.Host.set_cpu_info ~__context ~self:host ~value:default_cpu_info ;
   host
