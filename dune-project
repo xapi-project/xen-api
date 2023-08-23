@@ -44,6 +44,9 @@
     ocaml
     (alcotest (and (>= 0.6.0) :with-test))
     (odoc :with-doc)
+    (bechamel :with-test)
+    (bechamel-notty :with-test)
+    (notty :with-test)
   )
 )
 

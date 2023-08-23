@@ -10,10 +10,10 @@ depends: [
   "dune" {>= "2.7"}
   "ocaml"
   "alcotest" {>= "0.6.0" & with-test}
-  "bechamel" { with-test}
-  "bechamel-notty" { with-test}
-  "notty" { with-test}
   "odoc" {with-doc}
+  "bechamel" {with-test}
+  "bechamel-notty" {with-test}
+  "notty" {with-test}
 ]
 build: [
   ["dune" "subst"] {dev}
