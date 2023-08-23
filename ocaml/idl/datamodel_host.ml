@@ -921,6 +921,13 @@ let create_params =
     ; param_release= dundee_release
     ; param_default= Some (VBool true)
     }
+  ; {
+      param_type= DateTime
+    ; param_name= "last_software_update"
+    ; param_doc= "Date and time when the last software update was applied."
+    ; param_release= dundee_release
+    ; param_default= Some (VDateTime Date.epoch)
+    }
   ]
 
 let create =

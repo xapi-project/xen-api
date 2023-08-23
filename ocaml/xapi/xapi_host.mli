@@ -124,6 +124,7 @@ val create :
   -> local_cache_sr:[`SR] Ref.t
   -> chipset_info:(string * string) list
   -> ssl_legacy:bool
+  -> last_software_update:API.datetime
   -> [`host] Ref.t
 
 val destroy : __context:Context.t -> self:API.ref_host -> unit

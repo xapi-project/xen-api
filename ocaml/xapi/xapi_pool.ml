@@ -878,6 +878,7 @@ let rec create_or_get_host_on_master __context rpc session_id (host_ref, host) :
                				 * been added to the constructor. *)
           ~local_cache_sr ~chipset_info:host.API.host_chipset_info
           ~ssl_legacy:false
+          ~last_software_update:host.API.host_last_software_update
       in
       (* Copy other-config into newly created host record: *)
       no_exn

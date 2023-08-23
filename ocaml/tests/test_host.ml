@@ -23,6 +23,7 @@ let add_host __context name =
        ~external_auth_service_name:"" ~external_auth_configuration:[]
        ~license_params:[] ~edition:"" ~license_server:[]
        ~local_cache_sr:Ref.null ~chipset_info:[] ~ssl_legacy:false
+       ~last_software_update:Xapi_stdext_date.Date.epoch
     )
 
 (* Creates an unlicensed pool with the maximum number of hosts *)
