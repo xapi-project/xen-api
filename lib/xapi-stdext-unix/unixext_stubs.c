@@ -36,6 +36,8 @@
 #include <caml/unixsupport.h>
 #include <caml/threads.h>
 
+#include "blkgetsize.h"
+
 /* Set the TCP_NODELAY flag on a Unix.file_descr */
 CAMLprim value stub_unixext_set_tcp_nodelay (value fd, value bool)
 {
@@ -61,7 +63,6 @@ CAMLprim value stub_unixext_fsync (value fd)
 	CAMLreturn(Val_unit);
 }
 	
-extern uint64_t stdext_blkgetsize(int fd, uint64_t *psize);
 
 CAMLprim value stub_unixext_blkgetsize64(value fd)
 {

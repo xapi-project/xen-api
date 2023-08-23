@@ -30,6 +30,7 @@
 #include <caml/callback.h>
 #include <caml/bigarray.h>
 
+#include "blkgetsize.h"
 #ifdef __linux__
 #include <linux/fs.h>
 
