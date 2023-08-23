@@ -126,7 +126,7 @@ CAMLprim value stub_unixext_set_sock_keepalives(value fd, value count, value idl
 
 void unixext_error(int code)
 {
-	static value *exn = NULL;
+	static const value *exn = NULL;
 
 	if (!exn) {
 		exn = caml_named_value("unixext.unix_error");
