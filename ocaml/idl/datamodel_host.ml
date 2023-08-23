@@ -1746,6 +1746,21 @@ let set_https_only =
       ]
     ~allowed_roles:_R_POOL_OP ()
 
+let apply_recommended_guidances =
+  call ~name:"apply_recommended_guidances"
+    ~doc:
+      "apply all recommended guidances both on the host and on all HVM VMs on \
+       the host after updates are applied on the host"
+    ~lifecycle:[(Prototyped, "23.18.0", ""); (Removed, "23.25.0", "")]
+    ~params:
+      [
+        ( Ref _host
+        , "self"
+        , "The host whose recommended guidances will be applied"
+        )
+      ]
+    ~allowed_roles:_R_POOL_OP ()
+
 let latest_synced_updates_applied_state =
   Enum
     ( "latest_synced_updates_applied_state"
@@ -1898,6 +1913,7 @@ let t =
       ; apply_updates
       ; copy_primary_host_certs
       ; set_https_only
+      ; apply_recommended_guidances
       ]
     ~contents:
       ([
