@@ -34,7 +34,7 @@ let make () =
 (** Execute the function with the specified instance locked *)
 let with_instance_lock t key f =
   let r =
-    Locking_helpers.Lock
+    Locking_helpers.lock
       ("SM/" ^ Ref.really_pretty_and_small (Ref.of_string key))
   in
   let waiting = Locking_helpers.Thread_state.waiting_for r in
@@ -51,10 +51,11 @@ let with_instance_lock t key f =
       Locking_helpers.Thread_state.released r acquired
   )
 
+let sm_lock = Locking_helpers.lock "SM"
+
 (** Execute the function with the master_lock held and no instance locks held *)
 let with_master_lock t f =
-  let r = Locking_helpers.Lock "SM" in
-  let waiting = Locking_helpers.Thread_state.waiting_for r in
+  let waiting = Locking_helpers.Thread_state.waiting_for sm_lock in
   with_lock t.m (fun () ->
       (* Wait for the master_lock to be released *)
       while t.master_lock do
@@ -67,11 +68,11 @@ let with_master_lock t f =
         Condition.wait t.c t.m
       done
   ) ;
-  let acquired = Locking_helpers.Thread_state.acquired r waiting in
+  let acquired = Locking_helpers.Thread_state.acquired sm_lock waiting in
   Xapi_stdext_pervasives.Pervasiveext.finally f (fun () ->
       with_lock t.m (fun () ->
           t.master_lock <- false ;
           Condition.broadcast t.c
       ) ;
-      Locking_helpers.Thread_state.released r acquired
+      Locking_helpers.Thread_state.released sm_lock acquired
   )

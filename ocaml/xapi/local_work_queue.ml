@@ -64,7 +64,7 @@ let wait_in_line q description f =
   let state = ref `Pending in
   let waiting =
     Locking_helpers.Thread_state.waiting_for
-      (Locking_helpers.Lock q.Thread_queue.name)
+      (Locking_helpers.lock q.Thread_queue.name)
   in
   let ok =
     q.Thread_queue.push_fn description (fun () ->
@@ -91,11 +91,13 @@ let wait_in_line q description f =
   ) ;
   let acquired =
     Locking_helpers.Thread_state.acquired
-      (Locking_helpers.Lock q.Thread_queue.name) waiting
+      (Locking_helpers.lock q.Thread_queue.name)
+      waiting
   in
   finally f (fun () ->
       Locking_helpers.Thread_state.released
-        (Locking_helpers.Lock q.Thread_queue.name) acquired ;
+        (Locking_helpers.lock q.Thread_queue.name)
+        acquired ;
       with_lock m (fun () ->
           state := `Finished ;
           Condition.signal c

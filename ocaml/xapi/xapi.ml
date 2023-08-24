@@ -165,7 +165,7 @@ let register_callback_fns () =
   in
   Xapi_cli.rpc_fun := Some fake_rpc ;
   let set_stunnelpid _task_opt pid =
-    let resource = Locking_helpers.Process ("stunnel", pid) in
+    let resource = Locking_helpers.process ("stunnel", pid) in
     let waiting = Locking_helpers.Thread_state.waiting_for resource in
     let acquired = Locking_helpers.Thread_state.acquired resource waiting in
     fun () -> Locking_helpers.Thread_state.released resource acquired

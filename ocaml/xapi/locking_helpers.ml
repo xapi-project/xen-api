@@ -36,6 +36,16 @@ let kill_resource = function
       info "Sending SIGKILL to %s pid %d" name pid ;
       Unix.kill pid Sys.sigkill
 
+let lock name = Lock name
+
+let process (name, pid) = Process (name, pid)
+
+let is_process name = function
+  | Lock _ ->
+      false
+  | Process (name', _) ->
+      String.equal name name'
+
 module Thread_state = struct
   type waiting = (Tracing.Span.t option * Tracing.Span.t option) option
 

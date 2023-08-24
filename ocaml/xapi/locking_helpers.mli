@@ -13,9 +13,16 @@
  *)
 
 (** Represents a type of resource a thread has either allocated or is waiting for. *)
-type resource =
-  | Lock of string  (** e.g. a per-VM lock or a queue *)
-  | Process of string * int  (** e.g. an stunnel process with the given pid *)
+type resource
+
+val lock : string -> resource
+(** [lock name] a per-VM lock or a queue *)
+
+val process : string * int -> resource
+(** [process (name, pid)] e.g a an stunnel process with the given pid *)
+
+val is_process : string -> resource -> bool
+(** [is_process name resource] checks whether [resource] is a process named [name]. *)
 
 val kill_resource : resource -> unit
 (** Best-effort attempt to kill a resource *)
