@@ -553,6 +553,7 @@ and gen_overloads generator message =
 
 and gen_exposed_method cls msg curParams =
   let classname = cls.name in
+  let minimum_allowed_role = get_minimum_allowed_role msg in
   let proxyMsgName = proxy_msg_name classname msg in
   let exposed_ret_type = exposed_type_opt msg.msg_result in
   let paramSignature = exposed_params msg classname curParams in
@@ -573,14 +574,17 @@ and gen_exposed_method cls msg curParams =
       \        /// <summary>\n\
       \        /// %s%s%s\n\
       \        /// </summary>%s%s\n\
+      \        /// <remarks>\n\
+      \        /// Minimum allowed role: %s\n\
+      \        /// </remarks>\n\
       \        public static %s %s(%s)\n\
       \        {\n\
       \            %s;\n\
       \        }\n"
       msg.msg_doc
       (if publishInfo = "" then "" else "\n        /// " ^ publishInfo)
-      deprecatedInfoString paramsDoc deprecatedAttributeString exposed_ret_type
-      msg.msg_name paramSignature
+      deprecatedInfoString paramsDoc deprecatedAttributeString
+      minimum_allowed_role exposed_ret_type msg.msg_name paramSignature
       (json_return_opt
          (sprintf "session.JsonRpcClient.%s(%s)" proxyMsgName jsonCallParams)
          msg.msg_result
@@ -593,14 +597,18 @@ and gen_exposed_method cls msg curParams =
         \        /// <summary>\n\
         \        /// %s%s%s\n\
         \        /// </summary>%s%s\n\
+        \        /// <remarks>\n\
+        \        /// Minimum allowed role: %s\n\
+        \        /// </remarks>\n\
         \        public static XenRef<Task> async_%s(%s)\n\
         \        {\n\
         \          return session.JsonRpcClient.async_%s(%s);\n\
         \        }\n"
         msg.msg_doc
         (if publishInfo = "" then "" else "\n        /// " ^ publishInfo)
-        deprecatedInfoString paramsDoc deprecatedAttributeString msg.msg_name
-        paramSignature proxyMsgName jsonCallParams
+        deprecatedInfoString paramsDoc deprecatedAttributeString
+        minimum_allowed_role msg.msg_name paramSignature proxyMsgName
+        jsonCallParams
     else
       ""
   in

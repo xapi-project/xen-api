@@ -197,6 +197,16 @@ let gen_param_groups message params =
        (if expRelease = "" then overloadGroups else [params])
     )
 
+and get_minimum_allowed_role msg =
+  let get_last_role roles =
+    match List.rev roles with [] -> "Not Applicable" | last :: _ -> last
+  in
+  match msg.msg_allowed_roles with
+  | None ->
+      "Not Applicable"
+  | Some roles ->
+      get_last_role roles
+
 (*** XML documentation ***)
 
 and get_published_info_message message cls =
