@@ -27,6 +27,9 @@ val is_process : string -> resource -> bool
 val kill_resource : resource -> unit
 (** Best-effort attempt to kill a resource *)
 
+val string_of_resource : resource -> string
+(** [string_of_resource resource] a string representation of the resource for debugging *)
+
 (** Records per-thread diagnostic information *)
 module Thread_state : sig
   type waiting
@@ -50,6 +53,8 @@ module Thread_state : sig
   val get_acquired_resources_by_task : API.ref_task -> resource list
 
   val to_graphviz : unit -> string
+
+  val known_threads : unit -> int
 end
 
 module Named_mutex : sig

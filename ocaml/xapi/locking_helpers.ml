@@ -262,6 +262,8 @@ module Thread_state = struct
         ]
     in
     String.concat "\n" all
+
+  let known_threads () = with_lock m (fun () -> IntMap.cardinal !thread_states)
 end
 
 module Named_mutex = struct
