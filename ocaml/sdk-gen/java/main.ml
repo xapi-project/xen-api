@@ -288,6 +288,8 @@ let gen_method file cls message params async_version =
 
   fprintf file "    /**\n" ;
   fprintf file "     * %s\n" (escape_xml message.msg_doc) ;
+  fprintf file "     * Minimum allowed role: %s\n"
+    (get_minimum_allowed_role message) ;
   if not (publishInfo = "") then fprintf file "     * %s\n" publishInfo ;
   if get_method_deprecated message then fprintf file "     * @deprecated\n" ;
   fprintf file "     *\n" ;
