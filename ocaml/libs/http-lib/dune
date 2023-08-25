@@ -8,6 +8,7 @@
   (libraries
     astring
     base64
+    ipaddr
     mtime
     mtime.clock.os
     rpclib.core
