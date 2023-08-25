@@ -335,35 +335,54 @@ let add_handler (name, handler) =
     | Http_svr.BufIO callback ->
         Http_svr.BufIO
           (fun req ic context ->
-            try
-              if check_rbac then (
+            let client =
+              Http_svr.(
+                client_of_req_and_fd req (Buf_io.fd_of ic)
+                |> Option.map string_of_client
+              )
+            in
+            Debug.with_thread_associated ?client name
+              (fun () ->
                 try
-                  (* rbac checks *)
-                  assert_credentials_ok name req
-                    ~fn:(fun () -> callback req ic context)
-                    (Buf_io.fd_of ic)
-                with e ->
-                  debug "Leaving RBAC-handler in xapi_http after: %s"
-                    (ExnHelper.string_of_exn e) ;
-                  raise e
-              ) else (* no rbac checks *)
-                callback req ic context
-            with Api_errors.Server_error (name, params) as e ->
-              error "Unhandled Api_errors.Server_error(%s, [ %s ])" name
-                (String.concat "; " params) ;
-              raise (Http_svr.Generic_error (ExnHelper.string_of_exn e))
+                  if check_rbac then (
+                    try
+                      (* rbac checks *)
+                      assert_credentials_ok name req
+                        ~fn:(fun () -> callback req ic context)
+                        (Buf_io.fd_of ic)
+                    with e ->
+                      debug "Leaving RBAC-handler in xapi_http after: %s"
+                        (ExnHelper.string_of_exn e) ;
+                      raise e
+                  ) else (* no rbac checks *)
+                    callback req ic context
+                with Api_errors.Server_error (name, params) as e ->
+                  error "Unhandled Api_errors.Server_error(%s, [ %s ])" name
+                    (String.concat "; " params) ;
+                  raise (Http_svr.Generic_error (ExnHelper.string_of_exn e))
+              )
+              ()
           )
     | Http_svr.FdIO callback ->
         Http_svr.FdIO
           (fun req ic context ->
-            try
-              if check_rbac then assert_credentials_ok name req ic ;
-              (* session and rbac checks *)
-              callback req ic context
-            with Api_errors.Server_error (name, params) as e ->
-              error "Unhandled Api_errors.Server_error(%s, [ %s ])" name
-                (String.concat "; " params) ;
-              raise (Http_svr.Generic_error (ExnHelper.string_of_exn e))
+            let client =
+              Http_svr.(
+                client_of_req_and_fd req ic |> Option.map string_of_client
+              )
+            in
+            Debug.with_thread_associated ?client name
+              (fun () ->
+                try
+                  if check_rbac then assert_credentials_ok name req ic ;
+                  (* session and rbac checks *)
+                  callback req ic context
+                with Api_errors.Server_error (name, params) as e ->
+                  error "Unhandled Api_errors.Server_error(%s, [ %s ])" name
+                    (String.concat "; " params) ;
+                  raise (Http_svr.Generic_error (ExnHelper.string_of_exn e))
+              )
+              ()
           )
   in
   match action with
