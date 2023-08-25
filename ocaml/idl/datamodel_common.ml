@@ -316,6 +316,14 @@ let update_guidances =
         , "Indicates the updated host should reboot as soon as possible since \
            one or more livepatch(es) failed to be applied."
         )
+      ; ( "reboot_host_on_xen_livepatch_failure"
+        , "Indicates the updated host should reboot as soon as possible since \
+           one or more Xen livepatch(es) failed to be applied."
+        )
+      ; ( "reboot_host_on_kernel_livepatch_failure"
+        , "Indicates the updated host should reboot as soon as possible since \
+           one or more Linux Kernel livepatch(es) failed to be applied."
+        )
       ; ( "restart_toolstack"
         , "Indicates the Toolstack running on the updated host should restart \
            as soon as possible"

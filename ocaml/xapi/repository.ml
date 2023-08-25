@@ -622,47 +622,6 @@ let apply_livepatch ~__context ~host:_ ~component ~base_build_id ~base_version
       error "%s" msg ;
       raise Api_errors.(Server_error (internal_error, [msg]))
 
-let set_restart_device_models ~__context ~host =
-  (* Set pending restart device models of all running HVM VMs on the host *)
-  do_with_device_models ~__context ~host @@ fun (ref, record) ->
-  match
-    (record.API.vM_power_state, Helpers.has_qemu_currently ~__context ~self:ref)
-  with
-  | `Running, true | `Paused, true ->
-      Db.VM.set_pending_guidances ~__context ~self:ref
-        ~value:[`restart_device_model] ;
-      None
-  | _ ->
-      (* No device models are running for this VM *)
-      None
-
-let set_guidances ~__context ~host ~guidances ~db_set =
-  let open Guidance in
-  guidances
-  |> List.fold_left
-       (fun acc g ->
-         match g with
-         | RebootHost ->
-             `reboot_host :: acc
-         | RestartToolstack ->
-             `restart_toolstack :: acc
-         | RestartDeviceModel ->
-             set_restart_device_models ~__context ~host ;
-             acc
-         | RebootHostOnLivePatchFailure ->
-             `reboot_host_on_livepatch_failure :: acc
-         | _ ->
-             warn "Unsupported pending guidance %s, ignoring it."
-               (Guidance.to_string g) ;
-             acc
-       )
-       []
-  |> fun gs -> db_set ~__context ~self:host ~value:gs
-
-let set_pending_guidances ~__context ~host ~guidances =
-  set_guidances ~__context ~host ~guidances
-    ~db_set:Db.Host.set_pending_guidances
-
 let apply_livepatches' ~__context ~host ~livepatches =
   List.partition_map
     (fun (lp, lps) ->
@@ -720,39 +679,57 @@ let apply_updates' ~__context ~host ~updates_info ~livepatches ~acc_rpm_updates
         )
       ]
       ) ;
-  (* Evaluate guidances *)
-  let guidances =
-    let guidances' =
-      (* EvacuateHost will be applied before applying updates *)
-      eval_guidances ~updates_info ~updates:acc_rpm_updates ~kind:Recommended
-        ~livepatches:successful_livepatches ~failed_livepatches
-      |> List.filter (fun g -> g <> Guidance.EvacuateHost)
-      |> fun l -> merge_with_unapplied_guidances ~__context ~host ~guidances:l
-    in
-    GuidanceSet.assert_valid_guidances guidances' ;
-    match failed_livepatches with
-    | [] ->
-        guidances'
-    | _ :: _ ->
-        (* There is(are) livepatch failure(s):
-         * the host should not be rebooted, and
-         * an extra pending guidance 'RebootHostOnLivePatchFailure' should be set.
-         *)
-        guidances'
-        |> List.filter (fun g -> g <> Guidance.RebootHost)
-        |> List.cons Guidance.RebootHostOnLivePatchFailure
+  let merge_method action host_or_vm =
+    match (action, host_or_vm) with
+    | `add_pending_guidances, `host ->
+        fun ref_str value ->
+          Db.Host.add_pending_guidances ~__context ~self:(Ref.of_string ref_str)
+            ~value
+    | `add_pending_guidances, `vm ->
+        fun ref_str value ->
+          Db.VM.add_pending_guidances ~__context ~self:(Ref.of_string ref_str)
+            ~value
+    | `remove_pending_guidances, `host ->
+        fun ref_str value ->
+          Db.Host.remove_pending_guidances ~__context
+            ~self:(Ref.of_string ref_str) ~value
+    | `remove_pending_guidances, `vm ->
+        fun ref_str value ->
+          Db.VM.remove_pending_guidances ~__context
+            ~self:(Ref.of_string ref_str) ~value
   in
-  List.iter
-    (fun g -> debug "pending_guidance: %s" (Guidance.to_string g))
-    guidances ;
-  set_pending_guidances ~__context ~host ~guidances ;
-  ( guidances
-  , List.map
-      (fun (lp, _) ->
-        [Api_errors.apply_livepatch_failed; LivePatch.to_string lp]
-      )
-      failed_livepatches
-  )
+  (* Evaluate and merge pending guidances *)
+  let coming_guidances =
+    eval_guidances ~updates_info ~updates:acc_rpm_updates ~kind:Recommended
+      ~livepatches:successful_livepatches ~failed_livepatches
+    (* EvacuateHost has been applied before applying updates *)
+    |> List.filter (fun g -> g <> Guidance.EvacuateHost)
+  in
+  let host_pending_guidances =
+    let guidances =
+      Db.Host.get_pending_guidances ~__context ~self:host
+      |> List.map (fun g -> Guidance.of_pending_guidance g)
+    in
+    (Ref.string_of host, guidances)
+  in
+  let get_lp_component (lp, _) = lp.LivePatch.component in
+  let succ_lps = List.map get_lp_component successful_livepatches in
+  let fail_lps = List.map get_lp_component failed_livepatches in
+  let vms_pending_guidances =
+    get_vms_for_pending_guidances ~__context ~host
+    |> List.map (fun vm_ref ->
+           let pending_guidances =
+             Db.VM.get_pending_guidances ~__context ~self:vm_ref
+             |> List.map Guidance.of_pending_guidance
+           in
+           (Ref.string_of vm_ref, pending_guidances)
+       )
+  in
+  merge_pending_guidances ~merge_method ~host_pending_guidances
+    ~vms_pending_guidances ~coming_guidances ~succ_lps ~fail_lps ;
+  List.map
+    (fun (lp, _) -> [Api_errors.apply_livepatch_failed; LivePatch.to_string lp])
+    failed_livepatches
 
 let apply_updates ~__context ~host ~hash =
   (* This function runs on coordinator host *)
@@ -781,7 +758,7 @@ let apply_updates ~__context ~host ~hash =
         | [], [] ->
             let host' = Ref.string_of host in
             info "Host ref='%s' is already up to date." host' ;
-            ([], [])
+            []
         | _ ->
             let repository_name =
               get_repository_name ~__context ~self:repository

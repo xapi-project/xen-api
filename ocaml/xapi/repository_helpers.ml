@@ -653,15 +653,172 @@ let eval_guidances ~updates_info ~updates ~kind ~livepatches ~failed_livepatches
   |> GuidanceSet.resort_guidances ~remove_evacuations:(kind = Guidance.Absolute)
   |> GuidanceSet.elements
 
-let merge_with_unapplied_guidances ~__context ~host ~guidances =
+let merge_with_unapplied_guidances ~unapplied ~coming =
+  let open Guidance in
   let open GuidanceSet in
-  Db.Host.get_pending_guidances ~__context ~self:host
-  |> List.map (fun g -> Guidance.of_update_guidance g)
-  |> List.filter (fun g -> g <> Guidance.RebootHostOnLivePatchFailure)
-  |> of_list
-  |> union (of_list guidances)
-  |> resort_guidances ~remove_evacuations:false
-  |> elements
+  let unapplied_set = of_list unapplied in
+  let coming_set = of_list coming in
+  iter (fun g -> debug "unapplied: %s" (to_string g)) unapplied_set ;
+  iter (fun g -> debug "coming: %s" (to_string g)) coming_set ;
+  let resorted =
+    union unapplied_set coming_set |> resort_guidances ~remove_evacuations:false
+  in
+  let to_be_added', unchanged' =
+    fold
+      (fun g (to_be_added, unchanged) ->
+        match (mem g unapplied_set, mem g coming_set) with
+        | true, true ->
+            (add g to_be_added, unchanged)
+        | true, false ->
+            (to_be_added, add g unchanged)
+        | false, true ->
+            (add g to_be_added, unchanged)
+        | false, false ->
+            (to_be_added, unchanged)
+      )
+      resorted (empty, empty)
+  in
+  let to_be_removed' = diff unapplied_set resorted in
+  let to_be_added, to_be_removed, unchanged =
+    (elements to_be_added', elements to_be_removed', elements unchanged')
+  in
+  List.iter (fun g -> debug "to_be_added: %s" (to_string g)) to_be_added ;
+  List.iter (fun g -> debug "to_be_removed: %s" (to_string g)) to_be_removed ;
+  List.iter (fun g -> debug "unchanged: %s" (to_string g)) unchanged ;
+  (to_be_added, to_be_removed, unchanged)
+
+let failure_guidance_of_component = function
+  | Livepatch.Xen ->
+      Guidance.RebootHostOnXenLivePatchFailure
+  | Livepatch.Kernel ->
+      Guidance.RebootHostOnKernelLivePatchFailure
+
+let component_of_livepatch_failure = function
+  | Guidance.RebootHostOnXenLivePatchFailure ->
+      Some Livepatch.Xen
+  | Guidance.RebootHostOnKernelLivePatchFailure ->
+      Some Livepatch.Kernel
+  | _ ->
+      None
+
+let merge_livepatch_failures' ~previous_failures ~succeeded ~failed =
+  let open Guidance in
+  let current_failures = List.map failure_guidance_of_component failed in
+  let failures' =
+    List.fold_left
+      (fun curr_fails prev_fail ->
+        match (component_of_livepatch_failure prev_fail, prev_fail) with
+        | Some component, _ -> (
+          match
+            (List.mem prev_fail curr_fails, List.mem component succeeded)
+          with
+          | true, _ ->
+              (* failed again *)
+              curr_fails
+          | false, true ->
+              (* succeeded in this update *)
+              curr_fails
+          | false, false ->
+              (* didn't try in this update, keep it *)
+              prev_fail :: curr_fails
+        )
+        | None, RebootHostOnLivePatchFailure ->
+            (* Have to keep this deprecated for safty *)
+            RebootHostOnLivePatchFailure :: curr_fails
+        | None, _ ->
+            curr_fails
+      )
+      current_failures previous_failures
+  in
+  (* Try to clean up the deprecated RebootHostOnLivePatchFailure *)
+  [Livepatch.Xen; Livepatch.Kernel]
+  |> List.map (fun c ->
+         let fail = failure_guidance_of_component c in
+         List.mem c succeeded
+         || List.mem c failed
+         || List.mem fail previous_failures
+     )
+  |> List.for_all (fun b -> b)
+  |> function
+  | true ->
+      List.filter (fun fail -> fail <> RebootHostOnLivePatchFailure) failures'
+  | false ->
+      failures'
+
+let merge_livepatch_failures ~previous_failures ~succeeded ~failed =
+  let open GuidanceSet in
+  let failures =
+    merge_livepatch_failures' ~previous_failures ~succeeded ~failed
+  in
+  let to_be_removed' =
+    diff (of_list previous_failures) (of_list failures) |> elements
+  in
+  let to_be_added' =
+    diff (of_list failures) (of_list previous_failures) |> elements
+  in
+  (to_be_removed', to_be_added')
+
+let do_with_pending_guidances ~merge_method ~host ~vms guidances =
+  let host_method = merge_method `host in
+  let vm_method = merge_method `vm in
+  List.iter
+    (fun g ->
+      match Guidance.to_pending_guidance g with
+      | Some g' when g' = `restart_device_model ->
+          List.iter (fun vm -> vm_method vm g') vms
+      | ( Some `restart_toolstack
+        | Some `reboot_host
+        | Some `reboot_host_on_livepatch_failure
+        | Some `reboot_host_on_xen_livepatch_failure
+        | Some `reboot_host_on_kernel_livepatch_failure ) as g' ->
+          host_method host (Option.get g')
+      | _ ->
+          ()
+    )
+    guidances
+
+let merge_pending_guidances ~merge_method ~host_pending_guidances
+    ~vms_pending_guidances ~coming_guidances ~succ_lps ~fail_lps =
+  let host, host_pending_guidances' = host_pending_guidances in
+  let prev_lp_failures, host_pending_guidances' =
+    host_pending_guidances'
+    |> List.partition (fun g ->
+           g = Guidance.RebootHostOnLivePatchFailure
+           || g = Guidance.RebootHostOnXenLivePatchFailure
+           || g = Guidance.RebootHostOnKernelLivePatchFailure
+       )
+  in
+  (* merge guidances *)
+  let vms =
+    vms_pending_guidances |> List.map (fun (vm_ref_str, _) -> vm_ref_str)
+  in
+  let deduped_vm_pending_guidances =
+    vms_pending_guidances
+    |> List.map (fun (_, l) -> l)
+    |> List.flatten
+    |> GuidanceSet.of_list
+    |> GuidanceSet.elements
+  in
+  let unapplied =
+    List.append host_pending_guidances' deduped_vm_pending_guidances
+  in
+  let to_be_added, to_be_removed, unchanged =
+    merge_with_unapplied_guidances ~unapplied ~coming:coming_guidances
+  in
+  GuidanceSet.assert_valid_guidances (to_be_added @ unchanged) ;
+  (* merge livepatch failures *)
+  let to_be_removed', to_be_added' =
+    merge_livepatch_failures ~previous_failures:prev_lp_failures
+      ~succeeded:succ_lps ~failed:fail_lps
+  in
+  do_with_pending_guidances
+    ~merge_method:(merge_method `remove_pending_guidances)
+    ~host ~vms
+    (to_be_removed @ to_be_removed') ;
+  do_with_pending_guidances
+    ~merge_method:(merge_method `add_pending_guidances)
+    ~host ~vms
+    (to_be_added @ to_be_added')
 
 let repoquery_sep = ":|"
 
@@ -1337,15 +1494,18 @@ let prune_updateinfo_for_livepatches livepatches updateinfo =
   in
   {updateinfo with livepatches= lps}
 
-let do_with_device_models ~__context ~host f =
-  (* Call f with device models of all running HVM VMs on the host *)
+let get_vms_for_pending_guidances ~__context ~host =
   Db.Host.get_resident_VMs ~__context ~self:host
   |> List.map (fun self -> (self, Db.VM.get_record ~__context ~self))
-  |> List.filter (fun (_, record) -> not record.API.vM_is_control_domain)
-  |> List.filter_map f
-  |> function
-  | [] ->
-      ()
-  | _ :: _ ->
-      let host' = Ref.string_of host in
-      raise Api_errors.(Server_error (cannot_restart_device_model, [host']))
+  |> List.filter_map (fun (ref, record) ->
+         match
+           ( record.API.vM_is_control_domain
+           , record.API.vM_power_state
+           , Helpers.has_qemu_currently ~__context ~self:ref
+           )
+         with
+         | false, `Running, true | false, `Paused, true ->
+             Some ref
+         | _ ->
+             None
+     )

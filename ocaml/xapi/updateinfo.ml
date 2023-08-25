@@ -24,6 +24,8 @@ module Guidance = struct
     | EvacuateHost
     | RestartDeviceModel
     | RebootHostOnLivePatchFailure
+    | RebootHostOnXenLivePatchFailure
+    | RebootHostOnKernelLivePatchFailure
 
   type guidance_kind = Absolute | Recommended
 
@@ -40,6 +42,10 @@ module Guidance = struct
         "RestartDeviceModel"
     | RebootHostOnLivePatchFailure ->
         "RebootHostOnLivePatchFailure"
+    | RebootHostOnKernelLivePatchFailure ->
+        "RebootHostOnKernelLivePatchFailure"
+    | RebootHostOnXenLivePatchFailure ->
+        "RebootHostOnXenLivePatchFailure"
 
   let of_string = function
     | "RebootHost" ->
@@ -58,15 +64,35 @@ module Guidance = struct
           g ;
         RebootHost
 
-  let of_update_guidance = function
+  let of_pending_guidance = function
     | `reboot_host ->
         RebootHost
     | `reboot_host_on_livepatch_failure ->
         RebootHostOnLivePatchFailure
+    | `reboot_host_on_kernel_livepatch_failure ->
+        RebootHostOnKernelLivePatchFailure
+    | `reboot_host_on_xen_livepatch_failure ->
+        RebootHostOnXenLivePatchFailure
     | `restart_toolstack ->
         RestartToolstack
     | `restart_device_model ->
         RestartDeviceModel
+
+  let to_pending_guidance = function
+    | RebootHost ->
+        Some `reboot_host
+    | RebootHostOnLivePatchFailure ->
+        Some `reboot_host_on_livepatch_failure
+    | RebootHostOnKernelLivePatchFailure ->
+        Some `reboot_host_on_kernel_livepatch_failure
+    | RebootHostOnXenLivePatchFailure ->
+        Some `reboot_host_on_xen_livepatch_failure
+    | RestartToolstack ->
+        Some `restart_toolstack
+    | RestartDeviceModel ->
+        Some `restart_device_model
+    | EvacuateHost ->
+        None
 end
 
 module Applicability = struct

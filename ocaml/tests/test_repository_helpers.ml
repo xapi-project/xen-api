@@ -46,6 +46,62 @@ let fields_of_update =
     ; field "repository" (fun (r : Update.t) -> r.repository) string
     ]
 
+let rec combination' acc = function
+  | [] ->
+      acc @ [[]]
+  | hd :: tl ->
+      let acc' = [[hd]] @ List.map (fun l -> hd :: l) acc @ acc in
+      combination' acc' tl
+
+let combination l = combination' [] l
+
+let join l1 l2 =
+  List.fold_left
+    (fun acc e1 -> List.fold_left (fun acc' e2 -> (e1, e2) :: acc') acc l2)
+    [] l1
+
+let join3 l2 l1 =
+  List.fold_left
+    (fun acc (x1, x2) ->
+      List.fold_left (fun acc' y -> (x1, x2, y) :: acc') acc l2
+    )
+    [] l1
+
+let join4 l2 l1 =
+  List.fold_left
+    (fun acc (x1, x2, x3) ->
+      List.fold_left (fun acc' y -> (x1, x2, x3, y) :: acc') acc l2
+    )
+    [] l1
+
+let guidances_to_string gs =
+  "[" ^ (List.map Guidance.to_string gs |> String.concat "; ") ^ "]"
+
+let livepatch_components_to_string components =
+  "["
+  ^ (List.map Livepatch.string_of_component components |> String.concat "; ")
+  ^ "]"
+
+let livepatching_result_to_string succeeded failed =
+  let to_string = livepatch_components_to_string in
+  "(" ^ to_string succeeded ^ ", " ^ to_string failed ^ ")"
+
+let exhaustive_livepatching_results =
+  let open Livepatch in
+  [
+    ([], [])
+  ; ([], [Xen])
+  ; ([], [Kernel])
+  ; ([], [Xen; Kernel])
+  ; ([Xen], [])
+  ; ([Xen], [Kernel])
+  ; ([Kernel], [])
+  ; ([Kernel], [Xen])
+  ; ([Xen; Kernel], [])
+  ]
+
+exception Mismatched_exhaustive_input of string * string
+
 module UpdateOfJsonTest = Generic.MakeStateless (struct
   module Io = struct
     type input_t = string
@@ -3608,6 +3664,2718 @@ module GetLatestUpdatesFromRedundancy = Generic.MakeStateless (struct
       ]
 end)
 
+module MergeWithUnappliedGuidances' = struct
+  module Io = struct
+    (* (unapplied, coming) *)
+    type input_t = Guidance.t list * Guidance.t list
+
+    (* (to_be_added, to_be_removed, unchanged) *)
+    type output_t = Guidance.t list * Guidance.t list * Guidance.t list
+
+    let string_of_input_t (unapplied, coming) =
+      Fmt.(str "%a" Dump.(pair (list string) (list string)))
+        ( List.map Guidance.to_string unapplied
+        , List.map Guidance.to_string coming
+        )
+
+    let string_of_output_t (to_be_added, to_be_removed, unchanged) =
+      "to_be_added:"
+      ^ Fmt.(str "%a" Dump.(list string))
+          (List.map Guidance.to_string to_be_added)
+      ^ ", to_be_removed:"
+      ^ Fmt.(str "%a" Dump.(list string))
+          (List.map Guidance.to_string to_be_removed)
+      ^ ", unchanged:"
+      ^ Fmt.(str "%a" Dump.(list string)) (List.map Guidance.to_string unchanged)
+  end
+
+  let transform (unapplied, coming) =
+    merge_with_unapplied_guidances ~unapplied ~coming
+
+  let tests' =
+    let open Guidance in
+    [
+      (([], []), ([], [], []))
+    ; (([], [RebootHost]), ([RebootHost], [], []))
+    ; (([], [RebootHost; RestartToolstack]), ([RebootHost], [], []))
+    ; (([], [RestartToolstack]), ([RestartToolstack], [], []))
+    ; (([], [RebootHost; RestartDeviceModel]), ([RebootHost], [], []))
+    ; ( ([], [RebootHost; RestartToolstack; RestartDeviceModel])
+      , ([RebootHost], [], [])
+      )
+    ; ( ([], [RestartToolstack; RestartDeviceModel])
+      , ([RestartToolstack; RestartDeviceModel], [], [])
+      )
+    ; (([], [RestartDeviceModel]), ([RestartDeviceModel], [], []))
+    ; (([RebootHost], []), ([], [], [RebootHost]))
+    ; (([RebootHost], [RebootHost]), ([RebootHost], [], []))
+    ; (([RebootHost], [RebootHost; RestartToolstack]), ([RebootHost], [], []))
+    ; (([RebootHost], [RestartToolstack]), ([], [], [RebootHost]))
+    ; (([RebootHost], [RebootHost; RestartDeviceModel]), ([RebootHost], [], []))
+    ; ( ([RebootHost], [RebootHost; RestartToolstack; RestartDeviceModel])
+      , ([RebootHost], [], [])
+      )
+    ; ( ([RebootHost], [RestartToolstack; RestartDeviceModel])
+      , ([], [], [RebootHost])
+      )
+    ; (([RebootHost], [RestartDeviceModel]), ([], [], [RebootHost]))
+    ; ( ([RebootHost; RestartToolstack], [])
+      , ([], [RestartToolstack], [RebootHost])
+      )
+    ; ( ([RebootHost; RestartToolstack], [RebootHost])
+      , ([RebootHost], [RestartToolstack], [])
+      )
+    ; ( ([RebootHost; RestartToolstack], [RebootHost; RestartToolstack])
+      , ([RebootHost], [RestartToolstack], [])
+      )
+    ; ( ([RebootHost; RestartToolstack], [RestartToolstack])
+      , ([], [RestartToolstack], [RebootHost])
+      )
+    ; ( ([RebootHost; RestartToolstack], [RebootHost; RestartDeviceModel])
+      , ([RebootHost], [RestartToolstack], [])
+      )
+    ; ( ( [RebootHost; RestartToolstack]
+        , [RebootHost; RestartToolstack; RestartDeviceModel]
+        )
+      , ([RebootHost], [RestartToolstack], [])
+      )
+    ; ( ([RebootHost; RestartToolstack], [RestartToolstack; RestartDeviceModel])
+      , ([], [RestartToolstack], [RebootHost])
+      )
+    ; ( ([RebootHost; RestartToolstack], [RestartDeviceModel])
+      , ([], [RestartToolstack], [RebootHost])
+      )
+    ; (([RestartToolstack], []), ([], [], [RestartToolstack]))
+    ; ( ([RestartToolstack], [RebootHost])
+      , ([RebootHost], [RestartToolstack], [])
+      )
+    ; ( ([RestartToolstack], [RebootHost; RestartToolstack])
+      , ([RebootHost], [RestartToolstack], [])
+      )
+    ; (([RestartToolstack], [RestartToolstack]), ([RestartToolstack], [], []))
+    ; ( ([RestartToolstack], [RebootHost; RestartDeviceModel])
+      , ([RebootHost], [RestartToolstack], [])
+      )
+    ; ( ([RestartToolstack], [RebootHost; RestartToolstack; RestartDeviceModel])
+      , ([RebootHost], [RestartToolstack], [])
+      )
+    ; ( ([RestartToolstack], [RestartToolstack; RestartDeviceModel])
+      , ([RestartToolstack; RestartDeviceModel], [], [])
+      )
+    ; ( ([RestartToolstack], [RestartDeviceModel])
+      , ([RestartDeviceModel], [], [RestartToolstack])
+      )
+    ; ( ([RebootHost; RestartDeviceModel], [])
+      , ([], [RestartDeviceModel], [RebootHost])
+      )
+    ; ( ([RebootHost; RestartDeviceModel], [RebootHost])
+      , ([RebootHost], [RestartDeviceModel], [])
+      )
+    ; ( ([RebootHost; RestartDeviceModel], [RebootHost; RestartToolstack])
+      , ([RebootHost], [RestartDeviceModel], [])
+      )
+    ; ( ([RebootHost; RestartDeviceModel], [RestartToolstack])
+      , ([], [RestartDeviceModel], [RebootHost])
+      )
+    ; ( ([RebootHost; RestartDeviceModel], [RebootHost; RestartDeviceModel])
+      , ([RebootHost], [RestartDeviceModel], [])
+      )
+    ; ( ( [RebootHost; RestartDeviceModel]
+        , [RebootHost; RestartToolstack; RestartDeviceModel]
+        )
+      , ([RebootHost], [RestartDeviceModel], [])
+      )
+    ; ( ( [RebootHost; RestartDeviceModel]
+        , [RestartToolstack; RestartDeviceModel]
+        )
+      , ([], [RestartDeviceModel], [RebootHost])
+      )
+    ; ( ([RebootHost; RestartDeviceModel], [RestartDeviceModel])
+      , ([], [RestartDeviceModel], [RebootHost])
+      )
+    ; ( ([RebootHost; RestartToolstack; RestartDeviceModel], [])
+      , ([], [RestartToolstack; RestartDeviceModel], [RebootHost])
+      )
+    ; ( ([RebootHost; RestartToolstack; RestartDeviceModel], [RebootHost])
+      , ([RebootHost], [RestartToolstack; RestartDeviceModel], [])
+      )
+    ; ( ( [RebootHost; RestartToolstack; RestartDeviceModel]
+        , [RebootHost; RestartToolstack]
+        )
+      , ([RebootHost], [RestartToolstack; RestartDeviceModel], [])
+      )
+    ; ( ([RebootHost; RestartToolstack; RestartDeviceModel], [RestartToolstack])
+      , ([], [RestartToolstack; RestartDeviceModel], [RebootHost])
+      )
+    ; ( ( [RebootHost; RestartToolstack; RestartDeviceModel]
+        , [RebootHost; RestartDeviceModel]
+        )
+      , ([RebootHost], [RestartToolstack; RestartDeviceModel], [])
+      )
+    ; ( ( [RebootHost; RestartToolstack; RestartDeviceModel]
+        , [RebootHost; RestartToolstack; RestartDeviceModel]
+        )
+      , ([RebootHost], [RestartToolstack; RestartDeviceModel], [])
+      )
+    ; ( ( [RebootHost; RestartToolstack; RestartDeviceModel]
+        , [RestartToolstack; RestartDeviceModel]
+        )
+      , ([], [RestartToolstack; RestartDeviceModel], [RebootHost])
+      )
+    ; ( ( [RebootHost; RestartToolstack; RestartDeviceModel]
+        , [RestartDeviceModel]
+        )
+      , ([], [RestartToolstack; RestartDeviceModel], [RebootHost])
+      )
+    ; ( ([RestartToolstack; RestartDeviceModel], [])
+      , ([], [], [RestartToolstack; RestartDeviceModel])
+      )
+    ; ( ([RestartToolstack; RestartDeviceModel], [RebootHost])
+      , ([RebootHost], [RestartToolstack; RestartDeviceModel], [])
+      )
+    ; ( ([RestartToolstack; RestartDeviceModel], [RebootHost; RestartToolstack])
+      , ([RebootHost], [RestartToolstack; RestartDeviceModel], [])
+      )
+    ; ( ([RestartToolstack; RestartDeviceModel], [RestartToolstack])
+      , ([RestartToolstack], [], [RestartDeviceModel])
+      )
+    ; ( ( [RestartToolstack; RestartDeviceModel]
+        , [RebootHost; RestartDeviceModel]
+        )
+      , ([RebootHost], [RestartToolstack; RestartDeviceModel], [])
+      )
+    ; ( ( [RestartToolstack; RestartDeviceModel]
+        , [RebootHost; RestartToolstack; RestartDeviceModel]
+        )
+      , ([RebootHost], [RestartToolstack; RestartDeviceModel], [])
+      )
+    ; ( ( [RestartToolstack; RestartDeviceModel]
+        , [RestartToolstack; RestartDeviceModel]
+        )
+      , ([RestartToolstack; RestartDeviceModel], [], [])
+      )
+    ; ( ([RestartToolstack; RestartDeviceModel], [RestartDeviceModel])
+      , ([RestartDeviceModel], [], [RestartToolstack])
+      )
+    ; (([RestartDeviceModel], []), ([], [], [RestartDeviceModel]))
+    ; ( ([RestartDeviceModel], [RebootHost])
+      , ([RebootHost], [RestartDeviceModel], [])
+      )
+    ; ( ([RestartDeviceModel], [RebootHost; RestartToolstack])
+      , ([RebootHost], [RestartDeviceModel], [])
+      )
+    ; ( ([RestartDeviceModel], [RestartToolstack])
+      , ([RestartToolstack], [], [RestartDeviceModel])
+      )
+    ; ( ([RestartDeviceModel], [RebootHost; RestartDeviceModel])
+      , ([RebootHost], [RestartDeviceModel], [])
+      )
+    ; ( ( [RestartDeviceModel]
+        , [RebootHost; RestartToolstack; RestartDeviceModel]
+        )
+      , ([RebootHost], [RestartDeviceModel], [])
+      )
+    ; ( ([RestartDeviceModel], [RestartToolstack; RestartDeviceModel])
+      , ([RestartToolstack; RestartDeviceModel], [], [])
+      )
+    ; ( ([RestartDeviceModel], [RestartDeviceModel])
+      , ([RestartDeviceModel], [], [])
+      )
+    ]
+
+  let string_of_inputs input1 input2 =
+    "(" ^ guidances_to_string input1 ^ ", " ^ guidances_to_string input2 ^ ")"
+
+  let strings_of_tests_inputs =
+    List.map
+      (fun ((input1, input2), _) -> string_of_inputs input1 input2)
+      tests'
+
+  let strings_of_exhaustive_inputs =
+    let open Guidance in
+    let exhaustive_unapplied_inputs =
+      combination [RebootHost; RestartToolstack; RestartDeviceModel]
+      |> List.map (fun l -> List.sort Guidance.compare l)
+    in
+    let exhaustive_coming =
+      combination [RebootHost; RestartToolstack; RestartDeviceModel]
+      |> List.map (fun l -> List.sort Guidance.compare l)
+    in
+    join exhaustive_unapplied_inputs exhaustive_coming
+    |> List.map (fun (input1, input2) -> string_of_inputs input1 input2)
+
+  let tests = `QuickAndAutoDocumented tests'
+end
+
+module MergeWithUnappliedGuidances =
+  Generic.MakeStateless (MergeWithUnappliedGuidances')
+
+module MergeLivepatchFailures' = struct
+  module Io = struct
+    (* (previous_failures, (succeeded, failed)) *)
+    type input_t =
+      Guidance.t list * (Livepatch.component list * Livepatch.component list)
+
+    (* failure_guidances *)
+    type output_t = Guidance.t list
+
+    let string_of_input_t (previous_failures, (succeeded, failed)) =
+      Fmt.(
+        str "%a" Dump.(pair (list string) (pair (list string) (list string)))
+      )
+        ( List.map Guidance.to_string previous_failures
+        , ( List.map Livepatch.string_of_component succeeded
+          , List.map Livepatch.string_of_component failed
+          )
+        )
+
+    let string_of_output_t failure_guidances =
+      Fmt.(str "%a" Dump.(list string))
+        (List.map Guidance.to_string failure_guidances)
+  end
+
+  let transform (previous_failures, (succeeded, failed)) =
+    merge_livepatch_failures' ~previous_failures ~succeeded ~failed
+
+  let tests' =
+    let open Guidance in
+    let open Livepatch in
+    [
+      (([], ([Xen; Kernel], [])), [])
+    ; (([], ([Kernel], [Xen])), [RebootHostOnXenLivePatchFailure])
+    ; (([], ([Kernel], [])), [])
+    ; (([], ([Xen], [Kernel])), [RebootHostOnKernelLivePatchFailure])
+    ; (([], ([Xen], [])), [])
+    ; ( ([], ([], [Xen; Kernel]))
+      , [RebootHostOnXenLivePatchFailure; RebootHostOnKernelLivePatchFailure]
+      )
+    ; (([], ([], [Kernel])), [RebootHostOnKernelLivePatchFailure])
+    ; (([], ([], [Xen])), [RebootHostOnXenLivePatchFailure])
+    ; (([], ([], [])), [])
+    ; (([RebootHostOnLivePatchFailure], ([Xen; Kernel], [])), [])
+    ; ( ([RebootHostOnLivePatchFailure], ([Kernel], [Xen]))
+      , [RebootHostOnXenLivePatchFailure]
+      )
+    ; ( ([RebootHostOnLivePatchFailure], ([Kernel], []))
+      , [RebootHostOnLivePatchFailure]
+      )
+    ; ( ([RebootHostOnLivePatchFailure], ([Xen], [Kernel]))
+      , [RebootHostOnKernelLivePatchFailure]
+      )
+    ; ( ([RebootHostOnLivePatchFailure], ([Xen], []))
+      , [RebootHostOnLivePatchFailure]
+      )
+    ; ( ([RebootHostOnLivePatchFailure], ([], [Xen; Kernel]))
+      , [RebootHostOnXenLivePatchFailure; RebootHostOnKernelLivePatchFailure]
+      )
+    ; ( ([RebootHostOnLivePatchFailure], ([], [Kernel]))
+      , [RebootHostOnLivePatchFailure; RebootHostOnKernelLivePatchFailure]
+      )
+    ; ( ([RebootHostOnLivePatchFailure], ([], [Xen]))
+      , [RebootHostOnLivePatchFailure; RebootHostOnXenLivePatchFailure]
+      )
+    ; ( ([RebootHostOnLivePatchFailure], ([], []))
+      , [RebootHostOnLivePatchFailure]
+      )
+    ; ( ( [RebootHostOnLivePatchFailure; RebootHostOnXenLivePatchFailure]
+        , ([Xen; Kernel], [])
+        )
+      , []
+      )
+    ; ( ( [RebootHostOnLivePatchFailure; RebootHostOnXenLivePatchFailure]
+        , ([Kernel], [Xen])
+        )
+      , [RebootHostOnXenLivePatchFailure]
+      )
+    ; ( ( [RebootHostOnLivePatchFailure; RebootHostOnXenLivePatchFailure]
+        , ([Kernel], [])
+        )
+      , [RebootHostOnXenLivePatchFailure]
+      )
+    ; ( ( [RebootHostOnLivePatchFailure; RebootHostOnXenLivePatchFailure]
+        , ([Xen], [Kernel])
+        )
+      , [RebootHostOnKernelLivePatchFailure]
+      )
+    ; ( ( [RebootHostOnLivePatchFailure; RebootHostOnXenLivePatchFailure]
+        , ([Xen], [])
+        )
+      , [RebootHostOnLivePatchFailure]
+      )
+    ; ( ( [RebootHostOnLivePatchFailure; RebootHostOnXenLivePatchFailure]
+        , ([], [Xen; Kernel])
+        )
+      , [RebootHostOnXenLivePatchFailure; RebootHostOnKernelLivePatchFailure]
+      )
+    ; ( ( [RebootHostOnLivePatchFailure; RebootHostOnXenLivePatchFailure]
+        , ([], [Kernel])
+        )
+      , [RebootHostOnXenLivePatchFailure; RebootHostOnKernelLivePatchFailure]
+      )
+    ; ( ( [RebootHostOnLivePatchFailure; RebootHostOnXenLivePatchFailure]
+        , ([], [Xen])
+        )
+      , [RebootHostOnLivePatchFailure; RebootHostOnXenLivePatchFailure]
+      )
+    ; ( ( [RebootHostOnLivePatchFailure; RebootHostOnXenLivePatchFailure]
+        , ([], [])
+        )
+      , [RebootHostOnXenLivePatchFailure; RebootHostOnLivePatchFailure]
+      )
+    ; (([RebootHostOnXenLivePatchFailure], ([Xen; Kernel], [])), [])
+    ; ( ([RebootHostOnXenLivePatchFailure], ([Kernel], [Xen]))
+      , [RebootHostOnXenLivePatchFailure]
+      )
+    ; ( ([RebootHostOnXenLivePatchFailure], ([Kernel], []))
+      , [RebootHostOnXenLivePatchFailure]
+      )
+    ; ( ([RebootHostOnXenLivePatchFailure], ([Xen], [Kernel]))
+      , [RebootHostOnKernelLivePatchFailure]
+      )
+    ; (([RebootHostOnXenLivePatchFailure], ([Xen], [])), [])
+    ; ( ([RebootHostOnXenLivePatchFailure], ([], [Xen; Kernel]))
+      , [RebootHostOnXenLivePatchFailure; RebootHostOnKernelLivePatchFailure]
+      )
+    ; ( ([RebootHostOnXenLivePatchFailure], ([], [Kernel]))
+      , [RebootHostOnXenLivePatchFailure; RebootHostOnKernelLivePatchFailure]
+      )
+    ; ( ([RebootHostOnXenLivePatchFailure], ([], [Xen]))
+      , [RebootHostOnXenLivePatchFailure]
+      )
+    ; ( ([RebootHostOnXenLivePatchFailure], ([], []))
+      , [RebootHostOnXenLivePatchFailure]
+      )
+    ; ( ( [RebootHostOnLivePatchFailure; RebootHostOnKernelLivePatchFailure]
+        , ([Xen; Kernel], [])
+        )
+      , []
+      )
+    ; ( ( [RebootHostOnLivePatchFailure; RebootHostOnKernelLivePatchFailure]
+        , ([Kernel], [Xen])
+        )
+      , [RebootHostOnXenLivePatchFailure]
+      )
+    ; ( ( [RebootHostOnLivePatchFailure; RebootHostOnKernelLivePatchFailure]
+        , ([Kernel], [])
+        )
+      , [RebootHostOnLivePatchFailure]
+      )
+    ; ( ( [RebootHostOnLivePatchFailure; RebootHostOnKernelLivePatchFailure]
+        , ([Xen], [Kernel])
+        )
+      , [RebootHostOnKernelLivePatchFailure]
+      )
+    ; ( ( [RebootHostOnLivePatchFailure; RebootHostOnKernelLivePatchFailure]
+        , ([Xen], [])
+        )
+      , [RebootHostOnKernelLivePatchFailure]
+      )
+    ; ( ( [RebootHostOnLivePatchFailure; RebootHostOnKernelLivePatchFailure]
+        , ([], [Xen; Kernel])
+        )
+      , [RebootHostOnXenLivePatchFailure; RebootHostOnKernelLivePatchFailure]
+      )
+    ; ( ( [RebootHostOnLivePatchFailure; RebootHostOnKernelLivePatchFailure]
+        , ([], [Kernel])
+        )
+      , [RebootHostOnLivePatchFailure; RebootHostOnKernelLivePatchFailure]
+      )
+    ; ( ( [RebootHostOnLivePatchFailure; RebootHostOnKernelLivePatchFailure]
+        , ([], [Xen])
+        )
+      , [RebootHostOnKernelLivePatchFailure; RebootHostOnXenLivePatchFailure]
+      )
+    ; ( ( [RebootHostOnLivePatchFailure; RebootHostOnKernelLivePatchFailure]
+        , ([], [])
+        )
+      , [RebootHostOnKernelLivePatchFailure; RebootHostOnLivePatchFailure]
+      )
+    ; ( ( [
+            RebootHostOnLivePatchFailure
+          ; RebootHostOnXenLivePatchFailure
+          ; RebootHostOnKernelLivePatchFailure
+          ]
+        , ([Xen; Kernel], [])
+        )
+      , []
+      )
+    ; ( ( [
+            RebootHostOnLivePatchFailure
+          ; RebootHostOnXenLivePatchFailure
+          ; RebootHostOnKernelLivePatchFailure
+          ]
+        , ([Kernel], [Xen])
+        )
+      , [RebootHostOnXenLivePatchFailure]
+      )
+    ; ( ( [
+            RebootHostOnLivePatchFailure
+          ; RebootHostOnXenLivePatchFailure
+          ; RebootHostOnKernelLivePatchFailure
+          ]
+        , ([Kernel], [])
+        )
+      , [RebootHostOnXenLivePatchFailure]
+      )
+    ; ( ( [
+            RebootHostOnLivePatchFailure
+          ; RebootHostOnXenLivePatchFailure
+          ; RebootHostOnKernelLivePatchFailure
+          ]
+        , ([Xen], [Kernel])
+        )
+      , [RebootHostOnKernelLivePatchFailure]
+      )
+    ; ( ( [
+            RebootHostOnLivePatchFailure
+          ; RebootHostOnXenLivePatchFailure
+          ; RebootHostOnKernelLivePatchFailure
+          ]
+        , ([Xen], [])
+        )
+      , [RebootHostOnKernelLivePatchFailure]
+      )
+    ; ( ( [
+            RebootHostOnLivePatchFailure
+          ; RebootHostOnXenLivePatchFailure
+          ; RebootHostOnKernelLivePatchFailure
+          ]
+        , ([], [Xen; Kernel])
+        )
+      , [RebootHostOnXenLivePatchFailure; RebootHostOnKernelLivePatchFailure]
+      )
+    ; ( ( [
+            RebootHostOnLivePatchFailure
+          ; RebootHostOnXenLivePatchFailure
+          ; RebootHostOnKernelLivePatchFailure
+          ]
+        , ([], [Kernel])
+        )
+      , [RebootHostOnXenLivePatchFailure; RebootHostOnKernelLivePatchFailure]
+      )
+    ; ( ( [
+            RebootHostOnLivePatchFailure
+          ; RebootHostOnXenLivePatchFailure
+          ; RebootHostOnKernelLivePatchFailure
+          ]
+        , ([], [Xen])
+        )
+      , [RebootHostOnKernelLivePatchFailure; RebootHostOnXenLivePatchFailure]
+      )
+    ; ( ( [
+            RebootHostOnLivePatchFailure
+          ; RebootHostOnXenLivePatchFailure
+          ; RebootHostOnKernelLivePatchFailure
+          ]
+        , ([], [])
+        )
+      , [RebootHostOnKernelLivePatchFailure; RebootHostOnXenLivePatchFailure]
+      )
+    ; ( ( [RebootHostOnXenLivePatchFailure; RebootHostOnKernelLivePatchFailure]
+        , ([Xen; Kernel], [])
+        )
+      , []
+      )
+    ; ( ( [RebootHostOnXenLivePatchFailure; RebootHostOnKernelLivePatchFailure]
+        , ([Kernel], [Xen])
+        )
+      , [RebootHostOnXenLivePatchFailure]
+      )
+    ; ( ( [RebootHostOnXenLivePatchFailure; RebootHostOnKernelLivePatchFailure]
+        , ([Kernel], [])
+        )
+      , [RebootHostOnXenLivePatchFailure]
+      )
+    ; ( ( [RebootHostOnXenLivePatchFailure; RebootHostOnKernelLivePatchFailure]
+        , ([Xen], [Kernel])
+        )
+      , [RebootHostOnKernelLivePatchFailure]
+      )
+    ; ( ( [RebootHostOnXenLivePatchFailure; RebootHostOnKernelLivePatchFailure]
+        , ([Xen], [])
+        )
+      , [RebootHostOnKernelLivePatchFailure]
+      )
+    ; ( ( [RebootHostOnXenLivePatchFailure; RebootHostOnKernelLivePatchFailure]
+        , ([], [Xen; Kernel])
+        )
+      , [RebootHostOnXenLivePatchFailure; RebootHostOnKernelLivePatchFailure]
+      )
+    ; ( ( [RebootHostOnXenLivePatchFailure; RebootHostOnKernelLivePatchFailure]
+        , ([], [Kernel])
+        )
+      , [RebootHostOnXenLivePatchFailure; RebootHostOnKernelLivePatchFailure]
+      )
+    ; ( ( [RebootHostOnXenLivePatchFailure; RebootHostOnKernelLivePatchFailure]
+        , ([], [Xen])
+        )
+      , [RebootHostOnKernelLivePatchFailure; RebootHostOnXenLivePatchFailure]
+      )
+    ; ( ( [RebootHostOnXenLivePatchFailure; RebootHostOnKernelLivePatchFailure]
+        , ([], [])
+        )
+      , [RebootHostOnKernelLivePatchFailure; RebootHostOnXenLivePatchFailure]
+      )
+    ; (([RebootHostOnKernelLivePatchFailure], ([Xen; Kernel], [])), [])
+    ; ( ([RebootHostOnKernelLivePatchFailure], ([Kernel], [Xen]))
+      , [RebootHostOnXenLivePatchFailure]
+      )
+    ; (([RebootHostOnKernelLivePatchFailure], ([Kernel], [])), [])
+    ; ( ([RebootHostOnKernelLivePatchFailure], ([Xen], [Kernel]))
+      , [RebootHostOnKernelLivePatchFailure]
+      )
+    ; ( ([RebootHostOnKernelLivePatchFailure], ([Xen], []))
+      , [RebootHostOnKernelLivePatchFailure]
+      )
+    ; ( ([RebootHostOnKernelLivePatchFailure], ([], [Xen; Kernel]))
+      , [RebootHostOnXenLivePatchFailure; RebootHostOnKernelLivePatchFailure]
+      )
+    ; ( ([RebootHostOnKernelLivePatchFailure], ([], [Kernel]))
+      , [RebootHostOnKernelLivePatchFailure]
+      )
+    ; ( ([RebootHostOnKernelLivePatchFailure], ([], [Xen]))
+      , [RebootHostOnKernelLivePatchFailure; RebootHostOnXenLivePatchFailure]
+      )
+    ; ( ([RebootHostOnKernelLivePatchFailure], ([], []))
+      , [RebootHostOnKernelLivePatchFailure]
+      )
+    ]
+
+  let string_of_inputs failures succeeded failed =
+    "("
+    ^ guidances_to_string failures
+    ^ ", "
+    ^ livepatching_result_to_string succeeded failed
+    ^ ")"
+
+  let strings_of_tests_inputs =
+    List.map
+      (fun ((failures, (succeeded, failed)), _) ->
+        string_of_inputs failures succeeded failed
+      )
+      tests'
+
+  let strings_of_exhaustive_inputs =
+    (* (previous_failures, (succeeded, failed)) *)
+    let open Guidance in
+    let exhaustive_previous_failures =
+      combination
+        [
+          RebootHostOnLivePatchFailure
+        ; RebootHostOnXenLivePatchFailure
+        ; RebootHostOnKernelLivePatchFailure
+        ]
+      |> List.map (fun l -> List.sort Guidance.compare l)
+    in
+    join exhaustive_previous_failures exhaustive_livepatching_results
+    |> List.map (fun (failures, (succeeded, failed)) ->
+           string_of_inputs failures succeeded failed
+       )
+
+  let tests = `QuickAndAutoDocumented tests'
+end
+
+module MergeLivepatchFailures = Generic.MakeStateless (MergeLivepatchFailures')
+
+module MergePendingGuidances' = struct
+  module Io = struct
+    (* (host_pending_guidances, vms_pending_guidances, coming_guidances, succ_lps, fail_lps) *)
+    type input_t =
+      (string * Guidance.t list)
+      * (string * Guidance.t list) list
+      * Guidance.t list
+      * (Livepatch.component list * Livepatch.component list)
+
+    (* updated: (hosts_pending_guidances, vms_pending_guidances) *)
+    type output_t =
+      (string * Guidance.t list) list * (string * Guidance.t list) list
+
+    let of_guidances gs = List.map Guidance.to_string gs
+
+    let of_many_guidances gss =
+      List.map (fun (host_or_vm, gs) -> (host_or_vm, of_guidances gs)) gss
+
+    let string_of_input_t
+        ( host_pending_guidances
+        , vms_pending_guidances
+        , coming_guidances
+        , (succ_lps, fail_lps)
+        ) =
+      "host_pending_guidances:"
+      ^ Fmt.(str "%a" Dump.(pair string (list string)))
+          ( host_pending_guidances |> fun (h, guidances) ->
+            (h, of_guidances guidances)
+          )
+      ^ ", vms_pending_guidances:"
+      ^ Fmt.(str "%a" Dump.(list (pair string (list string))))
+          (of_many_guidances vms_pending_guidances)
+      ^ ", coming_guidances:"
+      ^ Fmt.(str "%a" Dump.(list string))
+          (List.map Guidance.to_string coming_guidances)
+      ^ ", livepatching_results:"
+      ^ Fmt.(str "%a" Dump.(pair (list string) (list string)))
+          ( List.map Livepatch.string_of_component succ_lps
+          , List.map Livepatch.string_of_component fail_lps
+          )
+
+    let string_of_output_t (hosts_pending_guidances, vms_pending_guidances) =
+      "hosts_pending_guidances:"
+      ^ Fmt.(str "%a" Dump.(list (pair string (list string))))
+          (of_many_guidances hosts_pending_guidances)
+      ^ ", vms_pending_guidances:"
+      ^ Fmt.(str "%a" Dump.(list (pair string (list string))))
+          (of_many_guidances vms_pending_guidances)
+  end
+
+  let transform
+      ( host_pending_guidances
+      , vms_pending_guidances
+      , coming_guidances
+      , (succ_lps, fail_lps)
+      ) =
+    let hosts_pending_guidances' :
+        ( string
+        , [> `reboot_host
+          | `reboot_host_on_livepatch_failure
+          | `restart_device_model
+          | `restart_toolstack
+          | `reboot_host_on_xen_livepatch_failure
+          | `reboot_host_on_kernel_livepatch_failure ]
+          list
+        )
+        Hashtbl.t =
+      Hashtbl.create 1
+    in
+    let vms_pending_guidances' :
+        ( string
+        , [> `reboot_host
+          | `reboot_host_on_livepatch_failure
+          | `restart_device_model
+          | `restart_toolstack
+          | `reboot_host_on_xen_livepatch_failure
+          | `reboot_host_on_kernel_livepatch_failure ]
+          list
+        )
+        Hashtbl.t =
+      Hashtbl.create 4
+    in
+    let to_pendings gss =
+      List.map
+        (fun (host_or_vm, gs) ->
+          (host_or_vm, List.filter_map Guidance.to_pending_guidance gs)
+        )
+        gss
+    in
+    Hashtbl.add_seq hosts_pending_guidances'
+      (List.to_seq (to_pendings [host_pending_guidances])) ;
+    Hashtbl.add_seq vms_pending_guidances'
+      (List.to_seq (to_pendings vms_pending_guidances)) ;
+    let merge_method action host_or_vm =
+      match (action, host_or_vm) with
+      | `add_pending_guidances, `host ->
+          fun ref_str value ->
+            let guidances = Hashtbl.find hosts_pending_guidances' ref_str in
+            value :: List.filter (fun g -> g <> value) guidances
+            |> Hashtbl.replace hosts_pending_guidances' ref_str
+      | `add_pending_guidances, `vm ->
+          fun ref_str value ->
+            let guidances = Hashtbl.find vms_pending_guidances' ref_str in
+            value :: List.filter (fun g -> g <> value) guidances
+            |> Hashtbl.replace vms_pending_guidances' ref_str
+      | `remove_pending_guidances, `host ->
+          fun ref_str value ->
+            let guidances = Hashtbl.find hosts_pending_guidances' ref_str in
+            Hashtbl.replace hosts_pending_guidances' ref_str
+              (List.filter (fun g -> g <> value) guidances)
+      | `remove_pending_guidances, `vm ->
+          fun ref_str value ->
+            let guidances = Hashtbl.find vms_pending_guidances' ref_str in
+            Hashtbl.replace vms_pending_guidances' ref_str
+              (List.filter (fun g -> g <> value) guidances)
+    in
+    merge_pending_guidances ~merge_method ~host_pending_guidances
+      ~vms_pending_guidances ~coming_guidances ~succ_lps ~fail_lps ;
+    ( hosts_pending_guidances'
+      |> Hashtbl.to_seq
+      |> List.of_seq
+      |> List.map (fun (host, pendings) ->
+             (host, List.map Guidance.of_pending_guidance pendings)
+         )
+    , vms_pending_guidances'
+      |> Hashtbl.to_seq
+      |> List.of_seq
+      |> List.map (fun (vm, pendings) ->
+             (vm, List.map Guidance.of_pending_guidance pendings)
+         )
+    )
+
+  let tests' =
+    let open Guidance in
+    let open Livepatch in
+    [
+      ( (("host1", []), [], [RebootHost], ([Xen; Kernel], []))
+      , ([("host1", [RebootHost])], [])
+      )
+    ; ( (("host1", []), [], [RebootHost], ([Kernel], [Xen]))
+      , ([("host1", [RebootHostOnXenLivePatchFailure; RebootHost])], [])
+      )
+    ; ( (("host1", []), [], [RebootHost], ([Kernel], []))
+      , ([("host1", [RebootHost])], [])
+      )
+    ; ( (("host1", []), [], [RebootHost], ([Xen], [Kernel]))
+      , ([("host1", [RebootHostOnKernelLivePatchFailure; RebootHost])], [])
+      )
+    ; ( (("host1", []), [], [RebootHost], ([Xen], []))
+      , ([("host1", [RebootHost])], [])
+      )
+    ; ( (("host1", []), [], [RebootHost], ([], [Xen; Kernel]))
+      , ( [
+            ( "host1"
+            , [
+                RebootHostOnKernelLivePatchFailure
+              ; RebootHostOnXenLivePatchFailure
+              ; RebootHost
+              ]
+            )
+          ]
+        , []
+        )
+      )
+    ; ( (("host1", []), [], [RebootHost], ([], [Kernel]))
+      , ([("host1", [RebootHostOnKernelLivePatchFailure; RebootHost])], [])
+      )
+    ; ( (("host1", []), [], [RebootHost], ([], [Xen]))
+      , ([("host1", [RebootHostOnXenLivePatchFailure; RebootHost])], [])
+      )
+    ; ( (("host1", []), [], [RebootHost], ([], []))
+      , ([("host1", [RebootHost])], [])
+      )
+    ; ((("host1", []), [], [], ([Xen; Kernel], [])), ([("host1", [])], []))
+    ; ( (("host1", []), [], [], ([Kernel], [Xen]))
+      , ([("host1", [RebootHostOnXenLivePatchFailure])], [])
+      )
+    ; ((("host1", []), [], [], ([Kernel], [])), ([("host1", [])], []))
+    ; ( (("host1", []), [], [], ([Xen], [Kernel]))
+      , ([("host1", [RebootHostOnKernelLivePatchFailure])], [])
+      )
+    ; ((("host1", []), [], [], ([Xen], [])), ([("host1", [])], []))
+    ; ( (("host1", []), [], [], ([], [Xen; Kernel]))
+      , ( [
+            ( "host1"
+            , [
+                RebootHostOnKernelLivePatchFailure
+              ; RebootHostOnXenLivePatchFailure
+              ]
+            )
+          ]
+        , []
+        )
+      )
+    ; ( (("host1", []), [], [], ([], [Kernel]))
+      , ([("host1", [RebootHostOnKernelLivePatchFailure])], [])
+      )
+    ; ( (("host1", []), [], [], ([], [Xen]))
+      , ([("host1", [RebootHostOnXenLivePatchFailure])], [])
+      )
+    ; ((("host1", []), [], [], ([], [])), ([("host1", [])], []))
+    ; ( (("host1", [RebootHost]), [], [RebootHost], ([Xen; Kernel], []))
+      , ([("host1", [RebootHost])], [])
+      )
+    ; ( (("host1", [RebootHost]), [], [RebootHost], ([Kernel], [Xen]))
+      , ([("host1", [RebootHostOnXenLivePatchFailure; RebootHost])], [])
+      )
+    ; ( (("host1", [RebootHost]), [], [RebootHost], ([Kernel], []))
+      , ([("host1", [RebootHost])], [])
+      )
+    ; ( (("host1", [RebootHost]), [], [RebootHost], ([Xen], [Kernel]))
+      , ([("host1", [RebootHostOnKernelLivePatchFailure; RebootHost])], [])
+      )
+    ; ( (("host1", [RebootHost]), [], [RebootHost], ([Xen], []))
+      , ([("host1", [RebootHost])], [])
+      )
+    ; ( (("host1", [RebootHost]), [], [RebootHost], ([], [Xen; Kernel]))
+      , ( [
+            ( "host1"
+            , [
+                RebootHostOnKernelLivePatchFailure
+              ; RebootHostOnXenLivePatchFailure
+              ; RebootHost
+              ]
+            )
+          ]
+        , []
+        )
+      )
+    ; ( (("host1", [RebootHost]), [], [RebootHost], ([], [Kernel]))
+      , ([("host1", [RebootHostOnKernelLivePatchFailure; RebootHost])], [])
+      )
+    ; ( (("host1", [RebootHost]), [], [RebootHost], ([], [Xen]))
+      , ([("host1", [RebootHostOnXenLivePatchFailure; RebootHost])], [])
+      )
+    ; ( (("host1", [RebootHost]), [], [RebootHost], ([], []))
+      , ([("host1", [RebootHost])], [])
+      )
+    ; ( (("host1", [RebootHost]), [], [], ([Xen; Kernel], []))
+      , ([("host1", [RebootHost])], [])
+      )
+    ; ( (("host1", [RebootHost]), [], [], ([Kernel], [Xen]))
+      , ([("host1", [RebootHostOnXenLivePatchFailure; RebootHost])], [])
+      )
+    ; ( (("host1", [RebootHost]), [], [], ([Kernel], []))
+      , ([("host1", [RebootHost])], [])
+      )
+    ; ( (("host1", [RebootHost]), [], [], ([Xen], [Kernel]))
+      , ([("host1", [RebootHostOnKernelLivePatchFailure; RebootHost])], [])
+      )
+    ; ( (("host1", [RebootHost]), [], [], ([Xen], []))
+      , ([("host1", [RebootHost])], [])
+      )
+    ; ( (("host1", [RebootHost]), [], [], ([], [Xen; Kernel]))
+      , ( [
+            ( "host1"
+            , [
+                RebootHostOnKernelLivePatchFailure
+              ; RebootHostOnXenLivePatchFailure
+              ; RebootHost
+              ]
+            )
+          ]
+        , []
+        )
+      )
+    ; ( (("host1", [RebootHost]), [], [], ([], [Kernel]))
+      , ([("host1", [RebootHostOnKernelLivePatchFailure; RebootHost])], [])
+      )
+    ; ( (("host1", [RebootHost]), [], [], ([], [Xen]))
+      , ([("host1", [RebootHostOnXenLivePatchFailure; RebootHost])], [])
+      )
+    ; ( (("host1", [RebootHost]), [], [], ([], []))
+      , ([("host1", [RebootHost])], [])
+      )
+    ; ( ( ("host1", [RebootHost; RebootHostOnXenLivePatchFailure])
+        , []
+        , [RebootHost]
+        , ([Xen; Kernel], [])
+        )
+      , ([("host1", [RebootHost])], [])
+      )
+    ; ( ( ("host1", [RebootHost; RebootHostOnXenLivePatchFailure])
+        , []
+        , [RebootHost]
+        , ([Kernel], [Xen])
+        )
+      , ([("host1", [RebootHost; RebootHostOnXenLivePatchFailure])], [])
+      )
+    ; ( ( ("host1", [RebootHost; RebootHostOnXenLivePatchFailure])
+        , []
+        , [RebootHost]
+        , ([Kernel], [])
+        )
+      , ([("host1", [RebootHost; RebootHostOnXenLivePatchFailure])], [])
+      )
+    ; ( ( ("host1", [RebootHost; RebootHostOnXenLivePatchFailure])
+        , []
+        , [RebootHost]
+        , ([Xen], [Kernel])
+        )
+      , ([("host1", [RebootHostOnKernelLivePatchFailure; RebootHost])], [])
+      )
+    ; ( ( ("host1", [RebootHost; RebootHostOnXenLivePatchFailure])
+        , []
+        , [RebootHost]
+        , ([Xen], [])
+        )
+      , ([("host1", [RebootHost])], [])
+      )
+    ; ( ( ("host1", [RebootHost; RebootHostOnXenLivePatchFailure])
+        , []
+        , [RebootHost]
+        , ([], [Xen; Kernel])
+        )
+      , ( [
+            ( "host1"
+            , [
+                RebootHostOnKernelLivePatchFailure
+              ; RebootHost
+              ; RebootHostOnXenLivePatchFailure
+              ]
+            )
+          ]
+        , []
+        )
+      )
+    ; ( ( ("host1", [RebootHost; RebootHostOnXenLivePatchFailure])
+        , []
+        , [RebootHost]
+        , ([], [Kernel])
+        )
+      , ( [
+            ( "host1"
+            , [
+                RebootHostOnKernelLivePatchFailure
+              ; RebootHost
+              ; RebootHostOnXenLivePatchFailure
+              ]
+            )
+          ]
+        , []
+        )
+      )
+    ; ( ( ("host1", [RebootHost; RebootHostOnXenLivePatchFailure])
+        , []
+        , [RebootHost]
+        , ([], [Xen])
+        )
+      , ([("host1", [RebootHost; RebootHostOnXenLivePatchFailure])], [])
+      )
+    ; ( ( ("host1", [RebootHost; RebootHostOnXenLivePatchFailure])
+        , []
+        , [RebootHost]
+        , ([], [])
+        )
+      , ([("host1", [RebootHost; RebootHostOnXenLivePatchFailure])], [])
+      )
+    ; ( ( ("host1", [RebootHost; RebootHostOnXenLivePatchFailure])
+        , []
+        , []
+        , ([Xen; Kernel], [])
+        )
+      , ([("host1", [RebootHost])], [])
+      )
+    ; ( ( ("host1", [RebootHost; RebootHostOnXenLivePatchFailure])
+        , []
+        , []
+        , ([Kernel], [Xen])
+        )
+      , ([("host1", [RebootHost; RebootHostOnXenLivePatchFailure])], [])
+      )
+    ; ( ( ("host1", [RebootHost; RebootHostOnXenLivePatchFailure])
+        , []
+        , []
+        , ([Kernel], [])
+        )
+      , ([("host1", [RebootHost; RebootHostOnXenLivePatchFailure])], [])
+      )
+    ; ( ( ("host1", [RebootHost; RebootHostOnXenLivePatchFailure])
+        , []
+        , []
+        , ([Xen], [Kernel])
+        )
+      , ([("host1", [RebootHostOnKernelLivePatchFailure; RebootHost])], [])
+      )
+    ; ( ( ("host1", [RebootHost; RebootHostOnXenLivePatchFailure])
+        , []
+        , []
+        , ([Xen], [])
+        )
+      , ([("host1", [RebootHost])], [])
+      )
+    ; ( ( ("host1", [RebootHost; RebootHostOnXenLivePatchFailure])
+        , []
+        , []
+        , ([], [Xen; Kernel])
+        )
+      , ( [
+            ( "host1"
+            , [
+                RebootHostOnKernelLivePatchFailure
+              ; RebootHost
+              ; RebootHostOnXenLivePatchFailure
+              ]
+            )
+          ]
+        , []
+        )
+      )
+    ; ( ( ("host1", [RebootHost; RebootHostOnXenLivePatchFailure])
+        , []
+        , []
+        , ([], [Kernel])
+        )
+      , ( [
+            ( "host1"
+            , [
+                RebootHostOnKernelLivePatchFailure
+              ; RebootHost
+              ; RebootHostOnXenLivePatchFailure
+              ]
+            )
+          ]
+        , []
+        )
+      )
+    ; ( ( ("host1", [RebootHost; RebootHostOnXenLivePatchFailure])
+        , []
+        , []
+        , ([], [Xen])
+        )
+      , ([("host1", [RebootHost; RebootHostOnXenLivePatchFailure])], [])
+      )
+    ; ( ( ("host1", [RebootHost; RebootHostOnXenLivePatchFailure])
+        , []
+        , []
+        , ([], [])
+        )
+      , ([("host1", [RebootHost; RebootHostOnXenLivePatchFailure])], [])
+      )
+    ; ( ( ("host1", [RebootHostOnXenLivePatchFailure])
+        , []
+        , [RebootHost]
+        , ([Xen; Kernel], [])
+        )
+      , ([("host1", [RebootHost])], [])
+      )
+    ; ( ( ("host1", [RebootHostOnXenLivePatchFailure])
+        , []
+        , [RebootHost]
+        , ([Kernel], [Xen])
+        )
+      , ([("host1", [RebootHost; RebootHostOnXenLivePatchFailure])], [])
+      )
+    ; ( ( ("host1", [RebootHostOnXenLivePatchFailure])
+        , []
+        , [RebootHost]
+        , ([Kernel], [])
+        )
+      , ([("host1", [RebootHost; RebootHostOnXenLivePatchFailure])], [])
+      )
+    ; ( ( ("host1", [RebootHostOnXenLivePatchFailure])
+        , []
+        , [RebootHost]
+        , ([Xen], [Kernel])
+        )
+      , ([("host1", [RebootHostOnKernelLivePatchFailure; RebootHost])], [])
+      )
+    ; ( ( ("host1", [RebootHostOnXenLivePatchFailure])
+        , []
+        , [RebootHost]
+        , ([Xen], [])
+        )
+      , ([("host1", [RebootHost])], [])
+      )
+    ; ( ( ("host1", [RebootHostOnXenLivePatchFailure])
+        , []
+        , [RebootHost]
+        , ([], [Xen; Kernel])
+        )
+      , ( [
+            ( "host1"
+            , [
+                RebootHostOnKernelLivePatchFailure
+              ; RebootHost
+              ; RebootHostOnXenLivePatchFailure
+              ]
+            )
+          ]
+        , []
+        )
+      )
+    ; ( ( ("host1", [RebootHostOnXenLivePatchFailure])
+        , []
+        , [RebootHost]
+        , ([], [Kernel])
+        )
+      , ( [
+            ( "host1"
+            , [
+                RebootHostOnKernelLivePatchFailure
+              ; RebootHost
+              ; RebootHostOnXenLivePatchFailure
+              ]
+            )
+          ]
+        , []
+        )
+      )
+    ; ( ( ("host1", [RebootHostOnXenLivePatchFailure])
+        , []
+        , [RebootHost]
+        , ([], [Xen])
+        )
+      , ([("host1", [RebootHost; RebootHostOnXenLivePatchFailure])], [])
+      )
+    ; ( ( ("host1", [RebootHostOnXenLivePatchFailure])
+        , []
+        , [RebootHost]
+        , ([], [])
+        )
+      , ([("host1", [RebootHost; RebootHostOnXenLivePatchFailure])], [])
+      )
+    ; ( ( ("host1", [RebootHostOnXenLivePatchFailure])
+        , []
+        , []
+        , ([Xen; Kernel], [])
+        )
+      , ([("host1", [])], [])
+      )
+    ; ( (("host1", [RebootHostOnXenLivePatchFailure]), [], [], ([Kernel], [Xen]))
+      , ([("host1", [RebootHostOnXenLivePatchFailure])], [])
+      )
+    ; ( (("host1", [RebootHostOnXenLivePatchFailure]), [], [], ([Kernel], []))
+      , ([("host1", [RebootHostOnXenLivePatchFailure])], [])
+      )
+    ; ( (("host1", [RebootHostOnXenLivePatchFailure]), [], [], ([Xen], [Kernel]))
+      , ([("host1", [RebootHostOnKernelLivePatchFailure])], [])
+      )
+    ; ( (("host1", [RebootHostOnXenLivePatchFailure]), [], [], ([Xen], []))
+      , ([("host1", [])], [])
+      )
+    ; ( ( ("host1", [RebootHostOnXenLivePatchFailure])
+        , []
+        , []
+        , ([], [Xen; Kernel])
+        )
+      , ( [
+            ( "host1"
+            , [
+                RebootHostOnKernelLivePatchFailure
+              ; RebootHostOnXenLivePatchFailure
+              ]
+            )
+          ]
+        , []
+        )
+      )
+    ; ( (("host1", [RebootHostOnXenLivePatchFailure]), [], [], ([], [Kernel]))
+      , ( [
+            ( "host1"
+            , [
+                RebootHostOnKernelLivePatchFailure
+              ; RebootHostOnXenLivePatchFailure
+              ]
+            )
+          ]
+        , []
+        )
+      )
+    ; ( (("host1", [RebootHostOnXenLivePatchFailure]), [], [], ([], [Xen]))
+      , ([("host1", [RebootHostOnXenLivePatchFailure])], [])
+      )
+    ; ( (("host1", [RebootHostOnXenLivePatchFailure]), [], [], ([], []))
+      , ([("host1", [RebootHostOnXenLivePatchFailure])], [])
+      )
+    ; ( ( ("host1", [RebootHost; RebootHostOnKernelLivePatchFailure])
+        , []
+        , [RebootHost]
+        , ([Xen; Kernel], [])
+        )
+      , ([("host1", [RebootHost])], [])
+      )
+    ; ( ( ("host1", [RebootHost; RebootHostOnKernelLivePatchFailure])
+        , []
+        , [RebootHost]
+        , ([Kernel], [Xen])
+        )
+      , ([("host1", [RebootHostOnXenLivePatchFailure; RebootHost])], [])
+      )
+    ; ( ( ("host1", [RebootHost; RebootHostOnKernelLivePatchFailure])
+        , []
+        , [RebootHost]
+        , ([Kernel], [])
+        )
+      , ([("host1", [RebootHost])], [])
+      )
+    ; ( ( ("host1", [RebootHost; RebootHostOnKernelLivePatchFailure])
+        , []
+        , [RebootHost]
+        , ([Xen], [Kernel])
+        )
+      , ([("host1", [RebootHost; RebootHostOnKernelLivePatchFailure])], [])
+      )
+    ; ( ( ("host1", [RebootHost; RebootHostOnKernelLivePatchFailure])
+        , []
+        , [RebootHost]
+        , ([Xen], [])
+        )
+      , ([("host1", [RebootHost; RebootHostOnKernelLivePatchFailure])], [])
+      )
+    ; ( ( ("host1", [RebootHost; RebootHostOnKernelLivePatchFailure])
+        , []
+        , [RebootHost]
+        , ([], [Xen; Kernel])
+        )
+      , ( [
+            ( "host1"
+            , [
+                RebootHostOnXenLivePatchFailure
+              ; RebootHost
+              ; RebootHostOnKernelLivePatchFailure
+              ]
+            )
+          ]
+        , []
+        )
+      )
+    ; ( ( ("host1", [RebootHost; RebootHostOnKernelLivePatchFailure])
+        , []
+        , [RebootHost]
+        , ([], [Kernel])
+        )
+      , ([("host1", [RebootHost; RebootHostOnKernelLivePatchFailure])], [])
+      )
+    ; ( ( ("host1", [RebootHost; RebootHostOnKernelLivePatchFailure])
+        , []
+        , [RebootHost]
+        , ([], [Xen])
+        )
+      , ( [
+            ( "host1"
+            , [
+                RebootHostOnXenLivePatchFailure
+              ; RebootHost
+              ; RebootHostOnKernelLivePatchFailure
+              ]
+            )
+          ]
+        , []
+        )
+      )
+    ; ( ( ("host1", [RebootHost; RebootHostOnKernelLivePatchFailure])
+        , []
+        , [RebootHost]
+        , ([], [])
+        )
+      , ([("host1", [RebootHost; RebootHostOnKernelLivePatchFailure])], [])
+      )
+    ; ( ( ("host1", [RebootHost; RebootHostOnKernelLivePatchFailure])
+        , []
+        , []
+        , ([Xen; Kernel], [])
+        )
+      , ([("host1", [RebootHost])], [])
+      )
+    ; ( ( ("host1", [RebootHost; RebootHostOnKernelLivePatchFailure])
+        , []
+        , []
+        , ([Kernel], [Xen])
+        )
+      , ([("host1", [RebootHostOnXenLivePatchFailure; RebootHost])], [])
+      )
+    ; ( ( ("host1", [RebootHost; RebootHostOnKernelLivePatchFailure])
+        , []
+        , []
+        , ([Kernel], [])
+        )
+      , ([("host1", [RebootHost])], [])
+      )
+    ; ( ( ("host1", [RebootHost; RebootHostOnKernelLivePatchFailure])
+        , []
+        , []
+        , ([Xen], [Kernel])
+        )
+      , ([("host1", [RebootHost; RebootHostOnKernelLivePatchFailure])], [])
+      )
+    ; ( ( ("host1", [RebootHost; RebootHostOnKernelLivePatchFailure])
+        , []
+        , []
+        , ([Xen], [])
+        )
+      , ([("host1", [RebootHost; RebootHostOnKernelLivePatchFailure])], [])
+      )
+    ; ( ( ("host1", [RebootHost; RebootHostOnKernelLivePatchFailure])
+        , []
+        , []
+        , ([], [Xen; Kernel])
+        )
+      , ( [
+            ( "host1"
+            , [
+                RebootHostOnXenLivePatchFailure
+              ; RebootHost
+              ; RebootHostOnKernelLivePatchFailure
+              ]
+            )
+          ]
+        , []
+        )
+      )
+    ; ( ( ("host1", [RebootHost; RebootHostOnKernelLivePatchFailure])
+        , []
+        , []
+        , ([], [Kernel])
+        )
+      , ([("host1", [RebootHost; RebootHostOnKernelLivePatchFailure])], [])
+      )
+    ; ( ( ("host1", [RebootHost; RebootHostOnKernelLivePatchFailure])
+        , []
+        , []
+        , ([], [Xen])
+        )
+      , ( [
+            ( "host1"
+            , [
+                RebootHostOnXenLivePatchFailure
+              ; RebootHost
+              ; RebootHostOnKernelLivePatchFailure
+              ]
+            )
+          ]
+        , []
+        )
+      )
+    ; ( ( ("host1", [RebootHost; RebootHostOnKernelLivePatchFailure])
+        , []
+        , []
+        , ([], [])
+        )
+      , ([("host1", [RebootHost; RebootHostOnKernelLivePatchFailure])], [])
+      )
+    ; ( ( ( "host1"
+          , [
+              RebootHost
+            ; RebootHostOnXenLivePatchFailure
+            ; RebootHostOnKernelLivePatchFailure
+            ]
+          )
+        , []
+        , [RebootHost]
+        , ([Xen; Kernel], [])
+        )
+      , ([("host1", [RebootHost])], [])
+      )
+    ; ( ( ( "host1"
+          , [
+              RebootHost
+            ; RebootHostOnXenLivePatchFailure
+            ; RebootHostOnKernelLivePatchFailure
+            ]
+          )
+        , []
+        , [RebootHost]
+        , ([Kernel], [Xen])
+        )
+      , ([("host1", [RebootHost; RebootHostOnXenLivePatchFailure])], [])
+      )
+    ; ( ( ( "host1"
+          , [
+              RebootHost
+            ; RebootHostOnXenLivePatchFailure
+            ; RebootHostOnKernelLivePatchFailure
+            ]
+          )
+        , []
+        , [RebootHost]
+        , ([Kernel], [])
+        )
+      , ([("host1", [RebootHost; RebootHostOnXenLivePatchFailure])], [])
+      )
+    ; ( ( ( "host1"
+          , [
+              RebootHost
+            ; RebootHostOnXenLivePatchFailure
+            ; RebootHostOnKernelLivePatchFailure
+            ]
+          )
+        , []
+        , [RebootHost]
+        , ([Xen], [Kernel])
+        )
+      , ([("host1", [RebootHost; RebootHostOnKernelLivePatchFailure])], [])
+      )
+    ; ( ( ( "host1"
+          , [
+              RebootHost
+            ; RebootHostOnXenLivePatchFailure
+            ; RebootHostOnKernelLivePatchFailure
+            ]
+          )
+        , []
+        , [RebootHost]
+        , ([Xen], [])
+        )
+      , ([("host1", [RebootHost; RebootHostOnKernelLivePatchFailure])], [])
+      )
+    ; ( ( ( "host1"
+          , [
+              RebootHost
+            ; RebootHostOnXenLivePatchFailure
+            ; RebootHostOnKernelLivePatchFailure
+            ]
+          )
+        , []
+        , [RebootHost]
+        , ([], [Xen; Kernel])
+        )
+      , ( [
+            ( "host1"
+            , [
+                RebootHost
+              ; RebootHostOnXenLivePatchFailure
+              ; RebootHostOnKernelLivePatchFailure
+              ]
+            )
+          ]
+        , []
+        )
+      )
+    ; ( ( ( "host1"
+          , [
+              RebootHost
+            ; RebootHostOnXenLivePatchFailure
+            ; RebootHostOnKernelLivePatchFailure
+            ]
+          )
+        , []
+        , [RebootHost]
+        , ([], [Kernel])
+        )
+      , ( [
+            ( "host1"
+            , [
+                RebootHost
+              ; RebootHostOnXenLivePatchFailure
+              ; RebootHostOnKernelLivePatchFailure
+              ]
+            )
+          ]
+        , []
+        )
+      )
+    ; ( ( ( "host1"
+          , [
+              RebootHost
+            ; RebootHostOnXenLivePatchFailure
+            ; RebootHostOnKernelLivePatchFailure
+            ]
+          )
+        , []
+        , [RebootHost]
+        , ([], [Xen])
+        )
+      , ( [
+            ( "host1"
+            , [
+                RebootHost
+              ; RebootHostOnXenLivePatchFailure
+              ; RebootHostOnKernelLivePatchFailure
+              ]
+            )
+          ]
+        , []
+        )
+      )
+    ; ( ( ( "host1"
+          , [
+              RebootHost
+            ; RebootHostOnXenLivePatchFailure
+            ; RebootHostOnKernelLivePatchFailure
+            ]
+          )
+        , []
+        , [RebootHost]
+        , ([], [])
+        )
+      , ( [
+            ( "host1"
+            , [
+                RebootHost
+              ; RebootHostOnXenLivePatchFailure
+              ; RebootHostOnKernelLivePatchFailure
+              ]
+            )
+          ]
+        , []
+        )
+      )
+    ; ( ( ( "host1"
+          , [
+              RebootHost
+            ; RebootHostOnXenLivePatchFailure
+            ; RebootHostOnKernelLivePatchFailure
+            ]
+          )
+        , []
+        , []
+        , ([Xen; Kernel], [])
+        )
+      , ([("host1", [RebootHost])], [])
+      )
+    ; ( ( ( "host1"
+          , [
+              RebootHost
+            ; RebootHostOnXenLivePatchFailure
+            ; RebootHostOnKernelLivePatchFailure
+            ]
+          )
+        , []
+        , []
+        , ([Kernel], [Xen])
+        )
+      , ([("host1", [RebootHost; RebootHostOnXenLivePatchFailure])], [])
+      )
+    ; ( ( ( "host1"
+          , [
+              RebootHost
+            ; RebootHostOnXenLivePatchFailure
+            ; RebootHostOnKernelLivePatchFailure
+            ]
+          )
+        , []
+        , []
+        , ([Kernel], [])
+        )
+      , ([("host1", [RebootHost; RebootHostOnXenLivePatchFailure])], [])
+      )
+    ; ( ( ( "host1"
+          , [
+              RebootHost
+            ; RebootHostOnXenLivePatchFailure
+            ; RebootHostOnKernelLivePatchFailure
+            ]
+          )
+        , []
+        , []
+        , ([Xen], [Kernel])
+        )
+      , ([("host1", [RebootHost; RebootHostOnKernelLivePatchFailure])], [])
+      )
+    ; ( ( ( "host1"
+          , [
+              RebootHost
+            ; RebootHostOnXenLivePatchFailure
+            ; RebootHostOnKernelLivePatchFailure
+            ]
+          )
+        , []
+        , []
+        , ([Xen], [])
+        )
+      , ([("host1", [RebootHost; RebootHostOnKernelLivePatchFailure])], [])
+      )
+    ; ( ( ( "host1"
+          , [
+              RebootHost
+            ; RebootHostOnXenLivePatchFailure
+            ; RebootHostOnKernelLivePatchFailure
+            ]
+          )
+        , []
+        , []
+        , ([], [Xen; Kernel])
+        )
+      , ( [
+            ( "host1"
+            , [
+                RebootHost
+              ; RebootHostOnXenLivePatchFailure
+              ; RebootHostOnKernelLivePatchFailure
+              ]
+            )
+          ]
+        , []
+        )
+      )
+    ; ( ( ( "host1"
+          , [
+              RebootHost
+            ; RebootHostOnXenLivePatchFailure
+            ; RebootHostOnKernelLivePatchFailure
+            ]
+          )
+        , []
+        , []
+        , ([], [Kernel])
+        )
+      , ( [
+            ( "host1"
+            , [
+                RebootHost
+              ; RebootHostOnXenLivePatchFailure
+              ; RebootHostOnKernelLivePatchFailure
+              ]
+            )
+          ]
+        , []
+        )
+      )
+    ; ( ( ( "host1"
+          , [
+              RebootHost
+            ; RebootHostOnXenLivePatchFailure
+            ; RebootHostOnKernelLivePatchFailure
+            ]
+          )
+        , []
+        , []
+        , ([], [Xen])
+        )
+      , ( [
+            ( "host1"
+            , [
+                RebootHost
+              ; RebootHostOnXenLivePatchFailure
+              ; RebootHostOnKernelLivePatchFailure
+              ]
+            )
+          ]
+        , []
+        )
+      )
+    ; ( ( ( "host1"
+          , [
+              RebootHost
+            ; RebootHostOnXenLivePatchFailure
+            ; RebootHostOnKernelLivePatchFailure
+            ]
+          )
+        , []
+        , []
+        , ([], [])
+        )
+      , ( [
+            ( "host1"
+            , [
+                RebootHost
+              ; RebootHostOnXenLivePatchFailure
+              ; RebootHostOnKernelLivePatchFailure
+              ]
+            )
+          ]
+        , []
+        )
+      )
+    ; ( ( ( "host1"
+          , [
+              RebootHostOnXenLivePatchFailure; RebootHostOnKernelLivePatchFailure
+            ]
+          )
+        , []
+        , [RebootHost]
+        , ([Xen; Kernel], [])
+        )
+      , ([("host1", [RebootHost])], [])
+      )
+    ; ( ( ( "host1"
+          , [
+              RebootHostOnXenLivePatchFailure; RebootHostOnKernelLivePatchFailure
+            ]
+          )
+        , []
+        , [RebootHost]
+        , ([Kernel], [Xen])
+        )
+      , ([("host1", [RebootHost; RebootHostOnXenLivePatchFailure])], [])
+      )
+    ; ( ( ( "host1"
+          , [
+              RebootHostOnXenLivePatchFailure; RebootHostOnKernelLivePatchFailure
+            ]
+          )
+        , []
+        , [RebootHost]
+        , ([Kernel], [])
+        )
+      , ([("host1", [RebootHost; RebootHostOnXenLivePatchFailure])], [])
+      )
+    ; ( ( ( "host1"
+          , [
+              RebootHostOnXenLivePatchFailure; RebootHostOnKernelLivePatchFailure
+            ]
+          )
+        , []
+        , [RebootHost]
+        , ([Xen], [Kernel])
+        )
+      , ([("host1", [RebootHost; RebootHostOnKernelLivePatchFailure])], [])
+      )
+    ; ( ( ( "host1"
+          , [
+              RebootHostOnXenLivePatchFailure; RebootHostOnKernelLivePatchFailure
+            ]
+          )
+        , []
+        , [RebootHost]
+        , ([Xen], [])
+        )
+      , ([("host1", [RebootHost; RebootHostOnKernelLivePatchFailure])], [])
+      )
+    ; ( ( ( "host1"
+          , [
+              RebootHostOnXenLivePatchFailure; RebootHostOnKernelLivePatchFailure
+            ]
+          )
+        , []
+        , [RebootHost]
+        , ([], [Xen; Kernel])
+        )
+      , ( [
+            ( "host1"
+            , [
+                RebootHost
+              ; RebootHostOnXenLivePatchFailure
+              ; RebootHostOnKernelLivePatchFailure
+              ]
+            )
+          ]
+        , []
+        )
+      )
+    ; ( ( ( "host1"
+          , [
+              RebootHostOnXenLivePatchFailure; RebootHostOnKernelLivePatchFailure
+            ]
+          )
+        , []
+        , [RebootHost]
+        , ([], [Kernel])
+        )
+      , ( [
+            ( "host1"
+            , [
+                RebootHost
+              ; RebootHostOnXenLivePatchFailure
+              ; RebootHostOnKernelLivePatchFailure
+              ]
+            )
+          ]
+        , []
+        )
+      )
+    ; ( ( ( "host1"
+          , [
+              RebootHostOnXenLivePatchFailure; RebootHostOnKernelLivePatchFailure
+            ]
+          )
+        , []
+        , [RebootHost]
+        , ([], [Xen])
+        )
+      , ( [
+            ( "host1"
+            , [
+                RebootHost
+              ; RebootHostOnXenLivePatchFailure
+              ; RebootHostOnKernelLivePatchFailure
+              ]
+            )
+          ]
+        , []
+        )
+      )
+    ; ( ( ( "host1"
+          , [
+              RebootHostOnXenLivePatchFailure; RebootHostOnKernelLivePatchFailure
+            ]
+          )
+        , []
+        , [RebootHost]
+        , ([], [])
+        )
+      , ( [
+            ( "host1"
+            , [
+                RebootHost
+              ; RebootHostOnXenLivePatchFailure
+              ; RebootHostOnKernelLivePatchFailure
+              ]
+            )
+          ]
+        , []
+        )
+      )
+    ; ( ( ( "host1"
+          , [
+              RebootHostOnXenLivePatchFailure; RebootHostOnKernelLivePatchFailure
+            ]
+          )
+        , []
+        , []
+        , ([Xen; Kernel], [])
+        )
+      , ([("host1", [])], [])
+      )
+    ; ( ( ( "host1"
+          , [
+              RebootHostOnXenLivePatchFailure; RebootHostOnKernelLivePatchFailure
+            ]
+          )
+        , []
+        , []
+        , ([Kernel], [Xen])
+        )
+      , ([("host1", [RebootHostOnXenLivePatchFailure])], [])
+      )
+    ; ( ( ( "host1"
+          , [
+              RebootHostOnXenLivePatchFailure; RebootHostOnKernelLivePatchFailure
+            ]
+          )
+        , []
+        , []
+        , ([Kernel], [])
+        )
+      , ([("host1", [RebootHostOnXenLivePatchFailure])], [])
+      )
+    ; ( ( ( "host1"
+          , [
+              RebootHostOnXenLivePatchFailure; RebootHostOnKernelLivePatchFailure
+            ]
+          )
+        , []
+        , []
+        , ([Xen], [Kernel])
+        )
+      , ([("host1", [RebootHostOnKernelLivePatchFailure])], [])
+      )
+    ; ( ( ( "host1"
+          , [
+              RebootHostOnXenLivePatchFailure; RebootHostOnKernelLivePatchFailure
+            ]
+          )
+        , []
+        , []
+        , ([Xen], [])
+        )
+      , ([("host1", [RebootHostOnKernelLivePatchFailure])], [])
+      )
+    ; ( ( ( "host1"
+          , [
+              RebootHostOnXenLivePatchFailure; RebootHostOnKernelLivePatchFailure
+            ]
+          )
+        , []
+        , []
+        , ([], [Xen; Kernel])
+        )
+      , ( [
+            ( "host1"
+            , [
+                RebootHostOnXenLivePatchFailure
+              ; RebootHostOnKernelLivePatchFailure
+              ]
+            )
+          ]
+        , []
+        )
+      )
+    ; ( ( ( "host1"
+          , [
+              RebootHostOnXenLivePatchFailure; RebootHostOnKernelLivePatchFailure
+            ]
+          )
+        , []
+        , []
+        , ([], [Kernel])
+        )
+      , ( [
+            ( "host1"
+            , [
+                RebootHostOnXenLivePatchFailure
+              ; RebootHostOnKernelLivePatchFailure
+              ]
+            )
+          ]
+        , []
+        )
+      )
+    ; ( ( ( "host1"
+          , [
+              RebootHostOnXenLivePatchFailure; RebootHostOnKernelLivePatchFailure
+            ]
+          )
+        , []
+        , []
+        , ([], [Xen])
+        )
+      , ( [
+            ( "host1"
+            , [
+                RebootHostOnXenLivePatchFailure
+              ; RebootHostOnKernelLivePatchFailure
+              ]
+            )
+          ]
+        , []
+        )
+      )
+    ; ( ( ( "host1"
+          , [
+              RebootHostOnXenLivePatchFailure; RebootHostOnKernelLivePatchFailure
+            ]
+          )
+        , []
+        , []
+        , ([], [])
+        )
+      , ( [
+            ( "host1"
+            , [
+                RebootHostOnXenLivePatchFailure
+              ; RebootHostOnKernelLivePatchFailure
+              ]
+            )
+          ]
+        , []
+        )
+      )
+    ; ( ( ("host1", [RebootHostOnKernelLivePatchFailure])
+        , []
+        , [RebootHost]
+        , ([Xen; Kernel], [])
+        )
+      , ([("host1", [RebootHost])], [])
+      )
+    ; ( ( ("host1", [RebootHostOnKernelLivePatchFailure])
+        , []
+        , [RebootHost]
+        , ([Kernel], [Xen])
+        )
+      , ([("host1", [RebootHostOnXenLivePatchFailure; RebootHost])], [])
+      )
+    ; ( ( ("host1", [RebootHostOnKernelLivePatchFailure])
+        , []
+        , [RebootHost]
+        , ([Kernel], [])
+        )
+      , ([("host1", [RebootHost])], [])
+      )
+    ; ( ( ("host1", [RebootHostOnKernelLivePatchFailure])
+        , []
+        , [RebootHost]
+        , ([Xen], [Kernel])
+        )
+      , ([("host1", [RebootHost; RebootHostOnKernelLivePatchFailure])], [])
+      )
+    ; ( ( ("host1", [RebootHostOnKernelLivePatchFailure])
+        , []
+        , [RebootHost]
+        , ([Xen], [])
+        )
+      , ([("host1", [RebootHost; RebootHostOnKernelLivePatchFailure])], [])
+      )
+    ; ( ( ("host1", [RebootHostOnKernelLivePatchFailure])
+        , []
+        , [RebootHost]
+        , ([], [Xen; Kernel])
+        )
+      , ( [
+            ( "host1"
+            , [
+                RebootHostOnXenLivePatchFailure
+              ; RebootHost
+              ; RebootHostOnKernelLivePatchFailure
+              ]
+            )
+          ]
+        , []
+        )
+      )
+    ; ( ( ("host1", [RebootHostOnKernelLivePatchFailure])
+        , []
+        , [RebootHost]
+        , ([], [Kernel])
+        )
+      , ([("host1", [RebootHost; RebootHostOnKernelLivePatchFailure])], [])
+      )
+    ; ( ( ("host1", [RebootHostOnKernelLivePatchFailure])
+        , []
+        , [RebootHost]
+        , ([], [Xen])
+        )
+      , ( [
+            ( "host1"
+            , [
+                RebootHostOnXenLivePatchFailure
+              ; RebootHost
+              ; RebootHostOnKernelLivePatchFailure
+              ]
+            )
+          ]
+        , []
+        )
+      )
+    ; ( ( ("host1", [RebootHostOnKernelLivePatchFailure])
+        , []
+        , [RebootHost]
+        , ([], [])
+        )
+      , ([("host1", [RebootHost; RebootHostOnKernelLivePatchFailure])], [])
+      )
+    ; ( ( ("host1", [RebootHostOnKernelLivePatchFailure])
+        , []
+        , []
+        , ([Xen; Kernel], [])
+        )
+      , ([("host1", [])], [])
+      )
+    ; ( ( ("host1", [RebootHostOnKernelLivePatchFailure])
+        , []
+        , []
+        , ([Kernel], [Xen])
+        )
+      , ([("host1", [RebootHostOnXenLivePatchFailure])], [])
+      )
+    ; ( (("host1", [RebootHostOnKernelLivePatchFailure]), [], [], ([Kernel], []))
+      , ([("host1", [])], [])
+      )
+    ; ( ( ("host1", [RebootHostOnKernelLivePatchFailure])
+        , []
+        , []
+        , ([Xen], [Kernel])
+        )
+      , ([("host1", [RebootHostOnKernelLivePatchFailure])], [])
+      )
+    ; ( (("host1", [RebootHostOnKernelLivePatchFailure]), [], [], ([Xen], []))
+      , ([("host1", [RebootHostOnKernelLivePatchFailure])], [])
+      )
+    ; ( ( ("host1", [RebootHostOnKernelLivePatchFailure])
+        , []
+        , []
+        , ([], [Xen; Kernel])
+        )
+      , ( [
+            ( "host1"
+            , [
+                RebootHostOnXenLivePatchFailure
+              ; RebootHostOnKernelLivePatchFailure
+              ]
+            )
+          ]
+        , []
+        )
+      )
+    ; ( (("host1", [RebootHostOnKernelLivePatchFailure]), [], [], ([], [Kernel]))
+      , ([("host1", [RebootHostOnKernelLivePatchFailure])], [])
+      )
+    ; ( (("host1", [RebootHostOnKernelLivePatchFailure]), [], [], ([], [Xen]))
+      , ( [
+            ( "host1"
+            , [
+                RebootHostOnXenLivePatchFailure
+              ; RebootHostOnKernelLivePatchFailure
+              ]
+            )
+          ]
+        , []
+        )
+      )
+    ; ( (("host1", [RebootHostOnKernelLivePatchFailure]), [], [], ([], []))
+      , ([("host1", [RebootHostOnKernelLivePatchFailure])], [])
+      )
+    ]
+
+  let tests'' =
+    let open Guidance in
+    [
+      ( ( ("host1", [])
+        , [("vm1", []); ("vm2", [RestartDeviceModel])]
+        , [RestartDeviceModel]
+        , ([], [])
+        )
+      , ( [("host1", [])]
+        , [("vm2", [RestartDeviceModel]); ("vm1", [RestartDeviceModel])]
+        )
+      )
+    ; ( ( ("host1", [])
+        , [("vm1", []); ("vm2", [RestartDeviceModel])]
+        , [RestartToolstack; RestartDeviceModel]
+        , ([], [])
+        )
+      , ( [("host1", [RestartToolstack])]
+        , [("vm2", [RestartDeviceModel]); ("vm1", [RestartDeviceModel])]
+        )
+      )
+    ; ( ( ("host1", [])
+        , [("vm1", []); ("vm2", [RestartDeviceModel])]
+        , [RebootHost; RestartToolstack; RestartDeviceModel]
+        , ([], [])
+        )
+      , ([("host1", [RebootHost])], [("vm2", []); ("vm1", [])])
+      )
+    ; ( ( ("host1", [])
+        , [("vm1", []); ("vm2", [RestartDeviceModel])]
+        , [RebootHost; RestartDeviceModel]
+        , ([], [])
+        )
+      , ([("host1", [RebootHost])], [("vm2", []); ("vm1", [])])
+      )
+    ; ( ( ("host1", [])
+        , [("vm1", []); ("vm2", [RestartDeviceModel])]
+        , [RestartToolstack]
+        , ([], [])
+        )
+      , ( [("host1", [RestartToolstack])]
+        , [("vm2", [RestartDeviceModel]); ("vm1", [])]
+        )
+      )
+    ; ( ( ("host1", [])
+        , [("vm1", []); ("vm2", [RestartDeviceModel])]
+        , [RebootHost; RestartToolstack]
+        , ([], [])
+        )
+      , ([("host1", [RebootHost])], [("vm2", []); ("vm1", [])])
+      )
+    ; ( ( ("host1", [])
+        , [("vm1", []); ("vm2", [RestartDeviceModel])]
+        , [RebootHost]
+        , ([], [])
+        )
+      , ([("host1", [RebootHost])], [("vm2", []); ("vm1", [])])
+      )
+    ; ( ( ("host1", [])
+        , [("vm1", []); ("vm2", [RestartDeviceModel])]
+        , []
+        , ([], [])
+        )
+      , ([("host1", [])], [("vm2", [RestartDeviceModel]); ("vm1", [])])
+      )
+    ; ( ( ("host1", [])
+        , [("vm1", []); ("vm2", [])]
+        , [RestartDeviceModel]
+        , ([], [])
+        )
+      , ( [("host1", [])]
+        , [("vm2", [RestartDeviceModel]); ("vm1", [RestartDeviceModel])]
+        )
+      )
+    ; ( ( ("host1", [])
+        , [("vm1", []); ("vm2", [])]
+        , [RestartToolstack; RestartDeviceModel]
+        , ([], [])
+        )
+      , ( [("host1", [RestartToolstack])]
+        , [("vm2", [RestartDeviceModel]); ("vm1", [RestartDeviceModel])]
+        )
+      )
+    ; ( ( ("host1", [])
+        , [("vm1", []); ("vm2", [])]
+        , [RebootHost; RestartToolstack; RestartDeviceModel]
+        , ([], [])
+        )
+      , ([("host1", [RebootHost])], [("vm2", []); ("vm1", [])])
+      )
+    ; ( ( ("host1", [])
+        , [("vm1", []); ("vm2", [])]
+        , [RebootHost; RestartDeviceModel]
+        , ([], [])
+        )
+      , ([("host1", [RebootHost])], [("vm2", []); ("vm1", [])])
+      )
+    ; ( (("host1", []), [("vm1", []); ("vm2", [])], [RestartToolstack], ([], []))
+      , ([("host1", [RestartToolstack])], [("vm2", []); ("vm1", [])])
+      )
+    ; ( ( ("host1", [])
+        , [("vm1", []); ("vm2", [])]
+        , [RebootHost; RestartToolstack]
+        , ([], [])
+        )
+      , ([("host1", [RebootHost])], [("vm2", []); ("vm1", [])])
+      )
+    ; ( (("host1", []), [("vm1", []); ("vm2", [])], [RebootHost], ([], []))
+      , ([("host1", [RebootHost])], [("vm2", []); ("vm1", [])])
+      )
+    ; ( (("host1", []), [("vm1", []); ("vm2", [])], [], ([], []))
+      , ([("host1", [])], [("vm2", []); ("vm1", [])])
+      )
+    ; ( ( ("host1", [RebootHost])
+        , [("vm1", []); ("vm2", [RestartDeviceModel])]
+        , [RestartDeviceModel]
+        , ([], [])
+        )
+      , ([("host1", [RebootHost])], [("vm2", []); ("vm1", [])])
+      )
+    ; ( ( ("host1", [RebootHost])
+        , [("vm1", []); ("vm2", [RestartDeviceModel])]
+        , [RestartToolstack; RestartDeviceModel]
+        , ([], [])
+        )
+      , ([("host1", [RebootHost])], [("vm2", []); ("vm1", [])])
+      )
+    ; ( ( ("host1", [RebootHost])
+        , [("vm1", []); ("vm2", [RestartDeviceModel])]
+        , [RebootHost; RestartToolstack; RestartDeviceModel]
+        , ([], [])
+        )
+      , ([("host1", [RebootHost])], [("vm2", []); ("vm1", [])])
+      )
+    ; ( ( ("host1", [RebootHost])
+        , [("vm1", []); ("vm2", [RestartDeviceModel])]
+        , [RebootHost; RestartDeviceModel]
+        , ([], [])
+        )
+      , ([("host1", [RebootHost])], [("vm2", []); ("vm1", [])])
+      )
+    ; ( ( ("host1", [RebootHost])
+        , [("vm1", []); ("vm2", [RestartDeviceModel])]
+        , [RestartToolstack]
+        , ([], [])
+        )
+      , ([("host1", [RebootHost])], [("vm2", []); ("vm1", [])])
+      )
+    ; ( ( ("host1", [RebootHost])
+        , [("vm1", []); ("vm2", [RestartDeviceModel])]
+        , [RebootHost; RestartToolstack]
+        , ([], [])
+        )
+      , ([("host1", [RebootHost])], [("vm2", []); ("vm1", [])])
+      )
+    ; ( ( ("host1", [RebootHost])
+        , [("vm1", []); ("vm2", [RestartDeviceModel])]
+        , [RebootHost]
+        , ([], [])
+        )
+      , ([("host1", [RebootHost])], [("vm2", []); ("vm1", [])])
+      )
+    ; ( ( ("host1", [RebootHost])
+        , [("vm1", []); ("vm2", [RestartDeviceModel])]
+        , []
+        , ([], [])
+        )
+      , ([("host1", [RebootHost])], [("vm2", []); ("vm1", [])])
+      )
+    ; ( ( ("host1", [RebootHost])
+        , [("vm1", []); ("vm2", [])]
+        , [RestartDeviceModel]
+        , ([], [])
+        )
+      , ([("host1", [RebootHost])], [("vm2", []); ("vm1", [])])
+      )
+    ; ( ( ("host1", [RebootHost])
+        , [("vm1", []); ("vm2", [])]
+        , [RestartToolstack; RestartDeviceModel]
+        , ([], [])
+        )
+      , ([("host1", [RebootHost])], [("vm2", []); ("vm1", [])])
+      )
+    ; ( ( ("host1", [RebootHost])
+        , [("vm1", []); ("vm2", [])]
+        , [RebootHost; RestartToolstack; RestartDeviceModel]
+        , ([], [])
+        )
+      , ([("host1", [RebootHost])], [("vm2", []); ("vm1", [])])
+      )
+    ; ( ( ("host1", [RebootHost])
+        , [("vm1", []); ("vm2", [])]
+        , [RebootHost; RestartDeviceModel]
+        , ([], [])
+        )
+      , ([("host1", [RebootHost])], [("vm2", []); ("vm1", [])])
+      )
+    ; ( ( ("host1", [RebootHost])
+        , [("vm1", []); ("vm2", [])]
+        , [RestartToolstack]
+        , ([], [])
+        )
+      , ([("host1", [RebootHost])], [("vm2", []); ("vm1", [])])
+      )
+    ; ( ( ("host1", [RebootHost])
+        , [("vm1", []); ("vm2", [])]
+        , [RebootHost; RestartToolstack]
+        , ([], [])
+        )
+      , ([("host1", [RebootHost])], [("vm2", []); ("vm1", [])])
+      )
+    ; ( ( ("host1", [RebootHost])
+        , [("vm1", []); ("vm2", [])]
+        , [RebootHost]
+        , ([], [])
+        )
+      , ([("host1", [RebootHost])], [("vm2", []); ("vm1", [])])
+      )
+    ; ( (("host1", [RebootHost]), [("vm1", []); ("vm2", [])], [], ([], []))
+      , ([("host1", [RebootHost])], [("vm2", []); ("vm1", [])])
+      )
+    ; ( ( ("host1", [RebootHost; RestartToolstack])
+        , [("vm1", []); ("vm2", [RestartDeviceModel])]
+        , [RestartDeviceModel]
+        , ([], [])
+        )
+      , ([("host1", [RebootHost])], [("vm2", []); ("vm1", [])])
+      )
+    ; ( ( ("host1", [RebootHost; RestartToolstack])
+        , [("vm1", []); ("vm2", [RestartDeviceModel])]
+        , [RestartToolstack; RestartDeviceModel]
+        , ([], [])
+        )
+      , ([("host1", [RebootHost])], [("vm2", []); ("vm1", [])])
+      )
+    ; ( ( ("host1", [RebootHost; RestartToolstack])
+        , [("vm1", []); ("vm2", [RestartDeviceModel])]
+        , [RebootHost; RestartToolstack; RestartDeviceModel]
+        , ([], [])
+        )
+      , ([("host1", [RebootHost])], [("vm2", []); ("vm1", [])])
+      )
+    ; ( ( ("host1", [RebootHost; RestartToolstack])
+        , [("vm1", []); ("vm2", [RestartDeviceModel])]
+        , [RebootHost; RestartDeviceModel]
+        , ([], [])
+        )
+      , ([("host1", [RebootHost])], [("vm2", []); ("vm1", [])])
+      )
+    ; ( ( ("host1", [RebootHost; RestartToolstack])
+        , [("vm1", []); ("vm2", [RestartDeviceModel])]
+        , [RestartToolstack]
+        , ([], [])
+        )
+      , ([("host1", [RebootHost])], [("vm2", []); ("vm1", [])])
+      )
+    ; ( ( ("host1", [RebootHost; RestartToolstack])
+        , [("vm1", []); ("vm2", [RestartDeviceModel])]
+        , [RebootHost; RestartToolstack]
+        , ([], [])
+        )
+      , ([("host1", [RebootHost])], [("vm2", []); ("vm1", [])])
+      )
+    ; ( ( ("host1", [RebootHost; RestartToolstack])
+        , [("vm1", []); ("vm2", [RestartDeviceModel])]
+        , [RebootHost]
+        , ([], [])
+        )
+      , ([("host1", [RebootHost])], [("vm2", []); ("vm1", [])])
+      )
+    ; ( ( ("host1", [RebootHost; RestartToolstack])
+        , [("vm1", []); ("vm2", [RestartDeviceModel])]
+        , []
+        , ([], [])
+        )
+      , ([("host1", [RebootHost])], [("vm2", []); ("vm1", [])])
+      )
+    ; ( ( ("host1", [RebootHost; RestartToolstack])
+        , [("vm1", []); ("vm2", [])]
+        , [RestartDeviceModel]
+        , ([], [])
+        )
+      , ([("host1", [RebootHost])], [("vm2", []); ("vm1", [])])
+      )
+    ; ( ( ("host1", [RebootHost; RestartToolstack])
+        , [("vm1", []); ("vm2", [])]
+        , [RestartToolstack; RestartDeviceModel]
+        , ([], [])
+        )
+      , ([("host1", [RebootHost])], [("vm2", []); ("vm1", [])])
+      )
+    ; ( ( ("host1", [RebootHost; RestartToolstack])
+        , [("vm1", []); ("vm2", [])]
+        , [RebootHost; RestartToolstack; RestartDeviceModel]
+        , ([], [])
+        )
+      , ([("host1", [RebootHost])], [("vm2", []); ("vm1", [])])
+      )
+    ; ( ( ("host1", [RebootHost; RestartToolstack])
+        , [("vm1", []); ("vm2", [])]
+        , [RebootHost; RestartDeviceModel]
+        , ([], [])
+        )
+      , ([("host1", [RebootHost])], [("vm2", []); ("vm1", [])])
+      )
+    ; ( ( ("host1", [RebootHost; RestartToolstack])
+        , [("vm1", []); ("vm2", [])]
+        , [RestartToolstack]
+        , ([], [])
+        )
+      , ([("host1", [RebootHost])], [("vm2", []); ("vm1", [])])
+      )
+    ; ( ( ("host1", [RebootHost; RestartToolstack])
+        , [("vm1", []); ("vm2", [])]
+        , [RebootHost; RestartToolstack]
+        , ([], [])
+        )
+      , ([("host1", [RebootHost])], [("vm2", []); ("vm1", [])])
+      )
+    ; ( ( ("host1", [RebootHost; RestartToolstack])
+        , [("vm1", []); ("vm2", [])]
+        , [RebootHost]
+        , ([], [])
+        )
+      , ([("host1", [RebootHost])], [("vm2", []); ("vm1", [])])
+      )
+    ; ( ( ("host1", [RebootHost; RestartToolstack])
+        , [("vm1", []); ("vm2", [])]
+        , []
+        , ([], [])
+        )
+      , ([("host1", [RebootHost])], [("vm2", []); ("vm1", [])])
+      )
+    ; ( ( ("host1", [RestartToolstack])
+        , [("vm1", []); ("vm2", [RestartDeviceModel])]
+        , [RestartDeviceModel]
+        , ([], [])
+        )
+      , ( [("host1", [RestartToolstack])]
+        , [("vm2", [RestartDeviceModel]); ("vm1", [RestartDeviceModel])]
+        )
+      )
+    ; ( ( ("host1", [RestartToolstack])
+        , [("vm1", []); ("vm2", [RestartDeviceModel])]
+        , [RestartToolstack; RestartDeviceModel]
+        , ([], [])
+        )
+      , ( [("host1", [RestartToolstack])]
+        , [("vm2", [RestartDeviceModel]); ("vm1", [RestartDeviceModel])]
+        )
+      )
+    ; ( ( ("host1", [RestartToolstack])
+        , [("vm1", []); ("vm2", [RestartDeviceModel])]
+        , [RebootHost; RestartToolstack; RestartDeviceModel]
+        , ([], [])
+        )
+      , ([("host1", [RebootHost])], [("vm2", []); ("vm1", [])])
+      )
+    ; ( ( ("host1", [RestartToolstack])
+        , [("vm1", []); ("vm2", [RestartDeviceModel])]
+        , [RebootHost; RestartDeviceModel]
+        , ([], [])
+        )
+      , ([("host1", [RebootHost])], [("vm2", []); ("vm1", [])])
+      )
+    ; ( ( ("host1", [RestartToolstack])
+        , [("vm1", []); ("vm2", [RestartDeviceModel])]
+        , [RestartToolstack]
+        , ([], [])
+        )
+      , ( [("host1", [RestartToolstack])]
+        , [("vm2", [RestartDeviceModel]); ("vm1", [])]
+        )
+      )
+    ; ( ( ("host1", [RestartToolstack])
+        , [("vm1", []); ("vm2", [RestartDeviceModel])]
+        , [RebootHost; RestartToolstack]
+        , ([], [])
+        )
+      , ([("host1", [RebootHost])], [("vm2", []); ("vm1", [])])
+      )
+    ; ( ( ("host1", [RestartToolstack])
+        , [("vm1", []); ("vm2", [RestartDeviceModel])]
+        , [RebootHost]
+        , ([], [])
+        )
+      , ([("host1", [RebootHost])], [("vm2", []); ("vm1", [])])
+      )
+    ; ( ( ("host1", [RestartToolstack])
+        , [("vm1", []); ("vm2", [RestartDeviceModel])]
+        , []
+        , ([], [])
+        )
+      , ( [("host1", [RestartToolstack])]
+        , [("vm2", [RestartDeviceModel]); ("vm1", [])]
+        )
+      )
+    ; ( ( ("host1", [RestartToolstack])
+        , [("vm1", []); ("vm2", [])]
+        , [RestartDeviceModel]
+        , ([], [])
+        )
+      , ( [("host1", [RestartToolstack])]
+        , [("vm2", [RestartDeviceModel]); ("vm1", [RestartDeviceModel])]
+        )
+      )
+    ; ( ( ("host1", [RestartToolstack])
+        , [("vm1", []); ("vm2", [])]
+        , [RestartToolstack; RestartDeviceModel]
+        , ([], [])
+        )
+      , ( [("host1", [RestartToolstack])]
+        , [("vm2", [RestartDeviceModel]); ("vm1", [RestartDeviceModel])]
+        )
+      )
+    ; ( ( ("host1", [RestartToolstack])
+        , [("vm1", []); ("vm2", [])]
+        , [RebootHost; RestartToolstack; RestartDeviceModel]
+        , ([], [])
+        )
+      , ([("host1", [RebootHost])], [("vm2", []); ("vm1", [])])
+      )
+    ; ( ( ("host1", [RestartToolstack])
+        , [("vm1", []); ("vm2", [])]
+        , [RebootHost; RestartDeviceModel]
+        , ([], [])
+        )
+      , ([("host1", [RebootHost])], [("vm2", []); ("vm1", [])])
+      )
+    ; ( ( ("host1", [RestartToolstack])
+        , [("vm1", []); ("vm2", [])]
+        , [RestartToolstack]
+        , ([], [])
+        )
+      , ([("host1", [RestartToolstack])], [("vm2", []); ("vm1", [])])
+      )
+    ; ( ( ("host1", [RestartToolstack])
+        , [("vm1", []); ("vm2", [])]
+        , [RebootHost; RestartToolstack]
+        , ([], [])
+        )
+      , ([("host1", [RebootHost])], [("vm2", []); ("vm1", [])])
+      )
+    ; ( ( ("host1", [RestartToolstack])
+        , [("vm1", []); ("vm2", [])]
+        , [RebootHost]
+        , ([], [])
+        )
+      , ([("host1", [RebootHost])], [("vm2", []); ("vm1", [])])
+      )
+    ; ( (("host1", [RestartToolstack]), [("vm1", []); ("vm2", [])], [], ([], []))
+      , ([("host1", [RestartToolstack])], [("vm2", []); ("vm1", [])])
+      )
+    ]
+
+  let string_of_host (host, guidances) =
+    "(" ^ host ^ ", " ^ guidances_to_string guidances ^ ")"
+
+  let string_of_vms vms_pending_guidances =
+    vms_pending_guidances
+    |> List.map (fun (vm, guidances) ->
+           "(" ^ vm ^ ", " ^ guidances_to_string guidances ^ ")"
+       )
+    |> String.concat "; "
+    |> fun s -> "[" ^ s ^ "]"
+
+  let string_of_inputs host_pending_guidances vms_pending_guidances
+      coming_guidances succ_lps fail_lps =
+    "("
+    ^ string_of_host host_pending_guidances
+    ^ ", "
+    ^ string_of_vms vms_pending_guidances
+    ^ ", "
+    ^ guidances_to_string coming_guidances
+    ^ ", "
+    ^ livepatching_result_to_string succ_lps fail_lps
+    ^ ")"
+
+  let strings_of_tests_inputs' =
+    List.map
+      (fun ( ( host_pending_guidances
+             , vms_pending_guidances
+             , coming_guidances
+             , (succ_lps, fail_lps)
+             )
+           , _
+           ) ->
+        string_of_inputs host_pending_guidances vms_pending_guidances
+          coming_guidances succ_lps fail_lps
+      )
+      tests'
+
+  let strings_of_exhaustive_inputs' =
+    let open Guidance in
+    let exhaustive_host_pending_guidances =
+      combination
+        [
+          RebootHost
+        ; RebootHostOnXenLivePatchFailure
+        ; RebootHostOnKernelLivePatchFailure
+        ]
+      |> List.map (fun l -> ("host1", List.sort Guidance.compare l))
+    in
+    let exhaustive_vms_pending_guidances = [[]] in
+    let exhaustive_guidances = combination [RebootHost] in
+    join exhaustive_host_pending_guidances exhaustive_vms_pending_guidances
+    |> join3 exhaustive_guidances
+    |> join4 exhaustive_livepatching_results
+    |> List.map
+         (fun
+           ( host_pending_guidances
+           , vms_pending_guidances
+           , coming_guidances
+           , (succ_lps, fail_lps)
+           )
+         ->
+           string_of_inputs host_pending_guidances vms_pending_guidances
+             coming_guidances succ_lps fail_lps
+       )
+
+  let strings_of_tests_inputs'' =
+    List.map
+      (fun ( ( host_pending_guidances
+             , vms_pending_guidances
+             , coming_guidances
+             , (succ_lps, fail_lps)
+             )
+           , _
+           ) ->
+        string_of_inputs host_pending_guidances vms_pending_guidances
+          coming_guidances succ_lps fail_lps
+      )
+      tests''
+
+  let strings_of_exhaustive_inputs'' =
+    let open Guidance in
+    let exhaustive_host_pending_guidances =
+      combination [RebootHost; RestartToolstack]
+      |> List.map (fun l -> ("host1", List.sort Guidance.compare l))
+    in
+    let exhaustive_vms_pending_guidances =
+      [[("vm1", []); ("vm2", [])]; [("vm1", []); ("vm2", [RestartDeviceModel])]]
+    in
+    let exhaustive_guidances =
+      combination [RebootHost; RestartToolstack; RestartDeviceModel]
+      |> List.map (fun l -> List.sort Guidance.compare l)
+    in
+    let exhaustive_livepatching_results = [([], [])] in
+    join exhaustive_host_pending_guidances exhaustive_vms_pending_guidances
+    |> join3 exhaustive_guidances
+    |> join4 exhaustive_livepatching_results
+    |> List.map
+         (fun
+           ( host_pending_guidances
+           , vms_pending_guidances
+           , coming_guidances
+           , (succ_lps, fail_lps)
+           )
+         ->
+           string_of_inputs host_pending_guidances vms_pending_guidances
+             coming_guidances succ_lps fail_lps
+       )
+
+  let tests = `QuickAndAutoDocumented (tests' @ tests'')
+end
+
+module MergePendingGuidances = Generic.MakeStateless (MergePendingGuidances')
+
+module Exhaustiveness = Generic.MakeStateless (struct
+  module Io = struct
+    type input_t = string list * string list
+
+    type output_t = (unit, exn) result
+
+    let string_of_input_t =
+      Fmt.(str "%a" Dump.(pair (list string) (list string)))
+
+    let string_of_output_t =
+      Fmt.(str "%a" Dump.(result ~ok:(any "()") ~error:exn))
+  end
+
+  let transform (exhaustive_inputs, tests_inputs) =
+    try
+      Ok
+        (List.iter2
+           (fun exhaustive manual ->
+             match exhaustive = manual with
+             | true ->
+                 ()
+             | false ->
+                 raise (Mismatched_exhaustive_input (exhaustive, manual))
+           )
+           exhaustive_inputs tests_inputs
+        )
+    with e -> Error e
+
+  let tests =
+    `QuickAndAutoDocumented
+      [
+        ( ( MergeWithUnappliedGuidances'.strings_of_exhaustive_inputs
+          , MergeWithUnappliedGuidances'.strings_of_tests_inputs
+          )
+        , Ok ()
+        )
+      ; ( ( MergeLivepatchFailures'.strings_of_exhaustive_inputs
+          , MergeLivepatchFailures'.strings_of_tests_inputs
+          )
+        , Ok ()
+        )
+      ; ( ( MergePendingGuidances'.strings_of_exhaustive_inputs'
+          , MergePendingGuidances'.strings_of_tests_inputs'
+          )
+        , Ok ()
+        )
+      ; ( ( MergePendingGuidances'.strings_of_exhaustive_inputs''
+          , MergePendingGuidances'.strings_of_tests_inputs''
+          )
+        , Ok ()
+        )
+      ]
+end)
+
 let tests =
   make_suite "repository_helpers_"
     [
@@ -3620,6 +6388,9 @@ let tests =
     ; ("consolidate_updates_of_host", ConsolidateUpdatesOfHost.tests)
     ; ("parse_updateinfo_list", ParseUpdateInfoList.tests)
     ; ("resort_guidances", GuidanceSetResortGuidancesTest.tests)
+    ; ("merge_with_unapplied_guidances", MergeWithUnappliedGuidances.tests)
+    ; ("merge_livepatch_failures", MergeLivepatchFailures.tests)
+    ; ("merge_pending_guidances", MergePendingGuidances.tests)
     ; ("prune_accumulative_updates", PruneAccumulativeUpdates.tests)
     ; ("prune_updateinfo_for_livepatches", PruneUpdateInfoForLivepatches.tests)
     ; ( "parse_output_of_yum_upgrade_dry_run"
@@ -3628,6 +6399,7 @@ let tests =
     ; ( "get_latest_updates_from_redundancy"
       , GetLatestUpdatesFromRedundancy.tests
       )
+    ; ("exhaustiveness", Exhaustiveness.tests)
     ]
 
 let () = Alcotest.run "Repository Helpers" tests

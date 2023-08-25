@@ -2987,7 +2987,7 @@ let apply_updates ~__context ~self ~hash =
   (* This function runs on master host *)
   Helpers.assert_we_are_master ~__context ;
   Pool_features.assert_enabled ~__context ~f:Features.Updates ;
-  let guidances, warnings =
+  let warnings =
     Xapi_pool_helpers.with_pool_operation ~__context
       ~self:(Helpers.get_pool ~__context)
       ~doc:"Host.apply_updates" ~op:`apply_updates
@@ -3002,15 +3002,7 @@ let apply_updates ~__context ~self ~hash =
   Db.Host.set_last_software_update ~__context ~self
     ~value:(get_servertime ~__context ~host:self) ;
   Db.Host.set_latest_synced_updates_applied ~__context ~self ~value:`yes ;
-  List.map
-    (fun g ->
-      [
-        Api_errors.updates_require_recommended_guidance
-      ; Updateinfo.Guidance.to_string g
-      ]
-    )
-    guidances
-  @ warnings
+  warnings
 
 let cc_prep () =
   let cc = "CC_PREPARATIONS" in

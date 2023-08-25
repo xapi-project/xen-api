@@ -20,6 +20,8 @@ module Guidance : sig
     | EvacuateHost
     | RestartDeviceModel
     | RebootHostOnLivePatchFailure
+    | RebootHostOnXenLivePatchFailure
+    | RebootHostOnKernelLivePatchFailure
 
   type guidance_kind = Absolute | Recommended
 
@@ -30,12 +32,24 @@ module Guidance : sig
   (* may fail *)
   val of_string : string -> t
 
-  val of_update_guidance :
+  val of_pending_guidance :
        [< `reboot_host
        | `reboot_host_on_livepatch_failure
        | `restart_device_model
-       | `restart_toolstack ]
+       | `restart_toolstack
+       | `reboot_host_on_xen_livepatch_failure
+       | `reboot_host_on_kernel_livepatch_failure ]
     -> t
+
+  val to_pending_guidance :
+       t
+    -> [> `reboot_host
+       | `reboot_host_on_livepatch_failure
+       | `restart_device_model
+       | `restart_toolstack
+       | `reboot_host_on_xen_livepatch_failure
+       | `reboot_host_on_kernel_livepatch_failure ]
+       option
 end
 
 (** The applicability of metadata for one update in updateinfo *)

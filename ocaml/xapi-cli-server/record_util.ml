@@ -203,6 +203,10 @@ let update_guidance_to_string = function
       "reboot_host"
   | `reboot_host_on_livepatch_failure ->
       "reboot_host_on_livepatch_failure"
+  | `reboot_host_on_kernel_livepatch_failure ->
+      "reboot_host_on_kernel_livepatch_failure"
+  | `reboot_host_on_xen_livepatch_failure ->
+      "reboot_host_on_xen_livepatch_failure"
   | `restart_toolstack ->
       "restart_toolstack"
   | `restart_device_model ->
