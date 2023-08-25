@@ -349,7 +349,12 @@ and get_message_comment message =
   let full_stop =
     if Astring.String.is_suffix ~affix:"." message.msg_doc then "" else "."
   in
-  Helper.comment true (sprintf "%s%s" message.msg_doc full_stop)
+  let minimum_allowed_role = get_minimum_allowed_role message in
+  let content =
+    sprintf "%s%s\nMinimum allowed role: %s." message.msg_doc full_stop
+      minimum_allowed_role
+  in
+  Helper.comment true content
 
 and impl_messages needed classname messages =
   joined "\n\n" (impl_message needed classname) messages
