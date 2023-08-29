@@ -159,10 +159,19 @@ let assert_credentials_ok realm ?(http_action = realm) ?(fn = Rbac.nofn)
         else
           raise (Http.Unauthorised realm)
     | None, None, Some (Http.Basic (uname, pwd)) ->
+        debug "HTTP request with Basic auth user '%s' with User-Agent '%s'"
+          uname
+          (Option.value ~default:"unknown" req.Http.Request.user_agent) ;
+        let client =
+          Http_svr.(
+            client_of_req_and_fd req ic
+            |> Option.fold ~some:string_of_client ~none:"unknown"
+          )
+        in
         let sess_creator () =
           Client.Session.login_with_password ~rpc:inet_rpc ~uname ~pwd
             ~version:Datamodel_common.api_version_string
-            ~originator:Constants.xapi_user_agent
+            ~originator:(client ^ " using Basic auth")
         in
         rbac_check_with_tmp_session sess_creator
     | None, None, Some (Http.UnknownAuth x) ->
@@ -206,18 +215,27 @@ let with_context ?(dummy = false) label (req : Request.t) (s : Unix.file_descr)
             , true
             )
         | None, None, Some (Http.Basic (uname, pwd)) -> (
-          try
-            ( Client.Session.login_with_password ~rpc:inet_rpc ~uname ~pwd
-                ~version:Datamodel_common.api_version_string
-                ~originator:Constants.xapi_user_agent
-            , true
-            )
-          with
-          | Api_errors.Server_error (code, _)
-          when code = Api_errors.session_authentication_failed
-          ->
-            raise (Http.Unauthorised label)
-        )
+            debug "HTTP request with Basic auth user '%s' with User-Agent: '%s'"
+              uname
+              (Option.value ~default:"unknown" req.Http.Request.user_agent) ;
+            let client =
+              Http_svr.(
+                client_of_req_and_fd req s
+                |> Option.fold ~some:string_of_client ~none:"unknown"
+              )
+            in
+            try
+              ( Client.Session.login_with_password ~rpc:inet_rpc ~uname ~pwd
+                  ~version:Datamodel_common.api_version_string
+                  ~originator:(client ^ " using Basic auth")
+              , true
+              )
+            with
+            | Api_errors.Server_error (code, _)
+            when code = Api_errors.session_authentication_failed
+            ->
+              raise (Http.Unauthorised label)
+          )
         | None, None, Some (Http.UnknownAuth x) ->
             raise (Failure (Printf.sprintf "Unknown authorization header: %s" x))
         | None, None, None ->
@@ -335,35 +353,54 @@ let add_handler (name, handler) =
     | Http_svr.BufIO callback ->
         Http_svr.BufIO
           (fun req ic context ->
-            try
-              if check_rbac then (
+            let client =
+              Http_svr.(
+                client_of_req_and_fd req (Buf_io.fd_of ic)
+                |> Option.map string_of_client
+              )
+            in
+            Debug.with_thread_associated ?client name
+              (fun () ->
                 try
-                  (* rbac checks *)
-                  assert_credentials_ok name req
-                    ~fn:(fun () -> callback req ic context)
-                    (Buf_io.fd_of ic)
-                with e ->
-                  debug "Leaving RBAC-handler in xapi_http after: %s"
-                    (ExnHelper.string_of_exn e) ;
-                  raise e
-              ) else (* no rbac checks *)
-                callback req ic context
-            with Api_errors.Server_error (name, params) as e ->
-              error "Unhandled Api_errors.Server_error(%s, [ %s ])" name
-                (String.concat "; " params) ;
-              raise (Http_svr.Generic_error (ExnHelper.string_of_exn e))
+                  if check_rbac then (
+                    try
+                      (* rbac checks *)
+                      assert_credentials_ok name req
+                        ~fn:(fun () -> callback req ic context)
+                        (Buf_io.fd_of ic)
+                    with e ->
+                      debug "Leaving RBAC-handler in xapi_http after: %s"
+                        (ExnHelper.string_of_exn e) ;
+                      raise e
+                  ) else (* no rbac checks *)
+                    callback req ic context
+                with Api_errors.Server_error (name, params) as e ->
+                  error "Unhandled Api_errors.Server_error(%s, [ %s ])" name
+                    (String.concat "; " params) ;
+                  raise (Http_svr.Generic_error (ExnHelper.string_of_exn e))
+              )
+              ()
           )
     | Http_svr.FdIO callback ->
         Http_svr.FdIO
           (fun req ic context ->
-            try
-              if check_rbac then assert_credentials_ok name req ic ;
-              (* session and rbac checks *)
-              callback req ic context
-            with Api_errors.Server_error (name, params) as e ->
-              error "Unhandled Api_errors.Server_error(%s, [ %s ])" name
-                (String.concat "; " params) ;
-              raise (Http_svr.Generic_error (ExnHelper.string_of_exn e))
+            let client =
+              Http_svr.(
+                client_of_req_and_fd req ic |> Option.map string_of_client
+              )
+            in
+            Debug.with_thread_associated ?client name
+              (fun () ->
+                try
+                  if check_rbac then assert_credentials_ok name req ic ;
+                  (* session and rbac checks *)
+                  callback req ic context
+                with Api_errors.Server_error (name, params) as e ->
+                  error "Unhandled Api_errors.Server_error(%s, [ %s ])" name
+                    (String.concat "; " params) ;
+                  raise (Http_svr.Generic_error (ExnHelper.string_of_exn e))
+              )
+              ()
           )
   in
   match action with

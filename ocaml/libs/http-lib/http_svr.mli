@@ -131,3 +131,15 @@ val respond_to_options : Http.Request.t -> Unix.file_descr -> unit
 val headers : Unix.file_descr -> string list -> unit
 
 val read_body : ?limit:int -> Http.Request.t -> Buf_io.t -> string
+
+(* Helpers to determine the client of a call *)
+
+type protocol = Https | Http
+
+type client = protocol * Ipaddr.t
+
+val https_client_of_req : Http.Request.t -> Ipaddr.t option
+
+val client_of_req_and_fd : Http.Request.t -> Unix.file_descr -> client option
+
+val string_of_client : client -> string

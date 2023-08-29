@@ -747,3 +747,54 @@ let read_chunked_encoding _req bio =
       Http.Item (chunk, next)
   in
   next ()
+
+(* Helpers to determine the client of a call *)
+
+type protocol = Https | Http
+
+let string_of_protocol = function Https -> "HTTPS" | Http -> "HTTP"
+
+type client = protocol * Ipaddr.t
+
+let clean_addr_of_string ip =
+  (* in the IPv4 case, users should see 127.0.0.1 rather than ::ffff:127.0.0.1 *)
+  let ipv4_affix = "::ffff:" in
+  ( if Astring.String.is_prefix ~affix:ipv4_affix ip then
+      Astring.String.drop ~max:(String.length ipv4_affix) ip
+  else
+    ip
+  )
+  |> Ipaddr.of_string
+  |> Stdlib.Result.to_option
+
+let https_client_of_req req =
+  (* this relies on 'protocol = proxy' in Xapi_stunnel_server *)
+  let stunnel_proxy =
+    List.assoc_opt "STUNNEL_PROXY" req.Http.Request.additional_headers
+  in
+  Option.bind stunnel_proxy (fun proxy ->
+      try
+        Scanf.sscanf proxy "TCP6 %s %s %d %d" (fun client _ _ _ -> client)
+        |> clean_addr_of_string
+      with _ ->
+        error "Failed to parse STUNNEL_PROXY='%s'" proxy ;
+        None
+  )
+
+let client_of_req_and_fd req fd =
+  match https_client_of_req req with
+  | Some client ->
+      Some (Https, client)
+  | None -> (
+    match Unix.getpeername fd with
+    | Unix.ADDR_INET (addr, _) ->
+        addr
+        |> Unix.string_of_inet_addr
+        |> clean_addr_of_string
+        |> Option.map (fun ip -> (Http, ip))
+    | Unix.ADDR_UNIX _ | (exception _) ->
+        None
+  )
+
+let string_of_client (protocol, ip) =
+  Printf.sprintf "%s %s" (string_of_protocol protocol) (Ipaddr.to_string ip)

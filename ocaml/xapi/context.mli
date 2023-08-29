@@ -96,8 +96,6 @@ val destroy : t -> unit
 
 (** {6 Auxiliary functions } *)
 
-val _client_of_rq : Http.Request.t -> Ipaddr.t option
-
 val is_unix_socket : Unix.file_descr -> bool
 (** [is_unix_socket fd] *)
 

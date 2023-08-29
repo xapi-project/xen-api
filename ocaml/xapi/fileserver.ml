@@ -80,7 +80,7 @@ let response_file s file_path =
   Http_svr.response_file ~mime_content_type ~hsts_time s file_path
 
 let is_external_http req s =
-  (not (Context.is_unix_socket s)) && Context._client_of_rq req = None
+  (not (Context.is_unix_socket s)) && Http_svr.https_client_of_req req = None
 
 let access_forbidden req s =
   (* Reject external non-TLS requests (depending on config) *)

@@ -16,7 +16,10 @@ let test_get_client_ip () =
   ]
   |> List.iter (fun (ip, exp) ->
          let client_ip =
-           proxy_string ip |> make_rq |> Context._client_of_rq |> Option.get
+           proxy_string ip
+           |> make_rq
+           |> Http_svr.https_client_of_req
+           |> Option.get
          in
          Alcotest.(check string)
            "original ip string preserved" exp
