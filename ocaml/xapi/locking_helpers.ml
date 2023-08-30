@@ -52,10 +52,17 @@ module Thread_local_storage = struct
         Mutex.unlock t.lock ;
         Printexc.raise_with_backtrace e bt
 
-  let on_thread_gc t thread_id () =
-    Mutex.lock t.lock ;
-    LiveThreads.remove t.tbl thread_id ;
-    Mutex.unlock t.lock
+  let on_thread_gc t thread_id =
+    let rec perform v =
+      if not (Mutex.try_lock t.lock) then
+        (* re-queue finalizer to avoid deadlock if we get called in the same thread that holds the lock *)
+        Gc.finalise perform v
+      else (
+        LiveThreads.remove t.tbl thread_id ;
+        Mutex.unlock t.lock
+      )
+    in
+    perform
 
   let find_or_create_unlocked t self =
     (* try/with avoids allocation on fast-path *)
@@ -66,7 +73,7 @@ module Thread_local_storage = struct
       let v = t.init () in
       LiveThreads.replace t.tbl id v ;
       (* do not use a closure here, it might keep 'self' alive forver *)
-      Gc.finalise_last (on_thread_gc t id) self ;
+      Gc.finalise (on_thread_gc t id) self ;
       v
 
   let get t =
