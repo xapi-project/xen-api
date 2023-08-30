@@ -274,6 +274,8 @@ let () =
               (no_table_leak @@ many_threads test_named_mutex_many)
           ; test_case "race same (64 threads)" `Slow
               (no_table_leak @@ many_threads test_named_mutex_many_same)
+          ; test_case "GC finalizer" `Quick
+              (no_table_leak @@ Locking_helpers.Named_mutex.Private.test_locking)
           ]
         )
       ]

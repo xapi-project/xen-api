@@ -64,4 +64,8 @@ module Named_mutex : sig
 
   val execute :
     ?__context:Context.t -> ?parent:Tracing.Span.t -> t -> (unit -> 'a) -> 'a
+
+  module Private : sig
+    val test_locking : unit -> unit
+  end
 end

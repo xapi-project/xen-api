@@ -414,4 +414,24 @@ module Named_mutex = struct
           p
     in
     Thread_state.with_resource x x.acquire f x.release parent
+
+  module Private = struct
+    (* needs access to 'with_lock' which is not otherwise exported *)
+    let test_locking () =
+      let thread =
+        Thread.create (fun t -> execute t ignore) (create "lockingtest")
+      in
+      Thread.join thread ;
+      let thread = Thread.create Thread_state.get_states () in
+      Thread.join thread ;
+      let () =
+        ()
+        |> Thread_local_storage.with_lock Thread_state.thread_states
+           @@ fun _ () ->
+           for _ = 1 to 10 do
+             Gc.full_major ()
+           done
+      in
+      Gc.full_major () ; Gc.full_major ()
+  end
 end
