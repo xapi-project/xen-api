@@ -495,6 +495,36 @@ module RPC_API (R : RPC) = struct
           (uid_p @-> returning float_p rrd_err)
     end
 
+    module Metrics = struct
+      let register =
+        let version_p =
+          Param.mk ~name:"version" ~description:["OpenMetrics version"] Types.string
+        in
+        declare "Plugin.Metrics.register"
+          [
+            "[Plugin.Metrics.register uid version] registers a plugin"
+          ; "as a source of metrics using protocol V3. [uid] is a unique"
+          ; "identifier for the plugin, often the name of the plugin."
+          ; "[version] specifies the OpenMetrics version to use in protocol V3."
+          ]
+          (uid_p @-> version_p @-> returning string_p rrd_err)
+
+      let deregister =
+        declare "Plugin.Metrics.deregister"
+          ["Deregisters a plugin by uid"]
+          (uid_p @-> returning unit_p rrd_err)
+      
+      let get_versions =
+        let versions_p =
+          Param.mk ~name:"versions" ~description:["Supported OpenMetrics versions"] string list
+        in
+        declare "Plugin.Metrics.get_versions"
+          [
+            "Get the list of OpenMetrics versions that are supported."
+          ]
+          (unit_p @-> returning versions_p rrd_err)
+    end
+
     let register =
       let freq_p =
         Param.mk ~name:"frequency"
