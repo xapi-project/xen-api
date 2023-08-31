@@ -353,7 +353,10 @@ let refresh_phypath_to_sr_vdi () =
          )
      )
 
-let exec_tap_ctl () =
+(* Get a list of currently-active tapdisk processes as an assoc list from SR/VDI tuple
+   to minor number. As a side-effect, this updates the VDI-to-VM in the process state,
+   if needed. *)
+let exec_tap_ctl_list () : ((string * string) * int) list =
   let tap_ctl = "/usr/sbin/tap-ctl list" in
   let extract_vdis pid minor _state kind phypath =
     if not (kind = "vhd" || kind = "aio") then raise (Failure "Unknown type") ;
@@ -379,7 +382,11 @@ let exec_tap_ctl () =
   let pid_and_minor_to_sr_and_vdi =
     Utils.exec_cmd (module Process.D) ~cmdstring:tap_ctl ~f:process_line
   in
-  let minor_to_sr_and_vdi = List.map snd pid_and_minor_to_sr_and_vdi in
+  let sr_and_vdi_to_minor =
+    List.map
+      (fun (_, (minor, sr_and_vdi)) -> (sr_and_vdi, minor))
+      pid_and_minor_to_sr_and_vdi
+  in
   (let reason_for_updating_vdi_to_vm_map =
      let pid_vdis_to_string pids =
        pids
@@ -445,46 +452,36 @@ let exec_tap_ctl () =
        update_vdi_to_vm_map ()
   ) ;
   previous_map := pid_and_minor_to_sr_and_vdi ;
-  minor_to_sr_and_vdi
+  sr_and_vdi_to_minor
 
-let minor_of_tdX_unsafe tdX =
+(* Get the minor number of the kernel tapdev device *)
+let minor_of_tapdev_unsafe tapdev =
   int_of_string
     (Unixext.file_lines_fold
        (fun acc l -> acc ^ List.nth (Xstringext.String.split ':' l) 1)
        ""
-       ("/sys/block/" ^ tdX ^ "/dev")
+       ("/sys/block/" ^ tapdev ^ "/dev")
     )
 
-let get_tdXs vdi_info_list =
-  let tdXs =
-    List.fold_left
-      (fun acc entry ->
-        if entry.[0] = 't' && entry.[1] = 'd' then entry :: acc else acc
-      )
-      []
-      (Utils.list_directory_unsafe "/sys/block")
-  in
-  List.filter
-    (fun tdx ->
-      let minor = minor_of_tdX_unsafe tdx in
-      List.mem_assoc minor vdi_info_list
+(* Get a list of current tapdev devices from the kernel *)
+let get_tapdevs () =
+  List.fold_left
+    (fun acc entry ->
+      if entry.[0] = 't' && entry.[1] = 'd' then entry :: acc else acc
     )
-    tdXs
+    []
+    (Utils.list_directory_unsafe "/sys/block")
 
-let get_sr_vdi_to_stats_fun ~f () =
-  let minor_to_sr_and_vdi = exec_tap_ctl () in
-  let tdXs = get_tdXs minor_to_sr_and_vdi in
-  let tdX_to_iostat_data = f tdXs in
-  List.map
-    (fun (tdX, data) ->
-      let minor = minor_of_tdX_unsafe tdX in
-      (List.assoc minor minor_to_sr_and_vdi, data)
-    )
-    tdX_to_iostat_data
+(* Get an assoc list from tapdisk minor number to stats value given a list of devices
+   and a stat function `f`. *)
+let get_minor_to_stats_fun ~f tapdevs : (int * 'a) list =
+  tapdevs
+  |> f
+  |> List.map (fun (tapdev, stat) -> (minor_of_tapdev_unsafe tapdev, stat))
 
-let get_sr_vdi_to_stats = get_sr_vdi_to_stats_fun ~f:Stat.get_unsafe
+let get_minor_to_stats = get_minor_to_stats_fun ~f:Stat.get_unsafe
 
-let get_sr_vdi_to_iostats = get_sr_vdi_to_stats_fun ~f:Iostat.get_unsafe
+let get_minor_to_iostats = get_minor_to_stats_fun ~f:Iostat.get_unsafe
 
 let sr_to_sth s_v_to_i =
   let fold_fun acc ((s, _v), sth) =
@@ -646,8 +643,8 @@ module Stats_value = struct
     and ( -- ) = Int64.sub
     and to_float = Int64.to_float in
     (* stats_blktap3 and stats won't both present at a time *)
-    match stats_blktap3 with
-    | None ->
+    match (stats_blktap3, stats) with
+    | None, Some stats ->
         let stats_get = List.nth stats in
         let stats_diff_get n =
           let stat = stats_get n in
@@ -678,7 +675,7 @@ module Stats_value = struct
         ; iowait= to_float (stats_diff_get 10) /. 1000.
         ; inflight= stats_get 8
         }
-    | Some s3 ->
+    | Some s3, _ ->
         let last_s3 = last_stats_blktap3 in
         let opt f = Option.fold ~none:0L ~some:f in
         let open Blktap3_stats in
@@ -751,6 +748,8 @@ module Stats_value = struct
                ++ opt get_stats_write_reqs_completed last_s3
                )
         }
+    | None, None ->
+        D.warn "No stats found" ; empty
 
   let accumulate (values : t list) : t =
     let ( ++ ) = Int64.add in
@@ -870,11 +869,11 @@ module Iostats_value = struct
     and ( -- ) = Int64.sub
     and to_float = Int64.to_float in
     (* stats_blktap3 and stats won't both present at a time *)
-    match stats_blktap3 with
-    | None ->
+    match (stats_blktap3, iostats) with
+    | None, Some iostats ->
         let iostats_get = List.nth iostats in
         {latency= iostats_get 9; avgqu_sz= iostats_get 7}
-    | Some s3 ->
+    | Some s3, _ ->
         let last_s3 = last_stats_blktap3 in
         let opt f x = match x with None -> 0L | Some x' -> f x' in
         let s3_usecs =
@@ -910,6 +909,8 @@ module Iostats_value = struct
         ; (* divide by the interval as the ds-type is Gauge *)
           avgqu_sz= avgqu_sz /. 5.
         }
+    | None, None ->
+        D.warn "No iostats found" ; empty
 
   let accumulate (values : t list) : t =
     let max acc v =
@@ -951,9 +952,27 @@ let gen_metrics () =
     Blktap3_stats_wrapper.get_domid_devid_to_stats_blktap3 ()
   in
 
+  let sr_and_vdi_to_minor = exec_tap_ctl_list () in
+  let tapdevs = get_tapdevs () in
+
+  let map_sr_and_vdi_to_stats minor_to_tapdev_stat =
+    List.map
+      (fun (sr_and_vdi, minor) ->
+        let data = List.assoc_opt minor minor_to_tapdev_stat in
+        (sr_and_vdi, data)
+      )
+      sr_and_vdi_to_minor
+  in
+
+  (* Construct a mapping from SR+VDI to kernel stats/iostats. The kernel
+     devices and therefore stats may not exist, so an option type is used. *)
   (* Get iostat data first, because this takes 1 second to complete *)
-  let sr_vdi_to_iostats = get_sr_vdi_to_iostats () in
-  let sr_vdi_to_stats = get_sr_vdi_to_stats () in
+  let sr_vdi_to_iostats : ((string * string) * Iostat.t option) list =
+    tapdevs |> get_minor_to_iostats |> map_sr_and_vdi_to_stats
+  in
+  let sr_vdi_to_stats : ((string * string) * Stat.t option) list =
+    tapdevs |> get_minor_to_stats |> map_sr_and_vdi_to_stats
+  in
 
   (* relations between dom-id, vm-uuid, device pos, dev-id, etc *)
   let domUs = with_xc_and_xs get_running_domUs in
@@ -997,10 +1016,7 @@ let gen_metrics () =
           | None ->
               None
           | Some s ->
-              if Hashtbl.mem s sr_vdi then
-                Some (Hashtbl.find s sr_vdi)
-              else
-                None
+              Hashtbl.find_opt s sr_vdi |> Option.join
         in
         let stats_blktap3, last_stats_blktap3 = get_stats_blktap3_by_vdi vdi in
         ( sr_vdi
@@ -1018,10 +1034,7 @@ let gen_metrics () =
           | None ->
               None
           | Some s ->
-              if Hashtbl.mem s sr_vdi then
-                Some (Hashtbl.find s sr_vdi)
-              else
-                None
+              Hashtbl.find_opt s sr_vdi |> Option.join
         in
         let stats_blktap3, last_stats_blktap3 = get_stats_blktap3_by_vdi vdi in
         ( sr_vdi
