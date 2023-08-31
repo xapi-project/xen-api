@@ -91,8 +91,6 @@ let prototyped_of_message = function
       Some "22.26.0"
   | "VTPM", "create" ->
       Some "22.26.0"
-  | "host", "apply_recommended_guidances" ->
-      Some "23.18.0"
   | "host", "set_https_only" ->
       Some "22.27.0"
   | "pool", "set_update_sync_enabled" ->

@@ -1758,7 +1758,7 @@ let apply_recommended_guidances =
     ~doc:
       "apply all recommended guidances both on the host and on all HVM VMs on \
        the host after updates are applied on the host"
-    ~lifecycle:[]
+    ~lifecycle:[(Prototyped, "23.18.0", ""); (Removed, "23.25.0", "")]
     ~params:
       [
         ( Ref _host

@@ -4015,11 +4015,6 @@ functor
         do_op_on ~local_fn ~__context ~host:self (fun session_id rpc ->
             Client.Host.set_https_only ~rpc ~session_id ~self ~value
         )
-
-      let apply_recommended_guidances ~__context ~self =
-        let uuid = host_uuid ~__context self in
-        info "Host.apply_recommended_guidances: host = %s" uuid ;
-        Local.Host.apply_recommended_guidances ~__context ~self
     end
 
     module Host_crashdump = struct

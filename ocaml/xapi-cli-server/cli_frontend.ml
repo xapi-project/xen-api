@@ -1036,15 +1036,6 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; flags= [Host_selectors]
       }
     )
-  ; ( "host-apply-recommended-guidances"
-    , {
-        reqd= []
-      ; optn= []
-      ; help= "Apply recommended guidances on a host."
-      ; implementation= No_fd Cli_operations.host_apply_recommended_guidances
-      ; flags= [Host_selectors]
-      }
-    )
   ; ( "patch-upload"
     , {
         reqd= ["file-name"]
