@@ -1159,6 +1159,10 @@ type nvidia_t4_sriov = Nvidia_T4_SRIOV | Nvidia_LEGACY | Nvidia_DEFAULT
 
 let nvidia_t4_sriov = ref Nvidia_DEFAULT
 
+(** CP-41126. true - we are detaching the NVML library in gpumon; false -
+    we stop gpumon. *)
+let nvidia_gpumon_detach = ref false
+
 let failed_login_alert_freq = ref 3600
 
 let other_options =
@@ -1469,6 +1473,11 @@ let other_options =
     , Arg.Set_int max_observer_file_size
     , (fun () -> string_of_int !max_observer_file_size)
     , "The maximum size of log files for saving spans"
+    )
+  ; ( "nvidia-gpumon-detach"
+    , Arg.Set nvidia_gpumon_detach
+    , (fun () -> string_of_bool !nvidia_gpumon_detach)
+    , "On VM start, detach the NVML library rather than stopping gpumon"
     )
   ]
 

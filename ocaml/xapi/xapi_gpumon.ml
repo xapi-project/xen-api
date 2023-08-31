@@ -18,6 +18,8 @@ open D
 
 let gpumon = "xcp-rrdd-gpumon"
 
+let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
+
 module Gpumon = Daemon_manager.Make (struct
   let check =
     Daemon_manager.Function
@@ -40,7 +42,36 @@ module Gpumon = Daemon_manager.Make (struct
     Xapi_systemctl.stop ~wait_until_success:false gpumon
 end)
 
-let with_gpumon_stopped = Gpumon.with_daemon_stopped
+let gpumon_m = Mutex.create ()
+
+let with_gpumon_stopped ?(timeout = 30.0) f =
+  match !Xapi_globs.nvidia_gpumon_detach with
+  | false ->
+      Gpumon.with_daemon_stopped ~timeout f
+  | true -> (
+      debug "%s: about to acquire lock" __FUNCTION__ ;
+      with_lock gpumon_m @@ fun () ->
+      let module GPU = Gpumon_client.Client.Nvidia in
+      match GPU.nvml_is_attached __FUNCTION__ with
+      | false ->
+          (* nothing to do, just execute f *)
+          debug "%s: NVML is detached; nothing to do" __FUNCTION__ ;
+          f ()
+      | true ->
+          (* detach, execute f, re-attach in any case. Be aware
+             that both xenopsd, xapi call /usr/lib/nvidia/sriov-manage,
+             which may stop stop gpumon *)
+          Fun.protect
+            (fun () ->
+              debug "%s: about to detach NVML" __FUNCTION__ ;
+              GPU.nvml_detach __FUNCTION__ ;
+              f ()
+            )
+            ~finally:(fun () ->
+              debug "%s: about to attach NVML" __FUNCTION__ ;
+              GPU.nvml_attach __FUNCTION__
+            )
+    )
 
 module Nvidia = struct
   let key = "nvidia"
