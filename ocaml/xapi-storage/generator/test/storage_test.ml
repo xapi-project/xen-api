@@ -186,6 +186,7 @@ let volume_server () =
   Volume.disable_cbt unimplemented ;
   Volume.data_destroy unimplemented ;
   Volume.list_changed_blocks unimplemented ;
+  Volume.compose unimplemented ;
 
   Idl.Exn.server Volume.implementation
 

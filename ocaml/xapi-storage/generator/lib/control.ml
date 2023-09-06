@@ -403,6 +403,15 @@ module Volume (R : RPC) = struct
       @-> returning changed_blocks errors
       )
 
+  let compose =
+    R.declare "compose"
+      [
+        "[compose sr volume1 volume2] layers the updates from [volume2] onto"
+      ; "[volume1], modifying [volume2]. Implementations shall declare the"
+      ; "VDI_COMPOSE feature for this method to be supported."
+      ]
+      (dbg @-> sr @-> key @-> key2 @-> returning unit errors)
+
   let implementation =
     R.implement
       {
