@@ -39,7 +39,7 @@ https://discussions.citrix.com/forum/101-hypervisor-formerly-xenserver/
 Prerequisites
 -------------
 
-This library requires .NET 6.0 and PowerShell 7.2.
+This library requires .NET 6.0 and PowerShell 7.2 or greater.
 
 
 Dependencies
@@ -54,7 +54,7 @@ The XenServer PowerShell Module is dependent upon the following libraries:
 
 - XenServer.NET by Cloud Software Group, Inc.
   XenServer.NET is a complete SDK for XenServer, exposing the XenServer
-  API as .NET classes. It is written in C#. 
+  API as .NET classes. It is written in C#.
 
 
 Folder Structure
@@ -71,18 +71,32 @@ This archive contains the following folders that are relevant to PowerShell user
 Getting Started
 ---------------
 
-1.  Unzip the contents of this archive.
+1.  Extract the contents of this archive.
 
-2.  Navigate to the extracted XenServer\XenServerPowerShell directory and copy
-    the whole folder XenServerPSModule into your PowerShell modules directory,
-    which will normally be $env:UserProfile\Documents\WindowsPowerShell\Modules
-    for per-user configuration or $env:windir\system32\WindowsPowerShell\v1.0\Modules
-    for system-wide configuration.
+    Note that some web browsers may mark the SDK ZIP file as "blocked" during
+    the download. To import the module successfully you will need to unblock the
+    archive before extracting its contents. To unblock the archive, right-click
+    on it and launch the Properties dialog. Click the Unblock button, then the
+    Apply or OK button.
 
-3.  Open a PowerShell prompt as administrator.
+2.  Navigate to the extracted XenServerPowerShell directory and copy the whole
+    folder XenServerPSModule into your PowerShell modules directory.
+
+    - On Windows this will normally be $env:UserProfile\Documents\PowerShell\Modules
+      for per-user configuration, or $env:ProgramFiles\WindowsPowerShell\Modules
+      for system-wide configuration.
+    - On Linux this will be ~/.local/share/powershell/Modules for per-user
+      configuration, or /usr/local/share/powershell/Modules for system-wide
+      configuration.
+
+    For more information see PowerShell's documentation on module paths:
+
+        PS> Get-Help about_PSModulePath
+
+3.  Open a PowerShell 7 prompt as administrator.
 
     To do this, open the Windows Start menu by clicking the Start icon, find
-    the item Windows PowerShell, right click it and select Run as administrator.
+    the item PowerShell 7, right click it and select Run as administrator.
 
 4.  Determine the current execution policy:
 
@@ -92,26 +106,28 @@ Getting Started
 
         PS> Set-ExecutionPolicy RemoteSigned
 
-    You should understand the security implications of this change. If you
-    are unsure, see Microsoft's documentation on the matter:
+    You should understand the security implications of this change. If you are
+    unsure, see PowerShell's documentation on execution policies:
 
-        PS> Get-Help about_signing
+        PS> Get-Help about_Execution_Policies
 
-    If the current policy is AllSigned, it will work, but will be very
-    inconvenient. You probably want to change it to RemoteSigned, as above.
+    If the current policy is AllSigned, you will be able to use the XenServer
+    PowerShell module, but it will be inconvenient because this policy requires
+    even scripts that you write on the local computer to be signed. You may want
+    to change it to RemoteSigned, as above.
 
-    If the current policy is Unrestricted or RemoteSigned, it is compatible with
-    the XenServer PowerShell Module, so there is nothing to do.
+    If the current policy is RemoteSigned, ByPass, or Unrestricted there is
+    nothing to do.
 
 5.  Exit the privileged instance of PowerShell.
 
-6.  Open a PowerShell prompt as a regular user (click Start > Windows PowerShell)
+6.  Open a PowerShell 7 prompt as a regular user (click Start > PowerShell 7)
     and import the XenServer PowerShell Module:
 
         PS> Import-Module XenServerPSModule
 
 7.  If you wish to load specific environment settings when the XenServer
-    PowerShell Module is loaded, create the file XenServerProfile.ps1 and put it
+    PowerShell module is loaded, create the file XenServerProfile.ps1 and put it
     in $env:UserProfile\Documents\WindowsPowerShell for per-user configuration
     or $env:windir\system32\WindowsPowerShell\v1.0 for system-wide configuration.
 
@@ -137,11 +153,10 @@ Getting Started
 Building and Debugging the Source Code
 --------------------------------------
 
-1. Open the project XenServerPowerShell.csproj in Visual Studio (2019 or greater).
+1. Open the project XenServerPowerShell.csproj in Visual Studio 2022. You should
+   now be ready to build the source code.
 
-2. You should now be ready to build the source code.
-
-3. If in Debug mode, clicking Start will launch a PowerShell prompt as an
+2. If in Debug mode, clicking Start will launch a PowerShell 7 prompt as an
    external process, and import the compiled XenServerPowerShell.dll as a module
    (without, however, processing the scripts, types, and formats shipped within
    the XenServerPSModule). You should now be ready to debug the cmdlets.
