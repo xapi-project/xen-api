@@ -1,0 +1,16 @@
+languageCode = 'en-us'
+title = 'XAPI Toolstack Developer Documentation'
+disablePathToLower = true
+pygmentsCodeFences = true
+
+[module]
+[[module.imports]]
+    path = 'github.com/McShelby/hugo-theme-relearn'
+
+[outputs]
+home = [ "HTML", "RSS", "SEARCH"]
+
+[params]
+themeVariant = "red"
+alwaysopen = false
+collapsibleMenu = true
