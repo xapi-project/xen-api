@@ -200,6 +200,7 @@ install: build doc sdk doc-json
 		xapi-nbd varstored-guard xapi-log xapi-open-uri xapi-tracing xapi-expiry-alerts cohttp-posix
 	make -C _build/default/ocaml/xapi-storage/python
 	make -C _build/default/ocaml/xapi-storage/python install DESTDIR=$(DESTDIR)
+	make -C _build/default/ocaml/xapi-storage/python install DESTDIR=$(DESTDIR) PYTHON=python3
 # docs
 	mkdir -p $(DESTDIR)$(DOCDIR)
 	cp -r $(XAPIDOC)/jekyll $(DESTDIR)$(DOCDIR)
