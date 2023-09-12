@@ -3993,6 +3993,7 @@ let vm_install_real printer rpc session_id template name description params =
         Client.VM.set_has_vendor_device ~rpc ~session_id ~self:new_vm
           ~value:want_dev
       with e when e = licerr ->
+        (* No longer licensed, this should not happen. CA-371529 *)
         let msg =
           Printf.sprintf
             "Note: the VM template recommends setting has-vendor-device=true \
