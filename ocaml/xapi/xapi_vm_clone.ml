@@ -244,10 +244,8 @@ let snapshot_metadata ~__context ~vm ~is_a_snapshot =
   else
     ""
 
-(* return a new VM record, in appropriate power state and having the good metrics. *)
-(* N.B. always check VM.has_vendor_device and Features.PCI_device_for_auto_update before calling this,
- * as is done before the single existing call to this function.
- * If ever we need to expose this function in the .mli file then we should do the check in the function. *)
+(* return a new VM record, in appropriate power state and having the
+   good metrics.  *)
 let copy_vm_record ?snapshot_info_record ~__context ~vm ~disk_op ~new_name
     ~new_power_state () =
   let all = Db.VM.get_record_internal ~__context ~self:vm in
@@ -448,13 +446,6 @@ let clone ?snapshot_info_record ?(ignore_vdis = []) disk_op ~__context ~vm
           vbds
       in
 
-      (* Check licence permission before copying disks, since the copy can take
-         a long time. We always allow snapshotting a VM, but check before
-         clone/copy of an existing snapshot or template. *)
-      if Db.VM.get_has_vendor_device ~__context ~self:vm && not is_a_snapshot
-      then
-        Pool_features.assert_enabled ~__context
-          ~f:Features.PCI_device_for_auto_update ;
       (* driver params to be passed to storage backend clone operations. *)
       let driver_params = make_driver_params () in
       (* backend cloning operations first *)
