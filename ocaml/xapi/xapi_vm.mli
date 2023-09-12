@@ -401,9 +401,6 @@ val call_plugin :
 val set_has_vendor_device :
   __context:Context.t -> self:API.ref_VM -> value:bool -> unit
 
-val assert_can_set_has_vendor_device :
-  __context:Context.t -> self:API.ref_VM -> value:bool -> unit
-
 val import :
      __context:Context.t
   -> url:string
