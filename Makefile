@@ -30,7 +30,9 @@ lint:
 
 test:
 	dune runtest --profile=$(PROFILE) --error-reporting=twice -j $(JOBS)
+ifneq ($(PY_TEST), NO)
 	dune build @runtest-python --profile=$(PROFILE)
+endif
 
 stresstest:
 	dune build @stresstest --profile=$(PROFILE) --no-buffer -j $(JOBS)
@@ -138,7 +140,6 @@ install: build doc sdk doc-json
 # xcp-rrdd
 	install -D _build/install/default/bin/xcp-rrdd $(DESTDIR)/usr/sbin/xcp-rrdd
 	install -D _build/install/default/bin/rrddump $(DESTDIR)/usr/bin/rrddump
-	install -D -m 644 ocaml/xcp-rrdd/scripts/rrdd/rrdd.py $(DESTDIR)/usr/lib/python2.7/site-packages
 # rrd-cli
 	install -D _build/install/default/bin/rrd-cli $(DESTDIR)/usr/bin/rrd-cli
 # rrd-transport
@@ -198,8 +199,6 @@ install: build doc sdk doc-json
 		message-switch message-switch-async message-switch-cli message-switch-core message-switch-lwt \
 		message-switch-unix xapi-idl forkexec xapi-forkexecd xapi-storage xapi-storage-script xapi-storage-cli \
 		xapi-nbd varstored-guard xapi-log xapi-open-uri xapi-tracing xapi-expiry-alerts cohttp-posix
-	make -C _build/default/ocaml/xapi-storage/python
-	make -C _build/default/ocaml/xapi-storage/python install DESTDIR=$(DESTDIR)
 # docs
 	mkdir -p $(DESTDIR)$(DOCDIR)
 	cp -r $(XAPIDOC)/jekyll $(DESTDIR)$(DOCDIR)
