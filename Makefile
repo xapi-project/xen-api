@@ -116,8 +116,8 @@ install: build doc sdk doc-json
 	scripts/install.sh 755 _build/install/default/bin/vncproxy $(DESTDIR)$(OPTDIR)/debug/vncproxy
 # ocaml/perftest
 	scripts/install.sh 755 _build/install/default/bin/perftest $(DESTDIR)$(OPTDIR)/debug/perftest
-# ocaml/suspend_image_viewer
-	scripts/install.sh 755 _build/install/default/bin/perftest $(DESTDIR)$(OPTDIR)/debug/suspend_image_viewer
+# ocaml/suspend-image-viewer
+	scripts/install.sh 755 _build/install/default/bin/perftest $(DESTDIR)$(OPTDIR)/debug/suspend-image-viewer
 # ocaml/mpathalert
 	scripts/install.sh 755 _build/install/default/bin/mpathalert $(DESTDIR)$(OPTDIR)/bin/mpathalert
 # ocaml/license
