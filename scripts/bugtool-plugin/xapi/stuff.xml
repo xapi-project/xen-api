@@ -7,4 +7,5 @@
 <command label="diagnostic_net_stats">@BINDIR@/xe diagnostic-net-stats</command>
 <command label="host_data_source_list">@BINDIR@/xe host-data-source-list host=$(@BINDIR@/xe pool-list params=master --minimal)</command>
 <command label="sr_data_source_list">@BINDIR@/xe sr-list --minimal | tr , '\n' | xargs --verbose -n 1 -I {} @BINDIR@/xe sr-data-source-list uuid={} 2>&amp;1</command>
+<command label="save_rrd">rrd-cli save_rrds</command>
 </collect>
