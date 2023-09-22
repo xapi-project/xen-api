@@ -3635,7 +3635,9 @@ module Dm = struct
   let start_vgpu ~xc:_ ~xs task ?(restore = false) domid vgpus vcpus profile =
     let open Xenops_interface.Vgpu in
     match vgpus with
-    | {implementation= Nvidia _; _} :: _ ->
+    | {implementation= Nvidia {vclass; _}; _} :: _ ->
+        let vclass = Option.value ~default:"unknown" vclass in
+        info "NVidia vgpu vclass=%s" vclass ;
         (* Start DEMU and wait until it has reached the desired state *)
         if not (Service.Vgpu.is_running ~xs domid) then (
           let pcis = List.map (fun x -> x.physical_pci_address) vgpus in

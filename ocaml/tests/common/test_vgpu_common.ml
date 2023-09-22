@@ -33,6 +33,7 @@ let k100 =
           ; vdev_id= 0x0fe7
           ; vsubdev_id= 0x101e
           ; sriov= false
+          ; vclass= "NVS"
           }
       )
   ; experimental= false
@@ -59,6 +60,7 @@ let k140q =
           ; vdev_id= 0x0ff7
           ; vsubdev_id= 0x1037
           ; sriov= false
+          ; vclass= "NVS"
           }
       )
   ; experimental= false
@@ -85,6 +87,7 @@ let k200 =
           ; vdev_id= 0x118d
           ; vsubdev_id= 0x101d
           ; sriov= false
+          ; vclass= "NVS"
           }
       )
   ; experimental= false
@@ -111,6 +114,7 @@ let k240q =
           ; vdev_id= 0x11b0
           ; vsubdev_id= 0x101a
           ; sriov= false
+          ; vclass= "NVS"
           }
       )
   ; experimental= false
@@ -137,6 +141,7 @@ let k260q =
           ; vdev_id= 0x11b0
           ; vsubdev_id= 0x101b
           ; sriov= false
+          ; vclass= "NVS"
           }
       )
   ; experimental= false

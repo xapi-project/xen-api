@@ -280,6 +280,7 @@ module GenerateVGPUMetadata = Generic.MakeStateful (struct
                 ; type_id= Some "type_id_1"
                 ; uuid= Some (uuid_with_index 0)
                 ; extra_args= ""
+                ; vclass= None
                 }
             )
           ]
@@ -364,6 +365,7 @@ module GenerateMultiVGPUMetadata = Generic.MakeStateful (struct
                 ; type_id= Some "type_id_1"
                 ; uuid= Some (uuid_with_index 0)
                 ; extra_args= ""
+                ; vclass= None
                 }
             )
           ; Xenops_interface.Vgpu.(
@@ -375,6 +377,7 @@ module GenerateMultiVGPUMetadata = Generic.MakeStateful (struct
                 ; type_id= Some "type_id_1"
                 ; uuid= Some (uuid_with_index 1)
                 ; extra_args= ""
+                ; vclass= None
                 }
             )
           ]
@@ -398,6 +401,7 @@ module GenerateMultiVGPUMetadata = Generic.MakeStateful (struct
                 ; type_id= Some "type_id_1"
                 ; uuid= Some (uuid_with_index 0)
                 ; extra_args= ""
+                ; vclass= None
                 }
             )
           ; Xenops_interface.Vgpu.(
@@ -409,6 +413,7 @@ module GenerateMultiVGPUMetadata = Generic.MakeStateful (struct
                 ; type_id= Some "type_id_1"
                 ; uuid= Some (uuid_with_index 1)
                 ; extra_args= ""
+                ; vclass= None
                 }
             )
           ; Xenops_interface.Vgpu.(
@@ -420,6 +425,7 @@ module GenerateMultiVGPUMetadata = Generic.MakeStateful (struct
                 ; type_id= Some "type_id_1"
                 ; uuid= Some (uuid_with_index 2)
                 ; extra_args= ""
+                ; vclass= None
                 }
             )
           ; Xenops_interface.Vgpu.(
@@ -431,6 +437,7 @@ module GenerateMultiVGPUMetadata = Generic.MakeStateful (struct
                 ; type_id= Some "type_id_1"
                 ; uuid= Some (uuid_with_index 3)
                 ; extra_args= ""
+                ; vclass= None
                 }
             )
           ]

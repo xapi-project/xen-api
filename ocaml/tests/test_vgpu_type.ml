@@ -67,6 +67,7 @@ module NvidiaTest = struct
                       ; vdev_id= 0x1111
                       ; vsubdev_id= 0x2222
                       ; sriov= false
+                      ; vclass= "NVS"
                       }
                 ; framebufferlength= 0x10000000L
                 ; num_heads= 2L
@@ -92,6 +93,7 @@ module NvidiaTest = struct
                       ; vdev_id= 0x1111
                       ; vsubdev_id= 0x2222
                       ; sriov= false
+                      ; vclass= "NVS"
                       }
                 ; framebufferlength= 0x10000000L
                 ; num_heads= 2L
@@ -117,6 +119,7 @@ module NvidiaTest = struct
                       ; vdev_id= 0x1112
                       ; vsubdev_id= 0x2223
                       ; sriov= false
+                      ; vclass= "NVS"
                       }
                 ; framebufferlength= 0x20000000L
                 ; num_heads= 4L
@@ -138,6 +141,7 @@ module NvidiaTest = struct
                       ; vdev_id= 0x1111
                       ; vsubdev_id= 0x2222
                       ; sriov= false
+                      ; vclass= "NVS"
                       }
                 ; framebufferlength= 0x10000000L
                 ; num_heads= 2L
