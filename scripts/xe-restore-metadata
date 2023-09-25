@@ -2,6 +2,14 @@
 # Script which restores metadata into a VDI
 # Citrix Systems Inc, 2008
 
+function file_exists() {
+	local out
+	out="$(debugfs -R "stat $2" "$1" 2>/dev/null | head -n1 | grep "Type: regular")"
+	if [ -n "${out}" ]; then
+		echo y
+	fi
+}
+
 if [ ! -e @INVENTORY@ ]; then
   echo Must run on a Citrix Hypervisor host.
   exit 1
@@ -173,22 +181,19 @@ for vdi_uuid in ${vdis}; do
    ${debug} echo ${device} >&2
 
    ${debug} echo -n "Probing device: " >&2
-   probecmd="@LIBEXECDIR@/probe-device-for-file"
-   metadata_stamp="/.ctxs-metadata-backup"
    mnt=
-   ${probecmd} ${device} ${metadata_stamp}
-   if [ $? -eq 0 ]; then
+   if [ "$(file_exists "${device}" "/.ctxs-metadata-backup")" = y ]; then
      ${debug} echo found metadata backup >&2
      ${debug} echo -n "Mounting filesystem: " >&2
      mnt=/var/run/pool-backup-${vdi_uuid}
      mkdir -p ${mnt}
-     /sbin/fsck -a ${device} >/dev/null 2>&1
+     /sbin/e2fsck -p -f "${device}" >/dev/null 2>&1
      if [ $? -ne 0 ]; then
         echo File system integrity error.  Please correct manually. >&2
         cleanup
         continue
      fi
-     mount ${device} ${mnt} >/dev/null 2>&1
+     mount -o ro,nosuid,noexec,nodev "${device}" "${mnt}" >/dev/null 2>&1
      if [ $? -ne 0 ]; then
        ${debug} echo failed >&2
        cleanup
