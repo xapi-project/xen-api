@@ -28,5 +28,7 @@ type ferpc =
   | Dontwaitpid
 [@@deriving rpc]
 
+let ferpc_to_string ferpc = rpc_of_ferpc ferpc |> Rpclib.Rpclib.to_string
+
 (* Re-enable "Warning 39: unused rec flag." *)
 [@@@warning "+39"]

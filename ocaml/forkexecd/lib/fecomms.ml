@@ -1,5 +1,4 @@
 module Unixext = Xapi_stdext_unix.Unixext
-open Fe
 
 let open_unix_domain_sock () = Unix.socket Unix.PF_UNIX Unix.SOCK_STREAM 0
 
@@ -23,12 +22,17 @@ let open_unix_domain_sock_client path =
 let read_raw_rpc sock =
   let buffer = Bytes.make 12 '\000' in
   Unixext.really_read sock buffer 0 12 ;
-  let len = int_of_string (Bytes.unsafe_to_string buffer) in
-  let body = Unixext.really_read_string sock len in
-  ferpc_of_rpc (Jsonrpc.of_string body)
+  let header = Bytes.unsafe_to_string buffer in
+  match int_of_string_opt header with
+  | Some len ->
+      let body = Unixext.really_read_string sock len in
+      Ok (Fe.ferpc_of_rpc (Jsonrpc.of_string body))
+  | None ->
+      Unix.(shutdown sock SHUTDOWN_ALL) ;
+      Error ("Header is not an integer: " ^ header)
 
 let write_raw_rpc sock ferpc =
-  let body = Jsonrpc.to_string (rpc_of_ferpc ferpc) in
+  let body = Jsonrpc.to_string (Fe.rpc_of_ferpc ferpc) in
   let len = String.length body in
   let buffer = Printf.sprintf "%012d%s" len body in
   Unixext.really_write_string sock buffer
