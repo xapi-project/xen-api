@@ -38,7 +38,11 @@ let make_new_filename =
   fun () ->
     let this = !counter in
     incr counter ;
-    disk_name_stem ^ string_of_int this ^ disk_suffix
+    let name = disk_name_stem ^ string_of_int this ^ disk_suffix in
+    at_exit (fun () ->
+        try Unix.unlink name with Unix.Unix_error (_, _, _) -> ()
+    ) ;
+    name
 
 let _fill_sector_with pattern =
   let b = Memory.alloc 512 in

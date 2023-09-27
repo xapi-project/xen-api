@@ -40,7 +40,11 @@ let make_new_filename =
   fun () ->
     let this = !counter in
     incr counter ;
-    disk_name_stem ^ string_of_int this ^ disk_suffix
+    let name = disk_name_stem ^ string_of_int this ^ disk_suffix in
+    at_exit (fun () ->
+        try Unix.unlink name with Unix.Unix_error (_, _, _) -> ()
+    ) ;
+    name
 
 let fill_sector_with pattern =
   let b = Io_page.(to_cstruct (get 1)) in
@@ -298,12 +302,6 @@ let all_program_tests =
     programs
 
 let _ =
-  let verbose = ref false in
-  Arg.parse
-    [("-verbose", Arg.Unit (fun _ -> verbose := true), "Run in verbose mode")]
-    (fun x -> Printf.fprintf stderr "Ignoring argument: %s" x)
-    "Test vhd parser" ;
-
   let check_empty_disk size =
     Printf.sprintf "check_empty_disk_%Ld" size >:: fun () ->
     Lwt_main.run (check_empty_disk size)
@@ -344,4 +342,4 @@ let _ =
          @ List.map check_empty_snapshot sizes
          @ all_program_tests
   in
-  run_test_tt ~verbose:!verbose suite
+  run_test_tt_main suite
