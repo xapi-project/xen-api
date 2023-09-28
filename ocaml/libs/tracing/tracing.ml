@@ -627,9 +627,13 @@ module Export = struct
 
       let max_file_size = ref (1 lsl 20)
 
+      let compress_tracing_files = ref true
+
       let set_trace_log_dir dir = trace_log_dir := dir
 
       let set_max_file_size size = max_file_size := size
+
+      let set_compress_tracing_files enabled = compress_tracing_files := enabled
 
       let file_name = ref None
 
@@ -665,6 +669,9 @@ module Export = struct
           write fd json ;
           if (Unix.fstat fd).st_size >= !max_file_size then (
             debug "Tracing: Rotating file %s > %d" file_name !max_file_size ;
+            if !compress_tracing_files then
+              Zstd.Fast.compress_file Zstd.Fast.compress ~file_path:file_name
+                ~file_ext:"zst" ;
             ignore @@ new_file_name ()
           ) ;
           Ok ()

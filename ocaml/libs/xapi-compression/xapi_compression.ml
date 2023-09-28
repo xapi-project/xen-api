@@ -18,8 +18,15 @@ module type COMPRESSOR = sig
   (** Runs a decompression process which is fed from a pipe whose
   entrance is passed to 'f' and whose output is 'ofd' *)
 
-  (* Experimental decompressor which is fed from an fd and writes to a pipe *)
   val decompress_passive : Unix.file_descr -> (Unix.file_descr -> 'a) -> 'a
+  (** Experimental decompressor which is fed from an fd and writes to a pipe *)
+
+  val compress_file :
+       (Unix.file_descr -> (Unix.file_descr -> unit) -> 'a)
+    -> file_path:string
+    -> file_ext:string
+    -> unit
+  (** Uses the compress function given to compress the specified file *)
 end
 
 module D = Debug.Make (struct let name = "xapi_compression" end)
@@ -139,4 +146,18 @@ module Make (Algorithm : ALGORITHM) = struct
   let decompress fd f = go Decompress Active fd f
 
   let decompress_passive fd f = go Decompress Passive fd f
+
+  let write_to ~file_path fd_w =
+    ignore
+    @@ Xapi_stdext_unix.Unixext.with_file file_path [O_RDONLY] 0o000
+         (fun fd_r -> Xapi_stdext_unix.Unixext.copy_file fd_r fd_w
+       ) ;
+    Unix.unlink file_path
+
+  let compress_file compress_fn ~file_path ~file_ext =
+    ignore
+    @@ Xapi_stdext_unix.Unixext.with_file
+         (file_path ^ "." ^ file_ext)
+         [O_WRONLY; O_CREAT] 0o444
+    @@ fun compressed_file -> compress_fn compressed_file (write_to ~file_path)
 end

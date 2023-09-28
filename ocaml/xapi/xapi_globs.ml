@@ -993,6 +993,8 @@ let max_spans = ref 1000
 
 let max_traces = ref 10000
 
+let compress_tracing_files = ref true
+
 let prefer_nbd_attach = ref false
 
 (** 1 MiB *)
@@ -1478,6 +1480,11 @@ let other_options =
     , Arg.Set nvidia_gpumon_detach
     , (fun () -> string_of_bool !nvidia_gpumon_detach)
     , "On VM start, detach the NVML library rather than stopping gpumon"
+    )
+  ; ( "compress-tracing-files"
+    , Arg.Set compress_tracing_files
+    , (fun () -> string_of_bool !compress_tracing_files)
+    , "Enable compression of the tracing log files"
     )
   ]
 

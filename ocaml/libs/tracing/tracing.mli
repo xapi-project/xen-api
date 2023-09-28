@@ -129,6 +129,8 @@ module Export : sig
       val set_max_file_size : int -> unit
 
       val set_trace_log_dir : string -> unit
+
+      val set_compress_tracing_files : bool -> unit
     end
 
     val flush_spans : unit -> unit
