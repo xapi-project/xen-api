@@ -38,6 +38,7 @@ val extract :
   -> ?extra_args:string
   -> ?pv_bootloader_args:string
   -> vm:string
+  -> domid:int
   -> unit
   -> t
 (** Extract the default kernel from the disk *)
