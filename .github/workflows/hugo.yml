@@ -1,0 +1,37 @@
+name: Generate and upload Hugo docs
+
+on:
+  push:
+    branches: master
+
+jobs:
+  ocaml:
+    name: Docs
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Hugo
+        uses: peaceiris/actions-hugo@v2
+        with:
+          hugo-version: '0.119.0'
+
+      - name: Build
+        run: |
+          cd doc
+          hugo --minify
+
+      - name: Deploy
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          deploy_key: ${{ secrets.ACTIONS_DOCS_DEPLOY_KEY }}
+          publish_dir: ./doc/public
+          user_name: 'Github action on xapi-project/xen-api'
+          user_email: 'github-actions-xapi-project-xen-api[bot]@users.noreply.github.com'
+          external_repository: xapi-project/xapi-project.github.io
+          publish_branch: master
+          destination_dir: new-docs # temporary staging branch
+          allow_empty_commit: false
+          enable_jekyll: true # do not create .nojekyll file
