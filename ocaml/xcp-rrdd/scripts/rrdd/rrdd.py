@@ -44,14 +44,21 @@
 # OF THIS SOFTWARE.
 # --------------------------------------------------------------------
 
-import httplib
+from __future__ import print_function
+
+from future import standard_library
+standard_library.install_aliases()
+from builtins import str
+from builtins import range
+from builtins import object
+import http.client
 import os
 import json
 import socket
 from struct import pack
 import sys
 import time
-import xmlrpclib
+import xmlrpc.client
 from zlib import crc32
 
 
@@ -62,8 +69,8 @@ class Failure(Exception):
     def __str__(self):
         try:
             return str(self.details)
-        except Exception, exn:
-            print >> sys.stderr, exn
+        except Exception as exn:
+            print(exn, file=sys.stderr)
             return "rrdd failure: %s" % str(self.details)
 
     def _details_map(self):
@@ -71,7 +78,7 @@ class Failure(Exception):
                      for i in range(len(self.details))])
 
 
-class UDSHTTPConnection(httplib.HTTPConnection):
+class UDSHTTPConnection(http.client.HTTPConnection):
     """HTTPConnection subclass to allow HTTP over Unix domain sockets."""
 
     def connect(self):
@@ -80,7 +87,7 @@ class UDSHTTPConnection(httplib.HTTPConnection):
         self.sock.connect(path)
 
 
-class UDSTransport(xmlrpclib.Transport):
+class UDSTransport(xmlrpc.client.Transport):
     # FIXME: is this function actually used anywhere?
     def add_extra_header(self, key, value):
         self._extra_headers += [(key, value)]
@@ -89,10 +96,10 @@ class UDSTransport(xmlrpclib.Transport):
         return UDSHTTPConnection(host)
 
 
-class Proxy(xmlrpclib.ServerProxy):
+class Proxy(xmlrpc.client.ServerProxy):
     def __init__(self, uri, transport=None, encoding=None, verbose=0,
                  allow_none=1):
-        xmlrpclib.ServerProxy.__init__(self, uri, transport, encoding,
+        xmlrpc.client.ServerProxy.__init__(self, uri, transport, encoding,
                                        verbose, allow_none)
         self.transport = transport
 
@@ -102,23 +109,23 @@ class Proxy(xmlrpclib.ServerProxy):
 
     def parse_result(self, result):
         if type(result) != dict or 'Status' not in result:
-            raise xmlrpclib.Fault(500,
+            raise xmlrpc.client.Fault(500,
                                   'Missing Status in response from server' + result)
         if result['Status'] == 'Success':
             if 'Value' in result:
                 return result['Value']
             else:
-                raise xmlrpclib.Fault(500,
+                raise xmlrpc.client.Fault(500,
                                       'Missing Value in response from server')
         else:
             if 'ErrorDescription' in result:
                 raise Failure(result['ErrorDescription'])
             else:
-                raise xmlrpclib.Fault(
+                raise xmlrpc.client.Fault(
                     500, 'Missing ErrorDescription in response from server')
 
 
-class Dispatcher:
+class Dispatcher(object):
     def __init__(self, send, name):
         self.send = send
         self.name = name
@@ -139,13 +146,13 @@ class Dispatcher:
         return self.send(self.name, args)
 
 
-class DataSource:
-    class Type:
+class DataSource(object):
+    class Type(object):
         ABSOLUTE = "absolute"
         DERIVE = "derive"
         GAUGE = "gauge"
 
-    class ValueType:
+    class ValueType(object):
         FLOAT = "float"
         INT64 = "int64"
 
@@ -155,7 +162,7 @@ class DataSource:
         if value_ty == DataSource.ValueType.FLOAT:
             self.value = float(value)
         elif value_ty == DataSource.ValueType.INT64:
-            self.value = long(value)
+            self.value = int(value)
         else:
             raise NotImplementedError
         self.description = description
@@ -194,7 +201,7 @@ class DataSource:
         }
 
 
-class API:
+class API(object):
     def __init__(self, plugin_id, frequency="Five_Seconds"):
         self.uid = plugin_id
         self.datasources = []
@@ -286,7 +293,7 @@ class API:
         """Write all datasources specified (via set_datasource) since the last
         call to this function. The datasources are written together with the
         relevant metadata into the file agreed with rrdd."""
-        timestamp = long(time.time())
+        timestamp = int(time.time())
         data_values = []
         combined = dict()
         data_checksum = crc32(pack(">Q", timestamp)) & 0xffffffff
