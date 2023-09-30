@@ -684,9 +684,9 @@ module Export = struct
           let headers =
             Cohttp.Header.of_list
               [
-                ("accepts", "application/json")
-              ; ("content-type", "application/json")
-              ; ("content-length", string_of_int (String.length body))
+                ("Content-Type", "application/json")
+              ; ("Content-Length", string_of_int (String.length body))
+              ; ("Host", "jaeger.xenrt.citrite.net:9411")
               ]
           in
           Open_uri.with_open_uri url (fun fd ->
@@ -698,7 +698,9 @@ module Export = struct
               Request.write
                 (fun writer -> Request.write_body writer body)
                 request oc ;
-              Unix.shutdown fd Unix.SHUTDOWN_SEND ;
+              (* We flush instead of closing the sending stream as nginx responds to a TCP
+                 half-shutdown with a full shutdown of both directions of the HTTP request *)
+              flush oc ;
               match try Response.read ic with _ -> `Eof with
               | `Eof ->
                   Ok ()
