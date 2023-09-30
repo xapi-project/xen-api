@@ -83,8 +83,10 @@ Getting Started
     folder XenServerPSModule into your PowerShell modules directory.
 
     - On Windows this will normally be $env:UserProfile\Documents\PowerShell\Modules
-      for per-user configuration, or $env:ProgramFiles\WindowsPowerShell\Modules
-      for system-wide configuration.
+      for per-user configuration, or $env:ProgramFiles\PowerShell\7\Modules for
+      system-wide configuration (note that $env:ProgramFiles\WindowsPowerShell\Modules
+      is also acceptable).
+
     - On Linux this will be ~/.local/share/powershell/Modules for per-user
       configuration, or /usr/local/share/powershell/Modules for system-wide
       configuration.
@@ -128,8 +130,15 @@ Getting Started
 
 7.  If you wish to load specific environment settings when the XenServer
     PowerShell module is loaded, create the file XenServerProfile.ps1 and put it
-    in $env:UserProfile\Documents\WindowsPowerShell for per-user configuration
-    or $env:windir\system32\WindowsPowerShell\v1.0 for system-wide configuration.
+    in the folder containing your $PROFILE file for per-user configuration, or
+    in $PSHOME for system-wide configuration.
+
+    - On Windows these will normally be $env:UserProfile\Documents\PowerShell
+      for per-user configuration, or $env:ProgramFiles\PowerShell\7 for
+      system-wide configuration.
+
+    - On Linux these will be ~/.config/powershell for per-user configuration,
+      or /opt/microsoft/powershell/7 for system-wide configuration.
 
 8.  For an overview of the XenServer PowerShell Module type:
 
