@@ -59,31 +59,27 @@ namespace XenAPI
 
         #region Constructors
 
-        [Obsolete("Use Session(string url) { Timeout = ... }; instead.")]
-        public Session(int timeout, string url)
+        public Session(JsonRpcClient client)
         {
-            JsonRpcClient = new JsonRpcClient(url)
-            {
-                Timeout = timeout,
-                KeepAlive = true,
-                UserAgent = UserAgent,
-                WebProxy = Proxy,
-                JsonRpcVersion = JsonRpcVersion.v2,
-                AllowAutoRedirect = true
-            };
+            client.Timeout = STANDARD_TIMEOUT;
+            client.KeepAlive = true;
+            client.UserAgent = UserAgent;
+            client.WebProxy = Proxy;
+            client.JsonRpcVersion = JsonRpcVersion.v2;
+            client.AllowAutoRedirect = true;
+            JsonRpcClient = client;
         }
 
-        public Session(string url)
+        [Obsolete("Use Session(string url) { Timeout = ... }; instead.")]
+        public Session(int timeout, string url)
+            : this(new JsonRpcClient(url))
         {
-            JsonRpcClient = new JsonRpcClient(url)
-            {
-                Timeout = STANDARD_TIMEOUT,
-                KeepAlive = true,
-                UserAgent = UserAgent,
-                WebProxy = Proxy,
-                JsonRpcVersion = JsonRpcVersion.v2,
-                AllowAutoRedirect = true
-            };
+            JsonRpcClient.Timeout = timeout;
+        }
+
+        public Session(string url) :
+            this(new JsonRpcClient(url))
+        {
         }
 
         [Obsolete("Use Session(string host, int port) { Timeout = ... }; instead.")]
@@ -113,31 +109,12 @@ namespace XenAPI
         /// <param name="timeout"></param>
         [Obsolete("Use Session(Session session) { Timeout = ... }; instead.")]
         public Session(Session session, int timeout)
+            : this(session)
         {
-            opaque_ref = session.opaque_ref;
-            APIVersion = session.APIVersion;
-
-            //in the following do not copy over the ConnectionGroupName
-
-            if (session.JsonRpcClient != null &&
-                (APIVersion == API_Version.API_2_6 || APIVersion >= API_Version.API_2_8))
+            if (JsonRpcClient != null)
             {
-                JsonRpcClient = new JsonRpcClient(session.Url)
-                {
-                    JsonRpcVersion = session.JsonRpcClient.JsonRpcVersion,
-                    UserAgent = session.JsonRpcClient.UserAgent,
-                    KeepAlive = session.JsonRpcClient.KeepAlive,
-                    WebProxy = session.JsonRpcClient.WebProxy,
-                    Timeout = timeout,
-                    ProtocolVersion = session.JsonRpcClient.ProtocolVersion,
-                    Expect100Continue = session.JsonRpcClient.Expect100Continue,
-                    AllowAutoRedirect = session.JsonRpcClient.AllowAutoRedirect,
-                    PreAuthenticate = session.JsonRpcClient.PreAuthenticate,
-                    Cookies = session.JsonRpcClient.Cookies,
-                    ServerCertificateValidationCallback = session.JsonRpcClient.ServerCertificateValidationCallback
-                };
+                JsonRpcClient.Timeout = timeout;
             }
-            CopyADFromSession(session);
         }
 
         /// <summary>
