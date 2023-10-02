@@ -1,3 +1,4 @@
+baseURL = "https://xapi-project.github.io/new-docs/"
 languageCode = 'en-us'
 title = 'XAPI Toolstack Developer Documentation'
 disablePathToLower = true
