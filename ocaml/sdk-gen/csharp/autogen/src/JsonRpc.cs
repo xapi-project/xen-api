@@ -191,7 +191,7 @@ namespace XenAPI
             Rpc<object>(callName, parameters, serializer);
         }
 
-        private T Rpc<T>(string callName, JToken parameters, JsonSerializer serializer)
+        protected virtual T Rpc<T>(string callName, JToken parameters, JsonSerializer serializer)
         {
             // Note that the following method handles an overflow condition by wrapping.
             // If the _globalId reaches Int32.MaxValue, _globalId + 1 starts over from
@@ -199,6 +199,75 @@ namespace XenAPI
             var id = Interlocked.Increment(ref _globalId);
 
             JsonRequest request = JsonRequest.Create(JsonRpcVersion, id, callName, parameters);
+
+            // for performance reasons it's preferable to deserialize directly
+            // from the Stream rather than allocating strings inbetween
+            // therefore the latter will be done only in DEBUG mode
+            using (var postStream = new MemoryStream())
+            {
+                using (var sw = new StreamWriter(postStream))
+                {
+#if DEBUG
+                    var settings = CreateSettings(serializer.Converters);
+                    string jsonReq = JsonConvert.SerializeObject(request, settings);
+                    if (RequestEvent != null)
+                        RequestEvent(jsonReq);
+                    sw.Write(jsonReq);
+#else
+                    if (RequestEvent != null)
+                        RequestEvent(callName);
+                    serializer.Serialize(sw, request);
+#endif
+                    sw.Flush();
+                    postStream.Seek(0, SeekOrigin.Begin);
+
+                    using (var responseStream = new MemoryStream())
+                    {
+                        PerformPostRequest(postStream, responseStream);
+                        responseStream.Position = 0;
+
+                        using (var responseReader = new StreamReader(responseStream))
+                        {
+                            switch (JsonRpcVersion)
+                            {
+                                case JsonRpcVersion.v2:
+#if DEBUG
+                                    string json2 = responseReader.ReadToEnd();
+                                    var res2 = JsonConvert.DeserializeObject<JsonResponseV2<T>>(json2, settings);
+#else
+                                    var res2 = (JsonResponseV2<T>)serializer.Deserialize(responseReader, typeof(JsonResponseV2<T>));
+#endif
+                                    if (res2.Error != null)
+                                    {
+                                        var descr = new List<string> { res2.Error.Message };
+                                        descr.AddRange(res2.Error.Data.ToObject<string[]>());
+                                        throw new Failure(descr);
+                                    }
+                                    return res2.Result;
+                                default:
+#if DEBUG
+                                    string json1 = responseReader.ReadToEnd();
+                                    var res1 = JsonConvert.DeserializeObject<JsonResponseV1<T>>(json1, settings);
+#else
+                                    var res1 = (JsonResponseV1<T>)serializer.Deserialize(responseReader, typeof(JsonResponseV1<T>));
+#endif
+                                    if (res1.Error != null)
+                                    {
+                                        var errorArray = res1.Error.ToObject<string[]>();
+                                        if (errorArray != null)
+                                            throw new Failure(errorArray);
+                                    }
+                                    return res1.Result;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+
+        protected virtual void PerformPostRequest(Stream postStream, Stream responseStream)
+        {
             var webRequest = (HttpWebRequest)WebRequest.Create(JsonRpcUrl);
             webRequest.Method = "POST";
             webRequest.ContentType = "application/json";
@@ -216,28 +285,10 @@ namespace XenAPI
             webRequest.CookieContainer = Cookies ?? webRequest.CookieContainer ?? new CookieContainer();
             webRequest.ServerCertificateValidationCallback = ServerCertificateValidationCallback ?? ServicePointManager.ServerCertificateValidationCallback;
 
-            // for performance reasons it's preferable to deserialize directly
-            // from the Stream rather than allocating strings inbetween
-            // therefore the latter will be done only in DEBUG mode
-
-#if DEBUG
-            var settings = CreateSettings(serializer.Converters);
-#endif
-
             using (var str = webRequest.GetRequestStream())
-            using (var sw = new StreamWriter(str))
             {
-#if DEBUG
-                string jsonReq = JsonConvert.SerializeObject(request, settings);
-                if (RequestEvent != null)
-                    RequestEvent(jsonReq);
-                sw.Write(jsonReq);
-#else
-                if (RequestEvent != null)
-                    RequestEvent(callName);
-                serializer.Serialize(sw, request);
-#endif
-                sw.Flush();
+                postStream.CopyTo(str);
+                str.Flush();
             }
 
             using (var webResponse = (HttpWebResponse)webRequest.GetResponse())
@@ -250,40 +301,8 @@ namespace XenAPI
                     if (str == null)
                         throw new WebException();
 
-                    using (var responseReader = new StreamReader(str))
-                    {
-                        switch (JsonRpcVersion)
-                        {
-                            case JsonRpcVersion.v2:
-#if DEBUG
-                                string json2 = responseReader.ReadToEnd();
-                                var res2 = JsonConvert.DeserializeObject<JsonResponseV2<T>>(json2, settings);
-#else
-                                var res2 = (JsonResponseV2<T>)serializer.Deserialize(responseReader, typeof(JsonResponseV2<T>));
-#endif
-                                if (res2.Error != null)
-                                {
-                                    var descr = new List<string> { res2.Error.Message };
-                                    descr.AddRange(res2.Error.Data.ToObject<string[]>());
-                                    throw new Failure(descr);
-                                }
-                                return res2.Result;
-                            default:
-#if DEBUG
-                                string json1 = responseReader.ReadToEnd();
-                                var res1 = JsonConvert.DeserializeObject<JsonResponseV1<T>>(json1, settings);
-#else
-                                var res1 = (JsonResponseV1<T>)serializer.Deserialize(responseReader, typeof(JsonResponseV1<T>));
-#endif
-                                if (res1.Error != null)
-                                {
-                                    var errorArray = res1.Error.ToObject<string[]>();
-                                    if (errorArray != null)
-                                        throw new Failure(errorArray);
-                                }
-                                return res1.Result;
-                        }
-                    }
+                    str.CopyTo(responseStream);
+                    responseStream.Flush();
                 }
             }
         }
