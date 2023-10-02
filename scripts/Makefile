@@ -33,10 +33,13 @@ install:
 	$(IPROG) nbd_client_manager.py $(DESTDIR)$(LIBEXECDIR)
 	mkdir -p $(DESTDIR)$(ETCXENDIR)/bugtool/xapi
 	mkdir -p $(DESTDIR)$(ETCXENDIR)/bugtool/xenopsd
+	mkdir -p $(DESTDIR)$(ETCXENDIR)/bugtool/observer
 	$(IDATA) bugtool-plugin/xapi.xml $(DESTDIR)$(ETCXENDIR)/bugtool
 	$(IDATA) bugtool-plugin/xapi/stuff.xml $(DESTDIR)$(ETCXENDIR)/bugtool/xapi
 	$(IDATA) bugtool-plugin/xenopsd.xml $(DESTDIR)$(ETCXENDIR)/bugtool
 	$(IDATA) bugtool-plugin/xenopsd/stuff.xml $(DESTDIR)$(ETCXENDIR)/bugtool/xenopsd
+	$(IDATA) bugtool-plugin/observer.xml $(DESTDIR)$(ETCXENDIR)/bugtool
+	$(IDATA) bugtool-plugin/observer/stuff.xml $(DESTDIR)$(ETCXENDIR)/bugtool/observer
 	$(IPROG) fence $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) xha-lc $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) xapi-health-check $(DESTDIR)$(LIBEXECDIR)
