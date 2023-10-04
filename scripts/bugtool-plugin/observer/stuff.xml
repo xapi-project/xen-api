@@ -1,0 +1,3 @@
+<collect>
+<directory label="tracing">/var/log/dt</directory>
+</collect>
