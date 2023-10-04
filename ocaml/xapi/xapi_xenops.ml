@@ -4474,4 +4474,9 @@ module Observer = struct
     let module Client = (val make_client (default_xenopsd ()) : XENOPS) in
     let dbg = Context.string_of_task __context in
     Client.Observer.set_host_id dbg host_id
+
+  let set_compress_tracing_files ~__context ~enabled =
+    let module Client = (val make_client (default_xenopsd ()) : XENOPS) in
+    let dbg = Context.string_of_task __context in
+    Client.Observer.set_compress_tracing_files dbg enabled
 end

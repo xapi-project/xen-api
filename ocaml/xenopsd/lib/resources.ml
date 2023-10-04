@@ -40,6 +40,8 @@ let cpu_info_file = ref "/etc/xensource/boot_time_cpus"
 
 let pvinpvh_xen = ref "/usr/libexec/xen/boot/xen-shim"
 
+let zstd = ref "/usr/bin/zstd"
+
 open Unix
 
 let hvm_guests =
@@ -84,6 +86,7 @@ let essentials =
     (X_OK, "chgrp", chgrp, "path to the chgrp binary")
   ; (X_OK, "modprobe", modprobe, "path to the modprobe binary")
   ; (X_OK, "rmmod", rmmod, "path to the rmmod binary")
+  ; (X_OK, "zstd", zstd, "path to the zstd binary")
   ]
 
 let nonessentials =

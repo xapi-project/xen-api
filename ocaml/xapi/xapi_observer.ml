@@ -52,6 +52,8 @@ module type ObserverInterface = sig
   val set_max_file_size : __context:Context.t -> file_size:int -> unit
 
   val set_host_id : __context:Context.t -> host_id:string -> unit
+
+  val set_compress_tracing_files : __context:Context.t -> enabled:bool -> unit
 end
 
 module Observer : ObserverInterface = struct
@@ -102,6 +104,10 @@ module Observer : ObserverInterface = struct
   let set_host_id ~__context ~host_id =
     debug "Observer.set_host_id" ;
     Tracing.Export.set_host_id host_id
+
+  let set_compress_tracing_files ~__context ~enabled =
+    debug "Observer.set_compress_tracing_files" ;
+    Tracing.Export.Destination.File.set_compress_tracing_files enabled
 end
 
 let supported_components = ["xapi"; "xenopsd"]
@@ -291,6 +297,14 @@ let set_host_id ~__context host_id =
     )
     supported_components
 
+let set_compress_tracing_files ~__context enabled =
+  List.iter
+    (fun c ->
+      let module Forwarder = (val get_forwarder c : ObserverInterface) in
+      Forwarder.set_compress_tracing_files ~__context ~enabled
+    )
+    supported_components
+
 let init ~__context =
   List.iter
     (fun c ->
@@ -318,6 +332,7 @@ let initialise ~__context =
   set_max_traces ~__context !Xapi_globs.max_traces ;
   set_max_file_size ~__context !Xapi_globs.max_observer_file_size ;
   set_host_id ~__context (Helpers.get_localhost_uuid ()) ;
+  set_compress_tracing_files ~__context !Xapi_globs.compress_tracing_files ;
   Tracing.Export.set_service_name "xapi" ;
   init ~__context
 

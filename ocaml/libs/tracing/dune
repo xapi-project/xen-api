@@ -12,6 +12,7 @@
     xapi-open-uri
     xapi-stdext-threads
     xapi-stdext-unix
+    zstd
   )
   (preprocess (pps ppx_deriving_rpc))
 )

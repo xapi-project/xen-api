@@ -1242,5 +1242,9 @@ module XenopsAPI (R : RPC) = struct
     let set_max_file_size =
       declare "Observer.set_max_file_size" []
         (debug_info_p @-> int_p @-> returning unit_p err)
+
+    let set_compress_tracing_files =
+      declare "Observer.set_compress_tracing_files" []
+        (debug_info_p @-> bool_p @-> returning unit_p err)
   end
 end
