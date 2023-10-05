@@ -1,10 +1,10 @@
 opam-version: "2.0"
-maintainer: "jonathan.ludlam@citrix.com"
-authors: ["xen-api@lists.xensource.com"]
+maintainer: "xapi project maintainers"
+authors: ["Jonathan Ludlam"]
 license: "ISC"
-homepage: "https://github.com/xapi-project/ezxenstore"
-bug-reports: "https://github.com/xapi-project/ezxenstore/issues"
-dev-repo: "git+https://github.com/xapi-project/ezxenstore.git"
+homepage: "https://github.com/xapi-project/xen-api"
+bug-reports: "https://github.com/xapi-project/xen-api/issues"
+dev-repo: "git+https://github.com/xapi-project/xen-api.git"
 build: [[ "dune" "build" "-p" name "-j" jobs ]]
 depends: [
   "ocaml"
