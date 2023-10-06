@@ -1,0 +1,8 @@
+Note over Xapi: all VMs shutdown\nall VDIs unlocked
+Xapi->Xhad: ha_disarm_fencing
+Xhad->Xapi: OK
+Xapi->Xhad: ha_stop_daemon
+Xhad->Xapi: OK
+Note over Xhad: daemon exits
+Xapi->Statefile: ha_set_excluded
+Note over Statefile: host will not be included\nin liveset calculations until\nafter reboot

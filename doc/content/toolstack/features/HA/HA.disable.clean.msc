@@ -1,0 +1,6 @@
+Master Xapi->Master Xhad: ha_set_pool_state Invalid
+Master Xhad->Master Xapi: OK
+Note over Slave Xhad: heartbeat thread notices\ninvalid state and disarms
+Slave Xapi-->Slave Xhad: ha_query_liveset
+Slave Xhad-->Slave Xapi: Invalid
+Note over Slave Xapi: disable HA, cleanup
