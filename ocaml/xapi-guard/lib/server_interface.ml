@@ -50,7 +50,22 @@ let () =
    * this is only needed for syscalls that would otherwise block *)
   Lwt_unix.set_pool_size 16
 
-let with_xapi ~cache f =
+let rec with_retry ?(retry_max = 5.) ~retry f =
+  match retry with
+  | Some retry ->
+      Lwt.catch f (fun e ->
+          D.log_backtrace () ;
+          info "XAPI error, will retry after %fs: %s" retry
+            (Printexc.to_string e) ;
+          let* () = Lwt_unix.sleep retry in
+          let retry = Float.min retry_max (retry *. 2.0) in
+          with_retry ~retry:(Some retry) f
+      )
+  | None ->
+      f ()
+
+let with_xapi ?(retry = true) ~cache f =
+  with_retry ~retry:(if retry then Some 0.01 else None) @@ fun () ->
   Lwt_unix.with_timeout 120. (fun () -> SessionCache.with_session cache f)
 
 let serve_forever_lwt path callback =
