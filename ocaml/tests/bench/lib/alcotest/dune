@@ -1,0 +1,4 @@
+(library
+	(name ezbechamel_alcotest)
+	(libraries ezbechamel_cli alcotest bechamel)
+)

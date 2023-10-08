@@ -1,0 +1,4 @@
+(library
+	(name ezbechamel)
+	(libraries bechamel bechamel-js bechamel-notty bechamel.monotonic_clock notty.unix alcotest)
+)
