@@ -1,0 +1,8 @@
+(executable
+	(name ezbechamel_basics)
+	(foreign_stubs
+	  (language c)
+	  (names bench_concurrent_stubs)
+	)
+	(libraries ezbechamel_alcotest_notty bechamel)
+)
