@@ -198,8 +198,11 @@ module SR = struct
 
   let random srs () =
     let srs = srs () in
-    let index = Random.int @@ List.length srs in
-    [List.nth srs index]
+    if srs = [] then
+      []
+    else
+      let index = Random.int @@ List.length srs in
+      [List.nth srs index]
 
   let sr_filter f srs () = List.filter f (srs ())
 
