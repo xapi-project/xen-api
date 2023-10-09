@@ -1,0 +1,76 @@
+(*
+  Copyright (C) Cloud Software Group
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the “Software”), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+*)
+
+let semaphore () = Semaphore.Binary.make false
+
+let wait = Semaphore.Binary.acquire
+
+let signal = Semaphore.Binary.release
+
+(* this uses the 'barrier binary array' implementation technique, see benchmarks in {!mod:Ezbechamel_basics}. *)
+module Worker = struct
+  type 'a t = {
+      start: Semaphore.Binary.t
+    ; stopped: Semaphore.Binary.t
+    ; quit: bool Atomic.t
+  }
+
+  let worker ~allocate ~free ~run t =
+    let resource = allocate () in
+    let finally () = free resource in
+    let rec worker_loop () =
+      wait t.start ;
+      if not (Atomic.get t.quit) then (
+        (* TODO: exceptions.. *)
+        let () = Sys.opaque_identity (Bechamel.Staged.unstage run resource) in
+        signal t.stopped ; worker_loop ()
+      )
+    in
+    Fun.protect ~finally worker_loop
+
+  let make ~allocate ~free ~run _ =
+    let start = semaphore () and stopped = semaphore () in
+    let t = {start; stopped; quit= Atomic.make false} in
+    (t, Thread.create (worker ~allocate ~free ~run) t)
+
+  let signal_start (t, _) = signal t.start
+
+  let wait_stop (t, _) = wait t.stopped
+
+  let set_quit (t, _) =
+    let ok = Atomic.compare_and_set t.quit false true in
+    assert ok (* detect double free *)
+
+  let join_thread (_, thread) = Thread.join thread
+
+  let barrier_wait all =
+    (* must first start all, do not combine this with waiting *)
+    Array.iter signal_start all ;
+
+    (* wait until all are finished, benchmark code is running in the thread now *)
+    Array.iter wait_stop all
+
+  let shutdown all =
+    Array.iter set_quit all ;
+    Array.iter signal_start all ;
+    Array.iter join_thread all
+end
+
+let test_concurrently ?(threads = [1; 2; 4; 8; 16]) ~allocate ~free ~name run =
+  let open Bechamel in
+  let allocate n =
+    let t = Array.init n @@ Worker.make ~allocate ~free ~run in
+    (* do one cycle so that we know the threads have properly been created and running and avoid measuring their overhead *)
+    Worker.barrier_wait t ; t
+  in
+  let free all = Worker.shutdown all in
+  Test.make_indexed_with_resource ~name ~args:threads Test.multiple ~allocate
+    ~free (fun _ -> Staged.stage Worker.barrier_wait
+  )

@@ -60,6 +60,7 @@ let () =
         ; test_barrier (module BarrierBinary)
         ; test_barrier (module BarrierCounting)
         ; test_barrier (module BarrierBinaryArray)
+        ; Ezbechamel_concurrent.test_concurrently ~allocate:ignore ~free:ignore ~name:"concurrent workers" Staged.(stage ignore)
         ; test_barrier (module BarrierYield)
         ]
       )
