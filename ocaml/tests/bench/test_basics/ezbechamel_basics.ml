@@ -32,11 +32,19 @@ let parallel_c_work () =
 
 let args = [1; 2; 4; 8; 16]
 
+open Ezbechamel_concurrent
+
 let () =
   Ezbechamel_alcotest_notty.run
     [
       Test.make ~name:"overhead" (Staged.stage ignore)
-    ; Test.make ~name:"fixedwork" (Staged.stage parallel_c_work)
+    ; Test.make_grouped ~name:"fixedwork"
+        [
+          Test.make ~name:"fixedwork" (Staged.stage parallel_c_work)
+        ; test_concurrently ~allocate:ignore ~free:ignore
+            ~name:"concurrent fixedwork"
+            Staged.(stage parallel_c_work)
+        ]
     ; Test.make_indexed ~name:"Thread create/join" ~args (fun n ->
           Staged.stage @@ fun () ->
           let threads = Array.init n @@ Thread.create ignore in
@@ -60,7 +68,9 @@ let () =
         ; test_barrier (module BarrierBinary)
         ; test_barrier (module BarrierCounting)
         ; test_barrier (module BarrierBinaryArray)
-        ; Ezbechamel_concurrent.test_concurrently ~allocate:ignore ~free:ignore ~name:"concurrent workers" Staged.(stage ignore)
+        ; test_concurrently ~allocate:ignore ~free:ignore
+            ~name:"concurrent workers"
+            Staged.(stage ignore)
         ; test_barrier (module BarrierYield)
         ]
       )
