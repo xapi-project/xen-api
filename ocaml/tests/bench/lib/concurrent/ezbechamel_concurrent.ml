@@ -43,11 +43,12 @@ module Worker = struct
         signal t.stopped ; worker_loop ()
       )
     in
+    signal t.initialized;
     Fun.protect ~finally worker_loop
 
   let make ~allocate ~free ~run _ =
-    let start = semaphore () and stopped = semaphore () in
-    let t = {start; stopped; quit= Atomic.make false; result = Atomic.make None} in
+    let start = semaphore () and stopped = semaphore () and initialized = semaphore () in
+    let t = {start; stopped;initialized; quit= Atomic.make false; result = Atomic.make None} in
     (t, Thread.create (worker ~allocate ~free ~run) t)
 
   let signal_start (t, _) = signal t.start
