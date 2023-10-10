@@ -17,7 +17,8 @@ let signal = Semaphore.Binary.release
 (* this uses the 'barrier binary array' implementation technique, see benchmarks in {!mod:Ezbechamel_basics}. *)
 module Worker = struct
   type 'a t = {
-      start: Semaphore.Binary.t
+      initialized: Semaphore.Binary.t
+    ; start: Semaphore.Binary.t
     ; stopped: Semaphore.Binary.t
     ; quit: bool Atomic.t
     ; result: (unit, Rresult.R.exn_trap) result option Atomic.t
@@ -74,6 +75,12 @@ module Worker = struct
 
     Array.iter check_exception all
 
+  let wait_initialized (t, _) =
+    wait t.initialized
+
+  let wait_init all =
+    Array.iter wait_initialized all
+
   let shutdown all =
     Array.iter set_quit all ;
     Array.iter signal_start all ;
@@ -84,8 +91,10 @@ let test_concurrently ?(threads = [1; 2; 4; 8; 16]) ~allocate ~free ~name run =
   let open Bechamel in
   let allocate n =
     let t = Array.init n @@ Worker.make ~allocate ~free ~run in
-    (* do one cycle so that we know the threads have properly been created and running and avoid measuring their overhead *)
-    Worker.barrier_wait t ; t
+    (* wait until all threads have initialized,
+       Note: do not run a full cycle here on the regular barrier, because that will hide problems like the sleep call in crypt_r which only happens on first use.
+     *)
+    Worker.wait_init t; t
   in
   let free all = Worker.shutdown all in
   Test.make_indexed_with_resource ~name ~args:threads Test.multiple ~allocate
