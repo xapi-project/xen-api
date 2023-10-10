@@ -5,6 +5,6 @@
   )
   (name pam)
   (c_library_flags -lpam)
+  (libraries threads.posix)
   (wrapped false)
 )
-

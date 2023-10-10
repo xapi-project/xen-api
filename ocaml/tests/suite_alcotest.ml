@@ -64,6 +64,7 @@ let () =
     @ Test_dbsync_master.tests
     @ Test_pvs_cache_storage.tests
     @ Test_extauth_plugin_ADpbis.tests
+    @ Test_pam_errors.tests
     @ Test_helpers.tests
     @ Test_datamodel_lifecycle.tests
     @ Test_psr.tests
