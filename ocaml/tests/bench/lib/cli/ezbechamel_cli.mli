@@ -26,5 +26,7 @@ type t = {
   ; json_file: string
 }
 
-val cli : t Term.t
-(** [cli] is a term for configuring how to run and analyze {!mod:Bechamel} benchmarks. *)
+val default_measures: Measure.witness list
+
+val cli : Measure.witness list -> t Term.t
+(** [cli measures] is a term for configuring how to run and analyze {!mod:Bechamel} benchmarks. *)

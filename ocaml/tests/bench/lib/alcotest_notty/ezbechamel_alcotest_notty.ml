@@ -70,9 +70,9 @@ let process_results t results raw_results =
   output t results ;
   save_to_file t results raw_results
 
-let run tests =
+let run ?(measures=Ezbechamel_cli.default_measures) tests =
   let self = Sys.executable_name |> Filename.basename in
   let alcotest =
     List.map (Ezbechamel_alcotest.of_bechamel ~process_results) tests
   in
-  Alcotest.V1.run_with_args ~show_errors:true self Ezbechamel_cli.cli alcotest
+  Alcotest.V1.run_with_args ~show_errors:true self (Ezbechamel_cli.cli measures) alcotest

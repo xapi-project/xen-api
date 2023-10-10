@@ -38,7 +38,7 @@ let all_measures =
 let default_measures =
   Instance.[monotonic_clock; minor_allocated; major_allocated]
 
-let measures =
+let measures default_measures =
   let witness =
     (* cannot add the perf measures because they instantly fail when not root even when we're not using them,
        just referencing their name causes the module to be initialized
@@ -139,8 +139,8 @@ type t = {
   ; json_file: string
 }
 
-let cli =
+let cli default_measures =
   let f cfg measures analysis output json_file =
     {cfg; measures; analysis; output; json_file}
   in
-  Term.(const f $ cfg $ measures $ analysis $ output $ json_file)
+  Term.(const f $ cfg $ measures default_measures $ analysis $ output $ json_file)
