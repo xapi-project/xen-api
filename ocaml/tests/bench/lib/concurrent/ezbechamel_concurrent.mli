@@ -12,6 +12,11 @@
   Worker {!mod:Threads} support for {!mod:Bechamel}.  
 *)
 
+val operations: Bechamel.Measure.witness
+(** [operations] is the number of operations performed, potentially concurrently by [test_concurrently].
+  This can be useful for deriving operations/s metrics.
+*)
+
 val test_concurrently :
      ?threads:int list
   -> allocate:(unit -> 'a)

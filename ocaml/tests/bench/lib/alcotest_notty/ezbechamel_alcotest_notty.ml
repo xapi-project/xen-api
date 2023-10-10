@@ -22,10 +22,15 @@ let dump_measure ppf m =
 
 open Ezbechamel_cli
 
+(* this cannot be a Bechamel.Measure, because speed can't be averaged arithmetically,
+   would need to use a geometric mean
+ *)
 let output_notty t results =
   let open Notty_unix in
   let () =
-    List.iter (fun i -> Bechamel_notty.Unit.add i (Measure.unit i)) t.measures
+    List.iter (fun i ->
+      Bechamel_notty.Unit.add i (Measure.unit i)
+    ) t.measures
   in
 
   let window =
@@ -38,11 +43,31 @@ let output_notty t results =
   img (window, results) |> eol |> output_image
 
 let output_text t results =
-  Format.printf "Measures: %a@." Fmt.Dump.(list dump_measure) t.measures ;
+  let time_measure, count_measure =
+    List.fold_left (fun (time_measure, count_measure) i ->
+      let u = Measure.unit i in
+      match u with
+      | "ns" -> (Some i, count_measure)
+      | "count" -> (time_measure, Some i)
+      | _ -> (time_measure, count_measure)
+    ) (None, None) t.measures
+  in
 
+  Format.printf "Measures: %a@." Fmt.Dump.(list dump_measure) t.measures ;
   Format.printf "%a@."
     (dump_hashtbl "results" (dump_hashtbl "result" Analyze.OLS.pp))
-    results
+    results;
+  match time_measure, count_measure with
+  | Some t, Some c ->
+    let times = Hashtbl.find results (Measure.label t)
+    and counts = Hashtbl.find results (Measure.label c) in
+    (* TODO: should be able to query Ci95 from OLS.t *)
+    Hashtbl.iter (fun k ns ->
+      let ns = Analyze.OLS.estimates ns |> Option.get |> List.hd in
+      let count = Hashtbl.find counts k |> Analyze.OLS.estimates |> Option.get |> List.hd in
+      Format.printf "%s = %.3f operations/s@." k (count /. (ns *. 1e-9))
+    ) times;
+  | _ -> ()
 
 let save_to_file t results raw_results =
   let open Ezbechamel_cli in

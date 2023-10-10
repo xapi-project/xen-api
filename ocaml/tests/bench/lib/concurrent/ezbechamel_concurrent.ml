@@ -8,6 +8,23 @@
   THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 *)
 
+module Operations = struct
+  let count = Atomic.make 0
+  type witness = unit
+  let label () = "operations"
+  let unit () = "count"
+  let make () = ()
+  let load () = ()
+  let unload () = ()
+  let get () = Atomic.get count |> float_of_int
+end
+
+module Extension = struct
+  let operations = Bechamel.Measure.register (module Operations)
+end
+
+let operations = Bechamel.Measure.instance (module Operations) Extension.operations 
+
 let semaphore () = Semaphore.Binary.make false
 
 let wait = Semaphore.Binary.acquire
@@ -36,6 +53,7 @@ module Worker = struct
           try
             let () = Sys.opaque_identity (Bechamel.Staged.unstage run resource) in
             Atomic.set t.result ok;
+            Atomic.incr Operations.count;
           with e ->
             let bt = Printexc.get_raw_backtrace () in
             Atomic.set t.result (Some (Error (`Exn_trap (e, bt))))

@@ -16,6 +16,7 @@ open Bechamel
 
 let args = [1; 2; 4; 8; 16]
 
+
 open Ezbechamel_concurrent
 
 let pam_start_stop () =
@@ -59,8 +60,10 @@ let sleepfix_stop' (h, h') =
 
 let pam_authenticate' _ = Pam.authenticate username password
 
+let measures = Toolkit.Instance.[Ezbechamel_concurrent.operations; monotonic_clock; minor_allocated ]
+
 let () =
-  Ezbechamel_alcotest_notty.run
+  Ezbechamel_alcotest_notty.run ~measures
     [ Test.make ~name:"PAM start+stop" (Staged.stage pam_start_stop)
     ; Test.make ~name:"PAM start+run+stop" (Staged.stage pam_start_run_stop)
     ; Test.make ~name:"PAM authenticate (current)" (Staged.stage pam_authenticate)
