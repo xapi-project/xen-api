@@ -445,7 +445,7 @@ let test_tracing_exn_backtraces () =
       let stacktrace = Printexc.get_backtrace () in
       let x = Tracer.finish ~error:(e, stacktrace) x in
       match x with
-      | Ok (Some span) ->
+      | Some span ->
           let span_stacktrace = Span.get_tag span "exception.stacktrace" in
           debug "STACKTRACE: %s" span_stacktrace ;
           List.iter
@@ -457,10 +457,8 @@ let test_tracing_exn_backtraces () =
                 true function_match
             )
             ["raise_exn"; "test_b"; "test_a"]
-      | Ok None ->
+      | None ->
           Alcotest.failf "Span finish failed"
-      | Error _ ->
-          Alcotest.failf "Failed to fetch exception stacktrace"
     )
   )
   | Error e ->

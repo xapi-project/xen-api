@@ -73,8 +73,7 @@ module Tracer : sig
     -> unit
     -> (Span.t option, exn) result
 
-  val finish :
-    ?error:exn * string -> Span.t option -> (Span.t option, exn) result
+  val finish : ?error:exn * string -> Span.t option -> Span.t option
 
   val span_is_finished : Span.t option -> bool
 

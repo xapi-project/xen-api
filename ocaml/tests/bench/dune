@@ -1,0 +1,6 @@
+(executable
+ (name bench_named_mutex)
+ (modes exe)
+ (optional)
+ (libraries bechamel xapi_internal bechamel-notty notty.unix xapi-stdext-threads tests_common memtrace)
+)

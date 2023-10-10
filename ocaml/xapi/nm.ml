@@ -735,14 +735,7 @@ let bring_pif_up ~__context ?(management_interface = false) (pif : API.ref_PIF)
                   Locking_helpers.Thread_state.get_all_acquired_resources ()
                 in
                 debug "There are %d allocated resources" (List.length all) ;
-                List.filter
-                  (function
-                    | Locking_helpers.Process ("stunnel", _) ->
-                        true
-                    | _ ->
-                        false
-                    )
-                  all
+                List.filter (Locking_helpers.is_process "stunnel") all
               in
               debug "Of which %d are stunnels" (List.length stunnels) ;
               List.iter Locking_helpers.kill_resource stunnels

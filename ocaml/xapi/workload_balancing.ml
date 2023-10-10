@@ -516,7 +516,7 @@ let init_wlb ~__context ~wlb_url ~wlb_username ~wlb_password ~xenserver_username
             Db.Secret.destroy ~__context ~self:old_secret_ref
         )
   in
-  Locking_helpers.Named_mutex.execute request_mutex
+  Locking_helpers.Named_mutex.execute ~__context request_mutex
     (perform_wlb_request ~enable_log:false ~meth:"AddXenServer" ~params
        ~auth:(encoded_auth wlb_username wlb_password)
        ~url:wlb_url ~handle_response ~__context
@@ -545,7 +545,7 @@ let decon_wlb ~__context =
   else
     let params = pool_uuid_param ~__context in
     try
-      Locking_helpers.Named_mutex.execute request_mutex
+      Locking_helpers.Named_mutex.execute ~__context request_mutex
         (perform_wlb_request ~meth:"RemoveXenServer" ~params ~handle_response
            ~__context
         )

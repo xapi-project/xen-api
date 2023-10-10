@@ -138,14 +138,9 @@ end
 module Internal : sig
   (** Internal functions should not be used by clients directly *)
 
-  val set_stunnelpid_callback : (string option -> int -> unit) option ref
-  (** When invoking an XMLRPC call over HTTPS via stunnel, this callback
-      		is called to allow us to store the association between a task and an
-      		stunnel pid *)
-
-  val unset_stunnelpid_callback : (string option -> int -> unit) option ref
-  (** After invoking an XMLRPC call over HTTPS via stunnel, this callback
-      		is called to allow us to forget the association between a task and an
+  val set_stunnelpid_callback : (string option -> int -> unit -> unit) -> unit
+  (** When invoking an XMLRPC call over HTTPS via stunnel, these callback
+      		are called to allow us to store and forget the association between a task and an
       		stunnel pid *)
 
   val destination_is_ok : (string -> bool) option ref

@@ -29,7 +29,7 @@ type 'a process_fn = 'a -> unit
 (** The type of the function which pushes new elements into the queue *)
 type 'a push_fn = string -> 'a -> bool
 
-type 'a t = {push_fn: 'a push_fn; name: string}
+type 'a t = {push_fn: 'a push_fn; name: string; lock: Locking_helpers.resource}
 
 (** Given an optional maximum queue length and a function for processing elements (which will be called in a
     single background thread), return a function which pushes items onto the queue. *)
@@ -95,4 +95,4 @@ let make ?max_q_length ?(name = "unknown") (process_fn : 'a process_fn) : 'a t =
             true
     )
   in
-  {push_fn= push; name}
+  {push_fn= push; name; lock= Locking_helpers.lock name}

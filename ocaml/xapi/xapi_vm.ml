@@ -742,7 +742,7 @@ let revert ~__context ~snapshot =
 (* thread mess around with that. *)
 let checkpoint ~__context ~vm ~new_name =
   Pool_features.assert_enabled ~__context ~f:Features.Checkpoint ;
-  Local_work_queue.wait_in_line Local_work_queue.long_running_queue
+  Local_work_queue.wait_in_line ~__context Local_work_queue.long_running_queue
     (Printf.sprintf "VM.checkpoint %s" (Context.string_of_task __context))
     (fun () ->
       TaskHelper.set_cancellable ~__context ;
