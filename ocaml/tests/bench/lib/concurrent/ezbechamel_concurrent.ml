@@ -20,7 +20,10 @@ module Worker = struct
       start: Semaphore.Binary.t
     ; stopped: Semaphore.Binary.t
     ; quit: bool Atomic.t
+    ; result: (unit, Rresult.R.exn_trap) result option Atomic.t
   }
+
+  let ok = Some (Ok ())
 
   let worker ~allocate ~free ~run t =
     let resource = allocate () in
@@ -28,8 +31,14 @@ module Worker = struct
     let rec worker_loop () =
       wait t.start ;
       if not (Atomic.get t.quit) then (
-        (* TODO: exceptions.. *)
-        let () = Sys.opaque_identity (Bechamel.Staged.unstage run resource) in
+        let () =
+          try
+            let () = Sys.opaque_identity (Bechamel.Staged.unstage run resource) in
+            Atomic.set t.result ok;
+          with e ->
+            let bt = Printexc.get_raw_backtrace () in
+            Atomic.set t.result (Some (Error (`Exn_trap (e, bt))))
+        in
         signal t.stopped ; worker_loop ()
       )
     in
@@ -37,7 +46,7 @@ module Worker = struct
 
   let make ~allocate ~free ~run _ =
     let start = semaphore () and stopped = semaphore () in
-    let t = {start; stopped; quit= Atomic.make false} in
+    let t = {start; stopped; quit= Atomic.make false; result = Atomic.make None} in
     (t, Thread.create (worker ~allocate ~free ~run) t)
 
   let signal_start (t, _) = signal t.start
@@ -50,12 +59,20 @@ module Worker = struct
 
   let join_thread (_, thread) = Thread.join thread
 
+  let check_exception (t, _) =
+    match Atomic.get t.result with
+    | None -> assert false (* it has signaled the barrier, it must've finished *)
+    | Some (Ok ()) -> ()
+    | Some (Error (`Exn_trap (e, bt))) -> Printexc.raise_with_backtrace e bt
+
   let barrier_wait all =
     (* must first start all, do not combine this with waiting *)
     Array.iter signal_start all ;
 
     (* wait until all are finished, benchmark code is running in the thread now *)
-    Array.iter wait_stop all
+    Array.iter wait_stop all;
+
+    Array.iter check_exception all
 
   let shutdown all =
     Array.iter set_quit all ;

@@ -1,4 +1,4 @@
 (library
 	(name ezbechamel_concurrent)
-	(libraries bechamel threads.posix)
+	(libraries bechamel threads.posix rresult)
 )
