@@ -11,8 +11,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  */
-/*
- */
+
+/* must be at the beginning, it affects defines in other headers that cannot be reenabled later */
+#define _GNU_SOURCE
 
 #include <unistd.h>
 #include <stdlib.h>
@@ -142,6 +143,23 @@ CAMLprim value stub_XA_mh_authorize_run(value ml_handle, value username, value p
         caml_failwith(error ? error : "Unknown error");
     CAMLreturn(ret);
 }
+
+#include <crypt.h>
+CAMLprim value stub_XA_workaround(value u)
+{
+  CAMLparam1(u);
+  struct crypt_data data;
+  memset(&data, 0, sizeof(data));
+
+  /* When called with '$6$' it will call sha512_crypt_r which will call NSSLOW_Init, which initializes the library,
+     and avoids the sleep() call that would otherwise happen when the library is initialized in parallel.
+     We don't want to link with libfreebl3 directly, because in the future we might switch to using libxcrypt.
+   */
+  crypt_r("", "$6$", &data);
+  
+  CAMLreturn(Val_unit);
+}
+
 /*
  * Local variables:
  * mode: C

@@ -38,15 +38,12 @@ let pam_run h =
   Pam.authorize_run h username password
 
 let sleepfix_start () =
+  (* FIXME: this adds a 5s pause on startup, any way to initialize the code but not incurr the fail delay? *)
   (* To avoid the sleep(1) in the libgcrypt/NSS initialization code that gets called from Pam.authorize_run create and run a fake auth command,
      and keep the handle open
  *)
+  Pam.workaround ();
   let h = Pam.authorize_start ()  in
-  let () =
-    try Pam.authorize_run h "" ""
-    with Failure _ -> ()
-  in
-  (* h is not valid to use anymore! *)
   h
 
 let sleepfix_stop = Pam.authorize_stop

@@ -50,3 +50,5 @@ let authorize_stop t =
 let authorize_run t username password =
   let handle = check_handle t in
   authorize_run handle username password
+
+external workaround : unit -> unit = "stub_XA_workaround"
