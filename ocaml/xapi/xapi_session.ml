@@ -261,6 +261,12 @@ let throttle_auth_external = Locking_helpers.Semaphore.create "External auth"
 
 let with_throttle = Locking_helpers.Semaphore.execute
 
+let set_local_auth_max_threads n =
+  Locking_helpers.Semaphore.set_max throttle_auth_internal @@ Int64.to_int n
+
+let set_ext_auth_max_threads n =
+  Locking_helpers.Semaphore.set_max throttle_auth_external @@ Int64.to_int n
+
 let wipe_string_contents str =
   for i = 0 to Bytes.length str - 1 do
     Bytes.set str i '\000'

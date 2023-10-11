@@ -408,3 +408,9 @@ val configure_update_sync :
 
 val set_update_sync_enabled :
   __context:Context.t -> self:API.ref_pool -> value:bool -> unit
+
+val set_local_auth_max_threads :
+  __context:Context.t -> self:API.ref_pool -> value:int64 -> unit
+
+val set_ext_auth_max_threads :
+  __context:Context.t -> self:API.ref_pool -> value:int64 -> unit

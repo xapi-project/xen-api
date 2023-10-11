@@ -52,7 +52,8 @@ let create_pool_record ~__context =
       ~telemetry_next_collection:Xapi_stdext_date.Date.epoch
       ~last_update_sync:Xapi_stdext_date.Date.epoch
       ~update_sync_frequency:`weekly ~update_sync_day:0L
-      ~update_sync_enabled:false
+      ~update_sync_enabled:false ~local_auth_max_threads:1L
+      ~ext_auth_max_threads:1L
 
 let set_master_ip ~__context =
   let ip =

@@ -106,3 +106,7 @@ val get_failed_login_stats : unit -> string option
 
 val get_total_sessions : unit -> Int64.t
 (** Retrieves the amount of sessions opened since the last time xapi was started *)
+
+val set_local_auth_max_threads : int64 -> unit
+
+val set_ext_auth_max_threads : int64 -> unit
