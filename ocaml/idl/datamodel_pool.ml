@@ -1431,7 +1431,7 @@ let t =
             "coordinator_bias"
             "true if bias against pool master when scheduling vms is enabled, \
              false otherwise"
-        ; field ~qualifier:StaticRO ~ty:Int ~default_value:(Some (VInt 1L))
+        ; field ~qualifier:StaticRO ~ty:Int ~default_value:(Some (VInt 8L))
             ~lifecycle:[] "local_auth_max_threads"
             "Maximum number of threads to use for PAM authentication"
         ; field ~qualifier:StaticRO ~ty:Int ~default_value:(Some (VInt 1L))
