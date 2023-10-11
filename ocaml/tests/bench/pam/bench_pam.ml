@@ -84,4 +84,9 @@ let () =
     ; test_concurrently ~allocate:ignore ~free:ignore ~name:"concurrent authenticate (no reuse)" (Staged.stage pam_authenticate)
     ; test_concurrently ~allocate:sleepfix_start' ~free:sleepfix_stop' ~name:"concurrent authenticate (reuse)" (Staged.stage pam_run')
     ; test_concurrently ~allocate:sleepfix_start ~free:sleepfix_stop ~name:"concurrent authenticate (sleep fix, actual)" (Staged.stage pam_authenticate')
+    ; test_concurrently ~allocate:threadpool_sleepfix_start ~free:threadpool_sleepfix_free ~name:"concurrent threadpool + sleep fix"
+        (Staged.stage threadpool_sleepfix_run)
+    ; test_concurrently ~allocate:sleepfix_semaphore_allocate ~free:sleepfix_semaphore_free ~name:"concurrent semaphore + sleep fix"
+        (Staged.stage sleepfix_semaphore_run)
+
    ]
