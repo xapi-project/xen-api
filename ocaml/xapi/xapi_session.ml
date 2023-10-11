@@ -30,7 +30,13 @@ let local_superuser = "root"
 
 let xapi_internal_originator = "xapi"
 
-let serialize_auth = Mutex.create ()
+let throttle_auth_internal = Mutex.create ()
+
+let throttle_auth_external = Mutex.create ()
+
+let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
+
+let with_throttle = with_lock
 
 let wipe_string_contents str =
   for i = 0 to Bytes.length str - 1 do
@@ -47,18 +53,18 @@ let wipe_params_after_fn params fn =
   with e -> wipe params ; raise e
 
 let do_external_auth uname pwd =
-  Mutex.execute serialize_auth (fun () ->
+  with_lock throttle_auth_external (fun () ->
       (Ext_auth.d ()).authenticate_username_password uname
         (Bytes.unsafe_to_string pwd)
   )
 
 let do_local_auth uname pwd =
-  Mutex.execute serialize_auth (fun () ->
+  with_throttle throttle_auth_internal (fun () ->
       Pam.authenticate uname (Bytes.unsafe_to_string pwd)
   )
 
 let do_local_change_password uname newpwd =
-  Mutex.execute serialize_auth (fun () ->
+  with_throttle throttle_auth_internal (fun () ->
       Pam.change_password uname (Bytes.unsafe_to_string newpwd)
   )
 
