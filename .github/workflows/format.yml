@@ -24,6 +24,9 @@ jobs:
         id: dotenv
         uses: falti/dotenv-action@v0.2.7
 
+      - name: Update Ubuntu repositories
+        run: sudo apt-get update
+
       - name: Use ocaml
         uses: avsm/setup-ocaml@v1
         with:
