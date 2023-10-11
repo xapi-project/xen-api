@@ -48,3 +48,27 @@ module Named_mutex : sig
 
   val execute : t -> (unit -> 'a) -> 'a
 end
+
+module Semaphore : sig
+  (** a semaphore that allows at most N operations to proceed at a time *)
+  type t
+
+  val create : string -> t
+  (** [create name] creates a semaphore with an initial count of 1.
+    @see {!set_max} *)
+
+  val execute : t -> (unit -> 'a) -> 'a
+  (** [execute sem f] executes [f] after acquiring the [sem]aphore.
+    Releases the semaphore on all codepaths. *)
+
+  val set_max : t -> int -> unit
+  (** [set_max sem n] sets the semaphore's maximum count to [n].
+    Once all threads that are inside {!execute} release the semaphore then the semaphore will accept
+    at most [n] {!execute} calls in parallel until it blocks.
+
+    Increasing a semaphore's count is done immediately,
+    whereas decreasing the count may block until sufficient number of threads release the semaphore.    
+
+    It is safe to call this function in parallel.
+  *)
+end

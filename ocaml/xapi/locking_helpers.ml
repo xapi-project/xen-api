@@ -223,3 +223,55 @@ module Named_mutex = struct
         finally f (fun () -> Thread_state.released r)
     )
 end
+
+module Semaphore = struct
+  type t = {
+      name: string
+    ; sem: Semaphore.Counting.t
+    ; max_lock: Mutex.t
+    ; mutable max: int
+  }
+
+  let create name =
+    let max = 1 in
+    {name; sem= Semaphore.Counting.make max; max_lock= Mutex.create (); max}
+
+  let execute (x : t) f =
+    Semaphore.Counting.acquire x.sem ;
+    let finally () = Semaphore.Counting.release x.sem in
+    Fun.protect ~finally f
+
+  let set_max t n =
+    if n < 1 then
+      Fmt.invalid_arg
+        "The semaphore '%s' must have at least 1 resource available, \
+         requested: %d"
+        t.name n ;
+    (* ensure only 1 thread attempts to modify the maximum at a time, this is a slow path *)
+    with_lock t.max_lock @@ fun () ->
+    D.debug
+      "Setting semaphore '%s' to have at most %d resource (current max: %d)"
+      t.name n t.max ;
+
+    (* requested to decrease maximum, this might block *)
+    while t.max > n do
+      if not (Semaphore.Counting.try_acquire t.sem) then (
+        D.debug
+          "Semaphore '%s' has >%d resources in use, waiting until some of them \
+           are released"
+          t.name n ;
+        (* may block *)
+        Semaphore.Counting.acquire t.sem
+      ) ;
+      t.max <- t.max - 1
+    done ;
+
+    (* requested to increase maximum, this doesn't block *)
+    while t.max < n do
+      (* doesn't block, semaphores can also be acquired and released from any thread *)
+      Semaphore.Counting.release t.sem ;
+      t.max <- t.max + 1
+    done ;
+    D.debug "Semaphore '%s' updated to have %d resources (%d in use)" t.name n
+      (Semaphore.Counting.get_value t.sem)
+end
