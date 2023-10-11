@@ -17,7 +17,8 @@ type results = (string, (string, Bechamel.Analyze.OLS.t) Hashtbl.t) Hashtbl.t
 type raw_results = (string, Bechamel.Benchmark.t) Hashtbl.t
 
 val of_bechamel :
-     process_results:(Ezbechamel_cli.t -> results -> raw_results -> unit)
+  ?derived_measures:(Bechamel.Measure.witness * Bechamel.Measure.witness * string * string * (float -> float -> float)) list
+  ->  process_results:(Ezbechamel_cli.t -> results -> raw_results -> unit)
   -> Bechamel.Test.t
   -> Ezbechamel_cli.t Alcotest.V1.test
 (** [of_bechamel ~process_results benchmarks] is an {!mod:Alcotest} definition to run [benchmarks].

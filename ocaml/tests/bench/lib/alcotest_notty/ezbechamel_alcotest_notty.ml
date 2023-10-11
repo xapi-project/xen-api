@@ -25,12 +25,26 @@ open Ezbechamel_cli
 (* this cannot be a Bechamel.Measure, because speed can't be averaged arithmetically,
    would need to use a geometric mean
  *)
-let output_notty t results =
+let output_notty ~derived_measures t results =
   let open Notty_unix in
   let () =
     List.iter (fun i ->
       Bechamel_notty.Unit.add i (Measure.unit i)
-    ) t.measures
+    ) t.measures;
+    List.iter (fun (_, _, label, u, _) ->
+      let module M = struct
+        type witness = unit
+        let label () = label
+        let unit () = u
+        let make () = ()
+        let load () = ()
+        let unload () = ()
+        let get () = assert false
+      end in
+      let derived = Measure.register (module M) in
+      let instance = Measure.instance (module M) derived in
+      Bechamel_notty.Unit.add instance u
+    ) derived_measures
   in
 
   let window =
@@ -79,6 +93,7 @@ let save_to_file t results raw_results =
     emit ~dst:(Channel file)
       (fun _ -> Ok ())
       ~compare ~x_label:Measure.run
+      (* TODO: handle derived measure *)
       ~y_label:(Measure.label Bechamel.Toolkit.Instance.monotonic_clock)
       (results, raw_results)
   with
@@ -87,17 +102,18 @@ let save_to_file t results raw_results =
   | Error (`Msg err) ->
       invalid_arg err
 
-let process_results t results raw_results =
+let process_results derived_measures t results raw_results =
   let output =
-    match t.output with Tty -> output_notty | Text -> output_text
+    match t.output with Tty -> output_notty ~derived_measures | Text -> output_text
   in
   Format.pp_print_flush Format.std_formatter () ;
   output t results ;
   save_to_file t results raw_results
 
-let run ?(measures=Ezbechamel_cli.default_measures) tests =
+let run ?(measures=Ezbechamel_cli.default_measures) ?(derived_measures=[]) tests =
+  let process_results = process_results derived_measures in
   let self = Sys.executable_name |> Filename.basename in
   let alcotest =
-    List.map (Ezbechamel_alcotest.of_bechamel ~process_results) tests
+    List.map (Ezbechamel_alcotest.of_bechamel ~derived_measures ~process_results) tests
   in
   Alcotest.V1.run_with_args ~show_errors:true self (Ezbechamel_cli.cli measures) alcotest

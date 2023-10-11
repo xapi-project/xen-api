@@ -18,6 +18,17 @@ let args = [1; 2; 4; 8; 16]
 
 
 open Ezbechamel_concurrent
+let derived_measures =
+  [ Toolkit.Instance.monotonic_clock
+  , operations
+  , "monotonic clock/op"
+  , "s/op"
+  , (fun ns ops ->
+    let ops = if ops = 0. then 1. else ops in
+    ns *. 1e-9 /. ops
+    )
+  ]
+
 
 let pam_start_stop () =
   let h = Pam.authorize_start () in
@@ -63,7 +74,7 @@ let pam_authenticate' _ = Pam.authenticate username password
 let measures = Toolkit.Instance.[Ezbechamel_concurrent.operations; monotonic_clock; minor_allocated ]
 
 let () =
-  Ezbechamel_alcotest_notty.run ~measures
+  Ezbechamel_alcotest_notty.run ~measures ~derived_measures
     [ Test.make ~name:"PAM start+stop" (Staged.stage pam_start_stop)
     ; Test.make ~name:"PAM start+run+stop" (Staged.stage pam_start_run_stop)
     ; Test.make ~name:"PAM authenticate (current)" (Staged.stage pam_authenticate)

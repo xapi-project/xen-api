@@ -12,8 +12,13 @@
   {!mod:Alcotest} support for {!mod:Bechamel} using {!mod:Notty} and {!mod:Cmdliner}.  
 *)
 
-val run : ?measures:Bechamel.Measure.witness list -> Bechamel.Test.t list -> unit
-(** [run ?measures benchmarks] runs the [benchmarks].
+open Bechamel
+
+val run :
+ ?measures:Bechamel.Measure.witness list
+ -> ?derived_measures:(Measure.witness * Measure.witness * string * string * (float -> float -> float)) list
+ -> Bechamel.Test.t list -> unit
+(** [run ?derived_measures ?measures benchmarks] runs the [benchmarks].
   The benchmarks are configured using {!mod:Ezbechamel_cli}, converted to {!mod:Alcotest} with {!mod:Ezbechamel_alcotest},
   and the results printed using {!mod:Bechamel_notty} and {!mod:Bechamel_js}.
 
