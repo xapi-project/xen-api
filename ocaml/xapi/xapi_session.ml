@@ -255,11 +255,11 @@ let local_superuser = "root"
 
 let xapi_internal_originator = "xapi"
 
-let throttle_auth_internal = Mutex.create ()
+let throttle_auth_internal = Locking_helpers.Semaphore.create "Internal auth"
 
-let throttle_auth_external = Mutex.create ()
+let throttle_auth_external = Locking_helpers.Semaphore.create "External auth"
 
-let with_throttle = with_lock
+let with_throttle = Locking_helpers.Semaphore.execute
 
 let wipe_string_contents str =
   for i = 0 to Bytes.length str - 1 do
@@ -276,7 +276,7 @@ let wipe_params_after_fn params fn =
   with e -> wipe params ; raise e
 
 let do_external_auth uname pwd =
-  with_lock throttle_auth_external (fun () ->
+  with_throttle throttle_auth_external (fun () ->
       (Ext_auth.d ()).authenticate_username_password uname
         (Bytes.unsafe_to_string pwd)
   )
