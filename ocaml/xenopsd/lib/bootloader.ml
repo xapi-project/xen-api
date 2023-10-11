@@ -59,7 +59,7 @@ exception Error_from_bootloader of string
 type t = {kernel_path: string; initrd_path: string option; kernel_args: string}
 
 (** Helper function to generate a bootloader commandline *)
-let command bootloader q pv_bootloader_args image vm_uuid =
+let command bootloader q pv_bootloader_args image vm_uuid domid =
   (* Let's not do anything fancy while parsing the pv_bootloader_args string: no
      escaping of spaces or quotes for now *)
   let pv_bootloader_args =
@@ -77,6 +77,7 @@ let command bootloader q pv_bootloader_args image vm_uuid =
         [
           ["--output-format=simple"]
         ; q
+        ; [Printf.sprintf "--domid=%d" domid]
         ; (* --vm is unnecessary for pygrub and not supported upstream *)
           pv_bootloader_args
         ; image
@@ -221,11 +222,11 @@ let sanity_check_path p =
 (** Extract the default kernel using the -q option *)
 let extract (task : Xenops_task.task_handle) ~bootloader ~disk
     ?(legacy_args = "") ?(extra_args = "") ?(pv_bootloader_args = "")
-    ~vm:vm_uuid () =
+    ~vm:vm_uuid ~domid () =
   (* Without this path, pygrub will fail: *)
   Unixext.mkdir_rec "/var/run/xend/boot" 0o0755 ;
   let bootloader_path, cmdline =
-    command bootloader true pv_bootloader_args disk vm_uuid
+    command bootloader true pv_bootloader_args disk vm_uuid domid
   in
   debug "Bootloader commandline: %s %s\n" bootloader_path
     (String.concat " " cmdline) ;
