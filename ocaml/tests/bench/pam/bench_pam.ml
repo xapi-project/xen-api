@@ -22,10 +22,10 @@ let derived_measures =
   [ Toolkit.Instance.monotonic_clock
   , operations
   , "monotonic clock/op"
-  , "s/op"
+  , "ms/op"
   , (fun ns ops ->
     let ops = if ops = 0. then 1. else ops in
-    ns *. 1e-9 /. ops
+    ns *. 1e-6 /. ops
     )
   ]
 
@@ -50,39 +50,66 @@ let pam_run h =
   Pam.authorize_run h username password
 
 let sleepfix_start () =
-  (* FIXME: this adds a 5s pause on startup, any way to initialize the code but not incurr the fail delay? *)
-  (* To avoid the sleep(1) in the libgcrypt/NSS initialization code that gets called from Pam.authorize_run create and run a fake auth command,
-     and keep the handle open
- *)
-  Pam.workaround ();
-  let h = Pam.authorize_start ()  in
-  h
+  Pam.workaround ()
 
-let sleepfix_stop = Pam.authorize_stop
-
-let pam_run' (_, h) = pam_run h
+let sleepfix_stop () = ()
 
 let sleepfix_start' () =
-  sleepfix_start (), Pam.authorize_start ()
+  sleepfix_start ();
+  Pam.authorize_start ()
 
-let sleepfix_stop' (h, h') =
-  sleepfix_stop h;
-  Pam.authorize_stop h'
+let sleepfix_stop' h =
+  Pam.authorize_stop h
 
 let pam_authenticate' _ = Pam.authenticate username password
 
 let measures = Toolkit.Instance.[Ezbechamel_concurrent.operations; monotonic_clock; minor_allocated ]
+
+let max_auth_threads = 8
+
+let threadpool_start () =
+  Threadpool.create ~name:"pam"
+    Pam.authorize_start
+    Pam.authorize_stop
+    max_auth_threads
+
+let threadpool_sleepfix_start () =
+  sleepfix_start ();
+  threadpool_start ()
+
+let threadpool_stop = Threadpool.shutdown
+
+let threadpool_run t =
+  Threadpool.run_in_pool t ignore
+
+let threadpool_sleepfix_free = Threadpool.shutdown
+
+let threadpool_sleepfix_run t =
+  Threadpool.run_in_pool t pam_run
+
+let sleepfix_semaphore_allocate () =
+  sleepfix_start ();
+  Semaphore.Counting.make max_auth_threads
+
+let sleepfix_semaphore_free = ignore
+
+let sleepfix_semaphore_run sem =
+  Semaphore.Counting.acquire sem;
+  let finally () =  Semaphore.Counting.release sem in
+  Fun.protect ~finally pam_authenticate
+
 
 let () =
   Ezbechamel_alcotest_notty.run ~measures ~derived_measures
     [ Test.make ~name:"PAM start+stop" (Staged.stage pam_start_stop)
     ; Test.make ~name:"PAM start+run+stop" (Staged.stage pam_start_run_stop)
     ; Test.make ~name:"PAM authenticate (current)" (Staged.stage pam_authenticate)
+    ; test_concurrently ~allocate:threadpool_start ~free:threadpool_stop ~name:"Threadpool dispatch overhead" (Staged.stage threadpool_run)
     ; Test.make_with_resource ~allocate:Pam.authorize_start ~free:Pam.authorize_stop ~name:"PAM run (uniq)" Test.uniq (Staged.stage pam_run)  
     ; Test.make_with_resource ~allocate:Pam.authorize_start ~free:Pam.authorize_stop ~name:"PAM run (multiple)" Test.multiple (Staged.stage pam_run)  
     ; test_concurrently ~allocate:Pam.authorize_start ~free:Pam.authorize_stop ~name:"concurrent authorize (reuse)" (Staged.stage pam_run)
     ; test_concurrently ~allocate:ignore ~free:ignore ~name:"concurrent authenticate (no reuse)" (Staged.stage pam_authenticate)
-    ; test_concurrently ~allocate:sleepfix_start' ~free:sleepfix_stop' ~name:"concurrent authenticate (reuse)" (Staged.stage pam_run')
+    ; test_concurrently ~allocate:sleepfix_start' ~free:sleepfix_stop' ~name:"concurrent authenticate (reuse)" (Staged.stage pam_run)
     ; test_concurrently ~allocate:sleepfix_start ~free:sleepfix_stop ~name:"concurrent authenticate (sleep fix, actual)" (Staged.stage pam_authenticate')
     ; test_concurrently ~allocate:threadpool_sleepfix_start ~free:threadpool_sleepfix_free ~name:"concurrent threadpool + sleep fix"
         (Staged.stage threadpool_sleepfix_run)
