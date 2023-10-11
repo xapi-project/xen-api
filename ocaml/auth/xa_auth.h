@@ -23,4 +23,10 @@ extern int XA_mh_authorize (const char *username, const char *password,
 extern int XA_mh_chpasswd (const char *username, const char *new_passwd, 
 			   const char **error);
 
+#include <security/pam_appl.h>
+pam_handle_t *XA_mh_authorize_start (const char **error);
+int XA_mh_authorize_stop (pam_handle_t *pamh, const char **error);
+int XA_mh_authorize_run (pam_handle_t **pamhp, const char *username, const char *password,
+                         const char **error);
+
 #endif /* _XA_AUTH_H_ */

@@ -1,0 +1,4 @@
+(executable
+	(name bench_pam)
+	(libraries ezbechamel_alcotest_notty ezbechamel_concurrent bechamel threads.posix pam)
+)

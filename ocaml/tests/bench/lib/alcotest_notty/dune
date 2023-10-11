@@ -1,0 +1,4 @@
+(library
+	(name ezbechamel_alcotest_notty)
+	(libraries ezbechamel_alcotest ezbechamel_cli bechamel bechamel-notty notty.unix alcotest bechamel-js fmt)
+)

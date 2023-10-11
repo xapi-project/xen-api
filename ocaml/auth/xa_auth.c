@@ -126,6 +126,96 @@ int XA_mh_chpasswd (const char *username, const char *new_passwd, const char **e
 }
 
 
+static struct pam_conv default_conv = {xa_auth_conv, NULL};
+/*
+    pam(3)  says "The libpam interfaces are only thread-safe if each thread within the multithreaded application uses its own PAM handle."
+
+    This is ambigous, but a safe interpretation is that PAM handles must be created, used and destroyed within the same thread:
+    sharing a PAM handle between threads is not safe even if only one thread at a time would access it.
+
+    pam_start(3) says "it is not possible to use the same handle for different transactions, a new one is needed for every new context."
+        "The PAM handle cannot be used for multiple authentications at the same time as long as pam_end was not called on it before."
+
+    We need a pool of ready-to-use PAM handles to handle authentication in a dedicated worker thread-pool
+    (API threads are created and destroyed dynamically they wouldn't be useful for caching a handle)
+*/
+pam_handle_t *XA_mh_authorize_start (const char **error)
+{
+    pam_handle_t *pamh;
+    int rc = pam_start(SERVICE_NAME, NULL, &default_conv, &pamh);
+    if (PAM_SUCCESS == rc)
+        return pamh;
+    /* pamh is undefined here, explicitly set to NULL to avoid using it in strerror! */
+    pamh = NULL;
+    if (error) *error = pam_strerror(pamh, rc);
+    return NULL;
+}
+
+int XA_mh_authorize_stop (pam_handle_t *pamh, const char **error)
+{
+    int rc = pam_end(pamh, PAM_SUCCESS);
+    if (PAM_SUCCESS == rc)
+        return XA_SUCCESS;
+    /* pamh is undefined here, explicitly set to NULL to prevent accidentally using it */
+    pamh = NULL;
+    if (error) *error = pam_strerror(pamh, rc);
+    return XA_ERR_EXTERNAL;
+}
+
+int XA_mh_authorize_run (pam_handle_t **pamhp, const char *username, const char *password,
+                         const char **error)
+{
+    struct xa_auth_info auth_info = {username, password};
+    struct pam_conv xa_conv = {xa_auth_conv, &auth_info};
+    pam_handle_t *pamh;
+    int rc = XA_SUCCESS;
+
+    if (!pamhp || !username || !password) {
+        if (error) *error = "Internal error: null arguments";
+        return XA_ERR_EXTERNAL;
+    }
+
+    pamh = *pamhp;
+    if (!pamh) {
+        if (error) *error = "Use after free detected";
+        return XA_ERR_EXTERNAL;
+    }
+
+    do {
+        if ((rc = pam_set_item(pamh, PAM_USER, username)) != PAM_SUCCESS)
+            break;
+
+        if ((rc = pam_set_item(pamh, PAM_CONV, &xa_conv)) != PAM_SUCCESS)
+            break;
+
+        if ((rc = pam_authenticate(pamh, PAM_DISALLOW_NULL_AUTHTOK)) != PAM_SUCCESS)
+            break;
+
+        if ((rc = pam_acct_mgmt(pamh, PAM_DISALLOW_NULL_AUTHTOK)) != PAM_SUCCESS)
+            break;
+
+        /* do not leave dangling pointers around in the PAM handle */
+        if ((rc = pam_set_item(pamh, PAM_USER, NULL)) != PAM_SUCCESS)
+            break;
+
+        if ((rc = pam_set_item(pamh, PAM_CONV, &default_conv)) != PAM_SUCCESS)
+            break;
+    } while(0);
+
+    if (PAM_SUCCESS == rc)
+        return XA_SUCCESS;
+
+    /* mark pam handle unusable, prevent use after free */
+    *pamhp = NULL;
+
+    if (error) *error = pam_strerror(pamh, rc);
+
+    /* always clean up after a failure, we've likely already incurred the cost of fail delay */
+    (void)pam_end(pamh, rc);
+
+    return XA_ERR_EXTERNAL;
+}
+
 /*
  * Local variables:
  * mode: C

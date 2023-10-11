@@ -1,0 +1,4 @@
+(library
+	(name ezbechamel_cli)
+	(libraries bechamel cmdliner)
+)
