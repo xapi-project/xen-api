@@ -1,0 +1,12 @@
+Xapi->Xhad: ha_start_daemon
+Note over Xhad: Starts talking to other hosts\nto form or join the liveset
+Xapi-->Xhad: ha_query_liveset
+Xhad-->Xapi: Starting
+Note over Xhad: liveset joined and\nexcluded flag cleared
+Xhad->Xapi: OK
+Xapi-->Xhad: ha_query_liveset
+Xhad-->Xapi: Online
+Note over Xapi: If starting HA and am a master\n already or if responding to a failure\nwhere the master may have failed.
+Xapi->Xhad: ha_propose_master
+Note over Xhad: at most one host can be a master
+Xhad->Xapi: TRUE/FALSE

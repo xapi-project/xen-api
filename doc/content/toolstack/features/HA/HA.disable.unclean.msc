@@ -1,0 +1,5 @@
+Note over Xapi: disable HA recovery\nlogic; user has manual\ncontrol
+Xapi->Xhad: ha_disarm_fencing
+Xhad->Xapi: OK
+Xapi->Xhad: ha_stop_daemon
+Xhad->Xapi: OK

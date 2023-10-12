@@ -1,0 +1,11 @@
+participant slave1
+Note over master: Host.enable_ha\nchoose an SR\nfind or create VDIs\nattach VDIs\nwrite xhad.conf\nha_set_pool_state init
+master->slave1: Host.preconfigure_ha
+Note over slave1: attach VDIs\nwrite xhad.conf\n
+master->slave2: Host.preconfigure_ha
+Note over slave2: attach VDIs\nwrite xhad.conf\n
+master->slave1: Host.ha_join_liveset
+master->slave2: Host.ha_join_liveset
+Note over master: ha_propose_master
+slave1-->master: wait for master
+slave2-->master: wait for master
