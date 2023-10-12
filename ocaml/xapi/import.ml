@@ -436,9 +436,7 @@ module VM : HandlerTools = struct
     match (is_default_template, maybe_template) with
     | true, Some template ->
         Default_template template
-    | true, None ->
-        Default_template Ref.null
-    | false, _ -> (
+    | _ -> (
         let import_action =
           (* Check for an existing VM with the same UUID - if one exists, what we do next *)
           (* will depend on the state of the VM and whether the import is forced. *)
@@ -495,6 +493,18 @@ module VM : HandlerTools = struct
               else
                 Replace (vm, vm_record)
           else
+            let vm_record =
+              if not config.force then
+                {
+                  vm_record with
+                  API.vM_is_default_template= false
+                ; vM_other_config=
+                    List.remove_assoc Xapi_globs.default_template_key
+                      vm_record.API.vM_other_config
+                }
+              else
+                vm_record
+            in
             Clean_import vm_record
         in
         match import_action with
