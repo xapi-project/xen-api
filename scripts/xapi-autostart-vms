@@ -14,5 +14,5 @@ auto_poweron_pool=$(xe pool-list params=uuid other-config:auto_poweron=true --mi
 if [ $? -eq 0 ] && [ -n "$auto_poweron_pool" ]; then
     logger "$0 auto_poweron is enabled on the pool-- this is an unsupported configuration."
     # if xapi init completed then start vms (best effort, don't report errors)
-    xe vm-start other-config:auto_poweron=true power-state=halted --multiple >/dev/null 2>/dev/null || true
+    xe vm-start other-config:auto_poweron=true power-state=halted is-a-template=false is-a-snapshot=false --multiple >/dev/null 2>/dev/null || true
 fi
