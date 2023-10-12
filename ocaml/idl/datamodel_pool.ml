@@ -1103,6 +1103,16 @@ let set_update_sync_enabled =
       ]
     ~allowed_roles:_R_POOL_OP ()
 
+let set_local_auth_max_threads =
+  call ~flags:[`Session] ~name:"set_local_auth_max_threads" ~lifecycle:[]
+    ~params:[(Ref _pool, "self", "The pool"); (Int, "value", "The new maximum")]
+    ~allowed_roles:_R_POOL_OP ()
+
+let set_ext_auth_max_threads =
+  call ~flags:[`Session] ~name:"set_ext_auth_max_threads" ~lifecycle:[]
+    ~params:[(Ref _pool, "self", "The pool"); (Int, "value", "The new maximum")]
+    ~allowed_roles:_R_POOL_OP ()
+
 (** A pool class *)
 let t =
   create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:None
@@ -1189,6 +1199,8 @@ let t =
       ; reset_telemetry_uuid
       ; configure_update_sync
       ; set_update_sync_enabled
+      ; set_local_auth_max_threads
+      ; set_ext_auth_max_threads
       ]
     ~contents:
       ([uid ~in_oss_since:None _pool]
@@ -1419,6 +1431,12 @@ let t =
             "coordinator_bias"
             "true if bias against pool master when scheduling vms is enabled, \
              false otherwise"
+        ; field ~qualifier:StaticRO ~ty:Int ~default_value:(Some (VInt 8L))
+            ~lifecycle:[] "local_auth_max_threads"
+            "Maximum number of threads to use for PAM authentication"
+        ; field ~qualifier:StaticRO ~ty:Int ~default_value:(Some (VInt 1L))
+            ~lifecycle:[] "ext_auth_max_threads"
+            "Maximum number of threads to use for external (AD) authentication"
         ; field ~lifecycle:[] ~qualifier:DynamicRO ~ty:(Ref _secret)
             ~default_value:(Some (VRef null_ref)) "telemetry_uuid"
             "The UUID of the pool for identification of telemetry data"

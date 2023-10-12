@@ -3669,3 +3669,9 @@ let configure_update_sync ~__context ~self ~update_sync_frequency
 let set_update_sync_enabled ~__context ~self ~value =
   Pool_periodic_update_sync.set_enabled ~__context ~value ;
   Db.Pool.set_update_sync_enabled ~__context ~self ~value
+
+let set_local_auth_max_threads ~__context:_ ~self:_ ~value =
+  Xapi_session.set_local_auth_max_threads value
+
+let set_ext_auth_max_threads ~__context:_ ~self:_ ~value =
+  Xapi_session.set_ext_auth_max_threads value

@@ -312,7 +312,8 @@ let make_pool ~__context ~master ?(name_label = "") ?(name_description = "")
     ~repository_proxy_url ~repository_proxy_username ~repository_proxy_password
     ~migration_compression ~coordinator_bias ~telemetry_uuid
     ~telemetry_frequency ~telemetry_next_collection ~last_update_sync
-    ~update_sync_frequency ~update_sync_day ~update_sync_enabled ;
+    ~local_auth_max_threads:8L ~ext_auth_max_threads:8L ~update_sync_frequency
+    ~update_sync_day ~update_sync_enabled ;
   pool_ref
 
 let default_sm_features =

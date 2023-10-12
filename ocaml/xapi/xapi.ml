@@ -886,7 +886,16 @@ let server_init () =
      has just started up we want to wait forever for the master to appear. (See CA-25481) *)
   let initial_connection_timeout = !Master_connection.connection_timeout in
   Master_connection.connection_timeout := -1. ;
+
   (* never timeout *)
+  let initialize_auth_semaphores ~__context =
+    let pool = Helpers.get_pool ~__context in
+    Xapi_session.set_local_auth_max_threads
+      (Db.Pool.get_local_auth_max_threads ~__context ~self:pool) ;
+    Xapi_session.set_ext_auth_max_threads
+      (Db.Pool.get_ext_auth_max_threads ~__context ~self:pool)
+  in
+
   let call_extauth_hook_script_after_xapi_initialize ~__context =
     (* CP-709 *)
     (* in each initialization of xapi, extauth_hook script must be called in case this host was *)
@@ -1389,6 +1398,10 @@ let server_init () =
           ; ( "Cancelling in-progress storage migrations"
             , []
             , fun () -> Storage_migrate.killall ~dbg:"xapi init"
+            )
+          ; ( "Initialize threaded authentication"
+            , [Startup.NoExnRaising]
+            , fun () -> initialize_auth_semaphores ~__context
             )
           ; (* Start the external authentification plugin *)
             ( "Calling extauth_hook_script_before_xapi_initialize"

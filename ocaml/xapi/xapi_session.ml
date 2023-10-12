@@ -255,7 +255,17 @@ let local_superuser = "root"
 
 let xapi_internal_originator = "xapi"
 
-let serialize_auth = Mutex.create ()
+let throttle_auth_internal = Locking_helpers.Semaphore.create "Internal auth"
+
+let throttle_auth_external = Locking_helpers.Semaphore.create "External auth"
+
+let with_throttle = Locking_helpers.Semaphore.execute
+
+let set_local_auth_max_threads n =
+  Locking_helpers.Semaphore.set_max throttle_auth_internal @@ Int64.to_int n
+
+let set_ext_auth_max_threads n =
+  Locking_helpers.Semaphore.set_max throttle_auth_external @@ Int64.to_int n
 
 let wipe_string_contents str =
   for i = 0 to Bytes.length str - 1 do
@@ -272,13 +282,13 @@ let wipe_params_after_fn params fn =
   with e -> wipe params ; raise e
 
 let do_external_auth uname pwd =
-  with_lock serialize_auth (fun () ->
+  with_throttle throttle_auth_external (fun () ->
       (Ext_auth.d ()).authenticate_username_password uname
         (Bytes.unsafe_to_string pwd)
   )
 
 let do_local_auth uname pwd =
-  with_lock serialize_auth (fun () ->
+  with_throttle throttle_auth_internal (fun () ->
       try Pam.authenticate uname (Bytes.unsafe_to_string pwd)
       with Failure msg ->
         raise
@@ -288,7 +298,7 @@ let do_local_auth uname pwd =
   )
 
 let do_local_change_password uname newpwd =
-  with_lock serialize_auth (fun () ->
+  with_throttle throttle_auth_internal (fun () ->
       Pam.change_password uname (Bytes.unsafe_to_string newpwd)
   )
 
