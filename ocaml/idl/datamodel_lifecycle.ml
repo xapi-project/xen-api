@@ -55,6 +55,10 @@ let prototyped_of_field = function
       Some "23.9.0"
   | "pool", "telemetry_uuid" ->
       Some "23.9.0"
+  | "pool", "ext_auth_max_threads" ->
+      Some "23.26.0-next"
+  | "pool", "local_auth_max_threads" ->
+      Some "23.26.0-next"
   | "pool", "coordinator_bias" ->
       Some "22.37.0"
   | "pool", "migration_compression" ->
@@ -95,6 +99,10 @@ let prototyped_of_message = function
       Some "23.18.0"
   | "host", "set_https_only" ->
       Some "22.27.0"
+  | "pool", "set_ext_auth_max_threads" ->
+      Some "23.26.0-next"
+  | "pool", "set_local_auth_max_threads" ->
+      Some "23.26.0-next"
   | "pool", "set_update_sync_enabled" ->
       Some "23.18.0"
   | "pool", "configure_update_sync" ->
