@@ -645,7 +645,7 @@ module Export = struct
         let name =
           !trace_log_dir
           // String.concat "-" [get_service_name (); !host_id; date]
-          ^ ".json"
+          ^ ".ndjson"
         in
         file_name := Some name ;
         name
