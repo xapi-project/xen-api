@@ -10,18 +10,31 @@ let _ =
     let result = Tracing.Export.Destination.Http.export ~url line in
     match result with
     | Ok _ ->
-      ()
+        ()
     | Error err ->
-      Printf.eprintf "Error: %s" (Printexc.to_string err) ;
-      exit 1
-    in
+        Printf.eprintf "Error: %s" (Printexc.to_string err) ;
+        exit 1
+  in
   let rec export_file orig =
     if Sys.is_directory orig then
       let files = Sys.readdir orig in
       let file_paths = Array.map (Filename.concat orig) files in
       Array.iter export_file file_paths
+    else if Filename.check_suffix orig ".zst" then
+      Xapi_stdext_unix.Unixext.with_file orig [O_RDONLY] 0o000
+      @@ fun compressed_file ->
+      Zstd.Fast.decompress_passive compressed_file @@ fun decompressed ->
+      let ic = Unix.in_channel_of_descr decompressed in
+      try
+        while true do
+          let line = input_line ic in
+          submit_json_line line
+        done
+      with End_of_file -> ()
     else
-      Xapi_stdext_unix.Unixext.readfile_line (fun line -> submit_json_line line) orig
+      Xapi_stdext_unix.Unixext.readfile_line
+        (fun line -> submit_json_line line)
+        orig
   in
   export_file origin ;
   let rec remove_all orig =
