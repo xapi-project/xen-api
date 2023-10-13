@@ -134,6 +134,10 @@ module Export : sig
     end
 
     val flush_spans : unit -> unit
+
+    module Http : sig
+      val export : url:Uri.t -> string -> (unit, exn) result
+    end
   end
 end
 
