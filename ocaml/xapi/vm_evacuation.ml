@@ -63,7 +63,10 @@ let ensure_no_vms ~__context ~rpc ~session_id ~evacuate_timeout =
         estimate_evacuate_timeout ~__context ~host
     in
     let tasks =
-      [Client.Async.Host.evacuate ~rpc ~session_id ~host ~network:Ref.null]
+      [
+        Client.Async.Host.evacuate ~rpc ~session_id ~host ~network:Ref.null
+          ~evacuate_batch_size:0L
+      ]
     in
     if not (Tasks.with_tasks_destroy ~rpc ~session_id ~timeout ~tasks) then
       get_running_domains () |> List.iter cancel_vm_tasks

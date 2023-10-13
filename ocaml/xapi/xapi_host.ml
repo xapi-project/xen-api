@@ -607,7 +607,7 @@ let compute_evacuation_plan ~__context ~host =
            Using original algorithm" ;
         compute_evacuation_plan_no_wlb ~__context ~host ()
 
-let evacuate ~__context ~host ~network =
+let evacuate ~__context ~host ~network ~evacuate_batch_size =
   let plans = compute_evacuation_plan ~__context ~host in
   let plans_length = float (Hashtbl.length plans) in
   (* Check there are no errors in this list *)
@@ -708,8 +708,15 @@ let evacuate ~__context ~host ~network =
     TaskHelper.set_progress ~__context 1.0
   in
 
+  let batch_size =
+    match evacuate_batch_size with
+    | size when size > 0L ->
+        Int64.to_int size
+    | _ ->
+        !Xapi_globs.evacuation_batch_size
+  in
   (* avoid edge cases from meaningless batch sizes *)
-  let batch_size = Int.(max 1 (abs !Xapi_globs.evacuation_batch_size)) in
+  let batch_size = Int.(max 1 (abs batch_size)) in
   info "Host.evacuate: migrating VMs in batches of %d" batch_size ;
 
   (* execute evacuation plan in batches *)

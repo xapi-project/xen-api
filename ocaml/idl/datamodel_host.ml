@@ -356,6 +356,7 @@ let evacuate =
       [
         (Published, rel_miami, "")
       ; (Extended, "1.297.0", "Enable migration network selection.")
+      ; (Extended, "23.27.0", "Choose batch size of VM evacuation.")
       ]
     ~versioned_params:
       [
@@ -372,6 +373,15 @@ let evacuate =
         ; param_doc= "Optional preferred network for migration"
         ; param_release= next_release
         ; param_default= Some (VRef null_ref)
+        }
+      ; {
+          param_type= Int
+        ; param_name= "evacuate_batch_size"
+        ; param_doc=
+            "The maximum number of VMs to be migrated per batch 0 will use the \
+             value `evacuation-batch-size` defined in xapi.conf"
+        ; param_release= next_release
+        ; param_default= Some (VInt 0L)
         }
       ]
     ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
