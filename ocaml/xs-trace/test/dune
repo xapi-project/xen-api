@@ -1,0 +1,10 @@
+(executable
+ (modes byte exe)
+ (name test_xs_trace)
+ (libraries unix))
+
+(rule
+  (alias runtest)
+  (package xapi)
+  (deps test-xs-trace.sh ../xs_trace.exe test-source.json test_xs_trace.exe)
+  (action (run bash test-xs-trace.sh)))

@@ -6,14 +6,15 @@ let _ =
   let action = Sys.argv.(1) in
   let origin = Sys.argv.(2) in
   let url = Uri.of_string Sys.argv.(3) in
-  let submit_json_line line =
-    let result = Tracing.Export.Destination.Http.export ~url line in
-    match result with
-    | Ok _ ->
-        ()
-    | Error err ->
-        Printf.eprintf "Error: %s" (Printexc.to_string err) ;
-        exit 1
+  let submit_json json =
+    if json <> "" then
+      let result = Tracing.Export.Destination.Http.export ~url json in
+      match result with
+      | Ok _ ->
+          ()
+      | Error err ->
+          Printf.eprintf "Error: %s" (Printexc.to_string err) ;
+          exit 1
   in
   let rec export_file orig =
     if Sys.is_directory orig then
@@ -28,13 +29,14 @@ let _ =
       try
         while true do
           let line = input_line ic in
-          submit_json_line line
+          submit_json line
         done
       with End_of_file -> ()
+    else if Filename.check_suffix orig ".ndjson" then
+      Xapi_stdext_unix.Unixext.readfile_line (fun line -> submit_json line) orig
     else
-      Xapi_stdext_unix.Unixext.readfile_line
-        (fun line -> submit_json_line line)
-        orig
+      let json = Xapi_stdext_unix.Unixext.string_of_file orig in
+      submit_json json
   in
   export_file origin ;
   let rec remove_all orig =
