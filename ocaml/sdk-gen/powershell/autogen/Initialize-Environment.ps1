@@ -1,18 +1,18 @@
 #
 # Copyright (c) Cloud Software Group, Inc.
-# 
+#
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
 # are met:
-# 
+#
 #   1) Redistributions of source code must retain the above copyright
 #      notice, this list of conditions and the following disclaimer.
-# 
+#
 #   2) Redistributions in binary form must reproduce the above
 #      copyright notice, this list of conditions and the following
 #      disclaimer in the documentation and/or other materials
 #      provided with the distribution.
-# 
+#
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 # "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
 # LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
@@ -28,25 +28,22 @@
 #
 
 
-if((Test-Path variable:XenServer_Environment_Initialized) -eq $true)
-{
+if ((Test-Path variable:XenServer_Environment_Initialized) -eq $true) {
     return
 }
 
-$systemWidePath = "$env:windir\system32\WindowsPowerShell\v1.0"
-$perUserPath = "$env:UserProfile\Documents\WindowsPowerShell"
+$systemWideXsProfile = Join-Path -Path $PSHOME -ChildPath "XenServerProfile.ps1"
+$perUserXsProfile = Join-Path -Path (Split-Path $PROFILE) -ChildPath "XenServerProfile.ps1"
 
-if (Test-Path "$systemWidePath\XenServerProfile.ps1")
-{
-    . "$systemWidePath\XenServerProfile.ps1"
+if (Test-Path $systemWideXsProfile) {
+    . $systemWideXsProfile
 }
 
-if (Test-Path "$perUserPath\XenServerProfile.ps1")
-{
-    . "$perUserPath\XenServerProfile.ps1"
+if (Test-Path $perUserXsProfile) {
+    . $perUserXsProfile
 }
 
-Remove-Item variable:systemWidePath
-Remove-Item variable:perUserPath
+Remove-Item variable:systemWideXsProfile
+Remove-Item variable:perUserXsProfile
 
 $XenServer_Environment_Initialized = $true
