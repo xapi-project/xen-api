@@ -536,6 +536,9 @@ let pass_through_pif_carrier = ref false
 
 let vgpu_type_id = "type_id"
 
+(** key for NVidia vgpu "class" attribute in vgpuConfig.xml *)
+let vgpu_type_vclass = "vclass"
+
 let igd_passthru_key = "igd_passthrough"
 
 let vgt_low_gm_sz = "vgt_low_gm_sz"

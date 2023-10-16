@@ -32,6 +32,7 @@ module Vgpu = struct
           [@default {domain= 0000; bus= 0; dev= 11; fn= 0}]
     ; type_id: string option
     ; uuid: string option
+    ; vclass: string option  (** from vgpu: Compute, NVS, Quadro *)
     ; extra_args: string [@default ""]
           (** string is passed on as is and no structure is assumed *)
   }

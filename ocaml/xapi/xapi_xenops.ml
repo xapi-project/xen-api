@@ -946,10 +946,11 @@ module MD = struct
     let physical_pci_address = get_target_pci_address ~__context vgpu in
     let virtual_pci_address = get_virtual_pci_address ~__context vgpu in
     let vgpu_type = vgpu.Db_actions.vGPU_type in
-    let type_id, config_file =
-      Db.VGPU_type.get_internal_config ~__context ~self:vgpu_type |> fun x ->
-      ( List.assoc_opt Xapi_globs.vgpu_type_id x
-      , List.assoc_opt Xapi_globs.nvidia_compat_config_file_key x
+    let type_id, config_file, vclass =
+      Db.VGPU_type.get_internal_config ~__context ~self:vgpu_type |> fun kv ->
+      ( List.assoc_opt Xapi_globs.vgpu_type_id kv
+      , List.assoc_opt Xapi_globs.nvidia_compat_config_file_key kv
+      , List.assoc_opt Xapi_globs.vgpu_type_vclass kv
       )
     in
     let uuid = vgpu.Db_actions.vGPU_uuid in
@@ -964,6 +965,7 @@ module MD = struct
         ; type_id
         ; uuid= Some uuid
         ; extra_args
+        ; vclass (* from vgpuType class attribute in vgpuConfig.xml *)
         }
     in
     {

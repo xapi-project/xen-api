@@ -39,6 +39,7 @@ module Identifier = struct
     ; vdev_id: int  (** vgpuTYpe/deviceId in XML *)
     ; vsubdev_id: int  (** vgpuTYpe/subsystemId in XML *)
     ; sriov: bool  (** true if SRIOV mode to be used *)
+    ; vclass: string  (** vgpuType/class in XML: Quadro, NVS, Compute *)
   }
 
   type gvt_g_id = {
@@ -399,6 +400,7 @@ let read_whitelist_line_by_line ~whitelist ~device_id ~parse_line
     []
 
 module Vendor_nvidia = struct
+  (* represents a vgpuType declaration found in vgpuConfig.xml *)
   type vgpu_conf = {
       identifier: Identifier.nvidia_id
     ; framebufferlength: int64
@@ -652,6 +654,7 @@ module Vendor_nvidia = struct
             )
           in
           let devid = find_one_by_name "devId" vgpu_type in
+          let vclass = get_attr "class" vgpu_type in
           let identifier =
             Identifier.
               {
@@ -669,6 +672,7 @@ module Vendor_nvidia = struct
                       false
                   )
                   (* don't use SRIOV *)
+              ; vclass
               }
           in
 
@@ -760,7 +764,11 @@ module Vendor_nvidia = struct
       ; max_resolution_x= conf.max_x
       ; max_resolution_y= conf.max_y
       ; size= Int64.div Constants.pgpu_default_size conf.max_instance
-      ; internal_config= [(Xapi_globs.vgpu_type_id, conf.type_id)]
+      ; internal_config=
+          [
+            (Xapi_globs.vgpu_type_id, conf.type_id)
+          ; (Xapi_globs.vgpu_type_vclass, conf.identifier.vclass)
+          ]
       ; identifier= Nvidia conf.identifier
       ; experimental= false
       ; compatible_model_names_in_vm= conf.compatible_model_names_in_vm
@@ -999,7 +1007,15 @@ module Nvidia_compat = struct
       Scanf.sscanf (List.assoc "plugin0.vdev_id" args) {|"0x%x:0x%x"|}
         (fun vdev_id vsubdev_id ->
           Identifier.(
-            Nvidia {pdev_id; psubdev_id; vdev_id; vsubdev_id; sriov= false}
+            Nvidia
+              {
+                pdev_id
+              ; psubdev_id
+              ; vdev_id
+              ; vsubdev_id
+              ; sriov= false
+              ; vclass= ""
+              }
           )
       )
     with e -> raise (Parse_error e)
