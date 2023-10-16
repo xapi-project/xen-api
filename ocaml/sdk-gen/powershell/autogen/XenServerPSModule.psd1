@@ -40,7 +40,7 @@ CompanyName = 'Cloud Software Group, Inc'
 Copyright = 'Copyright (c) 2013-2023 Cloud Software Group, Inc. All rights reserved.'
 
 # Requirements
-PowerShellVersion = '7.2'
+PowerShellVersion = '@PS_VERSION@'
 PowerShellHostName = ''
 PowerShellHostVersion = ''
 ProcessorArchitecture = 'None'
