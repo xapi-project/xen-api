@@ -3667,6 +3667,10 @@ let configure_update_sync ~__context ~self ~update_sync_frequency
     Pool_periodic_update_sync.set_enabled ~__context ~value:true
 
 let set_update_sync_enabled ~__context ~self ~value =
+  if value && Db.Pool.get_repositories ~__context ~self = [] then (
+    error "Cannot enable automatic update syncing if there are no repositories." ;
+    raise Api_errors.(Server_error (no_repositories_configured, []))
+  ) ;
   Pool_periodic_update_sync.set_enabled ~__context ~value ;
   Db.Pool.set_update_sync_enabled ~__context ~self ~value
 
