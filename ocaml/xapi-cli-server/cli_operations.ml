@@ -5327,6 +5327,7 @@ let host_evacuate _printer rpc session_id params =
     (do_host_op rpc session_id ~multiple:false
        (fun _ host ->
          Client.Host.evacuate ~rpc ~session_id ~host:(host.getref ()) ~network
+           ~evacuate_batch_size:0L
        )
        params ["network-uuid"]
     )
