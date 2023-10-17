@@ -1283,6 +1283,8 @@ let update_guidance_changed = "UPDATE_GUIDANCE_CHANGED"
 
 let invalid_update_sync_day = "INVALID_UPDATE_SYNC_DAY"
 
+let no_repositories_configured = "NO_REPOSITORIES_CONFIGURED"
+
 (* VTPMs *)
 
 let vtpm_max_amount_reached = "VTPM_MAX_AMOUNT_REACHED"

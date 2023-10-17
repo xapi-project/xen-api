@@ -1955,6 +1955,9 @@ let _ =
   error Api_errors.invalid_update_sync_day ["day"]
     ~doc:"Invalid day of the week chosen for weekly update sync." () ;
 
+  error Api_errors.no_repositories_configured []
+    ~doc:"No update repositories have been configured." () ;
+
   message
     (fst Api_messages.ha_pool_overcommitted)
     ~doc:
