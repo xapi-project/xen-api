@@ -142,7 +142,7 @@ let rec get_java_type ty =
       Hashtbl.replace enums name ls ;
       sprintf "Types.%s" (class_case name)
   | Set t1 ->
-      sprintf "Set<%s>" (get_java_type t1)
+      sprintf "HashSet<%s>" (get_java_type t1)
   | Map (t1, t2) ->
       sprintf "Map<%s, %s>" (get_java_type t1) (get_java_type t2)
   | Ref x ->
@@ -278,10 +278,13 @@ let gen_method file cls message params async_version =
       ( "BadServerResponse"
       , "Thrown if the response from the server contains an invalid status."
       )
-    ; ("XenAPIException", "Thrown if the call failed.")
-    ; ( "XmlRpcException"
-      , "Thrown if the result of an asynchronous call could not be parsed."
+    ; ("XenAPIException", "if the call failed.")
+    ; ( "JsonProcessingException"
+      , "if the request's payload or the response's payload cannot be written \
+         or read as valid JSON."
       )
+    ; ("IOException", "if an I/O error occurs when sending or receiving.")
+    ; ("InterruptedException", " if the operation is interrupted.")
     ]
   in
   let publishInfo = get_published_info_message message cls in
@@ -346,14 +349,14 @@ let gen_method file cls message params async_version =
   fprintf file "       %s {\n" (String.concat ",\n       " all_errors) ;
 
   if async_version then
-    fprintf file "        String method_call = \"Async.%s.%s\";\n"
+    fprintf file "        String methodCall = \"Async.%s.%s\";\n"
       message.msg_obj_name message.msg_name
   else
-    fprintf file "        String method_call = \"%s.%s\";\n"
-      message.msg_obj_name message.msg_name ;
+    fprintf file "        String methodCall = \"%s.%s\";\n" message.msg_obj_name
+      message.msg_name ;
 
   if message.msg_session then
-    fprintf file "        String session = c.getSessionReference();\n"
+    fprintf file "        String sessionReference = c.getSessionReference();\n"
   else
     () ;
 
@@ -371,38 +374,32 @@ let gen_method file cls message params async_version =
     )
     record_params ;
 
-  fprintf file "        Object[] method_params = {" ;
+  fprintf file "        Object[] methodParameters = {" ;
 
   let methodParamsList =
     if message.msg_session then
-      "session" :: get_method_params_for_xml message params
+      "sessionReference" :: get_method_params_for_xml message params
     else
       get_method_params_for_xml message params
   in
 
   output_string file
-    (String.concat ", "
-       (List.map
-          (fun s -> sprintf "Marshalling.toXMLRPC(%s)" s)
-          methodParamsList
-       )
-    ) ;
+    (String.concat ", " (List.map (fun s -> sprintf "%s" s) methodParamsList)) ;
 
   fprintf file "};\n" ;
-  fprintf file
-    "        Map response = c.dispatch(method_call, method_params);\n" ;
 
-  ( if async_version then (
-      fprintf file "        Object result = response.get(\"Value\");\n" ;
-      fprintf file "        return Types.toTask(result);\n"
-    ) else
-      match message.msg_result with
-      | None ->
-          fprintf file ""
-      | Some _ ->
-          fprintf file "        Object result = response.get(\"Value\");\n" ;
-          gen_method_return file cls message
-  ) ;
+  if message.msg_result != None || async_version then
+    fprintf file "        var typeReference = new TypeReference<%s>(){};\n"
+      (if async_version then "Task" else return_type) ;
+
+  let last_statement =
+    match message.msg_result with
+    | None when not async_version ->
+        "        c.dispatch(methodCall, methodParameters);\n"
+    | _ ->
+        "        return c.dispatch(methodCall, methodParameters, typeReference);\n"
+  in
+  fprintf file "%s" last_statement ;
 
   fprintf file "    }\n\n"
 
@@ -430,14 +427,14 @@ let gen_method_and_asynchronous_counterpart file cls message =
 
 let gen_record_field file prefix field cls =
   let ty = get_java_type field.ty in
-  let name =
-    camel_case (String.concat "_" (List.rev (field.field_name :: prefix)))
-  in
+  let full_name = String.concat "_" (List.rev (field.field_name :: prefix)) in
+  let name = camel_case full_name in
   let publishInfo = get_published_info_field field cls in
   fprintf file "        /**\n" ;
   fprintf file "         * %s\n" (escape_xml field.field_description) ;
   if not (publishInfo = "") then fprintf file "         * %s\n" publishInfo ;
   fprintf file "         */\n" ;
+  fprintf file "        @JsonProperty(\"%s\")\n" full_name ;
   fprintf file "        public %s %s;\n" ty name
 
 let rec gen_record_namespace file prefix (name, contents) cls =
@@ -571,16 +568,15 @@ let gen_class cls folder =
   print_license file ;
   fprintf file
     "package com.xensource.xenapi;\n\n\
+     import com.fasterxml.jackson.annotation.JsonProperty;\n\
+     import com.fasterxml.jackson.core.JsonProcessingException;\n\
+     import com.fasterxml.jackson.core.type.TypeReference;\n\
      import com.xensource.xenapi.Types.BadServerResponse;\n\
      import com.xensource.xenapi.Types.XenAPIException;\n\n\
      import java.io.PrintWriter;\n\
      import java.io.StringWriter;\n\
-     import java.util.Date;\n\
-     import java.util.HashMap;\n\
-     import java.util.LinkedHashSet;\n\
-     import java.util.Map;\n\
-     import java.util.Set;\n\n\
-     import org.apache.xmlrpc.XmlRpcException;\n\n" ;
+     import java.util.*;\n\
+     import java.io.IOException;\n\n" ;
   fprintf file "/**\n" ;
   fprintf file " * %s\n" cls.description ;
   if not (publishInfo = "") then fprintf file " * %s\n" publishInfo ;
@@ -753,7 +749,8 @@ let rec gen_marshall_body file = function
       let ty_name = get_java_type ty in
       let marshall_fn = get_marshall_function ty in
       fprintf file "        Object[] items = (Object[]) object;\n" ;
-      fprintf file "        Set<%s> result = new LinkedHashSet<>();\n" ty_name ;
+      fprintf file "        HashSet<%s> result = new LinkedHashSet<>();\n"
+        ty_name ;
       fprintf file "        for(Object item: items) {\n" ;
       fprintf file "            %s typed = %s(item);\n" ty_name marshall_fn ;
       fprintf file "            result.add(typed);\n" ;
@@ -767,7 +764,7 @@ let rec gen_marshall_body file = function
       fprintf file "        Map map = (Map)object;\n" ;
       fprintf file "        Map<%s,%s> result = new HashMap<>();\n" ty_name
         ty_name' ;
-      fprintf file "        Set<Map.Entry> entries = map.entrySet();\n" ;
+      fprintf file "        HashSet<Map.Entry> entries = map.entrySet();\n" ;
       fprintf file "        for(Map.Entry entry: entries) {\n" ;
       fprintf file "            %s key = %s(entry.getKey());\n" ty_name
         marshall_fn ;
@@ -821,13 +818,20 @@ let gen_enum file name ls =
     let final_description =
       global_replace (regexp_string "\n") "\n         * " escaped_description
     in
-    "        /**\n"
-    ^ "         * "
-    ^ final_description
-    ^ "\n"
-    ^ "         */\n"
-    ^ "        "
-    ^ enum_of_wire name
+    let comment =
+      "        /**\n"
+      ^ "         * "
+      ^ final_description
+      ^ "\n"
+      ^ "         */\n"
+    in
+    let json_property =
+      if name != "UNRECOGNIZED" then
+        "@JsonProperty(\"" ^ name ^ "\")"
+      else
+        "@JsonEnumDefaultValue"
+    in
+    comment ^ "        " ^ json_property ^ "\n" ^ "        " ^ enum_of_wire name
   in
   fprintf file "%s" (String.concat ",\n" (List.map to_member_declaration ls)) ;
   fprintf file ";\n" ;
@@ -888,15 +892,15 @@ let gen_method_error_throw file name error =
       )
   in
 
-  fprintf file "            if (ErrorDescription[0].equals(\"%s\"))\n" name ;
+  fprintf file "            if (errorName.equals(\"%s\"))\n" name ;
   fprintf file "            {\n" ;
 
   (* Prepare the parameters to the Exception constructor *)
   List.iter
     (fun i ->
       fprintf file
-        "                String p%i = ErrorDescription.length > %i ? \
-         ErrorDescription[%i] : \"\";\n"
+        "                String p%i = errorData.length > %i ? \
+        errorData[%i] : \"\";\n"
         i i i
     )
     (range (List.length error.err_params)) ;
@@ -910,19 +914,12 @@ let gen_types_class folder =
   print_license file ;
   fprintf file
     "package com.xensource.xenapi;\n\n\
-     import java.util.Date;\n\
-     import java.util.Map;\n\
-     import java.util.HashMap;\n\
-     import java.util.Set;\n\
-     import java.util.LinkedHashSet;\n\
-     import java.io.IOException;\n\n\
-     import java.util.regex.Pattern;\n\
-     import java.util.regex.Matcher;\n\n\
-     import org.apache.xmlrpc.XmlRpcException;\n\n\
+    import java.util.Map;\n\n\
+    import com.fasterxml.jackson.annotation.JsonEnumDefaultValue;\n\
+    import com.fasterxml.jackson.annotation.JsonProperty;\n\
+    import java.io.IOException;\n\n\
      /**\n\
-    \ * This class holds vital marshalling functions, enum types and exceptions.\n\
-    \ *\n\
-    \ * @author Cloud Software Group, Inc.\n\
+    \ * This class holds enum types and exceptions.\n\
     \ */\n\
      public class Types\n\
      {\n\
@@ -935,18 +932,6 @@ let gen_types_class folder =
     \         * Convert a Record to a Map\n\
     \         */\n\
     \        Map<String, Object> toMap();\n\
-    \    }\n\n\
-    \    /**\n\
-    \     * Helper method.\n\
-    \     */\n\
-    \    private static String[] ObjectArrayToStringArray(Object[] objArray)\n\
-    \    {\n\
-    \        String[] result = new String[objArray.length];\n\
-    \        for (int i = 0; i < objArray.length; i++)\n\
-    \        {\n\
-    \            result[i] = (String) objArray[i];\n\
-    \        }\n\
-    \        return result;\n\
     \    }\n\n\
     \    /**\n\
     \     * Base class for all XenAPI Exceptions\n\
@@ -993,30 +978,11 @@ let gen_types_class folder =
     \     */\n\
     \    public static class BadServerResponse extends XenAPIException\n\
     \    {\n\
-    \        public BadServerResponse(Map response)\n\
+    \        public BadServerResponse(JsonRpcResponseError responseError)\n\
     \        {\n\
-    \            super(ObjectArrayToStringArray((Object[]) \
-     response.get(\"ErrorDescription\")));\n\
+    \            super(String.valueOf(responseError));\n\
     \        }\n\
     \    }\n\n\
-    \    public static class BadAsyncResult extends XenAPIException\n\
-    \    {\n\
-    \        public final String result;\n\n\
-    \        public BadAsyncResult(String result)\n\
-    \        {\n\
-    \            super(result);\n\
-    \            this.result = result;\n\
-    \        }\n\
-    \    }\n\n\
-    \    private static String parseResult(String result) throws BadAsyncResult\n\
-    \    {\n\
-    \        Pattern pattern = Pattern.compile(\"<value>(.*)</value>\");\n\
-    \        Matcher matcher = pattern.matcher(result);\n\
-    \        if (!matcher.find() || matcher.groupCount() != 1) {\n\
-    \            throw new Types.BadAsyncResult(\"Can't interpret: \" + result);\n\
-    \        }\n\n\
-    \        return matcher.group(1);\n\
-    \    }\n\
     \  " ;
 
   fprintf file
@@ -1026,48 +992,27 @@ let gen_types_class folder =
     \     * returned an invalid response, throws a BadServerResponse. \
      Otherwise, returns the server response as passed in.\n\
     \     */\n\
-    \    static Map checkResponse(Map response) throws XenAPIException, \
+    \    public static void checkError(JsonRpcResponseError response) throws XenAPIException, \
      BadServerResponse\n\
     \    {\n\
-    \        if (response.get(\"Status\").equals(\"Success\"))\n\
-    \        {\n\
-    \            return response;\n\
-    \        }\n\n\
-    \        if (response.get(\"Status\").equals(\"Failure\"))\n\
-    \        {\n\
-    \            String[] ErrorDescription = \
-     ObjectArrayToStringArray((Object[]) response.get(\"ErrorDescription\"));\n\n" ;
+    \        var errorData = response.data;
+    \        if(errorData.length == 0){
+    \            throw new BadServerResponse(response);
+    \        }
+    \        var errorName = errorData[0];\n\n" ;
 
   Hashtbl.iter (gen_method_error_throw file) Datamodel.errors ;
 
   fprintf file
     "\n\
-    \            // An unknown error occurred\n\
-    \            throw new Types.XenAPIException(ErrorDescription);\n\
-    \        }\n\n\
-    \        throw new BadServerResponse(response);\n\
-    \    }\n\n" ;
+    \        // An unknown error occurred\n\
+    \        throw new Types.XenAPIException(errorData);\n\
+    \     }\n\n" ;
 
   gen_enums file ;
   fprintf file "\n" ;
   Hashtbl.iter (gen_error file) Datamodel.errors ;
   fprintf file "\n" ;
-  TypeSet.iter (gen_marshall_func file) !types ;
-  fprintf file "\n" ;
-  TypeSet.iter (gen_task_result_func file) !types ;
-  fprintf file
-    "\n\
-    \        public static EventBatch toEventBatch(Object object) {\n\
-    \        if (object == null) {\n\
-    \            return null;\n\
-    \        }\n\n\
-    \        Map map = (Map) object;\n\
-    \        EventBatch batch = new EventBatch();\n\
-    \        batch.token = toString(map.get(\"token\"));\n\
-    \        batch.validRefCounts = map.get(\"valid_ref_counts\");\n\
-    \        batch.events = toSetOfEventRecord(map.get(\"events\"));\n\
-    \        return batch;\n\
-    \    }" ;
   fprintf file "}\n"
 
 (* Now run it *)
