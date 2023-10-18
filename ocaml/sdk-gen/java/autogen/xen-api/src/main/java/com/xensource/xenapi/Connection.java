@@ -29,228 +29,214 @@
 
 package com.xensource.xenapi;
 
-import java.net.URL;
-import java.util.Map;
-import java.util.TimeZone;
-
-import org.apache.xmlrpc.XmlRpcException;
-import org.apache.xmlrpc.client.XmlRpcClient;
-import org.apache.xmlrpc.client.XmlRpcClientConfigImpl;
-import org.apache.xmlrpc.client.XmlRpcHttpClientConfig;
-
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.xensource.xenapi.Types.BadServerResponse;
 import com.xensource.xenapi.Types.XenAPIException;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
+
+import java.io.IOException;
+import java.net.URL;
 
 /**
- * Represents a connection to a XenServer. Creating a new instance of this class initialises a new XmlRpcClient that is
- * then used by all method calls: each method call in xenapi takes a Connection as a parameter, composes an XMLRPC
+ * Represents a connection to a XenServer. Creating a new instance of this class initialises a new JsonRpcClient that is
+ * then used by all method calls: each method call in xen-api takes a Connection as a parameter, composes a JSON-RPC
  * method call, and dispatches it on the Connection's client via the dispatch method.
  */
-public class Connection
-{
+public class Connection {
+    private final JsonRpcClient client;
     private APIVersion apiVersion;
-
-    /**
-     * Default reply timeout for xml-rpc calls in seconds
-     */
-    protected static final int DEFAULT_REPLY_TIMEOUT = 600;
-
-    /**
-     * Default connection timeout for xml-rpc calls in seconds
-     */
-    protected static final int DEFAULT_CONNECTION_TIMEOUT = 5;
-
-    /**
-     * Updated when Session.login_with_password() is called.
-     */
-    public APIVersion getAPIVersion()
-    {
-        return apiVersion;
-    }
-
     /**
      * The opaque reference to the session used by this connection
      */
     private String sessionReference;
 
     /**
-     * As seen by the xmlrpc library. From our point of view it's a server.
-     */
-    private final XmlRpcClient client;
-
-    /**
-     * Creates a connection to a particular server using a given url. This object can then be passed
-     * in to any other API calls.
-     *
+     * Creates a connection to a particular server using a custom implementation of the JsonRpcClient.
+     * <p>
      * Note this constructor does NOT call Session.loginWithPassword; the programmer is responsible for calling it,
      * passing the Connection as a parameter. No attempt to connect to the server is made until login is called.
-     *
+     * <p>
      * When this constructor is used, a call to dispose() will do nothing. The programmer is responsible for manually
      * logging out the Session.
      *
-     * This constructor uses the default values of the reply and connection timeouts for the xmlrpc calls
-     * (600 seconds and 5 seconds respectively).
-     *
-     * @param url The URL of the server to connect to
+     * @param jsonRpcClient The JsonRpcClient used to connect to the JSON-RPC backed.
      */
-    public Connection(URL url)
-    {
-        this.client = getClientFromURL(url, DEFAULT_REPLY_TIMEOUT, DEFAULT_CONNECTION_TIMEOUT);
+    public Connection(JsonRpcClient jsonRpcClient) {
+        this.client = jsonRpcClient;
     }
 
     /**
      * Creates a connection to a particular server using a given url. This object can then be passed
      * in to any other API calls.
-     *
+     * <p>
      * Note this constructor does NOT call Session.loginWithPassword; the programmer is responsible for calling it,
      * passing the Connection as a parameter. No attempt to connect to the server is made until login is called.
-     *
+     * <p>
      * When this constructor is used, a call to dispose() will do nothing. The programmer is responsible for manually
      * logging out the Session.
      *
-     * @param url The URL of the server to connect to
-     * @param replyTimeout The reply timeout for xml-rpc calls in seconds
-     * @param connTimeout The connection timeout for xml-rpc calls in seconds
+     * @param httpClient     The HttpClient used to make calls, this will be used by JsonRpcClient for handling requests
+     * @param url            The URL of the server to connect to. Should be of the form http(s)://host-url./jsonrpc or http(s)://host-url.
+     * @param requestTimeout The reply timeout for JSON-RPC calls in seconds
      */
-    public Connection(URL url, int replyTimeout, int connTimeout)
-    {
-        this.client = getClientFromURL(url, replyTimeout, connTimeout);
+    public Connection(CloseableHttpClient httpClient, URL url, int requestTimeout) {
+        this.client = new JsonRpcClient(httpClient, url, requestTimeout);
     }
-
 
     /**
      * Creates a connection to a particular server using a given url. This object can then be passed
      * in to any other API calls.
-     *
-     * This constructor uses the default values of the reply and connection timeouts for the xmlrpc calls
+     * <p>
+     * Note this constructor does NOT call Session.loginWithPassword; the programmer is responsible for calling it,
+     * passing the Connection as a parameter. No attempt to connect to the server is made until login is called.
+     * <p>
+     * When this constructor is used, a call to dispose() will do nothing. The programmer is responsible for manually
+     * logging out the Session.
+     * <p>
+     * This constructor uses the default values of the reply and connection timeouts for the JSON-RPC calls
      * (600 seconds and 5 seconds respectively).
      *
-     * @param url The URL of the server to connect to
+     * @param url The URL of the server to connect to. Should be of the form http(s)://host-url./jsonrpc or http(s)://host-url.
+     */
+    public Connection(URL url) {
+        this.client = new JsonRpcClient(url);
+    }
+
+    /**
+     * Creates a connection to a particular server using a given url. This object can then be passed
+     * in to any other API calls.
+     * <p>
+     * Note this constructor does NOT call Session.loginWithPassword; the programmer is responsible for calling it,
+     * passing the Connection as a parameter. No attempt to connect to the server is made until login is called.
+     * <p>
+     * When this constructor is used, a call to dispose() will do nothing. The programmer is responsible for manually
+     * logging out the Session.
+     *
+     * @param url               The URL of the server to connect to. Should be of the form http(s)://host-url./jsonrpc or http(s)://host-url.
+     * @param requestTimeout    The reply timeout for JSON-RPC calls in seconds
+     * @param connectionTimeout The connection timeout for JSON-RPC calls in seconds
+     */
+    public Connection(URL url, int requestTimeout, int connectionTimeout) {
+        this.client = new JsonRpcClient(url, requestTimeout, connectionTimeout);
+    }
+
+    /**
+     * Creates a connection to a particular server using a given url. This object can then be passed
+     * in to any other API calls.
+     * <p>
+     * Note this constructor does NOT call Session.loginWithPassword; the programmer is responsible for calling it,
+     * passing the Connection as a parameter. No attempt to connect to the server is made until login is called.
+     * <p>
+     * When this constructor is used, a call to dispose() will do nothing. The programmer is responsible for manually
+     * logging out the Session.
+     * <p>
+     * This constructor uses the default values of the reply and connection timeouts for the JSON-RPC calls
+     * (600 seconds and 5 seconds respectively).
+     *
+     * @param url              The URL of the server to connect to. Should be of the form http(s)://host-url./jsonrpc or http(s)://host-url.
      * @param sessionReference A reference to a logged-in Session. Any method calls on this
-     * Connection will use it. This constructor does not call Session.loginWithPassword, and dispose() on the resulting
-     * Connection object does not call Session.logout. The programmer is responsible for ensuring the Session is logged
-     * in and out correctly.
+     *                         Connection will use it. This constructor does not call Session.loginWithPassword, and dispose() on the resulting
+     *                         Connection object does not call Session.logout. The programmer is responsible for ensuring the Session is logged
+     *                         in and out correctly.
      */
-    public Connection(URL url, String sessionReference)
-    {
-        this.client = getClientFromURL(url, DEFAULT_REPLY_TIMEOUT, DEFAULT_CONNECTION_TIMEOUT);
+    public Connection(URL url, String sessionReference) {
+        this.client = new JsonRpcClient(url);
         this.sessionReference = sessionReference;
     }
 
     /**
      * Creates a connection to a particular server using a given url. This object can then be passed
      * in to any other API calls.
+     * <p>
+     * Note this constructor does NOT call Session.loginWithPassword; the programmer is responsible for calling it,
+     * passing the Connection as a parameter. No attempt to connect to the server is made until login is called.
+     * <p>
+     * When this constructor is used, a call to dispose() will do nothing. The programmer is responsible for manually
+     * logging out the Session.
      *
-     * @param url The URL of the server to connect to
-     * @param sessionReference A reference to a logged-in Session. Any method calls on this Connection will use it.
-     *                         This constructor does not call Session.loginWithPassword, and dispose() on the resulting
-     *                         Connection object does not call Session.logout. The programmer is responsible for
-     *                         ensuring the Session is logged in and out correctly.
-     * @param replyTimeout The reply timeout for xml-rpc calls in seconds
-     * @param connTimeout The connection timeout for xml-rpc calls in seconds
+     * @param url               The URL of the server to connect to. Should be of the form http(s)://host-url./jsonrpc or http(s)://host-url.
+     * @param sessionReference  A reference to a logged-in Session. Any method calls on this Connection will use it.
+     *                          This constructor does not call Session.loginWithPassword, and dispose() on the resulting
+     *                          Connection object does not call Session.logout. The programmer is responsible for
+     *                          ensuring the Session is logged in and out correctly.
+     * @param requestTimeout    The reply timeout for JSON-RPC calls in seconds
+     * @param connectionTimeout The connection timeout for JSON-RPC calls in seconds
      */
-    public Connection(URL url, String sessionReference, int replyTimeout, int connTimeout)
-    {
-        this.client = getClientFromURL(url, replyTimeout, connTimeout);
+    public Connection(URL url, String sessionReference, int requestTimeout, int connectionTimeout) {
+        this.client = new JsonRpcClient(url, requestTimeout, connectionTimeout);
         this.sessionReference = sessionReference;
     }
 
-    private XmlRpcClientConfigImpl config = new XmlRpcClientConfigImpl();
-
-    public XmlRpcClientConfigImpl getConfig()
-    {
-        return config;
+    /**
+     * Updated when Session.login_with_password() is called.
+     */
+    public APIVersion getAPIVersion() {
+        return apiVersion;
     }
 
-    private XmlRpcClient getClientFromURL(URL url, int replyWait, int connWait)
-    {
-        config.setTimeZone(TimeZone.getTimeZone("UTC"));
-        config.setServerURL(url);
-        config.setReplyTimeout(replyWait * 1000);
-        config.setConnectionTimeout(connWait * 1000);
-        XmlRpcClient client = new XmlRpcClient();
-        client.setConfig(config);
-        return client;
+    private void setAPIVersion(Session session) throws IOException {
+        try {
+            long major = session.getThisHost(this).getAPIVersionMajor(this);
+            long minor = session.getThisHost(this).getAPIVersionMajor(this);
+            apiVersion = APIVersion.fromMajorMinor(major, minor);
+        } catch (BadServerResponse exn) {
+            apiVersion = APIVersion.UNKNOWN;
+        }
     }
 
     /*
      * Because the binding calls are constructing their own parameter lists, they need to be able to get to
      * the session reference directly. This is all rather ugly and needs redone
-     * Changed to public to allow easier integration with HTTP-level streaming interface,
-     * see CA-15447
+     * CA-15447: Changed to public in order to allow easier integration with HTTP-level streaming interface,
      */
-    public String getSessionReference()
-    {
+    public String getSessionReference() {
         return this.sessionReference;
     }
 
     /**
-     * The (auto-generated parts of) the bindings dispatch XMLRPC calls on this Connection's client through this method.
+     * Send a method call to xapi's backend. You need to provide the type of the data returned by a successful response.
+     *
+     * @param methodCall            the JSON-RPC xapi method call. e.g.: session.login_with_password
+     * @param methodParameters      the methodParameters of the method call
+     * @param responseTypeReference the type of the response, wrapped with a TypeReference
+     * @param <T>                   The type of the response's payload. For instance, an array of VMs is expected when calling VM.get_all_records
+     * @return The result of the call with the type specified under T.
+     * @throws XenAPIException         if the call failed.
+     * @throws JsonProcessingException if the request's payload or the response's payload cannot be written or read as valid JSON
+     * @throws IOException             if an I/O error occurs when sending or receiving
      */
-    protected Map dispatch(String method_call, Object[] method_params) throws XmlRpcException, XenAPIException
-    {
-        Map response = (Map) client.execute(method_call, method_params);
+    public <T> T dispatch(String methodCall, Object[] methodParameters, TypeReference<T> responseTypeReference) throws XenAPIException, JsonProcessingException, IOException {
+        var result = client.sendRequest(methodCall, methodParameters, responseTypeReference);
+        if (result.error != null) {
+            throw new XenAPIException(String.valueOf(result.error));
+        }
 
-        if (method_call.equals("session.login_with_password") &&
-            response.get("Status").equals("Success"))
-        {
-            Session session = Types.toSession(response.get("Value"));
+        if (methodCall.equals("session.login_with_password")) {
+            var session = ((Session) result.result);
             sessionReference = session.ref;
             setAPIVersion(session);
-        }
-        else if (method_call.equals("session.slave_local_login_with_password") &&
-                 response.get("Status").equals("Success"))
-        {
-            sessionReference = Types.toSession(response.get("Value")).ref;
+        } else if (methodCall.equals("session.slave_local_login_with_password")) {
+            var session = ((Session) result.result);
+            sessionReference = session.ref;
             apiVersion = APIVersion.latest();
         }
-        else if (method_call.equals("session.logout"))
-        {
-            // Work around a bug in XenServer 5.0 and below.
-            // session.login_with_password should have rejected us with
-            // HOST_IS_SLAVE, but instead we don't find out until later.
-            // We don't want to leak the session, so we need to log out
-            // this session from the master instead.
-            if (response.get("Status").equals("Failure"))
-            {
-                Object[] error = (Object[]) response.get("ErrorDescription");
-                if (error.length == 2 && error[0].equals("HOST_IS_SLAVE"))
-                {
-                    try
-                    {
-                        XmlRpcHttpClientConfig clientConfig = (XmlRpcHttpClientConfig)client.getClientConfig();
-                        URL client_url = clientConfig.getServerURL();
-                        URL masterUrl = new URL(client_url.getProtocol(), (String)error[1], client_url.getPort(), client_url.getFile());
 
-                        Connection tmp_conn = new Connection(masterUrl, sessionReference, clientConfig.getReplyTimeout(), clientConfig.getConnectionTimeout());
-
-                        Session.logout(tmp_conn);
-                    }
-                    catch (Exception ex)
-                    {
-                        // Ignore
-                    }
-                }
-            }
-
-            this.sessionReference = null;
-        }
-
-        return Types.checkResponse(response);
+        return result.result;
     }
 
-
-    private void setAPIVersion(Session session) throws XenAPIException, XmlRpcException
-    {
-        try
-        {
-            long major = session.getThisHost(this).getAPIVersionMajor(this);
-            long minor = session.getThisHost(this).getAPIVersionMinor(this);
-            apiVersion = APIVersion.fromMajorMinor(major, minor);
-        }
-        catch (BadServerResponse exn)
-        {
-            apiVersion = APIVersion.UNKNOWN;
-        }
+    /**
+     * Send a method call to xapi's backend. To be used with methods without a return type
+     *
+     * @param methodCall       the JSON-RPC xapi method call. e.g.: session.login_with_password
+     * @param methodParameters the methodParameters of the method call
+     * @throws XenAPIException         if the call failed.
+     * @throws JsonProcessingException if the request's payload or the response's payload cannot be written or read as valid JSON
+     * @throws IOException             if an I/O error occurs when sending or receiving
+     */
+    public <T> void dispatch(String methodCall, Object[] methodParameters) throws XenAPIException, JsonProcessingException, IOException {
+        var typeReference = new TypeReference<T>() {
+        };
+        this.dispatch(methodCall, methodParameters, typeReference);
     }
 }
