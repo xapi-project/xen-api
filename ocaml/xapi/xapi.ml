@@ -467,6 +467,18 @@ let attempt_pool_hello my_ip =
         [ExnHelper.string_of_exn exn] ;
       Some Temporary
 
+let compare_xapi_version_with_coordinator ~__context =
+  let coordinator_ref = Helpers.get_master ~__context in
+  let coordinator_xapi_ver =
+    Helpers.call_emergency_mode_functions (Pool_role.get_master_address ())
+      (fun rpc session_id ->
+        Client.Client.Host.get_software_version ~rpc ~session_id
+          ~self:coordinator_ref
+        |> List.assoc "xapi_build"
+    )
+  in
+  Xapi_version.compare_version Xapi_version.version coordinator_xapi_ver
+
 (** Bring up the HA system if configured *)
 let start_ha () =
   try Xapi_ha.on_server_restart ()
@@ -1138,7 +1150,16 @@ let server_init () =
               (* Try to say hello to the pool *)
               match attempt_pool_hello ip with
               | None ->
-                  finished := true
+                  if compare_xapi_version_with_coordinator ~__context > 0 then (
+                    error
+                      "xapi version in the host is higher than coordinator, \
+                       will retry after %.0fs just in case xapi in coordinator \
+                       got updated and restarted later"
+                      !Db_globs.permanent_master_failure_retry_interval ;
+                    Thread.delay
+                      !Db_globs.permanent_master_failure_retry_interval
+                  ) else
+                    finished := true
               | Some Temporary ->
                   debug "I think the error is a temporary one, retrying in 5s" ;
                   Thread.delay 5.

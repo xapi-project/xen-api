@@ -23,3 +23,5 @@ val git_id : string
 val xapi_version_major : int
 
 val xapi_version_minor : int
+
+val compare_version : string -> string -> int
