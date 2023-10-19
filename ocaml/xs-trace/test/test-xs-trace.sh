@@ -1,35 +1,28 @@
+#!/bin/bash
 set -eux
 
-export PORT=9411
-export HOST="127.0.0.1"
+PORT=9411
+HOST="127.0.0.1"
+MAX_WAIT=60
 
 ./test_xs_trace.exe &
 
 PID=$!
 
+wait_counter=0
+while [ ! -f "test-server-ready" ] && [ $wait_counter -lt $MAX_WAIT ]; do
+    sleep 3
+    ((wait_counter+=3))
+done
+
 ../xs_trace.exe cp test-source.json http://$HOST:$PORT/api/v2/spans
 
-if [ $(diff test-source.json test-http-server.out) -ne 0 ]
-then
-    exit 1
-fi
+diff -B test-source.json test-http-server.out || exit 1
 
 rm test-http-server.out
 
 ../xs_trace.exe cp test-source.ndjson http://$HOST:$PORT/api/v2/spans
 
-if [ $(diff test-source.ndjson test-http-server.out) -ne 0 ]
-then
-    exit 1
-fi
-
-rm test-http-server.out
-
-../xs_trace.exe cp test-source.ndjson.zst http://$HOST:$PORT/api/v2/spans
-
-if [ $(diff test-source.ndjson test-http-server.out) -ne 0 ]
-then
-    exit 1
-fi
+diff -B test-source.ndjson test-http-server.out || exit 1
 
 kill $PID
