@@ -688,12 +688,15 @@ module Export = struct
       let export ~url json =
         try
           let body = json in
+          (*If host or port is None it will throw a more meaningful error later, so ignore here*)
+          let hostname = match Uri.host url with Some h -> h | None -> "" in
+          let port = match Uri.port url with Some p -> p | None -> 80 in
           let headers =
             Cohttp.Header.of_list
               [
                 ("Content-Type", "application/json")
               ; ("Content-Length", string_of_int (String.length body))
-              ; ("Host", "jaeger.xenrt.citrite.net:9411")
+              ; ("Host", hostname ^ ":" ^ string_of_int port)
               ]
           in
           Open_uri.with_open_uri url (fun fd ->
