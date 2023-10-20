@@ -305,7 +305,7 @@ class API(object):
             combined.update(ds.metadata)
 
         metadata = {"datasources": combined}
-        metadata_json = json.dumps(metadata, sort_keys=True)
+        metadata_json = json.dumps(metadata, sort_keys=True).encode('utf-8')
         metadata_checksum = crc32(metadata_json) & 0xffffffff
 
         self.dest.seek(0)
@@ -320,7 +320,7 @@ class API(object):
             self.dest.write(val)
 
         self.dest.write(pack(">L", len(metadata_json)))
-        self.dest.write(metadata_json.encode())
+        self.dest.write(metadata_json)
         self.dest.flush()
         self.datasources = []
         time.sleep(
