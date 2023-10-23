@@ -887,6 +887,16 @@ let report_tls_verification ~__context =
   let value = Stunnel_client.get_verify_by_default () in
   Db.Host.set_tls_verification_enabled ~__context ~self ~value
 
+let alert_coordinator ~__context ~message ~cls ~obj_uuid ~body =
+  ignore
+    (Helpers.call_api_functions ~__context (fun rpc session_id ->
+         (* we need to create the alert on the *master* so that XenCenter will be able to pick it up *)
+         let name, priority = message in
+         Client.Client.Message.create ~rpc ~session_id ~name ~priority ~cls
+           ~obj_uuid ~body
+     )
+    )
+
 let server_init () =
   let print_server_starting_message () =
     debug "(Re)starting xapi" ;
@@ -962,36 +972,29 @@ let server_init () =
             (* wait 2min before testing for success *)
             if not !Xapi_globs.event_hook_auth_on_xapi_initialize_succeeded then
               (* no success after 2 min *)
-              let obj_uuid = Helpers.get_localhost_uuid () in
               (* CP-729: alert to notify client if internal event hook ext_auth.on_xapi_initialize fails *)
-              ignore
-                (Helpers.call_api_functions ~__context (fun rpc session_id ->
-                     (* we need to create the alert on the *master* so that XenCenter will be able to pick it up *)
-                     let name, priority =
-                       Api_messages.auth_external_init_failed
-                     in
-                     Client.Client.Message.create ~rpc ~session_id ~name
-                       ~priority ~cls:`Host ~obj_uuid
-                       ~body:
-                         ("host_external_auth_type="
-                         ^ auth_type
-                         ^ ", host_external_auth_service_name="
-                         ^ service_name
-                         ^ ", error="
-                         ^
-                         match !last_error with
-                         | None ->
-                             "timeout"
-                         | Some e -> (
-                           match e with
-                           | Auth_signature.Auth_service_error (_, errmsg) ->
-                               errmsg (* this is the expected error msg *)
-                           | e ->
-                               ExnHelper.string_of_exn e (* unknown error msg *)
-                         )
-                         )
-                 )
-                )
+              let obj_uuid = Helpers.get_localhost_uuid () in
+              alert_coordinator ~__context
+                ~message:Api_messages.auth_external_init_failed ~cls:`Host
+                ~obj_uuid
+                ~body:
+                  ("host_external_auth_type="
+                  ^ auth_type
+                  ^ ", host_external_auth_service_name="
+                  ^ service_name
+                  ^ ", error="
+                  ^
+                  match !last_error with
+                  | None ->
+                      "timeout"
+                  | Some e -> (
+                    match e with
+                    | Auth_signature.Auth_service_error (_, errmsg) ->
+                        errmsg (* this is the expected error msg *)
+                    | e ->
+                        ExnHelper.string_of_exn e (* unknown error msg *)
+                  )
+                  )
           )
           ()
       in
@@ -1150,16 +1153,57 @@ let server_init () =
               (* Try to say hello to the pool *)
               match attempt_pool_hello ip with
               | None ->
+                  let obj_uuid = Helpers.get_localhost_uuid () in
+                  let message_name, _ =
+                    Api_messages
+                    .xapi_startup_blocked_as_version_higher_than_coordinator
+                  in
+                  let existing_alerts =
+                    Helpers.call_api_functions ~__context (fun rpc session_id ->
+                        Client.Client.Message.get_all_records ~rpc ~session_id
+                        |> List.filter (fun (_ref, record) ->
+                               record.API.message_obj_uuid = obj_uuid
+                               && record.API.message_name = message_name
+                           )
+                    )
+                  in
                   if compare_xapi_version_with_coordinator ~__context > 0 then (
+                    ( if existing_alerts = [] then
+                        let hostname =
+                          Db.Host.get_hostname ~__context
+                            ~self:(Helpers.get_localhost ~__context)
+                        in
+                        alert_coordinator ~__context
+                          ~message:
+                            Api_messages
+                            .xapi_startup_blocked_as_version_higher_than_coordinator
+                          ~cls:`Host ~obj_uuid
+                          ~body:
+                            ("Xapi startup in pool member "
+                            ^ hostname
+                            ^ " is blocked as its xapi version("
+                            ^ Xapi_version.version
+                            ^ ") is higher than xapi version in pool \
+                               coordinator."
+                            )
+                    ) ;
                     error
-                      "xapi version in the host is higher than coordinator, \
-                       will retry after %.0fs just in case xapi in coordinator \
-                       got updated and restarted later"
+                      "Xapi version in the host is higher than the one in \
+                       coordinator, will retry after %.0fs just in case xapi \
+                       in coordinator got updated and restarted later"
                       !Db_globs.permanent_master_failure_retry_interval ;
                     Thread.delay
                       !Db_globs.permanent_master_failure_retry_interval
-                  ) else
+                  ) else (
+                    Helpers.call_api_functions ~__context (fun rpc session_id ->
+                        existing_alerts
+                        |> List.iter (fun (self, _) ->
+                               Client.Client.Message.destroy ~rpc ~session_id
+                                 ~self
+                           )
+                    ) ;
                     finished := true
+                  )
               | Some Temporary ->
                   debug "I think the error is a temporary one, retrying in 5s" ;
                   Thread.delay 5.
