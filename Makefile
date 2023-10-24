@@ -119,7 +119,7 @@ install: build doc sdk doc-json
 # ocaml/perftest
 	scripts/install.sh 755 _build/install/default/bin/perftest $(DESTDIR)$(OPTDIR)/debug/perftest
 # ocaml/suspend-image-viewer
-	scripts/install.sh 755 _build/install/default/bin/perftest $(DESTDIR)$(OPTDIR)/debug/suspend-image-viewer
+	scripts/install.sh 755 _build/install/default/bin/suspend-image-viewer $(DESTDIR)$(OPTDIR)/debug/suspend-image-viewer
 # ocaml/mpathalert
 	scripts/install.sh 755 _build/install/default/bin/mpathalert $(DESTDIR)$(OPTDIR)/bin/mpathalert
 # ocaml/license
