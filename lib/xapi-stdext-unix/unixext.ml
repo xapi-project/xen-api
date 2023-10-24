@@ -34,6 +34,28 @@ let mkdir_rec dir perm =
     mkdir_safe dir perm in
   p_mkdir dir
 
+(** removes a file or recursively removes files/directories below a directory without following
+    symbolic links. If path is a directory, it is only itself removed if rm_top is true. If path
+    is non-existent nothing happens, it does not lead to an error. *)
+let rm_rec ?(rm_top = true) path =
+  let ( // ) = Filename.concat in
+  let rec rm rm_top path =
+    match Unix.lstat path with
+    | exception Unix.Unix_error (Unix.ENOENT, _, _) ->
+        () (*noop*)
+    | exception e ->
+        raise e
+    | st -> (
+      match st.Unix.st_kind with
+      | Unix.S_DIR ->
+          Sys.readdir path |> Array.iter (fun file -> rm true (path // file)) ;
+          if rm_top then Unix.rmdir path
+      | _ ->
+          Unix.unlink path
+    )
+  in
+  rm rm_top path
+
 (** write a pidfile file *)
 let pidfile_write filename =
   let fd = Unix.openfile filename

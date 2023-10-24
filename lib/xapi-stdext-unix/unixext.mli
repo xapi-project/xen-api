@@ -17,6 +17,12 @@ val _exit : int -> unit
 val unlink_safe : string -> unit
 val mkdir_safe : string -> Unix.file_perm -> unit
 val mkdir_rec : string -> Unix.file_perm -> unit
+
+(** removes a file or recursively removes files/directories below a directory without following
+    symbolic links. If path is a directory, it is only itself removed if rm_top is true. If path
+    is non-existent nothing happens, it does not lead to an error. *)
+val rm_rec : ?rm_top:bool -> string -> unit
+
 val pidfile_write : string -> unit
 val pidfile_read : string -> int option
 val daemonize : unit -> unit
