@@ -228,7 +228,7 @@ end = struct
         ) ;
         raise_internal ~e "write_certs_fs: failed to write certs"
     ) ;
-    try rmrf pool_certs_bk
+    try Xapi_stdext_unix.Unixext.rm_rec pool_certs_bk
     with e ->
       D.debug "write_certs_fs: ignoring failed to remove %s. exception: %s"
         pool_certs_bk (Printexc.to_string e)

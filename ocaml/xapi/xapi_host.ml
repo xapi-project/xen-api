@@ -2748,14 +2748,14 @@ let write_uefi_certificates_to_disk ~__context ~host =
   let with_valid_symlink ~from_path ~to_path fn =
     debug "override_uefi_certs: with_valid_symlink %s->%s" from_path to_path ;
     if Helpers.FileSys.realpathm from_path <> to_path then (
-      Helpers.FileSys.rmrf ~rm_top:true from_path ;
+      Xapi_stdext_unix.Unixext.rm_rec ~rm_top:true from_path ;
       Unix.symlink to_path from_path
     ) ;
     fn from_path
   in
   let with_empty_dir path fn =
     debug "override_uefi_certs: with_empty_dir %s" path ;
-    Helpers.FileSys.rmrf ~rm_top:false path ;
+    Xapi_stdext_unix.Unixext.rm_rec ~rm_top:false path ;
     Unixext.mkdir_rec path 0o755 ;
     fn path
   in

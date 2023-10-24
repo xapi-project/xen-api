@@ -890,7 +890,7 @@ let clear_local_resources () : unit =
     (* Erase secrets database before clear the files *)
     Helpers.call_script tdb_tool [secrets_tdb; "erase"] |> ignore ;
     (* Clean local resource files *)
-    Helpers.FileSys.rmrf ~rm_top:false folder ;
+    Xapi_stdext_unix.Unixext.rm_rec ~rm_top:false folder ;
     debug "Succeed to clear local winbind resources"
   with e ->
     let msg = "Failed to clear local samba resources" in

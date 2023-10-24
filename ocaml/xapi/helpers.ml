@@ -1436,25 +1436,6 @@ let force_loopback_vbd ~__context =
    about this. *)
 let compute_hash () = ""
 
-(** [rmtree path] removes a file or directory recursively without following
-    symbolic links. It may raise [Failure] *)
-let rmtree path =
-  let ( // ) = Filename.concat in
-  let rec rm path =
-    let st = Unix.lstat path in
-    match st.Unix.st_kind with
-    | Unix.S_DIR ->
-        Sys.readdir path |> Array.iter (fun file -> rm (path // file)) ;
-        Unix.rmdir path
-    | _ ->
-        Unix.unlink path
-  in
-  try if Sys.file_exists path then rm path
-  with exn ->
-    let exn' = Printexc.to_string exn in
-    let msg = Printf.sprintf "failed to remove %s: %s" path exn' in
-    failwith msg
-
 let resolve_uri_path ~root ~uri_path =
   uri_path
   |> Filename.concat root
@@ -2006,8 +1987,6 @@ module FileSys : sig
 
   val realpathm : path -> path
 
-  val rmrf : ?rm_top:bool -> path -> unit
-
   val mv : src:path -> dest:path -> unit
 
   val cpr : src:path -> dest:path -> unit
@@ -2017,28 +1996,6 @@ end = struct
   type path = string
 
   let realpathm path = try Unix.readlink path with _ -> path
-
-  let rmrf ?(rm_top = true) path =
-    let ( // ) = Filename.concat in
-    let rec rm rm_top path =
-      match Unix.lstat path with
-      | exception Unix.Unix_error (Unix.ENOENT, _, _) ->
-          () (*noop*)
-      | exception e ->
-          raise e
-      | st -> (
-        match st.Unix.st_kind with
-        | Unix.S_DIR ->
-            Sys.readdir path |> Array.iter (fun file -> rm true (path // file)) ;
-            if rm_top then Unix.rmdir path
-        | _ ->
-            Unix.unlink path
-      )
-    in
-    try rm rm_top path
-    with e ->
-      error "failed to remove %s" path ;
-      raise e
 
   let mv ~src ~dest =
     try Sys.rename src dest

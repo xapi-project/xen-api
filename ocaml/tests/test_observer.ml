@@ -269,18 +269,9 @@ let is_dir_empty ~test_trace_log_dir =
     debug "%s" (Printexc.to_string e) ;
     true
 
-let rec rmdir_rec path =
-  match Sys.is_directory path with
-  | true ->
-      Sys.readdir path
-      |> Array.iter (fun name -> rmdir_rec (Filename.concat path name)) ;
-      Unix.rmdir path
-  | false ->
-      Sys.remove path
-
 let clear_dir ~test_trace_log_dir () =
   try
-    rmdir_rec test_trace_log_dir ;
+    Xapi_stdext_unix.Unixext.rm_rec test_trace_log_dir ;
     Alcotest.(check bool)
       "log dir successfully cleared" true
       (is_dir_empty ~test_trace_log_dir)
