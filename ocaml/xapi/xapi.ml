@@ -479,7 +479,6 @@ let attempt_host_status_check_with_coordinator ~__context my_ip =
                     Api_messages
                     .xapi_startup_blocked_as_version_higher_than_coordinator
                   in
-                  debug "xapi version NOT ok, send alert" ;
                   ignore
                     (Client.Client.Message.create ~rpc ~session_id ~name
                        ~priority ~cls:`Host ~obj_uuid
@@ -498,7 +497,6 @@ let attempt_host_status_check_with_coordinator ~__context my_ip =
             ) else (
               existing_alerts
               |> List.iter (fun (self, _) ->
-                     debug "xapi version ok, remove existing_alerts" ;
                      Client.Client.Message.destroy ~rpc ~session_id ~self
                  ) ;
               None
