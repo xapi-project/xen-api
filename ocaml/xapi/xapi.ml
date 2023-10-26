@@ -417,14 +417,17 @@ let wait_for_management_ip_address ~__context =
   ) ;
   ip
 
-type hello_error =
+type host_status_check_error =
   | Permanent (* e.g. the pool secret is wrong i.e. wrong master *)
   | Temporary
 
 (* some glitch or other *)
 
-(** Attempt a Pool.hello, return None if ok or Some hello_error otherwise *)
-let attempt_pool_hello my_ip =
+(** Attempt checking host status with pool coordinator:
+ *  1. Pool.hello
+ *  2. if Pool.hello ok, check xapi version
+ *  Return None if ok or Some host_status_check_error otherwise *)
+let attempt_host_status_check_with_coordinator ~__context my_ip =
   let localhost_uuid = Helpers.get_localhost_uuid () in
   try
     Helpers.call_emergency_mode_functions (Pool_role.get_master_address ())
@@ -444,7 +447,62 @@ let attempt_pool_hello my_ip =
               [localhost_uuid] ;
             Some Permanent
         | `ok ->
-            None
+            let obj_uuid = Helpers.get_localhost_uuid () in
+            let message_name, _ =
+              Api_messages
+              .xapi_startup_blocked_as_version_higher_than_coordinator
+            in
+            let existing_alerts =
+              Client.Client.Message.get_all_records ~rpc ~session_id
+              |> List.filter (fun (_ref, record) ->
+                     record.API.message_obj_uuid = obj_uuid
+                     && record.API.message_name = message_name
+                 )
+            in
+            let compare_xapi_version_with_coordinator ~__context =
+              let coordinator_ref = Helpers.get_master ~__context in
+              let coordinator_xapi_ver =
+                Client.Client.Host.get_software_version ~rpc ~session_id
+                  ~self:coordinator_ref
+                |> List.assoc "xapi_build"
+              in
+              Xapi_version.compare_version Xapi_version.version
+                coordinator_xapi_ver
+            in
+            if compare_xapi_version_with_coordinator ~__context > 0 then (
+              ( if existing_alerts = [] then
+                  let hostname =
+                    Db.Host.get_hostname ~__context
+                      ~self:(Helpers.get_localhost ~__context)
+                  in
+                  let name, priority =
+                    Api_messages
+                    .xapi_startup_blocked_as_version_higher_than_coordinator
+                  in
+                  debug "xapi version NOT ok, send alert" ;
+                  ignore
+                    (Client.Client.Message.create ~rpc ~session_id ~name
+                       ~priority ~cls:`Host ~obj_uuid
+                       ~body:
+                         ("Xapi startup in pool member "
+                         ^ hostname
+                         ^ " is blocked as its xapi version("
+                         ^ Xapi_version.version
+                         ^ ") is higher than xapi version in pool coordinator."
+                         )
+                    )
+              ) ;
+              error
+                "Xapi version in the host is higher than the one in coordinator" ;
+              Some Permanent
+            ) else (
+              existing_alerts
+              |> List.iter (fun (self, _) ->
+                     debug "xapi version ok, remove existing_alerts" ;
+                     Client.Client.Message.destroy ~rpc ~session_id ~self
+                 ) ;
+              None
+            )
     )
   with
   | Api_errors.Server_error (code, _)
@@ -456,28 +514,16 @@ let attempt_pool_hello my_ip =
         [localhost_uuid] ;
       Some Permanent
   | Api_errors.Server_error (code, params) as exn ->
-      debug "Caught exception: %s during Pool.hello"
+      debug "Caught exception: %s in attempt_host_status_check_with_coordinator"
         (ExnHelper.string_of_exn exn) ;
       Xapi_host.set_emergency_mode_error code params ;
       Some Temporary
   | exn ->
-      debug "Caught exception: %s during Pool.hello"
+      debug "Caught exception: %s in attempt_host_status_check_with_coordinator"
         (ExnHelper.string_of_exn exn) ;
       Xapi_host.set_emergency_mode_error Api_errors.internal_error
         [ExnHelper.string_of_exn exn] ;
       Some Temporary
-
-let compare_xapi_version_with_coordinator ~__context =
-  let coordinator_ref = Helpers.get_master ~__context in
-  let coordinator_xapi_ver =
-    Helpers.call_emergency_mode_functions (Pool_role.get_master_address ())
-      (fun rpc session_id ->
-        Client.Client.Host.get_software_version ~rpc ~session_id
-          ~self:coordinator_ref
-        |> List.assoc "xapi_build"
-    )
-  in
-  Xapi_version.compare_version Xapi_version.version coordinator_xapi_ver
 
 (** Bring up the HA system if configured *)
 let start_ha () =
@@ -887,16 +933,6 @@ let report_tls_verification ~__context =
   let value = Stunnel_client.get_verify_by_default () in
   Db.Host.set_tls_verification_enabled ~__context ~self ~value
 
-let alert_coordinator ~__context ~message ~cls ~obj_uuid ~body =
-  ignore
-    (Helpers.call_api_functions ~__context (fun rpc session_id ->
-         (* we need to create the alert on the *master* so that XenCenter will be able to pick it up *)
-         let name, priority = message in
-         Client.Client.Message.create ~rpc ~session_id ~name ~priority ~cls
-           ~obj_uuid ~body
-     )
-    )
-
 let server_init () =
   let print_server_starting_message () =
     debug "(Re)starting xapi" ;
@@ -972,29 +1008,36 @@ let server_init () =
             (* wait 2min before testing for success *)
             if not !Xapi_globs.event_hook_auth_on_xapi_initialize_succeeded then
               (* no success after 2 min *)
-              (* CP-729: alert to notify client if internal event hook ext_auth.on_xapi_initialize fails *)
               let obj_uuid = Helpers.get_localhost_uuid () in
-              alert_coordinator ~__context
-                ~message:Api_messages.auth_external_init_failed ~cls:`Host
-                ~obj_uuid
-                ~body:
-                  ("host_external_auth_type="
-                  ^ auth_type
-                  ^ ", host_external_auth_service_name="
-                  ^ service_name
-                  ^ ", error="
-                  ^
-                  match !last_error with
-                  | None ->
-                      "timeout"
-                  | Some e -> (
-                    match e with
-                    | Auth_signature.Auth_service_error (_, errmsg) ->
-                        errmsg (* this is the expected error msg *)
-                    | e ->
-                        ExnHelper.string_of_exn e (* unknown error msg *)
-                  )
-                  )
+              (* CP-729: alert to notify client if internal event hook ext_auth.on_xapi_initialize fails *)
+              ignore
+                (Helpers.call_api_functions ~__context (fun rpc session_id ->
+                     (* we need to create the alert on the *master* so that XenCenter will be able to pick it up *)
+                     let name, priority =
+                       Api_messages.auth_external_init_failed
+                     in
+                     Client.Client.Message.create ~rpc ~session_id ~name
+                       ~priority ~cls:`Host ~obj_uuid
+                       ~body:
+                         ("host_external_auth_type="
+                         ^ auth_type
+                         ^ ", host_external_auth_service_name="
+                         ^ service_name
+                         ^ ", error="
+                         ^
+                         match !last_error with
+                         | None ->
+                             "timeout"
+                         | Some e -> (
+                           match e with
+                           | Auth_signature.Auth_service_error (_, errmsg) ->
+                               errmsg (* this is the expected error msg *)
+                           | e ->
+                               ExnHelper.string_of_exn e (* unknown error msg *)
+                         )
+                         )
+                 )
+                )
           )
           ()
       in
@@ -1150,67 +1193,20 @@ let server_init () =
               debug "Start master_connection watchdog" ;
               ignore (Master_connection.start_master_connection_watchdog ()) ;
               debug "Attempting to communicate with master" ;
-              (* Try to say hello to the pool *)
-              match attempt_pool_hello ip with
+              (* Try to check host status with the pool *)
+              match
+                attempt_host_status_check_with_coordinator ~__context ip
+              with
               | None ->
-                  let obj_uuid = Helpers.get_localhost_uuid () in
-                  let message_name, _ =
-                    Api_messages
-                    .xapi_startup_blocked_as_version_higher_than_coordinator
-                  in
-                  let existing_alerts =
-                    Helpers.call_api_functions ~__context (fun rpc session_id ->
-                        Client.Client.Message.get_all_records ~rpc ~session_id
-                        |> List.filter (fun (_ref, record) ->
-                               record.API.message_obj_uuid = obj_uuid
-                               && record.API.message_name = message_name
-                           )
-                    )
-                  in
-                  if compare_xapi_version_with_coordinator ~__context > 0 then (
-                    ( if existing_alerts = [] then
-                        let hostname =
-                          Db.Host.get_hostname ~__context
-                            ~self:(Helpers.get_localhost ~__context)
-                        in
-                        alert_coordinator ~__context
-                          ~message:
-                            Api_messages
-                            .xapi_startup_blocked_as_version_higher_than_coordinator
-                          ~cls:`Host ~obj_uuid
-                          ~body:
-                            ("Xapi startup in pool member "
-                            ^ hostname
-                            ^ " is blocked as its xapi version("
-                            ^ Xapi_version.version
-                            ^ ") is higher than xapi version in pool \
-                               coordinator."
-                            )
-                    ) ;
-                    error
-                      "Xapi version in the host is higher than the one in \
-                       coordinator, will retry after %.0fs just in case xapi \
-                       in coordinator got updated and restarted later"
-                      !Db_globs.permanent_master_failure_retry_interval ;
-                    Thread.delay
-                      !Db_globs.permanent_master_failure_retry_interval
-                  ) else (
-                    Helpers.call_api_functions ~__context (fun rpc session_id ->
-                        existing_alerts
-                        |> List.iter (fun (self, _) ->
-                               Client.Client.Message.destroy ~rpc ~session_id
-                                 ~self
-                           )
-                    ) ;
-                    finished := true
-                  )
+                  finished := true
               | Some Temporary ->
                   debug "I think the error is a temporary one, retrying in 5s" ;
                   Thread.delay 5.
               | Some Permanent ->
                   error
-                    "Permanent error in Pool.hello, will retry after %.0fs \
-                     just in case"
+                    "Permanent error in \
+                     attempt_host_status_check_with_coordinator, will retry \
+                     after %.0fs just in case"
                     !Db_globs.permanent_master_failure_retry_interval ;
                   Thread.delay !Db_globs.permanent_master_failure_retry_interval
             done ;
