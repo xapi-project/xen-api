@@ -135,3 +135,5 @@ let really_pretty_and_small x =
       "O:" ^ Astring.String.with_range ~len:12 x
   | Null ->
       "NULL"
+
+let pp ppf x = Format.fprintf ppf "%s" (string_of x)
