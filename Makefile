@@ -6,7 +6,7 @@ JOBS = $(shell getconf _NPROCESSORS_ONLN)
 PROFILE=release
 OPTMANDIR ?= $(OPTDIR)/man/man1/
 
-.PHONY: build clean test doc python format install uninstall
+.PHONY: build clean test doc python typescript format install uninstall
 
 # if we have XAPI_VERSION set then set it in dune-project so we use that version number instead of the one obtained from git
 # this is typically used when we're not building from a git repo
@@ -71,16 +71,18 @@ sdk:
 	mkdir -p $(XAPISDK)/java
 	mkdir -p $(XAPISDK)/powershell
 	mkdir -p $(XAPISDK)/python
+	mkdir -p $(XAPISDK)/typescript
 	cp -r _build/default/ocaml/sdk-gen/c/autogen/* $(XAPISDK)/c
 	cp -r _build/default/ocaml/sdk-gen/csharp/autogen/* $(XAPISDK)/csharp
 	cp -r _build/default/ocaml/sdk-gen/java/autogen/* $(XAPISDK)/java
 	cp -r _build/default/ocaml/sdk-gen/powershell/autogen/* $(XAPISDK)/powershell
 	cp scripts/examples/python/XenAPI/XenAPI.py $(XAPISDK)/python
+	cp scripts/examples/typescript/src/XenAPI.ts $(XAPISDK)/typescript
 	sh ocaml/sdk-gen/windows-line-endings.sh $(XAPISDK)/csharp
 	sh ocaml/sdk-gen/windows-line-endings.sh $(XAPISDK)/powershell
 
-python:
-	$(MAKE) -C scripts/examples/python build
+python typescript:
+	$(MAKE) -C scripts/examples/$@ build
 
 doc-json:
 	dune exec --profile=$(PROFILE) -- ocaml/idl/json_backend/gen_json.exe -destdir $(XAPIDOC)/jekyll
