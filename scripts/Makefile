@@ -168,9 +168,11 @@ install:
 	$(IPROG) host-backup-restore/host-backup $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) host-backup-restore/host-restore $(DESTDIR)$(LIBEXECDIR)
 # example/python
+ifneq ($(BUILD_PY2), NO)
 	$(IDATA) examples/python/XenAPIPlugin.py $(DESTDIR)$(SITE_DIR)/
 	$(IDATA) examples/python/XenAPI/XenAPI.py $(DESTDIR)$(SITE_DIR)/
 	$(IDATA) examples/python/inventory.py $(DESTDIR)$(SITE_DIR)/
+endif
 	$(IDATA) examples/python/XenAPIPlugin.py $(DESTDIR)$(SITE3_DIR)/
 	sed -i 's/#!\/usr\/bin\/python/#!\/usr\/bin\/python3/' $(DESTDIR)$(SITE3_DIR)/XenAPIPlugin.py
 	$(IDATA) examples/python/XenAPI/XenAPI.py $(DESTDIR)$(SITE3_DIR)/
