@@ -1611,3 +1611,13 @@ let set_NVRAM_EFI_variables ~__context ~self ~value =
       let value = (key, value) :: List.remove_assoc key nvram in
       Db.VM.set_NVRAM ~__context ~self ~value
   )
+
+let restart_device_models ~__context ~self =
+  let host = Db.VM.get_resident_on ~__context ~self in
+  (* As it is implemented as a localhost migration, just reuse message
+   * forwarding of "pool_migrate" to handle "allowed operation" and "message
+   * routing" *)
+  Helpers.call_api_functions ~__context (fun rpc session_id ->
+      Client.VM.pool_migrate ~rpc ~session_id ~vm:self ~host
+        ~options:[("live", "true")]
+  )

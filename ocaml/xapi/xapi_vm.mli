@@ -420,3 +420,5 @@ val set_HVM_boot_policy :
 
 val set_NVRAM_EFI_variables :
   __context:Context.t -> self:API.ref_VM -> value:string -> unit
+
+val restart_device_models : __context:Context.t -> self:API.ref_VM -> unit

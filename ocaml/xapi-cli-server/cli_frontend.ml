@@ -1570,6 +1570,15 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; flags= [Standard; Vm_selectors]
       }
     )
+  ; ( "vm-restart-device-models"
+    , {
+        reqd= []
+      ; optn= []
+      ; help= "Restart device models of a VM."
+      ; implementation= No_fd Cli_operations.vm_restart_device_models
+      ; flags= [Standard; Vm_selectors]
+      }
+    )
   ; ( "vm-pause"
     , {
         reqd= []

@@ -3815,6 +3815,15 @@ let vm_resume printer rpc session_id params =
        params ["on"; "progress"]
     )
 
+let vm_restart_device_models printer rpc session_id params =
+  ignore
+    (do_vm_op printer rpc session_id
+       (fun vm ->
+         Client.VM.restart_device_models ~rpc ~session_id ~self:(vm.getref ())
+       )
+       params []
+    )
+
 let vm_pause printer rpc session_id params =
   ignore
     (do_vm_op printer rpc session_id
