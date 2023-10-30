@@ -198,8 +198,19 @@ let gen_param_groups message params =
     )
 
 and get_minimum_allowed_role msg =
-  let get_last_role roles =
-    match List.rev roles with [] -> "Not Applicable" | last :: _ -> last
+  let get_last_role recroles =
+    let reversed_role_list = List.rev recroles in
+    let rec get_role reversed_list =
+      match reversed_list with
+      | [] ->
+          "Not Applicable"
+      | last :: rest ->
+          if not (Datamodel_roles.role_is_internal last) then
+            last
+          else
+            get_role rest
+    in
+    get_role reversed_role_list
   in
   match msg.msg_allowed_roles with
   | None ->

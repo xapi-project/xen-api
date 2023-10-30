@@ -134,16 +134,7 @@ let writer_role name nroles =
         )
   in
   let role_is_internal =
-    try
-      List.assoc role_name_label Datamodel_roles.role_is_internal
-      |> string_of_bool
-    with Not_found ->
-      failwith
-        (Printf.sprintf
-           "Check Datamodel_roles.role_is_internal: there's no is_internal \
-            field set for role %s"
-           role_name_label
-        )
+    Datamodel_roles.role_is_internal role_name_label |> string_of_bool
   in
   Printf.sprintf "let %s = \n  { (* %s *)\n" (role_label name) role_number
   (*^(Printf.sprintf "  role_ref = \"%s\";\n" role_ref)*)
