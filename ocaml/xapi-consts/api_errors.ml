@@ -143,6 +143,9 @@ let host_master_cannot_talk_back = "HOST_MASTER_CANNOT_TALK_BACK"
 
 let host_unknown_to_master = "HOST_UNKNOWN_TO_MASTER"
 
+let host_xapi_version_higher_than_coordinator =
+  "HOST_XAPI_VERSION_HIGHER_THAN_COORDINATOR"
+
 (* should be fenced *)
 let host_broken = "HOST_BROKEN"
 

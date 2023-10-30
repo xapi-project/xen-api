@@ -447,60 +447,24 @@ let attempt_host_status_check_with_coordinator ~__context my_ip =
               [localhost_uuid] ;
             Some Permanent
         | `ok ->
-            let obj_uuid = Helpers.get_localhost_uuid () in
-            let message_name, _ =
-              Api_messages
-              .xapi_startup_blocked_as_version_higher_than_coordinator
-            in
-            let existing_alerts =
-              Client.Client.Message.get_all_records ~rpc ~session_id
-              |> List.filter (fun (_ref, record) ->
-                     record.API.message_obj_uuid = obj_uuid
-                     && record.API.message_name = message_name
-                 )
-            in
             let compare_xapi_version_with_coordinator ~__context =
               let coordinator_ref = Helpers.get_master ~__context in
               let coordinator_xapi_ver =
-                Client.Client.Host.get_software_version ~rpc ~session_id
-                  ~self:coordinator_ref
+                Db.Host.get_software_version ~__context ~self:coordinator_ref
                 |> List.assoc "xapi_build"
               in
               Xapi_version.compare_version Xapi_version.version
                 coordinator_xapi_ver
             in
             if compare_xapi_version_with_coordinator ~__context > 0 then (
-              ( if existing_alerts = [] then
-                  let hostname =
-                    Db.Host.get_hostname ~__context
-                      ~self:(Helpers.get_localhost ~__context)
-                  in
-                  let name, priority =
-                    Api_messages
-                    .xapi_startup_blocked_as_version_higher_than_coordinator
-                  in
-                  ignore
-                    (Client.Client.Message.create ~rpc ~session_id ~name
-                       ~priority ~cls:`Host ~obj_uuid
-                       ~body:
-                         ("Xapi startup in pool member "
-                         ^ hostname
-                         ^ " is blocked as its xapi version("
-                         ^ Xapi_version.version
-                         ^ ") is higher than xapi version in pool coordinator."
-                         )
-                    )
-              ) ;
               error
                 "Xapi version in the host is higher than the one in coordinator" ;
+              Xapi_host.set_emergency_mode_error
+                Api_errors.host_xapi_version_higher_than_coordinator
+                [Xapi_version.version] ;
               Some Permanent
-            ) else (
-              existing_alerts
-              |> List.iter (fun (self, _) ->
-                     Client.Client.Message.destroy ~rpc ~session_id ~self
-                 ) ;
+            ) else
               None
-            )
     )
   with
   | Api_errors.Server_error (code, _)

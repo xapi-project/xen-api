@@ -95,6 +95,7 @@ let local_assert_healthy =
       ; Api_errors.license_restriction
       ; Api_errors.license_does_not_support_pooling
       ; Api_errors.ha_should_be_fenced
+      ; Api_errors.host_xapi_version_higher_than_coordinator
       ]
     ~allowed_roles:_R_LOCAL_ROOT_ONLY ()
 

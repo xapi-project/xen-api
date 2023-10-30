@@ -355,6 +355,3 @@ let tls_verification_emergency_disabled =
   addMessage "TLS_VERIFICATION_EMERGENCY_DISABLED" 3L
 
 let periodic_update_sync_failed = addMessage "PERIODIC_UPDATE_SYNC_FAILED" 3L
-
-let xapi_startup_blocked_as_version_higher_than_coordinator =
-  addMessage "XAPI_STARTUP_BLOCKED_AS_VERSION_HIGHER_THAN_COORDINATOR" 1L
