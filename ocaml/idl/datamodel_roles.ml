@@ -64,7 +64,23 @@ let roles_all = List.map role_name ordered
 
 let role_description = List.map role_name_with_description ordered
 
-let role_is_internal = List.map role_name_with_internal ordered
+let role_is_internal_map = List.map role_name_with_internal ordered
+
+(** Returns true if role_name_label matches that of an internal role.
+@param role_name_label the string representation of the role we're checking.
+@raise Failure if there is no matching field or the field doesn't have a is_internal value.
+*)
+let role_is_internal role_name_label =
+  match List.assoc_opt role_name_label role_is_internal_map with
+  | Some is_internal ->
+      is_internal
+  | None ->
+      failwith
+        (Printf.sprintf
+           "Check Datamodel_roles.role_is_internal: there's no is_internal \
+            field set for role %s"
+           role_name_label
+        )
 
 (* obtain all roles with at least the specified role privileges *)
 let roles_gte role =
