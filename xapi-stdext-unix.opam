@@ -8,12 +8,14 @@ homepage: "https://github.com/xapi-project/stdext"
 bug-reports: "https://github.com/xapi-project/stdext/issues"
 depends: [
   "dune" {>= "2.7"}
-  "ocaml"
+  "ocaml" {>= "4.12.0"}
   "base-unix"
   "fd-send-recv" {>= "2.0.0"}
   "odoc" {with-doc}
   "xapi-stdext-pervasives" {= version}
 ]
+depexts: ["linux-headers"] {os-distribution = "alpine"}
+available: [ os = "macos" | os = "linux" ]
 build: [
   ["dune" "subst"] {dev}
   [
