@@ -1,3 +1,11 @@
+## v4.23.0 (30-Oct-2023)
+- unix: fix blkgetsize return type mismatch (CA-382014)
+- unix: add function to recursively remove files
+
+## v4.22.0 (24-May-2023)
+- date, pervasive, std: remove deprecated code
+- encodings: Optimize XML_UTF8.is_valid: avoid allocating an int32 for each unicode codepoint
+
 ## v4.21.0 (29-Nov-2022)
  - unix: add permissions to write_{bytes,string}_to_file
  - Use a dune version with fixed metadata generation 
