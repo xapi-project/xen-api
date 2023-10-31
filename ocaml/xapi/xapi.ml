@@ -449,14 +449,17 @@ let attempt_host_status_check_with_coordinator ~__context my_ip =
               [localhost_uuid] ;
             Some Permanent
         | `ok ->
-            let compare_xapi_version_with_coordinator ~__context =
-              Xapi_version.compare_version Xapi_version.version
+            let xapi_version_higher version =
+              version |> Xapi_version.compare_version Xapi_version.version
+              |> fun r -> r > 0
+            in
+            if
+              xapi_version_higher
                 (Db.Host.get_software_version ~__context
                    ~self:(Helpers.get_master ~__context)
                 |> List.assoc "xapi_build"
                 )
-            in
-            if compare_xapi_version_with_coordinator ~__context > 0 then (
+            then (
               if not !xapi_ver_high_alerted then (
                 let name_label =
                   Db.Host.get_name_label ~__context
