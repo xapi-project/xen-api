@@ -423,6 +423,94 @@ type host_status_check_error =
 
 (* some glitch or other *)
 
+let xapi_ver_high_alerted = ref false
+
+(** Attempt checking host status with pool coordinator:
+ *  1. Pool.hello
+ *  2. if Pool.hello ok, check xapi version
+ *  Return None if ok or Some host_status_check_error otherwise *)
+let attempt_host_status_check_with_coordinator ~__context my_ip =
+  let localhost_uuid = Helpers.get_localhost_uuid () in
+  try
+    Helpers.call_emergency_mode_functions (Pool_role.get_master_address ())
+      (fun rpc session_id ->
+        match
+          Client.Client.Pool.hello ~rpc ~session_id ~host_uuid:localhost_uuid
+            ~host_address:my_ip
+        with
+        | `cannot_talk_back ->
+            error "Master claims he cannot talk back to us on IP: %s" my_ip ;
+            Xapi_host.set_emergency_mode_error
+              Api_errors.host_master_cannot_talk_back [my_ip] ;
+            Some Temporary
+        | `unknown_host ->
+            debug "Master claims he has no record of us being a slave" ;
+            Xapi_host.set_emergency_mode_error Api_errors.host_unknown_to_master
+              [localhost_uuid] ;
+            Some Permanent
+        | `ok ->
+            let compare_xapi_version_with_coordinator ~__context =
+              Xapi_version.compare_version Xapi_version.version
+                (Db.Host.get_software_version ~__context
+                   ~self:(Helpers.get_master ~__context)
+                |> List.assoc "xapi_build"
+                )
+            in
+            if compare_xapi_version_with_coordinator ~__context > 0 then (
+              if not !xapi_ver_high_alerted then (
+                let name_label =
+                  Db.Host.get_name_label ~__context
+                    ~self:(Helpers.get_localhost ~__context)
+                in
+                let name, priority =
+                  Api_messages
+                  .xapi_startup_blocked_as_version_higher_than_coordinator
+                in
+                ignore
+                  (Client.Client.Message.create ~rpc ~session_id ~name ~priority
+                     ~cls:`Host ~obj_uuid:localhost_uuid
+                     ~body:
+                       ("Xapi startup in pool member "
+                       ^ name_label
+                       ^ " is blocked as its xapi version("
+                       ^ Xapi_version.version
+                       ^ ") is higher than xapi version in pool coordinator."
+                       )
+                  ) ;
+                xapi_ver_high_alerted := true
+              ) ;
+              error
+                "Xapi version in the host(%s) is higher than the one in \
+                 coordinator"
+                Xapi_version.version ;
+              Xapi_host.set_emergency_mode_error
+                Api_errors.host_xapi_version_higher_than_coordinator
+                [Xapi_version.version] ;
+              Some Permanent
+            ) else
+              None
+    )
+  with
+  | Api_errors.Server_error (code, _)
+    when code = Api_errors.session_authentication_failed ->
+      debug
+        "Master did not recognise our pool secret: we must be pointing at the \
+         wrong master." ;
+      Xapi_host.set_emergency_mode_error Api_errors.host_unknown_to_master
+        [localhost_uuid] ;
+      Some Permanent
+  | Api_errors.Server_error (code, params) as exn ->
+      debug "Caught exception: %s in attempt_host_status_check_with_coordinator"
+        (ExnHelper.string_of_exn exn) ;
+      Xapi_host.set_emergency_mode_error code params ;
+      Some Temporary
+  | exn ->
+      debug "Caught exception: %s in attempt_host_status_check_with_coordinator"
+        (ExnHelper.string_of_exn exn) ;
+      Xapi_host.set_emergency_mode_error Api_errors.internal_error
+        [ExnHelper.string_of_exn exn] ;
+      Some Temporary
+
 (** Bring up the HA system if configured *)
 let start_ha () =
   try Xapi_ha.on_server_restart ()
@@ -1085,7 +1173,6 @@ let server_init () =
             Helpers.touch_file !Xapi_globs.ready_file ;
             (* Keep trying to log into master *)
             let finished = ref false in
-            let xapi_ver_high_alerted = ref false in
 
             while not !finished do
               (* Grab the management IP address (wait forever for it if necessary) *)
@@ -1094,109 +1181,6 @@ let server_init () =
               ignore (Master_connection.start_master_connection_watchdog ()) ;
               debug "Attempting to communicate with master" ;
 
-              (* Attempt checking host status with pool coordinator:
-               * 1. Pool.hello
-               * 2. if Pool.hello ok, check xapi version
-               * Return None if ok or Some host_status_check_error otherwise *)
-              let attempt_host_status_check_with_coordinator ~__context my_ip =
-                let localhost_uuid = Helpers.get_localhost_uuid () in
-                try
-                  Helpers.call_emergency_mode_functions
-                    (Pool_role.get_master_address ()) (fun rpc session_id ->
-                      match
-                        Client.Client.Pool.hello ~rpc ~session_id
-                          ~host_uuid:localhost_uuid ~host_address:my_ip
-                      with
-                      | `cannot_talk_back ->
-                          error
-                            "Master claims he cannot talk back to us on IP: %s"
-                            my_ip ;
-                          Xapi_host.set_emergency_mode_error
-                            Api_errors.host_master_cannot_talk_back [my_ip] ;
-                          Some Temporary
-                      | `unknown_host ->
-                          debug
-                            "Master claims he has no record of us being a slave" ;
-                          Xapi_host.set_emergency_mode_error
-                            Api_errors.host_unknown_to_master [localhost_uuid] ;
-                          Some Permanent
-                      | `ok ->
-                          let compare_xapi_version_with_coordinator ~__context =
-                            let coordinator_ref =
-                              Helpers.get_master ~__context
-                            in
-                            let coordinator_xapi_ver =
-                              Db.Host.get_software_version ~__context
-                                ~self:coordinator_ref
-                              |> List.assoc "xapi_build"
-                            in
-                            Xapi_version.compare_version Xapi_version.version
-                              coordinator_xapi_ver
-                          in
-                          if
-                            compare_xapi_version_with_coordinator ~__context > 0
-                          then (
-                            if not !xapi_ver_high_alerted then (
-                              let name_label =
-                                Db.Host.get_name_label ~__context
-                                  ~self:(Helpers.get_localhost ~__context)
-                              in
-                              let name, priority =
-                                Api_messages
-                                .xapi_startup_blocked_as_version_higher_than_coordinator
-                              in
-                              ignore
-                                (Client.Client.Message.create ~rpc ~session_id
-                                   ~name ~priority ~cls:`Host
-                                   ~obj_uuid:localhost_uuid
-                                   ~body:
-                                     ("Xapi startup in pool member "
-                                     ^ name_label
-                                     ^ " is blocked as its xapi version("
-                                     ^ Xapi_version.version
-                                     ^ ") is higher than xapi version in pool \
-                                        coordinator."
-                                     )
-                                ) ;
-                              xapi_ver_high_alerted := true
-                            ) ;
-                            error
-                              "Xapi version in the host(%s) is higher than the \
-                               one in coordinator"
-                              Xapi_version.version ;
-                            Xapi_host.set_emergency_mode_error
-                              Api_errors
-                              .host_xapi_version_higher_than_coordinator
-                              [Xapi_version.version] ;
-                            Some Permanent
-                          ) else
-                            None
-                  )
-                with
-                | Api_errors.Server_error (code, _)
-                  when code = Api_errors.session_authentication_failed ->
-                    debug
-                      "Master did not recognise our pool secret: we must be \
-                       pointing at the wrong master." ;
-                    Xapi_host.set_emergency_mode_error
-                      Api_errors.host_unknown_to_master [localhost_uuid] ;
-                    Some Permanent
-                | Api_errors.Server_error (code, params) as exn ->
-                    debug
-                      "Caught exception: %s in \
-                       attempt_host_status_check_with_coordinator"
-                      (ExnHelper.string_of_exn exn) ;
-                    Xapi_host.set_emergency_mode_error code params ;
-                    Some Temporary
-                | exn ->
-                    debug
-                      "Caught exception: %s in \
-                       attempt_host_status_check_with_coordinator"
-                      (ExnHelper.string_of_exn exn) ;
-                    Xapi_host.set_emergency_mode_error Api_errors.internal_error
-                      [ExnHelper.string_of_exn exn] ;
-                    Some Temporary
-              in
               (* Try to check host status with the pool *)
               match
                 attempt_host_status_check_with_coordinator ~__context ip
