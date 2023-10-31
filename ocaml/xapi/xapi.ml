@@ -460,32 +460,29 @@ let attempt_host_status_check_with_coordinator ~__context my_ip =
                 |> List.assoc "xapi_build"
                 )
             then (
+              let name_label =
+                Db.Host.get_name_label ~__context
+                  ~self:(Helpers.get_localhost ~__context)
+              in
+              let err_msg =
+                "Xapi startup in pool member "
+                ^ name_label
+                ^ " is blocked as its xapi version("
+                ^ Xapi_version.version
+                ^ ") is higher than xapi version in pool coordinator."
+              in
               if not !xapi_ver_high_alerted then (
-                let name_label =
-                  Db.Host.get_name_label ~__context
-                    ~self:(Helpers.get_localhost ~__context)
-                in
                 let name, priority =
                   Api_messages
                   .xapi_startup_blocked_as_version_higher_than_coordinator
                 in
                 ignore
                   (Client.Client.Message.create ~rpc ~session_id ~name ~priority
-                     ~cls:`Host ~obj_uuid:localhost_uuid
-                     ~body:
-                       ("Xapi startup in pool member "
-                       ^ name_label
-                       ^ " is blocked as its xapi version("
-                       ^ Xapi_version.version
-                       ^ ") is higher than xapi version in pool coordinator."
-                       )
+                     ~cls:`Host ~obj_uuid:localhost_uuid ~body:err_msg
                   ) ;
                 xapi_ver_high_alerted := true
               ) ;
-              error
-                "Xapi version in the host(%s) is higher than the one in \
-                 coordinator"
-                Xapi_version.version ;
+              error "%s" err_msg ;
               Xapi_host.set_emergency_mode_error
                 Api_errors.host_xapi_version_higher_than_coordinator
                 [Xapi_version.version] ;
