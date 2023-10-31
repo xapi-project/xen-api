@@ -412,6 +412,16 @@ module Vgpu = struct
     let pid_location = Pid.Xenstore pid_path
   end)
 
+  (** An NVidia Virtual Compute Service vGPU has a class attribute
+     "Compute". Recognise this here *)
+  let is_compute_vgpu vgpu =
+    let open Xenops_interface.Vgpu in
+    match vgpu with
+    | {implementation= Nvidia {vclass= Some "Compute"; _}; _} ->
+        true
+    | _ ->
+        false
+
   let vgpu_args_of_nvidia domid vcpus vgpus restore =
     let open Xenops_interface.Vgpu in
     let virtual_pci_address_compare vgpu1 vgpu2 =
@@ -504,7 +514,15 @@ module Vgpu = struct
       @ device_args
     in
     let fd_arg = if restore then ["--resume"] else [] in
-    List.concat [base_args; fd_arg]
+    (* support for NVidia VCS (compute) vGPUs *)
+    let no_console =
+      match List.exists is_compute_vgpu vgpus with
+      | true ->
+          ["--noconsole"]
+      | false ->
+          []
+    in
+    List.concat [base_args; no_console; fd_arg]
 
   let state_path domid = Printf.sprintf "/local/domain/%d/vgpu/state" domid
 
