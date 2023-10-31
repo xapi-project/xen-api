@@ -36,6 +36,11 @@ let get = function
   | Db_ref.Remote ->
       (module Remote_db : DB_ACCESS)
 
+let lifecycle_state_of ~obj fld =
+  let open Datamodel in
+  let {fld_states; _} = StringMap.find obj all_lifecycles in
+  StringMap.find fld fld_states
+
 let apply_delta_to_cache entry db_ref =
   let module DB : DB_ACCESS = Local_db in
   match entry with
@@ -46,6 +51,19 @@ let apply_delta_to_cache entry db_ref =
       debug "Redoing delete_row %s (%s)" tblname objref ;
       DB.delete_row db_ref tblname objref
   | Redo_log.WriteField (tblname, objref, fldname, newval) ->
-      debug "Redoing write_field %s (%s) [%s -> %s]" tblname objref fldname
-        newval ;
-      DB.write_field db_ref tblname objref fldname newval
+      let removed =
+        try lifecycle_state_of ~obj:tblname fldname = Removed_s
+        with Not_found ->
+          warn "no lifetime information about %s.%s, ignoring write_field"
+            tblname fldname ;
+          true
+      in
+      if not removed then (
+        debug "Redoing write_field %s (%s) [%s -> %s]" tblname objref fldname
+          newval ;
+        DB.write_field db_ref tblname objref fldname newval
+      ) else
+        info
+          "Field has been removed from the datamodel, ignoring write_field %s \
+           (%s) [%s -> %s]"
+          tblname objref fldname newval
