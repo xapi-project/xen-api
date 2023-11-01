@@ -516,7 +516,7 @@ module Vgpu = struct
     let fd_arg = if restore then ["--resume"] else [] in
     (* support for NVidia VCS (compute) vGPUs *)
     let no_console =
-      match List.exists is_compute_vgpu vgpus with
+      match List.for_all is_compute_vgpu vgpus with
       | true ->
           ["--noconsole"]
       | false ->
