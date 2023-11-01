@@ -1033,7 +1033,7 @@ let pool_migrate =
       ; Api_errors.other_operation_in_progress
       ; Api_errors.vm_is_template
       ; Api_errors.operation_not_allowed
-      ; Api_errors.vm_migrate_failed
+      ; Api_errors.vm_bad_power_state
       ]
     ~allowed_roles:(_R_VM_POWER_ADMIN ++ _R_CLIENT_CERT)
     ()
@@ -1686,6 +1686,20 @@ let set_NVRAM_EFI_variables =
     ~params:[(Ref _vm, "self", "The VM"); (String, "value", "The value")]
     ~hide_from_docs:true ~allowed_roles:_R_LOCAL_ROOT_ONLY ()
 
+let restart_device_models =
+  call ~flags:[`Session] ~name:"restart_device_models" ~lifecycle:[]
+    ~params:[(Ref _vm, "self", "The VM")]
+    ~errs:
+      [
+        Api_errors.vm_bad_power_state
+      ; Api_errors.other_operation_in_progress
+      ; Api_errors.vm_is_template
+      ; Api_errors.operation_not_allowed
+      ; Api_errors.vm_bad_power_state
+      ]
+    ~allowed_roles:(_R_VM_POWER_ADMIN ++ _R_CLIENT_CERT)
+    ()
+
 (** VM (or 'guest') configuration: *)
 let t =
   create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303
@@ -1819,6 +1833,7 @@ let t =
       ; set_domain_type
       ; set_HVM_boot_policy
       ; set_NVRAM_EFI_variables
+      ; restart_device_models
       ]
     ~contents:
       ([uid _vm]
