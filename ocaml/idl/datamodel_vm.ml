@@ -1033,6 +1033,7 @@ let pool_migrate =
       ; Api_errors.other_operation_in_progress
       ; Api_errors.vm_is_template
       ; Api_errors.operation_not_allowed
+      ; Api_errors.vm_bad_power_state
       ]
     ~allowed_roles:(_R_VM_POWER_ADMIN ++ _R_CLIENT_CERT)
     ()
@@ -1694,6 +1695,7 @@ let restart_device_models =
       ; Api_errors.other_operation_in_progress
       ; Api_errors.vm_is_template
       ; Api_errors.operation_not_allowed
+      ; Api_errors.vm_bad_power_state
       ]
     ~allowed_roles:(_R_VM_POWER_ADMIN ++ _R_CLIENT_CERT)
     ()
