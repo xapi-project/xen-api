@@ -159,36 +159,6 @@ let switch_enum =
 
 let _ = get_java_type switch_enum
 
-(*Helper function for get_marshall_function*)
-let rec get_marshall_function_rec = function
-  | SecretString | String ->
-      "String"
-  | Int ->
-      "Long"
-  | Float ->
-      "Double"
-  | Bool ->
-      "Boolean"
-  | DateTime ->
-      "Date"
-  | Enum (name, _) ->
-      class_case name
-  | Set t1 ->
-      sprintf "SetOf%s" (get_marshall_function_rec t1)
-  | Map (t1, t2) ->
-      sprintf "MapOf%s%s"
-        (get_marshall_function_rec t1)
-        (get_marshall_function_rec t2)
-  | Ref ty ->
-      class_case ty (* We want to hide all refs *)
-  | Record ty ->
-      sprintf "%sRecord" (class_case ty)
-  | Option ty ->
-      get_marshall_function_rec ty
-
-(*get_marshall_function (Set(Map(Float,Bool)));; -> "toSetOfMapOfDoubleBoolean"*)
-let get_marshall_function ty = "to" ^ get_marshall_function_rec ty
-
 (* Generate the methods *)
 
 let get_java_type_or_void = function
@@ -240,22 +210,6 @@ let get_method_params_for_xml message params =
       else
         "this.ref" :: List.map f params
 
-let gen_method_return_cast message =
-  match message.msg_result with
-  | None ->
-      sprintf ""
-  | Some (ty, _) ->
-      sprintf " Types.%s(result)" (get_marshall_function ty)
-
-let gen_method_return file cls message =
-  if
-    String.lowercase_ascii cls.name = "event"
-    && String.lowercase_ascii message.msg_name = "from"
-  then
-    fprintf file "        return Types.toEventBatch(result);\n"
-  else
-    fprintf file "        return%s;\n" (gen_method_return_cast message)
-
 let rec range = function 0 -> [] | i -> range (i - 1) @ [i]
 
 (* Here is the main method generating function.*)
@@ -284,7 +238,6 @@ let gen_method file cls message params async_version =
          or read as valid JSON."
       )
     ; ("IOException", "if an I/O error occurs when sending or receiving.")
-    ; ("InterruptedException", " if the operation is interrupted.")
     ]
   in
   let publishInfo = get_published_info_message message cls in
@@ -643,167 +596,6 @@ let gen_class cls folder =
   flush file ;
   fprintf file "}" ;
   close_out file
-
-(* Generate Marshalling Class *)
-
-(*This generates the special case code for marshalling the snapshot field in an Event.Record*)
-let generate_snapshot_hack file =
-  fprintf file "\n" ;
-  fprintf file "\n" ;
-  fprintf file "        Object a,b;\n" ;
-  fprintf file "        a=map.get(\"snapshot\");\n" ;
-  fprintf file "        switch(%s(record.clazz))\n"
-    (get_marshall_function switch_enum) ;
-  fprintf file "        {\n" ;
-  List.iter
-    (fun x ->
-      fprintf file "                case %17s: b = %25s(a); break;\n"
-        (String.uppercase_ascii x)
-        (get_marshall_function (Record x))
-    )
-    (List.map
-       (fun x -> x.name)
-       (List.filter (fun x -> not (class_is_empty x)) classes)
-    ) ;
-  fprintf file
-    "                default: throw new RuntimeException(\"Internal error in \
-     auto-generated code whilst unmarshalling event snapshot\");\n" ;
-  fprintf file "        }\n" ;
-  fprintf file "        record.snapshot = b;\n"
-
-let gen_marshall_record_field file prefix field =
-  let ty = get_marshall_function field.ty in
-  let name = String.concat "_" (List.rev (field.field_name :: prefix)) in
-  let name' = camel_case name in
-  fprintf file "            record.%s = %s(map.get(\"%s\"));\n" name' ty name
-
-let rec gen_marshall_record_namespace file prefix (name, contents) =
-  List.iter (gen_marshall_record_contents file (name :: prefix)) contents
-
-and gen_marshall_record_contents file prefix = function
-  | Field f ->
-      gen_marshall_record_field file prefix f
-  | Namespace (n, cs) ->
-      gen_marshall_record_namespace file prefix (n, cs) ;
-      ()
-
-(*Every type which may be returned by a function may also be the result of the*)
-(* corresponding asynchronous task. We therefore need to generate corresponding*)
-(* marshalling functions which can take the raw xml of the tasks result field*)
-(* and turn it into the corresponding type. Luckily, the only things returned by*)
-(* asynchronous tasks are object references and strings, so rather than implementing*)
-(* the general recursive structure we'll just make one for each of the classes*)
-(* that's been registered as a marshall-needing type*)
-
-let generate_reference_task_result_func file clstr =
-  fprintf file
-    "    public static %s to%s(Task task, Connection connection) throws \
-     XenAPIException, BadServerResponse, XmlRpcException, BadAsyncResult{\n"
-    clstr clstr ;
-  fprintf file
-    "        return Types.to%s(parseResult(task.getResult(connection)));\n"
-    clstr ;
-  fprintf file "    }\n" ;
-  fprintf file "\n"
-
-let gen_task_result_func file = function
-  | Ref ty ->
-      generate_reference_task_result_func file (class_case ty)
-  | _ ->
-      ()
-
-(*don't generate for complicated types. They're not needed.*)
-
-let rec gen_marshall_body file = function
-  | SecretString | String ->
-      fprintf file "        return (String) object;\n"
-  | Int ->
-      fprintf file "        return Long.valueOf((String) object);\n"
-  | Float ->
-      fprintf file "        return (Double) object;\n"
-  | Bool ->
-      fprintf file "        return (Boolean) object;\n"
-  | DateTime ->
-      fprintf file
-        "        try {\n\
-        \            return (Date) object;\n\
-        \        } catch (ClassCastException e){\n\
-        \            //Occasionally the date comes back as an ocaml float \
-         rather than\n\
-        \            //in the xmlrpc format! Catch this and convert.\n\
-        \            return (new Date((long) (1000*Double.parseDouble((String) \
-         object))));\n\
-        \        }\n"
-  | Ref ty ->
-      fprintf file "        return new %s((String) object);\n" (class_case ty)
-  | Enum (name, _) ->
-      fprintf file "        try {\n" ;
-      fprintf file
-        "            return %s.valueOf(((String) \
-         object).toUpperCase().replace('-','_'));\n"
-        (class_case name) ;
-      fprintf file "        } catch (IllegalArgumentException ex) {\n" ;
-      fprintf file "            return %s.UNRECOGNIZED;\n" (class_case name) ;
-      fprintf file "        }\n"
-  | Set ty ->
-      let ty_name = get_java_type ty in
-      let marshall_fn = get_marshall_function ty in
-      fprintf file "        Object[] items = (Object[]) object;\n" ;
-      fprintf file "        HashSet<%s> result = new LinkedHashSet<>();\n"
-        ty_name ;
-      fprintf file "        for(Object item: items) {\n" ;
-      fprintf file "            %s typed = %s(item);\n" ty_name marshall_fn ;
-      fprintf file "            result.add(typed);\n" ;
-      fprintf file "        }\n" ;
-      fprintf file "        return result;\n"
-  | Map (ty, ty') ->
-      let ty_name = get_java_type ty in
-      let ty_name' = get_java_type ty' in
-      let marshall_fn = get_marshall_function ty in
-      let marshall_fn' = get_marshall_function ty' in
-      fprintf file "        Map map = (Map)object;\n" ;
-      fprintf file "        Map<%s,%s> result = new HashMap<>();\n" ty_name
-        ty_name' ;
-      fprintf file "        HashSet<Map.Entry> entries = map.entrySet();\n" ;
-      fprintf file "        for(Map.Entry entry: entries) {\n" ;
-      fprintf file "            %s key = %s(entry.getKey());\n" ty_name
-        marshall_fn ;
-      fprintf file "            %s value = %s(entry.getValue());\n" ty_name'
-        marshall_fn' ;
-      fprintf file "            result.put(key, value);\n" ;
-      fprintf file "        }\n" ;
-      fprintf file "        return result;\n"
-  | Record ty ->
-      let contents = Hashtbl.find records ty in
-      let cls_name = class_case ty in
-      fprintf file
-        "        Map<String,Object> map = (Map<String,Object>) object;\n" ;
-      fprintf file "        %s.Record record = new %s.Record();\n" cls_name
-        cls_name ;
-      List.iter (gen_marshall_record_contents file []) contents ;
-      (*Event.Record needs a special case to handle snapshots*)
-      if ty = "event" then generate_snapshot_hack file ;
-      fprintf file "        return record;\n"
-  | Option ty ->
-      gen_marshall_body file ty
-
-let rec gen_marshall_func file ty =
-  match ty with
-  | Option x ->
-      if TypeSet.mem x !types then
-        ()
-      else
-        gen_marshall_func file ty
-  | _ ->
-      let type_string = get_java_type ty in
-      let fn_name = get_marshall_function ty in
-      fprintf file "    public static %s %s(Object object) {\n" type_string
-        fn_name ;
-      fprintf file "        if (object == null) {\n" ;
-      fprintf file "            return null;\n" ;
-      fprintf file "        }\n" ;
-      gen_marshall_body file ty ;
-      fprintf file "    }\n\n"
 
 let gen_enum file name ls =
   let name = class_case name in
