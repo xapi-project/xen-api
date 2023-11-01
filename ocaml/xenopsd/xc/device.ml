@@ -2091,9 +2091,11 @@ module Dm_Common = struct
   let cmdline_of_disp ?domid info =
     let vga_type_opts x =
       let open Xenops_interface.Vgpu in
+      (* We can match on the implementation details to detect the VCS
+         case. Don't pass -vgpu for a compute vGPU. *)
       match x with
-      | Vgpu [{implementation= Nvidia _; _}] ->
-          ["-vgpu"]
+      | Vgpu ({implementation= Nvidia {vclass= Some "Compute"; _}; _} :: _) ->
+          [] (* don't pass flags for VCS (compute) vGPU *)
       | Vgpu ({implementation= Nvidia _; _} :: _) ->
           ["-vgpu"]
       | Vgpu [{implementation= GVT_g gvt_g; _}] ->
