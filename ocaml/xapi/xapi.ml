@@ -498,8 +498,8 @@ let attempt_host_status_check_with_coordinator ~__context my_ip =
         [localhost_uuid] ;
       Some Permanent
   | Api_errors.Server_error (code, params) as exn ->
-      debug "Caught exception: %s in attempt_host_status_check_with_coordinator"
-        (ExnHelper.string_of_exn exn) ;
+      debug "Caught exception: %s in %s"
+        (ExnHelper.string_of_exn exn) __FUNCTION__ ;
       Xapi_host.set_emergency_mode_error code params ;
       Some Temporary
   | exn ->
