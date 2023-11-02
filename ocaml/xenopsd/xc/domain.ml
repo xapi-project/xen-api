@@ -909,14 +909,19 @@ let build_pre ~xc ~xs ~vcpus ~memory ~has_hard_affinity domid =
   log_reraise (Printf.sprintf "shadow_allocation_set %d MiB" shadow_mib)
     (fun () -> Xenctrl.shadow_allocation_set xc domid shadow_mib
   ) ;
-  if !Xenopsd.numa_placement then
-    log_reraise (Printf.sprintf "NUMA placement") (fun () ->
-        if has_hard_affinity then
-          D.debug "VM has hard affinity set, skipping NUMA optimization"
-        else
-          numa_placement domid ~vcpus
-            ~memory:(Int64.mul memory.xen_max_mib 1048576L)
-    ) ;
+  let () =
+    match !Xenops_server.numa_placement with
+    | Any ->
+        ()
+    | Best_effort ->
+        log_reraise (Printf.sprintf "NUMA placement") (fun () ->
+            if has_hard_affinity then
+              D.debug "VM has hard affinity set, skipping NUMA optimization"
+            else
+              numa_placement domid ~vcpus
+                ~memory:(Int64.mul memory.xen_max_mib 1048576L)
+        )
+  in
   create_channels ~xc uuid domid
 
 let xenguest_args_base ~domid ~store_port ~store_domid ~console_port

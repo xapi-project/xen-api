@@ -494,6 +494,12 @@ module Host = struct
   }
   [@@deriving rpcty]
 
+  type numa_affinity_policy =
+    | Any  (** VMs may run on any NUMA nodes. This is the default in 8.2CU1 *)
+    | Best_effort
+        (** best effort placement on the smallest number of NUMA nodes where possible *)
+  [@@deriving rpcty]
+
   type guest_agent_feature_list = guest_agent_feature list [@@deriving rpcty]
 end
 
@@ -645,6 +651,16 @@ module XenopsAPI (R : RPC) = struct
         @-> host_policy_p
         @-> returning (Param.mk Types.bool) err
         )
+
+    let set_numa_affinity_policy =
+      let numa_affinity_policy_p =
+        Param.mk
+          ~description:["Host NUMA affinity policy"]
+          ~name:"numa_affinity_policy" Host.numa_affinity_policy
+      in
+      declare "HOST.set_numa_affinity_policy"
+        ["Sets the host's NUMA aware VM scheduling policy"]
+        (debug_info_p @-> numa_affinity_policy_p @-> returning unit_p err)
   end
 
   module VM = struct
