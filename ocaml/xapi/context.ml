@@ -218,7 +218,7 @@ let make_dbg http_other_config task_name task_id =
       (if task_name = "" then "" else " ")
       (Ref.really_pretty_and_small task_id)
 
-let tracing_of_origin (origin : origin) task_name =
+let tracing_of_origin (origin : origin) span_name =
   let open Tracing in
   let ( let* ) = Option.bind in
   let parent =
@@ -226,7 +226,7 @@ let tracing_of_origin (origin : origin) task_name =
     | Http (req, _) ->
         let* traceparent = req.Http.Request.traceparent in
         let* span_context = SpanContext.of_traceparent traceparent in
-        let span = Tracer.span_of_span_context span_context task_name in
+        let span = Tracer.span_of_span_context span_context span_name in
         Some span
     | _ ->
         None
@@ -309,11 +309,23 @@ let make ?(http_other_config = []) ?(quiet = false) ?subtask_of ?session_id
             " by task " ^ make_dbg [] "" subtask_of
         )
   ) ;
+  let span_details_from_task_name task_name =
+    match String.split_on_char ':' task_name with
+    | [x; y; uuid] when x = "dispatch" && y = "system.isAlive" ->
+        let span_name = x ^ ":" ^ y in
+        (span_name, [("xs.xapi.rpc.msg.uuid", uuid)])
+    | _ ->
+        (task_name, [])
+  in
   let tracing =
     let open Tracing in
-    let tracer = get_tracer ~name:task_name in
-    let parent, span_kind = tracing_of_origin origin task_name in
-    match Tracer.start ~span_kind ~tracer ~name:task_name ~parent () with
+    let span_name, span_attributes = span_details_from_task_name task_name in
+    let tracer = get_tracer ~name:span_name in
+    let parent, span_kind = tracing_of_origin origin span_name in
+    match
+      Tracer.start ~span_kind ~tracer ~attributes:span_attributes
+        ~name:span_name ~parent ()
+    with
     | Ok x ->
         x
     | Error e ->
