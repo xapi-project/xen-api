@@ -809,19 +809,17 @@ let numa_mutex = Mutex.create ()
 let numa_resources = ref None
 
 let numa_init () =
-  if !Xenopsd.numa_placement then (
-    let xcext = Xenctrlext.get_handle () in
-    let host = Lazy.force numa_hierarchy in
-    let mem = (Xenctrlext.numainfo xcext).memory in
-    D.debug "Host NUMA information: %s"
-      (Fmt.to_to_string Topology.NUMA.pp_dump host) ;
-    Array.iteri
-      (fun i m ->
-        let open Xenctrlext in
-        D.debug "NUMA node %d: %Ld/%Ld memory free" i m.memfree m.memsize
-      )
-      mem
-  )
+  let xcext = Xenctrlext.get_handle () in
+  let host = Lazy.force numa_hierarchy in
+  let mem = (Xenctrlext.numainfo xcext).memory in
+  D.debug "Host NUMA information: %s"
+    (Fmt.to_to_string Topology.NUMA.pp_dump host) ;
+  Array.iteri
+    (fun i m ->
+      let open Xenctrlext in
+      D.debug "NUMA node %d: %Ld/%Ld memory free" i m.memfree m.memsize
+    )
+    mem
 
 let numa_placement domid ~vcpus ~memory =
   let open Xenctrlext in
