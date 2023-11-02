@@ -3116,7 +3116,30 @@ let resync_all_vms ~__context =
   in
   List.iter (fun vm -> refresh_vm ~__context ~self:vm) resident_vms_in_db
 
+let set_numa_affinity_policy ~__context ~value =
+  let dbg = Context.string_of_task __context in
+  let open Xapi_xenops_queue in
+  let module Client = (val make_client (default_xenopsd ()) : XENOPS) in
+  let value =
+    let open Xenops_interface.Host in
+    match value with
+    | `any ->
+        Any
+    | `besteffort ->
+        Best_effort
+    | `default ->
+        Any
+  in
+  Client.HOST.set_numa_affinity_policy dbg value
+
 let on_xapi_restart ~__context =
+  let host = Helpers.get_localhost ~__context in
+  let value = Db.Host.get_numa_affinity_policy ~__context ~self:host in
+  info "Setting NUMA affinity policy in xenopsd on startup to %s"
+    (Record_util.host_numa_affinity_policy_to_string value) ;
+  set_numa_affinity_policy ~__context ~value ;
+
+  info "Resynchronizing VM state with xenopsd" ;
   resync_resident_on ~__context ;
   (* For all available xenopsds, start the event thread. This will cause
      events on everything xenopsd knows about, hence a refresh of all VMs. *)
