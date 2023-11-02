@@ -720,6 +720,9 @@ let _ =
        the coordinator's database and pointing to the correct coordinator? Are \
        all servers using the same pool secret?"
     () ;
+  error Api_errors.host_xapi_version_higher_than_coordinator
+    ["host_xapi_version"]
+    ~doc:"The host xapi version is higher than the one in the coordinator" () ;
   error Api_errors.host_broken []
     ~doc:
       "This server failed in the middle of an automatic failover operation and \

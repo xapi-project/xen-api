@@ -417,14 +417,19 @@ let wait_for_management_ip_address ~__context =
   ) ;
   ip
 
-type hello_error =
+type host_status_check_error =
   | Permanent (* e.g. the pool secret is wrong i.e. wrong master *)
   | Temporary
 
 (* some glitch or other *)
 
-(** Attempt a Pool.hello, return None if ok or Some hello_error otherwise *)
-let attempt_pool_hello my_ip =
+let xapi_ver_high_alerted = ref false
+
+(** Attempt checking host status with pool coordinator:
+ *  1. Pool.hello
+ *  2. if Pool.hello ok, check xapi version
+ *  Return None if ok or Some host_status_check_error otherwise *)
+let attempt_host_status_check_with_coordinator ~__context my_ip =
   let localhost_uuid = Helpers.get_localhost_uuid () in
   try
     Helpers.call_emergency_mode_functions (Pool_role.get_master_address ())
@@ -444,7 +449,46 @@ let attempt_pool_hello my_ip =
               [localhost_uuid] ;
             Some Permanent
         | `ok ->
-            None
+            let xapi_version_higher version =
+              version |> Xapi_version.compare_version Xapi_version.version
+              |> fun r -> r > 0
+            in
+            if
+              xapi_version_higher
+                (Db.Host.get_software_version ~__context
+                   ~self:(Helpers.get_master ~__context)
+                |> List.assoc "xapi_build"
+                )
+            then (
+              let name_label =
+                Db.Host.get_name_label ~__context
+                  ~self:(Helpers.get_localhost ~__context)
+              in
+              let err_msg =
+                Printf.sprintf
+                  "Xapi startup in pool member %s is blocked as its xapi \
+                   version (%s) is higher than xapi version in pool \
+                   coordinator."
+                  name_label Xapi_version.version
+              in
+              if not !xapi_ver_high_alerted then (
+                let name, priority =
+                  Api_messages
+                  .xapi_startup_blocked_as_version_higher_than_coordinator
+                in
+                ignore
+                  (Client.Client.Message.create ~rpc ~session_id ~name ~priority
+                     ~cls:`Host ~obj_uuid:localhost_uuid ~body:err_msg
+                  ) ;
+                xapi_ver_high_alerted := true
+              ) ;
+              error "%s" err_msg ;
+              Xapi_host.set_emergency_mode_error
+                Api_errors.host_xapi_version_higher_than_coordinator
+                [Xapi_version.version] ;
+              Some Permanent
+            ) else
+              None
     )
   with
   | Api_errors.Server_error (code, _)
@@ -456,13 +500,15 @@ let attempt_pool_hello my_ip =
         [localhost_uuid] ;
       Some Permanent
   | Api_errors.Server_error (code, params) as exn ->
-      debug "Caught exception: %s during Pool.hello"
-        (ExnHelper.string_of_exn exn) ;
+      debug "Caught exception: %s in %s"
+        (ExnHelper.string_of_exn exn)
+        __FUNCTION__ ;
       Xapi_host.set_emergency_mode_error code params ;
       Some Temporary
   | exn ->
-      debug "Caught exception: %s during Pool.hello"
-        (ExnHelper.string_of_exn exn) ;
+      debug "Caught exception: %s in %s"
+        (ExnHelper.string_of_exn exn)
+        __FUNCTION__ ;
       Xapi_host.set_emergency_mode_error Api_errors.internal_error
         [ExnHelper.string_of_exn exn] ;
       Some Temporary
@@ -1129,14 +1175,18 @@ let server_init () =
             Helpers.touch_file !Xapi_globs.ready_file ;
             (* Keep trying to log into master *)
             let finished = ref false in
+
             while not !finished do
               (* Grab the management IP address (wait forever for it if necessary) *)
               let ip = wait_for_management_ip_address ~__context in
               debug "Start master_connection watchdog" ;
               ignore (Master_connection.start_master_connection_watchdog ()) ;
               debug "Attempting to communicate with master" ;
-              (* Try to say hello to the pool *)
-              match attempt_pool_hello ip with
+
+              (* Try to check host status with the pool *)
+              match
+                attempt_host_status_check_with_coordinator ~__context ip
+              with
               | None ->
                   finished := true
               | Some Temporary ->
@@ -1144,8 +1194,9 @@ let server_init () =
                   Thread.delay 5.
               | Some Permanent ->
                   error
-                    "Permanent error in Pool.hello, will retry after %.0fs \
-                     just in case"
+                    "Permanent error in \
+                     attempt_host_status_check_with_coordinator, will retry \
+                     after %.0fs just in case"
                     !Db_globs.permanent_master_failure_retry_interval ;
                   Thread.delay !Db_globs.permanent_master_failure_retry_interval
             done ;
