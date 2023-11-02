@@ -503,7 +503,8 @@ let attempt_host_status_check_with_coordinator ~__context my_ip =
       Xapi_host.set_emergency_mode_error code params ;
       Some Temporary
   | exn ->
-      debug "Caught exception: %s in attempt_host_status_check_with_coordinator"
+      debug "Caught exception: %s in %s"
+        (ExnHelper.string_of_exn exn) __FUNCTION__ ;
         (ExnHelper.string_of_exn exn) ;
       Xapi_host.set_emergency_mode_error Api_errors.internal_error
         [ExnHelper.string_of_exn exn] ;
