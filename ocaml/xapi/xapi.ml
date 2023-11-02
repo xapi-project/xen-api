@@ -465,8 +465,10 @@ let attempt_host_status_check_with_coordinator ~__context my_ip =
                   ~self:(Helpers.get_localhost ~__context)
               in
               let err_msg =
-                Printf.sprintf "Xapi startup in pool member %s is blocked as its xapi version \
-                  (%s) is higher than xapi version in pool coordinator."
+                Printf.sprintf
+                  "Xapi startup in pool member %s is blocked as its xapi \
+                   version (%s) is higher than xapi version in pool \
+                   coordinator."
                   name_label Xapi_version.version
               in
               if not !xapi_ver_high_alerted then (
@@ -499,13 +501,14 @@ let attempt_host_status_check_with_coordinator ~__context my_ip =
       Some Permanent
   | Api_errors.Server_error (code, params) as exn ->
       debug "Caught exception: %s in %s"
-        (ExnHelper.string_of_exn exn) __FUNCTION__ ;
+        (ExnHelper.string_of_exn exn)
+        __FUNCTION__ ;
       Xapi_host.set_emergency_mode_error code params ;
       Some Temporary
   | exn ->
       debug "Caught exception: %s in %s"
-        (ExnHelper.string_of_exn exn) __FUNCTION__ ;
-        (ExnHelper.string_of_exn exn) ;
+        (ExnHelper.string_of_exn exn)
+        __FUNCTION__ ;
       Xapi_host.set_emergency_mode_error Api_errors.internal_error
         [ExnHelper.string_of_exn exn] ;
       Some Temporary
