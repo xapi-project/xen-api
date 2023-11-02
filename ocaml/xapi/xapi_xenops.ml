@@ -3146,7 +3146,7 @@ let set_numa_affinity_policy ~__context ~value =
     | `best_effort ->
         Best_effort
     | `default_policy ->
-        Any
+        Best_effort
   in
   Client.HOST.set_numa_affinity_policy dbg value
 
