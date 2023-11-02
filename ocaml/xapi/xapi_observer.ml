@@ -194,20 +194,23 @@ let assert_valid_attributes attributes =
     )
     attributes
 
-let register_components ~__context ~self ~host =
+let default_attributes ~__context ~host ~name_label =
   let pool = Helpers.get_pool ~__context in
   let host_label = Db.Host.get_name_label ~__context ~self:host in
   let host_uuid = Db.Host.get_uuid ~__context ~self:host in
   let pool_uuid = Db.Pool.get_uuid ~__context ~self:pool in
+  [
+    ("xs.pool.uuid", pool_uuid)
+  ; ("xs.host.name", host_label)
+  ; ("xs.host.uuid", host_uuid)
+  ; ("xs.observer.name", name_label)
+  ]
+
+let register_components ~__context ~self ~host =
   let name_label = Db.Observer.get_name_label ~__context ~self in
   let attributes =
-    ("xs.pool.uuid", pool_uuid)
-    :: ("xs.host.name", host_label)
-    :: ("xs.host.uuid", host_uuid)
-    :: ("xs.observer.name", name_label)
-    :: List.map
-         (fun (k, v) -> ("user." ^ k, v))
-         (Db.Observer.get_attributes ~__context ~self)
+    default_attributes ~__context ~host ~name_label
+    @ Db.Observer.get_attributes ~__context ~self
   in
   let uuid = Db.Observer.get_uuid ~__context ~self in
   let endpoints = Db.Observer.get_endpoints ~__context ~self in
@@ -368,11 +371,15 @@ let set_enabled ~__context ~self ~value =
 let set_attributes ~__context ~self ~value =
   assert_valid_attributes value ;
   let uuid = Db.Observer.get_uuid ~__context ~self in
+  let host = Helpers.get_localhost ~__context in
+  let name_label = Db.Observer.get_name_label ~__context ~self in
+  let default_attributes = default_attributes ~__context ~host ~name_label in
   let observation_fn () =
     List.iter
       (fun c ->
         let module Forwarder = (val get_forwarder c : ObserverInterface) in
-        Forwarder.set_attributes ~__context ~uuid ~attributes:value
+        Forwarder.set_attributes ~__context ~uuid
+          ~attributes:(default_attributes @ value)
       )
       (observed_components_of (Db.Observer.get_components ~__context ~self))
   in
