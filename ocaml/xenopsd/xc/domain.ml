@@ -914,14 +914,8 @@ let build_pre ~xc ~xs ~vcpus ~memory ~has_hard_affinity domid =
         if has_hard_affinity then
           D.debug "VM has hard affinity set, skipping NUMA optimization"
         else
-          let do_numa_placement () =
-            numa_placement domid ~vcpus
-              ~memory:(Int64.mul memory.xen_max_mib 1048576L)
-          in
-          if !Xenopsd.numa_placement_strict then
-            do_numa_placement ()
-          else
-            Xenops_utils.best_effort "NUMA placement" do_numa_placement
+          numa_placement domid ~vcpus
+            ~memory:(Int64.mul memory.xen_max_mib 1048576L)
     ) ;
   create_channels ~xc uuid domid
 

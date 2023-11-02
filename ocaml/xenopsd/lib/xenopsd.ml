@@ -61,9 +61,6 @@ let pvinpvh_xen_cmdline = ref "pv-shim console=xen"
 
 let numa_placement = ref false
 
-(* This is for debugging only *)
-let numa_placement_strict = ref false
-
 (* O(N^2) operations, until we get a xenstore cache, so use a small number here *)
 let vm_guest_agent_xenstore_quota = ref 128
 
@@ -246,11 +243,6 @@ let options =
     , Arg.Bool (fun x -> numa_placement := x)
     , (fun () -> string_of_bool !numa_placement)
     , "NUMA-aware placement of VMs"
-    )
-  ; ( "numa-placement-strict"
-    , Arg.Bool (fun x -> numa_placement_strict := x)
-    , (fun () -> string_of_bool !numa_placement)
-    , "Fail if NUMA-aware placement is not possible"
     )
   ; ( "pci-quarantine"
     , Arg.Bool (fun b -> pci_quarantine := b)
