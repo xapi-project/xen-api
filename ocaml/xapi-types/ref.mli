@@ -43,3 +43,5 @@ val is_dummy : 'a t -> bool
 val name_of_dummy : 'a t -> string
 
 val really_pretty_and_small : 'a t -> string
+
+val pp : Format.formatter -> 'a t -> unit
