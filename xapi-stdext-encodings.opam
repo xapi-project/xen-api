@@ -8,13 +8,14 @@ homepage: "https://github.com/xapi-project/stdext"
 bug-reports: "https://github.com/xapi-project/stdext/issues"
 depends: [
   "dune" {>= "2.7"}
-  "ocaml"
+  "ocaml" {>= "4.13.0"}
   "alcotest" {>= "0.6.0" & with-test}
   "odoc" {with-doc}
   "bechamel" {with-test}
   "bechamel-notty" {with-test}
   "notty" {with-test}
 ]
+available: arch != "arm32" & arch != "x86_32"
 build: [
   ["dune" "subst"] {dev}
   [
