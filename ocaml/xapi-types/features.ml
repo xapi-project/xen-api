@@ -63,6 +63,7 @@ type feature =
   | Certificate_verification
   | Updates
   | Internal_repo_access
+  | VTPM
 [@@deriving rpc]
 
 type orientation = Positive | Negative
@@ -130,6 +131,7 @@ let keys_of_features =
   ; ( Internal_repo_access
     , ("restrict_internal_repo_access", Negative, "Internal_repo_access")
     )
+  ; (VTPM, ("restrict_vtpm", Negative, "VTPM"))
   ]
 
 (* A list of features that must be considered "enabled" by `of_assoc_list`
