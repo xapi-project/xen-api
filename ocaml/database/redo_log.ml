@@ -48,8 +48,17 @@ let mib megabytes =
   let ( ** ) = Int64.mul in
   Int64.of_int megabytes ** 1024L ** 1024L
 
-(* Make sure we have plenty of room for the database *)
-let minimum_vdi_size, recommended_vdi_size = (mib 256, mib 4096)
+(* Make sure we have plenty of room for the database
+   There is also a 4MiB statefile, so make the sum be 4GB, which is easier to document.
+*)
+let minimum_vdi_size =
+  let ( // ) = Int64.div and ( ** ) = Int64.mul and ( -- ) = Int64.sub in
+  let align = mib 4 in
+  ((4_000_000_000L // align)
+  -- 2L
+     (* -2 because we also need room for a statefile, and an 'empty' SR seems to have a utilization of 4MiB *)
+  )
+  ** align
 
 let redo_log_sm_config = [("type", "raw")]
 

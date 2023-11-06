@@ -946,7 +946,7 @@ let find_or_create_metadata_vdi ~__context ~sr =
         Helpers.call_api_functions ~__context (fun rpc session_id ->
             Client.VDI.create ~rpc ~session_id ~name_label:"Metadata for DR"
               ~name_description:"Used for disaster recovery" ~sR:sr
-              ~virtual_size:Redo_log.recommended_vdi_size ~_type:`metadata
+              ~virtual_size:Redo_log.minimum_vdi_size ~_type:`metadata
               ~sharable:false ~read_only:false ~other_config:[]
               ~xenstore_data:[] ~sm_config:Redo_log.redo_log_sm_config ~tags:[]
         )

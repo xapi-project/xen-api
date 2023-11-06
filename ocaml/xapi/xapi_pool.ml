@@ -2859,7 +2859,7 @@ let create_redo_log_vdi ~__context ~sr =
       Client.VDI.create ~rpc ~session_id ~name_label:"Metadata redo-log"
         ~name_description:
           "Used when HA is disabled, while extra security is still desired"
-        ~sR:sr ~virtual_size:Redo_log.recommended_vdi_size ~_type:`redo_log
+        ~sR:sr ~virtual_size:Redo_log.minimum_vdi_size ~_type:`redo_log
         ~sharable:true ~read_only:false ~other_config:[] ~xenstore_data:[]
         ~sm_config:Redo_log.redo_log_sm_config ~tags:[]
   )
