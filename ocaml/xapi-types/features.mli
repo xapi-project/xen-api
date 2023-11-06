@@ -71,6 +71,7 @@ type feature =
   | Updates  (** Enable host updates from a repository *)
   | Internal_repo_access
       (** Enable restriction on repository access to pool members only *)
+  | VTPM  (** Support VTPM device required by Win11 guests *)
 
 val feature_of_rpc : Rpc.t -> feature
 (** Convert RPC into {!feature}s *)
