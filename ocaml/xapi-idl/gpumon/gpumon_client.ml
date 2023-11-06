@@ -16,7 +16,7 @@ let xml_url () = "file:" ^ Gpumon_interface.xml_path
 
 let rpc call =
   if !Xcp_client.use_switch then
-    Xcp_client.json_switch_rpc Gpumon_interface.queue_name call
+    Xcp_client.json_switch_rpc ~timeout:10 Gpumon_interface.queue_name call
   else
     Xcp_client.xml_http_rpc
       ~srcstr:(Xcp_client.get_user_agent ())
