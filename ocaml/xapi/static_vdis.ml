@@ -113,6 +113,7 @@ let gc () =
 (** If we just rebooted and failed to attach our static VDIs then this can be called to reattempt the attach:
     	this is necessary for HA to start. *)
 let reattempt_on_boot_attach () =
+  debug "%s" __FUNCTION__ ;
   let script = "attach-static-vdis" in
   try ignore (Helpers.call_script "/sbin/service" [script; "start"])
   with e ->
