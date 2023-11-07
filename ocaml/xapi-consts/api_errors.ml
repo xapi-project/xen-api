@@ -1277,6 +1277,8 @@ let invalid_repository_proxy_url = "INVALID_REPOSITORY_PROXY_URL"
 
 let invalid_repository_proxy_credential = "INVALID_REPOSITORY_PROXY_CREDENTIAL"
 
+let invalid_repository_domain_allowlist = "INVALID_REPOSITORY_DOMAIN_ALLOWLIST"
+
 let apply_livepatch_failed = "APPLY_LIVEPATCH_FAILED"
 
 let updates_require_recommended_guidance =
