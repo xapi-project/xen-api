@@ -8257,7 +8257,7 @@ let http_actions =
     , ( Get
       , Constants.get_vm_rrd_uri
       , true
-      , [String_query_arg "uuid"]
+      , [String_query_arg "uuid"; Bool_query_arg "json"]
       , _R_READ_ONLY
       , []
       )
