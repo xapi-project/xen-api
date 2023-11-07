@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 This script can be used to enable, disable or query the status of dom0 and
@@ -37,7 +37,8 @@ def doexec(args):
         stdin=None,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
-        close_fds=True)
+        close_fds=True,
+        universal_newlines=True)
     rc = proc.wait()
     stdout = proc.stdout
     stderr = proc.stderr
@@ -95,7 +96,7 @@ def _get_com_port():
 
 def usage():
     """ Display a usage string. """
-    command_names = COMMANDS.keys()
+    command_names = list(COMMANDS.keys())
     command_names.sort()
     print("Usage:")
     print("    %s {%s}" % (sys.argv[0], '|'.join(command_names)))
