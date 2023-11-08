@@ -213,7 +213,7 @@ Type 'no' to cancel.
 	
 	# Reconfigure new management interface
 	print("Reconfiguring " + device + "...")
-	os.system('service xcp-network stop >/dev/null 2>/dev/null')
+	os.system('systemctl stop xcp-networkd >/dev/null 2>/dev/null')
 	try:
 		os.remove('/var/lib/xcp/networkd.db')
 	except Exception as e:
