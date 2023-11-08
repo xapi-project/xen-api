@@ -2773,8 +2773,12 @@ let write_uefi_certificates_to_disk ~__context ~host =
            uefi_certs_in_disk |> Array.mem cert |> log_of
        )
   in
-  match !Xapi_globs.override_uefi_certs with
-  | false ->
+  (* get from pool for consistent results across hosts *)
+  let pool_uefi_certs =
+    Db.Pool.get_uefi_certificates ~__context ~self:(Helpers.get_pool ~__context)
+  in
+  match (!Xapi_globs.override_uefi_certs, pool_uefi_certs) with
+  | false, _ ->
       let@ path =
         with_valid_symlink ~from_path:!Xapi_globs.varstore_dir
           ~to_path:!Xapi_globs.default_auth_dir
@@ -2791,13 +2795,16 @@ let write_uefi_certificates_to_disk ~__context ~host =
         Db.Pool.set_uefi_certificates ~__context
           ~self:(Helpers.get_pool ~__context)
           ~value:disk_uefi_certs_tar
-  | true ->
-      let@ path = with_empty_dir !Xapi_globs.varstore_dir in
-      (* get from pool for consistent results across hosts *)
-      let pool_uefi_certs =
-        Db.Pool.get_uefi_certificates ~__context
-          ~self:(Helpers.get_pool ~__context)
+  | true, "" ->
+      (* When overriding certificates and user hasn't yet specified a value,
+         keep the symlink so VMs always have valid uefi certificates *)
+      let@ path =
+        with_valid_symlink ~from_path:!Xapi_globs.varstore_dir
+          ~to_path:!Xapi_globs.default_auth_dir
       in
+      check_valid_uefi_certs_in path
+  | true, pool_uefi_certs ->
+      let@ path = with_empty_dir !Xapi_globs.varstore_dir in
       really_write_uefi_certificates_to_disk ~__context ~host
         ~value:pool_uefi_certs ;
       check_valid_uefi_certs_in path
