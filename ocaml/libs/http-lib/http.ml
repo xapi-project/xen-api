@@ -757,7 +757,7 @@ module Request = struct
     @ user_agent
     @ traceparent
     @ close
-    @ List.map (fun (k, v) -> k ^ ":" ^ v) x.additional_headers
+    @ List.map (fun (k, v) -> k ^ ": " ^ v) x.additional_headers
 
   let to_headers_and_body (x : t) =
     (* If the body is given then compute a content length *)
@@ -856,7 +856,7 @@ module Response = struct
     let task =
       Option.fold ~none:[] ~some:(fun x -> [Hdr.task_id ^ ": " ^ x]) x.task
     in
-    let headers = List.map (fun (k, v) -> k ^ ":" ^ v) x.additional_headers in
+    let headers = List.map (fun (k, v) -> k ^ ": " ^ v) x.additional_headers in
     status :: (content_length @ task @ headers)
 
   let to_headers_and_body (x : t) =
