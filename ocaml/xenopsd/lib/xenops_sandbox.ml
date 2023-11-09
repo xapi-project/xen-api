@@ -113,7 +113,7 @@ end = struct
 
   let destroy chroot =
     Xenops_utils.best_effort (Printf.sprintf "removing chroot %s" chroot.root)
-      (fun () -> Xenops_utils.FileFS.rmtree chroot.root
+      (fun () -> Xapi_stdext_unix.Unixext.rm_rec chroot.root
     )
 end
 

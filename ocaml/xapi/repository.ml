@@ -69,7 +69,7 @@ let cleanup_all_pool_repositories () =
              let path = Filename.concat !Xapi_globs.yum_repos_config_dir file in
              Unixext.unlink_safe path
        ) ;
-    Helpers.rmtree !Xapi_globs.local_pool_repo_dir
+    Xapi_stdext_unix.Unixext.rm_rec !Xapi_globs.local_pool_repo_dir
   with e ->
     error "Failed to clean up all pool repositories: %s"
       (ExnHelper.string_of_exn e) ;
@@ -81,7 +81,8 @@ let cleanup_pool_repo ~__context ~self =
     clean_yum_cache repo_name ;
     Unixext.unlink_safe
       (Filename.concat !Xapi_globs.yum_repos_config_dir (repo_name ^ ".repo")) ;
-    Helpers.rmtree (Filename.concat !Xapi_globs.local_pool_repo_dir repo_name)
+    Xapi_stdext_unix.Unixext.rm_rec
+      (Filename.concat !Xapi_globs.local_pool_repo_dir repo_name)
   with e ->
     error "Failed to clean up pool repository %s: %s" repo_name
       (ExnHelper.string_of_exn e) ;
@@ -127,7 +128,7 @@ let sync ~__context ~self ~token ~token_id =
     write_initial_yum_config () ;
     clean_yum_cache repo_name ;
     (* Remove imported YUM repository GPG key *)
-    Helpers.rmtree (get_repo_config repo_name "gpgdir") ;
+    Xapi_stdext_unix.Unixext.rm_rec (get_repo_config repo_name "gpgdir") ;
     Xapi_stdext_pervasives.Pervasiveext.finally
       (fun () ->
         with_access_token ~token ~token_id @@ fun token_path ->

@@ -3275,7 +3275,7 @@ module Backend = struct
         (* unmounts devices in /var/xen/qemu/root-* *)
         let path = Printf.sprintf "/var/xen/qemu/root-%d" domid in
         Generic.best_effort (Printf.sprintf "removing %s" path) (fun () ->
-            Xenops_utils.FileFS.rmtree path
+            Xapi_stdext_unix.Unixext.rm_rec path
         )
 
       let tap_open ifname =
