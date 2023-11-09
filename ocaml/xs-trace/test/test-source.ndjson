@@ -1,0 +1,2 @@
+[{"tags":{},"localEndpoint":{"serviceName":"xapi"},"kind":"SERVER","duration":46,"timestamp":1677671549043900,"name":"session_check","traceId":"9dda2bd691624f9e2fce578f3a941b87","id":"d3ee4b91c27d703a"}]
+[{"tags":{},"localEndpoint":{"serviceName":"xapi"},"kind":"SERVER","duration":12,"timestamp":2657767154904300,"name":"session_check","traceId":"8eaa2bd592625f9e2fce678f3b941b86","id":"e5ee5b91c32e703b"}]

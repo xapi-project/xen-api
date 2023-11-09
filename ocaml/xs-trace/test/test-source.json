@@ -1,0 +1,12 @@
+[
+    {
+        "tags":{},
+        "localEndpoint":{"serviceName":"xapi"},
+        "kind":"SERVER",
+        "duration":37,
+        "timestamp":1273671428147000,
+        "name":"session_check",
+        "traceId":"8ada1be391625f9e",
+        "id":"e4ef4b91d17d303a"
+    }
+]
