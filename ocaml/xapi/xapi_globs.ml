@@ -1588,15 +1588,9 @@ module Resources = struct
       , set_iSCSI_initiator_script
       , "Path to set-iscsi-initiator script"
       )
-    ; ("yum-cmd", yum_cmd, "Path to yum command")
-    ; ("reposync-cmd", reposync_cmd, "Path to reposync command")
     ; ("createrepo-cmd", createrepo_cmd, "Path to createrepo command")
     ; ("modifyrepo-cmd", modifyrepo_cmd, "Path to modifyrepo command")
     ; ("rpm-cmd", rpm_cmd, "Path to rpm command")
-    ; ( "yum-config-manager-cmd"
-      , yum_config_manager_cmd
-      , "Path to yum-config-manager command"
-      )
     ; ("c_rehash", c_rehash, "Path to Regenerate CA store")
     ]
 
@@ -1665,6 +1659,12 @@ module Resources = struct
     ; ( "SQLite database  management tool"
       , sqlite3
       , "Executed to manage SQlite Database, like PBIS database"
+      )
+    ; ("yum-cmd", yum_cmd, "Path to yum command")
+    ; ("reposync-cmd", reposync_cmd, "Path to reposync command")
+    ; ( "yum-config-manager-cmd"
+      , yum_config_manager_cmd
+      , "Path to yum-config-manager command"
       )
     ]
 
