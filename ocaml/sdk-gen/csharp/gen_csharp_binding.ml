@@ -39,8 +39,6 @@ let api =
   let message_filter msg =
     Datamodel_utils.on_client_side msg
     && (not msg.msg_hide_from_docs)
-    (* XXX: C# binding generates get_all_records some other way *)
-    && msg.msg_tag <> FromObject GetAllRecords
     && List.mem "closed" msg.msg_release.internal
   in
   filter obj_filter field_filter message_filter
@@ -426,60 +424,8 @@ and gen_class out_chan cls =
     messages |> List.map (gen_exposed_method_overloads cls) |> List.concat
   in
   List.iter (print "%s") all_methods ;
-
-  (* Don't create duplicate get_all_records call *)
-  if
-    (not
-       (List.exists
-          (fun msg -> String.compare msg.msg_name "get_all_records" = 0)
-          messages
-       )
-    )
-    && List.mem cls.name expose_get_all_messages_for
-  then
-    print "%s" (gen_exposed_method cls (get_all_records_method cls.name) []) ;
-
   List.iter (gen_exposed_field out_chan cls) contents ;
-
   print "    }\n}\n"
-
-and get_all_records_method classname =
-  {
-    default_message with
-    msg_name= "get_all_records"
-  ; msg_params= []
-  ; msg_result=
-      Some
-        ( Map (Ref classname, Record classname)
-        , sprintf "A map from %s to %s.Record" classname classname
-        )
-  ; msg_doc=
-      sprintf "Get all the %s Records at once, in a single XML RPC call"
-        classname
-  ; msg_session= true
-  ; msg_async= false
-  ; msg_release=
-      {
-        opensource= ["3.0.3"]
-      ; internal= ["closed"; "debug"]
-      ; internal_deprecated_since= None
-      }
-  ; msg_lifecycle= Lifecycle.from []
-  ; msg_has_effect= false
-  ; msg_tag= Custom
-  ; msg_obj_name= classname
-  ; msg_errors= []
-  ; msg_secret= false
-  ; msg_custom_marshaller= false
-  ; msg_no_current_operations= false
-  ; msg_hide_from_docs= false
-  ; msg_pool_internal= false
-  ; msg_db_only= false
-  ; msg_force_custom= None
-  ; msg_allowed_roles= None
-  ; msg_map_keys_roles= []
-  ; msg_doc_tags= []
-  }
 
 and get_constructor_params content = get_constructor_params' content []
 
@@ -808,22 +754,7 @@ and gen_proxy_class_methods {name; messages; _} =
     let generator params = gen_proxy_method name message params in
     gen_overloads generator message
   in
-  let overloads =
-    messages |> List.map (gen_message_overloads name) |> List.concat
-  in
-  let records =
-    if
-      not
-        (List.exists
-           (fun msg -> String.compare msg.msg_name "get_all_records" = 0)
-           messages
-        )
-    then
-      gen_proxy_method name (get_all_records_method name) []
-    else
-      ""
-  in
-  overloads @ [records]
+  messages |> List.map (gen_message_overloads name) |> List.concat
 
 and gen_proxy_method classname message params =
   let proxy_msg_name = proxy_msg_name classname message in
