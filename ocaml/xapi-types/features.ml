@@ -104,7 +104,7 @@ let keys_of_features =
   ; ( PCI_device_for_auto_update
     , ("restrict_pci_device_for_auto_update", Negative, "PciAU")
     )
-  ; (Xen_motion, ("restrict_xen_motion", Negative, "XenMotion"))
+  ; (Xen_motion, ("restrict_xen_motion", Negative, "Live_migration"))
   ; (Guest_ip_setting, ("restrict_guest_ip_setting", Negative, "GuestIP"))
   ; (AD, ("restrict_ad", Negative, "AD"))
   ; (Nested_virt, ("restrict_nested_virt", Negative, "Nested_virt"))
