@@ -1603,15 +1603,8 @@ let migrate_send' ~__context ~vm ~dest ~live:_ ~vdi_map ~vif_map ~vgpu_map
         XenAPI.VM.set_ha_always_run ~rpc:remote.rpc ~session_id:remote.session
           ~self:new_vm ~value:true ;
       (* Send non-database metadata *)
-      let messages =
-        Xapi_message.get ~__context ~cls:`VM ~obj_uuid:vm_uuid
-          ~since:(Date.of_float 0.0)
-      in
-      Xapi_message.send_messages ~__context ~cls:`VM ~obj_uuid:vm_uuid ~messages
+      Xapi_message.send_messages ~__context ~cls:`VM ~obj_uuid:vm_uuid
         ~session_id:remote.session ~remote_address:remote.remote_master_ip ;
-      (* CA-365059: Remove messages since they've already been copied to the destination pool *)
-      let message_refs = List.rev_map fst messages in
-      Xapi_message.destroy_many ~__context ~messages:message_refs ;
       Xapi_blob.migrate_push ~__context ~rpc:remote.rpc
         ~remote_address:remote.remote_master_ip ~session_id:remote.session
         ~old_vm:vm ~new_vm
