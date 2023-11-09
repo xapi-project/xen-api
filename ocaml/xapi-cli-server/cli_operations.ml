@@ -4531,8 +4531,8 @@ let vm_migrate printer rpc session_id params =
   if use_sxm_migration then (
     printer
       (Cli_printer.PMsg
-         "Performing a Storage XenMotion migration. Your VM's VDIs will be \
-          migrated with the VM."
+         "Performing a storage live migration. Your VM's VDIs will be migrated \
+          with the VM."
       ) ;
     if
       not
@@ -4542,7 +4542,7 @@ let vm_migrate printer rpc session_id params =
         )
     then
       failwith
-        "Storage XenMotion requires remote-master, remote-username, and \
+        "Storage live migration requires remote-master, remote-username, and \
          remote-password to be specified. Please see 'xe help vm-migrate' for \
          help." ;
     let ip = List.assoc "remote-master" params in
