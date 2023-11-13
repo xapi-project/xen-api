@@ -444,6 +444,9 @@ let lock = Mutex.create ()
 
 let tracer_providers = Hashtbl.create 100
 
+let get_tracer_providers () =
+  Hashtbl.fold (fun _ provider acc -> provider :: acc) tracer_providers []
+
 let set ?enabled ?attributes ?endpoints ~uuid () =
   Xapi_stdext_threads.Threadext.Mutex.execute lock (fun () ->
       let provider =
@@ -465,7 +468,16 @@ let set ?enabled ?attributes ?endpoints ~uuid () =
               (Printf.sprintf "The TracerProvider : %s does not exist" uuid)
       in
       Hashtbl.replace tracer_providers uuid provider
-  )
+  ) ;
+  if
+    List.for_all
+      (fun provider -> not provider.TracerProvider.enabled)
+      (get_tracer_providers ())
+  then
+    Xapi_stdext_threads.Threadext.Mutex.execute Spans.lock (fun () ->
+        Hashtbl.clear Spans.spans ;
+        Hashtbl.clear Spans.finished_spans
+    )
 
 let create ~enabled ~attributes ~endpoints ~name_label ~uuid =
   let endpoints = List.map endpoint_of_string endpoints in
@@ -485,9 +497,6 @@ let destroy ~uuid =
   Xapi_stdext_threads.Threadext.Mutex.execute lock (fun () ->
       Hashtbl.remove tracer_providers uuid
   )
-
-let get_tracer_providers () =
-  Hashtbl.fold (fun _ provider acc -> provider :: acc) tracer_providers []
 
 let get_tracer ~name =
   let providers =
