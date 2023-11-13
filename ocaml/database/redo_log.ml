@@ -41,7 +41,7 @@ let get_static_device reason =
       (Static_vdis_list.list ())
   in
   (* Return the path to the first attached VDI which matches the reason *)
-  R.debug "Found %d VDIs matching [%s]" (List.length vdis) reason ;
+  D.debug "Found %d VDIs matching [%s]" (List.length vdis) reason ;
   match vdis with [] -> None | hd :: _ -> hd.Static_vdis_list.path
 
 let mib megabytes =

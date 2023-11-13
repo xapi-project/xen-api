@@ -531,6 +531,7 @@ let start_redo_log () =
       && not (bool_of_string (Localdb.get Constants.ha_armed))
     then (
       debug "Redo log was enabled when shutting down, so restarting it" ;
+      Static_vdis.reattempt_on_boot_attach () ;
       (* enable the use of the redo log *)
       Redo_log.enable_existing Xapi_ha.ha_redo_log
         Xapi_globs.gen_metadata_vdi_reason ;
