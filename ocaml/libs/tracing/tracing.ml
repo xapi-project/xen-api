@@ -85,7 +85,7 @@ module SpanContext = struct
   let of_traceparent traceparent =
     let elements = String.split_on_char '-' traceparent in
     match elements with
-    | ["00"; trace_id; span_id; "00"] ->
+    | ["00"; trace_id; span_id; _] ->
         Some {trace_id; span_id}
     | _ ->
         None
