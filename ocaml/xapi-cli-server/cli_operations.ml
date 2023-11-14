@@ -5668,14 +5668,9 @@ let vm_import fd _printer rpc session_id params =
       HttpPut (filename, uri)
     in
     let importtask =
-      if List.mem_assoc "task-uuid" params then
-        Some
-          (Client.Task.get_by_uuid ~rpc ~session_id
-             ~uuid:(List.assoc "task-uuid" params)
-          )
-      else
-        None
-      (* track_http_operation will create one for us *)
+      Option.map
+        (fun uuid -> Client.Task.get_by_uuid ~rpc ~session_id ~uuid)
+        (List.assoc_opt "task-uuid" params)
     in
     let result =
       track_http_operation ?use_existing_task:importtask fd rpc session_id
