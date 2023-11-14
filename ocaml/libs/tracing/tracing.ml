@@ -478,7 +478,7 @@ let create ~enabled ~attributes ~endpoints ~name_label ~uuid =
       | None ->
           Hashtbl.add tracer_providers uuid provider
       | Some _ ->
-          failwith "Tracing : TracerProvider already exists"
+          failwith "Tracing: TracerProvider already exists"
   )
 
 let destroy ~uuid =
@@ -726,6 +726,10 @@ module Export = struct
                   Ok ()
               | `Invalid x ->
                   Error (Failure ("invalid read: " ^ x))
+              | `Ok response
+                when Cohttp.Code.(response.status |> code_of_status |> is_error)
+                ->
+                  Error (Failure (Cohttp.Code.string_of_status response.status))
               | `Ok response ->
                   let body = Buffer.create 128 in
                   let reader = Response.make_body_reader response ic in
@@ -769,7 +773,7 @@ module Export = struct
             |> Result.iter_error raise
         )
       with exn ->
-        debug "Tracing : unable to export span : %s" (Printexc.to_string exn)
+        debug "Tracing: unable to export span : %s" (Printexc.to_string exn)
 
     let flush_spans () =
       let span_list = Spans.since () in
