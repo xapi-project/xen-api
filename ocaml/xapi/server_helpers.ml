@@ -74,13 +74,14 @@ let exec_with_context ~__context ~need_complete ?marshaller ?f_forward
               (* use the forwarding layer (NB this might make a local call ultimately) *)
               forward ~local_fn:f ~__context
       in
-      ( if need_complete then
-          match marshaller with
-          | None ->
-              TaskHelper.complete ~__context None
-          | Some fn ->
-              TaskHelper.complete ~__context (Some (fn result))
-      ) ;
+      if need_complete then
+        match marshaller with
+        | None ->
+            TaskHelper.complete ~__context None
+        | Some fn ->
+            TaskHelper.complete ~__context (Some (fn result))
+      else
+        Context.complete_tracing __context ;
       result
     with
     | Api_errors.Server_error (a, _) as e when a = Api_errors.task_cancelled ->
