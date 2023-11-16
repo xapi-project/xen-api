@@ -313,7 +313,7 @@ let suite_create_multi =
        )
   in
   let test_no_rrds () =
-    Alcotest.check_raises "should raise error" (Failure "hd") (fun () ->
+    Alcotest.check_raises "should raise error" (No_RRA_Available) (fun () ->
         let _ = RU.create_multi [] 0L 1L None in
         ()
     )
