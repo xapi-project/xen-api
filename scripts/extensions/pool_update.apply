@@ -1,7 +1,7 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
-from __future__ import print_function
-import xmlrpclib
+
+import xmlrpc.client
 import sys
 import XenAPI
 import json
@@ -37,13 +37,13 @@ class InvalidUpdate(Exception):
 
 def success_message():
     rpcparams = {'Status': 'Success', 'Value': ''}
-    return xmlrpclib.dumps((rpcparams, ), '', True)
+    return xmlrpc.client.dumps((rpcparams, ), '', True)
 
 
 def failure_message(code, params):
     rpcparams = {
         'Status': 'Failure', 'ErrorDescription': [code] + params}
-    return xmlrpclib.dumps((rpcparams, ), '', True)
+    return xmlrpc.client.dumps((rpcparams, ), '', True)
 
 
 def execute_apply(session, update_package, yum_conf_file):
@@ -51,7 +51,7 @@ def execute_apply(session, update_package, yum_conf_file):
     yum_env['LANG'] = 'C'
 
     cmd = ['yum', 'clean', 'all', '--noplugins', '-c', yum_conf_file]
-    p = subprocess.Popen(cmd, shell=False, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, close_fds=True, env=yum_env)
+    p = subprocess.Popen(cmd, shell=False, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, close_fds=True, env=yum_env, universal_newlines=True)
     output, _ = p.communicate()
     for line in output.split('\n'):
         xcp.logger.info(line)
@@ -59,7 +59,7 @@ def execute_apply(session, update_package, yum_conf_file):
         raise EnvironmentFailure("Error cleaning yum cache")
 
     cmd = ['yum', 'upgrade', '-y', '--noplugins', '-c', yum_conf_file, update_package]
-    p = subprocess.Popen(cmd, shell=False, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, close_fds=True, env=yum_env)
+    p = subprocess.Popen(cmd, shell=False, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, close_fds=True, env=yum_env, universal_newlines=True)
     output, _ = p.communicate()
     xcp.logger.info('pool_update.apply %r returncode=%r output:', cmd, p.returncode)
     for line in output.split('\n'):
@@ -80,7 +80,7 @@ def execute_apply(session, update_package, yum_conf_file):
 if __name__ == '__main__':
     xcp.logger.logToSyslog(level=logging.INFO)
     txt = sys.stdin.read()
-    params, method = xmlrpclib.loads(txt)
+    params, method = xmlrpc.client.loads(txt)
 
     session = None
     lock_acquired = False
