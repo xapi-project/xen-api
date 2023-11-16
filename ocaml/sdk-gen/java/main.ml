@@ -691,8 +691,8 @@ let gen_method_error_throw file name error =
   List.iter
     (fun i ->
       fprintf file
-        "                String p%i = errorData.length > %i ? \
-        errorData[%i] : \"\";\n"
+        "                String p%i = errorData.length > %i ? errorData[%i] : \
+         \"\";\n"
         i i i
     )
     (range (List.length error.err_params)) ;
@@ -706,10 +706,10 @@ let gen_types_class folder =
   print_license file ;
   fprintf file
     "package com.xensource.xenapi;\n\n\
-    import java.util.Map;\n\n\
-    import com.fasterxml.jackson.annotation.JsonEnumDefaultValue;\n\
-    import com.fasterxml.jackson.annotation.JsonProperty;\n\
-    import java.io.IOException;\n\n\
+     import java.util.Map;\n\n\
+     import com.fasterxml.jackson.annotation.JsonEnumDefaultValue;\n\
+     import com.fasterxml.jackson.annotation.JsonProperty;\n\
+     import java.io.IOException;\n\n\
      /**\n\
     \ * This class holds enum types and exceptions.\n\
     \ */\n\
@@ -784,14 +784,14 @@ let gen_types_class folder =
     \     * returned an invalid response, throws a BadServerResponse. \
      Otherwise, returns the server response as passed in.\n\
     \     */\n\
-    \    public static void checkError(JsonRpcResponseError response) throws XenAPIException, \
-     BadServerResponse\n\
+    \    public static void checkError(JsonRpcResponseError response) throws \
+     XenAPIException, BadServerResponse\n\
     \    {\n\
-    \        var errorData = response.data;
-    \        if(errorData.length == 0){
-    \            throw new BadServerResponse(response);
-    \        }
-    \        var errorName = errorData[0];\n\n" ;
+    \        var errorData = response.data;\n\
+    \            if(errorData.length == 0){\n\
+    \                throw new BadServerResponse(response);\n\
+    \            }\n\
+    \            var errorName = errorData[0];\n\n" ;
 
   Hashtbl.iter (gen_method_error_throw file) Datamodel.errors ;
 
