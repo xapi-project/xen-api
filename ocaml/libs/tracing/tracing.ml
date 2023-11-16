@@ -774,6 +774,12 @@ module Export = struct
               [
                 ("export.span.count", List.length all_spans |> string_of_int)
               ; ("export.endpoint", endpoint_to_string endpoint)
+              ; ( "xs.tracing.spans_table.count"
+                , Hashtbl.length Spans.spans |> string_of_int
+                )
+              ; ( "xs.tracing.finished_spans_table.count"
+                , Hashtbl.length traces |> string_of_int
+                )
               ]
             in
             let@ _ = with_tracing ~parent ~attributes ~name in

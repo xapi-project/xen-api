@@ -95,8 +95,7 @@ let events_of_other_tbl_refs other_tbl_refs =
 open Db_cache_types
 open Db_action_helper
 
-let database_callback event db =
-  let context = Context.make "eventgen" in
+let database_callback_inner event db context =
   let other_tbl_refs tblname = follow_references tblname in
   let other_tbl_refs_for_this_field tblname fldname =
     List.filter (fun (_, fld) -> fld = fldname) (other_tbl_refs tblname)
@@ -258,3 +257,9 @@ let database_callback event db =
               events_notify ~snapshot:s tbl "mod" ref
           )
         other_tbl_events
+
+let database_callback event db =
+  let context = Context.make "eventgen" in
+  Xapi_stdext_pervasives.Pervasiveext.finally
+    (fun () -> database_callback_inner event db context)
+    (fun () -> Context.complete_tracing context)
