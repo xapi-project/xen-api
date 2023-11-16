@@ -59,9 +59,6 @@ and ocaml_class_to_csharp_local_var classname =
   else
     String.lowercase_ascii (exposed_class_name classname)
 
-and ocaml_field_to_csharp_local_var field =
-  String.lowercase_ascii (full_name field)
-
 and ocaml_field_to_csharp_property field =
   ocaml_class_to_csharp_property (full_name field)
 
@@ -86,38 +83,9 @@ and exposed_class_name classname =
 
 and qualified_class_name classname = "XenAPI." ^ exposed_class_name classname
 
-and type_default ty =
-  match ty with
-  | Int ->
-      ""
-  | SecretString | String ->
-      ""
-  | Float ->
-      ""
-  | Bool ->
-      ""
-  | Enum _ ->
-      ""
-  | Record _ ->
-      ""
-  | Ref _ ->
-      ""
-  | Map (_, _) ->
-      " = new Hashtable()"
-  | Set String ->
-      " = new string[0]"
-  | _ ->
-      sprintf " = new %s()" (exposed_type ty)
-
 and escaped = function "params" -> "paramz" | s -> s
 
 and full_name field = escaped (String.concat "_" field.full_name)
-
-and exposed_type_opt = function
-  | Some (typ, _) ->
-      exposed_type typ
-  | None ->
-      "void"
 
 and exposed_type = function
   | SecretString | String ->

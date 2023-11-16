@@ -552,15 +552,6 @@ and print_methods_constructor message obj classname =
     (gen_shouldprocess "New" message classname)
     (gen_csharp_api_call message classname "New" "passthru")
 
-and create_param_parse param paramName =
-  match param.param_type with
-  | Ref _ ->
-      sprintf "\n            string %s = %s.opaque_ref;\n"
-        (String.lowercase_ascii param.param_name)
-        paramName
-  | _ ->
-      ""
-
 and gen_make_record obj classname =
   sprintf
     "\n\
@@ -1144,37 +1135,6 @@ and print_cmdlet_methods_dynamic classname messages enum commonVerb =
         (ocaml_class_to_csharp_class classname)
         enum (cut_message_name hd) (cut_message_name hd) localVar
         (print_cmdlet_methods_dynamic classname tl enum commonVerb)
-
-and print_async_param_getter classname asyncMessages =
-  let properties =
-    List.map
-      (fun x ->
-        sprintf "                    case Xen%sProperty.%s:"
-          (ocaml_class_to_csharp_class classname)
-          x
-      )
-      asyncMessages
-  in
-  match asyncMessages with
-  | [] ->
-      ""
-  | _ ->
-      sprintf
-        "\n\
-        \        protected override bool GenerateAsyncParam\n\
-        \        {\n\
-        \            get\n\
-        \            {\n\
-        \                switch (XenProperty)\n\
-        \                {\n\
-         %s\n\
-        \                        return true;\n\
-        \                    default:\n\
-        \                        return false;\n\
-        \                }\n\
-        \            }\n\
-        \        }\n"
-        (String.concat "\n" properties)
 
 (**************************************)
 (* Common to more than one generators *)

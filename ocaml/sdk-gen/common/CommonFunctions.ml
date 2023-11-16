@@ -40,9 +40,6 @@ let with_output filename f =
   let io = open_out filename in
   finally (fun () -> f io) ~always:(fun () -> close_out io)
 
-let joined sep f l =
-  l |> List.map f |> List.filter (fun x -> x <> "") |> String.concat sep
-
 let escape_xml s =
   s
   |> Astring.String.cuts ~sep:"<" ~empty:true

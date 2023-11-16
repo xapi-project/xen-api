@@ -1412,14 +1412,9 @@ and internal_decl_filename name =
 
 and impl_filename name = sprintf "xen_%s.c" (String.lowercase_ascii name)
 
-and internal_impl_filename name =
-  sprintf "xen_%s_internal.c" (String.lowercase_ascii name)
-
 and protector classname = sprintf "XEN_%s_H" (String.uppercase_ascii classname)
 
 and typename classname = sprintf "xen_%s" (String.lowercase_ascii classname)
-
-and variablename classname = sprintf "%s" (String.lowercase_ascii classname)
 
 and record_typename classname = sprintf "%s_record" (typename classname)
 

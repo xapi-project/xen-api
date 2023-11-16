@@ -137,10 +137,6 @@ and gen_relations () =
   Hashtbl.iter (gen_relations_by_type out_chan) relations ;
   print "\n            return relations;\n       }\n    }\n}\n"
 
-and string_ends str en =
-  let len = String.length en in
-  String.sub str (String.length str - len) len = en
-
 and process_relations ((oneClass, oneField), (manyClass, manyField)) =
   let value =
     try (manyField, oneClass, oneField) :: Hashtbl.find relations manyClass
@@ -451,16 +447,6 @@ and get_constructor_body' content elements =
   | Namespace (_, c) :: others ->
       get_constructor_body' (c @ others) elements
 
-and gen_constructor_line out_chan content =
-  let print format = fprintf out_chan format in
-
-  match content with
-  | Field fr ->
-      print "            %s = %s;\n" (full_name fr)
-        (convert_from_proxy ("proxy." ^ full_name fr) fr.ty)
-  | Namespace (_, c) ->
-      List.iter (gen_constructor_line out_chan) c
-
 and gen_hashtable_constructor_line out_chan content =
   let print format = fprintf out_chan format in
 
@@ -559,9 +545,6 @@ and gen_exposed_method cls msg curParams =
       ""
   in
   sync ^ async
-
-and returns_xenobject msg =
-  match msg.msg_result with Some (Record _, _) -> true | _ -> false
 
 and get_params_doc msg classname params =
   let sessionDoc =
@@ -687,18 +670,6 @@ and gen_save_changes_to_field out_chan exposed_class_name fr =
     \                    %s.set_%s(session, opaqueRef, _%s);\n\
     \                }\n"
     equality exposed_class_name full_name_fr full_name_fr
-
-and ctor_call classname =
-  let fields =
-    Datamodel_utils.fields_of_obj (Dm_api.get_obj_by_name api ~objname:classname)
-  in
-  let fields2 =
-    List.filter
-      (function {DT.qualifier= DT.StaticRO | DT.RW; _} -> true | _ -> false)
-      fields
-  in
-  let args = List.map (fun fr -> "p." ^ full_name fr) fields2 in
-  String.concat ", " ("session.opaque_ref" :: args)
 
 and gen_exposed_field out_chan cls content =
   match content with
@@ -867,15 +838,6 @@ and gen_enum' name contents =
     [
       ("enum", `String name); ("enum_members", `A (List.map enum_member members))
     ]
-
-and has_unknown_entry contents =
-  let rec f = function
-    | x :: xs ->
-        if String.lowercase_ascii (fst x) = "unknown" then true else f xs
-    | [] ->
-        false
-  in
-  f contents
 
 (* ------------------- category: maps *)
 and gen_maps () =
