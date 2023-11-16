@@ -209,15 +209,19 @@ let json_of_t t =
     'xport' format. *)
 
 let create_multi prefixandrrds start interval cfopt =
-  let first_rrd = snd (List.hd prefixandrrds) in
+  let timestep, last_updated =
+    match prefixandrrds with
+    | (_, r) :: _ ->
+        (r.timestep, r.last_updated)
+    | [] ->
+        raise No_RRA_Available
+  in
 
-  let pdp_interval = Int64.to_int (Int64.div interval first_rrd.timestep) in
+  let pdp_interval = Int64.to_int (Int64.div interval timestep) in
 
   (* Sanity - make sure the RRDs are homogeneous *)
   let prefixandrrds =
-    List.filter
-      (fun (_prefix, rrd) -> rrd.timestep = first_rrd.timestep)
-      prefixandrrds
+    List.filter (fun (_prefix, rrd) -> rrd.timestep = timestep) prefixandrrds
   in
 
   (* Treat -ve start values as relative to the latest update. *)
@@ -282,12 +286,10 @@ let create_multi prefixandrrds start interval cfopt =
   let rras = List.flatten rras in
 
   (* The following timestep is that of the archive *)
-  let rra_timestep =
-    Int64.mul first_rrd.timestep (Int64.of_int first_rra.rra_pdp_cnt)
-  in
+  let rra_timestep = Int64.mul timestep (Int64.of_int first_rra.rra_pdp_cnt) in
 
   (* Get the last and first times of the CDPs to be returned *)
-  let last_cdp_time, _age = get_times first_rrd.last_updated rra_timestep in
+  let last_cdp_time, _age = get_times last_updated rra_timestep in
   let first_cdp_time_minus_one, _age =
     get_times (Int64.to_float start) rra_timestep
   in

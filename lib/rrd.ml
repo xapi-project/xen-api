@@ -633,7 +633,11 @@ let query_named_ds rrd now ds_name cf =
     raise (Invalid_data_source ds_name)
   else
     let rras = find_best_rras rrd 0 (Some cf) (Int64.of_float now) in
-    Fring.peek (List.hd rras).rra_data.(n) 0
+    match rras with
+    | [] ->
+        raise No_RRA_Available
+    | rra :: _ ->
+        Fring.peek rra.rra_data.(n) 0
 
 (******************************************************************************)
 (* Marshalling/Unmarshalling functions                                        *)
