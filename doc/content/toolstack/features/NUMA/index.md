@@ -122,6 +122,8 @@ See page 13 in [^AMD_numa] for a diagram of an AMD Opteron 6272 system.
    If this is an issue in practice the NUMA matrix could be pre-filtered to contain only reachable nodes.
    NUMA nodes with 0 CPUs *are* accepted (it can result from hard affinity pinnings)
 * NUMA balancing is not considered during HA planning
+* Dom0 is a single VM that needs to communicate with all other VMs, so NUMA balancing is not applied to it (we'd need to expose NUMA topology to the Dom0 kernel so it can better allocate processes)
+* IO NUMA is out of scope for now
 
 ## XAPI datamodel design
 
@@ -153,15 +155,16 @@ Debugging the allocator is done by running `xl vcpu-list` and investigating the 
 
 See the documentation in [softaffinity.mli] and [topology.mli].
 
-[Softaffinity.plan] returns a [CPUSet] given a host's NUMA allocation state and a VM's NUMA allocation request.
-[Topology.CPUSet] provides helpers for operating on a set of CPU indexes.
-[Topology.NUMAResource] is a [CPUSet] and the free memory available on a NUMA node.
-[Topology.NUMARequest] is a request for a given number of vCPUs and memory in bytes.
-[Topology.NUMA] represents a host's NUMA allocation state.
-[Topology.NUMA.candidates] are groups of nodes orderd by minimum average distance. The sequence is limited to [N+65520], where [N] is the number of NUMA nodes.
+* [Softaffinity.plan] returns a [CPUSet] given a host's NUMA allocation state and a VM's NUMA allocation request.
+* [Topology.CPUSet] provides helpers for operating on a set of CPU indexes.
+* [Topology.NUMAResource] is a [CPUSet] and the free memory available on a NUMA node.
+* [Topology.NUMARequest] is a request for a given number of vCPUs and memory in bytes.
+* [Topology.NUMA] represents a host's NUMA allocation state.
+* [Topology.NUMA.candidates] are groups of nodes orderd by minimum average distance.
+The sequence is limited to [N+65520], where [N] is the number of NUMA nodes.
 This avoids exponential state space explosion on very large systems (>16 NUMA nodes).
-[Topology.NUMA.choose] will choose one NUMA node deterministically, while trying to keep overall NUMA node usage balanced.
-[Domain.numa_placement] builds a [NUMARequest] and uses the above [Topology] and [Softaffinity] functions to compute and apply a plan.
+* [Topology.NUMA.choose] will choose one NUMA node deterministically, while trying to keep overall NUMA node usage balanced.
+* [Domain.numa_placement] builds a [NUMARequest] and uses the above [Topology] and [Softaffinity] functions to compute and apply a plan.
 
 We used to have a `xenopsd.conf` configuration option to enable numa placement, for backwards compatibility this is still supported, but only if the admin hasn't set an explicit policy on the Host.
 It is best to remove the experimental `xenopsd.conf` entry though, a future version may completely drop it.
