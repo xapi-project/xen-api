@@ -19,8 +19,6 @@ end)
 
 let destdir = "autogen/src"
 
-let templdir = "templates"
-
 type cmdlet = {filename: string; content: string}
 
 let api =
