@@ -5,7 +5,7 @@ authors: [ "xen-api@lists.xen.org" ]
 license: "LGPL-2.1-only WITH OCaml-LGPL-linking-exception"
 homepage: "https://github.com/xapi-project/xen-api"
 bug-reports: "https://github.com/xapi-project/xen-api/issues"
-dev-repo: "https://github.com/xapi-project/xen-api.git"
+dev-repo: "git+https://github.com/xapi-project/xen-api.git"
 tags: [ "org:xapi-project" ]
 build: [[ "dune" "build" "-p" name "-j" jobs ]]
 depends: [

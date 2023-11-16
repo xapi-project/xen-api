@@ -29,7 +29,6 @@ depends: [
   "mirage-crypto-rng" {with-test}
   "message-switch-unix"
   "mtime"
-  "ocaml-migrate-parsetree"
   "opentelemetry-client-ocurl"
   "pci"
   "pciutil"

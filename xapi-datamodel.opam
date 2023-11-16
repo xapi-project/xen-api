@@ -12,7 +12,6 @@ depends: [
   "ocaml"
   "dune" {build & >= "1.4"}
   "mustache"
-  "ocaml-migrate-parsetree"
   "ppx_deriving_rpc"
   "rpclib"
   "base-threads"

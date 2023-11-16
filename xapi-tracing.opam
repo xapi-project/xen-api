@@ -17,6 +17,7 @@ depends: [
   "xapi-open-uri"
   "xapi-stdext-threads"
   "xapi-stdext-unix"
+  "zstd"
 ]
 synopsis: "Library required by xapi"
 description: """
