@@ -1097,6 +1097,8 @@ let assert_is_valid_tcp_udp_port_range ~first_port ~first_name ~last_port
 
 let is_valid_ip kind address =
   match (Unixext.domain_of_addr address, kind) with
+  | Some x, `ipv4or6 when x = Unix.PF_INET || x = Unix.PF_INET6 ->
+      true
   | Some x, `ipv4 when x = Unix.PF_INET ->
       true
   | Some x, `ipv6 when x = Unix.PF_INET6 ->

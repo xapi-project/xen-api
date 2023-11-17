@@ -7298,7 +7298,7 @@ module PVS_server = struct
       ~result:(Ref _pvs_server, "the new PVS server")
       ~params:
         [
-          (Set String, "addresses", "IPv4 addresses of the server")
+          (Set String, "addresses", "IPv4/IPv6 addresses of the server")
         ; (Int, "first_port", "first UDP port accepted by this server")
         ; (Int, "last_port", "last UDP port accepted by this server")
         ; (Ref _pvs_site, "site", "PVS site this server is a part of")
