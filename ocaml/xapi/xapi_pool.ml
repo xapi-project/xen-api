@@ -3567,11 +3567,11 @@ let disable_repository_proxy ~__context ~self =
     )
 
 let set_uefi_certificates ~__context ~self ~value =
-  match !Xapi_globs.override_uefi_certs with
+  match !Xapi_globs.allow_custom_uefi_certs with
   | false ->
       let msg =
-        "Setting UEFI certificates is not possible when override_uefi_certs is \
-         false"
+        "Setting UEFI certificates is not possible when \
+         allow_custom_uefi_certs is false"
       in
       raise Api_errors.(Server_error (operation_not_allowed, [msg]))
   | true ->

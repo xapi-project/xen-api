@@ -2725,7 +2725,7 @@ let really_write_uefi_certificates_to_disk ~__context ~host:_ ~value =
                  [Unix.O_WRONLY; Unix.O_CREAT; Unix.O_TRUNC]
                  0o644
              in
-             debug "override_uefi_certs: copy_file %s->%s" src dst ;
+             debug "%s: copy_file %s->%s" __FUNCTION__ src dst ;
              ignore (Unixext.copy_file src_fd dst_fd)
          )
   | base64_value -> (
@@ -2746,7 +2746,8 @@ let really_write_uefi_certificates_to_disk ~__context ~host:_ ~value =
 
 let write_uefi_certificates_to_disk ~__context ~host =
   let with_valid_symlink ~from_path ~to_path fn =
-    debug "override_uefi_certs: with_valid_symlink %s->%s" from_path to_path ;
+    debug "write_uefi_certificates_to_disk: with_valid_symlink %s->%s" from_path
+      to_path ;
     if Helpers.FileSys.realpathm from_path <> to_path then (
       Xapi_stdext_unix.Unixext.rm_rec ~rm_top:true from_path ;
       Unix.symlink to_path from_path
@@ -2754,7 +2755,7 @@ let write_uefi_certificates_to_disk ~__context ~host =
     fn from_path
   in
   let with_empty_dir path fn =
-    debug "override_uefi_certs: with_empty_dir %s" path ;
+    debug "write_uefi_certificates_to_disk: with_empty_dir %s" path ;
     Xapi_stdext_unix.Unixext.rm_rec ~rm_top:false path ;
     Unixext.mkdir_rec path 0o755 ;
     fn path
@@ -2773,7 +2774,7 @@ let write_uefi_certificates_to_disk ~__context ~host =
            uefi_certs_in_disk |> Array.mem cert |> log_of
        )
   in
-  match !Xapi_globs.override_uefi_certs with
+  match !Xapi_globs.allow_custom_uefi_certs with
   | false ->
       let@ path =
         with_valid_symlink ~from_path:!Xapi_globs.varstore_dir
@@ -2803,7 +2804,7 @@ let write_uefi_certificates_to_disk ~__context ~host =
       check_valid_uefi_certs_in path
 
 let set_uefi_certificates ~__context ~host ~value =
-  match !Xapi_globs.override_uefi_certs with
+  match !Xapi_globs.allow_custom_uefi_certs with
   | false ->
       raise Api_errors.(Server_error (Api_errors.operation_not_allowed, [""]))
   | true ->
