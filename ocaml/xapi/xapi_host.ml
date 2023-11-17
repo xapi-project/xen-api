@@ -2796,24 +2796,18 @@ let write_uefi_certificates_to_disk ~__context ~host =
       let@ path = with_empty_dir !Xapi_globs.varstore_dir in
       (* get from pool for consistent results across hosts *)
       let pool_uefi_certs =
-        Db.Pool.get_uefi_certificates ~__context
+        Db.Pool.get_custom_uefi_certificates ~__context
           ~self:(Helpers.get_pool ~__context)
       in
       really_write_uefi_certificates_to_disk ~__context ~host
         ~value:pool_uefi_certs ;
       check_valid_uefi_certs_in path
 
-let set_uefi_certificates ~__context ~host ~value =
-  match !Xapi_globs.allow_custom_uefi_certs with
-  | false ->
-      raise Api_errors.(Server_error (Api_errors.operation_not_allowed, [""]))
-  | true ->
-      Db.Host.set_uefi_certificates ~__context ~self:host ~value ;
-      Helpers.call_api_functions ~__context (fun rpc session_id ->
-          Client.Client.Pool.set_uefi_certificates ~rpc ~session_id
-            ~self:(Helpers.get_pool ~__context)
-            ~value
-      )
+let set_uefi_certificates ~__context ~host:_ ~value:_ =
+  let msg =
+    "To set UEFI certificates use: `Pool.set_custom_uefi_certificates`"
+  in
+  raise Api_errors.(Server_error (Api_errors.operation_not_allowed, [msg]))
 
 let set_iscsi_iqn ~__context ~host ~value =
   if value = "" then
