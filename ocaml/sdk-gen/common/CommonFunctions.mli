@@ -119,12 +119,5 @@ val render_file : string * string -> Mustache.Json.t -> string -> string -> unit
     @param templates_dir Directory containing templates.
     @param dest_dir Directory for the rendered output. *)
 
-val json_releases :
-  [> `O of
-     ( string
-     * [> `A of
-          [> `O of (string * [> `Float of float | `String of string]) list] list
-       | `Float of float ]
-     )
-     list ]
+val json_releases : Mustache.Json.t
 (** JSON structure representing release information. *)
