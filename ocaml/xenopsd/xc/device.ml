@@ -3014,6 +3014,7 @@ module Backend = struct
               )
 
       let qemu_media_change ~xs device _type params =
+        debug "%s: params='%s'" __FUNCTION__ params;
         Vbd_Common.qemu_media_change ~xs device _type params ;
         try
           let cd = cd_of device.backend.devid in
