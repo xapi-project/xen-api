@@ -2103,8 +2103,6 @@ let () =
 
   Logs.set_reporter (lwt_reporter ()) ;
   Logs.set_level ~all:true (Some Logs.Info) ;
-  if !Xcp_service.daemon then
-    Xcp_service.maybe_daemonize () ;
   let main =
     if !self_test_only then
       self_test ~root_dir:!root_dir
