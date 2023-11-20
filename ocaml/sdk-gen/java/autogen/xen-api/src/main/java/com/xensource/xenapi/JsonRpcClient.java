@@ -44,7 +44,6 @@ import org.apache.hc.core5.http.io.entity.StringEntity;
 
 import java.io.IOException;
 import java.net.URL;
-import java.net.http.HttpClient;
 import java.text.SimpleDateFormat;
 import java.util.concurrent.TimeUnit;
 
@@ -61,7 +60,7 @@ import java.util.concurrent.TimeUnit;
  * By default, the timeout for requests is set to 10 minutes (600 seconds). The default timeout for connecting to the
  * JSON-RPC backend is set to 5 seconds.
  *
- * @see HttpClient HttpClient is used to make requests and connect to the backend
+ * @see CloseableHttpClient CloseableHttpClient is used to make requests and connect to the backend
  * @see ObjectMapper ObjectMapper is used to marshall requests and responses
  */
 public class JsonRpcClient {
@@ -120,12 +119,12 @@ public class JsonRpcClient {
     }
 
     /**
-     * Initialize a JsonRpcClient using a custom HttpClient instance.
+     * Initialize a JsonRpcClient using a custom CloseableHttpClient instance.
      *
      * @param client            the custom HttpClient to use for all requests
      * @param jsonRpcBackendUrl the URL of the JSON-RPC backend. Usually of the form https://&lt;address&gt;.
      * @param requestTimeout    the timeout value for requests.
-     * @see HttpClient
+     * @see CloseableHttpClient CloseableHttpClient the client that will be used for dispatching requests
      * @see JsonRpcClient JsonRpcClient for more info on using this class
      */
     public JsonRpcClient(CloseableHttpClient client, URL jsonRpcBackendUrl, int requestTimeout) {
