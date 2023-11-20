@@ -138,14 +138,16 @@ let rec main () =
 
 and gen_class f g clas targetdir =
   let out_chan = open_out (Filename.concat targetdir (g clas.name)) in
-  finally (fun () -> f clas out_chan) ~always:(fun () -> close_out out_chan)
+  Fun.protect (fun () -> f clas out_chan) ~finally:(fun () -> close_out out_chan)
 
 and gen_enum f g targetdir = function
   | Enum (name, _) as x ->
       if not (List.mem name !all_headers) then
         all_headers := name :: !all_headers ;
       let out_chan = open_out (Filename.concat targetdir (g name)) in
-      finally (fun () -> f x out_chan) ~always:(fun () -> close_out out_chan)
+      Fun.protect
+        (fun () -> f x out_chan)
+        ~finally:(fun () -> close_out out_chan)
   | _ ->
       assert false
 
@@ -155,9 +157,9 @@ and gen_map f g targetdir = function
       if not (List.mem name !all_headers) then
         all_headers := name :: !all_headers ;
       let out_chan = open_out (Filename.concat targetdir (g name)) in
-      finally
+      Fun.protect
         (fun () -> f name l r out_chan)
-        ~always:(fun () -> close_out out_chan)
+        ~finally:(fun () -> close_out out_chan)
   | _ ->
       assert false
 
@@ -972,14 +974,14 @@ and gen_failure_h () =
   let out_chan =
     open_out (Filename.concat destdir "include/xen/api/xen_api_failure.h")
   in
-  finally
+  Fun.protect
     (fun () ->
       print_h_header out_chan protect ;
       gen_failure_enum out_chan ;
       gen_failure_funcs out_chan ;
       print_h_footer out_chan
     )
-    ~always:(fun () -> close_out out_chan)
+    ~finally:(fun () -> close_out out_chan)
 
 and gen_failure_enum out_chan =
   let print format = fprintf out_chan format in
@@ -1029,7 +1031,7 @@ and gen_failure_funcs out_chan =
 and gen_failure_c () =
   let out_chan = open_out (Filename.concat destdir "src/xen_api_failure.c") in
   let print format = fprintf out_chan format in
-  finally
+  Fun.protect
     (fun () ->
       print
         "%s\n\n\
@@ -1055,7 +1057,7 @@ and gen_failure_c () =
         Licence.bsd_two_clause
         (String.concat ",\n    " (failure_lookup_entries ()))
     )
-    ~always:(fun () -> close_out out_chan)
+    ~finally:(fun () -> close_out out_chan)
 
 and failure_lookup_entries () =
   List.sort String.compare

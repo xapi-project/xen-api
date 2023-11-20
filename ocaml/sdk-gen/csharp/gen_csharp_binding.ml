@@ -240,9 +240,9 @@ and gen_class_file cls =
   let out_chan =
     open_out (Filename.concat destdir (exposed_class_name cls.name) ^ ".cs")
   in
-  finally
+  Fun.protect
     (fun () -> gen_class out_chan cls)
-    ~always:(fun () -> close_out out_chan)
+    ~finally:(fun () -> close_out out_chan)
 
 and gen_class out_chan cls =
   let print format = fprintf out_chan format in
@@ -842,7 +842,9 @@ and gen_enum' name contents =
 (* ------------------- category: maps *)
 and gen_maps () =
   let out_chan = open_out (Filename.concat destdir "Maps.cs") in
-  finally (fun () -> gen_maps' out_chan) ~always:(fun () -> close_out out_chan)
+  Fun.protect
+    (fun () -> gen_maps' out_chan)
+    ~finally:(fun () -> close_out out_chan)
 
 and gen_maps' out_chan =
   let print format = fprintf out_chan format in

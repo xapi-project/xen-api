@@ -11,13 +11,6 @@ type wireProtocol = XmlRpc | JsonRpc
 
 type rpm_version = {major: int; minor: int; micro: int}
 
-let finally f ~(always : unit -> unit) =
-  match f () with
-  | result ->
-      always () ; result
-  | exception e ->
-      always () ; raise e
-
 let parse_to_rpm_version_option inputStr =
   try
     Scanf.sscanf inputStr "%d.%d.%d" (fun x y z ->
@@ -27,18 +20,18 @@ let parse_to_rpm_version_option inputStr =
 
 let string_of_file filename =
   let in_channel = open_in filename in
-  finally
+  Fun.protect
     (fun () ->
       let rec read_lines acc =
         try read_lines (input_line in_channel :: acc) with End_of_file -> acc
       in
       read_lines [] |> List.rev |> String.concat "\n"
     )
-    ~always:(fun () -> close_in in_channel)
+    ~finally:(fun () -> close_in in_channel)
 
 let with_output filename f =
   let io = open_out filename in
-  finally (fun () -> f io) ~always:(fun () -> close_out io)
+  Fun.protect (fun () -> f io) ~finally:(fun () -> close_out io)
 
 let escape_xml s =
   s
@@ -269,9 +262,9 @@ and render_template template_file json output_file =
   let templ = string_of_file template_file |> Mustache.of_string in
   let rendered = Mustache.render templ json in
   let out_chan = open_out output_file in
-  finally
+  Fun.protect
     (fun () -> output_string out_chan rendered)
-    ~always:(fun () -> close_out out_chan)
+    ~finally:(fun () -> close_out out_chan)
 
 let render_file (infile, outfile) json templates_dir dest_dir =
   let input_path = Filename.concat templates_dir infile in

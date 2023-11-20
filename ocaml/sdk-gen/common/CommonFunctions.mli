@@ -14,11 +14,6 @@ val is_setter : Datamodel_types.message -> bool
     @param message Message to check.
     @return [true] if the message is a setter, [false] otherwise. *)
 
-val finally : (unit -> 'a) -> always:(unit -> unit) -> 'a
-(** [finally f ~always] Executes [f] and then [always] regardless of success or failure.
-    @param f Function to execute.
-    @param always Function to execute always. *)
-
 val is_getter : Datamodel_types.message -> bool
 (** [is_getter message] Checks if a message is a getter based on its name.
     @param message Message to check.
