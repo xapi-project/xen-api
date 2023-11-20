@@ -520,16 +520,18 @@ let gen_class cls folder =
   let publishInfo = get_published_info_class cls in
   print_license file ;
   fprintf file
-    "package com.xensource.xenapi;\n\n\
-     import com.fasterxml.jackson.annotation.JsonProperty;\n\
-     import com.fasterxml.jackson.core.JsonProcessingException;\n\
-     import com.fasterxml.jackson.core.type.TypeReference;\n\
-     import com.xensource.xenapi.Types.BadServerResponse;\n\
-     import com.xensource.xenapi.Types.XenAPIException;\n\n\
-     import java.io.PrintWriter;\n\
-     import java.io.StringWriter;\n\
-     import java.util.*;\n\
-     import java.io.IOException;\n\n" ;
+    {|package com.xensource.xenapi;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.xensource.xenapi.Types.BadServerResponse;
+import com.xensource.xenapi.Types.XenAPIException;
+import java.io.PrintWriter;
+import java.io.StringWriter;
+import java.util.*;
+import java.io.IOException;
+
+|} ;
   fprintf file "/**\n" ;
   fprintf file " * %s\n" cls.description ;
   if not (publishInfo = "") then fprintf file " * %s\n" publishInfo ;
@@ -684,122 +686,123 @@ let gen_method_error_throw file name error =
       )
   in
 
-  fprintf file "            if (errorName.equals(\"%s\"))\n" name ;
-  fprintf file "            {\n" ;
+  fprintf file "       if (errorName.equals(\"%s\")){\n" name ;
 
   (* Prepare the parameters to the Exception constructor *)
   List.iter
     (fun i ->
       fprintf file
-        "                String p%i = errorData.length > %i ? errorData[%i] : \
-         \"\";\n"
+        "           String p%i = errorData.length > %i ? errorData[%i] : \"\";\n"
         i i i
     )
     (range (List.length error.err_params)) ;
 
-  fprintf file "                throw new Types.%s(%s);\n" class_name paramsStr ;
-  fprintf file "            }\n"
+  fprintf file "           throw new Types.%s(%s);\n" class_name paramsStr ;
+  fprintf file "       }\n"
 
 let gen_types_class folder =
   let class_name = "Types" in
   let file = open_out (Filename.concat folder class_name ^ ".java") in
   print_license file ;
   fprintf file
-    "package com.xensource.xenapi;\n\n\
-     import java.util.Map;\n\n\
-     import com.fasterxml.jackson.annotation.JsonEnumDefaultValue;\n\
-     import com.fasterxml.jackson.annotation.JsonProperty;\n\
-     import java.io.IOException;\n\n\
-     /**\n\
-    \ * This class holds enum types and exceptions.\n\
-    \ */\n\
-     public class Types\n\
-     {\n\
-    \    /**\n\
-    \     * Interface for all Record classes\n\
-    \     */\n\
-    \    public interface Record\n\
-    \    {\n\
-    \        /**\n\
-    \         * Convert a Record to a Map\n\
-    \         */\n\
-    \        Map<String, Object> toMap();\n\
-    \    }\n\n\
-    \    /**\n\
-    \     * Base class for all XenAPI Exceptions\n\
-    \     */\n\
-    \    public static class XenAPIException extends IOException {\n\
-    \        public final String shortDescription;\n\
-    \        public final String[] errorDescription;\n\n\
-    \        XenAPIException(String shortDescription)\n\
-    \        {\n\
-    \            this.shortDescription = shortDescription;\n\
-    \            this.errorDescription = null;\n\
-    \        }\n\n\
-    \        XenAPIException(String[] errorDescription)\n\
-    \        {\n\
-    \            this.errorDescription = errorDescription;\n\n\
-    \            if (errorDescription.length > 0)\n\
-    \            {\n\
-    \                shortDescription = errorDescription[0];\n\
-    \            } else\n\
-    \            {\n\
-    \                shortDescription = \"\";\n\
-    \            }\n\
-    \        }\n\n\
-    \        public String toString()\n\
-    \        {\n\
-    \            if (errorDescription == null)\n\
-    \            {\n\
-    \                return shortDescription;\n\
-    \            } else if (errorDescription.length == 0)\n\
-    \            {\n\
-    \                return \"\";\n\
-    \            }\n\
-    \            StringBuilder sb = new StringBuilder();\n\
-    \            for (int i = 0; i < errorDescription.length - 1; i++)\n\
-    \            {\n\
-    \                sb.append(errorDescription[i]);\n\
-    \            }\n\
-    \            sb.append(errorDescription[errorDescription.length - 1]);\n\n\
-    \            return sb.toString();\n\
-    \        }\n\
-    \    }\n\
-    \    /**\n\
-    \     * Thrown if the response from the server contains an invalid status.\n\
-    \     */\n\
-    \    public static class BadServerResponse extends XenAPIException\n\
-    \    {\n\
-    \        public BadServerResponse(JsonRpcResponseError responseError)\n\
-    \        {\n\
-    \            super(String.valueOf(responseError));\n\
-    \        }\n\
-    \    }\n\n\
-    \  " ;
+    {|package com.xensource.xenapi;
+import java.util.Map;
+import com.fasterxml.jackson.annotation.JsonEnumDefaultValue;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import java.io.IOException;
+
+/**
+ * This class holds enum types and exceptions.
+ */
+public class Types
+{
+   /**
+    * Interface for all Record classes
+    */
+   public interface Record
+   {
+       /**
+        * Convert a Record to a Map
+        */
+       Map<String, Object> toMap();
+   }
+   /**
+    * Base class for all XenAPI Exceptions
+    */
+   public static class XenAPIException extends IOException {
+       public final String shortDescription;
+       public final String[] errorDescription;
+       XenAPIException(String shortDescription)
+       {
+           this.shortDescription = shortDescription;
+           this.errorDescription = null;
+       }
+       XenAPIException(String[] errorDescription)
+       {
+           this.errorDescription = errorDescription;
+           if (errorDescription.length > 0)
+           {
+               shortDescription = errorDescription[0];
+           } else
+           {
+               shortDescription = "";
+           }
+       }
+       public String toString()
+       {
+           if (errorDescription == null)
+           {
+               return shortDescription;
+           } else if (errorDescription.length == 0)
+           {
+               return "";
+           }
+           StringBuilder sb = new StringBuilder();
+           for (int i = 0; i < errorDescription.length - 1; i++)
+           {
+               sb.append(errorDescription[i]);
+           }
+           sb.append(errorDescription[errorDescription.length - 1]);
+           return sb.toString();
+       }
+   }
+   /**
+    * Thrown if the response from the server contains an invalid status.
+    */
+   public static class BadServerResponse extends XenAPIException
+   {
+       public BadServerResponse(JsonRpcResponseError responseError)
+       {
+           super(String.valueOf(responseError));
+       }
+   }
+|} ;
 
   fprintf file
-    "    /**\n\
-    \     * Checks the provided server response was successful. If the call \
-     failed, throws a XenAPIException. If the server\n\
-    \     * returned an invalid response, throws a BadServerResponse. \
-     Otherwise, returns the server response as passed in.\n\
-    \     */\n\
-    \    public static void checkError(JsonRpcResponseError response) throws \
-     XenAPIException, BadServerResponse\n\
-    \    {\n\
-    \        var errorData = response.data;\n\
-    \            if(errorData.length == 0){\n\
-    \                throw new BadServerResponse(response);\n\
-    \            }\n\
-    \            var errorName = errorData[0];\n\n" ;
+    {|   /**
+   * Checks the provided server response was successful. If the call
+   * failed, throws a XenAPIException. If the server
+   * returned an invalid response, throws a BadServerResponse.
+   * Otherwise, returns the server response as passed in.
+   */
+   public static void checkError(JsonRpcResponseError response) throws XenAPIException, BadServerResponse
+   {
+       var errorData = response.data;
+       if(errorData.length == 0){
+           throw new BadServerResponse(response);
+       }
+       var errorName = errorData[0];
+|} ;
 
   Hashtbl.iter (gen_method_error_throw file) Datamodel.errors ;
 
   fprintf file
-    "\n\
-    \        // An unknown error occurred\n\
-    \        throw new Types.XenAPIException(errorData);\n\
-    \     }\n\n" ;
+    {|
+    // An unknown error occurred
+    throw new Types.XenAPIException(errorData);
+}
+
+|} ;
 
   gen_enums file ;
   fprintf file "\n" ;
