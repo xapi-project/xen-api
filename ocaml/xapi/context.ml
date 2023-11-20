@@ -218,23 +218,45 @@ let make_dbg http_other_config task_name task_id =
       (if task_name = "" then "" else " ")
       (Ref.really_pretty_and_small task_id)
 
-let tracing_of_origin (origin : origin) span_name =
+let span_kind_of_parent parent =
+  let open Tracing in
+  Option.fold ~none:SpanKind.Internal ~some:(fun _ -> SpanKind.Server) parent
+
+let parent_of_origin (origin : origin) span_name =
   let open Tracing in
   let ( let* ) = Option.bind in
-  let parent =
-    match origin with
-    | Http (req, _) ->
-        let* traceparent = req.Http.Request.traceparent in
-        let* span_context = SpanContext.of_traceparent traceparent in
-        let span = Tracer.span_of_span_context span_context span_name in
-        Some span
+  match origin with
+  | Http (req, _) ->
+      let* traceparent = req.Http.Request.traceparent in
+      let* span_context = SpanContext.of_traceparent traceparent in
+      let span = Tracer.span_of_span_context span_context span_name in
+      Some span
+  | _ ->
+      None
+
+let start_tracing_helper parent_fn task_name =
+  let open Tracing in
+  let span_details_from_task_name task_name =
+    match String.split_on_char ':' task_name with
+    | [x; y; uuid] when x = "dispatch" && y = "system.isAlive" ->
+        let span_name = x ^ ":" ^ y in
+        (span_name, [("xs.xapi.rpc.msg.uuid", uuid)])
     | _ ->
-        None
+        (task_name, [])
   in
-  let span_kind =
-    Option.fold ~none:SpanKind.Internal ~some:(fun _ -> SpanKind.Server) parent
-  in
-  (parent, span_kind)
+  let span_name, span_attributes = span_details_from_task_name task_name in
+  let parent = parent_fn span_name in
+  let span_kind = span_kind_of_parent parent in
+  let tracer = get_tracer ~name:span_name in
+  match
+    Tracer.start ~span_kind ~tracer ~attributes:span_attributes ~name:span_name
+      ~parent ()
+  with
+  | Ok x ->
+      x
+  | Error e ->
+      R.warn "Failed to start tracing: %s" (Printexc.to_string e) ;
+      None
 
 (** constructors *)
 
@@ -252,17 +274,7 @@ let from_forwarded_task ?(http_other_config = []) ?session_id
   let dbg = make_dbg http_other_config task_name task_id in
   info "task %s forwarded%s" dbg
     (trackid_of_session ~with_brackets:true ~prefix:" " session_id) ;
-  let tracing =
-    let open Tracing in
-    let tracer = get_tracer ~name:task_name in
-    let parent, span_kind = tracing_of_origin origin task_name in
-    match Tracer.start ~span_kind ~tracer ~name:task_name ~parent () with
-    | Ok x ->
-        x
-    | Error e ->
-        R.warn "Failed to start tracing: %s" (Printexc.to_string e) ;
-        None
-  in
+  let tracing = start_tracing_helper (parent_of_origin origin) task_name in
   {
     session_id
   ; task_id
@@ -309,29 +321,7 @@ let make ?(http_other_config = []) ?(quiet = false) ?subtask_of ?session_id
             " by task " ^ make_dbg [] "" subtask_of
         )
   ) ;
-  let span_details_from_task_name task_name =
-    match String.split_on_char ':' task_name with
-    | [x; y; uuid] when x = "dispatch" && y = "system.isAlive" ->
-        let span_name = x ^ ":" ^ y in
-        (span_name, [("xs.xapi.rpc.msg.uuid", uuid)])
-    | _ ->
-        (task_name, [])
-  in
-  let tracing =
-    let open Tracing in
-    let span_name, span_attributes = span_details_from_task_name task_name in
-    let tracer = get_tracer ~name:span_name in
-    let parent, span_kind = tracing_of_origin origin span_name in
-    match
-      Tracer.start ~span_kind ~tracer ~attributes:span_attributes
-        ~name:span_name ~parent ()
-    with
-    | Ok x ->
-        x
-    | Error e ->
-        R.warn "Failed to start tracing: %s" (Printexc.to_string e) ;
-        None
-  in
+  let tracing = start_tracing_helper (parent_of_origin origin) task_name in
   {
     session_id
   ; database
@@ -350,16 +340,9 @@ let make_subcontext ~__context ?task_in_database task_name =
   let subtask_of = __context.task_id in
   let subcontext = make ~subtask_of ?session_id ?task_in_database task_name in
   let tracing =
-    let open Tracing in
     Option.bind __context.tracing (fun parent ->
         let parent = Some parent in
-        let tracer = get_tracer ~name:task_name in
-        match Tracer.start ~tracer ~name:task_name ~parent () with
-        | Ok x ->
-            x
-        | Error e ->
-            R.warn "Failed to start tracing: %s" (Printexc.to_string e) ;
-            None
+        start_tracing_helper (fun _ -> parent) task_name
     )
   in
   {subcontext with client= __context.client; tracing}
@@ -425,13 +408,11 @@ let get_user_agent context =
 let with_tracing context name f =
   let open Tracing in
   let parent = context.tracing in
-  let tracer = get_tracer ~name in
-  match Tracer.start ~tracer ~name ~parent () with
-  | Ok span ->
+  match start_tracing_helper (fun _ -> parent) name with
+  | Some _ as span ->
       let new_context = {context with tracing= span} in
       let result = f new_context in
       let _ = Tracer.finish span in
       result
-  | Error e ->
-      R.warn "Failed to start tracing: %s" (Printexc.to_string e) ;
+  | None ->
       f context
