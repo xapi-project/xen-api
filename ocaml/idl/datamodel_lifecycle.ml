@@ -100,7 +100,7 @@ let prototyped_of_message = function
   | "host", "set_https_only" ->
       Some "22.27.0"
   | "VM", "restart_device_models" ->
-      Some "23.29.0-next"
+      Some "23.30.0"
   | "pool", "set_ext_auth_max_threads" ->
       Some "23.27.0"
   | "pool", "set_local_auth_max_threads" ->
