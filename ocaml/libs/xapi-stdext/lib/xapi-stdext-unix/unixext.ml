@@ -383,7 +383,7 @@ let kill_and_wait ?(signal = Sys.sigterm) ?(timeout = 10.) pid =
       let cmdline = readcmdline pid in
       if cmdline = reference then (
         (* still up, let's sleep a bit *)
-        ignore (Unix.select [] [] [] loop_time_waiting) ;
+        Thread.delay loop_time_waiting ;
         left := !left -. loop_time_waiting
       ) else (* not the same, it's gone ! *)
         quit := true
