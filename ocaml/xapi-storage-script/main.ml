@@ -589,7 +589,12 @@ module Script = struct
     (* If there are multiple files which map to the same lowercase string, we
        just take the first one, instead of failing *)
     let mapping =
-      List.combine files files
+      List.map
+        (fun file ->
+          let k = String.lowercase_ascii file in
+          (k, file)
+        )
+        files
       |> Base.Map.of_alist_reduce (module Base.String) ~f:Base.String.min
     in
     return @@ Base.Hashtbl.set name_mapping ~key:script_dir ~data:mapping
@@ -599,7 +604,7 @@ module Script = struct
       let cached_script_name =
         let ( let* ) = Option.bind in
         let* mapping = Base.Hashtbl.find name_mapping script_dir in
-        Core.String.Caseless.Map.find mapping script_name
+        Base.Map.find mapping String.(lowercase_ascii script_name)
       in
       let script_name = Option.value cached_script_name ~default:script_name in
       let path = script_dir // script_name in
@@ -811,7 +816,7 @@ module Attached_SRs = struct
         Lwt.return_unit
     | Some path ->
         let contents =
-          Core.String.Table.sexp_of_t sexp_of_state !sr_table
+          Base.Hashtbl.sexp_of_t sexp_of_string sexp_of_state !sr_table
           |> Sexplib.Sexp.to_string
         in
         let dir = Filename.dirname path in
@@ -858,7 +863,7 @@ module Attached_SRs = struct
         sr_table :=
           contents
           |> Sexplib.Sexp.of_string
-          |> Core.String.Table.t_of_sexp state_of_sexp ;
+          |> Base.Hashtbl.Poly.t_of_sexp string_of_sexp state_of_sexp ;
         Lwt.return_unit
     | _ ->
         Lwt.return_unit
