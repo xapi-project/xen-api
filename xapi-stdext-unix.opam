@@ -14,6 +14,7 @@ depends: [
   "odoc" {with-doc}
   "xapi-backtrace"
   "xapi-stdext-pervasives" {= version}
+  "polly"
 ]
 build: [
   ["dune" "subst"] {dev}
@@ -31,4 +32,4 @@ build: [
 ]
 dev-repo: "git+https://github.com/xapi-project/xen-api.git"
 depexts: ["linux-headers"] {os-distribution = "alpine"}
-available: [ os = "macos" | os = "linux" ]
+available: [ os = "linux" ]

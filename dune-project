@@ -350,6 +350,7 @@
     (odoc :with-doc)
     xapi-backtrace
     (xapi-stdext-pervasives (= :version))
+    polly
   )
 )
 
