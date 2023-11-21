@@ -41,7 +41,7 @@
   (name xapi-stdext-encodings)
   (synopsis "Xapi's standard library extension, Encodings")
   (depends
-    (ocaml (>= 4.13))
+    (ocaml (>= 4.13.0))
     (alcotest (and (>= 0.6.0) :with-test))
     (odoc :with-doc)
     (bechamel :with-test)
@@ -65,7 +65,7 @@
   (name xapi-stdext-std)
   (synopsis "Xapi's standard library extension, Stdlib")
   (depends
-    (ocaml (>= 4.08))
+    (ocaml (>= 4.08.0))
     (alcotest :with-test)
     (odoc :with-doc)
   )
@@ -87,7 +87,7 @@
   (name xapi-stdext-unix)
   (synopsis "Xapi's standard library extension, Unix")
   (depends
-    (ocaml (>= 4.12))
+    (ocaml (>= 4.12.0))
     base-unix
     (fd-send-recv (>= 2.0.0))
     (odoc :with-doc)

@@ -15,7 +15,6 @@ depends: [
   "bechamel-notty" {with-test}
   "notty" {with-test}
 ]
-available: arch != "arm32" & arch != "x86_32"
 build: [
   ["dune" "subst"] {dev}
   [
@@ -31,3 +30,4 @@ build: [
   ]
 ]
 dev-repo: "git+https://github.com/xapi-project/stdext.git"
+available: arch != "arm32" & arch != "x86_32"

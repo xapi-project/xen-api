@@ -14,8 +14,6 @@ depends: [
   "odoc" {with-doc}
   "xapi-stdext-pervasives" {= version}
 ]
-depexts: ["linux-headers"] {os-distribution = "alpine"}
-available: [ os = "macos" | os = "linux" ]
 build: [
   ["dune" "subst"] {dev}
   [
@@ -31,3 +29,5 @@ build: [
   ]
 ]
 dev-repo: "git+https://github.com/xapi-project/stdext.git"
+depexts: ["linux-headers"] {os-distribution = "alpine"}
+available: [ os = "macos" | os = "linux" ]
