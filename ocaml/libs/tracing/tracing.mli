@@ -117,6 +117,13 @@ val get_tracer_providers : unit -> TracerProvider.t list
 
 val get_tracer : name:string -> Tracer.t
 
+val with_tracing :
+     ?attributes:(string * string) list
+  -> ?parent:Span.t option
+  -> name:string
+  -> (Span.t option -> 'a)
+  -> 'a
+
 module Export : sig
   val set_export_interval : float -> unit
 
