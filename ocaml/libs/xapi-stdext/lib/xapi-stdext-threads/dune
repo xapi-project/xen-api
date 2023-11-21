@@ -5,6 +5,7 @@
   (libraries
     threads.posix
     unix
+    xapi-stdext-unix
     xapi-stdext-pervasives)
 )
 (test
