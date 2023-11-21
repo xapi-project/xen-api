@@ -326,12 +326,32 @@ module AssertUrlIsValid = Generic.MakeStateless (struct
         )
       ; (("https://a.b.c", []), Ok ())
       ; (("http://a.b.c", []), Ok ())
+      ; (("http://192.168.0.2", []), Ok ())
+      ; (("https://192.168.0.2", []), Ok ())
+      ; (("http://192.168.0.2", ["192.168.0.2"]), Ok ())
+      ; (("https://192.168.0.2", ["192.168.0.2"]), Ok ())
+      ; ( ("http://192.168.0.256", ["192.168.0.256"])
+        , Error
+            Api_errors.(
+              Server_error (invalid_base_url, ["http://192.168.0.256"])
+            )
+        )
+      ; (("http://c.com", ["c.com"]), Ok ())
+      ; ( ("http://c.com", ["c.com"; "d.."; ".e.."])
+        , Error
+            Api_errors.(
+              Server_error (invalid_repository_domain_allowlist, ["d.."; ".e.."])
+            )
+        )
       ; (("http://a.b.c.com", ["c.com"; "d.com"]), Ok ())
       ; ( ("http://a.b.c.comm", ["c.com"; "d.com"])
         , Error
             Api_errors.(Server_error (invalid_base_url, ["http://a.b.c.comm"]))
         )
-      ; (("http://a.b...c.com", ["c.com"; "d.com"]), Ok ())
+      ; ( ("http://a.b...c.com", ["c.com"; "d.com"])
+        , Error
+            Api_errors.(Server_error (invalid_base_url, ["http://a.b...c.com"]))
+        )
       ; ( ("http://a.b.cc.com", ["c.com"; "d.com"])
         , Error
             Api_errors.(Server_error (invalid_base_url, ["http://a.b.cc.com"]))

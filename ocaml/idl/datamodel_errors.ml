@@ -1938,6 +1938,8 @@ let _ =
     ~doc:"The repository proxy URL is invalid." () ;
   error Api_errors.invalid_repository_proxy_credential []
     ~doc:"The repository proxy username/password is invalid." () ;
+  error Api_errors.invalid_repository_domain_allowlist ["domains"]
+    ~doc:"The repository domain allowlist has some invalid domains." () ;
   error Api_errors.apply_livepatch_failed ["livepatch"]
     ~doc:"Failed to apply a livepatch." () ;
   error Api_errors.updates_require_recommended_guidance ["recommended_guidance"]

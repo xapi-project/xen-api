@@ -157,37 +157,73 @@ let create_repository_record ~__context ~name_label ~name_description
     ~binary_url ~source_url ~update ~hash:"" ~up_to_date:false ~gpgkey_path ;
   ref
 
+module DomainNameIncludeIP = struct
+  include Domain_name
+
+  let host_exn t =
+    try host_exn t
+    with Invalid_argument _ -> (
+      match Ipaddr.of_string (Domain_name.to_string t) with
+      | Ok ip ->
+          Ipaddr.to_domain_name ip
+      | Error _ ->
+          invalid_arg "invalid host name"
+    )
+end
+
 let assert_url_is_valid ~url =
   try
     let uri = Uri.of_string url in
-    match Uri.scheme uri with
-    | Some "http" | Some "https" -> (
-      match Uri.host uri with
-      | Some h -> (
-        match !Xapi_globs.repository_domain_name_allowlist with
-        | [] ->
+    match Uri.(scheme uri, host uri) with
+    | Some ("http" | "https"), Some h -> (
+        let subdomain =
+          DomainNameIncludeIP.(host_exn (of_string h |> Result.get_ok))
+        in
+        let invalids, valids =
+          List.partition_map
+            (fun d ->
+              match Domain_name.of_string d with
+              | Ok dom ->
+                  Right dom
+              | Error _ ->
+                  Left d
+            )
+            !Xapi_globs.repository_domain_name_allowlist
+        in
+        let hostname_allowed =
+          List.exists (fun d ->
+              DomainNameIncludeIP.(is_subdomain ~subdomain ~domain:(host_exn d))
+          )
+        in
+        match (valids, invalids) with
+        | [], [] ->
             ()
-        | l -> (
-          match
-            List.exists (fun d -> Astring.String.is_suffix ~affix:("." ^ d) h) l
-          with
-          | true ->
-              ()
-          | false ->
-              let msg = "host is not in allowlist" in
-              raise Api_errors.(Server_error (internal_error, [msg]))
-        )
+        | valids, [] when not (hostname_allowed valids) ->
+            let msg = "host is not in allowlist" in
+            raise Api_errors.(Server_error (internal_error, [msg]))
+        | _, [] ->
+            ()
+        | _ ->
+            error "Invalid domains: %s in repository-domain-name-allowlist."
+              (String.concat "," invalids) ;
+            raise
+              Api_errors.(
+                Server_error (invalid_repository_domain_allowlist, invalids)
+              )
       )
-      | None ->
-          raise
-            Api_errors.(Server_error (internal_error, ["invalid host in url"]))
-    )
+    | _, None ->
+        raise
+          Api_errors.(Server_error (internal_error, ["invalid host in url"]))
     | _ ->
         raise
           Api_errors.(Server_error (internal_error, ["invalid scheme in url"]))
-  with e ->
-    error "Invalid url %s: %s" url (ExnHelper.string_of_exn e) ;
-    raise Api_errors.(Server_error (invalid_base_url, [url]))
+  with
+  | Api_errors.Server_error (err, _) as e
+    when err = Api_errors.invalid_repository_domain_allowlist ->
+      raise e
+  | e ->
+      error "Invalid url %s: %s" url (ExnHelper.string_of_exn e) ;
+      raise Api_errors.(Server_error (invalid_base_url, [url]))
 
 let is_gpgkey_path_valid = function
   | 'A' .. 'Z' | 'a' .. 'z' | '0' .. '9' | '_' | '-' ->
