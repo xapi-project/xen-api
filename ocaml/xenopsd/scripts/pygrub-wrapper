@@ -1,4 +1,4 @@
-#! /usr/bin/python
+#! /usr/bin/python3
 #
 # Copyright (C) 2023 Cloud Software Group
 #
@@ -12,13 +12,13 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU Lesser General Public License for more details.
 
-from __future__ import print_function
+
 import pwd, subprocess, sys
 
 cmd = ["pygrub"]
 
 # Get the usage string. We can't use check_output() because the exit status isn't 0
-pygrub_usage = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()[1]
+pygrub_usage = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True).communicate()[1]
 
 for arg in sys.argv[1:]:
     # Catch the synthetic --domid argument and turn it into --runas
