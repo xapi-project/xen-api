@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # Copyright (C) 2017 Citrix, Inc.
 #
@@ -21,27 +21,30 @@
 #
 
 
-import XenAPIPlugin
 import logging
-import os, os.path, shutil
+import os
 import re
-import xcp.logger as logger
-import xcp.cmd as cmd
+import shutil
 
-UUID_REGEX = re.compile('^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
-                        re.IGNORECASE)
+import xcp.cmd as cmd
+import xcp.logger as logger
+import XenAPIPlugin
+
+UUID_REGEX = re.compile(
+    "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.IGNORECASE
+)
 
 
 def host_disk_space(session, args):
     """Return the available disk space of dom0 filesystem, in bytes"""
-    st = os.statvfs('/')
+    st = os.statvfs("/")
     return str(st.f_bfree * st.f_frsize)
 
 
 def check_patch_upload(session, args):
     """Compare the disk space available in dom0 with the size provided and return true if size (in bytes) provided is less than available, false otherwise"""
-    logger.logToSyslog(level = logging.INFO)
-    if 'size' not in args:
+    logger.logToSyslog(level=logging.INFO)
+    if "size" not in args:
         logger.critical("Missing argument 'size'")
         raise Exception("MISSING_SIZE")
     size = int(args["size"])
@@ -51,8 +54,8 @@ def check_patch_upload(session, args):
 
 def get_required_space(session, args):
     """Calculates the required space for uploading hotfix, given the hotfix size"""
-    logger.logToSyslog(level = logging.INFO)
-    if 'size' not in args:
+    logger.logToSyslog(level=logging.INFO)
+    if "size" not in args:
         logger.critical("Missing argument 'size'")
         raise Exception("MISSING_SIZE")
     return args["size"]
@@ -71,11 +74,11 @@ def get_file_size(f):
 
 def is_this_uuid(s):
     """Checks if the string conforms to UUID format."""
-    return UUID_REGEX.match(s) != None
+    return UUID_REGEX.match(s) is not None
 
 
 def get_hotfix_files(hotfix_dir):
-    if os.path.exists('/var/patch'):
+    if os.path.exists("/var/patch"):
         for f in os.listdir(hotfix_dir):
             if is_this_uuid(f):
                 yield os.path.join(hotfix_dir, f)
@@ -86,94 +89,93 @@ def get_directory_size(dir):
     if not os.path.isdir(dir):
         return 0
 
-    (rc, out) = cmd.runCmd(['/usr/bin/du', '-sb', dir], with_stdout = True)
+    (rc, out) = cmd.runCmd(["/usr/bin/du", "-sb", dir], with_stdout=True)
     if rc == 0:
         return int(out.split()[0])
-    else:
-        return 0
+
+    return 0
 
 
 def is_this_pool_patch_uuid(session, s):
     if is_this_uuid(s):
         try:
             p_ref = session.xenapi.pool_patch.get_by_uuid(s)
-            if p_ref is None or p_ref == "":
-                return False
-            else:
-                return True
+            return bool(p_ref)
         except:
             return False
-    else:
-        False
+
+    return False
 
 
 def get_patch_filename(session, uuid):
     if not is_this_pool_patch_uuid(session, uuid):
         return ""
 
-    (rc, out) = cmd.runCmd(['/opt/xensource/bin/hfx_filename', uuid],
-                                 with_stdout = True)
+    (rc, out) = cmd.runCmd(["/opt/xensource/bin/hfx_filename", uuid], with_stdout=True)
     if rc == 0:
         # This file might exists only on the master
         file_name = out.strip()
         if os.path.exists(file_name):
             return file_name
-        else:
-            return ""
-    else:
-        return ""
+
+    return ""
 
 
 def get_reclaimable_disk_space(session, args):
     """Return the disk-space consumed by hotfix residual files on the host."""
 
-    if 'exclude-hfx-uuid' in args:
-        hfx_filename = get_patch_filename(session, args['exclude-hfx-uuid'])
+    if "exclude-hfx-uuid" in args:
+        hfx_filename = get_patch_filename(session, args["exclude-hfx-uuid"])
     else:
         hfx_filename = ""
 
-    sizes = (get_file_size(f) for f in get_hotfix_files('/var/patch')
-             if f != hfx_filename)
-    patch_backup_size = get_directory_size('/opt/xensource/patch-backup')
+    sizes = (
+        get_file_size(f) for f in get_hotfix_files("/var/patch") if f != hfx_filename
+    )
+    patch_backup_size = get_directory_size("/opt/xensource/patch-backup")
     return str(sum(sizes) + patch_backup_size)
 
 
 def cleanup_disk_space(session, args):
     """Deletes the hotfix residual files."""
 
-    logger.logToSyslog(level = logging.INFO)
+    logger.logToSyslog(level=logging.INFO)
 
-    if 'exclude-hfx-uuid' in args:
-        hfx_filename = get_patch_filename(session, args['exclude-hfx-uuid'])
+    if "exclude-hfx-uuid" in args:
+        hfx_filename = get_patch_filename(session, args["exclude-hfx-uuid"])
     else:
         hfx_filename = ""
 
     # Delete the hotfix files from /var/patch/
-    if os.path.exists('/var/patch'):
-        for f in os.listdir('/var/patch'):
+    if os.path.exists("/var/patch"):
+        for f in os.listdir("/var/patch"):
             if is_this_uuid(f):
-                f_name = os.path.join('/var/patch', f)
+                f_name = os.path.join("/var/patch", f)
                 if f_name != hfx_filename:
                     try:
-                        logger.info('Removing ' + f_name)
+                        logger.info("Removing " + f_name)
                         os.remove(f_name)
                     except OSError:
-                        logger.critical('Failed to remove ' + f_name)
+                        logger.critical("Failed to remove " + f_name)
 
     # Delete patch-backup directory if it exists
     try:
-        if os.path.exists('/opt/xensource/patch-backup'):
-            logger.info('Removing /opt/xensource/patch-backup directory')
-            shutil.rmtree('/opt/xensource/patch-backup')
+        if os.path.exists("/opt/xensource/patch-backup"):
+            logger.info("Removing /opt/xensource/patch-backup directory")
+            shutil.rmtree("/opt/xensource/patch-backup")
     except OSError:
-        logger.critical('Failed to remove /opt/xensource/patch-backup directory')
+        logger.critical("Failed to remove /opt/xensource/patch-backup directory")
 
-    return ''
+    return ""
 
 
 if __name__ == "__main__":
-    XenAPIPlugin.dispatch({"get_avail_host_disk_space": host_disk_space,
-                           "get_reclaimable_disk_space": get_reclaimable_disk_space,
-                           "check_patch_upload": check_patch_upload,
-                           "cleanup_disk_space": cleanup_disk_space,
-                           "get_required_space": get_required_space})
+    XenAPIPlugin.dispatch(
+        {
+            "get_avail_host_disk_space": host_disk_space,
+            "get_reclaimable_disk_space": get_reclaimable_disk_space,
+            "check_patch_upload": check_patch_upload,
+            "cleanup_disk_space": cleanup_disk_space,
+            "get_required_space": get_required_space,
+        }
+    )
