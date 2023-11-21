@@ -19,6 +19,7 @@ open Device_common
 open Xenstore
 open Cancel_utils
 open Xenops_task
+module Unixext = Xapi_stdext_unix.Unixext
 
 exception Ioemu_failed of (string * string)
 
@@ -3014,54 +3015,50 @@ module Backend = struct
               )
 
       let qemu_media_change ~xs device _type params =
-        debug "%s: params='%s'" __FUNCTION__ params;
+        debug "%s: params='%s'" __FUNCTION__ params ;
         Vbd_Common.qemu_media_change ~xs device _type params ;
+        let as_msg cmd = Qmp.(Success (Some __LOC__, cmd)) in
         try
           let cd = cd_of device.backend.devid in
           let domid = device.frontend.domid in
-          if params = "" then
-            qmp_send_cmd domid Qmp.(Eject (cd, Some true)) |> ignore
-          else
-            let as_msg cmd = Qmp.(Success (Some __LOC__, cmd)) in
-            let fd_cd = Unix.openfile params [Unix.O_RDONLY] 0o640 in
-            finally
-              (fun () ->
-                let cmd = Qmp.(Add_fd None) in
-                let fd_info =
-                  match qmp_send_cmd ~send_fd:fd_cd domid cmd with
-                  | Qmp.Fd_info x ->
-                      x
-                  | other ->
-                      raise
-                        (Xenopsd_error
-                           (Internal_error
-                              (sprintf "Unexpected result for QMP command: %s"
-                                 Qmp.(other |> as_msg |> string_of_message)
-                              )
-                           )
-                        )
-                in
-                finally
-                  (fun () ->
-                    let path = sprintf "/dev/fdset/%d" fd_info.Qmp.fdset_id in
-                    let medium =
-                      Qmp.
-                        {
-                          medium_device= cd
-                        ; medium_filename= path
-                        ; medium_format= Some "raw"
-                        }
-                    in
-
-                    let cmd = Qmp.(Blockdev_change_medium medium) in
-                    qmp_send_cmd domid cmd |> ignore
-                  )
-                  (fun () ->
-                    let cmd = Qmp.(Remove_fd fd_info.fdset_id) in
-                    qmp_send_cmd domid cmd |> ignore
-                  )
-              )
-              (fun () -> Unix.close fd_cd)
+          match params with
+          | "" ->
+              qmp_send_cmd domid Qmp.(Eject (cd, Some true)) |> ignore
+          | params ->
+              Unixext.with_file params [Unix.O_RDONLY] 0o640 @@ fun fd_cd ->
+              let cmd = Qmp.(Add_fd None) in
+              let fd_info =
+                match qmp_send_cmd ~send_fd:fd_cd domid cmd with
+                | Qmp.Fd_info x ->
+                    x
+                | other ->
+                    raise
+                      (Xenopsd_error
+                         (Internal_error
+                            (sprintf "Unexpected result for QMP command: %s"
+                               Qmp.(other |> as_msg |> string_of_message)
+                            )
+                         )
+                      )
+              in
+              finally
+                (fun () ->
+                  let path = sprintf "/dev/fdset/%d" fd_info.Qmp.fdset_id in
+                  let medium =
+                    Qmp.
+                      {
+                        medium_device= cd
+                      ; medium_filename= path
+                      ; medium_format= Some "raw"
+                      }
+                  in
+                  let cmd = Qmp.(Blockdev_change_medium medium) in
+                  qmp_send_cmd domid cmd |> ignore
+                )
+                (fun () ->
+                  let cmd = Qmp.(Remove_fd fd_info.fdset_id) in
+                  qmp_send_cmd domid cmd |> ignore
+                )
         with
         | Unix.Unix_error (Unix.ECONNREFUSED, "connect", p) ->
             raise
