@@ -4,33 +4,19 @@
 # and send it a wake-on-LAN packet. Used for the power-on functionality as well.
 
 import socket
-import struct
-import subprocess
 import syslog
 import time
 
 import inventory
+import xcp.cmd as cmd
 import XenAPIPlugin
-
-
-def doexec(args, inputtext=None):
-    """Execute a subprocess, then return its return code, stdout and stderr"""
-    proc = subprocess.Popen(
-        args,
-        stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        universal_newlines=True,
-        close_fds=True,
-    )
-    (stdout, stderr) = proc.communicate(inputtext)
-    rc = proc.returncode
-    return (rc, stdout, stderr)
 
 
 def find_interface_broadcast_ip(interface):
     """Return the broadcast IP address of the supplied local interface"""
-    (rc, stdout, stderr) = doexec(["ip", "address", "show", "dev", interface])
+    (rc, stdout, stderr) = cmd.runCmd(
+        ["ip", "address", "show", "dev", interface], with_stdout=True, with_stderr=True
+    )
     if rc != 0:
         raise Exception(
             "Failed to find IP address of local network interface %s: %s"
