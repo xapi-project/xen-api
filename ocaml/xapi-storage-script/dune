@@ -1,7 +1,7 @@
 (executable
   (name main)
   (libraries
-    core
+    base
     dune-build-info
     fmt
     inotify
