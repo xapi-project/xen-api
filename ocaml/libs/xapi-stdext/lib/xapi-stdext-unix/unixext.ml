@@ -562,11 +562,11 @@ let time_limited_write_internal
     raise Timeout
 
 let time_limited_write filedesc length data target_response_time =
-  time_limited_write_internal Unix.write filedesc length data
+  time_limited_write_internal Unix.single_write filedesc length data
     target_response_time
 
 let time_limited_write_substring filedesc length data target_response_time =
-  time_limited_write_internal Unix.write_substring filedesc length data
+  time_limited_write_internal Unix.single_write_substring filedesc length data
     target_response_time
 
 (* Read as many bytes to a file descriptor as possible before a given clock time. *)
