@@ -37,7 +37,7 @@ let ionice = ref "ionice"
 
 let setup_vif_rules = ref "setup-vif-rules"
 
-let setup_pvs_proxy_rules = ref "setup-pvs-proxy-rules"
+let setup_pvs_proxy_rules = ref "pvs-proxy-ovs-setup"
 
 let vgpu = ref "vgpu"
 
