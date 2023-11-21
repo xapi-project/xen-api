@@ -2672,12 +2672,17 @@ let allocate_resources_for_vm ~__context ~self:_ ~vm:_ ~live:_ =
   (* Implemented entirely in Message_forwarding *)
   ()
 
+let ( // ) = Filename.concat
+
 (* Sync uefi certificates with the ones of the hosts *)
-let extract_certificate_file name =
-  if String.contains name '/' then
-    (* Internal error: tarfile not created correctly *)
-    failwith ("Path in certificate tarball %s contains '/'" ^ name) ;
-  let path = Filename.concat !Xapi_globs.varstore_dir name in
+let extract_certificate_file tarpath =
+  let filename =
+    if String.contains tarpath '/' then
+      Filename.basename tarpath
+    else
+      tarpath
+  in
+  let path = !Xapi_globs.varstore_dir // filename in
   Helpers.touch_file path ; path
 
 let with_temp_file_contents ~contents f =
@@ -2692,8 +2697,6 @@ let with_temp_file_contents ~contents f =
     (fun () -> Sys.remove filename)
 
 let ( let@ ) f x = f x
-
-let ( // ) = Filename.concat
 
 let really_read_uefi_certificates_from_disk ~__context ~host:_ from_path =
   let certs_files = Sys.readdir from_path |> Array.map (( // ) from_path) in
