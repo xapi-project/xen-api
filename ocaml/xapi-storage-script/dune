@@ -2,8 +2,7 @@
   (name main)
   (libraries
     base
-    core
-    
+
     fmt
     inotify
     inotify.lwt

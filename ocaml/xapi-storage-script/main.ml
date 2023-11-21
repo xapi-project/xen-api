@@ -876,7 +876,7 @@ module Attached_SRs = struct
         Lwt.return_unit
     | Some path ->
         let contents =
-          Core.String.Table.sexp_of_t sexp_of_state !sr_table
+          Base.Hashtbl.sexp_of_t sexp_of_string sexp_of_state !sr_table
           |> Sexplib.Sexp.to_string
         in
         let dir = Filename.dirname path in
@@ -923,7 +923,7 @@ module Attached_SRs = struct
         sr_table :=
           contents
           |> Sexplib.Sexp.of_string
-          |> Core.String.Table.t_of_sexp state_of_sexp ;
+          |> Base.Hashtbl.Poly.t_of_sexp string_of_sexp state_of_sexp ;
         Lwt.return_unit
     | _ ->
         Lwt.return_unit
