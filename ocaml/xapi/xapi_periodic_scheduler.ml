@@ -39,9 +39,7 @@ module Clock = struct
         t
     | None ->
         raise
-          Api_errors.(
-            Server_error (internal_error, ["clock overflow"; __LOC__])
-          )
+          Api_errors.(Server_error (internal_error, ["clock overflow"; __LOC__]))
 end
 
 let add_to_queue ?(signal = true) name ty start newfunc =

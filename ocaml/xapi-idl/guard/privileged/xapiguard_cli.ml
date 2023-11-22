@@ -14,7 +14,6 @@
 
 module I = Xapi_idl_guard_privileged.Interface
 module C = Xapi_idl_guard_privileged.Client
-
 module Cmds = I.RPC_API (Cmdlinergen.Gen ())
 
 let doc =

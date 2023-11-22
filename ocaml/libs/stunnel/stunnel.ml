@@ -256,8 +256,8 @@ let disconnect_with_pid ?(wait = true) ?(force = false) pid =
         (fun () ->
           ( if wait then
               Forkhelpers.waitpid
-          else
-            Forkhelpers.waitpid_nohang
+            else
+              Forkhelpers.waitpid_nohang
           )
             fpid
         )
@@ -267,8 +267,8 @@ let disconnect_with_pid ?(wait = true) ?(force = false) pid =
         (fun () ->
           ( if wait then
               Unix.waitpid []
-          else
-            Unix.waitpid [Unix.WNOHANG]
+            else
+              Unix.waitpid [Unix.WNOHANG]
           )
             pid
         )

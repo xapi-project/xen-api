@@ -403,8 +403,8 @@ let parse_vif vm_id (x, idx) =
   ; backend=
       ( if List.mem_assoc _bridge kvpairs then
           Network.Local (List.assoc _bridge kvpairs)
-      else
-        Network.Local "xenbr0"
+        else
+          Network.Local "xenbr0"
       )
   ; other_config= []
   ; locking_mode= Vif.default_locking_mode
@@ -553,35 +553,35 @@ let add' _copts x () =
                             ; bootloader_args= ""
                             ; devices
                             }
-                      else if mem _kernel then
-                        Direct
-                          {
-                            kernel=
-                              find _kernel |> string |> canonicalise_filename
-                          ; cmdline=
-                              (if mem _root then find _root |> string else "")
-                          ; ramdisk=
-                              ( if mem _ramdisk then
-                                  Some
-                                    (find _ramdisk
-                                    |> string
-                                    |> canonicalise_filename
-                                    )
-                              else
-                                None
-                              )
-                          }
-                      else (
-                        List.iter
-                          (Printf.fprintf stderr "%s\n")
-                          [
-                            "I couldn't determine how to start this VM."
-                          ; Printf.sprintf
-                              "A PV guest needs either %s or %s and %s"
-                              _bootloader _kernel _ramdisk
-                          ] ;
-                        exit 1
-                      )
+                        else if mem _kernel then
+                          Direct
+                            {
+                              kernel=
+                                find _kernel |> string |> canonicalise_filename
+                            ; cmdline=
+                                (if mem _root then find _root |> string else "")
+                            ; ramdisk=
+                                ( if mem _ramdisk then
+                                    Some
+                                      (find _ramdisk
+                                      |> string
+                                      |> canonicalise_filename
+                                      )
+                                  else
+                                    None
+                                )
+                            }
+                        else (
+                          List.iter
+                            (Printf.fprintf stderr "%s\n")
+                            [
+                              "I couldn't determine how to start this VM."
+                            ; Printf.sprintf
+                                "A PV guest needs either %s or %s and %s"
+                                _bootloader _kernel _ramdisk
+                            ] ;
+                          exit 1
+                        )
                       )
                   }
             | false ->
@@ -895,8 +895,8 @@ let export copts metadata xm filename (x : Vm.id option) () =
       | Some f ->
           ( if xm then
               export_metadata_xm
-          else
-            export_metadata
+            else
+              export_metadata
           )
             copts f x ;
           `Ok ()

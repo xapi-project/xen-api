@@ -667,14 +667,14 @@ module Stats_value = struct
         ; rd_avg_usecs=
             ( if stats_diff_get 0 > 0L then
                 Int64.div (stats_diff_get 3) (stats_diff_get 0)
-            else
-              0L
+              else
+                0L
             )
         ; wr_avg_usecs=
             ( if stats_diff_get 4 > 0L then
                 Int64.div (stats_diff_get 7) (stats_diff_get 4)
-            else
-              0L
+              else
+                0L
             )
         ; io_throughput_read_mb= to_float (stats_diff_get 13) /. 1048576.
         ; io_throughput_write_mb= to_float (stats_diff_get 14) /. 1048576.

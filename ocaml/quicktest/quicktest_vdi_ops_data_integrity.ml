@@ -159,9 +159,7 @@ let large_data_integrity_tests vdi_op op_name =
   ]
 
 let sr_with_vdi_create_destroy =
-  Qt_filter.SR.(
-    all |> allowed_operations [`vdi_create; `vdi_destroy] |> not_iso
-  )
+  Qt_filter.SR.(all |> allowed_operations [`vdi_create; `vdi_destroy] |> not_iso)
 
 let supported_srs test_case =
   let open Qt_filter in

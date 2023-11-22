@@ -255,15 +255,16 @@ let startup_components () =
     Component.all
 
 let get_forwarder c =
-  let module Forwarder = ( val match c with
-                               | Component.Xapi ->
-                                   (module Observer)
-                               | Component.Xenopsd ->
-                                   (module Xapi_xenops.Observer)
-                               | Component.Xapi_clusterd ->
-                                   (module Xapi_cluster.Observer)
-                             : ObserverInterface
-                         )
+  let module Forwarder =
+    ( val match c with
+          | Component.Xapi ->
+              (module Observer)
+          | Component.Xenopsd ->
+              (module Xapi_xenops.Observer)
+          | Component.Xapi_clusterd ->
+              (module Xapi_cluster.Observer)
+        : ObserverInterface
+      )
   in
   (module Forwarder : ObserverInterface)
 
@@ -280,9 +281,7 @@ let assert_valid_hosts ~__context hosts =
     (fun self ->
       if not (Db.is_valid_ref __context self) then
         raise
-          Api_errors.(
-            Server_error (invalid_value, ["host"; Ref.string_of self])
-          )
+          Api_errors.(Server_error (invalid_value, ["host"; Ref.string_of self]))
     )
     hosts
 

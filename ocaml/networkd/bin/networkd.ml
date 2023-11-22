@@ -122,8 +122,7 @@ let options =
   ; ( "json-rpc-read-timeout"
     , Arg.Int
         (fun x ->
-          Jsonrpc_client.json_rpc_read_timeout :=
-            Int64.(mul 1000000L (of_int x))
+          Jsonrpc_client.json_rpc_read_timeout := Int64.(mul 1000000L (of_int x))
         )
     , (fun () ->
         Int64.(to_string (div !Jsonrpc_client.json_rpc_read_timeout 1000000L))

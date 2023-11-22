@@ -235,10 +235,10 @@ let make_vgpu ~__context ?(vm_ref = Ref.null) ?(gPU_group = Ref.null)
       Test_common.make_vm ~__context ()
   in
   ( if
-    Xapi_vgpu_type.requires_passthrough ~__context ~self:vgpu_type_ref
-    = Some `PF
-    && Db.is_valid_ref __context resident_on
-  then
+      Xapi_vgpu_type.requires_passthrough ~__context ~self:vgpu_type_ref
+      = Some `PF
+      && Db.is_valid_ref __context resident_on
+    then
       let pci_ref = Db.PGPU.get_PCI ~__context ~self:resident_on in
       Db.PCI.add_attached_VMs ~__context ~self:pci_ref ~value:vm_ref
   ) ;

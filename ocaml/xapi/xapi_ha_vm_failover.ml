@@ -507,10 +507,10 @@ let compute_restart_plan ~__context ~all_protected_vms ~live_set
                (fun (_, (vm_ref, snapshot)) ->
                  total_memory_of_vm ~__context
                    ( if not $ Db.VM.get_is_control_domain ~__context ~self:vm_ref
-                   then
+                     then
                        Memory_check.Static_max
-                   else
-                     Memory_check.Dynamic_max
+                     else
+                       Memory_check.Dynamic_max
                    )
                    snapshot
                )
@@ -526,10 +526,10 @@ let compute_restart_plan ~__context ~all_protected_vms ~live_set
                (fun (_, (vm_ref, snapshot)) ->
                  total_memory_of_vm ~__context
                    ( if not $ Db.VM.get_is_control_domain ~__context ~self:vm_ref
-                   then
+                     then
                        Memory_check.Static_max
-                   else
-                     Memory_check.Dynamic_max
+                     else
+                       Memory_check.Dynamic_max
                    )
                    snapshot
                )

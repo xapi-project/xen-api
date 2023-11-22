@@ -255,8 +255,8 @@ let create_yum_config ~__context ~self ~url =
     ; Printf.sprintf "baseurl=%s" url
     ; ( if signed then
           Printf.sprintf "gpgkey=file:///etc/pki/rpm-gpg/%s" key
-      else
-        ""
+        else
+          ""
       )
     ; "" (* Newline at the end of the file *)
     ]

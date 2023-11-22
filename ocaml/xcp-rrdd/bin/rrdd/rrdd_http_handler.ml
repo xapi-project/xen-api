@@ -149,9 +149,7 @@ let get_host_stats ?(json = false) ~(start : int64) ~(interval : int64)
         let sr_rrds_altered =
           Seq.map (fun (k, v) -> ("sr:" ^ k ^ ":", v.rrd)) srsandrrds
         in
-        List.(
-          concat [host_rrds; of_seq vm_rrds_altered; of_seq sr_rrds_altered]
-        )
+        List.(concat [host_rrds; of_seq vm_rrds_altered; of_seq sr_rrds_altered])
       in
       Rrd_updates.export ~json prefixandrrds start interval cfopt
   )

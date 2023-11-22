@@ -3536,8 +3536,7 @@ let configure_repository_proxy ~__context ~self ~url ~username ~password =
   | u, p when u <> "" && p <> "" ->
       if String.contains u '\n' || String.contains p '\n' then (
         error "getting invalid username/password of the repository proxy" ;
-        raise
-          Api_errors.(Server_error (invalid_repository_proxy_credential, []))
+        raise Api_errors.(Server_error (invalid_repository_proxy_credential, []))
       )
   | _ ->
       ()

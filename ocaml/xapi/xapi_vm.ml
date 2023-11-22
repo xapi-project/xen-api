@@ -440,8 +440,8 @@ let shutdown ~__context ~vm =
     clean_shutdown_with_timeout ~__context ~vm
       ( if db_timeout > 0L then
           Int64.to_float db_timeout
-      else
-        !Xapi_globs.domain_shutdown_total_timeout
+        else
+          !Xapi_globs.domain_shutdown_total_timeout
       )
   with e ->
     warn
@@ -479,9 +479,8 @@ let power_state_reset ~__context ~vm =
     if resident = localhost then (
       let open Xenops_interface in
       let open Xapi_xenops_queue in
-      let module Client = ( val make_client (queue_of_vm ~__context ~self:vm)
-                              : XENOPS
-                          )
+      let module Client =
+        (val make_client (queue_of_vm ~__context ~self:vm) : XENOPS)
       in
       let running =
         try

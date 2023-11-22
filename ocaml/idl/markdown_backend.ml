@@ -268,10 +268,10 @@ let print_field_table_of_obj printer ~is_class_deprecated ~is_class_removed x =
       let descr =
         ( if y.lifecycle.state = Removed_s || is_class_removed then
             "**Removed**. "
-        else if y.lifecycle.state = Deprecated_s || is_class_deprecated then
-          "**Deprecated**. "
-        else
-          ""
+          else if y.lifecycle.state = Deprecated_s || is_class_deprecated then
+            "**Deprecated**. "
+          else
+            ""
         )
         ^ escape description
       in
@@ -401,10 +401,10 @@ let print_classes api io =
   let get_descr obj =
     ( if obj.obj_lifecycle.state = Removed_s then
         "**Removed**. "
-    else if obj.obj_lifecycle.state = Deprecated_s then
-      "**Deprecated**. "
-    else
-      ""
+      else if obj.obj_lifecycle.state = Deprecated_s then
+        "**Deprecated**. "
+      else
+        ""
     )
     ^ escape obj.description
   in

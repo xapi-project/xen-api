@@ -1349,14 +1349,14 @@ and get_default_value_per_type ty thing =
       sprintf " = new %s() {%s}" (exposed_type ty)
         ( if thing = [] then
             ""
-        else
-          String.concat ", "
-            (List.map
-               (fun x ->
-                 sprintf "new XenRef<%s>(%s)" (exposed_class_name name) x
-               )
-               thing
-            )
+          else
+            String.concat ", "
+              (List.map
+                 (fun x ->
+                   sprintf "new XenRef<%s>(%s)" (exposed_class_name name) x
+                 )
+                 thing
+              )
         )
   | Set _ ->
       sprintf " = new %s() {%s}" (exposed_type ty) (String.concat ", " thing)

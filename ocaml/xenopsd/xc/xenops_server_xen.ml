@@ -2834,8 +2834,8 @@ module VM = struct
                   Memory.bytes_of_mib
                     ( if di.Xenctrl.hvm_guest then
                         Memory.HVM.xen_max_offset_mib
-                    else
-                      Memory.Linux.xen_max_offset_mib
+                      else
+                        Memory.Linux.xen_max_offset_mib
                     )
                 in
                 let raw_bytes =
@@ -2961,11 +2961,12 @@ module VM = struct
                     di.Xenctrl.domid ;
                   try xs.Xs.write path "t" with _ -> ()
                 )
-            else
-              try
-                let (_ : string) = xs.Xs.read path in
-                xs.Xs.rm path
-              with _ -> () (* do not RM the 'warned' path to prevent flood *)
+              else
+                try
+                  let (_ : string) = xs.Xs.read path in
+                  xs.Xs.rm path
+                with _ ->
+                  () (* do not RM the 'warned' path to prevent flood *)
             ) ;
             let shadow_multiplier_target =
               if not di.Xenctrl.hvm_guest then
@@ -4408,8 +4409,8 @@ module VIF = struct
                   (fun () ->
                     ( if force then
                         Device.hard_shutdown
-                    else
-                      Device.clean_shutdown
+                      else
+                        Device.clean_shutdown
                     )
                       task ~xs device
                   ) ;

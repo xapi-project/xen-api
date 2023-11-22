@@ -1049,8 +1049,8 @@ let create ~__context ~uuid ~name_label ~name_description:_ ~hostname ~address
     ~virtual_hardware_platform_versions:
       ( if host_is_us then
           Xapi_globs.host_virtual_hardware_platform_versions
-      else
-        [0L]
+        else
+          [0L]
       )
     ~control_domain:Ref.null ~updates_requiring_reboot:[] ~iscsi_iqn:""
     ~multipathing:false ~uefi_certificates:"" ~editions:[] ~pending_guidances:[]
@@ -2203,9 +2203,9 @@ let reset_networking ~__context ~host =
     (fun self ->
       debug "destroying PIF %s" (Db.PIF.get_uuid ~__context ~self) ;
       ( if
-        Db.PIF.get_physical ~__context ~self = true
-        || Db.PIF.get_bond_master_of ~__context ~self <> []
-      then
+          Db.PIF.get_physical ~__context ~self = true
+          || Db.PIF.get_bond_master_of ~__context ~self <> []
+        then
           let metrics = Db.PIF.get_metrics ~__context ~self in
           Db.PIF_metrics.destroy ~__context ~self:metrics
       ) ;
@@ -2870,9 +2870,7 @@ let set_sched_gran ~__context ~self ~value =
   with e ->
     error "Failed to update sched-gran: %s" (Printexc.to_string e) ;
     raise
-      Api_errors.(
-        Server_error (internal_error, ["Failed to update sched-gran"])
-      )
+      Api_errors.(Server_error (internal_error, ["Failed to update sched-gran"]))
 
 let get_sched_gran ~__context ~self =
   if Helpers.get_localhost ~__context <> self then

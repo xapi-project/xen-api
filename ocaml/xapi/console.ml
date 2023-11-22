@@ -51,9 +51,8 @@ let address_of_console __context console : address option =
         let id = Xapi_xenops.id_of_vm ~__context ~self:vm in
         let dbg = Context.string_of_task __context in
         let open Xapi_xenops_queue in
-        let module Client = ( val make_client (queue_of_vm ~__context ~self:vm)
-                                : XENOPS
-                            )
+        let module Client =
+          (val make_client (queue_of_vm ~__context ~self:vm) : XENOPS)
         in
         let _, s = Client.VM.stat dbg id in
         let proto =
@@ -71,8 +70,8 @@ let address_of_console __context console : address option =
         Some
           ( if console.Vm.path = "" then
               Port console.Vm.port
-          else
-            Path console.Vm.path
+            else
+              Path console.Vm.path
           )
       with e ->
         debug "%s" (Printexc.to_string e) ;

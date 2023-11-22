@@ -310,9 +310,7 @@ let test_assert_cluster_host_is_enabled_for_matching_sms_fails_if_cluster_host_i
   in
   Alcotest.check_raises
     "test_assert_cluster_host_is_enabled_for_matching_sms_fails_if_cluster_host_is_disabled"
-    Api_errors.(
-      Server_error (clustering_disabled, [Ref.string_of cluster_host])
-    )
+    Api_errors.(Server_error (clustering_disabled, [Ref.string_of cluster_host]))
     (fun () ->
       Xapi_clustering.assert_cluster_host_is_enabled_for_matching_sms ~__context
         ~host ~sr_sm_type:"gfs2"
@@ -468,9 +466,7 @@ let test_assert_pif_prerequisites () =
   Alcotest.check_raises
     "test_assert_pif_prerequisites : disallow_unplug set, IP and \
      currently_attached to go "
-    Api_errors.(
-      Server_error (required_pif_is_unplugged, [Ref.string_of pifref])
-    )
+    Api_errors.(Server_error (required_pif_is_unplugged, [Ref.string_of pifref]))
     (fun () -> Xapi_clustering.assert_pif_prerequisites pif) ;
   (* Plug in PIF *)
   Db.PIF.set_currently_attached ~__context ~self:pifref ~value:true ;

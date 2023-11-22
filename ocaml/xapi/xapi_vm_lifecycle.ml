@@ -69,12 +69,12 @@ let allowed_power_states ~__context ~vmr ~(op : API.vm_operations) =
       `Halted
       ::
       ( if
-        vmr.Db_actions.vM_is_a_snapshot
-        || Helpers.clone_suspended_vm_enabled ~__context
-      then
+          vmr.Db_actions.vM_is_a_snapshot
+          || Helpers.clone_suspended_vm_enabled ~__context
+        then
           [`Suspended]
-      else
-        []
+        else
+          []
       )
   | `create_template
   (* Don't touch until XMLRPC unmarshal code is able to pre-blank fields on input. *)

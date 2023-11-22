@@ -61,7 +61,7 @@ let make_smapiv2_storage_server ?vdi_enable_cbt ?vdi_disable_cbt
 
       let clone = default Storage_skeleton.VDI.clone vdi_snapshot
     end end : Storage_interface.Server_impl
-  )
+)
 
 let register_smapiv2_server ?vdi_enable_cbt ?vdi_disable_cbt
     ?vdi_list_changed_blocks ?vdi_data_destroy ?vdi_snapshot ?vdi_clone sr_ref =

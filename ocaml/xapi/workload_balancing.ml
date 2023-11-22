@@ -266,8 +266,8 @@ let parse_result_code meth xml_data response initial_error enable_log =
         )
         ( if enable_log then
             response
-        else
-          "Logging output disabled for this call."
+          else
+            "Logging output disabled for this call."
         )
   in
   let message =

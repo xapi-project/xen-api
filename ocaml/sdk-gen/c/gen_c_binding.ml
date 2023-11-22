@@ -1110,8 +1110,8 @@ and write_impl {name= classname; contents; messages; _} out_chan =
     String.concat "\n"
       (( if is_event then
            []
-       else
-         [sprintf "XEN_FREE(%s)" tn; sprintf "XEN_SET_ALLOC_FREE(%s)" tn]
+         else
+           [sprintf "XEN_FREE(%s)" tn; sprintf "XEN_SET_ALLOC_FREE(%s)" tn]
        )
       @ [
           sprintf "XEN_ALLOC(%s)" record_tn

@@ -101,7 +101,7 @@ let test_lacp_defaults_bond_create () =
       Alcotest.(
         check bool "key=value argument pairs can't have missing values" true
           (let open Astring.String in
-          arg |> trim |> is_suffix ~affix:"=" |> not
+           arg |> trim |> is_suffix ~affix:"=" |> not
           )
       )
     )

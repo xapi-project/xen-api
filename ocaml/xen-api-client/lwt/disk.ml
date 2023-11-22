@@ -70,8 +70,8 @@ let start_upload ~chunked ~uri =
   let open Cohttp in
   ( if use_ssl then
       Data_channel.of_ssl_fd sock
-  else
-    Data_channel.of_fd ~seekable:false sock
+    else
+      Data_channel.of_fd ~seekable:false sock
   )
   >>= fun c ->
   let module Request = Request.Make (Cohttp_unbuffered_io) in

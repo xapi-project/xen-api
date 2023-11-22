@@ -70,9 +70,7 @@ let wait_for_subtask ?progress_minmax ~__context task =
               Db.Task.get_by_uuid ~__context ~uuid:task_rec.API.task_uuid
             in
             raise
-              Api_errors.(
-                Server_error (task_cancelled, [Ref.string_of task_id])
-              )
+              Api_errors.(Server_error (task_cancelled, [Ref.string_of task_id]))
         | `failure -> (
           match task_rec.API.task_error_info with
           | code :: params ->
@@ -346,8 +344,8 @@ let copy_vm_record ?snapshot_info_record ~__context ~vm ~disk_op ~new_name
     ~snapshot_time:
       ( if is_a_snapshot then
           Date.of_float (Unix.gettimeofday ())
-      else
-        Date.never
+        else
+          Date.never
       )
     ~snapshot_info:
       ( match snapshot_info_record with
