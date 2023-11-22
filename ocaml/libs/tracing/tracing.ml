@@ -80,7 +80,9 @@ let attribute_key_regex =
   Re.Posix.compile_pat "^[a-z0-9][a-z0-9._]{0,253}[a-z0-9]$"
 
 let validate_attribute (key, value) =
-  Re.execp attribute_key_regex key && String.length value <= 4095
+  String.length value <= 4095
+  && Re.execp attribute_key_regex key
+  && W3CBaggage.Key.is_valid_key key
 
 let observe = ref true
 
@@ -104,15 +106,17 @@ module SpanKind = struct
         "INTERNAL"
 end
 
+let bugtool_name = "bugtool"
+
 let endpoint_of_string = function
-  | "bugtool" ->
+  | str when str = bugtool_name ->
       Bugtool
   | url ->
       Url (Uri.of_string url)
 
 let endpoint_to_string = function
   | Bugtool ->
-      "bugtool"
+      bugtool_name
   | Url url ->
       Uri.to_string url
 
