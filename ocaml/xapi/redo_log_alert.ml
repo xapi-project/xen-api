@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-module R = Debug.Make (struct let name = "redo_log" end)
+module R = Debug.Make (struct let name = __MODULE__ end)
 
 open R
 

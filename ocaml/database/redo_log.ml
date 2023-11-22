@@ -123,6 +123,7 @@ let disable log =
 let redo_log_events = Event.new_channel ()
 
 let cannot_connect_fn log =
+  D.debug "%s" __FUNCTION__ ;
   if !(log.currently_accessible) then (
     D.debug "Signalling unable to access redo log" ;
     Event.sync (Event.send redo_log_events (log.name, false)) ;
@@ -131,6 +132,7 @@ let cannot_connect_fn log =
   log.currently_accessible := false
 
 let can_connect_fn log =
+  D.debug "%s" __FUNCTION__ ;
   if not !(log.currently_accessible) then (
     D.debug "Signalling redo log is healthy" ;
     Event.sync (Event.send redo_log_events (log.name, true)) ;
@@ -611,11 +613,13 @@ let shutdown log =
   )
 
 let broken log =
+  D.debug "%s" __FUNCTION__ ;
   set_time_of_last_failure log ;
   shutdown log ;
   cannot_connect_fn log
 
 let healthy log =
+  D.debug "%s" __FUNCTION__ ;
   reset_time_of_last_failure log ;
   can_connect_fn log
 
