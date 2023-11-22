@@ -11,25 +11,25 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-module Mutex :
-sig
+module Mutex : sig
   val execute : Mutex.t -> (unit -> 'a) -> 'a
 end
 
-val thread_iter_all_exns: ('a -> unit) -> 'a list -> ('a * exn) list
-val thread_iter: ('a -> unit) -> 'a list -> unit
+val thread_iter_all_exns : ('a -> unit) -> 'a list -> ('a * exn) list
 
-module Delay :
-sig
+val thread_iter : ('a -> unit) -> 'a list -> unit
+
+module Delay : sig
   type t
+
   val make : unit -> t
+
+  val wait : t -> float -> bool
   (** Blocks the calling thread for a given period of time with the option of
       returning early if someone calls 'signal'. Returns true if the full time
       period elapsed and false if signalled. Note that multple 'signals' are
       coalesced; 'signals' sent before 'wait' is called are not lost. *)
 
-  val wait : t -> float -> bool
-  (** Sends a signal to a waiting thread. See 'wait' *)
-
   val signal : t -> unit
+  (** Sends a signal to a waiting thread. See 'wait' *)
 end
