@@ -470,15 +470,15 @@ let set_hosts ~__context ~self ~value =
 
 let do_set_op ~__context ~self ~observation_fn ~db_fn =
   let host = Helpers.get_localhost ~__context in
-  ( match Db.Observer.get_hosts ~__context ~self with
+  (* Execute the db_fn before the observation_fn for the forwarders that rely on the DB's data *)
+  if Helpers.is_pool_master ~__context ~host then db_fn () ;
+  match Db.Observer.get_hosts ~__context ~self with
   | [] ->
       observation_fn ()
   | hosts when List.mem host hosts ->
       observation_fn ()
   | _ ->
       ()
-  ) ;
-  if Helpers.is_pool_master ~__context ~host then db_fn ()
 
 let set_enabled ~__context ~self ~value =
   let uuid = Db.Observer.get_uuid ~__context ~self in

@@ -6592,7 +6592,7 @@ functor
         let fn ~rpc:_ ~session_id:_ ~host =
           do_op_on ~__context ~host ~local_fn client_fn
         in
-        Xapi_pool_helpers.call_fn_on_slaves_then_master ~__context fn
+        Xapi_pool_helpers.call_fn_on_master_then_slaves ~__context fn
 
       let set_attributes ~__context ~self ~value =
         (* attributes will be kept out of the logs *)
@@ -6604,7 +6604,7 @@ functor
         let fn ~rpc:_ ~session_id:_ ~host =
           do_op_on ~__context ~host ~local_fn client_fn
         in
-        Xapi_pool_helpers.call_fn_on_slaves_then_master ~__context fn
+        Xapi_pool_helpers.call_fn_on_master_then_slaves ~__context fn
 
       let set_endpoints ~__context ~self ~value =
         (* endpoints will be kept out of the logs *)
@@ -6616,7 +6616,7 @@ functor
         let fn ~rpc:_ ~session_id:_ ~host =
           do_op_on ~__context ~host ~local_fn client_fn
         in
-        Xapi_pool_helpers.call_fn_on_slaves_then_master ~__context fn
+        Xapi_pool_helpers.call_fn_on_master_then_slaves ~__context fn
 
       let set_components ~__context ~self ~value =
         info "Observer.set_components: self=%s value=%s"
