@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """
 Copyright (C) 2006-2009 Citrix Systems Inc.
@@ -16,7 +16,6 @@ from __future__ import print_function
 
 import sys
 import os
-import commands
 import time
 import re
 from optparse import OptionParser
@@ -186,7 +185,7 @@ the command with appropriate arguments (use --help for a list of options).
 Type 'yes' to continue.
 Type 'no' to cancel.
 """
-		res = raw_input(warning + '\n'.join(configuration) + confirmation)
+		res = input(warning + '\n'.join(configuration) + confirmation)
 		if res != 'yes':
 			sys.exit(1)
 	
@@ -232,7 +231,7 @@ Type 'no' to cancel.
 	# Rewrite firstboot management.conf file, which will be picked it by xcp-networkd on restart (if used)
 	is_static = False
 	try:
-		f = file(management_conf, 'w')
+		f = open(management_conf, 'w')
 		f.write("LABEL='" + device + "'\n")
 		if options.mode != "none":
 			f.write("MODE='" + options.mode + "'\n")
@@ -260,7 +259,7 @@ Type 'no' to cancel.
 
 	# Write trigger file for XAPI to continue the network reset on startup
 	try:
-		f = file(network_reset, 'w')
+		f = open(network_reset, 'w')
 		f.write('DEVICE=' + device + '\n')
 		if options.mode != "none":
 			f.write('MODE=' + options.mode + '\n')
