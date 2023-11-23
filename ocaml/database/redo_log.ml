@@ -626,7 +626,6 @@ let healthy log =
 exception TooManyProcesses
 
 let startup log =
-  with_lock log.mutex @@ fun () ->
   if is_enabled log then (
     try
       ( match !(log.pid) with
