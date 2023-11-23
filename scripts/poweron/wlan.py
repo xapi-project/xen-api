@@ -20,10 +20,7 @@ def find_interface_broadcast_ip(interface):
     if rc != 0:
         raise Exception(
             "Failed to find IP address of local network interface %s: %s"
-            % (
-                interface,
-                stderr,
-            )
+            % (interface, stderr)
         )
     words = stdout.split()
     try:

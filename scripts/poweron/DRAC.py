@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 
 import os.path
-import subprocess
 import sys
+
+import xcp.cmd as cmd
 
 
 class DRAC_NO_SUPP_PACK(Exception):
@@ -19,34 +20,31 @@ class DRAC_POWERON_FAILED(Exception):
         Exception.__init__(self, *args)
 
 
-def run2(command):
-    run = subprocess.Popen(
-        command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-    )
-
-    # Wait for the process to return
-    out, err = (e.splitlines() for e in run.communicate())
-
-    return run.returncode, out, err
-
-
 drac_path = "/opt/dell/srvadmin/sbin/racadm"
 
 
 def DRAC(power_on_ip, user, password):
     if not os.path.exists(drac_path):
         raise DRAC_NO_SUPP_PACK()
-    cmd = "%s -r %s -u %s -p %s serveraction powerup" % (
-        drac_path,
-        power_on_ip,
-        user,
-        password,
+
+    (rc, stdout, stderr) = cmd.runCmd(
+        [
+            drac_path,
+            "-r",
+            power_on_ip,
+            "-u",
+            user,
+            "-p",
+            password,
+            "serveraction",
+            "powerup",
+        ],
+        with_stdout=True,
+        with_stderr=True,
     )
-    retcode, out, err = run2(cmd)
-    if len(err) == 0:
-        return str(True)
-    else:
-        raise DRAC_POWERON_FAILED()
+    if rc != 0:
+        raise DRAC_POWERON_FAILED(stderr)
+    return stdout
 
 
 def main():
