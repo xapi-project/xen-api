@@ -35,7 +35,7 @@ let redo_log_max_dying_processes = 2
 let redo_log_comms_socket_stem = "sock-blkdev-io"
 
 (** The maximum time, in seconds, for which we are prepared to wait for a response from the block device I/O process before assuming that it has died while initially connecting to it *)
-let redo_log_max_startup_time = ref 10.
+let redo_log_max_startup_time = ref 5.
 
 (** The length, in bytes, of one redo log which constitutes half of the VDI *)
 let redo_log_length_of_half = 60 * 1024 * 1024
