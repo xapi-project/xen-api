@@ -65,6 +65,6 @@ let t =
           "Date before which the certificate is valid"
       ; field ~qualifier:StaticRO ~lifecycle ~ty:String "fingerprint"
           ~default_value:(Some (VString ""))
-          "The certificate's fingerprint / hash"
+          "The certificate's SHA256 fingerprint / hash"
       ]
     ~messages:[] ()
