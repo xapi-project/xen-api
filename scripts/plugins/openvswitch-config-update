@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # xapi plugin script to update the cache of configuration items in the
 # ovs-vswitchd configuration that are managed in the xapi database when
@@ -23,7 +23,7 @@
 
 import os
 import re
-import subprocess
+from xcp.cmd import runCmd
 
 import XenAPIPlugin
 
@@ -36,11 +36,8 @@ iptablectl = "/etc/xapi.d/plugins/firewall-port"
 
 # Delete the CA certificate, so that we go back to boot-strapping mode
 def delete_cacert():
-    try:
+    if os.path.exists(bootstrap_cacert):
         os.remove(bootstrap_cacert)
-    except OSError:
-        # Ignore error if file doesn't exist
-        pass
 
 
 def update(session, args):
@@ -75,8 +72,7 @@ def update(session, args):
 
     if not controller and currentControllers:
         delete_cacert()
-        cmd = [iptablectl, "close", "6640"]
-        output = subprocess.Popen(cmd, stdout=subprocess.PIPE).communicate()
+        runCmd([iptablectl, "close", "6640"])
         try:
             emergency_reset(session, None)
         except:
@@ -94,10 +90,7 @@ def update(session, args):
         new_controller = True
         ret_str += "Successfully set controller to %s.  " % controller
 
-    try:
-        pool_fail_mode = pool["other_config"]["vswitch-controller-fail-mode"]
-    except KeyError as e:
-        pool_fail_mode = None
+    pool_fail_mode = pool["other_config"].get("vswitch-controller-fail-mode")
 
     bton = {}
 
@@ -188,7 +181,7 @@ def update(session, args):
         try:
             other_config = bton[bridge]["other_config"]
             fail_mode = other_config["vswitch-controller-fail-mode"]
-        except KeyError as e:
+        except KeyError:
             fail_mode = None
 
         if fail_mode not in ["secure", "standalone"]:
@@ -235,21 +228,16 @@ def update(session, args):
 
     if dib_changed:
         ret_str += "Updated in-band management.  "
+
     if fail_mode_changed:
         ret_str += "Updated fail_mode.  "
 
-    if ret_str != "":
-        return ret_str
-    else:
-        return "No change to configuration"
+    return ret_str if ret_str else "No change to configuration"
 
 
 def vswitchCurrentControllers():
     controllers = vswitchCfgQuery(["get-manager"])
-    if controllers:
-        return controllers.split("\n")
-    else:
-        return []
+    return controllers.split("\n") if controllers else []
 
 
 def removeControllerCfg():
@@ -261,8 +249,7 @@ def setControllerCfg(bootstrap, controller):
     # contains both the private key and the certificate.
     if bootstrap:
         # For active ssl, do not need to turn on TCP port 6640 on host.
-        cmd = [iptablectl, "close", "6640"]
-        output = subprocess.Popen(cmd, stdout=subprocess.PIPE).communicate()
+        runCmd([iptablectl, "close", "6640"])
         vswitchCfgMod(
             [
                 "--",
@@ -283,8 +270,7 @@ def setControllerCfg(bootstrap, controller):
     else:
         # For passive ssl, only TCP port 6640 is meaningful.
         # Turn on the port of the host.
-        cmd = [iptablectl, "open", "6640"]
-        output = subprocess.Popen(cmd, stdout=subprocess.PIPE).communicate()
+        runCmd([iptablectl, "open", "6640"])
         vswitchCfgMod(
             [
                 "--",
@@ -316,8 +302,8 @@ def composeController(protocol, controllerIP, tcpport):
 
 def vswitchCfgQuery(action_args):
     cmd = [vsctl, "-vconsole:off"] + action_args
-    output = subprocess.Popen(cmd, stdout=subprocess.PIPE).communicate()
-    if len(output) == 0 or output[0] is None:
+    (rc, output) = runCmd(cmd, with_stdout=True)
+    if rc != 0 or len(output) == 0 or output[0] is None:
         output = ""
     else:
         output = output[0].strip()
@@ -326,7 +312,7 @@ def vswitchCfgQuery(action_args):
 
 def vswitchCfgMod(action_args):
     cmd = [vsctl, "--timeout=5", "-vconsole:off"] + action_args
-    exitcode = subprocess.call(cmd)
+    exitcode = runCmd(cmd)
     if exitcode != 0:
         raise XenAPIPlugin.Failure(
             "VSWITCH_CONFIG_MOD_FAILURE", [str(exitcode), str(action_args)]
@@ -335,7 +321,7 @@ def vswitchCfgMod(action_args):
 
 def emergency_reset(session, args):
     cmd = [vsctl, "--timeout=5", "emer-reset"]
-    exitcode = subprocess.call(cmd)
+    exitcode = runCmd(cmd)
     if exitcode != 0:
         raise XenAPIPlugin.Failure("VSWITCH_EMER_RESET_FAILURE", [str(exitcode)])
 
@@ -344,7 +330,7 @@ def emergency_reset(session, args):
 
 def addFlow(switch, flow):
     cmd = [ofctl, "add-flow", switch, flow]
-    exitcode = subprocess.call(cmd)
+    exitcode = runCmd(cmd)
     if exitcode != 0:
         raise XenAPIPlugin.Failure(
             "VSWITCH_ADD_FLOW_FAILURE", [str(exitcode), str(switch), str(flow)]
