@@ -114,7 +114,6 @@ let listen_for_vm {Persistent.vm_uuid; path; gid; typ} =
   ) else (
     D.debug "%s: listening for %s on socket %s for VM %s" __FUNCTION__
       (ty_to_string typ) path vm_uuid_str ;
-    let* () = safe_unlink path in
     let* stop_server = make_server ~cache path vm_uuid_str in
     let* () = log_fds () in
     Hashtbl.add sockets path (stop_server, (vm_uuid, gid, typ)) ;
