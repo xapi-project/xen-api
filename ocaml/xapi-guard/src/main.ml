@@ -108,14 +108,19 @@ let listen_for_vm {Persistent.vm_uuid; path; gid; typ} =
         Server_interface.make_server_vtpm_rest
   in
   let vm_uuid_str = Uuidm.to_string vm_uuid in
-  D.debug "%s: listening for %s on socket %s for VM %s" __FUNCTION__
-    (ty_to_string typ) path vm_uuid_str ;
-  let* () = safe_unlink path in
-  let* stop_server = make_server ~cache path vm_uuid_str in
-  let* () = log_fds () in
-  Hashtbl.add sockets path (stop_server, (vm_uuid, gid, typ)) ;
-  let* () = Lwt_unix.chmod path 0o660 in
-  Lwt_unix.chown path 0 gid
+  if Hashtbl.mem sockets path then (
+    D.info "%s: already listening on %s" __FUNCTION__ path ;
+    Lwt.return_unit
+  ) else (
+    D.debug "%s: listening for %s on socket %s for VM %s" __FUNCTION__
+      (ty_to_string typ) path vm_uuid_str ;
+    let* () = safe_unlink path in
+    let* stop_server = make_server ~cache path vm_uuid_str in
+    let* () = log_fds () in
+    Hashtbl.add sockets path (stop_server, (vm_uuid, gid, typ)) ;
+    let* () = Lwt_unix.chmod path 0o660 in
+    Lwt_unix.chown path 0 gid
+  )
 
 let resume () =
   let* vms = Persistent.loadfrom recover_path in
@@ -216,10 +221,13 @@ let vtpm_get_contents _dbg vtpm_uuid =
   @@ let* self = Server_interface.with_xapi ~cache @@ VTPM.get_by_uuid ~uuid in
      Server_interface.with_xapi ~cache @@ VTPM.get_contents ~self
 
+let reconnect _dbg = ret @@ resume ()
+
 let rpc_fn =
   let module Server =
     Xapi_idl_guard_privileged.Interface.RPC_API (Rpc_lwt.GenServer ()) in
   (* bind APIs *)
+  Server.reconnect reconnect ;
   Server.varstore_create depriv_varstored_create ;
   Server.varstore_destroy depriv_varstored_destroy ;
   Server.vtpm_create depriv_swtpm_create ;

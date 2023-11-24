@@ -72,6 +72,11 @@ module RPC_API (R : RPC) = struct
   (** each VM gets its own group id = qemu_base + domid *)
   let gid_p = Param.mk ~name:"gid" ~description:["socket group id"] Types.int
 
+  let reconnect =
+    declare "reconnect"
+      ["Tell xapi-guard to reconnect to XAPI, which is now up"]
+      (debug_info_p @-> returning unit_p err)
+
   let varstore_create =
     let vm_uuid_p = Param.mk ~name:"vm_uuid" ~description:["VM UUID"] vm_uuid in
     declare "varstore_create"

@@ -1486,6 +1486,11 @@ let server_init () =
                 Xapi_host.write_uefi_certificates_to_disk ~__context
                   ~host:(Helpers.get_localhost ~__context)
             )
+          ; ( "Reconnect xapi-guard"
+            , [Startup.OnThread]
+            , fun () ->
+                Xapi_idl_guard_privileged.Client.reconnect "XAPI startup"
+            )
           ; ( "writing init complete"
             , []
             , fun () -> Helpers.touch_file !Xapi_globs.init_complete
