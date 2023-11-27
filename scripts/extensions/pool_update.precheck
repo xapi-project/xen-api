@@ -1,11 +1,11 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
-from __future__ import print_function
-import xmlrpclib
+
+import xmlrpc.client
 import sys
 import XenAPI
 import json
-import urllib2
+import urllib.request, urllib.error, urllib.parse
 import xml.dom.minidom
 import traceback
 import subprocess
@@ -13,8 +13,8 @@ import os
 import errno
 import re
 import shutil
-import StringIO
-import ConfigParser
+import io
+import configparser
 import logging
 import xcp.logger
 
@@ -81,13 +81,13 @@ class VmRunning(Exception):
 
 def success_message(result):
     rpcparams = {'Status': 'Success', 'Value': result}
-    return xmlrpclib.dumps((rpcparams, ), '', True)
+    return xmlrpc.client.dumps((rpcparams, ), '', True)
 
 
 def failure_message(code, params):
     rpcparams = {
         'Status': 'Failure', 'ErrorDescription': [code] + params}
-    return xmlrpclib.dumps((rpcparams, ), '', True)
+    return xmlrpc.client.dumps((rpcparams, ), '', True)
 
 
 def parse_control_package(session, yum_url):
@@ -96,10 +96,10 @@ def parse_control_package(session, yum_url):
 
     update_xml_url = yum_url + '/update.xml'
     try:
-        update_xml = urllib2.urlopen(update_xml_url).read()
+        update_xml = urllib.request.urlopen(update_xml_url).read()
     except:
         raise PrecheckFailure("Couldn't fetch update.xml from '%s'" % update_xml_url)
-    xmldoc = xml.dom.minidom.parse(StringIO.StringIO(update_xml))
+    xmldoc = xml.dom.minidom.parse(io.StringIO(update_xml.decode('utf-8')))
 
     items = xmldoc.getElementsByTagName('update')
     if not items:
@@ -131,7 +131,7 @@ def execute_precheck(session, control_package, yum_conf_file, update_precheck_fi
     yum_env['LANG'] = 'C'
 
     cmd = ['yum', 'clean', 'all', '--noplugins', '-c', yum_conf_file]
-    p = subprocess.Popen(cmd, shell=False, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, close_fds=True, env=yum_env)
+    p = subprocess.Popen(cmd, shell=False, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, close_fds=True, env=yum_env, universal_newlines=True)
     output, _ = p.communicate()
     for line in output.split('\n'):
         xcp.logger.info(line)
@@ -139,7 +139,7 @@ def execute_precheck(session, control_package, yum_conf_file, update_precheck_fi
         raise EnvironmentFailure("Error cleaning yum cache")
 
     cmd = ['yum', 'install', '-y', '--noplugins', '-c', yum_conf_file, control_package]
-    p = subprocess.Popen(cmd, shell=False, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, close_fds=True, env=yum_env)
+    p = subprocess.Popen(cmd, shell=False, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, close_fds=True, env=yum_env, universal_newlines=True)
     output, _ = p.communicate()
     xcp.logger.info('pool_update.precheck %r returncode=%r output:', cmd, p.returncode)
     for line in output.split('\n'):
@@ -204,7 +204,7 @@ def execute_precheck(session, control_package, yum_conf_file, update_precheck_fi
             raise PrecheckFailure(output)
 
     if os.path.isfile(update_precheck_file):
-        pp = subprocess.Popen(update_precheck_file, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, close_fds=True)
+        pp = subprocess.Popen(update_precheck_file, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, close_fds=True, universal_newlines=True)
         precheck_output, _ = pp.communicate()
         xcp.logger.info('pool_update.precheck %r precheck_output:', update_precheck_file)
         for line in precheck_output.split('\n'):
@@ -222,7 +222,7 @@ def execute_precheck(session, control_package, yum_conf_file, update_precheck_fi
         else:
             if '\n' in precheck_output:
                 msg = precheck_output.split()[0]
-                if msg in livepatch_messages.keys():
+                if msg in list(livepatch_messages.keys()):
                     return livepatch_messages[msg]
     return 'ok'
 
@@ -230,7 +230,7 @@ def execute_precheck(session, control_package, yum_conf_file, update_precheck_fi
 if __name__ == '__main__':
     xcp.logger.logToSyslog(level=logging.INFO)
     txt = sys.stdin.read()
-    params, method = xmlrpclib.loads(txt)
+    params, method = xmlrpc.client.loads(txt)
 
     update_vdi_valid = False
     session = None
@@ -280,7 +280,7 @@ if __name__ == '__main__':
         with open(yum_conf_file, "w+") as file:
             file.write(yum_conf)
 
-        config = ConfigParser.ConfigParser()
+        config = configparser.ConfigParser()
         config.read(yum_conf_file)
         yum_url = config.get(update_package, 'baseurl')
 

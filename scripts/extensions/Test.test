@@ -1,19 +1,19 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
-from __future__ import print_function
-import xmlrpclib, sys
+
+import xmlrpc.client, sys
 
 def success_message(result):
     rpcparams = { 'Status': 'Success', 'Value': result }
-    return xmlrpclib.dumps((rpcparams, ), '', True)
+    return xmlrpc.client.dumps((rpcparams, ), '', True)
 
 def failure_message(code, params):
     rpcparams = { 'Status': 'Failure', 'ErrorDescription': [ code ] + params }
-    return xmlrpclib.dumps((rpcparams, ), '', True)
+    return xmlrpc.client.dumps((rpcparams, ), '', True)
 
 if __name__ == "__main__":
     txt = sys.stdin.read()
-    req = xmlrpclib.loads(txt)
+    req = xmlrpc.client.loads(txt)
     print (failure_message("CODE", [ "a", "b" ]))
     #print (success_message(""))
 
