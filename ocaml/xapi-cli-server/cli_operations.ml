@@ -938,7 +938,7 @@ let gen_cmds rpc session_id =
             "uuid"
           ; "device"
           ; "VLAN"
-          ; "mac"
+          ; "MAC"
           ; "network-uuid"
           ; "currently-attached"
           ; "host-uuid"
