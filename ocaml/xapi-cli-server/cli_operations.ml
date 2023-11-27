@@ -935,7 +935,13 @@ let gen_cmds rpc session_id =
     ; Client.PIF.(
         mk get_all_records_where get_by_uuid pif_record "pif" []
           [
-            "uuid"; "device"; "VLAN"; "mac"; "network-uuid"; "currently-attached"
+            "uuid"
+          ; "device"
+          ; "VLAN"
+          ; "mac"
+          ; "network-uuid"
+          ; "currently-attached"
+          ; "host-uuid"
           ]
           rpc session_id
       )
