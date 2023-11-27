@@ -233,11 +233,11 @@ let gen_method file cls message params async_version =
       , "Thrown if the response from the server contains an invalid status."
       )
     ; ("XenAPIException", "if the call failed.")
-    ; ( "JsonProcessingException"
-      , "if the request's payload or the response's payload cannot be written \
-         or read as valid JSON."
+    ; ( "IOException"
+      , "if an I/O error occurs when sending or receiving, includes cases when \
+         the request's payload or the response's payload cannot be written or \
+         read as valid JSON."
       )
-    ; ("IOException", "if an I/O error occurs when sending or receiving.")
     ]
   in
   let publishInfo = get_published_info_message message cls in
@@ -522,7 +522,6 @@ let gen_class cls folder =
   fprintf file
     {|package com.xensource.xenapi;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.xensource.xenapi.Types.BadServerResponse;
 import com.xensource.xenapi.Types.XenAPIException;

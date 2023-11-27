@@ -29,7 +29,6 @@
 
 package com.xensource.xenapi;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.xensource.xenapi.Types.BadServerResponse;
 import com.xensource.xenapi.Types.XenAPIException;
@@ -203,10 +202,9 @@ public class Connection {
      * @param <T>                   The type of the response's payload. For instance, an array of VMs is expected when calling VM.get_all_records
      * @return The result of the call with the type specified under T.
      * @throws XenAPIException         if the call failed.
-     * @throws JsonProcessingException if the request's payload or the response's payload cannot be written or read as valid JSON
-     * @throws IOException             if an I/O error occurs when sending or receiving
+     * @throws IOException             if an I/O error occurs when sending or receiving, includes cases when the request's payload or the response's payload cannot be written or read as valid JSON.
      */
-    public <T> T dispatch(String methodCall, Object[] methodParameters, TypeReference<T> responseTypeReference) throws XenAPIException, JsonProcessingException, IOException {
+    public <T> T dispatch(String methodCall, Object[] methodParameters, TypeReference<T> responseTypeReference) throws XenAPIException, IOException {
         var result = client.sendRequest(methodCall, methodParameters, responseTypeReference);
         if (result.error != null) {
             throw new XenAPIException(String.valueOf(result.error));
@@ -231,10 +229,9 @@ public class Connection {
      * @param methodCall       the JSON-RPC xapi method call. e.g.: session.login_with_password
      * @param methodParameters the methodParameters of the method call
      * @throws XenAPIException         if the call failed.
-     * @throws JsonProcessingException if the request's payload or the response's payload cannot be written or read as valid JSON
-     * @throws IOException             if an I/O error occurs when sending or receiving
+     * @throws IOException             if an I/O error occurs when sending or receiving, includes cases when the request's payload or the response's payload cannot be written or read as valid JSON.
      */
-    public <T> void dispatch(String methodCall, Object[] methodParameters) throws XenAPIException, JsonProcessingException, IOException {
+    public <T> void dispatch(String methodCall, Object[] methodParameters) throws XenAPIException, IOException {
         var typeReference = new TypeReference<T>() {
         };
         this.dispatch(methodCall, methodParameters, typeReference);
