@@ -258,6 +258,37 @@ let startup_components () =
       )
     Component.all
 
+module EnvRecord : sig
+  type t
+
+  val str : string -> t
+
+  val option : string option -> t
+
+  val list : ('a -> t) -> 'a list -> t
+
+  val pair : string * string -> t
+
+  val to_shell_string : (string * t) list -> string
+end = struct
+  type t = string
+
+  let str txt = txt
+
+  let option opt = Option.value ~default:"" opt
+
+  let list element lst = List.map element lst |> String.concat ","
+
+  let pair (key, value) = String.concat "=" [key; value]
+
+  let to_shell_string lst =
+    lst
+    |> List.map (fun (key, value) ->
+           String.concat "=" [key; Filename.quote value]
+       )
+    |> String.concat "\n"
+end
+
 module ObserverConfig = struct
   type t = {
       otel_service_name: string
@@ -305,16 +336,21 @@ module Dom0ObserverConfig (ObserverComponent : OBSERVER_COMPONENT) :
   let config_root = "/etc/xensource/observer/"
 
   let env_vars_of_config (config : ObserverConfig.t) =
-    [
-      "OTEL_SERVICE_NAME=" ^ config.otel_service_name
-    ; "OTEL_RESOURCE_ATTRIBUTES="
-      ^ String.concat ","
-          (List.map (fun (k, v) -> k ^ "=" ^ v) config.otel_resource_attributes)
-    ; "XS_EXPORTER_ZIPKIN_ENDPOINTS="
-      ^ String.concat "," config.xs_exporter_zipkin_endpoints
-    ; "XS_EXPORTER_BUGTOOL_ENDPOINT="
-      ^ Option.value ~default:"" config.xs_exporter_bugtool_endpoint
-    ]
+    EnvRecord.(
+      to_shell_string
+        [
+          ("OTEL_SERVICE_NAME", str config.otel_service_name)
+        ; ( "OTEL_RESOURCE_ATTRIBUTES"
+          , (list pair) config.otel_resource_attributes
+          )
+        ; ( "XS_EXPORTER_ZIPKIN_ENDPOINTS"
+          , (list str) config.xs_exporter_zipkin_endpoints
+          )
+        ; ( "XS_EXPORTER_BUGTOOL_ENDPOINT"
+          , option config.xs_exporter_bugtool_endpoint
+          )
+        ]
+    )
 
   let remove_config ~uuid =
     Xapi_stdext_unix.Unixext.unlink_safe
@@ -340,7 +376,7 @@ module Dom0ObserverConfig (ObserverComponent : OBSERVER_COMPONENT) :
       Xapi_stdext_unix.Unixext.mkdir_rec dir_name 0o755 ;
       let file_name = dir_name ^ uuid ^ ".observer.conf" in
       Xapi_stdext_unix.Unixext.write_string_to_file file_name
-        (String.concat "\n" (env_vars_of_config observer_config))
+        (env_vars_of_config observer_config)
     ) else
       remove_config ~uuid
 
