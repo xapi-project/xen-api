@@ -644,6 +644,20 @@ let time_limited_read filedesc length target_response_time =
   else (* we ran out of time *)
     raise Timeout
 
+let time_limited_single_read filedesc length ~max_wait =
+  let buf = Bytes.make length '\000' in
+  with_polly_wait Polly.Events.inp filedesc @@ fun wait filedesc ->
+  wait max_wait ;
+  let bytes =
+    try Unix.read filedesc buf 0 length
+    with
+    | Unix.Unix_error (Unix.EAGAIN, _, _)
+    | Unix.Unix_error (Unix.EWOULDBLOCK, _, _)
+    ->
+      0
+  in
+  Bytes.sub_string buf 0 bytes
+
 (* --------------------------------------------------------------------------------------- *)
 
 (* Read a given number of bytes of data from the fd, or stop at EOF, whichever comes first. *)
