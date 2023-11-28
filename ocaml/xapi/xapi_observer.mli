@@ -12,6 +12,14 @@
  * GNU Lesser General Public License for more details.
  *)
 
+module Component : sig
+  type t
+
+  val to_string : t -> string
+
+  val of_string : string -> t
+end
+
 val observed_hosts_of :
   __context:Context.t -> API.ref_host list -> API.ref_host list
 
