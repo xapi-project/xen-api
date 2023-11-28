@@ -8,8 +8,6 @@ on:
 jobs:
   build-python:
     runs-on: ubuntu-latest
-    env:
-      XAPI_VERSION: ${{ github.ref_name }}
 
     steps:
       - name: Checkout code
@@ -27,7 +25,7 @@ jobs:
 
       - name: Generate python package for XenAPI
         run: |
-          ./configure --xapi-version=${{ github.ref_name }}
+          ./configure --xapi_version=${{ github.ref_name }}
           make python
 
       - name: Store python distribution artifacts
