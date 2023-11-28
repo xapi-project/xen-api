@@ -16,9 +16,9 @@ module String : sig
 
   val of_char : char -> string
 
+  val rev_map : (char -> char) -> string -> string
   (** Map a string to a string, applying the given function in reverse
       order. *)
-  val rev_map : (char -> char) -> string -> string
 
   val rev_iter : (char -> unit) -> string -> unit
   (** Iterate over the characters in a string in reverse order. *)

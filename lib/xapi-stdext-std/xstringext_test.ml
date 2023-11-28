@@ -9,7 +9,7 @@
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
    GNU Lesser General Public License for more details.
- *)
+*)
 
 module XString = Xapi_stdext_std.Xstringext.String
 
@@ -77,7 +77,8 @@ let test_split =
       , [
           ('.', "...", [""; ""; "."])
         ; ('.', "foo.bar.baz", ["foo"; "bar"; "baz"])
-        ] )
+        ]
+      )
     ; (4, [('.', "...", [""; ""; ""; ""])])
     ]
   in

@@ -170,7 +170,8 @@ module String = struct
           Bytes.blit_string s !orig_offset new_b !dest_offset len ;
           Bytes.blit_string t 0 new_b (!dest_offset + len) len_t ;
           orig_offset := !orig_offset + len + len_f ;
-          dest_offset := !dest_offset + len + len_t)
+          dest_offset := !dest_offset + len + len_t
+        )
         indexes ;
       Bytes.blit_string s !orig_offset new_b !dest_offset
         (String.length s - !orig_offset) ;

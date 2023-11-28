@@ -17,14 +17,20 @@
 (** {2 Exceptions} *)
 
 exception UCS_value_out_of_range
-exception UCS_value_prohibited_in_UTF8
-exception UCS_value_prohibited_in_XML
-exception UTF8_character_incomplete
-exception UTF8_header_byte_invalid
-exception UTF8_continuation_byte_invalid
-exception UTF8_encoding_not_canonical
-exception String_incomplete
 
+exception UCS_value_prohibited_in_UTF8
+
+exception UCS_value_prohibited_in_XML
+
+exception UTF8_character_incomplete
+
+exception UTF8_header_byte_invalid
+
+exception UTF8_continuation_byte_invalid
+
+exception UTF8_encoding_not_canonical
+
+exception String_incomplete
 
 (** {2 UCS Validators} *)
 
@@ -38,10 +44,10 @@ end
 module XML_UTF8_UCS_validator : UCS_VALIDATOR
 
 module XML : sig
+  val is_illegal_control_character : Uchar.t -> bool
   (** Returns true if and only if the given value corresponds to
       	 *  a illegal control character as defined in section 2.2 of
       	 *  the XML specification, version 1.0. *)
-  val is_illegal_control_character : Uchar.t -> bool
 end
 
 (** {2 String Validators} *)
@@ -49,16 +55,14 @@ end
 (** Provides functionality for validating and processing
  *  strings according to a particular character encoding. *)
 module type STRING_VALIDATOR = sig
-
-  (** Returns true if and only if the given string is validly-encoded. *)
   val is_valid : string -> bool
+  (** Returns true if and only if the given string is validly-encoded. *)
 
+  val validate : string -> unit
   (** Raises an encoding error if the given string is not validly-encoded. *)
-  val validate: string -> unit
 
-  (** Returns the longest validly-encoded prefix of the given string. *)
   val longest_valid_prefix : string -> string
-
+  (** Returns the longest validly-encoded prefix of the given string. *)
 end
 
 (** Represents a validation error as a tuple [(i,e)], where:
