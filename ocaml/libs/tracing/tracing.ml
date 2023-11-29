@@ -836,3 +836,5 @@ module Export = struct
 end
 
 let main = Export.Destination.main
+
+let flush_spans = Export.Destination.flush_spans
