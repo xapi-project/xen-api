@@ -33,12 +33,12 @@ let finally fct clean_f =
               m
                 "finally: Error while running cleanup after failure of main \
                  function: %s"
-                (Printexc.to_string cleanup_exn))
+                (Printexc.to_string cleanup_exn)
+          )
       ) ;
       raise exn
   in
   clean_f () ; result
-
 
 (** execute fct ignoring exceptions *)
 let ignore_exn fct = try fct () with _ -> ()

@@ -163,5 +163,4 @@ module List : sig
 
   val intersect : 'a list -> 'a list -> 'a list
   (** Returns the intersection of two lists. *)
-
 end

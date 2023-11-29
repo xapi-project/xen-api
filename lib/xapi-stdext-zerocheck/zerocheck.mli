@@ -12,5 +12,5 @@
  * GNU Lesser General Public License for more details.
  *)
 
-(** [is_all_zeroes x len] returns true if the substring is all zeroes *)
 external is_all_zeros : string -> int -> bool = "is_all_zeros"
+(** [is_all_zeroes x len] returns true if the substring is all zeroes *)

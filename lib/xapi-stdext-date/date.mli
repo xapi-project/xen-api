@@ -98,8 +98,8 @@ val of_string : string -> t
 val never : t
 (** Same as {!epoch} *)
 
+(** Deprecated alias for {!t} *)
 type iso8601 = t
-(** Deprecated alias for {!t} *)
 
-type rfc822 = t
 (** Deprecated alias for {!t} *)
+type rfc822 = t
