@@ -21,11 +21,12 @@
 # TBD: - error handling needs to be improved.  Currently this can leave
 # TBD:   the system in a bad state if anything goes wrong.
 
+import contextlib
 import os
 import re
-from xcp.cmd import runCmd
 
 import XenAPIPlugin
+from xcp.cmd import runCmd
 
 vsctl = "/usr/bin/ovs-vsctl"
 ofctl = "/usr/bin/ovs-ofctl"
@@ -73,19 +74,15 @@ def update(session, args):
     if not controller and currentControllers:
         delete_cacert()
         runCmd([iptablectl, "close", "6640"])
-        try:
+        with contextlib.suppress(Exception):
             emergency_reset(session, None)
-        except:
-            pass
         removeControllerCfg()
         ret_str += "Successfully removed controller config.  "
     # controller cannot be empty, otherwise, this will always be True.
     elif controller and controller not in currentControllers:
         delete_cacert()
-        try:
+        with contextlib.suppress(Exception):
             emergency_reset(session, None)
-        except:
-            pass
         setControllerCfg(bootstrap, controller)
         new_controller = True
         ret_str += "Successfully set controller to %s.  " % controller
@@ -95,10 +92,8 @@ def update(session, args):
     bton = {}
 
     for rec in session.xenapi.network.get_all_records().values():
-        try:
+        with contextlib.suppress(KeyError):
             bton[rec["bridge"]] = rec
-        except KeyError:
-            pass
 
     # If new controller, get management MAC addresses from XAPI now
     # in case fail_mode set to secure which may affect XAPI access
@@ -137,13 +132,9 @@ def update(session, args):
 
         # Do nothing if setting is invalid, and warn the user.
         if xapi_dib not in ["true", "false", ""]:
-            ret_str += (
-                '"'
-                + xapi_dib
-                + '"'
-                + " is an invalid value for vswitch-disable-in-band on "
-                + bridge
-                + "  "
+            ret_str += '"%s" is an invalid value for vswitch-disable-in-band on %s  ' % (
+                xapi_dib,
+                bridge,
             )
 
         # Change bridge disable-in-band option if XAPI and OVS states differ.
@@ -199,16 +190,12 @@ def update(session, args):
         if new_controller and fail_mode_changed and pool_fail_mode == "secure":
             oc = vswitchCfgQuery(["get", "Bridge", bridge, "other-config"])
             m = re.match('.*hwaddr="([0-9a-fA-F:].*)".*', oc)
-            if m and m.group(1) in pool_mgmt_macs.keys():
+            if m and m.group(1) in pool_mgmt_macs:
                 mgmt_bridge = bridge
                 host_mgmt_mac = m.group(1)
                 host_mgmt_device = pool_mgmt_macs[host_mgmt_mac]
 
-    if (
-        host_mgmt_mac is not None
-        and mgmt_bridge is not None
-        and host_mgmt_device is not None
-    ):
+    if all([host_mgmt_mac, mgmt_bridge, host_mgmt_device]):
         tp = "idle_timeout=0,priority=0"
         port = vswitchCfgQuery(["get", "interface", host_mgmt_device, "ofport"])
 
@@ -301,7 +288,7 @@ def composeController(protocol, controllerIP, tcpport):
 
 
 def vswitchCfgQuery(action_args):
-    cmd = [vsctl, "-vconsole:off"] + action_args
+    cmd = [vsctl, "-vconsole:off", *action_args]
     (rc, output) = runCmd(cmd, with_stdout=True)
     if rc != 0 or len(output) == 0 or output[0] is None:
         output = ""
@@ -311,7 +298,7 @@ def vswitchCfgQuery(action_args):
 
 
 def vswitchCfgMod(action_args):
-    cmd = [vsctl, "--timeout=5", "-vconsole:off"] + action_args
+    cmd = [vsctl, "--timeout=5", "-vconsole:off", *action_args]
     exitcode = runCmd(cmd)
     if exitcode != 0:
         raise XenAPIPlugin.Failure(
