@@ -34,6 +34,7 @@ depends: [
   "pciutil"
   "ppx_deriving_rpc"
   "ppx_sexp_conv"
+  "ppx_deriving"
   "rpclib"
   "rrdd-plugin"
   "rresult"

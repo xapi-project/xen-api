@@ -110,33 +110,42 @@ module Observer : ObserverInterface = struct
     Tracing.Export.Destination.File.set_compress_tracing_files enabled
 end
 
-let supported_components = ["xapi"; "xenopsd"]
+module Component = struct
+  type t = Xapi | Xenopsd [@@deriving ord]
+
+  exception Unsupported_Component of string
+
+  let all = [Xapi; Xenopsd]
+
+  let to_string = function Xapi -> "xapi" | Xenopsd -> "xenopsd"
+
+  let of_string = function
+    | "xapi" ->
+        Xapi
+    | "xenopsd" ->
+        Xenopsd
+    | c ->
+        raise (Unsupported_Component c)
+end
 
 let get_forwarder c =
   let module Forwarder = ( val match c with
-                               | "xapi" ->
+                               | Component.Xapi ->
                                    (module Observer)
-                               | "xenopsd" ->
+                               | Component.Xenopsd ->
                                    (module Xapi_xenops.Observer)
-                               | _ ->
-                                   failwith
-                                     (Printf.sprintf
-                                        "Not a valid component: %s. Valid \
-                                         components are: %s "
-                                        c
-                                        (String.concat ", " supported_components)
-                                     ) : ObserverInterface
+                             : ObserverInterface
                          )
   in
   (module Forwarder : ObserverInterface)
 
-module StringSet = Set.Make (String)
+module ComponentSet = Set.Make (Component)
 
 let observed_hosts_of ~__context hosts =
   match hosts with [] -> Db.Host.get_all ~__context | hosts -> hosts
 
 let observed_components_of components =
-  match components with [] -> supported_components | components -> components
+  match components with [] -> Component.all | components -> components
 
 let assert_valid_hosts ~__context hosts =
   List.iter
@@ -150,13 +159,10 @@ let assert_valid_hosts ~__context hosts =
     hosts
 
 let assert_valid_components components =
-  List.iter
-    (fun component ->
-      if not (List.mem component supported_components) then
-        raise
-          Api_errors.(Server_error (invalid_value, ["component"; component]))
-    )
-    components
+  let open Component in
+  try List.iter (fun c -> ignore @@ of_string c) components
+  with Unsupported_Component component ->
+    raise Api_errors.(Server_error (invalid_value, ["component"; component]))
 
 let assert_valid_endpoints endpoints =
   let validate_endpoint = function
@@ -223,6 +229,7 @@ let register_components ~__context ~self ~host =
 
 let register ~__context ~self =
   Db.Observer.get_components ~__context ~self
+  |> List.map Component.of_string
   |> observed_components_of
   |> register_components ~__context ~self
 
@@ -247,6 +254,7 @@ let unregister_components ~__context ~self =
 
 let unregister ~__context ~self ~host:_ =
   Db.Observer.get_components ~__context ~self
+  |> List.map Component.of_string
   |> observed_components_of
   |> unregister_components ~__context ~self
 
@@ -258,7 +266,7 @@ let set_trace_log_dir ~__context dir =
       let module Forwarder = (val get_forwarder c : ObserverInterface) in
       Forwarder.set_trace_log_dir ~__context ~dir
     )
-    supported_components
+    Component.all
 
 let set_export_interval ~__context interval =
   List.iter
@@ -266,7 +274,7 @@ let set_export_interval ~__context interval =
       let module Forwarder = (val get_forwarder c : ObserverInterface) in
       Forwarder.set_export_interval ~__context ~interval
     )
-    supported_components
+    Component.all
 
 let set_max_spans ~__context spans =
   List.iter
@@ -274,7 +282,7 @@ let set_max_spans ~__context spans =
       let module Forwarder = (val get_forwarder c : ObserverInterface) in
       Forwarder.set_max_spans ~__context ~spans
     )
-    supported_components
+    Component.all
 
 let set_max_traces ~__context traces =
   List.iter
@@ -282,7 +290,7 @@ let set_max_traces ~__context traces =
       let module Forwarder = (val get_forwarder c : ObserverInterface) in
       Forwarder.set_max_traces ~__context ~traces
     )
-    supported_components
+    Component.all
 
 let set_max_file_size ~__context file_size =
   List.iter
@@ -290,7 +298,7 @@ let set_max_file_size ~__context file_size =
       let module Forwarder = (val get_forwarder c : ObserverInterface) in
       Forwarder.set_max_file_size ~__context ~file_size
     )
-    supported_components
+    Component.all
 
 let set_host_id ~__context host_id =
   List.iter
@@ -298,7 +306,7 @@ let set_host_id ~__context host_id =
       let module Forwarder = (val get_forwarder c : ObserverInterface) in
       Forwarder.set_host_id ~__context ~host_id
     )
-    supported_components
+    Component.all
 
 let set_compress_tracing_files ~__context enabled =
   List.iter
@@ -306,7 +314,7 @@ let set_compress_tracing_files ~__context enabled =
       let module Forwarder = (val get_forwarder c : ObserverInterface) in
       Forwarder.set_compress_tracing_files ~__context ~enabled
     )
-    supported_components
+    Component.all
 
 let init ~__context =
   List.iter
@@ -314,7 +322,7 @@ let init ~__context =
       let module Forwarder = (val get_forwarder c : ObserverInterface) in
       Forwarder.init ~__context
     )
-    supported_components
+    Component.all
 
 let load ~__context =
   let all = Db.Observer.get_all ~__context in
@@ -363,7 +371,10 @@ let set_enabled ~__context ~self ~value =
         let module Forwarder = (val get_forwarder c : ObserverInterface) in
         Forwarder.set_enabled ~__context ~uuid ~enabled:value
       )
-      (observed_components_of (Db.Observer.get_components ~__context ~self))
+      (Db.Observer.get_components ~__context ~self
+      |> List.map Component.of_string
+      |> observed_components_of
+      )
   in
   let db_fn () = Db.Observer.set_enabled ~__context ~self ~value in
   do_set_op ~__context ~self ~observation_fn ~db_fn
@@ -381,7 +392,10 @@ let set_attributes ~__context ~self ~value =
         Forwarder.set_attributes ~__context ~uuid
           ~attributes:(default_attributes @ value)
       )
-      (observed_components_of (Db.Observer.get_components ~__context ~self))
+      (Db.Observer.get_components ~__context ~self
+      |> List.map Component.of_string
+      |> observed_components_of
+      )
   in
   let db_fn () = Db.Observer.set_attributes ~__context ~self ~value in
   do_set_op ~__context ~self ~observation_fn ~db_fn
@@ -395,8 +409,12 @@ let set_endpoints ~__context ~self ~value =
         let module Forwarder = (val get_forwarder c : ObserverInterface) in
         Forwarder.set_endpoints ~__context ~uuid ~endpoints:value
       )
-      (observed_components_of (Db.Observer.get_components ~__context ~self))
+      (Db.Observer.get_components ~__context ~self
+      |> List.map Component.of_string
+      |> observed_components_of
+      )
   in
+
   let db_fn () = Db.Observer.set_endpoints ~__context ~self ~value in
   do_set_op ~__context ~self ~observation_fn ~db_fn
 
@@ -404,16 +422,19 @@ let set_components ~__context ~self ~value =
   assert_valid_components value ;
   let db_fn () = Db.Observer.set_components ~__context ~self ~value in
   let host = Helpers.get_localhost ~__context in
-  let current = Db.Observer.get_components ~__context ~self in
-  let new_components = StringSet.of_list (observed_components_of value) in
-  let old_components = StringSet.of_list (observed_components_of current) in
-  let to_add = StringSet.diff new_components old_components in
-  let to_remove = StringSet.diff old_components new_components in
+  let current =
+    Db.Observer.get_components ~__context ~self |> List.map Component.of_string
+  in
+  let future = List.map Component.of_string value in
+  let new_components = ComponentSet.of_list (observed_components_of future) in
+  let old_components = ComponentSet.of_list (observed_components_of current) in
+  let to_add = ComponentSet.diff new_components old_components in
+  let to_remove = ComponentSet.diff old_components new_components in
   let observation_fn () =
-    StringSet.iter
+    ComponentSet.iter
       (fun unreg -> unregister_components ~__context ~self [unreg])
       to_remove ;
-    StringSet.iter
+    ComponentSet.iter
       (fun reg -> register_components ~__context ~self ~host [reg])
       to_add
   in
