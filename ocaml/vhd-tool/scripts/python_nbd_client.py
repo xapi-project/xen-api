@@ -1,5 +1,4 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
+#!/usr/bin/env python3
 #
 # Copyright (C) 2013 Nodalink, SARL.
 #
@@ -94,8 +93,6 @@ class NBDEOFError(EOFError):
     been closed.
     """
 
-    pass
-
 
 class NBDTransmissionError(Exception):
     """
@@ -106,7 +103,7 @@ class NBDTransmissionError(Exception):
     """
 
     def __init__(self, error_code):
-        super(NBDTransmissionError, self).__init__(
+        super().__init__(
             "Server returned error during transmission: {}".format(error_code)
         )
         self.error_code = error_code
@@ -121,7 +118,7 @@ class NBDOptionError(Exception):
 
     def __init__(self, reply):
         error_code = reply - NBD_REP_ERROR_BIT
-        super(NBDOptionError, self).__init__(
+        super().__init__(
             "Server returned error during option haggling: "
             "reply type={}; error code={}".format(reply, error_code)
         )
@@ -139,7 +136,7 @@ class NBDUnexpectedOptionResponseError(Exception):
     """
 
     def __init__(self, expected, received):
-        super(NBDUnexpectedOptionResponseError, self).__init__(
+        super().__init__(
             "Received response to unexpected option {}; "
             "was expecting a response to option {}".format(received, expected)
         )
@@ -156,7 +153,7 @@ class NBDUnexpectedStructuredReplyType(Exception):
     """
 
     def __init__(self, reply_type):
-        super(NBDUnexpectedStructuredReplyType, self).__init__(
+        super().__init__(
             "Received a structured reply chunk message "
             "with an unexpected type: {}".format(reply_type)
         )
@@ -174,7 +171,7 @@ class NBDUnexpectedReplyHandleError(Exception):
     """
 
     def __init__(self, expected, received):
-        super(NBDUnexpectedReplyHandleError, self).__init__(
+        super().__init__(
             "Received reply with unexpected handle {}; "
             "was expecting a response to the request with "
             "handle {}".format(received, expected)
@@ -188,8 +185,6 @@ class NBDProtocolError(Exception):
     The NBD server sent an invalid response that is not allowed by the NBD
     protocol.
     """
-
-    pass
 
 
 def assert_protocol(assertion):
@@ -223,7 +218,7 @@ def _parse_block_status_descriptors(data):
         data = data[8:]
 
 
-class PythonNbdClient(object):
+class PythonNbdClient:
     """
     A pure-Python NBD client. Supports both the fixed-newstyle and the oldstyle
     negotiation, and also has support for upgrading the connection to TLS
