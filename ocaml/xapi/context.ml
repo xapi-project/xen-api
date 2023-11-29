@@ -237,12 +237,14 @@ let parent_of_origin (origin : origin) span_name =
 let start_tracing_helper parent_fn task_name =
   let open Tracing in
   let span_details_from_task_name task_name =
-    match String.split_on_char ':' task_name with
-    | [x; y; uuid] when x = "dispatch" && y = "system.isAlive" ->
-        let span_name = x ^ ":" ^ y in
-        (span_name, [("xs.xapi.rpc.msg.uuid", uuid)])
-    | _ ->
-        (task_name, [])
+    let uuid_length = 36 in
+    let dispatch_system_is_alive = "dispatch:system.isAlive:" in
+    let open String in
+    if starts_with ~prefix:dispatch_system_is_alive task_name then
+      let uuid = sub task_name (length dispatch_system_is_alive) uuid_length in
+      ("dispatch:system.isAlive", [("xs.span.arg.vm.uuid", uuid)])
+    else
+      (task_name, [])
   in
   let span_name, span_attributes = span_details_from_task_name task_name in
   let parent = parent_fn span_name in
