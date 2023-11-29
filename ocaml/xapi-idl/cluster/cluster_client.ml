@@ -16,3 +16,7 @@ let rpc url call = rpc_internal url call |> Idl.IdM.return
 (* There is also a Remote API between clustering daemons on different hosts.
    Call this a Local API because it is an API inside a host *)
 module LocalClient = Cluster_interface.LocalAPI (IDL.GenClient ())
+
+module LocalClientExn = Cluster_interface.LocalAPI (Idl.Exn.GenClient (struct
+  let rpc = rpc_internal json_url
+end))
