@@ -33,48 +33,6 @@ let typ_of_rpc_t =
     ; of_rpc= (fun x -> Ok x)
     }
 
-module TypeCombinators = struct
-  let option ?name ?(description = []) d =
-    let open Rpc.Types in
-    let name =
-      match name with Some n -> n | None -> Printf.sprintf "%s option" d.name
-    in
-    {name; description; ty= Option d.ty}
-
-  let list ?name ?(description = []) d =
-    let open Rpc.Types in
-    let name =
-      match name with
-      | Some n ->
-          n
-      | None ->
-          Printf.sprintf "list of %ss" d.name
-    in
-    {name; description; ty= List d.ty}
-
-  let pair ?name ?(description = []) (p1, p2) =
-    let open Rpc.Types in
-    let name =
-      match name with
-      | Some n ->
-          n
-      | None ->
-          Printf.sprintf "pair of %s and %s" p1.name p2.name
-    in
-    {name; description; ty= Tuple (p1.ty, p2.ty)}
-
-  let triple ?name ?(description = []) (p1, p2, p3) =
-    let open Rpc.Types in
-    let name =
-      match name with
-      | Some n ->
-          n
-      | None ->
-          Printf.sprintf "triple of %s, %s and %s" p1.name p2.name p3.name
-    in
-    {name; description; ty= Tuple3 (p1.ty, p2.ty, p3.ty)}
-end
-
 let service_name = "storage"
 
 let queue_name = ref (Xcp_service.common_prefix ^ service_name)
