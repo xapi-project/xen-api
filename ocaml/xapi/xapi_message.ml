@@ -526,8 +526,8 @@ let destroy ~__context ~self =
           )
     )
   in
-  let basefilename = List.hd (List.rev (String.split_on_char '/' fullpath)) in
-  destroy_real __context basefilename
+  let base_filename = Filename.basename fullpath in
+  destroy_real __context base_filename
 
 let destroy_many ~__context ~messages =
   List.iter (fun self -> destroy ~__context ~self) messages
@@ -817,13 +817,15 @@ let handler (req : Http.Request.t) fd _ =
           (ExnHelper.string_of_exn e)
   )
 
-(* Export messages and send to another host/pool over http. *)
-let send_messages ~__context ~cls ~obj_uuid ~session_id ~remote_address =
-  let msgs = get ~__context ~cls ~obj_uuid ~since:(Date.of_float 0.0) in
-  let body = export_xml msgs in
+(* Export and send messages stored on the current host to another host/pool over http. *)
+let send_messages ~__context ~cls ~obj_uuid ~session_id ~remote_address
+    ~messages =
+  let body = export_xml messages in
   let query =
     [
-      ("session_id", Ref.string_of session_id); ("cls", "VM"); ("uuid", obj_uuid)
+      ("session_id", Ref.string_of session_id)
+    ; ("cls", Record_util.class_to_string cls)
+    ; ("uuid", obj_uuid)
     ]
   in
   let subtask_of = Context.string_of_task __context in
