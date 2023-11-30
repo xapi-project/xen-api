@@ -1055,7 +1055,8 @@ let create ~__context ~uuid ~name_label ~name_description:_ ~hostname ~address
     ~control_domain:Ref.null ~updates_requiring_reboot:[] ~iscsi_iqn:""
     ~multipathing:false ~uefi_certificates:"" ~editions:[] ~pending_guidances:[]
     ~tls_verification_enabled ~last_software_update ~recommended_guidances:[]
-    ~latest_synced_updates_applied:`unknown ;
+    ~latest_synced_updates_applied:`unknown ~pending_guidances_recommended:[]
+    ~pending_guidances_full:[] ;
   (* If the host we're creating is us, make sure its set to live *)
   Db.Host_metrics.set_last_updated ~__context ~self:metrics
     ~value:(Date.of_float (Unix.gettimeofday ())) ;

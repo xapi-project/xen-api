@@ -859,6 +859,33 @@ let empty_pool_uefi_certificates =
       )
   }
 
+let update_livepatch_guidance =
+  {
+    description=
+      "Replace reboot_host_on_livepatch_failure in host.pending_guidances with \
+       reboot_host_on_kernel_livepatch_failure and \
+       reboot_host_on_xen_livepatch_failure in \
+       host.pending_guidances_recommended"
+  ; version= (fun _ -> true)
+  ; fn=
+      (fun ~__context ->
+        Db.Host.get_all ~__context
+        |> List.iter (fun self ->
+               if
+                 List.mem `reboot_host_on_livepatch_failure
+                   (Db.Host.get_pending_guidances ~__context ~self)
+               then (
+                 Db.Host.add_pending_guidances_recommended ~__context ~self
+                   ~value:`reboot_host_on_kernel_livepatch_failure ;
+                 Db.Host.add_pending_guidances_recommended ~__context ~self
+                   ~value:`reboot_host_on_xen_livepatch_failure ;
+                 Db.Host.remove_pending_guidances ~__context ~self
+                   ~value:`reboot_host_on_livepatch_failure
+               )
+           )
+      )
+  }
+
 let rules =
   [
     upgrade_domain_type
@@ -887,6 +914,7 @@ let rules =
   ; upgrade_secrets
   ; remove_legacy_ssl_support
   ; empty_pool_uefi_certificates
+  ; update_livepatch_guidance
   ]
 
 (* Maybe upgrade most recent db *)

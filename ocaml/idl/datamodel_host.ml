@@ -2142,7 +2142,7 @@ let t =
         ; field ~qualifier:DynamicRO ~in_product_since:"1.303.0"
             ~ty:(Set update_guidances) "pending_guidances"
             ~default_value:(Some (VSet []))
-            "The set of pending guidances after applying updates"
+            "The set of pending mandatory guidances after applying updates"
         ; field ~qualifier:DynamicRO ~in_product_since:"1.313.0" ~ty:Bool
             "tls_verification_enabled" ~default_value:(Some (VBool false))
             "True if this host has TLS verifcation enabled"
@@ -2164,6 +2164,12 @@ let t =
             ~default_value:(Some (VEnum "unknown"))
             "Default as 'unknown', 'yes' if the host is up to date with \
              updates synced from remote CDN, otherwise 'no'"
+        ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:(Set update_guidances)
+            "pending_guidances_recommended" ~default_value:(Some (VSet []))
+            "The set of pending recommended guidances after applying updates"
+        ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:(Set update_guidances)
+            "pending_guidances_full" ~default_value:(Some (VSet []))
+            "The set of pending full guidances after applying updates"
         ]
       )
     ()
