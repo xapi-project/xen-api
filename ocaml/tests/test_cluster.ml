@@ -24,6 +24,21 @@ let test_clusterd_rpc ~__context call =
         {success= true; contents= Rpc.String test_token; is_notification= false}
   | ("enable" | "disable" | "destroy" | "leave" | "set-tls-verification"), _ ->
       Rpc.{success= true; contents= Rpc.Null; is_notification= false}
+  | ( ( "Observer.create"
+      | "Observer.destroy"
+      | "Observer.set_enabled"
+      | "Observer.set_attributes"
+      | "Observer.set_endpoints"
+      | "Observer.init"
+      | "Observer.set_trace_log_dir"
+      | "Observer.set_export_interval"
+      | "Observer.set_host_id"
+      | "Observer.set_max_traces"
+      | "Observer.set_max_spans"
+      | "Observer.set_max_file_size"
+      | "Observer.set_compress_tracing_files" )
+    , _ ) ->
+      Rpc.{success= true; contents= Rpc.Null; is_notification= false}
   | "diagnostics", _ ->
       let open Cluster_interface in
       let id = 1l in

@@ -86,7 +86,7 @@ let build_tls_config ~__context ~verify =
 let set_tls_config ~__context ~self ~verify =
   let host = Db.Cluster_host.get_host ~__context ~self in
   assert_operation_host_target_is_localhost ~__context ~host ;
-  let dbg = Context.string_of_task __context in
+  let dbg = Context.string_of_task_and_tracing __context in
   let tls_config = build_tls_config ~__context ~verify in
   let result =
     Cluster_client.LocalClient.set_tls_verification
@@ -107,7 +107,7 @@ let join_internal ~__context ~self =
   with_clustering_lock __LOC__ (fun () ->
       let pIF = Db.Cluster_host.get_PIF ~__context ~self in
       fix_pif_prerequisites ~__context pIF ;
-      let dbg = Context.string_of_task __context in
+      let dbg = Context.string_of_task_and_tracing __context in
       let cluster = Db.Cluster_host.get_cluster ~__context ~self in
       let cluster_token =
         Db.Cluster.get_cluster_token ~__context ~self:cluster
@@ -193,6 +193,8 @@ let resync_host ~__context ~host =
             (* Note that join_internal and enable both use the clustering lock *)
             Client.Client.Cluster_host.enable ~rpc ~session_id ~self
           ) ;
+          Xapi_observer.initialise_component ~__context
+            Xapi_observer.Component.Xapi_clusterd ;
           let verify = Stunnel_client.get_verify_by_default () in
           set_tls_config ~__context ~self ~verify
       )
@@ -207,7 +209,7 @@ let create ~__context ~cluster ~host ~pif =
 
 let destroy_op ~__context ~self ~force =
   with_clustering_lock __LOC__ (fun () ->
-      let dbg = Context.string_of_task __context in
+      let dbg = Context.string_of_task_and_tracing __context in
       let host = Db.Cluster_host.get_host ~__context ~self in
       assert_operation_host_target_is_localhost ~__context ~host ;
       assert_cluster_host_has_no_attached_sr_which_requires_cluster_stack
@@ -253,7 +255,7 @@ let ip_of_str str = Cluster_interface.IPv4 str
 
 let forget ~__context ~self =
   with_clustering_lock __LOC__ (fun () ->
-      let dbg = Context.string_of_task __context in
+      let dbg = Context.string_of_task_and_tracing __context in
       let cluster = Db.Cluster_host.get_cluster ~__context ~self in
       let pif = Db.Cluster_host.get_PIF ~__context ~self in
       let ip = Db.PIF.get_IP ~__context ~self:pif in
@@ -286,7 +288,7 @@ let forget ~__context ~self =
 
 let enable ~__context ~self =
   with_clustering_lock __LOC__ (fun () ->
-      let dbg = Context.string_of_task __context in
+      let dbg = Context.string_of_task_and_tracing __context in
       let host = Db.Cluster_host.get_host ~__context ~self in
       assert_operation_host_target_is_localhost ~__context ~host ;
       let pifref = Db.Cluster_host.get_PIF ~__context ~self in
@@ -300,6 +302,8 @@ let enable ~__context ~self =
           "Cluster_host.enable: xapi-clusterd not running - attempting to start" ;
         Xapi_clustering.Daemon.enable ~__context
       ) ;
+      Xapi_observer.initialise_component ~__context
+        Xapi_observer.Component.Xapi_clusterd ;
       let verify = Stunnel_client.get_verify_by_default () in
       set_tls_config ~__context ~self ~verify ;
       let init_config =
@@ -326,7 +330,7 @@ let enable ~__context ~self =
 
 let disable ~__context ~self =
   with_clustering_lock __LOC__ (fun () ->
-      let dbg = Context.string_of_task __context in
+      let dbg = Context.string_of_task_and_tracing __context in
       let host = Db.Cluster_host.get_host ~__context ~self in
       assert_operation_host_target_is_localhost ~__context ~host ;
       assert_cluster_host_has_no_attached_sr_which_requires_cluster_stack
