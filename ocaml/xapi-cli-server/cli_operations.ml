@@ -5868,9 +5868,8 @@ let export_common fd _printer rpc session_id params filename num ?task_uuid
     | None ->
         (* manage task internally *)
         let exporttask =
-          Client.Task.create ~rpc ~session_id
-            ~label:(Printf.sprintf "Export of VM: %s" vm_record.API.vM_uuid)
-            ~description:""
+          Client.Task.create ~rpc ~session_id ~label:"Export of VM"
+            ~description:vm_record.API.vM_uuid
         in
         ( exporttask
         , fun () -> Client.Task.destroy ~rpc ~session_id ~self:exporttask
