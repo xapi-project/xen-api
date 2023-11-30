@@ -1602,28 +1602,33 @@ let migrate_send' ~__context ~vm ~dest ~live:_ ~vdi_map ~vif_map ~vgpu_map
       if ha_always_run_reset then
         XenAPI.VM.set_ha_always_run ~rpc:remote.rpc ~session_id:remote.session
           ~self:new_vm ~value:true ;
+
       (* Send non-database metadata *)
-      let rpc = Helpers.make_rpc ~__context in
-      let session_id = Context.get_session_id __context in
+
       (* We fetch and destroy messages via RPC calls because they are stored on the master host *)
-      let messages =
-        XenAPI.Message.get ~rpc ~session_id ~cls:`VM ~obj_uuid:vm_uuid
-          ~since:(Date.of_float 0.0)
-      in
-      Xapi_message.send_messages ~__context ~cls:`VM ~obj_uuid:vm_uuid ~messages
-        ~session_id:remote.session ~remote_address:remote.remote_master_ip ;
-      info
-        "Destroying %s messages belonging to VM ref=%s uuid=%s from the source \
-         host"
-        (List.length messages |> Int.to_string)
-        (Ref.string_of vm) vm_uuid ;
-      let message_refs = List.rev_map fst messages in
-      XenAPI.Message.destroy_many ~rpc ~session_id ~messages:message_refs ;
+      Helpers.call_api_functions ~__context (fun rpc session_id ->
+          let messages =
+            XenAPI.Message.get ~rpc ~session_id ~cls:`VM ~obj_uuid:vm_uuid
+              ~since:Date.epoch
+          in
+          Xapi_message.send_messages ~__context ~cls:`VM ~obj_uuid:vm_uuid
+            ~messages ~session_id:remote.session
+            ~remote_address:remote.remote_master_ip ;
+          info
+            "Destroying %s messages belonging to VM ref=%s uuid=%s from the \
+             source pool, after sending them to the remote pool"
+            (List.length messages |> Int.to_string)
+            (Ref.string_of vm) vm_uuid ;
+          let message_refs = List.rev_map fst messages in
+          XenAPI.Message.destroy_many ~rpc ~session_id ~messages:message_refs
+      ) ;
+
+      (* Signal the remote pool that we're done *)
       Xapi_blob.migrate_push ~__context ~rpc:remote.rpc
         ~remote_address:remote.remote_master_ip ~session_id:remote.session
         ~old_vm:vm ~new_vm
-      (* Signal the remote pool that we're done *)
     ) ;
+
     if (not is_intra_pool) && not copy then (
       info "Destroying VM ref=%s uuid=%s" (Ref.string_of vm) vm_uuid ;
       Xapi_vm_lifecycle.force_state_reset ~__context ~self:vm ~value:`Halted ;
