@@ -1,19 +1,15 @@
+---
+title: Features
+---
+
 General
 -------
 
 - Pluggable backends including
-  - xc: drives Xen via libxc and libxenguest
-  - xenlight: drives Xen via libxenlight and libxc
-  - libvirt: drives Xen via libvirt
-  - qemu: drives KVM by running qemu processes
+  - xc: drives Xen via libxc and xenguest
   - simulator: simulates operations for component-testing
 - Supports running multiple instances and backends on the same host, looking
   after different sets of VMs
-- Distribution agnostic, known to work on
-  - XenServer
-  - CentOS 6.*
-  - Ubuntu 14.04
-  - Fedora 21
 - Extensive configuration via command-line (see manpage) and config
   file
 - Command-line tool for easy VM administration and troubleshooting
@@ -21,6 +17,7 @@ General
 
 VMs
 ---
+
 - VM start/shutdown/reboot
 - VM suspend/resume/checkpoint/migrate
 - VM pause/unpause
@@ -90,4 +87,4 @@ APIs
   - balloon driver co-operativeness
   - shadow memory usage
   - domain ids
-- channel passing (via sendmsg(2)) for efficent memory image copying
+- channel passing (via sendmsg(2)) for efficient memory image copying

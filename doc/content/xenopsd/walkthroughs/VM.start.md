@@ -1,5 +1,6 @@
-Walk-through: starting a VM
-===========================
+---
+title: 'Walkthrough: Starting a VM'
+---
 
 A Xenopsd client wishes to start a VM. They must first tell Xenopsd the VM
 configuration to use. A VM configuration is broken down into objects:
@@ -38,7 +39,8 @@ users:
   of dealing with Xen from other components.
 
 The Xenopsd "VM.add" function has code like this:
-```
+
+```ocaml
 	let add' x =
 		debug "VM.add %s" (Jsonrpc.to_string (rpc_of_t x));
 		DB.write x.id x;
@@ -46,7 +48,9 @@ The Xenopsd "VM.add" function has code like this:
 		B.VM.add x;
 		x.id
 ```
+
 This function does 2 things:
+
 - it stores the VM configuration in the "database"
 - it tells the "backend" that the VM exists
 
@@ -54,6 +58,7 @@ The Xenopsd database is really a set of config files in the filesystem. All
 objects belonging to a VM (recall we only have VMs, VBDs, VIFs, PCIs and not
 stand-alone entities like disks) and are placed into a subdirectory named after
 the VM e.g.:
+
 ```
 # ls /run/nonpersistent/xenopsd/xenlight/VM/7b719ce6-0b17-9733-e8ee-dbc1e6e7b701
 config	vbd.xvda  vbd.xvdb
@@ -62,6 +67,7 @@ config	vbd.xvda  vbd.xvdb
  ...
 }
 ```
+
 Xenopsd doesn't have as persistent a notion of a VM as xapi, it is expected that
 all objects are deleted when the host is rebooted. However the objects should
 be persisted over a simple Xenopsd restart, which is why the objects are stored
@@ -73,6 +79,7 @@ performant Xenstore to realise.
 
 Every running Xenopsd process is linked with a single backend. Currently backends
 exist for:
+
 - Xen via libxc, libxenguest and xenstore
 - Xen via libxl, libxc and xenstore
 - Xen via libvirt
@@ -92,12 +99,12 @@ and this relies on certain Xenstore keys being present.
 Once the VM metadata has been registered with Xenopsd, the client can call
 [VM.start](https://github.com/xapi-project/xcp-idl/blob/2e5c3dd79c63e3711227892271a6bece98eb0fa1/xen/xenops_interface.ml#L443).
 Like all potentially-blocking Xenopsd APIs, this function returns a Task id.
-Please refer to the [Task handling design](../design/Tasks.md) for a general
+Please refer to the [Task handling design](../design/Tasks.html) for a general
 overview of how tasks are handled.
 
 Clients can poll the state of a task by calling [TASK.stat](https://github.com/xapi-project/xcp-idl/blob/2e5c3dd79c63e3711227892271a6bece98eb0fa1/xen/xenops_interface.ml#L404)
 but most clients will prefer to use the event system instead.
-Please refer to the [Event handling design](../design/Events.md) for a general
+Please refer to the [Event handling design](../design/Events.html) for a general
 overview of how events are handled.
 
 The event model is similar to the XenAPI: clients call a blocking
@@ -111,10 +118,11 @@ case [TASK.stat](https://github.com/xapi-project/xcp-idl/blob/2e5c3dd79c63e37112
 The client will be able to see the task make progress and use this to -- for example --
 populate a progress bar in a UI. If the client needs to cancel the task then it
 can call the [TASK.cancel](https://github.com/xapi-project/xcp-idl/blob/2e5c3dd79c63e3711227892271a6bece98eb0fa1/xen/xenops_interface.ml#L405);
-again see the [Task handling design](../design/Tasks.md) to understand how this is
+again see the [Task handling design](../design/Tasks.html) to understand how this is
 implemented.
 
 When the Task has completed successfully, then calls to *.stat will show:
+
 - the power state is Paused
 - exactly one valid Xen domain id
 - all VBDs have active = plugged = true
@@ -162,59 +170,61 @@ What happens when a Xenopsd receives a VM.start request?
 
 When Xenopsd receives the request it adds it to the appropriate per-VM queue
 via the function
-[queue_operation](https://github.com/xapi-project/xenopsd/blob/30cc9a72e8726d1e7501cd01ddb27ced6d53b9be/lib/xenops_server.ml#L1737).
+[queue_operation](https://github.com/xapi-project/xenopsd/blob/524d57b3c70/lib/xenops_server.ml#L1744).
 To understand this and other internal details of Xenopsd, consult the
-[architecture description](../architecture/README.md).
-The [queue_operation_int](https://github.com/xapi-project/xenopsd/blob/30cc9a72e8726d1e7501cd01ddb27ced6d53b9be/lib/xenops_server.ml#L1451)
+[architecture description](../architecture.html).
+The [queue_operation_int](https://github.com/xapi-project/xenopsd/blob/524d57b3c70/lib/xenops_server.ml#L1457)
 function looks like this:
-```
+
+```ocaml
 let queue_operation_int dbg id op =
 	let task = Xenops_task.add tasks dbg (fun t -> perform op t; None) in
 	Redirector.push id (op, task);
 	task
 ```
+
 The "task" is a record containing Task metadata plus a "do it now" function
 which will be executed by a thread from the thread pool.  The
-[module Redirector](https://github.com/xapi-project/xenopsd/blob/30cc9a72e8726d1e7501cd01ddb27ced6d53b9be/lib/xenops_server.ml#L395)
+[module Redirector](https://github.com/xapi-project/xenopsd/blob/524d57b3c70/lib/xenops_server.ml#L396)
 takes care of:
+
 - pushing operations to the right queue
 - ensuring at most one worker thread is working on a VM's operations
 - reducing the queue size by coalescing items together
 - providing a diagnostics interface
 
 Once a thread from the worker pool becomes free, it will execute the "do it now"
-function. In the example above this is ```perform op t``` where ```op``` is
-```VM_start vm``` and ```t``` is the Task. The function
-[perform](https://github.com/xapi-project/xenopsd/blob/30cc9a72e8726d1e7501cd01ddb27ced6d53b9be/lib/xenops_server.ml#L1194)
+function. In the example above this is `perform op t` where `op` is
+`VM_start vm` and `t` is the Task. The function
+[perform](https://github.com/xapi-project/xenopsd/blob/524d57b3c70/lib/xenops_server.ml#L1198)
 has fragments like this:
-```
+
+```ocaml
 		| VM_start id ->
 			debug "VM.start %s" id;
 			perform_atomics (atomics_of_operation op) t;
 			VM_DB.signal id
 ```
 
-Each "operation" (e.g. ```VM_start vm```) is decomposed into "micro-ops" by the
+Each "operation" (e.g. `VM_start vm`) is decomposed into "micro-ops" by the
 function
-[atomics_of_operation](https://github.com/xapi-project/xenopsd/blob/30cc9a72e8726d1e7501cd01ddb27ced6d53b9be/lib/xenops_server.ml#L736)
+[atomics_of_operation](https://github.com/xapi-project/xenopsd/blob/524d57b3c70/lib/xenops_server.ml#L739)
 where the micro-ops are small building-block actions common to the higher-level
 operations. Each operation corresponds to a list of "micro-ops", where there is
 no if/then/else. Some of the "micro-ops" may be a no-op depending on the VM
 configuration (for example a PV domain may not need a qemu). In the case of
-```VM_start vm``` this decomposes into the sequence:
+`VM_start vm` this decomposes into the sequence:
 
-1. run the "VM_pre_start" scripts
----------------------------------
+## 1. run the "VM_pre_start" scripts
 
-The ```VM_hook_script``` micro-op runs the corresponding "hook" scripts. The
+The `VM_hook_script` micro-op runs the corresponding "hook" scripts. The
 code is all in the
 [Xenops_hooks](https://github.com/xapi-project/xenopsd/blob/b33bab13080cea91e2fd59d5088622cd68152339/lib/xenops_hooks.ml)
-module and looks for scripts in the hardcoded path ```/etc/xapi.d```.
+module and looks for scripts in the hardcoded path `/etc/xapi.d`.
 
-2. create a Xen domain
-----------------------
+## 2. create a Xen domain
 
-The ```VM_create``` micro-op calls the ```VM.create``` function in the backend.
+The `VM_create` micro-op calls the `VM.create` function in the backend.
 In the classic Xenopsd backend the
 [VM.create_exn](https://github.com/xapi-project/xenopsd/blob/b33bab13080cea91e2fd59d5088622cd68152339/xc/xenops_server_xen.ml#L633)
 function must
@@ -241,8 +251,7 @@ function must
    cheats and uses too many vCPUs would have to be caught by looking at the
    performance statistics.
 
-3. build the domain
--------------------
+## 3. build the domain
 
 On a Xen system a domain is created empty, and memory is actually allocated
 from the host in the "build" phase via functions in *libxenguest*. The
@@ -251,11 +260,11 @@ function must
 
 1. run pygrub (or eliloader) to extract the kernel and initrd, if necessary
 2. invoke the *xenguest* binary to interact with libxenguest.
-3. apply the ```cpuid``` configuration
+3. apply the `cpuid` configuration
 4. store the current domain configuration on disk -- it's important to know
    the difference between the configuration you started with and the configuration
    you would use after a reboot because some properties (such as maximum memory
-   and vCPUs) are fixed on create.
+   and vCPUs) as fixed on create.
 
 The xenguest binary was originally
 a separate binary for two reasons: (i) the libxenguest functions weren't
@@ -277,12 +286,11 @@ and configures
 - whether the system has nested HVM or not
 - whether the system has an HPET or not
 
-4. mark each VBD as "active"
-----------------------------
+## 4. mark each VBD as "active"
 
 VBDs and VIFs are said to be "active" when they are intended to be used by a
 particular VM, even if the backend/frontend connection hasn't been established,
-or has been closed. If someone calls ```VBD.stat``` or ```VIF.stat``` then
+or has been closed. If someone calls `VBD.stat` or `VIF.stat` then
 the result includes both "active" and "plugged", where "plugged" is true if
 the frontend/backend connection is established.
 For example xapi will
@@ -299,16 +307,14 @@ because Xenopsd will not have had time to use the storage API to release locks
 on the disks. By doing all the cleanup before setting "active" to false, clients
 can be assured that the disks are now free to be reassigned.
 
-5. handle non-persistent disks
-------------------------------
+## 5. handle non-persistent disks
 
 A non-persistent disk is one which is reset to a known-good state on every
-VM start. The ```VBD_epoch_begin``` is the signal to perform any necessary reset.
+VM start. The `VBD_epoch_begin` is the signal to perform any necessary reset.
 
-6. plug VBDs
-------------
+## 6. plug VBDs
 
-The ```VBD_plug``` micro-op will plug the VBD into the VM. Every VBD is plugged
+The `VBD_plug` micro-op will plug the VBD into the VM. Every VBD is plugged
 in a carefully-chosen order.
 Generally, plug order is important for all types of devices. For VBDs, we must
 work around the deficiency in the storage interface where a VDI, once attached
@@ -321,11 +327,11 @@ The function
 [VBD.plug](https://github.com/xapi-project/xenopsd/blob/b33bab13080cea91e2fd59d5088622cd68152339/xc/xenops_server_xen.ml#L1631)
 will
 
-- call ```VDI.attach``` and ```VDI.activate``` in the storage API to make the
+- call `VDI.attach` and `VDI.activate` in the storage API to make the
   devices ready (start the tapdisk processes etc)
 - add the Xenstore frontend/backend directories containing the block device
   info
-- add the extra xenstore keys returned by the ```VDI.attach``` call that are
+- add the extra xenstore keys returned by the `VDI.attach` call that are
   needed for SCSIid passthrough which is needed to support VSS
 - write the VBD information to the Xenopsd database so that future calls to
   *VBD.stat* can be told about the associated disk (this is needed so clients
@@ -349,19 +355,17 @@ will return with "plugged=true". If the call returns before this key is written
 then sometimes we receive an event, call *VBD.stat* and conclude erroneously
 that a spontaneous VBD unplug occurred.
 
-7. mark each VIF as "active"
-----------------------------
+## 7. mark each VIF as "active"
 
 This is for the same reason as VBDs are marked "active".
 
-8. plug VIFs
-------------
+## 8. plug VIFs
 
 Again, the order matters. Unlike VBDs,
 there is no read/write read/only constraint and the devices
 have unique indices (0, 1, 2, ...) *but* Linux kernels have often (always?)
 ignored the actual index and instead relied on the order of results from the
-```xenstore-ls``` listing. The order that xenstored returns the items happens
+`xenstore-ls` listing. The order that xenstored returns the items happens
 to be the order the nodes were created so this means that (i) xenstored must
 continue to store directories as ordered lists rather than maps (which would
 be more efficient); and (ii) Xenopsd must make sure to plug the vifs in
@@ -392,10 +396,10 @@ device has been created, and we cannot know the rules have been applied
 until after the udev script has written the key. If we didn't wait for it then
 the VM might execute without all the port locking properly configured.
 
-9. create the device model
---------------------------
+## 9. create the device model
 
-The ```VM_create_device_model``` micro-op will create a qemu device model if
+The `VM_create_device_model` micro-op will create a qemu device model if
+
 - the VM is HVM; or
 - the VM uses a PV keyboard or mouse (since only qemu currently has backend
   support for these devices).
@@ -403,6 +407,7 @@ The ```VM_create_device_model``` micro-op will create a qemu device model if
 The function
 [VM.create_device_model_exn](https://github.com/xapi-project/xenopsd/blob/b33bab13080cea91e2fd59d5088622cd68152339/xc/xenops_server_xen.ml#L1090)
 will
+
 - (if using a qemu stubdom) it will create and build the qemu domain
 - compute the necessary qemu arguments and launch it.
 
@@ -419,10 +424,9 @@ This hack only works because we currently run everything in the same domain.
 There is an option (off by default) to list the emulated devices explicitly
 on the qemu command-line. If we switch to this by default then we ought to be
 able to start up qemu early, as soon as the domain has been created (qemu will
-need ot know the domain id so it can map the I/O request ring).
+need to know the domain id so it can map the I/O request ring).
 
-10. plug PCI devices
---------------------
+## 10. plug PCI devices
 
 PCI devices are treated differently to VBDs and VIFs.
 If we are attaching the device to an
@@ -437,15 +441,14 @@ in the VM.
 Note that Xenopsd doesn't know anything about the PCI devices; concepts such
 as "GPU groups" belong to higher layers, such as xapi.
 
-11. mark the domain as alive
-----------------------------
+## 11. mark the domain as alive
 
 A design principle of Xenopsd is that it should tolerate failures such as being
 suddenly restarted. It guarantees to always leave the system in a valid state,
 in particular there should never be any "half-created VMs". We achieve this for
 VM start by exploiting the mechanism which is necessary for reboot. When a VM
-wishes to reboot it causes the domain to exist (via SCHEDOP_shutdown) with a
-"reason code" of "reboot". When Xenopsd sees this event ```VM_check_state```
+wishes to reboot it causes the domain to exit (via SCHEDOP_shutdown) with a
+"reason code" of "reboot". When Xenopsd sees this event `VM_check_state`
 operation is queued. This operation calls
 [VM.get_domain_action_request](https://github.com/xapi-project/xenopsd/blob/b33bab13080cea91e2fd59d5088622cd68152339/xc/xenops_server_xen.ml#L1443)
 to ask the question, "what needs to be done to make this VM happy now?". The
@@ -456,18 +459,18 @@ finishes starting the VM it clears this key. This means that if Xenopsd crashes
 while starting a VM, the new Xenopsd will conclude that the VM needs to be rebooted
 and will clean up the current domain and create a fresh one.
 
-12. unpause the domain
-----------------------
+## 12. unpause the domain
 
 A Xenopsd VM.start will always leave the domain paused, so strictly speaking
 this is a separate "operation" queued by the client (such as xapi) after the
 VM.start has completed. The function
 [VM.unpause](https://github.com/xapi-project/xenopsd/blob/b33bab13080cea91e2fd59d5088622cd68152339/xc/xenops_server_xen.ml#L808)
 is reassuringly simple:
-```
+
+```ocaml
 		if di.Xenctrl.total_memory_pages = 0n then raise (Domain_not_built);
 		Domain.unpause ~xc di.Xenctrl.domid;
-		Option.iter
+		Opt.iter
 			(fun stubdom_domid ->
 				Domain.unpause ~xc stubdom_domid
 			) (get_stubdom ~xs di.Xenctrl.domid)

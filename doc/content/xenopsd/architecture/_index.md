@@ -1,22 +1,26 @@
-Architecture
-============
++++
+title = "Architecture"
++++
 
 Xenopsd instances run on a host and manage VMs on behalf of clients. This
 picture shows 3 different Xenopsd instances: 2 named "xenopsd-xc" and 1 named
 "xenopsd-xenlight".
 
-![Where xenopsd fits on a host](http://djs55.github.io/xenopsd/doc/architecture/host.svg)
+![Where xenopsd fits on a host](host.svg)
 
 Each instance is responsible for managing a disjoint set of VMs. Clients should
 never ask more than one Xenopsd to manage the same VM.
 Managing a VM means:
+
 - handling start/shutdown/suspend/resume/migrate/reboot
 - allowing devices (disks, nics, PCI cards, vCPUs etc) to be manipulated
 - providing updates to clients when things change (reboots, console becomes
   available, guest agent says something etc).
-For a full list of features, consult the [features list](../features/README.md).
+
+For a full list of features, consult the [features list](features.html).
 
 Each Xenopsd instance has a unique name on the host. A typical name is
+
 - org.xen.xcp.xenops.classic
 - org.xen.xcp.xenops.xenlight
 
@@ -24,6 +28,7 @@ A higher-level tool, such as [xapi](https://github.com/xapi-project/xen-api)
 will associate VMs with individual Xenopsd names.
 
 Running multiple Xenopsds is necessary because
+
 - The virtual hardware supported by different technologies (libxc, libxl, qemu)
   is expected to be different. We can guarantee the virtual hardware is stable
   across a rolling upgrade by running the VM on the old Xenopsd. We can then switch
@@ -38,6 +43,7 @@ Running multiple Xenopsds is necessary because
 
 Communication with Xenopsd is handled through a Xapi-global library:
 [xcp-idl](https://github.com/xapi-project/xcp-idl). This library supports
+
 - message framing: by default using HTTP but a binary framing format is
   available
 - message encoding: by default we use JSON but XML is also available
@@ -49,13 +55,14 @@ change all the Xapi clients and servers.
 Xenopsd has a number of "backends" which perform the low-level VM operations
 such as (on Xen) "create domain" "hotplug disk" "destroy domain". These backends
 contain all the hypervisor-specific code including
+
 - connecting to Xenstore
 - opening the libxc /proc/xen/privcmd interface
 - initialising libxl contexts
 
 The following diagram shows the internal structure of Xenopsd:
 
-![Inside xenopsd](http://djs55.github.io/xenopsd/doc/architecture/xenopsd.svg)
+![Inside xenopsd](xenopsd.svg)
 
 At the top of the diagram two client RPC have been sent: one to start a VM
 and the other to fetch the latest events. The RPCs are all defined in
@@ -67,7 +74,7 @@ The RPCs are received by the Xenops_server module and decomposed into
 - build a Xen domain: this is where the kernel or hvmloader is copied in
 - launch a device model: this is where a qemu instance is started (if one is
   required)
-- hoplug a device: this involves writing the frontend and backend trees to
+- hotplug a device: this involves writing the frontend and backend trees to
   Xenstore
 - unpause a domain (recall a Xen domain is created in the paused state)
 
@@ -96,21 +103,21 @@ Xenops_server_xen backend this is done by watching Xenstore for
 
 When such an event happens (for example: @releaseDomain sent when a domain
 requests a reboot) the corresponding operation does not happen inline. Instead
-the event is rebroadcast upwards to Xenops_server as a signal ("for example:
-VM <id> needs some attention") and a "VM_stat" micro-op is queued in the
+the event is rebroadcast upwards to Xenops_server as a signal (for example:
+"VM _id_ needs some attention") and a "VM_stat" micro-op is queued in the
 appropriate queue. Xenopsd does not allow operations to run on the same VM
 in parallel and enforces this by:
 
 - pushing all operations pertaining to a VM to the same queue
 - associating each VM queue to at-most-one worker pool thread
 
-The event takes the form "VM <id> needs some attention" and not "VM <id> needs
+The event takes the form "VM _id_ needs some attention" and not "VM _id_ needs
 to be rebooted" because, by the time the queue is flushed, the VM may well now
 be in a different state. Perhaps rather than being rebooted it now needs to
 be shutdown; or perhaps the domain is now in a good state because the reboot
 has already happened. The signals sent by the backend to the Xenops_server are
 a bit like event channel notifications in the Xen ring protocols: they are
-requests to ask someone to perform work, the don't themselves describe the work
+requests to ask someone to perform work, they don't themselves describe the work
 that needs to be done.
 
 An implication of this design is that it should always be possible to answer
@@ -146,7 +153,7 @@ There are three categories of metadata associated with VMs:
    to run with the previous configuration. We need to track the runtime
    configuration of the VM in order for suspend/resume and migrate to work. It
    is also useful to be able to tell a client, "on next reboot this value will
-   be <x> but currently it is <x-1>".
+   be _x_ but currently it is _x-1_".
 
 VM and VmExtra metadata is stored by Xenopsd in the domain 0 filesystem, in
 a simple directory hierarchy.

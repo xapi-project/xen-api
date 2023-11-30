@@ -1,3 +1,6 @@
+---
+title: Events
+---
 
 - ids rather than data; inherently coalescable
 - blocking poll + async operations implies a client needs 2 connections
