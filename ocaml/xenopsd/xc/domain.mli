@@ -209,6 +209,9 @@ val pause : xc:Xenctrl.handle -> domid -> unit
 val unpause : xc:Xenctrl.handle -> domid -> unit
 (** Unpause a domain *)
 
+val resume_fast : xc:Xenctrl.handle -> domid -> unit
+(** Resume fast a domain *)
+
 val set_action_request : xs:Xenstore.Xs.xsh -> domid -> string option -> unit
 (** [set_action_request xs domid None] declares this domain is fully intact. Any
     other string is a hint to the toolstack that the domain is still broken. *)

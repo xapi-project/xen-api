@@ -138,6 +138,7 @@ type atomic =
   | VM_pause of Vm.id
   | VM_softreboot of Vm.id
   | VM_unpause of Vm.id
+  | VM_resume_fast of Vm.id
   | VM_request_rdp of (Vm.id * bool)
   | VM_run_script of (Vm.id * string)
   | VM_set_domain_action_request of (Vm.id * domain_action_request option)
@@ -231,6 +232,8 @@ let rec name_of_atomic = function
       "VM_softreboot"
   | VM_unpause _ ->
       "VM_unpause"
+  | VM_resume_fast _ ->
+      "VM_resume_fast"
   | VM_request_rdp _ ->
       "VM_request_rdp"
   | VM_run_script _ ->
@@ -302,6 +305,7 @@ type operation =
   | VM_restore_vifs of Vm.id
   | VM_restore_devices of (Vm.id * bool)
   | VM_migrate of vm_migrate_op
+  | VM_resume_fast of Vm.id
   | VM_receive_memory of vm_receive_op
   | VBD_hotplug of Vbd.id
   | VBD_hotunplug of Vbd.id * bool
@@ -336,6 +340,8 @@ let name_of_operation = function
       "VM_restore_devices"
   | VM_migrate _ ->
       "VM_migrate"
+  | VM_resume_fast _ ->
+      "VM_resumte_fast"
   | VM_receive_memory _ ->
       "VM_receive_memory"
   | VBD_hotplug _ ->
@@ -2195,6 +2201,16 @@ let rec perform_atomic ~progress_callback ?subtask:_ ?result (op : atomic)
       | _ ->
           info "VM %s is not paused" id
     )
+  | VM_resume_fast id -> (
+      debug "VM.resume_fast %s" id ;
+      let vm_t = VM_DB.read_exn id in
+      let power = (B.VM.get_state vm_t).Vm.power_state in
+      match power with
+      | Suspended ->
+          B.VM.resume_fast t vm_t ; VM_DB.signal id
+      | _ ->
+          info "VM %s is not suspended, fast resum is not allowed" id
+    )
   | VM_request_rdp (id, enabled) ->
       debug "VM.request_rdp %s %b" id enabled ;
       B.VM.request_rdp (VM_DB.read_exn id) enabled
@@ -2419,6 +2435,7 @@ let rec immediate_operation dbg _id op =
 and trigger_cleanup_after_failure op t =
   let dbg = (Xenops_task.to_interface_task t).Task.dbg in
   match op with
+  | VM_resume_fast _
   | VM_check_state _
   | PCI_check_state _
   | VBD_check_state _
@@ -2439,7 +2456,8 @@ and trigger_cleanup_after_failure op t =
       immediate_operation dbg final_id (VM_check_state final_id)
   | VM_migrate {vmm_id; vmm_tmp_src_id; _} ->
       immediate_operation dbg vmm_id (VM_check_state vmm_id) ;
-      immediate_operation dbg vmm_tmp_src_id (VM_check_state vmm_tmp_src_id)
+      immediate_operation dbg vmm_tmp_src_id (VM_check_state vmm_tmp_src_id) ;
+      immediate_operation dbg vmm_id (VM_resume_fast vmm_id)
   | VBD_hotplug id | VBD_hotunplug (id, _) ->
       immediate_operation dbg (fst id) (VBD_check_state id)
   | VIF_hotplug id | VIF_hotunplug (id, _) ->
@@ -2489,6 +2507,7 @@ and trigger_cleanup_after_failure_atom op t =
   | VM_set_memory_dynamic_range (id, _, _)
   | VM_pause id
   | VM_unpause id
+  | VM_resume_fast id
   | VM_request_rdp (id, _)
   | VM_run_script (id, _)
   | VM_set_domain_action_request (id, _)
@@ -2569,6 +2588,10 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
   | VIF_hotunplug (id, force) ->
       debug "VIF_hotplug %s.%s %b" (fst id) (snd id) force ;
       perform_atomics (atomics_of_operation op) t
+  | VM_resume_fast id ->
+      debug "VM.resume_fast %s" id ;
+      perform_atomics (atomics_of_operation op) t ;
+      VM_DB.signal id
   | VM_migrate vmm ->
       debug "VM.migrate %s -> %s" vmm.vmm_id vmm.vmm_url ;
       let id = vmm.vmm_id in
@@ -3554,6 +3577,8 @@ module VM = struct
 
   let unpause _ dbg id = queue_operation dbg id (Atomic (VM_unpause id))
 
+  let resume_fast _ dbg id = queue_operation dbg id (Atomic (VM_resume_fast id))
+
   let request_rdp _ dbg id enabled =
     queue_operation dbg id (Atomic (VM_request_rdp (id, enabled)))
 
@@ -4137,6 +4162,7 @@ let _ =
   Server.VM.destroy (VM.destroy ()) ;
   Server.VM.pause (VM.pause ()) ;
   Server.VM.unpause (VM.unpause ()) ;
+  Server.VM.resume_fast (VM.resume_fast ()) ;
   Server.VM.request_rdp (VM.request_rdp ()) ;
   Server.VM.run_script (VM.run_script ()) ;
   Server.VM.set_xsdata (VM.set_xsdata ()) ;

@@ -737,6 +737,10 @@ module XenopsAPI (R : RPC) = struct
       declare "VM.unpause" []
         (debug_info_p @-> vm_id_p @-> returning task_id_p err)
 
+    let resume_fast =
+      declare "VM.resume_fast" []
+        (debug_info_p @-> vm_id_p @-> returning task_id_p err)
+
     let request_rdp =
       let enabled_p = Param.mk ~name:"enabled" Types.bool in
       declare "VM.request_rdp" []

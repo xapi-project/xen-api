@@ -77,6 +77,8 @@ module VM = struct
 
   let unpause _ _ = unimplemented "VM.unpause"
 
+  let resume_fast _ _ = unimplemented "VM.resume_fast"
+
   let set_xsdata _ _ _ = unimplemented "VM.set_xsdata"
 
   let set_vcpus _ _ _ = unimplemented "VM.set_vcpus"

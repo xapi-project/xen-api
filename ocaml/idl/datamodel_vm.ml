@@ -827,6 +827,22 @@ let unpause =
       ]
     ~allowed_roles:_R_VM_OP ()
 
+(* VM.ResumeFast *)
+
+let resumeFast =
+  call ~in_product_since:rel_rio ~name:"resume_fast"
+    ~doc:
+      "Resume the specified VM cooperatively. This can only be called when the \
+       specified VM is in the Suspended state."
+    ~params:[(Ref _vm, "vm", "The VM to resume fast")]
+    ~errs:
+      [
+        Api_errors.vm_bad_power_state
+      ; Api_errors.operation_not_allowed
+      ; Api_errors.vm_is_template
+      ]
+    ~allowed_roles:_R_VM_OP ()
+
 (* VM.CleanShutdown *)
 
 let cleanShutdown =

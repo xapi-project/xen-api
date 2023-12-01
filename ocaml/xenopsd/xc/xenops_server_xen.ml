@@ -1786,6 +1786,15 @@ module VM = struct
         Domain.unpause ~xc di.Xenctrl.domid
     )
 
+  (** To be able to call resume fast the domain should have been suspended so we
+      need to ensure that it is the case. Fast resume is calling resume cooperative.
+      This can only be used for guests which can handle the special return code. *)
+  let resume_fast t vm =
+    on_domain t vm (fun xc _ _ _ di ->
+        (* TODO: check if we can get info in xenstore that the VM supports fast resume *)
+        Domain.resume_fast ~xc di.Xenctrl.domid
+    )
+
   let set_xsdata task vm xsdata =
     on_domain task vm (fun _ xs _ _ di ->
         Domain.set_xsdata ~xs di.Xenctrl.domid xsdata

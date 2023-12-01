@@ -197,6 +197,7 @@ let callback1 ?(json_rpc_version = Jsonrpc.V1) is_json req fd call =
   (* if we're a master or slave and whether the call came in on the unix domain socket or the tcp socket *)
   (* If we're a slave, and the call is from the unix domain socket or from the HIMN, and the call *isn't* *)
   (* in the whitelist, then forward *)
+  let _ = D.info "call.Rpc.name is %s" call.Rpc.name in
   let whitelisted = List.mem call.Rpc.name whitelist in
   let emergency_call = List.mem call.Rpc.name emergency_call_list in
   let is_slave = not (Pool_role.is_master ()) in

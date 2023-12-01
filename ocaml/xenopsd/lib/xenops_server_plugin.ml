@@ -118,6 +118,8 @@ module type S = sig
 
     val unpause : Xenops_task.task_handle -> Vm.t -> unit
 
+    val resume_fast : Xenops_task.task_handle -> Vm.t -> unit
+
     val set_xsdata :
       Xenops_task.task_handle -> Vm.t -> (string * string) list -> unit
 
