@@ -38,6 +38,7 @@
     uuid
     xapi-backtrace
     xapi-datamodel
+    xapi-idl.updates
     xapi-log
     (re_export xapi-schema)
     xapi-stdext-encodings

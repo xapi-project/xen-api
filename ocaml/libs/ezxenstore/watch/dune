@@ -4,5 +4,10 @@
   (wrapped false)
   (libraries
     ezxenstore_core
-    xenctrl)
+    threads.posix
+    uuidm
+    xenctrl
+    xenstore
+    xenstore.unix
+    xenstore_transport.unix)
 )

@@ -15,6 +15,7 @@
   (wrapped false)
   (libraries
     ctypes
+    ctypes.stubs
     integers
     xxhash_bindings
     xapi-stdext-pervasives

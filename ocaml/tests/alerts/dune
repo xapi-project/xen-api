@@ -7,7 +7,9 @@
     daily_license_check
     dune-build-info
     fmt
+    uuid
     xapi-consts
+    xapi-expiry-alerts
     xapi-log
     xapi-stdext-date
     xapi-types
