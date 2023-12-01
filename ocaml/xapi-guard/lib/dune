@@ -6,13 +6,17 @@
   cohttp-lwt
   cohttp-lwt-unix
   conduit-lwt-unix
+  fmt
   lwt
   lwt.unix
   result
   rpclib.core
+  rpclib.xml
   rpclib-lwt
+  uri
   xapi_guard
   xapi-idl.xen.interface
+  xapi-idl.guard.varstored
   xapi-log
   xapi-types
   xen-api-client-lwt
@@ -33,5 +37,6 @@
   xapi-idl
   xapi-idl.guard.privileged
   xapi-idl.guard.varstored
+  xapi-log
  )
  (preprocess (pps ppx_deriving_rpc)))

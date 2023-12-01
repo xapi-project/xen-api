@@ -57,6 +57,7 @@
    xapi-log
    xapi-stdext-pervasives
    xapi-stdext-threads
+   xapi-tracing
  )
  (wrapped false)
  (preprocess (pps ppx_deriving_rpc)))

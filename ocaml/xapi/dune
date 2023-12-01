@@ -64,6 +64,7 @@
     cstruct
     base64
     cohttp
+    cohttp-posix
     domain-name
     ezxenstore.core
     fmt
@@ -71,7 +72,8 @@
     gencertlib
     gzip
     hex
-    http_lib
+    http-lib
+    httpsvr
     ipaddr
     message-switch-core
     message-switch-unix
@@ -83,6 +85,7 @@
     pciutil
     pci
     ptime
+    ptime.clock.os
     rpclib.core
     rpclib.json
     rpclib.xml

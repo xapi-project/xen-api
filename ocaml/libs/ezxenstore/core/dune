@@ -5,8 +5,9 @@
   (libraries
     cmdliner
     logs
-    threads
+    threads.posix
     uuidm
+    xenstore
     xenstore_transport
     xenstore.unix)
 )

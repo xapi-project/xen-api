@@ -6,8 +6,13 @@
     cohttp-posix
     ptime
     ptime.clock.os
+    re
     rpclib.core
     rpclib.json
+    result
+    rresult
+    threads.posix
+    uri
     xapi-log
     xapi-open-uri
     xapi-stdext-threads

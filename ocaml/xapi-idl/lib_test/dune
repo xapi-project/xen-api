@@ -2,7 +2,7 @@
   (name test_lib)
   (modules idl_test_common)
   (libraries
-    alcotest xapi-idl)
+    alcotest rpclib.core rpclib.json rpclib.xml result xapi-idl)
   (wrapped false)
 )
 
@@ -12,6 +12,8 @@
  (modules guard_interfaces_test)
  (deps (source_tree test_data))
  (libraries
+   alcotest
+   rpclib.core
    test_lib
    xapi-idl.guard.privileged
    xapi-idl.guard.varstored
@@ -26,6 +28,7 @@
  (deps (source_tree test_data))
  (libraries
    alcotest
+   cohttp-posix
    fmt
    result
    rpclib.core
@@ -34,6 +37,7 @@
    rpclib.xml
    test_lib
    threads.posix
+   xapi-idl
    xapi-idl.cluster
    xapi-idl.rrd
    xapi-idl.memory
