@@ -130,23 +130,34 @@ module GuidanceSet = struct
     [
       (RebootHost, of_list [RestartToolstack; EvacuateHost; RestartDeviceModel])
     ; (EvacuateHost, of_list [RestartDeviceModel])
+    ; (RestartVM, of_list [RestartDeviceModel])
     ]
 
-  let resort_guidances ~remove_evacuations gs =
-    let gs' =
+  (** reduce the set [gs] by sorting partially with the defined [precedences] *)
+  let resort gs =
+    List.fold_left
+      (fun acc (higher, lowers) ->
+        if mem higher acc then
+          diff acc lowers
+        else
+          acc
+      )
+      gs precedences
+
+  (** remove the guidances which are in s1 from s2. *)
+  let reduce s1 s2 = diff (resort (union s1 s2)) s1
+
+  (** for each set in the list, remove the guidances which are in previous sets from it. *)
+  let reduce_cascaded_list l =
+    let _, reduced_list_in_reverse =
       List.fold_left
-        (fun acc (higher, lowers) ->
-          if mem higher acc then
-            diff acc lowers
-          else
-            acc
+        (fun (acc_set, acc_list) (k, s) ->
+          let reduced = reduce acc_set s in
+          (union s acc_set, (k, reduced) :: acc_list)
         )
-        gs precedences
+        (empty, []) l
     in
-    if remove_evacuations then
-      remove EvacuateHost gs'
-    else
-      gs'
+    List.rev reduced_list_in_reverse
 end
 
 let create_repository_record ~__context ~name_label ~name_description
@@ -560,34 +571,31 @@ let get_updates_from_updateinfo ~__context repositories =
   in
   new_updates @ updates
 
+let is_applicable ~update (applicability : Applicability.t) =
+  let open Update in
+  match
+    (update.name = applicability.name, update.arch = applicability.arch)
+  with
+  | true, true -> (
+    match (update.old_epoch, update.old_version, update.old_release) with
+    | Some old_epoch, Some old_version, Some old_release ->
+        Applicability.eval ~epoch:old_epoch ~version:old_version
+          ~release:old_release ~applicability
+    | _ ->
+        warn "No installed epoch, version or release for package %s.%s"
+          update.name update.arch ;
+        false
+  )
+  | _ ->
+      false
+
 let eval_guidance_for_one_update ~updates_info ~update ~kind
-    ~upd_ids_of_livepatches ~upd_ids_of_failed_livepatches =
+    ~upd_ids_of_livepatches =
   let open Update in
   match update.update_id with
   | Some upd_id -> (
     match List.assoc_opt upd_id updates_info with
     | Some updateinfo -> (
-        let is_applicable (a : Applicability.t) =
-          match
-            ( update.name = a.Applicability.name
-            , update.arch = a.Applicability.arch
-            )
-          with
-          | true, true -> (
-            match
-              (update.old_epoch, update.old_version, update.old_release)
-            with
-            | Some old_epoch, Some old_version, Some old_release ->
-                Applicability.eval ~epoch:old_epoch ~version:old_version
-                  ~release:old_release ~applicability:a
-            | _ ->
-                warn "No installed epoch, version or release for package %s.%s"
-                  update.name update.arch ;
-                false
-          )
-          | _ ->
-              false
-        in
         let pkg_str =
           Printf.sprintf "package %s.%s in update %s" update.name update.arch
             upd_id
@@ -596,72 +604,77 @@ let eval_guidance_for_one_update ~updates_info ~update ~kind
           Printf.sprintf "Evaluating applicability for %s returned '%s'" pkg_str
             (string_of_bool r)
         in
+        let str_of_guidances guidances =
+          String.concat ";" (List.map Guidance.to_string guidances)
+        in
         let apps = updateinfo.UpdateInfo.guidance_applicabilities in
-        match (List.exists is_applicable apps, apps) with
+        match (List.exists (is_applicable ~update) apps, apps) with
         | true, _ | false, [] -> (
             debug "%s" (dbg_msg true) ;
+            let open Guidance in
+            let open UpdateInfo in
             match kind with
-            | Guidance.Absolute ->
-                updateinfo.UpdateInfo.abs_guidance
-            | Guidance.Recommended -> (
-              match
-                ( UpdateIdSet.mem upd_id upd_ids_of_livepatches
-                , UpdateIdSet.mem upd_id upd_ids_of_failed_livepatches
-                )
-              with
-              | _, true ->
-                  (* The update contains a failed livepatch. No guidance should be picked up. *)
-                  debug
-                    "%s doesn't contribute guidance due to a livepatch failure"
-                    pkg_str ;
-                  None
-              | true, false ->
-                  (* The update has an applicable/successful livepatch.
-                   * Using the livepatch guidance.
-                   *)
-                  let g = updateinfo.UpdateInfo.livepatch_guidance in
-                  debug "%s provides livepatch guidance %s" pkg_str
-                    (Option.value (Option.map Guidance.to_string g) ~default:"") ;
-                  g
-              | false, false ->
-                  let g = updateinfo.UpdateInfo.rec_guidance in
-                  debug "%s provides recommended guidance %s" pkg_str
-                    (Option.value (Option.map Guidance.to_string g) ~default:"") ;
-                  g
-            )
+            | Livepatch ->
+                (* Livepatch should not be evaluated directly *)
+                []
+            | Full | Mandatory ->
+                let gs = get_guidances_of_kind ~kind updateinfo in
+                debug "%s contributes to %s guidances [%s]" pkg_str
+                  (kind_to_string kind) (str_of_guidances gs) ;
+                gs
+            | Recommended ->
+                let gs =
+                  match UpdateIdSet.mem upd_id upd_ids_of_livepatches with
+                  | true ->
+                      debug "use livepatch guidance of %s" pkg_str ;
+                      get_guidances_of_kind ~kind:Livepatch updateinfo
+                  | false ->
+                      get_guidances_of_kind ~kind:Recommended updateinfo
+                in
+                debug "%s contributes to recommended guidances [%s]" pkg_str
+                  (str_of_guidances gs) ;
+                gs
           )
         | _ ->
             debug "%s" (dbg_msg false) ;
-            None
+            []
       )
     | None ->
         warn "Can't find update ID %s from updateinfo.xml for update %s.%s"
           upd_id update.name update.arch ;
-        None
+        []
   )
   | None ->
       warn "Ignore evaluating against package %s.%s as its update ID is missing"
         update.name update.arch ;
-      None
+      []
 
 (* In case that the RPM in an update has been installed (including livepatch file),
  * but the livepatch has not been applied.
  * In other words, this RPM update will not appear in parameter [updates] of
  * function [eval_guidances], but the livepatch in it is still applicable.
  *)
-let append_livepatch_guidances ~updates_info ~upd_ids_of_livepatches guidances =
+let append_livepatch_guidance ~updates_info ~upd_ids_of_livepatches
+    guidance_tasks =
+  let ( let* ) = Option.bind in
   UpdateIdSet.fold
     (fun upd_id acc ->
-      match List.assoc_opt upd_id updates_info with
-      | Some UpdateInfo.{livepatch_guidance= Some g; _} ->
-          GuidanceSet.add g acc
-      | _ ->
+      let get_livepatch_guidance () =
+        let* updateinfo = List.assoc_opt upd_id updates_info in
+        let* l =
+          List.assoc_opt Guidance.Livepatch updateinfo.UpdateInfo.guidance
+        in
+        Some (GuidanceSet.of_list l)
+      in
+      match get_livepatch_guidance () with
+      | Some s ->
+          GuidanceSet.union s acc
+      | None ->
           acc
     )
-    upd_ids_of_livepatches guidances
+    upd_ids_of_livepatches guidance_tasks
 
-let eval_guidances ~updates_info ~updates ~kind ~livepatches ~failed_livepatches
-    =
+let eval_guidances ~updates_info ~updates ~kind ~livepatches =
   let extract_upd_ids lps =
     List.fold_left
       (fun acc (_, lps) ->
@@ -672,22 +685,22 @@ let eval_guidances ~updates_info ~updates ~kind ~livepatches ~failed_livepatches
       UpdateIdSet.empty lps
   in
   let upd_ids_of_livepatches = extract_upd_ids livepatches in
-  let upd_ids_of_failed_livepatches = extract_upd_ids failed_livepatches in
   List.fold_left
     (fun acc u ->
-      match
-        eval_guidance_for_one_update ~updates_info ~update:u ~kind
-          ~upd_ids_of_livepatches ~upd_ids_of_failed_livepatches
-      with
-      | Some g ->
-          GuidanceSet.add g acc
-      | None ->
-          acc
+      eval_guidance_for_one_update ~updates_info ~update:u ~kind
+        ~upd_ids_of_livepatches
+      |> GuidanceSet.of_list
+      |> GuidanceSet.union acc
     )
     GuidanceSet.empty updates
-  |> append_livepatch_guidances ~updates_info ~upd_ids_of_livepatches
-  |> GuidanceSet.resort_guidances ~remove_evacuations:(kind = Guidance.Absolute)
-  |> GuidanceSet.elements
+  |> (fun l ->
+       match kind with
+       | Recommended ->
+           append_livepatch_guidance ~updates_info ~upd_ids_of_livepatches l
+       | _ ->
+           l
+     )
+  |> GuidanceSet.resort
 
 let merge_with_unapplied_guidances ~__context ~host ~guidances =
   let open GuidanceSet in
@@ -1282,35 +1295,28 @@ let consolidate_updates_of_host ~repository_name ~updates_info host
   let livepatches =
     retrieve_livepatches_from_updateinfo ~updates_info ~updates:updates_of_host
   in
-  let rec_guidances =
-    eval_guidances ~updates_info ~updates ~kind:Recommended ~livepatches
-      ~failed_livepatches:[]
+  let guidance =
+    let open Guidance in
+    (* The order does matter with the following reducing *)
+    [Mandatory; Recommended; Full]
+    |> List.map (fun kind ->
+           (kind, eval_guidances ~updates_info ~updates ~kind ~livepatches)
+       )
+    |> GuidanceSet.reduce_cascaded_list
+    |> List.map (fun (kind, s) -> (kind, GuidanceSet.elements s))
   in
-  let abs_guidances =
-    eval_guidances ~updates_info ~updates ~kind:Absolute ~livepatches:[]
-      ~failed_livepatches:[]
-    |> List.filter (fun g -> not (List.mem g rec_guidances))
-  in
-  let upd_ids_of_livepatches, lps =
-    if List.mem Guidance.RebootHost rec_guidances then
-      (* Any livepatches should not be applied if packages updates require RebootHost *)
-      (UpdateIdSet.empty, [])
-    else
-      merge_livepatches ~livepatches
-  in
+  let upd_ids_of_livepatches, lps = merge_livepatches ~livepatches in
   let upd_ids = UpdateIdSet.union ids_of_updates upd_ids_of_livepatches in
   let host_updates =
     HostUpdates.
       {
         host
-      ; rec_guidances
-      ; abs_guidances
+      ; guidance
       ; rpms
       ; update_ids= UpdateIdSet.elements upd_ids
       ; livepatches= lps
       }
   in
-
   (host_updates, upd_ids)
 
 let append_by_key l k v =

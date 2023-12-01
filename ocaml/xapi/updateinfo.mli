@@ -37,7 +37,7 @@ module Guidance : sig
   (* may fail *)
   val of_string : string -> t
 
-  val of_update_guidance :
+  val of_pending_guidance :
        [< `reboot_host
        | `reboot_host_on_livepatch_failure
        | `reboot_host_on_kernel_livepatch_failure
@@ -46,6 +46,17 @@ module Guidance : sig
        | `restart_toolstack
        | `restart_vm ]
     -> t
+
+  val to_pending_guidance :
+       t
+    -> [> `reboot_host
+       | `reboot_host_on_livepatch_failure
+       | `reboot_host_on_kernel_livepatch_failure
+       | `reboot_host_on_xen_livepatch_failure
+       | `restart_device_model
+       | `restart_toolstack
+       | `restart_vm ]
+       option
 end
 
 (** The applicability of metadata for one update in updateinfo *)
@@ -160,8 +171,7 @@ end
 module HostUpdates : sig
   type t = {
       host: string
-    ; rec_guidances: Guidance.t list
-    ; abs_guidances: Guidance.t list
+    ; guidance: GuidanceInUpdateInfo.t
     ; rpms: Rpm.Pkg.t list
     ; update_ids: string list
     ; livepatches: LivePatch.t list

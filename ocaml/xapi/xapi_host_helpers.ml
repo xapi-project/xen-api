@@ -386,7 +386,7 @@ let consider_enabling_host_nolock ~__context =
           (Ref.string_of localhost)
           (String.concat ";"
              (List.map Updateinfo.Guidance.to_string
-                (List.map Updateinfo.Guidance.of_update_guidance
+                (List.map Updateinfo.Guidance.of_pending_guidance
                    host_pending_mandatory_guidances
                 )
              )

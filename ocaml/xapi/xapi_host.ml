@@ -85,7 +85,7 @@ let assert_safe_to_reenable ~__context ~self =
       (Ref.string_of self)
       (String.concat ";"
          (List.map Updateinfo.Guidance.to_string
-            (List.map Updateinfo.Guidance.of_update_guidance
+            (List.map Updateinfo.Guidance.of_pending_guidance
                host_pending_mandatory_guidances
             )
          )

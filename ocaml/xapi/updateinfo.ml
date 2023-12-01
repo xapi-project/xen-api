@@ -77,7 +77,7 @@ module Guidance = struct
         warn "Un-recognized guidance: %s, fallback to RebootHost" g ;
         RebootHost
 
-  let of_update_guidance = function
+  let of_pending_guidance = function
     | `reboot_host ->
         RebootHost
     | `reboot_host_on_livepatch_failure ->
@@ -92,6 +92,24 @@ module Guidance = struct
         RestartDeviceModel
     | `restart_vm ->
         RestartVM
+
+  let to_pending_guidance = function
+    | RebootHost ->
+        Some `reboot_host
+    | RebootHostOnLivePatchFailure ->
+        Some `reboot_host_on_livepatch_failure
+    | RestartToolstack ->
+        Some `restart_toolstack
+    | RestartDeviceModel ->
+        Some `restart_device_model
+    | RebootHostOnXenLivePatchFailure ->
+        Some `reboot_host_on_xen_livepatch_failure
+    | RebootHostOnKernelLivePatchFailure ->
+        Some `reboot_host_on_kernel_livepatch_failure
+    | RestartVM ->
+        Some `restart_vm
+    | EvacuateHost ->
+        None
 end
 
 module Applicability = struct
@@ -686,23 +704,18 @@ end
 module HostUpdates = struct
   type t = {
       host: string
-    ; rec_guidances: Guidance.t list
-    ; abs_guidances: Guidance.t list
+    ; guidance: GuidanceInUpdateInfo.t
     ; rpms: Rpm.Pkg.t list
     ; update_ids: string list
     ; livepatches: LivePatch.t list
   }
 
   let to_json host_updates =
-    let g_to_j x = `String (Guidance.to_string x) in
     let p_to_j x = `String (Pkg.to_fullname x) in
     `Assoc
       [
         ("ref", `String host_updates.host)
-      ; ( "recommended-guidance"
-        , `List (List.map g_to_j host_updates.rec_guidances)
-        )
-      ; ("absolute-guidance", `List (List.map g_to_j host_updates.abs_guidances))
+      ; ("guidance", GuidanceInUpdateInfo.to_json host_updates.guidance)
       ; ("RPMS", `List (List.map p_to_j host_updates.rpms))
       ; ( "updates"
         , `List (List.map (fun upd_id -> `String upd_id) host_updates.update_ids)
