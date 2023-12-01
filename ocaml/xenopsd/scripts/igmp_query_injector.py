@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 import argparse
 import threading
 import logging
@@ -106,7 +106,7 @@ class IGMPQueryInjector(object):
         t.join(self.vif_connected_timeout)
         if watcher.watches:
             log.warning('Wait vif state change timeout')
-            for vif in watcher.watches.values():
+            for vif in watcher.watches.itervalues():
                 log.warning("Vif:%s state did not change to '%s', don't inject IGMP query to mac: %s" %
                             (vif, VIF_CONNECTED_STATE, get_vif_mac(vif)))
 

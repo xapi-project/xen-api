@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/python
 #
 # Copyright (c) 2011 Citrix Systems, Inc.
 #
@@ -13,7 +13,7 @@
 # GNU Lesser General Public License for more details.
 #
 
-
+from __future__ import print_function
 import fcntl
 import os
 import os.path
@@ -196,7 +196,7 @@ def clear_xs_ofport_path(vif):
 
 def make_vswitch_external_ids(vif):
     args = []
-    for (k, v) in list(vif.get_external_ids().items()):
+    for (k, v) in vif.get_external_ids().items():
         args += ["--", "set", "interface", vif.vif_name, 'external-ids:"%s"="%s"' % (k, v)]
     return args
 
