@@ -64,7 +64,7 @@ val apply_updates :
      __context:Context.t
   -> host:[`host] API.Ref.t
   -> hash:string
-  -> Updateinfo.Guidance.t list * string list list
+  -> string list list
 
 val set_available_updates : __context:Context.t -> string
 

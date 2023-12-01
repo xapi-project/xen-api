@@ -1942,10 +1942,6 @@ let _ =
     ~doc:"The repository domain allowlist has some invalid domains." () ;
   error Api_errors.apply_livepatch_failed ["livepatch"]
     ~doc:"Failed to apply a livepatch." () ;
-  error Api_errors.updates_require_recommended_guidance ["recommended_guidance"]
-    ~doc:"Requires recommended guidance after applying updates." () ;
-  error Api_errors.update_guidance_changed ["guidance"]
-    ~doc:"Guidance for the update has changed" () ;
 
   error Api_errors.vtpm_max_amount_reached ["amount"]
     ~doc:"The VM cannot be associated with more VTPMs." () ;
