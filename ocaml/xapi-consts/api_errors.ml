@@ -1281,11 +1281,6 @@ let invalid_repository_domain_allowlist = "INVALID_REPOSITORY_DOMAIN_ALLOWLIST"
 
 let apply_livepatch_failed = "APPLY_LIVEPATCH_FAILED"
 
-let updates_require_recommended_guidance =
-  "UPDATES_REQUIRE_RECOMMENDED_GUIDANCE"
-
-let update_guidance_changed = "UPDATE_GUIDANCE_CHANGED"
-
 let invalid_update_sync_day = "INVALID_UPDATE_SYNC_DAY"
 
 let no_repositories_configured = "NO_REPOSITORIES_CONFIGURED"

@@ -99,33 +99,6 @@ module GuidanceSet = struct
   include GuidanceSet'
   open Guidance
 
-  let eq l s = equal (of_list l) (of_list s)
-
-  let eq_set1 = eq [EvacuateHost; RestartToolstack]
-
-  let eq_set2 = eq [RestartDeviceModel; RestartToolstack]
-
-  let error_msg l =
-    Printf.sprintf "Found wrong guidance(s): %s"
-      (String.concat ";" (List.map to_string l))
-
-  let assert_valid_guidances = function
-    | []
-    | [RebootHost]
-    | [EvacuateHost]
-    | [RestartToolstack]
-    | [RestartDeviceModel] ->
-        ()
-    | l when eq_set1 l ->
-        (* EvacuateHost and RestartToolstack *)
-        ()
-    | l when eq_set2 l ->
-        (* RestartDeviceModel and RestartToolstack *)
-        ()
-    | l ->
-        let msg = error_msg l in
-        raise Api_errors.(Server_error (internal_error, [msg]))
-
   let precedences =
     [
       (RebootHost, of_list [RestartToolstack; EvacuateHost; RestartDeviceModel])
@@ -701,16 +674,6 @@ let eval_guidances ~updates_info ~updates ~kind ~livepatches =
            l
      )
   |> GuidanceSet.resort
-
-let merge_with_unapplied_guidances ~__context ~host ~guidances =
-  let open GuidanceSet in
-  Db.Host.get_pending_guidances ~__context ~self:host
-  |> List.map (fun g -> Guidance.of_update_guidance g)
-  |> List.filter (fun g -> g <> Guidance.RebootHostOnLivePatchFailure)
-  |> of_list
-  |> union (of_list guidances)
-  |> resort_guidances ~remove_evacuations:false
-  |> elements
 
 let repoquery_sep = ":|"
 
@@ -1379,15 +1342,139 @@ let prune_updateinfo_for_livepatches livepatches updateinfo =
   in
   {updateinfo with livepatches= lps}
 
-let do_with_device_models ~__context ~host f =
-  (* Call f with device models of all running HVM VMs on the host *)
-  Db.Host.get_resident_VMs ~__context ~self:host
-  |> List.map (fun self -> (self, Db.VM.get_record ~__context ~self))
-  |> List.filter (fun (_, record) -> not record.API.vM_is_control_domain)
-  |> List.filter_map f
-  |> function
-  | [] ->
-      ()
-  | _ :: _ ->
-      let host' = Ref.string_of host in
-      raise Api_errors.(Server_error (cannot_restart_device_model, [host']))
+let do_with_host_pending_guidances ~op guidances =
+  List.iter
+    (fun g ->
+      match Guidance.to_pending_guidance g with
+      | ( Some `restart_toolstack
+        | Some `reboot_host
+        | Some `reboot_host_on_xen_livepatch_failure
+        | Some `reboot_host_on_kernel_livepatch_failure
+        | Some `reboot_host_on_livepatch_failure ) as g' ->
+          Option.iter op g'
+      | _ ->
+          ()
+    )
+    guidances
+
+let do_with_vm_pending_guidances ~op ~vm guidances =
+  List.iter
+    (fun g ->
+      match Guidance.to_pending_guidance g with
+      | Some `restart_device_model ->
+          op vm `restart_device_model
+      | Some `restart_vm ->
+          op vm `restart_vm
+      | _ ->
+          ()
+    )
+    guidances
+
+let merge_with_pending_guidances ~pending ~coming =
+  let open GuidanceSet in
+  let pending = of_list pending in
+  let unioned = union pending (of_list coming) |> remove EvacuateHost in
+  (diff unioned pending |> elements, diff pending unioned |> elements)
+
+let is_livepatch_failure = function
+  | Guidance.RebootHostOnLivePatchFailure
+  | Guidance.RebootHostOnXenLivePatchFailure
+  | Guidance.RebootHostOnKernelLivePatchFailure ->
+      true
+  | _ ->
+      false
+
+type pending_ops = {
+    host_get: unit -> Guidance.t list
+  ; host_add:
+         [ `reboot_host
+         | `reboot_host_on_livepatch_failure
+         | `restart_toolstack
+         | `reboot_host_on_xen_livepatch_failure
+         | `reboot_host_on_kernel_livepatch_failure ]
+      -> unit
+  ; host_remove:
+         [ `reboot_host
+         | `reboot_host_on_livepatch_failure
+         | `restart_toolstack
+         | `reboot_host_on_xen_livepatch_failure
+         | `reboot_host_on_kernel_livepatch_failure ]
+      -> unit
+  ; vms_get: unit -> (string * Guidance.t list) list
+  ; vm_add: string -> [`restart_device_model | `restart_vm] -> unit
+  ; vm_remove: string -> [`restart_device_model | `restart_vm] -> unit
+}
+
+let get_ops_of_pending ~__context ~host ~kind =
+  let get_pending_guidances_of_host ~db_get =
+    db_get ~__context ~self:host
+    |> List.map (fun g -> Guidance.of_pending_guidance g)
+  in
+  let get_pending_guidances_of_vms ~db_get =
+    Db.Host.get_resident_VMs ~__context ~self:host
+    |> List.map (fun self -> (self, Db.VM.get_record ~__context ~self))
+    |> List.filter_map (fun (ref, record) ->
+           match
+             ( record.API.vM_is_control_domain
+             , record.API.vM_power_state
+             , Helpers.has_qemu_currently ~__context ~self:ref
+             )
+           with
+           | false, `Running, true | false, `Paused, true ->
+               Some ref
+           | _ ->
+               None
+       )
+    |> List.map (fun vm_ref ->
+           let pending_guidances =
+             db_get ~__context ~self:vm_ref
+             |> List.map Guidance.of_pending_guidance
+           in
+           (Ref.string_of vm_ref, pending_guidances)
+       )
+  in
+  match kind with
+  | Guidance.Mandatory ->
+      let host_get () =
+        get_pending_guidances_of_host ~db_get:Db.Host.get_pending_guidances
+      in
+      let host_add value =
+        Db.Host.add_pending_guidances ~__context ~self:host ~value
+      in
+      let host_remove value =
+        Db.Host.remove_pending_guidances ~__context ~self:host ~value
+      in
+      let vms_get () =
+        get_pending_guidances_of_vms ~db_get:Db.VM.get_pending_guidances
+      in
+      let vm_add vm value =
+        Db.VM.add_pending_guidances ~__context ~self:(Ref.of_string vm) ~value
+      in
+      let vm_remove vm value =
+        Db.VM.remove_pending_guidances ~__context ~self:(Ref.of_string vm)
+          ~value
+      in
+      {host_get; host_add; host_remove; vms_get; vm_add; vm_remove}
+  | _ ->
+      raise Api_errors.(Server_error (internal_error, ["Not implemented kind"]))
+
+let set_pending_guidances ~ops ~coming =
+  let pending_of_host =
+    ops.host_get () |> List.filter (fun x -> not (is_livepatch_failure x))
+  in
+  let to_be_added, to_be_removed =
+    merge_with_pending_guidances ~pending:pending_of_host ~coming
+  in
+  do_with_host_pending_guidances ~op:ops.host_remove to_be_removed ;
+  do_with_host_pending_guidances ~op:ops.host_add to_be_added ;
+
+  ops.vms_get ()
+  |> List.map (fun (vm_ref_str, pending_of_vm) ->
+         let pending = List.append pending_of_host pending_of_vm in
+         (vm_ref_str, merge_with_pending_guidances ~pending ~coming)
+     )
+  |> List.iter (fun (vm_ref_str, (to_be_added, to_be_removed)) ->
+         do_with_vm_pending_guidances ~op:ops.vm_remove ~vm:vm_ref_str
+           to_be_removed ;
+         do_with_vm_pending_guidances ~op:ops.vm_add ~vm:vm_ref_str to_be_added
+     )
