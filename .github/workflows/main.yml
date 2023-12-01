@@ -42,15 +42,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-        # The checkout action performs a shallow, this triggers dune to set the
-        # version to <hash>-dirty. Work around this dune behaviour and tag the
-        # commit so a proper version is always picked up
-      - name: Tag current commit
-        run: |
-          git config user.name "Dune workaround"
-          git config user.email "<>"
-          git tag -am "workaround for dune" "$XAPI_VERSION"
-
       - name: Pull configuration from xs-opam
         run: |
           curl --fail --silent https://raw.githubusercontent.com/xapi-project/xs-opam/master/tools/xs-opam-ci.env | cut -f2 -d " " > .env

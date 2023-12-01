@@ -232,41 +232,49 @@ module Stat = struct
   type t = int64 list
   (* /sys/block/tdX/stats @ /sys/block/tdX/inflight @ [read bytes; write bytes] *)
 
+  let finally = Xapi_stdext_pervasives.Pervasiveext.finally
+
+  (** open [path] to let [f] scan the contents using scanf *)
+  let scanning path f =
+    let io = Scanf.Scanning.open_in path in
+    finally (fun () -> f io) (fun () -> Scanf.Scanning.close_in io)
+
+  let sector_size dev =
+    let path = String.concat "/" ["/sys/block"; dev; "queue/hw_sector_size"] in
+    try scanning path @@ fun io -> Scanf.bscanf io " %Ld" @@ Fun.id
+    with e ->
+      D.error "%s: %s" __FUNCTION__ (Printexc.to_string e) ;
+      0L
+
+  (** read first 11 values from device stat *)
+  let stat dev =
+    let path = String.concat "/" ["/sys/block"; dev; "stat"] in
+    try
+      scanning path @@ fun io ->
+      Scanf.bscanf io " %Ld %Ld %Ld %Ld %Ld %Ld %Ld %Ld %Ld %Ld %Ld"
+      @@ fun d1 d2 d3 d4 d5 d6 d7 d8 d9 d10 d11 ->
+      [d1; d2; d3; d4; d5; d6; d7; d8; d9; d10; d11]
+    with e ->
+      D.error "%s: %s" __FUNCTION__ (Printexc.to_string e) ;
+      [0L; 0L; 0L; 0L; 0L; 0L; 0L; 0L; 0L; 0L; 0L]
+
+  let inflight dev =
+    let path = String.concat "/" ["/sys/block"; dev; "inflight"] in
+    try
+      scanning path @@ fun io ->
+      Scanf.bscanf io " %Ld %Ld" @@ fun d1 d2 -> [d1; d2]
+    with e ->
+      D.error "%s: %s" __FUNCTION__ (Printexc.to_string e) ;
+      [0L; 0L]
+
   let get_unsafe_dev (dev : string) : t =
-    let hw_sector_size =
-      Int64.of_string
-        (Unixext.file_lines_fold
-           (fun acc line -> acc ^ line)
-           ""
-           ("/sys/block/" ^ dev ^ "/queue/hw_sector_size")
-        )
-    in
-    let stats =
-      List.map Int64.of_string
-        (List.hd
-           (Unixext.file_lines_fold
-              (fun acc line -> Utils.cut line :: acc)
-              []
-              ("/sys/block/" ^ dev ^ "/stat")
-           )
-        )
-    in
-    let inflight_stats =
-      List.hd
-        (Unixext.file_lines_fold
-           (fun acc line -> List.map Int64.of_string (Utils.cut line) :: acc)
-           []
-           ("/sys/block/" ^ dev ^ "/inflight")
-        )
-    in
+    let hw_sector_size = sector_size dev in
+    let stats = stat dev in
+    let inflight_stats = inflight dev in
     let sectors_to_bytes = Int64.mul hw_sector_size in
     let read_bytes = sectors_to_bytes (List.nth stats 2) in
     let write_bytes = sectors_to_bytes (List.nth stats 6) in
-    let res =
-      Xapi_stdext_std.Listext.List.take 11 stats
-      @ inflight_stats
-      @ [read_bytes; write_bytes]
-    in
+    let res = List.concat [stats; inflight_stats; [read_bytes; write_bytes]] in
     assert (List.length res = 15) ;
     res
 

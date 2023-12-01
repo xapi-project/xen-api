@@ -237,9 +237,15 @@ module Spans = struct
         | None ->
             if Hashtbl.length spans < !max_traces then
               Hashtbl.add spans key [span]
+            else
+              debug "%s exceeded max traces when adding to span table"
+                __FUNCTION__
         | Some span_list ->
             if List.length span_list < !max_spans then
               Hashtbl.replace spans key (span :: span_list)
+            else
+              debug "%s exceeded max traces when adding to span table"
+                __FUNCTION__
     )
 
   let remove_from_spans span =
@@ -247,7 +253,7 @@ module Spans = struct
     Xapi_stdext_threads.Threadext.Mutex.execute lock (fun () ->
         match Hashtbl.find_opt spans key with
         | None ->
-            debug "Span does not exist or already finished" ;
+            debug "%s span does not exist or already finished" __FUNCTION__ ;
             None
         | Some span_list ->
             ( match
@@ -268,9 +274,15 @@ module Spans = struct
         | None ->
             if Hashtbl.length finished_spans < !max_traces then
               Hashtbl.add finished_spans key [span]
+            else
+              debug "%s exceeded max traces when adding to finished span table"
+                __FUNCTION__
         | Some span_list ->
             if List.length span_list < !max_spans then
               Hashtbl.replace finished_spans key (span :: span_list)
+            else
+              debug "%s exceeded max traces when adding to finished span table"
+                __FUNCTION__
     )
 
   let mark_finished span = Option.iter add_to_finished (remove_from_spans span)
@@ -490,7 +502,11 @@ let create ~enabled ~attributes ~endpoints ~name_label ~uuid =
       | None ->
           Hashtbl.add tracer_providers uuid provider
       | Some _ ->
-          failwith "Tracing: TracerProvider already exists"
+          (* CP-45469: It is ok not to have an exception here since it is unlikely that the
+             user has caused the issue, so no need to propagate back. It is also
+             handy to not change the control flow since calls like cluster_pool_resync
+             might not be aware that a TracerProvider has already been created.*)
+          error "Tracing : TracerProvider %s already exists" name_label
   )
 
 let destroy ~uuid =
@@ -510,7 +526,8 @@ let get_tracer ~name =
   | Some provider ->
       Tracer.create ~name ~provider
   | None ->
-      warn "No provider found" ; Tracer.no_op
+      warn "No provider found for tracing %s" name ;
+      Tracer.no_op
 
 let enable_span_garbage_collector ?(timeout = 86400.) () =
   Spans.GC.initialise_thread ~timeout
@@ -819,3 +836,5 @@ module Export = struct
 end
 
 let main = Export.Destination.main
+
+let flush_spans = Export.Destination.flush_spans

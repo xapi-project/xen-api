@@ -110,33 +110,165 @@ module Observer : ObserverInterface = struct
     Tracing.Export.Destination.File.set_compress_tracing_files enabled
 end
 
-let supported_components = ["xapi"; "xenopsd"]
+module Component = struct
+  type t = Xapi | Xenopsd | Xapi_clusterd [@@deriving ord]
+
+  exception Unsupported_Component of string
+
+  let all = [Xapi; Xenopsd; Xapi_clusterd]
+
+  let to_string = function
+    | Xapi ->
+        "xapi"
+    | Xenopsd ->
+        "xenopsd"
+    | Xapi_clusterd ->
+        "xapi-clusterd"
+
+  let of_string = function
+    | "xapi" ->
+        Xapi
+    | "xenopsd" ->
+        Xenopsd
+    | "xapi-clusterd" ->
+        Xapi_clusterd
+    | c ->
+        raise (Unsupported_Component c)
+end
+
+module Xapi_cluster = struct
+  module type XAPI_CLUSTER = module type of Cluster_client.LocalClientExn
+
+  let local_client ~__context =
+    let module Client = Cluster_interface.LocalAPI (Idl.Exn.GenClient (struct
+      let rpc x =
+        (* It's ok to not check Daemon.enabled here because we will be using message
+           switch to communicate with clusterd *)
+        match Context.get_test_clusterd_rpc __context with
+        | Some rpc ->
+            rpc x
+        | None ->
+            if !Xcp_client.use_switch then
+              Xcp_client.json_switch_rpc Cluster_interface.queue_name x
+            else
+              Cluster_client.json_http_rpc ~srcstr:"xapi"
+                ~dststr:"xapi-clusterd"
+                (fun () ->
+                  failwith
+                    "Can only communicate with xapi-clusterd through \
+                     message-switch"
+                )
+                x
+    end)) in
+    (module Client : XAPI_CLUSTER)
+
+  module Observer = struct
+    let create ~__context ~uuid ~name_label ~attributes ~endpoints ~enabled =
+      debug "Observer.create %s" uuid ;
+      let module S = (val local_client ~__context : XAPI_CLUSTER) in
+      let dbg = Context.string_of_task __context in
+      S.Observer.create dbg uuid name_label attributes endpoints enabled
+
+    let destroy ~__context ~uuid =
+      debug "Observer.destroy %s" uuid ;
+      let module S = (val local_client ~__context : XAPI_CLUSTER) in
+      let dbg = Context.string_of_task __context in
+      S.Observer.destroy dbg uuid
+
+    let set_enabled ~__context ~uuid ~enabled =
+      debug "Observer.set_enabled %s" uuid ;
+      let module S = (val local_client ~__context : XAPI_CLUSTER) in
+      let dbg = Context.string_of_task __context in
+      S.Observer.set_enabled dbg uuid enabled
+
+    let set_attributes ~__context ~uuid ~attributes =
+      debug "Observer.set_attributes %s" uuid ;
+      let module S = (val local_client ~__context : XAPI_CLUSTER) in
+      let dbg = Context.string_of_task __context in
+      S.Observer.set_attributes dbg uuid attributes
+
+    let set_endpoints ~__context ~uuid ~endpoints =
+      debug "Observer.set_endpoints %s" uuid ;
+      let module S = (val local_client ~__context : XAPI_CLUSTER) in
+      let dbg = Context.string_of_task __context in
+      S.Observer.set_endpoints dbg uuid endpoints
+
+    let init ~__context =
+      debug "Observer.init" ;
+      let module S = (val local_client ~__context : XAPI_CLUSTER) in
+      let dbg = Context.string_of_task __context in
+      S.Observer.init dbg
+
+    let set_trace_log_dir ~__context ~dir =
+      debug "Observer.set_trace_log_dir" ;
+      let module S = (val local_client ~__context : XAPI_CLUSTER) in
+      let dbg = Context.string_of_task __context in
+      S.Observer.set_trace_log_dir dbg dir
+
+    let set_export_interval ~__context ~interval =
+      debug "Observer.set_export_interval" ;
+      let module S = (val local_client ~__context : XAPI_CLUSTER) in
+      let dbg = Context.string_of_task __context in
+      S.Observer.set_export_interval dbg interval
+
+    let set_max_spans ~__context ~spans =
+      debug "Observer.set_max_spans" ;
+      let module S = (val local_client ~__context : XAPI_CLUSTER) in
+      let dbg = Context.string_of_task __context in
+      S.Observer.set_max_spans dbg spans
+
+    let set_max_traces ~__context ~traces =
+      debug "Observer.set_max_traces" ;
+      let module S = (val local_client ~__context : XAPI_CLUSTER) in
+      let dbg = Context.string_of_task __context in
+      S.Observer.set_max_traces dbg traces
+
+    let set_max_file_size ~__context ~file_size =
+      debug "Observer.set_max_file_size" ;
+      let module S = (val local_client ~__context : XAPI_CLUSTER) in
+      let dbg = Context.string_of_task __context in
+      S.Observer.set_max_file_size dbg file_size
+
+    let set_host_id ~__context ~host_id =
+      debug "Observer.set_host_id" ;
+      let module S = (val local_client ~__context : XAPI_CLUSTER) in
+      let dbg = Context.string_of_task __context in
+      S.Observer.set_host_id dbg host_id
+
+    let set_compress_tracing_files ~__context ~enabled =
+      debug "Observer.set_compress_tracing_files" ;
+      let module S = (val local_client ~__context : XAPI_CLUSTER) in
+      let dbg = Context.string_of_task __context in
+      S.Observer.set_compress_tracing_files dbg enabled
+  end
+end
+
+(* We startup the observer for clusterd separately in cluster_host so that
+   there is no need to restart xapi in order for clusterd to be observed.
+   This does mean that observer will always be enabled for clusterd. *)
+let startup_components =
+  List.filter (( <> ) Component.Xapi_clusterd) Component.all
 
 let get_forwarder c =
   let module Forwarder = ( val match c with
-                               | "xapi" ->
+                               | Component.Xapi ->
                                    (module Observer)
-                               | "xenopsd" ->
+                               | Component.Xenopsd ->
                                    (module Xapi_xenops.Observer)
-                               | _ ->
-                                   failwith
-                                     (Printf.sprintf
-                                        "Not a valid component: %s. Valid \
-                                         components are: %s "
-                                        c
-                                        (String.concat ", " supported_components)
-                                     ) : ObserverInterface
+                               | Component.Xapi_clusterd ->
+                                   (module Xapi_cluster.Observer)
+                             : ObserverInterface
                          )
   in
   (module Forwarder : ObserverInterface)
 
-module StringSet = Set.Make (String)
+module ComponentSet = Set.Make (Component)
 
 let observed_hosts_of ~__context hosts =
   match hosts with [] -> Db.Host.get_all ~__context | hosts -> hosts
 
 let observed_components_of components =
-  match components with [] -> supported_components | components -> components
+  match components with [] -> startup_components | components -> components
 
 let assert_valid_hosts ~__context hosts =
   List.iter
@@ -150,13 +282,10 @@ let assert_valid_hosts ~__context hosts =
     hosts
 
 let assert_valid_components components =
-  List.iter
-    (fun component ->
-      if not (List.mem component supported_components) then
-        raise
-          Api_errors.(Server_error (invalid_value, ["component"; component]))
-    )
-    components
+  let open Component in
+  try List.iter (fun c -> ignore @@ of_string c) components
+  with Unsupported_Component component ->
+    raise Api_errors.(Server_error (invalid_value, ["component"; component]))
 
 let assert_valid_endpoints endpoints =
   let validate_endpoint = function
@@ -206,7 +335,7 @@ let default_attributes ~__context ~host ~name_label =
   ; ("xs.observer.name", name_label)
   ]
 
-let register_components ~__context ~self ~host =
+let register_component ~__context ~self ~host ~component =
   let name_label = Db.Observer.get_name_label ~__context ~self in
   let attributes =
     default_attributes ~__context ~host ~name_label
@@ -215,14 +344,17 @@ let register_components ~__context ~self ~host =
   let uuid = Db.Observer.get_uuid ~__context ~self in
   let endpoints = Db.Observer.get_endpoints ~__context ~self in
   let enabled = Db.Observer.get_enabled ~__context ~self in
-  List.iter (fun c ->
-      let module Forwarder = (val get_forwarder c : ObserverInterface) in
-      Forwarder.create ~__context ~uuid ~name_label ~attributes ~endpoints
-        ~enabled
+  let module Forwarder = (val get_forwarder component : ObserverInterface) in
+  Forwarder.create ~__context ~uuid ~name_label ~attributes ~endpoints ~enabled
+
+let register_components ~__context ~self ~host =
+  List.iter (fun component ->
+      register_component ~__context ~self ~host ~component
   )
 
 let register ~__context ~self =
   Db.Observer.get_components ~__context ~self
+  |> List.map Component.of_string
   |> observed_components_of
   |> register_components ~__context ~self
 
@@ -247,97 +379,87 @@ let unregister_components ~__context ~self =
 
 let unregister ~__context ~self ~host:_ =
   Db.Observer.get_components ~__context ~self
+  |> List.map Component.of_string
   |> observed_components_of
   |> unregister_components ~__context ~self
 
 let destroy ~__context ~self = Db.Observer.destroy ~__context ~self
 
-let set_trace_log_dir ~__context dir =
-  List.iter
-    (fun c ->
-      let module Forwarder = (val get_forwarder c : ObserverInterface) in
-      Forwarder.set_trace_log_dir ~__context ~dir
-    )
-    supported_components
+let set_trace_log_dir ~__context dir component =
+  let module Forwarder = (val get_forwarder component : ObserverInterface) in
+  Forwarder.set_trace_log_dir ~__context ~dir
 
-let set_export_interval ~__context interval =
-  List.iter
-    (fun c ->
-      let module Forwarder = (val get_forwarder c : ObserverInterface) in
-      Forwarder.set_export_interval ~__context ~interval
-    )
-    supported_components
+let set_export_interval ~__context interval component =
+  let module Forwarder = (val get_forwarder component : ObserverInterface) in
+  Forwarder.set_export_interval ~__context ~interval
 
-let set_max_spans ~__context spans =
-  List.iter
-    (fun c ->
-      let module Forwarder = (val get_forwarder c : ObserverInterface) in
-      Forwarder.set_max_spans ~__context ~spans
-    )
-    supported_components
+let set_max_spans ~__context spans component =
+  let module Forwarder = (val get_forwarder component : ObserverInterface) in
+  Forwarder.set_max_spans ~__context ~spans
 
-let set_max_traces ~__context traces =
-  List.iter
-    (fun c ->
-      let module Forwarder = (val get_forwarder c : ObserverInterface) in
-      Forwarder.set_max_traces ~__context ~traces
-    )
-    supported_components
+let set_max_traces ~__context traces component =
+  let module Forwarder = (val get_forwarder component : ObserverInterface) in
+  Forwarder.set_max_traces ~__context ~traces
 
-let set_max_file_size ~__context file_size =
-  List.iter
-    (fun c ->
-      let module Forwarder = (val get_forwarder c : ObserverInterface) in
-      Forwarder.set_max_file_size ~__context ~file_size
-    )
-    supported_components
+let set_max_file_size ~__context file_size component =
+  let module Forwarder = (val get_forwarder component : ObserverInterface) in
+  Forwarder.set_max_file_size ~__context ~file_size
 
-let set_host_id ~__context host_id =
-  List.iter
-    (fun c ->
-      let module Forwarder = (val get_forwarder c : ObserverInterface) in
-      Forwarder.set_host_id ~__context ~host_id
-    )
-    supported_components
+let set_host_id ~__context host_id component =
+  let module Forwarder = (val get_forwarder component : ObserverInterface) in
+  Forwarder.set_host_id ~__context ~host_id
 
-let set_compress_tracing_files ~__context enabled =
-  List.iter
-    (fun c ->
-      let module Forwarder = (val get_forwarder c : ObserverInterface) in
-      Forwarder.set_compress_tracing_files ~__context ~enabled
-    )
-    supported_components
+let set_compress_tracing_files ~__context enabled component =
+  let module Forwarder = (val get_forwarder component : ObserverInterface) in
+  Forwarder.set_compress_tracing_files ~__context ~enabled
 
-let init ~__context =
-  List.iter
-    (fun c ->
-      let module Forwarder = (val get_forwarder c : ObserverInterface) in
-      Forwarder.init ~__context
-    )
-    supported_components
+let init ~__context component =
+  let module Forwarder = (val get_forwarder component : ObserverInterface) in
+  Forwarder.init ~__context
 
-let load ~__context =
+let load ~__context component =
   let all = Db.Observer.get_all ~__context in
   List.iter
     (fun self ->
       let host = Helpers.get_localhost ~__context in
       let hosts = Db.Observer.get_hosts ~__context ~self in
       if hosts = [] || List.mem host hosts then
-        register ~__context ~self ~host
+        register_component ~__context ~self ~host ~component
     )
     all
 
+let initialise_component ~__context =
+  let comp_left = ref (List.map (fun c -> (c, 1)) Component.all) in
+  fun component ->
+    load ~__context component ;
+    List.assoc_opt component !comp_left
+    |> Option.iter (fun _ ->
+           comp_left := List.remove_assoc component !comp_left ;
+           set_trace_log_dir ~__context !Xapi_globs.trace_log_dir component ;
+           set_export_interval ~__context !Xapi_globs.export_interval component ;
+           set_max_spans ~__context !Xapi_globs.max_spans component ;
+           set_max_traces ~__context !Xapi_globs.max_traces component ;
+           set_max_file_size ~__context
+             !Xapi_globs.max_observer_file_size
+             component ;
+           set_host_id ~__context (Helpers.get_localhost_uuid ()) component ;
+           set_compress_tracing_files ~__context
+             !Xapi_globs.compress_tracing_files
+             component ;
+           if component = Component.Xapi then
+             Tracing.Export.set_service_name "xapi" ;
+           init ~__context component
+       )
+
 let initialise ~__context =
-  load ~__context ;
-  set_trace_log_dir ~__context !Xapi_globs.trace_log_dir ;
-  set_export_interval ~__context !Xapi_globs.export_interval ;
-  set_max_spans ~__context !Xapi_globs.max_spans ;
-  set_max_traces ~__context !Xapi_globs.max_traces ;
-  set_max_file_size ~__context !Xapi_globs.max_observer_file_size ;
-  set_host_id ~__context (Helpers.get_localhost_uuid ()) ;
-  set_compress_tracing_files ~__context !Xapi_globs.compress_tracing_files ;
-  Tracing.Export.set_service_name "xapi" ;
-  init ~__context
+  let init_one = initialise_component ~__context in
+  Db.Observer.get_all ~__context
+  |> List.iter (fun self ->
+         Db.Observer.get_components ~__context ~self
+         |> List.map Component.of_string
+         |> observed_components_of
+         |> List.iter init_one
+     )
 
 let set_hosts ~__context ~self ~value =
   assert_valid_hosts ~__context value ;
@@ -363,7 +485,10 @@ let set_enabled ~__context ~self ~value =
         let module Forwarder = (val get_forwarder c : ObserverInterface) in
         Forwarder.set_enabled ~__context ~uuid ~enabled:value
       )
-      (observed_components_of (Db.Observer.get_components ~__context ~self))
+      (Db.Observer.get_components ~__context ~self
+      |> List.map Component.of_string
+      |> observed_components_of
+      )
   in
   let db_fn () = Db.Observer.set_enabled ~__context ~self ~value in
   do_set_op ~__context ~self ~observation_fn ~db_fn
@@ -381,7 +506,10 @@ let set_attributes ~__context ~self ~value =
         Forwarder.set_attributes ~__context ~uuid
           ~attributes:(default_attributes @ value)
       )
-      (observed_components_of (Db.Observer.get_components ~__context ~self))
+      (Db.Observer.get_components ~__context ~self
+      |> List.map Component.of_string
+      |> observed_components_of
+      )
   in
   let db_fn () = Db.Observer.set_attributes ~__context ~self ~value in
   do_set_op ~__context ~self ~observation_fn ~db_fn
@@ -395,8 +523,12 @@ let set_endpoints ~__context ~self ~value =
         let module Forwarder = (val get_forwarder c : ObserverInterface) in
         Forwarder.set_endpoints ~__context ~uuid ~endpoints:value
       )
-      (observed_components_of (Db.Observer.get_components ~__context ~self))
+      (Db.Observer.get_components ~__context ~self
+      |> List.map Component.of_string
+      |> observed_components_of
+      )
   in
+
   let db_fn () = Db.Observer.set_endpoints ~__context ~self ~value in
   do_set_op ~__context ~self ~observation_fn ~db_fn
 
@@ -404,16 +536,19 @@ let set_components ~__context ~self ~value =
   assert_valid_components value ;
   let db_fn () = Db.Observer.set_components ~__context ~self ~value in
   let host = Helpers.get_localhost ~__context in
-  let current = Db.Observer.get_components ~__context ~self in
-  let new_components = StringSet.of_list (observed_components_of value) in
-  let old_components = StringSet.of_list (observed_components_of current) in
-  let to_add = StringSet.diff new_components old_components in
-  let to_remove = StringSet.diff old_components new_components in
+  let current =
+    Db.Observer.get_components ~__context ~self |> List.map Component.of_string
+  in
+  let future = List.map Component.of_string value in
+  let new_components = ComponentSet.of_list (observed_components_of future) in
+  let old_components = ComponentSet.of_list (observed_components_of current) in
+  let to_add = ComponentSet.diff new_components old_components in
+  let to_remove = ComponentSet.diff old_components new_components in
   let observation_fn () =
-    StringSet.iter
+    ComponentSet.iter
       (fun unreg -> unregister_components ~__context ~self [unreg])
       to_remove ;
-    StringSet.iter
+    ComponentSet.iter
       (fun reg -> register_components ~__context ~self ~host [reg])
       to_add
   in

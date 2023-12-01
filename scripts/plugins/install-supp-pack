@@ -1,31 +1,38 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
-import subprocess
-import os
 import json
+
+import xcp.environ
+
 # Simple XenAPI plugin
 import XenAPIPlugin
-import xcp.environ
+
 
 class PluginError(Exception):
     """Base Exception class for all plugin errors."""
+
     def __init__(self, *args):
         Exception.__init__(self, *args)
 
+
 class ArgumentError(PluginError):
     """Raised when the arguments to the plugin are invalid"""
+
     def __init__(self, *args):
         PluginError.__init__(self, *args)
 
+
 class InstallFailure(PluginError):
     """Raised when there was a failure during install"""
+
     def __init__(self, *args):
         PluginError.__init__(self, *args)
+
 
 def install(session, args):
     if "vdi" not in args:
         raise ArgumentError("Key 'vdi' missing from arguments")
-    vdi=args['vdi']
+    vdi = args["vdi"]
     vdi_ref = None
     try:
         vdi_ref = session.xenapi.VDI.get_by_uuid(vdi)
@@ -33,7 +40,7 @@ def install(session, args):
         raise ArgumentError("VDI parameter invalid")
 
     inventory = xcp.environ.readInventory()
-    this_host_uuid = inventory['INSTALLATION_UUID']
+    this_host_uuid = inventory["INSTALLATION_UUID"]
     this_host_ref = session.xenapi.host.get_by_uuid(this_host_uuid)
 
     update_ref = None
@@ -49,12 +56,13 @@ def install(session, args):
             # pool_update.apply returns json format string like
             # "['ERRORCODE', 'error_message']"
             # fetch the error_message and display it.
-            error = json.loads(str(e))[1].encode('utf8')
+            error = json.loads(str(e))[1].encode("utf8")
         except:
             error = str(e)
         raise InstallFailure("Failed to install the supplemental pack", error)
 
     return "OK"
+
 
 if __name__ == "__main__":
     XenAPIPlugin.dispatch({"install": install})

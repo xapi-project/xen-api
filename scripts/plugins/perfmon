@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # A plugin for requesting perfmon actions via the xe host-call-plugin mechanism
 
@@ -37,7 +37,7 @@ def start(session, args):
 def restart(session, args):
     rc = os.system("/etc/init.d/perfmon restart &>/dev/null")
     return str(rc == 0)
-    
+
 def refresh(session, args):
     return send_perfmon_cmd("refresh")
 
@@ -46,4 +46,3 @@ def debug_mem(session,args):
 
 if __name__ == "__main__":
     XenAPIPlugin.dispatch({"stop": stop, "start": start, "restart": restart, "refresh": refresh, "debug_mem": debug_mem})
-

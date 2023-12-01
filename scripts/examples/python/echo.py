@@ -1,7 +1,10 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # Simple XenAPI plugin
-import XenAPIPlugin, time
+import time
+
+import XenAPIPlugin
+
 
 def main(session, args):
     if "sleep" in args:
@@ -9,7 +12,6 @@ def main(session, args):
         time.sleep(secs)
     return "args were: %s" % (repr(args))
 
+
 if __name__ == "__main__":
     XenAPIPlugin.dispatch({"main": main})
-
-
