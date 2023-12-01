@@ -24,11 +24,15 @@ module Guidance : sig
     | RebootHostOnXenLivePatchFailure
     | RestartVM
 
-  type guidance_kind = Absolute | Recommended
+  type kind = Mandatory | Recommended | Full | Livepatch
+
+  val kind_to_string : kind -> string
 
   val compare : t -> t -> int
 
   val to_string : t -> string
+
+  val to_json : t -> Yojson.Basic.t
 
   (* may fail *)
   val of_string : string -> t
@@ -113,19 +117,30 @@ module Severity : sig
   val of_string : string -> t
 end
 
-(** The metadata of one update in updateinfo *)
+(** The type of [guidance] in updateinfo metadata. *)
+module GuidanceInUpdateInfo : sig
+  type t = (Guidance.kind * Guidance.t list) list
+
+  val default : t
+
+  val of_xml : Xml.xml list -> t
+
+  val to_json : t -> Yojson.Basic.t
+
+  val to_string : t -> string
+end
+
+(** The metadata of one update in updateinfo. *)
 module UpdateInfo : sig
   type t = {
       id: string
     ; summary: string
     ; description: string
-    ; rec_guidance: Guidance.t option
-    ; abs_guidance: Guidance.t option
+    ; guidance: GuidanceInUpdateInfo.t
     ; guidance_applicabilities: Applicability.t list
     ; spec_info: string
     ; url: string
     ; update_type: string
-    ; livepatch_guidance: Guidance.t option
     ; livepatches: LivePatch.t list
     ; issued: Xapi_stdext_date.Date.t
     ; severity: Severity.t
@@ -138,6 +153,8 @@ module UpdateInfo : sig
   val of_xml : Xml.xml -> (string * t) list
 
   val of_xml_file : string -> (string * t) list
+
+  val get_guidances_of_kind : kind:Guidance.kind -> t -> Guidance.t list
 end
 
 module HostUpdates : sig
