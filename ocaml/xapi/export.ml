@@ -771,16 +771,6 @@ let metadata_handler (req : Request.t) s _ =
         else
           [vm_from_request ~__context req]
       in
-      if
-        (not export_all)
-        && Db.VM.get_is_a_snapshot ~__context ~self:(List.hd vm_refs)
-      then
-        raise
-          (Api_errors.Server_error
-             ( Api_errors.operation_not_allowed
-             , ["Exporting metadata of a snapshot is not allowed"]
-             )
-          ) ;
       let task_id = Ref.string_of (Context.get_task_id __context) in
       let read_fd, write_fd = Unix.pipe () in
       let export_error = ref None in
