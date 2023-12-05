@@ -20,6 +20,9 @@ module Guidance : sig
     | EvacuateHost
     | RestartDeviceModel
     | RebootHostOnLivePatchFailure
+    | RebootHostOnKernelLivePatchFailure
+    | RebootHostOnXenLivePatchFailure
+    | RestartVM
 
   type guidance_kind = Absolute | Recommended
 
@@ -33,8 +36,11 @@ module Guidance : sig
   val of_update_guidance :
        [< `reboot_host
        | `reboot_host_on_livepatch_failure
+       | `reboot_host_on_kernel_livepatch_failure
+       | `reboot_host_on_xen_livepatch_failure
        | `restart_device_model
-       | `restart_toolstack ]
+       | `restart_toolstack
+       | `restart_vm ]
     -> t
 end
 

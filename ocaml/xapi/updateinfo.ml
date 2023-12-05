@@ -24,6 +24,9 @@ module Guidance = struct
     | EvacuateHost
     | RestartDeviceModel
     | RebootHostOnLivePatchFailure
+    | RebootHostOnKernelLivePatchFailure
+    | RebootHostOnXenLivePatchFailure
+    | RestartVM
 
   type guidance_kind = Absolute | Recommended
 
@@ -40,6 +43,12 @@ module Guidance = struct
         "RestartDeviceModel"
     | RebootHostOnLivePatchFailure ->
         "RebootHostOnLivePatchFailure"
+    | RebootHostOnKernelLivePatchFailure ->
+        "RebootHostOnKernelLivePatchFailure"
+    | RebootHostOnXenLivePatchFailure ->
+        "RebootHostOnXenLivePatchFailure"
+    | RestartVM ->
+        "RestartVM"
 
   let of_string = function
     | "RebootHost" ->
@@ -50,6 +59,8 @@ module Guidance = struct
         EvacuateHost
     | "RestartDeviceModel" ->
         RestartDeviceModel
+    | "RestartVM" ->
+        RestartVM
     | g ->
         warn
           "Un-recognized guidance in \
@@ -63,10 +74,16 @@ module Guidance = struct
         RebootHost
     | `reboot_host_on_livepatch_failure ->
         RebootHostOnLivePatchFailure
+    | `reboot_host_on_kernel_livepatch_failure ->
+        RebootHostOnKernelLivePatchFailure
+    | `reboot_host_on_xen_livepatch_failure ->
+        RebootHostOnXenLivePatchFailure
     | `restart_toolstack ->
         RestartToolstack
     | `restart_device_model ->
         RestartDeviceModel
+    | `restart_vm ->
+        RestartVM
 end
 
 module Applicability = struct
