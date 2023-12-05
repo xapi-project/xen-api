@@ -237,6 +237,10 @@ let dss_vcpus xc doms =
       in
       (* Runstate info is per-domain rather than per-vcpu *)
       let dss =
+        let dom_cpu_time =
+          Int64.(to_float @@ logand dom.Xenctrl.cpu_time xen_flag_complement)
+        in
+        let dom_cpu_time = dom_cpu_time /. 1.0e9 in
         try
           let ri = Xenctrl.domain_get_runstate_info xc domid in
           ( Rrd.VM uuid
@@ -285,6 +289,14 @@ let dss_vcpus xc doms =
                    "Fraction of time that some VCPUs are runnable and some are \
                     blocked"
                  ~ty:Rrd.Derive ~default:false ~min:0.0 ()
+             )
+          :: ( Rrd.VM uuid
+             , Ds.ds_make
+                 ~name:(Printf.sprintf "cpu_usage")
+                 ~units:"(fraction)"
+                 ~description:(Printf.sprintf "Domain CPU usage")
+                 ~value:(Rrd.VT_Float dom_cpu_time) ~ty:Rrd.Derive ~default:true
+                 ~min:0.0 ~max:1.0 ()
              )
           :: dss
         with _ -> dss
@@ -545,6 +557,34 @@ let bytes_per_mem_vm = 1024
 
 let mem_vm_writer_pages = ((max_supported_vms * bytes_per_mem_vm) + 4095) / 4096
 
+let res_error fmt = Printf.kprintf Result.error fmt
+
+let ok x = Result.ok x
+
+let ( let* ) = Result.bind
+
+let finally f always = Fun.protect ~finally:always f
+
+let scanning path f =
+  let io = Scanf.Scanning.open_in path in
+  finally (fun () -> f io) (fun () -> Scanf.Scanning.close_in io)
+
+let scan path =
+  try
+    scanning path @@ fun io ->
+    Scanf.bscanf io {|MemTotal: %_d %_s MemFree: %_d %_s MemAvailable: %Ld %s|}
+      (fun size kb -> ok (size, kb)
+    )
+  with _ -> res_error "failed to scan %s" path
+
+let mem_available () =
+  let* size, kb = scan "/proc/meminfo" in
+  match kb with
+  | "kB" ->
+      ok Int64.(mul size 1024L)
+  | _ ->
+      res_error "unexpected unit: %s" kb
+
 let dss_mem_vms doms =
   List.fold_left
     (fun acc (dom, uuid, domid) ->
@@ -580,7 +620,21 @@ let dss_mem_vms doms =
       in
       let other_ds =
         if domid = 0 then
-          None
+          match mem_available () with
+          | Ok mem ->
+              Some
+                ( Rrd.VM uuid
+                , Ds.ds_make ~name:"memory_internal_free" ~units:"B"
+                    ~description:"Dom0 current free memory"
+                    ~value:(Rrd.VT_Int64 mem) ~ty:Rrd.Gauge ~min:0.0
+                    ~default:true ()
+                )
+          | Error msg ->
+              let _ =
+                error "%s: retrieving  Dom0 free memory failed: %s" __FUNCTION__
+                  msg
+              in
+              None
         else
           try
             let mem_free =
