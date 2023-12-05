@@ -25,13 +25,10 @@ type host_info = {
   ; machine_serial_number: string option
   ; machine_serial_name: string option
   ; total_memory_mib: int64 option
-  ; dom0_static_max: int64 option
   ; cpu_info: Xenops_interface.Host.cpu_info option
   ; chipset_info: Xenops_interface.Host.chipset_info option
   ; hypervisor: Xenops_interface.Host.hypervisor option
 }
-
-val read_dom0_memory_usage : unit -> int64 option
 
 val read_localhost_info : __context:Context.t -> host_info
 (** [read_localhost_info ~__context] creates a [host_info] record with fresh
