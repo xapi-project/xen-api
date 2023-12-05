@@ -362,7 +362,14 @@ let consider_enabling_host_nolock ~__context =
          pbds
       )
   in
-  if
+  let host_pending_mandatory_guidances =
+    Db.Host.get_pending_guidances ~__context ~self:localhost
+  in
+  if host_pending_mandatory_guidances <> [] then
+    debug
+      "Host.enabled: host remains pending mandatory guidances not applied. \
+       Leaving host disabled"
+  else if
     (not !user_requested_host_disable)
     && ((not ha_enabled) || all_pbds_ok)
     && is_xen_compatible ()

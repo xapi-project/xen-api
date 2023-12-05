@@ -1963,6 +1963,12 @@ let _ =
   error Api_errors.no_repositories_configured []
     ~doc:"No update repositories have been configured." () ;
 
+  error Api_errors.host_pending_mandatory_guidances_not_empty ["host"]
+    ~doc:
+      "The specified server is disabled and cannot be re-enabled until all of \
+       its pending mandatory guidances got applied."
+    () ;
+
   message
     (fst Api_messages.ha_pool_overcommitted)
     ~doc:
