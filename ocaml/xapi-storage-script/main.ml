@@ -84,7 +84,7 @@ module Sys = struct
       return
       (fun exn -> fail (`not_executable (path, exn)))
 
-  let is_executable path =
+  let assert_is_executable path =
     is_file ~follow_symlinks:true path >>= function
     | No | Unknown ->
         fail (`missing path)
@@ -162,7 +162,7 @@ end = struct
   end
 
   let create ~prog ~args =
-    let args = List.to_seq (prog :: args) |> Array.of_seq in
+    let args = Array.of_list (prog :: args) in
     let cmd = ("", args) in
 
     Lwt_process.open_process_full cmd
@@ -192,6 +192,8 @@ module FileWatcher = struct
       Inotify.[S_Close; S_Create; S_Delete; S_Delete_self; S_Modify; S_Move]
     in
     Lwt_inotify.add_watch desc path selectors >>= fun watch ->
+    (* Deduplicate the watches by removing the prvious one from inotify and
+       replacing it in the table *)
     let maybe_remove =
       match Hashtbl.find_opt watches watch with
       | Some _path ->
@@ -607,7 +609,7 @@ module Script = struct
       in
       let script_name = Option.value cached_script_name ~default:script_name in
       let path = script_dir // script_name in
-      Sys.is_executable path >>>= fun () -> return path
+      Sys.assert_is_executable path >>>= fun () -> return path
     in
     find () >>= function
     | Ok path ->
