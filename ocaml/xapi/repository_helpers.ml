@@ -1224,6 +1224,16 @@ let merge_livepatches ~livepatches =
        )
        (UpdateIdSet.empty, [])
 
+let reduce_guidance ~updates_info ~updates ~livepatches =
+  let open Guidance in
+  (* The order does matter with the following reducing *)
+  [Mandatory; Recommended; Full]
+  |> List.map (fun kind ->
+         (kind, eval_guidances ~updates_info ~updates ~kind ~livepatches)
+     )
+  |> GuidanceSet.reduce_cascaded_list
+  |> List.map (fun (kind, s) -> (kind, GuidanceSet.elements s))
+
 let consolidate_updates_of_host ~repository_name ~updates_info host
     updates_of_host =
   let latest_updates =
@@ -1257,16 +1267,7 @@ let consolidate_updates_of_host ~repository_name ~updates_info host
   let livepatches =
     retrieve_livepatches_from_updateinfo ~updates_info ~updates:updates_of_host
   in
-  let guidance =
-    let open Guidance in
-    (* The order does matter with the following reducing *)
-    [Mandatory; Recommended; Full]
-    |> List.map (fun kind ->
-           (kind, eval_guidances ~updates_info ~updates ~kind ~livepatches)
-       )
-    |> GuidanceSet.reduce_cascaded_list
-    |> List.map (fun (kind, s) -> (kind, GuidanceSet.elements s))
-  in
+  let guidance = reduce_guidance ~updates_info ~updates ~livepatches in
   let upd_ids_of_livepatches, lps = merge_livepatches ~livepatches in
   let upd_ids = UpdateIdSet.union ids_of_updates upd_ids_of_livepatches in
   let host_updates =
@@ -1407,22 +1408,12 @@ type pending_ops = {
 let get_ops_of_pending ~__context ~host ~kind =
   let get_pending_guidances_of_host ~db_get =
     db_get ~__context ~self:host
-    |> List.map (fun g -> Guidance.of_pending_guidance g)
+    |> List.map Guidance.of_pending_guidance
   in
   let get_pending_guidances_of_vms ~db_get =
     Db.Host.get_resident_VMs ~__context ~self:host
-    |> List.map (fun self -> (self, Db.VM.get_record ~__context ~self))
-    |> List.filter_map (fun (ref, record) ->
-           match
-             ( record.API.vM_is_control_domain
-             , record.API.vM_power_state
-             , Helpers.has_qemu_currently ~__context ~self:ref
-             )
-           with
-           | false, `Running, true | false, `Paused, true ->
-               Some ref
-           | _ ->
-               None
+    |> List.filter (fun self ->
+           not (Db.VM.get_is_control_domain ~__context ~self)
        )
     |> List.map (fun vm_ref ->
            let pending_guidances =
@@ -1431,6 +1422,15 @@ let get_ops_of_pending ~__context ~host ~kind =
            in
            (Ref.string_of vm_ref, pending_guidances)
        )
+  in
+  let is_vm_applicable ~self = function
+    | `restart_device_model ->
+        Helpers.has_qemu_currently ~__context ~self
+    | `restart_vm ->
+        (* RestartVM will be set in host.apply_updates when updating the coordinator.
+         * To avoid confusions, not setting it here.
+         *)
+        false
   in
   match kind with
   | Guidance.Mandatory ->
@@ -1447,15 +1447,66 @@ let get_ops_of_pending ~__context ~host ~kind =
         get_pending_guidances_of_vms ~db_get:Db.VM.get_pending_guidances
       in
       let vm_add vm value =
-        Db.VM.add_pending_guidances ~__context ~self:(Ref.of_string vm) ~value
+        let self = Ref.of_string vm in
+        if is_vm_applicable ~self value then
+          Db.VM.add_pending_guidances ~__context ~self:(Ref.of_string vm) ~value
       in
       let vm_remove vm value =
         Db.VM.remove_pending_guidances ~__context ~self:(Ref.of_string vm)
           ~value
       in
       {host_get; host_add; host_remove; vms_get; vm_add; vm_remove}
-  | _ ->
-      raise Api_errors.(Server_error (internal_error, ["Not implemented kind"]))
+  | Guidance.Recommended ->
+      let host_get () =
+        get_pending_guidances_of_host
+          ~db_get:Db.Host.get_pending_guidances_recommended
+      in
+      let host_add value =
+        Db.Host.add_pending_guidances_recommended ~__context ~self:host ~value
+      in
+      let host_remove value =
+        Db.Host.remove_pending_guidances_recommended ~__context ~self:host
+          ~value
+      in
+      let vms_get () =
+        get_pending_guidances_of_vms
+          ~db_get:Db.VM.get_pending_guidances_recommended
+      in
+      let vm_add vm value =
+        let self = Ref.of_string vm in
+        if is_vm_applicable ~self value then
+          Db.VM.add_pending_guidances_recommended ~__context ~self ~value
+      in
+      let vm_remove vm value =
+        Db.VM.remove_pending_guidances_recommended ~__context
+          ~self:(Ref.of_string vm) ~value
+      in
+      {host_get; host_add; host_remove; vms_get; vm_add; vm_remove}
+  | Guidance.Full ->
+      let host_get () =
+        get_pending_guidances_of_host ~db_get:Db.Host.get_pending_guidances_full
+      in
+      let host_add value =
+        Db.Host.add_pending_guidances_full ~__context ~self:host ~value
+      in
+      let host_remove value =
+        Db.Host.remove_pending_guidances_full ~__context ~self:host ~value
+      in
+      let vms_get () =
+        get_pending_guidances_of_vms ~db_get:Db.VM.get_pending_guidances_full
+      in
+      let vm_add vm value =
+        let self = Ref.of_string vm in
+        if is_vm_applicable ~self value then
+          Db.VM.add_pending_guidances_full ~__context ~self ~value
+      in
+      let vm_remove vm value =
+        Db.VM.remove_pending_guidances_full ~__context ~self:(Ref.of_string vm)
+          ~value
+      in
+      {host_get; host_add; host_remove; vms_get; vm_add; vm_remove}
+  | Guidance.Livepatch ->
+      raise Api_errors.(Server_error (internal_error, ["No pending operations for Livepatch guidance"]))
 
 let set_pending_guidances ~ops ~coming =
   let pending_of_host =
@@ -1477,3 +1528,84 @@ let set_pending_guidances ~ops ~coming =
            to_be_removed ;
          do_with_vm_pending_guidances ~op:ops.vm_add ~vm:vm_ref_str to_be_added
      )
+
+let failure_of_livepatch_component = function
+  | Livepatch.Xen ->
+      Guidance.RebootHostOnXenLivePatchFailure
+  | Livepatch.Kernel ->
+      Guidance.RebootHostOnKernelLivePatchFailure
+
+let component_of_livepatch_failure = function
+  | Guidance.RebootHostOnXenLivePatchFailure ->
+      Some Livepatch.Xen
+  | Guidance.RebootHostOnKernelLivePatchFailure ->
+      Some Livepatch.Kernel
+  | _ ->
+      None
+
+let merge_livepatch_failures ~previous_failures ~applied ~failed =
+  let current_failures = List.map failure_of_livepatch_component failed in
+  (* Determine how to deal with previous livepatch failures *)
+  List.fold_left
+    (fun acc_fails prev_fail ->
+      match component_of_livepatch_failure prev_fail with
+      | Some prev_failed_component -> (
+          let comp_str = Livepatch.string_of_component prev_failed_component in
+          match
+            ( List.mem prev_fail current_failures
+            , List.mem prev_failed_component applied
+            )
+          with
+          | true, false ->
+              debug "%s Livepatch failed again." comp_str ;
+              acc_fails
+          | false, true ->
+              (* applied in this update. No changes on current failures *)
+              debug
+                "%s Livepatch (failed in previous updates) has been applied."
+                comp_str ;
+              acc_fails
+          | true, true ->
+              (* Impossible case: a component is in both failed and applied *)
+              warn "%s Livepatch shouldn't be in both applied and failed lists."
+                comp_str ;
+              acc_fails
+          | false, false ->
+              (* Didn't try in this update. Keep previous failure in current list *)
+              debug "%s Livepatch failed in previous updates." comp_str ;
+              prev_fail :: acc_fails
+        )
+      | None ->
+          warn "Unknown livepatch failure." ;
+          acc_fails
+    )
+    current_failures previous_failures
+  |> fun failures ->
+  let open GuidanceSet in
+  let to_be_removed =
+    diff (of_list previous_failures) (of_list failures) |> elements
+  in
+  let to_be_added =
+    diff (of_list failures) (of_list previous_failures) |> elements
+  in
+  (to_be_removed, to_be_added)
+
+let update_livepatch_failure_guidance ~__context ~host ~applied ~failed =
+  let previous_failures =
+    Db.Host.get_pending_guidances_recommended ~__context ~self:host
+    |> List.map Guidance.of_pending_guidance
+    |> List.filter is_livepatch_failure
+  in
+  let to_be_removed, to_be_added =
+    merge_livepatch_failures ~previous_failures ~applied ~failed
+  in
+  (* The livepatch failure guidance is in host pending recommended list *)
+  let host_remove value =
+    Db.Host.remove_pending_guidances_recommended ~__context ~self:host ~value
+  in
+  let host_add value =
+    Db.Host.add_pending_guidances_recommended ~__context ~self:host ~value
+  in
+  List.iter host_remove
+    (List.filter_map Guidance.to_pending_guidance to_be_removed) ;
+  List.iter host_add (List.filter_map Guidance.to_pending_guidance to_be_added)

@@ -674,18 +674,25 @@ let apply_updates' ~__context ~host ~updates_info ~livepatches ~acc_rpm_updates
     =
   (* This function runs on coordinator host *)
   let open Guidance in
-  let get_guidances kind =
-    eval_guidances ~updates_info ~updates:acc_rpm_updates ~kind ~livepatches
-    |> GuidanceSet.remove EvacuateHost
-    |> GuidanceSet.elements
+  let guidance =
+    reduce_guidance ~updates_info ~updates:acc_rpm_updates ~livepatches
+    (* EvacuateHost should be carried out before host.apply_updates *)
+    |> List.map (fun (k, l) -> (k, List.filter (fun x -> x <> EvacuateHost) l))
   in
-  let mandatory = get_guidances Mandatory in
+  let mandatory =
+    match List.assoc_opt Mandatory guidance with
+    | Some tasks ->
+        tasks
+    | None ->
+        warn "No mandatory guidance found. Ignore it." ;
+        []
+  in
   (* Install RPM updates *)
   Helpers.call_api_functions ~__context (fun rpc session_id ->
       Client.Client.Repository.apply ~rpc ~session_id ~host
   ) ;
   (* Apply livepatches *)
-  let _, failed_livepatches =
+  let applied_livepatches, failed_livepatches =
     match List.mem RebootHost mandatory with
     | true ->
         (* Not apply any livepatches as the host will reboot *)
@@ -695,11 +702,22 @@ let apply_updates' ~__context ~host ~updates_info ~livepatches ~acc_rpm_updates
   in
   (* Update states in cache *)
   update_cache ~host ~failed_livepatches ;
-  List.iter
-    (fun g -> debug "mandatory pending_guidance: %s" (to_string g))
-    mandatory ;
-  let ops = get_ops_of_pending ~__context ~host ~kind:Mandatory in
-  set_pending_guidances ~ops ~coming:mandatory ;
+  (* Set pending guidance lists *)
+  let set_guidance ~kind ~coming =
+    List.iter
+      (fun g ->
+        debug "setting %s pending guidance: %s" (kind_to_string kind)
+          (to_string g)
+      )
+      coming ;
+    let ops = get_ops_of_pending ~__context ~host ~kind in
+    set_pending_guidances ~ops ~coming
+  in
+  guidance |> List.iter (fun (kind, coming) -> set_guidance ~kind ~coming) ;
+  let get_livepatch_component (lp, _) = lp.LivePatch.component in
+  let applied = List.map get_livepatch_component applied_livepatches in
+  let failed = List.map get_livepatch_component failed_livepatches in
+  update_livepatch_failure_guidance ~__context ~host ~applied ~failed ;
   List.map
     (fun (lp, _) -> [Api_errors.apply_livepatch_failed; LivePatch.to_string lp])
     failed_livepatches
