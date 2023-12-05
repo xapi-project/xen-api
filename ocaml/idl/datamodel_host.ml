@@ -2168,13 +2168,14 @@ let t =
         ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:(Set update_guidances)
             "pending_guidances_recommended" ~default_value:(Some (VSet []))
             "The set of pending recommended guidances after applying updates, \
-             which we suggest that most users should follow, but if not \
-             followed, will not cause a failure"
+             which most users should follow to make the updates effective, but \
+             if not followed, will not cause a failure"
         ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:(Set update_guidances)
             "pending_guidances_full" ~default_value:(Some (VSet []))
             "The set of pending full guidances after applying updates, which a \
-             user should follow if they want to make the update fully \
-             effective, but the 'average user' doesn't need to"
+             user should follow to make some updates, e.g. specific hardware \
+             drivers or CPU features, fully effective, but the 'average user' \
+             doesn't need to"
         ]
       )
     ()
