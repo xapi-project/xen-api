@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # Receive multiple VMs
 # Issue parallel loops of: reboot, suspend/resume, migrate

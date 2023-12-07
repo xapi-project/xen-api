@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # Copyright (c) 2006-2008 Citrix Systems.
 #
 # Permission to use, copy, modify, and distribute this software for any
