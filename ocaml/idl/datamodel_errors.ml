@@ -1965,6 +1965,9 @@ let _ =
        its pending mandatory guidances got applied."
     () ;
 
+  error Api_errors.host_evacuation_is_required ["host"]
+    ~doc:"Host evacuation is required before applying updates." () ;
+
   message
     (fst Api_messages.ha_pool_overcommitted)
     ~doc:
