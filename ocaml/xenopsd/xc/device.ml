@@ -3629,13 +3629,13 @@ module Dm = struct
     let module Q = (val Backend.of_profile dm) in
     Q.Dm.pci_assign_guest ~xs ~index ~host
 
+  let ioemu_failed emu fmt =
+    Printf.kprintf (fun msg -> raise (Ioemu_failed (emu, msg))) fmt
+
   let wait_for_vgpu_state states ~timeout ~xs ~domid ~task vgpus =
     let open Xenops_interface.Vgpu in
     match vgpus with
     | {implementation= Nvidia {vclass= _; _}; _} :: _ -> (
-        let ioemu_failed fmt =
-          Printf.kprintf (fun msg -> raise (Ioemu_failed ("vgpu", msg))) fmt
-        in
         let error_path =
           Printf.sprintf "/local/domain/%d/vgpu/error-code" domid
         in
@@ -3655,7 +3655,7 @@ module Dm = struct
             let error_code = xs.Xs.read error_path in
             error "%s: daemon vgpu for domain %d returned error: %s"
               __FUNCTION__ domid error_code ;
-            ioemu_failed "Daemon vgpu returned error: %s" error_code
+            ioemu_failed "vgpu" "Daemon vgpu returned error: %s" error_code
       )
     | _ ->
         ()
@@ -3674,7 +3674,11 @@ module Dm = struct
           let pcis = List.map (fun x -> x.physical_pci_address) vgpus in
           PCI.bind pcis PCI.Nvidia ;
           let module Q = (val Backend.of_profile profile) in
-          Service.Vgpu.start ~xs ~vcpus ~vgpus ~restore task domid
+          try Service.Vgpu.start ~xs ~vcpus ~vgpus ~restore task domid
+          with e ->
+            error "%s: vgpu start failed: %s" __FUNCTION__ (Printexc.to_string e) ;
+            ioemu_failed "vgpu" "%s: emulator failed to start for domain %d"
+              __FUNCTION__ domid
         ) else
           info "Daemon %s is already running for domain %d" !Xc_resources.vgpu
             domid ;
