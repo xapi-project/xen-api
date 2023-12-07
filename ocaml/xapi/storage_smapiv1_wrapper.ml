@@ -92,26 +92,9 @@ let indent x = "    " ^ x
 
 let string_of_date x = Date.to_string (Date.of_float x)
 
-(* Sets the logging context based on `dbg`.
-   Also adds a new tracing span, linked to the parent span from `dbg`, if available. *)
 let with_dbg ~name ~dbg f =
-  let open Debuginfo in
-  let di = of_string dbg in
-  Debug.with_thread_associated di.log
-    (fun () ->
-      let name = "SMAPIv1." ^ name in
-      let tracer = Tracing.get_tracer ~name in
-      let span = Tracing.Tracer.start ~tracer ~name ~parent:di.tracing () in
-      match span with
-      | Ok span_context ->
-          let result = f {di with tracing= span_context} in
-          let _ = Tracing.Tracer.finish span_context in
-          result
-      | Error e ->
-          D.warn "Failed to start tracing: %s" (Printexc.to_string e) ;
-          f di
-    )
-    ()
+  Debuginfo.with_dbg ~with_thread:true ~module_name:"SMAPIv1-Wrapper" ~name ~dbg
+    f
 
 let rpc_fns keyty valty =
   let rpc_of hashtbl =
