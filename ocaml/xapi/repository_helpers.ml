@@ -1609,3 +1609,34 @@ let update_livepatch_failure_guidance ~__context ~host ~applied ~failed =
   List.iter host_remove
     (List.filter_map Guidance.to_pending_guidance to_be_removed) ;
   List.iter host_add (List.filter_map Guidance.to_pending_guidance to_be_added)
+
+let assert_no_host_pending_mandatory_guidance ~__context ~host =
+  match Db.Host.get_pending_guidances ~__context ~self:host with
+  | [] ->
+      ()
+  | _ :: _ ->
+      raise
+        Api_errors.(
+          Server_error
+            (host_pending_mandatory_guidances_not_empty, [Ref.string_of host])
+        )
+
+let assert_host_evacuation_if_required ~__context ~host ~mandatory =
+  let open Guidance in
+  let need_evacuation =
+    List.exists (fun g -> g = RebootHost || g = EvacuateHost) mandatory
+  in
+  let resident_vms =
+    Db.Host.get_resident_VMs ~__context ~self:host
+    |> List.filter (fun self ->
+           not (Db.VM.get_is_control_domain ~__context ~self)
+       )
+  in
+  match (need_evacuation, resident_vms <> []) with
+  | true, true ->
+      raise
+        Api_errors.(
+          Server_error (host_evacuation_is_required, [Ref.string_of host])
+        )
+  | _ ->
+      ()

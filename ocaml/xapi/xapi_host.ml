@@ -3027,6 +3027,10 @@ let apply_updates ~__context ~self ~hash =
     let pool = Helpers.get_pool ~__context in
     if Db.Pool.get_ha_enabled ~__context ~self:pool then
       raise Api_errors.(Server_error (ha_is_enabled, [])) ;
+    if Db.Host.get_enabled ~__context ~self then (
+      disable ~__context ~host:self ;
+      Xapi_host_helpers.update_allowed_operations ~__context ~self
+    ) ;
     Xapi_host_helpers.with_host_operation ~__context ~self
       ~doc:"Host.apply_updates" ~op:`apply_updates
     @@ fun () -> Repository.apply_updates ~__context ~host:self ~hash

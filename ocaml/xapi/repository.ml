@@ -687,6 +687,7 @@ let apply_updates' ~__context ~host ~updates_info ~livepatches ~acc_rpm_updates
         warn "No mandatory guidance found. Ignore it." ;
         []
   in
+  assert_host_evacuation_if_required ~__context ~host ~mandatory ;
   (* Install RPM updates *)
   Helpers.call_api_functions ~__context (fun rpc session_id ->
       Client.Client.Repository.apply ~rpc ~session_id ~host
@@ -724,6 +725,7 @@ let apply_updates' ~__context ~host ~updates_info ~livepatches ~acc_rpm_updates
 
 let apply_updates ~__context ~host ~hash =
   (* This function runs on coordinator host *)
+  assert_no_host_pending_mandatory_guidance ~__context ~host ;
   try
     let repository = get_single_enabled_update_repository ~__context in
     if hash = "" || hash <> Db.Repository.get_hash ~__context ~self:repository

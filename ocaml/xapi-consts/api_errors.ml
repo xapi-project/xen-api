@@ -1288,6 +1288,8 @@ let no_repositories_configured = "NO_REPOSITORIES_CONFIGURED"
 let host_pending_mandatory_guidances_not_empty =
   "HOST_PENDING_MANDATORY_GUIDANCE_NOT_EMPTY"
 
+let host_evacuation_is_required = "HOST_EVACUATION_IS_REQUIRED"
+
 (* VTPMs *)
 
 let vtpm_max_amount_reached = "VTPM_MAX_AMOUNT_REACHED"
