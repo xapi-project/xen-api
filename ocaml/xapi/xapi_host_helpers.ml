@@ -367,7 +367,7 @@ let consider_enabling_host_nolock ~__context =
   in
   if host_pending_mandatory_guidances <> [] then
     debug
-      "Host.enabled: host remains pending mandatory guidances not applied. \
+      "Host.enabled: host has mandatory guidances pending to be applied. \
        Leaving host disabled"
   else if
     (not !user_requested_host_disable)

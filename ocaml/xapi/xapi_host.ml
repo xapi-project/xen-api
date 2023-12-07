@@ -78,13 +78,17 @@ let assert_safe_to_reenable ~__context ~self =
   let host_pending_mandatory_guidances =
     Db.Host.get_pending_guidances ~__context ~self
   in
-  if host_pending_mandatory_guidances <> [] then
+  if host_pending_mandatory_guidances <> [] then (
+    info "%s: %d mandatory guidances are pending for host %s" __FUNCTION__
+      (List.length host_pending_mandatory_guidances)
+      (Ref.string_of self) ;
     raise
       (Api_errors.Server_error
          ( Api_errors.host_pending_mandatory_guidances_not_empty
          , [Ref.string_of self]
          )
-      ) ;
+      )
+  ) ;
   let host_disabled_until_reboot =
     try bool_of_string (Localdb.get Constants.host_disabled_until_reboot)
     with _ -> false
