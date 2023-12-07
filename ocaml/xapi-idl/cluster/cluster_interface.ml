@@ -81,6 +81,14 @@ type tls_config = {
 
 type optional_path = string option [@@deriving rpcty]
 
+type quorum_info = {
+    is_quorate: bool
+  ; total_votes: int
+  ; quorum: int  (** number of nodes required to form a quorum *)
+  ; quorum_members: all_members option
+}
+[@@deriving rpcty]
+
 (** This type contains diagnostic information about the current state of the
     cluster daemon. All state required for test purposes should be in this type. *)
 type diagnostics = {
@@ -95,6 +103,9 @@ type diagnostics = {
   ; num_times_booted: int
   ; is_quorate: bool
   ; is_running: bool
+  ; total_votes: int
+  ; quorum: int
+  ; quorum_members: all_members option
   ; startup_finished: bool
 }
 [@@deriving rpcty]
