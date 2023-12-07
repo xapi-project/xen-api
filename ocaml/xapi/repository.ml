@@ -532,6 +532,20 @@ let get_repository_handler (req : Http.Request.t) s _ =
     Http_svr.response_forbidden ~req s
   )
 
+let consolidate_updates_of_hosts ~repository_name ~updates_info ~hosts =
+  Hashtbl.fold
+    (fun host updates_of_host (acc1, acc2) ->
+      if List.mem host hosts then
+        let updates_of_host, upd_ids =
+          consolidate_updates_of_host ~repository_name ~updates_info
+            (Ref.string_of host) updates_of_host
+        in
+        (updates_of_host :: acc1, UpdateIdSet.union upd_ids acc2)
+      else
+        (acc1, acc2)
+    )
+    updates_in_cache ([], UpdateIdSet.empty)
+
 let get_pool_updates_in_json ~__context ~hosts =
   try
     let repository = get_single_enabled_update_repository ~__context in
@@ -543,18 +557,7 @@ let get_pool_updates_in_json ~__context ~hosts =
       parse_updateinfo ~__context ~self:repository ~check:true
     in
     let updates_of_hosts, ids_of_updates =
-      Hashtbl.fold
-        (fun host updates_of_host (acc1, acc2) ->
-          if List.mem host hosts then
-            let updates_of_host, upd_ids =
-              consolidate_updates_of_host ~repository_name ~updates_info
-                (Ref.string_of host) updates_of_host
-            in
-            (updates_of_host :: acc1, UpdateIdSet.union upd_ids acc2)
-          else
-            (acc1, acc2)
-        )
-        updates_in_cache ([], UpdateIdSet.empty)
+      consolidate_updates_of_hosts ~repository_name ~updates_info ~hosts
     in
     let lps =
       updates_of_hosts
@@ -670,6 +673,55 @@ let update_cache ~host ~failed_livepatches =
       ]
       )
 
+let maybe_set_restart_for_all_vms ~__context ~updates_of_hosts =
+  let open Guidance in
+  let add_restart_to_vms ~__context ~vms ~kind =
+    let ( let* ) = Option.bind in
+    let* op =
+      match kind with
+      | Mandatory ->
+          Some Db.VM.add_pending_guidances
+      | Recommended ->
+          Some Db.VM.add_pending_guidances_recommended
+      | Full ->
+          Some Db.VM.add_pending_guidances_full
+      | Livepatch ->
+          None
+    in
+    Some
+      (List.iter
+         (fun self ->
+           debug "add RestartVM for VM %s" (Ref.string_of self) ;
+           op ~__context ~self ~value:`restart_vm
+         )
+         vms
+      )
+  in
+  if updates_of_hosts <> [] then
+    let vms =
+      Db.VM.get_all ~__context
+      |> List.filter (fun self ->
+             not (Db.VM.get_is_control_domain ~__context ~self)
+         )
+    in
+    (* fold each guidance kind from all hosts *)
+    updates_of_hosts
+    |> List.concat_map (fun HostUpdates.{guidance; _} -> guidance)
+    |> List.fold_left
+         (fun acc (kind, l) ->
+           if List.mem RestartVM l && not (List.mem kind acc) then
+             kind :: acc
+           else
+             acc
+         )
+         []
+    |> List.iter (fun kind ->
+           (* set RestartVM for all VMs if it is presented from at least one host *)
+           debug "add RestartVM for all VMs' pending %s guidance list"
+             (kind_to_string kind) ;
+           add_restart_to_vms ~__context ~vms ~kind |> ignore
+       )
+
 let apply_updates' ~__context ~host ~updates_info ~livepatches ~acc_rpm_updates
     =
   (* This function runs on coordinator host *)
@@ -728,12 +780,24 @@ let apply_updates ~__context ~host ~hash =
   assert_no_host_pending_mandatory_guidance ~__context ~host ;
   try
     let repository = get_single_enabled_update_repository ~__context in
+    let repository_name = get_repository_name ~__context ~self:repository in
     if hash = "" || hash <> Db.Repository.get_hash ~__context ~self:repository
     then
       raise Api_errors.(Server_error (updateinfo_hash_mismatch, [])) ;
     with_pool_repositories (fun () ->
         let updates_info =
           parse_updateinfo ~__context ~self:repository ~check:true
+        in
+        let updates_of_hosts =
+          if Helpers.is_pool_master ~__context ~host then (
+            (* save available updates before applying on coordinator *)
+            if Hashtbl.length updates_in_cache = 0 then
+              set_available_updates ~__context |> ignore ;
+            let hosts = Db.Host.get_all ~__context in
+            consolidate_updates_of_hosts ~repository_name ~updates_info ~hosts
+            |> fst
+          ) else
+            []
         in
         let host_updates =
           http_get_host_updates_in_json ~__context ~host ~installed:true
@@ -747,20 +811,21 @@ let apply_updates ~__context ~host ~hash =
           retrieve_livepatches_from_updateinfo ~updates_info
             ~updates:host_updates
         in
-        match (rpm_updates, livepatches) with
-        | [], [] ->
-            let host' = Ref.string_of host in
-            info "Host ref='%s' is already up to date." host' ;
-            []
-        | _ ->
-            let repository_name =
-              get_repository_name ~__context ~self:repository
-            in
-            let _, acc_rpm_updates =
-              merge_updates ~repository_name ~updates:host_updates
-            in
-            apply_updates' ~__context ~host ~updates_info ~livepatches
-              ~acc_rpm_updates
+        let ret =
+          match (rpm_updates, livepatches) with
+          | [], [] ->
+              let host' = Ref.string_of host in
+              info "Host ref='%s' is already up to date." host' ;
+              []
+          | _ ->
+              let _, acc_rpm_updates =
+                merge_updates ~repository_name ~updates:host_updates
+              in
+              apply_updates' ~__context ~host ~updates_info ~livepatches
+                ~acc_rpm_updates
+        in
+        maybe_set_restart_for_all_vms ~__context ~updates_of_hosts ;
+        ret
     )
   with
   | Api_errors.(Server_error (code, _)) as e
