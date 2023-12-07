@@ -3629,6 +3629,37 @@ module Dm = struct
     let module Q = (val Backend.of_profile dm) in
     Q.Dm.pci_assign_guest ~xs ~index ~host
 
+  let wait_for_vgpu_state states ~timeout ~xs ~domid ~task vgpus =
+    let open Xenops_interface.Vgpu in
+    match vgpus with
+    | {implementation= Nvidia {vclass= _; _}; _} :: _ -> (
+        let ioemu_failed fmt =
+          Printf.kprintf (fun msg -> raise (Ioemu_failed ("vgpu", msg))) fmt
+        in
+        let error_path =
+          Printf.sprintf "/local/domain/%d/vgpu/error-code" domid
+        in
+        let state_path = Service.Vgpu.state_path domid in
+        let watch_for state = Watch.value_to_become state_path state in
+        let error_watches = List.map watch_for ["error"] in
+        let good_watches = List.map watch_for states in
+        match
+          cancellable_watch
+            (Service.Vgpu.cancel_key domid)
+            good_watches error_watches task ~xs ~timeout ()
+        with
+        | true ->
+            info "%s: daemon vgpu for domain %d is ready: %s" __FUNCTION__ domid
+              (xs.Xs.read state_path)
+        | false ->
+            let error_code = xs.Xs.read error_path in
+            error "%s: daemon vgpu for domain %d returned error: %s"
+              __FUNCTION__ domid error_code ;
+            ioemu_failed "Daemon vgpu returned error: %s" error_code
+      )
+    | _ ->
+        ()
+
   (* the following functions depend on the functions above that use the qemu
      backend Q *)
 
@@ -3649,33 +3680,9 @@ module Dm = struct
             domid ;
         (* Keep waiting until DEMU's state becomes "initialising" or "running",
            or an error occurred. *)
-        let state_path = Service.Vgpu.state_path domid in
-        let good_watches =
-          [
-            Watch.value_to_become state_path "initialising"
-          ; Watch.value_to_become state_path "running"
-          ; Watch.value_to_become state_path "resuming"
-          ]
-        in
-        let error_watch = Watch.value_to_become state_path "error" in
-        if
-          cancellable_watch
-            (Service.Vgpu.cancel_key domid)
-            good_watches [error_watch] task ~xs ~timeout:3600. ()
-        then
-          info "Daemon vgpu is ready"
-        else
-          let error_code_path =
-            Printf.sprintf "/local/domain/%d/vgpu/error-code" domid
-          in
-          let error_code = xs.Xs.read error_code_path in
-          error "Daemon vgpu returned error: %s" error_code ;
-          raise
-            (Ioemu_failed
-               ( "vgpu"
-               , Printf.sprintf "Daemon vgpu returned error: %s" error_code
-               )
-            )
+        wait_for_vgpu_state
+          ["running"; "resuming"; "initialising"]
+          ~timeout:60.0 ~xs ~domid ~task vgpus
     | [{physical_pci_address= pci; implementation= GVT_g _; _}] ->
         PCI.bind [pci] PCI.I915
     | [{physical_pci_address= pci; implementation= MxGPU vgpu; _}] ->
@@ -3765,7 +3772,7 @@ module Dm = struct
         )
         (fun () -> List.iter close args.fd_map)
     in
-    match !Xenopsd.action_after_qemu_crash with
+    ( match !Xenopsd.action_after_qemu_crash with
     | None ->
         (* At this point we expect qemu to outlive us; we will never call
            waitpid *)
@@ -3833,6 +3840,14 @@ module Dm = struct
                       crash_reason
             )
         )
+    ) ;
+    (* CP-46917 Wait for vgpu/demu to be running. Timeout needs to be
+       long enough for migrations to complete *)
+    match info.disp with
+    | VNC (Vgpu vgpus, _, _, _, _) | SDL (Vgpu vgpus, _) ->
+        wait_for_vgpu_state ["running"] ~timeout:3600.0 ~xs ~domid ~task vgpus
+    | _ ->
+        ()
 
   let start (task : Xenops_task.task_handle) ~xc ~xs ~dm ?timeout info domid =
     __start task ~xc ~xs ~dm ?timeout Start info domid
