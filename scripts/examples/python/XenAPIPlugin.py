@@ -9,7 +9,7 @@ import sys
 import XenAPI
 
 if sys.version_info[0] == 2:
-    import xmlrpclib as xmlrpclib
+    import xmlrpclib
 else:
     import xmlrpc.client as xmlrpclib
 

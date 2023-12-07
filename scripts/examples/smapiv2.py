@@ -246,7 +246,7 @@ def daemonize():
     os.dup2(devnull.fileno(), sys.stdout.fileno())
     os.dup2(devnull.fileno(), sys.stderr.fileno())
 
-from SimpleXMLRPCServer import SimpleXMLRPCServer, SimpleXMLRPCRequestHandler
+from xmlrpc.server import SimpleXMLRPCServer, SimpleXMLRPCRequestHandler
 
 # Server XMLRPC from any HTTP POST path #####################################
 
@@ -266,13 +266,13 @@ class Server(SimpleXMLRPCServer):
 # BaseHTTPServer (and its subclasses) make.
 # See: http://bugs.python.org/issue6085
 # See: http://www.answermysearches.com/xmlrpc-server-slow-in-python-how-to-fix/2140/
-import BaseHTTPServer
+import http.server
 
 def _bare_address_string(self):
     host, port = self.client_address[:2]
     return '%s' % host
 
-BaseHTTPServer.BaseHTTPRequestHandler.address_string = \
+http.server.BaseHTTPRequestHandler.address_string = \
         _bare_address_string
 
 # Given an implementation, serve requests forever ###########################

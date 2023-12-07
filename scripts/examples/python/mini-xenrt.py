@@ -4,7 +4,7 @@
 # Issue parallel loops of: reboot, suspend/resume, migrate
 
 from __future__ import print_function
-import xmlrpclib
+import xmlrpc.client
 from threading import Thread
 import time, sys
 
@@ -109,7 +109,7 @@ if __name__ == "__main__":
         print("  -- performs parallel operations on VMs with the specified other-config key")
         sys.exit(1)
     
-    x = xmlrpclib.Server(sys.argv[1])
+    x = xmlrpc.client.server(sys.argv[1])
     key = sys.argv[2]
     session = x.session.login_with_password("root", "xenroot", "1.0", "xen-api-scripts-minixenrt.py")["Value"]
     vms = x.VM.get_all_records(session)["Value"]

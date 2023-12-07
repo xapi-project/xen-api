@@ -20,7 +20,7 @@
 #  - connect an export to an import to copy a raw disk image
 
 from __future__ import print_function
-import sys, os, socket, urllib2, urlparse, XenAPI, traceback, ssl, time
+import sys, os, socket, urllib.request, urllib.error, urllib.parse, XenAPI, traceback, ssl, time
 
 def exportimport(url, xapi, session, src_vdi, dst_vdi):
   # If an HTTP operation fails then it will record the error on the task
@@ -35,12 +35,12 @@ def exportimport(url, xapi, session, src_vdi, dst_vdi):
     put_url = "/import_raw_vdi?session_id=%s&vdi=%s&task_id=%s" % (session, dst_vdi, import_task)
 
     # 'data' is the stream of raw data:
-    data = urllib2.urlopen(url + get_url)
+    data = urllib.request.urlopen(url + get_url)
 
     # python's builtin library doesn't support HTTP PUT very well
     # so we do it manually. Note xapi doesn't support Transfer-encoding:
     # chunked so we must send the data raw.
-    url = urlparse.urlparse(url)
+    url = urllib.parse.urlparse(url)
     host = url.netloc.split(":")[0] # assume port 443
     if url.scheme != "https":
       print("Sorry, this example only supports HTTPS (not HTTP)", file=sys.stderr)

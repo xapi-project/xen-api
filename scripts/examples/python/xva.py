@@ -3,7 +3,7 @@
 # Rewrite the VDI.sm_config:SCSIid fields in XVA metadata
 
 from __future__ import print_function
-import tarfile, xmlrpclib, optparse, StringIO, sys
+import tarfile, xmlrpc.client, optparse, io, sys
 
 class Object(object):
     """Represents an XVA metadata object, for example a VM, VBD, VDI, SR, VIF or Network.
@@ -50,7 +50,7 @@ class XVA(object):
 
     def save(self, fileobj):
         # Reconstruct the ova.xml from Objects
-        ova_txt = xmlrpclib.dumps(({"version": self._version, "objects": map(lambda x:x.marshal(), self._objects)}, ))
+        ova_txt = xmlrpc.client.dumps(({"version": self._version, "objects": map(lambda x:x.marshal(), self._objects)}, ))
         prefix="<params>\n<param>\n"
         suffix="</param>\n</params>\n"
         if not(ova_txt.startswith(prefix)) or not(ova_txt.endswith(suffix)):
@@ -61,7 +61,7 @@ class XVA(object):
         output = tarfile.TarFile(mode='w', fileobj=fileobj)
         tarinfo = tarfile.TarInfo("ova.xml")
         tarinfo.size = len(ova_txt)
-        output.addfile(tarinfo, StringIO.StringIO(ova_txt))
+        output.addfile(tarinfo, io.StringIO(ova_txt))
         # Stream the contents of the input, copying to the output
         for name in self._input.getnames():
             if name == "ova.xml":
@@ -73,7 +73,7 @@ class XVA(object):
 def open_xva(name):
     t = tarfile.open(name = name)
     ova_txt = t.extractfile("ova.xml").read()
-    ova = xmlrpclib.loads("<params><param>" + ova_txt + "</param></params>")[0][0]
+    ova = xmlrpc.client.loads("<params><param>" + ova_txt + "</param></params>")[0][0]
     return XVA(t, ova)
 
 if __name__ == "__main__":
