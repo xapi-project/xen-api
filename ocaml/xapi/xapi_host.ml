@@ -79,7 +79,8 @@ let assert_safe_to_reenable ~__context ~self =
     Db.Host.get_pending_guidances ~__context ~self
   in
   if host_pending_mandatory_guidances <> [] then (
-    info "%s: %d mandatory guidances are pending for host %s: [%s]" __FUNCTION__
+    error "%s: %d mandatory guidances are pending for host %s: [%s]"
+      __FUNCTION__
       (List.length host_pending_mandatory_guidances)
       (Ref.string_of self)
       (String.concat ";"
