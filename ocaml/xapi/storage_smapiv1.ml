@@ -27,6 +27,9 @@ let s_of_sr = Sr.string_of
 
 let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
+let with_dbg ~name ~dbg f =
+  Debuginfo.with_dbg ~module_name:"SMAPIv1" ~name ~dbg f
+
 (* Find a VDI given a storage-layer SR and VDI *)
 let find_vdi ~__context sr vdi =
   let sr = s_of_sr sr in
@@ -492,6 +495,7 @@ module SMAPIv1 : Server_impl = struct
       per_host_key ~__context ~prefix:"read-caching-reason"
 
     let epoch_begin _context ~dbg ~sr ~vdi ~vm:_ ~persistent:_ =
+      with_dbg ~name:"VDI.epoch_begin" ~dbg @@ fun _ ->
       try
         for_vdi ~dbg ~sr ~vdi "VDI.epoch_begin"
           (fun device_config _type sr self ->
@@ -501,6 +505,7 @@ module SMAPIv1 : Server_impl = struct
         raise (Storage_error (Backend_error (code, params)))
 
     let attach2 _context ~dbg ~dp:_ ~sr ~vdi ~read_write =
+      with_dbg ~name:"VDI.attach2" ~dbg @@ fun _ ->
       try
         let backend =
           for_vdi ~dbg ~sr ~vdi "VDI.attach2"
@@ -565,6 +570,7 @@ module SMAPIv1 : Server_impl = struct
         raise (Storage_error (Backend_error (code, params)))
 
     let attach3 context ~dbg ~dp ~sr ~vdi ~vm:_ ~read_write =
+      with_dbg ~name:"VDI.attach3" ~dbg @@ fun _ ->
       (*Throw away vm argument as does nothing in SMAPIv1*)
       attach2 context ~dbg ~dp ~sr ~vdi ~read_write
 
@@ -574,6 +580,7 @@ module SMAPIv1 : Server_impl = struct
          Storage_smapiv1_wrapper.Wrapper"
 
     let activate _context ~dbg ~dp ~sr ~vdi =
+      with_dbg ~name:"VDI.activate" ~dbg @@ fun _ ->
       try
         let read_write =
           with_lock vdi_read_write_m (fun () ->
@@ -602,11 +609,13 @@ module SMAPIv1 : Server_impl = struct
         raise (Storage_error (Backend_error (code, params)))
 
     let activate3 context ~dbg ~dp ~sr ~vdi ~vm:_ =
+      with_dbg ~name:"VDI.activate3" ~dbg @@ fun _ ->
       activate context ~dbg ~dp ~sr ~vdi
 
     let activate_readonly = activate3
 
     let deactivate _context ~dbg ~dp ~sr ~vdi ~vm:_ =
+      with_dbg ~name:"VDI.deactivate" ~dbg @@ fun _ ->
       try
         for_vdi ~dbg ~sr ~vdi "VDI.deactivate"
           (fun device_config _type sr self ->
@@ -629,6 +638,7 @@ module SMAPIv1 : Server_impl = struct
         raise (Storage_error (Backend_error (code, params)))
 
     let detach _context ~dbg ~dp:_ ~sr ~vdi ~vm:_ =
+      with_dbg ~name:"VDI.detach" ~dbg @@ fun _ ->
       try
         for_vdi ~dbg ~sr ~vdi "VDI.detach" (fun device_config _type sr self ->
             Sm.vdi_detach device_config _type sr self ;
@@ -650,6 +660,7 @@ module SMAPIv1 : Server_impl = struct
         raise (Storage_error (Backend_error (code, params)))
 
     let epoch_end _context ~dbg ~sr ~vdi ~vm:_ =
+      with_dbg ~name:"VDI.epoch_end" ~dbg @@ fun _ ->
       try
         for_vdi ~dbg ~sr ~vdi "VDI.epoch_end"
           (fun device_config _type sr self ->
@@ -671,6 +682,7 @@ module SMAPIv1 : Server_impl = struct
       vdi_info_from_db ~__context (Db.VDI.get_by_uuid ~__context ~uuid)
 
     let create _context ~dbg ~sr ~vdi_info =
+      with_dbg ~name:"VDI.create" ~dbg @@ fun _ ->
       try
         Server_helpers.exec_with_new_task "VDI.create"
           ~subtask_of:(Ref.of_string dbg) (fun __context ->
@@ -698,6 +710,7 @@ module SMAPIv1 : Server_impl = struct
 
     let snapshot_and_clone call_name call_f is_a_snapshot _context ~dbg ~sr
         ~vdi_info =
+      with_dbg ~name:"VDI.snapshot_and_clone" ~dbg @@ fun _ ->
       try
         Server_helpers.exec_with_new_task call_name
           ~subtask_of:(Ref.of_string dbg) (fun __context ->
@@ -762,6 +775,7 @@ module SMAPIv1 : Server_impl = struct
     let clone = snapshot_and_clone "VDI.clone" Sm.vdi_clone false
 
     let set_name_label _context ~dbg ~sr ~vdi ~new_name_label =
+      with_dbg ~name:"VDI.set_name_label" ~dbg @@ fun _ ->
       Server_helpers.exec_with_new_task "VDI.set_name_label"
         ~subtask_of:(Ref.of_string dbg) (fun __context ->
           let self, _ = find_vdi ~__context sr vdi in
@@ -769,6 +783,7 @@ module SMAPIv1 : Server_impl = struct
       )
 
     let set_name_description _context ~dbg ~sr ~vdi ~new_name_description =
+      with_dbg ~name:"VDI.set_name_description" ~dbg @@ fun _ ->
       Server_helpers.exec_with_new_task "VDI.set_name_description"
         ~subtask_of:(Ref.of_string dbg) (fun __context ->
           let self, _ = find_vdi ~__context sr vdi in
@@ -777,6 +792,7 @@ module SMAPIv1 : Server_impl = struct
       )
 
     let resize _context ~dbg ~sr ~vdi ~new_size =
+      with_dbg ~name:"VDI.resize" ~dbg @@ fun _ ->
       try
         let vi =
           for_vdi ~dbg ~sr ~vdi "VDI.resize" (fun device_config _type sr self ->
@@ -800,6 +816,7 @@ module SMAPIv1 : Server_impl = struct
           redirect sr
 
     let destroy _context ~dbg ~sr ~vdi =
+      with_dbg ~name:"VDI.destroy" ~dbg @@ fun _ ->
       try
         for_vdi ~dbg ~sr ~vdi "VDI.destroy" (fun device_config _type sr self ->
             Sm.vdi_delete device_config _type sr self
@@ -816,6 +833,7 @@ module SMAPIv1 : Server_impl = struct
           redirect sr
 
     let stat _context ~dbg ~sr ~vdi =
+      with_dbg ~name:"VDI.stat" ~dbg @@ fun _ ->
       try
         Server_helpers.exec_with_new_task "VDI.stat"
           ~subtask_of:(Ref.of_string dbg) (fun __context ->
@@ -830,6 +848,7 @@ module SMAPIv1 : Server_impl = struct
         raise (Storage_error (Vdi_does_not_exist (s_of_vdi vdi)))
 
     let introduce _context ~dbg ~sr ~uuid ~sm_config ~location =
+      with_dbg ~name:"VDI.introduce" ~dbg @@ fun _ ->
       try
         Server_helpers.exec_with_new_task "VDI.introduce"
           ~subtask_of:(Ref.of_string dbg) (fun __context ->
@@ -848,6 +867,7 @@ module SMAPIv1 : Server_impl = struct
         raise (Storage_error (Vdi_does_not_exist location))
 
     let set_persistent _context ~dbg ~sr ~vdi ~persistent =
+      with_dbg ~name:"VDI.set_persistent" ~dbg @@ fun _ ->
       try
         Server_helpers.exec_with_new_task "VDI.set_persistent"
           ~subtask_of:(Ref.of_string dbg) (fun __context ->
@@ -875,7 +895,8 @@ module SMAPIv1 : Server_impl = struct
           redirect sr
 
     let get_by_name _context ~dbg ~sr ~name =
-      info "VDI.get_by_name dbg:%s sr:%s name:%s" dbg (s_of_sr sr) name ;
+      with_dbg ~name:"VDI.get_by_name" ~dbg @@ fun {log; _} ->
+      info "VDI.get_by_name dbg:%s sr:%s name:%s" log (s_of_sr sr) name ;
       (* PR-1255: the backend should do this for us *)
       Server_helpers.exec_with_new_task "VDI.get_by_name"
         ~subtask_of:(Ref.of_string dbg) (fun __context ->
@@ -891,7 +912,8 @@ module SMAPIv1 : Server_impl = struct
       )
 
     let set_content_id _context ~dbg ~sr ~vdi ~content_id =
-      info "VDI.get_by_content dbg:%s sr:%s vdi:%s content_id:%s" dbg
+      with_dbg ~name:"VDI.set_content_id" ~dbg @@ fun {log; _} ->
+      info "VDI.get_by_content dbg:%s sr:%s vdi:%s content_id:%s" log
         (s_of_sr sr) (s_of_vdi vdi) content_id ;
       (* PR-1255: the backend should do this for us *)
       Server_helpers.exec_with_new_task "VDI.set_content_id"
@@ -903,7 +925,8 @@ module SMAPIv1 : Server_impl = struct
       )
 
     let similar_content _context ~dbg ~sr ~vdi =
-      info "VDI.similar_content dbg:%s sr:%s vdi:%s" dbg (s_of_sr sr)
+      with_dbg ~name:"VDI.similar_content" ~dbg @@ fun {log; _} ->
+      info "VDI.similar_content dbg:%s sr:%s vdi:%s" log (s_of_sr sr)
         (s_of_vdi vdi) ;
       Server_helpers.exec_with_new_task "VDI.similar_content"
         ~subtask_of:(Ref.of_string dbg) (fun __context ->
@@ -1013,7 +1036,8 @@ module SMAPIv1 : Server_impl = struct
       )
 
     let compose _context ~dbg ~sr ~vdi1 ~vdi2 =
-      info "VDI.compose dbg:%s sr:%s vdi1:%s vdi2:%s" dbg (s_of_sr sr)
+      with_dbg ~name:"VDI.compose" ~dbg @@ fun {log; _} ->
+      info "VDI.compose dbg:%s sr:%s vdi1:%s vdi2:%s" log (s_of_sr sr)
         (s_of_vdi vdi1) (s_of_vdi vdi2) ;
       try
         Server_helpers.exec_with_new_task "VDI.compose"
@@ -1039,7 +1063,8 @@ module SMAPIv1 : Server_impl = struct
           redirect sr
 
     let add_to_sm_config _context ~dbg ~sr ~vdi ~key ~value =
-      info "VDI.add_to_sm_config dbg:%s sr:%s vdi:%s key:%s value:%s" dbg
+      with_dbg ~name:"VDI.add_to_sm_config" ~dbg @@ fun {log; _} ->
+      info "VDI.add_to_sm_config dbg:%s sr:%s vdi:%s key:%s value:%s" log
         (s_of_sr sr) (s_of_vdi vdi) key value ;
       Server_helpers.exec_with_new_task "VDI.add_to_sm_config"
         ~subtask_of:(Ref.of_string dbg) (fun __context ->
@@ -1048,7 +1073,8 @@ module SMAPIv1 : Server_impl = struct
       )
 
     let remove_from_sm_config _context ~dbg ~sr ~vdi ~key =
-      info "VDI.remove_from_sm_config dbg:%s sr:%s vdi:%s key:%s" dbg
+      with_dbg ~name:"VDI.remove_from_sm_config" ~dbg @@ fun {log; _} ->
+      info "VDI.remove_from_sm_config dbg:%s sr:%s vdi:%s key:%s" log
         (s_of_sr sr) (s_of_vdi vdi) key ;
       Server_helpers.exec_with_new_task "VDI.remove_from_sm_config"
         ~subtask_of:(Ref.of_string dbg) (fun __context ->
@@ -1057,7 +1083,8 @@ module SMAPIv1 : Server_impl = struct
       )
 
     let get_url _context ~dbg ~sr ~vdi =
-      info "VDI.get_url dbg:%s sr:%s vdi:%s" dbg (s_of_sr sr) (s_of_vdi vdi) ;
+      with_dbg ~name:"VDI.get_url" ~dbg @@ fun {log; _} ->
+      info "VDI.get_url dbg:%s sr:%s vdi:%s" log (s_of_sr sr) (s_of_vdi vdi) ;
       (* XXX: PR-1255: tapdisk shouldn't hardcode xapi urls *)
       (* peer_ip/session_ref/vdi_ref *)
       Server_helpers.exec_with_new_task "VDI.get_url"
@@ -1077,6 +1104,7 @@ module SMAPIv1 : Server_impl = struct
       )
 
     let call_cbt_function _context ~f ~f_name ~dbg ~sr ~vdi =
+      with_dbg ~name:"VDI.call_cbt_function" ~dbg @@ fun _ ->
       try
         for_vdi ~dbg ~sr ~vdi f_name (fun device_config _type sr self ->
             f device_config _type sr self
@@ -1107,6 +1135,7 @@ module SMAPIv1 : Server_impl = struct
         ~content_id:"/No content: this is a cbt_metadata VDI/"
 
     let list_changed_blocks _context ~dbg ~sr ~vdi_from ~vdi_to =
+      with_dbg ~name:"VDI.list_changed_blocks" ~dbg @@ fun _ ->
       try
         Server_helpers.exec_with_new_task "VDI.list_changed_blocks"
           ~subtask_of:(Ref.of_string dbg) (fun __context ->
