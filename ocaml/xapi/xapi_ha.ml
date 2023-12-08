@@ -1174,14 +1174,17 @@ let ha_release_resources __context _localhost =
   let statefile_vdis =
     Db.Pool.get_ha_statefiles ~__context ~self:(Helpers.get_pool ~__context)
   and deactivate_and_detach_vdi vdi_str =
-    let uuid = Db.VDI.get_uuid ~__context ~self:(Ref.of_string vdi_str) in
-    Helpers.log_exn_continue
-      (Printf.sprintf "detaching statefile VDI uuid: %s" uuid)
-      (fun () ->
-        Static_vdis.permanent_vdi_deactivate_by_uuid ~__context ~uuid ;
-        Static_vdis.permanent_vdi_detach_by_uuid ~__context ~uuid
-      )
-      ()
+    match Db.VDI.get_uuid ~__context ~self:(Ref.of_string vdi_str) with
+    | uuid ->
+        Helpers.log_exn_continue
+          (Printf.sprintf "detaching statefile VDI uuid: %s" uuid)
+          (fun () ->
+            Static_vdis.permanent_vdi_deactivate_by_uuid ~__context ~uuid ;
+            Static_vdis.permanent_vdi_detach_by_uuid ~__context ~uuid
+          )
+          ()
+    | exception _e ->
+        warn "%s: VDI %s not found in database" __FUNCTION__ vdi_str
   in
   List.iter deactivate_and_detach_vdi statefile_vdis ;
   (* Deactivate and detach any metadata VDIs *)
@@ -1520,9 +1523,16 @@ let abort_new_master ~__context ~address =
 let disable_internal __context =
   debug "Disabling HA on the Pool" ;
   let pool = Helpers.get_pool ~__context in
+  (* Avoid stale static VDIs *)
+  Static_vdis.gc () ;
   (* Find the HA metadata and statefile VDIs for later *)
   let statefile_vdis =
-    List.map Ref.of_string (Db.Pool.get_ha_statefiles ~__context ~self:pool)
+    let is_valid ref =
+      if Db.is_valid_ref __context ref then Some ref else None
+    in
+    Db.Pool.get_ha_statefiles ~__context ~self:pool
+    |> List.map Ref.of_string
+    |> List.filter_map is_valid
   in
   let metadata_vdis =
     List.map
