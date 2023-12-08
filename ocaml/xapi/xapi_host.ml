@@ -79,9 +79,16 @@ let assert_safe_to_reenable ~__context ~self =
     Db.Host.get_pending_guidances ~__context ~self
   in
   if host_pending_mandatory_guidances <> [] then (
-    info "%s: %d mandatory guidances are pending for host %s" __FUNCTION__
+    info "%s: %d mandatory guidances are pending for host %s: [%s]" __FUNCTION__
       (List.length host_pending_mandatory_guidances)
-      (Ref.string_of self) ;
+      (Ref.string_of self)
+      (String.concat ";"
+         (List.map Updateinfo.Guidance.to_string
+            (List.map Updateinfo.Guidance.of_update_guidance
+               host_pending_mandatory_guidances
+            )
+         )
+      ) ;
     raise
       (Api_errors.Server_error
          ( Api_errors.host_pending_mandatory_guidances_not_empty

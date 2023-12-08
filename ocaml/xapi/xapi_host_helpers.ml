@@ -367,8 +367,17 @@ let consider_enabling_host_nolock ~__context =
   in
   if host_pending_mandatory_guidances <> [] then
     debug
-      "Host.enabled: host has mandatory guidances pending to be applied. \
-       Leaving host disabled"
+      "Host.enabled: host(%s) has %d mandatory guidances pending to be \
+       applied: [%s]. Leaving host disabled"
+      (Ref.string_of localhost)
+      (List.length host_pending_mandatory_guidances)
+      (String.concat ";"
+         (List.map Updateinfo.Guidance.to_string
+            (List.map Updateinfo.Guidance.of_update_guidance
+               host_pending_mandatory_guidances
+            )
+         )
+      )
   else if
     (not !user_requested_host_disable)
     && ((not ha_enabled) || all_pbds_ok)
