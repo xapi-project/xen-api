@@ -4579,6 +4579,147 @@ module SetPendingGuidance = Generic.MakeStateless (struct
       ]
 end)
 
+module MergeLivepatchFailures = Generic.MakeStateless (struct
+  module Io = struct
+    (* (previous_failures, (applied, failed)) *)
+    type input_t =
+      Guidance.t list * (Livepatch.component list * Livepatch.component list)
+
+    (* to_be_removed, to_be_added *)
+    type output_t = Guidance.t list * Guidance.t list
+
+    let string_of_input_t (previous_failures, (applied, failed)) =
+      Fmt.(
+        str "%a" Dump.(pair (list string) (pair (list string) (list string)))
+      )
+        ( List.map Guidance.to_string previous_failures
+        , ( List.map Livepatch.string_of_component applied
+          , List.map Livepatch.string_of_component failed
+          )
+        )
+
+    let string_of_output_t (to_be_removed, to_be_added) =
+      Fmt.(str "%a" Dump.(pair (list string) (list string)))
+        ( List.map Guidance.to_string to_be_removed
+        , List.map Guidance.to_string to_be_added
+        )
+  end
+
+  let transform (previous_failures, (applied, failed)) =
+    merge_livepatch_failures ~previous_failures ~applied ~failed
+
+  let tests =
+    let open Guidance in
+    let open Livepatch in
+    `QuickAndAutoDocumented
+      [
+        (([], ([Xen; Kernel], [])), ([], []))
+      ; (([], ([Kernel], [Xen])), ([], [RebootHostOnXenLivePatchFailure]))
+      ; (([], ([Kernel], [])), ([], []))
+      ; (([], ([Xen], [Kernel])), ([], [RebootHostOnKernelLivePatchFailure]))
+      ; (([], ([Xen], [])), ([], []))
+      ; ( ([], ([], [Xen; Kernel]))
+        , ( []
+          , [
+              RebootHostOnKernelLivePatchFailure; RebootHostOnXenLivePatchFailure
+            ]
+          )
+        )
+      ; (([], ([], [Kernel])), ([], [RebootHostOnKernelLivePatchFailure]))
+      ; (([], ([], [Xen])), ([], [RebootHostOnXenLivePatchFailure]))
+      ; (([], ([], [])), ([], []))
+      ; ( ([RebootHostOnXenLivePatchFailure], ([Xen; Kernel], []))
+        , ([RebootHostOnXenLivePatchFailure], [])
+        )
+      ; (([RebootHostOnXenLivePatchFailure], ([Kernel], [Xen])), ([], []))
+      ; (([RebootHostOnXenLivePatchFailure], ([Kernel], [])), ([], []))
+      ; ( ([RebootHostOnXenLivePatchFailure], ([Xen], [Kernel]))
+        , ( [RebootHostOnXenLivePatchFailure]
+          , [RebootHostOnKernelLivePatchFailure]
+          )
+        )
+      ; ( ([RebootHostOnXenLivePatchFailure], ([Xen], []))
+        , ([RebootHostOnXenLivePatchFailure], [])
+        )
+      ; ( ([RebootHostOnXenLivePatchFailure], ([], [Xen; Kernel]))
+        , ([], [RebootHostOnKernelLivePatchFailure])
+        )
+      ; ( ([RebootHostOnXenLivePatchFailure], ([], [Kernel]))
+        , ([], [RebootHostOnKernelLivePatchFailure])
+        )
+      ; (([RebootHostOnXenLivePatchFailure], ([], [Xen])), ([], []))
+      ; (([RebootHostOnXenLivePatchFailure], ([], [])), ([], []))
+      ; ( ( [RebootHostOnXenLivePatchFailure; RebootHostOnKernelLivePatchFailure]
+          , ([Xen; Kernel], [])
+          )
+        , ( [RebootHostOnKernelLivePatchFailure; RebootHostOnXenLivePatchFailure]
+          , []
+          )
+        )
+      ; ( ( [RebootHostOnXenLivePatchFailure; RebootHostOnKernelLivePatchFailure]
+          , ([Kernel], [Xen])
+          )
+        , ([RebootHostOnKernelLivePatchFailure], [])
+        )
+      ; ( ( [RebootHostOnXenLivePatchFailure; RebootHostOnKernelLivePatchFailure]
+          , ([Kernel], [])
+          )
+        , ([RebootHostOnKernelLivePatchFailure], [])
+        )
+      ; ( ( [RebootHostOnXenLivePatchFailure; RebootHostOnKernelLivePatchFailure]
+          , ([Xen], [Kernel])
+          )
+        , ([RebootHostOnXenLivePatchFailure], [])
+        )
+      ; ( ( [RebootHostOnXenLivePatchFailure; RebootHostOnKernelLivePatchFailure]
+          , ([Xen], [])
+          )
+        , ([RebootHostOnXenLivePatchFailure], [])
+        )
+      ; ( ( [RebootHostOnXenLivePatchFailure; RebootHostOnKernelLivePatchFailure]
+          , ([], [Xen; Kernel])
+          )
+        , ([], [])
+        )
+      ; ( ( [RebootHostOnXenLivePatchFailure; RebootHostOnKernelLivePatchFailure]
+          , ([], [Kernel])
+          )
+        , ([], [])
+        )
+      ; ( ( [RebootHostOnXenLivePatchFailure; RebootHostOnKernelLivePatchFailure]
+          , ([], [Xen])
+          )
+        , ([], [])
+        )
+      ; ( ( [RebootHostOnXenLivePatchFailure; RebootHostOnKernelLivePatchFailure]
+          , ([], [])
+          )
+        , ([], [])
+        )
+      ; ( ([RebootHostOnKernelLivePatchFailure], ([Xen; Kernel], []))
+        , ([RebootHostOnKernelLivePatchFailure], [])
+        )
+      ; ( ([RebootHostOnKernelLivePatchFailure], ([Kernel], [Xen]))
+        , ( [RebootHostOnKernelLivePatchFailure]
+          , [RebootHostOnXenLivePatchFailure]
+          )
+        )
+      ; ( ([RebootHostOnKernelLivePatchFailure], ([Kernel], []))
+        , ([RebootHostOnKernelLivePatchFailure], [])
+        )
+      ; (([RebootHostOnKernelLivePatchFailure], ([Xen], [Kernel])), ([], []))
+      ; (([RebootHostOnKernelLivePatchFailure], ([Xen], [])), ([], []))
+      ; ( ([RebootHostOnKernelLivePatchFailure], ([], [Xen; Kernel]))
+        , ([], [RebootHostOnXenLivePatchFailure])
+        )
+      ; (([RebootHostOnKernelLivePatchFailure], ([], [Kernel])), ([], []))
+      ; ( ([RebootHostOnKernelLivePatchFailure], ([], [Xen]))
+        , ([], [RebootHostOnXenLivePatchFailure])
+        )
+      ; (([RebootHostOnKernelLivePatchFailure], ([], [])), ([], []))
+      ]
+end)
+
 let tests =
   make_suite "repository_helpers_"
     [
@@ -4603,6 +4744,7 @@ let tests =
       , GetLatestUpdatesFromRedundancy.tests
       )
     ; ("set_pending_guidances", SetPendingGuidance.tests)
+    ; ("merge_livepatch_failures", MergeLivepatchFailures.tests)
     ]
 
 let () = Alcotest.run "Repository Helpers" tests
