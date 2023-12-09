@@ -939,7 +939,7 @@ module Json = struct
       [
         ("name", string ds.ds_name)
       ; ("type", string (ds_type_to_string ds.ds_ty))
-      ; ("minimal_hearbeat", float ds.ds_mrhb)
+      ; ("minimal_heartbeat", float ds.ds_mrhb)
       ; ("min", float ds.ds_min)
       ; ("max", float ds.ds_max)
       ; ("last_ds", string (ds_value_to_string ds.ds_last))
