@@ -820,7 +820,7 @@ module Export = struct
       |> List.concat_map (fun x -> TracerProvider.get_endpoints x)
       |> List.iter (export_to_endpoint parent span_list)
 
-    let main () =
+    let create_exporter () =
       enable_span_garbage_collector () ;
       Thread.create
         (fun () ->
@@ -832,6 +832,21 @@ module Export = struct
           done
         )
         ()
+
+    let exporter = ref None
+
+    let lock = Mutex.create ()
+
+    let main () =
+      Xapi_stdext_threads.Threadext.Mutex.execute lock (fun () ->
+          match !exporter with
+          | None ->
+              let tid = create_exporter () in
+              exporter := Some tid ;
+              tid
+          | Some tid ->
+              tid
+      )
   end
 end
 
