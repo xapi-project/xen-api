@@ -1,40 +1,34 @@
-Squeezed: a host memory ballooning daemon for Xen
-=================================================
++++
+title = "Design"
++++
 
 Squeezed is a single host memory ballooning daemon. It helps by:
 
-1.  allowing VM memory to be adjusted dynamically without having to reboot;
+1.  Allowing VM memory to be adjusted dynamically without having to reboot;
     and
-
-2.  avoiding wasting memory by keeping everything fully utilised, while retaining
+2.  Avoiding wasting memory by keeping everything fully utilised, while retaining
     the ability to take memory back to start new VMs.
 
-Squeezed currently includes a simple
-[Ballooning policy](#ballooning-policy)
-which serves as a useful default.
-The policy is written with respect to an abstract
-[Xen memory model](#the-memory-model), which is based
-on a number of
-[assumptions about the environment](#environmental-assumptions),
-for example that most domains have co-operative balloon drivers.
-In theory the policy could be replaced later with something more sophisticated
-(for example see
-[xenballoond](https://github.com/avsm/xen-unstable/blob/master/tools/xenballoon/xenballoond.README)).
+Squeezed currently includes a simple [Ballooning policy](#ballooning-policy)
+which serves as a useful default. The policy is written with respect to an
+abstract [Xen memory model](#the-memory-model), which is based on a number of
+[assumptions about the environment](#environmental-assumptions), for example
+that most domains have co-operative balloon drivers. In theory the policy could
+be replaced later with something more sophisticated (for example see
+[xenballoond](https://github.com/avsm/xen-unstable/blob/master/tools/xenballoon/
+xenballoond.README)).
 
-The [Toolstack interface](#toolstack-interface) is used by
-[Xenopsd](https://github.com/xapi-project/xenopsd) to free memory
-for starting new VMs.
-Although the only known client is Xenopsd,
-the interface can in theory be used by other clients. Multiple clients
-can safely use the interface at the same time.
+The [Toolstack interface](#toolstack-interface) is used by Xenopsd to free
+memory for starting new VMs. Although the only known client is Xenopsd, the
+interface can in theory be used by other clients. Multiple clients can safely
+use the interface at the same time.
 
-The [internal structure](#the-structure-of-the-daemon) consists of
-a single-thread event loop. To see how it works end-to-end, consult
-the [example](#example-operation).
+The [internal structure](#the-structure-of-the-daemon) consists of a
+single-thread event loop. To see how it works end-to-end, consult the
+[example](#example-operation).
 
-No software is ever perfect; to understand the flaws in Squeezed,
-please consult the
-[list of issues](#issues).
+No software is ever perfect; to understand the flaws in Squeezed, please
+consult the [list of issues](#issues).
 
 Environmental assumptions
 =========================
@@ -45,11 +39,10 @@ Environmental assumptions
     is granted full access to xenstore, enabling it to modify every
     domain’s `memory/target`.
 
-2.  The Squeezed daemon calls
-    `setmaxmem` in order to cap the amount of memory a domain can use.
-    This relies on a patch to
-    [xen which allows `maxmem` to be set lower than `totpages`](http://xenbits.xen.org/xapi/xen-3.4.pq.hg?file/c01d38e7092a/max-pages-below-tot-pages).
-    See Section [maxmem](#use-of-maxmem) for more information.
+2.  The Squeezed daemon calls `setmaxmem` in order to cap the amount of memory
+    a domain can use.  This relies on a patch to xen which allows `maxmem` to
+    be set lower than `totpages` See Section [maxmem](#use-of-maxmem) for more
+    information.
 
 3.  The Squeezed daemon
     assumes that only domains which write `control/feature-balloon` into
@@ -101,7 +94,7 @@ Environmental assumptions
     guests from allocating *all* host memory (even
     transiently) we guarantee that memory from within these special
     ranges is always available. Squeezed operates in
-    [two phases](#twophase-section): first causing memory to be freed; and
+    [two phases](#two-phase-target-setting): first causing memory to be freed; and
     second causing memory to be allocated.
 
 8.  The Squeezed daemon
@@ -126,10 +119,10 @@ internal Squeezed concept and Xen is
 completely unaware of it. When the daemon is moving memory between
 domains, it always aims to keep
 
-![host free memory >= s + sum_i(reservation_i)](http://xapi-project.github.io/squeezed/doc/design/hostfreemem.svg)
+![host free memory >= s + sum_i(reservation_i)](hostfreemem.svg)
 
 where *s* is the size of the “slush fund” (currently 9MiB) and
-![reservation_t](http://xapi-project.github.io/squeezed/doc/design/reservation.svg)
+![reservation_t](reservation.svg)
 is the amount corresponding to the *i*th
 reservation.
 
@@ -226,7 +219,7 @@ meanings:
 
 If all balloon drivers are responsive then Squeezed daemon allocates
 memory proportionally, so that each domain has the same value of:
-![target-min/(max-min)](http://xapi-project.github.io/squeezed/doc/design/fraction.svg)
+![target-min/(max-min)](fraction.svg)
 
 So:
 
@@ -311,7 +304,7 @@ Note that non-ballooning aware domains will always have
 since the domain will not be
 instructed to balloon. Since a domain which is being built will have
 0 <= `totpages` <= `reservation`, Squeezed computes
-![unused(i)=reservation(i)-totpages](http://xapi-project.github.io/squeezed/doc/design/unused.svg)
+![unused(i)=reservation(i)-totpages](unused.svg)
 and subtracts this from its model of the host’s free memory, ensuring
 that it doesn’t accidentally reallocate this memory for some other
 purpose.
@@ -361,7 +354,7 @@ Each iteration of the main loop generates the following actions:
 1.  Domains which were active but have failed to make progress towards
     their target in 5s are declared *inactive*. These
     domains then have:
-    `maxmem` set to the minimum of `target` and `totpages.
+    `maxmem` set to the minimum of `target` and `totpages`.
 
 2.  Domains which were inactive but have started to make progress
     towards their target are declared *active*. These
@@ -429,7 +422,7 @@ domain 2) and a host. For a domain, the square box shows its
 memory. Note the highlighted state where the host’s free memory is
 temporarily exhausted
 
-![Two phase target setting](http://xapi-project.github.io/squeezed/doc/design/twophase.svg)
+![Two phase target setting](twophase.svg)
 
 In the
 initial state (at the top of the diagram), there are two domains, one
@@ -470,7 +463,7 @@ domain `maxmem` value is used to limit memory allocations by the domain.
 The rules are:
 
 1.  if the domain has never been run and is paused then
-    `maxmem` is set to `reservation (reservations were described
+    `maxmem` is set to `reservation` (reservations were described
     in the [Toolstack interface](#toolstack-interface) section above);
 
     -   these domains are probably still being built and we must let
@@ -513,7 +506,7 @@ computing ideal target values and the third diagram shows the result
 after targets have been set and the balloon drivers have
 responded.
 
-![calculation](http://xapi-project.github.io/squeezed/doc/design/calculation.svg)
+![calculation](calculation.svg)
 
 The scenario above includes 3 domains (domain 1,
 domain 2, domain 3) on a host. Each of the domains has a non-ideal
@@ -532,12 +525,12 @@ which would be freed if we set each of the 3 domain’s
 situation we would now have
 `x` + `s` + `d1` + `d2` + `d3` free on the host where
 `s` is the host slush fund and `x` is completely unallocated. Since we
-always want to keep the host free memory above $s$, we are free to
+always want to keep the host free memory above `s`, we are free to
 return `x` + `d1` + `d2` + `d3` to guests. If we
 use the default built-in proportional policy then, since all domains
 have the same `dynamic-min` and `dynamic-max`, each gets the same
 fraction of this free memory which we call `g`:
-![definition of g](http://xapi-project.github.io/squeezed/doc/design/g.svg)
+![definition of g](g.svg)
 For each domain, the ideal balloon target is now
 `target` = `dynamic-min` + `g`.
 Squeezed does not set all the targets at once: this would allow the
@@ -601,7 +594,7 @@ Issues
     removed.
 
 -   It seems unnecessarily evil to modify an *inactive*
-    domain’s `maxmem` leaving `maxmem` less than `target}``, causing
+    domain’s `maxmem` leaving `maxmem` less than `target`, causing
     the guest to attempt allocations forwever. It’s probably neater to
     move the `target` at the same time.
 
