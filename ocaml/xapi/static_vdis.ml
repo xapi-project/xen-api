@@ -77,7 +77,8 @@ let permanent_vdi_deactivate_by_uuid ~__context ~uuid =
   try
     let vdi = Db.VDI.get_by_uuid ~__context ~uuid in
     Sm.call_sm_vdi_functions ~__context ~vdi (fun srconf srtype sr ->
-        Sm.vdi_deactivate srconf srtype sr vdi
+        let dbg = Context.string_of_task_and_tracing __context in
+        Sm.vdi_deactivate ~dbg srconf srtype sr vdi
     )
   with e ->
     warn

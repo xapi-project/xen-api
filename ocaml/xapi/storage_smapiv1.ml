@@ -499,7 +499,7 @@ module SMAPIv1 : Server_impl = struct
       try
         for_vdi ~dbg ~sr ~vdi "VDI.epoch_begin"
           (fun device_config _type sr self ->
-            Sm.vdi_epoch_begin device_config _type sr self
+            Sm.vdi_epoch_begin ~dbg device_config _type sr self
         )
       with Api_errors.Server_error (code, params) ->
         raise (Storage_error (Backend_error (code, params)))
@@ -511,7 +511,7 @@ module SMAPIv1 : Server_impl = struct
           for_vdi ~dbg ~sr ~vdi "VDI.attach2"
             (fun device_config _type sr self ->
               let attach_info_v1 =
-                Sm.vdi_attach device_config _type sr self read_write
+                Sm.vdi_attach ~dbg device_config _type sr self read_write
               in
               (* Record whether the VDI is benefiting from read caching *)
               Server_helpers.exec_with_new_task "VDI.attach2"
@@ -600,7 +600,7 @@ module SMAPIv1 : Server_impl = struct
             (* If the backend doesn't advertise the capability then do nothing *)
             if List.mem_assoc Smint.Vdi_activate (Sm.features_of_driver _type)
             then
-              Sm.vdi_activate device_config _type sr self read_write
+              Sm.vdi_activate ~dbg device_config _type sr self read_write
             else
               info "%s sr:%s does not support vdi_activate: doing nothing" dp
                 (Ref.string_of sr)
@@ -629,7 +629,7 @@ module SMAPIv1 : Server_impl = struct
             (* If the backend doesn't advertise the capability then do nothing *)
             if List.mem_assoc Smint.Vdi_deactivate (Sm.features_of_driver _type)
             then
-              Sm.vdi_deactivate device_config _type sr self
+              Sm.vdi_deactivate ~dbg device_config _type sr self
             else
               info "%s sr:%s does not support vdi_deactivate: doing nothing" dp
                 (Ref.string_of sr)
@@ -641,7 +641,7 @@ module SMAPIv1 : Server_impl = struct
       with_dbg ~name:"VDI.detach" ~dbg @@ fun _ ->
       try
         for_vdi ~dbg ~sr ~vdi "VDI.detach" (fun device_config _type sr self ->
-            Sm.vdi_detach device_config _type sr self ;
+            Sm.vdi_detach ~dbg device_config _type sr self ;
             Server_helpers.exec_with_new_task "VDI.detach"
               ~subtask_of:(Ref.of_string dbg) (fun __context ->
                 let on_key = read_caching_key ~__context in
@@ -664,7 +664,7 @@ module SMAPIv1 : Server_impl = struct
       try
         for_vdi ~dbg ~sr ~vdi "VDI.epoch_end"
           (fun device_config _type sr self ->
-            Sm.vdi_epoch_end device_config _type sr self
+            Sm.vdi_epoch_end ~dbg device_config _type sr self
         )
       with Api_errors.Server_error (code, params) ->
         raise (Storage_error (Backend_error (code, params)))
@@ -689,7 +689,7 @@ module SMAPIv1 : Server_impl = struct
             let sr = Db.SR.get_by_uuid ~__context ~uuid:(s_of_sr sr) in
             let vi =
               Sm.call_sm_functions ~__context ~sR:sr (fun device_config _type ->
-                  Sm.vdi_create device_config _type sr vdi_info.sm_config
+                  Sm.vdi_create ~dbg device_config _type sr vdi_info.sm_config
                     vdi_info.ty vdi_info.virtual_size vdi_info.name_label
                     vdi_info.name_description vdi_info.metadata_of_pool
                     vdi_info.is_a_snapshot vdi_info.snapshot_time
@@ -717,7 +717,7 @@ module SMAPIv1 : Server_impl = struct
             let vi =
               for_vdi ~dbg ~sr ~vdi:vdi_info.vdi call_name
                 (fun device_config _type sr self ->
-                  call_f device_config _type vdi_info.sm_config sr self
+                  call_f ~dbg device_config _type vdi_info.sm_config sr self
               )
             in
             (* PR-1255: modify clone, snapshot to take the same parameters as create? *)
@@ -756,7 +756,7 @@ module SMAPIv1 : Server_impl = struct
             for_vdi ~dbg ~sr
               ~vdi:(Storage_interface.Vdi.of_string vi.Smint.vdi_info_location)
               "VDI.update" (fun device_config _type sr self ->
-                Sm.vdi_update device_config _type sr self
+                Sm.vdi_update ~dbg device_config _type sr self
             ) ;
             let vdi = vdi_info_from_db ~__context self in
             debug "vdi = %s" (string_of_vdi_info vdi) ;
@@ -796,7 +796,7 @@ module SMAPIv1 : Server_impl = struct
       try
         let vi =
           for_vdi ~dbg ~sr ~vdi "VDI.resize" (fun device_config _type sr self ->
-              Sm.vdi_resize device_config _type sr self new_size
+              Sm.vdi_resize ~dbg device_config _type sr self new_size
           )
         in
         Server_helpers.exec_with_new_task "VDI.resize"
@@ -819,7 +819,7 @@ module SMAPIv1 : Server_impl = struct
       with_dbg ~name:"VDI.destroy" ~dbg @@ fun _ ->
       try
         for_vdi ~dbg ~sr ~vdi "VDI.destroy" (fun device_config _type sr self ->
-            Sm.vdi_delete device_config _type sr self
+            Sm.vdi_delete ~dbg device_config _type sr self
         ) ;
         with_lock vdi_read_write_m (fun () ->
             Hashtbl.remove vdi_read_write (sr, vdi)
@@ -838,7 +838,7 @@ module SMAPIv1 : Server_impl = struct
         Server_helpers.exec_with_new_task "VDI.stat"
           ~subtask_of:(Ref.of_string dbg) (fun __context ->
             for_vdi ~dbg ~sr ~vdi "VDI.stat" (fun device_config _type sr self ->
-                Sm.vdi_update device_config _type sr self ;
+                Sm.vdi_update ~dbg device_config _type sr self ;
                 vdi_info_of_vdi_rec __context
                   (Db.VDI.get_record ~__context ~self)
             )
@@ -856,7 +856,7 @@ module SMAPIv1 : Server_impl = struct
             let vi =
               Sm.call_sm_functions ~__context ~sR:sr
                 (fun device_config sr_type ->
-                  Sm.vdi_introduce device_config sr_type sr uuid sm_config
+                  Sm.vdi_introduce ~dbg device_config sr_type sr uuid sm_config
                     location
               )
             in
@@ -878,13 +878,13 @@ module SMAPIv1 : Server_impl = struct
               let new_vdi =
                 for_vdi ~dbg ~sr ~vdi "VDI.clone"
                   (fun device_config _type sr self ->
-                    let vi = Sm.vdi_clone device_config _type [] sr self in
+                    let vi = Sm.vdi_clone ~dbg device_config _type [] sr self in
                     Storage_interface.Vdi.of_string vi.Smint.vdi_info_location
                 )
               in
               for_vdi ~dbg ~sr ~vdi:new_vdi "VDI.destroy"
                 (fun device_config _type sr self ->
-                  Sm.vdi_delete device_config _type sr self
+                  Sm.vdi_delete ~dbg device_config _type sr self
               )
             )
         )
@@ -1046,7 +1046,7 @@ module SMAPIv1 : Server_impl = struct
             let vdi1 = find_vdi ~__context sr vdi1 |> fst in
             for_vdi ~dbg ~sr ~vdi:vdi2 "VDI.compose"
               (fun device_config _type sr self ->
-                Sm.vdi_compose device_config _type sr vdi1 self
+                Sm.vdi_compose ~dbg device_config _type sr vdi1 self
             )
         )
       with
@@ -1107,7 +1107,7 @@ module SMAPIv1 : Server_impl = struct
       with_dbg ~name:"VDI.call_cbt_function" ~dbg @@ fun _ ->
       try
         for_vdi ~dbg ~sr ~vdi f_name (fun device_config _type sr self ->
-            f device_config _type sr self
+            f ~dbg device_config _type sr self
         )
       with
       | Smint.Not_implemented_in_backend ->
@@ -1142,7 +1142,7 @@ module SMAPIv1 : Server_impl = struct
             let vdi_from = find_vdi ~__context sr vdi_from |> fst in
             for_vdi ~dbg ~sr ~vdi:vdi_to "VDI.list_changed_blocks"
               (fun device_config _type sr vdi_to ->
-                Sm.vdi_list_changed_blocks device_config _type sr ~vdi_from
+                Sm.vdi_list_changed_blocks ~dbg device_config _type sr ~vdi_from
                   ~vdi_to
             )
         )
