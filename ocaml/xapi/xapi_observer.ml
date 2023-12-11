@@ -428,38 +428,37 @@ let load ~__context component =
     )
     all
 
-let initialise_component ~__context =
-  let comp_left = ref (List.map (fun c -> (c, 1)) Component.all) in
-  fun component ->
-    load ~__context component ;
-    List.assoc_opt component !comp_left
-    |> Option.iter (fun _ ->
-           comp_left := List.remove_assoc component !comp_left ;
-           set_trace_log_dir ~__context !Xapi_globs.trace_log_dir component ;
-           set_export_interval ~__context !Xapi_globs.export_interval component ;
-           set_max_spans ~__context !Xapi_globs.max_spans component ;
-           set_max_traces ~__context !Xapi_globs.max_traces component ;
-           set_max_file_size ~__context
-             !Xapi_globs.max_observer_file_size
-             component ;
-           set_host_id ~__context (Helpers.get_localhost_uuid ()) component ;
-           set_compress_tracing_files ~__context
-             !Xapi_globs.compress_tracing_files
-             component ;
-           if component = Component.Xapi then
-             Tracing.Export.set_service_name "xapi" ;
-           init ~__context component
-       )
+(** Called only when there is a component associated with an observer*)
+let initialise_observer_component ~__context component =
+  load ~__context component
+
+(** Called only once for the same component *)
+let initialise_observer_meta ~__context component =
+  set_trace_log_dir ~__context !Xapi_globs.trace_log_dir component ;
+  set_export_interval ~__context !Xapi_globs.export_interval component ;
+  set_max_spans ~__context !Xapi_globs.max_spans component ;
+  set_max_traces ~__context !Xapi_globs.max_traces component ;
+  set_max_file_size ~__context !Xapi_globs.max_observer_file_size component ;
+  set_host_id ~__context (Helpers.get_localhost_uuid ()) component ;
+  set_compress_tracing_files ~__context
+    !Xapi_globs.compress_tracing_files
+    component ;
+  init ~__context component
+
+let initialise_observer ~__context component =
+  initialise_observer_meta ~__context component ;
+  initialise_observer_component ~__context component
 
 let initialise ~__context =
-  let init_one = initialise_component ~__context in
+  List.iter (initialise_observer_meta ~__context) startup_components ;
   Db.Observer.get_all ~__context
   |> List.iter (fun self ->
          Db.Observer.get_components ~__context ~self
          |> List.map Component.of_string
          |> observed_components_of
-         |> List.iter init_one
-     )
+         |> List.iter (initialise_observer_component ~__context)
+     ) ;
+  Tracing.Export.set_service_name "xapi"
 
 let set_hosts ~__context ~self ~value =
   assert_valid_hosts ~__context value ;

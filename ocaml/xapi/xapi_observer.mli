@@ -25,7 +25,7 @@ val observed_hosts_of :
 
 val initialise : __context:Context.t -> unit
 
-val initialise_component : __context:Context.t -> Component.t -> unit
+val initialise_observer : __context:Context.t -> Component.t -> unit
 
 val create :
      __context:Context.t

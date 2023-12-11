@@ -193,7 +193,7 @@ let resync_host ~__context ~host =
             (* Note that join_internal and enable both use the clustering lock *)
             Client.Client.Cluster_host.enable ~rpc ~session_id ~self
           ) ;
-          Xapi_observer.initialise_component ~__context
+          Xapi_observer.initialise_observer ~__context
             Xapi_observer.Component.Xapi_clusterd ;
           let verify = Stunnel_client.get_verify_by_default () in
           set_tls_config ~__context ~self ~verify
@@ -302,7 +302,7 @@ let enable ~__context ~self =
           "Cluster_host.enable: xapi-clusterd not running - attempting to start" ;
         Xapi_clustering.Daemon.enable ~__context
       ) ;
-      Xapi_observer.initialise_component ~__context
+      Xapi_observer.initialise_observer ~__context
         Xapi_observer.Component.Xapi_clusterd ;
       let verify = Stunnel_client.get_verify_by_default () in
       set_tls_config ~__context ~self ~verify ;
