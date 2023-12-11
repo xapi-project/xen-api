@@ -2777,6 +2777,16 @@ let write_uefi_certificates_to_disk ~__context ~host =
            uefi_certs_in_disk |> Array.mem cert |> log_of
        )
   in
+  let disk_uefi_certs_tar =
+    really_read_uefi_certificates_from_disk ~__context ~host
+      !Xapi_globs.default_auth_dir
+  in
+  (* synchronize both host & pool read-only fields with contents in disk *)
+  Db.Host.set_uefi_certificates ~__context ~self:host ~value:disk_uefi_certs_tar ;
+  if Pool_role.is_master () then
+    Db.Pool.set_uefi_certificates ~__context
+      ~self:(Helpers.get_pool ~__context)
+      ~value:disk_uefi_certs_tar ;
   let pool_uefi_certs =
     Db.Pool.get_custom_uefi_certificates ~__context
       ~self:(Helpers.get_pool ~__context)
@@ -2787,18 +2797,7 @@ let write_uefi_certificates_to_disk ~__context ~host =
         with_valid_symlink ~from_path:!Xapi_globs.varstore_dir
           ~to_path:!Xapi_globs.default_auth_dir
       in
-      check_valid_uefi_certs_in path ;
-      let disk_uefi_certs_tar =
-        really_read_uefi_certificates_from_disk ~__context ~host
-          !Xapi_globs.varstore_dir
-      in
-      (* synchronize both host & pool read-only fields with contents in disk *)
-      Db.Host.set_uefi_certificates ~__context ~self:host
-        ~value:disk_uefi_certs_tar ;
-      if Pool_role.is_master () then
-        Db.Pool.set_uefi_certificates ~__context
-          ~self:(Helpers.get_pool ~__context)
-          ~value:disk_uefi_certs_tar
+      check_valid_uefi_certs_in path
   | true, "" ->
       (* When overriding certificates and user hasn't been able to set a value
          yet, keep the symlink so VMs always have valid uefi certificates *)
