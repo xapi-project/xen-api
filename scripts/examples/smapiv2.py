@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
 from __future__ import print_function
-import os, sys, time, socket, traceback
+import os, sys, io, time, socket, traceback
 
-log_f = os.fdopen(os.dup(sys.stdout.fileno()), "aw")
+log_f = io.open(os.dup(sys.stdout.fileno()), "w")
 pid = None
 
 def reopenlog(log_file):
@@ -11,9 +11,12 @@ def reopenlog(log_file):
     if log_f:
         log_f.close()
     if log_file:
-        log_f = open(log_file, "aw")
+        try:
+            log_f = io.open(log_file, "a")
+        except FilenotFoundError:
+            log_f = io.open(log_file, "w")
     else:
-        log_f = os.fdopen(os.dup(sys.stdout.fileno()), "aw")
+        log_f = io.open(os.dup(sys.stdout.fileno()), "a")
 
 def log(txt):
     global log_f, pid
