@@ -243,11 +243,16 @@ module Xapi_cluster = struct
   end
 end
 
-(* We startup the observer for clusterd separately in cluster_host so that
+(* We start up the observer for clusterd only if clusterd has been enabled
+   otherwise we initialise clusterd separately in cluster_host so that
    there is no need to restart xapi in order for clusterd to be observed.
    This does mean that observer will always be enabled for clusterd. *)
-let startup_components =
-  List.filter (( <> ) Component.Xapi_clusterd) Component.all
+let startup_components () =
+  List.filter
+    (function
+      | Component.Xapi_clusterd -> !Xapi_clustering.Daemon.enabled | _ -> true
+      )
+    Component.all
 
 let get_forwarder c =
   let module Forwarder = ( val match c with
@@ -268,7 +273,7 @@ let observed_hosts_of ~__context hosts =
   match hosts with [] -> Db.Host.get_all ~__context | hosts -> hosts
 
 let observed_components_of components =
-  match components with [] -> startup_components | components -> components
+  match components with [] -> startup_components () | components -> components
 
 let assert_valid_hosts ~__context hosts =
   List.iter
@@ -450,7 +455,7 @@ let initialise_observer ~__context component =
   initialise_observer_component ~__context component
 
 let initialise ~__context =
-  List.iter (initialise_observer_meta ~__context) startup_components ;
+  List.iter (initialise_observer_meta ~__context) (startup_components ()) ;
   Db.Observer.get_all ~__context
   |> List.iter (fun self ->
          Db.Observer.get_components ~__context ~self
