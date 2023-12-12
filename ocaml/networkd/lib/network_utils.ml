@@ -695,13 +695,38 @@ module Ip = struct
     with _ ->
       Result.Error (Fail_to_set_vf_vlan, "Failed to set VF VLAN for: " ^ dev)
 
-  (* We know some NICs do not support config VF Rate, so will explicitly tell
-     XAPI this error*)
+  (** [set_vf_rate dev index rate] Updates the VF rate for a specified network interface card (NIC).
+    Note that this function converts the input rate from kilobits per second (kbps) to
+    megabits per second (Mbps) using division followed by ceil.
+
+    This function accounts for the fact that some NICs may not support VF rate configuration.
+    Any encountered errors during the process are explicitly reported to XAPI.
+
+    @param dev    The network device identifier.
+    @param index  The index of the VF.
+    @param rate   The desired rate in kbps, it will be converted into Mbps using division and ceil.
+
+    @return [Result.Ok] with the updated configuration upon success, or [Result.Error] wrapping [Fail_to_set_vf_rate] with the specific error message upon failure.
+*)
   let set_vf_rate dev index rate =
+    let divide_and_ceil (numerator : int) (denominator : int) : int =
+      let quotient = numerator / denominator in
+      let remainder = numerator mod denominator in
+      if remainder > 0 then
+        quotient + 1
+      else
+        quotient
+    in
     try
-      debug "Setting VF rate for dev: %s, index: %d, rate: %d" dev index rate ;
+      let megabits_per_second = divide_and_ceil rate 1000 in
+      debug "Setting VF rate for dev: %s, index: %d, rate: %d Mbps" dev index
+        megabits_per_second ;
       Result.Ok
-        (link_set dev ["vf"; string_of_int index; "rate"; string_of_int rate])
+        (link_set dev
+           [
+             "vf"; string_of_int index; "rate"; string_of_int megabits_per_second
+           ]
+        )
     with _ ->
       Result.Error (Fail_to_set_vf_rate, "Failed to set VF rate for: " ^ dev)
 end

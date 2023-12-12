@@ -807,7 +807,7 @@ module Vif = struct
       match rate with
       | None ->
           []
-      | Some (kbytes_per_s, timeslice_us) ->
+      | Some (kbps, timeslice_us) ->
           let ( ^* ) = Int64.mul and ( ^/ ) = Int64.div in
           let timeslice_us =
             if timeslice_us > 0L then
@@ -816,14 +816,14 @@ module Vif = struct
               50000L
             (* 50ms by default *)
           in
-          let bytes_per_interval =
-            ((kbytes_per_s ^* 1024L) ^* timeslice_us) ^/ 1000000L
+          let bits_per_interval =
+            ((kbps ^* 1000L) ^* timeslice_us) ^/ 1000000L
           in
-          if bytes_per_interval > 0L && bytes_per_interval < 0xffffffffL then
-            [("rate", sprintf "%Lu,%Lu" bytes_per_interval timeslice_us)]
+          if bits_per_interval > 0L && bits_per_interval < 0xffffffffL then
+            [("rate", sprintf "%Lu,%Lu" bits_per_interval timeslice_us)]
           else (
-            debug "VIF qos: invalid value for byte/interval: %Lu"
-              bytes_per_interval ;
+            debug "VIF qos: invalid value for bit/interval: %Lu"
+              bits_per_interval ;
             []
           )
     in
