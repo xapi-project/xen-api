@@ -23,6 +23,9 @@ jobs:
         id: dotenv
         uses: falti/dotenv-action@v0.2.4
 
+      - name: Update package repos
+        run: sudo apt-get update -y
+
       - name: Use ocaml
         uses: avsm/setup-ocaml@v1
         with:
