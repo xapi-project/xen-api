@@ -275,6 +275,7 @@
     (xapi-stdext-threads (= :version))
     (xapi-stdext-unix (= :version))
     (xapi-stdext-zerocheck (= :version))
+    (xapi-fdcaps (= :version))
   )
 )
 
@@ -366,5 +367,18 @@
     (alcotest :with-test)
     base-unix
     fmt
+  )
+)
+
+(package
+  (name xapi-fd-test)
+  (synopsis "Test framework for file descriptor operations")
+  (depends
+    (alcotest :with-test)
+    base-unix
+    fmt
+    (mtime (>= 2.0.0))
+    logs
+    (qcheck-core (>= 0.21.2))
   )
 )

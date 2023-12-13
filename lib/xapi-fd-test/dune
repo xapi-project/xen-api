@@ -1,0 +1,6 @@
+; This will be used to test stdext itself, so do not depend on stdext here
+(library
+	(public_name xapi-fd-test)
+	(name xapi_fd_test)
+	(libraries xapi-fdcaps unix qcheck-core logs fmt mtime mtime.clock.os)
+)

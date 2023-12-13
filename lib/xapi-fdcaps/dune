@@ -3,5 +3,5 @@
 (library
 	(public_name xapi-fdcaps)
 	(name xapi_fdcaps)
-	(libraries unix)
+	(libraries fmt unix)
 )

@@ -1,0 +1,6 @@
+; This is a test framework, but we still need to test it
+(test
+	(package xapi-fd-test)
+	(name test_xapi_fd_test)
+	(libraries xapi_fd_test alcotest)
+)
