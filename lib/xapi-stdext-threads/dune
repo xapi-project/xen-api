@@ -2,7 +2,7 @@
   (public_name xapi-stdext-threads)
   (name  xapi_stdext_threads)
   (libraries
-    threads
+    threads.posix
     unix
     xapi-stdext-pervasives)
 )

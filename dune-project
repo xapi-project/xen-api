@@ -91,6 +91,7 @@
     base-unix
     (fd-send-recv (>= 2.0.0))
     (odoc :with-doc)
+    xapi-backtrace
     (xapi-stdext-pervasives (= :version))
   )
 )
