@@ -358,3 +358,13 @@
     (odoc :with-doc)
   )
 )
+
+(package
+  (name xapi-fdcaps)
+  (synopsis "Static capabilities for file descriptor operations")
+  (depends
+    (alcotest :with-test)
+    base-unix
+    fmt
+  )
+)

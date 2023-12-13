@@ -1,0 +1,5 @@
+(test
+	(package xapi-fdcaps)
+	(name test_xapi_fdcaps)
+	(libraries xapi_fdcaps alcotest)
+)

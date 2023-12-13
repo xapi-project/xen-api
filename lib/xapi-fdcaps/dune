@@ -1,0 +1,7 @@
+; Keep dependencies minimal here, ideally just OCaml stdlib
+; This will be used to test other functions in stdext, so it should not itself rely on other stdext libs!
+(library
+	(public_name xapi-fdcaps)
+	(name xapi_fdcaps)
+	(libraries unix)
+)
