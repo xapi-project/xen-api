@@ -12,5 +12,5 @@
   (name test)
   (package xapi-stdext-date)
   (modules test)
-  (libraries alcotest xapi-stdext-date)
+  (libraries alcotest xapi-stdext-date ptime)
 )

@@ -4,6 +4,7 @@
   (libraries
     fd-send-recv
     unix
+    xapi-backtrace
     xapi-stdext-pervasives)
   (foreign_stubs
     (language c)
