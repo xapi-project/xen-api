@@ -374,10 +374,30 @@ let consider_enabling_host_nolock ~__context =
     let pool = Helpers.get_pool ~__context in
     Db.Host.remove_pending_guidances ~__context ~self:localhost
       ~value:`restart_toolstack ;
+    let if_no_pending_guidances f =
+      let host_pending_mandatory_guidances =
+        Db.Host.get_pending_guidances ~__context ~self:localhost
+      in
+      if host_pending_mandatory_guidances <> [] then
+        debug
+          "Host.enabled: there are %d pending mandatory guidances on host \
+           (%s): [%s]. Leave host disabled."
+          (List.length host_pending_mandatory_guidances)
+          (Ref.string_of localhost)
+          (String.concat ";"
+             (List.map Updateinfo.Guidance.to_string
+                (List.map Updateinfo.Guidance.of_update_guidance
+                   host_pending_mandatory_guidances
+                )
+             )
+          )
+      else
+        f ()
+    in
     if !Xapi_globs.on_system_boot then (
       debug
-        "Host.enabled: system has just restarted: setting localhost to enabled" ;
-      Db.Host.set_enabled ~__context ~self:localhost ~value:true ;
+        "Host.enabled: system has just restarted: remove livepatch failure \
+         guidances" ;
       Db.Host.remove_pending_guidances ~__context ~self:localhost
         ~value:`reboot_host ;
       Db.Host.remove_pending_guidances ~__context ~self:localhost
@@ -386,10 +406,17 @@ let consider_enabling_host_nolock ~__context =
         ~value:`reboot_host_on_kernel_livepatch_failure ;
       Db.Host.remove_pending_guidances_recommended ~__context ~self:localhost
         ~value:`reboot_host_on_xen_livepatch_failure ;
-      update_allowed_operations ~__context ~self:localhost ;
-      Localdb.put Constants.host_disabled_until_reboot "false" ;
-      (* Start processing pending VM powercycle events *)
-      Local_work_queue.start_vm_lifecycle_queue ()
+
+      if_no_pending_guidances (fun () ->
+          debug
+            "Host.enabled: system has just restarted and no pending mandatory \
+             guidances: setting localhost to enabled" ;
+          Db.Host.set_enabled ~__context ~self:localhost ~value:true ;
+          update_allowed_operations ~__context ~self:localhost ;
+          Localdb.put Constants.host_disabled_until_reboot "false" ;
+          (* Start processing pending VM powercycle events *)
+          Local_work_queue.start_vm_lifecycle_queue ()
+      )
     ) else if
         try bool_of_string (Localdb.get Constants.host_disabled_until_reboot)
         with _ -> false
@@ -400,11 +427,17 @@ let consider_enabling_host_nolock ~__context =
     else (
       debug
         "Host.enabled: system not just rebooted && host_disabled_until_reboot \
-         not set: setting localhost to enabled" ;
-      Db.Host.set_enabled ~__context ~self:localhost ~value:true ;
-      update_allowed_operations ~__context ~self:localhost ;
-      (* Start processing pending VM powercycle events *)
-      Local_work_queue.start_vm_lifecycle_queue ()
+         not set" ;
+      if_no_pending_guidances (fun () ->
+          debug
+            "Host.enabled: system not just rebooted && \
+             host_disabled_until_reboot not set and no pending mandatory \
+             guidances: setting localhost to enabled" ;
+          Db.Host.set_enabled ~__context ~self:localhost ~value:true ;
+          update_allowed_operations ~__context ~self:localhost ;
+          (* Start processing pending VM powercycle events *)
+          Local_work_queue.start_vm_lifecycle_queue ()
+      )
     ) ;
     (* If Host has been enabled and HA is also enabled then tell the master to recompute its plan *)
     if

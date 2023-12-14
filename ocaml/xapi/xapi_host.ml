@@ -67,19 +67,45 @@ let set_power_on_mode ~__context ~self ~power_on_mode ~power_on_config =
   Xapi_host_helpers.update_allowed_operations ~__context ~self
 
 (** Before we re-enable this host we make sure it's safe to do so. It isn't if:
-    	+ we're in the middle of an HA shutdown/reboot and have our fencing temporarily disabled.
-    	+ xapi hasn't properly started up yet.
-    	+ HA is enabled and this host has broken storage or networking which would cause protected VMs
-    	to become non-agile
+        + there are pending mandatory guidances on the host
+        + we're in the middle of an HA shutdown/reboot and have our fencing temporarily disabled.
+        + xapi hasn't properly started up yet.
+        + HA is enabled and this host has broken storage or networking which would cause protected VMs
+        to become non-agile
 *)
 let assert_safe_to_reenable ~__context ~self =
   assert_startup_complete () ;
+  let host_pending_mandatory_guidances =
+    Db.Host.get_pending_guidances ~__context ~self
+  in
+  if host_pending_mandatory_guidances <> [] then (
+    error "%s: %d mandatory guidances are pending for host %s: [%s]"
+      __FUNCTION__
+      (List.length host_pending_mandatory_guidances)
+      (Ref.string_of self)
+      (String.concat ";"
+         (List.map Updateinfo.Guidance.to_string
+            (List.map Updateinfo.Guidance.of_update_guidance
+               host_pending_mandatory_guidances
+            )
+         )
+      ) ;
+    raise
+      (Api_errors.Server_error
+         ( Api_errors.host_pending_mandatory_guidances_not_empty
+         , [Ref.string_of self]
+         )
+      )
+  ) ;
   let host_disabled_until_reboot =
     try bool_of_string (Localdb.get Constants.host_disabled_until_reboot)
     with _ -> false
   in
   if host_disabled_until_reboot then
-    raise (Api_errors.Server_error (Api_errors.host_disabled_until_reboot, [])) ;
+    raise
+      (Api_errors.Server_error
+         (Api_errors.host_disabled_until_reboot, [Ref.string_of self])
+      ) ;
   if Db.Pool.get_ha_enabled ~__context ~self:(Helpers.get_pool ~__context) then (
     let pbds = Db.Host.get_PBDs ~__context ~self in
     let unplugged_pbds =
