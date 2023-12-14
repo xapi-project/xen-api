@@ -15,9 +15,9 @@ stop = False
 
 class Operation:
     def __init__(self):
-        raise Exception("this is supposed to be abstract, dummy")
+        raise NotImplementedError("this is supposed to be abstract, dummy")
     def execute(self, server, session_id):
-        raise Exception("this is supposed to be abstract, dummy")
+        raise NotImplementedError("this is supposed to be abstract, dummy")
 
 class Reboot(Operation):
     def __init__(self, vm):
@@ -120,7 +120,7 @@ if __name__ == "__main__":
             allowed_ops = vms[vm]["allowed_operations"]
             for op in [ "clean_reboot", "suspend", "pool_migrate" ]:
                 if op not in allowed_ops:
-                    raise Exception("VM %s is not in a state where it can %s" % (vms[vm]["name_label"], op))
+                    raise RuntimeError("VM %s is not in a state where it can %s" % (vms[vm]["name_label"], op))
             workers.append(Worker(x, session, make_operation_list(vm)))
     for w in workers:
         w.start()
