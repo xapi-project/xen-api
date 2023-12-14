@@ -15,9 +15,9 @@ stop = False
 
 class Operation:
     def __init__(self):
-        raise NotImplementedError("this is supposed to be abstract, dummy")
+        raise NotImplementedError
     def execute(self, server, session_id):
-        raise NotImplementedError("this is supposed to be abstract, dummy")
+        raise NotImplementedError
 
 class Reboot(Operation):
     def __init__(self, vm):
