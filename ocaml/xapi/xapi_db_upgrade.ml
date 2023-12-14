@@ -867,7 +867,8 @@ let update_livepatch_guidance =
        reboot_host_on_xen_livepatch_failure in \
        host.pending_guidances_recommended. 2. Move the rest guidances in \
        host.pending_guidances into host.pending_guidances_recommended"
-  ; version= (fun _ -> true)
+      (* TODO: update below schema version to which the feature branch got merged with *)
+  ; version= (fun x -> x < (5, 769))
   ; fn=
       (fun ~__context ->
         Db.Host.get_all ~__context
