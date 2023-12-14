@@ -155,6 +155,7 @@ module UpdateInfo : sig
     ; livepatches: LivePatch.t list
     ; issued: Xapi_stdext_date.Date.t
     ; severity: Severity.t
+    ; title: string
   }
 
   val to_json : t -> Yojson.Basic.t

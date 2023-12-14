@@ -543,6 +543,7 @@ module UpdateInfo = struct
     ; livepatches: LivePatch.t list
     ; issued: Xapi_stdext_date.Date.t
     ; severity: Severity.t
+    ; title: string
   }
 
   let guidance_to_string o =
@@ -563,6 +564,7 @@ module UpdateInfo = struct
         , `List (List.map (fun x -> LivePatch.to_json x) ui.livepatches)
         )
       ; ("guidance", GuidanceInUpdateInfo.to_json ui.guidance)
+      ; ("title", `String ui.title)
       ]
 
   let to_string ui = to_json ui |> Yojson.Basic.to_string
@@ -580,6 +582,7 @@ module UpdateInfo = struct
     ; livepatches= []
     ; issued= Xapi_stdext_date.Date.epoch
     ; severity= Severity.None
+    ; title= ""
     }
 
   let assert_valid_updateinfo = function
@@ -673,6 +676,8 @@ module UpdateInfo = struct
                           warn "%s" (ExnHelper.string_of_exn e) ;
                           acc
                       )
+                      | Xml.Element ("title", _, [Xml.PCData v]) ->
+                          {acc with title= v}
                       | _ ->
                           acc
                     )

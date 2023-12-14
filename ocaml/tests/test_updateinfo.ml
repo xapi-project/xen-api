@@ -446,6 +446,7 @@ let fields_of_updateinfo =
     ; field "severity"
         (fun (r : UpdateInfo.t) -> Severity.to_string r.severity)
         string
+    ; field "title" (fun (r : UpdateInfo.t) -> r.title) string
     ]
 
 module UpdateInfoOfXml = Generic.MakeStateless (struct
@@ -568,6 +569,7 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                   ; livepatches= []
                   ; issued= Xapi_stdext_date.Date.epoch
                   ; severity= Severity.None
+                  ; title= "title"
                   }
               )
             ]
@@ -636,6 +638,7 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                   ; issued=
                       Xapi_stdext_date.Date.of_string "2023-05-12T08:37:49Z"
                   ; severity= Severity.High
+                  ; title= "title"
                   }
               )
             ]
@@ -690,6 +693,7 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                   ; issued=
                       Xapi_stdext_date.Date.of_string "2023-05-12T08:37:49Z"
                   ; severity= Severity.High
+                  ; title= "title"
                   }
               )
             ; ( "UPDATE-0001"
@@ -713,6 +717,7 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                   ; issued=
                       Xapi_stdext_date.Date.of_string "2023-05-12T08:37:50Z"
                   ; severity= Severity.None
+                  ; title= "title"
                   }
               )
             ]
@@ -795,6 +800,7 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                   ; issued=
                       Xapi_stdext_date.Date.of_string "2023-05-12T08:37:49Z"
                   ; severity= Severity.High
+                  ; title= "title"
                   }
               )
             ]
@@ -889,6 +895,7 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                   ; issued=
                       Xapi_stdext_date.Date.of_string "2023-05-12T08:37:49Z"
                   ; severity= Severity.High
+                  ; title= "title"
                   }
               )
             ]
@@ -964,6 +971,7 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                   ; issued=
                       Xapi_stdext_date.Date.of_string "2023-05-12T08:37:49Z"
                   ; severity= Severity.High
+                  ; title= "title"
                   }
               )
             ]
@@ -1039,6 +1047,7 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                   ; issued=
                       Xapi_stdext_date.Date.of_string "2023-05-12T08:37:49Z"
                   ; severity= Severity.High
+                  ; title= "title"
                   }
               )
             ]
@@ -1087,6 +1096,7 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                   ; livepatches= []
                   ; issued= Xapi_stdext_date.Date.epoch
                   ; severity= Severity.None
+                  ; title= "title"
                   }
               )
             ]
@@ -1149,6 +1159,7 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                       ]
                   ; issued= Xapi_stdext_date.Date.epoch
                   ; severity= Severity.None
+                  ; title= "title"
                   }
               )
             ]
@@ -1199,6 +1210,7 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                   ; livepatches= []
                   ; issued= Xapi_stdext_date.Date.epoch
                   ; severity= Severity.None
+                  ; title= "title"
                   }
               )
             ]
@@ -1247,6 +1259,7 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                   ; livepatches= []
                   ; issued= Xapi_stdext_date.Date.epoch
                   ; severity= Severity.None
+                  ; title= "title"
                   }
               )
             ]
@@ -1292,6 +1305,7 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                   ; livepatches= []
                   ; issued= Xapi_stdext_date.Date.epoch
                   ; severity= Severity.None
+                  ; title= "title"
                   }
               )
             ]
@@ -1344,6 +1358,7 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                   ; livepatches= []
                   ; issued= Xapi_stdext_date.Date.epoch
                   ; severity= Severity.None
+                  ; title= "title"
                   }
               )
             ]
@@ -1400,6 +1415,7 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                   ; livepatches= []
                   ; issued= Xapi_stdext_date.Date.epoch
                   ; severity= Severity.None
+                  ; title= "title"
                   }
               )
             ]
@@ -1461,6 +1477,7 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                   ; livepatches= []
                   ; issued= Xapi_stdext_date.Date.epoch
                   ; severity= Severity.None
+                  ; title= "title"
                   }
               )
             ]
@@ -1522,6 +1539,7 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                   ; livepatches= []
                   ; issued= Xapi_stdext_date.Date.epoch
                   ; severity= Severity.None
+                  ; title= "title"
                   }
               )
             ]
