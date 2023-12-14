@@ -859,14 +859,16 @@ let empty_pool_uefi_certificates =
       )
   }
 
-let update_livepatch_guidance =
+(* 1. Replace reboot_host_on_livepatch_failure in host.pending_guidances \
+ *    with reboot_host_on_kernel_livepatch_failure and \
+ *    reboot_host_on_xen_livepatch_failure in \
+ *    host.pending_guidances_recommended.
+ * 2. Move the rest guidances in \
+ *    host.pending_guidances into host.pending_guidances_recommended *)
+let upgrade_update_guidance =
   {
     description=
-      "1. Replace reboot_host_on_livepatch_failure in host.pending_guidances \
-       with reboot_host_on_kernel_livepatch_failure and \
-       reboot_host_on_xen_livepatch_failure in \
-       host.pending_guidances_recommended. 2. Move the rest guidances in \
-       host.pending_guidances into host.pending_guidances_recommended"
+      "Upgrade pending update gudiances"
       (* TODO: update below schema version to which the feature branch got merged with *)
   ; version= (fun x -> x < (5, 769))
   ; fn=
@@ -923,7 +925,7 @@ let rules =
   ; upgrade_secrets
   ; remove_legacy_ssl_support
   ; empty_pool_uefi_certificates
-  ; update_livepatch_guidance
+  ; upgrade_update_guidance
   ]
 
 (* Maybe upgrade most recent db *)
