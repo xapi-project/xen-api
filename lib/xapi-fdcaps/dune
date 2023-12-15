@@ -5,4 +5,7 @@
 	(name xapi_fdcaps)
 	(libraries fmt unix threads.posix)
 	(flags (:standard -principal))
+
+	; off by default, enable with --instrument-with bisect_ppx
+	(instrumentation (backend bisect_ppx))
 )

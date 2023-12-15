@@ -1,4 +1,4 @@
-(lang dune 2.0)
+(lang dune 2.7)
 (formatting (enabled_for ocaml))
 
 (implicit_transitive_deps false)
@@ -367,6 +367,7 @@
     (alcotest :with-test)
     base-unix
     fmt
+    (bisect_ppx :with-test)
   )
 )
 
