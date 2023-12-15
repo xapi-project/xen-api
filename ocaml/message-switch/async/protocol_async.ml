@@ -30,6 +30,9 @@ module M = struct
 
     let iter f t = Deferred.List.iter t ~f
 
+    let iter_dontwait f t =
+      Deferred.don't_wait_for @@ Deferred.List.iter ~how:`Parallel t ~f
+
     let any = Deferred.any
 
     let is_determined = Deferred.is_determined
