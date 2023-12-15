@@ -29,6 +29,8 @@ module type BACKEND = sig
 
     val iter : ('a -> unit t) -> 'a list -> unit t
 
+    val iter_dontwait : ('a -> unit t) -> 'a list -> unit
+
     val any : 'a t list -> 'a t
 
     val is_determined : 'a t -> bool
