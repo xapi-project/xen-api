@@ -3,5 +3,6 @@
 (library
 	(public_name xapi-fdcaps)
 	(name xapi_fdcaps)
-	(libraries fmt unix)
+	(libraries fmt unix threads.posix)
+	(flags (:standard -principal))
 )
