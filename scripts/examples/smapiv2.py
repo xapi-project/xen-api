@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
 from __future__ import print_function
-import os, sys, io, time, socket, traceback
+import os, sys, time, socket, traceback
 
-log_f = io.open(os.dup(sys.stdout.fileno()), "w")
+log_f = open(os.dup(sys.stdout.fileno()), "w")
 pid = None
 
 def reopenlog(log_file):
@@ -12,11 +12,11 @@ def reopenlog(log_file):
         log_f.close()
     if log_file:
         try:
-            log_f = io.open(log_file, "a")
+            log_f = open(log_file, "a")
         except FilenotFoundError:
-            log_f = io.open(log_file, "w")
+            log_f = open(log_file, "w")
     else:
-        log_f = io.open(os.dup(sys.stdout.fileno()), "a")
+        log_f = open(os.dup(sys.stdout.fileno()), "a")
 
 def log(txt):
     global log_f, pid
@@ -86,7 +86,7 @@ vdi_info_types = {
 
 def make_vdi_info(v):
     global vdi_info_types
-    for k in vdi_info_types.keys():
+    for k in vdi_info_types:
         t = vdi_info_types[k]
         if t == type(""):
             v[k] = str(v[k])
@@ -98,7 +98,7 @@ def make_vdi_info(v):
 
 def vdi_info(v):
     global vdi_info_types
-    for k in vdi_info_types.keys():
+    for k in vdi_info_types:
         if k not in v:
             raise BackendError("vdi_info missing key", [ k, repr(v) ])
         t = vdi_info_types[k]
@@ -162,7 +162,7 @@ class Marshall:
         return value(unit)
     def sr_scan(self, args):
         vis = self.x.sr_scan(args["task"], args["sr"])
-        result = map(lambda vi: vdi_info(vi), vis)
+        result = [vdi_info(vi) for vi in vis]
         return value(vdis(result))
 
     def vdi_create(self, args):
