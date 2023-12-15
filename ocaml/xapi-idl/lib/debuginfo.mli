@@ -21,3 +21,11 @@ val of_string : string -> t
 val to_string : t -> string
 
 val to_log_string : t -> string
+
+val with_dbg :
+     ?with_thread:bool
+  -> module_name:string
+  -> name:string
+  -> dbg:string
+  -> (t -> 'a)
+  -> 'a
