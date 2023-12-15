@@ -181,7 +181,8 @@ install: build doc sdk doc-json
 	install -D ./ocaml/xenopsd/scripts/tap $(DESTDIR)/$(XENOPSD_LIBEXECDIR)/tap
 	install -D ./ocaml/xenopsd/scripts/qemu-vif-script $(DESTDIR)/$(XENOPSD_LIBEXECDIR)/qemu-vif-script
 	install -D ./ocaml/xenopsd/scripts/setup-vif-rules $(DESTDIR)/$(XENOPSD_LIBEXECDIR)/setup-vif-rules
-	install -D ./ocaml/xenopsd/scripts/setup-pvs-proxy-rules $(DESTDIR)/$(XENOPSD_LIBEXECDIR)/setup-pvs-proxy-rules
+	install -D ./_build/install/default/bin/pvs-proxy-ovs-setup $(DESTDIR)/$(XENOPSD_LIBEXECDIR)/pvs-proxy-ovs-setup
+	(cd $(DESTDIR)/$(XENOPSD_LIBEXECDIR) && ln -s pvs-proxy-ovs-setup setup-pvs-proxy-rules)
 	install -D ./ocaml/xenopsd/scripts/common.py $(DESTDIR)/$(XENOPSD_LIBEXECDIR)/common.py
 	install -D ./ocaml/xenopsd/scripts/igmp_query_injector.py $(DESTDIR)/$(XENOPSD_LIBEXECDIR)/igmp_query_injector.py
 	install -D ./ocaml/xenopsd/scripts/qemu-wrapper $(DESTDIR)/$(QEMU_WRAPPER_DIR)/qemu-wrapper

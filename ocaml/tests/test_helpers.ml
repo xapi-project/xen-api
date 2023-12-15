@@ -258,17 +258,19 @@ end)
 
 module IPCheckers = Generic.MakeStateless (struct
   module Io = struct
-    type input_t = [`ipv4 | `ipv6] * string * string
+    type input_t = [`ipv4 | `ipv6 | `ipv4or6] * string * string
 
     type output_t = (unit, exn) result
 
     let string_of_input_t =
       let open Test_printers in
-      let kind : [`ipv4 | `ipv6] printer = function
+      let kind : [`ipv4 | `ipv6 | `ipv4or6] printer = function
         | `ipv4 ->
             "IPv4"
         | `ipv6 ->
             "IPv6"
+        | `ipv4or6 ->
+            "IP*"
       in
       tuple3 kind string string
 
@@ -323,17 +325,19 @@ end)
 
 module CIDRCheckers = Generic.MakeStateless (struct
   module Io = struct
-    type input_t = [`ipv4 | `ipv6] * string * string
+    type input_t = [`ipv4 | `ipv6 | `ipv4or6] * string * string
 
     type output_t = (unit, exn) result
 
     let string_of_input_t =
       let open Test_printers in
-      let kind : [`ipv4 | `ipv6] printer = function
+      let kind : [`ipv4 | `ipv6 | `ipv4or6] printer = function
         | `ipv4 ->
             "IPv4"
         | `ipv6 ->
             "IPv6"
+        | `ipv4or6 ->
+            "IP*"
       in
       tuple3 kind string string
 
