@@ -89,18 +89,6 @@ let rec main () =
     ("HTTP_actions.mustache", "HTTP_actions.cs")
     (gen_http_actions ()) templdir destdir ;
   gen_relations () ;
-  let sorted_members = List.sort String.compare !api_members in
-  let json =
-    `O
-      [
-        ( "api_members"
-        , `A (List.map (fun x -> `O [("api_member", `String x)]) sorted_members)
-        )
-      ]
-  in
-  render_file
-    ("XenServer.csproj.mustache", "XenServer.csproj")
-    json templdir destdir ;
   render_file
     ("ApiVersion.mustache", "ApiVersion.cs")
     json_releases templdir destdir
