@@ -97,33 +97,42 @@ let rec main () =
 and relations = Hashtbl.create 10
 
 and gen_relations () =
-  let out_chan = open_out (Filename.concat destdir "Relation.cs") in
-  let print format = fprintf out_chan format in
   List.iter process_relations (relations_of_api api) ;
-  print
-    "%s\n\n\
-     using System;\n\
-     using System.Collections.Generic;\n\n\
-     namespace XenAPI\n\
-     {\n\
-    \    public partial class Relation\n\
-    \    {\n\
-    \        public readonly String field;\n\
-    \        public readonly String manyType;\n\
-    \        public readonly String manyField;\n\n\
-    \        public Relation(String field, String manyType, String manyField)\n\
-    \        {\n\
-    \            this.field = field;\n\
-    \            this.manyField = manyField;\n\
-    \            this.manyType = manyType;\n\
-    \        }\n\n\
-    \        public static Dictionary<Type, Relation[]> GetRelations()\n\
-    \        {\n\
-    \            Dictionary<Type, Relation[]> relations = new Dictionary<Type, \
-     Relation[]>();\n\n"
-    Licence.bsd_two_clause ;
-  Hashtbl.iter (gen_relations_by_type out_chan) relations ;
-  print "\n            return relations;\n       }\n    }\n}\n"
+  let typelist =
+    List.rev (Hashtbl.fold (fun k v acc -> (k, v) :: acc) relations [])
+  in
+  let json =
+    `O
+      [
+        ( "types"
+        , `A
+            (List.map
+               (fun (k, v) ->
+                 `O
+                   [
+                     ("type", `String (exposed_class_name k))
+                   ; ( "relations"
+                     , `A
+                         (List.map
+                            (fun (x, y, z) ->
+                              `O
+                                [
+                                  ("field", `String x)
+                                ; ("manyType", `String y)
+                                ; ("manyField", `String z)
+                                ]
+                            )
+                            v
+                         )
+                     )
+                   ]
+               )
+               typelist
+            )
+        )
+      ]
+  in
+  render_file ("Relation.mustache", "Relation.cs") json templdir destdir
 
 and process_relations ((oneClass, oneField), (manyClass, manyField)) =
   let value =
@@ -131,20 +140,6 @@ and process_relations ((oneClass, oneField), (manyClass, manyField)) =
     with Not_found -> [(manyField, oneClass, oneField)]
   in
   Hashtbl.replace relations manyClass value
-
-and gen_relations_by_type out_chan manyClass relations =
-  let print format = fprintf out_chan format in
-  print "            relations.Add(typeof(%s), new Relation[] {\n"
-    (exposed_class_name manyClass) ;
-
-  List.iter (gen_relation out_chan) relations ;
-
-  print "            });\n\n"
-
-and gen_relation out_chan (manyField, oneClass, oneField) =
-  let print format = fprintf out_chan format in
-  print "                new Relation(\"%s\", \"%s\", \"%s\"),\n" manyField
-    oneClass oneField
 
 (* ------------------- category: http_actions *)
 and gen_http_actions () =
@@ -829,70 +824,44 @@ and gen_enum' name contents =
 
 (* ------------------- category: maps *)
 and gen_maps () =
-  let out_chan = open_out (Filename.concat destdir "Maps.cs") in
-  Fun.protect
-    (fun () -> gen_maps' out_chan)
-    ~finally:(fun () -> close_out out_chan)
-
-and gen_maps' out_chan =
-  let print format = fprintf out_chan format in
-
-  print
-    "%s\n\n\
-     using System;\n\
-     using System.Collections;\n\
-     using System.Collections.Generic;\n\n\
-    \     namespace XenAPI\n\
-     {\n\
-    \    internal class Maps\n\
-    \    {" Licence.bsd_two_clause ;
-
-  TypeSet.iter (gen_map_conversion out_chan) !maps ;
-
-  print "\n    }\n}\n"
-
-and gen_map_conversion out_chan = function
-  | Map (l, r) ->
-      let print format = fprintf out_chan format in
-      let el = exposed_type l in
-      let el_literal = exposed_type_as_literal l in
-      let er = exposed_type r in
-      let er_literal = exposed_type_as_literal r in
-
-      print
-        "\n\
-        \        internal static Dictionary<%s, %s> \
-         ToDictionary_%s_%s(Hashtable table)\n\
-        \        {\n\
-        \            Dictionary<%s, %s> result = new Dictionary<%s, %s>();\n\
-        \            if (table != null)\n\
-        \            {\n\
-        \                foreach (string key in table.Keys)\n\
-        \                {\n\
-        \                    try\n\
-        \                    {\n\
-        \                        %s k = %s;\n\
-        \                        %s v = %s;\n\
-        \                        result[k] = v;\n\
-        \                    }\n\
-        \                    catch\n\
-        \                    {\n\
-        \                       // continue\n\
-        \                    }\n\
-        \                }\n\
-        \            }\n\
-        \            return result;\n\
-        \        }\n\n"
-        el er
-        (sanitise_function_name el_literal)
-        (sanitise_function_name er_literal)
-        el er el er el
-        (simple_convert_from_proxy "key" l)
-        er
-        (convert_from_proxy_hashtable_value "table[key]" r)
-  (***)
-  | _ ->
-      assert false
+  let mapList = List.rev (TypeSet.fold (fun x acc -> x :: acc) !maps []) in
+  let json =
+    `O
+      [
+        ( "all_maps"
+        , `A
+            (List.map
+               (function
+                 | Map (l, r) ->
+                     `O
+                       [
+                         ("map_key", `String (exposed_type l))
+                       ; ("map_value", `String (exposed_type r))
+                       ; ( "sanitised_key"
+                         , `String
+                             (sanitise_function_name (exposed_type_as_literal l))
+                         )
+                       ; ( "sanitised_value"
+                         , `String
+                             (sanitise_function_name (exposed_type_as_literal r))
+                         )
+                       ; ( "proxy_key"
+                         , `String (simple_convert_from_proxy "key" l)
+                         )
+                       ; ( "proxy_value"
+                         , `String
+                             (convert_from_proxy_hashtable_value "table[key]" r)
+                         )
+                       ]
+                 | _ ->
+                     `Null
+                 )
+               mapList
+            )
+        )
+      ]
+  in
+  render_file ("Maps.mustache", "Maps.cs") json templdir destdir
 
 (* ------------------- category: utility *)
 and exposed_type_opt = function
@@ -979,7 +948,6 @@ and convert_from_proxy_hashtable_value thing ty =
       convert_from_proxy thing ty
 
 and convert_from_proxy thing ty =
-  (*function*)
   match ty with
   | DateTime ->
       thing
