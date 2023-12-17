@@ -18,6 +18,7 @@ module TypeSet = Set.Make (struct
 end)
 
 let destdir = "autogen/src"
+
 let templdir = "templates"
 
 type cmdlet = {filename: string; content: string}
@@ -111,9 +112,12 @@ and gen_http_action action =
   let stem = get_http_action_stem name in
   let arg_name = function
     | String_query_arg x | Int64_query_arg x ->
-      pascal_case_rec x
+        pascal_case_rec x
     | Bool_query_arg x ->
-        if String.lowercase_ascii x = "host" then "IsHost" else pascal_case_rec x
+        if String.lowercase_ascii x = "host" then
+          "IsHost"
+        else
+          pascal_case_rec x
     | Varargs_query_arg ->
         "Args"
   in
