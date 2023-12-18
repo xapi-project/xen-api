@@ -320,7 +320,7 @@ let with_session sr f =
       finally (fun () -> f session_id) (fun () -> destroy_session session_id)
   )
 
-let exec_xmlrpc ?context:_ ?(needs_session = true) (driver : string)
+let exec_xmlrpc ?dbg ?context:_ ?(needs_session = true) (driver : string)
     (call : call) =
   let do_call call =
     let xml = xmlrpc_of_call call in
@@ -429,12 +429,21 @@ let exec_xmlrpc ?context:_ ?(needs_session = true) (driver : string)
              )
           )
   in
-  if needs_session then
-    with_session call.sr_ref (fun session_id ->
-        do_call {call with session_ref= Some session_id}
-    )
-  else
-    do_call call
+  let f_with_session () =
+    if needs_session then
+      with_session call.sr_ref (fun session_id ->
+          do_call {call with session_ref= Some session_id}
+      )
+    else
+      do_call call
+  in
+  match dbg with
+  | Some dbg ->
+      Debuginfo.with_dbg ~with_thread:false ~module_name:"Sm_exec"
+        ~name:call.cmd ~dbg (fun _ -> f_with_session ()
+      )
+  | None ->
+      f_with_session ()
 
 (********************************************************************)
 (** Some functions to cope with the XML that the SM backends return *)
