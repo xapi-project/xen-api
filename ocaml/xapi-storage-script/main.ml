@@ -101,20 +101,26 @@ module Sys = struct
     List.filter (function "." | ".." -> false | _ -> true) listing
     |> Lwt.return
 
-  let rec mkdir_p ?(perm = 0o755) path =
-    file_kind ~follow_symlinks:false path >>= function
-    | Directory ->
-        Lwt.return_unit
-    | Regular | Other | Unknown ->
-        let msg =
-          Printf.sprintf
-            {|Could not create directory "%s": already exists and it's not a directory|}
-            path
-        in
-        Lwt.fail (Failure msg)
-    | Missing ->
-        let parent = Filename.dirname path in
-        mkdir_p ~perm parent >>= fun () -> Lwt_unix.mkdir path perm
+  let mkdir_p ?(perm = 0o755) path =
+    let rec loop acc path =
+      let create_dir () = Lwt_unix.mkdir path perm in
+      let create_subdirs () = Lwt_list.iter_s (fun f -> f ()) acc in
+      Lwt.try_bind create_dir create_subdirs (function
+        | Unix.(Unix_error (EEXIST, _, _)) ->
+            (* create directories, parents first *)
+            create_subdirs ()
+        | Unix.(Unix_error (ENOENT, _, _)) ->
+            let parent = Filename.dirname path in
+            loop (create_dir :: acc) parent
+        | exn ->
+            let msg =
+              Printf.sprintf {|Could not create directory "%s" because: %s|}
+                path (Printexc.to_string exn)
+            in
+            Lwt.fail (Failure msg)
+        )
+    in
+    loop [] path
 end
 
 module Signal = struct
