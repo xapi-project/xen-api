@@ -64,8 +64,8 @@ let of_datamodel () =
       default=
         ( if issetref then
             Some (Value.Set [])
-        else
-          Option.map Datamodel_values.to_db f.Datamodel_types.default_value
+          else
+            Option.map Datamodel_values.to_db f.Datamodel_types.default_value
         )
     ; ty
     ; issetref

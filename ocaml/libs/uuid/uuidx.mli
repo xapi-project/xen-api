@@ -48,11 +48,11 @@ val to_string : 'a t -> string
 (** Marshal a UUID to a string. *)
 
 val uuid_of_string : string -> 'a t option
-  [@@deprecated "Use of_string"]
+[@@deprecated "Use of_string"]
 (** Deprecated alias for {! Uuidx.of_string} *)
 
 val string_of_uuid : 'a t -> string
-  [@@deprecated "Use to_string"]
+[@@deprecated "Use to_string"]
 (** Deprecated alias for {! Uuidx.to_string} *)
 
 val of_int_array : int array -> 'a t option
@@ -62,11 +62,11 @@ val to_int_array : 'a t -> int array
 (** Convert a UUID to an array. *)
 
 val uuid_of_int_array : int array -> 'a t option
-  [@@deprecated "Use Uuidx.of_int_array"]
+[@@deprecated "Use Uuidx.of_int_array"]
 (** Deprecated alias for {! Uuidx.of_int_array} *)
 
 val int_array_of_uuid : 'a t -> int array
-  [@@deprecated "Use Uuidx.to_int_array"]
+[@@deprecated "Use Uuidx.to_int_array"]
 (** Deprecated alias for {! Uuidx.to_int_array} *)
 
 val of_bytes : string -> 'a t option

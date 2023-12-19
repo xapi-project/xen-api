@@ -1811,8 +1811,8 @@ let suspend (task : Xenops_task.task_handle) ~xc ~xs ~domain_type ~is_uefi ~dm
     ( if is_uefi then
         write_varstored_record task ~xs domid main_fd >>= fun () ->
         write_vtpm_record task ~xs ~vtpm domid main_fd
-    else
-      return ()
+      else
+        return ()
     )
     >>= fun () ->
     (* Qemu record (if this is a hvm domain) *)
@@ -1821,8 +1821,8 @@ let suspend (task : Xenops_task.task_handle) ~xc ~xs ~domain_type ~is_uefi ~dm
        suspend-image-writing *)
     ( if domain_type = `hvm then
         write_qemu_record domid uuid main_fd
-    else
-      return ()
+      else
+        return ()
     )
     >>= fun () ->
     debug "Qemu record written" ;

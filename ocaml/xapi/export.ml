@@ -223,16 +223,16 @@ let make_vm ?(with_snapshot_metadata = false) ~preserve_power_state table
     ; API.vM_suspend_VDI=
         ( if preserve_power_state then
             lookup table (Ref.string_of vm.API.vM_suspend_VDI)
-        else
-          Ref.null
+          else
+            Ref.null
         )
     ; API.vM_is_a_snapshot=
         (if with_snapshot_metadata then vm.API.vM_is_a_snapshot else false)
     ; API.vM_snapshot_of=
         ( if with_snapshot_metadata then
             lookup table (Ref.string_of vm.API.vM_snapshot_of)
-        else
-          Ref.null
+          else
+            Ref.null
         )
     ; API.vM_snapshots=
         (if with_snapshot_metadata then vm.API.vM_snapshots else [])
@@ -241,14 +241,14 @@ let make_vm ?(with_snapshot_metadata = false) ~preserve_power_state table
     ; API.vM_transportable_snapshot_id=
         ( if with_snapshot_metadata then
             vm.API.vM_transportable_snapshot_id
-        else
-          ""
+          else
+            ""
         )
     ; API.vM_parent=
         ( if with_snapshot_metadata then
             lookup table (Ref.string_of vm.API.vM_parent)
-        else
-          Ref.null
+          else
+            Ref.null
         )
     ; API.vM_current_operations= []
     ; API.vM_allowed_operations= []
@@ -398,8 +398,8 @@ let make_vgpu table ~preserve_power_state __context self =
       API.vGPU_currently_attached=
         ( if preserve_power_state then
             vgpu.API.vGPU_currently_attached
-        else
-          false
+          else
+            false
         )
     ; API.vGPU_GPU_group= lookup table (Ref.string_of vgpu.API.vGPU_GPU_group)
     ; API.vGPU_type= lookup table (Ref.string_of vgpu.API.vGPU_type)

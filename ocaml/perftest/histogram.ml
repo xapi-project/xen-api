@@ -209,8 +209,8 @@ let _ =
             ; normal_probability_y_axis=
                 ( if !normal then
                     Some (!min_percentile /. 100., !max_percentile /. 100.)
-                else
-                  None
+                  else
+                    None
                 )
             }
           in

@@ -928,10 +928,10 @@ module Redirector = struct
               (string_of_operation (fst item))
               ( if aliased then
                   "aliased "
-              else if redirected then
-                "redirected "
-              else
-                ""
+                else if redirected then
+                  "redirected "
+                else
+                  ""
               )
               real_tag
               (String.concat ", "
@@ -2676,8 +2676,8 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
                   ]
                 ; ( if compress_memory then
                       [(cookie_mem_compression, cookie_mem_compression_value)]
-                  else
-                    []
+                    else
+                      []
                   )
                 ; extra_cookies
                 ]

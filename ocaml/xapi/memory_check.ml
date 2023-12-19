@@ -222,8 +222,8 @@ let host_compute_free_memory_with_maximum_compression ?(dump_stats = false)
           (Db.VM.get_uuid ~__context ~self:v)
           ( if List.mem v summary.resident then
               "resident here"
-          else
-            "scheduled to be resident here"
+            else
+              "scheduled to be resident here"
           )
           reqd (mib reqd)
       )

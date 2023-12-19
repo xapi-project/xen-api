@@ -2979,8 +2979,8 @@ let host_record rpc session_id host =
               ~value:
                 ( if s = "" then
                     Ref.null
-                else
-                  Client.SR.get_by_uuid ~rpc ~session_id ~uuid:s
+                  else
+                    Client.SR.get_by_uuid ~rpc ~session_id ~uuid:s
                 )
           )
           ()
@@ -2991,8 +2991,8 @@ let host_record rpc session_id host =
               ~value:
                 ( if s = "" then
                     Ref.null
-                else
-                  Client.SR.get_by_uuid ~rpc ~session_id ~uuid:s
+                  else
+                    Client.SR.get_by_uuid ~rpc ~session_id ~uuid:s
                 )
           )
           ()

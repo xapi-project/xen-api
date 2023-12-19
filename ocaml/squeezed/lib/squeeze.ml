@@ -348,8 +348,8 @@ module Proportional = struct
         surplus_memory_kib gamma
         ( if total_range = 0L then
             0L
-        else
-          Int64.of_float (Int64.to_float total_range *. (gamma' -. gamma))
+          else
+            Int64.of_float (Int64.to_float total_range *. (gamma' -. gamma))
         )
     ) ;
     List.map
@@ -473,12 +473,12 @@ module Squeezer = struct
         host.free_mem_kib host_target_kib
         ( if success then
             " OK"
-        else if target_too_big then
-          " cannot free enough"
-        else if cant_allocate_any_more then
-          " cannot allocate enough"
-        else
-          ""
+          else if target_too_big then
+            " cannot free enough"
+          else if cant_allocate_any_more then
+            " cannot allocate enough"
+          else
+            ""
         )
         (if all_targets_reached then "" else " not")
         (if no_target_changes then "" else "; however about to adjust targets")

@@ -366,7 +366,8 @@ module UTF16 = struct
           ) else
             (c, ofs + 2, n + 1)
         in
-        string.(n) <- code ; inner ofs' n'
+        string.(n) <- code ;
+        inner ofs' n'
     in
     try Rresult.R.ok (inner pos 0) with e -> Rresult.R.error e
 end
@@ -518,8 +519,8 @@ module Footer = struct
                 magic magic'
              )
           )
-    else
-      R.ok ()
+      else
+        R.ok ()
     )
     >>= fun () ->
     let features = Feature.of_int32 (get_footer_features buf) in
@@ -531,8 +532,8 @@ module Footer = struct
                 expected_version format_version
              )
           )
-    else
-      R.ok ()
+      else
+        R.ok ()
     )
     >>= fun () ->
     let data_offset = get_footer_data_offset buf in
@@ -570,8 +571,8 @@ module Footer = struct
                 expected_checksum checksum
              )
           )
-    else
-      R.ok ()
+      else
+        R.ok ()
     )
     >>= fun () ->
     R.ok
@@ -1019,8 +1020,8 @@ module Header = struct
     ( if magic' <> magic then
         R.error
           (Failure (Printf.sprintf "Expected cookie %s, got %s" magic magic'))
-    else
-      R.ok ()
+      else
+        R.ok ()
     )
     >>= fun () ->
     let data_offset = get_header_data_offset buf in
@@ -1031,8 +1032,8 @@ module Header = struct
                 expected_data_offset data_offset
              )
           )
-    else
-      R.ok ()
+      else
+        R.ok ()
     )
     >>= fun () ->
     let table_offset = get_header_table_offset buf in
@@ -1044,21 +1045,21 @@ module Header = struct
                 expected_version header_version
              )
           )
-    else
-      R.ok ()
+      else
+        R.ok ()
     )
     >>= fun () ->
     let max_table_entries = get_header_max_table_entries buf in
     ( if Int64.of_int32 max_table_entries > Int64.of_int Sys.max_array_length
-    then
+      then
         R.error
           (Failure
              (Printf.sprintf "expected max_table_entries < %d, got %ld"
                 Sys.max_array_length max_table_entries
              )
           )
-    else
-      R.ok (Int32.to_int max_table_entries)
+      else
+        R.ok (Int32.to_int max_table_entries)
     )
     >>= fun max_table_entries ->
     let block_size = get_header_block_size buf in
@@ -1116,8 +1117,8 @@ module Header = struct
                 expected_checksum checksum
              )
           )
-    else
-      R.ok ()
+      else
+        R.ok ()
     )
     >>= fun () ->
     R.ok
@@ -1284,8 +1285,8 @@ module Batmap_header = struct
     ( if magic' <> magic then
         R.error
           (Failure (Printf.sprintf "Expected cookie %s, got %s" magic magic'))
-    else
-      R.ok ()
+      else
+        R.ok ()
     )
     >>= fun () ->
     let offset = get_header_offset buf in
@@ -1293,17 +1294,17 @@ module Batmap_header = struct
     let major_version = get_header_major_version buf in
     let minor_version = get_header_minor_version buf in
     ( if
-      major_version <> current_major_version
-      || minor_version <> current_minor_version
-    then
+        major_version <> current_major_version
+        || minor_version <> current_minor_version
+      then
         R.error
           (Failure
              (Printf.sprintf "Unexpected BATmap version: %d.%d" major_version
                 minor_version
              )
           )
-    else
-      R.ok ()
+      else
+        R.ok ()
     )
     >>= fun () ->
     let checksum = get_header_checksum buf in
@@ -1357,8 +1358,8 @@ module Batmap = struct
                 bh.Batmap_header.checksum checksum
              )
           )
-    else
-      R.ok ()
+      else
+        R.ok ()
     )
     >>= fun () -> R.ok needed
 end
@@ -2003,10 +2004,10 @@ functor
         let l_rounded = roundup_sector l in
         ( if l_rounded = 0 then
             return (Cstruct.create 0)
-        else
-          let platform_data = Memory.alloc l_rounded in
-          really_read fd t.platform_data_offset platform_data >>= fun () ->
-          return platform_data
+          else
+            let platform_data = Memory.alloc l_rounded in
+            really_read fd t.platform_data_offset platform_data >>= fun () ->
+            return platform_data
         )
         >>= fun platform_data ->
         let platform_data = Cstruct.sub platform_data 0 l in
@@ -2337,8 +2338,8 @@ functor
         (* We avoided rewriting the footer for speed, this is where it is repaired. *)
         ( if t.Vhd.rw then
             write_metadata t >>= fun _ -> return ()
-        else
-          return ()
+          else
+            return ()
         )
         >>= fun () ->
         let rec close t =

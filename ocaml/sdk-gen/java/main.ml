@@ -306,15 +306,15 @@ let gen_method file cls message params async_version =
 
   ( if async_version then
       fprintf file "     * @return Task\n"
-  else
-    match message.msg_result with
-    | None ->
-        ()
-    | Some (_, "") ->
-        fprintf file "     * @return %s\n"
-          (get_java_type_or_void message.msg_result)
-    | Some (_, desc) ->
-        fprintf file "     * @return %s\n" desc
+    else
+      match message.msg_result with
+      | None ->
+          ()
+      | Some (_, "") ->
+          fprintf file "     * @return %s\n"
+            (get_java_type_or_void message.msg_result)
+      | Some (_, desc) ->
+          fprintf file "     * @return %s\n" desc
   ) ;
 
   List.iter

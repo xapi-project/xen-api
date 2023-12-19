@@ -431,8 +431,8 @@ let set_ipv4_configuration vm vif ipv4_configuration () =
           Vif.ipv4_configuration=
             ( if this_one vif then
                 ipv4_configuration
-            else
-              vif.Vif.ipv4_configuration
+              else
+                vif.Vif.ipv4_configuration
             )
         }
       )
@@ -451,8 +451,8 @@ let set_ipv6_configuration vm vif ipv6_configuration () =
           Vif.ipv6_configuration=
             ( if this_one vif then
                 ipv6_configuration
-            else
-              vif.Vif.ipv6_configuration
+              else
+                vif.Vif.ipv6_configuration
             )
         }
       )

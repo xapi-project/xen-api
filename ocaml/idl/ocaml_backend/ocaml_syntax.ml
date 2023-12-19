@@ -142,9 +142,9 @@ module Module = struct
           ^ " = "
           ^ ( if x.args = [] then
                 ""
-            else
-              String.concat " "
-                (List.map (fun x -> "functor(" ^ x ^ ") ->") x.args)
+              else
+                String.concat " "
+                  (List.map (fun x -> "functor(" ^ x ^ ") ->") x.args)
             )
           ^ "struct"
         in
@@ -179,8 +179,8 @@ module Signature = struct
     [
       ( if toplevel then
           Line ("module type " ^ x.name ^ " = sig")
-      else
-        Line ("module " ^ x.name ^ " : sig")
+        else
+          Line ("module " ^ x.name ^ " : sig")
       )
     ; Indent (List.concat (List.map e x.elements))
     ; Line "end"

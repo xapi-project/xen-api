@@ -120,8 +120,8 @@ let waiter printer rpc session_id params task =
     (fun () ->
       ( if List.mem_assoc "progress" params then
           wait_with_progress_bar
-      else
-        wait
+        else
+          wait
       )
         printer rpc session_id task
     )
@@ -3277,9 +3277,9 @@ let do_vm_op ?(include_control_vms = false) ?(include_template_vms = false)
             ( if not multiple then
                 "Multiple matches VMs found. Operation can only be performed \
                  on one VM at a time"
-            else
-              "Multiple matches VMs found. --multiple required to complete the \
-               operation"
+              else
+                "Multiple matches VMs found. --multiple required to complete \
+                 the operation"
             )
   with Records.CLI_failed_to_find_param name ->
     failwith
@@ -3303,9 +3303,9 @@ let do_host_op rpc session_id op params ?(multiple = true) ignore_params =
           ( if not multiple then
               "Multiple matching hosts found. Operation can only be performed \
                on one host at a time"
-          else
-            "Multiple matching hosts found. --multiple required to complete \
-             the operation"
+            else
+              "Multiple matching hosts found. --multiple required to complete \
+               the operation"
           )
 
 let do_sr_op rpc session_id op params ?(multiple = true) ignore_params =
@@ -3323,9 +3323,9 @@ let do_sr_op rpc session_id op params ?(multiple = true) ignore_params =
           ( if not multiple then
               "Multiple matching SRs found. Operation can only be performed on \
                one SR at a time"
-          else
-            "Multiple matching SRs found. --multiple required to complete the \
-             operation"
+            else
+              "Multiple matching SRs found. --multiple required to complete \
+               the operation"
           )
 
 (* Execute f; if we get a no_hosts_available error then print a vm diagnostic table and reraise exception *)
@@ -4144,8 +4144,8 @@ let vm_uninstall_common fd _printer rpc session_id params vms =
       Printf.sprintf "VDI: %s (%s) %s" r.API.vDI_uuid r.API.vDI_name_label
         ( if List.length r.API.vDI_VBDs <= 1 then
             ""
-        else
-          " ** WARNING: disk is shared by other VMs"
+          else
+            " ** WARNING: disk is shared by other VMs"
         )
     in
     let string_of_vm vm =
@@ -4413,13 +4413,13 @@ let vm_shutdown printer rpc session_id params =
             |> waiter printer rpc session_id params
           )
           params ["progress"]
-    else
-      do_vm_op printer rpc session_id
-        (fun vm ->
-          Client.Async.VM.clean_shutdown ~rpc ~session_id ~vm:(vm.getref ())
-          |> waiter printer rpc session_id params
-        )
-        params ["progress"]
+      else
+        do_vm_op printer rpc session_id
+          (fun vm ->
+            Client.Async.VM.clean_shutdown ~rpc ~session_id ~vm:(vm.getref ())
+            |> waiter printer rpc session_id params
+          )
+          params ["progress"]
     )
 
 let vm_reboot printer rpc session_id params =
@@ -4429,10 +4429,10 @@ let vm_reboot printer rpc session_id params =
         do_vm_op printer rpc session_id
           (fun vm -> Client.VM.hard_reboot ~rpc ~session_id ~vm:(vm.getref ()))
           params []
-    else
-      do_vm_op printer rpc session_id
-        (fun vm -> Client.VM.clean_reboot ~rpc ~session_id ~vm:(vm.getref ()))
-        params []
+      else
+        do_vm_op printer rpc session_id
+          (fun vm -> Client.VM.clean_reboot ~rpc ~session_id ~vm:(vm.getref ()))
+          params []
     )
 
 let vm_compute_maximum_memory printer rpc session_id params =
@@ -4897,8 +4897,8 @@ let vm_disk_list_aux vm is_cd_list printer rpc session_id params =
     select_fields params' vbdrecords
       ( if is_cd_list then
           ["uuid"; "vm-name-label"; "userdevice"; "empty"]
-      else
-        ["uuid"; "vm-name-label"; "userdevice"]
+        else
+          ["uuid"; "vm-name-label"; "userdevice"]
       )
   in
   let params' =
@@ -5636,8 +5636,8 @@ let vm_import fd _printer rpc session_id params =
           prefix
           ( if vm_metadata_only then
               Constants.import_metadata_uri
-          else
-            Constants.import_uri
+            else
+              Constants.import_uri
           )
           (Ref.string_of session_id) (Ref.string_of task_id) full_restore force
           dry_run
@@ -5896,8 +5896,8 @@ let export_common fd _printer rpc session_id params filename num ?task_uuid
            "%s?session_id=%s&task_id=%s&ref=%s&%s=%s&preserve_power_state=%b&export_snapshots=%b"
            ( if vm_metadata_only then
                Constants.export_metadata_uri
-           else
-             Constants.export_uri
+             else
+               Constants.export_uri
            )
            (Ref.string_of session_id) (Ref.string_of exporttask)
            (Ref.string_of (vm.getref ()))
@@ -7272,8 +7272,8 @@ let audit_log_get fd _printer rpc session_id params =
       (if since = "" then " " else Printf.sprintf " (since \"%s\") " since)
       ( if String.length filename <= 255 then
           filename (* make sure filename has a reasonable length in the logs *)
-      else
-        String.sub filename 0 255
+        else
+          String.sub filename 0 255
       )
   in
   let query =

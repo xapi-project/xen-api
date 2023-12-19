@@ -158,8 +158,8 @@ module Make (Debug : DEBUG) = struct
                       IntMap.find domid
                         ( if IntMap.mem domid domains' then
                             domains'
-                        else
-                          !domains
+                          else
+                            !domains
                         )
                     in
                     let id = Uuidm.to_string (uuid_of_di di) in

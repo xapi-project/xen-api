@@ -175,8 +175,7 @@ let find_cluster_host ~__context ~host =
       (* should never happen; this indicates a bug *)
       let msg = "Multiple cluster_hosts found for host" in
       error "%s %s" msg (Db.Host.get_uuid ~__context ~self:host) ;
-      raise
-        Api_errors.(Server_error (internal_error, [msg; Ref.string_of host]))
+      raise Api_errors.(Server_error (internal_error, [msg; Ref.string_of host]))
   | _ ->
       None
 

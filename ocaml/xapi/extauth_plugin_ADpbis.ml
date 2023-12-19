@@ -1039,11 +1039,11 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
     let pbis_failure =
       try
         ( if
-          not
-            (List.mem_assoc "user" config_params
-            && List.mem_assoc "pass" config_params
-            )
-        then
+            not
+              (List.mem_assoc "user" config_params
+              && List.mem_assoc "pass" config_params
+              )
+          then
             (* no windows admin+pass have been provided: leave the pbis host in the AD database *)
             (* execute the pbis domain-leave cmd *)
             (* this function will raise an exception if something goes wrong *)
@@ -1051,23 +1051,23 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
               pbis_common !Xapi_globs.domain_join_cli_cmd ["leave"]
             in
             ()
-        else
-          (* windows admin+pass have been provided: ask pbis to remove host from AD database *)
-          let _user = List.assoc "user" config_params in
-          let pass = List.assoc "pass" config_params in
-          (* we need to make sure that the user passed to domaijoin-cli command is in the UPN syntax (user@domain.com) *)
-          let user =
-            convert_nt_to_upn_username
-              (get_full_subject_name ~use_nt_format:false _user)
-          in
-          (* execute the pbis domain-leave cmd *)
-          (* this function will raise an exception if something goes wrong *)
-          let (_ : (string * string) list) =
-            pbis_common_with_password pass
-              !Xapi_globs.domain_join_cli_cmd
-              ["leave"; user]
-          in
-          ()
+          else
+            (* windows admin+pass have been provided: ask pbis to remove host from AD database *)
+            let _user = List.assoc "user" config_params in
+            let pass = List.assoc "pass" config_params in
+            (* we need to make sure that the user passed to domaijoin-cli command is in the UPN syntax (user@domain.com) *)
+            let user =
+              convert_nt_to_upn_username
+                (get_full_subject_name ~use_nt_format:false _user)
+            in
+            (* execute the pbis domain-leave cmd *)
+            (* this function will raise an exception if something goes wrong *)
+            let (_ : (string * string) list) =
+              pbis_common_with_password pass
+                !Xapi_globs.domain_join_cli_cmd
+                ["leave"; user]
+            in
+            ()
         ) ;
         None (* no failure observed in pbis *)
       with e ->

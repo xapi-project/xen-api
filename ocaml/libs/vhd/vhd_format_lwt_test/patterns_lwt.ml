@@ -132,10 +132,10 @@ let check_raw_stream_contents t expected =
               ( if not (List.mem_assoc sector expected) then
                   assert_equal ~printer:cstruct_to_string ~cmp:F.cstruct_equal
                     empty_sector actual
-              else
-                let expected = List.assoc sector expected in
-                assert_equal ~printer:cstruct_to_string ~cmp:F.cstruct_equal
-                  expected actual
+                else
+                  let expected = List.assoc sector expected in
+                  assert_equal ~printer:cstruct_to_string ~cmp:F.cstruct_equal
+                    expected actual
               ) ;
               check (i + 1)
           in
@@ -188,8 +188,8 @@ let verify t contents =
               t.Vhd.footer.Footer.current_size
            )
         )
-  else
-    return ()
+    else
+      return ()
   )
   >>= fun () ->
   check_written_sectors t contents >>= fun () ->

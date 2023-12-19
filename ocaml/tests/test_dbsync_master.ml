@@ -21,9 +21,7 @@ module CreateToolsSR = Generic.MakeStateful (struct
     type output_t = (string * string * (string * string) list) list
 
     let string_of_input_t =
-      Test_printers.(
-        list (tuple4 string string (assoc_list string string) bool)
-      )
+      Test_printers.(list (tuple4 string string (assoc_list string string) bool))
 
     let string_of_output_t =
       Test_printers.(list (tuple3 string string (assoc_list string string)))

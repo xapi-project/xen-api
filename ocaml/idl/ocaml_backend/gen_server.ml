@@ -176,13 +176,13 @@ let operation (obj : obj) (x : message) =
       [
         ( if Gen_empty_custom.operation_requires_side_effect x then
             ["(* has side-effect (with locks and no automatic DB action) *)"]
-        else
-          ["(* has no side-effect; should be handled by DB action *) "]
+          else
+            ["(* has no side-effect; should be handled by DB action *) "]
         )
       ; ( if has_async then
             ["(* has asynchronous mode *)"]
-        else
-          ["(* has no asynchronous mode *)"]
+          else
+            ["(* has no asynchronous mode *)"]
         )
       ]
   in
@@ -270,16 +270,16 @@ let operation (obj : obj) (x : message) =
        because we know we don't need the arguments *)
     let ignore = x.DT.msg_forward_to <> None in
     ( if
-      (* If we're a constructor then unmarshall all the fields from the constructor record, passed as a struct *)
-      is_ctor
-    then
+        (* If we're a constructor then unmarshall all the fields from the constructor record, passed as a struct *)
+        is_ctor
+      then
         [from_rpc Client.session; from_ctor_record]
       (* Otherwise, go read non-default fields from pattern match; if we have default fields then we need to
          	   get those from the 'default_fields' arg *)
-    else
-      List.map
-        (fun a -> from_rpc ~ignore:(ignore && not (is_session_arg a)) a)
-        args_without_default_values
+      else
+        List.map
+          (fun a -> from_rpc ~ignore:(ignore && not (is_session_arg a)) a)
+          args_without_default_values
     )
     (* and for every default value we try to get this from default_args or default it *)
     @ unmarshall_default_params
@@ -380,8 +380,8 @@ let operation (obj : obj) (x : message) =
               Printf.sprintf "%s \"%s\";"
                 ( if may_be_side_effecting x then
                     "ApiLogSideEffect.debug"
-                else
-                  "ApiLogRead.debug"
+                  else
+                    "ApiLogRead.debug"
                 )
                 wire_name
             ]
@@ -395,8 +395,8 @@ let operation (obj : obj) (x : message) =
               (if x.msg_session then "~session_id" else "")
               ( if Gen_empty_custom.operation_requires_side_effect x then
                   "~forward_op"
-              else
-                ""
+                else
+                  ""
               )
           ; (*	"P.debug \"Server RPC response: %s\" (Rpc.to_string (resp.Rpc.contents));"; *)
             "resp"

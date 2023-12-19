@@ -3410,9 +3410,7 @@ module GetLatestUpdatesFromRedundancy = Generic.MakeStateless (struct
 
     let string_of_output_t = function
       | Ok pkgs ->
-          Fmt.(
-            str "%a" Dump.(list (pair (record @@ fields_of_pkg) string)) pkgs
-          )
+          Fmt.(str "%a" Dump.(list (pair (record @@ fields_of_pkg) string)) pkgs)
       | Error e ->
           Fmt.(str "%a" exn) e
   end

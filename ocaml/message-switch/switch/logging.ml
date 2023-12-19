@@ -51,8 +51,8 @@ let get (logger : logger) =
     return
       ( if dropped <> 0 then
           Printf.sprintf "<-- dropped %d log lines" dropped :: all
-      else
-        all
+        else
+          all
       )
   in
   (* Grab as many elements as we can without blocking *)

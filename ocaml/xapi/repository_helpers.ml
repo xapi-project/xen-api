@@ -212,8 +212,7 @@ let assert_url_is_valid ~url =
               )
       )
     | _, None ->
-        raise
-          Api_errors.(Server_error (internal_error, ["invalid host in url"]))
+        raise Api_errors.(Server_error (internal_error, ["invalid host in url"]))
     | _ ->
         raise
           Api_errors.(Server_error (internal_error, ["invalid scheme in url"]))

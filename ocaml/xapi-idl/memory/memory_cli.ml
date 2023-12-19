@@ -1,7 +1,6 @@
 (* Memory CLI *)
 
 open Memory_interface
-
 module Cmds = API (Cmdlinergen.Gen ())
 
 let doc =
