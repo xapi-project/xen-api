@@ -37,23 +37,27 @@ HCP_GROUPS = "/etc/security/hcp_ad_groups.conf"
 
 def setup_logger():
     """Helper function setup logger"""
-    log = logging.getLogger()
+    addr = "/dev/log"
+
     logging.basicConfig(
         format='%(asctime)s %(levelname)s %(name)s %(funcName)s %(message)s', level=logging.DEBUG)
+    log = logging.getLogger()
+
+    if not os.path.exists(addr):
+        log.warning("{} not available, logs are not redirected".format(addr))
+        return
+
     # Send to syslog local5, which will be redirected to xapi log /var/log/xensource.log
     handler = logging.handlers.SysLogHandler(
-        facility='local5', address='/dev/log')
-    std_err = logging.StreamHandler(sys.stderr)
+        facility='local5', address=addr)
     # Send to authpriv, which will be redirected to /var/log/secure
     auth_log = logging.handlers.SysLogHandler(
-        facility="authpriv", address='/dev/log')
+        facility="authpriv", address=addr)
     log.addHandler(handler)
-    log.addHandler(std_err)
     log.addHandler(auth_log)
 
 
-if __name__ == "__main__":
-    setup_logger()
+setup_logger()
 logger = logging.getLogger(__name__)
 
 
