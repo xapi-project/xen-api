@@ -13,6 +13,7 @@ import abc
 import sys
 import subprocess
 import os
+import shutil
 import tempfile
 import logging
 import logging.handlers
@@ -121,7 +122,7 @@ class ADConfig(object):
         with tempfile.NamedTemporaryFile(prefix="extauth-", delete=False) as file:
             file.write("\n".join(self._lines).encode("utf-8"))
             file.flush()
-            os.rename(file.name, self._file_path)
+            shutil.move(file.name, self._file_path)
             os.chmod(self._file_path, self._file_mode)
 
 
