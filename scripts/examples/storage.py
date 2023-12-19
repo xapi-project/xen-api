@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # Copyright (C) Citrix Inc
 #
@@ -19,7 +19,7 @@
 # WARNING: this API is considered to be unstable and may be changed at-will
 
 from __future__ import print_function
-import os, sys, commands, json
+import os, sys, subprocess, json
 
 import smapiv2
 from smapiv2 import log, start, BackendError, Vdi_does_not_exist
@@ -29,7 +29,7 @@ root = "/sr/"
 # [run task cmd] executes [cmd], throwing a BackendError if exits with
 # a non-zero exit code.
 def run(task, cmd):
-    code, output = commands.getstatusoutput(cmd)
+    code, output = subprocess.getstatusoutput(cmd)
     if code != 0:
         log("%s: %s exitted with code %d: %s" % (task, cmd, code, output))
         raise BackendError

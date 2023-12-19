@@ -1,10 +1,10 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # Receive multiple VMs
 # Issue parallel loops of: reboot, suspend/resume, migrate
 
 from __future__ import print_function
-import xmlrpclib
+import xmlrpc.client
 from threading import Thread
 import time, sys
 
@@ -15,9 +15,9 @@ stop = False
 
 class Operation:
     def __init__(self):
-        raise "this is supposed to be abstract, dummy"
+        raise NotImplementedError
     def execute(self, server, session_id):
-        raise "this is supposed to be abstract, dummy"
+        raise NotImplementedError
 
 class Reboot(Operation):
     def __init__(self, vm):
@@ -109,7 +109,7 @@ if __name__ == "__main__":
         print("  -- performs parallel operations on VMs with the specified other-config key")
         sys.exit(1)
     
-    x = xmlrpclib.Server(sys.argv[1])
+    x = xmlrpc.client.server(sys.argv[1])
     key = sys.argv[2]
     session = x.session.login_with_password("root", "xenroot", "1.0", "xen-api-scripts-minixenrt.py")["Value"]
     vms = x.VM.get_all_records(session)["Value"]
@@ -120,7 +120,7 @@ if __name__ == "__main__":
             allowed_ops = vms[vm]["allowed_operations"]
             for op in [ "clean_reboot", "suspend", "pool_migrate" ]:
                 if op not in allowed_ops:
-                    raise "VM %s is not in a state where it can %s" % (vms[vm]["name_label"], op)
+                    raise RuntimeError("VM %s is not in a state where it can %s" % (vms[vm]["name_label"], op))
             workers.append(Worker(x, session, make_operation_list(vm)))
     for w in workers:
         w.start()
@@ -138,5 +138,4 @@ if __name__ == "__main__":
         sys.exit(0)
     else:
         print("FAIL")
-        sys.exit(1)
-        
+        sys.exit(1)  
