@@ -100,6 +100,20 @@ val assert_xen_compatible : unit -> unit
     currently installed xenctrl library and the currently running Xen hypervisor.)
     Raises XEN_INCOMPATIBLE if not, and caches the outcome of the check. *)
 
+val remove_pending_guidance :
+     __context:Context.t
+  -> self:API.ref_host
+  -> value:
+       [ `reboot_host
+       | `reboot_host_on_kernel_livepatch_failure
+       | `reboot_host_on_livepatch_failure
+       | `reboot_host_on_xen_livepatch_failure
+       | `restart_device_model
+       | `restart_toolstack
+       | `restart_vm ]
+  -> unit
+(** Removes update guidance from a host's all pending guidances lists. *)
+
 module Host_requires_reboot : sig
   val set : unit -> unit
   (** [set ()] is used to signal the host needs a reboot. This could be, for

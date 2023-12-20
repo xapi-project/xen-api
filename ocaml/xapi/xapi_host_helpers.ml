@@ -344,6 +344,42 @@ let assert_xen_compatible () =
   if not compatible then
     raise Api_errors.(Server_error (xen_incompatible, []))
 
+let remove_pending_guidance ~__context ~self ~value =
+  let h = Db.Host.get_name_label ~__context ~self in
+  if
+    List.exists
+      (fun g -> g = value)
+      (Db.Host.get_pending_guidances ~__context ~self)
+  then (
+    debug "Remove guidance [%s] from host [%s]'s pending_guidances list"
+      Updateinfo.Guidance.(of_pending_guidance value |> to_string)
+      h ;
+    Db.Host.remove_pending_guidances ~__context ~self ~value
+  ) ;
+
+  if
+    List.exists
+      (fun g -> g = value)
+      (Db.Host.get_pending_guidances_recommended ~__context ~self)
+  then (
+    debug
+      "Remove guidance [%s] from host [%s]'s pending_guidances_recommended list"
+      Updateinfo.Guidance.(of_pending_guidance value |> to_string)
+      h ;
+    Db.Host.remove_pending_guidances_recommended ~__context ~self ~value
+  ) ;
+
+  if
+    List.exists
+      (fun g -> g = value)
+      (Db.Host.get_pending_guidances_full ~__context ~self)
+  then (
+    debug "Remove guidance [%s] from host [%s]'s pending_guidances_full list"
+      Updateinfo.Guidance.(of_pending_guidance value |> to_string)
+      h ;
+    Db.Host.remove_pending_guidances_full ~__context ~self ~value
+  )
+
 let consider_enabling_host_nolock ~__context =
   debug "Xapi_host_helpers.consider_enabling_host_nolock called" ;
   (* If HA is enabled only consider marking the host as enabled if all the storage plugs in successfully.
@@ -372,8 +408,6 @@ let consider_enabling_host_nolock ~__context =
        		   letting a machine with no fencing touch any VMs. Once the host reboots we can safely clear
        		   the flag 'host_disabled_until_reboot' *)
     let pool = Helpers.get_pool ~__context in
-    Db.Host.remove_pending_guidances ~__context ~self:localhost
-      ~value:`restart_toolstack ;
     let if_no_pending_guidances f =
       let host_pending_mandatory_guidances =
         Db.Host.get_pending_guidances ~__context ~self:localhost
@@ -395,18 +429,7 @@ let consider_enabling_host_nolock ~__context =
         f ()
     in
     if !Xapi_globs.on_system_boot then (
-      debug
-        "Host.enabled: system has just restarted: remove livepatch failure \
-         guidances" ;
-      Db.Host.remove_pending_guidances ~__context ~self:localhost
-        ~value:`reboot_host ;
-      Db.Host.remove_pending_guidances ~__context ~self:localhost
-        ~value:`reboot_host_on_livepatch_failure ;
-      Db.Host.remove_pending_guidances_recommended ~__context ~self:localhost
-        ~value:`reboot_host_on_kernel_livepatch_failure ;
-      Db.Host.remove_pending_guidances_recommended ~__context ~self:localhost
-        ~value:`reboot_host_on_xen_livepatch_failure ;
-
+      debug "Host.enabled: system has just restarted" ;
       if_no_pending_guidances (fun () ->
           debug
             "Host.enabled: system has just restarted and no pending mandatory \
