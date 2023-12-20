@@ -172,9 +172,7 @@ module SanityCheck = Generic.MakeStateless (struct
       Fmt.(Dump.list @@ pair ~sep:(any "=") fmt_fst fmt_snd)
 
     let string_of_output_t x =
-      Fmt.(
-        str "%a" Dump.(result ~ok:(pp_list_assoc string string) ~error:exn) x
-      )
+      Fmt.(str "%a" Dump.(result ~ok:(pp_list_assoc string string) ~error:exn) x)
   end
 
   let transform

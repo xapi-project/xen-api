@@ -191,7 +191,7 @@ let sanity_check ~platformdata ~firmware ~vcpu_max ~vcpu_at_startup:_
       ()
   ) ;
   ( if check_cores_per_socket && List.mem_assoc "cores-per-socket" platformdata
-  then
+    then
       let cps_str = List.assoc "cores-per-socket" platformdata in
       let vcpus = Int64.to_int vcpu_max in
       try

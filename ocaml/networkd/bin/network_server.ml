@@ -14,7 +14,6 @@
 
 open Network_utils
 open Network_interface
-
 module S = Network_interface.Interface_API (Idl.Exn.GenServer ())
 
 module D = Debug.Make (struct let name = "network_server" end)

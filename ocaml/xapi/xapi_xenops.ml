@@ -455,8 +455,8 @@ let builder_of_vm ~__context (vmref, vm) timeoffset pci_passthrough vgpu =
         (* XSI-804 avoid boot orders which are the empty string, as qemu
          * will silently fail to start the VM *)
         (let open Constants in
-        assume_default_if_null_empty vm.API.vM_HVM_boot_params
-          hvm_default_boot_order hvm_boot_params_order
+         assume_default_if_null_empty vm.API.vM_HVM_boot_params
+           hvm_default_boot_order hvm_boot_params_order
         )
     ; qemu_disk_cmdline= bool vm.API.vM_platform false "qemu_disk_cmdline"
     ; qemu_stubdom= false (* Obsolete: implementation removed *)
@@ -635,10 +635,10 @@ module MD = struct
             string_of_int
               ( if value < min then
                   min
-              else if value > max then
-                max
-              else
-                value
+                else if value > max then
+                  max
+                else
+                  value
               )
           )
         )
@@ -1658,9 +1658,8 @@ module Xenopsd_metadata = struct
         let txt = md |> rpc_of Metadata.t |> Jsonrpc.to_string in
         info "xenops: VM.import_metadata %s" txt ;
         let dbg = Context.string_of_task_and_tracing __context in
-        let module Client = ( val make_client (queue_of_vm ~__context ~self)
-                                : XENOPS
-                            )
+        let module Client =
+          (val make_client (queue_of_vm ~__context ~self) : XENOPS)
         in
         let id = Client.VM.import_metadata dbg txt in
         maybe_persist_md ~__context ~self txt ;
@@ -1673,11 +1672,10 @@ module Xenopsd_metadata = struct
     let dbg = Context.string_of_task_and_tracing __context in
     info "xenops: VM.remove %s" id ;
     try
-      let module Client = ( val make_client
-                                  (queue_of_vm ~__context
-                                     ~self:(vm_of_id ~__context id)
-                                  ) : XENOPS
-                          )
+      let module Client =
+        ( val make_client (queue_of_vm ~__context ~self:(vm_of_id ~__context id))
+            : XENOPS
+          )
       in
       Client.VM.remove dbg id ;
       (* Once the VM has been successfully removed from xenopsd, remove the caches *)
@@ -1698,11 +1696,11 @@ module Xenopsd_metadata = struct
     with_lock metadata_m (fun () ->
         info "xenops: VM.export_metadata %s" id ;
         let dbg = Context.string_of_task_and_tracing __context in
-        let module Client = ( val make_client
-                                    (queue_of_vm ~__context
-                                       ~self:(vm_of_id ~__context id)
-                                    ) : XENOPS
-                            )
+        let module Client =
+          ( val make_client
+                  (queue_of_vm ~__context ~self:(vm_of_id ~__context id))
+              : XENOPS
+            )
         in
         let md =
           match
@@ -1872,9 +1870,8 @@ let update_vm ~__context id =
       else
         let previous = Xenops_cache.find_vm id in
         let dbg = Context.string_of_task_and_tracing __context in
-        let module Client = ( val make_client (queue_of_vm ~__context ~self)
-                                : XENOPS
-                            )
+        let module Client =
+          (val make_client (queue_of_vm ~__context ~self) : XENOPS)
         in
         let info = try Some (Client.VM.stat dbg id) with _ -> None in
         if Option.map snd info = previous then
@@ -2429,9 +2426,8 @@ let update_vbd ~__context (id : string * string) =
       else
         let previous = Xenops_cache.find_vbd id in
         let dbg = Context.string_of_task_and_tracing __context in
-        let module Client = ( val make_client (queue_of_vm ~__context ~self:vm)
-                                : XENOPS
-                            )
+        let module Client =
+          (val make_client (queue_of_vm ~__context ~self:vm) : XENOPS)
         in
         let info = try Some (Client.VBD.stat dbg id) with _ -> None in
         if Option.map snd info = previous then
@@ -2541,9 +2537,8 @@ let update_vif ~__context id =
       else
         let previous = Xenops_cache.find_vif id in
         let dbg = Context.string_of_task_and_tracing __context in
-        let module Client = ( val make_client (queue_of_vm ~__context ~self:vm)
-                                : XENOPS
-                            )
+        let module Client =
+          (val make_client (queue_of_vm ~__context ~self:vm) : XENOPS)
         in
         let info = try Some (Client.VIF.stat dbg id) with _ -> None in
         if Option.map snd info = previous then
@@ -2657,9 +2652,8 @@ let update_pci ~__context id =
       else
         let previous = Xenops_cache.find_pci id in
         let dbg = Context.string_of_task_and_tracing __context in
-        let module Client = ( val make_client (queue_of_vm ~__context ~self:vm)
-                                : XENOPS
-                            )
+        let module Client =
+          (val make_client (queue_of_vm ~__context ~self:vm) : XENOPS)
         in
         let info = try Some (Client.PCI.stat dbg id) with _ -> None in
         if Option.map snd info = previous then
@@ -2733,9 +2727,8 @@ let update_vgpu ~__context id =
       else
         let previous = Xenops_cache.find_vgpu id in
         let dbg = Context.string_of_task_and_tracing __context in
-        let module Client = ( val make_client (queue_of_vm ~__context ~self:vm)
-                                : XENOPS
-                            )
+        let module Client =
+          (val make_client (queue_of_vm ~__context ~self:vm) : XENOPS)
         in
         let info = try Some (Client.VGPU.stat dbg id) with _ -> None in
         if Option.map snd info = previous then
@@ -2805,9 +2798,8 @@ let update_vusb ~__context (id : string * string) =
       else
         let previous = Xenops_cache.find_vusb id in
         let dbg = Context.string_of_task_and_tracing __context in
-        let module Client = ( val make_client (queue_of_vm ~__context ~self:vm)
-                                : XENOPS
-                            )
+        let module Client =
+          (val make_client (queue_of_vm ~__context ~self:vm) : XENOPS)
         in
         let info = try Some (Client.VUSB.stat dbg id) with _ -> None in
         if Option.map snd info = previous then

@@ -362,7 +362,6 @@ To mirror a VDI a sequence of these API calls is required:
 end
 
 module DPCode = Datapath (Codegen.Gen ())
-
 module DCode = Data (Codegen.Gen ())
 
 let interfaces =

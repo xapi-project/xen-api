@@ -1313,8 +1313,8 @@ module PCI = struct
     callscript "flr-pre" device ;
     ( if Sys.file_exists device_reset_file then
         try write_string_to_file device_reset_file "1" with _ -> ()
-    else
-      try write_string_to_file doflr device with _ -> ()
+      else
+        try write_string_to_file doflr device with _ -> ()
     ) ;
     callscript "flr-post" device
 
@@ -2355,12 +2355,12 @@ module Dm_Common = struct
                      ]
                  | None ->
                      []
-             else
-               match info.xen_platform with
-               | Some (device_id, _) ->
-                   [sprintf "device-id=0x%04x" device_id]
-               | None ->
-                   []
+               else
+                 match info.xen_platform with
+                 | Some (device_id, _) ->
+                     [sprintf "device-id=0x%04x" device_id]
+                 | None ->
+                     []
              )
            ]
         )

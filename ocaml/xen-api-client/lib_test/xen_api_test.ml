@@ -60,10 +60,10 @@ module Fake_IO = struct
     return
       ( if Queue.is_empty ic then
           false
-      else
-        let chunk = Queue.pop ic in
-        String.blit chunk 0 buf off len ;
-        true
+        else
+          let chunk = Queue.pop ic in
+          String.blit chunk 0 buf off len ;
+          true
       )
 
   let read_exactly ic len =

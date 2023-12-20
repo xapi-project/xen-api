@@ -726,8 +726,8 @@ let refresh_local_vdi_activations ~__context =
       info "Unlocking VDI %s (because %s)" (Ref.string_of vdi_ref)
         ( if i_locked_it then
             "I locked it and then restarted"
-        else
-          "it was leaked (pool join?)"
+          else
+            "it was leaked (pool join?)"
         ) ;
       try
         List.iter

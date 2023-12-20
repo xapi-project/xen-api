@@ -292,9 +292,7 @@ let do_local_auth uname pwd =
       try Pam.authenticate uname (Bytes.unsafe_to_string pwd)
       with Failure msg ->
         raise
-          Api_errors.(
-            Server_error (session_authentication_failed, [uname; msg])
-          )
+          Api_errors.(Server_error (session_authentication_failed, [uname; msg]))
   )
 
 let do_local_change_password uname newpwd =
@@ -1295,8 +1293,8 @@ let logout_subject_identifier ~__context ~subject_identifier =
     (trackid current_session)
     ( if Db.Session.get_is_local_superuser ~__context ~self:current_session then
         local_superuser
-    else
-      ""
+      else
+        ""
     )
     (Db.Session.get_auth_user_sid ~__context ~self:current_session)
     subject_identifier

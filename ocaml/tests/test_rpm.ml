@@ -39,8 +39,7 @@ module PkgOfFullnameTest = Generic.MakeStateless (struct
 
     let string_of_output_t =
       Fmt.(
-        str "%a"
-          Dump.(result ~ok:(option @@ record @@ fields_of_pkg) ~error:exn)
+        str "%a" Dump.(result ~ok:(option @@ record @@ fields_of_pkg) ~error:exn)
       )
   end
 

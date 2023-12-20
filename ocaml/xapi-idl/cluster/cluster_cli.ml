@@ -1,7 +1,6 @@
 (* Cluster CLI *)
 
 open Cluster_interface
-
 module Cmds = LocalAPI (Cmdlinergen.Gen ())
 
 let doc =

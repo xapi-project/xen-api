@@ -1697,8 +1697,8 @@ let disable_internal __context =
          then we need to try the without-statefile procedure: *)
       ( if i_have_statefile_access () then
           exn_to_bool attempt_disable_through_statefile
-      else
-        false
+        else
+          false
       )
       || exn_to_bool attempt_disable_without_statefile
     in

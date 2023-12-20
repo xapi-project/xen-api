@@ -299,14 +299,14 @@ let pad_value_list guest_ids_all guest_ids values default_value =
       (Invalid_argument
          ( if List.length guest_ids <> List.length values then
              "Expected: length (guest_ids) = length (values)"
-         else if not (is_sorted String.compare guest_ids) then
-           "Expected: sorted (guest_ids)"
-         else if not (is_sorted String.compare guest_ids_all) then
-           "Expected: sorted (guest_ids_all)"
-         else if not (is_subset guest_ids guest_ids_all) then
-           "Expected: guest_ids subset of guest_ids_all"
-         else
-           "Unknown failure"
+           else if not (is_sorted String.compare guest_ids) then
+             "Expected: sorted (guest_ids)"
+           else if not (is_sorted String.compare guest_ids_all) then
+             "Expected: sorted (guest_ids_all)"
+           else if not (is_subset guest_ids guest_ids_all) then
+             "Expected: guest_ids subset of guest_ids_all"
+           else
+             "Unknown failure"
          )
       )
   in

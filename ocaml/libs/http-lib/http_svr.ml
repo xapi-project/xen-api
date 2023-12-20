@@ -326,8 +326,8 @@ let escape uri =
     let aux h t =
       ( if List.mem_assoc h rules then
           List.assoc h rules
-      else
-        Astring.String.of_char h
+        else
+          Astring.String.of_char h
       )
       :: t
     in
@@ -761,8 +761,8 @@ let clean_addr_of_string ip =
   let ipv4_affix = "::ffff:" in
   ( if Astring.String.is_prefix ~affix:ipv4_affix ip then
       Astring.String.drop ~max:(String.length ipv4_affix) ip
-  else
-    ip
+    else
+      ip
   )
   |> Ipaddr.of_string
   |> Stdlib.Result.to_option

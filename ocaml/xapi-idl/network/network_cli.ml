@@ -1,7 +1,6 @@
 (* Network CLI *)
 
 open Network_interface
-
 module Cmds = Interface_API (Cmdlinergen.Gen ())
 
 let doc =

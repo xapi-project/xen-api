@@ -34,8 +34,8 @@ let complete name offset op fd buffer =
       (match offset with Some x -> Int64.to_string x | None -> "None")
       ( if Cstruct.length buffer > 16 then
           String.escaped (Cstruct.to_string (Cstruct.sub buffer 0 13)) ^ "..."
-      else
-        String.escaped (Cstruct.to_string buffer)
+        else
+          String.escaped (Cstruct.to_string buffer)
       )
       (Cstruct.length buffer) ;
   if n = 0 && len <> 0 then

@@ -212,37 +212,41 @@ let diagnostics common_opts =
   Printf.printf "Switch started %s\n" (time in_the_past d.Diagnostics.start_time) ;
   ( if d.Diagnostics.permanent_queues = [] then
       print_endline "There are no known services (yet)."
-  else
-    let not_started =
-      List.filter
-        (fun q -> classify q = `Not_started)
-        d.Diagnostics.permanent_queues
-    in
-    let crashed =
-      List.filter
-        (fun q ->
-          match classify q with `Crashed_or_deadlocked _ -> true | _ -> false
-        )
-        d.Diagnostics.permanent_queues
-    in
-    let ok =
-      List.filter (fun q -> classify q = `Ok) d.Diagnostics.permanent_queues
-    in
-    if ok = [] then
-      print_endline "No known services are running."
-    else (
-      print_endline "\nThe following services are running:" ;
-      List.iter queue ok
-    ) ;
-    if not_started <> [] then (
-      print_endline
-        "\nThe following services have been called but have never started:" ;
-      List.iter queue not_started
-    ) ;
-    if crashed <> [] then (
-      print_endline "\nThe following services have crashed or deadlocked:" ;
-      List.iter queue crashed
-    )
+    else
+      let not_started =
+        List.filter
+          (fun q -> classify q = `Not_started)
+          d.Diagnostics.permanent_queues
+      in
+      let crashed =
+        List.filter
+          (fun q ->
+            match classify q with
+            | `Crashed_or_deadlocked _ ->
+                true
+            | _ ->
+                false
+          )
+          d.Diagnostics.permanent_queues
+      in
+      let ok =
+        List.filter (fun q -> classify q = `Ok) d.Diagnostics.permanent_queues
+      in
+      if ok = [] then
+        print_endline "No known services are running."
+      else (
+        print_endline "\nThe following services are running:" ;
+        List.iter queue ok
+      ) ;
+      if not_started <> [] then (
+        print_endline
+          "\nThe following services have been called but have never started:" ;
+        List.iter queue not_started
+      ) ;
+      if crashed <> [] then (
+        print_endline "\nThe following services have crashed or deadlocked:" ;
+        List.iter queue crashed
+      )
   ) ;
   (* We don't show expected empty transient queues *)
   let expected =

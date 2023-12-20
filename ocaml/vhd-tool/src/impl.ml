@@ -477,8 +477,8 @@ let stream_tar _common c s _ prefix ?(progress = no_progress_bar) () =
             return {state with ctx; header= None}
         | None ->
             return state
-    else
-      return state
+      else
+        return state
     )
     >>= fun state ->
     (* If we have unwritten data then output the next header *)
@@ -1015,8 +1015,8 @@ let write_stream common s destination destination_protocol prezeroed progress
       let open Cohttp in
       ( if use_ssl then
           Channels.of_ssl_fd sock good_ciphersuites verify_cert
-      else
-        Channels.of_raw_fd sock
+        else
+          Channels.of_raw_fd sock
       )
       >>= fun c ->
       let module Request = Request.Make (Cohttp_unbuffered_io) in
@@ -1276,8 +1276,8 @@ let serve_raw_to_raw common size c dest _ progress _ _ =
     let block = Cstruct.sub buffer 0 rounded_n in
     ( if n <> rounded_n then
         Vhd_format_lwt.IO.really_read dest offset block
-    else
-      Lwt.return ()
+      else
+        Lwt.return ()
     )
     >>= fun () ->
     (* Create a cstruct that's an alias to the above block,
@@ -1369,8 +1369,8 @@ let serve common_options source source_fd source_format source_protocol
           ( if not (Sys.file_exists path) then
               Lwt_unix.openfile path [Unix.O_CREAT; Unix.O_RDONLY] 0o0644
               >>= fun fd -> Lwt_unix.close fd
-          else
-            return ()
+            else
+              return ()
           )
           >>= fun () ->
           Vhd_format_lwt.IO.openfile path true >>= fun fd ->

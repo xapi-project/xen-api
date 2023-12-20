@@ -223,9 +223,7 @@ let test_endpoints ~__context ~self =
     (fun invalid_endpoint ->
       Alcotest.check_raises
         "Xapi_observer.set_components should fail on invalid component"
-        Api_errors.(
-          Server_error (invalid_value, ["endpoint"; invalid_endpoint])
-        )
+        Api_errors.(Server_error (invalid_value, ["endpoint"; invalid_endpoint]))
         (fun () ->
           Xapi_observer.set_endpoints ~__context ~self ~value:[invalid_endpoint]
           |> ignore

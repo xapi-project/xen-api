@@ -1020,8 +1020,8 @@ module VDI : HandlerTools = struct
                   vdi_record.API.vDI_location
                   ( if config.force then
                       "ignoring error because '--force' is set"
-                  else
-                    "treating as fatal and abandoning import"
+                    else
+                      "treating as fatal and abandoning import"
                   ) ;
                 if config.force then
                   Skip
@@ -1326,9 +1326,9 @@ module VBD : HandlerTools = struct
             (false, false)
       in
       ( if
-        vbd_record.API.vBD_currently_attached
-        && not (exists vbd_record.API.vBD_VDI state.table)
-      then
+          vbd_record.API.vBD_currently_attached
+          && not (exists vbd_record.API.vBD_VDI state.table)
+        then
           (* It's only ok if it's a CDROM attached to an HVM guest, or it's part of SXM and we know the sender would eject it. *)
           let will_eject =
             dry_run && live && original_vm.API.vM_power_state <> `Suspended
@@ -1943,8 +1943,9 @@ let update_snapshot_and_parent_links ~__context state =
   let aux (cls, _, ref) =
     let ref = Ref.of_string ref in
     ( if
-      cls = Datamodel_common._vm && Db.VM.get_is_a_snapshot ~__context ~self:ref
-    then
+        cls = Datamodel_common._vm
+        && Db.VM.get_is_a_snapshot ~__context ~self:ref
+      then
         let snapshot_of = Db.VM.get_snapshot_of ~__context ~self:ref in
         if snapshot_of <> Ref.null then (
           debug "lookup for snapshot_of = '%s'" (Ref.string_of snapshot_of) ;

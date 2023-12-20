@@ -244,8 +244,7 @@ let assert_not_vlan_slave ~__context ~self =
     List.map (fun self -> Db.VLAN.get_uuid ~__context ~self) vlans
     |> String.concat "; "
     |> debug "PIF has associated VLANs: [ %s ]" ;
-    raise
-      Api_errors.(Server_error (pif_vlan_still_exists, [Ref.string_of self]))
+    raise Api_errors.(Server_error (pif_vlan_still_exists, [Ref.string_of self]))
   )
 
 let is_device_underneath_same_type ~__context pif1 pif2 =

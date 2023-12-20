@@ -399,8 +399,8 @@ let spawn_db_flush_threads () =
                    ( if dbconn.Parse_db_conf.mode <> Parse_db_conf.No_limit then
                        "Write limited with coallesce_time="
                        ^ string_of_float coallesce_time
-                   else
-                     ""
+                     else
+                       ""
                    ) ;
                  (* check if we are currently in a coallescing_period *)
                  let in_coallescing_period () =
@@ -417,17 +417,18 @@ let spawn_db_flush_threads () =
                         								   exceeded.
                      *)
                      ( if
-                       !Db_connections.exit_on_next_flush
-                       (* always flush straight away; this request is urgent *)
-                       || (* otherwise, we only write if (i) "coalesscing period has come to an end"; and (ii) "write limiting requirements are met": *)
-                       (not (in_coallescing_period ()))
-                       (* see (i) above *)
-                       && (!my_writes_this_period
-                           < dbconn.Parse_db_conf.write_limit_write_cycles
-                          || dbconn.Parse_db_conf.mode = Parse_db_conf.No_limit
-                             (* (ii) above *)
-                          )
-                     then (* debug "[%s] considering flush" db_path; *)
+                         !Db_connections.exit_on_next_flush
+                         (* always flush straight away; this request is urgent *)
+                         || (* otherwise, we only write if (i) "coalesscing period has come to an end"; and (ii) "write limiting requirements are met": *)
+                         (not (in_coallescing_period ()))
+                         (* see (i) above *)
+                         && (!my_writes_this_period
+                             < dbconn.Parse_db_conf.write_limit_write_cycles
+                            || dbconn.Parse_db_conf.mode
+                               = Parse_db_conf.No_limit
+                               (* (ii) above *)
+                            )
+                       then (* debug "[%s] considering flush" db_path; *)
                          let was_anything_flushed =
                            Xapi_stdext_threads.Threadext.Mutex.execute
                              Db_lock.global_flush_mutex (fun () ->

@@ -69,18 +69,18 @@ let network_stats ~__context ~host:_ ~params =
            ; (if has_param "uri" then [uri] else [])
            ; ( if has_param "requests" then
                  [string_of_int stats.Http_svr.Stats.n_requests]
-             else
-               []
+               else
+                 []
              )
            ; ( if has_param "connections" then
                  [string_of_int stats.Http_svr.Stats.n_connections]
-             else
-               []
+               else
+                 []
              )
            ; ( if has_param "framed" then
                  [string_of_int stats.Http_svr.Stats.n_framed]
-             else
-               []
+               else
+                 []
              )
            ]
      )

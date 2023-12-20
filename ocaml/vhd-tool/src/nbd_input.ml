@@ -74,8 +74,8 @@ let raw ?(extent_reader = "/opt/xensource/libexec/get_nbd_extents.py") raw
               finished at incorrect offset %Ld,"
              offset length final_offset
           )
-    else
-      Lwt.return_unit
+      else
+        Lwt.return_unit
     )
     >|= fun () -> ops
   in
@@ -89,8 +89,8 @@ let raw ?(extent_reader = "/opt/xensource/libexec/get_nbd_extents.py") raw
                  "Nbd_input.raw finished with offset=%Ld <> size=%Ld" offset
                  size
               )
-        else
-          Lwt.return_unit
+          else
+            Lwt.return_unit
         )
         >>= fun () -> Lwt.return F.End
     | [], _ ->

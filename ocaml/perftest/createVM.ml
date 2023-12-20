@@ -119,8 +119,8 @@ let make ~rpc ~session_id ~pool:_ ~vm ~networks ~storages =
         Printf.sprintf "VM %d%s%s" j
           ( if Array.length storages > 1 then
               Printf.sprintf " in SR %d" i
-          else
-            ""
+            else
+              ""
           )
           (if vm.tag <> "" then " - " ^ vm.tag else "")
       in

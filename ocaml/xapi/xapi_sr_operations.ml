@@ -142,9 +142,7 @@ let valid_operations ~__context ?op record _ref' : table =
         List.filter
           (fun f ->
             not
-              Smint.(
-                List.mem (capability_of_feature f) [Vdi_create; Vdi_delete]
-              )
+              Smint.(List.mem (capability_of_feature f) [Vdi_create; Vdi_delete])
           )
           sm_features
       else
