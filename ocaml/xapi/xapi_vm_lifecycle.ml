@@ -816,6 +816,42 @@ let checkpoint_in_progress ~__context ~vm =
     (List.map snd (Db.VM.get_current_operations ~__context ~self:vm))
   |> List.mem `checkpoint
 
+let remove_pending_guidance ~__context ~self ~value =
+  let v = Db.VM.get_name_label ~__context ~self in
+  if
+    List.exists
+      (fun g -> g = value)
+      (Db.VM.get_pending_guidances ~__context ~self)
+  then (
+    debug "Remove guidance [%s] from vm [%s]'s pending_guidances list"
+      Updateinfo.Guidance.(of_pending_guidance value |> to_string)
+      v ;
+    Db.VM.remove_pending_guidances ~__context ~self ~value
+  ) ;
+
+  if
+    List.exists
+      (fun g -> g = value)
+      (Db.VM.get_pending_guidances_recommended ~__context ~self)
+  then (
+    debug
+      "Remove guidance [%s] from vm [%s]'s pending_guidances_recommended list"
+      Updateinfo.Guidance.(of_pending_guidance value |> to_string)
+      v ;
+    Db.VM.remove_pending_guidances_recommended ~__context ~self ~value
+  ) ;
+
+  if
+    List.exists
+      (fun g -> g = value)
+      (Db.VM.get_pending_guidances_full ~__context ~self)
+  then (
+    debug "Remove guidance [%s] from vm [%s]'s pending_guidances_full list"
+      Updateinfo.Guidance.(of_pending_guidance value |> to_string)
+      v ;
+    Db.VM.remove_pending_guidances_full ~__context ~self ~value
+  )
+
 (** 1. Called on new VMs (clones, imports) and on server start to manually refresh
     the power state, allowed_operations field etc.  Current-operations won't be
     cleaned
@@ -823,7 +859,11 @@ let checkpoint_in_progress ~__context ~vm =
 let force_state_reset_keep_current_operations ~__context ~self ~value:state =
   (* First update the power_state. Some operations below indirectly rely on this. *)
   Db.VM.set_power_state ~__context ~self ~value:state ;
+  if state = `Suspended then
+    remove_pending_guidance ~__context ~self ~value:`restart_device_model ;
   if state = `Halted then (
+    remove_pending_guidance ~__context ~self ~value:`restart_device_model ;
+    remove_pending_guidance ~__context ~self ~value:`restart_vm ;
     (* mark all devices as disconnected *)
     List.iter
       (fun vbd ->
