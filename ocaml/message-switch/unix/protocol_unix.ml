@@ -546,5 +546,7 @@ module Server = struct
     let (_ : Thread.t) = thread_forever (loop connections) None in
     Ok ()
 
+  let listen_p = listen
+
   let shutdown ~t:_ () = failwith "Shutdown is unimplemented"
 end
