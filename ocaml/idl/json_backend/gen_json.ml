@@ -422,8 +422,8 @@ end = struct
               , obj.name
               , ( if doc = "" && transition = Lifecycle.Published then
                     obj.description
-                else
-                  doc
+                  else
+                    doc
                 )
               , "class"
               )
@@ -445,8 +445,8 @@ end = struct
               , obj.name ^ "." ^ m.msg_name
               , ( if doc = "" && transition = Lifecycle.Published then
                     m.msg_doc
-                else
-                  doc
+                  else
+                    doc
                 )
               , "message"
               )
@@ -474,8 +474,8 @@ end = struct
               , obj.name ^ "." ^ field_name
               , ( if doc = "" && transition = Lifecycle.Published then
                     f.field_description
-                else
-                  doc
+                  else
+                    doc
                 )
               , "field"
               )

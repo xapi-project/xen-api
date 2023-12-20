@@ -2236,7 +2236,7 @@ functor
                    the suspend VDI: we want to minimise the probability that the operation fails
                    part-way through. *)
                 ( if Db.VM.get_power_state ~__context ~self:snapshot = `Suspended
-                then
+                  then
                     let suspend_VDI =
                       Db.VM.get_suspend_VDI ~__context ~self:snapshot
                     in

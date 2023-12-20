@@ -142,9 +142,9 @@ let make_server config trace_config =
         let redo_log_path = Filename.concat statedir _redo_log in
         let dump_path = Filename.concat statedir _dump_file in
         ( if
-          (not (Sys.file_exists redo_log_path))
-          || not (Sys.file_exists dump_path)
-        then (
+            (not (Sys.file_exists redo_log_path))
+            || not (Sys.file_exists dump_path)
+          then (
             info "Writing an empty set of queues to %s" dump_path ;
             save statedir Q.empty >>= fun () ->
             info "Writing an empty redo-log to %s" redo_log_path ;

@@ -1702,15 +1702,15 @@ module Ovs = struct
           ::
           ( if halgo = "src_mac" then
               ["bond_mode=balance-slb"]
-          else if halgo = "tcpudp_ports" then
-            ["bond_mode=balance-tcp"]
-          else (
-            debug
-              "bond %s has invalid bond-hashing-algorithm '%s'; defaulting to \
-               balance-tcp"
-              name halgo ;
-            ["bond_mode=balance-tcp"]
-          )
+            else if halgo = "tcpudp_ports" then
+              ["bond_mode=balance-tcp"]
+            else (
+              debug
+                "bond %s has invalid bond-hashing-algorithm '%s'; defaulting \
+                 to balance-tcp"
+                name halgo ;
+              ["bond_mode=balance-tcp"]
+            )
           )
         else
           ["lacp=off"; "bond_mode=" ^ mode]
@@ -2054,8 +2054,8 @@ module Modprobe = struct
           |> Array.to_list
           |> String.concat ","
           )
-    else
-      Result.Error (Other, "Fail to generate options for maxvfs for " ^ driver)
+      else
+        Result.Error (Other, "Fail to generate options for maxvfs for " ^ driver)
     )
     >>= fun option ->
     let need_rebuild_initrd = ref false in

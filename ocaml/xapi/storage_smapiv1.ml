@@ -87,8 +87,8 @@ let vdi_info_of_vdi_rec __context vdi_rec =
   ; snapshot_of=
       ( if Db.is_valid_ref __context vdi_rec.API.vDI_snapshot_of then
           Db.VDI.get_uuid ~__context ~self:vdi_rec.API.vDI_snapshot_of
-      else
-        ""
+        else
+          ""
       )
       |> Storage_interface.Vdi.of_string
   ; read_only= vdi_rec.API.vDI_read_only

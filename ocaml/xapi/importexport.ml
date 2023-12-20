@@ -412,8 +412,8 @@ let base_vdi_of_req ~__context (req : Http.Request.t) =
     Some
       ( if Db.is_valid_ref __context (Ref.of_string base) then
           Ref.of_string base
-      else
-        Db.VDI.get_by_uuid ~__context ~uuid:base
+        else
+          Db.VDI.get_by_uuid ~__context ~uuid:base
       )
   else
     None

@@ -154,8 +154,8 @@ let track_http_operation ?use_existing_task ?(progress_bar = false) fd rpc
       (* Wait for the task to complete *)
       ( if progress_bar then
           wait_for_task_completion_with_progress fd
-      else
-        wait_for_task_completion
+        else
+          wait_for_task_completion
       )
         rpc session_id task_id ;
       Thread.join receive_heartbeats ;

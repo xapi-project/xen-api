@@ -237,9 +237,7 @@ end = struct
       | [] ->
           D.error "unable to find certificate with name='%s'" name ;
           raise
-            Api_errors.(
-              Server_error (invalid_value, ["certificate:name"; name])
-            )
+            Api_errors.(Server_error (invalid_value, ["certificate:name"; name]))
       | xs ->
           let ref_str =
             xs |> List.map Ref.short_string_of |> String.concat ", "

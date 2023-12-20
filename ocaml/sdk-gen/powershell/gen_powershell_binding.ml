@@ -184,8 +184,8 @@ and gen_arg_param = function
         "\n        [Parameter%s]\n        public string %s { get; set; }\n"
         ( if String.lowercase_ascii x = "uuid" then
             "(ValueFromPipelineByPropertyName = true)"
-        else
-          ""
+          else
+            ""
         )
         (pascal_case_ x)
   | Int64_query_arg x ->
@@ -425,8 +425,8 @@ and print_methods_class classname has_uuid has_name =
           \                        results.Add(record.Value);\n\
           \                }\n\
           \            }"
-    else
-      ""
+      else
+        ""
     )
     ( if has_uuid then
         sprintf
@@ -440,8 +440,8 @@ and print_methods_class classname has_uuid has_name =
           \                        break;\n\
           \                    }\n\
           \            }"
-    else
-      ""
+      else
+        ""
     )
 
 (*********************************)
@@ -478,8 +478,8 @@ and print_header_constructor message classname =
     (qualified_class_name classname)
     ( if message.msg_async then
         "\n    [OutputType(typeof(XenAPI.Task))]"
-    else
-      ""
+      else
+        ""
     )
     (ocaml_class_to_csharp_class classname)
 
@@ -498,8 +498,8 @@ and print_params_constructor message obj classname =
     (qualified_class_name classname)
     ( if is_real_constructor message then
         gen_fields (DU.fields_of_obj obj)
-    else
-      gen_constructor_params message.msg_params
+      else
+        gen_constructor_params message.msg_params
     )
     ( if message.msg_async then
         "\n\
@@ -507,8 +507,8 @@ and print_params_constructor message obj classname =
         \        {\n\
         \            get { return true; }\n\
         \        }\n"
-    else
-      ""
+      else
+        ""
     )
 
 and gen_constructor_params params =
@@ -562,8 +562,8 @@ and print_methods_constructor message obj classname =
      }\n"
     ( if is_real_constructor message then
         gen_make_record obj classname
-    else
-      gen_make_fields message obj
+      else
+        gen_make_fields message obj
     )
     (gen_shouldprocess "New" message classname)
     (gen_csharp_api_call message classname "New" "passthru")
@@ -786,8 +786,8 @@ and gen_destructor obj classname messages =
         (qualified_class_name classname)
         ( if List.length asyncMessages > 0 then
             "\n    [OutputType(typeof(XenAPI.Task))]"
-        else
-          ""
+          else
+            ""
         )
         (ocaml_class_to_csharp_class classname)
         (print_xenobject_params obj classname true true true)
@@ -798,8 +798,8 @@ and gen_destructor obj classname messages =
               \        {\n\
               \            get { return true; }\n\
               \        }\n"
-        else
-          ""
+          else
+            ""
         )
         (ocaml_class_to_csharp_local_var classname)
         (ocaml_class_to_csharp_property classname)
@@ -867,8 +867,8 @@ and gen_remover obj classname messages =
         (qualified_class_name classname)
         ( if List.length asyncMessages > 0 then
             "\n    [OutputType(typeof(XenAPI.Task))]"
-        else
-          ""
+          else
+            ""
         )
         (ocaml_class_to_csharp_class classname)
         (print_xenobject_params obj classname true true true)
@@ -932,8 +932,8 @@ and gen_setter obj classname messages =
         (qualified_class_name classname)
         ( if List.length asyncMessages > 0 then
             "\n    [OutputType(typeof(XenAPI.Task))]"
-        else
-          ""
+          else
+            ""
         )
         (ocaml_class_to_csharp_class classname)
         (print_xenobject_params obj classname true true true)
@@ -997,8 +997,8 @@ and gen_adder obj classname messages =
         (qualified_class_name classname)
         ( if List.length asyncMessages > 0 then
             "\n    [OutputType(typeof(XenAPI.Task))]"
-        else
-          ""
+          else
+            ""
         )
         (ocaml_class_to_csharp_class classname)
         (print_xenobject_params obj classname true true true)
@@ -1291,8 +1291,8 @@ and print_dynamic_params classname enum commonVerb messagesWithParams =
             "\n\
             \        [Parameter]\n\
             \        public SwitchParameter Async { get; set; }\n"
-        else
-          ""
+          else
+            ""
         )
         (print_dynamic_param_members classname hd.msg_params commonVerb)
         (print_dynamic_params classname enum commonVerb tl)
@@ -1398,8 +1398,8 @@ and print_xenobject_params obj classname mandatoryRef includeXenObject
      %s%s\n"
     ( if includeXenObject then
         print_param_xen_object (qualified_class_name classname) publicName
-    else
-      ""
+      else
+        ""
     )
     (if mandatoryRef then ", Mandatory = true" else "")
     (qualified_class_name classname)
@@ -1570,8 +1570,8 @@ and print_parse_xenobject_private_method obj classname includeUuidAndName =
           \            }"
           (qualified_class_name classname)
           localVar
-    else
-      sprintf ""
+      else
+        sprintf ""
     )
     ( if has_name obj && includeUuidAndName then
         sprintf
@@ -1592,14 +1592,14 @@ and print_parse_xenobject_private_method obj classname includeUuidAndName =
           (qualified_class_name classname)
           localVar
           (qualified_class_name classname)
-    else
-      sprintf ""
+      else
+        sprintf ""
     )
     localVar publicProperty
     ( if has_uuid obj then
         sprintf ", 'Uuid'"
-    else
-      sprintf ""
+      else
+        sprintf ""
     )
     publicProperty localVar
 
@@ -1683,12 +1683,12 @@ and gen_csharp_api_call message classname commonVerb switch =
           sprintf "Xen%sAction%sDynamicParameters"
             (ocaml_class_to_csharp_class classname)
             (cut_msg_name (pascal_case message.msg_name) "Invoke")
-      else if commonVerb = "Get" then
-        sprintf "Xen%sProperty%sDynamicParameters"
-          (ocaml_class_to_csharp_class classname)
-          (cut_msg_name (pascal_case message.msg_name) "Get")
-      else
-        "XenServerCmdletDynamicParameters"
+        else if commonVerb = "Get" then
+          sprintf "Xen%sProperty%sDynamicParameters"
+            (ocaml_class_to_csharp_class classname)
+            (cut_msg_name (pascal_case message.msg_name) "Get")
+        else
+          "XenServerCmdletDynamicParameters"
       )
       (gen_csharp_api_call_async message classname commonVerb)
       passThruTask
@@ -1697,9 +1697,9 @@ and gen_csharp_api_call message classname commonVerb switch =
   else
     sprintf "%s%s%s"
       ( if
-        commonVerb = "Invoke"
-        && is_message_with_dynamic_params classname message
-      then
+          commonVerb = "Invoke"
+          && is_message_with_dynamic_params classname message
+        then
           sprintf
             "\n\
             \                var contxt = _context as \
@@ -1708,19 +1708,19 @@ and gen_csharp_api_call message classname commonVerb switch =
             \                    return;"
             (ocaml_class_to_csharp_class classname)
             (cut_msg_name (pascal_case message.msg_name) "Invoke")
-      else if
-      commonVerb = "Get" && is_message_with_dynamic_params classname message
-    then
-        sprintf
-          "\n\
-          \                var contxt = _context as \
-           Xen%sProperty%sDynamicParameters;\n\
-          \                if (contxt == null)\n\
-          \                    return;"
-          (ocaml_class_to_csharp_class classname)
-          (cut_msg_name (pascal_case message.msg_name) "Get")
-      else
-        ""
+        else if
+          commonVerb = "Get" && is_message_with_dynamic_params classname message
+        then
+          sprintf
+            "\n\
+            \                var contxt = _context as \
+             Xen%sProperty%sDynamicParameters;\n\
+            \                if (contxt == null)\n\
+            \                    return;"
+            (ocaml_class_to_csharp_class classname)
+            (cut_msg_name (pascal_case message.msg_name) "Get")
+        else
+          ""
       )
       (gen_csharp_api_call_sync message classname commonVerb)
       passThruResult

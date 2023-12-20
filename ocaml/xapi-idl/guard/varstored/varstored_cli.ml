@@ -13,7 +13,6 @@
  *)
 
 module Cmds = Xapi_idl_guard_varstored.Interface.RPC_API (Cmdlinergen.Gen ())
-
 open! Cmdliner
 
 let cli () =

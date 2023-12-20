@@ -567,8 +567,8 @@ let db_action api : O.Module.t =
       ~elements:
         ( if obj.DT.in_database then
             [O.Module.Let (register_get_record obj)]
-        else
-          []
+          else
+            []
         )
       ()
   in

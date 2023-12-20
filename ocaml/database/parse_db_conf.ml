@@ -77,8 +77,8 @@ let from_block r =
     ; ( if r.mode = Write_limit then
           Printf.sprintf "write_limit_period:%d\nwrite_limit_write_cycles:%d\n"
             r.write_limit_period r.write_limit_write_cycles
-      else
-        ""
+        else
+          ""
       )
     ; String.concat ""
         (List.map

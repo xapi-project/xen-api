@@ -137,8 +137,8 @@ let gen_module api : O.Module.t =
                      OU.alias_of_ty x
                  | _ ->
                      "unit"
-             else
-               OU.alias_of_ty (DT.Ref Datamodel_common._task)
+               else
+                 OU.alias_of_ty (DT.Ref Datamodel_common._task)
              )
            ~body:(x.msg_name :: "~rpc" :: all)
            ()
@@ -206,9 +206,9 @@ let gen_module api : O.Module.t =
               "rpc_wrapper rpc %s [ %s ] >>= fun x -> return (%s x)"
               ( if sync then
                   Printf.sprintf "\"%s\"" wire_name
-              else
-                Printf.sprintf {|(Printf.sprintf "%%s%s" AQ.async_qualifier)|}
-                  wire_name
+                else
+                  Printf.sprintf {|(Printf.sprintf "%%s%s" AQ.async_qualifier)|}
+                    wire_name
               )
               (String.concat "; " rpc_args)
               (from_xmlrpc x.msg_result)

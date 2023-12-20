@@ -625,8 +625,8 @@ functor
                     (Vdi_automaton.Attach
                        ( if read_write then
                            Vdi_automaton.RW
-                       else
-                         Vdi_automaton.RO
+                         else
+                           Vdi_automaton.RO
                        )
                     )
                 in
@@ -1107,8 +1107,8 @@ functor
         let errors =
           ( if errors <> [] then
               "The following errors have been logged:"
-          else
-            "No errors have been logged."
+            else
+              "No errors have been logged."
           )
           :: errors
         in
@@ -1404,5 +1404,4 @@ let initialise () =
       !host_state_path
 
 module Impl = Wrapper (Storage_smapiv1.SMAPIv1)
-
 module Server = Storage_interface.Server (Impl) ()

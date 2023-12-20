@@ -459,8 +459,8 @@ let main backend =
     (Some
        ( if !persist then
            (module Xenops_utils.FileFS : Xenops_utils.FS)
-       else
-         (module Xenops_utils.MemFS : Xenops_utils.FS)
+         else
+           (module Xenops_utils.MemFS : Xenops_utils.FS)
        )
     ) ;
   Xenops_server.register_objects () ;
