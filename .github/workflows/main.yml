@@ -86,6 +86,11 @@ jobs:
           wget -O /opt/xensource/sm/XE_SR_ERRORCODES.xml https://raw.githubusercontent.com/xapi-project/sm/master/drivers/XE_SR_ERRORCODES.xml
           opam exec -- make sdk
 
+      - name: Make install smoketest
+        run: |
+          opam exec -- make install DESTDIR=$(mktemp -d)
+          opam exec -- make install DESTDIR=$(mktemp -d) BUILD_PY2=NO
+
       - name: Uninstall unversioned packages and remove pins
         # This should purge them from the cache, unversioned package have
         # 'master' as its version
