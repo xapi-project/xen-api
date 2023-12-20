@@ -91,6 +91,14 @@ module type SERVER = sig
   (** Connect to [switch] and start processing messages on [queue] via function
       [process] *)
 
+  val listen_p :
+       process:(string -> string io)
+    -> switch:string
+    -> queue:string
+    -> unit
+    -> t result io
+  (** same as above, but processes requests concurrently *)
+
   val shutdown : t:t -> unit -> unit io
   (** [shutdown t] shutdown a server *)
 end
