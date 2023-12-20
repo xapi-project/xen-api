@@ -1,5 +1,9 @@
 (tests
 	(package xapi-fdcaps)
-	(names test_safefd)
+	(names test_safefd test_properties)
 	(libraries xapi_fdcaps alcotest fmt)
+)
+
+(cram
+	(deps (package xapi-fdcaps))
 )
