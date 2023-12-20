@@ -232,6 +232,21 @@ let resynchronise_pif_params ~__context =
   (* Ensure that all DHCP PIFs have their IP address updated in the DB *)
   Helpers.update_pif_addresses ~__context
 
+let remove_pending_guidances ~__context =
+  let localhost = Helpers.get_localhost ~__context in
+  Xapi_host_helpers.remove_pending_guidance ~__context ~self:localhost
+    ~value:`restart_toolstack ;
+  if !Xapi_globs.on_system_boot then (
+    Xapi_host_helpers.remove_pending_guidance ~__context ~self:localhost
+      ~value:`reboot_host ;
+    Xapi_host_helpers.remove_pending_guidance ~__context ~self:localhost
+      ~value:`reboot_host_on_livepatch_failure ;
+    Xapi_host_helpers.remove_pending_guidance ~__context ~self:localhost
+      ~value:`reboot_host_on_kernel_livepatch_failure ;
+    Xapi_host_helpers.remove_pending_guidance ~__context ~self:localhost
+      ~value:`reboot_host_on_xen_livepatch_failure
+  )
+
 (** Update the database to reflect current state. Called for both start of day and after
     an agent restart. *)
 let update_env __context sync_keys =
@@ -351,4 +366,6 @@ let update_env __context sync_keys =
   switched_sync Xapi_globs.sync_chipset_info (fun () ->
       Create_misc.create_chipset_info ~__context info
   ) ;
-  switched_sync Xapi_globs.sync_gpus (fun () -> Xapi_pgpu.update_gpus ~__context)
+  switched_sync Xapi_globs.sync_gpus (fun () -> Xapi_pgpu.update_gpus ~__context) ;
+
+  remove_pending_guidances ~__context
