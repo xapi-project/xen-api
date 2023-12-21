@@ -2047,3 +2047,13 @@ let unit_test ~__context : bool =
       true
   | None ->
       false
+
+let get_active_uefi_certificates ~__context ~self =
+  let custom_uefi_certs =
+    Db.Pool.get_custom_uefi_certificates ~__context ~self
+  in
+  match (!Xapi_globs.allow_custom_uefi_certs, custom_uefi_certs) with
+  | false, _ | true, "" ->
+      Db.Pool.get_uefi_certificates ~__context ~self
+  | true, _ ->
+      custom_uefi_certs

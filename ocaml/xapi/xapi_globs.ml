@@ -858,7 +858,7 @@ let varstore_dir = ref "/var/lib/varstored"
 
 let default_auth_dir = ref "/usr/share/varstored"
 
-let override_uefi_certs = ref false
+let allow_custom_uefi_certs = ref false
 
 let disable_logging_for = ref []
 
@@ -1443,11 +1443,11 @@ let other_options =
     , (fun () -> string_of_bool !ignore_vtpm_unimplemented)
     , "Do not raise errors on use-cases where VTPM codepaths are not finished."
     )
-  ; ( "override-uefi-certs"
-    , Arg.Set override_uefi_certs
-    , (fun () -> string_of_bool !override_uefi_certs)
-    , "Enable (true) or Disable (false) overriding location for varstored UEFI \
-       certificates"
+  ; ( "allow-custom-uefi-certs"
+    , Arg.Set allow_custom_uefi_certs
+    , (fun () -> string_of_bool !allow_custom_uefi_certs)
+    , "Enable (true) or Disable (false) setting a custom location for \
+       varstored UEFI certificates"
     )
   ; ( "server-cert-group-id"
     , Arg.Set_int server_cert_group_id

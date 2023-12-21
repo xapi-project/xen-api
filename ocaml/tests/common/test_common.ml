@@ -286,8 +286,8 @@ let make_pool ~__context ~master ?(name_label = "") ?(name_description = "")
     ?(ha_cluster_stack = !Xapi_globs.cluster_stack_default)
     ?(guest_agent_config = []) ?(cpu_info = [])
     ?(policy_no_vendor_device = false) ?(live_patching_disabled = false)
-    ?(uefi_certificates = "") ?(repositories = [])
-    ?(client_certificate_auth_enabled = false)
+    ?(uefi_certificates = "") ?(custom_uefi_certificates = "")
+    ?(repositories = []) ?(client_certificate_auth_enabled = false)
     ?(client_certificate_auth_name = "") ?(repository_proxy_url = "")
     ?(repository_proxy_username = "") ?(repository_proxy_password = Ref.null)
     ?(migration_compression = false) ?(coordinator_bias = true)
@@ -305,8 +305,8 @@ let make_pool ~__context ~master ?(name_label = "") ?(name_description = "")
     ~vswitch_controller ~igmp_snooping_enabled ~current_operations
     ~allowed_operations ~restrictions ~other_config ~ha_cluster_stack
     ~guest_agent_config ~cpu_info ~policy_no_vendor_device
-    ~live_patching_disabled ~uefi_certificates ~is_psr_pending:false
-    ~tls_verification_enabled:false ~repositories
+    ~live_patching_disabled ~uefi_certificates ~custom_uefi_certificates
+    ~is_psr_pending:false ~tls_verification_enabled:false ~repositories
     ~client_certificate_auth_enabled ~client_certificate_auth_name
     ~repository_proxy_url ~repository_proxy_username ~repository_proxy_password
     ~migration_compression ~coordinator_bias ~telemetry_uuid

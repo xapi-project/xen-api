@@ -42,7 +42,7 @@ let create_pool_record ~__context =
       ~other_config:[Xapi_globs.memory_ratio_hvm; Xapi_globs.memory_ratio_pv]
       ~ha_cluster_stack:"xhad" ~guest_agent_config:[] ~cpu_info:[]
       ~policy_no_vendor_device:false ~live_patching_disabled:false
-      ~uefi_certificates:"" ~is_psr_pending:false
+      ~uefi_certificates:"" ~custom_uefi_certificates:"" ~is_psr_pending:false
       ~tls_verification_enabled:false ~repositories:[]
       ~client_certificate_auth_enabled:false ~client_certificate_auth_name:""
       ~repository_proxy_url:"" ~repository_proxy_username:""

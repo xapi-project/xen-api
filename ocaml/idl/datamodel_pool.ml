@@ -1026,8 +1026,27 @@ let disable_repository_proxy =
 
 let set_uefi_certificates =
   call ~name:"set_uefi_certificates"
-    ~lifecycle:[(Published, "22.16.0", "")]
-    ~doc:"Sets the UEFI certificates for a pool and all its hosts"
+    ~lifecycle:
+      [
+        (Published, "22.16.0", "")
+      ; (Deprecated, "23.32.0", "use set_custom_uefi_certificates instead")
+      ]
+    ~doc:
+      "Set the UEFI certificates for a pool and all its hosts. Deprecated: use \
+       set_custom_uefi_certificates instead"
+    ~params:
+      [
+        (Ref _pool, "self", "The pool")
+      ; (String, "value", "The certificates to apply to the pool and its hosts")
+      ]
+    ~allowed_roles:_R_POOL_ADMIN ()
+
+let set_custom_uefi_certificates =
+  call ~name:"set_custom_uefi_certificates" ~lifecycle:[]
+    ~doc:
+      "Set custom UEFI certificates for a pool and all its hosts. Need \
+       `allow-custom-uefi-certs` set to true in conf. If empty: default back \
+       to Pool.uefi_certificates"
     ~params:
       [
         (Ref _pool, "self", "The pool")
@@ -1194,6 +1213,7 @@ let t =
       ; configure_repository_proxy
       ; disable_repository_proxy
       ; set_uefi_certificates
+      ; set_custom_uefi_certificates
       ; set_https_only
       ; set_telemetry_next_collection
       ; reset_telemetry_uuid
@@ -1382,6 +1402,9 @@ let t =
               ]
             ~default_value:(Some (VString "")) "uefi_certificates"
             "The UEFI certificates allowing Secure Boot"
+        ; field ~qualifier:StaticRO ~ty:String ~lifecycle:[]
+            ~default_value:(Some (VString "")) "custom_uefi_certificates"
+            "Custom UEFI certificates allowing Secure Boot"
         ; field ~in_product_since:rel_stockholm_psr ~qualifier:RW ~ty:Bool
             ~default_value:(Some (VBool false)) "is_psr_pending"
             "True if either a PSR is running or we are waiting for a PSR to be \

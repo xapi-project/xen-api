@@ -2672,12 +2672,17 @@ let allocate_resources_for_vm ~__context ~self:_ ~vm:_ ~live:_ =
   (* Implemented entirely in Message_forwarding *)
   ()
 
+let ( // ) = Filename.concat
+
 (* Sync uefi certificates with the ones of the hosts *)
-let extract_certificate_file name =
-  if String.contains name '/' then
-    (* Internal error: tarfile not created correctly *)
-    failwith ("Path in certificate tarball %s contains '/'" ^ name) ;
-  let path = Filename.concat !Xapi_globs.varstore_dir name in
+let extract_certificate_file tarpath =
+  let filename =
+    if String.contains tarpath '/' then
+      Filename.basename tarpath
+    else
+      tarpath
+  in
+  let path = !Xapi_globs.varstore_dir // filename in
   Helpers.touch_file path ; path
 
 let with_temp_file_contents ~contents f =
@@ -2692,8 +2697,6 @@ let with_temp_file_contents ~contents f =
     (fun () -> Sys.remove filename)
 
 let ( let@ ) f x = f x
-
-let ( // ) = Filename.concat
 
 let really_read_uefi_certificates_from_disk ~__context ~host:_ from_path =
   let certs_files = Sys.readdir from_path |> Array.map (( // ) from_path) in
@@ -2725,7 +2728,7 @@ let really_write_uefi_certificates_to_disk ~__context ~host:_ ~value =
                  [Unix.O_WRONLY; Unix.O_CREAT; Unix.O_TRUNC]
                  0o644
              in
-             debug "override_uefi_certs: copy_file %s->%s" src dst ;
+             debug "%s: copy_file %s->%s" __FUNCTION__ src dst ;
              ignore (Unixext.copy_file src_fd dst_fd)
          )
   | base64_value -> (
@@ -2746,7 +2749,8 @@ let really_write_uefi_certificates_to_disk ~__context ~host:_ ~value =
 
 let write_uefi_certificates_to_disk ~__context ~host =
   let with_valid_symlink ~from_path ~to_path fn =
-    debug "override_uefi_certs: with_valid_symlink %s->%s" from_path to_path ;
+    debug "write_uefi_certificates_to_disk: with_valid_symlink %s->%s" from_path
+      to_path ;
     if Helpers.FileSys.realpathm from_path <> to_path then (
       Xapi_stdext_unix.Unixext.rm_rec ~rm_top:true from_path ;
       Unix.symlink to_path from_path
@@ -2754,7 +2758,7 @@ let write_uefi_certificates_to_disk ~__context ~host =
     fn from_path
   in
   let with_empty_dir path fn =
-    debug "override_uefi_certs: with_empty_dir %s" path ;
+    debug "write_uefi_certificates_to_disk: with_empty_dir %s" path ;
     Xapi_stdext_unix.Unixext.rm_rec ~rm_top:false path ;
     Unixext.mkdir_rec path 0o755 ;
     fn path
@@ -2773,46 +2777,46 @@ let write_uefi_certificates_to_disk ~__context ~host =
            uefi_certs_in_disk |> Array.mem cert |> log_of
        )
   in
-  match !Xapi_globs.override_uefi_certs with
-  | false ->
+  let disk_uefi_certs_tar =
+    really_read_uefi_certificates_from_disk ~__context ~host
+      !Xapi_globs.default_auth_dir
+  in
+  (* synchronize both host & pool read-only fields with contents in disk *)
+  Db.Host.set_uefi_certificates ~__context ~self:host ~value:disk_uefi_certs_tar ;
+  if Pool_role.is_master () then
+    Db.Pool.set_uefi_certificates ~__context
+      ~self:(Helpers.get_pool ~__context)
+      ~value:disk_uefi_certs_tar ;
+  let pool_uefi_certs =
+    Db.Pool.get_custom_uefi_certificates ~__context
+      ~self:(Helpers.get_pool ~__context)
+  in
+  match (!Xapi_globs.allow_custom_uefi_certs, pool_uefi_certs) with
+  | false, _ ->
       let@ path =
         with_valid_symlink ~from_path:!Xapi_globs.varstore_dir
           ~to_path:!Xapi_globs.default_auth_dir
       in
-      check_valid_uefi_certs_in path ;
-      let disk_uefi_certs_tar =
-        really_read_uefi_certificates_from_disk ~__context ~host
-          !Xapi_globs.varstore_dir
+      check_valid_uefi_certs_in path
+  | true, "" ->
+      (* When overriding certificates and user hasn't been able to set a value
+         yet, keep the symlink so VMs always have valid uefi certificates *)
+      let@ path =
+        with_valid_symlink ~from_path:!Xapi_globs.varstore_dir
+          ~to_path:!Xapi_globs.default_auth_dir
       in
-      (* synchronize both host & pool read-only fields with contents in disk *)
-      Db.Host.set_uefi_certificates ~__context ~self:host
-        ~value:disk_uefi_certs_tar ;
-      if Pool_role.is_master () then
-        Db.Pool.set_uefi_certificates ~__context
-          ~self:(Helpers.get_pool ~__context)
-          ~value:disk_uefi_certs_tar
-  | true ->
+      check_valid_uefi_certs_in path
+  | true, _ ->
       let@ path = with_empty_dir !Xapi_globs.varstore_dir in
-      (* get from pool for consistent results across hosts *)
-      let pool_uefi_certs =
-        Db.Pool.get_uefi_certificates ~__context
-          ~self:(Helpers.get_pool ~__context)
-      in
       really_write_uefi_certificates_to_disk ~__context ~host
         ~value:pool_uefi_certs ;
       check_valid_uefi_certs_in path
 
-let set_uefi_certificates ~__context ~host ~value =
-  match !Xapi_globs.override_uefi_certs with
-  | false ->
-      raise Api_errors.(Server_error (Api_errors.operation_not_allowed, [""]))
-  | true ->
-      Db.Host.set_uefi_certificates ~__context ~self:host ~value ;
-      Helpers.call_api_functions ~__context (fun rpc session_id ->
-          Client.Client.Pool.set_uefi_certificates ~rpc ~session_id
-            ~self:(Helpers.get_pool ~__context)
-            ~value
-      )
+let set_uefi_certificates ~__context ~host:_ ~value:_ =
+  let msg =
+    "To set UEFI certificates use: `Pool.set_custom_uefi_certificates`"
+  in
+  raise Api_errors.(Server_error (Api_errors.operation_not_allowed, [msg]))
 
 let set_iscsi_iqn ~__context ~host ~value =
   if value = "" then
