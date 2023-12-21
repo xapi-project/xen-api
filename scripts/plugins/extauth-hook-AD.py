@@ -13,6 +13,7 @@ import abc
 import sys
 import subprocess
 import os
+import shutil
 import tempfile
 import logging
 import logging.handlers
@@ -37,23 +38,27 @@ HCP_GROUPS = "/etc/security/hcp_ad_groups.conf"
 
 def setup_logger():
     """Helper function setup logger"""
-    log = logging.getLogger()
+    addr = "/dev/log"
+
     logging.basicConfig(
         format='%(asctime)s %(levelname)s %(name)s %(funcName)s %(message)s', level=logging.DEBUG)
+    log = logging.getLogger()
+
+    if not os.path.exists(addr):
+        log.warning("{} not available, logs are not redirected".format(addr))
+        return
+
     # Send to syslog local5, which will be redirected to xapi log /var/log/xensource.log
     handler = logging.handlers.SysLogHandler(
-        facility='local5', address='/dev/log')
-    std_err = logging.StreamHandler(sys.stderr)
+        facility='local5', address=addr)
     # Send to authpriv, which will be redirected to /var/log/secure
     auth_log = logging.handlers.SysLogHandler(
-        facility="authpriv", address='/dev/log')
+        facility="authpriv", address=addr)
     log.addHandler(handler)
-    log.addHandler(std_err)
     log.addHandler(auth_log)
 
 
-if __name__ == "__main__":
-    setup_logger()
+setup_logger()
 logger = logging.getLogger(__name__)
 
 
@@ -117,7 +122,7 @@ class ADConfig(object):
         with tempfile.NamedTemporaryFile(prefix="extauth-", delete=False) as file:
             file.write("\n".join(self._lines).encode("utf-8"))
             file.flush()
-            os.rename(file.name, self._file_path)
+            shutil.move(file.name, self._file_path)
             os.chmod(self._file_path, self._file_mode)
 
 

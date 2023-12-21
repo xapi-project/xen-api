@@ -22,7 +22,7 @@ let introduce ~__context ~addresses ~first_port ~last_port ~site =
   Pool_features.assert_enabled ~__context ~f:Features.PVS_proxy ;
   Helpers.assert_using_vswitch ~__context ;
   List.iter
-    (fun address -> Helpers.assert_is_valid_ip `ipv4 "addresses" address)
+    (fun address -> Helpers.assert_is_valid_ip `ipv4or6 "addresses" address)
     addresses ;
   let current = Db.PVS_server.get_all_records ~__context in
   let current_addresses =

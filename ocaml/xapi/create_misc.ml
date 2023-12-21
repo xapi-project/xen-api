@@ -41,7 +41,6 @@ type host_info = {
   ; machine_serial_number: string option
   ; machine_serial_name: string option
   ; total_memory_mib: int64 option
-  ; dom0_static_max: int64 option
   ; cpu_info: Xenops_interface.Host.cpu_info option
   ; chipset_info: Xenops_interface.Host.chipset_info option
   ; hypervisor: Xenops_interface.Host.hypervisor option
@@ -115,23 +114,6 @@ let count_cpus () =
   let count n line = if matches line then n + 1 else n in
   Unixext.file_lines_fold count 0 cpuinfo
 
-(* NB: this is dom0's view of the world, not Xen's. *)
-let read_dom0_memory_usage () =
-  try
-    let map = Balloon.parse_proc_xen_balloon () in
-    let lookup x = Option.get (List.assoc x map) in
-    let keys =
-      [
-        Balloon._low_mem_balloon
-      ; Balloon._high_mem_balloon
-      ; Balloon._current_allocation
-      ]
-    in
-    let values = List.map lookup keys in
-    let result = List.fold_left Int64.add 0L values in
-    Some (Int64.mul 1024L result)
-  with _ -> None
-
 let read_localhost_info ~__context =
   let open Xapi_xenops_queue in
   let module Client = (val make_client (default_xenopsd ()) : XENOPS) in
@@ -153,16 +135,6 @@ let read_localhost_info ~__context =
     try Some (Xapi_inventory.lookup k) with _ -> None
   in
   let this_host_name = Networking_info.get_hostname () in
-  let dom0_static_max =
-    match (read_dom0_memory_usage (), total_memory_mib) with
-    | Some x, _ ->
-        Some x
-    | None, Some total_memory_mib' ->
-        info "Failed to query balloon driver, assuming target = static_max" ;
-        Some Int64.(mul total_memory_mib' (mul 1024L 1024L))
-    | _ ->
-        None
-  in
   let open Xapi_inventory in
   let open Xenops_interface.Host in
   {
@@ -178,7 +150,6 @@ let read_localhost_info ~__context =
   ; machine_serial_number= lookup_inventory_nofail _machine_serial_number
   ; machine_serial_name= lookup_inventory_nofail _machine_serial_name
   ; total_memory_mib
-  ; dom0_static_max
   ; cpu_info= Option.map (fun s -> s.cpu_info) stat
   ; chipset_info= Option.map (fun s -> s.chipset_info) stat
   ; hypervisor= Option.map (fun s -> s.hypervisor) stat

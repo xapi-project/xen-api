@@ -179,7 +179,6 @@ endif
 	$(IDATA) examples/python/inventory.py $(DESTDIR)$(SITE3_DIR)/
 	$(IPROG) examples/python/echo.py $(DESTDIR)$(PLUGINDIR)/echo
 	$(IPROG) examples/python/shell.py $(DESTDIR)$(LIBEXECDIR)/shell.py
-	$(IPROG) examples/python/xva.py $(DESTDIR)$(OPTDIR)/bin/xva-rewrite-scsiid
 # poweron
 	$(IPROG) poweron/wlan.py $(DESTDIR)$(PLUGINDIR)/wlan.py
 	$(IPROG) poweron/wlan.py $(DESTDIR)$(PLUGINDIR)/wake-on-lan

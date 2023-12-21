@@ -65,6 +65,9 @@ let test_clusterd_rpc ~__context call =
         ; token= Some test_token
         ; num_times_booted= 1
         ; is_quorate= true
+        ; total_votes= 1
+        ; quorum= 1
+        ; quorum_members= Some [me]
         ; is_running= true
         ; startup_finished= true
         }

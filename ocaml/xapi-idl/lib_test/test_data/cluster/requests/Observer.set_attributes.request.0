@@ -1,0 +1,1 @@
+<?xml version="1.0"?><methodCall><methodName>Observer.set_attributes</methodName><params><param><value><struct><member><name>dict</name><value><struct><member><name>dict</name><value>dict</value></member></struct></value></member><member><name>uuid</name><value>uuid</value></member><member><name>dbg</name><value>dbg</value></member></struct></value></param></params></methodCall>
