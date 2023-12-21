@@ -153,7 +153,7 @@ def add(session, vdi_uuid, reason):
 
     sm = None
     all_sm = session.xenapi.SM.get_all_records()
-    for sm_ref in list(all_sm.keys()):
+    for sm_ref in all_sm:
         if all_sm[sm_ref]['type'] == ty:
             sm = all_sm[sm_ref]
             break
@@ -189,7 +189,7 @@ def add(session, vdi_uuid, reason):
     fresh = fresh_name()
     path = main_dir + "/" + fresh
     os.mkdir(path)
-    for key in list(data.keys()):
+    for key in data:
         write_whole_file(path + "/" + key, data[key])
 
 def delete(vdi_uuid):

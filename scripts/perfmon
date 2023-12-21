@@ -340,7 +340,7 @@ class RRDUpdates:
     def get_uuid_list_by_objtype(self, objtype):
         "Return a list of uuids corresonding to the objects of this type for which we have ObjectReports"
         return [ objrep.uuid 
-                   for objrep in list(self.report.obj_reports.values()) 
+                   for objrep in self.report.obj_reports.values() 
                      if objrep.objtype == objtype ]
 
 
@@ -1103,18 +1103,18 @@ def main():
             print_debug("sr_uuid_list = %s" % sr_uuid_list)
 
             # Remove monitors for SRs no longer listed in the rrd_updates page
-            for uuid in list(sr_mon_lookup.keys()):
+            for uuid in sr_mon_lookup:
                 if uuid not in sr_uuid_list:
                     sr_mon_lookup.pop(uuid)
             # Create monitors for SRs that have just appeared in rrd_updates page
             for uuid in sr_uuid_list:
-                if uuid not in list(sr_mon_lookup.keys()):
+                if uuid not in sr_mon_lookup:
                     sr_mon_lookup[uuid] = SRMonitor(uuid)
                 else:
                     sr_mon_lookup[uuid].refresh_config()
 
             # Go through each vm_mon and update it using the rrd_udpates - this may generate alarms
-            for vm_mon in list(vm_mon_lookup.values()):
+            for vm_mon in vm_mon_lookup.values():
                 vm_mon.process_rrd_updates(rrd_updates, session)
 
             # Ditto for the host_mon
@@ -1122,7 +1122,7 @@ def main():
                 host_mon.process_rrd_updates(rrd_updates, session)
 
             # And for the sr_mons
-            for sr_mon in list(sr_mon_lookup.values()):
+            for sr_mon in sr_mon_lookup.values():
                 sr_mon.process_rrd_updates(rrd_updates, session)
 
         except socket.error as e:
