@@ -1407,8 +1407,7 @@ type pending_ops = {
 
 let get_ops_of_pending ~__context ~host ~kind =
   let get_pending_guidances_of_host ~db_get =
-    db_get ~__context ~self:host
-    |> List.map Guidance.of_pending_guidance
+    db_get ~__context ~self:host |> List.map Guidance.of_pending_guidance
   in
   let get_pending_guidances_of_vms ~db_get =
     Db.Host.get_resident_VMs ~__context ~self:host
@@ -1506,7 +1505,11 @@ let get_ops_of_pending ~__context ~host ~kind =
       in
       {host_get; host_add; host_remove; vms_get; vm_add; vm_remove}
   | Guidance.Livepatch ->
-      raise Api_errors.(Server_error (internal_error, ["No pending operations for Livepatch guidance"]))
+      raise
+        Api_errors.(
+          Server_error
+            (internal_error, ["No pending operations for Livepatch guidance"])
+        )
 
 let set_pending_guidances ~ops ~coming =
   let pending_of_host =
