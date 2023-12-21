@@ -17,3 +17,11 @@ This repository contains
 
       To build these, run: `jbuilder build path/to/exec.exe`.
       To run: `./_build/default/path/to/exec.exe`.
+
+## Tests
+
+When changes are made to the interface, one needs to update the corresponding generated `lib_test/test_data` as well.
+This can be done by running `dune test` first and then find the corresponding `test_data_path` in the `GenPath` module
+inside the appropriate test file. For example, the `cluster_interface_test.ml` has a `test_data_path="cluster_gen"`. 
+Find such file inside `_build/default/ocaml/xapi-idl/lib-test/<test_data_path>` and copy it over into the `test_data_path` 
+defined by the `OldPath` module in your test ml file.

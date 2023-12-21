@@ -152,6 +152,6 @@ val set_observe : bool -> unit
 
 val validate_attribute : string * string -> bool
 
-val flush_spans : unit -> unit
+val flush_and_exit : unit -> unit
 
 val main : unit -> Thread.t

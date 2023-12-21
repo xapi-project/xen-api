@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 #
 # Copyright (c) 2011 Citrix Systems, Inc.
 #
@@ -13,14 +13,11 @@
 # GNU Lesser General Public License for more details.
 #
 
-from __future__ import print_function
+
 import fcntl
 import os
 import os.path
-import string
-import subprocess
 import sys
-import syslog
 import time
 import common
 from common import ON_ERROR_FAIL, send_to_syslog, doexec, run
@@ -92,7 +89,9 @@ def remove_bridge_port(vif_name):
 def get_chain_name(vif_name):
     return ("FORWARD_%s" % vif_name)
 
-def do_chain_action(executable, action, chain_name, args=[]):
+def do_chain_action(executable, action, chain_name, args=None):
+    if args is None:
+        args = []
     return doexec([executable, action, chain_name] + args)
 
 def chain_exists(executable, chain_name):

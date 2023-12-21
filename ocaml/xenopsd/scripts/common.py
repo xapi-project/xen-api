@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 #
 # Copyright (c) 2011-2013 Citrix Systems, Inc.
 #
@@ -38,7 +38,8 @@ def send_to_syslog(msg):
 def doexec(args):
     """Execute a subprocess, then return its return code, stdout and stderr"""
     send_to_syslog(args)
-    proc = subprocess.Popen([ "/usr/bin/env", "PATH=%s" % path ] + args,stdin=None,stdout=subprocess.PIPE,stderr=subprocess.PIPE,close_fds=True)
+    proc = subprocess.Popen([ "/usr/bin/env", "PATH=%s" % path ] + args, stdin=None, stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE, close_fds=True, universal_newlines=True)
     rc = proc.wait()
     stdout = proc.stdout
     stderr = proc.stderr
@@ -101,7 +102,7 @@ def add_to_bridge(mode, dev, bridge, address, external_ids):
         cmd = ["ovs-vsctl", "--timeout=30", "--", "--if-exists", "del-port", dev, "--", "add-port", bridge, dev]
         for (key, value) in external_ids:
              cmd = cmd + ["--", "set", "interface", dev, 'external-ids:"%s"="%s"' % (key, value) ]
-	run(ON_ERROR_LOG, cmd)
+        run(ON_ERROR_LOG, cmd)
 
 def remove_from_bridge(mode, dev, bridge):
     if mode == MODE_BRIDGE:
@@ -203,14 +204,13 @@ class VIF:
             "ipv4_allowed": [],
             "ipv6_allowed": []
         }
-        private = self.json["extra_private_keys"]
         if "locking_mode" in self.json:
             if type(self.json["locking_mode"]) is list:
-		# Must be type=locked here
+                # Must be type=locked here
                 results["locking_mode"] = self.json["locking_mode"][0].lower()
-		locked_params=self.json["locking_mode"][1]
-		results["ipv4_allowed"] = locked_params["ipv4"]
-		results["ipv6_allowed"] = locked_params["ipv6"]
+                locked_params=self.json["locking_mode"][1]
+                results["ipv4_allowed"] = locked_params["ipv4"]
+                results["ipv6_allowed"] = locked_params["ipv6"]
             else:
                 results["locking_mode"] = self.json["locking_mode"].lower()
         send_to_syslog("Got locking config: %s" % (repr(results)))

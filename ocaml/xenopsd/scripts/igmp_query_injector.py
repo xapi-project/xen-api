@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 import argparse
 import threading
 import logging
@@ -106,7 +106,7 @@ class IGMPQueryInjector(object):
         t.join(self.vif_connected_timeout)
         if watcher.watches:
             log.warning('Wait vif state change timeout')
-            for vif in watcher.watches.itervalues():
+            for vif in watcher.watches.values():
                 log.warning("Vif:%s state did not change to '%s', don't inject IGMP query to mac: %s" %
                             (vif, VIF_CONNECTED_STATE, get_vif_mac(vif)))
 
@@ -142,11 +142,11 @@ def get_vif_state_path(vif):
 
 
 def get_parent_bridge(bridge):
-    return subprocess.check_output(['/usr/bin/ovs-vsctl', 'br-to-parent', bridge]).strip()
+    return subprocess.check_output(['/usr/bin/ovs-vsctl', 'br-to-parent', bridge], universal_newlines=True).strip()
 
 
 def network_backend_is_openvswitch():
-    bridge_type = subprocess.check_output(['/opt/xensource/bin/xe-get-network-backend']).strip()
+    bridge_type = subprocess.check_output(['/opt/xensource/bin/xe-get-network-backend'], universal_newlines=True).strip()
     return bridge_type == 'openvswitch'
 
 
@@ -161,7 +161,7 @@ def memodict(f):
 
 @memodict
 def igmp_snooping_is_enabled_on_bridge(bridge):
-    vlan = subprocess.check_output(['/usr/bin/ovs-vsctl', 'br-to-vlan', bridge]).strip()
+    vlan = subprocess.check_output(['/usr/bin/ovs-vsctl', 'br-to-vlan', bridge], universal_newlines=True).strip()
     if vlan != '0':
         # this br is a fake br, should get its parent
         bridge = get_parent_bridge(bridge)
@@ -170,12 +170,12 @@ def igmp_snooping_is_enabled_on_bridge(bridge):
 
 @memodict
 def _igmp_snooping_is_enabled_on_bridge(bridge):
-    enabled = subprocess.check_output(['/usr/bin/ovs-vsctl', 'get', 'bridge', bridge, 'mcast_snooping_enable']).strip()
+    enabled = subprocess.check_output(['/usr/bin/ovs-vsctl', 'get', 'bridge', bridge, 'mcast_snooping_enable'], universal_newlines=True).strip()
     return enabled == 'true'
 
 
 def igmp_snooping_is_enabled_on_bridge_of_vif(vif):
-    bridge = subprocess.check_output(['/usr/bin/ovs-vsctl', 'iface-to-br', vif]).strip()
+    bridge = subprocess.check_output(['/usr/bin/ovs-vsctl', 'iface-to-br', vif], universal_newlines=True).strip()
     return igmp_snooping_is_enabled_on_bridge(bridge)
 
 

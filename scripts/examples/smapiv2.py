@@ -1,9 +1,9 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 from __future__ import print_function
 import os, sys, time, socket, traceback
 
-log_f = os.fdopen(os.dup(sys.stdout.fileno()), "aw")
+log_f = open(os.dup(sys.stdout.fileno()), "w")
 pid = None
 
 def reopenlog(log_file):
@@ -11,9 +11,12 @@ def reopenlog(log_file):
     if log_f:
         log_f.close()
     if log_file:
-        log_f = open(log_file, "aw")
+        try:
+            log_f = open(log_file, "a")
+        except FilenotFoundError:
+            log_f = open(log_file, "w")
     else:
-        log_f = os.fdopen(os.dup(sys.stdout.fileno()), "aw")
+        log_f = open(os.dup(sys.stdout.fileno()), "a")
 
 def log(txt):
     global log_f, pid
@@ -83,7 +86,7 @@ vdi_info_types = {
 
 def make_vdi_info(v):
     global vdi_info_types
-    for k in vdi_info_types.keys():
+    for k in vdi_info_types:
         t = vdi_info_types[k]
         if t == type(""):
             v[k] = str(v[k])
@@ -95,7 +98,7 @@ def make_vdi_info(v):
 
 def vdi_info(v):
     global vdi_info_types
-    for k in vdi_info_types.keys():
+    for k in vdi_info_types:
         if k not in v:
             raise BackendError("vdi_info missing key", [ k, repr(v) ])
         t = vdi_info_types[k]
@@ -159,7 +162,7 @@ class Marshall:
         return value(unit)
     def sr_scan(self, args):
         vis = self.x.sr_scan(args["task"], args["sr"])
-        result = map(lambda vi: vdi_info(vi), vis)
+        result = [vdi_info(vi) for vi in vis]
         return value(vdis(result))
 
     def vdi_create(self, args):
@@ -246,7 +249,7 @@ def daemonize():
     os.dup2(devnull.fileno(), sys.stdout.fileno())
     os.dup2(devnull.fileno(), sys.stderr.fileno())
 
-from SimpleXMLRPCServer import SimpleXMLRPCServer, SimpleXMLRPCRequestHandler
+from xmlrpc.server import SimpleXMLRPCServer, SimpleXMLRPCRequestHandler
 
 # Server XMLRPC from any HTTP POST path #####################################
 
@@ -266,13 +269,13 @@ class Server(SimpleXMLRPCServer):
 # BaseHTTPServer (and its subclasses) make.
 # See: http://bugs.python.org/issue6085
 # See: http://www.answermysearches.com/xmlrpc-server-slow-in-python-how-to-fix/2140/
-import BaseHTTPServer
+import http.server
 
 def _bare_address_string(self):
     host, port = self.client_address[:2]
     return '%s' % host
 
-BaseHTTPServer.BaseHTTPRequestHandler.address_string = \
+http.server.BaseHTTPRequestHandler.address_string = \
         _bare_address_string
 
 # Given an implementation, serve requests forever ###########################

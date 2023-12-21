@@ -59,6 +59,8 @@ let driver_filename driver =
 
 (*****************************************************************************)
 
+let with_dbg ~name ~dbg f = Debuginfo.with_dbg ~module_name:"SM" ~name ~dbg f
+
 let debug operation driver msg = debug "SM %s %s %s" driver operation msg
 
 let srmaster_only (_, dconf) =
@@ -132,9 +134,10 @@ let sr_update dconf driver sr =
   let call = Sm_exec.make_call ~sr_ref:sr dconf "sr_update" [] in
   Sm_exec.parse_unit (Sm_exec.exec_xmlrpc (driver_filename driver) call)
 
-let vdi_create dconf driver sr sm_config vdi_type size name_label
+let vdi_create ~dbg dconf driver sr sm_config vdi_type size name_label
     name_description metadata_of_pool is_a_snapshot snapshot_time snapshot_of
     read_only =
+  with_dbg ~dbg ~name:"vdi_create" @@ fun _ ->
   debug "vdi_create" driver
     (sprintf "sr=%s sm_config=[%s] type=[%s] size=%Ld" (Ref.string_of sr)
        (String.concat "; " (List.map (fun (k, v) -> k ^ "=" ^ v) sm_config))
@@ -157,13 +160,15 @@ let vdi_create dconf driver sr sm_config vdi_type size name_label
   in
   Sm_exec.parse_vdi_info (Sm_exec.exec_xmlrpc (driver_filename driver) call)
 
-let vdi_update dconf driver sr vdi =
+let vdi_update ~dbg dconf driver sr vdi =
+  with_dbg ~dbg ~name:"vdi_update" @@ fun _ ->
   debug "vdi_update" driver
     (sprintf "sr=%s vdi=%s" (Ref.string_of sr) (Ref.string_of vdi)) ;
   let call = Sm_exec.make_call ~sr_ref:sr ~vdi_ref:vdi dconf "vdi_update" [] in
   Sm_exec.parse_unit (Sm_exec.exec_xmlrpc (driver_filename driver) call)
 
-let vdi_introduce dconf driver sr new_uuid sm_config location =
+let vdi_introduce ~dbg dconf driver sr new_uuid sm_config location =
+  with_dbg ~dbg ~name:"vdi_introduce" @@ fun _ ->
   debug "vdi_introduce" driver
     (sprintf "sr=%s new_uuid=%s sm_config=[%s] location=%s" (Ref.string_of sr)
        new_uuid
@@ -176,14 +181,16 @@ let vdi_introduce dconf driver sr new_uuid sm_config location =
   in
   Sm_exec.parse_vdi_info (Sm_exec.exec_xmlrpc (driver_filename driver) call)
 
-let vdi_delete dconf driver sr vdi =
+let vdi_delete ~dbg dconf driver sr vdi =
+  with_dbg ~dbg ~name:"vdi_delete" @@ fun _ ->
   debug "vdi_delete" driver
     (sprintf "sr=%s vdi=%s" (Ref.string_of sr) (Ref.string_of vdi)) ;
   srmaster_only dconf ;
   let call = Sm_exec.make_call ~sr_ref:sr ~vdi_ref:vdi dconf "vdi_delete" [] in
   Sm_exec.parse_unit (Sm_exec.exec_xmlrpc (driver_filename driver) call)
 
-let vdi_attach dconf driver sr vdi writable =
+let vdi_attach ~dbg dconf driver sr vdi writable =
+  with_dbg ~dbg ~name:"vdi_attach" @@ fun _ ->
   debug "vdi_attach" driver
     (sprintf "sr=%s vdi=%s writable=%b" (Ref.string_of sr) (Ref.string_of vdi)
        writable
@@ -195,13 +202,15 @@ let vdi_attach dconf driver sr vdi writable =
   let result = Sm_exec.exec_xmlrpc (driver_filename driver) call in
   Sm_exec.parse_attach_result result
 
-let vdi_detach dconf driver sr vdi =
+let vdi_detach ~dbg dconf driver sr vdi =
+  with_dbg ~dbg ~name:"vdi_detach" @@ fun _ ->
   debug "vdi_detach" driver
     (sprintf "sr=%s vdi=%s" (Ref.string_of sr) (Ref.string_of vdi)) ;
   let call = Sm_exec.make_call ~sr_ref:sr ~vdi_ref:vdi dconf "vdi_detach" [] in
   Sm_exec.parse_unit (Sm_exec.exec_xmlrpc (driver_filename driver) call)
 
-let vdi_activate dconf driver sr vdi writable =
+let vdi_activate ~dbg dconf driver sr vdi writable =
+  with_dbg ~dbg ~name:"vdi_activate" @@ fun _ ->
   debug "vdi_activate" driver
     (sprintf "sr=%s vdi=%s" (Ref.string_of sr) (Ref.string_of vdi)) ;
   let call =
@@ -210,7 +219,8 @@ let vdi_activate dconf driver sr vdi writable =
   in
   Sm_exec.parse_unit (Sm_exec.exec_xmlrpc (driver_filename driver) call)
 
-let vdi_deactivate dconf driver sr vdi =
+let vdi_deactivate ~dbg dconf driver sr vdi =
+  with_dbg ~dbg ~name:"vdi_deactivate" @@ fun _ ->
   debug "vdi_deactivate" driver
     (sprintf "sr=%s vdi=%s" (Ref.string_of sr) (Ref.string_of vdi)) ;
   let call =
@@ -218,7 +228,8 @@ let vdi_deactivate dconf driver sr vdi =
   in
   Sm_exec.parse_unit (Sm_exec.exec_xmlrpc (driver_filename driver) call)
 
-let vdi_snapshot dconf driver driver_params sr vdi =
+let vdi_snapshot ~dbg dconf driver driver_params sr vdi =
+  with_dbg ~dbg ~name:"vdi_snapshot" @@ fun _ ->
   debug "vdi_snapshot" driver
     (sprintf "sr=%s vdi=%s driver_params=[%s]" (Ref.string_of sr)
        (Ref.string_of vdi)
@@ -231,7 +242,8 @@ let vdi_snapshot dconf driver driver_params sr vdi =
   in
   Sm_exec.parse_vdi_info (Sm_exec.exec_xmlrpc (driver_filename driver) call)
 
-let vdi_clone dconf driver driver_params sr vdi =
+let vdi_clone ~dbg dconf driver driver_params sr vdi =
+  with_dbg ~dbg ~name:"vdi_clone" @@ fun _ ->
   debug "vdi_clone" driver
     (sprintf "sr=%s vdi=%s driver_params=[%s]" (Ref.string_of sr)
        (Ref.string_of vdi)
@@ -244,7 +256,8 @@ let vdi_clone dconf driver driver_params sr vdi =
   in
   Sm_exec.parse_vdi_info (Sm_exec.exec_xmlrpc (driver_filename driver) call)
 
-let vdi_resize dconf driver sr vdi newsize =
+let vdi_resize ~dbg dconf driver sr vdi newsize =
+  with_dbg ~dbg ~name:"vdi_resize" @@ fun _ ->
   debug "vdi_resize" driver
     (sprintf "sr=%s vdi=%s newsize=%Ld" (Ref.string_of sr) (Ref.string_of vdi)
        newsize
@@ -264,7 +277,8 @@ let vdi_generate_config dconf driver sr vdi =
   in
   Sm_exec.parse_string (Sm_exec.exec_xmlrpc (driver_filename driver) call)
 
-let vdi_compose dconf driver sr vdi1 vdi2 =
+let vdi_compose ~dbg dconf driver sr vdi1 vdi2 =
+  with_dbg ~dbg ~name:"vdi_compose" @@ fun _ ->
   debug "vdi_compose" driver
     (sprintf "sr=%s vdi1=%s vdi2=%s" (Ref.string_of sr) (Ref.string_of vdi1)
        (Ref.string_of vdi2)
@@ -276,7 +290,8 @@ let vdi_compose dconf driver sr vdi1 vdi2 =
   in
   Sm_exec.parse_unit (Sm_exec.exec_xmlrpc (driver_filename driver) call)
 
-let vdi_epoch_begin dconf driver sr vdi =
+let vdi_epoch_begin ~dbg dconf driver sr vdi =
+  with_dbg ~dbg ~name:"vdi_epoch_begin" @@ fun _ ->
   debug "vdi_epoch_begin" driver
     (sprintf "sr=%s vdi=%s" (Ref.string_of sr) (Ref.string_of vdi)) ;
   let call =
@@ -284,7 +299,8 @@ let vdi_epoch_begin dconf driver sr vdi =
   in
   Sm_exec.parse_unit (Sm_exec.exec_xmlrpc (driver_filename driver) call)
 
-let vdi_epoch_end dconf driver sr vdi =
+let vdi_epoch_end ~dbg dconf driver sr vdi =
+  with_dbg ~dbg ~name:"vdi_epoch_end" @@ fun _ ->
   debug "vdi_epoch_end" driver
     (sprintf "sr=%s vdi=%s" (Ref.string_of sr) (Ref.string_of vdi)) ;
   let call =
@@ -292,7 +308,8 @@ let vdi_epoch_end dconf driver sr vdi =
   in
   Sm_exec.parse_unit (Sm_exec.exec_xmlrpc (driver_filename driver) call)
 
-let vdi_enable_cbt dconf driver sr vdi =
+let vdi_enable_cbt ~dbg dconf driver sr vdi =
+  with_dbg ~dbg ~name:"vdi_enable_cbt" @@ fun _ ->
   debug "vdi_enable_cbt" driver
     (sprintf "sr=%s vdi=%s" (Ref.string_of sr) (Ref.string_of vdi)) ;
   srmaster_only dconf ;
@@ -301,7 +318,8 @@ let vdi_enable_cbt dconf driver sr vdi =
   in
   Sm_exec.parse_unit (Sm_exec.exec_xmlrpc (driver_filename driver) call)
 
-let vdi_disable_cbt dconf driver sr vdi =
+let vdi_disable_cbt ~dbg dconf driver sr vdi =
+  with_dbg ~dbg ~name:"vdi_disable_cbt" @@ fun _ ->
   debug "vdi_disable_cbt" driver
     (sprintf "sr=%s vdi=%s" (Ref.string_of sr) (Ref.string_of vdi)) ;
   srmaster_only dconf ;
@@ -310,7 +328,8 @@ let vdi_disable_cbt dconf driver sr vdi =
   in
   Sm_exec.parse_unit (Sm_exec.exec_xmlrpc (driver_filename driver) call)
 
-let vdi_data_destroy dconf driver sr vdi =
+let vdi_data_destroy ~dbg dconf driver sr vdi =
+  with_dbg ~dbg ~name:"vdi_data_destroy" @@ fun _ ->
   debug "vdi_data_destroy" driver
     (sprintf "sr=%s vdi=%s" (Ref.string_of sr) (Ref.string_of vdi)) ;
   srmaster_only dconf ;
@@ -319,7 +338,8 @@ let vdi_data_destroy dconf driver sr vdi =
   in
   Sm_exec.parse_unit (Sm_exec.exec_xmlrpc (driver_filename driver) call)
 
-let vdi_list_changed_blocks dconf driver sr ~vdi_from ~vdi_to =
+let vdi_list_changed_blocks ~dbg dconf driver sr ~vdi_from ~vdi_to =
+  with_dbg ~dbg ~name:"vdi_list_changed_blocks" @@ fun _ ->
   debug "vdi_list_changed_blocks" driver
     (sprintf "sr=%s vdi_from=%s vdi_to=%s" (Ref.string_of sr)
        (Ref.string_of vdi_from) (Ref.string_of vdi_to)

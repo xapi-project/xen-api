@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # Copyright (c) 2007 XenSource, Inc.
 #
 # Permission to use, copy, modify, and distribute this software for any
@@ -65,7 +65,7 @@ def parseProvisionSpec(txt):
     doc = xml.dom.minidom.parseString(txt)
     all = doc.getElementsByTagName("provision")
     if len(all) != 1:
-        raise "Expected to find exactly one <provision> element"
+        raise ValueError("Expected to find exactly one <provision> element")
     ps = ProvisionSpec()
     disks = all[0].getElementsByTagName("disk")
     for disk in disks:
@@ -107,5 +107,5 @@ if __name__ == "__main__":
     txt2 = printProvisionSpec(ps)
     print(txt2)
     if txt != txt2:
-        raise "Sanity-check failed: print(parse(print(x))) <> print(x)"
+        raise AssertionError("Sanity-check failed: print(parse(print(x))) <> print(x)")
     print("* OK: print(parse(print(x))) == print(x)")

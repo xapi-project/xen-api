@@ -13,6 +13,7 @@
  *)
 module D = Debug.Make (struct let name = "tracing" end)
 
+module Delay = Xapi_stdext_threads.Threadext.Delay
 open D
 
 type endpoint = Bugtool | Url of Uri.t
@@ -820,21 +821,45 @@ module Export = struct
       |> List.concat_map (fun x -> TracerProvider.get_endpoints x)
       |> List.iter (export_to_endpoint parent span_list)
 
-    let main () =
+    let delay = Delay.make ()
+
+    (* Note this signal will flush the spans and terminate the exporter thread *)
+    let signal () = Delay.signal delay
+
+    let create_exporter () =
       enable_span_garbage_collector () ;
       Thread.create
         (fun () ->
-          while true do
+          let signaled = ref false in
+          while not !signaled do
             debug "Tracing: Waiting %d seconds before exporting spans"
               (int_of_float !export_interval) ;
-            Thread.delay !export_interval ;
+            if not (Delay.wait delay !export_interval) then (
+              debug "Tracing: we are signaled, export spans now and exit" ;
+              signaled := true
+            ) ;
             flush_spans ()
           done
         )
         ()
+
+    let exporter = ref None
+
+    let lock = Mutex.create ()
+
+    let main () =
+      Xapi_stdext_threads.Threadext.Mutex.execute lock (fun () ->
+          match !exporter with
+          | None ->
+              let tid = create_exporter () in
+              exporter := Some tid ;
+              tid
+          | Some tid ->
+              tid
+      )
   end
 end
 
-let main = Export.Destination.main
+let flush_and_exit = Export.Destination.signal
 
-let flush_spans = Export.Destination.flush_spans
+let main = Export.Destination.main
