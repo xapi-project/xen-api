@@ -4589,9 +4589,7 @@ module MergeLivepatchFailures = Generic.MakeStateless (struct
     type output_t = Guidance.t list * Guidance.t list
 
     let string_of_input_t (previous_failures, (applied, failed)) =
-      Fmt.(
-        str "%a" Dump.(pair (list string) (pair (list string) (list string)))
-      )
+      Fmt.(str "%a" Dump.(pair (list string) (pair (list string) (list string))))
         ( List.map Guidance.to_string previous_failures
         , ( List.map Livepatch.string_of_component applied
           , List.map Livepatch.string_of_component failed
