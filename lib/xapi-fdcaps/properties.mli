@@ -161,6 +161,9 @@ val as_writable_opt : ([< rw], 'a) t -> ([> writable], 'a) t option
 val to_unix_kind : kind -> Unix.file_kind
 (** [to_unix_kind kind] converts the polymorphic variant [kind] to {!type:Unix.file_kind} *)
 
+val of_unix_kind : Unix.file_kind -> kind
+(** [of_unix_kind kind] converts the {!type:Unix.file_kind} to {!type:kind}. *)
+
 (** pipe, FIFO or socket that may raise {!val:Unix.ESPIPE} *)
 type espipe = [fifo | sock]
 

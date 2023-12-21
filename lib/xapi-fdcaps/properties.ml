@@ -59,6 +59,24 @@ let to_unix_kind =
   | #sock ->
       S_SOCK
 
+let of_unix_kind =
+  let open Unix in
+  function
+  | S_REG ->
+      `reg
+  | S_BLK ->
+      `blk
+  | S_CHR ->
+      `chr
+  | S_DIR ->
+      `dir
+  | S_LNK ->
+      `lnk
+  | S_FIFO ->
+      `fifo
+  | S_SOCK ->
+      `sock
+
 let pp_kind fmt = Fmt.using to_unix_kind Safefd.pp_kind fmt
 
 let pp fmt =

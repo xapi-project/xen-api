@@ -62,9 +62,24 @@ end
 
 (** {1 {!mod:Unix} wrappers} *)
 
+val stdin : ([> rdonly], kind) make
+(** [stdin] is a readonly file descriptor of unknown kind *)
+
+val stdout : ([> wronly], kind) make
+(** [stdout] is a writeonly file descriptor of unknown kind *)
+
+val stderr : ([> wronly], kind) make
+(** [stderr] is a writeonly file descriptor of unknown kind *)
+
 val close : _ t -> unit
 (** [close t] closes t. Doesn't raise an exception if it is already closed.
   Other errors from the underlying {!val:Unix.close} are propagated.
+ *)
+
+val fsync : _ t -> unit
+(** [fsync t] flushes [t] buffer to disk.
+
+  Note that the file doesn't necessarily have to be writable, e.g. you can fsync a readonly open directory.
  *)
 
 val pipe : unit -> ([> rdonly], [> fifo]) make * ([> wronly], [> fifo]) make
@@ -173,6 +188,12 @@ val single_write_substring :
   @see {!Unix.single_write_substring}
 *)
 
+val fstat : _ t -> Unix.LargeFile.stats
+(** [fstat t] is {!val:Unix.LargeFile.fstat}  *)
+
+val dup : 'a t -> 'a t
+(** [dup t] is {!val:Unix.dup} on [t]. *)
+
 val set_nonblock : (_, [< espipe]) make -> unit
 (** [set_nonblock t].
 
@@ -191,6 +212,10 @@ val clear_nonblock : _ t -> unit
   @see {!Unix.clear_nonblock}
  *)
 
+val setsockopt_float :
+  (_, [< sock]) make -> Unix.socket_float_option -> float -> unit
+(** [set_sockopt_float t opt val] sets the socket option [opt] to [val] for [t]. *)
+
 (** {1 Temporary files} *)
 
 val with_tempfile :
@@ -207,6 +232,38 @@ val with_temp_blk :
   Only works when run as root.
 
   @param sector_size between 512 and 4096
+*)
+
+(** {1 Operation wrappers}
+
+  The low-level {!val:read} and {!val:single_write_substring} can raise different exceptions
+  to mean end-of-file/disconnected depending on the file's kind.
+
+  If you want to consider disconnectins as end-of-file then use these wrappers.
+ *)
+
+(** a buffered operation on a file descriptors.
+
+  @see {!val:read} and {!val:single_write_substring}
+ *)
+type ('a, 'b) operation = 'a t -> 'b -> int -> int -> int
+
+val repeat_read : ('a, bytes) operation -> ('a, bytes) operation
+(** [repeat_read op buf off len] repeats [op] on the supplied buffer until EOF or a connection error is encountered.
+  The following connection errors are treated as EOF and are not reraised:
+  {!val:Unix.ECONNRESET}, {!val:Unix.ENOTCONN}.
+  {!val:Unix.EAGAIN} and {!val:Unix.EWOULDBLOCK} also cause the iteration to stop.
+
+  The returned value may be less than [len] if EOF was encountered.
+*)
+
+val repeat_write : ('a, string) operation -> ('a, string) operation
+(** [repeat_write op buf off len] repeats [op] on the supplied buffer until a connection error is encountered or the entire buffer is written.
+  The following are treated as connection errors and not reraised:
+  {!val:Unix.ECONNRESET}, {!val:Unix.EPIPE}, {!val:Unix.ENETDOWN}, {!val:Unix.ENETUNREACH}
+  {!val:Unix.EAGAIN} and {!val:Unix.EWOULDBLOCK} also cause the iteration to stop.
+
+  The returned value may be less than [len] if we were not able to complete the write due to a connection error.
 *)
 
 (**/**)

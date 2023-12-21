@@ -56,6 +56,8 @@ let pp ppf =
 
 let close t = Safefd.idempotent_close_exn t.fd
 
+let fsync t = Unix.fsync (Safefd.unsafe_to_file_descr_exn t.fd)
+
 let with_fd t f =
   let finally () = close t in
   Fun.protect ~finally (fun () -> f t)
@@ -107,6 +109,14 @@ let creat path flags perm =
        (Unix.O_RDWR :: Unix.O_CREAT :: Unix.O_EXCL :: Unix.O_CLOEXEC :: flags)
        perm
 
+let kind_of_fd fd = of_unix_kind Unix.LargeFile.((fstat fd).st_kind)
+
+let stdin = make_ro_exn (kind_of_fd Unix.stdin) Unix.stdin
+
+let stdout = make_wo_exn (kind_of_fd Unix.stdout) Unix.stdout
+
+let stderr = make_wo_exn (kind_of_fd Unix.stderr) Unix.stderr
+
 let dev_null_out () = openfile_wo `chr "/dev/null" []
 
 let dev_null_in () = openfile_ro `chr "/dev/null" []
@@ -121,6 +131,9 @@ let shutdown_send t =
 
 let shutdown_all t =
   Unix.shutdown (Safefd.unsafe_to_file_descr_exn t.fd) Unix.SHUTDOWN_ALL
+
+let setsockopt_float t opt value =
+  Unix.setsockopt_float (Safefd.unsafe_to_file_descr_exn t.fd) opt value
 
 let ftruncate t size =
   match t.custom_ftruncate with
@@ -137,6 +150,18 @@ let read t buf off len =
 
 let single_write_substring t buf off len =
   Unix.single_write_substring (Safefd.unsafe_to_file_descr_exn t.fd) buf off len
+
+let fstat t = Unix.LargeFile.fstat (Safefd.unsafe_to_file_descr_exn t.fd)
+
+let dup t =
+  {
+    t with
+    fd=
+      t.fd
+      |> Safefd.unsafe_to_file_descr_exn
+      |> Unix.dup
+      |> Safefd.of_file_descr
+  }
 
 let set_nonblock t = Unix.set_nonblock (Safefd.unsafe_to_file_descr_exn t.fd)
 
@@ -199,6 +224,60 @@ let with_temp_blk ?(sector_size = 512) name f =
   f (blkdev, t)
 
 let setup () = Sys.set_signal Sys.sigpipe Sys.Signal_ignore
+
+type ('a, 'b) operation = 'a t -> 'b -> int -> int -> int
+
+let repeat_read op fd buf off len =
+  let rec loop consumed =
+    let off = off + consumed and len = len - consumed in
+    if len = 0 then
+      consumed (* we filled the buffer *)
+    else
+      match op fd buf off len with
+      | 0 (* EOF *)
+      | (exception
+          Unix.(
+            Unix_error
+              ((ECONNRESET | ENOTCONN | EAGAIN | EWOULDBLOCK | EINTR), _, _))
+          ) (* connection error or non-blocking socket *) ->
+          consumed
+      | n ->
+          assert (n >= 0) ;
+          assert (n <= len) ;
+          loop (consumed + n)
+  in
+  loop 0
+
+let repeat_write op fd buf off len =
+  let rec loop written =
+    let off = off + written and len = len - written in
+    if len = 0 then
+      written (* we've written the entire buffer *)
+    else
+      match op fd buf off len with
+      | 0
+        (* should never happen, but we cannot retry now or we'd enter an infinite loop *)
+      | (exception
+          Unix.(
+            Unix_error
+              ( ( ECONNRESET
+                | EPIPE
+                | EINTR
+                | ENETDOWN
+                | ENETUNREACH
+                | EAGAIN
+                | EWOULDBLOCK )
+              , _
+              , _
+              ))
+          ) (* connection error or nonblocking socket *) ->
+          written
+      | n ->
+          assert (n >= 0) ;
+          assert (n <= len) ;
+          loop (written + n)
+  in
+  loop 0
 
 module For_test = struct
   let unsafe_fd_exn t = Safefd.unsafe_to_file_descr_exn t.fd

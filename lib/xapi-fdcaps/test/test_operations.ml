@@ -227,6 +227,45 @@ let test_creat () =
   let@ fd2 = with_fd @@ openfile_rw `reg name [] in
   pp Fmt.stdout fd2 ; read_fd fd2 ; write_fd fd2
 
+let test_repeat_read () =
+  let buf = String.init 255 Char.chr in
+  let read _ dst off len =
+    let available = String.length buf - off in
+    let len = Int.min len 11 in
+    let len = Int.min len available in
+    Bytes.blit_string buf off dst off len ;
+    len
+  in
+  let dst = Bytes.make 300 '_' in
+  let@ placeholder = with_fd @@ dev_zero () in
+  (* not actually used, just to make the types work, we simulate the read using string ops *)
+  let actual = repeat_read read placeholder dst 0 (Bytes.length dst) in
+  Alcotest.(check' int) ~msg:"amount read" ~actual ~expected:(String.length buf) ;
+  Alcotest.(check' string)
+    ~msg:"contents"
+    ~actual:(Bytes.sub_string dst 0 actual)
+    ~expected:buf
+
+let test_repeat_write () =
+  let buf = Bytes.make 255 '_' in
+  let write _ src off len =
+    let available = Bytes.length buf - off in
+    let len = Int.min len 11 in
+    let len = Int.min len available in
+    Bytes.blit_string src off buf off len ;
+    len
+  in
+  let src = String.init 255 Char.chr in
+  let@ placeholder = with_fd @@ dev_zero () in
+  (* not actually used, just to make the types work, we simulate the read using string ops *)
+  let actual = repeat_write write placeholder src 0 (String.length src) in
+  Alcotest.(check' int)
+    ~msg:"amount written" ~actual ~expected:(Bytes.length buf) ;
+  Alcotest.(check' string)
+    ~msg:"contents"
+    ~actual:(Bytes.sub_string buf 0 actual)
+    ~expected:src
+
 let tests =
   Alcotest.
     [
@@ -238,6 +277,8 @@ let tests =
     ; test_case "socket shutdown write" `Quick test_sock_shutdown_w
     ; test_case "socket shutdown both" `Quick test_sock_shutdown_all
     ; test_case "create" `Quick test_creat
+    ; test_case "repeat_read" `Quick test_repeat_read
+    ; test_case "repeat_write" `Quick test_repeat_write
     ]
 
 (* this must be the last test *)
