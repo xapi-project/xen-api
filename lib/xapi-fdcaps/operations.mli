@@ -45,6 +45,19 @@ val setup : unit -> unit
   By default a SIGPIPE would kill the program, this makes it return [EPIPE] instead.
  *)
 
+(** {1 Runtime property tests}  *)
+
+val as_readable_opt :
+  (([< rw] as 'a), 'b) make -> ([> readable], 'b) make option
+(** [as_readable_opt t] returns [Some t] when [t] is readable, and [None] otherwise. *)
+
+val as_writable_opt :
+  (([< rw] as 'a), 'b) make -> ([> writable], 'b) make option
+(** [as_writable_opt t] returns [Some t] when [t] is readable, and [None] otherwise. *)
+
+val as_spipe_opt : ('a, [< kind]) make -> ('a, [> espipe]) make option
+(** [as_spipe_opt t] returns [Some t] when [t] is a socket or pipe, and [None] otherwise. *)
+
 (** {1 With resource wrappers} *)
 
 val with_fd : 'a t -> ('a t -> 'b) -> 'b
@@ -157,6 +170,16 @@ val shutdown_send : ([< writable], [< sock]) make -> unit
 
   @see {!Unix.shutdown}
  *)
+
+val as_readonly_socket :
+  ([< readable], [< sock]) make -> ([> rdonly], [> sock]) make
+(** [as_readonly_socket t] calls {!val:shutdown_send} and returns a readonly socket,
+  if it was originally readable. *)
+
+val as_writeonly_socket :
+  ([< writable], [< sock]) make -> ([> wronly], [> sock]) make
+(** [as_writeonly_socket t] calls {!val:shutdown_recv} and returns a writeonly socket,
+  if it was originally readable. *)
 
 val shutdown_all : ([< rdwr], [< sock]) make -> unit
 (** [shutdown_all t] shuts down both receiving and sending on [t].

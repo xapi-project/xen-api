@@ -58,6 +58,29 @@ let close t = Safefd.idempotent_close_exn t.fd
 
 let fsync t = Unix.fsync (Safefd.unsafe_to_file_descr_exn t.fd)
 
+let as_readable_opt t =
+  match as_readable_opt t.props with
+  | None ->
+      None
+  | Some props ->
+      Some {t with props}
+
+let as_writable_opt t =
+  match as_writable_opt t.props with
+  | None ->
+      None
+  | Some props ->
+      Some {t with props}
+
+let as_spipe_opt t =
+  match
+    (Properties.as_kind_opt `sock t.props, Properties.as_kind_opt `fifo t.props)
+  with
+  | Some props, _ | _, Some props ->
+      Some {t with props}
+  | None, None ->
+      None
+
 let with_fd t f =
   let finally () = close t in
   Fun.protect ~finally (fun () -> f t)
@@ -128,6 +151,14 @@ let shutdown_recv t =
 
 let shutdown_send t =
   Unix.shutdown (Safefd.unsafe_to_file_descr_exn t.fd) Unix.SHUTDOWN_SEND
+
+let as_readonly_socket t =
+  shutdown_send t ;
+  {t with props= Properties.make `rdonly `sock}
+
+let as_writeonly_socket t =
+  shutdown_recv t ;
+  {t with props= Properties.make `wronly `sock}
 
 let shutdown_all t =
   Unix.shutdown (Safefd.unsafe_to_file_descr_exn t.fd) Unix.SHUTDOWN_ALL
