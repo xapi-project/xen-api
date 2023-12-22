@@ -2,5 +2,8 @@
 (library
 	(public_name xapi-fd-test)
 	(name xapi_fd_test)
-	(libraries xapi-fdcaps unix qcheck-core logs fmt mtime mtime.clock.os)
+	(libraries (re_export xapi-fdcaps) unix qcheck-core logs fmt (re_export mtime) mtime.clock.os rresult threads.posix)
+
+	; off by default, enable with --instrument-with bisect_ppx
+	(instrumentation (backend bisect_ppx))
 )
