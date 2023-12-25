@@ -3048,3 +3048,14 @@ let set_https_only ~__context ~self ~value =
   | true ->
       (* it is illegal changing the firewall/https config in CC/FIPS mode *)
       raise (Api_errors.Server_error (Api_errors.illegal_in_fips_mode, []))
+
+let emergency_clear_mandatory_guidance ~__context =
+  debug "Host.emergency_clear_mandatory_guidance" ;
+  let self = Helpers.get_localhost ~__context in
+  Db.Host.get_pending_guidances ~__context ~self
+  |> List.iter (fun g ->
+         let open Updateinfo.Guidance in
+         let s = g |> of_pending_guidance |> to_string in
+         info "%s: %s is cleared" __FUNCTION__ s
+     ) ;
+  Db.Host.set_pending_guidances ~__context ~self ~value:[]

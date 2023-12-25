@@ -4031,6 +4031,10 @@ functor
         do_op_on ~local_fn ~__context ~host:self (fun session_id rpc ->
             Client.Host.set_https_only ~rpc ~session_id ~self ~value
         )
+
+      let emergency_clear_mandatory_guidance ~__context =
+        info "Host.emergency_clear_mandatory_guidance" ;
+        Local.Host.emergency_clear_mandatory_guidance ~__context
     end
 
     module Host_crashdump = struct

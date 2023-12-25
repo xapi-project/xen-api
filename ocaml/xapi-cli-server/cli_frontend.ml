@@ -1036,6 +1036,17 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; flags= [Host_selectors]
       }
     )
+  ; ( "host-emergency-clear-mandatory-guidance"
+    , {
+        reqd= []
+      ; optn= []
+      ; help= "Clear the pending mandatory guidance on this host"
+      ; implementation=
+          No_fd_local_session
+            Cli_operations.host_emergency_clear_mandatory_guidance
+      ; flags= [Neverforward]
+      }
+    )
   ; ( "patch-upload"
     , {
         reqd= ["file-name"]
