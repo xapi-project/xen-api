@@ -1261,6 +1261,8 @@ let invalid_repomd_xml = "INVALID_REPOMD_XML"
 
 let get_updates_failed = "GET_UPDATES_FAILED"
 
+let invalid_host_ref_specified = "INVALID_HOST_REF_SPECIFIED"
+
 let get_updates_in_progress = "GET_UPDATES_IN_PROGRESS"
 
 let apply_updates_in_progress = "APPLY_UPDATES_IN_PROGRESS"

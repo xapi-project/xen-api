@@ -3454,6 +3454,30 @@ let get_updates_handler (req : Http.Request.t) s _ =
   req.Http.Request.close <- true ;
   let query = req.Http.Request.query in
   Xapi_http.with_context "Getting available updates" req s (fun __context ->
+      let http_res json =
+        let json_str = Yojson.Basic.to_string json in
+        let size = Int64.of_int (String.length json_str) in
+        Http_svr.headers s
+          (Http.http_200_ok_with_content size ~keep_alive:false ()
+          @ [Http.Hdr.content_type ^ ": application/json"]
+          ) ;
+        Unixext.really_write_string s json_str |> ignore
+      in
+      let http_err err_code err_data_list =
+        http_res
+          (`Assoc
+            [
+              ( "error"
+              , `Assoc
+                  [
+                    ("code", `String "1")
+                  ; ("data", `List err_data_list)
+                  ; ("message", `String err_code)
+                  ]
+              )
+            ]
+            )
+      in
       let all_hosts = Db.Host.get_all ~__context in
       let hs =
         match List.assoc "host_refs" query with
@@ -3487,36 +3511,27 @@ let get_updates_handler (req : Http.Request.t) s _ =
             ~self:(Helpers.get_pool ~__context)
             ~doc:"pool.get_updates" ~op:`get_updates (fun () ->
               try
-                let json_str =
-                  Yojson.Basic.to_string
-                    (Repository.get_pool_updates_in_json ~__context ~hosts)
-                in
-                let size = Int64.of_int (String.length json_str) in
-                Http_svr.headers s
-                  (Http.http_200_ok_with_content size ~keep_alive:false ()
-                  @ [Http.Hdr.content_type ^ ": application/json"]
-                  ) ;
-                Unixext.really_write_string s json_str |> ignore
+                http_res (Repository.get_pool_updates_in_json ~__context ~hosts)
               with
               | Api_errors.(Server_error (failure, _)) as e
                 when List.mem failure failures_of_404 ->
                   error "404: can't get updates for pool: %s"
                     (ExnHelper.string_of_exn e) ;
-                  Http_svr.headers s (Http.http_404_missing ())
+                  http_err failure []
               | Api_errors.(Server_error (failure, _)) as e
                 when not (List.mem failure failures_of_404) ->
                   error "getting updates for pool failed: %s"
                     (ExnHelper.string_of_exn e) ;
-                  raise e
+                  http_err failure []
               | e ->
                   (* http_500_internal_server_error *)
                   error "getting updates for pool failed: %s"
                     (ExnHelper.string_of_exn e) ;
-                  raise Api_errors.(Server_error (get_updates_failed, []))
+                  http_err Api_errors.get_updates_failed []
           )
       | [] ->
           error "400: Invalid 'host_refs' in query" ;
-          Http_svr.headers s (Http.http_400_badrequest ())
+          http_err Api_errors.invalid_host_ref_specified [`String "host_refs"]
   )
 
 let configure_repository_proxy ~__context ~self ~url ~username ~password =
