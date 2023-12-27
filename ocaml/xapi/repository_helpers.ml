@@ -1614,15 +1614,27 @@ let update_livepatch_failure_guidance ~__context ~host ~applied ~failed =
   List.iter host_add (List.filter_map Guidance.to_pending_guidance to_be_added)
 
 let assert_no_host_pending_mandatory_guidance ~__context ~host =
-  match Db.Host.get_pending_guidances ~__context ~self:host with
-  | [] ->
-      ()
-  | _ :: _ ->
-      raise
-        Api_errors.(
-          Server_error
-            (host_pending_mandatory_guidances_not_empty, [Ref.string_of host])
-        )
+  let host_pending_mandatory_guidances =
+    Db.Host.get_pending_guidances ~__context ~self:host
+  in
+  if host_pending_mandatory_guidances <> [] then (
+    error "%s: %d mandatory guidances are pending for host %s: [%s]"
+      __FUNCTION__
+      (List.length host_pending_mandatory_guidances)
+      (Ref.string_of host)
+      (String.concat ";"
+         (List.map Updateinfo.Guidance.to_string
+            (List.map Updateinfo.Guidance.of_pending_guidance
+               host_pending_mandatory_guidances
+            )
+         )
+      ) ;
+    raise
+      Api_errors.(
+        Server_error
+          (host_pending_mandatory_guidances_not_empty, [Ref.string_of host])
+      )
+  )
 
 let assert_host_evacuation_if_required ~__context ~host ~mandatory =
   let open Guidance in
