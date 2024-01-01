@@ -404,7 +404,8 @@ let doc =
 let configure ?(specific_options = []) ?(specific_essential_paths = [])
     ?(specific_nonessential_paths = []) () =
   Debug.set_facility Syslog.Local5 ;
-  debug "xenopsd version %s starting" Xapi_version.version ;
+  debug "xenopsd version %s starting, pid: %d" Xapi_version.version
+    (Unix.getpid ()) ;
   let options = options @ specific_options in
   let resources =
     Resources.make_resources
