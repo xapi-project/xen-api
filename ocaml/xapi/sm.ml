@@ -72,37 +72,47 @@ let srmaster_only (_, dconf) =
     raise MasterOnly
   )
 
-let sr_create dconf driver sr size =
+let sr_create ~dbg dconf driver sr size =
+  with_dbg ~dbg ~name:"sr_create" @@ fun di ->
+  let dbg = Debuginfo.to_string di in
   let call =
     Sm_exec.make_call ~sr_ref:sr dconf "sr_create" [Int64.to_string size]
   in
   debug "sr_create" driver (sprintf "sr=%s size=%Ld" (Ref.string_of sr) size) ;
-  Sm_exec.parse_unit (Sm_exec.exec_xmlrpc (driver_filename driver) call)
+  Sm_exec.parse_unit (Sm_exec.exec_xmlrpc ~dbg (driver_filename driver) call)
 
-let sr_delete dconf driver sr =
+let sr_delete ~dbg dconf driver sr =
+  with_dbg ~dbg ~name:"sr_delete" @@ fun di ->
+  let dbg = Debuginfo.to_string di in
   let call = Sm_exec.make_call ~sr_ref:sr dconf "sr_delete" [] in
   debug "sr_delete" driver (sprintf "sr=%s" (Ref.string_of sr)) ;
-  Sm_exec.parse_unit (Sm_exec.exec_xmlrpc (driver_filename driver) call)
+  Sm_exec.parse_unit (Sm_exec.exec_xmlrpc ~dbg (driver_filename driver) call)
 
 (* Mutex for sr_attach, sr_detach, and sr_probe *)
 let serialize_attach_detach =
   Locking_helpers.Named_mutex.create "sr_attach/detach"
 
-let sr_attach dconf driver sr =
+let sr_attach ~dbg dconf driver sr =
+  with_dbg ~dbg ~name:"sr_attach" @@ fun di ->
+  let dbg = Debuginfo.to_string di in
   Locking_helpers.Named_mutex.execute serialize_attach_detach (fun () ->
       debug "sr_attach" driver (sprintf "sr=%s" (Ref.string_of sr)) ;
       let call = Sm_exec.make_call ~sr_ref:sr dconf "sr_attach" [] in
-      Sm_exec.parse_unit (Sm_exec.exec_xmlrpc (driver_filename driver) call)
+      Sm_exec.parse_unit (Sm_exec.exec_xmlrpc ~dbg (driver_filename driver) call)
   )
 
-let sr_detach dconf driver sr =
+let sr_detach ~dbg dconf driver sr =
+  with_dbg ~dbg ~name:"sr_detach" @@ fun di ->
+  let dbg = Debuginfo.to_string di in
   Locking_helpers.Named_mutex.execute serialize_attach_detach (fun () ->
       debug "sr_detach" driver (sprintf "sr=%s" (Ref.string_of sr)) ;
       let call = Sm_exec.make_call ~sr_ref:sr dconf "sr_detach" [] in
-      Sm_exec.parse_unit (Sm_exec.exec_xmlrpc (driver_filename driver) call)
+      Sm_exec.parse_unit (Sm_exec.exec_xmlrpc ~dbg (driver_filename driver) call)
   )
 
-let sr_probe dconf driver sr_sm_config =
+let sr_probe ~dbg dconf driver sr_sm_config =
+  with_dbg ~dbg ~name:"sr_probe" @@ fun di ->
+  let dbg = Debuginfo.to_string di in
   if List.mem_assoc Sr_probe (features_of_driver driver) then
     Locking_helpers.Named_mutex.execute serialize_attach_detach (fun () ->
         debug "sr_probe" driver
@@ -113,7 +123,8 @@ let sr_probe dconf driver sr_sm_config =
           ) ;
         let call = Sm_exec.make_call ~sr_sm_config dconf "sr_probe" [] in
         (* sr_probe returns an XML document marshalled within an XMLRPC string *)
-        XMLRPC.From.string (Sm_exec.exec_xmlrpc (driver_filename driver) call)
+        XMLRPC.From.string
+          (Sm_exec.exec_xmlrpc ~dbg (driver_filename driver) call)
     )
   else
     raise
@@ -123,16 +134,20 @@ let sr_probe dconf driver sr_sm_config =
          )
       )
 
-let sr_scan dconf driver sr =
+let sr_scan ~dbg dconf driver sr =
+  with_dbg ~dbg ~name:"sr_scan" @@ fun di ->
+  let dbg = Debuginfo.to_string di in
   debug "sr_scan" driver (sprintf "sr=%s" (Ref.string_of sr)) ;
   srmaster_only dconf ;
   let call = Sm_exec.make_call ~sr_ref:sr dconf "sr_scan" [] in
-  Sm_exec.parse_unit (Sm_exec.exec_xmlrpc (driver_filename driver) call)
+  Sm_exec.parse_unit (Sm_exec.exec_xmlrpc ~dbg (driver_filename driver) call)
 
-let sr_update dconf driver sr =
+let sr_update ~dbg dconf driver sr =
+  with_dbg ~dbg ~name:"sr_update" @@ fun di ->
+  let dbg = Debuginfo.to_string di in
   debug "sr_update" driver (sprintf "sr=%s" (Ref.string_of sr)) ;
   let call = Sm_exec.make_call ~sr_ref:sr dconf "sr_update" [] in
-  Sm_exec.parse_unit (Sm_exec.exec_xmlrpc (driver_filename driver) call)
+  Sm_exec.parse_unit (Sm_exec.exec_xmlrpc ~dbg (driver_filename driver) call)
 
 let vdi_create ~dbg dconf driver sr sm_config vdi_type size name_label
     name_description metadata_of_pool is_a_snapshot snapshot_time snapshot_of

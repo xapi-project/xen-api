@@ -196,7 +196,7 @@ module SMAPIv1 : Server_impl = struct
         ~subtask_of:(Ref.of_string dbg) (fun __context ->
           let task = Context.get_task_id __context in
           Storage_interface.Raw
-            (Sm.sr_probe
+            (Sm.sr_probe ~dbg
                (Some task, Sm.sm_master true :: device_config)
                _type sm_config
             )
@@ -216,7 +216,9 @@ module SMAPIv1 : Server_impl = struct
           let device_config = Sm.sm_master true :: device_config in
           Sm.call_sm_functions ~__context ~sR:sr (fun _ _type ->
               try
-                Sm.sr_create (subtask_of, device_config) _type sr physical_size
+                Sm.sr_create ~dbg
+                  (subtask_of, device_config)
+                  _type sr physical_size
               with
               | Smint.Not_implemented_in_backend ->
                   error "SR.create failed SR:%s Not_implemented_in_backend"
@@ -273,7 +275,7 @@ module SMAPIv1 : Server_impl = struct
           let device_config = Sm.sm_master srmaster :: device_config in
           Sm.call_sm_functions ~__context ~sR:sr (fun _ _type ->
               try
-                Sm.sr_attach
+                Sm.sr_attach ~dbg
                   (Some (Context.get_task_id __context), device_config)
                   _type sr
               with
@@ -294,7 +296,7 @@ module SMAPIv1 : Server_impl = struct
               ~uuid:(Storage_interface.Sr.string_of sr)
           in
           Sm.call_sm_functions ~__context ~sR:sr (fun device_config _type ->
-              try Sm.sr_detach device_config _type sr with
+              try Sm.sr_detach ~dbg device_config _type sr with
               | Api_errors.Server_error (code, params) ->
                   raise (Storage_error (Backend_error (code, params)))
               | e ->
@@ -314,7 +316,7 @@ module SMAPIv1 : Server_impl = struct
               ~uuid:(Storage_interface.Sr.string_of sr)
           in
           Sm.call_sm_functions ~__context ~sR:sr (fun device_config _type ->
-              try Sm.sr_delete device_config _type sr with
+              try Sm.sr_delete ~dbg device_config _type sr with
               | Smint.Not_implemented_in_backend ->
                   raise
                     (Storage_interface.Storage_error
@@ -342,7 +344,7 @@ module SMAPIv1 : Server_impl = struct
           in
           Sm.call_sm_functions ~__context ~sR:sr (fun device_config _type ->
               try
-                Sm.sr_update device_config _type sr ;
+                Sm.sr_update ~dbg device_config _type sr ;
                 let r = Db.SR.get_record ~__context ~self:sr in
                 let sr_uuid = Some r.API.sR_uuid in
                 let name_label = r.API.sR_name_label in
@@ -392,7 +394,7 @@ module SMAPIv1 : Server_impl = struct
           let sr = Db.SR.get_by_uuid ~__context ~uuid:(s_of_sr sr') in
           Sm.call_sm_functions ~__context ~sR:sr (fun device_config _type ->
               try
-                Sm.sr_scan device_config _type sr ;
+                Sm.sr_scan ~dbg device_config _type sr ;
                 let open Db_filter_types in
                 let vdis =
                   Db.VDI.get_records_where ~__context
