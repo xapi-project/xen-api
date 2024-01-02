@@ -1411,14 +1411,8 @@ module PCI = struct
     | Some (Supported I915) ->
         ()
     | Some drv ->
-        raise
-          (Xenopsd_error
-             (Internal_error
-                (Printf.sprintf "Fail to bind to i915, device is bound to %s"
-                   (string_of_driver drv)
-                )
-             )
-          )
+        internal_error "Fail to bind to i915, device is bound to %s"
+          (string_of_driver drv)
 
   let unbind devstr driver =
     let driverstr = string_of_driver driver in
@@ -1449,12 +1443,8 @@ module PCI = struct
         debug "File %s does not exist - assuming no SRIOV devices in use" path ;
         None
     | exn ->
-        let msg =
-          Printf.sprintf "Can't read %s to reset Nvidia GPU %s: %s" path devstr
-            (Printexc.to_string exn)
-        in
-        error "%s" msg ;
-        raise (Xenopsd_error (Internal_error msg))
+        internal_error "Can't read %s to reset Nvidia GPU %s: %s" path devstr
+          (Printexc.to_string exn)
 
   (** [vfs_of device] returns the PCI addresses of the virtual functions of PCI
       [device]. We find each virtual function by looking at the virtfnX symlink
@@ -1491,10 +1481,7 @@ module PCI = struct
         debug "Deactivating NVidia vGPUs %s yielded: '%s'" devstr
           (String.escaped out)
     | _ ->
-        let msg =
-          Printf.sprintf "Can't find %s to reset NVidia GPU %s" cmd devstr
-        in
-        raise (Xenopsd_error (Internal_error msg))
+        internal_error "Can't find %s to reset NVidia GPU %s" cmd devstr
 
   let bind_to_nvidia devstr =
     debug "pci: binding device %s to nvidia" devstr ;
@@ -1757,14 +1744,7 @@ module Vusb = struct
     with err ->
       error "Failed to call usb_reset script with arguments %s"
         (String.concat " " argv) ;
-      raise
-        (Xenopsd_error
-           (Internal_error
-              (Printf.sprintf "Call to usb reset failed: %s"
-                 (Printexc.to_string err)
-              )
-           )
-        )
+      internal_error "Call to usb reset failed: %s" (Printexc.to_string err)
 
   let cleanup domid =
     try
@@ -1936,10 +1916,8 @@ end = struct
   (** query qemu for the serial console and write it to xenstore. Only write
       path for a real console, not a file or socket path. CA-318579 *)
   let update_xenstore ~xs domid =
-    ( if not @@ Service.Qemu.is_running ~xs domid then
-        let msg = sprintf "Qemu not running for domain %d (%s)" domid __LOC__ in
-        raise (Xenopsd_error (Internal_error msg))
-    ) ;
+    if not @@ Service.Qemu.is_running ~xs domid then
+      internal_error "Qemu not running for domain %d (%s)" domid __LOC__ ;
     match find_serial0 domid with
     | Some device ->
         let path = strip (String.length tty_prefix) device.Qmp.filename in
@@ -2869,13 +2847,8 @@ module Backend = struct
           debug "query-migratable precheck passed (domid=%d)" domid ;
           Generic.safe_rm ~xs path
       | other ->
-          raise
-          @@ Xenopsd_error
-               (Internal_error
-                  (sprintf "Unexpected result for QMP command: %s"
-                     Qmp.(other |> as_msg |> string_of_message)
-                  )
-               )
+          internal_error "Unexpected result for QMP command: %s"
+            Qmp.(other |> as_msg |> string_of_message)
       | exception QMP_Error (_, msg) -> (
         match Astring.String.find_sub ~sub:"CommandNotFound" msg with
         | None ->
@@ -3015,12 +2988,7 @@ module Backend = struct
         | Ide, 3, _ ->
             "ide1-cd1"
         | _ ->
-            raise
-              (Xenopsd_error
-                 (Internal_error
-                    (Printf.sprintf "unexpected disk for devid %d" devid)
-                 )
-              )
+            internal_error "unexpected disk for devid %d" devid
 
       let is_nbd str =
         try Scanf.sscanf str "nbd:unix:%s@:exportname=%s" (fun x y -> true)
@@ -3114,7 +3082,6 @@ module Backend = struct
             |> ignore
         | false ->
             (* hotunplug *)
-            let err msg = raise (Xenopsd_error (Internal_error msg)) in
             let qom_path =
               qmp_send_cmd domid Qmp.Query_hotpluggable_cpus |> function
               | Qmp.Hotpluggable_cpus x -> (
@@ -3125,18 +3092,16 @@ module Backend = struct
                      )
                   |> function
                   | [] ->
-                      err (sprintf "No QEMU CPU found with devid %d" devid)
+                      internal_error "No QEMU CPU found with devid %d" devid
                   | Qmp.Device.VCPU.{qom_path= None; _} :: _ ->
-                      err (sprintf "No qom_path for QEMU CPU devid %d" devid)
+                      internal_error "No qom_path for QEMU CPU devid %d" devid
                   | Qmp.Device.VCPU.{qom_path= Some p; _} :: _ ->
                       p
                 )
               | other ->
                   let as_msg cmd = Qmp.(Success (Some __LOC__, cmd)) in
-                  err
-                    (sprintf "Unexpected result for QMP command: %s"
-                       Qmp.(other |> as_msg |> string_of_message)
-                    )
+                  internal_error "Unexpected result for QMP command: %s"
+                    Qmp.(other |> as_msg |> string_of_message)
             in
             qom_path |> fun id ->
             qmp_send_cmd domid Qmp.(Device_del id) |> ignore
@@ -3183,14 +3148,8 @@ module Backend = struct
               | Qmp.(Fd_info fd) ->
                   fd
               | other ->
-                  raise
-                    (Xenopsd_error
-                       (Internal_error
-                          (sprintf "Unexpected result for QMP command: %s"
-                             Qmp.(other |> as_msg |> string_of_message)
-                          )
-                       )
-                    )
+                  internal_error "Unexpected result for QMP command: %s"
+                    Qmp.(other |> as_msg |> string_of_message)
             in
             finally
               (fun () ->
