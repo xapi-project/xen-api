@@ -321,11 +321,14 @@ class MemoryUsageAlarmETG(EmailTextGenerator):
         super(MemoryUsageAlarmETG, self).__init__(mail_language, "memory_usage_alarm")
         if alarm_trigger_period is None:
             alarm_trigger_period = 60
-        if cls != "Host":
+        if cls == "Host":
+            self.params = get_host_params(obj_uuid, session)
+        elif cls == "VM":
+            self.params = get_VM_params(obj_uuid, session)
+        else:
             raise Exception(
-                "programmer error - this alarm should only be available for hosts"
+                "programmer error - this alarm should only be available for hosts and VMs"
             )
-        self.params = get_host_params(obj_uuid, session)
         self.cls = cls
         self.value = value
         self.alarm_trigger_period = alarm_trigger_period
@@ -823,7 +826,8 @@ class XapiMessage:
                     self.mail_language,
                     self.session,
                 )
-            elif name == "memory_free_kib":
+            elif name in ["memory_free_kib", # for Host
+                          "memory_internal_free"]: # for VM
                 etg = MemoryUsageAlarmETG(
                     self.cls,
                     self.obj_uuid,

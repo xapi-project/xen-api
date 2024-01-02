@@ -145,12 +145,19 @@ class TestXapiMessage(unittest.TestCase):
 
     def test_good_mail_language(self):
         # Test cpu_usage alarm
-        mail_subject_expected = (
-            '[test_pool] XenServer Alarm: CPU usage on Host "test_host"'
-        )
-        mail_body_expected = 'CPU usage on Host "test_host" has been on average 12.9% for the last 60 seconds.\nThis alarm is set to be triggered when CPU usage is more than 5.0%.\n\nFor Alarm Settings, please log into your XenCenter Console and click on "Server"->\n"Properties"->"Alerts"\n'
+        cpu_usage_alarm_subject = '[test_pool] XenServer Alarm: CPU usage on {cls} "{name_label}"'
+        cpu_usage_alarm_body = 'CPU usage on {cls} "{name_label}" has been on average 12.9% for the last 60 seconds.\nThis alarm is set to be triggered when CPU usage is more than 5.0%.\n\nFor Alarm Settings, please log into your XenCenter Console and click on "Server"->\n"Properties"->"Alerts"\n'
+
+        mail_subject_expected = cpu_usage_alarm_subject.format(cls='Host', name_label='test_host')
+        mail_body_expected = cpu_usage_alarm_body.format(cls='Host', name_label='test_host')
         self.common_test_good_input(
             "ALARM", "Host", "cpu_usage", mail_subject_expected, mail_body_expected
+        )
+
+        mail_subject_expected = cpu_usage_alarm_subject.format(cls='VM', name_label='test_VM')
+        mail_body_expected = cpu_usage_alarm_body.format(cls='VM', name_label='test_VM')
+        self.common_test_good_input(
+            "ALARM", "VM", "cpu_usage", mail_subject_expected, mail_body_expected
         )
 
         # Test network_usage alarm
@@ -162,17 +169,21 @@ class TestXapiMessage(unittest.TestCase):
             "ALARM", "Host", "network_usage", mail_subject_expected, mail_body_expected
         )
 
+        memory_usage_alarm_subject = '[test_pool] XenServer Alarm: Memory usage on {cls} "{name_label}"'
+        memory_usage_alarm_body = 'Free memory on {cls} "{name_label}" has been on average 0 KiB for the last 60 seconds.\nThis alarm is set to be triggered when free memory is less than 0 KiB.\n\nFor Alarm Settings, please log into your XenCenter Console and click on "Server"->\n"Properties"->"Alerts"'
+
         # Test memory_free_kib alarm
-        mail_subject_expected = (
-            '[test_pool] XenServer Alarm: Memory usage on Host "test_host"'
-        )
-        mail_body_expected = 'Free memory on Host "test_host" has been on average 0 KiB for the last 60 seconds.\nThis alarm is set to be triggered when free memory is less than 0 KiB.\n\nFor Alarm Settings, please log into your XenCenter Console and click on "Server"->\n"Properties"->"Alerts"'
+        mail_subject_expected = memory_usage_alarm_subject.format(cls='Host', name_label='test_host')
+        mail_body_expected = memory_usage_alarm_body.format(cls='Host', name_label='test_host')
         self.common_test_good_input(
-            "ALARM",
-            "Host",
-            "memory_free_kib",
-            mail_subject_expected,
-            mail_body_expected,
+            "ALARM", "Host", "memory_free_kib", mail_subject_expected, mail_body_expected,
+        )
+
+        # Test memory_internal_free alarm
+        mail_subject_expected = memory_usage_alarm_subject.format(cls='VM', name_label='test_VM')
+        mail_body_expected = memory_usage_alarm_body.format(cls='VM', name_label='test_VM')
+        self.common_test_good_input(
+            "ALARM", "VM", "memory_internal_free", mail_subject_expected, mail_body_expected,
         )
 
         # Test disk_usage alarm
@@ -272,6 +283,9 @@ class TestXapiMessage(unittest.TestCase):
         self.common_test_bad_input(
             "ALARM", "Host", "cpu_usage", title_expected, subtitle_expected
         )
+        self.common_test_bad_input(
+            "ALARM", "VM", "cpu_usage", title_expected, subtitle_expected
+        )
 
         # Test network_usage alarm
         title_expected = "NetworkUsageAlarmETG"
@@ -285,6 +299,13 @@ class TestXapiMessage(unittest.TestCase):
         subtitle_expected = "memory_usage_alarm"
         self.common_test_bad_input(
             "ALARM", "Host", "memory_free_kib", title_expected, subtitle_expected
+        )
+
+        # Test memory_internal_free alarm
+        title_expected = "MemoryUsageAlarmETG"
+        subtitle_expected = "memory_usage_alarm"
+        self.common_test_bad_input(
+            "ALARM", "VM", "memory_internal_free", title_expected, subtitle_expected
         )
 
         # Test disk_usage alarm
