@@ -37,6 +37,14 @@ let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
 let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
+let internal_error fmt =
+  Printf.kprintf
+    (fun str ->
+      error "%s" str ;
+      raise (Xenopsd_error (Internal_error str))
+    )
+    fmt
+
 (** Definition of available qemu profiles, used by the qemu backend
     implementations *)
 module Profile = struct
@@ -3014,6 +3022,14 @@ module Backend = struct
                  )
               )
 
+      let is_nbd str =
+        try Scanf.sscanf str "nbd:unix:%s@:exportname=%s" (fun x y -> true)
+        with _ -> false
+
+      let nbd str =
+        try Scanf.sscanf str "nbd:unix:%s@:exportname=%s" (fun x y -> (x, y))
+        with _ -> internal_error "%s: failed to parse '%s'" __FUNCTION__ str
+
       let qemu_media_change ~xs device _type params =
         debug "%s: params='%s'" __FUNCTION__ params ;
         Vbd_Common.qemu_media_change ~xs device _type params ;
@@ -3032,15 +3048,10 @@ module Backend = struct
                 | Qmp.Fd_info x ->
                     x
                 | other ->
-                    raise
-                      (Xenopsd_error
-                         (Internal_error
-                            (sprintf "Unexpected result for QMP command: %s"
-                               Qmp.(other |> as_msg |> string_of_message)
-                            )
-                         )
-                      )
+                    internal_error "Unexpected result for QMP command: %s"
+                      Qmp.(other |> as_msg |> string_of_message)
               in
+
               finally
                 (fun () ->
                   let path = sprintf "/dev/fdset/%d" fd_info.Qmp.fdset_id in
@@ -3061,30 +3072,14 @@ module Backend = struct
                 )
         with
         | Unix.Unix_error (Unix.ECONNREFUSED, "connect", p) ->
-            raise
-              (Xenopsd_error
-                 (Internal_error
-                    (Printf.sprintf "Failed to connnect QMP socket: %s" p)
-                 )
-              )
+            internal_error "Failed to connnect QMP socket: %s" p
         | Unix.Unix_error (Unix.ENOENT, "open", p) ->
-            raise
-              (Xenopsd_error
-                 (Internal_error (Printf.sprintf "Failed to open CD Image: %s" p)
-                 )
-              )
+            internal_error "Failed to open CD Image: %s" p
         | Xenopsd_error (Internal_error _) as e ->
             raise e
         | e ->
-            raise
-              (Xenopsd_error
-                 (Internal_error
-                    (Printf.sprintf
-                       "Get unexpected error trying to change CD: %s"
-                       (Printexc.to_string e)
-                    )
-                 )
-              )
+            internal_error "Get unexpected error trying to change CD: %s"
+              (Printexc.to_string e)
     end
 
     (* Backend.Qemu_upstream_compat.Vbd *)
