@@ -10,7 +10,7 @@
 		},
 		"memory_usage_alarm":{
 			"subject":"[{pool_name}] {product_brand} 警报: {cls}“{name_label}”的内存使用量",
-			"body":"{cls}“{name_label}”上的可用内存在过去 {period} 秒内处于平均值 {value} KiB。\n此警报设置为在可用内存低于 {level} KiB 时触发。\n\n要查看警报设置，请登录您的 {brand_console} 控制台并单击“服务器”->\n“属性”->“警报”\n"
+			"body":"{cls}“{name_label}”上的可用内存在过去 {period} 秒内处于平均值 {value} KiB。\n此警报设置为在可用内存低于 {level} KiB 时触发。\n\n要查看警报设置，请登录您的 {brand_console} 控制台并单击“{cls_name}”->\n“属性”->“警报”\n"
 		},
 		"disk_usage_alarm":{
 			"subject":"[{pool_name}] {product_brand} 警报: VM“{name_label}”上的磁盘使用率",
