@@ -2990,13 +2990,21 @@ module Backend = struct
         | _ ->
             internal_error "unexpected disk for devid %d" devid
 
+      (* parse NBD URI. We are not using the URI module because the
+         format is not compliant but used by qemu. Using sscanf instead
+         to recognise and parse the specific URI *)
       let is_nbd str =
-        try Scanf.sscanf str "nbd:unix:%s@:exportname=%s" (fun x y -> true)
+        try Scanf.sscanf str "nbd:unix:%s@:exportname=%s" (fun _ _ -> true)
         with _ -> false
 
       let nbd str =
         try Scanf.sscanf str "nbd:unix:%s@:exportname=%s" (fun x y -> (x, y))
         with _ -> internal_error "%s: failed to parse '%s'" __FUNCTION__ str
+
+      let with_socket path f =
+        let addr = Unix.ADDR_UNIX path in
+        let fd = Unix.socket Unix.PF_UNIX Unix.SOCK_STREAM 0 in
+        finally (fun () -> Unix.connect fd addr ; f fd) (fun () -> Unix.close fd)
 
       let qemu_media_change ~xs device _type params =
         debug "%s: params='%s'" __FUNCTION__ params ;
@@ -3008,6 +3016,33 @@ module Backend = struct
           match params with
           | "" ->
               qmp_send_cmd domid Qmp.(Eject (cd, Some true)) |> ignore
+          | params when is_nbd params ->
+              let path, exportname = nbd params in
+              info "%s: domain=%d NBD socket=%s" __FUNCTION__ domid path ;
+              with_socket path @@ fun fd ->
+              let cmd = Qmp.(Add_fd None) in
+              let fd_info =
+                match qmp_send_cmd ~send_fd:fd domid cmd with
+                | Qmp.Fd_info x ->
+                    x
+                | other ->
+                    internal_error "Unexpected result for QMP command: %s"
+                      Qmp.(other |> as_msg |> string_of_message)
+              in
+              let filename =
+                Printf.sprintf "nbd:fd:%d:exportname=%s" fd_info.Qmp.fdset_id
+                  exportname
+              in
+              let medium =
+                Qmp.
+                  {
+                    medium_device= cd
+                  ; medium_filename= filename
+                  ; medium_format= Some "raw"
+                  }
+              in
+              let cmd = Qmp.(Blockdev_change_medium medium) in
+              qmp_send_cmd domid cmd |> ignore
           | params ->
               Unixext.with_file params [Unix.O_RDONLY] 0o640 @@ fun fd_cd ->
               let cmd = Qmp.(Add_fd None) in
