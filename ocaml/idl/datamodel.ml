@@ -2214,6 +2214,16 @@ module Tunnel = struct
           ; param_release= next_release
           ; param_default= Some (VEnum "gre")
           }
+        ; {
+            param_type= Bool
+          ; param_name= "cross_server"
+          ; param_doc=
+              "Cross_server used to indicate what scenario is the tunnel used \
+               in: cross_server is true for a cross-server private network, \
+               false for XCP-ng"
+          ; param_release= next_release
+          ; param_default= Some (VBool false)
+          }
         ]
       ~result:(Ref _tunnel, "The reference of the created tunnel object")
       ~lifecycle:[(Published, rel_cowley, "Create a tunnel")]
@@ -2274,6 +2284,23 @@ module Tunnel = struct
         ; field ~ty:tunnel_protocol ~default_value:(Some (VEnum "gre"))
             ~lifecycle:[(Published, "1.250.0", "Add protocol field to tunnel")]
             "protocol" "The protocol used for tunneling (either GRE or VxLAN)"
+        ; field ~qualifier:StaticRO ~ty:Int ~default_value:(Some (VInt 0L))
+            ~lifecycle:
+              [(Published, rel_next, "VXLAN network identifier of tunnel")]
+            "tunnel_id"
+            "VXLAN network identifier of tunnel used in a cross-server private \
+             network"
+        ; field ~qualifier:StaticRO ~ty:Bool ~default_value:(Some (VBool false))
+            ~lifecycle:
+              [
+                ( Published
+                , rel_next
+                , "Indicate what scenario is the tunnel used in (cross-server \
+                   private network or XCP-ng)"
+                )
+              ]
+            "cross_server"
+            "True for a cross-server private network, false for XCP-ng"
         ]
       ()
 end
