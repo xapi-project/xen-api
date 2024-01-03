@@ -73,6 +73,7 @@ type domain_create_flag = Xenctrl.domain_create_flag =
   | CDF_XS_DOMAIN
   | CDF_IOMMU
   | CDF_NESTED_VIRT
+  | CDF_VPMU
 [@@deriving rpcty]
 
 type domain_create_iommu_opts = Xenctrl.domain_create_iommu_opts =
@@ -348,12 +349,14 @@ let make ~xc ~xs vm_info vcpus domain_config uuid final_uuid no_sharept =
   if iommu then
     assert_capability CAP_DirectIO ~on_error:(fun () -> "IOMMU unavailable") ;
   let nested_virt = get_platform_key ~key:"nested_virt" ~default:false require_hvm in
+  let vpmu = get_platform_key ~key:"vpmu" ~default:false (fun _ -> Ok()) in
 
-  info "VM = %s; Creating %s%s%s%s" (Uuidx.to_string uuid)
+  info "VM = %s; Creating %s%s%s%s%s" (Uuidx.to_string uuid)
     (if hvm then "HVM" else "PV")
     (if hap then " HAP" else "")
     (if iommu then " IOMMU" else "")
-    (if nested_virt then " NESTEDVIRT" else "") ;
+    (if nested_virt then " NESTEDVIRT" else "")
+    (if vpmu then " VPMU" else "") ;
 
   let config =
     {
@@ -365,6 +368,7 @@ let make ~xc ~xs vm_info vcpus domain_config uuid final_uuid no_sharept =
         ; (hap, CDF_HAP)
         ; (iommu, CDF_IOMMU)
         ; (nested_virt, CDF_NESTED_VIRT)
+        ; (vpmu, CDF_VPMU)
         ]
         |> List.filter_map (fun (cond, flag) -> if cond then Some flag else None)
     ; iommu_opts=
