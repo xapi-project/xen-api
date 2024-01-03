@@ -1899,7 +1899,7 @@ let rec cmdtable_data : (string * cmd_spec) list =
   ; ( "tunnel-create"
     , {
         reqd= ["pif-uuid"; "network-uuid"]
-      ; optn= ["protocol"]
+      ; optn= ["protocol"; "cross_server"]
       ; help= "Create a new tunnel on a host."
       ; implementation= No_fd Cli_operations.tunnel_create
       ; flags= []

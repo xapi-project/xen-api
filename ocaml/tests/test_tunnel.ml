@@ -60,6 +60,7 @@ let test_create_on_unmanaged_pif () =
     Api_errors.(Server_error (pif_unmanaged, [Ref.string_of transport_PIF]))
     (fun () ->
       Xapi_tunnel.create ~__context ~transport_PIF ~network ~protocol:`gre
+        ~cross_server:false
       |> ignore
     )
 
@@ -79,6 +80,7 @@ let test_create_network_already_connected () =
     )
     (fun () ->
       Xapi_tunnel.create ~__context ~transport_PIF ~network ~protocol:`gre
+        ~cross_server:false
       |> ignore
     )
 
@@ -98,6 +100,7 @@ let test_create_on_bond_slave () =
     )
     (fun () ->
       Xapi_tunnel.create ~__context ~transport_PIF ~network ~protocol:`gre
+        ~cross_server:false
       |> ignore
     )
 
@@ -111,7 +114,7 @@ let test_create_on_tunnel_access () =
     Api_errors.(Server_error (is_tunnel_access_pif, [Ref.string_of access_PIF]))
     (fun () ->
       Xapi_tunnel.create ~__context ~transport_PIF:access_PIF ~network
-        ~protocol:`gre
+        ~protocol:`gre ~cross_server:false
       |> ignore
     )
 
@@ -128,7 +131,7 @@ let test_create_on_sriov_logical () =
     )
     (fun () ->
       Xapi_tunnel.create ~__context ~transport_PIF:sriov_logical_PIF ~network
-        ~protocol:`gre
+        ~protocol:`gre ~cross_server:false
       |> ignore
     )
 
@@ -150,6 +153,7 @@ let test_create_on_vlan_on_sriov_logical () =
     )
     (fun () ->
       Xapi_tunnel.create ~__context ~transport_PIF ~network ~protocol:`gre
+        ~cross_server:false
       |> ignore
     )
 
@@ -174,7 +178,7 @@ let test_create_tunnel_into_sriov_network () =
     )
     (fun () ->
       Xapi_tunnel.create ~__context ~transport_PIF:pif ~network:sriov_network
-        ~protocol:`gre
+        ~protocol:`gre ~cross_server:false
       |> ignore
     )
 
@@ -202,7 +206,7 @@ let test_create_tunnel_into_sriov_vlan_network () =
     )
     (fun () ->
       Xapi_tunnel.create ~__context ~transport_PIF:pif
-        ~network:sriov_vlan_network ~protocol:`gre
+        ~network:sriov_vlan_network ~protocol:`gre ~cross_server:false
       |> ignore
     )
 

@@ -60,10 +60,10 @@ let create_internal ~__context ~transport_PIF ~network ~host ~protocol =
     ~uuid:(Uuidx.to_string (Uuidx.make ()))
     ~access_PIF ~transport_PIF
     ~status:[("active", "false")]
-    ~other_config:[] ~protocol ;
+    ~other_config:[] ~protocol ~tunnel_id:0L ~cross_server:false ;
   (tunnel, access_PIF)
 
-let create ~__context ~transport_PIF ~network ~protocol =
+let create ~__context ~transport_PIF ~network ~protocol ~cross_server =
   Xapi_network.assert_network_is_managed ~__context ~self:network ;
   let host = Db.PIF.get_host ~__context ~self:transport_PIF in
   Xapi_pif.assert_no_other_local_pifs ~__context ~host ~network ;
@@ -83,11 +83,14 @@ let create ~__context ~transport_PIF ~network ~protocol =
         raise (Api_errors.Server_error (Api_errors.openvswitch_not_active, []))
     )
     hosts ;
-  let tunnel, access_PIF =
-    create_internal ~__context ~transport_PIF ~network ~host ~protocol
-  in
-  Xapi_pif.plug ~__context ~self:access_PIF ;
-  tunnel
+  if cross_server then
+    raise (Api_errors.Server_error (Api_errors.not_implemented, []))
+  else
+    let tunnel, access_PIF =
+      create_internal ~__context ~transport_PIF ~network ~host ~protocol
+    in
+    Xapi_pif.plug ~__context ~self:access_PIF ;
+    tunnel
 
 let destroy ~__context ~self =
   let pif = Db.Tunnel.get_access_PIF ~__context ~self in
