@@ -1622,12 +1622,10 @@ let assert_no_host_pending_mandatory_guidance ~__context ~host =
       __FUNCTION__
       (List.length host_pending_mandatory_guidances)
       (Ref.string_of host)
-      (String.concat ";"
-         (List.map Updateinfo.Guidance.to_string
-            (List.map Updateinfo.Guidance.of_pending_guidance
-               host_pending_mandatory_guidances
-            )
-         )
+      (host_pending_mandatory_guidances
+      |> List.map Updateinfo.Guidance.of_pending_guidance
+      |> List.map Updateinfo.Guidance.to_string
+      |> String.concat ";"
       ) ;
     raise
       Api_errors.(
