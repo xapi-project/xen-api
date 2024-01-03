@@ -105,6 +105,7 @@ type domctl_create_config = Xenctrl.domctl_create_config = {
   ; max_evtchn_port: int
   ; max_grant_frames: int
   ; max_maptrack_frames: int
+  ; max_grant_version: int
   ; arch: arch_domainconfig
 }
 [@@deriving rpcty]
@@ -390,6 +391,8 @@ let make ~xc ~xs vm_info vcpus domain_config uuid final_uuid no_sharept =
             int_of_string (List.assoc "max_maptrack_frames" vm_info.platformdata)
           with _ -> 1024
         )
+    ; max_grant_version=
+        (if List.mem CAP_Gnttab_v2 host_info.capabilities then 2 else 1)
     ; arch= domain_config
     }
   in
