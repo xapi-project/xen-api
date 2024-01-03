@@ -49,8 +49,14 @@ type x86_arch_emulation_flags = Xenctrl.x86_arch_emulation_flags =
   | X86_EMU_VPCI
 [@@deriving rpcty]
 
+type x86_arch_misc_flags = Xenctrl.x86_arch_misc_flags = X86_MSR_RELAXED
+[@@deriving rpcty]
+
 type xen_x86_arch_domainconfig = Xenctrl.xen_x86_arch_domainconfig = {
     emulation_flags: x86_arch_emulation_flags list
+  ; misc_flags: x86_arch_misc_flags list [@default [X86_MSR_RELAXED]]
+        (* misc_flags is missing when migrating from old version.
+           set the default to relaxed MSR for backwards compatibility *)
 }
 [@@deriving rpcty]
 
