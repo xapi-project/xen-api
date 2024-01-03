@@ -3500,26 +3500,13 @@ let get_updates_handler (req : Http.Request.t) s _ =
       in
       match hs with
       | _ :: _ as hosts ->
-          let failures_of_404 =
-            [
-              Api_errors.no_repository_enabled
-            ; Api_errors.invalid_repomd_xml
-            ; Api_errors.invalid_updateinfo_xml
-            ]
-          in
           Xapi_pool_helpers.with_pool_operation ~__context
             ~self:(Helpers.get_pool ~__context)
             ~doc:"pool.get_updates" ~op:`get_updates (fun () ->
               try
                 http_res (Repository.get_pool_updates_in_json ~__context ~hosts)
               with
-              | Api_errors.(Server_error (failure, _)) as e
-                when List.mem failure failures_of_404 ->
-                  error "404: can't get updates for pool: %s"
-                    (ExnHelper.string_of_exn e) ;
-                  http_err failure []
-              | Api_errors.(Server_error (failure, _)) as e
-                when not (List.mem failure failures_of_404) ->
+              | Api_errors.(Server_error (failure, _)) as e ->
                   error "getting updates for pool failed: %s"
                     (ExnHelper.string_of_exn e) ;
                   http_err failure []
