@@ -1,4 +1,5 @@
 (test
 	(name test_record_util)
 	(libraries alcotest xapi_cli_server rpclib.core xapi_consts xapi_types astring fmt)
+	(action (run %{test} --show-errors))
 )
