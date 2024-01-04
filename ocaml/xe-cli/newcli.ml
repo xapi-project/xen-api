@@ -763,6 +763,16 @@ let main_loop ifd ofd permitted_filenames =
               (fun () -> copy_with_heartbeat ic file_ch heartbeat_fun)
               (fun () -> try close_out file_ch with _ -> ())
         )
+    | Command (PrintHttpGetJson url) ->
+        do_http_get ofd url exit_code (fun ic ->
+            while input_line ic <> "\r" do
+              ()
+            done ;
+            Yojson.Basic.from_channel ic
+            |> Yojson.Basic.pretty_to_string
+            |> print_endline ;
+            flush stdout
+        )
     | Command Prompt ->
         let data = input_line stdin in
         marshal ofd (Blob (Chunk (Int32.of_int (String.length data)))) ;

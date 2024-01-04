@@ -5462,11 +5462,14 @@ let wait_for_task_complete rpc session_id task_id =
     Thread.delay 1.0
   done
 
-let check_task_status ~rpc ~session_id ~task ~fd ~label ~ok =
+let check_task_status ?(quiet_on_success = false) ~rpc ~session_id ~task ~fd
+    ~label ~ok () =
   (* if the client thinks it's ok, check that the server does too *)
   match Client.Task.get_status ~rpc ~session_id ~self:task with
-  | `success when ok ->
+  | `success when ok && not quiet_on_success ->
       marshal fd (Command (Print (Printf.sprintf "%s succeeded" label)))
+  | `success when ok && quiet_on_success ->
+      ()
   | `success ->
       marshal fd
         (Command
@@ -5514,7 +5517,7 @@ let download_file rpc session_id task fd filename uri label =
   wait_for_task_complete rpc session_id task ;
   (* Check the server status -- even if the client thinks it's ok, we need
      	   to check that the server does too. *)
-  check_task_status ~rpc ~session_id ~task ~fd ~label ~ok
+  check_task_status ~rpc ~session_id ~task ~fd ~label ~ok ()
 
 let download_file_with_task fd rpc session_id filename uri query label task_name
     =
@@ -5715,7 +5718,7 @@ let blob_get fd _printer rpc session_id params =
       in
       wait_for_task_complete rpc session_id blobtask ;
       check_task_status ~rpc ~session_id ~task:blobtask ~fd ~label:"Blob get"
-        ~ok
+        ~ok ()
     )
     (fun () -> Client.Task.destroy ~rpc ~session_id ~self:blobtask)
 
@@ -5757,7 +5760,7 @@ let blob_put fd _printer rpc session_id params =
       wait_for_task_complete rpc session_id blobtask ;
       (* if the client thinks it's ok, check that the server does too *)
       check_task_status ~rpc ~session_id ~task:blobtask ~fd ~label:"Blob put"
-        ~ok
+        ~ok ()
     )
     (fun () -> Client.Task.destroy ~rpc ~session_id ~self:blobtask)
 
@@ -7642,6 +7645,57 @@ let update_resync_host _printer rpc session_id params =
   let host = Client.Host.get_by_uuid ~rpc ~session_id ~uuid in
   Client.Pool_update.resync_host ~rpc ~session_id ~host
 
+let get_avail_updates_uri ~session_id ~task ~host =
+  let query =
+    [
+      ("session_id", [Ref.string_of session_id])
+    ; ("task_id", [Ref.string_of task])
+    ; ("host_refs", [Ref.string_of host])
+    ]
+  in
+  Uri.make ~path:Constants.get_updates_uri ~query () |> Uri.to_string
+
+let command_in_task ~rpc ~session_id ~fd ~host ~label f =
+  let task =
+    Client.Task.create ~rpc ~session_id
+      ~label:(Printf.sprintf "%s for host (ref=%s)" label (Ref.string_of host))
+      ~description:""
+  in
+  Client.Task.set_progress ~rpc ~session_id ~self:task ~value:(-1.0) ;
+  let command = f session_id task host in
+  finally
+    (fun () ->
+      marshal fd (Command command) ;
+      let response = ref (Response Wait) in
+      while !response = Response Wait do
+        response := unmarshal fd
+      done ;
+      let ok =
+        match !response with
+        | Response OK ->
+            true
+        | Response Failed ->
+            (* Need to check whether the thin cli managed to contact the server
+             * or not. If not, we need to mark the task as failed.
+             *)
+            if Client.Task.get_progress ~rpc ~session_id ~self:task < 0.0 then
+              Client.Task.set_status ~rpc ~session_id ~self:task ~value:`failure ;
+            false
+        | _ ->
+            false
+      in
+      wait_for_task_complete rpc session_id task ;
+      check_task_status ~rpc ~session_id ~task ~fd ~label ~ok
+        ~quiet_on_success:true ()
+    )
+    (fun () -> Client.Task.destroy ~rpc ~session_id ~self:task)
+
+let print_avail_updates ~rpc ~session_id ~fd ~host =
+  command_in_task ~rpc ~session_id ~fd ~host ~label:"Print available updates"
+    (fun session_id task host ->
+      PrintHttpGetJson (get_avail_updates_uri ~session_id ~task ~host)
+  )
+
 let host_apply_updates _printer rpc session_id params =
   let hash = List.assoc "hash" params in
   ignore
@@ -7655,6 +7709,15 @@ let host_apply_updates _printer rpc session_id params =
        )
        params ["hash"]
     )
+
+let host_updates_show_available fd _printer rpc session_id params =
+  do_host_op rpc session_id ~multiple:false
+    (fun _ host ->
+      let host = host.getref () in
+      print_avail_updates ~rpc ~session_id ~fd ~host
+    )
+    params []
+  |> ignore
 
 module SDN_controller = struct
   let introduce printer rpc session_id params =
