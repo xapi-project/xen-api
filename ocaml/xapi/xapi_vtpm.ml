@@ -59,14 +59,21 @@ let copy_or_create_contents ~__context ?from () =
   in
   Option.fold ~none:(create ()) ~some:maybe_copy from
 
-let create ~__context ~vM ~is_unique =
+let create' ~import ~__context ~vM ~is_unique =
   let persistence_backend = `xapi in
   assert_not_restricted ~__context ;
   assert_no_vtpm_associated ~__context vM ;
-  Xapi_vm_lifecycle.assert_initial_power_state_is ~__context ~self:vM
-    ~expected:`Halted ;
+  if not import then
+    Xapi_vm_lifecycle.assert_initial_power_state_is ~__context ~self:vM
+      ~expected:`Halted ;
   let contents = copy_or_create_contents ~__context () in
   introduce ~__context ~vM ~persistence_backend ~contents ~is_unique
+
+let create ~__context ~vM ~is_unique =
+  create' ~import:false ~__context ~vM ~is_unique
+
+let import ~__context ~vM ~is_unique =
+  create' ~import:true ~__context ~vM ~is_unique
 
 let copy ~__context ~vM ref =
   let vtpm = Db.VTPM.get_record ~__context ~self:ref in
