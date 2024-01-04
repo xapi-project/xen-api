@@ -1886,7 +1886,7 @@ module VTPM : HandlerTools = struct
             (lookup vtpm'.vTPM'_VM) state.table
         in
         let self =
-          Xapi_vtpm.create ~__context ~vM:vm ~is_unique:vtpm'.vTPM'_is_unique
+          Xapi_vtpm.import ~__context ~vM:vm ~is_unique:vtpm'.vTPM'_is_unique
         in
         (* there is no API to set the protected field *)
         Db.VTPM.set_is_protected ~__context ~self
