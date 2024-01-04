@@ -359,6 +359,11 @@ let dss_loadavg () =
     )
   ]
 
+let count_running_domain domains =
+  List.fold_left
+    (fun count (dom, _, _) -> if dom.Xenctrl.running then count + 1 else count)
+    0 domains
+
 let dss_hostload xc domains =
   let physinfo = Xenctrl.physinfo xc in
   let pcpus = physinfo.Xenctrl.nr_cpus in
@@ -379,6 +384,8 @@ let dss_hostload xc domains =
       )
       0 domains
   in
+  let running_domains = count_running_domain domains in
+
   let load_per_cpu = float_of_int load /. float_of_int pcpus in
   [
     ( Rrd.Host
@@ -389,6 +396,18 @@ let dss_hostload xc domains =
           )
         ~value:(Rrd.VT_Float load_per_cpu) ~min:0.0 ~ty:Rrd.Gauge ~default:true
         ()
+    )
+  ; ( Rrd.Host
+    , Ds.ds_make ~name:"running_vcpus" ~units:"(vcpus)"
+        ~description:"The total number of running vCPU per host"
+        ~value:(Rrd.VT_Int64 (Int64.of_int load))
+        ~min:0.0 ~ty:Rrd.Gauge ~default:true ()
+    )
+  ; ( Rrd.Host
+    , Ds.ds_make ~name:"running_domains" ~units:"(domains)"
+        ~description:"The total number of running domain per host"
+        ~value:(Rrd.VT_Int64 (Int64.of_int running_domains))
+        ~min:0.0 ~ty:Rrd.Gauge ~default:true ()
     )
   ]
 
@@ -579,11 +598,7 @@ let scan path =
 
 let mem_available () =
   let* size, kb = scan "/proc/meminfo" in
-  match kb with
-  | "kB" ->
-      ok Int64.(mul size 1024L)
-  | _ ->
-      res_error "unexpected unit: %s" kb
+  match kb with "kB" -> ok size | _ -> res_error "unexpected unit: %s" kb
 
 let dss_mem_vms doms =
   List.fold_left
