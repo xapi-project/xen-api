@@ -75,28 +75,8 @@ let set_power_on_mode ~__context ~self ~power_on_mode ~power_on_config =
 *)
 let assert_safe_to_reenable ~__context ~self =
   assert_startup_complete () ;
-  let host_pending_mandatory_guidances =
-    Db.Host.get_pending_guidances ~__context ~self
-  in
-  if host_pending_mandatory_guidances <> [] then (
-    error "%s: %d mandatory guidances are pending for host %s: [%s]"
-      __FUNCTION__
-      (List.length host_pending_mandatory_guidances)
-      (Ref.string_of self)
-      (String.concat ";"
-         (List.map Updateinfo.Guidance.to_string
-            (List.map Updateinfo.Guidance.of_pending_guidance
-               host_pending_mandatory_guidances
-            )
-         )
-      ) ;
-    raise
-      (Api_errors.Server_error
-         ( Api_errors.host_pending_mandatory_guidances_not_empty
-         , [Ref.string_of self]
-         )
-      )
-  ) ;
+  Repository_helpers.assert_no_host_pending_mandatory_guidance ~__context
+    ~host:self ;
   let host_disabled_until_reboot =
     try bool_of_string (Localdb.get Constants.host_disabled_until_reboot)
     with _ -> false

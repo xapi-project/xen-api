@@ -1961,8 +1961,8 @@ let _ =
 
   error Api_errors.host_pending_mandatory_guidances_not_empty ["host"]
     ~doc:
-      "The specified server is disabled and cannot be re-enabled until all of \
-       its pending mandatory guidances got applied."
+      "Operation could not be performed on the host because there is pending \
+       mandatory update guidance on it."
     () ;
 
   error Api_errors.host_evacuation_is_required ["host"]
