@@ -701,7 +701,8 @@ let maybe_set_restart_for_all_vms ~__context ~updates_of_hosts =
     let vms =
       Db.VM.get_all ~__context
       |> List.filter (fun self ->
-             not (Db.VM.get_is_control_domain ~__context ~self)
+             Db.VM.get_power_state ~__context ~self <> `Halted
+             && not (Db.VM.get_is_control_domain ~__context ~self)
          )
     in
     (* fold each guidance kind from all hosts *)
