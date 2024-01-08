@@ -295,13 +295,15 @@ let vdi_resize ~dbg dconf driver sr vdi newsize =
   in
   Sm_exec.parse_vdi_info (Sm_exec.exec_xmlrpc ~dbg (driver_filename driver) call)
 
-let vdi_generate_config dconf driver sr vdi =
+let vdi_generate_config ~dbg dconf driver sr vdi =
+  with_dbg ~dbg ~name:"vdi_generate_config" @@ fun di ->
+  let dbg = Debuginfo.to_string di in
   debug "vdi_generate_config" driver
     (sprintf "sr=%s vdi=%s" (Ref.string_of sr) (Ref.string_of vdi)) ;
   let call =
     Sm_exec.make_call ~sr_ref:sr ~vdi_ref:vdi dconf "vdi_generate_config" []
   in
-  Sm_exec.parse_string (Sm_exec.exec_xmlrpc (driver_filename driver) call)
+  Sm_exec.parse_string (Sm_exec.exec_xmlrpc ~dbg (driver_filename driver) call)
 
 let vdi_compose ~dbg dconf driver sr vdi1 vdi2 =
   with_dbg ~dbg ~name:"vdi_compose" @@ fun di ->
