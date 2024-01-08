@@ -1086,7 +1086,10 @@ let server_init () =
           ; ("Initialising random number generator", [], random_setup)
           ; ("Initialise TLS verification", [], init_tls_verification)
           ; ("Running startup check", [], startup_check)
-          ; ("Registering SMAPIv1 plugins", [Startup.OnlyMaster], Sm.register)
+          ; ( "Registering SMAPIv1 plugins"
+            , [Startup.OnlyMaster]
+            , Sm.register ~__context
+            )
           ; ( "Initialising SMAPIv1 state"
             , []
             , Storage_smapiv1_wrapper.initialise
@@ -1211,7 +1214,7 @@ let server_init () =
                 Master_connection.connection_timeout := 10. ;
                 (* give up retrying after 10s *)
                 Db_cache_impl.initialise () ;
-                Sm.register () ;
+                Sm.register ~__context () ;
                 Startup.run ~__context
                   [
                     ( "Starting SMAPIv1 proxies"
