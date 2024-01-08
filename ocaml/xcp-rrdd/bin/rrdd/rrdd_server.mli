@@ -30,6 +30,8 @@ val query_host_ds : string -> float
 
 val dump_host_dss_to_file : string -> unit
 
+val dump_vm_dss_to_file : string -> unit
+
 val add_vm_ds : string -> int -> string -> unit
 
 val forget_vm_ds : string -> string -> unit
