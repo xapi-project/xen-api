@@ -30,16 +30,21 @@ exception Unknown_driver of string
 
 exception MasterOnly
 
+let with_dbg ~name ~dbg f = Debuginfo.with_dbg ~module_name:"SM" ~name ~dbg f
+
 let supported_drivers () =
   Hashtbl.fold (fun name _ acc -> name :: acc) driver_info_cache []
 
 (** Scans the plugin directory and registers everything it finds there *)
-let register () =
+let register ~__context () =
+  let dbg = Context.string_of_task_and_tracing __context in
+  with_dbg ~name:"register" ~dbg @@ fun di ->
+  let dbg = Debuginfo.to_string di in
   let add_entry driver info =
     let name = String.lowercase_ascii driver in
     Hashtbl.replace driver_info_cache name info
   in
-  Sm_exec.get_supported add_entry ;
+  Sm_exec.get_supported ~dbg add_entry ;
   info "Registered SMAPIv1 plugins: %s"
     (String.concat ", " (supported_drivers ()))
 
@@ -58,8 +63,6 @@ let driver_filename driver =
   info.sr_driver_filename
 
 (*****************************************************************************)
-
-let with_dbg ~name ~dbg f = Debuginfo.with_dbg ~module_name:"SM" ~name ~dbg f
 
 let debug operation driver msg = debug "SM %s %s %s" driver operation msg
 

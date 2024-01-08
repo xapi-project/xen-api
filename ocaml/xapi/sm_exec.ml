@@ -32,6 +32,9 @@ let cmd_name driver = sprintf "%s/%sSR" !Xapi_globs.sm_dir driver
 
 let sm_username = "__sm__backend"
 
+let with_dbg ~name ~dbg f =
+  Debuginfo.with_dbg ~module_name:"Sm_exec" ~name ~dbg f
+
 (*********************************************************************************************)
 (* Random utility functions *)
 
@@ -320,8 +323,10 @@ let with_session sr f =
       finally (fun () -> f session_id) (fun () -> destroy_session session_id)
   )
 
-let exec_xmlrpc ?dbg ?context:_ ?(needs_session = true) (driver : string)
+let exec_xmlrpc ~dbg ?context:_ ?(needs_session = true) (driver : string)
     (call : call) =
+  with_dbg ~name:call.cmd ~dbg @@ fun di ->
+  let _ = Debuginfo.to_string di in
   let do_call call =
     let xml = xmlrpc_of_call call in
     let name = Printf.sprintf "sm_exec: %s" call.cmd in
@@ -429,21 +434,12 @@ let exec_xmlrpc ?dbg ?context:_ ?(needs_session = true) (driver : string)
              )
           )
   in
-  let f_with_session () =
-    if needs_session then
-      with_session call.sr_ref (fun session_id ->
-          do_call {call with session_ref= Some session_id}
-      )
-    else
-      do_call call
-  in
-  match dbg with
-  | Some dbg ->
-      Debuginfo.with_dbg ~with_thread:false ~module_name:"Sm_exec"
-        ~name:call.cmd ~dbg (fun _ -> f_with_session ()
-      )
-  | None ->
-      f_with_session ()
+  if needs_session then
+    with_session call.sr_ref (fun session_id ->
+        do_call {call with session_ref= Some session_id}
+    )
+  else
+    do_call call
 
 (********************************************************************)
 (** Some functions to cope with the XML that the SM backends return *)
@@ -557,13 +553,18 @@ let parse_sr_get_driver_info driver (xml : Xml.xml) =
   ; sr_driver_required_cluster_stack= []
   }
 
-let sr_get_driver_info driver =
+let sr_get_driver_info ~dbg driver =
+  with_dbg ~name:"sr_get_driver_info" ~dbg @@ fun di ->
+  let dbg = Debuginfo.to_string di in
   let call = make_call (None, []) "sr_get_driver_info" [] in
-  parse_sr_get_driver_info driver (exec_xmlrpc ~needs_session:false driver call)
+  parse_sr_get_driver_info driver
+    (exec_xmlrpc ~dbg ~needs_session:false driver call)
 
 (* Call the supplied function (passing driver name and driver_info) for every
  * backend and daemon found. *)
-let get_supported add_fn =
+let get_supported ~dbg add_fn =
+  with_dbg ~name:"get_supported" ~dbg @@ fun di ->
+  let dbg = Debuginfo.to_string di in
   let check_driver entry =
     if Astring.String.is_suffix ~affix:"SR" entry then
       let driver = String.sub entry 0 (String.length entry - 2) in
@@ -575,7 +576,7 @@ let get_supported add_fn =
       else
         try
           Unix.access (cmd_name driver) [Unix.X_OK] ;
-          let i = sr_get_driver_info driver in
+          let i = sr_get_driver_info ~dbg driver in
           add_fn driver i
         with e ->
           error "Rejecting SM plugin: %s because of exception: %s (executable)"
