@@ -111,11 +111,11 @@ module Observer : ObserverInterface = struct
 end
 
 module Component = struct
-  type t = Xapi | Xenopsd | Xapi_clusterd [@@deriving ord]
+  type t = Xapi | Xenopsd | Xapi_clusterd | SMApi [@@deriving ord]
 
   exception Unsupported_Component of string
 
-  let all = [Xapi; Xenopsd; Xapi_clusterd]
+  let all = [Xapi; Xenopsd; Xapi_clusterd; SMApi]
 
   let to_string = function
     | Xapi ->
@@ -124,6 +124,8 @@ module Component = struct
         "xenopsd"
     | Xapi_clusterd ->
         "xapi-clusterd"
+    | SMApi ->
+        "smapi"
 
   let of_string = function
     | "xapi" ->
@@ -132,6 +134,8 @@ module Component = struct
         Xenopsd
     | "xapi-clusterd" ->
         Xapi_clusterd
+    | "smapi" ->
+        SMApi
     | c ->
         raise (Unsupported_Component c)
 end
@@ -254,6 +258,180 @@ let startup_components () =
       )
     Component.all
 
+module EnvRecord : sig
+  type t
+
+  val str : string -> t
+
+  val option : string option -> t
+
+  val list : ('a -> t) -> 'a list -> t
+
+  val pair : string * string -> t
+
+  val to_shell_string : (string * t) list -> string
+end = struct
+  type t = string
+
+  let str txt = txt
+
+  let option opt = Option.value ~default:"" opt
+
+  let list element lst = List.map element lst |> String.concat ","
+
+  let pair (key, value) = String.concat "=" [key; value]
+
+  let to_shell_string lst =
+    lst
+    |> List.map (fun (key, value) ->
+           String.concat "=" [key; Filename.quote value]
+       )
+    |> String.concat "\n"
+end
+
+module ObserverConfig = struct
+  type t = {
+      otel_service_name: string
+    ; otel_resource_attributes: (string * string) list
+    ; xs_exporter_zipkin_endpoints: string list
+    ; xs_exporter_bugtool_endpoint: string option
+  }
+
+  let zipkin_endpoints endpoints =
+    (*For now, this accepts all endpoints except bugtool. This will change as more endpoints are added*)
+    List.filter (fun endpoint -> endpoint <> Tracing.bugtool_name) endpoints
+
+  let rec bugtool_endpoint endpoints =
+    match endpoints with
+    | x :: _ when x = Tracing.bugtool_name ->
+        Some x
+    | _ :: t ->
+        bugtool_endpoint t
+    | [] ->
+        None
+
+  let attributes_to_W3CBaggage attrs =
+    List.map
+      (fun (k, v) -> (k, Tracing.W3CBaggage.Value.(v |> make |> to_string)))
+      attrs
+
+  let config_of_observer ~__context ~component ~observer =
+    let endpoints = Db.Observer.get_endpoints ~__context ~self:observer in
+    {
+      otel_service_name= component
+    ; otel_resource_attributes=
+        attributes_to_W3CBaggage
+          (Db.Observer.get_attributes ~__context ~self:observer)
+    ; xs_exporter_zipkin_endpoints= zipkin_endpoints endpoints
+    ; xs_exporter_bugtool_endpoint= bugtool_endpoint endpoints
+    }
+end
+
+module type OBSERVER_COMPONENT = sig
+  val component : Component.t
+end
+
+module Dom0ObserverConfig (ObserverComponent : OBSERVER_COMPONENT) :
+  ObserverInterface = struct
+  let config_root = "/etc/xensource/observer/"
+
+  let env_vars_of_config (config : ObserverConfig.t) =
+    EnvRecord.(
+      to_shell_string
+        [
+          ("OTEL_SERVICE_NAME", str config.otel_service_name)
+        ; ( "OTEL_RESOURCE_ATTRIBUTES"
+          , (list pair) config.otel_resource_attributes
+          )
+        ; ( "XS_EXPORTER_ZIPKIN_ENDPOINTS"
+          , (list str) config.xs_exporter_zipkin_endpoints
+          )
+        ; ( "XS_EXPORTER_BUGTOOL_ENDPOINT"
+          , option config.xs_exporter_bugtool_endpoint
+          )
+        ]
+    )
+
+  let remove_config ~uuid =
+    Xapi_stdext_unix.Unixext.unlink_safe
+      (config_root
+      ^ Component.to_string ObserverComponent.component
+      ^ "/enabled/"
+      ^ uuid
+      ^ ".observer.conf"
+      )
+
+  let update_config ~__context ~observer ~config_root ~uuid =
+    if Db.Observer.get_enabled ~__context ~self:observer then (
+      let observer_config =
+        ObserverConfig.config_of_observer ~__context
+          ~component:(Component.to_string ObserverComponent.component)
+          ~observer
+      in
+      let dir_name =
+        config_root
+        ^ Component.to_string ObserverComponent.component
+        ^ "/enabled/"
+      in
+      Xapi_stdext_unix.Unixext.mkdir_rec dir_name 0o755 ;
+      let file_name = dir_name ^ uuid ^ ".observer.conf" in
+      Xapi_stdext_unix.Unixext.write_string_to_file file_name
+        (env_vars_of_config observer_config)
+    ) else
+      remove_config ~uuid
+
+  let update_all_configs ~__context ~observer_all =
+    List.iter
+      (fun observer ->
+        let uuid = Db.Observer.get_uuid ~__context ~self:observer in
+        update_config ~__context ~observer ~config_root ~uuid
+      )
+      observer_all
+
+  let create ~__context ~uuid ~name_label:_ ~attributes:_ ~endpoints:_
+      ~enabled:_ =
+    let observer = Db.Observer.get_by_uuid ~__context ~uuid in
+    update_config ~__context ~observer ~config_root ~uuid
+
+  let destroy ~__context ~uuid = remove_config ~uuid
+
+  let set_enabled ~__context ~uuid ~enabled:_ =
+    let observer = Db.Observer.get_by_uuid ~__context ~uuid in
+    update_config ~__context ~observer ~config_root ~uuid
+
+  let set_attributes ~__context ~uuid ~attributes:_ =
+    let observer = Db.Observer.get_by_uuid ~__context ~uuid in
+    update_config ~__context ~observer ~config_root ~uuid
+
+  let set_endpoints ~__context ~uuid ~endpoints:_ =
+    let observer = Db.Observer.get_by_uuid ~__context ~uuid in
+    update_config ~__context ~observer ~config_root ~uuid
+
+  let init ~__context =
+    let observer_all = Db.Observer.get_all ~__context in
+    update_all_configs ~__context ~observer_all
+
+  let set_trace_log_dir ~__context ~dir:_ =
+    let observer_all = Db.Observer.get_all ~__context in
+    update_all_configs ~__context ~observer_all
+
+  let set_export_interval ~__context:_ ~interval:_ = ()
+
+  let set_max_spans ~__context:_ ~spans:_ = ()
+
+  let set_max_traces ~__context:_ ~traces:_ = ()
+
+  let set_max_file_size ~__context:_ ~file_size:_ = ()
+
+  let set_host_id ~__context:_ ~host_id:_ = ()
+
+  let set_compress_tracing_files ~__context:_ ~enabled:_ = ()
+end
+
+module SMObserverConfig = Dom0ObserverConfig (struct
+  let component = Component.SMApi
+end)
+
 let get_forwarder c =
   let module Forwarder =
     ( val match c with
@@ -263,6 +441,8 @@ let get_forwarder c =
               (module Xapi_xenops.Observer)
           | Component.Xapi_clusterd ->
               (module Xapi_cluster.Observer)
+          | Component.SMApi ->
+              (module SMObserverConfig)
         : ObserverInterface
       )
   in
@@ -293,7 +473,7 @@ let assert_valid_components components =
 
 let assert_valid_endpoints endpoints =
   let validate_endpoint = function
-    | "bugtool" ->
+    | str when str = Tracing.bugtool_name ->
         true
     | url -> (
       try
@@ -470,15 +650,15 @@ let set_hosts ~__context ~self ~value =
 
 let do_set_op ~__context ~self ~observation_fn ~db_fn =
   let host = Helpers.get_localhost ~__context in
-  ( match Db.Observer.get_hosts ~__context ~self with
+  (* Execute the db_fn before the observation_fn for the forwarders that rely on the DB's data *)
+  if Helpers.is_pool_master ~__context ~host then db_fn () ;
+  match Db.Observer.get_hosts ~__context ~self with
   | [] ->
       observation_fn ()
   | hosts when List.mem host hosts ->
       observation_fn ()
   | _ ->
       ()
-  ) ;
-  if Helpers.is_pool_master ~__context ~host then db_fn ()
 
 let set_enabled ~__context ~self ~value =
   let uuid = Db.Observer.get_uuid ~__context ~self in

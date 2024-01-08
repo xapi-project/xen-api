@@ -13,7 +13,7 @@
  *)
 
 module Component : sig
-  type t = Xapi | Xenopsd | Xapi_clusterd [@@deriving ord]
+  type t = Xapi | Xenopsd | Xapi_clusterd | SMApi [@@deriving ord]
 
   val to_string : t -> string
 
