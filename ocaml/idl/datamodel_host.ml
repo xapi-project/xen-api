@@ -2176,6 +2176,10 @@ let t =
              user should follow to make some updates, e.g. specific hardware \
              drivers or CPU features, fully effective, but the 'average user' \
              doesn't need to"
+        ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:String
+            ~default_value:(Some (VString "")) "last_update_hash"
+            "The SHA256 checksum of updateinfo of the most recently applied \
+             update on the host"
         ]
       )
     ()

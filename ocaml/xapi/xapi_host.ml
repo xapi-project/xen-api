@@ -1062,7 +1062,7 @@ let create ~__context ~uuid ~name_label ~name_description:_ ~hostname ~address
     ~multipathing:false ~uefi_certificates:"" ~editions:[] ~pending_guidances:[]
     ~tls_verification_enabled ~last_software_update ~recommended_guidances:[]
     ~latest_synced_updates_applied:`unknown ~pending_guidances_recommended:[]
-    ~pending_guidances_full:[] ;
+    ~pending_guidances_full:[] ~last_update_hash:"" ;
   (* If the host we're creating is us, make sure its set to live *)
   Db.Host_metrics.set_last_updated ~__context ~self:metrics
     ~value:(Date.of_float (Unix.gettimeofday ())) ;
@@ -3018,6 +3018,7 @@ let apply_updates ~__context ~self ~hash =
   Db.Host.set_last_software_update ~__context ~self
     ~value:(get_servertime ~__context ~host:self) ;
   Db.Host.set_latest_synced_updates_applied ~__context ~self ~value:`yes ;
+  Db.Host.set_last_update_hash ~__context ~self ~value:hash ;
   warnings
 
 let cc_prep () =
