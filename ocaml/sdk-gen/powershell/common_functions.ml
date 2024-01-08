@@ -144,7 +144,7 @@ and is_invoke message =
   && (not (is_constructor message))
   && not (is_destructor message)
 
-(* Some adders/removers are just prefixed by Add or RemoveFrom
+(* Some adders/removers are just prefixed by Add or Remove
    and some are prefixed by AddTo or RemoveFrom *)
 and cut_msg_name message_name fn_type =
   let name_len = String.length message_name in

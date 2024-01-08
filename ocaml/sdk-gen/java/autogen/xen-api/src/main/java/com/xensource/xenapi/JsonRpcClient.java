@@ -143,7 +143,7 @@ public class JsonRpcClient {
      * @param methodCall            the JSON-RPC xapi method call. e.g.: session.login_with_password
      * @param methodParameters      the parameters of the method call
      * @param responseTypeReference the type of the response, wrapped with a TypeReference
-     * @param <T>                   The type of the response's payload. For instance, an array of VMs is expected when calling VM.get_all_records
+     * @param <T>                   The type of the response's payload. For instance, a map of opaque references to VM objects is expected when calling VM.get_all_records
      * @return a JsonRpcResponse object. If its error field is empty, the response was successful.
      * @throws JsonProcessingException if the request's payload or the response's payload cannot be written or read as valid JSON
      * @throws IOException             if an I/O error occurs when sending or receiving

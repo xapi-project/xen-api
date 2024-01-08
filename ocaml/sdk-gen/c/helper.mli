@@ -1,6 +1,6 @@
 val formatted_wrap : Format.formatter -> string -> unit
 (** Recursively formats the input string
-    based on spaces and newlines, ensuring proper indentation.
+    based on spaces and new lines, ensuring proper indentation.
 
     @param formatter The formatter to output the formatted string.
     @param s The input string to be formatted. *)

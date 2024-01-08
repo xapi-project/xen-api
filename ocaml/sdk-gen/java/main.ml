@@ -336,8 +336,7 @@ let gen_method file cls message params async_version =
       get_method_params_for_xml message params
   in
 
-  output_string file
-    (String.concat ", " (List.map (fun s -> sprintf "%s" s) methodParamsList)) ;
+  output_string file (String.concat ", " methodParamsList) ;
 
   fprintf file "};\n" ;
 

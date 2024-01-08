@@ -199,7 +199,7 @@ public class Connection {
      * @param methodCall            the JSON-RPC xapi method call. e.g.: session.login_with_password
      * @param methodParameters      the methodParameters of the method call
      * @param responseTypeReference the type of the response, wrapped with a TypeReference
-     * @param <T>                   The type of the response's payload. For instance, an array of VMs is expected when calling VM.get_all_records
+     * @param <T>                   The type of the response's payload. For instance, a map of opaque references to VM objects is expected when calling VM.get_all_records
      * @return The result of the call with the type specified under T.
      * @throws XenAPIException         if the call failed.
      * @throws IOException             if an I/O error occurs when sending or receiving, includes cases when the request's payload or the response's payload cannot be written or read as valid JSON.

@@ -86,13 +86,13 @@ val exposed_class_name : string -> string
 
 val cut_msg_name : string -> string -> string
 (** Extracts the base name from an OCaml message name by removing the specified prefix.
-   Some adders/removers are just prefixed by Add or RemoveFrom
-      and some are prefixed by AddTo or RemoveFrom
-      @param message_name - OCaml message name.
-      @param fn_type - Prefix to remove ("Add" or "Remove").
-      @return Base name after removing the specified prefix. *)
+    Some adders/removers are just prefixed by Add or Remove and some are prefixed by
+    AddTo or RemoveFrom.
+    @param message_name - OCaml message name.
+    @param fn_type - Prefix to remove ("Add" or "Remove").
+    @return Base name after removing the specified prefix. *)
 
 val lower_and_underscore_first : string -> string
 (** Converts a string to lowercase and adds an underscore at the beginning.
-   @param s - Input string.
-   @return String in lowercase with an underscore at the beginning. *)
+    @param s - Input string.
+    @return String in lowercase with an underscore at the beginning. *)
