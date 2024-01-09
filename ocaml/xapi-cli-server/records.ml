@@ -3256,6 +3256,9 @@ let host_record rpc session_id host =
               (x ()).API.host_pending_guidances_full
           )
           ()
+      ; make_field ~name:"last-update-hash"
+          ~get:(fun () -> (x ()).API.host_last_update_hash)
+          ()
       ]
   }
 
