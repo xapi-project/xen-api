@@ -7110,6 +7110,9 @@ let host_reset_server_certificate _printer rpc session_id params =
        params []
     )
 
+let host_emergency_clear_mandatory_guidance _printer rpc session_id _params =
+  Client.Host.emergency_clear_mandatory_guidance ~rpc ~session_id
+
 let host_management_reconfigure _printer rpc session_id params =
   let pif =
     Client.PIF.get_by_uuid ~rpc ~session_id ~uuid:(List.assoc "pif-uuid" params)

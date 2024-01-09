@@ -1779,6 +1779,12 @@ let apply_recommended_guidances =
       ]
     ~allowed_roles:_R_POOL_OP ()
 
+let emergency_clear_mandatory_guidance =
+  call ~flags:[`Session] ~name:"emergency_clear_mandatory_guidance"
+    ~lifecycle:[] ~in_oss_since:None ~params:[]
+    ~doc:"Clear the pending mandatory guidance on this host"
+    ~allowed_roles:_R_LOCAL_ROOT_ONLY ()
+
 let latest_synced_updates_applied_state =
   Enum
     ( "latest_synced_updates_applied_state"
@@ -1932,6 +1938,7 @@ let t =
       ; copy_primary_host_certs
       ; set_https_only
       ; apply_recommended_guidances
+      ; emergency_clear_mandatory_guidance
       ]
     ~contents:
       ([
