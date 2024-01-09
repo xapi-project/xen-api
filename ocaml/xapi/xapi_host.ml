@@ -1039,6 +1039,7 @@ let create ~__context ~uuid ~name_label ~name_description:_ ~hostname ~address
     ~cpu_configuration:[] (* !!! FIXME hard coding *)
     ~cpu_info:[] ~chipset_info ~memory_overhead:0L
     ~sched_policy:"credit" (* !!! FIXME hard coding *)
+    ~numa_affinity_policy:`default
     ~supported_bootloaders:(List.map fst Xapi_globs.supported_bootloaders)
     ~suspend_image_sr:Ref.null ~crash_dump_sr:Ref.null ~logging:[] ~hostname
     ~address ~metrics ~license_params ~boot_free_mem:0L ~ha_statefiles:[]
@@ -2855,6 +2856,10 @@ let notify_send_new_pool_secret ~__context ~host:_ ~old_ps ~new_ps =
 
 let cleanup_pool_secret ~__context ~host:_ ~old_ps ~new_ps =
   Xapi_psr.cleanup ~__context ~old_ps ~new_ps
+
+let set_numa_affinity_policy ~__context ~self ~value =
+  Db.Host.set_numa_affinity_policy ~__context ~self ~value ;
+  Xapi_xenops.set_numa_affinity_policy ~__context ~value
 
 let set_sched_gran ~__context ~self ~value =
   if Helpers.get_localhost ~__context <> self then

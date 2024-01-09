@@ -3219,6 +3219,16 @@ let host_record rpc session_id host =
             Client.Host.set_uefi_certificates ~rpc ~session_id ~host ~value
           )
           ()
+      ; make_field ~name:"numa-affinity-policy"
+          ~get:(fun () ->
+            (x ()).API.host_numa_affinity_policy
+            |> Record_util.host_numa_affinity_policy_to_string
+          )
+          ~set:(fun value ->
+            Client.Host.set_numa_affinity_policy ~rpc ~session_id ~self:host
+              ~value:(Record_util.host_numa_affinity_policy_of_string value)
+          )
+          ()
       ; make_field ~name:"pending-guidances"
           ~get:(fun () ->
             map_and_concat Record_util.update_guidance_to_string

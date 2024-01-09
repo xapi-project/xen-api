@@ -3404,6 +3404,8 @@ module VIF = struct
       ()
 end
 
+let numa_placement = ref Xenops_interface.Host.Any
+
 module HOST = struct
   let stat _ dbg =
     Debug.with_thread_associated dbg
@@ -3413,6 +3415,11 @@ module HOST = struct
         B.HOST.stat ()
       )
       ()
+
+  let set_numa_affinity_policy _ dbg =
+    Debug.with_thread_associated dbg @@ fun policy ->
+    debug "HOST.set_numa_affinity_policy" ;
+    numa_placement := policy
 
   let get_console_data _ dbg =
     Debug.with_thread_associated dbg
@@ -4103,6 +4110,7 @@ let _ =
   Server.TASK.destroy (TASK.destroy ()) ;
   Server.TASK.destroy_on_finish (TASK.destroy_on_finish ()) ;
   Server.HOST.stat (HOST.stat ()) ;
+  Server.HOST.set_numa_affinity_policy (HOST.set_numa_affinity_policy ()) ;
   Server.HOST.get_console_data (HOST.get_console_data ()) ;
   Server.HOST.get_total_memory_mib (HOST.get_total_memory_mib ()) ;
   Server.HOST.send_debug_keys (HOST.send_debug_keys ()) ;

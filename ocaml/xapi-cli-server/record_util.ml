@@ -706,6 +706,25 @@ let host_sched_gran_to_string = function
   | `socket ->
       "socket"
 
+let host_numa_affinity_policy_to_string = function
+  | `any ->
+      "any"
+  | `besteffort ->
+      "best-effort"
+  | `default ->
+      "default"
+
+let host_numa_affinity_policy_of_string = function
+  | "any" ->
+      `any
+  | "best-effort" ->
+      `besteffort
+  | "default" ->
+      `default
+  | s ->
+      raise
+        (Record_failure ("Expected 'any', 'best-effort' or 'default', got " ^ s))
+
 let pgpu_dom0_access_to_string x = host_display_to_string x
 
 let string_to_vdi_onboot s =

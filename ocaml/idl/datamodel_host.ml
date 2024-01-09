@@ -1668,6 +1668,36 @@ let cleanup_pool_secret =
       ]
     ~allowed_roles:_R_LOCAL_ROOT_ONLY ~hide_from_docs:true ()
 
+let host_numa_affinity_policy =
+  Enum
+    ( "host_numa_affinity_policy"
+    , [
+        ("any", "VMs are spread across all available NUMA nodes")
+      ; ( "best-effort"
+        , "VMs are placed on the smallest number of NUMA nodes that they fit \
+           using soft-pinning, but the policy doesn't guarantee a balanced \
+           placement, falling back to the 'any' policy."
+        )
+      ; ( "default"
+        , "Use the NUMA affinity policy that is the default for the current \
+           version"
+        )
+      ]
+    )
+
+let set_numa_affinity_policy =
+  call ~name:"set_numa_affinity_policy" ~lifecycle:[]
+    ~doc:"Set VM placement NUMA affinity policy"
+    ~params:
+      [
+        (Ref _host, "self", "The host")
+      ; ( host_numa_affinity_policy
+        , "value"
+        , "The NUMA affinity policy to apply to a host"
+        )
+      ]
+    ~allowed_roles:_R_POOL_ADMIN ()
+
 let host_sched_gran =
   Enum
     ( "host_sched_gran"
@@ -1925,6 +1955,7 @@ let t =
       ; cleanup_pool_secret
       ; set_sched_gran
       ; get_sched_gran
+      ; set_numa_affinity_policy
       ; emergency_disable_tls_verification
       ; emergency_reenable_tls_verification
       ; cert_distrib_atom
@@ -2164,6 +2195,9 @@ let t =
             ~default_value:(Some (VEnum "unknown"))
             "Default as 'unknown', 'yes' if the host is up to date with \
              updates synced from remote CDN, otherwise 'no'"
+        ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:host_numa_affinity_policy
+            "numa_affinity_policy" ~default_value:(Some (VEnum "default"))
+            "NUMA-aware VM memory and vCPU placement policy"
         ]
       )
     ()

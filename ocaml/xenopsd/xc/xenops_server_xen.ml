@@ -5171,6 +5171,8 @@ let init () =
         {Xs_protocol.ACL.owner= 0; other= Xs_protocol.ACL.READ; acl= []}
   ) ;
   Device.Backend.init () ;
+  Xenops_server.numa_placement :=
+    if !Xenopsd.numa_placement_compat then Best_effort else Any ;
   Domain.numa_init () ;
   debug "xenstore is responding to requests" ;
   let () = Watcher.create_watcher_thread () in
