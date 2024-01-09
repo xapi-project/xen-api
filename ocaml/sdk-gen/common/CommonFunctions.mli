@@ -58,6 +58,13 @@ val is_remover : Datamodel_types.message -> bool
     @param message Message to check.
     @return [true] if the message is a remover, [false] otherwise. *)
 
+val get_minimum_allowed_role : Datamodel_types.message -> string
+(** [msg message] Get the minimum RBAC role required to run the procedure of the input message.
+    This function ignores internal roles.
+    If no matching role is found, the string "Not Applicable" is returned
+    @param message Input message.
+    @return string the name of the RBAC role if a matching one is found, "Not Applicable" otherwise. *)
+
 val gen_param_groups :
      Datamodel_types.message
   -> Datamodel_types.param list
