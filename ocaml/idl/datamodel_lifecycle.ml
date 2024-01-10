@@ -29,6 +29,8 @@ let prototyped_of_field = function
       Some "22.26.0"
   | "VTPM", "persistence_backend" ->
       Some "22.26.0"
+  | "host", "numa_affinity_policy" ->
+      Some "23.32.0-next"
   | "host", "latest_synced_updates_applied" ->
       Some "23.18.0"
   | "host", "recommended_guidances" ->
@@ -63,6 +65,8 @@ let prototyped_of_field = function
       Some "22.37.0"
   | "pool", "migration_compression" ->
       Some "22.33.0"
+  | "pool", "custom_uefi_certificates" ->
+      Some "23.32.0-next"
   | _ ->
       None
 
@@ -99,6 +103,8 @@ let prototyped_of_message = function
       Some "23.18.0"
   | "host", "set_https_only" ->
       Some "22.27.0"
+  | "host", "set_numa_affinity_policy" ->
+      Some "23.32.0-next"
   | "VM", "restart_device_models" ->
       Some "23.30.0"
   | "pool", "set_ext_auth_max_threads" ->
@@ -115,5 +121,7 @@ let prototyped_of_message = function
       Some "23.9.0"
   | "pool", "set_https_only" ->
       Some "22.27.0"
+  | "pool", "set_custom_uefi_certificates" ->
+      Some "23.32.0-next"
   | _ ->
       None
