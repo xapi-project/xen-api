@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # mail-alarm: uses ssmtp to send a mail message, to pool:other_config:mail-destination
 #
@@ -11,18 +11,18 @@
 # the only thing that needs be set is pool:other-config:ssmtp-mailhub
 
 from __future__ import print_function
-import XenAPI
-import sys
+
+import json
 import os
+import re
+import sys
+import syslog
 import tempfile
 import traceback
-import syslog
-import json
-import re
-from xml.dom import minidom
-from xml.sax.saxutils import unescape
-from xml.parsers.expat import ExpatError
 from socket import getfqdn
+from xml.dom import minidom
+
+import XenAPI
 from xcp import branding
 
 # Go read man ssmtp.conf
