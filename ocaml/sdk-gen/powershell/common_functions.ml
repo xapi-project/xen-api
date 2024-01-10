@@ -8,7 +8,7 @@ open Datamodel_types
 open CommonFunctions
 module DU = Datamodel_utils
 
-let rec pascal_case_ s =
+let rec pascal_case_rec s =
   let ss =
     Astring.String.cuts ~sep:"_" ~empty:true s
     |> List.map String.capitalize_ascii
@@ -30,7 +30,7 @@ let rec pascal_case_ s =
       h' ^ String.concat "" tl
 
 and pascal_case s =
-  let str = pascal_case_ s in
+  let str = pascal_case_rec s in
   if
     String.starts_with ~prefix:"set" (String.lowercase_ascii str)
     || String.starts_with ~prefix:"get" (String.lowercase_ascii str)
@@ -197,7 +197,7 @@ and get_http_action_stem name =
   let parts = Astring.String.cuts ~sep:"_" name in
   let filtered = List.filter trim_http_action_stem parts in
   let trimmed = String.concat "_" filtered in
-  match trimmed with "" -> pascal_case_ "vm" | _ -> pascal_case_ trimmed
+  match trimmed with "" -> pascal_case_rec "vm" | _ -> pascal_case_rec trimmed
 
 and trim_http_action_stem x =
   match x with

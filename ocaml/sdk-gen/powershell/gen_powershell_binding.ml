@@ -171,14 +171,14 @@ and gen_arg_param = function
           else
             ""
         )
-        (pascal_case_ x)
+        (pascal_case_rec x)
   | Int64_query_arg x ->
       sprintf "\n        [Parameter]\n        public long? %s { get; set; }\n"
-        (pascal_case_ x)
+        (pascal_case_rec x)
   | Bool_query_arg x ->
       let y = if x = "host" then "is_host" else x in
       sprintf "\n        [Parameter]\n        public bool? %s { get; set; }\n"
-        (pascal_case_ y)
+        (pascal_case_rec y)
   | Varargs_query_arg ->
       sprintf
         "\n\
@@ -214,12 +214,12 @@ and gen_call_arg_params args =
 
 and gen_call_arg_param = function
   | String_query_arg x ->
-      sprintf ", %s" (pascal_case_ x)
+      sprintf ", %s" (pascal_case_rec x)
   | Int64_query_arg x ->
-      sprintf ", %s" (pascal_case_ x)
+      sprintf ", %s" (pascal_case_rec x)
   | Bool_query_arg x ->
       let y = if x = "host" then "is_host" else x in
-      sprintf ", %s" (pascal_case_ y)
+      sprintf ", %s" (pascal_case_rec y)
   | Varargs_query_arg ->
       sprintf ", Args"
 

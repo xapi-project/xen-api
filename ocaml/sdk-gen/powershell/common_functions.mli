@@ -14,7 +14,7 @@ val get_common_verb_category : string -> string
     @param verb - HTTP action verb.
     @return Common verb category. *)
 
-val pascal_case_ : string -> string
+val pascal_case_rec : string -> string
 (** Recursively converts a string to PascalCase.
     @param s - String to convert.
     @return PascalCase formatted string. *)

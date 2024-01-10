@@ -234,9 +234,8 @@ let gen_method file cls message params async_version =
       )
     ; ("XenAPIException", "if the call failed.")
     ; ( "IOException"
-      , "if an I/O error occurs when sending or receiving, includes cases when \
-         the request's payload or the response's payload cannot be written or \
-         read as valid JSON."
+      , "if an error occurs during a send or receive. This includes cases \
+         where a payload is invalid JSON."
       )
     ]
   in
@@ -420,7 +419,7 @@ and gen_record_tostring_contents file prefix = function
 
 let field_default = function
   | SecretString | String ->
-      "\"\""
+      {|""|}
   | Int ->
       "0"
   | Float ->
@@ -438,7 +437,7 @@ let field_default = function
   | Map (t1, t2) ->
       sprintf "new HashMap<%s, %s>()" (get_java_type t1) (get_java_type t2)
   | Ref ty ->
-      sprintf "new %s(\"OpaqueRef:NULL\")" (class_case ty)
+      sprintf {|new %s("OpaqueRef:NULL")|} (class_case ty)
   | Record _ ->
       assert false
   | Option _ ->
@@ -611,15 +610,12 @@ let gen_enum file name ls =
       global_replace (regexp_string "\n") "\n         * " escaped_description
     in
     let comment =
-      "        /**\n"
-      ^ "         * "
-      ^ final_description
-      ^ "\n"
-      ^ "         */\n"
+      String.concat "\n"
+        ["        /**"; "         * " ^ final_description; "         */"]
     in
     let json_property =
       if name != "UNRECOGNIZED" then
-        "@JsonProperty(\"" ^ name ^ "\")"
+        {|@JsonProperty("|} ^ name ^ {|"|}
       else
         "@JsonEnumDefaultValue"
     in
