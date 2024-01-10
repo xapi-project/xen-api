@@ -709,21 +709,23 @@ let host_sched_gran_to_string = function
 let host_numa_affinity_policy_to_string = function
   | `any ->
       "any"
-  | `besteffort ->
-      "best-effort"
-  | `default ->
-      "default"
+  | `best_effort ->
+      "best_effort"
+  | `default_policy ->
+      "default_policy"
 
 let host_numa_affinity_policy_of_string = function
   | "any" ->
       `any
-  | "best-effort" ->
-      `besteffort
-  | "default" ->
-      `default
+  | "best_effort" ->
+      `best_effort
+  | "default_policy" ->
+      `default_policy
   | s ->
       raise
-        (Record_failure ("Expected 'any', 'best-effort' or 'default', got " ^ s))
+        (Record_failure
+           ("Expected 'any', 'best_effort' or 'default_policy', got " ^ s)
+        )
 
 let pgpu_dom0_access_to_string x = host_display_to_string x
 

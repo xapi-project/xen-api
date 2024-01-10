@@ -1039,7 +1039,7 @@ let create ~__context ~uuid ~name_label ~name_description:_ ~hostname ~address
     ~cpu_configuration:[] (* !!! FIXME hard coding *)
     ~cpu_info:[] ~chipset_info ~memory_overhead:0L
     ~sched_policy:"credit" (* !!! FIXME hard coding *)
-    ~numa_affinity_policy:`default
+    ~numa_affinity_policy:`default_policy
     ~supported_bootloaders:(List.map fst Xapi_globs.supported_bootloaders)
     ~suspend_image_sr:Ref.null ~crash_dump_sr:Ref.null ~logging:[] ~hostname
     ~address ~metrics ~license_params ~boot_free_mem:0L ~ha_statefiles:[]

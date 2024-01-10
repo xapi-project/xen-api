@@ -66,6 +66,7 @@ sdk:
 		@ocaml/sdk-gen/csharp/generate \
 		@ocaml/sdk-gen/java/generate \
 		@ocaml/sdk-gen/powershell/generate
+	rm -rf $(XAPISDK)
 	mkdir -p $(XAPISDK)/c
 	mkdir -p $(XAPISDK)/csharp
 	mkdir -p $(XAPISDK)/java
@@ -78,6 +79,12 @@ sdk:
 	cp scripts/examples/python/XenAPI/XenAPI.py $(XAPISDK)/python
 	sh ocaml/sdk-gen/windows-line-endings.sh $(XAPISDK)/csharp
 	sh ocaml/sdk-gen/windows-line-endings.sh $(XAPISDK)/powershell
+
+# workaround for no .resx generation, just for compilation testing
+sdksanity: sdk
+	sed -i 's/FriendlyErrorNames.ResourceManager/null/g' ./_build/install/default/xapi/sdk/csharp/src/Failure.cs
+	cd _build/install/default/xapi/sdk/csharp/src && dotnet add package Newtonsoft.Json && dotnet build -f netstandard2.0
+
 
 python:
 	$(MAKE) -C scripts/examples/python build

@@ -85,7 +85,7 @@ An optimal allocation would require knowing what VMs you would start/create in t
 Overall we want to balance the VMs across NUMA nodes, such that we use all NUMA nodes to take advantage of the maximum memory bandwidth available on the system.
 For now this proposed balancing will be done only by balancing memory usage: always heuristically allocating VMs on the NUMA node that has the most available memory.
 Note that this allocation has a race condition for now when multiple VMs are booted in parallel, because we don't wait until Xen has constructed the domain for each one (that'd serialize domain construction, which is currently parallel). 
-This may be improved in the future by having an API to query Xen where it has allocated the memory, and to explicitly ask it to place memory on a given NUMA node (instead of best-effort).
+This may be improved in the future by having an API to query Xen where it has allocated the memory, and to explicitly ask it to place memory on a given NUMA node (instead of best_effort).
 
 If a VM doesn't fit into a single node then it is not so clear what the best approach is.
 One criteria to consider is minimizing the NUMA distance between the nodes chosen for the VM.
@@ -128,23 +128,23 @@ See page 13 in [^AMD_numa] for a diagram of an AMD Opteron 6272 system.
 ## XAPI datamodel design
 
 * New API field: `Host.numa_affinity_policy`. 
-* Choices: `default`, `any`, `best-effort`.
-* On upgrade the field is set to `default`
+* Choices: `default_policy`, `any`, `best_effort`.
+* On upgrade the field is set to `default_policy`
 * Changes in the field only affect newly (re)booted VMs, for changes to take effect on existing VMs a host evacuation or reboot is needed
 
 There may be more choices in the future (e.g. `strict`, which requires both Xen and toolstack changes).
 
 Meaning of the policy:
 * `any`: the Xen default where it allocated memory by striping across NUMA nodes
-* `best-effort`: the algorithm described in this document, where soft pinning is used to achieve better balancing and lower latency
-* `default`: when the admin hasn't expressed a preference
+* `best_effort`: the algorithm described in this document, where soft pinning is used to achieve better balancing and lower latency
+* `default_policy`: when the admin hasn't expressed a preference
 
-* Currently `default` is treated as `any`, but the admin can change it, and then the system will remember that change across upgrades.
-   If we didn't have a `default` then changing the "default" policy on an upgrade would be tricky: we either risk overriding an explicit choice of the admin, or existing installs cannot take advantage of the improved performance from `best-effort`
-* Future XAPI versions may change `default` to mean `best-effort`.
+* Currently `default_policy` is treated as `any`, but the admin can change it, and then the system will remember that change across upgrades.
+   If we didn't have a `default_policy` then changing the "default" policy on an upgrade would be tricky: we either risk overriding an explicit choice of the admin, or existing installs cannot take advantage of the improved performance from `best_effort`
+* Future XAPI versions may change `default_policy` to mean `best_effort`.
    Admins can still override it to `any` if they wish on a host by host basis.
 
-It is not expected that users would have to change `best-effort`, unless they run very specific workloads, so a pool level control is not provided at this moment.
+It is not expected that users would have to change `best_effort`, unless they run very specific workloads, so a pool level control is not provided at this moment.
 
 There is also no separate feature flag: this host flag acts as a feature flag that can be set through the API without restarting the toolstack.
 Although obviously only new VMs will benefit.
@@ -173,7 +173,7 @@ Tests are in [test_topology.ml] which checks balancing properties and whether th
 
 ## Future work
 
-* enable 'best-effort' mode by default once more testing has been done
+* enable 'best_effort' mode by default once more testing has been done
 * an API to query Xen where it has actually allocated the VM's memory.
    Currently only an `xl debug-keys` interface exists which is not supported in production as it can result in killing the host via the watchdog, and is not a proper API, but a textual debug output with no stability guarantees.
 * more host policies  (e.g. `strict`).

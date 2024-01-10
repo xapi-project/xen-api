@@ -3125,9 +3125,9 @@ let set_numa_affinity_policy ~__context ~value =
     match value with
     | `any ->
         Any
-    | `besteffort ->
+    | `best_effort ->
         Best_effort
-    | `default ->
+    | `default_policy ->
         Any
   in
   Client.HOST.set_numa_affinity_policy dbg value
