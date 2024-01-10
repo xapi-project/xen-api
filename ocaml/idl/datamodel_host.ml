@@ -1673,12 +1673,12 @@ let host_numa_affinity_policy =
     ( "host_numa_affinity_policy"
     , [
         ("any", "VMs are spread across all available NUMA nodes")
-      ; ( "best-effort"
+      ; ( "best_effort"
         , "VMs are placed on the smallest number of NUMA nodes that they fit \
            using soft-pinning, but the policy doesn't guarantee a balanced \
            placement, falling back to the 'any' policy."
         )
-      ; ( "default"
+      ; ( "default_policy"
         , "Use the NUMA affinity policy that is the default for the current \
            version"
         )
@@ -2196,7 +2196,8 @@ let t =
             "Default as 'unknown', 'yes' if the host is up to date with \
              updates synced from remote CDN, otherwise 'no'"
         ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:host_numa_affinity_policy
-            "numa_affinity_policy" ~default_value:(Some (VEnum "default"))
+            "numa_affinity_policy"
+            ~default_value:(Some (VEnum "default_policy"))
             "NUMA-aware VM memory and vCPU placement policy"
         ]
       )
