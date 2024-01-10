@@ -13,7 +13,10 @@ import os
 import re
 import sys
 import syslog
+from pathlib import Path
+
 from xcp.bootloader import Bootloader
+from xcp.cmd import runCmd
 
 SHORT_COMMAND_NAME = Path(__file__).name
 
@@ -26,20 +29,10 @@ def send_to_syslog(msg):
     pid = os.getpid()
     syslog.syslog("%s[%d] - %s" % (SHORT_COMMAND_NAME, pid, msg))
 
-def doexec(args):
-    """Execute a subprocess, then return its return code, stdout and stderr"""
+
+def doexec(args, with_stdout=False):
     send_to_syslog(args)
-    proc = subprocess.Popen(
-        args,
-        stdin=None,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        close_fds=True,
-        universal_newlines=True)
-    rc = proc.wait()
-    stdout = proc.stdout
-    stderr = proc.stderr
-    return (rc, stdout, stderr)
+    return runCmd(args, with_stdout)
 
 def disable(bootloader):
     """
@@ -70,8 +63,8 @@ def status(_):
     Determine from the bootloader config whether the host is currently
     configured to output its console to the physical display.
     """
-    (_, stdout, _) = doexec([XEN_CMDLINE, "--get-xen", "console"])
-    if "vga" in stdout.readline().strip():
+    (_, stdout) = doexec([XEN_CMDLINE, "--get-xen", "console"], with_stdout=True)
+    if "vga" in stdout:
         sys.stdout.write("enabled")
     else:
         sys.stdout.write("disabled")
@@ -86,8 +79,8 @@ def _get_com_port():
     """
     Determine from the current bootloader config which COM port is in use
     """
-    (_, stdout, _) = doexec([XEN_CMDLINE, "--get-xen", "console"])
-    m = re.match("console=.*(com\d).*", stdout.readline().strip())
+    (_, stdout) = doexec([XEN_CMDLINE, "--get-xen", "console"], with_stdout=True)
+    m = re.match(r"console=.*(com\d).*", stdout.strip())
     if m:
         return m.group(1)
     else:
