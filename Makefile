@@ -66,6 +66,7 @@ sdk:
 		@ocaml/sdk-gen/csharp/generate \
 		@ocaml/sdk-gen/java/generate \
 		@ocaml/sdk-gen/powershell/generate
+	rm -rf $(XAPISDK)
 	mkdir -p $(XAPISDK)/c
 	mkdir -p $(XAPISDK)/csharp
 	mkdir -p $(XAPISDK)/java

@@ -91,6 +91,10 @@ jobs:
           opam exec -- make install DESTDIR=$(mktemp -d)
           opam exec -- make install DESTDIR=$(mktemp -d) BUILD_PY2=NO
 
+      - name: Sanity test SDK
+        run: |
+          opam exec -- make sdksanity
+
       - name: Uninstall unversioned packages and remove pins
         # This should purge them from the cache, unversioned package have
         # 'master' as its version
