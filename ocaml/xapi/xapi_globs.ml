@@ -1003,6 +1003,14 @@ let prefer_nbd_attach = ref false
 (** 1 MiB *)
 let max_observer_file_size = ref (1 lsl 20)
 
+let cert_thumbprint_header_request =
+  ref "x-xenapi-request-host-certificate-thumbprint"
+
+let cert_thumbprint_header_value = ref "sha-256:master"
+
+let cert_thumbprint_header_response =
+  ref "x-xenapi-response-host-certificate-thumbprint"
+
 let xapi_globs_spec =
   [
     ( "master_connection_reset_timeout"
