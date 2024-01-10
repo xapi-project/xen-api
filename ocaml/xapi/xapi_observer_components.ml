@@ -56,3 +56,23 @@ let assert_valid_components components =
 
 let observed_components_of components =
   match components with [] -> startup_components () | components -> components
+
+let is_component_enabled ~component =
+  try
+    Server_helpers.exec_with_new_task
+      (Printf.sprintf "check if component %s is enabled " (to_string component))
+      (fun __context ->
+        try
+          let observers = Db.Observer.get_all ~__context in
+          List.exists
+            (fun observer ->
+              Db.Observer.get_enabled ~__context ~self:observer
+              && Db.Observer.get_components ~__context ~self:observer
+                 |> List.map of_string
+                 |> observed_components_of
+                 |> List.mem component
+            )
+            observers
+        with _ -> false
+      )
+  with _ -> false

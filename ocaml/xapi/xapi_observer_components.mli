@@ -48,3 +48,7 @@ val observed_components_of : t list -> t list
 (** Transforms a list of components to a list of components that are expected 
   * to be observed. If the list is empty we expect all startup components.
   *)
+
+val is_component_enabled : component:t -> bool
+(** Returns [true] if the given component is enabled, [false] otherwise.
+  *)

@@ -323,6 +323,10 @@ let with_session sr f =
       finally (fun () -> f session_id) (fun () -> destroy_session session_id)
   )
 
+let is_smapi_enabled () =
+  Xapi_observer_components.is_component_enabled
+    ~component:Xapi_observer_components.SMApi
+
 let exec_xmlrpc ~dbg ?context:_ ?(needs_session = true) (driver : string)
     (call : call) =
   with_dbg ~name:call.cmd ~dbg @@ fun di ->
