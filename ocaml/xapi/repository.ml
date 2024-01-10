@@ -727,13 +727,11 @@ let apply_updates' ~__context ~host ~updates_info ~livepatches ~acc_rpm_updates
     =
   (* This function runs on coordinator host *)
   let open Guidance in
-  let guidance =
+  let guidance' =
     reduce_guidance ~updates_info ~updates:acc_rpm_updates ~livepatches
-    (* EvacuateHost should be carried out before host.apply_updates *)
-    |> List.map (fun (k, l) -> (k, List.filter (fun x -> x <> EvacuateHost) l))
   in
   let mandatory =
-    match List.assoc_opt Mandatory guidance with
+    match List.assoc_opt Mandatory guidance' with
     | Some tasks ->
         tasks
     | None ->
@@ -741,6 +739,11 @@ let apply_updates' ~__context ~host ~updates_info ~livepatches ~acc_rpm_updates
         []
   in
   assert_host_evacuation_if_required ~__context ~host ~mandatory ;
+  let guidance =
+    (* EvacuateHost should be carried out before host.apply_updates *)
+    guidance'
+    |> List.map (fun (k, l) -> (k, List.filter (fun x -> x <> EvacuateHost) l))
+  in
   (* Install RPM updates *)
   Helpers.call_api_functions ~__context (fun rpc session_id ->
       Client.Client.Repository.apply ~rpc ~session_id ~host
