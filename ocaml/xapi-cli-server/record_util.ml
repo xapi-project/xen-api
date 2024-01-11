@@ -724,7 +724,8 @@ let host_numa_affinity_policy_to_string = function
   | `default_policy ->
       "default_policy"
 
-let host_numa_affinity_policy_of_string = function
+let host_numa_affinity_policy_of_string a =
+  match String.lowercase_ascii a with
   | "any" ->
       `any
   | "best_effort" ->
