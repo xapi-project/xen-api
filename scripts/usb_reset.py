@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # Copyright (C) Citrix Systems Inc.
 #
@@ -122,7 +122,7 @@ def load_device_ids(device):
     ids_path = get_ids_path(device)
     try:
         with open(ids_path) as f:
-            uid, gid = map(int, f.readline().split())
+            uid, gid = list(map(int, f.readline().split()))
     except (IOError, ValueError) as e:
         log.error("Failed to load device ids: {}".format(str(e)))
 
@@ -212,17 +212,17 @@ def setup_cgroup(domid, pid):
 
     try:
         # unbuffered write to ensure each one is flushed immediately
-        with open(cg_dir + "/tasks", "w", 0) as tasks, \
-                open(cg_dir + "/devices.deny", "w", 0) as deny, \
-                open(cg_dir + "/devices.allow", "w", 0) as allow:
+        with open(cg_dir + "/tasks", "wb") as tasks, \
+                open(cg_dir + "/devices.deny", "wb") as deny, \
+                open(cg_dir + "/devices.allow", "wb") as allow:
 
             # deny all
-            deny.write("a")
+            deny.write(b"a")
 
             # grant rw access to /dev/null by default
-            allow.write(get_ctl("/dev/null", "rw"))
+            allow.write(get_ctl("/dev/null",b"rw"))
 
-            tasks.write(str(pid))
+            tasks.write(str(pid).encode())
 
     except (IOError, OSError, RuntimeError) as e:
         log.error("Failed to setup cgroup: {}".format(str(e)))
