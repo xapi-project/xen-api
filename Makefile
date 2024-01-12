@@ -28,8 +28,41 @@ lint:
 	pylint --disable=line-too-long,too-few-public-methods,unused-argument,no-self-use,invalid-name,broad-except,protected-access,redefined-builtin,too-many-lines,wildcard-import,too-many-branches,too-many-arguments,unused-wildcard-import,raising-format-tuple,too-many-statements,duplicate-code _build/default/xapi-storage/python/xapi/storage/api/v5/*.py
 	pycodestyle --ignore=E501 _build/default/xapi-storage/python/xapi/storage/api/v5/*.py
 
+
+# ulimit -S -t <N>
+#  Set a soft CPU time quota which will kill processes with SIGXCPU
+#  This will in preference kill children of dune that consume CPU time (e.g. a stuck test),
+#  and not dune itself (which should consume little CPU time when it just waits for subprocesses)
+#  However it won't kill idle processes (e.g. a test sleeping and waiting for an event that never arrives)
+
+# sleep <N> && ps
+#   Prints a process tree once the timeout is reached to identify any sleeping processes that are stuck
+#   (if we send 'dune' a SIGINT or SIGTERM it'd kill all subprocesses but won't say which ones were running and since when!)
+#  -e: prints all processes
+#  -ww: disables line length restrictions
+#  -ly: prints additional columns, e.g. WCHAN which shows currently active syscall
+#  -F: prints process start time and CPU time, useful in identifying which test got started recently,
+#   and which one was running for a while
+#  --forest prints a process tree
+
+# timeout --foreground <M> dune
+#  Sends a SIGTERM to dune after N seconds. This should print any pending buffered output, but won't tell us which processes were still running
+#  The timeout used here should be > timeout in ulimit && ps to allow time for subprocesses to terminate first
+
+# ulimit -n <NFILES>
+#  By default the ulimit on some systems is very large (e.g. Fedora39 distrobox 1048576)
+#  which causes some tests to take very long to run (e.g. forkexec tests which loop through and close all fds up to limit)
+
+TEST_TIMEOUT=600
+TEST_TIMEOUT2=1200
 test:
-	dune runtest --profile=$(PROFILE) --error-reporting=twice -j $(JOBS)
+	ulimit -S -t $(TEST_TIMEOUT); \
+	 ulimit -n 1024; \
+	 (sleep $(TEST_TIMEOUT) && ps -ewwlyF --forest)& \
+	 PSTREE_SLEEP_PID=$$!; \
+	 trap "kill $${PSTREE_SLEEP_PID}" SIGINT SIGTERM EXIT; \
+	 timeout --foreground $(TEST_TIMEOUT2) \
+		 dune runtest --profile=$(PROFILE) --error-reporting=twice -j $(JOBS)
 ifneq ($(PY_TEST), NO)
 	dune build @runtest-python --profile=$(PROFILE)
 endif
