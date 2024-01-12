@@ -9,6 +9,7 @@ MAX_WAIT=60
 
 PID=$!
 
+trap "kill $PID" SIGINT SIGTERM EXIT
 wait_counter=0
 while [ ! -f "test-server-ready" ] && [ $wait_counter -lt $MAX_WAIT ]; do
     sleep 3
@@ -25,4 +26,3 @@ rm test-http-server.out
 
 diff -B test-source.ndjson test-http-server.out || exit 1
 
-kill $PID
