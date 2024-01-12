@@ -868,7 +868,9 @@ let do_monitor_write xc writers =
       Rrdd_monitor.update_rrds timestamp stats uuid_domids my_paused_vms ;
 
       Rrdd_libs.Constants.datasource_dump_file
-      |> Rrdd_server.dump_host_dss_to_file
+      |> Rrdd_server.dump_host_dss_to_file ;
+      Rrdd_libs.Constants.datasource_vm_dump_file
+      |> Rrdd_server.dump_vm_dss_to_file
   )
 
 let monitor_write_loop writers =
