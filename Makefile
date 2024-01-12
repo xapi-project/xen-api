@@ -62,7 +62,7 @@ test:
 	 PSTREE_SLEEP_PID=$$!; \
 	 trap "kill $${PSTREE_SLEEP_PID}" SIGINT SIGTERM EXIT; \
 	 timeout --foreground $(TEST_TIMEOUT2) \
-		 dune runtest --profile=$(PROFILE) --error-reporting=twice -j $(JOBS)
+		 dune runtest --profile=$(PROFILE) --error-reporting=twice -j $(JOBS) --force --no-buffer
 ifneq ($(PY_TEST), NO)
 	dune build @runtest-python --profile=$(PROFILE)
 endif
