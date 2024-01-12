@@ -8,46 +8,36 @@ n.b. the value returned by the "status" command will be correct as of the next
 boot (assuming that the boot config is not modified further), and is not
 necessarily correct at the time this script is called.
 """
-from __future__ import print_function
 
 import os
-import os.path
 import re
-import subprocess
 import sys
 import syslog
+from pathlib import Path
+
 from xcp.bootloader import Bootloader
+from xcp.cmd import runCmd
 
-COMMAND_NAME = sys.argv[0]
-SHORT_COMMAND_NAME = os.path.basename(COMMAND_NAME)
+SHORT_COMMAND_NAME = Path(__file__).name
 
-XE_SERIAL = 'xe-serial'
-XEN_CMDLINE = '/opt/xensource/libexec/xen-cmdline'
+XE_SERIAL = "xe-serial"
+XEN_CMDLINE = "/opt/xensource/libexec/xen-cmdline"
+
 
 def send_to_syslog(msg):
-    """ Send a message to syslog. """
+    """Send a message to syslog."""
     pid = os.getpid()
-    syslog.syslog("%s[%d] - %s" %(SHORT_COMMAND_NAME, pid, msg))
+    syslog.syslog("%s[%d] - %s" % (SHORT_COMMAND_NAME, pid, msg))
 
-def doexec(args):
-    """Execute a subprocess, then return its return code, stdout and stderr"""
+
+def doexec(args, with_stdout=False):
     send_to_syslog(args)
-    proc = subprocess.Popen(
-        args,
-        stdin=None,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        close_fds=True,
-        universal_newlines=True)
-    rc = proc.wait()
-    stdout = proc.stdout
-    stderr = proc.stderr
-    return (rc, stdout, stderr)
+    return runCmd(args, with_stdout)
 
 def disable(bootloader):
     """
-        Configure the host not to output its console to the physical display on
-        next boot.
+    Configure the host not to output its console to the physical display on
+    next boot.
     """
     if bootloader.default == XE_SERIAL:
         doexec([XEN_CMDLINE, "--set-xen", "console=%s" % (_get_com_port())])
@@ -55,10 +45,11 @@ def disable(bootloader):
         doexec([XEN_CMDLINE, "--delete-dom0", "console=tty0"])
         doexec([XEN_CMDLINE, "--delete-xen", "console"])
 
+
 def enable(bootloader):
     """
-        Configure the host to output its console to the physical display on
-        next boot.
+    Configure the host to output its console to the physical display on
+    next boot.
     """
     if bootloader.default == XE_SERIAL:
         doexec([XEN_CMDLINE, "--set-xen", "console=%s,vga" % (_get_com_port())])
@@ -66,13 +57,14 @@ def enable(bootloader):
         doexec([XEN_CMDLINE, "--set-xen", "console=vga"])
         doexec([XEN_CMDLINE, "--set-dom0", "console=hvc0 console=tty0"])
 
+
 def status(_):
     """
-        Determine from the bootloader config whether the host is currently
-        configured to output its console to the physical display.
+    Determine from the bootloader config whether the host is currently
+    configured to output its console to the physical display.
     """
-    (_, stdout, _) = doexec([XEN_CMDLINE, "--get-xen", "console"])
-    if "vga" in stdout.readline().strip():
+    (_, stdout) = doexec([XEN_CMDLINE, "--get-xen", "console"], with_stdout=True)
+    if "vga" in stdout:
         sys.stdout.write("enabled")
     else:
         sys.stdout.write("disabled")
@@ -85,25 +77,26 @@ COMMANDS = {
 
 def _get_com_port():
     """
-        Determine from the current bootloader config which COM port is in use
+    Determine from the current bootloader config which COM port is in use
     """
-    (_, stdout, _) = doexec([XEN_CMDLINE, "--get-xen", "console"])
-    m = re.match("console=.*(com\d).*", stdout.readline().strip())
+    (_, stdout) = doexec([XEN_CMDLINE, "--get-xen", "console"], with_stdout=True)
+    m = re.match(r"console=.*(com\d).*", stdout.strip())
     if m:
         return m.group(1)
     else:
         return "com1"
 
+
 def usage():
-    """ Display a usage string. """
-    command_names = list(COMMANDS.keys())
-    command_names.sort()
+    """Display a usage string."""
+    command_names = sorted(COMMANDS.keys())
     print("Usage:")
-    print("    %s {%s}" % (sys.argv[0], '|'.join(command_names)))
+    print("    %s {%s}" % (sys.argv[0], "|".join(command_names)))
+
 
 def main():
-    """ Program entry point. """
-    if len(sys.argv) == 2 and sys.argv[1] in COMMANDS.keys():
+    """Program entry point."""
+    if len(sys.argv) == 2 and sys.argv[1] in COMMANDS:
         bootloader = Bootloader.loadExisting()
         command = COMMANDS[sys.argv[1]]
         command(bootloader)
@@ -111,5 +104,6 @@ def main():
         usage()
         sys.exit(1)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()
