@@ -1,5 +1,4 @@
-(test
+(executable
  (name parse_test)
- (package vhd-format-lwt)
  (libraries cstruct disk io-page lwt lwt.unix ounit2 vhd-format
    vhd_format_lwt))

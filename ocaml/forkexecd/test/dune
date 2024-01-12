@@ -4,7 +4,7 @@
  (libraries forkexec uuid xapi-stdext-unix))
 
 (rule
- (alias runtest)
+ (alias runtestx)
  (package xapi-forkexecd)
  (deps fe_test.sh fe_test.exe ../src/fe_main.exe)
  (action
