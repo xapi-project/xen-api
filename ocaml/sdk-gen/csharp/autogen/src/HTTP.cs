@@ -668,9 +668,9 @@ namespace XenAPI
         }
 
 
-        private static Stream DoHttp(Uri uri, IWebProxy proxy, bool nodelay, int timeout_ms, params string[] headers)
+        private static Stream DoHttp(Uri uri, IWebProxy proxy, bool noDelay, int timeoutMs, params string[] headers)
         {
-            Stream stream = ConnectStream(uri, proxy, nodelay, timeout_ms);
+            Stream stream = ConnectStream(uri, proxy, noDelay, timeoutMs);
 
             int redirects = 0;
 
@@ -687,7 +687,7 @@ namespace XenAPI
 
                 stream.Flush();
             }
-            while (ReadHttpHeaders(ref stream, proxy, nodelay, timeout_ms));
+            while (ReadHttpHeaders(ref stream, proxy, noDelay, timeoutMs));
 
             return stream;
         }
@@ -695,35 +695,64 @@ namespace XenAPI
         /// <summary>
         /// Adds HTTP CONNECT headers returning the stream ready for use
         /// </summary>
-        public static Stream HttpConnectStream(Uri uri, IWebProxy proxy, String session, int timeoutMs)
+        public static Stream HttpConnectStream(Uri uri, IWebProxy proxy, string session, int timeoutMs, Dictionary<string, string> additionalHeaders = null)
         {
-            return DoHttp(uri, proxy, true, timeoutMs,
-                string.Format("CONNECT {0} HTTP/1.0", uri.PathAndQuery),
-                string.Format("Host: {0}", uri.Host),
-                string.Format("Cookie: session_id={0}", session));
+            var allHeaders = new List<string>
+            {
+                $"CONNECT {uri.PathAndQuery} HTTP/1.0",
+                $"Host: {uri.Host}",
+                $"Cookie: session_id={session}"
+            };
+
+            if (additionalHeaders != null)
+            {
+                foreach (var kvp in additionalHeaders)
+                    allHeaders.Add($"{kvp.Key}: {kvp.Value}");
+            }
+
+            return DoHttp(uri, proxy, true, timeoutMs, allHeaders.ToArray());
         }
 
         /// <summary>
         /// Adds HTTP PUT headers returning the stream ready for use
         /// </summary>
-        public static Stream HttpPutStream(Uri uri, IWebProxy proxy, long contentLength, int timeoutMs)
+        public static Stream HttpPutStream(Uri uri, IWebProxy proxy, long contentLength, int timeoutMs, Dictionary<string, string> additionalHeaders = null)
         {
-            return DoHttp(uri, proxy, false, timeoutMs,
-                string.Format("PUT {0} HTTP/1.0", uri.PathAndQuery),
-                string.Format("Host: {0}", uri.Host),
-                string.Format("Content-Length: {0}", contentLength));
+            var allHeaders = new List<string>
+            {
+                $"PUT {uri.PathAndQuery} HTTP/1.0",
+                $"Host: {uri.Host}",
+                $"Content-Length: {contentLength}"
+            };
+
+            if (additionalHeaders != null)
+            {
+                foreach (var kvp in additionalHeaders)
+                    allHeaders.Add($"{kvp.Key}: {kvp.Value}");
+            }
+
+            return DoHttp(uri, proxy, false, timeoutMs, allHeaders.ToArray());
         }
 
         /// <summary>
         /// Adds HTTP GET headers returning the stream ready for use
         /// </summary>
-        public static Stream HttpGetStream(Uri uri, IWebProxy proxy, int timeoutMs)
+        public static Stream HttpGetStream(Uri uri, IWebProxy proxy, int timeoutMs, Dictionary<string, string> additionalHeaders = null)
         {
-            return DoHttp(uri, proxy, false, timeoutMs,
-                string.Format("GET {0} HTTP/1.0", uri.PathAndQuery),
-                string.Format("Host: {0}", uri.Host));
-        }
+            var allHeaders = new List<string>
+            {
+                $"GET {uri.PathAndQuery} HTTP/1.0",
+                $"Host: {uri.Host}"
+            };
 
+            if (additionalHeaders != null)
+            {
+                foreach (var kvp in additionalHeaders)
+                    allHeaders.Add($"{kvp.Key}: {kvp.Value}");
+            }
+
+            return DoHttp(uri, proxy, false, timeoutMs, allHeaders.ToArray());
+        }
 
         /// <summary>
         /// A general HTTP PUT method, with delegates for progress and cancelling. May throw various exceptions.

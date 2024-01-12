@@ -9,7 +9,7 @@ XenAPI's datamodel. The generation code is written in OCaml and is contained in
 this directory.
 
 The Python module is not auto-generated, it can be found at
-[XenAPI.py][../../scripts/examples/python/XenAPI/XenAPI.py].
+[XenAPI.py](../../scripts/examples/python/XenAPI/XenAPI.py).
 
 To compile the generated source code, follow the instructions in the corresponding
 README files. The (patched) third party libraries required for the compilation
@@ -23,7 +23,7 @@ you get started with the SDK.
 ## Licensing
 
 The SDK generation code is licensed under the GNU LGPLv2 license. Please see this
-[LICENSE][../../LICENSE] file for more information.
+[LICENSE](../../LICENSE) file for more information.
 
 The generated code and the examples are licensed under the BSD 2-Clause license.
-Please see this [LICENSE][LICENSE] file for more information.
+Please see this [LICENSE](LICENSE) file for more information.
