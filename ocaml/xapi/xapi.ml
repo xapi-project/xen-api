@@ -924,7 +924,7 @@ let report_tls_verification ~__context =
 
 let server_init () =
   let print_server_starting_message () =
-    debug "(Re)starting xapi" ;
+    debug "(Re)starting xapi, pid: %d" (Unix.getpid ()) ;
     debug "on_system_boot=%b pool_role=%s" !Xapi_globs.on_system_boot
       (Pool_role.string_of (Pool_role.get_role ()))
   in
