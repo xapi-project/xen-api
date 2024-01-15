@@ -7,6 +7,15 @@ on:
     # run daily, this refreshes the cache
     - cron: '13 2 * * *'
 
+
+# Cancel a currently running workflow from the same PR, branch or tag when
+# a new workflow is triggered:
+# https://stackoverflow.com/questions/66335225/how-to-cancel-previous-runs-in-the-pr-when-you-push-new-commitsupdate-the-curre
+concurrency:
+  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+
+
 jobs:
   python2-test:
     name: Python2 tests
