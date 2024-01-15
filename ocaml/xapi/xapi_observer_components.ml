@@ -76,3 +76,8 @@ let is_component_enabled ~component =
         with _ -> false
       )
   with _ -> false
+
+let ( // ) = Filename.concat
+
+let dir_name_of_component component =
+  Xapi_globs.observer_config_dir // to_string component // "enabled"

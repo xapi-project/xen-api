@@ -333,6 +333,10 @@ let env_vars_of_observer dbg =
     let span_context_of_di (di : Debuginfo.t) =
       Option.map (fun span -> Tracing.Span.get_context span) di.tracing
     in
+    let dir_name =
+      Xapi_observer_components.dir_name_of_component
+        Xapi_observer_components.SMApi
+    in
     Debuginfo.of_string dbg
     |> span_context_of_di
     |> Option.map Tracing.SpanContext.trace_id_of_span_context
@@ -340,7 +344,7 @@ let env_vars_of_observer dbg =
            [|
               make_env "PATH" (String.concat ":" Forkhelpers.default_path)
             ; make_env "TRACEPARENT" v
-            ; make_env "OBSERVER_CONFIG_DIR" Xapi_globs.observer_config_dir
+            ; make_env "OBSERVER_CONFIG_DIR" dir_name
            |]
        )
   else

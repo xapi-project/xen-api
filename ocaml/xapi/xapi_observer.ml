@@ -17,6 +17,8 @@ module D = Debug.Make (struct let name = "xapi_observer" end)
 open D
 open Xapi_observer_components
 
+let ( // ) = Filename.concat
+
 module type ObserverInterface = sig
   val create :
        __context:Context.t
@@ -262,7 +264,7 @@ end
 
 module Dom0ObserverConfig (ObserverComponent : OBSERVER_COMPONENT) :
   ObserverInterface = struct
-  let config_root = "/etc/xensource/observer/"
+  let dir_name = dir_name_of_component ObserverComponent.component
 
   let env_vars_of_config (config : ObserverConfig.t) =
     Env_record.(
@@ -281,27 +283,20 @@ module Dom0ObserverConfig (ObserverComponent : OBSERVER_COMPONENT) :
         ]
     )
 
-  let remove_config ~uuid =
-    Xapi_stdext_unix.Unixext.unlink_safe
-      (config_root
-      ^ to_string ObserverComponent.component
-      ^ "/enabled/"
-      ^ uuid
-      ^ ".observer.conf"
-      )
+  let observer_conf_path_of ~uuid = dir_name // (uuid ^ ".observer.conf")
 
-  let update_config ~__context ~observer ~config_root ~uuid =
+  let remove_config ~uuid =
+    Xapi_stdext_unix.Unixext.unlink_safe (observer_conf_path_of ~uuid)
+
+  let update_config ~__context ~observer ~uuid =
     if Db.Observer.get_enabled ~__context ~self:observer then (
       let observer_config =
         ObserverConfig.config_of_observer ~__context
           ~component:(to_string ObserverComponent.component)
           ~observer
       in
-      let dir_name =
-        config_root ^ to_string ObserverComponent.component ^ "/enabled/"
-      in
       Xapi_stdext_unix.Unixext.mkdir_rec dir_name 0o755 ;
-      let file_name = dir_name ^ uuid ^ ".observer.conf" in
+      let file_name = observer_conf_path_of ~uuid in
       Xapi_stdext_unix.Unixext.write_string_to_file file_name
         (env_vars_of_config observer_config)
     ) else
@@ -311,28 +306,28 @@ module Dom0ObserverConfig (ObserverComponent : OBSERVER_COMPONENT) :
     List.iter
       (fun observer ->
         let uuid = Db.Observer.get_uuid ~__context ~self:observer in
-        update_config ~__context ~observer ~config_root ~uuid
+        update_config ~__context ~observer ~uuid
       )
       observer_all
 
   let create ~__context ~uuid ~name_label:_ ~attributes:_ ~endpoints:_
       ~enabled:_ =
     let observer = Db.Observer.get_by_uuid ~__context ~uuid in
-    update_config ~__context ~observer ~config_root ~uuid
+    update_config ~__context ~observer ~uuid
 
   let destroy ~__context ~uuid = remove_config ~uuid
 
   let set_enabled ~__context ~uuid ~enabled:_ =
     let observer = Db.Observer.get_by_uuid ~__context ~uuid in
-    update_config ~__context ~observer ~config_root ~uuid
+    update_config ~__context ~observer ~uuid
 
   let set_attributes ~__context ~uuid ~attributes:_ =
     let observer = Db.Observer.get_by_uuid ~__context ~uuid in
-    update_config ~__context ~observer ~config_root ~uuid
+    update_config ~__context ~observer ~uuid
 
   let set_endpoints ~__context ~uuid ~endpoints:_ =
     let observer = Db.Observer.get_by_uuid ~__context ~uuid in
-    update_config ~__context ~observer ~config_root ~uuid
+    update_config ~__context ~observer ~uuid
 
   let init ~__context =
     let observer_all = Db.Observer.get_all ~__context in

@@ -52,3 +52,8 @@ val observed_components_of : t list -> t list
 val is_component_enabled : component:t -> bool
 (** Returns [true] if the given component is enabled, [false] otherwise.
   *)
+
+val dir_name_of_component : t -> string
+(** Returns the directory path that python scripts check to see if a component 
+  * is enabled.
+  *)
