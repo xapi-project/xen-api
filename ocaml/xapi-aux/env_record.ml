@@ -26,3 +26,5 @@ let to_shell_string lst =
   lst
   |> List.map (fun (key, value) -> String.concat "=" [key; Filename.quote value])
   |> String.concat "\n"
+
+let to_string_array = Array.of_list

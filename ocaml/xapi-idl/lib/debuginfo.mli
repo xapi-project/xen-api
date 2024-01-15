@@ -29,3 +29,5 @@ val with_dbg :
   -> dbg:string
   -> (t -> 'a)
   -> 'a
+
+val traceparent_of_dbg : string -> string option

@@ -77,7 +77,25 @@ let is_component_enabled ~component =
       )
   with _ -> false
 
+let is_smapi_enabled () = is_component_enabled ~component:SMApi
+
 let ( // ) = Filename.concat
 
 let dir_name_of_component component =
   Xapi_globs.observer_config_dir // to_string component // "enabled"
+
+let env_vars_of_component ~component ~traceparent =
+  let dir_name_value = Filename.quote (dir_name_of_component component) in
+  Array.concat
+    [
+      Forkhelpers.default_path_env_pair
+    ; Env_record.to_string_array
+        ([Env_record.pair ("OBSERVER_CONFIG_DIR", dir_name_value)]
+        @
+        match traceparent with
+        | None ->
+            []
+        | Some traceparent ->
+            [Env_record.pair ("TRACEPARENT", traceparent)]
+        )
+    ]

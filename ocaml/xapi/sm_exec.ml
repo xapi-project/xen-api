@@ -323,33 +323,6 @@ let with_session sr f =
       finally (fun () -> f session_id) (fun () -> destroy_session session_id)
   )
 
-let is_smapi_enabled () =
-  Xapi_observer_components.is_component_enabled
-    ~component:Xapi_observer_components.SMApi
-
-let env_vars_of_observer dbg =
-  if is_smapi_enabled () then
-    let make_env k v = k ^ "=" ^ v in
-    let span_context_of_di (di : Debuginfo.t) =
-      Option.map (fun span -> Tracing.Span.get_context span) di.tracing
-    in
-    let dir_name =
-      Xapi_observer_components.dir_name_of_component
-        Xapi_observer_components.SMApi
-    in
-    Debuginfo.of_string dbg
-    |> span_context_of_di
-    |> Option.map Tracing.SpanContext.trace_id_of_span_context
-    |> Option.map (fun v ->
-           [|
-              make_env "PATH" (String.concat ":" Forkhelpers.default_path)
-            ; make_env "TRACEPARENT" v
-            ; make_env "OBSERVER_CONFIG_DIR" dir_name
-           |]
-       )
-  else
-    None
-
 let exec_xmlrpc ~dbg ?context:_ ?(needs_session = true) (driver : string)
     (call : call) =
   with_dbg ~name:call.cmd ~dbg @@ fun di ->
@@ -364,7 +337,17 @@ let exec_xmlrpc ~dbg ?context:_ ?(needs_session = true) (driver : string)
           try
             E.debug "smapiv2=>smapiv1 [label=\"%s\"];" call.cmd ;
             let output, stderr =
-              let env = env_vars_of_observer dbg in
+              let env =
+                match Xapi_observer_components.is_smapi_enabled () with
+                | false ->
+                    None
+                | true ->
+                    let traceparent = Debuginfo.traceparent_of_dbg dbg in
+                    Some
+                      (Xapi_observer_components.env_vars_of_component
+                         ~component:Xapi_observer_components.SMApi ~traceparent
+                      )
+              in
               Forkhelpers.execute_command_get_output ?env exe
                 [Xml.to_string xml]
             in

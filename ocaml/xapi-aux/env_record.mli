@@ -20,7 +20,7 @@
 (** A value of type [t] represents a value. 
   * It is constructed recursively from OCaml values using functions like [str], 
   * [option], or [list]. An environment value of type [t] can be observed using 
-  * [to_shell_string].
+  * [to_shell_string] or [to_string_array].
   *)
 type t
 
@@ -45,3 +45,7 @@ val to_shell_string : (string * t) list -> string
 (** [to_shell_string env_vars] is [env_vars] quoted as needed for use in a shell 
   * script.
   *)
+
+val to_string_array : t list -> string array
+(** Transforms a list of environment variables to a string array of environment 
+  * variables.*)

@@ -65,3 +65,11 @@ let with_dbg ?(with_thread = false) ~module_name ~name ~dbg f =
       Debug.with_thread_associated di.log f_with_trace ()
   | false ->
       f_with_trace ()
+
+let span_context_of_di di =
+  Option.map (fun span -> Tracing.Span.get_context span) di.tracing
+
+let traceparent_of_dbg dbg =
+  of_string dbg
+  |> span_context_of_di
+  |> Option.map Tracing.SpanContext.trace_id_of_span_context

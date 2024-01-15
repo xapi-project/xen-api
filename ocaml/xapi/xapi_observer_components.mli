@@ -53,7 +53,17 @@ val is_component_enabled : component:t -> bool
 (** Returns [true] if the given component is enabled, [false] otherwise.
   *)
 
+val is_smapi_enabled : unit -> bool
+(** Returns [true] if [SMApi] component is enabled, [false] otherwise.
+  *)
+
 val dir_name_of_component : t -> string
 (** Returns the directory path that python scripts check to see if a component 
   * is enabled.
+  *)
+
+val env_vars_of_component :
+  component:t -> traceparent:string option -> string array
+(** Returns an array of environment viariables used by python scripts to 
+  *  configure the python observers.  
   *)
