@@ -41,6 +41,8 @@ type syslog_stdout_t =
 
 val default_path : string list
 
+val default_path_env_pair : string array
+
 val execute_command_get_output :
      ?env:string array
   -> ?syslog_stdout:syslog_stdout_t
