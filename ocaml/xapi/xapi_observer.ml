@@ -471,7 +471,18 @@ let assert_valid_components components =
   with Unsupported_Component component ->
     raise Api_errors.(Server_error (invalid_value, ["component"; component]))
 
-let assert_valid_endpoints endpoints =
+let assert_valid_endpoints ~__context endpoints =
+  let is_scheme_enabled scheme =
+    let host = Helpers.get_localhost ~__context in
+    let is_master = Helpers.is_pool_master ~__context ~host in
+    match scheme with
+    | Some "http" ->
+        (not is_master) || !Xapi_globs.observer_endpoint_http_enabled
+    | Some "https" ->
+        (not is_master) || !Xapi_globs.observer_endpoint_https_enabled
+    | _ ->
+        false
+  in
   let validate_endpoint = function
     | str when str = Tracing.bugtool_name ->
         true
@@ -480,7 +491,7 @@ let assert_valid_endpoints endpoints =
         let uri = Uri.of_string url in
         let scheme = Uri.scheme uri in
         let host = Uri.host uri in
-        (scheme = Some "http" || scheme = Some "https")
+        is_scheme_enabled scheme
         &&
         match host with
         | Some host ->
@@ -545,7 +556,7 @@ let register ~__context ~self =
 let create ~__context ~name_label ~name_description ~hosts ~attributes
     ~endpoints ~components ~enabled =
   assert_valid_components components ;
-  assert_valid_endpoints endpoints ;
+  assert_valid_endpoints ~__context endpoints ;
   assert_valid_hosts ~__context hosts ;
   assert_valid_attributes attributes ;
   let ref = Ref.make () in
@@ -698,7 +709,7 @@ let set_attributes ~__context ~self ~value =
   do_set_op ~__context ~self ~observation_fn ~db_fn
 
 let set_endpoints ~__context ~self ~value =
-  assert_valid_endpoints value ;
+  assert_valid_endpoints ~__context value ;
   let uuid = Db.Observer.get_uuid ~__context ~self in
   let observation_fn () =
     List.iter
