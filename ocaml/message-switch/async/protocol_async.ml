@@ -73,27 +73,13 @@ module M = struct
   module Ivar = struct include Ivar end
 
   module Mutex = struct
-    type t = {mutable m: bool; c: unit Condition.t}
+    type t = unit Async.Throttle.Sequencer.t
 
     let create () =
-      let m = false in
-      let c = Condition.create () in
-      {m; c}
+      Async.Throttle.Sequencer.create ~continue_on_error:true ()
 
     let with_lock t f =
-      let rec wait state =
-        if Bool.(t.m = state) then
-          return ()
-        else
-          Condition.wait t.c >>= fun () -> wait state
-      in
-      wait false >>= fun () ->
-      t.m <- true ;
-      Monitor.protect f ~finally:(fun () ->
-          t.m <- false ;
-          Condition.broadcast t.c () ;
-          return ()
-      )
+      Async.Throttle.enqueue_exclusive t f
   end
 
   module Clock = struct
