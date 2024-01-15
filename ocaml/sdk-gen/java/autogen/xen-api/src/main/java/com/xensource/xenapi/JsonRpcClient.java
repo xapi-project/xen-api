@@ -222,7 +222,7 @@ public class JsonRpcClient {
         // We only replace it when it's empty.
         // If the user purposely set the path
         // we use the given value even if incorrect
-        if (!url.getPath().isEmpty()) {
+        if (url.getPath().isEmpty()) {
             return url.getProtocol() + "://" + url.getHost() + JSON_BACKEND_PATH;
         }
         return url.toString();
