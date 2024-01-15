@@ -142,7 +142,7 @@ let rec get_java_type ty =
       Hashtbl.replace enums name ls ;
       sprintf "Types.%s" (class_case name)
   | Set t1 ->
-      sprintf "HashSet<%s>" (get_java_type t1)
+      sprintf "Set<%s>" (get_java_type t1)
   | Map (t1, t2) ->
       sprintf "Map<%s, %s>" (get_java_type t1) (get_java_type t2)
   | Ref x ->
@@ -156,6 +156,36 @@ let rec get_java_type ty =
 (* switch on them, so add it using this mechanism*)
 let switch_enum =
   Enum ("XenAPIObjects", List.map (fun x -> (x.name, x.description)) classes)
+
+(*Helper function for get_marshall_function*)
+let rec get_marshall_function_rec = function
+  | SecretString | String ->
+      "String"
+  | Int ->
+      "Long"
+  | Float ->
+      "Double"
+  | Bool ->
+      "Boolean"
+  | DateTime ->
+      "Date"
+  | Enum (name, _) ->
+      class_case name
+  | Set t1 ->
+      sprintf "SetOf%s" (get_marshall_function_rec t1)
+  | Map (t1, t2) ->
+      sprintf "MapOf%s%s"
+        (get_marshall_function_rec t1)
+        (get_marshall_function_rec t2)
+  | Ref ty ->
+      class_case ty (* We want to hide all refs *)
+  | Record ty ->
+      sprintf "%sRecord" (class_case ty)
+  | Option ty ->
+      get_marshall_function_rec ty
+
+(*get_marshall_function (Set(Map(Float,Bool)));; -> "toSetOfMapOfDoubleBoolean"*)
+let get_marshall_function ty = "to" ^ get_marshall_function_rec ty
 
 let _ = get_java_type switch_enum
 
@@ -321,8 +351,7 @@ let gen_method file cls message params async_version =
   List.iter
     (fun {param_name= s; _} ->
       let name = camel_case s in
-      fprintf file "        Map<String, Object> %s_map = %s.toMap();\n" name
-        name
+      fprintf file "        var %s_map = %s.toMap();\n" name name
     )
     record_params ;
 
@@ -484,7 +513,7 @@ let gen_record file cls =
   fprintf file "         * Convert a %s.Record to a Map\n" cls.name ;
   fprintf file "         */\n" ;
   fprintf file "        public Map<String,Object> toMap() {\n" ;
-  fprintf file "            Map<String,Object> map = new HashMap<>();\n" ;
+  fprintf file "            var map = new HashMap<String,Object>();\n" ;
 
   List.iter (gen_record_tomap_contents file []) contents ;
   if cls.name = "event" then
@@ -596,6 +625,194 @@ import java.io.IOException;
   fprintf file "}" ;
   close_out file
 
+(**?*)
+(* Generate Marshalling Class *)
+
+(*This generates the special case code for marshalling the snapshot field in an Event.Record*)
+let generate_snapshot_hack file =
+  fprintf file "\n" ;
+  fprintf file "\n" ;
+  fprintf file "        Object a,b;\n" ;
+  fprintf file "        a=map.get(\"snapshot\");\n" ;
+  fprintf file "        switch(%s(record.clazz))\n"
+    (get_marshall_function switch_enum) ;
+  fprintf file "        {\n" ;
+  List.iter
+    (fun x ->
+      fprintf file "                case %17s: b = %25s(a); break;\n"
+        (String.uppercase_ascii x)
+        (get_marshall_function (Record x))
+    )
+    (List.map
+       (fun x -> x.name)
+       (List.filter (fun x -> not (class_is_empty x)) classes)
+    ) ;
+  fprintf file
+    "                default: throw new RuntimeException(\"Internal error in \
+     auto-generated code whilst unmarshalling event snapshot\");\n" ;
+  fprintf file "        }\n" ;
+  fprintf file "        record.snapshot = b;\n"
+
+let gen_marshall_record_field file prefix field =
+  let ty = get_marshall_function field.ty in
+  let name = String.concat "_" (List.rev (field.field_name :: prefix)) in
+  let name' = camel_case name in
+  fprintf file "            record.%s = %s(map.get(\"%s\"));\n" name' ty name
+
+let rec gen_marshall_record_namespace file prefix (name, contents) =
+  List.iter (gen_marshall_record_contents file (name :: prefix)) contents
+
+and gen_marshall_record_contents file prefix = function
+  | Field f ->
+      gen_marshall_record_field file prefix f
+  | Namespace (n, cs) ->
+      gen_marshall_record_namespace file prefix (n, cs) ;
+      ()
+
+(*Every type which may be returned by a function may also be the result of the*)
+(* corresponding asynchronous task. We therefore need to generate corresponding*)
+(* marshalling functions which can take the raw xml of the tasks result field*)
+(* and turn it into the corresponding type. Luckily, the only things returned by*)
+(* asynchronous tasks are object references and strings, so rather than implementing*)
+(* the general recursive structure we'll just make one for each of the classes*)
+(* that's been registered as a marshall-needing type*)
+
+let generate_reference_task_result_func file clstr =
+  fprintf file {|    /**
+     * Attempt to convert the {@link Task}'s result to a {@link %s} object.
+     * Will return null if the method cannot fetch a valid value from the {@link Task} object.
+     * @param task The task from which to fetch the result.
+     * @param connection The connection
+     * @return the instantiated object if a valid value was found, null otherwise.
+     * @throws BadServerResponse Thrown if the response from the server contains an invalid status.
+     * @throws XenAPIException if the call failed.
+     * @throws IOException if an error occurs during a send or receive. This includes cases where a payload is invalid JSON.
+     */
+|} clstr;
+  fprintf file
+    "    public static %s to%s(Task task, Connection connection) throws IOException {\n"
+    clstr clstr ;
+  fprintf file
+    "        return Types.to%s(task.getResult(connection));\n"
+    clstr ;
+  fprintf file "    }\n" ;
+  fprintf file "\n"
+
+let gen_task_result_func file = function
+  | Ref ty ->
+      generate_reference_task_result_func file (class_case ty)
+  | _ ->
+      ()
+
+(*don't generate for complicated types. They're not needed.*)
+
+let rec gen_marshall_body file = function
+  | SecretString | String ->
+      fprintf file "        return (String) object;\n"
+  | Int ->
+      fprintf file "        return Long.valueOf((String) object);\n"
+  | Float ->
+      fprintf file "        return (Double) object;\n"
+  | Bool ->
+      fprintf file "        return (Boolean) object;\n"
+  | DateTime ->
+      fprintf file
+        "        try {\n\
+        \            return (Date) object;\n\
+        \        } catch (ClassCastException e){\n\
+        \            //Occasionally the date comes back as an ocaml float \
+         rather than\n\
+        \            //in the xmlrpc format! Catch this and convert.\n\
+        \            return (new Date((long) (1000*Double.parseDouble((String) \
+         object))));\n\
+        \        }\n"
+  | Ref ty ->
+      fprintf file "        return new %s((String) object);\n" (class_case ty)
+  | Enum (name, _) ->
+      fprintf file "        try {\n" ;
+      fprintf file
+        "            return %s.valueOf(((String) \
+         object).toUpperCase().replace('-','_'));\n"
+        (class_case name) ;
+      fprintf file "        } catch (IllegalArgumentException ex) {\n" ;
+      fprintf file "            return %s.UNRECOGNIZED;\n" (class_case name) ;
+      fprintf file "        }\n"
+  | Set ty ->
+      let ty_name = get_java_type ty in
+      let marshall_fn = get_marshall_function ty in
+      fprintf file "        Object[] items = (Object[]) object;\n" ;
+      fprintf file "        Set<%s> result = new LinkedHashSet<>();\n" ty_name ;
+      fprintf file "        for(Object item: items) {\n" ;
+      fprintf file "            %s typed = %s(item);\n" ty_name marshall_fn ;
+      fprintf file "            result.add(typed);\n" ;
+      fprintf file "        }\n" ;
+      fprintf file "        return result;\n"
+  | Map (ty, ty') ->
+      let ty_name = get_java_type ty in
+      let ty_name' = get_java_type ty' in
+      let marshall_fn = get_marshall_function ty in
+      let marshall_fn' = get_marshall_function ty' in
+      fprintf file "        var map = (Map<Object, Object>)object;\n" ;
+      fprintf file "        var result = new HashMap<%s,%s>();\n" ty_name
+        ty_name' ;
+      fprintf file "        for(var entry: map.entrySet()) {\n" ;
+      fprintf file "            var key = %s(entry.getKey());\n" marshall_fn ;
+      fprintf file "            var value = %s(entry.getValue());\n"
+        marshall_fn' ;
+      fprintf file "            result.put(key, value);\n" ;
+      fprintf file "        }\n" ;
+      fprintf file "        return result;\n"
+  | Record ty ->
+      let contents = Hashtbl.find records ty in
+      let cls_name = class_case ty in
+      fprintf file
+        "        Map<String,Object> map = (Map<String,Object>) object;\n" ;
+      fprintf file "        %s.Record record = new %s.Record();\n" cls_name
+        cls_name ;
+      List.iter (gen_marshall_record_contents file []) contents ;
+      (*Event.Record needs a special case to handle snapshots*)
+      if ty = "event" then generate_snapshot_hack file ;
+      fprintf file "        return record;\n"
+  | Option ty ->
+      gen_marshall_body file ty
+
+let rec gen_marshall_func file ty =
+  match ty with
+  | Option x ->
+      if TypeSet.mem x !types then
+        ()
+      else
+        gen_marshall_func file ty
+  | _ ->
+      let type_string = get_java_type ty in
+      fprintf file {|   /**
+    * Converts an {@link Object} to a {@link %s} object.
+    * <br />
+    * This method takes an {@link Object} as input and attempts to convert it into a {@link %s} object.
+    * If the input object is null, the method returns null. Otherwise, it creates a new {@link %s}
+    * object using the input object's {@link String} representation.
+    * <br />
+    * @param object The {@link Object} to be converted to a {@link %s} object.
+    * @return A {@link %s} object created from the input {@link Object}'s {@link String} representation,
+    *         or null if the input object is null.
+    * @deprecated this method will not be publicly exposed in future releases of this package.
+    */
+    @Deprecated
+|} type_string type_string type_string type_string type_string ;
+      let fn_name = get_marshall_function ty in
+
+      if match ty with | Map _ | Record _ -> true | _ -> false then
+        fprintf file "    @SuppressWarnings(\"unchecked\")\n";
+      
+      fprintf file "    public static %s %s(Object object) {\n" type_string
+        fn_name ;
+      fprintf file "        if (object == null) {\n" ;
+      fprintf file "            return null;\n" ;
+      fprintf file "        }\n" ;
+      gen_marshall_body file ty ;
+      fprintf file "    }\n\n"
+(***)
+
 let gen_enum file name ls =
   let name = class_case name in
   let ls =
@@ -615,11 +832,11 @@ let gen_enum file name ls =
     in
     let json_property =
       if name != "UNRECOGNIZED" then
-        {|@JsonProperty("|} ^ name ^ {|"|}
+        {|@JsonProperty("|} ^ name ^ {|")|}
       else
         "@JsonEnumDefaultValue"
     in
-    comment ^ "        " ^ json_property ^ "\n" ^ "        " ^ enum_of_wire name
+    comment ^ "        \n" ^ json_property ^ "\n" ^ "        " ^ enum_of_wire name
   in
   fprintf file "%s" (String.concat ",\n" (List.map to_member_declaration ls)) ;
   fprintf file ";\n" ;
@@ -700,7 +917,7 @@ let gen_types_class folder =
   print_license file ;
   fprintf file
     {|package com.xensource.xenapi;
-import java.util.Map;
+import java.util.*;
 import com.fasterxml.jackson.annotation.JsonEnumDefaultValue;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.io.IOException;
@@ -760,6 +977,7 @@ public class Types
            return sb.toString();
        }
    }
+
    /**
     * Thrown if the response from the server contains an invalid status.
     */
@@ -802,7 +1020,24 @@ public class Types
   fprintf file "\n" ;
   Hashtbl.iter (gen_error file) Datamodel.errors ;
   fprintf file "\n" ;
-  fprintf file "}\n"
+  TypeSet.iter (gen_marshall_func file) !types ;
+  fprintf file "\n" ;
+  TypeSet.iter (gen_task_result_func file) !types ;
+  fprintf file
+{|
+    public static EventBatch toEventBatch(Object object) {
+      if (object == null) {
+          return null;
+      }
+      Map map = (Map) object;
+      EventBatch batch = new EventBatch();
+      batch.token = toString(map.get("token"));
+      batch.validRefCounts = map.get("valid_ref_counts");
+      batch.events = toSetOfEventRecord(map.get("events"));
+      return batch;
+    }
+}
+|}
 
 (* Now run it *)
 
