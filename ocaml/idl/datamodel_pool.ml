@@ -44,6 +44,7 @@ let operations =
         , "Indicates the primary host is sending its certificates to another \
            host"
         )
+      ; ("eject", "Ejection of a host from the pool is under way")
       ]
     )
 
