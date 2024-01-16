@@ -121,7 +121,9 @@ class Session(xmlrpclib.ServerProxy):
 
     def __init__(self, uri, transport=None, encoding=None, verbose=0,
                  allow_none=1, ignore_ssl=False):
-
+        if sys.version_info >= (3,):
+            verbose = verbose != 0
+            allow_none = allow_none != 0
         # Fix for CA-172901 (+ Python 2.4 compatibility)
         # Fix for context=ctx ( < Python 2.7.9 compatibility)
         if not (sys.version_info[0] <= 2 and sys.version_info[1] <= 7 and sys.version_info[2] <= 9 ) \
@@ -176,13 +178,15 @@ class Session(xmlrpclib.ServerProxy):
             self.last_login_params = params
             self.API_version = self._get_api_version()
         except socket.error as e:
-            if e.errno == socket.errno.ETIMEDOUT:
+            if e.errno == socket.errno.ETIMEDOUT:  # pytype: disable=module-attr
                 raise xmlrpclib.Fault(504, 'The connection timed out')
             else:
                 raise e
 
     def _logout(self):
         try:
+            if sys.version_info >= (3,):
+                raise NotImplementedError
             if self.last_login_method.startswith("slave_local"):
                 return _parse_result(self.session.local_logout(self._session))
             else:

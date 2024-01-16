@@ -73,6 +73,8 @@ jobs:
           python-version: '3.10'
           cache: 'pip'
 
+      - run: sudo apt-get install -y libcurl4-nss-dev
+
       - uses: actions/cache@v3
         name: Setup cache for running pre-commit fast
         with:

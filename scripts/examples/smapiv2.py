@@ -13,7 +13,7 @@ def reopenlog(log_file):
     if log_file:
         try:
             log_f = open(log_file, "a")
-        except FilenotFoundError:
+        except IOError:
             log_f = open(log_file, "w")
     else:
         log_f = open(os.dup(sys.stdout.fileno()), "a")

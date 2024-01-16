@@ -120,7 +120,7 @@ class TestUsbScan(unittest.TestCase):
     @nottest
     def test_usb_common(self, moc_devices, moc_interfaces, moc_results,
                         path="./scripts/usb-policy.conf"):
-        import usb_scan
+        from . import usb_scan
         mock_setup(usb_scan, moc_devices, moc_interfaces, path)
 
         devices, interfaces = usb_scan.get_usb_info()
@@ -136,7 +136,7 @@ class TestUsbScan(unittest.TestCase):
         with self.assertRaises(SystemExit) as cm:
             self.test_usb_common(devices, interfaces, results, path)
         if msg:
-            self.assertIn(msg, cm.exception.code)
+            self.assertIn(msg, str(cm.exception))
 
     def test_usb_dongle(self):
         devices = [

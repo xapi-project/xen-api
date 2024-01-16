@@ -15,6 +15,7 @@ from __future__ import print_function
 import json
 import os
 import re
+import subprocess
 import sys
 import syslog
 import tempfile
@@ -113,6 +114,7 @@ def get_config_file():
 
 
 def load_mail_language(mail_language):
+    mail_language_file = ""
     try:
         mail_language_file = os.path.join(
             mail_language_pack_path, mail_language + ".json"
@@ -1024,13 +1026,18 @@ def main():
         # Write out a temporary file containing the new config
         fd, fname = tempfile.mkstemp(prefix="mail-", dir="/tmp")
         try:
-            os.write(fd, config)
+            os.write(fd, config.encode())
             os.close(fd)
 
             # Run ssmtp to send mail
-            chld_stdin, chld_stdout = os.popen2(
-                ["/usr/sbin/ssmtp", "-C%s" % fname, destination]
+            
+            proc = subprocess.Popen(
+                ["/usr/sbin/ssmtp", "-C%s" % fname, destination],
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE
             )
+            chld_stdin = proc.stdin
+            assert chld_stdin
             chld_stdin.write("From: %s\n" % sender)
             chld_stdin.write('Content-Type: text/plain; charset="%s"\n' % charset)
             chld_stdin.write("To: %s\n" % destination.encode(charset))
@@ -1040,6 +1047,9 @@ def main():
             chld_stdin.write("\n")
             chld_stdin.write(msg.generate_email_body().encode(charset))
             chld_stdin.close()
+            proc.communicate()
+            chld_stdout = proc.stdout
+            assert chld_stdout
             chld_stdout.close()
             os.wait()
 

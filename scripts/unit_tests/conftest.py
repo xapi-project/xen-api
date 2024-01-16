@@ -23,7 +23,8 @@ def pytest_configure(config):  # pylint: disable=unused-argument
 
     :param config: The pytest configuration object.
     """
-    sys._called_from_pytest = True  # pylint: disable=protected-access
+    # pylint: disable=protected-access
+    sys._called_from_pytest = True  # type: ignore[attr-defined]
 
 
 def pytest_unconfigure(config):  # pylint: disable=unused-argument
@@ -35,7 +36,7 @@ def pytest_unconfigure(config):  # pylint: disable=unused-argument
 
     :param config: The pytest configuration object.
     """
-    del sys._called_from_pytest
+    del sys._called_from_pytest  # type: ignore[attr-defined]
 
 
 @pytest.fixture(scope="function")

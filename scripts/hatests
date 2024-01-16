@@ -1,15 +1,15 @@
 #!/usr/bin/env python
 
-from __future__ import print_function
+
 import XenAPI
 import getopt
 import sys
 import os
-import commands
+import subprocess
 import random
 import time
-import httplib
-import urllib
+import http.client
+import urllib.request, urllib.parse, urllib.error
 
 def check(svm, ip):
     """
@@ -20,7 +20,7 @@ def check(svm, ip):
     global hosts
     global vmrunning
     flag = True
-    masterref2 = svm.xenapi.pool.get_all_records().values()[0]['master']
+    masterref2 = list(svm.xenapi.pool.get_all_records().values())[0]['master']
     if masterref2 != masterref :
         print("From " + ip + " point of view the pool master is " + svm.xenapi.host.get_record(masterref2)["address"])
         flag = False
@@ -28,18 +28,18 @@ def check(svm, ip):
     if len(hosts) != len(hosts2) :
         print("From " + ip + " point of view the number of hosts is changed.")
         flag = False
-        for k in hosts.keys() :
+        for k in list(hosts.keys()) :
             if k not in hosts2 :
                 print("From " + ip + " point of view " + hosts[k]["address"] + " is not present any more.")
     vmrecords2 = svm.xenapi.VM.get_all_records()
     vmrunning2 = {}
-    for k, v in vmrecords2.iteritems() :
+    for k, v in list(vmrecords2.items()) :
         if v['power_state'] == 'Running' and int(v['domid']) == 0:
             vmrunning2[k] = v
     if len(vmrunning) != len(vmrunning2) :
         print("From " + ip + " point of view some VMs have changed state.")
         flag = False
-        for k, v in vmrunning.iteritems() :
+        for k, v in list(vmrunning.items()) :
             if k not in vmrunning2 :
                 print("From " + ip + " point of view " + v['name_label'] + " is not online any more.")
     if flag :
@@ -95,9 +95,9 @@ s.login_with_password('root', 'xenroot', '1.0', 'xen-api-scripts-hatest')
 slaves = []
 master = None
 vmrecords = s.xenapi.VM.get_all_records()
-for k, v in vmrecords.iteritems() :
+for k, v in vmrecords.items() :
     if v['power_state'] == 'Running' and int(v['domid']) > 0:
-        ip = commands.getoutput("xenstore-ls /local/domain/" + v['domid'] + " | grep ip")
+        ip = subprocess.getoutput("xenstore-ls /local/domain/" + v['domid'] + " | grep ip")
         try:
             ip = ip.split()[2]
             ip = ip[1:-1]
@@ -109,14 +109,14 @@ for k, v in vmrecords.iteritems() :
 svm = XenAPI.Session("http://" +  slaves[0][1])
 try :
     svm.login_with_password('root', 'xenroot', '1.0', 'xen-api-scripts-hatest')
-    masterref = svm.xenapi.pool.get_all_records().values()[0]['master']
+    masterref = list(svm.xenapi.pool.get_all_records().values())[0]['master']
     masterrecord = svm.xenapi.host.get_record(masterref)
     masterip = masterrecord['address']
 except XenAPI.Failure as inst:
     masterip = inst.details[1]
     svm = XenAPI.Session("http://" +  masterip)
     svm.login_with_password('root', 'xenroot', '1.0', 'xen-api-scripts-hatest')
-    masterref = svm.xenapi.pool.get_all_records().values()[0]['master']
+    masterref = list(svm.xenapi.pool.get_all_records().values())[0]['master']
 for i in slaves :
     if masterip == i[1] :
         master = i
@@ -127,13 +127,13 @@ print("Master ip address is " + master[1])
 #getting ip -> hostref references
 hosts = {}
 hostsrecs = svm.xenapi.host.get_all_records()
-for k, v in hostsrecs.iteritems() :
+for k, v in hostsrecs.items() :
     hosts[v['address']] = k
 
 #getting the VM running
 vmrunning = {}
 vmrecords = svm.xenapi.VM.get_all_records()
-for k, v in vmrecords.iteritems() :
+for k, v in vmrecords.items() :
     if v['power_state'] == 'Running' and int(v['domid']) == 0:
         vmrunning[k] = v
 
@@ -160,7 +160,7 @@ elif sys.argv[-1] == "slave_hard_failure" :
 elif sys.argv[-1] == "master_vif_unplug" :
     print("Unplugging the first found attached VIF in the master")
     allvifs = s.xenapi.VIF.get_all_records()
-    for k, v in allvifs.iteritems() :
+    for k, v in allvifs.items() :
         if v['currently_attached'] and v['VM'] == master[0]:
             vifbringup = k
             s.xenapi.VIF.unplug(vifbringup)
@@ -195,7 +195,7 @@ sys.stdout.write("\n")
 print("Collecting logs now...")
 try :
     fileout = open("master-" + master[1] + "-log.tar.bz2", "w")
-    f = urllib.urlopen("http://root:xenroot@" + master[1] + "/system-status?host_id=" + hosts[master[1]])
+    f = urllib.request.urlopen("http://root:xenroot@" + master[1] + "/system-status?host_id=" + hosts[master[1]])
     buf = f.read(50)
     if len(buf) == 0 :
         print(master[1] + " returned an empty log.")
@@ -215,7 +215,7 @@ except:
 for k, ip in slaves :
     try :
         fileout = open("slave-" + ip + "-log.tar.bz2", "w")
-        f = urllib.urlopen("http://root:xenroot@" + ip + "/system-status?host_id=" + hosts[ip])
+        f = urllib.request.urlopen("http://root:xenroot@" + ip + "/system-status?host_id=" + hosts[ip])
         buf = f.read(50)
         if len(buf) == 0 :
             print(ip + " returned an empty log.")

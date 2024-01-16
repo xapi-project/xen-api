@@ -7,6 +7,8 @@ import os
 import shutil
 import sys
 import unittest
+from scripts.unit_tests.import_helper import import_file_as_module
+
 import mock
 
 def nottest(obj):
@@ -63,10 +65,7 @@ class TestXapiMessage(unittest.TestCase):
         try:
             self.work_dir = tempfile.mkdtemp(prefix="test-mail-alarm-")
             log_file_global = os.path.join(self.work_dir, "user.log")
-            src_file = "./scripts/mail-alarm"
-            dst_file = os.path.join(self.work_dir, "mailalarm.py")
-            shutil.copyfile(src_file, dst_file)
-            sys.path.append(self.work_dir)
+            self.mail_alarm = import_file_as_module("scripts/mail-alarm")
         except:
             raise
 
@@ -83,7 +82,7 @@ class TestXapiMessage(unittest.TestCase):
         body_str,
         xmlbody_str=XML_BODY_COMMON,
     ):
-        import mailalarm
+        mailalarm = self.mail_alarm
 
         # Emulate functions with Mock
         mock_setup(mailalarm)
@@ -111,7 +110,7 @@ class TestXapiMessage(unittest.TestCase):
         xmlbody_str=XML_BODY_COMMON,
     ):
         global log_file_global
-        import mailalarm
+        mailalarm = self.mail_alarm
 
         # Emulate functions with Mock
         mock_setup(mailalarm)

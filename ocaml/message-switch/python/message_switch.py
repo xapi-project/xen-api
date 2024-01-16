@@ -273,7 +273,7 @@ class Receiver(Thread):
     def set_listen_callback(self, listen_callback):
         self.listen_callback = listen_callback
     def run(self):
-        ack_to = -1L
+        ack_to = -1
         timeout = 5.0
         while True:
             messages = transfer(self.sock, self.reader, ack_to, timeout)

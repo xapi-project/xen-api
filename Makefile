@@ -34,6 +34,10 @@ ifneq ($(PY_TEST), NO)
 	dune build @runtest-python --profile=$(PROFILE)
 endif
 
+pytype:
+	pip3 install --upgrade pytype
+	./run_pytype.py
+
 stresstest:
 	dune build @stresstest --profile=$(PROFILE) --no-buffer -j $(JOBS)
 

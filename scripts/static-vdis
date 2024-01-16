@@ -78,7 +78,7 @@ def check_clusterstack(ty):
 
 def sr_attach(ty, device_config):
     check_clusterstack(ty)
-
+    assert device_config
     args = [arg for (k,v) in device_config.items()
             for arg in ["--configuration", k, v]]
     return call_volume_plugin(ty, "SR.attach", args)
@@ -239,6 +239,7 @@ def call_backend_attach(driver, config):
 
 def call_backend_detach(driver, config):
     params = xmlrpc.client.loads(config)[0][0]
+    assert params
     params['command'] = 'vdi_detach_from_config'
     config = xmlrpc.client.dumps(tuple([params]), params['command'])
     xml = doexec([ driver, config ])

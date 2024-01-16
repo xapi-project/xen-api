@@ -157,7 +157,7 @@ def dev_path(device):
         exit(1)
 
 
-def get_ctl(path, mode):
+def get_ctl(path, mode):  # type:(str, str) -> str
     """get the string to control device access for cgroup
     :param path: the device file path
     :param mode: either "r" or "rw"
@@ -200,7 +200,7 @@ def deny_device(path, domid):
     _device_ctl(path, domid, False)
 
 
-def setup_cgroup(domid, pid):
+def setup_cgroup(domid, pid):  # type:(str, str) -> None
     cg_dir = get_cg_dir(domid)
 
     try:
@@ -212,17 +212,17 @@ def setup_cgroup(domid, pid):
 
     try:
         # unbuffered write to ensure each one is flushed immediately
-        with open(cg_dir + "/tasks", "w", 0) as tasks, \
-                open(cg_dir + "/devices.deny", "w", 0) as deny, \
-                open(cg_dir + "/devices.allow", "w", 0) as allow:
+        with open(cg_dir + "/tasks", "wb", 0) as tasks, \
+                open(cg_dir + "/devices.deny", "wb", 0) as deny, \
+                open(cg_dir + "/devices.allow", "wb", 0) as allow:
 
             # deny all
-            deny.write("a")
+            deny.write(b"a")
 
             # grant rw access to /dev/null by default
-            allow.write(get_ctl("/dev/null", "rw"))
+            allow.write(get_ctl("/dev/null", "rw").encode())
 
-            tasks.write(str(pid))
+            tasks.write(str(pid).encode())
 
     except (IOError, OSError, RuntimeError) as e:
         log.error("Failed to setup cgroup: {}".format(str(e)))

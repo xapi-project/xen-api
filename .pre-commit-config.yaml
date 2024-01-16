@@ -57,5 +57,18 @@ repos:
     rev: v1.8.0
     hooks:
     -   id: mypy
-        files: ^scripts/unit_tests/
+        files: ^scripts/(unit_tests|usb_reset.py)
         additional_dependencies: [pytest-mock, types-mock]
+
+
+-   repo: local
+    hooks:
+    -   id: pytype
+        name: pytype
+        entry: python3 run_pytype.py
+        types: [python]
+        verbose: true
+        language: python
+        pass_filenames: false
+        require_serial: true
+        additional_dependencies: [pandas, pytype, pyudev, XenAPI, urlgrabber]

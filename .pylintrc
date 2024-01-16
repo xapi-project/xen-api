@@ -41,6 +41,7 @@ verbose=yes
 disable=
     bad-option-value, # old pylint for py2: ignore newer (unknown) pylint options
     bad-continuation, # old pylint warns about some modern black formatting
+    consider-using-f-string,
     useless-option-value, # new pylint has abaondoned these old options
 
 [BASIC]

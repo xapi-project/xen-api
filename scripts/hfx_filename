@@ -33,9 +33,9 @@ def rpc(session_id, request):
         ]
         #print "Sending HTTP request:"
         for h in headers:
-          s.send("%s\r\n" % h)
+          s.send((h + "\r\n").encode())
           #print "%s\r\n" % h,
-        s.send(request)
+        s.send(request.encode())
 
         result = s.recv(1024)
         #print "Received HTTP response:"
@@ -43,10 +43,10 @@ def rpc(session_id, request):
         if "200 OK" not in result:
           print("Expected an HTTP 200, got %s" % result, file=sys.stderr)
           return
-        id = result.find("\r\n\r\n")
+        id = result.find(b"\r\n\r\n")
         headers = result[:id]
-        for line in headers.split("\r\n"):
-          cl = "content-length:"
+        for line in headers.split(b"\r\n"):
+          cl = b"content-length:"
           if line.lower().startswith(cl):
              length = int(line[len(cl):].strip())
         body = result[id+4:]
@@ -55,6 +55,7 @@ def rpc(session_id, request):
         s.close()
 
 def parse_string(txt):
+    assert isinstance(txt, str)
     prefix = "<value><array><data><value>success</value><value>"
     if not txt.startswith(prefix):
         raise "Unable to parse string response"

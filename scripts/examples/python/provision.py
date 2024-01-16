@@ -62,7 +62,7 @@ class ProvisionSpec:
 
 def parseProvisionSpec(txt):
     """Return an instance of type ProvisionSpec given XML text"""
-    doc = xml.dom.minidom.parseString(txt)
+    doc = xml.dom.minidom.parseString(txt)  # pytype: disable=pyi-error
     all = doc.getElementsByTagName("provision")
     if len(all) != 1:
         raise ValueError("Expected to find exactly one <provision> element")
@@ -74,7 +74,7 @@ def parseProvisionSpec(txt):
 
 def printProvisionSpec(ps):
     """Return a string containing pretty-printed XML corresponding to the supplied provisioning spec"""
-    doc = xml.dom.minidom.Document()
+    doc = xml.dom.minidom.Document()  # pytype: disable=pyi-error
     doc.appendChild(ps.toElement(doc))
     return doc.toprettyxml()
 
