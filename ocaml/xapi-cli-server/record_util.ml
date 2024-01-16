@@ -177,6 +177,8 @@ let pool_operation_to_string = function
       "exchange_ca_certificates_on_join"
   | `copy_primary_host_certs ->
       "copy_primary_host_certs"
+  | `eject ->
+      "eject"
 
 let host_operation_to_string = function
   | `provision ->

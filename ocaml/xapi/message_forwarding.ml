@@ -788,6 +788,10 @@ functor
         info "Pool.eject: pool = '%s'; host = '%s'"
           (current_pool_uuid ~__context)
           (host_uuid ~__context host) ;
+        let pool = Helpers.get_pool ~__context in
+        Xapi_pool_helpers.with_pool_operation ~__context ~doc:"Pool.eject"
+          ~self:pool ~op:`eject
+        @@ fun () ->
         let master = Helpers.get_master ~__context in
         let local_fn = Local.Pool.eject ~host in
         let other =
