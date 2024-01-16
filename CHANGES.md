@@ -1,3 +1,6 @@
+## Unreleased
+- std: add Listext.List.find_minimum
+
 ## v4.23.0 (30-Oct-2023)
 - unix: fix blkgetsize return type mismatch (CA-382014)
 - unix: add function to recursively remove files

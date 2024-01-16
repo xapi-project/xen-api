@@ -196,4 +196,8 @@ module List = struct
         aux ((upper - 1) :: accu) (upper - 1)
     in
     aux []
+
+  let find_minimum compare =
+    let min a b = if compare a b <= 0 then a else b in
+    function [] -> None | x :: xs -> Some (List.fold_left min x xs)
 end
