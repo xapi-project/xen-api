@@ -29,7 +29,11 @@ module M = struct
 
     let any = Lwt.choose
 
+    let all = Lwt.all
+
     let is_determined t = Lwt.state t <> Lwt.Sleep
+
+    let return_unit = Lwt.return_unit
   end
 
   let connect path =
@@ -75,6 +79,18 @@ module M = struct
     let with_lock = Lwt_mutex.with_lock
   end
 
+  module Condition = struct
+    type 'a t = 'a Lwt_condition.t
+
+    let create = Lwt_condition.create
+
+    let signal = Lwt_condition.signal
+
+    let wait c = Lwt_condition.wait c
+
+    let broadcast = Lwt_condition.broadcast
+  end
+
   module Clock = struct
     type timer = unit Lwt.t
 
@@ -90,3 +106,4 @@ end
 
 module Client = Message_switch_core.Make.Client (M)
 module Server = Message_switch_core.Make.Server (M)
+module Mtest = Message_switch_core.Mtest.Make (M)
