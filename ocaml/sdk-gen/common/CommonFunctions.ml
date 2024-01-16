@@ -122,6 +122,9 @@ let get_prototyped_release lifecycle =
 let get_published_release lifecycle =
   lifecycle_matcher Lifecycle.Published lifecycle
 
+let get_deprecated_release lifecycle =
+  lifecycle_matcher Lifecycle.Published lifecycle
+
 let get_release_branding codename =
   try
     let found =

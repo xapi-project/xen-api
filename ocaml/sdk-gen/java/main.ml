@@ -204,14 +204,20 @@ let get_java_type_or_void = function
 (* it has a self parameter or not.*)
 
 (*Similar functions for deprecation of methods*)
-let get_method_deprecated message =
-  message.msg_release.internal_deprecated_since <> None
 
-let get_method_deprecated_string message =
-  if get_method_deprecated message then
-    "@Deprecated"
-  else
-    ""
+let get_method_deprecated_release_name message =
+  match message.msg_release.internal_deprecated_since with
+  | Some version ->
+      Some (get_release_branding version)
+  | None ->
+      None
+
+let get_method_deprecated_annotation message =
+  match get_method_deprecated_release_name message with
+  | Some version ->
+      {|@Deprecated(since = "|} ^ version ^ {|")|}
+  | None ->
+      ""
 
 let get_method_param {param_type= ty; param_name= name; _} =
   let ty = get_java_type ty in
@@ -244,7 +250,6 @@ let rec range = function 0 -> [] | i -> range (i - 1) @ [i]
 
 (* Here is the main method generating function.*)
 let gen_method file cls message params async_version =
-  let deprecated_string = get_method_deprecated_string message in
   let return_type =
     if
       String.lowercase_ascii cls.name = "event"
@@ -276,7 +281,14 @@ let gen_method file cls message params async_version =
   fprintf file "     * Minimum allowed role: %s\n"
     (get_minimum_allowed_role message) ;
   if not (publishInfo = "") then fprintf file "     * %s\n" publishInfo ;
-  if get_method_deprecated message then fprintf file "     * @deprecated\n" ;
+  let deprecated_info =
+    match get_method_deprecated_release_name message with
+    | Some version ->
+        "     * @deprecated since " ^ version ^ "\n"
+    | None ->
+        ""
+  in
+  fprintf file "%s" deprecated_info ;
   fprintf file "     *\n" ;
   fprintf file "     * @param c The connection the call is made on\n" ;
 
@@ -313,13 +325,20 @@ let gen_method file cls message params async_version =
     )
     message.msg_errors ;
 
-  fprintf file "     */\n" ;
+  fprintf file "    */\n" ;
 
+  let deprecated_string =
+    match get_method_deprecated_annotation message with
+    | "" ->
+        ""
+    | other ->
+        "    " ^ other ^ "\n"
+  in
   if async_version then
-    fprintf file "   %s public %sTask %sAsync(%s) throws\n" deprecated_string
+    fprintf file "%s    public %sTask %sAsync(%s) throws\n" deprecated_string
       method_static method_name paramString
   else
-    fprintf file "   %s public %s%s %s(%s) throws\n" deprecated_string
+    fprintf file "%s    public %s%s %s(%s) throws\n" deprecated_string
       method_static return_type method_name paramString ;
 
   let all_errors =
@@ -415,7 +434,12 @@ let gen_record_field file prefix field cls =
   if not (publishInfo = "") then fprintf file "         * %s\n" publishInfo ;
   fprintf file "         */\n" ;
   fprintf file "        @JsonProperty(\"%s\")\n" full_name ;
-  fprintf file "        public %s %s;\n" ty name
+
+  if field.lifecycle.state = Lifecycle.Deprecated_s then
+    fprintf file "        @Deprecated(since  = \"%s\")\n"
+      (get_release_branding (get_deprecated_release field.lifecycle.transitions)) ;
+
+  fprintf file "        public %s %s;\n\n" ty name
 
 let rec gen_record_namespace file prefix (name, contents) cls =
   List.iter (gen_record_contents file (name :: prefix) cls) contents
@@ -678,7 +702,8 @@ and gen_marshall_record_contents file prefix = function
 (* that's been registered as a marshall-needing type*)
 
 let generate_reference_task_result_func file clstr =
-  fprintf file {|    /**
+  fprintf file
+    {|    /**
      * Attempt to convert the {@link Task}'s result to a {@link %s} object.
      * Will return null if the method cannot fetch a valid value from the {@link Task} object.
      * @param task The task from which to fetch the result.
@@ -688,13 +713,13 @@ let generate_reference_task_result_func file clstr =
      * @throws XenAPIException if the call failed.
      * @throws IOException if an error occurs during a send or receive. This includes cases where a payload is invalid JSON.
      */
-|} clstr;
-  fprintf file
-    "    public static %s to%s(Task task, Connection connection) throws IOException {\n"
-    clstr clstr ;
-  fprintf file
-    "        return Types.to%s(task.getResult(connection));\n"
+|}
     clstr ;
+  fprintf file
+    "    public static %s to%s(Task task, Connection connection) throws \
+     IOException {\n"
+    clstr clstr ;
+  fprintf file "        return Types.to%s(task.getResult(connection));\n" clstr ;
   fprintf file "    }\n" ;
   fprintf file "\n"
 
@@ -785,7 +810,8 @@ let rec gen_marshall_func file ty =
         gen_marshall_func file ty
   | _ ->
       let type_string = get_java_type ty in
-      fprintf file {|   /**
+      fprintf file
+        {|   /**
     * Converts an {@link Object} to a {@link %s} object.
     * <br />
     * This method takes an {@link Object} as input and attempts to convert it into a {@link %s} object.
@@ -798,12 +824,13 @@ let rec gen_marshall_func file ty =
     * @deprecated this method will not be publicly exposed in future releases of this package.
     */
     @Deprecated
-|} type_string type_string type_string type_string type_string ;
+|}
+        type_string type_string type_string type_string type_string ;
       let fn_name = get_marshall_function ty in
 
-      if match ty with | Map _ | Record _ -> true | _ -> false then
-        fprintf file "    @SuppressWarnings(\"unchecked\")\n";
-      
+      if match ty with Map _ | Record _ -> true | _ -> false then
+        fprintf file "    @SuppressWarnings(\"unchecked\")\n" ;
+
       fprintf file "    public static %s %s(Object object) {\n" type_string
         fn_name ;
       fprintf file "        if (object == null) {\n" ;
@@ -836,7 +863,7 @@ let gen_enum file name ls =
       else
         "@JsonEnumDefaultValue"
     in
-    comment ^ "        \n" ^ json_property ^ "\n" ^ "        " ^ enum_of_wire name
+    comment ^ "\n        " ^ json_property ^ "\n        " ^ enum_of_wire name
   in
   fprintf file "%s" (String.concat ",\n" (List.map to_member_declaration ls)) ;
   fprintf file ";\n" ;
@@ -1024,7 +1051,7 @@ public class Types
   fprintf file "\n" ;
   TypeSet.iter (gen_task_result_func file) !types ;
   fprintf file
-{|
+    {|
     public static EventBatch toEventBatch(Object object) {
       if (object == null) {
           return null;

@@ -4,6 +4,12 @@ exception Unknown_wire_protocol
 (** Type representing supported protocols. *)
 type wireProtocol = XmlRpc | JsonRpc
 
+val get_deprecated_release :
+  (Datamodel_types.Lifecycle.change * string * 'a) list -> string
+(** [get_deprecated_release codename] Gets the non-branded release name for a lifecycle if it's deprecated
+    @param lifecycle The lifecycle transitions to check.
+    @return The non-branded release name for a lifecycle if it's deprecated, empty if not deprecated *)
+
 val get_release_branding : string -> string
 (** [get_release_branding codename] Gets the branding for a release codename.
     @param codename Release codename to lookup.
