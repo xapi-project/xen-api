@@ -462,19 +462,6 @@ let proxy (a : Unix.file_descr) (b : Unix.file_descr) =
     try Unix.close b with _ -> ()
   )
 
-let rec really_read fd string off n =
-  if n = 0 then
-    ()
-  else
-    let m = Unix.read fd string off n in
-    if m = 0 then raise End_of_file ;
-    really_read fd string (off + m) (n - m)
-
-let really_read_string fd length =
-  let buf = Bytes.make length '\000' in
-  really_read fd buf 0 length ;
-  Bytes.unsafe_to_string buf
-
 let try_read_string ?limit fd =
   let buf = Buffer.create 0 in
   let chunk = match limit with None -> 4096 | Some x -> x in
@@ -522,6 +509,19 @@ and really_write fd buffer offset len =
 (* Ideally, really_write would be implemented with optional arguments ?(off=0) ?(len=String.length string) *)
 let really_write_string fd string =
   really_write fd string 0 (String.length string)
+
+let rec really_read fd string off n =
+  if n = 0 then
+    ()
+  else
+    let m = restart_on_EINTR (Unix.read fd string off) n in
+    if m = 0 then raise End_of_file ;
+    really_read fd string (off + m) (n - m)
+
+let really_read_string fd length =
+  let buf = Bytes.make length '\000' in
+  really_read fd buf 0 length ;
+  Bytes.unsafe_to_string buf
 
 (* --------------------------------------------------------------------------------------- *)
 (* Functions to read and write to/from a file descriptor with a given latest response time *)
