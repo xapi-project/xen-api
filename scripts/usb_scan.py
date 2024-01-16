@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 #
 # Copyright (C) Citrix Systems Inc.
 #
@@ -21,16 +21,15 @@
 # 2. check if device can be passed through based on policy file
 # 3. return the device info to XAPI in json format
 
-
+from __future__ import print_function
 import abc
 import argparse
 import json
+import xcp.logger as log
 import logging
+import pyudev
 import re
 import sys
-
-import pyudev
-import xcp.logger as log
 
 
 def log_list(l):
