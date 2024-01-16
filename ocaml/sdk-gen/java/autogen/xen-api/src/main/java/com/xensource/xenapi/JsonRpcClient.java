@@ -32,6 +32,7 @@ package com.xensource.xenapi;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.module.SimpleModule;
 import org.apache.hc.client5.http.classic.methods.HttpPost;
 import org.apache.hc.client5.http.config.ConnectionConfig;
 import org.apache.hc.client5.http.config.RequestConfig;
@@ -45,7 +46,7 @@ import org.apache.hc.core5.util.Timeout;
 
 import java.io.IOException;
 import java.net.URL;
-import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -209,7 +210,9 @@ public class JsonRpcClient {
      * Helper method to initialize jackson's ObjectMapper.
      */
     private void initializeObjectMapperConfiguration() {
-        this.objectMapper.setDateFormat(new SimpleDateFormat("yyyyMMdd'T'HH:mm:ss'Z'"));
+        var dateHandlerModule = new SimpleModule("DateHandler");
+        dateHandlerModule.addDeserializer(Date.class, new CustomDateDeserializer());
+        this.objectMapper.registerModule(dateHandlerModule);
     }
 
     /**
