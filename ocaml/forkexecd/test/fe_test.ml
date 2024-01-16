@@ -18,7 +18,7 @@ type config = {
 
 let min_fds = 7
 
-let max_fds = 1024 - 11 (* fe daemon has a bunch for its own use *)
+let max_fds = 1024 - 13 (* fe daemon has a bunch for its own use *)
 
 let all_combinations fds =
   let y =
