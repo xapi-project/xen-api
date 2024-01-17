@@ -19,9 +19,6 @@ else:
 # For mocking open: builtins vs __builtin__ differs between Python2 and Python3:
 BUILTIN = "__builtin__" if sys.version_info < (3,) else "builtins"
 
-if sys.version_info >= (3, 0):
-    pytest.skip(allow_module_level=True)
-
 
 def assert_error(captured_logs, error_message):
     """Assert that the captured logs contain exactly the specified error message.
@@ -208,11 +205,11 @@ def test_open_unbuffered(usb_reset, tmp_path, mocker):
     ]
     mock_open_func.assert_has_calls(
         [
-            mocker.call(tmp + "/tasks", "w", 0),
+            mocker.call(tmp + "/tasks", "wb", 0),
             mocker.call().__enter__(),  # pylint: disable=unnecessary-dunder-call
-            mocker.call(tmp + "/devices.deny", "w", 0),
+            mocker.call(tmp + "/devices.deny", "wb", 0),
             mocker.call().__enter__(),  # pylint: disable=unnecessary-dunder-call
-            mocker.call(tmp + "/devices.allow", "w", 0),
+            mocker.call(tmp + "/devices.allow", "wb", 0),
             mocker.call().__enter__(),  # pylint: disable=unnecessary-dunder-call
             mocker.call().write(b"a"),
             mocker.call().write(b"c 1:3 rw"),

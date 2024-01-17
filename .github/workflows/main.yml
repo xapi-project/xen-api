@@ -43,7 +43,7 @@ jobs:
         uses: MishaKav/pytest-coverage-comment@main
         continue-on-error: true
         with:
-          junitxml-path: .git/pytest.xml
+          junitxml-path: .git/pytest27.xml
           pytest-xml-coverage-path: .git/coverage27.xml
           unique-id-for-comment: pre-commit-coverage-python27
           title: >
