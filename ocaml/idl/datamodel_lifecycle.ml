@@ -21,6 +21,16 @@ let prototyped_of_field = function
       Some "23.14.0"
   | "Repository", "gpgkey_path" ->
       Some "22.12.0"
+  | "Cluster_host", "last_update_live" ->
+      Some "24.2.1-next"
+  | "Cluster_host", "live" ->
+      Some "24.2.1-next"
+  | "Cluster", "live_hosts" ->
+      Some "24.2.1-next"
+  | "Cluster", "quorum" ->
+      Some "24.2.1-next"
+  | "Cluster", "is_quorate" ->
+      Some "24.2.1-next"
   | "VTPM", "contents" ->
       Some "22.26.0"
   | "VTPM", "is_protected" ->

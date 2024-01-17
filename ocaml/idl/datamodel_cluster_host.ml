@@ -121,6 +121,15 @@ let t =
             performed on this host. This field can be altered by calling leave \
             or destroy on a cluster host. It can also be set automatically if \
             cluster stack believes that this node is not part of the cluster. "
+       ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:Bool "live"
+           ~default_value:(Some (VBool false))
+           "Whether the underlying cluster stack thinks we are live. This \
+            field is set automatically based on updates from the cluster stack \
+            and cannot be altered by the user."
+       ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:DateTime
+           "last_update_live" ~default_value:(Some (VDateTime Date.epoch))
+           "Time when the live field was last updated based on information \
+            from the cluster stack"
        ]
       @ allowed_and_current_operations cluster_host_operation
       @ [

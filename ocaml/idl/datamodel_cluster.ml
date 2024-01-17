@@ -194,6 +194,15 @@ let t =
              (Some (VString Constants.default_smapiv3_cluster_stack))
            "Simply the string 'corosync'. No other cluster stacks are \
             currently supported"
+       ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:Bool "is_quorate"
+           ~default_value:(Some (VBool false))
+           "Whether the cluster stack thinks the cluster is quorate"
+       ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:Int "quorum"
+           ~default_value:(Some (VInt 0L))
+           "Number of live hosts in order to be quorate"
+       ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:Int "live_hosts"
+           ~default_value:(Some (VInt 0L))
+           "Current number of live hosts, according to the cluster stack"
        ]
       @ allowed_and_current_operations cluster_operation
       @ [
