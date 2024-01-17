@@ -57,5 +57,5 @@ repos:
     rev: v1.8.0
     hooks:
     -   id: mypy
-        files: ^scripts/unit_tests/
+        files: ^scripts/(unit_tests|usb_reset.py)
         additional_dependencies: [pytest-mock, types-mock]
