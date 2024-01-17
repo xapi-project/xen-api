@@ -8,29 +8,105 @@ on:
     - cron: '13 2 * * *'
 
 jobs:
-  python-test:
-    name: Python tests
+  python2-test:
+    name: Python2 tests
     runs-on: ubuntu-22.04
-    strategy:
-      fail-fast: false
-      matrix:
-        docker-image:  # See https://hub.docker.com/_/python/tags for images
-          - python:2.7.18-alpine3.11
-          - python:3.11.4-alpine3.18
-    container: ${{ matrix.docker-image }}
+    container: python:2.7.18-alpine3.11
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Install python 2 dependencies
-        if: ${{ startsWith(matrix.docker-image, 'python:2.7.18') }}
-        run: pip install enum
+      - name: Install Python2 dependencies
+        run: pip install enum mock pytest-coverage pytest-mock
 
-      - name: Install dependencies
-        run: pip install mock pytest
+      - name: Run Python2 tests
+        run: >
+          pytest --cov scripts scripts/ -vv -rA
+          --junitxml=.git/pytest27.xml
+          --cov-report term-missing
+          --cov-report html:.git/coverage27.html
+          --cov-report xml:.git/coverage27.xml
 
-      - name: Run python tests
-        run: pytest scripts
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          directory: .git
+          files: coverage27.xml
+          env_vars: OS,PYTHON
+          fail_ci_if_error: false
+          flags: python2.7
+          name: coverage27
+          verbose: true
+
+      - name: Add Pytest coverage comment (if write permission is available)
+        if: ${{ ! github.event.pull_request.head.repo.fork }}
+        uses: MishaKav/pytest-coverage-comment@main
+        continue-on-error: true
+        with:
+          junitxml-path: .git/pytest.xml
+          pytest-xml-coverage-path: .git/coverage27.xml
+          unique-id-for-comment: pre-commit-coverage-python27
+          title: >
+            Python2 coverage comment from
+            https://github.com/marketplace/actions/pytest-coverage-comment
+
+  python3-test:
+    name: Python3 tests
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # https://www.python4data.science/en/latest/productive/git/advanced/hooks/ci.html
+      - uses: actions/setup-python@v4
+        id: python
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+
+      - uses: actions/cache@v3
+        name: Setup cache for running pre-commit fast
+        with:
+            path: ~/.cache/pre-commit
+            key: pre-commit|${{ env.pythonLocation }}|${{ hashFiles('.pre-commit-config.yaml') }}
+
+      - run: echo "::add-matcher::.github/workflows/Python-problemMatcher-xen-api.json"
+
+      - uses: pre-commit/action@v3.0.0
+        name: Run pre-commit checks
+        with:
+          # Show the output of the commands for the problem matcher, see above.
+            extra_args: --all-files --verbose
+        env:
+          PYTHONDEVMODE: yes  # Enable Python3 checks. See the comment above.
+          # Skip the no-commit-to-branch check inside of GitHub CI (for CI on merge to master)
+          SKIP: no-commit-to-branch
+
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          directory: .git
+          env_vars: OS,PYTHON
+          # Whether the job should fail if Codecov runs into an error during upload.
+          # Not failing the job in this case is ok because the pre-commit checks
+          # also contain a diff-cover job which would fail on missing changed lines:
+          fail_ci_if_error: false
+          flags: ${{ format('python{0}', steps.python.outputs.python-version ) }}
+          name: coverage
+          verbose: true
+
+      - name: Add Pytest coverage comment (if write permission is available)
+        if: ${{ ! github.event.pull_request.head.repo.fork }}
+        uses: MishaKav/pytest-coverage-comment@main
+        continue-on-error: true
+        with:
+          junitxml-path: .git/pytest.xml
+          pytest-xml-coverage-path: .git/coverage.xml
+          unique-id-for-comment: pre-commit-coverage
+          title: >
+            Python3 coverage comment from
+            https://github.com/marketplace/actions/pytest-coverage-comment
+
 
   ocaml-test:
     name: Ocaml tests

@@ -1,0 +1,59 @@
+[MAIN]
+
+# Use multiple processes to speed up Pylint. Specifying 0 will auto-detect the
+# number of processors available to use, and will cap the count on Windows to
+# avoid hangs.
+jobs=2
+
+# Pickle collected data for later comparisons.
+persistent=yes
+
+# Discover python modules and packages in the file system subtree.
+recursive=yes
+
+# Add paths to the list of the source roots. Supports globbing patterns. The
+# source root is an absolute path or a path relative to the current working
+# directory used to determine a package namespace for modules located under the
+# source root.
+source-roots=
+    ocaml/xapi-storage/python,
+    scripts,
+    scripts/examples/python,
+
+# When enabled, pylint would attempt to guess common misconfiguration and emit
+# user-friendly hints instead of false-positive error messages.
+suggestion-mode=yes
+
+# In verbose mode, extra non-checker-related info will be displayed.
+verbose=yes
+
+[MESSAGES CONTROL]
+
+# Disable the message, report, category or checker with the given id(s). You
+# can either give multiple identifiers separated by comma (,) or put this
+# option multiple times (only on the command line, not in the configuration
+# file where it should appear only once). You can also use "--disable=all" to
+# disable everything first and then re-enable specific checks. For example, if
+# you want to run only the similarities checker, you can use "--disable=all
+# --enable=similarities". If you want to run only the classes checker, but have
+# no Warning level messages displayed, use "--disable=all --enable=classes
+# --disable=W".
+disable=
+    bad-option-value, # old pylint for py2: ignore newer (unknown) pylint options
+    bad-continuation, # old pylint warns about some modern black formatting
+    consider-using-f-string,
+    useless-option-value, # new pylint has abaondoned these old options
+
+[BASIC]
+
+# Good variable names which should always be accepted, separated by a comma.
+good-names=a,
+           b,
+           c,
+           f,
+           i,
+           j,
+           k,
+           ex,
+           Run,
+           _

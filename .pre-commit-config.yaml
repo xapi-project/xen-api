@@ -1,0 +1,61 @@
+# See https://pre-commit.com for more information
+# See https://pre-commit.com/hooks.html for more hooks
+# On the initial run, pre-commit downloads its checkers, subsequent runs are fast:
+#
+# $ pre-commit run    # automatically checks which checks are needed.
+# $ pre-commit run -a # runs all fixes and checks, even when not needed
+#
+# When this works, you can enable it as the pre-commit hook for this git clone:
+# $ pre-commit install
+# $ pre-commit install --hook-type pre-push
+repos:
+-   repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v3.2.0
+    hooks:
+    -   id: no-commit-to-branch
+        name: "Check against about accidental commits to the master branch"
+        args: [--branch, master]
+        always_run: true
+    -   id: trailing-whitespace
+        files: ^(tests/unit_test|.github)
+    -   id: end-of-file-fixer
+        files: ^(tests/unit_test|.github)
+    -   id: check-yaml
+    -   id: check-added-large-files
+
+
+-   repo: local
+    hooks:
+    -   id: pytest
+        name: pytest
+        entry: env PYTHONDEVMODE=yes python3 -m pytest
+            --cov scripts scripts
+            --junitxml=.git/pytest.xml
+            --cov-report term-missing
+            --cov-report html:.git/coverage.html
+            --cov-report xml:.git/coverage.xml
+        require_serial: true
+        pass_filenames: false
+        language: python
+        types: [python]
+        additional_dependencies:
+            - mock
+            - pytest-coverage
+            - pytest-mock
+
+
+-   repo: https://github.com/pycqa/pylint
+    rev: v3.0.3
+    hooks:
+    -   id: pylint
+        files: ^scripts/unit_tests/
+        log_file: ".git/pre-commit-pylint.log"
+        additional_dependencies: [mock, pytest]
+
+
+-   repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.8.0
+    hooks:
+    -   id: mypy
+        files: ^scripts/unit_tests/
+        additional_dependencies: [pytest-mock, types-mock]

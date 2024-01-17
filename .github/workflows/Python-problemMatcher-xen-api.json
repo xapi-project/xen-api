@@ -1,0 +1,17 @@
+{
+  "problemMatcher": [
+        {
+            "owner": "PYTHONWARNINGS",
+            "severity": "warning",
+            "pattern": [
+                {
+                    "regexp": "^.*/xen-api/(.+):([0-9]*):(.*):(.*)$",
+                    "file": 1,
+                    "line": 2,
+                    "code": 3,
+                    "message": 4
+                }
+            ]
+        }
+  ]
+}
