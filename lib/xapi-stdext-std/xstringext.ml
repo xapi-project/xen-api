@@ -74,8 +74,8 @@ module String = struct
         let aux h t =
           ( if List.mem_assoc h rules then
               List.assoc h rules
-          else
-            of_char h
+            else
+              of_char h
           )
           :: t
         in

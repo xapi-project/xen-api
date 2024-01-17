@@ -34,15 +34,15 @@ module UCS = struct
     false
     || (0xfdd0 <= value && value <= 0xfdef) (* case 1 *)
     || Int.logand 0xfffe value = 0xfffe
-    (* case 2 *)
-    [@@inline]
+  (* case 2 *)
+  [@@inline]
 end
 
 module XML = struct
   let is_illegal_control_character value =
     let value = Uchar.to_int value in
     value < 0x20 && value <> 0x09 && value <> 0x0a && value <> 0x0d
-    [@@inline]
+  [@@inline]
 end
 
 (* === UCS Validators === *)
@@ -55,7 +55,7 @@ module UTF8_UCS_validator = struct
   let validate value =
     if (UCS.is_non_character [@inlined]) (Uchar.to_int value) then
       raise UCS_value_prohibited_in_UTF8
-    [@@inline]
+  [@@inline]
 end
 
 module XML_UTF8_UCS_validator = struct

@@ -1,3 +1,7 @@
+## v4.24.0 (17-Jan-2024)
+- unix: really_read now retries reads on EINTR
+- std: add Listext.List.find_minimum
+
 ## v4.23.0 (30-Oct-2023)
 - unix: fix blkgetsize return type mismatch (CA-382014)
 - unix: add function to recursively remove files

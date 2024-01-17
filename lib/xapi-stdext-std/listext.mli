@@ -49,6 +49,13 @@ module List : sig
   val iteri_right : (int -> 'a -> unit) -> 'a list -> unit
   (** [iteri_right f l] is {!Stdlib.List.iteri}[ f (]{!Stdlib.List.rev}[ l)] *)
 
+  (** {1 List searching} *)
+
+  val find_minimum : ('a -> 'a -> int) -> 'a list -> 'a option
+  (** [find_minimum cmp l] returns the lowest element in [l] according to
+      the sort order of [cmp], or [None] if the list is empty. When two ore
+      more elements match the lowest value, the left-most is returned. *)
+
   (** {1 Using indices to manipulate lists} *)
 
   val chop : int -> 'a list -> 'a list * 'a list
