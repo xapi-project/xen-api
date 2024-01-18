@@ -14,6 +14,7 @@
 
 open Xapi_clustering
 open Xapi_cluster_helpers
+open Ipaddr_rpc_type
 
 module D = Debug.Make (struct let name = "xapi_cluster_host" end)
 
@@ -129,7 +130,20 @@ let join_internal ~__context ~self =
       let cluster_token =
         Db.Cluster.get_cluster_token ~__context ~self:cluster
       in
-      let ip = ip_of_pif (pIF, Db.PIF.get_record ~__context ~self:pIF) in
+      let ip_addr = ip_of_pif (pIF, Db.PIF.get_record ~__context ~self:pIF) in
+      let hostuuid = Inventory.lookup Inventory._installation_uuid in
+      let host = Db.Cluster_host.get_host ~__context ~self in
+      let hostname = Db.Host.get_hostname ~__context ~self:host in
+      let member =
+        Cluster_interface.(
+          Extended
+            {
+              ip= Ipaddr.of_string_exn (ipstr_of_address ip_addr)
+            ; hostuuid
+            ; hostname
+            }
+        )
+      in
       let ip_list =
         List.filter_map
           (fun self ->
@@ -137,9 +151,9 @@ let join_internal ~__context ~self =
             let p_rec = Db.PIF.get_record ~__context ~self:p_ref in
             (* parallel join: some hosts may not have an IP yet *)
             try
-              let other_ip = ip_of_pif (p_ref, p_rec) in
-              if other_ip <> ip then
-                Some other_ip
+              let other_ip_addr = ip_of_pif (p_ref, p_rec) in
+              if other_ip_addr <> ip_addr then
+                Some other_ip_addr
               else
                 None
             with _ -> None
@@ -156,8 +170,8 @@ let join_internal ~__context ~self =
       let verify = Stunnel_client.get_verify_by_default () in
       let tls_config = build_tls_config ~__context ~verify in
       let result =
-        Cluster_client.LocalClient.join (rpc ~__context) dbg cluster_token ip
-          tls_config ip_list
+        Cluster_client.LocalClient.join (rpc ~__context) dbg cluster_token
+          member tls_config ip_list
       in
       match Idl.IdM.run @@ Cluster_client.IDL.T.get result with
       | Ok () ->
@@ -316,8 +330,19 @@ let enable ~__context ~self =
       let pifref = Db.Cluster_host.get_PIF ~__context ~self in
       let pifrec = Db.PIF.get_record ~__context ~self:pifref in
       assert_pif_prerequisites (pifref, pifrec) ;
-      let ip = ip_of_pif (pifref, pifrec) in
-
+      let ip_addr = ip_of_pif (pifref, pifrec) in
+      let hostuuid = Inventory.lookup Inventory._installation_uuid in
+      let hostname = Db.Host.get_hostname ~__context ~self:host in
+      let member =
+        Cluster_interface.(
+          Extended
+            {
+              ip= Ipaddr.of_string_exn (ipstr_of_address ip_addr)
+            ; hostuuid
+            ; hostname
+            }
+        )
+      in
       (* TODO: Pass these through from CLI *)
       if not !Xapi_clustering.Daemon.enabled then (
         D.debug
@@ -331,7 +356,7 @@ let enable ~__context ~self =
       set_tls_config ~__context ~self ~verify ;
       let init_config =
         {
-          Cluster_interface.local_ip= ip
+          Cluster_interface.member
         ; token_timeout_ms= None
         ; token_coefficient_ms= None
         ; name= None
