@@ -19,7 +19,7 @@ type status = {
 }
 
 module Type : sig
-  type t = Simple | OneShot | Forking
+  type t = Simple | OneShot | Forking | Notify | Idle
 
   val to_string : t -> string
 end
