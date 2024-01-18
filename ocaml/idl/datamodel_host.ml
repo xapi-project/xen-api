@@ -372,7 +372,7 @@ let evacuate =
           param_type= Ref _network
         ; param_name= "network"
         ; param_doc= "Optional preferred network for migration"
-        ; param_release= next_release
+        ; param_release= numbered_release "1.297.0"
         ; param_default= Some (VRef null_ref)
         }
       ; {
@@ -381,7 +381,7 @@ let evacuate =
         ; param_doc=
             "The maximum number of VMs to be migrated per batch 0 will use the \
              value `evacuation-batch-size` defined in xapi.conf"
-        ; param_release= next_release
+        ; param_release= numbered_release "23.27.0"
         ; param_default= Some (VInt 0L)
         }
       ]

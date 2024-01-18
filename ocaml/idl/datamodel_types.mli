@@ -68,8 +68,6 @@ val rel_stockholm : string
 
 val rel_stockholm_psr : string
 
-val rel_next : string
-
 type api_release = {
     code_name: string option
   ; version_major: int
