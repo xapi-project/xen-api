@@ -28,18 +28,14 @@ def rpc(session_id, request):
         headers = [
           "POST %s?session_id=%s HTTP/1.0" % (db_url, session_id),
           "Connection:close",
-          "content-length:%d" % (len(request)),
+          "content-length:%d" % (len(request.encode('utf-8'))),
           ""
         ]
-        #print "Sending HTTP request:"
         for h in headers:
-          s.send("%s\r\n" % h)
-          #print "%s\r\n" % h,
-        s.send(request)
+          s.send((h + "\r\n").encode('utf-8'))
+        s.send(request.encode('utf-8'))
 
-        result = s.recv(1024)
-        #print "Received HTTP response:"
-        #print result
+        result = s.recv(1024).decode('utf-8')
         if "200 OK" not in result:
           print("Expected an HTTP 200, got %s" % result, file=sys.stderr)
           return
@@ -57,11 +53,11 @@ def rpc(session_id, request):
 def parse_string(txt):
     prefix = "<value><array><data><value>success</value><value>"
     if not txt.startswith(prefix):
-        raise "Unable to parse string response"
+        raise Exception("Unable to parse string response")
     txt = txt[len(prefix):]
     suffix = "</value></data></array></value>"
     if not txt.endswith(suffix):
-        raise "Unable to parse string response"
+        raise Exception("Unable to parse string response")
     txt = txt[:len(txt)-len(suffix)]
     return txt
 
