@@ -14,6 +14,7 @@ depends: [
   "cohttp-posix"
   "dune"
   "cohttp"
+  "ppx_deriving_yojson"
   "rpclib"
   "xapi-log"
   "xapi-open-uri"

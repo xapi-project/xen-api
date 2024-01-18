@@ -1,18 +1,17 @@
 (library
-  (name tracing)
-  (public_name xapi-tracing)
-  (libraries
-    cohttp
-    cohttp-posix
-    ptime
-    ptime.clock.os
-    rpclib.core
-    rpclib.json
-    xapi-log
-    xapi-open-uri
-    xapi-stdext-threads
-    xapi-stdext-unix
-    zstd
-  )
-  (preprocess (pps ppx_deriving_rpc))
-)
+ (name tracing)
+ (public_name xapi-tracing)
+ (libraries
+  cohttp
+  cohttp-posix
+  ptime
+  ptime.clock.os
+  rpclib.core
+  rpclib.json
+  xapi-log
+  xapi-open-uri
+  xapi-stdext-threads
+  xapi-stdext-unix
+  zstd)
+ (preprocess
+  (pps ppx_deriving_rpc ppx_deriving_yojson)))

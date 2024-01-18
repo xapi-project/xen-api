@@ -281,6 +281,63 @@ module Spans = struct
 
   let spans = Hashtbl.create 100
 
+  module SpanFrequencies = struct
+    let depth = 10
+
+    let frequency_tbl = Hashtbl.create 100
+
+    let incr_frequency_tbl ~(span : Span.t) =
+      match Hashtbl.find_opt frequency_tbl span.name with
+      | None ->
+          Hashtbl.add frequency_tbl span.name 1
+      | Some v ->
+          Hashtbl.replace frequency_tbl span.name (succ v)
+
+    let decr_frequency_tbl ~(span : Span.t) =
+      match Hashtbl.find_opt frequency_tbl span.name with
+      | None ->
+          ()
+      | Some v ->
+          if pred v = 0 then
+            Hashtbl.remove frequency_tbl span.name
+          else
+            Hashtbl.replace frequency_tbl span.name (pred v)
+
+    module SpanName = struct
+      type t = string
+
+      let compare = String.compare
+    end
+
+    module SpanMap = Map.Make (SpanName)
+
+    type frequencies = (string * int) list [@@deriving yojson]
+
+    let take_most n k v acc =
+      let last_min = SpanMap.min_binding_opt acc in
+      match last_min with
+      | None ->
+          SpanMap.add k v acc
+      | Some last_min ->
+          if SpanMap.cardinal acc < n then
+            SpanMap.add k v acc
+          else if v <= snd last_min then
+            acc
+          else
+            SpanMap.remove (fst last_min) acc |> SpanMap.add k v
+
+    let most_frequent () =
+      Hashtbl.fold (take_most depth) frequency_tbl SpanMap.empty
+
+    let debug_most_frequent () =
+      let most_frequent_list =
+        most_frequent () |> SpanMap.to_seq |> List.of_seq
+      in
+      debug "Most frequent %i span names: %s" depth
+        (most_frequent_list |> frequencies_to_yojson |> Yojson.Safe.to_string) ;
+      most_frequent_list |> List.map fst
+  end
+
   let max_spans = ref 1000
 
   let set_max_spans x = max_spans := x
@@ -295,24 +352,6 @@ module Spans = struct
 
   let finished_span_hashtbl_is_empty () = Hashtbl.length finished_spans = 0
 
-  let add_to_spans ~(span : Span.t) =
-    let key = span.context.trace_id in
-    Xapi_stdext_threads.Threadext.Mutex.execute lock (fun () ->
-        match Hashtbl.find_opt spans key with
-        | None ->
-            if Hashtbl.length spans < !max_traces then
-              Hashtbl.add spans key [span]
-            else
-              debug "%s exceeded max traces when adding to span table"
-                __FUNCTION__
-        | Some span_list ->
-            if List.length span_list < !max_spans then
-              Hashtbl.replace spans key (span :: span_list)
-            else
-              debug "%s exceeded max traces when adding to span table"
-                __FUNCTION__
-    )
-
   let remove_from_spans span =
     let key = span.Span.context.trace_id in
     Xapi_stdext_threads.Threadext.Mutex.execute lock (fun () ->
@@ -322,7 +361,15 @@ module Spans = struct
             None
         | Some span_list ->
             ( match
-                List.filter (fun x -> x.Span.context <> span.context) span_list
+                List.filter
+                  (fun x ->
+                    if x.Span.context <> span.context then
+                      true
+                    else
+                      let _ = SpanFrequencies.decr_frequency_tbl ~span:x in
+                      false
+                  )
+                  span_list
               with
             | [] ->
                 Hashtbl.remove spans key
@@ -351,6 +398,30 @@ module Spans = struct
     )
 
   let mark_finished span = Option.iter add_to_finished (remove_from_spans span)
+
+  let add_to_spans ~(span : Span.t) =
+    let key = span.context.trace_id in
+    Xapi_stdext_threads.Threadext.Mutex.execute lock (fun () ->
+        match Hashtbl.find_opt spans key with
+        | None ->
+            if Hashtbl.length spans < !max_traces then (
+              SpanFrequencies.incr_frequency_tbl ~span ;
+              Hashtbl.add spans key [span]
+            ) else (
+              debug "%s exceeded max traces when adding to span table"
+                __FUNCTION__ ;
+              ignore (SpanFrequencies.debug_most_frequent ())
+            )
+        | Some span_list ->
+            if List.length span_list < !max_spans then (
+              SpanFrequencies.incr_frequency_tbl ~span ;
+              Hashtbl.replace spans key (span :: span_list)
+            ) else (
+              debug "%s exceeded max traces when adding to span table"
+                __FUNCTION__ ;
+              ignore (SpanFrequencies.debug_most_frequent ())
+            )
+    )
 
   let span_is_finished x =
     match x with
