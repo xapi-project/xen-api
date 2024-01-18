@@ -28,7 +28,7 @@ let action ~service action =
 
 (** Systemd execution type *)
 module Type = struct
-  type t = Simple | OneShot | Forking
+  type t = Simple | OneShot | Forking | Notify | Idle
 
   let to_string = function
     | Simple ->
@@ -37,6 +37,10 @@ module Type = struct
         "oneshot"
     | Forking ->
         "forking"
+    | Notify ->
+        "notify"
+    | Idle ->
+        "idle"
 end
 
 let default_env = ["PATH=" ^ String.concat ":" Forkhelpers.default_path]
