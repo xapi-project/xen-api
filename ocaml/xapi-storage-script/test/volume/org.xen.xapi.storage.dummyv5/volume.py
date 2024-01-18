@@ -69,8 +69,8 @@ if __name__ == "__main__":
     elif base == "Volume.stat":
         cmd.stat()
     elif base == "Volume.set":
-	cmd.set()
+        cmd.set()
     elif base == "Volume.unset":
-	cmd.unset()
+        cmd.unset()
     else:
         raise xapi.storage.api.v5.volume.Unimplemented(base)
