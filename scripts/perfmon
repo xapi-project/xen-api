@@ -313,7 +313,7 @@ class RRDUpdates:
         print_debug("Calling http://localhost/rrd_updates?%s" % paramstr)
 
         sock = urllib.request.urlopen("http://localhost/rrd_updates?%s" % paramstr)
-        xmlsource = sock.read()
+        xmlsource = sock.read().decode('utf-8')
         sock.close()
 
         # Use sax rather than minidom and save Vvvast amounts of time and memory.
@@ -1067,7 +1067,7 @@ def main():
             vm_uuid_list = rrd_updates.get_uuid_list_by_objtype('vm')
 
             # Remove any monitors for VMs no longer listed in rrd_updates page
-            for uuid in vm_mon_lookup:
+            for uuid in list(vm_mon_lookup.keys()):
                 if uuid not in vm_uuid_list:
                     vm_mon_lookup.pop(uuid)
                 
@@ -1103,7 +1103,7 @@ def main():
             print_debug("sr_uuid_list = %s" % sr_uuid_list)
 
             # Remove monitors for SRs no longer listed in the rrd_updates page
-            for uuid in sr_mon_lookup:
+            for uuid in list(sr_mon_lookup.keys()):
                 if uuid not in sr_uuid_list:
                     sr_mon_lookup.pop(uuid)
             # Create monitors for SRs that have just appeared in rrd_updates page
