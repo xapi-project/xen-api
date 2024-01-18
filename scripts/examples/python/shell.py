@@ -103,10 +103,10 @@ if __name__ == "__main__":
     # We want to support directly executing the cmd line,
     # where appropriate
     if len(sys.argv) > cmdAt:
-        cmd = sys.argv[cmdAt]
+        command = sys.argv[cmdAt]
         params = [munge_types(x) for x in sys.argv[(cmdAt + 1):]]
         try:
-            print(session.xenapi_request(cmd, tuple(params)), file=sys.stdout)
+            print(session.xenapi_request(command, tuple(params)), file=sys.stdout)
         except XenAPI.Failure as x:
             print(x, file=sys.stderr)
             sys.exit(2)

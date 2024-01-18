@@ -380,7 +380,13 @@ def get_percent_mem_usage(ignored):
         memlist = memfd.readlines()
         memfd.close()
         memdict = [ m.split(':', 1) for m in memlist ]
-        memdict = dict([(k.strip(), float(re.search('\d+', v.strip()).group(0))) for (k,v) in memdict])
+        new_memdict = {}
+        for k, v in memdict.items():
+            key = k.strip()
+            match = re.search('\d+', v.strip())
+            assert match
+            new_memdict[key] = float(match.group(0))
+        memdict = new_memdict
         # We consider the sum of res memory and swap in use as the hard demand
         # of mem usage, it is bad if this number is beyond the physical mem, as
         # in such case swapping is obligatory rather than voluntary, hence

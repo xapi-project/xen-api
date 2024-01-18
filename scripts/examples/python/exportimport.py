@@ -63,7 +63,7 @@ def exportimport(url, xapi, session, src_vdi, dst_vdi):
     ]
     print("Sending HTTP request:")
     for h in headers:
-      output.send("%s\r\n" % h)
+      output.send((h + "\r\n").encode())
       print("%s\r\n" % h)
     result = output.recv(1024)
     print("Received HTTP response:")
@@ -73,7 +73,7 @@ def exportimport(url, xapi, session, src_vdi, dst_vdi):
       return
 
     # Copy the raw bytes, signal completion by closing the socket
-    virtual_size = long(xapi.xenapi.VDI.get_virtual_size(src_vdi))
+    virtual_size = int(xapi.xenapi.VDI.get_virtual_size(src_vdi))
     print("Copying %Ld bytes" % virtual_size)
     left = virtual_size
     while left > 0:

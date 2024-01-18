@@ -257,6 +257,7 @@ class UsersList(DynamicPam):
 
     def _add_upn(self, subject_rec):
         sep = "@"
+        upn = ""
         try:
             upn = subject_rec["other_config"]["subject-upn"]
             user, domain = upn.split(sep)

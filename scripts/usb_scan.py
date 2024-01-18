@@ -22,15 +22,18 @@
 # 3. return the device info to XAPI in json format
 
 from __future__ import print_function
+
 import abc
 import argparse
 import json
-import xcp.logger as log
 import logging
-import pyudev
 import re
 import sys
 
+import pyudev
+import xcp.logger as log
+
+from typing import Any
 
 def log_list(l):
     for s in l:
@@ -55,12 +58,13 @@ def hex_equal(h1, h2):
         return False
 
 
-class UsbObject(dict):
+class UsbObject(dict[str, str]):
     """ Base class of USB classes, save USB properties in dict
 
     node(str): the key, device node
     """
-    __metaclass__ = abc.ABCMeta
+    if sys.version_info < (3, 0):
+        __metaclass__ = abc.ABCMeta
 
     def __init__(self, node):
         super(UsbObject, self).__init__()
@@ -219,7 +223,7 @@ class UsbDevice(UsbObject):
         :return: None
         """
         if interface in self.interfaces:
-            log.debug("overriding existing interface: " + interface)
+            log.debug("overriding existing interface: ", interface)
             self.interfaces.remove(interface)
         self.interfaces.add(interface)
 
@@ -357,7 +361,7 @@ class Policy(object):
 
         Note: hubs are never allowed to pass through
         """
-        self.rule_list = []
+        self.rule_list = []  # type: list[dict[str, Any]]
         try:
             with open(self._PATH, "r") as f:
                 log.debug("=== policy file begin")
@@ -423,7 +427,7 @@ class Policy(object):
 
         # 3. parse action
         # \s*(ALLOW|DENY)\s*
-        rule = {}
+        rule = {}  # type: dict[str, Any]
         if action.lower() == "allow":
             rule[self._ALLOW] = True
         elif action.lower() == "deny":

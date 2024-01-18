@@ -149,7 +149,9 @@ def _get_persistent_connect_info_filename(device):
     the connection details. This is based on the device
     name, so /dev/nbd0 -> /var/run/nonpersistent/nbd/0
     """
-    number = re.search('/dev/nbd([0-9]+)', device).group(1)
+    match = re.search('/dev/nbd([0-9]+)', device)
+    assert match
+    number = match.group(1)
     return PERSISTENT_INFO_DIR + '/' + number
 
 def _persist_connect_info(device, path, exportname):
@@ -223,7 +225,7 @@ def disconnect_nbd_device(nbd_device):
 
 def _connect_cli(args):
     device = connect_nbd(path=args.path, exportname=args.exportname)
-    print device
+    print(device)
 
 
 def _disconnect_cli(args):
