@@ -154,10 +154,6 @@ def main(argv):
     tpm_exe = '/usr/bin/swtpm'
     uid = pwd.getpwnam('swtpm_base').pw_uid + domid
 
-    swtpm_pid_full = os.path.join(tpm_dir, "swtpm-%d.pid" % domid)
-    open(swtpm_pid_full, 'wb').close()
-    os.chown(swtpm_pid_full, uid, uid)
-
     if depriv:
         tpm_args = ["--chroot", tpm_dir,
                     "--runas", str(uid)]
@@ -189,8 +185,13 @@ def main(argv):
 
     swtpm_sock = os.path.join(tpm_dir, "swtpm-sock")
     swtpm_pid = os.path.join(tpm_path, "swtpm-%d.pid" % domid)
-
     sock = make_socket(swtpm_sock)
+
+    # the PID file is taken by the toolstack as signal that the socket
+    # is ready
+    swtpm_pid_full = os.path.join(tpm_dir, "swtpm-%d.pid" % domid)
+    open(swtpm_pid_full, 'wb').close()
+    os.chown(swtpm_pid_full, uid, uid)
 
     if (tpm_state_scheme == "dir"):
         state_param = "dir=%s" % tpm_path
