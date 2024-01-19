@@ -103,17 +103,24 @@ let t =
            "Reference to the Cluster object"
        ; field ~qualifier:StaticRO ~lifecycle ~ty:(Ref _host) "host"
            ~default_value:(Some (VRef null_ref)) "Reference to the Host object"
-       ; field ~qualifier:StaticRO ~lifecycle ~ty:Bool "enabled"
+       ; field ~qualifier:DynamicRO ~lifecycle ~ty:Bool "enabled"
            ~default_value:(Some (VBool false))
            "Whether the cluster host believes that clustering should be \
-            enabled on this host"
+            enabled on this host. This field can be altered by calling the \
+            enable/disable message on a cluster host. Only enabled members run \
+            the underlying cluster stack. Disabled members are still \
+            considered a member of the cluster (see joined), and can be \
+            re-enabled by the user."
        ; field ~qualifier:StaticRO ~lifecycle ~ty:(Ref _pif) "PIF"
            ~default_value:(Some (VRef null_ref)) "Reference to the PIF object"
-       ; field ~qualifier:StaticRO ~lifecycle ~ty:Bool "joined"
+       ; field ~qualifier:DynamicRO ~lifecycle ~ty:Bool "joined"
            ~default_value:(Some (VBool true))
-           "Whether the cluster host has joined the cluster"
-         (* TODO: add `live` member to represent whether corosync believes that this
-                  cluster host actually is enabled *)
+           "Whether the cluster host has joined the cluster. Contrary to \
+            enabled, a host that is not joined is not considered a member of \
+            the cluster, and hence no operations (e.g. enable/disable) can be \
+            performed on this host. This field can be altered by calling leave \
+            or destroy on a cluster host. It can also be set automatically if \
+            cluster stack believes that this node is not part of the cluster. "
        ]
       @ allowed_and_current_operations cluster_host_operation
       @ [
