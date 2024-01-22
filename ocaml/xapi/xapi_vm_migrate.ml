@@ -1632,6 +1632,11 @@ let migrate_send' ~__context ~vm ~dest ~live:_ ~vdi_map ~vif_map ~vgpu_map
     if (not is_intra_pool) && not copy then (
       info "Destroying VM ref=%s uuid=%s" (Ref.string_of vm) vm_uuid ;
       Xapi_vm_lifecycle.force_state_reset ~__context ~self:vm ~value:`Halted ;
+      let vtpms =
+        vm_and_snapshots
+        |> List.concat_map (fun self -> Db.VM.get_VTPMs ~__context ~self)
+      in
+      List.iter (fun self -> Xapi_vtpm.destroy ~__context ~self) vtpms ;
       List.iter (fun self -> Db.VM.destroy ~__context ~self) vm_and_snapshots
     ) ;
     SMPERF.debug "vm.migrate_send exiting vm:%s" vm_uuid ;
