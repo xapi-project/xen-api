@@ -122,8 +122,7 @@ module Xmlm_utils = struct
         | _ ->
             raise Parse_error
       in
-      accept `El_end i ;
-      d
+      accept `El_end i ; d
     ) else
       raise Parse_error
 
@@ -136,6 +135,5 @@ module Xmlm_utils = struct
   let read_block t f i =
     accept (start_tag t) i ;
     let res = f i in
-    accept `El_end i ;
-    res
+    accept `El_end i ; res
 end

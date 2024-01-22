@@ -92,10 +92,10 @@ let test_marshall rrd ~json () =
   ignore
     ( if json then
         Rrd.json_to_string rrd
-    else
-      let out = Buffer.create 2048 in
-      Rrd.xml_to_output rrd (Xmlm.make_output (`Buffer out)) ;
-      Buffer.contents out
+      else
+        let out = Buffer.create 2048 in
+        Rrd.xml_to_output rrd (Xmlm.make_output (`Buffer out)) ;
+        Buffer.contents out
     )
 
 let test_marshall_unmarshall rrd () =
@@ -313,7 +313,7 @@ let suite_create_multi =
        )
   in
   let test_no_rrds () =
-    Alcotest.check_raises "should raise error" (No_RRA_Available) (fun () ->
+    Alcotest.check_raises "should raise error" No_RRA_Available (fun () ->
         let _ = RU.create_multi [] 0L 1L None in
         ()
     )
