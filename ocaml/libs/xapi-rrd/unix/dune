@@ -1,0 +1,12 @@
+(library
+  (name rrd_unix)
+  (public_name xapi-rrd.unix)
+  (wrapped false)
+  (libraries
+    unix
+    uuidm
+    xapi-rrd
+    xapi-stdext-pervasives
+    xmlm
+  )
+)

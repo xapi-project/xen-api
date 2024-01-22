@@ -1,0 +1,50 @@
+opam-version: "2.0"
+authors: "Dave Scott"
+homepage: "https://github.com/xapi-project/xen-api"
+bug-reports: "https://github.com/xapi-project/xen-api/issues"
+dev-repo: "git+https://github.com/xapi-project/xen-api.git"
+maintainer: "xapi project maintainers"
+tags: [ "org:xapi-project" ]
+build: [["dune" "build" "-p" name "-j" jobs]]
+run-test: [[ "dune" "runtest" "-p" name "-j" jobs ]]
+depends: [
+  "ocaml"
+  "dune"
+  "alcotest" {with-test}
+  "fmt" {with-test}
+  "astring"
+  "cmdliner"
+  "cohttp"
+  "fd-send-recv"
+  "logs"
+  "lwt" {>= "5.0.0"}
+  "message-switch-async" {with-test}
+  "message-switch-core"
+  "message-switch-unix"
+  "mtime"
+  "ppx_deriving_rpc"
+  "ppx_sexp_conv"
+  "re"
+  "xapi-rrd"
+  "sexplib"
+  "uri"
+  "xapi-backtrace"
+  "xapi-open-uri"
+  "xapi-stdext-date"
+  "xapi-stdext-pervasives"
+  "xapi-stdext-threads"
+  "xapi-tracing"
+  "xapi-inventory"
+  "xmlm"
+]
+synopsis: "Interface descriptions and common boilerplate for xapi services"
+description: """
+The xapi toolstack is a set of communicating services including
+  - xenopsd: low-level Xen domain management
+  - networkd: host network configuration
+  - squeezed: balances memory between domains
+  - rrdd: manages datasources and records history
+plus storage 'plugins'"""
+url {
+  src: "https://github.com/xapi-project/xen-api/archive/master.tar.gz"
+}

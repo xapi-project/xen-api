@@ -1,0 +1,28 @@
+opam-version: "2.0"
+maintainer: "xen-api@lists.xen.org"
+authors: "John Else"
+homepage: "https://github.com/xapi-project/xen-api"
+dev-repo: "git+https://github.com/xapi-project/xen-api.git"
+bug-reports: "https://github.com/xapi-project/xen-api"
+build: [
+  ["dune" "build" "-p" name "-j" jobs]
+  ["dune" "runtest" "-p" name "-j" jobs] {with-test}
+]
+depends: [
+  "ocaml"
+  "dune" {build & >= "1.0+beta10"}
+  "cstruct"
+  "crc"
+  "astring"
+  "yojson"
+  "xapi-idl" {>= "1.0.0"}
+  "xapi-rrd" {>= "1.0.0"}
+  "ounit2" {with-test}
+]
+synopsis: "Shared-memory protocols for exposing performance counters"
+description: """
+VMs running on a Xen host can use this library to expose performance
+counters which can be sampled by the xapi performance monitoring daemon."""
+url {
+  src: "https://github.com/xapi-project/xen-api/archive/master.tar.gz"
+}
