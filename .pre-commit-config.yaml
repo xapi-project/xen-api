@@ -1,0 +1,55 @@
+#
+# Configuration of pre-commit, a Python framework for git hooks.
+# pre-commit is run for each git push by GitHub CI. It can run
+# locally as well for early feedback and automatic formatting
+# like trailing whitespace removal (to be configured later):
+#
+## For only installing the package itself, run:
+# pip3 install pre-commit
+#
+## For activating it as a pre-commit and pre-push hook (recommended):
+# pre-commit install --hook-type pre-push --hook-type pre-commit
+#
+## For manually executing the pre-push hook:
+# pre-commit run -av --hook-stage pre-push
+#
+default_stages: [commit, push]
+repos:
+# Recommendation for a minimal git pre-commit hook:
+# https://github.com/pre-commit/pre-commit-hooks/blob/main/README.md:
+-   repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+    -   id: no-commit-to-branch
+        name: "The master branch should be pulled only, don't commit to it"
+        args: [--branch, master]
+        always_run: true
+    -   id: check-merge-conflict
+    -   id: check-yaml
+    -   id: check-executables-have-shebangs
+        exclude: ocaml
+
+# Recommendation for a minimal git pre-push hook:
+# While using pre-commit yields great results, it
+# is "not fast". Therefore only run it pre-push,
+# (but always in GitHub CI of course):
+#
+# Calls ./pytype_reporter.py in a dedicated venv:
+# pre-commit run -av --hook-stage push
+-   repo: local
+    hooks:
+    -   id: pytype
+        name: pytype
+        entry: python3 pytype_reporter.py
+        types: [python]
+        stages: [push]
+        verbose: true
+        # This hook runs locally only when Python files change:
+        language: python
+        # Pytype supports running on Python 3.8 to Python3.11 currently:
+        # https://google.github.io/pytype/support.html
+        # If a dev's default python3 interpreter is outside that range, but
+        # developers have such version installed, it can be configured here:
+        # language_version: python3.11
+        require_serial: true
+        additional_dependencies: [pandas, pytype]

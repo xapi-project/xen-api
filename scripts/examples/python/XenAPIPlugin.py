@@ -1,6 +1,8 @@
-#!/usr/bin/python3
+"""XenAPI python plugin boilerplate code"""
+# pylint: disable=invalid-name
+# Module name "XenAPIPlugin" doesn't conform to snake_case naming style
+# For usage, see: https://wiki.xenproject.org/wiki/XAPI_Host_Plugins
 
-# XenAPI python plugin boilerplate code
 
 from __future__ import print_function
 
