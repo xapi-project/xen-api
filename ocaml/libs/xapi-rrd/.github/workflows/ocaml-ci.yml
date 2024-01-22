@@ -1,0 +1,38 @@
+name: Build and test
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  ocaml-test:
+    name: Ocaml tests
+    runs-on: ubuntu-20.04
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Pull configuration from xs-opam
+        run: |
+          curl --fail --silent https://raw.githubusercontent.com/xapi-project/xs-opam/master/tools/xs-opam-ci.env | cut -f2 -d " " > .env
+
+      - name: Load environment file
+        id: dotenv
+        uses: falti/dotenv-action@v1.0.4
+
+      - name: Use ocaml
+        uses: ocaml/setup-ocaml@v2
+        with:
+          ocaml-compiler: ${{ steps.dotenv.outputs.ocaml_version_full }}
+          opam-repositories: |
+            xs-opam: ${{ steps.dotenv.outputs.repository }}
+
+      - name: Install dependencies
+        run: opam install . --deps-only --with-test -v
+
+      - name: Build
+        run: opam exec -- make build
+
+      - name: Run tests
+        run: opam exec -- make test
