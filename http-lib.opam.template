@@ -1,0 +1,40 @@
+opam-version: "2.0"
+maintainer: "xen-api@lists.xen.org"
+authors: "xen-api@lists.xen.org"
+homepage: "https://xapi-project.github.io/"
+bug-reports: "https://github.com/xapi-project/xen-api.git"
+dev-repo: "git+https://github.com/xapi-project/xen-api.git"
+build: [
+  ["dune" "build" "-p" name "-j" jobs]
+  ["dune" "runtest" "-p" name "-j" jobs] {with-test}
+]
+available: [ os = "linux" | os = "macos" ]
+depends: [
+  "ocaml"
+  "dune"
+  "astring"
+  "base64" {>= "3.1.0"}
+  "rpclib"
+  "safe-resources"
+  "sha"
+  "stunnel"
+  "uuid"
+  "xapi-backtrace"
+  "xapi-idl"
+  "xapi-log"
+  "xapi-stdext-date"
+  "xapi-stdext-pervasives"
+  "xapi-stdext-threads"
+  "xapi-stdext-unix"
+  "xapi-tracing"
+  "xml-light2"
+  "ounit2" {with-test & >= "2.0.0"}
+]
+synopsis: "Library required by xapi"
+description: """
+These libraries are provided for backwards compatibility only.
+No new code should use these libraries."""
+url {
+  src:
+    "https://github.com/xapi-project/xen-api/archive/master.tar.gz"
+}

@@ -1,0 +1,31 @@
+opam-version: "2.0"
+name: "xapi-expiry-alerts"
+synopsis: "A library to send expiration-related alerts and removing outdated ones"
+description: """\
+The interface of this library is 'alert', upon calling this API, any
+existing outdated messages will be removed first, and a new message
+will be created only if it does not exist in Xapi.Message records
+yet."""
+maintainer: "xen-api@lists.xen.org"
+authors: [ "Pau Ruiz Safont" "Gang Ji" ]
+license: "LGPL-2.1-only WITH OCaml-LGPL-linking-exception"
+homepage: "https://github.com/xapi-project/xen-api"
+bug-reports: "https://github.com/xapi-project/xen-api/issues"
+depends: [
+  "alcotest" {with-test}
+  "ocaml"
+  "dune"
+  "astring"
+  "xapi-client"
+  "xapi-consts"
+  "xapi-types"
+  "xapi-stdext-date"
+]
+build: [
+  ["dune" "build" "-p" name "-j" jobs]
+  ["dune" "runtest" "-p" name "-j" jobs] {with-test}
+]
+dev-repo: "git+https://github.com/xapi-project/xen-api.git"
+url {
+  src: "https://github.com/xapi-project/xen-api/archive/master.tar.gz"
+}

@@ -1,0 +1,32 @@
+opam-version: "2.0"
+maintainer: "xen-api@lists.xen.org"
+authors: ["dave.scott@citrix.com"]
+homepage: "https://github.com/xapi-project/xen-api"
+bug-reports: "https://github.com/xapi-project/xen-api/issues"
+dev-repo: "git+https://github.com/xapi-project/xen-api.git"
+build: [
+  ["dune" "build" "-p" name "-j" jobs]
+  ["dune" "runtest" "-p" name "-j" jobs] {with-test}
+]
+depends: [
+  "ocaml"
+  "dune"
+  "alcotest" {with-test}
+  "alcotest-lwt" {with-test}
+  "cmdliner"
+  "lwt" {>= "3.0.0"}
+  "lwt_log"
+  "mirage-block-unix"
+  "nbd-unix"
+  "uri"
+  "uuid"
+  "xapi-inventory"
+  "xapi-tracing"
+  "xen-api-client-lwt"
+]
+tags: [ "org:mirage" "org:xapi-project" ]
+synopsis: "Expose XenServer disks conveniently over NBD"
+url {
+  src:
+    "https://github.com/xapi-project/xen-api/archive/master.tar.gz"
+}

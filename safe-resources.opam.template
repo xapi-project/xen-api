@@ -1,0 +1,29 @@
+opam-version: "2.0"
+maintainer: "xen-api@lists.xen.org"
+authors: "xen-api@lists.xen.org"
+homepage: "https://xapi-project.github.io/"
+bug-reports: "https://github.com/xapi-project/xen-api.git"
+dev-repo: "git+https://github.com/xapi-project/xen-api.git"
+build: [
+  ["dune" "build" "-p" name "-j" jobs]
+  ["dune" "runtest" "-p" name "-j" jobs] {with-test}
+]
+available: [ os = "linux" | os = "macos" ]
+depends: [
+  "ocaml"
+  "dune"
+  "fmt"
+  "logs"
+  "xapi-backtrace"
+  "xapi-stdext-pervasives"
+  "xapi-stdext-threads"
+  "alcotest" {with-test}
+]
+synopsis: "Safe resource handling: no double close/leaks"
+description: """
+Safe resource handling: protection against double close and file descriptor leaks.
+"""
+url {
+  src:
+    "https://github.com/xapi-project/xen-api/archive/master.tar.gz"
+}
