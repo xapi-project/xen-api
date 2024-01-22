@@ -1,0 +1,35 @@
+opam-version: "2.0"
+maintainer: "xen-api@lists.xen.org"
+authors: "jonathan.ludlam@eu.citrix.com"
+homepage: "https://github.com/xapi-project/xen-api"
+dev-repo: "git+https://github.com/xapi-project/xen-api.git"
+bug-reports: "https://github.com/xapi-project/xen-api/issues"
+build: [
+  ["dune" "build" "-p" name "-j" jobs]
+  ["dune" "runtest" "-p" name "-j" jobs] {with-test}
+]
+depends: [
+  "astring"
+  "alcotest" {with-test}
+  "base-threads"
+  "forkexec"
+  "http-lib"
+  "mtime"
+  "netlink"
+  "re"
+  "rpclib"
+  "systemd"
+  "xapi-idl"
+  "xapi-inventory"
+  "xapi-stdext-pervasives"
+  "xapi-stdext-std"
+  "xapi-stdext-threads"
+  "xapi-stdext-unix"
+  "xapi-test-utils"
+  "xen-api-client"
+]
+synopsis: "The XCP networking daemon"
+url {
+  src:
+    "https://github.com/xapi-project/xen-api/archive/master.tar.gz"
+}
