@@ -236,14 +236,10 @@ def setup_cgroup(domid, pid):  # type:(str, str) -> None
         # Using the unbuffered Raw IO mode, we know the write was done
         # in exactly this way by the write function call itself, not later.
         #
-        # With such short writes, splitting the writes because of a
-        # too small buffer will not usually happen, but be paranoid
-        # and keep the same code for Python3 too. We've to use binary
-        # mode for Python3 for this as Python3 does now support unbuffered
-        # Raw I/O in Text mode (with implicit unicode str to byte encode()).
-        #
-        # In Python2 str is bytes anyway so in Python2 it was already binary.
-        # Using bytes for "wb" means also no change for use with Python3:
+        # With small writes like this , splitting them because of overflowing the
+        # buffer is not expected to happen. To stay safe and keep using unbuffered I/O
+        # We have to migrate to binary mode in python3,as python3 supports unbuffered 
+        # raw I/O in binary mode.
         #
         with open(cg_dir + "/tasks", "wb", 0) as tasks, \
                 open(cg_dir + "/devices.deny", "wb", 0) as deny, \
