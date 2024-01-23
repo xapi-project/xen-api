@@ -2082,7 +2082,7 @@ module Dm_Common = struct
          case. Don't pass -vgpu for a compute vGPU. *)
       match x with
       | Vgpu ({implementation= Nvidia {vclass= Some "Compute"; _}; _} :: _) ->
-          [] (* don't pass flags for VCS (compute) vGPU *)
+          ["-std-vga"]
       | Vgpu ({implementation= Nvidia _; _} :: _) ->
           ["-vgpu"]
       | Vgpu [{implementation= GVT_g gvt_g; _}] ->
