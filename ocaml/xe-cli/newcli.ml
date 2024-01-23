@@ -773,6 +773,23 @@ let main_loop ifd ofd permitted_filenames =
             |> print_endline ;
             flush stdout
         )
+    | Command (PrintUpdateGuidance url) ->
+        do_http_get ofd url exit_code (fun ic ->
+            while input_line ic <> "\r" do
+              ()
+            done ;
+            Yojson.Basic.from_channel ic |> Yojson.Basic.Util.member "hosts"
+            |> function
+            | `List [] ->
+                raise (ClientSideError "No host data returned")
+            | `List (host :: _) ->
+                Yojson.Basic.Util.member "guidance" host
+                |> Yojson.Basic.pretty_to_string
+                |> print_endline ;
+                flush stdout
+            | _ ->
+                raise (ClientSideError "Unknown data format")
+        )
     | Command Prompt ->
         let data = input_line stdin in
         marshal ofd (Blob (Chunk (Int32.of_int (String.length data)))) ;
