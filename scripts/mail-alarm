@@ -15,6 +15,7 @@ from __future__ import print_function
 import json
 import os
 import re
+import subprocess
 import sys
 import syslog
 import tempfile
@@ -107,12 +108,14 @@ def get_mail_language(other_config):
 
 def get_config_file():
     try:
-        return open("/etc/mail-alarm.conf").read()
+        with open("/etc/mail-alarm.conf", "r") as file:
+            return file.read()
     except:
         return default_config
 
 
 def load_mail_language(mail_language):
+    mail_language_file = ""
     try:
         mail_language_file = os.path.join(
             mail_language_pack_path, mail_language + ".json"
@@ -727,7 +730,10 @@ class XapiMessage:
             xmldoc = minidom.parseString(xml)
 
             def get_text(tag):
-                return xmldoc.getElementsByTagName(tag)[0].firstChild.toxml()
+                text = xmldoc.getElementsByTagName(tag)[0].firstChild
+                if text is None:
+                    raise ValueError("Get text failed with tag <{}>".format(tag))
+                return text.toxml()
 
             self.name = get_text("name")
             self.priority = get_text("priority")
@@ -880,7 +886,7 @@ class XapiMessage:
                     self.mail_language,
                     self.session,
                 )
-            elif re.match("sr_io_throughput_total_[0-9a-f]{8}$", name):
+            elif re.match("sr_io_throughput_total_[0-9a-f]{8}$", str(name)):
                 etg = SRIOThroughputTotalAlertETG(
                     self.cls,
                     self.obj_uuid,
@@ -1025,29 +1031,36 @@ def main():
             config = config.replace(s, r)
 
         # Write out a temporary file containing the new config
-        fd, fname = tempfile.mkstemp(prefix="mail-", dir="/tmp")
+        with tempfile.NamedTemporaryFile(
+            prefix="mail-", dir="/tmp", delete=False
+        ) as temp_file:
+            temp_file.write(config.encode())
+            temp_file_path = temp_file.name
+
         try:
-            os.write(fd, config)
-            os.close(fd)
-
             # Run ssmtp to send mail
-            chld_stdin, chld_stdout = os.popen2(
-                ["/usr/sbin/ssmtp", "-C%s" % fname, destination]
-            )
-            chld_stdin.write("From: %s\n" % sender)
-            chld_stdin.write('Content-Type: text/plain; charset="%s"\n' % charset)
-            chld_stdin.write("To: %s\n" % destination.encode(charset))
-            chld_stdin.write(
-                "Subject: %s\n" % msg.generate_email_subject().encode(charset)
-            )
-            chld_stdin.write("\n")
-            chld_stdin.write(msg.generate_email_body().encode(charset))
-            chld_stdin.close()
-            chld_stdout.close()
-            os.wait()
-
+            with subprocess.Popen(
+                ["/usr/sbin/ssmtp", "-C%s" % temp_file_path, destination],
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+            ) as proc:
+                input_data = (
+                    "From: %s\n"
+                    'Content-Type: text/plain; charset="%s"\n'
+                    "To: %s\n"
+                    "Subject: %s\n"
+                    "\n"
+                    "%s"
+                ) % (
+                    sender,
+                    charset,
+                    destination.encode(charset),
+                    msg.generate_email_subject().encode(charset),
+                    msg.generate_email_body().encode(charset),
+                )
+                proc.communicate(input=input_data.encode(charset))
         finally:
-            os.unlink(fname)
+            os.remove(temp_file_path)
     finally:
         session.xenapi.session.logout()
 
