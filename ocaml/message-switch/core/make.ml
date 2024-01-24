@@ -378,7 +378,7 @@ functor
               | [] ->
                   loop c from
               | _ :: _ ->
-                  iter_dontwait
+                  iter
                     (fun (i, m) ->
                       process m.Message.payload >>= fun response ->
                       ( match m.Message.kind with
@@ -400,8 +400,8 @@ functor
                       let request = In.Ack i in
                       Connection.rpc c request >>= fun _ -> return ()
                     )
-                    transfer.Out.messages ;
-                  loop c (Some transfer.Out.next)
+                    transfer.Out.messages
+                  >>= fun () -> loop c (Some transfer.Out.next)
             )
       in
       let _ = loop c None in
