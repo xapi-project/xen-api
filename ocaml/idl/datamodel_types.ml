@@ -97,8 +97,6 @@ let rel_stockholm = "stockholm"
 
 let rel_stockholm_psr = "stockholm_psr"
 
-let rel_next = "next"
-
 type api_release = {
     code_name: string option
   ; version_major: int
@@ -335,13 +333,6 @@ let release_order_full =
     ; version_minor= 15
     ; branding= "Citrix Hypervisor 8.2 Hotfix 2"
     ; release_date= Some "November 2020"
-    }
-  ; {
-      code_name= Some rel_next
-    ; version_major= 2
-    ; version_minor= 20
-    ; branding= "Unreleased"
-    ; release_date= Some "" (* unknown date *)
     }
   ]
 (* When you add a new release, use the version number of the latest release, "Unreleased"

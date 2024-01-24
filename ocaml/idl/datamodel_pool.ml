@@ -907,7 +907,7 @@ let sync_updates =
           param_type= Ref _pool
         ; param_name= "self"
         ; param_doc= "The pool"
-        ; param_release= next_release
+        ; param_release= numbered_release "1.329.0"
         ; param_default= None
         }
       ; {
@@ -915,21 +915,21 @@ let sync_updates =
         ; param_name= "force"
         ; param_doc=
             "If true local mirroring repo will be removed before syncing"
-        ; param_release= next_release
+        ; param_release= numbered_release "1.329.0"
         ; param_default= None
         }
       ; {
           param_type= String
         ; param_name= "token"
         ; param_doc= "The token for repository client authentication"
-        ; param_release= next_release
+        ; param_release= numbered_release "1.329.0"
         ; param_default= Some (VString "")
         }
       ; {
           param_type= String
         ; param_name= "token_id"
         ; param_doc= "The ID of the token"
-        ; param_release= next_release
+        ; param_release= numbered_release "1.329.0"
         ; param_default= Some (VString "")
         }
       ]
@@ -1030,7 +1030,7 @@ let set_uefi_certificates =
     ~lifecycle:
       [
         (Published, "22.16.0", "")
-      ; (Deprecated, "23.32.0", "use set_custom_uefi_certificates instead")
+      ; (Deprecated, "24.0.0", "use set_custom_uefi_certificates instead")
       ]
     ~doc:
       "Set the UEFI certificates for a pool and all its hosts. Deprecated: use \
@@ -1441,7 +1441,7 @@ let t =
             ~lifecycle:
               [
                 (Published, "21.3.0", "")
-              ; (Changed, rel_next, "Changed internal_only to false")
+              ; (Changed, "23.9.0", "Changed internal_only to false")
               ]
             ~ty:(Ref _secret) ~default_value:(Some (VRef null_ref))
             "repository_proxy_password"
