@@ -37,6 +37,7 @@ let all_operations =
   ; `vm_migrate
   ; `power_on
   ; `apply_updates
+  ; `enable
   ]
 
 (** Returns a table of operations -> API error options (None if the operation would be ok) *)
@@ -86,7 +87,7 @@ let valid_operations ~__context record _ref' =
   if List.mem `apply_updates current_ops then
     set_errors Api_errors.other_operation_in_progress
       ["host"; _ref; host_operation_to_string `apply_updates]
-      [`reboot; `shutdown] ;
+      [`reboot; `shutdown; `enable] ;
   (* Prevent more than one provision happening at a time to prevent extreme dom0
      load (in the case of the debian template). Once the template becomes a 'real'
      template we can relax this. *)
