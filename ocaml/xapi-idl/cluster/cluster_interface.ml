@@ -284,6 +284,21 @@ module LocalAPI (R : RPC) = struct
       @-> returning unit_p err
       )
 
+  module UPDATES = struct
+    open TypeCombinators
+
+    let get =
+      let timeout_p = Param.mk ~name:"timeout" Types.float in
+      let result_p = Param.mk ~name:"updates" (list Types.string) in
+      declare "UPDATES.get"
+        [
+          "Get updates from corosync-notifyd, this blocking call will return \
+           when there is an update from corosync-notifyd or it is timed out \
+           after timeout_p seconds"
+        ]
+        (debug_info_p @-> timeout_p @-> returning result_p err)
+  end
+
   module Observer = struct
     open TypeCombinators
 

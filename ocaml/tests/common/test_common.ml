@@ -620,10 +620,12 @@ let make_vfs_on_pf ~__context ~pf ~num =
 
 let make_cluster_host ~__context ?(ref = Ref.make ()) ?(uuid = make_uuid ())
     ?(cluster = Ref.null) ?(host = Ref.null) ?(pIF = Ref.null) ?(enabled = true)
-    ?(joined = true) ?(allowed_operations = []) ?(current_operations = [])
-    ?(other_config = []) () =
+    ?(joined = true) ?(live = true) ?(last_update_live = Date.epoch)
+    ?(allowed_operations = []) ?(current_operations = []) ?(other_config = [])
+    () =
   Db.Cluster_host.create ~__context ~ref ~uuid ~cluster ~host ~pIF ~enabled
-    ~allowed_operations ~current_operations ~other_config ~joined ;
+    ~allowed_operations ~current_operations ~other_config ~joined ~live
+    ~last_update_live ;
   ref
 
 let make_cluster_and_cluster_host ~__context ?(ref = Ref.make ())
@@ -633,10 +635,12 @@ let make_cluster_and_cluster_host ~__context ?(ref = Ref.make ())
     ?(pool_auto_join = true)
     ?(token_timeout = Constants.default_token_timeout_s)
     ?(token_timeout_coefficient = Constants.default_token_timeout_coefficient_s)
-    ?(cluster_config = []) ?(other_config = []) ?(host = Ref.null) () =
+    ?(cluster_config = []) ?(other_config = []) ?(host = Ref.null)
+    ?(is_quorate = false) ?(quorum = 0L) ?(live_hosts = 0L) () =
   Db.Cluster.create ~__context ~ref ~uuid ~cluster_token ~pending_forget:[]
     ~cluster_stack ~allowed_operations ~current_operations ~pool_auto_join
-    ~token_timeout ~token_timeout_coefficient ~cluster_config ~other_config ;
+    ~token_timeout ~token_timeout_coefficient ~cluster_config ~other_config
+    ~is_quorate ~quorum ~live_hosts ;
   let cluster_host_ref =
     make_cluster_host ~__context ~cluster:ref ~host ~pIF ()
   in

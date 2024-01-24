@@ -63,7 +63,8 @@ let create_internal ~__context ~cluster ~host ~pIF : API.ref_Cluster_host =
       let uuid = Uuidx.(to_string (make ())) in
       Db.Cluster_host.create ~__context ~ref ~uuid ~cluster ~host ~pIF
         ~enabled:false ~current_operations:[] ~allowed_operations:[]
-        ~other_config:[] ~joined:false ;
+        ~other_config:[] ~joined:false ~live:false
+        ~last_update_live:API.Date.epoch ;
       ref
   )
 
@@ -193,6 +194,8 @@ let resync_host ~__context ~host =
             (* Note that join_internal and enable both use the clustering lock *)
             Client.Client.Cluster_host.enable ~rpc ~session_id ~self
           ) ;
+          (* create the watcher here so that the watcher exists after toolstack restart *)
+          create_cluster_watcher_on_master ~__context ~host ;
           Xapi_observer.initialise_observer ~__context
             Xapi_observer.Component.Xapi_clusterd ;
           let verify = Stunnel_client.get_verify_by_default () in
@@ -302,6 +305,7 @@ let enable ~__context ~self =
           "Cluster_host.enable: xapi-clusterd not running - attempting to start" ;
         Xapi_clustering.Daemon.enable ~__context
       ) ;
+      create_cluster_watcher_on_master ~__context ~host ;
       Xapi_observer.initialise_observer ~__context
         Xapi_observer.Component.Xapi_clusterd ;
       let verify = Stunnel_client.get_verify_by_default () in
