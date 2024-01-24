@@ -6,34 +6,13 @@
 import unittest
 from mock import MagicMock, patch, call
 import sys
-import os
-import socket
+from import_file import get_module
+
 
 # mock modules to avoid dependencies
 sys.modules["XenAPI"] = MagicMock()
 
-def import_from_file(module_name, file_path):
-    """Import a file as a module"""
-    if sys.version_info.major == 2:
-        return None
-    else:
-        from importlib import machinery, util
-        loader = machinery.SourceFileLoader(module_name, file_path)
-        spec = util.spec_from_loader(module_name, loader)
-        assert spec
-        assert spec.loader
-        module = util.module_from_spec(spec)
-        # Probably a good idea to add manually imported module stored in sys.modules
-        sys.modules[module_name] = module
-        spec.loader.exec_module(module)
-        return module
-
-def get_module():
-    """Import the hfx_filename script as a module for executing unit tests on functions"""
-    testdir = os.path.dirname(__file__)
-    return import_from_file("hfx_filename", testdir + "/hfx_filename")
-
-hfx_filename = get_module()
+hfx_filename = get_module("hfx_filename", "/hfx_filename")
 
 @unittest.skipIf(sys.version_info < (3, 0), reason="requires python3")
 @patch("socket.socket")
