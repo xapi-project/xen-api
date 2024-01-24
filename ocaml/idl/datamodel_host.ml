@@ -1263,6 +1263,7 @@ let operations =
       ; ("vm_resume", "This host is resuming a VM")
       ; ("vm_migrate", "This host is the migration target of a VM")
       ; ("apply_updates", "Indicates this host is being updated")
+      ; ("enable", "Indicates this host is in the process of enabling")
       ]
     )
 

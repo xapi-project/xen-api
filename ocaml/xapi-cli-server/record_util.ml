@@ -197,6 +197,8 @@ let host_operation_to_string = function
       "VM.migrate"
   | `apply_updates ->
       "apply_updates"
+  | `enable ->
+      "enable"
 
 let update_guidance_to_string = function
   | `reboot_host ->
