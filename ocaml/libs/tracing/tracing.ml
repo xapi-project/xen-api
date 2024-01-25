@@ -324,7 +324,7 @@ module Spans = struct
           else if v <= snd last_min then
             acc
           else
-            SpanMap.remove (fst last_min) acc |> SpanMap.add k v
+            acc |> SpanMap.remove (fst last_min) |> SpanMap.add k v
 
     let most_frequent () =
       Hashtbl.fold (take_most depth) frequency_tbl SpanMap.empty
@@ -337,6 +337,35 @@ module Spans = struct
         (most_frequent_list |> frequencies_to_yojson |> Yojson.Safe.to_string) ;
       most_frequent_list |> List.map fst
   end
+
+  let spans_with_names span_names =
+    let spans_copy = Hashtbl.copy spans in
+
+    Hashtbl.filter_map_inplace
+      (fun _ v ->
+        Some
+          (List.filter
+             (fun (span : Span.t) ->
+               List.exists (String.equal span.name) span_names
+             )
+             v
+          )
+      )
+      spans_copy ;
+    spans_copy
+    |> Hashtbl.to_seq_values
+    |> Seq.map List.to_seq
+    |> Seq.concat
+    |> List.of_seq
+
+  let get_oldest_half (spans : Span.t list) =
+    let sorted_spans =
+      List.sort
+        (fun (s1 : Span.t) (s2 : Span.t) -> compare s1.begin_time s2.begin_time)
+        spans
+    in
+    let length = List.length sorted_spans in
+    Xapi_stdext_std.Listext.List.take ((length + 1) / 2) sorted_spans
 
   let max_spans = ref 1000
 
@@ -399,7 +428,11 @@ module Spans = struct
       match tbl_type with
       | ActiveTbl ->
           SpanFrequencies.incr_frequency_tbl ~span ;
-          Hashtbl.replace tbl key (span :: trace_bucket)
+          Hashtbl.replace tbl key (span :: trace_bucket) ;
+          if full () then
+            do_on_full ()
+          else
+            ()
       | FinishedTbl ->
           Hashtbl.replace tbl key (span :: trace_bucket)
     else
@@ -423,16 +456,30 @@ module Spans = struct
   let mark_finished ?(with_lock = true) span =
     Option.iter (add_to_finished ~with_lock) (remove_from_spans ~with_lock span)
 
+  let finish_oldest_half (spans : Span.t list) =
+    let attributes =
+      Attributes.of_list [("xs.tracing.finished.reason", "gc.full")]
+    in
+    spans
+    |> get_oldest_half
+    |> List.iter (fun span ->
+           let span = Span.finish ~attributes ~span () in
+           debug "Mark span: %s as finished" span.name ;
+           mark_finished ~with_lock:false span
+       )
+
+  let clean_oldest () =
+    debug "%s exceeded max traces when adding to span table" __FUNCTION__ ;
+    SpanFrequencies.debug_most_frequent ()
+    |> spans_with_names
+    |> finish_oldest_half
+
   let add_to_spans ~(span : Span.t) =
     let key = span.context.trace_id in
     Xapi_stdext_threads.Threadext.Mutex.execute lock (fun () ->
         add_to_tbl_helper
           ?trace_bucket:(Hashtbl.find_opt spans key)
-          ~span ~key ~tbl:spans ~tbl_type:ActiveTbl
-        @@ fun () ->
-        debug "%s exceeded max traces when adding to finished span table"
-          __FUNCTION__ ;
-        ignore (SpanFrequencies.debug_most_frequent ())
+          ~span ~key ~tbl:spans ~tbl_type:ActiveTbl clean_oldest
     )
 
   let span_is_finished x =
