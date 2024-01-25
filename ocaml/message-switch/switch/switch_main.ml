@@ -75,13 +75,6 @@ module Lwt_result = struct
   let ( >>= ) m f = m >>= fun x -> f (Stdlib.Result.get_ok x)
 end
 
-let exn_hook e =
-  let bt = Printexc.get_raw_backtrace () in
-  error "Caught exception in Lwt.async: %s" (Printexc.to_string e) ;
-  error "backtrace: %s" (Printexc.raw_backtrace_to_string bt)
-
-let () = Lwt.async_exception_hook := exn_hook
-
 let make_server config trace_config =
   let open Config in
   info "Started server on %s" config.path ;
