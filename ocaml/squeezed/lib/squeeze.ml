@@ -99,23 +99,6 @@ type host = {
 
 let make_host ~domains ~free_mem_kib = {domains; free_mem_kib}
 
-let string_pairs_to_string (x : (string * string) list) =
-  String.concat "; " (List.map (fun (k, v) -> k ^ "=" ^ v) x)
-
-let domain_to_string d = string_pairs_to_string (domain_to_string_pairs d)
-
-let host_to_string_pairs (x : host) =
-  let domains =
-    DomainSet.fold
-      (fun domain acc -> domain_to_string domain :: acc)
-      x.domains []
-    |> String.concat "; "
-  in
-  [
-    ("domains", "[" ^ domains ^ "]")
-  ; ("free_mem_kib", Int64.to_string x.free_mem_kib)
-  ]
-
 (** The ballooning algorithm returns a list of actions to perform *)
 type action = {
     action_domid: int  (** domid of domain to operate on *)
