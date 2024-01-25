@@ -1958,7 +1958,7 @@ module PIF_metrics = struct
         ; field ~qualifier:DynamicRO ~ty:String "device_name"
             "Report device name"
         ; field ~qualifier:DynamicRO ~ty:Int "speed"
-            "Speed of the link (if available)"
+            "Speed of the link in Mbit/s (if available)"
         ; field ~qualifier:DynamicRO ~ty:Bool "duplex"
             "Full duplex capability of the link (if available)"
         ; field ~qualifier:DynamicRO ~ty:String "pci_bus_path"
