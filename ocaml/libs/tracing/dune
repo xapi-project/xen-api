@@ -11,6 +11,7 @@
   xapi-log
   xapi-open-uri
   xapi-stdext-threads
+  xapi-stdext-std
   xapi-stdext-unix
   zstd)
  (preprocess

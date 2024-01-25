@@ -16,6 +16,7 @@ open Tracing
 module D = Debug.Make (struct let name = "test_observer" end)
 
 open D
+module SpanMap = Map.Make (Tracing.Span)
 
 let () = Printexc.record_backtrace true
 
@@ -382,6 +383,88 @@ let test_all_spans_finish () =
     (Hashtbl.length remaining_spans) ;
   test_destroy ~__context ~self ()
 
+let test_most_frequent_spans () =
+  let __context = Test_common.make_test_database () in
+  let self = test_create ~__context () ~enabled:true in
+  let tracer = get_tracer ~name:"test-observer" in
+  let () = Tracing.Spans.set_max_traces 15 in
+
+  let expected_finished_sn =
+    [
+      "test_span_name_1"
+    ; "test_span_name_2"
+    ; "test_span_name_2"
+    ; "test_span_name_3"
+    ; "test_span_name_3"
+    ; "test_span_name_3"
+    ; "test_span_name_4"
+    ; "test_span_name_4"
+    ]
+  in
+  let expected_active_sn =
+    [
+      "test_span_name_4"
+    ; "test_span_name_4"
+    ; "test_span_name_5"
+    ; "test_span_name_5"
+    ; "test_span_name_5"
+    ; "test_span_name_5"
+    ; "test_span_name_5"
+    ]
+  in
+
+  let start_span_helper ~tracer span_name =
+    match
+      Tracer.start
+        ~attributes:[("span.name", span_name)]
+        ~tracer ~name:span_name ~parent:None ()
+    with
+    | Ok _ ->
+        ()
+    | Error e ->
+        Alcotest.failf "Span start failed with %s" (Printexc.to_string e)
+  in
+
+  List.iter (start_span_helper ~tracer) expected_finished_sn ;
+  List.iter (start_span_helper ~tracer) expected_active_sn ;
+
+  let active_spans, finished_spans = Spans.dump () in
+
+  let span_names_of_table table =
+    Hashtbl.to_seq_values table
+    |> Seq.map List.to_seq
+    |> Seq.concat
+    |> Seq.map (fun s -> Tracing.Span.get_tag s "span.name")
+    |> List.of_seq
+  in
+
+  let finished_spans_names = span_names_of_table finished_spans in
+  let active_spans_names = span_names_of_table active_spans in
+
+  Alcotest.(check (slist string String.compare))
+    "Oldest half is finished" expected_finished_sn finished_spans_names ;
+  Alcotest.(check (slist string String.compare))
+    "Newest half is remains" expected_active_sn active_spans_names ;
+
+  let test_attribute spans_tbl =
+    spans_tbl
+    |> Hashtbl.to_seq_values
+    |> Seq.iter
+         (List.iter (fun span ->
+              Alcotest.(check string)
+                (Printf.sprintf "Check span %s has correct attribute"
+                   (Tracing.Span.get_tag span "span.name")
+                )
+                (Tracing.Span.get_tag span "xs.tracing.finished.reason")
+                "gc.full"
+          )
+         )
+  in
+
+  test_attribute finished_spans ;
+  test_destroy ~__context ~self () ;
+  TracerProvider.assert_num_observers ~__context 0
+
 let test_hashtbl_leaks () =
   let test_trace_log_dir = trace_log_dir ~test_name:"test_hashtbl_leaks" () in
   let __context = Test_common.make_test_database () in
@@ -393,7 +476,6 @@ let test_hashtbl_leaks () =
         "Spans are collected in span hashtable"
         (Tracer.span_hashtbl_is_empty ())
         false ;
-
       let _ = Tracer.finish x in
       Alcotest.(check bool)
         "Span finish removes span from span hashtable"
@@ -514,6 +596,7 @@ let test =
     , `Quick
     , test_observer_create_and_destroy
     )
+  ; ("test_most_frequent_spans", `Quick, test_most_frequent_spans)
   ; ("test_observer_valid_params", `Quick, test_observer_valid_params)
   ; ("test_observer_endpoint", `Quick, test_observer_endpoint)
   ; ("test_file_export", `Quick, test_file_export_writes)
