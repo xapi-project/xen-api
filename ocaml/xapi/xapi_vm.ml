@@ -1613,6 +1613,19 @@ let set_NVRAM_EFI_variables ~__context ~self ~value =
   )
 
 let restart_device_models ~__context ~self =
+  let power_state = Db.VM.get_power_state ~__context ~self in
+  if power_state <> `Running then
+    raise
+      Api_errors.(
+        Server_error
+          ( vm_bad_power_state
+          , [
+              Ref.string_of self
+            ; Record_util.power_state_to_string `Running
+            ; Record_util.power_state_to_string power_state
+            ]
+          )
+      ) ;
   let host = Db.VM.get_resident_on ~__context ~self in
   (* As it is implemented as a localhost migration, just reuse message
    * forwarding of "pool_migrate" to handle "allowed operation" and "message
