@@ -1024,20 +1024,20 @@ def main():
             return 1
 
         if not sender:
-            sender = "noreply@%s" % getfqdn().encode(charset)
+            sender = "noreply@%s" % getfqdn()
 
         # Replace macros in config file using search_replace list
         for s, r in search_replace:
             config = config.replace(s, r)
 
         # Write out a temporary file containing the new config
-        with tempfile.NamedTemporaryFile(
-            prefix="mail-", dir="/tmp", delete=False
-        ) as temp_file:
-            temp_file.write(config.encode())
-            temp_file_path = temp_file.name
-
         try:
+            with tempfile.NamedTemporaryFile(
+                prefix="mail-", dir="/tmp", delete=False
+            ) as temp_file:
+                temp_file.write(config.encode())
+                temp_file_path = temp_file.name
+
             # Run ssmtp to send mail
             with subprocess.Popen(
                 ["/usr/sbin/ssmtp", "-C%s" % temp_file_path, destination],
@@ -1054,9 +1054,9 @@ def main():
                 ) % (
                     sender,
                     charset,
-                    destination.encode(charset),
-                    msg.generate_email_subject().encode(charset),
-                    msg.generate_email_body().encode(charset),
+                    destination,
+                    msg.generate_email_subject(),
+                    msg.generate_email_body(),
                 )
                 proc.communicate(input=input_data.encode(charset))
         finally:
