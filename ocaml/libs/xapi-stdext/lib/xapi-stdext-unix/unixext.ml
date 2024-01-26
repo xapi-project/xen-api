@@ -434,24 +434,38 @@ let proxy (a : Unix.file_descr) (b : Unix.file_descr) =
   let a' = CBuf.empty size and b' = CBuf.empty size in
   Unix.set_nonblock a ;
   Unix.set_nonblock b ;
+  with_polly @@ fun polly ->
+  Polly.add polly a Polly.Events.empty ;
+  Polly.add polly b Polly.Events.empty ;
   try
     while true do
-      let r =
-        (if CBuf.should_read a' then [a] else [])
-        @ if CBuf.should_read b' then [b] else []
-      in
-      let w =
-        (if CBuf.should_write a' then [b] else [])
-        @ if CBuf.should_write b' then [a] else []
+      (* use oneshot notification so that we can use Polly.mod as needed to reenable,
+         but it will disable itself each turn *)
+      let a_events =
+        Polly.Events.(
+          (if CBuf.should_read a' then inp lor oneshot else empty)
+          lor if CBuf.should_write b' then out lor oneshot else empty
+        )
+      and b_events =
+        Polly.Events.(
+          (if CBuf.should_read b' then inp lor oneshot else empty)
+          lor if CBuf.should_write a' then out lor oneshot else empty
+        )
       in
       (* If we can't make any progress (because fds have been closed), then stop *)
-      if r = [] && w = [] then raise End_of_file ;
-      let r, w, _ = Unix.select r w [] (-1.0) in
-      (* Do the writing before the reading *)
-      List.iter
-        (fun fd -> if a = fd then CBuf.write b' a else CBuf.write a' b)
-        w ;
-      List.iter (fun fd -> if a = fd then CBuf.read a' a else CBuf.read b' b) r ;
+      if Polly.Events.(a_events lor b_events = empty) then raise End_of_file ;
+
+      if Polly.Events.(a_events <> empty) then
+        Polly.upd polly a a_events ;
+      if Polly.Events.(b_events <> empty) then
+        Polly.upd polly b b_events ;
+      Polly.wait_fold polly 4 (-1) () (fun _polly fd events () ->
+          (* Do the writing before the reading *)
+          if Polly.Events.(test out events) then
+            if a = fd then CBuf.write b' a else CBuf.write a' b ;
+          if Polly.Events.(test inp events) then
+            if a = fd then CBuf.read a' a else CBuf.read b' b
+      ) ;
       (* If there's nothing else to read or write then signal the other end *)
       List.iter
         (fun (buf, fd) ->
