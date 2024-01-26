@@ -23,8 +23,6 @@
 
 (* Make debug printing work both when linked into a daemon and from the
    commandline *)
-let start = Unix.gettimeofday ()
-
 module D = Debug.Make (struct let name = "squeeze" end)
 
 open D
@@ -71,19 +69,6 @@ let domain_make domid can_balloon dynamic_min_kib target_kib dynamic_max_kib
   ; inaccuracy_kib
   }
 
-let domain_to_string_pairs (x : domain) =
-  let i64 = Int64.to_string and i = string_of_int in
-  [
-    ("domid", i x.domid)
-  ; ("can_balloon", string_of_bool x.can_balloon)
-  ; ("dynamic_min_kib", i64 x.dynamic_min_kib)
-  ; ("target_kib", i64 x.target_kib)
-  ; ("dynamic_max_kib", i64 x.dynamic_max_kib)
-  ; ("memory_actual_kib", i64 x.memory_actual_kib)
-  ; ("memory_max_kib", i64 x.memory_max_kib)
-  ; ("inaccuracy_kib", i64 x.inaccuracy_kib)
-  ]
-
 module DomainSet = Set.Make (struct
   type t = domain
 
@@ -104,12 +89,6 @@ type action = {
     action_domid: int  (** domid of domain to operate on *)
   ; new_target_kib: int64  (** new balloon target to set *)
 }
-
-let action_to_string_pairs (x : action) =
-  [
-    ("domid", string_of_int x.action_domid)
-  ; ("new_target_kib", Int64.to_string x.new_target_kib)
-  ]
 
 let ( -* ) = Int64.sub
 
@@ -273,14 +252,6 @@ let min_freeable ?(fistpoints = []) domain =
       -* domain.dynamic_min_kib
       -* (2L ** domain.inaccuracy_kib)
       )
-
-(** The minimum amount we will allocate by setting target = dynamic_max *)
-let min_allocatable domain =
-  max 0L
-    (domain.dynamic_max_kib
-    -* domain.memory_actual_kib
-    -* (2L ** domain.inaccuracy_kib)
-    )
 
 (** The range between dynamic_min and dynamic_max i.e. the total amount we may
     vary the balloon target NOT the total amount the memory_actual may vary. *)
@@ -722,12 +693,6 @@ let change_host_free_memory ?fistpoints io required_mem_kib success_condition =
         List.iter io.execute_action actions ;
         io.wait 1.
   done
-
-let free_memory fistpoints io required_mem_kib =
-  change_host_free_memory ?fistpoints io
-    (required_mem_kib +* io.target_host_free_mem_kib) (fun x ->
-      x >= required_mem_kib +* io.target_host_free_mem_kib
-  )
 
 let free_memory_range ?fistpoints io min_kib max_kib =
   (* First compute the 'ideal' amount of free memory based on the proportional
