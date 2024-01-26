@@ -681,11 +681,8 @@ let change_host_free_memory ?fistpoints io required_mem_kib success_condition =
             let ideal_kib = min domain.target_kib domain.memory_actual_kib in
             min domain.dynamic_max_kib (max domain.dynamic_min_kib ideal_kib)
           else
-            match List.assoc_opt domain.domid new_targets with
-            | None ->
-                domain.target_kib
-            | Some t ->
-                t
+            List.assoc_opt domain.domid new_targets
+            |> Option.value ~default:domain.target_kib
         in
         io.domain_setmaxmem domain.domid mem
       )
@@ -754,7 +751,7 @@ let free_memory_range ?fistpoints io min_kib max_kib =
       io.target_host_free_mem_kib
   in
   let target =
-    match List.assoc_opt domain adjustments with None -> min_kib | Some a -> a
+    List.assoc_opt domain adjustments |> Option.value ~default:min_kib
   in
   debug "free_memory_range ideal target = %Ld" target ;
   change_host_free_memory ?fistpoints io (target +* io.target_host_free_mem_kib)
@@ -788,10 +785,10 @@ let is_host_memory_unbalanced ?fistpoints io =
   let is_new_target a =
     let existing_target_kib =
       host.domains
-      |> DomainSet.find_first_opt (fun d -> a.action_domid = d.domid)
-      |> Option.fold ~none:Int64.minus_one ~some:(fun d -> d.target_kib)
+      |> DomainSet.find_opt (domain_make a.action_domid false 0L 0L 0L 0L 0L 0L)
+      |> Option.map (fun d -> d.target_kib)
     in
-    a.new_target_kib <> existing_target_kib
+    Some a.new_target_kib <> existing_target_kib
   in
   match result with
   | AdjustTargets ts ->
