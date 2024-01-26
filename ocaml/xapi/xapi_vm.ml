@@ -290,9 +290,8 @@ let update_platform_secureboot ~__context ~self platform =
   | exception Not_found ->
       platform
   | "auto" ->
-      ( "secureboot"
-      , string_of_bool (Db.Pool.get_uefi_certificates ~__context ~self <> "")
-      )
+      let uefi_certs = Helpers.get_active_uefi_certificates ~__context ~self in
+      ("secureboot", string_of_bool (uefi_certs <> ""))
       :: List.remove_assoc "secureboot" platform
   | _ ->
       platform

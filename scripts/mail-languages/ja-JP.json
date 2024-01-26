@@ -10,7 +10,7 @@
 		},
 		"memory_usage_alarm":{
 			"subject":"[{pool_name}] {product_brand} アラート: {cls} \"{name_label}\" のメモリ使用率",
-			"body":"{cls} \"{name_label}\" の空きメモリは最近の {period} 秒で平均 {value} KiB です。\nこのアラートは空きメモリが {level} KiB を下回ると発するように設定されています。\n\n[アラート設定] は、{brand_console} コンソールにログインして次の順にをクリックしてください。\n[サーバー] -> [プロパティ] -> [アラート]\n"
+			"body":"{cls} \"{name_label}\" の空きメモリは最近の {period} 秒で平均 {value} KiB です。\nこのアラートは空きメモリが {level} KiB を下回ると発するように設定されています。\n\n[アラート設定] は、{brand_console} コンソールにログインして次の順にをクリックしてください。\n[{cls_name}] -> [プロパティ] -> [アラート]\n"
 		},
 		"disk_usage_alarm":{
 			"subject":"[{pool_name}] {product_brand} アラート: VM \"{name_label}\" のディスク使用量",

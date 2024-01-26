@@ -1554,6 +1554,13 @@ let join_common ~__context ~master_address ~master_username ~master_password
           Db.Pool.set_uefi_certificates ~__context
             ~self:(Helpers.get_pool ~__context)
             ~value:_uefi_certs ;
+          let _custom_uefi_certs =
+            Client.Pool.get_custom_uefi_certificates ~rpc ~session_id
+              ~self:(get_pool ~rpc ~session_id)
+          in
+          Db.Pool.set_custom_uefi_certificates ~__context
+            ~self:(Helpers.get_pool ~__context)
+            ~value:_custom_uefi_certs ;
           Helpers.call_api_functions ~__context
             (fun local_rpc local_session_id ->
               Client.Host.write_uefi_certificates_to_disk ~rpc:local_rpc
@@ -3572,16 +3579,23 @@ let disable_repository_proxy ~__context ~self =
         Db.Secret.destroy ~__context ~self:old_secret_ref
     )
 
-let set_uefi_certificates ~__context ~self ~value =
-  match !Xapi_globs.override_uefi_certs with
+let set_uefi_certificates ~__context ~self:_ ~value:_ =
+  let msg =
+    "Setting UEFI certificates is deprecated, please use \
+     `set_custom_uefi_certificates`"
+  in
+  raise Api_errors.(Server_error (operation_not_allowed, [msg]))
+
+let set_custom_uefi_certificates ~__context ~self ~value =
+  match !Xapi_globs.allow_custom_uefi_certs with
   | false ->
       let msg =
-        "Setting UEFI certificates is not possible when override_uefi_certs is \
-         false"
+        "Setting UEFI certificates is not possible when \
+         allow_custom_uefi_certs is false"
       in
       raise Api_errors.(Server_error (operation_not_allowed, [msg]))
   | true ->
-      Db.Pool.set_uefi_certificates ~__context ~self ~value ;
+      Db.Pool.set_custom_uefi_certificates ~__context ~self ~value ;
       Helpers.call_api_functions ~__context (fun rpc session_id ->
           List.iter
             (fun host ->

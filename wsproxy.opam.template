@@ -1,0 +1,29 @@
+opam-version: "2.0"
+name: "wsproxy"
+maintainer: "xen-api@lists.xen.org"
+authors: [ "Jon Ludlam" "Marcello Seri" ]
+license: "LGPL-2.0-only WITH OCaml-LGPL-linking-exception"
+homepage: "https://github.com/xapi-project/xen-api"
+dev-repo: "git+https://github.com/xapi-project/xen-api.git"
+bug-reports: "https://github.com/xapi-project/xen-api/issues"
+build: [
+  ["dune" "build" "-p" name "-j" jobs]
+  ["dune" "runtest" "-p" name "-j" jobs] {with-test}
+]
+depends: [
+  "ocaml"
+  "dune"
+  "base64" {>= "3.1.0"}
+  "fmt"
+  "logs"
+  "lwt" {>= "3.0.0"}
+  "re"
+  "uuid"
+  "ounit2" {with-test}
+  "qcheck" {with-test}
+]
+tags: [ "org:xapi-project" ]
+synopsis: "Websockets proxy for VNC traffic"
+url {
+  src: "https://github.com/xapi-project/xen-api/archive/master.tar.gz"
+}

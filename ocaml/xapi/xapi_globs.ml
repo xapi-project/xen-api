@@ -858,7 +858,7 @@ let varstore_dir = ref "/var/lib/varstored"
 
 let default_auth_dir = ref "/usr/share/varstored"
 
-let override_uefi_certs = ref false
+let allow_custom_uefi_certs = ref false
 
 let disable_logging_for = ref []
 
@@ -1002,6 +1002,14 @@ let prefer_nbd_attach = ref false
 
 (** 1 MiB *)
 let max_observer_file_size = ref (1 lsl 20)
+
+let cert_thumbprint_header_request =
+  ref "x-xenapi-request-host-certificate-thumbprint"
+
+let cert_thumbprint_header_value = ref "sha-256:master"
+
+let cert_thumbprint_header_response =
+  ref "x-xenapi-response-host-certificate-thumbprint"
 
 let xapi_globs_spec =
   [
@@ -1443,11 +1451,11 @@ let other_options =
     , (fun () -> string_of_bool !ignore_vtpm_unimplemented)
     , "Do not raise errors on use-cases where VTPM codepaths are not finished."
     )
-  ; ( "override-uefi-certs"
-    , Arg.Set override_uefi_certs
-    , (fun () -> string_of_bool !override_uefi_certs)
-    , "Enable (true) or Disable (false) overriding location for varstored UEFI \
-       certificates"
+  ; ( "allow-custom-uefi-certs"
+    , Arg.Set allow_custom_uefi_certs
+    , (fun () -> string_of_bool !allow_custom_uefi_certs)
+    , "Enable (true) or Disable (false) setting a custom location for \
+       varstored UEFI certificates"
     )
   ; ( "server-cert-group-id"
     , Arg.Set_int server_cert_group_id

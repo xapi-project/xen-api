@@ -532,6 +532,12 @@ val set_sched_gran :
 val get_sched_gran :
   __context:Context.t -> self:API.ref_host -> API.host_sched_gran
 
+val set_numa_affinity_policy :
+     __context:Context.t
+  -> self:API.ref_host
+  -> value:API.host_numa_affinity_policy
+  -> unit
+
 val emergency_disable_tls_verification : __context:Context.t -> unit
 
 val alert_if_tls_verification_was_emergency_disabled :

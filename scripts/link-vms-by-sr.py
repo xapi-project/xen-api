@@ -1,41 +1,32 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 # Populate a directory of symlinks partitioning VMs by SR
 # (c) Anil Madhavapeddy, Citrix Systems Inc, 2008
 
+from __future__ import print_function
+
+import argparse
 import atexit
+import contextlib
+import os
+import sys
+from pathlib import Path
+
 import XenAPI
-import os, sys
-import getopt
 
-def logout():
-    try:
+
+def logout(session):
+    with contextlib.suppress(Exception):
         session.xenapi.session.logout()
-    except:
-        pass
-atexit.register(logout)
 
-def usage():
-    print >> sys.stderr, "%s [-d <directory>]" % sys.argv[0]
-    sys.exit(1)
-   
-def main(argv):
-    session = XenAPI.xapi_local()
-    session.xenapi.login_with_password("", "", "1.0", "xen-api-scripts-linkvmsbysr.py")
 
-    try:
-        opts, args = getopt.getopt(sys.argv[1:], "hd:", [])
-    except getopt.GetoptError, err:
-        print str(err)
-        usage()
+def get_input_dir():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-d", dest="input_dir", required=True, help="Specify the input directory")
+    args = parser.parse_args()
+    return args.input_dir
 
-    dir = None
-    for o,a in opts:
-        if o == "-d":
-            dir = a
 
-    if dir == None:
-        usage()
- 
+def get_vms_in_sr(session):
     vms = session.xenapi.VM.get_all_records()
     vbds = session.xenapi.VBD.get_all_records()
     vdis = session.xenapi.VDI.get_all_records()
@@ -46,61 +37,64 @@ def main(argv):
     for vm in vms:
         vmrec = vms[vm]
         # Ignore built-in templates
-        if vmrec['other_config'].has_key('default_template'):
-            if vmrec['other_config']['default_template'] == 'true':
-                continue
-        # Ignore dom0
-        if vmrec['is_control_domain']:
+        if vmrec["other_config"].get("default_template") == "true":
             continue
-        # Ignore snapshots
-        if vmrec['is_a_snapshot']:
+
+        # Ignore dom0 and Ignore snapshots
+        if vmrec["is_control_domain"] or vmrec["is_a_snapshot"]:
             continue
 
         # for each VM, figure out the set of SRs it uses
-        for vbd in vmrec['VBDs']:
-            if not vbds.has_key(vbd):
+        for vbd in vmrec["VBDs"]:
+            if vbd not in vbds:
                 continue
-            vdi = vbds[vbd]['VDI']
 
             # Ignore VBDs with no VDI such as an empty CD VBD
-            if vdi == '':
+            vdi = vbds[vbd]["VDI"]
+            if vdi == "" or vdi not in vdis:
                 continue
 
-            if not vdis.has_key(vdi):
+            sr = vdis[vdi]["SR"]
+            if sr not in srs:
                 continue
 
-            sr = vdis[vdi]['SR']
-            if not srs.has_key(sr):
-                continue
+            sruuid = srs[sr]["uuid"]
+            vmuuid = vmrec["uuid"]
 
-            sruuid = srs[sr]['uuid']
-            vmuuid = vmrec['uuid']
+            vms_in_sr.setdefault(sruuid, {})[vmuuid] = 1
 
-            if not vms_in_sr.has_key(sruuid):
-                vms_in_sr[sruuid] = {}
-            vms_in_sr[sruuid][vmuuid] = 1
-    
-    for sruuid in vms_in_sr.keys():
-        linkdir = "%s/by-sr/%s" % (dir, sruuid)
-        if os.path.isdir(linkdir):
-            print >> sys.stderr, "Directory %s already exists, skipping" % linkdir
+    return vms_in_sr
+
+
+def main():
+    session = XenAPI.xapi_local()
+    session.xenapi.login_with_password("", "", "1.0", "xen-api-scripts-linkvmsbysr.py")
+    atexit.register(logout, session)
+
+    input_dir = get_input_dir()
+    vms_in_sr = get_vms_in_sr(session)
+
+    for sruuid in list(vms_in_sr.keys()):
+        linkdir = "{}/by-sr/{}".format(input_dir, sruuid)
+        if Path(linkdir).is_dir():
+            print("Directory %s already exists, skipping" % linkdir, file=sys.stderr)
             continue
 
         try:
-            os.makedirs(linkdir)
+            Path(linkdir).mkdir(parents=True)
         except:
-            print >> sys.stderr, "Failed to create directory: %s" % linkdir
-        for vmuuid in vms_in_sr[sruuid].keys():
+            print("Failed to create directory: %s" % linkdir, file=sys.stderr)
+
+        for vmuuid in list(vms_in_sr[sruuid].keys()):
             try:
-                src = "../../all/%s.vmmeta" % vmuuid
-                targ = "%s/%s.vmmeta" % (linkdir, vmuuid)
+                src = "../../all/{}.vmmeta".format(vmuuid)
+                targ = "{}/{}.vmmeta".format(linkdir, vmuuid)
                 os.symlink(src, targ)
             except:
-                print >> sys.stderr, "Failed to create symlink: %s -> %s" % (src, targ)
+                print("Failed to create symlink: %s -> %s" % (src, targ), file=sys.stderr)
 
     session.xenapi.logout()
 
+
 if __name__ == "__main__":
-    main(sys.argv[1:])
-
-
+    main()

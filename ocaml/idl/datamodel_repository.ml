@@ -28,28 +28,28 @@ let introduce =
           param_type= String
         ; param_name= "name_label"
         ; param_doc= "The name of the repository"
-        ; param_release= next_release
+        ; param_release= numbered_release "1.301.0"
         ; param_default= None
         }
       ; {
           param_type= String
         ; param_name= "name_description"
         ; param_doc= "The description of the repository"
-        ; param_release= next_release
+        ; param_release= numbered_release "1.301.0"
         ; param_default= None
         }
       ; {
           param_type= String
         ; param_name= "binary_url"
         ; param_doc= "Base URL of binary packages in this repository"
-        ; param_release= next_release
+        ; param_release= numbered_release "1.301.0"
         ; param_default= None
         }
       ; {
           param_type= String
         ; param_name= "source_url"
         ; param_doc= "Base URL of source packages in this repository"
-        ; param_release= next_release
+        ; param_release= numbered_release "1.301.0"
         ; param_default= None
         }
       ; {
@@ -58,14 +58,14 @@ let introduce =
         ; param_doc=
             "True if the repository is an update repository. This means that \
              updateinfo.xml will be parsed"
-        ; param_release= next_release
+        ; param_release= numbered_release "1.301.0"
         ; param_default= None
         }
       ; {
           param_type= String
         ; param_name= "gpgkey_path"
         ; param_doc= "The GPG public key file name"
-        ; param_release= next_release
+        ; param_release= numbered_release "1.301.0"
         ; param_default= Some (VString "")
         }
       ]

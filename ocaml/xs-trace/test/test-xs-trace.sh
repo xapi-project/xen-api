@@ -9,10 +9,11 @@ MAX_WAIT=60
 
 PID=$!
 
+trap "kill $PID" SIGINT SIGTERM EXIT
 wait_counter=0
 while [ ! -f "test-server-ready" ] && [ $wait_counter -lt $MAX_WAIT ]; do
-    sleep 3
-    ((wait_counter+=3))
+    sleep 1
+    ((wait_counter+=1))
 done
 
 ../xs_trace.exe cp test-source.json http://$HOST:$PORT/api/v2/spans
@@ -25,4 +26,3 @@ rm test-http-server.out
 
 diff -B test-source.ndjson test-http-server.out || exit 1
 
-kill $PID

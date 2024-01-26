@@ -1067,7 +1067,8 @@ let generate_config ~__context ~host:_ ~vdi =
   Sm.assert_pbd_is_plugged ~__context ~sr:(Db.VDI.get_SR ~__context ~self:vdi) ;
   Xapi_vdi_helpers.assert_managed ~__context ~vdi ;
   Sm.call_sm_vdi_functions ~__context ~vdi (fun srconf srtype sr ->
-      Sm.vdi_generate_config srconf srtype sr vdi
+      let dbg = Context.string_of_task_and_tracing __context in
+      Sm.vdi_generate_config ~dbg srconf srtype sr vdi
   )
 
 let clone ~__context ~vdi ~driver_params =

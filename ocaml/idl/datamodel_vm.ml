@@ -371,7 +371,7 @@ let snapshot =
           param_type= Set (Ref _vdi)
         ; param_name= "ignore_vdis"
         ; param_doc= "A list of VDIs to ignore for the snapshot"
-        ; param_release= next_release
+        ; param_release= numbered_release "21.4.0"
         ; param_default= Some (VSet [])
         }
       ]

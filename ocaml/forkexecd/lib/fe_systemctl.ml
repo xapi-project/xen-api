@@ -26,12 +26,29 @@ let action ~service action =
   in
   ()
 
+(** Systemd execution type *)
+module Type = struct
+  type t = Simple | OneShot | Forking | Notify | Idle
+
+  let to_string = function
+    | Simple ->
+        "simple"
+    | OneShot ->
+        "oneshot"
+    | Forking ->
+        "forking"
+    | Notify ->
+        "notify"
+    | Idle ->
+        "idle"
+end
+
 let default_env = ["PATH=" ^ String.concat ":" Forkhelpers.default_path]
 
 let run_path = "/run/systemd/system/"
 
 let start_transient ?(env = Array.of_list default_env) ?(properties = [])
-    ~service cmd args =
+    ~exec_ty ~service cmd args =
   let syslog_key = service in
   let service = syslog_key ^ ".service" in
   let destination = Filename.concat run_path service in
@@ -47,7 +64,7 @@ let start_transient ?(env = Array.of_list default_env) ?(properties = [])
        ; ("StandardError", "inherit")
        ; ("StartLimitInterval", "0") (* no rate-limit, for bootstorms *)
        ; ("ExecStart", String.concat " " (cmd :: List.map Filename.quote args))
-       ; ("Type", "simple")
+       ; ("Type", Type.to_string exec_ty)
          (* our systemd is too old, and doesn't support 'exec' *)
        ; ("Restart", "no")
          (* can't restart the device-model, it would've lost all state already *)
@@ -118,11 +135,12 @@ let is_active ~service =
 let exists ~service =
   Sys.file_exists (Filename.concat run_path (service ^ ".service"))
 
-let start_transient ?env ?properties ~service cmd args =
+let start_transient ?env ?properties ?(exec_ty = Type.Simple) ~service cmd args
+    =
   if exists ~service then
     (* this can only happen if there is a bug in the caller *)
     invalid_arg (Printf.sprintf "Tried to start %s twice" service) ;
-  try start_transient ?env ?properties ~service cmd args
+  try start_transient ?env ?properties ~exec_ty ~service cmd args
   with e ->
     Backtrace.is_important e ;
     (* If start failed we do not know what state the service is in:

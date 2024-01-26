@@ -372,7 +372,7 @@ let evacuate =
           param_type= Ref _network
         ; param_name= "network"
         ; param_doc= "Optional preferred network for migration"
-        ; param_release= next_release
+        ; param_release= numbered_release "1.297.0"
         ; param_default= Some (VRef null_ref)
         }
       ; {
@@ -381,7 +381,7 @@ let evacuate =
         ; param_doc=
             "The maximum number of VMs to be migrated per batch 0 will use the \
              value `evacuation-batch-size` defined in xapi.conf"
-        ; param_release= next_release
+        ; param_release= numbered_release "23.27.0"
         ; param_default= Some (VInt 0L)
         }
       ]
@@ -1669,6 +1669,36 @@ let cleanup_pool_secret =
       ]
     ~allowed_roles:_R_LOCAL_ROOT_ONLY ~hide_from_docs:true ()
 
+let host_numa_affinity_policy =
+  Enum
+    ( "host_numa_affinity_policy"
+    , [
+        ("any", "VMs are spread across all available NUMA nodes")
+      ; ( "best_effort"
+        , "VMs are placed on the smallest number of NUMA nodes that they fit \
+           using soft-pinning, but the policy doesn't guarantee a balanced \
+           placement, falling back to the 'any' policy."
+        )
+      ; ( "default_policy"
+        , "Use the NUMA affinity policy that is the default for the current \
+           version"
+        )
+      ]
+    )
+
+let set_numa_affinity_policy =
+  call ~name:"set_numa_affinity_policy" ~lifecycle:[]
+    ~doc:"Set VM placement NUMA affinity policy"
+    ~params:
+      [
+        (Ref _host, "self", "The host")
+      ; ( host_numa_affinity_policy
+        , "value"
+        , "The NUMA affinity policy to apply to a host"
+        )
+      ]
+    ~allowed_roles:_R_POOL_ADMIN ()
+
 let host_sched_gran =
   Enum
     ( "host_sched_gran"
@@ -1932,6 +1962,7 @@ let t =
       ; cleanup_pool_secret
       ; set_sched_gran
       ; get_sched_gran
+      ; set_numa_affinity_policy
       ; emergency_disable_tls_verification
       ; emergency_reenable_tls_verification
       ; cert_distrib_atom
@@ -2173,6 +2204,10 @@ let t =
             ~default_value:(Some (VEnum "unknown"))
             "Default as 'unknown', 'yes' if the host is up to date with \
              updates synced from remote CDN, otherwise 'no'"
+        ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:host_numa_affinity_policy
+            "numa_affinity_policy"
+            ~default_value:(Some (VEnum "default_policy"))
+            "NUMA-aware VM memory and vCPU placement policy"
         ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:(Set update_guidances)
             "pending_guidances_recommended" ~default_value:(Some (VSet []))
             "The set of pending recommended guidances after applying updates, \

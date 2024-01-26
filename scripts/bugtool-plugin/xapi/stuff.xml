@@ -13,4 +13,5 @@
 <command label="xapi_cert">cat @ETCXENDIR@/xapi-ssl.pem | @BINDIR@/openssl x509 -text</command>
 <command label="xapi_pool_cert">cat @ETCXENDIR@/xapi-pool-tls.pem | @BINDIR@/openssl x509 -text</command>
 <command label="save_rrd">rrd-cli save_rrds</command>
+<command label="task_list">@OPTDIR@/bin/xe task-list params=all</command>
 </collect>

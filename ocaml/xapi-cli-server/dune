@@ -28,6 +28,7 @@
     xapi-stdext-std
     xapi-stdext-threads
     xapi-stdext-unix
+    xapi-tracing
     xmlm
     xml-light2
   )

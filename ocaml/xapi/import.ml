@@ -1886,7 +1886,7 @@ module VTPM : HandlerTools = struct
             (lookup vtpm'.vTPM'_VM) state.table
         in
         let self =
-          Xapi_vtpm.create ~__context ~vM:vm ~is_unique:vtpm'.vTPM'_is_unique
+          Xapi_vtpm.import ~__context ~vM:vm ~is_unique:vtpm'.vTPM'_is_unique
         in
         (* there is no API to set the protected field *)
         Db.VTPM.set_is_protected ~__context ~self
@@ -2018,6 +2018,56 @@ let assert_filename_is hdr =
     raise (IFailure (Unexpected_file (expected, actual)))
   )
 
+(* We want to read tar headers from a file descriptor (possibly a socket/pipe),
+   and retry with decompression if that fails.
+   To be able to do that we store the first block that we read, and try to parse it with Tar first,
+   and if that fails try zstd/gzip.
+
+   We need a Tar HeaderReader that reads either from a buffer, and then continues reading from an FD
+*)
+module BufferOrFile = struct
+  type in_channel = {
+      mutable buffer: Cstruct.t option
+    ; fd: Unix.file_descr
+    ; retry_with_compression: bool ref
+  }
+
+  type 'a t = 'a
+
+  let make retry_with_compression buffer fd =
+    {buffer= Some buffer; retry_with_compression; fd}
+
+  let really_read t dest =
+    match t.buffer with
+    | Some first ->
+        t.buffer <- None ;
+        assert (Cstruct.length dest = Cstruct.length first) ;
+        Cstruct.blit first 0 dest 0 (Cstruct.length first)
+    | None ->
+        (* if we've successfully parsed the first block as a tar header, then don't retry:
+           we are going to read more from the file anyway.
+        *)
+        t.retry_with_compression := false ;
+        Tar_unix.really_read t.fd dest
+
+  let skip t n =
+    assert (Option.is_none t.buffer) ;
+    (* while reading headers we only skip small distances *)
+    let buf = Cstruct.create n in
+    (* can't seek, because the FD might be a socket/pipe *)
+    Tar_unix.really_read t.fd buf
+end
+
+module Direct = struct
+  type 'a t = 'a
+
+  let ( >>= ) x f = f x
+
+  let return x = x
+end
+
+module TarHeaderReader = Tar.HeaderReader (Direct) (BufferOrFile)
+
 (** Takes an fd and a function, tries first to read the first tar block
     and checks for the existence of 'ova.xml'. If that fails then pipe
     the lot through an appropriate decompressor and try again *)
@@ -2028,7 +2078,10 @@ let with_open_archive fd ?length f =
   try
     Tar_unix.really_read fd buffer ;
     (* we assume the first block is not all zeroes *)
-    let hdr = Option.get (Tar.Header.unmarshal buffer) in
+    let hdr =
+      TarHeaderReader.read (BufferOrFile.make retry_with_compression buffer fd)
+      |> Result.get_ok
+    in
     assert_filename_is hdr ;
     (* successfully opened uncompressed stream *)
     retry_with_compression := false ;

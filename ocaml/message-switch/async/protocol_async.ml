@@ -80,14 +80,14 @@ module M = struct
       {m; c}
 
     let with_lock t f =
-      let rec wait state =
-        if Bool.(t.m = state) then
+      let rec wait () =
+        if Bool.(t.m = false) then (
+          t.m <- true ;
           return ()
-        else
-          Condition.wait t.c >>= fun () -> wait state
+        ) else
+          Condition.wait t.c >>= wait
       in
-      wait false >>= fun () ->
-      t.m <- true ;
+      wait () >>= fun () ->
       Monitor.protect f ~finally:(fun () ->
           t.m <- false ;
           Condition.broadcast t.c () ;

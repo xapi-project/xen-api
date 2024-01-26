@@ -1,0 +1,32 @@
+opam-version: "2.0"
+maintainer: "xen-api@lists.xen.org"
+authors: "xen-api@lists.xen.org"
+homepage: "https://xapi-project.github.io/"
+bug-reports: "https://github.com/xapi-project/xen-api/issues"
+dev-repo: "git+https://github.com/xapi-project/xen-api.git"
+build: [
+  ["dune" "build" "-p" name "-j" jobs]
+  ["dune" "runtest" "-p" name "-j" jobs] {with-test}
+]
+depends: [
+  "ocaml"
+  "dune" {build & >= "1.0+beta10"}
+  "astring"
+  "rpclib"
+  "xapi-forkexecd"
+  "xapi-stdext-pervasives"
+  "xapi-stdext-std"
+  "xapi-stdext-threads"
+  "xapi-stdext-unix"
+  "xapi-idl"
+  "xapi-rrd-transport" {>= "0.9.0"}
+  "xenstore_transport"
+]
+synopsis: "A plugin library for the xapi performance monitoring daemon"
+description: """
+This library allows one to expose a datasource which can then be
+sampled by the performance monitoring daemon."""
+url {
+  src:
+    "https://github.com/xapi-project/xen-api/archive/master.tar.gz"
+}

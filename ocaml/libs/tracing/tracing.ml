@@ -16,13 +16,73 @@ module D = Debug.Make (struct let name = "tracing" end)
 module Delay = Xapi_stdext_threads.Threadext.Delay
 open D
 
+module W3CBaggage = struct
+  module Key = struct
+    let is_valid_key str =
+      let is_tchar = function
+        | '0' .. '9'
+        | 'a' .. 'z'
+        | 'A' .. 'Z'
+        | '!'
+        | '#'
+        | '$'
+        | '%'
+        | '&'
+        | '\''
+        | '*'
+        | '+'
+        | '-'
+        | '.'
+        | '^'
+        | '_'
+        | '`'
+        | '|'
+        | '~' ->
+            true
+        | _ ->
+            false
+      in
+      String.for_all (fun c -> is_tchar c) str
+  end
+
+  module Value = struct
+    type t = string
+
+    let make str =
+      let char_needs_encoding = function
+        (* Encode anything that isn't in basic US-ASCII or is a Control, whitespace, DQUOTE , ; or \ *)
+        | '\000' .. '\032' | '"' | ',' | ';' | '\\' | '\127' .. '\255' ->
+            true
+        | _ ->
+            false
+      in
+      if String.exists (fun c -> char_needs_encoding c) str then
+        let encode_char x =
+          if char_needs_encoding x then
+            Printf.sprintf "%%%02X" (Char.code x)
+          else
+            String.make 1 x
+        in
+        String.to_seq str
+        |> Seq.map encode_char
+        |> List.of_seq
+        |> String.concat ""
+      else
+        str
+
+    let to_string value : t = value
+  end
+end
+
 type endpoint = Bugtool | Url of Uri.t
 
 let attribute_key_regex =
   Re.Posix.compile_pat "^[a-z0-9][a-z0-9._]{0,253}[a-z0-9]$"
 
 let validate_attribute (key, value) =
-  Re.execp attribute_key_regex key && String.length value <= 4095
+  String.length value <= 4095
+  && Re.execp attribute_key_regex key
+  && W3CBaggage.Key.is_valid_key key
 
 let observe = ref true
 
@@ -46,15 +106,17 @@ module SpanKind = struct
         "INTERNAL"
 end
 
+let bugtool_name = "bugtool"
+
 let endpoint_of_string = function
-  | "bugtool" ->
+  | str when str = bugtool_name ->
       Bugtool
   | url ->
       Url (Uri.of_string url)
 
 let endpoint_to_string = function
   | Bugtool ->
-      "bugtool"
+      bugtool_name
   | Url url ->
       Uri.to_string url
 

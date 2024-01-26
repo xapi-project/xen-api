@@ -39,6 +39,7 @@ let _ =
         ()
   in
   let sock = Unix.socket Unix.PF_INET SOCK_STREAM 0 in
+  Unix.setsockopt sock Unix.SO_REUSEADDR true ;
   Unix.bind sock inet_addr ;
   Unix.listen sock 1 ;
   (*Create a file to indicate the server is ready and listening*)
