@@ -23,6 +23,14 @@ module D = Debug.Make (struct let name = "xenops_server" end)
 
 open D
 
+let internal_error fmt =
+  Printf.kprintf
+    (fun str ->
+      error "%s" str ;
+      raise (Xenopsd_error (Internal_error str))
+    )
+    fmt
+
 let rpc_of ty x = Rpcmarshal.marshal ty.Rpc.Types.ty x
 
 let finally = Xapi_stdext_pervasives.Pervasiveext.finally
@@ -88,9 +96,6 @@ let filter_prefix prefix xs =
         None
     )
     xs
-
-let internal_error fmt =
-  Printf.kprintf (fun msg -> raise (Xenopsd_error (Internal_error msg))) fmt
 
 (* return last/element/in/a/path *)
 let basename path =
@@ -647,10 +652,7 @@ module VGPU_DB = struct
     | [a; b] ->
         (a, b)
     | _ ->
-        raise
-          (Xenopsd_error
-             (Internal_error ("String cannot be interpreted as vgpu id: " ^ str))
-          )
+        internal_error "String cannot be interpreted as vgpu id: %s" str
 
   let ids vm : Vgpu.id list =
     list [vm] |> filter_prefix "vgpu." |> List.map (fun id -> (vm, id))
@@ -1879,10 +1881,7 @@ let rec perform_atomic ~progress_callback ?subtask:_ ?result (op : atomic)
                   | Ok x ->
                       Xenopsd_error x
                   | Error (`Msg x) ->
-                      Xenopsd_error
-                        (Internal_error
-                           (Printf.sprintf "Error unmarshalling failure: %s" x)
-                        )
+                      internal_error "Error unmarshalling failure: %s" x
                 in
                 Some e
             | None | Some (Task.Pending _) ->
@@ -2407,10 +2406,7 @@ let rec immediate_operation dbg _id op =
     | Ok e ->
         raise (Xenopsd_error e)
     | Error (`Msg m) ->
-        raise
-          (Xenopsd_error
-             (Internal_error (Printf.sprintf "Failed to unmarshal error: %s" m))
-          )
+        internal_error "Failed to unmarshal error: %s" m
   )
 
 (* At all times we ensure that an operation which partially fails leaves the
@@ -2731,10 +2727,9 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
                    the destination host. even though the destination host
                    failed to respond successfully to our handshake, the VM
                    should still be running correctly *)
-                error
+                internal_error
                   "VM.migrate: Failed during Synchronisation point 4. msg: %s"
-                  msg ;
-                raise (Xenopsd_error (Internal_error msg))
+                  msg
           in
           let save ?vgpu_fd () =
             let url = make_url "/migrate/mem/" new_dest_id in
@@ -3409,6 +3404,8 @@ module VIF = struct
       ()
 end
 
+let numa_placement = ref Xenops_interface.Host.Any
+
 module HOST = struct
   let stat _ dbg =
     Debug.with_thread_associated dbg
@@ -3418,6 +3415,11 @@ module HOST = struct
         B.HOST.stat ()
       )
       ()
+
+  let set_numa_affinity_policy _ dbg =
+    Debug.with_thread_associated dbg @@ fun policy ->
+    debug "HOST.set_numa_affinity_policy" ;
+    numa_placement := policy
 
   let get_console_data _ dbg =
     Debug.with_thread_associated dbg
@@ -3510,10 +3512,7 @@ module VM = struct
           | Ok e ->
               Xenopsd_error e
           | Error (`Msg m) ->
-              Xenopsd_error
-                (Internal_error
-                   (Printf.sprintf "Error unmarshalling error: %s" m)
-                )
+              internal_error "Error unmarshalling error: %s" m
         in
         raise e
     | Task.Pending _ ->
@@ -3681,12 +3680,7 @@ module VM = struct
             | Some (_, vgpu_id_str) ->
                 vgpu_id_str
             | None ->
-                raise
-                  (Xenopsd_error
-                     (Internal_error
-                        ("Could not retrieve vgpu id from path " ^ path)
-                     )
-                  )
+                internal_error "Could not retrieve vgpu id from path %s" path
           in
           let vgpu_id = VGPU_DB.id_of_string vgpu_id_str in
           debug "VM.receive_vgpu vgpu_id_str = %s" vgpu_id_str ;
@@ -3783,12 +3777,7 @@ module VM = struct
       | Ok md ->
           md
       | Error (`Msg m) ->
-          raise
-            (Xenopsd_error
-               (Internal_error
-                  (Printf.sprintf "Unable to unmarshal metadata: %s" m)
-               )
-            )
+          internal_error "Unable to unmarshal metadata: %s" m
     in
     (md.Metadata.vm.Vm.id, md)
 
@@ -4121,6 +4110,7 @@ let _ =
   Server.TASK.destroy (TASK.destroy ()) ;
   Server.TASK.destroy_on_finish (TASK.destroy_on_finish ()) ;
   Server.HOST.stat (HOST.stat ()) ;
+  Server.HOST.set_numa_affinity_policy (HOST.set_numa_affinity_policy ()) ;
   Server.HOST.get_console_data (HOST.get_console_data ()) ;
   Server.HOST.get_total_memory_mib (HOST.get_total_memory_mib ()) ;
   Server.HOST.send_debug_keys (HOST.send_debug_keys ()) ;

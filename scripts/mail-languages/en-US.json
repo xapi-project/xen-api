@@ -10,7 +10,7 @@
 		},
 		"memory_usage_alarm":{
 			"subject":"[{pool_name}] {product_brand} Alarm: Memory usage on {cls} \"{name_label}\"",
-			"body":"Free memory on {cls} \"{name_label}\" has been on average {value} KiB for the last {period} seconds.\nThis alarm is set to be triggered when free memory is less than {level} KiB.\n\nFor Alarm Settings, please log into your {brand_console} Console and click on \"Server\"->\n\"Properties\"->\"Alerts\"\n"
+			"body":"Free memory on {cls} \"{name_label}\" has been on average {value} KiB for the last {period} seconds.\nThis alarm is set to be triggered when free memory is less than {level} KiB.\n\nFor Alarm Settings, please log into your {brand_console} Console and click on \"{cls_name}\"->\n\"Properties\"->\"Alerts\"\n"
 		},
 		"disk_usage_alarm":{
 			"subject":"[{pool_name}] {product_brand} Alarm: Disk usage on VM \"{name_label}\"",

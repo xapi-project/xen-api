@@ -177,6 +177,8 @@ let pool_operation_to_string = function
       "exchange_ca_certificates_on_join"
   | `copy_primary_host_certs ->
       "copy_primary_host_certs"
+  | `eject ->
+      "eject"
 
 let host_operation_to_string = function
   | `provision ->
@@ -713,6 +715,27 @@ let host_sched_gran_to_string = function
       "cpu"
   | `socket ->
       "socket"
+
+let host_numa_affinity_policy_to_string = function
+  | `any ->
+      "any"
+  | `best_effort ->
+      "best_effort"
+  | `default_policy ->
+      "default_policy"
+
+let host_numa_affinity_policy_of_string = function
+  | "any" ->
+      `any
+  | "best_effort" ->
+      `best_effort
+  | "default_policy" ->
+      `default_policy
+  | s ->
+      raise
+        (Record_failure
+           ("Expected 'any', 'best_effort' or 'default_policy', got " ^ s)
+        )
 
 let pgpu_dom0_access_to_string x = host_display_to_string x
 

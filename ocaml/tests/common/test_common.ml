@@ -208,7 +208,7 @@ let make_host2 ~__context ?(ref = Ref.make ()) ?(uuid = make_uuid ())
     ~display:`enabled ~virtual_hardware_platform_versions:[]
     ~control_domain:Ref.null ~updates_requiring_reboot:[] ~iscsi_iqn:""
     ~multipathing:false ~uefi_certificates:"" ~editions:[] ~pending_guidances:[]
-    ~tls_verification_enabled
+    ~tls_verification_enabled ~numa_affinity_policy:`default_policy
     ~last_software_update:(Xapi_host.get_servertime ~__context ~host:ref)
     ~recommended_guidances:[] ~latest_synced_updates_applied:`unknown
     ~pending_guidances_recommended:[] ~pending_guidances_full:[]
@@ -288,8 +288,8 @@ let make_pool ~__context ~master ?(name_label = "") ?(name_description = "")
     ?(ha_cluster_stack = !Xapi_globs.cluster_stack_default)
     ?(guest_agent_config = []) ?(cpu_info = [])
     ?(policy_no_vendor_device = false) ?(live_patching_disabled = false)
-    ?(uefi_certificates = "") ?(repositories = [])
-    ?(client_certificate_auth_enabled = false)
+    ?(uefi_certificates = "") ?(custom_uefi_certificates = "")
+    ?(repositories = []) ?(client_certificate_auth_enabled = false)
     ?(client_certificate_auth_name = "") ?(repository_proxy_url = "")
     ?(repository_proxy_username = "") ?(repository_proxy_password = Ref.null)
     ?(migration_compression = false) ?(coordinator_bias = true)
@@ -307,8 +307,8 @@ let make_pool ~__context ~master ?(name_label = "") ?(name_description = "")
     ~vswitch_controller ~igmp_snooping_enabled ~current_operations
     ~allowed_operations ~restrictions ~other_config ~ha_cluster_stack
     ~guest_agent_config ~cpu_info ~policy_no_vendor_device
-    ~live_patching_disabled ~uefi_certificates ~is_psr_pending:false
-    ~tls_verification_enabled:false ~repositories
+    ~live_patching_disabled ~uefi_certificates ~custom_uefi_certificates
+    ~is_psr_pending:false ~tls_verification_enabled:false ~repositories
     ~client_certificate_auth_enabled ~client_certificate_auth_name
     ~repository_proxy_url ~repository_proxy_username ~repository_proxy_password
     ~migration_compression ~coordinator_bias ~telemetry_uuid
@@ -622,10 +622,12 @@ let make_vfs_on_pf ~__context ~pf ~num =
 
 let make_cluster_host ~__context ?(ref = Ref.make ()) ?(uuid = make_uuid ())
     ?(cluster = Ref.null) ?(host = Ref.null) ?(pIF = Ref.null) ?(enabled = true)
-    ?(joined = true) ?(allowed_operations = []) ?(current_operations = [])
-    ?(other_config = []) () =
+    ?(joined = true) ?(live = true) ?(last_update_live = Date.epoch)
+    ?(allowed_operations = []) ?(current_operations = []) ?(other_config = [])
+    () =
   Db.Cluster_host.create ~__context ~ref ~uuid ~cluster ~host ~pIF ~enabled
-    ~allowed_operations ~current_operations ~other_config ~joined ;
+    ~allowed_operations ~current_operations ~other_config ~joined ~live
+    ~last_update_live ;
   ref
 
 let make_cluster_and_cluster_host ~__context ?(ref = Ref.make ())
@@ -635,10 +637,12 @@ let make_cluster_and_cluster_host ~__context ?(ref = Ref.make ())
     ?(pool_auto_join = true)
     ?(token_timeout = Constants.default_token_timeout_s)
     ?(token_timeout_coefficient = Constants.default_token_timeout_coefficient_s)
-    ?(cluster_config = []) ?(other_config = []) ?(host = Ref.null) () =
+    ?(cluster_config = []) ?(other_config = []) ?(host = Ref.null)
+    ?(is_quorate = false) ?(quorum = 0L) ?(live_hosts = 0L) () =
   Db.Cluster.create ~__context ~ref ~uuid ~cluster_token ~pending_forget:[]
     ~cluster_stack ~allowed_operations ~current_operations ~pool_auto_join
-    ~token_timeout ~token_timeout_coefficient ~cluster_config ~other_config ;
+    ~token_timeout ~token_timeout_coefficient ~cluster_config ~other_config
+    ~is_quorate ~quorum ~live_hosts ;
   let cluster_host_ref =
     make_cluster_host ~__context ~cluster:ref ~host ~pIF ()
   in

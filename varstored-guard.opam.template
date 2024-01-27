@@ -1,0 +1,22 @@
+opam-version: "2.0"
+maintainer: "xen-api@lists.xen.org"
+authors: [ "xen-api@lists.xen.org" ]
+homepage: "https://github.com/xapi-project/xen-api"
+dev-repo: "git+https://github.com/xapi-project/xen-api.git"
+bug-reports: "https://github.com/xapi-project/xen-api"
+build: [["dune" "build" "-p" name "-j" jobs]]
+run-test: [[ "dune" "runtest" "-p" name "-j" jobs ]]
+depends: [
+  "cmdliner"
+  "cohttp-lwt"
+  "message-switch-lwt"
+  "rpclib-lwt"
+  "xapi-idl"
+  "xen-api-client-lwt"
+  "alcotest-lwt" {with-test}
+]
+synopsis: "Supervising daemon for varstored daemons"
+description: ""
+url {
+  src: "https://github.com/xapi-project/xen-api/archive/master.tar.gz"
+}

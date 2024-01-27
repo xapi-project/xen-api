@@ -72,16 +72,19 @@ let create ~__context ~pIF ~cluster_stack ~pool_auto_join ~token_timeout
           Db.Cluster.create ~__context ~ref:cluster_ref ~uuid:cluster_uuid
             ~cluster_token ~cluster_stack ~pending_forget:[] ~pool_auto_join
             ~token_timeout ~token_timeout_coefficient ~current_operations:[]
-            ~allowed_operations:[] ~cluster_config:[] ~other_config:[] ;
+            ~allowed_operations:[] ~cluster_config:[] ~other_config:[]
+            ~is_quorate:false ~quorum:0L ~live_hosts:0L ;
           Db.Cluster_host.create ~__context ~ref:cluster_host_ref
             ~uuid:cluster_host_uuid ~cluster:cluster_ref ~host ~enabled:true
             ~pIF ~current_operations:[] ~allowed_operations:[] ~other_config:[]
-            ~joined:true ;
+            ~joined:true ~live:true ~last_update_live:API.Date.epoch ;
 
           let verify = Stunnel_client.get_verify_by_default () in
           Xapi_cluster_host.set_tls_config ~__context ~self:cluster_host_ref
             ~verify ;
-
+          (* Create the watcher here in addition to resync_host since pool_create
+             in resync_host only calls cluster_host.create for pool member nodes *)
+          create_cluster_watcher_on_master ~__context ~host ;
           Xapi_cluster_host_helpers.update_allowed_operations ~__context
             ~self:cluster_host_ref ;
           D.debug "Created Cluster: %s and Cluster_host: %s"

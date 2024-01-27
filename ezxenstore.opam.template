@@ -1,0 +1,27 @@
+opam-version: "2.0"
+maintainer: "xapi project maintainers"
+authors: ["Jonathan Ludlam"]
+license: "ISC"
+homepage: "https://github.com/xapi-project/xen-api"
+bug-reports: "https://github.com/xapi-project/xen-api/issues"
+dev-repo: "git+https://github.com/xapi-project/xen-api.git"
+build: [[ "dune" "build" "-p" name "-j" jobs ]]
+depends: [
+  "ocaml"
+  "dune" {>= "1.4"}
+  "cmdliner" {with-test & >= "1.1.0"}
+  "logs"
+  "uuidm"
+  "xenctrl"
+  "xenstore"
+  "xenstore_transport"
+]
+synopsis:
+  "An easy-to-use interface to xenstore"
+description: """
+An easy-to-use xenstore library with a simplified interface geared
+towards use within a daemon that maintains a single connection to
+xenstored."""
+url {
+  src: "https://github.com/xapi-project/xen-api/archive/master.tar.gz"
+}

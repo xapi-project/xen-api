@@ -85,6 +85,20 @@ let is_ipv6 str =
   | Unix.PF_UNIX ->
       error "unexpected address format: %s" str
 
+let ( let+ ) x f = Result.map f x
+
+let is_ipv4 str =
+  let+ res = is_ipv6 str in
+  not res
+
+(** List.exits but with [p] returning a [Result.t] *)
+let rec exists p = function
+  | [] ->
+      ok false
+  | x :: xs ->
+      let* res = p x in
+      if res then ok true else exists p xs
+
 (** open [path] to be consumed by [f] for scanning with Scanf *)
 let scanning path f =
   let io = Scanf.Scanning.open_in path in
@@ -313,6 +327,8 @@ let add debug dev vif priv hotplug =
   let add_pvs_server bridge n =
     D.debug "%s: bridge=%s server=%d" __FUNCTION__ bridge n ;
     let* ip_addrs = pvs_server_addrs ~n priv in
+    let* has_ipv6 = exists is_ipv6 ip_addrs in
+    let* has_ipv4 = exists is_ipv4 ip_addrs in
     let* port_lo, port_hi = pvs_server_ports ~n priv in
     let* () =
       (* flows per server address *)
@@ -393,34 +409,43 @@ let add debug dev vif priv hotplug =
         ok ()
     | Device.VIF ->
         let* () =
-          seq port_lo port_hi @@ fun port ->
-          (* flows per port *)
-          iter (* over flows below *)
-            (OVS.add_flow ~debug bridge)
-            [
-              [
-                p "cookie=%Ld" id
-              ; p "table=%d" Const.port_table
-              ; p "priority=%d" Const.rule_prio
-              ; p "%s=%d" Const.client_lsb id_lsb
-              ; p "%s=%d" Const.client_msb id_msb
-              ; "udp"
-              ; p "tp_dst=%d" port
-              ; p "actions=resubmit(,%d)" Const.action_table
-              ]
-            ; [
-                p "cookie=%Ld" id
-              ; p "table=%d" Const.port_table
-              ; p "priority=%d" Const.rule_prio
-              ; p "%s=%d" Const.client_lsb id_lsb
-              ; p "%s=%d" Const.client_msb id_msb
-              ; "udp6"
-              ; p "tp_dst=%d" port
-              ; p "actions=resubmit(,%d)" Const.action_table
-              ]
-            ]
+          seq port_lo port_hi (fun port ->
+              (* flows per port *)
+              let* () =
+                if has_ipv4 then
+                  OVS.add_flow ~debug bridge
+                    [
+                      p "cookie=%Ld" id
+                    ; p "table=%d" Const.port_table
+                    ; p "priority=%d" Const.rule_prio
+                    ; p "%s=%d" Const.client_lsb id_lsb
+                    ; p "%s=%d" Const.client_msb id_msb
+                    ; "udp"
+                    ; p "tp_dst=%d" port
+                    ; p "actions=resubmit(,%d)" Const.action_table
+                    ]
+                else
+                  ok ()
+              in
+              let* () =
+                if has_ipv6 then
+                  OVS.add_flow ~debug bridge
+                    [
+                      p "cookie=%Ld" id
+                    ; p "table=%d" Const.port_table
+                    ; p "priority=%d" Const.rule_prio
+                    ; p "%s=%d" Const.client_lsb id_lsb
+                    ; p "%s=%d" Const.client_msb id_msb
+                    ; "udp6"
+                    ; p "tp_dst=%d" port
+                    ; p "actions=resubmit(,%d)" Const.action_table
+                    ]
+                else
+                  ok ()
+              in
+              ok ()
+          )
         in
-
         iter (* over flows below *)
           (OVS.add_flow ~debug bridge)
           [

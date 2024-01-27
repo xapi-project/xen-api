@@ -2211,7 +2211,7 @@ module Tunnel = struct
             param_type= tunnel_protocol
           ; param_name= "protocol"
           ; param_doc= "Protocol used for the tunnel (GRE or VxLAN)"
-          ; param_release= next_release
+          ; param_release= numbered_release "1.250.0"
           ; param_default= Some (VEnum "gre")
           }
         ]

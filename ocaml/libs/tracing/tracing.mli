@@ -12,7 +12,21 @@
  * GNU Lesser General Public License for more details.
  *)
 
+module W3CBaggage : sig
+  module Value : sig
+    type t
+
+    val make : string -> t
+
+    val to_string : t -> string
+  end
+end
+
 type endpoint = Bugtool | Url of Uri.t
+
+val bugtool_name : string
+
+val endpoint_to_string : endpoint -> string
 
 module SpanKind : sig
   type t = Server | Consumer | Client | Producer | Internal

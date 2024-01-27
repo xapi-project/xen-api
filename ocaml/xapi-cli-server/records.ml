@@ -1387,6 +1387,13 @@ let pool_record rpc session_id pool =
             Client.Pool.set_uefi_certificates ~rpc ~session_id ~self:pool ~value
           )
           ()
+      ; make_field ~name:"custom-uefi-certificates" ~hidden:true
+          ~get:(fun () -> (x ()).API.pool_custom_uefi_certificates)
+          ~set:(fun value ->
+            Client.Pool.set_custom_uefi_certificates ~rpc ~session_id ~self:pool
+              ~value
+          )
+          ()
       ; make_field ~name:"tls-verification-enabled"
           ~get:(fun () ->
             (x ()).API.pool_tls_verification_enabled |> string_of_bool
@@ -3222,6 +3229,16 @@ let host_record rpc session_id host =
           ~get:(fun () -> (x ()).API.host_uefi_certificates)
           ~set:(fun value ->
             Client.Host.set_uefi_certificates ~rpc ~session_id ~host ~value
+          )
+          ()
+      ; make_field ~name:"numa-affinity-policy"
+          ~get:(fun () ->
+            (x ()).API.host_numa_affinity_policy
+            |> Record_util.host_numa_affinity_policy_to_string
+          )
+          ~set:(fun value ->
+            Client.Host.set_numa_affinity_policy ~rpc ~session_id ~self:host
+              ~value:(Record_util.host_numa_affinity_policy_of_string value)
           )
           ()
       ; make_field ~name:"pending-guidances"
@@ -5079,6 +5096,15 @@ let cluster_record rpc session_id cluster =
               ~self:cluster ~key
           )
           ()
+      ; make_field ~name:"is-quorate"
+          ~get:(fun () -> Bool.to_string (x ()).API.cluster_is_quorate)
+          ()
+      ; make_field ~name:"quorum"
+          ~get:(fun () -> Int64.to_string (x ()).API.cluster_quorum)
+          ()
+      ; make_field ~name:"live-hosts"
+          ~get:(fun () -> Int64.to_string (x ()).API.cluster_live_hosts)
+          ()
       ]
   }
 
@@ -5119,6 +5145,14 @@ let cluster_host_record rpc session_id cluster_host =
           ()
       ; make_field ~name:"joined"
           ~get:(fun () -> (x ()).API.cluster_host_joined |> string_of_bool)
+          ()
+      ; make_field ~name:"live"
+          ~get:(fun () -> (x ()).API.cluster_host_live |> string_of_bool)
+          ()
+      ; make_field ~name:"last-update-live"
+          ~get:(fun () ->
+            (x ()).API.cluster_host_last_update_live |> Date.to_string
+          )
           ()
       ; make_field ~name:"allowed-operations"
           ~get:(fun () ->

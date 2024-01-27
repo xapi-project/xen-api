@@ -809,19 +809,17 @@ let numa_mutex = Mutex.create ()
 let numa_resources = ref None
 
 let numa_init () =
-  if !Xenopsd.numa_placement then (
-    let xcext = Xenctrlext.get_handle () in
-    let host = Lazy.force numa_hierarchy in
-    let mem = (Xenctrlext.numainfo xcext).memory in
-    D.debug "Host NUMA information: %s"
-      (Fmt.to_to_string Topology.NUMA.pp_dump host) ;
-    Array.iteri
-      (fun i m ->
-        let open Xenctrlext in
-        D.debug "NUMA node %d: %Ld/%Ld memory free" i m.memfree m.memsize
-      )
-      mem
-  )
+  let xcext = Xenctrlext.get_handle () in
+  let host = Lazy.force numa_hierarchy in
+  let mem = (Xenctrlext.numainfo xcext).memory in
+  D.debug "Host NUMA information: %s"
+    (Fmt.to_to_string Topology.NUMA.pp_dump host) ;
+  Array.iteri
+    (fun i m ->
+      let open Xenctrlext in
+      D.debug "NUMA node %d: %Ld/%Ld memory free" i m.memfree m.memsize
+    )
+    mem
 
 let numa_placement domid ~vcpus ~memory =
   let open Xenctrlext in
@@ -911,20 +909,19 @@ let build_pre ~xc ~xs ~vcpus ~memory ~has_hard_affinity domid =
   log_reraise (Printf.sprintf "shadow_allocation_set %d MiB" shadow_mib)
     (fun () -> Xenctrl.shadow_allocation_set xc domid shadow_mib
   ) ;
-  if !Xenopsd.numa_placement then
-    log_reraise (Printf.sprintf "NUMA placement") (fun () ->
-        if has_hard_affinity then
-          D.debug "VM has hard affinity set, skipping NUMA optimization"
-        else
-          let do_numa_placement () =
-            numa_placement domid ~vcpus
-              ~memory:(Int64.mul memory.xen_max_mib 1048576L)
-          in
-          if !Xenopsd.numa_placement_strict then
-            do_numa_placement ()
-          else
-            Xenops_utils.best_effort "NUMA placement" do_numa_placement
-    ) ;
+  let () =
+    match !Xenops_server.numa_placement with
+    | Any ->
+        ()
+    | Best_effort ->
+        log_reraise (Printf.sprintf "NUMA placement") (fun () ->
+            if has_hard_affinity then
+              D.debug "VM has hard affinity set, skipping NUMA optimization"
+            else
+              numa_placement domid ~vcpus
+                ~memory:(Int64.mul memory.xen_max_mib 1048576L)
+        )
+  in
   create_channels ~xc uuid domid
 
 let xenguest_args_base ~domid ~store_port ~store_domid ~console_port

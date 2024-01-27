@@ -237,6 +237,38 @@ let callback1 ?(json_rpc_version = Jsonrpc.V1) is_json req fd call =
 
 (* debug(fmt "response = %s" response); *)
 
+let is_host_is_slave_error (response : Rpc.response) =
+  match response.contents with
+  (* RPC response returned by the rpc endpoint *)
+  | Rpc.(Enum [String x; String _]) when x = Api_errors.host_is_slave ->
+      true
+  (* RPC response returned by the jsonrpc endpoint *)
+  | Rpc.(Dict [_; ("message", String x); _]) when x = Api_errors.host_is_slave
+    ->
+      true
+  | _ ->
+      false
+
+let create_thumbprint_header req response =
+  let include_thumbprint =
+    match
+      List.assoc_opt
+        !Xapi_globs.cert_thumbprint_header_request
+        req.Http.Request.additional_headers
+    with
+    | Some x when x = !Xapi_globs.cert_thumbprint_header_value ->
+        true
+    | _ ->
+        false
+  in
+  if include_thumbprint && is_host_is_slave_error response then
+    Helpers.external_certificate_thumbprint_of_master ()
+    |> Option.fold ~none:[] ~some:(fun x ->
+           [(!Xapi_globs.cert_thumbprint_header_response, x)]
+       )
+  else
+    []
+
 module Unixext = Xapi_stdext_unix.Unixext
 
 (** HTML callback that dispatches an RPC and returns the response. *)
@@ -259,13 +291,14 @@ let callback is_json req bio _ =
       else
         Xmlrpc.string_of_response response
     in
+    let thumbprint_header = create_thumbprint_header req response in
     Http_svr.response_fct req
       ~hdrs:
-        [
-          (Http.Hdr.content_type, "text/xml")
-        ; ("Access-Control-Allow-Origin", "*")
-        ; ("Access-Control-Allow-Headers", "X-Requested-With")
-        ]
+        ((Http.Hdr.content_type, "text/xml")
+        :: ("Access-Control-Allow-Origin", "*")
+        :: ("Access-Control-Allow-Headers", "X-Requested-With")
+        :: thumbprint_header
+        )
       fd
       (Int64.of_int @@ String.length response_str)
       (fun fd -> Unixext.really_write_string fd response_str |> ignore)
@@ -293,17 +326,18 @@ let jsoncallback req bio _ =
     let json_rpc_version, id, rpc =
       Jsonrpc.version_id_and_call_of_string body
     in
+    let rpc_response = callback1 ~json_rpc_version true req fd rpc in
     let response =
-      Jsonrpc.string_of_response ~id ~version:json_rpc_version
-        (callback1 ~json_rpc_version true req fd rpc)
+      Jsonrpc.string_of_response ~id ~version:json_rpc_version rpc_response
     in
+    let thumbprint_header = create_thumbprint_header req rpc_response in
     Http_svr.response_fct req
       ~hdrs:
-        [
-          (Http.Hdr.content_type, "application/json")
-        ; ("Access-Control-Allow-Origin", "*")
-        ; ("Access-Control-Allow-Headers", "X-Requested-With")
-        ]
+        ((Http.Hdr.content_type, "application/json")
+        :: ("Access-Control-Allow-Origin", "*")
+        :: ("Access-Control-Allow-Headers", "X-Requested-With")
+        :: thumbprint_header
+        )
       fd
       (Int64.of_int @@ String.length response)
       (fun fd -> Unixext.really_write_string fd response |> ignore)

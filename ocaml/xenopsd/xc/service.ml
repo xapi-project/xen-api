@@ -235,6 +235,15 @@ module type DAEMONPIDPATH = sig
   val name : string
 
   val pid_location : Pid.path
+
+  (* To check if a pid is valid, look up its process name, and some commandline
+     arg containing domid if domid is not part of its process name, check that
+     they are contained in /proc/<pid>/cmdline.
+     The expected cmdline items are set by (expected_cmdline_items domid) for
+     each service. Note that the parameter "domid" here is required as
+     otherwise we can not distinguish between the process instances of the same
+     service for different domains. *)
+  val expected_cmdline_items : domid:int -> string list
 end
 
 module DaemonMgmt (D : DAEMONPIDPATH) = struct
@@ -256,31 +265,66 @@ module DaemonMgmt (D : DAEMONPIDPATH) = struct
 
   let name = D.name
 
-  let pid ~xs domid =
+  (* For process id, look up its process name, and some commandline arg
+     containing domid if domid is not part of its process name, check that
+     they are contained in /proc/<pid>/cmdline. *)
+  let is_cmdline_valid ~pid ~pid_source expected_args =
     try
-      match D.pid_location with
-      | (File file | Path_of {file; _}) when Sys.file_exists (file domid) ->
-          let path = file domid in
-          let ( let* ) = Option.bind in
-          let* pid = Unixext.pidfile_read path in
-          Unixext.with_file path [Unix.O_RDONLY] 0 (fun fd ->
-              try
-                Unix.lockf fd Unix.F_TRLOCK 0 ;
-                (* we succeeded taking the lock: original process is dead.
-                 * some other process might've reused its pid *)
-                None
-              with Unix.Unix_error (Unix.EAGAIN, _, _) ->
-                (* cannot obtain lock: process is alive *)
-                Some pid
-          )
-      | Xenstore key | Path_of {key; _} ->
-          (* backward compatibility during update installation: only has
-             xenstore pid available *)
-          let pid = xs.Xs.read (key domid) in
-          Some (int_of_string pid)
+      let cmdline_str =
+        Printf.sprintf "/proc/%d/cmdline" pid |> Unixext.string_of_file
+      in
+      match cmdline_str with
+      | "" ->
+          (* from man proc:
+             /proc/[pid]/cmdline
+             This read-only file holds the complete command line for the process,
+             unless the process is a zombie. In the latter case, there is nothing
+             in this file: that is, a read on this file will return 0 characters.
+             This applies when the VM is being shut down. *)
+          false
       | _ ->
-          None
-    with _ -> None
+          let cmdline = Astring.String.cuts ~sep:"\000" cmdline_str in
+          let valid =
+            List.for_all (fun arg -> List.mem arg cmdline) expected_args
+          in
+          if not valid then
+            error "%s: pid read from %s not valid (pid = %d)" D.name pid_source
+              pid ;
+          valid
+    with _ -> false
+
+  let pid ~xs domid =
+    let ( let* ) = Option.bind in
+    let* pid, pid_source =
+      try
+        match D.pid_location with
+        | (File file | Path_of {file; _}) when Sys.file_exists (file domid) ->
+            let path = file domid in
+            let* pid = Unixext.pidfile_read path in
+            Unixext.with_file path [Unix.O_RDONLY] 0 (fun fd ->
+                try
+                  Unix.lockf fd Unix.F_TRLOCK 0 ;
+                  (* we succeeded taking the lock: original process is dead.
+                   * some other process might've reused its pid *)
+                  None
+                with Unix.Unix_error (Unix.EAGAIN, _, _) ->
+                  (* cannot obtain lock: process is alive *)
+                  Some (pid, "pidfile")
+            )
+        | Xenstore key | Path_of {key; _} ->
+            (* case 1: backward compatibility during update installation: only has
+                 xenstore pid available.
+               case 2: pidfile(file domid) got removed unexpectly *)
+            let pid = xs.Xs.read (key domid) in
+            Some (int_of_string pid, "xenstore")
+        | _ ->
+            None
+      with _ -> None
+    in
+    if is_cmdline_valid ~pid ~pid_source (D.expected_cmdline_items ~domid) then
+      Some pid
+    else
+      None
 
   let is_running ~xs domid =
     match pid ~xs domid with
@@ -362,6 +406,8 @@ module Qemu = struct
     let name = name
 
     let pid_location = Pid.Path_of {key= pidxenstore_path; file= pidfile_path}
+
+    let expected_cmdline_items ~domid = [Printf.sprintf "qemu-dm-%d" domid]
   end)
 
   module SignalMask = D.SignalMask
@@ -404,12 +450,16 @@ module Qemu = struct
 end
 
 module Vgpu = struct
+  let domain_arg domid = Printf.sprintf "--domain=%d" domid
+
   module D = DaemonMgmt (struct
     let name = "vgpu"
 
     let pid_path domid = Printf.sprintf "/local/domain/%d/vgpu-pid" domid
 
     let pid_location = Pid.Xenstore pid_path
+
+    let expected_cmdline_items ~domid = [!Xc_resources.vgpu; domain_arg domid]
   end)
 
   (** An NVidia Virtual Compute Service vGPU has a class attribute
@@ -507,7 +557,7 @@ module Vgpu = struct
     let suspend_file = Printf.sprintf Device_common.demu_save_path domid in
     let base_args =
       [
-        "--domain=" ^ string_of_int domid
+        domain_arg domid
       ; "--vcpus=" ^ string_of_int vcpus
       ; "--suspend=" ^ suspend_file
       ]
@@ -612,6 +662,9 @@ module Varstored = struct
     let name = name
 
     let pid_location = Pid.Path_of {key= pidxenstore_path; file= pidfile_path}
+
+    let expected_cmdline_items ~domid =
+      [!Xc_resources.varstored; pidfile_path domid]
   end)
 
   let efivars_resume_path =
@@ -686,6 +739,8 @@ module Swtpm = struct
     let name = "swtpm"
 
     let pid_location = Pid.File pidfile_path
+
+    let expected_cmdline_items ~domid = [Printf.sprintf "swtpm-%d" domid]
   end)
 
   let xs_path ~domid = Device_common.get_private_path domid ^ "/vtpm"
@@ -809,13 +864,19 @@ module PV_Vnc = struct
   let pidxenstore_path domid =
     Printf.sprintf "/local/domain/%d/vncterm-pid" domid
 
+  let vnc_console_path domid = Printf.sprintf "/local/domain/%d/console" domid
+
   module D = DaemonMgmt (struct
     let name = "vncterm"
 
     let pid_location = Pid.Xenstore pidxenstore_path
-  end)
 
-  let vnc_console_path domid = Printf.sprintf "/local/domain/%d/console" domid
+    let expected_cmdline_items ~domid =
+      [
+        !Xc_resources.vncterm (* vncterm binary path *)
+      ; vnc_console_path domid (* xenstore console path *)
+      ]
+  end)
 
   let vnc_port_path domid =
     Printf.sprintf "/local/domain/%d/console/vnc-port" domid
@@ -825,36 +886,15 @@ module PV_Vnc = struct
 
   let pid ~xs domid = D.pid ~xs domid
 
-  (* Look up the commandline args for the vncterm pid; *)
-  (* Check that they include the vncterm binary path and the xenstore console
-     path for the supplied domid. *)
-  let is_cmdline_valid domid pid =
-    try
-      let cmdline =
-        Printf.sprintf "/proc/%d/cmdline" pid
-        |> Unixext.string_of_file
-        |> Astring.String.cuts ~sep:"\000"
-      in
-      List.mem !Xc_resources.vncterm cmdline
-      && List.mem (vnc_console_path domid) cmdline
-    with _ -> false
-
-  let is_vncterm_running ~xs domid =
-    match pid ~xs domid with
-    | None ->
-        false
-    | Some p ->
-        D.is_running ~xs domid && is_cmdline_valid domid p
-
   let get_vnc_port ~xs domid =
-    if not (is_vncterm_running ~xs domid) then
+    if not (D.is_running ~xs domid) then
       None
     else
       try Some (Socket.Port (int_of_string (xs.Xs.read (vnc_port_path domid))))
       with _ -> None
 
   let get_tc_port ~xs domid =
-    if not (is_vncterm_running ~xs domid) then
+    if not (D.is_running ~xs domid) then
       None
     else
       try Some (int_of_string (xs.Xs.read (tc_port_path domid)))
@@ -913,7 +953,7 @@ module PV_Vnc = struct
     let l =
       [
         "-x"
-      ; Printf.sprintf "/local/domain/%d/console" domid
+      ; vnc_console_path domid
       ; "-T"
       ; (* listen for raw connections *)
         "-v"

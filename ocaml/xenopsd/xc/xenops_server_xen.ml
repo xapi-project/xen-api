@@ -30,6 +30,14 @@ let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
 let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
+let internal_error fmt =
+  Printf.kprintf
+    (fun str ->
+      error "%s" str ;
+      raise (Xenopsd_error (Internal_error str))
+    )
+    fmt
+
 (* libxl_internal.h:DISABLE_UDEV_PATH *)
 let disable_udev_path = "libxl/disable_udev"
 
@@ -247,14 +255,9 @@ let di_of_uuid ~xc uuid =
   | possible ->
       let domid_list = String.concat ", " (List.map domid_of_di possible) in
       let uuid' = Uuidx.to_string uuid in
-      let err_msg =
-        Printf.sprintf "More than one domain with uuid %s: (%s)" uuid'
-          domid_list
-      in
-      error "%s: %s" __FUNCTION__ err_msg ;
-      raise (Xenopsd_error (Internal_error err_msg))
+      internal_error "More than one domain with uuid %s: (%s)" uuid' domid_list
   | exception Failure r ->
-      raise (Xenopsd_error (Internal_error r))
+      internal_error "%s" r
 
 let domid_of_uuid ~xs uuid =
   (* We don't fully control the domain lifecycle because libxenguest will
@@ -296,11 +299,8 @@ let params_of_backend backend =
         else
           ("backend-kind", backend_kind) :: xenstore_data
     | [] ->
-        let err_msg =
-          Printf.sprintf "Could not find XenDisk implementation: %s"
-            (Storage_interface.(rpc_of backend) backend |> Jsonrpc.to_string)
-        in
-        raise (Xenopsd_error (Internal_error err_msg))
+        internal_error "Could not find XenDisk implementation: %s"
+          (Storage_interface.(rpc_of backend) backend |> Jsonrpc.to_string)
   in
   let params, extra_keys =
     match (blockdevs, files, nbds, xendisks) with
@@ -311,12 +311,9 @@ let params_of_backend backend =
     | _, _, _, xendisk :: _ ->
         ("", [("qemu-params", xendisk.Storage_interface.params)])
     | _ ->
-        let err_msg =
-          Printf.sprintf
-            "Could not find BlockDevice, File, or Nbd implementation: %s"
-            (Storage_interface.(rpc_of backend) backend |> Jsonrpc.to_string)
-        in
-        raise (Xenopsd_error (Internal_error err_msg))
+        internal_error
+          "Could not find BlockDevice, File, or Nbd implementation: %s"
+          (Storage_interface.(rpc_of backend) backend |> Jsonrpc.to_string)
   in
   (params, xenstore_data, extra_keys)
 
@@ -340,14 +337,11 @@ let create_vbd_frontend ~xc ~xs task frontend_domid vdi =
       | _, _, nbd :: _ ->
           Nbd nbd
       | [], [], [] ->
-          let err_msg =
-            Printf.sprintf
-              "Could not find BlockDevice, File, or Nbd implementation: %s"
-              (Storage_interface.(rpc_of backend) vdi.attach_info
-              |> Jsonrpc.to_string
-              )
-          in
-          raise (Xenopsd_error (Internal_error err_msg))
+          internal_error
+            "Could not find BlockDevice, File, or Nbd implementation: %s"
+            (Storage_interface.(rpc_of backend) vdi.attach_info
+            |> Jsonrpc.to_string
+            )
     )
   | Some backend_domid ->
       let params, xenstore_data, extra_keys =
@@ -904,16 +898,8 @@ let debug_featuresets name featureset featureset_max =
   let ours_minus_max = Featureset.diff featureset featureset_max in
   if not @@ Array.for_all (fun x -> Int64.equal x 0L) ours_minus_max then (
     debug "%s (DynamicSet - Max) = %a" name Featureset.pp ours_minus_max ;
-    error
-      "Our default policy has CPUID features that are not present in Max \
-       policy! (see above)" ;
-    raise
-      (Xenopsd_error
-         (Internal_error
-            "CPUID default policy has features that are not present in Max \
-             policy!"
-         )
-      )
+    internal_error
+      "CPUID default policy has features that are not present in Max policy!"
   ) ;
   debug "%s (Max - Default) = %a" name Featureset.pp
     (Featureset.diff featureset_max featureset)
@@ -1899,14 +1885,11 @@ module VM = struct
             | IGD_passthrough GVT_d, [] ->
                 Device.Dm.GVT_d
             | Vgpu, [] ->
-                raise
-                  (Xenopsd_error
-                     (Internal_error "Vgpu mode specified but no vGPUs")
-                  )
+                internal_error "Vgpu mode specified but no vGPUs"
             | Vgpu, vgpus ->
                 Device.Dm.Vgpu vgpus
             | _ ->
-                raise (Xenopsd_error (Internal_error "Invalid graphics mode"))
+                internal_error "Invalid graphics mode"
           in
           let memory =
             (* This is the same as is passed to xenguest at build time, with
@@ -2265,27 +2248,15 @@ module VM = struct
             force
         with
         | Bootloader.Bad_sexpr x ->
-            let m =
-              Printf.sprintf "VM = %s; domid = %d; Bootloader.Bad_sexpr %s"
-                vm.Vm.id domid x
-            in
-            debug "%s" m ;
-            raise (Xenopsd_error (Internal_error m))
+            internal_error "VM = %s; domid = %d; Bootloader.Bad_sexpr %s"
+              vm.Vm.id domid x
         | Bootloader.Bad_error x ->
-            let m =
-              Printf.sprintf "VM = %s; domid = %d; Bootloader.Bad_error %s"
-                vm.Vm.id domid x
-            in
-            debug "%s" m ;
-            raise (Xenopsd_error (Internal_error m))
+            internal_error "VM = %s; domid = %d; Bootloader.Bad_error %s"
+              vm.Vm.id domid x
         | Bootloader.Unknown_bootloader x ->
-            let m =
-              Printf.sprintf
-                "VM = %s; domid = %d; Bootloader.Unknown_bootloader %s" vm.Vm.id
-                domid x
-            in
-            debug "%s" m ;
-            raise (Xenopsd_error (Internal_error m))
+            internal_error
+              "VM = %s; domid = %d; Bootloader.Unknown_bootloader %s" vm.Vm.id
+              domid x
         | Bootloader.Error_from_bootloader x ->
             let m =
               Printf.sprintf
@@ -2623,14 +2594,7 @@ module VM = struct
                       | Ok x ->
                           x
                       | Error (`Msg m) ->
-                          raise
-                            (Xenopsd_error
-                               (Internal_error
-                                  (Printf.sprintf
-                                     "Failed to unmarshal VBD backend: %s" m
-                                  )
-                               )
-                            )
+                          internal_error "Failed to unmarshal VBD backend: %s" m
                     in
                     let dp = Device.Generic.get_private_key ~xs device _dp_id in
                     match backend with
@@ -3288,12 +3252,7 @@ module VM = struct
       | Ok p ->
           p
       | Error (`Msg m) ->
-          raise
-            (Xenopsd_error
-               (Internal_error
-                  (Printf.sprintf "Failed to unmarshal persistent_t: %s" m)
-               )
-            )
+          internal_error "Failed to unmarshal persistent_t: %s" m
     in
     (* Don't take the timeoffset from [state] (last boot record). Put back the
        one from [vm] which came straight from the platform keys. *)
@@ -3439,14 +3398,12 @@ module PCI = struct
     ()
 
   let dequarantine (pci : Pci.address) =
-    let fail msg = raise (Xenopsd_error (Internal_error msg)) in
     let addr = Pci.string_of_address pci in
     match Device.PCI.dequarantine pci with
     | true ->
         debug "PCI %s dequarantine - success" addr
     | false ->
-        error "PCI %s dequarantine - failed" addr ;
-        fail @@ Printf.sprintf "PCI %s dequarantine failed" addr
+        internal_error "PCI %s dequarantine - failed" addr
 end
 
 let set_active_device path active =
@@ -3709,12 +3666,7 @@ module VBD = struct
           else
             Device_common.Vbd !Xenopsd.default_vbd_backend_kind
       | Some (Error (`Msg m)) ->
-          raise
-            (Xenopsd_error
-               (Internal_error
-                  (Printf.sprintf "Error unmarshalling attached_vdi: %s" m)
-               )
-            )
+          internal_error "Error unmarshalling attached_vdi: %s" m
 
   let vdi_path_of_device ~xs device =
     Device_common.backend_path_of_device ~xs device ^ "/vdi"
@@ -3908,14 +3860,7 @@ module VBD = struct
               | Ok x ->
                   x
               | Error (`Msg m) ->
-                  raise
-                    (Xenopsd_error
-                       (Internal_error
-                          (Printf.sprintf "Failed to unmarshal VBD backend: %s"
-                             m
-                          )
-                       )
-                    )
+                  internal_error "Failed to unmarshal VBD backend: %s" m
             )
           in
           Option.iter
@@ -4105,12 +4050,7 @@ module VBD = struct
                 | Ok d ->
                     d
                 | Error (`Msg m) ->
-                    raise
-                      (Xenopsd_error
-                         (Internal_error
-                            (Printf.sprintf "Failed to unmarshal disk: %s" m)
-                         )
-                      )
+                    internal_error "Failed to unmarshal disk: %s" m
                 )
           in
           {
@@ -4222,13 +4162,8 @@ module VIF = struct
           in
           enabled :: address :: gateway
       | Static4 ([], _) ->
-          raise
-            (Xenopsd_error
-               (Internal_error
-                  "Static IPv4 configuration selected, but no address \
-                   specified."
-               )
-            )
+          internal_error
+            "Static IPv4 configuration selected, but no address specified."
     in
     let ipv6_setting =
       match vif.ipv6_configuration with
@@ -4246,13 +4181,8 @@ module VIF = struct
           in
           enabled6 :: address6 :: gateway6
       | Static6 ([], _) ->
-          raise
-            (Xenopsd_error
-               (Internal_error
-                  "Static IPv6 configuration selected, but no address \
-                   specified."
-               )
-            )
+          internal_error
+            "Static IPv6 configuration selected, but no address specified."
     in
     let settings = constant_setting @ ipv4_setting @ ipv6_setting in
     List.map
@@ -4638,13 +4568,8 @@ module VIF = struct
         | Static4 (address :: _, gateway) ->
             set_ip_static xs xenstore_path "" address gateway
         | Static4 ([], _) ->
-            raise
-              (Xenopsd_error
-                 (Internal_error
-                    "Static IPv4 configuration selected, but no address \
-                     specified."
-                 )
-              )
+            internal_error
+              "Static IPv4 configuration selected, but no address specified."
     )
 
   let set_ipv6_configuration _task vm vif ipv6_configuration =
@@ -4661,13 +4586,8 @@ module VIF = struct
         | Static6 (address :: _, gateway) ->
             set_ip_static xs xenstore_path "6" address gateway
         | Static6 ([], _) ->
-            raise
-              (Xenopsd_error
-                 (Internal_error
-                    "Static IPv6 configuration selected, but no address \
-                     specified."
-                 )
-              )
+            internal_error
+              "Static IPv6 configuration selected, but no address specified."
     )
 
   let set_pvs_proxy _task vm vif proxy =
@@ -5251,6 +5171,8 @@ let init () =
         {Xs_protocol.ACL.owner= 0; other= Xs_protocol.ACL.READ; acl= []}
   ) ;
   Device.Backend.init () ;
+  Xenops_server.numa_placement :=
+    if !Xenopsd.numa_placement_compat then Best_effort else Any ;
   Domain.numa_init () ;
   debug "xenstore is responding to requests" ;
   let () = Watcher.create_watcher_thread () in

@@ -241,7 +241,7 @@ class CpuUsageAlarmETG(EmailTextGenerator):
             period="%d" % self.alarm_trigger_period,
             level="%.1f" % (self.alarm_trigger_level * 100.0),
             brand_console=branding.BRAND_CONSOLE,
-            cls_name=(self.cls == "Host") and "Server" or "VM",
+            cls_name=(self.cls == "Host" or self.params["is_control_domain"]) and "Server" or "VM",
         )
 
 
@@ -321,11 +321,14 @@ class MemoryUsageAlarmETG(EmailTextGenerator):
         super(MemoryUsageAlarmETG, self).__init__(mail_language, "memory_usage_alarm")
         if alarm_trigger_period is None:
             alarm_trigger_period = 60
-        if cls != "Host":
+        if cls == "Host":
+            self.params = get_host_params(obj_uuid, session)
+        elif cls == "VM":
+            self.params = get_VM_params(obj_uuid, session)
+        else:
             raise Exception(
-                "programmer error - this alarm should only be available for hosts"
+                "programmer error - this alarm should only be available for hosts and VMs"
             )
-        self.params = get_host_params(obj_uuid, session)
         self.cls = cls
         self.value = value
         self.alarm_trigger_period = alarm_trigger_period
@@ -351,7 +354,7 @@ class MemoryUsageAlarmETG(EmailTextGenerator):
             body_pattern = (
                 'Free memory on {cls} "{name_label}" has been on average {value} KiB for the last {period} seconds.\n'
                 "This alarm is set to be triggered when free memory is less than {level} KiB.\n\n"
-                'For Alarm Settings, please log into your {brand_console} Console and click on "Server"->\n'
+                'For Alarm Settings, please log into your {brand_console} Console and click on "{cls_name}"->\n'
                 '"Properties"->"Alerts"\n'
             )
 
@@ -362,6 +365,7 @@ class MemoryUsageAlarmETG(EmailTextGenerator):
             period="%d" % self.alarm_trigger_period,
             level="%d" % self.alarm_trigger_level,
             brand_console=branding.BRAND_CONSOLE,
+            cls_name=(self.cls == "Host" or self.params["is_control_domain"]) and "Server" or "VM",
         )
 
 
@@ -823,7 +827,8 @@ class XapiMessage:
                     self.mail_language,
                     self.session,
                 )
-            elif name == "memory_free_kib":
+            elif name in ["memory_free_kib", # for Host
+                          "memory_internal_free"]: # for VM
                 etg = MemoryUsageAlarmETG(
                     self.cls,
                     self.obj_uuid,

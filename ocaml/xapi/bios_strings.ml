@@ -186,21 +186,13 @@ let get_oem_strings decode =
   in
   standard @ List.mapi convert values
 
-(* Get the HP-specific ROMBIOS OEM string:
- * 6 bytes from the memory starting at 0xfffea *)
-let get_hp_rombios () =
-  let hp_rombios = Bytes.make 6 ' ' in
-  ( try
-      let mem = Unix.openfile "/dev/mem" [Unix.O_RDONLY] 0 in
-      Xapi_stdext_pervasives.Pervasiveext.finally
-        (fun () ->
-          ignore (Unix.lseek mem 0xfffea Unix.SEEK_SET) ;
-          ignore (Unix.read mem hp_rombios 0 6)
-        )
-        (fun () -> Unix.close mem)
-    with _ -> ()
-  ) ;
-  match Bytes.unsafe_to_string hp_rombios with "COMPAQ" -> "COMPAQ" | _ -> ""
+(* CP-46264 - this used to read a string from /dev/mem but we can no
+   longer support this. It would either find "COMPAQ" and return it, or
+   return the empty string. We are now always returning the
+   "". The string is patched into a guest's memory - so it would not be
+   safe to return an arbitrary string. *)
+
+let hp_rombios = [("hp-rombios", "")]
 
 (* Get host bios strings *)
 let get_host_bios_strings ~__context =
@@ -209,6 +201,4 @@ let get_host_bios_strings ~__context =
   let system_strings = get_system_strings get_dmidecode_strings in
   let baseboard_strings = get_baseboard_strings get_dmidecode_strings in
   let oem_strings = get_oem_strings get_dmidecode_strings in
-  (* HP-specific ROMBIOS OEM string *)
-  let hp_rombios = [("hp-rombios", get_hp_rombios ())] in
   bios_strings @ system_strings @ baseboard_strings @ oem_strings @ hp_rombios

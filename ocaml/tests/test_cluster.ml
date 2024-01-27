@@ -24,6 +24,8 @@ let test_clusterd_rpc ~__context call =
         {success= true; contents= Rpc.String test_token; is_notification= false}
   | ("enable" | "disable" | "destroy" | "leave" | "set-tls-verification"), _ ->
       Rpc.{success= true; contents= Rpc.Null; is_notification= false}
+  | "UPDATES.get", _ ->
+      Rpc.{success= true; contents= Rpc.Null; is_notification= false}
   | ( ( "Observer.create"
       | "Observer.destroy"
       | "Observer.set_enabled"

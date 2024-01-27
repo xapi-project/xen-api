@@ -37,6 +37,14 @@ let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
 let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
+let internal_error fmt =
+  Printf.kprintf
+    (fun str ->
+      error "%s" str ;
+      raise (Xenopsd_error (Internal_error str))
+    )
+    fmt
+
 (** Definition of available qemu profiles, used by the qemu backend
     implementations *)
 module Profile = struct
@@ -1403,14 +1411,8 @@ module PCI = struct
     | Some (Supported I915) ->
         ()
     | Some drv ->
-        raise
-          (Xenopsd_error
-             (Internal_error
-                (Printf.sprintf "Fail to bind to i915, device is bound to %s"
-                   (string_of_driver drv)
-                )
-             )
-          )
+        internal_error "Fail to bind to i915, device is bound to %s"
+          (string_of_driver drv)
 
   let unbind devstr driver =
     let driverstr = string_of_driver driver in
@@ -1441,12 +1443,8 @@ module PCI = struct
         debug "File %s does not exist - assuming no SRIOV devices in use" path ;
         None
     | exn ->
-        let msg =
-          Printf.sprintf "Can't read %s to reset Nvidia GPU %s: %s" path devstr
-            (Printexc.to_string exn)
-        in
-        error "%s" msg ;
-        raise (Xenopsd_error (Internal_error msg))
+        internal_error "Can't read %s to reset Nvidia GPU %s: %s" path devstr
+          (Printexc.to_string exn)
 
   (** [vfs_of device] returns the PCI addresses of the virtual functions of PCI
       [device]. We find each virtual function by looking at the virtfnX symlink
@@ -1483,10 +1481,7 @@ module PCI = struct
         debug "Deactivating NVidia vGPUs %s yielded: '%s'" devstr
           (String.escaped out)
     | _ ->
-        let msg =
-          Printf.sprintf "Can't find %s to reset NVidia GPU %s" cmd devstr
-        in
-        raise (Xenopsd_error (Internal_error msg))
+        internal_error "Can't find %s to reset NVidia GPU %s" cmd devstr
 
   let bind_to_nvidia devstr =
     debug "pci: binding device %s to nvidia" devstr ;
@@ -1749,14 +1744,7 @@ module Vusb = struct
     with err ->
       error "Failed to call usb_reset script with arguments %s"
         (String.concat " " argv) ;
-      raise
-        (Xenopsd_error
-           (Internal_error
-              (Printf.sprintf "Call to usb reset failed: %s"
-                 (Printexc.to_string err)
-              )
-           )
-        )
+      internal_error "Call to usb reset failed: %s" (Printexc.to_string err)
 
   let cleanup domid =
     try
@@ -1928,10 +1916,8 @@ end = struct
   (** query qemu for the serial console and write it to xenstore. Only write
       path for a real console, not a file or socket path. CA-318579 *)
   let update_xenstore ~xs domid =
-    ( if not @@ Service.Qemu.is_running ~xs domid then
-        let msg = sprintf "Qemu not running for domain %d (%s)" domid __LOC__ in
-        raise (Xenopsd_error (Internal_error msg))
-    ) ;
+    if not @@ Service.Qemu.is_running ~xs domid then
+      internal_error "Qemu not running for domain %d (%s)" domid __LOC__ ;
     match find_serial0 domid with
     | Some device ->
         let path = strip (String.length tty_prefix) device.Qmp.filename in
@@ -2096,7 +2082,7 @@ module Dm_Common = struct
          case. Don't pass -vgpu for a compute vGPU. *)
       match x with
       | Vgpu ({implementation= Nvidia {vclass= Some "Compute"; _}; _} :: _) ->
-          [] (* don't pass flags for VCS (compute) vGPU *)
+          ["-std-vga"]
       | Vgpu ({implementation= Nvidia _; _} :: _) ->
           ["-vgpu"]
       | Vgpu [{implementation= GVT_g gvt_g; _}] ->
@@ -2861,13 +2847,8 @@ module Backend = struct
           debug "query-migratable precheck passed (domid=%d)" domid ;
           Generic.safe_rm ~xs path
       | other ->
-          raise
-          @@ Xenopsd_error
-               (Internal_error
-                  (sprintf "Unexpected result for QMP command: %s"
-                     Qmp.(other |> as_msg |> string_of_message)
-                  )
-               )
+          internal_error "Unexpected result for QMP command: %s"
+            Qmp.(other |> as_msg |> string_of_message)
       | exception QMP_Error (_, msg) -> (
         match Astring.String.find_sub ~sub:"CommandNotFound" msg with
         | None ->
@@ -3007,12 +2988,23 @@ module Backend = struct
         | Ide, 3, _ ->
             "ide1-cd1"
         | _ ->
-            raise
-              (Xenopsd_error
-                 (Internal_error
-                    (Printf.sprintf "unexpected disk for devid %d" devid)
-                 )
-              )
+            internal_error "unexpected disk for devid %d" devid
+
+      (* parse NBD URI. We are not using the URI module because the
+         format is not compliant but used by qemu. Using sscanf instead
+         to recognise and parse the specific URI *)
+      let is_nbd str =
+        try Scanf.sscanf str "nbd:unix:%s@:exportname=%s" (fun _ _ -> true)
+        with _ -> false
+
+      let nbd str =
+        try Scanf.sscanf str "nbd:unix:%s@:exportname=%s" (fun x y -> (x, y))
+        with _ -> internal_error "%s: failed to parse '%s'" __FUNCTION__ str
+
+      let with_socket path f =
+        let addr = Unix.ADDR_UNIX path in
+        let fd = Unix.socket Unix.PF_UNIX Unix.SOCK_STREAM 0 in
+        finally (fun () -> Unix.connect fd addr ; f fd) (fun () -> Unix.close fd)
 
       let qemu_media_change ~xs device _type params =
         debug "%s: params='%s'" __FUNCTION__ params ;
@@ -3024,6 +3016,33 @@ module Backend = struct
           match params with
           | "" ->
               qmp_send_cmd domid Qmp.(Eject (cd, Some true)) |> ignore
+          | params when is_nbd params ->
+              let path, exportname = nbd params in
+              info "%s: domain=%d NBD socket=%s" __FUNCTION__ domid path ;
+              with_socket path @@ fun fd ->
+              let cmd = Qmp.(Add_fd None) in
+              let fd_info =
+                match qmp_send_cmd ~send_fd:fd domid cmd with
+                | Qmp.Fd_info x ->
+                    x
+                | other ->
+                    internal_error "Unexpected result for QMP command: %s"
+                      Qmp.(other |> as_msg |> string_of_message)
+              in
+              let filename =
+                Printf.sprintf "nbd:fd:%d:exportname=%s" fd_info.Qmp.fdset_id
+                  exportname
+              in
+              let medium =
+                Qmp.
+                  {
+                    medium_device= cd
+                  ; medium_filename= filename
+                  ; medium_format= Some "raw"
+                  }
+              in
+              let cmd = Qmp.(Blockdev_change_medium medium) in
+              qmp_send_cmd domid cmd |> ignore
           | params ->
               Unixext.with_file params [Unix.O_RDONLY] 0o640 @@ fun fd_cd ->
               let cmd = Qmp.(Add_fd None) in
@@ -3032,15 +3051,10 @@ module Backend = struct
                 | Qmp.Fd_info x ->
                     x
                 | other ->
-                    raise
-                      (Xenopsd_error
-                         (Internal_error
-                            (sprintf "Unexpected result for QMP command: %s"
-                               Qmp.(other |> as_msg |> string_of_message)
-                            )
-                         )
-                      )
+                    internal_error "Unexpected result for QMP command: %s"
+                      Qmp.(other |> as_msg |> string_of_message)
               in
+
               finally
                 (fun () ->
                   let path = sprintf "/dev/fdset/%d" fd_info.Qmp.fdset_id in
@@ -3061,30 +3075,14 @@ module Backend = struct
                 )
         with
         | Unix.Unix_error (Unix.ECONNREFUSED, "connect", p) ->
-            raise
-              (Xenopsd_error
-                 (Internal_error
-                    (Printf.sprintf "Failed to connnect QMP socket: %s" p)
-                 )
-              )
+            internal_error "Failed to connnect QMP socket: %s" p
         | Unix.Unix_error (Unix.ENOENT, "open", p) ->
-            raise
-              (Xenopsd_error
-                 (Internal_error (Printf.sprintf "Failed to open CD Image: %s" p)
-                 )
-              )
+            internal_error "Failed to open CD Image: %s" p
         | Xenopsd_error (Internal_error _) as e ->
             raise e
         | e ->
-            raise
-              (Xenopsd_error
-                 (Internal_error
-                    (Printf.sprintf
-                       "Get unexpected error trying to change CD: %s"
-                       (Printexc.to_string e)
-                    )
-                 )
-              )
+            internal_error "Get unexpected error trying to change CD: %s"
+              (Printexc.to_string e)
     end
 
     (* Backend.Qemu_upstream_compat.Vbd *)
@@ -3119,7 +3117,6 @@ module Backend = struct
             |> ignore
         | false ->
             (* hotunplug *)
-            let err msg = raise (Xenopsd_error (Internal_error msg)) in
             let qom_path =
               qmp_send_cmd domid Qmp.Query_hotpluggable_cpus |> function
               | Qmp.Hotpluggable_cpus x -> (
@@ -3130,18 +3127,16 @@ module Backend = struct
                      )
                   |> function
                   | [] ->
-                      err (sprintf "No QEMU CPU found with devid %d" devid)
+                      internal_error "No QEMU CPU found with devid %d" devid
                   | Qmp.Device.VCPU.{qom_path= None; _} :: _ ->
-                      err (sprintf "No qom_path for QEMU CPU devid %d" devid)
+                      internal_error "No qom_path for QEMU CPU devid %d" devid
                   | Qmp.Device.VCPU.{qom_path= Some p; _} :: _ ->
                       p
                 )
               | other ->
                   let as_msg cmd = Qmp.(Success (Some __LOC__, cmd)) in
-                  err
-                    (sprintf "Unexpected result for QMP command: %s"
-                       Qmp.(other |> as_msg |> string_of_message)
-                    )
+                  internal_error "Unexpected result for QMP command: %s"
+                    Qmp.(other |> as_msg |> string_of_message)
             in
             qom_path |> fun id ->
             qmp_send_cmd domid Qmp.(Device_del id) |> ignore
@@ -3188,14 +3183,8 @@ module Backend = struct
               | Qmp.(Fd_info fd) ->
                   fd
               | other ->
-                  raise
-                    (Xenopsd_error
-                       (Internal_error
-                          (sprintf "Unexpected result for QMP command: %s"
-                             Qmp.(other |> as_msg |> string_of_message)
-                          )
-                       )
-                    )
+                  internal_error "Unexpected result for QMP command: %s"
+                    Qmp.(other |> as_msg |> string_of_message)
             in
             finally
               (fun () ->
@@ -3629,6 +3618,37 @@ module Dm = struct
     let module Q = (val Backend.of_profile dm) in
     Q.Dm.pci_assign_guest ~xs ~index ~host
 
+  let ioemu_failed emu fmt =
+    Printf.kprintf (fun msg -> raise (Ioemu_failed (emu, msg))) fmt
+
+  let wait_for_vgpu_state states ~timeout ~xs ~domid ~task vgpus =
+    let open Xenops_interface.Vgpu in
+    match vgpus with
+    | {implementation= Nvidia {vclass= _; _}; _} :: _ -> (
+        let error_path =
+          Printf.sprintf "/local/domain/%d/vgpu/error-code" domid
+        in
+        let state_path = Service.Vgpu.state_path domid in
+        let watch_for state = Watch.value_to_become state_path state in
+        let error_watches = List.map watch_for ["error"] in
+        let good_watches = List.map watch_for states in
+        match
+          cancellable_watch
+            (Service.Vgpu.cancel_key domid)
+            good_watches error_watches task ~xs ~timeout ()
+        with
+        | true ->
+            info "%s: daemon vgpu for domain %d is ready: %s" __FUNCTION__ domid
+              (xs.Xs.read state_path)
+        | false ->
+            let error_code = xs.Xs.read error_path in
+            error "%s: daemon vgpu for domain %d returned error: %s"
+              __FUNCTION__ domid error_code ;
+            ioemu_failed "vgpu" "Daemon vgpu returned error: %s" error_code
+      )
+    | _ ->
+        ()
+
   (* the following functions depend on the functions above that use the qemu
      backend Q *)
 
@@ -3643,39 +3663,19 @@ module Dm = struct
           let pcis = List.map (fun x -> x.physical_pci_address) vgpus in
           PCI.bind pcis PCI.Nvidia ;
           let module Q = (val Backend.of_profile profile) in
-          Service.Vgpu.start ~xs ~vcpus ~vgpus ~restore task domid
+          try Service.Vgpu.start ~xs ~vcpus ~vgpus ~restore task domid
+          with e ->
+            error "%s: vgpu start failed: %s" __FUNCTION__ (Printexc.to_string e) ;
+            ioemu_failed "vgpu" "%s: emulator failed to start for domain %d"
+              __FUNCTION__ domid
         ) else
           info "Daemon %s is already running for domain %d" !Xc_resources.vgpu
             domid ;
         (* Keep waiting until DEMU's state becomes "initialising" or "running",
            or an error occurred. *)
-        let state_path = Service.Vgpu.state_path domid in
-        let good_watches =
-          [
-            Watch.value_to_become state_path "initialising"
-          ; Watch.value_to_become state_path "running"
-          ; Watch.value_to_become state_path "resuming"
-          ]
-        in
-        let error_watch = Watch.value_to_become state_path "error" in
-        if
-          cancellable_watch
-            (Service.Vgpu.cancel_key domid)
-            good_watches [error_watch] task ~xs ~timeout:3600. ()
-        then
-          info "Daemon vgpu is ready"
-        else
-          let error_code_path =
-            Printf.sprintf "/local/domain/%d/vgpu/error-code" domid
-          in
-          let error_code = xs.Xs.read error_code_path in
-          error "Daemon vgpu returned error: %s" error_code ;
-          raise
-            (Ioemu_failed
-               ( "vgpu"
-               , Printf.sprintf "Daemon vgpu returned error: %s" error_code
-               )
-            )
+        wait_for_vgpu_state
+          ["running"; "resuming"; "initialising"]
+          ~timeout:60.0 ~xs ~domid ~task vgpus
     | [{physical_pci_address= pci; implementation= GVT_g _; _}] ->
         PCI.bind [pci] PCI.I915
     | [{physical_pci_address= pci; implementation= MxGPU vgpu; _}] ->
@@ -3765,7 +3765,7 @@ module Dm = struct
         )
         (fun () -> List.iter close args.fd_map)
     in
-    match !Xenopsd.action_after_qemu_crash with
+    ( match !Xenopsd.action_after_qemu_crash with
     | None ->
         (* At this point we expect qemu to outlive us; we will never call
            waitpid *)
@@ -3833,6 +3833,14 @@ module Dm = struct
                       crash_reason
             )
         )
+    ) ;
+    (* CP-46917 Wait for vgpu/demu to be running. Timeout needs to be
+       long enough for migrations to complete *)
+    match info.disp with
+    | VNC (Vgpu vgpus, _, _, _, _) | SDL (Vgpu vgpus, _) ->
+        wait_for_vgpu_state ["running"] ~timeout:3600.0 ~xs ~domid ~task vgpus
+    | _ ->
+        ()
 
   let start (task : Xenops_task.task_handle) ~xc ~xs ~dm ?timeout info domid =
     __start task ~xc ~xs ~dm ?timeout Start info domid

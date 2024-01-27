@@ -51,6 +51,7 @@ let wait_ops =
   ; `exchange_certificates_on_join
   ; `exchange_ca_certificates_on_join
   ; `copy_primary_host_certs
+  ; `eject
   ]
 
 let all_operations = blocking_ops |> List.map fst |> List.append wait_ops

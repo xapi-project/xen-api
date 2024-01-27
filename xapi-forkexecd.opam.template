@@ -1,0 +1,30 @@
+opam-version: "2.0"
+maintainer: "xen-api@lists.xen.org"
+authors: "xen-api@lists.xen.org"
+homepage: "https://github.com/xapi-project/"
+bug-reports: "https://github.com/xapi-project/xen-api/issues"
+dev-repo: "git+https://github.com/xapi-project/xen-api.git"
+tags: [ "org:xapi-project" ]
+
+build: [
+  ["dune" "build" "-p" name "-j" jobs]
+  ["dune" "runtest" "-p" name "-j" jobs] {with-test}
+]
+depends: [
+  "ocaml"
+  "dune"
+  "astring"
+  "forkexec"
+  "systemd" {>= "1.2"}
+  "uuid"
+  "xapi-stdext-unix"
+]
+conflicts: [
+  "fd-send-recv" {< "2.0.0"}
+]
+synopsis: "Sub-process control service for xapi"
+description:
+  "This daemon creates and manages sub-processes on behalf of xapi."
+url {
+  src: "https://github.com/xapi-project/xen-api/archive/master.tar.gz"
+}
