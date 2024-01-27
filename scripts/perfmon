@@ -1067,6 +1067,7 @@ def main():
             vm_uuid_list = rrd_updates.get_uuid_list_by_objtype('vm')
 
             # Remove any monitors for VMs no longer listed in rrd_updates page
+            # we use .pop() inside the loop, use list(dict_var.keys()):
             for uuid in list(vm_mon_lookup.keys()):
                 if uuid not in vm_uuid_list:
                     vm_mon_lookup.pop(uuid)
