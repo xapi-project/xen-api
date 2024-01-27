@@ -1104,6 +1104,7 @@ def main():
             print_debug("sr_uuid_list = %s" % sr_uuid_list)
 
             # Remove monitors for SRs no longer listed in the rrd_updates page
+            # we use .pop() inside the loop, use list(dict_var.keys()):
             for uuid in list(sr_mon_lookup.keys()):
                 if uuid not in sr_uuid_list:
                     sr_mon_lookup.pop(uuid)
