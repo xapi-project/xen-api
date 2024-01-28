@@ -115,3 +115,22 @@ jobs:
 
       - name: quality-gate
         run: make quality-gate
+
+      - uses: reviewdog/action-actionlint@v1
+        name: GitHub Action linter from https://github.com/reviewdog/action-actionlint
+        with:
+          level: error
+
+      - uses: tsuyoshicho/action-mypy@v3
+        with:
+          reporter: github-pr-review
+          level: error
+          # mypy reads settings files like .mypy.ini, setup.cfg from this path:
+          workdir: .
+
+      - uses: dciborow/action-pylint@0.1.0
+        with:
+          reporter: github-pr-review
+          level: warning
+          # To be customized to cover the other Python scripts as well:
+          glob_pattern: "scripts/(perfmon|hfx_filename)"
