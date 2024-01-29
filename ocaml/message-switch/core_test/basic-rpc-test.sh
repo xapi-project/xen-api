@@ -1,11 +1,13 @@
 #!/bin/bash
 set -e
 
-SPATH=${TMPDIR:-/tmp}/sock
-SWITCHPATH=${TMPDIR:-/tmp}/switch
+SPATH=${TMPDIR:-/tmp}/sock_s
+SWITCHPATH=${TMPDIR:-/tmp}/switch_s
 
 
 rm -rf ${SWITCHPATH} && mkdir -p ${SWITCHPATH}
+
+echo Test message switch serial processing
 
 echo Checking the switch can start late
 ./server_unix_main.exe -path $SPATH &
