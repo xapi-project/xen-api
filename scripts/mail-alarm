@@ -120,8 +120,8 @@ def load_mail_language(mail_language):
         mail_language_file = os.path.join(
             mail_language_pack_path, mail_language + ".json"
         )
-        with open(mail_language_file, "r") as fileh:
-            return json.load(fileh, encoding="utf-8")
+        with open(mail_language_file, encoding="utf-8") as fileh:
+            return json.load(fileh)
     except IOError:
         log_err('Read mail language pack error:["%s"]' % (mail_language_file))
         return None
@@ -1031,6 +1031,7 @@ def main():
             config = config.replace(s, r)
 
         # Write out a temporary file containing the new config
+        temp_file_path = ""
         try:
             with tempfile.NamedTemporaryFile(
                 prefix="mail-", dir="/tmp", delete=False
