@@ -50,17 +50,8 @@ type t = {
   ; mutable test_clusterd_rpc: (Rpc.call -> Rpc.response) option
 }
 
-let complete_tracing __context =
-  ( match Tracing.Tracer.finish __context.tracing with
-  | Ok _ ->
-      ()
-  | Error e ->
-      R.warn "Failed to complete tracing: %s" (Printexc.to_string e)
-  ) ;
-  __context.tracing <- None
-
-let complete_tracing_with_exn __context error =
-  ( match Tracing.Tracer.finish ~error __context.tracing with
+let complete_tracing ?error __context =
+  ( match Tracing.Tracer.finish ?error __context.tracing with
   | Ok _ ->
       ()
   | Error e ->
