@@ -36,6 +36,7 @@
 (library
   (name httpsvr)
   (wrapped false)
+  (modes best)
   (modules http_svr http_proxy server_io)
   (libraries
     astring
@@ -53,6 +54,7 @@
 (tests
   (names http_test radix_tree_test)
   (package http-lib)
+  (modes (best exe))
   (modules http_test radix_tree_test)
   (libraries
     alcotest

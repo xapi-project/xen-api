@@ -57,6 +57,7 @@
 (library
   (name xapi_internal)
   (wrapped false)
+  (modes best)
   (modules (:standard \ xapi_main))
   (libraries
     angstrom
