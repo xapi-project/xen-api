@@ -1,0 +1,4 @@
+rule_settings:
+  disable:
+  - use-fstring-for-concatenation
+  - use-fstring-for-formatting

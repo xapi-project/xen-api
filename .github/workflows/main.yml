@@ -14,16 +14,18 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        docker-image:  # See https://hub.docker.com/_/python/tags for images
-          - python:2.7.18-alpine3.11
-          - python:3.11.4-alpine3.18
-    container: ${{ matrix.docker-image }}
+        python-version: ['2.7', '3.11']
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
 
+      - name: Setup Python ${{matrix.python-version}} (without a container)
+        uses: LizardByte/setup-python-action@master
+        with:
+          python-version: ${{matrix.python-version}}
+
       - name: Install python 2 dependencies
-        if: ${{ startsWith(matrix.docker-image, 'python:2.7.18') }}
+        if: ${{ matrix.python-version == '2.7' }}
         run: pip install enum
 
       - name: Install dependencies
