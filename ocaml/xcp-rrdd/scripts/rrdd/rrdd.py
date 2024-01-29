@@ -223,7 +223,8 @@ class API(object):
         self.path = self.dispatcher.get_path({"uid": self.uid})
         base_path = os.path.dirname(self.path)
         if not os.path.exists(base_path): os.makedirs(base_path)
-        self.dest = open(self.path, "wb")
+        fd = os.open(self.path, os.O_RDWR|os.O_CREAT)
+        self.dest = os.fdopen(fd, mode='r+b')
 
     def __del__(self):
         self.deregister()
