@@ -1,14 +1,9 @@
 """scripts/unit_test/test_usb_reset_mount.py: Test usb_reset.mount and .umount"""
 from __future__ import print_function
 
-import sys
-
-import pytest
-
 from .import_helper import import_file_as_module, mocked_modules
 
 
-@pytest.mark.skipif(sys.version_info > (3, 0), reason="u,mount needs Py3 fixes")
 def test_usb_reset_mount_umount(private_mount_namespace):
     """Test usb_reset.mount and .umount"""
     assert private_mount_namespace
