@@ -748,14 +748,9 @@ let apply_updates' ~__context ~host ~updates_info ~livepatches ~acc_rpm_updates
   Helpers.call_api_functions ~__context (fun rpc session_id ->
       Client.Client.Repository.apply ~rpc ~session_id ~host
   ) ;
-  (* Apply livepatches *)
+  (* Always apply livepatches even if host will reboot *)
   let applied_livepatches, failed_livepatches =
-    match List.mem RebootHost mandatory with
-    | true ->
-        (* Not apply any livepatches as the host will reboot *)
-        ([], [])
-    | false ->
-        apply_livepatches' ~__context ~host ~livepatches
+    apply_livepatches' ~__context ~host ~livepatches
   in
   (* Update states in cache *)
   update_cache ~host ~failed_livepatches ;
