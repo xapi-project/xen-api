@@ -5500,12 +5500,10 @@ let download_file rpc session_id task fd filename uri label =
     response := unmarshal fd
   done ;
   let ok =
-    match (!response, filename <> "") with
-    | Response OK, true ->
+    match !response with
+    | Response OK ->
         true
-    | Response OK, false ->
-        false
-    | Response Failed, _ ->
+    | Response Failed ->
         (* Need to check whether the thin cli managed to contact the server
            				   or not. If not, we need to mark the task as failed *)
         if Client.Task.get_progress ~rpc ~session_id ~self:task < 0.0 then
@@ -5517,7 +5515,8 @@ let download_file rpc session_id task fd filename uri label =
   wait_for_task_complete rpc session_id task ;
   (* Check the server status -- even if the client thinks it's ok, we need
      	   to check that the server does too. *)
-  check_task_status ~rpc ~session_id ~task ~fd ~label ~ok ()
+  let quiet_on_success = if filename = "" then true else false in
+  check_task_status ~rpc ~session_id ~task ~fd ~label ~ok ~quiet_on_success ()
 
 let download_file_with_task fd rpc session_id filename uri query label task_name
     =
