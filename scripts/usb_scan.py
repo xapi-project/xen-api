@@ -22,14 +22,16 @@
 # 3. return the device info to XAPI in json format
 
 from __future__ import print_function
+
 import abc
 import argparse
 import json
-import xcp.logger as log
 import logging
-import pyudev
 import re
 import sys
+
+import pyudev
+import xcp.logger as log
 
 
 def log_list(l):
@@ -43,7 +45,7 @@ def log_exit(m):
 
 
 def hex_equal(h1, h2):
-    """ check if the value of hex string are equal
+    """check if the value of hex string are equal
 
     :param h1:(str) lhs hex string
     :param h2:(str) rhs hex string
@@ -56,10 +58,11 @@ def hex_equal(h1, h2):
 
 
 class UsbObject(dict):
-    """ Base class of USB classes, save USB properties in dict
+    """Base class of USB classes, save USB properties in dict
 
     node(str): the key, device node
     """
+
     __metaclass__ = abc.ABCMeta
 
     def __init__(self, node):
@@ -90,11 +93,12 @@ class UsbObject(dict):
         :param level: the indent level
         :return: the debug string
         """
-        return self.indent(level) + self.__class__.__name__ + ": " + \
-            str((self.node, self))
+        return (
+            self.indent(level) + self.__class__.__name__ + ": " + str((self.node, self))
+        )
 
     def is_initialized(self):
-        """ check if all properties are properly set
+        """check if all properties are properly set
 
         :return: bool, if properties are ready
         """
@@ -107,7 +111,7 @@ class UsbObject(dict):
 
     @abc.abstractmethod
     def is_class_hub(self):
-        """ check if this belongs to a hub
+        """check if this belongs to a hub
 
         :return: bool, if this belongs to a hub
         """
@@ -115,7 +119,7 @@ class UsbObject(dict):
 
     @abc.abstractmethod
     def is_child_of(self, parent):
-        """ check if this is a child of parent
+        """check if this is a child of parent
 
         :param parent:(UsbObject) the parent to check against
         :return:
@@ -124,7 +128,7 @@ class UsbObject(dict):
 
     @staticmethod
     def validate_int(s, base=10):
-        """ validate if a string can be converted to int
+        """validate if a string can be converted to int
 
         :param s:(str) the string to be converted
         :param base:(int) the radix base of integer to convect
@@ -138,10 +142,11 @@ class UsbObject(dict):
 
 
 class UsbDevice(UsbObject):
-    """ Class for USB device, save USB properties in UsbObject dict
+    """Class for USB device, save USB properties in UsbObject dict
 
     interfaces:([UsbInterface]) list of USB interfaces belonging to this device
     """
+
     _DESC_VENDOR = "ID_VENDOR_FROM_DATABASE"
     _DESC_PRODUCT = "ID_MODEL_FROM_DATABASE"
 
@@ -156,13 +161,22 @@ class UsbDevice(UsbObject):
     _USB_SPEED = "speed"
 
     _PRODUCT_DESC = [_DESC_VENDOR, _DESC_PRODUCT]
-    _PRODUCT_DETAILS = [_VERSION, _ID_VENDOR, _ID_PRODUCT, _BCD_DEVICE, _SERIAL,
-                        _CLASS, _CONF_VALUE, _NUM_INTERFACES, _USB_SPEED]
+    _PRODUCT_DETAILS = [
+        _VERSION,
+        _ID_VENDOR,
+        _ID_PRODUCT,
+        _BCD_DEVICE,
+        _SERIAL,
+        _CLASS,
+        _CONF_VALUE,
+        _NUM_INTERFACES,
+        _USB_SPEED,
+    ]
     _PROPS = _PRODUCT_DESC + _PRODUCT_DETAILS
     _PROPS_NONABLE = _PRODUCT_DESC + [_SERIAL]
 
     def __init__(self, node, props1, props2):
-        """ initialise UsbDevice, set node and properties
+        """initialise UsbDevice, set node and properties
 
         :param node(str): device node
         :param props1(pyudev.Device): device, to get properties from UDEV
@@ -213,7 +227,7 @@ class UsbDevice(UsbObject):
         return False
 
     def add_interface(self, interface):
-        """ add an interface to this device
+        """add an interface to this device
 
         :param interface:(UsbInterface) the UsbInterface to add
         :return: None
@@ -234,14 +248,14 @@ class UsbDevice(UsbObject):
             self.interfaces.remove(interface)
 
     def get_all_interfaces(self):
-        """ get all interfaces attached of this device
+        """get all interfaces attached of this device
 
         :return: set of all interfaces
         """
         return self.interfaces
 
     def is_ready(self):
-        """ check if this device has all the interfaces attached
+        """check if this device has all the interfaces attached
 
         :return: bool, if it's ready to do policy check now
         """
@@ -250,9 +264,8 @@ class UsbDevice(UsbObject):
 
 
 class UsbInterface(UsbObject):
-    """ Class for USB interface, save USB properties in UsbObject dict
+    """Class for USB interface, save USB properties in UsbObject dict"""
 
-    """
     _NUMBER = "bInterfaceNumber"
     _CLASS = "bInterfaceClass"
     _SUB_CLASS = "bInterfaceSubClass"
@@ -261,7 +274,7 @@ class UsbInterface(UsbObject):
     _PROPS = [_NUMBER, _CLASS, _SUB_CLASS, _PROTOCOL]
 
     def __init__(self, node, props):
-        """ initialise UsbInterface, set node and properties
+        """initialise UsbInterface, set node and properties
 
         :param node(str): device node
         :param props(pyudev.Device.attributes): device attributes, to get
@@ -292,8 +305,9 @@ class UsbInterface(UsbObject):
     def is_child_of(self, parent):
         if isinstance(parent, UsbDevice) and parent.is_initialized():
             conf_value = parent[UsbDevice._CONF_VALUE]
-            pattern = r"^{}:{}\.\d+$".format(re.escape(parent.get_node()),
-                                             re.escape(conf_value))
+            pattern = r"^{}:{}\.\d+$".format(
+                re.escape(parent.get_node()), re.escape(conf_value)
+            )
             return re.match(pattern, self.get_node()) is not None
         return False
 
@@ -319,13 +333,14 @@ def get_usb_info():
 
 
 class Policy(object):
-    """ Parse policy file, and check if a UsbDevice can be passed through
+    """Parse policy file, and check if a UsbDevice can be passed through
 
     Policy file spec reference:
     https://support.citrix.com/article/CTX119722
 
     rule_list: the list of parsed rule
     """
+
     _PATH = "/etc/xensource/usb-policy.conf"
 
     _CLASS = "class"
@@ -336,24 +351,28 @@ class Policy(object):
     _BCD_DEVICE = "rel"
 
     # key in policy <--> key in usb device
-    _KEY_MAP_DEVICE = {_ID_VENDOR: UsbDevice._ID_VENDOR,
-                       _ID_PRODUCT: UsbDevice._ID_PRODUCT,
-                       _BCD_DEVICE: UsbDevice._BCD_DEVICE}
+    _KEY_MAP_DEVICE = {
+        _ID_VENDOR: UsbDevice._ID_VENDOR,
+        _ID_PRODUCT: UsbDevice._ID_PRODUCT,
+        _BCD_DEVICE: UsbDevice._BCD_DEVICE,
+    }
 
     # key in policy <--> key in usb interface
-    _KEY_MAP_INTERFACE = {_CLASS: UsbInterface._CLASS,
-                          _SUBCLASS: UsbInterface._SUB_CLASS,
-                          _PROTOCOL: UsbInterface._PROTOCOL}
+    _KEY_MAP_INTERFACE = {
+        _CLASS: UsbInterface._CLASS,
+        _SUBCLASS: UsbInterface._SUB_CLASS,
+        _PROTOCOL: UsbInterface._PROTOCOL,
+    }
 
-    _PAT_KEY = r"\s*({}|{}|{}|{}|{}|{})\s*".format(_CLASS, _SUBCLASS,
-                                                   _PROTOCOL, _ID_VENDOR,
-                                                   _ID_PRODUCT, _BCD_DEVICE)
+    _PAT_KEY = r"\s*({}|{}|{}|{}|{}|{})\s*".format(
+        _CLASS, _SUBCLASS, _PROTOCOL, _ID_VENDOR, _ID_PRODUCT, _BCD_DEVICE
+    )
     _PATTERN = r"{}=\s*([0-9a-f]+)".format(_PAT_KEY)
 
     _ALLOW = "allow"
 
     def __init__(self):
-        """ parse policy file, generate rule list
+        """parse policy file, generate rule list
 
         Note: hubs are never allowed to pass through
         """
@@ -375,19 +394,21 @@ class Policy(object):
 
     def check_hex_length(self, name, value):
         if name in [self._CLASS, self._SUBCLASS, self._PROTOCOL]:
-            return 2 == len(value)
+            return len(value) == 2
         if name in [self._ID_VENDOR, self._ID_PRODUCT, self._BCD_DEVICE]:
-            return 4 == len(value)
+            return len(value) == 4
         return False
 
     @staticmethod
     def parse_error(pos, end, target, line):
         log_exit(
-            "Malformed policy rule, unable to parse '{}', malformed line: {}"
-            .format(target[pos:end], line))
+            "Malformed policy rule, unable to parse '{}', malformed line: {}".format(
+                target[pos:end], line
+            )
+        )
 
     def parse_line(self, line):
-        """ parse one line of policy file, generate rule, and append it to
+        """parse one line of policy file, generate rule, and append it to
         self.rule_list
 
         Example:
@@ -416,8 +437,7 @@ class Policy(object):
             action, target = [part.strip() for part in line.split(":")]
         except ValueError as e:
             if line.rstrip():
-                log_exit("Caught error {}, malformed line: {}"
-                         .format(str(e), line))
+                log_exit("Caught error {}, malformed line: {}".format(str(e), line))
             # empty line, just return
             return
 
@@ -429,14 +449,14 @@ class Policy(object):
         elif action.lower() == "deny":
             rule[self._ALLOW] = False
         else:
-            log_exit("Malformed action'{}', malformed line: {}".format(
-                action, line))
+            log_exit("Malformed action'{}', malformed line: {}".format(action, line))
 
         # 4. parse key=value pairs
         # pattern = r"\s*(class|subclass|prot|vid|pid|rel)\s*=\s*([0-9a-f]+)"
         last_end = 0
-        for matchNum, match in enumerate(re.finditer(self._PATTERN, target,
-                                                     re.IGNORECASE)):
+        for matchNum, match in enumerate(
+            re.finditer(self._PATTERN, target, re.IGNORECASE)
+        ):
             if last_end != match.start():
                 self.parse_error(last_end, match.start(), target, line)
 
@@ -451,12 +471,14 @@ class Policy(object):
                 self.parse_error(match.start(), match.end(), target, line)
 
             if not self.check_hex_length(name, value):
-                log_exit("hex'{}' length error, malformed line {}".format(
-                    str(value), line))
+                log_exit(
+                    "hex'{}' length error, malformed line {}".format(str(value), line)
+                )
 
             if name in rule:
-                log_exit("duplicated tag'{}' found, malformed line {}".
-                         format(name, line))
+                log_exit(
+                    "duplicated tag'{}' found, malformed line {}".format(name, line)
+                )
 
             rule[name] = value
             last_end = match.end()
@@ -477,14 +499,20 @@ class Policy(object):
         :return:(bool) if they match
         """
         for k in [k for k in rule if k in self._KEY_MAP_DEVICE]:
-            log.debug("check {} props[{}] against {}".format(
-                interface.get_node(), k, str(rule)))
+            log.debug(
+                "check {} props[{}] against {}".format(
+                    interface.get_node(), k, str(rule)
+                )
+            )
             if not hex_equal(rule[k], device[self._KEY_MAP_DEVICE[k]]):
                 return False
 
         for k in [k for k in rule if k in self._KEY_MAP_INTERFACE]:
-            log.debug("check {} props[{}] against {}".format(
-                interface.get_node(), k, str(rule)))
+            log.debug(
+                "check {} props[{}] against {}".format(
+                    interface.get_node(), k, str(rule)
+                )
+            )
             if not hex_equal(rule[k], interface[self._KEY_MAP_INTERFACE[k]]):
                 return False
 
@@ -549,16 +577,19 @@ class Policy(object):
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(
-        description="scanner to get USB devices info")
-    parser.add_argument("-d", "--diagnostic", dest="diagnostic",
-                        action="store_true",
-                        help="enable diagnostic mode")
+    parser = argparse.ArgumentParser(description="scanner to get USB devices info")
+    parser.add_argument(
+        "-d",
+        "--diagnostic",
+        dest="diagnostic",
+        action="store_true",
+        help="enable diagnostic mode",
+    )
     return parser.parse_args()
 
 
 def to_pusb(device):
-    """ convert UsbDevice to pusb dict
+    """convert UsbDevice to pusb dict
 
     Example pusb dict:
     [
@@ -612,7 +643,7 @@ def to_pusb(device):
 
 
 def make_pusbs_list(devices, interfaces):
-    """ check the USB devices and interfaces against policy file,
+    """check the USB devices and interfaces against policy file,
     and return the pusb list that can be passed through
 
     :param devices:([UsbDevice]) USB device list we found in host
