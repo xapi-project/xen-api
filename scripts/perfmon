@@ -481,8 +481,12 @@ class VariableState:
     """
     def __init__(self):
         self.value = None
+        # pytype: disable=attribute-error
+        # pylint: disable-next=no-member
         self.timeof_last_alarm = time.time() - self.alarm_auto_inhibit_period
+        # pylint: disable-next=no-member
         self.trigger_down_counter = self.alarm_trigger_period
+        # pytype: enable=attribute-error
 
 class Variable(VariableConfig, VariableState):
     """ Variable() is used by ObjectMonitor to create one Variable object for each
@@ -1233,25 +1237,22 @@ if __name__ == "__main__":
         # we caught a signal which we have already logged
         pass
 
-    except Exception as e:
+    except Exception as e:  # pylint: disable=broad-exception-caught
         rc = 2
         log_err("FATAL ERROR: perfmon will exit")
         log_err("Exception is of class %s" % e.__class__)
         ex = sys.exc_info()
         err = traceback.format_exception(*ex)
-        
+
         # Python built-in Exception has args,
         # but XenAPI.Failure has details instead. Sigh.
         try:
-            errmsg = "\n".join([ str(x) for x in e.args ])
-            # print the exception args nicely
-            log_err(errmsg)
-        except Exception as ignored:
+            log_err("\n".join([ str(x) for x in e.args ]))
+        except AttributeError:
             try:
-                errmsg = "\n".join([ str(x) for x in e.details ])
-                # print the exception args nicely
-                log_err(errmsg)
-            except Exception as ignored:
+                assert isinstance(e, XenAPI.Failure)
+                log_err("\n".join([ str(x) for x in e.details ]))
+            except AttributeError:
                 pass
 
         # now log the traceback to syslog

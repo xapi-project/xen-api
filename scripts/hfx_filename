@@ -51,6 +51,7 @@ def rpc(session_id, request):
         s.close()
 
 def parse_string(txt):
+    assert isinstance(txt, str)
     prefix = "<value><array><data><value>success</value><value>"
     if not txt.startswith(prefix):
         raise Exception("Unable to parse string response")

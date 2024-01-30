@@ -87,7 +87,7 @@ def check_state_needs_init(fname):
         return False
 
     # Check if block device has non-zero header
-    with open(fname, "r") as file:
+    with open(fname, "rb") as file:
         hdr = file.read(8)
     int_hdr = struct.unpack("<Q", hdr)[0]
 

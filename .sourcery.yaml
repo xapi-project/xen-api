@@ -1,0 +1,5 @@
+rule_settings:
+  disable:
+  - replace-interpolation-with-fstring
+  - use-fstring-for-concatenation
+  - use-fstring-for-formatting

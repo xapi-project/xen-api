@@ -194,3 +194,84 @@ jobs:
           github_token: ${{ secrets.github_token }}
           reporter: github-pr-review
           level: error
+
+      # uses: tsuyoshicho/action-mypy@v3.13.0
+      - uses: bernhardkaindl/action-mypy@36cb3a857d01c1bdaa2811893106c71580132d71
+        env:
+          MYPYPATH: scripts/examples/python:scripts/examples:scripts/plugins:scripts:.
+        with:
+          filter_mode: nofilter
+          setup_method: install
+          setup_command: pip install mypy mock
+          mypy_flags: |
+            --scripts-are-modules
+            --check-untyped-defs
+            --allow-redefinition
+            --hide-error-context
+            --ignore-missing-imports
+            --no-pretty
+            --warn-unreachable
+            --disable-error-code attr-defined
+            --disable-error-code call-overload
+            --disable-error-code import-not-found
+            --disable-error-code import-untyped
+            --disable-error-code type-arg
+            --disable-error-code var-annotated
+            --exclude ocaml/events/event_listen.py
+            --exclude ocaml/idl
+            --exclude ocaml/message-switch
+            --exclude ocaml/tests/tests/looper.py
+            --exclude ocaml/xcp-rrdd/scripts/rrdd/rrdd.py
+            --exclude scripts/examples
+            --exclude scripts/examples/python/monitor-unwanted-domains.py
+            --exclude scripts/scalability-tests/ping-master.py
+            --exclude scripts/backup-sr-metadata.py
+            --exclude scripts/restore-sr-metadata.py
+            --exclude scripts/nbd_client_manager.py
+          target: |
+            scripts/perfmon
+            scripts/hfx_filename
+            scripts/host-display
+          github_token: ${{ secrets.github_token }}
+          reporter: github-pr-review
+
+      - uses: dciborow/action-pylint@0.1.1
+        with:
+          filter_mode: nofilter
+          glob_pattern: scripts/examples/python/XenAPIPlugin.py
+          pylint_args: |
+            --verbose
+            --dsiable attribute-defined-outside-init
+            --disable bad-indentation
+            --disable consider-using-dict-comprehension
+            --disable consider-using-f-string
+            --disable consider-using-in
+            --disable consider-using-with
+            --disable global-statement
+            --disable import-error
+            --disable import-outside-toplevel
+            --disable invalid-name
+            --disable missing-final-newline
+            --disable missing-class-docstring
+            --disable missing-function-docstring
+            --dsiable missing-module-docstring
+            --disable multiple-imports
+            --disable multiple-statements
+            --disable no-else-return
+            --disable protected-access
+            --disable raise-missing-from
+            --disable redefined-outer-name
+            --disable too-few-public-methods
+            --disable too-many-branches
+            --disable too-many-statements
+            --disable trailing-whitespace
+            --disable try-except-raise
+            --disable use-dict-literal
+            --disable wrong-import-order
+            --max-line-length 112
+            scripts/perfmon
+            scripts/hfx_filename
+            scripts/test_perfmon.py
+            scripts/test_hfx_filename.py
+          github_token: ${{ secrets.github_token }}
+          reporter: github-pr-review

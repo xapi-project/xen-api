@@ -38,9 +38,21 @@ ensure_newline_before_comments = false
 [tool.mypy]
 # Note mypy has no config setting for PYTHONPATH, so you need to call it with:
 # PYTHONPATH="scripts/examples/python:.:scripts:scripts/plugins:scripts/examples"
+exclude = [
+    "ocaml/xapi-storage/python/examples/volume/org.xen.xapi.storage.simple-file/plugin.py",
+    "scripts/examples",
+    "scripts/examples/python/monitor-unwanted-domains.py",
+    "scripts/scalability-tests/ping-master.py",
+    "scripts/backup-sr-metadata.py",
+    "scripts/restore-sr-metadata.py",
+    "scripts/nbd_client_manager.py",
+]
 files = [
+    "scripts/perfmon",
+    "scripts/hfx_filename",
+    "scripts/mail-alarm",
+    "scripts/host-display",
     "scripts/usb_reset.py",
-    "scripts/unit_tests",
 ]
 pretty = true
 error_summary = true
@@ -70,8 +82,6 @@ discard_messages_matching = [
     "No Node.TEXT_NODE in module xml.dom.minidom, referenced from 'xml.dom.expatbuilder'"
 ]
 expected_to_fail = [
-    "scripts/hfx_filename",
-    "scripts/perfmon",
     # Need 2to3 -w <file> and maybe a few other minor updates:
     "scripts/hatests",
     "scripts/backup-sr-metadata.py",
@@ -112,13 +122,12 @@ inputs = [
     "scripts/xe-scsi-dev-map",
     "scripts/examples/python",
     "scripts/yum-plugins",
-    "scripts/*.py",
-
     # To be added later,
     # when converted to Python3-compatible syntax:
     # "ocaml/message-switch/python",
     # "ocaml/idl/ocaml_backend/python",
     # "ocaml/xapi-storage/python",
+    "ocaml/xenopsd/python",
 ]
 disable = [
     "import-error",  # xenfsimage, xcp.bootloader. xcp.cmd
