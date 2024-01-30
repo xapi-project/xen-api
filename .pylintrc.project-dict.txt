@@ -1,0 +1,8 @@
+getgid
+getuid
+NEWNS
+pytest
+pytype
+setgroups
+strerror
+tmpfs
