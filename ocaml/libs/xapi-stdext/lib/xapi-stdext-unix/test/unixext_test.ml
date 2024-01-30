@@ -155,7 +155,39 @@ let test_time_limited_read =
   in
   true
 
-let tests = [test_time_limited_write; test_time_limited_read]
+let test_proxy =
+  let gen = Generate.t and print = Generate.print in
+  Test.make ~name:__FUNCTION__ ~print gen @@ fun behaviour ->
+  if behaviour.kind <> Unix.S_SOCK then
+    QCheck2.assume_fail () ;
+  let test wrapped_fd =
+    let buf = String.init behaviour.size (fun i -> Char.chr (i mod 255)) in
+    let fd = Xapi_fdcaps.Operations.For_test.unsafe_fd_exn wrapped_fd in
+    let test2 wrapped_fd2 =
+      let fd2 = Xapi_fdcaps.Operations.For_test.unsafe_fd_exn wrapped_fd2 in
+      Unixext.proxy (Unix.dup fd) (Unix.dup fd2)
+    in
+    match Generate.run_rw behaviour buf ~f:test2 with
+    | _, Error (`Exn_trap (e, bt)) ->
+        Printexc.raise_with_backtrace e bt
+    | obs, Ok () ->
+        obs
+  in
+  let buf' =
+    String.init behaviour.size (fun i -> Char.chr ((30 + i) mod 255))
+  in
+  match Generate.run_rw behaviour buf' ~f:test with
+  | _, Error (`Exn_trap (e, bt)) ->
+      Printexc.raise_with_backtrace e bt
+  | {read= None; _}, Ok _ ->
+      false
+  | _, Ok {write= None; _} ->
+      false
+  | {read= Some write; _}, Ok {write= Some read; _} ->
+      expect_string ~expected:write.data ~actual:read.data ;
+      true
+
+let tests = [test_proxy; test_time_limited_write; test_time_limited_read]
 
 let () =
   (* avoid SIGPIPE *)
