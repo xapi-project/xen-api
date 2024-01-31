@@ -1,5 +1,0 @@
-(library
-  (public_name xapi-stdext-zerocheck)
-  (name xapi_stdext_zerocheck)
-  (foreign_stubs (language c) (names zerocheck_stub))
-)
