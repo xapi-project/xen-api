@@ -1032,7 +1032,7 @@ let rec cmdtable_data : (string * cmd_spec) list =
         reqd= ["hash"]
       ; optn= []
       ; help= "Apply updates from enabled repository on specified host."
-      ; implementation= No_fd Cli_operations.host_apply_updates
+      ; implementation= With_fd Cli_operations.host_apply_updates
       ; flags= [Host_selectors]
       }
     )
@@ -1045,6 +1045,15 @@ let rec cmdtable_data : (string * cmd_spec) list =
           No_fd_local_session
             Cli_operations.host_emergency_clear_mandatory_guidance
       ; flags= [Neverforward]
+      }
+    )
+  ; ( "host-updates-show-available"
+    , {
+        reqd= []
+      ; optn= []
+      ; help= "Show available updates for a specified host."
+      ; implementation= With_fd Cli_operations.host_updates_show_available
+      ; flags= [Host_selectors]
       }
     )
   ; ( "patch-upload"
