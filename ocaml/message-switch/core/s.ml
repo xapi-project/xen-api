@@ -27,7 +27,7 @@ module type BACKEND = sig
 
     val map : ('a -> 'b) -> 'a t -> 'b t
 
-    val iter_dontwait : ('a -> unit t) -> 'a list -> unit
+    val iter : ('a -> unit t) -> 'a list -> unit t
 
     val any : 'a t list -> 'a t
 

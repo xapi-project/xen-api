@@ -240,7 +240,9 @@ let dss_vcpus xc doms =
         let dom_cpu_time =
           Int64.(to_float @@ logand dom.Xenctrl.cpu_time xen_flag_complement)
         in
-        let dom_cpu_time = dom_cpu_time /. 1.0e9 in
+        let dom_cpu_time =
+          dom_cpu_time /. (1.0e9 *. float_of_int dom.Xenctrl.nr_online_vcpus)
+        in
         try
           let ri = Xenctrl.domain_get_runstate_info xc domid in
           ( Rrd.VM uuid

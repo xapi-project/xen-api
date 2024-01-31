@@ -23,7 +23,8 @@ let create_cluster ~__context pool_auto_join =
     ~token_timeout:Constants.default_token_timeout_s
     ~token_timeout_coefficient:Constants.default_token_timeout_coefficient_s
     ~allowed_operations:[] ~current_operations:[] ~pool_auto_join
-    ~cluster_config:[] ~other_config:[] ~pending_forget:[] ;
+    ~cluster_config:[] ~other_config:[] ~pending_forget:[] ~is_quorate:false
+    ~quorum:0L ~live_hosts:0L ;
   cluster_ref
 
 let check_cluster_option =

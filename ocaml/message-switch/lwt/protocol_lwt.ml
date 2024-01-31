@@ -25,7 +25,7 @@ module M = struct
 
     let map = Lwt.map
 
-    let iter_dontwait f lst = Lwt.async (fun () -> Lwt_list.iter_p f lst)
+    let iter = Lwt_list.iter_s
 
     let any = Lwt.choose
 

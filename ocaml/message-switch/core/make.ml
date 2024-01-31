@@ -352,23 +352,16 @@ functor
 
     let listen ~process ~switch:port ~queue:name () =
       let token = Printf.sprintf "%d" (Unix.getpid ()) in
-      let reconnect () =
-        M.connect port >>= fun request_conn ->
-        Connection.rpc request_conn (In.Login token) >>|= fun (_ : string) ->
-        M.connect port >>= fun reply_conn ->
-        Connection.rpc reply_conn (In.Login token) >>|= fun (_ : string) ->
-        return (Ok (request_conn, reply_conn))
-      in
-      reconnect () >>|= fun ((request_conn, reply_conn) as c) ->
+      M.connect port >>= fun c ->
+      Connection.rpc c (In.Login token) >>|= fun (_ : string) ->
+      Connection.rpc c (In.CreatePersistent name) >>|= fun _ ->
       let request_shutdown = M.Ivar.create () in
       let on_shutdown = M.Ivar.create () in
-      let mutex = M.Mutex.create () in
-      Connection.rpc request_conn (In.CreatePersistent name) >>|= fun _ ->
       let t = {request_shutdown; on_shutdown} in
       let rec loop c from =
         let transfer = {In.from; timeout; queues= [name]} in
         let frame = In.Transfer transfer in
-        let message = Connection.rpc request_conn frame in
+        let message = Connection.rpc c frame in
         any [map (fun _ -> ()) message; M.Ivar.read request_shutdown]
         >>= fun () ->
         if is_determined (M.Ivar.read request_shutdown) then (
@@ -376,18 +369,16 @@ functor
         ) else
           message >>= function
           | Error _e ->
-              M.Mutex.with_lock mutex (fun () ->
-                  M.disconnect request_conn >>= fun () ->
-                  M.disconnect reply_conn >>= fun () -> reconnect ()
-              )
-              >>|= fun c -> loop c from
+              M.connect port >>= fun c ->
+              Connection.rpc c (In.Login token) >>|= fun (_ : string) ->
+              loop c from
           | Ok raw -> (
               let transfer = Out.transfer_of_rpc (Jsonrpc.of_string raw) in
               match transfer.Out.messages with
               | [] ->
                   loop c from
               | _ :: _ ->
-                  iter_dontwait
+                  iter
                     (fun (i, m) ->
                       process m.Message.payload >>= fun response ->
                       ( match m.Message.kind with
@@ -403,20 +394,14 @@ functor
                                 }
                               )
                           in
-                          M.Mutex.with_lock mutex (fun () ->
-                              Connection.rpc reply_conn request
-                          )
-                          >>= fun _ -> return ()
+                          Connection.rpc c request >>= fun _ -> return ()
                       )
                       >>= fun () ->
                       let request = In.Ack i in
-                      M.Mutex.with_lock mutex (fun () ->
-                          Connection.rpc reply_conn request
-                      )
-                      >>= fun _ -> return ()
+                      Connection.rpc c request >>= fun _ -> return ()
                     )
-                    transfer.Out.messages ;
-                  loop c (Some transfer.Out.next)
+                    transfer.Out.messages
+                  >>= fun () -> loop c (Some transfer.Out.next)
             )
       in
       let _ = loop c None in

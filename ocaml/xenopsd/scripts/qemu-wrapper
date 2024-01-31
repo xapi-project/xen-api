@@ -15,7 +15,6 @@
 import os
 import sys
 import socket
-import tempfile
 import errno
 import stat
 import pwd
@@ -28,7 +27,6 @@ from resource import getrlimit, RLIMIT_CORE, RLIMIT_FSIZE, setrlimit
 
 import xen.lowlevel.xs as xs
 
-import qemu_trad_image
 
 #
 # Constants from Xen's public/hvm/e820.h
@@ -249,20 +247,7 @@ def main(argv):
 
         if p == "-loadvm":
             loadvm_path = qemu_args[n+1]
-            if qemu_trad_image.is_trad_image(loadvm_path):
-                print("QEMU Traditional image detected. Upgrading...")
-
-                loadvm_file = open(loadvm_path, "rb")
-                incoming_file = tempfile.TemporaryFile()
-                upgraded_save_image = qemu_trad_image.convert_file(loadvm_file,
-                                                                   incoming_file,
-                                                                   qemu_args)
-                loadvm_file.close()
-
-                incoming_file.seek(0)
-                incoming_fd = os.dup(incoming_file.fileno())
-            else:
-                incoming_fd = os.open(loadvm_path, os.O_RDONLY)
+            incoming_fd = os.open(loadvm_path, os.O_RDONLY)
             qemu_args[n] = "-incoming"
             qemu_args[n+1] = "fd:%d" % incoming_fd
             open_fds.append(incoming_fd)

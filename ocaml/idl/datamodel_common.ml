@@ -10,7 +10,7 @@ open Datamodel_roles
               to leave a gap for potential hotfixes needing to increment the schema version.*)
 let schema_major_vsn = 5
 
-let schema_minor_vsn = 772
+let schema_minor_vsn = 774
 
 (* Historical schema versions just in case this is useful later *)
 let rio_schema_major_vsn = 5
@@ -349,9 +349,19 @@ let get_product_releases in_product_since =
   in
   go_through_release_order release_order
 
-let next_release =
+let numbered_release version =
+  let ok fmt =
+    try Scanf.sscanf version fmt true
+    with Stdlib.Scanf.Scan_failure _ -> false
+  in
+  if not (ok "%_d.%_d.%_d%!" || ok "%_d.%_d.%_d-next%!") then
+    failwith
+      (Printf.sprintf
+         "Invalid numbered release: %s. Use the format x.y.z or x.y.z-next."
+         version
+      ) ;
   {
-    internal= get_product_releases rel_next
+    internal= get_product_releases version
   ; opensource= get_oss_releases None
   ; internal_deprecated_since= None
   }

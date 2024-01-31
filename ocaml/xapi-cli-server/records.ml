@@ -5069,6 +5069,15 @@ let cluster_record rpc session_id cluster =
               ~self:cluster ~key
           )
           ()
+      ; make_field ~name:"is-quorate"
+          ~get:(fun () -> Bool.to_string (x ()).API.cluster_is_quorate)
+          ()
+      ; make_field ~name:"quorum"
+          ~get:(fun () -> Int64.to_string (x ()).API.cluster_quorum)
+          ()
+      ; make_field ~name:"live-hosts"
+          ~get:(fun () -> Int64.to_string (x ()).API.cluster_live_hosts)
+          ()
       ]
   }
 
@@ -5109,6 +5118,14 @@ let cluster_host_record rpc session_id cluster_host =
           ()
       ; make_field ~name:"joined"
           ~get:(fun () -> (x ()).API.cluster_host_joined |> string_of_bool)
+          ()
+      ; make_field ~name:"live"
+          ~get:(fun () -> (x ()).API.cluster_host_live |> string_of_bool)
+          ()
+      ; make_field ~name:"last-update-live"
+          ~get:(fun () ->
+            (x ()).API.cluster_host_last_update_live |> Date.to_string
+          )
           ()
       ; make_field ~name:"allowed-operations"
           ~get:(fun () ->

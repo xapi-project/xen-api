@@ -256,7 +256,8 @@ let gc_vtpms ~__context =
   Db.VTPM.get_all ~__context
   |> List.iter (fun vtpm ->
          let is_valid =
-           valid_ref __context (Db.VTPM.get_VM ~__context ~self:vtpm)
+           valid_ref __context vtpm
+           && valid_ref __context (Db.VTPM.get_VM ~__context ~self:vtpm)
          in
 
          if not is_valid then (

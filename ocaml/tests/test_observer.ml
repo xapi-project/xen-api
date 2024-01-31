@@ -210,6 +210,7 @@ let test_components ~__context ~self =
     )
 
 let test_endpoints ~__context ~self =
+  Xapi_globs.observer_endpoint_http_enabled := true ;
   let valid_endpoints = ["bugtool"; "http://example.com:9411/api/v2/spans"] in
   List.iter
     (fun valid_endpoint ->

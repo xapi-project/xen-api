@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # Copyright (C) Citrix Systems Inc.
 #
@@ -122,7 +122,7 @@ def load_device_ids(device):
     ids_path = get_ids_path(device)
     try:
         with open(ids_path) as f:
-            uid, gid = map(int, f.readline().split())
+            uid, gid = list(map(int, f.readline().split()))
     except (IOError, ValueError) as e:
         log.error("Failed to load device ids: {}".format(str(e)))
 
@@ -157,7 +157,7 @@ def dev_path(device):
         exit(1)
 
 
-def get_ctl(path, mode):
+def get_ctl(path, mode):  # type:(str, str) -> str
     """get the string to control device access for cgroup
     :param path: the device file path
     :param mode: either "r" or "rw"
@@ -200,7 +200,23 @@ def deny_device(path, domid):
     _device_ctl(path, domid, False)
 
 
-def setup_cgroup(domid, pid):
+def setup_cgroup(domid, pid):  # type:(str, str) -> None
+    """
+    Associate the given process id (pid) with the given Linux kernel control group
+    and limit it's device access to only /dev/null.
+
+    :param domid (str): The control group ID string (passed on from the command line)
+    :param pid (str): The process ID string (passed on from the command line)
+
+    If the control group directory does not exist yet, the control group is created.
+
+    - The pid goes into the file "tasks" to associate the process with the cgroup.
+    - Deny device access by default by writing "a" to devices.deny.
+    - Grant read-write access to /dev/null, writing it's device IDs to devices.allow.
+
+    If any error occur during the setup process, the error is logged and
+    the program exits with a status code of 1.
+    """
     cg_dir = get_cg_dir(domid)
 
     try:
@@ -212,17 +228,32 @@ def setup_cgroup(domid, pid):
 
     try:
         # unbuffered write to ensure each one is flushed immediately
-        with open(cg_dir + "/tasks", "w", 0) as tasks, \
-                open(cg_dir + "/devices.deny", "w", 0) as deny, \
-                open(cg_dir + "/devices.allow", "w", 0) as allow:
+        # to the kernel's control group filesystem:
+        #
+        # The order of writes is likely not important, but the writes
+        # may have to be a single write() system call for the entire string.
+        #
+        # Using the unbuffered Raw IO mode, we know the write was done
+        # in exactly this way by the write function call itself, not later.
+        #
+        # With small writes like this , splitting them because of overflowing the
+        # buffer is not expected to happen. To stay safe and keep using unbuffered I/O
+        # We have to migrate to binary mode in python3,as python3 supports unbuffered 
+        # raw I/O in binary mode.
+        #
+        with open(cg_dir + "/tasks", "wb", 0) as tasks, \
+                open(cg_dir + "/devices.deny", "wb", 0) as deny, \
+                open(cg_dir + "/devices.allow", "wb", 0) as allow:
 
             # deny all
-            deny.write("a")
+            deny.write(b"a")
+
+            # To write bytes, we've to encode the strings to bytes below:
 
             # grant rw access to /dev/null by default
-            allow.write(get_ctl("/dev/null", "rw"))
+            allow.write(get_ctl("/dev/null", "rw").encode())
 
-            tasks.write(str(pid))
+            tasks.write(str(pid).encode())
 
     except (IOError, OSError, RuntimeError) as e:
         log.error("Failed to setup cgroup: {}".format(str(e)))
@@ -231,7 +262,7 @@ def setup_cgroup(domid, pid):
 
 def mount(source, target, fs, flags=0):
     if ctypes.CDLL(ctypes.util.find_library("c"), use_errno=True
-                   ).mount(source, target, fs, flags, None) < 0:
+                   ).mount(source.encode(), target.encode(), fs.encode(), flags, None) < 0:
         log.error("Failed to mount {} ({}) to {} with flags {}: {}".
                   format(source, fs, target, flags,
                          os.strerror(ctypes.get_errno())))
@@ -240,7 +271,7 @@ def mount(source, target, fs, flags=0):
 
 def umount(target):
     if ctypes.CDLL(ctypes.util.find_library("c"), use_errno=True
-                   ).umount(target) < 0:
+                   ).umount(target.encode()) < 0:
         # log and continue
         log.error("Failed to umount {}: {}".
                   format(target, os.strerror(ctypes.get_errno())))

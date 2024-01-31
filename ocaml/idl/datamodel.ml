@@ -1958,7 +1958,7 @@ module PIF_metrics = struct
         ; field ~qualifier:DynamicRO ~ty:String "device_name"
             "Report device name"
         ; field ~qualifier:DynamicRO ~ty:Int "speed"
-            "Speed of the link (if available)"
+            "Speed of the link in Mbit/s (if available)"
         ; field ~qualifier:DynamicRO ~ty:Bool "duplex"
             "Full duplex capability of the link (if available)"
         ; field ~qualifier:DynamicRO ~ty:String "pci_bus_path"
@@ -2211,7 +2211,7 @@ module Tunnel = struct
             param_type= tunnel_protocol
           ; param_name= "protocol"
           ; param_doc= "Protocol used for the tunnel (GRE or VxLAN)"
-          ; param_release= next_release
+          ; param_release= numbered_release "1.250.0"
           ; param_default= Some (VEnum "gre")
           }
         ]

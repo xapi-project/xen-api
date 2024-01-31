@@ -28,8 +28,7 @@ module M = struct
 
     let map f t = Deferred.map ~f t
 
-    let iter_dontwait f t =
-      Deferred.don't_wait_for @@ Deferred.List.iter ~how:`Parallel t ~f
+    let iter f t = Deferred.List.iter t ~f
 
     let any = Deferred.any
 
