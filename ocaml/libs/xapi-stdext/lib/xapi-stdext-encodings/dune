@@ -1,0 +1,12 @@
+(library
+  (name xapi_stdext_encodings)
+  (public_name xapi-stdext-encodings)
+  (modules :standard \ test)
+)
+
+(test
+  (name test)
+  (package xapi-stdext-encodings)
+  (modules test)
+  (libraries alcotest xapi-stdext-encodings)
+)

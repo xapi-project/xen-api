@@ -1,0 +1,16 @@
+(library
+  (name xapi_stdext_unix)
+  (public_name xapi-stdext-unix)
+  (libraries
+    fd-send-recv
+    unix
+    xapi-backtrace
+    xapi-stdext-pervasives)
+  (foreign_stubs
+    (language c)
+    (names
+      blkgetsize_stubs
+      unixext_open_stubs
+      unixext_stubs
+      unixext_write_stubs))
+)

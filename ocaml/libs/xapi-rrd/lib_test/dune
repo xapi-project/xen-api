@@ -1,0 +1,23 @@
+(test
+  (name unit_tests)
+  (modules unit_tests)
+  (deps (source_tree test_data))
+  (libraries
+    bigarray
+    alcotest
+    unix
+    xapi-rrd
+    xapi-stdext-unix
+  )
+)
+
+(test
+  (name crowbar_tests)
+  (modules crowbar_tests)
+  (libraries
+    bigarray
+    crowbar
+    unix
+    xapi-rrd
+  )
+)
