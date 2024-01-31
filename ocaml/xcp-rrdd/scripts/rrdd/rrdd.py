@@ -225,7 +225,7 @@ class API(object):
         if not os.path.exists(base_path): os.makedirs(base_path)
         # Open file at pos 0, creating but not truncating the file(not possible otherwise):
         fd = os.open(self.path, os.O_RDWR|os.O_CREAT)
-        self.dest = os.fdopen(fd, mode='r+b')
+        self.dest = os.fdopen(fd, "r+b")
 
     def __del__(self):
         self.deregister()
