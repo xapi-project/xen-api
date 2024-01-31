@@ -1126,29 +1126,22 @@ def main():
             # And for the sr_mons
             for sr_mon in sr_mon_lookup.values():
                 sr_mon.process_rrd_updates(rrd_updates, session)
-
-        except socket.error as e:
-            if e.args[0] == 111:
-                # "Connection refused" - this happens when we try to restart session and *that* fails
-                time.sleep(2)
-                pass
-
-            log_err("caught socket.error: (%s) - restarting XAPI session" % " ".join([str(x) for x in e.args]))
+                
+        except ConnectionRefusedError as e:
+            time.sleep(2)
+            log_err("caught connection refused error: (%s) - restarting XAPI session" % str(e))
             restart_session = True
-
-        except IOError as e:
-            if e.args[0] == 'http error' and e.args[1] in (401, 500):
+        except urllib.error.HTTPError as e:
+            if e.code in (401, 500):
                 # Error getting rrd_updates: 401=Unauthorised, 500=Internal - start new session
-                pass 
-            elif e.args[0] == 'socket error':
-                # This happens if we send messages or read other-config:perfmon after xapi is restarted
-                pass
+                log_err("caught http.error: (%s) - restarting XAPI session" % str(e))
+                restart_session = True
             else:
-                # Don't know why we got this error - crash, die and look at logs later
                 raise
-
-            log_err("caught IOError: (%s) - restarting XAPI session" % " ".join([str(x) for x in e.args]))
-            restart_session = True
+        except (ConnectionError, urllib.error.URLError) as e:
+            # This happens if we send messages or read other-config:perfmon after xapi is restarted
+            log_err("caught socket.error: (%s) - restarting XAPI session" % str(e))
+            restart_session = True   
 
         runs += 1
         if maxruns is not None and runs >= maxruns:
