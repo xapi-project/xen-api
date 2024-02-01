@@ -2,6 +2,7 @@
  (name xapi_aux)
 
  (libraries
+   uuidm
    xapi-types
    stdext
  )

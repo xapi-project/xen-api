@@ -65,8 +65,8 @@ type call = {
 }
 
 let make_call ?driver_params ?sr_sm_config ?vdi_sm_config ?vdi_type
-    ?vdi_location ?new_uuid ?sr_ref ?vdi_ref (subtask_of, device_config) cmd
-    args =
+    ?vdi_location ?new_uuid ?sr_ref ?vdi_ref ?vdi_uuid
+    (subtask_of, device_config) cmd args =
   Server_helpers.exec_with_new_task "sm_exec" (fun __context ->
       (* Only allow a subset of calls if the SR has been introduced by a DR task. *)
       Option.iter
@@ -113,7 +113,23 @@ let make_call ?driver_params ?sr_sm_config ?vdi_sm_config ?vdi_type
           may (fun self -> Db.VDI.get_location ~__context ~self) vdi_ref
       in
       let vdi_uuid =
-        may (fun self -> Db.VDI.get_uuid ~__context ~self) vdi_ref
+        let __FUNCTION__ = "Sm_exec.make_call" in
+        match (cmd, vdi_ref, vdi_uuid) with
+        | "vdi_create", None, (Some x as uuid) ->
+            debug "%s: cmd=%s vdi_uuid=%s" __FUNCTION__ cmd x ;
+            uuid
+            (* when creating a VDI we sometimes want to provide the UUID
+               rather than letting the backend pick one. This is to
+               support backup VDIs CP-46179. So in that case, use the
+               provided UUID but not for other commands *)
+        | _, None, Some uuid ->
+            warn "%s: cmd=%s vdi_uuid=%s - should not happen" __FUNCTION__ cmd
+              uuid ;
+            None
+        | _, Some self, _ ->
+            Db.VDI.get_uuid ~__context ~self |> Option.some
+        | _, None, None ->
+            None
       in
       let vdi_on_boot =
         may
