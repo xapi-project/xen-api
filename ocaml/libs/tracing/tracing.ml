@@ -722,6 +722,8 @@ module Export = struct
 
       let set_trace_log_dir dir = trace_log_dir := dir
 
+      let get_trace_log_dir () = !trace_log_dir
+
       let set_max_file_size size = max_file_size := size
 
       let set_compress_tracing_files enabled = compress_tracing_files := enabled

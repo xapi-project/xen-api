@@ -235,7 +235,7 @@ module ObserverConfig = struct
   let rec bugtool_endpoint endpoints =
     match endpoints with
     | x :: _ when x = Tracing.bugtool_name ->
-        Some x
+        Some (Tracing.Export.Destination.File.get_trace_log_dir ())
     | _ :: t ->
         bugtool_endpoint t
     | [] ->
