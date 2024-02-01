@@ -134,13 +134,22 @@ module VmExtra = struct
   let domain_config_of_vm vm =
     let open Vm in
     let open Domain in
+    let misc_flags =
+      if
+        Platform.is_true ~key:"msr-relaxed"
+          ~platformdata:vm.Xenops_interface.Vm.platformdata ~default:false
+      then
+        [X86_MSR_RELAXED]
+      else
+        []
+    in
     match vm.ty with
     | PV _ ->
-        X86 {emulation_flags= []}
+        X86 {emulation_flags= []; misc_flags}
     | PVinPVH _ | PVH _ ->
-        X86 {emulation_flags= emulation_flags_pvh}
+        X86 {emulation_flags= emulation_flags_pvh; misc_flags}
     | HVM _ ->
-        X86 {emulation_flags= emulation_flags_all}
+        X86 {emulation_flags= emulation_flags_all; misc_flags}
 
   (* Known versions of the VM persistent metadata created by xenopsd *)
   let persistent_version_pre_lima = 0
