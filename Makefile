@@ -1,4 +1,6 @@
-include config.mk
+# The "-" in front of the import is to ignore errors if the file doesn't exist.
+# It lets us run `make` without having to create `config.mk` first:
+-include config.mk
 
 XAPIDOC=_build/install/default/xapi/doc
 XAPISDK=_build/install/default/xapi/sdk
@@ -118,6 +120,40 @@ sdksanity: sdk
 
 python:
 	$(MAKE) -C scripts/examples/python build
+
+# Local python unit-test using pytest and coverage report checking before pushing,
+# to avoid breaking the build on CI and also to avoid breaking the coverage.
+# The coverage report is generated in .git/cov/index.html
+# For consistency, we use these make rules also in CI:
+PYTHON         ?= python
+PYTHON_PACKAGES = future
+PYTHONVERSION  ?= $(shell $(PYTHON) -c 'import platform;print(platform.python_version())')
+PYTEST_PLUGINS  = pytest-coverage pytest-mock pytest-timeout pytest-pythonpath
+PYTEST_PACKAGES = 'pytest<7' $(PYTEST_PLUGINS) $(PYTHON_PACKAGES) diff-cover
+COVERAGE_FILE   = .git/coverage$(PYTHONVERSION).xml
+PYTEST_COV_XML  =  --cov-report=xml:$(COVERAGE_FILE)
+PYTEST_COV_TERM = --cov-report=term-missing
+PYTEST_COV_HTML = --cov-report=html:.git/cov  # For localHTML coverage report
+# For annotated source code with coverage in $source_dir/$source_filename,cover:
+# PYCOV_ANNOTATE = --cov-report=annotate
+PYTEST_JUNITXML = --junitxml=.git/pytest$(PYTHONVERSION).xml
+PYTEST_CMD = --cov --cov-report=term-missing
+PYTEST_CMD += $(PYTEST_COV_XML)  $(PYTEST_COV_TERM)  $(PYTEST_COV_HTML)
+PYTEST_CMD += $(PYTEST_COV_ANNOTATE) $(PYTEST_JUNITXML)
+
+
+pytest:
+	$(PYTHON) -m pip install mock pytest-coverage $(PYTEST_PACKAGES)
+	PYTHONDEVMODE=yes $(PYTHON) -m pytest -vv $(PYTEST_CMD)
+
+DIFF_COVER=--fail-under=100
+ifeq ($(word 1,$(subst ., ,$(PYTHONVERSION))),3)
+    DIFF_COVER +=--compare-branch origin/master --ignore-whitespace
+endif
+diff-cover: pytest
+	# Gives you quick info if all changes in your branch are covered by tests:
+	@$(PYTHON) --version
+	diff-cover $(DIFF_COVER) --show-uncovered $(COVERAGE_FILE)
 
 doc-json:
 	dune exec --profile=$(PROFILE) -- ocaml/idl/json_backend/gen_json.exe -destdir $(XAPIDOC)/jekyll

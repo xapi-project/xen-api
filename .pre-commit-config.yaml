@@ -1,5 +1,8 @@
-#
-# Configuration of pre-commit, a Python framework for git hooks.
+# -------------------------------------------------------------------------
+# `pre-commit` is a framework for managing and maintaining multi-language
+# pre-commit hooks. The hooks are run on every commit, and can be run
+# manually with `pre-commit run`. See: https://pre-commit.com/
+# -------------------------------------------------------------------------
 # pre-commit is run for each git push by GitHub CI. It can run
 # locally as well for early feedback and automatic formatting
 # like trailing whitespace removal (to be configured later):
@@ -28,6 +31,28 @@ repos:
     -   id: check-yaml
     -   id: check-executables-have-shebangs
         exclude: ocaml
+
+
+-   repo: local
+    hooks:
+    -   id: pytest
+        name: check Python unit tests pass and diff-cover misses no lines
+        entry: make diff-cover
+        require_serial: true
+        pass_filenames: false
+        language: python
+        types: [python]
+        additional_dependencies:
+        - coverage
+        - diff-cover
+        - future
+        - mock
+        - pytest<7
+        - pytest-coverage
+        - pytest-mock
+        - pytest-pythonpath
+        - pytest-timeout
+
 
 # Recommendation for a minimal git pre-push hook:
 # While using pre-commit yields great results, it

@@ -54,16 +54,18 @@ jobs:
         run: pip install pandas pytype toml
 
       - name: Install common dependencies for Python ${{matrix.python-version}}
-        run: pip install mock pytest-coverage pytest-mock
 
-      - name: Run Pytest tests for Python ${{matrix.python-version}}
-        run: >
-          pytest --cov scripts scripts/ -vv -rA
-          --junitxml=.git/pytest${{matrix.python-version}}.xml
-          --cov-report term-missing
-          --cov-report xml:.git/coverage${{matrix.python-version}}.xml
+        # pytest>=7 changed the pytest.ini settings in an incompatible way,
+        # skip it to have a uniform pytest config with Python 2.7:
+
+        run: pip install mock 'pytest<7' pytest-coverage pytest-mock
+
+      - name: Run Pytest tests with coverage for Python ${{matrix.python-version}}
+        # testpaths are set in pytest.ini(common config with pytest-4 of Python 2.7)
+        run: make diff-cover
         env:
           PYTHONDEVMODE: yes
+          PYTHONVERSION: ${{matrix.python-version}}
 
       - name: Upload Python ${{matrix.python-version}} coverage report to Codecov
         uses: codecov/codecov-action@v3
