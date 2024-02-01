@@ -286,7 +286,7 @@ class API(object):
                 return
             except socket.error:
                 msg = "Failed to contact xcp-rrdd. Sleeping for 5 seconds .."
-                print >> sys.stderr, msg
+                print(msg, file=sys.stderr)
                 time.sleep(5)
 
     def update(self):
