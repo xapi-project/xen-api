@@ -1,5 +1,5 @@
 (*
- * Copyright (C) Cloud Software Group
+ * Copyright (C) 2023 Cloud Software Group
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published
@@ -12,22 +12,19 @@
  * GNU Lesser General Public License for more details.
  *)
 
-type t = {log: string; tracing: Tracing.Span.t option}
+type t = string
 
-val make : log:string -> tracing:Tracing.Span.t option -> t
+let str txt = txt
 
-val of_string : string -> t
+let option opt = Option.value ~default:"" opt
 
-val to_string : t -> string
+let list element lst = List.map element lst |> String.concat ","
 
-val to_log_string : t -> string
+let pair (key, value) = String.concat "=" [key; value]
 
-val with_dbg :
-     ?with_thread:bool
-  -> module_name:string
-  -> name:string
-  -> dbg:string
-  -> (t -> 'a)
-  -> 'a
+let to_shell_string lst =
+  lst
+  |> List.map (fun (key, value) -> String.concat "=" [key; Filename.quote value])
+  |> String.concat "\n"
 
-val traceparent_of_dbg : string -> string option
+let to_string_array = Array.of_list

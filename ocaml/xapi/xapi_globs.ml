@@ -938,6 +938,8 @@ let repository_gpgkey_name = ref ""
 
 let repository_gpgcheck = ref true
 
+let observer_config_dir = "/etc/xensource/observer"
+
 let ignore_vtpm_unimplemented = ref false
 
 let evacuation_batch_size = ref 10
