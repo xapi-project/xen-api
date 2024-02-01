@@ -1,5 +1,6 @@
 (test
   (name unit_tests)
+  (package xapi-rrd)
   (modules unit_tests)
   (deps (source_tree test_data))
   (libraries
@@ -13,6 +14,7 @@
 
 (test
   (name crowbar_tests)
+  (package xapi-rrd)
   (modules crowbar_tests)
   (libraries
     bigarray
