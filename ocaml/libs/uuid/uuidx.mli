@@ -81,3 +81,13 @@ val make_cookie : unit -> cookie
 val cookie_of_string : string -> cookie
 
 val string_of_cookie : cookie -> string
+
+module XenServer : sig
+  (** hash a string (deterministically) into a UUID. This uses
+      namespace UUID e93e0639-2bdb-4a59-8b46-352b3f408c19. *)
+
+  val namespace : 'a t (* UUID from above *)
+
+  (* UUID Version 5 derived from argument string and namespace UUID *)
+  val hash : string -> 'a t
+end

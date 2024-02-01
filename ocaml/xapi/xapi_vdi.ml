@@ -625,13 +625,27 @@ let create ~__context ~name_label ~name_description ~sR ~virtual_size ~_type
     | `cbt_metadata ->
         "cbt_metadata"
   in
+  (* special case: we want to use a specific UUID for Pool Meta Data
+     Backup *)
+  let uuid_ =
+    match (_type, name_label) with
+    | `user, "Pool Metadata Backup" ->
+        let sr = Db.SR.get_uuid ~__context ~self:sR in
+        let uuid = Uuidx.(XenServer.hash sr |> to_string) in
+        info "%s: using deterministic UUID for '%s' VDI: %s" __FUNCTION__
+          name_label uuid ;
+        Some uuid
+    | _ ->
+        None
+  in
   let open Storage_access in
   let task = Context.get_task_id __context in
   let open Storage_interface in
   let vdi_info =
     {
       Storage_interface.default_vdi_info with
-      name_label
+      uuid= uuid_
+    ; name_label
     ; name_description
     ; ty= vdi_type
     ; read_only

@@ -69,8 +69,8 @@ type call = {
 }
 
 let make_call ?driver_params ?sr_sm_config ?vdi_sm_config ?vdi_type
-    ?vdi_location ?new_uuid ?sr_ref ?vdi_ref (subtask_of, device_config) cmd
-    args =
+    ?vdi_location ?new_uuid ?sr_ref ?vdi_ref ?vdi_uuid
+    (subtask_of, device_config) cmd args =
   Server_helpers.exec_with_new_task "sm_exec" (fun __context ->
       (* Only allow a subset of calls if the SR has been introduced by a DR task. *)
       Option.iter
@@ -117,7 +117,11 @@ let make_call ?driver_params ?sr_sm_config ?vdi_sm_config ?vdi_type
           Option.map (fun self -> Db.VDI.get_location ~__context ~self) vdi_ref
       in
       let vdi_uuid =
-        Option.map (fun self -> Db.VDI.get_uuid ~__context ~self) vdi_ref
+        match vdi_uuid with
+        | None ->
+            Option.map (fun self -> Db.VDI.get_uuid ~__context ~self) vdi_ref
+        | uuid ->
+            uuid
       in
       let vdi_on_boot =
         Option.map

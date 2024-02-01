@@ -698,12 +698,15 @@ module SMAPIv1 : Server_impl = struct
         Server_helpers.exec_with_new_task "VDI.create"
           ~subtask_of:(Ref.of_string dbg) (fun __context ->
             let sr = Db.SR.get_by_uuid ~__context ~uuid:(s_of_sr sr) in
+            let value opt = Option.value ~default:"none" opt in
             let vi =
+              info "%s: CL vdi_info.uuid=%s" __FUNCTION__ (value vdi_info.uuid) ;
               Sm.call_sm_functions ~__context ~sR:sr (fun device_config _type ->
-                  Sm.vdi_create ~dbg device_config _type sr vdi_info.sm_config
-                    vdi_info.ty vdi_info.virtual_size vdi_info.name_label
-                    vdi_info.name_description vdi_info.metadata_of_pool
-                    vdi_info.is_a_snapshot vdi_info.snapshot_time
+                  Sm.vdi_create ~dbg ?vdi_uuid:vdi_info.uuid device_config _type
+                    sr vdi_info.sm_config vdi_info.ty vdi_info.virtual_size
+                    vdi_info.name_label vdi_info.name_description
+                    vdi_info.metadata_of_pool vdi_info.is_a_snapshot
+                    vdi_info.snapshot_time
                     (s_of_vdi vdi_info.snapshot_of)
                     vdi_info.read_only
               )

@@ -83,3 +83,15 @@ let string_of_uuid = to_string
 let uuid_of_int_array = of_int_array
 
 let int_array_of_uuid = to_int_array
+
+module XenServer = struct
+  (** Derive a deterministic UUID from a string: the same
+      string maps to the same UUID. We are using our own namespace; the
+      namespace is not a secret *)
+
+  let xs = "e93e0639-2bdb-4a59-8b46-352b3f408c19"
+
+  let namespace = Uuidm.(of_string xs |> Option.get)
+
+  let hash str = Uuidm.v5 namespace str
+end
