@@ -100,7 +100,7 @@ class Proxy(xmlrpc.client.ServerProxy):
     def __init__(self, uri, transport=None, encoding=None, verbose=0,
                  allow_none=1):
         xmlrpc.client.ServerProxy.__init__(self, uri, transport, encoding,
-                                       verbose, allow_none)
+                                           bool(verbose), bool(allow_none))
         self.transport = transport
 
     def request(self, methodname, params):
@@ -246,11 +246,11 @@ class API(object):
 
     def get_header(self):
         """Get the 'static' first line of the expected output format."""
-        return self.header
+        return self.header  # pytype: disable=attribute-error
 
     def get_path(self):
         """Get the path of the file in which to write the results to."""
-        return self.path
+        return self.path  # pytype: disable=attribute-error
 
     def register(self):
         """Register plugin if not already registered, and return next_reading."""
