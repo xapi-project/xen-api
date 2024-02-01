@@ -54,11 +54,13 @@ jobs:
         run: pip install pandas pytype toml
 
       - name: Install common dependencies for Python ${{matrix.python-version}}
-        run: pip install mock pytest-coverage pytest-mock
+        run: pip install future mock pytest-coverage pytest-mock
 
-      - name: Run Pytest tests for Python ${{matrix.python-version}}
+      - name: Run Pytest and get code coverage for Codecov
         run: >
-          pytest --cov scripts scripts/ -vv -rA
+          pytest
+          --cov=scripts --cov=ocaml/xcp-rrdd
+          scripts/ ocaml/xcp-rrdd -vv -rA
           --junitxml=.git/pytest${{matrix.python-version}}.xml
           --cov-report term-missing
           --cov-report xml:.git/coverage${{matrix.python-version}}.xml
