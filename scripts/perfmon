@@ -36,8 +36,10 @@ import getopt
 import traceback
 import XenAPI
 import urllib.request
-from xml import sax            # used to parse rrd_updates because this may be large and sax is more efficient
-from xml.dom import minidom    # used to parse other-config:perfmon.  Efficiency is less important than reliability here
+# used to parse rrd_updates because this may be large and sax is more efficient
+from xml import sax
+# used to parse other-config:perfmon.  Efficiency is less important than reliability here
+from xml.dom import minidom # pytype: disable=pyi-error
 from xml.parsers.expat import ExpatError
 import time
 import re
@@ -379,8 +381,15 @@ def get_percent_mem_usage(ignored):
         memfd = open('/proc/meminfo', 'r')
         memlist = memfd.readlines()
         memfd.close()
-        memdict = [ m.split(':', 1) for m in memlist ]
-        memdict = dict([(k.strip(), float(re.search(r'\d+', v.strip()).group(0))) for (k,v) in memdict])
+        memorylist = [ m.split(':', 1) for m in memlist ]
+        memdict = {}
+        for item in memorylist:
+            memtype = item[0].strip()
+            size = item[1].strip()
+            match = re.search(r'\d+', size.strip())
+            assert match
+            memdict[memtype] = float(match.group(0))
+
         # We consider the sum of res memory and swap in use as the hard demand
         # of mem usage, it is bad if this number is beyond the physical mem, as
         # in such case swapping is obligatory rather than voluntary, hence
@@ -476,21 +485,15 @@ def variable_configs_differ(vc1, vc2):
     "Say whether configuration of one variable differs from that of another"
     return vc1.xmldoc.toxml() != vc2.xmldoc.toxml()
 
-class VariableState:
-    """ Object storing the state of a Variable
-    """
-    def __init__(self):
-        self.value = None
-        self.timeof_last_alarm = time.time() - self.alarm_auto_inhibit_period
-        self.trigger_down_counter = self.alarm_trigger_period
-
-class Variable(VariableConfig, VariableState):
+class Variable(VariableConfig):
     """ Variable() is used by ObjectMonitor to create one Variable object for each
     variable specified in it's config string
     """
     def __init__(self, *args):
         VariableConfig.__init__(self, *args)
-        VariableState.__init__(self)
+        self.value = None
+        self.timeof_last_alarm = time.time() - self.alarm_auto_inhibit_period
+        self.trigger_down_counter = self.alarm_trigger_period
         self.active = True
         print_debug("Created Variable %s" % self.name)
 
@@ -500,7 +503,10 @@ class Variable(VariableConfig, VariableState):
             return # nothing to do
         self.active = active
         if active:
-            VariableState.__init__(self) # reset when reactivating
+            # reset when reactivating
+            self.value = None
+            self.timeof_last_alarm = time.time() - self.alarm_auto_inhibit_period
+            self.trigger_down_counter = self.alarm_trigger_period
 
     def __generate_alarm(self, session):
         """ Generate an alarm using callback provided by creator
@@ -1241,7 +1247,7 @@ if __name__ == "__main__":
             log_err(errmsg)
         except Exception as ignored:
             try:
-                errmsg = "\n".join([ str(x) for x in e.details ])
+                errmsg = "\n".join([ str(x) for x in e.details ]) # pytype: disable=attribute-error
                 # print the exception args nicely
                 log_err(errmsg)
             except Exception as ignored:
