@@ -77,8 +77,6 @@ expected_to_fail = [
     "scripts/backup-sr-metadata.py",
     "scripts/restore-sr-metadata.py",
     "scripts/nbd_client_manager.py",
-    # No attribute 'popen2' on module 'os' [module-attr] and a couple more:
-    "scripts/mail-alarm",
     # SSLSocket.send() only accepts bytes, not unicode string as argument:
     "scripts/examples/python/exportimport.py",
     # Other fixes needed:
