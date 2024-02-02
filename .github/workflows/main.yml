@@ -111,6 +111,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
+      - name: Free space
+        run: sudo rm -rf /usr/local/lib/android
+
       - name: Pull configuration from xs-opam
         run: |
           curl --fail --silent https://raw.githubusercontent.com/xapi-project/xs-opam/master/tools/xs-opam-ci.env | cut -f2 -d " " > .env
