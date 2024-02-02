@@ -125,6 +125,16 @@ jobs:
       - name: Update Ubuntu repositories
         run: sudo apt-get update
 
+      - name: Use disk with more space for TMPDIR and XDG_CACHE_HOME
+        run: |
+          df -h || true
+          export TMPDIR="/mnt/build/tmp"
+          export XDG_CACHE_HOME="/mnt/build/cache"
+          sudo mkdir -p "${TMPDIR}" "${XDG_CACHE_HOME}"
+          sudo chown "$(id -u):$(id -g)" "${TMPDIR}" "${XDG_CACHE_HOME}"
+          echo "TMPDIR=${TMPDIR}" >>"$GITHUB_ENV"
+          echo "XDG_CACHE_HOME=${XDG_CACHE_HOME}" >>"$GITHUB_ENV"
+                        
       - name: Use ocaml
         uses: ocaml/setup-ocaml@v2
         with:
@@ -166,6 +176,9 @@ jobs:
       - name: Sanity test SDK
         run: |
           opam exec -- make sdksanity
+
+      - name: Check disk space
+        run: df -h || true
 
       - name: Uninstall unversioned packages and remove pins
         # This should purge them from the cache, unversioned package have
