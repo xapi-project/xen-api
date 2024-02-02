@@ -262,7 +262,7 @@ def setup_cgroup(domid, pid):  # type:(str, str) -> None
 
 def mount(source, target, fs, flags=0):
     if ctypes.CDLL(ctypes.util.find_library("c"), use_errno=True
-                   ).mount(source, target, fs, flags, None) < 0:
+                   ).mount(source.encode(), target.encode(), fs.encode(), flags, None) < 0:
         log.error("Failed to mount {} ({}) to {} with flags {}: {}".
                   format(source, fs, target, flags,
                          os.strerror(ctypes.get_errno())))
@@ -271,7 +271,7 @@ def mount(source, target, fs, flags=0):
 
 def umount(target):
     if ctypes.CDLL(ctypes.util.find_library("c"), use_errno=True
-                   ).umount(target) < 0:
+                   ).umount(target.encode()) < 0:
         # log and continue
         log.error("Failed to umount {}: {}".
                   format(target, os.strerror(ctypes.get_errno())))

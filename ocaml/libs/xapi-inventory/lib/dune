@@ -1,0 +1,12 @@
+(library
+  (name inventory)
+  (public_name xapi-inventory)
+  (wrapped false)
+  (libraries
+    uuidm
+    astring
+    xapi-stdext-unix
+    xapi-stdext-threads
+    threads
+  )
+)

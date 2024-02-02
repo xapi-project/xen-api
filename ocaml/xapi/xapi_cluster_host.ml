@@ -197,7 +197,7 @@ let resync_host ~__context ~host =
           (* create the watcher here so that the watcher exists after toolstack restart *)
           create_cluster_watcher_on_master ~__context ~host ;
           Xapi_observer.initialise_observer ~__context
-            Xapi_observer.Component.Xapi_clusterd ;
+            Xapi_observer_components.Xapi_clusterd ;
           let verify = Stunnel_client.get_verify_by_default () in
           set_tls_config ~__context ~self ~verify
       )
@@ -307,7 +307,7 @@ let enable ~__context ~self =
       ) ;
       create_cluster_watcher_on_master ~__context ~host ;
       Xapi_observer.initialise_observer ~__context
-        Xapi_observer.Component.Xapi_clusterd ;
+        Xapi_observer_components.Xapi_clusterd ;
       let verify = Stunnel_client.get_verify_by_default () in
       set_tls_config ~__context ~self ~verify ;
       let init_config =
