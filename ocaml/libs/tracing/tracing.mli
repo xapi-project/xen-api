@@ -46,6 +46,8 @@ module SpanContext : sig
   val to_traceparent : t -> string
 
   val of_traceparent : string -> t option
+
+  val trace_id_of_span_context : t -> string
 end
 
 module Span : sig

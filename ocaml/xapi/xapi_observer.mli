@@ -12,20 +12,13 @@
  * GNU Lesser General Public License for more details.
  *)
 
-module Component : sig
-  type t = Xapi | Xenopsd | Xapi_clusterd | SMApi [@@deriving ord]
-
-  val to_string : t -> string
-
-  val of_string : string -> t
-end
-
 val observed_hosts_of :
   __context:Context.t -> API.ref_host list -> API.ref_host list
 
 val initialise : __context:Context.t -> unit
 
-val initialise_observer : __context:Context.t -> Component.t -> unit
+val initialise_observer :
+  __context:Context.t -> Xapi_observer_components.t -> unit
 
 val create :
      __context:Context.t

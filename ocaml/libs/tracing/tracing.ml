@@ -152,6 +152,8 @@ module SpanContext = struct
         Some {trace_id; span_id}
     | _ ->
         None
+
+  let trace_id_of_span_context t = t.trace_id
 end
 
 module SpanLink = struct

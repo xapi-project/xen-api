@@ -1,0 +1,14 @@
+(library
+  (name rrd)
+  (public_name xapi-rrd)
+  (flags (:standard -w -39))
+  (wrapped false)
+  (libraries
+    bigarray
+    rpclib.json
+    xmlm
+    yojson
+  )
+  (preprocess (pps ppx_deriving_rpc))
+)
+

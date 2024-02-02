@@ -23,6 +23,8 @@
 
 let default_path = ["/sbin"; "/usr/sbin"; "/bin"; "/usr/bin"]
 
+let default_path_env_pair = [|"PATH=" ^ String.concat ":" default_path|]
+
 (* /var/ may not be writable when testing, use XDG_RUNTIME_DIR instead in that
    case. Avoid changing the directory unless the code is being tested. *)
 let test_path =
@@ -182,13 +184,7 @@ let safe_close_and_exec ?env stdin stdout stderr
         List.fold_left maybe_add_id_to_fd_map dest_named_fds predefined_fds
       in
 
-      let env =
-        match env with
-        | Some e ->
-            e
-        | None ->
-            [|"PATH=" ^ String.concat ":" default_path|]
-      in
+      let env = match env with Some e -> e | None -> default_path_env_pair in
       let syslog_stdout =
         match syslog_stdout with
         | NoSyslogging ->
