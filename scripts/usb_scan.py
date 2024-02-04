@@ -332,7 +332,7 @@ def get_usb_info():
     return devices, interfaces
 
 
-class Policy(object):
+class Policy:
     """Parse policy file, and check if a UsbDevice can be passed through
 
     Policy file spec reference:
@@ -454,21 +454,21 @@ class Policy(object):
         # 4. parse key=value pairs
         # pattern = r"\s*(class|subclass|prot|vid|pid|rel)\s*=\s*([0-9a-f]+)"
         last_end = 0
-        for matchNum, match in enumerate(
-            re.finditer(self._PATTERN, target, re.IGNORECASE)
-        ):
-            if last_end != match.start():
-                self.parse_error(last_end, match.start(), target, line)
+        name = ""
+        value = ""
+        for m in re.finditer(self._PATTERN, target, re.IGNORECASE):
+            if last_end != m.start():
+                self.parse_error(last_end, m.start(), target, line)
 
             try:
-                name, value = [part.lower() for part in match.groups()]
+                name, value = [part.lower() for part in m.groups()]
             # This can happen if `part` is None
             except AttributeError:
-                self.parse_error(match.start(), match.end(), target, line)
+                self.parse_error(m.start(), m.end(), target, line)
             # This should never happen, because the regexp has exactly two
             # matching groups
             except ValueError:
-                self.parse_error(match.start(), match.end(), target, line)
+                self.parse_error(m.start(), m.end(), target, line)
 
             if not self.check_hex_length(name, value):
                 log_exit(
@@ -481,7 +481,7 @@ class Policy(object):
                 )
 
             rule[name] = value
-            last_end = match.end()
+            last_end = m.end()
 
         if last_end != len(target):
             self.parse_error(last_end, len(target) + 1, target, line)

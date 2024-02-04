@@ -34,6 +34,23 @@ profile = "black"
 combine_as_imports = true
 ensure_newline_before_comments = false
 
+[tool.pylint.messages_control]
+disable = [
+    "missing-function-docstring",
+    "missing-module-docstring",
+    "consider-using-f-string",
+    "protected-access",
+    "too-many-branches",
+    "super-with-arguments",
+    "redefined-outer-name",
+    "broad-exception-caught",
+    "no-else-break",
+    "no-else-return",
+    "invalid-name",
+    "import-error",
+    "unnecessary-pass",
+    "unspecified-encoding",
+]
 
 [tool.mypy]
 # Note mypy has no config setting for PYTHONPATH, so you need to call it with:
