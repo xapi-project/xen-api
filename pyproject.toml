@@ -85,10 +85,6 @@ expected_to_fail = [
     "scripts/examples/python/shell.py",
     "scripts/examples/smapiv2.py",
     "scripts/static-vdis",
-    # add_interface: unsupported operand type(s) for +: str and UsbInterface
-    "scripts/usb_scan.py",
-    # TestUsbScan.assertIn() is called with wrong arguments(code not iterable)
-    "scripts/test_usb_scan.py",
     "scripts/plugins/extauth-hook-AD.py",
 ]
 
