@@ -233,7 +233,7 @@ class UsbDevice(UsbObject):
         :return: None
         """
         if interface in self.interfaces:
-            log.debug("overriding existing interface: " + interface)
+            log.debug("overriding existing interface: " + str(interface))
             self.interfaces.remove(interface)
         self.interfaces.add(interface)
 
@@ -244,7 +244,7 @@ class UsbDevice(UsbObject):
         :return: None
         """
         if interface in self.interfaces:
-            log.debug("removing interface: " + interface)
+            log.debug("removing interface: " + str(interface))
             self.interfaces.remove(interface)
 
     def get_all_interfaces(self):
