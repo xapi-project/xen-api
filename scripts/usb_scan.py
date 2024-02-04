@@ -191,7 +191,7 @@ class UsbDevice(UsbObject):
                 self[p] = props1.get(p)
         for p in self._PRODUCT_DETAILS:
             if props2.get(p) is not None:
-                self[p] = props2.get(p)
+                self[p] = props2.get(p).decode()
         for p in self._PROPS_NONABLE:
             if p not in self:
                 self[p] = ""
@@ -283,7 +283,7 @@ class UsbInterface(UsbObject):
         super(UsbInterface, self).__init__(node)
         for p in self._PROPS:
             if props.get(p) is not None:
-                self[p] = props.get(p)
+                self[p] = props.get(p).decode()
 
     def debug_str(self, level=0):
         s = super(UsbInterface, self).debug_str(level)
