@@ -429,7 +429,7 @@ let assert_valid_attributes attributes =
     )
     attributes
 
-let default_attributes ~__context ~host ~name_label =
+let default_attributes ~__context ~host ~name_label ~component =
   let pool = Helpers.get_pool ~__context in
   let host_label = Db.Host.get_name_label ~__context ~self:host in
   let host_uuid = Db.Host.get_uuid ~__context ~self:host in
@@ -439,12 +439,13 @@ let default_attributes ~__context ~host ~name_label =
   ; ("xs.host.name", host_label)
   ; ("xs.host.uuid", host_uuid)
   ; ("xs.observer.name", name_label)
+  ; ("service.name", to_string component)
   ]
 
 let register_component ~__context ~self ~host ~component =
   let name_label = Db.Observer.get_name_label ~__context ~self in
   let attributes =
-    default_attributes ~__context ~host ~name_label
+    default_attributes ~__context ~host ~name_label ~component
     @ Db.Observer.get_attributes ~__context ~self
   in
   let uuid = Db.Observer.get_uuid ~__context ~self in
@@ -603,13 +604,12 @@ let set_attributes ~__context ~self ~value =
   let uuid = Db.Observer.get_uuid ~__context ~self in
   let host = Helpers.get_localhost ~__context in
   let name_label = Db.Observer.get_name_label ~__context ~self in
-  let default_attributes = default_attributes ~__context ~host ~name_label in
   let observation_fn () =
     List.iter
       (fun c ->
         let module Forwarder = (val get_forwarder c : ObserverInterface) in
         Forwarder.set_attributes ~__context ~uuid
-          ~attributes:(default_attributes @ value)
+          ~attributes:(default_attributes ~__context ~host ~name_label ~component:c @ value)
       )
       (Db.Observer.get_components ~__context ~self
       |> List.map of_string
