@@ -151,7 +151,7 @@ let tech_preview_releases =
  * but there are exceptions: please consult the XenCenter maintainers if in doubt. *)
 let api_version_major = 2L
 
-let api_version_minor = 20L
+let api_version_minor = 21L
 
 let api_version_string =
   Printf.sprintf "%Ld.%Ld" api_version_major api_version_minor
