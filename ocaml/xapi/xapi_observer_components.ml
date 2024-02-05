@@ -12,33 +12,35 @@
  * GNU Lesser General Public License for more details.
  *)
 
+module D = Debug.Make (struct let name = "xapi_observer_components" end)
+
 type t = Xapi | Xenopsd | Xapi_clusterd | SMApi [@@deriving ord]
 
 exception Unsupported_Component of string
 
-let all = [Xapi; Xenopsd; Xapi_clusterd; SMApi]
-
 let to_string = function
   | Xapi ->
-      "xapi"
+      Constants.observer_component_xapi
   | Xenopsd ->
-      "xenopsd"
+      Constants.observer_component_xenopsd
   | Xapi_clusterd ->
-      "xapi-clusterd"
+      Constants.observer_component_xapi_clusterd
   | SMApi ->
-      "smapi"
+      Constants.observer_component_smapi
 
 let of_string = function
-  | "xapi" ->
+  | str when String.equal str Constants.observer_component_xapi ->
       Xapi
-  | "xenopsd" ->
+  | str when String.equal str Constants.observer_component_xenopsd ->
       Xenopsd
-  | "xapi-clusterd" ->
+  | str when String.equal str Constants.observer_component_xapi_clusterd ->
       Xapi_clusterd
-  | "smapi" ->
+  | str when String.equal str Constants.observer_component_smapi ->
       SMApi
   | c ->
       raise (Unsupported_Component c)
+
+let all = List.map of_string Constants.observer_components_all
 
 (* We start up the observer for clusterd only if clusterd has been enabled
    otherwise we initialise clusterd separately in cluster_host so that
@@ -54,8 +56,21 @@ let assert_valid_components components =
   with Unsupported_Component component ->
     raise Api_errors.(Server_error (invalid_value, ["component"; component]))
 
+let filter_out_exp_components components =
+  let open Xapi_globs in
+  let component_set = components |> List.map to_string |> StringSet.of_list in
+  StringSet.diff component_set !observer_experimental_components
+  |> StringSet.elements
+  |> List.map of_string
+
 let observed_components_of components =
-  match components with [] -> startup_components () | components -> components
+  ( match components with
+  | [] ->
+      startup_components ()
+  | components ->
+      components
+  )
+  |> filter_out_exp_components
 
 let is_component_enabled ~component =
   try
