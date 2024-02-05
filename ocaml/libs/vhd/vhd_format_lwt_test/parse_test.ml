@@ -29,7 +29,7 @@ let diff () =
   let _ = Diff_vhd.disk in
   ()
 
-let tmp_file_dir = "/tmp"
+let tmp_file_dir = Filename.get_temp_dir_name ()
 
 let disk_name_stem = tmp_file_dir ^ "/parse_test."
 
