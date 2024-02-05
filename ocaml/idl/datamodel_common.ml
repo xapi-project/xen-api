@@ -10,7 +10,9 @@ open Datamodel_roles
               to leave a gap for potential hotfixes needing to increment the schema version.*)
 let schema_major_vsn = 5
 
-let schema_minor_vsn = 774
+(* This comment is a reminder to update the version in upgrade_update_guidance if schema_minor_vsn
+   changed when the update guidance improvement feature branch got merged into master branch *)
+let schema_minor_vsn = 775
 
 (* Historical schema versions just in case this is useful later *)
 let rio_schema_major_vsn = 5

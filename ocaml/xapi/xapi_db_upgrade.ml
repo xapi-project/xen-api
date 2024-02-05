@@ -866,14 +866,13 @@ let empty_pool_uefi_certificates =
  * 2. Move the rest guidances in \
  *    host.pending_guidances into host.pending_guidances_recommended *)
 let upgrade_update_guidance =
-  (* This is an intended build error to remind changing below schema version *)
-  (* To build feature branch, you need to remove this line temporarily *)
-  let change_version_to_the_latest_schema_version = () in
   {
     description=
       "Upgrade pending update gudiances"
       (* TODO: update below schema version to which the feature branch got merged with *)
-  ; version= (fun x -> x < (5, 769))
+  ; version=
+      (fun x -> x < (5, 775))
+      (* the version where update guidance improvement is made *)
   ; fn=
       (fun ~__context ->
         Db.Host.get_all ~__context
