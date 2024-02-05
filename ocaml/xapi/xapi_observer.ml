@@ -15,6 +15,9 @@
 module D = Debug.Make (struct let name = "xapi_observer" end)
 
 open D
+open Xapi_observer_components
+
+let ( // ) = Filename.concat
 
 module type ObserverInterface = sig
   val create :
@@ -108,36 +111,6 @@ module Observer : ObserverInterface = struct
   let set_compress_tracing_files ~__context ~enabled =
     debug "Observer.set_compress_tracing_files" ;
     Tracing.Export.Destination.File.set_compress_tracing_files enabled
-end
-
-module Component = struct
-  type t = Xapi | Xenopsd | Xapi_clusterd | SMApi [@@deriving ord]
-
-  exception Unsupported_Component of string
-
-  let all = [Xapi; Xenopsd; Xapi_clusterd; SMApi]
-
-  let to_string = function
-    | Xapi ->
-        "xapi"
-    | Xenopsd ->
-        "xenopsd"
-    | Xapi_clusterd ->
-        "xapi-clusterd"
-    | SMApi ->
-        "smapi"
-
-  let of_string = function
-    | "xapi" ->
-        Xapi
-    | "xenopsd" ->
-        Xenopsd
-    | "xapi-clusterd" ->
-        Xapi_clusterd
-    | "smapi" ->
-        SMApi
-    | c ->
-        raise (Unsupported_Component c)
 end
 
 module Xapi_cluster = struct
@@ -247,48 +220,6 @@ module Xapi_cluster = struct
   end
 end
 
-(* We start up the observer for clusterd only if clusterd has been enabled
-   otherwise we initialise clusterd separately in cluster_host so that
-   there is no need to restart xapi in order for clusterd to be observed.
-   This does mean that observer will always be enabled for clusterd. *)
-let startup_components () =
-  List.filter
-    (function
-      | Component.Xapi_clusterd -> !Xapi_clustering.Daemon.enabled | _ -> true
-      )
-    Component.all
-
-module EnvRecord : sig
-  type t
-
-  val str : string -> t
-
-  val option : string option -> t
-
-  val list : ('a -> t) -> 'a list -> t
-
-  val pair : string * string -> t
-
-  val to_shell_string : (string * t) list -> string
-end = struct
-  type t = string
-
-  let str txt = txt
-
-  let option opt = Option.value ~default:"" opt
-
-  let list element lst = List.map element lst |> String.concat ","
-
-  let pair (key, value) = String.concat "=" [key; value]
-
-  let to_shell_string lst =
-    lst
-    |> List.map (fun (key, value) ->
-           String.concat "=" [key; Filename.quote value]
-       )
-    |> String.concat "\n"
-end
-
 module ObserverConfig = struct
   type t = {
       otel_service_name: string
@@ -328,15 +259,15 @@ module ObserverConfig = struct
 end
 
 module type OBSERVER_COMPONENT = sig
-  val component : Component.t
+  val component : t
 end
 
 module Dom0ObserverConfig (ObserverComponent : OBSERVER_COMPONENT) :
   ObserverInterface = struct
-  let config_root = "/etc/xensource/observer/"
+  let dir_name = dir_name_of_component ObserverComponent.component
 
   let env_vars_of_config (config : ObserverConfig.t) =
-    EnvRecord.(
+    Env_record.(
       to_shell_string
         [
           ("OTEL_SERVICE_NAME", str config.otel_service_name)
@@ -352,29 +283,20 @@ module Dom0ObserverConfig (ObserverComponent : OBSERVER_COMPONENT) :
         ]
     )
 
-  let remove_config ~uuid =
-    Xapi_stdext_unix.Unixext.unlink_safe
-      (config_root
-      ^ Component.to_string ObserverComponent.component
-      ^ "/enabled/"
-      ^ uuid
-      ^ ".observer.conf"
-      )
+  let observer_conf_path_of ~uuid = dir_name // (uuid ^ ".observer.conf")
 
-  let update_config ~__context ~observer ~config_root ~uuid =
+  let remove_config ~uuid =
+    Xapi_stdext_unix.Unixext.unlink_safe (observer_conf_path_of ~uuid)
+
+  let update_config ~__context ~observer ~uuid =
     if Db.Observer.get_enabled ~__context ~self:observer then (
       let observer_config =
         ObserverConfig.config_of_observer ~__context
-          ~component:(Component.to_string ObserverComponent.component)
+          ~component:(to_string ObserverComponent.component)
           ~observer
       in
-      let dir_name =
-        config_root
-        ^ Component.to_string ObserverComponent.component
-        ^ "/enabled/"
-      in
       Xapi_stdext_unix.Unixext.mkdir_rec dir_name 0o755 ;
-      let file_name = dir_name ^ uuid ^ ".observer.conf" in
+      let file_name = observer_conf_path_of ~uuid in
       Xapi_stdext_unix.Unixext.write_string_to_file file_name
         (env_vars_of_config observer_config)
     ) else
@@ -384,28 +306,28 @@ module Dom0ObserverConfig (ObserverComponent : OBSERVER_COMPONENT) :
     List.iter
       (fun observer ->
         let uuid = Db.Observer.get_uuid ~__context ~self:observer in
-        update_config ~__context ~observer ~config_root ~uuid
+        update_config ~__context ~observer ~uuid
       )
       observer_all
 
   let create ~__context ~uuid ~name_label:_ ~attributes:_ ~endpoints:_
       ~enabled:_ =
     let observer = Db.Observer.get_by_uuid ~__context ~uuid in
-    update_config ~__context ~observer ~config_root ~uuid
+    update_config ~__context ~observer ~uuid
 
   let destroy ~__context ~uuid = remove_config ~uuid
 
   let set_enabled ~__context ~uuid ~enabled:_ =
     let observer = Db.Observer.get_by_uuid ~__context ~uuid in
-    update_config ~__context ~observer ~config_root ~uuid
+    update_config ~__context ~observer ~uuid
 
   let set_attributes ~__context ~uuid ~attributes:_ =
     let observer = Db.Observer.get_by_uuid ~__context ~uuid in
-    update_config ~__context ~observer ~config_root ~uuid
+    update_config ~__context ~observer ~uuid
 
   let set_endpoints ~__context ~uuid ~endpoints:_ =
     let observer = Db.Observer.get_by_uuid ~__context ~uuid in
-    update_config ~__context ~observer ~config_root ~uuid
+    update_config ~__context ~observer ~uuid
 
   let init ~__context =
     let observer_all = Db.Observer.get_all ~__context in
@@ -428,33 +350,28 @@ module Dom0ObserverConfig (ObserverComponent : OBSERVER_COMPONENT) :
   let set_compress_tracing_files ~__context:_ ~enabled:_ = ()
 end
 
-module SMObserverConfig = Dom0ObserverConfig (struct
-  let component = Component.SMApi
-end)
+module SMObserverConfig = Dom0ObserverConfig (struct let component = SMApi end)
 
 let get_forwarder c =
   let module Forwarder =
     ( val match c with
-          | Component.Xapi ->
+          | Xapi ->
               (module Observer)
-          | Component.Xenopsd ->
+          | Xenopsd ->
               (module Xapi_xenops.Observer)
-          | Component.Xapi_clusterd ->
+          | Xapi_clusterd ->
               (module Xapi_cluster.Observer)
-          | Component.SMApi ->
+          | SMApi ->
               (module SMObserverConfig)
         : ObserverInterface
       )
   in
   (module Forwarder : ObserverInterface)
 
-module ComponentSet = Set.Make (Component)
+module ComponentSet = Set.Make (Xapi_observer_components)
 
 let observed_hosts_of ~__context hosts =
   match hosts with [] -> Db.Host.get_all ~__context | hosts -> hosts
-
-let observed_components_of components =
-  match components with [] -> startup_components () | components -> components
 
 let assert_valid_hosts ~__context hosts =
   List.iter
@@ -465,13 +382,18 @@ let assert_valid_hosts ~__context hosts =
     )
     hosts
 
-let assert_valid_components components =
-  let open Component in
-  try List.iter (fun c -> ignore @@ of_string c) components
-  with Unsupported_Component component ->
-    raise Api_errors.(Server_error (invalid_value, ["component"; component]))
-
-let assert_valid_endpoints endpoints =
+let assert_valid_endpoints ~__context endpoints =
+  let is_scheme_enabled scheme =
+    let host = Helpers.get_localhost ~__context in
+    let is_master = Helpers.is_pool_master ~__context ~host in
+    match scheme with
+    | Some "http" ->
+        (not is_master) || !Xapi_globs.observer_endpoint_http_enabled
+    | Some "https" ->
+        (not is_master) || !Xapi_globs.observer_endpoint_https_enabled
+    | _ ->
+        false
+  in
   let validate_endpoint = function
     | str when str = Tracing.bugtool_name ->
         true
@@ -480,7 +402,7 @@ let assert_valid_endpoints endpoints =
         let uri = Uri.of_string url in
         let scheme = Uri.scheme uri in
         let host = Uri.host uri in
-        (scheme = Some "http" || scheme = Some "https")
+        is_scheme_enabled scheme
         &&
         match host with
         | Some host ->
@@ -538,14 +460,14 @@ let register_components ~__context ~self ~host =
 
 let register ~__context ~self =
   Db.Observer.get_components ~__context ~self
-  |> List.map Component.of_string
+  |> List.map of_string
   |> observed_components_of
   |> register_components ~__context ~self
 
 let create ~__context ~name_label ~name_description ~hosts ~attributes
     ~endpoints ~components ~enabled =
   assert_valid_components components ;
-  assert_valid_endpoints endpoints ;
+  assert_valid_endpoints ~__context endpoints ;
   assert_valid_hosts ~__context hosts ;
   assert_valid_attributes attributes ;
   let ref = Ref.make () in
@@ -563,7 +485,7 @@ let unregister_components ~__context ~self =
 
 let unregister ~__context ~self ~host:_ =
   Db.Observer.get_components ~__context ~self
-  |> List.map Component.of_string
+  |> List.map of_string
   |> observed_components_of
   |> unregister_components ~__context ~self
 
@@ -638,7 +560,7 @@ let initialise ~__context =
   Db.Observer.get_all ~__context
   |> List.iter (fun self ->
          Db.Observer.get_components ~__context ~self
-         |> List.map Component.of_string
+         |> List.map of_string
          |> observed_components_of
          |> List.iter (initialise_observer_component ~__context)
      ) ;
@@ -669,7 +591,7 @@ let set_enabled ~__context ~self ~value =
         Forwarder.set_enabled ~__context ~uuid ~enabled:value
       )
       (Db.Observer.get_components ~__context ~self
-      |> List.map Component.of_string
+      |> List.map of_string
       |> observed_components_of
       )
   in
@@ -690,7 +612,7 @@ let set_attributes ~__context ~self ~value =
           ~attributes:(default_attributes @ value)
       )
       (Db.Observer.get_components ~__context ~self
-      |> List.map Component.of_string
+      |> List.map of_string
       |> observed_components_of
       )
   in
@@ -698,7 +620,7 @@ let set_attributes ~__context ~self ~value =
   do_set_op ~__context ~self ~observation_fn ~db_fn
 
 let set_endpoints ~__context ~self ~value =
-  assert_valid_endpoints value ;
+  assert_valid_endpoints ~__context value ;
   let uuid = Db.Observer.get_uuid ~__context ~self in
   let observation_fn () =
     List.iter
@@ -707,7 +629,7 @@ let set_endpoints ~__context ~self ~value =
         Forwarder.set_endpoints ~__context ~uuid ~endpoints:value
       )
       (Db.Observer.get_components ~__context ~self
-      |> List.map Component.of_string
+      |> List.map of_string
       |> observed_components_of
       )
   in
@@ -720,9 +642,9 @@ let set_components ~__context ~self ~value =
   let db_fn () = Db.Observer.set_components ~__context ~self ~value in
   let host = Helpers.get_localhost ~__context in
   let current =
-    Db.Observer.get_components ~__context ~self |> List.map Component.of_string
+    Db.Observer.get_components ~__context ~self |> List.map of_string
   in
-  let future = List.map Component.of_string value in
+  let future = List.map of_string value in
   let new_components = ComponentSet.of_list (observed_components_of future) in
   let old_components = ComponentSet.of_list (observed_components_of current) in
   let to_add = ComponentSet.diff new_components old_components in

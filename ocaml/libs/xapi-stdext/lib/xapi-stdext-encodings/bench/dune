@@ -1,0 +1,6 @@
+(executable
+ (name bench_encodings)
+ (modes exe)
+ (optional)
+ (libraries bechamel xapi_stdext_encodings bechamel-notty notty.unix fmt)
+)
