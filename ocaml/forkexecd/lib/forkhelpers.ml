@@ -184,7 +184,7 @@ let safe_close_and_exec ?env stdin stdout stderr
         List.fold_left maybe_add_id_to_fd_map dest_named_fds predefined_fds
       in
 
-      let env = match env with Some e -> e | None -> default_path_env_pair in
+      let env = Option.value ~default:default_path_env_pair env in
       let syslog_stdout =
         match syslog_stdout with
         | NoSyslogging ->
