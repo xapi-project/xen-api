@@ -6,6 +6,14 @@ import json
 import argparse
 import traceback
 import logging
+
+# pylint: disable=invalid-name,redefined-builtin,undefined-variable
+# pyright: reportUndefinedVariable=false
+if sys.version_info[0] > 2:
+    long = int
+    unicode = str
+    str = bytes
+
 class Unimplemented(Rpc_light_failure):
     def __init__(self, arg_0):
         Rpc_light_failure.__init__(self, "Unimplemented", [ arg_0 ])

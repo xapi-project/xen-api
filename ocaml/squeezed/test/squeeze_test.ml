@@ -384,7 +384,7 @@ let verify_memory_is_guaranteed_free host kib =
      considered ok *)
   let extreme domain = domain.target_kib +* domain.inaccuracy_kib in
   let increase domain = extreme domain -* domain.memory_actual_kib in
-  let total = List.fold_left ( +* ) 0L (List.map increase host.domains) in
+  let total = DomainSet.fold (fun d acc -> increase d +* acc) host.domains 0L in
   if host.free_mem_kib -* total < kib then
     failwith
       (Printf.sprintf
@@ -441,8 +441,12 @@ let simulate scenario =
   let i = ref 0 in
   let gettimeofday () = float_of_int !i /. 10. in
   let make_host () =
-    Squeeze.make_host ~free_mem_kib:!host_free_mem_kib
-      ~domains:(List.map (fun d -> d#get_domain) !all_domains)
+    let domains =
+      List.fold_left
+        (fun acc d -> DomainSet.add d#get_domain acc)
+        DomainSet.empty !all_domains
+    in
+    Squeeze.make_host ~free_mem_kib:!host_free_mem_kib ~domains
   in
   let wait _ =
     incr i ;

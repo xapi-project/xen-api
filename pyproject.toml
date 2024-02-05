@@ -1,0 +1,129 @@
+# https://packaging.python.org/en/latest/specifications/pyproject-toml/
+[project]
+name = "xen-api"
+requires-python = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*, !=3.5.*"
+license = {file = "LICENSE"}
+keywords = ["xen-project", "Xen", "hypervisor", "libraries"]
+maintainers = [
+    {name = "Christian Lindig"},
+    {name = "Edwin Török"},
+    {name = "Rob Hoes"},
+    {name = "Pau Ruiz Safont"},
+]
+readme = "README.markdown"
+# https://pypi.org/classifiers/
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Operating System :: POSIX :: Linux :: XenServer Dom0",
+    "Operating System :: POSIX :: Linux :: XCP-ng Dom0",
+    "Programming Language :: ML",
+    "Programming Language :: Python :: Implementation :: CPython",
+]
+
+[project.urls]
+homepage = "https://github.com/xapi-project/xen-api"
+repository = "https://github.com/xapi-project/xen-api"
+
+[tool.black]
+line-length = 88
+
+[tool.isort]
+line_length = 88
+py_version = 27
+profile = "black"
+combine_as_imports = true
+ensure_newline_before_comments = false
+
+
+[tool.mypy]
+# Note mypy has no config setting for PYTHONPATH, so you need to call it with:
+# PYTHONPATH="scripts/examples/python:.:scripts:scripts/plugins:scripts/examples"
+files = [
+    "scripts/usb_reset.py",
+    "scripts/unit_tests",
+]
+pretty = true
+error_summary = true
+strict_equality = true
+show_error_codes = true
+show_error_context = true
+# Check the contents of untyped functions in all modules by default:
+check_untyped_defs = true
+scripts_are_modules = true
+python_version = "3.11"
+warn_return_any = true
+warn_unreachable = true
+warn_unused_configs = true
+warn_redundant_casts = true
+disallow_any_explicit = false
+disallow_any_generics = true
+disallow_any_unimported = true
+disallow_subclassing_any = true
+
+
+[tool.pytype_reporter]
+default_branch = "master"
+discard_messages_matching = [
+    "Couldn't import pyi for 'xml.dom.minidom'",
+    "No attribute '.*' on RRDContentHandler",
+    "No attribute 'group' on None",
+    "No Node.TEXT_NODE in module xml.dom.minidom, referenced from 'xml.dom.expatbuilder'"
+]
+expected_to_fail = [
+    "scripts/hfx_filename",
+    "scripts/perfmon",
+    # Need 2to3 -w <file> and maybe a few other minor updates:
+    "scripts/hatests",
+    "scripts/backup-sr-metadata.py",
+    "scripts/restore-sr-metadata.py",
+    "scripts/nbd_client_manager.py",
+    # No attribute 'popen2' on module 'os' [module-attr] and a couple more:
+    "scripts/mail-alarm",
+    # SSLSocket.send() only accepts bytes, not unicode string as argument:
+    "scripts/examples/python/exportimport.py",
+    # Other fixes needed:
+    "scripts/examples/python/mini-xenrt.py",
+    "scripts/examples/python/XenAPI/XenAPI.py",
+    "scripts/examples/python/monitor-unwanted-domains.py",
+    "scripts/examples/python/shell.py",
+    "scripts/examples/smapiv2.py",
+    "scripts/static-vdis",
+    # add_interface: unsupported operand type(s) for +: str and UsbInterface
+    "scripts/usb_scan.py",
+    # TestUsbScan.assertIn() is called with wrong arguments(code not iterable)
+    "scripts/test_usb_scan.py",
+    "scripts/plugins/extauth-hook-AD.py",
+]
+
+
+[tool.pytype]
+inputs = [
+    "scripts/hfx_filename",
+    "scripts/perfmon",
+    "scripts/static-vdis",
+    "scripts/Makefile",
+    "scripts/generate-iscsi-iqn",
+    "scripts/hatests",
+    "scripts/host-display",
+    "scripts/mail-alarm",
+    "scripts/print-custom-templates",
+    "scripts/probe-device-for-file",
+    "scripts/xe-reset-networking",
+    "scripts/xe-scsi-dev-map",
+    "scripts/examples/python",
+    "scripts/yum-plugins",
+    "scripts/*.py",
+
+    # To be added later,
+    # when converted to Python3-compatible syntax:
+    # "ocaml/message-switch/python",
+    # "ocaml/idl/ocaml_backend/python",
+    # "ocaml/xapi-storage/python",
+]
+disable = [
+    "import-error",  # xenfsimage, xcp.bootloader. xcp.cmd
+    "ignored-abstractmethod",
+    "ignored-metaclass",
+]
+platform = "linux"
+pythonpath = "scripts/examples/python:.:scripts:scripts/plugins:scripts/examples"

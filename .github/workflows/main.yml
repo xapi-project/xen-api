@@ -7,6 +7,10 @@ on:
     # run daily, this refreshes the cache
     - cron: '13 2 * * *'
 
+concurrency:  # On new push, cancel old workflows from the same PR, branch or tag:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   python-test:
     name: Python tests
@@ -14,23 +18,88 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        docker-image:  # See https://hub.docker.com/_/python/tags for images
-          - python:2.7.18-alpine3.11
-          - python:3.11.4-alpine3.18
-    container: ${{ matrix.docker-image }}
+        python-version: ['2.7', '3.11']
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # To check which files changed: origin/master..HEAD
+      - uses: LizardByte/setup-python-action@master
+        with:
+          python-version: ${{matrix.python-version}}
 
-      - name: Install python 2 dependencies
-        if: ${{ startsWith(matrix.docker-image, 'python:2.7.18') }}
+      - uses: actions/cache@v3
+        name: Setup cache for running pre-commit fast
+        with:
+            path: ~/.cache/pre-commit
+            key: pre-commit|${{ env.pythonLocation }}|${{ hashFiles('.pre-commit-config.yaml') }}
+
+      - run: echo "::add-matcher::.github/workflows/python-warning-matcher.json"
+        name: "Setup GitHub for reporting Python warnings as annotations in pull request code review"
+
+      - uses: pre-commit/action@v3.0.0
+        name: Run pre-commit checks (no spaces at end of lines, etc)
+        if: ${{ matrix.python-version != '2.7' }}
+        with:
+          extra_args: --all-files --verbose --hook-stage commit
+        env:
+          SKIP: no-commit-to-branch
+
+      - name: Install dependencies only needed for python 2
+        if: ${{ matrix.python-version == '2.7' }}
         run: pip install enum
 
-      - name: Install dependencies
-        run: pip install mock pytest
+      - name: Install dependencies only needed for python 3
+        if: ${{ matrix.python-version != '2.7' }}
+        run: pip install pandas pytype toml
 
-      - name: Run python tests
-        run: pytest scripts
+      - name: Install common dependencies for Python ${{matrix.python-version}}
+        run: pip install mock pytest-coverage pytest-mock
+
+      - name: Run Pytest tests for Python ${{matrix.python-version}}
+        run: >
+          pytest --cov scripts scripts/ -vv -rA
+          --junitxml=.git/pytest${{matrix.python-version}}.xml
+          --cov-report term-missing
+          --cov-report xml:.git/coverage${{matrix.python-version}}.xml
+        env:
+          PYTHONDEVMODE: yes
+
+      - name: Upload Python ${{matrix.python-version}} coverage report to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          directory: .git
+          files: coverage${{matrix.python-version}}.xml
+          env_vars: OS,PYTHON
+          fail_ci_if_error: false
+          flags: python${{matrix.python-version}}
+          name: coverage${{matrix.python-version}}
+          verbose: true
+
+      - uses: dciborow/action-pylint@0.1.0
+        if: ${{ matrix.python-version != '2.7' }}
+        with:
+          reporter: github-pr-review
+          level: warning
+          # To be customized to cover remaining Python scripts:
+          glob_pattern: "**/*.py"
+
+      - name: Run pytype checks
+        if: ${{ matrix.python-version != '2.7' }}
+        run: ./pytype_reporter.py
+        env:
+          PR_NUMBER: ${{ github.event.number }}
+
+      # Try to add pytype_report.py's summary file as a comment to the PR:
+      # Documentation: https://github.com/marketplace/actions/add-pr-comment
+      - name: Add the pytype summary as a comment to the PR (if permitted)
+        uses: mshick/add-pr-comment@v2
+        # Depends on pytype checks, which are not run for python 2.7:
+        if: ${{ matrix.python-version != '2.7' }}
+        # Fails for user workflows without permissions(fork-based pull requests):
+        continue-on-error: true
+        with:
+          message-path: .git/pytype-summary.md  # Add the content of it as comment
 
   ocaml-test:
     name: Ocaml tests
@@ -41,6 +110,9 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
+
+      - name: Free space
+        run: sudo rm -rf /usr/local/lib/android
 
       - name: Pull configuration from xs-opam
         run: |
@@ -53,6 +125,16 @@ jobs:
       - name: Update Ubuntu repositories
         run: sudo apt-get update
 
+      - name: Use disk with more space for TMPDIR and XDG_CACHE_HOME
+        run: |
+          df -h || true
+          export TMPDIR="/mnt/build/tmp"
+          export XDG_CACHE_HOME="/mnt/build/cache"
+          sudo mkdir -p "${TMPDIR}" "${XDG_CACHE_HOME}"
+          sudo chown "$(id -u):$(id -g)" "${TMPDIR}" "${XDG_CACHE_HOME}"
+          echo "TMPDIR=${TMPDIR}" >>"$GITHUB_ENV"
+          echo "XDG_CACHE_HOME=${XDG_CACHE_HOME}" >>"$GITHUB_ENV"
+                        
       - name: Use ocaml
         uses: ocaml/setup-ocaml@v2
         with:
@@ -95,6 +177,9 @@ jobs:
         run: |
           opam exec -- make sdksanity
 
+      - name: Check disk space
+        run: df -h || true
+
       - name: Uninstall unversioned packages and remove pins
         # This should purge them from the cache, unversioned package have
         # 'master' as its version
@@ -115,3 +200,13 @@ jobs:
 
       - name: quality-gate
         run: make quality-gate
+
+      - uses: reviewdog/action-actionlint@v1
+        name: GitHub Action linter from https://github.com/reviewdog/action-actionlint
+
+      - name: pyflakes
+        uses: reviewdog/action-pyflakes@master
+        with:
+          github_token: ${{ secrets.github_token }}
+          reporter: github-pr-review
+          level: error

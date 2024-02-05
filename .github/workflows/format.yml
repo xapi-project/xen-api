@@ -35,6 +35,7 @@ jobs:
             xs-opam: ${{ steps.dotenv.outputs.repository }}
           dune-cache: true
           opam-pin: false
+          opam-depext: false
 
       - name: Install ocamlformat
         run: opam install ocamlformat

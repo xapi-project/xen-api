@@ -49,8 +49,14 @@ type x86_arch_emulation_flags = Xenctrl.x86_arch_emulation_flags =
   | X86_EMU_VPCI
 [@@deriving rpcty]
 
+type x86_arch_misc_flags = Xenctrl.x86_arch_misc_flags = X86_MSR_RELAXED
+[@@deriving rpcty]
+
 type xen_x86_arch_domainconfig = Xenctrl.xen_x86_arch_domainconfig = {
     emulation_flags: x86_arch_emulation_flags list
+  ; misc_flags: x86_arch_misc_flags list [@default [X86_MSR_RELAXED]]
+        (* misc_flags is missing when migrating from old version.
+           set the default to relaxed MSR for backwards compatibility *)
 }
 [@@deriving rpcty]
 
@@ -66,6 +72,8 @@ type domain_create_flag = Xenctrl.domain_create_flag =
   | CDF_OOS_OFF
   | CDF_XS_DOMAIN
   | CDF_IOMMU
+  | CDF_NESTED_VIRT
+  | CDF_VPMU
 [@@deriving rpcty]
 
 type domain_create_iommu_opts = Xenctrl.domain_create_iommu_opts =
@@ -97,6 +105,8 @@ type domctl_create_config = Xenctrl.domctl_create_config = {
   ; max_evtchn_port: int
   ; max_grant_frames: int
   ; max_maptrack_frames: int
+  ; max_grant_version: int
+  ; cpupool_id: int32
   ; arch: arch_domainconfig
 }
 [@@deriving rpcty]
@@ -288,6 +298,27 @@ let make ~xc ~xs vm_info vcpus domain_config uuid final_uuid no_sharept =
       sprintf "Guest type %s unavailable" (if hvm then "HVM" else "PV")
     ) ;
 
+  let get_platform_key ~key ~default check =
+    let platformdata = vm_info.platformdata in
+    let unknown = List.assoc_opt key platformdata |> Option.value ~default:"" in
+    let on_error msg =
+      error "VM = %s; %s platform/%s=\"%s\"." (Uuidx.to_string uuid) msg key
+        unknown ;
+      invalid_arg (Printf.sprintf "platform/%s=%s" key unknown)
+    in
+    if not @@ Platform.is_valid ~key ~platformdata then
+      on_error "Unrecognized value" ;
+    let wants = Platform.is_true ~key ~platformdata ~default in
+    match check wants with Ok () -> wants | Error msg -> on_error msg
+  in
+
+  let require_hvm wants : (_, _) result =
+    if wants && not hvm then
+      Error "HVM required for"
+    else
+      Ok ()
+  in
+
   (* HVM guests must select a paging mode of either HAP "Hardware Assisted
      Paging" or Shadow. *)
   let hap =
@@ -298,17 +329,9 @@ let make ~xc ~xs vm_info vcpus domain_config uuid final_uuid no_sharept =
          unconditionally and raise an error if unavailable.  Otherwise, use
          HAP if available, falling back to Shadow if not. *)
       let hap =
-        match List.assoc_opt "hap" vm_info.platformdata with
-        | Some "true" ->
-            true
-        | Some "false" ->
-            false
-        | Some unknown ->
-            error "VM = %s; Unrecognized value platform/hap=\"%s\"."
-              (Uuidx.to_string uuid) unknown ;
-            invalid_arg ("platform/hap=" ^ unknown)
-        | None ->
-            List.mem CAP_HAP host_info.capabilities
+        get_platform_key ~key:"hap"
+          (fun _ -> Ok ())
+          ~default:(List.mem CAP_HAP host_info.capabilities)
       in
 
       (* HAP depends on 2nd Gen VT-x/SVM, or firmware/Xen settings.  Shadow
@@ -327,18 +350,30 @@ let make ~xc ~xs vm_info vcpus domain_config uuid final_uuid no_sharept =
   let iommu = vm_info.pci_passthrough in
   if iommu then
     assert_capability CAP_DirectIO ~on_error:(fun () -> "IOMMU unavailable") ;
+  let nested_virt =
+    get_platform_key ~key:"nested_virt" ~default:false require_hvm
+  in
+  let vpmu = get_platform_key ~key:"vpmu" ~default:false (fun _ -> Ok ()) in
 
-  info "VM = %s; Creating %s%s%s" (Uuidx.to_string uuid)
+  info "VM = %s; Creating %s%s%s%s%s" (Uuidx.to_string uuid)
     (if hvm then "HVM" else "PV")
     (if hap then " HAP" else "")
-    (if iommu then " IOMMU" else "") ;
+    (if iommu then " IOMMU" else "")
+    (if nested_virt then " NESTEDVIRT" else "")
+    (if vpmu then " VPMU" else "") ;
 
   let config =
     {
       ssidref= vm_info.ssidref
     ; handle= Uuidx.to_string uuid
     ; flags=
-        [(hvm, CDF_HVM); (hap, CDF_HAP); (iommu, CDF_IOMMU)]
+        [
+          (hvm, CDF_HVM)
+        ; (hap, CDF_HAP)
+        ; (iommu, CDF_IOMMU)
+        ; (nested_virt, CDF_NESTED_VIRT)
+        ; (vpmu, CDF_VPMU)
+        ]
         |> List.filter_map (fun (cond, flag) -> if cond then Some flag else None)
     ; iommu_opts=
         ( match no_sharept with
@@ -359,6 +394,9 @@ let make ~xc ~xs vm_info vcpus domain_config uuid final_uuid no_sharept =
             int_of_string (List.assoc "max_maptrack_frames" vm_info.platformdata)
           with _ -> 1024
         )
+    ; max_grant_version=
+        (if List.mem CAP_Gnttab_v2 host_info.capabilities then 2 else 1)
+    ; cpupool_id= 0l
     ; arch= domain_config
     }
   in

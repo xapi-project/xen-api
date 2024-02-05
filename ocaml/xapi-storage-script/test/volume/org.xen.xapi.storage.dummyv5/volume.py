@@ -1,11 +1,11 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 """
  Copyright (C) Citrix Systems, Inc.
 """
 
 import uuid
-import urlparse
+import urllib.parse
 import os
 import sys
 import xapi.storage.api.v5.volume
@@ -17,7 +17,7 @@ import plugin
 class Implementation(xapi.storage.api.v5.volume.Volume_skeleton):
 
     def create(self, dbg, sr, name, description, size, sharable):
-        urlparse.urlparse(sr)
+        urllib.parse.urlparse(sr)
         voluuid = str(uuid.uuid4())
         return {
             "name": name,
@@ -33,11 +33,11 @@ class Implementation(xapi.storage.api.v5.volume.Volume_skeleton):
         }
 
     def destroy(self, dbg, sr, key):
-        urlparse.urlparse(sr)
+        urllib.parse.urlparse(sr)
         return
 
     def stat(self, dbg, sr, key):
-        urlparse.urlparse(sr)
+        urllib.parse.urlparse(sr)
         qr = plugin.Implementation().query(dbg)
         return {
                 "name": qr['name'],
@@ -69,8 +69,8 @@ if __name__ == "__main__":
     elif base == "Volume.stat":
         cmd.stat()
     elif base == "Volume.set":
-	cmd.set()
+        cmd.set()
     elif base == "Volume.unset":
-	cmd.unset()
+        cmd.unset()
     else:
         raise xapi.storage.api.v5.volume.Unimplemented(base)

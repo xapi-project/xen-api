@@ -31,6 +31,13 @@ import traceback
 import json
 import argparse
 
+# pylint: disable=invalid-name,redefined-builtin,undefined-variable
+# pyright: reportUndefinedVariable=false
+if sys.version_info[0] > 2:
+    long = int
+    unicode = str
+    str = bytes
+
 
 def success(result):
     return {"Status": "Success", "Value": result}
