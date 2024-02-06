@@ -15,7 +15,7 @@
 open Rpc
 open Lwt.Syntax
 
-module D = Debug.Make (struct let name = "varstored_interface" end)
+module D = Debug.Make (struct let name = __MODULE__ end)
 
 open D
 
@@ -25,7 +25,7 @@ let err = Xenops_interface.err
 
 type nvram = (string * string) list [@@deriving rpcty]
 
-let originator = "varstored-guard"
+let originator = "xapi-guard"
 
 type session = [`session] Ref.t
 
