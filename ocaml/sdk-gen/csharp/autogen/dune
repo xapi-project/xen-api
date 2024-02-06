@@ -1,23 +1,7 @@
 (rule
-  (targets LICENSE.txt)
+  (targets LICENSE)
   (deps
     ../../LICENSE
-  )
-  (action (copy %{deps} %{targets}))
-)
-
-(rule
-  (targets README.txt)
-  (deps
-    ../README.dist
-  )
-  (action (copy %{deps} %{targets}))
-)
-
-(rule
-  (targets README-NuGet.md)
-  (deps
-    ../README-NuGet.dist
   )
   (action (copy %{deps} %{targets}))
 )
@@ -25,10 +9,7 @@
 (alias
   (name generate)
   (deps
-    LICENSE.txt
-    README.txt
-    README-NuGet.md
+    LICENSE
     (source_tree .)
   )
 )
-
