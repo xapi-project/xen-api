@@ -1,12 +1,12 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 
 # Common functions for managing statically-attached (ie onboot, without xapi) VDIs
 
-
-import sys, os, subprocess, json, urllib.parse
+from __future__ import print_function
+import sys, os, subprocess, json, urlparse, itertools
 import os.path
 import time
-import XenAPI, inventory, xmlrpc.client
+import XenAPI, inventory, xmlrpclib
 
 main_dir = "/etc/xensource/static-vdis"
 
@@ -22,21 +22,27 @@ def call_volume_plugin(name, command, args):
         cmd_args.extend(args)
     # on Python >= 3.3 a timout can be set, not on 2.7
     # when porting please add a timeout
-    output = subprocess.check_output(cmd_args, universal_newlines=True)
+    output = subprocess.check_output(cmd_args)
     return json.loads(output)
 
 def call_datapath_plugin(name, command, args):
     args = [ xapi_storage_script + "/datapath/" + name + "/" + command, "static-vdis" ] + args
-    output = subprocess.check_output(args, universal_newlines=True)
+    output = subprocess.check_output(args)
     return json.loads(output)
-        
+
 def read_whole_file(filename):
-    with open(filename, 'r', encoding='utf-8') as f:
-        return ''.join(f.readlines()).strip()
-        
+    f = open(filename)
+    try:
+        return reduce(lambda x, y: x + y.decode('utf8'), f.readlines(), "").strip()
+    finally:
+        f.close()
+
 def write_whole_file(filename, contents):
-    with open(filename, "w", encoding='utf-8') as f:
-        f.write(contents)
+    f = open(filename, "w")
+    try:
+        f.write(contents.encode('utf8'))
+    finally:
+        f.close()
 
 def load(name):
     """Return a dictionary describing a single static VDI"""
@@ -64,7 +70,7 @@ def wait_for_corosync_quorum():
     cmd_args = ['xcli', 'diagnostics', '--json', 'static-vdis']
     quorate = False
     while not quorate:
-        output = subprocess.check_output(cmd_args, universal_newlines=True)
+        output = subprocess.check_output(cmd_args)
         output_map = json.loads(output)
         quorate = output_map.get('is_quorate')
         if not quorate:
@@ -79,17 +85,17 @@ def check_clusterstack(ty):
 def sr_attach(ty, device_config):
     check_clusterstack(ty)
 
-    args = [arg for (k,v) in device_config.items()
+    args = [arg for (k,v) in device_config.iteritems()
             for arg in ["--configuration", k, v]]
     return call_volume_plugin(ty, "SR.attach", args)
 
-def list_vdis():
+def list():
     all = []
     try:
         all = os.listdir(main_dir)
     except:
         pass
-    return list(map(load, all))
+    return map(load, all)
 
 def fresh_name():
     all = []
@@ -125,7 +131,7 @@ def to_string_list(d):
     return l
 
 def add(session, vdi_uuid, reason):
-    for existing in list_vdis():
+    for existing in list():
         if existing['vdi-uuid'] == vdi_uuid:
             if existing['delete-next-boot'] == "True":
                 # Undo the 'delete-next-boot' flag to reinstitute
@@ -153,7 +159,7 @@ def add(session, vdi_uuid, reason):
 
     sm = None
     all_sm = session.xenapi.SM.get_all_records()
-    for sm_ref in all_sm:
+    for sm_ref in all_sm.keys():
         if all_sm[sm_ref]['type'] == ty:
             sm = all_sm[sm_ref]
             break
@@ -189,12 +195,12 @@ def add(session, vdi_uuid, reason):
     fresh = fresh_name()
     path = main_dir + "/" + fresh
     os.mkdir(path)
-    for key in data:
+    for key in data.keys():
         write_whole_file(path + "/" + key, data[key])
 
 def delete(vdi_uuid):
     found = False
-    for existing in list_vdis():
+    for existing in list():
         if existing['vdi-uuid'] == vdi_uuid:
             found = True
             path = main_dir + "/" + existing['id']
@@ -209,7 +215,7 @@ def delete(vdi_uuid):
 # Copied by util.py
 def doexec(args, inputtext=None):
     """Execute a subprocess, then return its return code, stdout and stderr"""
-    proc = subprocess.Popen(args,stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,close_fds=True, universal_newlines=True)
+    proc = subprocess.Popen(args,stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,close_fds=True)
     (stdout,stderr) = proc.communicate(inputtext)
     rc = proc.returncode
     return (rc,stdout,stderr)
@@ -221,42 +227,41 @@ def connect_smapiv1_nbd(params_nbd):
 
 
 def call_backend_attach(driver, config):
-    args = [arg.encode('utf-8') for arg in [driver, config]]
+    args = map(lambda arg: arg.encode('utf8'), [driver, config])
     xml = doexec(args)
     if xml[0] != 0:
         raise Exception("SM_BACKEND_FAILURE(%d, %s, %s)" % xml)
-    xml_rpc = xmlrpc.client.loads(xml[1])
+    xmlrpc = xmlrpclib.loads(xml[1])
 
-    if 'params_nbd' in xml_rpc[0][0]:
+    if 'params_nbd' in xmlrpc[0][0]:
         # Prefer NBD if available
-        return connect_smapiv1_nbd(xml_rpc[0][0]['params_nbd'])
+        return connect_smapiv1_nbd(xmlrpc[0][0]['params_nbd'])
 
     try:
-        path = xml_rpc[0][0]['params']
+    	path = xmlrpc[0][0]['params']
     except:
-        path = xml_rpc[0][0]
+	path = xmlrpc[0][0]
     return path
 
 def call_backend_detach(driver, config):
-    params = xmlrpc.client.loads(config)[0][0]
+    params = xmlrpclib.loads(config)[0][0]
     params['command'] = 'vdi_detach_from_config'
-    config = xmlrpc.client.dumps(tuple([params]), params['command'])
+    config = xmlrpclib.dumps(tuple([params]), params['command'])
     xml = doexec([ driver, config ])
     if xml[0] != 0:
         raise Exception("SM_BACKEND_FAILURE(%d, %s, %s)" % xml)
-    xml_rpc = xmlrpc.client.loads(xml[1])
+    xmlrpc = xmlrpclib.loads(xml[1])
     try:
-        res = xml_rpc[0][0]['params']
+        res = xmlrpc[0][0]['params']
     except:
-        res = xml_rpc[0][0]
+        res = xmlrpc[0][0]
     return res
 
 def connect_nbd(path, exportname):
     return subprocess.check_output(
         ['/opt/xensource/libexec/nbd_client_manager.py', 'connect',
          '--path', path,
-         '--exportname', exportname], 
-        universal_newlines=True).strip()
+         '--exportname', exportname]).strip()
 
 def disconnect_nbd_device(nbd_device):
     subprocess.check_call(
@@ -278,7 +283,7 @@ def parse_nbd_uri(uri):
 
 def attach(vdi_uuid):
     found = False
-    for existing in list_vdis():
+    for existing in list():
         if existing['vdi-uuid'] == vdi_uuid:
             found = True
             if not('path' in existing):
@@ -300,7 +305,7 @@ def attach(vdi_uuid):
                     vol_key = read_whole_file(d + "/volume-key")
                     vol_uri = read_whole_file(d + "/volume-uri")
                     multipath = json.loads(read_whole_file(d + "/multipath"))
-                    scheme = urllib.parse.urlparse(vol_uri).scheme
+                    scheme = urlparse.urlparse(vol_uri).scheme
                     # Set the multipath flag if required
                     if multipath:
                         with open(MULTIPATH_FLAG, 'a'):
@@ -327,7 +332,7 @@ def attach(vdi_uuid):
 
 def detach(vdi_uuid):
     found = False
-    for existing in list_vdis():
+    for existing in list():
         if existing['vdi-uuid'] == vdi_uuid:
             if not ('disk' in existing):
                 return
@@ -345,7 +350,7 @@ def detach(vdi_uuid):
                 volume_plugin = read_whole_file(d + "/volume-plugin")
                 vol_key = read_whole_file(d + "/volume-key")
                 vol_uri = read_whole_file(d + "/volume-uri")
-                scheme = urllib.parse.urlparse(vol_uri).scheme
+                scheme = urlparse.urlparse(vol_uri).scheme
                 call_datapath_plugin(scheme, "Datapath.deactivate", [ vol_uri, "0" ])
                 call_datapath_plugin(scheme, "Datapath.detach", [ vol_uri, "0" ])
             os.unlink(d + "/disk")
@@ -368,7 +373,7 @@ if  __name__ == "__main__":
         usage()
         
     if sys.argv[1] == "list" and len(sys.argv) == 2:
-        for i in list_vdis():
+        for i in list ():
             for line in to_string_list(i):
                 print(line)
             print()

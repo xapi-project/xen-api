@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/python
 #
 # Copyright (c) Citrix Systems 2008. All rights reserved.
 #
@@ -14,8 +14,7 @@ def doexec(args, inputtext=None):
     proc = subprocess.Popen(args, stdin=subprocess.PIPE,
                                  stdout=subprocess.PIPE,
                                  stderr=subprocess.PIPE,
-                                 close_fds=True,
-                                 universal_newlines=True)
+                                 close_fds=True)
     (stdout, stderr) = proc.communicate(inputtext)
     retcode = proc.returncode
     return (retcode, stdout, stderr)
@@ -59,7 +58,7 @@ def main():
                 retinfo = pread(command)
                 index = retinfo.find(findser)
                 if index != -1:
-                    if retinfo[index+len(findser):len(retinfo)].strip() in idlist:
+                    if idlist.has_key(retinfo[index+len(findser):len(retinfo)].strip()):
                         idlist[retinfo[index+len(findser):len(retinfo)].strip()].append(filepath)
                     else:
                         idlist[retinfo[index+len(findser):len(retinfo)].strip()]=[filepath]
@@ -81,7 +80,7 @@ def main():
                 retinfo = pread(command)
                 index = retinfo.find(findser)
                 if index != -1:
-                    if retinfo[index+len(findser):len(retinfo)].strip() in idlist:
+                    if idlist.has_key(retinfo[index+len(findser):len(retinfo)].strip()):
                         idlist[retinfo[index+len(findser):len(retinfo)].strip()].append(filepath)
                     else:
                         idlist[retinfo[index+len(findser):len(retinfo)].strip()]=[filepath]
@@ -101,7 +100,7 @@ def main():
                 retinfo = pread(command)
                 index = retinfo.find(findser)
                 if index != -1:
-                    if retinfo[index+len(findser):len(retinfo)].strip() in idlist:
+                    if idlist.has_key(retinfo[index+len(findser):len(retinfo)].strip()):
                         idlist[retinfo[index+len(findser):len(retinfo)].strip()].append(filepath)
                     else:
                         idlist[retinfo[index+len(findser):len(retinfo)].strip()]=[filepath]
@@ -111,11 +110,11 @@ def main():
         pass
 
     for id in idlist:
-        print()
-        print("serial number '%s' maps the following devices " % id)
+        print
+        print "serial number '%s' maps the following devices " % id
         for mapping in idlist[id]:
-            print("            %s" % mapping)
-    print() 
+            print "            %s" % mapping
+    print 
 
 if __name__ == "__main__":
     main()
