@@ -515,12 +515,7 @@ let create_cluster_watcher_on_master ~__context ~host =
             Thread.delay 3.
       done
     in
-    let feature_enabled =
-      let pool = Helpers.get_pool ~__context in
-      let restrictions = Db.Pool.get_restrictions ~__context ~self:pool in
-      List.assoc_opt "restrict_cluster_health" restrictions = Some "false"
-    in
-    if feature_enabled then (
+    if Xapi_cluster_helpers.cluster_health_enabled ~__context then (
       debug "%s: create watcher for corosync-notifyd on master" __FUNCTION__ ;
       ignore @@ Thread.create watch ()
     ) else

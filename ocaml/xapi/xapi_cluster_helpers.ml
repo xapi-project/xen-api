@@ -103,3 +103,8 @@ let with_cluster_operation ~__context ~(self : [`Cluster] API.Ref.t) ~doc ~op
           (Datamodel_common._cluster, Ref.string_of self)
       with _ -> ()
   )
+
+let cluster_health_enabled ~__context =
+  let pool = Helpers.get_pool ~__context in
+  let restrictions = Db.Pool.get_restrictions ~__context ~self:pool in
+  List.assoc_opt "restrict_cluster_health" restrictions = Some "false"
