@@ -10,8 +10,6 @@ open Datamodel_roles
               to leave a gap for potential hotfixes needing to increment the schema version.*)
 let schema_major_vsn = 5
 
-(* This comment is a reminder to update the version in upgrade_update_guidance if schema_minor_vsn
-   changed when the update guidance improvement feature branch got merged into master branch *)
 let schema_minor_vsn = 775
 
 (* Historical schema versions just in case this is useful later *)
@@ -135,6 +133,10 @@ let stockholm_release_schema_minor_vsn = 601
 let yangtze_release_schema_major_vsn = 5
 
 let yangtze_release_schema_minor_vsn = 602
+
+let nile_release_schema_major_vsn = 5
+
+let nile_release_schema_minor_vsn = 775
 
 (* List of tech-preview releases. Fields in these releases are not guaranteed to be retained when
  * upgrading to a full release. *)

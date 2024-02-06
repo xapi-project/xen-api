@@ -871,7 +871,12 @@ let upgrade_update_guidance =
       "Upgrade pending update gudiances"
       (* TODO: update below schema version to which the feature branch got merged with *)
   ; version=
-      (fun x -> x < (5, 775))
+      (fun x ->
+        x
+        < ( Datamodel_common.nile_release_schema_major_vsn
+          , Datamodel_common.nile_release_schema_minor_vsn
+          )
+      )
       (* the version where update guidance improvement is made *)
   ; fn=
       (fun ~__context ->
