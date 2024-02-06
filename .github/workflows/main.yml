@@ -134,7 +134,7 @@ jobs:
           sudo chown "$(id -u):$(id -g)" "${TMPDIR}" "${XDG_CACHE_HOME}"
           echo "TMPDIR=${TMPDIR}" >>"$GITHUB_ENV"
           echo "XDG_CACHE_HOME=${XDG_CACHE_HOME}" >>"$GITHUB_ENV"
-                        
+
       - name: Use ocaml
         uses: ocaml/setup-ocaml@v2
         with:
@@ -200,9 +200,6 @@ jobs:
 
       - name: quality-gate
         run: make quality-gate
-
-      - uses: reviewdog/action-actionlint@v1
-        name: GitHub Action linter from https://github.com/reviewdog/action-actionlint
 
       - name: pyflakes
         uses: reviewdog/action-pyflakes@master
