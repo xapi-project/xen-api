@@ -11,7 +11,7 @@
     <PackageId>$(AssemblyName).NET</PackageId>
     <Product>$(AssemblyName).NET</Product>
     <Description>.NET wrapper for the XenServer API</Description>
-    <Copyright>Copyright (c) 2007-2023 Cloud Software Group, Inc. All Rights Reserved.</Copyright>
+    <Copyright>Copyright (c) 2007-2024 Cloud Software Group, Inc. All Rights Reserved.</Copyright>
     <PackageTags>citrix hypervisor virtualization sdk jsonrpc .net c# xen xenserver</PackageTags>
     <PackageLicenseExpression>BSD-2-Clause</PackageLicenseExpression>
     <RepositoryUrl>https://github.com/xapi-project/xen-api</RepositoryUrl>
@@ -20,40 +20,26 @@
     <PackageReadmeFile>README-NuGet.md</PackageReadmeFile>
   </PropertyGroup>
   <ItemGroup>
-    <None Include=".\lib\netstandard2.0\Newtonsoft.Json.CH.dll" Pack="true" PackagePath="lib\netstandard2.0\Newtonsoft.Json.CH.dll" />
-    <None Include=".\lib\net45\Newtonsoft.Json.CH.dll" Pack="true" PackagePath="lib\net45\Newtonsoft.Json.CH.dll" />
-    <None Include=".\LICENSE.Newtonsoft.Json.txt" Pack="true" PackagePath="LICENSE.Newtonsoft.Json.txt" />
-    <None Include=".\LICENSE.txt" Pack="true" PackagePath="LICENSE.txt" />
+    <None Include="..\LICENSE" Pack="true" PackagePath="LICENSE" />
     <None Include=".\packageIcon.png" Pack="true" PackagePath="\" />
     <None Include=".\README-NuGet.md" Pack="true" PackagePath="\" />
   </ItemGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
-  <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.0'">
-    <Reference Include="Newtonsoft.Json.CH.dll">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>.\lib\netstandard2.0\Newtonsoft.Json.CH.dll</HintPath>
-    </Reference>
-  </ItemGroup>
-  <ItemGroup Condition="'$(TargetFramework)' == 'net45'">
-    <Reference Include="Newtonsoft.Json.CH.dll">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>.\lib\net45\Newtonsoft.Json.CH.dll</HintPath>
-    </Reference>
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
   </ItemGroup>
   <ItemGroup>
     <Compile Update="FriendlyErrorNames.Designer.cs">
-      <AutoGen>True</AutoGen>
       <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
       <DependentUpon>FriendlyErrorNames.resx</DependentUpon>
     </Compile>
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Update="FriendlyErrorNames.resx">
-      <SubType>Designer</SubType>
       <Generator>ResXFileCodeGenerator</Generator>
-      <CustomToolNamespace>XenAPI</CustomToolNamespace>
       <LastGenOutput>FriendlyErrorNames.Designer.cs</LastGenOutput>
     </EmbeddedResource>
   </ItemGroup>

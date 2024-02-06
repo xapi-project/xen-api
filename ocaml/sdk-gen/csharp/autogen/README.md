@@ -1,7 +1,6 @@
-XenServer.NET
-=============
+# XenServer.NET
 
-Copyright (c) 2007-2023 Cloud Software Group, Inc. All Rights Reserved.
+Copyright (c) 2007-2024 Cloud Software Group, Inc. All Rights Reserved.
 
 XenServer.NET is a complete SDK for XenServer, exposing the XenServer
 API as .NET classes. It is written in C#.
@@ -15,8 +14,7 @@ XenServer.NET is free software. You can redistribute and modify it under the
 terms of the BSD 2-Clause license. See LICENSE.txt for details.
 
 
-Reference
----------
+## Reference
 
 For XenServer documentation see https://docs.xenserver.com
 
@@ -30,40 +28,35 @@ A number of examples to help you get started with the SDK is available at
 https://github.com/xenserver/xenserver-samples
 
 For community content, blogs, and downloads, visit
-https://www.xenserver.com/blogs and https://www.citrix.com/community/
+https://www.xenserver.com/blogs and https://www.citrix.com/community
 
 To network with other developers using XenServer visit
-https://discussions.citrix.com/forum/101-hypervisor-formerly-xenserver/
+https://discussions.citrix.com/forum/101-hypervisor-formerly-xenserver
 
 
-Prerequisites
--------------
+## Prerequisites
 
 This library requires .NET Standard 2.0.
 
 
-Dependencies
-------------
+## Dependencies
 
 XenServer.NET is dependent upon the following libraries:
 
-- Newtonsoft JSON.NET by James Newton-King (see https://www.newtonsoft.com/).
-  JSON.NET is licensed under the MIT license; see LICENSE.Newtonsoft.Json.txt
-  for details. A patched version of the library (Newtonsoft.Json.CH.dll) is
-  shipped with XenServer.NET. Its source code and license file can be found in
-  https://github.com/xenserver/dotnet-packages.
+- Newtonsoft JSON.NET by James Newton-King (see https://www.newtonsoft.com).
+  JSON.NET is licensed under the MIT license.
 
 
-Downloads
----------
+## Downloads
+
 
 This archive contains the following folders that are relevant to .NET developers:
 - XenServer.NET: contains the ready compiled binaries in the form of a NuGet package.
 - XenServer.NET\src: contains the source code shipped as a Visual Studio project.
 
 
-Getting Started
----------------
+## Getting Started
+
 
 Extract the contents of this archive.
 

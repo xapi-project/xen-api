@@ -162,20 +162,25 @@ jobs:
         run: opam exec -- make stresstest
         if: ${{ github.event_name == 'schedule' }}
 
-      - name: Build SDK
+      - name: Generate SDKs
         run: |
           mkdir -p /opt/xensource/sm
           wget -O /opt/xensource/sm/XE_SR_ERRORCODES.xml https://raw.githubusercontent.com/xapi-project/sm/master/drivers/XE_SR_ERRORCODES.xml
           opam exec -- make sdk
 
+      - name: Set up dotnet cli
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: '6'
+          cache : true
+
+      - name: Build .NET SDK
+        run: opam exec -- make build-csharp-sdk
+
       - name: Make install smoketest
         run: |
           opam exec -- make install DESTDIR=$(mktemp -d)
           opam exec -- make install DESTDIR=$(mktemp -d) BUILD_PY2=NO
-
-      - name: Sanity test SDK
-        run: |
-          opam exec -- make sdksanity
 
       - name: Check disk space
         run: df -h || true

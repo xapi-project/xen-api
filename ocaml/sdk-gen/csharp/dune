@@ -22,6 +22,7 @@
     mustache
     xapi-datamodel
     xmllight2
+    str
   )
 )
 
