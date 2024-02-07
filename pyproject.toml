@@ -34,6 +34,68 @@ profile = "black"
 combine_as_imports = true
 ensure_newline_before_comments = false
 
+# -----------------------------------------------------------------------------
+#                            COVERAGE CONFIGURATION
+#    https://coverage.readthedocs.io/en/latest/config.html#run-command-line
+# -----------------------------------------------------------------------------
+#          Section configuring the collection of the coverage data:
+# -----------------------------------------------------------------------------
+[tool.coverage.run]
+# -----------------------------------------------------------------------------
+# The default is to run the test suite with the command "coverage run -m pytest"
+#
+command_line = "-m pytest"
+
+# -----------------------------------------------------------------------------
+# The source option specifies the directories to be measured:
+#
+source = ["scripts", "ocaml"]
+
+# -----------------------------------------------------------------------------
+# The omit option specifies files or directories to be omitted from the report:
+#
+omit = [  # These need some simple syntax update to be parseable:
+    "scripts/backup-sr-metadata.py",
+    "scripts/restore-sr-metadata.py",
+    "scripts/nbd_client_manager.py",
+]
+
+# -----------------------------------------------------------------------------
+# If PYTHON_VERSION is set, use it as the context for the coverage data data.
+#
+context = "${PYTHON_VERSION}"
+
+# -----------------------------------------------------------------------------
+# If PYTHON_VERSION is set, append it to the name of the .coverage sqlite db:
+#
+data_file = ".git/.coverage${PYTHON_VERSION}"
+
+# -----------------------------------------------------------------------------
+# Record the path names of files when collecting coverage data relative only:
+# The absoluthe paths are not needed and this helps some tools:
+#
+relative_files = true
+
+# -----------------------------------------------------------------------------
+# Section to configure the reporting of the coverage data:
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    # Such may be used for @abstractmethod or @suffixed_method, no coverage:
+    "\\<pass\\>",
+    "def __repr__",
+    "raise NotImplementedError",
+    "raise TypeError",
+    "raise UnmarshalException",
+    "\\<raise\\>",  # At a few places, we raise an bare exception to catch it
+    "\\<except\\>",  # usinge a broad except clause to catch all exceptions.
+    # "assert" may be added pacify mypy and other type checkers and they show
+    # in the review of the code that the value could be None at this point:
+    "\\<assert\\>",
+]
+# -----------------------------------------------------------------------------
+
 
 [tool.mypy]
 # Note mypy has no config setting for PYTHONPATH, so you need to call it with:
