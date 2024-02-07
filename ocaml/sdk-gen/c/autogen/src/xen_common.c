@@ -292,10 +292,7 @@ set_api_version(xen_session *session)
 void
 xen_session_logout(xen_session *session)
 {
-    abstract_value params[] =
-        {
-        };
-    xen_call_(session, "session.logout", params, 0, NULL, NULL);
+    xen_call_(session, "session.logout", NULL, 0, NULL, NULL);
 
     if (session->error_description != NULL)
     {
@@ -314,10 +311,7 @@ xen_session_logout(xen_session *session)
 void
 xen_session_local_logout(xen_session *session)
 {
-    abstract_value params[] =
-        {
-        };
-    xen_call_(session, "session.local_logout", params, 0, NULL, NULL);
+    xen_call_(session, "session.local_logout", NULL, 0, NULL, NULL);
 
     if (session->error_description != NULL)
     {
@@ -336,14 +330,11 @@ xen_session_local_logout(xen_session *session)
 bool
  xen_session_get_all_subject_identifiers(xen_session *session, struct xen_string_set **result)
 {
-    abstract_value params[] =
-        {
-        };
 
     abstract_type result_type = abstract_type_string_set;
 
     *result = NULL;
-    xen_call_(session, "session.get_all_subject_identifiers", params, 0, &result_type, result);
+    xen_call_(session, "session.get_all_subject_identifiers", NULL, 0, &result_type, result);
     return session->ok;
 }
 
@@ -351,14 +342,10 @@ bool
 bool
 xen_session_get_all_subject_identifiers_async(xen_session *session, xen_task *result)
 {
-    abstract_value params[] =
-        {
-        };
-
     abstract_type result_type = abstract_type_string;
 
     *result = NULL;
-    xen_call_(session, "Async.session.get_all_subject_identifiers", params, 0, &result_type, result);
+    xen_call_(session, "Async.session.get_all_subject_identifiers", NULL, 0, &result_type, result);
     return session->ok;
 }
 

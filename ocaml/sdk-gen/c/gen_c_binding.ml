@@ -374,7 +374,9 @@ and impl_message needed classname message =
         sprintf
           "    xen_call_(session, \"%s.%s\", %s, %d, NULL, NULL);\n\
           \    return session->ok;\n"
-          classname message.msg_name param_call param_count
+          classname message.msg_name
+          (if param_count = 0 then "NULL" else param_call)
+          param_count
   in
 
   let messageAsyncImpl = impl_message_async needed classname message in
