@@ -1,0 +1,208 @@
+name: Generate and Build SDKs
+
+on:
+  workflow_call:
+    inputs:
+      xapi_version:
+        required: true
+        type: string
+
+jobs:
+  generate-sdk-sources:
+    name: Generate SDK sources
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup XenAPI environment
+        uses: ./.github/workflows/setup-xapi-environment
+        with:
+          xapi_version: ${{ inputs.xapi_version }}
+
+      - name: Generate SDKs
+        shell: bash
+        run: opam exec -- make sdk
+
+      - name: Store C# SDK source
+        uses: actions/upload-artifact@v3
+        with:
+          name: SDK_Source_CSharp
+          path: _build/install/default/xapi/sdk/csharp/*
+
+      - name: Store PowerShell SDK source
+        uses: actions/upload-artifact@v3
+        with:
+          name: SDK_Source_PowerShell
+          path: _build/install/default/xapi/sdk/powershell/*
+
+  build-csharp-sdk:
+    name: Build C# SDK
+    runs-on: windows-2022
+    needs: generate-sdk-sources
+    steps:      
+      - name: Strip 'v' prefix from xapi version
+        shell : pwsh
+        run: echo "XAPI_VERSION_NUMBER=$("${{ inputs.xapi_version }}".TrimStart('v'))" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Retrieve C# SDK source
+        uses: actions/download-artifact@v3
+        with:
+          name: SDK_Source_CSharp
+          path: source/
+
+      - name: Build C# SDK
+        shell: pwsh
+        run: |
+          dotnet build source/src `
+          --disable-build-servers `
+          --configuration Release `
+          -p:Version=${{ env.XAPI_VERSION_NUMBER }}-prerelease-unsigned `
+          --verbosity=normal
+
+      - name: Store C# SDK
+        uses: actions/upload-artifact@v3
+        with:
+          name: SDK_Binaries_CSharp
+          path: source/src/bin/Release/XenServer.NET.${{ env.XAPI_VERSION_NUMBER }}-prerelease-unsigned.nupkg
+
+  build-powershell-5x-sdk:
+    name: Build PowerShell 5.x SDK (.NET Framework 4.5)
+    needs: build-csharp-sdk
+    # PowerShell SDK for PowerShell 5.x needs to run on windows-2019 because
+    # windows-2022 doesn't contain .NET Framework 4.x dev tools
+    runs-on: windows-2019
+    steps:
+      - name: Strip 'v' prefix from xapi version
+        shell : pwsh
+        run: echo "XAPI_VERSION_NUMBER=$("${{ inputs.xapi_version }}".TrimStart('v'))" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Retrieve PowerShell SDK source
+        uses: actions/download-artifact@v3
+        with:
+          name: SDK_Source_PowerShell
+          path: source/
+
+      - name: Retrieve C# SDK binaries
+        uses: actions/download-artifact@v3
+        with:
+          name: SDK_Binaries_CSharp
+          path: csharp/
+
+      # Following needed for restoring packages
+      # when calling dotnet add package
+      - name: Set up dotnet CLI (.NET 6.0 and 8.0)
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: |
+            6
+            8
+
+      - name: Setup project and dotnet CLI
+        shell: pwsh
+        run: |
+          dotnet nuget add source --name local ${{ github.workspace }}\csharp
+          dotnet add source/src package XenServer.NET --version ${{ env.XAPI_VERSION_NUMBER }}-prerelease-unsigned
+
+      - name: Build PowerShell SDK (.NET Framework 4.5)
+        shell: pwsh
+        run: |
+          dotnet build source/src/XenServerPowerShell.csproj `
+             --disable-build-servers `
+             --configuration Release `
+             -p:Version=${{ env.XAPI_VERSION_NUMBER }}-prerelease-unsigned `
+             -p:TargetFramework=net45 `
+             --verbosity=normal`
+
+      - name: Update SDK and PS versions in "XenServerPSModule.psd1"
+        shell: pwsh
+        run: |
+          (Get-Content "source\XenServerPSModule.psd1") -replace "@SDK_VERSION@","${{ env.XAPI_VERSION_NUMBER }}" | Set-Content -Path "source\XenServerPSModule.psd1"
+          (Get-Content "source\XenServerPSModule.psd1") -replace "@PS_VERSION@","5.0" | Set-Content -Path "source\XenServerPSModule.psd1"
+
+      - name: Move binaries to destination folder
+        shell: pwsh
+        run: |
+          New-Item -Path "." -Name "output" -ItemType "directory"
+          Copy-Item -Verbose "source\README_51.md" -Destination "output"  -Force
+          Copy-Item -Verbose "source\LICENSE" -Destination "output" -Force
+          Copy-Item -Path "source\src\bin\Release\net45\*" -Include ".dll" "output\"
+          Get-ChildItem -Path "source" |`
+          Where-Object { $_.Extension -eq ".ps1" -or $_.Extension -eq ".ps1xml" -or $_.Extension -eq ".psd1" -or $_.Extension -eq ".txt"  } |`
+          ForEach-Object -Process { Copy-Item -Verbose $_.FullName -Destination "output" }
+
+      - name: Store PowerShell SDK (.NET Framework 4.5)
+        uses: actions/upload-artifact@v3
+        with:
+          name: XenServerPowerShell_NET45
+          path: output/**/*
+
+  build-powershell-7x-sdk:
+    name: Build PowerShell 7.x SDK
+    strategy:
+      fail-fast: false
+      matrix:
+        dotnet: ["6", "8"]
+    needs: build-csharp-sdk
+    runs-on: windows-2022
+
+    steps:
+      - name: Strip 'v' prefix from xapi version
+        shell : pwsh
+        run: echo "XAPI_VERSION_NUMBER=$("${{ inputs.xapi_version }}".TrimStart('v'))" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Retrieve PowerShell SDK source
+        uses: actions/download-artifact@v3
+        with:
+          name: SDK_Source_PowerShell
+          path: source/
+
+      - name: Retrieve C# SDK binaries
+        uses: actions/download-artifact@v3
+        with:
+          name: SDK_Binaries_CSharp
+          path: csharp/
+
+      - name: Set up dotnet CLI (.NET ${{ matrix.dotnet }})
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: ${{ matrix.dotnet }}
+
+      - name: Setup project and NuGet source
+        shell: pwsh
+        run: |
+          dotnet nuget add source --name local ${{ github.workspace }}\csharp
+          dotnet add source/src package XenServer.NET --version ${{ env.XAPI_VERSION_NUMBER }}-prerelease-unsigned
+
+      - name: Build PowerShell SDK (.NET ${{ matrix.dotnet }})
+        shell: pwsh
+        run: |
+          dotnet build source/src/XenServerPowerShell.csproj `
+             --disable-build-servers `
+             --configuration Release `
+             -p:Version=${{ env.XAPI_VERSION_NUMBER }}-prerelease-unsigned `
+             -p:TargetFramework=net${{ matrix.dotnet }}.0 `
+             --verbosity=normal`
+
+      - name: Update SDK and PS versions in "XenServerPSModule.psd1"
+        shell: pwsh
+        run: |
+          (Get-Content "source\XenServerPSModule.psd1") -replace "@SDK_VERSION@","${{ env.XAPI_VERSION_NUMBER }}" | Set-Content -Path "source\XenServerPSModule.psd1"
+          (Get-Content "source\XenServerPSModule.psd1") -replace "@PS_VERSION@","7.0" | Set-Content -Path "source\XenServerPSModule.psd1"
+
+      - name: Move binaries to destination folder
+        shell: pwsh
+        run: |
+          New-Item -Path "." -Name "output" -ItemType "directory"
+          Copy-Item -Verbose "source\README.md" -Destination "output"  -Force
+          Copy-Item -Verbose "source\LICENSE" -Destination "output" -Force
+          Copy-Item -Path "source\src\bin\Release\net${{ matrix.dotnet }}.0\*" -Include ".dll" "output\"
+          Get-ChildItem -Path "source" |`
+          Where-Object { $_.Extension -eq ".ps1" -or $_.Extension -eq ".ps1xml" -or $_.Extension -eq ".psd1" -or $_.Extension -eq ".txt"  } |`
+          ForEach-Object -Process { Copy-Item -Verbose $_.FullName -Destination "output" }
+
+      - name: Store PowerShell SDK (.NET ${{ matrix.dotnet }})
+        uses: actions/upload-artifact@v3
+        with:
+          name: XenServerPowerShell_NET${{ matrix.dotnet }}
+          path: output/**/*

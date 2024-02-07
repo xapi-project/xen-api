@@ -1,0 +1,59 @@
+name: Setup XenAPI environment
+description: Setup a XenAPI environment for making opam calls.
+
+inputs:
+  xapi_version:
+    description: "XenAPI version, pass to configure as --xapi_version=<value>"
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - name: Free space
+      shell: bash
+      run: sudo rm -rf /usr/local/lib/android
+
+    - name: Pull configuration from xs-opam
+      shell: bash
+      run: |
+        curl --fail --silent https://raw.githubusercontent.com/xapi-project/xs-opam/master/tools/xs-opam-ci.env | cut -f2 -d " " > .env
+
+    - name: Download XE_SR_ERRORCODES.xml
+      shell : bash
+      run: |
+        mkdir -p /opt/xensource/sm
+        wget -O /opt/xensource/sm/XE_SR_ERRORCODES.xml https://raw.githubusercontent.com/xapi-project/sm/master/drivers/XE_SR_ERRORCODES.xml
+
+    - name: Load environment file
+      id: dotenv
+      uses: falti/dotenv-action@v1.0.4
+
+    - name: Update Ubuntu repositories
+      shell: bash
+      run: sudo apt-get update
+
+    - name: Use disk with more space for TMPDIR and XDG_CACHE_HOME
+      shell: bash
+      run: |
+        df -h || true
+        export TMPDIR="/mnt/build/tmp"
+        export XDG_CACHE_HOME="/mnt/build/cache"
+        sudo mkdir -p "${TMPDIR}" "${XDG_CACHE_HOME}"
+        sudo chown "$(id -u):$(id -g)" "${TMPDIR}" "${XDG_CACHE_HOME}"
+        echo "TMPDIR=${TMPDIR}" >>"$GITHUB_ENV"
+        echo "XDG_CACHE_HOME=${XDG_CACHE_HOME}" >>"$GITHUB_ENV"
+
+    - name: Use ocaml
+      uses: ocaml/setup-ocaml@v2
+      with:
+        ocaml-compiler: ${{ steps.dotenv.outputs.ocaml_version_full }}
+        opam-repositories: |
+          xs-opam: ${{ steps.dotenv.outputs.repository }}
+        dune-cache: true
+
+    - name: Install dependencies
+      shell: bash
+      run: opam install . --deps-only --with-test -v
+
+    - name: Configure
+      shell: bash
+      run: opam exec -- ./configure --xapi_version="${{ inputs.xapi_version }}"
