@@ -109,6 +109,9 @@ jobs:
     name: Run OCaml tests
     runs-on: ubuntu-20.04
     env:
+      # Ensure you also update test-sdk-builds
+      # when changing this value, to keep builds
+      # consistent
       XAPI_VERSION: "v0.0.0"
     steps:
       - name: Checkout code
@@ -172,4 +175,7 @@ jobs:
     name: Test SDK builds 
     uses: ./.github/workflows/generate-and-build-sdks.yml
     with:
-      xapi_version: ${{ env.XAPI_VERSION }}
+      # Ensure you also update ocaml-tests
+      # when changing this value, to keep builds
+      # consistent
+      xapi_version: "v0.0.0"
