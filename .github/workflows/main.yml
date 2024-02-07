@@ -89,6 +89,8 @@ jobs:
         run: ./pytype_reporter.py
         env:
           PR_NUMBER: ${{ github.event.number }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PYTYPE_REPORTER_DEBUG: True
 
       # Try to add pytype_report.py's summary file as a comment to the PR:
       # Documentation: https://github.com/marketplace/actions/add-pr-comment
