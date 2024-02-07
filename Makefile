@@ -112,11 +112,6 @@ sdk:
 	sh ocaml/sdk-gen/windows-line-endings.sh $(XAPISDK)/csharp
 	sh ocaml/sdk-gen/windows-line-endings.sh $(XAPISDK)/powershell
 
-# workaround for no .resx generation, just for compilation testing
-sdksanity: sdk
-	sed -i 's/FriendlyErrorNames.ResourceManager/null/g' ./_build/install/default/xapi/sdk/csharp/src/Failure.cs
-	cd _build/install/default/xapi/sdk/csharp/src && dotnet add package Newtonsoft.Json && dotnet build -f netstandard2.0
-
 .PHONY: sdk-build-java
 
 sdk-build-java: sdk
