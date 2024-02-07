@@ -14,7 +14,7 @@
 
 module D = Debug.Make (struct let name = "xapi_observer_components" end)
 
-type t = Xapi | Xenopsd | Xapi_clusterd | SMApi [@@deriving ord]
+type t = Xapi | Xenopsd | Xapi_clusterd | SM [@@deriving ord]
 
 exception Unsupported_Component of string
 
@@ -25,8 +25,8 @@ let to_string = function
       Constants.observer_component_xenopsd
   | Xapi_clusterd ->
       Constants.observer_component_xapi_clusterd
-  | SMApi ->
-      Constants.observer_component_smapi
+  | SM ->
+      Constants.observer_component_sm
 
 let of_string = function
   | str when String.equal str Constants.observer_component_xapi ->
@@ -35,8 +35,8 @@ let of_string = function
       Xenopsd
   | str when String.equal str Constants.observer_component_xapi_clusterd ->
       Xapi_clusterd
-  | str when String.equal str Constants.observer_component_smapi ->
-      SMApi
+  | str when String.equal str Constants.observer_component_sm ->
+      SM
   | c ->
       raise (Unsupported_Component c)
 
@@ -92,7 +92,7 @@ let is_component_enabled ~component =
       )
   with _ -> false
 
-let is_smapi_enabled () = is_component_enabled ~component:SMApi
+let is_sm_enabled () = is_component_enabled ~component:SM
 
 let ( // ) = Filename.concat
 

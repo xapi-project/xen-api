@@ -350,7 +350,7 @@ module Dom0ObserverConfig (ObserverComponent : OBSERVER_COMPONENT) :
   let set_compress_tracing_files ~__context:_ ~enabled:_ = ()
 end
 
-module SMObserverConfig = Dom0ObserverConfig (struct let component = SMApi end)
+module SMObserverConfig = Dom0ObserverConfig (struct let component = SM end)
 
 let get_forwarder c =
   let module Forwarder =
@@ -361,7 +361,7 @@ let get_forwarder c =
               (module Xapi_xenops.Observer)
           | Xapi_clusterd ->
               (module Xapi_cluster.Observer)
-          | SMApi ->
+          | SM ->
               (module SMObserverConfig)
         : ObserverInterface
       )

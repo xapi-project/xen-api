@@ -19,7 +19,7 @@
 
 (** Type for components that are instrumented with tracing.
   *)
-type t = Xapi | Xenopsd | Xapi_clusterd | SMApi [@@deriving ord]
+type t = Xapi | Xenopsd | Xapi_clusterd | SM [@@deriving ord]
 
 val all : t list
 (** List of all components available.
@@ -53,8 +53,8 @@ val is_component_enabled : component:t -> bool
 (** Returns [true] if the given component is enabled, [false] otherwise.
   *)
 
-val is_smapi_enabled : unit -> bool
-(** Returns [true] if [SMApi] component is enabled, [false] otherwise.
+val is_sm_enabled : unit -> bool
+(** Returns [true] if [SM] component is enabled, [false] otherwise.
   *)
 
 val dir_name_of_component : t -> string

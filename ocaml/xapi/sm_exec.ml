@@ -339,13 +339,13 @@ let exec_xmlrpc ~dbg ?context:_ ?(needs_session = true) (driver : string)
             let args = [Xml.to_string xml] in
             let output, stderr =
               let env, exe, args =
-                match Xapi_observer_components.is_smapi_enabled () with
+                match Xapi_observer_components.is_sm_enabled () with
                 | false ->
                     (None, exe, args)
                 | true ->
                     let traceparent = Debuginfo.traceparent_of_dbg dbg in
                     Xapi_observer_components.env_exe_args_of
-                      ~component:Xapi_observer_components.SMApi ~traceparent
+                      ~component:Xapi_observer_components.SM ~traceparent
                       ~exe ~args
               in
               Forkhelpers.execute_command_get_output ?env exe args
