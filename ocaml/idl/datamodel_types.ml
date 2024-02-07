@@ -334,6 +334,13 @@ let release_order_full =
     ; branding= "Citrix Hypervisor 8.2 Hotfix 2"
     ; release_date= Some "November 2020"
     }
+  ; {
+      code_name= Some "nile-preview"
+    ; version_major= 2
+    ; version_minor= 20
+    ; branding= "XenServer 8 Preview"
+    ; release_date= Some "August 2023"
+    }
   ]
 (* When you add a new release, use the version number of the latest release, "Unreleased"
    for the branding, and Some "" for the release date, until the actual values are finalised. *)
