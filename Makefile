@@ -117,6 +117,10 @@ sdksanity: sdk
 	sed -i 's/FriendlyErrorNames.ResourceManager/null/g' ./_build/install/default/xapi/sdk/csharp/src/Failure.cs
 	cd _build/install/default/xapi/sdk/csharp/src && dotnet add package Newtonsoft.Json && dotnet build -f netstandard2.0
 
+.PHONY: sdk-build-java
+
+sdk-build-java: sdk
+	cd _build/install/default/xapi/sdk/java && mvn -f xen-api/pom.xml -B clean package install -Drevision=0.0
 
 python:
 	$(MAKE) -C scripts/examples/python build
