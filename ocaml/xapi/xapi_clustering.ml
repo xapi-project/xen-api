@@ -13,6 +13,7 @@
  *)
 
 open Cluster_interface
+open Xapi_cluster_helpers
 
 module D = Debug.Make (struct let name = "xapi_clustering" end)
 
@@ -457,20 +458,27 @@ let on_corosync_update ~__context ~cluster updates =
               (fun h -> not (List.mem h quorum_hosts))
               all_cluster_hosts
           in
+          let new_hosts =
+            List.filter
+              (fun h -> not (Db.Cluster_host.get_live ~__context ~self:h))
+              quorum_hosts
+          in
           List.iter
             (fun self ->
               Db.Cluster_host.set_live ~__context ~self ~value:true ;
               Db.Cluster_host.set_last_update_live ~__context ~self
                 ~value:current_time
             )
-            quorum_hosts ;
+            new_hosts ;
           List.iter
             (fun self ->
               Db.Cluster_host.set_live ~__context ~self ~value:false ;
               Db.Cluster_host.set_last_update_live ~__context ~self
                 ~value:current_time
             )
-            missing_hosts
+            missing_hosts ;
+          maybe_generate_alert ~__context ~missing_hosts ~new_hosts
+            ~num_hosts:(List.length quorum_hosts) ~quorum:diag.quorum
       ) ;
       Db.Cluster.set_quorum ~__context ~self:cluster
         ~value:(Int64.of_int diag.quorum) ;
@@ -515,12 +523,7 @@ let create_cluster_watcher_on_master ~__context ~host =
             Thread.delay 3.
       done
     in
-    let feature_enabled =
-      let pool = Helpers.get_pool ~__context in
-      let restrictions = Db.Pool.get_restrictions ~__context ~self:pool in
-      List.assoc_opt "restrict_cluster_health" restrictions = Some "false"
-    in
-    if feature_enabled then (
+    if Xapi_cluster_helpers.cluster_health_enabled ~__context then (
       debug "%s: create watcher for corosync-notifyd on master" __FUNCTION__ ;
       ignore @@ Thread.create watch ()
     ) else

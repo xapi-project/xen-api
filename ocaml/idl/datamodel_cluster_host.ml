@@ -31,7 +31,10 @@ let create =
     ()
 
 let destroy =
-  call ~name:"destroy" ~doc:"Remove a host from an existing cluster."
+  call ~name:"destroy"
+    ~doc:
+      "Remove the host from an existing cluster. This operation is allowed \
+       even if a cluster host is not enabled."
     ~params:
       [
         ( Ref _cluster_host
@@ -117,10 +120,8 @@ let t =
            ~default_value:(Some (VBool true))
            "Whether the cluster host has joined the cluster. Contrary to \
             enabled, a host that is not joined is not considered a member of \
-            the cluster, and hence no operations (e.g. enable/disable) can be \
-            performed on this host. This field can be altered by calling leave \
-            or destroy on a cluster host. It can also be set automatically if \
-            cluster stack believes that this node is not part of the cluster. "
+            the cluster, and hence enable and disable operations cannot be \
+            performed on this host."
        ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:Bool "live"
            ~default_value:(Some (VBool false))
            "Whether the underlying cluster stack thinks we are live. This \

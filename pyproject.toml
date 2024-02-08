@@ -124,6 +124,9 @@ disable = [
     "import-error",  # xenfsimage, xcp.bootloader. xcp.cmd
     "ignored-abstractmethod",
     "ignored-metaclass",
+    # https://github.com/google/pytype/issues/1130,
+    # https://github.com/google/pytype/issues/1485:
+    "pyi-error",
 ]
 platform = "linux"
 pythonpath = "scripts/examples/python:.:scripts:scripts/plugins:scripts/examples"

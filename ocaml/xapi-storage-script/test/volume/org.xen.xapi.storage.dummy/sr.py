@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python2
 
 """
  Copyright (C) Citrix Systems, Inc.
@@ -6,7 +6,7 @@
 
 import os
 import sys
-import urllib.parse
+import urlparse
 import xapi.storage.api.volume
 
 import plugin
@@ -21,11 +21,11 @@ class Implementation(xapi.storage.api.volume.SR_skeleton):
         return
 
     def detach(self, dbg, sr):
-        urllib.parse.urlparse(sr)
+        urlparse.urlparse(sr)
         return
 
     def ls(self, dbg, sr):
-        urllib.parse.urlparse(sr)
+        urlparse.urlparse(sr)
         qr = plugin.Implementation().query(dbg)
         return [{
             "name": qr['name'],
@@ -40,7 +40,7 @@ class Implementation(xapi.storage.api.volume.SR_skeleton):
             }]
 
     def stat(self, dbg, sr):
-        urllib.parse.urlparse(sr)
+        urlparse.urlparse(sr)
         qr = plugin.Implementation().query(dbg)
         return {
             "sr": sr,

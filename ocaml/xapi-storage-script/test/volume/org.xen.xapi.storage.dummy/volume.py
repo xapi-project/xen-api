@@ -1,11 +1,11 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python2
 
 """
  Copyright (C) Citrix Systems, Inc.
 """
 
 import uuid
-import urllib.parse
+import urlparse
 import os
 import sys
 import xapi.storage.api.volume
@@ -17,7 +17,7 @@ import plugin
 class Implementation(xapi.storage.api.volume.Volume_skeleton):
 
     def create(self, dbg, sr, name, description, size):
-        urllib.parse.urlparse(sr)
+        urlparse.urlparse(sr)
         voluuid = str(uuid.uuid4())
         return {
             "name": name,
@@ -32,11 +32,11 @@ class Implementation(xapi.storage.api.volume.Volume_skeleton):
         }
 
     def destroy(self, dbg, sr, key):
-        urllib.parse.urlparse(sr)
+        urlparse.urlparse(sr)
         return
 
     def stat(self, dbg, sr, key):
-        urllib.parse.urlparse(sr)
+        urlparse.urlparse(sr)
         qr = plugin.Implementation().query(dbg)
         return {
                 "name": qr['name'],
