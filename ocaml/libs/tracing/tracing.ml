@@ -143,7 +143,7 @@ end
 module SpanContext = struct
   type t = {trace_id: string; span_id: string} [@@deriving rpcty]
 
-  let to_traceparent t = Printf.sprintf "00-%s-%s-00" t.trace_id t.span_id
+  let to_traceparent t = Printf.sprintf "00-%s-%s-01" t.trace_id t.span_id
 
   let of_traceparent traceparent =
     let elements = String.split_on_char '-' traceparent in
