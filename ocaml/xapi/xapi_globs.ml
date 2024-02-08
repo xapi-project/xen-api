@@ -1017,6 +1017,8 @@ let observer_endpoint_http_enabled = ref false
 
 let observer_endpoint_https_enabled = ref false
 
+let python3_path = ref "/usr/bin/python3"
+
 let xapi_globs_spec =
   [
     ( "master_connection_reset_timeout"

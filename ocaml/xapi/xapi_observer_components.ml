@@ -84,18 +84,26 @@ let ( // ) = Filename.concat
 let dir_name_of_component component =
   Xapi_globs.observer_config_dir // to_string component // "enabled"
 
-let env_vars_of_component ~component ~traceparent =
+let env_exe_args_of ~component ~traceparent ~exe ~args =
   let dir_name_value = Filename.quote (dir_name_of_component component) in
-  Array.concat
-    [
-      Forkhelpers.default_path_env_pair
-    ; Env_record.to_string_array
-        ([Env_record.pair ("OBSERVER_CONFIG_DIR", dir_name_value)]
-        @
-        match traceparent with
-        | None ->
-            []
-        | Some traceparent ->
-            [Env_record.pair ("TRACEPARENT", traceparent)]
-        )
-    ]
+  let env_vars =
+    Array.concat
+      [
+        Forkhelpers.default_path_env_pair
+      ; Env_record.to_string_array
+          ([
+             Env_record.pair ("OBSERVER_CONFIG_DIR", dir_name_value)
+           ; Env_record.pair ("PYTHONPATH", Filename.dirname exe)
+           ]
+          @
+          match traceparent with
+          | None ->
+              []
+          | Some traceparent ->
+              [Env_record.pair ("TRACEPARENT", traceparent)]
+          )
+      ]
+  in
+  let args = "-m" :: "observer" :: exe :: args in
+  let new_exe = !Xapi_globs.python3_path in
+  (Some env_vars, new_exe, args)
