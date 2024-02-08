@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python2
 
 """
  Copyright (C) Citrix Systems, Inc.

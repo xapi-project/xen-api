@@ -103,3 +103,62 @@ let with_cluster_operation ~__context ~(self : [`Cluster] API.Ref.t) ~doc ~op
           (Datamodel_common._cluster, Ref.string_of self)
       with _ -> ()
   )
+
+let cluster_health_enabled ~__context =
+  let pool = Helpers.get_pool ~__context in
+  let restrictions = Db.Pool.get_restrictions ~__context ~self:pool in
+  List.assoc_opt "restrict_cluster_health" restrictions = Some "false"
+
+let maybe_generate_alert ~__context ~num_hosts ~missing_hosts ~new_hosts ~quorum
+    =
+  let generate_alert join cluster_host =
+    let host = Db.Cluster_host.get_host ~__context ~self:cluster_host in
+    let host_uuid = Db.Host.get_uuid ~__context ~self:host in
+    let host_name = Db.Host.get_name_label ~__context ~self:host in
+    let body, name, priority =
+      match join with
+      | true ->
+          let body =
+            Printf.sprintf
+              "Host %s has joined the cluster, there are now %d host(s) in \
+               cluster and %d hosts are required to form a quorum"
+              host_name num_hosts quorum
+          in
+          let name, priority = Api_messages.cluster_host_joining in
+          (body, name, priority)
+      | false ->
+          let body =
+            Printf.sprintf
+              "Host %s has left the cluster, there are now %d host(s) in \
+               cluster and %d hosts are required to form a quorum"
+              host_name num_hosts quorum
+          in
+          let name, priority = Api_messages.cluster_host_leaving in
+          (body, name, priority)
+    in
+    Helpers.call_api_functions ~__context (fun rpc session_id ->
+        ignore
+        @@ Client.Client.Message.create ~rpc ~session_id ~name ~priority
+             ~cls:`Host ~obj_uuid:host_uuid ~body
+    )
+  in
+  if cluster_health_enabled ~__context then (
+    List.iter (generate_alert false) missing_hosts ;
+    List.iter (generate_alert true) new_hosts ;
+    (* only generate this alert when the number of hosts is decreasing *)
+    if missing_hosts <> [] && num_hosts <= quorum then
+      let pool = Helpers.get_pool ~__context in
+      let pool_uuid = Db.Pool.get_uuid ~__context ~self:pool in
+      let name, priority = Api_messages.cluster_quorum_approaching_lost in
+      let body =
+        Printf.sprintf
+          "The cluster is losing quorum: current %d hosts, need %d hosts for a \
+           quorum"
+          num_hosts quorum
+      in
+      Helpers.call_api_functions ~__context (fun rpc session_id ->
+          ignore
+          @@ Client.Client.Message.create ~rpc ~session_id ~name ~priority
+               ~cls:`Pool ~obj_uuid:pool_uuid ~body
+      )
+  )
