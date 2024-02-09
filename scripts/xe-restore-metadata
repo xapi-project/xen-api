@@ -60,6 +60,13 @@ function test_sr {
   fi
 }
 
+# name space to hash SRs for a deterministic VDI UUID
+NS="e93e0639-2bdb-4a59-8b46-352b3f408c19"
+function uuid5 {
+  # could use a modern uuidgen but it's not on XS 8
+  python -c "import uuid; print (uuid.uuid5(uuid.UUID('$1'), '$2'))"
+}
+
 dry_run=0
 sr_uuid=
 yes=0
@@ -108,9 +115,16 @@ test_sr "${sr_uuid}"
 
 sr_name=$(${XE} sr-param-get uuid=${sr_uuid} param-name=name-label)
 
+# probe first for a VDI with known UUID derived from the SR to avoid
+# scanning for a VDI
+backup_vdi=$(uuid5 "${NS}" "${sr_uuid}")
+if [ -z "${vdis}" ]; then
+  vdis=$(${XE} vdi-list uuid="${backup_vdi}" sr-uuid="${sr_uuid}" read-only=false --minimal)
+fi
+
 # get a list of all VDIs if an override has not been provided on the cmd line
 if [ -z "${vdis}" ]; then
-  vdis=$(${XE} vdi-list params=uuid sr-uuid=${sr_uuid} read-only=false --minimal)
+  vdis=$(${XE} vdi-list params=uuid sr-uuid="${sr_uuid}" read-only=false --minimal)
 fi
 
 mnt=
@@ -157,6 +171,14 @@ fi
 trap cleanup SIGINT ERR
 
 for vdi_uuid in ${vdis}; do
+   if [ "${vdi_uuid}" != "${backup_vdi}" ]; then
+      echo "Probing VDI ${vdi_uuid}."
+      echo "This VDI was created with a prior version of XenServer."
+      echo "Its validity can't be checked without mounting it first."
+      read -p "Continue? [Y/N]" -n 1 -r; echo
+      if [[ ! $REPLY =~ ^[Yy]$ ]]; then exit 1; fi
+   fi
+
    ${debug} echo -n "Creating VBD: " >&2
    vbd_uuid=$(${XE} vbd-create vm-uuid=${CONTROL_DOMAIN_UUID} vdi-uuid=${vdi_uuid} device=autodetect 2>/dev/null)
 
@@ -258,7 +280,7 @@ all)
     ;;
 esac
 
-if [ ! -d ${full_dir} ]; then
+if [ ! -d "${full_dir}" ]; then
     echo No VM metadata exports were found for the selected SR >&2
     cleanup
     exit 1
@@ -271,9 +293,9 @@ ${debug} echo "" >&2
 ${debug} echo Latest VM metadata found is: >&2
 ${debug} ls >&2
 
-if [ $yes -eq 0 ]; then
+if [ "$yes" -eq 0 ]; then
    echo "Do you wish to reimport all VM metadata?" 
-   echo "Please type in "yes" and <enter> to continue." 
+   echo "Please type in 'yes' and <enter> to continue."
    read response
    if [ "$response" != "yes" ]; then
      echo Aborting metadata restore.
@@ -302,8 +324,8 @@ else
 fi
 shopt -s nullglob
 for meta in *.vmmeta; do
-   echo xe vm-import filename=${meta} sr-uuid=${sr_uuid} --metadata --preserve${force_flag}${dry_run_flag}
-   "@BINDIR@/xe" vm-import filename="${full_dir}/${meta}" sr-uuid=${sr_uuid} --metadata --preserve${force_flag}${dry_run_flag}
+   echo xe vm-import filename="${meta}" sr-uuid="${sr_uuid}" --metadata --preserve"${force_flag}""${dry_run_flag}"
+   "@BINDIR@/bin/xe" vm-import filename="${full_dir}/${meta}" sr-uuid="${sr_uuid}" --preserve"${force_flag}""${dry_run_flag}"
    if [ $? -gt 0 ]; then
       error_count=$(( $error_count + 1 ))
    else
@@ -311,16 +333,16 @@ for meta in *.vmmeta; do
    fi
 done
 
-smmeta_file=${mnt}/metadata/${chosen_metadata_dir}/SRMETA.xml
+smmeta_file="${mnt}/metadata/${chosen_metadata_dir}/SRMETA.xml"
 if [ "$restore_mode" == "all" ]; then
    cmd="@LIBEXECDIR@/restore-sr-metadata.py -f ${smmeta_file}"
 else
    cmd="@LIBEXECDIR@/restore-sr-metadata.py -u ${sr_uuid} -f ${smmeta_file}"
 fi
 
-if [ -e ${smmeta_file} ]; then
-    if [ ${dry_run} -gt 0 ]; then
-        echo ${cmd}
+if [ -e "${smmeta_file}" ]; then
+    if [ "${dry_run}" -gt 0 ]; then
+        echo "${cmd}"
     else
         ${cmd}
     fi
@@ -328,4 +350,4 @@ fi
 
 echo "Restored ${good_count} VM(s), and ${error_count} error(s)"
 cleanup
-exit ${error_count}
+exit "${error_count}"
