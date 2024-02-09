@@ -80,9 +80,10 @@ let with_rpc f switch () =
   in
   (Lwt_switch.add_hook (Some switch) @@ fun () -> SessionCache.destroy cache) ;
   let path = Filename.concat tmp "socket" in
+  let push_nothing _ = Lwt_result.return () in
   (* Create an internal server on 'path', the socket that varstored would connect to *)
   let* stop_server =
-    Server_interface.make_server_varstored ~cache path vm_uuid
+    Server_interface.make_server_varstored push_nothing ~cache path vm_uuid
   in
   (* rpc simulates what varstored would do *)
   let uri = Uri.make ~scheme:"file" ~path () |> Uri.to_string in

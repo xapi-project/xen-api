@@ -51,8 +51,8 @@ let () =
    * this is only needed for syscalls that would otherwise block *)
   Lwt_unix.set_pool_size 16
 
-let with_xapi ~cache f =
-  Lwt_unix.with_timeout 120. (fun () -> SessionCache.with_session cache f)
+let with_xapi ~cache ?(timeout = 120.) f =
+  Lwt_unix.with_timeout timeout (fun () -> SessionCache.with_session cache f)
 
 let serve_forever_lwt path callback =
   let conn_closed _ = () in
@@ -121,17 +121,18 @@ let with_xapi_vtpm ~cache vm_uuid =
       let* uuid = with_xapi ~cache @@ Xen_api_lwt_unix.VTPM.get_uuid ~self in
       with_xapi ~cache @@ VTPM.get_by_uuid ~uuid
 
-let push_vtpm ~cache vm_uuid path contents =
+let push_vtpm ~cache (vm_uuid, _timestamp, key) contents =
   let* self = with_xapi_vtpm ~cache vm_uuid in
   let* old_contents = with_xapi ~cache @@ VTPM.get_contents ~self in
   let contents =
     Tpm.(old_contents |> deserialize |> update key contents |> serialize)
   in
   let* () = with_xapi ~cache @@ VTPM.set_contents ~self ~contents in
-  Lwt.return_unit
+  Lwt_result.return ()
 
-let serve_forever_lwt_callback_vtpm ~cache mutex vm_uuid _ req body =
+let serve_forever_lwt_callback_vtpm ~cache mutex persist vm_uuid _ req body =
   let uri = Cohttp.Request.uri req in
+  let timestamp = Mtime_clock.now () in
   (* in case the connection is interrupted/etc. we may still have pending operations,
      so use a per vTPM mutex to ensure we really only have 1 pending operation at a time for a vTPM
   *)
@@ -150,7 +151,7 @@ let serve_forever_lwt_callback_vtpm ~cache mutex vm_uuid _ req body =
   | `PUT, path when path <> "/" ->
       let* body = Cohttp_lwt.Body.to_string body in
       let key = Tpm.key_of_swtpm path in
-      let* () = push_vtpm ~cache vm_uuid key body in
+      let* () = persist (vm_uuid, timestamp, key) body in
       Cohttp_lwt_unix.Server.respond ~status:`No_content
         ~body:Cohttp_lwt.Body.empty ()
   | `DELETE, path when path <> "/" ->
@@ -168,7 +169,7 @@ let serve_forever_lwt_callback_vtpm ~cache mutex vm_uuid _ req body =
       Cohttp_lwt_unix.Server.respond_string ~status:`Method_not_allowed ~body ()
 
 (* Create a restricted RPC function and socket for a specific VM *)
-let make_server_varstored ~cache path vm_uuid =
+let make_server_varstored _persist ~cache path vm_uuid =
   let vm_uuid_str = Uuidm.to_string vm_uuid in
   let module Server =
     Xapi_idl_guard_varstored.Interface.RPC_API (Rpc_lwt.GenServer ()) in
@@ -211,7 +212,7 @@ let make_server_varstored ~cache path vm_uuid =
   serve_forever_lwt_callback (Rpc_lwt.server Server.implementation) path
   |> serve_forever_lwt path
 
-let make_server_vtpm_rest ~cache path vm_uuid =
+let make_server_vtpm_rest persist ~cache path vm_uuid =
   let mutex = Lwt_mutex.create () in
-  let callback = serve_forever_lwt_callback_vtpm ~cache mutex vm_uuid in
+  let callback = serve_forever_lwt_callback_vtpm ~cache mutex persist vm_uuid in
   serve_forever_lwt path callback
