@@ -48,6 +48,29 @@ function usage {
     exit 1
 }
 
+function uuid5 {
+  # could use a modern uuidgen but it's not on XS 8
+  # should work with Python 2 and 3
+  python -c "import uuid; print (uuid.uuid5(uuid.UUID('$1'), '$2'))"
+}
+
+function validate_vdi_uuid {
+  # we check that vdi has the expected UUID which depends on the UUID of
+  # the SR. This is a deterministic hash of the SR UUID and the
+  # namespace UUID $NS. This UUID must match what Xapi's Uuidx module is using.
+  local NS="e93e0639-2bdb-4a59-8b46-352b3f408c19"
+  local sr="$1"
+  local vdi="$2"
+  local uuid
+
+  uuid=$(uuid5 "$NS" "$sr")
+  if [ "$vdi" != "$uuid" ]; then
+    return 1
+  else
+    return 0
+  fi
+}
+
 function test_sr {
   sr_uuid_found=$(${XE} sr-list uuid="$1" --minimal)
   if [ "${sr_uuid_found}" != "$1" ]; then
@@ -93,7 +116,7 @@ if [  -z "${sr_uuid}" ]; then
 fi
 test_sr "${sr_uuid}"
 
-sr_name=$(${XE} sr-param-get uuid=${sr_uuid} param-name=name-label)
+sr_name=$(${XE} sr-param-get uuid="${sr_uuid}" param-name=name-label)
 # see if a backup VDI already exists on the selected SR
 vdi_uuid=$(${XE} vdi-list other-config:ctxs-pool-backup=true sr-uuid=${sr_uuid} params=uuid --minimal)
 
@@ -134,11 +157,24 @@ function cleanup {
    fi
 }
 
-echo Using SR: ${sr_name}
+# if we can't validate the UUID of the VDI, prompt the user
+if [ -n "${vdi_uuid}" ]; then
+    if ! validate_vdi_uuid "${sr_uuid}" "${vdi_uuid}"; then
+        echo "Backup VDI $vdi_uuid was most likley create by an earlier"
+        echo "version of this code. Make sure this is a VDI that you"
+        echo "created as we can't validate it without mounting it."
+        read -p "Continue? [Y/N]" -n 1 -r; echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then exit 1; fi
+    fi
+fi
+
+echo "Using SR: ${sr_name}"
 if [ -z "${vdi_uuid}" ]; then
   if [ "${create_vdi}" -gt 0 ]; then
     echo -n "Creating new backup VDI: "
-    vdi_uuid=$(${XE} vdi-create virtual-size=500MiB sr-uuid=${sr_uuid} type=user name-label="Pool Metadata Backup")
+    label="Pool Metadata Backup"
+    # the label must match what xapi_vdi.ml is using for backup VDIs
+    vdi_uuid=$(${XE} vdi-create virtual-size=500MiB sr-uuid="${sr_uuid}" type=user name-label="${label}")
     init_fs=1
     if [ $? -ne 0 ]; then
        echo failed
@@ -225,7 +261,7 @@ if [ ${leave_mounted} -eq 0 ]; then
   usage=`cd ${mnt} && df . | sed -n "2p" | awk '{ print $5 }' | tr -d '%'`
   echo "Checking backup VDI space usage: $usage%"
   if [ $usage -gt $usage_alert ] && [ ${force_backup} -eq 0 ]; then
-    echo "Running out of space, you can use "-d" option to attach VDI and free more space, exit now."
+    echo "Running out of space, you can use '-d' option to attach VDI and free more space, exit now."
     cleanup
     exit 1
   fi
