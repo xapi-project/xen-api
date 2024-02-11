@@ -280,6 +280,25 @@ namespace XenAPI
         public ICredentials Credentials => JsonRpcClient?.WebProxy?.Credentials;
 
         /// <summary>
+        /// Optional headers in name-value pairs to be passed in the HttpWebRequests. The
+        /// default value is null. This property can be set by the implementing code before
+        /// each request. It is automatically reset to null once the request has been sent.
+        /// </summary>
+        public Dictionary<string, string> RequestHeaders
+        {
+            set => JsonRpcClient.RequestHeaders = value;
+            get => JsonRpcClient.RequestHeaders;
+        }
+
+        /// <summary>
+        /// Exposes the headers returned in the HttpWebResponses in name-value pairs.
+        /// This property is set once a response is received. The values are comma
+        /// separated strings of header values stored in a header.
+        /// It returns an empty dictionary if no headers are found.
+        /// </summary>
+        public Dictionary<string, string> ResponseHeaders => JsonRpcClient.ResponseHeaders;
+
+        /// <summary>
         /// Always true before API version 1.6.
         /// Filled in after successful session_login_with_password for 1.6 or newer connections
         /// </summary>
