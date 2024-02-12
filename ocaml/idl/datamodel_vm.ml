@@ -1687,8 +1687,9 @@ let set_NVRAM_EFI_variables =
     ~hide_from_docs:true ~allowed_roles:_R_LOCAL_ROOT_ONLY ()
 
 let restart_device_models =
-  call ~flags:[`Session] ~name:"restart_device_models" ~lifecycle:[]
+  call ~name:"restart_device_models" ~lifecycle:[]
     ~params:[(Ref _vm, "self", "The VM")]
+    ~doc:"Restart device models of the VM"
     ~errs:
       [
         Api_errors.vm_bad_power_state
