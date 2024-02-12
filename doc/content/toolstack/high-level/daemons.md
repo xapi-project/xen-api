@@ -34,6 +34,9 @@ xapi-storage-script
 message-switch
 : exchanges messages between the daemons on a host
 
+xapi-guard
+: forwards uefi and vtpm persistence calls from domains to xapi
+
 v6d
 : controls which features are enabled.
 
