@@ -13,7 +13,7 @@
  *)
 open Idl
 
-module D = Debug.Make (struct let name = "varstored-guard rpc" end)
+module D = Debug.Make (struct let name = "xapi-guard rpc" end)
 
 let wrap_rpc error f =
   let on_error e =

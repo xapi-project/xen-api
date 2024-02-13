@@ -143,10 +143,10 @@ let fork_script ?on_error ?log script args =
   check_n_run ?on_error ?log fork_script_internal script args
 
 module Sysfs = struct
-  let list_drivers () =
+  let list_pci_drivers () =
     try Array.to_list (Sys.readdir "/sys/bus/pci/drivers")
     with _ ->
-      warn "Failed to obtain list of drivers from sysfs" ;
+      warn "Failed to obtain list of PCI drivers from sysfs" ;
       []
 
   let getpath dev attr = Printf.sprintf "/sys/class/net/%s/%s" dev attr
@@ -1278,25 +1278,29 @@ module Ovs = struct
 
     let get_bond_link_status name =
       try
+        (* Note: bond links are called "members" by the OVS. In old OVS
+           versions, the term "slaves" was used, which is also used by the
+           Linux kernel and in xapi. The terms bond link/slave/member are
+           used interchangably. *)
         let raw = appctl ~log:false ["bond/show"; name] in
         let lines = Astring.String.cuts ~empty:false ~sep:"\n" raw in
         List.fold_left
-          (fun (slaves, active_slave) line ->
-            let slaves =
+          (fun (members, active_member) line ->
+            let members =
               try
-                Scanf.sscanf line "slave %s@: %s" (fun slave state ->
-                    (slave, state = "enabled") :: slaves
+                Scanf.sscanf line "member %s@: %s" (fun member state ->
+                    (member, state = "enabled") :: members
                 )
-              with _ -> slaves
+              with _ -> members
             in
-            let active_slave =
+            let active_member =
               try
-                Scanf.sscanf line "active slave %s@(%s@)" (fun _ slave ->
-                    Some slave
+                Scanf.sscanf line "active member %s@(%s@)" (fun _ member ->
+                    Some member
                 )
-              with _ -> active_slave
+              with _ -> active_member
             in
-            (slaves, active_slave)
+            (members, active_member)
           )
           ([], None) lines
       with _ -> ([], None)

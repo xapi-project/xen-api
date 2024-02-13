@@ -16,6 +16,7 @@
 
 module String_plain = String (* For when we don't want the Xstringext version *)
 open Xapi_stdext_std.Xstringext
+module StringSet = Set.Make (String)
 
 module D = Debug.Make (struct let name = "xapi_globs" end)
 
@@ -1017,6 +1018,11 @@ let observer_endpoint_http_enabled = ref false
 
 let observer_endpoint_https_enabled = ref false
 
+let python3_path = ref "/usr/bin/python3"
+
+let observer_experimental_components =
+  ref (StringSet.singleton Constants.observer_component_smapi)
+
 let xapi_globs_spec =
   [
     ( "master_connection_reset_timeout"
@@ -1512,6 +1518,29 @@ let other_options =
     , Arg.Set observer_endpoint_https_enabled
     , (fun () -> string_of_bool !observer_endpoint_https_enabled)
     , "Enable https endpoints to be used by observers"
+    )
+  ; ( "observer-experimental-components"
+    , Arg.String
+        (fun s ->
+          observer_experimental_components :=
+            match s with
+            | "" ->
+                StringSet.empty
+            | s ->
+                let input_set =
+                  s |> String.split_on_char ',' |> StringSet.of_list
+                in
+                let valid_set =
+                  Constants.observer_components_all |> StringSet.of_list
+                in
+                StringSet.inter input_set valid_set
+        )
+    , (fun () ->
+        !observer_experimental_components
+        |> StringSet.elements
+        |> String.concat ","
+      )
+    , "Comma-separated list of experimental observer components"
     )
   ]
 

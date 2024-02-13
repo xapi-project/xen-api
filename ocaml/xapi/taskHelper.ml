@@ -244,7 +244,7 @@ let cancel ~__context =
 
 let failed ~__context exn =
   let backtrace = Printexc.get_backtrace () in
-  Context.complete_tracing_with_exn __context (exn, backtrace) ;
+  Context.complete_tracing __context ~error:(exn, backtrace) ;
   let code, params = ExnHelper.error_of_exn exn in
   operate_on_db_task ~__context (fun self ->
       let status = Db_actions.DB_Action.Task.get_status ~__context ~self in
