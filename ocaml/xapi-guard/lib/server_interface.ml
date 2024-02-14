@@ -15,7 +15,7 @@
 open Rpc
 open Lwt.Syntax
 
-module D = Debug.Make (struct let name = "varstored_interface" end)
+module D = Debug.Make (struct let name = __MODULE__ end)
 
 open D
 
@@ -25,7 +25,7 @@ let err = Xenops_interface.err
 
 type nvram = (string * string) list [@@deriving rpcty]
 
-let originator = "varstored-guard"
+let originator = "xapi-guard"
 
 type session = [`session] Ref.t
 
@@ -152,7 +152,26 @@ let update_key key state t =
 
 let empty = ""
 
-let serve_forever_lwt_callback_vtpm ~cache mutex vtpm _path _ req body =
+let serve_forever_lwt_callback_vtpm ~cache mutex vm_uuid _ req body =
+  let get_vtpm_ref () =
+    let* vm =
+      with_xapi ~cache @@ Xen_api_lwt_unix.VM.get_by_uuid ~uuid:vm_uuid
+    in
+    let* vTPMs = with_xapi ~cache @@ Xen_api_lwt_unix.VM.get_VTPMs ~self:vm in
+    match vTPMs with
+    | [] ->
+        D.warn
+          "%s: received a request from a VM that has no VTPM associated, \
+           ignoring request"
+          __FUNCTION__ ;
+        let msg =
+          Printf.sprintf "No VTPM associated with VM %s, nothing to do" vm_uuid
+        in
+        raise (Failure msg)
+    | self :: _ ->
+        let* uuid = with_xapi ~cache @@ Xen_api_lwt_unix.VTPM.get_uuid ~self in
+        with_xapi ~cache @@ VTPM.get_by_uuid ~uuid
+  in
   let uri = Cohttp.Request.uri req in
   (* in case the connection is interrupted/etc. we may still have pending operations,
      so use a per vTPM mutex to ensure we really only have 1 pending operation at a time for a vTPM
@@ -161,7 +180,8 @@ let serve_forever_lwt_callback_vtpm ~cache mutex vtpm _path _ req body =
   (* TODO: some logging *)
   match (Cohttp.Request.meth req, Uri.path uri) with
   | `GET, key when key <> "/" ->
-      let* contents = with_xapi ~cache @@ VTPM.get_contents ~self:vtpm in
+      let* self = get_vtpm_ref () in
+      let* contents = with_xapi ~cache @@ VTPM.get_contents ~self in
       let body = contents |> deserialize |> lookup_key key in
       let headers =
         Cohttp.Header.of_list [("Content-Type", "application/octet-stream")]
@@ -169,19 +189,21 @@ let serve_forever_lwt_callback_vtpm ~cache mutex vtpm _path _ req body =
       Cohttp_lwt_unix.Server.respond_string ~headers ~status:`OK ~body ()
   | `PUT, key when key <> "/" ->
       let* body = Cohttp_lwt.Body.to_string body in
-      let* contents = with_xapi ~cache @@ VTPM.get_contents ~self:vtpm in
+      let* self = get_vtpm_ref () in
+      let* contents = with_xapi ~cache @@ VTPM.get_contents ~self in
       let contents =
         contents |> deserialize |> update_key key body |> serialize
       in
-      let* () = with_xapi ~cache @@ VTPM.set_contents ~self:vtpm ~contents in
+      let* () = with_xapi ~cache @@ VTPM.set_contents ~self ~contents in
       Cohttp_lwt_unix.Server.respond ~status:`No_content
         ~body:Cohttp_lwt.Body.empty ()
   | `DELETE, key when key <> "/" ->
-      let* contents = with_xapi ~cache @@ VTPM.get_contents ~self:vtpm in
+      let* self = get_vtpm_ref () in
+      let* contents = with_xapi ~cache @@ VTPM.get_contents ~self in
       let contents =
         contents |> deserialize |> update_key key empty |> serialize
       in
-      let* () = with_xapi ~cache @@ VTPM.set_contents ~self:vtpm ~contents in
+      let* () = with_xapi ~cache @@ VTPM.set_contents ~self ~contents in
       Cohttp_lwt_unix.Server.respond ~status:`No_content
         ~body:Cohttp_lwt.Body.empty ()
   | _, _ ->
@@ -192,14 +214,22 @@ let serve_forever_lwt_callback_vtpm ~cache mutex vtpm _path _ req body =
 let make_server_varstored ~cache path vm_uuid =
   let module Server =
     Xapi_idl_guard_varstored.Interface.RPC_API (Rpc_lwt.GenServer ()) in
-  let* vm = with_xapi ~cache @@ VM.get_by_uuid ~uuid:vm_uuid in
+  let get_vm_ref () = with_xapi ~cache @@ VM.get_by_uuid ~uuid:vm_uuid in
   let ret v =
     (* TODO: maybe map XAPI exceptions *)
     Lwt.bind v Lwt.return_ok |> Rpc_lwt.T.put
   in
-  let get_nvram _ _ = ret @@ with_xapi ~cache @@ VM.get_NVRAM ~self:vm in
+  let get_nvram _ _ =
+    (let* self = get_vm_ref () in
+     with_xapi ~cache @@ VM.get_NVRAM ~self
+    )
+    |> ret
+  in
   let set_nvram _ _ nvram =
-    ret @@ with_xapi ~cache @@ VM.set_NVRAM_EFI_variables ~self:vm ~value:nvram
+    (let* self = get_vm_ref () in
+     with_xapi ~cache @@ VM.set_NVRAM_EFI_variables ~self ~value:nvram
+    )
+    |> ret
   in
   let message_create _ _name priority _cls _uuid body =
     ret
@@ -224,20 +254,6 @@ let make_server_varstored ~cache path vm_uuid =
   |> serve_forever_lwt path
 
 let make_server_vtpm_rest ~cache path vm_uuid =
-  let vtpm_server uuid =
-    let* vtpm = with_xapi ~cache @@ VTPM.get_by_uuid ~uuid in
-    let mutex = Lwt_mutex.create () in
-    serve_forever_lwt_callback_vtpm ~cache mutex vtpm path
-    |> serve_forever_lwt path
-  in
-  let* vm = with_xapi ~cache @@ Xen_api_lwt_unix.VM.get_by_uuid ~uuid:vm_uuid in
-  let* vTPMs = with_xapi ~cache @@ Xen_api_lwt_unix.VM.get_VTPMs ~self:vm in
-  match vTPMs with
-  | [] ->
-      D.warn
-        "%s: asked to start swtpm server in socket, but no vtpms associated!"
-        __FUNCTION__ ;
-      Lwt.return Lwt.return
-  | self :: _ ->
-      let* uuid = with_xapi ~cache @@ Xen_api_lwt_unix.VTPM.get_uuid ~self in
-      vtpm_server uuid
+  let mutex = Lwt_mutex.create () in
+  let callback = serve_forever_lwt_callback_vtpm ~cache mutex vm_uuid in
+  serve_forever_lwt path callback

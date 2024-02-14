@@ -143,10 +143,10 @@ let fork_script ?on_error ?log script args =
   check_n_run ?on_error ?log fork_script_internal script args
 
 module Sysfs = struct
-  let list_drivers () =
+  let list_pci_drivers () =
     try Array.to_list (Sys.readdir "/sys/bus/pci/drivers")
     with _ ->
-      warn "Failed to obtain list of drivers from sysfs" ;
+      warn "Failed to obtain list of PCI drivers from sysfs" ;
       []
 
   let getpath dev attr = Printf.sprintf "/sys/class/net/%s/%s" dev attr

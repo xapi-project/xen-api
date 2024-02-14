@@ -20,7 +20,7 @@
 )
 (library
  (name xapi_guard)
- (modules dorpc)
+ (modules dorpc types)
  (libraries
   rpclib.core
   lwt
