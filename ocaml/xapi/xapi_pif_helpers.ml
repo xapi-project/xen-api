@@ -260,5 +260,12 @@ let get_primary_address ~__context ~pif =
   | `IPv4 -> (
     match Db.PIF.get_IP ~__context ~self:pif with "" -> None | ip -> Some ip
   )
-  | `IPv6 ->
-      List.nth_opt (Db.PIF.get_IPv6 ~__context ~self:pif) 0
+  | `IPv6 -> (
+    match Db.PIF.get_IPv6 ~__context ~self:pif with
+    | [] | [""] ->
+        None
+    | ipv6 :: _ -> (
+      (* The CIDR is also stored in the IPv6 field of a PIF. *)
+      match String.split_on_char '/' ipv6 with hd :: _ -> Some hd | _ -> None
+    )
+  )
