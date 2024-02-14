@@ -36,13 +36,16 @@ jobs:
           name: SDK_Source_PowerShell
           path: _build/install/default/xapi/sdk/powershell/*
 
+      - name: Cleanup XenAPI environment
+        uses: ./.github/workflows/cleanup-xapi-environment
+
   build-csharp-sdk:
     name: Build C# SDK
     runs-on: windows-2022
     needs: generate-sdk-sources
-    steps:      
+    steps:
       - name: Strip 'v' prefix from xapi version
-        shell : pwsh
+        shell: pwsh
         run: echo "XAPI_VERSION_NUMBER=$("${{ inputs.xapi_version }}".TrimStart('v'))" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Retrieve C# SDK source
@@ -74,7 +77,7 @@ jobs:
     runs-on: windows-2019
     steps:
       - name: Strip 'v' prefix from xapi version
-        shell : pwsh
+        shell: pwsh
         run: echo "XAPI_VERSION_NUMBER=$("${{ inputs.xapi_version }}".TrimStart('v'))" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Retrieve PowerShell SDK source
@@ -148,7 +151,7 @@ jobs:
 
     steps:
       - name: Strip 'v' prefix from xapi version
-        shell : pwsh
+        shell: pwsh
         run: echo "XAPI_VERSION_NUMBER=$("${{ inputs.xapi_version }}".TrimStart('v'))" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Retrieve PowerShell SDK source
