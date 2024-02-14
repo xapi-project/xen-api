@@ -12,8 +12,8 @@
  * GNU Lesser General Public License for more details.
  *)
 
-(** Xapi_observer_components module contains generic operations on components 
-  * instrumented with tracing. These operations act on components independently 
+(** Xapi_observer_components module contains generic operations on components
+  * instrumented with tracing. These operations act on components independently
   * of observers.
   *)
 
@@ -39,13 +39,13 @@ val startup_components : unit -> t list
   *)
 
 val assert_valid_components : string list -> unit
-(** Checks if a given list is made of only string equivalents of supported 
+(** Checks if a given list is made of only string equivalents of supported
   * components.
   * Raises Server_error if at least one of the elements is invalid.
   *)
 
 val observed_components_of : t list -> t list
-(** Transforms a list of components to a list of components that are expected 
+(** Transforms a list of components to a list of components that are expected
   * to be observed. If the list is empty we expect all startup components.
   *)
 
@@ -58,12 +58,16 @@ val is_smapi_enabled : unit -> bool
   *)
 
 val dir_name_of_component : t -> string
-(** Returns the directory path that python scripts check to see if a component 
+(** Returns the directory path that python scripts check to see if a component
   * is enabled.
   *)
 
-val env_vars_of_component :
-  component:t -> traceparent:string option -> string array
-(** Returns an array of environment viariables used by python scripts to 
-  *  configure the python observers.  
+val env_exe_args_of :
+     component:t
+  -> traceparent:string option
+  -> exe:string
+  -> args:string list
+  -> string array option * string * string list
+(** Returns an array option of environment variables and the modified exe and
+  *  args used by python scripts to configure the python observers.
   *)

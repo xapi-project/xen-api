@@ -103,7 +103,7 @@ let set_dns_interface _dbg name =
  * constitutes adding a VLAN0 Linux device to strip those headers again.
  *)
 let need_enic_workaround () =
-  !backend_kind = Bridge && List.mem "enic" (Sysfs.list_drivers ())
+  !backend_kind = Bridge && List.mem "enic" (Sysfs.list_pci_drivers ())
 
 module Sriov = struct
   open S.Sriov

@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 """GitHub action workflow Runner for pytype which works also locally without GitHub"""
+import json
 import re
 import selectors
 import shlex
@@ -9,6 +10,7 @@ from os.path import basename
 from subprocess import check_output, PIPE, Popen  # nosec:B404
 from sys import argv, exit as sys_exit, stderr, stdout
 from typing import Dict, List, TextIO, Tuple, TYPE_CHECKING
+from urllib import request
 from warnings import catch_warnings, simplefilter
 
 import toml
@@ -200,7 +202,9 @@ def report_on(config: Config, log: TextIO, command: List[str], results: Info) ->
         command, stdout=PIPE, stderr=PIPE, universal_newlines=True
     ) as popen:
         assert popen.stdout and popen.stderr  # nosec:B101
-        return (popen.returncode or 0), parse_annotations(config, popen, log, results)
+        output = parse_annotations(config, popen, log, results)
+        print("Ran: " + " ".join(shlex.quote(arg) for arg in command), file=log)
+        return (popen.returncode or 0), output
 
 
 def readline(fileobj):
@@ -369,6 +373,11 @@ The string "expected_to_fail" in {config["section"]}"""
         print("::endgroup::")
     # When the the regular non-xfail run does not pass without errors bail with them:
     if err or len(results):
+        print("::warning::pytype exited with errors on regular run that should pass")
+        print(
+            "::error::"
+            "Add the file that caused the error to expected_to_fail in pyproject.toml"
+        )
         return (err, results) if err > 0 else (len(results), results)
     # Else continue with running pytype for the files marked xfail, record its results:
     for xfail in xfail_files:
@@ -419,6 +428,7 @@ def generate_markdown(config: Config, out: TextIO, returncode: int, results: Inf
     else:
         summary = f"#### {runner_link} reports no errors from {pytype_link} output."
         out.write(summary + "\n")
+    summary += "\n\n" + config.get("msg", "")
     if "PR_NUMBER" in env:
         write_summary_file(summary, anchor_text)
 
@@ -494,28 +504,84 @@ def load_config(config_file: str, script_basename: str) -> Config:
         repository_url = f"{github_server_url}/{github_repository}"
         branch = env.get("GITHUB_HEAD_REF") or env.get("GITHUB_REF_NAME")
 
+    config["repo_url"] = repository_url
     config["tree_url"] = f"{repository_url}/blob/{branch}"
     config["section"] = f"{config_file}[tool.{script_name}]"
     return config
 
 
-def get_changed_xfail_files(config: Config) -> list[str]:
-    """Get the list of changed files compared to the default branch.
-
-    :param config: The configuration dictionary.
-    :return: The list of changed files.
-    """
+def git_diff(*args) -> str:
+    """Run git diff with the given arguments and return the output as a string."""
     return check_output(  # nosec:B603
         args=[
             "git",
             "diff",
             "--ignore-space-change",
-            "--name-only",
-            "origin/" + config["default_branch"],
-            *config["expected_to_fail"],
+            *args,
         ],
         universal_newlines=True,
-    ).splitlines()
+    )
+
+
+def find_branch_point(config):
+    """Get the commit hash of the default where the current branch was created from"""
+    cmd = ["git", "merge-base", "origin/" + config["default_branch"], "HEAD"]
+    return check_output(cmd, universal_newlines=True).strip()  # nosec:B603
+
+
+def github_get_pr_commit_messages(repo, pr_number):
+    """Get the commit messages of the PR from the GitHub API"""
+    empty = []
+    github_token = env.get("GITHUB_TOKEN")
+    debug("PR_NUMBER: %s", pr_number)
+    if not github_token or not pr_number:
+        return empty
+
+    headers = {
+        "Authorization": f"Bearer {github_token}",
+        "Accept": "application/vnd.github.v3+json",
+    }
+    url = env.get("GITHUB_API_URL") + f"/repos/{repo}/pulls/{pr_number}/commits"
+    debug(url)
+    req = request.Request(url, headers=headers)
+
+    with request.urlopen(req) as response:
+        if response.getcode() == 200:
+            commits = json.loads(response.read())
+            return [commit['commit']['message'].split("\n")[0] for commit in commits]
+        print(f"Failed to fetch PR commits. Status code: {response.getcode()}")
+        print(response.read())
+    return empty
+
+
+def check_only_reverts_from_branch_point(config: Config, changed_files: List[str]):
+    """Check if the branch only contains revert commits since the branch point."""
+
+    repo = env.get("GITHUB_REPOSITORY", "")
+    pr_number = env.get("PR_NUMBER", "")
+    msgs = github_get_pr_commit_messages(repo, pr_number)
+    if not msgs:
+        old_cmd = ["git", "log", "--pretty=%s", find_branch_point(config) + "..HEAD"]
+        msgs = check_output(old_cmd, universal_newlines=True).split("\n")  # nosec:B607 B603
+
+    for commit_message in msgs:  # Check if each commit is a revert
+        print("#> " + commit_message)
+        if commit_message and "Revert" not in commit_message:
+            return False
+
+    # diff the xfail files in the PR with their state 4 weeks ago and show the check
+    # on stdout and the GitHub PR comment added by saving a file in this script:
+    pr_url = f"{config['repo_url']}/pull/{pr_number or '<PR-number>'}"
+    old_cmd = ["git", "rev-list", "-n1", "--before=4 weeks ago", "HEAD" ]
+    old_ref = check_output(old_cmd, universal_newlines=True).strip()
+    config["msg"] = f'\n## {config["script_name"]}: Only "Revert" commits on this PR.\n'
+    config["msg"] += "Checking the revert diff:\n```sh\ngh pr checkout " + pr_url + "\n"
+    config["msg"] += "REF=$(git rev-list -n 1 --before='4 weeks ago' HEAD)\n"
+    config["msg"] += "git diff $REF " + " ".join(changed_files) + "\n```\ndiff:\n"
+    config["msg"] += "```py\n" + git_diff(old_ref, *changed_files) + "```\n"
+    config["msg"] += "An empty `git diff` means the changes in these files are reverted"
+    print(config["msg"])
+    return True
 
 
 def main():
@@ -534,7 +600,16 @@ def main():
     config = load_config(config_file, basename(__file__))
     config.setdefault("expected_to_fail", [])
     debug("Expected to fail: %s", ", ".join(config["expected_to_fail"]))
-    changed_but_in_expected_to_fail = get_changed_xfail_files(config)
+
+    changed_but_in_expected_to_fail = git_diff(
+        "--name-only",
+        find_branch_point(config),
+        *config["expected_to_fail"],
+    ).splitlines()
+
+    if check_only_reverts_from_branch_point(config, changed_but_in_expected_to_fail):
+        return run_pytype_and_generate_summary(config)
+
     for changed_xfail in changed_but_in_expected_to_fail:
         annotate(
             kind="error",

@@ -50,17 +50,8 @@ type t = {
   ; mutable test_clusterd_rpc: (Rpc.call -> Rpc.response) option
 }
 
-let complete_tracing __context =
-  ( match Tracing.Tracer.finish __context.tracing with
-  | Ok _ ->
-      ()
-  | Error e ->
-      R.warn "Failed to complete tracing: %s" (Printexc.to_string e)
-  ) ;
-  __context.tracing <- None
-
-let complete_tracing_with_exn __context error =
-  ( match Tracing.Tracer.finish ~error __context.tracing with
+let complete_tracing ?error __context =
+  ( match Tracing.Tracer.finish ?error __context.tracing with
   | Ok _ ->
       ()
   | Error e ->
@@ -187,6 +178,9 @@ let destroy __context =
   if not __context.forwarded_task then
     !__destroy_task ~__context __context.task_id
 
+let hash_of_session_id session_id =
+  session_id |> Ref.string_of |> Digest.string |> Digest.to_hex
+
 (* CP-982: create tracking id in log files to link username to actions *)
 let trackid_of_session ?(with_brackets = false) ?(prefix = "") session_id =
   match session_id with
@@ -195,8 +189,7 @@ let trackid_of_session ?(with_brackets = false) ?(prefix = "") session_id =
   | Some session_id ->
       (* a hash is used instead of printing the sensitive session_id value *)
       let trackid =
-        Printf.sprintf "trackid=%s"
-          (Digest.to_hex (Digest.string (Ref.string_of session_id)))
+        Printf.sprintf "trackid=%s" (hash_of_session_id session_id)
       in
       if with_brackets then Printf.sprintf "%s(%s)" prefix trackid else trackid
 
@@ -234,7 +227,36 @@ let parent_of_origin (origin : origin) span_name =
   | _ ->
       None
 
-let start_tracing_helper parent_fn task_name =
+let make_attributes ?task_name ?task_id ?task_uuid ?session_id ?origin () =
+  let attribute_helper_fn f v = Option.fold ~none:[] ~some:f v in
+  [
+    attribute_helper_fn
+      (fun task_name -> [("xs.xapi.task.name", task_name)])
+      task_name
+  ; attribute_helper_fn
+      (fun task_id -> [("xs.xapi.task.id", Ref.really_pretty_and_small task_id)])
+      task_id
+  ; attribute_helper_fn
+      (fun task_uuid -> [("xs.xapi.task.uuid", Uuidx.to_string task_uuid)])
+      task_uuid
+  ; attribute_helper_fn
+      (fun session_id ->
+        [("xs.xapi.session.track.id", hash_of_session_id session_id)]
+      )
+      session_id
+  ; attribute_helper_fn
+      (fun origin ->
+        match origin with
+        | Internal ->
+            [("xs.xapi.task.origin", "internal")]
+        | Http _ ->
+            [("xs.xapi.task.origin", "http")]
+      )
+      origin
+  ]
+  |> List.concat
+
+let start_tracing_helper ?(span_attributes = []) parent_fn task_name =
   let open Tracing in
   let span_details_from_task_name task_name =
     let uuid_length = 36 in
@@ -242,9 +264,11 @@ let start_tracing_helper parent_fn task_name =
     let open String in
     if starts_with ~prefix:dispatch_system_is_alive task_name then
       let uuid = sub task_name (length dispatch_system_is_alive) uuid_length in
-      ("dispatch:system.isAlive", [("xs.span.arg.vm.uuid", uuid)])
+      ( "dispatch:system.isAlive"
+      , ("xs.span.arg.vm.uuid", uuid) :: span_attributes
+      )
     else
-      (task_name, [])
+      (task_name, span_attributes)
   in
   let span_name, span_attributes = span_details_from_task_name task_name in
   let parent = parent_fn span_name in
@@ -276,7 +300,12 @@ let from_forwarded_task ?(http_other_config = []) ?session_id
   let dbg = make_dbg http_other_config task_name task_id in
   info "task %s forwarded%s" dbg
     (trackid_of_session ~with_brackets:true ~prefix:" " session_id) ;
-  let tracing = start_tracing_helper (parent_of_origin origin) task_name in
+  let span_attributes =
+    make_attributes ~task_id ~task_name ?session_id ~origin ()
+  in
+  let tracing =
+    start_tracing_helper ~span_attributes (parent_of_origin origin) task_name
+  in
   {
     session_id
   ; task_id
@@ -323,7 +352,12 @@ let make ?(http_other_config = []) ?(quiet = false) ?subtask_of ?session_id
             " by task " ^ make_dbg [] "" subtask_of
         )
   ) ;
-  let tracing = start_tracing_helper (parent_of_origin origin) task_name in
+  let span_attributes =
+    make_attributes ~task_id ~task_name ~origin ?session_id ~task_uuid ()
+  in
+  let tracing =
+    start_tracing_helper ~span_attributes (parent_of_origin origin) task_name
+  in
   {
     session_id
   ; database
@@ -344,7 +378,8 @@ let make_subcontext ~__context ?task_in_database task_name =
   let tracing =
     Option.bind __context.tracing (fun parent ->
         let parent = Some parent in
-        start_tracing_helper (fun _ -> parent) task_name
+        let span_attributes = make_attributes ?session_id () in
+        start_tracing_helper ~span_attributes (fun _ -> parent) task_name
     )
   in
   {subcontext with client= __context.client; tracing}

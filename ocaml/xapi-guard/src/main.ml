@@ -13,18 +13,16 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Xapi_guard
 open Lwt.Syntax
 open Xapi_guard_server
+module Types = Xapi_guard.Types
 module SessionCache = Xen_api_lwt_unix.SessionCache
 
-module D = Debug.Make (struct let name = "varstored-guard" end)
+let daemon_name = "xapi-guard"
+
+module D = Debug.Make (struct let name = daemon_name end)
 
 let ret v = Lwt.bind v Lwt.return_ok |> Rpc_lwt.T.put
-
-type ty = Varstored | Swtpm [@@deriving rpcty]
-
-let ty_to_string = function Varstored -> "Varstored" | Swtpm -> "Swtpm"
 
 let log_fds () =
   let count stream = Lwt_stream.fold (fun _ n -> n + 1) stream 0 in
@@ -41,7 +39,7 @@ module Persistent = struct
       vm_uuid: Xapi_idl_guard_privileged.Interface.Uuidm.t
     ; path: string
     ; gid: int
-    ; typ: ty
+    ; typ: Types.Service.t
   }
   [@@deriving rpcty]
 
@@ -109,7 +107,8 @@ let listen_for_vm {Persistent.vm_uuid; path; gid; typ} =
   in
   let vm_uuid_str = Uuidm.to_string vm_uuid in
   D.debug "%s: listening for %s on socket %s for VM %s" __FUNCTION__
-    (ty_to_string typ) path vm_uuid_str ;
+    (Types.Service.to_string typ)
+    path vm_uuid_str ;
   let* () = safe_unlink path in
   let* stop_server = make_server ~cache path vm_uuid_str in
   let* () = log_fds () in
@@ -230,7 +229,8 @@ let rpc_fn =
 
 let process body =
   let+ response =
-    Dorpc.wrap_rpc Xapi_idl_guard_privileged.Interface.E.error (fun () ->
+    Xapi_guard.Dorpc.wrap_rpc Xapi_idl_guard_privileged.Interface.E.error
+      (fun () ->
         let call = Jsonrpc.call_of_string body in
         D.debug "Received request from message-switch, method %s" call.Rpc.name ;
         rpc_fn call
@@ -278,12 +278,12 @@ let main log_level =
        old_hook exn
   ) ;
   let () = Lwt_main.run @@ make_message_switch_server () in
-  D.debug "Exiting varstored-guard"
+  D.debug "Exiting %s" daemon_name
 
 open! Cmdliner
 
 let cmd =
-  let info = Cmd.info "varstored-guard" in
+  let info = Cmd.info daemon_name in
   let log_level =
     let doc = "Syslog level. E.g. debug, info etc." in
     let level_conv =

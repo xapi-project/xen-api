@@ -142,9 +142,7 @@ val get_client_ip : t -> string option
 
 val get_user_agent : t -> string option
 
-val complete_tracing : t -> unit
-
-val complete_tracing_with_exn : t -> exn * string -> unit
+val complete_tracing : ?error:exn * string -> t -> unit
 
 val tracing_of : t -> Tracing.Span.t option
 

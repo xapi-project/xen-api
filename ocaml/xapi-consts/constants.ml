@@ -398,3 +398,19 @@ let good_ciphersuites =
     ["ECDHE-RSA-AES256-GCM-SHA384"; "ECDHE-RSA-AES128-GCM-SHA256"]
 
 let verify_certificates_path = "/var/xapi/verify-certificates"
+
+let observer_component_xapi = "xapi"
+
+let observer_component_xenopsd = "xenopsd"
+
+let observer_component_xapi_clusterd = "xapi-clusterd"
+
+let observer_component_smapi = "smapi"
+
+let observer_components_all =
+  [
+    observer_component_xapi
+  ; observer_component_xenopsd
+  ; observer_component_xapi_clusterd
+  ; observer_component_smapi
+  ]

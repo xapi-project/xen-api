@@ -41,6 +41,7 @@ repos:
     -   id: pytype
         name: pytype
         entry: python3 pytype_reporter.py
+        pass_filenames: false
         types: [python]
         stages: [push]
         verbose: true
